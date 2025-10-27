@@ -67,10 +67,9 @@ pub fn set_up_foreign_asset(
 	let penpal_sovereign_account = AssetHubWestend::sovereign_account_id_of(
 		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
 	);
+	let penpal_location = Location::new(1, [Junction::Parachain(PenpalA::para_id().into())]);
 	let foreign_asset_at_asset_hub =
-		Location::new(1, [Junction::Parachain(PenpalA::para_id().into())])
-			.appended_with(asset_location_on_penpal.clone())
-			.unwrap();
+		penpal_location.clone().appended_with(asset_location_on_penpal.clone()).unwrap();
 	// Do remote registration
 	penpal_register_foreign_asset_on_asset_hub(asset_location_on_penpal.clone());
 
@@ -83,6 +82,7 @@ pub fn set_up_foreign_asset(
 		penpal_sovereign_account.clone()
 	);
 
+	let mut reserve_locations = vec![penpal_location];
 	if teleportable {
 		// Configure Penpal to allow teleports of this asset to AH
 		PenpalA::execute_with(|| {
@@ -95,17 +95,13 @@ pub fn set_up_foreign_asset(
 			));
 		});
 		// mark the foreign asset as teleportable on Asset Hub
-		AssetHubWestend::execute_with(|| {
-			// Set `Here` (Asset Hub) as a reserve for the asset. When both source and destination
-			// chains are reserves, the asset can be teleported.
-			<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::set_reserves(
-				<AssetHubWestend as Chain>::RuntimeOrigin::signed(penpal_sovereign_account.clone()),
-				foreign_asset_at_asset_hub.clone(),
-				vec![Location::here()],
-			)
-			.unwrap();
-		});
+		reserve_locations.push(Location::here());
 	}
+	AssetHubWestend::set_foreign_asset_reserves(
+		foreign_asset_at_asset_hub.clone(),
+		penpal_sovereign_account.clone(),
+		reserve_locations,
+	);
 	(asset_location_on_penpal, foreign_asset_at_asset_hub)
 }
 

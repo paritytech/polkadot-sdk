@@ -21,14 +21,10 @@ use crate::{
 	},
 	tests::{
 		assert_bridge_hub_rococo_message_received, assert_bridge_hub_westend_message_accepted,
-		asset_hub_rococo_location, asset_hub_westend_global_location, bridged_wnd_at_ah_rococo,
-		create_foreign_on_ah_rococo,
+		asset_hub_rococo_location, asset_hub_westend_global_location, bridged_roc_at_ah_westend,
+		bridged_wnd_at_ah_rococo, create_foreign_on_ah_rococo, create_foreign_on_ah_westend,
 		penpal_emulated_chain::penpal_runtime,
-		snowbridge_common::{
-			bridge_hub, bridged_roc_at_ah_westend, ethereum, register_roc_on_bh,
-			snowbridge_sovereign,
-		},
-		snowbridge_v2_outbound_from_rococo::create_foreign_on_ah_westend,
+		snowbridge_common::{bridge_hub, ethereum, register_roc_on_bh, snowbridge_sovereign},
 	},
 };
 use asset_hub_westend_runtime::xcm_config::{
@@ -1145,8 +1141,8 @@ fn send_weth_from_ethereum_to_ahw_to_ahr_back_to_ahw_and_ethereum() {
 	]);
 
 	let bridged_wnd_at_asset_hub_rococo = bridged_wnd_at_ah_rococo();
-
-	create_foreign_on_ah_rococo(bridged_wnd_at_asset_hub_rococo.clone(), true);
+	let wnd_reserve = vec![asset_hub_westend_global_location()];
+	create_foreign_on_ah_rococo(bridged_wnd_at_asset_hub_rococo.clone(), true, wnd_reserve);
 	create_pool_with_native_on!(
 		AssetHubRococo,
 		bridged_wnd_at_asset_hub_rococo.clone(),
@@ -1439,10 +1435,16 @@ fn transfer_penpal_native_asset() {
 
 	AssetHubWestend::force_create_foreign_asset(
 		pal_at_asset_hub.clone(),
-		asset_owner.into(),
+		asset_owner.clone().into(),
 		true,
 		1,
 		vec![],
+	);
+	// Set "pal" as teleportable between Penpal and AH, using the asset owner account
+	AssetHubWestend::set_foreign_asset_reserves(
+		pal_at_asset_hub.clone(),
+		asset_owner.into(),
+		vec![pal_at_asset_hub.clone(), Location::here()],
 	);
 
 	let penpal_sovereign = AssetHubWestend::sovereign_account_id_of(
@@ -1450,14 +1452,6 @@ fn transfer_penpal_native_asset() {
 	);
 	AssetHubWestend::fund_accounts(vec![(penpal_sovereign.clone(), INITIAL_FUND)]);
 
-	// Set "pal" as teleportable between Penpal and AH, using the asset owner account
-	AssetHubWestend::execute_with(|| {
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::set_reserves(
-			<AssetHubWestend as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
-			pal_at_asset_hub.clone(),
-			vec![Location::here()],
-		));
-	});
 	// Register token
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;
@@ -1980,7 +1974,12 @@ fn transfer_roc_from_ah_with_legacy_api_will_fail() {
 
 	let bridged_roc_at_asset_hub_westend = bridged_roc_at_ah_westend();
 
-	create_foreign_on_ah_westend(bridged_roc_at_asset_hub_westend.clone(), true);
+	create_foreign_on_ah_westend(
+		bridged_roc_at_asset_hub_westend.clone(),
+		true,
+		vec![asset_hub_rococo_location()],
+		vec![],
+	);
 
 	let asset_id: Location = bridged_roc_at_asset_hub_westend.clone();
 
@@ -2045,7 +2044,12 @@ fn transfer_roc_from_ah_with_transfer_and_then() {
 
 	let bridged_roc_at_asset_hub_westend = bridged_roc_at_ah_westend();
 
-	create_foreign_on_ah_westend(bridged_roc_at_asset_hub_westend.clone(), true);
+	create_foreign_on_ah_westend(
+		bridged_roc_at_asset_hub_westend.clone(),
+		true,
+		vec![asset_hub_rococo_location()],
+		vec![],
+	);
 
 	let asset_id: Location = bridged_roc_at_asset_hub_westend.clone();
 

@@ -16,10 +16,9 @@ use crate::{
 	imports::*,
 	tests::{
 		assert_bridge_hub_rococo_message_received, assert_bridge_hub_westend_message_accepted,
-		asset_hub_rococo_location,
+		asset_hub_rococo_location, bridged_roc_at_ah_westend, create_foreign_on_ah_westend,
 		snowbridge_common::{
-			asset_hub_westend_global_location, bridged_roc_at_ah_westend,
-			create_foreign_on_ah_westend, erc20_token_location, eth_location,
+			asset_hub_westend_global_location, erc20_token_location, eth_location,
 			register_foreign_asset, register_roc_on_bh, set_up_eth_and_dot_pool,
 			set_up_eth_and_dot_pool_on_rococo, set_up_pool_with_wnd_on_ah_westend,
 			snowbridge_sovereign, TOKEN_AMOUNT,
@@ -413,7 +412,12 @@ fn send_roc_from_ethereum_to_rococo() {
 
 	let ethereum_sovereign: AccountId = snowbridge_sovereign();
 	let bridged_roc_at_asset_hub_westend = bridged_roc_at_ah_westend();
-	create_foreign_on_ah_westend(bridged_roc_at_asset_hub_westend.clone(), true);
+	create_foreign_on_ah_westend(
+		bridged_roc_at_asset_hub_westend.clone(),
+		true,
+		vec![asset_hub_rococo_location()],
+		vec![],
+	);
 	set_up_pool_with_wnd_on_ah_westend(
 		bridged_roc_at_asset_hub_westend.clone(),
 		true,

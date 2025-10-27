@@ -15,15 +15,17 @@
 use crate::{
 	imports::*,
 	tests::snowbridge_common::{
-		erc20_token_location, eth_location, fund_on_ah, fund_on_bh, register_assets_on_ah,
-		register_foreign_asset, set_up_eth_and_dot_pool, set_up_eth_and_dot_pool_on_penpal,
-		snowbridge_sovereign, weth_location,
+		erc20_token_location, eth_location, ethereum, fund_on_ah, fund_on_bh,
+		register_assets_on_ah, register_foreign_asset, set_up_eth_and_dot_pool,
+		set_up_eth_and_dot_pool_on_penpal, snowbridge_sovereign, weth_location,
 	},
 };
 use asset_hub_westend_runtime::ForeignAssets;
 use bridge_hub_westend_runtime::{
 	bridge_common_config::BridgeReward,
-	bridge_to_ethereum_config::{CreateAssetCallIndex, EthereumGatewayAddress},
+	bridge_to_ethereum_config::{
+		CreateAssetCallIndex, EthereumGatewayAddress, SetReservesCallIndex,
+	},
 	EthereumInboundQueueV2,
 };
 use codec::Encode;
@@ -427,6 +429,14 @@ fn register_and_send_multiple_tokens_v2() {
 					MultiAddress::<[u8; 32], ()>::Id(bridge_owner.clone().into()),
 					1u128,
 				)
+					.encode()
+					.into(),
+			},
+			// set Ethereum as the asset's reserve.
+			Transact {
+				origin_kind: OriginKind::Xcm,
+				fallback_max_weight: None,
+				call: (SetReservesCallIndex::get(), token_location.clone(), vec![ethereum()])
 					.encode()
 					.into(),
 			},
