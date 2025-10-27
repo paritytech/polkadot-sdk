@@ -19,22 +19,19 @@
 #![no_main]
 include!("../panic_handler.rs");
 
-use uapi::{input, HostFn, HostFnImpl as api};
+use uapi::{HostFn, HostFnImpl as api};
+
+const DJANGO_FALLBACK: [u8; 20] = [4u8; 20];
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
-pub extern "C" fn deploy() {}
-
-#[no_mangle]
-#[polkavm_derive::polkavm_export]
-pub extern "C" fn call() {
-	input!(beneficiary: &[u8; 20],);
+pub extern "C" fn deploy() {
 	// Build the calldata: selector + ABI-encoded address
 	let selector = uapi::solidity_selector("terminate(address)");
 	let mut calldata = [0u8; 4 + 32];
 	calldata[0..4].copy_from_slice(&selector);
 	// ABI encode address: right-align into 32 bytes (pad with 12 leading zeros)
-	calldata[4 + 12..4 + 32].copy_from_slice(beneficiary);
+	calldata[4 + 12..4 + 32].copy_from_slice(&DJANGO_FALLBACK);
 
 	let _ = api::call(
 		uapi::CallFlags::ALLOW_REENTRY,
@@ -47,3 +44,7 @@ pub extern "C" fn call() {
 		None,
 	).unwrap();
 }
+
+#[no_mangle]
+#[polkavm_derive::polkavm_export]
+pub extern "C" fn call() {}
