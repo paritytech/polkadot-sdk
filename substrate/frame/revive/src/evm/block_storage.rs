@@ -18,8 +18,9 @@ use crate::{
 	evm::block_hash::{AccumulateReceipt, EthereumBlockBuilder, LogsBloom},
 	limits,
 	sp_runtime::traits::One,
+	weights::WeightInfo,
 	BlockHash, Config, EthBlockBuilderIR, EthereumBlock, Event, Pallet, ReceiptInfoData,
-	UniqueSaturatedInto, H160, H256, LOG_TARGET,
+	UniqueSaturatedInto, H160, H256,
 };
 use frame_support::{
 	pallet_prelude::{DispatchError, DispatchResultWithPostInfo},
@@ -77,7 +78,7 @@ pub fn with_ethereum_context<T: Config>(
 ) -> DispatchResultWithPostInfo {
 	use frame_support::storage::with_transaction;
 	use sp_runtime::TransactionOutcome;
-	let (err, gas_consumed, post_info) = receipt::using(&mut AccumulateReceipt::new(), || {
+	let (err, gas_consumed, mut post_info) = receipt::using(&mut AccumulateReceipt::new(), || {
 		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 			let (gas_consumed, result) = call();
 			match result {
@@ -88,18 +89,26 @@ pub fn with_ethereum_context<T: Config>(
 		})
 	})?;
 
-	let success = if let Some(dispatch_error) = err {
-		log::debug!(
-			target: LOG_TARGET,
-			"Ethereum extrinsic reverted with error: {dispatch_error:?}",
-		);
-		Pallet::<T>::deposit_event(Event::<T>::EthExtrinsicRevert { dispatch_error });
-		false
+	if let Some(dispatch_error) = err {
+		deposit_eth_extrinsic_revert_event::<T>(dispatch_error);
+		crate::block_storage::process_transaction::<T>(transaction_encoded, false, gas_consumed);
+		Ok(post_info)
 	} else {
-		true
-	};
-	crate::block_storage::process_transaction::<T>(transaction_encoded, success, gas_consumed);
-	Ok(post_info)
+		// deposit a dummy event in benchmark mode
+		#[cfg(feature = "runtime-benchmarks")]
+		deposit_eth_extrinsic_revert_event::<T>(crate::Error::<T>::BenchmarkingError.into());
+
+		crate::block_storage::process_transaction::<T>(transaction_encoded, true, gas_consumed);
+		post_info
+			.actual_weight
+			.as_mut()
+			.map(|w| w.saturating_sub(T::WeightInfo::deposit_eth_extrinsic_revert_event()));
+		Ok(post_info)
+	}
+}
+
+fn deposit_eth_extrinsic_revert_event<T: Config>(dispatch_error: DispatchError) {
+	Pallet::<T>::deposit_event(Event::<T>::EthExtrinsicRevert { dispatch_error });
 }
 
 /// Clear the storage used to capture the block hash related data.

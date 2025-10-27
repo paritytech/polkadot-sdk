@@ -562,6 +562,10 @@ pub mod pallet {
 		///
 		/// This happens if the passed `gas` inside the ethereum transaction is too low.
 		TxFeeOverdraw = 0x35,
+
+		/// Benchmarking only error.
+		#[cfg(feature = "runtime-benchmarks")]
+		BenchmarkingError = 0xFF,
 	}
 
 	/// A reason for the pallet revive placing a hold on funds.
