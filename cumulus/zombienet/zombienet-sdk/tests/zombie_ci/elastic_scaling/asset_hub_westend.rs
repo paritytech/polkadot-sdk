@@ -93,12 +93,12 @@ async fn elastic_scaling_asset_hub_westend() -> Result<(), anyhow::Error> {
 
 	assign_cores(relay_node, PARA_ID, vec![2, 3, 4]).await?;
 
-	log::info!("Ensure elastic scaling works, 3 blocks should be produced in each 6s slot");
+	log::info!("Ensure elastic scaling works, 4 blocks should be produced in each 6s slot");
 
 	assert_para_throughput(
 		&relay_client,
 		20,
-		[(ParaId::from(PARA_ID), 50..61)].into_iter().collect(),
+		[(ParaId::from(PARA_ID), 60..81)].into_iter().collect(),
 	)
 	.await?;
 
