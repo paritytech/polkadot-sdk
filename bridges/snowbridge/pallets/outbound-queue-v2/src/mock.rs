@@ -9,18 +9,16 @@ use frame_support::{
 	BoundedVec,
 };
 
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use hex_literal::hex;
-use snowbridge_core::{
-	gwei, meth,
-	pricing::{PricingParameters, Rewards},
-	AgentId, AgentIdOf, ParaId,
-};
+use scale_info::TypeInfo;
+use snowbridge_core::{AgentId, AgentIdOf, ChannelId, ParaId};
 use snowbridge_outbound_queue_primitives::{v2::*, Log, Proof, VerificationError, Verifier};
 use snowbridge_test_utils::mock_rewards::{BridgeReward, MockRewardLedger};
 use sp_core::{ConstU32, H160, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup, Keccak256},
-	AccountId32, BuildStorage, FixedU128,
+	AccountId32, BuildStorage,
 };
 use sp_std::marker::PhantomData;
 use xcm::prelude::Here;
@@ -87,18 +85,33 @@ const WETH: [u8; 20] = hex!["C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"];
 
 parameter_types! {
 	pub const OwnParaId: ParaId = ParaId::new(1013);
-	pub Parameters: PricingParameters<u128> = PricingParameters {
-		exchange_rate: FixedU128::from_rational(1, 400),
-		fee_per_gas: gwei(20),
-		rewards: Rewards { local: DOT, remote: meth(1) },
-		multiplier: FixedU128::from_rational(4, 3),
-	};
 	pub const GatewayAddress: H160 = H160(GATEWAY_ADDRESS);
 	pub EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
 	pub DefaultMyRewardKind: BridgeReward = BridgeReward::Snowbridge;
 }
 
-pub const DOT: u128 = 10_000_000_000;
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Copy,
+	MaxEncodedLen,
+	Clone,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Debug,
+)]
+pub enum AggregateMessageOrigin {
+	Snowbridge(ChannelId),
+	SnowbridgeV2(H256),
+}
+
+impl From<H256> for AggregateMessageOrigin {
+	fn from(hash: H256) -> Self {
+		Self::SnowbridgeV2(hash)
+	}
+}
 
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -119,6 +132,7 @@ impl crate::Config for Test {
 	type OnNewCommitment = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
+	type AggregateMessageOrigin = AggregateMessageOrigin;
 }
 
 fn setup() {
