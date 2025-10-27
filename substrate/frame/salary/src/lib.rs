@@ -403,8 +403,8 @@ pub mod pallet {
 					(payout, Some(unpaid))
 				},
 				Nothing | Attempted { .. } | Registered(_)
-				if claimant.last_active < status.cycle_index =>
-			{
+					if claimant.last_active < status.cycle_index =>
+				{
 					// Not registered for this cycle (or stale registration from previous cycle).
 					// Pay from whatever is left.
 					let rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::NotMember)?;
