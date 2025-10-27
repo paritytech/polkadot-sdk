@@ -97,8 +97,7 @@ fn transactions_are_captured() {
 		assert_eq!(tx_root, expected_tx_root.0.into());
 
 		Contracts::on_finalize(0);
-
-		println!("Block: {:?}", crate::EthereumBlock::<Test>::get());
+		assert_eq!(crate::EthereumBlock::<Test>::get().transactions.len(), 3);
 
 		// Builder is killed on finalize.
 		let block_builder = EthBlockBuilderIR::<Test>::get();
