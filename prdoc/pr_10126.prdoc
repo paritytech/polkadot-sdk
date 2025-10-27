@@ -1,4 +1,4 @@
-title: 'fellowship salary: Fix unpayable registrations from previous cycles'
+title: 'pallet-salary: Fix unpayable registrations from previous cycles'
 
 doc:
   - audience: Runtime User
