@@ -3304,6 +3304,11 @@ impl<T: Config> Pallet<T> {
 			XcmPaymentApiError::Unroutable
 		})?;
 
+		// This helper only works for routers that return 1 and only 1 asset for delivery fees.
+		if fees.len() != 1 {
+			return Err(XcmPaymentApiError::Unimplemented);
+		}
+
 		let fee = fees.get(0).ok_or(XcmPaymentApiError::Unimplemented)?;
 
 		let asset_id = versioned_asset_id.clone().try_into().map_err(|()| {
@@ -3316,11 +3321,11 @@ impl<T: Config> Pallet<T> {
 
 		let assets_to_pay = if fee.id == asset_id {
 			// If the fee asset is the same as the desired one, just return that.
-			vec![fee.clone()].into()
+			fees
 		} else {
 			// Call AssetExchanger::quote_exchange_price() and return that.
 			let assets = AssetExchanger::quote_exchange_price(
-				&(vec![fee.clone()]).into(),
+				&fees.into(),
 				&(asset_id, Fungible(0)).into(),
 				true, // Maximal.
 			)
