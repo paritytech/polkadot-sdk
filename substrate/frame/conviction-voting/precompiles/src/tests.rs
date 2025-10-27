@@ -5,11 +5,9 @@ use crate::{
 };
 use pallet_conviction_voting::{AccountVote, Conviction, Event, TallyOf, Vote};
 use pallet_revive::{
-	precompiles::{
-		alloy::{
-			hex,
-			sol_types::{SolInterface, SolValue, SolCall},
-		},
+	precompiles::alloy::{
+		hex,
+		sol_types::{SolCall, SolInterface},
 	},
 	ExecConfig, ExecReturnValue, Weight, H160, U256,
 };
@@ -142,12 +140,13 @@ fn test_vote_split_abstain_encoding() {
 			referendumIndex: referendum_index,
 			ayeAmount: aye_amount,
 			nayAmount: 5u128,
-			abstainAmount: 15u128
+			abstainAmount: 15u128,
 		};
 		let call = IConvictionVoting::IConvictionVotingCalls::voteSplitAbstain(call_params);
 		let encoded_call = call.abi_encode();
 
-		let decoded_call = IConvictionVoting::voteSplitAbstainCall::abi_decode(&encoded_call).unwrap();
+		let decoded_call =
+			IConvictionVoting::voteSplitAbstainCall::abi_decode(&encoded_call).unwrap();
 
 		assert_eq!(decoded_call.ayeAmount, aye_amount);
 	});
@@ -175,5 +174,51 @@ fn test_vote_split_abstain_works() {
 			poll_index: referendum_index,
 		}));
 		assert_eq!(tally(referendum_index), Tally::from_parts(1, 0, 25));
+	});
+}
+
+#[test]
+fn test_vote_not_ongoing_fails() {
+	new_test_ext().execute_with(|| {
+		let referendum_index = 1u32;
+
+		let call_params = IConvictionVoting::voteSplitAbstainCall {
+			referendumIndex: referendum_index,
+			ayeAmount: 10u128,
+			nayAmount: 5u128,
+			abstainAmount: 15u128,
+		};
+		let call = IConvictionVoting::IConvictionVotingCalls::voteSplitAbstain(call_params);
+		let encoded_call = call.abi_encode();
+
+		let return_value = match call_precompile(ALICE, encoded_call) {
+			Ok(value) => value,
+			Err(err) => panic!("ConvictionVotingPrecompile call failed with error: {err:?}"),
+		};
+
+		assert!(return_value.did_revert());
+	})
+}
+
+#[test]
+fn test_vote_lock_balances_works() {
+	new_test_ext().execute_with(|| {
+		let referendum_index = 3u32;
+		let vote_balance = 2u128;
+
+		let call_params = IConvictionVoting::voteStandardCall {
+			referendumIndex: referendum_index,
+			aye: true,
+			conviction: IConvictionVoting::Conviction::Locked5x,
+			balance: vote_balance,
+		};
+		let call = IConvictionVoting::IConvictionVotingCalls::voteStandard(call_params);
+		let encoded_call = call.abi_encode();
+
+		let prev_balance = Balances::usable_balance(ALICE);
+
+		assert!(call_precompile(ALICE, encoded_call).is_ok());
+
+		assert_eq!(Balances::usable_balance(ALICE), prev_balance.saturating_sub(vote_balance),);
 	});
 }

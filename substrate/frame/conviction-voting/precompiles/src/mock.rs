@@ -1,6 +1,6 @@
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64, Contains, PollStatus, Polling, VoteTally},
+	traits::{ConstU32, ConstU64, Contains, PollStatus, Polling},
 };
 use pallet_conviction_voting::{AccountVote, Status, Tally, TallyOf, VotingHooks};
 use sp_runtime::{
