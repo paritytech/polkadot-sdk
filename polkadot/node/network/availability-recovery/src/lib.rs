@@ -42,7 +42,7 @@ use task::{
 };
 
 use polkadot_erasure_coding::{
-	branches, obtain_chunks_v1, recovery_threshold, systematic_recovery_threshold,
+	branches, recovery_threshold, systematic_recovery_threshold,
 	Error as ErasureEncodingError,
 };
 use task::{RecoveryParams, RecoveryStrategy, RecoveryTask};
@@ -182,11 +182,12 @@ fn reconstructed_data_matches_root(
 	n_validators: usize,
 	expected_root: &Hash,
 	data: &AvailableData,
+	node_features: &NodeFeatures,
 	metrics: &Metrics,
 ) -> bool {
 	let _timer = metrics.time_reencode_chunks();
 
-	let chunks = match obtain_chunks_v1(n_validators, data) {
+	let chunks = match polkadot_erasure_coding::feature_aware::obtain_chunks_feature_aware(n_validators, data, node_features) {
 		Ok(chunks) => chunks,
 		Err(e) => {
 			gum::debug!(

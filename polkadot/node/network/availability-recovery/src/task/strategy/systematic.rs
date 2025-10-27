@@ -113,9 +113,10 @@ impl FetchSystematicChunks {
 			.map(|(_, chunk)| chunk.chunk.clone())
 			.collect::<Vec<_>>();
 
-		let available_data = polkadot_erasure_coding::reconstruct_from_systematic_v1(
+		let available_data = polkadot_erasure_coding::feature_aware::reconstruct_from_systematic_feature_aware(
 			common_params.n_validators,
 			chunks,
+			&common_params.node_features,
 		);
 
 		match available_data {

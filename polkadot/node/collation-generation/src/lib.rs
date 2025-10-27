@@ -432,9 +432,19 @@ impl CollationGenerationSubsystem {
 					// Distribute the collation.
 					let parent_head = collation.head_data.clone();
 					// Get node_features from runtime API
-					let node_features = request_node_features(relay_parent, session_index, &mut task_sender)
+					let node_features = match request_node_features(relay_parent, session_index, &mut task_sender)
 						.await
-						.await??;
+						.await
+					{
+						Ok(Ok(features)) => features,
+						Ok(Err(_)) | Err(_) => {
+							gum::error!(
+								target: LOG_TARGET,
+								"Failed to get node features from runtime API, aborting collation"
+							);
+							return
+						}
+					};
 					
 					if let Err(err) = construct_and_distribute_receipt(
 						PreparedCollation {
