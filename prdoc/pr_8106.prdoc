@@ -31,6 +31,6 @@ crates:
 - name: bridge-hub-common
   bump: major
 - name: snowbridge-core
-  bump: patch
+  bump: minor
 - name: snowbridge-pallet-outbound-queue
   bump: patch    
