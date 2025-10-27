@@ -55,7 +55,6 @@ default = ["std"]
 std = [
 	"alloy-core/std",
 	"bp-relayers/std",
-	"bridge-hub-common/std",
 	"codec/std",
 	"ethabi/std",
 	"frame-benchmarking/std",
@@ -79,7 +78,6 @@ std = [
 	"xcm/std",
 ]
 runtime-benchmarks = [
-	"bridge-hub-common/runtime-benchmarks",
 	"frame-benchmarking",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
