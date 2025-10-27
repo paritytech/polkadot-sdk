@@ -110,7 +110,7 @@ pub fn with_ethereum_context<T: Config>(
 			post_info
 				.actual_weight
 				.as_mut()
-				.map(|w| w.saturating_sub(T::WeightInfo::deposit_eth_extrinsic_revert_event()));
+				.map(|w| w.saturating_reduce(T::WeightInfo::deposit_eth_extrinsic_revert_event()));
 			Ok(post_info)
 		}
 	})
