@@ -1,0 +1,12 @@
+title: 'revive/fix: Remove double tax on eth_call weight'
+doc:
+- audience: Node Dev
+  description: "This PR aligns the `eth_call` with `eth_instantiate_with_code` in\
+    \ terms of weight.\n\n@pgherveou noticed that we are double taxing the `eth_call`\
+    \ in terms of weight:\n- (I) we are adding the `#pallet::weight` on the encoded\
+    \ tx length\n- (II) we are adding the same weight again via `.saturating_add(T::WeightInfo::on_finalize_block_per_tx(encoded_length))`\n\
+    \nThis PR removes the weight from (II) and relies on the `#pallet::weight` entirely.\n\
+    \ncc @pgherveou @lrubasze \U0001F64F"
+crates:
+- name: pallet-revive
+  bump: patch
