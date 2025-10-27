@@ -231,8 +231,7 @@ where
 				.map_err(|e| revert(&e, "Referenda submission failed"))?;
 				// 5. HANDLE result and return referendum index
 
-	
-					Ok(referendum_index.encode())
+				Ok(referendum_index.abi_encode())
 			},
 
 			// TODO: Implement submitInline
