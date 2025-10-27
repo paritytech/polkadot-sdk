@@ -25,8 +25,11 @@ pallet-referenda = { workspace = true }
 [dev-dependencies]
 frame-system = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
+pallet-preimage = { workspace = true, default-features = true }
+pallet-scheduler = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
+scale-info = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 
@@ -37,10 +40,13 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-balances/std",
+	"pallet-preimage/std",
 	"pallet-revive/std",
 	"pallet-referenda/std",
+	"pallet-scheduler/std",
 	"pallet-timestamp/std",
 	"polkadot-parachain-primitives/std",
+	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"tracing/std",
