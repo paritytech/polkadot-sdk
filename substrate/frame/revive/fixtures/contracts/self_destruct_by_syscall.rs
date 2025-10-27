@@ -1,3 +1,5 @@
+// This file is part of Substrate.
+
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -12,13 +14,21 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod barriers;
-pub mod message_queue;
-pub mod xcm_version;
+#![no_std]
+#![no_main]
+include!("../panic_handler.rs");
 
-pub use barriers::DenyExportMessageFrom;
-pub use message_queue::{
-	AggregateMessageOrigin, BridgeHubDualMessageRouter, BridgeHubMessageRouter,
-};
+use uapi::{HostFn, HostFnImpl as api};
+
+
+#[no_mangle]
+#[polkavm_derive::polkavm_export]
+pub extern "C" fn deploy() {}
+
+#[no_mangle]
+#[polkavm_derive::polkavm_export]
+pub extern "C" fn call() {
+	const DJANGO_FALLBACK: [u8; 20] = [4u8; 20];
+	api::terminate(&DJANGO_FALLBACK);
+}
