@@ -20,38 +20,36 @@
 extern crate alloc;
 
 use alloc::{boxed::Box, vec::Vec};
-use codec::{Decode, DecodeAll, Encode, WrapperTypeDecode};
+use codec::{Decode};
 
 use core::{fmt, marker::PhantomData, num::NonZero};
 use frame_support::{
-	dispatch::RawOrigin,
-	sp_runtime::traits::StaticLookup,
-	traits::{schedule::DispatchTime, Bounded},
-	traits::{Currency, Get, Polling},
+	traits::{schedule::DispatchTime},
 };
 
-use pallet_referenda::{BlockNumberFor, BoundedCallOf, Call, Config, ReferendumCount};
+use pallet_referenda::{BlockNumberFor, BoundedCallOf, ReferendumCount};
 use pallet_revive::{
 	frame_system,
 	precompiles::{
 		alloy::{self, sol_types::SolValue},
 		AddressMatcher, Error, Ext, Precompile,
 	},
-	DispatchInfo, ExecOrigin, Weight,
+	ExecOrigin,
 };
 
 use tracing::{error, info};
-// use frame_support::dispatch::{ extract_actual_weight};
 use frame_support::traits::OriginTrait;
 
 alloy::sol!("src/interfaces/IReferenda.sol");
 use IReferenda::IReferendaCalls;
-// use sp_core::H256;
-type BalanceOf<T> = <<T as pallet_referenda::Config>::Currency as Currency<
-	<T as pallet_revive::frame_system::Config>::AccountId,
->>::Balance;
+
 const LOG_TARGET: &str = "referenda::precompiles";
 pub type RuntimeOriginFor<T> = <T as frame_system::Config>::RuntimeOrigin;
+
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
 
 // ========== Private Helper Functions ==========
 
@@ -70,11 +68,7 @@ fn revert(error: &impl fmt::Debug, message: &str) -> Error {
 	error!(target: LOG_TARGET, ?error, "{}", message);
 	Error::Revert(message.into())
 }
-// Get the NEXT referendum index (the one that will be assigned)
-fn get_next_referendum_index<T: Config>() -> u32 {
-	ReferendumCount::<T>::get()
-}
-// Convert timing enum to DispatchTime
+
 /// Convert timing enum to DispatchTime
 fn convert_timing_to_dispatch<T, I>(
 	timing: IReferenda::Timing,
@@ -91,21 +85,6 @@ where
 		IReferenda::Timing::AfterBlock => Ok(DispatchTime::After(moment)),
 		_ => Err(Error::Revert("Invalid timing variant".into())),
 	}
-}
-
-/// Decode origin bytes into a RuntimeOrigin
-/// This handles various origin types (Signed, Root, Custom)
-fn decode_origin<T>(origin_bytes: &[u8]) -> Result<Box<RuntimeOriginFor<T>>, Error>
-where
-	T: frame_system::Config,
-	RuntimeOriginFor<T>: Decode,
-{
-	let origin = RuntimeOriginFor::<T>::decode(&mut &origin_bytes[..]).map_err(|e| {
-		error!(target: LOG_TARGET, ?e, "Failed to decode origin");
-		Error::Revert("Invalid origin encoding".into())
-	})?;
-
-	Ok(Box::new(origin))
 }
 
 /// Dispatch a referenda submit call and extract actual weight
@@ -142,21 +121,21 @@ where
 	match result {
 		Ok(_) => {
 			let referendum_index =
-				pallet_referenda::ReferendumCount::<Runtime, Instance>::get().saturating_sub(1);
+				ReferendumCount::<Runtime, Instance>::get().saturating_sub(1);
 			Ok(referendum_index)
 		},
 		Err(e) => {
-			// e is DispatchErrorWithPostInfo<PostDispatchInfo>
-			// e.error is the DispatchError
 			Err(revert(&e, "Referenda submission failed"))
 		},
 	}
 }
+
 pub struct ReferendaPrecompile<T>(PhantomData<T>);
+
 impl<Runtime> Precompile for ReferendaPrecompile<Runtime>
 where
-	Runtime: pallet_referenda::Config + pallet_revive::Config, //+ pallet_custom_origins::Config,
-	RuntimeOriginFor<Runtime>: Decode + WrapperTypeDecode,     // Add this bound
+	Runtime: pallet_referenda::Config + pallet_revive::Config,
+	RuntimeOriginFor<Runtime>: Decode,  
 {
 	type T = Runtime;
 	const MATCHER: AddressMatcher = AddressMatcher::Fixed(NonZero::new(11).unwrap());
@@ -228,15 +207,13 @@ where
 
 			// TODO: Implement submitInline
 			IReferendaCalls::submitInline(IReferenda::submitInlineCall {
-				origin,
-				proposal,
-				timing,
-				enactmentMoment: enactment_moment,
+				origin: _,
+				proposal: _,
+				timing: _,
+				enactmentMoment: _,
 			}) => {
-				// Placeholder implementation
 				Err(Error::Revert("submitInline: Not yet implemented".into()))
 			},
-			// Add a catch-all for now
 			_ => Ok(Vec::new()),
 		}
 	}
