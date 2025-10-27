@@ -137,7 +137,7 @@ const RELAY_PARENT_OFFSET: u32 = 1;
 /// parent. Limits the number of blocks authored per slot. This determines the minimum
 /// block time of the parachain:
 /// `RELAY_CHAIN_SLOT_DURATION_MILLIS/BLOCK_PROCESSING_VELOCITY`
-const BLOCK_PROCESSING_VELOCITY: u32 = 4;
+const BLOCK_PROCESSING_VELOCITY: u32 = 3;
 
 /// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
 /// into the relay chain.
