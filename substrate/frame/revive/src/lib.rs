@@ -1312,21 +1312,14 @@ pub mod pallet {
 					}
 				}
 
-				let encoded_length = transaction_encoded.len() as u32;
-
 				block_storage::process_transaction::<T>(
 					transaction_encoded,
 					output.result.is_ok(),
 					output.gas_consumed,
 				);
 
-				let result = dispatch_result(
-					output.result,
-					output.gas_consumed,
-					base_info
-						.call_weight
-						.saturating_add(T::WeightInfo::on_finalize_block_per_tx(encoded_length)),
-				);
+				let result =
+					dispatch_result(output.result, output.gas_consumed, base_info.call_weight);
 				T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result)
 			})
 		}
