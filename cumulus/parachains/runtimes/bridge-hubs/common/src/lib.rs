@@ -15,12 +15,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod barriers;
-pub mod digest_item;
 pub mod message_queue;
 pub mod xcm_version;
 
 pub use barriers::DenyExportMessageFrom;
-pub use digest_item::CustomDigestItem;
 pub use message_queue::{
 	AggregateMessageOrigin, BridgeHubDualMessageRouter, BridgeHubMessageRouter,
 };
