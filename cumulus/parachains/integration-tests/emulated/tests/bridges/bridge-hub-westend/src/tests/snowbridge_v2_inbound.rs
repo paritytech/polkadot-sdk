@@ -23,10 +23,9 @@ use crate::{
 use asset_hub_westend_runtime::ForeignAssets;
 use bridge_hub_westend_runtime::{
 	bridge_common_config::BridgeReward,
-	bridge_to_ethereum_config::{CreateAssetCallIndex, EthereumGatewayAddress},
+	bridge_to_ethereum_config::{CreateAssetCall, EthereumGatewayAddress},
 	EthereumInboundQueueV2,
 };
-use bridge_hub_westend_runtime::bridge_to_ethereum_config::CreateAssetCall;
 use codec::Encode;
 use emulated_integration_tests_common::{
 	snowbridge::{SEPOLIA_ID, WETH},
@@ -1119,16 +1118,11 @@ fn send_token_with_swap_and_bridge_back_v2() {
 	// Set up DOT/USDC pool
 	let ethereum_sovereign = snowbridge_sovereign();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND * 10)]);
-	create_pool_with_native_on!(
-		AssetHubWestend,
-		usdc_location(),
-		true,
-		ethereum_sovereign.clone()
-	);
+	create_pool_with_native_on!(AssetHubWestend, usdc_location(), true, ethereum_sovereign.clone());
 
 	// Amount of ETH to send from Ethereum
-	let eth_transfer_value =  100_000_000_000_000u128;
-	let eth_swap_value =70_000_000_000_000u128;
+	let eth_transfer_value = 100_000_000_000_000u128;
+	let eth_swap_value = 70_000_000_000_000u128;
 
 	use emulated_integration_tests_common::snowbridge::ETH;
 	// Expected amounts after swaps (these are approximate and depend on pool liquidity)
@@ -1139,9 +1133,7 @@ fn send_token_with_swap_and_bridge_back_v2() {
 
 	let ether_fee_for_bridge = 20_000_000_000_000u128;
 
-	let assets = vec![
-
-	];
+	let assets = vec![];
 
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
@@ -1166,30 +1158,23 @@ fn send_token_with_swap_and_bridge_back_v2() {
 			},
 			// Step 3: Initiate transfer to send USDC back to Ethereum
 			InitiateTransfer {
-				destination: Location::new(
-					2,
-					[GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })],
-				),
+				destination: Location::new(2, [GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })]),
 				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
 					vec![(eth_asset_location.clone(), ether_fee_for_bridge).into()].into(),
 				))),
-				preserve_origin: false,
+				preserve_origin: true,
 				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveWithdraw(
 					Wild(AllOf {
 						id: AssetId(usdc_asset_location.clone()),
 						fun: WildFungibility::Fungible,
 					}),
 				)]),
-				remote_xcm: vec![
-					DepositAsset {
-						assets: Wild(All),
-						beneficiary: Location::new(
-							0,
-							[AccountKey20 {
-								network: None,
-								key: ETHEREUM_DESTINATION_ADDRESS.into(),
-							}],
-						),
+				remote_xcm: vec![DepositAsset {
+					assets: Wild(All),
+					beneficiary: Location::new(
+						0,
+						[AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }],
+					),
 				}]
 				.into(),
 			},
@@ -1292,9 +1277,7 @@ fn send_usdc_from_asset_hub_to_ethereum() {
 						vec![(Location::new(0, Here), 10_000_000_000_000_000u128).into()].into(),
 					),
 					// Pay fees with ETH
-					PayFees {
-						asset: (Location::new(0, Here), 10_000_000_000_000_000u128).into(),
-					},
+					PayFees { asset: (Location::new(0, Here), 10_000_000_000_000_000u128).into() },
 					// Withdraw USDC
 					WithdrawAsset(
 						vec![(

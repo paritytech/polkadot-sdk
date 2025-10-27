@@ -8,6 +8,7 @@ pub use polkadot_parachain_primitives::primitives::{
 	Id as ParaId, IsSystem, Sibling as SiblingParaId,
 };
 pub use sp_core::U256;
+use sp_std::marker::PhantomData;
 
 use codec::Encode;
 use sp_core::H256;
@@ -30,6 +31,7 @@ pub type AgentIdOf = HashedDescription<
 		DescribeHere,
 		DescribeFamily<DescribeAllTerminal>,
 		DescribeGlobalPrefix<(DescribeTerminus, DescribeFamily<DescribeTokenTerminal>)>,
+		DescribeLocalFamily<DescribeAllTerminal>,
 	),
 >;
 
@@ -95,6 +97,26 @@ impl DescribeLocation for DescribeTokenTerminal {
 
 			// Reject all other locations
 			_ => None,
+		}
+	}
+}
+
+/// `DescribeLocalFamily` handles cases where a local origin from Ethereum sends a message to
+/// Polkadot and, within the same transaction, sends another message back to Ethereum. So when the
+/// message arrives on BridgeHub, its location is re-anchored and represents as:
+/// `AliasOrigin: { parents: '0', interior: { X1: [ { AccountKey20: { network: null, key:
+/// '0xc189de708158e75e5c88c0abfa5f9a26c71f54d1' } } ] }` which was not supported by the previous
+/// Describe implementation.
+pub struct DescribeLocalFamily<DescribeInterior>(PhantomData<DescribeInterior>);
+impl<Suffix: DescribeLocation> DescribeLocation for DescribeLocalFamily<Suffix> {
+	fn describe_location(l: &Location) -> Option<Vec<u8>> {
+		match (l.parent_count(), l.first_interior()) {
+			(0, _) => {
+				let tail = l.interior().clone().into();
+				let interior = Suffix::describe_location(&tail)?;
+				Some((b"LocalChain", interior).encode())
+			},
+			_ => return None,
 		}
 	}
 }
