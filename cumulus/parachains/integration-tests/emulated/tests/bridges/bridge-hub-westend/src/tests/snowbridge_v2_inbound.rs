@@ -23,7 +23,7 @@ use crate::{
 use asset_hub_westend_runtime::ForeignAssets;
 use bridge_hub_westend_runtime::{
 	bridge_common_config::BridgeReward,
-	bridge_to_ethereum_config::{CreateAssetCall, EthereumGatewayAddress},
+	bridge_to_ethereum_config::{CreateAssetCallIndex, EthereumGatewayAddress},
 	EthereumInboundQueueV2,
 };
 use codec::Encode;
@@ -1124,7 +1124,6 @@ fn send_token_with_swap_and_bridge_back_v2() {
 	let eth_transfer_value = 100_000_000_000_000u128;
 	let eth_swap_value = 70_000_000_000_000u128;
 
-	use emulated_integration_tests_common::snowbridge::ETH;
 	// Expected amounts after swaps (these are approximate and depend on pool liquidity)
 	let expected_dot_amount = 12_000_000_000_000u128;
 	let dot_reserved_for_fees = 4_000_000_000_000u128;
