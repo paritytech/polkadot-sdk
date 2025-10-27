@@ -972,7 +972,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 					}
 					Some(DiscoveryEvent::AddProviderSuccess { query_id, provided_key }) => {
 						match self.pending_queries.remove(&query_id) {
-							Some(KadQuery::GetProviders(key, started)) => {
+							Some(KadQuery::AddProvider(key, started)) => {
 								debug_assert_eq!(key, provided_key.into());
 
 								log::trace!(
