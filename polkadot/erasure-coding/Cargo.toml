@@ -29,7 +29,3 @@ quickcheck = { workspace = true }
 [[bench]]
 name = "scaling_with_validators"
 harness = false
-
-[[example]]
-name = "v2_usage"
-path = "examples/v2_usage.rs"

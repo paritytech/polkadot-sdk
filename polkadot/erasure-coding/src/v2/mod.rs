@@ -102,61 +102,6 @@ where
 	Decode::decode(&mut &reconstructed_bytes[..]).map_err(|err| Error::Decode(err))
 }
 
-/// Fast erasure coding operations using the external package.
-/// 
-/// This module provides optimized erasure coding functions that leverage
-/// the external erasure-coding package for better performance.
-pub mod fast {
-	use super::*;
-	use erasure_coding_ext::{construct_chunks, reconstruct, ChunkIndex};
-	
-	/// Fast encoding using external erasure-coding package.
-	/// 
-	/// This function provides improved performance over the standard encoding
-	/// by utilizing optimized algorithms from the external package.
-	pub fn fast_encode<T: Encode>(n_validators: usize, data: &T) -> Result<Vec<Vec<u8>>, Error> {
-		let encoded = data.encode();
-		if encoded.is_empty() {
-			return Err(Error::BadPayload);
-		}
-		
-		let n_chunks = n_validators as u16;
-		construct_chunks(n_chunks, &encoded).map_err(|e| match e {
-			erasure_coding_ext::Error::BadPayload => Error::BadPayload,
-			erasure_coding_ext::Error::NotEnoughTotalChunks => Error::NotEnoughValidators,
-			erasure_coding_ext::Error::TooManyTotalChunks => Error::TooManyValidators,
-			_ => Error::UnknownCodeParam,
-		})
-	}
-	
-	/// Fast decoding using external erasure-coding package.
-	/// 
-	/// This function provides improved performance over the standard decoding
-	/// by utilizing optimized algorithms from the external package.
-	pub fn fast_decode<'a, I: 'a, T: Decode>(n_validators: usize, chunks: I) -> Result<T, Error>
-	where
-		I: IntoIterator<Item = (&'a [u8], usize)>,
-	{
-		let n_chunks = n_validators as u16;
-		let chunks_with_indices: Vec<(ChunkIndex, Vec<u8>)> = chunks
-			.into_iter()
-			.map(|(data, index)| (ChunkIndex::from(index as u16), data.to_vec()))
-			.collect();
-		
-		// Estimate data length - this is a rough estimate
-		let estimated_data_len = chunks_with_indices.iter().map(|(_, data)| data.len()).sum::<usize>();
-		
-		let reconstructed_bytes = reconstruct(n_chunks, chunks_with_indices, estimated_data_len)
-			.map_err(|e| match e {
-				erasure_coding_ext::Error::NotEnoughChunks => Error::NotEnoughChunks,
-				erasure_coding_ext::Error::NonUniformChunks => Error::NonUniformChunks,
-				erasure_coding_ext::Error::BadPayload => Error::BadPayload,
-				_ => Error::UnknownReconstruction,
-			})?;
-		
-		Decode::decode(&mut &reconstructed_bytes[..]).map_err(|err| Error::Decode(err))
-	}
-}
 
 #[cfg(test)]
 mod tests {
@@ -202,15 +147,4 @@ mod tests {
 		assert_eq!(reconstructed, available_data);
 	}
 
-	#[test]
-	fn fast_encoding_works() {
-		let pov = PoV { block_data: BlockData((0..100).collect()) };
-		let available_data = AvailableData { 
-			pov: pov.into(), 
-			validation_data: Default::default() 
-		};
-		
-		let chunks = fast::fast_encode(5, &available_data).unwrap();
-		assert_eq!(chunks.len(), 5);
-	}
 }

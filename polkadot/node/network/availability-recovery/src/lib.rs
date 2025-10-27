@@ -559,6 +559,7 @@ async fn handle_recover<Context>(
 			let session_info = session_info.clone();
 
 			let n_validators = session_info.validators.len();
+			let node_features_clone = node_features.clone();
 
 			launch_recovery_task(
 				state,
@@ -580,6 +581,7 @@ async fn handle_recover<Context>(
 					req_v2_protocol_name,
 					chunk_mapping_enabled,
 					erasure_task_tx,
+					node_features: node_features_clone,
 				},
 			)
 			.await

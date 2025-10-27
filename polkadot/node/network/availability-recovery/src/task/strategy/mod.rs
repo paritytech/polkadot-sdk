@@ -136,6 +136,7 @@ async fn do_post_recovery_check(
 					params.erasure_root,
 					data,
 					reencode_tx,
+					params.node_features.clone(),
 				))
 				.await
 				.map_err(|_| RecoveryError::ChannelClosed)?;
@@ -683,6 +684,7 @@ mod tests {
 				req_v2_protocol_name: "/req_chunk/2".into(),
 				chunk_mapping_enabled: true,
 				erasure_task_tx,
+				node_features: NodeFeatures::new(),
 			}
 		}
 	}
