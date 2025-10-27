@@ -3,15 +3,16 @@ use crate::{
 	mock::*,
 	IConvictionVoting::{self},
 };
-use pallet_revive::{
-	precompiles::alloy::{
-		hex,
-		sol_types::{SolInterface, SolValue},
-	},
-	ExecReturnValue, ExecConfig, Weight, H160, U256,
-};
-
 use pallet_conviction_voting::{AccountVote, Conviction, Event, TallyOf, Vote};
+use pallet_revive::{
+	precompiles::{
+		alloy::{
+			hex,
+			sol_types::{SolInterface, SolValue, SolCall},
+		},
+	},
+	ExecConfig, ExecReturnValue, Weight, H160, U256,
+};
 
 fn tally(index: ReferendumIndex) -> TallyOf<Test> {
 	<TestPolls as Polling<TallyOf<Test>>>::as_ongoing(index).expect("No poll").0
@@ -21,7 +22,10 @@ fn class(index: ReferendumIndex) -> TrackId {
 	<TestPolls as Polling<TallyOf<Test>>>::as_ongoing(index).expect("No poll").1
 }
 
-fn call_precompile(from: AccountId, encoded_call: Vec<u8>) -> Result<ExecReturnValue, sp_runtime::DispatchError> {
+fn call_precompile(
+	from: AccountId,
+	encoded_call: Vec<u8>,
+) -> Result<ExecReturnValue, sp_runtime::DispatchError> {
 	let precompile_addr = H160::from(
 		hex::const_decode_to_array(b"00000000000000000000000000000000000C0000").unwrap(),
 	);
@@ -37,6 +41,25 @@ fn call_precompile(from: AccountId, encoded_call: Vec<u8>) -> Result<ExecReturnV
 	);
 
 	return result.result
+}
+
+#[test]
+fn test_vote_standard_encoding() {
+	let referendum_index = 3u32;
+	let balance = 2u128;
+
+	let call_params = IConvictionVoting::voteStandardCall {
+		referendumIndex: referendum_index,
+		aye: true,
+		conviction: IConvictionVoting::Conviction::Locked5x,
+		balance,
+	};
+	let call = IConvictionVoting::IConvictionVotingCalls::voteStandard(call_params);
+	let encoded_call = call.abi_encode();
+
+	let decoded_call = IConvictionVoting::voteStandardCall::abi_decode(&encoded_call).unwrap();
+
+	assert_eq!(decoded_call.balance, balance);
 }
 
 #[test]
@@ -66,6 +89,26 @@ fn test_vote_standard_precompile_works() {
 }
 
 #[test]
+fn test_vote_split_encoding() {
+	new_test_ext().execute_with(|| {
+		let referendum_index = 3u32;
+		let aye_amount = 10u128;
+
+		let call_params = IConvictionVoting::voteSplitCall {
+			referendumIndex: referendum_index,
+			ayeAmount: aye_amount,
+			nayAmount: 5u128,
+		};
+		let call = IConvictionVoting::IConvictionVotingCalls::voteSplit(call_params);
+		let encoded_call = call.abi_encode();
+
+		let decoded_call = IConvictionVoting::voteSplitCall::abi_decode(&encoded_call).unwrap();
+
+		assert_eq!(decoded_call.ayeAmount, aye_amount);
+	});
+}
+
+#[test]
 fn test_vote_split_works() {
 	new_test_ext().execute_with(|| {
 		let referendum_index = 3u32;
@@ -82,10 +125,31 @@ fn test_vote_split_works() {
 
 		System::assert_last_event(tests::RuntimeEvent::ConvictionVoting(Event::Voted {
 			who: ALICE,
-			vote: AccountVote::Split { aye:10u128, nay: 5u128 },
+			vote: AccountVote::Split { aye: 10u128, nay: 5u128 },
 			poll_index: referendum_index,
 		}));
 		assert_eq!(tally(referendum_index), Tally::from_parts(1, 0, 10));
+	});
+}
+
+#[test]
+fn test_vote_split_abstain_encoding() {
+	new_test_ext().execute_with(|| {
+		let referendum_index = 3u32;
+		let aye_amount = 10u128;
+
+		let call_params = IConvictionVoting::voteSplitAbstainCall {
+			referendumIndex: referendum_index,
+			ayeAmount: aye_amount,
+			nayAmount: 5u128,
+			abstainAmount: 15u128
+		};
+		let call = IConvictionVoting::IConvictionVotingCalls::voteSplitAbstain(call_params);
+		let encoded_call = call.abi_encode();
+
+		let decoded_call = IConvictionVoting::voteSplitAbstainCall::abi_decode(&encoded_call).unwrap();
+
+		assert_eq!(decoded_call.ayeAmount, aye_amount);
 	});
 }
 
@@ -98,7 +162,7 @@ fn test_vote_split_abstain_works() {
 			referendumIndex: referendum_index,
 			ayeAmount: 10u128,
 			nayAmount: 5u128,
-			abstainAmount: 15u128
+			abstainAmount: 15u128,
 		};
 		let call = IConvictionVoting::IConvictionVotingCalls::voteSplitAbstain(call_params);
 		let encoded_call = call.abi_encode();
@@ -107,7 +171,7 @@ fn test_vote_split_abstain_works() {
 
 		System::assert_last_event(tests::RuntimeEvent::ConvictionVoting(Event::Voted {
 			who: ALICE,
-			vote: AccountVote::SplitAbstain { aye:10u128, nay: 5u128, abstain: 15u128 },
+			vote: AccountVote::SplitAbstain { aye: 10u128, nay: 5u128, abstain: 15u128 },
 			poll_index: referendum_index,
 		}));
 		assert_eq!(tally(referendum_index), Tally::from_parts(1, 0, 25));
