@@ -228,7 +228,7 @@ fn compile_with_standard_json(
 
 		serde_json::json!({
 			"*": {
-				"*": ["evm.bytecode"]
+				"*": ["evm.bytecode", "evm.deployedBytecode"]
 			}
 		}),
 
@@ -298,10 +298,15 @@ fn compile_with_standard_json(
 }
 
 /// Extract bytecode from compiler JSON output and write binary files.
+///
+/// The `bytecode_type` parameter specifies which bytecode to extract:
+/// - "bytecode" for init code
+/// - "deployedBytecode" for runtime code
 fn extract_and_write_bytecode(
 	compiler_json: &serde_json::Value,
 	out_dir: &Path,
 	file_suffix: &str,
+	bytecode_type: &str,
 ) -> Result<()> {
 	if let Some(contracts) = compiler_json["contracts"].as_object() {
 		for (_file_key, file_contracts) in contracts {
@@ -309,7 +314,7 @@ fn extract_and_write_bytecode(
 				for (contract_name, contract_data) in contract_map {
 					// Navigate through the JSON path to find the bytecode
 					let mut current = contract_data;
-					for path_segment in ["evm", "bytecode", "object"] {
+					for path_segment in ["evm", bytecode_type, "object"] {
 						if let Some(next) = current.get(path_segment) {
 							current = next;
 						} else {
@@ -360,11 +365,12 @@ fn compile_solidity_contracts(
 
 	// Compile with solc for EVM bytecode
 	let json = compile_with_standard_json("solc", contracts_dir, &solidity_entries)?;
-	extract_and_write_bytecode(&json, out_dir, ".sol.bin")?;
+	extract_and_write_bytecode(&json, out_dir, ".sol.bin", "bytecode")?;
+	extract_and_write_bytecode(&json, out_dir, ".sol.runtime.bin", "deployedBytecode")?;
 
 	// Compile with resolc for PVM bytecode
 	let json = compile_with_standard_json("resolc", contracts_dir, &solidity_entries_pvm)?;
-	extract_and_write_bytecode(&json, out_dir, ".resolc.polkavm")?;
+	extract_and_write_bytecode(&json, out_dir, ".resolc.polkavm", "bytecode")?;
 
 	Ok(())
 }

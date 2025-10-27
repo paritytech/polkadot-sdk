@@ -19,7 +19,7 @@ use crate::{
 	assert_refcount,
 	call_builder::VmBinaryModule,
 	debug::DebugSettings,
-	test_utils::{builder::Contract, ALICE},
+	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
 	tests::{
 		builder,
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
@@ -104,7 +104,6 @@ fn basic_evm_flow_works() {
 fn basic_evm_flow_tracing_works() {
 	use crate::{
 		evm::{CallTrace, CallTracer, CallType},
-		test_utils::ALICE_ADDR,
 		tracing::trace,
 	};
 	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
@@ -198,4 +197,44 @@ fn eth_contract_too_large() {
 				}
 			});
 	}
+}
+
+#[test]
+fn upload_evm_runtime_code_works() {
+	use crate::{
+		exec::Executable,
+		primitives::ExecConfig,
+		storage::{AccountInfo, ContractInfo},
+		Pallet,
+	};
+
+	let (runtime_code, _runtime_hash) =
+		compile_module_with_type("Fibonacci", FixtureType::SolcRuntime).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let (uploaded_blob, _) = Pallet::<Test>::try_upload_evm_runtime_code(
+			ALICE,
+			runtime_code.clone(),
+			1_000_000_000_000u64,
+			&ExecConfig::new_substrate_tx(),
+		)
+		.unwrap();
+
+		let uploaded_code_hash = *uploaded_blob.code_hash();
+		let nonce = Pallet::<Test>::evm_nonce(&ALICE_ADDR) + 1;
+		let contract_address = crate::address::create1(&ALICE_ADDR, nonce.into());
+
+		let contract_info =
+			ContractInfo::<Test>::new(&contract_address, nonce, uploaded_code_hash).unwrap();
+		AccountInfo::<Test>::insert_contract(&contract_address, contract_info);
+
+		// Call the contract and verify it works
+		let result = builder::bare_call(contract_address)
+			.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 10u64 }).abi_encode())
+			.build_and_unwrap_result();
+		let decoded = Fibonacci::fibCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(55u64, decoded, "Contract should correctly compute fibonacci(10)");
+	});
 }
