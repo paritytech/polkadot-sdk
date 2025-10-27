@@ -84,8 +84,15 @@ pub async fn assert_para_throughput(
 
 	let valid_para_ids: Vec<ParaId> = expected_candidate_ranges.keys().cloned().collect();
 
+	log::info!(
+		"Asserting parachain throughput for para_ids: {:?}. Wait for the first session change",
+		valid_para_ids
+	);
 	// Wait for the first session, block production on the parachain will start after that.
 	wait_for_first_session_change(&mut blocks_sub).await?;
+	log::info!(
+		"First session change detected. Counting {stop_after} finalized relay chain blocks."
+	);
 
 	while let Some(block) = blocks_sub.next().await {
 		let block = block?;
