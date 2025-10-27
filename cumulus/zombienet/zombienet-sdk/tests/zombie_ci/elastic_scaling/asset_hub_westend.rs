@@ -6,6 +6,7 @@ use crate::utils::initialize_network;
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{assert_para_throughput, assign_cores};
 use polkadot_primitives::Id as ParaId;
+use serde_json::json;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
 	NetworkConfig, NetworkConfigBuilder,
@@ -30,10 +31,20 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					// Leaving them in case we switch to `k8s` some day.
 					resources.with_request_cpu(4).with_request_memory("4G")
 				})
+				.with_genesis_overrides(json!({
+					"configuration": {
+						"config": {
+							"scheduler_params": {
+								"num_cores": 7,
+								"max_validators_per_core": 1
+							}
+						}
+					}
+				}))
 				// Have to set a `with_node` outside of the loop below, so that `r` has the right
 				// type.
 				.with_node(|node| node.with_name("validator-0"));
-			(1..3).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+			(1..9).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)
@@ -73,7 +84,14 @@ async fn elastic_scaling_asset_hub_westend() -> Result<(), anyhow::Error> {
 	let relay_node = network.get_node("validator-0")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-	assign_cores(relay_node, PARA_ID, vec![0, 1, 2]).await?;
+	assert_para_throughput(
+		&relay_client,
+		10,
+		[(ParaId::from(PARA_ID), 3..18)].into_iter().collect(),
+	)
+	.await?;
+
+	assign_cores(relay_node, PARA_ID, vec![2, 3, 4]).await?;
 
 	log::info!("Ensure elastic scaling works, 3 blocks should be produced in each 6s slot");
 
