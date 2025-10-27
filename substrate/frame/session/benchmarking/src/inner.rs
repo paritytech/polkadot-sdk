@@ -19,9 +19,8 @@
 // This is separated into its own crate due to cyclic dependency issues.
 
 use alloc::vec::Vec;
-use sp_runtime::traits::{One, StaticLookup, TrailingZeroInput};
+use sp_runtime::traits::{One, StaticLookup};
 
-use codec::Decode;
 use frame_benchmarking::v2::*;
 use frame_support::{
 	assert_ok,
@@ -161,7 +160,7 @@ fn check_membership_proof_setup<T: Config>(
 		let validator = T::Lookup::lookup(who).unwrap();
 		let controller = pallet_staking::Pallet::<T>::bonded(&validator).unwrap();
 
-		let keys = {
+		let _keys = {
 			let mut keys = [0u8; 128];
 
 			// we keep the keys for the first validator as 0x00000...
