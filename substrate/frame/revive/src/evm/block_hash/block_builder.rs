@@ -148,6 +148,7 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 	pub fn build(
 		&mut self,
 		block_number: U256,
+		base_fee_per_gas: U256,
 		parent_hash: H256,
 		timestamp: U256,
 		block_author: H160,
@@ -179,6 +180,7 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 			transactions_root,
 			receipts_root,
 
+			base_fee_per_gas,
 			gas_used: self.gas_used,
 
 			logs_bloom: self.logs_bloom.bloom.into(),
@@ -424,6 +426,7 @@ mod test {
 			let built_block = incremental_block
 				.build(
 					block.number,
+					block.base_fee_per_gas,
 					block.parent_hash,
 					block.timestamp,
 					block.miner,
