@@ -43,7 +43,11 @@ pub use sp_arithmetic::traits::{
 	EnsureOp, EnsureOpAssign, EnsureSub, EnsureSubAssign, IntegerSquareRoot, One,
 	SaturatedConversion, Saturating, UniqueSaturatedFrom, UniqueSaturatedInto, Zero,
 };
+#[cfg(feature = "bls-experimental")]
+use sp_core::crypto::Pair; /* there is no host function to verify ecdsa_bls381 signature so
+						    * need to get it from core::crypto::Pair */
 use sp_core::{self, storage::StateVersion, Hasher, RuntimeDebug, TypeId, U256};
+
 #[doc(hidden)]
 pub use sp_core::{
 	parameter_types, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstInt,
@@ -105,6 +109,14 @@ impl IdentifyAccount for sp_core::ecdsa::Public {
 	}
 }
 
+#[cfg(feature = "bls-experimental")]
+impl IdentifyAccount for sp_core::ecdsa_bls381::Public {
+	type AccountId = Self;
+	fn into_account(self) -> Self {
+		self
+	}
+}
+
 /// Means of signature verification.
 pub trait Verify {
 	/// Type of the signer.
@@ -145,6 +157,14 @@ impl Verify for sp_core::ecdsa::Signature {
 			Ok(pubkey) => signer.0 == pubkey,
 			_ => false,
 		}
+	}
+}
+
+#[cfg(feature = "bls-experimental")]
+impl Verify for sp_core::ecdsa_bls381::Signature {
+	type Signer = sp_core::ecdsa_bls381::Public;
+	fn verify<L: Lazy<[u8]>>(&self, mut msg: L, signer: &sp_core::ecdsa_bls381::Public) -> bool {
+		sp_core::ecdsa_bls381::Pair::verify(self, msg.get(), signer)
 	}
 }
 
@@ -2538,14 +2558,14 @@ impl BlockNumberProvider for () {
 mod tests {
 	use super::*;
 	use crate::codec::{Decode, Encode, Input};
+	#[cfg(feature = "bls-experimental")]
+	use sp_core::ecdsa_bls381;
 	use sp_core::{
 		crypto::{Pair, UncheckedFrom},
 		ecdsa, ed25519,
 		proof_of_possession::ProofOfPossessionGenerator,
 		sr25519,
 	};
-	#[cfg(feature = "bls-experimental")]
-        use sp_core::{bls377, bls381};
 	use std::sync::Arc;
 
 	macro_rules! signature_verify_test {
@@ -2687,13 +2707,8 @@ mod tests {
 	}
 
 	#[cfg(feature = "bls-experimental")]
-	fn bls377_verify_works() {
-		signature_verify_test!(bls377);
-	}
-
-	#[cfg(feature = "bls-experimental")]
-	fn bls381_verify_works() {
-		signature_verify_test!(bls381);
+	fn ecdsa_bls381_verify_works() {
+		signature_verify_test!(ecdsa_bls381);
 	}
 
 	pub struct Sr25519Key;
