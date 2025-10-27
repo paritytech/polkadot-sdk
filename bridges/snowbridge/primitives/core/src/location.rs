@@ -101,11 +101,11 @@ impl DescribeLocation for DescribeTokenTerminal {
 	}
 }
 
-/// `DescribeLocalFamily` handles cases where a local origin from Ethereum sends a message to
-/// Polkadot and, within the same transaction, sends another message back to Ethereum. So when the
-/// message arrives on BridgeHub, its location is re-anchored and represents as:
-/// `AliasOrigin: { parents: '0', interior: { X1: [ { AccountKey20: { network: null, key:
-/// '0xc189de708158e75e5c88c0abfa5f9a26c71f54d1' } } ] }` which was not supported by the previous
+/// `DescribeLocalFamily` handles cases where an end user from Ethereum sends a message to Polkadot,
+/// and within the same XCM, constructs an inner XCM to send another message back to Ethereum. Since
+/// the original origin is preserved throughout, when the message arrives on BridgeHub, its location
+/// is re-anchored and represents as: `AliasOrigin: { parents: '0', interior: { X1: [ {
+/// AccountKey20: { network: null, key: key20 } } ] }` which was not supported by the previous
 /// Describe implementation.
 pub struct DescribeLocalFamily<DescribeInterior>(PhantomData<DescribeInterior>);
 impl<Suffix: DescribeLocation> DescribeLocation for DescribeLocalFamily<Suffix> {
