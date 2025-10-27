@@ -23,7 +23,7 @@ use frame_support::traits::OnInitialize;
 // Cumulus
 use emulated_integration_tests_common::{
 	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
-	impls::Parachain, xcm_emulator::decl_test_parachains,
+	impls::Parachain, xcm_emulator::decl_test_parachains, AuraDigestProvider,
 };
 
 // CollectivesWestend Parachain declaration
@@ -39,6 +39,7 @@ decl_test_parachains! {
 			LocationToAccountId: collectives_westend_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: collectives_westend_runtime::ParachainInfo,
 			MessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,
+			DigestProvider: AuraDigestProvider,
 		},
 		pallets = {
 			PolkadotXcm: collectives_westend_runtime::PolkadotXcm,
