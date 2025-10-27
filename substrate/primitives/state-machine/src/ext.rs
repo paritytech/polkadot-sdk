@@ -295,23 +295,29 @@ where
 	}
 
 	fn next_storage_key(&mut self, key: &[u8]) -> Option<StorageKey> {
+		let _guard = guard();
+		let start = std::time::Instant::now();
+
 		let mut next_backend_key =
 			self.backend.next_storage_key(key).expect(EXT_NOT_ALLOWED_TO_FAIL);
 		let mut overlay_changes = self.overlay.iter_after(key).peekable();
 
-		match (&next_backend_key, overlay_changes.peek()) {
+		let result = match (&next_backend_key, overlay_changes.peek()) {
 			(_, None) => next_backend_key,
 			(Some(_), Some(_)) => {
+				let mut found_result = None;
 				for overlay_key in overlay_changes {
 					let cmp = next_backend_key.as_deref().map(|v| v.cmp(overlay_key.0));
 
 					// If `backend_key` is less than the `overlay_key`, we found out next key.
 					if cmp == Some(Ordering::Less) {
-						return next_backend_key
+						found_result = next_backend_key.clone();
+						break;
 					} else if overlay_key.1.value().is_some() {
 						// If there exists a value for the `overlay_key` in the overlay
 						// (aka the key is still valid), it means we have found our next key.
-						return Some(overlay_key.0.to_vec())
+						found_result = Some(overlay_key.0.to_vec());
+						break;
 					} else if cmp == Some(Ordering::Equal) {
 						// If the `backend_key` and `overlay_key` are equal, it means that we need
 						// to search for the next backend key, because the overlay has overwritten
@@ -323,13 +329,24 @@ where
 					}
 				}
 
-				next_backend_key
+				found_result.or(next_backend_key)
 			},
 			(None, Some(_)) => {
 				// Find the next overlay key that has a value attached.
 				overlay_changes.find_map(|k| k.1.value().as_ref().map(|_| k.0.to_vec()))
 			},
-		}
+		};
+
+		trace!(
+			target: "state",
+			method = "NextKey",
+			ext_id = %HexDisplay::from(&self.id.to_le_bytes()),
+			key = %HexDisplay::from(&key),
+			result = ?result.as_ref().map(HexDisplay::from),
+			duration_us = %start.elapsed().as_micros(),
+		);
+
+		result
 	}
 
 	fn next_child_storage_key(&mut self, child_info: &ChildInfo, key: &[u8]) -> Option<StorageKey> {
