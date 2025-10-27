@@ -62,7 +62,7 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::on_demand::WeightInfo
 	/// Storage: `OnDemandAssignmentProvider::FreeEntries` (r:1 w:1)
 	/// Proof: `OnDemandAssignmentProvider::FreeEntries` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `s` is `[1, 9999]`.
-	fn place_order_keep_alive(s: u32, ) -> Weight {
+	fn place_order_keep_alive() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `270 + s * (8 ±0)`
 		//  Estimated: `3733 + s * (8 ±0)`
@@ -86,7 +86,7 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::on_demand::WeightInfo
 	/// Storage: `OnDemandAssignmentProvider::FreeEntries` (r:1 w:1)
 	/// Proof: `OnDemandAssignmentProvider::FreeEntries` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `s` is `[1, 9999]`.
-	fn place_order_allow_death(s: u32, ) -> Weight {
+	fn place_order_allow_death() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `270 + s * (8 ±0)`
 		//  Estimated: `3733 + s * (8 ±0)`
@@ -110,7 +110,7 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::on_demand::WeightInfo
 	/// Storage: `OnDemandAssignmentProvider::FreeEntries` (r:1 w:1)
 	/// Proof: `OnDemandAssignmentProvider::FreeEntries` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `s` is `[1, 9999]`.
-	fn place_order_with_credits(s: u32, ) -> Weight {
+	fn place_order_with_credits() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `304 + s * (8 ±0)`
 		//  Estimated: `3767 + s * (8 ±0)`
