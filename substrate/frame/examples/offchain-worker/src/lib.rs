@@ -305,6 +305,7 @@ pub mod pallet {
 		NewPrice { price: u32, maybe_who: Option<T::AccountId> },
 	}
 
+	#[allow(deprecated)]
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;

@@ -504,6 +504,7 @@ pub mod pallet {
 	)]
 	pub struct Origin<T>(PhantomData<T>);
 
+	#[allow(deprecated)]
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T>
 	where

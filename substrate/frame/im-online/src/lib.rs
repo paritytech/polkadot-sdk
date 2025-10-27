@@ -447,6 +447,7 @@ pub mod pallet {
 	/// incorrect.
 	pub(crate) const INVALID_VALIDATORS_LEN: u8 = 10;
 
+	#[allow(deprecated)]
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;

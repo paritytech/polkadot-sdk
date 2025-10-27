@@ -26,10 +26,7 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use secp_utils::*;
-use sp_runtime::{
-	traits::{DispatchTransaction, ValidateUnsigned},
-	DispatchResult,
-};
+use sp_runtime::{traits::DispatchTransaction, DispatchResult};
 
 const SEED: u32 = 0;
 
@@ -74,6 +71,9 @@ fn create_claim_attest<T: Config>(input: u32) -> DispatchResult {
 mod benchmarks {
 	use super::*;
 
+	#[allow(deprecated)]
+	use sp_runtime::traits::ValidateUnsigned;
+
 	// Benchmark `claim` including `validate_unsigned` logic.
 	#[benchmark]
 	fn claim() -> Result<(), BenchmarkError> {
@@ -104,6 +104,7 @@ mod benchmarks {
 		{
 			let call = <Call<T> as Decode>::decode(&mut &*call_enc)
 				.expect("call is encoded above, encoding must be correct");
+			#[allow(deprecated)]
 			super::Pallet::<T>::validate_unsigned(source, &call)
 				.map_err(|e| -> &'static str { e.into() })?;
 			call.dispatch_bypass_filter(RawOrigin::None.into())?;
@@ -168,6 +169,7 @@ mod benchmarks {
 		{
 			let call = <Call<T> as Decode>::decode(&mut &*call_enc)
 				.expect("call is encoded above, encoding must be correct");
+			#[allow(deprecated)]
 			super::Pallet::<T>::validate_unsigned(source, &call)
 				.map_err(|e| -> &'static str { e.into() })?;
 			call.dispatch_bypass_filter(RawOrigin::None.into())?;

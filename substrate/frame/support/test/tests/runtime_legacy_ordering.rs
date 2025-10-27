@@ -213,6 +213,7 @@ mod nested {
 			fn build(&self) {}
 		}
 
+		#[allow(deprecated)]
 		#[pallet::validate_unsigned]
 		impl<T: Config> ValidateUnsigned for Pallet<T> {
 			type Call = Call<T>;
@@ -309,6 +310,7 @@ pub mod module3 {
 	#[pallet::storage]
 	pub type Storage<T> = StorageValue<_, u32>;
 
+	#[allow(deprecated)]
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
