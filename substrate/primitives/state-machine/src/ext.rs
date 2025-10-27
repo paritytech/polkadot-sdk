@@ -296,6 +296,7 @@ where
 
 	fn next_storage_key(&mut self, key: &[u8]) -> Option<StorageKey> {
 		let _guard = guard();
+		#[cfg(feature = "std")]
 		let start = std::time::Instant::now();
 
 		let mut next_backend_key =
@@ -337,6 +338,7 @@ where
 			},
 		};
 
+		#[cfg(feature = "std")]
 		trace!(
 			target: "state",
 			method = "NextKey",

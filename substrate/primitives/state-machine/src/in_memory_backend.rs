@@ -24,7 +24,9 @@ use crate::{
 use alloc::{collections::BTreeMap, vec::Vec};
 use codec::Codec;
 use hash_db::Hasher;
-use sp_core::storage::{ChildInfo, StateVersion, Storage};
+#[cfg(feature = "std")]
+use sp_core::storage::Storage;
+use sp_core::storage::{ChildInfo, StateVersion};
 use sp_trie::{empty_trie_root, LayoutV1, PrefixedMemoryDB, RandomState};
 
 #[cfg(feature = "std")]
