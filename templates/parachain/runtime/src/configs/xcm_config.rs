@@ -15,7 +15,7 @@ use frame_support::{
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain_primitives::primitives::Sibling;
-use polkadot_runtime_common::impls::ToAuthor;
+use polkadot_runtime_common::{impls::ToAuthor, xcm_sender::NoPriceForMessageDelivery};
 use polkadot_sdk::{
 	polkadot_sdk_frame::traits::Disabled,
 	staging_xcm_builder::{DenyRecursively, DenyThenTry},
@@ -30,6 +30,10 @@ use xcm_builder::{
 	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
 };
 use xcm_executor::XcmExecutor;
+
+/// Cross-chain delivery fee pricing for UMP (to Relay).
+/// Default: no delivery fee. Switch to `ConstantPrice<_>` or `ExponentialPrice<...>` if needed.
+pub type UmpMessagePrice = NoPriceForMessageDelivery<()>;
 
 parameter_types! {
 	pub const RelayLocation: Location = Location::parent();
@@ -163,7 +167,11 @@ pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, R
 /// queues.
 pub type XcmRouter = WithUniqueTopic<(
 	// Two routers - use UMP to communicate with the relay chain:
-	cumulus_primitives_utility::ParentAsUmp<ParachainSystem, (), ()>,
+cumulus_primitives_utility::ParentAsUmp<
+		ParachainSystem,
+		(),
+		UmpMessagePrice,
+	>,
 	// ..and XCMP to communicate with the sibling chains.
 	XcmpQueue,
 )>;

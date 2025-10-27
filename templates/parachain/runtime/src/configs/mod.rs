@@ -250,6 +250,10 @@ impl pallet_message_queue::Config for Runtime {
 
 impl cumulus_pallet_aura_ext::Config for Runtime {}
 
+/// Cross-chain delivery fee pricing for HRMP (to siblings).
+/// Default: no delivery fee. Switch to `ConstantPrice<_>` or `ExponentialPrice<...>` if needed.
+pub type HrmpMessagePrice = NoPriceForMessageDelivery<ParaId>;
+
 impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelInfo = ParachainSystem;
@@ -262,7 +266,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type WeightInfo = ();
-	type PriceForSiblingDelivery = NoPriceForMessageDelivery<ParaId>;
+	type PriceForSiblingDelivery = HrmpMessagePrice;
 }
 
 parameter_types! {
