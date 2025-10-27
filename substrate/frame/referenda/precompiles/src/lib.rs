@@ -184,53 +184,45 @@ where
 				timing,
 				enactmentMoment: enactment_moment,
 			}) => {
-				info!(target: LOG_TARGET, ?origin, ?hash, ?preimage_length,  ?enactment_moment, "submitLookup");
+				info!(target: LOG_TARGET, ?origin, ?hash, ?preimage_length, ?enactment_moment, "submitLookup");
 
-				// 1. Get the EVM caller (ExecOrigin enum)
-				//      Convert ExecOrigin to RuntimeOrigin (frame_system origin)
-				let transaction_origin: <Runtime as frame_system::Config>::RuntimeOrigin =
-					match &&exec_origin {
-						ExecOrigin::Signed(account_id) => {
-							frame_system::RawOrigin::Signed(account_id.clone()).into()
-						},
-						ExecOrigin::Root => frame_system::RawOrigin::Root.into(),
-					};
+				// 1. Convert EVM caller to transaction origin
+				let transaction_origin: RuntimeOriginFor<Runtime> = match &&exec_origin {
+					ExecOrigin::Signed(account_id) => {
+						frame_system::RawOrigin::Signed(account_id.clone()).into()
+					},
+					ExecOrigin::Root => frame_system::RawOrigin::Root.into(),
+				};
 
-				//  Charge gas for the operation
-				env.charge(
-					<<Runtime as pallet_referenda::Config>::WeightInfo as pallet_referenda::WeightInfo>::submit()
-				)?;
-				// 2. DECODE origin bytes to PalletsOrigin. must validate the origin is appropriate for the EVM caller. Don't allow arbitrary origins.
+				// 2. Charge gas
+				env.charge(<<Runtime as pallet_referenda::Config>::WeightInfo  as pallet_referenda::WeightInfo>::submit())?;
+
+				// 3. Decode proposal origin
 				let proposal_origin = decode_proposal_origin::<Runtime>(&origin)?;
 
-				// 3. CONVERT timing enum to DispatchTime and return enactment moment
-				let enactment =
+				// 4. Convert timing
+				let dispatch_time =
 					convert_timing_to_dispatch::<Runtime, ()>(*timing, *enactment_moment)?;
-				// 4. BUILD lookup proposal
-				// Convert Alloy hash to Runtime::Hash using SCALE decode
+
+				// 5. Convert hash
 				let hash_bytes: [u8; 32] = *hash.as_ref();
 				let preimage_hash =
 					<Runtime as frame_system::Config>::Hash::decode(&mut &hash_bytes[..])
 						.map_err(|_| Error::Revert("Invalid hash format".into()))?;
 
-				// Build lookup proposal
+				// 6. Build lookup proposal
 				let proposal = BoundedCallOf::<Runtime, ()>::Lookup {
 					hash: preimage_hash,
 					len: *preimage_length,
 				};
 
-				// 2. Get the referendum index that will be assigned
-				let referendum_index = get_next_referendum_index::<Runtime>();
-				// 4. DISPATCH to pallet_referenda
-				let result = submit_dispatch::<Runtime, ()>(
+				// 7. Submit referendum and get the actual created index
+				let referendum_index = submit_dispatch::<Runtime, ()>(
 					transaction_origin,
 					proposal_origin,
 					proposal,
-					enactment,
-				)
-				.map_err(|e| revert(&e, "Referenda submission failed"))?;
-				// 5. HANDLE result and return referendum index
-
+					dispatch_time,
+				)?;
 				Ok(referendum_index.abi_encode())
 			},
 
