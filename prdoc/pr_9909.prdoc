@@ -11,9 +11,6 @@ doc:
     Additionally, for delegate_call, bare_call is used, so there is no way to specify we are dealing with a delegate call, so the call is not working correcly.
 
     For both this paths, we need a way to inject this information into the execution environment, hence I added an optional hooks interface that we implement from foundry cheatcodes for prank and mock functionality.
-
-    ## TODO
-    - [x] Add tests to make sure the hooks functionality does not regress.
 crates:
 - name: pallet-revive
   bump: minor
