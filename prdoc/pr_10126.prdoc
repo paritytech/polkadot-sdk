@@ -1,7 +1,7 @@
 title: 'fellowship salary: Fix unpayable registrations from previous cycles'
 
 doc:
-  - audience: Runtime Dev
+  - audience: Runtime User
     description: |
       Fixes a bug in fellowship salary where users who registered for payout in cycle N
       but missed the payout window would be unable to claim payment in subsequent cycles.
