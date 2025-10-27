@@ -64,25 +64,18 @@ impl<Client: EthRpcClient + Sync + Send> SubmittedTransaction<Client> {
 
 	/// Wait for the receipt of the transaction.
 	pub async fn wait_for_receipt(&self) -> anyhow::Result<ReceiptInfo> {
-		self.wait_for_receipt_advanced(true).await
-	}
-
-	/// Wait for the receipt of the transaction.
-	pub async fn wait_for_receipt_advanced(&self, check_gas: bool) -> anyhow::Result<ReceiptInfo> {
 		let hash = self.hash();
 		for _ in 0..30 {
 			tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 			let receipt = self.client.get_transaction_receipt(hash).await?;
 			if let Some(receipt) = receipt {
 				if receipt.is_success() {
-					if check_gas {
-						assert!(
-							self.gas() > receipt.gas_used,
-							"Gas used {:?} should be less than gas estimated {:?}",
-							receipt.gas_used,
-							self.gas()
-						);
-					}
+					assert!(
+						self.gas() > receipt.gas_used,
+						"Gas used {:?} should be less than gas estimated {:?}",
+						receipt.gas_used,
+						self.gas()
+					);
 					return Ok(receipt)
 				} else {
 					anyhow::bail!("Transaction failed receipt: {receipt:?}")

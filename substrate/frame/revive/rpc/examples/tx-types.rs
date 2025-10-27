@@ -43,7 +43,7 @@ async fn main() -> anyhow::Result<()> {
 			.await?;
 		println!("Transaction hash: {:?}", tx.hash());
 
-		let receipt = tx.wait_for_receipt_advanced(false).await?;
+		let receipt = tx.wait_for_receipt().await?;
 		println!("Receipt: {receipt:#?}");
 	}
 	Ok(())
