@@ -1,0 +1,14 @@
+title: '[revive] Receipts should include failed tx'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fix Eth block receipt production, the current approach didn't work as failed extrinsic, revert all storage changes.
+    This PR updates eth transactions, so that they always succeed, the logic is wrapped into a top level `with_transaction` that will rollback all storage change in case of failure
+
+    TODO
+    - [ ]  Update the the weights
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-eth-rpc
+  bump: patch
