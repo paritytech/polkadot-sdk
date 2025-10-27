@@ -2094,6 +2094,20 @@ impl<T: Config> Pallet<T> {
 			.map_err(ContractAccessError::StorageWriteFailed)
 	}
 
+	/// Uploads evm runtime code and returns the Vm binary contract blob and deposit amount
+	/// collected.
+	pub fn try_upload_evm_runtime_code(
+		origin: T::AccountId,
+		code: Vec<u8>,
+		storage_deposit_limit: BalanceOf<T>,
+		exec_config: &ExecConfig,
+	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
+		let mut module = ContractBlob::from_evm_runtime_code(code, origin)?;
+		let deposit = module.store_code(exec_config, None)?;
+		ensure!(storage_deposit_limit >= deposit, <Error<T>>::StorageDepositLimitExhausted);
+		Ok((module, deposit))
+	}
+
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
 	fn try_upload_pvm_code(
 		origin: T::AccountId,
