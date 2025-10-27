@@ -433,6 +433,14 @@ pub mod pallet {
 
 		/// Contract deployed by deployer at the specified address.
 		Instantiated { deployer: H160, contract: H160 },
+
+		/// Emitted when an Ethereum transaction reverts.
+		///
+		/// Ethereum transactions always complete successfully at the extrinsic level,
+		/// as even reverted calls must store their `ReceiptInfo`.
+		/// To distinguish reverted calls from successful ones, this event is emitted
+		/// for failed Ethereum transactions.
+		EthExtrinsicRevert { dispatch_error: DispatchError },
 	}
 
 	#[pallet::error]
@@ -1194,6 +1202,7 @@ pub mod pallet {
 		#[pallet::call_index(10)]
 		#[pallet::weight(
 			<T as Config>::WeightInfo::eth_instantiate_with_code(code.len() as u32, data.len() as u32, Pallet::<T>::has_dust(*value).into())
+			.saturating_add(T::WeightInfo::on_finalize_block_per_tx(transaction_encoded.len() as u32))
 			.saturating_add(*gas_limit)
 		)]
 		pub fn eth_instantiate_with_code(
@@ -1221,7 +1230,7 @@ pub mod pallet {
 			let base_info = T::FeeInfo::base_dispatch_info(&mut call);
 			drop(call);
 
-			block_storage::with_ethereum_context(|| {
+			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
 				let mut output = Self::bare_instantiate(
 					origin,
 					value,
@@ -1243,18 +1252,14 @@ pub mod pallet {
 					}
 				}
 
-				block_storage::process_transaction::<T>(
-					transaction_encoded,
-					output.result.is_ok(),
-					output.gas_consumed,
-				);
-
+				let gas_consumed = output.gas_consumed;
 				let result = dispatch_result(
 					output.result.map(|result| result.result),
-					output.gas_consumed,
+					gas_consumed,
 					base_info.call_weight,
 				);
-				T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result)
+				let result = T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result);
+				(gas_consumed, result)
 			})
 		}
 
@@ -1291,7 +1296,7 @@ pub mod pallet {
 			let base_info = T::FeeInfo::base_dispatch_info(&mut call);
 			drop(call);
 
-			block_storage::with_ethereum_context(|| {
+			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
 				let mut output = Self::bare_call(
 					origin,
 					dest,
@@ -1312,22 +1317,11 @@ pub mod pallet {
 					}
 				}
 
-				let encoded_length = transaction_encoded.len() as u32;
-
-				block_storage::process_transaction::<T>(
-					transaction_encoded,
-					output.result.is_ok(),
-					output.gas_consumed,
-				);
-
-				let result = dispatch_result(
-					output.result,
-					output.gas_consumed,
-					base_info
-						.call_weight
-						.saturating_add(T::WeightInfo::on_finalize_block_per_tx(encoded_length)),
-				);
-				T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result)
+				let gas_consumed = output.gas_consumed;
+				let result =
+					dispatch_result(output.result, output.gas_consumed, base_info.call_weight);
+				let result = T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result);
+				(gas_consumed, result)
 			})
 		}
 
@@ -1572,7 +1566,7 @@ impl<T: Config> Pallet<T> {
 						let executable = ContractBlob::from_evm_init_code(code, origin)?;
 						(executable, Default::default())
 					} else {
-						return Err(<Error<T>>::CodeRejected.into())
+						return Err(<Error<T>>::CodeRejected.into());
 					},
 				Code::Existing(code_hash) =>
 					(ContractBlob::from_storage(code_hash, &mut gas_meter)?, Default::default()),
@@ -2136,7 +2130,9 @@ impl<T: Config> Pallet<T> {
 		origin: &OriginFor<T>,
 	) -> Result<(), ContractResult<ReturnValue, BalanceOf<T>>> {
 		use crate::exec::is_precompile;
-		let Ok(who) = ensure_signed(origin.clone()) else { return Ok(()) };
+		let Ok(who) = ensure_signed(origin.clone()) else {
+			return Ok(());
+		};
 		let address = <T::AddressMapper as AddressMapper<T>>::to_address(&who);
 
 		// EIP_1052: precompile can never be used as EOA.
@@ -2197,7 +2193,7 @@ impl<T: Config> Pallet<T> {
 	pub fn code(address: &H160) -> Vec<u8> {
 		use precompiles::{All, Precompiles};
 		if let Some(code) = <All<T>>::code(address.as_fixed_bytes()) {
-			return code.into()
+			return code.into();
 		}
 		AccountInfo::<T>::load_contract(&address)
 			.and_then(|contract| <PristineCode<T>>::get(contract.code_hash))

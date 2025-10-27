@@ -14,16 +14,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 use crate::{
 	evm::block_hash::{AccumulateReceipt, EthereumBlockBuilder, LogsBloom},
 	limits,
 	sp_runtime::traits::One,
-	BlockHash, Config, EthBlockBuilderIR, EthereumBlock, ReceiptInfoData, UniqueSaturatedInto,
-	H160, H256,
+	BlockHash, Config, EthBlockBuilderIR, EthereumBlock, Event, Pallet, ReceiptInfoData,
+	UniqueSaturatedInto, H160, H256, LOG_TARGET,
 };
-
-use frame_support::weights::Weight;
+use frame_support::{
+	pallet_prelude::{DispatchError, DispatchResultWithPostInfo},
+	weights::Weight,
+};
 pub use sp_core::U256;
 
 use alloc::vec::Vec;
@@ -60,10 +61,46 @@ pub fn get_receipt_details() -> Option<(Vec<u8>, LogsBloom)> {
 }
 
 /// Capture the receipt events emitted from the current ethereum
-/// transaction. The transaction must be signed by an eth-compatible
-/// wallet.
-pub fn with_ethereum_context<R>(f: impl FnOnce() -> R) -> R {
+#[cfg(feature = "runtime-benchmarks")]
+pub fn bench_with_ethereum_context<R>(f: impl FnOnce() -> R) -> R {
 	receipt::using(&mut AccumulateReceipt::new(), f)
+}
+
+/// Execute the Ethereum call, and write the block storage transaction details.
+///
+/// # Parameters
+/// - transaction_encoded: The RLP encoded transaction bytes.
+/// - call: A closure that executes the transaction logic and returns the gas consumed and the Post
+/// info details
+pub fn with_ethereum_context<T: Config>(
+	transaction_encoded: Vec<u8>,
+	call: impl FnOnce() -> (Weight, DispatchResultWithPostInfo),
+) -> DispatchResultWithPostInfo {
+	use frame_support::storage::with_transaction;
+	use sp_runtime::TransactionOutcome;
+	let (err, gas_consumed, post_info) = receipt::using(&mut AccumulateReceipt::new(), || {
+		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
+			let (gas_consumed, result) = call();
+			match result {
+				Ok(post_info) => TransactionOutcome::Commit(Ok((None, gas_consumed, post_info))),
+				Err(err) =>
+					TransactionOutcome::Rollback(Ok((Some(err.error), gas_consumed, err.post_info))),
+			}
+		})
+	})?;
+
+	let success = if let Some(dispatch_error) = err {
+		log::debug!(
+			target: LOG_TARGET,
+			"Ethereum extrinsic reverted with error: {dispatch_error:?}",
+		);
+		Pallet::<T>::deposit_event(Event::<T>::EthExtrinsicRevert { dispatch_error });
+		false
+	} else {
+		true
+	};
+	crate::block_storage::process_transaction::<T>(transaction_encoded, success, gas_consumed);
+	Ok(post_info)
 }
 
 /// Clear the storage used to capture the block hash related data.

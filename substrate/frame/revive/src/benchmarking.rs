@@ -2698,7 +2698,7 @@ mod benchmarks {
 				);
 
 				// Store transaction
-				let _ = block_storage::with_ethereum_context(|| {
+				let _ = block_storage::bench_with_ethereum_context(|| {
 					let (encoded_logs, bloom) =
 						block_storage::get_receipt_details().unwrap_or_default();
 
@@ -2771,7 +2771,7 @@ mod benchmarks {
 			);
 
 			// Store transaction
-			let _ = block_storage::with_ethereum_context(|| {
+			let _ = block_storage::bench_with_ethereum_context(|| {
 				let (encoded_logs, bloom) =
 					block_storage::get_receipt_details().unwrap_or_default();
 
@@ -2836,7 +2836,7 @@ mod benchmarks {
 		let gas_used = Weight::from_parts(1_000_000, 1000);
 
 		// Store transaction
-		let _ = block_storage::with_ethereum_context(|| {
+		let _ = block_storage::bench_with_ethereum_context(|| {
 			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
 
 			let block_builder_ir = EthBlockBuilderIR::<T>::get();
@@ -2898,7 +2898,7 @@ mod benchmarks {
 		let gas_used = Weight::from_parts(1_000_000, 1000);
 
 		// Store transaction
-		let _ = block_storage::with_ethereum_context(|| {
+		let _ = block_storage::bench_with_ethereum_context(|| {
 			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
 
 			let block_builder_ir = EthBlockBuilderIR::<T>::get();
