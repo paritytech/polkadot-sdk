@@ -39,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
 			.signer(alith.clone())
 			.value(value)
 			.to(ethan.address())
-			.send_typed(tx_type)
+			.send_with_type(tx_type)
 			.await?;
 		println!("Transaction hash: {:?}", tx.hash());
 

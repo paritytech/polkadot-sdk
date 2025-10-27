@@ -158,11 +158,11 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 
 	/// Send the transaction.
 	pub async fn send(self) -> anyhow::Result<SubmittedTransaction<Client>> {
-		self.send_typed(TransactionType::Legacy).await
+		self.send_with_type(TransactionType::Legacy).await
 	}
 
 	/// Send the transaction with a specific transaction type.
-	pub async fn send_typed(
+	pub async fn send_with_type(
 		self,
 		tx_type: TransactionType,
 	) -> anyhow::Result<SubmittedTransaction<Client>> {
