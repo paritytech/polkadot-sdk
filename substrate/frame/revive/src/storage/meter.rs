@@ -18,12 +18,14 @@
 //! This module contains functions to meter the storage deposit.
 
 use crate::{
-	storage::ContractInfo, AccountIdOf, BalanceOf, Config, Error, ExecConfig, ExecOrigin as Origin,
-	HoldReason, Inspect, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
+	address::AddressMapper, storage::ContractInfo, AccountIdOf, AccountInfo, AccountInfoOf,
+	BalanceOf, CodeInfo, Config, Error, ExecConfig, ExecOrigin as Origin, HoldReason,
+	ImmutableDataOf, Inspect, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
+	storage::{with_transaction, TransactionOutcome},
 	traits::{
 		fungible::Mutate,
 		tokens::{Fortitude::Polite, Preservation},
@@ -203,7 +205,7 @@ impl Diff {
 #[derive(RuntimeDebugNoBound, Clone, PartialEq, Eq)]
 pub enum ContractState<T: Config> {
 	Alive,
-	Terminated { beneficiary: AccountIdOf<T> },
+	Terminated { beneficiary: AccountIdOf<T>, delete_code: bool },
 }
 
 /// Records information to charge or refund a plain account.
@@ -233,7 +235,7 @@ enum Contribution<T: Config> {
 	/// The contract was terminated. In this process the [`Diff`] was converted into a [`Deposit`]
 	/// in order to calculate the refund. Upon termination the `reducible_balance` in the
 	/// contract's account is transferred to the [`beneficiary`].
-	Terminated { deposit: DepositOf<T>, beneficiary: AccountIdOf<T> },
+	Terminated { deposit: DepositOf<T>, beneficiary: AccountIdOf<T>, delete_code: bool },
 }
 
 impl<T: Config> Contribution<T> {
@@ -241,7 +243,7 @@ impl<T: Config> Contribution<T> {
 	fn update_contract(&self, info: Option<&mut ContractInfo<T>>) -> DepositOf<T> {
 		match self {
 			Self::Alive(diff) => diff.update_contract::<T>(info),
-			Self::Terminated { deposit, beneficiary: _ } | Self::Checked(deposit) =>
+			Self::Terminated { deposit, beneficiary: _, .. } | Self::Checked(deposit) =>
 				deposit.clone(),
 		}
 	}
@@ -298,13 +300,31 @@ where
 			.saturating_add(&absorbed.total_deposit)
 			.saturating_add(&own_deposit);
 		self.charges.extend_from_slice(&absorbed.charges);
-		if !own_deposit.is_zero() {
+
+		// Allow recording zero deposit charge only if the contract was terminated.
+		if !own_deposit.is_zero() ||
+			matches!(absorbed.contract_state(), ContractState::Terminated { .. })
+		{
 			self.charges.push(Charge {
 				contract: contract.clone(),
 				amount: own_deposit,
 				state: absorbed.contract_state(),
 			});
 		}
+	}
+
+	pub fn terminate_absorb(
+		&mut self,
+		contract_account: T::AccountId,
+		contract_info: &mut ContractInfo<T>,
+		beneficiary: T::AccountId,
+		delete_code: bool,
+	) {
+		use sp_runtime::traits::Bounded;
+		// Create a nested storage meter and terminate the contract's storage.
+		let mut nested = self.nested(BalanceOf::<T>::max_value());
+		nested.terminate(contract_info, beneficiary.clone(), delete_code);
+		self.absorb(core::mem::take(&mut nested), &contract_account, Some(contract_info));
 	}
 
 	/// Record a charge that has taken place externally.
@@ -343,8 +363,11 @@ where
 	/// Returns the state of the currently executed contract.
 	fn contract_state(&self) -> ContractState<T> {
 		match &self.own_contribution {
-			Contribution::Terminated { deposit: _, beneficiary } =>
-				ContractState::Terminated { beneficiary: beneficiary.clone() },
+			Contribution::Terminated { deposit: _, beneficiary, delete_code } =>
+				ContractState::Terminated {
+					beneficiary: beneficiary.clone(),
+					delete_code: *delete_code,
+				},
 			_ => ContractState::Alive,
 		}
 	}
@@ -371,7 +394,7 @@ where
 	/// This drops the root meter in order to make sure it is only called when the whole
 	/// execution did finish.
 	pub fn try_into_deposit(
-		self,
+		mut self,
 		origin: &Origin<T>,
 		exec_config: &ExecConfig,
 	) -> Result<DepositOf<T>, DispatchError> {
@@ -379,6 +402,27 @@ where
 		let origin = match origin {
 			Origin::Root => return Ok(Deposit::Charge(Zero::zero())),
 			Origin::Signed(o) => o,
+		};
+		self.charges.sort_by(|a, b| a.contract.cmp(&b.contract));
+		// Coalesce charges of the same contract.
+		self.charges = {
+			let mut coalesced: Vec<Charge<T>> = Vec::with_capacity(self.charges.len());
+			for ch in self.charges {
+				if let Some(last) = coalesced.last_mut() {
+					if last.contract == ch.contract {
+						// merge amounts (uses Deposit::saturating_add)
+						last.amount = last.amount.saturating_add(&ch.amount);
+						// prefer terminated state if any entry is terminated (keep whichever is
+						// terminated)
+						if matches!(ch.state, ContractState::Terminated { .. }) {
+							last.state = ch.state.clone();
+						}
+						continue;
+					}
+				}
+				coalesced.push(ch);
+			}
+			coalesced
 		};
 		let try_charge = || {
 			for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Refund(_))) {
@@ -425,11 +469,13 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 	/// This will manipulate the meter so that all storage deposit accumulated in
 	/// `contract_info` will be refunded to the `origin` of the meter. And the free
 	/// (`reducible_balance`) will be sent to the `beneficiary`.
-	pub fn terminate(&mut self, info: &ContractInfo<T>, beneficiary: T::AccountId) {
+	fn terminate(&mut self, info: &ContractInfo<T>, beneficiary: T::AccountId, delete_code: bool) {
 		debug_assert!(matches!(self.contract_state(), ContractState::Alive));
+		let deposit = if delete_code { info.total_deposit() } else { BalanceOf::<T>::zero() };
 		self.own_contribution = Contribution::Terminated {
-			deposit: Deposit::Refund(info.total_deposit()),
+			deposit: Deposit::Refund(deposit),
 			beneficiary,
+			delete_code,
 		};
 	}
 
@@ -464,7 +510,9 @@ impl<T: Config> Ext<T> for ReservingExt {
 		exec_config: &ExecConfig,
 	) -> Result<(), DispatchError> {
 		match amount {
-			Deposit::Charge(amount) | Deposit::Refund(amount) if amount.is_zero() => return Ok(()),
+			Deposit::Charge(amount) | Deposit::Refund(amount) if amount.is_zero() => {
+				// We cannot return here because need to handle the terminated state below.
+			},
 			Deposit::Charge(amount) => {
 				<Pallet<T>>::charge_deposit(
 					Some(HoldReason::StorageDepositReserve),
@@ -495,18 +543,66 @@ impl<T: Config> Ext<T> for ReservingExt {
 				}
 			},
 		}
-		if let ContractState::<T>::Terminated { beneficiary } = state {
-			System::<T>::dec_consumers(&contract);
-			// Whatever is left in the contract is sent to the termination beneficiary.
-			T::Currency::transfer(
-				&contract,
-				&beneficiary,
-				T::Currency::reducible_balance(&contract, Preservation::Expendable, Polite),
-				Preservation::Expendable,
-			)?;
+		if let ContractState::<T>::Terminated { beneficiary, delete_code } = state {
+			if let Err(e) = terminate::<T>(contract, &beneficiary, delete_code) {
+				log::debug!(target: LOG_TARGET, "Failed to terminate contract: {:?}", e);
+			}
 		}
 		Ok(())
 	}
+}
+
+fn terminate<T: Config>(
+	contract: &T::AccountId,
+	beneficiary: &T::AccountId,
+	delete_code: &bool,
+) -> Result<(), DispatchError> {
+	fn terminate_inner<T: Config>(
+		contract: &T::AccountId,
+		beneficiary: &T::AccountId,
+		delete_code: &bool,
+	) -> Result<(), DispatchError> {
+		let balance = if *delete_code {
+			// Clean up on-chain storage
+			let contract_address = T::AddressMapper::to_address(contract);
+			let contract_info = AccountInfo::<T>::load_contract(&contract_address)
+				.ok_or(Error::<T>::ContractNotFound)?;
+			contract_info.queue_trie_for_deletion();
+			AccountInfoOf::<T>::remove(contract_address);
+			ImmutableDataOf::<T>::remove(contract_address);
+
+			// ensure code is removed
+			let _code_removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
+
+			System::<T>::dec_consumers(&contract);
+
+			// Whatever is left in the contract is sent to the termination beneficiary.
+			T::Currency::total_balance(&contract)
+		} else {
+			// Whatever is left in the contract is sent to the termination beneficiary.
+			T::Currency::reducible_balance(&contract, Preservation::Expendable, Polite)
+		};
+		if !balance.is_zero() {
+			T::Currency::transfer(&contract, &beneficiary, balance, Preservation::Expendable)?;
+		}
+
+		Ok(())
+	}
+
+	with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
+		match terminate_inner::<T>(contract, beneficiary, delete_code) {
+			Ok(_) => TransactionOutcome::Commit(Ok(())),
+			Err(e) => TransactionOutcome::Rollback(Err(e)),
+		}
+	})
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub fn terminate_logic_for_benchmark<T: Config>(
+	contract: &T::AccountId,
+	beneficiary: &T::AccountId,
+) -> Result<(), DispatchError> {
+	terminate::<T>(contract, beneficiary, &true)
 }
 
 mod private {
@@ -677,13 +773,7 @@ mod tests {
 						Charge {
 							origin: ALICE,
 							contract: CHARLIE,
-							amount: Deposit::Refund(10),
-							state: ContractState::Alive,
-						},
-						Charge {
-							origin: ALICE,
-							contract: CHARLIE,
-							amount: Deposit::Refund(20),
+							amount: Deposit::Refund(30),
 							state: ContractState::Alive,
 						},
 						Charge {
@@ -776,7 +866,10 @@ mod tests {
 							origin: ALICE,
 							contract: CHARLIE,
 							amount: Deposit::Refund(120),
-							state: ContractState::Terminated { beneficiary: CHARLIE },
+							state: ContractState::Terminated {
+								beneficiary: CHARLIE,
+								delete_code: true,
+							},
 						},
 						Charge {
 							origin: ALICE,
@@ -819,7 +912,7 @@ mod tests {
 			let mut nested1 = nested0.nested(BalanceOf::<Test>::max_value());
 			nested1.charge(&Diff { items_removed: 5, ..Default::default() });
 			nested1.charge(&Diff { bytes_added: 20, ..Default::default() });
-			nested1.terminate(&nested1_info, CHARLIE);
+			nested1.terminate(&nested1_info, CHARLIE, true);
 			nested0.enforce_limit(Some(&mut nested1_info)).unwrap();
 			nested0.absorb(nested1, &CHARLIE, None);
 

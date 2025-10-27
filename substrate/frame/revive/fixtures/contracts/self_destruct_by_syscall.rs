@@ -1,5 +1,6 @@
+// This file is part of Substrate.
+
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Cumulus.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,9 +15,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod aura;
+#![no_std]
+#![no_main]
+include!("../panic_handler.rs");
 
-/// The current node version for cumulus official binaries, which takes the basic
-/// SemVer form `<major>.<minor>.<patch>`. It should correspond to the latest
-/// `polkadot` version of a stable release.
-pub const NODE_VERSION: &'static str = "1.20.1";
+use uapi::{HostFn, HostFnImpl as api};
+
+
+#[no_mangle]
+#[polkavm_derive::polkavm_export]
+pub extern "C" fn deploy() {}
+
+#[no_mangle]
+#[polkavm_derive::polkavm_export]
+pub extern "C" fn call() {
+	const DJANGO_FALLBACK: [u8; 20] = [4u8; 20];
+	api::terminate(&DJANGO_FALLBACK);
+}
