@@ -21,9 +21,10 @@ use crate::{
 	evm::{block_hash::EthereumBlockBuilder, fees::InfoT, Block, TransactionSigned},
 	test_utils::{builder::Contract, deposit_limit, ALICE},
 	tests::{assert_ok, builder, Contracts, ExtBuilder, RuntimeOrigin, Test},
-	BalanceWithDust, Code, Config, EthBlock, EthBlockBuilderFirstValues, EthBlockBuilderIR,
+	BalanceWithDust, Code, Config, Error, EthBlock, EthBlockBuilderFirstValues, EthBlockBuilderIR,
 	EthereumBlock, Pallet, ReceiptGasInfo, ReceiptInfoData,
 };
+use frame_support::assert_err_ignore_postinfo;
 
 use frame_support::traits::{
 	fungible::{Balanced, Mutate},
@@ -64,6 +65,8 @@ fn transactions_are_captured() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(binary.clone())).build_and_unwrap_contract();
+		let Contract { addr: addr2, .. } =
+			builder::bare_instantiate(Code::Upload(gas_binary.clone())).build_and_unwrap_contract();
 		let balance =
 			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
 
@@ -71,15 +74,17 @@ fn transactions_are_captured() {
 
 		assert_ok!(builder::eth_call(addr).value(balance).build());
 		assert_ok!(builder::eth_instantiate_with_code(binary).value(balance).build());
+		assert_err_ignore_postinfo!(builder::eth_call(addr2).build(), Error::<Test>::OutOfGas);
 
-		// Call is not captured.
+		// non-eth calls are not captured.
 		assert_ok!(builder::call(addr).value(1).build());
-		// Instantiate with code is not captured.
-		assert_ok!(builder::instantiate_with_code(gas_binary).value(1).build());
+		assert_ok!(builder::instantiate_with_code(gas_binary)
+			.salt(Some([1u8; 32]))
+			.value(1)
+			.build());
 
 		let block_builder = EthBlockBuilderIR::<Test>::get();
-		// Only 2 transactions were captured.
-		assert_eq!(block_builder.gas_info.len(), 2);
+		assert_eq!(block_builder.gas_info.len(), 3, "3 transactions were captured");
 
 		let expected_payloads = vec![
 			// Signed payload of eth_call.

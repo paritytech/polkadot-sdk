@@ -159,7 +159,7 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 				self.transaction_root_builder.set_first_value(first_tx);
 				self.receipts_root_builder.set_first_value(first_receipt);
 			} else {
-				log::debug!(target: LOG_TARGET, "Building an empty block");
+				log::trace!(target: LOG_TARGET, "Building an empty block");
 			}
 		}
 
