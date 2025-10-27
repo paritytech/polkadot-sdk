@@ -1,5 +1,5 @@
 use frame_support::{
-	assert_noop, assert_ok, derive_impl, parameter_types,
+	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, Contains, PollStatus, Polling, VoteTally},
 };
 use pallet_conviction_voting::{AccountVote, Status, Tally, TallyOf, VotingHooks};
@@ -241,9 +241,10 @@ impl VotingHooks<AccountId, ReferendumIndex, Balance> for HooksHandler {
 /// Declares a new test externality, funds ALICE, BOB and CHARLIE accounts.
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	
+
 	let initial_balance = Balance::MAX.saturating_div(100000);
-	let balances = vec![(ALICE, initial_balance), (BOB, initial_balance), (CHARLIE, initial_balance)];
+	let balances =
+		vec![(ALICE, initial_balance), (BOB, initial_balance), (CHARLIE, initial_balance)];
 
 	pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
 		.assimilate_storage(&mut t)
