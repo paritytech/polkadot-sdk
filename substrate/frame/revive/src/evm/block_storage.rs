@@ -24,9 +24,11 @@ use crate::{
 };
 use frame_support::{
 	pallet_prelude::{DispatchError, DispatchResultWithPostInfo},
+	storage::with_transaction,
 	weights::Weight,
 };
 pub use sp_core::U256;
+use sp_runtime::TransactionOutcome;
 
 use alloc::vec::Vec;
 use environmental::environmental;
@@ -76,35 +78,42 @@ pub fn with_ethereum_context<T: Config>(
 	transaction_encoded: Vec<u8>,
 	call: impl FnOnce() -> (Weight, DispatchResultWithPostInfo),
 ) -> DispatchResultWithPostInfo {
-	use frame_support::storage::with_transaction;
-	use sp_runtime::TransactionOutcome;
-	let (err, gas_consumed, mut post_info) = receipt::using(&mut AccumulateReceipt::new(), || {
-		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
-			let (gas_consumed, result) = call();
-			match result {
-				Ok(post_info) => TransactionOutcome::Commit(Ok((None, gas_consumed, post_info))),
-				Err(err) =>
-					TransactionOutcome::Rollback(Ok((Some(err.error), gas_consumed, err.post_info))),
-			}
-		})
-	})?;
+	receipt::using(&mut AccumulateReceipt::new(), || {
+		let (err, gas_consumed, mut post_info) =
+			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
+				let (gas_consumed, result) = call();
+				match result {
+					Ok(post_info) =>
+						TransactionOutcome::Commit(Ok((None, gas_consumed, post_info))),
+					Err(err) => TransactionOutcome::Rollback(Ok((
+						Some(err.error),
+						gas_consumed,
+						err.post_info,
+					))),
+				}
+			})?;
 
-	if let Some(dispatch_error) = err {
-		deposit_eth_extrinsic_revert_event::<T>(dispatch_error);
-		crate::block_storage::process_transaction::<T>(transaction_encoded, false, gas_consumed);
-		Ok(post_info)
-	} else {
-		// deposit a dummy event in benchmark mode
-		#[cfg(feature = "runtime-benchmarks")]
-		deposit_eth_extrinsic_revert_event::<T>(crate::Error::<T>::BenchmarkingError.into());
+		if let Some(dispatch_error) = err {
+			deposit_eth_extrinsic_revert_event::<T>(dispatch_error);
+			crate::block_storage::process_transaction::<T>(
+				transaction_encoded,
+				false,
+				gas_consumed,
+			);
+			Ok(post_info)
+		} else {
+			// deposit a dummy event in benchmark mode
+			#[cfg(feature = "runtime-benchmarks")]
+			deposit_eth_extrinsic_revert_event::<T>(crate::Error::<T>::BenchmarkingError.into());
 
-		crate::block_storage::process_transaction::<T>(transaction_encoded, true, gas_consumed);
-		post_info
-			.actual_weight
-			.as_mut()
-			.map(|w| w.saturating_sub(T::WeightInfo::deposit_eth_extrinsic_revert_event()));
-		Ok(post_info)
-	}
+			crate::block_storage::process_transaction::<T>(transaction_encoded, true, gas_consumed);
+			post_info
+				.actual_weight
+				.as_mut()
+				.map(|w| w.saturating_sub(T::WeightInfo::deposit_eth_extrinsic_revert_event()));
+			Ok(post_info)
+		}
+	})
 }
 
 fn deposit_eth_extrinsic_revert_event<T: Config>(dispatch_error: DispatchError) {
