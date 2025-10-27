@@ -711,25 +711,6 @@ mod test {
 
 			// Verify round-trip: our encoding should decode back to the same transaction
 			assert_eq!(rlp_encoded_tx, rlp_encoded_revive);
-
-			let is_eip4844 = matches!(tx_revive, TransactionSigned::Transaction4844Signed(..));
-
-			// ethereum crate used below does not support EIP4844
-			if !is_eip4844 {
-				// RLP decode using ethereum crate's EnvelopedDecodable
-				let tx_ethereum: ethereum::TransactionV3 =
-					ethereum::EnvelopedDecodable::decode(&rlp_encoded_tx).unwrap();
-
-				// RLP Encode using ethereum crate's EnvelopedEncodable
-				let rlp_encoded_ethereum =
-					ethereum::EnvelopedEncodable::encode(&tx_ethereum).to_vec();
-
-				assert_eq!(
-                    rlp_encoded_revive,
-                    rlp_encoded_ethereum,
-                    "RLP encoded output differs from ethereum crate EnvelopedEncodable for transaction type"
-                );
-			}
 		}
 	}
 }

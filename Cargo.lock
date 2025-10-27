@@ -6284,25 +6284,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ethereum"
-version = "0.18.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ee371ebb7479ed3258617557ab0b3247e741075cb6b02b820d188f68da44441"
-dependencies = [
- "bytes",
- "ethereum-types",
- "hash-db",
- "hash256-std-hasher",
- "k256",
- "parity-scale-codec",
- "rlp 0.6.1",
- "scale-info",
- "serde",
- "sha3",
- "trie-root",
-]
-
-[[package]]
 name = "ethereum-standards"
 version = "0.1.0"
 dependencies = [
@@ -13287,7 +13268,6 @@ dependencies = [
  "assert_matches",
  "derive_more 0.99.17",
  "environmental",
- "ethereum",
  "ethereum-standards",
  "ethereum-types",
  "frame-benchmarking",
@@ -19052,19 +19032,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fa24e92bb2a83198bb76d661a71df9f7076b8c420b8696e4d3d97d50d94479e3"
 dependencies = [
  "bytes",
- "rlp-derive",
  "rustc-hex",
-]
-
-[[package]]
-name = "rlp-derive"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "652db34deaaa57929e10ca18e5454a32cb0efc351ae80d320334bbf907b908b3"
-dependencies = [
- "proc-macro2 1.0.95",
- "quote 1.0.40",
- "syn 2.0.98",
 ]
 
 [[package]]
