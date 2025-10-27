@@ -25,7 +25,7 @@ use cumulus_relay_chain_interface::RelayChainInterface;
 
 mod mock;
 
-use cumulus_primitives_core::relay_chain::Header as RelayHeader;
+use cumulus_primitives_core::relay_chain::{ApprovedPeerId, Header as RelayHeader};
 pub use cumulus_primitives_parachain_inherent::{ParachainInherentData, INHERENT_IDENTIFIER};
 pub use mock::{MockValidationDataInherentDataProvider, MockXcmConfig};
 
@@ -168,6 +168,7 @@ impl ParachainInherentDataProvider {
 		para_id: ParaId,
 		relay_parent_descendants: Vec<RelayHeader>,
 		additional_relay_state_keys: Vec<Vec<u8>>,
+		collator_peer_id: ApprovedPeerId,
 	) -> Option<ParachainInherentData> {
 		// Only include next epoch authorities when the descendants include an epoch digest.
 		// Skip the first entry because this is the relay parent itself.
@@ -218,7 +219,7 @@ impl ParachainInherentDataProvider {
 			validation_data: validation_data.clone(),
 			relay_chain_state,
 			relay_parent_descendants,
-			collator_peer_id: None,
+			collator_peer_id: Some(collator_peer_id),
 		})
 	}
 }

@@ -34,7 +34,7 @@ use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_node_primitives::CollationResult;
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{CollatorPair, Id as ParaId, ValidationCode};
+use polkadot_primitives::{ApprovedPeerId, CollatorPair, Id as ParaId, ValidationCode};
 
 use futures::{channel::mpsc::Receiver, prelude::*};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
@@ -68,6 +68,8 @@ pub struct Params<BI, CIDP, Client, RClient, Proposer, CS> {
 	pub keystore: KeystorePtr,
 	/// The collator key used to sign collations before submitting to validators.
 	pub collator_key: CollatorPair,
+	/// The collator network peer id.
+	pub collator_peer_id: ApprovedPeerId,
 	/// The para's ID.
 	pub para_id: ParaId,
 	/// A handle to the relay-chain client's "Overseer" or task orchestrator.
@@ -130,6 +132,7 @@ where
 				block_import: params.block_import,
 				relay_client: params.relay_client.clone(),
 				keystore: params.keystore.clone(),
+				collator_peer_id: params.collator_peer_id.clone(),
 				para_id: params.para_id,
 				proposer: params.proposer,
 				collator_service: params.collator_service,
@@ -234,6 +237,7 @@ where
 						&validation_data,
 						parent_hash,
 						claim.timestamp(),
+						params.collator_peer_id.clone(),
 					)
 					.await
 			);

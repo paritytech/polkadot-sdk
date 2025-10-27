@@ -38,7 +38,7 @@ use cumulus_primitives_core::{
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_node_primitives::{Collation, MaybeCompressedPoV};
-use polkadot_primitives::{Header as PHeader, Id as ParaId};
+use polkadot_primitives::{ApprovedPeerId, Header as PHeader, Id as ParaId};
 
 use crate::collators::RelayParentData;
 use futures::prelude::*;
@@ -69,6 +69,8 @@ pub struct Params<BI, CIDP, RClient, Proposer, CS> {
 	pub relay_client: RClient,
 	/// The keystore handle used for accessing parachain key material.
 	pub keystore: KeystorePtr,
+	/// The collator network peer id.
+	pub collator_peer_id: ApprovedPeerId,
 	/// The identifier of the parachain within the relay-chain.
 	pub para_id: ParaId,
 	/// The block proposer used for building blocks.
@@ -128,6 +130,7 @@ where
 		parent_hash: Block::Hash,
 		timestamp: impl Into<Option<Timestamp>>,
 		relay_parent_descendants: Option<RelayParentData>,
+		collator_peer_id: ApprovedPeerId,
 	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
 		let paras_inherent_data = ParachainInherentDataProvider::create_at(
 			relay_parent,
@@ -138,6 +141,7 @@ where
 				.map(RelayParentData::into_inherent_descendant_list)
 				.unwrap_or_default(),
 			Vec::new(),
+			collator_peer_id,
 		)
 		.await;
 
@@ -173,6 +177,7 @@ where
 		validation_data: &PersistedValidationData,
 		parent_hash: Block::Hash,
 		timestamp: impl Into<Option<Timestamp>>,
+		collator_peer_id: ApprovedPeerId,
 	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
 		self.create_inherent_data_with_rp_offset(
 			relay_parent,
@@ -180,6 +185,7 @@ where
 			parent_hash,
 			timestamp,
 			None,
+			collator_peer_id,
 		)
 		.await
 	}

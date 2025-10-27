@@ -41,7 +41,8 @@ use cumulus_primitives_core::{
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
 use polkadot_primitives::{
-	Block as RelayBlock, CoreIndex, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
+	ApprovedPeerId, Block as RelayBlock, CoreIndex, Hash as RelayHash, Header as RelayHeader,
+	Id as ParaId,
 };
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
@@ -84,6 +85,8 @@ pub struct BuilderTaskParams<
 	pub code_hash_provider: CHP,
 	/// The underlying keystore, which should contain Aura consensus keys.
 	pub keystore: KeystorePtr,
+	/// The collator network peer id.
+	pub collator_peer_id: ApprovedPeerId,
 	/// The para's ID.
 	pub para_id: ParaId,
 	/// The underlying block proposer this should call into.
@@ -146,6 +149,7 @@ where
 			para_client,
 			keystore,
 			block_import,
+			collator_peer_id,
 			para_id,
 			proposer,
 			collator_service,
@@ -170,6 +174,7 @@ where
 				block_import,
 				relay_client: relay_client.clone(),
 				keystore: keystore.clone(),
+				collator_peer_id: collator_peer_id.clone(),
 				para_id,
 				proposer,
 				collator_service,
@@ -350,6 +355,7 @@ where
 					parent_hash,
 					slot_claim.timestamp(),
 					Some(rp_data),
+					collator_peer_id.clone(),
 				)
 				.await
 			{

@@ -78,7 +78,7 @@ use cumulus_primitives_core::RelayParentOffsetApi;
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::FutureExt;
 use polkadot_primitives::{
-	CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId, ValidationCodeHash,
+	ApprovedPeerId, CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId, ValidationCodeHash,
 };
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
@@ -122,6 +122,8 @@ pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, 
 	pub keystore: KeystorePtr,
 	/// The collator key used to sign collations before submitting to validators.
 	pub collator_key: CollatorPair,
+	/// The collator network peer id.
+	pub collator_peer_id: ApprovedPeerId,
 	/// The para's ID.
 	pub para_id: ParaId,
 	/// The underlying block proposer this should call into.
@@ -186,6 +188,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		code_hash_provider,
 		keystore,
 		collator_key,
+		collator_peer_id,
 		para_id,
 		proposer,
 		collator_service,
@@ -221,6 +224,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		relay_client,
 		code_hash_provider,
 		keystore,
+		collator_peer_id,
 		para_id,
 		proposer,
 		collator_service,

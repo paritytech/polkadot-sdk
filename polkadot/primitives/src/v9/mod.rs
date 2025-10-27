@@ -2262,6 +2262,14 @@ pub const DEFAULT_CLAIM_QUEUE_OFFSET: u8 = 0;
 /// it's too generic and extensible.
 pub type ApprovedPeerId = BoundedVec<u8, ConstU32<64>>;
 
+/// Create a new instance of `ApprovedPeerId` from a `Vec<u8>`.
+///
+/// This method expects to receive a `Vec` of at most 64 bytes. Otherwise, it panics.
+pub fn unchecked_new_approved_peer_id(bytes: Vec<u8>) -> ApprovedPeerId {
+	ApprovedPeerId::try_from(bytes)
+		.expect("unchecked_new_approved_peer_id() should receive a sequence of at most 64 bytes")
+}
+
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug, Default)]
 /// User-friendly representation of a candidate's UMP signals.
 pub struct CandidateUMPSignals {

@@ -45,7 +45,9 @@ use prometheus_endpoint::Registry;
 use sc_client_api::Backend;
 use sc_consensus::DefaultImportQueue;
 use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
-use sc_network::{config::FullNetworkConfiguration, NetworkBackend, NetworkBlock};
+use sc_network::{
+	config::FullNetworkConfiguration, NetworkBackend, NetworkBlock, NetworkStateInfo, PeerId,
+};
 use sc_service::{Configuration, ImportQueue, PartialComponents, TaskManager};
 use sc_statement_store::Store;
 use sc_sysinfo::HwBench;
@@ -89,6 +91,7 @@ where
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
 		collator_key: CollatorPair,
+		collator_peer_id: PeerId,
 		overseer_handle: OverseerHandle,
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
@@ -380,6 +383,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					metrics,
 				})
 				.await?;
+			let peer_id = network.local_peer_id();
 
 			let statement_store = statement_handler_proto
 				.map(|statement_handler_proto| {
@@ -536,6 +540,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					relay_chain_slot_duration,
 					para_id,
 					collator_key.expect("Command line arguments do not allow this. qed"),
+					peer_id,
 					overseer_handle,
 					announce_block,
 					backend.clone(),

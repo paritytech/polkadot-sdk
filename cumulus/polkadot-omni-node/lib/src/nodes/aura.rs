@@ -54,7 +54,7 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::{prelude::*, FutureExt};
-use polkadot_primitives::{CollatorPair, UpgradeGoAhead};
+use polkadot_primitives::{unchecked_new_approved_peer_id, CollatorPair, UpgradeGoAhead};
 use prometheus_endpoint::Registry;
 use sc_client_api::{Backend, BlockchainEvents};
 use sc_client_db::DbHash;
@@ -63,7 +63,7 @@ use sc_consensus::{
 	BlockImportParams, DefaultImportQueue, LongestChain,
 };
 use sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider;
-use sc_network::{config::FullNetworkConfiguration, NotificationMetrics};
+use sc_network::{config::FullNetworkConfiguration, NotificationMetrics, PeerId};
 use sc_service::{Configuration, Error, PartialComponents, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
@@ -564,6 +564,7 @@ where
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
 		collator_key: CollatorPair,
+		collator_peer_id: PeerId,
 		_overseer_handle: OverseerHandle,
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
@@ -586,6 +587,7 @@ where
 		);
 
 		let client_for_aura = client.clone();
+		let collator_peer_id = unchecked_new_approved_peer_id(collator_peer_id.to_bytes());
 		let params = SlotBasedParams {
 			create_inherent_data_providers: move |_, ()| async move { Ok(()) },
 			block_import,
@@ -598,6 +600,7 @@ where
 			},
 			keystore,
 			collator_key,
+			collator_peer_id,
 			para_id,
 			proposer,
 			collator_service,
@@ -688,12 +691,14 @@ where
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
 		collator_key: CollatorPair,
+		collator_peer_id: PeerId,
 		overseer_handle: OverseerHandle,
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
 		node_extra_args: NodeExtraArgs,
 		_: (),
 	) -> Result<(), Error> {
+		let collator_peer_id = unchecked_new_approved_peer_id(collator_peer_id.to_bytes());
 		let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
 			task_manager.spawn_handle(),
 			client.clone(),
@@ -701,7 +706,6 @@ where
 			prometheus_registry,
 			telemetry.clone(),
 		);
-
 		let collator_service = CollatorService::new(
 			client.clone(),
 			Arc::new(task_manager.spawn_handle()),
@@ -725,6 +729,7 @@ where
 				},
 				keystore,
 				collator_key,
+				collator_peer_id,
 				para_id,
 				overseer_handle,
 				relay_chain_slot_duration,
