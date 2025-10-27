@@ -360,11 +360,10 @@ pub type WaivedLocations = (
 	SecretaryEntities,
 );
 
-// Asset Hub trusts only particular, pre-configured bridged locations from a different consensus
-// as reserve locations (we trust the Bridge Hub to relay the message that a reserve is being
-// held).
+// Asset Hub accepts incoming reserve transfers only for "Foreign Assets" and only from locations
+// explicitly set by the asset's owner.
+// It also accepts Ethereum as a reserve location for any Ethereum asset.
 pub type TrustedReserves = (
-	bridging::to_rococo::RococoAssetFromAssetHubRococo,
 	bridging::to_ethereum::EthereumAssetFromEthereum,
 	IsForeignConcreteAsset<ForeignAssetFromTrustedReserve<AssetHubParaId, crate::ForeignAssets>>,
 );

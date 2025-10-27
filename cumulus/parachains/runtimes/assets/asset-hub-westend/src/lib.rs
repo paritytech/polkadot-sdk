@@ -32,6 +32,7 @@ pub mod xcm_config;
 // Configurations for next functionality.
 mod bag_thresholds;
 pub mod governance;
+#[cfg(not(feature = "runtime-benchmarks"))]
 mod migrations;
 mod staking;
 

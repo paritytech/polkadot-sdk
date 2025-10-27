@@ -67,7 +67,6 @@ impl<SelfParaId: Get<ParaId>, L: TryFrom<Location> + TryInto<Location> + Clone +
 
 /// Checks if asset `a` is coming from a trusted Reserve location `b`, then checks whether the local
 /// chain is also a reserve of `a`. Assets can be teleported between their reserve locations.
-/// Only supports assets from sibling parachains.
 pub struct TeleportableForeignAsset<SelfParaId, ReserveProvider, L = Location>(
 	core::marker::PhantomData<(SelfParaId, ReserveProvider, L)>,
 );
@@ -84,29 +83,16 @@ impl<
 			(Ok(a), Ok(b)) => (a, b),
 			_ => return false,
 		};
-
-		// here we verify asset belongs to sibling parachain
-		if !matches!(
-			a.unpack(),
-			(1, interior) if matches!(
-				interior.first(),
-				Some(Parachain(sibling_para_id)) if sibling_para_id.ne(&u32::from(SelfParaId::get()))
-			)
-		) {
-			return false
-		}
-
-		// check if both `b` and `Here` are trusted reserves for `a`
-		// (`b` is always considered a reserve for `a` if `a` comes from `b`)
 		let reserves = ReserveProvider::reserves(&a);
-		reserves.contains(&Location::here()) && (a.starts_with(&b) || reserves.contains(&b))
+		tracing::trace!(target: "xcm::contains", ?reserves, "TeleportableForeignAsset");
+		// check if both `b` and `Here` are trusted reserves for `a`
+		reserves.contains(&b) && reserves.contains(&Location::here())
 	}
 }
 
-/// Checks if asset `a` is coming from a trusted Reserve location `b`, then checks that the local
-/// chain is NOT itself also reserve of `a`. Assets should be teleported between their reserve
-/// locations, but if `b` is reserve and `Here` is not, then `a` can be reserve transferred using
-/// `b` as reserve. Only supports assets from sibling parachains.
+/// Checks if asset `a` is coming from a trusted Reserve location `b`.
+/// Then checks that the local chain is NOT itself also reserve of `a`, otherwise a teleport is in
+/// order.
 pub struct ForeignAssetFromTrustedReserve<SelfParaId, ReserveProvider, L = Location>(
 	core::marker::PhantomData<(SelfParaId, ReserveProvider, L)>,
 );
@@ -123,22 +109,10 @@ impl<
 			(Ok(a), Ok(b)) => (a, b),
 			_ => return false,
 		};
-
-		// here we verify asset belongs to sibling parachain
-		if !matches!(
-			a.unpack(),
-			(1, interior) if matches!(
-				interior.first(),
-				Some(Parachain(sibling_para_id)) if sibling_para_id.ne(&u32::from(SelfParaId::get()))
-			)
-		) {
-			return false
-		}
-
-		// check if `b` is trusted reserves for `a`, but `Here` is NOT
-		// (`b` is always considered a reserve for `a` if `a` comes from `b`)
 		let reserves = ReserveProvider::reserves(&a);
-		!reserves.contains(&Location::here()) && (a.starts_with(&b) || reserves.contains(&b))
+		tracing::trace!(target: "xcm::contains", ?reserves, "ForeignAssetFromTrustedReserve");
+		// check if `b` is trusted reserve for `a`, but `Here` is NOT
+		reserves.contains(&b) && !reserves.contains(&Location::here())
 	}
 }
 
