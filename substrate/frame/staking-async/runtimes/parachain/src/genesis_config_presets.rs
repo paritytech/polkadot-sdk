@@ -159,7 +159,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			// 100k accounts
 			params.dev_accounts = Some((100 * 1000, WND * 100, None));
 			staking_async_parachain_genesis(params, id.to_string())
-		}
+		},
 		"fake-ksm" => {
 			params.validator_count = 1_000;
 			params.dev_stakers = Some((4_500, 15_000));
