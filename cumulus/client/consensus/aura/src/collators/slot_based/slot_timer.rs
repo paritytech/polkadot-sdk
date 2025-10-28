@@ -182,6 +182,14 @@ where
 
 		let (time_until_next_attempt, mut next_aura_slot) = self.time_until_next_slot()?;
 
+		tracing::trace!(
+			target: LOG_TARGET,
+			?time_until_next_attempt,
+			aura_slot = ?next_aura_slot,
+			last_reported = ?self.last_reported_slot,
+			"Determined next block production opportunity."
+		);
+
 		match self.last_reported_slot {
 			// If we already reported a slot, we don't want to skip a slot. But we also don't want
 			// to go through all the slots if a node was halted for some reason.
@@ -189,6 +197,7 @@ where
 				next_aura_slot = ls + 1u64;
 			},
 			None | Some(_) => {
+				tracing::trace!(target: LOG_TARGET, ?time_until_next_attempt, "Sleeping until the next slot.");
 				tokio::time::sleep(time_until_next_attempt).await;
 			},
 		}
