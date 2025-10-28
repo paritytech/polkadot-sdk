@@ -59,7 +59,7 @@ frame_support::construct_runtime!(
 		Preimage: pallet_preimage,
 		Scheduler: pallet_scheduler,
 		Referenda: pallet_referenda,
-		// Revive: pallet_revive,
+		Revive: pallet_revive,
 		
 	}
 );
@@ -118,18 +118,18 @@ impl pallet_balances::Config for Test {
 }
 
 // Configure pallet-revive with our precompile
-// #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
-// impl pallet_revive::Config for Test {
+#[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
+impl pallet_revive::Config for Test {
 
-// 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
-// 	type Balance = Balance;
-// 	type Currency = Balances;
-// 	type Precompiles = (ReferendaPrecompile<Self>,);
-// 	type Time = Timestamp;
-// 	type UploadOrigin = frame_system::EnsureSigned<AccountId>;
-// 	type InstantiateOrigin = frame_system::EnsureSigned<AccountId>;
+	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
+	type Balance = Balance;
+	type Currency = Balances;
+	type Precompiles = (ReferendaPrecompile<Self>,);
+	type Time = Timestamp;
+	type UploadOrigin = frame_system::EnsureSigned<AccountId>;
+	type InstantiateOrigin = frame_system::EnsureSigned<AccountId>;
 	
-// }
+}
 
 
 impl pallet_preimage::Config for Test {
