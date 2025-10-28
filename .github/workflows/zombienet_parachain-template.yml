@@ -56,7 +56,7 @@ jobs:
     timeout-minutes: 40 # 30 for test + 10 for send logs
     needs: [preflight]
     # Run if: called from build workflow OR merge_group OR (changes detected)
-    if: ${{ github.event_name == 'workflow_call' || github.event_name == 'merge_group' || (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) }}
+    if: ${{ github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch' || github.event_name == 'merge_group' || (needs.preflight.outputs.changes_substrate == 'true' || needs.preflight.outputs.changes_cumulus == 'true' || needs.preflight.outputs.changes_polkadot == 'true' || needs.preflight.outputs.changes_zombienet == 'true') }}
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
       options: -v /tmp/zombienet:/tmp/zombienet
