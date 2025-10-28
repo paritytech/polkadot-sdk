@@ -58,7 +58,7 @@ where
 			Some(max) if total_weight_including_length.any_gt(max) => {
 				log::debug!(
 					target: LOG_TARGET,
-					"Extrinsic with length included {} is grater than the max extrinsic {}",
+					"Extrinsic with length included {} is greater than the max extrinsic {}",
 					total_weight_including_length,
 					max,
 				);
@@ -1012,7 +1012,7 @@ mod tests {
 			// This should fail because u64::MAX proof size exceeds limits
 			assert_err!(result, InvalidTransaction::ExhaustsResources);
 
-			// Test with very large length (near usize::MAX on 32-bit systems)
+			// Test with very large length
 			let info_with_minimal_proof_size = DispatchInfo {
 				call_weight: Weight::from_parts(0, 10),
 				class: DispatchClass::Normal,
