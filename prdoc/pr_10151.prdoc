@@ -3,8 +3,9 @@ doc:
 - audience: Runtime Dev
   description: |-
     Changes:
-    - Create `compress_weakly`, `compress_strongly` and `compress` (with level) functions for variable compression levels
+    - Create `compress_weakly`, `compress_strongly` and `compress_with_level` functions for variable compression levels
     - Use said functions instead of the old fixed-level `compress` function
+    - Deprecate `compress` function in faviour of the added ones
 crates:
 - name: polkadot-node-core-pvf
   bump: patch
