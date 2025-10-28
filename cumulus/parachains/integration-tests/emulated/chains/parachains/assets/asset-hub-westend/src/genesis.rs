@@ -40,14 +40,11 @@ parameter_types! {
 	pub AssetHubWestendAssetOwner: AccountId = Keyring::Alice.to_account_id();
 	pub WestendGlobalConsensusNetwork: NetworkId = NetworkId::ByGenesis(WESTEND_GENESIS_HASH);
 	pub AssetHubWestendUniversalLocation: InteriorLocation = [GlobalConsensus(WestendGlobalConsensusNetwork::get()), Parachain(PARA_ID)].into();
+	pub EthereumLocation: Location = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
 	pub EthereumSovereignAccount: AccountId = ExternalConsensusLocationsConverterFor::<
 			AssetHubWestendUniversalLocation,
 			AccountId,
-		>::convert_location(&Location::new(
-			2,
-			[Junction::GlobalConsensus(EthereumNetwork::get())],
-		))
-		.unwrap();
+		>::convert_location(&EthereumLocation::get()).unwrap();
 }
 
 pub fn genesis() -> Storage {
@@ -118,14 +115,14 @@ pub fn genesis() -> Storage {
 				),
 				// Ether
 				(
-					xcm::v5::Location::new(2, [GlobalConsensus(EthereumNetwork::get())]),
+					Location::new(2, [GlobalConsensus(EthereumNetwork::get())]),
 					EthereumSovereignAccount::get(),
 					true,
 					ETHER_MIN_BALANCE,
 				),
 				// Weth
 				(
-					xcm::v5::Location::new(
+					Location::new(
 						2,
 						[
 							GlobalConsensus(EthereumNetwork::get()),
@@ -140,25 +137,22 @@ pub fn genesis() -> Storage {
 			reserves: vec![
 				(
 					PenpalATeleportableAssetLocation::get(),
-					vec![PenpalALocation::get(), xcm::v5::Location::here()],
+					vec![PenpalALocation::get(), Location::here()],
 				),
 				(
 					PenpalBTeleportableAssetLocation::get(),
-					vec![PenpalBLocation::get(), xcm::v5::Location::here()],
+					vec![PenpalBLocation::get(), Location::here()],
 				),
+				(EthereumLocation::get(), vec![EthereumLocation::get()]),
 				(
-					xcm::v5::Location::new(2, [GlobalConsensus(EthereumNetwork::get())]),
-					vec![xcm::v5::Location::new(2, [GlobalConsensus(EthereumNetwork::get())])],
-				),
-				(
-					xcm::v5::Location::new(
+					Location::new(
 						2,
 						[
 							GlobalConsensus(EthereumNetwork::get()),
 							AccountKey20 { network: None, key: WETH.into() },
 						],
 					),
-					vec![xcm::v5::Location::new(2, [GlobalConsensus(EthereumNetwork::get())])],
+					vec![EthereumLocation::get()],
 				),
 			],
 			..Default::default()
