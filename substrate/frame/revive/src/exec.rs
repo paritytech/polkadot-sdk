@@ -2009,8 +2009,13 @@ where
 						Weight::zero(),
 					);
 				});
-
-				let result = if is_read_only && value.is_zero() {
+				let result = if let Some(mock_answer) =
+					self.exec_config.mock_handler.as_ref().and_then(|handler| {
+						handler.mock_call(T::AddressMapper::to_address(&dest), &input_data, value)
+					}) {
+					*self.last_frame_output_mut() = mock_answer.clone();
+					Ok(mock_answer)
+				} else if is_read_only && value.is_zero() {
 					Ok(Default::default())
 				} else if is_read_only {
 					Err(Error::<T>::StateChangeDenied.into())

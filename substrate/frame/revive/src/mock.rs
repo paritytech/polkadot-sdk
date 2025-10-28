@@ -41,6 +41,10 @@ pub trait MockHandler<T: pallet::Config> {
 
 	/// Mock the caller of a contract.
 	///
+	/// # Parameters
+	///
+	/// * `_frames_len`: The current number of frames on the call stack.
+	///
 	/// Returns `Some(OriginFor<T>)` if the caller is mocked, otherwise `None`.
 	fn mock_caller(&self, _frames_len: usize) -> Option<OriginFor<T>> {
 		None
