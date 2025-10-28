@@ -6,10 +6,14 @@ doc:
       Deprecate the `ValidateUnsigned` trait and `#[pallet::validate_unsigned]` attribute as part of phase 2 of Extrinsic Horizon.
 
 crates:
-  - name: frame-support-procedural
-    bump: major
   - name: sp-runtime
-    bump: major
+    bump: minor
+  - name: frame-system
+    bump: patch
+  - name: frame-support
+    bump: patch
+  - name: frame-support-procedural
+    bump: minor
   - name: polkadot-runtime-common
     bump: patch
   - name: polkadot-runtime-parachains
@@ -17,6 +21,8 @@ crates:
   - name: pallet-babe
     bump: patch
   - name: pallet-beefy
+    bump: patch
+  - name: pallet-election-provider-multi-phase
     bump: patch
   - name: pallet-election-provider-multi-block
     bump: patch
@@ -29,6 +35,4 @@ crates:
   - name: pallet-mixnet
     bump: patch
   - name: substrate-test-runtime
-    bump: patch
-  - name: frame-system
     bump: patch

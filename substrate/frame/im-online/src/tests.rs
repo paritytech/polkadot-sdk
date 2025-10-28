@@ -120,6 +120,7 @@ fn heartbeat(
 	};
 	let signature = id.sign(&heartbeat.encode()).unwrap();
 
+	#[allow(deprecated)]
 	ImOnline::pre_dispatch(&crate::Call::heartbeat {
 		heartbeat: heartbeat.clone(),
 		signature: signature.clone(),

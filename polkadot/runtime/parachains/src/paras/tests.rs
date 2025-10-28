@@ -1457,6 +1457,7 @@ fn pvf_check_submit_vote() {
 
 		let call =
 			Call::include_pvf_check_statement { stmt: stmt.clone(), signature: signature.clone() };
+		#[allow(deprecated)]
 		let validate_unsigned =
 			<Paras as ValidateUnsigned>::validate_unsigned(TransactionSource::InBlock, &call)
 				.map(|_| ());
@@ -2263,6 +2264,7 @@ fn apply_authorized_force_set_current_code_works() {
 	                  code: ValidationCode|
 	 -> (Result<_, _>, DispatchResultWithPostInfo) {
 		let call = Call::apply_authorized_force_set_current_code { para, new_code: code.clone() };
+		#[allow(deprecated)]
 		let validate_unsigned =
 			<Paras as ValidateUnsigned>::validate_unsigned(TransactionSource::InBlock, &call)
 				.map(|_| ());

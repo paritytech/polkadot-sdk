@@ -1075,22 +1075,20 @@ fn inherent_expand() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn validate_unsigned_expand() {
-	#[allow(deprecated)]
-	use frame_support::pallet_prelude::ValidateUnsigned;
 	use frame_support::pallet_prelude::{
 		InvalidTransaction, TransactionSource, TransactionValidityError, ValidTransaction,
+		ValidateUnsigned,
 	};
 
 	let call = pallet::Call::<Runtime>::foo_no_post_info {};
 
-	#[allow(deprecated)]
 	let validity = pallet::Pallet::validate_unsigned(TransactionSource::Local, &call).unwrap_err();
 	assert_eq!(validity, TransactionValidityError::Invalid(InvalidTransaction::Call));
 
 	let call = pallet::Call::<Runtime>::foo_storage_layer { foo: 0 };
 
-	#[allow(deprecated)]
 	let validity = pallet::Pallet::validate_unsigned(TransactionSource::External, &call).unwrap();
 	assert_eq!(validity, ValidTransaction::default());
 }

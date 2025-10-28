@@ -371,6 +371,7 @@ mod pallet {
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod validate_unsigned {
 	use frame_election_provider_support::Support;
 	use frame_support::{
