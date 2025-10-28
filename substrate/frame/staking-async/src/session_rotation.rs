@@ -127,8 +127,11 @@ impl<T: Config> Eras<T> {
 
 	/// Get exposure for a validator at a given era and page.
 	///
+	/// This is mainly used for rewards and slashing. Validator's self-stake is only returned in
+	/// page 0.
+	///
 	/// This builds a paged exposure from `PagedExposureMetadata` and `ExposurePage` of the
-	/// validator. For older non-paged exposure, it returns the clipped exposure directly.
+	/// validator.
 	pub(crate) fn get_paged_exposure(
 		era: EraIndex,
 		validator: &T::AccountId,
@@ -136,7 +139,7 @@ impl<T: Config> Eras<T> {
 	) -> Option<PagedExposure<T::AccountId, BalanceOf<T>>> {
 		let overview = <ErasStakersOverview<T>>::get(&era, validator)?;
 
-		// validator stake is added only in page zero
+		// validator stake is added only in page zero.
 		let validator_stake = if page == 0 { overview.own } else { Zero::zero() };
 
 		// since overview is present, paged exposure will always be present except when a
@@ -230,57 +233,97 @@ impl<T: Config> Eras<T> {
 		mut exposure: Exposure<T::AccountId, BalanceOf<T>>,
 	) {
 		let page_size = T::MaxExposurePageSize::get().defensive_max(1);
+		if cfg!(debug_assertions) && cfg!(not(feature = "runtime-benchmarks")) {
+			// sanitize the exposure in case some test data from this pallet is wrong.
+			// ignore benchmarks as other pallets might do weird things.
+			let expected_total = exposure
+				.others
+				.iter()
+				.map(|ie| ie.value)
+				.fold::<BalanceOf<T>, _>(Default::default(), |acc, x| acc + x)
+				.saturating_add(exposure.own);
+			debug_assert_eq!(expected_total, exposure.total, "exposure total must equal own + sum(others) for (era: {:?}, validator: {:?}, exposure: {:?})", era, validator, exposure);
+		}
 
-		if let Some(stored_overview) = ErasStakersOverview::<T>::get(era, &validator) {
-			let last_page_idx = stored_overview.page_count.saturating_sub(1);
-
+		if let Some(overview) = ErasStakersOverview::<T>::get(era, &validator) {
+			// collect some info from the un-touched overview for later use.
+			let last_page_idx = overview.page_count.saturating_sub(1);
 			let mut last_page =
 				ErasStakersPaged::<T>::get((era, validator, last_page_idx)).unwrap_or_default();
 			let last_page_empty_slots =
 				T::MaxExposurePageSize::get().saturating_sub(last_page.others.len() as u32);
 
-			// splits the exposure so that `exposures_append` will fit within the last exposure
-			// page, up to the max exposure page size. The remaining individual exposures in
-			// `exposure` will be added to new pages.
-			let exposures_append = exposure.split_others(last_page_empty_slots);
+			// update nominator-count, page-count, and total stake in overview (done in
+			// `update_with`).
+			let new_stake_added = exposure.total;
+			let new_nominators_added = exposure.others.len() as u32;
+			let mut updated_overview = overview
+				.update_with::<T::MaxExposurePageSize>(new_stake_added, new_nominators_added);
 
-			ErasStakersOverview::<T>::mutate(era, &validator, |stored| {
-				// new metadata is updated based on 3 different set of exposures: the
-				// current one, the exposure split to be "fitted" into the current last page and
-				// the exposure set that will be appended from the new page onwards.
-				let new_metadata =
-					stored.defensive_unwrap_or_default().update_with::<T::MaxExposurePageSize>(
-						[&exposures_append, &exposure]
-							.iter()
-							.fold(Default::default(), |total, expo| {
-								total.saturating_add(expo.total.saturating_sub(expo.own))
-							}),
-						[&exposures_append, &exposure]
-							.iter()
-							.fold(Default::default(), |count, expo| {
-								count.saturating_add(expo.others.len() as u32)
-							}),
+			// update own stake, if applicable.
+			match (updated_overview.own.is_zero(), exposure.own.is_zero()) {
+				(true, false) => {
+					// first time we see own exposure -- good.
+					// note: `total` is already updated above.
+					updated_overview.own = exposure.own;
+				},
+				(true, true) | (false, true) => {
+					// no new own exposure is added, nothing to do
+				},
+				(false, false) => {
+					debug_assert!(
+						false,
+						"validator own stake already set in overview for (era: {:?}, validator: {:?}, current overview: {:?}, new exposure: {:?})",
+						era,
+						validator,
+						updated_overview,
+						exposure,
 					);
-				*stored = new_metadata.into();
-			});
+					defensive!("duplicate validator self stake in election");
+				},
+			};
+
+			ErasStakersOverview::<T>::insert(era, &validator, updated_overview);
+			// we are done updating the overview now, `updated_overview` should not be used anymore.
+			// We've updated:
+			// * nominator count
+			// * total stake
+			// * own stake (if applicable)
+			// * page count
+			//
+			// next step:
+			// * new-keys or updates in `ErasStakersPaged`
+			//
+			// we don't need the information about own stake anymore -- drop it.
+			exposure.total = exposure.total.saturating_sub(exposure.own);
+			exposure.own = Zero::zero();
+
+			// splits the exposure so that `append_to_last_page` will fit within the last exposure
+			// page, up to the max exposure page size. The remaining individual exposures in
+			// `put_in_new_pages` will be added to new pages.
+			let append_to_last_page = exposure.split_others(last_page_empty_slots);
+			let put_in_new_pages = exposure;
+
+			// handle last page first.
 
 			// fill up last page with exposures.
-			last_page.page_total = last_page
-				.page_total
-				.saturating_add(exposures_append.total)
-				.saturating_sub(exposures_append.own);
-			last_page.others.extend(exposures_append.others);
+			last_page.page_total = last_page.page_total.saturating_add(append_to_last_page.total);
+			last_page.others.extend(append_to_last_page.others);
 			ErasStakersPaged::<T>::insert((era, &validator, last_page_idx), last_page);
 
 			// now handle the remaining exposures and append the exposure pages. The metadata update
 			// has been already handled above.
-			let (_, exposure_pages) = exposure.into_pages(page_size);
+			let (_unused_metadata, put_in_new_pages_chunks) =
+				put_in_new_pages.into_pages(page_size);
 
-			exposure_pages.into_iter().enumerate().for_each(|(idx, paged_exposure)| {
-				let append_at =
-					(last_page_idx.saturating_add(1).saturating_add(idx as u32)) as Page;
-				<ErasStakersPaged<T>>::insert((era, &validator, append_at), paged_exposure);
-			});
+			put_in_new_pages_chunks
+				.into_iter()
+				.enumerate()
+				.for_each(|(idx, paged_exposure)| {
+					let append_at =
+						(last_page_idx.saturating_add(1).saturating_add(idx as u32)) as Page;
+					<ErasStakersPaged<T>>::insert((era, &validator, append_at), paged_exposure);
+				});
 		} else {
 			// expected page count is the number of nominators divided by the page size, rounded up.
 			let expected_page_count = exposure
@@ -1003,16 +1046,17 @@ impl<T: Config> EraElectionPlanner<T> {
 		exposures.into_iter().for_each(|(stash, exposure)| {
 			log!(
 				trace,
-				"stored exposure for stash {:?} and {:?} backers",
+				"storing exposure for stash {:?} with {:?} own-stake and {:?} backers",
 				stash,
+				exposure.own,
 				exposure.others.len()
 			);
 			// build elected stash.
 			elected_stashes_page.push(stash.clone());
-			// accumulate total stake.
+			// accumulate total stake and backer count for bookkeeping.
 			total_stake_page = total_stake_page.saturating_add(exposure.total);
-			// set or update staker exposure for this era.
 			total_backers += exposure.others.len() as u32;
+			// set or update staker exposure for this era.
 			Eras::<T>::upsert_exposure(new_planned_era, &stash, exposure);
 		});
 
@@ -1025,6 +1069,8 @@ impl<T: Config> EraElectionPlanner<T> {
 		Eras::<T>::add_total_stake(new_planned_era, total_stake_page);
 
 		// collect or update the pref of all winners.
+		// TODO: rather inefficient, we can do this once at the last page across all entries in
+		// `ElectableStashes`.
 		for stash in &elected_stashes {
 			let pref = Validators::<T>::get(stash);
 			Eras::<T>::set_validator_prefs(new_planned_era, stash, pref);
