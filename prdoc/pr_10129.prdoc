@@ -8,4 +8,4 @@ crates:
 - name: pallet-revive
   bump: minor
 - name: pallet-revive-fixtures
-  bump: minor
+  bump: major
