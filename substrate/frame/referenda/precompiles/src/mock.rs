@@ -345,6 +345,12 @@ impl ExtBuilder {
 		pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
+		
+		// Set up account mapping for EVM precompiles
+		pallet_revive::GenesisConfig::<Test> { mapped_accounts: vec![ALICE, BOB, CHARLIE], ..Default::default() }
+			.assimilate_storage(&mut t)
+			.unwrap();
+			
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.execute_with(|| System::set_block_number(1));
 		ext
