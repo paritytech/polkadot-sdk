@@ -69,9 +69,7 @@ export function commonSignedSteps(
 	apis: ApiDeclarations
 ): Observe[] {
 	return [
-		// first relay session change at block 11
-		Observe.on(Chain.Relay, "Session", "NewSession").byBlock(11),
-		// by block 10 we will plan a new era
+		// Eventually we will plan a new era
 		Observe.on(Chain.Parachain, "Staking", "SessionRotated")
 			.withDataCheck((x: any) => x.active_era == 0 && x.planned_era == 1)
 			.onPass(() => {

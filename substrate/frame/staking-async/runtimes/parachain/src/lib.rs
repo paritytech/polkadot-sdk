@@ -2178,8 +2178,8 @@ impl_runtime_apis! {
 					log::info!(target: "runtime", "detected fake-ksm preset");
 					crate::staking::enable_ksm_preset(true);
 				},
-				"fake-dot" => {
-					log::info!(target: "runtime", "detected fake-dot preset");
+				"fake-dot" | "fake-dot-xxl" => {
+					log::info!(target: "runtime", "detected fake-dot-xxl preset");
 					crate::staking::enable_dot_preset(true);
 				},
 				_ => {

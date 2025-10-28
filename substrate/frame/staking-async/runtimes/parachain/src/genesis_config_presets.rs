@@ -41,6 +41,7 @@ struct GenesisParams {
 	endowed_accounts: Vec<AccountId>,
 	endowment: Balance,
 	dev_stakers: Option<(u32, u32)>,
+	dev_accounts: Option<(u32, Balance, Option<String>)>,
 	validators: Vec<AccountId>,
 	validator_count: u32,
 	root: AccountId,
@@ -53,6 +54,7 @@ fn staking_async_parachain_genesis(params: GenesisParams, preset: String) -> ser
 		endowed_accounts,
 		endowment,
 		dev_stakers,
+		dev_accounts,
 		validators,
 		validator_count,
 		root,
@@ -61,6 +63,7 @@ fn staking_async_parachain_genesis(params: GenesisParams, preset: String) -> ser
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect(),
+			dev_accounts,
 		},
 		parachain_info: ParachainInfoConfig { parachain_id: id },
 		collator_selection: CollatorSelectionConfig {
@@ -109,6 +112,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 		endowed_accounts: Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 		endowment: WND * 1_000_000,
 		dev_stakers: Some((100, 2000)),
+		dev_accounts: None,
 		validators: Default::default(),
 		validator_count: 10,
 		root: Sr25519Keyring::Alice.to_account_id(),
@@ -144,10 +148,18 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			staking_async_parachain_genesis(params, id.to_string())
 		},
 		"fake-dot" => {
-			params.validator_count = 500;
+			params.validator_count = 600;
 			params.dev_stakers = Some((2_500, 25_000));
 			staking_async_parachain_genesis(params, id.to_string())
 		},
+		"fake-dot-xxl" => {
+			params.validator_count = 600;
+			// 1mil nominators, 100k validators
+			params.dev_stakers = Some((100 * 1000, 1 * 1000 * 1000));
+			// 100k accounts
+			params.dev_accounts = Some((100 * 1000, WND * 100, None));
+			staking_async_parachain_genesis(params, id.to_string())
+		}
 		"fake-ksm" => {
 			params.validator_count = 1_000;
 			params.dev_stakers = Some((4_500, 15_000));

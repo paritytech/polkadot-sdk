@@ -6,6 +6,7 @@ import { Command } from "commander";
 export enum Presets {
 	FakeDev = "fake-dev",
 	FakeDot = "fake-dot",
+	FakeDotXxl = "fake-dot-xxl",
 	FakeKsm = "fake-ksm",
 	RealS = "real-s",
 	RealM = "real-m",

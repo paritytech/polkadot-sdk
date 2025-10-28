@@ -8,7 +8,8 @@ import { createWriteStream } from "fs";
 export function rcPresetFor(paraPreset: Presets): string {
 	return paraPreset == Presets.FakeDev ||
 		paraPreset == Presets.FakeDot ||
-		paraPreset == Presets.FakeKsm
+		paraPreset == Presets.FakeKsm ||
+		paraPreset == Presets.FakeDotXxl
 		? "fake-s"
 		: paraPreset;
 }
@@ -22,7 +23,7 @@ export async function runPreset(paraPreset: Presets): Promise<void> {
 	prepPreset(paraPreset);
 	const znConfig = znConfigFor(paraPreset);
 	logger.info(`Launching ZN config for preset: ${paraPreset}, config: ${znConfig}`);
-	cmd("zombienet", ["--provider", "native", "-l", "text", "spawn", znConfig], "inherit");
+	cmd("zombie-cli", [ "spawn", "--provider", "native", znConfig], "inherit");
 }
 
 export async function runPresetUntilLaunched(
@@ -31,7 +32,7 @@ export async function runPresetUntilLaunched(
 	prepPreset(paraPreset);
 	const znConfig = znConfigFor(paraPreset);
 	logger.info(`Launching ZN config for preset: ${paraPreset}, config: ${znConfig}`);
-	const child = spawn("zombienet", ["--provider", "native", "-l", "text", "spawn", znConfig], {
+	const child = spawn("zombie-cli", ["spawn", "--provider", "native", znConfig], {
 		stdio: "pipe",
 		cwd: __dirname,
 	});
@@ -40,15 +41,15 @@ export async function runPresetUntilLaunched(
 		const logCmds: string[] = [];
 		child.stdout.on("data", (data) => {
 			const raw: string = stripAnsi(data.toString());
-			if (raw.includes("Log Cmd : ")) {
+			if (raw.includes("logs cmd:")) {
 				raw.split("\n")
-					.filter((line) => line.includes("Log Cmd : "))
+					.filter((line) => line.includes("logs cmd:"))
 					.forEach((line) => {
-						logCmds.push(line.replace("Log Cmd : ", "").trim());
+						logCmds.push(line.replace("logs cmd:", "").trim());
 					});
 			}
 			// our hacky way to know ZN is done.
-			if (raw.includes("Parachain ID : 1100")) {
+			if (raw.includes("🚀🚀🚀 network is up,")) {
 				for (const cmd of logCmds) {
 					logger.info(`${cmd}`);
 				}
@@ -84,7 +85,7 @@ export async function spawnMiner(): Promise<() => void> {
 		[
 			"--uri",
 			"ws://127.0.0.1:9946",
-			"experimental-monitor-multi-block",
+			"monitor",
 			"--seed-or-path",
 			"//Bob",
 		],
@@ -123,8 +124,8 @@ function prepPreset(paraPreset: Presets): void {
 		`staging-chain-spec-builder`,
 	]);
 
-	cmd("rm", ["./parachain.json"]);
-	cmd("rm", ["./rc.json"]);
+	cmd("rm", ["-f", "./parachain.json"]);
+	cmd("rm", ["-f", "./rc.json"]);
 
 	cmd(join(targetDir, "/release/chain-spec-builder"), [
 		"create",
