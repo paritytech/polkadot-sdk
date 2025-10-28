@@ -1316,7 +1316,7 @@ fn instantiation_traps() {
 #[test]
 fn termination_from_instantiate_fails() {
 	let terminate_ch = MockLoader::insert(Constructor, |ctx, _| {
-		let _ = ctx.ext.terminate(&ALICE_ADDR)?;
+		let _ = ctx.ext.terminate_if_same_tx(&ALICE_ADDR)?;
 		exec_success()
 	});
 
