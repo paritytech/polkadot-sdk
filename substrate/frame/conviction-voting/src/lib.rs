@@ -420,6 +420,22 @@ pub mod pallet {
 			Self::try_remove_vote(&target, index, Some(class), scope)?;
 			Ok(())
 		}
+
+		/// Toggle `allow_delegator_voting` for the class.
+		///
+		/// The dispatch origin of this call must be _Signed_.
+		///
+		/// - `class`: The class for which to toggle the functionality.
+		#[pallet::call_index(6)]
+		#[pallet::weight(T::WeightInfo::toggle_allow_delegator_voting())]
+		pub fn toggle_allow_delegator_voting(
+			origin: OriginFor<T>,
+			class: ClassOf<T, I>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::toggle_delegator_voting(who, class);
+			Ok(())
+		}
 	}
 }
 
@@ -773,7 +789,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     ) -> Result<(u32, u32), DispatchError> {
         VotingFor::<T, I>::try_mutate(who, class, |voting| {
 			// Can't delegate if have votes & delegatee doesn't allow for so.
-			if (delegators_ongoing_votes.len() > 0 && !voting.allow_delegator_voting) {
+			if delegators_ongoing_votes.len() > 0 && !voting.allow_delegator_voting {
 				return Err(Error::<T, I>::DelegatorVotingNotAllowed.into());
 			}
 
@@ -1000,7 +1016,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
 				Self::extend_lock(&who, &class, balance);
-				votes_accessed
+				Ok(votes_accessed)
 			})?;
 		Self::deposit_event(Event::<T, I>::Delegated(who, target, class));
 		Ok(votes_accessed)
@@ -1050,6 +1066,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			})?;
 		Self::deposit_event(Event::<T, I>::Undelegated(who, class));
 		Ok(votes_accessed)
+	}
+
+	/// Toggle `allow_delegator_voting` for the specific class.
+	fn toggle_delegator_voting(who: T::AccountId, class: ClassOf<T, I>) {
+		VotingFor::<T, I>::mutate(&who, &class, |voting| {
+			voting.allow_delegator_voting = !voting.allow_delegator_voting;
+		});
 	}
 
 	// Update the lock for this class to be max(old, amount).

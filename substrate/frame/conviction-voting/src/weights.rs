@@ -79,6 +79,7 @@ pub trait WeightInfo {
 	fn delegate(r: u32, _s: u32) -> Weight;
 	fn undelegate(r: u32, _s: u32) -> Weight;
 	fn unlock() -> Weight;
+	fn toggle_allow_delegator_voting() -> Weight;
 }
 
 /// Weights for `pallet_conviction_voting` using the Substrate node and recommended hardware.
@@ -163,6 +164,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(65_626_000, 30706)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	// Placeholder.
+	fn toggle_allow_delegator_voting() -> Weight {
+		T::DbWeight::get().reads(1_u64)
+		.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Parameters::Parameters` (r:1 w:0)
 	/// Proof: `Parameters::Parameters` (`max_values`: None, `max_size`: Some(11322), added: 13797, mode: `MaxEncodedLen`)
@@ -320,6 +326,11 @@ impl WeightInfo for () {
 		Weight::from_parts(65_626_000, 30706)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	// Placeholder.
+	fn toggle_allow_delegator_voting() -> Weight {
+		RocksDbWeight::get().reads(1_u64)
+		.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Parameters::Parameters` (r:1 w:0)
 	/// Proof: `Parameters::Parameters` (`max_values`: None, `max_size`: Some(11322), added: 13797, mode: `MaxEncodedLen`)
