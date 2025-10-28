@@ -80,7 +80,9 @@ pub struct TransactionInfo {
 	/// Size of indexed data in bytes.
 	size: u32,
 	/// Total number of chunks added in the block with this transaction. This
-	/// is used find transaction info by block chunk index using binary search.
+	/// is used to find transaction info by block chunk index using binary search.
+	///
+	/// Cumulative value of all previous transactions in the block; the last transaction holds the total chunk value.
 	block_chunks: u32,
 }
 
@@ -133,7 +135,7 @@ pub mod pallet {
 		NotConfigured,
 		/// Renewed extrinsic is not found.
 		RenewedNotFound,
-		/// Attempting to store empty transaction
+		/// Attempting to store an empty transaction
 		EmptyTransaction,
 		/// Proof was not expected in this block.
 		UnexpectedProof,
@@ -301,6 +303,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
 			ensure!(!ProofChecked::<T>::get(), Error::<T>::DoubleCheck);
+
 			// Get the target block metadata.
 			let number = frame_system::Pallet::<T>::block_number();
 			let period = StoragePeriod::<T>::get();
@@ -456,17 +459,26 @@ pub mod pallet {
 			// Get the random chunk index (from all transactions in the block = 0..total_chunks).
 			let selected_block_chunk_index = random_chunk(random_hash.as_ref(), total_chunks);
 
-			// Let's find the corespondent transaction and its "local" chunk index for "global" `selected_block_chunk_index`.
+			// Let's find the corresponding transaction and its "local" chunk index for "global" `selected_block_chunk_index`.
 			let (tx_info, tx_chunk_index) = {
-					let tx_index = match infos
-						.binary_search_by_key(&selected_block_chunk_index, |info| info.block_chunks)
-					{
-						Ok(tx_index) => tx_index,
-						Err(tx_index) => tx_index,
-					};
+					// Binary search for the transaction that owns this `selected_block_chunk_index` chunk.
+					let tx_index = infos
+						.binary_search_by_key(&selected_block_chunk_index, |info| {
+							// Each `info.block_chunks` is cumulative count, so last chunk index = count - 1.
+							let last_chunk_index = info.block_chunks.saturating_sub(1);
+							last_chunk_index
+						}).unwrap_or_else(|tx_index| tx_index);
 
 					// Get the transaction and its local chunk index.
-					let tx_info = infos.get(tx_index).ok_or(Error::<T>::MissingStateData)?.clone();
+					let tx_info = infos.get(tx_index).ok_or(Error::<T>::MissingStateData)?;
+					// We shouldn't reach this point; we rely on the fact that `fn store` does not allow empty transactions.
+					// Without this check, it would fail anyway below with `InvalidProof`.
+					ensure!(
+						!tx_info.block_chunks.is_zero(),
+						Error::<T>::EmptyTransaction
+					);
+
+					// Convert a global chunk index into a transaction-local one.
 					let tx_chunks = num_chunks(tx_info.size);
 					let prev_chunks = tx_info.block_chunks - tx_chunks;
 					let tx_chunk_index = selected_block_chunk_index - prev_chunks;
