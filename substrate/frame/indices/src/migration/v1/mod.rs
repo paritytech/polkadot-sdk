@@ -190,7 +190,7 @@ where
 				println!("Unreserved amount: {:?}", _unreserved);
 
 				// Try to hold in new fungibles system
-				match T::Currency::hold(&HoldReason::DepositForIndex.into(), &account, to_migrate) {
+				match T::NativeBalance::hold(&HoldReason::DepositForIndex.into(), &account, to_migrate) {
 					Ok(_) => {
 						// Success: migrate to new storage with hold
 						println!("Successfully created hold for account {:?}", account);
@@ -259,7 +259,7 @@ impl<T: Config, C> MigrateCurrencyToFungibles<T, C> {
 					// 1. Deposit was successfully migrated to hold, OR
 					// 2. Deposit was set to zero (preserved with zero deposit)
 					if !old_deposit.is_zero() {
-						let held = T::Currency::balance_on_hold(
+						let held = T::NativeBalance::balance_on_hold(
 							&HoldReason::DepositForIndex.into(),
 							&account,
 						);
