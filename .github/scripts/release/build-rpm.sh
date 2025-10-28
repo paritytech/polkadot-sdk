@@ -20,6 +20,7 @@ rm -rf "$STAGING_DIR"
 mkdir -p "$STAGING_DIR/usr/bin"
 mkdir -p "$STAGING_DIR/usr/lib/${PRODUCT}"
 mkdir -p "$STAGING_DIR/usr/lib/systemd/system"
+mkdir -p "$STAGING_DIR/etc/default"
 
 # 2. Copy compiled binaries and assets into the staging directory
 echo "📂 Copying application files..."
@@ -41,6 +42,12 @@ fpm \
   --description "Polkadot Node" \
   --license "GPL-3.0-only" \
   --url "https://polkadot.network/" \
+  --depends systemd \
+  --depends shadow-utils \
+  --after-install "polkadot/scripts/packaging/rpm-postinst.sh" \
+  --before-remove "polkadot/scripts/packaging/rpm-preun.sh" \
+  --after-remove "polkadot/scripts/packaging/rpm-postun.sh" \
+  --config-files /etc/default/polkadot \
   -C "$STAGING_DIR" \
   .
 
