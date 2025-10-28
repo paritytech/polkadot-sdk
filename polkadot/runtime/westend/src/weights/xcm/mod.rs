@@ -312,6 +312,10 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for WestendXcmWeight<RuntimeCall> {
 		// TODO: Benchmark
 		Weight::from_parts(10_000_000, 0)
 	}
+	fn subscribe(_: &u32) -> Weight {
+		// TODO: Benchmark
+		Weight::from_parts(10_000_000, 0)
+	}
 }
 
 #[test]
