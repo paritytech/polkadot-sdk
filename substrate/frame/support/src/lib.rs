@@ -1221,7 +1221,7 @@ pub mod pallet_macros {
 	/// Deprecation Notice
 	///
 	/// The `#[pallet::validate_unsigned]` attribute has been deprecated and will be removed in
-	/// a future release. Use `TransactionExtension` instead.
+	/// a future release. Use [`sp_runtime::traits::TransactionExtension`] instead.
 	///
 	/// For more information, see: <https://github.com/paritytech/polkadot-sdk/issues/2415>
 	pub use frame_support_procedural::validate_unsigned;
