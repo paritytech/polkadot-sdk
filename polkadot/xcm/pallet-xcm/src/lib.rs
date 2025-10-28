@@ -3323,10 +3323,10 @@ impl<T: Config> Pallet<T> {
 			// If the fee asset is the same as the desired one, just return that.
 			fees
 		} else {
-			// Call AssetExchanger::quote_exchange_price().
+			// We get the fees in the desired asset.
 			AssetExchanger::quote_exchange_price(
 				&fees.into(),
-				&(asset_id, Fungible(0)).into(),
+				&(asset_id, Fungible(1)).into(),
 				true, // Maximal.
 			)
 			.ok_or(XcmPaymentApiError::AssetNotFound)?
