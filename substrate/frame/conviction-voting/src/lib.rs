@@ -236,6 +236,8 @@ pub mod pallet {
 		BadClass,
 		/// The voter's delegate has reached the maximum number of votes.
 		DelegateMaxVotesReached,
+		/// The delegate does not allow for delegator voting.
+		DelegatorVotingNotAllowed,
 	}
 
 	#[pallet::call]
@@ -504,6 +506,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							delegate,
 							&class,
 							|delegate_voting| -> Result<(), DispatchError> {
+								if !delegate_voting.allow_delegator_voting {
+                                    return Err(Error::<T, I>::DelegatorVotingNotAllowed.into());
+                                }
+								
 								let delegates_votes = &mut delegate_voting.votes;
 								// Search for data about poll in delegate's voting info.
 								match delegates_votes
@@ -766,6 +772,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         delegators_ongoing_votes: Vec<PollIndexOf<T, I>>,
     ) -> Result<(u32, u32), DispatchError> {
         VotingFor::<T, I>::try_mutate(who, class, |voting| {
+			// Can't delegate if have votes & delegatee doesn't allow for so.
+			if (delegators_ongoing_votes.len() > 0 && !voting.allow_delegator_voting) {
+				return Err(Error::<T, I>::DelegatorVotingNotAllowed.into());
+			}
+
             // Increase delegate's delegation counter.
             voting.delegations = voting.delegations.saturating_add(amount);
 
@@ -984,7 +995,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					&class,
 					conviction.votes(balance),
 					delegators_ongoing_votes,
-				);
+				)?;
 
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.

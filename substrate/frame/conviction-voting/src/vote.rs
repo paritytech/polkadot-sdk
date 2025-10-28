@@ -241,6 +241,8 @@ where
 	pub delegations: Delegations<Balance>,
 	/// Any pre-existing locks from past voting/delegating activity.
 	pub prior: PriorLock<BlockNumber, Balance>,
+	/// Whether to allow delegators to vote.
+	pub allow_delegator_voting: bool,
 }
 
 impl<Balance: Default, AccountId, BlockNumber: Zero, PollIndex, MaxVotes> Default
@@ -256,6 +258,7 @@ where
 			maybe_conviction: None,
 			delegations: Default::default(),
 			prior: PriorLock(Zero::zero(), Default::default()),
+			allow_delegator_voting: Default::default(),
 		}
 	}
 }
