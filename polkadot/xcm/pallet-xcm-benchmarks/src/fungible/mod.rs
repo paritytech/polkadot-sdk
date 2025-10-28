@@ -45,6 +45,11 @@ pub mod pallet {
 
 		/// Give me a fungible asset that your asset transactor is going to accept.
 		fn get_asset() -> xcm::latest::Asset;
+
+		/// Give me a fungible asset and its trusted reserve location.
+		fn get_foreign_asset() -> Option<(xcm::latest::Asset, xcm::latest::Location)> {
+			None
+		}
 	}
 
 	#[pallet::pallet]
