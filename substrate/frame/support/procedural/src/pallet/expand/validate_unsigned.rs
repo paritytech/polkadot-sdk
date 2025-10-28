@@ -25,7 +25,9 @@ pub fn expand_validate_unsigned(def: &mut Def) -> TokenStream {
 	let macro_ident =
 		Ident::new(&format!("__is_validate_unsigned_part_defined_{}", count), def.item.span());
 
-	let maybe_compile_error = if def.validate_unsigned.is_none() {
+	let maybe_compile_error_or_warning = if let Some(def) = &def.validate_unsigned {
+		def.warning.as_ref().map_or(TokenStream::new(), |w| quote! { #w })
+	} else {
 		quote! {
 			compile_error!(concat!(
 				"`",
@@ -34,8 +36,6 @@ pub fn expand_validate_unsigned(def: &mut Def) -> TokenStream {
 				remove `ValidateUnsigned` from construct_runtime?",
 			));
 		}
-	} else {
-		TokenStream::new()
 	};
 
 	quote! {
@@ -45,7 +45,7 @@ pub fn expand_validate_unsigned(def: &mut Def) -> TokenStream {
 			#[doc(hidden)]
 			macro_rules! #macro_ident {
 				($pallet_name:ident) => {
-					#maybe_compile_error
+					#maybe_compile_error_or_warning
 				}
 			}
 
