@@ -15,15 +15,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	evm::block_hash::{AccumulateReceipt, EthereumBlockBuilder, LogsBloom},
+	dispatch_result,
+	evm::{
+		block_hash::{AccumulateReceipt, EthereumBlockBuilder, LogsBloom},
+		fees::InfoT,
+	},
 	limits,
 	sp_runtime::traits::One,
-	BalanceOf, BlockHash, Config, EthBlockBuilderIR, EthereumBlock, Event, Pallet, ReceiptInfoData,
-	UniqueSaturatedInto, H160, H256,
+	weights::WeightInfo,
+	BlockHash, Config, Error, EthBlockBuilderIR, EthereumBlock, Event, Pallet, ReceiptInfoData,
+	UniqueSaturatedInto, Weight, H160, H256,
 };
 use alloc::vec::Vec;
 use environmental::environmental;
 use frame_support::{
+	dispatch::DispatchInfo,
 	pallet_prelude::{DispatchError, DispatchResultWithPostInfo},
 	storage::with_transaction,
 };
@@ -48,14 +54,44 @@ pub(crate) struct EthereumCallResult {
 }
 
 impl EthereumCallResult {
-	/// Create a new `EthereumCallResult`
+	/// Create a new `EthereumCallResult` from contract execution details.
+	///
+	/// # Parameters
+	///
+	/// - `result`: The execution result
+	/// - `gas_consumed`: The weight consumed during execution
+	/// - `base_info`: Base dispatch information for the call
+	/// - `encoded_len`: The length of the encoded transaction in bytes
+	/// - `info`: Dispatch information used for fee computation
+	/// - `effective_gas_price`: The EVM gas price
 	pub(crate) fn new<T: Config>(
-		native_fee: BalanceOf<T>,
+		mut result: Result<crate::ExecReturnValue, DispatchError>,
+		mut gas_consumed: Weight,
+		base_info: DispatchInfo,
+		encoded_len: u32,
+		info: &DispatchInfo,
 		effective_gas_price: U256,
-		result: DispatchResultWithPostInfo,
 	) -> Self {
+		if let Ok(retval) = &result {
+			if retval.did_revert() {
+				result = Err(<Error<T>>::ContractReverted.into());
+			}
+		}
+
+		// Refund the already charged gas for the revert event if the call is successful.
+		if result.is_ok() {
+			gas_consumed.saturating_reduce(T::WeightInfo::deposit_eth_extrinsic_revert_event())
+		}
+
+		let result = dispatch_result(result, gas_consumed, base_info.call_weight);
+		let native_fee = T::FeeInfo::compute_actual_fee(encoded_len, &info, &result);
+		let result = T::FeeInfo::ensure_not_overdrawn(native_fee, result);
 		let eth_fee = Pallet::<T>::convert_native_to_evm(native_fee);
-		let gas_used = eth_fee / effective_gas_price;
+		let gas_used = if effective_gas_price.is_zero() {
+			Default::default()
+		} else {
+			eth_fee / effective_gas_price
+		};
 		Self { gas_used, result }
 	}
 }

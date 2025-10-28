@@ -1241,7 +1241,7 @@ pub mod pallet {
 			drop(call);
 
 			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
-				let mut output = Self::bare_instantiate(
+				let output = Self::bare_instantiate(
 					origin,
 					value,
 					gas_limit,
@@ -1256,21 +1256,14 @@ pub mod pallet {
 					),
 				);
 
-				if let Ok(retval) = &output.result {
-					if retval.result.did_revert() {
-						output.result = Err(<Error<T>>::ContractReverted.into());
-					}
-				}
-
-				let result = dispatch_result(
-					output.result.map(|result| result.result),
+				block_storage::EthereumCallResult::new::<T>(
+					output.result.map(|r| r.result),
 					output.gas_consumed,
-					base_info.call_weight,
-				);
-
-				let native_fee = T::FeeInfo::compute_actual_fee(encoded_len, &info, &result);
-				let result = T::FeeInfo::ensure_not_overdrawn(native_fee, result);
-				block_storage::EthereumCallResult::new::<T>(native_fee, effective_gas_price, result)
+					base_info,
+					encoded_len,
+					&info,
+					effective_gas_price,
+				)
 			})
 		}
 
@@ -1309,7 +1302,7 @@ pub mod pallet {
 			drop(call);
 
 			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
-				let mut output = Self::bare_call(
+				let output = Self::bare_call(
 					origin,
 					dest,
 					value,
@@ -1323,18 +1316,14 @@ pub mod pallet {
 					),
 				);
 
-				if let Ok(return_value) = &output.result {
-					if return_value.did_revert() {
-						output.result = Err(<Error<T>>::ContractReverted.into());
-					}
-				}
-
-				let result =
-					dispatch_result(output.result, output.gas_consumed, base_info.call_weight);
-
-				let native_fee = T::FeeInfo::compute_actual_fee(encoded_len, &info, &result);
-				let result = T::FeeInfo::ensure_not_overdrawn(native_fee, result);
-				block_storage::EthereumCallResult::new::<T>(native_fee, effective_gas_price, result)
+				block_storage::EthereumCallResult::new::<T>(
+					output.result,
+					output.gas_consumed,
+					base_info,
+					encoded_len,
+					&info,
+					effective_gas_price,
+				)
 			})
 		}
 
