@@ -44,6 +44,7 @@ pub mod precompiles;
 pub mod test_utils;
 pub mod tracing;
 pub mod weights;
+pub mod inherent_handlers;
 
 use crate::{
 	evm::{
@@ -55,13 +56,14 @@ use crate::{
 	},
 	exec::{AccountIdOf, ExecError, Executable, Stack as ExecStack},
 	gas::GasMeter,
+	inherent_handlers::{InherentHandler, InherentHandlers},
 	storage::{meter::Meter as StorageMeter, AccountType, DeletionQueueManager},
 	tracing::if_tracing,
 	vm::{pvm::extract_code_and_data, CodeInfo, ContractBlob, RuntimeCosts},
 	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
-use codec::{Codec, Decode, Encode};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use environmental::*;
 use frame_support::{
 	dispatch::{
@@ -114,6 +116,25 @@ pub type BalanceOf<T> = <T as Config>::Balance;
 type TrieId = BoundedVec<u8, ConstU32<128>>;
 type ImmutableData = BoundedVec<u8, ConstU32<{ limits::IMMUTABLE_BYTES }>>;
 type CallOf<T> = <T as Config>::RuntimeCall;
+
+/// Represents a message intended for routing to a specific `InherentHandler`.
+///
+/// This struct wraps the raw message payload alongside the name of the handler
+/// designated to process it. It's used as the argument for the
+/// `system_log_dispatch` extrinsic in `pallet-revive`.
+#[derive(Debug, Clone, PartialEq, Eq, DecodeWithMemTracking, Encode, Decode, TypeInfo)]
+pub struct InherentHandlerMessage {
+	/// The unique byte slice identifier of the target `InherentHandler`.
+	///
+	/// This name is used by the `InherentHandlers` dispatch logic to find the
+	/// correct handler pallet. e.g: `b"hyperbridge_proof_verifier_v1"`.
+	pub handler_name: Vec<u8>,
+	/// The raw byte payload of the message.
+	///
+	/// This data will be passed to the `handle_message` function of the
+	/// designated handler. Its internal format is specific to the handler.
+	pub raw_message: Vec<u8>
+}
 
 /// Used as a sentinel value when reading and writing contract memory.
 ///
@@ -332,6 +353,23 @@ pub mod pallet {
 		/// Allows debug-mode configuration, such as enabling unlimited contract size.
 		#[pallet::constant]
 		type DebugEnabled: Get<bool>;
+
+		/// Specifies the type responsible for dispatching inherent system log messages.
+		///
+		/// This type must implement the [`inherent_handlers::InherentHandlers`] trait, which provides
+		/// the logic for validating handler names (`is_valid_handler`) and routing messages
+		/// (`dispatch_message`).
+		///
+		/// In the runtime, this is typically configured as a tuple containing the specific
+		/// pallets that implement the [`inherent_handlers::InherentHandler`] trait.
+		///
+		/// e,g Runtime Configuration:
+		/// ```ignore
+		/// type InherentHandlers = (
+		///     hyperbridge_ismp-parachain::Pallet<Runtime>,
+		/// );
+		/// ```
+		type InherentHandlers: InherentHandlers;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -414,6 +452,8 @@ pub mod pallet {
 			type FeeInfo = ();
 			type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
 			type DebugEnabled = ConstBool<false>;
+
+			type InherentHandlers = ();
 		}
 	}
 
@@ -1440,6 +1480,49 @@ pub mod pallet {
 				T::AddressMapper::to_fallback_account_id(&T::AddressMapper::to_address(&origin));
 			call.dispatch(RawOrigin::Signed(unmapped_account).into())
 		}
+
+		/// Dispatches a system log message to the appropriate `InherentHandler`.
+		///
+		/// This extrinsic is designed to be **unsigned** and is typically submitted
+		/// as an **inherent** by a block author or triggered internally by the runtime.
+		/// It acts as a router, taking a wrapped message and calling the dispatch logic
+		/// provided by the `Config::InherentHandlers` type.
+		#[pallet::call_index(12)]
+		#[pallet::weight(Weight::zero())]
+		pub fn system_log_dispatch(
+			origin: OriginFor<T>,
+			message: InherentHandlerMessage,
+		) -> DispatchResult {
+			ensure_none(origin)?;
+
+			T::InherentHandlers::dispatch_message(message)?;
+
+			Ok(())
+		}
+	}
+
+	#[pallet::validate_unsigned]
+	impl<T: Config> ValidateUnsigned for Pallet<T> {
+		type Call = Call<T>;
+
+		/// Validates unsigned `system_log_dispatch` calls before they enter the transaction pool.
+		///
+		/// This function implements the `ValidateUnsigned` trait for `pallet-revive`. Its primary role
+		/// is to ensure that incoming unsigned transactions destined for `system_log_dispatch`
+		/// are valid before being accepted.
+		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			if let Call::system_log_dispatch { message } = call {
+				ensure!(T::InherentHandlers::is_valid_handler(&message.handler_name), InvalidTransaction::Call);
+
+				ValidTransaction::with_tag_prefix("SystemLogDispatch")
+					.and_provides(message.encode())
+					.longevity(TransactionLongevity::MAX)
+					.propagate(true)
+					.build()
+			} else {
+				InvalidTransaction::Call.into()
+			}
+		}
 	}
 }
 
@@ -1458,6 +1541,8 @@ fn dispatch_result<R>(
 		.map(|_| post_info)
 		.map_err(|e| DispatchErrorWithPostInfo { post_info, error: e })
 }
+
+
 
 impl<T: Config> Pallet<T> {
 	/// A generalized version of [`Self::call`].

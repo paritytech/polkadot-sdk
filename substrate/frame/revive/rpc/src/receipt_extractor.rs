@@ -18,7 +18,7 @@ use crate::{
 	client::{SubstrateBlock, SubstrateBlockNumber},
 	subxt_client::{
 		self,
-		revive::{calls::types::EthTransact, events::ContractEmitted},
+		revive::{calls::types::{EthTransact, SystemLogDispatch}, events::ContractEmitted},
 		system::events::ExtrinsicSuccess,
 		transaction_payment::events::TransactionFeePaid,
 		SrcChainConfig,
@@ -32,7 +32,7 @@ use pallet_revive::{
 };
 use sp_core::keccak_256;
 use std::{future::Future, pin::Pin, sync::Arc};
-use subxt::OnlineClient;
+use subxt::{blocks, OnlineClient};
 
 type FetchGasPriceFn = Arc<
 	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Result<U256, ClientError>> + Send>> + Send + Sync,
@@ -131,7 +131,7 @@ impl ReceiptExtractor {
 	async fn extract_from_extrinsic(
 		&self,
 		block: &SubstrateBlock,
-		ext: subxt::blocks::ExtrinsicDetails<SrcChainConfig, subxt::OnlineClient<SrcChainConfig>>,
+		ext: &subxt::blocks::ExtrinsicDetails<SrcChainConfig, subxt::OnlineClient<SrcChainConfig>>,
 		call: EthTransact,
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
 		let transaction_index = ext.index();
@@ -217,6 +217,74 @@ impl ReceiptExtractor {
 		Ok((signed_tx, receipt))
 	}
 
+	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] from a System Log extrinsic.
+	async fn extract_from_system_log(
+		&self,
+		block: &SubstrateBlock,
+		ext: &subxt::blocks::ExtrinsicDetails<SrcChainConfig, subxt::OnlineClient<SrcChainConfig>>,
+		_call: SystemLogDispatch,
+	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
+		let transaction_index = ext.index();
+		let block_number = U256::from(block.number());
+		let block_hash = block.hash();
+
+		let events = ext.events().await?;
+
+		let success = events.has::<ExtrinsicSuccess>().inspect_err(|err| {
+			log::debug!(target: LOG_TARGET, "Failed to lookup for ExtrinsicSuccess event in block {block_number}: {err:?}")
+		})?;
+
+		let transaction_hash = ext.hash();
+
+		let signed_tx = TransactionSigned::default();
+		let from = H160::zero();
+		let gas_price = U256::zero();
+		let gas_used = U256::zero();
+
+		let logs = events
+			.iter()
+			.filter_map(|event_details| {
+				let event_details = event_details.ok()?;
+				let event = event_details.as_event::<ContractEmitted>().ok()??;
+
+				Some( Log {
+					address: event.contract,
+					block_hash,
+					block_number,
+					data: Some(event.data.into()),
+					log_index: event_details.index().into(),
+					topics: event.topics,
+					transaction_hash,
+					transaction_index: transaction_index.into(),
+					..Default::default()
+				})
+			}).collect();
+
+		let contract_adddress = None;
+		let to_address = None;
+
+		let tx_type: pallet_revive::evm::Byte = pallet_revive::evm::Byte(0u8);
+
+		let receipt = ReceiptInfo::new(
+			block_hash,
+			block_number,
+			contract_adddress,
+			from,
+			logs,
+			to_address,
+			gas_price,
+			gas_used,
+			success,
+			transaction_hash,
+			transaction_index.into(),
+			tx_type
+		);
+
+		Ok((signed_tx, receipt))
+
+
+	}
+
 	/// Extract receipts from block.
 	pub async fn extract_from_block(
 		&self,
@@ -231,22 +299,27 @@ impl ReceiptExtractor {
 			log::debug!(target: LOG_TARGET, "Error fetching for #{:?} extrinsics: {err:?}", block.number());
 		})?;
 
-		let extrinsics = extrinsics.iter().flat_map(|ext| {
-			let call = ext.as_extrinsic::<EthTransact>().ok()??;
-			Some((ext, call))
-		});
+		let mut results = Vec::new();
+		for ext in extrinsics.iter() {
+			if let Some(call) = ext.as_extrinsic::<EthTransact>().ok().flatten() {
+				match self.extract_from_extrinsic(block, &ext, call).await {
+					Ok(receipt_info) => results.push(Ok(receipt_info)),
+					Err(e) => {
+						log::warn!(target: LOG_TARGET, "Error extracting EthTransact extrinsic: {e:?}");
+					}
+				}
+			}
+			else if let Some(call) = ext.as_extrinsic::<SystemLogDispatch>().ok().flatten() {
+				match self.extract_from_system_log(block, &ext, call).await {
+					Ok(receipt_info) => results.push(Ok(receipt_info)),
+					Err(e) => {
+						log::warn!(target: LOG_TARGET, "Error extracting SystemLogDispatch extrinsic: {e:?}");
+					}
+				}
+			}
+		}
 
-		stream::iter(extrinsics)
-			.map(|(ext, call)| async move {
-				self.extract_from_extrinsic(block, ext, call).await.inspect_err(|err| {
-					log::warn!(target: LOG_TARGET, "Error extracting extrinsic: {err:?}");
-				})
-			})
-			.buffer_unordered(10)
-			.collect::<Vec<Result<_, _>>>()
-			.await
-			.into_iter()
-			.collect::<Result<Vec<_>, _>>()
+		results.into_iter().collect::<Result<Vec<_>, _>>()
 	}
 
 	/// Extract receipt from transaction
@@ -261,9 +334,12 @@ impl ReceiptExtractor {
 			.nth(transaction_index)
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
-		let call = ext
-			.as_extrinsic::<EthTransact>()?
-			.ok_or_else(|| ClientError::EthExtrinsicNotFound)?;
-		self.extract_from_extrinsic(block, ext, call).await
+		if let Some(call) = ext.as_extrinsic::<EthTransact>().ok().flatten() {
+			self.extract_from_extrinsic(block, &ext, call).await
+		} else if let Some(call) = ext.as_extrinsic::<SystemLogDispatch>().ok().flatten() {
+			self.extract_from_system_log(block, &ext, call).await
+		} else {
+			Err(ClientError::EthExtrinsicNotFound)
+		}
 	}
 }
