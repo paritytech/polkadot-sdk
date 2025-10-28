@@ -1,4 +1,4 @@
-use super::{BaseDeliveryFee, FeeAssetId, TransactionByteFee};
+use super::PriceForParentDelivery;
 use crate::{
 	AccountId, AllPalletsWithSystem, Balances, ParachainInfo, ParachainSystem, PolkadotXcm,
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
@@ -16,7 +16,7 @@ use frame_support::{
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain_primitives::primitives::Sibling;
-use polkadot_runtime_common::{impls::ToAuthor, xcm_sender::ExponentialPrice};
+use polkadot_runtime_common::impls::ToAuthor;
 use polkadot_sdk::{
 	polkadot_sdk_frame::traits::Disabled,
 	staging_xcm_builder::{DenyRecursively, DenyThenTry},
@@ -159,9 +159,6 @@ impl xcm_executor::Config for XcmConfig {
 /// Converts a local signed origin into an XCM location. Forms the basis for local origins
 /// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
-
-pub type PriceForParentDelivery =
-	ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem>;
 
 /// The means for routing XCM messages which are not for local execution into the right message
 /// queues.

@@ -254,12 +254,17 @@ parameter_types! {
 	/// The asset ID for the asset that we use to pay for message delivery fees.
 	pub FeeAssetId: AssetId = AssetId(xcm_config::RelayLocation::get());
 	/// The base fee for the message delivery fees.
-	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
+	pub const ToSiblingBaseDeliveryFee: u128 = CENTS.saturating_mul(3);
+	pub const ToParentBaseDeliveryFee: u128 = CENTS.saturating_mul(3);
 }
 
 /// The price for delivering XCM messages to sibling parachains.
 pub type PriceForSiblingParachainDelivery =
-	ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, XcmpQueue>;
+	ExponentialPrice<FeeAssetId, ToSiblingBaseDeliveryFee, TransactionByteFee, XcmpQueue>;
+
+/// The price for delivering XCM messages to relay chain.
+pub type PriceForParentDelivery =
+	ExponentialPrice<FeeAssetId, ToParentBaseDeliveryFee, TransactionByteFee, ParachainSystem>;
 
 impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
