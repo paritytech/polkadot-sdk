@@ -32,60 +32,45 @@ jobs:
       RUST_BACKTRACE: 1
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: script
         run: |
-          forklift cargo build --locked --profile production -p pallet-revive-eth-rpc --bin eth-rpc
-          forklift cargo build -p staging-node-cli --bin substrate-node
+          forklift cargo build --locked --release -p pallet-revive-eth-rpc --bin eth-rpc
+          forklift cargo build --locked --release -p revive-dev-node --bin revive-dev-node
 
       - name: Checkout evm-tests
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: paritytech/evm-test-suite
-          ref: 72d1dace20c8fea4c2404383cc422299b26f1961
+          ref: d20230d0a70ad1159ee75b4c56a47e85173f19e5
           path: evm-test-suite
 
-      - uses: actions/setup-node@v4
+      - uses: denoland/setup-deno@v1
         with:
-          node-version: 22
+          deno-version: v2.x
 
       - name: script
-        env:
-          # EVM tests don't work with batchSize 300 on self-hosted runners in docker container
-          BATCH_SIZE: 100
         run: |
           echo "Change to the evm-test-suite directory"
           cd evm-test-suite
-          echo "Download the resolc binary"
-          wget -O resolc https://github.com/paritytech/revive/releases/download/v0.3.0/resolc-x86_64-unknown-linux-musl -q
-          chmod +x resolc
-          mv resolc /usr/local/bin
-          resolc --version
+
+          deno --version
 
           echo "Check that binaries are in place"
-          export NODE_BIN_PATH=$(readlink -f ../target/debug/substrate-node)
-          export ETH_RPC_PATH=$(readlink -f ../target/production/eth-rpc)
-          export RESOLC_PATH=/usr/local/bin/resolc
-          echo $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH
+          export REVIVE_DEV_NODE_PATH=$(readlink -f ../target/release/revive-dev-node)
+          export ETH_RPC_PATH=$(readlink -f ../target/release/eth-rpc)
+          echo $REVIVE_DEV_NODE_PATH $ETH_RPC_PATH
 
-          echo "Install npm dependencies"
-          npm install
-          # cat matter-labs-tests/hardhat.config.ts | grep batchSize
+          echo "== Running pvm tests ==j"
+          START_REVIVE_DEV_NODE=true START_ETH_RPC=true deno task test:pvm
 
-          echo "Installing solc"
-          wget https://github.com/ethereum/solidity/releases/download/v0.8.30/solc-static-linux -q
-          chmod +x solc-static-linux
-          mv solc-static-linux /usr/local/bin/solc
-          echo "Run the tests"
-          echo "bash init.sh --kitchensink -- --matter-labs -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH"
-          bash init.sh --kitchensink -- --matter-labs -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH
-          echo "Run eth-rpc tests"
-          bash init.sh --kitchensink http://localhost:9944 --eth-rpc -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH 
+          echo "== Running evm tests =="
+          START_REVIVE_DEV_NODE=true START_ETH_RPC=true deno task test:evm
 
       - name: Collect tests results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: evm-test-suite-${{ github.sha }}
           path: evm-test-suite/test-logs/matter-labs-tests.log

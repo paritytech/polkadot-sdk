@@ -21,7 +21,8 @@ use crate::{
 	generic::{CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
 		self, transaction_extension::TransactionExtension, Checkable, Dispatchable, ExtrinsicCall,
-		ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount, MaybeDisplay, Member, SignaturePayload,
+		ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount, LazyExtrinsic, MaybeDisplay, Member,
+		SignaturePayload,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,
@@ -280,7 +281,9 @@ where
 	}
 }
 
-impl<Address, Call, Signature, Extension> UncheckedExtrinsic<Address, Call, Signature, Extension> {
+impl<Address, Call, Signature, Extension, const MAX_CALL_SIZE: usize>
+	UncheckedExtrinsic<Address, Call, Signature, Extension, MAX_CALL_SIZE>
+{
 	/// New instance of a bare (ne unsigned) extrinsic. This could be used for an inherent or an
 	/// old-school "unsigned transaction" (which are new being deprecated in favour of general
 	/// transactions).
@@ -329,6 +332,33 @@ impl<Address, Call, Signature, Extension> UncheckedExtrinsic<Address, Call, Sign
 	pub fn new_transaction(function: Call, tx_ext: Extension) -> Self {
 		Self::from_parts(function, Preamble::General(EXTENSION_VERSION, tx_ext))
 	}
+
+	fn decode_with_len<I: Input>(input: &mut I, len: usize) -> Result<Self, codec::Error>
+	where
+		Preamble<Address, Signature, Extension>: Decode,
+		Call: DecodeWithMemTracking,
+	{
+		let mut input = CountedInput::new(input);
+
+		let preamble = Decode::decode(&mut input)?;
+		// Adds 1 byte to the `MAX_CALL_SIZE` as the decoding fails exactly at the given value and
+		// the maximum should be allowed to fit in.
+		let function = Call::decode_with_mem_limit(&mut input, MAX_CALL_SIZE.saturating_add(1))?;
+
+		if input.count() != len as u64 {
+			return Err("Invalid length prefix".into())
+		}
+
+		Ok(Self { preamble, function })
+	}
+
+	fn encode_without_prefix(&self) -> Vec<u8>
+	where
+		Preamble<Address, Signature, Extension>: Encode,
+		Call: Encode,
+	{
+		(&self.preamble, &self.function).encode()
+	}
 }
 
 impl<Address, Call, Signature, Extension> ExtrinsicLike
@@ -350,6 +380,10 @@ impl<Address, Call, Signature, Extra> ExtrinsicCall
 
 	fn call(&self) -> &Call {
 		&self.function
+	}
+
+	fn into_call(self) -> Self::Call {
+		self.function
 	}
 }
 
@@ -447,18 +481,8 @@ where
 		// with SCALE's generic `Vec<u8>` type. Basically this just means accepting that there
 		// will be a prefix of vector length.
 		let expected_length: Compact<u32> = Decode::decode(input)?;
-		let mut input = CountedInput::new(input);
 
-		let preamble = Decode::decode(&mut input)?;
-		// Adds 1 byte to the `MAX_CALL_SIZE` as the decoding fails exactly at the given value and
-		// the maximum should be allowed to fit in.
-		let function = Call::decode_with_mem_limit(&mut input, MAX_CALL_SIZE.saturating_add(1))?;
-
-		if input.count() != expected_length.0 as u64 {
-			return Err("Invalid length prefix".into())
-		}
-
-		Ok(Self { preamble, function })
+		Self::decode_with_len(input, expected_length.0 as usize)
 	}
 }
 
@@ -471,8 +495,7 @@ where
 	Extension: Encode,
 {
 	fn encode(&self) -> Vec<u8> {
-		let mut tmp = self.preamble.encode();
-		self.function.encode_to(&mut tmp);
+		let tmp = self.encode_without_prefix();
 
 		let compact_len = codec::Compact::<u32>(tmp.len() as u32);
 
@@ -583,16 +606,22 @@ where
 impl<Address, Call, Signature, Extension>
 	From<UncheckedExtrinsic<Address, Call, Signature, Extension>> for OpaqueExtrinsic
 where
-	Address: Encode,
-	Signature: Encode,
+	Preamble<Address, Signature, Extension>: Encode,
 	Call: Encode,
-	Extension: Encode,
 {
 	fn from(extrinsic: UncheckedExtrinsic<Address, Call, Signature, Extension>) -> Self {
-		Self::from_bytes(extrinsic.encode().as_slice()).expect(
-			"both OpaqueExtrinsic and UncheckedExtrinsic have encoding that is compatible with \
-				raw Vec<u8> encoding; qed",
-		)
+		Self::from_blob(extrinsic.encode_without_prefix())
+	}
+}
+
+impl<Address, Call, Signature, Extension, const MAX_CALL_SIZE: usize> LazyExtrinsic
+	for UncheckedExtrinsic<Address, Call, Signature, Extension, MAX_CALL_SIZE>
+where
+	Preamble<Address, Signature, Extension>: Decode,
+	Call: DecodeWithMemTracking,
+{
+	fn decode_unprefixed(data: &[u8]) -> Result<Self, codec::Error> {
+		Self::decode_with_len(&mut &data[..], data.len())
 	}
 }
 

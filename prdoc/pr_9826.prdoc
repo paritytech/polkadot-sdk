@@ -1,0 +1,21 @@
+title: Update pallet-asset-rewards to use BlockNumberProvider
+doc:
+- audience: Runtime Dev
+  description: |-
+    This updates pallet-asset-rewards to use BlockNumberProvider trait instead of directly
+    using the system block number.
+    This change enables the pallet to be used in parachain enviroments where block numbers
+    may come from different sources(i.e. Relay chain).
+
+    Runtimes using this pallet must now implement the BlockNumberProvider type.
+    For most cases setting the type `BlockNumber = frame_system::Pallet<Self>;` will maintain
+    the previous behaviour.
+crates:
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: pallet-asset-rewards
+  bump: major
+- name: pallet-staking-async-parachain-runtime
+  bump: major

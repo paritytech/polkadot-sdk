@@ -19,9 +19,20 @@
 
 mod api;
 pub use api::*;
+mod call;
+pub(crate) use call::*;
 mod tracing;
 pub use tracing::*;
-mod gas_encoder;
-pub use gas_encoder::*;
+pub mod fees;
 pub mod runtime;
+pub mod tx_extension;
 pub use alloy_core::sol_types::decode_revert_reason;
+
+/// Ethereum block hash builder related types.
+pub(crate) mod block_hash;
+pub use block_hash::ReceiptGasInfo;
+
+/// Ethereum block storage module.
+pub(crate) mod block_storage;
+
+type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as pallet_transaction_payment::OnChargeTransaction<T>>::Balance;
