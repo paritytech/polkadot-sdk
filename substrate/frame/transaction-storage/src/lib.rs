@@ -227,7 +227,7 @@ pub mod pallet {
 			let mut index = 0;
 			BlockTransactions::<T>::mutate(|transactions| {
 				if transactions.len() + 1 > T::MaxBlockTransactions::get() as usize {
-					return Err(Error::<T>::TooManyTransactions)
+					return Err(Error::<T>::TooManyTransactions);
 				}
 				let total_chunks = transactions.last().map_or(0, |t| t.block_chunks) + chunk_count;
 				index = transactions.len() as u32;
@@ -271,7 +271,7 @@ pub mod pallet {
 			let mut index = 0;
 			BlockTransactions::<T>::mutate(|transactions| {
 				if transactions.len() + 1 > T::MaxBlockTransactions::get() as usize {
-					return Err(Error::<T>::TooManyTransactions)
+					return Err(Error::<T>::TooManyTransactions);
 				}
 				let chunks = num_chunks(info.size);
 				let total_chunks = transactions.last().map_or(0, |t| t.block_chunks) + chunks;
@@ -310,11 +310,17 @@ pub mod pallet {
 			let target_number = number.saturating_sub(period);
 			ensure!(!target_number.is_zero(), Error::<T>::UnexpectedProof);
 			let total_chunks = ChunkCount::<T>::get(target_number);
-			let transactions = Transactions::<T>::get(target_number).ok_or(Error::<T>::MissingStateData)?;
+			let transactions =
+				Transactions::<T>::get(target_number).ok_or(Error::<T>::MissingStateData)?;
 
 			// Verify the proof with a "random" chunk (randomness is based on the parent hash).
 			let parent_hash = frame_system::Pallet::<T>::parent_hash();
-			Self::ensure_chunk_proof(proof, parent_hash.as_ref(), transactions.to_vec(), total_chunks)?;
+			Self::ensure_chunk_proof(
+				proof,
+				parent_hash.as_ref(),
+				transactions.to_vec(),
+				total_chunks,
+			)?;
 			ProofChecked::<T>::put(true);
 			Self::deposit_event(Event::ProofChecked);
 			Ok(().into())
@@ -452,7 +458,8 @@ pub mod pallet {
 			proof: TransactionStorageProof,
 			random_hash: &[u8],
 			infos: Vec<TransactionInfo>,
-			total_chunks: u32) -> Result<(), Error<T>> {
+			total_chunks: u32,
+		) -> Result<(), Error<T>> {
 			ensure!(total_chunks != 0, Error::<T>::UnexpectedProof);
 			ensure!(!infos.is_empty(), Error::<T>::UnexpectedProof);
 
@@ -461,29 +468,27 @@ pub mod pallet {
 
 			// Let's find the corresponding transaction and its "local" chunk index for "global" `selected_block_chunk_index`.
 			let (tx_info, tx_chunk_index) = {
-					// Binary search for the transaction that owns this `selected_block_chunk_index` chunk.
-					let tx_index = infos
-						.binary_search_by_key(&selected_block_chunk_index, |info| {
-							// Each `info.block_chunks` is cumulative count, so last chunk index = count - 1.
-							let last_chunk_index = info.block_chunks.saturating_sub(1);
-							last_chunk_index
-						}).unwrap_or_else(|tx_index| tx_index);
+				// Binary search for the transaction that owns this `selected_block_chunk_index` chunk.
+				let tx_index = infos
+					.binary_search_by_key(&selected_block_chunk_index, |info| {
+						// Each `info.block_chunks` is cumulative count, so last chunk index = count - 1.
+						let last_chunk_index = info.block_chunks.saturating_sub(1);
+						last_chunk_index
+					})
+					.unwrap_or_else(|tx_index| tx_index);
 
-					// Get the transaction and its local chunk index.
-					let tx_info = infos.get(tx_index).ok_or(Error::<T>::MissingStateData)?;
-					// We shouldn't reach this point; we rely on the fact that `fn store` does not allow empty transactions.
-					// Without this check, it would fail anyway below with `InvalidProof`.
-					ensure!(
-						!tx_info.block_chunks.is_zero(),
-						Error::<T>::EmptyTransaction
-					);
+				// Get the transaction and its local chunk index.
+				let tx_info = infos.get(tx_index).ok_or(Error::<T>::MissingStateData)?;
+				// We shouldn't reach this point; we rely on the fact that `fn store` does not allow empty transactions.
+				// Without this check, it would fail anyway below with `InvalidProof`.
+				ensure!(!tx_info.block_chunks.is_zero(), Error::<T>::EmptyTransaction);
 
-					// Convert a global chunk index into a transaction-local one.
-					let tx_chunks = num_chunks(tx_info.size);
-					let prev_chunks = tx_info.block_chunks - tx_chunks;
-					let tx_chunk_index = selected_block_chunk_index - prev_chunks;
+				// Convert a global chunk index into a transaction-local one.
+				let tx_chunks = num_chunks(tx_info.size);
+				let prev_chunks = tx_info.block_chunks - tx_chunks;
+				let tx_chunk_index = selected_block_chunk_index - prev_chunks;
 
-					(tx_info, tx_chunk_index)
+				(tx_info, tx_chunk_index)
 			};
 
 			// Verify the tx chunk proof.
