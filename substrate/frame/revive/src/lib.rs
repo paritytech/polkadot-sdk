@@ -1267,8 +1267,10 @@ pub mod pallet {
 					output.gas_consumed,
 					base_info.call_weight,
 				);
-				let result = T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result);
-				(output.gas_consumed, result)
+
+				let native_fee = T::FeeInfo::compute_actual_fee(encoded_len, &info, &result);
+				let result = T::FeeInfo::ensure_not_overdrawn(native_fee, result);
+				block_storage::EthereumCallResult::new::<T>(native_fee, effective_gas_price, result)
 			})
 		}
 
@@ -1329,8 +1331,11 @@ pub mod pallet {
 
 				let result =
 					dispatch_result(output.result, output.gas_consumed, base_info.call_weight);
-				let result = T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result);
-				(output.gas_consumed, result)
+
+				let native_fee: BalanceOf<T> =
+					T::FeeInfo::compute_actual_fee(encoded_len, &info, &result);
+				let result = T::FeeInfo::ensure_not_overdrawn(native_fee, result);
+				block_storage::EthereumCallResult::new::<T>(native_fee, effective_gas_price, result)
 			})
 		}
 

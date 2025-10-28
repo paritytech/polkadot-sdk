@@ -18,7 +18,6 @@ use crate::{
 	evm::block_hash::{AccumulateReceipt, EthereumBlockBuilder, LogsBloom},
 	limits,
 	sp_runtime::traits::One,
-	weights::WeightInfo,
 	BlockHash, Config, EthBlockBuilderIR, EthereumBlock, Event, Pallet, ReceiptInfoData,
 	UniqueSaturatedInto, H160, H256,
 };
@@ -27,7 +26,6 @@ use environmental::environmental;
 use frame_support::{
 	pallet_prelude::{DispatchError, DispatchResultWithPostInfo},
 	storage::with_transaction,
-	weights::Weight,
 };
 use sp_core::U256;
 use sp_runtime::TransactionOutcome;
@@ -40,6 +38,27 @@ pub const BLOCK_HASH_COUNT: u32 = 256;
 // Accumulates the receipt's events (logs) for the current transaction
 // that are needed to construct the final transaction receipt.
 environmental!(receipt: AccumulateReceipt);
+
+/// Result of an Ethereum context call execution.
+pub(crate) struct EthereumCallResult {
+	/// The amount of gas used by the call.
+	pub gas_used: U256,
+	/// The dispatch result with post-dispatch information.
+	pub result: DispatchResultWithPostInfo,
+}
+
+impl EthereumCallResult {
+	/// Create a new `EthereumCallResult` from a native fee and effective gas price.
+	pub(crate) fn new<T: Config>(
+		native_fee: crate::BalanceOf<T>,
+		effective_gas_price: U256,
+		result: DispatchResultWithPostInfo,
+	) -> Self {
+		let eth_fee = Pallet::<T>::convert_native_to_evm(native_fee);
+		let gas_used = eth_fee / effective_gas_price;
+		Self { gas_used, result }
+	}
+}
 
 /// Capture the Ethereum log for the current transaction.
 ///
@@ -72,23 +91,19 @@ pub fn bench_with_ethereum_context<R>(f: impl FnOnce() -> R) -> R {
 ///
 /// # Parameters
 /// - transaction_encoded: The RLP encoded transaction bytes.
-/// - call: A closure that executes the transaction logic and returns the gas consumed and result.
+/// - call: A closure that executes the transaction logic and returns an `EthereumCallResult`.
 pub fn with_ethereum_context<T: Config>(
 	transaction_encoded: Vec<u8>,
-	call: impl FnOnce() -> (Weight, DispatchResultWithPostInfo),
+	call: impl FnOnce() -> EthereumCallResult,
 ) -> DispatchResultWithPostInfo {
 	receipt::using(&mut AccumulateReceipt::new(), || {
-		let (err, gas_consumed, mut post_info) =
+		let (err, gas_consumed, post_info) =
 			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
-				let (gas_consumed, result) = call();
+				let EthereumCallResult { gas_used, result } = call();
 				match result {
-					Ok(post_info) =>
-						TransactionOutcome::Commit(Ok((None, gas_consumed, post_info))),
-					Err(err) => TransactionOutcome::Rollback(Ok((
-						Some(err.error),
-						gas_consumed,
-						err.post_info,
-					))),
+					Ok(post_info) => TransactionOutcome::Commit(Ok((None, gas_used, post_info))),
+					Err(err) =>
+						TransactionOutcome::Rollback(Ok((Some(err.error), gas_used, err.post_info))),
 				}
 			})?;
 
@@ -106,10 +121,6 @@ pub fn with_ethereum_context<T: Config>(
 			deposit_eth_extrinsic_revert_event::<T>(crate::Error::<T>::BenchmarkingError.into());
 
 			crate::block_storage::process_transaction::<T>(transaction_encoded, true, gas_consumed);
-			post_info
-				.actual_weight
-				.as_mut()
-				.map(|w| w.saturating_reduce(T::WeightInfo::deposit_eth_extrinsic_revert_event()));
 			Ok(post_info)
 		}
 	})
@@ -174,11 +185,7 @@ pub fn on_finalize_build_eth_block<T: Config>(
 /// This stores the RLP encoded transaction and receipt details into storage.
 ///
 /// The data is used during the `on_finalize` hook to reconstruct the ETH block.
-pub fn process_transaction<T: Config>(
-	transaction_encoded: Vec<u8>,
-	success: bool,
-	gas_used: Weight,
-) {
+pub fn process_transaction<T: Config>(transaction_encoded: Vec<u8>, success: bool, gas_used: U256) {
 	// Method returns `None` only when called from outside of the ethereum context.
 	// This is not the case here, since this is called from within the
 	// ethereum context.

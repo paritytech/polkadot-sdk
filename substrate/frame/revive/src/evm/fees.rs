@@ -105,10 +105,18 @@ pub trait InfoT<T: Config>: seal::Sealed {
 		Zero::zero()
 	}
 
-	/// Makes sure that not too much storage deposit was withdrawn.
-	fn ensure_not_overdrawn(
+	/// Compute the actual post_dispatch fee
+	fn compute_actual_fee(
 		_encoded_len: u32,
 		_info: &DispatchInfo,
+		_result: &DispatchResultWithPostInfo,
+	) -> BalanceOf<T> {
+		Default::default()
+	}
+
+	/// Makes sure that not too much storage deposit was withdrawn.
+	fn ensure_not_overdrawn(
+		_fee: BalanceOf<T>,
 		result: DispatchResultWithPostInfo,
 	) -> DispatchResultWithPostInfo {
 		result
@@ -259,9 +267,29 @@ where
 		.saturating_add(Self::length_to_fee(encoded_len))
 	}
 
-	fn ensure_not_overdrawn(
+	fn compute_actual_fee(
 		encoded_len: u32,
 		info: &DispatchInfo,
+		result: &DispatchResultWithPostInfo,
+	) -> BalanceOf<E::Config> {
+		let mut post_info = match result {
+			Ok(post_info) => post_info,
+			Err(err) => &err.post_info,
+		}
+		.clone();
+
+		post_info
+			.actual_weight
+			.as_mut()
+			.map(|w| w.saturating_accrue(info.extension_weight));
+
+		log::debug!(target: LOG_TARGET, "revive: post_info:{post_info:?}");
+		<TxPallet<E::Config>>::compute_actual_fee(encoded_len, info, &post_info, Zero::zero())
+			.into()
+	}
+
+	fn ensure_not_overdrawn(
+		fee: BalanceOf<E::Config>,
 		result: DispatchResultWithPostInfo,
 	) -> DispatchResultWithPostInfo {
 		// if tx is already failing we can ignore
@@ -270,9 +298,6 @@ where
 			return result;
 		};
 
-		let fee: BalanceOf<E::Config> =
-			<TxPallet<E::Config>>::compute_actual_fee(encoded_len, info, &post_info, Zero::zero())
-				.into();
 		let available = Self::remaining_txfee();
 		if fee > available {
 			log::debug!(target: LOG_TARGET, "Drew too much from the txhold. \
