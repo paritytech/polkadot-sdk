@@ -84,15 +84,6 @@ async fn finalize_block(
 	virtual_overseer
 		.send(FromOrchestra::Signal(OverseerSignal::BlockFinalized(fin_block_hash, finalized.1)))
 		.await;
-
-	assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(hash, RuntimeApiRequest::SessionIndexForChild(tx))
-			) if hash == fin_block_hash => {
-				tx.send(Ok(session_index)).unwrap();
-			}
-		);
 }
 
 async fn candidate_approved(
@@ -137,13 +128,16 @@ macro_rules! approvals_stats_assertion {
         ) {
             let stats_for = view.per_relay.get(&rb_hash).unwrap();
             let approvals_for = stats_for.approvals_stats.get(&candidate_hash).unwrap();
-            let collected_votes = approvals_for
+            let collected = approvals_for
                 .$field
                 .clone()
                 .into_iter()
                 .collect::<Vec<ValidatorIndex>>();
 
-            assert_eq!(expected_votes, collected_votes);
+			assert_eq!(collected.len(), expected_votes.len());
+			for item in collected {
+				assert!(expected_votes.contains(&item));
+			}
         }
     };
 }
@@ -488,6 +482,7 @@ fn prune_unfinalized_forks() {
 	let candidate_hash_a: CandidateHash = CandidateHash(Hash::from_low_u64_be(100));
 	let candidate_hash_b: CandidateHash = CandidateHash(Hash::from_low_u64_be(200));
 	let candidate_hash_c: CandidateHash = CandidateHash(Hash::from_low_u64_be(300));
+	let candidate_hash_d: CandidateHash = CandidateHash(Hash::from_low_u64_be(400));
 
 	let mut view = View::new();
 	test_harness(&mut view, |mut virtual_overseer| async move {
@@ -546,6 +541,9 @@ fn prune_unfinalized_forks() {
 			None,
 		).await;
 
+		candidate_approved(&mut virtual_overseer, candidate_hash_d, hash_d,
+						   vec![ValidatorIndex(0), ValidatorIndex(1)]).await;
+
 		virtual_overseer
 	});
 
@@ -563,7 +561,6 @@ fn prune_unfinalized_forks() {
 		(hash_d.clone(), (Some(hash_c.clone()), vec![])),
 	];
 
-	assert_eq!(view.current_session, None);
 	// relay node A should be the root
 	assert_roots_and_relay_views(
 		&view,
@@ -571,7 +568,9 @@ fn prune_unfinalized_forks() {
 		expect.clone(),
 	);
 
-	// Finalizing block C should not affect as the session 0 still not finalized
+	// Finalizing block C should prune the current unfinalized mapping
+	// and aggregate data of the finalized chain on the per session view
+	// the collected data for block D should remain untouched
 	test_harness(&mut view, |mut virtual_overseer| async move {
 		finalize_block(
 			&mut virtual_overseer,
@@ -581,17 +580,51 @@ fn prune_unfinalized_forks() {
 		virtual_overseer
 	});
 
-	assert_eq!(view.current_session, Some(0));
+	let expect = vec![
+		//  relay node D should link to C and have no children
+		(hash_d.clone(), (Some(hash_c.clone()), vec![])),
+	];
+
 	assert_roots_and_relay_views(
 		&view,
-		vec![hash_a],
+		vec![hash_d],
 		expect.clone(),
 	);
 
+	// check if the data was aggregated correctly for the session
+	let expected_session_views = HashMap::from_iter(vec![
+		(0 as SessionIndex, PerSessionView {
+			authorities_lookup: HashMap::new(),
+			finalized_approval_stats: HashMap::from_iter(vec![
+				(
+					candidate_hash_a.clone(),
+					// expected approval stats from a given finalized session
+					// ignoring the stats collected for relay block B
+					ApprovalsStats::new(
+						HashSet::from_iter(vec![ValidatorIndex(2), ValidatorIndex(3)]),
+						HashSet::from_iter(vec![ValidatorIndex(0), ValidatorIndex(1)])
+					),
+				),
+				(
+					candidate_hash_c.clone(),
+					ApprovalsStats::new(
+						HashSet::from_iter(vec![
+							ValidatorIndex(0),
+							ValidatorIndex(1),
+							ValidatorIndex(2)]
+						),
+						Default::default(),
+					),
+				),
+			]),
+		}),
+	]);
+
+	assert_eq!(view.per_session, expected_session_views);
+
 	// creating more 3 relay block (E, F, G), all in session 1
-	// A -> B
-	// A -> C -> D -> E -> F
-	//                E -> G
+	// D -> E -> F
+	//        -> G
 
 	let hash_e = Hash::from_slice(&[04; 32]);
 	let hash_f = Hash::from_slice(&[05; 32]);
@@ -649,17 +682,9 @@ fn prune_unfinalized_forks() {
 	});
 
 	// Finalizing block E triggers the pruning mechanism
-	// as block E belongs to session 1 meaning that session 0
-	// is fully finalized
-	// - blocks E, F and G will remain.
-	// - blocks A, C and D will be placed in the per_session view
-	// as they belong to the finalized chain and are from the finalized session 0
-	// the node will keep the collected data from them in the per_session view.
-	// - block B will be simply pruned as it does not belong to the finalized chain
+	// now it should aggregate collected data from block D and E
+	// keeping only blocks F and E on the mapping
 	let expect = vec![
-		// relay node E should have 2 children (E, G)
-		(hash_e.clone(), (Some(hash_d), vec![hash_f, hash_g])),
-
 		// relay node F should link to E and have no children
 		(hash_f.clone(), (Some(hash_e), vec![])),
 
@@ -667,11 +692,10 @@ fn prune_unfinalized_forks() {
 		(hash_g.clone(), (Some(hash_e), vec![])),
 	];
 
-	assert_eq!(view.current_session, Some(session_one));
 	// relay node A should be the root
 	assert_roots_and_relay_views(
 		&view,
-		vec![hash_e],
+		vec![hash_f, hash_g],
 		expect.clone(),
 	);
 
@@ -691,13 +715,44 @@ fn prune_unfinalized_forks() {
 				(
 					candidate_hash_c.clone(),
 					ApprovalsStats::new(
-						HashSet::from_iter(vec![ValidatorIndex(0), ValidatorIndex(1), ValidatorIndex(2)]),
+						HashSet::from_iter(vec![
+							ValidatorIndex(0),
+							ValidatorIndex(1),
+							ValidatorIndex(2),
+						]),
+						Default::default(),
+					),
+				),
+				(
+					candidate_hash_d.clone(),
+					ApprovalsStats::new(
+						HashSet::from_iter(vec![
+							ValidatorIndex(0),
+							ValidatorIndex(1),
+						]),
 						Default::default(),
 					),
 				),
 			]),
 		}),
-		(1 as SessionIndex, PerSessionView::new(Default::default())),
+		(1 as SessionIndex, PerSessionView {
+			authorities_lookup: HashMap::new(),
+			finalized_approval_stats: HashMap::from_iter(vec![
+				(
+					candidate_hash_e.clone(),
+					// expected approval stats from a given finalized session
+					// ignoring the stats collected for relay block B
+					ApprovalsStats::new(
+						HashSet::from_iter(vec![
+							ValidatorIndex(3),
+							ValidatorIndex(1),
+							ValidatorIndex(0)
+						]),
+						HashSet::from_iter(vec![ValidatorIndex(2)])
+					),
+				),
+			]),
+		}),
 	]);
 
 	assert_eq!(view.per_session, expected_session_views);

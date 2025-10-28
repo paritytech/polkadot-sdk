@@ -88,7 +88,6 @@ impl PerSessionView {
 }
 
 struct View {
-    current_session: Option<SessionIndex>,
     roots: HashSet<Hash>,
     per_relay: HashMap<Hash, PerRelayView>,
     per_session: HashMap<SessionIndex, PerSessionView>,
@@ -99,7 +98,6 @@ struct View {
 impl View {
     fn new() -> Self {
         return View{
-            current_session: None,
             roots: HashSet::new(),
             per_relay: HashMap::new(),
             per_session: HashMap::new(),
@@ -177,14 +175,18 @@ pub(crate) async fn run_iteration<Context>(
 
                     if let Some(ref h) = header {
                         let parent_hash = h.parent_hash;
-                        match view.per_relay.get_mut(&parent_hash) {
-                            Some(per_relay_view) => per_relay_view.link_child(relay_hash),
+                        let parent_hash = match view.per_relay.get_mut(&parent_hash) {
+                            Some(per_relay_view) => {
+                                per_relay_view.link_child(relay_hash);
+                                Some(parent_hash)
+                            },
                             None => {
                                 _ = view.roots.insert(relay_hash);
+                                None
                             },
                         };
 
-                        view.per_relay.insert(relay_hash, PerRelayView::new(Some(parent_hash), session_idx));
+                        view.per_relay.insert(relay_hash, PerRelayView::new(parent_hash, session_idx));
                     } else {
                         view.roots.insert(relay_hash);
                         view.per_relay.insert(relay_hash, PerRelayView::new(None, session_idx));
@@ -209,55 +211,31 @@ pub(crate) async fn run_iteration<Context>(
                 }
             },
             FromOrchestra::Signal(OverseerSignal::BlockFinalized(fin_block_hash, _)) => {
-                // check if a session was finalized
-                let session_idx = request_session_index_for_child(fin_block_hash, ctx.sender())
-                    .await
-                    .await
-                    .map_err(JfyiError::OverseerCommunication)?
-                    .map_err(JfyiError::RuntimeApiCallError)?;
+                // as soon a block is finalized it performs:
+                // 1. Pruning unneeded forks
+                // 2. Collected statistics that belongs to the finalized chain
+                // 3. After collection of finalized statistics then remove finalized
+                //    nodes from the mapping leaving only the unfinalized blocks after finalization
+                let finalized_hashes = prune_unfinalised_forks(view, fin_block_hash);
 
-                let should_prune = match view.current_session {
-                    Some(curr_session_idx) if  session_idx > curr_session_idx => true,
-                    _ => false
-                };
+                // so we revert it and check from the oldest to the newest
+                for hash in finalized_hashes.iter().rev() {
+                    match view.per_relay.get(hash) {
+                        Some(rb_view) => {
+                            view.per_session
+                                .get_mut(&rb_view.session_index)
+                                .and_then(|session_view| {
+                                    metrics.record_approvals_stats(
+                                        rb_view.session_index,
+                                        rb_view.approvals_stats.clone());
 
-                if view.current_session.is_none() {
-                    view.current_session = Some(session_idx);
-                }
-
-                if should_prune {
-                    let prev_session = view.current_session
-                        .replace(session_idx)
-                        .expect("current session should have been populate previously; qed.");
-
-                    let finalized_hashes = prune_unfinalised_forks(view, fin_block_hash);
-
-                    // finalized_hashes contains the hashes from the newest to the oldest
-                    // so we revert it and check from the oldest to the newest
-                    for hash in finalized_hashes.iter().rev() {
-                        match view.per_relay.get(hash) {
-                            Some(rb_view) => {
-                                if rb_view.session_index > prev_session {
-                                    view.roots = HashSet::from_iter(vec![hash.clone()]);
-                                    break
-                                }
-
-                                view.per_session
-                                    .get_mut(&rb_view.session_index)
-                                    .and_then(|session_view| {
-                                        metrics.record_approvals_stats(
-                                            rb_view.session_index,
-                                            rb_view.approvals_stats.clone());
-
-                                        session_view.finalized_approval_stats
-                                            .extend(rb_view.approvals_stats.clone());
-                                        Some(session_view)
-                                    });
-
-                                view.per_relay.remove(hash);
-                            }
-                            None => {},
+                                    session_view.finalized_approval_stats
+                                        .extend(rb_view.approvals_stats.clone());
+                                    Some(session_view)
+                                });
+                            view.per_relay.remove(hash);
                         }
+                        None => {},
                     }
                 }
             }
@@ -317,7 +295,7 @@ pub(crate) async fn run_iteration<Context>(
 }
 
 // prune_unfinalised_forks will remove all the relay chain blocks
-// that are not in the finalized chain and its dependants children using the latest finalized block as reference
+// that are not in the finalized chain and its de   pendants children using the latest finalized block as reference
 // and will return a list of finalized hashes
 fn prune_unfinalised_forks(view: &mut View, fin_block_hash: Hash) -> Vec<Hash> {
     // since we want to reward only valid approvals, we retain
@@ -325,8 +303,6 @@ fn prune_unfinalised_forks(view: &mut View, fin_block_hash: Hash) -> Vec<Hash> {
     // identify the finalized chain so we don't prune
     let rb_view = match view.per_relay.get_mut(&fin_block_hash) {
         Some(per_relay_view) => per_relay_view,
-
-        //TODO: the finalized block should already exists on the relay view mapping
         None => return Vec::new(),
     };
 
@@ -337,10 +313,11 @@ fn prune_unfinalised_forks(view: &mut View, fin_block_hash: Hash) -> Vec<Hash> {
     let mut current_block_hash = fin_block_hash;
     let mut current_parent_hash = rb_view.parent_hash;
     while let Some(parent_hash) = current_parent_hash {
-        retain_relay_hashes.push(parent_hash.clone());
 
         match view.per_relay.get_mut(&parent_hash) {
             Some(parent_view) => {
+                retain_relay_hashes.push(parent_hash.clone());
+
                 if parent_view.children.len() > 1 {
                     let filtered_set = parent_view.children
                         .iter()
@@ -361,21 +338,17 @@ fn prune_unfinalised_forks(view: &mut View, fin_block_hash: Hash) -> Vec<Hash> {
         };
     }
 
-    if view.roots.len() > 1 {
-        for root in view.roots.clone() {
-            if !retain_relay_hashes.contains(&root) {
-                removal_stack.push(root);
-            }
+    // update the roots to be the children of the latest finalized block
+    if let Some(finalized_hash) = retain_relay_hashes.first() {
+        if let Some(rb_view) = view.per_relay.get(finalized_hash) {
+            view.roots = rb_view.children.clone();
         }
     }
 
     let mut to_prune = HashSet::new();
     let mut queue: VecDeque<Hash> = VecDeque::from(removal_stack);
-
     while let Some(hash) = queue.pop_front() {
-        if !to_prune.insert(hash) {
-            continue; // already seen
-        }
+        _ = to_prune.insert(hash);
 
         if let Some(r_view) = view.per_relay.get(&hash) {
             for child in &r_view.children {
