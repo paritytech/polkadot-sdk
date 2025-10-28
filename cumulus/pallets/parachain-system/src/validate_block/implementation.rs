@@ -168,6 +168,11 @@ where
 	let cache_provider = trie_cache::CacheProvider::new();
 	let seen_nodes = SeenNodes::<HashingFor<B>>::default();
 
+	blocks.iter().fold(parent_header.hash(), |p, b| {
+		assert_eq!(p, *b.header().parent_hash(), "Not a valid chain of blocks :(");
+		b.header().hash()
+	});
+
 	for (block_index, block) in blocks.into_iter().enumerate() {
 		// We use the storage root of the `parent_head` to ensure that it is the correct root.
 		// This is already being done above while creating the in-memory db, but let's be paranoid!!
