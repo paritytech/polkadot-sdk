@@ -1845,9 +1845,9 @@ where
 /// then converts it into the corresponding bounty `Beneficiary`.
 ///
 /// Used when the [`PalletId`] itself owns the funds (i.e. pallet-treasury id).
-pub struct PalletIdAsBountySource<Id, T, I = ()>(PhantomData<(Id, T, I)>);
+pub struct BountySourceFromPalletId<Id, T, I = ()>(PhantomData<(Id, T, I)>);
 impl<Id, T, I> TryConvert<(BountyIndex, T::AssetKind), T::Beneficiary>
-	for PalletIdAsBountySource<Id, T, I>
+	for BountySourceFromPalletId<Id, T, I>
 where
 	Id: Get<PalletId>,
 	T: crate::Config<I>,
@@ -1865,9 +1865,9 @@ where
 /// and the child index, then converts it into the child-bounty `Beneficiary`.
 ///
 /// Used when the [`PalletId`] itself owns the funds (i.e. pallet-treasury id).
-pub struct PalletIdAsChildBountySource<Id, T, I = ()>(PhantomData<(Id, T, I)>);
+pub struct ChildBountySourceFromPalletId<Id, T, I = ()>(PhantomData<(Id, T, I)>);
 impl<Id, T, I> TryConvert<(BountyIndex, BountyIndex, T::AssetKind), T::Beneficiary>
-	for PalletIdAsChildBountySource<Id, T, I>
+	for ChildBountySourceFromPalletId<Id, T, I>
 where
 	Id: Get<PalletId>,
 	T: crate::Config<I>,
