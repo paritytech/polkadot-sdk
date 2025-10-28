@@ -35,7 +35,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					"configuration": {
 						"config": {
 							"scheduler_params": {
-								"num_cores": 7,
+								"num_cores": 3,
 								"max_validators_per_core": 1
 							}
 						}
@@ -84,6 +84,8 @@ async fn elastic_scaling_asset_hub_westend() -> Result<(), anyhow::Error> {
 	let relay_node = network.get_node("validator-0")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
+	assign_cores(relay_node, PARA_ID, vec![0]).await?;
+
 	assert_para_throughput(
 		&relay_client,
 		10,
@@ -91,7 +93,8 @@ async fn elastic_scaling_asset_hub_westend() -> Result<(), anyhow::Error> {
 	)
 	.await?;
 
-	assign_cores(relay_node, PARA_ID, vec![2, 3, 4]).await?;
+	// 1 core is assigned by default, we are assigning 2 more cores: 0 and 1.
+	assign_cores(relay_node, PARA_ID, vec![1]).await?;
 
 	log::info!("Ensure elastic scaling works, 3 blocks should be produced in each 6s slot");
 
