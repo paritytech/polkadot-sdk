@@ -645,8 +645,8 @@ ark-bw6-761-ext = { version = "0.5.0", default-features = false }
 ark-ec = { version = "0.5.0", default-features = false }
 ark-ed-on-bls12-377 = { version = "0.5.0", default-features = false }
 ark-ed-on-bls12-377-ext = { version = "0.5.0", default-features = false }
-# ark-ed-on-bls12-381-bandersnatch = { version = "0.4.0", default-features = false }
-# ark-ed-on-bls12-381-bandersnatch-ext = { version = "0.4.1", default-features = false }
+ark-ed-on-bls12-381-bandersnatch = { version = "0.5.0", default-features = false }
+ark-ed-on-bls12-381-bandersnatch-ext = { version = "0.5.0", default-features = false }
 ark-scale = { version = "0.0.13", default-features = false }
 ark-vrf = { version = "0.1.0", default-features = false }
 array-bytes = { version = "6.2.2", default-features = false }

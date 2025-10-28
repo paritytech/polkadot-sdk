@@ -24,8 +24,8 @@ ark-bw6-761-ext = { optional = true, workspace = true }
 ark-ec = { optional = true, workspace = true }
 ark-ed-on-bls12-377 = { optional = true, workspace = true }
 ark-ed-on-bls12-377-ext = { optional = true, workspace = true }
-# ark-ed-on-bls12-381-bandersnatch = { optional = true, workspace = true }
-# ark-ed-on-bls12-381-bandersnatch-ext = { optional = true, workspace = true }
+ark-ed-on-bls12-381-bandersnatch = { optional = true, workspace = true }
+ark-ed-on-bls12-381-bandersnatch-ext = { optional = true, workspace = true }
 ark-scale = { features = ["hazmat"], optional = true, workspace = true }
 sp-runtime-interface = { optional = true, workspace = true }
 

@@ -598,6 +598,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-ed-on-bls12-377"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebbf817b2db27d2787009b2ff76304a5b90b4b01bb16aa8351701fd40f5f37b2"
+dependencies = [
+ "ark-bls12-377 0.5.0",
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-std 0.5.0",
+]
+
+[[package]]
+name = "ark-ed-on-bls12-377-ext"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05093aa26f017411708e1271047852cc5f58686336f1f1a56fb2df747c3e173a"
+dependencies = [
+ "ark-ec 0.5.0",
+ "ark-ed-on-bls12-377",
+ "ark-ff 0.5.0",
+ "ark-models-ext",
+ "ark-std 0.5.0",
+]
+
+[[package]]
 name = "ark-ed-on-bls12-381-bandersnatch"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -606,6 +631,19 @@ dependencies = [
  "ark-bls12-381 0.5.0",
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
+ "ark-std 0.5.0",
+]
+
+[[package]]
+name = "ark-ed-on-bls12-381-bandersnatch-ext"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e6dce0c47def6f25cf01022acded4f32732f577187dfcd1268510093ef16ea6"
+dependencies = [
+ "ark-ec 0.5.0",
+ "ark-ed-on-bls12-381-bandersnatch",
+ "ark-ff 0.5.0",
+ "ark-models-ext",
  "ark-std 0.5.0",
 ]
 
@@ -22934,6 +22972,10 @@ dependencies = [
  "ark-bw6-761",
  "ark-bw6-761-ext",
  "ark-ec 0.5.0",
+ "ark-ed-on-bls12-377",
+ "ark-ed-on-bls12-377-ext",
+ "ark-ed-on-bls12-381-bandersnatch",
+ "ark-ed-on-bls12-381-bandersnatch-ext",
  "ark-scale",
  "sp-runtime-interface 24.0.0",
 ]
