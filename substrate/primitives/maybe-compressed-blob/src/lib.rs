@@ -82,8 +82,6 @@ pub fn decompress(blob: &[u8], bomb_limit: usize) -> Result<Cow<'_, [u8]>, Error
 
 /// Weakly compress a blob who's size is limited by `bomb_limit`.
 ///
-/// Yields larger outputs than `compress_strongly` but takes shorter time to compute.
-///
 /// If the blob's size is over the bomb limit, this will not compress the blob,
 /// as the decoder will not be able to be able to differentiate it from a compression bomb.
 pub fn compress_weakly(blob: &[u8], bomb_limit: usize) -> Option<Vec<u8>> {
