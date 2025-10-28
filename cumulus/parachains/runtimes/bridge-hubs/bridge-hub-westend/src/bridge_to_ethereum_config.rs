@@ -23,6 +23,7 @@ use crate::{
 	Runtime, RuntimeEvent, TransactionByteFee,
 };
 use bp_asset_hub_westend::CreateForeignAssetDeposit;
+use bridge_hub_common::AggregateMessageOrigin;
 use frame_support::{parameter_types, traits::Contains, weights::ConstantMultiplier};
 use frame_system::EnsureRootWithSuccess;
 use hex_literal::hex;
@@ -198,7 +199,7 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = SnowbridgeReward;
 	type RewardPayment = BridgeRelayers;
-	// No consumers of this notifier on Bridge Hub.
+	type AggregateMessageOrigin = AggregateMessageOrigin;
 	type OnNewCommitment = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;

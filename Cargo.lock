@@ -22571,7 +22571,6 @@ version = "0.2.0"
 dependencies = [
  "alloy-core",
  "bp-relayers",
- "bridge-hub-common",
  "ethabi-decode",
  "frame-benchmarking",
  "frame-support",
