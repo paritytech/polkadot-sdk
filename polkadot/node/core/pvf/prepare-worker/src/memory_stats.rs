@@ -31,7 +31,7 @@
 /// usage at an interval.
 ///
 /// NOTE: Requires jemalloc enabled.
-#[cfg(any(all(target_os = "linux", not(feature = "x-shadow")), feature = "jemalloc-allocator"))]
+#[cfg(all(any(target_os = "linux", feature = "jemalloc-allocator"), not(feature = "x-shadow")))]
 pub mod memory_tracker {
 	use crate::LOG_TARGET;
 	use polkadot_node_core_pvf_common::{
@@ -114,8 +114,8 @@ pub mod memory_tracker {
 			match thread::wait_for_threads_with_timeout(&condvar, POLL_INTERVAL) {
 				Some(_outcome) => {
 					update_stats()?;
-					return Ok(max_stats)
-				},
+					return Ok(max_stats);
+				}
 				None => continue,
 			}
 		}
@@ -135,7 +135,7 @@ pub mod memory_tracker {
 					"worker: error occurred in the memory tracker thread: {}", err
 				);
 				None
-			},
+			}
 			Err(err) => {
 				gum::warn!(
 					target: LOG_TARGET,
@@ -143,7 +143,7 @@ pub mod memory_tracker {
 					"worker: error joining on memory tracker thread: {}", stringify_panic_payload(err)
 				);
 				None
-			},
+			}
 		}
 	}
 }
@@ -153,7 +153,7 @@ pub mod memory_tracker {
 /// NOTE: `getrusage` with the `RUSAGE_THREAD` parameter is only supported on Linux. `RUSAGE_SELF`
 /// works on MacOS, but we need to get the max rss only for the preparation thread. Getting it for
 /// the current process would conflate the stats of previous jobs run by the process.
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(feature = "x-shadow")))]
 pub mod max_rss_stat {
 	use crate::LOG_TARGET;
 	use core::mem::MaybeUninit;
@@ -166,7 +166,7 @@ pub mod max_rss_stat {
 
 		// SAFETY: `result` is a valid pointer, so calling this is safe.
 		if unsafe { getrusage(RUSAGE_THREAD, result.as_mut_ptr()) } == -1 {
-			return Err(io::Error::last_os_error())
+			return Err(io::Error::last_os_error());
 		}
 
 		// SAFETY: `result` was successfully initialized by `getrusage`.

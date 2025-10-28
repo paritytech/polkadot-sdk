@@ -38,15 +38,15 @@ struct MetricsInner {
 	signals_sent: prometheus::GaugeVec<prometheus::U64>,
 	signals_received: prometheus::GaugeVec<prometheus::U64>,
 
-	#[cfg(any(
-		all(target_os = "linux", not(feature = "x-shadow")),
+	#[cfg(all(any(
+		target_os = "linux",
 		feature = "jemalloc-allocator"
-	))]
+	), not(feature = "x-shadow")))]
 	memory_stats_resident: prometheus::Gauge<prometheus::U64>,
-	#[cfg(any(
-		all(target_os = "linux", not(feature = "x-shadow")),
+	#[cfg(all(any(
+		target_os = "linux",
 		feature = "jemalloc-allocator"
-	))]
+	), not(feature = "x-shadow")))]
 	memory_stats_allocated: prometheus::Gauge<prometheus::U64>,
 }
 
@@ -73,10 +73,10 @@ impl Metrics {
 		}
 	}
 
-	#[cfg(any(
-		all(target_os = "linux", not(feature = "x-shadow")),
+	#[cfg(all(any(
+		target_os = "linux",
 		feature = "jemalloc-allocator"
-	))]
+	), not(feature = "x-shadow")))]
 	pub(crate) fn memory_stats_snapshot(
 		&self,
 		memory_stats: memory_stats::MemoryAllocationSnapshot,
@@ -89,7 +89,7 @@ impl Metrics {
 
 	pub(crate) fn channel_metrics_snapshot(
 		&self,
-		collection: impl IntoIterator<Item = (&'static str, SubsystemMeterReadouts)>,
+		collection: impl IntoIterator<Item=(&'static str, SubsystemMeterReadouts)>,
 	) {
 		if let Some(metrics) = &self.0 {
 			collection
@@ -175,10 +175,10 @@ impl MetricsTrait for Metrics {
 						"polkadot_parachain_subsystem_bounded_tof",
 						"Duration spent in a particular channel from entrance to removal",
 					)
-					.buckets(vec![
-						0.0001, 0.0004, 0.0016, 0.0064, 0.0256, 0.1024, 0.4096, 1.6384, 3.2768,
-						4.9152, 6.5536,
-					]),
+						.buckets(vec![
+							0.0001, 0.0004, 0.0016, 0.0064, 0.0256, 0.1024, 0.4096, 1.6384, 3.2768,
+							4.9152, 6.5536,
+						]),
 					&["subsystem_name"],
 				)?,
 				registry,
@@ -219,10 +219,10 @@ impl MetricsTrait for Metrics {
 						"polkadot_parachain_subsystem_unbounded_tof",
 						"Duration spent in a particular channel from entrance to removal",
 					)
-					.buckets(vec![
-						0.0001, 0.0004, 0.0016, 0.0064, 0.0256, 0.1024, 0.4096, 1.6384, 3.2768,
-						4.9152, 6.5536,
-					]),
+						.buckets(vec![
+							0.0001, 0.0004, 0.0016, 0.0064, 0.0256, 0.1024, 0.4096, 1.6384, 3.2768,
+							4.9152, 6.5536,
+						]),
 					&["subsystem_name"],
 				)?,
 				registry,
@@ -267,10 +267,10 @@ impl MetricsTrait for Metrics {
 				)?,
 				registry,
 			)?,
-			#[cfg(any(
-				all(target_os = "linux", not(feature = "x-shadow")),
-				feature = "jemalloc-allocator"
-			))]
+			#[cfg(all(
+				any(target_os = "linux",
+					feature = "jemalloc-allocator"
+				), not(feature = "x-shadow")))]
 			memory_stats_allocated: prometheus::register(
 				prometheus::Gauge::<prometheus::U64>::new(
 					"polkadot_memory_allocated",
@@ -278,10 +278,10 @@ impl MetricsTrait for Metrics {
 				)?,
 				registry,
 			)?,
-			#[cfg(any(
-				all(target_os = "linux", not(feature = "x-shadow")),
-				feature = "jemalloc-allocator"
-			))]
+			#[cfg(all(
+				any(target_os = "linux",
+					feature = "jemalloc-allocator"
+				), not(feature = "x-shadow")))]
 			memory_stats_resident: prometheus::register(
 				prometheus::Gauge::<prometheus::U64>::new(
 					"polkadot_memory_resident",

@@ -22,12 +22,12 @@ mod memory_stats;
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-prepare-worker=trace`.
 const LOG_TARGET: &str = "parachain::pvf-prepare-worker";
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(feature = "x-shadow")))]
 use crate::memory_stats::max_rss_stat::{extract_max_rss_stat, get_max_rss_thread};
-#[cfg(any(
-	all(target_os = "linux", not(feature = "x-shadow")),
-	feature = "jemalloc-allocator"
-))]
+#[cfg(all(
+	any(target_os = "linux",
+		feature = "jemalloc-allocator"
+	), not(feature = "x-shadow")))]
 use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_tracker_loop};
 use codec::{Decode, Encode};
 use nix::{
@@ -70,15 +70,15 @@ use std::{
 };
 use tracking_allocator::TrackingAllocator;
 
-#[cfg(any(all(target_os = "linux", not(feature = "x-shadow")), feature = "jemalloc-allocator"))]
+#[cfg(all(any(target_os = "linux", feature = "jemalloc-allocator"), not(feature = "x-shadow")))]
 #[global_allocator]
 static ALLOC: TrackingAllocator<tikv_jemallocator::Jemalloc> =
 	TrackingAllocator(tikv_jemallocator::Jemalloc);
 
-#[cfg(not(any(
-	all(target_os = "linux", not(feature = "x-shadow")),
-	feature = "jemalloc-allocator"
-)))]
+#[cfg(not(all(
+	any(target_os = "linux",
+		feature = "jemalloc-allocator"
+	), not(feature = "x-shadow"))))]
 #[global_allocator]
 static ALLOC: TrackingAllocator<std::alloc::System> = TrackingAllocator(std::alloc::System);
 
@@ -491,15 +491,15 @@ fn handle_child_process(
 	let condvar = thread::get_condvar();
 
 	// Run the memory tracker in a regular, non-worker thread.
-	#[cfg(any(
-		all(target_os = "linux", not(feature = "x-shadow")),
+	#[cfg(all(any(
+		target_os = "linux",
 		feature = "jemalloc-allocator"
-	))]
+	), not(feature = "x-shadow")))]
 	let condvar_memory = Arc::clone(&condvar);
-	#[cfg(any(
-		all(target_os = "linux", not(feature = "x-shadow")),
+	#[cfg(all(any(
+		target_os = "linux",
 		feature = "jemalloc-allocator"
-	))]
+	), not(feature = "x-shadow")))]
 	let memory_tracker_thread = std::thread::spawn(|| memory_tracker_loop(condvar_memory));
 
 	start_memory_tracking(
@@ -590,7 +590,7 @@ fn handle_child_process(
 				Err(err) => Err(err),
 				Ok(ok) => {
 					cfg_if::cfg_if! {
-						if #[cfg(target_os = "linux")] {
+						if #[cfg(all(target_os = "linux", not(feature = "x-shadow")))] {
 							let (PrepareOutcome { compiled_artifact, observed_wasm_code_len }, max_rss) = ok;
 						} else {
 							let (PrepareOutcome { compiled_artifact, observed_wasm_code_len },) = ok;
@@ -598,19 +598,19 @@ fn handle_child_process(
 					}
 
 					// Stop the memory stats worker and get its observed memory stats.
-					#[cfg(any(
-						all(target_os = "linux", not(feature = "x-shadow")),
-						feature = "jemalloc-allocator"
-					))]
+					#[cfg(all(
+						any(target_os = "linux",
+							feature = "jemalloc-allocator"
+						), not(feature = "x-shadow")))]
 					let memory_tracker_stats = get_memory_tracker_loop_stats(memory_tracker_thread, process::id());
 
 					let memory_stats = MemoryStats {
-						#[cfg(any(
-							all(target_os = "linux", not(feature = "x-shadow")),
-							feature = "jemalloc-allocator"
-						))]
+						#[cfg(all(
+							any(target_os = "linux",
+								feature = "jemalloc-allocator"
+							), not(feature = "x-shadow")))]
 						memory_tracker_stats,
-						#[cfg(target_os = "linux")]
+						#[cfg(all(target_os = "linux", not(feature = "x-shadow")))]
 						max_rss: extract_max_rss_stat(max_rss, process::id()),
 						// Negative peak allocation values are legit; they are narrow
 						// corner cases and shouldn't affect overall statistics

@@ -124,7 +124,7 @@ pub(crate) fn replace_strategy_if_broken(strategy: &mut InstantiationStrategy) {
 	static IS_OK: OnceLock<bool> = OnceLock::new();
 
 	let is_ok = IS_OK.get_or_init(|| {
-        cfg_if::cfg_if! {
+		cfg_if::cfg_if! {
             if #[cfg(not(feature = "x-shadow"))] {
                 let is_ok = match is_madvise_working() {
                     Ok(is_ok) => is_ok,

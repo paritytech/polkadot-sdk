@@ -424,6 +424,7 @@ pub fn run_worker<F>(
 		// First, make sure env vars were cleared, to match the environment we perform the checks
 		// within. (In theory, running checks with different env vars could result in different
 		// outcomes of the checks.)
+		#[cfg(not(feature = "x-shadow"))]
 		if !security::check_env_vars_were_cleared(&worker_info) {
 			let err = "not all env vars were cleared when spawning the process";
 			gum::error!(
@@ -780,10 +781,10 @@ pub mod thread {
 	/// Block the thread while it waits on the condvar or on a timeout. If the timeout is hit,
 	/// returns `None`.
 	#[cfg_attr(
-		not(any(
-			all(target_os = "linux", not(feature = "x-shadow")),
-			feature = "jemalloc-allocator"
-		)),
+		not(all(
+			any(target_os = "linux",
+				feature = "jemalloc-allocator"
+			), not(feature = "x-shadow"))),
 		allow(dead_code)
 	)]
 	pub fn wait_for_threads_with_timeout(cond: &Cond, dur: Duration) -> Option<WaitOutcome> {

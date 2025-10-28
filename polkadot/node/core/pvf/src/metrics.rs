@@ -85,15 +85,15 @@ impl Metrics {
 	#[allow(unused_variables)]
 	pub(crate) fn observe_preparation_memory_metrics(&self, memory_stats: MemoryStats) {
 		if let Some(metrics) = &self.0 {
-			#[cfg(target_os = "linux")]
+			#[cfg(all(target_os = "linux", not(feature = "x-shadow")))]
 			if let Some(max_rss) = memory_stats.max_rss {
 				metrics.preparation_max_rss.observe(max_rss as f64);
 			}
 
-			#[cfg(any(
-				all(target_os = "linux", not(feature = "x-shadow")),
-				feature = "jemalloc-allocator"
-			))]
+			#[cfg(all(
+				any(target_os = "linux",
+					feature = "jemalloc-allocator"
+				), not(feature = "x-shadow")))]
 			if let Some(tracker_stats) = memory_stats.memory_tracker_stats {
 				// We convert these stats from B to KB to match the unit of `ru_maxrss` from
 				// `getrusage`.
@@ -145,19 +145,19 @@ struct MetricsInner {
 	preparation_time: prometheus::Histogram,
 	execution_time: prometheus::Histogram,
 	execution_queued_time: prometheus::Histogram,
-	#[cfg(target_os = "linux")]
+	#[cfg(all(target_os = "linux", not(feature = "x-shadow")))]
 	preparation_max_rss: prometheus::Histogram,
 	// Max. allocated memory, tracked by Jemallocator, polling-based
-	#[cfg(any(
-		all(target_os = "linux", not(feature = "x-shadow")),
+	#[cfg(all(any(
+		target_os = "linux",
 		feature = "jemalloc-allocator"
-	))]
+	), not(feature = "x-shadow")))]
 	preparation_max_allocated: prometheus::Histogram,
 	// Max. resident memory, tracked by Jemallocator, polling-based
-	#[cfg(any(
-		all(target_os = "linux", not(feature = "x-shadow")),
+	#[cfg(all(any(
+		target_os = "linux",
 		feature = "jemalloc-allocator"
-	))]
+	), not(feature = "x-shadow")))]
 	preparation_max_resident: prometheus::Histogram,
 	// Peak allocation value, tracked by tracking-allocator
 	preparation_peak_tracked_allocation: prometheus::Histogram,
@@ -202,28 +202,28 @@ impl metrics::Metrics for Metrics {
 			prepare_enqueued: prometheus::register(
 				prometheus::Counter::new(
 					"polkadot_pvf_prepare_enqueued",
-					"The total number of jobs enqueued into the preparation pipeline"
+					"The total number of jobs enqueued into the preparation pipeline",
 				)?,
 				registry,
 			)?,
 			prepare_concluded: prometheus::register(
 				prometheus::Counter::new(
 					"polkadot_pvf_prepare_concluded",
-					"The total number of jobs concluded in the preparation pipeline"
+					"The total number of jobs concluded in the preparation pipeline",
 				)?,
 				registry,
 			)?,
 			execute_enqueued: prometheus::register(
 				prometheus::Counter::new(
 					"polkadot_pvf_execute_enqueued",
-					"The total number of jobs enqueued into the execution pipeline"
+					"The total number of jobs enqueued into the execution pipeline",
 				)?,
 				registry,
 			)?,
 			execute_finished: prometheus::register(
 				prometheus::Counter::new(
 					"polkadot_pvf_execute_finished",
-					"The total number of jobs done in the execution pipeline"
+					"The total number of jobs done in the execution pipeline",
 				)?,
 				registry,
 			)?,
@@ -233,24 +233,24 @@ impl metrics::Metrics for Metrics {
 						"polkadot_pvf_preparation_time",
 						"Time spent in preparing PVF artifacts in seconds",
 					)
-					.buckets(vec![
-						// This is synchronized with the `DEFAULT_PRECHECK_PREPARATION_TIMEOUT=60s`
-						// and `DEFAULT_LENIENT_PREPARATION_TIMEOUT=360s` constants found in
-						// node/core/candidate-validation/src/lib.rs
-						0.1,
-						0.5,
-						1.0,
-						2.0,
-						3.0,
-						10.0,
-						20.0,
-						30.0,
-						60.0,
-						120.0,
-						240.0,
-						360.0,
-						480.0,
-					]),
+						.buckets(vec![
+							// This is synchronized with the `DEFAULT_PRECHECK_PREPARATION_TIMEOUT=60s`
+							// and `DEFAULT_LENIENT_PREPARATION_TIMEOUT=360s` constants found in
+							// node/core/candidate-validation/src/lib.rs
+							0.1,
+							0.5,
+							1.0,
+							2.0,
+							3.0,
+							10.0,
+							20.0,
+							30.0,
+							60.0,
+							120.0,
+							240.0,
+							360.0,
+							480.0,
+						]),
 				)?,
 				registry,
 			)?,
@@ -307,7 +307,7 @@ impl metrics::Metrics for Metrics {
 				)?,
 				registry,
 			)?,
-			#[cfg(target_os = "linux")]
+			#[cfg(all(target_os = "linux", not(feature = "x-shadow")))]
 			preparation_max_rss: prometheus::register(
 				prometheus::Histogram::with_opts(
 					prometheus::HistogramOpts::new(
@@ -320,10 +320,10 @@ impl metrics::Metrics for Metrics {
 				)?,
 				registry,
 			)?,
-            #[cfg(any(
-                all(target_os = "linux", not(feature = "x-shadow")),
-                feature = "jemalloc-allocator"
-            ))]
+			#[cfg(all(
+				any(target_os = "linux",
+					feature = "jemalloc-allocator"
+				), not(feature = "x-shadow")))]
 			preparation_max_resident: prometheus::register(
 				prometheus::Histogram::with_opts(
 					prometheus::HistogramOpts::new(
@@ -336,10 +336,10 @@ impl metrics::Metrics for Metrics {
 				)?,
 				registry,
 			)?,
-            #[cfg(any(
-                all(target_os = "linux", not(feature = "x-shadow")),
-                feature = "jemalloc-allocator"
-            ))]
+			#[cfg(all(
+				any(target_os = "linux",
+					feature = "jemalloc-allocator"
+				), not(feature = "x-shadow")))]
 			preparation_max_allocated: prometheus::register(
 				prometheus::Histogram::with_opts(
 					prometheus::HistogramOpts::new(
@@ -372,10 +372,10 @@ impl metrics::Metrics for Metrics {
 						"polkadot_parachain_candidate_validation_pov_size",
 						"The compressed and decompressed size of the proof of validity of a candidate",
 					)
-					.buckets(
-						prometheus::exponential_buckets(16384.0, 2.0, 10)
-							.expect("arguments are always valid; qed"),
-					),
+						.buckets(
+							prometheus::exponential_buckets(16384.0, 2.0, 10)
+								.expect("arguments are always valid; qed"),
+						),
 					&["compressed"],
 				)?,
 				registry,
@@ -386,10 +386,10 @@ impl metrics::Metrics for Metrics {
 						"polkadot_parachain_candidate_validation_code_size",
 						"The size of the decompressed WASM validation blob used for checking a candidate",
 					)
-					.buckets(
-						prometheus::exponential_buckets(16384.0, 2.0, 10)
-							.expect("arguments are always valid; qed"),
-					),
+						.buckets(
+							prometheus::exponential_buckets(16384.0, 2.0, 10)
+								.expect("arguments are always valid; qed"),
+						),
 				)?,
 				registry,
 			)?,
