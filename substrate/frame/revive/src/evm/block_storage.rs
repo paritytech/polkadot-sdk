@@ -60,14 +60,14 @@ impl EthereumCallResult {
 	///
 	/// - `result`: The execution result
 	/// - `gas_consumed`: The weight consumed during execution
-	/// - `base_info`: Base dispatch information for the call
+	/// - `base_call_weight`: The base call weight
 	/// - `encoded_len`: The length of the encoded transaction in bytes
 	/// - `info`: Dispatch information used for fee computation
 	/// - `effective_gas_price`: The EVM gas price
 	pub(crate) fn new<T: Config>(
 		mut result: Result<crate::ExecReturnValue, DispatchError>,
 		mut gas_consumed: Weight,
-		base_info: DispatchInfo,
+		base_call_weight: Weight,
 		encoded_len: u32,
 		info: &DispatchInfo,
 		effective_gas_price: U256,
@@ -83,7 +83,7 @@ impl EthereumCallResult {
 			gas_consumed.saturating_reduce(T::WeightInfo::deposit_eth_extrinsic_revert_event())
 		}
 
-		let result = dispatch_result(result, gas_consumed, base_info.call_weight);
+		let result = dispatch_result(result, gas_consumed, base_call_weight);
 		let native_fee = T::FeeInfo::compute_actual_fee(encoded_len, &info, &result);
 		let result = T::FeeInfo::ensure_not_overdrawn(native_fee, result);
 		let eth_fee = Pallet::<T>::convert_native_to_evm(native_fee);

@@ -2741,7 +2741,7 @@ mod benchmarks {
 
 			// Create input data of fixed size for consistent transaction payloads
 			let input_data = vec![0x42u8; fixed_payload_size];
-			let gas_used = Weight::from_parts(1_000_000, 1000);
+			let gas_used = U256::from(1_000_000);
 
 			for _ in 0..n {
 				// Create real signed transaction with fixed-size input data
@@ -2814,7 +2814,7 @@ mod benchmarks {
 
 		// Create input data of variable size p for realistic transaction payloads
 		let input_data = vec![0x42u8; d as usize];
-		let gas_used = Weight::from_parts(1_000_000, 1000);
+		let gas_used = U256::from(1_000_000);
 
 		for _ in 0..fixed_tx_count {
 			// Create real signed transaction with variable-size input data
@@ -2888,7 +2888,7 @@ mod benchmarks {
 			input_data.clone(),
 		);
 
-		let gas_used = Weight::from_parts(1_000_000, 1000);
+		let gas_used = U256::from(1_000_000);
 
 		// Store transaction
 		let _ = block_storage::bench_with_ethereum_context(|| {
@@ -2950,7 +2950,7 @@ mod benchmarks {
 			input_data.clone(),
 		);
 
-		let gas_used = Weight::from_parts(1_000_000, 1000);
+		let gas_used = U256::from(1_000_000);
 
 		// Store transaction
 		let _ = block_storage::bench_with_ethereum_context(|| {

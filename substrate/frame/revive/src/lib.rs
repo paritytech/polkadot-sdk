@@ -1259,7 +1259,7 @@ pub mod pallet {
 				block_storage::EthereumCallResult::new::<T>(
 					output.result.map(|r| r.result),
 					output.gas_consumed,
-					base_info,
+					base_info.call_weight,
 					encoded_len,
 					&info,
 					effective_gas_price,
@@ -1319,7 +1319,7 @@ pub mod pallet {
 				block_storage::EthereumCallResult::new::<T>(
 					output.result,
 					output.gas_consumed,
-					base_info,
+					base_info.call_weight,
 					encoded_len,
 					&info,
 					effective_gas_price,
