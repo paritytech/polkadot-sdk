@@ -194,9 +194,9 @@ impl pallet_multi_asset_bounties::Config for Runtime {
 	type FundingSource =
 		pallet_multi_asset_bounties::PalletIdAsFundingSource<TreasuryPalletId, Runtime>;
 	type BountySource =
-		pallet_multi_asset_bounties::PalletIdAsBountySource<TreasuryPalletId, Runtime>;
+		pallet_multi_asset_bounties::BountySourceFromPalletId<TreasuryPalletId, Runtime>;
 	type ChildBountySource =
-		pallet_multi_asset_bounties::PalletIdAsChildBountySource<TreasuryPalletId, Runtime>;
+		pallet_multi_asset_bounties::ChildBountySourceFromPalletId<TreasuryPalletId, Runtime>;
 	type Paymaster =
 		LocalPayWithSource<NativeAndAllAssets, AccountId, xcm_config::LocationToAccountId>;
 	type BalanceConverter = UnityOrOuterConversion<
