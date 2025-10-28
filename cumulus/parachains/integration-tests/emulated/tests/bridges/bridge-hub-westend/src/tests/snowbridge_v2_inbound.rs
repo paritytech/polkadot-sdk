@@ -368,7 +368,7 @@ fn send_weth_v2() {
 }
 
 #[test]
-fn register_and_send_multiple_tokens_v2() {
+fn register_and_send_token_in_one_transaction_fails() {
 	let relayer_account = BridgeHubWestendSender::get();
 	let relayer_reward = 1_500_000_000_000u128;
 
@@ -395,7 +395,6 @@ fn register_and_send_multiple_tokens_v2() {
 	set_up_eth_and_dot_pool();
 
 	let token_transfer_value = 2_000_000_000_000u128;
-	let weth_transfer_value = 2_500_000_000_000u128;
 
 	let dot_asset = Location::new(1, Here);
 	let dot_fee: xcm::prelude::Asset =
@@ -442,7 +441,7 @@ fn register_and_send_multiple_tokens_v2() {
 			},
 			ExpectTransactStatus(MaybeErrorCode::Success),
 			RefundSurplus,
-			// deposit new token, weth and leftover ether fees to beneficiary.
+			// try to deposit new token, weth and leftover ether fees to beneficiary.
 			DepositAsset { assets: Wild(AllCounted(3)), beneficiary: beneficiary.clone() },
 		];
 		let xcm: Xcm<()> = instructions.into();
@@ -483,52 +482,13 @@ fn register_and_send_multiple_tokens_v2() {
 		assert_expected_events!(
 			AssetHubWestend,
 			vec![
-				// message processed successfully
+				// message should not be processed, since assets cannot be ReserveAssetDeposited
+				// before the asset has been created.
 				RuntimeEvent::MessageQueue(
-					pallet_message_queue::Event::Processed { success: true, .. }
+					pallet_message_queue::Event::Processed { success: false, .. }
 				) => {},
-				// Check that the token was created as a foreign asset on AssetHub
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Created { asset_id, owner, .. }) => {
-					asset_id: *asset_id == token_location.clone(),
-					owner: *owner == bridge_owner.clone().into(),
-				},
-				// Check that the token was received and issued as a foreign asset on AssetHub
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
-					asset_id: *asset_id == token_location,
-					owner: *owner == beneficiary_acc_bytes.into(),
-				},
-				// Check that excess fees were paid to the beneficiary
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
-					asset_id: *asset_id == eth_location(),
-					owner: *owner == beneficiary_acc_bytes.into(),
-				},
 			]
 		);
-
-		// Beneficiary received the token transfer value
-		assert_eq!(
-			ForeignAssets::balance(token_location, AccountId::from(beneficiary_acc_bytes)),
-			token_transfer_value
-		);
-
-		// Beneficiary received the weth transfer value
-		assert!(
-			ForeignAssets::balance(weth_location(), AccountId::from(beneficiary_acc_bytes)) >
-				weth_transfer_value
-		);
-
-		let events = AssetHubWestend::events();
-		// Check that no assets were trapped
-		assert!(
-			!events.iter().any(|event| matches!(
-				event,
-				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { .. })
-			)),
-			"Assets were trapped, should not happen."
-		);
-
-		// Beneficiary received eth refund for fees paid
-		assert!(ForeignAssets::balance(eth_location(), AccountId::from(beneficiary_acc_bytes)) > 0);
 	});
 }
 

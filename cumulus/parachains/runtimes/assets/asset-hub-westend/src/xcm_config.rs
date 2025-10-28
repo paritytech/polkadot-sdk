@@ -362,9 +362,7 @@ pub type WaivedLocations = (
 
 // Asset Hub accepts incoming reserve transfers only for "Foreign Assets" and only from locations
 // explicitly set by the asset's owner.
-// It also accepts Ethereum as a reserve location for any Ethereum asset.
 pub type TrustedReserves = (
-	bridging::to_ethereum::EthereumAssetFromEthereum,
 	IsForeignConcreteAsset<ForeignAssetFromTrustedReserve<AssetHubParaId, crate::ForeignAssets>>,
 );
 
