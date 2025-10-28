@@ -48,7 +48,7 @@ pub(crate) struct EthereumCallResult {
 }
 
 impl EthereumCallResult {
-	/// Create a new `EthereumCallResult` from a native fee and effective gas price.
+	/// Create a new `EthereumCallResult`
 	pub(crate) fn new<T: Config>(
 		native_fee: crate::BalanceOf<T>,
 		effective_gas_price: U256,
