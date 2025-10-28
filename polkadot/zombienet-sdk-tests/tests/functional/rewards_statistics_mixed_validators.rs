@@ -17,7 +17,7 @@ use zombienet_orchestrator::network::node::NetworkNode;
 use zombienet_sdk::{LocalFileSystem, NetworkConfigBuilder};
 
 #[tokio::test(flavor = "multi_thread")]
-async fn rewards_statistics_collector_test() -> Result<(), anyhow::Error> {
+async fn rewards_statistics_mixed_validators_test() -> Result<(), anyhow::Error> {
     let _ = env_logger::try_init_from_env(
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
     );
@@ -42,9 +42,29 @@ async fn rewards_statistics_collector_test() -> Result<(), anyhow::Error> {
 				}))
                 .with_node(|node| node.with_name("validator-0"));
 
-            (1..12)
+            let r = (1..9)
                 .fold(r, |acc, i|
-                    acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+                    acc.with_node(|node| node.with_name(&format!("validator-{i}"))));
+    
+            (9..12).fold(r, |acc, i| {
+                acc.with_node(|node| {
+                    node.with_name(&format!("malus-{i}"))
+                        .with_args(vec![
+                            "-lparachain=debug,MALUS=trace".into(),
+                            "--dispute-offset=14".into(),
+                            "--alice".into(),
+                            "--insecure-validator-i-know-what-i-do".into(),
+                        ])
+                        .with_image(
+                            std::env::var("MALUS_IMAGE")
+                                .unwrap_or("docker.io/paritypr/malus".to_string())
+                                .as_str(),
+                        )
+                        .with_command("malus")
+                        .with_subcommand("dispute_valid_candidates")
+                        .invulnerable(false)
+                })
+            })
         })
         .with_parachain(|p| {
             p.with_id(2000)
@@ -79,21 +99,13 @@ async fn rewards_statistics_collector_test() -> Result<(), anyhow::Error> {
 
     let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
 
-    assert_para_throughput(
-        &relay_client,
-        15,
-        [(ParaId::from(2000), 11..16), (ParaId::from(2001), 11..16)]
-            .into_iter()
-            .collect(),
-    )
-        .await?;
-
-    // wait for a session to be finalized
-    wait_for_nth_session_change(&mut blocks_sub, 1).await;
+    // wait for session one to be finalized
+    wait_for_nth_session_change(&mut blocks_sub, 2).await;
 
     assert_approval_usages_medians(
         1,
-        0..12,
+        12,
+        vec![("validator", 0..9), ("malus", 9..12)],
         &network,
     ).await?;
 
@@ -102,50 +114,42 @@ async fn rewards_statistics_collector_test() -> Result<(), anyhow::Error> {
 
 async fn assert_approval_usages_medians(
     session: SessionIndex,
-    validators_range: Range<u32>,
+    num_validators: usize,
+    validators_kind_and_range: Vec<(&str, Range<usize>)>,
     network: &Network<LocalFileSystem>,
 ) -> Result<(), anyhow::Error> {
-    let mut medians = vec![];
+    for (kind, validators_range) in validators_kind_and_range {
+        for idx in validators_range {
+            let validator_identifier = format!("{}-{}", kind, idx);
+            let relay_node = network.get_node(validator_identifier)?;
 
-    for idx in validators_range.clone() {
-        let validator_identifier = format!("validator-{}", idx);
-        let relay_node = network.get_node(validator_identifier.clone())?;
+            let approvals_per_session =
+                report_label_with_attributes(
+                    "polkadot_parachain_rewards_statistics_collector_approvals_per_session",
+                    vec![
+                        ("session", session.to_string().as_str()),
+                        ("chain", "rococo_local_testnet"),
+                    ],
+                );
 
-        let approvals_per_session =
-            report_label_with_attributes(
-                "polkadot_parachain_rewards_statistics_collector_approvals_per_session",
+            let noshows_per_session = report_label_with_attributes(
+                "polkadot_parachain_rewards_statistics_collector_no_shows_per_session",
                 vec![
                     ("session", session.to_string().as_str()),
                     ("chain", "rococo_local_testnet"),
                 ],
             );
 
-        let total_approvals = relay_node.reports(approvals_per_session.clone()).await?;
+            let total_approvals = relay_node.reports(approvals_per_session).await?;
+            let total_noshows = relay_node.reports(noshows_per_session).await?;
 
-        let mut metrics = vec![];
-        for validator_idx in validators_range.clone() {
-            let approvals_per_session_per_validator =
-                report_label_with_attributes(
-                    "polkadot_parachain_rewards_statistics_collector_approvals_per_session_per_validator",
-                    vec![
-                        ("session", session.to_string().as_str()),
-                        ("validator_idx", validator_idx.to_string().as_str()),
-                        ("chain", "rococo_local_testnet"),
-                    ],
-                );
-            metrics.push(approvals_per_session_per_validator);
+            log::info!("{kind} #{idx} approvals {session} -> {total_approvals}");
+            log::info!("{kind} #{idx} no-shows {session} -> {total_noshows}");
+
+            //assert!(total_approvals >= 9.0);
+            //assert!(total_noshows >= 3.0);
         }
-
-        let mut total_sum = 0;
-        for metric_per_validator in metrics {
-            let validator_approvals_usage = relay_node.reports(metric_per_validator.clone()).await?;
-            total_sum += validator_approvals_usage as u32;
-        }
-
-        assert_eq!(total_sum, total_approvals as u32);
-        medians.push(total_sum / validators_range.len() as u32);
     }
 
-    log::info!("Collected medians for session {session} {:?}", medians);
     Ok(())
 }

@@ -212,8 +212,6 @@ fn single_candidate_approved() {
     assert_eq!(view.per_relay.len(), 1);
     let stats_for = view.per_relay.get(&rb_hash).unwrap();
     let approvals_for = stats_for.approvals_stats.get(&candidate_hash).unwrap();
-
-	println!("{:?}", approvals_for.votes);
     
     let expected_votes = vec![validator_idx];
     let collected_votes= approvals_for

@@ -49,7 +49,7 @@ pub use metrics::Metrics;
 use polkadot_node_network_protocol::authority_discovery::AuthorityDiscovery;
 
 #[cfg(test)]
-pub mod tests;
+mod tests;
 
 const LOG_TARGET: &'static str = "parachain::availability-distribution";
 
@@ -174,7 +174,8 @@ where
 				FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, _finalized_number)) => {
 				},
 				FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
-				FromOrchestra::Communication { msg} => match msg {
+				FromOrchestra::Communication {
+					msg:
 					AvailabilityDistributionMessage::FetchPoV {
 						relay_parent,
 						from_validator,
@@ -182,33 +183,26 @@ where
 						candidate_hash,
 						pov_hash,
 						tx,
-					} => {
-						log_error(
-							pov_requester::fetch_pov(
-								&mut ctx,
-								&mut runtime,
-								relay_parent,
-								from_validator,
-								para_id,
-								candidate_hash,
-								pov_hash,
-								tx,
-								metrics.clone(),
-							)
-								.await,
-							"pov_requester::fetch_pov",
-							&mut warn_freq,
-						)?;
 					},
-					AvailabilityDistributionMessage::NetworkBridgeUpdate(event) => {
-
-					},
+				} => {
+					log_error(
+						pov_requester::fetch_pov(
+							&mut ctx,
+							&mut runtime,
+							relay_parent,
+							from_validator,
+							para_id,
+							candidate_hash,
+							pov_hash,
+							tx,
+							metrics.clone(),
+						)
+							.await,
+						"pov_requester::fetch_pov",
+						&mut warn_freq,
+					)?;
 				},
 			}
 		}
 	}
-}
-
-async fn handle_network_update<Context>() {
-
 }

@@ -118,7 +118,6 @@ where
 					let result =
 						subsystem.client.hash(number).await.map_err(|e| e.to_string().into());
 					subsystem.metrics.on_request(result.is_ok());
-
 					let _ = response_channel.send(result);
 				},
 				ChainApiMessage::FinalizedBlockNumber(response_channel) => {

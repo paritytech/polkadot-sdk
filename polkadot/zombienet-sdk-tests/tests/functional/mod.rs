@@ -11,3 +11,4 @@ mod spam_statement_distribution_requests;
 mod sync_backing;
 mod validator_disabling;
 mod rewards_statistics_collector;
+mod rewards_statistics_mixed_validators;

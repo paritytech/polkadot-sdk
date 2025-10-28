@@ -62,7 +62,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 
 	async fn run(
 		mut self: Box<Self>,
-		_: &mut State,
+		state: &mut State,
 		sender: &mut Sender,
 		common_params: &RecoveryParams,
 	) -> Result<AvailableData, RecoveryError> {
@@ -126,7 +126,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 							);
 
 							common_params.metrics.on_full_request_succeeded();
-
+							state.note_received_available_data(validator_index);
 							return Ok(data)
 						},
 						None => {

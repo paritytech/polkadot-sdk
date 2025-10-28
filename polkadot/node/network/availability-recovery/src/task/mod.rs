@@ -179,6 +179,7 @@ where
 							self.params.metrics.on_recovery_invalid(strategy_type),
 						_ => self.params.metrics.on_recovery_failed(strategy_type),
 					}
+					_ = self.state.get_download_chunks_metrics();
 					return Err(err)
 				},
 				Ok(data) => {

@@ -499,10 +499,6 @@ pub enum AvailabilityDistributionMessage {
 		/// The sender will be canceled if the fetching failed for some reason.
 		tx: oneshot::Sender<PoV>,
 	},
-
-	/// Event from the network bridge.
-	#[from]
-	NetworkBridgeUpdate(NetworkBridgeEvent<()>),
 }
 
 /// Availability Recovery Message.

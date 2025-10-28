@@ -176,18 +176,17 @@ pub(crate) async fn run_iteration<Context>(
                         .map_err(JfyiError::RuntimeApiCallError)?;
 
                     if let Some(ref h) = header {
-                        let parent_hash = h.clone().parent_hash;
-                        let parent_hash = if let Some(parent) = view.per_relay.get_mut(&parent_hash) {
-                            parent.link_child(relay_hash.clone());
-                            Some(parent_hash)
-                        } else {
-                            view.roots.insert(relay_hash.clone());
-                            None
+                        let parent_hash = h.parent_hash;
+                        match view.per_relay.get_mut(&parent_hash) {
+                            Some(per_relay_view) => per_relay_view.link_child(relay_hash),
+                            None => {
+                                _ = view.roots.insert(relay_hash);
+                            },
                         };
 
-                        view.per_relay.insert(relay_hash, PerRelayView::new(parent_hash, session_idx));
+                        view.per_relay.insert(relay_hash, PerRelayView::new(Some(parent_hash), session_idx));
                     } else {
-                        view.roots.insert(relay_hash.clone());
+                        view.roots.insert(relay_hash);
                         view.per_relay.insert(relay_hash, PerRelayView::new(None, session_idx));
                     }
 

@@ -1306,11 +1306,6 @@ where
 	let mut delayed_approvals_timers = DelayedApprovalTimer::default();
 	let mut approvals_cache = LruMap::new(ByLength::new(APPROVAL_CACHE_SIZE));
 
-	gum::info!(
-		target: LOG_TARGET,
-		"Approval Voting Subsytem is running..."
-	);
-
 	loop {
 		let mut overlayed_db = OverlayedBackend::new(&backend);
 		let actions = futures::select! {
@@ -3245,6 +3240,25 @@ where
 			}
 		}
 
+		if newly_approved {
+			gum::info!(
+				target: LOG_TARGET,
+				?block_hash,
+				?candidate_hash,
+				"Candidate newly approved, collecting useful approvals..."
+			);
+
+			collect_useful_approvals(sender,  &status, block_hash, &candidate_entry);
+
+			if status.no_show_validators.len() > 0 {
+				_ = sender
+					.try_send_message(ConsensusStatisticsCollectorMessage::NoShows(
+						candidate_entry.candidate.hash(),
+						block_hash,
+						status.no_show_validators,
+					));
+			}
+		}
 
 		// We have no need to write the candidate entry if all of the following
 		// is true:
@@ -3257,31 +3271,11 @@ where
 		if transition.is_local_approval() || newly_approved || !already_approved_by.unwrap_or(true)
 		{
 			// In all other cases, we need to write the candidate entry.
-			db.write_candidate_entry(candidate_entry.clone());
+			db.write_candidate_entry(candidate_entry);
 		}
 
 		newly_approved
 	};
-
-	if newly_approved {
-		gum::info!(
-			target: LOG_TARGET,
-			?block_hash,
-			?candidate_hash,
-			"Candidate newly approved, collecting useful approvals..."
-		);
-
-		collect_useful_approvals(sender,  &status, block_hash, &candidate_entry);
-
-		if status.no_show_validators.len() > 0 {
-			_ = sender
-				.try_send_message(ConsensusStatisticsCollectorMessage::NoShows(
-					candidate_entry.candidate.hash(),
-					block_hash,
-					status.no_show_validators,
-				));
-		}
-	}
 
 	actions
 }
@@ -4130,9 +4124,18 @@ where
 	let candidate_hash = candidate_entry.candidate.hash();
 	let candidate_approvals = candidate_entry.approvals();
 
-	let approval_entry = candidate_entry
-		.approval_entry(&block_hash)
-		.expect("Approval entry just fetched; qed");
+	let approval_entry = match candidate_entry.approval_entry(&block_hash) {
+		Some(approval_entry) => approval_entry,
+		None => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?block_hash,
+				?candidate_hash,
+				"approval entry not found, cannot collect useful approvals."
+			);
+			return
+		},
+	};
 
 	let collected_useful_approvals: Vec<ValidatorIndex> = match status.required_tranches {
 		RequiredTranches::All => {
@@ -4143,12 +4146,20 @@ where
 			assigned_mask &= candidate_approvals;
 			assigned_mask.iter_ones().map(|idx| ValidatorIndex(idx as _)).collect()
 		},
-		RequiredTranches::Pending {..} => panic!("Newly approved candidate should never be pending; qed"),
+		RequiredTranches::Pending {..} => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?block_hash,
+				?candidate_hash,
+				"approval status required tranches still pending when collecting useful approvals"
+			);
+			return
+		},
 	};
 
-	if collected_useful_approvals.len() > 0 {
+	if !collected_useful_approvals.is_empty() {
 		let useful_approvals = collected_useful_approvals.len();
-		gum::info!(
+		gum::debug!(
 			target: LOG_TARGET,
 			?block_hash,
 			?candidate_hash,

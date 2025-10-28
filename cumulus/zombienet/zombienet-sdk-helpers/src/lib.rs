@@ -461,3 +461,12 @@ pub async fn wait_for_upgrade(
 	}
 	Ok(())
 }
+
+pub fn report_label_with_attributes(label: &str, attributes: Vec<(&str, &str)>) -> String {
+	let mut attrs: Vec<String> = vec![];
+	for (k, v) in attributes {
+		attrs.push(format!("{}=\"{}\"", k, v));
+	}
+	let final_attrs = attrs.join(",");
+	format!("{label}{{{final_attrs}}}")
+}

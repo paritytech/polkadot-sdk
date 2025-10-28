@@ -207,9 +207,8 @@ pub struct Executive<
 	AllPalletsWithSystem,
 	#[deprecated(
 		note = "`OnRuntimeUpgrade` parameter in Executive is deprecated, will be removed after September 2026. \
-	Use type `SingleBlockMigrations` in frame_system::Config instead."
-	)]
-	OnRuntimeUpgrade = (),
+		Use type `SingleBlockMigrations` in frame_system::Config instead."
+	)] OnRuntimeUpgrade = (),
 >(
 	PhantomData<(
 		System,
