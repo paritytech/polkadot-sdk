@@ -9,7 +9,8 @@ documentation.
 
 - [`pallet_example_offchain_worker::Trait`](./trait.Trait.html)
 - [`Call`](./enum.Call.html)
-- [`Module`](./struct.Module.html)
+- [`Pallet`](./struct.Pallet.html)
+- [`ValidateUnsignedPriceSubmission`](./struct.ValidateUnsignedPriceSubmission.html)
 
 **This pallet serves as an example showcasing Substrate off-chain worker and is not meant to be
 used in production.**
@@ -23,7 +24,7 @@ and prepare either signed or unsigned transaction to feed the result back on cha
 The on-chain logic will simply aggregate the results and store last `64` values to compute
 the average price.
 Additional logic in OCW is put in place to prevent spamming the network with both signed
-and unsigned transactions, and custom `UnsignedValidator` makes sure that there is only
-one unsigned transaction floating in the network.
+and unsigned transactions, and a custom `TransactionExtension` validates unsigned transactions
+to ensure that there is only one unsigned transaction floating in the network.
 
 License: MIT-0

@@ -46,8 +46,8 @@
 //! The on-chain logic will simply aggregate the results and store last `64` values to compute
 //! the average price.
 //! Additional logic in OCW is put in place to prevent spamming the network with both signed
-//! and unsigned transactions, and custom `UnsignedValidator` makes sure that there is only
-//! one unsigned transaction floating in the network.
+//! and unsigned transactions, and a custom `TransactionExtension` validates unsigned transactions
+//! to ensure that there is only one unsigned transaction floating in the network.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -67,13 +67,20 @@ use frame_system::{
 use lite_json::json::JsonValue;
 use sp_core::crypto::KeyTypeId;
 use sp_runtime::{
+	impl_tx_ext_default,
 	offchain::{
 		http,
 		storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
 		Duration,
 	},
-	traits::Zero,
-	transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
+	traits::{
+		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, TransactionExtension, ValidateResult,
+		Zero,
+	},
+	transaction_validity::{
+		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
+		ValidTransaction,
+	},
 	RuntimeDebug,
 };
 
@@ -253,8 +260,8 @@ pub mod pallet {
 		/// we need a way to make sure that only some transactions are accepted.
 		/// This function can be called only once every `T::UnsignedInterval` blocks.
 		/// Transactions that call that function are de-duplicated on the pool level
-		/// via `validate_unsigned` implementation and also are rendered invalid if
-		/// the function has already been called in current "session".
+		/// via the `ValidateUnsignedPriceSubmission` transaction extension and are rendered invalid
+		/// if the function has already been called in current "session".
 		///
 		/// It's important to specify `weight` for unsigned calls as well, because even though
 		/// they don't charge fees, we still don't want a single block to contain unlimited
@@ -305,19 +312,70 @@ pub mod pallet {
 		NewPrice { price: u32, maybe_who: Option<T::AccountId> },
 	}
 
-	#[allow(deprecated)]
-	#[pallet::validate_unsigned]
-	impl<T: Config> ValidateUnsigned for Pallet<T> {
-		type Call = Call<T>;
+	/// Transaction extension for validating unsigned transactions for this pallet.
+	///
+	/// This extension validates unsigned transactions that are submitted by offchain workers.
+	/// It ensures only valid price submission transactions are accepted into the transaction pool.
+	#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, scale_info::TypeInfo)]
+	#[scale_info(skip_type_params(T))]
+	pub struct ValidateUnsignedPriceSubmission<T: Config>(core::marker::PhantomData<T>);
 
-		/// Validate unsigned call to this module.
-		///
-		/// By default unsigned transactions are disallowed, but implementing the validator
-		/// here we make sure that some particular calls (the ones produced by offchain worker)
-		/// are being whitelisted and marked as valid.
-		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+	impl<T: Config> core::fmt::Debug for ValidateUnsignedPriceSubmission<T> {
+		fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+			write!(f, "ValidateUnsignedPriceSubmission")
+		}
+	}
+
+	impl<T: Config> Default for ValidateUnsignedPriceSubmission<T> {
+		fn default() -> Self {
+			Self(Default::default())
+		}
+	}
+
+	impl<T: Config> ValidateUnsignedPriceSubmission<T> {
+		/// Create a new instance of the transaction extension.
+		pub fn new() -> Self {
+			Self(Default::default())
+		}
+	}
+
+	impl<T: Config + Send + Sync> TransactionExtension<Call<T>> for ValidateUnsignedPriceSubmission<T>
+	where
+		Call<T>: Dispatchable<
+			Info = frame_support::dispatch::DispatchInfo,
+			PostInfo = frame_support::dispatch::PostDispatchInfo,
+		>,
+		<Call<T> as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId>,
+	{
+		const IDENTIFIER: &'static str = "ValidateUnsignedPriceSubmission";
+		type Implicit = ();
+		type Pre = ();
+		type Val = ();
+
+		fn weight(&self, _call: &Call<T>) -> frame_support::weights::Weight {
+			// Minimal weight since validation is lightweight
+			frame_support::weights::Weight::from_parts(5_000, 0)
+		}
+
+		fn validate(
+			&self,
+			origin: <Call<T> as Dispatchable>::RuntimeOrigin,
+			call: &Call<T>,
+			_info: &DispatchInfoOf<Call<T>>,
+			_len: usize,
+			_self_implicit: Self::Implicit,
+			_inherited_implication: &impl codec::Encode,
+			_source: TransactionSource,
+		) -> ValidateResult<Self::Val, Call<T>> {
+			// Check if this is an unsigned transaction (origin is None)
+			if origin.as_system_origin_signer().is_some() {
+				// This is a signed transaction, skip validation in this extension
+				return Ok((Default::default(), (), origin))
+			}
+
+			// This is an unsigned transaction - validate it
 			// Firstly let's check that we call the right function.
-			if let Call::submit_price_unsigned_with_signed_payload {
+			let validity = if let Call::submit_price_unsigned_with_signed_payload {
 				price_payload: ref payload,
 				ref signature,
 			} = call
@@ -325,15 +383,22 @@ pub mod pallet {
 				let signature_valid =
 					SignedPayload::<T>::verify::<T::AuthorityId>(payload, signature.clone());
 				if !signature_valid {
-					return InvalidTransaction::BadProof.into()
+					return Err(InvalidTransaction::BadProof.into())
 				}
-				Self::validate_transaction_parameters(&payload.block_number, &payload.price)
+				Pallet::<T>::validate_transaction_parameters(&payload.block_number, &payload.price)
 			} else if let Call::submit_price_unsigned { block_number, price: new_price } = call {
-				Self::validate_transaction_parameters(block_number, new_price)
+				Pallet::<T>::validate_transaction_parameters(block_number, new_price)
 			} else {
-				InvalidTransaction::Call.into()
+				return Err(InvalidTransaction::Call.into())
+			};
+
+			match validity {
+				Ok(valid_tx) => Ok((valid_tx, (), origin)),
+				Err(e) => Err(e),
 			}
 		}
+
+		impl_tx_ext_default!(Call<T>; prepare);
 	}
 
 	/// A vector of recently submitted prices.
@@ -505,7 +570,7 @@ impl<T: Config> Pallet<T> {
 		// Here we showcase two ways to send an unsigned transaction / unsigned payload (raw)
 		//
 		// By default unsigned transactions are disallowed, so we need to whitelist this case
-		// by writing `UnsignedValidator`. Note that it's EXTREMELY important to carefully
+		// by implementing a `TransactionExtension`. Note that it's EXTREMELY important to carefully
 		// implement unsigned validation logic, as any mistakes can lead to opening DoS or spam
 		// attack vectors. See validation logic docs for more details.
 		//
