@@ -9,3 +9,5 @@ doc:
 crates:
   - name: pallet-salary
     bump: patch
+  - name: pallet-multi-asset-bounties
+    bump: patch
