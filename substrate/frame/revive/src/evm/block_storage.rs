@@ -18,7 +18,7 @@ use crate::{
 	evm::block_hash::{AccumulateReceipt, EthereumBlockBuilder, LogsBloom},
 	limits,
 	sp_runtime::traits::One,
-	BlockHash, Config, EthBlockBuilderIR, EthereumBlock, Event, Pallet, ReceiptInfoData,
+	BalanceOf, BlockHash, Config, EthBlockBuilderIR, EthereumBlock, Event, Pallet, ReceiptInfoData,
 	UniqueSaturatedInto, H160, H256,
 };
 use alloc::vec::Vec;
@@ -50,7 +50,7 @@ pub(crate) struct EthereumCallResult {
 impl EthereumCallResult {
 	/// Create a new `EthereumCallResult`
 	pub(crate) fn new<T: Config>(
-		native_fee: crate::BalanceOf<T>,
+		native_fee: BalanceOf<T>,
 		effective_gas_price: U256,
 		result: DispatchResultWithPostInfo,
 	) -> Self {
