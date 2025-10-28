@@ -30,5 +30,5 @@ crates:
     bump: patch
   - name: substrate-test-runtime
     bump: patch
-  - name: fram-system
+  - name: frame-system
     bump: patch
