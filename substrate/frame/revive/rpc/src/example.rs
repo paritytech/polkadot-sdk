@@ -229,7 +229,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 				input,
 				gas_price,
 				max_fee_per_gas: gas_price,
-				max_priority_fee_per_gas: 0,
+				max_priority_fee_per_gas: U256::zero(),
 				chain_id,
 				access_list: vec![],
 				r#type: TypeEip1559,
