@@ -33,7 +33,7 @@ use scale_info::TypeInfo;
 use sp_core::sr25519;
 use sp_runtime::{
 	generic,
-	traits::{BlakeTwo256, ValidateUnsigned, Verify},
+	traits::{BlakeTwo256, Verify},
 	DispatchError, ModuleError,
 };
 use sp_version::RuntimeVersion;
@@ -1037,10 +1037,12 @@ fn test_validate_unsigned() {
 	use frame_support::pallet_prelude::*;
 
 	let call = RuntimeCall::NestedModule3(nested::module3::Call::fail {});
+	#[allow(deprecated)]
 	let validity = Runtime::validate_unsigned(TransactionSource::Local, &call).unwrap_err();
 	assert_eq!(validity, TransactionValidityError::Invalid(InvalidTransaction::Call));
 
 	let call = RuntimeCall::Module3(module3::Call::fail {});
+	#[allow(deprecated)]
 	let validity = Runtime::validate_unsigned(TransactionSource::Local, &call).unwrap_err();
 	assert_eq!(
 		validity,
