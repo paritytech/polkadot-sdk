@@ -87,7 +87,7 @@ pub fn decompress(blob: &[u8], bomb_limit: usize) -> Result<Cow<'_, [u8]>, Error
 /// If the blob's size is over the bomb limit, this will not compress the blob,
 /// as the decoder will not be able to be able to differentiate it from a compression bomb.
 pub fn compress_weakly(blob: &[u8], bomb_limit: usize) -> Option<Vec<u8>> {
-	compress(blob, bomb_limit, 3)
+	compress_with_level(blob, bomb_limit, 3)
 }
 
 /// Strongly compress a blob who's size is limited by `bomb_limit`.
@@ -97,7 +97,7 @@ pub fn compress_weakly(blob: &[u8], bomb_limit: usize) -> Option<Vec<u8>> {
 /// If the blob's size is over the bomb limit, this will not compress the blob, as the decoder will
 /// not be able to be able to differentiate it from a compression bomb.
 pub fn compress_strongly(blob: &[u8], bomb_limit: usize) -> Option<Vec<u8>> {
-	compress(blob, bomb_limit, 22)
+	compress_with_level(blob, bomb_limit, 22)
 }
 
 /// Compress a blob who's size is limited by `bomb_limit` with adjustable compression level.
@@ -106,7 +106,12 @@ pub fn compress_strongly(blob: &[u8], bomb_limit: usize) -> Option<Vec<u8>> {
 ///
 /// If the blob's size is over the bomb limit, this will not compress the blob, as the decoder will
 /// not be able to be able to differentiate it from a compression bomb.
-pub fn compress(blob: &[u8], bomb_limit: usize, level: i32) -> Option<Vec<u8>> {
+#[deprecated(note = "Will be removed after June 2026. Use compress_strongly or compress_weakly instead")]
+pub fn compress(blob: &[u8], bomb_limit: usize) -> Option<Vec<u8>> {
+	compress_with_level(blob, bomb_limit, 3)
+}
+
+fn compress_with_level(blob: &[u8], bomb_limit: usize, level: i32) -> Option<Vec<u8>> {
 	if blob.len() > bomb_limit {
 		return None
 	}

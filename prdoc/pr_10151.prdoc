@@ -1,0 +1,20 @@
+title: Adjustable zstd compression level
+doc:
+- audience: Runtime Dev
+  description: |-
+    Changes:
+    - Create `compress_weakly`, `compress_strongly` and `compress` (with level) functions for variable compression levels
+    - Use said functions instead of the old fixed-level `compress` function
+crates:
+- name: polkadot-node-core-pvf
+  bump: patch
+- name: polkadot-node-primitives
+  bump: patch
+- name: sc-rpc-spec-v2
+  bump: patch
+- name: sp-maybe-compressed-blob
+  bump: patch
+- name: polkadot-node-core-candidate-validation
+  bump: patch
+- name: substrate-wasm-builder
+  bump: minor
