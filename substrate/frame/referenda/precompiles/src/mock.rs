@@ -22,6 +22,7 @@ use crate::ReferendaPrecompile;
 use alloc::borrow::Cow;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
+	assert_ok,
 	derive_impl, ord_parameter_types, parameter_types,
 	traits::{
 		ConstU32, ConstU64, ConstU128, Contains, EqualPrivilegeOnly, OriginTrait, VoteTally,
@@ -31,10 +32,12 @@ use frame_support::{
 use frame_support::pallet_prelude::TypeInfo;
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_referenda::{Curve, Track, TrackInfo, TracksInfo};
-use sp_runtime::{
+use frame_support::traits::QueryPreimage;
+ use sp_runtime::{
 	str_array as s,
-	traits::IdentityLookup,
-	BuildStorage, Perbill, AccountId32,
+	traits::{BlakeTwo256, Hash,IdentityLookup},
+	BuildStorage, DispatchResult, Perbill, AccountId32,
+
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -307,7 +310,18 @@ impl VoteTally<u32, u8> for Tally {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn setup(_: u8, _: Perbill) {}
 }
-
+// preimage 
+/// note a new preimage without registering.
+pub fn note_preimage(who: AccountId32) -> <Test as frame_system::Config>::Hash {
+	use std::sync::atomic::{AtomicU8, Ordering};
+	// note a new preimage on every function invoke.
+	static COUNTER: AtomicU8 = AtomicU8::new(0);
+	let data = vec![COUNTER.fetch_add(1, Ordering::Relaxed)];
+	assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(who), data.clone()));
+	let hash = BlakeTwo256::hash(&data);
+	assert!(!Preimage::is_requested(&hash));
+	hash
+}
 // ====== transaction builder =====
 pub struct ExtBuilder {}
 
