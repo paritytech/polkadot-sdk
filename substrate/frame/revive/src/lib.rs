@@ -1256,14 +1256,13 @@ pub mod pallet {
 					}
 				}
 
-				let gas_consumed = output.gas_consumed;
 				let result = dispatch_result(
 					output.result.map(|result| result.result),
-					gas_consumed,
+					output.gas_consumed,
 					base_info.call_weight,
 				);
 				let result = T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result);
-				(gas_consumed, result)
+				(output.gas_consumed, result)
 			})
 		}
 
@@ -1321,11 +1320,10 @@ pub mod pallet {
 					}
 				}
 
-				let gas_consumed = output.gas_consumed;
 				let result =
 					dispatch_result(output.result, output.gas_consumed, base_info.call_weight);
 				let result = T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result);
-				(gas_consumed, result)
+				(output.gas_consumed, result)
 			})
 		}
 
