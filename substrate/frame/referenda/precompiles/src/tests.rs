@@ -29,10 +29,13 @@ use pallet_revive::{
 use frame_support::weights::Weight;
 use codec::Encode;
 // Referenda precompile address (matches the MATCHER in lib.rs)
+// fn referenda_precompile_address() -> H160 {
+// 	H160::from(hex::const_decode_to_array(b"000000000000000000000000000000000000000C").unwrap())
+// }
 fn referenda_precompile_address() -> H160 {
-	H160::from(hex::const_decode_to_array(b"000000000000000000000000000000000000000C").unwrap())
+    // Matches: NonZero::new(11) → 0xB0000
+    H160::from_low_u64_be(0xB0000)
 }
-
 #[test]
 fn test_referenda_submit_lookup_works() {
 	ExtBuilder::default().build().execute_with(|| {
