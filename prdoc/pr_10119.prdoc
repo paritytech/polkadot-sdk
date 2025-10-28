@@ -1,8 +1,10 @@
 title: Snowbridge: To support Ethereum roundtrip Origins
 doc:
 - audience: Runtime Dev
-  description: Add a DescribeLocation implementation to handle scenarios where an end user on Ethereum sends a message to Polkadot and, within the same XCM, constructs an inner XCM to send another message from Polkadot back to Ethereum.
-
+  description: |-
+    Add a DescribeLocation implementation to handle scenarios where an end user on Ethereum 
+    sends a message to Polkadot and, within the same XCM, constructs an inner XCM 
+    to send another message from Polkadot back to Ethereum.
 crates:
 - name: snowbridge-core
   bump: patch
