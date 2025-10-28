@@ -14,10 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! A pallet for managing parachain data publishing.
+//! A pallet for managing parachain data publishing and subscription.
 //!
-//! This pallet allows parachains to publish data to the relay chain storage
-//! using child tries per publisher.
+//! This pallet provides a publish-subscribe mechanism for parachains to share data
+//! efficiently through the relay chain storage using child tries per publisher.
 //!
 //! ## Storage Lifecycle
 //!
@@ -29,13 +29,14 @@ use alloc::{collections::BTreeMap, vec::Vec};
 use frame_support::{
 	pallet_prelude::*,
 	storage::child::ChildInfo,
-	traits::{defensive_prelude::*, Get},
+	traits::{defensive_prelude::*, Get, ConstU32},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::Id as ParaId;
 
 pub use pallet::*;
 
+pub mod runtime_api;
 mod traits;
 pub use traits::PublishSubscribe;
 
@@ -54,6 +55,9 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		/// The overarching event type.
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
 		/// Maximum number of items that can be published in one operation.
 		/// Must not exceed `xcm::v5::MaxPublishItems`.
 		#[pallet::constant]
@@ -72,6 +76,14 @@ pub mod pallet {
 		/// Maximum number of unique keys a publisher can have stored across all publishes.
 		#[pallet::constant]
 		type MaxStoredKeys: Get<u32>;
+
+		/// Maximum number of publishers a subscriber can subscribe to.
+		#[pallet::constant]
+		type MaxSubscriptions: Get<u32>;
+
+		/// Maximum number of publishers that can have published data.
+		#[pallet::constant]
+		type MaxPublishers: Get<u32>;
 	}
 
 	#[pallet::event]
@@ -79,6 +91,10 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// Data published by a parachain.
 		DataPublished { publisher: ParaId, items_count: u32 },
+		/// Parachain subscribed to a publisher.
+		Subscribed { subscriber: ParaId, publisher: ParaId },
+		/// Parachain unsubscribed from a publisher.
+		Unsubscribed { subscriber: ParaId, publisher: ParaId },
 	}
 
 	/// Tracks which parachains have published data.
@@ -104,6 +120,30 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// Tracks subscriptions: subscriber -> list of publishers.
+	///
+	/// Maps subscriber ParaId to a bounded vector of publisher ParaIds.
+	/// Empty vec means no subscriptions.
+	#[pallet::storage]
+	pub type Subscriptions<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		ParaId,  // Subscriber
+		BoundedVec<ParaId, T::MaxSubscriptions>,  // List of publishers
+		ValueQuery,
+	>;
+
+	/// Aggregated child trie roots for all publishers.
+	///
+	/// Contains (ParaId, child_trie_root) pairs for all parachains that have published data.
+	/// This is used in relay chain storage proofs to efficiently provide all publisher roots.
+	#[pallet::storage]
+	pub type PublishedDataRoots<T: Config> = StorageValue<
+		_,
+		BoundedVec<(ParaId, BoundedVec<u8, ConstU32<32>>), T::MaxPublishers>,
+		ValueQuery,
+	>;
+
 	#[pallet::error]
 	pub enum Error<T> {
 		/// Too many items in a single publish operation.
@@ -114,6 +154,8 @@ pub mod pallet {
 		ValueTooLong,
 		/// Too many unique keys stored for this publisher.
 		TooManyStoredKeys,
+		/// Too many subscriptions for this subscriber.
+		TooManySubscriptions,
 	}
 
 	#[pallet::hooks]
@@ -205,6 +247,31 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Toggle subscription approach.
+		/// Subscribe if not subscribed, unsubscribe if subscribed.
+		pub fn handle_subscribe_toggle(
+			subscriber: ParaId,
+			publisher: ParaId,
+		) -> DispatchResult {
+			let mut subscriptions = Subscriptions::<T>::get(subscriber);
+
+			// Check if already subscribed
+			let event = if let Some(pos) = subscriptions.iter().position(|&p| p == publisher) {
+				// Already subscribed -> unsubscribe
+				subscriptions.swap_remove(pos);
+				Event::Unsubscribed { subscriber, publisher }
+			} else {
+				// Not subscribed -> subscribe
+				subscriptions.try_push(publisher).map_err(|_| Error::<T>::TooManySubscriptions)?;
+				Event::Subscribed { subscriber, publisher }
+			};
+
+			Subscriptions::<T>::insert(subscriber, subscriptions);
+			Self::deposit_event(event);
+
+			Ok(())
+		}
+
 		/// Get or create child trie info for a publisher.
 		fn get_or_create_publisher_child_info(para_id: ParaId) -> ChildInfo {
 			if !PublisherExists::<T>::contains_key(para_id) {
@@ -271,6 +338,29 @@ pub mod pallet {
 				})
 				.collect()
 		}
+
+		/// Get all subscriptions for a parachain.
+		pub fn get_subscriptions(subscriber: ParaId) -> Vec<ParaId> {
+			Subscriptions::<T>::get(subscriber).into_inner()
+		}
+
+		/// Check if a parachain is subscribed to a publisher.
+		pub fn is_subscribed(subscriber: ParaId, publisher: ParaId) -> bool {
+			Subscriptions::<T>::get(subscriber).contains(&publisher)
+		}
+
+		/// Get published data from all parachains that the subscriber is subscribed to.
+		/// Returns a map of Publisher ParaId -> published data.
+		/// Only includes publishers that have actual data and are subscribed to.
+		pub fn get_subscribed_data(subscriber_para_id: ParaId) -> BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>> {
+			Subscriptions::<T>::get(subscriber_para_id)
+				.into_iter()
+				.filter_map(|publisher| {
+					let data = Self::get_all_published_data(publisher);
+					(!data.is_empty()).then_some((publisher, data))
+				})
+				.collect()
+		}
 	}
 }
 
@@ -279,8 +369,7 @@ impl<T: Config> PublishSubscribe for Pallet<T> {
 		Self::handle_publish(publisher, data)
 	}
 
-	fn toggle_subscription(_subscriber: ParaId, _publisher: ParaId) -> DispatchResult {
-		// TODO: Implement subscription logic 
-		Ok(())
+	fn toggle_subscription(subscriber: ParaId, publisher: ParaId) -> DispatchResult {
+		Self::handle_subscribe_toggle(subscriber, publisher)
 	}
 }
