@@ -1,0 +1,12 @@
+title: 'revive: fix alloy-consensus dependency'
+doc:
+- audience: Runtime Dev
+  description: Bump the alloy-consensus version and include the serde feature in std
+crates:
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-eth-rpc
+  bump: patch
+- name: snowbridge-ethereum
+  bump: none
+  validate: false

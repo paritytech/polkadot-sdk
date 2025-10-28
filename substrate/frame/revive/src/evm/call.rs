@@ -48,6 +48,7 @@ pub struct CallInfo<T: Config> {
 pub fn create_call<T>(
 	tx: GenericTransaction,
 	signed_transaction: Option<(u32, Vec<u8>)>,
+	apply_weight_cap: bool,
 ) -> Result<CallInfo<T>, InvalidTransaction>
 where
 	T: Config,
@@ -176,7 +177,8 @@ where
 
 		call.set_weight_limit(weight_limit);
 		let info = <T as Config>::FeeInfo::dispatch_info(&call);
-		let max_weight = <Pallet<T>>::evm_max_extrinsic_weight();
+		let max_weight =
+			if apply_weight_cap { <Pallet<T>>::evm_max_extrinsic_weight() } else { Weight::MAX };
 		let overweight_by = info.total_weight().saturating_sub(max_weight);
 		let capped_weight = weight_limit.saturating_sub(overweight_by);
 		call.set_weight_limit(capped_weight);
