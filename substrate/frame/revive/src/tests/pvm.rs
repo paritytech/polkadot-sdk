@@ -4797,8 +4797,7 @@ fn bump_nonce_once_works() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		frame_system::Account::<Test>::mutate(&ALICE, |account| account.nonce = 1);
 
-		let mut do_not_bump = ExecConfig::new_substrate_tx();
-		do_not_bump.bump_nonce = false;
+		let do_not_bump = ExecConfig::new_substrate_tx_without_bump();
 
 		let _ = <Test as Config>::Currency::set_balance(&BOB, 1_000_000);
 		frame_system::Account::<Test>::mutate(&BOB, |account| account.nonce = 1);
@@ -4819,7 +4818,7 @@ fn bump_nonce_once_works() {
 
 		builder::bare_instantiate(Code::Upload(code.clone()))
 			.origin(RuntimeOrigin::signed(BOB))
-			.exec_config(do_not_bump.clone())
+			.exec_config(ExecConfig::new_substrate_tx_without_bump())
 			.salt(None)
 			.build_and_unwrap_result();
 		assert_eq!(System::account_nonce(&BOB), 1);
