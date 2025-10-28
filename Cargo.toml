@@ -639,7 +639,7 @@ pallet-oracle-runtime-api = { path = "substrate/frame/honzon/oracle/runtime-api"
 Inflector = { version = "0.11.4" }
 aes-gcm = { version = "0.10" }
 ahash = { version = "0.8.2" }
-alloy-consensus = { version = "1.0.24", default-features = false }
+alloy-consensus = { version = "1.0.41", default-features = false }
 alloy-core = { version = "1.2.1", default-features = false }
 alloy-primitives = { version = "1.2.1", default-features = false }
 alloy-rlp = { version = "0.3", default-features = false }
@@ -890,8 +890,8 @@ isahc = { version = "1.2" }
 itertools = { version = "0.11" }
 jobserver = { version = "0.1.26" }
 jsonpath_lib = { version = "0.3" }
-jsonrpsee = { version = "0.24.3" }
-jsonrpsee-core = { version = "0.24.3" }
+jsonrpsee = { version = "0.24.10" }
+jsonrpsee-core = { version = "0.24.10" }
 k256 = { version = "0.13.4", default-features = false }
 kitchensink-runtime = { path = "substrate/bin/node/runtime" }
 kvdb = { version = "0.13.0" }
