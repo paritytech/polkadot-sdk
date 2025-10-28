@@ -27,7 +27,7 @@ use frame_support::{
 	traits::{schedule::DispatchTime},
 };
 
-use pallet_referenda::{BlockNumberFor, BoundedCallOf, ReferendumCount};
+use pallet_referenda::{BlockNumberFor, BoundedCallOf, ReferendumCount, PalletsOriginOf};
 use pallet_revive::{
 	frame_system,
 	precompiles::{
@@ -38,7 +38,6 @@ use pallet_revive::{
 };
 
 use tracing::{error, info};
-use frame_support::traits::OriginTrait;
 
 alloy::sol!("src/interfaces/IReferenda.sol");
 use IReferenda::IReferendaCalls;
@@ -53,12 +52,12 @@ mod tests;
 
 // ========== Private Helper Functions ==========
 
-fn decode_proposal_origin<T>(origin_bytes: &[u8]) -> Result<RuntimeOriginFor<T>, Error>
+fn decode_proposal_origin<T>(origin_bytes: &[u8]) -> Result<PalletsOriginOf<T>, Error>
 where
 	T: frame_system::Config,
-	RuntimeOriginFor<T>: Decode,
+	PalletsOriginOf<T>: Decode,
 {
-	RuntimeOriginFor::<T>::decode(&mut &origin_bytes[..]).map_err(|e| {
+	PalletsOriginOf::<T>::decode(&mut &origin_bytes[..]).map_err(|e| {
 		error!(target: LOG_TARGET, ?e, "Failed to decode proposal origin");
 		Error::Revert("Invalid origin encoding".into())
 	})
@@ -99,7 +98,7 @@ where
 /// - `referendum_index`: The index of the created referendum
 pub fn submit_dispatch<Runtime, Instance>(
 	transaction_origin: <Runtime as frame_system::Config>::RuntimeOrigin,
-	proposal_origin: <Runtime as frame_system::Config>::RuntimeOrigin,
+	proposal_origin: PalletsOriginOf<Runtime>,
 	proposal: BoundedCallOf<Runtime, Instance>,
 	dispatch_time: DispatchTime<BlockNumberFor<Runtime, Instance>>,
 ) -> Result<u32, Error>
@@ -107,13 +106,10 @@ where
 	Runtime: pallet_referenda::Config<Instance>,
 	Instance: 'static,
 {
-	// Extract the inner PalletsOrigin from RuntimeOrigin
-	let pallets_origin = proposal_origin.caller().clone(); // Returns the INNER origin (PalletsOrigin)
-
 	// Dispatch the call with the correct types
 	let result = pallet_referenda::Pallet::<Runtime, Instance>::submit(
 		transaction_origin,
-		Box::new(pallets_origin),
+		Box::new(proposal_origin),
 		proposal,
 		dispatch_time,
 	);
@@ -135,7 +131,7 @@ pub struct ReferendaPrecompile<T>(PhantomData<T>);
 impl<Runtime> Precompile for ReferendaPrecompile<Runtime>
 where
 	Runtime: pallet_referenda::Config + pallet_revive::Config,
-	RuntimeOriginFor<Runtime>: Decode,  
+	PalletsOriginOf<Runtime>: Decode,  
 {
 	type T = Runtime;
 	const MATCHER: AddressMatcher = AddressMatcher::Fixed(NonZero::new(11).unwrap());
