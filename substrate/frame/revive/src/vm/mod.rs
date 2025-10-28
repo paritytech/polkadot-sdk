@@ -193,7 +193,7 @@ impl<T: Config> ContractBlob<T> {
 	/// Puts the module blob into storage, and returns the deposit collected for the storage.
 	pub fn store_code(
 		&mut self,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 		storage_meter: Option<&mut NestedMeter<T>>,
 	) -> Result<BalanceOf<T>, DispatchError> {
 		let code_hash = *self.code_hash();
