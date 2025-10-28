@@ -163,6 +163,9 @@ where
 			amount,
 			Preservation::Expendable,
 		)?;
+		// We use `QueryId::MAX` as a constant identifier for these payments since they are always
+		// processed immediately and successfully on the local chain. The `QueryId` type is used to
+		// maintain compatibility with XCM payment implementations.
 		Ok(Self::Id::MAX)
 	}
 	fn check_payment(_: Self::Id) -> PaymentStatus {
