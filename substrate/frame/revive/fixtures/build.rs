@@ -48,6 +48,22 @@ enum ContractType {
 	Solidity,
 }
 
+/// Type of EVM bytecode to extract from Solidity compiler output.
+#[derive(Clone, Copy)]
+enum BytecodeType {
+	InitCode,
+	RuntimeCode,
+}
+
+impl BytecodeType {
+	fn json_key(&self) -> &'static str {
+		match self {
+			Self::InitCode => "bytecode",
+			Self::RuntimeCode => "deployedBytecode",
+		}
+	}
+}
+
 impl Entry {
 	/// Create a new contract entry from the given path.
 	fn new(path: PathBuf, contract_type: ContractType) -> Self {
@@ -298,15 +314,11 @@ fn compile_with_standard_json(
 }
 
 /// Extract bytecode from compiler JSON output and write binary files.
-///
-/// The `bytecode_type` parameter specifies which bytecode to extract:
-/// - "bytecode" for init code
-/// - "deployedBytecode" for runtime code
 fn extract_and_write_bytecode(
 	compiler_json: &serde_json::Value,
 	out_dir: &Path,
 	file_suffix: &str,
-	bytecode_type: &str,
+	bytecode_type: BytecodeType,
 ) -> Result<()> {
 	if let Some(contracts) = compiler_json["contracts"].as_object() {
 		for (_file_key, file_contracts) in contracts {
@@ -314,7 +326,7 @@ fn extract_and_write_bytecode(
 				for (contract_name, contract_data) in contract_map {
 					// Navigate through the JSON path to find the bytecode
 					let mut current = contract_data;
-					for path_segment in ["evm", bytecode_type, "object"] {
+					for path_segment in ["evm", bytecode_type.json_key(), "object"] {
 						if let Some(next) = current.get(path_segment) {
 							current = next;
 						} else {
@@ -365,12 +377,12 @@ fn compile_solidity_contracts(
 
 	// Compile with solc for EVM bytecode
 	let json = compile_with_standard_json("solc", contracts_dir, &solidity_entries)?;
-	extract_and_write_bytecode(&json, out_dir, ".sol.bin", "bytecode")?;
-	extract_and_write_bytecode(&json, out_dir, ".sol.runtime.bin", "deployedBytecode")?;
+	extract_and_write_bytecode(&json, out_dir, ".sol.bin", BytecodeType::InitCode)?;
+	extract_and_write_bytecode(&json, out_dir, ".sol.runtime.bin", BytecodeType::RuntimeCode)?;
 
 	// Compile with resolc for PVM bytecode
 	let json = compile_with_standard_json("resolc", contracts_dir, &solidity_entries_pvm)?;
-	extract_and_write_bytecode(&json, out_dir, ".resolc.polkavm", "bytecode")?;
+	extract_and_write_bytecode(&json, out_dir, ".resolc.polkavm", BytecodeType::InitCode)?;
 
 	Ok(())
 }
