@@ -78,7 +78,7 @@ impl EthereumCallResult {
 			}
 		}
 
-		// Refund the already charged gas for the revert event if the call is successful.
+		// Refund pre-charged revert event weight if the call succeeds.
 		if result.is_ok() {
 			gas_consumed.saturating_reduce(T::WeightInfo::deposit_eth_extrinsic_revert_event())
 		}
