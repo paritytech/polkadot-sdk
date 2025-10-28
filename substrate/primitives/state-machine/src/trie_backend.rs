@@ -39,6 +39,7 @@ use sp_trie::{
 use sp_trie::{Error, NodeCodec};
 use sp_trie::{MerkleValue, PrefixedMemoryDB, StorageProof, TrieRecorderProvider};
 
+use sp_core::hexdisplay::HexDisplay;
 use trie_db::TrieCache as TrieCacheT;
 #[cfg(not(feature = "std"))]
 use trie_db::{node::NodeOwned, CachedValue};
@@ -463,6 +464,12 @@ where
 			.map(|cache| (cache.last_key == key, cache))
 			.unwrap_or_default();
 
+		tracing::trace!(
+			target: "state",
+			method = "next_storage_key",
+			key = %HexDisplay::from(&key),
+			is_cached
+		);
 		if !is_cached {
 			cache.iter = self.raw_iter(IterArgs {
 				start_at: Some(key),
