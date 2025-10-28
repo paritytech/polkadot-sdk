@@ -221,25 +221,20 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 				r#type: TypeEip2930,
 			}
 			.into(),
-			TransactionType::Eip1559 => {
-				// For EIP-1559, we use gas_price as max_fee_per_gas and set
-				// max_priority_fee_per_gas to a reasonable default
-				let max_priority_fee_per_gas = gas_price / 10; // 10% of gas price as priority fee
-				Transaction1559Unsigned {
-					gas,
-					nonce,
-					to,
-					value,
-					input,
-					gas_price,
-					max_fee_per_gas: gas_price,
-					max_priority_fee_per_gas,
-					chain_id,
-					access_list: vec![],
-					r#type: TypeEip1559,
-				}
-				.into()
-			},
+			TransactionType::Eip1559 => Transaction1559Unsigned {
+				gas,
+				nonce,
+				to,
+				value,
+				input,
+				gas_price,
+				max_fee_per_gas: gas_price,
+				max_priority_fee_per_gas: 0,
+				chain_id,
+				access_list: vec![],
+				r#type: TypeEip1559,
+			}
+			.into(),
 			TransactionType::Eip4844 => {
 				// For EIP-4844, we need a destination address (cannot be None for blob
 				// transactions)
