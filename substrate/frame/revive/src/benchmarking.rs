@@ -51,7 +51,10 @@ use frame_support::{
 	self, assert_ok,
 	migrations::SteppedMigration,
 	storage::child,
-	traits::{fungible::InspectHold, Hooks},
+	traits::{
+		fungible::{InspectHold, UnbalancedHold},
+		Hooks,
+	},
 	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
@@ -1221,7 +1224,49 @@ mod benchmarks {
 		}
 
 		assert!(matches!(result, Err(crate::vm::pvm::TrapReason::Termination)));
-		assert_eq!(PristineCode::<T>::get(code_hash).is_none(), delete_code);
+
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
+		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
+
+		build_runtime!(_runtime, instance, _memory: [vec![0u8; 0], ]);
+		let code_hash = instance.info()?.code_hash;
+
+		assert!(PristineCode::<T>::get(code_hash).is_some());
+
+		// Set storage deposit to zero so terminate_logic can proceed.
+		T::Currency::set_balance_on_hold(
+			&HoldReason::StorageDepositReserve.into(),
+			&instance.account_id,
+			0u32.into(),
+		)
+		.unwrap();
+
+		T::Currency::set_balance(&instance.account_id, Pallet::<T>::min_balance() * 2u32.into());
+
+		let result;
+		#[block]
+		{
+			result = crate::storage::meter::terminate_logic_for_benchmark::<T>(
+				&instance.account_id,
+				&beneficiary,
+			);
+		}
+		result.unwrap();
+
+		// Check that the contract is removed
+		assert!(PristineCode::<T>::get(code_hash).is_none());
+
+		// Check that the balance has been transferred away
+		let balance = <T as Config>::Currency::total_balance(&instance.account_id);
+		assert_eq!(balance, 0u32.into());
+
+		// Check that the beneficiary received the balance
+		let balance = <T as Config>::Currency::balance(&beneficiary);
+		assert_eq!(balance, Pallet::<T>::min_balance() * 2u32.into());
 
 		Ok(())
 	}
