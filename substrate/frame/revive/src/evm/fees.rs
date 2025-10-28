@@ -283,7 +283,6 @@ where
 			.as_mut()
 			.map(|w| w.saturating_accrue(info.extension_weight));
 
-		log::debug!(target: LOG_TARGET, "revive: post_info:{post_info:?}");
 		<TxPallet<E::Config>>::compute_actual_fee(encoded_len, info, &post_info, Zero::zero())
 			.into()
 	}
