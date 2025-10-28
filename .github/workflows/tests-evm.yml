@@ -46,7 +46,7 @@ jobs:
           ref: c2422cace2fb8a4337fc1c704c49e458c8a79d6b
           path: evm-test-suite
 
-      - uses: denoland/setup-deno@v1
+      - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
 
