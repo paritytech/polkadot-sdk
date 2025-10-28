@@ -5039,74 +5039,70 @@ fn storage_deposit_from_hold_works() {
 	});
 }
 
-/// EIP-3607
-/// Test that a top-level signed transaction that uses a contract address as the signer is rejected.
 #[test]
-fn reject_signed_tx_from_contract_address() {
+fn eip3607_reject_tx_from_contract_or_precompile() {
 	let (binary, _code_hash) = compile_module("dummy").unwrap();
 
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		let Contract { addr: contract_addr, account_id: contract_account_id, .. } =
+		// the origins from which we try to call a dispatchable
+		let Contract { addr: contract_addr, .. } =
 			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
+		assert!(<AccountInfo<Test>>::is_contract(&contract_addr));
+		let blake2_addr = H160::from_low_u64_be(9);
+		let system_addr = H160::from_low_u64_be(0x900);
+		let addresses = [contract_addr, blake2_addr, system_addr];
 
-		assert!(AccountInfoOf::<Test>::contains_key(&contract_addr));
+		// used to test `dispatch_as_fallback_account`
+		let call = Box::new(RuntimeCall::Balances(pallet_balances::Call::transfer_all {
+			dest: EVE,
+			keep_alive: false,
+		}));
 
-		let call_result = builder::bare_call(BOB_ADDR)
-			.native_value(1)
-			.origin(RuntimeOrigin::signed(contract_account_id.clone()))
-			.build();
-		assert_err!(call_result.result, DispatchError::BadOrigin);
+		for address in addresses.iter() {
+			let origin = <Test as Config>::AddressMapper::to_fallback_account_id(address);
 
-		let instantiate_result = builder::bare_instantiate(Code::Upload(Vec::new()))
-			.origin(RuntimeOrigin::signed(contract_account_id))
-			.build();
-		assert_err!(instantiate_result.result, DispatchError::BadOrigin);
-	});
-}
+			let result =
+				builder::call(BOB_ADDR).origin(RuntimeOrigin::signed(origin.clone())).build();
+			assert_err!(result, DispatchError::BadOrigin);
 
-#[test]
-fn reject_signed_tx_from_primitive_precompile_address() {
-	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		// blake2f precompile address
-		let precompile_addr = H160::from_low_u64_be(9);
-		let fake_account = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let _ = <Test as Config>::Currency::set_balance(&fake_account, 1_000_000);
+			let result = builder::eth_call(BOB_ADDR)
+				.origin(RuntimeOrigin::signed(origin.clone()))
+				.build();
+			assert_err!(result, DispatchError::BadOrigin);
 
-		let call_result = builder::bare_call(BOB_ADDR)
-			.native_value(1)
-			.origin(RuntimeOrigin::signed(fake_account.clone()))
-			.build();
-		assert_err!(call_result.result, DispatchError::BadOrigin);
+			let result = builder::instantiate(Default::default())
+				.origin(RuntimeOrigin::signed(origin.clone()))
+				.build();
+			assert_err!(result, DispatchError::BadOrigin);
 
-		let instantiate_result = builder::bare_instantiate(Code::Upload(Vec::new()))
-			.origin(RuntimeOrigin::signed(fake_account))
-			.build();
-		assert_err!(instantiate_result.result, DispatchError::BadOrigin);
-	});
-}
+			let result = builder::eth_instantiate_with_code(Default::default())
+				.origin(RuntimeOrigin::signed(origin.clone()))
+				.build();
+			assert_err!(result, DispatchError::BadOrigin);
 
-#[test]
-fn reject_signed_tx_from_builtin_precompile_address() {
-	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		// system precompile address
-		let precompile_addr = H160::from_low_u64_be(0x900);
-		let fake_account = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let _ = <Test as Config>::Currency::set_balance(&fake_account, 1_000_000);
+			let result = builder::instantiate_with_code(Default::default())
+				.origin(RuntimeOrigin::signed(origin.clone()))
+				.build();
+			assert_err!(result, DispatchError::BadOrigin);
 
-		let call_result = builder::bare_call(BOB_ADDR)
-			.native_value(1)
-			.origin(RuntimeOrigin::signed(fake_account.clone()))
-			.build();
-		assert_err!(call_result.result, DispatchError::BadOrigin);
+			let result = <Pallet<Test>>::upload_code(
+				RuntimeOrigin::signed(origin.clone()),
+				Default::default(),
+				<BalanceOf<Test>>::MAX,
+			);
+			assert_err!(result, DispatchError::BadOrigin);
 
-		let instantiate_result = builder::bare_instantiate(Code::Upload(Vec::new()))
-			.origin(RuntimeOrigin::signed(fake_account))
-			.build();
-		assert_err!(instantiate_result.result, DispatchError::BadOrigin);
+			let result = <Pallet<Test>>::map_account(RuntimeOrigin::signed(origin.clone()));
+			assert_err!(result, DispatchError::BadOrigin);
+
+			let result = <Pallet<Test>>::dispatch_as_fallback_account(
+				RuntimeOrigin::signed(origin.clone()),
+				call.clone(),
+			);
+			assert_err!(result, DispatchError::BadOrigin);
+		}
 	});
 }
 
