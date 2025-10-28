@@ -41,19 +41,55 @@ fn call_precompile(
 	return result.result
 }
 
+fn encode_aye(referendum_index: ReferendumIndex, balance: u128, conviction: u8) -> Vec<u8> {
+	let call_params = IConvictionVoting::voteStandardCall {
+		referendumIndex: referendum_index,
+		aye: true,
+		conviction: conviction.try_into().unwrap(),
+		balance,
+	};
+	let call = IConvictionVoting::IConvictionVotingCalls::voteStandard(call_params);
+	call.abi_encode()
+}
+
+fn encode_nay(referendum_index: ReferendumIndex, balance: u128, conviction: u8) -> Vec<u8> {
+	let call_params = IConvictionVoting::voteStandardCall {
+		referendumIndex: referendum_index,
+		aye: false,
+		conviction: conviction.try_into().unwrap(),
+		balance,
+	};
+	let call = IConvictionVoting::IConvictionVotingCalls::voteStandard(call_params);
+	call.abi_encode()
+}
+
+fn encode_split(referendum_index: ReferendumIndex, aye: u128, nay: u128) -> Vec<u8> {
+	let call_params = IConvictionVoting::voteSplitCall {
+		referendumIndex: referendum_index,
+		ayeAmount: aye,
+		nayAmount: nay,
+	};
+	let call = IConvictionVoting::IConvictionVotingCalls::voteSplit(call_params);
+	call.abi_encode()
+}
+
+fn encode_split_abstain(referendum_index: ReferendumIndex, aye: u128, nay: u128, abstain: u128) -> Vec<u8> {
+	let call_params = IConvictionVoting::voteSplitAbstainCall {
+		referendumIndex: referendum_index,
+		ayeAmount: aye,
+		nayAmount: nay,
+		abstainAmount: abstain
+	};
+	let call = IConvictionVoting::IConvictionVotingCalls::voteSplitAbstain(call_params);
+	call.abi_encode()
+}
+
 #[test]
 fn test_vote_standard_encoding() {
 	let referendum_index = 3u32;
 	let balance = 2u128;
 
-	let call_params = IConvictionVoting::voteStandardCall {
-		referendumIndex: referendum_index,
-		aye: true,
-		conviction: IConvictionVoting::Conviction::Locked5x,
-		balance,
-	};
-	let call = IConvictionVoting::IConvictionVotingCalls::voteStandard(call_params);
-	let encoded_call = call.abi_encode();
+	let encoded_call = encode_aye(referendum_index, balance, 5);
 
 	let decoded_call = IConvictionVoting::voteStandardCall::abi_decode(&encoded_call).unwrap();
 
@@ -64,15 +100,10 @@ fn test_vote_standard_encoding() {
 fn test_vote_standard_precompile_works() {
 	new_test_ext().execute_with(|| {
 		let referendum_index = 3u32;
+		let balance = 2u128;
+		let conviction = 5u8;
 
-		let call_params = IConvictionVoting::voteStandardCall {
-			referendumIndex: referendum_index,
-			aye: true,
-			conviction: IConvictionVoting::Conviction::Locked5x,
-			balance: 2u128,
-		};
-		let call = IConvictionVoting::IConvictionVotingCalls::voteStandard(call_params);
-		let encoded_call = call.abi_encode();
+		let encoded_call = encode_aye(referendum_index, balance, conviction);
 
 		assert!(call_precompile(ALICE, encoded_call).is_ok());
 
@@ -83,6 +114,16 @@ fn test_vote_standard_precompile_works() {
 			poll_index: referendum_index,
 		}));
 		assert_eq!(tally(referendum_index), Tally::from_parts(10, 0, 2));
+
+		let encoded_call = encode_nay(referendum_index, balance, conviction);
+		assert!(call_precompile(BOB, encoded_call).is_ok());
+
+		let vote = Vote { aye: false, conviction: Conviction::Locked5x };
+		System::assert_last_event(tests::RuntimeEvent::ConvictionVoting(Event::Voted {
+			who: BOB,
+			vote: AccountVote::Standard { vote, balance: 2u128 },
+			poll_index: referendum_index,
+		}));
 	});
 }
 
@@ -91,14 +132,10 @@ fn test_vote_split_encoding() {
 	new_test_ext().execute_with(|| {
 		let referendum_index = 3u32;
 		let aye_amount = 10u128;
+		let nay_amount = 5u128;
 
-		let call_params = IConvictionVoting::voteSplitCall {
-			referendumIndex: referendum_index,
-			ayeAmount: aye_amount,
-			nayAmount: 5u128,
-		};
-		let call = IConvictionVoting::IConvictionVotingCalls::voteSplit(call_params);
-		let encoded_call = call.abi_encode();
+
+		let encoded_call = encode_split(referendum_index, aye_amount, nay_amount);
 
 		let decoded_call = IConvictionVoting::voteSplitCall::abi_decode(&encoded_call).unwrap();
 
@@ -110,14 +147,10 @@ fn test_vote_split_encoding() {
 fn test_vote_split_works() {
 	new_test_ext().execute_with(|| {
 		let referendum_index = 3u32;
+		let aye_amount = 10u128;
+		let nay_amount = 5u128;
 
-		let call_params = IConvictionVoting::voteSplitCall {
-			referendumIndex: referendum_index,
-			ayeAmount: 10u128,
-			nayAmount: 5u128,
-		};
-		let call = IConvictionVoting::IConvictionVotingCalls::voteSplit(call_params);
-		let encoded_call = call.abi_encode();
+		let encoded_call = encode_split(referendum_index, aye_amount, nay_amount);
 
 		assert!(call_precompile(ALICE, encoded_call).is_ok());
 
@@ -135,15 +168,11 @@ fn test_vote_split_abstain_encoding() {
 	new_test_ext().execute_with(|| {
 		let referendum_index = 3u32;
 		let aye_amount = 10u128;
+		let nay_amount = 5u128;
+		let abstain_amount = 15u128;
 
-		let call_params = IConvictionVoting::voteSplitAbstainCall {
-			referendumIndex: referendum_index,
-			ayeAmount: aye_amount,
-			nayAmount: 5u128,
-			abstainAmount: 15u128,
-		};
-		let call = IConvictionVoting::IConvictionVotingCalls::voteSplitAbstain(call_params);
-		let encoded_call = call.abi_encode();
+
+		let encoded_call = encode_split_abstain(referendum_index, aye_amount, nay_amount, abstain_amount);
 
 		let decoded_call =
 			IConvictionVoting::voteSplitAbstainCall::abi_decode(&encoded_call).unwrap();
@@ -156,15 +185,12 @@ fn test_vote_split_abstain_encoding() {
 fn test_vote_split_abstain_works() {
 	new_test_ext().execute_with(|| {
 		let referendum_index = 3u32;
+		let aye_amount = 10u128;
+		let nay_amount = 5u128;
+		let abstain_amount = 15u128;
 
-		let call_params = IConvictionVoting::voteSplitAbstainCall {
-			referendumIndex: referendum_index,
-			ayeAmount: 10u128,
-			nayAmount: 5u128,
-			abstainAmount: 15u128,
-		};
-		let call = IConvictionVoting::IConvictionVotingCalls::voteSplitAbstain(call_params);
-		let encoded_call = call.abi_encode();
+		
+		let encoded_call = encode_split_abstain(referendum_index, aye_amount, nay_amount, abstain_amount);
 
 		assert!(call_precompile(ALICE, encoded_call).is_ok());
 
@@ -181,16 +207,12 @@ fn test_vote_split_abstain_works() {
 fn test_vote_not_ongoing_fails() {
 	new_test_ext().execute_with(|| {
 		let referendum_index = 1u32;
+		let aye_amount = 10u128;
+		let nay_amount = 5u128;
+		let abstain_amount = 15u128;
 
-		let call_params = IConvictionVoting::voteSplitAbstainCall {
-			referendumIndex: referendum_index,
-			ayeAmount: 10u128,
-			nayAmount: 5u128,
-			abstainAmount: 15u128,
-		};
-		let call = IConvictionVoting::IConvictionVotingCalls::voteSplitAbstain(call_params);
-		let encoded_call = call.abi_encode();
 
+		let encoded_call = encode_split_abstain(referendum_index, aye_amount, nay_amount, abstain_amount);
 		let return_value = match call_precompile(ALICE, encoded_call) {
 			Ok(value) => value,
 			Err(err) => panic!("ConvictionVotingPrecompile call failed with error: {err:?}"),
@@ -205,20 +227,14 @@ fn test_vote_lock_balances_works() {
 	new_test_ext().execute_with(|| {
 		let referendum_index = 3u32;
 		let vote_balance = 2u128;
+		let conviction = 5u8;
 
-		let call_params = IConvictionVoting::voteStandardCall {
-			referendumIndex: referendum_index,
-			aye: true,
-			conviction: IConvictionVoting::Conviction::Locked5x,
-			balance: vote_balance,
-		};
-		let call = IConvictionVoting::IConvictionVotingCalls::voteStandard(call_params);
-		let encoded_call = call.abi_encode();
+		let encoded_call = encode_aye(referendum_index, vote_balance, conviction);
 
 		let prev_balance = Balances::usable_balance(ALICE);
 
 		assert!(call_precompile(ALICE, encoded_call).is_ok());
 
-		assert_eq!(Balances::usable_balance(ALICE), prev_balance.saturating_sub(vote_balance),);
+		assert_eq!(Balances::usable_balance(ALICE), prev_balance.saturating_sub(vote_balance));
 	});
 }
