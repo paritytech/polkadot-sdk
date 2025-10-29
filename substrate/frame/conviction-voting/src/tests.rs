@@ -1794,6 +1794,62 @@ fn no_chained_delegation() {
     });
 }
 
+#[test]
+fn can_remove_vote_and_undelegate_while_delegator_voting_off() {
+	new_test_ext().execute_with(|| {
+		let delegator = 1;
+		let delegate = 2;
+		let class = 0;
+
+		Polls::set(
+			vec![
+				(0, Ongoing(Tally::new(0), class)),
+				(1, Ongoing(Tally::new(0), class)),
+				(2, Ongoing(Tally::new(0), class)),
+			]
+			.into_iter()
+			.collect(),
+		);
+
+		assert_ok!(Voting::delegate(
+			RuntimeOrigin::signed(delegator),
+			class,
+			delegate,
+			Conviction::Locked1x,
+			10
+		));
+		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegate), class));
+
+		// Vote.
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), 0, aye(5, 1)));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), 1, aye(5, 1)));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), 2, aye(5, 1)));
+
+		// Delegate disables voting.
+		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegate), class));
+
+		// Delegator can remove vote.
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(delegator), Some(class), 2));
+
+		// Delegator can undelegate.
+		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(delegator), class));
+	});
+}
+
+#[test]
+fn can_flip_delegator_voting_flag_per_class() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(1), 0));
+		assert_eq!(VotingFor::<Test>::get(1, 0).allow_delegator_voting, true);
+		assert_eq!(VotingFor::<Test>::get(1, 1).allow_delegator_voting, false);
+
+		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(1), 1));
+		assert_eq!(VotingFor::<Test>::get(1, 0).allow_delegator_voting, false);
+		assert_eq!(VotingFor::<Test>::get(1, 1).allow_delegator_voting, true);
+	});
+}
+
 thread_local! {
 	static LAST_ON_VOTE_DATA: RefCell<Option<(u64, u8, AccountVote<u64>)>> = RefCell::new(None);
 	static LAST_ON_REMOVE_VOTE_DATA: RefCell<Option<(u64, u8, Status)>> = RefCell::new(None);
