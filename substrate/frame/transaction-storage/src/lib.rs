@@ -43,7 +43,7 @@ use frame_support::{
 };
 use sp_runtime::traits::{BlakeTwo256, Dispatchable, Hash, One, Saturating, Zero};
 use sp_transaction_storage_proof::{
-	encode_index, random_chunk, InherentError, TransactionStorageProof, CHUNK_SIZE,
+	encode_index, num_chunks, random_chunk, InherentError, TransactionStorageProof, CHUNK_SIZE,
 	INHERENT_IDENTIFIER,
 };
 
@@ -84,10 +84,6 @@ pub struct TransactionInfo {
 	///
 	/// Cumulative value of all previous transactions in the block; the last transaction holds the total chunk value.
 	block_chunks: u32,
-}
-
-fn num_chunks(bytes: u32) -> u32 {
-	(bytes as u64).div_ceil(CHUNK_SIZE as u64) as u32
 }
 
 #[frame_support::pallet]
@@ -464,7 +460,7 @@ pub mod pallet {
 			ensure!(!infos.is_empty(), Error::<T>::UnexpectedProof);
 
 			// Get the random chunk index (from all transactions in the block = 0..total_chunks).
-			let selected_block_chunk_index = random_chunk(random_hash.as_ref(), total_chunks);
+			let selected_block_chunk_index = random_chunk(random_hash.as_ref(), total_chunks as _);
 
 			// Let's find the corresponding transaction and its "local" chunk index for "global" `selected_block_chunk_index`.
 			let (tx_info, tx_chunk_index) = {

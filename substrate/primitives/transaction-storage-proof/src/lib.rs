@@ -17,6 +17,8 @@
 
 //! Storage proof primitives. Contains types and basic code to extract storage
 //! proofs for indexed transactions.
+//!
+//! Note: We use `u32` for both `total_chunks` and the chunk index.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -114,6 +116,8 @@ impl sp_inherents::InherentDataProvider for InherentDataProvider {
 }
 
 /// A utility function to extract a chunk index from the source of randomness.
+///
+/// Note: The caller must ensure that `total_chunks` is not 0.
 pub fn random_chunk(random_hash: &[u8], total_chunks: u32) -> u32 {
 	let mut buf = [0u8; 8];
 	buf.copy_from_slice(&random_hash[0..8]);
@@ -121,14 +125,18 @@ pub fn random_chunk(random_hash: &[u8], total_chunks: u32) -> u32 {
 	(random_u64 % total_chunks as u64) as u32
 }
 
-/// A utility function to encode transaction index as a trie key.
-pub fn encode_index(input: u32) -> Vec<u8> {
-	codec::Encode::encode(&codec::Compact(input))
+/// A utility function to calculate the number of chunks.
+///
+/// * `bytes` - number of bytes
+pub fn num_chunks(bytes: u32) -> u32 {
+	(bytes as u64).div_ceil(CHUNK_SIZE as u64) as u32
 }
 
-/// A utility function to calculate the number of chunks.
-fn num_chunks(bytes: u64) -> u64 {
-	bytes.div_ceil(CHUNK_SIZE as u64)
+/// A utility function to encode the transaction index as a trie key.
+///
+/// * `input` - chunk index.
+pub fn encode_index(input: u32) -> Vec<u8> {
+	codec::Encode::encode(&codec::Compact(input))
 }
 
 /// An interface to request indexed data from the client.
@@ -187,11 +195,12 @@ pub mod registration {
 		transactions: Vec<Vec<u8>>,
 	) -> Result<TransactionStorageProof, Error> {
 		// Get total chunks, we will need it to generate a random chunk index.
-		let total_chunks: u64 = transactions.iter().map(|t| num_chunks(t.len() as u64)).sum();
+		let total_chunks: u32 = transactions.iter().map(|t| num_chunks(t.len() as u32)).sum();
 		if total_chunks.is_zero() {
 			const MSG: &str = "No chunks to build proof for.";
 			return Err(Error::Application(Box::from(MSG)));
 		}
+		let target_chunk_index = random_chunk(random_hash.as_ref(), total_chunks);
 
 		let mut db = sp_trie::MemoryDB::<Hasher>::default();
 		let mut target_chunk = None;
@@ -199,10 +208,6 @@ pub mod registration {
 		let mut target_chunk_key = Default::default();
 		let mut chunk_proof = Default::default();
 
-		let mut buf = [0u8; 8];
-		buf.copy_from_slice(&random_hash[0..8]);
-		let random_u64 = u64::from_be_bytes(buf);
-		let target_chunk_index = random_u64 % total_chunks;
 		// Generate tries for each transaction.
 		let mut chunk_index = 0;
 		for transaction in transactions {
