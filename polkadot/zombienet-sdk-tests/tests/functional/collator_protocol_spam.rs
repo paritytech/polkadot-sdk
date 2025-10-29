@@ -71,24 +71,13 @@ async fn collator_protocol_spam() -> Result<(), anyhow::Error> {
 
 	log::info!("relaychain genesis hash: {:?}", genesis_hash);
 
-	let mut addrs = Vec::new();
+	let addrs = ["validator-0", "validator-1", "validator-2"]
+		.into_iter()
+		.map(|v| network.get_node(v).expect("known vals").multiaddr())
+		.collect::<Vec<_>>();
 
-	for validator in ["validator-0", "validator-1", "validator-2"] {
-		let rpc_client = network.get_node(validator)?.rpc().await?;
-		let addresses: Vec<String> =
-			rpc_client.request("system_localListenAddresses", rpc_params![]).await?;
-		let local_address = addresses
-			.into_iter()
-			.filter(|addr| addr.contains("/ip4/127.0.0.1/"))
-			.collect::<Vec<_>>()
-			.pop();
-		match local_address {
-			Some(a) => addrs.push(a),
-			None => log::error!("No local address for {}", validator),
-		}
-	}
-
-	log::info!("ADDRESSES: {:?}", addrs);
+	log::info!("targets: {:?}", addrs);
+	log::info!("RPC endpoint {}", relay_node.ws_uri());
 
 	log::info!("sleeping");
 	std::thread::sleep(std::time::Duration::from_secs(60 * 60));
