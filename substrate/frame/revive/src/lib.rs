@@ -1356,7 +1356,30 @@ pub mod pallet {
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 		) -> DispatchResult {
 			Self::ensure_non_contract_if_signed(&origin)?;
-			Self::bare_upload_code(origin, code, storage_deposit_limit).map(|_| ())
+
+			let base_weight = <T as Config>::WeightInfo::upload_code(code.len() as u32);
+
+			let is_eth_tx = matches!(
+				<T as Config>::RuntimeOrigin::from(origin.clone()).into(),
+				Ok(Origin::EthTransaction(_))
+			);
+
+			let result = if is_eth_tx {
+				block_storage::with_ethereum_context::<T>(code.clone(), || {
+					let upload_result = Self::bare_upload_code(origin, code, storage_deposit_limit);
+					let dispatch_res = match upload_result {
+						Ok(_) => dispatch_result::<()>(Ok(()), Weight::zero(), base_weight),
+						Err(err) => dispatch_result::<()>(Err(err), Weight::zero(), base_weight),
+					};
+					(Weight::zero(), dispatch_res)
+				})
+				.map(|_| ())
+				.map_err(|e| e.error)
+			} else {
+				Self::bare_upload_code(origin, code, storage_deposit_limit).map(|_| ())
+			};
+
+			result
 		}
 
 		/// Remove the code stored under `code_hash` and refund the deposit to its owner.
@@ -1983,9 +2006,12 @@ impl<T: Config> Pallet<T> {
 		code: Vec<u8>,
 		storage_deposit_limit: BalanceOf<T>,
 	) -> CodeUploadResult<BalanceOf<T>> {
-		let origin = T::UploadOrigin::ensure_origin(origin)?;
+		let origin = match <T as Config>::RuntimeOrigin::from(origin.clone()).into() {
+			Ok(Origin::EthTransaction(signer)) => signer,
+			Err(runtime_origin) => T::UploadOrigin::ensure_origin(runtime_origin)?,
+		};
 		let (module, deposit) = Self::try_upload_pvm_code(
-			origin,
+			origin.clone(),
 			code,
 			storage_deposit_limit,
 			&ExecConfig::new_substrate_tx(),
