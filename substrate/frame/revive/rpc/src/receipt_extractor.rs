@@ -266,8 +266,11 @@ impl ReceiptExtractor {
 		let block_number = U256::from(substrate_block.number());
 		let events = ext.events().await?;
 
-		let success = events.has::<ExtrinsicSuccess>().inspect_err(|err| {
-			log::debug!(target: LOG_TARGET, "Failed to lookup for ExtrinsicSuccess event in block {block_number}: {err:?}")
+		let success = !events.has::<EthExtrinsicRevert>().inspect_err(|err| {
+			log::debug!(
+				target: LOG_TARGET,
+				"Failed to lookup for EthExtrinsicRevert event in block {block_number}: {err:?}"
+			);
 		})?;
 
 		let transaction_hash = ext.hash();
