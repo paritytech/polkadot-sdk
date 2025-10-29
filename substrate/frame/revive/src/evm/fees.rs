@@ -272,11 +272,10 @@ where
 		info: &DispatchInfo,
 		result: &DispatchResultWithPostInfo,
 	) -> BalanceOf<E::Config> {
-		let mut post_info = match result {
+		let mut post_info = *match result {
 			Ok(post_info) => post_info,
 			Err(err) => &err.post_info,
-		}
-		.clone();
+		};
 
 		post_info
 			.actual_weight
