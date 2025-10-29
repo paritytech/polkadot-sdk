@@ -200,7 +200,7 @@ pub mod registration {
 			const MSG: &str = "No chunks to build proof for.";
 			return Err(Error::Application(Box::from(MSG)));
 		}
-		let target_chunk_index = random_chunk(random_hash.as_ref(), total_chunks);
+		let target_chunk_index = random_chunk(random_hash, total_chunks);
 
 		let mut db = sp_trie::MemoryDB::<Hasher>::default();
 		let mut target_chunk = None;
