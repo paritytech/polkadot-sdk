@@ -1,18 +1,17 @@
 title: 'weights: fix adding weights'
 doc:
 - audience: Runtime Dev
-  description: |-
-    ## Summary
-
-    Fixes potential integer overflow in `Weight::add_ref_time()` and `Weight::add_proof_size()` by using saturating arithmetic instead of regular addition.
-
-    ## Changes
-
-    - **Weight type**: Changed `add_ref_time()` and `add_proof_size()` to use `saturating_add()`, preventing overflow when adding scalar values
-    - **CheckWeight tests**: Added test cases verifying proper handling of extreme values (usize::MAX lengths) that trigger saturation
-    - **Logging**:
-      - Initialize logging for tests
-      - Improved CheckWeight debug message clarity
+  description: "## Summary\n\nFixes potential integer overflow in `CheckWeight::check_extrinsic_weight()`\
+    \ by using saturating arithmetic for `Weight` instead of regular addition.\n\n\
+    ## Changes\n- **CheckWeight**: Use `saturating_add_proof_size()` in `check_extrinsic_weight()`\n\
+    - **CheckWeight tests**: Added test cases verifying proper handling of extreme\
+    \ values (usize::MAX lengths) that trigger saturation\n- **Weight**: Added below\
+    \ methods to be able to prevent overflow, when adding or subtracting scalar.\n\
+    ```rust\n\tpub const fn saturating_add_ref_time(self, scalar: u64);\n\tpub const\
+    \ fn saturating_add_proof_size(self, scalar: u64);\n\tpub const fn saturating_sub_ref_time(self,\
+    \ scalar: u64);\n\tpub const fn saturating_sub_proof_size(self, scalar: u64);\n\
+    ```\n- **Logging**:\n  - Initialize logging for tests\n  - Improved CheckWeight\
+    \ debug message clarity"
 crates:
 - name: frame-system
   bump: patch
