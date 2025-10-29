@@ -117,7 +117,9 @@ impl sp_inherents::InherentDataProvider for InherentDataProvider {
 
 /// A utility function to extract a chunk index from the source of randomness.
 ///
-/// Note: The caller must ensure that `total_chunks` is not 0.
+/// # Panics 
+///
+/// This function panics if `total_chunks` is `0`.
 pub fn random_chunk(random_hash: &[u8], total_chunks: u32) -> u32 {
 	let mut buf = [0u8; 8];
 	buf.copy_from_slice(&random_hash[0..8]);
