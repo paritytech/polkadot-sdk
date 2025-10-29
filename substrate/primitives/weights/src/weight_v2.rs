@@ -302,6 +302,26 @@ impl Weight {
 		Self { ref_time: self.ref_time, proof_size: self.proof_size - scalar }
 	}
 
+	/// Saturating version of Add for `ref_time` component with u64.
+	pub const fn saturating_add_ref_time(self, scalar: u64) -> Self {
+		Self { ref_time: self.ref_time.saturating_add(scalar), proof_size: self.proof_size }
+	}
+
+	/// Saturating version of Add for `proof_size` component with u64.
+	pub const fn saturating_add_proof_size(self, scalar: u64) -> Self {
+		Self { ref_time: self.ref_time, proof_size: self.proof_size.saturating_add(scalar) }
+	}
+
+	/// Saturating version of Sub for `ref_time` component with u64.
+	pub const fn saturating_sub_ref_time(self, scalar: u64) -> Self {
+		Self { ref_time: self.ref_time.saturating_sub(scalar), proof_size: self.proof_size }
+	}
+
+	/// Saturating version of Sub for `proof_size` component with u64.
+	pub const fn saturating_sub_proof_size(self, scalar: u64) -> Self {
+		Self { ref_time: self.ref_time, proof_size: self.proof_size.saturating_sub(scalar) }
+	}
+
 	/// Constant version of Div with u64.
 	///
 	/// Is only overflow safe when evaluated at compile-time.
