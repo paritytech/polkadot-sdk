@@ -218,10 +218,8 @@ where
 	///
 	/// Returns the adjusted authoring duration and the slot that it corresponds to.
 	pub fn adjust_authoring_duration(&mut self, authoring_duration: Duration) -> Duration {
-		// Determine how many parachain blocks are produced per relay slot
-		// based on the authoring duration.
-		let blocks_produced_per_relay_slot = (self.relay_slot_duration.as_millis() /
-			authoring_duration.as_millis() as u128) as usize;
+		// Update the number of parachain blocks produced.
+		let blocks_produced_so_far = self.last_reported_slot.increment_blocks_produced();
 
 		let Ok((duration, slot)) = self.time_until_next_slot() else {
 			tracing::error!(
@@ -231,8 +229,10 @@ where
 			return authoring_duration;
 		};
 
-		// Update the number of parachain blocks produced.
-		let blocks_produced_so_far = self.last_reported_slot.increment_blocks_produced();
+		// Determine how many parachain blocks are produced per relay slot
+		// based on the authoring duration.
+		let blocks_produced_per_relay_slot = (self.relay_slot_duration.as_millis() /
+			authoring_duration.as_millis() as u128) as usize;
 
 		tracing::debug!(
 			target: LOG_TARGET,
