@@ -14,8 +14,8 @@ crates:
 - name: sc-rpc-spec-v2
   bump: patch
 - name: sp-maybe-compressed-blob
-  bump: patch
+  bump: minor
 - name: polkadot-node-core-candidate-validation
   bump: patch
 - name: substrate-wasm-builder
-  bump: minor
+  bump: patch
