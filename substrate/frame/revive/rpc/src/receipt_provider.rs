@@ -122,7 +122,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 		query!(
 			r#"
-			INSERT INTO eth_to_substrate_blocks (ethereum_block_hash, substrate_block_hash)
+			INSERT OR REPLACE INTO eth_to_substrate_blocks (ethereum_block_hash, substrate_block_hash)
 			VALUES ($1, $2)
 			"#,
 			ethereum_hash_ref,
