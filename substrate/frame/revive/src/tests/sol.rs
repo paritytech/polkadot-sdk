@@ -219,9 +219,9 @@ fn upload_evm_runtime_code_works() {
 		let (uploaded_blob, _) = Pallet::<Test>::try_upload_code(
 			deployer,
 			runtime_code.clone(),
+			crate::vm::BytecodeType::Evm,
 			u64::MAX,
 			&ExecConfig::new_substrate_tx(),
-			crate::vm::BytecodeType::Evm,
 		)
 		.unwrap();
 
