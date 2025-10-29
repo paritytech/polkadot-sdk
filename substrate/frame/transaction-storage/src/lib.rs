@@ -82,7 +82,8 @@ pub struct TransactionInfo {
 	/// Total number of chunks added in the block with this transaction. This
 	/// is used to find transaction info by block chunk index using binary search.
 	///
-	/// Cumulative value of all previous transactions in the block; the last transaction holds the total chunk value.
+	/// Cumulative value of all previous transactions in the block; the last transaction holds the
+	/// total chunk value.
 	block_chunks: u32,
 }
 
@@ -462,9 +463,11 @@ pub mod pallet {
 			// Get the random chunk index (from all transactions in the block = 0..total_chunks).
 			let selected_block_chunk_index = random_chunk(random_hash, total_chunks as _);
 
-			// Let's find the corresponding transaction and its "local" chunk index for "global" `selected_block_chunk_index`.
+			// Let's find the corresponding transaction and its "local" chunk index for "global"
+			// `selected_block_chunk_index`.
 			let (tx_info, tx_chunk_index) = {
-				// Binary search for the transaction that owns this `selected_block_chunk_index` chunk.
+				// Binary search for the transaction that owns this `selected_block_chunk_index`
+				// chunk.
 				let tx_index = infos
 					.binary_search_by_key(&selected_block_chunk_index, |info| {
 						// Each `info.block_chunks` is cumulative count,
@@ -475,8 +478,9 @@ pub mod pallet {
 
 				// Get the transaction and its local chunk index.
 				let tx_info = infos.get(tx_index).ok_or(Error::<T>::MissingStateData)?;
-				// We shouldn't reach this point; we rely on the fact that `fn store` does not allow empty transactions.
-				// Without this check, it would fail anyway below with `InvalidProof`.
+				// We shouldn't reach this point; we rely on the fact that `fn store` does not allow
+				// empty transactions. Without this check, it would fail anyway below with
+				// `InvalidProof`.
 				ensure!(!tx_info.block_chunks.is_zero(), Error::<T>::EmptyTransaction);
 
 				// Convert a global chunk index into a transaction-local one.

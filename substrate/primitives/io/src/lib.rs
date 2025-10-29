@@ -1496,7 +1496,8 @@ pub trait TransactionIndex {
 		self.storage_index_transaction(extrinsic, &context_hash, size);
 	}
 
-	/// Renews the transaction index entry for the given `extrinsic` using the provided `context_hash`.
+	/// Renews the transaction index entry for the given `extrinsic` using the provided
+	/// `context_hash`.
 	fn renew(&mut self, extrinsic: u32, context_hash: PassPointerAndReadCopy<[u8; 32], 32>) {
 		self.storage_renew_transaction_index(extrinsic, &context_hash);
 	}
