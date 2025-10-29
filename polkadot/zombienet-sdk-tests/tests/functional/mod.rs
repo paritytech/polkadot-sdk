@@ -4,6 +4,7 @@
 mod approval_voting_coalescing;
 mod approved_peer_mixed_validators;
 mod async_backing_6_seconds_rate;
+mod collator_protocol_spam;
 mod dispute_old_finalized;
 mod duplicate_collations;
 mod shared_core_idle_parachain;
