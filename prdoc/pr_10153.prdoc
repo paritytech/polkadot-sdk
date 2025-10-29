@@ -11,6 +11,6 @@ crates:
 - name: pallet-transaction-storage
   bump: patch
 - name: sp-transaction-storage-proof
-  bump: patch
+  bump: minor
 - name: sp-io
   bump: patch
