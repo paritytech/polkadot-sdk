@@ -18,12 +18,12 @@ use crate::{validate_block::MemoryOptimizedValidationParams, *};
 use codec::{Decode, DecodeAll, Encode};
 use cumulus_primitives_core::{ParachainBlockData, PersistedValidationData};
 use cumulus_test_client::{
-	DefaultTestClientBuilderExt, generate_extrinsic, generate_extrinsic_with_pair,
+	generate_extrinsic, generate_extrinsic_with_pair,
 	runtime::{
 		self as test_runtime, Block, Hash, Header, TestPalletCall, UncheckedExtrinsic, WASM_BINARY,
 	},
-	seal_block, transfer, BlockData, BlockOrigin, BuildParachainBlockData, Client, HeadData,
-	InitBlockBuilder,
+	seal_block, transfer, BlockData, BlockOrigin, BuildParachainBlockData, Client,
+	DefaultTestClientBuilderExt, HeadData, InitBlockBuilder,
 	Sr25519Keyring::{Alice, Bob, Charlie},
 	TestClientBuilder, TestClientBuilderExt, ValidationParams,
 };
@@ -650,8 +650,7 @@ fn ensure_we_only_like_blockchains() {
 			.expect("Runs the test");
 		assert!(output.status.success());
 
-		assert!(
-			dbg!(String::from_utf8(output.stderr).unwrap()).contains("Not a valid chain of blocks :(")
-		);
+		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
+			.contains("Not a valid chain of blocks :("));
 	}
 }
