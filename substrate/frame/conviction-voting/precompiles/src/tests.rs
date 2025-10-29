@@ -313,19 +313,6 @@ fn test_delegate_encoding() {
 }
 
 #[test]
-fn test_undelegate_encoding() {
-	new_test_ext().execute_with(|| {
-		let track_id = 2u16;
-
-		let encoded_call = encode_undelegate(track_id);
-
-		let decoded_call = IConvictionVoting::undelegateCall::abi_decode(&encoded_call).unwrap();
-
-		assert_eq!(decoded_call.trackId, track_id);
-	});
-}
-
-#[test]
 fn test_delegation_precompile_works() {
 	new_test_ext().execute_with(|| {
 		let balance = 5u128;
@@ -486,6 +473,58 @@ fn test_delegate_already_voting_error() {
 			ALICE,
 			encode_delegate(track_id, target, conviction, balance)
 		));
+	});
+}
+
+#[test]
+fn test_undelegate_encoding() {
+	new_test_ext().execute_with(|| {
+		let track_id = 2u16;
+
+		let encoded_call = encode_undelegate(track_id);
+
+		let decoded_call = IConvictionVoting::undelegateCall::abi_decode(&encoded_call).unwrap();
+
+		assert_eq!(decoded_call.trackId, track_id);
+	});
+}
+
+#[test]
+fn test_undelegate_precompile_works() {
+	new_test_ext().execute_with(|| {
+		let target = BOB;
+		let track_id = 0u16;
+		let referendum_index = 0u32;
+		let balance = 10u128;
+		let conviction = 1u8;
+
+		Polls::set(vec![(0, TestPollState::Ongoing(Tally::new(0), 0))].into_iter().collect());
+
+		assert!(call_and_check_revert(
+			BOB,
+			encode_standard(referendum_index, true, balance, conviction)
+		));
+
+		assert!(call_and_check_revert(
+			ALICE,
+			encode_delegate(track_id, target, conviction, balance)
+		));
+
+		assert_eq!(
+			Polls::get(),
+			vec![(0, TestPollState::Ongoing(Tally::from_parts(20, 0, 20), 0)),]
+				.into_iter()
+				.collect()
+		);
+
+		assert!(call_and_check_revert(ALICE, encode_undelegate(track_id)));
+
+		assert_eq!(
+			Polls::get(),
+			vec![(0, TestPollState::Ongoing(Tally::from_parts(10, 0, 10), 0)),]
+				.into_iter()
+				.collect()
+		);
 	});
 }
 
