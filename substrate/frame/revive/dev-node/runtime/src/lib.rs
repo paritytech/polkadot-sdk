@@ -37,7 +37,7 @@ use pallet_revive::{
 	},
 	AccountId32Mapper,
 };
-use pallet_transaction_payment::{ConstFeeMultiplier, FeeDetails, Multiplier, RuntimeDispatchInfo};
+use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use polkadot_sdk::{
 	polkadot_sdk_frame::{
 		deps::sp_genesis_builder,
@@ -327,7 +327,6 @@ impl pallet_timestamp::Config for Runtime {}
 
 parameter_types! {
 	pub const TransactionByteFee: Balance = 10 * MILLICENTS;
-	pub FeeMultiplier: Multiplier = Multiplier::one();
 }
 
 // Implements the types required for the transaction payment pallet.
@@ -336,7 +335,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
 	type WeightToFee = BlockRatioFee<1, 1, Self>;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
-	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
+	type FeeMultiplierUpdate = polkadot_sdk::polkadot_runtime_common::SlowAdjustingFeeUpdate<Self>;
 }
 
 parameter_types! {

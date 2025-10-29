@@ -97,7 +97,7 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 		&mut self,
 		transaction_encoded: Vec<u8>,
 		success: bool,
-		gas_used: U256,
+		receipt_gas_info: ReceiptGasInfo,
 		encoded_logs: Vec<u8>,
 		receipt_bloom: LogsBloom,
 	) {
@@ -108,7 +108,7 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 		let transaction_type = Self::extract_transaction_type(transaction_encoded.as_slice());
 
 		// Update gas and logs bloom.
-		self.gas_used = self.gas_used.saturating_add(gas_used);
+		self.gas_used = self.gas_used.saturating_add(receipt_gas_info.gas_used);
 		self.logs_bloom.accrue_bloom(&receipt_bloom);
 
 		// Update the receipt trie.
@@ -120,7 +120,7 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 			transaction_type,
 		);
 
-		self.gas_info.push(ReceiptGasInfo { gas_used });
+		self.gas_info.push(receipt_gas_info);
 
 		// The first transaction and receipt are returned to be stored in the pallet storage.
 		// The index of the incremental hash builders already expects the next items.

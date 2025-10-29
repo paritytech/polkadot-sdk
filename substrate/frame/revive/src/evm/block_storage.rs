@@ -24,7 +24,8 @@ use crate::{
 	sp_runtime::traits::One,
 	weights::WeightInfo,
 	BalanceOf, BlockHash, Config, ContractResult, Error, EthBlockBuilderIR, EthereumBlock, Event,
-	ExecReturnValue, Pallet, ReceiptInfoData, UniqueSaturatedInto, Weight, H160, H256,
+	ExecReturnValue, Pallet, ReceiptGasInfo, ReceiptInfoData, UniqueSaturatedInto, Weight, H160,
+	H256,
 };
 use alloc::vec::Vec;
 use environmental::environmental;
@@ -34,7 +35,7 @@ use frame_support::{
 	storage::with_transaction,
 };
 use sp_core::U256;
-use sp_runtime::{Saturating, TransactionOutcome};
+use sp_runtime::{FixedPointNumber, Saturating, TransactionOutcome};
 
 /// The maximum number of block hashes to keep in the history.
 ///
@@ -47,8 +48,7 @@ environmental!(receipt: AccumulateReceipt);
 
 /// Result of an Ethereum context call execution.
 pub(crate) struct EthereumCallResult {
-	/// The amount of gas used by the call.
-	pub gas_used: U256,
+	pub receipt_gas_info: ReceiptGasInfo,
 	/// The dispatch result with post-dispatch information.
 	pub result: DispatchResultWithPostInfo,
 }
@@ -87,18 +87,40 @@ impl EthereumCallResult {
 		let result = dispatch_result(output.result, output.gas_consumed, base_call_weight);
 		let native_fee = T::FeeInfo::compute_actual_fee(encoded_len, &info, &result);
 		let result = T::FeeInfo::ensure_not_overdrawn(native_fee, result);
-		let eth_fee = Pallet::<T>::convert_native_to_evm(
-			native_fee
-				// TODO take into account refunds
-				.saturating_add(output.storage_deposit.charge_or_zero()),
-		);
+
+		// TODO take into account refunds instead of just adding `charge_or_zero()`
+		{
+			let gas_used: U256 = T::FeeInfo::next_fee_multiplier_reciprocal()
+				.saturating_mul_int(
+					native_fee.saturating_add(output.storage_deposit.charge_or_zero()),
+				)
+				.saturating_add(1_u32.into())
+				.into();
+			log::debug!(target: crate::LOG_TARGET,
+				"Ethereum gas_used (1): {gas_used:?}"
+			);
+		}
 
 		let gas_used = if effective_gas_price.is_zero() {
 			Default::default()
 		} else {
-			eth_fee / effective_gas_price
+			let eth_fee = Pallet::<T>::convert_native_to_evm(
+				native_fee.saturating_add(output.storage_deposit.charge_or_zero()),
+			);
+
+			let (gas_used, rest) = eth_fee.div_mod(effective_gas_price);
+			if !rest.is_zero() {
+				log::warn!(target: crate::LOG_TARGET,
+					"Ethereum call fee {eth_fee:?} is not a multiple of effective gas price {effective_gas_price:?}"
+				);
+			}
+			log::debug!(target: crate::LOG_TARGET,
+				"Ethereum gas_used (2): {gas_used:?}"
+			);
+			gas_used
 		};
-		Self { gas_used, result }
+
+		Self { receipt_gas_info: ReceiptGasInfo { gas_used, effective_gas_price }, result }
 	}
 }
 
@@ -139,13 +161,17 @@ pub fn with_ethereum_context<T: Config>(
 	call: impl FnOnce() -> EthereumCallResult,
 ) -> DispatchResultWithPostInfo {
 	receipt::using(&mut AccumulateReceipt::new(), || {
-		let (err, gas_consumed, post_info) =
+		let (err, receipt_gas_info, post_info) =
 			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
-				let EthereumCallResult { gas_used, result } = call();
+				let EthereumCallResult { receipt_gas_info, result } = call();
 				match result {
-					Ok(post_info) => TransactionOutcome::Commit(Ok((None, gas_used, post_info))),
-					Err(err) =>
-						TransactionOutcome::Rollback(Ok((Some(err.error), gas_used, err.post_info))),
+					Ok(post_info) =>
+						TransactionOutcome::Commit(Ok((None, receipt_gas_info, post_info))),
+					Err(err) => TransactionOutcome::Rollback(Ok((
+						Some(err.error),
+						receipt_gas_info,
+						err.post_info,
+					))),
 				}
 			})?;
 
@@ -154,7 +180,7 @@ pub fn with_ethereum_context<T: Config>(
 			crate::block_storage::process_transaction::<T>(
 				transaction_encoded,
 				false,
-				gas_consumed,
+				receipt_gas_info,
 			);
 			Ok(post_info)
 		} else {
@@ -162,7 +188,11 @@ pub fn with_ethereum_context<T: Config>(
 			#[cfg(feature = "runtime-benchmarks")]
 			deposit_eth_extrinsic_revert_event::<T>(crate::Error::<T>::BenchmarkingError.into());
 
-			crate::block_storage::process_transaction::<T>(transaction_encoded, true, gas_consumed);
+			crate::block_storage::process_transaction::<T>(
+				transaction_encoded,
+				true,
+				receipt_gas_info,
+			);
 			Ok(post_info)
 		}
 	})
@@ -227,7 +257,11 @@ pub fn on_finalize_build_eth_block<T: Config>(
 /// This stores the RLP encoded transaction and receipt details into storage.
 ///
 /// The data is used during the `on_finalize` hook to reconstruct the ETH block.
-pub fn process_transaction<T: Config>(transaction_encoded: Vec<u8>, success: bool, gas_used: U256) {
+pub fn process_transaction<T: Config>(
+	transaction_encoded: Vec<u8>,
+	success: bool,
+	receipt_gas_info: ReceiptGasInfo,
+) {
 	// Method returns `None` only when called from outside of the ethereum context.
 	// This is not the case here, since this is called from within the
 	// ethereum context.
@@ -236,7 +270,13 @@ pub fn process_transaction<T: Config>(transaction_encoded: Vec<u8>, success: boo
 	let block_builder_ir = EthBlockBuilderIR::<T>::get();
 	let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
 
-	block_builder.process_transaction(transaction_encoded, success, gas_used, encoded_logs, bloom);
+	block_builder.process_transaction(
+		transaction_encoded,
+		success,
+		receipt_gas_info,
+		encoded_logs,
+		bloom,
+	);
 
 	EthBlockBuilderIR::<T>::put(block_builder.to_ir());
 }
