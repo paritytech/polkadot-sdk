@@ -139,7 +139,6 @@ where
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
 	async move {
-		tracing::info!(target: LOG_TARGET, "Starting slot-based block-builder task.");
 		let BuilderTaskParams {
 			relay_client,
 			create_inherent_data_providers,
@@ -157,6 +156,8 @@ where
 			slot_offset,
 			max_pov_percentage,
 		} = params;
+
+		tracing::info!(target: LOG_TARGET, ?para_id, ?authoring_duration, ?relay_chain_slot_duration, "Starting slot-based block-builder task.");
 
 		let mut slot_timer = SlotTimer::<_, _, P>::new_with_offset(
 			para_client.clone(),
@@ -386,11 +387,8 @@ where
 				validation_data.max_pov_size * 85 / 100
 			} as usize;
 
-			let adjusted_authoring_duration = match slot_timer.time_until_next_slot() {
-				Ok((duration, _slot)) => std::cmp::min(authoring_duration, duration),
-				Err(_) => authoring_duration,
-			};
-
+			let adjusted_authoring_duration =
+				slot_timer.adjust_authoring_duration(authoring_duration);
 			tracing::debug!(target: crate::LOG_TARGET, duration = ?adjusted_authoring_duration, "Adjusted proposal duration.");
 
 			let Ok(Some(candidate)) = collator

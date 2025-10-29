@@ -37,6 +37,10 @@ use std::{
 /// Defensive mechanism, corresponds to 12 cores at 6 second block time.
 const BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS: Duration = Duration::from_millis(500);
 
+/// The amount of time the authoring duration of the last block production attempt
+/// should be reduced by to fit into the slot timing.
+const BLOCK_PRODUCTION_ADJUSTMENT_MS: Duration = Duration::from_millis(500);
+
 #[derive(Debug)]
 pub(crate) struct SlotInfo {
 	pub timestamp: Timestamp,
@@ -46,7 +50,7 @@ pub(crate) struct SlotInfo {
 /// Manages block-production timings based on chain parameters and assigned cores.
 #[derive(Debug)]
 pub(crate) struct SlotTimer<Block, Client, P> {
-	/// Client that is used for runtime calls
+	/// Parachain client that is used for runtime calls
 	client: Arc<Client>,
 	/// Offset the current time by this duration.
 	time_offset: Duration,
@@ -56,8 +60,45 @@ pub(crate) struct SlotTimer<Block, Client, P> {
 	/// attempts we should trigger per relay chain block.
 	relay_slot_duration: Duration,
 	/// Stores the latest slot that was reported by [`Self::wait_until_next_slot`].
-	last_reported_slot: Option<Slot>,
+	last_reported_slot: LastReportedSlot,
 	_marker: std::marker::PhantomData<(Block, Box<dyn Fn(P) + Send + Sync + 'static>)>,
+}
+
+/// Information about the last reported slot.
+#[derive(Debug, Default, Clone, Copy)]
+struct LastReportedSlot {
+	/// The reported slot.
+	slot: Option<Slot>,
+	/// The number of blocks produced for that slot.
+	blocks_produced: usize,
+}
+
+impl LastReportedSlot {
+	/// Increment the number of blocks produced for the slot.
+	///
+	/// Returns the incremented number of blocks produced.
+	fn increment_blocks_produced(&mut self) -> usize {
+		self.blocks_produced = self.blocks_produced.saturating_add(1);
+		self.blocks_produced
+	}
+
+	/// Set a new slot, resetting the blocks produced if the slot changed.
+	fn set_new_slot(&mut self, slot: Slot) {
+		match self.slot {
+			Some(s) if s == slot => return,
+			_ => {},
+		};
+
+		tracing::debug!(
+			target: LOG_TARGET,
+			previous_slot = ?self.slot,
+			next_slot = ?slot,
+			"Resetting blocks produced for new slot."
+		);
+
+		self.slot = Some(slot);
+		self.blocks_produced = 0;
+	}
 }
 
 /// Compute when to try block-authoring next.
@@ -147,7 +188,7 @@ where
 			time_offset,
 			last_reported_core_num: None,
 			relay_slot_duration,
-			last_reported_slot: None,
+			last_reported_slot: LastReportedSlot::default(),
 			_marker: Default::default(),
 		}
 	}
@@ -173,6 +214,61 @@ where
 		))
 	}
 
+	/// Adjust the authoring duration to fit into the slot timing.
+	///
+	/// Returns the adjusted authoring duration and the slot that it corresponds to.
+	pub fn adjust_authoring_duration(&mut self, authoring_duration: Duration) -> Duration {
+		// Determine how many parachain blocks are produced per relay slot
+		// based on the authoring duration.
+		let blocks_produced_per_relay_slot = (self.relay_slot_duration.as_millis() /
+			authoring_duration.as_millis() as u128) as usize;
+
+		let Ok((duration, slot)) = self.time_until_next_slot() else {
+			tracing::error!(
+				target: LOG_TARGET,
+				"Failed to fetch slot duration from runtime. Using unadjusted authoring duration."
+			);
+			return authoring_duration;
+		};
+
+		// Update the number of parachain blocks produced.
+		let blocks_produced_so_far = self.last_reported_slot.increment_blocks_produced();
+
+		tracing::debug!(
+			target: LOG_TARGET,
+			blocks_produced_for_slot = ?blocks_produced_so_far,
+			?blocks_produced_per_relay_slot,
+			?authoring_duration,
+			?duration,
+			"Adjusting authoring duration for slot.",
+		);
+
+		// If the next attempt duration is less than the authoring duration,
+		// ensure we fit into the slot.
+		let mut authoring_duration = authoring_duration.min(duration);
+
+		// The authoring of the last block that fits into the relay chain is reduced to fit into the
+		// slot timing. For example, when the block is full we need sufficient time to
+		// propagate and import it before the next slot starts.
+		if blocks_produced_so_far >= blocks_produced_per_relay_slot {
+			authoring_duration = std::cmp::max(
+				authoring_duration.saturating_sub(BLOCK_PRODUCTION_ADJUSTMENT_MS),
+				BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS,
+			);
+
+			tracing::debug!(
+				target: LOG_TARGET,
+				aura_slot = ?slot,
+				blocks_produced_for_slot = ?blocks_produced_so_far,
+				?blocks_produced_per_relay_slot,
+				?authoring_duration,
+				"Adjusted the last block production attempt for the slot."
+			);
+		}
+
+		authoring_duration
+	}
+
 	/// Returns a future that resolves when the next block production should be attempted.
 	pub async fn wait_until_next_slot(&mut self) -> Result<(), ()> {
 		let Ok(slot_duration) = crate::slot_duration(&*self.client) else {
@@ -185,10 +281,13 @@ where
 		match self.last_reported_slot {
 			// If we already reported a slot, we don't want to skip a slot. But we also don't want
 			// to go through all the slots if a node was halted for some reason.
-			Some(ls) if ls + 1 < next_aura_slot && next_aura_slot <= ls + 3 => {
-				next_aura_slot = ls + 1u64;
+			LastReportedSlot { slot: Some(slot), .. }
+				if slot + 1 < next_aura_slot && next_aura_slot <= slot + 3 =>
+			{
+				next_aura_slot = slot + 1u64;
 			},
-			None | Some(_) => {
+			_ => {
+				tracing::trace!(target: LOG_TARGET, ?time_until_next_attempt, "Sleeping until the next slot.");
 				tokio::time::sleep(time_until_next_attempt).await;
 			},
 		}
@@ -200,7 +299,8 @@ where
 			"New block production opportunity."
 		);
 
-		self.last_reported_slot = Some(next_aura_slot);
+		self.last_reported_slot.set_new_slot(next_aura_slot);
+
 		Ok(())
 	}
 }
