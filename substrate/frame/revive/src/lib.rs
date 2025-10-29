@@ -1257,8 +1257,7 @@ pub mod pallet {
 				);
 
 				block_storage::EthereumCallResult::new::<T>(
-					output.result.map(|r| r.result),
-					output.gas_consumed,
+					output.map_result(|r| r.result),
 					base_info.call_weight,
 					encoded_len,
 					&info,
@@ -1317,8 +1316,7 @@ pub mod pallet {
 				);
 
 				block_storage::EthereumCallResult::new::<T>(
-					output.result,
-					output.gas_consumed,
+					output,
 					base_info.call_weight,
 					encoded_len,
 					&info,

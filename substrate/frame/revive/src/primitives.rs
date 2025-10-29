@@ -235,6 +235,17 @@ pub enum StorageDeposit<Balance> {
 	Charge(Balance),
 }
 
+impl<T, Balance> ContractResult<T, Balance> {
+	pub fn map_result<V>(self, map_fn: impl FnOnce(T) -> V) -> ContractResult<V, Balance> {
+		ContractResult {
+			gas_consumed: self.gas_consumed,
+			gas_required: self.gas_required,
+			storage_deposit: self.storage_deposit,
+			result: self.result.map(map_fn),
+		}
+	}
+}
+
 impl<Balance: Zero> Default for StorageDeposit<Balance> {
 	fn default() -> Self {
 		Self::Charge(Zero::zero())
