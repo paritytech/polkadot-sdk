@@ -451,7 +451,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Verifies that the provided proof corresponds to a randomly selected chunk from a list of transactions.
+		/// Verifies that the provided proof corresponds to a randomly selected chunk from a list of
+		/// transactions.
 		pub(crate) fn verify_chunk_proof(
 			proof: TransactionStorageProof,
 			random_hash: &[u8],
