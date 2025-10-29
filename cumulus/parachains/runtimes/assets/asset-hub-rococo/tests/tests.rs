@@ -769,15 +769,21 @@ mod asset_hub_rococo_tests {
 		let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
 		let staking_pot = StakingPot::get();
 
-		let foreign_asset_id_location = Location::new(
-			2,
-			[Junction::GlobalConsensus(NetworkId::ByGenesis(WESTEND_GENESIS_HASH))],
-		);
+		let foreign_asset_id_location =
+			Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]);
+		let reserve_location =
+			Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1000)]);
 		let foreign_asset_id_minimum_balance = 1_000_000_000;
 		// sovereign account as foreign asset owner (can be whoever for this scenario)
 		let foreign_asset_owner =
 			LocationToAccountId::convert_location(&Location::parent()).unwrap();
 		let foreign_asset_create_params = (
+			foreign_asset_owner.clone(),
+			foreign_asset_id_location.clone(),
+			reserve_location,
+			foreign_asset_id_minimum_balance,
+		);
+		let pool_params = (
 			foreign_asset_owner,
 			foreign_asset_id_location.clone(),
 			foreign_asset_id_minimum_balance,
@@ -794,11 +800,11 @@ mod asset_hub_rococo_tests {
 			AccountId::from([73; 32]),
 			block_author_account,
 			// receiving WNDs
-			foreign_asset_create_params.clone(),
+			foreign_asset_create_params,
 			1000000000000,
 			|| {
 				// setup pool for paying fees to touch `SwapFirstAssetTrader`
-				asset_test_utils::test_cases::setup_pool_for_paying_fees_with_foreign_assets::<Runtime, RuntimeOrigin>(ExistentialDeposit::get(), foreign_asset_create_params);
+				asset_test_utils::test_cases::setup_pool_for_paying_fees_with_foreign_assets::<Runtime, RuntimeOrigin>(ExistentialDeposit::get(), pool_params);
 				// staking pot account for collecting local native fees from `BuyExecution`
 				let _ = Balances::force_set_balance(RuntimeOrigin::root(), StakingPot::get().into(), ExistentialDeposit::get());
 				// prepare bridge configuration
@@ -845,15 +851,21 @@ mod asset_hub_rococo_tests {
 		let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
 		let staking_pot = StakingPot::get();
 
-		let foreign_asset_id_location = Location::new(
-			2,
-			[Junction::GlobalConsensus(NetworkId::ByGenesis(WESTEND_GENESIS_HASH))],
-		);
+		let foreign_asset_id_location =
+			Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]);
+		let reserve_location =
+			Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1000)]);
 		let foreign_asset_id_minimum_balance = 1_000_000_000;
 		// sovereign account as foreign asset owner (can be whoever for this scenario)
 		let foreign_asset_owner =
 			LocationToAccountId::convert_location(&Location::parent()).unwrap();
 		let foreign_asset_create_params = (
+			foreign_asset_owner.clone(),
+			foreign_asset_id_location.clone(),
+			reserve_location,
+			foreign_asset_id_minimum_balance,
+		);
+		let pool_params = (
 			foreign_asset_owner,
 			foreign_asset_id_location.clone(),
 			foreign_asset_id_minimum_balance,
@@ -870,10 +882,10 @@ mod asset_hub_rococo_tests {
 			AccountId::from([73; 32]),
 			block_author_account.clone(),
 			// receiving WNDs
-			foreign_asset_create_params.clone(),
+			foreign_asset_create_params,
 			1000000000000,
 			|| {
-				asset_test_utils::test_cases::setup_pool_for_paying_fees_with_foreign_assets::<Runtime, RuntimeOrigin>(ExistentialDeposit::get(), foreign_asset_create_params);
+				asset_test_utils::test_cases::setup_pool_for_paying_fees_with_foreign_assets::<Runtime, RuntimeOrigin>(ExistentialDeposit::get(), pool_params);
 				bridging_to_asset_hub_westend()
 			},
 			(

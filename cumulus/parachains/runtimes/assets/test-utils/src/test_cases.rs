@@ -422,6 +422,10 @@ pub fn teleports_for_foreign_assets_works<
 		]
 		.into(),
 	};
+	let foreign_asset_reserve_location = xcm::v5::Location {
+		parents: 1,
+		interior: [xcm::v5::Junction::Parachain(foreign_para_id)].into(),
+	};
 
 	// foreign creator, which can be sibling parachain to match ForeignCreators
 	let foreign_creator = Location { parents: 1, interior: [Parachain(foreign_para_id)].into() };
@@ -510,7 +514,7 @@ pub fn teleports_for_foreign_assets_works<
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::set_reserves(
 					RuntimeHelper::<Runtime>::origin_of(asset_owner.into()),
 					foreign_asset_id_location.clone().into(),
-					vec![Location::here().into()],
+					vec![foreign_asset_reserve_location.into(), Location::here().into()],
 				)
 			);
 

@@ -369,7 +369,8 @@ pub type TrustedReserves = (
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 ///
 /// - WND with the parent Relay Chain and sibling system parachains; and
-/// - Sibling parachains' assets from where they originate (as `ForeignCreators`).
+/// - Sibling parachains' assets according to their configured trusted reserves (teleportable when
+///   `Here` and `origin` are both trusted reserve locations).
 pub type TrustedTeleporters = (
 	ConcreteAssetFromSystem<WestendLocation>,
 	IsForeignConcreteAsset<TeleportableForeignAsset<AssetHubParaId, crate::ForeignAssets>>,

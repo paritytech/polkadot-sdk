@@ -338,11 +338,12 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 	existential_deposit: BalanceOf<Runtime>,
 	target_account: AccountIdOf<Runtime>,
 	block_author_account: AccountIdOf<Runtime>,
-	(foreign_asset_owner, foreign_asset_id_location, foreign_asset_id_minimum_balance): (
-		AccountIdOf<Runtime>,
-		xcm::v5::Location,
-		u128,
-	),
+	(
+		foreign_asset_owner,
+		foreign_asset_id_location,
+		foreign_asset_reserve_location,
+		foreign_asset_id_minimum_balance,
+	): (AccountIdOf<Runtime>, xcm::v5::Location, xcm::v5::Location, u128),
 	foreign_asset_id_amount_to_transfer: u128,
 	prepare_configuration: impl FnOnce() -> TestBridgingConfig,
 	(bridge_instance, universal_origin, descend_origin): (Junctions, Junction, Junctions), /* bridge adds origin manipulation on the way */
@@ -366,6 +367,8 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 	BalanceOf<Runtime>: From<Balance> + Into<Balance>,
 	XcmConfig: xcm_executor::Config,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetId:
+		From<xcm::v5::Location> + Into<xcm::v5::Location>,
+	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::ReserveId:
 		From<xcm::v5::Location> + Into<xcm::v5::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetIdParameter:
 		From<xcm::v5::Location> + Into<xcm::v5::Location>,
@@ -400,9 +403,19 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::force_create(
 					RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::root_origin(),
 					foreign_asset_id_location.clone().into(),
-					foreign_asset_owner.into(),
+					foreign_asset_owner.clone().into(),
 					true, // is_sufficient=true
 					foreign_asset_id_minimum_balance.into()
+				)
+			);
+			// set the right reserve for the foreign asset
+			assert_ok!(
+				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::set_reserves(
+					RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(
+						foreign_asset_owner
+					),
+					foreign_asset_id_location.clone().into(),
+					vec![foreign_asset_reserve_location.into()],
 				)
 			);
 
