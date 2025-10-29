@@ -9,7 +9,7 @@ doc:
     * Improves docs around `pallet-transaction-storage`
 crates:
 - name: pallet-transaction-storage
-  bump: patch
+  bump: major
 - name: sp-transaction-storage-proof
   bump: minor
 - name: sp-io
