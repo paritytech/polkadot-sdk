@@ -17,8 +17,6 @@
 
 //! Storage proof primitives. Contains types and basic code to extract storage
 //! proofs for indexed transactions.
-//!
-//! Note: We use `u32` for both `total_chunks` and the chunk index.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
