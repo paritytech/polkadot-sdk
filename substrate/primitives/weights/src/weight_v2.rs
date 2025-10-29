@@ -278,14 +278,14 @@ impl Weight {
 	///
 	/// Is only overflow safe when evaluated at compile-time.
 	pub const fn add_ref_time(self, scalar: u64) -> Self {
-		Self { ref_time: self.ref_time.saturating_add(scalar), proof_size: self.proof_size }
+		Self { ref_time: self.ref_time + scalar, proof_size: self.proof_size }
 	}
 
 	/// Constant version of Add for `proof_size` component with u64.
 	///
 	/// Is only overflow safe when evaluated at compile-time.
 	pub const fn add_proof_size(self, scalar: u64) -> Self {
-		Self { ref_time: self.ref_time, proof_size: self.proof_size.saturating_add(scalar) }
+		Self { ref_time: self.ref_time, proof_size: self.proof_size + scalar }
 	}
 
 	/// Constant version of Sub for `ref_time` component with u64.
