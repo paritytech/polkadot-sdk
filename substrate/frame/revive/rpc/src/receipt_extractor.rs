@@ -18,8 +18,10 @@ use crate::{
 	client::{runtime_api::RuntimeApi, SubstrateBlock, SubstrateBlockNumber},
 	subxt_client::{
 		self,
-		revive::{calls::types::{EthTransact, SystemLogDispatch}, events::ContractEmitted},
-		system::events::ExtrinsicSuccess,
+		revive::{
+			calls::types::{EthTransact, SystemLogDispatch},
+			events::{ContractEmitted, EthExtrinsicRevert},
+		},
 		SrcChainConfig,
 	},
 	ClientError, H160, LOG_TARGET,
@@ -179,11 +181,11 @@ impl ReceiptExtractor {
 		let events = ext.events().await?;
 		let block_number: U256 = substrate_block.number().into();
 
-		let success = events.has::<ExtrinsicSuccess>().inspect_err(|err| {
+		let success = !events.has::<EthExtrinsicRevert>().inspect_err(|err| {
 			log::debug!(
-             target: LOG_TARGET,
-             "Failed to lookup for ExtrinsicSuccess event in block {block_number}: {err:?}"
-          );
+				target: LOG_TARGET,
+				"Failed to lookup for EthExtrinsicRevert event in block {block_number}: {err:?}"
+			);
 		})?;
 
 		let transaction_hash = H256(keccak_256(&call.payload));

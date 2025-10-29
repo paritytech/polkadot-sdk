@@ -23,7 +23,7 @@ on:
         description: "Run tests which names match this pattern (also flaky)"
         default: ""
         required: false
-  merge_group:
+
 concurrency:
   group: parachain-template-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.run_id }}
   cancel-in-progress: true
