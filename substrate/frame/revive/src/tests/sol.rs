@@ -212,18 +212,20 @@ fn upload_evm_runtime_code_works() {
 		compile_module_with_type("Fibonacci", FixtureType::SolcRuntime).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
-		let deployer = ALICE_ADDR;
-		let _ = Pallet::<Test>::set_evm_balance(&deployer, 1_000_000_000.into());
+		let deployer = ALICE;
+		let deployer_addr = ALICE_ADDR;
+		let _ = Pallet::<Test>::set_evm_balance(&deployer_addr, 1_000_000_000.into());
 
-		let (uploaded_blob, _) = Pallet::<Test>::try_upload_evm_runtime_code(
+		let (uploaded_blob, _) = Pallet::<Test>::try_upload_code(
 			deployer,
 			runtime_code.clone(),
 			u64::MAX,
 			&ExecConfig::new_substrate_tx(),
+			crate::vm::BytecodeType::Evm,
 		)
 		.unwrap();
 
-		let contract_address = crate::address::create1(&deployer, 0u32.into());
+		let contract_address = crate::address::create1(&deployer_addr, 0u32.into());
 
 		let contract_info =
 			ContractInfo::<Test>::new(&contract_address, 0u32.into(), *uploaded_blob.code_hash())

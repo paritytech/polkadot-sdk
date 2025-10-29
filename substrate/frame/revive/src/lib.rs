@@ -57,7 +57,7 @@ use crate::{
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, AccountType, DeletionQueueManager},
 	tracing::if_tracing,
-	vm::{pvm::extract_code_and_data, CodeInfo, ContractBlob, RuntimeCosts},
+	vm::{pvm::extract_code_and_data, BytecodeType, CodeInfo, ContractBlob, RuntimeCosts},
 	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
@@ -1558,9 +1558,10 @@ impl<T: Config> Pallet<T> {
 			let (executable, upload_deposit) = match code {
 				Code::Upload(code) if code.starts_with(&polkavm_common::program::BLOB_MAGIC) => {
 					let upload_account = T::UploadOrigin::ensure_origin(origin)?;
-					let (executable, upload_deposit) = Self::try_upload_pvm_code(
+					let (executable, upload_deposit) = Self::try_upload_code(
 						upload_account,
 						code,
+						BytecodeType::Pvm,
 						storage_deposit_limit,
 						&exec_config,
 					)?;
@@ -1986,9 +1987,10 @@ impl<T: Config> Pallet<T> {
 		storage_deposit_limit: BalanceOf<T>,
 	) -> CodeUploadResult<BalanceOf<T>> {
 		let origin = T::UploadOrigin::ensure_origin(origin)?;
-		let (module, deposit) = Self::try_upload_pvm_code(
+		let (module, deposit) = Self::try_upload_code(
 			origin,
 			code,
+			BytecodeType::Pvm,
 			storage_deposit_limit,
 			&ExecConfig::new_substrate_tx(),
 		)?;
@@ -2095,21 +2097,6 @@ impl<T: Config> Pallet<T> {
 			.map_err(ContractAccessError::StorageWriteFailed)
 	}
 
-	/// Uploads evm runtime code and returns the Vm binary contract blob and deposit amount
-	/// collected.
-	pub fn try_upload_evm_runtime_code(
-		origin: H160,
-		code: Vec<u8>,
-		storage_deposit_limit: BalanceOf<T>,
-		exec_config: &ExecConfig,
-	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
-		let origin = T::AddressMapper::to_account_id(&origin);
-		let mut module = ContractBlob::from_evm_runtime_code(code, origin)?;
-		let deposit = module.store_code(exec_config, None)?;
-		ensure!(storage_deposit_limit >= deposit, <Error<T>>::StorageDepositLimitExhausted);
-		Ok((module, deposit))
-	}
-
 	/// Pallet account, used to hold funds for contracts upload deposit.
 	pub fn account_id() -> T::AccountId {
 		use frame_support::PalletId;
@@ -2144,13 +2131,17 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
-	fn try_upload_pvm_code(
+	fn try_upload_code(
 		origin: T::AccountId,
 		code: Vec<u8>,
+		code_type: BytecodeType,
 		storage_deposit_limit: BalanceOf<T>,
 		exec_config: &ExecConfig,
 	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
-		let mut module = ContractBlob::from_pvm_code(code, origin)?;
+		let mut module = match code_type {
+			BytecodeType::Pvm => ContractBlob::from_pvm_code(code, origin)?,
+			BytecodeType::Evm => ContractBlob::from_evm_runtime_code(code, origin)?,
+		};
 		let deposit = module.store_code(exec_config, None)?;
 		ensure!(storage_deposit_limit >= deposit, <Error<T>>::StorageDepositLimitExhausted);
 		Ok((module, deposit))
