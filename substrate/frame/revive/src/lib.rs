@@ -1840,10 +1840,15 @@ impl<T: Config> Pallet<T> {
 			total_weight={total_weight} \
 			max_weight={max_weight} \
 			weight_left={} \
-			eth_gas={eth_gas})\
+			eth_gas={eth_gas}) \
+			encoded_len={} \
+			tx_fee={transaction_fee:?} \
+			storage_deposit={:?}\
 			",
 			dry_run.gas_required,
 			max_weight.saturating_sub(total_weight),
+			call_info.encoded_len,
+			dry_run.storage_deposit,
 
 		);
 		dry_run.eth_gas = eth_gas;
