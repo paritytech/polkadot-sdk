@@ -104,7 +104,7 @@ impl sp_inherents::InherentDataProvider for InherentDataProvider {
 		mut error: &[u8],
 	) -> Option<Result<(), Error>> {
 		if *identifier != INHERENT_IDENTIFIER {
-			return None
+			return None;
 		}
 
 		let error = InherentError::decode(&mut error).ok()?;
@@ -121,9 +121,14 @@ pub fn random_chunk(random_hash: &[u8], total_chunks: u32) -> u32 {
 	(random_u64 % total_chunks as u64) as u32
 }
 
-/// A utility function to encode transaction index as trie key.
+/// A utility function to encode transaction index as a trie key.
 pub fn encode_index(input: u32) -> Vec<u8> {
 	codec::Encode::encode(&codec::Compact(input))
+}
+
+/// A utility function to calculate the number of chunks.
+fn num_chunks(bytes: u64) -> u64 {
+	bytes.div_ceil(CHUNK_SIZE as u64)
 }
 
 /// An interface to request indexed data from the client.
@@ -163,13 +168,12 @@ pub mod registration {
 			.saturating_sub(DEFAULT_STORAGE_PERIOD.into());
 		if number.is_zero() {
 			// Too early to collect proofs.
-			return Ok(InherentDataProvider::new(None))
+			return Ok(InherentDataProvider::new(None));
 		}
 
 		let proof = match client.block_indexed_body(number)? {
-			Some(transactions) if !transactions.is_empty() =>
-				Some(build_proof(parent.as_ref(), transactions)?),
-			Some(_) | None => {
+			Some(transactions) => Some(build_proof(parent.as_ref(), transactions)?),
+			None => {
 				// Nothing was indexed in that block.
 				None
 			},
@@ -182,15 +186,19 @@ pub mod registration {
 		random_hash: &[u8],
 		transactions: Vec<Vec<u8>>,
 	) -> Result<TransactionStorageProof, Error> {
-		let mut db = sp_trie::MemoryDB::<Hasher>::default();
+		// Get total chunks, we will need it to generate a random chunk index.
+		let total_chunks: u64 = transactions.iter().map(|t| num_chunks(t.len() as u64)).sum();
+		if total_chunks.is_zero() {
+			const MSG: &str = "No chunks to build proof for.";
+			return Err(Error::Application(Box::from(MSG)));
+		}
 
+		let mut db = sp_trie::MemoryDB::<Hasher>::default();
 		let mut target_chunk = None;
 		let mut target_root = Default::default();
 		let mut target_chunk_key = Default::default();
 		let mut chunk_proof = Default::default();
 
-		let total_chunks: u64 =
-			transactions.iter().map(|t| t.len().div_ceil(CHUNK_SIZE) as u64).sum();
 		let mut buf = [0u8; 8];
 		buf.copy_from_slice(&random_hash[0..8]);
 		let random_u64 = u64::from_be_bytes(buf);
@@ -244,5 +252,9 @@ pub mod registration {
 			&[(encode_index(0), Some(proof.chunk))],
 		)
 		.unwrap();
+
+		// Fail for empty transactions/chunks.
+		assert!(build_proof(&random, vec![]).is_err());
+		assert!(build_proof(&random, vec![vec![]]).is_err());
 	}
 }
