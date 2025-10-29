@@ -190,7 +190,11 @@ where
 				println!("Unreserved amount: {:?}", _unreserved);
 
 				// Try to hold in new fungibles system
-				match T::NativeBalance::hold(&HoldReason::DepositForIndex.into(), &account, to_migrate) {
+				match T::NativeBalance::hold(
+					&HoldReason::DepositForIndex.into(),
+					&account,
+					to_migrate,
+				) {
 					Ok(_) => {
 						// Success: migrate to new storage with hold
 						println!("Successfully created hold for account {:?}", account);

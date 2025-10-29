@@ -34,7 +34,10 @@ mod benchmarks {
 	fn claim() {
 		let account_index = T::AccountIndex::from(SEED);
 		let caller: T::AccountId = whitelisted_caller();
-		T::NativeBalance::set_balance(&caller, T::NativeBalance::minimum_balance() + T::Deposit::get());
+		T::NativeBalance::set_balance(
+			&caller,
+			T::NativeBalance::minimum_balance() + T::Deposit::get(),
+		);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), account_index);
@@ -47,10 +50,16 @@ mod benchmarks {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();
-		T::NativeBalance::set_balance(&caller, T::NativeBalance::minimum_balance() + T::Deposit::get());
+		T::NativeBalance::set_balance(
+			&caller,
+			T::NativeBalance::minimum_balance() + T::Deposit::get(),
+		);
 		let recipient: T::AccountId = account("recipient", 0, SEED);
 		let recipient_lookup = T::Lookup::unlookup(recipient.clone());
-		T::NativeBalance::set_balance(&recipient, T::NativeBalance::minimum_balance() + T::Deposit::get());
+		T::NativeBalance::set_balance(
+			&recipient,
+			T::NativeBalance::minimum_balance() + T::Deposit::get(),
+		);
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
 
@@ -66,7 +75,10 @@ mod benchmarks {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();
-		T::NativeBalance::set_balance(&caller, T::NativeBalance::minimum_balance() + T::Deposit::get());
+		T::NativeBalance::set_balance(
+			&caller,
+			T::NativeBalance::minimum_balance() + T::Deposit::get(),
+		);
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
 
@@ -82,10 +94,16 @@ mod benchmarks {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let original: T::AccountId = account("original", 0, SEED);
-		T::NativeBalance::set_balance(&original, T::NativeBalance::minimum_balance() + T::Deposit::get());
+		T::NativeBalance::set_balance(
+			&original,
+			T::NativeBalance::minimum_balance() + T::Deposit::get(),
+		);
 		let recipient: T::AccountId = account("recipient", 0, SEED);
 		let recipient_lookup = T::Lookup::unlookup(recipient.clone());
-		T::NativeBalance::set_balance(&recipient, T::NativeBalance::minimum_balance() + T::Deposit::get());
+		T::NativeBalance::set_balance(
+			&recipient,
+			T::NativeBalance::minimum_balance() + T::Deposit::get(),
+		);
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(original).into(), account_index)?;
 
@@ -101,7 +119,10 @@ mod benchmarks {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();
-		T::NativeBalance::set_balance(&caller, T::NativeBalance::minimum_balance() + T::Deposit::get());
+		T::NativeBalance::set_balance(
+			&caller,
+			T::NativeBalance::minimum_balance() + T::Deposit::get(),
+		);
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
 
