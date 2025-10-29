@@ -32,11 +32,11 @@ use frame_support::{
 use frame_support::pallet_prelude::TypeInfo;
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_referenda::{Curve, Track, TrackInfo, TracksInfo};
-use frame_support::traits::QueryPreimage;
- use sp_runtime::{
+use frame_support::traits::{QueryPreimage, StorePreimage};
+use sp_runtime::{
 	str_array as s,
 	traits::{BlakeTwo256, Hash,IdentityLookup},
-	BuildStorage, DispatchResult, Perbill, AccountId32,
+	BuildStorage, Perbill, AccountId32,
 
 };
 
@@ -321,6 +321,25 @@ pub fn note_preimage(who: AccountId32) -> <Test as frame_system::Config>::Hash {
 	let hash = BlakeTwo256::hash(&data);
 	assert!(!Preimage::is_requested(&hash));
 	hash
+}
+// ====== helper functions =====
+pub fn set_balance_proposal_bounded(value: u128) -> BoundedCallOf<Test, ()> {
+	let who = AccountId32::new([42u8; 32]);
+	let c = RuntimeCall::Balances(pallet_balances::Call::force_set_balance {
+		who,
+		new_free: value,
+	});
+	<Preimage as StorePreimage>::bound(c).unwrap()
+}
+
+/// Create a proposal call encoded as bytes for inline submission
+pub fn set_balance_proposal_bytes(value: u128) -> Vec<u8> {
+	let who = AccountId32::new([42u8; 32]);
+	let c = RuntimeCall::Balances(pallet_balances::Call::force_set_balance {
+		who,
+		new_free: value,
+	});
+	c.encode()
 }
 // ====== transaction builder =====
 pub struct ExtBuilder {}
