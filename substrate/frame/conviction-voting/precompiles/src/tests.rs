@@ -3,6 +3,7 @@ use crate::{
 	mock::*,
 	IConvictionVoting::{self},
 };
+use frame_support::traits::VoteTally;
 use pallet_conviction_voting::{AccountVote, Conviction, Event, TallyOf, Vote};
 use pallet_revive::{
 	precompiles::alloy::{
@@ -41,10 +42,23 @@ fn call_precompile(
 	return result.result
 }
 
-fn encode_aye(referendum_index: ReferendumIndex, balance: u128, conviction: u8) -> Vec<u8> {
+fn call_and_check_revert(from: AccountId, encoded_call: Vec<u8>) -> bool {
+	let return_value = match call_precompile(from, encoded_call) {
+		Ok(value) => value,
+		Err(err) => panic!("ConvictionVotingPrecompile call failed with error: {err:?}"),
+	};
+	!return_value.did_revert()
+}
+
+fn encode_standard(
+	referendum_index: ReferendumIndex,
+	aye: bool,
+	balance: u128,
+	conviction: u8,
+) -> Vec<u8> {
 	let call_params = IConvictionVoting::voteStandardCall {
 		referendumIndex: referendum_index,
-		aye: true,
+		aye,
 		conviction: conviction.try_into().unwrap(),
 		balance,
 	};
@@ -52,18 +66,7 @@ fn encode_aye(referendum_index: ReferendumIndex, balance: u128, conviction: u8) 
 	call.abi_encode()
 }
 
-fn encode_nay(referendum_index: ReferendumIndex, balance: u128, conviction: u8) -> Vec<u8> {
-	let call_params = IConvictionVoting::voteStandardCall {
-		referendumIndex: referendum_index,
-		aye: false,
-		conviction: conviction.try_into().unwrap(),
-		balance,
-	};
-	let call = IConvictionVoting::IConvictionVotingCalls::voteStandard(call_params);
-	call.abi_encode()
-}
-
-fn encode_split(referendum_index: ReferendumIndex, aye: u128, nay: u128) -> Vec<u8> {
+fn encode_split(referendum_index: ReferendumIndex, aye: Balance, nay: Balance) -> Vec<u8> {
 	let call_params = IConvictionVoting::voteSplitCall {
 		referendumIndex: referendum_index,
 		ayeAmount: aye,
@@ -73,14 +76,37 @@ fn encode_split(referendum_index: ReferendumIndex, aye: u128, nay: u128) -> Vec<
 	call.abi_encode()
 }
 
-fn encode_split_abstain(referendum_index: ReferendumIndex, aye: u128, nay: u128, abstain: u128) -> Vec<u8> {
+fn encode_split_abstain(
+	referendum_index: ReferendumIndex,
+	aye: Balance,
+	nay: Balance,
+	abstain: u128,
+) -> Vec<u8> {
 	let call_params = IConvictionVoting::voteSplitAbstainCall {
 		referendumIndex: referendum_index,
 		ayeAmount: aye,
 		nayAmount: nay,
-		abstainAmount: abstain
+		abstainAmount: abstain,
 	};
 	let call = IConvictionVoting::IConvictionVotingCalls::voteSplitAbstain(call_params);
+	call.abi_encode()
+}
+
+fn encode_delegate(track_id: TrackId, to: AccountId, conviction: u8, balance: Balance) -> Vec<u8> {
+	let mapped_to = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
+	let call_params = IConvictionVoting::delegateCall {
+		trackId: track_id,
+		to: mapped_to.0.into(),
+		conviction: conviction.try_into().unwrap(),
+		balance,
+	};
+	let call = IConvictionVoting::IConvictionVotingCalls::delegate(call_params);
+	call.abi_encode()
+}
+
+fn encode_undelegate(track_id: TrackId) -> Vec<u8> {
+	let call_params = IConvictionVoting::undelegateCall { trackId: track_id };
+	let call = IConvictionVoting::IConvictionVotingCalls::undelegate(call_params);
 	call.abi_encode()
 }
 
@@ -89,7 +115,7 @@ fn test_vote_standard_encoding() {
 	let referendum_index = 3u32;
 	let balance = 2u128;
 
-	let encoded_call = encode_aye(referendum_index, balance, 5);
+	let encoded_call = encode_standard(referendum_index, true, balance, 5);
 
 	let decoded_call = IConvictionVoting::voteStandardCall::abi_decode(&encoded_call).unwrap();
 
@@ -103,9 +129,9 @@ fn test_vote_standard_precompile_works() {
 		let balance = 2u128;
 		let conviction = 5u8;
 
-		let encoded_call = encode_aye(referendum_index, balance, conviction);
+		let encoded_call = encode_standard(referendum_index, true, balance, conviction);
 
-		assert!(call_precompile(ALICE, encoded_call).is_ok());
+		assert!(call_and_check_revert(ALICE, encoded_call));
 
 		let vote = Vote { aye: true, conviction: Conviction::Locked5x };
 		System::assert_last_event(tests::RuntimeEvent::ConvictionVoting(Event::Voted {
@@ -115,8 +141,8 @@ fn test_vote_standard_precompile_works() {
 		}));
 		assert_eq!(tally(referendum_index), Tally::from_parts(10, 0, 2));
 
-		let encoded_call = encode_nay(referendum_index, balance, conviction);
-		assert!(call_precompile(BOB, encoded_call).is_ok());
+		let encoded_call = encode_standard(referendum_index, false, balance, conviction);
+		assert!(call_and_check_revert(BOB, encoded_call));
 
 		let vote = Vote { aye: false, conviction: Conviction::Locked5x };
 		System::assert_last_event(tests::RuntimeEvent::ConvictionVoting(Event::Voted {
@@ -133,7 +159,6 @@ fn test_vote_split_encoding() {
 		let referendum_index = 3u32;
 		let aye_amount = 10u128;
 		let nay_amount = 5u128;
-
 
 		let encoded_call = encode_split(referendum_index, aye_amount, nay_amount);
 
@@ -152,7 +177,7 @@ fn test_vote_split_works() {
 
 		let encoded_call = encode_split(referendum_index, aye_amount, nay_amount);
 
-		assert!(call_precompile(ALICE, encoded_call).is_ok());
+		assert!(call_and_check_revert(ALICE, encoded_call));
 
 		System::assert_last_event(tests::RuntimeEvent::ConvictionVoting(Event::Voted {
 			who: ALICE,
@@ -171,8 +196,8 @@ fn test_vote_split_abstain_encoding() {
 		let nay_amount = 5u128;
 		let abstain_amount = 15u128;
 
-
-		let encoded_call = encode_split_abstain(referendum_index, aye_amount, nay_amount, abstain_amount);
+		let encoded_call =
+			encode_split_abstain(referendum_index, aye_amount, nay_amount, abstain_amount);
 
 		let decoded_call =
 			IConvictionVoting::voteSplitAbstainCall::abi_decode(&encoded_call).unwrap();
@@ -189,10 +214,10 @@ fn test_vote_split_abstain_works() {
 		let nay_amount = 5u128;
 		let abstain_amount = 15u128;
 
-		
-		let encoded_call = encode_split_abstain(referendum_index, aye_amount, nay_amount, abstain_amount);
+		let encoded_call =
+			encode_split_abstain(referendum_index, aye_amount, nay_amount, abstain_amount);
 
-		assert!(call_precompile(ALICE, encoded_call).is_ok());
+		assert!(call_and_check_revert(ALICE, encoded_call));
 
 		System::assert_last_event(tests::RuntimeEvent::ConvictionVoting(Event::Voted {
 			who: ALICE,
@@ -204,21 +229,56 @@ fn test_vote_split_abstain_works() {
 }
 
 #[test]
-fn test_vote_not_ongoing_fails() {
+fn test_vote_not_ongoing_error() {
 	new_test_ext().execute_with(|| {
 		let referendum_index = 1u32;
 		let aye_amount = 10u128;
 		let nay_amount = 5u128;
 		let abstain_amount = 15u128;
 
+		let encoded_call =
+			encode_split_abstain(referendum_index, aye_amount, nay_amount, abstain_amount);
 
-		let encoded_call = encode_split_abstain(referendum_index, aye_amount, nay_amount, abstain_amount);
-		let return_value = match call_precompile(ALICE, encoded_call) {
-			Ok(value) => value,
-			Err(err) => panic!("ConvictionVotingPrecompile call failed with error: {err:?}"),
-		};
+		assert!(!call_and_check_revert(ALICE, encoded_call));
+	})
+}
 
-		assert!(return_value.did_revert());
+#[test]
+fn test_vote_insufficient_funds_error() {
+	new_test_ext_with_balances(vec![(ALICE, 2u128)]).execute_with(|| {
+		let referendum_index = 3u32;
+		let aye_amount = 10u128;
+		let nay_amount = 5u128;
+		let abstain_amount = 15u128;
+
+		let encoded_call =
+			encode_split_abstain(referendum_index, aye_amount, nay_amount, abstain_amount);
+
+		assert!(!call_and_check_revert(ALICE, encoded_call));
+	})
+}
+
+#[test]
+fn test_vote_already_delegating_error() {
+	new_test_ext().execute_with(|| {
+		Polls::set(vec![(0, TestPollState::Ongoing(Tally::new(0), 0))].into_iter().collect());
+
+		let track_id = 0u16;
+		let referendum_index = 0u32;
+		let balance = 10u128;
+		let conviction = 1u8;
+
+		assert!(call_and_check_revert(
+			BOB,
+			encode_standard(referendum_index, true, balance, conviction)
+		));
+
+		assert!(call_and_check_revert(ALICE, encode_delegate(track_id, BOB, conviction, balance)));
+
+		assert!(!call_and_check_revert(
+			ALICE,
+			encode_standard(referendum_index, true, balance, conviction)
+		));
 	})
 }
 
@@ -229,12 +289,210 @@ fn test_vote_lock_balances_works() {
 		let vote_balance = 2u128;
 		let conviction = 5u8;
 
-		let encoded_call = encode_aye(referendum_index, vote_balance, conviction);
+		let encoded_call = encode_standard(referendum_index, true, vote_balance, conviction);
 
 		let prev_balance = Balances::usable_balance(ALICE);
 
-		assert!(call_precompile(ALICE, encoded_call).is_ok());
+		assert!(call_and_check_revert(ALICE, encoded_call));
 
 		assert_eq!(Balances::usable_balance(ALICE), prev_balance.saturating_sub(vote_balance));
+	});
+}
+
+#[test]
+fn test_delegate_encoding() {
+	new_test_ext().execute_with(|| {
+		let balance = 10u128;
+
+		let encoded_call = encode_delegate(1, BOB, 1, balance);
+
+		let decoded_call = IConvictionVoting::delegateCall::abi_decode(&encoded_call).unwrap();
+
+		assert_eq!(decoded_call.balance, balance);
+	});
+}
+
+#[test]
+fn test_undelegate_encoding() {
+	new_test_ext().execute_with(|| {
+		let track_id = 2u16;
+
+		let encoded_call = encode_undelegate(track_id);
+
+		let decoded_call = IConvictionVoting::undelegateCall::abi_decode(&encoded_call).unwrap();
+
+		assert_eq!(decoded_call.trackId, track_id);
+	});
+}
+
+#[test]
+fn test_delegation_precompile_works() {
+	new_test_ext().execute_with(|| {
+		let balance = 5u128;
+		let conviction = 1u8;
+
+		Polls::set(
+			vec![
+				(0, TestPollState::Ongoing(Tally::new(0), 0)),
+				(1, TestPollState::Ongoing(Tally::new(0), 1)),
+				(2, TestPollState::Ongoing(Tally::new(0), 2)),
+				(3, TestPollState::Ongoing(Tally::new(0), 2)),
+			]
+			.into_iter()
+			.collect(),
+		);
+
+		let prev_balance = Balances::usable_balance(ALICE);
+
+		let targets = [BOB, CHARLIE, DAVE];
+		// delegates class-wise to a different person
+		for (track, to) in targets.iter().enumerate() {
+			let encoded_call =
+				encode_delegate(track.try_into().unwrap(), to.clone(), conviction, balance);
+			assert!(call_and_check_revert(ALICE, encoded_call));
+		}
+		System::assert_last_event(tests::RuntimeEvent::ConvictionVoting(Event::Delegated(
+			ALICE, DAVE, 2,
+		)));
+		assert_eq!(Balances::usable_balance(ALICE), prev_balance.saturating_sub(5u128));
+
+		let target_voting_balance = 10u128;
+		let target_voting_conviction = 0u8;
+		for (to_idx, to) in targets.iter().enumerate() {
+			for referendum_index in 0..=2 {
+				let encoded_call = encode_standard(
+					referendum_index,
+					// See ../tests.rs, we want to keep test simmilar...
+					to_idx == referendum_index as usize,
+					target_voting_balance,
+					target_voting_conviction,
+				);
+				assert!(call_and_check_revert(to.clone(), encoded_call));
+			}
+		}
+
+		assert_eq!(
+			Polls::get(),
+			vec![
+				(0, TestPollState::Ongoing(Tally::from_parts(6, 2, 15), 0)),
+				(1, TestPollState::Ongoing(Tally::from_parts(6, 2, 15), 1)),
+				(2, TestPollState::Ongoing(Tally::from_parts(6, 2, 15), 2)),
+				(3, TestPollState::Ongoing(Tally::from_parts(0, 0, 0), 2)),
+			]
+			.into_iter()
+			.collect()
+		);
+
+		// DAVE votes nay to 3
+		let referendum_index = 3u32;
+		let encoded_call = encode_standard(
+			referendum_index,
+			false,
+			target_voting_balance,
+			target_voting_conviction,
+		);
+		assert!(call_and_check_revert(DAVE, encoded_call));
+
+		assert_eq!(
+			Polls::get(),
+			vec![
+				(0, TestPollState::Ongoing(Tally::from_parts(6, 2, 15), 0)),
+				(1, TestPollState::Ongoing(Tally::from_parts(6, 2, 15), 1)),
+				(2, TestPollState::Ongoing(Tally::from_parts(6, 2, 15), 2)),
+				(3, TestPollState::Ongoing(Tally::from_parts(0, 6, 0), 2)),
+			]
+			.into_iter()
+			.collect()
+		);
+
+		// ALICE redelegates for class 2 to CHARLIE
+		let track_id = 2u16;
+		assert!(call_and_check_revert(ALICE, encode_undelegate(track_id)));
+		assert!(call_and_check_revert(ALICE, encode_delegate(track_id, CHARLIE, 1, 5)));
+		assert_eq!(
+			Polls::get(),
+			vec![
+				(0, TestPollState::Ongoing(Tally::from_parts(6, 2, 15), 0)),
+				(1, TestPollState::Ongoing(Tally::from_parts(6, 2, 15), 1)),
+				(2, TestPollState::Ongoing(Tally::from_parts(1, 7, 10), 2)),
+				(3, TestPollState::Ongoing(Tally::from_parts(0, 1, 0), 2)),
+			]
+			.into_iter()
+			.collect()
+		);
+	});
+}
+
+#[test]
+fn test_delegate_already_delegating_error() {
+	new_test_ext().execute_with(|| {
+		let target = BOB;
+		let track_id = 0u16;
+		let balance = 10u128;
+		let conviction = 0u8;
+		assert!(call_and_check_revert(
+			ALICE,
+			encode_delegate(track_id, target, conviction, balance)
+		));
+		assert!(!call_and_check_revert(
+			ALICE,
+			encode_delegate(track_id, CHARLIE, conviction, balance)
+		));
+	});
+}
+
+#[test]
+fn test_delegate_bad_class_error() {
+	new_test_ext().execute_with(|| {
+		let target = BOB;
+		let balance = 10u128;
+		let conviction = 0u8;
+		assert!(!call_and_check_revert(
+			ALICE,
+			encode_delegate(1010u16, target, conviction, balance)
+		));
+	});
+}
+
+#[test]
+fn test_delegate_insufficient_funds_error() {
+	new_test_ext_with_balances(vec![(ALICE, 2)]).execute_with(|| {
+		let target = BOB;
+		let track_id = 0u16;
+		let balance = 10u128;
+		let conviction = 0u8;
+		assert!(!call_and_check_revert(
+			ALICE,
+			encode_delegate(track_id, target, conviction, balance)
+		));
+	});
+}
+
+#[test]
+fn test_delegate_already_voting_error() {
+	new_test_ext().execute_with(|| {
+		Polls::set(vec![(0, TestPollState::Ongoing(Tally::new(0), 0))].into_iter().collect());
+
+		let target = BOB;
+		let track_id = 0u16;
+		let referendum_index = 0u32;
+		let balance = 10u128;
+		let conviction = 0u8;
+		assert!(call_and_check_revert(
+			ALICE,
+			encode_standard(referendum_index, false, balance, conviction)
+		));
+		assert!(!call_and_check_revert(
+			ALICE,
+			encode_delegate(track_id, target, conviction, balance)
+		));
+	});
+}
+
+#[test]
+fn test_undelegate_not_delegating_error() {
+	new_test_ext().execute_with(|| {
+		let track_id = 0u16;
+		assert!(!call_and_check_revert(ALICE, encode_undelegate(track_id)));
 	});
 }

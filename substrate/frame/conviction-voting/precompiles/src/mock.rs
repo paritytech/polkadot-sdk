@@ -20,6 +20,7 @@ use crate::ConvictionVotingPrecompile;
 pub const ALICE: AccountId32 = AccountId::new([0u8; 32]);
 pub const BOB: AccountId32 = AccountId::new([1u8; 32]);
 pub const CHARLIE: AccountId32 = AccountId::new([2u8; 32]);
+pub const DAVE: AccountId32 = AccountId::new([3u8; 32]);
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -243,15 +244,40 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	let initial_balance = Balance::MAX.saturating_div(100000);
-	let balances =
-		vec![(ALICE, initial_balance), (BOB, initial_balance), (CHARLIE, initial_balance)];
+	let balances = vec![
+		(ALICE, initial_balance),
+		(BOB, initial_balance),
+		(CHARLIE, initial_balance),
+		(DAVE, initial_balance),
+	];
 
 	pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
 	pallet_revive::GenesisConfig::<Test> {
-		mapped_accounts: vec![ALICE, BOB],
+		mapped_accounts: vec![ALICE, BOB, CHARLIE, DAVE],
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
+
+	let mut ext = sp_io::TestExternalities::new(t);
+	ext.execute_with(|| System::set_block_number(1));
+	ext
+}
+
+pub(crate) fn new_test_ext_with_balances(
+	balances: Vec<(AccountId, Balance)>,
+) -> sp_io::TestExternalities {
+	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+
+	pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
+		.assimilate_storage(&mut t)
+		.unwrap();
+
+	pallet_revive::GenesisConfig::<Test> {
+		mapped_accounts: vec![ALICE, BOB, CHARLIE, DAVE],
 		..Default::default()
 	}
 	.assimilate_storage(&mut t)
