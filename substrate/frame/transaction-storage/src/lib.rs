@@ -189,11 +189,13 @@ pub mod pallet {
 					let target_number = number.saturating_sub(period);
 
 					target_number.is_zero() || {
-						// An empty block means no transactions were stored, relying on the fact below
-						// that we store transactions only if they contain chunks.
+						// An empty block means no transactions were stored, relying on the fact
+						// below that we store transactions only if they contain chunks.
 						//
-						// Optimization: do not decode transactions; just get their length. Otherwise, it would look like:
-						// `Transactions::<T>::get(target_number).map(|txs| TransactionInfo::total_chunks(&txs)).unwrap_or_default()`
+						// Optimization: do not decode transactions; just get their length.
+						// Otherwise, it would look like:
+						// `Transactions::<T>::get(target_number).map(|txs|
+						// TransactionInfo::total_chunks(&txs)).unwrap_or_default()`
 						Transactions::<T>::decode_len(target_number).unwrap_or_default() == 0
 					}
 				},
@@ -327,11 +329,7 @@ pub mod pallet {
 
 			// Verify the proof with a "random" chunk (randomness is based on the parent hash).
 			let parent_hash = frame_system::Pallet::<T>::parent_hash();
-			Self::verify_chunk_proof(
-				proof,
-				parent_hash.as_ref(),
-				transactions.to_vec(),
-			)?;
+			Self::verify_chunk_proof(proof, parent_hash.as_ref(), transactions.to_vec())?;
 			ProofChecked::<T>::put(true);
 			Self::deposit_event(Event::ProofChecked);
 			Ok(().into())

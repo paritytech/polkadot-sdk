@@ -175,10 +175,7 @@ fn renews_data() {
 		run_to_block(1, || None);
 		let caller = 1;
 		assert_noop!(
-			TransactionStorage::<Test>::store(
-				RawOrigin::Signed(caller).into(),
-				vec![]
-			),
+			TransactionStorage::<Test>::store(RawOrigin::Signed(caller).into(), vec![]),
 			Error::<Test>::EmptyTransaction
 		);
 		assert_ok!(TransactionStorage::<Test>::store(

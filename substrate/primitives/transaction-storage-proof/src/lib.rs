@@ -198,7 +198,8 @@ pub mod registration {
 		transactions: Vec<Vec<u8>>,
 	) -> Result<Option<TransactionStorageProof>, Error> {
 		// Get total chunks, we will need it to generate a random chunk index.
-		let total_chunks: ChunkIndex = transactions.iter().map(|t| num_chunks(t.len() as u32)).sum();
+		let total_chunks: ChunkIndex =
+			transactions.iter().map(|t| num_chunks(t.len() as u32)).sum();
 		if total_chunks.is_zero() {
 			return Ok(None);
 		}
