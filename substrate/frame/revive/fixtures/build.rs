@@ -50,12 +50,12 @@ enum ContractType {
 
 /// Type of EVM bytecode to extract from Solidity compiler output.
 #[derive(Clone, Copy)]
-enum BytecodeType {
+enum EvmByteCodeType {
 	InitCode,
 	RuntimeCode,
 }
 
-impl BytecodeType {
+impl EvmByteCodeType {
 	fn json_key(&self) -> &'static str {
 		match self {
 			Self::InitCode => "bytecode",
@@ -318,7 +318,7 @@ fn extract_and_write_bytecode(
 	compiler_json: &serde_json::Value,
 	out_dir: &Path,
 	file_suffix: &str,
-	bytecode_type: BytecodeType,
+	bytecode_type: EvmByteCodeType,
 ) -> Result<()> {
 	if let Some(contracts) = compiler_json["contracts"].as_object() {
 		for (_file_key, file_contracts) in contracts {
@@ -377,12 +377,12 @@ fn compile_solidity_contracts(
 
 	// Compile with solc for EVM bytecode
 	let json = compile_with_standard_json("solc", contracts_dir, &solidity_entries)?;
-	extract_and_write_bytecode(&json, out_dir, ".sol.bin", BytecodeType::InitCode)?;
-	extract_and_write_bytecode(&json, out_dir, ".sol.runtime.bin", BytecodeType::RuntimeCode)?;
+	extract_and_write_bytecode(&json, out_dir, ".sol.bin", EvmByteCodeType::InitCode)?;
+	extract_and_write_bytecode(&json, out_dir, ".sol.runtime.bin", EvmByteCodeType::RuntimeCode)?;
 
 	// Compile with resolc for PVM bytecode
 	let json = compile_with_standard_json("resolc", contracts_dir, &solidity_entries_pvm)?;
-	extract_and_write_bytecode(&json, out_dir, ".resolc.polkavm", BytecodeType::InitCode)?;
+	extract_and_write_bytecode(&json, out_dir, ".resolc.polkavm", EvmByteCodeType::InitCode)?;
 
 	Ok(())
 }
