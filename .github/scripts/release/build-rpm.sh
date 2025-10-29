@@ -30,6 +30,9 @@ cp "${SOURCE_DIR}/${PRODUCT}-execute-worker" "${STAGING_DIR}/usr/lib/${PRODUCT}/
 # MODIFIED PATH: Prefixed with the subdirectory name
 cp "polkadot/scripts/packaging/polkadot.service" "${STAGING_DIR}/usr/lib/systemd/system/"
 
+# Create default config file
+echo 'POLKADOT_CLI_ARGS=""' > "$STAGING_DIR/etc/default/polkadot"
+
 # 3. Use fpm to package the staging directory into an RPM
 # fpm config file .fpm is located in the polkadot-sdk root directory
 echo "🎁 Running fpm to create the RPM package..."
