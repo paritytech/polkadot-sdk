@@ -21,7 +21,6 @@ fi
 # Set correct permissions for binaries and service files
 echo "Setting file permissions..."
 chmod 755 /usr/bin/polkadot || true
-chmod 755 /usr/lib/polkadot || true
 chmod 755 /usr/lib/polkadot/* || true
 chmod 644 /usr/lib/systemd/system/polkadot.service || true
 
