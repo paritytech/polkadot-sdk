@@ -13903,7 +13903,6 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
- "tiny-keccak",
  "tokio",
  "xcm-runtime-apis",
 ]
