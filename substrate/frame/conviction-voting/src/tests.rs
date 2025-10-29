@@ -1748,6 +1748,52 @@ fn delegation_info_is_set() {
 	});
 }
 
+#[test]
+fn no_chained_delegation() {
+    new_test_ext().execute_with(|| {
+        let a = 1;
+        let b = 2;
+        let c = 3;
+        let poll = 0;
+        let class = 0;
+
+		// Set up poll.
+        Polls::set(vec![(poll, Ongoing(Tally::new(0), class))].into_iter().collect());
+
+        // Set up delegation chain.
+        assert_ok!(Voting::delegate(RuntimeOrigin::signed(a), class, b, Conviction::Locked1x, 10));
+        assert_ok!(Voting::delegate(RuntimeOrigin::signed(b), class, c, Conviction::Locked1x, 20));
+
+		// C's delegation includes only B.
+        assert_eq!(
+            VotingFor::<Test>::get(c, class).delegations,
+            Delegations { votes: 20, capital: 20 }
+        );
+        // B's only includes A's.
+        assert_eq!(
+            VotingFor::<Test>::get(b, class).delegations,
+            Delegations { votes: 10, capital: 10 }
+        );
+        // A has none.
+        assert_eq!(
+            VotingFor::<Test>::get(a, class).delegations,
+            Delegations { votes: 0, capital: 0 }
+        );
+
+		// Voting gives correct tallies C -> B -> A.
+        assert_ok!(Voting::vote(RuntimeOrigin::signed(c), poll, aye(30, 1)));
+        assert_eq!(tally(poll), Tally::from_parts(50, 0, 50));
+
+		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(c), class));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(b), poll, nay(20, 1)));
+        assert_eq!(tally(poll), Tally::from_parts(30, 30, 30));
+
+		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(b), class));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(a), poll, aye(10, 1)));
+        assert_eq!(tally(poll), Tally::from_parts(40, 20, 40));
+    });
+}
+
 thread_local! {
 	static LAST_ON_VOTE_DATA: RefCell<Option<(u64, u8, AccountVote<u64>)>> = RefCell::new(None);
 	static LAST_ON_REMOVE_VOTE_DATA: RefCell<Option<(u64, u8, Status)>> = RefCell::new(None);
