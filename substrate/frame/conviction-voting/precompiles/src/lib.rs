@@ -26,11 +26,11 @@ use frame_support::{
 	sp_runtime::traits::StaticLookup,
 	traits::{Currency, Get, Polling},
 };
-use pallet_conviction_voting::{AccountVote, Config, Conviction, Tally, Vote, WeightInfo};
+use pallet_conviction_voting::{AccountVote, Config, Conviction, Tally, Vote, Voting, WeightInfo};
 use pallet_revive::{
 	frame_system,
 	precompiles::{
-		alloy::{self},
+		alloy::{self, sol_types::{SolValue}},
 		AddressMatcher, Error, Ext, Precompile,
 	},
 	AddressMapper, ExecOrigin as Origin, H160,
@@ -196,6 +196,64 @@ where
 				.map(|_| Vec::new())
 				.map_err(|error| revert(&error, "ConvictionVoting: undelegation failed"))
 			},
+			IConvictionVotingCalls::getVoting(IConvictionVoting::getVotingCall {
+				who,
+				trackId,
+				referendumIndex,
+			}) => {
+				let who_account_id = T::AddressMapper::to_account_id(&H160::from(who.0 .0));
+				let track_id = Self::u16_to_track_id(trackId)?;
+				let referendum_index = Self::u32_to_referendum_index(referendumIndex)?;
+
+				Ok(pallet_conviction_voting::VotingFor::<T>::try_get(
+					who_account_id,
+					track_id,
+				)
+				.ok()
+				.and_then(|voting| {
+					match voting {
+						// If vote is not found, the map returns None and its later defaulted by
+						// `unwrap_or_else`
+						Voting::Casting(casting) => casting
+							.votes
+							.iter()
+							.find(|(poll_idx, _)| *poll_idx == referendum_index)
+							.map(|(_, account_vote)| match account_vote {
+								AccountVote::Standard { vote, balance } => (
+									true,
+									IConvictionVoting::VotingType::Standard,
+									vote.aye,
+									Self::balance_to_u128(balance) * (vote.aye as u128),
+									Self::balance_to_u128(balance) * (vote.aye as u128),
+									0u128,
+									Self::from_conviction(vote.conviction),
+								),
+								AccountVote::Split { aye, nay } => (
+									true,
+									IConvictionVoting::VotingType::Split,
+									false,
+									Self::balance_to_u128(aye),
+									Self::balance_to_u128(nay),
+									0u128,
+									IConvictionVoting::Conviction::None,
+								),
+								AccountVote::SplitAbstain { aye, nay, abstain } => (
+									true,
+									IConvictionVoting::VotingType::Split,
+									false,
+									Self::balance_to_u128(aye),
+									Self::balance_to_u128(nay),
+									Self::balance_to_u128(abstain),
+									IConvictionVoting::Conviction::None,
+								),
+							}),
+						Voting::Delegating(_) => None, /* propagate the None option to return
+						                                * default
+						                                * voting */
+					}
+				})
+				.map_or_else(|| Self::get_voting_default().abi_encode(), |res| res.abi_encode()))
+			},
 			_ => todo!(),
 		}
 	}
@@ -222,10 +280,28 @@ where
 		.map_err(|error| revert(&error, "ConvictionVoting: vote failed"))
 	}
 
+	fn get_voting_default(
+	) -> (bool, IConvictionVoting::VotingType, bool, u128, u128, u128, IConvictionVoting::Conviction)
+	{
+		(
+			false,
+			IConvictionVoting::VotingType::Standard,
+			false,
+			0,
+			0,
+			0,
+			IConvictionVoting::Conviction::None,
+		)
+	}
+
 	fn u128_to_balance(balance: &u128) -> Result<BalanceOf<T>, Error> {
 		(*balance)
 			.try_into()
 			.map_err(|_| Error::Revert("ConvictionVoting: balance is too large".into()))
+	}
+
+	fn balance_to_u128(balance: &BalanceOf<T>) -> u128 {
+		(*balance).into()
 	}
 
 	fn u16_to_track_id(track_id: &u16) -> Result<ClassOf<T>, Error> {
@@ -251,6 +327,18 @@ where
 			IConvictionVoting::Conviction::Locked6x => Ok(Conviction::Locked6x),
 			IConvictionVoting::Conviction::__Invalid =>
 				Err(Error::Revert("ConvictionVoting: Invalid conviction value".into())),
+		}
+	}
+
+	fn from_conviction(conviction: Conviction) -> IConvictionVoting::Conviction {
+		match conviction {
+			Conviction::None => IConvictionVoting::Conviction::None,
+			Conviction::Locked1x => IConvictionVoting::Conviction::Locked1x,
+			Conviction::Locked2x => IConvictionVoting::Conviction::Locked2x,
+			Conviction::Locked3x => IConvictionVoting::Conviction::Locked3x,
+			Conviction::Locked4x => IConvictionVoting::Conviction::Locked4x,
+			Conviction::Locked5x => IConvictionVoting::Conviction::Locked5x,
+			Conviction::Locked6x => IConvictionVoting::Conviction::Locked6x,
 		}
 	}
 }
