@@ -115,7 +115,7 @@ impl sp_inherents::InherentDataProvider for InherentDataProvider {
 
 /// A utility function to extract a chunk index from the source of randomness.
 ///
-/// # Panics 
+/// # Panics
 ///
 /// This function panics if `total_chunks` is `0`.
 pub fn random_chunk(random_hash: &[u8], total_chunks: u32) -> u32 {
@@ -148,7 +148,7 @@ pub trait IndexedBody<B: BlockT> {
 	/// that are indexed by the runtime with `storage_index_transaction`.
 	fn block_indexed_body(&self, number: NumberFor<B>) -> Result<Option<Vec<Vec<u8>>>, Error>;
 
-	/// Get block number for a block hash.
+	/// Get a block number for a block hash.
 	fn number(&self, hash: B::Hash) -> Result<Option<NumberFor<B>>, Error>;
 }
 
@@ -180,7 +180,7 @@ pub mod registration {
 		}
 
 		let proof = match client.block_indexed_body(number)? {
-			Some(transactions) => Some(build_proof(parent.as_ref(), transactions)?),
+			Some(transactions) => build_proof(parent.as_ref(), transactions)?,
 			None => {
 				// Nothing was indexed in that block.
 				None
@@ -193,24 +193,19 @@ pub mod registration {
 	pub fn build_proof(
 		random_hash: &[u8],
 		transactions: Vec<Vec<u8>>,
-	) -> Result<TransactionStorageProof, Error> {
+	) -> Result<Option<TransactionStorageProof>, Error> {
 		// Get total chunks, we will need it to generate a random chunk index.
 		let total_chunks: u32 = transactions.iter().map(|t| num_chunks(t.len() as u32)).sum();
 		if total_chunks.is_zero() {
-			const MSG: &str = "No chunks to build proof for.";
-			return Err(Error::Application(Box::from(MSG)));
+			return Ok(None);
 		}
-		let target_chunk_index = random_chunk(random_hash, total_chunks);
-
-		let mut db = sp_trie::MemoryDB::<Hasher>::default();
-		let mut target_chunk = None;
-		let mut target_root = Default::default();
-		let mut target_chunk_key = Default::default();
-		let mut chunk_proof = Default::default();
+		let selected_chunk_index = random_chunk(random_hash, total_chunks);
 
 		// Generate tries for each transaction.
 		let mut chunk_index = 0;
 		for transaction in transactions {
+			let mut selected_chunk_and_key = None;
+			let mut db = sp_trie::MemoryDB::<Hasher>::default();
 			let mut transaction_root = sp_trie::empty_trie_root::<TrieLayout>();
 			{
 				let mut trie =
@@ -220,33 +215,39 @@ pub mod registration {
 				for (index, chunk) in chunks.enumerate() {
 					let index = encode_index(index as u32);
 					trie.insert(&index, &chunk).map_err(|e| Error::Application(Box::new(e)))?;
-					if chunk_index == target_chunk_index {
-						target_chunk = Some(chunk);
-						target_chunk_key = index;
+					if chunk_index == selected_chunk_index {
+						selected_chunk_and_key = Some((chunk, index));
 					}
 					chunk_index += 1;
 				}
 				trie.commit();
 			}
-			if target_chunk.is_some() && target_root == Default::default() {
-				target_root = transaction_root;
-				chunk_proof = sp_trie::generate_trie_proof::<TrieLayout, _, _, _>(
+			if let Some((target_chunk, target_chunk_key)) = selected_chunk_and_key {
+				let chunk_proof = sp_trie::generate_trie_proof::<TrieLayout, _, _, _>(
 					&db,
 					transaction_root,
-					&[target_chunk_key.clone()],
+					&[target_chunk_key],
 				)
 				.map_err(|e| Error::Application(Box::new(e)))?;
+
+				// We found the chunk and computed the proof root for the entire transaction,
+				// so there is no need to waste time calculating the subsequent transactions.
+				return Ok(Some(TransactionStorageProof {
+					proof: chunk_proof,
+					chunk: target_chunk,
+				}));
 			}
 		}
 
-		Ok(TransactionStorageProof { proof: chunk_proof, chunk: target_chunk.unwrap() })
+		debug_assert!(false, "No chunk matched the target_chunk_index; logic error");
+		Ok(None)
 	}
 
 	#[test]
 	fn build_proof_check() {
 		use std::str::FromStr;
 		let random = [0u8; 32];
-		let proof = build_proof(&random, vec![vec![42]]).unwrap();
+		let proof = build_proof(&random, vec![vec![42]]).unwrap().unwrap();
 		let root = sp_core::H256::from_str(
 			"0xff8611a4d212fc161dae19dd57f0f1ba9309f45d6207da13f2d3eab4c6839e91",
 		)
@@ -259,7 +260,7 @@ pub mod registration {
 		.unwrap();
 
 		// Fail for empty transactions/chunks.
-		assert!(build_proof(&random, vec![]).is_err());
-		assert!(build_proof(&random, vec![vec![]]).is_err());
+		assert!(build_proof(&random, vec![]).unwrap().is_none());
+		assert!(build_proof(&random, vec![vec![]]).unwrap().is_none());
 	}
 }
