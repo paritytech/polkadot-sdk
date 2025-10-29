@@ -20,14 +20,12 @@
 extern crate alloc;
 
 use alloc::{boxed::Box, vec::Vec};
-use codec::{Decode};
+use codec::Decode;
 
-use core::{fmt, marker::PhantomData, num::NonZero, convert::TryFrom};
-use frame_support::{
-	traits::{schedule::DispatchTime, BoundedInline},
-};
+use core::{convert::TryFrom, fmt, marker::PhantomData, num::NonZero};
+use frame_support::traits::{schedule::DispatchTime, BoundedInline};
 
-use pallet_referenda::{BlockNumberFor, BoundedCallOf, ReferendumCount, PalletsOriginOf};
+use pallet_referenda::{BlockNumberFor, BoundedCallOf, PalletsOriginOf, ReferendumCount};
 use pallet_revive::{
 	frame_system,
 	precompiles::{
@@ -40,8 +38,9 @@ use pallet_revive::{
 use tracing::{error, info};
 
 alloy::sol!("src/interfaces/IReferenda.sol");
+use frame_support::weights::Weight;
+use pallet_referenda::WeightInfo;
 use IReferenda::IReferendaCalls;
-
 const LOG_TARGET: &str = "referenda::precompiles";
 pub type RuntimeOriginFor<T> = <T as frame_system::Config>::RuntimeOrigin;
 
@@ -116,13 +115,10 @@ where
 
 	match result {
 		Ok(_) => {
-			let referendum_index =
-				ReferendumCount::<Runtime, Instance>::get().saturating_sub(1);
+			let referendum_index = ReferendumCount::<Runtime, Instance>::get().saturating_sub(1);
 			Ok(referendum_index)
 		},
-		Err(e) => {
-			Err(revert(&e, "Referenda submission failed"))
-		},
+		Err(e) => Err(revert(&e, "Referenda submission failed")),
 	}
 }
 
@@ -131,7 +127,7 @@ pub struct ReferendaPrecompile<T>(PhantomData<T>);
 impl<Runtime> Precompile for ReferendaPrecompile<Runtime>
 where
 	Runtime: pallet_referenda::Config + pallet_revive::Config,
-	PalletsOriginOf<Runtime>: Decode,  
+	PalletsOriginOf<Runtime>: Decode,
 {
 	type T = Runtime;
 	const MATCHER: AddressMatcher = AddressMatcher::Fixed(NonZero::new(11).unwrap());
@@ -147,7 +143,9 @@ where
 		let exec_origin = env.caller();
 		// match calls
 		match input {
-			IReferendaCalls::submitLookup(_) | IReferendaCalls::submitInline(_)
+			IReferendaCalls::submitLookup(_)
+			| IReferendaCalls::submitInline(_)
+			| IReferendaCalls::placeDecisionDeposit(_)
 				if env.is_read_only() =>
 			{
 				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into()))
@@ -242,7 +240,36 @@ where
 					dispatch_time,
 				)?;
 				Ok(referendum_index.abi_encode())
+			},
+			IReferendaCalls::placeDecisionDeposit(IReferenda::placeDecisionDepositCall {
+				referendumIndex: index,
+			}) => {
+				info!(target: LOG_TARGET, ?index, "placeDecisionDeposit");
+				// 1. Convert EVM caller to transaction origin
+				let origin: RuntimeOriginFor<Runtime> = match &&exec_origin {
+					ExecOrigin::Signed(account_id) => {
+						frame_system::RawOrigin::Signed(account_id.clone()).into()
+					},
+					ExecOrigin::Root => frame_system::RawOrigin::Root.into(),
+				};
+				// 2. Charge gas (max weight for place_decision_deposit across all branches)
 
+				let max_weight = Weight::zero()
+					.max(<Runtime as pallet_referenda::Config>::WeightInfo::place_decision_deposit_preparing())
+					.max(<Runtime as pallet_referenda::Config>::WeightInfo::place_decision_deposit_queued())
+					.max(<Runtime as pallet_referenda::Config>::WeightInfo::place_decision_deposit_not_queued())
+					.max(<Runtime as pallet_referenda::Config>::WeightInfo::place_decision_deposit_passing())
+					.max(<Runtime as pallet_referenda::Config>::WeightInfo::place_decision_deposit_failing());
+				env.charge(max_weight)?;
+
+				// 3. Place deposit
+				let result =
+					pallet_referenda::Pallet::<Runtime>::place_decision_deposit(origin, *index);
+
+				match result {
+					Ok(_) => Ok(Vec::new()),
+					Err(e) => Err(revert(&e, "Referenda place decision deposit failed")),
+				}
 			},
 			_ => Ok(Vec::new()),
 		}
