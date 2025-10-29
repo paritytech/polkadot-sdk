@@ -451,7 +451,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		pub(crate) fn ensure_chunk_proof(
+		pub(crate) fn verify_chunk_proof(
 			proof: TransactionStorageProof,
 			random_hash: &[u8],
 			infos: Vec<TransactionInfo>,
