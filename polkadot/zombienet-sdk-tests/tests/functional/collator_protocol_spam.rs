@@ -75,9 +75,18 @@ async fn collator_protocol_spam() -> Result<(), anyhow::Error> {
 		.into_iter()
 		.map(|v| network.get_node(v).expect("known vals").multiaddr())
 		.collect::<Vec<_>>();
-
+	let rpc_endpoint = relay_node.ws_uri();
 	log::info!("targets: {:?}", addrs);
-	log::info!("RPC endpoint {}", relay_node.ws_uri());
+	log::info!("RPC endpoint {}", rpc_endpoint);
+
+	log::info!(
+		"Commands to run:\n\nmalus collator --genesis-hash {} --para-id 1000 {} {} {}\n\npolkadot-parachain-tracer --ws {} --para-id=1000  cli",
+		genesis_hash,
+		addrs[0],
+		addrs[1],
+		addrs[2],
+		rpc_endpoint
+	);
 
 	log::info!("sleeping");
 	std::thread::sleep(std::time::Duration::from_secs(60 * 60));
