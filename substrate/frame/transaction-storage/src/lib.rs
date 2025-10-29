@@ -312,7 +312,7 @@ pub mod pallet {
 
 			// Verify the proof with a "random" chunk (randomness is based on the parent hash).
 			let parent_hash = frame_system::Pallet::<T>::parent_hash();
-			Self::ensure_chunk_proof(
+			Self::verify_chunk_proof(
 				proof,
 				parent_hash.as_ref(),
 				transactions.to_vec(),
@@ -451,6 +451,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Verifies that the provided proof corresponds to a randomly selected chunk from a list of transactions.
 		pub(crate) fn verify_chunk_proof(
 			proof: TransactionStorageProof,
 			random_hash: &[u8],

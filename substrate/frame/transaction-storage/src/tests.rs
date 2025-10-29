@@ -115,7 +115,7 @@ fn checks_proof() {
 }
 
 #[test]
-fn ensure_chunk_proof_works() {
+fn verify_chunk_proof_works() {
 	new_test_ext().execute_with(|| {
 		// Prepare a bunch of transactions with variable chunk sizes.
 		let transactions = vec![
@@ -160,7 +160,7 @@ fn ensure_chunk_proof_works() {
 			// build/check chunk proof roundtrip
 			let proof =
 				build_proof(random_hash.as_ref(), transactions.clone()).expect("valid proof");
-			assert_ok!(TransactionStorage::<Test>::ensure_chunk_proof(
+			assert_ok!(TransactionStorage::<Test>::verify_chunk_proof(
 				proof,
 				random_hash.as_ref(),
 				tx_infos.to_vec(),

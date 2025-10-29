@@ -5,7 +5,7 @@ doc:
     **This PR:**
 
     * Fixes `check_proof` and its `binary_search_by_key` chunk
-    * Adds the `ensure_chunk_proof_works` test, which covers all possible chunk index build/verify proof roundtrips (to catch all corner cases)
+    * Adds the `verify_chunk_proof_works` test, which covers all possible chunk index build/verify proof roundtrips (to catch all corner cases)
     * Improves docs around `pallet-transaction-storage`
 crates:
 - name: pallet-transaction-storage
