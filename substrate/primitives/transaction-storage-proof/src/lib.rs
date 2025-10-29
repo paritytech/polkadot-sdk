@@ -38,6 +38,9 @@ pub const DEFAULT_STORAGE_PERIOD: u32 = 100800;
 /// Proof trie value size.
 pub const CHUNK_SIZE: usize = 256;
 
+/// Type used for counting/tracking chunks.
+pub type ChunkIndex = u32;
+
 /// Errors that can occur while checking the storage proof.
 #[derive(Encode, sp_runtime::RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Decode))]
@@ -118,7 +121,7 @@ impl sp_inherents::InherentDataProvider for InherentDataProvider {
 /// # Panics
 ///
 /// This function panics if `total_chunks` is `0`.
-pub fn random_chunk(random_hash: &[u8], total_chunks: u32) -> u32 {
+pub fn random_chunk(random_hash: &[u8], total_chunks: ChunkIndex) -> ChunkIndex {
 	let mut buf = [0u8; 8];
 	buf.copy_from_slice(&random_hash[0..8]);
 	let random_u64 = u64::from_be_bytes(buf);
@@ -128,15 +131,15 @@ pub fn random_chunk(random_hash: &[u8], total_chunks: u32) -> u32 {
 /// A utility function to calculate the number of chunks.
 ///
 /// * `bytes` - number of bytes
-pub fn num_chunks(bytes: u32) -> u32 {
+pub fn num_chunks(bytes: u32) -> ChunkIndex {
 	(bytes as u64).div_ceil(CHUNK_SIZE as u64) as u32
 }
 
 /// A utility function to encode the transaction index as a trie key.
 ///
-/// * `input` - chunk index.
-pub fn encode_index(input: u32) -> Vec<u8> {
-	codec::Encode::encode(&codec::Compact(input))
+/// * `index` - chunk index.
+pub fn encode_index(index: ChunkIndex) -> Vec<u8> {
+	codec::Encode::encode(&codec::Compact(index))
 }
 
 /// An interface to request indexed data from the client.
@@ -195,7 +198,7 @@ pub mod registration {
 		transactions: Vec<Vec<u8>>,
 	) -> Result<Option<TransactionStorageProof>, Error> {
 		// Get total chunks, we will need it to generate a random chunk index.
-		let total_chunks: u32 = transactions.iter().map(|t| num_chunks(t.len() as u32)).sum();
+		let total_chunks: ChunkIndex = transactions.iter().map(|t| num_chunks(t.len() as u32)).sum();
 		if total_chunks.is_zero() {
 			return Ok(None);
 		}

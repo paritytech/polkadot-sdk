@@ -43,8 +43,8 @@ use frame_support::{
 };
 use sp_runtime::traits::{BlakeTwo256, Dispatchable, Hash, One, Saturating, Zero};
 use sp_transaction_storage_proof::{
-	encode_index, num_chunks, random_chunk, InherentError, TransactionStorageProof, CHUNK_SIZE,
-	INHERENT_IDENTIFIER,
+	encode_index, num_chunks, random_chunk, ChunkIndex, InherentError, TransactionStorageProof,
+	CHUNK_SIZE, INHERENT_IDENTIFIER,
 };
 
 /// A type alias for the balance type from this pallet's point of view.
@@ -84,7 +84,7 @@ pub struct TransactionInfo {
 	///
 	/// Cumulative value of all previous transactions in the block; the last transaction holds the
 	/// total chunk value.
-	block_chunks: u32,
+	block_chunks: ChunkIndex,
 }
 
 #[frame_support::pallet]
@@ -457,7 +457,7 @@ pub mod pallet {
 			proof: TransactionStorageProof,
 			random_hash: &[u8],
 			infos: Vec<TransactionInfo>,
-			total_chunks: u32,
+			total_chunks: ChunkIndex,
 		) -> Result<(), Error<T>> {
 			ensure!(total_chunks != 0, Error::<T>::UnexpectedProof);
 			ensure!(!infos.is_empty(), Error::<T>::UnexpectedProof);
