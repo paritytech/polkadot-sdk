@@ -75,15 +75,31 @@ impl PerRelayView {
     }
 }
 
+#[derive(Debug, Eq, PartialEq, Clone, Default)]
+struct PerValidatorTally {
+    noshows: u32,
+    approvals: u32,
+}
+
+impl PerValidatorTally {
+    fn increment_noshow(&mut self) {
+        self.noshows += 1;
+    }
+
+    fn increment_approval(&mut self) {
+        self.approvals += 1;
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct PerSessionView {
     authorities_lookup: HashMap<AuthorityDiscoveryId, ValidatorIndex>,
-    finalized_approval_stats: HashMap<CandidateHash, ApprovalsStats>,
+    validators_tallies: HashMap<ValidatorIndex, PerValidatorTally>,
 }
 
 impl PerSessionView {
     fn new(authorities_lookup: HashMap<AuthorityDiscoveryId, ValidatorIndex>) -> Self {
-        Self { authorities_lookup, finalized_approval_stats: HashMap::new() }
+        Self { authorities_lookup, validators_tallies: HashMap::new() }
     }
 }
 
@@ -220,22 +236,34 @@ pub(crate) async fn run_iteration<Context>(
 
                 // so we revert it and check from the oldest to the newest
                 for hash in finalized_hashes.iter().rev() {
-                    match view.per_relay.get(hash) {
-                        Some(rb_view) => {
-                            view.per_session
-                                .get_mut(&rb_view.session_index)
-                                .and_then(|session_view| {
-                                    metrics.record_approvals_stats(
-                                        rb_view.session_index,
-                                        rb_view.approvals_stats.clone());
+                    if let Some((session_idx, approvals_stats)) = view
+                        .per_relay
+                        .remove(hash)
+                        .map(|rb_view| (rb_view.session_index, rb_view.approvals_stats))
+                    {
+                        if let Some(session_view) = view.per_session.get_mut(&session_idx) {
+                            metrics.record_approvals_stats(session_idx, approvals_stats.clone());
 
-                                    session_view.finalized_approval_stats
-                                        .extend(rb_view.approvals_stats.clone());
-                                    Some(session_view)
-                                });
-                            view.per_relay.remove(hash);
+                            for stats in approvals_stats.values() {
+                                // Increment no-show tallies
+                                for &validator_idx in &stats.no_shows {
+                                    session_view
+                                        .validators_tallies
+                                        .entry(validator_idx)
+                                        .or_default()
+                                        .increment_noshow();
+                                }
+
+                                // Increment approval tallies
+                                for &validator_idx in &stats.votes {
+                                    session_view
+                                        .validators_tallies
+                                        .entry(validator_idx)
+                                        .or_default()
+                                        .increment_approval();
+                                }
+                            }
                         }
-                        None => {},
                     }
                 }
             }

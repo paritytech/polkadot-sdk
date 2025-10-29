@@ -591,37 +591,43 @@ fn prune_unfinalized_forks() {
 		expect.clone(),
 	);
 
-	// check if the data was aggregated correctly for the session
-	let expected_session_views = HashMap::from_iter(vec![
-		(0 as SessionIndex, PerSessionView {
-			authorities_lookup: HashMap::new(),
-			finalized_approval_stats: HashMap::from_iter(vec![
-				(
-					candidate_hash_a.clone(),
-					// expected approval stats from a given finalized session
-					// ignoring the stats collected for relay block B
-					ApprovalsStats::new(
-						HashSet::from_iter(vec![ValidatorIndex(2), ValidatorIndex(3)]),
-						HashSet::from_iter(vec![ValidatorIndex(0), ValidatorIndex(1)])
-					),
-				),
-				(
-					candidate_hash_c.clone(),
-					ApprovalsStats::new(
-						HashSet::from_iter(vec![
-							ValidatorIndex(0),
-							ValidatorIndex(1),
-							ValidatorIndex(2)]
-						),
-						Default::default(),
-					),
-				),
-			]),
-		}),
+	// check if the data was aggregated correctly for the session view
+	// it should aggregat approvals and noshows collected on blocks
+	// A and C.
+	// Data collected on block B should be discarded
+	// Data collected on block D should remain in the mapping as it was not finalized or pruned
+	let expected_tallies = HashMap::from_iter(vec![
+		(
+			ValidatorIndex(0),
+			PerValidatorTally {
+				noshows: 1,
+				approvals: 1,
+			},
+		),
+		(
+			ValidatorIndex(1),
+			PerValidatorTally {
+				noshows: 1,
+				approvals: 1,
+			},
+		),
+		(
+			ValidatorIndex(2),
+			PerValidatorTally {
+				noshows: 0,
+				approvals: 2,
+			},
+		),
+		(
+			ValidatorIndex(3),
+			PerValidatorTally {
+				noshows: 0,
+				approvals: 1,
+			},
+		),
 	]);
 
-	assert_eq!(view.per_session, expected_session_views);
-
+	assert_per_session_tallies(&view.per_session, 0, expected_tallies);
 	// creating more 3 relay block (E, F, G), all in session 1
 	// D -> E -> F
 	//        -> G
@@ -699,63 +705,74 @@ fn prune_unfinalized_forks() {
 		expect.clone(),
 	);
 
-	let expected_session_views = HashMap::from_iter(vec![
-		(0 as SessionIndex, PerSessionView {
-			authorities_lookup: HashMap::new(),
-			finalized_approval_stats: HashMap::from_iter(vec![
-				(
-					candidate_hash_a.clone(),
-					// expected approval stats from a given finalized session
-					// ignoring the stats collected for relay block B
-					ApprovalsStats::new(
-						HashSet::from_iter(vec![ValidatorIndex(2), ValidatorIndex(3)]),
-						HashSet::from_iter(vec![ValidatorIndex(0), ValidatorIndex(1)])
-					),
-				),
-				(
-					candidate_hash_c.clone(),
-					ApprovalsStats::new(
-						HashSet::from_iter(vec![
-							ValidatorIndex(0),
-							ValidatorIndex(1),
-							ValidatorIndex(2),
-						]),
-						Default::default(),
-					),
-				),
-				(
-					candidate_hash_d.clone(),
-					ApprovalsStats::new(
-						HashSet::from_iter(vec![
-							ValidatorIndex(0),
-							ValidatorIndex(1),
-						]),
-						Default::default(),
-					),
-				),
-			]),
-		}),
-		(1 as SessionIndex, PerSessionView {
-			authorities_lookup: HashMap::new(),
-			finalized_approval_stats: HashMap::from_iter(vec![
-				(
-					candidate_hash_e.clone(),
-					// expected approval stats from a given finalized session
-					// ignoring the stats collected for relay block B
-					ApprovalsStats::new(
-						HashSet::from_iter(vec![
-							ValidatorIndex(3),
-							ValidatorIndex(1),
-							ValidatorIndex(0)
-						]),
-						HashSet::from_iter(vec![ValidatorIndex(2)])
-					),
-				),
-			]),
-		}),
+	let expected_tallies = HashMap::from_iter(vec![
+		(
+			ValidatorIndex(0),
+			PerValidatorTally {
+				noshows: 1,
+				// validator 0 approvals increased from 1 to 2
+				// as block D with more collected approvals
+				// was finalized
+				approvals: 2,
+			},
+		),
+		(
+			ValidatorIndex(1),
+			PerValidatorTally {
+				noshows: 1,
+				approvals: 2,
+			},
+		),
+		(
+			ValidatorIndex(2),
+			PerValidatorTally {
+				noshows: 0,
+				approvals: 2,
+			},
+		),
+		(
+			ValidatorIndex(3),
+			PerValidatorTally {
+				noshows: 0,
+				approvals: 1,
+			},
+		),
 	]);
 
-	assert_eq!(view.per_session, expected_session_views);
+	assert_per_session_tallies(&view.per_session, 0, expected_tallies);
+
+	let expected_tallies = HashMap::from_iter(vec![
+		(
+			ValidatorIndex(0),
+			PerValidatorTally {
+				noshows: 0,
+				approvals: 1,
+			},
+		),
+		(
+			ValidatorIndex(1),
+			PerValidatorTally {
+				noshows: 0,
+				approvals: 1,
+			},
+		),
+		(
+			ValidatorIndex(2),
+			PerValidatorTally {
+				noshows: 1,
+				approvals: 0,
+			},
+		),
+		(
+			ValidatorIndex(3),
+			PerValidatorTally {
+				noshows: 0,
+				approvals: 1,
+			},
+		),
+	]);
+
+	assert_per_session_tallies(&view.per_session, 1, expected_tallies);
 }
 
 fn assert_roots_and_relay_views(
@@ -774,5 +791,24 @@ fn assert_roots_and_relay_views(
 		for child in checks.1.iter() {
 			assert!(rb_view.children.contains(child));
 		}
+	}
+}
+
+fn assert_per_session_tallies(
+	per_session_view: &HashMap<SessionIndex, PerSessionView>,
+	session_idx: SessionIndex,
+	expected_tallies: HashMap<ValidatorIndex, PerValidatorTally>,
+) {
+	let session_view = per_session_view
+		.get(&session_idx)
+		.expect("session index should exists in the view");
+
+	assert_eq!(session_view.validators_tallies.len(), expected_tallies.len());
+	for (validator_index, expected_tally) in expected_tallies.iter() {
+		assert_eq!(
+			session_view.validators_tallies.get(validator_index),
+			Some(expected_tally),
+			"unexpected value for validator index {:?}", validator_index
+		);
 	}
 }
