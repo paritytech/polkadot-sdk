@@ -850,8 +850,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		for (i, mut instr) in xcm.0.into_iter().enumerate() {
 			match &mut result {
 				r @ Ok(()) => {
-					// Initialize the recursion count only the first time we hit this code in our
-					// potential recursive execution.
+					// Initialize the recursion count only the first time we hit this code in
+					// our potential recursive execution.
 					let inst_res = recursion_count::using_once(&mut 1, || {
 						recursion_count::with(|count| {
 							if *count > RECURSION_LIMIT {
@@ -863,8 +863,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						.flatten()
 						.ok_or(XcmError::ExceedsStackLimit)?;
 
-						// Ensure that we always decrement the counter whenever we finish processing
-						// the instruction.
+						// Ensure that we always decrement the counter whenever we finish
+						// processing the instruction.
 						defer! {
 							recursion_count::with(|count| {
 								*count = count.saturating_sub(1);
@@ -897,6 +897,89 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			}
 		}
 		result
+	}
+
+	fn process_transact(
+		&mut self,
+		origin_kind: OriginKind,
+		message_call: Config::RuntimeCall,
+	) -> Result<(), XcmError> {
+		let origin = self.cloned_origin().ok_or_else(|| {
+			tracing::trace!(
+				target: "xcm::process_transact",
+				"No origin provided",
+			);
+
+			XcmError::BadOrigin
+		})?;
+
+		tracing::trace!(
+			target: "xcm::process_transact",
+			?message_call,
+			"Processing call",
+		);
+
+		if !Config::SafeCallFilter::contains(&message_call) {
+			tracing::trace!(
+				target: "xcm::process_transact",
+				"Call filtered by `SafeCallFilter`",
+			);
+
+			return Err(XcmError::NoPermission)
+		}
+
+		let dispatch_origin = Config::OriginConverter::convert_origin(origin.clone(), origin_kind)
+			.map_err(|_| {
+				tracing::trace!(
+					target: "xcm::process_transact",
+					?origin,
+					?origin_kind,
+					"Failed to convert origin to a local origin."
+				);
+
+				XcmError::BadOrigin
+			})?;
+
+		tracing::trace!(
+			target: "xcm::process_transact",
+			origin = ?dispatch_origin,
+			call = ?message_call,
+			"Dispatching call with origin",
+		);
+
+		let weight = message_call.get_dispatch_info().call_weight;
+		let maybe_actual_weight =
+			match Config::CallDispatcher::dispatch(message_call, dispatch_origin) {
+				Ok(post_info) => {
+					tracing::trace!(
+						target: "xcm::process_transact",
+						?post_info,
+						"Dispatch successful"
+					);
+					self.transact_status = MaybeErrorCode::Success;
+					post_info.actual_weight
+				},
+				Err(error_and_info) => {
+					tracing::trace!(
+						target: "xcm::process_transact",
+						?error_and_info,
+						"Dispatch failed"
+					);
+
+					self.transact_status = error_and_info.error.encode().into();
+					error_and_info.post_info.actual_weight
+				},
+			};
+		let actual_weight = maybe_actual_weight.unwrap_or(weight);
+		let surplus = weight.saturating_sub(actual_weight);
+		// If the actual weight of the call was less than the specified weight, we credit it.
+		//
+		// We make the adjustment for the total surplus, which is used eventually
+		// reported back to the caller and this ensures that they account for the total
+		// weight consumed correctly (potentially allowing them to do more operations in a
+		// block than they otherwise would).
+		self.total_surplus.saturating_accrue(surplus);
+		Ok(())
 	}
 
 	/// Process a single XCM instruction, mutating the state of the XCM virtual machine.
@@ -1034,93 +1117,18 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			},
 			// `fallback_max_weight` is not used in the executor, it's only for conversions.
 			Transact { origin_kind, call, .. } => {
-				let origin = self.cloned_origin().ok_or_else(|| {
-					tracing::trace!(
-						target: "xcm::process_instruction::transact",
-						"No origin provided",
-					);
+				sp_runtime::nested_mem::using_limiter_once(|| {
+					call.try_using_decoded(|message_call| {
+						self.process_transact(origin_kind, message_call)
+					}).map_err(|_| {
+						tracing::trace!(
+							target: "xcm::process_instruction::transact",
+							"Failed to decode call",
+						);
 
-					XcmError::BadOrigin
-				})?;
-
-				let message_call = call.try_into().map_err(|_| {
-					tracing::trace!(
-						target: "xcm::process_instruction::transact",
-						"Failed to decode call",
-					);
-
-					XcmError::FailedToDecode
-				})?;
-
-				tracing::trace!(
-					target: "xcm::process_instruction::transact",
-					?message_call,
-					"Processing call",
-				);
-
-				if !Config::SafeCallFilter::contains(&message_call) {
-					tracing::trace!(
-						target: "xcm::process_instruction::transact",
-						"Call filtered by `SafeCallFilter`",
-					);
-
-					return Err(XcmError::NoPermission)
-				}
-
-				let dispatch_origin =
-					Config::OriginConverter::convert_origin(origin.clone(), origin_kind).map_err(
-						|_| {
-							tracing::trace!(
-								target: "xcm::process_instruction::transact",
-								?origin,
-								?origin_kind,
-								"Failed to convert origin to a local origin."
-							);
-
-							XcmError::BadOrigin
-						},
-					)?;
-
-				tracing::trace!(
-					target: "xcm::process_instruction::transact",
-					origin = ?dispatch_origin,
-					call = ?message_call,
-					"Dispatching call with origin",
-				);
-
-				let weight = message_call.get_dispatch_info().call_weight;
-				let maybe_actual_weight =
-					match Config::CallDispatcher::dispatch(message_call, dispatch_origin) {
-						Ok(post_info) => {
-							tracing::trace!(
-								target: "xcm::process_instruction::transact",
-								?post_info,
-								"Dispatch successful"
-							);
-							self.transact_status = MaybeErrorCode::Success;
-							post_info.actual_weight
-						},
-						Err(error_and_info) => {
-							tracing::trace!(
-								target: "xcm::process_instruction::transact",
-								?error_and_info,
-								"Dispatch failed"
-							);
-
-							self.transact_status = error_and_info.error.encode().into();
-							error_and_info.post_info.actual_weight
-						},
-					};
-				let actual_weight = maybe_actual_weight.unwrap_or(weight);
-				let surplus = weight.saturating_sub(actual_weight);
-				// If the actual weight of the call was less than the specified weight, we credit it.
-				//
-				// We make the adjustment for the total surplus, which is used eventually
-				// reported back to the caller and this ensures that they account for the total
-				// weight consumed correctly (potentially allowing them to do more operations in a
-				// block than they otherwise would).
-				self.total_surplus.saturating_accrue(surplus);
-				Ok(())
+						XcmError::FailedToDecode
+					})?
+				})
 			},
 			QueryResponse { query_id, response, max_weight, querier } => {
 				let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;

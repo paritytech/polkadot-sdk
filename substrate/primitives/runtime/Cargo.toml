@@ -22,6 +22,7 @@ bytes = { workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 docify = { workspace = true }
 either = { workspace = true }
+environmental = { workspace = true }
 hash256-std-hasher = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
@@ -63,6 +64,7 @@ std = [
 	"codec/std",
 	"either/std",
 	"either/use_std",
+	"environmental/std",
 	"hash256-std-hasher/std",
 	"log/std",
 	"num-traits/std",

@@ -87,6 +87,7 @@ pub mod curve;
 pub mod generic;
 pub mod legacy;
 mod multiaddress;
+pub mod nested_mem;
 pub mod offchain;
 pub mod proving_trie;
 pub mod runtime_logger;
