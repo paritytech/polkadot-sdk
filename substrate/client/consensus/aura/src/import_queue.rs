@@ -19,8 +19,8 @@
 //! Module implementing the logic for verifying and importing AuRa blocks.
 
 use crate::{
-	standalone::SealVerificationError, AuthoritiesTracker, AuthorityId, CompatibilityMode, Error,
-	LOG_TARGET,
+	slot_duration_tracker::SlotDurationImport, standalone::SealVerificationError,
+	AuthoritiesTracker, AuthorityId, CompatibilityMode, Error, SlotDurationTracker, LOG_TARGET,
 };
 use codec::Codec;
 use log::{debug, info, trace};
@@ -146,7 +146,7 @@ where
 	P: Pair,
 	P::Public: Codec + Debug,
 	P::Signature: Codec,
-	CIDP: CreateInherentDataProviders<B, ()> + Send + Sync,
+	CIDP: CreateInherentDataProviders<B, B::Header> + Send + Sync,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
 	async fn verify(
@@ -175,7 +175,7 @@ where
 
 		let create_inherent_data_providers = self
 			.create_inherent_data_providers
-			.create_inherent_data_providers(parent_hash, ())
+			.create_inherent_data_providers(parent_hash, block.header.clone())
 			.await
 			.map_err(|e| Error::<B>::Client(sp_blockchain::Error::Application(e)))?;
 
@@ -287,7 +287,7 @@ impl Default for CheckForEquivocation {
 }
 
 /// Parameters of [`import_queue`].
-pub struct ImportQueueParams<'a, Block: BlockT, I, C, S, CIDP> {
+pub struct ImportQueueParams<'a, P, Block: BlockT, I, C, S, CIDP> {
 	/// The block import to use.
 	pub block_import: I,
 	/// The justification import.
@@ -308,6 +308,8 @@ pub struct ImportQueueParams<'a, Block: BlockT, I, C, S, CIDP> {
 	///
 	/// If in doubt, use `Default::default()`.
 	pub compatibility_mode: CompatibilityMode<NumberFor<Block>>,
+	/// Slot duration tracker.
+	pub slot_duration_tracker: Arc<SlotDurationTracker<P, Block, C>>,
 }
 
 /// Start an import queue for the Aura consensus algorithm.
@@ -322,7 +324,8 @@ pub fn import_queue<P, Block, I, C, S, CIDP>(
 		check_for_equivocation,
 		telemetry,
 		compatibility_mode,
-	}: ImportQueueParams<Block, I, C, S, CIDP>,
+		slot_duration_tracker,
+	}: ImportQueueParams<P, Block, I, C, S, CIDP>,
 ) -> Result<DefaultImportQueue<Block>, sp_consensus::Error>
 where
 	Block: BlockT,
@@ -337,11 +340,11 @@ where
 		+ HeaderBackend<Block>
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>,
 	I: BlockImport<Block, Error = ConsensusError> + Send + Sync + 'static,
-	P: Pair + 'static,
+	P: Pair + Send + Sync + 'static,
 	P::Public: Codec + Debug,
 	P::Signature: Codec,
 	S: sp_core::traits::SpawnEssentialNamed,
-	CIDP: CreateInherentDataProviders<Block, ()> + Sync + Send + 'static,
+	CIDP: CreateInherentDataProviders<Block, Block::Header> + Sync + Send + 'static,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
 	let verifier = build_verifier::<P, _, _, _>(BuildVerifierParams {
@@ -355,7 +358,7 @@ where
 
 	let authorities_tracker = verifier.authorities_tracker.clone();
 
-	let block_import = AuraBlockImport { block_import, authorities_tracker };
+	let block_import = AuraBlockImport { block_import, authorities_tracker, slot_duration_tracker };
 
 	Ok(BasicQueue::new(verifier, Box::new(block_import), justification_import, spawner, registry))
 }
@@ -363,6 +366,7 @@ where
 /// AURA block import.
 pub struct AuraBlockImport<Client, P: Pair, Block: BlockT, BI: BlockImport<Block>> {
 	block_import: BI,
+	slot_duration_tracker: Arc<SlotDurationTracker<P, Block, Client>>,
 	authorities_tracker: Arc<AuthoritiesTracker<P, Block, Client>>,
 }
 
@@ -388,12 +392,16 @@ impl<Client, P: Pair, Block: BlockT, BI: BlockImport<Block> + Clone> Clone
 }
 
 #[async_trait::async_trait]
-impl<Client: Sync + Send, P: Pair, Block: BlockT, BI: BlockImport<Block> + Send + Sync>
-	BlockImport<Block> for AuraBlockImport<Client, P, Block, BI>
+impl<Client, P, Block, BI> BlockImport<Block> for AuraBlockImport<Client, P, Block, BI>
 where
 	Client: HeaderBackend<Block>
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
-		+ ProvideRuntimeApi<Block>,
+		+ ProvideRuntimeApi<Block>
+		+ Send
+		+ Sync,
+	P: Pair + Send + Sync,
+	Block: BlockT,
+	BI: BlockImport<Block> + Send + Sync,
 	P::Public: Codec + Debug,
 	P::Signature: Codec,
 	Client::Api: AuraApi<Block, AuthorityId<P>>,
@@ -419,6 +427,25 @@ where
 
 		if import_from_runtime {
 			self.authorities_tracker.import_from_runtime(&post_header).unwrap();
+		}
+
+		if matches!(res, ImportResult::Imported(_)) {
+			if let Err(e) = self.slot_duration_tracker.import(
+				&post_header,
+				if with_state {
+					// If this is a state import, the header may not be imported yet.
+					SlotDurationImport::WithoutParent
+				} else {
+					SlotDurationImport::WithParent
+				},
+			) {
+				log::error!(
+					target: LOG_TARGET,
+					"Error importing slot duration for block {}: {}",
+					post_header.hash(),
+					e,
+				);
+			}
 		}
 
 		Ok(res)

@@ -22,7 +22,7 @@ use cumulus_client_consensus_common::ParachainBlockImportMarker;
 use prometheus_endpoint::Registry;
 use sc_client_api::{backend::AuxStore, BlockOf, UsageProvider};
 use sc_consensus::{import_queue::DefaultImportQueue, BlockImport};
-use sc_consensus_aura::{AuraVerifier, CompatibilityMode};
+use sc_consensus_aura::{AuraVerifier, CompatibilityMode, SlotDurationTracker};
 use sc_consensus_slots::InherentDataProviderExt;
 use sc_telemetry::TelemetryHandle;
 use sp_api::{ApiExt, ProvideRuntimeApi};
@@ -36,7 +36,7 @@ use sp_runtime::traits::Block as BlockT;
 use std::{fmt::Debug, sync::Arc};
 
 /// Parameters for [`import_queue`].
-pub struct ImportQueueParams<'a, I, C, CIDP, S> {
+pub struct ImportQueueParams<'a, P, Block: BlockT, I, C, CIDP, S> {
 	/// The block import to use.
 	pub block_import: I,
 	/// The client to interact with the chain.
@@ -49,6 +49,8 @@ pub struct ImportQueueParams<'a, I, C, CIDP, S> {
 	pub registry: Option<&'a Registry>,
 	/// The telemetry handle.
 	pub telemetry: Option<TelemetryHandle>,
+	/// The slot duration tracker.
+	pub slot_duration_tracker: Arc<SlotDurationTracker<P, Block, C>>,
 }
 
 /// Start an import queue for the Aura consensus algorithm.
@@ -60,7 +62,8 @@ pub fn import_queue<P, Block, I, C, S, CIDP>(
 		spawner,
 		registry,
 		telemetry,
-	}: ImportQueueParams<'_, I, C, CIDP, S>,
+		slot_duration_tracker,
+	}: ImportQueueParams<'_, P, Block, I, C, CIDP, S>,
 ) -> Result<DefaultImportQueue<Block>, sp_consensus::Error>
 where
 	Block: BlockT,
@@ -79,11 +82,11 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	P: Pair + 'static,
+	P: Pair + Send + Sync + 'static,
 	P::Public: Debug + Codec,
 	P::Signature: Codec,
 	S: sp_core::traits::SpawnEssentialNamed,
-	CIDP: CreateInherentDataProviders<Block, ()> + Sync + Send + 'static,
+	CIDP: CreateInherentDataProviders<Block, Block::Header> + Sync + Send + 'static,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
 	sc_consensus_aura::import_queue::<P, _, _, _, _, _>(sc_consensus_aura::ImportQueueParams {
@@ -96,6 +99,7 @@ where
 		check_for_equivocation: sc_consensus_aura::CheckForEquivocation::No,
 		telemetry,
 		compatibility_mode: CompatibilityMode::None,
+		slot_duration_tracker,
 	})
 }
 
@@ -110,14 +114,16 @@ pub struct BuildVerifierParams<C, CIDP> {
 }
 
 /// Build the [`AuraVerifier`].
-pub fn build_verifier<P: Pair, C, CIDP, B: BlockT>(
+pub fn build_verifier<P, C, CIDP, B>(
 	BuildVerifierParams { client, create_inherent_data_providers, telemetry }: BuildVerifierParams<
 		C,
 		CIDP,
 	>,
 ) -> Result<AuraVerifier<C, P, CIDP, B>, String>
 where
+	B: BlockT,
 	C: HeaderBackend<B> + HeaderMetadata<B, Error = sp_blockchain::Error> + ProvideRuntimeApi<B>,
+	P: Pair + Send + Sync,
 	P::Public: Codec + Debug,
 	C::Api: AuraApi<B, P::Public>,
 {

@@ -70,7 +70,7 @@ use alloc::{vec, vec::Vec};
 use frame_support::{derive_impl, traits::OnRuntimeUpgrade, PalletId};
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{ConstBool, ConstU32, ConstU64, OpaqueMetadata};
+use sp_core::{ConstBool, ConstU32, Get, OpaqueMetadata};
 
 use sp_runtime::{
 	generic, impl_opaque_keys,
@@ -391,7 +391,21 @@ impl pallet_aura::Config for Runtime {
 	type AllowMultipleBlocksPerSlot = ConstBool<false>;
 	#[cfg(not(feature = "sync-backing"))]
 	type AllowMultipleBlocksPerSlot = ConstBool<true>;
-	type SlotDuration = ConstU64<SLOT_DURATION>;
+	type SlotDuration = TestRuntimeSlotDuration;
+}
+
+const HALVE_SLOT_DURATION_KEY: &[u8] = b"halve_slot_duration";
+
+pub struct TestRuntimeSlotDuration;
+
+impl Get<u64> for TestRuntimeSlotDuration {
+	fn get() -> u64 {
+		if sp_io::storage::get(HALVE_SLOT_DURATION_KEY).is_some() {
+			SLOT_DURATION / 2
+		} else {
+			SLOT_DURATION
+		}
+	}
 }
 
 impl test_pallet::Config for Runtime {}
@@ -521,7 +535,7 @@ impl_runtime_apis! {
 
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
-			sp_consensus_aura::SlotDuration::from_millis(SLOT_DURATION)
+			sp_consensus_aura::SlotDuration::from_millis(TestRuntimeSlotDuration::get())
 		}
 
 		fn authorities() -> Vec<AuraId> {
