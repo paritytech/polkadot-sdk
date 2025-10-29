@@ -40,6 +40,7 @@ mod weightinfo_extension;
 
 pub mod evm;
 pub mod migrations;
+pub mod mock;
 pub mod precompiles;
 pub mod test_utils;
 pub mod tracing;
@@ -53,11 +54,11 @@ use crate::{
 		runtime::SetWeightLimit,
 		CallTracer, GenericTransaction, PrestateTracer, Trace, Tracer, TracerType, TYPE_EIP1559,
 	},
-	exec::{AccountIdOf, ExecError, Executable, Stack as ExecStack},
+	exec::{AccountIdOf, ExecError, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, AccountType, DeletionQueueManager},
 	tracing::if_tracing,
-	vm::{pvm::extract_code_and_data, CodeInfo, ContractBlob, RuntimeCosts},
+	vm::{pvm::extract_code_and_data, CodeInfo, RuntimeCosts},
 	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
@@ -95,9 +96,10 @@ pub use crate::{
 	},
 	debug::DebugSettings,
 	evm::{block_hash::ReceiptGasInfo, Address as EthAddress, Block as EthBlock, ReceiptInfo},
-	exec::{Key, MomentOf, Origin as ExecOrigin},
+	exec::{DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
 	pallet::{genesis, *},
 	storage::{AccountInfo, ContractInfo},
+	vm::ContractBlob,
 };
 pub use codec;
 pub use frame_support::{self, dispatch::DispatchInfo, weights::Weight};
@@ -433,6 +435,14 @@ pub mod pallet {
 
 		/// Contract deployed by deployer at the specified address.
 		Instantiated { deployer: H160, contract: H160 },
+
+		/// Emitted when an Ethereum transaction reverts.
+		///
+		/// Ethereum transactions always complete successfully at the extrinsic level,
+		/// as even reverted calls must store their `ReceiptInfo`.
+		/// To distinguish reverted calls from successful ones, this event is emitted
+		/// for failed Ethereum transactions.
+		EthExtrinsicRevert { dispatch_error: DispatchError },
 	}
 
 	#[pallet::error]
@@ -554,6 +564,10 @@ pub mod pallet {
 		///
 		/// This happens if the passed `gas` inside the ethereum transaction is too low.
 		TxFeeOverdraw = 0x35,
+
+		/// Benchmarking only error.
+		#[cfg(feature = "runtime-benchmarks")]
+		BenchmarkingError = 0xFF,
 	}
 
 	/// A reason for the pallet revive placing a hold on funds.
@@ -1197,6 +1211,7 @@ pub mod pallet {
 		#[pallet::call_index(10)]
 		#[pallet::weight(
 			<T as Config>::WeightInfo::eth_instantiate_with_code(code.len() as u32, data.len() as u32, Pallet::<T>::has_dust(*value).into())
+			.saturating_add(T::WeightInfo::on_finalize_block_per_tx(transaction_encoded.len() as u32))
 			.saturating_add(*gas_limit)
 		)]
 		pub fn eth_instantiate_with_code(
@@ -1225,7 +1240,7 @@ pub mod pallet {
 			let base_info = T::FeeInfo::base_dispatch_info(&mut call);
 			drop(call);
 
-			block_storage::with_ethereum_context(|| {
+			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
 				let mut output = Self::bare_instantiate(
 					origin,
 					value,
@@ -1247,18 +1262,13 @@ pub mod pallet {
 					}
 				}
 
-				block_storage::process_transaction::<T>(
-					transaction_encoded,
-					output.result.is_ok(),
-					output.gas_consumed,
-				);
-
 				let result = dispatch_result(
 					output.result.map(|result| result.result),
 					output.gas_consumed,
 					base_info.call_weight,
 				);
-				T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result)
+				let result = T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result);
+				(output.gas_consumed, result)
 			})
 		}
 
@@ -1296,7 +1306,7 @@ pub mod pallet {
 			let base_info = T::FeeInfo::base_dispatch_info(&mut call);
 			drop(call);
 
-			block_storage::with_ethereum_context(|| {
+			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
 				let mut output = Self::bare_call(
 					origin,
 					dest,
@@ -1317,22 +1327,10 @@ pub mod pallet {
 					}
 				}
 
-				let encoded_length = transaction_encoded.len() as u32;
-
-				block_storage::process_transaction::<T>(
-					transaction_encoded,
-					output.result.is_ok(),
-					output.gas_consumed,
-				);
-
-				let result = dispatch_result(
-					output.result,
-					output.gas_consumed,
-					base_info
-						.call_weight
-						.saturating_add(T::WeightInfo::on_finalize_block_per_tx(encoded_length)),
-				);
-				T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result)
+				let result =
+					dispatch_result(output.result, output.gas_consumed, base_info.call_weight);
+				let result = T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result);
+				(output.gas_consumed, result)
 			})
 		}
 
@@ -1491,7 +1489,7 @@ impl<T: Config> Pallet<T> {
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
 		data: Vec<u8>,
-		exec_config: ExecConfig,
+		exec_config: ExecConfig<T>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
@@ -1547,7 +1545,7 @@ impl<T: Config> Pallet<T> {
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
-		exec_config: ExecConfig,
+		exec_config: ExecConfig<T>,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
@@ -2129,11 +2127,11 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
-	fn try_upload_pvm_code(
+	pub fn try_upload_pvm_code(
 		origin: T::AccountId,
 		code: Vec<u8>,
 		storage_deposit_limit: BalanceOf<T>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
 		let mut module = ContractBlob::from_pvm_code(code, origin)?;
 		let deposit = module.store_code(exec_config, None)?;
@@ -2161,7 +2159,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Convert a weight to a gas value.
-	fn evm_gas_from_weight(weight: Weight) -> U256 {
+	pub fn evm_gas_from_weight(weight: Weight) -> U256 {
 		T::FeeInfo::weight_to_fee(&weight, Combinator::Max).into()
 	}
 
@@ -2174,7 +2172,7 @@ impl<T: Config> Pallet<T> {
 		from: &T::AccountId,
 		to: &T::AccountId,
 		amount: BalanceOf<T>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> DispatchResult {
 		use frame_support::traits::tokens::{Fortitude, Precision, Preservation};
 		match (exec_config.collect_deposit_from_hold.is_some(), hold_reason) {
@@ -2219,7 +2217,7 @@ impl<T: Config> Pallet<T> {
 		from: &T::AccountId,
 		to: &T::AccountId,
 		amount: BalanceOf<T>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> Result<BalanceOf<T>, DispatchError> {
 		use frame_support::traits::{
 			tokens::{Fortitude, Precision, Preservation, Restriction},

@@ -348,6 +348,16 @@ mod benchmarks {
 		assert_eq!(Pallet::<T>::evm_balance(&addr), evm_value);
 	}
 
+	#[benchmark(pov_mode = Measured)]
+	fn deposit_eth_extrinsic_revert_event() {
+		#[block]
+		{
+			Pallet::<T>::deposit_event(Event::<T>::EthExtrinsicRevert {
+				dispatch_error: crate::Error::<T>::BenchmarkingError.into(),
+			});
+		}
+	}
+
 	// `i`: Size of the input in bytes.
 	// `s`: Size of e salt in bytes.
 	#[benchmark(pov_mode = Measured)]
@@ -2743,7 +2753,7 @@ mod benchmarks {
 				);
 
 				// Store transaction
-				let _ = block_storage::with_ethereum_context(|| {
+				let _ = block_storage::bench_with_ethereum_context(|| {
 					let (encoded_logs, bloom) =
 						block_storage::get_receipt_details().unwrap_or_default();
 
@@ -2816,7 +2826,7 @@ mod benchmarks {
 			);
 
 			// Store transaction
-			let _ = block_storage::with_ethereum_context(|| {
+			let _ = block_storage::bench_with_ethereum_context(|| {
 				let (encoded_logs, bloom) =
 					block_storage::get_receipt_details().unwrap_or_default();
 
@@ -2881,7 +2891,7 @@ mod benchmarks {
 		let gas_used = Weight::from_parts(1_000_000, 1000);
 
 		// Store transaction
-		let _ = block_storage::with_ethereum_context(|| {
+		let _ = block_storage::bench_with_ethereum_context(|| {
 			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
 
 			let block_builder_ir = EthBlockBuilderIR::<T>::get();
@@ -2943,7 +2953,7 @@ mod benchmarks {
 		let gas_used = Weight::from_parts(1_000_000, 1000);
 
 		// Store transaction
-		let _ = block_storage::with_ethereum_context(|| {
+		let _ = block_storage::bench_with_ethereum_context(|| {
 			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
 
 			let block_builder_ir = EthBlockBuilderIR::<T>::get();
