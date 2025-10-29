@@ -83,8 +83,17 @@ pub struct TransactionInfo {
 	/// is used to find transaction info by block chunk index using binary search.
 	///
 	/// Cumulative value of all previous transactions in the block; the last transaction holds the
-	/// total chunk value.
+	/// total chunks value.
 	block_chunks: ChunkIndex,
+}
+
+impl TransactionInfo {
+	/// Get the number of total chunks.
+	///
+	/// See [`TransactionInfo::block_chunks`].
+	pub fn total_chunks(txs: &[TransactionInfo]) -> ChunkIndex {
+		txs.last().map_or(0, |t| t.block_chunks)
+	}
 }
 
 #[frame_support::pallet]
@@ -166,10 +175,9 @@ pub mod pallet {
 			let obsolete = n.saturating_sub(period.saturating_add(One::one()));
 			if obsolete > Zero::zero() {
 				Transactions::<T>::remove(obsolete);
-				ChunkCount::<T>::remove(obsolete);
 			}
-			// 2 writes in `on_initialize` and 2 writes + 2 reads in `on_finalize`
-			T::DbWeight::get().reads_writes(2, 4)
+			// 1 read and 1 write in `on_initialize` and 1 write + 3 reads in `on_finalize`
+			T::DbWeight::get().reads_writes(4, 2)
 		}
 
 		fn on_finalize(n: BlockNumberFor<T>) {
@@ -179,15 +187,22 @@ pub mod pallet {
 					let number = frame_system::Pallet::<T>::block_number();
 					let period = StoragePeriod::<T>::get();
 					let target_number = number.saturating_sub(period);
-					target_number.is_zero() || ChunkCount::<T>::get(target_number) == 0
+
+					target_number.is_zero() || {
+						// An empty block means no transactions were stored, relying on the fact below
+						// that we store transactions only if they contain chunks.
+						//
+						// Optimization: do not decode transactions; just get their length. Otherwise, it would look like:
+						// `Transactions::<T>::get(target_number).map(|txs| TransactionInfo::total_chunks(&txs)).unwrap_or_default()`
+						Transactions::<T>::decode_len(target_number).unwrap_or_default() == 0
+					}
 				},
 				"Storage proof must be checked once in the block"
 			);
-			// Insert new transactions
+			// Insert new transactions, iff they have chunks.
 			let transactions = BlockTransactions::<T>::take();
-			let total_chunks = transactions.last().map_or(0, |t| t.block_chunks);
+			let total_chunks = TransactionInfo::total_chunks(&transactions);
 			if total_chunks != 0 {
-				ChunkCount::<T>::insert(n, total_chunks);
 				Transactions::<T>::insert(n, transactions);
 			}
 		}
@@ -226,7 +241,7 @@ pub mod pallet {
 				if transactions.len() + 1 > T::MaxBlockTransactions::get() as usize {
 					return Err(Error::<T>::TooManyTransactions);
 				}
-				let total_chunks = transactions.last().map_or(0, |t| t.block_chunks) + chunk_count;
+				let total_chunks = TransactionInfo::total_chunks(&transactions) + chunk_count;
 				index = transactions.len() as u32;
 				transactions
 					.try_push(TransactionInfo {
@@ -271,7 +286,7 @@ pub mod pallet {
 					return Err(Error::<T>::TooManyTransactions);
 				}
 				let chunks = num_chunks(info.size);
-				let total_chunks = transactions.last().map_or(0, |t| t.block_chunks) + chunks;
+				let total_chunks = TransactionInfo::total_chunks(&transactions) + chunks;
 				index = transactions.len() as u32;
 				transactions
 					.try_push(TransactionInfo {
@@ -287,7 +302,8 @@ pub mod pallet {
 		}
 
 		/// Check storage proof for block number `block_number() - StoragePeriod`.
-		/// If such block does not exist the proof is expected to be `None`.
+		/// If such a block does not exist, the proof is expected to be `None`.
+		///
 		/// ## Complexity
 		/// - Linear w.r.t the number of indexed transactions in the proved block for random
 		///   probing.
@@ -306,7 +322,6 @@ pub mod pallet {
 			let period = StoragePeriod::<T>::get();
 			let target_number = number.saturating_sub(period);
 			ensure!(!target_number.is_zero(), Error::<T>::UnexpectedProof);
-			let total_chunks = ChunkCount::<T>::get(target_number);
 			let transactions =
 				Transactions::<T>::get(target_number).ok_or(Error::<T>::MissingStateData)?;
 
@@ -316,7 +331,6 @@ pub mod pallet {
 				proof,
 				parent_hash.as_ref(),
 				transactions.to_vec(),
-				total_chunks,
 			)?;
 			ProofChecked::<T>::put(true);
 			Self::deposit_event(Event::ProofChecked);
@@ -344,11 +358,6 @@ pub mod pallet {
 		BoundedVec<TransactionInfo, T::MaxBlockTransactions>,
 		OptionQuery,
 	>;
-
-	/// Count indexed chunks for each block.
-	#[pallet::storage]
-	pub type ChunkCount<T: Config> =
-		StorageMap<_, Blake2_128Concat, BlockNumberFor<T>, u32, ValueQuery>;
 
 	#[pallet::storage]
 	/// Storage fee per byte.
@@ -457,12 +466,10 @@ pub mod pallet {
 			proof: TransactionStorageProof,
 			random_hash: &[u8],
 			infos: Vec<TransactionInfo>,
-			total_chunks: ChunkIndex,
 		) -> Result<(), Error<T>> {
+			// Get the random chunk index - from all transactions in the block = [0..total_chunks).
+			let total_chunks: ChunkIndex = TransactionInfo::total_chunks(&infos);
 			ensure!(total_chunks != 0, Error::<T>::UnexpectedProof);
-			ensure!(!infos.is_empty(), Error::<T>::UnexpectedProof);
-
-			// Get the random chunk index (from all transactions in the block = 0..total_chunks).
 			let selected_block_chunk_index = random_chunk(random_hash, total_chunks as _);
 
 			// Let's find the corresponding transaction and its "local" chunk index for "global"
