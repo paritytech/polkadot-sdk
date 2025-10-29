@@ -25,7 +25,7 @@ use frame_support::{
 	assert_ok,
 	derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU32, ConstU64, ConstU128, Contains, EqualPrivilegeOnly, OriginTrait, VoteTally,
+		ConstU32, ConstU64, ConstU128, Contains, EqualPrivilegeOnly, OriginTrait, VoteTally,OnInitialize
 	},
 	weights::Weight,
 };
@@ -63,7 +63,7 @@ frame_support::construct_runtime!(
 		Scheduler: pallet_scheduler,
 		Referenda: pallet_referenda,
 		Revive: pallet_revive,
-		
+
 	}
 );
 
@@ -72,7 +72,9 @@ pub struct TestTracksInfo;
 
 pub struct BaseFilter;
 
-#[derive(Encode, Debug, Decode, DecodeWithMemTracking, TypeInfo, Eq, PartialEq, Clone, MaxEncodedLen)]
+#[derive(
+	Encode, Debug, Decode, DecodeWithMemTracking, TypeInfo, Eq, PartialEq, Clone, MaxEncodedLen,
+)]
 pub struct Tally {
 	pub ayes: u32,
 	pub nays: u32,
@@ -310,7 +312,7 @@ impl VoteTally<u32, u8> for Tally {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn setup(_: u8, _: Perbill) {}
 }
-// preimage 
+// preimage
 /// note a new preimage without registering.
 pub fn note_preimage(who: AccountId32) -> <Test as frame_system::Config>::Hash {
 	use std::sync::atomic::{AtomicU8, Ordering};
@@ -325,22 +327,32 @@ pub fn note_preimage(who: AccountId32) -> <Test as frame_system::Config>::Hash {
 // ====== helper functions =====
 pub fn set_balance_proposal_bounded(value: u128) -> BoundedCallOf<Test, ()> {
 	let who = AccountId32::new([42u8; 32]);
-	let c = RuntimeCall::Balances(pallet_balances::Call::force_set_balance {
-		who,
-		new_free: value,
-	});
+	let c =
+		RuntimeCall::Balances(pallet_balances::Call::force_set_balance { who, new_free: value });
 	<Preimage as StorePreimage>::bound(c).unwrap()
 }
 
 /// Create a proposal call encoded as bytes for inline submission
 pub fn set_balance_proposal_bytes(value: u128) -> Vec<u8> {
 	let who = AccountId32::new([42u8; 32]);
-	let c = RuntimeCall::Balances(pallet_balances::Call::force_set_balance {
-		who,
-		new_free: value,
-	});
+	let c =
+		RuntimeCall::Balances(pallet_balances::Call::force_set_balance { who, new_free: value });
 	c.encode()
 }
+
+pub fn next_block() {
+	System::set_block_number(System::block_number() + 1);
+	Scheduler::on_initialize(System::block_number());
+}
+
+pub fn run_to(n: u64) {
+	while System::block_number() < n {
+		next_block();
+	}
+}
+
+
+
 // ====== transaction builder =====
 pub struct ExtBuilder {}
 
@@ -353,32 +365,29 @@ impl Default for ExtBuilder {
 impl ExtBuilder {
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-		let balances = vec![
-			(ALICE, 100),
-			(BOB, 100),
-			(CHARLIE, 100),
-			(DAVE, 100),
-			(EVE, 100),
-			(FERDIE, 100),
-		];
+		let balances =
+			vec![(ALICE, 100), (BOB, 100), (CHARLIE, 100), (DAVE, 100), (EVE, 100), (FERDIE, 100)];
 		pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
-		
+
 		// Set up account mapping for EVM precompiles
-		pallet_revive::GenesisConfig::<Test> { mapped_accounts: vec![ALICE, BOB, CHARLIE], ..Default::default() }
-			.assimilate_storage(&mut t)
-			.unwrap();
-			
+		pallet_revive::GenesisConfig::<Test> {
+			mapped_accounts: vec![ALICE, BOB, CHARLIE],
+			..Default::default()
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.execute_with(|| System::set_block_number(1));
 		ext
 	}
 
-pub fn build_and_execute(self, test: impl FnOnce()) {
-    self.build().execute_with(|| {
-        test();
-        // Removed do_try_state() - it doesn't exist in pallet_referenda
-    })
-}
+	pub fn build_and_execute(self, test: impl FnOnce()) {
+		self.build().execute_with(|| {
+			test();
+			// Removed do_try_state() - it doesn't exist in pallet_referenda
+		})
+	}
 }
