@@ -22,9 +22,9 @@ extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode};
 
-use core::{fmt, marker::PhantomData, num::NonZero};
+use core::{fmt, marker::PhantomData, num::NonZero, convert::TryFrom};
 use frame_support::{
-	traits::{schedule::DispatchTime},
+	traits::{schedule::DispatchTime, BoundedInline},
 };
 
 use pallet_referenda::{BlockNumberFor, BoundedCallOf, ReferendumCount, PalletsOriginOf};
@@ -203,12 +203,46 @@ where
 
 			// TODO: Implement submitInline
 			IReferendaCalls::submitInline(IReferenda::submitInlineCall {
-				origin: _,
-				proposal: _,
-				timing: _,
-				enactmentMoment: _,
+				origin,
+				proposal,
+				timing,
+				enactmentMoment: enactment_moment,
 			}) => {
-				Err(Error::Revert("submitInline: Not yet implemented".into()))
+				info!(target: LOG_TARGET, ?origin,  ?enactment_moment, "submitInline");
+
+				// 1. Convert EVM caller to transaction origin
+				let transaction_origin: RuntimeOriginFor<Runtime> = match &&exec_origin {
+					ExecOrigin::Signed(account_id) => {
+						frame_system::RawOrigin::Signed(account_id.clone()).into()
+					},
+					ExecOrigin::Root => frame_system::RawOrigin::Root.into(),
+				};
+
+				// 2. Charge gas
+				env.charge(<<Runtime as pallet_referenda::Config>::WeightInfo  as pallet_referenda::WeightInfo>::submit())?;
+
+				// 3. Decode proposal origin
+				let proposal_origin = decode_proposal_origin::<Runtime>(&origin)?;
+
+				// 4. Convert timing
+				let dispatch_time =
+					convert_timing_to_dispatch::<Runtime, ()>(*timing, *enactment_moment)?;
+
+				// 5. Build inline proposal
+				// Convert Vec<u8> to BoundedInline (max 128 bytes)
+				let bounded_proposal = BoundedInline::try_from(proposal.to_vec())
+					.map_err(|_| Error::Revert("Proposal exceeds 128 byte limit".into()))?;
+				let proposal_inline = BoundedCallOf::<Runtime, ()>::Inline(bounded_proposal);
+
+				// 7. Submit referendum and get the actual created index
+				let referendum_index = submit_dispatch::<Runtime, ()>(
+					transaction_origin,
+					proposal_origin,
+					proposal_inline,
+					dispatch_time,
+				)?;
+				Ok(referendum_index.abi_encode())
+
 			},
 			_ => Ok(Vec::new()),
 		}
