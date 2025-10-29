@@ -39,6 +39,16 @@ fpm \
   -n "$PRODUCT" \
   -v "$VERSION" \
   -a "$ARCH" \
+  --rpm-os linux \
+  --description "Polkadot Node" \
+  --license "GPL-3.0-only" \
+  --url "https://polkadot.network/" \
+  --depends systemd \
+  --depends shadow-utils \
+  --after-install "polkadot/scripts/packaging/rpm-maintainer-scripts/rpm-postinst.sh" \
+  --before-remove "polkadot/scripts/packaging/rpm-maintainer-scripts/rpm-preun.sh" \
+  --after-remove "polkadot/scripts/packaging/rpm-maintainer-scripts/rpm-postun.sh" \
+  --config-files "/etc/default/polkadot" \
   -C "$STAGING_DIR" \
   .
 
