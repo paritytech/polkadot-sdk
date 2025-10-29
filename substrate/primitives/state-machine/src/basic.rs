@@ -310,7 +310,7 @@ impl Externalities for BasicExternalities {
 		.encode()
 	}
 
-	fn trigger_storage_root_size_estimation(&mut self, _: StateVersion) {
+	fn trigger_storage_root_size_estimation(&mut self, _: StateVersion) -> sp_externalities::TriggerStats {
 		todo!()
 	}
 

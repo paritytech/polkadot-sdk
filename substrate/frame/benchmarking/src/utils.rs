@@ -126,6 +126,16 @@ pub struct BenchmarkResult {
 	pub proof_size: u32,
 	#[cfg_attr(feature = "std", serde(skip))]
 	pub keys: Vec<(Vec<u8>, u32, u32, bool)>,
+	/// Duration of the trigger (storage root size estimation) in nanoseconds.
+	pub trigger_time: u128,
+	/// Number of additional trie nodes accessed during trigger.
+	pub trigger_trie_nodes_count: u32,
+	/// Proof size increase caused by the trigger operation.
+	pub trigger_proof_size_increase: u32,
+	/// Number of keys read/inserted/updated during trigger.
+	pub trigger_keys_read_count: u32,
+	/// Number of keys deleted during trigger.
+	pub trigger_keys_deleted_count: u32,
 }
 
 impl BenchmarkResult {
@@ -377,6 +387,12 @@ pub trait Recording {
 
 	// Stop the benchmark.
 	fn stop(&mut self) {}
+
+	/// Start the trigger (storage root size estimation).
+	fn start_trigger(&mut self) {}
+
+	/// Finish the trigger and record its statistics.
+	fn finish_trigger(&mut self, _stats: sp_externalities::TriggerStats) {}
 }
 
 /// A no-op recording, used for unit test.
@@ -407,6 +423,9 @@ pub struct BenchmarkRecording<'a> {
 	finish_extrinsic: Option<u128>,
 	start_pov: Option<u32>,
 	end_pov: Option<u32>,
+	start_trigger: Option<u128>,
+	finish_trigger: Option<u128>,
+	trigger_stats: Option<sp_externalities::TriggerStats>,
 }
 
 impl<'a> BenchmarkRecording<'a> {
@@ -417,6 +436,9 @@ impl<'a> BenchmarkRecording<'a> {
 			finish_extrinsic: None,
 			start_pov: None,
 			end_pov: None,
+			start_trigger: None,
+			finish_trigger: None,
+			trigger_stats: None,
 		}
 	}
 }
@@ -431,6 +453,15 @@ impl<'a> Recording for BenchmarkRecording<'a> {
 	fn stop(&mut self) {
 		self.finish_extrinsic = Some(current_time());
 		self.end_pov = crate::benchmarking::proof_size();
+	}
+
+	fn start_trigger(&mut self) {
+		self.start_trigger = Some(current_time());
+	}
+
+	fn finish_trigger(&mut self, stats: sp_externalities::TriggerStats) {
+		self.finish_trigger = Some(current_time());
+		self.trigger_stats = Some(stats);
 	}
 }
 
@@ -451,6 +482,16 @@ impl<'a> BenchmarkRecording<'a> {
 		self.start_extrinsic
 			.zip(self.finish_extrinsic)
 			.map(|(start, end)| end.saturating_sub(start))
+	}
+
+	pub fn elapsed_trigger(&self) -> Option<u128> {
+		self.start_trigger
+			.zip(self.finish_trigger)
+			.map(|(start, end)| end.saturating_sub(start))
+	}
+
+	pub fn trigger_stats(&self) -> Option<&sp_externalities::TriggerStats> {
+		self.trigger_stats.as_ref()
 	}
 }
 

@@ -21,6 +21,7 @@ frame-support = { workspace = true }
 frame-support-procedural = { workspace = true }
 frame-system = { workspace = true }
 linregress = { optional = true, workspace = true }
+sp-externalities = { workspace = true }
 log = { workspace = true }
 paste = { workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true }

@@ -468,7 +468,7 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-	) {
+	) -> sp_externalities::TriggerStats {
 		self.state.borrow().as_ref().map_or(Default::default(), |s| {
 			s.trigger_storage_root_size_estimation(delta, state_version)
 		})
@@ -479,7 +479,7 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-	) {
+	) -> sp_externalities::TriggerStats {
 		self.state.borrow().as_ref().map_or(Default::default(), |s| {
 			s.trigger_child_storage_root_size_estimation(child_info, delta, state_version)
 		})

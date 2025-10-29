@@ -807,6 +807,8 @@ pub fn benchmarks(
 						// Calculate the diff caused by the benchmark.
 						let elapsed_extrinsic = recording.elapsed_extrinsic().expect("elapsed time should be recorded");
 						let diff_pov = recording.diff_pov().unwrap_or_default();
+						let elapsed_trigger = recording.elapsed_trigger().expect("trigger time should be recorded");
+						let trigger_stats = recording.trigger_stats().cloned().expect("trigger stats should be recorded");
 
 						// Commit the changes to get proper write count
 						#krate::benchmarking::commit_db();
@@ -843,6 +845,11 @@ pub fn benchmarks(
 							repeat_writes: read_write_count.3,
 							proof_size: diff_pov,
 							keys: read_and_written_keys,
+							trigger_time: elapsed_trigger,
+							trigger_trie_nodes_count: trigger_stats.trie_nodes_accessed.expect("trie nodes count should be recorded during benchmarking"),
+							trigger_proof_size_increase: trigger_stats.proof_size_increase.expect("proof size increase should be recorded during benchmarking"),
+							trigger_keys_read_count: trigger_stats.keys_read_count.expect("keys read count should be recorded during benchmarking"),
+							trigger_keys_deleted_count: trigger_stats.keys_deleted_count.expect("keys deleted count should be recorded during benchmarking"),
 						});
 					}
 
@@ -1120,8 +1127,10 @@ fn expand_benchmark(
 				#pre_call
 				recording.start();
 				#post_call
-				#krate::__private::trigger_storage_root_size_estimation_xxx(#krate::__private::StateVersion::V1);
 				recording.stop();
+				recording.start_trigger();
+				let trigger_stats = #krate::__private::trigger_storage_root_size_estimation_xxx(#krate::__private::StateVersion::V1);
+				recording.finish_trigger(trigger_stats);
 				if verify {
 					#(
 						#verify_stmts

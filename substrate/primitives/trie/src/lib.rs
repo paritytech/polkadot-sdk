@@ -189,6 +189,11 @@ pub trait TrieRecorderProvider<H: Hasher> {
 pub trait ProofSizeProvider {
 	/// Returns the storage proof size.
 	fn estimate_encoded_size(&self) -> usize;
+
+	/// Returns the number of trie nodes accessed.
+	fn accessed_nodes_count(&self) -> usize {
+		0
+	}
 }
 
 /// TrieDB error over `TrieConfiguration` trait.

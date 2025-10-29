@@ -35,6 +35,25 @@ use sp_storage::{ChildInfo, StateVersion, TrackedStorageKey};
 pub use extensions::{Extension, ExtensionStore, Extensions};
 pub use scope_limited::{set_and_run_with_externalities, with_externalities};
 
+/// Statistics collected during storage root size estimation trigger.
+///
+/// This structure contains metrics about trie node access and proof size
+/// changes during the execution of `trigger_storage_root_size_estimation`.
+///
+/// Fields are optional to handle cases where the recorder or necessary context
+/// is not available.
+#[derive(Debug, Clone, Default, codec::Encode, codec::Decode)]
+pub struct TriggerStats {
+	/// Number of additional trie nodes accessed during the trigger operation.
+	pub trie_nodes_accessed: Option<u32>,
+	/// Proof size increase (in bytes) caused by the trigger operation.
+	pub proof_size_increase: Option<u32>,
+	/// Number of keys to be read/inserted/updated during the trigger operation.
+	pub keys_read_count: Option<u32>,
+	/// Number of keys to be deleted during the trigger operation.
+	pub keys_deleted_count: Option<u32>,
+}
+
 mod extensions;
 mod scope_limited;
 
@@ -197,7 +216,11 @@ pub trait Externalities: ExtensionStore {
 	/// The returned hash is defined by the `Block` and is SCALE encoded.
 	fn storage_root(&mut self, state_version: StateVersion) -> Vec<u8>;
 
-	fn trigger_storage_root_size_estimation(&mut self, state_version: StateVersion);
+	/// Trigger storage root size estimation to measure the impact on proof size.
+	///
+	/// This function simulates the storage root calculation by traversing the trie
+	/// and returns statistics about trie nodes accessed and proof size changes.
+	fn trigger_storage_root_size_estimation(&mut self, state_version: StateVersion) -> TriggerStats;
 
 	/// Get the trie root of a child storage map.
 	///
