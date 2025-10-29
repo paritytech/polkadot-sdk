@@ -1821,10 +1821,9 @@ impl<T: Config> Pallet<T> {
 		let eth_fee = Pallet::<T>::convert_native_to_evm(
 			transaction_fee.saturating_add(dry_run.storage_deposit),
 		);
-		let (mut eth_gas, rest) = eth_fee.div_mod(effective_gas_price);
-		if !rest.is_zero() {
-			eth_gas = eth_gas.saturating_add(effective_gas_price);
-		}
+
+		// Round up. Returning a larger value here just increases the the pre-dispatch weight.
+		let eth_gas = eth_fee.div_mod(effective_gas_price).0.saturating_add(effective_gas_price);
 
 		log::debug!(target: LOG_TARGET, "\
 			dry_run_eth_transact: \

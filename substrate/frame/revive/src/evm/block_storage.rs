@@ -88,6 +88,9 @@ impl EthereumCallResult {
 		let native_fee = T::FeeInfo::compute_actual_fee(encoded_len, &info, &result);
 		let result = T::FeeInfo::ensure_not_overdrawn(native_fee, result);
 
+		log::debug!(target: crate::LOG_TARGET,
+			"Ethereum call native_fee: {native_fee:?}, effective_gas_price: {effective_gas_price:?}"
+		);
 		// TODO take into account refunds instead of just adding `charge_or_zero()`
 		{
 			let gas_used: U256 = T::FeeInfo::next_fee_multiplier_reciprocal()

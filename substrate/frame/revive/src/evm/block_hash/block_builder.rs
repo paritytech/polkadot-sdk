@@ -389,7 +389,10 @@ mod test {
 					tx_info.transaction_signed.signed_payload(),
 					logs,
 					receipt_info.status.unwrap_or_default() == 1.into(),
-					receipt_info.gas_used.as_u64(),
+					ReceiptGasInfo {
+						gas_used: receipt_info.gas_used,
+						effective_gas_price: receipt_info.effective_gas_price,
+					},
 				)
 			})
 			.collect();
@@ -397,7 +400,7 @@ mod test {
 		ExtBuilder::default().build().execute_with(|| {
 			// Build the ethereum block incrementally.
 			let mut incremental_block = EthereumBlockBuilder::<Test>::default();
-			for (signed, logs, success, gas_used) in transaction_details {
+			for (signed, logs, success, receipt_gas_info) in transaction_details {
 				let mut log_size = 0;
 
 				let mut accumulate_receipt = AccumulateReceipt::new();
@@ -410,7 +413,7 @@ mod test {
 				incremental_block.process_transaction(
 					signed,
 					success,
-					gas_used.into(),
+					receipt_gas_info,
 					accumulate_receipt.encoding,
 					accumulate_receipt.bloom,
 				);
