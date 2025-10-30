@@ -23,9 +23,9 @@ use crate::{
 	tests::{
 		builder,
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
-		DebugFlag, ExtBuilder, Test,
+		AllowEvmBytecode, DebugFlag, ExtBuilder, RuntimeOrigin, Test,
 	},
-	Code, Config, Error, GenesisConfig, PristineCode,
+	Code, Config, Error, GenesisConfig, Pallet, PristineCode,
 };
 use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::{assert_err, assert_ok, traits::fungible::Mutate};
@@ -205,7 +205,6 @@ fn upload_evm_runtime_code_works() {
 		exec::Executable,
 		primitives::ExecConfig,
 		storage::{AccountInfo, ContractInfo},
-		Pallet,
 	};
 
 	let (runtime_code, _runtime_hash) =
@@ -238,5 +237,53 @@ fn upload_evm_runtime_code_works() {
 			.build_and_unwrap_result();
 		let decoded = Fibonacci::fibCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(55u64, decoded, "Contract should correctly compute fibonacci(10)");
+	});
+}
+
+#[test]
+fn upload_and_remove_code_works_for_evm() {
+	use crate::tests::{initialize_block, test_utils::expected_deposit};
+
+	let storage_deposit_limit = 1000u64;
+	let (code, code_hash) = compile_module_with_type("dummy", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let deployer_addr = ALICE_ADDR;
+		let amount = 5_000_000_000u64;
+		let _ = Pallet::<Test>::set_evm_balance(&deployer_addr, amount.into());
+
+		// Drop previous events
+		initialize_block(2);
+
+		// Ensure the code is not already stored.
+		assert!(!PristineCode::<Test>::contains_key(&code_hash));
+
+		// Upload the code.
+		assert_ok!(Pallet::<Test>::upload_code(
+			RuntimeOrigin::signed(ALICE),
+			code,
+			storage_deposit_limit
+		));
+
+		// Ensure the contract was stored and get expected deposit amount to be reserved.
+		expected_deposit(ensure_stored(code_hash));
+
+		// Now remove the code.
+		assert_ok!(Pallet::<Test>::remove_code(RuntimeOrigin::signed(ALICE), code_hash));
+	});
+}
+
+#[test]
+fn upload_fails_if_evm_bytecode_disabled() {
+	let storage_deposit_limit = 1000u64;
+	let (code, _) = compile_module_with_type("dummy", FixtureType::Solc).unwrap();
+
+	AllowEvmBytecode::set(false); // Disable support for EVM bytecode.
+	ExtBuilder::default().build().execute_with(|| {
+		// Upload should fail since support for EVM bytecode is disabled.
+		assert_err!(
+			Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, storage_deposit_limit),
+			<Error<Test>>::CodeRejected
+		);
 	});
 }
