@@ -14,4 +14,4 @@ crates:
 - name: frame-system
   bump: patch
 - name: sp-weights
-  bump: patch
+  bump: minor
