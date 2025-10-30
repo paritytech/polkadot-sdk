@@ -57,6 +57,11 @@ on:
         description: |
           True iff there are changes in templates directory or the current workflow
 
+      changes_zombienet:
+        value: ${{ jobs.preflight.outputs.changes_zombienet }}
+        description: |
+          True iff there are changes in zombienet tests/actions/scripts or the current workflow
+
       CI_IMAGE:
         value: ${{ jobs.preflight.outputs.CI_IMAGE }}
         description: "CI image"
@@ -152,14 +157,15 @@ jobs:
   #
   preflight:
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || ! contains(github.event.pull_request.labels.*.name, 'T19-skip-zombienet_tests')
+    if: github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch' || ! contains(github.event.pull_request.labels.*.name, 'T19-skip-zombienet_tests')
 
     outputs:
-      changes_substrate: ${{ steps.set_changes.outputs.substrate_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
-      changes_cumulus: ${{ steps.set_changes.outputs.cumulus_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
-      changes_polkadot: ${{ steps.set_changes.outputs.polkadot_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
-      changes_bridges: ${{ steps.set_changes.outputs.bridges_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
-      changes_templates: ${{ steps.set_changes.outputs.templates_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
+      changes_substrate: ${{ steps.set_changes.outputs.substrate_any_changed == 'true' || steps.set_changes.outputs.currentWorkflow_any_changed == 'true' }}
+      changes_cumulus: ${{ steps.set_changes.outputs.cumulus_any_changed == 'true' || steps.set_changes.outputs.currentWorkflow_any_changed == 'true' }}
+      changes_polkadot: ${{ steps.set_changes.outputs.polkadot_any_changed == 'true' || steps.set_changes.outputs.currentWorkflow_any_changed == 'true' }}
+      changes_bridges: ${{ steps.set_changes.outputs.bridges_any_changed == 'true' || steps.set_changes.outputs.currentWorkflow_any_changed == 'true' }}
+      changes_templates: ${{ steps.set_changes.outputs.templates_any_changed == 'true' || steps.set_changes.outputs.currentWorkflow_any_changed == 'true' }}
+      changes_zombienet: ${{ steps.set_changes.outputs.zombienet_any_changed == 'true' || steps.set_changes.outputs.currentWorkflow_any_changed == 'true' }}
 
       CI_IMAGE: ${{ steps.set_vars.outputs.IMAGE }}
 
@@ -216,6 +222,13 @@ jobs:
               - 'bridges/**/*'
             templates:
               - 'templates/**/*'
+            zombienet:
+              - '.github/zombienet-tests/**/*'
+              - '.github/actions/zombienet/**'
+              - '.github/actions/zombienet-sdk/**'
+              - '.github/scripts/parse-zombienet-tests.py'
+              - '.github/scripts/process-logs-zombienet.sh'
+              - '.github/workflows/zombienet*.yml'
             currentWorkflow:
               - '${{ steps.current_file.outputs.currentWorkflowFile }}'
               - '.github/workflows/zombienet-reusable-preflight.yml'

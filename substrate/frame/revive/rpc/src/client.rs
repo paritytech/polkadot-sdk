@@ -70,6 +70,7 @@ use subxt::{
 };
 use subxt_signer::sr25519::dev;
 use thiserror::Error;
+use tokio::sync::Mutex;
 
 /// The substrate block type.
 pub type SubstrateBlock = subxt::blocks::Block<SrcChainConfig, OnlineClient<SrcChainConfig>>;
@@ -191,6 +192,8 @@ pub struct Client {
 	/// A notifier, that informs subscribers of new transaction hashes that are included in a
 	/// block, when automine is enabled.
 	tx_notifier: Option<tokio::sync::broadcast::Sender<H256>>,
+	/// A lock to ensure only one subscription can perform write operations at a time.
+	subscription_lock: Arc<Mutex<()>>,
 	block_offset: Arc<RwLock<u64>>,
 }
 
@@ -285,6 +288,7 @@ impl Client {
 			max_block_weight,
 			automine,
 			tx_notifier: automine.then(|| tokio::sync::broadcast::channel::<H256>(10).0),
+			subscription_lock: Arc::new(Mutex::new(())),
 			block_offset,
 		};
 
@@ -363,6 +367,9 @@ impl Client {
 				},
 			};
 
+			// Acquire lock to ensure only one subscription can perform write operations at a time
+			let _guard = self.subscription_lock.lock().await;
+
 			let block_number = block.number();
 			log::trace!(target: "eth-rpc::subscription", "⏳ Processing {subscription_type:?} block: {block_number}");
 			if let Err(err) = callback(block).await {
@@ -392,7 +399,6 @@ impl Client {
 				.unzip();
 
 			self.block_provider.update_latest(block, subscription_type).await;
-
 			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
 
 			// Only broadcast for best blocks to avoid duplicate notifications.

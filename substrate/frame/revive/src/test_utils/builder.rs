@@ -134,7 +134,7 @@ builder!(
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
-		exec_config: ExecConfig,
+		exec_config: ExecConfig<T>,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>>;
 
 	pub fn concat_evm_data(mut self, more_data: &[u8]) -> Self {
@@ -212,7 +212,7 @@ builder!(
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
 		data: Vec<u8>,
-		exec_config: ExecConfig,
+		exec_config: ExecConfig<T>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>>;
 
 	/// Set the call's evm_value using a native_value amount.

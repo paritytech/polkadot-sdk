@@ -40,6 +40,7 @@ mod weightinfo_extension;
 
 pub mod evm;
 pub mod migrations;
+pub mod mock;
 pub mod precompiles;
 pub mod test_utils;
 pub mod tracing;
@@ -53,11 +54,11 @@ use crate::{
 		runtime::SetWeightLimit,
 		CallTracer, GenericTransaction, PrestateTracer, Trace, Tracer, TracerType, TYPE_EIP1559,
 	},
-	exec::{AccountIdOf, ExecError, Executable, Stack as ExecStack},
+	exec::{AccountIdOf, ExecError, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, AccountType, DeletionQueueManager},
 	tracing::if_tracing,
-	vm::{pvm::extract_code_and_data, CodeInfo, ContractBlob, RuntimeCosts},
+	vm::{pvm::extract_code_and_data, CodeInfo, RuntimeCosts},
 	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
@@ -95,9 +96,10 @@ pub use crate::{
 	},
 	debug::DebugSettings,
 	evm::{block_hash::ReceiptGasInfo, Address as EthAddress, Block as EthBlock, ReceiptInfo},
-	exec::{Key, MomentOf, Origin as ExecOrigin},
+	exec::{DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
 	pallet::{genesis, *},
 	storage::{AccountInfo, ContractInfo, EvmNonce},
+	vm::ContractBlob,
 };
 pub use codec;
 pub use frame_support::{self, dispatch::DispatchInfo, weights::Weight};
@@ -433,6 +435,14 @@ pub mod pallet {
 
 		/// Contract deployed by deployer at the specified address.
 		Instantiated { deployer: H160, contract: H160 },
+
+		/// Emitted when an Ethereum transaction reverts.
+		///
+		/// Ethereum transactions always complete successfully at the extrinsic level,
+		/// as even reverted calls must store their `ReceiptInfo`.
+		/// To distinguish reverted calls from successful ones, this event is emitted
+		/// for failed Ethereum transactions.
+		EthExtrinsicRevert { dispatch_error: DispatchError },
 	}
 
 	#[pallet::error]
@@ -555,6 +565,10 @@ pub mod pallet {
 		/// This happens if the passed `gas` inside the ethereum transaction is too low.
 		TxFeeOverdraw = 0x35,
 		NonceTooLow = 0x36,
+
+		/// Benchmarking only error.
+		#[cfg(feature = "runtime-benchmarks")]
+		BenchmarkingError = 0xFF,
 	}
 
 	/// A reason for the pallet revive placing a hold on funds.
@@ -1070,6 +1084,7 @@ pub mod pallet {
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			data: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
+			Self::ensure_non_contract_if_signed(&origin)?;
 			let mut output = Self::bare_call(
 				origin,
 				dest,
@@ -1106,6 +1121,7 @@ pub mod pallet {
 			data: Vec<u8>,
 			salt: Option<[u8; 32]>,
 		) -> DispatchResultWithPostInfo {
+			Self::ensure_non_contract_if_signed(&origin)?;
 			let data_len = data.len() as u32;
 			let mut output = Self::bare_instantiate(
 				origin,
@@ -1170,6 +1186,7 @@ pub mod pallet {
 			data: Vec<u8>,
 			salt: Option<[u8; 32]>,
 		) -> DispatchResultWithPostInfo {
+			Self::ensure_non_contract_if_signed(&origin)?;
 			let code_len = code.len() as u32;
 			let data_len = data.len() as u32;
 			let mut output = Self::bare_instantiate(
@@ -1218,6 +1235,7 @@ pub mod pallet {
 		#[pallet::call_index(10)]
 		#[pallet::weight(
 			<T as Config>::WeightInfo::eth_instantiate_with_code(code.len() as u32, data.len() as u32, Pallet::<T>::has_dust(*value).into())
+			.saturating_add(T::WeightInfo::on_finalize_block_per_tx(transaction_encoded.len() as u32))
 			.saturating_add(*gas_limit)
 		)]
 		pub fn eth_instantiate_with_code(
@@ -1231,6 +1249,7 @@ pub mod pallet {
 			encoded_len: u32,
 		) -> DispatchResultWithPostInfo {
 			let origin = Self::ensure_eth_origin(origin)?;
+			Self::ensure_non_contract_if_signed(&origin)?;
 			let mut call = Call::<T>::eth_instantiate_with_code {
 				value,
 				gas_limit,
@@ -1245,7 +1264,7 @@ pub mod pallet {
 			let base_info = T::FeeInfo::base_dispatch_info(&mut call);
 			drop(call);
 
-			block_storage::with_ethereum_context(|| {
+			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
 				let mut output = Self::bare_instantiate(
 					origin,
 					value,
@@ -1267,18 +1286,13 @@ pub mod pallet {
 					}
 				}
 
-				block_storage::process_transaction::<T>(
-					transaction_encoded,
-					output.result.is_ok(),
-					output.gas_consumed,
-				);
-
 				let result = dispatch_result(
 					output.result.map(|result| result.result),
 					output.gas_consumed,
 					base_info.call_weight,
 				);
-				T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result)
+				let result = T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result);
+				(output.gas_consumed, result)
 			})
 		}
 
@@ -1301,6 +1315,7 @@ pub mod pallet {
 			encoded_len: u32,
 		) -> DispatchResultWithPostInfo {
 			let origin = Self::ensure_eth_origin(origin)?;
+			Self::ensure_non_contract_if_signed(&origin)?;
 			let mut call = Call::<T>::eth_call {
 				dest,
 				value,
@@ -1315,7 +1330,7 @@ pub mod pallet {
 			let base_info = T::FeeInfo::base_dispatch_info(&mut call);
 			drop(call);
 
-			block_storage::with_ethereum_context(|| {
+			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
 				let mut output = Self::bare_call(
 					origin,
 					dest,
@@ -1336,22 +1351,10 @@ pub mod pallet {
 					}
 				}
 
-				let encoded_length = transaction_encoded.len() as u32;
-
-				block_storage::process_transaction::<T>(
-					transaction_encoded,
-					output.result.is_ok(),
-					output.gas_consumed,
-				);
-
-				let result = dispatch_result(
-					output.result,
-					output.gas_consumed,
-					base_info
-						.call_weight
-						.saturating_add(T::WeightInfo::on_finalize_block_per_tx(encoded_length)),
-				);
-				T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result)
+				let result =
+					dispatch_result(output.result, output.gas_consumed, base_info.call_weight);
+				let result = T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result);
+				(output.gas_consumed, result)
 			})
 		}
 
@@ -1376,6 +1379,7 @@ pub mod pallet {
 			code: Vec<u8>,
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 		) -> DispatchResult {
+			Self::ensure_non_contract_if_signed(&origin)?;
 			Self::bare_upload_code(origin, code, storage_deposit_limit).map(|_| ())
 		}
 
@@ -1437,6 +1441,7 @@ pub mod pallet {
 		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config>::WeightInfo::map_account())]
 		pub fn map_account(origin: OriginFor<T>) -> DispatchResult {
+			Self::ensure_non_contract_if_signed(&origin)?;
 			let origin = ensure_signed(origin)?;
 			T::AddressMapper::map(&origin)
 		}
@@ -1469,6 +1474,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResultWithPostInfo {
+			Self::ensure_non_contract_if_signed(&origin)?;
 			let origin = ensure_signed(origin)?;
 			let unmapped_account =
 				T::AddressMapper::to_fallback_account_id(&T::AddressMapper::to_address(&origin));
@@ -1647,11 +1653,8 @@ impl<T: Config> Pallet<T> {
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
 		data: Vec<u8>,
-		exec_config: ExecConfig,
+		exec_config: ExecConfig<T>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
-		if let Err(contract_result) = Self::ensure_non_contract_if_signed(&origin) {
-			return contract_result;
-		}
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
 
@@ -1706,12 +1709,8 @@ impl<T: Config> Pallet<T> {
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
-		exec_config: ExecConfig,
+		exec_config: ExecConfig<T>,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
-		// Enforce EIP-3607 for top-level signed origins: deny signed contract addresses.
-		if let Err(contract_result) = Self::ensure_non_contract_if_signed(&origin) {
-			return contract_result;
-		}
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
 		let try_instantiate = || {
@@ -2007,10 +2006,15 @@ impl<T: Config> Pallet<T> {
 			total_weight={total_weight} \
 			max_weight={max_weight} \
 			weight_left={} \
-			eth_gas={eth_gas})\
+			eth_gas={eth_gas}) \
+			encoded_len={} \
+			tx_fee={transaction_fee:?} \
+			storage_deposit={:?}\
 			",
 			dry_run.gas_required,
 			max_weight.saturating_sub(total_weight),
+			call_info.encoded_len,
+			dry_run.storage_deposit,
 
 		);
 		dry_run.eth_gas = eth_gas;
@@ -2309,12 +2313,45 @@ impl<T: Config> Pallet<T> {
 			.map_err(ContractAccessError::StorageWriteFailed)
 	}
 
+	/// Pallet account, used to hold funds for contracts upload deposit.
+	pub fn account_id() -> T::AccountId {
+		use frame_support::PalletId;
+		use sp_runtime::traits::AccountIdConversion;
+		PalletId(*b"py/reviv").into_account_truncating()
+	}
+
+	/// The address of the validator that produced the current block.
+	pub fn block_author() -> H160 {
+		use frame_support::traits::FindAuthor;
+
+		let digest = <frame_system::Pallet<T>>::digest();
+		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
+
+		T::FindAuthor::find_author(pre_runtime_digests)
+			.map(|account_id| T::AddressMapper::to_address(&account_id))
+			.unwrap_or_default()
+	}
+
+	/// Returns the code at `address`.
+	///
+	/// This takes pre-compiles into account.
+	pub fn code(address: &H160) -> Vec<u8> {
+		use precompiles::{All, Precompiles};
+		if let Some(code) = <All<T>>::code(address.as_fixed_bytes()) {
+			return code.into()
+		}
+		AccountInfo::<T>::load_contract(&address)
+			.and_then(|contract| <PristineCode<T>>::get(contract.code_hash))
+			.map(|code| code.into())
+			.unwrap_or_default()
+	}
+
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
-	fn try_upload_pvm_code(
+	pub fn try_upload_pvm_code(
 		origin: T::AccountId,
 		code: Vec<u8>,
 		storage_deposit_limit: BalanceOf<T>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
 		let mut module = ContractBlob::from_pvm_code(code, origin)?;
 		let deposit = module.store_code(exec_config, None)?;
@@ -2342,7 +2379,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Convert a weight to a gas value.
-	fn evm_gas_from_weight(weight: Weight) -> U256 {
+	pub fn evm_gas_from_weight(weight: Weight) -> U256 {
 		T::FeeInfo::weight_to_fee(&weight, Combinator::Max).into()
 	}
 
@@ -2429,7 +2466,7 @@ impl<T: Config> Pallet<T> {
 		from: &T::AccountId,
 		to: &T::AccountId,
 		amount: BalanceOf<T>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> DispatchResult {
 		use frame_support::traits::tokens::{Fortitude, Precision, Preservation};
 		match (exec_config.collect_deposit_from_hold.is_some(), hold_reason) {
@@ -2474,7 +2511,7 @@ impl<T: Config> Pallet<T> {
 		from: &T::AccountId,
 		to: &T::AccountId,
 		amount: BalanceOf<T>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> Result<BalanceOf<T>, DispatchError> {
 		use frame_support::traits::{
 			tokens::{Fortitude, Precision, Preservation, Restriction},
@@ -2544,6 +2581,30 @@ impl<T: Config> Pallet<T> {
 		match <T as Config>::RuntimeOrigin::from(origin).into() {
 			Ok(Origin::EthTransaction(signer)) => Ok(OriginFor::<T>::signed(signer)),
 			_ => Err(BadOrigin.into()),
+		}
+	}
+
+	/// Ensure that the origin is neither a pre-compile nor a contract.
+	///
+	/// This enforces EIP-3607.
+	fn ensure_non_contract_if_signed(origin: &OriginFor<T>) -> DispatchResult {
+		let Some(address) = origin
+			.as_system_ref()
+			.and_then(|o| o.as_signed())
+			.map(<T::AddressMapper as AddressMapper<T>>::to_address)
+		else {
+			return Ok(())
+		};
+		if exec::is_precompile::<T, ContractBlob<T>>(&address) ||
+			<AccountInfo<T>>::is_contract(&address)
+		{
+			log::debug!(
+				target: crate::LOG_TARGET,
+				"EIP-3607: reject tx as pre-compile or account exist at {address:?}",
+			);
+			Err(DispatchError::BadOrigin)
+		} else {
+			Ok(())
 		}
 	}
 }
