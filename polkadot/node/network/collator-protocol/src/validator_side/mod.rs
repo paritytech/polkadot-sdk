@@ -358,24 +358,6 @@ enum HoldOffOperationOutcome {
 	NoHoldOff,
 }
 
-impl HoldOffOperationOutcome {
-	fn was_held_off(&self) -> bool {
-		match self {
-			HoldOffOperationOutcome::FirstHoldOff | HoldOffOperationOutcome::SubsequentHoldOff =>
-				true,
-			HoldOffOperationOutcome::NoHoldOff => false,
-		}
-	}
-
-	fn was_first_hold_off(&self) -> bool {
-		if let HoldOffOperationOutcome::FirstHoldOff = self {
-			true
-		} else {
-			false
-		}
-	}
-}
-
 /// Represents the hold off state of a relay parent.
 enum RelayParentHoldOffState {
 	/// No Advertisements from non-invulnerable collators were received so far. Nothing was held
@@ -1108,35 +1090,43 @@ fn hold_off_asset_hub_collation_if_needed(
 			prospective_candidate,
 		});
 
-	if hold_off_outcome.was_held_off() {
-		// We do only one hold off per relay parent, so on the first hold off we need to add a timer
-		// for the rp.
-		if hold_off_outcome.was_first_hold_off() {
+	match hold_off_outcome {
+		HoldOffOperationOutcome::FirstHoldOff => {
 			state.ah_held_off_rp_timers.push(Box::pin(async move {
 				Delay::new(hold_off_duration).await;
 				relay_parent
 			}));
-		}
 
-		gum::debug!(
-			target: LOG_TARGET,
-			?peer_id,
-			?relay_parent,
-			?prospective_candidate,
-			"AssetHub collation held off, not from invulnerable collator",
-		);
+			gum::debug!(
+				target: LOG_TARGET,
+				?peer_id,
+				?relay_parent,
+				?prospective_candidate,
+				"AssetHub collation held off, not from invulnerable collator. First hold off.",
+			);
 
-		return true;
-	} else {
-		gum::debug!(
-			target: LOG_TARGET,
-			?peer_id,
-			?relay_parent,
-			?prospective_candidate,
-			"AssetHub collation from non-invulnerable collator not held off - already done for this relay parent",
-		);
-
-		return false
+			true
+		},
+		HoldOffOperationOutcome::SubsequentHoldOff => {
+			gum::debug!(
+				target: LOG_TARGET,
+				?peer_id,
+				?relay_parent,
+				?prospective_candidate,
+				"AssetHub collation held off, not from invulnerable collator. Subsequent hold off.",
+			);
+			true
+		},
+		HoldOffOperationOutcome::NoHoldOff => {
+			gum::debug!(
+				target: LOG_TARGET,
+				?peer_id,
+				?relay_parent,
+				?prospective_candidate,
+				"AssetHub collation from non-invulnerable collator not held off - already done for this relay parent",
+			);
+			false
+		},
 	}
 }
 
