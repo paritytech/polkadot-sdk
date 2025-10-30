@@ -2320,32 +2320,6 @@ impl<T: Config> Pallet<T> {
 		PalletId(*b"py/reviv").into_account_truncating()
 	}
 
-	/// The address of the validator that produced the current block.
-	pub fn block_author() -> H160 {
-		use frame_support::traits::FindAuthor;
-
-		let digest = <frame_system::Pallet<T>>::digest();
-		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
-
-		T::FindAuthor::find_author(pre_runtime_digests)
-			.map(|account_id| T::AddressMapper::to_address(&account_id))
-			.unwrap_or_default()
-	}
-
-	/// Returns the code at `address`.
-	///
-	/// This takes pre-compiles into account.
-	pub fn code(address: &H160) -> Vec<u8> {
-		use precompiles::{All, Precompiles};
-		if let Some(code) = <All<T>>::code(address.as_fixed_bytes()) {
-			return code.into()
-		}
-		AccountInfo::<T>::load_contract(&address)
-			.and_then(|contract| <PristineCode<T>>::get(contract.code_hash))
-			.map(|code| code.into())
-			.unwrap_or_default()
-	}
-
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
 	pub fn try_upload_pvm_code(
 		origin: T::AccountId,
@@ -2381,54 +2355,6 @@ impl<T: Config> Pallet<T> {
 	/// Convert a weight to a gas value.
 	pub fn evm_gas_from_weight(weight: Weight) -> U256 {
 		T::FeeInfo::weight_to_fee(&weight, Combinator::Max).into()
-	}
-
-	/// Ensure the origin has no code deplyoyed if it is a signed origin.
-	fn ensure_non_contract_if_signed<ReturnValue>(
-		origin: &OriginFor<T>,
-	) -> Result<(), ContractResult<ReturnValue, BalanceOf<T>>> {
-		use crate::exec::is_precompile;
-		let Ok(who) = ensure_signed(origin.clone()) else { return Ok(()) };
-		let address = <T::AddressMapper as AddressMapper<T>>::to_address(&who);
-
-		// EIP_1052: precompile can never be used as EOA.
-		if is_precompile::<T, ContractBlob<T>>(&address) {
-			log::debug!(
-				target: crate::LOG_TARGET,
-				"EIP-3607: reject externally-signed tx from precompile account {:?}",
-				address
-			);
-			return Err(ContractResult {
-				result: Err(DispatchError::BadOrigin),
-				gas_consumed: Weight::default(),
-				gas_required: Weight::default(),
-				storage_deposit: Default::default(),
-			});
-		}
-
-		// Deployed code exists when hash is neither zero (no account) nor EMPTY_CODE_HASH
-		// (account exists but no code).
-		if <AccountInfo<T>>::is_contract(&address) {
-			log::debug!(
-				target: crate::LOG_TARGET,
-				"EIP-3607: reject externally-signed tx from contract account {:?}",
-				address
-			);
-			return Err(ContractResult {
-				result: Err(DispatchError::BadOrigin),
-				gas_consumed: Weight::default(),
-				gas_required: Weight::default(),
-				storage_deposit: Default::default(),
-			});
-		}
-		Ok(())
-	}
-
-	/// Pallet account, used to hold funds for contracts upload deposit.
-	pub fn account_id() -> T::AccountId {
-		use frame_support::PalletId;
-		use sp_runtime::traits::AccountIdConversion;
-		PalletId(*b"py/reviv").into_account_truncating()
 	}
 
 	/// The address of the validator that produced the current block.
