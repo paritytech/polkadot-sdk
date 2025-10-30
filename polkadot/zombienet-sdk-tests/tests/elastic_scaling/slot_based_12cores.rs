@@ -3,8 +3,6 @@
 
 // Test that a parachain that uses a single slot-based collator with elastic scaling can use 12
 // cores in order to achieve 500ms blocks.
-// /var/folders/k5/t5c924zs0jq0jp7dj037lvqw0000gn/T/zombie-46dbe5f3-7862-41c2-ab9d-5606ab77f85a/
-// validator-7/validator-7.log
 
 use anyhow::anyhow;
 
@@ -33,7 +31,7 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![("-lparachain=info").into()])
+				.with_default_args(vec![("-lparachain=debug").into()])
 				.with_genesis_overrides(json!({
 					"configuration": {
 						"config": {
@@ -41,8 +39,10 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 								"num_cores": 11,
 								"max_validators_per_core": 1
 							},
-							"needed_approvals": 1,
-							"relay_vrf_modulo_samples": 1,
+							"async_backing_params": {
+								"max_candidate_depth": 24,
+								"allowed_ancestry_len": 2
+							}
 						}
 					}
 				}))
@@ -55,18 +55,14 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 		})
 		.with_parachain(|p| {
 			p.with_id(2300)
-				.with_default_command("polkadot-parachain")
+				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_registration_strategy(zombienet_sdk::RegistrationStrategy::InGenesis)
-				.with_chain("yap-rococo-local-2300")
+				.with_chain("elastic-scaling-500ms")
 				.with_default_args(vec![
 					"--authoring=slot-based".into(),
-					// ("-lparachain=debug,consensus::common::find_potential_parents=trace,aura::cumulus=trace").into(),
+					("-lparachain=debug,aura=debug").into(),
 				])
 				.with_collator(|n| n.with_name("collator-elastic"))
-		})
-		.with_global_settings(|global_settings|  {
-			global_settings.with_base_dir("/var/folders/k5/t5c924zs0jq0jp7dj037lvqw0000gn/T/zombie-415a8216-cb52-430a-a669-21887774a46f/")
 		})
 		.build()
 		.map_err(|e| {
@@ -95,8 +91,6 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 		.await?;
 
 	log::info!("11 more cores assigned to the parachain");
-
-	tokio::time::sleep(std::time::Duration::from_secs(100000)).await;
 
 	// Expect a backed candidate count of at least 170 in 15 relay chain blocks
 	// (11.33 candidates per para per relay chain block).
