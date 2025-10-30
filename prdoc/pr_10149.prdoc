@@ -1,7 +1,8 @@
 title: Ensure that multiple blocks in a PoV form a chain
 doc:
 - audience: Runtime Dev
-  description: `validate_block` ensures that all the blocks are connected to each other.
+  description: |
+    `validate_block` ensures that all the blocks are connected to each other.
 crates:
 - name: cumulus-pallet-parachain-system
   bump: patch
