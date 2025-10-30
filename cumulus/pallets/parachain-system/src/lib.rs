@@ -603,7 +603,7 @@ pub mod pallet {
 
 			let expected_rp_descendants_num = T::RelayParentOffset::get();
 
-			if expected_rp_descendants_num > 1 {
+			if expected_rp_descendants_num > 0 {
 				if let Err(err) = descendant_validation::verify_relay_parent_descendants(
 					&relay_state_proof,
 					relay_parent_descendants,
