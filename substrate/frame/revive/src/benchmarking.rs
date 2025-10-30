@@ -291,6 +291,7 @@ mod benchmarks {
 		let pallet_account = whitelisted_pallet_account::<T>();
 		let input = vec![42u8; i as usize];
 
+		let effective_gas_price = Pallet::<T>::evm_base_fee();
 		let value = Pallet::<T>::min_balance();
 		let dust = 42u32 * d;
 		let evm_value =
@@ -319,7 +320,7 @@ mod benchmarks {
 			code,
 			input,
 			TransactionSigned::default().signed_payload(),
-			0u32.into(),
+			effective_gas_price,
 			0,
 		);
 
@@ -456,6 +457,7 @@ mod benchmarks {
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
 
+		let effective_gas_price = Pallet::<T>::evm_base_fee();
 		let value = Pallet::<T>::min_balance();
 		let dust = 42u32 * d;
 		let evm_value =
@@ -478,7 +480,7 @@ mod benchmarks {
 			Weight::MAX,
 			data,
 			TransactionSigned::default().signed_payload(),
-			0u32.into(),
+			effective_gas_price,
 			0,
 		);
 		let deposit = T::Currency::balance_on_hold(
