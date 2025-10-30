@@ -170,7 +170,11 @@ pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, R
 /// queues.
 pub type XcmRouter = WithUniqueTopic<(
 	// Two routers - use UMP to communicate with the relay chain and charge a constant delivery fee:
-	cumulus_primitives_utility::ParentAsUmp<ParachainSystem, (), ConstantPrice<UmpDeliveryFeeAssets>>,
+	cumulus_primitives_utility::ParentAsUmp<
+		ParachainSystem,
+		(),
+		ConstantPrice<UmpDeliveryFeeAssets>,
+	>,
 	// ..and XCMP to communicate with the sibling chains.
 	XcmpQueue,
 )>;

@@ -227,6 +227,8 @@ The template configures XCM delivery fees by default:
 
 Adjust these to align with your tokenomics before launching.
 
+Tip for development/testing: disable pricing by using `NoPriceForMessageDelivery<ParaId>` for HRMP and a zero-amount constant price for UMP in `runtime/src/configs/*`.
+
 We recommend using [`chopsticks`](https://github.com/AcalaNetwork/chopsticks) when the focus is more on the runtime
 development and `OmniNode` is enough as is.
 

@@ -21,3 +21,5 @@ Tune the following constants to match your network economics:
 - `BaseDeliveryFee` and `TransactionByteFee` in `runtime/src/configs/mod.rs`.
 - `FeeAssetId` (asset used to pay) in `runtime/src/configs/mod.rs`.
 - `UmpDeliveryFeeAssets` in `runtime/src/configs/xcm_config.rs`.
+
+Tip for development/testing: you can disable pricing by setting `PriceForSiblingDelivery = NoPriceForMessageDelivery<ParaId>` and `UmpDeliveryFeeAssets` to a zero-amount `Assets` bundle.
