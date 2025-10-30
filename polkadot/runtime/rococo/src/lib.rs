@@ -2221,6 +2221,10 @@ sp_api::impl_runtime_apis! {
 		fn get_all_published_data() -> BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>> {
 			Broadcaster::get_all_published_data_map()
 		}
+
+		fn get_subscribed_data(subscriber_para_id: ParaId) -> BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>> {
+			Broadcaster::get_subscribed_data(subscriber_para_id)
+		}
 	}
 
 	#[api_version(6)]
@@ -2742,6 +2746,12 @@ sp_api::impl_runtime_apis! {
 		}
 		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, xcm_runtime_apis::trusted_query::Error> {
 			XcmPallet::is_trusted_teleporter(asset, location)
+		}
+	}
+
+	impl polkadot_runtime_parachains::broadcaster::runtime_api::BroadcasterApi<Block> for Runtime {
+		fn get_subscribed_data(subscriber_para_id: ParaId) -> BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>> {
+			Broadcaster::get_subscribed_data(subscriber_para_id)
 		}
 	}
 }

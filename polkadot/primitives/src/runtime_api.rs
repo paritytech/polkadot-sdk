@@ -327,5 +327,11 @@ sp_api::decl_runtime_apis! {
 		/// Returns a map of Publisher ParaId -> published data.
 		#[api_version(16)]
 		fn get_all_published_data() -> BTreeMap<ppp::Id, Vec<(Vec<u8>, Vec<u8>)>>;
+
+		/// Get published data from all parachains that the subscriber is subscribed to.
+		/// Returns a map of Publisher ParaId -> published data.
+		/// Only includes publishers that have actual data and are subscribed to.
+		#[api_version(16)]
+		fn get_subscribed_data(subscriber_para_id: ppp::Id) -> BTreeMap<ppp::Id, Vec<(Vec<u8>, Vec<u8>)>>;
 	}
 }

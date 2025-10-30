@@ -151,9 +151,11 @@ pub trait RelayChainInterface: Send + Sync {
 		relay_parent: PHash,
 	) -> RelayChainResult<BTreeMap<ParaId, Vec<InboundHrmpMessage>>>;
 
-	/// Returns all published data from the broadcaster pallet.
-	async fn retrieve_all_published_data(
+	/// Returns published data from all subscribed publishers for the parachain we are collating
+	/// for.
+	async fn retrieve_subscribed_published_data(
 		&self,
+		para_id: ParaId,
 		relay_parent: PHash,
 	) -> RelayChainResult<BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>>;
 
@@ -279,11 +281,12 @@ where
 		(**self).retrieve_all_inbound_hrmp_channel_contents(para_id, relay_parent).await
 	}
 
-	async fn retrieve_all_published_data(
+	async fn retrieve_subscribed_published_data(
 		&self,
+		para_id: ParaId,
 		relay_parent: PHash,
 	) -> RelayChainResult<BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>> {
-		(**self).retrieve_all_published_data(relay_parent).await
+		(**self).retrieve_subscribed_published_data(para_id, relay_parent).await
 	}
 
 	async fn persisted_validation_data(

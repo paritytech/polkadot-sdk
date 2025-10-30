@@ -224,14 +224,14 @@ impl ParachainInherentDataProvider {
 			.ok()?;
 
 		let published_data = relay_chain_interface
-			.retrieve_all_published_data(relay_parent)
+			.retrieve_subscribed_published_data(para_id, relay_parent)
 			.await
 			.map_err(|e| {
 				tracing::error!(
 					target: LOG_TARGET,
 					relay_parent = ?relay_parent,
 					error = ?e,
-					"An error occurred during requesting published data.",
+					"An error occurred during requesting subscribed published data.",
 				);
 			})
 			.unwrap_or_default();

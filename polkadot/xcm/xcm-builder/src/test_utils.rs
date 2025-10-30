@@ -35,6 +35,8 @@ parameter_types! {
 	pub static MaxAssetsIntoHolding: u32 = 4;
 	// Maps ParaId => Vec<(key, value)>
 	pub static PublishedData: BTreeMap<u32, Vec<(Vec<u8>, Vec<u8>)>> = BTreeMap::new();
+	// Maps subscriber ParaId => Vec<publisher ParaId>
+	pub static BroadcastSubscriptions: BTreeMap<u32, Vec<u32>> = BTreeMap::new();
 }
 
 pub struct TestSubscriptionService;
@@ -86,6 +88,28 @@ impl BroadcastHandler for TestBroadcastHandler {
 		published.entry(para_id).or_insert_with(Vec::new).extend(data_vec);
 		PublishedData::set(published);
 
+		Ok(())
+	}
+
+	fn handle_subscribe(origin: &Location, publisher: u32) -> XcmResult {
+		// Extract subscriber para_id from origin
+		let subscriber_id = match origin.unpack() {
+			(0, [Parachain(id)]) => *id,
+			(1, [Parachain(id), ..]) => *id,
+			_ => return Err(XcmError::BadOrigin),
+		};
+
+		let mut subscriptions = BroadcastSubscriptions::get();
+		let subscriber_list = subscriptions.entry(subscriber_id).or_insert_with(Vec::new);
+
+		// Toggle subscription
+		if let Some(pos) = subscriber_list.iter().position(|&p| p == publisher) {
+			subscriber_list.remove(pos);
+		} else {
+			subscriber_list.push(publisher);
+		}
+
+		BroadcastSubscriptions::set(subscriptions);
 		Ok(())
 	}
 }

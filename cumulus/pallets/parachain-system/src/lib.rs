@@ -860,6 +860,20 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type RelayStateProof<T: Config> = StorageValue<_, sp_trie::StorageProof>;
 
+	/// Published data from subscribed parachains.
+	/// Maps (Publisher ParaId, Key) -> Value.
+	/// This is populated from the parachain inherent data.
+	#[pallet::storage]
+	pub type PublishedData<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		ParaId,           // Publisher
+		Blake2_128Concat,
+		Vec<u8>,          // Key
+		Vec<u8>,          // Value
+		OptionQuery,
+	>;
+
 	/// The snapshot of some state related to messaging relevant to the current parachain as per
 	/// the relay parent.
 	///
@@ -965,19 +979,6 @@ pub mod pallet {
 	/// See `Pallet::set_custom_validation_head_data` for more information.
 	#[pallet::storage]
 	pub type CustomValidationHeadData<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
-
-	/// Published data from parachains available through the broadcaster pallet.
-	/// Double map: Publisher ParaId -> Key -> Value
-	#[pallet::storage]
-	pub type PublishedData<T: Config> = StorageDoubleMap<
-		_,
-		Blake2_128Concat,
-		ParaId,           // Publisher
-		Blake2_128Concat,
-		Vec<u8>,          // Key
-		Vec<u8>,          // Value
-		OptionQuery,
-	>;
 
 	#[pallet::inherent]
 	impl<T: Config> ProvideInherent for Pallet<T> {

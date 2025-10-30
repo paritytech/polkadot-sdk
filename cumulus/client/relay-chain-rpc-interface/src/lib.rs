@@ -82,11 +82,12 @@ impl RelayChainInterface for RelayChainRpcInterface {
 			.await
 	}
 
-	async fn retrieve_all_published_data(
+	async fn retrieve_subscribed_published_data(
 		&self,
+		para_id: ParaId,
 		relay_parent: RelayHash,
 	) -> RelayChainResult<BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>> {
-		self.rpc_client.broadcaster_get_all_published_data(relay_parent).await
+		self.rpc_client.parachain_host_get_subscribed_data(para_id, relay_parent).await
 	}
 
 	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {

@@ -598,13 +598,18 @@ impl RelayChainRpcClient {
 		.await
 	}
 
-	/// Get all published data from the broadcaster pallet.
-	pub async fn broadcaster_get_all_published_data(
+	/// Get published data from all subscribed publishers for a parachain.
+	pub async fn parachain_host_get_subscribed_data(
 		&self,
+		para_id: ParaId,
 		at: RelayHash,
 	) -> Result<BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>, RelayChainError> {
-		self.call_remote_runtime_function("ParachainHost_get_all_published_data", at, None::<()>)
-			.await
+		self.call_remote_runtime_function(
+			"ParachainHost_get_subscribed_data",
+			at,
+			Some(para_id),
+		)
+		.await
 	}
 
 	/// Get all the pending inbound messages in the downward message queue for a para.
