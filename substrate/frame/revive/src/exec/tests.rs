@@ -1316,7 +1316,7 @@ fn instantiation_traps() {
 #[test]
 fn termination_from_instantiate_fails() {
 	let terminate_ch = MockLoader::insert(Constructor, |ctx, _| {
-		let _ = ctx.ext.terminate(&ALICE_ADDR)?;
+		let _ = ctx.ext.terminate_if_same_tx(&ALICE_ADDR)?;
 		exec_success()
 	});
 
@@ -2839,7 +2839,12 @@ fn block_hash_returns_proper_values() {
 	let bob_code_hash = MockLoader::insert(Call, |ctx, _| {
 		ctx.ext.block_number = 1u32.into();
 		assert_eq!(ctx.ext.block_hash(U256::from(1)), None);
-		assert_eq!(ctx.ext.block_hash(U256::from(0)), Some(H256::from([1; 32])));
+		assert_eq!(
+			ctx.ext.block_hash(U256::from(0)),
+			Some(H256::from(hex_literal::hex!(
+				"b9be84fb00044994dff6b62393b4c8aa8191717c5ea046f270bd2695524e9f85"
+			)))
+		);
 
 		ctx.ext.block_number = 300u32.into();
 		assert_eq!(ctx.ext.block_hash(U256::from(300)), None);

@@ -51,7 +51,10 @@ use frame_support::{
 	self, assert_ok,
 	migrations::SteppedMigration,
 	storage::child,
-	traits::{fungible::InspectHold, Hooks},
+	traits::{
+		fungible::{InspectHold, UnbalancedHold},
+		Hooks,
+	},
 	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
@@ -343,6 +346,16 @@ mod benchmarks {
 
 		// contract has the full value
 		assert_eq!(Pallet::<T>::evm_balance(&addr), evm_value);
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn deposit_eth_extrinsic_revert_event() {
+		#[block]
+		{
+			Pallet::<T>::deposit_event(Event::<T>::EthExtrinsicRevert {
+				dispatch_error: crate::Error::<T>::BenchmarkingError.into(),
+			});
+		}
 	}
 
 	// `i`: Size of the input in bytes.
@@ -1104,10 +1117,9 @@ mod benchmarks {
 		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, input);
 
 		let block_hash = H256::from([1; 32]);
-		frame_system::BlockHash::<T>::insert(
-			&BlockNumberFor::<T>::from(0u32),
-			T::Hash::from(block_hash),
-		);
+
+		// Store block hash in pallet-revive BlockHash mapping
+		crate::BlockHash::<T>::insert(U256::from(0u32), block_hash);
 
 		let result;
 		#[block]
@@ -1222,7 +1234,49 @@ mod benchmarks {
 		}
 
 		assert!(matches!(result, Err(crate::vm::pvm::TrapReason::Termination)));
-		assert_eq!(PristineCode::<T>::get(code_hash).is_none(), delete_code);
+
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
+		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
+
+		build_runtime!(_runtime, instance, _memory: [vec![0u8; 0], ]);
+		let code_hash = instance.info()?.code_hash;
+
+		assert!(PristineCode::<T>::get(code_hash).is_some());
+
+		// Set storage deposit to zero so terminate_logic can proceed.
+		T::Currency::set_balance_on_hold(
+			&HoldReason::StorageDepositReserve.into(),
+			&instance.account_id,
+			0u32.into(),
+		)
+		.unwrap();
+
+		T::Currency::set_balance(&instance.account_id, Pallet::<T>::min_balance() * 2u32.into());
+
+		let result;
+		#[block]
+		{
+			result = crate::storage::meter::terminate_logic_for_benchmark::<T>(
+				&instance.account_id,
+				&beneficiary,
+			);
+		}
+		result.unwrap();
+
+		// Check that the contract is removed
+		assert!(PristineCode::<T>::get(code_hash).is_none());
+
+		// Check that the balance has been transferred away
+		let balance = <T as Config>::Currency::total_balance(&instance.account_id);
+		assert_eq!(balance, 0u32.into());
+
+		// Check that the beneficiary received the balance
+		let balance = <T as Config>::Currency::balance(&beneficiary);
+		assert_eq!(balance, Pallet::<T>::min_balance() * 2u32.into());
 
 		Ok(())
 	}
@@ -2699,7 +2753,7 @@ mod benchmarks {
 				);
 
 				// Store transaction
-				let _ = block_storage::with_ethereum_context(|| {
+				let _ = block_storage::bench_with_ethereum_context(|| {
 					let (encoded_logs, bloom) =
 						block_storage::get_receipt_details().unwrap_or_default();
 
@@ -2772,7 +2826,7 @@ mod benchmarks {
 			);
 
 			// Store transaction
-			let _ = block_storage::with_ethereum_context(|| {
+			let _ = block_storage::bench_with_ethereum_context(|| {
 				let (encoded_logs, bloom) =
 					block_storage::get_receipt_details().unwrap_or_default();
 
@@ -2837,7 +2891,7 @@ mod benchmarks {
 		let gas_used = Weight::from_parts(1_000_000, 1000);
 
 		// Store transaction
-		let _ = block_storage::with_ethereum_context(|| {
+		let _ = block_storage::bench_with_ethereum_context(|| {
 			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
 
 			let block_builder_ir = EthBlockBuilderIR::<T>::get();
@@ -2899,7 +2953,7 @@ mod benchmarks {
 		let gas_used = Weight::from_parts(1_000_000, 1000);
 
 		// Store transaction
-		let _ = block_storage::with_ethereum_context(|| {
+		let _ = block_storage::bench_with_ethereum_context(|| {
 			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
 
 			let block_builder_ir = EthBlockBuilderIR::<T>::get();
