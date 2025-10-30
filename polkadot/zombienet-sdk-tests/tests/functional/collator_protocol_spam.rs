@@ -53,7 +53,7 @@ async fn collator_protocol_spam() -> Result<(), anyhow::Error> {
 				)
 				.cumulus_based(false)
 				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_collator(|n| n.with_name("collator-adder-2000"))
+				.with_collator(|n| n.with_name("collator-adder-1000"))
 		})
 		.build()
 		.map_err(|e| {
@@ -80,7 +80,7 @@ async fn collator_protocol_spam() -> Result<(), anyhow::Error> {
 	log::info!("RPC endpoint {}", rpc_endpoint);
 
 	log::info!(
-		"Commands to run:\n\nmalus collator --genesis-hash {} --para-id 1000 {} {} {}\n\npolkadot-parachain-tracer --ws {} --para-id=1000  cli",
+		"Commands to run:\n\nmalus-collator --genesis-hash {} --para-id 1000 --instances-per-target 3 {} {} {}\n\npolkadot-parachain-tracer --ws {} --para-id=1000 cli",
 		genesis_hash,
 		addrs[0],
 		addrs[1],
