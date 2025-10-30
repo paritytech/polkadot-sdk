@@ -16,7 +16,6 @@
 // limitations under the License.
 
 #![cfg(test)]
-
 use crate::{
 	exec::{AccountIdOf, ExecError, Ext, Key, Origin, PrecompileExt, PrecompileWithInfoExt},
 	gas::GasMeter,
@@ -140,7 +139,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::block_hash")
 	}
 
-	fn block_author(&self) -> Option<H160> {
+	fn block_author(&self) -> H160 {
 		panic!("MockExt::block_author")
 	}
 
@@ -150,10 +149,6 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 
 	fn chain_id(&self) -> u64 {
 		panic!("MockExt::chain_id")
-	}
-
-	fn max_value_size(&self) -> u32 {
-		panic!("MockExt::max_value_size")
 	}
 
 	fn gas_meter(&self) -> &GasMeter<Self::T> {
@@ -208,6 +203,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 
 	fn copy_code_slice(&mut self, _buf: &mut [u8], _address: &H160, _code_offset: usize) {
 		panic!("MockExt::copy_code_slice")
+	}
+
+	fn terminate_caller(&mut self, _beneficiary: &H160) -> Result<(), DispatchError> {
+		panic!("MockExt::terminate_caller")
 	}
 
 	fn to_account_id(&self, _address: &H160) -> AccountIdOf<Self::T> {
@@ -267,8 +266,8 @@ impl<T: Config> Ext for MockExt<T> {
 		panic!("MockExt::delegate_call")
 	}
 
-	fn terminate(&mut self, _beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
-		panic!("MockExt::terminate")
+	fn terminate_if_same_tx(&mut self, _beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
+		panic!("MockExt::terminate_if_same_tx")
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {
