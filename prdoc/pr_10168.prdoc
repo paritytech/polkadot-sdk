@@ -1,0 +1,7 @@
+title: 'pallet-revive: make contract reverted error message more verbose'
+doc:
+- audience: Runtime Dev
+  description: null
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
