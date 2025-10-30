@@ -22,8 +22,8 @@ use cumulus_test_client::{
 	runtime::{
 		self as test_runtime, Block, Hash, Header, TestPalletCall, UncheckedExtrinsic, WASM_BINARY,
 	},
-	seal_parachain_block_data, transfer, BlockData, BlockOrigin, BuildParachainBlockData, Client,
-	ClientBlockImportExt, DefaultTestClientBuilderExt, HeadData, InitBlockBuilder,
+	seal_block, transfer, BlockData, BlockOrigin, BuildParachainBlockData, Client,
+	DefaultTestClientBuilderExt, HeadData, InitBlockBuilder,
 	Sr25519Keyring::{Alice, Bob, Charlie},
 	TestClientBuilder, TestClientBuilderExt, ValidationParams,
 };
@@ -118,6 +118,11 @@ fn create_elastic_scaling_test_client() -> (Client, Header) {
 	(client, genesis_header)
 }
 
+fn pop_seal(mut block: Block) -> Block {
+	assert!(block.header.digest.pop().unwrap().as_seal().is_some());
+	block
+}
+
 struct TestBlockData {
 	block: ParachainBlockData<Block>,
 	validation_data: PersistedValidationData,
@@ -146,7 +151,9 @@ fn build_block_with_witness(
 
 	extra_extrinsics.into_iter().for_each(|e| block_builder.push(e).unwrap());
 
-	let block = block_builder.build_parachain_block(*parent_head.state_root());
+	let mut block = block_builder.build_parachain_block(*parent_head.state_root());
+
+	block.blocks_mut()[0] = seal_block(block.blocks()[0].clone(), client);
 
 	TestBlockData { block, validation_data: persisted_validation_data }
 }
@@ -207,7 +214,8 @@ fn build_multiple_blocks_with_witness(
 			block_builder.push(ext).unwrap();
 		}
 
-		let built_block = block_builder.build().unwrap();
+		let mut built_block = block_builder.build().unwrap();
+		built_block.block = seal_block(built_block.block, &client);
 
 		futures::executor::block_on({
 			let parent_hash = *built_block.block.header.parent_hash();
@@ -217,12 +225,19 @@ fn build_multiple_blocks_with_witness(
 			let proof_recorder = ProofRecorder::<Block>::with_ignored_nodes(ignored_nodes.clone());
 			api.record_proof_with_recorder(proof_recorder.clone());
 			api.register_extension(ProofSizeExt::new(proof_recorder));
+<<<<<<< HEAD
 			api.execute_block(parent_hash, built_block.block.clone()).unwrap();
+=======
+			api.execute_block(parent_hash, pop_seal(built_block.block.clone()).into())
+				.unwrap();
+>>>>>>> 1654f948 (Ensure that multiple blocks in a PoV form a chain (#10149))
 
-			let (header, extrinsics) = built_block.block.clone().deconstruct();
+			let (mut header, extrinsics) = built_block.block.clone().deconstruct();
+			let seal = header.digest.pop().unwrap();
 
 			let mut import = BlockImportParams::new(BlockOrigin::Own, header);
 			import.body = Some(extrinsics);
+			import.post_digests.push(seal);
 			import.fork_choice = Some(ForkChoiceStrategy::Custom(true));
 			import.state_action = api.into_storage_changes(&state, parent_hash).unwrap().into();
 
@@ -262,7 +277,6 @@ fn validate_block_works() {
 		Default::default(),
 	);
 
-	let block = seal_parachain_block_data(block, &client);
 	let header = block.blocks()[0].header().clone();
 	let res_header =
 		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
@@ -293,7 +307,6 @@ fn validate_multiple_blocks_work() {
 
 	assert!(block.proof().encoded_size() < 3 * 1024 * 1024);
 
-	let block = seal_parachain_block_data(block, &client);
 	let header = block.blocks().last().unwrap().header().clone();
 	let res_header = call_validate_block_elastic_scaling(
 		parent_head,
@@ -322,7 +335,6 @@ fn validate_block_with_extra_extrinsics() {
 		Default::default(),
 		Default::default(),
 	);
-	let block = seal_parachain_block_data(block, &client);
 	let header = block.blocks()[0].header().clone();
 
 	let res_header =
@@ -360,7 +372,6 @@ fn validate_block_returns_custom_head_data() {
 	let header = block.blocks()[0].header().clone();
 	assert_ne!(expected_header, header.encode());
 
-	let block = seal_parachain_block_data(block, &client);
 	let res_header = call_validate_block_validation_result(
 		WASM_BINARY.expect("You need to build the WASM binaries to run the tests!"),
 		parent_head,
@@ -516,11 +527,17 @@ fn validate_block_works_with_child_tries() {
 		Default::default(),
 	);
 
-	let block = block.blocks()[0].clone();
+	let (mut header, extrinsics) = block.blocks()[0].clone().deconstruct();
+	let seal = header.digest.pop().unwrap();
 
-	futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+	let mut import = BlockImportParams::new(BlockOrigin::Own, header.clone());
+	import.body = Some(extrinsics);
+	import.post_digests.push(seal);
+	import.fork_choice = Some(ForkChoiceStrategy::Custom(true));
 
-	let parent_head = block.header().clone();
+	futures::executor::block_on(BlockImport::import_block(&client, import)).unwrap();
+
+	let parent_head = block.blocks()[0].header.clone();
 
 	let TestBlockData { block, validation_data } = build_block_with_witness(
 		&client,
@@ -530,7 +547,6 @@ fn validate_block_works_with_child_tries() {
 		Default::default(),
 	);
 
-	let block = seal_parachain_block_data(block, &client);
 	let header = block.blocks()[0].header().clone();
 	let res_header =
 		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
@@ -561,7 +577,15 @@ fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 	);
 
 	let initial_block = initial_block_data.blocks()[0].clone();
-	futures::executor::block_on(client.import(BlockOrigin::Own, initial_block.clone())).unwrap();
+	let (mut header, extrinsics) = initial_block.clone().deconstruct();
+	let seal = header.digest.pop().unwrap();
+
+	let mut import = BlockImportParams::new(BlockOrigin::Own, header.clone());
+	import.body = Some(extrinsics);
+	import.post_digests.push(seal);
+	import.fork_choice = Some(ForkChoiceStrategy::Custom(true));
+
+	futures::executor::block_on(BlockImport::import_block(&client, import)).unwrap();
 	let initial_block_header = initial_block.header().clone();
 
 	// 2. Build the PoV block that removes values from the map.
@@ -584,11 +608,10 @@ fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 		);
 
 	// 3. Validate the PoV.
-	let sealed_pov_block = seal_parachain_block_data(pov_block_data, &client);
-	let final_pov_header = sealed_pov_block.blocks().last().unwrap().header().clone();
+	let final_pov_header = pov_block_data.blocks().last().unwrap().header().clone();
 	let res_header = call_validate_block_elastic_scaling(
 		initial_block_header, // The parent is the head of the initial block before the PoV
-		sealed_pov_block,
+		pov_block_data,
 		pov_validation_data.relay_parent_storage_root,
 	)
 	.expect("Calls `validate_block` after building the PoV");
@@ -622,7 +645,6 @@ fn validate_block_handles_ump_signal() {
 		.to_digest_item()],
 	);
 
-	let block = seal_parachain_block_data(block, &client);
 	let upward_messages = call_validate_block_validation_result(
 		test_runtime::elastic_scaling::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!"),
@@ -637,4 +659,40 @@ fn validate_block_handles_ump_signal() {
 		upward_messages,
 		vec![UMP_SEPARATOR, UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode()]
 	);
+}
+
+#[test]
+fn ensure_we_only_like_blockchains() {
+	sp_tracing::try_init_simple();
+
+	if env::var("RUN_TEST").is_ok() {
+		let (client, parent_head) = create_elastic_scaling_test_client();
+		let TestBlockData { mut block, validation_data } = build_multiple_blocks_with_witness(
+			&client,
+			parent_head.clone(),
+			Default::default(),
+			4,
+			|_| Default::default(),
+		);
+
+		// Reference some non existing parent.
+		block.blocks_mut()[2].header.parent_hash = Hash::default();
+
+		call_validate_block_elastic_scaling(
+			parent_head,
+			block,
+			validation_data.relay_parent_storage_root,
+		)
+		.unwrap_err();
+	} else {
+		let output = Command::new(env::current_exe().unwrap())
+			.args(["ensure_we_only_like_blockchains", "--", "--nocapture"])
+			.env("RUN_TEST", "1")
+			.output()
+			.expect("Runs the test");
+		assert!(output.status.success());
+
+		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
+			.contains("Not a valid chain of blocks :("));
+	}
 }
