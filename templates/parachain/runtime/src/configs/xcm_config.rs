@@ -16,6 +16,7 @@ use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::impls::ToAuthor;
+use polkadot_runtime_common::xcm_sender::ConstantPrice;
 use polkadot_sdk::{
 	polkadot_sdk_frame::traits::Disabled,
 	staging_xcm_builder::{DenyRecursively, DenyThenTry},
@@ -38,6 +39,11 @@ parameter_types! {
 	// For the real deployment, it is recommended to set `RelayNetwork` according to the relay chain
 	// and prepend `UniversalLocation` with `GlobalConsensus(RelayNetwork::get())`.
 	pub UniversalLocation: InteriorLocation = Parachain(ParachainInfo::parachain_id().into()).into();
+}
+
+// Constant UMP delivery fee paid in the relay token.
+parameter_types! {
+	pub UmpDeliveryFeeAssets: Assets = (AssetId(RelayLocation::get()), super::BaseDeliveryFee::get()).into();
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -162,8 +168,8 @@ pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, R
 /// The means for routing XCM messages which are not for local execution into the right message
 /// queues.
 pub type XcmRouter = WithUniqueTopic<(
-	// Two routers - use UMP to communicate with the relay chain:
-	cumulus_primitives_utility::ParentAsUmp<ParachainSystem, (), ()>,
+	// Two routers - use UMP to communicate with the relay chain and charge a constant delivery fee:
+	cumulus_primitives_utility::ParentAsUmp<ParachainSystem, (), ConstantPrice<UmpDeliveryFeeAssets>>,
 	// ..and XCMP to communicate with the sibling chains.
 	XcmpQueue,
 )>;

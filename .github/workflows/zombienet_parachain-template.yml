@@ -1,3 +1,5 @@
+# NOTE: Parachain template runtime includes XCM delivery fee configuration (HRMP/UMP).
+# This workflow remains unchanged functionally.
 name: Zombienet Parachain Templates
 
 on:

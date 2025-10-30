@@ -218,6 +218,15 @@ Development parachains:
 
 ## Runtime development
 
+### Cross-chain delivery fees
+
+The template configures XCM delivery fees by default:
+
+- HRMP pricing: see `runtime/src/configs/mod.rs` (`PriceForSiblingDelivery`, `FeeAssetId`, `BaseDeliveryFee`, `TransactionByteFee`).
+- UMP pricing: see `runtime/src/configs/xcm_config.rs` (`UmpDeliveryFeeAssets` and `ParentAsUmp`).
+
+Adjust these to align with your tokenomics before launching.
+
 We recommend using [`chopsticks`](https://github.com/AcalaNetwork/chopsticks) when the focus is more on the runtime
 development and `OmniNode` is enough as is.
 
