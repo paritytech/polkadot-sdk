@@ -52,6 +52,7 @@ pub const CHARLIE: AccountId32 = AccountId32::new([3u8; 32]);
 pub const DAVE: AccountId32 = AccountId32::new([4u8; 32]);
 pub const EVE: AccountId32 = AccountId32::new([5u8; 32]);
 pub const FERDIE: AccountId32 = AccountId32::new([6u8; 32]);
+pub const POOR: AccountId32 = AccountId32::new([7u8; 32]);
 
 // ========== runtime =========
 frame_support::construct_runtime!(
@@ -325,6 +326,11 @@ pub fn note_preimage(who: AccountId32) -> <Test as frame_system::Config>::Hash {
 	hash
 }
 // ====== helper functions =====
+pub fn map_account(who: AccountId32, value: u128) {
+	// Set balance then map the account
+	let _ = Balances::force_set_balance(RuntimeOrigin::root(), who.clone(), value);
+	assert_ok!(pallet_revive::Pallet::<Test>::map_account(RuntimeOrigin::signed(who)));
+}
 pub fn set_balance_proposal_bounded(value: u128) -> BoundedCallOf<Test, ()> {
 	let who = AccountId32::new([42u8; 32]);
 	let c =
@@ -340,19 +346,6 @@ pub fn set_balance_proposal_bytes(value: u128) -> Vec<u8> {
 	c.encode()
 }
 
-pub fn next_block() {
-	System::set_block_number(System::block_number() + 1);
-	Scheduler::on_initialize(System::block_number());
-}
-
-pub fn run_to(n: u64) {
-	while System::block_number() < n {
-		next_block();
-	}
-}
-
-
-
 // ====== transaction builder =====
 pub struct ExtBuilder {}
 
@@ -366,14 +359,14 @@ impl ExtBuilder {
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		let balances =
-			vec![(ALICE, 100), (BOB, 100), (CHARLIE, 100), (DAVE, 100), (EVE, 100), (FERDIE, 100)];
+			vec![(ALICE, 100), (BOB, 100), (CHARLIE, 100), (DAVE, 100), (EVE, 100), (FERDIE, 100),(POOR,1)];
 		pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
 
 		// Set up account mapping for EVM precompiles
 		pallet_revive::GenesisConfig::<Test> {
-			mapped_accounts: vec![ALICE, BOB, CHARLIE],
+			mapped_accounts: vec![ALICE, BOB, CHARLIE,POOR],
 			..Default::default()
 		}
 		.assimilate_storage(&mut t)
