@@ -23,9 +23,9 @@ use crate::{
 	limits,
 	sp_runtime::traits::One,
 	weights::WeightInfo,
-	BalanceOf, BlockHash, Config, ContractResult, Error, EthBlockBuilderIR, EthereumBlock, Event,
-	ExecReturnValue, Pallet, ReceiptGasInfo, ReceiptInfoData, UniqueSaturatedInto, Weight, H160,
-	H256,
+	AccountIdOf, BalanceOf, BalanceWithDust, BlockHash, Config, ContractResult, Error,
+	EthBlockBuilderIR, EthereumBlock, Event, ExecReturnValue, Pallet, ReceiptGasInfo,
+	ReceiptInfoData, UniqueSaturatedInto, Weight, H160, H256,
 };
 use alloc::vec::Vec;
 use environmental::environmental;
@@ -35,7 +35,7 @@ use frame_support::{
 	storage::with_transaction,
 };
 use sp_core::U256;
-use sp_runtime::{FixedPointNumber, Saturating, TransactionOutcome};
+use sp_runtime::{Saturating, TransactionOutcome};
 
 /// The maximum number of block hashes to keep in the history.
 ///
@@ -65,6 +65,7 @@ impl EthereumCallResult {
 	/// - `info`: Dispatch information used for fee computation
 	/// - `effective_gas_price`: The EVM gas price
 	pub(crate) fn new<T: Config>(
+		signer: AccountIdOf<T>,
 		mut output: ContractResult<ExecReturnValue, BalanceOf<T>>,
 		base_call_weight: Weight,
 		encoded_len: u32,
@@ -88,38 +89,22 @@ impl EthereumCallResult {
 		let native_fee = T::FeeInfo::compute_actual_fee(encoded_len, &info, &result);
 		let result = T::FeeInfo::ensure_not_overdrawn(native_fee, result);
 
-		log::debug!(target: crate::LOG_TARGET,
-			"Ethereum call native_fee: {native_fee:?}, effective_gas_price: {effective_gas_price:?}"
-		);
-		// TODO take into account refunds instead of just adding `charge_or_zero()`
-		{
-			let gas_used: U256 = T::FeeInfo::next_fee_multiplier_reciprocal()
-				.saturating_mul_int(
-					native_fee.saturating_add(output.storage_deposit.charge_or_zero()),
-				)
-				.saturating_add(1_u32.into())
-				.into();
-			log::debug!(target: crate::LOG_TARGET,
-				"Ethereum gas_used (1): {gas_used:?}"
-			);
-		}
-
 		let gas_used = if effective_gas_price.is_zero() {
 			Default::default()
 		} else {
-			let eth_fee = Pallet::<T>::convert_native_to_evm(
-				native_fee.saturating_add(output.storage_deposit.charge_or_zero()),
-			);
+			let eth_fee = Pallet::<T>::convert_native_to_evm(match output.storage_deposit {
+				StorageDeposit::Refund(refund) => native_fee.saturating_sub(refund),
+				StorageDeposit::Charge(amount) => native_fee.saturating_add(amount),
+			});
 
-			let (gas_used, rest) = eth_fee.div_mod(effective_gas_price);
+			let (mut gas_used, rest) = eth_fee.div_mod(effective_gas_price);
 			if !rest.is_zero() {
-				log::warn!(target: crate::LOG_TARGET,
-					"Ethereum call fee {eth_fee:?} is not a multiple of effective gas price {effective_gas_price:?}"
-				);
+				gas_used = gas_used.saturating_add(1_u32.into());
+				let rest =
+					BalanceWithDust::<BalanceOf<T>>::from_value::<T>(effective_gas_price - rest)
+						.expect("rest fits into BalanceOf<T>; qed");
+				Pallet::<T>::transfer_with_dust(&signer, &Pallet::<T>::account_id(), rest).unwrap();
 			}
-			log::debug!(target: crate::LOG_TARGET,
-				"Ethereum gas_used (2): {gas_used:?}"
-			);
 			gas_used
 		};
 

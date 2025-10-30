@@ -29,9 +29,9 @@ use crate::{
 	storage::{self, meter::Diff, AccountIdOrAddress, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
-	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
-	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf,
-	Pallet as Contracts, RuntimeCosts, LOG_TARGET,
+	AccountInfo, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf, CodeRemoved, Config,
+	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
+	LOG_TARGET,
 };
 use alloc::{
 	collections::{BTreeMap, BTreeSet},
@@ -44,7 +44,6 @@ use frame_support::{
 	storage::{with_transaction, TransactionOutcome},
 	traits::{
 		fungible::{Inspect, Mutate},
-		tokens::{Fortitude, Precision, Preservation},
 		Time,
 	},
 	weights::Weight,
@@ -61,7 +60,7 @@ use sp_core::{
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
-	traits::{BadOrigin, Bounded, Saturating, TrailingZeroInput, Zero},
+	traits::{BadOrigin, Bounded, Saturating, TrailingZeroInput},
 	DispatchError, SaturatedConversion,
 };
 
@@ -1521,80 +1520,6 @@ where
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 		exec_config: &ExecConfig<T>,
 	) -> DispatchResult {
-		fn transfer_with_dust<T: Config>(
-			from: &AccountIdOf<T>,
-			to: &AccountIdOf<T>,
-			value: BalanceWithDust<BalanceOf<T>>,
-		) -> DispatchResult {
-			let (value, dust) = value.deconstruct();
-
-			fn transfer_balance<T: Config>(
-				from: &AccountIdOf<T>,
-				to: &AccountIdOf<T>,
-				value: BalanceOf<T>,
-			) -> DispatchResult {
-				T::Currency::transfer(from, to, value, Preservation::Preserve)
-				.map_err(|err| {
-					log::debug!(target: crate::LOG_TARGET, "Transfer failed: from {from:?} to {to:?} (value: ${value:?}). Err: {err:?}");
-					Error::<T>::TransferFailed
-				})?;
-				Ok(())
-			}
-
-			fn transfer_dust<T: Config>(
-				from: &mut AccountInfo<T>,
-				to: &mut AccountInfo<T>,
-				dust: u32,
-			) -> DispatchResult {
-				from.dust =
-					from.dust.checked_sub(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
-				to.dust = to.dust.checked_add(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
-				Ok(())
-			}
-
-			if dust.is_zero() {
-				return transfer_balance::<T>(from, to, value)
-			}
-
-			let from_addr = <T::AddressMapper as AddressMapper<T>>::to_address(from);
-			let mut from_info = AccountInfoOf::<T>::get(&from_addr).unwrap_or_default();
-
-			let to_addr = <T::AddressMapper as AddressMapper<T>>::to_address(to);
-			let mut to_info = AccountInfoOf::<T>::get(&to_addr).unwrap_or_default();
-
-			let plank = T::NativeToEthRatio::get();
-
-			if from_info.dust < dust {
-				T::Currency::burn_from(
-					from,
-					1u32.into(),
-					Preservation::Preserve,
-					Precision::Exact,
-					Fortitude::Polite,
-				)
-				.map_err(|err| {
-					log::debug!(target: crate::LOG_TARGET, "Burning 1 plank from {from:?} failed. Err: {err:?}");
-					Error::<T>::TransferFailed
-				})?;
-
-				from_info.dust =
-					from_info.dust.checked_add(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
-			}
-
-			transfer_balance::<T>(from, to, value)?;
-			transfer_dust::<T>(&mut from_info, &mut to_info, dust)?;
-
-			if to_info.dust >= plank {
-				T::Currency::mint_into(to, 1u32.into())?;
-				to_info.dust =
-					to_info.dust.checked_sub(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
-			}
-
-			AccountInfoOf::<T>::set(&from_addr, Some(from_info));
-			AccountInfoOf::<T>::set(&to_addr, Some(to_info));
-
-			Ok(())
-		}
 		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)
 			.map_err(|_| Error::<T>::BalanceConversionFailed)?;
 		if value.is_zero() {
@@ -1602,7 +1527,7 @@ where
 		}
 
 		if <System<T>>::account_exists(to) {
-			return transfer_with_dust::<T>(from, to, value)
+			return Contracts::<T>::transfer_with_dust(from, to, value)
 		}
 
 		let origin = origin.account_id()?;
@@ -1615,7 +1540,7 @@ where
 						.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
 					Ok(())
 				})
-				.and_then(|_| transfer_with_dust::<T>(from, to, value))
+				.and_then(|_| Contracts::<T>::transfer_with_dust(from, to, value))
 			{
 				Ok(_) => TransactionOutcome::Commit(Ok(())),
 				Err(err) => TransactionOutcome::Rollback(Err(err)),
