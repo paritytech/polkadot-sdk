@@ -389,7 +389,10 @@ mod test {
 					tx_info.transaction_signed.signed_payload(),
 					logs,
 					receipt_info.status.unwrap_or_default() == 1.into(),
-					receipt_info,
+					ReceiptGasInfo {
+						gas_used: receipt_info.gas_used,
+						effective_gas_price: receipt_info.effective_gas_price,
+					},
 				)
 			})
 			.collect();
