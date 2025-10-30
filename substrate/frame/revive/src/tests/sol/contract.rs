@@ -33,7 +33,6 @@ use frame_support::{
 	assert_err,
 	traits::fungible::{Balanced, Mutate},
 };
-use itertools::Itertools;
 use pallet_revive_fixtures::{compile_module_with_type, Callee, Caller, FixtureType};
 use pallet_revive_uapi::ReturnFlags;
 use pretty_assertions::assert_eq;

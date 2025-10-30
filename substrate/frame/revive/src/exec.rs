@@ -17,11 +17,7 @@
 
 use crate::{
 	address::{self, AddressMapper},
-	evm::{
-		block_storage,
-		fees::{Combinator, InfoT},
-	},
-	gas::GasMeter,
+	evm::block_storage,
 	limits,
 	metering::{
 		storage,
@@ -420,10 +416,10 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Returns the maximum allowed size of a storage item.
 	fn max_value_size(&self) -> u32;
 
-	/// Get an immutable reference to the nested weight meter.
+	/// Get an immutable reference to the nested resource meter of the frame.
 	fn gas_meter(&self) -> &FrameMeter<Self::T>;
 
-	/// Get a mutable reference to the nested weight meter.
+	/// Get a mutable reference to the nested resource meter of the frame.
 	fn gas_meter_mut(&mut self) -> &mut FrameMeter<Self::T>;
 
 	/// Recovers ECDSA compressed public key based on signature and message hash.
@@ -855,14 +851,21 @@ where
 				);
 			});
 
-			let result = Self::transfer_from_origin(
-				&origin,
-				&origin,
-				&dest,
-				value,
-				transaction_meter,
-				exec_config,
-			);
+			let result = if let Some(mock_answer) =
+				exec_config.mock_handler.as_ref().and_then(|handler| {
+					handler.mock_call(T::AddressMapper::to_address(&dest), &input_data, value)
+				}) {
+				Ok(mock_answer)
+			} else {
+				Self::transfer_from_origin(
+					&origin,
+					&origin,
+					&dest,
+					value,
+					transaction_meter,
+					exec_config,
+				)
+			};
 
 			if_tracing(|t| match result {
 				Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
@@ -957,8 +960,16 @@ where
 		input_data: &Vec<u8>,
 	) -> Result<Option<(Self, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		origin.ensure_mapped()?;
-		let Some((first_frame, executable)) =
-			Self::new_frame(args, value, transaction_meter, &CallResources::NoLimits, false, true)?
+		let Some((first_frame, executable)) = Self::new_frame(
+			args,
+			value,
+			transaction_meter,
+			&CallResources::NoLimits,
+			false,
+			true,
+			input_data,
+			exec_config,
+		)?
 		else {
 			return Ok(None);
 		};
@@ -1140,9 +1151,16 @@ where
 
 		let frame = top_frame_mut!(self);
 		let meter = &mut frame.frame_meter;
-		if let Some((frame, executable)) =
-			Self::new_frame(frame_args, value_transferred, meter, call_resources, read_only, false)?
-		{
+		if let Some((frame, executable)) = Self::new_frame(
+			frame_args,
+			value_transferred,
+			meter,
+			call_resources,
+			read_only,
+			false,
+			input_data,
+			self.exec_config,
+		)? {
 			self.frames.try_push(frame).map_err(|_| Error::<T>::MaxCallDepthReached)?;
 			Ok(Some(executable))
 		} else {
@@ -1521,7 +1539,7 @@ where
 		to: &T::AccountId,
 		value: U256,
 		meter: &mut ResourceMeter<T, S>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> DispatchResult {
 		fn transfer_with_dust<T: Config>(
 			from: &AccountIdOf<T>,
@@ -1632,7 +1650,7 @@ where
 		to: &T::AccountId,
 		value: U256,
 		meter: &mut ResourceMeter<T, S>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> ExecResult {
 		// If the from address is root there is no account to transfer from, and therefore we can't
 		// take any `value` other than 0.
@@ -1727,7 +1745,7 @@ where
 		// Only allow storage to be removed if the contract was created in the current tx.
 		let delete_code = self.contracts_created.contains(&contract_account);
 
-		self.storage_meter.terminate_absorb(
+		self.transaction_meter.terminate_absorb(
 			contract_account,
 			contract_info,
 			beneficiary_account.clone(),
@@ -1789,17 +1807,20 @@ where
 		}
 	}
 
-	fn terminate(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
-		if self.is_recursive() {
-			return Err(Error::<T>::TerminatedWhileReentrant.into());
-		}
-		let frame = self.top_frame_mut();
-		if frame.entry_point == ExportedFunction::Constructor {
-			return Err(Error::<T>::TerminatedInConstructor.into());
-		}
-		let info = frame.terminate();
-		let beneficiary_account = T::AddressMapper::to_account_id(beneficiary);
-		frame.frame_meter.terminate(&info, beneficiary_account);
+	fn terminate_if_same_tx(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
+		let (account_id, contract_address, contract_info) = {
+			let frame = self.top_frame_mut();
+			if frame.entry_point == ExportedFunction::Constructor {
+				return Err(Error::<T>::TerminatedInConstructor.into());
+			}
+			(
+				frame.account_id.clone(),
+				T::AddressMapper::to_address(&frame.account_id),
+				frame.contract_info().clone(),
+			)
+		};
+		self.contracts_to_be_destroyed
+			.insert(contract_address, (contract_info.clone(), *beneficiary));
 
 		if self.contracts_created.contains(&account_id) {
 			Ok(CodeRemoved::Yes)

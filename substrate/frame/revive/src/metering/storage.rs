@@ -130,7 +130,7 @@ impl Diff {
 		let info = if let Some(info) = info {
 			info
 		} else {
-			return bytes_deposit.saturating_add(&items_deposit);
+			return bytes_deposit.saturating_add(&items_deposit)
 		};
 
 		// Refunds are calculated pro rata based on the accumulated storage within the contract
@@ -300,9 +300,8 @@ where
 		beneficiary: T::AccountId,
 		delete_code: bool,
 	) {
-		use sp_runtime::traits::Bounded;
 		// Create a nested storage meter and terminate the contract's storage.
-		let mut nested = self.nested(BalanceOf::<T>::max_value());
+		let mut nested = self.nested(None);
 		nested.terminate(contract_info, beneficiary.clone(), delete_code);
 		self.absorb(core::mem::take(&mut nested), &contract_account, Some(contract_info));
 	}
@@ -358,7 +357,7 @@ where
 	/// This drops the root meter in order to make sure it is only called when the whole
 	/// execution did finish.
 	pub fn execute_postponed_deposits(
-		&self,
+		&mut self,
 		origin: &Origin<T>,
 		exec_config: &ExecConfig<T>,
 	) -> Result<DepositOf<T>, DispatchError> {
@@ -371,7 +370,7 @@ where
 		// Coalesce charges of the same contract.
 		self.charges = {
 			let mut coalesced: Vec<Charge<T>> = Vec::with_capacity(self.charges.len());
-			for ch in self.charges {
+			for ch in &self.charges {
 				if let Some(last) = coalesced.last_mut() {
 					if last.contract == ch.contract {
 						// merge amounts (uses Deposit::saturating_add)
@@ -384,7 +383,7 @@ where
 						continue;
 					}
 				}
-				coalesced.push(ch);
+				coalesced.push(ch.clone());
 			}
 			coalesced
 		};
@@ -509,6 +508,7 @@ fn terminate<T: Config>(
 	contract: &T::AccountId,
 	beneficiary: &T::AccountId,
 	delete_code: &bool,
+) -> Result<(), DispatchError> {
 	fn terminate_inner<T: Config>(
 		contract: &T::AccountId,
 		beneficiary: &T::AccountId,
@@ -555,12 +555,6 @@ pub fn terminate_logic_for_benchmark<T: Config>(
 	beneficiary: &T::AccountId,
 ) -> Result<(), DispatchError> {
 	terminate::<T>(contract, beneficiary, &true)
-}
-
-mod private {
-	pub trait Sealed {}
-	impl Sealed for super::Root {}
-	impl Sealed for super::Nested {}
 }
 
 #[cfg(test)]

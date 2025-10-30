@@ -43,7 +43,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: paritytech/evm-test-suite
-          ref: 84e536af80513f87bc16f6c7b7dbf796fe9010ab
+          ref: c2422cace2fb8a4337fc1c704c49e458c8a79d6b
           path: evm-test-suite
 
       - uses: denoland/setup-deno@v1
@@ -67,13 +67,6 @@ jobs:
 
           echo "== Running evm tests =="
           START_REVIVE_DEV_NODE=true START_ETH_RPC=true deno task test:evm
-
-      - name: Collect tests results
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: evm-test-suite-${{ github.sha }}
-          path: evm-test-suite/test-logs/matter-labs-tests.log
 
   confirm-required-test-evm-jobs-passed:
     runs-on: ubuntu-latest

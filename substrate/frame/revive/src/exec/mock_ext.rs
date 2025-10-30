@@ -21,7 +21,7 @@ use crate::{
 		AccountIdOf, CallResources, ExecError, Ext, Key, Origin, PrecompileExt,
 		PrecompileWithInfoExt,
 	},
-	metering::weight::WeightMeter,
+	metering::{FrameMeter, TransactionLimits, TransactionMeter},
 	precompiles::Diff,
 	storage::{ContractInfo, WriteOutcome},
 	transient_storage::TransientStorage,
@@ -35,13 +35,19 @@ use sp_runtime::DispatchError;
 
 /// Mock implementation of the Ext trait that panics for all methods
 pub struct MockExt<T: Config> {
-	weight_meter: WeightMeter<T>,
+	transaction_meter: TransactionMeter<T>,
+	frame_meter: FrameMeter<T>,
 	_phantom: PhantomData<T>,
 }
 
 impl<T: Config> MockExt<T> {
 	pub fn new() -> Self {
-		Self { weight_meter: WeightMeter::new(Weight::MAX), _phantom: PhantomData }
+		let transaction_meter = TransactionMeter::new(TransactionLimits::WeightAndDeposit {
+			weight_limit: Weight::MAX,
+			deposit_limit: Balance::max_value(),
+		});
+		let frame_meter: transaction_meter::new_nested(&CallResources::NoLimits);
+		Self { frame_meter, weight_meter, _phantom: PhantomData }
 	}
 }
 
@@ -157,12 +163,12 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::max_value_size")
 	}
 
-	fn gas_meter(&self) -> &WeightMeter<Self::T> {
-		&self.weight_meter
+	fn gas_meter(&self) -> &FrameMeter<Self::T> {
+		&self.frame_meter
 	}
 
-	fn gas_meter_mut(&mut self) -> &mut WeightMeter<Self::T> {
-		&mut self.weight_meter
+	fn gas_meter_mut(&mut self) -> &mut FrameMeter<Self::T> {
+		&mut self.frame_meter
 	}
 
 	fn ecdsa_recover(

@@ -565,9 +565,9 @@ impl<T: Config> TransactionMeter<T> {
 	}
 
 	pub fn execute_postponed_deposits(
-		&self,
+		&mut self,
 		origin: &Origin<T>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> Result<DepositOf<T>, DispatchError> {
 		if self.deposit_left().is_none() {
 			// Deposit limit exceeded
@@ -575,6 +575,17 @@ impl<T: Config> TransactionMeter<T> {
 		}
 
 		self.deposit.execute_postponed_deposits(origin, exec_config)
+	}
+
+	pub fn terminate_absorb(
+		&mut self,
+		contract_account: T::AccountId,
+		contract_info: &mut ContractInfo<T>,
+		beneficiary: T::AccountId,
+		delete_code: bool,
+	) {
+		self.deposit
+			.terminate_absorb(contract_account, contract_info, beneficiary, delete_code);
 	}
 }
 
@@ -585,10 +596,6 @@ impl<T: Config> FrameMeter<T> {
 		amount: DepositOf<T>,
 	) {
 		self.deposit.charge_deposit(contract, amount)
-	}
-
-	pub fn terminate(&mut self, info: &ContractInfo<T>, beneficiary: T::AccountId) {
-		self.deposit.terminate(info, beneficiary);
 	}
 
 	pub fn record_contract_storage_changes(&mut self, diff: &Diff) {

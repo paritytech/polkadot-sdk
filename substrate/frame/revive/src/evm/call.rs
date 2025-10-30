@@ -20,7 +20,7 @@
 use crate::{
 	evm::{fees::InfoT, runtime::SetWeightLimit},
 	extract_code_and_data, BalanceOf, CallOf, Config, GenericTransaction, Pallet, Weight, Zero,
-	LOG_TARGET, RUNTIME_PALLETS_ADDR, U256,
+	LOG_TARGET, RUNTIME_PALLETS_ADDR,
 };
 use alloc::vec::Vec;
 use codec::DecodeLimit;
@@ -199,3 +199,4 @@ where
 	})?.saturated_into();
 
 	Ok(CallInfo { call, weight_limit, encoded_len, tx_fee, storage_deposit, eth_gas_limit: gas })
+}

@@ -276,6 +276,7 @@ builder!(
 			origin: OriginFor<T>,
 			value: U256,
 			gas_limit: Weight,
+			eth_gas_limit: U256,
 			code: Vec<u8>,
 			data: Vec<u8>,
 			transaction_encoded: Vec<u8>,
@@ -288,7 +289,8 @@ builder!(
 		Self {
 			origin,
 			value: 0u32.into(),
-			gas_limit: GAS_LIMIT,
+			gas_limit: WEIGHT_LIMIT,
+			eth_gas_limit: ETH_GAS_LIMIT.into(),
 			code,
 			data: vec![],
 			transaction_encoded: TransactionSigned::Transaction4844Signed(Default::default()).signed_payload(),

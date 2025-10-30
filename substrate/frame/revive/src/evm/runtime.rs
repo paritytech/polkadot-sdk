@@ -314,7 +314,8 @@ pub trait EthExtra {
 		})?;
 
 		log::debug!(target: LOG_TARGET, "Decoded Ethereum transaction with signer: {signer_addr:?} nonce: {nonce:?}");
-		let call_info = create_call::<Self::Config>(tx, Some(encoded_len as u32))?;
+		let call_info =
+			create_call::<Self::Config>(tx, Some((encoded_len as u32, payload.to_vec())), true)?;
 		let storage_credit = <Self::Config as Config>::Currency::withdraw(
 					&signer,
 					call_info.storage_deposit,
@@ -342,7 +343,7 @@ pub trait EthExtra {
 			weight_limit={} \
 			nonce={nonce:?}\
 			",
-			call_info.gas,
+			call_info.eth_gas_limit,
 			call_info.tx_fee,
 			call_info.storage_deposit,
 			call_info.weight_limit,
@@ -517,6 +518,7 @@ mod test {
 					extra,
 					tx,
 					self.dry_run.unwrap().weight_required,
+					signed_transaction,
 				))
 			})
 		}
@@ -525,11 +527,18 @@ mod test {
 	#[test]
 	fn check_eth_transact_call_works() {
 		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
-		let (expected_encoded_len, call, _, tx, weight_required) = builder.check().unwrap();
+		let (expected_encoded_len, call, _, tx, weight_required, signed_transaction) =
+			builder.check().unwrap();
+		let expected_effective_gas_price: u32 = <Test as Config>::NativeToEthRatio::get();
+
+		match call {
+			RuntimeCall::Contracts(crate::Call::eth_call::<Test> {
+				dest,
 				value,
-				data,
 				weight_limit,
 				eth_gas_limit,
+				data,
+				transaction_encoded,
 				effective_gas_price,
 				encoded_len,
 			}) if dest == tx.to.unwrap() &&
