@@ -239,7 +239,7 @@ impl VotingHooks<AccountId, ReferendumIndex, Balance> for HooksHandler {
 	fn on_remove_vote_worst_case(_who: &AccountId) {}
 }
 
-/// Declares a new test externality, funds ALICE, BOB and CHARLIE accounts.
+/// Declares a new test externality, funds ALICE, BOB, CHARLIE and DAVE accounts.
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
