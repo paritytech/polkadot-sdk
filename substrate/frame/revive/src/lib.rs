@@ -2129,7 +2129,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
-	fn try_upload_code(
+	pub fn try_upload_code(
 		origin: T::AccountId,
 		code: Vec<u8>,
 		code_type: BytecodeType,
