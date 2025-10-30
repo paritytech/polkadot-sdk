@@ -267,25 +267,6 @@ where
 		.saturating_add(Self::length_to_fee(encoded_len))
 	}
 
-	fn compute_actual_fee(
-		encoded_len: u32,
-		info: &DispatchInfo,
-		result: &DispatchResultWithPostInfo,
-	) -> BalanceOf<E::Config> {
-		let mut post_info = *match result {
-			Ok(post_info) => post_info,
-			Err(err) => &err.post_info,
-		};
-
-		post_info
-			.actual_weight
-			.as_mut()
-			.map(|w| w.saturating_accrue(info.extension_weight));
-
-		<TxPallet<E::Config>>::compute_actual_fee(encoded_len, info, &post_info, Zero::zero())
-			.into()
-	}
-
 	fn ensure_not_overdrawn(
 		fee: BalanceOf<E::Config>,
 		result: DispatchResultWithPostInfo,
@@ -370,6 +351,25 @@ where
 
 	fn remaining_txfee() -> BalanceOf<E::Config> {
 		TxPallet::<E::Config>::remaining_txfee()
+	}
+
+	fn compute_actual_fee(
+		encoded_len: u32,
+		info: &DispatchInfo,
+		result: &DispatchResultWithPostInfo,
+	) -> BalanceOf<E::Config> {
+		let mut post_info = *match result {
+			Ok(post_info) => post_info,
+			Err(err) => &err.post_info,
+		};
+
+		post_info
+			.actual_weight
+			.as_mut()
+			.map(|w| w.saturating_accrue(info.extension_weight));
+
+		<TxPallet<E::Config>>::compute_actual_fee(encoded_len, info, &post_info, Zero::zero())
+			.into()
 	}
 }
 

@@ -25,7 +25,7 @@ use crate::{
 	weights::WeightInfo,
 	AccountIdOf, BalanceOf, BalanceWithDust, BlockHash, Config, ContractResult, Error,
 	EthBlockBuilderIR, EthereumBlock, Event, ExecReturnValue, Pallet, ReceiptGasInfo,
-	ReceiptInfoData, UniqueSaturatedInto, Weight, H160, H256,
+	ReceiptInfoData, StorageDeposit, UniqueSaturatedInto, Weight, H160, H256,
 };
 use alloc::vec::Vec;
 use environmental::environmental;
@@ -58,6 +58,7 @@ impl EthereumCallResult {
 	///
 	/// # Parameters
 	///
+	/// - `signer`: The signer of the transaction
 	/// - `output`: The execution result
 	/// - `gas_consumed`: The weight consumed during execution
 	/// - `base_call_weight`: The base call weight
