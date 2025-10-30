@@ -186,8 +186,8 @@ parameter_types! {
 parameter_types! {
 	/// Asset used to pay delivery fees (native reserve asset of the relay).
 	pub FeeAssetId: xcm::v5::AssetId = xcm::v5::AssetId(xcm_config::RelayLocation::get());
-	/// Base fee charged per message delivery; conservative default.
-	pub const BaseDeliveryFee: u128 = 3 * MILLI_UNIT;
+	/// Base fee charged per message delivery; aligned with ~3 CENTS (30 * MILLI_UNIT).
+	pub const BaseDeliveryFee: u128 = 30 * MILLI_UNIT;
 }
 
 impl pallet_transaction_payment::Config for Runtime {

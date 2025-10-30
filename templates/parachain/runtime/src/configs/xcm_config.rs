@@ -43,6 +43,7 @@ parameter_types! {
 
 // Constant UMP delivery fee paid in the relay token.
 parameter_types! {
+	/// Uses BaseDeliveryFee from configs/mod.rs and the relay token as the fee asset.
 	pub UmpDeliveryFeeAssets: Assets = (AssetId(RelayLocation::get()), super::BaseDeliveryFee::get()).into();
 }
 
