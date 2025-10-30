@@ -76,7 +76,11 @@ use sp_runtime::{
 	app_crypto::AppCrypto,
 	traits::{Block as BlockT, Header as HeaderT, UniqueSaturatedInto},
 };
-use std::{marker::PhantomData, sync::Arc, time::Duration};
+use std::{
+	marker::PhantomData,
+	sync::Arc,
+	time::{Duration, Instant},
+};
 
 struct Verifier<Block, Client, AuraId> {
 	client: Arc<Client>,
@@ -570,6 +574,16 @@ where
 		node_extra_args: NodeExtraArgs,
 		block_import_handle: SlotBasedBlockImportHandle<Block>,
 	) -> Result<(), Error> {
+		let metadata_inspector =
+			crate::common::runtime::MetadataInspector::from_client::<Block, _>(client.clone())?;
+
+		let cidp = if metadata_inspector.pallet_exists("TransactionStorage") {
+			// Here we can add inherents.
+			move |_, ()| async move { Ok(()) }
+		} else {
+			move |_, ()| async move { Ok(()) }
+		};
+
 		let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
 			task_manager.spawn_handle(),
 			client.clone(),
@@ -694,6 +708,9 @@ where
 		node_extra_args: NodeExtraArgs,
 		_: (),
 	) -> Result<(), Error> {
+		let _metadata_inspector =
+			crate::common::runtime::MetadataInspector::from_client::<Block, _>(client.clone());
+
 		let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
 			task_manager.spawn_handle(),
 			client.clone(),

@@ -19,10 +19,12 @@
 use codec::Decode;
 use cumulus_client_service::ParachainHostFunctions;
 use sc_chain_spec::ChainSpec;
+use sc_client_api::HeaderBackend;
 use sc_executor::WasmExecutor;
 use sc_runtime_utilities::fetch_latest_metadata_from_code_blob;
 use scale_info::{form::PortableForm, TypeDef, TypeDefPrimitive};
-use std::fmt::Display;
+use sp_api::{Metadata as MetadataApi, ProvideRuntimeApi};
+use std::{fmt::Display, sync::Arc};
 use subxt_metadata::{Metadata, StorageEntryType};
 
 /// Expected parachain system pallet runtime type name.
@@ -133,14 +135,51 @@ impl RuntimeResolver for DefaultRuntimeResolver {
 	}
 }
 
-struct MetadataInspector(Metadata);
+pub(crate) struct MetadataInspector(Metadata);
 
 impl MetadataInspector {
 	fn new(chain_spec: &dyn ChainSpec) -> Result<MetadataInspector, sc_cli::Error> {
 		MetadataInspector::fetch_metadata(chain_spec).map(MetadataInspector)
 	}
 
-	fn pallet_exists(&self, name: &str) -> bool {
+	/// Create a new `MetadataInspector` from a client that implements the `Metadata` runtime API.
+	pub(crate) fn from_client<Block, Client>(
+		client: Arc<Client>,
+	) -> Result<MetadataInspector, sc_cli::Error>
+	where
+		Block: sp_runtime::traits::Block,
+		Client: ProvideRuntimeApi<Block> + HeaderBackend<Block>,
+		Client::Api: MetadataApi<Block>,
+	{
+		let best_hash = client.info().best_hash;
+
+		let Some(latest_version) = client
+			.runtime_api()
+			.metadata_versions(best_hash)
+			.map_err(|e| format!("Failed to fetch metadata from runtime API: {}", e))?
+			.into_iter()
+			.filter(|version| *version != u32::MAX)
+			.last()
+		else {
+			return Err("No metadata version supported".into())
+		};
+
+		let opaque_metadata = client
+			.runtime_api()
+			.metadata_at_version(best_hash, latest_version)
+			.map_err(|e| format!("Failed to fetch metadata from runtime API: {}", e))?
+			.expect("Should be there");
+
+		Metadata::decode(&mut (*opaque_metadata).as_slice())
+			.map(MetadataInspector)
+			.map_err(Into::into)
+	}
+
+	pub fn pallet_exists(&self, name: &str) -> bool {
+		for x in self.0.pallets() {
+			log::info!("{}", x.name());
+		}
+
 		self.0.pallet_by_name(name).is_some()
 	}
 
