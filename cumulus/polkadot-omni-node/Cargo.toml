@@ -32,3 +32,6 @@ runtime-benchmarks = [
 try-runtime = [
 	"polkadot-omni-node-lib/try-runtime",
 ]
+x-shadow = [
+	"polkadot-omni-node-lib/x-shadow",
+]

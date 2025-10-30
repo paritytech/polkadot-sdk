@@ -109,3 +109,6 @@ fast-runtime = [
 	"coretime-rococo-runtime/fast-runtime",
 	"coretime-westend-runtime/fast-runtime",
 ]
+x-shadow = [
+	"polkadot-omni-node-lib/x-shadow",
+]
