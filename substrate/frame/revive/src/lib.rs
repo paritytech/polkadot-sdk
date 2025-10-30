@@ -62,7 +62,7 @@ use crate::{
 	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
-use codec::{Codec, Decode, Encode};
+use codec::{Codec, Decode, DecodeLimit, Encode};
 use environmental::*;
 use frame_support::{
 	dispatch::{
@@ -77,7 +77,7 @@ use frame_support::{
 		ConstU32, ConstU64, EnsureOrigin, Get, IsSubType, IsType, OriginTrait, Time,
 	},
 	weights::WeightMeter,
-	BoundedVec, RuntimeDebugNoBound,
+	BoundedVec, RuntimeDebugNoBound, MAX_EXTRINSIC_DEPTH,
 };
 use frame_system::{
 	ensure_signed,
@@ -1334,6 +1334,56 @@ pub mod pallet {
 			})
 		}
 
+		/// Makes a call to the runtime with raw encoded Call data.
+		///
+		/// This dispatchable is intended to be called **only** by EVM transactions
+		/// through the EVM compatibility layer. It allows Ethereum transactions to
+		/// dispatch substrate runtime calls.
+		///
+		/// # Parameters
+		///
+		/// * `origin`: Must be an [`Origin::EthTransaction`] origin.
+		/// * `code`: Encoded runtime call data.
+		#[pallet::call_index(12)]
+		#[pallet::weight(Weight::MAX)]
+		pub fn eth_substrate_call(origin: OriginFor<T>, code: Vec<u8>) -> DispatchResult {
+			let signer = ensure_signed(Self::ensure_eth_origin(origin)?)?;
+
+			log::debug!(target: LOG_TARGET, "eth_substrate_call");
+			block_storage::with_ethereum_context::<T>(code.clone(), || {
+				let dispatch_call = match <CallOf<T>>::decode_all_with_depth_limit(
+					MAX_EXTRINSIC_DEPTH,
+					&mut &code[..],
+				) {
+					Ok(call) => call,
+					Err(err) => {
+						log::warn!(target: LOG_TARGET, "Failed to decode data as Call; err: {:?}", err);
+						let result = dispatch_result::<()>(
+							Err(<Error<T>>::DecodingFailed.into()), //TODO: better error
+							Weight::zero(),
+							Weight::zero(),
+						);
+						return (Weight::zero(), result);
+					},
+				};
+
+				// Get the actual weight of the call
+				let call_weight = dispatch_call.get_dispatch_info().call_weight;
+				// Dispatch the call with the signer as origin
+				let call_result = dispatch_call
+					.dispatch(RawOrigin::Signed(signer).into())
+					.map(|_| ())
+					.map_err(|err| {
+						log::warn!(target: LOG_TARGET, "Dispatch failed: {:?}", err.error);
+						err.error
+					});
+				let dispatch_res = dispatch_result::<()>(call_result, call_weight, Weight::zero());
+				(call_weight, dispatch_res)
+			})
+			.map(|_| ())
+			.map_err(|e| e.error)
+		}
+
 		/// Upload new `code` without instantiating a contract from it.
 		///
 		/// If the code does not already exist a deposit is reserved from the caller
@@ -1356,30 +1406,7 @@ pub mod pallet {
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 		) -> DispatchResult {
 			Self::ensure_non_contract_if_signed(&origin)?;
-
-			let base_weight = <T as Config>::WeightInfo::upload_code(code.len() as u32);
-
-			let is_eth_tx = matches!(
-				<T as Config>::RuntimeOrigin::from(origin.clone()).into(),
-				Ok(Origin::EthTransaction(_))
-			);
-
-			let result = if is_eth_tx {
-				block_storage::with_ethereum_context::<T>(code.clone(), || {
-					let upload_result = Self::bare_upload_code(origin, code, storage_deposit_limit);
-					let dispatch_res = match upload_result {
-						Ok(_) => dispatch_result::<()>(Ok(()), Weight::zero(), base_weight),
-						Err(err) => dispatch_result::<()>(Err(err), Weight::zero(), base_weight),
-					};
-					(Weight::zero(), dispatch_res)
-				})
-				.map(|_| ())
-				.map_err(|e| e.error)
-			} else {
-				Self::bare_upload_code(origin, code, storage_deposit_limit).map(|_| ())
-			};
-
-			result
+			Self::bare_upload_code(origin, code, storage_deposit_limit).map(|_| ())
 		}
 
 		/// Remove the code stored under `code_hash` and refund the deposit to its owner.
@@ -2006,12 +2033,9 @@ impl<T: Config> Pallet<T> {
 		code: Vec<u8>,
 		storage_deposit_limit: BalanceOf<T>,
 	) -> CodeUploadResult<BalanceOf<T>> {
-		let origin = match <T as Config>::RuntimeOrigin::from(origin.clone()).into() {
-			Ok(Origin::EthTransaction(signer)) => signer,
-			Err(runtime_origin) => T::UploadOrigin::ensure_origin(runtime_origin)?,
-		};
+		let origin = T::UploadOrigin::ensure_origin(origin)?;
 		let (module, deposit) = Self::try_upload_pvm_code(
-			origin.clone(),
+			origin,
 			code,
 			storage_deposit_limit,
 			&ExecConfig::new_substrate_tx(),
