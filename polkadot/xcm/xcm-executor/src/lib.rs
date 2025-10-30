@@ -1033,7 +1033,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				})
 			},
 			// `fallback_max_weight` is not used in the executor, it's only for conversions.
-			Transact { origin_kind, mut call, .. } => {
+			Transact { origin_kind, call, .. } => {
 				let origin = self.cloned_origin().ok_or_else(|| {
 					tracing::trace!(
 						target: "xcm::process_instruction::transact",
@@ -1043,7 +1043,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					XcmError::BadOrigin
 				})?;
 
-				let message_call = call.take_decoded().map_err(|_| {
+				let message_call = call.try_into().map_err(|_| {
 					tracing::trace!(
 						target: "xcm::process_instruction::transact",
 						"Failed to decode call",
@@ -1054,7 +1054,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 				tracing::trace!(
 					target: "xcm::process_instruction::transact",
-					?call,
+					?message_call,
 					"Processing call",
 				);
 
