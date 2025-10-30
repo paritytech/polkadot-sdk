@@ -476,6 +476,8 @@ impl pallet_verify_signature::Config for Runtime {
 
 impl cumulus_tic_tac_toe::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type RcBlockNumberProvider = cumulus_pallet_parachain_system::RelaychainDataProvider<Runtime>;
 }
 
 #[frame_support::runtime]
@@ -778,6 +780,13 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
 		fn parachain_id() -> ParaId {
 			ParachainInfo::parachain_id()
+		}
+	}
+
+	impl cumulus_tic_tac_toe::TicTacToeApi<Block, AccountId> for Runtime {
+		fn get_player_game(player: AccountId) -> Option<(u32, cumulus_tic_tac_toe::Game<AccountId>)> {
+			TicTacToe::get_player_game(&player)
+				.map(|(game_id, game)| (game_id, cumulus_tic_tac_toe::Game::from_pallet_game(game)))
 		}
 	}
 }

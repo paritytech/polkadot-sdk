@@ -15,17 +15,29 @@ codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 log = { workspace = true }
 
+cumulus-pallet-parachain-system = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+sp-api = { workspace = true }
 sp-runtime = { workspace = true }
+
+[dev-dependencies]
+pallet-balances = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
+	"cumulus-pallet-parachain-system/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
+	"pallet-balances/std",
 	"scale-info/std",
+	"sp-api/std",
+	"sp-core/std",
+	"sp-io/std",
 	"sp-runtime/std",
 ]

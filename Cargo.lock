@@ -5285,11 +5285,16 @@ dependencies = [
 name = "cumulus-tic-tac-toe"
 version = "0.1.0"
 dependencies = [
+ "cumulus-pallet-parachain-system",
  "frame-support",
  "frame-system",
  "log",
+ "pallet-balances",
  "parity-scale-codec",
  "scale-info",
+ "sp-api",
+ "sp-core 28.0.0",
+ "sp-io",
  "sp-runtime",
 ]
 
