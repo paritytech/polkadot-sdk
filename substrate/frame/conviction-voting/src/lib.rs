@@ -45,6 +45,7 @@ use sp_runtime::{
 };
 
 mod conviction;
+mod migrations;
 mod traits;
 mod types;
 mod vote;
