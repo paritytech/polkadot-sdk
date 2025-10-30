@@ -794,7 +794,7 @@ mod tests {
 			// Player 2 should have the same game
 			let result = TicTacToe::get_player_game(&2);
 			assert!(result.is_some());
-			let (game_id, game) = result.unwrap();
+			let (game_id, _game) = result.unwrap();
 			assert_eq!(game_id, 0);
 		});
 	}
