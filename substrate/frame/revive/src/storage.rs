@@ -75,12 +75,12 @@ pub struct AccountInfo<T: Config> {
 /// The account type is used to distinguish between contracts and externally owned accounts.
 #[derive(
 	DefaultNoBound,
-	DebugNoBound,
 	Encode,
 	Decode,
 	CloneNoBound,
 	PartialEq,
 	Eq,
+	RuntimeDebug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
