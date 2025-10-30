@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-approval-distribution"
-version = "23.0.0"
+version = "23.0.1"
 description = "Polkadot Approval Distribution subsystem for the distribution of assignments and approvals for approval checks on candidates over the network."
 authors.workspace = true
 edition.workspace = true
