@@ -23,7 +23,7 @@ on:
         description: "Run tests which names match this pattern (also flaky)"
         default: ""
         required: false
-  merge_group:
+
 concurrency:
   group: substrate-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.run_id }}
   cancel-in-progress: true
@@ -63,7 +63,7 @@ jobs:
     runs-on: ${{ matrix.test.runner-type == 'large' && (matrix.test.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER) || (matrix.test.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER || needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER) }}
     timeout-minutes: 70 # 60 for test + 10 for send logs
     needs: [preflight]
-    if: ${{ github.event_name == 'workflow_call' || github.event_name == 'merge_group' || (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) }}
+    if: ${{ github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch' || github.event_name == 'merge_group' || (needs.preflight.outputs.changes_substrate == 'true' || needs.preflight.outputs.changes_polkadot == 'true' || needs.preflight.outputs.changes_zombienet == 'true') }}
     container:
       image: ${{ matrix.test.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_IMAGE || needs.preflight.outputs.ZOMBIENET_IMAGE }}
       options: -v /tmp/zombienet:/tmp/zombienet
