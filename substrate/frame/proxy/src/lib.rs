@@ -715,10 +715,6 @@ pub mod pallet {
 			proxy_type: T::ProxyType,
 			delay: BlockNumberFor<T>,
 		},
-		/// All proxies were removed for a delegator.
-		ProxiesRemoved {
-			delegator: T::AccountId,
-		},
 		/// A deposit stored for proxies or announcements was poked / updated.
 		DepositPoked {
 			who: T::AccountId,
@@ -1031,7 +1027,16 @@ impl<T: Config> Pallet<T> {
 	/// - `delegator`: The delegator account.
 	pub fn remove_all_proxy_delegates(delegator: &T::AccountId) {
 		let (proxies, old_deposit) = Proxies::<T>::take(delegator);
-		T::Currency::unreserve(delegator, old_deposit);
-		Self::deposit_event(Event::ProxiesRemoved { delegator: delegator.clone() });
+		if !proxies.is_empty() {
+			T::Currency::unreserve(delegator, old_deposit);
+			proxies.into_iter().for_each(|proxy_def| {
+				Self::deposit_event(Event::<T>::ProxyRemoved {
+					delegator: delegator.clone(),
+					delegatee: proxy_def.delegate,
+					proxy_type: proxy_def.proxy_type,
+					delay: proxy_def.delay,
+				});
+			});
+		}
 	}
 }
