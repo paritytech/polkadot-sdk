@@ -48,6 +48,7 @@ environmental!(receipt: AccumulateReceipt);
 
 /// Result of an Ethereum context call execution.
 pub(crate) struct EthereumCallResult {
+	/// Receipt gas information.
 	pub receipt_gas_info: ReceiptGasInfo,
 	/// The dispatch result with post-dispatch information.
 	pub result: DispatchResultWithPostInfo,
