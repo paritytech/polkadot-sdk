@@ -252,3 +252,80 @@ fn get_all_published_data_map_returns_all_publishers() {
 		assert_eq!(all_data.get(&para2).unwrap(), &vec![(b"key2".to_vec(), b"value2".to_vec())]);
 	});
 }
+
+#[test]
+fn subscribe_toggle_works() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let subscriber = ParaId::from(1000);
+		let publisher = ParaId::from(2000);
+
+		// Initially not subscribed
+		assert!(!Broadcaster::is_subscribed(subscriber, publisher));
+		assert_eq!(Broadcaster::get_subscriptions(subscriber), vec![]);
+
+		// First toggle: subscribe
+		assert_ok!(Broadcaster::handle_subscribe_toggle(subscriber, publisher));
+		assert!(Broadcaster::is_subscribed(subscriber, publisher));
+		assert_eq!(Broadcaster::get_subscriptions(subscriber), vec![publisher]);
+
+		// Second toggle: unsubscribe
+		assert_ok!(Broadcaster::handle_subscribe_toggle(subscriber, publisher));
+		assert!(!Broadcaster::is_subscribed(subscriber, publisher));
+		assert_eq!(Broadcaster::get_subscriptions(subscriber), vec![]);
+	});
+}
+
+#[test]
+fn multiple_subscriptions_work() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let subscriber = ParaId::from(1000);
+		let publisher1 = ParaId::from(2000);
+		let publisher2 = ParaId::from(3000);
+		let publisher3 = ParaId::from(4000);
+
+		// Subscribe to multiple publishers
+		assert_ok!(Broadcaster::handle_subscribe_toggle(subscriber, publisher1));
+		assert_ok!(Broadcaster::handle_subscribe_toggle(subscriber, publisher2));
+		assert_ok!(Broadcaster::handle_subscribe_toggle(subscriber, publisher3));
+
+		let subscriptions = Broadcaster::get_subscriptions(subscriber);
+		assert_eq!(subscriptions.len(), 3);
+		assert!(subscriptions.contains(&publisher1));
+		assert!(subscriptions.contains(&publisher2));
+		assert!(subscriptions.contains(&publisher3));
+
+		// Unsubscribe from middle one
+		assert_ok!(Broadcaster::handle_subscribe_toggle(subscriber, publisher2));
+
+		let subscriptions = Broadcaster::get_subscriptions(subscriber);
+		assert_eq!(subscriptions.len(), 2);
+		assert!(subscriptions.contains(&publisher1));
+		assert!(!subscriptions.contains(&publisher2));
+		assert!(subscriptions.contains(&publisher3));
+	});
+}
+
+#[test]
+fn max_subscriptions_limit_enforced() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let subscriber = ParaId::from(1000);
+
+		// Subscribe up to MaxSubscriptions (10 in mock)
+		for i in 0..10 {
+			let publisher = ParaId::from(2000 + i);
+			assert_ok!(Broadcaster::handle_subscribe_toggle(subscriber, publisher));
+		}
+
+		// Try to add one more subscription - should fail
+		let publisher = ParaId::from(3000);
+		assert_err!(
+			Broadcaster::handle_subscribe_toggle(subscriber, publisher),
+			Error::<Test>::TooManySubscriptions
+		);
+
+		// But can still unsubscribe and resubscribe
+		let existing_publisher = ParaId::from(2000);
+		assert_ok!(Broadcaster::handle_subscribe_toggle(subscriber, existing_publisher)); // Unsubscribe
+		assert_ok!(Broadcaster::handle_subscribe_toggle(subscriber, publisher)); // Subscribe to new one
+	});
+}

@@ -98,6 +98,7 @@ mod tests {
 	// Mock handler that tracks calls
 	parameter_types! {
 		pub static PublishCalls: Vec<(ParaId, Vec<(Vec<u8>, Vec<u8>)>)> = vec![];
+		pub static SubscribeCalls: Vec<(ParaId, ParaId)> = vec![];
 	}
 
 	// Helper to create test publish data
@@ -124,6 +125,16 @@ mod tests {
 			let mut calls = PublishCalls::get();
 			calls.push((publisher, data));
 			PublishCalls::set(calls);
+			Ok(())
+		}
+
+		fn toggle_subscription(
+			subscriber: ParaId,
+			publisher: ParaId,
+		) -> Result<(), sp_runtime::DispatchError> {
+			let mut calls = SubscribeCalls::get();
+			calls.push((subscriber, publisher));
+			SubscribeCalls::set(calls);
 			Ok(())
 		}
 	}
@@ -189,5 +200,55 @@ mod tests {
 
 		// Root not allowed
 		assert!(!OnlyParachains::contains(&Location::here()));
+	}
+
+	#[test]
+	fn subscribe_from_direct_parachain_works() {
+		SubscribeCalls::set(vec![]);
+		let origin = Location::new(0, [Junction::Parachain(1000)]);
+		let publisher = 2000;
+
+		let result =
+			ParachainBroadcastAdapter::<OnlyParachains, MockPublishHandler>::handle_subscribe(
+				&origin, publisher,
+			);
+
+		assert!(result.is_ok());
+		let calls = SubscribeCalls::get();
+		assert_eq!(calls.len(), 1);
+		assert_eq!(calls[0], (ParaId::from(1000), ParaId::from(2000)));
+	}
+
+	#[test]
+	fn subscribe_from_sibling_parachain_fails() {
+		SubscribeCalls::set(vec![]);
+		let origin = Location::new(
+			1,
+			[Junction::Parachain(3000), Junction::AccountId32 { network: None, id: [1; 32] }],
+		);
+		let publisher = 2000;
+
+		let result =
+			ParachainBroadcastAdapter::<OnlyParachains, MockPublishHandler>::handle_subscribe(
+				&origin, publisher,
+			);
+
+		assert!(matches!(result, Err(XcmError::NoPermission)));
+		assert!(SubscribeCalls::get().is_empty());
+	}
+
+	#[test]
+	fn subscribe_from_non_parachain_fails() {
+		SubscribeCalls::set(vec![]);
+		let origin = Location::here();
+		let publisher = 2000;
+
+		let result =
+			ParachainBroadcastAdapter::<OnlyParachains, MockPublishHandler>::handle_subscribe(
+				&origin, publisher,
+			);
+
+		assert!(matches!(result, Err(XcmError::NoPermission)));
+		assert!(SubscribeCalls::get().is_empty());
 	}
 }

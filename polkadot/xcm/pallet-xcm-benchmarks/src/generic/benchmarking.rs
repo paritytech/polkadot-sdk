@@ -961,6 +961,59 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn publish(n: Linear<1, { MaxPublishItems::get() }>) -> Result<(), BenchmarkError> {
+		use xcm::latest::{MaxPublishKeyLength, MaxPublishValueLength};
+
+		// The `Publish` instruction weight scales with the number of items published.
+		// Each item is benchmarked at maximum key and value lengths to represent worst-case
+		// storage operations. The actual weight formula will be `base_weight + n * per_item_weight`.
+		let max_key_len = MaxPublishKeyLength::get() as usize;
+		let max_value_len = MaxPublishValueLength::get() as usize;
+
+		// Create publish data: n items, each with maximum key and value length
+		let data_vec: Vec<_> = (0..n)
+			.map(|i| {
+				(
+					BoundedVec::try_from(vec![i as u8; max_key_len]).unwrap(),
+					BoundedVec::try_from(vec![i as u8; max_value_len]).unwrap(),
+				)
+			})
+			.collect();
+
+		let data = BoundedVec::try_from(data_vec).unwrap();
+
+		let origin = T::publish_origin()?;
+		let mut executor = new_executor::<T>(origin);
+
+		let instruction = Instruction::Publish { data };
+		let xcm = Xcm(vec![instruction]);
+
+		#[block]
+		{
+			executor.bench_process(xcm)?;
+		}
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn subscribe() -> Result<(), BenchmarkError> {
+		let origin = T::publish_origin()?;
+		let publisher = T::valid_publisher()?;
+
+		let mut executor = new_executor::<T>(origin);
+		let instruction = Instruction::Subscribe { publisher };
+		let xcm = Xcm(vec![instruction]);
+
+		#[block]
+		{
+			executor.bench_process(xcm)?;
+		}
+
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(
 		Pallet,
 		crate::generic::mock::new_test_ext(),

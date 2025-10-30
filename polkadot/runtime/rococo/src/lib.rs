@@ -2711,6 +2711,15 @@ sp_api::impl_runtime_apis! {
 					// The XCM executor of Rococo doesn't have a configured `Aliasers`
 					Err(BenchmarkError::Skip)
 				}
+
+				fn publish_origin() -> Result<Location, BenchmarkError> {
+					Ok(AssetHub::get())
+				}
+
+				fn valid_publisher() -> Result<u32, BenchmarkError> {
+					// Use Asset Hub's parachain ID as the publisher
+					Ok(rococo_runtime_constants::system_parachain::ASSET_HUB_ID)
+				}
 			}
 
 			let mut whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();

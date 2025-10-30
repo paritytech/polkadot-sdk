@@ -108,6 +108,22 @@ pub mod pallet {
 				crate_version: <frame_system::Pallet<Self> as frame_support::traits::PalletInfoAccess>::crate_version(),
 			}
 		}
+
+		/// Return a valid origin for `Publish` and `Subscribe` benchmarks.
+		///
+		/// Should return a parachain origin that is allowed by the BroadcastHandler filter.
+		/// If set to `Err`, benchmarks which rely on publish/subscribe will be skipped.
+		fn publish_origin() -> Result<Location, BenchmarkError> {
+			Err(BenchmarkError::Skip)
+		}
+
+		/// Return a valid publisher ID for the `Subscribe` benchmark.
+		///
+		/// This should be a parachain ID that subscribers can listen to.
+		/// If set to `Err`, the subscribe benchmark will be skipped.
+		fn valid_publisher() -> Result<u32, BenchmarkError> {
+			Err(BenchmarkError::Skip)
+		}
 	}
 
 	#[pallet::pallet]
