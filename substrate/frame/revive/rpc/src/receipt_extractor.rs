@@ -131,13 +131,10 @@ impl ReceiptExtractor {
 			let eth_block_hash = H256::from(keccak_256(&bytes));
 			Box::pin(std::future::ready(Some(eth_block_hash))) as Pin<Box<_>>
 		});
-		let fetch_gas_price =
-			Arc::new(|_| Box::pin(std::future::ready(Ok(U256::from(1000)))) as Pin<Box<_>>);
 
 		Self {
 			fetch_receipt_data,
 			fetch_eth_block_hash,
-			fetch_gas_price,
 			earliest_receipt_block: None,
 			recover_eth_address: Arc::new(|signed_tx: &TransactionSigned| {
 				signed_tx.recover_eth_address()
