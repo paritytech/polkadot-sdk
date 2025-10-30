@@ -1136,7 +1136,8 @@ pub mod pallet {
 	#[pallet::validate_unsigned]
 	impl<T: Config> sp_runtime::traits::ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
-		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+
 			if let Call::apply_authorized_upgrade { ref code } = call {
 				if let Ok(res) = Self::validate_code_is_authorized(&code[..]) {
 					if Self::can_set_code(&code, false).is_ok() {
@@ -1153,16 +1154,28 @@ pub mod pallet {
 
 			#[cfg(feature = "experimental")]
 			if let Call::do_task { ref task } = call {
-				if task.is_valid() {
-					return Ok(ValidTransaction {
-						priority: u64::max_value(),
-						requires: Vec::new(),
-						provides: vec![T::Hashing::hash_of(&task.encode()).as_ref().to_vec()],
-						longevity: TransactionLongevity::max_value(),
-						propagate: true,
-					})
+				// If valid, the tasks provides the tag: hash of task.
+				// But it is allowed to have many task for a single process, e.g. a task that takes
+				// a limit on the number of item to migrate is valid from 1 to the limit while
+				// actually advancing a single migration process.
+				// In the transaction pool, transaction are identified by their provides tag.
+				// So in order to protect the transaction pool against spam, we only accept tasks
+				// from local source.
+				if source == TransactionSource::InBlock || source == TransactionSource::Local {
+					if task.is_valid() {
+						return Ok(ValidTransaction {
+							priority: u64::max_value(),
+							requires: Vec::new(),
+							provides: vec![T::Hashing::hash_of(&task.encode()).as_ref().to_vec()],
+							longevity: TransactionLongevity::max_value(),
+							propagate: true,
+						})
+					}
 				}
 			}
+
+			#[cfg(not(feature = "experimental"))]
+			let _ = source;
 
 			Err(InvalidTransaction::Call.into())
 		}
