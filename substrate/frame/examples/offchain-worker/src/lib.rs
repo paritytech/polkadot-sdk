@@ -389,7 +389,7 @@ pub mod pallet {
 			} else if let Call::submit_price_unsigned { block_number, price: new_price } = call {
 				Pallet::<T>::validate_transaction_parameters(block_number, new_price)
 			} else {
-				return Err(InvalidTransaction::Call.into())
+				InvalidTransaction::Call.into()
 			};
 
 			match validity {
