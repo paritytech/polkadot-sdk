@@ -110,6 +110,21 @@ fn encode_undelegate(track_id: TrackId) -> Vec<u8> {
 	call.abi_encode()
 }
 
+fn encode_get_voting(
+	who: AccountId,
+	track_id: TrackId,
+	referendum_index: ReferendumIndex,
+) -> Vec<u8> {
+	let mapped_who = <Test as pallet_revive::Config>::AddressMapper::to_address(&who);
+	let call_params = IConvictionVoting::getVotingCall {
+		who: mapped_who.0.into(),
+		trackId: track_id,
+		referendumIndex: referendum_index,
+	};
+	let call = IConvictionVoting::IConvictionVotingCalls::getVoting(call_params);
+	call.abi_encode()
+}
+
 #[test]
 fn test_vote_standard_encoding() {
 	let referendum_index = 3u32;
@@ -155,17 +170,15 @@ fn test_vote_standard_precompile_works() {
 
 #[test]
 fn test_vote_split_encoding() {
-	new_test_ext().execute_with(|| {
-		let referendum_index = 3u32;
-		let aye_amount = 10u128;
-		let nay_amount = 5u128;
+	let referendum_index = 3u32;
+	let aye_amount = 10u128;
+	let nay_amount = 5u128;
 
-		let encoded_call = encode_split(referendum_index, aye_amount, nay_amount);
+	let encoded_call = encode_split(referendum_index, aye_amount, nay_amount);
 
-		let decoded_call = IConvictionVoting::voteSplitCall::abi_decode(&encoded_call).unwrap();
+	let decoded_call = IConvictionVoting::voteSplitCall::abi_decode(&encoded_call).unwrap();
 
-		assert_eq!(decoded_call.ayeAmount, aye_amount);
-	});
+	assert_eq!(decoded_call.ayeAmount, aye_amount);
 }
 
 #[test]
@@ -190,20 +203,17 @@ fn test_vote_split_works() {
 
 #[test]
 fn test_vote_split_abstain_encoding() {
-	new_test_ext().execute_with(|| {
-		let referendum_index = 3u32;
-		let aye_amount = 10u128;
-		let nay_amount = 5u128;
-		let abstain_amount = 15u128;
+	let referendum_index = 3u32;
+	let aye_amount = 10u128;
+	let nay_amount = 5u128;
+	let abstain_amount = 15u128;
 
-		let encoded_call =
-			encode_split_abstain(referendum_index, aye_amount, nay_amount, abstain_amount);
+	let encoded_call =
+		encode_split_abstain(referendum_index, aye_amount, nay_amount, abstain_amount);
 
-		let decoded_call =
-			IConvictionVoting::voteSplitAbstainCall::abi_decode(&encoded_call).unwrap();
+	let decoded_call = IConvictionVoting::voteSplitAbstainCall::abi_decode(&encoded_call).unwrap();
 
-		assert_eq!(decoded_call.ayeAmount, aye_amount);
-	});
+	assert_eq!(decoded_call.ayeAmount, aye_amount);
 }
 
 #[test]
@@ -301,15 +311,13 @@ fn test_vote_lock_balances_works() {
 
 #[test]
 fn test_delegate_encoding() {
-	new_test_ext().execute_with(|| {
-		let balance = 10u128;
+	let balance = 10u128;
 
-		let encoded_call = encode_delegate(1, BOB, 1, balance);
+	let encoded_call = encode_delegate(1, BOB, 1, balance);
 
-		let decoded_call = IConvictionVoting::delegateCall::abi_decode(&encoded_call).unwrap();
+	let decoded_call = IConvictionVoting::delegateCall::abi_decode(&encoded_call).unwrap();
 
-		assert_eq!(decoded_call.balance, balance);
-	});
+	assert_eq!(decoded_call.balance, balance);
 }
 
 #[test]
@@ -478,15 +486,13 @@ fn test_delegate_already_voting_error() {
 
 #[test]
 fn test_undelegate_encoding() {
-	new_test_ext().execute_with(|| {
-		let track_id = 2u16;
+	let track_id = 2u16;
 
-		let encoded_call = encode_undelegate(track_id);
+	let encoded_call = encode_undelegate(track_id);
 
-		let decoded_call = IConvictionVoting::undelegateCall::abi_decode(&encoded_call).unwrap();
+	let decoded_call = IConvictionVoting::undelegateCall::abi_decode(&encoded_call).unwrap();
 
-		assert_eq!(decoded_call.trackId, track_id);
-	});
+	assert_eq!(decoded_call.trackId, track_id);
 }
 
 #[test]
@@ -533,5 +539,162 @@ fn test_undelegate_not_delegating_error() {
 	new_test_ext().execute_with(|| {
 		let track_id = 0u16;
 		assert!(!call_and_check_revert(ALICE, encode_undelegate(track_id)));
+	});
+}
+
+#[test]
+fn test_get_voting_encoding() {
+	let who = ALICE;
+	let track_id = 0;
+	let referendum_index = 3;
+
+	let encoded_call = encode_get_voting(who, track_id, referendum_index);
+
+	let decoded_call = IConvictionVoting::getVotingCall::abi_decode(&encoded_call).unwrap();
+	assert_eq!(decoded_call.trackId, track_id);
+}
+
+#[test]
+fn test_get_voting_standard_precompile_work() {
+	new_test_ext().execute_with(|| {
+		let who = ALICE;
+		let track_id = 0;
+		let referendum_index = 3;
+		let balance = 10u128;
+		let conviction = 1u8;
+
+		assert!(call_and_check_revert(
+			ALICE,
+			encode_standard(referendum_index, true, balance, conviction),
+		));
+
+		// Should return correctly when voting standard
+		let return_value =
+			match call_precompile(ALICE, encode_get_voting(ALICE, track_id, referendum_index)) {
+				Ok(value) => value,
+				Err(err) => panic!("ConvictionVotingPrecompile call failed with error: {err:?}"),
+			};
+
+		let decoded_value = match VotingOf::<Test>::abi_decode(&return_value.data) {
+			Ok(value) => value,
+			Err(err) => panic!("Decoding failed with error: {err:?}"),
+		};
+
+		assert_eq!(IConvictionVoting::VotingType::Standard as u8, decoded_value.1 as u8);
+		assert_eq!(balance, decoded_value.3);
+	});
+}
+
+#[test]
+fn test_get_voting_while_delegating_precompile_work() {
+	new_test_ext().execute_with(|| {
+		let track_id = 0;
+		let referendum_index = 3;
+		let balance = 10u128;
+		let conviction = 1u8;
+
+		assert!(call_and_check_revert(
+			ALICE,
+			encode_standard(referendum_index, true, balance, conviction),
+		));
+
+		assert!(call_and_check_revert(BOB, encode_delegate(track_id, ALICE, conviction, balance),));
+
+		// Should return exists false when delegating
+		let return_value =
+			match call_precompile(ALICE, encode_get_voting(BOB, track_id, referendum_index)) {
+				Ok(value) => value,
+				Err(err) => panic!("ConvictionVotingPrecompile call failed with error: {err:?}"),
+			};
+
+		let decoded_value = match VotingOf::<Test>::abi_decode(&return_value.data) {
+			Ok(value) => value,
+			Err(err) => panic!("Decoding failed with error: {err:?}"),
+		};
+
+		assert_eq!(false, decoded_value.0);
+	});
+}
+
+#[test]
+fn test_get_voting_split_precompile_work() {
+	new_test_ext().execute_with(|| {
+		let track_id = 0;
+		let referendum_index = 3;
+		let aye = 10u128;
+		let nay = 11u128;
+
+		assert!(call_and_check_revert(ALICE, encode_split(referendum_index, aye, nay),));
+
+		// Should return correctly when voting split
+		let return_value =
+			match call_precompile(ALICE, encode_get_voting(ALICE, track_id, referendum_index)) {
+				Ok(value) => value,
+				Err(err) => panic!("ConvictionVotingPrecompile call failed with error: {err:?}"),
+			};
+
+		let decoded_value = match VotingOf::<Test>::abi_decode(&return_value.data) {
+			Ok(value) => value,
+			Err(err) => panic!("Decoding failed with error: {err:?}"),
+		};
+
+		assert_eq!(IConvictionVoting::VotingType::Split as u8, decoded_value.1 as u8);
+		assert_eq!(aye, decoded_value.3);
+		assert_eq!(nay, decoded_value.4);
+	});
+}
+
+#[test]
+fn test_get_voting_split_abstain_precompile_work() {
+	new_test_ext().execute_with(|| {
+		let track_id = 0;
+		let referendum_index = 3;
+		let aye = 10u128;
+		let nay = 11u128;
+		let abstain = 12u128;
+
+		assert!(call_and_check_revert(
+			ALICE,
+			encode_split_abstain(referendum_index, aye, nay, abstain),
+		));
+
+		// Should return correctly when voting split abstain
+		let return_value =
+			match call_precompile(ALICE, encode_get_voting(ALICE, track_id, referendum_index)) {
+				Ok(value) => value,
+				Err(err) => panic!("ConvictionVotingPrecompile call failed with error: {err:?}"),
+			};
+
+		let decoded_value = match VotingOf::<Test>::abi_decode(&return_value.data) {
+			Ok(value) => value,
+			Err(err) => panic!("Decoding failed with error: {err:?}"),
+		};
+
+		assert_eq!(IConvictionVoting::VotingType::SplitAbstain as u8, decoded_value.1 as u8);
+		assert_eq!(aye, decoded_value.3);
+		assert_eq!(nay, decoded_value.4);
+		assert_eq!(abstain, decoded_value.5);
+	});
+}
+
+#[test]
+fn test_get_voting_no_voting_work() {
+	new_test_ext().execute_with(|| {
+		let track_id = 0;
+		let referendum_index = 3;
+
+		// Should return correctly when no voting
+		let return_value =
+			match call_precompile(ALICE, encode_get_voting(ALICE, track_id, referendum_index)) {
+				Ok(value) => value,
+				Err(err) => panic!("ConvictionVotingPrecompile call failed with error: {err:?}"),
+			};
+
+		let decoded_value = match VotingOf::<Test>::abi_decode(&return_value.data) {
+			Ok(value) => value,
+			Err(err) => panic!("Decoding failed with error: {err:?}"),
+		};
+
+		assert_eq!(false, decoded_value.0);
 	});
 }

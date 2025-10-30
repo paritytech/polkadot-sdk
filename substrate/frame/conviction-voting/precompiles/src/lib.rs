@@ -30,7 +30,7 @@ use pallet_conviction_voting::{AccountVote, Config, Conviction, Tally, Vote, Vot
 use pallet_revive::{
 	frame_system,
 	precompiles::{
-		alloy::{self, sol_types::{SolValue}},
+		alloy::{self, sol_types::SolValue},
 		AddressMatcher, Error, Ext, Precompile,
 	},
 	AddressMapper, ExecOrigin as Origin, H160,
@@ -66,6 +66,16 @@ type ClassOf<T> = <<T as pallet_conviction_voting::Config>::Polls as Polling<
 		<T as pallet_conviction_voting::Config>::MaxTurnout,
 	>,
 >>::Class;
+
+type VotingOf<T> = (
+	bool,
+	IConvictionVoting::VotingType,
+	bool,
+	BalanceOf<T>,
+	BalanceOf<T>,
+	BalanceOf<T>,
+	IConvictionVoting::Conviction,
+);
 
 const LOG_TARGET: &str = "conviction-voting::precompiles";
 
@@ -205,54 +215,54 @@ where
 				let track_id = Self::u16_to_track_id(trackId)?;
 				let referendum_index = Self::u32_to_referendum_index(referendumIndex)?;
 
-				Ok(pallet_conviction_voting::VotingFor::<T>::try_get(
-					who_account_id,
-					track_id,
-				)
-				.ok()
-				.and_then(|voting| {
-					match voting {
-						// If vote is not found, the map returns None and its later defaulted by
-						// `unwrap_or_else`
-						Voting::Casting(casting) => casting
-							.votes
-							.iter()
-							.find(|(poll_idx, _)| *poll_idx == referendum_index)
-							.map(|(_, account_vote)| match account_vote {
-								AccountVote::Standard { vote, balance } => (
-									true,
-									IConvictionVoting::VotingType::Standard,
-									vote.aye,
-									Self::balance_to_u128(balance) * (vote.aye as u128),
-									Self::balance_to_u128(balance) * (vote.aye as u128),
-									0u128,
-									Self::from_conviction(vote.conviction),
-								),
-								AccountVote::Split { aye, nay } => (
-									true,
-									IConvictionVoting::VotingType::Split,
-									false,
-									Self::balance_to_u128(aye),
-									Self::balance_to_u128(nay),
-									0u128,
-									IConvictionVoting::Conviction::None,
-								),
-								AccountVote::SplitAbstain { aye, nay, abstain } => (
-									true,
-									IConvictionVoting::VotingType::Split,
-									false,
-									Self::balance_to_u128(aye),
-									Self::balance_to_u128(nay),
-									Self::balance_to_u128(abstain),
-									IConvictionVoting::Conviction::None,
-								),
-							}),
-						Voting::Delegating(_) => None, /* propagate the None option to return
-						                                * default
-						                                * voting */
-					}
-				})
-				.map_or_else(|| Self::get_voting_default().abi_encode(), |res| res.abi_encode()))
+				Ok(pallet_conviction_voting::VotingFor::<T>::try_get(who_account_id, track_id)
+					.ok()
+					.and_then(|voting| {
+						match voting {
+							// If vote is not found, the map returns None and its later defaulted by
+							// `map_or_else`
+							Voting::Casting(casting) => casting
+								.votes
+								.iter()
+								.find(|(poll_idx, _)| *poll_idx == referendum_index)
+								.map(|(_, account_vote)| match account_vote {
+									AccountVote::Standard { vote, balance } => (
+										true,
+										IConvictionVoting::VotingType::Standard,
+										vote.aye,
+										Self::balance_to_u128(balance) * (vote.aye as u128),
+										Self::balance_to_u128(balance) * (vote.aye as u128),
+										0u128,
+										Self::from_conviction(vote.conviction),
+									),
+									AccountVote::Split { aye, nay } => (
+										true,
+										IConvictionVoting::VotingType::Split,
+										false,
+										Self::balance_to_u128(aye),
+										Self::balance_to_u128(nay),
+										0u128,
+										IConvictionVoting::Conviction::None,
+									),
+									AccountVote::SplitAbstain { aye, nay, abstain } => (
+										true,
+										IConvictionVoting::VotingType::SplitAbstain,
+										false,
+										Self::balance_to_u128(aye),
+										Self::balance_to_u128(nay),
+										Self::balance_to_u128(abstain),
+										IConvictionVoting::Conviction::None,
+									),
+								}),
+							Voting::Delegating(_) => None, /* propagate the None to return
+							                                * default
+							                                * voting in `map_or_else */
+						}
+					})
+					.map_or_else(
+						|| Self::get_voting_default().abi_encode(),
+						|res| res.abi_encode(),
+					))
 			},
 			_ => todo!(),
 		}
