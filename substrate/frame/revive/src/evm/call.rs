@@ -20,7 +20,7 @@
 use crate::{
 	evm::{fees::InfoT, runtime::SetWeightLimit},
 	extract_code_and_data, BalanceOf, CallOf, Config, GenericTransaction, Pallet, Weight, Zero,
-	LOG_TARGET, RUNTIME_PALLETS_ADDR,
+	LOG_TARGET, RUNTIME_PALLETS_ADDR, U256,
 };
 use alloc::vec::Vec;
 use codec::DecodeLimit;
@@ -42,6 +42,8 @@ pub struct CallInfo<T: Config> {
 	pub tx_fee: BalanceOf<T>,
 	/// The additional storage deposit to be deposited into the txhold.
 	pub storage_deposit: BalanceOf<T>,
+	/// The gas limit as supplied in the transaction.
+	pub gas: U256,
 }
 
 /// Decode `tx` into a dispatchable call.
@@ -194,5 +196,5 @@ where
 		InvalidTransaction::Payment
 	})?.saturated_into();
 
-	Ok(CallInfo { call, weight_limit, encoded_len, tx_fee, storage_deposit })
+	Ok(CallInfo { call, weight_limit, encoded_len, tx_fee, storage_deposit, gas })
 }
