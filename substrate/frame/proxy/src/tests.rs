@@ -407,30 +407,30 @@ fn filtering_works() {
 				delegator: 1,
 				delegatee: 2,
 				proxy_type: ProxyType::Any,
-				delay: 0
+				delay: 0,
 			}
-				.into(),
+			.into(),
 			ProxyEvent::ProxyRemoved {
 				delegator: 1,
 				delegatee: 3,
 				proxy_type: ProxyType::JustTransfer,
-				delay: 0
+				delay: 0,
 			}
-				.into(),
+			.into(),
 			ProxyEvent::ProxyRemoved {
 				delegator: 1,
 				delegatee: 4,
 				proxy_type: ProxyType::JustUtility,
-				delay: 0
+				delay: 0,
 			}
-				.into(),
+			.into(),
 			ProxyEvent::ProxyRemoved {
 				delegator: 1,
 				delegatee: 5,
 				proxy_type: ProxyType::Any,
-				delay: 0
+				delay: 0,
 			}
-				.into(),
+			.into(),
 			ProxyEvent::ProxyExecuted { result: Ok(()) }.into(),
 		]);
 	});

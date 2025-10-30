@@ -1027,16 +1027,14 @@ impl<T: Config> Pallet<T> {
 	/// - `delegator`: The delegator account.
 	pub fn remove_all_proxy_delegates(delegator: &T::AccountId) {
 		let (proxies, old_deposit) = Proxies::<T>::take(delegator);
-		if !proxies.is_empty() {
-			T::Currency::unreserve(delegator, old_deposit);
-			proxies.into_iter().for_each(|proxy_def| {
-				Self::deposit_event(Event::<T>::ProxyRemoved {
-					delegator: delegator.clone(),
-					delegatee: proxy_def.delegate,
-					proxy_type: proxy_def.proxy_type,
-					delay: proxy_def.delay,
-				});
+		T::Currency::unreserve(delegator, old_deposit);
+		proxies.into_iter().for_each(|proxy_def| {
+			Self::deposit_event(Event::<T>::ProxyRemoved {
+				delegator: delegator.clone(),
+				delegatee: proxy_def.delegate,
+				proxy_type: proxy_def.proxy_type,
+				delay: proxy_def.delay,
 			});
-		}
+		});
 	}
 }
