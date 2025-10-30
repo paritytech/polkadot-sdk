@@ -39,11 +39,11 @@ use crate::{
 };
 
 mod error;
-mod metrics;
 #[cfg(test)]
 mod tests;
 mod approval_voting_metrics;
 mod availability_distribution_metrics;
+pub mod metrics;
 
 use approval_voting_metrics::ApprovalsStats;
 use polkadot_node_subsystem_util::{request_candidate_events, request_session_index_for_child, request_session_info};
@@ -227,7 +227,7 @@ pub(crate) async fn run_iteration<Context>(
                 }
             },
             FromOrchestra::Signal(OverseerSignal::BlockFinalized(fin_block_hash, _)) => {
-                // as soon a block is finalized it performs:
+                // when a block is finalized it performs:
                 // 1. Pruning unneeded forks
                 // 2. Collected statistics that belongs to the finalized chain
                 // 3. After collection of finalized statistics then remove finalized
@@ -266,6 +266,8 @@ pub(crate) async fn run_iteration<Context>(
                         }
                     }
                 }
+
+                log_session_view_general_stats(view);
             }
             FromOrchestra::Communication { msg } => {
                 match msg {
@@ -390,4 +392,22 @@ fn prune_unfinalised_forks(view: &mut View, fin_block_hash: Hash) -> Vec<Hash> {
     }
 
     retain_relay_hashes
+}
+
+fn log_session_view_general_stats(view: &View) {
+    for (session_index, session_view) in &view.per_session {
+        let session_tally = session_view
+            .validators_tallies
+            .values()
+            .map(|tally| (tally.approvals, tally.noshows))
+            .fold((0, 0), |acc, (approvals, noshows)| (acc.0 + approvals, acc.1 + noshows));
+
+        gum::debug!(
+            target: LOG_TARGET,
+            session_idx = ?session_index,
+            approvals = ?session_tally.0,
+            noshows = ?session_tally.1,
+            "current session collected statistics"
+        );
+    }
 }

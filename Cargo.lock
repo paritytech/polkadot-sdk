@@ -17228,6 +17228,7 @@ dependencies = [
  "polkadot-node-core-approval-voting",
  "polkadot-node-core-approval-voting-parallel",
  "polkadot-node-core-av-store",
+ "polkadot-node-core-consensus-statistics-collector",
  "polkadot-node-core-dispute-coordinator",
  "polkadot-node-metrics",
  "polkadot-node-network-protocol",

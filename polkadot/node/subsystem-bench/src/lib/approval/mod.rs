@@ -54,6 +54,10 @@ use polkadot_node_primitives::approval::time::{
 	slot_number_to_tick, tick_to_slot_number, Clock, ClockExt, SystemClock,
 };
 
+use polkadot_node_core_consensus_statistics_collector::{
+	ConsensusStatisticsCollector as ConsensusStatisticsCollectorSubsystem,
+	metrics::Metrics as ConsensusStatisticsMetrics,
+};
 use polkadot_node_core_approval_voting::{
 	ApprovalVotingSubsystem, Config as ApprovalVotingConfig, RealAssignmentCriteria,
 };
@@ -853,6 +857,9 @@ fn build_overseer(
 	let mock_rx_bridge = MockNetworkBridgeRx::new(network_receiver, None);
 	let overseer_metrics = OverseerMetrics::try_register(&dependencies.registry).unwrap();
 	let task_handle = spawn_task_handle.clone();
+
+	let collector_subsystem = ConsensusStatisticsCollectorSubsystem::default();
+
 	let dummy = dummy_builder!(task_handle, overseer_metrics)
 		.replace_chain_api(|_| mock_chain_api)
 		.replace_chain_selection(|_| mock_chain_selection)
@@ -860,7 +867,8 @@ fn build_overseer(
 		.replace_network_bridge_tx(|_| mock_tx_bridge)
 		.replace_network_bridge_rx(|_| mock_rx_bridge)
 		.replace_availability_recovery(|_| MockAvailabilityRecovery::new())
-		.replace_candidate_validation(|_| MockCandidateValidation::new());
+		.replace_candidate_validation(|_| MockCandidateValidation::new())
+		.replace_consensus_statistics_collector(|_| collector_subsystem);
 
 	let (overseer, raw_handle) = if state.options.approval_voting_parallel_enabled {
 		let approval_voting_parallel = ApprovalVotingParallelSubsystem::with_config_and_clock(

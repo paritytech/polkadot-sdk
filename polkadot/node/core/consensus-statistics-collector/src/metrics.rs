@@ -38,23 +38,22 @@ pub(crate) struct MetricsInner {
 #[derive(Default, Clone)]
 pub struct Metrics(pub(crate) Option<MetricsInner>);
 
-
 impl Metrics {
 	pub fn record_approvals_stats(&self, session: SessionIndex, approval_stats: HashMap<CandidateHash, ApprovalsStats>) {
 		self.0.as_ref().map(|metrics| {
-			for (candidate_hash, stats) in approval_stats {
+			for stats in approval_stats.values() {
 				metrics.approvals_usage_per_session.with_label_values(
 					&[session.to_string().as_str()]).inc_by(stats.votes.len() as u64);
 
 				metrics.no_shows_per_session.with_label_values(
 					&[session.to_string().as_str()]).inc_by(stats.no_shows.len() as u64);
 
-				for validator in stats.votes {
+				for validator in &stats.votes {
 					metrics.approvals_per_session_per_validator.with_label_values(
 						&[session.to_string().as_str(), validator.0.to_string().as_str()]).inc()
 				}
 
-				for validator in stats.no_shows {
+				for validator in &stats.no_shows {
 					metrics.no_shows_per_session_per_validator.with_label_values(
 						&[session.to_string().as_str(), validator.0.to_string().as_str()]).inc()
 				}
