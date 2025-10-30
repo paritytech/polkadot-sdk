@@ -169,15 +169,22 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+			let mut weight = Weight::zero();
+			let db_weight = T::DbWeight::get();
+
 			// Drop obsolete roots. The proof for `obsolete` will be checked later
 			// in this block, so we drop `obsolete` - 1.
+			weight.saturating_accrue(db_weight.reads(1));
 			let period = StoragePeriod::<T>::get();
 			let obsolete = n.saturating_sub(period.saturating_add(One::one()));
 			if obsolete > Zero::zero() {
+				weight.saturating_accrue(db_weight.writes(1));
 				Transactions::<T>::remove(obsolete);
 			}
-			// 1 read and 1 write in `on_initialize` and 1 write + 3 reads in `on_finalize`
-			T::DbWeight::get().reads_writes(4, 2)
+
+			// For `on_finalize`
+			weight.saturating_accrue(db_weight.reads_writes(3, 1));
+			weight
 		}
 
 		fn on_finalize(n: BlockNumberFor<T>) {
