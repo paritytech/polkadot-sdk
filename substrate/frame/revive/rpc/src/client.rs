@@ -156,9 +156,10 @@ impl From<ClientError> for ErrorObjectOwned {
 		match err {
 			ClientError::SubxtError(subxt::Error::Rpc(subxt::error::RpcError::ClientError(
 				subxt::ext::subxt_rpcs::Error::User(err),
-			))) |
-			ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(err)) =>
-				ErrorObjectOwned::owned::<Vec<u8>>(err.code, err.message, None),
+			)))
+			| ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(err)) => {
+				ErrorObjectOwned::owned::<Vec<u8>>(err.code, err.message, None)
+			},
 			ClientError::TransactError(EthTransactError::Data(data)) => {
 				let msg = match decode_revert_reason(&data) {
 					Some(reason) => format!("execution reverted: {reason}"),
@@ -168,10 +169,12 @@ impl From<ClientError> for ErrorObjectOwned {
 				let data = format!("0x{}", hex::encode(data));
 				ErrorObjectOwned::owned::<String>(REVERT_CODE, msg, Some(data))
 			},
-			ClientError::TransactError(EthTransactError::Message(msg)) =>
-				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None),
-			_ =>
-				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None),
+			ClientError::TransactError(EthTransactError::Message(msg)) => {
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None)
+			},
+			_ => {
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None)
+			},
 		}
 	}
 }
@@ -213,7 +216,7 @@ async fn max_block_weight(api: &OnlineClient<SrcChainConfig>) -> Result<Weight, 
 
 /// Get the automine status from the node.
 async fn get_automine(rpc_client: &RpcClient) -> bool {
-	match rpc_client.request::<bool>("getAutomine", rpc_params![]).await {
+	match rpc_client.request::<bool>("hardhat_getAutomine", rpc_params![]).await {
 		Ok(val) => val,
 		Err(err) => {
 			log::info!(target: LOG_TARGET, "Node does not have getAutomine RPC. Defaulting to automine=false. error: {err:?}");
@@ -403,10 +406,11 @@ impl Client {
 
 			// Only broadcast for best blocks to avoid duplicate notifications.
 			match (subscription_type, &self.tx_notifier) {
-				(SubscriptionType::BestBlocks, Some(sender)) if sender.receiver_count() > 0 =>
+				(SubscriptionType::BestBlocks, Some(sender)) if sender.receiver_count() > 0 => {
 					for receipt in &receipts {
 						let _ = sender.send(receipt.transaction_hash);
-					},
+					}
+				},
 				_ => {},
 			}
 			Ok(())
@@ -763,6 +767,41 @@ impl Client {
 
 					eth_block.transactions = HashesOrTransactionInfos::TransactionInfos(tx_infos);
 				}
+				let coinbase_query = subxt_client::storage().revive().modified_coinbase();
+				let maybe_coinbase = self
+					.api
+					.storage()
+					.at_latest()
+					.await
+					.unwrap()
+					.fetch(&coinbase_query)
+					.await
+					.unwrap();
+				match maybe_coinbase {
+					Some(author) => eth_block.miner = author,
+					_ => (),
+				}
+
+				let mix_hash_query = subxt_client::storage()
+					.revive()
+					.modified_prevrandao(subxt::utils::Static(U256::from(block.number())));
+
+				let maybe_mix_hash = self
+					.api
+					.storage()
+					.at_latest()
+					.await
+					.unwrap()
+					.fetch(&mix_hash_query)
+					.await
+					.unwrap();
+
+				match maybe_mix_hash {
+					None => (),
+					Some(value) => eth_block.mix_hash = value,
+				}
+
+				eth_block.number = self.adjust_block(block.number().into()).unwrap().into();
 
 				Some(eth_block)
 			},
@@ -770,98 +809,6 @@ impl Client {
 				log::error!(target: LOG_TARGET, "Failed to get Ethereum block for hash {:?}: {err:?}", block.hash());
 				None
 			},
-		}
-	}
-
-	/// Get the EVM block for the given block and receipts.
-	pub async fn evm_block_from_receipts(
-		&self,
-		block: &SubstrateBlock,
-		receipts: &[ReceiptInfo],
-		signed_txs: Vec<TransactionSigned>,
-		hydrated_transactions: bool,
-	) -> Block {
-		let runtime_api = RuntimeApi::new(self.api.runtime_api().at(block.hash()));
-		let gas_limit = runtime_api.block_gas_limit().await.unwrap_or_default();
-
-		let header = block.header();
-		let timestamp = extract_block_timestamp(block).await;
-
-		// TODO: remove once subxt is updated
-		let parent_hash = header.parent_hash.0.into();
-		let state_root = header.state_root.0.into();
-		let extrinsics_root = header.extrinsics_root.0.into();
-
-		let gas_used = receipts.iter().fold(U256::zero(), |acc, receipt| acc + receipt.gas_used);
-		let transactions = if hydrated_transactions {
-			signed_txs
-				.into_iter()
-				.zip(receipts.iter())
-				.map(|(signed_tx, receipt)| TransactionInfo::new(receipt, signed_tx))
-				.collect::<Vec<TransactionInfo>>()
-				.into()
-		} else {
-			receipts
-				.iter()
-				.map(|receipt| receipt.transaction_hash)
-				.collect::<Vec<_>>()
-				.into()
-		};
-
-		let coinbase_query = subxt_client::storage().revive().modified_coinbase();
-		let maybe_coinbase = self
-			.api
-			.storage()
-			.at_latest()
-			.await
-			.unwrap()
-			.fetch(&coinbase_query)
-			.await
-			.unwrap();
-		let block_author: H160;
-
-		match maybe_coinbase {
-			None => block_author = runtime_api.block_author().await.ok().unwrap_or_default(),
-			Some(author) => block_author = author,
-		}
-
-		let mix_hash_query = subxt_client::storage()
-			.revive()
-			.modified_prevrandao(subxt::utils::Static(U256::from(header.number)));
-
-		let maybe_mix_hash = self
-			.api
-			.storage()
-			.at_latest()
-			.await
-			.unwrap()
-			.fetch(&mix_hash_query)
-			.await
-			.unwrap();
-		let prev_randao: H256;
-
-		match maybe_mix_hash {
-			None => prev_randao = Default::default(),
-			Some(value) => prev_randao = value,
-		}
-
-		let block_number = self.adjust_block(header.number.into()).unwrap();
-
-		Block {
-			hash: block.hash(),
-			parent_hash,
-			state_root,
-			miner: block_author,
-			transactions_root: extrinsics_root,
-			number: block_number.into(),
-			timestamp: timestamp.into(),
-			base_fee_per_gas: runtime_api.gas_price().await.ok().unwrap_or_default(),
-			gas_limit,
-			gas_used,
-			receipts_root: extrinsics_root,
-			transactions,
-			mix_hash: prev_randao,
-			..Default::default()
 		}
 	}
 
@@ -1247,8 +1194,6 @@ impl Client {
 			let _ = self.mine(Some(U256::from(1)), None).await?;
 		}
 
-		tx.wait_for_finalized_success().await?;
-
 		Ok(Some(prev_randao))
 	}
 
@@ -1440,14 +1385,12 @@ impl Client {
 			.fetch(&coinbase_query)
 			.await
 			.unwrap();
-		let block_author: H160;
 
 		match maybe_coinbase {
-			None => block_author = runtime_api.block_author().await.ok().unwrap_or_default(),
-			Some(author) => block_author = author,
+			None => return Ok(Some(runtime_api.block_author().await.ok().unwrap_or_default())),
+			Some(author) => return Ok(Some(author)),
 		}
 
-		Ok(Some(block_author))
 	}
 
 	pub async fn hardhat_metadata(&self) -> Result<Option<HardhatMetadata>, ClientError> {
