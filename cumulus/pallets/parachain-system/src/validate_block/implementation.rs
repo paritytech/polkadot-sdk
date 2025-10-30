@@ -164,6 +164,17 @@ where
 		"Parachain head needs to be the parent of the first block"
 	);
 
+	blocks.iter().fold(parent_header.hash(), |p, b| {
+		assert_eq!(
+			p,
+			*b.header().parent_hash(),
+			"Not a valid chain of blocks :(; {:?} not a parent of {:?}?",
+			array_bytes::bytes2hex("0x", p.as_ref()),
+			array_bytes::bytes2hex("0x", b.header().parent_hash().as_ref()),
+		);
+		b.header().hash()
+	});
+
 	let mut processed_downward_messages = 0;
 	let mut upward_messages = BoundedVec::default();
 	let mut upward_message_signals = Vec::<Vec<_>>::new();
