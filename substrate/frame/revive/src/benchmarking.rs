@@ -291,7 +291,10 @@ mod benchmarks {
 		let pallet_account = whitelisted_pallet_account::<T>();
 		let input = vec![42u8; i as usize];
 
-		let effective_gas_price = Pallet::<T>::evm_base_fee();
+		// Use an `effective_gas_price` that is not a multiple of `T::NativeToEthRatio`
+		// to hit the code that charge the rounding error so that tx_cost == effective_gas_price *
+		// gas_used
+		let effective_gas_price = Pallet::<T>::evm_base_fee() + 1;
 		let value = Pallet::<T>::min_balance();
 		let dust = 42u32 * d;
 		let evm_value =
@@ -334,6 +337,9 @@ mod benchmarks {
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &caller);
 
+		let pallet_addr = T::AddressMapper::to_address(&pallet_account);
+		let rounding_err = AccountInfoOf::<T>::get(&pallet_addr).unwrap().dust;
+
 		assert_eq!(
 			<T as Config>::FeeInfo::remaining_txfee(),
 			caller_funding::<T>() - deposit - code_deposit - Pallet::<T>::min_balance(),
@@ -342,7 +348,7 @@ mod benchmarks {
 			Pallet::<T>::evm_balance(&deployer),
 			Pallet::<T>::convert_native_to_evm(
 				caller_funding::<T>() - Pallet::<T>::min_balance() - value - mapping_deposit,
-			) - dust,
+			) - dust - rounding_err
 		);
 
 		// contract has the full value
@@ -457,7 +463,10 @@ mod benchmarks {
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
 
-		let effective_gas_price = Pallet::<T>::evm_base_fee();
+		// Use an `effective_gas_price` that is not a multiple of `T::NativeToEthRatio`
+		// to hit the code that charge the rounding error so that tx_cost == effective_gas_price *
+		// gas_used
+		let effective_gas_price = Pallet::<T>::evm_base_fee() + 1;
 		let value = Pallet::<T>::min_balance();
 		let dust = 42u32 * d;
 		let evm_value =
@@ -494,6 +503,10 @@ mod benchmarks {
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &instance.caller);
 		// value and value transferred via call should be removed from the caller
+
+		let pallet_addr = T::AddressMapper::to_address(&pallet_account);
+		let rounding_err = AccountInfoOf::<T>::get(&pallet_addr).unwrap().dust;
+
 		assert_eq!(
 			Pallet::<T>::evm_balance(&caller_addr),
 			Pallet::<T>::convert_native_to_evm(
@@ -502,7 +515,7 @@ mod benchmarks {
 					Pallet::<T>::min_balance() -
 					value - deposit - code_deposit -
 					mapping_deposit,
-			) - dust,
+			) - dust - rounding_err
 		);
 
 		// contract should have received the value
