@@ -90,7 +90,7 @@ impl<T: Config> Precompile for NoInfo<T> {
 			INoInfoCalls::errors(INoInfo::errorsCall {}) =>
 				Err(Error::Error(DispatchError::Other("precompile failed").into())),
 			INoInfoCalls::consumeMaxGas(INoInfo::consumeMaxGasCall {}) => {
-				env.gas_meter_mut().charge(MaxGasToken)?;
+				env.gas_meter_mut().charge_weight_token(MaxGasToken)?;
 				Ok(Vec::new())
 			},
 			INoInfoCalls::callRuntime(INoInfo::callRuntimeCall { call }) => {
@@ -109,7 +109,7 @@ impl<T: Config> Precompile for NoInfo<T> {
 			},
 			INoInfoCalls::passData(INoInfo::passDataCall { inputLen }) => {
 				env.call(
-					&CallResources::Precise { weight: Weight::MAX, deposit_limit: U256::MAX },
+					&CallResources::from_weight_and_deposit(Weight::MAX, U256::MAX),
 					&env.address(),
 					0.into(),
 					vec![42; *inputLen as usize],

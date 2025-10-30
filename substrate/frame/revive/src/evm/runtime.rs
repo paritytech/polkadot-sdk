@@ -529,6 +529,7 @@ mod test {
 				value,
 				data,
 				weight_limit,
+				eth_gas_limit,
 				effective_gas_price,
 				encoded_len,
 			}) if dest == tx.to.unwrap() &&
@@ -565,6 +566,7 @@ mod test {
 				code,
 				data,
 				weight_limit,
+				eth_gas_limit,
 				effective_gas_price,
 				encoded_len,
 			}) if value == expected_value &&

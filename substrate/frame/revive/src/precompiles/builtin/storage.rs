@@ -68,7 +68,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 						RuntimeCosts::ClearStorage(len)
 					}
 				};
-				let charged = env.gas_meter_mut().charge(costs(max_size))?;
+				let charged = env.gas_meter_mut().charge_weight_token(costs(max_size))?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)
 					.map_err(|_| Error::Revert("failed decoding key".into()))?;
 				let outcome = if transient {
@@ -97,7 +97,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 						RuntimeCosts::ContainsStorage(len)
 					}
 				};
-				let charged = env.gas_meter_mut().charge(costs(max_size))?;
+				let charged = env.gas_meter_mut().charge_weight_token(costs(max_size))?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)
 					.map_err(|_| Error::Revert("failed decoding key".into()))?;
 				let outcome = if transient {
@@ -120,7 +120,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 						RuntimeCosts::TakeStorage(len)
 					}
 				};
-				let charged = env.gas_meter_mut().charge(costs(max_size))?;
+				let charged = env.gas_meter_mut().charge_weight_token(costs(max_size))?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)
 					.map_err(|_| Error::Revert("failed decoding key".into()))?;
 				let outcome = if transient {

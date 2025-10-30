@@ -24,7 +24,7 @@
 
 #![cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 
-use crate::OriginFor;
+use crate::{metering::TransactionLimits, OriginFor};
 use alloy_core::{
 	primitives::{Address, U256 as EU256},
 	sol_types::*,
@@ -69,8 +69,11 @@ impl<T: Config> fungibles::Inspect<<T as frame_system::Config>::AccountId> for P
 			OriginFor::<T>::signed(Self::checking_account()),
 			asset_id,
 			U256::zero(),
-			WEIGHT_LIMIT,
-			<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit:
+					<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
+			},
 			data,
 			ExecConfig::new_substrate_tx(),
 		);
@@ -104,8 +107,11 @@ impl<T: Config> fungibles::Inspect<<T as frame_system::Config>::AccountId> for P
 			OriginFor::<T>::signed(account_id.clone()),
 			asset_id,
 			U256::zero(),
-			WEIGHT_LIMIT,
-			<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit:
+					<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
+			},
 			data,
 			ExecConfig::new_substrate_tx(),
 		);
@@ -173,8 +179,11 @@ impl<T: Config> fungibles::Mutate<<T as frame_system::Config>::AccountId> for Pa
 			OriginFor::<T>::signed(who.clone()),
 			asset_id,
 			U256::zero(),
-			WEIGHT_LIMIT,
-			<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit:
+					<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
+			},
 			data,
 			ExecConfig::new_substrate_tx(),
 		);
@@ -209,8 +218,11 @@ impl<T: Config> fungibles::Mutate<<T as frame_system::Config>::AccountId> for Pa
 			OriginFor::<T>::signed(Self::checking_account()),
 			asset_id,
 			U256::zero(),
-			WEIGHT_LIMIT,
-			<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit:
+					<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
+			},
 			data,
 			ExecConfig::new_substrate_tx(),
 		);

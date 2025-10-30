@@ -73,6 +73,7 @@ pub const EVE_ADDR: H160 = H160(hex!("e21eecd6e51cbcda5b0c5207ae87e605839e70ef")
 pub const EVE_FALLBACK: AccountId32 = ee_extend(EVE_ADDR.0);
 
 pub const WEIGHT_LIMIT: Weight = Weight::from_parts(100_000_000_000, 3 * 1024 * 1024);
+pub const ETH_GAS_LIMIT: u64 = 1_000_000_000_000;
 
 pub fn deposit_limit<T: Config>() -> BalanceOf<T> {
 	10_000_000u32.into()

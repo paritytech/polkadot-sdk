@@ -99,7 +99,7 @@ impl<T: Config> PrimitivePrecompile for Modexp<T> {
 		// Gas formula allows arbitrary large exp_len when base and modulus are empty, so we need to
 		// handle empty base first.
 		let r = if base_len == 0 && mod_len == 0 {
-			env.gas_meter_mut().charge(RuntimeCosts::Modexp(MIN_GAS_COST))?;
+			env.gas_meter_mut().charge_weight_token(RuntimeCosts::Modexp(MIN_GAS_COST))?;
 
 			BigUint::zero()
 		} else {
@@ -125,7 +125,7 @@ impl<T: Config> PrimitivePrecompile for Modexp<T> {
 				modulus.is_even(),
 			);
 
-			env.gas_meter_mut().charge(RuntimeCosts::Modexp(gas_cost))?;
+			env.gas_meter_mut().charge_weight_token(RuntimeCosts::Modexp(gas_cost))?;
 
 			if modulus.is_zero() || modulus.is_one() {
 				BigUint::zero()

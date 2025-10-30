@@ -443,8 +443,7 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 
 	quote! {
 		// Write gas from  polkavm into pallet-revive before entering the host function.
-		let __gas_left_before__ = self
-			.ext
+		self.ext
 			.gas_meter_mut()
 			.sync_from_executor(memory.gas())
 			.map_err(TrapReason::from)?;
@@ -462,7 +461,7 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 		})();
 
 		// Write gas from pallet-revive into polkavm after leaving the host function.
-		let gas = self.ext.gas_meter_mut().sync_to_executor(__gas_left_before__).map_err(TrapReason::from)?;
+		let gas = self.ext.gas_meter_mut().sync_to_executor();
 		memory.set_gas(gas.into());
 		result
 	}

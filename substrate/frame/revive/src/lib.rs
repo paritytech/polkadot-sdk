@@ -56,8 +56,8 @@ use crate::{
 	},
 	exec::{AccountIdOf, ExecError, Executable, Stack as ExecStack},
 	metering::{
-		storage::Meter as StorageMeter,
-		weight::{Token as WeightToken, WeightMeter as ContractWeightMeter},
+		weight::Token as WeightToken, EthTxInfo, ResourceMeter, State, TransactionLimits,
+		TransactionMeter,
 	},
 	storage::{AccountType, DeletionQueueManager},
 	tracing::if_tracing,
@@ -93,7 +93,7 @@ use sp_runtime::{
 		BadOrigin, Bounded, Convert, Dispatchable, Saturating, UniqueSaturatedFrom,
 		UniqueSaturatedInto, Zero,
 	},
-	AccountId32, DispatchError, FixedPointNumber, FixedU128,
+	AccountId32, DispatchError, FixedPointNumber, FixedU128, SaturatedConversion,
 };
 
 pub use crate::{
@@ -140,6 +140,8 @@ const LOG_TARGET: &str = "runtime::revive";
 
 #[frame_support::pallet]
 pub mod pallet {
+	use crate::metering::EthTxInfo;
+
 	use super::*;
 	use frame_support::{pallet_prelude::*, traits::FindAuthor};
 	use frame_system::pallet_prelude::*;
@@ -1123,8 +1125,10 @@ pub mod pallet {
 				origin,
 				dest,
 				Pallet::<T>::convert_native_to_evm(value),
-				weight_limit,
-				storage_deposit_limit,
+				TransactionLimits::WeightAndDeposit {
+					weight_limit,
+					deposit_limit: storage_deposit_limit,
+				},
 				data,
 				ExecConfig::new_substrate_tx(),
 			);
@@ -1164,8 +1168,10 @@ pub mod pallet {
 			let mut output = Self::bare_instantiate(
 				origin,
 				Pallet::<T>::convert_native_to_evm(value),
-				weight_limit,
-				storage_deposit_limit,
+				TransactionLimits::WeightAndDeposit {
+					weight_limit,
+					deposit_limit: storage_deposit_limit,
+				},
 				Code::Existing(code_hash),
 				data,
 				salt,
@@ -1230,8 +1236,10 @@ pub mod pallet {
 			let mut output = Self::bare_instantiate(
 				origin,
 				Pallet::<T>::convert_native_to_evm(value),
-				weight_limit,
-				storage_deposit_limit,
+				TransactionLimits::WeightAndDeposit {
+					weight_limit,
+					deposit_limit: storage_deposit_limit,
+				},
 				Code::Upload(code),
 				data,
 				salt,
@@ -1279,6 +1287,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			value: U256,
 			weight_limit: Weight,
+			eth_gas_limit: U256,
 			code: Vec<u8>,
 			data: Vec<u8>,
 			transaction_encoded: Vec<u8>,
@@ -1290,6 +1299,7 @@ pub mod pallet {
 			let mut call = Call::<T>::eth_instantiate_with_code {
 				value,
 				weight_limit,
+				eth_gas_limit,
 				code: code.clone(),
 				data: data.clone(),
 				transaction_encoded: transaction_encoded.clone(),
@@ -1300,15 +1310,19 @@ pub mod pallet {
 			let info = T::FeeInfo::dispatch_info(&call);
 			let base_info = T::FeeInfo::base_dispatch_info(&mut call);
 			drop(call);
+
+			let extra_weight = base_info.total_weight();
 			let mut output = Self::bare_instantiate(
 				origin,
 				value,
-				weight_limit,
-				BalanceOf::<T>::max_value(),
+				TransactionLimits::EthereumGas {
+					eth_gas_limit: eth_gas_limit.saturated_into(),
+					eth_tx_info: EthTxInfo::new(encoded_len, extra_weight),
+				},
 				Code::Upload(code),
 				data,
 				None,
-				ExecConfig::new_eth_tx(effective_gas_price, encoded_len, base_info.total_weight()),
+				ExecConfig::new_eth_tx(effective_gas_price, encoded_len, extra_weight),
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -1332,6 +1346,7 @@ pub mod pallet {
 			dest: H160,
 			value: U256,
 			weight_limit: Weight,
+			eth_gas_limit: U256,
 			data: Vec<u8>,
 			transaction_encoded: Vec<u8>,
 			effective_gas_price: U256,
@@ -1343,6 +1358,7 @@ pub mod pallet {
 				dest,
 				value,
 				weight_limit,
+				eth_gas_limit,
 				data: data.clone(),
 				transaction_encoded: transaction_encoded.clone(),
 				effective_gas_price,
@@ -1352,15 +1368,20 @@ pub mod pallet {
 			let info = T::FeeInfo::dispatch_info(&call);
 			let base_info = T::FeeInfo::base_dispatch_info(&mut call);
 			drop(call);
+
+			let extra_weight = base_info.total_weight();
 			let mut output = Self::bare_call(
 				origin,
 				dest,
 				value,
-				weight_limit,
-				BalanceOf::<T>::max_value(),
+				TransactionLimits::EthereumGas {
+					eth_gas_limit: eth_gas_limit.saturated_into(),
+					eth_tx_info: EthTxInfo::new(encoded_len, extra_weight),
+				},
 				data,
-				ExecConfig::new_eth_tx(effective_gas_price, encoded_len, base_info.total_weight()),
+				ExecConfig::new_eth_tx(effective_gas_price, encoded_len, extra_weight),
 			);
+
 			if let Ok(return_value) = &output.result {
 				if return_value.did_revert() {
 					output.result = Err(<Error<T>>::ContractReverted.into());
@@ -1523,40 +1544,51 @@ impl<T: Config> Pallet<T> {
 		origin: OriginFor<T>,
 		dest: H160,
 		evm_value: U256,
-		weight_limit: Weight,
-		storage_deposit_limit: BalanceOf<T>,
+		transaction_limits: TransactionLimits<T>,
 		data: Vec<u8>,
 		exec_config: ExecConfig<T>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
 		if let Err(contract_result) = Self::ensure_non_contract_if_signed(&origin) {
 			return contract_result;
 		}
-		let mut weight_meter = ContractWeightMeter::new(weight_limit);
+
+		let mut transaction_meter = match TransactionMeter::new(transaction_limits) {
+			Ok(transaction_meter) => transaction_meter,
+			Err(error) =>
+				return ContractResult {
+					result: Err(error),
+					weight_consumed: Default::default(),
+					weight_required: Default::default(),
+					storage_deposit: Default::default(),
+				},
+		};
+
 		let mut storage_deposit = Default::default();
 
 		let try_call = || {
 			let origin = ExecOrigin::from_runtime_origin(origin)?;
-			let mut storage_meter = StorageMeter::new(storage_deposit_limit);
 			let result = ExecStack::<T, ContractBlob<T>>::run_call(
 				origin.clone(),
 				dest,
-				&mut weight_meter,
-				&mut storage_meter,
+				&mut transaction_meter,
 				evm_value,
 				data,
 				&exec_config,
 			)?;
-			storage_deposit =
-				storage_meter.try_into_deposit(&origin, &exec_config).inspect_err(|err| {
-					log::debug!(target: LOG_TARGET, "Failed to transfer deposit: {err:?}");
-				})?;
+
+			storage_deposit = transaction_meter
+				.execute_postponed_deposits(&origin, &exec_config)
+				.inspect_err(|err| {
+				log::debug!(target: LOG_TARGET, "Failed to transfer deposit: {err:?}");
+			})?;
 			Ok(result)
 		};
 		let result = Self::run_guarded(try_call);
+
 		ContractResult {
 			result: result.map_err(|r| r.error),
-			weight_consumed: weight_meter.weight_consumed(),
-			weight_required: weight_meter.weight_required(),
+			weight_consumed: transaction_meter.weight_consumed(),
+			weight_required: transaction_meter.weight_required(),
 			storage_deposit,
 		}
 	}
@@ -1580,8 +1612,7 @@ impl<T: Config> Pallet<T> {
 	pub fn bare_instantiate(
 		origin: OriginFor<T>,
 		evm_value: U256,
-		weight_limit: Weight,
-		mut storage_deposit_limit: BalanceOf<T>,
+		transaction_limits: TransactionLimits<T>,
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
@@ -1591,50 +1622,58 @@ impl<T: Config> Pallet<T> {
 		if let Err(contract_result) = Self::ensure_non_contract_if_signed(&origin) {
 			return contract_result;
 		}
-		let mut weight_meter = ContractWeightMeter::new(weight_limit);
+
+		let mut transaction_meter = match TransactionMeter::new(transaction_limits) {
+			Ok(transaction_meter) => transaction_meter,
+			Err(error) =>
+				return ContractResult {
+					result: Err(error),
+					weight_consumed: Default::default(),
+					weight_required: Default::default(),
+					storage_deposit: Default::default(),
+				},
+		};
+
 		let mut storage_deposit = Default::default();
+
 		let try_instantiate = || {
 			let instantiate_account = T::InstantiateOrigin::ensure_origin(origin.clone())?;
 
 			if_tracing(|t| t.instantiate_code(&code, salt.as_ref()));
-			let (executable, upload_deposit) = match code {
+			let executable = match code {
 				Code::Upload(code) if code.starts_with(&polkavm_common::program::BLOB_MAGIC) => {
 					let upload_account = T::UploadOrigin::ensure_origin(origin)?;
-					let (executable, upload_deposit) = Self::try_upload_pvm_code(
+					let (executable, ..) = Self::try_upload_pvm_code(
 						upload_account,
 						code,
-						storage_deposit_limit,
+						&mut transaction_meter,
 						&exec_config,
 					)?;
-					storage_deposit_limit.saturating_reduce(upload_deposit);
-					(executable, upload_deposit)
+					executable
 				},
 				Code::Upload(code) =>
 					if T::AllowEVMBytecode::get() {
 						let origin = T::UploadOrigin::ensure_origin(origin)?;
 						let executable = ContractBlob::from_evm_init_code(code, origin)?;
-						(executable, Default::default())
+						executable
 					} else {
 						return Err(<Error<T>>::CodeRejected.into())
 					},
 				Code::Existing(code_hash) =>
-					(ContractBlob::from_storage(code_hash, &mut weight_meter)?, Default::default()),
+					ContractBlob::from_storage(code_hash, &mut transaction_meter)?,
 			};
 			let instantiate_origin = ExecOrigin::from_account_id(instantiate_account.clone());
-			let mut storage_meter = StorageMeter::new(storage_deposit_limit);
 			let result = ExecStack::<T, ContractBlob<T>>::run_instantiate(
 				instantiate_account,
 				executable,
-				&mut weight_meter,
-				&mut storage_meter,
+				&mut transaction_meter,
 				evm_value,
 				data,
 				salt.as_ref(),
 				&exec_config,
 			);
-			storage_deposit = storage_meter
-				.try_into_deposit(&instantiate_origin, &exec_config)?
-				.saturating_add(&StorageDeposit::Charge(upload_deposit));
+			storage_deposit =
+				transaction_meter.execute_postponed_deposits(&instantiate_origin, &exec_config)?;
 			result
 		};
 		let output = Self::run_guarded(try_instantiate);
@@ -1642,8 +1681,8 @@ impl<T: Config> Pallet<T> {
 			result: output
 				.map(|(addr, result)| InstantiateReturnValue { result, addr })
 				.map_err(|e| e.error),
-			weight_consumed: weight_meter.weight_consumed(),
-			weight_required: weight_meter.weight_required(),
+			weight_consumed: transaction_meter.weight_consumed(),
+			weight_required: transaction_meter.weight_required(),
 			storage_deposit,
 		}
 	}
@@ -1712,15 +1751,10 @@ impl<T: Config> Pallet<T> {
 		// the dry-run might leave out certain fields
 		// in those cases we skip the check that the caller has enough balance
 		// to pay for the fees
-		let exec_config = {
-			let base_info = T::FeeInfo::base_dispatch_info(&mut call_info.call);
-			ExecConfig::new_eth_tx(
-				effective_gas_price,
-				call_info.encoded_len,
-				base_info.total_weight(),
-			)
-			.with_dry_run()
-		};
+		let base_info = T::FeeInfo::base_dispatch_info(&mut call_info.call);
+		let base_weight = base_info.total_weight();
+		let exec_config =
+			ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight);
 
 		// emulate transaction behavior
 		let fees = call_info.tx_fee.saturating_add(call_info.storage_deposit);
@@ -1773,8 +1807,10 @@ impl<T: Config> Pallet<T> {
 						OriginFor::<T>::signed(origin),
 						dest,
 						value,
-						call_info.weight_limit,
-						BalanceOf::<T>::max_value(),
+						TransactionLimits::EthereumGas {
+							eth_gas_limit: call_info.eth_gas_limit.saturated_into(),
+							eth_tx_info: EthTxInfo::new(call_info.encoded_len, base_weight),
+						},
 						input.clone(),
 						exec_config,
 					);
@@ -1813,8 +1849,10 @@ impl<T: Config> Pallet<T> {
 				let result = crate::Pallet::<T>::bare_instantiate(
 					OriginFor::<T>::signed(origin),
 					value,
-					call_info.weight_limit,
-					BalanceOf::<T>::max_value(),
+					TransactionLimits::EthereumGas {
+						eth_gas_limit: call_info.eth_gas_limit.saturated_into(),
+						eth_tx_info: EthTxInfo::new(call_info.encoded_len, base_weight),
+					},
 					Code::Upload(code.clone()),
 					data.clone(),
 					None,
@@ -2030,12 +2068,14 @@ impl<T: Config> Pallet<T> {
 		storage_deposit_limit: BalanceOf<T>,
 	) -> CodeUploadResult<BalanceOf<T>> {
 		let origin = T::UploadOrigin::ensure_origin(origin)?;
-		let (module, deposit) = Self::try_upload_pvm_code(
-			origin,
-			code,
-			storage_deposit_limit,
-			&ExecConfig::new_substrate_tx(),
-		)?;
+
+		let mut meter = TransactionMeter::new(TransactionLimits::WeightAndDeposit {
+			weight_limit: Default::default(),
+			deposit_limit: storage_deposit_limit,
+		})?;
+
+		let (module, deposit) =
+			Self::try_upload_pvm_code(origin, code, &mut meter, &ExecConfig::new_substrate_tx())?;
 		Ok(CodeUploadReturnValue { code_hash: *module.code_hash(), deposit })
 	}
 
@@ -2173,15 +2213,14 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
-	pub fn try_upload_pvm_code(
+	fn try_upload_pvm_code<S: State>(
 		origin: T::AccountId,
 		code: Vec<u8>,
-		storage_deposit_limit: BalanceOf<T>,
-		exec_config: &ExecConfig<T>,
+		meter: &mut ResourceMeter<T, S>,
+		exec_config: &ExecConfig,
 	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
 		let mut module = ContractBlob::from_pvm_code(code, origin)?;
-		let deposit = module.store_code(exec_config, None)?;
-		ensure!(storage_deposit_limit >= deposit, <Error<T>>::StorageDepositLimitExhausted);
+		let deposit = module.store_code(exec_config, meter)?;
 		Ok((module, deposit))
 	}
 
@@ -2693,8 +2732,10 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
 						dest,
 						$crate::Pallet::<Self>::convert_native_to_evm(value),
-						weight_limit.unwrap_or(blockweights.max_block),
-						storage_deposit_limit.unwrap_or(u128::MAX),
+						$crate::metering::TransactionLimits::WeightAndDeposit {
+							weight_limit: weight_limit.unwrap_or(blockweights.max_block),
+							deposit_limit: storage_deposit_limit.unwrap_or(u128::MAX),
+						},
 						input_data,
 						$crate::ExecConfig::new_substrate_tx().with_dry_run(),
 					)
@@ -2717,8 +2758,10 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					$crate::Pallet::<Self>::bare_instantiate(
 						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
 						$crate::Pallet::<Self>::convert_native_to_evm(value),
-						weight_limit.unwrap_or(blockweights.max_block),
-						storage_deposit_limit.unwrap_or(u128::MAX),
+						$crate::metering::TransactionLimits::WeightAndDeposit {
+							weight_limit: weight_limit.unwrap_or(blockweights.max_block),
+							deposit_limit: storage_deposit_limit.unwrap_or(u128::MAX),
+						},
 						code,
 						data,
 						salt,

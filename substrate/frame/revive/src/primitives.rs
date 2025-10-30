@@ -26,7 +26,7 @@ use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{
 	traits::{One, Saturating, Zero},
-	DispatchError, RuntimeDebug,
+	DispatchError, FixedPointNumber, FixedU128, RuntimeDebug,
 };
 
 /// Result type of a `bare_call` or `bare_instantiate` call as well as `ContractsApi::call` and
@@ -260,7 +260,7 @@ impl<Balance: Zero + Copy> StorageDeposit<Balance> {
 
 impl<Balance> StorageDeposit<Balance>
 where
-	Balance: Saturating + Ord + Copy,
+	Balance: frame_support::traits::tokens::Balance + Saturating + Ord + Copy,
 {
 	/// This is essentially a saturating signed add.
 	pub fn saturating_add(&self, rhs: &Self) -> Self {
@@ -310,11 +310,27 @@ where
 	/// # Note
 	///
 	/// In case of a refund the return value can be larger than `limit`.
-	pub fn available(&self, limit: &Balance) -> Balance {
+	pub fn available(&self, limit: &Balance) -> Option<Balance> {
 		use StorageDeposit::*;
 		match self {
-			Charge(amount) => limit.saturating_sub(*amount),
-			Refund(amount) => limit.saturating_add(*amount),
+			Charge(amount) => limit.checked_sub(amount),
+			Refund(amount) => Some(limit.saturating_add(*amount)),
+		}
+	}
+
+	pub fn negate(&self) -> Self {
+		use StorageDeposit::*;
+		match self {
+			Charge(amount) => Refund(*amount),
+			Refund(amount) => Charge(*amount),
+		}
+	}
+
+	pub fn scale_by_factor(&self, rhs: &FixedU128) -> Self {
+		use StorageDeposit::*;
+		match self {
+			Charge(amount) => Charge(rhs.saturating_mul_int(*amount)),
+			Refund(amount) => Refund(rhs.saturating_mul_int(*amount)),
 		}
 	}
 }

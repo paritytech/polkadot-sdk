@@ -24,7 +24,7 @@ use crate::{
 		evm::{interpreter::Halt, util::as_usize_or_halt, Interpreter},
 		Ext, RuntimeCosts,
 	},
-	Code, Error, Pallet, Weight, H160, LOG_TARGET, U256,
+	Code, Error, Pallet, H160, LOG_TARGET, U256,
 };
 use alloc::{vec, vec::Vec};
 pub use call_helpers::{charge_call_gas, get_memory_in_and_out_ranges};
@@ -73,8 +73,7 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 	};
 
 	let call_result = interpreter.ext.instantiate(
-		Weight::from_parts(u64::MAX, u64::MAX),
-		U256::MAX,
+		&CallResources::NoLimits,
 		Code::Upload(code),
 		value,
 		vec![],
@@ -191,17 +190,18 @@ fn run_call<'a, E: Ext>(
 ) -> ControlFlow<Halt> {
 	let call_result = match scheme {
 		CallScheme::Call | CallScheme::StaticCall => interpreter.ext.call(
-			&CallResources::Ethereum(gas_limit),
+			&CallResources::from_ethereum_gas(gas_limit),
 			&callee,
 			value,
 			input,
 			true,
 			scheme.is_static_call(),
 		),
-		CallScheme::DelegateCall =>
-			interpreter
-				.ext
-				.delegate_call(&CallResources::Ethereum(gas_limit), callee, input),
+		CallScheme::DelegateCall => interpreter.ext.delegate_call(
+			&CallResources::from_ethereum_gas(gas_limit),
+			callee,
+			input,
+		),
 		CallScheme::CallCode => {
 			unreachable!()
 		},

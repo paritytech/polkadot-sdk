@@ -36,7 +36,8 @@ impl<T: Config> PrimitivePrecompile for Ripemd160<T> {
 		input: Vec<u8>,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		env.gas_meter_mut().charge(RuntimeCosts::Ripemd160(input.len() as _))?;
+		env.gas_meter_mut()
+			.charge_weight_token(RuntimeCosts::Ripemd160(input.len() as _))?;
 		let mut ret = [0u8; 32];
 		ret[12..32].copy_from_slice(&ripemd::Ripemd160::digest(input));
 		Ok(ret.to_vec())

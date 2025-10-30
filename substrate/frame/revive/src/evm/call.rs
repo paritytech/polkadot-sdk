@@ -25,7 +25,7 @@ use crate::{
 use alloc::vec::Vec;
 use codec::DecodeLimit;
 use frame_support::MAX_EXTRINSIC_DEPTH;
-use sp_core::Get;
+use sp_core::{Get, U256};
 use sp_runtime::{transaction_validity::InvalidTransaction, FixedPointNumber, SaturatedConversion};
 
 /// Result of decoding an eth transaction into a dispatchable call.
@@ -42,8 +42,8 @@ pub struct CallInfo<T: Config> {
 	pub tx_fee: BalanceOf<T>,
 	/// The additional storage deposit to be deposited into the txhold.
 	pub storage_deposit: BalanceOf<T>,
-	/// The gas limit as supplied in the transaction.
-	pub gas: U256,
+	/// The ethereum gas limit of the transaction.
+	pub eth_gas_limit: U256,
 }
 
 /// Decode `tx` into a dispatchable call.
@@ -121,6 +121,7 @@ where
 				dest,
 				value,
 				weight_limit: Zero::zero(),
+				eth_gas_limit: gas,
 				data,
 				transaction_encoded,
 				effective_gas_price,
@@ -143,6 +144,7 @@ where
 		let call = crate::Call::eth_instantiate_with_code::<T> {
 			value,
 			weight_limit: Zero::zero(),
+			eth_gas_limit: gas,
 			code,
 			data,
 			transaction_encoded,
@@ -196,5 +198,4 @@ where
 		InvalidTransaction::Payment
 	})?.saturated_into();
 
-	Ok(CallInfo { call, weight_limit, encoded_len, tx_fee, storage_deposit, gas })
-}
+	Ok(CallInfo { call, weight_limit, encoded_len, tx_fee, storage_deposit, eth_gas_limit: gas })

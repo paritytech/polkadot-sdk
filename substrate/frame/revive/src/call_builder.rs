@@ -258,8 +258,10 @@ where
 		let outcome = Contracts::<T>::bare_instantiate(
 			origin,
 			U256::zero(),
-			Weight::MAX,
-			default_deposit_limit::<T>(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: default_deposit_limit::<T>(),
+			},
 			Code::Upload(module.code),
 			data,
 			salt,

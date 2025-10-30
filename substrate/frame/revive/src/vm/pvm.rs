@@ -270,7 +270,7 @@ impl fmt::Display for TrapReason {
 /// a function won't work out.
 macro_rules! charge_gas {
 	($runtime:expr, $costs:expr) => {{
-		$runtime.ext.gas_meter_mut().charge($costs)
+		$runtime.ext.gas_meter_mut().charge_weight_token($costs)
 	}};
 }
 
@@ -687,7 +687,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					})?;
 				}
 				self.ext.call(
-					&CallResources::Precise { weight, deposit_limit },
+					&CallResources::from_weight_and_deposit(weight, deposit_limit),
 					&callee,
 					value,
 					input_data,
@@ -700,7 +700,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					return Err(Error::<E::T>::InvalidCallFlags.into());
 				}
 				self.ext.delegate_call(
-					&CallResources::Precise { weight, deposit_limit },
+					&CallResources::from_weight_and_deposit(weight, deposit_limit),
 					callee,
 					input_data,
 				)
@@ -787,8 +787,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		memory.reset_interpreter_cache();
 
 		match self.ext.instantiate(
-			weight,
-			deposit_limit,
+			&CallResources::from_weight_and_deposit(weight, deposit_limit),
 			Code::Existing(code_hash),
 			value,
 			input_data,
@@ -838,7 +837,7 @@ impl<'a, E: Ext> PreparedCall<'a, E> {
 				break exec_result;
 			}
 		};
-		let _ = self.runtime.ext().gas_meter_mut().sync_from_executor(self.instance.gas())?;
+		self.runtime.ext().gas_meter_mut().sync_from_executor(self.instance.gas())?;
 		exec_result
 	}
 

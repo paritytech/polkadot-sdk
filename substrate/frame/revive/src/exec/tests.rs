@@ -139,9 +139,9 @@ impl MockLoader {
 }
 
 impl Executable<Test> for MockExecutable {
-	fn from_storage(
+	fn from_storage<S: State>(
 		code_hash: H256,
-		_weight_meter: &mut WeightMeter<Test>,
+		_meter: &mut ResourceMeter<T, S>,
 	) -> Result<Self, DispatchError> {
 		Loader::mutate(|loader| {
 			loader.map.get(&code_hash).cloned().ok_or(Error::<Test>::CodeNotFound.into())
@@ -1175,8 +1175,7 @@ fn instantiation_from_contract() {
 			let (address, output) = ctx
 				.ext
 				.instantiate(
-					Weight::MAX,
-					U256::MAX,
+					CallResources::NoLimits,
 					Code::Existing(dummy_ch),
 					Pallet::<Test>::convert_native_to_evm(min_balance),
 					vec![],
@@ -1242,8 +1241,7 @@ fn instantiation_traps() {
 
 			assert_matches!(
 				ctx.ext.instantiate(
-					Weight::zero(),
-					U256::zero(),
+					Default::default(),
 					Code::Existing(dummy_ch),
 					value,
 					vec![],
@@ -1602,8 +1600,7 @@ fn nonce() {
 	let succ_fail_code = MockLoader::insert(Constructor, move |ctx, _| {
 		ctx.ext
 			.instantiate(
-				Weight::MAX,
-				U256::MAX,
+				CallResources::NoLimits,
 				Code::Existing(fail_code),
 				ctx.ext.minimum_balance() * 100,
 				vec![],
@@ -1619,8 +1616,7 @@ fn nonce() {
 		let addr = ctx
 			.ext
 			.instantiate(
-				Weight::MAX,
-				U256::MAX,
+				CallResources::NoLimits,
 				Code::Existing(success_code),
 				ctx.ext.minimum_balance(),
 				vec![],
@@ -2334,7 +2330,7 @@ fn last_frame_output_works_on_instantiate() {
 			// Successful instantiation should set the output
 			let address = ctx
 				.ext
-				.instantiate(Weight::MAX, U256::MAX, Code::Existing(ok_ch), value, vec![], None)
+				.instantiate(CallResources::NoLimits, Code::Existing(ok_ch), value, vec![], None)
 				.unwrap();
 			assert_eq!(
 				ctx.ext.last_frame_output(),
@@ -2344,7 +2340,7 @@ fn last_frame_output_works_on_instantiate() {
 			// Balance transfers should reset the output
 			ctx.ext
 				.call(
-					&CallResources::Precise { weight: Weight::MAX, deposit_limit: U256::MAX },
+					&CallResources::from_weight_and_deposit(Weight::MAX, U256::MAX),
 					&address,
 					Pallet::<Test>::convert_native_to_evm(1),
 					vec![],
@@ -2356,14 +2352,7 @@ fn last_frame_output_works_on_instantiate() {
 
 			// Reverted instantiation should set the output
 			ctx.ext
-				.instantiate(
-					Weight::zero(),
-					U256::zero(),
-					Code::Existing(revert_ch),
-					value,
-					vec![],
-					None,
-				)
+				.instantiate(Default::default(), Code::Existing(revert_ch), value, vec![], None)
 				.unwrap();
 			assert_eq!(
 				ctx.ext.last_frame_output(),
@@ -2372,14 +2361,7 @@ fn last_frame_output_works_on_instantiate() {
 
 			// Trapped instantiation should clear the output
 			ctx.ext
-				.instantiate(
-					Weight::zero(),
-					U256::zero(),
-					Code::Existing(trap_ch),
-					value,
-					vec![],
-					None,
-				)
+				.instantiate(Default::default(), Code::Existing(trap_ch), value, vec![], None)
 				.unwrap_err();
 			assert_eq!(
 				ctx.ext.last_frame_output(),
@@ -2508,8 +2490,7 @@ fn last_frame_output_is_always_reset() {
 		*ctx.ext.last_frame_output_mut() = output_revert();
 		assert_eq!(
 			ctx.ext.instantiate(
-				Weight::zero(),
-				U256::zero(),
+				Default::default(),
 				Code::Existing(invalid_code_hash),
 				U256::zero(),
 				vec![],
@@ -2559,7 +2540,7 @@ fn immutable_data_access_checks_work() {
 
 			// Constructors can not access the immutable data
 			ctx.ext
-				.instantiate(Weight::MAX, U256::MAX, Code::Existing(dummy_ch), value, vec![], None)
+				.instantiate(CallResources::NoLimits, Code::Existing(dummy_ch), value, vec![], None)
 				.unwrap();
 
 			exec_success()
@@ -2719,7 +2700,7 @@ fn immutable_data_set_errors_with_empty_data() {
 			let value = Pallet::<Test>::convert_native_to_evm(min_balance);
 
 			ctx.ext
-				.instantiate(Weight::MAX, U256::MAX, Code::Existing(dummy_ch), value, vec![], None)
+				.instantiate(CallResources::NoLimits, Code::Existing(dummy_ch), value, vec![], None)
 				.unwrap();
 
 			exec_success()

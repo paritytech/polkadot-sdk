@@ -14,13 +14,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use crate::{exec::ExecError, vm::evm::Halt, weights::WeightInfo, Config, Error};
+use crate::{vm::evm::Halt, weights::WeightInfo, Config, Error};
 use core::{marker::PhantomData, ops::ControlFlow};
-use frame_support::{
-	dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, PostDispatchInfo},
-	weights::Weight,
-	DefaultNoBound,
-};
+use frame_support::{weights::Weight, DefaultNoBound};
 use sp_runtime::DispatchError;
 
 #[cfg(test)]
@@ -44,11 +40,8 @@ struct EngineMeter<T: Config> {
 
 impl<T: Config> EngineMeter<T> {
 	/// Create a meter with the given fuel limit.
-	fn new(limit: Weight) -> Self {
-		Self {
-			fuel: limit.ref_time().saturating_div(Self::ref_time_per_fuel()),
-			_phantom: PhantomData,
-		}
+	fn new() -> Self {
+		Self { fuel: 0, _phantom: PhantomData }
 	}
 
 	/// Set the fuel left to the given value.
@@ -61,13 +54,9 @@ impl<T: Config> EngineMeter<T> {
 
 	/// Charge the given amount of ref time.
 	/// Returns the amount of fuel left.
-	fn charge_ref_time(&mut self, ref_time: u64) -> Result<Syncable, DispatchError> {
-		let amount = ref_time
-			.checked_div(Self::ref_time_per_fuel())
-			.ok_or(Error::<T>::InvalidSchedule)?;
-
-		self.fuel.checked_sub(amount).ok_or_else(|| Error::<T>::OutOfGas)?;
-		Ok(Syncable(self.fuel.try_into().map_err(|_| Error::<T>::OutOfGas)?))
+	fn sync_remaining_ref_time(&mut self, remaining_ref_time: u64) -> polkavm::Gas {
+		self.fuel = remaining_ref_time.saturating_div(Self::ref_time_per_fuel());
+		self.fuel.try_into().unwrap_or(polkavm::Gas::MAX)
 	}
 
 	/// How much ref time does each PolkaVM gas correspond to.
@@ -80,12 +69,6 @@ impl<T: Config> EngineMeter<T> {
 		loop_iteration.saturating_sub(empty_loop_iteration)
 	}
 }
-
-/// Used to capture the ref time left before entering a host function.
-///
-/// Has to be consumed in order to sync back the gas after leaving the host function.
-#[must_use]
-pub struct RefTimeLeft(u64);
 
 /// Resource that needs to be synced to the executor.
 ///
@@ -141,7 +124,7 @@ pub struct ErasedToken {
 
 #[derive(DefaultNoBound)]
 pub struct WeightMeter<T: Config> {
-	weight_limit: Weight,
+	pub weight_limit: Option<Weight>,
 	/// Amount of weight already consumed. Must be < `weight_limit`.
 	weight_consumed: Weight,
 	/// Due to `adjust_weight` and `nested` the `weight_consumed` can temporarily peak above its
@@ -157,29 +140,16 @@ pub struct WeightMeter<T: Config> {
 }
 
 impl<T: Config> WeightMeter<T> {
-	pub fn new(weight_limit: Weight) -> Self {
+	pub fn new(weight_limit: Option<Weight>) -> Self {
 		WeightMeter {
 			weight_limit,
 			weight_consumed: Default::default(),
 			weight_consumed_highest: Default::default(),
-			engine_meter: EngineMeter::new(weight_limit),
+			engine_meter: EngineMeter::new(),
 			_phantom: PhantomData,
 			#[cfg(test)]
 			tokens: Vec::new(),
 		}
-	}
-
-	/// Create a new weight meter by removing *all* the weight from the current meter.
-	///
-	/// This should only be used by the primordial frame in a sequence of calls - every subsequent
-	/// frame should use [`nested`](Self::nested).
-	pub fn nested_take_all(&mut self) -> Self {
-		WeightMeter::new(self.weight_left())
-	}
-
-	/// Create a new weight meter for a nested call by removing weight from the current meter.
-	pub fn nested(&mut self, amount: Weight) -> Self {
-		WeightMeter::new(self.weight_left().min(amount))
 	}
 
 	/// Absorb the remaining weight of a nested meter after we are done using it.
@@ -201,7 +171,11 @@ impl<T: Config> WeightMeter<T> {
 	/// NOTE that amount isn't consumed if there is not enough weight. This is considered
 	/// safe because we always charge weight before performing any resource-spending action.
 	#[inline]
-	pub fn charge<Tok: Token<T>>(&mut self, token: Tok) -> Result<ChargedAmount, DispatchError> {
+	pub fn charge<Tok: Token<T>>(
+		&mut self,
+		token: Tok,
+		weight_left: Weight,
+	) -> Result<ChargedAmount, DispatchError> {
 		#[cfg(test)]
 		{
 			// Unconditionally add the token to the storage.
@@ -212,14 +186,11 @@ impl<T: Config> WeightMeter<T> {
 		let amount = token.weight();
 		// It is OK to not charge anything on failure because we always charge _before_ we perform
 		// any action
-		let consumed = {
-			let consumed = self.weight_consumed.saturating_add(amount);
-			if consumed.any_gt(self.weight_limit) {
-				Err(<Error<T>>::OutOfGas)?;
-			}
-			consumed
-		};
-		self.weight_consumed = consumed;
+		if amount.any_gt(weight_left) {
+			Err(<Error<T>>::OutOfGas)?;
+		}
+
+		self.weight_consumed = self.weight_consumed.saturating_add(amount);
 		Ok(ChargedAmount(amount))
 	}
 
@@ -227,8 +198,9 @@ impl<T: Config> WeightMeter<T> {
 	pub fn charge_or_halt<Tok: Token<T>>(
 		&mut self,
 		token: Tok,
+		weight_left: Weight,
 	) -> ControlFlow<Halt, ChargedAmount> {
-		self.charge(token)
+		self.charge(token, weight_left)
 			.map_or_else(|_| ControlFlow::Break(Error::<T>::OutOfGas.into()), ControlFlow::Continue)
 	}
 
@@ -252,16 +224,19 @@ impl<T: Config> WeightMeter<T> {
 	pub fn sync_from_executor(
 		&mut self,
 		engine_fuel: polkavm::Gas,
-	) -> Result<RefTimeLeft, DispatchError> {
+		weight_limit: Weight,
+	) -> Result<(), DispatchError> {
 		let weight_consumed = self
 			.engine_meter
 			.set_fuel(engine_fuel.try_into().map_err(|_| Error::<T>::OutOfGas)?);
+
 		self.weight_consumed.saturating_accrue(weight_consumed);
-		if self.weight_consumed.any_gt(self.weight_limit) {
-			self.weight_consumed = self.weight_limit;
+		if self.weight_consumed.any_gt(weight_limit) {
+			self.weight_consumed = weight_limit;
 			Err(<Error<T>>::OutOfGas)?;
 		}
-		Ok(RefTimeLeft(self.weight_left().ref_time()))
+
+		Ok(())
 	}
 
 	/// Hand over the gas metering responsibility from this meter to the executor.
@@ -272,9 +247,8 @@ impl<T: Config> WeightMeter<T> {
 	///
 	/// It is important that this does **not** actually sync with the executor. That has
 	/// to be done by the caller.
-	pub fn sync_to_executor(&mut self, before: RefTimeLeft) -> Result<Syncable, DispatchError> {
-		let ref_time_consumed = before.0.saturating_sub(self.weight_left().ref_time());
-		self.engine_meter.charge_ref_time(ref_time_consumed)
+	pub fn sync_to_executor(&mut self, weight_left: Weight) -> polkavm::Gas {
+		self.engine_meter.sync_remaining_ref_time(weight_left.ref_time())
 	}
 
 	/// Returns the amount of weight that is required to run the same call.
@@ -291,32 +265,9 @@ impl<T: Config> WeightMeter<T> {
 	}
 
 	/// Returns how much weight left from the initial budget.
+	#[cfg(test)]
 	pub fn weight_left(&self) -> Weight {
 		self.weight_limit.saturating_sub(self.weight_consumed)
-	}
-
-	/// The amount of weight in terms of engine gas.
-	pub fn engine_fuel_left(&self) -> Result<polkavm::Gas, DispatchError> {
-		self.engine_meter.fuel.try_into().map_err(|_| <Error<T>>::OutOfGas.into())
-	}
-
-	/// Turn this WeightMeter into a DispatchResult that contains the actually used weight.
-	pub fn into_dispatch_result<R, E>(
-		self,
-		result: Result<R, E>,
-		base_weight: Weight,
-	) -> DispatchResultWithPostInfo
-	where
-		E: Into<ExecError>,
-	{
-		let post_info = PostDispatchInfo {
-			actual_weight: Some(self.weight_consumed().saturating_add(base_weight)),
-			pays_fee: Default::default(),
-		};
-
-		result
-			.map(|_| post_info)
-			.map_err(|e| DispatchErrorWithPostInfo { post_info, error: e.into().error })
 	}
 
 	#[cfg(test)]
@@ -324,8 +275,8 @@ impl<T: Config> WeightMeter<T> {
 		&self.tokens
 	}
 
-	pub fn consume_all(&mut self) {
-		self.weight_consumed = self.weight_limit;
+	pub fn consume_all(&mut self, weight_limit: Weight) {
+		self.weight_consumed = weight_limit;
 	}
 }
 

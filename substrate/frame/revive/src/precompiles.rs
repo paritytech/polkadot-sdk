@@ -31,10 +31,7 @@ mod tests;
 
 pub use crate::{
 	exec::{ExecError, PrecompileExt as Ext, PrecompileWithInfoExt as ExtWithInfo},
-	metering::{
-		storage::Diff,
-		weight::{Token, WeightMeter},
-	},
+	metering::{storage::Diff, weight::Token},
 	vm::RuntimeCosts,
 	AddressMapper,
 };

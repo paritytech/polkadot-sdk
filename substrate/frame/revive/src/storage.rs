@@ -20,6 +20,7 @@
 use crate::{
 	address::AddressMapper,
 	exec::{AccountIdOf, Key},
+	metering::FrameMeter,
 	tracing::if_tracing,
 	weights::WeightInfo,
 	AccountInfoOf, BalanceOf, BalanceWithDust, Config, DeletionQueue, DeletionQueueCounter, Error,
@@ -41,7 +42,7 @@ use sp_runtime::{
 	DispatchError, RuntimeDebug,
 };
 
-use crate::metering::storage::{Diff, NestedMeter};
+use crate::metering::storage::Diff;
 
 pub enum AccountIdOrAddress<T: Config> {
 	/// An account that is a contract.
@@ -275,7 +276,7 @@ impl<T: Config> ContractInfo<T> {
 		&self,
 		key: &Key,
 		new_value: Option<Vec<u8>>,
-		storage_meter: Option<&mut NestedMeter<T>>,
+		frame_meter: Option<&mut FrameMeter<T>>,
 		take: bool,
 	) -> Result<WriteOutcome, DispatchError> {
 		log::trace!(target: crate::LOG_TARGET, "contract storage: writing value {:?} for key {:x?}", new_value, key);
@@ -285,7 +286,7 @@ impl<T: Config> ContractInfo<T> {
 			t.storage_write(key, old, new_value.as_deref());
 		});
 
-		self.write_raw(&hashed_key, new_value.as_deref(), storage_meter, take)
+		self.write_raw(&hashed_key, new_value.as_deref(), frame_meter, take)
 	}
 
 	/// Update a storage entry into a contract's kv storage.
@@ -304,7 +305,7 @@ impl<T: Config> ContractInfo<T> {
 		&self,
 		key: &[u8],
 		new_value: Option<&[u8]>,
-		storage_meter: Option<&mut NestedMeter<T>>,
+		frame_meter: Option<&mut FrameMeter<T>>,
 		take: bool,
 	) -> Result<WriteOutcome, DispatchError> {
 		let child_trie_info = &self.child_trie_info();
@@ -315,7 +316,7 @@ impl<T: Config> ContractInfo<T> {
 			(child::len(child_trie_info, key), None)
 		};
 
-		if let Some(storage_meter) = storage_meter {
+		if let Some(frame_meter) = frame_meter {
 			let mut diff = Diff::default();
 			let key_len = key.len() as u32;
 			match (old_len, new_value.as_ref().map(|v| v.len() as u32)) {
@@ -335,7 +336,7 @@ impl<T: Config> ContractInfo<T> {
 				},
 				(None, None) => (),
 			}
-			storage_meter.charge(&diff);
+			frame_meter.record_contract_storage_changes(&diff);
 		}
 
 		match &new_value {
