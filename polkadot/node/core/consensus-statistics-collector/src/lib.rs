@@ -51,6 +51,7 @@ use crate::approval_voting_metrics::{handle_candidate_approved, handle_observed_
 use crate::availability_distribution_metrics::{handle_chunk_uploaded, handle_chunks_downloaded, AvailabilityChunks};
 use self::metrics::Metrics;
 
+const MAX_SESSIONS_TO_KEEP: u32 = 2;
 const LOG_TARGET: &str = "parachain::consensus-statistics-collector";
 
 struct PerRelayView {
@@ -108,7 +109,7 @@ struct View {
     per_relay: HashMap<Hash, PerRelayView>,
     per_session: HashMap<SessionIndex, PerSessionView>,
     availability_chunks: HashMap<SessionIndex, AvailabilityChunks>,
-
+    current_session: Option<SessionIndex>,
 }
 
 impl View {
@@ -117,7 +118,8 @@ impl View {
             roots: HashSet::new(),
             per_relay: HashMap::new(),
             per_session: HashMap::new(),
-            availability_chunks: HashMap::new()
+            availability_chunks: HashMap::new(),
+            current_session: None,
         };
     }
 }
@@ -126,12 +128,16 @@ impl View {
 #[derive(Default)]
 pub struct ConsensusStatisticsCollector {
     metrics: Metrics,
+    per_validator_metrics: bool
 }
 
 impl ConsensusStatisticsCollector {
     /// Create a new instance of the `ConsensusStatisticsCollector`.
-    pub fn new(metrics: Metrics) -> Self {
-        Self { metrics }
+    pub fn new(metrics: Metrics, per_validator_metrics: bool) -> Self {
+        Self {
+            metrics,
+            per_validator_metrics,
+        }
     }
 }
 
@@ -142,7 +148,7 @@ where
 {
     fn start(self, ctx: Context) -> SpawnedSubsystem {
         SpawnedSubsystem {
-            future: run(ctx, self.metrics)
+            future: run(ctx, (self.metrics, self.per_validator_metrics))
                 .map_err(|e| SubsystemError::with_origin("statistics-parachains", e))
                 .boxed(),
             name: "consensus-statistics-collector-subsystem",
@@ -151,11 +157,11 @@ where
 }
 
 #[overseer::contextbounds(ConsensusStatisticsCollector, prefix = self::overseer)]
-async fn run<Context>(mut ctx: Context, metrics: Metrics) -> FatalResult<()> {
+async fn run<Context>(mut ctx: Context, metrics: (Metrics, bool)) -> FatalResult<()> {
     let mut view = View::new();
     loop {
         crate::error::log_error(
-            run_iteration(&mut ctx, &mut view, &metrics).await,
+            run_iteration(&mut ctx, &mut view, (&metrics.0, metrics.1)).await,
             "Encountered issue during run iteration",
         )?;
     }
@@ -165,9 +171,10 @@ async fn run<Context>(mut ctx: Context, metrics: Metrics) -> FatalResult<()> {
 pub(crate) async fn run_iteration<Context>(
     ctx: &mut Context,
     view: &mut View,
-    metrics: &Metrics,
+    metrics: (&Metrics, bool),
 ) -> Result<()> {
     let mut sender = ctx.sender().clone();
+    let per_validator_metrics = metrics.1;
     loop {
         match ctx.recv().await.map_err(FatalError::SubsystemReceive)? {
             FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
@@ -242,7 +249,11 @@ pub(crate) async fn run_iteration<Context>(
                         .map(|rb_view| (rb_view.session_index, rb_view.approvals_stats))
                     {
                         if let Some(session_view) = view.per_session.get_mut(&session_idx) {
-                            metrics.record_approvals_stats(session_idx, approvals_stats.clone());
+                            metrics.0.record_approvals_stats(
+                                session_idx,
+                                approvals_stats.clone(),
+                                per_validator_metrics,
+                            );
 
                             for stats in approvals_stats.values() {
                                 // Increment no-show tallies
@@ -268,6 +279,7 @@ pub(crate) async fn run_iteration<Context>(
                 }
 
                 log_session_view_general_stats(view);
+                prune_old_session_views(ctx, view, fin_block_hash).await?;
             }
             FromOrchestra::Communication { msg } => {
                 match msg {
@@ -303,7 +315,6 @@ pub(crate) async fn run_iteration<Context>(
                             block_hash,
                             candidate_hash,
                             approvals,
-                            metrics,
                         );
                     }
                     ConsensusStatisticsCollectorMessage::NoShows(
@@ -394,6 +405,35 @@ fn prune_unfinalised_forks(view: &mut View, fin_block_hash: Hash) -> Vec<Hash> {
     retain_relay_hashes
 }
 
+// prune_old_session_views avoid the per_session mapping to grow
+// indefinitely by removing sessions stored for more than MAX_SESSIONS_TO_KEEP (2)
+// finalized sessions.
+#[overseer::contextbounds(ConsensusStatisticsCollector, prefix = self::overseer)]
+async fn prune_old_session_views<Context>(
+    ctx: &mut Context,
+    view: &mut View,
+    finalized_hash: Hash,
+) -> Result<()> {
+    let session_idx = request_session_index_for_child(finalized_hash, ctx.sender())
+        .await
+        .await
+        .map_err(JfyiError::OverseerCommunication)?
+        .map_err(JfyiError::RuntimeApiCallError)?;
+
+    match view.current_session {
+        Some(current_session) if current_session < session_idx => {
+            if let Some(wipe_before) = session_idx.checked_sub(MAX_SESSIONS_TO_KEEP) {
+                view.per_session.retain(|stored_session_index, _| *stored_session_index > wipe_before);
+            }
+            view.current_session = Some(session_idx)
+        }
+        None => view.current_session = Some(session_idx),
+        _ => {}
+    };
+
+    Ok(())
+}
+
 fn log_session_view_general_stats(view: &View) {
     for (session_index, session_view) in &view.per_session {
         let session_tally = session_view
@@ -407,7 +447,7 @@ fn log_session_view_general_stats(view: &View) {
             session_idx = ?session_index,
             approvals = ?session_tally.0,
             noshows = ?session_tally.1,
-            "current session collected statistics"
+            "session collected statistics"
         );
     }
 }

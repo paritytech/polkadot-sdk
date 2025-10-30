@@ -36,7 +36,6 @@ pub fn handle_candidate_approved(
     block_hash: Hash,
     candidate_hash: CandidateHash,
     approvals: Vec<ValidatorIndex>,
-    metrics: &Metrics,
 ) {
     if let Some(relay_view) = view.per_relay.get_mut(&block_hash) {
         relay_view.approvals_stats

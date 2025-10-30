@@ -36,10 +36,15 @@ pub(crate) struct MetricsInner {
 
 /// Candidate backing metrics.
 #[derive(Default, Clone)]
-pub struct Metrics(pub(crate) Option<MetricsInner>);
+pub struct Metrics (pub(crate) Option<MetricsInner>);
 
 impl Metrics {
-	pub fn record_approvals_stats(&self, session: SessionIndex, approval_stats: HashMap<CandidateHash, ApprovalsStats>) {
+	pub fn record_approvals_stats(
+		&self,
+		session: SessionIndex,
+		approval_stats: HashMap<CandidateHash, ApprovalsStats>,
+		per_validator_metrics: bool,
+	) {
 		self.0.as_ref().map(|metrics| {
 			for stats in approval_stats.values() {
 				metrics.approvals_usage_per_session.with_label_values(
@@ -48,14 +53,16 @@ impl Metrics {
 				metrics.no_shows_per_session.with_label_values(
 					&[session.to_string().as_str()]).inc_by(stats.no_shows.len() as u64);
 
-				for validator in &stats.votes {
-					metrics.approvals_per_session_per_validator.with_label_values(
-						&[session.to_string().as_str(), validator.0.to_string().as_str()]).inc()
-				}
+				if per_validator_metrics {
+					for validator in &stats.votes {
+						metrics.approvals_per_session_per_validator.with_label_values(
+							&[session.to_string().as_str(), validator.0.to_string().as_str()]).inc()
+					}
 
-				for validator in &stats.no_shows {
-					metrics.no_shows_per_session_per_validator.with_label_values(
-						&[session.to_string().as_str(), validator.0.to_string().as_str()]).inc()
+					for validator in &stats.no_shows {
+						metrics.no_shows_per_session_per_validator.with_label_values(
+							&[session.to_string().as_str(), validator.0.to_string().as_str()]).inc()
+					}
 				}
 			}
 		});
@@ -106,6 +113,7 @@ impl metrics::Metrics for Metrics {
 				registry,
 			)?,
 		};
+
 		Ok(Metrics(Some(metrics)))
 	}
 }

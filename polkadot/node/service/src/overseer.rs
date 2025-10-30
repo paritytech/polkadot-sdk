@@ -355,7 +355,7 @@ where
 		))
 		.chain_selection(ChainSelectionSubsystem::new(chain_selection_config, parachains_db))
 		.prospective_parachains(ProspectiveParachainsSubsystem::new(Metrics::register(registry)?))
-		.consensus_statistics_collector(ConsensusStatisticsCollector::new(Metrics::register(registry)?))
+		.consensus_statistics_collector(ConsensusStatisticsCollector::new(Metrics::register(registry)?, true))
 		.activation_external_listeners(Default::default())
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_client)
