@@ -105,15 +105,6 @@ pub trait InfoT<T: Config>: seal::Sealed {
 		Zero::zero()
 	}
 
-	/// Compute the actual post_dispatch fee
-	fn compute_actual_fee(
-		_encoded_len: u32,
-		_info: &DispatchInfo,
-		_result: &DispatchResultWithPostInfo,
-	) -> BalanceOf<T> {
-		Default::default()
-	}
-
 	/// Makes sure that not too much storage deposit was withdrawn.
 	fn ensure_not_overdrawn(
 		_fee: BalanceOf<T>,
@@ -162,6 +153,15 @@ pub trait InfoT<T: Config>: seal::Sealed {
 
 	/// Return the remaining transaction fee.
 	fn remaining_txfee() -> BalanceOf<T> {
+		Default::default()
+	}
+
+	/// Compute the actual post_dispatch fee
+	fn compute_actual_fee(
+		_encoded_len: u32,
+		_info: &DispatchInfo,
+		_result: &DispatchResultWithPostInfo,
+	) -> BalanceOf<T> {
 		Default::default()
 	}
 }
