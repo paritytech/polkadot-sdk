@@ -1168,7 +1168,7 @@ pub mod pallet {
 							requires: Vec::new(),
 							provides: vec![T::Hashing::hash_of(&task.encode()).as_ref().to_vec()],
 							longevity: TransactionLongevity::max_value(),
-							propagate: true,
+							propagate: false,
 						})
 					}
 				}
