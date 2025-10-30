@@ -79,7 +79,7 @@ fn get_invulnerable_ah_collators(
 	} else if chain_spec.is_polkadot() {
 		POLKADOT.to_vec()
 	} else {
-		vec![]
+		vec!["12D3KooWJy9W7SeLta9LSqfcB5hgoUbjddyjkVzLpJxomeNgg1dT"]
 	};
 
 	invulnerables
