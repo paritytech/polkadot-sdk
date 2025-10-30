@@ -1194,7 +1194,7 @@ impl<Call> Instruction<Call> {
 				HrmpChannelClosing { initiator, sender, recipient }
 			},
 			Transact { origin_kind, call, fallback_max_weight } => {
-				Transact { origin_kind, call: call.into(), fallback_max_weight }
+				Transact { origin_kind, call: call.transmute_encoded(), fallback_max_weight }
 			},
 			ReportError(response_info) => ReportError(response_info),
 			DepositAsset { assets, beneficiary } => DepositAsset { assets, beneficiary },

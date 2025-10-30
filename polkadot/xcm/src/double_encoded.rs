@@ -58,23 +58,13 @@ impl<T> From<Vec<u8>> for DoubleEncoded<T> {
 }
 
 impl<T> DoubleEncoded<T> {
-	pub fn into<S>(self) -> DoubleEncoded<S> {
-		DoubleEncoded::from(self)
+	pub fn encoded(&self) -> &[u8] {
+		&self.encoded
 	}
 
-	pub fn from<S>(e: DoubleEncoded<S>) -> Self {
-		Self { encoded: e.encoded, decoded: None }
-	}
-
-	/// Provides an API similar to `AsRef` that provides access to the inner value.
-	/// `AsRef` implementation would expect an `&Option<T>` return type.
-	pub fn as_ref(&self) -> Option<&T> {
-		self.decoded.as_ref()
-	}
-
-	/// Access the encoded data.
-	pub fn into_encoded(self) -> Vec<u8> {
-		self.encoded
+	/// Converts a `DoubleEncoded<T>` into a `DoubleEncoded<S>`, dropping the decoded value.
+	pub fn transmute_encoded<S>(self) -> DoubleEncoded<S> {
+		DoubleEncoded { encoded: self.encoded, decoded: None }
 	}
 }
 
@@ -88,16 +78,6 @@ impl<T: Decode> DoubleEncoded<T> {
 				T::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut &self.encoded[..]).ok();
 		}
 		self.decoded.as_ref().ok_or(())
-	}
-
-	/// Move the decoded value out or (if not present) decode `encoded`.
-	pub fn take_decoded(&mut self) -> Result<T, ()> {
-		self.decoded
-			.take()
-			.or_else(|| {
-				T::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut &self.encoded[..]).ok()
-			})
-			.ok_or(())
 	}
 
 	/// Provides an API similar to `TryInto` that allows fallible conversion to the inner value
@@ -118,13 +98,6 @@ mod tests {
 		let val: u64 = 42;
 		let mut encoded: DoubleEncoded<_> = Encode::encode(&val).into();
 		assert_eq!(encoded.ensure_decoded(), Ok(&val));
-	}
-
-	#[test]
-	fn take_decoded_works() {
-		let val: u64 = 42;
-		let mut encoded: DoubleEncoded<_> = Encode::encode(&val).into();
-		assert_eq!(encoded.take_decoded(), Ok(val));
 	}
 
 	#[test]
