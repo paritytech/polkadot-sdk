@@ -22,13 +22,10 @@ frame-support = { workspace = true }
 pallet-revive = { workspace = true }
 
 pallet-conviction-voting = { workspace = true }
-pallet-referenda = { workspace = true }
 
 [dev-dependencies]
 frame-system = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
-pallet-timestamp = { workspace = true, default-features = true }
-polkadot-parachain-primitives = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 scale-info = { workspace = true, default-features = true }
@@ -42,32 +39,16 @@ std = [
 	"pallet-balances/std",
 	"pallet-revive/std",
 	"pallet-conviction-voting/std",
-	"pallet-referenda/std",
-	"pallet-timestamp/std",
-	"polkadot-parachain-primitives/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"tracing/std",
 	"scale-info/std",
 ]
-runtime-benchmarks = [
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-referenda/runtime-benchmarks",
-	"pallet-revive/runtime-benchmarks",
-	"pallet-conviction-voting/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
-	"polkadot-parachain-primitives/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
-	"pallet-referenda/try-runtime",
 	"pallet-revive/try-runtime",
 	"pallet-conviction-voting/try-runtime",
-	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]
