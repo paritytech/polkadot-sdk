@@ -2337,7 +2337,6 @@ impl<T: Config> Pallet<T> {
 			to: &mut AccountInfo<T>,
 			dust: u32,
 		) -> DispatchResult {
-			log::debug!(target: crate::LOG_TARGET, "transfer_with_dust transfer_dust (dust: ${dust:?})");
 			from.dust = from.dust.checked_sub(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
 			to.dust = to.dust.checked_add(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
 			Ok(())
