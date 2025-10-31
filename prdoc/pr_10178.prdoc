@@ -1,6 +1,6 @@
 title: Xpan auto retry limit
 doc:
-- audience: Todo
+- audience: Runtime Dev
   description: |-
     BREAKING CHANGE: runtime must define `MaxAutoRenewalRetries`
 
