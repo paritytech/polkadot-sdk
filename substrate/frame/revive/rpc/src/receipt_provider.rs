@@ -269,7 +269,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 				let mut next_block_number = block_number.saturating_add(1);
 				while let Some(old_block_map) = block_number_to_hash.remove(&next_block_number) {
 					to_remove.push(old_block_map);
-					next_block_number = block_number.saturating_add(1);
+					next_block_number = next_block_number.saturating_add(1);
 				}
 			},
 			_ => {},
@@ -701,9 +701,9 @@ mod tests {
 	async fn test_fork(pool: SqlitePool) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
 
-		for i in [1u8, 2u8] {
-			let block = MockBlockInfo { hash: H256::from([i; 32]), number: 1 };
-			let transaction_hash = H256::from([i; 32]);
+		let build_block = |seed, number| {
+			let block = MockBlockInfo { hash: H256::from([seed; 32]), number };
+			let transaction_hash = H256::from([seed; 32]);
 			let receipts = vec![(
 				TransactionSigned::default(),
 				ReceiptInfo {
@@ -716,16 +716,50 @@ mod tests {
 					..Default::default()
 				},
 			)];
-			let ethereum_hash = H256::from([i + 1; 32]);
-			provider.insert(&block, &receipts, &ethereum_hash).await?;
-		}
-		assert_eq!(count(&provider.pool, "transaction_hashes", None).await, 1);
-		assert_eq!(count(&provider.pool, "logs", None).await, 1);
-		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 1);
+			let ethereum_hash = H256::from([seed + 1; 32]);
+
+			(block, receipts, ethereum_hash)
+		};
+
+		// Build 4 blocks on consecutive heights: 0,1,2,3.
+		let (block0, receipts, ethereum_hash_0) = build_block(0, 0);
+		provider.insert(&block0, &receipts, &ethereum_hash_0).await?;
+		let (block1, receipts, ethereum_hash_1) = build_block(1, 1);
+		provider.insert(&block1, &receipts, &ethereum_hash_1).await?;
+		let (block2, receipts, ethereum_hash_2) = build_block(2, 2);
+		provider.insert(&block2, &receipts, &ethereum_hash_2).await?;
+		let (block3, receipts, ethereum_hash_3) = build_block(3, 3);
+		provider.insert(&block3, &receipts, &ethereum_hash_3).await?;
+
+		assert_eq!(count(&provider.pool, "transaction_hashes", None).await, 4);
+		assert_eq!(count(&provider.pool, "logs", None).await, 4);
+		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 4);
 		assert_eq!(
 			provider.block_number_to_hashes.lock().await.clone(),
-			[(1, BlockHashMap::new(H256::from([2u8; 32]), H256::from([3u8; 32])))].into(),
-			"New receipt for block #1 should replace the old one"
+			[
+				(0, BlockHashMap::new(block0.hash, ethereum_hash_0)),
+				(1, BlockHashMap::new(block1.hash, ethereum_hash_1)),
+				(2, BlockHashMap::new(block2.hash, ethereum_hash_2)),
+				(3, BlockHashMap::new(block3.hash, ethereum_hash_3))
+			]
+			.into(),
+		);
+
+		// Now build another block on height 1.
+		let (fork_block, receipts, ethereum_hash_fork) = build_block(4, 1);
+		provider.insert(&fork_block, &receipts, &ethereum_hash_fork).await?;
+
+		assert_eq!(count(&provider.pool, "transaction_hashes", None).await, 2);
+		assert_eq!(count(&provider.pool, "logs", None).await, 2);
+		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 2);
+
+		assert_eq!(
+			provider.block_number_to_hashes.lock().await.clone(),
+			[
+				(0, BlockHashMap::new(block0.hash, ethereum_hash_0)),
+				(1, BlockHashMap::new(fork_block.hash, ethereum_hash_fork))
+			]
+			.into(),
 		);
 
 		return Ok(());
