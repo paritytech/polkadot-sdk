@@ -302,6 +302,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 		log::trace!(target: LOG_TARGET, "Insert receipts for substrate block #{block_number} {:?}", substrate_block_hash);
 
+		self.prune_blocks(block.number(), &block_map).await?;
+
 		// Check if mapping already exists (eg. added when processing best block and we are now
 		// processing finalized block)
 		let result = sqlx::query!(
@@ -309,8 +311,6 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		)
 		.fetch_one(&self.pool)
 		.await?;
-
-		self.prune_blocks(block.number(), &block_map).await?;
 
 		// Assuming that if no mapping exists then no relevant entries in transaction_hashes and
 		// logs exist
