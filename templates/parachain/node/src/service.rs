@@ -9,6 +9,7 @@ use parachain_template_runtime::{
 	opaque::{Block, Hash},
 };
 
+use codec::Encode;
 use polkadot_sdk::{cumulus_client_service::ParachainTracingExecuteBlock, *};
 
 // Cumulus Imports
@@ -415,7 +416,7 @@ pub async fn start_parachain_node(
 		request_receiver: paranode_rx,
 		parachain_network: network,
 		advertise_non_global_ips,
-		parachain_genesis_hash: client.chain_info().genesis_hash,
+		parachain_genesis_hash: client.chain_info().genesis_hash.encode(),
 		parachain_fork_id,
 		parachain_public_addresses,
 	});
