@@ -16,3 +16,6 @@
 // limitations under the License.
 
 //! Tests for the v0 -> v1 multi-block migration.
+
+// Test migration
+// Test you can't call extrinsics during migration
