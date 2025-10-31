@@ -611,7 +611,8 @@ pub mod pallet {
 			//  `expected_rp_descendants_num = 1` and `relay_parent_number = 1` we cannot provide
 			//  two descendants.
 			if expected_rp_descendants_num > 0 &&
-				expected_rp_descendants_num.saturating_sub(vfp.relay_parent_number as u32) > 0
+				expected_rp_descendants_num.saturating_sub(vfp.relay_parent_number as u32) > 0 &&
+				vfp.relay_parent_number > 0
 			{
 				if let Err(err) = descendant_validation::verify_relay_parent_descendants(
 					&relay_state_proof,
