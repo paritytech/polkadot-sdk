@@ -2244,8 +2244,8 @@ fn auto_renewal_works() {
 			.into(),
 		);
 
-		// Given that core #1 didn't get renewed due to the account not being sufficiently funded,
 		// Task (1003) will now be assigned to that core instead of core #2.
+		// The renewal persists however due to retry logic
 		assert_eq!(
 			AutoRenewals::<Test>::get().to_vec(),
 			vec![

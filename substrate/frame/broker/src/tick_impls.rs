@@ -360,6 +360,7 @@ impl<T: Config> Pallet<T> {
 				};
 
 				if let Ok(new_core_index) = Self::do_renew(payer.clone(), record.core) {
+					AutoRenewalRetries::<T>::insert((record.core, payer), 0);
 					Some(AutoRenewalRecord {
 						core: new_core_index,
 						task: record.task,
