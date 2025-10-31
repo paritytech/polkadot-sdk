@@ -350,6 +350,8 @@ pub struct ExecConfig<T: Config> {
 	/// Whether this configuration was created for a dry-run execution.
 	/// Use to enable logic that should only run in dry-run mode.
 	pub is_dry_run: bool,
+	/// An optional timestamp override for dry-run executions.
+	pub dry_run_timestamp_override: Option<u64>,
 	/// An optional mock handler that can be used to override certain behaviors.
 	/// This is primarily used for testing purposes and should be `None` in production
 	/// environments.
@@ -364,6 +366,7 @@ impl<T: Config> ExecConfig<T> {
 			collect_deposit_from_hold: None,
 			effective_gas_price: None,
 			is_dry_run: false,
+			dry_run_timestamp_override: None,
 			mock_handler: None,
 		}
 	}
@@ -375,6 +378,7 @@ impl<T: Config> ExecConfig<T> {
 			effective_gas_price: None,
 			mock_handler: None,
 			is_dry_run: false,
+			dry_run_timestamp_override: None,
 		}
 	}
 
@@ -386,12 +390,20 @@ impl<T: Config> ExecConfig<T> {
 			effective_gas_price: Some(effective_gas_price),
 			mock_handler: None,
 			is_dry_run: false,
+			dry_run_timestamp_override: None,
 		}
 	}
 
 	/// Set this config to be a dry-run.
 	pub fn with_dry_run(mut self) -> Self {
 		self.is_dry_run = true;
+		self
+	}
+
+	/// Set a timestamp override for dry-run executions.
+	pub fn with_dry_run_timestamp_override(mut self, timestamp: Option<u64>) -> Self {
+		self.is_dry_run = true;
+		self.dry_run_timestamp_override = timestamp;
 		self
 	}
 }

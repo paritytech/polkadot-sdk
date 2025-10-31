@@ -37,7 +37,7 @@ use alloc::{
 	collections::{BTreeMap, BTreeSet},
 	vec::Vec,
 };
-use core::{fmt::Debug, marker::PhantomData, mem, ops::ControlFlow};
+use core::{cmp, fmt::Debug, marker::PhantomData, mem, ops::ControlFlow};
 use frame_support::{
 	crypto::ecdsa::ECDSAExt,
 	dispatch::DispatchResult,
@@ -951,12 +951,25 @@ where
 			return Ok(None);
 		};
 
+		let mut latest_timestamp = T::Time::now();
+		let mut block_number = <frame_system::Pallet<T>>::block_number();
+		if exec_config.is_dry_run {
+			block_number += 1u32.saturated_into();
+			if let Some(ts_override) = exec_config.dry_run_timestamp_override {
+				let moment_override: <<T as Config>::Time as Time>::Moment = ts_override.saturated_into();
+				let delta: <<T as Config>::Time as Time>::Moment = 1000u64.saturated_into();
+				latest_timestamp = cmp::max(latest_timestamp + delta, moment_override);
+			}
+		}
+		// let latest_timestamp = T::Time::now() + 1000;
+		// let override_timestamp: <<T as Config>::Time as Time>::Moment = exec_config.dry_run_timestamp_override.saturated_into();
+		// let timestamp = cmp::max(min_timestamp, override_timestamp);
 		let stack = Self {
 			origin,
 			gas_meter,
 			storage_meter,
-			timestamp: T::Time::now(),
-			block_number: <frame_system::Pallet<T>>::block_number(),
+			timestamp: latest_timestamp,
+			block_number: block_number,
 			first_frame,
 			frames: Default::default(),
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
@@ -965,7 +978,8 @@ where
 			contracts_to_be_destroyed: BTreeMap::new(),
 			_phantom: Default::default(),
 		};
-
+		log::trace!(target: LOG_TARGET, "stack timestamp: {:?}", stack.timestamp);
+		log::trace!(target: LOG_TARGET, "stack block number: {:?}", stack.block_number);
 		Ok(Some((stack, executable)))
 	}
 
@@ -1411,7 +1425,7 @@ where
 		} else {
 			self.transient_storage.rollback_transaction();
 		}
-
+		log::trace!(target: LOG_TARGET, "frame finished with: {success}");
 		log::trace!(target: LOG_TARGET, "frame finished with: {output:?}");
 
 		self.pop_frame(success);

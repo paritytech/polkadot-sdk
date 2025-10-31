@@ -1513,12 +1513,14 @@ impl<T: Config> Pallet<T> {
 			Ok(result)
 		};
 		let result = Self::run_guarded(try_call);
-		ContractResult {
+		let res = ContractResult {
 			result: result.map_err(|r| r.error),
 			gas_consumed: gas_meter.gas_consumed(),
 			gas_required: gas_meter.gas_required(),
 			storage_deposit,
-		}
+		};
+		log::debug!(target: LOG_TARGET, "{res:?}");
+		res
 	}
 
 	/// Prepare a dry run for the given account.
@@ -1611,6 +1613,7 @@ impl<T: Config> Pallet<T> {
 	/// - `tx`: The Ethereum transaction to simulate.
 	pub fn dry_run_eth_transact(
 		mut tx: GenericTransaction,
+		timestamp_override: Option<u64>,
 	) -> Result<EthTransactInfo<BalanceOf<T>>, EthTransactError>
 	where
 		T::Nonce: Into<U256>,
@@ -1675,7 +1678,7 @@ impl<T: Config> Pallet<T> {
 				call_info.encoded_len,
 				base_info.total_weight(),
 			)
-			.with_dry_run()
+			.with_dry_run_timestamp_override(timestamp_override)
 		};
 
 		// emulate transaction behavior
@@ -1691,7 +1694,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// the deposit is done when the transaction is transformed from an `eth_transact`
-		// we emulate this behavior for the dry-run her
+		// we emulate this behavior for the dry-run here
 		T::FeeInfo::deposit_txfee(T::Currency::issue(fees));
 
 		let extract_error = |err| {
@@ -1725,6 +1728,7 @@ impl<T: Config> Pallet<T> {
 					Default::default()
 				} else {
 					// Dry run the call.
+					log::debug!(target: LOG_TARGET, "calling bare_call");
 					let result = crate::Pallet::<T>::bare_call(
 						OriginFor::<T>::signed(origin),
 						dest,
@@ -1738,6 +1742,7 @@ impl<T: Config> Pallet<T> {
 					let data = match result.result {
 						Ok(return_value) => {
 							if return_value.did_revert() {
+								log::debug!(target: LOG_TARGET, "contract call reverted");
 								return Err(EthTransactError::Data(return_value.data));
 							}
 							return_value.data
@@ -2332,7 +2337,7 @@ environmental!(executing_contract: bool);
 
 sp_api::decl_runtime_apis! {
 	/// The API used to dry-run contract interactions.
-	#[api_version(1)]
+	#[api_version(2)]
 	pub trait ReviveApi<AccountId, Balance, Nonce, BlockNumber> where
 		AccountId: Codec,
 		Balance: Codec,
@@ -2396,6 +2401,16 @@ sp_api::decl_runtime_apis! {
 		///
 		/// See [`crate::Pallet::dry_run_eth_transact`]
 		fn eth_transact(tx: GenericTransaction) -> Result<EthTransactInfo<Balance>, EthTransactError>;
+
+		/// Perform an Ethereum call with an explicit timestamp.
+		///
+		/// This is used by RPCs (like gas estimation) that have access to the system clock.
+		/// The timestamp can be used for simulating time-dependent smart contract logic
+		/// or for consistent gas estimation results.
+		fn eth_transact_at_time(
+			tx: GenericTransaction,
+			timestamp: u64
+		) -> Result<EthTransactInfo<Balance>, EthTransactError>;
 
 		/// Upload new code without instantiating a contract from it.
 		///
@@ -2559,7 +2574,19 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						sp_runtime::traits::TransactionExtension,
 						sp_runtime::traits::Block as BlockT
 					};
-					$crate::Pallet::<Self>::dry_run_eth_transact(tx)
+					$crate::Pallet::<Self>::dry_run_eth_transact(tx, None)
+				}
+
+				fn eth_transact_at_time(
+					tx: $crate::evm::GenericTransaction,
+					timestamp: u64
+				) -> Result<$crate::EthTransactInfo<Balance>, $crate::EthTransactError> {
+					use $crate::{
+						codec::Encode, evm::runtime::EthExtra, frame_support::traits::Get,
+						sp_runtime::traits::TransactionExtension,
+						sp_runtime::traits::Block as BlockT
+					};
+					$crate::Pallet::<Self>::dry_run_eth_transact(tx, Some(timestamp))
 				}
 
 				fn call(

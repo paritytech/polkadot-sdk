@@ -147,6 +147,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		log::trace!(target: LOG_TARGET, "estimate_gas transaction={transaction:?} block={block:?}");
 		let hash = self.client.block_hash_for_tag(block.unwrap_or_default().into()).await?;
 		let runtime_api = self.client.runtime_api(hash);
+		log::trace!("calling dry_run");
 		let dry_run = runtime_api.dry_run(transaction).await?;
 		log::trace!(target: LOG_TARGET, "estimate_gas result={dry_run:?}");
 		Ok(dry_run.eth_gas)

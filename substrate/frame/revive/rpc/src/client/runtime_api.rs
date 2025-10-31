@@ -21,8 +21,9 @@ use crate::{
 	ClientError,
 };
 use pallet_revive::{
-	evm::{Block as EthBlock, GenericTransaction, ReceiptGasInfo, Trace, H160, U256},
+	evm::{decode_revert_reason, Block as EthBlock, GenericTransaction, ReceiptGasInfo, Trace, H160, U256},
 	EthTransactInfo,
+	EthTransactError,
 };
 use sp_core::H256;
 use subxt::OnlineClient;
@@ -70,7 +71,18 @@ impl RuntimeApi {
 		let result = self.0.call(payload).await?;
 		match result {
 			Err(err) => {
-				log::debug!(target: LOG_TARGET, "Dry run failed {err:?}");
+				// Attempt to decode revert reason if available
+				let decoded_msg = match &err.0 {
+					EthTransactError::Data(data) => {
+						match decode_revert_reason(data) {
+							Some(reason) => format!("execution reverted: {reason}"),
+							None => "execution reverted".to_string(),
+						}
+					}
+					EthTransactError::Message(msg) => msg.clone(),
+				};
+				log::debug!(target: LOG_TARGET, "err = {:?}", err);
+				log::debug!(target: LOG_TARGET, "Dry run failed {decoded_msg}");
 				Err(ClientError::TransactError(err.0))
 			},
 			Ok(result) => Ok(result.0),

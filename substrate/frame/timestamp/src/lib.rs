@@ -355,6 +355,11 @@ impl<T: Config> Time for Pallet<T> {
 	type Moment = T::Moment;
 
 	fn now() -> Self::Moment {
+		log::debug!(
+			target: "runtime::timestamp",
+			"`pallet_timestamp::Time::now` called, returning now = {:?}",
+			Now::<T>::get(),
+		);
 		Now::<T>::get()
 	}
 }
