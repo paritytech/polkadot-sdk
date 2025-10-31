@@ -146,17 +146,19 @@ impl EthRpcServer for EthRpcServerImpl {
 		block: Option<BlockNumberOrTag>,
 	) -> RpcResult<U256> {
 		log::trace!(target: LOG_TARGET, "estimate_gas transaction={transaction:?} block={block:?}");
-		// TODO change the default to pending instead of latest
-		let hash = self.client.block_hash_for_tag(block.unwrap_or_default().into()).await?;
+		let block = block.unwrap_or(BlockNumberOrTag::BlockTag(BlockTag::Pending));
+		let timestamp_override = match block {
+			BlockNumberOrTag::BlockTag(BlockTag::Pending) => {
+				SystemTime::now()
+					.duration_since(UNIX_EPOCH)
+					.ok()
+					.map(|dur| dur.as_millis() as u64)
+			}
+			_ => None,
+		};
+		let hash = self.client.block_hash_for_tag(block.into()).await?;
 		let runtime_api = self.client.runtime_api(hash);
 		log::trace!("calling dry_run");
-		let timestamp_override = match SystemTime::now().duration_since(UNIX_EPOCH) {
-			Ok(dur) => Some(dur.as_millis() as u64), // milliseconds since epoch
-			Err(err) => {
-				log::warn!(target: LOG_TARGET, "system time before UNIX_EPOCH: {err:?}, skipping timestamp override");
-				None
-			}
-		};
 		let dry_run = runtime_api.dry_run(transaction, timestamp_override).await?;
 		log::trace!(target: LOG_TARGET, "estimate_gas result={dry_run:?}");
 		Ok(dry_run.eth_gas)
