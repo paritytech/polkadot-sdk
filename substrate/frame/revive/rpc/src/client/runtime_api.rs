@@ -68,14 +68,10 @@ impl RuntimeApi {
 		tx: GenericTransaction,
 		timestamp_override: Option<u64>,
 	) -> Result<EthTransactInfo<Balance>, ClientError> {
-		let result = match timestamp_override {
-			Some(ts) => {
-				self.0.call(subxt_client::apis().revive_api().eth_transact_at_time(tx.into(), ts)).await?
-			}
-			None => {
-				self.0.call(subxt_client::apis().revive_api().eth_transact(tx.into())).await?
-			}
-		};
+		let payload = subxt_client::apis()
+			.revive_api()
+			.eth_transact(tx.into(), timestamp_override);
+		let result = self.0.call(payload).await?;
 		match result {
 			Err(err) => {
 				// Attempt to decode revert reason if available

@@ -2400,17 +2400,7 @@ sp_api::decl_runtime_apis! {
 		/// Perform an Ethereum call.
 		///
 		/// See [`crate::Pallet::dry_run_eth_transact`]
-		fn eth_transact(tx: GenericTransaction) -> Result<EthTransactInfo<Balance>, EthTransactError>;
-
-		/// Perform an Ethereum call with an explicit timestamp.
-		///
-		/// This is used by RPCs (like gas estimation) that have access to the system clock.
-		/// The timestamp can be used for simulating time-dependent smart contract logic
-		/// or for consistent gas estimation results.
-		fn eth_transact_at_time(
-			tx: GenericTransaction,
-			timestamp: u64
-		) -> Result<EthTransactInfo<Balance>, EthTransactError>;
+		fn eth_transact(tx: GenericTransaction, timestamp: Option<u64>) -> Result<EthTransactInfo<Balance>, EthTransactError>;
 
 		/// Upload new code without instantiating a contract from it.
 		///
@@ -2568,25 +2558,14 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 				fn eth_transact(
 					tx: $crate::evm::GenericTransaction,
+					timestamp: Option<u64>
 				) -> Result<$crate::EthTransactInfo<Balance>, $crate::EthTransactError> {
 					use $crate::{
 						codec::Encode, evm::runtime::EthExtra, frame_support::traits::Get,
 						sp_runtime::traits::TransactionExtension,
 						sp_runtime::traits::Block as BlockT
 					};
-					$crate::Pallet::<Self>::dry_run_eth_transact(tx, None)
-				}
-
-				fn eth_transact_at_time(
-					tx: $crate::evm::GenericTransaction,
-					timestamp: u64
-				) -> Result<$crate::EthTransactInfo<Balance>, $crate::EthTransactError> {
-					use $crate::{
-						codec::Encode, evm::runtime::EthExtra, frame_support::traits::Get,
-						sp_runtime::traits::TransactionExtension,
-						sp_runtime::traits::Block as BlockT
-					};
-					$crate::Pallet::<Self>::dry_run_eth_transact(tx, Some(timestamp))
+					$crate::Pallet::<Self>::dry_run_eth_transact(tx, timestamp)
 				}
 
 				fn call(
@@ -2719,7 +2698,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 					t.watch_address(&tx.from.unwrap_or_default());
 					t.watch_address(&$crate::Pallet::<Self>::block_author());
-					let result = trace(t, || Self::eth_transact(tx));
+					let result = trace(t, || Self::eth_transact(tx, None));
 
 					if let Some(trace) = tracer.collect_trace() {
 						Ok(trace)
