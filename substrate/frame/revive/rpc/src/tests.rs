@@ -826,6 +826,16 @@ async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
 	let (bytecode, _) = pallet_revive_fixtures::compile_module("dummy")?;
 	let signer = Account::default();
 
+	// Helper function to get substrate block hash from EVM block number
+	let get_substrate_block_hash = |block_number: U256| {
+		let rpc_client = node_rpc_client.clone();
+		async move {
+			rpc_client
+				.request::<sp_core::H256>("chain_getBlockHash", rpc_params![block_number])
+				.await
+		}
+	};
+
 	// Step 1: Encode the Substrate upload_code call
 	let upload_call = subxt::dynamic::tx(
 		"Revive",
@@ -864,13 +874,51 @@ async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
 	// Step 5: Verify the code was actually uploaded
 	let code_hash = H256(sp_io::hashing::keccak_256(&bytecode));
 	let query = subxt_client::storage().revive().pristine_code(code_hash);
-	// Get the substrate block hash corresponding to the EVM block number
-	let substrate_block_hash: sp_core::H256 = node_rpc_client
-		.request("chain_getBlockHash", rpc_params![receipt.block_number])
-		.await?;
+	let substrate_block_hash: sp_core::H256 =
+		get_substrate_block_hash(receipt.block_number).await?;
 	let stored_code = node_client.storage().at(substrate_block_hash).fetch(&query).await?;
 	assert!(stored_code.is_some(), "Code with hash {code_hash:?} should exist in storage");
 	assert_eq!(stored_code.unwrap(), bytecode, "Stored code should match the uploaded bytecode");
+
+	// Step 6: Encode the Substrate remove_code call
+	let remove_call = subxt::dynamic::tx(
+		"Revive",
+		"remove_code",
+		vec![subxt::dynamic::Value::from_bytes(code_hash.as_bytes())],
+	);
+	let encoded_remove_call = node_client.tx().call_data(&remove_call)?;
+
+	// Step 7: Send the remove_code call to RUNTIME_PALLETS_ADDR
+	let remove_tx = TransactionBuilder::new(&client)
+		.signer(signer.clone())
+		.to(pallet_revive::RUNTIME_PALLETS_ADDR)
+		.input(encoded_remove_call)
+		.send()
+		.await?;
+
+	// Step 8: Wait for remove receipt
+	let remove_receipt = remove_tx.wait_for_receipt().await?;
+
+	// Step 9: Verify remove transaction was successful
+	assert_eq!(
+		remove_receipt.status.unwrap_or(U256::zero()),
+		U256::one(),
+		"Remove transaction should be successful"
+	);
+
+	// Step 10: Verify the code was actually removed
+	let substrate_block_hash_after_remove: sp_core::H256 =
+		get_substrate_block_hash(remove_receipt.block_number).await?;
+	let code_after_remove = node_client
+		.storage()
+		.at(substrate_block_hash_after_remove)
+		.fetch(&query)
+		.await?;
+
+	assert!(
+		code_after_remove.is_none(),
+		"Code with hash {code_hash:?} should be removed from storage"
+	);
 
 	Ok(())
 }
