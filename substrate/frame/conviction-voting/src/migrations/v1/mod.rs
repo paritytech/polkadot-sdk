@@ -20,12 +20,12 @@
 extern crate alloc;
 
 use super::CONVICTION_VOTING_ID;
-use crate::{pallet::{Config, VotingFor},
+use crate::{Pallet, pallet::{Config, VotingFor, MigrationOngoing},
 	VoteRecord,
 	VotingOf};
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-	pallet_prelude::PhantomData,
+	pallet_prelude::{PhantomData, StorageVersion, GetStorageVersion},
 	weights::WeightMeter,
 };
 
@@ -188,9 +188,12 @@ impl<T: Config<I>, W: weights::WeightInfo, I: 'static> SteppedMigration
 		mut cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
-		let required = W::step();
+        if Pallet::<T,I>::on_chain_storage_version() != Self::id().version_from as u16 {
+            return Ok(None);
+        }
 		
         // No weight for even a single step.
+		let required = W::step();
 		if meter.remaining().any_lt(required) {
 			return Err(SteppedMigrationError::InsufficientWeight { required });
 		}
@@ -207,6 +210,7 @@ impl<T: Config<I>, W: weights::WeightInfo, I: 'static> SteppedMigration
 				v0::VotingFor::<T, I>::iter_from(hashed_key)
 			} else {
 				// If no cursor is provided, start iterating from the beginning.
+                MigrationOngoing::<T,I>::set(true);
 				v0::VotingFor::<T, I>::iter()
 			};
 
@@ -244,6 +248,8 @@ impl<T: Config<I>, W: weights::WeightInfo, I: 'static> SteppedMigration
 			} else {
                 // Migration is complete.
 				cursor = None;
+                MigrationOngoing::<T,I>::set(false);
+                StorageVersion::new(Self::id().version_to as u16).put::<Pallet<T,I>>();
 				break
 			}
 		}
@@ -253,6 +259,10 @@ impl<T: Config<I>, W: weights::WeightInfo, I: 'static> SteppedMigration
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(prev: Vec<u8>) -> Result<(), frame_support::sp_runtime::TryRuntimeError> {
 		use codec::Decode;
+
+        // Check state
+        // Check migration flag set to false
+        // Storage version is 1
 
 		// Check the state of the storage after the migration.
 		// let prev_map = BTreeMap::<u32, u32>::decode(&mut &prev[..])

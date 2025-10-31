@@ -693,6 +693,41 @@ fn errors_with_remove_vote_work() {
 }
 
 #[test]
+fn no_op_when_migrating() {
+	new_test_ext().execute_with(|| {
+		MigrationOngoing::<Test>::set(true);
+		assert_noop!(
+			Voting::vote(RuntimeOrigin::signed(1), 0, aye(10, 0)),
+			Error::<Test>::MigrationOngoing
+		);
+		assert_noop!(
+			Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10),
+			Error::<Test>::MigrationOngoing
+		);
+		assert_noop!(
+			Voting::undelegate(RuntimeOrigin::signed(1), 0),
+			Error::<Test>::MigrationOngoing
+		);
+		assert_noop!(
+			Voting::unlock(RuntimeOrigin::signed(1), class(3), 1),
+			Error::<Test>::MigrationOngoing
+		);
+		assert_noop!(
+			Voting::remove_vote(RuntimeOrigin::signed(1), None, 2),
+			Error::<Test>::MigrationOngoing
+		);
+		assert_noop!(
+			Voting::remove_other_vote(RuntimeOrigin::signed(2), 1, 0, 3),
+			Error::<Test>::MigrationOngoing
+		);
+		assert_noop!(
+			Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(2), 0),
+			Error::<Test>::MigrationOngoing
+		);
+	});
+}
+
+#[test]
 fn errors_with_vote_work() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
