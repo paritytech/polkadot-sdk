@@ -815,3 +815,62 @@ async fn test_mixed_evm_substrate_transactions() -> anyhow::Result<()> {
 
 	Ok(())
 }
+
+#[tokio::test]
+async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
+	let _lock = SHARED_RESOURCES.write();
+	let client = Arc::new(SharedResources::client().await);
+	let (node_client, node_rpc_client, _) =
+		client::connect(SharedResources::node_rpc_url()).await?;
+
+	let (bytecode, _) = pallet_revive_fixtures::compile_module("dummy")?;
+	let signer = Account::default();
+
+	// Step 1: Encode the Substrate upload_code call
+	let upload_call = subxt::dynamic::tx(
+		"Revive",
+		"upload_code",
+		vec![
+			subxt::dynamic::Value::from_bytes(&bytecode),
+			subxt::dynamic::Value::u128(u128::max_value()), // storage_deposit_limit
+		],
+	);
+	let encoded_call = node_client.tx().call_data(&upload_call)?;
+
+	// Step 2: Send the encoded call to RUNTIME_PALLETS_ADDR
+	let tx = TransactionBuilder::new(&client)
+		.signer(signer.clone())
+		.to(pallet_revive::RUNTIME_PALLETS_ADDR)
+		.input(encoded_call.clone())
+		.send()
+		.await?;
+
+	// Step 3: Wait for receipt
+	let receipt = tx.wait_for_receipt().await?;
+
+	// Step 4: Verify transaction was successful
+	assert_eq!(
+		receipt.status.unwrap_or(U256::zero()),
+		U256::one(),
+		"Transaction should be successful"
+	);
+
+	assert_eq!(
+		receipt.to,
+		Some(pallet_revive::RUNTIME_PALLETS_ADDR),
+		"Receipt should have the correct target address"
+	);
+
+	// Step 5: Verify the code was actually uploaded
+	let code_hash = H256(sp_io::hashing::keccak_256(&bytecode));
+	let query = subxt_client::storage().revive().pristine_code(code_hash);
+	// Get the substrate block hash corresponding to the EVM block number
+	let substrate_block_hash: sp_core::H256 = node_rpc_client
+		.request("chain_getBlockHash", rpc_params![receipt.block_number])
+		.await?;
+	let stored_code = node_client.storage().at(substrate_block_hash).fetch(&query).await?;
+	assert!(stored_code.is_some(), "Code with hash {code_hash:?} should exist in storage");
+	assert_eq!(stored_code.unwrap(), bytecode, "Stored code should match the uploaded bytecode");
+
+	Ok(())
+}

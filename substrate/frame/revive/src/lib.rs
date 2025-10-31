@@ -1345,7 +1345,7 @@ pub mod pallet {
 		/// * `origin`: Must be an [`Origin::EthTransaction`] origin.
 		/// * `code`: Encoded runtime call data.
 		#[pallet::call_index(12)]
-		#[pallet::weight(Weight::MAX)]
+		#[pallet::weight(<T as Config>::WeightInfo::upload_code(code.len() as u32))]
 		pub fn eth_substrate_call(origin: OriginFor<T>, code: Vec<u8>) -> DispatchResult {
 			let signer = ensure_signed(Self::ensure_eth_origin(origin)?)?;
 
