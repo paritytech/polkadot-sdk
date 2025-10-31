@@ -256,19 +256,26 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		block_number: SubstrateBlockNumber,
 		block_map: &BlockHashMap,
 	) -> Result<(), ClientError> {
-		// Keep track of the latest block hashes, so we can prune older blocks.
-		if let Some(keep_latest_n_blocks) = self.keep_latest_n_blocks {
-			let mut block_number_to_hash = self.block_number_to_hashes.lock().await;
+		let mut to_remove = Vec::new();
+		let mut block_number_to_hash = self.block_number_to_hashes.lock().await;
 
-			// Fork? - If inserting the same block number with a different hash, remove the old one
-			let mut to_remove = Vec::new();
-			match block_number_to_hash.insert(block_number, block_map.clone()) {
-				Some(old_block_map) if &old_block_map != block_map => {
+		// Fork? - If inserting the same block number with a different hash, remove the old ones.
+		match block_number_to_hash.insert(block_number, block_map.clone()) {
+			Some(old_block_map) if &old_block_map != block_map => {
+				to_remove.push(old_block_map);
+
+				// Now loop through the blocks that were building on top of the old fork and remove
+				// them.
+				let mut next_block_number = block_number.saturating_add(1);
+				while let Some(old_block_map) = block_number_to_hash.remove(&next_block_number) {
 					to_remove.push(old_block_map);
-				},
-				_ => {},
-			}
+					next_block_number = block_number.saturating_add(1);
+				}
+			},
+			_ => {},
+		}
 
+		if let Some(keep_latest_n_blocks) = self.keep_latest_n_blocks {
 			// If we have more blocks than we should keep, remove the oldest ones by count
 			// (not by block number range, to handle gaps correctly)
 			while block_number_to_hash.len() > keep_latest_n_blocks {
@@ -277,10 +284,16 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 					to_remove.push(block_map);
 				}
 			}
+		}
 
+		// Release the lock.
+		drop(block_number_to_hash);
+
+		if !to_remove.is_empty() {
 			log::trace!(target: LOG_TARGET, "Pruning old blocks: {to_remove:?}");
 			self.remove(&to_remove).await?;
 		}
+
 		Ok(())
 	}
 
