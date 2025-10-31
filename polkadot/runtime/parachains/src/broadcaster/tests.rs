@@ -254,6 +254,27 @@ fn get_all_published_data_map_returns_all_publishers() {
 }
 
 #[test]
+fn subscribe_to_non_publishing_para_returns_empty() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let subscriber = ParaId::from(1000);
+		let non_publisher = ParaId::from(9999);
+
+		// Subscribe to a para that has never published anything
+		assert_ok!(Broadcaster::handle_subscribe_toggle(subscriber, non_publisher));
+
+		// Verify subscription was created
+		assert!(Broadcaster::is_subscribed(subscriber, non_publisher));
+
+		// Get subscribed data - should return empty for non-publishing para
+		let subscribed_data = Broadcaster::get_subscribed_data(subscriber);
+
+		// Non-publishing para should not appear in results (filtered out by is_empty check)
+		assert!(!subscribed_data.contains_key(&non_publisher));
+		assert_eq!(subscribed_data.len(), 0);
+	});
+}
+
+#[test]
 fn subscribe_toggle_works() {
 	new_test_ext(Default::default()).execute_with(|| {
 		let subscriber = ParaId::from(1000);
