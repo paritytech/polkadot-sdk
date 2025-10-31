@@ -41,16 +41,133 @@ pub mod weights;
 pub mod v0 {
 	use super::Config;
 	use crate::pallet::Pallet;
-	use frame_support::{storage_alias, Blake2_128Concat};
+	use frame_support::{storage_alias, Twox64Concat};
+
+    pub type BlockNumberFor<T, I> =
+	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+    // type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+    pub type BalanceOf<T, I = ()> =
+        <<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+    pub type VotingOf<T, I = ()> = Voting<
+        BalanceOf<T, I>,
+        <T as frame_system::Config>::AccountId,
+        BlockNumberFor<T, I>,
+        PollIndexOf<T, I>,
+        <T as Config<I>>::MaxVotes,
+    >;
+    // #[allow(dead_code)]
+    // type DelegatingOf<T, I = ()> =
+    //     Delegating<BalanceOf<T, I>, <T as frame_system::Config>::AccountId, BlockNumberFor<T, I>>;
+    pub type TallyOf<T, I = ()> = Tally<BalanceOf<T, I>, <T as Config<I>>::MaxTurnout>;
+    // pub type VotesOf<T, I = ()> = BalanceOf<T, I>;
+    pub type PollIndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
+    // #[cfg(feature = "runtime-benchmarks")]
+    // pub type IndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
+    pub type ClassOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Class;
+
+    /// A vote for a referendum of a particular account.
+    #[derive(
+        Encode,
+        Decode,
+        DecodeWithMemTracking,
+        Copy,
+        Clone,
+        Eq,
+        PartialEq,
+        RuntimeDebug,
+        TypeInfo,
+        MaxEncodedLen,
+    )]
+    pub enum AccountVote<Balance> {
+        Standard { vote: Vote, balance: Balance },
+        Split { aye: Balance, nay: Balance },
+        SplitAbstain { aye: Balance, nay: Balance, abstain: Balance },
+    }
+
+    /// Information concerning the delegation of some voting power.
+    #[derive(
+        Encode,
+        Decode,
+        DecodeWithMemTracking,
+        Clone,
+        Eq,
+        PartialEq,
+        RuntimeDebug,
+        TypeInfo,
+        MaxEncodedLen,
+    )]
+    pub struct Delegating<Balance, AccountId, BlockNumber> {
+        pub balance: Balance,
+        pub target: AccountId,
+        pub conviction: Conviction,
+        pub delegations: Delegations<Balance>,
+        pub prior: PriorLock<BlockNumber, Balance>,
+    }
+
+    /// Information concerning the direct vote-casting of some voting power.
+    #[derive(
+        Encode,
+        Decode,
+        DecodeWithMemTracking,
+        Clone,
+        Eq,
+        PartialEq,
+        RuntimeDebug,
+        TypeInfo,
+        MaxEncodedLen,
+    )]
+    #[scale_info(skip_type_params(MaxVotes))]
+    #[codec(mel_bound(Balance: MaxEncodedLen, BlockNumber: MaxEncodedLen, PollIndex: MaxEncodedLen))]
+    pub struct Casting<Balance, BlockNumber, PollIndex, MaxVotes>
+    where
+        MaxVotes: Get<u32>,
+    {
+        pub votes: BoundedVec<(PollIndex, AccountVote<Balance>), MaxVotes>,
+        pub delegations: Delegations<Balance>,
+        pub prior: PriorLock<BlockNumber, Balance>,
+    }
+
+    /// An indicator for what an account is doing; it can either be delegating or voting.
+    #[derive(
+        Encode,
+        Decode,
+        DecodeWithMemTracking,
+        Clone,
+        Eq,
+        PartialEq,
+        RuntimeDebug,
+        TypeInfo,
+        MaxEncodedLen,
+    )]
+    #[scale_info(skip_type_params(MaxVotes))]
+    #[codec(mel_bound(
+        Balance: MaxEncodedLen, AccountId: MaxEncodedLen, BlockNumber: MaxEncodedLen,
+        PollIndex: MaxEncodedLen,
+    ))]
+    pub enum Voting<Balance, AccountId, BlockNumber, PollIndex, MaxVotes>
+    where
+        MaxVotes: Get<u32>,
+    {
+        Casting(Casting<Balance, BlockNumber, PollIndex, MaxVotes>),
+        Delegating(Delegating<Balance, AccountId, BlockNumber>),
+    }
 
 	#[storage_alias]
-	// pub type MyMap<T: Config> = StorageMap<Pallet<T>, Blake2_128Concat, u32, u32>;
+    pub type VotingFor<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+		Pallet<T, I>,
+		Twox64Concat,
+		T::AccountId,
+		Twox64Concat,
+		ClassOf<T, I>,
+		VotingOf<T, I>,
+		ValueQuery,
+	>;
 }
 
 /// Migrates storage items from v0 to v1.
-pub struct SteppedMigrationV1<T: Config, W: weights::WeightInfo>(PhantomData<(T, W)>);
-impl<T: Config, W: weights::WeightInfo> SteppedMigration for SteppedMigrationV1<T, W> {
-	type Cursor = u32;
+pub struct SteppedMigrationV1<T: Config<I>, W: weights::WeightInfo, I = ()>(PhantomData<(T, W, I)>);
+impl<T: Config<I>, W: weights::WeightInfo, I: 'static> SteppedMigration for SteppedMigrationV1<T, W, I> {
+	type Cursor = (T::AccountId, v0::ClassOf<T, I>);
 	type Identifier = MigrationId<24>;
 
 	/// The identifier of this migration. Which should be globally unique.
@@ -62,8 +179,8 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for SteppedMigrationV1<
 	fn pre_upgrade() -> Result<Vec<u8>, frame_support::sp_runtime::TryRuntimeError> {
 		use codec::Encode;
 
-		// Return the state of the storage before the migration.
-		// Ok(v0::MyMap::<T>::iter().collect::<BTreeMap<_, _>>().encode())
+        // Send over all voting data.
+		Ok(v0::VotingFor::<T, I>::iter().collect::<BTreeMap<_, _>>().encode())
 	}
 
 	/// The logic for each step in the migratoin.
@@ -84,22 +201,65 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for SteppedMigrationV1<
 				break;
 			}
 
-			let mut iter = if let Some(last_key) = cursor {
+			let mut iter = if let Some((last_key_one, last_key_two) = cursor {
 				// Iterate over value.
-				// v0::MyMap::<T>::iter_from(v0::MyMap::<T>::hashed_key_for(last_key))
+                let hashed_key = v0::VotingFor::<T, I>::hashed_key_for(last_key_one, last_key_two);
+				v0::VotingFor::<T, I>::iter_from(hashed_key)
 			} else {
 				// If no cursor is provided, start iterating from the beginning.
-				// v0::MyMap::<T>::iter()
+				v0::VotingFor::<T, I>::iter()
 			};
 
 			// If there's a next item in the iterator, perform the migration.
-			if let Some((last_key, value)) = iter.next() {
-				// Migrate the inner value: u32 -> u64.
-				// let value = value as u64;
-				// We can just insert here since the old and the new map share the same key-space.
-				// Otherwise it would have to invert the concat hash function and re-hash it.
-				// MyMap::<T>::insert(last_key, value);
-				cursor = Some(last_key) // Return the processed key as the new cursor.
+			if let Some((last_key_one, last_key_two, value)) = iter.next() {
+                
+				// Migrate old vote data structure to the new one.
+				
+                // instantiate new voting structure
+                let mut new_value = VotingOf::<T, I>::default();
+
+                // pub struct Delegating<Balance, AccountId, BlockNumber> {
+                //     pub balance: Balance,
+                //     pub target: AccountId,
+                //     pub conviction: Conviction,
+                //     pub delegations: Delegations<Balance>,
+                //     pub prior: PriorLock<BlockNumber, Balance>,
+                // }
+
+                // pub struct Casting<Balance, BlockNumber, PollIndex, MaxVotes>
+                // {
+                //     pub votes: BoundedVec<(PollIndex, AccountVote<Balance>), MaxVotes>,
+                //     pub delegations: Delegations<Balance>,
+                //     pub prior: PriorLock<BlockNumber, Balance>,
+                // }
+
+                match value {
+                    Casting(casting) => {
+                        new_value.votes = casting.votes;
+                        for vote in casting.votes {
+                            let new_vote = VoteRecord {
+                                poll_index: vote.0,
+                                maybe_vote: Some(vote.1),
+                                retracted_votes: Default::default(),
+                            }
+                            new_value.votes.try_push(new_vote).map_err(|_| {
+                                SteppedMigrationError::InsufficientWeight { required }
+                            })
+                        }
+                        new_value.delegations = casting.delegations;
+                        new_value.prior = casting.prior;
+                    },
+                    Delegating(delegating) => {
+                        new_value.delegated_balance = delegating.balance;
+                        new_value.maybe_delegate = Some(delegating.target);
+                        new_value.maybe_conviction = Some(delegating.conviction);
+                        new_value.delegations = delegating.delegations;
+                        new_value.prior = delegating.prior;
+                    },
+                }
+
+                VotingFor::<T, I>::insert(last_key_one, last_key_two, new_value);
+                cursor = Some((last_key_one, last_key_two))
 			} else {
                 // Migration is complete.
 				cursor = None;
