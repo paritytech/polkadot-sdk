@@ -36,7 +36,6 @@ use polkadot_primitives::Id as ParaId;
 
 pub use pallet::*;
 
-pub mod runtime_api;
 mod traits;
 pub use traits::PublishSubscribe;
 

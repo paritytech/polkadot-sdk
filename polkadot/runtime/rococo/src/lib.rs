@@ -2752,12 +2752,6 @@ sp_api::impl_runtime_apis! {
 			XcmPallet::is_trusted_teleporter(asset, location)
 		}
 	}
-
-	impl polkadot_runtime_parachains::broadcaster::runtime_api::BroadcasterApi<Block> for Runtime {
-		fn get_subscribed_data(subscriber_para_id: ParaId) -> BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>> {
-			Broadcaster::get_subscribed_data(subscriber_para_id)
-		}
-	}
 }
 
 #[cfg(all(test, feature = "try-runtime"))]
