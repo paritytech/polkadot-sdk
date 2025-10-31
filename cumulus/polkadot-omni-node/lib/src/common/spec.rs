@@ -28,6 +28,7 @@ use crate::{
 		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
 };
+use codec::Encode;
 use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_service::{
@@ -518,7 +519,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				request_receiver: paranode_rx,
 				parachain_network: network,
 				advertise_non_global_ips,
-				parachain_genesis_hash: client.chain_info().genesis_hash,
+				parachain_genesis_hash: client.chain_info().genesis_hash.encode(),
 				parachain_fork_id,
 				parachain_public_addresses,
 			});
