@@ -263,6 +263,7 @@ parameter_types! {
 	// alias for 16, which is the max nominations per nominator in the runtime.
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 	pub const MaxEraDuration: u64 = RelaySessionDuration::get() as u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS as u64 * SessionsPerEra::get() as u64;
+	pub MaxPruningItems: u32 = 100;
 }
 
 impl pallet_staking_async::Config for Runtime {
@@ -296,12 +297,14 @@ impl pallet_staking_async::Config for Runtime {
 		pallet_staking_async::PlanningEraOffsetOf<Runtime, RelaySessionDuration, ConstU32<5>>;
 	type RcClientInterface = StakingRcClient;
 	type MaxEraDuration = MaxEraDuration;
+	type MaxPruningItems = MaxPruningItems;
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = StakingXcmToRelayChain;
+	type MaxValidatorSetRetries = ConstU32<64>;
 }
 
 #[derive(Encode, Decode)]
@@ -348,13 +351,13 @@ pub struct StakingXcmToRelayChain;
 
 impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 	type AccountId = AccountId;
-	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) {
+	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) -> Result<(), ()> {
 		rc_client::XCMSender::<
 			xcm_config::XcmRouter,
 			RelayLocation,
 			rc_client::ValidatorSetReport<Self::AccountId>,
 			ValidatorSetToXcm,
-		>::split_then_send(report, Some(8));
+		>::send(report)
 	}
 }
 
@@ -476,6 +479,7 @@ where
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None),
 			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
+			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default(),
 		));
 		let raw_payload = SignedPayload::new(call, tx_ext)
 			.map_err(|e| {

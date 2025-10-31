@@ -22,7 +22,6 @@ pub mod meter;
 use crate::{
 	address::AddressMapper,
 	exec::{AccountIdOf, Key},
-	storage::meter::Diff,
 	tracing::if_tracing,
 	weights::WeightInfo,
 	AccountInfoOf, BalanceOf, BalanceWithDust, Config, DeletionQueue, DeletionQueueCounter, Error,
@@ -152,7 +151,7 @@ impl<T: Config> From<ContractInfo<T>> for AccountType<T> {
 
 impl<T: Config> AccountInfo<T> {
 	/// Returns true if the account is a contract.
-	fn is_contract(address: &H160) -> bool {
+	pub fn is_contract(address: &H160) -> bool {
 		let Some(info) = <AccountInfoOf<T>>::get(address) else { return false };
 		matches!(info.account_type, AccountType::Contract(_))
 	}
@@ -250,6 +249,7 @@ impl<T: Config> ContractInfo<T> {
 	/// contract doesn't store under the given `key` `None` is returned.
 	pub fn read(&self, key: &Key) -> Option<Vec<u8>> {
 		let value = child::get_raw(&self.child_trie_info(), key.hash().as_slice());
+		log::trace!(target: crate::LOG_TARGET, "contract storage: read value {:?} for key {:x?}", value, key);
 		if_tracing(|t| {
 			t.storage_read(key, value.as_deref());
 		});
@@ -278,6 +278,7 @@ impl<T: Config> ContractInfo<T> {
 		storage_meter: Option<&mut meter::NestedMeter<T>>,
 		take: bool,
 	) -> Result<WriteOutcome, DispatchError> {
+		log::trace!(target: crate::LOG_TARGET, "contract storage: writing value {:?} for key {:x?}", new_value, key);
 		let hashed_key = key.hash();
 		if_tracing(|t| {
 			let old = child::get_raw(&self.child_trie_info(), hashed_key.as_slice());
@@ -355,13 +356,15 @@ impl<T: Config> ContractInfo<T> {
 	/// the deposit paid to upload the contract's code. It also depends on the size of immutable
 	/// storage which is also changed when the code hash of a contract is changed.
 	pub fn update_base_deposit(&mut self, code_deposit: BalanceOf<T>) -> BalanceOf<T> {
-		let contract_deposit = Diff {
-			bytes_added: (self.encoded_size() as u32).saturating_add(self.immutable_data_len),
-			items_added: if self.immutable_data_len == 0 { 1 } else { 2 },
-			..Default::default()
-		}
-		.update_contract::<T>(None)
-		.charge_or_zero();
+		let contract_deposit = {
+			let bytes_added: u32 =
+				(self.encoded_size() as u32).saturating_add(self.immutable_data_len);
+			let items_added: u32 = if self.immutable_data_len == 0 { 1 } else { 2 };
+
+			T::DepositPerByte::get()
+				.saturating_mul(bytes_added.into())
+				.saturating_add(T::DepositPerItem::get().saturating_mul(items_added.into()))
+		};
 
 		// Instantiating the contract prevents its code to be deleted, therefore the base deposit
 		// includes a fraction (`T::CodeHashLockupDepositPercent`) of the original storage deposit
@@ -454,7 +457,7 @@ impl<T: Config> ContractInfo<T> {
 }
 
 /// Information about what happened to the pre-existing value when calling [`ContractInfo::write`].
-#[cfg_attr(any(test, feature = "runtime-benchmarks"), derive(Debug, PartialEq))]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum WriteOutcome {
 	/// No value existed at the specified key.
 	New,
@@ -556,7 +559,7 @@ impl<T: Config> DeletionQueueManager<T> {
 	/// Note:
 	/// we use the delete counter to get the next value to read from the queue and thus don't pay
 	/// the cost of an extra call to `sp_io::storage::next_key` to lookup the next entry in the map
-	fn next(&mut self) -> Option<DeletionQueueEntry<T>> {
+	fn next(&mut self) -> Option<DeletionQueueEntry<'_, T>> {
 		if self.is_empty() {
 			return None
 		}

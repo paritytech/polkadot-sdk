@@ -47,7 +47,7 @@ use polkadot_node_subsystem_util::{
 	ControlledValidatorIndices,
 };
 use polkadot_primitives::{
-	vstaging::ScrapedOnChainVotes, DisputeStatement, SessionIndex, SessionInfo, ValidatorIndex,
+	DisputeStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidatorIndex,
 };
 
 use crate::{
@@ -197,7 +197,7 @@ impl DisputeCoordinatorSubsystem {
 		self,
 		ctx: &mut Context,
 		mut backend: B,
-		clock: &(dyn Clock),
+		clock: &dyn Clock,
 	) -> FatalResult<
 		Option<(
 			Vec<(ParticipationPriority, ParticipationRequest)>,

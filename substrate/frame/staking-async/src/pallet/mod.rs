@@ -73,6 +73,25 @@ pub mod pallet {
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
 	use frame_support::DefaultNoBound;
 
+	/// Represents the current step in the era pruning process
+	#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	pub enum PruningStep {
+		/// Pruning ErasStakersPaged storage
+		ErasStakersPaged,
+		/// Pruning ErasStakersOverview storage
+		ErasStakersOverview,
+		/// Pruning ErasValidatorPrefs storage
+		ErasValidatorPrefs,
+		/// Pruning ClaimedRewards storage
+		ClaimedRewards,
+		/// Pruning ErasValidatorReward storage
+		ErasValidatorReward,
+		/// Pruning ErasRewardPoints storage
+		ErasRewardPoints,
+		/// Pruning ErasTotalStake storage
+		ErasTotalStake,
+	}
+
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(18);
 
@@ -323,6 +342,14 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxEraDuration: Get<u64>;
 
+		/// Maximum number of storage items that can be pruned in a single call.
+		///
+		/// This controls how many storage items can be deleted in each call to `prune_era_step`.
+		/// This should be set to a conservative value (e.g., 100-500 items) to ensure pruning
+		/// doesn't consume too much block space. The actual weight is determined by benchmarks.
+		#[pallet::constant]
+		type MaxPruningItems: Get<u32>;
+
 		/// Interface to talk to the RC-Client pallet, possibly sending election results to the
 		/// relay chain.
 		#[pallet::no_default]
@@ -361,6 +388,7 @@ pub mod pallet {
 		parameter_types! {
 			pub const SessionsPerEra: SessionIndex = 3;
 			pub const MaxBondingDuration: EraIndex = 3;
+			pub const MaxPruningItems: u32 = 100;
 		}
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
@@ -384,6 +412,7 @@ pub mod pallet {
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type MaxInvulnerables = ConstU32<20>;
 			type MaxEraDuration = ();
+			type MaxPruningItems = MaxPruningItems;
 			type EventListeners = ();
 			type Filter = Nothing;
 			type WeightInfo = ();
@@ -844,6 +873,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type UnbondingQueueParams<T: Config> = StorageValue<_, UnbondingQueueConfig, OptionQuery>;
 
+	/// Tracks the current step of era pruning process for each era being lazily pruned.
+	#[pallet::storage]
+	pub type EraPruningState<T: Config> = StorageMap<_, Twox64Concat, EraIndex, PruningStep>;
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound, frame_support::DebugNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -1301,6 +1334,10 @@ pub mod pallet {
 		/// Unapplied slashes in the recently concluded era is blocking this operation.
 		/// See `Call::apply_slash` to apply them.
 		UnappliedSlashesInPreviousEra,
+		/// The era is not eligible for pruning.
+		EraNotPrunable,
+		/// The slash has been cancelled and cannot be applied.
+		CancelledSlash,
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -1316,12 +1353,7 @@ pub mod pallet {
 				);
 
 				// Check if this slash has been cancelled
-				let cancelled_slashes = CancelledSlashes::<T>::get(&active_era);
-				let is_cancelled = cancelled_slashes.iter().any(|(validator, cancel_fraction)| {
-					*validator == key.0 && *cancel_fraction >= key.1
-				});
-
-				if is_cancelled {
+				if Self::check_slash_cancelled(active_era, &key.0, key.1) {
 					crate::log!(
 						debug,
 						"🦹 slash for {:?} in era {:?} was cancelled, skipping",
@@ -1347,6 +1379,78 @@ pub mod pallet {
 				// No slashes found for this era
 				T::DbWeight::get().reads(1)
 			}
+		}
+
+		/// Execute one step of era pruning and get actual weight used
+		fn do_prune_era_step(era: EraIndex) -> Result<Weight, DispatchError> {
+			// Get current pruning state. If EraPruningState doesn't exist, it means:
+			// - Era was never marked for pruning, OR
+			// - Era was already fully pruned (pruning state was removed on final step)
+			// In either case, this is an error - user should not call prune on non-prunable eras
+			let current_step = EraPruningState::<T>::get(era).ok_or(Error::<T>::EraNotPrunable)?;
+
+			// Limit items to prevent deleting more than we can safely account for in weight
+			// calculations
+			let items_limit = T::MaxPruningItems::get().min(T::MaxValidatorSet::get());
+
+			let actual_weight = match current_step {
+				PruningStep::ErasStakersPaged => {
+					let result = ErasStakersPaged::<T>::clear_prefix((era,), items_limit, None);
+					let items_deleted = result.backend as u32;
+					result.maybe_cursor.is_none().then(|| {
+						EraPruningState::<T>::insert(era, PruningStep::ErasStakersOverview)
+					});
+					T::WeightInfo::prune_era_stakers_paged(items_deleted)
+				},
+				PruningStep::ErasStakersOverview => {
+					let result = ErasStakersOverview::<T>::clear_prefix(era, items_limit, None);
+					let items_deleted = result.backend as u32;
+					result.maybe_cursor.is_none().then(|| {
+						EraPruningState::<T>::insert(era, PruningStep::ErasValidatorPrefs)
+					});
+					T::WeightInfo::prune_era_stakers_overview(items_deleted)
+				},
+				PruningStep::ErasValidatorPrefs => {
+					let result = ErasValidatorPrefs::<T>::clear_prefix(era, items_limit, None);
+					let items_deleted = result.backend as u32;
+					result
+						.maybe_cursor
+						.is_none()
+						.then(|| EraPruningState::<T>::insert(era, PruningStep::ClaimedRewards));
+					T::WeightInfo::prune_era_validator_prefs(items_deleted)
+				},
+				PruningStep::ClaimedRewards => {
+					let result = ClaimedRewards::<T>::clear_prefix(era, items_limit, None);
+					let items_deleted = result.backend as u32;
+					result.maybe_cursor.is_none().then(|| {
+						EraPruningState::<T>::insert(era, PruningStep::ErasValidatorReward)
+					});
+					T::WeightInfo::prune_era_claimed_rewards(items_deleted)
+				},
+				PruningStep::ErasValidatorReward => {
+					ErasValidatorReward::<T>::remove(era);
+					EraPruningState::<T>::insert(era, PruningStep::ErasRewardPoints);
+					T::WeightInfo::prune_era_validator_reward()
+				},
+				PruningStep::ErasRewardPoints => {
+					ErasRewardPoints::<T>::remove(era);
+					EraPruningState::<T>::insert(era, PruningStep::ErasTotalStake);
+					T::WeightInfo::prune_era_reward_points()
+				},
+				PruningStep::ErasTotalStake => {
+					ErasTotalStake::<T>::remove(era);
+					// This is the final step - remove the pruning state
+					EraPruningState::<T>::remove(era);
+					T::WeightInfo::prune_era_total_stake()
+				},
+			};
+
+			// Check if era is fully pruned (pruning state removed) and emit event
+			if EraPruningState::<T>::get(era).is_none() {
+				Self::deposit_event(Event::<T>::EraPruned { index: era });
+			}
+
+			Ok(actual_weight)
 		}
 	}
 
@@ -1384,6 +1488,13 @@ pub mod pallet {
 				"As per documentation, slash defer duration ({}) should be less than bonding duration ({}).",
 				T::SlashDeferDuration::get(),
 				T::MaxUnbondingDuration::get(),
+			);
+
+			// Ensure MaxPruningItems is reasonable (minimum 100 for efficiency)
+			assert!(
+				T::MaxPruningItems::get() >= 100,
+				"MaxPruningItems must be at least 100 for efficient pruning, got: {}",
+				T::MaxPruningItems::get()
 			);
 		}
 
@@ -1956,7 +2067,8 @@ pub mod pallet {
 		/// slashes.
 		///
 		/// ## Parameters
-		/// - `era`: The staking era for which slashes should be cancelled.
+		/// - `era`: The staking era for which slashes should be cancelled. This is the era where
+		///   the slash would be applied, not the era in which the offence was committed.
 		/// - `validator_slashes`: A list of validator stash accounts and their slash fractions to
 		///   be cancelled.
 		#[pallet::call_index(17)]
@@ -2601,11 +2713,58 @@ pub mod pallet {
 			let _ = ensure_signed(origin)?;
 			let active_era = ActiveEra::<T>::get().map(|a| a.index).unwrap_or_default();
 			ensure!(slash_era <= active_era, Error::<T>::EraNotStarted);
+
+			// Check if this slash has been cancelled
+			ensure!(
+				!Self::check_slash_cancelled(slash_era, &slash_key.0, slash_key.1),
+				Error::<T>::CancelledSlash
+			);
+
 			let unapplied_slash = UnappliedSlashes::<T>::take(&slash_era, &slash_key)
 				.ok_or(Error::<T>::InvalidSlashRecord)?;
 			slashing::apply_slash::<T>(unapplied_slash, slash_era);
 
 			Ok(Pays::No.into())
+		}
+
+		/// Perform one step of era pruning to prevent PoV size exhaustion from unbounded deletions.
+		///
+		/// This extrinsic enables permissionless lazy pruning of era data by performing
+		/// incremental deletion of storage items. Each call processes a limited number
+		/// of items based on available block weight to avoid exceeding block limits.
+		///
+		/// Returns `Pays::No` when work is performed to incentivize regular maintenance.
+		/// Anyone can call this to help maintain the chain's storage health.
+		///
+		/// The era must be eligible for pruning (older than HistoryDepth + 1).
+		/// Check `EraPruningState` storage to see if an era needs pruning before calling.
+		#[pallet::call_index(32)]
+		// NOTE: as pre-dispatch weight, use the maximum of all possible pruning step weights
+		#[pallet::weight({
+			let v = T::MaxValidatorSet::get();
+			T::WeightInfo::prune_era_stakers_paged(v)
+				.max(T::WeightInfo::prune_era_stakers_overview(v))
+				.max(T::WeightInfo::prune_era_validator_prefs(v))
+				.max(T::WeightInfo::prune_era_claimed_rewards(v))
+				.max(T::WeightInfo::prune_era_validator_reward())
+				.max(T::WeightInfo::prune_era_reward_points())
+				.max(T::WeightInfo::prune_era_total_stake())
+		})]
+		pub fn prune_era_step(origin: OriginFor<T>, era: EraIndex) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
+
+			// Verify era is eligible for pruning: era <= active_era - history_depth - 1
+			let active_era = crate::session_rotation::Rotator::<T>::active_era();
+			let history_depth = T::HistoryDepth::get();
+			let earliest_prunable_era = active_era.saturating_sub(history_depth).saturating_sub(1);
+			ensure!(era <= earliest_prunable_era, Error::<T>::EraNotPrunable);
+
+			let actual_weight = Self::do_prune_era_step(era)?;
+
+			Ok(frame_support::dispatch::PostDispatchInfo {
+				actual_weight: Some(actual_weight),
+				pays_fee: frame_support::dispatch::Pays::No,
+			})
 		}
 	}
 

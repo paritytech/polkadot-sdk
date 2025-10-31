@@ -46,6 +46,7 @@ mod ledger;
 mod payout_stakers;
 mod slashing;
 mod unbonding_queue;
+mod try_state;
 
 #[test]
 fn basic_setup_session_queuing_should_work() {

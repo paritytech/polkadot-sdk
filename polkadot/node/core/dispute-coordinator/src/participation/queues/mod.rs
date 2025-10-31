@@ -22,8 +22,8 @@ use std::{
 use futures::channel::oneshot;
 use polkadot_node_subsystem::{messages::ChainApiMessage, overseer};
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, CandidateHash, ExecutorParams,
-	Hash, SessionIndex,
+	BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt, ExecutorParams, Hash,
+	SessionIndex,
 };
 
 use crate::{

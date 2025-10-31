@@ -33,8 +33,8 @@ use polkadot_node_primitives::{CollationSecondedSignal, Statement};
 use polkadot_node_subsystem::messages::RuntimeApiRequest;
 use polkadot_parachain_primitives::primitives::HeadData;
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, CompactStatement, Hash as PHash,
-	Id as ParaId, OccupiedCoreAssumption, SigningContext, UncheckedSigned,
+	CandidateReceiptV2 as CandidateReceipt, CompactStatement, Hash as PHash, Id as ParaId,
+	OccupiedCoreAssumption, SigningContext, UncheckedSigned,
 };
 
 use codec::{Decode, DecodeAll, Encode};

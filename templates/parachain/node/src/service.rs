@@ -9,7 +9,8 @@ use parachain_template_runtime::{
 	opaque::{Block, Hash},
 };
 
-use polkadot_sdk::*;
+use codec::Encode;
+use polkadot_sdk::{cumulus_client_service::ParachainTracingExecuteBlock, *};
 
 // Cumulus Imports
 use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
@@ -347,6 +348,7 @@ pub async fn start_parachain_node(
 		system_rpc_tx,
 		tx_handler_controller,
 		telemetry: telemetry.as_mut(),
+		tracing_execute_block: Some(Arc::new(ParachainTracingExecuteBlock::new(client.clone()))),
 	})?;
 
 	if let Some(hwbench) = hwbench {
@@ -414,7 +416,7 @@ pub async fn start_parachain_node(
 		request_receiver: paranode_rx,
 		parachain_network: network,
 		advertise_non_global_ips,
-		parachain_genesis_hash: client.chain_info().genesis_hash,
+		parachain_genesis_hash: client.chain_info().genesis_hash.encode(),
 		parachain_fork_id,
 		parachain_public_addresses,
 	});

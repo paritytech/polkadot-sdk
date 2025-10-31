@@ -22,20 +22,21 @@ use cumulus_test_client::{
 	runtime::{
 		self as test_runtime, Block, Hash, Header, TestPalletCall, UncheckedExtrinsic, WASM_BINARY,
 	},
-	seal_parachain_block_data, transfer, BlockData, BlockOrigin, BuildParachainBlockData, Client,
-	ClientBlockImportExt, DefaultTestClientBuilderExt, HeadData, InitBlockBuilder,
+	seal_block, transfer, BlockData, BlockOrigin, BuildParachainBlockData, Client,
+	DefaultTestClientBuilderExt, HeadData, InitBlockBuilder,
 	Sr25519Keyring::{Alice, Bob, Charlie},
 	TestClientBuilder, TestClientBuilderExt, ValidationParams,
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use polkadot_parachain_primitives::primitives::ValidationResult;
-#[cfg(feature = "experimental-ump-signals")]
-use relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi};
 use sp_consensus_slots::SlotDuration;
 use sp_core::H256;
-use sp_runtime::traits::{BlakeTwo256, Block as BlockT, Header as HeaderT};
+use sp_runtime::{
+	traits::{BlakeTwo256, Block as BlockT, Header as HeaderT},
+	DigestItem,
+};
 use sp_trie::{proof_size_extension::ProofSizeExt, recorder::IgnoredNodes, StorageProof};
 use std::{env, process::Command};
 
@@ -99,14 +100,13 @@ fn create_test_client() -> (Client, Header) {
 }
 
 /// Create test client using the runtime with `elastic-scaling` feature enabled.
-fn create_elastic_scaling_test_client(blocks_per_pov: u32) -> (Client, Header) {
+fn create_elastic_scaling_test_client() -> (Client, Header) {
 	let mut builder = TestClientBuilder::new();
 	builder.genesis_init_mut().wasm = Some(
 		test_runtime::elastic_scaling_500ms::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!")
 			.to_vec(),
 	);
-	builder.genesis_init_mut().blocks_per_pov = Some(blocks_per_pov);
 	let client = builder.enable_import_proof_recording().build();
 
 	let genesis_header = client
@@ -116,6 +116,11 @@ fn create_elastic_scaling_test_client(blocks_per_pov: u32) -> (Client, Header) {
 		.expect("Genesis header exists; qed");
 
 	(client, genesis_header)
+}
+
+fn pop_seal(mut block: Block) -> Block {
+	assert!(block.header.digest.pop().unwrap().as_seal().is_some());
+	block
 }
 
 struct TestBlockData {
@@ -128,6 +133,7 @@ fn build_block_with_witness(
 	extra_extrinsics: Vec<UncheckedExtrinsic>,
 	parent_head: Header,
 	mut sproof_builder: RelayStateSproofBuilder,
+	pre_digests: Vec<DigestItem>,
 ) -> TestBlockData {
 	sproof_builder.para_id = test_runtime::PARACHAIN_ID.into();
 	sproof_builder.included_para_head = Some(HeadData(parent_head.encode()));
@@ -141,11 +147,13 @@ fn build_block_with_witness(
 	let cumulus_test_client::BlockBuilderAndSupportData {
 		mut block_builder,
 		persisted_validation_data,
-	} = client.init_block_builder(Some(validation_data), sproof_builder);
+	} = client.init_block_builder_with_pre_digests(Some(validation_data), sproof_builder, pre_digests);
 
 	extra_extrinsics.into_iter().for_each(|e| block_builder.push(e).unwrap());
 
-	let block = block_builder.build_parachain_block(*parent_head.state_root());
+	let mut block = block_builder.build_parachain_block(*parent_head.state_root());
+
+	block.blocks_mut()[0] = seal_block(block.blocks()[0].clone(), client);
 
 	TestBlockData { block, validation_data: persisted_validation_data }
 }
@@ -206,7 +214,8 @@ fn build_multiple_blocks_with_witness(
 			block_builder.push(ext).unwrap();
 		}
 
-		let built_block = block_builder.build().unwrap();
+		let mut built_block = block_builder.build().unwrap();
+		built_block.block = seal_block(built_block.block, &client);
 
 		futures::executor::block_on({
 			let parent_hash = *built_block.block.header.parent_hash();
@@ -216,12 +225,15 @@ fn build_multiple_blocks_with_witness(
 			let proof_recorder = ProofRecorder::<Block>::with_ignored_nodes(ignored_nodes.clone());
 			api.record_proof_with_recorder(proof_recorder.clone());
 			api.register_extension(ProofSizeExt::new(proof_recorder));
-			api.execute_block(parent_hash, built_block.block.clone()).unwrap();
+			api.execute_block(parent_hash, pop_seal(built_block.block.clone()).into())
+				.unwrap();
 
-			let (header, extrinsics) = built_block.block.clone().deconstruct();
+			let (mut header, extrinsics) = built_block.block.clone().deconstruct();
+			let seal = header.digest.pop().unwrap();
 
 			let mut import = BlockImportParams::new(BlockOrigin::Own, header);
 			import.body = Some(extrinsics);
+			import.post_digests.push(seal);
 			import.fork_choice = Some(ForkChoiceStrategy::Custom(true));
 			import.state_action = api.into_storage_changes(&state, parent_hash).unwrap().into();
 
@@ -253,10 +265,14 @@ fn validate_block_works() {
 	sp_tracing::try_init_simple();
 
 	let (client, parent_head) = create_test_client();
-	let TestBlockData { block, validation_data } =
-		build_block_with_witness(&client, Vec::new(), parent_head.clone(), Default::default());
+	let TestBlockData { block, validation_data } = build_block_with_witness(
+		&client,
+		Vec::new(),
+		parent_head.clone(),
+		Default::default(),
+		Default::default(),
+	);
 
-	let block = seal_parachain_block_data(block, &client);
 	let header = block.blocks()[0].header().clone();
 	let res_header =
 		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
@@ -269,7 +285,7 @@ fn validate_multiple_blocks_work() {
 	sp_tracing::try_init_simple();
 
 	let blocks_per_pov = 4;
-	let (client, parent_head) = create_elastic_scaling_test_client(blocks_per_pov);
+	let (client, parent_head) = create_elastic_scaling_test_client();
 	let TestBlockData { block, validation_data } = build_multiple_blocks_with_witness(
 		&client,
 		parent_head.clone(),
@@ -287,7 +303,6 @@ fn validate_multiple_blocks_work() {
 
 	assert!(block.proof().encoded_size() < 3 * 1024 * 1024);
 
-	let block = seal_parachain_block_data(block, &client);
 	let header = block.blocks().last().unwrap().header().clone();
 	let res_header = call_validate_block_elastic_scaling(
 		parent_head,
@@ -314,8 +329,8 @@ fn validate_block_with_extra_extrinsics() {
 		extra_extrinsics,
 		parent_head.clone(),
 		Default::default(),
+		Default::default(),
 	);
-	let block = seal_parachain_block_data(block, &client);
 	let header = block.blocks()[0].header().clone();
 
 	let res_header =
@@ -348,11 +363,11 @@ fn validate_block_returns_custom_head_data() {
 		extra_extrinsics,
 		parent_head.clone(),
 		Default::default(),
+		Default::default(),
 	);
 	let header = block.blocks()[0].header().clone();
 	assert_ne!(expected_header, header.encode());
 
-	let block = seal_parachain_block_data(block, &client);
 	let res_header = call_validate_block_validation_result(
 		WASM_BINARY.expect("You need to build the WASM binaries to run the tests!"),
 		parent_head,
@@ -371,8 +386,13 @@ fn validate_block_invalid_parent_hash() {
 
 	if env::var("RUN_TEST").is_ok() {
 		let (client, parent_head) = create_test_client();
-		let TestBlockData { mut block, validation_data, .. } =
-			build_block_with_witness(&client, Vec::new(), parent_head.clone(), Default::default());
+		let TestBlockData { mut block, validation_data, .. } = build_block_with_witness(
+			&client,
+			Vec::new(),
+			parent_head.clone(),
+			Default::default(),
+			Default::default(),
+		);
 		block.blocks_mut()[0].header.set_parent_hash(Hash::from_low_u64_be(1));
 
 		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
@@ -396,8 +416,13 @@ fn validate_block_fails_on_invalid_validation_data() {
 
 	if env::var("RUN_TEST").is_ok() {
 		let (client, parent_head) = create_test_client();
-		let TestBlockData { block, .. } =
-			build_block_with_witness(&client, Vec::new(), parent_head.clone(), Default::default());
+		let TestBlockData { block, .. } = build_block_with_witness(
+			&client,
+			Vec::new(),
+			parent_head.clone(),
+			Default::default(),
+			Default::default(),
+		);
 
 		call_validate_block(parent_head, block, Hash::random()).unwrap_err();
 	} else {
@@ -410,38 +435,6 @@ fn validate_block_fails_on_invalid_validation_data() {
 
 		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
 			.contains("Relay parent storage root doesn't match"));
-	}
-}
-
-#[test]
-fn check_inherents_are_unsigned_and_before_all_other_extrinsics() {
-	sp_tracing::try_init_simple();
-
-	if env::var("RUN_TEST").is_ok() {
-		let (client, parent_head) = create_test_client();
-
-		let TestBlockData { mut block, validation_data, .. } =
-			build_block_with_witness(&client, Vec::new(), parent_head.clone(), Default::default());
-
-		block.blocks_mut()[0].extrinsics.insert(0, transfer(&client, Alice, Bob, 69));
-
-		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
-			.unwrap_err();
-	} else {
-		let output = Command::new(env::current_exe().unwrap())
-			.args([
-				"check_inherents_are_unsigned_and_before_all_other_extrinsics",
-				"--",
-				"--nocapture",
-			])
-			.env("RUN_TEST", "1")
-			.output()
-			.expect("Runs the test");
-		assert!(output.status.success());
-
-		assert!(String::from_utf8(output.stderr)
-			.unwrap()
-			.contains("Could not find `set_validation_data` inherent"));
 	}
 }
 
@@ -490,22 +483,29 @@ fn validate_block_works_with_child_tries() {
 		vec![generate_extrinsic(&client, Charlie, TestPalletCall::read_and_write_child_tries {})],
 		parent_head.clone(),
 		Default::default(),
+		Default::default(),
 	);
 
-	let block = block.blocks()[0].clone();
+	let (mut header, extrinsics) = block.blocks()[0].clone().deconstruct();
+	let seal = header.digest.pop().unwrap();
 
-	futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+	let mut import = BlockImportParams::new(BlockOrigin::Own, header.clone());
+	import.body = Some(extrinsics);
+	import.post_digests.push(seal);
+	import.fork_choice = Some(ForkChoiceStrategy::Custom(true));
 
-	let parent_head = block.header().clone();
+	futures::executor::block_on(BlockImport::import_block(&client, import)).unwrap();
+
+	let parent_head = block.blocks()[0].header.clone();
 
 	let TestBlockData { block, validation_data } = build_block_with_witness(
 		&client,
 		vec![generate_extrinsic(&client, Alice, TestPalletCall::read_and_write_child_tries {})],
 		parent_head.clone(),
 		Default::default(),
+		Default::default(),
 	);
 
-	let block = seal_parachain_block_data(block, &client);
 	let header = block.blocks()[0].header().clone();
 	let res_header =
 		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
@@ -519,7 +519,7 @@ fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 
 	let blocks_per_pov = 12;
 	// disable the core selection logic
-	let (client, genesis_head) = create_elastic_scaling_test_client(0);
+	let (client, genesis_head) = create_elastic_scaling_test_client();
 
 	// 1. Build the initial block that stores values in the map.
 	let TestBlockData { block: initial_block_data, .. } = build_block_with_witness(
@@ -532,10 +532,19 @@ fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 		)],
 		genesis_head.clone(),
 		RelayStateSproofBuilder { current_slot: 1.into(), ..Default::default() },
+		Vec::new(),
 	);
 
 	let initial_block = initial_block_data.blocks()[0].clone();
-	futures::executor::block_on(client.import(BlockOrigin::Own, initial_block.clone())).unwrap();
+	let (mut header, extrinsics) = initial_block.clone().deconstruct();
+	let seal = header.digest.pop().unwrap();
+
+	let mut import = BlockImportParams::new(BlockOrigin::Own, header.clone());
+	import.body = Some(extrinsics);
+	import.post_digests.push(seal);
+	import.fork_choice = Some(ForkChoiceStrategy::Custom(true));
+
+	futures::executor::block_on(BlockImport::import_block(&client, import)).unwrap();
 	let initial_block_header = initial_block.header().clone();
 
 	// 2. Build the PoV block that removes values from the map.
@@ -558,11 +567,10 @@ fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 		);
 
 	// 3. Validate the PoV.
-	let sealed_pov_block = seal_parachain_block_data(pov_block_data, &client);
-	let final_pov_header = sealed_pov_block.blocks().last().unwrap().header().clone();
+	let final_pov_header = pov_block_data.blocks().last().unwrap().header().clone();
 	let res_header = call_validate_block_elastic_scaling(
 		initial_block_header, // The parent is the head of the initial block before the PoV
-		sealed_pov_block,
+		pov_block_data,
 		pov_validation_data.relay_parent_storage_root,
 	)
 	.expect("Calls `validate_block` after building the PoV");
@@ -570,11 +578,15 @@ fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 }
 
 #[test]
-#[cfg(feature = "experimental-ump-signals")]
 fn validate_block_handles_ump_signal() {
+	use cumulus_primitives_core::{
+		relay_chain::{UMPSignal, UMP_SEPARATOR},
+		ClaimQueueOffset, CoreInfo, CoreSelector,
+	};
+
 	sp_tracing::try_init_simple();
 
-	let (client, parent_head) = create_elastic_scaling_test_client(1);
+	let (client, parent_head) = create_elastic_scaling_test_client();
 	let extra_extrinsics =
 		vec![transfer(&client, Alice, Bob, 69), transfer(&client, Bob, Charlie, 100)];
 
@@ -583,11 +595,16 @@ fn validate_block_handles_ump_signal() {
 		extra_extrinsics,
 		parent_head.clone(),
 		Default::default(),
+		vec![CumulusDigestItem::CoreInfo(CoreInfo {
+			selector: CoreSelector(0),
+			claim_queue_offset: ClaimQueueOffset(0),
+			number_of_cores: 1.into(),
+		})
+		.to_digest_item()],
 	);
 
-	let block = seal_parachain_block_data(block, &client);
 	let upward_messages = call_validate_block_validation_result(
-		test_runtime::elastic_scaling::WASM_BINARY
+		test_runtime::elastic_scaling_500ms::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!"),
 		parent_head,
 		block,
@@ -598,10 +615,42 @@ fn validate_block_handles_ump_signal() {
 
 	assert_eq!(
 		upward_messages,
-		vec![
-			UMP_SEPARATOR,
-			UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
-				.encode()
-		]
+		vec![UMP_SEPARATOR, UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode()]
 	);
+}
+
+#[test]
+fn ensure_we_only_like_blockchains() {
+	sp_tracing::try_init_simple();
+
+	if env::var("RUN_TEST").is_ok() {
+		let (client, parent_head) = create_elastic_scaling_test_client();
+		let TestBlockData { mut block, validation_data } = build_multiple_blocks_with_witness(
+			&client,
+			parent_head.clone(),
+			Default::default(),
+			4,
+			|_| Default::default(),
+		);
+
+		// Reference some non existing parent.
+		block.blocks_mut()[2].header.parent_hash = Hash::default();
+
+		call_validate_block_elastic_scaling(
+			parent_head,
+			block,
+			validation_data.relay_parent_storage_root,
+		)
+		.unwrap_err();
+	} else {
+		let output = Command::new(env::current_exe().unwrap())
+			.args(["ensure_we_only_like_blockchains", "--", "--nocapture"])
+			.env("RUN_TEST", "1")
+			.output()
+			.expect("Runs the test");
+		assert!(output.status.success());
+
+		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
+			.contains("Not a valid chain of blocks :("));
+	}
 }
