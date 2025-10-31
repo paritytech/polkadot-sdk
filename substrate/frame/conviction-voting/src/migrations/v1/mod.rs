@@ -20,7 +20,7 @@
 extern crate alloc;
 
 use super::CONVICTION_VOTING_ID;
-use crate::{pallet::{Config, VotingFor}, AccountVote,
+use crate::{pallet::{Config, VotingFor},
 	VoteRecord,
 	VotingOf};
 use frame_support::{
@@ -42,7 +42,7 @@ pub mod weights;
 /// V0 types.
 pub mod v0 {
 	use super::Config;
-	use crate::{pallet::Pallet, types::Tally, vote::{PriorLock, AccountVote}, Conviction, Delegations, Vote};
+	use crate::{pallet::Pallet, types::Tally, vote::{PriorLock, AccountVote}, Conviction, Delegations};
     use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 	use frame_support::{
 		pallet_prelude::{StorageDoubleMap, ValueQuery},
@@ -51,11 +51,10 @@ pub mod v0 {
 		BoundedVec, Twox64Concat,
 	};
     use scale_info::TypeInfo;
-	use sp_runtime::{traits::BlockNumberProvider, RuntimeDebug};
+	use sp_runtime::{traits::{BlockNumberProvider, Zero}, RuntimeDebug};
 
     pub type BlockNumberFor<T, I> =
 	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
-    // type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
     pub type BalanceOf<T, I = ()> =
         <<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
     pub type VotingOf<T, I = ()> = Voting<
@@ -65,14 +64,8 @@ pub mod v0 {
         PollIndexOf<T, I>,
         <T as Config<I>>::MaxVotes,
     >;
-    // #[allow(dead_code)]
-    // type DelegatingOf<T, I = ()> =
-    //     Delegating<BalanceOf<T, I>, <T as frame_system::Config>::AccountId, BlockNumberFor<T, I>>;
     pub type TallyOf<T, I = ()> = Tally<BalanceOf<T, I>, <T as Config<I>>::MaxTurnout>;
-    // pub type VotesOf<T, I = ()> = BalanceOf<T, I>;
     pub type PollIndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
-    // #[cfg(feature = "runtime-benchmarks")]
-    // pub type IndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
     pub type ClassOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Class;
 
     /// Information concerning the delegation of some voting power.
@@ -143,8 +136,22 @@ pub mod v0 {
         Delegating(Delegating<Balance, AccountId, BlockNumber>),
     }
 
+    impl<Balance: Default, AccountId, BlockNumber: Zero + Default, PollIndex, MaxVotes> Default
+	for Voting<Balance, AccountId, BlockNumber, PollIndex, MaxVotes>
+    where
+        MaxVotes: Get<u32>,
+    {
+        fn default() -> Self {
+            Voting::Casting(Casting {
+                votes: Default::default(),
+                delegations: Default::default(),
+                prior: Default::default(),
+            })
+        }
+    }
+
 	#[storage_alias]
-    pub type VotingFor<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+    pub type VotingFor<T: Config<I>, I: 'static> = StorageDoubleMap<
 		Pallet<T, I>,
 		Twox64Concat,
 		<T as frame_system::Config>::AccountId,
@@ -207,48 +214,31 @@ impl<T: Config<I>, W: weights::WeightInfo, I: 'static> SteppedMigration
 			if let Some((account, class, value)) = iter.next() {
                 
 				// Migrate old vote data structure to the new one.
-				
-                // instantiate new voting structure
                 let mut new_voting = VotingOf::<T, I>::default();
 
-                // pub struct Delegating<Balance, AccountId, BlockNumber> {
-                //     pub balance: Balance,
-                //     pub target: AccountId,
-                //     pub conviction: Conviction,
-                //     pub delegations: Delegations<Balance>,
-                //     pub prior: PriorLock<BlockNumber, Balance>,
-                // }
-
-                // pub struct Casting<Balance, BlockNumber, PollIndex, MaxVotes>
-                // {
-                //     pub votes: BoundedVec<(PollIndex, AccountVote<Balance>), MaxVotes>,
-                //     pub delegations: Delegations<Balance>,
-                //     pub prior: PriorLock<BlockNumber, Balance>,
-                // }
-
                 match value {
-                    v0::Casting(casting) => {
-                        new_voting.votes = casting.votes;
-                        for (poll_index, vote) in casting.votes {
+                    v0::Voting::Casting(v0::Casting { votes, delegations, prior }) => {
+                        for (poll_index, vote) in votes {
                             let new_record = VoteRecord {
                                 poll_index,
                                 maybe_vote: Some(vote),
                                 retracted_votes: Default::default(),
-                            }
-                            new_voting.votes.try_push(new_record).map_err(|_| SteppedMigrationError::Failed )?;
+                            };
+                            new_voting.votes.try_push(new_record).map_err(|_| SteppedMigrationError::Failed)?;
                         }
-                        new_voting.delegations = casting.delegations;
-                        new_voting.prior = casting.prior;
+                        new_voting.delegations = delegations;
+                        new_voting.prior = prior;
                     },
-                    v0::Delegating(delegating) => {
-                        new_voting.delegated_balance = delegating.balance;
-                        new_voting.maybe_delegate = Some(delegating.target);
-                        new_voting.maybe_conviction = Some(delegating.conviction);
-                        new_voting.delegations = delegating.delegations;
-                        new_voting.prior = delegating.prior;
+                    v0::Voting::Delegating(v0::Delegating { balance, target, conviction, delegations, prior }) => {
+                        new_voting.delegated_balance = balance;
+                        new_voting.maybe_delegate = Some(target);
+                        new_voting.maybe_conviction = Some(conviction);
+                        new_voting.delegations = delegations;
+                        new_voting.prior = prior;
                     },
                 }
 
+                // Insert and move cursor.
                 VotingFor::<T, I>::insert(&account, &class, new_voting);
                 cursor = Some((account, class))
 			} else {
