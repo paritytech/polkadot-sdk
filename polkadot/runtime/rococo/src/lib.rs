@@ -1234,7 +1234,6 @@ parameter_types! {
 }
 
 impl polkadot_runtime_parachains::broadcaster::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type MaxPublishItems = MaxPublishItems;
 	type MaxKeyLength = MaxKeyLength;
 	type MaxValueLength = MaxValueLength;
@@ -2216,10 +2215,6 @@ sp_api::impl_runtime_apis! {
 
 		fn para_ids() -> Vec<ParaId> {
 			parachains_staging_runtime_api_impl::para_ids::<Runtime>()
-		}
-
-		fn get_all_published_data() -> BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>> {
-			Broadcaster::get_all_published_data_map()
 		}
 
 		fn get_subscribed_data(subscriber_para_id: ParaId) -> BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>> {
