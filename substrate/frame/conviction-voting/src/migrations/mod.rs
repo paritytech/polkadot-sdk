@@ -20,4 +20,4 @@
 pub mod v1;
 
 /// `pallet-conviction-voting`'s unique migration id.
-pub const CONVICTION_VOTING_ID_ID: &[u8; 18] = b"pallet-conviction-voting";
+pub const CONVICTION_VOTING_ID: &[u8; 24] = b"pallet-conviction-voting";
