@@ -45,9 +45,10 @@
 //! and prepare either signed or unsigned transaction to feed the result back on chain.
 //! The on-chain logic will simply aggregate the results and store last `64` values to compute
 //! the average price.
-//! Additional logic in OCW is put in place to prevent spamming the network with both signed
-//! and unsigned transactions, and a custom `TransactionExtension` validates unsigned transactions
-//! to ensure that there is only one unsigned transaction floating in the network.
+//! Additional logic in OCW is put in place to prevent spamming the network with both signed 
+//! and unsigned transactions. The pallet uses the `#[pallet::authorize]` attribute to validate 
+//! unsigned transactions, ensuring that only one unsigned transaction can be accepted per 
+//! `UnsignedInterval` blocks.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -255,9 +256,6 @@ pub mod pallet {
 		/// transaction without a signature, and hence without paying any fees,
 		/// we need a way to make sure that only some transactions are accepted.
 		/// This function can be called only once every `T::UnsignedInterval` blocks.
-		/// Transactions that call that function are de-duplicated on the pool level
-		/// via the `ValidateUnsignedPriceSubmission` transaction extension and are rendered invalid
-		/// if the function has already been called in current "session".
 		///
 		/// It's important to specify `weight` for unsigned calls as well, because even though
 		/// they don't charge fees, we still don't want a single block to contain unlimited
