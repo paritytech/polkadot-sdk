@@ -2,15 +2,31 @@ title: 'pallet-assets: add reserves info to support non-teleportable Foreign Ass
 doc:
 - audience: Runtime Dev
   description: |-
-    This PR adds a new storage item and new call to pallet-assets that can be used to
-    configure the trusted reserves (as seen by the local chain) on a per-asset basis.
-
+    This PR adds a new storage item and new call to pallet-assets that can be used to configure
+    the trusted reserves (as seen by the local chain) on a per-asset basis. This is a generic
+    type that is flexible at the runtime level. It can be an XCM Location or any other type of
+    location identifier, or it can be set to () if the assets managed by the pallet instance
+    do not require any remote reserves information.
+    
+    The PR also adds helper machinery for runtimes to use the assets reserves information when
+    reasoning about XCM teleports and XCM reserve-based transfers.
+    
+    For example, in Westend Asset Hub's case, for each asset, only explicitly configured
+    assets' reserve locations will be trusted.
+    Any other chain that should be assumed as a trusted reserve needs to be marked as such
+    in `pallet-assets` by the asset's `Owner`.
+    When the local chain is also marked as a reserve (Here is added to the list of reserves)
+    for a particular asset, then that asset can be teleported between the local chain and any
+    other reserve location.
+    
     By default, on asset creation, no explicit reserve chain is configured, this results in
-    foreign assets to be non-transferable crosschain by default. The asset `owner` can
-    subsequently configure trusted reserves location(s) for the asset to make them transferable
-    cross-chain. Furthermore, by also adding `Here` (the local chain) to the list of trusted
-    reserves, the asset can then be teleportable between the local chain and any other configured
-    trusted reserve.
+    foreign assets not being crosschain transferable by default. To enable crosschain transfers
+    one of the following configurations is required for the Asset to be done by its Owner:
+    - For AH to accept incoming reserve transfer from remote chain, that chain needs to be
+      added as a trusted reserve.
+    - For AH to accept teleports from remote chain, that chain as well as Here need to be
+      added as trusted reserves (local chain to also be a reserve - teleports are allowed
+      between reserve locations).
 
 crates:
 - name: frame-support
