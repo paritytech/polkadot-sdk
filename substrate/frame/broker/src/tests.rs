@@ -25,11 +25,10 @@ use frame_support::{
 };
 use frame_system::RawOrigin::Root;
 use pretty_assertions::assert_eq;
-use sp_runtime::{traits::{BadOrigin, Get}, BuildStorage, Perbill, TokenError};
+use sp_runtime::{traits::{BadOrigin, Get}, Perbill, TokenError};
 use CoreAssignment::*;
 use CoretimeTraceItem::*;
 use Finality::*;
-use sp_core::parameter_types;
 
 #[test]
 fn basic_initialize_works() {
@@ -2251,6 +2250,8 @@ fn auto_renewal_works() {
 			AutoRenewals::<Test>::get().to_vec(),
 			vec![
 				AutoRenewalRecord { core: 0, task: 1001, next_renewal: 10 },
+				AutoRenewalRecord { core: 1, task: 1002, next_renewal: 10 },
+				// the renewal now retries since our default retry is 2 for test
 				AutoRenewalRecord { core: 1, task: 1003, next_renewal: 10 },
 			]
 		);

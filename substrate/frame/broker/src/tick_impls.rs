@@ -379,7 +379,11 @@ impl<T: Config> Pallet<T> {
 					} else {
 						retries = retries.saturating_add(1);
 						AutoRenewalRetries::<T>::insert((record.core, payer), retries);
-						Some(record)
+						Some(AutoRenewalRecord {
+							core: record.core,
+							task: record.task,
+							next_renewal: sale.region_end,
+						})
 					}
 				}
 			})
