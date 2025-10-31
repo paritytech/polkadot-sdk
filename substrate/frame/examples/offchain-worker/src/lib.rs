@@ -67,16 +67,12 @@ use frame_system::{
 use lite_json::json::JsonValue;
 use sp_core::crypto::KeyTypeId;
 use sp_runtime::{
-	impl_tx_ext_default,
 	offchain::{
 		http,
 		storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
 		Duration,
 	},
-	traits::{
-		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, TransactionExtension, ValidateResult,
-		Zero,
-	},
+	traits::Zero,
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		ValidTransaction,
@@ -271,13 +267,33 @@ pub mod pallet {
 		/// purpose is to showcase offchain worker capabilities.
 		#[pallet::call_index(1)]
 		#[pallet::weight({0})]
+		// Minimal weight since validation is lightweight. But in real-world scenarios, this should
+		// be benchmarked.
+		#[pallet::weight_of_authorize(Weight::from_parts(5_000, 0))]
+		#[pallet::authorize(|
+			_source: TransactionSource,
+			block_number: &BlockNumberFor<T>,
+			new_price: &u32,
+		| -> TransactionValidityWithRefund {
+			let validity = Pallet::<T>::validate_transaction_parameters(block_number, new_price);
+			match validity {
+				Ok(valid_tx) => {
+					// This is the amount to refund, here we refund nothing.
+					let refund = Weight::zero();
+
+					Ok((valid_tx, refund))
+				},
+				Err(e) => Err(e),
+			}
+		})]
 		pub fn submit_price_unsigned(
 			origin: OriginFor<T>,
 			_block_number: BlockNumberFor<T>,
 			price: u32,
 		) -> DispatchResultWithPostInfo {
-			// This ensures that the function can only be called via unsigned transaction.
-			ensure_none(origin)?;
+			// This ensures that the function can only be called via unsigned transaction
+			// after being validated in `pallet::authorize`.
+			ensure_authorized(origin)?;
 			// Add the price to the on-chain list, but mark it as coming from an empty address.
 			Self::add_price(None, price);
 			// now increment the block number at which we expect next unsigned transaction.
@@ -288,13 +304,37 @@ pub mod pallet {
 
 		#[pallet::call_index(2)]
 		#[pallet::weight({0})]
+		// Minimal weight since validation is lightweight. But in real-world scenarios, this should
+		// be benchmarked.
+		#[pallet::weight_of_authorize(Weight::from_parts(5_000, 0))]
+		#[pallet::authorize(|
+			_source: TransactionSource,
+			price_payload: &PricePayload<T::Public, BlockNumberFor<T>>,
+			signature: &T::Signature,
+		| -> TransactionValidityWithRefund {
+			let signature_valid = SignedPayload::<T>::verify::<T::AuthorityId>(price_payload, signature.clone());
+			if !signature_valid {
+				return Err(InvalidTransaction::BadProof.into())
+			}
+			let validity = Pallet::<T>::validate_transaction_parameters(&price_payload.block_number, &price_payload.price);
+			match validity {
+				Ok(valid_tx) => {
+					// This is the amount to refund, here we refund nothing.
+					let refund = Weight::zero();
+
+					Ok((valid_tx, refund))
+				},
+				Err(e) => Err(e),
+			}
+		})]
 		pub fn submit_price_unsigned_with_signed_payload(
 			origin: OriginFor<T>,
 			price_payload: PricePayload<T::Public, BlockNumberFor<T>>,
 			_signature: T::Signature,
 		) -> DispatchResultWithPostInfo {
-			// This ensures that the function can only be called via unsigned transaction.
-			ensure_none(origin)?;
+			// This ensures that the function can only be called via unsigned transaction
+			// after being validated in `pallet::authorize`.
+			ensure_authorized(origin)?;
 			// Add the price to the on-chain list, but mark it as coming from an empty address.
 			Self::add_price(None, price_payload.price);
 			// now increment the block number at which we expect next unsigned transaction.
@@ -310,95 +350,6 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// Event generated when new price is accepted to contribute to the average.
 		NewPrice { price: u32, maybe_who: Option<T::AccountId> },
-	}
-
-	/// Transaction extension for validating unsigned transactions for this pallet.
-	///
-	/// This extension validates unsigned transactions that are submitted by offchain workers.
-	/// It ensures only valid price submission transactions are accepted into the transaction pool.
-	#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, scale_info::TypeInfo)]
-	#[scale_info(skip_type_params(T))]
-	pub struct ValidateUnsignedPriceSubmission<T: Config>(core::marker::PhantomData<T>);
-
-	impl<T: Config> core::fmt::Debug for ValidateUnsignedPriceSubmission<T> {
-		fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-			write!(f, "ValidateUnsignedPriceSubmission")
-		}
-	}
-
-	impl<T: Config> Default for ValidateUnsignedPriceSubmission<T> {
-		fn default() -> Self {
-			Self(Default::default())
-		}
-	}
-
-	impl<T: Config> ValidateUnsignedPriceSubmission<T> {
-		/// Create a new instance of the transaction extension.
-		pub fn new() -> Self {
-			Self(Default::default())
-		}
-	}
-
-	impl<T: Config + Send + Sync> TransactionExtension<Call<T>> for ValidateUnsignedPriceSubmission<T>
-	where
-		Call<T>: Dispatchable<
-			Info = frame_support::dispatch::DispatchInfo,
-			PostInfo = frame_support::dispatch::PostDispatchInfo,
-		>,
-		<Call<T> as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId>,
-	{
-		const IDENTIFIER: &'static str = "ValidateUnsignedPriceSubmission";
-		type Implicit = ();
-		type Pre = ();
-		type Val = ();
-
-		fn weight(&self, _call: &Call<T>) -> frame_support::weights::Weight {
-			// Minimal weight since validation is lightweight
-			frame_support::weights::Weight::from_parts(5_000, 0)
-		}
-
-		fn validate(
-			&self,
-			origin: <Call<T> as Dispatchable>::RuntimeOrigin,
-			call: &Call<T>,
-			_info: &DispatchInfoOf<Call<T>>,
-			_len: usize,
-			_self_implicit: Self::Implicit,
-			_inherited_implication: &impl codec::Encode,
-			_source: TransactionSource,
-		) -> ValidateResult<Self::Val, Call<T>> {
-			// Check if this is an unsigned transaction (origin is None)
-			if origin.as_system_origin_signer().is_some() {
-				// This is a signed transaction, skip validation in this extension
-				return Ok((Default::default(), (), origin))
-			}
-
-			// This is an unsigned transaction - validate it
-			// Firstly let's check that we call the right function.
-			let validity = if let Call::submit_price_unsigned_with_signed_payload {
-				price_payload: ref payload,
-				ref signature,
-			} = call
-			{
-				let signature_valid =
-					SignedPayload::<T>::verify::<T::AuthorityId>(payload, signature.clone());
-				if !signature_valid {
-					return Err(InvalidTransaction::BadProof.into())
-				}
-				Pallet::<T>::validate_transaction_parameters(&payload.block_number, &payload.price)
-			} else if let Call::submit_price_unsigned { block_number, price: new_price } = call {
-				Pallet::<T>::validate_transaction_parameters(block_number, new_price)
-			} else {
-				InvalidTransaction::Call.into()
-			};
-
-			match validity {
-				Ok(valid_tx) => Ok((valid_tx, (), origin)),
-				Err(e) => Err(e),
-			}
-		}
-
-		impl_tx_ext_default!(Call<T>; prepare);
 	}
 
 	/// A vector of recently submitted prices.
