@@ -126,6 +126,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxAutoRenewals: Get<u32>;
 
+		/// Max number of retries for failed renewals
+		#[pallet::constant]
+		type MaxAutoRenewalRetries: Get<RenewalRetriesCount>;
+
 		/// The smallest amount of credits a user can purchase.
 		///
 		/// Needed to prevent spam attacks.
@@ -197,6 +201,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type AutoRenewals<T: Config> =
 		StorageValue<_, BoundedVec<AutoRenewalRecord, T::MaxAutoRenewals>, ValueQuery>;
+
+	/// The amount of renewal retries for this payer
+	#[pallet::storage]
+	pub type AutoRenewalRetries<T: Config> =
+		StorageMap<_, Blake2_128Concat, (CoreIndex, T::AccountId), RenewalRetriesCount, ValueQuery>;
 
 	/// Received revenue info from the relay chain.
 	#[pallet::storage]

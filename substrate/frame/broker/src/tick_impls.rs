@@ -366,12 +366,21 @@ impl<T: Config> Pallet<T> {
 						next_renewal: sale.region_end,
 					})
 				} else {
+					// check if renewal count has been exceeded and reset counter, else increment retry counter
+					let max_renewal_retries = T::MaxAutoRenewalRetries::get();
+					let mut retries = AutoRenewalRetries::<T>::get((record.core, payer.clone()));
 					Self::deposit_event(Event::<T>::AutoRenewalFailed {
 						core: record.core,
-						payer: Some(payer),
+						payer: Some(payer.clone()),
 					});
-
-					None
+					if retries >= max_renewal_retries {
+						AutoRenewalRetries::<T>::insert((record.core, payer), 0);
+						None
+					} else {
+						retries = retries.saturating_add(1);
+						AutoRenewalRetries::<T>::insert((record.core, payer), retries);
+						Some(record)
+					}
 				}
 			})
 			.collect::<Vec<AutoRenewalRecord>>()
