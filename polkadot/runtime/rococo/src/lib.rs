@@ -2025,7 +2025,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(15)]
+	#[api_version(16)]
 	impl polkadot_primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			parachains_runtime_api_impl::validators::<Runtime>()

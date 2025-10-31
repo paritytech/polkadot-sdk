@@ -326,6 +326,6 @@ sp_api::decl_runtime_apis! {
 		/// Get all published data from the broadcaster pallet.
 		/// Returns a map of Publisher ParaId -> published data.
 		#[api_version(16)]
-		fn get_all_published_data() -> BTreeMap<ppp::Id, Vec<(Vec<u8>, Vec<u8>)>;
+		fn get_all_published_data() -> BTreeMap<ppp::Id, Vec<(Vec<u8>, Vec<u8>)>>;
 	}
 }
