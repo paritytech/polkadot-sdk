@@ -603,7 +603,16 @@ pub mod pallet {
 
 			let expected_rp_descendants_num = T::RelayParentOffset::get();
 
-			if expected_rp_descendants_num > 0 {
+			// Verify the provided relay parent descendants if any are expected.
+			// The check is skipped when:
+			//  - `RelayParentOffset` is set to 0 and we are not building on older relay nodes
+			//  - The relay chain does not have sufficient blocks to provide as descendants.
+			//  This may happen closer to genesis. For example, when
+			//  `expected_rp_descendants_num = 1` and `relay_parent_number = 1` we cannot provide
+			//  two descendants.
+			if expected_rp_descendants_num > 0 &&
+				expected_rp_descendants_num.saturating_sub(vfp.relay_parent_number as u32) > 0
+			{
 				if let Err(err) = descendant_validation::verify_relay_parent_descendants(
 					&relay_state_proof,
 					relay_parent_descendants,
@@ -613,7 +622,9 @@ pub mod pallet {
 					panic!(
 						"Unable to verify provided relay parent descendants. \
 						expected_rp_descendants_num: {expected_rp_descendants_num} \
-						error: {err:?}"
+						vfp.relay_parent_number: {} \
+						error: {err:?}",
+						vfp.relay_parent_number
 					);
 				};
 			}
