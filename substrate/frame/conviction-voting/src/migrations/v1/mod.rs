@@ -20,19 +20,18 @@
 extern crate alloc;
 
 use super::CONVICTION_VOTING_ID;
-use crate::{
-	pallet::{Config, VotingFor as VotingForNew},
-	AccountVote as NewAccountVote,
-	VoteRecord,
-	VotingOf as NewVotingOf,
-};
+use crate::pallet::Config;
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
 	weights::WeightMeter,
 };
-#[cfg(feature = "try-runtime")]
-use frame_support::sp_runtime::TryRuntimeError;
+
+// #[cfg(feature = "try-runtime")]
+// use alloc::collections::btree_map::BTreeMap;
+
+// #[cfg(feature = "try-runtime")]
+// use alloc::vec::Vec;
 
 mod benchmarking;
 mod tests;
@@ -41,149 +40,123 @@ pub mod weights;
 /// V0 types.
 pub mod v0 {
 	use super::Config;
-	use crate::{pallet::Pallet, types::Tally, vote::PriorLock, Conviction, Delegations, Vote};
-	use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-	use frame_support::{
-		pallet_prelude::{StorageDoubleMap, ValueQuery},
-		storage_alias,
-		traits::{Currency, Get, Polling},
-		BoundedVec, Twox64Concat,
-	};
-	use scale_info::TypeInfo;
-	use sp_runtime::{traits::BlockNumberProvider, RuntimeDebug};
+	use crate::pallet::Pallet;
+	use frame_support::{storage_alias, Twox64Concat};
 
-	pub type BlockNumberFor<T, I> =
-		<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
-	pub type BalanceOf<T, I = ()> =
-		<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-	pub type TallyOf<T, I = ()> = Tally<BalanceOf<T, I>, <T as Config<I>>::MaxTurnout>;
-	pub type PollIndexOf<T, I = ()> =
-		<<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
-	pub type ClassOf<T, I = ()> =
-		<<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Class;
-	pub type VotingOf<T, I = ()> = Voting<
-		BalanceOf<T, I>,
-		<T as frame_system::Config>::AccountId,
-		BlockNumberFor<T, I>,
-		PollIndexOf<T, I>,
-		<T as Config<I>>::MaxVotes,
-	>;
+    pub type BlockNumberFor<T, I> =
+	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+    // type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+    pub type BalanceOf<T, I = ()> =
+        <<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+    pub type VotingOf<T, I = ()> = Voting<
+        BalanceOf<T, I>,
+        <T as frame_system::Config>::AccountId,
+        BlockNumberFor<T, I>,
+        PollIndexOf<T, I>,
+        <T as Config<I>>::MaxVotes,
+    >;
+    // #[allow(dead_code)]
+    // type DelegatingOf<T, I = ()> =
+    //     Delegating<BalanceOf<T, I>, <T as frame_system::Config>::AccountId, BlockNumberFor<T, I>>;
+    pub type TallyOf<T, I = ()> = Tally<BalanceOf<T, I>, <T as Config<I>>::MaxTurnout>;
+    // pub type VotesOf<T, I = ()> = BalanceOf<T, I>;
+    pub type PollIndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
+    // #[cfg(feature = "runtime-benchmarks")]
+    // pub type IndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
+    pub type ClassOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Class;
 
-	/// A vote for a referendum of a particular account.
-	#[derive(
-		Encode,
-		Decode,
-		DecodeWithMemTracking,
-		Copy,
-		Clone,
-		Eq,
-		PartialEq,
-		RuntimeDebug,
-		TypeInfo,
-		MaxEncodedLen,
-	)]
-	pub enum AccountVote<Balance> {
-		Standard { vote: Vote, balance: Balance },
-		Split { aye: Balance, nay: Balance },
-		SplitAbstain { aye: Balance, nay: Balance, abstain: Balance },
-	}
+    /// A vote for a referendum of a particular account.
+    #[derive(
+        Encode,
+        Decode,
+        DecodeWithMemTracking,
+        Copy,
+        Clone,
+        Eq,
+        PartialEq,
+        RuntimeDebug,
+        TypeInfo,
+        MaxEncodedLen,
+    )]
+    pub enum AccountVote<Balance> {
+        Standard { vote: Vote, balance: Balance },
+        Split { aye: Balance, nay: Balance },
+        SplitAbstain { aye: Balance, nay: Balance, abstain: Balance },
+    }
 
-	/// Information concerning the delegation of some voting power.
-	#[derive(
-		Encode,
-		Decode,
-		DecodeWithMemTracking,
-		Default,
-		Clone,
-		Eq,
-		PartialEq,
-		RuntimeDebug,
-		TypeInfo,
-		MaxEncodedLen,
-	)]
-	pub struct Delegating<Balance, AccountId, BlockNumber> {
-		pub balance: Balance,
-		pub target: AccountId,
-		pub conviction: Conviction,
-		pub delegations: Delegations<Balance>,
-		pub prior: PriorLock<BlockNumber, Balance>,
-	}
+    /// Information concerning the delegation of some voting power.
+    #[derive(
+        Encode,
+        Decode,
+        DecodeWithMemTracking,
+        Clone,
+        Eq,
+        PartialEq,
+        RuntimeDebug,
+        TypeInfo,
+        MaxEncodedLen,
+    )]
+    pub struct Delegating<Balance, AccountId, BlockNumber> {
+        pub balance: Balance,
+        pub target: AccountId,
+        pub conviction: Conviction,
+        pub delegations: Delegations<Balance>,
+        pub prior: PriorLock<BlockNumber, Balance>,
+    }
 
-	/// Information concerning the direct vote-casting of some voting power.
-	#[derive(
-		Encode,
-		Decode,
-		DecodeWithMemTracking,
-		Clone,
-		Eq,
-		PartialEq,
-		RuntimeDebug,
-		TypeInfo,
-		MaxEncodedLen,
-	)]
-	#[scale_info(skip_type_params(MaxVotes))]
-	#[codec(mel_bound(
-		Balance: MaxEncodedLen,
-		BlockNumber: MaxEncodedLen,
-		PollIndex: MaxEncodedLen
-	))]
-	pub struct Casting<Balance, BlockNumber, PollIndex, MaxVotes>
-	where
-		MaxVotes: Get<u32>,
-	{
-		pub votes: BoundedVec<(PollIndex, AccountVote<Balance>), MaxVotes>,
-		pub delegations: Delegations<Balance>,
-		pub prior: PriorLock<BlockNumber, Balance>,
-	}
+    /// Information concerning the direct vote-casting of some voting power.
+    #[derive(
+        Encode,
+        Decode,
+        DecodeWithMemTracking,
+        Clone,
+        Eq,
+        PartialEq,
+        RuntimeDebug,
+        TypeInfo,
+        MaxEncodedLen,
+    )]
+    #[scale_info(skip_type_params(MaxVotes))]
+    #[codec(mel_bound(Balance: MaxEncodedLen, BlockNumber: MaxEncodedLen, PollIndex: MaxEncodedLen))]
+    pub struct Casting<Balance, BlockNumber, PollIndex, MaxVotes>
+    where
+        MaxVotes: Get<u32>,
+    {
+        pub votes: BoundedVec<(PollIndex, AccountVote<Balance>), MaxVotes>,
+        pub delegations: Delegations<Balance>,
+        pub prior: PriorLock<BlockNumber, Balance>,
+    }
 
-	/// An indicator for what an account is doing; it can either be delegating or voting.
-	#[derive(
-		Encode,
-		Decode,
-		DecodeWithMemTracking,
-		Clone,
-		Eq,
-		PartialEq,
-		RuntimeDebug,
-		TypeInfo,
-		MaxEncodedLen,
-	)]
-	#[scale_info(skip_type_params(MaxVotes))]
-	#[codec(mel_bound(
-		Balance: MaxEncodedLen,
-		AccountId: MaxEncodedLen,
-		BlockNumber: MaxEncodedLen,
-		PollIndex: MaxEncodedLen
-	))]
-	pub enum Voting<Balance, AccountId, BlockNumber, PollIndex, MaxVotes>
-	where
-		MaxVotes: Get<u32>,
-	{
-		Casting(Casting<Balance, BlockNumber, PollIndex, MaxVotes>),
-		Delegating(Delegating<Balance, AccountId, BlockNumber>),
-	}
-
-	impl<Balance, AccountId, BlockNumber, PollIndex, MaxVotes> Default
-		for Voting<Balance, AccountId, BlockNumber, PollIndex, MaxVotes>
-	where
-		Balance: Default,
-		BlockNumber: Default,
-		MaxVotes: Get<u32>,
-	{
-		fn default() -> Self {
-			Self::Casting(Casting {
-				votes: Default::default(),
-				delegations: Default::default(),
-				prior: Default::default(),
-			})
-		}
-	}
+    /// An indicator for what an account is doing; it can either be delegating or voting.
+    #[derive(
+        Encode,
+        Decode,
+        DecodeWithMemTracking,
+        Clone,
+        Eq,
+        PartialEq,
+        RuntimeDebug,
+        TypeInfo,
+        MaxEncodedLen,
+    )]
+    #[scale_info(skip_type_params(MaxVotes))]
+    #[codec(mel_bound(
+        Balance: MaxEncodedLen, AccountId: MaxEncodedLen, BlockNumber: MaxEncodedLen,
+        PollIndex: MaxEncodedLen,
+    ))]
+    pub enum Voting<Balance, AccountId, BlockNumber, PollIndex, MaxVotes>
+    where
+        MaxVotes: Get<u32>,
+    {
+        Casting(Casting<Balance, BlockNumber, PollIndex, MaxVotes>),
+        Delegating(Delegating<Balance, AccountId, BlockNumber>),
+    }
 
 	#[storage_alias]
-	pub type VotingFor<T: Config<I> + frame_system::Config, I: 'static> = StorageDoubleMap<
+    pub type VotingFor<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		Pallet<T, I>,
 		Twox64Concat,
-		<T as frame_system::Config>::AccountId,
+		T::AccountId,
 		Twox64Concat,
 		ClassOf<T, I>,
 		VotingOf<T, I>,
@@ -192,12 +165,8 @@ pub mod v0 {
 }
 
 /// Migrates storage items from v0 to v1.
-pub struct SteppedMigrationV1<T: Config<I>, W: weights::WeightInfo, I: 'static = ()>(
-	PhantomData<(T, W, I)>,
-);
-impl<T: Config<I>, W: weights::WeightInfo, I: 'static> SteppedMigration
-	for SteppedMigrationV1<T, W, I>
-{
+pub struct SteppedMigrationV1<T: Config<I>, W: weights::WeightInfo, I = ()>(PhantomData<(T, W, I)>);
+impl<T: Config<I>, W: weights::WeightInfo, I: 'static> SteppedMigration for SteppedMigrationV1<T, W, I> {
 	type Cursor = (T::AccountId, v0::ClassOf<T, I>);
 	type Identifier = MigrationId<24>;
 
@@ -206,9 +175,12 @@ impl<T: Config<I>, W: weights::WeightInfo, I: 'static> SteppedMigration
 		MigrationId { pallet_id: *CONVICTION_VOTING_ID, version_from: 0, version_to: 1 }
 	}
 
-	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-		Ok(Default::default())
+    #[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<Vec<u8>, frame_support::sp_runtime::TryRuntimeError> {
+		use codec::Encode;
+
+        // Send over all voting data.
+		Ok(v0::VotingFor::<T, I>::iter().collect::<BTreeMap<_, _>>().encode())
 	}
 
 	/// The logic for each step in the migratoin.
@@ -229,70 +201,98 @@ impl<T: Config<I>, W: weights::WeightInfo, I: 'static> SteppedMigration
 				break;
 			}
 
-			let mut iter = if let Some((ref last_account, ref last_class)) = cursor {
-				let raw_key =
-					v0::VotingFor::<T, I>::hashed_key_for(last_account, last_class);
-				v0::VotingFor::<T, I>::iter_from(raw_key)
+			let mut iter = if let Some((last_key_one, last_key_two) = cursor {
+				// Iterate over value.
+                let hashed_key = v0::VotingFor::<T, I>::hashed_key_for(last_key_one, last_key_two);
+				v0::VotingFor::<T, I>::iter_from(hashed_key)
 			} else {
 				// If no cursor is provided, start iterating from the beginning.
 				v0::VotingFor::<T, I>::iter()
 			};
 
 			// If there's a next item in the iterator, perform the migration.
-			if let Some((account, class, value)) = iter.next() {
-				let mut new_value = NewVotingOf::<T, I>::default();
+			if let Some((last_key_one, last_key_two, value)) = iter.next() {
+                
+				// Migrate old vote data structure to the new one.
+				
+                // instantiate new voting structure
+                let mut new_value = VotingOf::<T, I>::default();
 
-				match value {
-					v0::Voting::Casting(casting) => {
-						new_value.delegations = casting.delegations;
-						new_value.prior = casting.prior;
+                // pub struct Delegating<Balance, AccountId, BlockNumber> {
+                //     pub balance: Balance,
+                //     pub target: AccountId,
+                //     pub conviction: Conviction,
+                //     pub delegations: Delegations<Balance>,
+                //     pub prior: PriorLock<BlockNumber, Balance>,
+                // }
 
-						for (poll_index, vote) in casting.votes.into_iter() {
-							let record = VoteRecord {
-								poll_index,
-								maybe_vote: Some(convert_account_vote(vote)),
-								retracted_votes: Default::default(),
-							};
-							new_value
-								.votes
-								.try_push(record)
-								.map_err(|_| SteppedMigrationError::Failed)?;
-						}
-					},
-					v0::Voting::Delegating(delegating) => {
-						new_value.delegated_balance = delegating.balance;
-						new_value.maybe_delegate = Some(delegating.target);
-						new_value.maybe_conviction = Some(delegating.conviction);
-						new_value.delegations = delegating.delegations;
-						new_value.prior = delegating.prior;
-					},
-				}
+                // pub struct Casting<Balance, BlockNumber, PollIndex, MaxVotes>
+                // {
+                //     pub votes: BoundedVec<(PollIndex, AccountVote<Balance>), MaxVotes>,
+                //     pub delegations: Delegations<Balance>,
+                //     pub prior: PriorLock<BlockNumber, Balance>,
+                // }
 
-				VotingForNew::<T, I>::insert(&account, &class, new_value);
-				cursor = Some((account, class));
+                match value {
+                    Casting(casting) => {
+                        new_value.votes = casting.votes;
+                        for vote in casting.votes {
+                            let new_vote = VoteRecord {
+                                poll_index: vote.0,
+                                maybe_vote: Some(vote.1),
+                                retracted_votes: Default::default(),
+                            }
+                            new_value.votes.try_push(new_vote).map_err(|_| {
+                                SteppedMigrationError::InsufficientWeight { required }
+                            })
+                        }
+                        new_value.delegations = casting.delegations;
+                        new_value.prior = casting.prior;
+                    },
+                    Delegating(delegating) => {
+                        new_value.delegated_balance = delegating.balance;
+                        new_value.maybe_delegate = Some(delegating.target);
+                        new_value.maybe_conviction = Some(delegating.conviction);
+                        new_value.delegations = delegating.delegations;
+                        new_value.prior = delegating.prior;
+                    },
+                }
 
+                VotingFor::<T, I>::insert(last_key_one, last_key_two, new_value);
+                cursor = Some((last_key_one, last_key_two))
 			} else {
                 // Migration is complete.
 				cursor = None;
 				break
 			}
-
 		}
 		Ok(cursor)
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(_: Vec<u8>) -> Result<(), TryRuntimeError> {
-		Ok(())
-	}
-}
+	fn post_upgrade(prev: Vec<u8>) -> Result<(), frame_support::sp_runtime::TryRuntimeError> {
+		use codec::Decode;
 
-fn convert_account_vote<Balance>(vote: v0::AccountVote<Balance>) -> NewAccountVote<Balance> {
-	match vote {
-		v0::AccountVote::Standard { vote, balance } =>
-			NewAccountVote::Standard { vote, balance },
-		v0::AccountVote::Split { aye, nay } => NewAccountVote::Split { aye, nay },
-		v0::AccountVote::SplitAbstain { aye, nay, abstain } =>
-			NewAccountVote::SplitAbstain { aye, nay, abstain },
+		// Check the state of the storage after the migration.
+		// let prev_map = BTreeMap::<u32, u32>::decode(&mut &prev[..])
+		// 	.expect("Failed to decode the previous storage state");
+
+		// Check the len of prev and post are the same.
+		// assert_eq!(
+		// 	MyMap::<T>::iter().count(),
+		// 	prev_map.len(),
+		// 	"Migration failed: the number of items in the storage after the migration is not the same as before"
+		// );
+
+		// for (key, value) in prev_map {
+		// 	let new_value =
+		// 		MyMap::<T>::get(key).expect("Failed to get the value after the migration");
+		// 	assert_eq!(
+		// 		value as u64, new_value,
+		// 		"Migration failed: the value after the migration is not the same as before"
+		// 	);
+		// }
+
+		Ok(())
 	}
 }
