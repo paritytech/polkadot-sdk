@@ -27,6 +27,7 @@ sp-runtime = { workspace = true }
 pallet-balances = { workspace = true, default-features = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true, default-features = true }
+hex-literal = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

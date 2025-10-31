@@ -43,6 +43,59 @@ fn create_works() {
 }
 
 #[test]
+fn ref_asset_rates() {
+	new_test_ext().execute_with(|| {
+		const KSM_UNIT: u64 = 1_000_000_000_000;
+		const DOT_UNIT: u64 = 10_000_000_000;
+		const USD_UNIT: u64 = 1_000_000;
+		const FIXED_U128_DECIMAL: u128 = 1_000_000_000_000_000_000;
+		assert!(pallet_asset_rate::ConversionRateToNative::<Test>::get(1).is_none());
+		assert_ok!(AssetRate::create(
+			RuntimeOrigin::root(),
+			Box::new(1),
+			FixedU128::from_inner((DOT_UNIT / (10 * USD_UNIT)) as u128 * FIXED_U128_DECIMAL)
+		));
+
+		let conversion_from_asset = <AssetRate as ConversionFromAssetBalance<
+			BalanceOf<Test>,
+			<Test as pallet_asset_rate::Config>::AssetKind,
+			BalanceOf<Test>,
+		>>::from_asset_balance(10 * USD_UNIT, 1);
+		assert_eq!(conversion_from_asset.expect("Conversion rate exists for asset"), DOT_UNIT);
+
+		assert!(pallet_asset_rate::ConversionRateToNative::<Test>::get(2).is_none());
+		assert_ok!(AssetRate::create(
+			RuntimeOrigin::root(),
+			Box::new(2),
+			FixedU128::from_inner((KSM_UNIT / (4 * DOT_UNIT)) as u128 * FIXED_U128_DECIMAL)
+		));
+
+		let conversion_from_asset = <AssetRate as ConversionFromAssetBalance<
+			BalanceOf<Test>,
+			<Test as pallet_asset_rate::Config>::AssetKind,
+			BalanceOf<Test>,
+		>>::from_asset_balance(4 * DOT_UNIT, 2);
+		assert_eq!(conversion_from_asset.expect("Conversion rate exists for asset"), KSM_UNIT);
+
+		use codec::Decode;
+		use hex_literal::hex;
+
+		// current encoded value of KSM/DOT rate on Kusama
+		// wrong, since it did not account for FixedU128 decimal, the value is 0.000000000000000025
+		// should be 25
+		let rate_str = hex!("19000000000000000000000000000000");
+		let rate = FixedU128::decode(&mut rate_str.as_slice()).expect("Valid rate string");
+		println!("rate: {:?}", rate);
+
+		// current encoded value of DOT/USD rate on Polkadot
+		// value is 1000.000000000000000000
+		let rate_str = hex!("0000a0dec5adc9353600000000000000");
+		let rate = FixedU128::decode(&mut rate_str.as_slice()).expect("Valid rate string");
+		println!("rate: {:?}", rate);
+	});
+}
+
+#[test]
 fn create_existing_throws() {
 	new_test_ext().execute_with(|| {
 		assert!(pallet_asset_rate::ConversionRateToNative::<Test>::get(ASSET_ID).is_none());
