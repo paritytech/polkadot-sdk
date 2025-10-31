@@ -1149,19 +1149,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// # Invariants
 	///
-	/// * The sets of `Fellows`, and `Allies` members must be mutually exclusive.
-	///   An account cannot hold more than one role at a time.
+	/// * The sets of `Fellows`, and `Allies` members must be mutually exclusive. An account cannot
+	///   hold more than one role at a time.
 	fn try_state_members_are_disjoint() -> Result<(), sp_runtime::TryRuntimeError> {
 		let fellows = Members::<T, I>::get(MemberRole::Fellow);
 		let allies = Members::<T, I>::get(MemberRole::Ally);
 
 		for fellow in fellows.iter() {
-			ensure!(
-                allies.binary_search(fellow).is_err(),
-                "Member is both Fellow and Ally"
-            );
+			ensure!(allies.binary_search(fellow).is_err(), "Member is both Fellow and Ally");
 		}
-
 
 		Ok(())
 	}
@@ -1176,32 +1172,29 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let members = Members::<T, I>::get(role);
 			let mut sorted_members = members.clone();
 			sorted_members.sort();
-			ensure!(
-                members == sorted_members,
-                "Members of a role are not sorted"
-            );
+			ensure!(members == sorted_members, "Members of a role are not sorted");
 		}
 		Ok(())
 	}
 
 	/// # Invariants
 	///
-	/// * The set of accounts in `RetiringMembers` storage must be identical to the set of
-	///   members with the `Retiring` role.
+	/// * The set of accounts in `RetiringMembers` storage must be identical to the set of members
+	///   with the `Retiring` role.
 	fn try_state_retiring_members_are_consistent() -> Result<(), sp_runtime::TryRuntimeError> {
 		let retiring_in_members = Members::<T, I>::get(MemberRole::Retiring);
 		let retiring_keys_count = RetiringMembers::<T, I>::iter_keys().count();
 
 		ensure!(
-            retiring_in_members.len() == retiring_keys_count,
-            "Count mismatch between Members<Retiring> and RetiringMembers map"
-        );
+			retiring_in_members.len() == retiring_keys_count,
+			"Count mismatch between Members<Retiring> and RetiringMembers map"
+		);
 
 		for member in retiring_in_members.iter() {
 			ensure!(
-                RetiringMembers::<T, I>::contains_key(member),
-                "Retiring member not found in RetiringMembers map"
-            );
+				RetiringMembers::<T, I>::contains_key(member),
+				"Retiring member not found in RetiringMembers map"
+			);
 		}
 
 		Ok(())
@@ -1209,14 +1202,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// # Invariants
 	///
-	/// * Every account that has a deposit stored in `DepositOf` must be a member of the
-	///   alliance (either a `Fellow`, `Ally`, or `Retiring`).
+	/// * Every account that has a deposit stored in `DepositOf` must be a member of the alliance
+	///   (either a `Fellow`, `Ally`, or `Retiring`).
 	fn try_state_deposit_of_is_consistent() -> Result<(), sp_runtime::TryRuntimeError> {
 		for (who, _) in DepositOf::<T, I>::iter() {
-			ensure!(
-                Self::is_member(&who),
-                "Account with deposit is not an alliance member"
-            );
+			ensure!(Self::is_member(&who), "Account with deposit is not an alliance member");
 		}
 		Ok(())
 	}
@@ -1229,34 +1219,25 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let accounts = UnscrupulousAccounts::<T, I>::get();
 		let mut sorted_accounts = accounts.clone();
 		sorted_accounts.sort();
-		ensure!(
-            accounts == sorted_accounts,
-            "UnscrupulousAccounts is not sorted"
-        );
+		ensure!(accounts == sorted_accounts, "UnscrupulousAccounts is not sorted");
 
 		let websites = UnscrupulousWebsites::<T, I>::get();
 		let mut sorted_websites = websites.clone();
 		sorted_websites.sort();
-		ensure!(
-            websites == sorted_websites,
-            "UnscrupulousWebsites is not sorted"
-        );
+		ensure!(websites == sorted_websites, "UnscrupulousWebsites is not sorted");
 
 		Ok(())
 	}
 
 	/// # Invariants
 	///
-	/// * The list of `Announcements` must be sorted. This is necessary because `remove_announcement`
-	///   uses binary search.
+	/// * The list of `Announcements` must be sorted. This is necessary because
+	///   `remove_announcement` uses binary search.
 	fn try_state_announcements_are_sorted() -> Result<(), sp_runtime::TryRuntimeError> {
 		let announcements = Announcements::<T, I>::get();
 		let mut sorted_announcements = announcements.clone();
 		sorted_announcements.sort();
-		ensure!(
-            announcements == sorted_announcements,
-            "Announcements is not sorted"
-        );
+		ensure!(announcements == sorted_announcements, "Announcements is not sorted");
 		Ok(())
 	}
 }
