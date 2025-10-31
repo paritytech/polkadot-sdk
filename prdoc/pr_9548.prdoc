@@ -1,0 +1,20 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[pallet-broker] Fix auto-renewal persistence after failed renewal attempts"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Fixes auto-renewal behavior to match documentation. Previously, when an 
+      auto-renewal attempt failed (e.g., due to insufficient funds), the 
+      auto-renewal setting was removed entirely. Now the setting persists 
+      across multiple periods as documented, allowing automatic retry in 
+      subsequent periods.
+      
+      This ensures that temporary issues (like insufficient balance) don't 
+      require manual re-enablement of auto-renewal.
+
+crates:
+  - name: pallet-broker
+    bump: patch
