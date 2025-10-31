@@ -169,10 +169,19 @@ impl EthRpcServer for EthRpcServerImpl {
 		transaction: GenericTransaction,
 		block: Option<BlockNumberOrTagOrHash>,
 	) -> RpcResult<Bytes> {
-		// TODO: check if this needs timestamp 
-		let hash = self.client.block_hash_for_tag(block.unwrap_or_default()).await?;
+		let block = block.unwrap_or_default();
+		let timestamp_override = match block {
+			BlockNumberOrTagOrHash::BlockTag(BlockTag::Pending) => {
+				SystemTime::now()
+					.duration_since(UNIX_EPOCH)
+					.ok()
+					.map(|dur| dur.as_millis() as u64)
+			}
+			_ => None,
+		};
+		let hash = self.client.block_hash_for_tag(block).await?;
 		let runtime_api = self.client.runtime_api(hash);
-		let dry_run = runtime_api.dry_run(transaction, None).await?;
+		let dry_run = runtime_api.dry_run(transaction, timestamp_override).await?;
 		Ok(dry_run.data.into())
 	}
 
