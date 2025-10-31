@@ -15,6 +15,8 @@
 // limitations under the License.
 
 // Ensure we're `no_std` when compiling for Wasm.
+
+//! Precompiles for pallet-conviction-voting
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
