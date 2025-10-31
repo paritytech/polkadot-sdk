@@ -313,9 +313,9 @@ pub trait EthExtra {
 			InvalidTransaction::Call
 		})?;
 
-		log::debug!(target: LOG_TARGET, "Decoded Ethereum transaction with signer: {signer_addr:?} nonce: {nonce:?}");
+		log::trace!(target: LOG_TARGET, "Decoded Ethereum transaction with signer: {signer_addr:?} nonce: {nonce:?}");
 		let call_info =
-			create_call::<Self::Config>(tx, Some((encoded_len as u32, payload.to_vec())))?;
+			create_call::<Self::Config>(tx, Some((encoded_len as u32, payload.to_vec())), true)?;
 		let storage_credit = <Self::Config as Config>::Currency::withdraw(
 					&signer,
 					call_info.storage_deposit,
@@ -335,12 +335,18 @@ pub trait EthExtra {
 
 		log::debug!(target: LOG_TARGET, "\
 			Created checked Ethereum transaction with: \
+			from={signer_addr:?} \
+			eth_gas={} \
+			encoded_len={encoded_len} \
+			tx_fee={:?} \
+			storage_deposit={:?} \
 			weight_limit={} \
-			additional_storage_deposit_held={:?} \
-			nonce={nonce:?}
+			nonce={nonce:?}\
 			",
-			call_info.weight_limit,
+			call_info.gas,
+			call_info.tx_fee,
 			call_info.storage_deposit,
+			call_info.weight_limit,
 		);
 
 		// We can't calculate a tip because it needs to be based on the actual gas used which we
