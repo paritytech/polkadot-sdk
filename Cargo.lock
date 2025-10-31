@@ -4359,7 +4359,6 @@ dependencies = [
  "ip_network",
  "log",
  "num-traits",
- "parachains-common",
  "parity-scale-codec",
  "prost 0.12.6",
  "prost-build",
@@ -4718,6 +4717,7 @@ dependencies = [
 name = "cumulus-pallet-parachain-system"
 version = "0.7.0"
 dependencies = [
+ "array-bytes 6.2.2",
  "assert_matches",
  "bytes",
  "cumulus-pallet-parachain-system-proc-macro",
@@ -7182,6 +7182,7 @@ dependencies = [
  "sp-externalities 0.25.0",
  "sp-io",
  "sp-runtime",
+ "sp-tracing 16.0.0",
  "sp-version",
  "sp-weights",
  "substrate-test-runtime-client",
@@ -14385,6 +14386,7 @@ dependencies = [
  "jsonrpsee",
  "log",
  "parachain-template-runtime",
+ "parity-scale-codec",
  "polkadot-sdk",
  "serde",
  "substrate-prometheus-endpoint",
