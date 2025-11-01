@@ -25,6 +25,7 @@ extern crate alloc;
 mod address;
 mod benchmarking;
 mod call_builder;
+mod debug;
 mod exec;
 mod gas;
 mod impl_fungibles;
@@ -35,9 +36,11 @@ mod storage;
 mod tests;
 mod transient_storage;
 mod vm;
+mod weightinfo_extension;
 
 pub mod evm;
 pub mod migrations;
+pub mod mock;
 pub mod precompiles;
 pub mod test_utils;
 pub mod tracing;
@@ -45,14 +48,18 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		create_call, fees::InfoT as FeeInfo, runtime::SetWeightLimit, CallTracer,
-		GenericTransaction, PrestateTracer, Trace, Tracer, TracerType, TYPE_EIP1559,
+		block_hash::EthereumBlockBuilderIR,
+		block_storage, create_call,
+		fees::{Combinator, InfoT as FeeInfo},
+		runtime::SetWeightLimit,
+		CallTracer, GenericTransaction, PrestateTracer, Trace, Tracer, TracerType, TYPE_EIP1559,
 	},
-	exec::{AccountIdOf, ExecError, Executable, Stack as ExecStack},
+	exec::{AccountIdOf, ExecError, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, AccountType, DeletionQueueManager},
 	tracing::if_tracing,
-	vm::{pvm::extract_code_and_data, CodeInfo, ContractBlob, RuntimeCosts},
+	vm::{pvm::extract_code_and_data, CodeInfo, RuntimeCosts},
+	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
 use codec::{Codec, Decode, Encode};
@@ -87,15 +94,18 @@ pub use crate::{
 	address::{
 		create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper, TestAccountMapper,
 	},
-	exec::{Key, MomentOf, Origin as ExecOrigin},
+	debug::DebugSettings,
+	evm::{block_hash::ReceiptGasInfo, Address as EthAddress, Block as EthBlock, ReceiptInfo},
+	exec::{DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
 	pallet::{genesis, *},
 	storage::{AccountInfo, ContractInfo},
+	vm::ContractBlob,
 };
 pub use codec;
 pub use frame_support::{self, dispatch::DispatchInfo, weights::Weight};
 pub use frame_system::{self, limits::BlockWeights};
 pub use primitives::*;
-pub use sp_core::{H160, H256, U256};
+pub use sp_core::{keccak_256, H160, H256, U256};
 pub use sp_runtime;
 pub use weights::WeightInfo;
 
@@ -214,6 +224,19 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type DepositPerItem: Get<BalanceOf<Self>>;
 
+		/// The amount of balance a caller has to pay for each child trie storage item.
+		///
+		/// Those are the items created by a contract. In Solidity each value is a single
+		/// storage item. This is why we need to set a lower value here than for the main
+		/// trie items. Otherwise the storage deposit is too high.
+		///
+		/// # Note
+		///
+		/// It is safe to change this value on a live chain as all refunds are pro rata.
+		#[pallet::constant]
+		#[pallet::no_default_bounds]
+		type DepositPerChildTrieItem: Get<BalanceOf<Self>>;
+
 		/// The percentage of the storage deposit that should be held for using a code hash.
 		/// Instantiating a contract, protects the code from being removed. In order to prevent
 		/// abuse these actions are protected with a percentage of the code deposit.
@@ -307,6 +330,10 @@ pub mod pallet {
 		///  Default: `0.5`.
 		#[pallet::constant]
 		type MaxEthExtrinsicWeight: Get<FixedU128>;
+
+		/// Allows debug-mode configuration, such as enabling unlimited contract size.
+		#[pallet::constant]
+		type DebugEnabled: Get<bool>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -331,9 +358,10 @@ pub mod pallet {
 
 		parameter_types! {
 			pub const DepositPerItem: Balance = deposit(1, 0);
+			pub const DepositPerChildTrieItem: Balance = deposit(1, 0) / 100;
 			pub const DepositPerByte: Balance = deposit(0, 1);
 			pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
-			pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(1, 2);
+			pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(9, 10);
 		}
 
 		/// A type providing default configurations for this pallet in testing environment.
@@ -373,6 +401,7 @@ pub mod pallet {
 			type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 			type DepositPerByte = DepositPerByte;
 			type DepositPerItem = DepositPerItem;
+			type DepositPerChildTrieItem = DepositPerChildTrieItem;
 			type Time = Self;
 			type UnsafeUnstableInterface = ConstBool<true>;
 			type AllowEVMBytecode = ConstBool<true>;
@@ -386,6 +415,7 @@ pub mod pallet {
 			type FindAuthor = ();
 			type FeeInfo = ();
 			type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
+			type DebugEnabled = ConstBool<false>;
 		}
 	}
 
@@ -405,6 +435,14 @@ pub mod pallet {
 
 		/// Contract deployed by deployer at the specified address.
 		Instantiated { deployer: H160, contract: H160 },
+
+		/// Emitted when an Ethereum transaction reverts.
+		///
+		/// Ethereum transactions always complete successfully at the extrinsic level,
+		/// as even reverted calls must store their `ReceiptInfo`.
+		/// To distinguish reverted calls from successful ones, this event is emitted
+		/// for failed Ethereum transactions.
+		EthExtrinsicRevert { dispatch_error: DispatchError },
 	}
 
 	#[pallet::error]
@@ -434,7 +472,7 @@ pub mod pallet {
 		DecodingFailed = 0x0A,
 		/// Contract trapped during execution.
 		ContractTrapped = 0x0B,
-		/// Event body or storage item exceeds [`limits::PAYLOAD_BYTES`].
+		/// Event body or storage item exceeds [`limits::STORAGE_BYTES`].
 		ValueTooLarge = 0x0C,
 		/// Termination of a contract is not allowed while the contract is already
 		/// on the call stack. Can be triggered by `seal_terminate`.
@@ -526,6 +564,10 @@ pub mod pallet {
 		///
 		/// This happens if the passed `gas` inside the ethereum transaction is too low.
 		TxFeeOverdraw = 0x35,
+
+		/// Benchmarking only error.
+		#[cfg(feature = "runtime-benchmarks")]
+		BenchmarkingError = 0xFF,
 	}
 
 	/// A reason for the pallet revive placing a hold on funds.
@@ -596,6 +638,54 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type OriginalAccount<T: Config> = StorageMap<_, Identity, H160, AccountId32>;
 
+	/// The current Ethereum block that is stored in the `on_finalize` method.
+	///
+	/// # Note
+	///
+	/// This could be further optimized into the future to store only the minimum
+	/// information needed to reconstruct the Ethereum block at the RPC level.
+	///
+	/// Since the block is convenient to have around, and the extra details are capped
+	/// by a few hashes and the vector of transaction hashes, we store the block here.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub(crate) type EthereumBlock<T> = StorageValue<_, EthBlock, ValueQuery>;
+
+	/// Mapping for block number and hashes.
+	///
+	/// The maximum number of elements stored is capped by the block hash count `BLOCK_HASH_COUNT`.
+	#[pallet::storage]
+	pub(crate) type BlockHash<T: Config> = StorageMap<_, Identity, U256, H256, ValueQuery>;
+
+	/// The details needed to reconstruct the receipt info offchain.
+	///
+	/// This contains valuable information about the gas used by the transaction.
+	///
+	/// NOTE: The item is unbound and should therefore never be read on chain.
+	/// It could otherwise inflate the PoV size of a block.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub(crate) type ReceiptInfoData<T: Config> = StorageValue<_, Vec<ReceiptGasInfo>, ValueQuery>;
+
+	/// Incremental ethereum block builder.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub(crate) type EthBlockBuilderIR<T: Config> =
+		StorageValue<_, EthereumBlockBuilderIR, ValueQuery>;
+
+	/// The first transaction and receipt of the ethereum block.
+	///
+	/// These values are moved out of the `EthBlockBuilderIR` to avoid serializing and
+	/// deserializing them on every transaction. Instead, they are loaded when needed.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub(crate) type EthBlockBuilderFirstValues<T: Config> =
+		StorageValue<_, Option<(Vec<u8>, Vec<u8>)>, ValueQuery>;
+
+	/// Debugging settings that can be configured when DebugEnabled config is true.
+	#[pallet::storage]
+	pub(crate) type DebugSettingsOf<T: Config> = StorageValue<_, DebugSettings, ValueQuery>;
+
 	pub mod genesis {
 		use super::*;
 		use crate::evm::Bytes32;
@@ -637,6 +727,10 @@ pub mod pallet {
 		/// Account entries (both EOAs and contracts)
 		#[serde(default, skip_serializing_if = "Vec::is_empty")]
 		pub accounts: Vec<genesis::Account<T>>,
+
+		/// Optional debugging settings applied at genesis.
+		#[serde(default, skip_serializing_if = "Option::is_none")]
+		pub debug_settings: Option<DebugSettings>,
 	}
 
 	#[pallet::genesis_build]
@@ -662,6 +756,10 @@ pub mod pallet {
 
 			for genesis::Account { address, balance, nonce, contract_data } in &self.accounts {
 				let account_id = T::AddressMapper::to_account_id(address);
+
+				if !System::<T>::account_exists(&account_id) {
+					let _ = T::Currency::mint_into(&account_id, T::Currency::minimum_balance());
+				}
 
 				frame_system::Account::<T>::mutate(&account_id, |info| {
 					info.nonce = (*nonce).into();
@@ -717,21 +815,51 @@ pub mod pallet {
 					log::error!(target: LOG_TARGET, "Failed to set EVM balance for {address:?}: {err:?}");
 				});
 			}
+
+			// Build genesis block
+			block_storage::on_finalize_build_eth_block::<T>(
+				H160::zero(),
+				U256::zero(),
+				Pallet::<T>::evm_base_fee(),
+				Pallet::<T>::evm_block_gas_limit(),
+				U256::zero(),
+			);
+
+			// Set debug settings.
+			if let Some(settings) = self.debug_settings.as_ref() {
+				settings.write_to_storage::<T>()
+			}
 		}
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_block: BlockNumberFor<T>) -> Weight {
-			// Warm up the pallet account.
-			System::<T>::account_exists(&Pallet::<T>::account_id());
-			return T::DbWeight::get().reads(1)
-		}
-
 		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
 			let mut meter = WeightMeter::with_limit(limit);
 			ContractInfo::<T>::process_deletion_queue_batch(&mut meter);
 			meter.consumed()
+		}
+
+		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
+			// Kill related ethereum block storage items.
+			block_storage::on_initialize::<T>();
+
+			// Warm up the pallet account.
+			System::<T>::account_exists(&Pallet::<T>::account_id());
+			// Account for the fixed part of the costs incurred in `on_finalize`.
+			<T as Config>::WeightInfo::on_finalize_block_fixed()
+		}
+
+		fn on_finalize(block_number: BlockNumberFor<T>) {
+			// Build the ethereum block and place it in storage.
+			block_storage::on_finalize_build_eth_block::<T>(
+				Self::block_author(),
+				block_number.into(),
+				Self::evm_base_fee(),
+				Self::evm_block_gas_limit(),
+				// Eth uses timestamps in seconds
+				(T::Time::now() / 1000u32.into()).into(),
+			);
 		}
 
 		fn integrity_test() {
@@ -740,19 +868,119 @@ pub mod pallet {
 			T::FeeInfo::integrity_test();
 
 			// The memory available in the block building runtime
-			let max_runtime_mem: u32 = T::RuntimeMemory::get();
+			let max_runtime_mem: u64 = T::RuntimeMemory::get().into();
 
 			// We only allow 50% of the runtime memory to be utilized by the contracts call
 			// stack, keeping the rest for other facilities, such as PoV, etc.
-			const TOTAL_MEMORY_DEVIDER: u32 = 2;
+			const TOTAL_MEMORY_DEVIDER: u64 = 2;
+
+			// Validators are configured to be able to use more memory than block builders. This is
+			// because in addition to `max_runtime_mem` they need to hold additional data in
+			// memory: PoV in multiple copies (1x encoded + 2x decoded) and all storage which
+			// includes emitted events. The assumption is that storage/events size
+			// can be a maximum of half of the validator runtime memory - max_runtime_mem.
+			let max_block_weight = T::BlockWeights::get()
+				.get(DispatchClass::Normal)
+				.max_total
+				.unwrap_or_else(|| T::BlockWeights::get().max_block);
+			let max_key_size: u64 =
+				Key::try_from_var(alloc::vec![0u8; limits::STORAGE_KEY_BYTES as usize])
+					.expect("Key of maximal size shall be created")
+					.hash()
+					.len()
+					.try_into()
+					.unwrap();
+
+			let max_immutable_key_size: u64 = T::AccountId::max_encoded_len().try_into().unwrap();
+			let max_immutable_size: u64 = max_block_weight
+				.checked_div_per_component(&<RuntimeCosts as gas::Token<T>>::weight(
+					&RuntimeCosts::SetImmutableData(limits::IMMUTABLE_BYTES),
+				))
+				.unwrap()
+				.saturating_mul(
+					u64::from(limits::IMMUTABLE_BYTES)
+						.saturating_add(max_immutable_key_size)
+						.into(),
+				);
+
+			let max_pvf_mem: u64 = T::PVFMemory::get().into();
+			let storage_size_limit = max_pvf_mem.saturating_sub(max_runtime_mem) / 2;
+
+			// We can use storage to store events using the available block ref_time with the
+			// `deposit_event` host function. The overhead of stored events, which is around 100B,
+			// is not taken into account to simplify calculations, as it does not change much.
+			let max_events_size = max_block_weight
+				.checked_div_per_component(
+					&(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::DepositEvent {
+						num_topic: 0,
+						len: limits::EVENT_BYTES,
+					})
+					.saturating_add(<RuntimeCosts as gas::Token<T>>::weight(
+						&RuntimeCosts::HostFn,
+					))),
+				)
+				.unwrap()
+				.saturating_mul(limits::EVENT_BYTES.into());
+
+			assert!(
+				max_events_size < storage_size_limit,
+				"Maximal events size {} exceeds the events limit {}",
+				max_events_size,
+				storage_size_limit
+			);
+
+			// The incremental block builder uses 3 x maximum entry size for receipts and
+			// for transactions. Transactions are bounded to `MAX_TRANSACTION_PAYLOAD_SIZE`.
+			//
+			// To determine the maximum size of the receipts, we know the following:
+			// - (I) first receipt is stored into pallet storage and not given to the hasher until
+			//   finalization.
+			// - (II) the hasher will not consume more memory than the receipts we are giving it.
+			// - (III) the hasher is capped by 3 x maximum entry for 3 or more transactions.
+			//
+			// # Case 1. One transaction with maximum receipts
+			//
+			// The worst case scenario for having one single transaction is for the transaction
+			// to emit the maximum receipt size (ie `max_events_size`). In this case,
+			// the maximum storage (and memory) consumed is bounded by `max_events_size` (II). The
+			// receipt is stored in pallet storage, and loaded from storage in the
+			// `on_finalize` hook (I).
+			//
+			// # Case 2. Two transactions
+			//
+			// The sum of the receipt size of both transactions cannot exceed `max_events_size`,
+			// otherwise one transaction will be reverted. From (II), the bytes utilized
+			// by the builder are capped to `max_events_size`.
+			//
+			// # Case 3. Three or more transactions
+			//
+			// Similar to the above case, the sum of all receipt size is bounded to
+			// `max_events_size`. Therefore, the bytes are capped to `max_events_size`.
+			//
+			// On average, a transaction could emit `max_events_size / num_tx`. The would
+			// consume `max_events_size / num_tx * 3` bytes, which is lower than
+			// `max_events_size` for more than 3 transactions.
+			//
+			// In practice, the builder will consume even lower amounts considering
+			// it is unlikely for a transaction to utilize all the weight of the block for events.
+			let max_eth_block_builder_bytes =
+				block_storage::block_builder_bytes_usage(max_events_size.try_into().unwrap());
+
+			log::debug!(
+				target: LOG_TARGET,
+				"Integrity check: max_eth_block_builder_bytes={} KB using max_events_size={} KB",
+				max_eth_block_builder_bytes / 1024,
+				max_events_size / 1024,
+			);
 
 			// Check that the configured memory limits fit into runtime memory.
 			//
 			// Dynamic allocations are not available, yet. Hence they are not taken into
 			// consideration here.
-			let memory_left = i64::from(max_runtime_mem)
+			let memory_left = i128::from(max_runtime_mem)
 				.saturating_div(TOTAL_MEMORY_DEVIDER.into())
-				.saturating_sub(limits::MEMORY_REQUIRED.into());
+				.saturating_sub(limits::MEMORY_REQUIRED.into())
+				.saturating_sub(max_eth_block_builder_bytes.into());
 
 			log::debug!(target: LOG_TARGET, "Integrity check: memory_left={} KB", memory_left / 1024);
 
@@ -762,74 +990,24 @@ pub mod pallet {
 				memory_left.saturating_mul(TOTAL_MEMORY_DEVIDER.into()).abs() / 1024
 			);
 
-			// Validators are configured to be able to use more memory than block builders. This is
-			// because in addition to `max_runtime_mem` they need to hold additional data in
-			// memory: PoV in multiple copies (1x encoded + 2x decoded) and all storage which
-			// includes emitted events. The assumption is that storage/events size
-			// can be a maximum of half of the validator runtime memory - max_runtime_mem.
-			let max_block_ref_time = T::BlockWeights::get()
-				.get(DispatchClass::Normal)
-				.max_total
-				.unwrap_or_else(|| T::BlockWeights::get().max_block)
-				.ref_time();
-			let max_payload_size = limits::PAYLOAD_BYTES;
-			let max_key_size =
-				Key::try_from_var(alloc::vec![0u8; limits::STORAGE_KEY_BYTES as usize])
-					.expect("Key of maximal size shall be created")
-					.hash()
-					.len() as u32;
-
-			let max_immutable_key_size = T::AccountId::max_encoded_len() as u32;
-			let max_immutable_size: u32 = ((max_block_ref_time /
-				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetImmutableData(
-					limits::IMMUTABLE_BYTES,
-				))
-				.ref_time()))
-			.saturating_mul(limits::IMMUTABLE_BYTES.saturating_add(max_immutable_key_size) as u64))
-			.try_into()
-			.expect("Immutable data size too big");
-
 			// We can use storage to store items using the available block ref_time with the
 			// `set_storage` host function.
-			let max_storage_size: u32 = ((max_block_ref_time /
-				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetStorage {
-					new_bytes: max_payload_size,
-					old_bytes: 0,
-				})
-				.ref_time()))
-			.saturating_mul(max_payload_size.saturating_add(max_key_size) as u64))
-			.saturating_add(max_immutable_size.into())
-			.try_into()
-			.expect("Storage size too big");
-
-			let max_pvf_mem: u32 = T::PVFMemory::get();
-			let storage_size_limit = max_pvf_mem.saturating_sub(max_runtime_mem) / 2;
+			let max_storage_size = max_block_weight
+				.checked_div_per_component(
+					&<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetStorage {
+						new_bytes: limits::STORAGE_BYTES,
+						old_bytes: 0,
+					})
+					.saturating_mul(u64::from(limits::STORAGE_BYTES).saturating_add(max_key_size)),
+				)
+				.unwrap()
+				.saturating_add(max_immutable_size.into())
+				.saturating_add(max_eth_block_builder_bytes.into());
 
 			assert!(
 				max_storage_size < storage_size_limit,
 				"Maximal storage size {} exceeds the storage limit {}",
 				max_storage_size,
-				storage_size_limit
-			);
-
-			// We can use storage to store events using the available block ref_time with the
-			// `deposit_event` host function. The overhead of stored events, which is around 100B,
-			// is not taken into account to simplify calculations, as it does not change much.
-			let max_events_size: u32 = ((max_block_ref_time /
-				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::DepositEvent {
-					num_topic: 0,
-					len: max_payload_size,
-				})
-				.saturating_add(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::HostFn))
-				.ref_time()))
-			.saturating_mul(max_payload_size as u64))
-			.try_into()
-			.expect("Events size too big");
-
-			assert!(
-				max_events_size < storage_size_limit,
-				"Maximal events size {} exceeds the events limit {}",
-				max_events_size,
 				storage_size_limit
 			);
 		}
@@ -842,9 +1020,6 @@ pub mod pallet {
 		/// # Parameters
 		///
 		/// * `payload`: The encoded [`crate::evm::TransactionSigned`].
-		/// * `gas_limit`: The gas limit enforced during contract execution.
-		/// * `storage_deposit_limit`: The maximum balance that can be charged to the caller for
-		///   storage usage.
 		///
 		/// # Note
 		///
@@ -885,6 +1060,7 @@ pub mod pallet {
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			data: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
+			Self::ensure_non_contract_if_signed(&origin)?;
 			let mut output = Self::bare_call(
 				origin,
 				dest,
@@ -921,6 +1097,7 @@ pub mod pallet {
 			data: Vec<u8>,
 			salt: Option<[u8; 32]>,
 		) -> DispatchResultWithPostInfo {
+			Self::ensure_non_contract_if_signed(&origin)?;
 			let data_len = data.len() as u32;
 			let mut output = Self::bare_instantiate(
 				origin,
@@ -985,6 +1162,7 @@ pub mod pallet {
 			data: Vec<u8>,
 			salt: Option<[u8; 32]>,
 		) -> DispatchResultWithPostInfo {
+			Self::ensure_non_contract_if_signed(&origin)?;
 			let code_len = code.len() as u32;
 			let data_len = data.len() as u32;
 			let mut output = Self::bare_instantiate(
@@ -1012,6 +1190,20 @@ pub mod pallet {
 		/// Same as [`Self::instantiate_with_code`], but intended to be dispatched **only**
 		/// by an EVM transaction through the EVM compatibility layer.
 		///
+		/// # Parameters
+		///
+		/// * `value`: The balance to transfer from the `origin` to the newly created contract.
+		/// * `gas_limit`: The gas limit enforced when executing the constructor.
+		/// * `storage_deposit_limit`: The maximum amount of balance that can be charged/reserved
+		///   from the caller to pay for the storage consumed.
+		/// * `code`: The contract code to deploy in raw bytes.
+		/// * `data`: The input data to pass to the contract constructor.
+		/// * `salt`: Used for the address derivation. If `Some` is supplied then `CREATE2`
+		/// 	semantics are used. If `None` then `CRATE1` is used.
+		/// * `transaction_encoded`: The RLP encoding of the signed Ethereum transaction,
+		///   represented as [crate::evm::TransactionSigned], provided by the Ethereum wallet. This
+		///   is used for building the Ethereum transaction root.
+		///
 		/// Calling this dispatchable ensures that the origin's nonce is bumped only once,
 		/// via the `CheckNonce` transaction extension. In contrast, [`Self::instantiate_with_code`]
 		/// also bumps the nonce after contract instantiation, since it may be invoked multiple
@@ -1019,108 +1211,127 @@ pub mod pallet {
 		#[pallet::call_index(10)]
 		#[pallet::weight(
 			<T as Config>::WeightInfo::eth_instantiate_with_code(code.len() as u32, data.len() as u32, Pallet::<T>::has_dust(*value).into())
+			.saturating_add(T::WeightInfo::on_finalize_block_per_tx(transaction_encoded.len() as u32))
 			.saturating_add(*gas_limit)
 		)]
 		pub fn eth_instantiate_with_code(
 			origin: OriginFor<T>,
 			value: U256,
 			gas_limit: Weight,
-			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			code: Vec<u8>,
 			data: Vec<u8>,
+			transaction_encoded: Vec<u8>,
 			effective_gas_price: U256,
 			encoded_len: u32,
 		) -> DispatchResultWithPostInfo {
 			let origin = Self::ensure_eth_origin(origin)?;
-			let info = T::FeeInfo::dispatch_info(
-				&Call::<T>::eth_instantiate_with_code {
-					value,
-					gas_limit,
-					storage_deposit_limit,
-					code: code.clone(),
-					data: data.clone(),
-					effective_gas_price,
-					encoded_len,
-				}
-				.into(),
-			);
-			let code_len = code.len() as u32;
-			let data_len = data.len() as u32;
-			let mut output = Self::bare_instantiate(
-				origin,
+			Self::ensure_non_contract_if_signed(&origin)?;
+			let mut call = Call::<T>::eth_instantiate_with_code {
 				value,
 				gas_limit,
-				storage_deposit_limit,
-				Code::Upload(code),
-				data,
-				None,
-				ExecConfig::new_eth_tx(effective_gas_price),
-			);
-
-			if let Ok(retval) = &output.result {
-				if retval.result.did_revert() {
-					output.result = Err(<Error<T>>::ContractReverted.into());
-				}
+				code: code.clone(),
+				data: data.clone(),
+				transaction_encoded: transaction_encoded.clone(),
+				effective_gas_price,
+				encoded_len,
 			}
-			let result = dispatch_result(
-				output.result.map(|result| result.result),
-				output.gas_consumed,
-				<T as Config>::WeightInfo::eth_instantiate_with_code(
-					code_len,
-					data_len,
-					Pallet::<T>::has_dust(value).into(),
-				),
-			);
-			T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result)
+			.into();
+			let info = T::FeeInfo::dispatch_info(&call);
+			let base_info = T::FeeInfo::base_dispatch_info(&mut call);
+			drop(call);
+
+			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
+				let mut output = Self::bare_instantiate(
+					origin,
+					value,
+					gas_limit,
+					BalanceOf::<T>::max_value(),
+					Code::Upload(code),
+					data,
+					None,
+					ExecConfig::new_eth_tx(
+						effective_gas_price,
+						encoded_len,
+						base_info.total_weight(),
+					),
+				);
+
+				if let Ok(retval) = &output.result {
+					if retval.result.did_revert() {
+						output.result = Err(<Error<T>>::ContractReverted.into());
+					}
+				}
+
+				let result = dispatch_result(
+					output.result.map(|result| result.result),
+					output.gas_consumed,
+					base_info.call_weight,
+				);
+				let result = T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result);
+				(output.gas_consumed, result)
+			})
 		}
 
 		/// Same as [`Self::call`], but intended to be dispatched **only**
 		/// by an EVM transaction through the EVM compatibility layer.
 		#[pallet::call_index(11)]
-		#[pallet::weight(<T as Config>::WeightInfo::eth_call(Pallet::<T>::has_dust(*value).into()).saturating_add(*gas_limit))]
+		#[pallet::weight(
+		    T::WeightInfo::eth_call(Pallet::<T>::has_dust(*value).into())
+				.saturating_add(*gas_limit)
+				.saturating_add(T::WeightInfo::on_finalize_block_per_tx(transaction_encoded.len() as u32))
+		)]
 		pub fn eth_call(
 			origin: OriginFor<T>,
 			dest: H160,
 			value: U256,
 			gas_limit: Weight,
-			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			data: Vec<u8>,
+			transaction_encoded: Vec<u8>,
 			effective_gas_price: U256,
 			encoded_len: u32,
 		) -> DispatchResultWithPostInfo {
 			let origin = Self::ensure_eth_origin(origin)?;
-			let info = T::FeeInfo::dispatch_info(
-				&Call::<T>::eth_call {
-					dest,
-					value,
-					gas_limit,
-					storage_deposit_limit,
-					data: data.clone(),
-					effective_gas_price,
-					encoded_len,
-				}
-				.into(),
-			);
-			let mut output = Self::bare_call(
-				origin,
+			Self::ensure_non_contract_if_signed(&origin)?;
+			let mut call = Call::<T>::eth_call {
 				dest,
 				value,
 				gas_limit,
-				storage_deposit_limit,
-				data,
-				ExecConfig::new_eth_tx(effective_gas_price),
-			);
-			if let Ok(return_value) = &output.result {
-				if return_value.did_revert() {
-					output.result = Err(<Error<T>>::ContractReverted.into());
-				}
+				data: data.clone(),
+				transaction_encoded: transaction_encoded.clone(),
+				effective_gas_price,
+				encoded_len,
 			}
-			let result = dispatch_result(
-				output.result,
-				output.gas_consumed,
-				<T as Config>::WeightInfo::eth_call(Pallet::<T>::has_dust(value).into()),
-			);
-			T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result)
+			.into();
+			let info = T::FeeInfo::dispatch_info(&call);
+			let base_info = T::FeeInfo::base_dispatch_info(&mut call);
+			drop(call);
+
+			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
+				let mut output = Self::bare_call(
+					origin,
+					dest,
+					value,
+					gas_limit,
+					BalanceOf::<T>::max_value(),
+					data,
+					ExecConfig::new_eth_tx(
+						effective_gas_price,
+						encoded_len,
+						base_info.total_weight(),
+					),
+				);
+
+				if let Ok(return_value) = &output.result {
+					if return_value.did_revert() {
+						output.result = Err(<Error<T>>::ContractReverted.into());
+					}
+				}
+
+				let result =
+					dispatch_result(output.result, output.gas_consumed, base_info.call_weight);
+				let result = T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result);
+				(output.gas_consumed, result)
+			})
 		}
 
 		/// Upload new `code` without instantiating a contract from it.
@@ -1144,6 +1355,7 @@ pub mod pallet {
 			code: Vec<u8>,
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 		) -> DispatchResult {
+			Self::ensure_non_contract_if_signed(&origin)?;
 			Self::bare_upload_code(origin, code, storage_deposit_limit).map(|_| ())
 		}
 
@@ -1205,6 +1417,7 @@ pub mod pallet {
 		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config>::WeightInfo::map_account())]
 		pub fn map_account(origin: OriginFor<T>) -> DispatchResult {
+			Self::ensure_non_contract_if_signed(&origin)?;
 			let origin = ensure_signed(origin)?;
 			T::AddressMapper::map(&origin)
 		}
@@ -1237,6 +1450,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResultWithPostInfo {
+			Self::ensure_non_contract_if_signed(&origin)?;
 			let origin = ensure_signed(origin)?;
 			let unmapped_account =
 				T::AddressMapper::to_fallback_account_id(&T::AddressMapper::to_address(&origin));
@@ -1275,11 +1489,8 @@ impl<T: Config> Pallet<T> {
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
 		data: Vec<u8>,
-		exec_config: ExecConfig,
+		exec_config: ExecConfig<T>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
-		if let Err(contract_result) = Self::ensure_non_contract_if_signed(&origin) {
-			return contract_result;
-		}
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
 
@@ -1334,12 +1545,8 @@ impl<T: Config> Pallet<T> {
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
-		exec_config: ExecConfig,
+		exec_config: ExecConfig<T>,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
-		// Enforce EIP-3607 for top-level signed origins: deny signed contract addresses.
-		if let Err(contract_result) = Self::ensure_non_contract_if_signed(&origin) {
-			return contract_result;
-		}
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
 		let try_instantiate = || {
@@ -1414,7 +1621,7 @@ impl<T: Config> Pallet<T> {
 		let origin = T::AddressMapper::to_account_id(&tx.from.unwrap_or_default());
 		Self::prepare_dry_run(&origin);
 
-		let base_fee = Self::evm_gas_price();
+		let base_fee = Self::evm_base_fee();
 		let effective_gas_price = tx.effective_gas_price(base_fee).unwrap_or(base_fee);
 
 		if effective_gas_price < base_fee {
@@ -1422,8 +1629,6 @@ impl<T: Config> Pallet<T> {
 				"Effective gas price {effective_gas_price:?} lower than base fee {base_fee:?}"
 			)))?;
 		}
-
-		let exec_config = ExecConfig::new_eth_tx(effective_gas_price);
 
 		if tx.nonce.is_none() {
 			tx.nonce = Some(<System<T>>::account_nonce(&origin).into());
@@ -1457,12 +1662,23 @@ impl<T: Config> Pallet<T> {
 
 		// we need to parse the weight from the transaction so that it is run
 		// using the exact weight limit passed by the eth wallet
-		let mut call_info = create_call::<T>(tx, None)
+		let mut call_info = create_call::<T>(tx, None, false)
 			.map_err(|err| EthTransactError::Message(format!("Invalid call: {err:?}")))?;
 
 		// the dry-run might leave out certain fields
 		// in those cases we skip the check that the caller has enough balance
 		// to pay for the fees
+		let exec_config = {
+			let base_info = T::FeeInfo::base_dispatch_info(&mut call_info.call);
+			ExecConfig::new_eth_tx(
+				effective_gas_price,
+				call_info.encoded_len,
+				base_info.total_weight(),
+			)
+			.with_dry_run()
+		};
+
+		// emulate transaction behavior
 		let fees = call_info.tx_fee.saturating_add(call_info.storage_deposit);
 		if let Some(from) = &from {
 			let fees = if gas.is_some() { fees } else { Zero::zero() };
@@ -1620,10 +1836,19 @@ impl<T: Config> Pallet<T> {
 
 		log::debug!(target: LOG_TARGET, "\
 			dry_run_eth_transact: \
-			weight_limit={:?}: \
-			eth_gas={eth_gas:?})\
+			weight_limit={} \
+			total_weight={total_weight} \
+			max_weight={max_weight} \
+			weight_left={} \
+			eth_gas={eth_gas}) \
+			encoded_len={} \
+			tx_fee={transaction_fee:?} \
+			storage_deposit={:?}\
 			",
 			dry_run.gas_required,
+			max_weight.saturating_sub(total_weight),
+			call_info.encoded_len,
+			dry_run.storage_deposit,
 
 		);
 		dry_run.eth_gas = eth_gas;
@@ -1636,6 +1861,31 @@ impl<T: Config> Pallet<T> {
 	pub fn evm_balance(address: &H160) -> U256 {
 		let balance = AccountInfo::<T>::balance((*address).into());
 		Self::convert_native_to_evm(balance)
+	}
+
+	/// Get the current Ethereum block from storage.
+	pub fn eth_block() -> EthBlock {
+		EthereumBlock::<T>::get()
+	}
+
+	/// Convert the Ethereum block number into the Ethereum block hash.
+	///
+	/// # Note
+	///
+	/// The Ethereum block number is identical to the Substrate block number.
+	/// If the provided block number is outside of the pruning None is returned.
+	pub fn eth_block_hash_from_number(number: U256) -> Option<H256> {
+		let hash = <BlockHash<T>>::get(number);
+		if hash == H256::zero() {
+			None
+		} else {
+			Some(hash)
+		}
+	}
+
+	/// The details needed to reconstruct the receipt information offchain.
+	pub fn eth_receipt_data() -> Vec<ReceiptGasInfo> {
+		ReceiptInfoData::<T>::get()
 	}
 
 	/// Set the EVM balance of an account.
@@ -1709,7 +1959,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Get the base gas price.
-	pub fn evm_gas_price() -> U256 {
+	pub fn evm_base_fee() -> U256 {
 		let multiplier = T::FeeInfo::next_fee_multiplier();
 		multiplier.saturating_mul_int::<u128>(T::NativeToEthRatio::get().into()).into()
 	}
@@ -1848,12 +2098,45 @@ impl<T: Config> Pallet<T> {
 			.map_err(ContractAccessError::StorageWriteFailed)
 	}
 
+	/// Pallet account, used to hold funds for contracts upload deposit.
+	pub fn account_id() -> T::AccountId {
+		use frame_support::PalletId;
+		use sp_runtime::traits::AccountIdConversion;
+		PalletId(*b"py/reviv").into_account_truncating()
+	}
+
+	/// The address of the validator that produced the current block.
+	pub fn block_author() -> H160 {
+		use frame_support::traits::FindAuthor;
+
+		let digest = <frame_system::Pallet<T>>::digest();
+		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
+
+		T::FindAuthor::find_author(pre_runtime_digests)
+			.map(|account_id| T::AddressMapper::to_address(&account_id))
+			.unwrap_or_default()
+	}
+
+	/// Returns the code at `address`.
+	///
+	/// This takes pre-compiles into account.
+	pub fn code(address: &H160) -> Vec<u8> {
+		use precompiles::{All, Precompiles};
+		if let Some(code) = <All<T>>::code(address.as_fixed_bytes()) {
+			return code.into()
+		}
+		AccountInfo::<T>::load_contract(&address)
+			.and_then(|contract| <PristineCode<T>>::get(contract.code_hash))
+			.map(|code| code.into())
+			.unwrap_or_default()
+	}
+
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
-	fn try_upload_pvm_code(
+	pub fn try_upload_pvm_code(
 		origin: T::AccountId,
 		code: Vec<u8>,
 		storage_deposit_limit: BalanceOf<T>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
 		let mut module = ContractBlob::from_pvm_code(code, origin)?;
 		let deposit = module.store_code(exec_config, None)?;
@@ -1881,81 +2164,8 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Convert a weight to a gas value.
-	fn evm_gas_from_weight(weight: Weight) -> U256 {
-		T::FeeInfo::weight_to_fee(weight).into()
-	}
-
-	/// Ensure the origin has no code deplyoyed if it is a signed origin.
-	fn ensure_non_contract_if_signed<ReturnValue>(
-		origin: &OriginFor<T>,
-	) -> Result<(), ContractResult<ReturnValue, BalanceOf<T>>> {
-		use crate::exec::is_precompile;
-		let Ok(who) = ensure_signed(origin.clone()) else { return Ok(()) };
-		let address = <T::AddressMapper as AddressMapper<T>>::to_address(&who);
-
-		// EIP_1052: precompile can never be used as EOA.
-		if is_precompile::<T, ContractBlob<T>>(&address) {
-			log::debug!(
-				target: crate::LOG_TARGET,
-				"EIP-3607: reject externally-signed tx from precompile account {:?}",
-				address
-			);
-			return Err(ContractResult {
-				result: Err(DispatchError::BadOrigin),
-				gas_consumed: Weight::default(),
-				gas_required: Weight::default(),
-				storage_deposit: Default::default(),
-			});
-		}
-
-		// Deployed code exists when hash is neither zero (no account) nor EMPTY_CODE_HASH
-		// (account exists but no code).
-		if <AccountInfo<T>>::is_contract(&address) {
-			log::debug!(
-				target: crate::LOG_TARGET,
-				"EIP-3607: reject externally-signed tx from contract account {:?}",
-				address
-			);
-			return Err(ContractResult {
-				result: Err(DispatchError::BadOrigin),
-				gas_consumed: Weight::default(),
-				gas_required: Weight::default(),
-				storage_deposit: Default::default(),
-			});
-		}
-		Ok(())
-	}
-
-	/// Pallet account, used to hold funds for contracts upload deposit.
-	pub fn account_id() -> T::AccountId {
-		use frame_support::PalletId;
-		use sp_runtime::traits::AccountIdConversion;
-		PalletId(*b"py/reviv").into_account_truncating()
-	}
-
-	/// The address of the validator that produced the current block.
-	pub fn block_author() -> Option<H160> {
-		use frame_support::traits::FindAuthor;
-
-		let digest = <frame_system::Pallet<T>>::digest();
-		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
-
-		let account_id = T::FindAuthor::find_author(pre_runtime_digests)?;
-		Some(T::AddressMapper::to_address(&account_id))
-	}
-
-	/// Returns the code at `address`.
-	///
-	/// This takes pre-compiles into account.
-	pub fn code(address: &H160) -> Vec<u8> {
-		use precompiles::{All, Precompiles};
-		if let Some(code) = <All<T>>::code(address.as_fixed_bytes()) {
-			return code.into()
-		}
-		AccountInfo::<T>::load_contract(&address)
-			.and_then(|contract| <PristineCode<T>>::get(contract.code_hash))
-			.map(|code| code.into())
-			.unwrap_or_default()
+	pub fn evm_gas_from_weight(weight: Weight) -> U256 {
+		T::FeeInfo::weight_to_fee(&weight, Combinator::Max).into()
 	}
 
 	/// Transfer a deposit from some account to another.
@@ -1967,10 +2177,10 @@ impl<T: Config> Pallet<T> {
 		from: &T::AccountId,
 		to: &T::AccountId,
 		amount: BalanceOf<T>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> DispatchResult {
 		use frame_support::traits::tokens::{Fortitude, Precision, Preservation};
-		match (exec_config.collect_deposit_from_hold, hold_reason) {
+		match (exec_config.collect_deposit_from_hold.is_some(), hold_reason) {
 			(true, hold_reason) => {
 				T::FeeInfo::withdraw_txfee(amount)
 					.ok_or(())
@@ -2012,13 +2222,13 @@ impl<T: Config> Pallet<T> {
 		from: &T::AccountId,
 		to: &T::AccountId,
 		amount: BalanceOf<T>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> Result<BalanceOf<T>, DispatchError> {
 		use frame_support::traits::{
 			tokens::{Fortitude, Precision, Preservation, Restriction},
 			Imbalance,
 		};
-		if exec_config.collect_deposit_from_hold {
+		if exec_config.collect_deposit_from_hold.is_some() {
 			let amount =
 				T::Currency::release(&hold_reason.into(), from, amount, Precision::BestEffort)
 					.and_then(|amount| {
@@ -2069,7 +2279,10 @@ impl<T: Config> Pallet<T> {
 		<T::Currency as Inspect<AccountIdOf<T>>>::minimum_balance()
 	}
 
-	/// Deposit a pallet contracts event.
+	/// Deposit a pallet revive event.
+	///
+	/// This method will be called by the EVM to deposit events emitted by the contract.
+	/// Therefore all events must be contract emitted events.
 	fn deposit_event(event: Event<T>) {
 		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
 	}
@@ -2079,6 +2292,30 @@ impl<T: Config> Pallet<T> {
 		match <T as Config>::RuntimeOrigin::from(origin).into() {
 			Ok(Origin::EthTransaction(signer)) => Ok(OriginFor::<T>::signed(signer)),
 			_ => Err(BadOrigin.into()),
+		}
+	}
+
+	/// Ensure that the origin is neither a pre-compile nor a contract.
+	///
+	/// This enforces EIP-3607.
+	fn ensure_non_contract_if_signed(origin: &OriginFor<T>) -> DispatchResult {
+		let Some(address) = origin
+			.as_system_ref()
+			.and_then(|o| o.as_signed())
+			.map(<T::AddressMapper as AddressMapper<T>>::to_address)
+		else {
+			return Ok(())
+		};
+		if exec::is_precompile::<T, ContractBlob<T>>(&address) ||
+			<AccountInfo<T>>::is_contract(&address)
+		{
+			log::debug!(
+				target: crate::LOG_TARGET,
+				"EIP-3607: reject tx as pre-compile or account exist at {address:?}",
+			);
+			Err(DispatchError::BadOrigin)
+		} else {
+			Ok(())
 		}
 	}
 }
@@ -2102,6 +2339,21 @@ sp_api::decl_runtime_apis! {
 		Nonce: Codec,
 		BlockNumber: Codec,
 	{
+		/// Returns the current ETH block.
+		///
+		/// This is one block behind the substrate block.
+		fn eth_block() -> EthBlock;
+
+		/// Returns the ETH block hash for the given block number.
+		fn eth_block_hash(number: U256) -> Option<H256>;
+
+		/// The details needed to reconstruct the receipt information offchain.
+		///
+		/// # Note
+		///
+		/// Each entry corresponds to the appropriate Ethereum transaction in the current block.
+		fn eth_receipt_data() -> Vec<ReceiptGasInfo>;
+
 		/// Returns the block gas limit.
 		fn block_gas_limit() -> U256;
 
@@ -2203,7 +2455,7 @@ sp_api::decl_runtime_apis! {
 		fn trace_call(tx: GenericTransaction, config: TracerType) -> Result<Trace, EthTransactError>;
 
 		/// The address of the validator that produced the current block.
-		fn block_author() -> Option<H160>;
+		fn block_author() -> H160;
 
 		/// Get the H160 address associated to this account id
 		fn address(account_id: AccountId) -> H160;
@@ -2240,14 +2492,18 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 	($Runtime: ty, $Revive: ident, $Executive: ty, $EthExtra: ty, $($rest:tt)*) => {
 
 		impl $crate::evm::runtime::SetWeightLimit for RuntimeCall {
-			fn set_weight_limit(&mut self, weight_limit: Weight) {
+			fn set_weight_limit(&mut self, weight_limit: Weight) -> Weight {
 				use $crate::pallet::Call as ReviveCall;
 				match self {
 					Self::$Revive(
 						ReviveCall::eth_call{ gas_limit, .. } |
 						ReviveCall::eth_instantiate_with_code{ gas_limit, .. }
-					) => *gas_limit = weight_limit,
-					_ => (),
+					) => {
+						let old = *gas_limit;
+						*gas_limit = weight_limit;
+						old
+					},
+					_ => Weight::default(),
 				}
 			}
 		}
@@ -2256,11 +2512,23 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 			$($rest)*
 
 			impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber> for $Runtime {
+				fn eth_block() -> $crate::EthBlock {
+					$crate::Pallet::<Self>::eth_block()
+				}
+
+				fn eth_block_hash(number: $crate::U256) -> Option<$crate::H256> {
+					$crate::Pallet::<Self>::eth_block_hash_from_number(number)
+				}
+
+				fn eth_receipt_data() -> Vec<$crate::ReceiptGasInfo> {
+					$crate::Pallet::<Self>::eth_receipt_data()
+				}
+
 				fn balance(address: $crate::H160) -> $crate::U256 {
 					$crate::Pallet::<Self>::evm_balance(&address)
 				}
 
-				fn block_author() -> Option<$crate::H160> {
+				fn block_author() -> $crate::H160 {
 					$crate::Pallet::<Self>::block_author()
 				}
 
@@ -2269,7 +2537,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				fn gas_price() -> $crate::U256 {
-					$crate::Pallet::<Self>::evm_gas_price()
+					$crate::Pallet::<Self>::evm_base_fee()
 				}
 
 				fn nonce(address: $crate::H160) -> Nonce {
@@ -2314,7 +2582,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						gas_limit.unwrap_or(blockweights.max_block),
 						storage_deposit_limit.unwrap_or(u128::MAX),
 						input_data,
-						$crate::ExecConfig::new_substrate_tx(),
+						$crate::ExecConfig::new_substrate_tx().with_dry_run(),
 					)
 				}
 
@@ -2340,7 +2608,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						code,
 						data,
 						salt,
-						$crate::ExecConfig::new_substrate_tx(),
+						$crate::ExecConfig::new_substrate_tx().with_dry_run(),
 					)
 				}
 
@@ -2423,7 +2691,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					let t = tracer.as_tracing();
 
 					t.watch_address(&tx.from.unwrap_or_default());
-					t.watch_address(&$crate::Pallet::<Self>::block_author().unwrap_or_default());
+					t.watch_address(&$crate::Pallet::<Self>::block_author());
 					let result = trace(t, || Self::eth_transact(tx));
 
 					if let Some(trace) = tracer.collect_trace() {

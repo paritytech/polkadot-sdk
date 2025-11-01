@@ -22,7 +22,6 @@
 pub mod benchmarking;
 #[cfg(test)]
 mod mock;
-pub mod precompiles;
 #[cfg(test)]
 mod tests;
 mod transfer_assets_validation;
@@ -3108,14 +3107,12 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns execution result, events, and any forwarded XCMs to other locations.
 	/// Meant to be used in the `xcm_runtime_apis::dry_run::DryRunApi` runtime API.
-	pub fn dry_run_xcm<Runtime, Router, RuntimeCall: Decode + GetDispatchInfo, XcmConfig>(
+	pub fn dry_run_xcm<Router>(
 		origin_location: VersionedLocation,
-		xcm: VersionedXcm<RuntimeCall>,
-	) -> Result<XcmDryRunEffects<<Runtime as frame_system::Config>::RuntimeEvent>, XcmDryRunApiError>
+		xcm: VersionedXcm<<T as Config>::RuntimeCall>,
+	) -> Result<XcmDryRunEffects<<T as frame_system::Config>::RuntimeEvent>, XcmDryRunApiError>
 	where
-		Runtime: frame_system::Config,
 		Router: InspectMessageQueues,
-		XcmConfig: xcm_executor::Config<RuntimeCall = RuntimeCall>,
 	{
 		let origin_location: Location = origin_location.try_into().map_err(|error| {
 			tracing::error!(
@@ -3125,7 +3122,7 @@ impl<T: Config> Pallet<T> {
 			XcmDryRunApiError::VersionedConversionFailed
 		})?;
 		let xcm_version = xcm.identify_version();
-		let xcm: Xcm<RuntimeCall> = xcm.try_into().map_err(|error| {
+		let xcm: Xcm<<T as Config>::RuntimeCall> = xcm.try_into().map_err(|error| {
 			tracing::error!(
 				target: "xcm::DryRunApi::dry_run_xcm",
 				?error, "Xcm version conversion failed with error"
@@ -3136,9 +3133,9 @@ impl<T: Config> Pallet<T> {
 
 		// To make sure we only record events from current call.
 		Router::clear_messages();
-		frame_system::Pallet::<Runtime>::reset_events();
+		frame_system::Pallet::<T>::reset_events();
 
-		let result = xcm_executor::XcmExecutor::<XcmConfig>::prepare_and_execute(
+		let result = <T as Config>::XcmExecutor::prepare_and_execute(
 			origin_location,
 			xcm,
 			&mut hash,
@@ -3152,8 +3149,8 @@ impl<T: Config> Pallet<T> {
 					?error, "Forwarded xcms version conversion failed with error"
 				);
 			})?;
-		let events: Vec<<Runtime as frame_system::Config>::RuntimeEvent> =
-			frame_system::Pallet::<Runtime>::read_events_no_consensus()
+		let events: Vec<<T as frame_system::Config>::RuntimeEvent> =
+			frame_system::Pallet::<T>::read_events_no_consensus()
 				.map(|record| record.event.clone())
 				.collect();
 		Ok(XcmDryRunEffects { forwarded_xcms, emitted_events: events, execution_result: result })
