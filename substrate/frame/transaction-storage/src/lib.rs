@@ -198,11 +198,6 @@ pub mod pallet {
 					target_number.is_zero() || {
 						// An empty block means no transactions were stored, relying on the fact
 						// below that we store transactions only if they contain chunks.
-						//
-						// Optimization: do not decode transactions; just get their length.
-						// Otherwise, it would look like:
-						// `Transactions::<T>::get(target_number).map(|txs|
-						// TransactionInfo::total_chunks(&txs)).unwrap_or_default()`
 						!Transactions::<T>::contains_key(target_number)
 					}
 				},
