@@ -19,7 +19,7 @@ use crate::IReferenda;
 use codec::Encode;
 use frame_support::weights::Weight;
 use pallet_revive::{
-	precompiles::{alloy::sol_types::SolInterface, H160},
+	precompiles::{alloy::sol_types::{SolInterface, SolValue}, H160},
 	ExecConfig, U256,
 };
 use sp_runtime::AccountId32;
@@ -590,5 +590,187 @@ fn test_referenda_place_decision_deposit_fails_already_has_deposit() {
 		);
 
 		println!("✅ placeDecisionDeposit test passed - correctly failed for duplicate deposit");
+	});
+}
+
+#[test]
+fn test_submission_deposit_returns_correct_amount() {
+	ExtBuilder::default().build().execute_with(|| {
+		let call = IReferenda::IReferendaCalls::submissionDeposit(
+			IReferenda::submissionDepositCall {},
+		);
+		let encoded_call = call.abi_encode();
+		let result = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(ALICE),
+			referenda_precompile_address(),
+			U256::zero(),
+			Weight::MAX,
+			u128::MAX,
+			encoded_call,
+			ExecConfig::new_substrate_tx(),
+		);
+
+		match result.result {
+			Ok(return_value) => {
+				if return_value.did_revert() {
+					panic!("submissionDeposit should not revert");
+				}
+
+				let returned_bytes = &return_value.data;
+				let deposit_amount: u128 = SolValue::abi_decode(returned_bytes)
+					.expect("Should decode u128");
+				
+				// SubmissionDeposit is set to 2 in the mock
+				assert_eq!(deposit_amount, 2, "Submission deposit should be 2");
+				
+				println!("✅ submissionDeposit returned: {}", deposit_amount);
+			},
+			Err(e) => panic!("submissionDeposit call failed: {:?}", e),
+		}
+	});
+}
+
+#[test]
+fn test_decision_deposit_returns_track_amount_for_new_referendum() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Create a referendum using the helper function
+		let referendum_index = ExtBuilder::submit_referendum(ALICE);
+		assert_eq!(referendum_index, 0);
+		
+		// Verify no decision deposit yet
+		let referendum_info = pallet_referenda::ReferendumInfoFor::<Test>::get(referendum_index);
+		if let Some(pallet_referenda::ReferendumInfo::Ongoing(status)) = referendum_info {
+			assert!(status.decision_deposit.is_none(), "Should have no decision deposit initially");
+		}
+
+		// Call decisionDeposit for the referendum
+		let decision_deposit_call = IReferenda::decisionDepositCall {
+			referendumIndex: referendum_index,
+		};
+
+		let call = IReferenda::IReferendaCalls::decisionDeposit(decision_deposit_call);
+		let result = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(ALICE),
+			referenda_precompile_address(),
+			U256::zero(),
+			Weight::MAX,
+			u128::MAX,
+			call.abi_encode(),
+			ExecConfig::new_substrate_tx(),
+		);
+
+		// Verify the call succeeded
+		match result.result {
+			Ok(return_value) => {
+				if return_value.did_revert() {
+					panic!("decisionDeposit should not revert");
+				}
+
+				// Decode the return value (uint128) - ABI encoded
+				let returned_bytes = &return_value.data;
+				let deposit_amount: u128 = SolValue::abi_decode(returned_bytes)
+					.expect("Should decode u128");
+
+				// Track 2 (Signed origin) has decision_deposit: 1
+				// The referendum should be on track 2 since it's submitted with Signed origin
+				assert_eq!(deposit_amount, 1, "Decision deposit should be 1 for track 2");
+
+				println!("✅ decisionDeposit returned: {}", deposit_amount);
+			},
+			Err(e) => panic!("decisionDeposit call failed: {:?}", e),
+		}
+
+		println!("✅ decisionDeposit test passed - returned correct track amount");
+	});
+}
+#[test]
+fn test_decision_deposit_returns_zero_after_deposit_placed() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Create a referendum with decision deposit using the helper function
+		let referendum_index = ExtBuilder::submit_referendum_with_decision_deposit(ALICE, BOB);
+		assert_eq!(referendum_index, 0);
+		
+		// Verify deposit was placed
+		let referendum_info = pallet_referenda::ReferendumInfoFor::<Test>::get(referendum_index);
+		if let Some(pallet_referenda::ReferendumInfo::Ongoing(status)) = referendum_info {
+			assert!(status.decision_deposit.is_some(), "Decision deposit should be placed");
+		}
+
+		// Call decisionDeposit - should return 0 since deposit is already placed
+		let decision_deposit_call = IReferenda::decisionDepositCall {
+			referendumIndex: referendum_index,
+		};
+
+		let call = IReferenda::IReferendaCalls::decisionDeposit(decision_deposit_call);
+		let result = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(ALICE),
+			referenda_precompile_address(),
+			U256::zero(),
+			Weight::MAX,
+			u128::MAX,
+			call.abi_encode(),
+			ExecConfig::new_substrate_tx(),
+		);
+
+		// Verify the call succeeded
+		match result.result {
+			Ok(return_value) => {
+				if return_value.did_revert() {
+					panic!("decisionDeposit should not revert");
+				}
+
+				// Decode the return value (uint128) - ABI encoded
+				let returned_bytes = &return_value.data;
+				let deposit_amount: u128 = SolValue::abi_decode(returned_bytes)
+					.expect("Should decode u128");
+
+				assert_eq!(deposit_amount, 0, "Decision deposit should return 0 when already placed");
+
+				println!("✅ decisionDeposit returned: {} (deposit already placed)", deposit_amount);
+			},
+			Err(e) => panic!("decisionDeposit call failed: {:?}", e),
+		}
+
+		println!("✅ decisionDeposit test passed - returned 0 after deposit placed");
+	});
+}
+
+#[test]
+fn test_decision_deposit_returns_zero_for_nonexistent_referendum() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Try to get decision deposit for a non-existent referendum
+		let decision_deposit_call = IReferenda::decisionDepositCall {
+			referendumIndex: 999u32,
+		};
+
+		let call = IReferenda::IReferendaCalls::decisionDeposit(decision_deposit_call);
+		let result = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(ALICE),
+			referenda_precompile_address(),
+			U256::zero(),
+			Weight::MAX,
+			u128::MAX,
+			call.abi_encode(),
+			ExecConfig::new_substrate_tx(),
+		);
+
+		match result.result {
+			Ok(return_value) => {
+				if return_value.did_revert() {
+					panic!("decisionDeposit should not revert for nonexistent referendum");
+				}
+
+				let returned_bytes = &return_value.data;
+				let deposit_amount: u128 = SolValue::abi_decode(returned_bytes)
+					.expect("Should decode u128");
+
+				assert_eq!(deposit_amount, 0, "Decision deposit should return 0 for nonexistent referendum");
+
+				println!("✅ decisionDeposit returned: {} for nonexistent referendum", deposit_amount);
+			},
+			Err(e) => panic!("decisionDeposit call failed: {:?}", e),
+		}
+
+		println!("✅ decisionDeposit test passed - returned 0 for nonexistent referendum");
 	});
 }
