@@ -2632,8 +2632,8 @@ mod sanitizers {
 
 			// Set the validator groups in `scheduler`
 			Scheduler::set_validator_groups(vec![
-				vec![ValidatorIndex(0), ValidatorIndex(1)],
-				vec![ValidatorIndex(2), ValidatorIndex(3)],
+				vec![ValidatorIndex(0), ValidatorIndex(1), ValidatorIndex(2), ValidatorIndex(3)],
+				vec![ValidatorIndex(4), ValidatorIndex(5), ValidatorIndex(6), ValidatorIndex(7)],
 			]);
 
 			// Update scheduler's claimqueue with the parachains
