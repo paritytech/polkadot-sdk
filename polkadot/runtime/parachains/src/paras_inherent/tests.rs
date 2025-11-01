@@ -118,18 +118,18 @@ mod enter {
 		}
 
 		// Setup some assignments as needed:
+		let mut next_core_idx = 0u32;
 		(0..(builder.max_cores() as usize - extra_cores)).for_each(|para_id| {
-			(0..elastic_paras.get(&(para_id as u32)).cloned().unwrap_or(1)).for_each(
-				|para_local_core_idx| {
-					Scheduler::assign_core(
-						CoreIndex(para_local_core_idx.into()),
-						0,
-						vec![(CoreAssignment::Task(para_id as _), PartsOf57600::FULL)],
-						None,
-					)
-					.unwrap();
-				},
-			);
+			(0..elastic_paras.get(&(para_id as u32)).cloned().unwrap_or(1)).for_each(|_| {
+				Scheduler::assign_core(
+					CoreIndex(next_core_idx),
+					0,
+					vec![(CoreAssignment::Task(para_id as _), PartsOf57600::FULL)],
+					None,
+				)
+				.unwrap();
+				next_core_idx += 1;
+			});
 		});
 
 		if let Some(code_size) = code_upgrade {
