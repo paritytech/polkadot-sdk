@@ -2823,7 +2823,7 @@ mod sanitizers {
 			{
 				Scheduler::assign_core(
 					CoreIndex::from(core_num),
-					RELAY_PARENT_NUM,
+					0,
 					vec![(CoreAssignment::Task(para_id), PartsOf57600::FULL)],
 					None,
 				)
@@ -3275,7 +3275,7 @@ mod sanitizers {
 			{
 				Scheduler::assign_core(
 					CoreIndex::from(core_num),
-					RELAY_PARENT_NUM,
+					0,
 					vec![(CoreAssignment::Task(para_id), PartsOf57600::FULL)],
 					None,
 				)
@@ -3716,7 +3716,7 @@ mod sanitizers {
 			for (core_num, para_id) in [(0, 1), (1, 1), (2, 1), (3, 2), (4, 2), (5, 2)] {
 				Scheduler::assign_core(
 					CoreIndex::from(core_num),
-					RELAY_PARENT_NUM,
+					0,
 					vec![(CoreAssignment::Task(para_id), PartsOf57600::FULL)],
 					None,
 				)
