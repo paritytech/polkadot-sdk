@@ -851,3 +851,247 @@ fn session_change_increasing_lookahead() {
 		}
 	});
 }
+
+#[test]
+fn peek_claim_queue_predicts_scheduling() {
+	let mut config = default_config();
+	config.scheduler_params.lookahead = 3;
+	config.scheduler_params.num_cores = 2;
+	let genesis_config = genesis_config(&config);
+
+	let para_a = ParaId::from(3_u32);
+	let para_b = ParaId::from(4_u32);
+	let para_c = ParaId::from(5_u32);
+
+	new_test_ext(genesis_config).execute_with(|| {
+		// Register paras
+		register_para(para_a);
+		register_para(para_b);
+		register_para(para_c);
+
+		// Start a new session
+		run_to_block(1, |number| match number {
+			1 => Some(SessionChangeNotification {
+				new_config: config.clone(),
+				validators: vec![
+					ValidatorId::from(Sr25519Keyring::Alice.public()),
+					ValidatorId::from(Sr25519Keyring::Bob.public()),
+				],
+				..Default::default()
+			}),
+			_ => None,
+		});
+
+		// Assign cores
+		Pallet::<Test>::assign_core(
+			CoreIndex(0),
+			0,
+			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
+		Pallet::<Test>::assign_core(
+			CoreIndex(1),
+			0,
+			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
+
+		// Add plenty of orders to fill the claim queue
+		on_demand::Pallet::<Test>::push_back_order(para_a);
+		on_demand::Pallet::<Test>::push_back_order(para_b);
+		on_demand::Pallet::<Test>::push_back_order(para_c);
+		on_demand::Pallet::<Test>::push_back_order(para_a);
+		on_demand::Pallet::<Test>::push_back_order(para_b);
+		on_demand::Pallet::<Test>::push_back_order(para_c);
+
+		run_to_block(2, |_| None);
+
+		// Set block number to 3 for the next advance
+		System::set_block_number(3);
+
+		// Peek at claim queue - should not modify state
+		let peeked_first = scheduler::Pallet::<Test>::claim_queue();
+		let peeked_second = scheduler::Pallet::<Test>::claim_queue();
+
+		// Multiple peeks should return identical results
+		assert_eq!(peeked_first, peeked_second, "Peek modified the claim queue state!");
+
+		// Record what we peeked
+		let core_0_peek = peeked_first.get(&CoreIndex(0)).cloned().unwrap();
+		let core_1_peek = peeked_first.get(&CoreIndex(1)).cloned().unwrap();
+
+		// Now advance the claim queue (simulate what happens during block processing)
+		let popped = scheduler::Pallet::<Test>::advance_claim_queue(|_| false);
+
+		// Verify what was popped matches the first element of what we peeked
+		assert_eq!(
+			popped.get(&CoreIndex(0)).copied(),
+			core_0_peek.front().copied(),
+			"Core 0: Popped assignment doesn't match first peeked entry"
+		);
+		assert_eq!(
+			popped.get(&CoreIndex(1)).copied(),
+			core_1_peek.front().copied(),
+			"Core 1: Popped assignment doesn't match first peeked entry"
+		);
+
+		// After advancing, peek again to see what the next assignments would be
+		let claim_queue_after_pop = scheduler::Pallet::<Test>::claim_queue();
+
+		// The claim queue after pop should have:
+		// - The first element removed (what was popped)
+		// - Potentially new elements added at the end (to maintain lookahead)
+		// So we verify that the beginning of the new queue matches the tail of the peeked queue
+		let core_0_after = claim_queue_after_pop.get(&CoreIndex(0)).cloned().unwrap();
+		let core_1_after = claim_queue_after_pop.get(&CoreIndex(1)).cloned().unwrap();
+
+		// Check that after popping, the first elements match what was at position 1 in the peek
+		assert_eq!(
+			core_0_after.front().copied(),
+			core_0_peek.get(1).copied(),
+			"Core 0: First element after pop should match second element of peek"
+		);
+		assert_eq!(
+			core_1_after.front().copied(),
+			core_1_peek.get(1).copied(),
+			"Core 1: First element after pop should match second element of peek"
+		);
+	});
+}
+
+#[test]
+fn on_demand_order_on_empty_core_appears_in_next_two_blocks() {
+	let mut config = default_config();
+	config.scheduler_params.lookahead = 3;
+	config.scheduler_params.num_cores = 2;
+	let genesis_config = genesis_config(&config);
+
+	let para_a = ParaId::from(3_u32);
+	let para_b = ParaId::from(4_u32);
+
+	new_test_ext(genesis_config).execute_with(|| {
+		// Register paras
+		register_para(para_a);
+		register_para(para_b);
+
+		// Start a new session
+		run_to_block(1, |number| match number {
+			1 => Some(SessionChangeNotification {
+				new_config: config.clone(),
+				validators: vec![
+					ValidatorId::from(Sr25519Keyring::Alice.public()),
+					ValidatorId::from(Sr25519Keyring::Bob.public()),
+				],
+				..Default::default()
+			}),
+			_ => None,
+		});
+
+		// Assign both cores to Pool (on-demand)
+		Pallet::<Test>::assign_core(
+			CoreIndex(0),
+			0,
+			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
+		Pallet::<Test>::assign_core(
+			CoreIndex(1),
+			0,
+			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
+
+		run_to_block(2, |_| None);
+
+		// At this point, both cores should have empty claim queues
+		let claim_queue_initial = scheduler::Pallet::<Test>::claim_queue();
+		assert!(
+			claim_queue_initial.get(&CoreIndex(0)).map_or(true, |q| q.is_empty()),
+			"Core 0 should start with empty claim queue"
+		);
+		assert!(
+			claim_queue_initial.get(&CoreIndex(1)).map_or(true, |q| q.is_empty()),
+			"Core 1 should start with empty claim queue"
+		);
+
+		// Now add an on-demand order for para_a
+		on_demand::Pallet::<Test>::push_back_order(para_a);
+
+		// Set block number for the next advance
+		System::set_block_number(3);
+
+		// Check the claim queue BEFORE advancing to see what will be scheduled
+		let claim_queue_before = scheduler::Pallet::<Test>::claim_queue();
+		let core_0_before = claim_queue_before.get(&CoreIndex(0)).cloned().unwrap();
+
+		// The on-demand order on an empty core should be duplicated
+		assert_eq!(
+			core_0_before.len(),
+			2,
+			"On-demand order on empty core should be duplicated"
+		);
+		assert_eq!(
+			core_0_before.front(),
+			Some(&para_a),
+			"First position should be para_a"
+		);
+		assert_eq!(
+			core_0_before.get(1),
+			Some(&para_a),
+			"Second position should also be para_a (duplicated)"
+		);
+
+		// Now advance to pop the first one
+		scheduler::Pallet::<Test>::advance_claim_queue(|_| false);
+
+		// After advancing, we should have 1 para_a left (the duplicate)
+		let claim_queue_after_first_advance = scheduler::Pallet::<Test>::claim_queue();
+		let core_0_after_first = claim_queue_after_first_advance.get(&CoreIndex(0)).cloned().unwrap();
+
+		assert_eq!(
+			core_0_after_first.len(),
+			1,
+			"After first advance, one para_a should remain from the duplicate"
+		);
+		assert_eq!(
+			core_0_after_first.front(),
+			Some(&para_a),
+			"The remaining element should be para_a"
+		);
+
+		// Now add another order for para_b while core 0 already has assignments
+		on_demand::Pallet::<Test>::push_back_order(para_b);
+
+		// Advance again
+		System::set_block_number(4);
+		scheduler::Pallet::<Test>::advance_claim_queue(|_| false);
+
+		// Check claim queue - para_b should NOT be duplicated since the core wasn't empty
+		let claim_queue_after = scheduler::Pallet::<Test>::claim_queue();
+		let core_0_after = claim_queue_after.get(&CoreIndex(0)).cloned().unwrap();
+
+		// After popping para_a, we should have [para_a, para_b] (para_b is not duplicated)
+		// because the core wasn't empty when para_b was added
+		assert_eq!(
+			core_0_after.get(0),
+			Some(&para_a),
+			"First position should be the remaining para_a from the duplicate"
+		);
+		assert_eq!(
+			core_0_after.get(1),
+			Some(&para_b),
+			"Second position should be para_b"
+		);
+		
+		// There should only be 2 elements (no duplication of para_b)
+		assert_eq!(
+			core_0_after.len(),
+			2,
+			"Para_b should not be duplicated since core wasn't empty"
+		);
+	});
+}
