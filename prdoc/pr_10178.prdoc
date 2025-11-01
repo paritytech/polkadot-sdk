@@ -19,6 +19,7 @@ doc:
     1.  Added `MaxAutoRenewalRetries` to config trait. Default type is `u8`.
     2. Added a storage for renewal retries record. This increments for failed retries. It resets on success or when renewal is cancelled.
     3. Existing code needs to add the new configuration parameter.
+    4. Added the config parameter with default `constu8<2>` as in test into `coretime-rococo` and `coretime-westend`.
 
     # Checklist
 
