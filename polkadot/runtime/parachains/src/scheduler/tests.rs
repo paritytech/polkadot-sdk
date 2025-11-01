@@ -320,16 +320,17 @@ fn advance_claim_queue_no_entry_if_empty() {
 		.unwrap();
 		on_demand::Pallet::<Test>::push_back_order(para_a);
 
-		// This will call advance_claim_queue
-		run_to_block(3, |_| None);
+		// This will call advance_claim_queue. With duplication, a single order gets consumed
+		// over 2 blocks, so check at block 2 before it's fully consumed.
+		run_to_block(2, |_| None);
 
 		{
 			let mut claim_queue = Scheduler::claim_queue();
 
-			assert_eq!(
-				claim_queue.remove(&CoreIndex(0)).unwrap(),
-				[para_a].into_iter().collect::<VecDeque<_>>()
-			);
+			// Core 0 should have para_a in its claim queue (may be duplicated for async backing)
+			let core_0_queue =
+				claim_queue.remove(&CoreIndex(0)).expect("Core 0 should have entries");
+			assert!(core_0_queue.contains(&para_a), "Core 0 should have para_a assigned");
 
 			// Even though core 1 exists, there's no assignment for it so it's not present in the
 			// claim queue.
@@ -345,7 +346,7 @@ fn advance_claim_queue_except_for() {
 	let mut config = default_config();
 	// NOTE: This test expects on demand cores to each get slotted on to a different core
 	// and not fill up the claimqueue of each core first.
-	config.scheduler_params.lookahead = 1;
+	config.scheduler_params.lookahead = 3;
 	config.scheduler_params.num_cores = 3;
 
 	let genesis_config = genesis_config(&config);
@@ -356,14 +357,6 @@ fn advance_claim_queue_except_for() {
 	let para_d = ParaId::from(4_u32);
 	let para_e = ParaId::from(5_u32);
 
-	Pallet::<Test>::assign_core(
-		CoreIndex(0),
-		0,
-		vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
-		None,
-	)
-	.unwrap();
-
 	new_test_ext(genesis_config).execute_with(|| {
 		// add 5 paras
 		register_para(para_a);
@@ -371,6 +364,16 @@ fn advance_claim_queue_except_for() {
 		register_para(para_c);
 		register_para(para_d);
 		register_para(para_e);
+
+		for core in 0..3 {
+			Pallet::<Test>::assign_core(
+				CoreIndex(core),
+				0,
+				vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+				None,
+			)
+			.unwrap();
+		}
 
 		// start a new session to activate, 3 validators for 3 cores.
 		run_to_block(1, |number| match number {
@@ -388,17 +391,17 @@ fn advance_claim_queue_except_for() {
 
 		// add a couple of para claims now that paras are live
 		on_demand::Pallet::<Test>::push_back_order(para_a);
+		on_demand::Pallet::<Test>::push_back_order(para_b);
 		on_demand::Pallet::<Test>::push_back_order(para_c);
+
+		// Duplication of first entries (claim queue was empty):
+		assert_eq!(Scheduler::claim_queue_len(), 6);
 
 		run_to_block(2, |_| None);
 
-		Scheduler::advance_claim_queue(|_| false);
+		// First assignment should have been consumed.
+		assert_eq!(Scheduler::claim_queue_len(), 3);
 
-		// Queues of all cores should be empty
-		assert_eq!(Scheduler::claim_queue_len(), 0);
-
-		on_demand::Pallet::<Test>::push_back_order(para_a);
-		on_demand::Pallet::<Test>::push_back_order(para_c);
 		on_demand::Pallet::<Test>::push_back_order(para_b);
 		on_demand::Pallet::<Test>::push_back_order(para_d);
 		on_demand::Pallet::<Test>::push_back_order(para_e);
@@ -409,22 +412,20 @@ fn advance_claim_queue_except_for() {
 			let scheduled: BTreeMap<_, _> = next_assignments().collect();
 
 			assert_eq!(scheduled.len(), 3);
-			assert_eq!(*scheduled.get(&CoreIndex(0)).unwrap(), para_a);
-			assert_eq!(*scheduled.get(&CoreIndex(1)).unwrap(), para_c);
-			assert_eq!(*scheduled.get(&CoreIndex(2)).unwrap(), para_b);
+			assert_eq!(*scheduled.get(&CoreIndex(0)).unwrap(), para_b);
+			assert_eq!(*scheduled.get(&CoreIndex(1)).unwrap(), para_d);
+			assert_eq!(*scheduled.get(&CoreIndex(2)).unwrap(), para_e);
 		}
 
 		// now note that cores 0 and 1 were freed.
+		System::set_block_number(4);
 		Scheduler::advance_claim_queue(|CoreIndex(ix)| ix == 2);
 
 		{
 			let scheduled: BTreeMap<_, _> = next_assignments().collect();
 
-			// 1 thing scheduled before, + 2 cores freed.
-			assert_eq!(scheduled.len(), 3);
-			assert_eq!(*scheduled.get(&CoreIndex(0)).unwrap(), para_d);
-			assert_eq!(*scheduled.get(&CoreIndex(1)).unwrap(), para_e);
-			assert_eq!(*scheduled.get(&CoreIndex(2)).unwrap(), para_b);
+			assert_eq!(scheduled.len(), 1);
+			assert_eq!(*scheduled.get(&CoreIndex(0)).unwrap(), para_e);
 		}
 	});
 }
@@ -643,14 +644,10 @@ fn session_change_increasing_number_of_cores() {
 
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(0)).unwrap(),
-				[para_a].into_iter().collect::<VecDeque<_>>()
+				[para_a, para_b].into_iter().collect::<VecDeque<_>>()
 			);
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(1)).unwrap(),
-				[para_b].into_iter().collect::<VecDeque<_>>()
-			);
-			assert_eq!(
-				claim_queue.remove(&CoreIndex(2)).unwrap(),
 				[para_b].into_iter().collect::<VecDeque<_>>()
 			);
 		}
@@ -729,7 +726,7 @@ fn session_change_decreasing_number_of_cores() {
 		// the end.
 		assert_eq!(
 			claim_queue.remove(&CoreIndex(0)).unwrap(),
-			[para_b.clone()].into_iter().collect::<VecDeque<_>>()
+			[para_a.clone()].into_iter().collect::<VecDeque<_>>()
 		);
 
 		Scheduler::advance_claim_queue(|_| false);
@@ -784,19 +781,24 @@ fn session_change_increasing_lookahead() {
 			_ => None,
 		});
 
-		Pallet::<Test>::assign_core(
-			CoreIndex(0),
-			0,
-			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
-			None,
-		)
-		.unwrap();
+		for core in 0..2 {
+			Pallet::<Test>::assign_core(
+				CoreIndex(core),
+				0,
+				vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+				None,
+			)
+			.unwrap();
+		}
 		on_demand::Pallet::<Test>::push_back_order(para_a);
 		on_demand::Pallet::<Test>::push_back_order(para_a);
 		on_demand::Pallet::<Test>::push_back_order(para_a);
 		on_demand::Pallet::<Test>::push_back_order(para_b);
 		on_demand::Pallet::<Test>::push_back_order(para_b);
 		on_demand::Pallet::<Test>::push_back_order(para_b);
+
+		on_demand::Pallet::<Test>::push_back_order(para_b);
+		on_demand::Pallet::<Test>::push_back_order(para_a);
 
 		// Lookahead is currently 2.
 
@@ -812,7 +814,7 @@ fn session_change_increasing_lookahead() {
 			);
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(1)).unwrap(),
-				[para_a, para_a].into_iter().collect::<VecDeque<_>>()
+				[para_b, para_b].into_iter().collect::<VecDeque<_>>()
 			);
 		}
 
@@ -840,11 +842,11 @@ fn session_change_increasing_lookahead() {
 
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(0)).unwrap(),
-				[para_a, para_a, para_b].into_iter().collect::<VecDeque<_>>()
+				[para_a, para_a, para_a].into_iter().collect::<VecDeque<_>>()
 			);
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(1)).unwrap(),
-				[para_a, para_b, para_b].into_iter().collect::<VecDeque<_>>()
+				[para_b, para_b, para_b].into_iter().collect::<VecDeque<_>>()
 			);
 		}
 	});

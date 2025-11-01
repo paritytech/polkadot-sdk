@@ -523,9 +523,11 @@ fn pop_assignment_for_core_works() {
 			None,
 		));
 
-		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
+		// Run to block 10, then peek at block 11
+		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
 
-		assert_eq!(advance_assignments::<Test, _>(|_| false), BTreeMap::new());
+		// Case 1: For idle assignment, nothing should be scheduled
+		assert_eq!(peek_next_block::<Test>(1).get(&core_idx), None);
 
 		// Case 2: Assignment pool
 		assert_ok!(assign_core::<Test>(
@@ -535,9 +537,16 @@ fn pop_assignment_for_core_works() {
 			None,
 		));
 
-		run_to_block(21, |n| if n == 21 { Some(Default::default()) } else { None });
+		// Run to block 19, then peek at block 20 to verify pool assignment (duplication should have
+		// happened to position 0)
+		run_to_block(19, |n| if n == 20 { Some(Default::default()) } else { None });
 
-		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&para_id));
+		assert_eq!(peek_next_block::<Test>(2).get(&core_idx), Some(&[para_id, para_id].into()));
+
+		run_to_block(20, |n| if n == 20 { Some(Default::default()) } else { None });
+
+		// Still one left:
+		assert_eq!(peek_next_block::<Test>(1).get(&core_idx), Some(&[para_id].into()));
 
 		// Case 3: Assignment task
 		assert_ok!(assign_core::<Test>(
@@ -547,9 +556,14 @@ fn pop_assignment_for_core_works() {
 			None,
 		));
 
-		run_to_block(31, |n| if n == 31 { Some(Default::default()) } else { None });
+		// Run to block 29, then peek at block 30 to verify task assignment (duplication happened to
+		// one block before)
+		run_to_block(29, |n| if n == 30 { Some(Default::default()) } else { None });
 
-		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&para_id));
+		assert_eq!(
+			peek_next_block::<Test>(3).get(&core_idx),
+			Some(&[para_id, para_id, para_id].into())
+		);
 	});
 }
 
@@ -575,14 +589,15 @@ fn assignment_proportions_in_core_state_work() {
 			None,
 		));
 
-		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
+		run_to_block(10, |n| if n == 11 { Some(Default::default()) } else { None });
 
 		// Case 1: Current assignment remaining >= step after pop
 		{
 			assert_eq!(
-				advance_assignments::<Test, _>(|_| false).get(&CoreIndex(0)),
+				peek_next_block::<Test>(1).get(&CoreIndex(0)).and_then(|q| q.front()),
 				Some(&task_1.into())
 			);
+			run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
 
 			assert_eq!(
 				CoreDescriptors::<Test>::get()
@@ -608,9 +623,10 @@ fn assignment_proportions_in_core_state_work() {
 		// Case 2: Current assignment remaining < step after pop
 		{
 			assert_eq!(
-				advance_assignments::<Test, _>(|_| false).get(&CoreIndex(0)),
+				peek_next_block::<Test>(1).get(&CoreIndex(0)).and_then(|q| q.front()),
 				Some(&task_1.into())
 			);
+			run_to_block(12, |n| if n == 11 { Some(Default::default()) } else { None });
 			// Pos should have incremented, as assignment had remaining < step
 			assert_eq!(
 				CoreDescriptors::<Test>::get()
@@ -661,20 +677,18 @@ fn equal_assignments_served_equally() {
 			None,
 		));
 
-		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
+		// Run to block 10, then peek ahead to verify alternating pattern
+		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
 
-		// Test that popped assignments alternate between tasks 1 and 2
-		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task_1.into()));
-
-		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task_2.into()));
-
-		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task_1.into()));
-
-		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task_2.into()));
-
-		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task_1.into()));
-
-		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task_2.into()));
+		// Peek 6 blocks ahead to verify tasks alternate: task1, task2, task1, task2, task1, task2
+		let peeked = peek_next_block::<Test>(6).get(&core_idx).cloned().unwrap();
+		assert_eq!(peeked.len(), 6);
+		assert_eq!(peeked[0], task_1.into());
+		assert_eq!(peeked[1], task_2.into());
+		assert_eq!(peeked[2], task_1.into());
+		assert_eq!(peeked[3], task_2.into());
+		assert_eq!(peeked[4], task_1.into());
+		assert_eq!(peeked[5], task_2.into());
 	});
 }
 
@@ -703,20 +717,23 @@ fn assignment_proportions_indivisible_by_step_work() {
 			None,
 		));
 
-		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
+		// Run to block 10, then peek ahead to verify ordering pattern
+		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
 
-		// Pop 5 assignments. Should Result in the the following work ordering:
+		// Pop 5 assignments. Should result in the following work ordering:
 		// 1, 2, 1, 1, 2. The remaining parts for each assignment should be same
 		// at the end as in the beginning.
-		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task_1.into()));
+		// Peek 5 blocks ahead to verify the ordering
+		let peeked = peek_next_block::<Test>(5).get(&core_idx).cloned().unwrap();
+		assert_eq!(peeked.len(), 5);
+		assert_eq!(peeked[0], task_1.into());
+		assert_eq!(peeked[1], task_2.into());
+		assert_eq!(peeked[2], task_1.into());
+		assert_eq!(peeked[3], task_1.into());
+		assert_eq!(peeked[4], task_2.into());
 
-		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task_2.into()));
-
-		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task_1.into()));
-
-		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task_1.into()));
-
-		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task_2.into()));
+		// Now actually advance 5 times by running to block 15
+		run_to_block(15, |_| None);
 
 		// Remaining should equal ratio for both assignments.
 		assert_eq!(
