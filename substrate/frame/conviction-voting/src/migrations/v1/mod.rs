@@ -179,8 +179,8 @@ impl<T: Config<I>, W: weights::WeightInfo, I: 'static> SteppedMigration
 	fn pre_upgrade() -> Result<Vec<u8>, frame_support::sp_runtime::TryRuntimeError> {
 		use codec::Encode;
 
-        // Send over all voting data.
-		Ok(v0::VotingFor::<T, I>::iter().collect::<BTreeMap<_, _>>().encode())
+        // Send over all voting data. Vec<(account, class, voting_data)>.
+		Ok(v0::VotingFor::<T, I>::iter().collect::<Vec<_>>().encode())
 	}
 
 	/// The logic for each step in the migratoin.
@@ -260,29 +260,52 @@ impl<T: Config<I>, W: weights::WeightInfo, I: 'static> SteppedMigration
 	fn post_upgrade(prev: Vec<u8>) -> Result<(), frame_support::sp_runtime::TryRuntimeError> {
 		use codec::Decode;
 
-        // Check state
-        // Check migration flag set to false
-        // Storage version is 1
+        // Storage version check.
+        assert_eq!(Pallet::<T,I>::on_chain_storage_version(), Self::id().version_to as u16);
 
-		// Check the state of the storage after the migration.
-		// let prev_map = BTreeMap::<u32, u32>::decode(&mut &prev[..])
-		// 	.expect("Failed to decode the previous storage state");
+        // Migration flag check.
+        assert!(MigrationOngoing::<T,I>::get());
+        
+        // Decodes.
+		let prev_vec = Vec::<(T::AccountId, v0::ClassOf<T, I>, v0::VotingOf<T, I>)>::decode(&mut &prev[..])
+			.expect("Failed to decode the previous storage state");
 
-		// Check the len of prev and post are the same.
-		// assert_eq!(
-		// 	MyMap::<T>::iter().count(),
-		// 	prev_map.len(),
-		// 	"Migration failed: the number of items in the storage after the migration is not the same as before"
-		// );
+		// Length.
+		assert_eq!(
+			VotingFor::<T,I>::iter().count(),
+			prev_vec.len(),
+			"Migration failed: the number of items in the storage after the migration is not the same as before."
+		);
 
-		// for (key, value) in prev_map {
-		// 	let new_value =
-		// 		MyMap::<T>::get(key).expect("Failed to get the value after the migration");
-		// 	assert_eq!(
-		// 		value as u64, new_value,
-		// 		"Migration failed: the value after the migration is not the same as before"
-		// 	);
-		// }
+        // State consistency.
+		for (account, class, old_voting) in prev_vec {
+			let new_voting = VotingFor::<T,I>::get(account, class);
+            let new_votes = new_voting.votes;
+            match old_voting {
+                v0::Voting::Casting(v0::Casting { votes: old_votes, delegations, prior }) => {
+                    assert_eq!(old_votes.len(), new_votes.len());
+                    for (poll_index, vote) in old_votes {
+                        let new_record = VoteRecord {
+                            poll_index,
+                            maybe_vote: Some(vote),
+                            retracted_votes: Default::default(),
+                        };
+                        let index = new_votes.binary_search_by_key(&poll_index, |i| i.poll_index)
+                            .expect("Failed to find poll index on new voting data.");
+                        assert_eq!(new_votes[index], new_record);
+                    }
+                    assert_eq!(new_voting.delegations, delegations);
+                    assert_eq!(new_voting.prior, prior);
+                },
+                v0::Voting::Delegating(v0::Delegating { balance, target, conviction, delegations, prior }) => {
+                    assert_eq!(new_voting.delegated_balance, balance);
+                    assert_eq!(new_voting.maybe_delegate, Some(target));
+                    assert_eq!(new_voting.maybe_conviction, Some(conviction));
+                    assert_eq!(new_voting.delegations, delegations);
+                    assert_eq!(new_voting.prior, prior);
+                },
+            }
+		}
 
 		Ok(())
 	}
