@@ -346,6 +346,7 @@ pub fn set_balance_proposal_bytes(value: u128) -> Vec<u8> {
 	c.encode()
 }
 
+
 // ====== transaction builder =====
 pub struct ExtBuilder {}
 
@@ -382,5 +383,54 @@ impl ExtBuilder {
 			test();
 			// Removed do_try_state() - it doesn't exist in pallet_referenda
 		})
+	}
+
+	/// Submit a referendum directly via the pallet (not through precompile).
+	/// Returns the referendum index.
+	/// The referendum will NOT have a decision deposit placed.
+	/// Must be called within `execute_with` context.
+	pub fn submit_referendum(submitter: AccountId32) -> u32 {
+		use frame_support::traits::schedule::DispatchTime;
+		
+		let proposal_origin = OriginCaller::system(frame_system::RawOrigin::Signed(submitter.clone()));
+		let proposal = set_balance_proposal_bounded(100u128);
+		let enactment_moment = DispatchTime::At(10u64.into());
+
+		assert_ok!(pallet_referenda::Pallet::<Test>::submit(
+			RuntimeOrigin::signed(submitter),
+			Box::new(proposal_origin),
+			proposal,
+			enactment_moment,
+		));
+		
+		let count = pallet_referenda::ReferendumCount::<Test>::get();
+		assert!(count > 0, "Referendum should be created");
+		count - 1 // Return the index (0-based)
+	}
+
+	/// Submit a referendum directly via the pallet and place decision deposit.
+	/// Returns the referendum index.
+	/// The referendum will have a decision deposit placed by the depositor.
+	/// Must be called within `execute_with` context.
+	pub fn submit_referendum_with_decision_deposit(
+		submitter: AccountId32,
+		depositor: AccountId32,
+	) -> u32 {
+		// First submit the referendum
+		let referendum_index = Self::submit_referendum(submitter);
+
+		// Then place the decision deposit
+		assert_ok!(pallet_referenda::Pallet::<Test>::place_decision_deposit(
+			RuntimeOrigin::signed(depositor),
+			referendum_index,
+		));
+		
+		// Verify deposit was placed
+		let referendum_info = pallet_referenda::ReferendumInfoFor::<Test>::get(referendum_index);
+		if let Some(pallet_referenda::ReferendumInfo::Ongoing(status)) = referendum_info {
+			assert!(status.decision_deposit.is_some(), "Decision deposit should be placed");
+		}
+
+		referendum_index
 	}
 }
