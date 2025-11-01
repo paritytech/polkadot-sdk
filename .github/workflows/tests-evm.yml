@@ -60,6 +60,7 @@ jobs:
             --concurrency.number-of-threads 10 \
             --concurrency.number-of-concurrent-tasks 50 \
             --working-directory ./workdir \
+            --revive-dev-node.consensus manual-seal-200 \
             --revive-dev-node.path ./target/release/revive-dev-node \
             --eth-rpc.path ./target/release/eth-rpc
       - name: Creating a markdown report of the test execution
