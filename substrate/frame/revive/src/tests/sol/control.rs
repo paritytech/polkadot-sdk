@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{
+	metering::TransactionLimits,
 	test_utils::{builder::Contract, ALICE},
 	tests::{builder, sol::make_initcode_from_runtime_code, ExtBuilder, Test},
 	Code, Config, Error, U256,
@@ -253,8 +254,13 @@ fn invalid_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let output =
-			builder::bare_call(addr).weight_limit(expected_gas.into()).data(vec![]).build();
+		let output = builder::bare_call(addr)
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: expected_gas.into(),
+				deposit_limit: Default::default(),
+			})
+			.data(vec![])
+			.build();
 
 		let result = output.result;
 		assert_err!(result, Error::<Test>::InvalidInstruction);

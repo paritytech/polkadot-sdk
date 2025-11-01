@@ -49,7 +49,7 @@ use frame_support::{
 		Time,
 	},
 	weights::Weight,
-	Blake2_128Concat, BoundedVec, StorageHasher,
+	Blake2_128Concat, BoundedVec, DebugNoBound, StorageHasher,
 };
 use frame_system::{
 	pallet_prelude::{BlockNumberFor, OriginFor},
@@ -196,6 +196,7 @@ impl<T: Config> Origin<T> {
 
 /// Argument passed by a contact to describe the amount of resources allocated to a cross contact
 /// call.
+#[derive(DebugNoBound)]
 pub enum CallResources<T: Config> {
 	/// Resources are not limited
 	NoLimits,
@@ -924,8 +925,7 @@ where
 	pub fn bench_new_call(
 		dest: H160,
 		origin: Origin<T>,
-		weight_meter: &'a mut WeightMeter<T>,
-		storage_meter: &'a mut storage::Meter<T>,
+		transaction_meter: &'a mut TransactionMeter<T>,
 		value: BalanceOf<T>,
 		exec_config: &'a ExecConfig<T>,
 	) -> (Self, E) {
@@ -936,8 +936,7 @@ where
 				delegated_call: None,
 			},
 			origin,
-			weight_meter,
-			storage_meter,
+			transaction_meter,
 			value.into(),
 			exec_config,
 			&Default::default(),

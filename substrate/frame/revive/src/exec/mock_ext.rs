@@ -25,17 +25,17 @@ use crate::{
 	precompiles::Diff,
 	storage::{ContractInfo, WriteOutcome},
 	transient_storage::TransientStorage,
-	Code, CodeRemoved, Config, ExecReturnValue, ImmutableData,
+	BalanceOf, Code, CodeRemoved, Config, ExecReturnValue, ImmutableData,
 };
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use frame_support::weights::Weight;
+use num_traits::Bounded;
 use sp_core::{H160, H256, U256};
 use sp_runtime::DispatchError;
 
 /// Mock implementation of the Ext trait that panics for all methods
 pub struct MockExt<T: Config> {
-	transaction_meter: TransactionMeter<T>,
 	frame_meter: FrameMeter<T>,
 	_phantom: PhantomData<T>,
 }
@@ -44,10 +44,11 @@ impl<T: Config> MockExt<T> {
 	pub fn new() -> Self {
 		let transaction_meter = TransactionMeter::new(TransactionLimits::WeightAndDeposit {
 			weight_limit: Weight::MAX,
-			deposit_limit: Balance::max_value(),
-		});
-		let frame_meter: transaction_meter::new_nested(&CallResources::NoLimits);
-		Self { frame_meter, weight_meter, _phantom: PhantomData }
+			deposit_limit: BalanceOf::<T>::max_value(),
+		})
+		.unwrap();
+		let frame_meter = transaction_meter.new_nested(&CallResources::NoLimits).unwrap();
+		Self { frame_meter, _phantom: PhantomData }
 	}
 }
 
@@ -56,7 +57,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 
 	fn call(
 		&mut self,
-		_call_resources: &CallResources,
+		_call_resources: &CallResources<T>,
 		_to: &H160,
 		_value: U256,
 		_input_data: Vec<u8>,
@@ -256,8 +257,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
 	fn instantiate(
 		&mut self,
-		_gas_limit: Weight,
-		_deposit_limit: U256,
+		_call_resources: &CallResources<T>,
 		_code: Code,
 		_value: U256,
 		_input_data: Vec<u8>,
@@ -270,7 +270,7 @@ impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
 impl<T: Config> Ext for MockExt<T> {
 	fn delegate_call(
 		&mut self,
-		_call_resources: &CallResources,
+		_call_resources: &CallResources<T>,
 		_address: H160,
 		_input_data: Vec<u8>,
 	) -> Result<(), ExecError> {

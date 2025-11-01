@@ -27,12 +27,13 @@ use crate::{
 	evm::{fees::InfoT, CallTrace, CallTracer, CallType},
 	exec::Key,
 	limits,
+	metering::TransactionLimits,
 	precompiles::alloy::sol_types::{
 		sol_data::{Bool, FixedBytes},
 		SolType,
 	},
 	storage::{DeletionQueueManager, WriteOutcome},
-	test_utils::builder::Contract,
+	test_utils::{builder::Contract, WEIGHT_LIMIT},
 	tests::{
 		builder, initialize_block, test_utils::*, Balances, CodeHashLockupDepositPercent,
 		Contracts, DepositPerByte, DepositPerItem, ExtBuilder, InstantiateAccount, RuntimeCall,
@@ -261,14 +262,23 @@ fn deposit_limit_enforced_on_plain_transfer() {
 		// sending balance to a new account should fail when the limit is lower than the ed
 		let result = builder::bare_call(CHARLIE_ADDR)
 			.native_value(1)
-			.storage_deposit_limit(190)
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: Default::default(),
+				deposit_limit: 190,
+			})
 			.build();
 		assert_err!(result.result, <Error<Test>>::StorageDepositLimitExhausted);
 		assert_eq!(result.storage_deposit, StorageDeposit::Charge(0));
 		assert_eq!(get_balance(&CHARLIE), 0);
 
 		// works when the account is prefunded
-		let result = builder::bare_call(BOB_ADDR).native_value(1).storage_deposit_limit(0).build();
+		let result = builder::bare_call(BOB_ADDR)
+			.native_value(1)
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: Default::default(),
+				deposit_limit: 0,
+			})
+			.build();
 		assert_ok!(result.result);
 		assert_eq!(result.storage_deposit, StorageDeposit::Charge(0));
 		assert_eq!(get_balance(&BOB), 1_000_001);
@@ -276,7 +286,10 @@ fn deposit_limit_enforced_on_plain_transfer() {
 		// also works allowing enough deposit
 		let result = builder::bare_call(CHARLIE_ADDR)
 			.native_value(1)
-			.storage_deposit_limit(200)
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: Default::default(),
+				deposit_limit: 200,
+			})
 			.build();
 		assert_ok!(result.result);
 		assert_eq!(result.storage_deposit, StorageDeposit::Charge(200));
@@ -444,7 +457,7 @@ fn deposit_event_max_value_limit() {
 		// Call contract with too large a evene size
 		assert_err_ignore_postinfo!(
 			builder::call(addr)
-				.gas_limit(Weight::from_parts(u64::MAX, u64::MAX))
+				.weight_limit(Weight::from_parts(u64::MAX, u64::MAX))
 				.data((limits::EVENT_BYTES + 1).encode())
 				.build(),
 			Error::<Test>::ValueTooLarge,
@@ -1942,24 +1955,30 @@ fn gas_estimation_for_subcalls() {
 
 			// Make the same call using the estimated gas. Should succeed.
 			let result = builder::bare_call(addr_caller)
-				.weight_limit(result_orig.weight_required)
-				.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero().into())
+				.transaction_limits(TransactionLimits::WeightAndDeposit {
+					weight_limit: result_orig.weight_required,
+					deposit_limit: result_orig.storage_deposit.charge_or_zero().into(),
+				})
 				.data(input.clone())
 				.build();
 			assert_ok!(&result.result);
 
 			// Check that it fails with too little ref_time
 			let result = builder::bare_call(addr_caller)
-				.weight_limit(result_orig.weight_required.sub_ref_time(1))
-				.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero().into())
+				.transaction_limits(TransactionLimits::WeightAndDeposit {
+					weight_limit: result_orig.weight_required.sub_ref_time(1),
+					deposit_limit: result_orig.storage_deposit.charge_or_zero().into(),
+				})
 				.data(input.clone())
 				.build();
 			assert_err!(result.result, <Error<Test>>::OutOfGas);
 
 			// Check that it fails with too little proof_size
 			let result = builder::bare_call(addr_caller)
-				.weight_limit(result_orig.weight_required.sub_proof_size(1))
-				.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero().into())
+				.transaction_limits(TransactionLimits::WeightAndDeposit {
+					weight_limit: result_orig.weight_required.sub_proof_size(1),
+					deposit_limit: result_orig.storage_deposit.charge_or_zero().into(),
+				})
 				.data(input.clone())
 				.build();
 			assert_err!(result.result, <Error<Test>>::OutOfGas);
@@ -2696,7 +2715,10 @@ fn storage_deposit_limit_is_enforced() {
 		assert_err!(
 			builder::bare_instantiate(Code::Upload(binary.clone()))
 				// expected deposit is 2 * ed + 3 for the call
-				.storage_deposit_limit((2 * min_balance + 3 - 1).into())
+				.transaction_limits(TransactionLimits::WeightAndDeposit {
+					weight_limit: Default::default(),
+					deposit_limit: (2 * min_balance + 3 - 1).into()
+				})
 				.build()
 				.result,
 			<Error<Test>>::StorageDepositLimitExhausted,
@@ -2796,7 +2818,10 @@ fn deposit_limit_in_nested_calls() {
 		// that the nested call should have a deposit limit of at least 2 Balance. The
 		// sub-call should be rolled back, which is covered by the next test case.
 		let ret = builder::bare_call(addr_caller)
-			.storage_deposit_limit(u64::MAX)
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit: u64::MAX,
+			})
 			.data((102u32, &addr_callee, U256::from(1u64)).encode())
 			.build_and_unwrap_result();
 		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
@@ -2821,11 +2846,21 @@ fn deposit_limit_in_nested_calls() {
 			.build_and_unwrap_result();
 		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
 
+		// Free up a bit of storage in the callee but not enough for the caller to
+		// create a new item
+		assert_err_ignore_postinfo!(
+			builder::call(addr_caller)
+				.storage_deposit_limit(78)
+				.data((95u32, &addr_callee, U256::from(1u64)).encode())
+				.build(),
+			<Error<Test>>::StorageDepositLimitExhausted,
+		);
+
 		// Free up enough storage in the callee so that the caller can create a new item
 		// We set the special deposit limit of 1 Balance for the nested call, which isn't
 		// enforced as callee frees up storage. This should pass.
 		assert_ok!(builder::call(addr_caller)
-			.storage_deposit_limit(1)
+			.storage_deposit_limit(78)
 			.data((0u32, &addr_callee, U256::from(1u64)).encode())
 			.build());
 	});
@@ -2875,7 +2910,10 @@ fn deposit_limit_in_nested_instantiate() {
 		// Sub calls return first to they are checked first.
 		let ret = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
-			.storage_deposit_limit(0)
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit: 155,
+			})
 			.data((&code_hash_callee, 100u32, &U256::MAX.to_little_endian()).encode())
 			.build_and_unwrap_result();
 		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
@@ -2887,21 +2925,25 @@ fn deposit_limit_in_nested_instantiate() {
 		// Same as above but stores one byte in both caller and callee.
 		let ret = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
-			.storage_deposit_limit(caller_min_deposit + 1)
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit: caller_min_deposit + 1,
+			})
 			.data((&code_hash_callee, 1u32, U256::from(callee_min_deposit)).encode())
 			.build_and_unwrap_result();
 		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
 		// The charges made on the instantiation should be rolled back.
 		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 1_000_000);
 
-		println!("caller={caller_min_deposit:?} callee={callee_min_deposit:?}");
-
 		// Fail in the caller with bytes.
 		//
 		// Same as above but stores one byte in both caller and callee.
 		let ret = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
-			.storage_deposit_limit(caller_min_deposit + 2)
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit: caller_min_deposit + 2,
+			})
 			.data((&code_hash_callee, 1u32, U256::from(callee_min_deposit + 1)).encode())
 			.build();
 		assert_err!(ret.result, <Error<Test>>::StorageDepositLimitExhausted);
@@ -2911,7 +2953,10 @@ fn deposit_limit_in_nested_instantiate() {
 		// Set enough deposit limit for the child instantiate. This should succeed.
 		let result = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
-			.storage_deposit_limit((caller_min_deposit + 3).into())
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit: (caller_min_deposit + 3).into(),
+			})
 			.data((&code_hash_callee, 1u32, U256::from(callee_min_deposit + 1)).encode())
 			.build();
 

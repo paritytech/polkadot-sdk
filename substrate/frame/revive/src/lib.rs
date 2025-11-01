@@ -53,10 +53,7 @@ use crate::{
 		TracerType, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Stack as ExecStack},
-	metering::{
-		weight::Token as WeightToken, EthTxInfo, ResourceMeter, State, TransactionLimits,
-		TransactionMeter,
-	},
+	metering::State,
 	storage::{AccountType, DeletionQueueManager},
 	tracing::if_tracing,
 	vm::{pvm::extract_code_and_data, CodeInfo, RuntimeCosts},
@@ -101,6 +98,10 @@ pub use crate::{
 	debug::DebugSettings,
 	evm::{block_hash::ReceiptGasInfo, Address as EthAddress, Block as EthBlock, ReceiptInfo},
 	exec::{DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
+	metering::{
+		weight::Token as WeightToken, EthTxInfo, FrameMeter, ResourceMeter, TransactionLimits,
+		TransactionMeter,
+	},
 	pallet::{genesis, *},
 	storage::{AccountInfo, ContractInfo},
 	vm::ContractBlob,
@@ -2630,7 +2631,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
 						dest,
 						$crate::Pallet::<Self>::convert_native_to_evm(value),
-						$crate::metering::TransactionLimits::WeightAndDeposit {
+						$crate::TransactionLimits::WeightAndDeposit {
 							weight_limit: weight_limit.unwrap_or(blockweights.max_block),
 							deposit_limit: storage_deposit_limit.unwrap_or(u128::MAX),
 						},
@@ -2656,7 +2657,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					$crate::Pallet::<Self>::bare_instantiate(
 						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
 						$crate::Pallet::<Self>::convert_native_to_evm(value),
-						$crate::metering::TransactionLimits::WeightAndDeposit {
+						$crate::TransactionLimits::WeightAndDeposit {
 							weight_limit: weight_limit.unwrap_or(blockweights.max_block),
 							deposit_limit: storage_deposit_limit.unwrap_or(u128::MAX),
 						},

@@ -536,11 +536,11 @@ mod test {
 				dest,
 				value,
 				weight_limit,
-				eth_gas_limit,
 				data,
 				transaction_encoded,
 				effective_gas_price,
 				encoded_len,
+				..
 			}) if dest == tx.to.unwrap() &&
 				value == tx.value.unwrap_or_default().as_u64().into() &&
 				data == tx.input.to_vec() &&
@@ -565,19 +565,21 @@ mod test {
 			expected_code.clone(),
 			expected_data.clone(),
 		);
-		let (expected_encoded_len, call, _, tx, weight_required) = builder.check().unwrap();
+		let (expected_encoded_len, call, _, tx, weight_required, signed_transaction) =
+			builder.check().unwrap();
 		let expected_effective_gas_price: u32 = <Test as Config>::NativeToEthRatio::get();
 		let expected_value = tx.value.unwrap_or_default().as_u64().into();
 
 		match call {
 			RuntimeCall::Contracts(crate::Call::eth_instantiate_with_code::<Test> {
 				value,
+				weight_limit,
 				code,
 				data,
-				weight_limit,
-				eth_gas_limit,
+				transaction_encoded,
 				effective_gas_price,
 				encoded_len,
+				..
 			}) if value == expected_value &&
 				code == expected_code &&
 				data == expected_data &&

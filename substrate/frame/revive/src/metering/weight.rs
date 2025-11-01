@@ -264,10 +264,14 @@ impl<T: Config> WeightMeter<T> {
 		self.weight_consumed
 	}
 
+	pub fn consume_all(&mut self, weight_limit: Weight) {
+		self.weight_consumed = weight_limit;
+	}
+
 	/// Returns how much weight left from the initial budget.
 	#[cfg(test)]
 	pub fn weight_left(&self) -> Weight {
-		self.weight_limit.saturating_sub(self.weight_consumed)
+		self.weight_limit.unwrap().saturating_sub(self.weight_consumed)
 	}
 
 	#[cfg(test)]
@@ -275,8 +279,9 @@ impl<T: Config> WeightMeter<T> {
 		&self.tokens
 	}
 
-	pub fn consume_all(&mut self, weight_limit: Weight) {
-		self.weight_consumed = weight_limit;
+	#[cfg(test)]
+	pub fn nested(&mut self, amount: Weight) -> Self {
+		Self::new(Some(self.weight_left().min(amount)))
 	}
 }
 
@@ -333,14 +338,14 @@ mod tests {
 
 	#[test]
 	fn it_works() {
-		let weight_meter = WeightMeter::<Test>::new(Weight::from_parts(50000, 0));
+		let weight_meter = WeightMeter::<Test>::new(Some(Weight::from_parts(50000, 0)));
 		assert_eq!(weight_meter.weight_left(), Weight::from_parts(50000, 0));
 	}
 
 	#[test]
 	fn tracing() {
-		let mut weight_meter = WeightMeter::<Test>::new(Weight::from_parts(50000, 0));
-		assert!(!weight_meter.charge(SimpleToken(1)).is_err());
+		let mut weight_meter = WeightMeter::<Test>::new(Some(Weight::from_parts(50000, 0)));
+		assert!(!weight_meter.charge(SimpleToken(1), weight_meter.weight_left()).is_err());
 
 		let mut tokens = weight_meter.tokens().iter();
 		match_tokens!(tokens, SimpleToken(1),);
@@ -349,8 +354,8 @@ mod tests {
 	// This test makes sure that nothing can be executed if there is no weight.
 	#[test]
 	fn refuse_to_execute_anything_if_zero() {
-		let mut weight_meter = WeightMeter::<Test>::new(Weight::zero());
-		assert!(weight_meter.charge(SimpleToken(1)).is_err());
+		let mut weight_meter = WeightMeter::<Test>::new(Some(Weight::zero()));
+		assert!(weight_meter.charge(SimpleToken(1), weight_meter.weight_left()).is_err());
 	}
 
 	/// Previously, passing a `Weight` of 0 to `nested` would consume all of the meter's current
@@ -360,7 +365,7 @@ mod tests {
 	#[test]
 	fn nested_zero_weight_requested() {
 		let test_weight = 50000.into();
-		let mut weight_meter = WeightMeter::<Test>::new(test_weight);
+		let mut weight_meter = WeightMeter::<Test>::new(Some(test_weight));
 		let weight_for_nested_call = weight_meter.nested(0.into());
 
 		assert_eq!(weight_meter.weight_left(), 50000.into());
@@ -370,7 +375,7 @@ mod tests {
 	#[test]
 	fn nested_some_weight_requested() {
 		let test_weight = 50000.into();
-		let mut weight_meter = WeightMeter::<Test>::new(test_weight);
+		let mut weight_meter = WeightMeter::<Test>::new(Some(test_weight));
 		let weight_for_nested_call = weight_meter.nested(10000.into());
 
 		assert_eq!(weight_meter.weight_consumed(), 0.into());
@@ -380,7 +385,7 @@ mod tests {
 	#[test]
 	fn nested_all_weight_requested() {
 		let test_weight = Weight::from_parts(50000, 50000);
-		let mut weight_meter = WeightMeter::<Test>::new(test_weight);
+		let mut weight_meter = WeightMeter::<Test>::new(Some(test_weight));
 		let weight_for_nested_call = weight_meter.nested(test_weight);
 
 		assert_eq!(weight_meter.weight_consumed(), Weight::from_parts(0, 0));
@@ -390,7 +395,7 @@ mod tests {
 	#[test]
 	fn nested_excess_weight_requested() {
 		let test_weight = Weight::from_parts(50000, 50000);
-		let mut weight_meter = WeightMeter::<Test>::new(test_weight);
+		let mut weight_meter = WeightMeter::<Test>::new(Some(test_weight));
 		let weight_for_nested_call = weight_meter.nested(test_weight + 10000.into());
 
 		assert_eq!(weight_meter.weight_consumed(), Weight::from_parts(0, 0));
@@ -400,20 +405,20 @@ mod tests {
 	// Make sure that the weight meter does not charge in case of overcharge
 	#[test]
 	fn overcharge_does_not_charge() {
-		let mut weight_meter = WeightMeter::<Test>::new(Weight::from_parts(200, 0));
+		let mut weight_meter = WeightMeter::<Test>::new(Some(Weight::from_parts(200, 0)));
 
 		// The first charge is should lead to OOG.
-		assert!(weight_meter.charge(SimpleToken(300)).is_err());
+		assert!(weight_meter.charge(SimpleToken(300), weight_meter.weight_left()).is_err());
 
 		// The weight meter should still contain the full 200.
-		assert!(weight_meter.charge(SimpleToken(200)).is_ok());
+		assert!(weight_meter.charge(SimpleToken(200), weight_meter.weight_left()).is_ok());
 	}
 
 	// Charging the exact amount that the user paid for should be
 	// possible.
 	#[test]
 	fn charge_exact_amount() {
-		let mut weight_meter = WeightMeter::<Test>::new(Weight::from_parts(25, 0));
-		assert!(!weight_meter.charge(SimpleToken(25)).is_err());
+		let mut weight_meter = WeightMeter::<Test>::new(Some(Weight::from_parts(25, 0)));
+		assert!(!weight_meter.charge(SimpleToken(25), weight_meter.weight_left()).is_err());
 	}
 }

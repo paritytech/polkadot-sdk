@@ -316,6 +316,7 @@ mod benchmarks {
 			origin,
 			evm_value,
 			Weight::MAX,
+			U256::MAX,
 			code,
 			input,
 			TransactionSigned::default().signed_payload(),
@@ -476,6 +477,7 @@ mod benchmarks {
 			instance.address,
 			evm_value,
 			Weight::MAX,
+			U256::MAX,
 			data,
 			TransactionSigned::default().signed_payload(),
 			0u32.into(),
@@ -812,7 +814,7 @@ mod benchmarks {
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
 
-		let weight_left_before = ext.gas_meter().weight_left();
+		let weight_left_before = ext.gas_meter().weight_left().unwrap();
 		let result;
 		#[block]
 		{
@@ -822,7 +824,7 @@ mod benchmarks {
 				input_bytes,
 			);
 		}
-		let weight_left_after = ext.gas_meter().weight_left();
+		let weight_left_after = ext.gas_meter().weight_left().unwrap();
 		assert_ne!(weight_left_after.ref_time(), 0);
 		assert!(weight_left_before.ref_time() > weight_left_after.ref_time());
 
@@ -1260,7 +1262,7 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = crate::storage::meter::terminate_logic_for_benchmark::<T>(
+			result = crate::metering::storage::terminate_logic_for_benchmark::<T>(
 				&instance.account_id,
 				&beneficiary,
 			);

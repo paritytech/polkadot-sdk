@@ -410,6 +410,18 @@ impl<T: Config> ExecConfig<T> {
 		self.is_dry_run = true;
 		self
 	}
+
+	/// Almost clone for testing (does not clone mock_handler)
+	#[cfg(test)]
+	pub fn clone(&self) -> Self {
+		Self {
+			bump_nonce: self.bump_nonce,
+			collect_deposit_from_hold: self.collect_deposit_from_hold,
+			effective_gas_price: self.effective_gas_price,
+			is_dry_run: self.is_dry_run,
+			mock_handler: None,
+		}
+	}
 }
 
 /// Indicates whether the code was removed after the last refcount was decremented.

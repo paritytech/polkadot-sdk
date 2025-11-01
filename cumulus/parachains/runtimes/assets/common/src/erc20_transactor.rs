@@ -21,12 +21,11 @@ use ethereum_standards::IERC20;
 use frame_support::traits::{fungible::Inspect, OriginTrait};
 use frame_system::pallet_prelude::OriginFor;
 use pallet_revive::{
-	metering::TransactionLimit,
 	precompiles::alloy::{
 		primitives::{Address, U256 as EU256},
 		sol_types::SolCall,
 	},
-	AddressMapper, ContractResult, ExecConfig, MomentOf,
+	AddressMapper, ContractResult, ExecConfig, MomentOf, TransactionLimits,
 };
 use sp_core::{Get, H160, H256, U256};
 use sp_runtime::Weight;
@@ -127,7 +126,7 @@ where
 				OriginFor::<T>::signed(who.clone()),
 				asset_id,
 				U256::zero(),
-				TransactionLimit::WeightAndDeposit {
+				TransactionLimits::WeightAndDeposit {
 					weight_limit,
 					deposit_limit: StorageDepositLimit::get(),
 				},
@@ -188,7 +187,7 @@ where
 				OriginFor::<T>::signed(TransfersCheckingAccount::get()),
 				asset_id,
 				U256::zero(),
-				TransactionLimit::WeightAndDeposit {
+				TransactionLimits::WeightAndDeposit {
 					weight_limit,
 					deposit_limit: StorageDepositLimit::get(),
 				},

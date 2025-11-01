@@ -45,7 +45,7 @@ use sp_runtime::{traits::AccountIdConversion, DispatchError};
 use super::{address::AddressMapper, pallet, Config, ContractResult, ExecConfig, Pallet, Weight};
 use ethereum_standards::IERC20;
 
-const WEIGHT_LIMIT: Weight = Weight::from_parts(1_000_000_000, 100_000);
+const WEIGHT_LIMIT: Weight = Weight::from_parts(10_000_000_000, 100_000);
 
 impl<T: Config> Pallet<T> {
 	// Test checking account for the `fungibles::*` implementation.
@@ -407,7 +407,10 @@ mod tests {
 				RuntimeOrigin::signed(checking_account.clone()),
 				Code::Upload(code),
 			)
-			.storage_deposit_limit(1_000_000_000_000)
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit: 1_000_000_000_000,
+			})
 			.data(constructor_data)
 			.build_and_unwrap_contract();
 			assert_eq!(

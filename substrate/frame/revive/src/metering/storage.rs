@@ -39,6 +39,9 @@ use sp_runtime::{
 	DispatchError, FixedPointNumber, FixedU128,
 };
 
+#[cfg(test)]
+use num_traits::Bounded;
+
 /// Deposit that uses the native fungible's balance type.
 pub type DepositOf<T> = Deposit<BalanceOf<T>>;
 
@@ -248,8 +251,14 @@ where
 	/// This is called whenever a new subcall is initiated in order to track the storage
 	/// usage for this sub call separately. This is necessary because we want to exchange balance
 	/// with the current contract we are interacting with.
-	pub fn nested(&self, limit: Option<BalanceOf<T>>) -> RawMeter<T, E, Nested> {
+	pub fn nested(&self, mut limit: Option<BalanceOf<T>>) -> RawMeter<T, E, Nested> {
 		debug_assert!(matches!(self.contract_state(), ContractState::Alive));
+
+		match (limit, self.limit) {
+			(Some(new_limit), Some(old_limit)) => limit = Some(new_limit.min(old_limit)),
+			_ => (),
+		}
+
 		RawMeter { limit, ..Default::default() }
 	}
 
@@ -333,6 +342,16 @@ where
 				},
 			_ => ContractState::Alive,
 		}
+	}
+
+	/// The amount of balance still available from the current meter.
+	///
+	/// This includes charges from the current frame but no refunds.
+	#[cfg(test)]
+	pub fn available(&self) -> BalanceOf<T> {
+		self.consumed()
+			.available(&self.limit.unwrap_or(BalanceOf::<T>::max_value()))
+			.unwrap_or_default()
 	}
 }
 
@@ -560,6 +579,8 @@ pub fn terminate_logic_for_benchmark<T: Config>(
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::{exec::AccountIdOf, test_utils::*, tests::Test};
+	use frame_support::parameter_types;
 	use pretty_assertions::assert_eq;
 
 	type TestMeter = RawMeter<Test, TestExt, Root>;
@@ -643,7 +664,7 @@ mod tests {
 	fn new_reserves_balance_works() {
 		clear_ext();
 
-		TestMeter::new(1_000);
+		TestMeter::new(Some(1_000));
 
 		assert_eq!(TestExtTestValue::get(), TestExt { ..Default::default() })
 	}
@@ -655,9 +676,9 @@ mod tests {
 	fn nested_zero_limit_requested() {
 		clear_ext();
 
-		let meter = TestMeter::new(1_000);
+		let meter = TestMeter::new(Some(1_000));
 		assert_eq!(meter.available(), 1_000);
-		let nested0 = meter.nested(BalanceOf::<Test>::zero());
+		let nested0 = meter.nested(Some(BalanceOf::<Test>::zero()));
 		assert_eq!(nested0.available(), 0);
 	}
 
@@ -665,9 +686,9 @@ mod tests {
 	fn nested_some_limit_requested() {
 		clear_ext();
 
-		let meter = TestMeter::new(1_000);
+		let meter = TestMeter::new(Some(1_000));
 		assert_eq!(meter.available(), 1_000);
-		let nested0 = meter.nested(500);
+		let nested0 = meter.nested(Some(500));
 		assert_eq!(nested0.available(), 500);
 	}
 
@@ -675,9 +696,9 @@ mod tests {
 	fn nested_all_limit_requested() {
 		clear_ext();
 
-		let meter = TestMeter::new(1_000);
+		let meter = TestMeter::new(Some(1_000));
 		assert_eq!(meter.available(), 1_000);
-		let nested0 = meter.nested(1_000);
+		let nested0 = meter.nested(Some(1_000));
 		assert_eq!(nested0.available(), 1_000);
 	}
 
@@ -685,9 +706,9 @@ mod tests {
 	fn nested_over_limit_requested() {
 		clear_ext();
 
-		let meter = TestMeter::new(1_000);
+		let meter = TestMeter::new(Some(1_000));
 		assert_eq!(meter.available(), 1_000);
-		let nested0 = meter.nested(2_000);
+		let nested0 = meter.nested(Some(2_000));
 		assert_eq!(nested0.available(), 1_000);
 	}
 
@@ -695,11 +716,11 @@ mod tests {
 	fn empty_charge_works() {
 		clear_ext();
 
-		let mut meter = TestMeter::new(1_000);
+		let mut meter = TestMeter::new(Some(1_000));
 		assert_eq!(meter.available(), 1_000);
 
 		// an empty charge does not create a `Charge` entry
-		let mut nested0 = meter.nested(BalanceOf::<Test>::zero());
+		let mut nested0 = meter.nested(Some(BalanceOf::<Test>::zero()));
 		nested0.charge(&Default::default());
 		meter.absorb(nested0, &BOB, None);
 
@@ -739,7 +760,7 @@ mod tests {
 		for test_case in test_cases {
 			clear_ext();
 
-			let mut meter = TestMeter::new(100);
+			let mut meter = TestMeter::new(Some(100));
 			assert_eq!(meter.available(), 100);
 
 			let mut nested0_info = new_info(StorageInfo {
@@ -749,7 +770,7 @@ mod tests {
 				items_deposit: 10,
 				immutable_data_len: 0,
 			});
-			let mut nested0 = meter.nested(BalanceOf::<Test>::zero());
+			let mut nested0 = meter.nested(Some(BalanceOf::<Test>::zero()));
 			nested0.charge(&Diff {
 				bytes_added: 108,
 				bytes_removed: 5,
@@ -765,7 +786,7 @@ mod tests {
 				items_deposit: 20,
 				immutable_data_len: 0,
 			});
-			let mut nested1 = nested0.nested(BalanceOf::<Test>::zero());
+			let mut nested1 = nested0.nested(Some(BalanceOf::<Test>::zero()));
 			nested1.charge(&Diff { items_removed: 5, ..Default::default() });
 			nested0.absorb(nested1, &CHARLIE, Some(&mut nested1_info));
 
@@ -776,16 +797,16 @@ mod tests {
 				items_deposit: 20,
 				immutable_data_len: 0,
 			});
-			let mut nested2 = nested0.nested(BalanceOf::<Test>::zero());
+			let mut nested2 = nested0.nested(Some(BalanceOf::<Test>::zero()));
 			nested2.charge(&Diff { items_removed: 7, ..Default::default() });
 			nested0.absorb(nested2, &CHARLIE, Some(&mut nested2_info));
 
-			nested0.enforce_limit(Some(&mut nested0_info)).unwrap();
+			nested0.finalize_own_contributions(Some(&mut nested0_info));
 			meter.absorb(nested0, &BOB, Some(&mut nested0_info));
 
 			assert_eq!(
 				meter
-					.try_into_deposit(&test_case.origin, &ExecConfig::new_substrate_tx())
+					.execute_postponed_deposits(&test_case.origin, &ExecConfig::new_substrate_tx())
 					.unwrap(),
 				test_case.deposit
 			);
@@ -834,10 +855,10 @@ mod tests {
 		for test_case in test_cases {
 			clear_ext();
 
-			let mut meter = TestMeter::new(1_000);
+			let mut meter = TestMeter::new(Some(1_000));
 			assert_eq!(meter.available(), 1_000);
 
-			let mut nested0 = meter.nested(BalanceOf::<Test>::max_value());
+			let mut nested0 = meter.nested(Some(BalanceOf::<Test>::max_value()));
 			nested0.charge(&Diff {
 				bytes_added: 5,
 				bytes_removed: 1,
@@ -853,17 +874,17 @@ mod tests {
 				items_deposit: 20,
 				immutable_data_len: 0,
 			});
-			let mut nested1 = nested0.nested(BalanceOf::<Test>::max_value());
+			let mut nested1 = nested0.nested(Some(BalanceOf::<Test>::max_value()));
 			nested1.charge(&Diff { items_removed: 5, ..Default::default() });
 			nested1.charge(&Diff { bytes_added: 20, ..Default::default() });
 			nested1.terminate(&nested1_info, CHARLIE, true);
-			nested0.enforce_limit(Some(&mut nested1_info)).unwrap();
+			nested0.finalize_own_contributions(Some(&mut nested1_info));
 			nested0.absorb(nested1, &CHARLIE, None);
 
 			meter.absorb(nested0, &BOB, None);
 			assert_eq!(
 				meter
-					.try_into_deposit(&test_case.origin, &ExecConfig::new_substrate_tx())
+					.execute_postponed_deposits(&test_case.origin, &ExecConfig::new_substrate_tx())
 					.unwrap(),
 				test_case.deposit
 			);

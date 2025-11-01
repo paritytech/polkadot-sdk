@@ -20,10 +20,13 @@
 use core::iter;
 
 use crate::{
+	address::AddressMapper,
 	evm::{decode_revert_reason, fees::InfoT},
-	test_utils::{builder::Contract, deposit_limit, ALICE, ALICE_ADDR, WEIGHT_LIMIT},
-	tests::{builder, ExtBuilder, Test},
-	BalanceOf, Code, Config, DispatchError, Error, ExecConfig,
+	metering::TransactionLimits,
+	test_utils::{builder::Contract, deposit_limit, ALICE, ALICE_ADDR, BOB_ADDR, WEIGHT_LIMIT},
+	tests::{builder, ExtBuilder, MockHandlerImpl, Test},
+	BalanceOf, Code, Config, DelegateInfo, DispatchError, Error, ExecConfig, ExecOrigin,
+	ExecReturnValue,
 };
 use alloy_core::{
 	primitives::{Bytes, FixedBytes},
@@ -33,6 +36,7 @@ use frame_support::{
 	assert_err,
 	traits::fungible::{Balanced, Mutate},
 };
+use itertools::Itertools;
 use pallet_revive_fixtures::{compile_module_with_type, Callee, Caller, FixtureType};
 use pallet_revive_uapi::ReturnFlags;
 use pretty_assertions::assert_eq;
@@ -713,7 +717,7 @@ fn subcall_effectively_limited_substrate_tx(caller_type: FixtureType, callee_typ
 	];
 
 	for ((case, config), call_type) in
-		test_cases.iter().cartesian_product(configs).cartesian_product(call_types)
+		test_cases.iter().cartesian_product(&configs).cartesian_product(call_types)
 	{
 		// the storage stuff won't work on static or delegate call
 		if case.is_store_call && call_type != 0 {
@@ -746,8 +750,11 @@ fn subcall_effectively_limited_substrate_tx(caller_type: FixtureType, callee_typ
 					}
 					.abi_encode(),
 				)
-				.exec_config(config)
-				.storage_deposit_limit(case.deposit_limit)
+				.exec_config(config.clone())
+				.transaction_limits(TransactionLimits::WeightAndDeposit {
+					weight_limit: WEIGHT_LIMIT,
+					deposit_limit: case.deposit_limit,
+				})
 				.build();
 
 			let result = output.result.map(|result| {

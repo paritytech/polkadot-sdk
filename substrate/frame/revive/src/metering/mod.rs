@@ -22,7 +22,7 @@ use crate::{
 	evm::fees::InfoT, exec::CallResources, storage::ContractInfo, vm::evm::Halt, BalanceOf, Config,
 	Error, ExecConfig, ExecOrigin as Origin, StorageDeposit, LOG_TARGET,
 };
-use frame_support::DefaultNoBound;
+use frame_support::{DebugNoBound, DefaultNoBound};
 use num_traits::Zero;
 
 use core::{fmt::Debug, marker::PhantomData, ops::ControlFlow};
@@ -73,14 +73,14 @@ pub struct ResourceMeter<T: Config, S: State> {
 	_phantom: PhantomData<S>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(DebugNoBound, Clone)]
 pub struct EthTxInfo<T: Config> {
 	pub encoded_len: u32,
 	pub extra_weight: Weight,
 	_phantom: PhantomData<T>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(DebugNoBound, Clone)]
 pub enum TransactionLimits<T: Config> {
 	EthereumGas { eth_gas_limit: BalanceOf<T>, eth_tx_info: EthTxInfo<T> },
 	WeightAndDeposit { weight_limit: Weight, deposit_limit: BalanceOf<T> },
@@ -283,7 +283,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 						),
 
 						CallResources::Ethereum(gas) => {
-							let weight_gas = T::FeeInfo::weight_to_fee(&weight_left);
+							let weight_gas = T::FeeInfo::weight_to_fee_average(&weight_left);
 							let deposit_gas = T::FeeInfo::next_fee_multiplier_reciprocal()
 								.saturating_mul_int(deposit_left);
 							let gas_left = weight_gas.saturating_add(deposit_gas);
@@ -372,7 +372,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 			TransactionLimits::WeightAndDeposit { .. } => {
 				match (self.weight_left(), self.deposit_left()) {
 					(Some(weight_left), Some(deposit_left)) => {
-						let weight_gas = T::FeeInfo::weight_to_fee(&weight_left);
+						let weight_gas = T::FeeInfo::weight_to_fee_average(&weight_left);
 						let deposit_gas = T::FeeInfo::next_fee_multiplier_reciprocal()
 							.saturating_mul_int(deposit_left);
 
@@ -562,6 +562,13 @@ impl<T: Config> TransactionMeter<T> {
 				_phantom: PhantomData,
 			}),
 		}
+	}
+
+	pub fn new_from_limits(
+		weight_limit: Weight,
+		deposit_limit: BalanceOf<T>,
+	) -> Result<Self, DispatchError> {
+		Self::new(TransactionLimits::WeightAndDeposit { weight_limit, deposit_limit })
 	}
 
 	pub fn execute_postponed_deposits(

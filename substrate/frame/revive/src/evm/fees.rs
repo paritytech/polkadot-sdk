@@ -134,6 +134,11 @@ pub trait InfoT<T: Config>: seal::Sealed {
 		Zero::zero()
 	}
 
+	/// Convert a weight to an unadjusted fee using an average instead of maximum.
+	fn weight_to_fee_average(_weight: &Weight) -> BalanceOf<T> {
+		Zero::zero()
+	}
+
 	/// Convert an unadjusted fee back to a weight.
 	fn fee_to_weight(_fee: BalanceOf<T>) -> Weight {
 		Zero::zero()
@@ -300,6 +305,17 @@ where
 
 	fn weight_to_fee(weight: &Weight) -> BalanceOf<E::Config> {
 		<E::Config as TxConfig>::WeightToFee::weight_to_fee(weight)
+	}
+
+	// Convert a weight to an unadjusted fee using an average instead of maximum.
+	fn weight_to_fee_average(weight: &Weight) -> BalanceOf<E::Config> {
+		let ref_time_part = <E::Config as TxConfig>::WeightToFee::REF_TIME_TO_FEE
+			.saturating_mul_int(weight.ref_time());
+		let proof_size_part = <E::Config as TxConfig>::WeightToFee::proof_size_to_fee()
+			.saturating_mul_int(weight.proof_size());
+
+		// saturated addition not required here but better to be defensive
+		((ref_time_part >> 1).saturating_add(proof_size_part >> 1)).saturated_into()
 	}
 
 	/// Convert an unadjusted fee back to a weight.
