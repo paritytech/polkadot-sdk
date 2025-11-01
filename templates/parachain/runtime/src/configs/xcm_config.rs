@@ -34,10 +34,11 @@ use xcm_builder::{
 };
 use xcm_executor::XcmExecutor;
 
+pub const ASSET_HUB_PARA_ID: u32 = 1_000;
+
 parameter_types! {
 	pub const RelayLocation: Location = Location::parent();
 	pub const NativeLocation: Location = Location::here();
-	pub const AssetHubParaId: u32 = 1_000;
 	pub const RelayNetwork: Option<NetworkId> = None;
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	// For the real deployment, it is recommended to set `RelayNetwork` according to the relay chain
@@ -104,7 +105,7 @@ parameter_types! {
 pub struct AssetHub;
 impl Contains<Location> for AssetHub {
 	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (1, [Parachain(AssetHubParaId::get())]))
+		matches!(location.unpack(), (1, [Parachain(ASSET_HUB_PARA_ID)]))
 	}
 }
 
