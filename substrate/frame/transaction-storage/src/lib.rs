@@ -203,7 +203,7 @@ pub mod pallet {
 						// Otherwise, it would look like:
 						// `Transactions::<T>::get(target_number).map(|txs|
 						// TransactionInfo::total_chunks(&txs)).unwrap_or_default()`
-						Transactions::<T>::decode_len(target_number).unwrap_or_default() == 0
+						!Transactions::<T>::exists(target_number)
 					}
 				},
 				"Storage proof must be checked once in the block"
