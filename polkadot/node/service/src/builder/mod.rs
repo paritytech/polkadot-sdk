@@ -457,12 +457,12 @@ where
 
 		#[cfg(feature = "doppelganger")]
 		let warp_sync_config_to_use = if let Ok(zombie_target_header_path) = std::env::var("ZOMBIE_TARGET_HEADER_PATH") {
-			let header_content = tokio::fs::read_to_string(&zombie_target_header_path).await.expect("env var ZOMBIE_TARGET_HEADER_PATH should be valid. qed");
+			let header_content = std::fs::read_to_string(&zombie_target_header_path).expect("env var ZOMBIE_TARGET_HEADER_PATH should be valid. qed");
 			let header: <Block as BlockT>::Header = serde_json::from_str(&header_content).unwrap();
 			WarpSyncConfig::WithTarget(header)
 
 		} else {
-			WarpSyncConfig::WithProvider(warp_sync);
+			WarpSyncConfig::WithProvider(warp_sync)
 		};
 
 		#[cfg(not(feature = "doppelganger"))]
