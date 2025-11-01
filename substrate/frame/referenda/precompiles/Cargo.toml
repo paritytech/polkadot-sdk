@@ -21,6 +21,7 @@ tracing = { workspace = true }
 frame-support = { workspace = true }
 pallet-revive = { workspace = true }
 pallet-referenda = { workspace = true }
+sp-runtime = { workspace = true }
 
 [dev-dependencies]
 frame-system = { workspace = true, default-features = true }

@@ -23,9 +23,13 @@ use alloc::{boxed::Box, vec::Vec};
 use codec::Decode;
 
 use core::{convert::TryFrom, fmt, marker::PhantomData, num::NonZero};
-use frame_support::traits::{schedule::DispatchTime, BoundedInline};
+use frame_support::traits::{schedule::DispatchTime, BoundedInline, Get};
+use sp_runtime::traits::SaturatedConversion;
 
-use pallet_referenda::{BlockNumberFor, BoundedCallOf, PalletsOriginOf, ReferendumCount};
+use pallet_referenda::{
+	BlockNumberFor, BoundedCallOf, PalletsOriginOf, ReferendumCount, ReferendumInfoFor,
+	TracksInfo,
+};
 use pallet_revive::{
 	frame_system,
 	precompiles::{
@@ -271,6 +275,37 @@ where
 					Err(e) => Err(revert(&e, "Referenda place decision deposit failed")),
 				}
 			},
+				IReferendaCalls::submissionDeposit(IReferenda::submissionDepositCall 
+			) => {
+				let submission_deposit = <Runtime as pallet_referenda::Config>::SubmissionDeposit::get();
+				let deposit_u128: u128 = submission_deposit.saturated_into();
+				Ok(deposit_u128.abi_encode())
+			}
+				IReferendaCalls::decisionDeposit(IReferenda::decisionDepositCall{referendumIndex: index}) => {
+				// Get the referendum info to find the track
+				let referendum_info = ReferendumInfoFor::<Runtime, ()>::get(*index);
+				
+				let decision_deposit_amount = match referendum_info {
+					Some(pallet_referenda::ReferendumInfo::Ongoing(status)) => {
+						// Check if deposit is already placed
+						if status.decision_deposit.is_some() {
+							// Deposit already placed, nothing left to place
+							0u128
+						} else {
+							// Get track info to get the required decision deposit amount
+							let track = <Runtime as pallet_referenda::Config>::Tracks::info(status.track)
+								.ok_or(Error::Revert("Track not found".into()))?;
+							track.decision_deposit.saturated_into::<u128>()
+						}
+					},
+					// For completed referenda, return 0 (nothing left to place)
+					Some(_) => 0u128,
+					// Referendum doesn't exist - return 0 (nothing left to place)
+					None => 0u128,
+				};
+
+				Ok(decision_deposit_amount.abi_encode())
+			}
 			_ => Ok(Vec::new()),
 		}
 	}
