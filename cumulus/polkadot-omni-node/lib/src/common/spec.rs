@@ -16,6 +16,7 @@
 
 use crate::{
 	chain_spec::Extensions,
+	cli::DevSealMode,
 	common::{
 		command::NodeCommandRunner,
 		rpc::BuildRpcExtensions,
@@ -27,6 +28,7 @@ use crate::{
 		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
 };
+use codec::Encode;
 use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_service::{
@@ -300,11 +302,11 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 	const SYBIL_RESISTANCE: CollatorSybilResistance;
 
-	fn start_manual_seal_node(
+	fn start_dev_node(
 		_config: Configuration,
-		_block_time: u64,
+		_mode: DevSealMode,
 	) -> sc_service::error::Result<TaskManager> {
-		Err(sc_service::Error::Other("Manual seal not supported for this node type".into()))
+		Err(sc_service::Error::Other("Dev not supported for this node type".into()))
 	}
 
 	/// Start a node with the given parachain spec.
@@ -517,7 +519,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				request_receiver: paranode_rx,
 				parachain_network: network,
 				advertise_non_global_ips,
-				parachain_genesis_hash: client.chain_info().genesis_hash,
+				parachain_genesis_hash: client.chain_info().genesis_hash.encode(),
 				parachain_fork_id,
 				parachain_public_addresses,
 			});
@@ -557,11 +559,11 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 }
 
 pub(crate) trait DynNodeSpec: NodeCommandRunner {
-	/// Start node with manual-seal consensus.
-	fn start_manual_seal_node(
+	/// Start node with manual or instant seal consensus.
+	fn start_dev_node(
 		self: Box<Self>,
 		config: Configuration,
-		block_time: u64,
+		mode: DevSealMode,
 	) -> sc_service::error::Result<TaskManager>;
 
 	/// Start the node.
@@ -579,12 +581,12 @@ impl<T> DynNodeSpec for T
 where
 	T: NodeSpec + NodeCommandRunner,
 {
-	fn start_manual_seal_node(
+	fn start_dev_node(
 		self: Box<Self>,
 		config: Configuration,
-		block_time: u64,
+		mode: DevSealMode,
 	) -> sc_service::error::Result<TaskManager> {
-		<Self as NodeSpec>::start_manual_seal_node(config, block_time)
+		<Self as NodeSpec>::start_dev_node(config, mode)
 	}
 
 	fn start_node(

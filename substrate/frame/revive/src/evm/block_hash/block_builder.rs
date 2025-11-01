@@ -125,14 +125,14 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 		// The first transaction and receipt are returned to be stored in the pallet storage.
 		// The index of the incremental hash builders already expects the next items.
 		if self.tx_hashes.len() == 1 {
-			log::debug!(target: LOG_TARGET, "Storing first transaction and receipt in pallet storage");
+			log::trace!(target: LOG_TARGET, "Storing first transaction and receipt in pallet storage");
 			self.pallet_put_first_values((transaction_encoded, encoded_receipt));
 			return;
 		}
 
 		if self.transaction_root_builder.needs_first_value(BuilderPhase::ProcessingValue) {
 			if let Some((first_tx, first_receipt)) = self.pallet_take_first_values() {
-				log::debug!(target: LOG_TARGET, "Loaded first transaction and receipt from pallet storage");
+				log::trace!(target: LOG_TARGET, "Loaded first transaction and receipt from pallet storage");
 				self.transaction_root_builder.set_first_value(first_tx);
 				self.receipts_root_builder.set_first_value(first_receipt);
 			} else {
@@ -148,6 +148,7 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 	pub fn build(
 		&mut self,
 		block_number: U256,
+		base_fee_per_gas: U256,
 		parent_hash: H256,
 		timestamp: U256,
 		block_author: H160,
@@ -158,7 +159,7 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 				self.transaction_root_builder.set_first_value(first_tx);
 				self.receipts_root_builder.set_first_value(first_receipt);
 			} else {
-				log::debug!(target: LOG_TARGET, "Building an empty block");
+				log::trace!(target: LOG_TARGET, "Building an empty block");
 			}
 		}
 
@@ -179,6 +180,7 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 			transactions_root,
 			receipts_root,
 
+			base_fee_per_gas,
 			gas_used: self.gas_used,
 
 			logs_bloom: self.logs_bloom.bloom.into(),
@@ -424,6 +426,7 @@ mod test {
 			let built_block = incremental_block
 				.build(
 					block.number,
+					block.base_fee_per_gas,
 					block.parent_hash,
 					block.timestamp,
 					block.miner,
