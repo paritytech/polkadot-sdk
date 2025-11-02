@@ -51,7 +51,10 @@ use frame_support::{
 	self, assert_ok,
 	migrations::SteppedMigration,
 	storage::child,
-	traits::{fungible::InspectHold, Hooks},
+	traits::{
+		fungible::{InspectHold, UnbalancedHold},
+		Hooks,
+	},
 	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
@@ -133,7 +136,7 @@ mod benchmarks {
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn on_initialize_per_trie_key(k: Linear<0, 1024>) -> Result<(), BenchmarkError> {
 		let instance =
-			Contract::<T>::with_storage(VmBinaryModule::dummy(), k, limits::PAYLOAD_BYTES)?;
+			Contract::<T>::with_storage(VmBinaryModule::dummy(), k, limits::STORAGE_BYTES)?;
 		instance.info()?.queue_trie_for_deletion();
 
 		#[block]
@@ -343,6 +346,16 @@ mod benchmarks {
 
 		// contract has the full value
 		assert_eq!(Pallet::<T>::evm_balance(&addr), evm_value);
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn deposit_eth_extrinsic_revert_event() {
+		#[block]
+		{
+			Pallet::<T>::deposit_event(Event::<T>::EthExtrinsicRevert {
+				dispatch_error: crate::Error::<T>::BenchmarkingError.into(),
+			});
+		}
 	}
 
 	// `i`: Size of the input in bytes.
@@ -1104,10 +1117,9 @@ mod benchmarks {
 		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, input);
 
 		let block_hash = H256::from([1; 32]);
-		frame_system::BlockHash::<T>::insert(
-			&BlockNumberFor::<T>::from(0u32),
-			T::Hash::from(block_hash),
-		);
+
+		// Store block hash in pallet-revive BlockHash mapping
+		crate::BlockHash::<T>::insert(U256::from(0u32), block_hash);
 
 		let result;
 		#[block]
@@ -1222,7 +1234,49 @@ mod benchmarks {
 		}
 
 		assert!(matches!(result, Err(crate::vm::pvm::TrapReason::Termination)));
-		assert_eq!(PristineCode::<T>::get(code_hash).is_none(), delete_code);
+
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
+		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
+
+		build_runtime!(_runtime, instance, _memory: [vec![0u8; 0], ]);
+		let code_hash = instance.info()?.code_hash;
+
+		assert!(PristineCode::<T>::get(code_hash).is_some());
+
+		// Set storage deposit to zero so terminate_logic can proceed.
+		T::Currency::set_balance_on_hold(
+			&HoldReason::StorageDepositReserve.into(),
+			&instance.account_id,
+			0u32.into(),
+		)
+		.unwrap();
+
+		T::Currency::set_balance(&instance.account_id, Pallet::<T>::min_balance() * 2u32.into());
+
+		let result;
+		#[block]
+		{
+			result = crate::storage::meter::terminate_logic_for_benchmark::<T>(
+				&instance.account_id,
+				&beneficiary,
+			);
+		}
+		result.unwrap();
+
+		// Check that the contract is removed
+		assert!(PristineCode::<T>::get(code_hash).is_none());
+
+		// Check that the balance has been transferred away
+		let balance = <T as Config>::Currency::total_balance(&instance.account_id);
+		assert_eq!(balance, 0u32.into());
+
+		// Check that the beneficiary received the balance
+		let balance = <T as Config>::Currency::balance(&beneficiary);
+		assert_eq!(balance, Pallet::<T>::min_balance() * 2u32.into());
 
 		Ok(())
 	}
@@ -1233,7 +1287,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_deposit_event(
 		t: Linear<0, { limits::NUM_EVENT_TOPICS as u32 }>,
-		n: Linear<0, { limits::PAYLOAD_BYTES }>,
+		n: Linear<0, { limits::EVENT_BYTES }>,
 	) {
 		let num_topic = t as u32;
 		let topics = (0..t).map(|i| H256::repeat_byte(i as u8)).collect::<Vec<_>>();
@@ -1268,7 +1322,7 @@ mod benchmarks {
 	fn get_storage_empty() -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::PAYLOAD_BYTES as usize;
+		let max_value_len = limits::STORAGE_BYTES as usize;
 		let value = vec![1u8; max_value_len];
 
 		let instance = Contract::<T>::new(VmBinaryModule::dummy(), vec![])?;
@@ -1291,7 +1345,7 @@ mod benchmarks {
 	fn get_storage_full() -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::PAYLOAD_BYTES;
+		let max_value_len = limits::STORAGE_BYTES;
 		let value = vec![1u8; max_value_len as usize];
 
 		let instance = Contract::<T>::with_unbalanced_storage_trie(VmBinaryModule::dummy(), &key)?;
@@ -1314,7 +1368,7 @@ mod benchmarks {
 	fn set_storage_empty() -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::PAYLOAD_BYTES as usize;
+		let max_value_len = limits::STORAGE_BYTES as usize;
 		let value = vec![1u8; max_value_len];
 
 		let instance = Contract::<T>::new(VmBinaryModule::dummy(), vec![])?;
@@ -1339,7 +1393,7 @@ mod benchmarks {
 	fn set_storage_full() -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::PAYLOAD_BYTES;
+		let max_value_len = limits::STORAGE_BYTES;
 		let value = vec![1u8; max_value_len as usize];
 
 		let instance = Contract::<T>::with_unbalanced_storage_trie(VmBinaryModule::dummy(), &key)?;
@@ -1364,8 +1418,8 @@ mod benchmarks {
 	// o: old byte size
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn seal_set_storage(
-		n: Linear<0, { limits::PAYLOAD_BYTES }>,
-		o: Linear<0, { limits::PAYLOAD_BYTES }>,
+		n: Linear<0, { limits::STORAGE_BYTES }>,
+		o: Linear<0, { limits::STORAGE_BYTES }>,
 	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
@@ -1397,7 +1451,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn clear_storage(n: Linear<0, { limits::PAYLOAD_BYTES }>) -> Result<(), BenchmarkError> {
+	fn clear_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1430,7 +1484,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn seal_get_storage(n: Linear<0, { limits::PAYLOAD_BYTES }>) -> Result<(), BenchmarkError> {
+	fn seal_get_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1460,7 +1514,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn contains_storage(n: Linear<0, { limits::PAYLOAD_BYTES }>) -> Result<(), BenchmarkError> {
+	fn contains_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1492,7 +1546,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn take_storage(n: Linear<0, { limits::PAYLOAD_BYTES }>) -> Result<(), BenchmarkError> {
+	fn take_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![3u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1530,7 +1584,7 @@ mod benchmarks {
 	// complexity can introduce approximation errors.
 	#[benchmark(pov_mode = Ignored)]
 	fn set_transient_storage_empty() -> Result<(), BenchmarkError> {
-		let max_value_len = limits::PAYLOAD_BYTES;
+		let max_value_len = limits::STORAGE_BYTES;
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1552,7 +1606,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn set_transient_storage_full() -> Result<(), BenchmarkError> {
-		let max_value_len = limits::PAYLOAD_BYTES;
+		let max_value_len = limits::STORAGE_BYTES;
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1575,7 +1629,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn get_transient_storage_empty() -> Result<(), BenchmarkError> {
-		let max_value_len = limits::PAYLOAD_BYTES;
+		let max_value_len = limits::STORAGE_BYTES;
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1600,7 +1654,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn get_transient_storage_full() -> Result<(), BenchmarkError> {
-		let max_value_len = limits::PAYLOAD_BYTES;
+		let max_value_len = limits::STORAGE_BYTES;
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1627,7 +1681,7 @@ mod benchmarks {
 	// The weight of journal rollbacks should be taken into account when setting storage.
 	#[benchmark(pov_mode = Ignored)]
 	fn rollback_transient_storage() -> Result<(), BenchmarkError> {
-		let max_value_len = limits::PAYLOAD_BYTES;
+		let max_value_len = limits::STORAGE_BYTES;
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1655,8 +1709,8 @@ mod benchmarks {
 	// o: old byte size
 	#[benchmark(pov_mode = Measured)]
 	fn seal_set_transient_storage(
-		n: Linear<0, { limits::PAYLOAD_BYTES }>,
-		o: Linear<0, { limits::PAYLOAD_BYTES }>,
+		n: Linear<0, { limits::STORAGE_BYTES }>,
+		o: Linear<0, { limits::STORAGE_BYTES }>,
 	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
@@ -1689,7 +1743,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_clear_transient_storage(
-		n: Linear<0, { limits::PAYLOAD_BYTES }>,
+		n: Linear<0, { limits::STORAGE_BYTES }>,
 	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
@@ -1723,7 +1777,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_get_transient_storage(
-		n: Linear<0, { limits::PAYLOAD_BYTES }>,
+		n: Linear<0, { limits::STORAGE_BYTES }>,
 	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
@@ -1759,7 +1813,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_contains_transient_storage(
-		n: Linear<0, { limits::PAYLOAD_BYTES }>,
+		n: Linear<0, { limits::STORAGE_BYTES }>,
 	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
@@ -1794,9 +1848,9 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_take_transient_storage(
-		n: Linear<0, { limits::PAYLOAD_BYTES }>,
+		n: Linear<0, { limits::STORAGE_BYTES }>,
 	) -> Result<(), BenchmarkError> {
-		let n = limits::PAYLOAD_BYTES;
+		let n = limits::STORAGE_BYTES;
 		let value = vec![42u8; n as usize];
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
@@ -2699,7 +2753,7 @@ mod benchmarks {
 				);
 
 				// Store transaction
-				let _ = block_storage::with_ethereum_context(|| {
+				let _ = block_storage::bench_with_ethereum_context(|| {
 					let (encoded_logs, bloom) =
 						block_storage::get_receipt_details().unwrap_or_default();
 
@@ -2772,7 +2826,7 @@ mod benchmarks {
 			);
 
 			// Store transaction
-			let _ = block_storage::with_ethereum_context(|| {
+			let _ = block_storage::bench_with_ethereum_context(|| {
 				let (encoded_logs, bloom) =
 					block_storage::get_receipt_details().unwrap_or_default();
 
@@ -2837,7 +2891,7 @@ mod benchmarks {
 		let gas_used = Weight::from_parts(1_000_000, 1000);
 
 		// Store transaction
-		let _ = block_storage::with_ethereum_context(|| {
+		let _ = block_storage::bench_with_ethereum_context(|| {
 			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
 
 			let block_builder_ir = EthBlockBuilderIR::<T>::get();
@@ -2899,7 +2953,7 @@ mod benchmarks {
 		let gas_used = Weight::from_parts(1_000_000, 1000);
 
 		// Store transaction
-		let _ = block_storage::with_ethereum_context(|| {
+		let _ = block_storage::bench_with_ethereum_context(|| {
 			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
 
 			let block_builder_ir = EthBlockBuilderIR::<T>::get();

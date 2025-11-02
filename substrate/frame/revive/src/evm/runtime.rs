@@ -37,7 +37,10 @@ use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_core::U256;
 use sp_runtime::{
 	generic::{self, CheckedExtrinsic, ExtrinsicFormat},
-	traits::{Checkable, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata, TransactionExtension},
+	traits::{
+		Checkable, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata, LazyExtrinsic,
+		TransactionExtension,
+	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic, RuntimeDebug, Weight,
 };
@@ -108,6 +111,10 @@ impl<Address: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicCall
 
 	fn call(&self) -> &Self::Call {
 		self.0.call()
+	}
+
+	fn into_call(self) -> Self::Call {
+		self.0.into_call()
 	}
 }
 
@@ -218,10 +225,16 @@ where
 	E::Extension: Encode,
 {
 	fn from(extrinsic: UncheckedExtrinsic<Address, Signature, E>) -> Self {
-		Self::from_bytes(extrinsic.encode().as_slice()).expect(
-			"both OpaqueExtrinsic and UncheckedExtrinsic have encoding that is compatible with \
-				raw Vec<u8> encoding; qed",
-		)
+		extrinsic.0.into()
+	}
+}
+
+impl<Address, Signature, E: EthExtra> LazyExtrinsic for UncheckedExtrinsic<Address, Signature, E>
+where
+	generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>: LazyExtrinsic,
+{
+	fn decode_unprefixed(data: &[u8]) -> Result<Self, codec::Error> {
+		Ok(Self(LazyExtrinsic::decode_unprefixed(data)?))
 	}
 }
 
@@ -300,9 +313,9 @@ pub trait EthExtra {
 			InvalidTransaction::Call
 		})?;
 
-		log::debug!(target: LOG_TARGET, "Decoded Ethereum transaction with signer: {signer_addr:?} nonce: {nonce:?}");
+		log::trace!(target: LOG_TARGET, "Decoded Ethereum transaction with signer: {signer_addr:?} nonce: {nonce:?}");
 		let call_info =
-			create_call::<Self::Config>(tx, Some((encoded_len as u32, payload.to_vec())))?;
+			create_call::<Self::Config>(tx, Some((encoded_len as u32, payload.to_vec())), true)?;
 		let storage_credit = <Self::Config as Config>::Currency::withdraw(
 					&signer,
 					call_info.storage_deposit,
@@ -322,12 +335,18 @@ pub trait EthExtra {
 
 		log::debug!(target: LOG_TARGET, "\
 			Created checked Ethereum transaction with: \
+			from={signer_addr:?} \
+			eth_gas={} \
+			encoded_len={encoded_len} \
+			tx_fee={:?} \
+			storage_deposit={:?} \
 			weight_limit={} \
-			additional_storage_deposit_held={:?} \
-			nonce={nonce:?}
+			nonce={nonce:?}\
 			",
-			call_info.weight_limit,
+			call_info.gas,
+			call_info.tx_fee,
 			call_info.storage_deposit,
+			call_info.weight_limit,
 		);
 
 		// We can't calculate a tip because it needs to be based on the actual gas used which we

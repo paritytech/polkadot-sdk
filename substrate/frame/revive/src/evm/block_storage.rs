@@ -14,20 +14,23 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 use crate::{
 	evm::block_hash::{AccumulateReceipt, EthereumBlockBuilder, LogsBloom},
 	limits,
 	sp_runtime::traits::One,
-	BlockHash, Config, EthBlockBuilderIR, EthereumBlock, ReceiptInfoData, UniqueSaturatedInto,
-	H160, H256,
+	weights::WeightInfo,
+	BlockHash, Config, EthBlockBuilderIR, EthereumBlock, Event, Pallet, ReceiptInfoData,
+	UniqueSaturatedInto, H160, H256,
 };
-
-use frame_support::weights::Weight;
-pub use sp_core::U256;
-
 use alloc::vec::Vec;
 use environmental::environmental;
+use frame_support::{
+	pallet_prelude::{DispatchError, DispatchResultWithPostInfo},
+	storage::with_transaction,
+	weights::Weight,
+};
+use sp_core::U256;
+use sp_runtime::TransactionOutcome;
 
 /// The maximum number of block hashes to keep in the history.
 ///
@@ -60,10 +63,60 @@ pub fn get_receipt_details() -> Option<(Vec<u8>, LogsBloom)> {
 }
 
 /// Capture the receipt events emitted from the current ethereum
-/// transaction. The transaction must be signed by an eth-compatible
-/// wallet.
-pub fn with_ethereum_context<R>(f: impl FnOnce() -> R) -> R {
+#[cfg(feature = "runtime-benchmarks")]
+pub fn bench_with_ethereum_context<R>(f: impl FnOnce() -> R) -> R {
 	receipt::using(&mut AccumulateReceipt::new(), f)
+}
+
+/// Execute the Ethereum call, and write the block storage transaction details.
+///
+/// # Parameters
+/// - transaction_encoded: The RLP encoded transaction bytes.
+/// - call: A closure that executes the transaction logic and returns the gas consumed and result.
+pub fn with_ethereum_context<T: Config>(
+	transaction_encoded: Vec<u8>,
+	call: impl FnOnce() -> (Weight, DispatchResultWithPostInfo),
+) -> DispatchResultWithPostInfo {
+	receipt::using(&mut AccumulateReceipt::new(), || {
+		let (err, gas_consumed, mut post_info) =
+			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
+				let (gas_consumed, result) = call();
+				match result {
+					Ok(post_info) =>
+						TransactionOutcome::Commit(Ok((None, gas_consumed, post_info))),
+					Err(err) => TransactionOutcome::Rollback(Ok((
+						Some(err.error),
+						gas_consumed,
+						err.post_info,
+					))),
+				}
+			})?;
+
+		if let Some(dispatch_error) = err {
+			deposit_eth_extrinsic_revert_event::<T>(dispatch_error);
+			crate::block_storage::process_transaction::<T>(
+				transaction_encoded,
+				false,
+				gas_consumed,
+			);
+			Ok(post_info)
+		} else {
+			// deposit a dummy event in benchmark mode
+			#[cfg(feature = "runtime-benchmarks")]
+			deposit_eth_extrinsic_revert_event::<T>(crate::Error::<T>::BenchmarkingError.into());
+
+			crate::block_storage::process_transaction::<T>(transaction_encoded, true, gas_consumed);
+			post_info
+				.actual_weight
+				.as_mut()
+				.map(|w| w.saturating_reduce(T::WeightInfo::deposit_eth_extrinsic_revert_event()));
+			Ok(post_info)
+		}
+	})
+}
+
+fn deposit_eth_extrinsic_revert_event<T: Config>(dispatch_error: DispatchError) {
+	Pallet::<T>::deposit_event(Event::<T>::EthExtrinsicRevert { dispatch_error });
 }
 
 /// Clear the storage used to capture the block hash related data.
@@ -76,6 +129,7 @@ pub fn on_initialize<T: Config>() {
 pub fn on_finalize_build_eth_block<T: Config>(
 	block_author: H160,
 	eth_block_num: U256,
+	eth_block_base_fee: U256,
 	gas_limit: U256,
 	timestamp: U256,
 ) {
@@ -91,6 +145,7 @@ pub fn on_finalize_build_eth_block<T: Config>(
 	// Load the first values if not already loaded.
 	let (block, receipt_data) = EthereumBlockBuilder::<T>::from_ir(block_builder_ir).build(
 		eth_block_num,
+		eth_block_base_fee,
 		parent_hash,
 		timestamp,
 		block_author,
@@ -178,7 +233,7 @@ pub fn process_transaction<T: Config>(
 // `EthereumBlockBuilder = 3 * (max size of transactions + max size of receipts)`
 // The maximum size of a transaction is limited by
 // `limits::MAX_TRANSACTION_PAYLOAD_SIZE`, while the maximum size of a receipt is
-// limited by `limits::PAYLOAD_BYTES`.
+// limited by `limits::EVENT_BYTES`.
 //
 // Similarly, this is the amount of pallet storage consumed by the
 // `EthereumBlockBuilderIR` object, plus a marginal book-keeping overhead.
