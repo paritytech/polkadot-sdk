@@ -168,6 +168,10 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 
 		let tx_hashes = core::mem::replace(&mut self.tx_hashes, Vec::new());
 		let gas_info = core::mem::replace(&mut self.gas_info, Vec::new());
+		let mix_hash = {
+			let mix_hash = U256::from(crate::vm::evm::DIFFICULTY);
+			H256(mix_hash.to_big_endian())
+		};
 
 		let mut block = Block {
 			number: block_number,
@@ -185,6 +189,8 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 
 			logs_bloom: self.logs_bloom.bloom.into(),
 			transactions: HashesOrTransactionInfos::Hashes(tx_hashes),
+
+			mix_hash,
 
 			..Default::default()
 		};
@@ -275,10 +281,10 @@ mod test {
 
 			// Each mask in these vectors holds a u16.
 			let masks_len = (hb.state_masks.len() + hb.tree_masks.len() + hb.hash_masks.len()) * 2;
-			let _size = hb.key.len() +
-				hb.value.as_slice().len() +
-				hb.stack.len() * 33 +
-				masks_len + hb.rlp_buf.len();
+			let _size = hb.key.len()
+				+ hb.value.as_slice().len()
+				+ hb.stack.len() * 33
+				+ masks_len + hb.rlp_buf.len();
 		}
 
 		hb.root().0.into()
