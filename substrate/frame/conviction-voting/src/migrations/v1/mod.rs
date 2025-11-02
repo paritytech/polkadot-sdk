@@ -29,14 +29,6 @@ use frame_support::{
 	weights::WeightMeter,
 };
 
-// #[cfg(feature = "try-runtime")]
-// use alloc::collections::btree_map::BTreeMap;
-
-// #[cfg(feature = "try-runtime")]
-// use alloc::vec::Vec;
-
-mod tests;
-
 /// V0 types.
 pub mod v0 {
 	use super::Config;
