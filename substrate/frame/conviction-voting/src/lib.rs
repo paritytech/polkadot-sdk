@@ -94,7 +94,8 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{
 		pallet_prelude::{
-			DispatchResultWithPostInfo, IsType, StorageDoubleMap, StorageMap, StorageValue, ValueQuery, StorageVersion,
+			DispatchResultWithPostInfo, IsType, StorageDoubleMap, StorageMap, StorageValue,
+			StorageVersion, ValueQuery,
 		},
 		traits::ClassCountOf,
 		Twox64Concat,
@@ -189,11 +190,7 @@ pub mod pallet {
 
 	/// Is a pallet storage migration currently ongoing?
 	#[pallet::storage]
-	pub type MigrationOngoing<T: Config<I>, I: 'static = ()> = StorageValue<
-		_,
-		bool,
-		ValueQuery,
-	>;
+	pub type MigrationOngoing<T: Config<I>, I: 'static = ()> = StorageValue<_, bool, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -232,7 +229,9 @@ pub mod pallet {
 		AlreadyDelegating,
 		/// The account currently has votes attached to it and the operation cannot succeed until
 		/// these are removed through `remove_vote`.
-		#[deprecated(note = "This error is no longer used. Delegating while voting is now permitted.")]
+		#[deprecated(
+			note = "This error is no longer used. Delegating while voting is now permitted."
+		)]
 		AlreadyVoting,
 		/// Too high a balance was provided that the account cannot afford.
 		InsufficientFunds,
@@ -264,7 +263,8 @@ pub mod pallet {
 		/// - `poll_index`: The index of the poll to vote for.
 		/// - `vote`: The vote configuration.
 		///
-		/// Weight: `O(R)` where R is Max(voter's number of votes, their (possible) delegate's number of votes).
+		/// Weight: `O(R)` where R is Max(voter's number of votes, their (possible) delegate's
+		/// number of votes).
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::vote_new().max(T::WeightInfo::vote_existing()))]
 		pub fn vote(
@@ -296,7 +296,8 @@ pub mod pallet {
 		/// Emits `Delegated`.
 		///
 		/// Weight: `O(R + S)` where R and S are the number of polls the delegate and delegator have
-		///   voted on, respectively. Weight is initially charged as if maximum votes, but is refunded later.
+		///   voted on, respectively. Weight is initially charged as if maximum votes, but is
+		/// refunded later.
 		// NOTE: weight must cover an incorrect voting of origin with max votes, this is ensure
 		// because a valid delegation cover decoding a direct voting with max votes.
 		#[pallet::call_index(1)]
@@ -311,7 +312,8 @@ pub mod pallet {
 			Self::ensure_migration_not_ongoing()?;
 			let who = ensure_signed(origin)?;
 			let to = T::Lookup::lookup(to)?;
-			let (delegate_votes, delegator_votes) = Self::try_delegate(who, class, to, conviction, balance)?;
+			let (delegate_votes, delegator_votes) =
+				Self::try_delegate(who, class, to, conviction, balance)?;
 
 			Ok(Some(T::WeightInfo::delegate(delegate_votes, delegator_votes)).into())
 		}
@@ -329,7 +331,8 @@ pub mod pallet {
 		/// Emits `Undelegated`.
 		///
 		/// Weight: `O(R + S)` where R and S are the number of polls the delegate and delegator have
-		///   voted on, respectively. Weight is initially charged as if maximum votes, but is refunded later.
+		///   voted on, respectively. Weight is initially charged as if maximum votes, but is
+		/// refunded later.
 		// NOTE: weight must cover an incorrect voting of origin with max votes, this is ensure
 		// because a valid delegation cover decoding a direct voting with max votes.
 		#[pallet::call_index(2)]
@@ -395,8 +398,8 @@ pub mod pallet {
 		/// - `class`: Optional parameter, if given it indicates the class of the poll. For polls
 		///   which have finished or are cancelled, this must be `Some`.
 		///
-		/// Weight: `O(R + log R)` where R is Max(targets's number of votes, their (possible) delegate's number of votes).
-		///   Weight is calculated for the maximum number of votes.
+		/// Weight: `O(R + log R)` where R is Max(targets's number of votes, their (possible)
+		/// delegate's number of votes).   Weight is calculated for the maximum number of votes.
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::remove_vote())]
 		pub fn remove_vote(
@@ -423,8 +426,8 @@ pub mod pallet {
 		/// - `index`: The index of poll of the vote to be removed.
 		/// - `class`: The class of the poll.
 		///
-		/// Weight: `O(R + log R)` where R is Max(targets's number of votes, their (possible) delegate's number of votes).
-		///   Weight is calculated for the maximum number of votes
+		/// Weight: `O(R + log R)` where R is Max(targets's number of votes, their (possible)
+		/// delegate's number of votes).   Weight is calculated for the maximum number of votes
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::remove_other_vote())]
 		pub fn remove_other_vote(
@@ -544,9 +547,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							&class,
 							|delegate_voting| -> Result<(), DispatchError> {
 								if !delegate_voting.allow_delegator_voting {
-                                    return Err(Error::<T, I>::DelegatorVotingNotAllowed.into());
-                                }
-								
+									return Err(Error::<T, I>::DelegatorVotingNotAllowed.into());
+								}
+
 								let delegates_votes = &mut delegate_voting.votes;
 								// Search for data about poll in delegate's voting info.
 								match delegates_votes
@@ -675,8 +678,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 									// And remove the voting data if there's no longer a reason
 									// to hold.
 									if delegates_votes[i].maybe_vote.is_none() &&
-										delegates_votes[i].retracted_votes ==
-											Default::default()
+										delegates_votes[i].retracted_votes == Default::default()
 									{
 										delegates_votes.remove(i);
 									}
@@ -797,199 +799,200 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Increase the amount delegated to `who` and update tallies accordingly.
-    ///
-    /// This implementation uses an O(R + S) linear merge, where R is the number of
-    /// delegator's votes and S is the number of delegate's votes.
-    ///
-    /// Returns the number of (delegator, delegate) votes accessed in the process.
-    fn increase_upstream_delegation(
-        who: &T::AccountId,
-        class: &ClassOf<T, I>,
-        amount: Delegations<BalanceOf<T, I>>,
-        delegators_ongoing_votes: Vec<PollIndexOf<T, I>>,
-    ) -> Result<(u32, u32), DispatchError> {
-        VotingFor::<T, I>::try_mutate(who, class, |voting| {
+	///
+	/// This implementation uses an O(R + S) linear merge, where R is the number of
+	/// delegator's votes and S is the number of delegate's votes.
+	///
+	/// Returns the number of (delegator, delegate) votes accessed in the process.
+	fn increase_upstream_delegation(
+		who: &T::AccountId,
+		class: &ClassOf<T, I>,
+		amount: Delegations<BalanceOf<T, I>>,
+		delegators_ongoing_votes: Vec<PollIndexOf<T, I>>,
+	) -> Result<(u32, u32), DispatchError> {
+		VotingFor::<T, I>::try_mutate(who, class, |voting| {
 			// Can't delegate if have votes & delegatee doesn't allow for so.
 			if delegators_ongoing_votes.len() > 0 && !voting.allow_delegator_voting {
 				return Err(Error::<T, I>::DelegatorVotingNotAllowed.into());
 			}
 
-            // Increase delegate's delegation counter.
-            voting.delegations = voting.delegations.saturating_add(amount);
+			// Increase delegate's delegation counter.
+			voting.delegations = voting.delegations.saturating_add(amount);
 
-            let delegate_votes = core::mem::take(&mut voting.votes).into_inner();
-            let (r_len, s_len) = (delegators_ongoing_votes.len(), delegate_votes.len());
+			let delegate_votes = core::mem::take(&mut voting.votes).into_inner();
+			let (r_len, s_len) = (delegators_ongoing_votes.len(), delegate_votes.len());
 
 			// First update all of delegates votes. Clawbacks will be added and adjusted next.
-            for VoteRecord { poll_index, maybe_vote, .. } in delegate_votes.iter() {
-                if let Some(AccountVote::Standard { vote, .. }) = maybe_vote {
-                    T::Polls::access_poll(*poll_index, |poll_status| {
-                        if let PollStatus::Ongoing(tally, _) = poll_status {
-                            tally.increase(vote.aye, amount);
-                        }
-                    });
-                }
-            }
+			for VoteRecord { poll_index, maybe_vote, .. } in delegate_votes.iter() {
+				if let Some(AccountVote::Standard { vote, .. }) = maybe_vote {
+					T::Polls::access_poll(*poll_index, |poll_status| {
+						if let PollStatus::Ongoing(tally, _) = poll_status {
+							tally.increase(vote.aye, amount);
+						}
+					});
+				}
+			}
 
-            let mut new_votes = Vec::with_capacity(r_len + s_len);
-            let mut r_iter = delegators_ongoing_votes.iter().peekable();
-            let mut s_iter = delegate_votes.iter().peekable();
+			let mut new_votes = Vec::with_capacity(r_len + s_len);
+			let mut r_iter = delegators_ongoing_votes.iter().peekable();
+			let mut s_iter = delegate_votes.iter().peekable();
 
-            // Iterate while both lists have items
-            while let (Some(&r_poll_index), Some(&s_vote_record)) = (r_iter.peek(), s_iter.peek()) {
-                if r_poll_index < &s_vote_record.poll_index {
-                    // Delegator vote not in delegate's list. Create new record.
-                    new_votes.push(VoteRecord {
-                        poll_index: *r_poll_index,
-                        maybe_vote: None,
-                        retracted_votes: amount,
-                    });
-                    r_iter.next(); // Consume delegator vote.
-                } else if r_poll_index > &s_vote_record.poll_index {
-                    // Delegate vote not in delegator's list. Copy it.
-                    new_votes.push(s_vote_record.clone());
-                    s_iter.next(); // Consume delegate vote.
-                } else {
-                    // Both have a vote for this poll.
-                    let mut matched_record = s_vote_record.clone();
+			// Iterate while both lists have items
+			while let (Some(&r_poll_index), Some(&s_vote_record)) = (r_iter.peek(), s_iter.peek()) {
+				if r_poll_index < &s_vote_record.poll_index {
+					// Delegator vote not in delegate's list. Create new record.
+					new_votes.push(VoteRecord {
+						poll_index: *r_poll_index,
+						maybe_vote: None,
+						retracted_votes: amount,
+					});
+					r_iter.next(); // Consume delegator vote.
+				} else if r_poll_index > &s_vote_record.poll_index {
+					// Delegate vote not in delegator's list. Copy it.
+					new_votes.push(s_vote_record.clone());
+					s_iter.next(); // Consume delegate vote.
+				} else {
+					// Both have a vote for this poll.
+					let mut matched_record = s_vote_record.clone();
 
-                    // Add the clawback amount.
-                    matched_record.retracted_votes =
-                        matched_record.retracted_votes.saturating_add(amount);
+					// Add the clawback amount.
+					matched_record.retracted_votes =
+						matched_record.retracted_votes.saturating_add(amount);
 
-                    // Apply the clawback to the tally.
-                    if let Some(AccountVote::Standard { vote, .. }) = matched_record.maybe_vote {
-                        T::Polls::access_poll(matched_record.poll_index, |poll_status| {
-                            if let PollStatus::Ongoing(tally, _) = poll_status {
-                                // Reduce the tally, counteracting the increase from earlier.
-                                tally.reduce(vote.aye, amount);
-                            }
-                        });
-                    }
+					// Apply the clawback to the tally.
+					if let Some(AccountVote::Standard { vote, .. }) = matched_record.maybe_vote {
+						T::Polls::access_poll(matched_record.poll_index, |poll_status| {
+							if let PollStatus::Ongoing(tally, _) = poll_status {
+								// Reduce the tally, counteracting the increase from earlier.
+								tally.reduce(vote.aye, amount);
+							}
+						});
+					}
 
-                    new_votes.push(matched_record);
-                    r_iter.next(); // Consume both.
-                    s_iter.next();
-                }
-            }
+					new_votes.push(matched_record);
+					r_iter.next(); // Consume both.
+					s_iter.next();
+				}
+			}
 
-            // Exhaust the remaining items from which either iterator.
-            for r_poll_index in r_iter {
-                // Delegator-only votes left.
-                new_votes.push(VoteRecord {
-                    poll_index: *r_poll_index,
-                    maybe_vote: None,
-                    retracted_votes: amount,
-                });
-            }
+			// Exhaust the remaining items from which either iterator.
+			for r_poll_index in r_iter {
+				// Delegator-only votes left.
+				new_votes.push(VoteRecord {
+					poll_index: *r_poll_index,
+					maybe_vote: None,
+					retracted_votes: amount,
+				});
+			}
 
-            for s_vote_record in s_iter {
-                // Delegate-only votes left.
-                new_votes.push(s_vote_record.clone());
-            }
+			for s_vote_record in s_iter {
+				// Delegate-only votes left.
+				new_votes.push(s_vote_record.clone());
+			}
 
-            // Replace the old, empty vote vec with the new merged vec.
-            voting.votes =
-                BoundedVec::try_from(new_votes).map_err(|_| Error::<T, I>::DelegateMaxVotesReached)?;
+			// Replace the old, empty vote vec with the new merged vec.
+			voting.votes = BoundedVec::try_from(new_votes)
+				.map_err(|_| Error::<T, I>::DelegateMaxVotesReached)?;
 
-            // Return the original (R, S) lengths for the weight calculation
-            Ok((r_len as u32, s_len as u32))
-        })
-    }
+			// Return the original (R, S) lengths for the weight calculation
+			Ok((r_len as u32, s_len as u32))
+		})
+	}
 
 	/// Reduce the amount delegated to `who` and update tallies accordingly.
-    ///
-    /// This implementation uses an O(R + S) linear merge, where R is the number of
-    /// delegator's votes and S is the number of delegate's votes.
-    ///
-    /// Returns the number of (delegator, delegate) votes accessed in the process.
-    fn reduce_upstream_delegation(
-        who: &T::AccountId,
-        class: &ClassOf<T, I>,
-        amount: Delegations<BalanceOf<T, I>>,
-        delegator_votes: Vec<PollIndexOf<T, I>>,
-    ) -> Result<(u32, u32), DispatchError> {
-        // Grab the delegate's voting data.
-        VotingFor::<T, I>::try_mutate(who, class, |voting| {
-            // Reduce amount delegated to this delegate.
-            voting.delegations = voting.delegations.saturating_sub(amount);
+	///
+	/// This implementation uses an O(R + S) linear merge, where R is the number of
+	/// delegator's votes and S is the number of delegate's votes.
+	///
+	/// Returns the number of (delegator, delegate) votes accessed in the process.
+	fn reduce_upstream_delegation(
+		who: &T::AccountId,
+		class: &ClassOf<T, I>,
+		amount: Delegations<BalanceOf<T, I>>,
+		delegator_votes: Vec<PollIndexOf<T, I>>,
+	) -> Result<(u32, u32), DispatchError> {
+		// Grab the delegate's voting data.
+		VotingFor::<T, I>::try_mutate(who, class, |voting| {
+			// Reduce amount delegated to this delegate.
+			voting.delegations = voting.delegations.saturating_sub(amount);
 
-            let delegate_votes = core::mem::take(&mut voting.votes).into_inner();
-            let (r_len, s_len) = (delegator_votes.len(), delegate_votes.len());
+			let delegate_votes = core::mem::take(&mut voting.votes).into_inner();
+			let (r_len, s_len) = (delegator_votes.len(), delegate_votes.len());
 
-            // First preemptively update all of delegates votes. Clawbacks will be handled next.
-            for VoteRecord { poll_index, maybe_vote, .. } in delegate_votes.iter() {
-                if let Some(AccountVote::Standard { vote, .. }) = maybe_vote {
-                    T::Polls::access_poll(*poll_index, |poll_status| {
-                        if let PollStatus::Ongoing(tally, _) = poll_status {
-                            tally.reduce(vote.aye, amount);
-                        }
-                    });
-                }
-            }
+			// First preemptively update all of delegates votes. Clawbacks will be handled next.
+			for VoteRecord { poll_index, maybe_vote, .. } in delegate_votes.iter() {
+				if let Some(AccountVote::Standard { vote, .. }) = maybe_vote {
+					T::Polls::access_poll(*poll_index, |poll_status| {
+						if let PollStatus::Ongoing(tally, _) = poll_status {
+							tally.reduce(vote.aye, amount);
+						}
+					});
+				}
+			}
 
 			// Capacity will be at most delegate_votes.len(), as we are only removing items.
-            let mut new_votes = Vec::with_capacity(s_len);
-            let mut r_iter = delegator_votes.iter().peekable();
-            let mut s_iter = delegate_votes.iter().peekable();
+			let mut new_votes = Vec::with_capacity(s_len);
+			let mut r_iter = delegator_votes.iter().peekable();
+			let mut s_iter = delegate_votes.iter().peekable();
 
-            while let (Some(&&r_poll_index), Some(&s_vote_record)) = (r_iter.peek(), s_iter.peek())
-            {
-                if r_poll_index < s_vote_record.poll_index {
-                    // Delegator vote not in delegate's list.
-                    r_iter.next(); // Consume delegator vote.
-                } else if r_poll_index > s_vote_record.poll_index {
-                    // Delegate vote not in delegator's list. Copy it.
-                    new_votes.push(s_vote_record.clone());
-                    s_iter.next(); // Consume delegate vote.
-                } else {
-                    // Both have a vote record for this poll.
-                    let mut matched_record = s_vote_record.clone();
+			while let (Some(&&r_poll_index), Some(&s_vote_record)) = (r_iter.peek(), s_iter.peek())
+			{
+				if r_poll_index < s_vote_record.poll_index {
+					// Delegator vote not in delegate's list.
+					r_iter.next(); // Consume delegator vote.
+				} else if r_poll_index > s_vote_record.poll_index {
+					// Delegate vote not in delegator's list. Copy it.
+					new_votes.push(s_vote_record.clone());
+					s_iter.next(); // Consume delegate vote.
+				} else {
+					// Both have a vote record for this poll.
+					let mut matched_record = s_vote_record.clone();
 
-                    // Remove the delegator's contribution from the clawback amount.
-                    matched_record.retracted_votes =
-                        matched_record.retracted_votes.saturating_sub(amount);
+					// Remove the delegator's contribution from the clawback amount.
+					matched_record.retracted_votes =
+						matched_record.retracted_votes.saturating_sub(amount);
 
-                    // Check poll status to reverse the tally reduction (if needed) and decide on cleanup.
-                    let poll_has_ended = T::Polls::access_poll(
-                        matched_record.poll_index,
-                        |poll_status| match poll_status {
-                            PollStatus::Ongoing(tally, _) => {
-                                // Give back the tally contribution.
-                                if let Some(AccountVote::Standard { vote, .. }) =
-                                    matched_record.maybe_vote
-                                {
-                                    tally.increase(vote.aye, amount);
-                                }
-                                false
-                            },
-                            _ => true, // Completed or None.
-                        },
-                    );
+					// Check poll status to reverse the tally reduction (if needed) and decide on
+					// cleanup.
+					let poll_has_ended =
+						T::Polls::access_poll(matched_record.poll_index, |poll_status| {
+							match poll_status {
+								PollStatus::Ongoing(tally, _) => {
+									// Give back the tally contribution.
+									if let Some(AccountVote::Standard { vote, .. }) =
+										matched_record.maybe_vote
+									{
+										tally.increase(vote.aye, amount);
+									}
+									false
+								},
+								_ => true, // Completed or None.
+							}
+						});
 
-                    // Only keep the record if still necessary.
-                    if matched_record.maybe_vote.is_some() ||
-                        (matched_record.retracted_votes.votes > Zero::zero() && !poll_has_ended)
-                    {
-                        new_votes.push(matched_record);
-                    }
+					// Only keep the record if still necessary.
+					if matched_record.maybe_vote.is_some() ||
+						(matched_record.retracted_votes.votes > Zero::zero() && !poll_has_ended)
+					{
+						new_votes.push(matched_record);
+					}
 
-                    r_iter.next(); // Consume both.
-                    s_iter.next();
-                }
-            }
+					r_iter.next(); // Consume both.
+					s_iter.next();
+				}
+			}
 
-            for s_vote_record in s_iter {
-                // Any remaining delegate votes are unaffected, copy.
-                new_votes.push(s_vote_record.clone());
-            }
+			for s_vote_record in s_iter {
+				// Any remaining delegate votes are unaffected, copy.
+				new_votes.push(s_vote_record.clone());
+			}
 
-            voting.votes = BoundedVec::try_from(new_votes)
-                .expect("new_votes len is <= s_len, which is <= T::MaxVotes; qed");
+			voting.votes = BoundedVec::try_from(new_votes)
+				.expect("new_votes len is <= s_len, which is <= T::MaxVotes; qed");
 
-            Ok((r_len as u32, s_len as u32))
-        })
-    }
+			Ok((r_len as u32, s_len as u32))
+		})
+	}
 
 	/// Attempt to delegate `balance` times `conviction` of voting power from `who` to `target`.
 	///
@@ -1006,8 +1009,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		T::Polls::classes().binary_search(&class).map_err(|_| Error::<T, I>::BadClass)?;
 		ensure!(balance <= T::Currency::total_balance(&who), Error::<T, I>::InsufficientFunds);
 
-		let votes_accessed =
-			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<(u32, u32), DispatchError> {
+		let votes_accessed = VotingFor::<T, I>::try_mutate(
+			&who,
+			&class,
+			|voting| -> Result<(u32, u32), DispatchError> {
 				// Ensure not already delegating.
 				if voting.maybe_delegate.is_some() {
 					return Err(Error::<T, I>::AlreadyDelegating.into());
@@ -1038,7 +1043,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// other votes are in place.
 				Self::extend_lock(&who, &class, balance);
 				Ok(votes_accessed)
-			})?;
+			},
+		)?;
 		Self::deposit_event(Event::<T, I>::Delegated(who, target, class));
 		Ok(votes_accessed)
 	}
@@ -1046,9 +1052,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Attempt to end the current delegation.
 	///
 	/// Returns the number of (delegate, delegator) votes accessed in the process.
-	fn try_undelegate(who: T::AccountId, class: ClassOf<T, I>) -> Result<(u32, u32), DispatchError> {
-		let votes_accessed =
-			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<(u32, u32), DispatchError> {
+	fn try_undelegate(
+		who: T::AccountId,
+		class: ClassOf<T, I>,
+	) -> Result<(u32, u32), DispatchError> {
+		let votes_accessed = VotingFor::<T, I>::try_mutate(
+			&who,
+			&class,
+			|voting| -> Result<(u32, u32), DispatchError> {
 				// If they're currently delegating.
 				let (delegate, conviction) =
 					match (&voting.maybe_delegate, &voting.maybe_conviction) {
@@ -1084,7 +1095,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// Set the delegator's delegate info.
 				voting.set_delegate_info(None, Default::default(), None);
 				Ok(votes_accessed)
-			})?;
+			},
+		)?;
 		Self::deposit_event(Event::<T, I>::Undelegated(who, class));
 		Ok(votes_accessed)
 	}
@@ -1154,8 +1166,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Ensures that the pallet is not currently undergoing a multi-block storage migration.
 	fn ensure_migration_not_ongoing() -> Result<(), DispatchError> {
-		if MigrationOngoing::<T,I>::get() {
-			return Err(Error::<T,I>::MigrationOngoing.into());
+		if MigrationOngoing::<T, I>::get() {
+			return Err(Error::<T, I>::MigrationOngoing.into());
 		}
 		Ok(())
 	}

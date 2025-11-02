@@ -1453,71 +1453,71 @@ fn undelegation_cleans_empty_delegate_votes() {
 
 #[test]
 fn undelegate_from_completed_poll_cleans_up_retracted_votes() {
-    new_test_ext().execute_with(|| {
-        let delegatee = 1;
-        let delegator1 = 2;
-        let delegator2 = 3;
-        let class = 0;
-        let poll_index = 0;
+	new_test_ext().execute_with(|| {
+		let delegatee = 1;
+		let delegator1 = 2;
+		let delegator2 = 3;
+		let class = 0;
+		let poll_index = 0;
 
-        // Set up an ongoing poll.
-        Polls::set(vec![(poll_index, Ongoing(Tally::new(0), class))].into_iter().collect());
+		// Set up an ongoing poll.
+		Polls::set(vec![(poll_index, Ongoing(Tally::new(0), class))].into_iter().collect());
 
-        // Delegatee votes on the poll.
-        assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll_index, aye(1, 0)));
+		// Delegatee votes on the poll.
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll_index, aye(1, 0)));
 
-        // Two delegators delegate to the delegatee.
-        assert_ok!(Voting::delegate(
-            RuntimeOrigin::signed(delegator1),
-            class,
-            delegatee,
-            Conviction::Locked1x,
-            10
-        ));
-        assert_ok!(Voting::delegate(
-            RuntimeOrigin::signed(delegator2),
-            class,
-            delegatee,
-            Conviction::Locked1x,
-            20
-        ));
+		// Two delegators delegate to the delegatee.
+		assert_ok!(Voting::delegate(
+			RuntimeOrigin::signed(delegator1),
+			class,
+			delegatee,
+			Conviction::Locked1x,
+			10
+		));
+		assert_ok!(Voting::delegate(
+			RuntimeOrigin::signed(delegator2),
+			class,
+			delegatee,
+			Conviction::Locked1x,
+			20
+		));
 
-        // Both delegators vote, creating clawbacks.
+		// Both delegators vote, creating clawbacks.
 		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegatee), class));
-        assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator1), poll_index, aye(1, 0)));
-        assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator2), poll_index, aye(1, 0)));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator1), poll_index, aye(1, 0)));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator2), poll_index, aye(1, 0)));
 
-        // Intermediate state.
-        let delegate_voting = VotingFor::<Test>::get(delegatee, class);
-        assert_eq!(delegate_voting.votes.len(), 1);
-        let vote_record = delegate_voting.votes.first().unwrap();
-        assert_eq!(vote_record.poll_index, poll_index);
-        assert!(vote_record.maybe_vote.is_some());
-        assert_eq!(vote_record.retracted_votes.votes, 30);
+		// Intermediate state.
+		let delegate_voting = VotingFor::<Test>::get(delegatee, class);
+		assert_eq!(delegate_voting.votes.len(), 1);
+		let vote_record = delegate_voting.votes.first().unwrap();
+		assert_eq!(vote_record.poll_index, poll_index);
+		assert!(vote_record.maybe_vote.is_some());
+		assert_eq!(vote_record.retracted_votes.votes, 30);
 
-        // Poll completes
-        Polls::set(vec![(poll_index, Completed(10, true))].into_iter().collect());
+		// Poll completes
+		Polls::set(vec![(poll_index, Completed(10, true))].into_iter().collect());
 
-        // Delegator 1 undelegates.
-        assert_ok!(Voting::undelegate(RuntimeOrigin::signed(delegator1), class));
+		// Delegator 1 undelegates.
+		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(delegator1), class));
 
-        // Vote record still exists due to delegatees vote. Clawback correct.
-        let delegate_voting_after_1 = VotingFor::<Test>::get(delegatee, class);
-        assert_eq!(delegate_voting_after_1.votes.len(), 1);
-        let vote_record_after_1 = delegate_voting_after_1.votes.first().unwrap();
-        assert_eq!(vote_record_after_1.poll_index, poll_index);
-        assert_eq!(vote_record_after_1.retracted_votes.votes, 20);
+		// Vote record still exists due to delegatees vote. Clawback correct.
+		let delegate_voting_after_1 = VotingFor::<Test>::get(delegatee, class);
+		assert_eq!(delegate_voting_after_1.votes.len(), 1);
+		let vote_record_after_1 = delegate_voting_after_1.votes.first().unwrap();
+		assert_eq!(vote_record_after_1.poll_index, poll_index);
+		assert_eq!(vote_record_after_1.retracted_votes.votes, 20);
 
-        // Delegator 2 undelegates.
-        assert_ok!(Voting::undelegate(RuntimeOrigin::signed(delegator2), class));
+		// Delegator 2 undelegates.
+		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(delegator2), class));
 
-        // Vote record still exists due to delegatees vote. Clawback correct.
-        let delegate_voting_after_2 = VotingFor::<Test>::get(delegatee, class);
-        assert_eq!(delegate_voting_after_2.votes.len(), 1);
-        let vote_record_after_2 = delegate_voting_after_2.votes.first().unwrap();
-        assert_eq!(vote_record_after_2.poll_index, poll_index);
-        assert_eq!(vote_record_after_2.retracted_votes.votes, 0);
-    });
+		// Vote record still exists due to delegatees vote. Clawback correct.
+		let delegate_voting_after_2 = VotingFor::<Test>::get(delegatee, class);
+		assert_eq!(delegate_voting_after_2.votes.len(), 1);
+		let vote_record_after_2 = delegate_voting_after_2.votes.first().unwrap();
+		assert_eq!(vote_record_after_2.poll_index, poll_index);
+		assert_eq!(vote_record_after_2.retracted_votes.votes, 0);
+	});
 }
 
 #[test]
@@ -1785,48 +1785,48 @@ fn delegation_info_is_set() {
 
 #[test]
 fn no_chained_delegation() {
-    new_test_ext().execute_with(|| {
-        let a = 1;
-        let b = 2;
-        let c = 3;
-        let poll = 0;
-        let class = 0;
+	new_test_ext().execute_with(|| {
+		let a = 1;
+		let b = 2;
+		let c = 3;
+		let poll = 0;
+		let class = 0;
 
 		// Set up poll.
-        Polls::set(vec![(poll, Ongoing(Tally::new(0), class))].into_iter().collect());
+		Polls::set(vec![(poll, Ongoing(Tally::new(0), class))].into_iter().collect());
 
-        // Set up delegation chain.
-        assert_ok!(Voting::delegate(RuntimeOrigin::signed(a), class, b, Conviction::Locked1x, 10));
-        assert_ok!(Voting::delegate(RuntimeOrigin::signed(b), class, c, Conviction::Locked1x, 20));
+		// Set up delegation chain.
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(a), class, b, Conviction::Locked1x, 10));
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(b), class, c, Conviction::Locked1x, 20));
 
 		// C's delegation includes only B.
-        assert_eq!(
-            VotingFor::<Test>::get(c, class).delegations,
-            Delegations { votes: 20, capital: 20 }
-        );
-        // B's only includes A's.
-        assert_eq!(
-            VotingFor::<Test>::get(b, class).delegations,
-            Delegations { votes: 10, capital: 10 }
-        );
-        // A has none.
-        assert_eq!(
-            VotingFor::<Test>::get(a, class).delegations,
-            Delegations { votes: 0, capital: 0 }
-        );
+		assert_eq!(
+			VotingFor::<Test>::get(c, class).delegations,
+			Delegations { votes: 20, capital: 20 }
+		);
+		// B's only includes A's.
+		assert_eq!(
+			VotingFor::<Test>::get(b, class).delegations,
+			Delegations { votes: 10, capital: 10 }
+		);
+		// A has none.
+		assert_eq!(
+			VotingFor::<Test>::get(a, class).delegations,
+			Delegations { votes: 0, capital: 0 }
+		);
 
 		// Voting gives correct tallies C -> B -> A.
-        assert_ok!(Voting::vote(RuntimeOrigin::signed(c), poll, aye(30, 1)));
-        assert_eq!(tally(poll), Tally::from_parts(50, 0, 50));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(c), poll, aye(30, 1)));
+		assert_eq!(tally(poll), Tally::from_parts(50, 0, 50));
 
 		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(c), class));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(b), poll, nay(20, 1)));
-        assert_eq!(tally(poll), Tally::from_parts(30, 30, 30));
+		assert_eq!(tally(poll), Tally::from_parts(30, 30, 30));
 
 		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(b), class));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(a), poll, aye(10, 1)));
-        assert_eq!(tally(poll), Tally::from_parts(40, 20, 40));
-    });
+		assert_eq!(tally(poll), Tally::from_parts(40, 20, 40));
+	});
 }
 
 #[test]

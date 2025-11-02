@@ -24,17 +24,17 @@ use assert_matches::assert_matches;
 use frame_benchmarking::v1::{account, benchmarks_instance_pallet, whitelist_account};
 use frame_support::{
 	dispatch::RawOrigin,
+	migrations::SteppedMigration,
 	traits::{
 		fungible,
 		tokens::{Fortitude::Polite, Preservation::Expendable},
 		Currency, Get,
 	},
 	weights::WeightMeter,
-	migrations::SteppedMigration,
 };
 use sp_runtime::traits::Bounded;
 
-use crate::{Pallet as ConvictionVoting, migrations::v1::*};
+use crate::{migrations::v1::*, Pallet as ConvictionVoting};
 
 const SEED: u32 = 0;
 
@@ -75,13 +75,13 @@ benchmarks_instance_pallet! {
 		whitelist_account!(caller);
 		let delegate_acc = funded_account::<T, I>("delegate_acc", 0);
 		let delegate_lookup = T::Lookup::unlookup(delegate_acc.clone());
-		
+
 		T::VotingHooks::on_vote_worst_case(&caller);
-		
+
 		let (class, all_polls) = fill_voting::<T, I>();
 		let polls = &all_polls[&class];
 		let r = polls.len() - 1;
-		
+
 		ConvictionVoting::<T, I>::delegate(
 			RawOrigin::Signed(caller.clone()).into(),
 			class.clone(),
@@ -89,7 +89,7 @@ benchmarks_instance_pallet! {
 			Conviction::Locked1x,
 			1000u32.into(),
 		)?;
-		
+
 		// We need to create existing votes for voter & their delegate.
 		let account_vote = account_vote::<T, I>(100u32.into());
 		for i in polls.iter().skip(1) {
@@ -98,7 +98,7 @@ benchmarks_instance_pallet! {
 		for i in polls.iter() {
 			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(delegate_acc.clone()).into(), *i, account_vote)?;
 		}
-		
+
 		let votes = VotingFor::<T, I>::get(&caller, &class).votes;
 		assert_eq!(votes.len(), r as usize, "Votes were not recorded.");
 		let votes_d = VotingFor::<T, I>::get(&delegate_acc, &class).votes;
@@ -118,13 +118,13 @@ benchmarks_instance_pallet! {
 		whitelist_account!(caller);
 		let delegate_acc = funded_account::<T, I>("delegate_acc", 0);
 		let delegate_lookup = T::Lookup::unlookup(delegate_acc.clone());
-		
+
 		T::VotingHooks::on_vote_worst_case(&caller);
-		
+
 		let (class, all_polls) = fill_voting::<T, I>();
 		let polls = &all_polls[&class];
 		let r = polls.len();
-		
+
 		ConvictionVoting::<T, I>::delegate(
 			RawOrigin::Signed(caller.clone()).into(),
 			class.clone(),
@@ -132,7 +132,7 @@ benchmarks_instance_pallet! {
 			Conviction::Locked1x,
 			1000u32.into(),
 		)?;
-		
+
 		// We need to create existing votes for voter & their delegate.
 		let old_account_vote = account_vote::<T, I>(100u32.into());
 		for i in polls.iter() {
@@ -160,13 +160,13 @@ benchmarks_instance_pallet! {
 		whitelist_account!(caller);
 		let delegate_acc = funded_account::<T, I>("delegate_acc", 0);
 		let delegate_lookup = T::Lookup::unlookup(delegate_acc.clone());
-		
+
 		T::VotingHooks::on_vote_worst_case(&caller);
-		
+
 		let (class, all_polls) = fill_voting::<T, I>();
 		let polls = &all_polls[&class];
 		let r = polls.len();
-		
+
 		ConvictionVoting::<T, I>::delegate(
 			RawOrigin::Signed(caller.clone()).into(),
 			class.clone(),
@@ -202,13 +202,13 @@ benchmarks_instance_pallet! {
 		whitelist_account!(caller);
 		let delegate_acc = funded_account::<T, I>("delegate_acc", 0);
 		let delegate_lookup = T::Lookup::unlookup(delegate_acc.clone());
-		
+
 		T::VotingHooks::on_vote_worst_case(&caller);
-		
+
 		let (class, all_polls) = fill_voting::<T, I>();
 		let polls = &all_polls[&class];
 		let r = polls.len();
-		
+
 		ConvictionVoting::<T, I>::delegate(
 			RawOrigin::Signed(voter.clone()).into(),
 			class.clone(),
@@ -254,15 +254,15 @@ benchmarks_instance_pallet! {
 		let vote = account_vote::<T, I>(delegated_balance);
 
 		// Delegate votes on the first `r` polls.
-        for i in polls.iter().take(r as usize) {
-            ConvictionVoting::<T, I>::vote(RawOrigin::Signed(voter.clone()).into(), *i, vote)?;
-        }
-        
-        // Delegator votes on the last `s` polls.
+		for i in polls.iter().take(r as usize) {
+			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(voter.clone()).into(), *i, vote)?;
+		}
+
+		// Delegator votes on the last `s` polls.
 		let remainder = polls.len().saturating_sub(s as usize);
-        for i in polls.iter().skip(remainder).take(s as usize) {
-            ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), *i, vote)?;
-        }
+		for i in polls.iter().skip(remainder).take(s as usize) {
+			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), *i, vote)?;
+		}
 
 		assert_eq!(
 			VotingFor::<T, I>::get(&voter, &class).votes.len(),
@@ -302,15 +302,15 @@ benchmarks_instance_pallet! {
 		)?;
 
 		// Delegate votes on the *first* `r` polls
-        for i in polls.iter().take(r as usize) {
-            ConvictionVoting::<T, I>::vote(RawOrigin::Signed(voter.clone()).into(), *i, vote)?;
-        }
-        
-        // Delegator votes on the *last* `s` polls
+		for i in polls.iter().take(r as usize) {
+			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(voter.clone()).into(), *i, vote)?;
+		}
+
+		// Delegator votes on the *last* `s` polls
 		let remainder = polls.len().saturating_sub(s as usize);
-        for i in polls.iter().skip(remainder).take(s as usize) {
-            ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), *i, vote)?;
-        }
+		for i in polls.iter().skip(remainder).take(s as usize) {
+			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), *i, vote)?;
+		}
 
 		assert_eq!(
 			VotingFor::<T, I>::get(&voter, &class).votes.len(),
@@ -376,21 +376,21 @@ benchmarks_instance_pallet! {
 	toggle_allow_delegator_voting {
 		let caller = funded_account::<T, I>("caller", 0);
 		whitelist_account!(caller);
-		
+
 		T::VotingHooks::on_vote_worst_case(&caller);
-		
+
 		let (class, all_polls) = fill_voting::<T, I>();
 		let polls = &all_polls[&class];
-		
+
 		// We need to create existing votes for voter.
 		let account_vote = account_vote::<T, I>(100u32.into());
 		for i in polls.iter() {
 			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), *i, account_vote)?;
 		}
-		
+
 		let flag = VotingFor::<T, I>::get(&caller, &class).allow_delegator_voting;
 		assert_eq!(flag, false, "Voting should not be allowed.");
-		
+
 	}: _(RawOrigin::Signed(caller.clone()), class.clone())
 	verify {
 		assert_eq!(
@@ -404,7 +404,7 @@ benchmarks_instance_pallet! {
 		let voter = funded_account::<T, I>("voter", 0);
 		let (class, all_polls) = fill_voting::<T, I>();
 		let polls = &all_polls[&class];
-		
+
 		// Create votes.
 		let mut votes: Vec<_> = vec![];
 		for i in polls.iter().take(r as usize) {
@@ -415,11 +415,11 @@ benchmarks_instance_pallet! {
 		let votes_b = BoundedVec::try_from(votes).expect("Vec too large.");
 
 		let vote_data = v0::Voting::Casting(v0::Casting {
-                votes: votes_b,
-                delegations: Default::default(),
-                prior: Default::default(),
-        });
-		
+				votes: votes_b,
+				delegations: Default::default(),
+				prior: Default::default(),
+		});
+
 		// Put in storage.
 		v0::VotingFor::<T, I>::insert(voter.clone(), &class, vote_data);
 		let mut meter = WeightMeter::new();
