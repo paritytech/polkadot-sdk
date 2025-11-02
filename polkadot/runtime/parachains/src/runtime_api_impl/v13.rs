@@ -33,13 +33,13 @@ use polkadot_primitives::{
 		AsyncBackingParams, BackingState, CandidatePendingAvailability, Constraints,
 		InboundHrmpLimitations, OutboundHrmpChannelLimitations,
 	},
+	slashing, ApprovalVotingParams, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
 	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
-	InboundHrmpMessage, NodeFeatures, OccupiedCore, OccupiedCoreAssumption, PersistedValidationData,
-	PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
-	ScheduledCore, SessionIndex, SessionInfo, ValidationCode,
-	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
-	slashing, ApprovalVotingParams, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
+	InboundHrmpMessage, NodeFeatures, OccupiedCore, OccupiedCoreAssumption,
+	PersistedValidationData, PvfCheckStatement, ScheduledCore, ScrapedOnChainVotes, SessionIndex,
+	SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
 use sp_runtime::traits::One;
 
