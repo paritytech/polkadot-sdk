@@ -51,7 +51,7 @@ use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use cumulus_client_service::CollatorSybilResistance;
 use cumulus_primitives_core::{relay_chain::ValidationCode, GetParachainInfo, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
-use futures::prelude::*;
+use futures::{prelude::*};
 use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
 use sc_client_api::BlockchainEvents;
@@ -150,7 +150,7 @@ where
 		// [DOPPELGANGER]
 		#[cfg(feature = "doppelganger")]
 		let boxed_block_import =
-			Box::new(DoppelGangerBlockImport::new(block_import, DoppelGangerContext::Parachain));
+			Box::new(DoppelGangerBlockImport::new(block_import, DoppelGangerContext::Parachain, task_manager.spawn_essential_handle()));
 		#[cfg(not(feature = "doppelganger"))]
 		let boxed_block_import = Box::new(block_import);
 

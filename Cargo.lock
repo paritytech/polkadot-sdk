@@ -4569,6 +4569,7 @@ dependencies = [
  "sc-telemetry",
  "sc-transaction-pool",
  "sc-utils",
+ "serde_json",
  "sp-api",
  "sp-blockchain",
  "sp-consensus",
@@ -4576,6 +4577,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-transaction-pool",
+ "tokio",
 ]
 
 [[package]]
@@ -5716,6 +5718,69 @@ dependencies = [
  "termcolor",
  "toml",
  "walkdir",
+]
+
+[[package]]
+name = "doppelganger"
+version = "0.1.0"
+dependencies = [
+ "asset-hub-rococo-runtime",
+ "asset-hub-westend-runtime",
+ "bridge-hub-rococo-runtime",
+ "bridge-hub-westend-runtime",
+ "collectives-westend-runtime",
+ "coretime-rococo-runtime",
+ "coretime-westend-runtime",
+ "cumulus-primitives-core",
+ "glutton-westend-runtime",
+ "hex-literal",
+ "log",
+ "parachains-common",
+ "penpal-runtime",
+ "people-rococo-runtime",
+ "people-westend-runtime",
+ "polkadot-omni-node-lib",
+ "rococo-parachain-runtime",
+ "sc-chain-spec",
+ "sc-cli",
+ "sc-service",
+ "serde_json",
+ "sp-core 38.1.0",
+ "sp-genesis-builder",
+ "sp-keyring",
+ "staging-xcm",
+ "yet-another-parachain-runtime",
+]
+
+[[package]]
+name = "doppelganger-consensus"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bincode",
+ "cumulus-primitives-proof-size-hostfunction",
+ "frame-system",
+ "futures",
+ "hex",
+ "hex-literal",
+ "log",
+ "pallet-balances",
+ "parity-scale-codec",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
+ "sc-chain-spec",
+ "sc-client-api",
+ "sc-consensus",
+ "sc-executor",
+ "serde_json",
+ "sp-authority-discovery",
+ "sp-core 38.1.0",
+ "sp-io",
+ "sp-runtime",
+ "sp-runtime-interface 32.0.0",
+ "sp-storage 22.0.0",
+ "sp-trie",
+ "tokio",
 ]
 
 [[package]]
@@ -15826,6 +15891,7 @@ dependencies = [
  "cumulus-relay-chain-interface",
  "cumulus-test-runtime",
  "docify",
+ "doppelganger-consensus",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-support",
@@ -16228,6 +16294,7 @@ dependencies = [
  "cumulus-relay-chain-rpc-interface",
  "cumulus-relay-chain-streams",
  "cumulus-test-relay-sproof-builder",
+ "doppelganger",
  "emulated-integration-tests-common",
  "ethereum-standards",
  "fork-tree",
@@ -16722,6 +16789,7 @@ version = "28.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
+ "doppelganger-consensus",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-metadata-hash-extension",
@@ -16826,6 +16894,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "tempfile",
  "thiserror 1.0.65",
+ "tokio",
  "tracing-gum",
  "westend-runtime",
  "westend-runtime-constants",

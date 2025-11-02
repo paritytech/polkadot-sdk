@@ -1,12 +1,10 @@
 use std::{
-	collections::HashMap,
-	env,
-	io::{self, Write},
+	collections::HashMap, env, io::{self, Write}
 };
 
 use codec::{Decode, Encode};
 use hex_literal::hex;
-use log::debug;
+use log::{debug, warn};
 use polkadot_primitives::Slot;
 use sc_chain_spec::resolve_state_version_from_wasm;
 use sc_client_api::{Backend, BlockImportOperation};
@@ -22,6 +20,8 @@ use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header, PhantomData};
 use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey, StorageChild};
 use tokio::io::AsyncWriteExt;
+use futures::channel::oneshot::Receiver;
+use sp_core::traits::SpawnEssentialNamed;
 
 const LOG_TARGET: &str = "doppelganger";
 
@@ -49,6 +49,11 @@ impl std::fmt::Display for DoppelGangerContext {
 	}
 }
 
+pub async fn teardown_com(rx: Receiver<()>) {
+	let _ = rx.await;
+	warn!("shutdown received");
+}
+
 pub struct DoppelGangerBlockImport<BI, Block>
 where
 	Block: BlockT,
@@ -56,15 +61,17 @@ where
 {
 	inner: BI,
 	context: DoppelGangerContext,
+	spawner: Box<dyn SpawnEssentialNamed>,
 	_phantom: PhantomData<Block>,
 }
 
 impl<Block: BlockT, BI: BlockImport<Block>> DoppelGangerBlockImport<BI, Block> {
-	pub fn new(inner: BI, context: DoppelGangerContext) -> Self {
+	pub fn new(inner: BI, context: DoppelGangerContext, spawner: impl SpawnEssentialNamed + 'static) -> Self {
 		println!("Wrapping with DoppelGangerBlockImport");
-		DoppelGangerBlockImport { inner, context, _phantom: PhantomData }
+		DoppelGangerBlockImport { inner, context, spawner: Box::new(spawner), _phantom: PhantomData }
 	}
 }
+
 
 #[async_trait::async_trait]
 impl<Block, BI> BlockImport<Block> for DoppelGangerBlockImport<BI, Block>
@@ -102,6 +109,9 @@ where
 
 		let number = *block.header.number();
 		if block.with_state() {
+			// spawn an essential task to gracefully shutdown the node later
+			let (doppelganger_tx, doppelganger_rx) = futures::channel::oneshot::channel();
+			self.spawner.spawn_essential("doppelganger-worker", Some("doppelganger"), Box::pin(teardown_com(doppelganger_rx)));
 			debug!(target: LOG_TARGET, "Block param with state, with header {:?}", block.header);
 			if let StateAction::ApplyChanges(sc_consensus::StorageChanges::Import(
 				ref mut imported_state,
@@ -450,8 +460,12 @@ where
 				return res;
 			}
 
-			// KILL by default
-			std::process::exit(if res.is_ok() { 0 } else { 1 });
+			if doppelganger_tx.send(()).is_err() {
+				warn!("Error sending msg to gracefully shutdown, killing process...");
+				std::process::exit(1);
+			} else {
+				return res;
+			}
 		}
 
 		return self.inner.import_block(block).await
