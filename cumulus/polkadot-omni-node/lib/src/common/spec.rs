@@ -299,6 +299,13 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 	const SYBIL_RESISTANCE: CollatorSybilResistance;
 
+	fn start_manual_seal_node(
+		_config: Configuration,
+		_block_time: u64,
+	) -> sc_service::error::Result<TaskManager> {
+		Err(sc_service::Error::Other("Manual seal not supported for this node type".into()))
+	}
+
 	/// Start a node with the given parachain spec.
 	///
 	/// This is the actual implementation that is abstract over the executor and the runtime api.
@@ -546,6 +553,14 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 }
 
 pub(crate) trait DynNodeSpec: NodeCommandRunner {
+	/// Start node with manual-seal consensus.
+	fn start_manual_seal_node(
+		self: Box<Self>,
+		config: Configuration,
+		block_time: u64,
+	) -> sc_service::error::Result<TaskManager>;
+
+	/// Start the node.
 	fn start_node(
 		self: Box<Self>,
 		parachain_config: Configuration,
@@ -560,6 +575,14 @@ impl<T> DynNodeSpec for T
 where
 	T: NodeSpec + NodeCommandRunner,
 {
+	fn start_manual_seal_node(
+		self: Box<Self>,
+		config: Configuration,
+		block_time: u64,
+	) -> sc_service::error::Result<TaskManager> {
+		<Self as NodeSpec>::start_manual_seal_node(config, block_time)
+	}
+
 	fn start_node(
 		self: Box<Self>,
 		parachain_config: Configuration,

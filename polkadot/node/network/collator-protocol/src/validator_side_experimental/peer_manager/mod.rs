@@ -46,8 +46,7 @@ use polkadot_node_subsystem_util::{
 	request_candidate_events, request_candidates_pending_availability, runtime::recv_runtime,
 };
 use polkadot_primitives::{
-	vstaging::{CandidateDescriptorVersion, CandidateEvent},
-	BlockNumber, CandidateHash, Hash, Id as ParaId,
+	BlockNumber, CandidateDescriptorVersion, CandidateEvent, CandidateHash, Hash, Id as ParaId,
 };
 
 #[derive(Debug, PartialEq, Clone)]

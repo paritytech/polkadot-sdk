@@ -1373,10 +1373,11 @@ pub trait Crypto {
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
 		pub_key: PassPointerAndRead<&bls381::Public, 144>,
-	) -> AllocateAndReturnByCodec<Option<bls381::Signature>> {
+		owner: PassFatPointerAndRead<&[u8]>,
+	) -> AllocateAndReturnByCodec<Option<bls381::ProofOfPossession>> {
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
-			.bls381_generate_proof_of_possession(id, pub_key)
+			.bls381_generate_proof_of_possession(id, pub_key, owner)
 			.ok()
 			.flatten()
 	}

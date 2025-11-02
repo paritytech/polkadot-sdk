@@ -296,17 +296,17 @@ use sp_runtime::traits::BlockNumberProvider;
 pub type BlockNumberFor<T, I> =
 	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
-type BalanceOf<T, I> =
+pub type BalanceOf<T, I> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T, I> = <<T as Config<I>>::Currency as Currency<
+pub type NegativeImbalanceOf<T, I> = <<T as Config<I>>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
-type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+pub type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct Vote {
-	approve: bool,
-	weight: u32,
+	pub approve: bool,
+	pub weight: u32,
 }
 
 /// A judgement by the suspension judgement origin on a suspended candidate.
@@ -327,13 +327,13 @@ pub enum Judgement {
 )]
 pub struct Payout<Balance, BlockNumber> {
 	/// Total value of the payout.
-	value: Balance,
+	pub value: Balance,
 	/// Block number at which the payout begins.
-	begin: BlockNumber,
+	pub begin: BlockNumber,
 	/// Total number of blocks over which the payout is spread.
-	duration: BlockNumber,
+	pub duration: BlockNumber,
 	/// Total value paid out so far.
-	paid: Balance,
+	pub paid: Balance,
 }
 
 /// Status of a vouching member.
@@ -352,11 +352,11 @@ pub type StrikeCount = u32;
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct Bid<AccountId, Balance> {
 	/// The bidder/candidate trying to enter society
-	who: AccountId,
+	pub who: AccountId,
 	/// The kind of bid placed for this bidder/candidate. See `BidKind`.
-	kind: BidKind<AccountId, Balance>,
+	pub kind: BidKind<AccountId, Balance>,
 	/// The reward that the bidder has requested for successfully joining the society.
-	value: Balance,
+	pub value: Balance,
 }
 
 /// The index of a round of candidates.
@@ -374,9 +374,9 @@ pub type VoteCount = u32;
 )]
 pub struct Tally {
 	/// The approval votes.
-	approvals: VoteCount,
+	pub approvals: VoteCount,
 	/// The rejection votes.
-	rejections: VoteCount,
+	pub rejections: VoteCount,
 }
 
 impl Tally {
@@ -401,15 +401,15 @@ impl Tally {
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct Candidacy<AccountId, Balance> {
 	/// The index of the round where the candidacy began.
-	round: RoundIndex,
+	pub round: RoundIndex,
 	/// The kind of bid placed for this bidder/candidate. See `BidKind`.
-	kind: BidKind<AccountId, Balance>,
+	pub kind: BidKind<AccountId, Balance>,
 	/// The reward that the bidder has requested for successfully joining the society.
-	bid: Balance,
+	pub bid: Balance,
 	/// The tally of votes so far.
-	tally: Tally,
+	pub tally: Tally,
 	/// True if the skeptic was already punished for note voting.
-	skeptic_struck: bool,
+	pub skeptic_struck: bool,
 }
 
 /// A vote by a member on a candidate application.
@@ -434,17 +434,17 @@ pub type PayoutsFor<T, I> =
 /// Information concerning a member.
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct MemberRecord {
-	rank: Rank,
-	strikes: StrikeCount,
-	vouching: Option<VouchingStatus>,
-	index: u32,
+	pub rank: Rank,
+	pub strikes: StrikeCount,
+	pub vouching: Option<VouchingStatus>,
+	pub index: u32,
 }
 
 /// Information concerning a member.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, Default, MaxEncodedLen)]
 pub struct PayoutRecord<Balance, PayoutsVec> {
-	paid: Balance,
-	payouts: PayoutsVec,
+	pub paid: Balance,
+	pub payouts: PayoutsVec,
 }
 
 pub type PayoutRecordFor<T, I> = PayoutRecord<
@@ -455,9 +455,9 @@ pub type PayoutRecordFor<T, I> = PayoutRecord<
 /// Record for an individual new member who was elevated from a candidate recently.
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct IntakeRecord<AccountId, Balance> {
-	who: AccountId,
-	bid: Balance,
-	round: RoundIndex,
+	pub who: AccountId,
+	pub bid: Balance,
+	pub round: RoundIndex,
 }
 
 pub type IntakeRecordFor<T, I> =
@@ -476,10 +476,10 @@ pub type IntakeRecordFor<T, I> =
 	MaxEncodedLen,
 )]
 pub struct GroupParams<Balance> {
-	max_members: u32,
-	max_intake: u32,
-	max_strikes: u32,
-	candidate_deposit: Balance,
+	pub max_members: u32,
+	pub max_intake: u32,
+	pub max_strikes: u32,
+	pub candidate_deposit: Balance,
 }
 
 pub type GroupParamsFor<T, I> = GroupParams<BalanceOf<T, I>>;
