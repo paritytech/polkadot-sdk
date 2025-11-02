@@ -141,8 +141,6 @@ members = [
 	"cumulus/parachains/runtimes/test-utils",
 	"cumulus/parachains/runtimes/testing/penpal",
 	"cumulus/parachains/runtimes/testing/rococo-parachain",
-	"cumulus/parachains/runtimes/testing/westend-parachain",
-	"cumulus/parachains/runtimes/testing/westend-pvm-parachain",
 	"cumulus/parachains/runtimes/testing/yet-another-parachain",
 	"cumulus/polkadot-omni-node",
 	"cumulus/polkadot-omni-node/lib",
@@ -1463,8 +1461,6 @@ wasmi = { version = "0.32.3", default-features = false }
 wasmtime = { version = "35.0.0", default-features = false }
 wat = { version = "1.0.0" }
 westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/relays/westend", default-features = false }
-westend-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/westend-parachain" }
-westend-pvm-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/westend-pvm-parachain" }
 westend-runtime = { path = "polkadot/runtime/westend", default-features = false }
 westend-runtime-constants = { path = "polkadot/runtime/westend/constants", default-features = false }
 westend-system-emulated-network = { path = "cumulus/parachains/integration-tests/emulated/networks/westend-system" }
