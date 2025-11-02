@@ -126,10 +126,11 @@ where
 	}
 
 	/// If there is an authorities change digest in the header, import it into the tracker.
-	pub fn import(&self, header: &B::Header) -> Result<(), String> {
-		if let Some(authorities_change) = find_authorities_change_digest::<B, P>(header) {
-			let hash = header.hash();
-			let number = *header.number();
+	pub fn import(&self, post_header: &B::Header) -> Result<(), String> {
+		if let Some(authorities_change) = find_authorities_change_digest::<B, P>(&post_header) {
+			let hash = post_header.hash();
+			let parent_hash = *post_header.parent_hash();
+			let number = *post_header.number();
 			log::debug!(
 				target: LOG_TARGET,
 				"Importing authorities change for block {:?} at number {} found in header digest",
@@ -137,7 +138,8 @@ where
 				number,
 			);
 			self.prune_finalized()?;
-			let is_descendent_of = sc_client_api::utils::is_descendent_of(&*self.client, None);
+			let is_descendent_of =
+				sc_client_api::utils::is_descendent_of(&*self.client, Some((hash, parent_hash)));
 			let mut authorities_cache = self.authorities.write();
 			authorities_cache
 				.import(hash, number, authorities_change, &is_descendent_of)

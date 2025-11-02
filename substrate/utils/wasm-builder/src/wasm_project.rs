@@ -1077,7 +1077,7 @@ fn try_compress_blob_as(
 		RuntimeTarget::Riscv => sp_maybe_compressed_blob::MaybeCompressedBlobType::Pvm,
 	};
 	if let Some(compressed) =
-		sp_maybe_compressed_blob::compress_as(blob_type, &data, CODE_BLOB_BOMB_LIMIT)
+		sp_maybe_compressed_blob::compress_strongly_as(blob_type, &data, CODE_BLOB_BOMB_LIMIT)
 	{
 		fs::write(&compact_compressed_blob_path, &compressed[..])
 			.expect("Failed to write WASM binary");

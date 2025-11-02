@@ -1344,7 +1344,7 @@ fn compressed_code_works() {
 
 	let raw_code = vec![2u8; 16];
 	let validation_code =
-		compress_as(MaybeCompressedBlobType::Wasm, &raw_code, VALIDATION_CODE_BOMB_LIMIT as usize)
+		sp_maybe_compressed_blob::compress_strongly_as(MaybeCompressedBlobType::Wasm, &raw_code, VALIDATION_CODE_BOMB_LIMIT as usize)
 			.map(ValidationCode)
 			.unwrap();
 

@@ -411,7 +411,12 @@ async fn follow_with_runtime() {
 	let mut runtime = runtime;
 	runtime.spec_version += 1;
 	let embedded = sp_version::embed::embed_runtime_version(&wasm, runtime.clone()).unwrap();
-	let wasm = compress_as(MaybeCompressedBlobType::Wasm, &embedded, CODE_BLOB_BOMB_LIMIT).unwrap();
+	let wasm = sp_maybe_compressed_blob::compress_strongly_as(
+		MaybeCompressedBlobType::Wasm,
+		&embedded,
+		sp_maybe_compressed_blob::CODE_BLOB_BOMB_LIMIT,
+	)
+	.unwrap();
 
 	let mut builder = BlockBuilderBuilder::new(&*client)
 		.on_parent_block(best_hash)

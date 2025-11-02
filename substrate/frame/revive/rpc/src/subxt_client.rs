@@ -20,7 +20,7 @@
 pub use subxt::config::PolkadotConfig as SrcChainConfig;
 
 #[subxt::subxt(
-	runtime_metadata_path = "revive_chain.metadata",
+	runtime_metadata_path = "revive_chain.scale",
 	// TODO remove once subxt use the same U256 type
 	substitute_type(
 		path = "primitive_types::U256",
@@ -62,7 +62,16 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 	substitute_type(
 		path = "sp_weights::weight_v2::Weight",
 		with = "::subxt::utils::Static<::sp_weights::Weight>"
-	)
+	),
+	substitute_type(
+		path = "pallet_revive::evm::api::rpc_types_gen::Block",
+		with = "::subxt::utils::Static<::pallet_revive::evm::Block>"
+	),
+	substitute_type(
+		path = "pallet_revive::evm::block_hash::ReceiptGasInfo",
+		with = "::subxt::utils::Static<::pallet_revive::evm::ReceiptGasInfo>"
+	),
+	derive_for_all_types = "codec::Encode, codec::Decode"
 )]
 mod src_chain {}
 pub use src_chain::*;

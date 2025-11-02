@@ -230,6 +230,7 @@ fn compute_fork_version() {
 		capella: Fork { version: [0, 0, 0, 3], epoch: 30 },
 		deneb: Fork { version: [0, 0, 0, 4], epoch: 40 },
 		electra: Fork { version: [0, 0, 0, 5], epoch: 50 },
+		fulu: Fork { version: [0, 0, 0, 6], epoch: 60 },
 	};
 	new_tester().execute_with(|| {
 		assert_eq!(EthereumBeaconClient::select_fork_version(&mock_fork_versions, 0), [0, 0, 0, 0]);
@@ -803,7 +804,7 @@ fn verify_message_invalid_log() {
 		assert_ok!(initialize_storage());
 		assert_err!(
 			EthereumBeaconClient::verify(&event_log, &proof),
-			VerificationError::InvalidLog
+			VerificationError::LogNotFound
 		);
 	});
 }
@@ -955,6 +956,21 @@ fn verify_execution_proof_not_finalized() {
 		assert_err!(
 			EthereumBeaconClient::verify_execution_proof(&update),
 			Error::<Test>::HeaderNotFinalized
+		);
+	});
+}
+
+#[test]
+fn verify_message_invalid_topic() {
+	let (event_log, proof) = get_message_verification_payload();
+	let mut event_log_muted = event_log.clone();
+	event_log_muted.topics[0] = H256::default();
+
+	new_tester().execute_with(|| {
+		assert_ok!(initialize_storage());
+		assert_err!(
+			EthereumBeaconClient::verify(&event_log_muted, &proof),
+			VerificationError::LogNotFound
 		);
 	});
 }

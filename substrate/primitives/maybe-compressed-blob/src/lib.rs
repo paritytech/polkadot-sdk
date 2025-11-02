@@ -130,10 +130,40 @@ pub fn decompress_as(
 	}
 }
 
-/// Encode a blob as compressed blob of a given type. If the blob's size is over the bomb limit,
-/// this will not compress the blob, as the decoder will not be able to be
-/// able to differentiate it from a compression bomb.
+/// Weakly compress a blob who's size is limited by `bomb_limit`.
+///
+/// If the blob's size is over the bomb limit, this will not compress the blob,
+/// as the decoder will not be able to be able to differentiate it from a compression bomb.
+pub fn compress_weakly_as(ty: MaybeCompressedBlobType, blob: &[u8], bomb_limit: usize) -> Option<Vec<u8>> {
+	compress_with_level_as(ty, blob, bomb_limit, 3)
+}
+
+/// Strongly compress a blob who's size is limited by `bomb_limit`.
+///
+/// If the blob's size is over the bomb limit, this will not compress the blob, as the decoder will
+/// not be able to be able to differentiate it from a compression bomb.
+pub fn compress_strongly_as(ty: MaybeCompressedBlobType, blob: &[u8], bomb_limit: usize) -> Option<Vec<u8>> {
+	compress_with_level_as(ty, blob, bomb_limit, 22)
+}
+
+/// Compress a blob who's size is limited by `bomb_limit`.
+///
+/// If the blob's size is over the bomb limit, this will not compress the blob, as the decoder will
+/// not be able to be able to differentiate it from a compression bomb.
+#[deprecated(
+	note = "Will be removed after June 2026. Use compress_strongly, compress_weakly or compress_with_level instead"
+)]
 pub fn compress_as(ty: MaybeCompressedBlobType, blob: &[u8], bomb_limit: usize) -> Option<Vec<u8>> {
+	compress_with_level_as(ty, blob, bomb_limit, 3)
+}
+
+/// Compress a blob who's size is limited by `bomb_limit` with adjustable compression level.
+///
+/// The levels are passed through to `zstd` and can be in range [1, 22] (weakest to strongest).
+///
+/// If the blob's size is over the bomb limit, this will not compress the blob, as the decoder will
+/// not be able to be able to differentiate it from a compression bomb.
+fn compress_with_level_as(ty: MaybeCompressedBlobType, blob: &[u8], bomb_limit: usize, level: i32) -> Option<Vec<u8>> {
 	if blob.len() > bomb_limit {
 		return None
 	}
@@ -147,7 +177,7 @@ pub fn compress_as(ty: MaybeCompressedBlobType, blob: &[u8], bomb_limit: usize) 
 	.to_vec();
 
 	{
-		let mut v = zstd::Encoder::new(&mut buf, 3).ok()?.auto_finish();
+		let mut v = zstd::Encoder::new(&mut buf, level).ok()?.auto_finish();
 		v.write_all(blob).ok()?;
 	}
 
@@ -178,23 +208,26 @@ mod tests {
 	#[test]
 	fn refuse_to_encode_over_limit() {
 		let mut v = vec![0; BOMB_LIMIT + 1];
-		assert!(compress_as(MaybeCompressedBlobType::Legacy, &v, BOMB_LIMIT).is_none());
+		assert!(compress_weakly_as(MaybeCompressedBlobType::Legacy, &v, BOMB_LIMIT).is_none());
+		assert!(compress_strongly_as(MaybeCompressedBlobType::Legacy, &v, BOMB_LIMIT).is_none());
 
 		let _ = v.pop();
-		assert!(compress_as(MaybeCompressedBlobType::Legacy, &v, BOMB_LIMIT).is_some());
+		assert!(compress_weakly_as(MaybeCompressedBlobType::Legacy, &v, BOMB_LIMIT).is_some());
+		assert!(compress_strongly_as(MaybeCompressedBlobType::Legacy, &v, BOMB_LIMIT).is_some());
 	}
 
 	#[test]
 	fn compress_and_decompress() {
 		let v = vec![0; BOMB_LIMIT];
 
-		let compressed = compress_as(MaybeCompressedBlobType::Legacy, &v, BOMB_LIMIT).unwrap();
+		let compressed_weakly = compress_weakly_as(MaybeCompressedBlobType::Legacy, &v, BOMB_LIMIT).unwrap();
+		let compressed_strongly = compress_strongly_as(MaybeCompressedBlobType::Legacy, &v, BOMB_LIMIT).unwrap();
 
-		assert!(compressed.starts_with(&CBLOB_ZSTD_LEGACY));
-		assert_eq!(
-			&decompress_as(MaybeCompressedBlobType::Legacy, &compressed, BOMB_LIMIT).unwrap()[..],
-			&v[..]
-		)
+		assert!(compressed_weakly.starts_with(&CBLOB_ZSTD_LEGACY));
+		assert!(compressed_strongly.starts_with(&CBLOB_ZSTD_LEGACY));
+
+		assert_eq!(&decompress_as(MaybeCompressedBlobType::Legacy, &compressed_weakly, BOMB_LIMIT).unwrap()[..], &v[..]);
+		assert_eq!(&decompress_as(MaybeCompressedBlobType::Legacy, &compressed_strongly, BOMB_LIMIT).unwrap()[..], &v[..]);
 	}
 
 	#[test]
