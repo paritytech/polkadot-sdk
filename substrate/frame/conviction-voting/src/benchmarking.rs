@@ -29,10 +29,12 @@ use frame_support::{
 		tokens::{Fortitude::Polite, Preservation::Expendable},
 		Currency, Get,
 	},
+	weights::WeightMeter,
+	migrations::SteppedMigration,
 };
 use sp_runtime::traits::Bounded;
 
-use crate::Pallet as ConvictionVoting;
+use crate::{Pallet as ConvictionVoting, migrations::v1::*};
 
 const SEED: u32 = 0;
 
@@ -395,6 +397,38 @@ benchmarks_instance_pallet! {
 			VotingFor::<T, I>::get(&caller, &class).allow_delegator_voting,
 			true
 		);
+	}
+
+	step_to_v1 {
+		let r in 0..T::MaxVotes::get().min(T::Polls::max_ongoing().1);
+		let voter = funded_account::<T, I>("voter", 0);
+		let (class, all_polls) = fill_voting::<T, I>();
+		let polls = &all_polls[&class];
+		
+		// Create votes.
+		let mut votes: Vec<_> = vec![];
+		for i in polls.iter().take(r as usize) {
+			let v = Vote { aye: true, conviction: Conviction::Locked1x };
+			let account_vote = AccountVote::Standard { vote: v, balance: 100u32.into() };
+			votes.push((*i, account_vote));
+		}
+		let votes_b = BoundedVec::try_from(votes).expect("Vec too large.");
+
+		let vote_data = v0::Voting::Casting(v0::Casting {
+                votes: votes_b,
+                delegations: Default::default(),
+                prior: Default::default(),
+        });
+		
+		// Put in storage.
+		v0::VotingFor::<T, I>::insert(voter.clone(), &class, vote_data);
+		let mut meter = WeightMeter::new();
+	}: {
+		SteppedMigrationV1::<T, weights::SubstrateWeight<T>, I>::step(None, &mut meter).unwrap();
+	}
+	verify {
+		assert_eq!(crate::VotingFor::<T, I>::iter().count(), 1);
+		assert_eq!(VotingFor::<T, I>::get(voter.clone(), class).votes.len(), r as usize);
 	}
 
 	impl_benchmark_test_suite!(

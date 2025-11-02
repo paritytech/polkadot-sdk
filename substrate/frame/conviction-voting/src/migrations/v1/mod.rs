@@ -22,7 +22,7 @@ extern crate alloc;
 use super::CONVICTION_VOTING_ID;
 use crate::{Pallet, pallet::{Config, VotingFor, MigrationOngoing},
 	VoteRecord,
-	VotingOf};
+	VotingOf, weights};
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::{PhantomData, StorageVersion, GetStorageVersion},
@@ -35,9 +35,7 @@ use frame_support::{
 // #[cfg(feature = "try-runtime")]
 // use alloc::vec::Vec;
 
-mod benchmarking;
 mod tests;
-pub mod weights;
 
 /// V0 types.
 pub mod v0 {
@@ -45,7 +43,7 @@ pub mod v0 {
 	use crate::{pallet::Pallet, types::Tally, vote::{PriorLock, AccountVote}, Conviction, Delegations};
     use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 	use frame_support::{
-		pallet_prelude::{StorageDoubleMap, ValueQuery},
+		pallet_prelude::ValueQuery,
 		storage_alias,
 		traits::{Currency, Get, Polling},
 		BoundedVec, Twox64Concat,
@@ -193,7 +191,7 @@ impl<T: Config<I>, W: weights::WeightInfo, I: 'static> SteppedMigration
         }
 		
         // No weight for even a single step.
-		let required = W::step();
+		let required = W::step_to_v1();
 		if meter.remaining().any_lt(required) {
 			return Err(SteppedMigrationError::InsufficientWeight { required });
 		}

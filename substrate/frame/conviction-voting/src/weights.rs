@@ -80,6 +80,7 @@ pub trait WeightInfo {
 	fn undelegate(r: u32, _s: u32) -> Weight;
 	fn unlock() -> Weight;
 	fn toggle_allow_delegator_voting() -> Weight;
+	fn step_to_v1() -> Weight;
 }
 
 /// Weights for `pallet_conviction_voting` using the Substrate node and recommended hardware.
@@ -243,6 +244,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
+
+	// Stub.
+	fn step_to_v1() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `28`
+		//  Estimated: `5996`
+		// Minimum execution time: 6_000_000 picoseconds.
+		Weight::from_parts(8_000_000, 5996)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -404,5 +416,16 @@ impl WeightInfo for () {
 		Weight::from_parts(92_198_000, 30706)
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
+	}
+
+	// Stub.
+	fn step_to_v1() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `28`
+		//  Estimated: `5996`
+		// Minimum execution time: 6_000_000 picoseconds.
+		Weight::from_parts(8_000_000, 5996)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
