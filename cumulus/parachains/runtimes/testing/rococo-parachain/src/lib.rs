@@ -18,9 +18,25 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 
+#[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), target_feature = "e"))]
+// Allocate 2 MiB stack.
+//
+// TODO: A workaround. Invoke polkavm_derive::min_stack_size!() instead
+// later on.
+::core::arch::global_asm!(
+	".pushsection .polkavm_min_stack_size,\"R\",@note\n",
+	".4byte 2097152",
+	".popsection\n",
+);
+
 // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
+
+#[cfg(feature = "std")]
+pub mod polkavm_binary {
+	include!(concat!(env!("OUT_DIR"), "/polkavm_binary.rs"));
+}
 
 mod genesis_config_presets;
 
@@ -111,7 +127,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("test-parachain"),
 	impl_name: alloc::borrow::Cow::Borrowed("test-parachain"),
 	authoring_version: 1,
-	spec_version: 1_014_000,
+	spec_version: 1_015_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -241,8 +257,14 @@ impl pallet_timestamp::Config for Runtime {
 	type WeightInfo = ();
 }
 
+// This is just to easily check on client sideif the runtime is running on Wasm or PolkaVM
+#[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), target_feature = "e"))]
+const ED: u128 = 2 * MILLIROC;
+#[cfg(not(all(any(target_arch = "riscv32", target_arch = "riscv64"), target_feature = "e")))]
+const ED: u128 = MILLIROC;
+
 parameter_types! {
-	pub const ExistentialDeposit: u128 = MILLIROC;
+	pub const ExistentialDeposit: u128 = ED;
 	pub const TransferFee: u128 = MILLIROC;
 	pub const CreationFee: u128 = MILLIROC;
 	pub const TransactionByteFee: u128 = MICROROC;

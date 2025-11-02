@@ -15,7 +15,12 @@
 
 #[cfg(feature = "std")]
 fn main() {
+	// Build Wasm version
 	substrate_wasm_builder::WasmBuilder::build_using_defaults();
+	// Build PolkaVM version
+	substrate_wasm_builder::WasmBuilder::init_with_defaults()
+		.set_file_name("polkavm_binary.rs")
+		.build_for_target(substrate_wasm_builder::RuntimeTarget::Riscv);
 }
 
 #[cfg(not(feature = "std"))]

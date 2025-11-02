@@ -18843,6 +18843,7 @@ dependencies = [
  "sp-keyring",
  "sp-offchain",
  "sp-runtime",
+ "sp-runtime-interface 24.0.0",
  "sp-session",
  "sp-transaction-pool",
  "sp-version",

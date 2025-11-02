@@ -60,7 +60,9 @@ impl LoadSpec for ChainSpecLoader {
 	fn load_spec(&self, id: &str) -> Result<Box<dyn ChainSpec>, String> {
 		Ok(match id {
 			// - Default-like
-			"staging" => Box::new(rococo_parachain::staging_rococo_parachain_local_config()),
+			"staging" => Box::new(rococo_parachain::staging_rococo_parachain_local_config(false)),
+			"staging-polkavm" =>
+				Box::new(rococo_parachain::staging_rococo_parachain_local_config(true)),
 			"tick" => Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/tick.json")[..],
 			)?),
@@ -210,10 +212,15 @@ impl LoadSpec for ChainSpecLoader {
 					.expect("invalid value")
 					.load_config()?,
 
+			"rococo-parachain-local" =>
+				Box::new(rococo_parachain::rococo_parachain_local_config(false)),
+			"rococo-parachain-local-polkavm" =>
+				Box::new(rococo_parachain::rococo_parachain_local_config(true)),
+
 			// -- Fallback (generic chainspec)
 			"" => {
 				log::warn!("No ChainSpec.id specified, so using default one, based on rococo-parachain runtime");
-				Box::new(rococo_parachain::rococo_parachain_local_config())
+				Box::new(rococo_parachain::rococo_parachain_local_config(false))
 			},
 
 			// -- Loading a specific spec from disk
@@ -349,7 +356,7 @@ mod tests {
 			create_default_with_extensions("penpal-rococo-1000", Extensions2::default());
 		assert_eq!(LegacyRuntime::Penpal, LegacyRuntime::from_id(chain_spec.id()));
 
-		let chain_spec = crate::chain_spec::rococo_parachain::rococo_parachain_local_config();
+		let chain_spec = crate::chain_spec::rococo_parachain::rococo_parachain_local_config(false);
 		assert_eq!(LegacyRuntime::Omni, LegacyRuntime::from_id(chain_spec.id()));
 	}
 }

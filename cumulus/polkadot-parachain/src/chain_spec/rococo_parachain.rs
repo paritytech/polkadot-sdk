@@ -24,41 +24,47 @@ use rococo_parachain_runtime::AuraId;
 use sc_chain_spec::ChainType;
 use sp_core::crypto::UncheckedInto;
 
-pub fn rococo_parachain_local_config() -> GenericChainSpec {
-	GenericChainSpec::builder(
-		rococo_parachain_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions::new_with_relay_chain("rococo-local".into()),
-	)
-	.with_name("Rococo Parachain Local")
-	.with_id("local_testnet")
-	.with_chain_type(ChainType::Local)
-	.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
-	.build()
+pub fn rococo_parachain_local_config(is_polkavm: bool) -> GenericChainSpec {
+	let binary = if is_polkavm {
+		rococo_parachain_runtime::polkavm_binary::WASM_BINARY
+			.expect("PolkaVM binary was not built, please build it!")
+	} else {
+		rococo_parachain_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!")
+	};
+	GenericChainSpec::builder(binary, Extensions::new_with_relay_chain("rococo-local".into()))
+		.with_name("Rococo Parachain Local")
+		.with_id("local_testnet")
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
+		.build()
 }
 
-pub fn staging_rococo_parachain_local_config() -> GenericChainSpec {
-	GenericChainSpec::builder(
-		rococo_parachain_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions::new_with_relay_chain("rococo-local".into()),
-	)
-	.with_name("Staging Rococo Parachain Local")
-	.with_id("staging_testnet")
-	.with_chain_type(ChainType::Live)
-	.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
-	.with_genesis_config_patch(testnet_genesis_patch(
-		hex!["9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00"].into(),
-		vec![
-			// $secret//one
-			hex!["aad9fa2249f87a210a0f93400b7f90e47b810c6d65caa0ca3f5af982904c2a33"]
-				.unchecked_into(),
-			// $secret//two
-			hex!["d47753f0cca9dd8da00c70e82ec4fc5501a69c49a5952a643d18802837c88212"]
-				.unchecked_into(),
-		],
-		vec![hex!["9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00"].into()],
-		1000.into(),
-	))
-	.build()
+pub fn staging_rococo_parachain_local_config(is_polkavm: bool) -> GenericChainSpec {
+	let binary = if is_polkavm {
+		rococo_parachain_runtime::polkavm_binary::WASM_BINARY
+			.expect("PolkaVM binary was not built, please build it!")
+	} else {
+		rococo_parachain_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!")
+	};
+	GenericChainSpec::builder(binary, Extensions::new_with_relay_chain("rococo-local".into()))
+		.with_name("Staging Rococo Parachain Local")
+		.with_id("staging_testnet")
+		.with_chain_type(ChainType::Live)
+		.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
+		.with_genesis_config_patch(testnet_genesis_patch(
+			hex!["9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00"].into(),
+			vec![
+				// $secret//one
+				hex!["aad9fa2249f87a210a0f93400b7f90e47b810c6d65caa0ca3f5af982904c2a33"]
+					.unchecked_into(),
+				// $secret//two
+				hex!["d47753f0cca9dd8da00c70e82ec4fc5501a69c49a5952a643d18802837c88212"]
+					.unchecked_into(),
+			],
+			vec![hex!["9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00"].into()],
+			1000.into(),
+		))
+		.build()
 }
 
 pub(crate) fn testnet_genesis_patch(
