@@ -226,7 +226,8 @@ impl ExecutorParams {
 		ExecutorParamsHash(BlakeTwo256::hash(&self.encode()))
 	}
 
-	/// Returns hash of preparation-related executor parameters
+	/// Returns hash of preparation-related executor parameters (those affecting the artifact
+	/// produced on the preparation step).
 	pub fn prep_hash(&self) -> ExecutorParamsPrepHash {
 		use ExecutorParam::*;
 
@@ -235,11 +236,11 @@ impl ExecutorParams {
 		self.0
 			.iter()
 			.flat_map(|param| match param {
-				MaxMemoryPages(..) => None,
+				MaxMemoryPages(..) => Some(param),
 				StackLogicalMax(..) => Some(param),
 				StackNativeMax(..) => None,
 				PrecheckingMaxMemory(..) => None,
-				PvfPrepTimeout(..) => Some(param),
+				PvfPrepTimeout(..) => None,
 				PvfExecTimeout(..) => None,
 				WasmExtBulkMemory => Some(param),
 			})
@@ -434,21 +435,17 @@ fn ensure_prep_hash_changes() {
 
 	for p in ep.iter() {
 		let (ep1, ep2) = match p {
-			MaxMemoryPages(_) => continue,
+			MaxMemoryPages(_) => (
+				ExecutorParams::from(&[MaxMemoryPages(1)][..]),
+				ExecutorParams::from(&[MaxMemoryPages(2)][..]),
+			),
 			StackLogicalMax(_) => (
 				ExecutorParams::from(&[StackLogicalMax(1)][..]),
 				ExecutorParams::from(&[StackLogicalMax(2)][..]),
 			),
 			StackNativeMax(_) => continue,
 			PrecheckingMaxMemory(_) => continue,
-			PvfPrepTimeout(PvfPrepKind::Precheck, _) => (
-				ExecutorParams::from(&[PvfPrepTimeout(PvfPrepKind::Precheck, 1)][..]),
-				ExecutorParams::from(&[PvfPrepTimeout(PvfPrepKind::Precheck, 2)][..]),
-			),
-			PvfPrepTimeout(PvfPrepKind::Prepare, _) => (
-				ExecutorParams::from(&[PvfPrepTimeout(PvfPrepKind::Prepare, 1)][..]),
-				ExecutorParams::from(&[PvfPrepTimeout(PvfPrepKind::Prepare, 2)][..]),
-			),
+			PvfPrepTimeout(_, _) => continue,
 			PvfExecTimeout(_, _) => continue,
 			WasmExtBulkMemory =>
 				(ExecutorParams::default(), ExecutorParams::from(&[WasmExtBulkMemory][..])),
