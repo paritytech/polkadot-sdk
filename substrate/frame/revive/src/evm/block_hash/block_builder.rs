@@ -281,10 +281,10 @@ mod test {
 
 			// Each mask in these vectors holds a u16.
 			let masks_len = (hb.state_masks.len() + hb.tree_masks.len() + hb.hash_masks.len()) * 2;
-			let _size = hb.key.len()
-				+ hb.value.as_slice().len()
-				+ hb.stack.len() * 33
-				+ masks_len + hb.rlp_buf.len();
+			let _size = hb.key.len() +
+				hb.value.as_slice().len() +
+				hb.stack.len() * 33 +
+				masks_len + hb.rlp_buf.len();
 		}
 
 		hb.root().0.into()
