@@ -147,7 +147,9 @@ fn timestamp_dry_run_override_works(fixture_type: FixtureType) {
 		let override_ts = Timestamp::get() + 10_000;
 		let result: crate::ExecReturnValue = builder::bare_call(addr)
 			.data(BlockInfo::BlockInfoCalls::timestamp(BlockInfo::timestampCall {}).abi_encode())
-			.exec_config(ExecConfig::new_substrate_tx().with_dry_run_timestamp_override(Some(override_ts)))
+			.exec_config(
+				ExecConfig::new_substrate_tx().with_dry_run_timestamp_override(Some(override_ts)),
+			)
 			.build_and_unwrap_result();
 		let decoded = BlockInfo::timestampCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(
