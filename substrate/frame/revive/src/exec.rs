@@ -956,7 +956,8 @@ where
 		if exec_config.is_dry_run {
 			block_number += 1u32.saturated_into();
 			if let Some(ts_override) = exec_config.dry_run_timestamp_override {
-				let moment_override: <<T as Config>::Time as Time>::Moment = ts_override.saturated_into();
+				let moment_override: <<T as Config>::Time as Time>::Moment =
+					ts_override.saturated_into();
 				let delta: <<T as Config>::Time as Time>::Moment = 1000u64.saturated_into();
 				latest_timestamp = cmp::max(latest_timestamp + delta, moment_override);
 			}
@@ -967,7 +968,7 @@ where
 			gas_meter,
 			storage_meter,
 			timestamp: latest_timestamp,
-			block_number: block_number,
+			block_number,
 			first_frame,
 			frames: Default::default(),
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),

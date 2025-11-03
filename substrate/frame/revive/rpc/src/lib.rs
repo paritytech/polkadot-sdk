@@ -24,7 +24,7 @@ use jsonrpsee::{
 };
 use pallet_revive::evm::*;
 use sp_core::{keccak_256, H160, H256, U256};
-use sp_timestamp::{Timestamp};
+use sp_timestamp::Timestamp;
 use thiserror::Error;
 use tokio::time::Duration;
 
@@ -165,7 +165,8 @@ impl EthRpcServer for EthRpcServerImpl {
 	) -> RpcResult<Bytes> {
 		let block = block.unwrap_or_default();
 		let timestamp_override = match block {
-			BlockNumberOrTagOrHash::BlockTag(BlockTag::Pending) => Some(Timestamp::current().as_millis()),
+			BlockNumberOrTagOrHash::BlockTag(BlockTag::Pending) =>
+				Some(Timestamp::current().as_millis()),
 			_ => None,
 		};
 		let hash = self.client.block_hash_for_tag(block).await?;

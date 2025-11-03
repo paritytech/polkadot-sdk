@@ -21,9 +21,11 @@ use crate::{
 	ClientError,
 };
 use pallet_revive::{
-	evm::{decode_revert_reason, Block as EthBlock, GenericTransaction, ReceiptGasInfo, Trace, H160, U256},
-	EthTransactInfo,
-	EthTransactError,
+	evm::{
+		decode_revert_reason, Block as EthBlock, GenericTransaction, ReceiptGasInfo, Trace, H160,
+		U256,
+	},
+	EthTransactError, EthTransactInfo,
 };
 use sp_core::H256;
 use subxt::OnlineClient;
@@ -68,20 +70,16 @@ impl RuntimeApi {
 		tx: GenericTransaction,
 		timestamp_override: Option<u64>,
 	) -> Result<EthTransactInfo<Balance>, ClientError> {
-		let payload = subxt_client::apis()
-			.revive_api()
-			.eth_transact(tx.into(), timestamp_override);
+		let payload = subxt_client::apis().revive_api().eth_transact(tx.into(), timestamp_override);
 		let result = self.0.call(payload).await?;
 		match result {
 			Err(err) => {
 				// Attempt to decode revert reason if available
 				let decoded_msg = match &err.0 {
-					EthTransactError::Data(data) => {
-						match decode_revert_reason(data) {
-							Some(reason) => format!("execution reverted: {reason}"),
-							None => "execution reverted".to_string(),
-						}
-					}
+					EthTransactError::Data(data) => match decode_revert_reason(data) {
+						Some(reason) => format!("execution reverted: {reason}"),
+						None => "execution reverted".to_string(),
+					},
 					EthTransactError::Message(msg) => msg.clone(),
 				};
 				log::debug!(target: LOG_TARGET, "err = {:?}", err);
