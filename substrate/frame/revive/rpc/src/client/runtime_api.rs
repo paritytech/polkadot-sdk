@@ -22,8 +22,8 @@ use crate::{
 };
 use pallet_revive::{
 	evm::{
-		decode_revert_reason, Block as EthBlock, BlockTag, BlockNumberOrTagOrHash, GenericTransaction, ReceiptGasInfo, Trace, H160,
-		U256,
+		decode_revert_reason, Block as EthBlock, BlockNumberOrTagOrHash, BlockTag,
+		GenericTransaction, ReceiptGasInfo, Trace, H160, U256,
 	},
 	EthTransactError, EthTransactInfo,
 };
@@ -72,9 +72,8 @@ impl RuntimeApi {
 		block: BlockNumberOrTagOrHash,
 	) -> Result<EthTransactInfo<Balance>, ClientError> {
 		let timestamp_override = match block {
-			BlockNumberOrTagOrHash::BlockTag(BlockTag::Pending) => {
-				Some(Timestamp::current().as_millis())
-			}
+			BlockNumberOrTagOrHash::BlockTag(BlockTag::Pending) =>
+				Some(Timestamp::current().as_millis()),
 			_ => None,
 		};
 		let payload = subxt_client::apis().revive_api().eth_transact(tx.into(), timestamp_override);
