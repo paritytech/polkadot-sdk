@@ -1823,12 +1823,12 @@ impl<T: Config> Pallet<T> {
 			)))?;
 		}
 
-		let eth_fee = Pallet::<T>::convert_native_to_evm(
-			transaction_fee.saturating_add(dry_run.storage_deposit),
-		);
-
-		// Round up. Returning a larger value here just increases the the pre-dispatch weight.
-		let eth_gas = eth_fee.div_mod(effective_gas_price).0.saturating_add(1.into());
+		// We add `1` to account for the potential rounding error of the multiplication.
+		// Returning a larger value here just increases the the pre-dispatch weight.
+		let eth_gas: U256 = T::FeeInfo::next_fee_multiplier_reciprocal()
+			.saturating_mul_int(transaction_fee.saturating_add(dry_run.storage_deposit))
+			.saturating_add(1_u32.into())
+			.into();
 
 		log::debug!(target: LOG_TARGET, "\
 			dry_run_eth_transact: \
