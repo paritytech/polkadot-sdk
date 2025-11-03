@@ -192,6 +192,49 @@ impl TypeId for PalletId {
 #[doc = docify::embed!("src/tests/storage_alias.rs", storage_alias_guess)]
 pub use frame_support_procedural::storage_alias;
 
+/// Attribute macro for simplifying storage type definitions.
+///
+/// This macro automatically applies appropriate derives and bounds for types stored in runtime
+/// storage, intelligently handling phantom type parameters and `MaxEncodedLen` requirements.
+///
+/// # Example
+///
+/// ```ignore
+/// use core::marker::PhantomData;
+/// use frame_support::stored;
+///
+/// #[stored(skip(Total), mel(Votes))]
+/// pub struct Tally<Votes, Total> {
+///     pub ayes: Votes,
+///     pub nays: Votes,
+///     dummy: PhantomData<Total>,
+/// }
+/// ```
+///
+/// This is equivalent to manually writing:
+///
+/// ```ignore
+/// #[derive(
+///     CloneNoBound,
+///     PartialEqNoBound,
+///     EqNoBound,
+///     RuntimeDebugNoBound,
+///     TypeInfo,
+///     Encode,
+///     Decode,
+///     DecodeWithMemTracking,
+///     MaxEncodedLen,
+/// )]
+/// #[scale_info(skip_type_params(Total))]
+/// #[codec(mel_bound(Votes: MaxEncodedLen))]
+/// pub struct Tally<Votes: Clone + PartialEq + Eq + Debug + TypeInfo + Codec, Total> {
+///     pub ayes: Votes,
+///     pub nays: Votes,
+///     dummy: PhantomData<Total>,
+/// }
+/// ```
+pub use frame_support_procedural::stored;
+
 pub use frame_support_procedural::derive_impl;
 
 /// Experimental macros for defining dynamic params that can be used in pallet configs.
