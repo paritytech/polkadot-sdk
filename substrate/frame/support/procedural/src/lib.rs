@@ -34,6 +34,7 @@ mod pallet;
 mod pallet_error;
 mod runtime;
 mod storage_alias;
+mod stored;
 mod transactional;
 mod tt_macro;
 
@@ -474,6 +475,35 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 	storage_alias::storage_alias(attributes.into(), input.into())
 		.unwrap_or_else(|r| r.into_compile_error())
 		.into()
+}
+
+/// Derive macro for simplifying storage type definitions.
+///
+/// This macro automatically applies the appropriate derives and bounds for types stored in
+/// blockchain storage. It handles phantom type parameters and `MaxEncodedLen` requirements.
+///
+/// # Arguments
+///
+/// * `skip(T, U, ...)` - Generic parameters that should not have bounds added (phantom types)
+/// * `mel(T, U, ...)` - Generic parameters that require `MaxEncodedLen` bound
+/// * `mel_bound(T: Trait, U: Trait)` - Custom bounds for `MaxEncodedLen` instead of default
+///
+/// # Example
+///
+/// ```ignore
+/// #[frame_support::stored(skip(Total), mel(Votes))]
+/// pub struct Tally<Votes, Total> {
+///     pub ayes: Votes,
+///     pub nays: Votes,
+///     dummy: PhantomData<Total>,
+/// }
+/// ```
+///
+/// This expands to include all necessary derives (`CloneNoBound`, `PartialEqNoBound`, etc.)
+/// and proper bounds on the generic parameters.
+#[proc_macro_attribute]
+pub fn stored(attr: TokenStream, item: TokenStream) -> TokenStream {
+	stored::stored(attr, item)
 }
 
 /// This attribute can be used to derive a full implementation of a trait based on a local partial
