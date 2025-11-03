@@ -1348,6 +1348,11 @@ pub mod pallet {
 			let signer = ensure_signed(Self::ensure_eth_origin(origin)?)?;
 
 			block_storage::with_ethereum_context::<T>(code.clone(), || {
+				let create_dispatch_error_result = |err: DispatchError| {
+					let result = dispatch_result::<()>(Err(err), Weight::zero(), Weight::zero());
+					(Weight::zero(), result)
+				};
+
 				let dispatch_call = match <CallOf<T>>::decode_all_with_depth_limit(
 					MAX_EXTRINSIC_DEPTH,
 					&mut &code[..],
@@ -1355,14 +1360,30 @@ pub mod pallet {
 					Ok(call) => call,
 					Err(err) => {
 						log::warn!(target: LOG_TARGET, "Failed to decode data as Call; err: {:?}", err);
-						let result = dispatch_result::<()>(
-							Err(<Error<T>>::DecodingFailed.into()), //TODO: better error
-							Weight::zero(),
-							Weight::zero(),
-						);
-						return (Weight::zero(), result);
+						return create_dispatch_error_result(<Error<T>>::DecodingFailed.into());
 					},
 				};
+
+				let Some(revive_call) =
+					<CallOf<T> as IsSubType<Call<T>>>::is_sub_type(&dispatch_call)
+				else {
+					log::warn!(target: LOG_TARGET, "Not a call from Revive pallet");
+					return create_dispatch_error_result(DispatchError::BadOrigin);
+				};
+
+				let is_allowed = matches!(
+					revive_call,
+					Call::upload_code { .. } |
+						Call::remove_code { .. } |
+						Call::unmap_account { .. } |
+						Call::eth_call { .. } | // TODO: Expects EthTransaction origin
+						Call::eth_instantiate_with_code { .. } // TODO: Expects EthTransaction origin
+				);
+
+				if !is_allowed {
+					log::warn!(target: LOG_TARGET, "Unauthorized call attempted via eth_substrate_call");
+					return create_dispatch_error_result(DispatchError::CannotLookup);
+				}
 
 				// Get the actual weight of the call
 				let call_weight = dispatch_call.get_dispatch_info().call_weight;
