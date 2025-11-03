@@ -1001,7 +1001,7 @@ where
 							return Ok(None);
 						},
 					(None, Some(precompile)) if precompile.has_contract_info() => {
-						log::trace!(target: crate::LOG_TARGET, "found precompile for address {address:?}");
+						log::trace!(target: LOG_TARGET, "found precompile for address {address:?}");
 						if let Some(info) = AccountInfo::<T>::load_contract(&address) {
 							CachedContract::Cached(info)
 						} else {
@@ -1526,8 +1526,6 @@ where
 			to: &AccountIdOf<T>,
 			value: BalanceWithDust<BalanceOf<T>>,
 		) -> DispatchResult {
-			let (value, dust) = value.deconstruct();
-
 			fn transfer_balance<T: Config>(
 				from: &AccountIdOf<T>,
 				to: &AccountIdOf<T>,
@@ -1535,7 +1533,7 @@ where
 			) -> DispatchResult {
 				T::Currency::transfer(from, to, value, Preservation::Preserve)
 				.map_err(|err| {
-					log::debug!(target: crate::LOG_TARGET, "Transfer failed: from {from:?} to {to:?} (value: ${value:?}). Err: {err:?}");
+					log::debug!(target: LOG_TARGET, "Transfer failed: from {from:?} to {to:?} (value: ${value:?}). Err: {err:?}");
 					Error::<T>::TransferFailed
 				})?;
 				Ok(())
@@ -1546,22 +1544,26 @@ where
 				to: &mut AccountInfo<T>,
 				dust: u32,
 			) -> DispatchResult {
-				if from == to || dust == 0 {
-					return Ok(())
-				}
-
 				from.dust =
 					from.dust.checked_sub(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
 				to.dust = to.dust.checked_add(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
 				Ok(())
 			}
 
+			let from_addr = <T::AddressMapper as AddressMapper<T>>::to_address(from);
+			let mut from_info = AccountInfoOf::<T>::get(&from_addr).unwrap_or_default();
+
+			if from_info.balance(from) < value {
+				log::debug!(target: LOG_TARGET, "Insufficient balance: from {from:?} to {to:?} (value: ${value:?}). Balance: ${:?}", from_info.balance(from));
+				return Err(Error::<T>::TransferFailed.into())
+			} else if from == to || value.is_zero() {
+				return Ok(())
+			}
+
+			let (value, dust) = value.deconstruct();
 			if dust.is_zero() {
 				return transfer_balance::<T>(from, to, value)
 			}
-
-			let from_addr = <T::AddressMapper as AddressMapper<T>>::to_address(from);
-			let mut from_info = AccountInfoOf::<T>::get(&from_addr).unwrap_or_default();
 
 			let to_addr = <T::AddressMapper as AddressMapper<T>>::to_address(to);
 			let mut to_info = AccountInfoOf::<T>::get(&to_addr).unwrap_or_default();
@@ -1577,7 +1579,7 @@ where
 					Fortitude::Polite,
 				)
 				.map_err(|err| {
-					log::debug!(target: crate::LOG_TARGET, "Burning 1 plank from {from:?} failed. Err: {err:?}");
+					log::debug!(target: LOG_TARGET, "Burning 1 plank from {from:?} failed. Err: {err:?}");
 					Error::<T>::TransferFailed
 				})?;
 
@@ -1677,7 +1679,7 @@ where
 
 	/// Returns the *free* balance of the supplied AccountId.
 	fn account_balance(&self, who: &T::AccountId) -> U256 {
-		let balance = AccountInfo::<T>::balance(AccountIdOrAddress::AccountId(who.clone()));
+		let balance = AccountInfo::<T>::balance_of(AccountIdOrAddress::AccountId(who.clone()));
 		crate::Pallet::<T>::convert_native_to_evm(balance)
 	}
 
@@ -1736,7 +1738,7 @@ where
 			delete_code,
 		);
 
-		log::debug!(target: crate::LOG_TARGET, "Contract at {contract_address:?} registered termination. Beneficiary: {beneficiary_address:?}, delete_code: {delete_code}");
+		log::debug!(target: LOG_TARGET, "Contract at {contract_address:?} registered termination. Beneficiary: {beneficiary_address:?}, delete_code: {delete_code}");
 	}
 
 	/// Returns true if the current context has contract info.
