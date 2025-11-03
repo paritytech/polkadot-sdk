@@ -961,9 +961,7 @@ where
 				latest_timestamp = cmp::max(latest_timestamp + delta, moment_override);
 			}
 		}
-		// let latest_timestamp = T::Time::now() + 1000;
-		// let override_timestamp: <<T as Config>::Time as Time>::Moment = exec_config.dry_run_timestamp_override.saturated_into();
-		// let timestamp = cmp::max(min_timestamp, override_timestamp);
+
 		let stack = Self {
 			origin,
 			gas_meter,
@@ -978,8 +976,6 @@ where
 			contracts_to_be_destroyed: BTreeMap::new(),
 			_phantom: Default::default(),
 		};
-		log::trace!(target: LOG_TARGET, "stack timestamp: {:?}", stack.timestamp);
-		log::trace!(target: LOG_TARGET, "stack block number: {:?}", stack.block_number);
 		Ok(Some((stack, executable)))
 	}
 
@@ -1425,7 +1421,6 @@ where
 		} else {
 			self.transient_storage.rollback_transaction();
 		}
-		log::trace!(target: LOG_TARGET, "frame finished with: {success}");
 		log::trace!(target: LOG_TARGET, "frame finished with: {output:?}");
 
 		self.pop_frame(success);

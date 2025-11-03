@@ -1513,14 +1513,12 @@ impl<T: Config> Pallet<T> {
 			Ok(result)
 		};
 		let result = Self::run_guarded(try_call);
-		let res = ContractResult {
+		ContractResult {
 			result: result.map_err(|r| r.error),
 			gas_consumed: gas_meter.gas_consumed(),
 			gas_required: gas_meter.gas_required(),
 			storage_deposit,
-		};
-		log::debug!(target: LOG_TARGET, "{res:?}");
-		res
+		}
 	}
 
 	/// Prepare a dry run for the given account.
@@ -1728,7 +1726,6 @@ impl<T: Config> Pallet<T> {
 					Default::default()
 				} else {
 					// Dry run the call.
-					log::debug!(target: LOG_TARGET, "calling bare_call");
 					let result = crate::Pallet::<T>::bare_call(
 						OriginFor::<T>::signed(origin),
 						dest,
@@ -1742,7 +1739,6 @@ impl<T: Config> Pallet<T> {
 					let data = match result.result {
 						Ok(return_value) => {
 							if return_value.did_revert() {
-								log::debug!(target: LOG_TARGET, "contract call reverted");
 								return Err(EthTransactError::Data(return_value.data));
 							}
 							return_value.data
@@ -2337,7 +2333,7 @@ environmental!(executing_contract: bool);
 
 sp_api::decl_runtime_apis! {
 	/// The API used to dry-run contract interactions.
-	#[api_version(2)]
+	#[api_version(1)]
 	pub trait ReviveApi<AccountId, Balance, Nonce, BlockNumber> where
 		AccountId: Codec,
 		Balance: Codec,
