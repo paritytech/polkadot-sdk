@@ -1521,6 +1521,10 @@ where
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 		exec_config: &ExecConfig<T>,
 	) -> DispatchResult {
+		if from == to || value.is_zero() {
+			return Ok(())
+		}
+
 		fn transfer_with_dust<T: Config>(
 			from: &AccountIdOf<T>,
 			to: &AccountIdOf<T>,
