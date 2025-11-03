@@ -20,7 +20,8 @@
 use super::CONVICTION_VOTING_ID;
 use crate::{
 	pallet::{Config, MigrationOngoing, VotingFor},
-	weights::*, Pallet, VoteRecord, VotingOf,
+	weights::*,
+	Pallet, VoteRecord, VotingOf,
 };
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
@@ -160,12 +161,8 @@ pub mod v0 {
 }
 
 /// Migrates storage items from v0 to v1.
-pub struct SteppedMigrationV1<T: Config<I>, I: 'static = ()>(
-	PhantomData<(T, I)>,
-);
-impl<T: Config<I>, I: 'static> SteppedMigration
-	for SteppedMigrationV1<T, I>
-{
+pub struct SteppedMigrationV1<T: Config<I>, I: 'static = ()>(PhantomData<(T, I)>);
+impl<T: Config<I>, I: 'static> SteppedMigration for SteppedMigrationV1<T, I> {
 	type Cursor = (T::AccountId, v0::ClassOf<T, I>);
 	type Identifier = MigrationId<24>;
 
