@@ -20,7 +20,7 @@
 use crate::{mock::MockHandler, storage::WriteOutcome, BalanceOf, Config, H160, U256};
 use alloc::{boxed::Box, fmt::Debug, string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::weights::Weight;
+use frame_support::{traits::tokens::Balance, weights::Weight};
 use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
 use sp_core::Get;
@@ -61,8 +61,24 @@ pub struct ContractResult<R, Balance> {
 	/// is `Err`. This is because on error all storage changes are rolled back including the
 	/// payment of the deposit.
 	pub storage_deposit: StorageDeposit<Balance>,
+	/// The maximual storage deposit amount that occured at any time during the execution.
+	/// This can be higher than the final storage_deposit due to refunds
+	/// This is always a StorageDeposit::Charge(..)
+	pub max_storage_deposit: StorageDeposit<Balance>,
 	/// The execution result of the vm binary code.
 	pub result: Result<R, DispatchError>,
+}
+
+impl<R: Default, B: Balance> Default for ContractResult<R, B> {
+	fn default() -> Self {
+		Self {
+			weight_consumed: Default::default(),
+			weight_required: Default::default(),
+			storage_deposit: Default::default(),
+			max_storage_deposit: Default::default(),
+			result: Ok(Default::default()),
+		}
+	}
 }
 
 /// The result of the execution of a `eth_transact` call.
@@ -70,8 +86,10 @@ pub struct ContractResult<R, Balance> {
 pub struct EthTransactInfo<Balance> {
 	/// The amount of weight that was necessary to execute the transaction.
 	pub weight_required: Weight,
-	/// Storage deposit charged.
+	/// Final storage deposit charged.
 	pub storage_deposit: Balance,
+	/// Maximal storage deposit charged at any time during execution.
+	pub max_storage_deposit: Balance,
 	/// The weight and deposit equivalent in EVM Gas.
 	pub eth_gas: U256,
 	/// The execution return value.
@@ -192,7 +210,7 @@ impl ExecReturnValue {
 }
 
 /// The result of a successful contract instantiation.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo, Default)]
 pub struct InstantiateReturnValue {
 	/// The output of the called constructor.
 	pub result: ExecReturnValue,

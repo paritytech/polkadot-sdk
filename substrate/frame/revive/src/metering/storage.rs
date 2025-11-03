@@ -85,12 +85,16 @@ pub struct RawMeter<T: Config, E, S: State> {
 	/// The amount of balance that was used in this meter and all of its already absorbed children.
 	total_deposit: DepositOf<T>,
 	/// The amount of storage changes that were recorded in this meter alone.
+	/// This has no meaning for Root meters and will always be Contribution::Checked(0)
 	own_contribution: Contribution<T>,
 	/// List of charges that should be applied at the end of a contract stack execution.
 	///
 	/// We only have one charge per contract hence the size of this vector is
 	/// limited by the maximum call depth.
 	charges: Vec<Charge<T>>,
+	/// The maximal consumed deposit that occurred at any point during the execution of this
+	/// storage deposit meter
+	max_charged: BalanceOf<T>,
 	/// True if this is the root meter.
 	///
 	/// Sometimes we cannot know at compile time.
@@ -254,12 +258,18 @@ where
 	pub fn nested(&self, mut limit: Option<BalanceOf<T>>) -> RawMeter<T, E, Nested> {
 		debug_assert!(matches!(self.contract_state(), ContractState::Alive));
 
-		match (limit, self.limit) {
-			(Some(new_limit), Some(old_limit)) => limit = Some(new_limit.min(old_limit)),
-			_ => (),
+		if let (Some(new_limit), Some(old_limit)) = (limit, self.limit) {
+			limit = Some(new_limit.min(old_limit));
 		}
 
 		RawMeter { limit, ..Default::default() }
+	}
+
+	pub fn reset(&mut self) {
+		self.own_contribution = Default::default();
+		self.total_deposit = Default::default();
+		self.charges = Default::default();
+		self.max_charged = Default::default();
 	}
 
 	/// Absorb a child that was spawned to handle a sub call.
@@ -283,12 +293,20 @@ where
 		contract: &T::AccountId,
 		info: Option<&mut ContractInfo<T>>,
 	) {
+		// No need to recalculate max_charged for `absorbed` here. With `info` we can now calculate
+		// the correct `own_contribution` of `absorbed` but that can only be less
+		self.max_charged = self
+			.max_charged
+			.max(self.consumed().saturating_add(&absorbed.max_charged()).charge_or_zero());
+
 		let own_deposit = absorbed.own_contribution.update_contract(info);
 		self.total_deposit = self
 			.total_deposit
 			.saturating_add(&absorbed.total_deposit)
 			.saturating_add(&own_deposit);
 		self.charges.extend_from_slice(&absorbed.charges);
+
+		self.recalulculate_max_charged();
 
 		// Allow recording zero deposit charge only if the contract was terminated.
 		if !own_deposit.is_zero() ||
@@ -322,6 +340,7 @@ where
 	pub fn record_charge(&mut self, amount: &DepositOf<T>) {
 		let total_deposit = self.total_deposit.saturating_add(&amount);
 		self.total_deposit = total_deposit;
+		self.recalulculate_max_charged();
 	}
 
 	/// The amount of balance that this meter has consumed.
@@ -330,6 +349,11 @@ where
 	/// is because we can calculate refunds only at the end of each frame.
 	pub fn consumed(&self) -> DepositOf<T> {
 		self.total_deposit.saturating_add(&self.own_contribution.update_contract(None))
+	}
+
+	/// Return the maximum consumed deposit at any point in the previous execution
+	pub fn max_charged(&self) -> DepositOf<T> {
+		Deposit::Charge(self.max_charged)
 	}
 
 	/// Returns the state of the currently executed contract.
@@ -342,6 +366,11 @@ where
 				},
 			_ => ContractState::Alive,
 		}
+	}
+
+	/// Recaluclate the max deposit value
+	fn recalulculate_max_charged(&mut self) {
+		self.max_charged = self.max_charged.max(self.consumed().charge_or_zero());
 	}
 
 	/// The amount of balance still available from the current meter.
@@ -366,7 +395,12 @@ where
 	/// If the limit is larger than what the origin can afford we will just fail
 	/// when collecting the deposits in `try_into_deposit`.
 	pub fn new(limit: Option<BalanceOf<T>>) -> Self {
-		Self { limit, is_root: true, ..Default::default() }
+		Self {
+			limit,
+			is_root: true,
+			own_contribution: Contribution::Checked(Default::default()),
+			..Default::default()
+		}
 	}
 
 	/// The total amount of deposit that should change hands as result of the execution
@@ -426,7 +460,10 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 	/// Charges `diff` from the meter.
 	pub fn charge(&mut self, diff: &Diff) {
 		match &mut self.own_contribution {
-			Contribution::Alive(own) => *own = own.saturating_add(diff),
+			Contribution::Alive(own) => {
+				*own = own.saturating_add(diff);
+				self.recalulculate_max_charged();
+			},
 			_ => panic!("Charge is never called after termination; qed"),
 		};
 	}
@@ -459,15 +496,21 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 			beneficiary,
 			delete_code,
 		};
+
+		// no need to recalculate max_charged here as the consumed amount cannot increase
+		// when replacing an `own_contribution` that is `Contribution::Alive` with a
+		// `Contribution::Terminated` containing a `Deposit::Refund`
 	}
 
 	/// Determine the actual final charge from the own contributions
 	pub fn finalize_own_contributions(&mut self, info: Option<&mut ContractInfo<T>>) {
-		let deposit = self.own_contribution.update_contract(info);
-
 		// We don't want to override a `Terminated` with a `Checked`.
 		if matches!(self.contract_state(), ContractState::Alive) {
+			let deposit = self.own_contribution.update_contract(info);
 			self.own_contribution = Contribution::Checked(deposit);
+
+			// no need to recalculate max_charged here as the consumed amount cannot increase
+			// when taking removed bytes/items into account
 		}
 	}
 }
@@ -723,6 +766,13 @@ mod tests {
 		let mut nested0 = meter.nested(Some(BalanceOf::<Test>::zero()));
 		nested0.charge(&Default::default());
 		meter.absorb(nested0, &BOB, None);
+		assert_eq!(
+			meter.execute_postponed_deposits(
+				&Origin::<Test>::from_account_id(ALICE),
+				&ExecConfig::new_substrate_tx(),
+			),
+			Ok(Default::default())
+		);
 
 		assert_eq!(TestExtTestValue::get(), TestExt { ..Default::default() })
 	}
@@ -761,6 +811,7 @@ mod tests {
 			clear_ext();
 
 			let mut meter = TestMeter::new(Some(100));
+			assert_eq!(meter.consumed(), Default::default());
 			assert_eq!(meter.available(), 100);
 
 			let mut nested0_info = new_info(StorageInfo {
@@ -777,7 +828,11 @@ mod tests {
 				items_added: 1,
 				items_removed: 2,
 			});
+			assert_eq!(nested0.consumed(), Deposit::Charge(103));
+			assert_eq!(nested0.available(), 0);
 			nested0.charge(&Diff { bytes_removed: 99, ..Default::default() });
+			assert_eq!(nested0.consumed(), Deposit::Charge(4));
+			assert_eq!(nested0.available(), 0);
 
 			let mut nested1_info = new_info(StorageInfo {
 				bytes: 100,
@@ -788,7 +843,15 @@ mod tests {
 			});
 			let mut nested1 = nested0.nested(Some(BalanceOf::<Test>::zero()));
 			nested1.charge(&Diff { items_removed: 5, ..Default::default() });
+			assert_eq!(nested1.consumed(), Default::default());
+			assert_eq!(nested1.available(), 0);
+			nested1.finalize_own_contributions(Some(&mut nested1_info));
+			assert_eq!(nested1.consumed(), Deposit::Refund(10));
+			assert_eq!(nested1.available(), 10);
+
 			nested0.absorb(nested1, &CHARLIE, Some(&mut nested1_info));
+			assert_eq!(nested0.consumed(), Deposit::Refund(6));
+			assert_eq!(nested0.available(), 6);
 
 			let mut nested2_info = new_info(StorageInfo {
 				bytes: 100,
@@ -799,10 +862,23 @@ mod tests {
 			});
 			let mut nested2 = nested0.nested(Some(BalanceOf::<Test>::zero()));
 			nested2.charge(&Diff { items_removed: 7, ..Default::default() });
+			assert_eq!(nested2.consumed(), Default::default());
+			assert_eq!(nested2.available(), 0);
+			nested2.finalize_own_contributions(Some(&mut nested2_info));
+			assert_eq!(nested2.consumed(), Deposit::Refund(20));
+			assert_eq!(nested2.available(), 20);
+
 			nested0.absorb(nested2, &CHARLIE, Some(&mut nested2_info));
+			assert_eq!(nested0.consumed(), Deposit::Refund(26));
+			assert_eq!(nested0.available(), 26);
 
 			nested0.finalize_own_contributions(Some(&mut nested0_info));
+			assert_eq!(nested0.consumed(), Deposit::Refund(28));
+			assert_eq!(nested0.available(), 28);
+
 			meter.absorb(nested0, &BOB, Some(&mut nested0_info));
+			assert_eq!(meter.consumed(), Deposit::Refund(28));
+			assert_eq!(meter.available(), 128);
 
 			assert_eq!(
 				meter
@@ -832,7 +908,7 @@ mod tests {
 							contract: CHARLIE,
 							amount: Deposit::Refund(120),
 							state: ContractState::Terminated {
-								beneficiary: CHARLIE,
+								beneficiary: DJANGO,
 								delete_code: true,
 							},
 						},
@@ -859,13 +935,18 @@ mod tests {
 			assert_eq!(meter.available(), 1_000);
 
 			let mut nested0 = meter.nested(Some(BalanceOf::<Test>::max_value()));
+			assert_eq!(nested0.available(), 1_000);
+
 			nested0.charge(&Diff {
 				bytes_added: 5,
 				bytes_removed: 1,
 				items_added: 3,
 				items_removed: 1,
 			});
+			assert_eq!(nested0.consumed(), Deposit::Charge(8));
+
 			nested0.charge(&Diff { items_added: 2, ..Default::default() });
+			assert_eq!(nested0.consumed(), Deposit::Charge(12));
 
 			let mut nested1_info = new_info(StorageInfo {
 				bytes: 100,
@@ -874,14 +955,23 @@ mod tests {
 				items_deposit: 20,
 				immutable_data_len: 0,
 			});
+
 			let mut nested1 = nested0.nested(Some(BalanceOf::<Test>::max_value()));
+			assert_eq!(nested1.consumed(), Default::default());
 			nested1.charge(&Diff { items_removed: 5, ..Default::default() });
+			assert_eq!(nested1.consumed(), Default::default());
 			nested1.charge(&Diff { bytes_added: 20, ..Default::default() });
-			nested1.terminate(&nested1_info, CHARLIE, true);
-			nested0.finalize_own_contributions(Some(&mut nested1_info));
+			assert_eq!(nested1.consumed(), Deposit::Charge(20));
+			nested1.terminate(&nested1_info, DJANGO, true);
+			assert_eq!(nested1.consumed(), Deposit::Refund(120));
+			nested1.finalize_own_contributions(Some(&mut nested1_info));
+
 			nested0.absorb(nested1, &CHARLIE, None);
+			assert_eq!(nested0.consumed(), Deposit::Refund(108));
 
 			meter.absorb(nested0, &BOB, None);
+			assert_eq!(meter.consumed(), Deposit::Refund(108));
+
 			assert_eq!(
 				meter
 					.execute_postponed_deposits(&test_case.origin, &ExecConfig::new_substrate_tx())
@@ -890,5 +980,180 @@ mod tests {
 			);
 			assert_eq!(TestExtTestValue::get(), test_case.expected)
 		}
+	}
+
+	#[test]
+	fn max_deposits_work_with_charges() {
+		clear_ext();
+		let meter = TestMeter::new(None);
+		let mut nested = meter.nested(None);
+
+		assert_eq!(nested.consumed(), Default::default());
+		assert_eq!(nested.max_charged(), Default::default());
+
+		nested.record_charge(&Deposit::Charge(100));
+		assert_eq!(nested.consumed(), Deposit::Charge(100));
+		assert_eq!(nested.max_charged(), Deposit::Charge(100));
+
+		nested.record_charge(&Deposit::Refund(50));
+		assert_eq!(nested.consumed(), Deposit::Charge(50));
+		assert_eq!(nested.max_charged(), Deposit::Charge(100));
+
+		nested.record_charge(&Deposit::Charge(80));
+		assert_eq!(nested.consumed(), Deposit::Charge(130));
+		assert_eq!(nested.max_charged(), Deposit::Charge(130));
+
+		nested.record_charge(&Deposit::Refund(200));
+		assert_eq!(nested.consumed(), Deposit::Refund(70));
+		assert_eq!(nested.max_charged(), Deposit::Charge(130));
+
+		let meter = TestMeter::new(None);
+		let mut nested = meter.nested(None);
+		nested.record_charge(&Deposit::Refund(100));
+		assert_eq!(nested.consumed(), Deposit::Refund(100));
+		assert_eq!(nested.max_charged(), Default::default());
+
+		nested.record_charge(&Deposit::Charge(100));
+		assert_eq!(nested.consumed(), Default::default());
+		assert_eq!(nested.max_charged(), Default::default());
+
+		nested.record_charge(&Deposit::Charge(50));
+		assert_eq!(nested.consumed(), Deposit::Charge(50));
+		assert_eq!(nested.max_charged(), Deposit::Charge(50));
+
+		nested.record_charge(&Deposit::Refund(20));
+		assert_eq!(nested.consumed(), Deposit::Charge(30));
+		assert_eq!(nested.max_charged(), Deposit::Charge(50));
+	}
+
+	#[test]
+	fn max_deposits_work_with_diffs() {
+		clear_ext();
+		let meter = TestMeter::new(None);
+		let mut nested = meter.nested(None);
+
+		nested.charge(&Diff { bytes_added: 2, ..Default::default() });
+
+		assert_eq!(nested.consumed(), Deposit::Charge(2));
+		assert_eq!(nested.max_charged(), Deposit::Charge(2));
+
+		nested.charge(&Diff { bytes_removed: 1, ..Default::default() });
+		assert_eq!(nested.consumed(), Deposit::Charge(1));
+		assert_eq!(nested.max_charged(), Deposit::Charge(2));
+
+		nested.charge(&Diff { items_added: 10, ..Default::default() });
+		assert_eq!(nested.consumed(), Deposit::Charge(21));
+		assert_eq!(nested.max_charged(), Deposit::Charge(21));
+
+		nested.charge(&Diff { items_removed: 8, ..Default::default() });
+		assert_eq!(nested.consumed(), Deposit::Charge(5));
+		assert_eq!(nested.max_charged(), Deposit::Charge(21));
+
+		nested.charge(&Diff { items_added: 10, bytes_added: 10, ..Default::default() });
+		assert_eq!(nested.consumed(), Deposit::Charge(35));
+		assert_eq!(nested.max_charged(), Deposit::Charge(35));
+
+		nested.charge(&Diff { items_removed: 5, bytes_added: 10, ..Default::default() });
+		assert_eq!(nested.consumed(), Deposit::Charge(35));
+		assert_eq!(nested.max_charged(), Deposit::Charge(35));
+
+		let meter = TestMeter::new(None);
+		let mut nested = meter.nested(None);
+		nested.charge(&Diff { bytes_removed: 10, items_added: 2, ..Default::default() });
+		assert_eq!(nested.consumed(), Deposit::Charge(4));
+		assert_eq!(nested.max_charged(), Deposit::Charge(4));
+
+		nested.charge(&Diff { bytes_added: 5, items_removed: 3, ..Default::default() });
+		assert_eq!(nested.consumed(), Default::default());
+		assert_eq!(nested.max_charged(), Deposit::Charge(4));
+
+		nested.charge(&Diff { bytes_added: 7, ..Default::default() });
+		assert_eq!(nested.consumed(), Deposit::Charge(2));
+		assert_eq!(nested.max_charged(), Deposit::Charge(4));
+
+		nested.record_charge(&Deposit::Refund(10));
+		assert_eq!(nested.consumed(), Deposit::Refund(8));
+		assert_eq!(nested.max_charged(), Deposit::Charge(4));
+
+		nested.charge(&Diff { bytes_removed: 4, items_added: 2, ..Default::default() });
+		assert_eq!(nested.consumed(), Deposit::Refund(8));
+		assert_eq!(nested.max_charged(), Deposit::Charge(4));
+
+		nested.charge(&Diff { bytes_added: 20, ..Default::default() });
+		assert_eq!(nested.consumed(), Deposit::Charge(10));
+		assert_eq!(nested.max_charged(), Deposit::Charge(10));
+
+		nested.record_charge(&Deposit::Refund(20));
+		assert_eq!(nested.consumed(), Deposit::Refund(10));
+		assert_eq!(nested.max_charged(), Deposit::Charge(10));
+	}
+
+	#[test]
+	fn max_deposits_work_nested() {
+		clear_ext();
+		let mut meter = TestMeter::new(None);
+		let mut nested1 = meter.nested(None);
+		nested1.record_charge(&Deposit::Charge(10));
+
+		let mut nested2a = nested1.nested(None);
+		nested2a.record_charge(&Deposit::Charge(20));
+		nested2a.record_charge(&Deposit::Refund(10));
+		assert_eq!(nested2a.consumed(), Deposit::Charge(10));
+		assert_eq!(nested2a.max_charged(), Deposit::Charge(20));
+
+		nested2a.charge(&Diff { bytes_removed: 20, items_removed: 10, ..Default::default() });
+		assert_eq!(nested2a.consumed(), Deposit::Charge(10));
+		assert_eq!(nested2a.max_charged(), Deposit::Charge(20));
+
+		nested2a.charge(&Diff { bytes_added: 15, items_added: 16, ..Default::default() });
+		assert_eq!(nested2a.consumed(), Deposit::Charge(22));
+		assert_eq!(nested2a.max_charged(), Deposit::Charge(22));
+
+		let mut nested2a_info = new_info(StorageInfo {
+			bytes: 100,
+			items: 100,
+			bytes_deposit: 100,
+			items_deposit: 100,
+			immutable_data_len: 0,
+		});
+		nested1.absorb(nested2a, &BOB, Some(&mut nested2a_info));
+		assert_eq!(nested1.consumed(), Deposit::Charge(27));
+		assert_eq!(nested1.max_charged(), Deposit::Charge(32));
+
+		nested1.charge(&Diff { bytes_added: 10, ..Default::default() });
+		assert_eq!(nested1.consumed(), Deposit::Charge(37));
+		assert_eq!(nested1.max_charged(), Deposit::Charge(37));
+
+		nested1.record_charge(&Deposit::Refund(10));
+		assert_eq!(nested1.consumed(), Deposit::Charge(27));
+		assert_eq!(nested1.max_charged(), Deposit::Charge(37));
+
+		let mut nested2b = nested1.nested(None);
+		nested2b.record_charge(&Deposit::Refund(10));
+		assert_eq!(nested2b.consumed(), Deposit::Refund(10));
+		assert_eq!(nested2b.max_charged(), Default::default());
+
+		nested2b.charge(&Diff { bytes_added: 10, items_added: 10, ..Default::default() });
+		assert_eq!(nested2b.consumed(), Deposit::Charge(20));
+		assert_eq!(nested2b.max_charged(), Deposit::Charge(20));
+
+		nested2b.charge(&Diff { bytes_removed: 20, items_removed: 20, ..Default::default() });
+		assert_eq!(nested2b.consumed(), Deposit::Refund(10));
+		assert_eq!(nested2b.max_charged(), Deposit::Charge(20));
+
+		let mut nested2b_info = new_info(StorageInfo {
+			bytes: 100,
+			items: 100,
+			bytes_deposit: 100,
+			items_deposit: 100,
+			immutable_data_len: 0,
+		});
+		nested1.absorb(nested2b, &BOB, Some(&mut nested2b_info));
+		assert_eq!(nested1.consumed(), Deposit::Refund(3));
+		assert_eq!(nested1.max_charged(), Deposit::Charge(47));
+
+		meter.absorb(nested1, &ALICE, None);
+		assert_eq!(meter.consumed(), Deposit::Refund(3));
+		assert_eq!(meter.max_charged(), Deposit::Charge(47));
 	}
 }

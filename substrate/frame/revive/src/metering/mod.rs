@@ -18,6 +18,9 @@
 pub mod storage;
 pub mod weight;
 
+#[cfg(test)]
+mod tests;
+
 use crate::{
 	evm::fees::InfoT, exec::CallResources, storage::ContractInfo, vm::evm::Halt, BalanceOf, Config,
 	Error, ExecConfig, ExecOrigin as Origin, StorageDeposit, LOG_TARGET,
@@ -149,6 +152,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 
 		if self.deposit.is_root {
 			if self.deposit_left().is_none() {
+				self.deposit.reset();
 				return Err(<Error<T>>::StorageDepositLimitExhausted.into());
 			}
 		}
@@ -461,6 +465,14 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 
 	pub fn weight_required(&self) -> Weight {
 		self.weight.weight_required()
+	}
+
+	pub fn deposit_consumed(&self) -> DepositOf<T> {
+		self.deposit.consumed()
+	}
+
+	pub fn deposit_required(&self) -> DepositOf<T> {
+		self.deposit.max_charged()
 	}
 }
 

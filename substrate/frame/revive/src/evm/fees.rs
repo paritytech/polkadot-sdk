@@ -315,7 +315,7 @@ where
 			.saturating_mul_int(weight.proof_size());
 
 		// saturated addition not required here but better to be defensive
-		((ref_time_part >> 1).saturating_add(proof_size_part >> 1)).saturated_into()
+		((ref_time_part / 2).saturating_add(proof_size_part / 2)).saturated_into()
 	}
 
 	/// Convert an unadjusted fee back to a weight.

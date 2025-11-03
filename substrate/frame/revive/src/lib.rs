@@ -1527,16 +1527,8 @@ impl<T: Config> Pallet<T> {
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
 		let mut transaction_meter = match TransactionMeter::new(transaction_limits) {
 			Ok(transaction_meter) => transaction_meter,
-			Err(error) =>
-				return ContractResult {
-					result: Err(error),
-					weight_consumed: Default::default(),
-					weight_required: Default::default(),
-					storage_deposit: Default::default(),
-				},
+			Err(error) => return ContractResult { result: Err(error), ..Default::default() },
 		};
-
-		let mut storage_deposit = Default::default();
 
 		let try_call = || {
 			let origin = ExecOrigin::from_runtime_origin(origin)?;
@@ -1549,11 +1541,11 @@ impl<T: Config> Pallet<T> {
 				&exec_config,
 			)?;
 
-			storage_deposit = transaction_meter
+			transaction_meter
 				.execute_postponed_deposits(&origin, &exec_config)
 				.inspect_err(|err| {
-				log::debug!(target: LOG_TARGET, "Failed to transfer deposit: {err:?}");
-			})?;
+					log::debug!(target: LOG_TARGET, "Failed to transfer deposit: {err:?}");
+				})?;
 			Ok(result)
 		};
 		let result = Self::run_guarded(try_call);
@@ -1562,7 +1554,8 @@ impl<T: Config> Pallet<T> {
 			result: result.map_err(|r| r.error),
 			weight_consumed: transaction_meter.weight_consumed(),
 			weight_required: transaction_meter.weight_required(),
-			storage_deposit,
+			storage_deposit: transaction_meter.deposit_consumed(),
+			max_storage_deposit: transaction_meter.deposit_required(),
 		}
 	}
 
@@ -1593,16 +1586,8 @@ impl<T: Config> Pallet<T> {
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
 		let mut transaction_meter = match TransactionMeter::new(transaction_limits) {
 			Ok(transaction_meter) => transaction_meter,
-			Err(error) =>
-				return ContractResult {
-					result: Err(error),
-					weight_consumed: Default::default(),
-					weight_required: Default::default(),
-					storage_deposit: Default::default(),
-				},
+			Err(error) => return ContractResult { result: Err(error), ..Default::default() },
 		};
-
-		let mut storage_deposit = Default::default();
 
 		let try_instantiate = || {
 			let instantiate_account = T::InstantiateOrigin::ensure_origin(origin.clone())?;
@@ -1640,8 +1625,7 @@ impl<T: Config> Pallet<T> {
 				salt.as_ref(),
 				&exec_config,
 			);
-			storage_deposit =
-				transaction_meter.execute_postponed_deposits(&instantiate_origin, &exec_config)?;
+			transaction_meter.execute_postponed_deposits(&instantiate_origin, &exec_config)?;
 			result
 		};
 		let output = Self::run_guarded(try_instantiate);
@@ -1651,7 +1635,8 @@ impl<T: Config> Pallet<T> {
 				.map_err(|e| e.error),
 			weight_consumed: transaction_meter.weight_consumed(),
 			weight_required: transaction_meter.weight_required(),
-			storage_deposit,
+			storage_deposit: transaction_meter.deposit_consumed(),
+			max_storage_deposit: transaction_meter.deposit_required(),
 		}
 	}
 
@@ -1800,6 +1785,7 @@ impl<T: Config> Pallet<T> {
 					EthTransactInfo {
 						weight_required: result.weight_required,
 						storage_deposit: result.storage_deposit.charge_or_zero(),
+						max_storage_deposit: result.max_storage_deposit.charge_or_zero(),
 						data,
 						eth_gas: Default::default(),
 					}
@@ -1844,6 +1830,7 @@ impl<T: Config> Pallet<T> {
 				EthTransactInfo {
 					weight_required: result.weight_required,
 					storage_deposit: result.storage_deposit.charge_or_zero(),
+					max_storage_deposit: result.max_storage_deposit.charge_or_zero(),
 					data: returned_data,
 					eth_gas: Default::default(),
 				}
@@ -1881,7 +1868,7 @@ impl<T: Config> Pallet<T> {
 		// We add `1` to account for the potential rounding error of the multiplication.
 		// Returning a larger value here just increases the the pre-dispatch weight.
 		let eth_gas: U256 = T::FeeInfo::next_fee_multiplier_reciprocal()
-			.saturating_mul_int(transaction_fee.saturating_add(dry_run.storage_deposit))
+			.saturating_mul_int(transaction_fee.saturating_add(dry_run.max_storage_deposit))
 			.saturating_add(1_u32.into())
 			.into();
 
@@ -1895,11 +1882,13 @@ impl<T: Config> Pallet<T> {
 			encoded_len={} \
 			tx_fee={transaction_fee:?} \
 			storage_deposit={:?}\
+			max_storage_deposit={:?}\
 			",
 			dry_run.weight_required,
 			max_weight.saturating_sub(total_weight),
 			call_info.encoded_len,
 			dry_run.storage_deposit,
+			dry_run.max_storage_deposit,
 
 		);
 		dry_run.eth_gas = eth_gas;
