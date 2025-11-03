@@ -1828,7 +1828,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		// Round up. Returning a larger value here just increases the the pre-dispatch weight.
-		let eth_gas = eth_fee.div_mod(effective_gas_price).0.saturating_add(effective_gas_price);
+		let eth_gas = eth_fee.div_mod(effective_gas_price).0.saturating_add(1.into());
 
 		log::debug!(target: LOG_TARGET, "\
 			dry_run_eth_transact: \
