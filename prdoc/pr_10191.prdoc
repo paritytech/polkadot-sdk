@@ -1,0 +1,32 @@
+title: 'pallet_revive: Add dry-run timestamp override support'
+doc:
+- audience: Runtime User
+  description: |-
+    # Description
+
+    This PR updates `pallet-revive` to **support overriding the block timestamp during dry-run calls**.
+    The dry-run execution now uses the following configuration for `eth_estimateGas` and `eth_call` when the block tag is `pending`:
+
+    ```text
+    block.timestamp = max(rpc_timestamp, latest_block.timestamp + 1)
+    block.number = latest_block.number + 1
+    ```
+
+    Fixes [#153](https://github.com/paritytech/contract-issues/issues/153), [#205](https://github.com/paritytech/contract-issues/issues/205)
+
+    ## Integration
+
+    Downstream projects using the `ReviveApi::eth_transact` runtime API should either provide a `timestamp` or pass `None`.
+
+    ## Review Notes
+    - Added dry run timestamp to `ExecConfig`.
+    - Added a new parameter to `ReviveApi::eth_transact` for passing the current RPC timestamp.
+    - `eth_estimateGas` defaults to the `pending` block tag.
+    - `eth_estimateGas` and `eth_call` with `pending` block tag will dry run the transaction with the block timestamp set to `max(rpc_timestamp, latest_block.timestamp + 1)` and block number set to `latest_block.number + 1`.
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
+- name: pallet-revive
+  bump: patch
+- name: pallet-timestamp
+  bump: patch
