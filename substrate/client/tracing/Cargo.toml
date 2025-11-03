@@ -19,6 +19,18 @@ targets = ["x86_64-unknown-linux-gnu"]
 name = "bench"
 harness = false
 
+[[bench]]
+name = "interest_cache_realistic"
+harness = false
+
+[[bench]]
+name = "interest_cache_diverse"
+harness = false
+
+[[bench]]
+name = "interest_cache_multithreaded"
+harness = false
+
 [dependencies]
 chrono = { workspace = true }
 codec = { workspace = true, default-features = true }
