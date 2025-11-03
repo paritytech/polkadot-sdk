@@ -47,7 +47,7 @@ impl<Block: BlockT> WasmSubstitute<Block> {
 		Self { code, hash, block_number, version }
 	}
 
-	fn runtime_code(&self, heap_pages: Option<u64>) -> RuntimeCode {
+	fn runtime_code(&self, heap_pages: Option<u64>) -> RuntimeCode<'_> {
 		RuntimeCode { code_fetcher: self, hash: self.hash.clone(), heap_pages }
 	}
 
@@ -71,7 +71,7 @@ fn make_hash<K: std::hash::Hash + ?Sized>(val: &K) -> Vec<u8> {
 }
 
 impl<Block: BlockT> FetchRuntimeCode for WasmSubstitute<Block> {
-	fn fetch_runtime_code(&self) -> Option<std::borrow::Cow<[u8]>> {
+	fn fetch_runtime_code(&self) -> Option<std::borrow::Cow<'_, [u8]>> {
 		Some(self.code.as_slice().into())
 	}
 }

@@ -26,7 +26,7 @@ use crate::{
 			relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
 			slot_timer::{SlotInfo, SlotTimer},
 		},
-		RelayParentData,
+		BackingGroupConnectionHelper, RelayParentData,
 	},
 	LOG_TARGET,
 };
@@ -134,7 +134,7 @@ where
 	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
-	P: Pair,
+	P: Pair + Send + Sync + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
@@ -179,6 +179,16 @@ where
 		};
 
 		let mut relay_chain_data_cache = RelayChainDataCache::new(relay_client.clone(), para_id);
+
+		let mut maybe_connection_helper = relay_client
+			.overseer_handle()
+			.ok()
+			.map(|h| BackingGroupConnectionHelper::new(para_client.clone(), keystore.clone(), h.clone()))
+			.or_else(|| {
+				tracing::warn!(target: LOG_TARGET,
+					"Relay chain interface does not provide overseer handle. Backing group pre-connect is disabled.");
+				None
+			});
 
 		loop {
 			// We wait here until the next slot arrives.
@@ -319,6 +329,9 @@ where
 						slot = ?para_slot.slot,
 						"Not building block."
 					);
+					if let Some(ref mut connection_helper) = maybe_connection_helper {
+						connection_helper.update::<Block, P>(para_slot.slot, parent_hash).await;
+					}
 					continue
 				},
 			};
