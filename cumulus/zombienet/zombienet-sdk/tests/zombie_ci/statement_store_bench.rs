@@ -25,6 +25,18 @@ const RETRY_DELAY_MS: u64 = 500;
 const PROPAGATION_DELAY_MS: u64 = 2000;
 const TIMEOUT_MS: u64 = 3000;
 
+/// Single-node benchmark.
+///
+/// Tests statement-store performance of a single node without relying on statement gossip between
+/// nodes. Measures the maximum speed of statement exchange. Network spawned with only 2 collator
+/// nodes. All participants connect to one collator node, allowing them to fetch new statements
+/// immediately without waiting for propagation.
+///
+/// # Output
+/// Logs aggregated statistics across all participants:
+/// - Average messages sent/received per participant
+/// - Execution time (min/avg/max) across all participants
+/// - Retry attempts (min/avg/max) needed for statement propagation
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_one_node_bench() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -63,6 +75,18 @@ async fn statement_store_one_node_bench() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
+/// Multi-node benchmark.
+///
+/// Tests statement store performance with participants distributed across multiple collator nodes.
+/// No two participants in a group are connected to the same node, so statements must be propagated
+/// to other nodes before being received. Network spawned with 6 collator nodes. Each participant in
+/// a group connects to a different collator node
+///
+/// # Output
+/// Logs aggregated statistics across all participants:
+/// - Average messages sent/received per participant
+/// - Execution time (min/avg/max) across all participants
+/// - Retry attempts (min/avg/max) needed for statement propagation
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_many_nodes_bench() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -111,6 +135,18 @@ async fn statement_store_many_nodes_bench() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
+/// Memory stress benchmark.
+///
+/// Tests statement store memory usage under extreme load. Network spawned with 6 collator nodes.
+/// Concurrent tasks send statements to a single target node until the store is full. The test ends
+/// when all statements are propagated.
+///
+/// # Output
+/// Logs real-time metrics every 5 seconds with the following data per node:
+/// - Submitted statements: total count, percentage of capacity, submission rate
+/// - Propagated statements: total count, percentage of propagation capacity, propagation rate
+/// - Elapsed time since test start
+/// - Final completion status when submit capacity is reached across all nodes
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -271,6 +307,8 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
+/// Spawns a network using a custom chain spec (people-rococo-spec.json) which validates any signed
+/// statement in the statement-store without additional verification.
 async fn spawn_network(collators: &[&str]) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	assert!(collators.len() >= 2);
 	let images = zombienet_sdk::environment::get_images_from_env();
