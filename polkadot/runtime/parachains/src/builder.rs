@@ -44,10 +44,10 @@ use polkadot_primitives::{
 };
 use sp_core::H256;
 use sp_runtime::{
-	generic::Digest,
 	traits::{Header as HeaderT, One, TrailingZeroInput, Zero},
 	RuntimeAppPublic,
 };
+
 fn mock_validation_code() -> ValidationCode {
 	ValidationCode(vec![1, 2, 3])
 }
@@ -494,15 +494,11 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			Self::run_to_block(block);
 		}
 
-		let block_number = BlockNumberFor::<T>::from(block);
+		let block_number = BlockNumberFor::<T>::from(block + 1);
 		let header = Self::header(block_number);
 
 		frame_system::Pallet::<T>::reset_events();
-		frame_system::Pallet::<T>::initialize(
-			&header.number(),
-			&header.hash(),
-			&Digest { logs: Vec::new() },
-		);
+		frame_system::Pallet::<T>::initialize(&header.number(), &header.hash(), header.digest());
 
 		assert_eq!(shared::CurrentSessionIndex::<T>::get(), target_session);
 
