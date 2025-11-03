@@ -25,8 +25,6 @@ doc:
     - `eth_estimateGas` and `eth_call` with `pending` block tag will dry run the transaction with the block timestamp set to `max(rpc_timestamp, latest_block.timestamp + 1)` and block number set to `latest_block.number + 1`.
 crates:
 - name: pallet-revive-eth-rpc
-  bump: patch
+  bump: major
 - name: pallet-revive
-  bump: patch
-- name: pallet-timestamp
-  bump: patch
+  bump: major
