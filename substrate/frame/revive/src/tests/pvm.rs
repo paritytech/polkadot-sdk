@@ -181,6 +181,18 @@ fn transfer_with_dust_works() {
 			total_issuance_diff: 0,
 			expected_error: Some(Error::<Test>::TransferFailed.into()),
 		},
+		TestCase {
+			description: "from = to with insufficient balance",
+			from: ALICE_ADDR,
+			to: ALICE_ADDR,
+			from_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
+			to_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
+			amount: BalanceWithDust::new_unchecked::<Test>(0, 20),
+			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
+			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
+			total_issuance_diff: 0,
+			expected_error: Some(Error::<Test>::TransferFailed.into()),
+		},
 	];
 
 	for TestCase {
