@@ -25,7 +25,7 @@ use crate::{
 	weights::WeightInfo,
 	AccountIdOf, BalanceOf, BalanceWithDust, BlockHash, Config, ContractResult, Error,
 	EthBlockBuilderIR, EthereumBlock, Event, ExecReturnValue, Pallet, ReceiptGasInfo,
-	ReceiptInfoData, StorageDeposit, UniqueSaturatedInto, Weight, H160, H256,
+	ReceiptInfoData, StorageDeposit, UniqueSaturatedInto, Weight, H160, H256, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use environmental::environmental;
@@ -74,6 +74,8 @@ impl EthereumCallResult {
 		info: &DispatchInfo,
 		effective_gas_price: U256,
 	) -> Self {
+		let effective_gas_price = effective_gas_price.max(Pallet::<T>::evm_base_fee());
+
 		if let Ok(retval) = &output.result {
 			if retval.did_revert() {
 				output.result = Err(<Error<T>>::ContractReverted.into());
@@ -91,24 +93,24 @@ impl EthereumCallResult {
 		let native_fee = T::FeeInfo::compute_actual_fee(encoded_len, &info, &result);
 		let result = T::FeeInfo::ensure_not_overdrawn(native_fee, result);
 
-		let gas_used = if effective_gas_price.is_zero() {
-			Default::default()
-		} else {
-			let eth_fee = Pallet::<T>::convert_native_to_evm(match output.storage_deposit {
-				StorageDeposit::Refund(refund) => native_fee.saturating_sub(refund),
-				StorageDeposit::Charge(amount) => native_fee.saturating_add(amount),
-			});
+		let fee = Pallet::<T>::convert_native_to_evm(match output.storage_deposit {
+			StorageDeposit::Refund(refund) => native_fee.saturating_sub(refund),
+			StorageDeposit::Charge(amount) => native_fee.saturating_add(amount),
+		});
 
-			let (mut gas_used, rest) = eth_fee.div_mod(effective_gas_price);
-			if !rest.is_zero() {
-				gas_used = gas_used.saturating_add(1_u32.into());
-				let rest =
-					BalanceWithDust::<BalanceOf<T>>::from_value::<T>(effective_gas_price - rest)
-						.expect("rest fits into BalanceOf<T>; qed");
-				Pallet::<T>::transfer_with_dust(&signer, &Pallet::<T>::account_id(), rest).unwrap();
-			}
-			gas_used
-		};
+		let (mut gas_used, rest) = fee.div_mod(effective_gas_price);
+		if !rest.is_zero() {
+			gas_used = gas_used.saturating_add(1_u32.into());
+		}
+
+		let tx_cost = gas_used.saturating_mul(effective_gas_price);
+		if tx_cost > fee {
+			let round_up_fee = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(tx_cost - fee)
+				.expect("value fits into BalanceOf<T>; qed");
+			log::debug!(target: LOG_TARGET, "Collecting round_up fee from {signer:?}: {round_up_fee:?}");
+			let _ = Pallet::<T>::transfer_with_dust(&signer, &Pallet::<T>::account_id(), round_up_fee)
+					.inspect_err(|e| log::debug!(target: LOG_TARGET, "Failed to collect round up fee {round_up_fee:?} from {signer:?}: {e:?}"));
+		}
 
 		Self { receipt_gas_info: ReceiptGasInfo { gas_used, effective_gas_price }, result }
 	}

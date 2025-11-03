@@ -339,6 +339,7 @@ mod benchmarks {
 
 		let pallet_addr = T::AddressMapper::to_address(&pallet_account);
 		let rounding_err = AccountInfoOf::<T>::get(&pallet_addr).unwrap().dust;
+		assert!(!rounding_err.is_zero());
 
 		assert_eq!(
 			<T as Config>::FeeInfo::remaining_txfee(),
@@ -507,6 +508,7 @@ mod benchmarks {
 		let pallet_addr = T::AddressMapper::to_address(&pallet_account);
 		let rounding_err = AccountInfoOf::<T>::get(&pallet_addr).unwrap().dust;
 
+		assert!(!rounding_err.is_zero());
 		assert_eq!(
 			Pallet::<T>::evm_balance(&caller_addr),
 			Pallet::<T>::convert_native_to_evm(
