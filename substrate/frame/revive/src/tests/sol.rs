@@ -31,6 +31,7 @@ use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::{assert_err, assert_ok, traits::fungible::Mutate};
 use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType};
 use pretty_assertions::assert_eq;
+use test_case::test_case;
 
 use revm::bytecode::opcode::*;
 
@@ -241,10 +242,11 @@ fn upload_evm_runtime_code_works() {
 	});
 }
 
-#[test]
-fn dust_work_with_child_calls() {
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn dust_work_with_child_calls(fixture_type: FixtureType) {
 	use pallet_revive_fixtures::CallSelfWithDust;
-	let (code, _) = compile_module_with_type("CallSelfWithDust", FixtureType::Solc).unwrap();
+	let (code, _) = compile_module_with_type("CallSelfWithDust", fixture_type).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);

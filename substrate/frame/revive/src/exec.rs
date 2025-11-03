@@ -1521,10 +1521,6 @@ where
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 		exec_config: &ExecConfig<T>,
 	) -> DispatchResult {
-		if from == to || value.is_zero() {
-			return Ok(())
-		}
-
 		fn transfer_with_dust<T: Config>(
 			from: &AccountIdOf<T>,
 			to: &AccountIdOf<T>,
@@ -1550,6 +1546,10 @@ where
 				to: &mut AccountInfo<T>,
 				dust: u32,
 			) -> DispatchResult {
+				if from == to || dust == 0 {
+					return Ok(())
+				}
+
 				from.dust =
 					from.dust.checked_sub(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
 				to.dust = to.dust.checked_add(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
