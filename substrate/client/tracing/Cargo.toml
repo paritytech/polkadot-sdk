@@ -39,7 +39,7 @@ sp-runtime = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 tracing = { workspace = true, default-features = true }
-tracing-log = { workspace = true }
+tracing-log = { workspace = true, features = ["interest-cache"] }
 tracing-subscriber = { workspace = true, features = ["env-filter", "parking_lot"] }
 
 [dev-dependencies]
