@@ -991,8 +991,6 @@ impl Client {
 			let _ = self.mine(Some(U256::from(2)), None).await?;
 		}
 
-		tx.wait_for_finalized_success().await?;
-
 		Ok(Some(nonce))
 	}
 
@@ -1046,11 +1044,11 @@ impl Client {
 			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
 			.await?;
 
-		if !self.get_automine().await {
-			let _ = self.mine(Some(U256::from(2)), None).await?;
-		}
-
-		tx.wait_for_finalized_success().await?;
+		// if !self.get_automine().await {
+		// 	let _ = self.mine(Some(U256::from(2)), None).await?;
+		// } else {
+		// 	let _ = self.mine(Some(U256::from(1)), None).await?;
+		// }
 
 		Ok(Some(new_free))
 	}
@@ -1074,8 +1072,6 @@ impl Client {
 		if !self.get_automine().await {
 			let _ = self.mine(Some(U256::from(2)), None).await?;
 		}
-
-		tx.wait_for_finalized_success().await?;
 
 		Ok(Some(base_fee_per_gas))
 	}
@@ -1105,8 +1101,6 @@ impl Client {
 			let _ = self.mine(Some(U256::from(2)), None).await?;
 		}
 
-		tx.wait_for_finalized_success().await?;
-
 		Ok(Some(value))
 	}
 
@@ -1123,8 +1117,9 @@ impl Client {
 
 		if !self.get_automine().await {
 			let _ = self.mine(Some(U256::from(2)), None).await?;
+		} else {
+			let _ = self.mine(None, None).await?;
 		}
-		upload_tx.wait_for_finalized_success().await?;
 
 		let call = RuntimeCall::Revive(ReviveCall::set_bytecode { dest, code_hash });
 
@@ -1137,9 +1132,9 @@ impl Client {
 
 		if !self.get_automine().await {
 			let _ = self.mine(Some(U256::from(2)), None).await?;
+		} else {
+			let _ = self.mine(None, None).await?;
 		}
-
-		tx.wait_for_finalized_success().await?;
 
 		Ok(Some(code_hash))
 	}
@@ -1164,8 +1159,6 @@ impl Client {
 		if !self.get_automine().await {
 			let _ = self.mine(Some(U256::from(2)), None).await?;
 		}
-
-		tx.wait_for_finalized_success().await?;
 
 		Ok(Some(coinbase))
 	}
@@ -1259,8 +1252,6 @@ impl Client {
 			let _ = self.mine(Some(U256::from(2)), None).await?;
 		}
 
-		tx.wait_for_finalized_success().await?;
-
 		Ok(Some(block_gas_limit))
 	}
 
@@ -1279,8 +1270,6 @@ impl Client {
 		if !self.get_automine().await {
 			let _ = self.mine(Some(U256::from(2)), None).await?;
 		}
-
-		tx.wait_for_finalized_success().await?;
 
 		Ok(Some(account))
 	}
@@ -1303,8 +1292,6 @@ impl Client {
 		if !self.get_automine().await {
 			let _ = self.mine(Some(U256::from(2)), None).await?;
 		}
-
-		tx.wait_for_finalized_success().await?;
 
 		Ok(Some(account))
 	}
@@ -1390,7 +1377,6 @@ impl Client {
 			None => return Ok(Some(runtime_api.block_author().await.ok().unwrap_or_default())),
 			Some(author) => return Ok(Some(author)),
 		}
-
 	}
 
 	pub async fn hardhat_metadata(&self) -> Result<Option<HardhatMetadata>, ClientError> {
@@ -1404,7 +1390,7 @@ impl Client {
 			chain_id: self.chain_id.into(),
 			instance_id: self.api.genesis_hash(),
 			latest_block_number: block.header.number.into(),
-			latest_block_hash: block.hash(),
+			latest_block_hash: block.header.hash(),
 			forked_network: None, // TODO: add forked network from chopsticks
 		};
 		Ok(Some(metadata))
@@ -1432,7 +1418,7 @@ impl Client {
 			self.rpc_client.request("hardhat_reset", Default::default()).await.unwrap();
 
 		let block = self.api.blocks().at_latest().await?;
-		let _ = self.block_provider.update_latest(block, SubscriptionType::BestBlocks).await;
+		let _ = self.block_provider.update_latest(block, SubsfriptionType::BestBlocks).await;
 
 		Ok(Some(result))
 	}
