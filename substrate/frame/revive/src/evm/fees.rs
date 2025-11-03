@@ -40,7 +40,9 @@ use pallet_transaction_payment::{
 };
 use sp_runtime::{
 	generic::UncheckedExtrinsic,
-	traits::{Block as BlockT, Dispatchable, TransactionExtension},
+	traits::{
+		Block as BlockT, Dispatchable, ExtensionPostDispatchWeightHandler, TransactionExtension,
+	},
 	FixedPointNumber, FixedU128, SaturatedConversion, Saturating,
 };
 
@@ -363,11 +365,7 @@ where
 			Err(err) => &err.post_info,
 		};
 
-		post_info
-			.actual_weight
-			.as_mut()
-			.map(|w| w.saturating_accrue(info.extension_weight));
-
+		post_info.set_extension_weight(info);
 		<TxPallet<E::Config>>::compute_actual_fee(encoded_len, info, &post_info, Zero::zero())
 			.into()
 	}
