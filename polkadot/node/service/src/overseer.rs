@@ -21,6 +21,7 @@ use sp_core::traits::SpawnNamed;
 
 use polkadot_availability_distribution::IncomingRequestReceivers;
 use polkadot_node_core_approval_voting::Config as ApprovalVotingConfig;
+use polkadot_node_core_consensus_statistics_collector::Config as ConsensusStatisticsCollectorConfig;
 use polkadot_node_core_av_store::Config as AvailabilityConfig;
 use polkadot_node_core_candidate_validation::Config as CandidateValidationConfig;
 use polkadot_node_core_chain_selection::Config as ChainSelectionConfig;
@@ -134,6 +135,7 @@ pub struct ExtendedOverseerGenArgs {
 	pub candidate_req_v2_receiver: IncomingRequestReceiver<request_v2::AttestedCandidateRequest>,
 	/// Configuration for the approval voting subsystem.
 	pub approval_voting_config: ApprovalVotingConfig,
+	pub consensus_statistics_collector_config: ConsensusStatisticsCollectorConfig,
 	/// Receiver for incoming disputes.
 	pub dispute_req_receiver: IncomingRequestReceiver<request_v1::DisputeRequest>,
 	/// Configuration for the dispute coordinator subsystem.
@@ -184,6 +186,7 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		fetch_chunks_threshold,
 		invulnerable_ah_collators,
 		collator_protocol_hold_off,
+		consensus_statistics_collector_config,
 	}: ExtendedOverseerGenArgs,
 ) -> Result<
 	InitializedOverseerBuilder<
@@ -355,7 +358,10 @@ where
 		))
 		.chain_selection(ChainSelectionSubsystem::new(chain_selection_config, parachains_db))
 		.prospective_parachains(ProspectiveParachainsSubsystem::new(Metrics::register(registry)?))
-		.consensus_statistics_collector(ConsensusStatisticsCollector::new(Metrics::register(registry)?, true))
+		.consensus_statistics_collector(ConsensusStatisticsCollector::new(
+			Metrics::register(registry)?,
+			consensus_statistics_collector_config,
+		))
 		.activation_external_listeners(Default::default())
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_client)

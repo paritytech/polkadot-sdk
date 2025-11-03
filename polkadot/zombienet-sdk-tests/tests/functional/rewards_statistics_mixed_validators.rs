@@ -51,7 +51,6 @@ async fn rewards_statistics_mixed_validators_test() -> Result<(), anyhow::Error>
                     node.with_name(&format!("malus-{i}"))
                         .with_args(vec![
                             "-lparachain=debug,MALUS=trace".into(),
-                            "--dispute-offset=14".into(),
                             "--alice".into(),
                             "--insecure-validator-i-know-what-i-do".into(),
                         ])
@@ -61,7 +60,7 @@ async fn rewards_statistics_mixed_validators_test() -> Result<(), anyhow::Error>
                                 .as_str(),
                         )
                         .with_command("malus")
-                        .with_subcommand("dispute_valid_candidates")
+                        .with_subcommand("dispute-valid-candidates")
                         .invulnerable(false)
                 })
             })

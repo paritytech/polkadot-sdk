@@ -54,6 +54,11 @@ use self::metrics::Metrics;
 const MAX_SESSIONS_TO_KEEP: u32 = 2;
 const LOG_TARGET: &str = "parachain::consensus-statistics-collector";
 
+#[derive(Default)]
+pub struct Config {
+    pub publish_per_validator_approval_metrics: bool
+}
+
 struct PerRelayView {
     session_index: SessionIndex,
     parent_hash: Option<Hash>,
@@ -128,15 +133,15 @@ impl View {
 #[derive(Default)]
 pub struct ConsensusStatisticsCollector {
     metrics: Metrics,
-    per_validator_metrics: bool
+    config: Config
 }
 
 impl ConsensusStatisticsCollector {
     /// Create a new instance of the `ConsensusStatisticsCollector`.
-    pub fn new(metrics: Metrics, per_validator_metrics: bool) -> Self {
+    pub fn new(metrics: Metrics, config: Config) -> Self {
         Self {
             metrics,
-            per_validator_metrics,
+            config,
         }
     }
 }
@@ -148,7 +153,7 @@ where
 {
     fn start(self, ctx: Context) -> SpawnedSubsystem {
         SpawnedSubsystem {
-            future: run(ctx, (self.metrics, self.per_validator_metrics))
+            future: run(ctx, (self.metrics, self.config.publish_per_validator_approval_metrics))
                 .map_err(|e| SubsystemError::with_origin("statistics-parachains", e))
                 .boxed(),
             name: "consensus-statistics-collector-subsystem",
