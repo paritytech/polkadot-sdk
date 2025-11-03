@@ -47,7 +47,7 @@ jobs:
         run: mkdir workdir
       - name: Downloading & Initializing the compilation caches
         run: |
-          curl -fL --retry 3 --retry-all-errors --connect-timeout 10 -o cache.tar.gz "https://github.com/0xOmarA/revive-differential-tests-compiler-cache/releases/download/v1.0.0/cache.tar.gz"
+          curl -fL --retry 3 --retry-all-errors --connect-timeout 10 -o cache.tar.gz "https://github.com/paritytech/revive-differential-tests/releases/download/compilation-caches-v1.0/cache.tar.gz"
           tar -zxf cache.tar.gz -C ./workdir
       - name: Running the Differential Tests
         run: |
