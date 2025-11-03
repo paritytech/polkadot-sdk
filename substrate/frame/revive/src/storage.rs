@@ -160,7 +160,7 @@ impl<T: Config> AccountInfo<T> {
 		matches!(info.account_type, AccountType::Contract(_))
 	}
 
-	/// Returns the balance of the account at the given address (static method).
+	/// Returns the balance of the account at the given address.
 	pub fn balance_of(account: AccountIdOrAddress<T>) -> BalanceWithDust<BalanceOf<T>> {
 		let info = <AccountInfoOf<T>>::get(account.address()).unwrap_or_default();
 		info.balance(&account.account_id())
