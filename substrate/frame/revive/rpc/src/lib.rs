@@ -24,9 +24,9 @@ use jsonrpsee::{
 };
 use pallet_revive::evm::*;
 use sp_core::{keccak_256, H160, H256, U256};
+use sp_timestamp::{Timestamp};
 use thiserror::Error;
 use tokio::time::Duration;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 pub mod cli;
 pub mod client;
@@ -148,12 +148,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		log::trace!(target: LOG_TARGET, "estimate_gas transaction={transaction:?} block={block:?}");
 		let block = block.unwrap_or(BlockNumberOrTag::BlockTag(BlockTag::Pending));
 		let timestamp_override = match block {
-			BlockNumberOrTag::BlockTag(BlockTag::Pending) => {
-				SystemTime::now()
-					.duration_since(UNIX_EPOCH)
-					.ok()
-					.map(|dur| dur.as_millis() as u64)
-			}
+			BlockNumberOrTag::BlockTag(BlockTag::Pending) => Some(Timestamp::current().as_millis()),
 			_ => None,
 		};
 		let hash = self.client.block_hash_for_tag(block.into()).await?;
@@ -171,12 +166,7 @@ impl EthRpcServer for EthRpcServerImpl {
 	) -> RpcResult<Bytes> {
 		let block = block.unwrap_or_default();
 		let timestamp_override = match block {
-			BlockNumberOrTagOrHash::BlockTag(BlockTag::Pending) => {
-				SystemTime::now()
-					.duration_since(UNIX_EPOCH)
-					.ok()
-					.map(|dur| dur.as_millis() as u64)
-			}
+			BlockNumberOrTagOrHash::BlockTag(BlockTag::Pending) => Some(Timestamp::current().as_millis()),
 			_ => None,
 		};
 		let hash = self.client.block_hash_for_tag(block).await?;

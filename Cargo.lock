@@ -13364,6 +13364,7 @@ dependencies = [
  "sp-io",
  "sp-rpc",
  "sp-runtime",
+ "sp-timestamp",
  "sp-weights",
  "sqlx",
  "static_init",
