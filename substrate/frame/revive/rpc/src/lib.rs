@@ -24,7 +24,6 @@ use jsonrpsee::{
 };
 use pallet_revive::evm::*;
 use sp_core::{keccak_256, H160, H256, U256};
-use sp_timestamp::Timestamp;
 use thiserror::Error;
 use tokio::time::Duration;
 
@@ -147,13 +146,9 @@ impl EthRpcServer for EthRpcServerImpl {
 	) -> RpcResult<U256> {
 		log::trace!(target: LOG_TARGET, "estimate_gas transaction={transaction:?} block={block:?}");
 		let block = block.unwrap_or(BlockNumberOrTag::BlockTag(BlockTag::Pending));
-		let timestamp_override = match block {
-			BlockNumberOrTag::BlockTag(BlockTag::Pending) => Some(Timestamp::current().as_millis()),
-			_ => None,
-		};
-		let hash = self.client.block_hash_for_tag(block.into()).await?;
+		let hash = self.client.block_hash_for_tag(block.clone().into()).await?;
 		let runtime_api = self.client.runtime_api(hash);
-		let dry_run = runtime_api.dry_run(transaction, timestamp_override).await?;
+		let dry_run = runtime_api.dry_run(transaction, block.into()).await?;
 		log::trace!(target: LOG_TARGET, "estimate_gas result={dry_run:?}");
 		Ok(dry_run.eth_gas)
 	}
@@ -164,14 +159,9 @@ impl EthRpcServer for EthRpcServerImpl {
 		block: Option<BlockNumberOrTagOrHash>,
 	) -> RpcResult<Bytes> {
 		let block = block.unwrap_or_default();
-		let timestamp_override = match block {
-			BlockNumberOrTagOrHash::BlockTag(BlockTag::Pending) =>
-				Some(Timestamp::current().as_millis()),
-			_ => None,
-		};
-		let hash = self.client.block_hash_for_tag(block).await?;
+		let hash = self.client.block_hash_for_tag(block.clone()).await?;
 		let runtime_api = self.client.runtime_api(hash);
-		let dry_run = runtime_api.dry_run(transaction, timestamp_override).await?;
+		let dry_run = runtime_api.dry_run(transaction, block).await?;
 		Ok(dry_run.data.into())
 	}
 

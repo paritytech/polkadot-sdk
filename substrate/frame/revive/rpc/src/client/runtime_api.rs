@@ -22,12 +22,13 @@ use crate::{
 };
 use pallet_revive::{
 	evm::{
-		decode_revert_reason, Block as EthBlock, GenericTransaction, ReceiptGasInfo, Trace, H160,
+		decode_revert_reason, Block as EthBlock, BlockTag, BlockNumberOrTagOrHash, GenericTransaction, ReceiptGasInfo, Trace, H160,
 		U256,
 	},
 	EthTransactError, EthTransactInfo,
 };
 use sp_core::H256;
+use sp_timestamp::Timestamp;
 use subxt::OnlineClient;
 
 const LOG_TARGET: &str = "eth-rpc::runtime_api";
@@ -68,8 +69,14 @@ impl RuntimeApi {
 	pub async fn dry_run(
 		&self,
 		tx: GenericTransaction,
-		timestamp_override: Option<u64>,
+		block: BlockNumberOrTagOrHash,
 	) -> Result<EthTransactInfo<Balance>, ClientError> {
+		let timestamp_override = match block {
+			BlockNumberOrTagOrHash::BlockTag(BlockTag::Pending) => {
+				Some(Timestamp::current().as_millis())
+			}
+			_ => None,
+		};
 		let payload = subxt_client::apis().revive_api().eth_transact(tx.into(), timestamp_override);
 		let result = self.0.call(payload).await?;
 		match result {
