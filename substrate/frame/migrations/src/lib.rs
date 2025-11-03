@@ -171,7 +171,7 @@ use frame_system::{
 	pallet_prelude::{BlockNumberFor, *},
 	Pallet as System,
 };
-use sp_runtime::Saturating;
+use sp_runtime::{SaturatedConversion, Saturating};
 
 /// Points to the next migration to execute.
 #[derive(
@@ -232,8 +232,6 @@ pub struct ActiveCursor<Cursor, BlockNumber> {
 	///
 	/// This is used to calculate how many blocks it took.
 	pub started_at: BlockNumber,
-	/// The number of steps taken by the current migration.
-	pub steps_taken: u32,
 }
 
 impl<Cursor, BlockNumber> ActiveCursor<Cursor, BlockNumber> {
@@ -242,7 +240,6 @@ impl<Cursor, BlockNumber> ActiveCursor<Cursor, BlockNumber> {
 		self.index.saturating_inc();
 		self.inner_cursor = None;
 		self.started_at = current_block;
-		self.steps_taken = 0;
 	}
 }
 
@@ -624,7 +621,6 @@ pub mod pallet {
 				index,
 				inner_cursor,
 				started_at,
-				steps_taken: 0,
 			}));
 
 			Ok(())
@@ -691,12 +687,18 @@ pub mod pallet {
 		/// including the number of steps completed and the maximum allowed steps.
 		pub fn progress() -> Option<MbmProgress> {
 			match Cursor::<T>::get() {
-				Some(MigrationCursor::Active(cursor)) => Some(MbmProgress {
-					current_migration: cursor.index,
-					total_migrations: T::Migrations::len(),
-					current_migration_steps: cursor.steps_taken,
-					current_migration_max_steps: T::Migrations::nth_max_steps(cursor.index)??,
-				}),
+				Some(MigrationCursor::Active(cursor)) => {
+					let blocks_elapsed =
+						System::<T>::block_number().saturating_sub(cursor.started_at);
+					let estimated_steps = blocks_elapsed.saturated_into::<u32>();
+
+					Some(MbmProgress {
+						current_migration: cursor.index,
+						total_migrations: T::Migrations::len(),
+						current_migration_steps: estimated_steps,
+						current_migration_max_steps: T::Migrations::nth_max_steps(cursor.index)??,
+					})
+				},
 				_ => None,
 			}
 		}
@@ -746,7 +748,6 @@ impl<T: Config> Pallet<T> {
 					index: 0,
 					inner_cursor: None,
 					started_at: System::<T>::block_number(),
-					steps_taken: 0,
 				}
 				.into(),
 			));
@@ -864,9 +865,6 @@ impl<T: Config> Pallet<T> {
 		let took = System::<T>::block_number().saturating_sub(cursor.started_at);
 		match next_cursor {
 			Ok(Some(next_cursor)) => {
-				// Increment step count for this migration
-				cursor.steps_taken = cursor.steps_taken.saturating_add(1);
-
 				let Ok(bound_next_cursor) = next_cursor.try_into() else {
 					defensive!("The integrity check ensures that all cursors' MEL bound fits into CursorMaxLen; qed");
 					Self::upgrade_failed(Some(cursor.index));

@@ -500,7 +500,7 @@ fn view_function_ongoing_status_works() {
 			Some(MbmProgress {
 				current_migration: 1,
 				total_migrations: 3,
-				current_migration_steps: 1,
+				current_migration_steps: 0,
 				current_migration_max_steps: 3,
 			})
 		);
@@ -512,7 +512,7 @@ fn view_function_ongoing_status_works() {
 			Some(MbmProgress {
 				current_migration: 1,
 				total_migrations: 3,
-				current_migration_steps: 2,
+				current_migration_steps: 1,
 				current_migration_max_steps: 3,
 			})
 		);
@@ -524,7 +524,7 @@ fn view_function_ongoing_status_works() {
 			Some(MbmProgress {
 				current_migration: 1,
 				total_migrations: 3,
-				current_migration_steps: 3,
+				current_migration_steps: 2,
 				current_migration_max_steps: 3,
 			})
 		);
@@ -536,7 +536,7 @@ fn view_function_ongoing_status_works() {
 			Some(MbmProgress {
 				current_migration: 2,
 				total_migrations: 3,
-				current_migration_steps: 1,
+				current_migration_steps: 0,
 				current_migration_max_steps: 5,
 			})
 		);
@@ -598,52 +598,6 @@ fn migration_steps_on_failure_works() {
 }
 
 #[test]
-fn migration_steps_behavior_on_successful_completion() {
-	test_closure(|| {
-		// Set up a migration that will succeed after 2 steps
-		MockedMigrations::set(vec![(SucceedAfter, 2)]);
-
-		System::set_block_number(1);
-		Migrations::on_runtime_upgrade();
-
-		// Check initial state
-		match Cursor::<T>::get() {
-			Some(MigrationCursor::Active(cursor)) => assert_eq!(cursor.steps_taken, 0),
-			_ => panic!("Expected active cursor"),
-		}
-
-		// Run first step
-		run_to_block(2);
-		match Cursor::<T>::get() {
-			Some(MigrationCursor::Active(cursor)) => assert_eq!(cursor.steps_taken, 1),
-			_ => panic!("Expected active cursor"),
-		}
-
-		// Run second step (completes migration)
-		run_to_block(3);
-		match Cursor::<T>::get() {
-			Some(MigrationCursor::Active(cursor)) => assert_eq!(cursor.steps_taken, 2),
-			_ => panic!("Expected active cursor"),
-		}
-
-		// Migration should be completed and cursor should be advanced
-		run_to_block(4);
-		match Cursor::<T>::get() {
-			Some(MigrationCursor::Active(cursor)) => {
-				// Should have moved to next migration (index 1) with steps reset to 0
-				assert_eq!(cursor.index, 1);
-				assert_eq!(cursor.steps_taken, 0);
-			},
-			None => {
-				// Or cursor could be None if all migrations are complete
-				// This is also valid since we only had one migration
-			},
-			_ => panic!("Unexpected cursor state"),
-		}
-	});
-}
-
-#[test]
 fn view_function_status_detailed() {
 	test_closure(|| {
 		// Set up multiple migrations
@@ -686,7 +640,7 @@ fn view_function_status_detailed() {
 		let status = Migrations::status();
 		let progress = status.progress.unwrap();
 		assert_eq!(progress.current_migration, 1);
-		assert_eq!(progress.current_migration_steps, 1);
+		assert_eq!(progress.current_migration_steps, 0);
 		assert_eq!(progress.current_migration_max_steps, 1);
 		assert_eq!(status.prefixes, vec![mocked_id(SucceedAfter, 1).into_inner()]);
 

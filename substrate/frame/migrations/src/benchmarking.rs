@@ -68,12 +68,7 @@ mod benches {
 	fn exec_migration_completed() -> Result<(), BenchmarkError> {
 		T::Migrations::set_fail_after(0); // Should not be called anyway.
 		assert_eq!(T::Migrations::len(), 1, "Setup failed");
-		let c = ActiveCursor {
-			index: 1,
-			inner_cursor: None,
-			started_at: 0u32.into(),
-			steps_taken: 0u32,
-		};
+		let c = ActiveCursor { index: 1, inner_cursor: None, started_at: 0u32.into() };
 		let mut meter = WeightMeter::with_limit(T::MaxServiceWeight::get());
 		System::<T>::set_block_number(1u32.into());
 
@@ -92,12 +87,7 @@ mod benches {
 	fn exec_migration_skipped_historic() -> Result<(), BenchmarkError> {
 		T::Migrations::set_fail_after(0); // Should not be called anyway.
 		assert_eq!(T::Migrations::len(), 1, "Setup failed");
-		let c = ActiveCursor {
-			index: 0,
-			inner_cursor: None,
-			started_at: 0u32.into(),
-			steps_taken: 0u32,
-		};
+		let c = ActiveCursor { index: 0, inner_cursor: None, started_at: 0u32.into() };
 
 		let id: IdentifierOf<T> = T::Migrations::nth_id(0).unwrap().try_into().unwrap();
 		Historic::<T>::insert(id, ());
@@ -120,12 +110,7 @@ mod benches {
 	fn exec_migration_advance() -> Result<(), BenchmarkError> {
 		T::Migrations::set_success_after(1);
 		assert_eq!(T::Migrations::len(), 1, "Setup failed");
-		let c = ActiveCursor {
-			index: 0,
-			inner_cursor: None,
-			started_at: 0u32.into(),
-			steps_taken: 0u32,
-		};
+		let c = ActiveCursor { index: 0, inner_cursor: None, started_at: 0u32.into() };
 		let mut meter = WeightMeter::with_limit(T::MaxServiceWeight::get());
 		System::<T>::set_block_number(1u32.into());
 
@@ -144,12 +129,7 @@ mod benches {
 	fn exec_migration_complete() -> Result<(), BenchmarkError> {
 		T::Migrations::set_success_after(0);
 		assert_eq!(T::Migrations::len(), 1, "Setup failed");
-		let c = ActiveCursor {
-			index: 0,
-			inner_cursor: None,
-			started_at: 0u32.into(),
-			steps_taken: 0u32,
-		};
+		let c = ActiveCursor { index: 0, inner_cursor: None, started_at: 0u32.into() };
 		let mut meter = WeightMeter::with_limit(T::MaxServiceWeight::get());
 		System::<T>::set_block_number(1u32.into());
 
@@ -167,12 +147,7 @@ mod benches {
 	fn exec_migration_fail() -> Result<(), BenchmarkError> {
 		T::Migrations::set_fail_after(0);
 		assert_eq!(T::Migrations::len(), 1, "Setup failed");
-		let c = ActiveCursor {
-			index: 0,
-			inner_cursor: None,
-			started_at: 0u32.into(),
-			steps_taken: 0u32,
-		};
+		let c = ActiveCursor { index: 0, inner_cursor: None, started_at: 0u32.into() };
 		let mut meter = WeightMeter::with_limit(T::MaxServiceWeight::get());
 		System::<T>::set_block_number(1u32.into());
 
@@ -279,7 +254,6 @@ mod benches {
 			index: u32::MAX,
 			inner_cursor: None,
 			started_at: 0u32.into(),
-			steps_taken: 0u32,
 		})
 	}
 

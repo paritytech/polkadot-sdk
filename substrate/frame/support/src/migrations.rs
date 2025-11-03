@@ -496,6 +496,8 @@ pub trait SteppedMigration {
 		None
 	}
 
+	/// Returns the prefixes of the keys to be migrated.
+	///
 	/// This function is optional and provides information to the migration framework
 	/// to know which storage prefixes are being migrated. It can be helpful to let
 	/// chain explorers know which part of the state is possibly in a state where it
