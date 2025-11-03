@@ -1334,11 +1334,9 @@ pub mod pallet {
 			})
 		}
 
-		/// Makes a call to the runtime with raw encoded Call data.
+		/// Executes a Revive runtime call from an Ethereum transaction.
 		///
-		/// This dispatchable is intended to be called **only** by EVM transactions
-		/// through the EVM compatibility layer. It allows Ethereum transactions to
-		/// dispatch substrate runtime calls.
+		/// This dispatchable is intended to be called **only** through the EVM compatibility layer.
 		///
 		/// # Parameters
 		///
@@ -1349,7 +1347,6 @@ pub mod pallet {
 		pub fn eth_substrate_call(origin: OriginFor<T>, code: Vec<u8>) -> DispatchResult {
 			let signer = ensure_signed(Self::ensure_eth_origin(origin)?)?;
 
-			log::debug!(target: LOG_TARGET, "eth_substrate_call");
 			block_storage::with_ethereum_context::<T>(code.clone(), || {
 				let dispatch_call = match <CallOf<T>>::decode_all_with_depth_limit(
 					MAX_EXTRINSIC_DEPTH,

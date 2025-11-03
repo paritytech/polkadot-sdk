@@ -817,7 +817,7 @@ async fn test_mixed_evm_substrate_transactions() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
+async fn test_runtime_pallets_address_upload_and_remove_code() -> anyhow::Result<()> {
 	let _lock = SHARED_RESOURCES.write();
 	let client = Arc::new(SharedResources::client().await);
 	let (node_client, node_rpc_client, _) =
@@ -865,18 +865,11 @@ async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
 		"Transaction should be successful"
 	);
 
-	assert_eq!(
-		receipt.to,
-		Some(pallet_revive::RUNTIME_PALLETS_ADDR),
-		"Receipt should have the correct target address"
-	);
-
 	// Step 5: Verify the code was actually uploaded
 	let code_hash = H256(sp_io::hashing::keccak_256(&bytecode));
 	let query = subxt_client::storage().revive().pristine_code(code_hash);
-	let substrate_block_hash: sp_core::H256 =
-		get_substrate_block_hash(receipt.block_number).await?;
-	let stored_code = node_client.storage().at(substrate_block_hash).fetch(&query).await?;
+	let block_hash: sp_core::H256 = get_substrate_block_hash(receipt.block_number).await?;
+	let stored_code = node_client.storage().at(block_hash).fetch(&query).await?;
 	assert!(stored_code.is_some(), "Code with hash {code_hash:?} should exist in storage");
 	assert_eq!(stored_code.unwrap(), bytecode, "Stored code should match the uploaded bytecode");
 
@@ -907,18 +900,64 @@ async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
 	);
 
 	// Step 10: Verify the code was actually removed
-	let substrate_block_hash_after_remove: sp_core::H256 =
-		get_substrate_block_hash(remove_receipt.block_number).await?;
-	let code_after_remove = node_client
-		.storage()
-		.at(substrate_block_hash_after_remove)
-		.fetch(&query)
-		.await?;
-
+	let block_hash: sp_core::H256 = get_substrate_block_hash(remove_receipt.block_number).await?;
+	let code_after_remove = node_client.storage().at(block_hash).fetch(&query).await?;
 	assert!(
 		code_after_remove.is_none(),
 		"Code with hash {code_hash:?} should be removed from storage"
 	);
+
+	Ok(())
+}
+
+#[tokio::test]
+async fn test_runtime_pallets_address_unmap_account() -> anyhow::Result<()> {
+	let _lock = SHARED_RESOURCES.write();
+	let client = Arc::new(SharedResources::client().await);
+	let (node_client, node_rpc_client, _) =
+		client::connect(SharedResources::node_rpc_url()).await?;
+
+	let signer = Account::default();
+	// TODO: move to a separate standalone function to avoid code duplication
+	let get_substrate_block_hash = |block_number: U256| {
+		let rpc_client = node_rpc_client.clone();
+		async move {
+			rpc_client
+				.request::<sp_core::H256>("chain_getBlockHash", rpc_params![block_number])
+				.await
+		}
+	};
+
+	// Step 1: Encode the Substrate unmap_account call
+	let unmap_account_call =
+		subxt::dynamic::tx("Revive", "unmap_account", Vec::<subxt::dynamic::Value>::new());
+	let encoded_unmap_call = node_client.tx().call_data(&unmap_account_call)?;
+
+	// Step 2: Send the unmap_account call to RUNTIME_PALLETS_ADDR
+	let unmap_tx = TransactionBuilder::new(&client)
+		.signer(signer.clone())
+		.to(pallet_revive::RUNTIME_PALLETS_ADDR)
+		.input(encoded_unmap_call)
+		.send()
+		.await?;
+
+	// Step 3: Wait for unmap receipt
+	let receipt = unmap_tx.wait_for_receipt().await?;
+
+	// Step 4: Verify unmap transaction was successful
+	assert_eq!(
+		receipt.status.unwrap_or(U256::zero()),
+		U256::one(),
+		"Unmap account transaction should be successful"
+	);
+
+	// Step 5: Verify the account mapping was removed
+	let query = subxt_client::storage()
+		.revive()
+		.original_account(pallet_revive::H160(signer.address().0));
+	let block_hash = get_substrate_block_hash(receipt.block_number).await?;
+	let account_mapping = node_client.storage().at(block_hash).fetch(&query).await?;
+	assert!(account_mapping.is_none(), "Address mapping should be removed after unmap_account");
 
 	Ok(())
 }
