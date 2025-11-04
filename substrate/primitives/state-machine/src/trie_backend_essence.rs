@@ -766,6 +766,7 @@ where
 				Some(after.saturating_sub(proof_size_before))),
 			keys_read_count: Some(keys_read_count),
 			keys_deleted_count: Some(keys_deleted_count),
+			trigger_execution_time: None,
 		}
 	}
 
@@ -930,6 +931,7 @@ where
 				Some(after.saturating_sub(proof_size_before))),
 			keys_read_count: Some(keys_read_count),
 			keys_deleted_count: Some(keys_deleted_count),
+			trigger_execution_time: None,
 		}
 	}
 }

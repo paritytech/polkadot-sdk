@@ -136,6 +136,9 @@ pub struct BenchmarkResult {
 	pub trigger_keys_read_count: u32,
 	/// Number of keys deleted during trigger.
 	pub trigger_keys_deleted_count: u32,
+	/// Host-side execution time for the trigger operation in nanoseconds.
+	/// Measured on the node/host side, excluding WASM overhead and boundary crossing.
+	pub trigger_host_execution_time: u128,
 }
 
 impl BenchmarkResult {
