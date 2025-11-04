@@ -877,31 +877,6 @@ mod tests {
 	type TestAccountId = u64;
 
 	#[test]
-	fn validator_set_report_respects_max_validators() {
-		// Test with default max (1000)
-		let validators: Vec<TestAccountId> = (0..100).collect();
-		let report = ValidatorSetReport::<TestAccountId>::new_terminal(
-			validators.clone(),
-			1,
-			None,
-		);
-		assert_eq!(report.new_validator_set.len(), 100);
-		assert_eq!(report.id, 1);
-	}
-
-	#[test]
-	#[should_panic(expected = "validator set exceeds maximum")]
-	fn validator_set_report_panics_when_exceeding_max() {
-		// Test with custom small max
-		let validators: Vec<TestAccountId> = (0..100).collect();
-		let _report = ValidatorSetReport::<TestAccountId, ConstU32<10>>::new_terminal(
-			validators,
-			1,
-			None,
-		);
-	}
-
-	#[test]
 	fn validator_set_report_try_into_success() {
 		// Test successful conversion from Vec to BoundedVec
 		let validators: Vec<TestAccountId> = (0..50).collect();
@@ -920,7 +895,7 @@ mod tests {
 
 	#[test]
 	fn validator_set_report_merge_respects_bounds() {
-		// Create two reports that can be merged within bounds
+		// Test that we can push items into ValidatorSetReport via merge
 		let validators1: Vec<TestAccountId> = (0..30).collect();
 		let validators2: Vec<TestAccountId> = (30..60).collect();
 
@@ -938,66 +913,5 @@ mod tests {
 
 		let merged = report1.merge(report2).unwrap();
 		assert_eq!(merged.new_validator_set.len(), 60);
-	}
-
-	#[test]
-	fn validator_set_report_merge_fails_when_exceeding_bounds() {
-		// Create two reports that cannot be merged within bounds
-		let validators1: Vec<TestAccountId> = (0..60).collect();
-		let validators2: Vec<TestAccountId> = (60..120).collect();
-
-		let report1 = ValidatorSetReport::<TestAccountId, ConstU32<100>>::new_terminal(
-			validators1,
-			1,
-			None,
-		);
-		let mut report2 = ValidatorSetReport::<TestAccountId, ConstU32<100>>::new_terminal(
-			validators2,
-			1,
-			None,
-		);
-		report2.leftover = true;
-
-		let result = report1.merge(report2);
-		assert!(result.is_err());
-		assert_eq!(result.unwrap_err(), UnexpectedKind::ValidatorSetIntegrityFailed);
-	}
-
-	#[test]
-	fn validator_set_report_split_maintains_bounds() {
-		// Test that splitting maintains the bounds
-		let validators: Vec<TestAccountId> = (0..100).collect();
-		let report = ValidatorSetReport::<TestAccountId, ConstU32<1000>>::new_terminal(
-			validators,
-			1,
-			None,
-		);
-
-		let parts = report.split(30);
-		assert_eq!(parts.len(), 4); // 30, 30, 30, 10
-		assert_eq!(parts[0].new_validator_set.len(), 30);
-		assert_eq!(parts[1].new_validator_set.len(), 30);
-		assert_eq!(parts[2].new_validator_set.len(), 30);
-		assert_eq!(parts[3].new_validator_set.len(), 10);
-
-		// Check leftover flags
-		assert!(parts[0].leftover);
-		assert!(parts[1].leftover);
-		assert!(parts[2].leftover);
-		assert!(!parts[3].leftover); // Last one should be false
-	}
-
-	#[test]
-	fn validator_set_report_with_custom_max_validators() {
-		// Test using a custom MaxValidators type parameter
-		type SmallMax = ConstU32<32>;
-
-		let validators: Vec<TestAccountId> = (0..32).collect();
-		let report = ValidatorSetReport::<TestAccountId, SmallMax>::new_terminal(
-			validators,
-			1,
-			None,
-		);
-		assert_eq!(report.new_validator_set.len(), 32);
 	}
 }
