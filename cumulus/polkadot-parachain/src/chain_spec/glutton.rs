@@ -37,6 +37,7 @@ pub fn glutton_westend_config(
 	.with_genesis_config_preset_name(match chain_type {
 		ChainType::Development => sp_genesis_builder::DEV_RUNTIME_PRESET,
 		ChainType::Local => sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET,
+		ChainType::Live => sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET,
 		_ => panic!("chain_type: {chain_type:?} not supported here!"),
 	})
 	.build()
