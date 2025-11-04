@@ -241,30 +241,6 @@ fn upload_evm_runtime_code_works() {
 	});
 }
 
-#[test_case(FixtureType::Solc)]
-#[test_case(FixtureType::Resolc)]
-fn dust_work_with_child_calls(fixture_type: FixtureType) {
-	use pallet_revive_fixtures::CallSelfWithDust;
-	let (code, _) = compile_module_with_type("CallSelfWithDust", fixture_type).unwrap();
-
-	ExtBuilder::default().build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
-
-		let value = 1_000_000_000.into();
-		builder::bare_call(addr)
-			.data(
-				CallSelfWithDust::CallSelfWithDustCalls::call(CallSelfWithDust::callCall {})
-					.abi_encode(),
-			)
-			.evm_value(value)
-			.build_and_unwrap_result();
-
-		assert_eq!(crate::Pallet::<Test>::evm_balance(&addr), value);
-	});
-}
-
 #[test]
 fn upload_and_remove_code_works_for_evm() {
 	let (code, code_hash) = compile_module_with_type("Dummy", FixtureType::SolcRuntime).unwrap();
@@ -300,5 +276,29 @@ fn upload_fails_if_evm_bytecode_disabled() {
 			Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u64),
 			<Error<Test>>::CodeRejected
 		);
+	});
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn dust_work_with_child_calls(fixture_type: FixtureType) {
+	use pallet_revive_fixtures::CallSelfWithDust;
+	let (code, _) = compile_module_with_type("CallSelfWithDust", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+
+		let value = 1_000_000_000.into();
+		builder::bare_call(addr)
+			.data(
+				CallSelfWithDust::CallSelfWithDustCalls::call(CallSelfWithDust::callCall {})
+					.abi_encode(),
+			)
+			.evm_value(value)
+			.build_and_unwrap_result();
+
+		assert_eq!(crate::Pallet::<Test>::evm_balance(&addr), value);
 	});
 }
