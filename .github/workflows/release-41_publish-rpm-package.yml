@@ -9,11 +9,6 @@ on:
         default: polkadot-stable2412
         required: true
         type: string
-      distribution:
-        description: Distribution where to publish RPM package (release, staging, stable2407, etc)
-        default: staging
-        required: true
-        type: string
 
 jobs:
   call-publish-workflow:

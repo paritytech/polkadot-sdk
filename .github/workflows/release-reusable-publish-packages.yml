@@ -17,7 +17,6 @@ on:
         type: string 
       aws_repo_base_path:
         description: Base S3 path for package repositories
-        required: true
         type: string
       cloudfront_distribution_id:
         description: CloudFront Distribution ID for cache invalidation
@@ -69,12 +68,6 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
-
-      - name: List available RPMs in S3 for debugging
-        run: |
-          S3_PATH="s3://releases-package-repos/polkadot/${{ env.VERSION }}"
-          echo "Listing .rpm files in ${S3_PATH}..."
-          aws s3 ls "${S3_PATH}" --recursive || echo "No files found in ${S3_PATH}"
 
       - name: Fetch rc artifacts or release artifacts from s3 based on version
         id: fetch_artifacts_from_s3
@@ -130,14 +123,6 @@ jobs:
           name: release-artifacts
           path: release-artifacts
 
-      - name: Debug pgpkms install
-        run: |
-          echo "Checking installed pgpkms scripts..."
-          ls -l $HOME/.local/bin
-          which pgpkms || true
-          which pgpkms-reprepro || true
-          which pgpkms-rpmsign || true
-
       - name: Setup local deb repo config
         if: ${{ inputs.package_type == 'deb' }}
         run: |
@@ -171,11 +156,6 @@ jobs:
             reprepro -b "$LOCAL_REPO_PATH" includedeb "${{ inputs.distribution }}" "$debname"
 
           elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
-            echo "Running pgpkms dry-run test..."
-            echo "hello world" > testfile.txt
-            /home/runner/.local/bin/pgpkms sign --input testfile.txt --output testfile.sig
-            ls -l testfile*
-
             rpmname=$(find release-artifacts/ -name 'polkadot-*.rpm' | head -n 1)
 
             echo "Signing package with pgpkms (via AWS KMS)..."
