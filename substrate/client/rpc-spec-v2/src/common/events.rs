@@ -31,21 +31,6 @@ pub struct StorageQuery<Key> {
 	pub query_type: StorageQueryType,
 }
 
-/// The storage item to query with pagination.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PaginatedStorageQuery<Key> {
-	/// The provided key.
-	pub key: Key,
-	/// The type of the storage query.
-	#[serde(rename = "type")]
-	pub query_type: StorageQueryType,
-	/// The pagination key from which the iteration should resume.
-	#[serde(skip_serializing_if = "Option::is_none")]
-	#[serde(default)]
-	pub pagination_start_key: Option<Key>,
-}
-
 /// The type of the storage query.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -96,17 +81,6 @@ pub enum StorageResultType {
 	ClosestDescendantMerkleValue(String),
 }
 
-/// The error of a storage call.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StorageResultErr {
-	/// The hex-encoded key of the result.
-	pub key: String,
-	/// The result of the query.
-	#[serde(flatten)]
-	pub error: StorageResultType,
-}
-
 /// The result of a storage call.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -147,16 +121,6 @@ impl ArchiveStorageEvent {
 	}
 }
 
-/// The result of a storage call.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ArchiveStorageMethodOk {
-	/// Reported results.
-	pub result: Vec<StorageResult>,
-	/// Number of discarded items.
-	pub discarded_items: usize,
-}
-
 /// The error of a storage call.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -187,14 +151,6 @@ pub struct ArchiveStorageDiffItem<Key> {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	#[serde(default)]
 	pub child_trie_key: Option<Key>,
-}
-
-/// The result of a storage difference call.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ArchiveStorageDiffMethodResult {
-	/// Reported results.
-	pub result: Vec<ArchiveStorageDiffResult>,
 }
 
 /// The result of a storage difference call operation type.
@@ -469,38 +425,6 @@ mod tests {
 		assert_eq!(ser, exp);
 		// Decode
 		let dec: StorageQuery<&str> = serde_json::from_str(exp).unwrap();
-		assert_eq!(dec, item);
-	}
-
-	#[test]
-	fn storage_query_paginated() {
-		let item = PaginatedStorageQuery {
-			key: "0x1",
-			query_type: StorageQueryType::Value,
-			pagination_start_key: None,
-		};
-		// Encode
-		let ser = serde_json::to_string(&item).unwrap();
-		let exp = r#"{"key":"0x1","type":"value"}"#;
-		assert_eq!(ser, exp);
-		// Decode
-		let dec: StorageQuery<&str> = serde_json::from_str(exp).unwrap();
-		assert_eq!(dec.key, item.key);
-		assert_eq!(dec.query_type, item.query_type);
-		let dec: PaginatedStorageQuery<&str> = serde_json::from_str(exp).unwrap();
-		assert_eq!(dec, item);
-
-		let item = PaginatedStorageQuery {
-			key: "0x1",
-			query_type: StorageQueryType::Value,
-			pagination_start_key: Some("0x2"),
-		};
-		// Encode
-		let ser = serde_json::to_string(&item).unwrap();
-		let exp = r#"{"key":"0x1","type":"value","paginationStartKey":"0x2"}"#;
-		assert_eq!(ser, exp);
-		// Decode
-		let dec: PaginatedStorageQuery<&str> = serde_json::from_str(exp).unwrap();
 		assert_eq!(dec, item);
 	}
 }

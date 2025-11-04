@@ -30,12 +30,11 @@ use polkadot_node_subsystem_types::messages::{
 	NetworkBridgeEvent, PvfExecKind, ReportPeerMessage, RuntimeApiRequest,
 };
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2, CandidateHash, CollatorPair, Id as ParaId,
-	InvalidDisputeStatementKind, PersistedValidationData, SessionIndex, ValidDisputeStatementKind,
-	ValidatorIndex,
+	CandidateHash, CandidateReceiptV2, CollatorPair, Id as ParaId, InvalidDisputeStatementKind,
+	PersistedValidationData, SessionIndex, ValidDisputeStatementKind, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{
-	dummy_candidate_descriptor, dummy_candidate_receipt_v2, dummy_hash, dummy_validation_code,
+	dummy_candidate_descriptor_v2, dummy_candidate_receipt_v2, dummy_hash, dummy_validation_code,
 };
 
 use crate::{
@@ -102,7 +101,7 @@ where
 				loop {
 					if c < 10 {
 						let candidate_receipt = CandidateReceiptV2 {
-							descriptor: dummy_candidate_descriptor(dummy_hash()).into(),
+							descriptor: dummy_candidate_descriptor_v2(dummy_hash()),
 							commitments_hash: dummy_hash(),
 						};
 
@@ -803,7 +802,7 @@ fn test_candidate_validation_msg() -> CandidateValidationMessage {
 	let (response_sender, _) = oneshot::channel();
 	let pov = Arc::new(PoV { block_data: BlockData(Vec::new()) });
 	let candidate_receipt = CandidateReceiptV2 {
-		descriptor: dummy_candidate_descriptor(dummy_hash()).into(),
+		descriptor: dummy_candidate_descriptor_v2(dummy_hash()),
 		commitments_hash: Hash::zero(),
 	};
 

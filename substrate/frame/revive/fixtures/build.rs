@@ -28,6 +28,10 @@ use std::{
 const OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR: &str = "PALLET_REVIVE_FIXTURES_RUSTUP_TOOLCHAIN";
 const OVERRIDE_STRIP_ENV_VAR: &str = "PALLET_REVIVE_FIXTURES_STRIP";
 const OVERRIDE_OPTIMIZE_ENV_VAR: &str = "PALLET_REVIVE_FIXTURES_OPTIMIZE";
+/// Do not build the fixtures, they will resolve to `None`.
+///
+/// Depending on the usage, they will probably panic at runtime.
+const SKIP_PALLET_REVIVE_FIXTURES: &str = "SKIP_PALLET_REVIVE_FIXTURES";
 
 /// A contract entry.
 #[derive(Clone)]
@@ -42,6 +46,22 @@ struct Entry {
 enum ContractType {
 	Rust,
 	Solidity,
+}
+
+/// Type of EVM bytecode to extract from Solidity compiler output.
+#[derive(Clone, Copy)]
+enum EvmByteCodeType {
+	InitCode,
+	RuntimeCode,
+}
+
+impl EvmByteCodeType {
+	fn json_key(&self) -> &'static str {
+		match self {
+			Self::InitCode => "bytecode",
+			Self::RuntimeCode => "deployedBytecode",
+		}
+	}
 }
 
 impl Entry {
@@ -217,14 +237,14 @@ fn compile_with_standard_json(
 		"sources": {},
 		"settings": {
 			"optimizer": {
-				"enabled": true,
+				"enabled": false,
 				"runs": 200
 			},
 			"outputSelection":
 
 		serde_json::json!({
 			"*": {
-				"*": ["evm.bytecode"]
+				"*": ["evm.bytecode", "evm.deployedBytecode"]
 			}
 		}),
 
@@ -250,7 +270,10 @@ fn compile_with_standard_json(
 		.stderr(std::process::Stdio::piped())
 		.spawn()
 		.with_context(|| {
-			format!("Failed to execute {}. Make sure {} is installed.", compiler, compiler)
+			format!(
+				"Failed to execute {compiler}. Make sure {compiler} is installed or \
+				set env variable `{SKIP_PALLET_REVIVE_FIXTURES}=1` to skip fixtures compilation."
+			)
 		})?;
 
 	let mut stdin = compiler_output.stdin.as_ref().unwrap();
@@ -295,6 +318,7 @@ fn extract_and_write_bytecode(
 	compiler_json: &serde_json::Value,
 	out_dir: &Path,
 	file_suffix: &str,
+	bytecode_type: EvmByteCodeType,
 ) -> Result<()> {
 	if let Some(contracts) = compiler_json["contracts"].as_object() {
 		for (_file_key, file_contracts) in contracts {
@@ -302,7 +326,7 @@ fn extract_and_write_bytecode(
 				for (contract_name, contract_data) in contract_map {
 					// Navigate through the JSON path to find the bytecode
 					let mut current = contract_data;
-					for path_segment in ["evm", "bytecode", "object"] {
+					for path_segment in ["evm", bytecode_type.json_key(), "object"] {
 						if let Some(next) = current.get(path_segment) {
 							current = next;
 						} else {
@@ -344,13 +368,21 @@ fn compile_solidity_contracts(
 		return Ok(());
 	}
 
+	let evm_only = vec!["HostEvmOnly"];
+	let solidity_entries_pvm: Vec<_> = solidity_entries
+		.iter()
+		.cloned()
+		.filter(|entry| !evm_only.contains(&entry.path.file_stem().unwrap().to_str().unwrap()))
+		.collect();
+
 	// Compile with solc for EVM bytecode
 	let json = compile_with_standard_json("solc", contracts_dir, &solidity_entries)?;
-	extract_and_write_bytecode(&json, out_dir, ".sol.bin")?;
+	extract_and_write_bytecode(&json, out_dir, ".sol.bin", EvmByteCodeType::InitCode)?;
+	extract_and_write_bytecode(&json, out_dir, ".sol.runtime.bin", EvmByteCodeType::RuntimeCode)?;
 
 	// Compile with resolc for PVM bytecode
-	let json = compile_with_standard_json("resolc", contracts_dir, &solidity_entries)?;
-	extract_and_write_bytecode(&json, out_dir, ".resolc.polkavm")?;
+	let json = compile_with_standard_json("resolc", contracts_dir, &solidity_entries_pvm)?;
+	extract_and_write_bytecode(&json, out_dir, ".resolc.polkavm", EvmByteCodeType::InitCode)?;
 
 	Ok(())
 }
@@ -371,70 +403,25 @@ fn write_output(build_dir: &Path, out_dir: &Path, entries: Vec<Entry>) -> Result
 	Ok(())
 }
 
-/// Create a directory in the `target` as output directory
-fn create_out_dir() -> Result<PathBuf> {
-	let temp_dir: PathBuf =
-		env::var("OUT_DIR").context("Failed to fetch `OUT_DIR` env variable")?.into();
-
-	// this is set in case the user has overridden the target directory
-	let out_dir = if let Ok(path) = env::var("CARGO_TARGET_DIR") {
-		let path = PathBuf::from(path);
-
-		if path.is_absolute() {
-			path
-		} else {
-			let output = std::process::Command::new(env!("CARGO"))
-				.arg("locate-project")
-				.arg("--workspace")
-				.arg("--message-format=plain")
-				.output()
-				.context("Failed to determine workspace root")?
-				.stdout;
-
-			let workspace_root = Path::new(
-				std::str::from_utf8(&output)
-					.context("Invalid output from `locate-project`")?
-					.trim(),
-			)
-			.parent()
-			.expect("Workspace root path contains the `Cargo.toml`; qed");
-
-			PathBuf::from(workspace_root).join(path)
-		}
-	} else {
-		// otherwise just traverse up from the out dir
-		let mut out_dir: PathBuf = temp_dir.clone();
-		loop {
-			if !out_dir.pop() {
-				bail!("Cannot find project root.")
-			}
-			if out_dir.join("Cargo.lock").exists() {
-				break;
-			}
-		}
-		out_dir.join("target")
-	}
-	.join("pallet-revive-fixtures");
-
-	// clean up some leftover symlink from previous versions of this script
-	let mut out_exists = out_dir.exists();
-	if out_exists && !out_dir.is_dir() {
-		fs::remove_file(&out_dir).context("Failed to remove `OUT_DIR`.")?;
-		out_exists = false;
-	}
-
-	if !out_exists {
-		fs::create_dir(&out_dir)
-			.context(format!("Failed to create output directory: {})", out_dir.display(),))?;
-	}
-
-	Ok(out_dir)
-}
-
 /// Generate the fixture_location.rs file with macros and sol! definitions.
 fn generate_fixture_location(temp_dir: &Path, out_dir: &Path, entries: &[Entry]) -> Result<()> {
 	let mut file = fs::File::create(temp_dir.join("fixture_location.rs"))
 		.context("Failed to create fixture_location.rs")?;
+
+	let (fixtures, fixtures_resolc) = if env::var(SKIP_PALLET_REVIVE_FIXTURES).is_err() {
+		(
+			format!(
+				r#"Some(include_bytes!(concat!("{}", "/", $name, ".polkavm")))"#,
+				out_dir.display()
+			),
+			format!(
+				r#"Some(include_bytes!(concat!("{}", "/", $name, ".resolc.polkavm")))"#,
+				out_dir.display()
+			),
+		)
+	} else {
+		("None".into(), "None".into())
+	};
 
 	write!(
 		file,
@@ -445,14 +432,14 @@ fn generate_fixture_location(temp_dir: &Path, out_dir: &Path, entries: &[Entry])
 			#[macro_export]
 			macro_rules! fixture {{
 				($name: literal) => {{
-					include_bytes!(concat!("{0}", "/", $name, ".polkavm"))
+					{fixtures}
 				}};
 			}}
 
 			#[macro_export]
 			macro_rules! fixture_resolc {{
 				($name: literal) => {{
-					include_bytes!(concat!("{0}", "/", $name, ".resolc.polkavm"))
+					{fixtures_resolc}
 				}};
 			}}
 		"#,
@@ -463,7 +450,7 @@ fn generate_fixture_location(temp_dir: &Path, out_dir: &Path, entries: &[Entry])
 	// Generate sol! macros for Solidity contracts
 	for entry in entries.iter().filter(|e| matches!(e.contract_type, ContractType::Solidity)) {
 		let relative_path = format!("contracts/{}", entry.path().split('/').last().unwrap());
-		writeln!(file, r#"alloy_core::sol!("{}");"#, relative_path)
+		writeln!(file, r#"#[cfg(feature = "std")] alloy_core::sol!("{}");"#, relative_path)
 			.context("Failed to write sol! macro to fixture_location.rs")?;
 	}
 
@@ -471,16 +458,21 @@ fn generate_fixture_location(temp_dir: &Path, out_dir: &Path, entries: &[Entry])
 }
 
 pub fn main() -> Result<()> {
+	// input pathes
 	let fixtures_dir: PathBuf = env::var("CARGO_MANIFEST_DIR")?.into();
 	let contracts_dir = fixtures_dir.join("contracts");
-	let out_dir = create_out_dir().context("Cannot determine output directory")?;
-	let build_dir = out_dir.join("build");
-	fs::create_dir_all(&build_dir).context("Failed to create build directory")?;
+
+	// output pathes
+	let out_dir: PathBuf =
+		env::var("OUT_DIR").context("Failed to fetch `OUT_DIR` env variable")?.into();
+	let out_fixtures_dir = out_dir.join("fixtures");
+	let out_build_dir = out_dir.join("build");
+	fs::create_dir_all(&out_fixtures_dir).context("Failed to create output fixture directory")?;
+	fs::create_dir_all(&out_build_dir).context("Failed to create output build directory")?;
 
 	println!("cargo::rerun-if-env-changed={OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR}");
 	println!("cargo::rerun-if-env-changed={OVERRIDE_STRIP_ENV_VAR}");
 	println!("cargo::rerun-if-env-changed={OVERRIDE_OPTIMIZE_ENV_VAR}");
-	println!("cargo::rerun-if-changed={}", out_dir.display());
 
 	// the fixtures have a dependency on the uapi crate
 	println!("cargo::rerun-if-changed={}", fixtures_dir.display());
@@ -494,25 +486,24 @@ pub fn main() -> Result<()> {
 		return Ok(());
 	}
 
-	// Compile Rust contracts
-	let rust_entries: Vec<_> = entries
-		.iter()
-		.filter(|e| matches!(e.contract_type, ContractType::Rust))
-		.collect();
-	if !rust_entries.is_empty() {
-		create_cargo_toml(&fixtures_dir, rust_entries.into_iter(), &build_dir)?;
-		invoke_build(&build_dir)?;
-		write_output(&build_dir, &out_dir, entries.clone())?;
+	if env::var(SKIP_PALLET_REVIVE_FIXTURES).is_err() {
+		// Compile Rust contracts
+		let rust_entries: Vec<_> = entries
+			.iter()
+			.filter(|e| matches!(e.contract_type, ContractType::Rust))
+			.collect();
+		if !rust_entries.is_empty() {
+			create_cargo_toml(&fixtures_dir, rust_entries.into_iter(), &out_build_dir)?;
+			invoke_build(&out_build_dir)?;
+			write_output(&out_build_dir, &out_fixtures_dir, entries.clone())?;
+		}
+
+		// Compile Solidity contracts
+		compile_solidity_contracts(&contracts_dir, &out_fixtures_dir, &entries)?;
 	}
 
-	// Compile Solidity contracts
-	compile_solidity_contracts(&contracts_dir, &out_dir, &entries)?;
-
-	let temp_dir: PathBuf =
-		env::var("OUT_DIR").context("Failed to fetch `OUT_DIR` env variable")?.into();
-
 	// Generate fixture_location.rs with sol! macros
-	generate_fixture_location(&temp_dir, &out_dir, &entries)?;
+	generate_fixture_location(&out_dir, &out_fixtures_dir, &entries)?;
 
 	Ok(())
 }

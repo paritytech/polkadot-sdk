@@ -23,7 +23,7 @@ use crate::{
 use asset_hub_westend_runtime::ForeignAssets;
 use bridge_hub_westend_runtime::{
 	bridge_common_config::BridgeReward,
-	bridge_to_ethereum_config::{CreateAssetCall, EthereumGatewayAddress},
+	bridge_to_ethereum_config::{CreateAssetCallIndex, EthereumGatewayAddress},
 	EthereumInboundQueueV2,
 };
 use codec::Encode;
@@ -422,7 +422,7 @@ fn register_and_send_multiple_tokens_v2() {
 				origin_kind: OriginKind::Xcm,
 				fallback_max_weight: None,
 				call: (
-					CreateAssetCall::get(),
+					CreateAssetCallIndex::get(),
 					token_location.clone(),
 					MultiAddress::<[u8; 32], ()>::Id(bridge_owner.clone().into()),
 					1u128,
