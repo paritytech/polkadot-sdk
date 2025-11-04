@@ -99,7 +99,7 @@ pub use crate::{
 	exec::{DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
 	pallet::{genesis, *},
 	storage::{AccountInfo, ContractInfo},
-	vm::ContractBlob,
+	vm::{BytecodeType, ContractBlob},
 };
 pub use codec;
 pub use frame_support::{self, dispatch::DispatchInfo, weights::Weight};
@@ -1556,9 +1556,10 @@ impl<T: Config> Pallet<T> {
 			let (executable, upload_deposit) = match code {
 				Code::Upload(code) if code.starts_with(&polkavm_common::program::BLOB_MAGIC) => {
 					let upload_account = T::UploadOrigin::ensure_origin(origin)?;
-					let (executable, upload_deposit) = Self::try_upload_pvm_code(
+					let (executable, upload_deposit) = Self::try_upload_code(
 						upload_account,
 						code,
+						BytecodeType::Pvm,
 						storage_deposit_limit,
 						&exec_config,
 					)?;
@@ -1859,7 +1860,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns the spendable balance excluding the existential deposit.
 	pub fn evm_balance(address: &H160) -> U256 {
-		let balance = AccountInfo::<T>::balance((*address).into());
+		let balance = AccountInfo::<T>::balance_of((*address).into());
 		Self::convert_native_to_evm(balance)
 	}
 
@@ -1989,9 +1990,10 @@ impl<T: Config> Pallet<T> {
 		storage_deposit_limit: BalanceOf<T>,
 	) -> CodeUploadResult<BalanceOf<T>> {
 		let origin = T::UploadOrigin::ensure_origin(origin)?;
-		let (module, deposit) = Self::try_upload_pvm_code(
+		let (module, deposit) = Self::try_upload_code(
 			origin,
 			code,
+			BytecodeType::Pvm,
 			storage_deposit_limit,
 			&ExecConfig::new_substrate_tx(),
 		)?;
@@ -2132,13 +2134,17 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
-	pub fn try_upload_pvm_code(
+	pub fn try_upload_code(
 		origin: T::AccountId,
 		code: Vec<u8>,
+		code_type: BytecodeType,
 		storage_deposit_limit: BalanceOf<T>,
 		exec_config: &ExecConfig<T>,
 	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
-		let mut module = ContractBlob::from_pvm_code(code, origin)?;
+		let mut module = match code_type {
+			BytecodeType::Pvm => ContractBlob::from_pvm_code(code, origin)?,
+			BytecodeType::Evm => ContractBlob::from_evm_runtime_code(code, origin)?,
+		};
 		let deposit = module.store_code(exec_config, None)?;
 		ensure!(storage_deposit_limit >= deposit, <Error<T>>::StorageDepositLimitExhausted);
 		Ok((module, deposit))
