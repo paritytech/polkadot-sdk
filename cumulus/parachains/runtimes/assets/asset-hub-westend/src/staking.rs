@@ -319,14 +319,14 @@ pub enum RelayChainRuntimePallets {
 pub enum AhClientCalls {
 	// index of `fn validator_set` in `staking-async-ah-client`. It has only one call.
 	#[codec(index = 0)]
-	ValidatorSet(rc_client::ValidatorSetReport<AccountId>),
+	ValidatorSet(rc_client::ValidatorSetReport<AccountId, MaxValidatorSet>),
 }
 
 pub struct ValidatorSetToXcm;
-impl sp_runtime::traits::Convert<rc_client::ValidatorSetReport<AccountId>, Xcm<()>>
+impl sp_runtime::traits::Convert<rc_client::ValidatorSetReport<AccountId, MaxValidatorSet>, Xcm<()>>
 	for ValidatorSetToXcm
 {
-	fn convert(report: rc_client::ValidatorSetReport<AccountId>) -> Xcm<()> {
+	fn convert(report: rc_client::ValidatorSetReport<AccountId, MaxValidatorSet>) -> Xcm<()> {
 		Xcm(vec![
 			Instruction::UnpaidExecution {
 				weight_limit: WeightLimit::Unlimited,
@@ -351,11 +351,12 @@ pub struct StakingXcmToRelayChain;
 
 impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 	type AccountId = AccountId;
-	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) -> Result<(), ()> {
+	type MaxValidators = MaxValidatorSet;
+	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId, Self::MaxValidators>) -> Result<(), ()> {
 		rc_client::XCMSender::<
 			xcm_config::XcmRouter,
 			RelayLocation,
-			rc_client::ValidatorSetReport<Self::AccountId>,
+			rc_client::ValidatorSetReport<Self::AccountId, Self::MaxValidators>,
 			ValidatorSetToXcm,
 		>::send(report)
 	}
