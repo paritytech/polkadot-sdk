@@ -242,47 +242,37 @@ fn upload_evm_runtime_code_works() {
 
 #[test]
 fn upload_and_remove_code_works_for_evm() {
-	use crate::tests::{initialize_block, test_utils::expected_deposit};
-
-	let storage_deposit_limit = 1000u64;
-	let (code, code_hash) = compile_module_with_type("dummy", FixtureType::Solc).unwrap();
+	let (code, code_hash) = compile_module_with_type("Dummy", FixtureType::SolcRuntime).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
-		let deployer_addr = ALICE_ADDR;
-		let amount = 5_000_000_000u64;
-		let _ = Pallet::<Test>::set_evm_balance(&deployer_addr, amount.into());
-
-		// Drop previous events
-		initialize_block(2);
+		let _ = Pallet::<Test>::set_evm_balance(&ALICE_ADDR, 5_000_000_000u64.into());
 
 		// Ensure the code is not already stored.
 		assert!(!PristineCode::<Test>::contains_key(&code_hash));
 
 		// Upload the code.
-		assert_ok!(Pallet::<Test>::upload_code(
-			RuntimeOrigin::signed(ALICE),
-			code,
-			storage_deposit_limit
-		));
+		assert_ok!(Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u64));
 
-		// Ensure the contract was stored and get expected deposit amount to be reserved.
-		expected_deposit(ensure_stored(code_hash));
+		// Ensure the contract was stored.
+		ensure_stored(code_hash);
 
-		// Now remove the code.
+		// Remove the code.
 		assert_ok!(Pallet::<Test>::remove_code(RuntimeOrigin::signed(ALICE), code_hash));
+
+		// Ensure the code is no longer stored.
+		assert!(!PristineCode::<Test>::contains_key(&code_hash));
 	});
 }
 
 #[test]
 fn upload_fails_if_evm_bytecode_disabled() {
-	let storage_deposit_limit = 1000u64;
-	let (code, _) = compile_module_with_type("dummy", FixtureType::Solc).unwrap();
+	let (code, _) = compile_module_with_type("Dummy", FixtureType::SolcRuntime).unwrap();
 
 	AllowEvmBytecode::set(false); // Disable support for EVM bytecode.
 	ExtBuilder::default().build().execute_with(|| {
 		// Upload should fail since support for EVM bytecode is disabled.
 		assert_err!(
-			Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, storage_deposit_limit),
+			Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u64),
 			<Error<Test>>::CodeRejected
 		);
 	});

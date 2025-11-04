@@ -6,10 +6,6 @@ doc:
 
     Add support for EVM bytecode to the upload_code extrinsic.
     Tests in issue https://github.com/paritytech/contract-issues/issues/182 send hardhat_setCode, which uses revive's upload_code API; this change makes that flow accept and store the EVM bytecode using upload_code extrinsic.
-
-    This PR deprecates PR: https://github.com/paritytech/polkadot-sdk/pull/10095
-
-    Comment explaining test configuration requirements: https://github.com/paritytech/polkadot-sdk/pull/10095#issuecomment-3456450460
 crates:
 - name: pallet-revive
   bump: patch
