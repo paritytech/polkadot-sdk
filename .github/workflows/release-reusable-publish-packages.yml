@@ -23,29 +23,12 @@ on:
         description: CloudFront Distribution ID for cache invalidation
         required: true
         type: string
-    secrets:
-      upstream_content_sync_app_key:
-        required: true
-      aws_release_access_key_id:
-        required: true
-      aws_release_secret_access_key:
-        required: true
-      pgp_kms_key:
-        required: true
-      pgp_kms_hash:
-        required: true
-      aws_default_region:
-        required: true
-      aws_access_key_id:
-        required: true
-      aws_secret_access_key:
-        required: true
  
 jobs:
   check-synchronization:
     uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
     secrets:
-      fork_writer_app_key: ${{ secrets.upstream_content_sync_app_key }}
+      fork_writer_app_key: ${{ secrets.UPSTREAM_CONTENT_SYNC_APP_KEY }}
 
   validate-inputs:
     needs: [check-synchronization]
@@ -108,7 +91,7 @@ jobs:
     needs: [fetch-artifacts-from-s3]
     environment: release
     env:
-      AWS_DEFAULT_REGION: ${{ secrets.aws_default_region }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       AWS_REPO_PATH: "${{ inputs.aws_repo_base_path }}/${{ inputs.package_type }}"
       LOCAL_REPO_PATH: ${{ github.workspace }}/${{ inputs.package_type }}
       NODE_VERSION: ${{ needs.fetch-artifacts-from-s3.outputs.NODE_VERSION }}
@@ -164,8 +147,8 @@ jobs:
 
       - name: Sync local repo (download from S3)
         env:
-          AWS_ACCESS_KEY_ID:  ${{ secrets.aws_release_access_key_id }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.aws_release_secret_access_key }}
+          AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
         run: |
           mkdir -p "$LOCAL_REPO_PATH"
           # Sync database and configuration files
@@ -180,10 +163,10 @@ jobs:
 
       - name: Add package to local repo
         env:
-          PGP_KMS_KEY:  ${{ secrets.pgp_kms_key }}
-          PGP_KMS_HASH:  ${{ secrets.pgp_kms_hash }}
-          AWS_ACCESS_KEY_ID:  ${{ secrets.aws_access_key_id }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.aws_secret_access_key }}
+          PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
+          PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
+          AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           if [[ "${{ inputs.package_type }}" == "deb" ]]; then
             # Find the downloaded .deb artifact
@@ -245,8 +228,8 @@ jobs:
 
       - name: Upload updated repo to S3
         env:
-          AWS_ACCESS_KEY_ID:  ${{ secrets.aws_release_access_key_id }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.aws_release_secret_access_key }}
+          AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
         run: |
           if [[ "${{ inputs.package_type }}" == "deb" ]]; then
             # For Debian, pool and dists directories need public-read ACL
