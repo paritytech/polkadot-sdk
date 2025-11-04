@@ -358,7 +358,11 @@ mod tests {
 				if let Some(expected_error) = expected_error {
 					assert_err!(result.result, expected_error);
 				} else {
-					assert_eq!(result.result.unwrap(), Default::default(), "{description} tx failed");
+					assert_eq!(
+						result.result.unwrap(),
+						Default::default(),
+						"{description} tx failed"
+					);
 				}
 
 				assert_eq!(
