@@ -511,6 +511,30 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark(pov_mode = Measured)]
+	fn eth_substrate_call_upload_code(c: Linear<0, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
+		let caller = whitelisted_caller();
+		let pallet_account = whitelisted_pallet_account::<T>();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		let VmBinaryModule { code, hash, .. } = VmBinaryModule::sized(c);
+		let origin = RawOrigin::Signed(caller.clone());
+		let storage_deposit = default_deposit_limit::<T>();
+
+		// Encode the upload_code call
+		let upload_code_call =
+			Call::<T>::upload_code { code: code.clone(), storage_deposit_limit: storage_deposit };
+
+		let encoded_call = upload_code_call.encode();
+
+		#[extrinsic_call]
+		eth_substrate_call(origin, encoded_call);
+		// uploading the code reserves some balance in the pallet's account
+		assert!(T::Currency::total_balance_on_hold(&pallet_account) > 0u32.into());
+		assert!(<Contract<T>>::code_exists(&hash));
+
+		Ok(())
+	}
+
 	// This constructs a contract that is maximal expensive to instrument.
 	// It creates a maximum number of metering blocks per byte.
 	// `c`: Size of the code in bytes.

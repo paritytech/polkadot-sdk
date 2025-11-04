@@ -169,6 +169,7 @@ pub trait WeightInfo {
 	fn on_finalize_per_transaction_data(d: u32, ) -> Weight;
 	fn on_finalize_per_event(e: u32, ) -> Weight;
 	fn on_finalize_per_event_data(d: u32, ) -> Weight;
+	fn eth_substrate_call_upload_code(n: u32) -> Weight;
 }
 
 /// Weights for `pallet_revive` using the Substrate node and recommended hardware.
@@ -441,6 +442,27 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
+
+	// TODO: Run the benchmarks again to get accurate numbers for this function
+	/// Storage: `Revive::CodeInfoOf` (r:1 w:1)
+	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	/// Storage: `Balances::Holds` (r:1 w:1)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(463), added: 2938, mode: `Measured`)
+	/// Storage: `Revive::PristineCode` (r:0 w:1)
+	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// The range of component `c` is `[0, 102400]`.
+	fn eth_substrate_call_upload_code(c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `369`
+		//  Estimated: `3834`
+		// Minimum execution time: 56_937_000 picoseconds.
+		Weight::from_parts(60_649_814, 4934)
+			// Standard Error: 55
+			.saturating_add(Weight::from_parts(20_000, 0).saturating_mul(c.into()))
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
+	}
+
 	/// Storage: `Revive::CodeInfoOf` (r:1 w:1)
 	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
@@ -1692,6 +1714,27 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
+
+	// TODO: Run the benchmarks again to get accurate numbers for this function
+	/// Storage: `Revive::CodeInfoOf` (r:1 w:1)
+	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	/// Storage: `Balances::Holds` (r:1 w:1)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(463), added: 2938, mode: `Measured`)
+	/// Storage: `Revive::PristineCode` (r:0 w:1)
+	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// The range of component `c` is `[0, 102400]`.
+	fn eth_substrate_call_upload_code(c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `369`
+		//  Estimated: `3834`
+		// Minimum execution time: 56_937_000 picoseconds.
+		Weight::from_parts(60_649_814, 4934)
+			// Standard Error: 55
+			.saturating_add(Weight::from_parts(20_000, 0).saturating_mul(c.into()))
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
+	}
+
 	/// Storage: `Revive::CodeInfoOf` (r:1 w:1)
 	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
 	/// Storage: `Balances::Holds` (r:1 w:1)

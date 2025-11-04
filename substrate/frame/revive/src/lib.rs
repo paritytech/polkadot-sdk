@@ -1343,8 +1343,21 @@ pub mod pallet {
 		/// * `origin`: Must be an [`Origin::EthTransaction`] origin.
 		/// * `code`: Encoded runtime call data.
 		#[pallet::call_index(12)]
-		#[pallet::weight(<T as Config>::WeightInfo::upload_code(code.len() as u32))]
-		pub fn eth_substrate_call(origin: OriginFor<T>, code: Vec<u8>) -> DispatchResult {
+		#[pallet::weight({
+			let code_len = code.len() as u32;
+			let overhead = T::WeightInfo::eth_substrate_call_upload_code(code_len).saturating_sub(T::WeightInfo::upload_code(code_len));
+			// Add maximum weight of allowed inner calls
+			let max_inner_weight = T::WeightInfo::upload_code(code_len)
+				.max(T::WeightInfo::remove_code())
+				.max(T::WeightInfo::unmap_account());
+			// Total: overhead + inner call weight
+			overhead.saturating_add(max_inner_weight)
+		})]
+		pub fn eth_substrate_call(
+			origin: OriginFor<T>,
+			code: Vec<u8>,
+		) -> DispatchResultWithPostInfo {
+			// Ensure the origin is an Ethereum transaction and get the signer.
 			let signer = ensure_signed(Self::ensure_eth_origin(origin)?)?;
 
 			block_storage::with_ethereum_context::<T>(code.clone(), || {
@@ -1375,9 +1388,7 @@ pub mod pallet {
 					revive_call,
 					Call::upload_code { .. } |
 						Call::remove_code { .. } |
-						Call::unmap_account { .. } |
-						Call::eth_call { .. } | // TODO: Expects EthTransaction origin
-						Call::eth_instantiate_with_code { .. } // TODO: Expects EthTransaction origin
+						Call::unmap_account { .. }
 				);
 
 				if !is_allowed {
@@ -1385,21 +1396,16 @@ pub mod pallet {
 					return create_dispatch_error_result(DispatchError::CannotLookup);
 				}
 
-				// Get the actual weight of the call
 				let call_weight = dispatch_call.get_dispatch_info().call_weight;
-				// Dispatch the call with the signer as origin
-				let call_result = dispatch_call
-					.dispatch(RawOrigin::Signed(signer).into())
-					.map(|_| ())
-					.map_err(|err| {
+				let call_result =
+					dispatch_call.dispatch(RawOrigin::Signed(signer).into()).map_err(|err| {
 						log::warn!(target: LOG_TARGET, "Dispatch failed: {:?}", err.error);
 						err.error
 					});
-				let dispatch_res = dispatch_result::<()>(call_result, call_weight, Weight::zero());
-				(call_weight, dispatch_res)
+				let dispatch_res =
+					dispatch_result::<PostDispatchInfo>(call_result, Weight::zero(), call_weight);
+				(Weight::zero(), dispatch_res)
 			})
-			.map(|_| ())
-			.map_err(|e| e.error)
 		}
 
 		/// Upload new `code` without instantiating a contract from it.
