@@ -36,7 +36,7 @@ use frame_support::{
 	storage::with_transaction,
 };
 use sp_core::U256;
-use sp_runtime::{Saturating, TransactionOutcome};
+use sp_runtime::{FixedPointNumber, FixedU128, Saturating, TransactionOutcome};
 
 /// The maximum number of block hashes to keep in the history.
 ///
@@ -94,17 +94,27 @@ impl EthereumCallResult {
 		let native_fee = T::FeeInfo::compute_actual_fee(encoded_len, &info, &result);
 		let result = T::FeeInfo::ensure_not_overdrawn(native_fee, result);
 
-		let fee = Pallet::<T>::convert_native_to_evm(match output.storage_deposit {
+		let ratio = FixedU128::from_rational(
+			effective_gas_price.as_u128(),
+			Pallet::<T>::evm_base_fee().as_u128(),
+		);
+
+		let fee = match output.storage_deposit {
 			StorageDeposit::Refund(refund) => native_fee.saturating_sub(refund),
 			StorageDeposit::Charge(amount) => native_fee.saturating_add(amount),
-		});
+		};
+		let adjusted_fee = ratio.saturating_mul_int(fee);
 
-		let (mut gas_used, rest) = fee.div_mod(effective_gas_price);
+		let fee = Pallet::<T>::convert_native_to_evm(fee);
+		let adjusted_fee = Pallet::<T>::convert_native_to_evm(adjusted_fee);
+
+		let (mut gas_used, rest) = adjusted_fee.div_mod(effective_gas_price);
 		if !rest.is_zero() {
 			gas_used = gas_used.saturating_add(1_u32.into());
 		}
 
 		let tx_cost = gas_used.saturating_mul(effective_gas_price);
+
 		if tx_cost > fee {
 			let round_up_fee = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(tx_cost - fee)
 				.expect("value fits into BalanceOf<T>; qed");
