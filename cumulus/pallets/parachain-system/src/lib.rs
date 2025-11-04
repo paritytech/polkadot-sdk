@@ -1147,7 +1147,7 @@ impl<T: Config> Pallet<T> {
 		expected_dmq_mqc_head: relay_chain::Hash,
 		downward_messages: AbridgedInboundDownwardMessages,
 	) -> Weight {
-		downward_messages.check_enough_messages_included("DMQ", None);
+		downward_messages.check_enough_messages_included_basic("DMQ");
 
 		let mut dmq_head = <LastDmqMqcHead<T>>::get();
 
@@ -1247,7 +1247,7 @@ impl<T: Config> Pallet<T> {
 		*maybe_prev_msg_metadata = Some(msg_metadata);
 
 		// Check that the message is sent from an existing channel.
-		let _ = Self::get_ingress_channel_or_panic(ingress_channels, msg_metadata.1);
+		Self::get_ingress_channel_or_panic(ingress_channels, msg_metadata.1);
 	}
 
 	/// Process all inbound horizontal messages relayed by the collator.
@@ -1269,17 +1269,18 @@ impl<T: Config> Pallet<T> {
 		let (messages, hashed_messages) = horizontal_messages.messages();
 
 		// First, check the HRMP advancement rule.
-		let first_hashed_msg_channel = hashed_messages
-			.first()
-			.map(|(sender, _msg)| *sender)
-			.map(|sender| Self::get_ingress_channel_or_panic(ingress_channels, sender));
-		horizontal_messages.check_enough_messages_included(
-			"HRMP",
-			first_hashed_msg_channel.map(|channel| AbridgedInboundMessagesSizeInfo {
-				max_full_messages_size: Self::messages_collection_size_limit(),
-				first_hashed_msg_max_size: channel.max_message_size as usize,
-			}),
-		);
+		let maybe_first_hashed_msg_sender = hashed_messages.first().map(|(sender, _msg)| *sender);
+		if let Some(first_hashed_msg_sender) = maybe_first_hashed_msg_sender {
+			let channel =
+				Self::get_ingress_channel_or_panic(ingress_channels, first_hashed_msg_sender);
+			horizontal_messages.check_enough_messages_included_advanced(
+				"HRMP",
+				AbridgedInboundMessagesSizeInfo {
+					max_full_messages_size: Self::messages_collection_size_limit(),
+					first_hashed_msg_max_size: channel.max_message_size as usize,
+				},
+			);
+		}
 
 		if messages.is_empty() {
 			Self::check_hrmp_mcq_heads(ingress_channels, &mut mqc_heads);

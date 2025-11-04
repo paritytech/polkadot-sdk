@@ -190,59 +190,52 @@ impl<Message: InboundMessage> AbridgedInboundMessagesCollection<Message> {
 		(&self.full_messages, &self.hashed_messages)
 	}
 
-	/// Check that the current collection contains as many full messages as possible.
-	///
-	/// The `AbridgedInboundMessagesCollection` is provided to the runtime by a collator.
-	/// A malicious collator can provide a collection that contains no full messages or fewer
-	/// full messages than possible, leading to censorship.
-	pub fn check_enough_messages_included(
-		&self,
-		collection_name: &str,
-		maybe_size_info: Option<AbridgedInboundMessagesSizeInfo>,
-	) {
+	/// Check that the current collection contains at least 1 full message if needed.
+	pub fn check_enough_messages_included_basic(&self, collection_name: &str) {
 		if self.hashed_messages.is_empty() {
 			return;
 		}
 
+		// Here we just check that there is at least 1 full message.
+		assert!(
+			self.full_messages.len() >= 1,
+			"[{}] Advancement rule violation: full messages missing",
+			collection_name,
+		);
+	}
+
+	/// Check that the current collection contains as many full messages as possible, taking into
+	/// consideration the collection constraints.
+	///
+	/// The `AbridgedInboundMessagesCollection` is provided to the runtime by a collator.
+	/// A malicious collator can provide a collection that contains no full messages or fewer
+	/// full messages than possible, leading to censorship.
+	pub fn check_enough_messages_included_advanced(
+		&self,
+		collection_name: &str,
+		maybe_size_info: AbridgedInboundMessagesSizeInfo,
+	) {
 		// We should check that the collection contains as many full messages as possible
 		// without exceeding the max expected size.
-		match maybe_size_info {
-			Some(AbridgedInboundMessagesSizeInfo {
-				mut max_full_messages_size,
-				first_hashed_msg_max_size,
-			}) => {
-				let mut full_messages_size = 0usize;
-				for msg in &self.full_messages {
-					full_messages_size = full_messages_size.saturating_add(msg.data().len());
-				}
+		let AbridgedInboundMessagesSizeInfo { max_full_messages_size, first_hashed_msg_max_size } =
+			maybe_size_info;
 
-				// Let's take a margin of safety.
-				max_full_messages_size = max_full_messages_size * 3 / 4;
-				// The worst case scenario is that were the first message that had to be hashed
-				// is a max size message. So in this case, the min expected size would be
-				// `max_expected_size - first_hashed_msg_max_size`.
-				let min_full_messages_size =
-					max_full_messages_size.saturating_sub(first_hashed_msg_max_size);
-
-				assert!(
-					full_messages_size > min_full_messages_size,
-					"[{}] Advancement rule violation: full messages size smaller than expected: \
-					{} < {}",
-					collection_name,
-					full_messages_size,
-					min_full_messages_size
-				);
-			},
-			None => {
-				// If no `size_constraints` are provided, let's just check that there is at least
-				// 1 full message.
-				assert!(
-					self.full_messages.len() >= 1,
-					"[{}] Advancement rule violation: full messages missing",
-					collection_name,
-				);
-			},
+		let mut full_messages_size = 0usize;
+		for msg in &self.full_messages {
+			full_messages_size = full_messages_size.saturating_add(msg.data().len());
 		}
+
+		// The worst case scenario is that were the first message that had to be hashed
+		// is a max size message.
+		assert!(
+			full_messages_size.saturating_add(first_hashed_msg_max_size) > max_full_messages_size,
+			"[{}] Advancement rule violation: full messages size smaller than expected. \
+			full msgs size: {}, first hashed msg max size: {}, max full msgs size: {}",
+			collection_name,
+			full_messages_size,
+			first_hashed_msg_max_size,
+			max_full_messages_size
+		);
 	}
 }
 
@@ -551,59 +544,57 @@ mod tests {
 	}
 
 	#[test]
-	fn check_enough_messages_included_works() {
-		let empty_messages =
-			AbridgedInboundHrmpMessages { full_messages: vec![], hashed_messages: vec![] };
-		empty_messages.check_enough_messages_included("Test", None);
+	fn check_enough_messages_included_basic_works() {
+		let mut messages = AbridgedInboundHrmpMessages {
+			full_messages: vec![(
+				1000.into(),
+				InboundHrmpMessage { sent_at: 0, data: vec![1; 100] },
+			)],
+			hashed_messages: vec![(
+				2000.into(),
+				HashedMessage { sent_at: 1, msg_hash: Default::default() },
+			)],
+		};
 
-		let full_messages = AbridgedInboundHrmpMessages {
+		messages.check_enough_messages_included_basic("Test");
+
+		messages.full_messages = vec![];
+		let result =
+			std::panic::catch_unwind(|| messages.check_enough_messages_included_basic("Test"));
+		assert!(result.is_err());
+
+		messages.hashed_messages = vec![];
+		messages.check_enough_messages_included_basic("Test");
+	}
+
+	#[test]
+	fn check_enough_messages_included_advanced_works() {
+		let mixed_messages = AbridgedInboundHrmpMessages {
 			full_messages: vec![(
 				1000.into(),
 				InboundHrmpMessage { sent_at: 0, data: vec![1; 50] },
 			)],
-			hashed_messages: vec![],
-		};
-		full_messages.check_enough_messages_included(
-			"Test",
-			Some(AbridgedInboundMessagesSizeInfo {
-				max_full_messages_size: 100,
-				first_hashed_msg_max_size: 25,
-			}),
-		);
-
-		let hashed_messages = AbridgedInboundHrmpMessages {
-			full_messages: vec![],
 			hashed_messages: vec![(
 				2000.into(),
 				HashedMessage { sent_at: 1, msg_hash: Default::default() },
 			)],
 		};
 		let result = std::panic::catch_unwind(|| {
-			hashed_messages.check_enough_messages_included("Test", None)
-		});
-		assert!(result.is_err());
-
-		let mixed_messages = AbridgedInboundHrmpMessages {
-			full_messages: full_messages.full_messages.clone(),
-			hashed_messages: hashed_messages.hashed_messages.clone(),
-		};
-		let result = std::panic::catch_unwind(|| {
-			mixed_messages.check_enough_messages_included(
+			mixed_messages.check_enough_messages_included_advanced(
 				"Test",
-				Some(AbridgedInboundMessagesSizeInfo {
+				AbridgedInboundMessagesSizeInfo {
 					max_full_messages_size: 100,
-					first_hashed_msg_max_size: 25,
-				}),
+					first_hashed_msg_max_size: 50,
+				},
 			)
 		});
 		assert!(result.is_err());
-		mixed_messages.check_enough_messages_included(
+		mixed_messages.check_enough_messages_included_advanced(
 			"Test",
-			Some(AbridgedInboundMessagesSizeInfo {
+			AbridgedInboundMessagesSizeInfo {
 				max_full_messages_size: 100,
-				first_hashed_msg_max_size: 26,
-			}),
+				first_hashed_msg_max_size: 51,
+			},
 		);
-		mixed_messages.check_enough_messages_included("Test", None);
 	}
 }
