@@ -65,7 +65,7 @@ use cumulus_test_runtime::{Hash, NodeBlock as Block, RuntimeApi};
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use polkadot_node_subsystem::{errors::RecoveryError, messages::AvailabilityRecoveryMessage};
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{unchecked_new_approved_peer_id, CandidateHash, CollatorPair};
+use polkadot_primitives::{CandidateHash, CollatorPair};
 use polkadot_service::ProvideRuntimeApi;
 use sc_consensus::ImportQueue;
 use sc_network::{
@@ -432,7 +432,6 @@ where
 	})?;
 
 	let collator_peer_id = network.local_peer_id();
-	let collator_peer_id = unchecked_new_approved_peer_id(collator_peer_id.to_bytes());
 	if let Some(collator_key) = collator_key {
 		let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
 			task_manager.spawn_handle(),

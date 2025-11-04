@@ -16,18 +16,20 @@
 
 //! Client side code for generating the parachain inherent.
 
-use codec::Decode;
-use cumulus_primitives_core::{
-	relay_chain::{self, Block as RelayBlock, Hash as PHash, HrmpChannelId},
-	ParaId, PersistedValidationData,
-};
-use cumulus_relay_chain_interface::RelayChainInterface;
-
 mod mock;
 
-use cumulus_primitives_core::relay_chain::{ApprovedPeerId, Header as RelayHeader};
+use codec::Decode;
+use cumulus_primitives_core::{
+	relay_chain::{
+		self, ApprovedPeerId, Block as RelayBlock, Hash as PHash, Header as RelayHeader,
+		HrmpChannelId,
+	},
+	ParaId, PersistedValidationData,
+};
 pub use cumulus_primitives_parachain_inherent::{ParachainInherentData, INHERENT_IDENTIFIER};
+use cumulus_relay_chain_interface::RelayChainInterface;
 pub use mock::{MockValidationDataInherentDataProvider, MockXcmConfig};
+use sc_network_types::PeerId;
 
 const LOG_TARGET: &str = "parachain-inherent";
 
@@ -168,8 +170,18 @@ impl ParachainInherentDataProvider {
 		para_id: ParaId,
 		relay_parent_descendants: Vec<RelayHeader>,
 		additional_relay_state_keys: Vec<Vec<u8>>,
-		collator_peer_id: ApprovedPeerId,
+		collator_peer_id: PeerId,
 	) -> Option<ParachainInherentData> {
+		let collator_peer_id = ApprovedPeerId::try_from(collator_peer_id.to_bytes())
+			.inspect_err(|_e| {
+				tracing::error!(
+					target: LOG_TARGET,
+					"Could not convert collator_peer_id into ApprovedPeerId. The collator_peer_id \
+					should contain a sequence of at most 64 bytes",
+				);
+			})
+			.ok();
+
 		// Only include next epoch authorities when the descendants include an epoch digest.
 		// Skip the first entry because this is the relay parent itself.
 		let include_next_authorities = relay_parent_descendants.iter().skip(1).any(|header| {
@@ -219,7 +231,7 @@ impl ParachainInherentDataProvider {
 			validation_data: validation_data.clone(),
 			relay_chain_state,
 			relay_parent_descendants,
-			collator_peer_id: Some(collator_peer_id),
+			collator_peer_id,
 		})
 	}
 }

@@ -32,7 +32,7 @@ use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 
 // Substrate Imports
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
-use polkadot_sdk::{polkadot_primitives::unchecked_new_approved_peer_id, sc_network::PeerId};
+use polkadot_sdk::sc_network::PeerId;
 use prometheus_endpoint::Registry;
 use sc_client_api::Backend;
 use sc_consensus::ImportQueue;
@@ -187,7 +187,6 @@ fn start_consensus(
 	overseer_handle: OverseerHandle,
 	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 ) -> Result<(), sc_service::Error> {
-	let collator_peer_id = unchecked_new_approved_peer_id(collator_peer_id.to_bytes());
 	let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
 		task_manager.spawn_handle(),
 		client.clone(),

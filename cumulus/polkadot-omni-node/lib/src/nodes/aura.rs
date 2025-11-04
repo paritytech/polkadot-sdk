@@ -54,7 +54,7 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::{prelude::*, FutureExt};
-use polkadot_primitives::{unchecked_new_approved_peer_id, CollatorPair, UpgradeGoAhead};
+use polkadot_primitives::{CollatorPair, UpgradeGoAhead};
 use prometheus_endpoint::Registry;
 use sc_client_api::{Backend, BlockchainEvents};
 use sc_client_db::DbHash;
@@ -587,7 +587,6 @@ where
 		);
 
 		let client_for_aura = client.clone();
-		let collator_peer_id = unchecked_new_approved_peer_id(collator_peer_id.to_bytes());
 		let params = SlotBasedParams {
 			create_inherent_data_providers: move |_, ()| async move { Ok(()) },
 			block_import,
@@ -698,7 +697,6 @@ where
 		node_extra_args: NodeExtraArgs,
 		_: (),
 	) -> Result<(), Error> {
-		let collator_peer_id = unchecked_new_approved_peer_id(collator_peer_id.to_bytes());
 		let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
 			task_manager.spawn_handle(),
 			client.clone(),
