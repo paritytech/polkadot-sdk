@@ -1676,7 +1676,7 @@ impl<T: Config> Pallet<T> {
 				call_info.encoded_len,
 				base_info.total_weight(),
 			)
-			.with_dry_run_timestamp_override(timestamp_override)
+			.with_dry_run(timestamp_override)
 		};
 
 		// emulate transaction behavior
@@ -2584,7 +2584,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						gas_limit.unwrap_or(blockweights.max_block),
 						storage_deposit_limit.unwrap_or(u128::MAX),
 						input_data,
-						$crate::ExecConfig::new_substrate_tx().with_dry_run(),
+						$crate::ExecConfig::new_substrate_tx().with_dry_run(None),
 					)
 				}
 
@@ -2610,7 +2610,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						code,
 						data,
 						salt,
-						$crate::ExecConfig::new_substrate_tx().with_dry_run(),
+						$crate::ExecConfig::new_substrate_tx().with_dry_run(None),
 					)
 				}
 

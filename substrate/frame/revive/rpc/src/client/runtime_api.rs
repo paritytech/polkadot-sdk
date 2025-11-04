@@ -22,8 +22,8 @@ use crate::{
 };
 use pallet_revive::{
 	evm::{
-		Block as EthBlock, BlockNumberOrTagOrHash, BlockTag,
-		GenericTransaction, ReceiptGasInfo, Trace, H160, U256,
+		Block as EthBlock, BlockNumberOrTagOrHash, BlockTag, GenericTransaction, ReceiptGasInfo,
+		Trace, H160, U256,
 	},
 	EthTransactInfo,
 };
@@ -82,7 +82,7 @@ impl RuntimeApi {
 			Err(err) => {
 				log::debug!(target: LOG_TARGET, "Dry run failed {err:?}");
 				Err(ClientError::TransactError(err.0))
-			},	
+			},
 			Ok(result) => Ok(result.0),
 		}
 	}

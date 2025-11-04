@@ -395,13 +395,7 @@ impl<T: Config> ExecConfig<T> {
 	}
 
 	/// Set this config to be a dry-run.
-	pub fn with_dry_run(mut self) -> Self {
-		self.is_dry_run = true;
-		self
-	}
-
-	/// Set a timestamp override for dry-run executions.
-	pub fn with_dry_run_timestamp_override(mut self, timestamp: Option<u64>) -> Self {
+	pub fn with_dry_run(mut self, timestamp: Option<u64>) -> Self {
 		self.is_dry_run = true;
 		self.dry_run_timestamp_override = timestamp;
 		self
