@@ -445,6 +445,8 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				})
 			};
 
+			let database_path = parachain_config.database.path().map(|p| p.to_path_buf());
+
 			sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 				rpc_builder,
 				client: client.clone(),
@@ -462,6 +464,16 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					client.clone(),
 				))),
 			})?;
+
+			// Spawn the storage monitor
+			if let Some(database_path) = database_path {
+				sc_storage_monitor::StorageMonitorService::try_spawn(
+					node_extra_args.storage_monitor.clone(),
+					database_path,
+					&task_manager.spawn_essential_handle(),
+				)
+				.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+			}
 
 			if let Some(hwbench) = hwbench {
 				sc_sysinfo::print_hwbench(&hwbench);

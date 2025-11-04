@@ -16147,6 +16147,7 @@ dependencies = [
  "sc-runtime-utilities",
  "sc-service",
  "sc-statement-store",
+ "sc-storage-monitor",
  "sc-sysinfo",
  "sc-telemetry",
  "sc-tracing",
