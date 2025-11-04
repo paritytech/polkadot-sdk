@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub mod math;
 pub mod storage;
 pub mod weight;
 
@@ -23,7 +24,7 @@ mod tests;
 
 use crate::{
 	evm::fees::InfoT, exec::CallResources, storage::ContractInfo, vm::evm::Halt, BalanceOf, Config,
-	Error, ExecConfig, ExecOrigin as Origin, StorageDeposit, LOG_TARGET,
+	Error, ExecConfig, ExecOrigin as Origin, SignedGas, StorageDeposit,
 };
 use frame_support::{DebugNoBound, DefaultNoBound};
 use num_traits::Zero;
@@ -61,26 +62,21 @@ mod private {
 pub type TransactionMeter<T> = ResourceMeter<T, Root>;
 pub type FrameMeter<T> = ResourceMeter<T, Nested>;
 
+/// invariant: either the limits in both meters are both None or both Some(..)
+/// they will always be defined if `transaction_limits` is `TransactionLimits::WeightAndDeposit`
 #[derive(DefaultNoBound)]
 pub struct ResourceMeter<T: Config, S: State> {
 	weight: WeightMeter<T>,
 	deposit: GenericStorageMeter<T, S>,
 
-	eth_gas_limit: BalanceOf<T>,
-	max_total_gas: DepositOf<T>,
+	// this is always zero for Substrate executions
+	max_total_gas: SignedGas<T>,
 	total_consumed_weight_before: Weight,
 	total_consumed_deposit_before: DepositOf<T>,
 
 	transaction_limits: TransactionLimits<T>,
 
 	_phantom: PhantomData<S>,
-}
-
-#[derive(DebugNoBound, Clone)]
-pub struct EthTxInfo<T: Config> {
-	pub encoded_len: u32,
-	pub extra_weight: Weight,
-	_phantom: PhantomData<T>,
 }
 
 #[derive(DebugNoBound, Clone)]
@@ -160,182 +156,6 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		Ok(())
 	}
 
-	pub fn new_nested(&self, limit: &CallResources<T>) -> Result<FrameMeter<T>, DispatchError> {
-		let self_consumed_weight = self.weight.weight_consumed();
-		let self_consumed_deposit = self.deposit.consumed();
-
-		let total_consumed_weight =
-			self.total_consumed_weight_before.saturating_add(self_consumed_weight);
-		let total_consumed_deposit =
-			self.total_consumed_deposit_before.saturating_add(&self_consumed_deposit);
-
-		let (nested_gas_limit, nested_weight_limit, nested_deposit_limit, max_total_gas) =
-			match &self.transaction_limits {
-				TransactionLimits::EthereumGas { eth_tx_info, .. } => {
-					let max_total_gas = eth_tx_info.max_total_gas(
-						self.eth_gas_limit,
-						self.total_consumed_weight_before,
-						&self.total_consumed_deposit_before,
-					);
-
-					let total_gas_consumption =
-						eth_tx_info.gas_consumption(total_consumed_weight, &total_consumed_deposit);
-
-					let StorageDeposit::Refund(gas_left) =
-						max_total_gas.saturating_sub(&total_gas_consumption)
-					else {
-						return Err(<Error<T>>::OutOfGas.into());
-					};
-
-					if self.weight.weight_limit.is_none() &&
-						matches!(limit, CallResources::NoLimits | CallResources::Ethereum(..))
-					{
-						let nested_gas_limit = if let CallResources::Ethereum(gas) = limit {
-							gas_left.min(*gas)
-						} else {
-							gas_left
-						};
-						(nested_gas_limit, None, None, max_total_gas)
-					} else {
-						let weight_left = eth_tx_info
-							.weight_remaining(
-								&max_total_gas,
-								total_consumed_weight,
-								&total_consumed_deposit,
-							)
-							.ok_or(<Error<T>>::OutOfGas)?;
-
-						let weight_left = match self.weight.weight_limit {
-							Some(weight_limit) => weight_left.min(
-								weight_limit
-									.checked_sub(&self_consumed_weight)
-									.ok_or(<Error<T>>::OutOfGas)?,
-							),
-							None => weight_left,
-						};
-
-						let deposit_left: BalanceOf<T> =
-							EthTxInfo::<T>::deposit_remaining(gas_left);
-						let deposit_left = match self.deposit.limit {
-							Some(deposit_limit) => deposit_left.min(
-								self_consumed_deposit
-									.available(&deposit_limit)
-									.ok_or(<Error<T>>::StorageDepositLimitExhausted)?,
-							),
-							None => deposit_left,
-						};
-
-						match limit {
-							CallResources::NoLimits =>
-								(gas_left, Some(weight_left), Some(deposit_left), max_total_gas),
-							CallResources::Ethereum(gas) => (
-								gas_left.min(*gas),
-								Some(weight_left),
-								Some(deposit_left),
-								max_total_gas,
-							),
-							CallResources::Precise { weight, deposit_limit } => {
-								let nested_weight_limit = weight_left.min(*weight);
-								let nested_deposit_limit = deposit_left.min(*deposit_limit);
-
-								let new_max_total_gas = eth_tx_info.gas_consumption(
-									total_consumed_weight.saturating_add(nested_weight_limit),
-									&total_consumed_deposit.saturating_add(
-										&StorageDeposit::Charge(nested_deposit_limit),
-									),
-								);
-
-								let gas_limit =
-									new_max_total_gas.saturating_sub(&total_gas_consumption);
-								let DepositOf::<T>::Refund(gas_limit) = gas_limit else {
-									return Err(<Error<T>>::OutOfGas.into());
-								};
-
-								(
-									gas_left.min(gas_limit),
-									Some(nested_weight_limit),
-									Some(nested_deposit_limit),
-									max_total_gas,
-								)
-							},
-						}
-					}
-				},
-
-				TransactionLimits::WeightAndDeposit { .. } => {
-					let weight_left = self
-						.weight
-						.weight_limit
-						.expect("Weight limits all always defined for WeightAndDeposit; qed")
-						.checked_sub(&self_consumed_weight)
-						.ok_or(<Error<T>>::OutOfGas)?;
-
-					let deposit_limit = self
-						.deposit
-						.limit
-						.expect("Deposit limits all always defined for WeightAndDeposit; qed");
-					let deposit_left = self_consumed_deposit
-						.available(&deposit_limit)
-						.ok_or(<Error<T>>::StorageDepositLimitExhausted)?;
-
-					match limit {
-						CallResources::NoLimits => (
-							Default::default(),
-							Some(weight_left),
-							Some(deposit_left),
-							Default::default(),
-						),
-
-						CallResources::Ethereum(gas) => {
-							let weight_gas = T::FeeInfo::weight_to_fee_average(&weight_left);
-							let deposit_gas = T::FeeInfo::next_fee_multiplier_reciprocal()
-								.saturating_mul_int(deposit_left);
-							let gas_left = weight_gas.saturating_add(deposit_gas);
-							if (gas_left).is_zero() {
-								Err(<Error<T>>::OutOfGas)?;
-							}
-
-							let ratio = FixedU128::from_rational(
-								gas_left.min(*gas).saturated_into(),
-								gas_left.saturated_into(),
-							);
-
-							let weight_limit = Weight::from_parts(
-								ratio.saturating_mul_int(weight_left.ref_time()),
-								ratio.saturating_mul_int(weight_left.proof_size()),
-							);
-							let deposit_limit = ratio.saturating_mul_int(deposit_left);
-
-							(
-								Default::default(),
-								Some(weight_limit),
-								Some(deposit_limit),
-								Default::default(),
-							)
-						},
-
-						CallResources::Precise { weight, deposit_limit } => (
-							Default::default(),
-							Some(weight_left.min(*weight)),
-							Some(deposit_left.min(*deposit_limit)),
-							Default::default(),
-						),
-					}
-				},
-			};
-
-		Ok(FrameMeter::<T> {
-			weight: WeightMeter::new(nested_weight_limit),
-			deposit: self.deposit.nested(nested_deposit_limit),
-			eth_gas_limit: nested_gas_limit,
-			max_total_gas,
-			total_consumed_weight_before: total_consumed_weight,
-			total_consumed_deposit_before: total_consumed_deposit,
-			transaction_limits: self.transaction_limits.clone(),
-			_phantom: PhantomData,
-		})
-	}
-
 	pub fn absorb_weight_meter_only(&mut self, other: FrameMeter<T>) {
 		self.weight.absorb_nested(other.weight);
 	}
@@ -350,113 +170,51 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		self.deposit.absorb(other.deposit, contract, info);
 	}
 
+	pub fn new_nested(&self, limit: &CallResources<T>) -> Result<FrameMeter<T>, DispatchError> {
+		match &self.transaction_limits {
+			TransactionLimits::EthereumGas { eth_tx_info, .. } =>
+				math::ethereum_execution::new_nested_meter(self, limit, eth_tx_info),
+			TransactionLimits::WeightAndDeposit { .. } =>
+				math::substrate_execution::new_nested_meter(self, limit),
+		}
+	}
+
 	pub fn eth_gas_left(&self) -> Option<BalanceOf<T>> {
 		match &self.transaction_limits {
-			TransactionLimits::EthereumGas { eth_tx_info, .. } => {
-				let self_consumed_weight = self.weight.weight_consumed();
-				let self_consumed_deposit = self.deposit.consumed();
-
-				let total_consumed_weight =
-					self.total_consumed_weight_before.saturating_add(self_consumed_weight);
-				let total_consumed_deposit =
-					self.total_consumed_deposit_before.saturating_add(&self_consumed_deposit);
-
-				let total_gas_consumption =
-					eth_tx_info.gas_consumption(total_consumed_weight, &total_consumed_deposit);
-
-				match self.max_total_gas.saturating_sub(&total_gas_consumption) {
-					StorageDeposit::Refund(gas_left) => Some(gas_left),
-					StorageDeposit::Charge(_) => {
-						log::debug!( target: LOG_TARGET, "Eth gas limit exhausted: {:?} > {:?}", total_gas_consumption, self.max_total_gas);
-						None
-					},
-				}
-			},
-
-			TransactionLimits::WeightAndDeposit { .. } => {
-				match (self.weight_left(), self.deposit_left()) {
-					(Some(weight_left), Some(deposit_left)) => {
-						let weight_gas = T::FeeInfo::weight_to_fee_average(&weight_left);
-						let deposit_gas = T::FeeInfo::next_fee_multiplier_reciprocal()
-							.saturating_mul_int(deposit_left);
-
-						Some(weight_gas.saturating_add(deposit_gas))
-					},
-					_ => None,
-				}
-			},
+			TransactionLimits::EthereumGas { eth_tx_info, .. } =>
+				math::ethereum_execution::eth_gas_left(self, eth_tx_info),
+			TransactionLimits::WeightAndDeposit { .. } =>
+				math::substrate_execution::eth_gas_left(self),
 		}
 	}
 
 	pub fn weight_left(&self) -> Option<Weight> {
 		match &self.transaction_limits {
-			TransactionLimits::EthereumGas { eth_tx_info, .. } => {
-				let self_consumed_weight = self.weight.weight_consumed();
-				let self_consumed_deposit = self.deposit.consumed();
-
-				let total_consumed_weight =
-					self.total_consumed_weight_before.saturating_add(self_consumed_weight);
-				let total_consumed_deposit =
-					self.total_consumed_deposit_before.saturating_add(&self_consumed_deposit);
-
-				let weight_left = eth_tx_info.weight_remaining(
-					&self.max_total_gas,
-					total_consumed_weight,
-					&total_consumed_deposit,
-				)?;
-
-				Some(match self.weight.weight_limit {
-					Some(weight_limit) =>
-						weight_left.min(weight_limit.checked_sub(&self_consumed_weight)?),
-					None => weight_left,
-				})
-			},
-
-			TransactionLimits::WeightAndDeposit { .. } => {
-				let weight_limit = self
-					.weight
-					.weight_limit
-					.expect("Weight limits all always defined for WeightAndDeposit; qed");
-				weight_limit.checked_sub(&self.weight.weight_consumed())
-			},
+			TransactionLimits::EthereumGas { eth_tx_info, .. } =>
+				math::ethereum_execution::weight_left(self, eth_tx_info),
+			TransactionLimits::WeightAndDeposit { .. } =>
+				math::substrate_execution::weight_left(self),
 		}
 	}
 
 	pub fn deposit_left(&self) -> Option<BalanceOf<T>> {
 		match &self.transaction_limits {
-			TransactionLimits::EthereumGas { .. } => {
-				let eth_gas_left = self.eth_gas_left()?;
-				let deposit_left = EthTxInfo::<T>::deposit_remaining(eth_gas_left);
-
-				match self.deposit.limit {
-					Some(deposit_limit) => {
-						let deposit_available = self.deposit.consumed().available(&deposit_limit);
-						let Some(deposit_available) = deposit_available else {
-							log::debug!( target: LOG_TARGET, "Storage deposit limit exhausted: {:?} > {:?}", self.deposit.consumed(), deposit_limit);
-							return None;
-						};
-
-						Some(deposit_left.min(deposit_available))
-					},
-					None => Some(deposit_left),
-				}
-			},
-
-			TransactionLimits::WeightAndDeposit { .. } => {
-				let deposit_limit = self
-					.deposit
-					.limit
-					.expect("Deposit limits all always defined for WeightAndDeposit; qed");
-				let deposit_available = self.deposit.consumed().available(&deposit_limit);
-
-				if deposit_available.is_none() {
-					log::debug!( target: LOG_TARGET, "Storage deposit limit exhausted: {:?} > {:?}", self.deposit.consumed(), deposit_limit);
-					return None;
-				}
-
-				deposit_available
-			},
+			TransactionLimits::EthereumGas { eth_tx_info, .. } =>
+				math::ethereum_execution::deposit_left(self, eth_tx_info),
+			TransactionLimits::WeightAndDeposit { .. } =>
+				math::substrate_execution::deposit_left(self),
 		}
+	}
+
+	pub fn total_consumed_gas(&self) -> BalanceOf<T> {
+		let signed_gas = match &self.transaction_limits {
+			TransactionLimits::EthereumGas { eth_tx_info, .. } =>
+				math::ethereum_execution::total_consumed_gas(self, eth_tx_info),
+			TransactionLimits::WeightAndDeposit { .. } =>
+				math::substrate_execution::total_consumed_gas(self),
+		};
+
+		signed_gas.as_positive().unwrap_or_default()
 	}
 
 	pub fn weight_consumed(&self) -> Weight {
@@ -476,103 +234,13 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	}
 }
 
-impl<T: Config> EthTxInfo<T> {
-	pub fn new(encoded_len: u32, extra_weight: Weight) -> Self {
-		Self { encoded_len, extra_weight, _phantom: PhantomData }
-	}
-
-	pub fn gas_consumption(
-		&self,
-		consumed_weight: Weight,
-		consumed_deposit: &DepositOf<T>,
-	) -> DepositOf<T> {
-		let fee_a = StorageDeposit::Refund(T::FeeInfo::fixed_fee(self.encoded_len))
-			.saturating_sub(consumed_deposit)
-			.scale_by_factor(&T::FeeInfo::next_fee_multiplier_reciprocal());
-
-		let fee_b = T::FeeInfo::weight_to_fee(&consumed_weight.saturating_add(self.extra_weight));
-
-		fee_a.saturating_add(&StorageDeposit::Refund(fee_b))
-	}
-
-	pub fn gas_remaining(
-		max_total_gas: &DepositOf<T>,
-		total_gas_consumption: &DepositOf<T>,
-	) -> Option<BalanceOf<T>> {
-		match max_total_gas.saturating_sub(total_gas_consumption) {
-			StorageDeposit::Refund(amount) => Some(amount),
-			StorageDeposit::Charge(_) => None,
-		}
-	}
-
-	pub fn max_total_gas(
-		&self,
-		eth_gas_limit: BalanceOf<T>,
-		total_consumed_weight_before: Weight,
-		total_consumed_deposit_before: &DepositOf<T>,
-	) -> DepositOf<T> {
-		self.gas_consumption(total_consumed_weight_before, total_consumed_deposit_before)
-			.saturating_add(&StorageDeposit::Refund(eth_gas_limit))
-	}
-
-	pub fn weight_remaining(
-		&self,
-		max_total_gas: &DepositOf<T>,
-		total_weight_consumption: Weight,
-		total_deposit_consumption: &DepositOf<T>,
-	) -> Option<Weight> {
-		let consumable_fee = max_total_gas.saturating_add(
-			&total_deposit_consumption
-				.saturating_add(&StorageDeposit::Charge(T::FeeInfo::fixed_fee(self.encoded_len)))
-				.scale_by_factor(&T::FeeInfo::next_fee_multiplier_reciprocal()),
-		);
-
-		let StorageDeposit::Refund(consumable_fee) = consumable_fee else {
-			return None;
-		};
-
-		T::FeeInfo::fee_to_weight(consumable_fee)
-			.checked_sub(&total_weight_consumption.saturating_add(self.extra_weight))
-	}
-
-	pub fn deposit_remaining(gas_remaining: BalanceOf<T>) -> BalanceOf<T> {
-		T::FeeInfo::next_fee_multiplier().saturating_mul_int(gas_remaining)
-	}
-}
-
 impl<T: Config> TransactionMeter<T> {
 	pub fn new(transaction_limits: TransactionLimits<T>) -> Result<Self, DispatchError> {
-		match &transaction_limits {
-			TransactionLimits::EthereumGas { eth_gas_limit, eth_tx_info } => {
-				let base_gas =
-					eth_tx_info.gas_consumption(Weight::default(), &DepositOf::<T>::default());
-
-				let Some(gas_limit) = base_gas.available(&eth_gas_limit) else {
-					return Err(<Error<T>>::StorageDepositNotEnoughFunds.into());
-				};
-
-				Ok(Self {
-					weight: WeightMeter::new(None),
-					deposit: RootStorageMeter::new(None),
-					eth_gas_limit: gas_limit,
-					max_total_gas: StorageDeposit::Refund(*eth_gas_limit),
-					total_consumed_weight_before: Weight::default(),
-					total_consumed_deposit_before: DepositOf::<T>::default(),
-					transaction_limits,
-					_phantom: PhantomData,
-				})
-			},
-
-			TransactionLimits::WeightAndDeposit { weight_limit, deposit_limit } => Ok(Self {
-				weight: WeightMeter::new(Some(*weight_limit)),
-				deposit: RootStorageMeter::new(Some(*deposit_limit)),
-				eth_gas_limit: Default::default(), // ignore eth gas limit for Substrate executions
-				max_total_gas: Default::default(), // ignore eth gas limit for Substrate executions
-				total_consumed_weight_before: Weight::default(),
-				total_consumed_deposit_before: DepositOf::<T>::default(),
-				transaction_limits,
-				_phantom: PhantomData,
-			}),
+		match transaction_limits {
+			TransactionLimits::EthereumGas { eth_gas_limit, eth_tx_info } =>
+				math::ethereum_execution::new_root(eth_gas_limit, eth_tx_info),
+			TransactionLimits::WeightAndDeposit { weight_limit, deposit_limit } =>
+				math::substrate_execution::new_root(weight_limit, deposit_limit),
 		}
 	}
 
@@ -632,5 +300,62 @@ impl<T: Config> FrameMeter<T> {
 		}
 
 		Ok(())
+	}
+}
+
+#[derive(DebugNoBound, Clone)]
+pub struct EthTxInfo<T: Config> {
+	pub encoded_len: u32,
+	pub extra_weight: Weight,
+	_phantom: PhantomData<T>,
+}
+
+impl<T: Config> EthTxInfo<T> {
+	pub fn new(encoded_len: u32, extra_weight: Weight) -> Self {
+		Self { encoded_len, extra_weight, _phantom: PhantomData }
+	}
+
+	pub fn gas_consumption(
+		&self,
+		consumed_weight: &Weight,
+		consumed_deposit: &DepositOf<T>,
+	) -> SignedGas<T> {
+		let deposit_gas = SignedGas::from_deposit_charge(consumed_deposit);
+		let fixed_fee_gas = SignedGas::Positive(T::FeeInfo::fixed_fee(self.encoded_len));
+		let scaled_gas = (deposit_gas.saturating_add(&fixed_fee_gas))
+			.scale_by_factor(&T::FeeInfo::next_fee_multiplier_reciprocal());
+
+		let weight_fee = SignedGas::Positive(T::FeeInfo::weight_to_fee(
+			&consumed_weight.saturating_add(self.extra_weight),
+		));
+
+		scaled_gas.saturating_add(&weight_fee)
+	}
+
+	pub fn gas_remaining(
+		max_total_gas: &SignedGas<T>,
+		total_gas_consumption: &SignedGas<T>,
+	) -> Option<BalanceOf<T>> {
+		max_total_gas.saturating_sub(total_gas_consumption).as_positive()
+	}
+
+	pub fn weight_remaining(
+		&self,
+		max_total_gas: &SignedGas<T>,
+		total_weight_consumption: &Weight,
+		total_deposit_consumption: &DepositOf<T>,
+	) -> Option<Weight> {
+		let numerator = SignedGas::from_deposit_charge(total_deposit_consumption)
+			.saturating_add(&SignedGas::Positive(T::FeeInfo::fixed_fee(self.encoded_len)));
+		let consumable_fee = max_total_gas.saturating_sub(
+			&numerator.scale_by_factor(&T::FeeInfo::next_fee_multiplier_reciprocal()),
+		);
+
+		let SignedGas::Positive(consumable_fee) = consumable_fee else {
+			return None;
+		};
+
+		T::FeeInfo::fee_to_weight(consumable_fee)
+			.checked_sub(&total_weight_consumption.saturating_add(self.extra_weight))
 	}
 }

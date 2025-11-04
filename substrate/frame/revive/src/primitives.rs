@@ -353,6 +353,106 @@ where
 	}
 }
 
+/// The type for Ethereum gas. We need to deal with negative and positive values and the structure
+/// of this type resembles `StorageDeposit` but the enum variants have a more obvious name to avoid
+/// confusion and errors
+#[derive(
+	Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo,
+)]
+pub enum SignedGas<T: Config> {
+	/// Positive gas amount
+	Positive(BalanceOf<T>),
+	/// Negative gas amount
+	Negative(BalanceOf<T>),
+}
+
+impl<T: Config> Default for SignedGas<T> {
+	fn default() -> Self {
+		Self::Positive(Default::default())
+	}
+}
+
+impl<T: Config> SignedGas<T> {
+	/// This is essentially a saturating signed add.
+	pub fn saturating_add(&self, rhs: &Self) -> Self {
+		use SignedGas::*;
+		match (self, rhs) {
+			(Positive(lhs), Positive(rhs)) => Positive(lhs.saturating_add(*rhs)),
+			(Negative(lhs), Negative(rhs)) => Negative(lhs.saturating_add(*rhs)),
+			(Positive(lhs), Negative(rhs)) =>
+				if lhs >= rhs {
+					Positive(lhs.saturating_sub(*rhs))
+				} else {
+					Negative(rhs.saturating_sub(*lhs))
+				},
+			(Negative(lhs), Positive(rhs)) =>
+				if lhs > rhs {
+					Negative(lhs.saturating_sub(*rhs))
+				} else {
+					Positive(rhs.saturating_sub(*lhs))
+				},
+		}
+	}
+
+	/// This is essentially a saturating signed sub.
+	pub fn saturating_sub(&self, rhs: &Self) -> Self {
+		use SignedGas::*;
+		match (self, rhs) {
+			(Positive(lhs), Negative(rhs)) => Positive(lhs.saturating_add(*rhs)),
+			(Negative(lhs), Positive(rhs)) => Negative(lhs.saturating_add(*rhs)),
+			(Positive(lhs), Positive(rhs)) =>
+				if lhs >= rhs {
+					Positive(lhs.saturating_sub(*rhs))
+				} else {
+					Negative(rhs.saturating_sub(*lhs))
+				},
+			(Negative(lhs), Negative(rhs)) =>
+				if lhs > rhs {
+					Negative(lhs.saturating_sub(*rhs))
+				} else {
+					Positive(rhs.saturating_sub(*lhs))
+				},
+		}
+	}
+
+	/// transform a storage deposit into a gas value and treat a charge as a positive number
+	pub fn from_deposit_charge(deposit: &StorageDeposit<BalanceOf<T>>) -> Self {
+		use SignedGas::*;
+		match deposit {
+			StorageDeposit::Charge(amount) => Positive(*amount),
+			StorageDeposit::Refund(amount) if *amount == Default::default() => Positive(*amount),
+			StorageDeposit::Refund(amount) => Negative(*amount),
+		}
+	}
+
+	/// transform a storage deposit into a gas value and treat a refund as a positive number
+	pub fn from_deposit_refund(deposit: &StorageDeposit<BalanceOf<T>>) -> Self {
+		use SignedGas::*;
+		match deposit {
+			StorageDeposit::Refund(amount) => Positive(*amount),
+			StorageDeposit::Charge(amount) if *amount == Default::default() => Positive(*amount),
+			StorageDeposit::Charge(amount) => Negative(*amount),
+		}
+	}
+
+	/// Scale this scaled gas value by a `FixedU128` factor
+	pub fn scale_by_factor(&self, rhs: &FixedU128) -> Self {
+		use SignedGas::*;
+		match self {
+			Positive(amount) => Positive(rhs.saturating_mul_int(*amount)),
+			Negative(amount) => Negative(rhs.saturating_mul_int(*amount)),
+		}
+	}
+
+	pub fn as_positive(&self) -> Option<BalanceOf<T>> {
+		use SignedGas::*;
+		match self {
+			Positive(amount) => Some(*amount),
+			Negative(_amount) => None,
+		}
+	}
+}
+
 /// `Stack` wide configuration options.
 pub struct ExecConfig<T: Config> {
 	/// Indicates whether the account nonce should be incremented after instantiating a new
