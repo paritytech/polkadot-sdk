@@ -348,6 +348,17 @@ struct GroupAssignments {
 	current: Vec<ParaId>,
 }
 
+/// Represents the result from a hold off operation.
+enum HoldOffOperationOutcome {
+	/// The advertisement was held off and this is the first hold off for the relay parent.
+	FirstHoldOff,
+	/// The advertisement was held off and this is a subsequent hold off for this relay parent.
+	SubsequentHoldOff,
+	/// The advertisement was not held off. The hold off period for this relay parent has already
+	/// expired.
+	NoHoldOff,
+}
+
 /// Represents the hold off state of a relay parent.
 enum RelayParentHoldOffState {
 	/// No Advertisements from non-invulnerable collators were received so far. Nothing was held
@@ -390,17 +401,20 @@ impl RelayParentHoldOffState {
 	/// Holds off the advertisement, if nothing was held off for this relay parent or there are
 	/// other advertisements being held off. Return false if the hold off was complete for the
 	/// relay parent.
-	fn hold_off_if_necessary(&mut self, advertisement: HeldOffAdvertisement) -> bool {
+	fn hold_off_if_necessary(
+		&mut self,
+		advertisement: HeldOffAdvertisement,
+	) -> HoldOffOperationOutcome {
 		match self {
 			Self::NotStarted => {
 				*self = Self::HoldingOff(vec![advertisement].into());
-				true
+				HoldOffOperationOutcome::FirstHoldOff
 			},
 			Self::HoldingOff(advertisements) => {
 				advertisements.push_back(advertisement);
-				true
+				HoldOffOperationOutcome::SubsequentHoldOff
 			},
-			Self::Done => false,
+			Self::Done => HoldOffOperationOutcome::NoHoldOff,
 		}
 	}
 }
@@ -1069,36 +1083,51 @@ fn hold_off_asset_hub_collation_if_needed(
 		return false
 	};
 
-	if rp_state.ah_held_off_advertisements.hold_off_if_necessary(HeldOffAdvertisement {
-		relay_parent,
-		peer_id,
-		collator_id,
-		prospective_candidate,
-	}) {
-		state.ah_held_off_rp_timers.push(Box::pin(async move {
-			Delay::new(hold_off_duration).await;
-			relay_parent
-		}));
+	let hold_off_outcome =
+		rp_state.ah_held_off_advertisements.hold_off_if_necessary(HeldOffAdvertisement {
+			relay_parent,
+			peer_id,
+			collator_id,
+			prospective_candidate,
+		});
 
-		gum::debug!(
-			target: LOG_TARGET,
-			?peer_id,
-			?relay_parent,
-			?prospective_candidate,
-			"AssetHub collation held off, not from invulnerable collator",
-		);
+	match hold_off_outcome {
+		HoldOffOperationOutcome::FirstHoldOff => {
+			state.ah_held_off_rp_timers.push(Box::pin(async move {
+				Delay::new(hold_off_duration).await;
+				relay_parent
+			}));
 
-		return true;
-	} else {
-		gum::debug!(
-			target: LOG_TARGET,
-			?peer_id,
-			?relay_parent,
-			?prospective_candidate,
-			"AssetHub collation from non-invulnerable collator not held off - already done for this relay parent",
-		);
+			gum::debug!(
+				target: LOG_TARGET,
+				?peer_id,
+				?relay_parent,
+				?prospective_candidate,
+				"AssetHub collation held off, not from invulnerable collator. First hold off.",
+			);
 
-		return false
+			true
+		},
+		HoldOffOperationOutcome::SubsequentHoldOff => {
+			gum::debug!(
+				target: LOG_TARGET,
+				?peer_id,
+				?relay_parent,
+				?prospective_candidate,
+				"AssetHub collation held off, not from invulnerable collator. Subsequent hold off.",
+			);
+			true
+		},
+		HoldOffOperationOutcome::NoHoldOff => {
+			gum::debug!(
+				target: LOG_TARGET,
+				?peer_id,
+				?relay_parent,
+				?prospective_candidate,
+				"AssetHub collation from non-invulnerable collator not held off - already done for this relay parent",
+			);
+			false
+		},
 	}
 }
 
