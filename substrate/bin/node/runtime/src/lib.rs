@@ -36,6 +36,7 @@ use polkadot_sdk::*;
 
 use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use conviction_voting_precompiles::ConvictionVotingPrecompile;
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, BalancingConfig, ElectionDataProvider, SequentialPhragmen, VoteWeight,
@@ -1522,8 +1523,11 @@ impl pallet_revive::Config for Runtime {
 	type DepositPerChildTrieItem = DepositPerChildTrieItem;
 	type DepositPerByte = DepositPerByte;
 	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
-	type Precompiles =
-		(ERC20<Self, InlineIdConfig<0x1>, Instance1>, ERC20<Self, InlineIdConfig<0x2>, Instance2>);
+	type Precompiles = (
+		ERC20<Self, InlineIdConfig<0x1>, Instance1>,
+		ERC20<Self, InlineIdConfig<0x2>, Instance2>,
+		ConvictionVotingPrecompile<Self>,
+	);
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
@@ -2855,6 +2859,10 @@ mod runtime {
 
 	#[runtime::pallet_index(90)]
 	pub type MultiAssetBounties = pallet_multi_asset_bounties::Pallet<Runtime>;
+
+	#[runtime::pallet_index(91)]
+	pub type ConvictionVotingPrecompilesBenchmarks =
+		pallet_conviction_voting_precompiles_benchmarks::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -3169,6 +3177,7 @@ mod benches {
 		[pallet_asset_conversion_ops, AssetConversionMigration]
 		[pallet_verify_signature, VerifySignature]
 		[pallet_meta_tx, MetaTx]
+		[pallet_conviction_voting_precompiles_benchmarks, ConvictionVotingPrecompilesBenchmarks]
 	);
 }
 
