@@ -41,10 +41,10 @@ jobs:
           VERSION="0.5.0"
           ASSET_URL="https://github.com/paritytech/revive/releases/download/v$VERSION/resolc-universal-apple-darwin"
           echo "Downloading resolc v$VERSION from $ASSET_URL"
-          curl -Lsf --show-error -o $HOME/.cargo/bin/resolc "$ASSET_URL"
-          chmod +x $HOME/.cargo/bin/resolc
-          xattr -c $HOME/.cargo/bin/resolc
-          resolc --version
+          curl -Lsf --show-error -o resolc "$ASSET_URL"
+          chmod +x resolc
+          xattr -c resolc
+          ./resolc --version
       - name: Building the dependencies from the Polkadot SDK
         run: forklift cargo build --locked --profile release -p pallet-revive-eth-rpc -p revive-dev-node
       - name: Checkout the Differential Tests Repository
@@ -76,6 +76,7 @@ jobs:
             --revive-dev-node.consensus manual-seal-200 \
             --revive-dev-node.path ./target/release/revive-dev-node \
             --eth-rpc.path ./target/release/eth-rpc
+            --resolc.path ./resolc
       - name: Creating a markdown report of the test execution
         run: |
           mv ./workdir/*.json report.json
