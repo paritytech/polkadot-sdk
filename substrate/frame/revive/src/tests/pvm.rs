@@ -71,12 +71,15 @@ use sp_runtime::{
 fn transfer_with_dust_works() {
 	struct TestCase {
 		description: &'static str,
+		from: H160,
+		to: H160,
 		from_balance: BalanceWithDust<u64>,
 		to_balance: BalanceWithDust<u64>,
 		amount: BalanceWithDust<u64>,
 		expected_from_balance: BalanceWithDust<u64>,
 		expected_to_balance: BalanceWithDust<u64>,
 		total_issuance_diff: i64,
+		expected_error: Option<DispatchError>,
 	}
 
 	let plank: u32 = <Test as Config>::NativeToEthRatio::get();
@@ -84,73 +87,142 @@ fn transfer_with_dust_works() {
 	let test_cases = vec![
 		TestCase {
 			description: "without dust",
+			from: ALICE_ADDR,
+			to: BOB_ADDR,
 			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 0),
 			to_balance: BalanceWithDust::new_unchecked::<Test>(0, 0),
 			amount: BalanceWithDust::new_unchecked::<Test>(1, 0),
 			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(99, 0),
 			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(1, 0),
 			total_issuance_diff: 0,
+			expected_error: None,
 		},
 		TestCase {
 			description: "with dust",
+			from: ALICE_ADDR,
+			to: BOB_ADDR,
 			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 0),
 			to_balance: BalanceWithDust::new_unchecked::<Test>(0, 0),
 			amount: BalanceWithDust::new_unchecked::<Test>(1, 10),
 			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(98, plank - 10),
 			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(1, 10),
 			total_issuance_diff: 1,
+			expected_error: None,
 		},
 		TestCase {
 			description: "just dust",
+			from: ALICE_ADDR,
+			to: BOB_ADDR,
 			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 0),
 			to_balance: BalanceWithDust::new_unchecked::<Test>(0, 0),
 			amount: BalanceWithDust::new_unchecked::<Test>(0, 10),
 			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(99, plank - 10),
 			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
 			total_issuance_diff: 1,
+			expected_error: None,
 		},
 		TestCase {
 			description: "with existing dust",
+			from: ALICE_ADDR,
+			to: BOB_ADDR,
 			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 5),
 			to_balance: BalanceWithDust::new_unchecked::<Test>(0, plank - 5),
 			amount: BalanceWithDust::new_unchecked::<Test>(1, 10),
 			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(98, plank - 5),
 			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(2, 5),
 			total_issuance_diff: 0,
+			expected_error: None,
 		},
 		TestCase {
 			description: "with enough existing dust",
+			from: ALICE_ADDR,
+			to: BOB_ADDR,
 			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 10),
 			to_balance: BalanceWithDust::new_unchecked::<Test>(0, plank - 10),
 			amount: BalanceWithDust::new_unchecked::<Test>(1, 10),
 			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(99, 0),
 			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(2, 0),
 			total_issuance_diff: -1,
+			expected_error: None,
 		},
 		TestCase {
 			description: "receiver dust less than 1 plank",
+			from: ALICE_ADDR,
+			to: BOB_ADDR,
 			from_balance: BalanceWithDust::new_unchecked::<Test>(100, plank / 10),
 			to_balance: BalanceWithDust::new_unchecked::<Test>(0, plank / 2),
 			amount: BalanceWithDust::new_unchecked::<Test>(1, plank / 10 * 3),
 			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(98, plank / 10 * 8),
 			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(1, plank / 10 * 8),
 			total_issuance_diff: 1,
+			expected_error: None,
+		},
+		TestCase {
+			description: "insufficient balance",
+			from: ALICE_ADDR,
+			to: BOB_ADDR,
+			from_balance: BalanceWithDust::new_unchecked::<Test>(10, 0),
+			to_balance: BalanceWithDust::new_unchecked::<Test>(10, 0),
+			amount: BalanceWithDust::new_unchecked::<Test>(20, 0),
+			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(10, 0),
+			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(10, 0),
+			total_issuance_diff: 0,
+			expected_error: Some(Error::<Test>::TransferFailed.into()),
+		},
+		TestCase {
+			description: "from = to with insufficient balance",
+			from: ALICE_ADDR,
+			to: ALICE_ADDR,
+			from_balance: BalanceWithDust::new_unchecked::<Test>(10, 0),
+			to_balance: BalanceWithDust::new_unchecked::<Test>(10, 0),
+			amount: BalanceWithDust::new_unchecked::<Test>(20, 0),
+			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(10, 0),
+			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(10, 0),
+			total_issuance_diff: 0,
+			expected_error: Some(Error::<Test>::TransferFailed.into()),
+		},
+		TestCase {
+			description: "from = to with insufficient balance",
+			from: ALICE_ADDR,
+			to: ALICE_ADDR,
+			from_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
+			to_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
+			amount: BalanceWithDust::new_unchecked::<Test>(0, 20),
+			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
+			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
+			total_issuance_diff: 0,
+			expected_error: Some(Error::<Test>::TransferFailed.into()),
+		},
+		TestCase {
+			description: "from = to",
+			from: ALICE_ADDR,
+			to: ALICE_ADDR,
+			from_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
+			to_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
+			amount: BalanceWithDust::new_unchecked::<Test>(0, 5),
+			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
+			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
+			total_issuance_diff: 0,
+			expected_error: None,
 		},
 	];
 
 	for TestCase {
 		description,
+		from,
+		to,
 		from_balance,
 		to_balance,
 		amount,
 		expected_from_balance,
 		expected_to_balance,
 		total_issuance_diff,
+		expected_error,
 	} in test_cases.into_iter()
 	{
 		ExtBuilder::default().build().execute_with(|| {
-			set_balance_with_dust(&ALICE_ADDR, from_balance);
-			set_balance_with_dust(&BOB_ADDR, to_balance);
+			set_balance_with_dust(&from, from_balance);
+			set_balance_with_dust(&to, to_balance);
 
 			let total_issuance = <Test as Config>::Currency::total_issuance();
 			let evm_value = Pallet::<Test>::convert_native_to_evm(amount);
@@ -159,18 +231,22 @@ fn transfer_with_dust_works() {
 			assert_eq!(Pallet::<Test>::has_dust(evm_value), !dust.is_zero());
 			assert_eq!(Pallet::<Test>::has_balance(evm_value), !value.is_zero());
 
-			let result =
-				builder::bare_call(BOB_ADDR).evm_value(evm_value).build_and_unwrap_result();
-			assert_eq!(result, Default::default(), "{description} tx failed");
+			let result = builder::bare_call(to).evm_value(evm_value).build();
+
+			if let Some(expected_error) = expected_error {
+				assert_err!(result.result, expected_error);
+			} else {
+				assert_eq!(result.result.unwrap(), Default::default(), "{description} tx failed");
+			}
 
 			assert_eq!(
-				Pallet::<Test>::evm_balance(&ALICE_ADDR),
+				Pallet::<Test>::evm_balance(&from),
 				Pallet::<Test>::convert_native_to_evm(expected_from_balance),
 				"{description}: invalid from balance"
 			);
 
 			assert_eq!(
-				Pallet::<Test>::evm_balance(&BOB_ADDR),
+				Pallet::<Test>::evm_balance(&to),
 				Pallet::<Test>::convert_native_to_evm(expected_to_balance),
 				"{description}: invalid to balance"
 			);
@@ -4797,8 +4873,7 @@ fn bump_nonce_once_works() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		frame_system::Account::<Test>::mutate(&ALICE, |account| account.nonce = 1);
 
-		let mut do_not_bump = ExecConfig::new_substrate_tx();
-		do_not_bump.bump_nonce = false;
+		let do_not_bump = ExecConfig::new_substrate_tx_without_bump();
 
 		let _ = <Test as Config>::Currency::set_balance(&BOB, 1_000_000);
 		frame_system::Account::<Test>::mutate(&BOB, |account| account.nonce = 1);
@@ -4819,7 +4894,7 @@ fn bump_nonce_once_works() {
 
 		builder::bare_instantiate(Code::Upload(code.clone()))
 			.origin(RuntimeOrigin::signed(BOB))
-			.exec_config(do_not_bump.clone())
+			.exec_config(ExecConfig::new_substrate_tx_without_bump())
 			.salt(None)
 			.build_and_unwrap_result();
 		assert_eq!(System::account_nonce(&BOB), 1);
@@ -5039,74 +5114,70 @@ fn storage_deposit_from_hold_works() {
 	});
 }
 
-/// EIP-3607
-/// Test that a top-level signed transaction that uses a contract address as the signer is rejected.
 #[test]
-fn reject_signed_tx_from_contract_address() {
+fn eip3607_reject_tx_from_contract_or_precompile() {
 	let (binary, _code_hash) = compile_module("dummy").unwrap();
 
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		let Contract { addr: contract_addr, account_id: contract_account_id, .. } =
+		// the origins from which we try to call a dispatchable
+		let Contract { addr: contract_addr, .. } =
 			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
+		assert!(<AccountInfo<Test>>::is_contract(&contract_addr));
+		let blake2_addr = H160::from_low_u64_be(9);
+		let system_addr = H160::from_low_u64_be(0x900);
+		let addresses = [contract_addr, blake2_addr, system_addr];
 
-		assert!(AccountInfoOf::<Test>::contains_key(&contract_addr));
+		// used to test `dispatch_as_fallback_account`
+		let call = Box::new(RuntimeCall::Balances(pallet_balances::Call::transfer_all {
+			dest: EVE,
+			keep_alive: false,
+		}));
 
-		let call_result = builder::bare_call(BOB_ADDR)
-			.native_value(1)
-			.origin(RuntimeOrigin::signed(contract_account_id.clone()))
-			.build();
-		assert_err!(call_result.result, DispatchError::BadOrigin);
+		for address in addresses.iter() {
+			let origin = <Test as Config>::AddressMapper::to_fallback_account_id(address);
 
-		let instantiate_result = builder::bare_instantiate(Code::Upload(Vec::new()))
-			.origin(RuntimeOrigin::signed(contract_account_id))
-			.build();
-		assert_err!(instantiate_result.result, DispatchError::BadOrigin);
-	});
-}
+			let result =
+				builder::call(BOB_ADDR).origin(RuntimeOrigin::signed(origin.clone())).build();
+			assert_err!(result, DispatchError::BadOrigin);
 
-#[test]
-fn reject_signed_tx_from_primitive_precompile_address() {
-	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		// blake2f precompile address
-		let precompile_addr = H160::from_low_u64_be(9);
-		let fake_account = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let _ = <Test as Config>::Currency::set_balance(&fake_account, 1_000_000);
+			let result = builder::eth_call(BOB_ADDR)
+				.origin(RuntimeOrigin::signed(origin.clone()))
+				.build();
+			assert_err!(result, DispatchError::BadOrigin);
 
-		let call_result = builder::bare_call(BOB_ADDR)
-			.native_value(1)
-			.origin(RuntimeOrigin::signed(fake_account.clone()))
-			.build();
-		assert_err!(call_result.result, DispatchError::BadOrigin);
+			let result = builder::instantiate(Default::default())
+				.origin(RuntimeOrigin::signed(origin.clone()))
+				.build();
+			assert_err!(result, DispatchError::BadOrigin);
 
-		let instantiate_result = builder::bare_instantiate(Code::Upload(Vec::new()))
-			.origin(RuntimeOrigin::signed(fake_account))
-			.build();
-		assert_err!(instantiate_result.result, DispatchError::BadOrigin);
-	});
-}
+			let result = builder::eth_instantiate_with_code(Default::default())
+				.origin(RuntimeOrigin::signed(origin.clone()))
+				.build();
+			assert_err!(result, DispatchError::BadOrigin);
 
-#[test]
-fn reject_signed_tx_from_builtin_precompile_address() {
-	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		// system precompile address
-		let precompile_addr = H160::from_low_u64_be(0x900);
-		let fake_account = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let _ = <Test as Config>::Currency::set_balance(&fake_account, 1_000_000);
+			let result = builder::instantiate_with_code(Default::default())
+				.origin(RuntimeOrigin::signed(origin.clone()))
+				.build();
+			assert_err!(result, DispatchError::BadOrigin);
 
-		let call_result = builder::bare_call(BOB_ADDR)
-			.native_value(1)
-			.origin(RuntimeOrigin::signed(fake_account.clone()))
-			.build();
-		assert_err!(call_result.result, DispatchError::BadOrigin);
+			let result = <Pallet<Test>>::upload_code(
+				RuntimeOrigin::signed(origin.clone()),
+				Default::default(),
+				<BalanceOf<Test>>::MAX,
+			);
+			assert_err!(result, DispatchError::BadOrigin);
 
-		let instantiate_result = builder::bare_instantiate(Code::Upload(Vec::new()))
-			.origin(RuntimeOrigin::signed(fake_account))
-			.build();
-		assert_err!(instantiate_result.result, DispatchError::BadOrigin);
+			let result = <Pallet<Test>>::map_account(RuntimeOrigin::signed(origin.clone()));
+			assert_err!(result, DispatchError::BadOrigin);
+
+			let result = <Pallet<Test>>::dispatch_as_fallback_account(
+				RuntimeOrigin::signed(origin.clone()),
+				call.clone(),
+			);
+			assert_err!(result, DispatchError::BadOrigin);
+		}
 	});
 }
 

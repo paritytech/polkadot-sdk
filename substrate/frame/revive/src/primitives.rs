@@ -17,8 +17,8 @@
 
 //! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
-use crate::{storage::WriteOutcome, BalanceOf, Config, H160, U256};
-use alloc::{string::String, vec::Vec};
+use crate::{mock::MockHandler, storage::WriteOutcome, BalanceOf, Config, H160, U256};
+use alloc::{boxed::Box, fmt::Debug, string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::weights::Weight;
 use pallet_revive_uapi::ReturnFlags;
@@ -96,7 +96,7 @@ pub enum BalanceConversionError {
 
 /// A Balance amount along with some "dust" to represent the lowest decimals that can't be expressed
 /// in the native currency
-#[derive(Default, Clone, Copy, Eq, PartialEq, Debug)]
+#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct BalanceWithDust<Balance> {
 	/// The value expressed in the native currency
 	value: Balance,
@@ -320,8 +320,7 @@ where
 }
 
 /// `Stack` wide configuration options.
-#[derive(Debug, Clone)]
-pub struct ExecConfig {
+pub struct ExecConfig<T: Config> {
 	/// Indicates whether the account nonce should be incremented after instantiating a new
 	/// contract.
 	///
@@ -351,15 +350,30 @@ pub struct ExecConfig {
 	/// Whether this configuration was created for a dry-run execution.
 	/// Use to enable logic that should only run in dry-run mode.
 	pub is_dry_run: bool,
+	/// An optional mock handler that can be used to override certain behaviors.
+	/// This is primarily used for testing purposes and should be `None` in production
+	/// environments.
+	pub mock_handler: Option<Box<dyn MockHandler<T>>>,
 }
 
-impl ExecConfig {
+impl<T: Config> ExecConfig<T> {
 	/// Create a default config appropriate when the call originated from a substrate tx.
 	pub fn new_substrate_tx() -> Self {
 		Self {
 			bump_nonce: true,
 			collect_deposit_from_hold: None,
 			effective_gas_price: None,
+			is_dry_run: false,
+			mock_handler: None,
+		}
+	}
+
+	pub fn new_substrate_tx_without_bump() -> Self {
+		Self {
+			bump_nonce: false,
+			collect_deposit_from_hold: None,
+			effective_gas_price: None,
+			mock_handler: None,
 			is_dry_run: false,
 		}
 	}
@@ -370,6 +384,7 @@ impl ExecConfig {
 			bump_nonce: false,
 			collect_deposit_from_hold: Some((encoded_len, base_weight)),
 			effective_gas_price: Some(effective_gas_price),
+			mock_handler: None,
 			is_dry_run: false,
 		}
 	}
