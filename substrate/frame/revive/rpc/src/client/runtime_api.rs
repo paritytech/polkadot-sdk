@@ -80,18 +80,9 @@ impl RuntimeApi {
 		let result = self.0.call(payload).await?;
 		match result {
 			Err(err) => {
-				// Attempt to decode revert reason if available
-				let decoded_msg = match &err.0 {
-					EthTransactError::Data(data) => match decode_revert_reason(data) {
-						Some(reason) => format!("execution reverted: {reason}"),
-						None => "execution reverted".to_string(),
-					},
-					EthTransactError::Message(msg) => msg.clone(),
-				};
-				log::debug!(target: LOG_TARGET, "err = {:?}", err);
-				log::debug!(target: LOG_TARGET, "Dry run failed {decoded_msg}");
+				log::debug!(target: LOG_TARGET, "Dry run failed {err:?}");
 				Err(ClientError::TransactError(err.0))
-			},
+			},	
 			Ok(result) => Ok(result.0),
 		}
 	}
