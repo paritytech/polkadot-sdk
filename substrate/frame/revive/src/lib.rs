@@ -1860,7 +1860,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns the spendable balance excluding the existential deposit.
 	pub fn evm_balance(address: &H160) -> U256 {
-		let balance = AccountInfo::<T>::balance((*address).into());
+		let balance = AccountInfo::<T>::balance_of((*address).into());
 		Self::convert_native_to_evm(balance)
 	}
 
