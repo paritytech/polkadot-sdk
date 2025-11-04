@@ -243,8 +243,7 @@ pub mod registration {
 			}
 		}
 
-		debug_assert!(false, "No chunk matched the target_chunk_index; logic error");
-		Ok(None)
+		Err(Error::Application(Box::from(format!("No chunk (total_chunks: {total_chunks}) matched the selected_chunk_index: {selected_chunk_index}; logic error!"))))
 	}
 
 	#[test]
