@@ -300,6 +300,17 @@ jobs:
         path: target/production
         merge-multiple: true
 
+    - name: Install rpmbuild
+      run: sudo apt-get update && sudo apt-get install -y rpm
+
+    - name: Set up Ruby
+      uses: actions/setup-ruby@v1
+      with:
+        ruby-version: '3.2'
+
+    - name: Install fpm
+      run: gem install fpm
+
     - name: Build polkadot deb package
       shell: bash
       run: |
