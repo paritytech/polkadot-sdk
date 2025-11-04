@@ -303,6 +303,7 @@ impl pallet_utility::Config for Test {
 impl pallet_proxy::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type Currency = Balances;
 	type ProxyType = ();
 	type ProxyDepositBase = ConstU64<1>;

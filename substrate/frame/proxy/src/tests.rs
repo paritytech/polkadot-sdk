@@ -22,7 +22,10 @@
 use super::*;
 use crate as proxy;
 use alloc::{vec, vec::Vec};
-use frame::testing_prelude::*;
+use frame::{
+	testing_prelude::*,
+	traits::fungible::{hold::Inspect as HoldInspect, Mutate},
+};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -119,6 +122,7 @@ impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type ProxyType = ProxyType;
 	type ProxyDepositBase = ProxyDepositBase;
 	type ProxyDepositFactor = ProxyDepositFactor;
@@ -133,7 +137,7 @@ impl Config for Test {
 
 use super::{Call as ProxyCall, Event as ProxyEvent};
 use frame_system::Call as SystemCall;
-use pallet_balances::{Call as BalancesCall, Error as BalancesError, Event as BalancesEvent};
+use pallet_balances::{Call as BalancesCall, Event as BalancesEvent};
 use pallet_utility::{Call as UtilityCall, Event as UtilityEvent};
 
 type SystemError = frame_system::Error<Test>;
@@ -167,6 +171,14 @@ fn expect_events(e: Vec<RuntimeEvent>) {
 
 fn call_transfer(dest: u64, value: u64) -> RuntimeCall {
 	RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest, value })
+}
+
+fn hold_balance(who: &u64, reason: RuntimeHoldReason) -> u64 {
+	Balances::balance_on_hold(&reason, who)
+}
+
+fn proxy_hold_balance(who: &u64) -> u64 {
+	hold_balance(who, RuntimeHoldReason::Proxy(HoldReason::ProxyDeposit))
 }
 
 #[test]
@@ -318,7 +330,7 @@ fn proxy_announced_removes_announcement_and_returns_deposit() {
 #[test]
 fn filtering_works() {
 	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&1, 1000);
+		let _ = Balances::set_balance(&1, 1000);
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::JustTransfer, 0));
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 4, ProxyType::JustUtility, 0));
@@ -334,7 +346,7 @@ fn filtering_works() {
 		);
 
 		let derivative_id = pallet_utility::derivative_account_id(1, 0);
-		Balances::make_free_balance_be(&derivative_id, 1000);
+		let _ = Balances::set_balance(&derivative_id, 1000);
 		let inner = Box::new(call_transfer(6, 1));
 
 		let call = Box::new(RuntimeCall::Utility(UtilityCall::as_derivative {
@@ -402,7 +414,12 @@ fn filtering_works() {
 		);
 		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, call.clone()));
 		expect_events(vec![
-			BalancesEvent::<Test>::Unreserved { who: 1, amount: 5 }.into(),
+			BalancesEvent::<Test>::Released {
+				reason: RuntimeHoldReason::Proxy(HoldReason::ProxyDeposit),
+				who: 1,
+				amount: 5,
+			}
+			.into(),
 			ProxyEvent::ProxyExecuted { result: Ok(()) }.into(),
 		]);
 	});
@@ -486,10 +503,10 @@ fn add_remove_proxies_works() {
 fn cannot_add_proxy_without_balance() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(5), 3, ProxyType::Any, 0));
-		assert_eq!(Balances::reserved_balance(5), 2);
+		assert_eq!(proxy_hold_balance(&5), 2);
 		assert_noop!(
 			Proxy::add_proxy(RuntimeOrigin::signed(5), 4, ProxyType::Any, 0),
-			DispatchError::ConsumerRemaining,
+			TokenError::FundsUnavailable,
 		);
 	});
 }
@@ -537,7 +554,7 @@ fn proxying_works() {
 #[test]
 fn pure_works() {
 	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&1, 11); // An extra one for the ED.
+		let _ = Balances::set_balance(&1, 11); // An extra one for the ED.
 		assert_ok!(Proxy::create_pure(RuntimeOrigin::signed(1), ProxyType::Any, 0, 0));
 		let anon = Proxy::pure_account(&1, &ProxyType::Any, 0, None);
 		System::assert_last_event(
@@ -721,19 +738,16 @@ fn poke_deposit_handles_insufficient_balance() {
 	new_test_ext().execute_with(|| {
 		// Setup with account that has minimal balance
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(5), 3, ProxyType::Any, 0));
-		let initial_deposit = Balances::reserved_balance(5);
+		let initial_deposit = proxy_hold_balance(&5);
 
 		// Change deposit base to require more than available balance
 		ProxyDepositBase::set(10);
 
 		// Poking should fail due to insufficient balance
-		assert_noop!(
-			Proxy::poke_deposit(RuntimeOrigin::signed(5)),
-			BalancesError::<Test, _>::InsufficientBalance,
-		);
+		assert_noop!(Proxy::poke_deposit(RuntimeOrigin::signed(5)), TokenError::FundsUnavailable,);
 
 		// Original deposit should remain unchanged
-		assert_eq!(Balances::reserved_balance(5), initial_deposit);
+		assert_eq!(proxy_hold_balance(&5), initial_deposit);
 	});
 }
 
