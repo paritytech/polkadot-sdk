@@ -210,7 +210,7 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 
 	let name = &input.ident;
 	let vis = &input.vis;
-	let (impl_generics, _ty_generics, where_clause) = input.generics.split_for_impl();
+	let generics = &input.generics;
 	let attrs = &input.attrs;
 
 	// Reconstruct the struct body
@@ -253,7 +253,7 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 		#scale_info_attr
 		#codec_attr
 		#(#attrs)*
-		#vis struct #name #impl_generics #where_clause #body
+		#vis struct #name #generics #body
 	})
 }
 
