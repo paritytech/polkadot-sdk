@@ -45,9 +45,9 @@
 //! and prepare either signed or unsigned transaction to feed the result back on chain.
 //! The on-chain logic will simply aggregate the results and store last `64` values to compute
 //! the average price.
-//! Additional logic in OCW is put in place to prevent spamming the network with both signed 
-//! and unsigned transactions. The pallet uses the `#[pallet::authorize]` attribute to validate 
-//! unsigned transactions, ensuring that only one unsigned transaction can be accepted per 
+//! Additional logic in OCW is put in place to prevent spamming the network with both signed
+//! and unsigned transactions. The pallet uses the `#[pallet::authorize]` attribute to validate
+//! unsigned transactions, ensuring that only one unsigned transaction can be accepted per
 //! `UnsignedInterval` blocks.
 
 #![cfg_attr(not(feature = "std"), no_std)]
