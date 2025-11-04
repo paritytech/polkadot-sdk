@@ -49,12 +49,19 @@ fn ref_asset_rates() {
 		const DOT_UNIT: u64 = 10_000_000_000;
 		const USD_UNIT: u64 = 1_000_000;
 		const FIXED_U128_DECIMAL: u128 = 1_000_000_000_000_000_000;
+
+		// USDt/d to DOT rate
 		assert!(pallet_asset_rate::ConversionRateToNative::<Test>::get(1).is_none());
-		assert_ok!(AssetRate::create(
-			RuntimeOrigin::root(),
-			Box::new(1),
-			FixedU128::from_inner((DOT_UNIT / (10 * USD_UNIT)) as u128 * FIXED_U128_DECIMAL)
-		));
+		// current rate on-chain rate: DOT = 10 * USD
+		// DOT and USD units have different decimals: DOT=10^10, USD=10^6.
+		// To compute the rate (1 USD = X DOT), we must scale appropriately for FixedU128:
+		// 1 USD = (DOT_UNIT / (10 * USD_UNIT)) DOT
+		// Convert this ratio to FixedU128 by scaling with FIXED_U128_DECIMAL.
+		let usd_to_dot_rate = FixedU128::from_inner(
+			(DOT_UNIT as u128).saturating_mul(FIXED_U128_DECIMAL) / (10 * USD_UNIT) as u128,
+		);
+
+		assert_ok!(AssetRate::create(RuntimeOrigin::root(), Box::new(1), usd_to_dot_rate));
 
 		let conversion_from_asset = <AssetRate as ConversionFromAssetBalance<
 			BalanceOf<Test>,
@@ -63,12 +70,17 @@ fn ref_asset_rates() {
 		>>::from_asset_balance(10 * USD_UNIT, 1);
 		assert_eq!(conversion_from_asset.expect("Conversion rate exists for asset"), DOT_UNIT);
 
+		// DOT to KSM rate
 		assert!(pallet_asset_rate::ConversionRateToNative::<Test>::get(2).is_none());
-		assert_ok!(AssetRate::create(
-			RuntimeOrigin::root(),
-			Box::new(2),
-			FixedU128::from_inner((KSM_UNIT / (4 * DOT_UNIT)) as u128 * FIXED_U128_DECIMAL)
-		));
+		// current on-chain rate: KSM = 4 * DOT
+		// KSM and DOT units have different decimals: KSM=10^12, DOT=10^10.
+		// To compute the rate (1 DOT = X KSM), scale appropriately for FixedU128:
+		// 1 DOT = (KSM_UNIT / (4 * DOT_UNIT)) KSM
+		// Convert to FixedU128 by scaling with FIXED_U128_DECIMAL.
+		let dot_to_ksm_rate = FixedU128::from_inner(
+			(KSM_UNIT as u128).saturating_mul(FIXED_U128_DECIMAL) / (4 * DOT_UNIT) as u128,
+		);
+		assert_ok!(AssetRate::create(RuntimeOrigin::root(), Box::new(2), dot_to_ksm_rate));
 
 		let conversion_from_asset = <AssetRate as ConversionFromAssetBalance<
 			BalanceOf<Test>,
@@ -85,12 +97,16 @@ fn ref_asset_rates() {
 		// should be 25
 		let rate_str = hex!("19000000000000000000000000000000");
 		let rate = FixedU128::decode(&mut rate_str.as_slice()).expect("Valid rate string");
+		assert_eq!(rate, FixedU128::from_float(0.000000000000000025));
+		assert_ne!(rate, dot_to_ksm_rate);
 		println!("rate: {:?}", rate);
 
 		// current encoded value of DOT/USD rate on Polkadot
 		// value is 1000.000000000000000000
 		let rate_str = hex!("0000a0dec5adc9353600000000000000");
 		let rate = FixedU128::decode(&mut rate_str.as_slice()).expect("Valid rate string");
+		assert_eq!(rate, FixedU128::from_float(1000.0));
+		assert_eq!(rate, usd_to_dot_rate);
 		println!("rate: {:?}", rate);
 	});
 }
