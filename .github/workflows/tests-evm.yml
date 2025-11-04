@@ -60,7 +60,7 @@ jobs:
       - name: Downloading & Initializing the compilation caches
         run: |
           curl -fL --retry 3 --retry-all-errors --connect-timeout 10 -o cache.tar.gz "https://github.com/paritytech/revive-differential-tests/releases/download/compilation-caches-v1.0/cache.tar.gz"
-          tar -zxf cache.tar.gz -C ./workdir
+          tar -zxf cache.tar.gz -C ./workdir > /dev/null 2>&1
       - name: Running the Differential Tests
         run: |
           retester test \
