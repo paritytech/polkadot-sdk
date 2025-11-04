@@ -141,7 +141,7 @@ pub fn stored(
 
 fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 	let args: StoredArgs = syn::parse2(attr)?;
-	let mut input: syn::DeriveInput = syn::parse2(item)?;
+	let input: syn::DeriveInput = syn::parse2(item)?;
 
 	// Validate that skipped parameters are actually generic parameters
 	for skip_param in &args.skip {
