@@ -105,16 +105,20 @@ impl<B: BlockT> InformantDisplay<B> {
 				) if !sync_status.is_major_syncing() => ("⏩", "Block history".into(), format!(", #{}", n)),
 				// Handle all phases besides the two phases we already handle above.
 				(_, _, Some(warp))
-					if !matches!(warp.phase, WarpSyncPhase::DownloadingBlocks(_)) =>
-					(
-						"⏩",
-						"Warping".into(),
-						format!(
-							", {}, {:.2} Mib",
-							warp.phase,
-							(warp.total_bytes as f32) / (1024f32 * 1024f32)
-						),
-					),
+					if !matches!(warp.phase, WarpSyncPhase::DownloadingBlocks(_)) => 
+                    {
+                        let progress_text = if warp.eras_synced > 0 {
+                            format!(", {} eras synced, {:.2} Mib", warp.eras_synced, (warp.total_bytes as f32) / (1024f32 * 1024f32))
+                        } else {
+                            format!(", {:.2} Mib", (warp.total_bytes as f32) / (1024f32 * 1024f32))
+                        };
+
+					    (
+						    "⏩",
+						    "Warping".into(),
+                            progress_text,
+					    )
+                    },
 				(_, Some(state), _) => (
 					"⚙️ ",
 					"State sync".into(),
