@@ -1418,7 +1418,7 @@ impl Client {
 			self.rpc_client.request("hardhat_reset", Default::default()).await.unwrap();
 
 		let block = self.api.blocks().at_latest().await?;
-		let _ = self.block_provider.update_latest(block, SubsfriptionType::BestBlocks).await;
+		let _ = self.block_provider.update_latest(block, SubscriptionType::BestBlocks).await;
 
 		Ok(Some(result))
 	}
