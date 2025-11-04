@@ -169,6 +169,9 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 		let tx_hashes = core::mem::replace(&mut self.tx_hashes, Vec::new());
 		let gas_info = core::mem::replace(&mut self.gas_info, Vec::new());
 
+		let difficulty = U256::from(crate::vm::evm::DIFFICULTY);
+		let mix_hash = H256(difficulty.to_big_endian());
+
 		let mut block = Block {
 			number: block_number,
 			parent_hash,
@@ -185,6 +188,8 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 
 			logs_bloom: self.logs_bloom.bloom.into(),
 			transactions: HashesOrTransactionInfos::Hashes(tx_hashes),
+
+			mix_hash,
 
 			..Default::default()
 		};

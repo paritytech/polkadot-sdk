@@ -172,10 +172,10 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
-	P: Pair + 'static,
+	P: Pair + Send + Sync + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
-	Spawner: SpawnNamed,
+	Spawner: SpawnNamed + Clone + 'static,
 {
 	let Params {
 		create_inherent_data_providers,
