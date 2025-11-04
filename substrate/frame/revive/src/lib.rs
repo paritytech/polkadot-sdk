@@ -57,7 +57,7 @@ use crate::{
 	},
 	exec::{AccountIdOf, ExecError, Stack as ExecStack},
 	gas::GasMeter,
-	inherent_handlers::{InherentHandler, InherentHandlers},
+	inherent_handlers::InherentHandlers,
 	storage::{meter::Meter as StorageMeter, AccountType, DeletionQueueManager},
 	tracing::if_tracing,
 	vm::{pvm::extract_code_and_data, CodeInfo, RuntimeCosts},
@@ -1529,6 +1529,8 @@ pub mod pallet {
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			if let Call::system_log_dispatch { message } = call {
 				ensure!(T::InherentHandlers::is_valid_handler(&message.handler_name), InvalidTransaction::Call);
+
+				T::InherentHandlers::dispatch_message(message.clone()).map_err(|_| InvalidTransaction::BadProof)?;
 
 				ValidTransaction::with_tag_prefix("SystemLogDispatch")
 					.and_provides(message.encode())
