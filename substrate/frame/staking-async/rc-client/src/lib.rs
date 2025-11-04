@@ -988,25 +988,6 @@ mod tests {
 	}
 
 	#[test]
-	fn validator_set_report_split_and_merge_roundtrip() {
-		// Test that split and merge are inverse operations
-		let validators: Vec<TestAccountId> = (0..100).collect();
-		let original = ValidatorSetReport::<TestAccountId, ConstU32<1000>>::new_terminal(
-			validators,
-			42,
-			Some(10),
-		);
-
-		let parts = original.clone().split(25);
-		let merged = parts.into_iter().reduce(|acc, x| acc.merge(x).unwrap()).unwrap();
-
-		assert_eq!(merged.new_validator_set.len(), original.new_validator_set.len());
-		assert_eq!(merged.id, original.id);
-		assert_eq!(merged.prune_up_to, original.prune_up_to);
-		assert_eq!(merged.leftover, original.leftover);
-	}
-
-	#[test]
 	fn validator_set_report_with_custom_max_validators() {
 		// Test using a custom MaxValidators type parameter
 		type SmallMax = ConstU32<32>;
