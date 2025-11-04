@@ -74,7 +74,7 @@ jobs:
             --working-directory ./workdir \
             --revive-dev-node.consensus manual-seal-200 \
             --revive-dev-node.path ./target/release/revive-dev-node \
-            --eth-rpc.path ./target/release/eth-rpc
+            --eth-rpc.path ./target/release/eth-rpc \
             --resolc.path ./resolc
       - name: Creating a markdown report of the test execution
         run: |
