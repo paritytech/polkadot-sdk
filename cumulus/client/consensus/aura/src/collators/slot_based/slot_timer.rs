@@ -177,49 +177,105 @@ where
 		))
 	}
 
+	/// Compute the time until the next slot changes.
+	fn compute_time_until_next_slot_change(&mut self) -> Result<(Duration, Slot), ()> {
+		let Ok(slot_duration) = crate::slot_duration(&*self.client) else {
+			tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
+			return Err(())
+		};
+
+		let now = duration_now();
+		let now = now.as_millis().saturating_sub(self.time_offset.as_millis());
+
+		let last_reported_slot = self.last_reported_slot.unwrap_or_default();
+		let Some(last_slot_timestamp) = last_reported_slot.timestamp(slot_duration) else {
+			tracing::error!(target: LOG_TARGET, "Failed to obtain the last slot timestamp");
+			return Err(())
+		};
+
+		// Compute when the next different slot starts.
+		let next_different_slot_time =
+			last_slot_timestamp.as_millis() + slot_duration.as_millis() as u64;
+		let remaining_millis = next_different_slot_time.saturating_sub(now as u64);
+		let next_aura_slot =
+			Slot::from_timestamp(Timestamp::from(next_different_slot_time as u64), slot_duration);
+
+		Ok((Duration::from_millis(remaining_millis as u64), next_aura_slot))
+	}
+
 	/// Adjust the authoring duration to fit into the slot timing.
 	///
 	/// Returns the adjusted authoring duration and the slot that it corresponds to.
-	pub fn adjust_authoring_duration(&mut self, authoring_duration: Duration) -> Duration {
+	pub fn adjust_authoring_duration(
+		&mut self,
+		mut authoring_duration: Duration,
+	) -> Option<Duration> {
 		let Ok((duration, next_slot)) = self.time_until_next_slot() else {
 			tracing::error!(
 				target: LOG_TARGET,
 				"Failed to fetch slot duration from runtime. Using unadjusted authoring duration."
 			);
-			return authoring_duration;
+			return Some(authoring_duration);
 		};
 
+		let Ok((next_duration_change, next_slot_change)) =
+			self.compute_time_until_next_slot_change()
+		else {
+			tracing::error!(
+				target: LOG_TARGET,
+				"Failed to compute time until next slot change. Using unadjusted authoring duration."
+			);
+			return Some(authoring_duration);
+		};
+
+		// The authoring of blocks must stop 1 second before the slot ends.
+		let deadline = next_duration_change.saturating_sub(BLOCK_PRODUCTION_ADJUSTMENT_MS);
 		tracing::debug!(
 			target: LOG_TARGET,
 			?authoring_duration,
 			?duration,
+			last_reported_slot = ?self.last_reported_slot,
+			?next_slot,
+			?next_duration_change,
+			?next_slot_change,
+			?deadline,
 			"Adjusting authoring duration for slot.",
 		);
 
-		// If the next attempt duration is less than the authoring duration,
-		// ensure we fit into the slot.
-		let mut authoring_duration = authoring_duration.min(duration);
-
-		// The authoring of the last block that fits into the relay chain is reduced to fit into the
-		// slot timing. For example, when the block is full we need sufficient time to
-		// propagate and import it before the next slot starts.
-		let last_reported_slot = self.last_reported_slot.unwrap_or_default();
-		if last_reported_slot != next_slot {
-			authoring_duration = std::cmp::max(
-				authoring_duration.saturating_sub(BLOCK_PRODUCTION_ADJUSTMENT_MS),
-				BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS,
-			);
-
-			tracing::debug!(
+		// Ensure no blocks are produced in the last second of the slot,
+		// regardless of authoring duration.
+		if deadline == Duration::ZERO {
+			tracing::warn!(
 				target: LOG_TARGET,
-				?last_reported_slot,
-				?next_slot,
-				?authoring_duration,
-				"Adjusted the last block production attempt for the slot."
+				?next_duration_change,
+				?next_slot_change,
+				"Not enough time left in the slot to adjust authoring duration. Skipping block production for the slot."
 			);
+
+			return None;
 		}
 
-		authoring_duration
+		// Clamp the authoring duration to fit into the slot deadline.
+		// For most cases, the deadline is farther in the future than the authoring duration.
+		if authoring_duration >= deadline {
+			authoring_duration = deadline;
+
+			// Ensure we are not going below the minimum interval.
+			if authoring_duration < BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS {
+				tracing::warn!(
+					target: LOG_TARGET,
+					?authoring_duration,
+					?next_slot,
+					"Authoring duration is below minimum. Skipping block production for the slot."
+				);
+				return None;
+			}
+		}
+
+		// The `duration` intends to slightly adjust when then block production
+		// attempt happens. This goes slightly below the `BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS`
+		// threshold.
+		Some(authoring_duration.min(duration))
 	}
 
 	/// Returns a future that resolves when the next block production should be attempted.

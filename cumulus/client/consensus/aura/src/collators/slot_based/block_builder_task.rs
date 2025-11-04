@@ -391,6 +391,22 @@ where
 				slot_timer.adjust_authoring_duration(authoring_duration);
 			tracing::debug!(target: crate::LOG_TARGET, duration = ?adjusted_authoring_duration, "Adjusted proposal duration.");
 
+			let Some(adjusted_authoring_duration) = adjusted_authoring_duration else {
+				tracing::debug!(
+					target: crate::LOG_TARGET,
+					unincluded_segment_len = parent.depth,
+					relay_parent = ?relay_parent,
+					relay_parent_num = %relay_parent_header.number(),
+					included_hash = ?included_header_hash,
+					included_num = %included_header.number(),
+					parent = ?parent_hash,
+					slot = ?para_slot.slot,
+					"Not building block due to insufficient authoring duration."
+				);
+
+				continue;
+			};
+
 			let Ok(Some(candidate)) = collator
 				.build_block_and_import(
 					&parent_header,
