@@ -477,30 +477,36 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 		.into()
 }
 
-/// Derive macro for simplifying storage type definitions.
+/// Attribute macro for simplifying storage type definitions.
 ///
-/// This macro automatically applies the appropriate derives and bounds for types stored in
-/// blockchain storage. It handles phantom type parameters and `MaxEncodedLen` requirements.
+/// This macro automatically applies the appropriate derives for types stored in runtime
+/// storage. It automatically skips all type parameters in TypeInfo metadata and allows
+/// configuration of `MaxEncodedLen` bounds.
+///
+/// # Automatic Behavior
+///
+/// The macro automatically applies these derives:
+/// - `CloneNoBound`, `PartialEqNoBound`, `EqNoBound`, `RuntimeDebugNoBound`
+/// - `TypeInfo`, `Encode`, `Decode`, `DecodeWithMemTracking`, `MaxEncodedLen`
+///
+/// All type parameters are automatically excluded from TypeInfo metadata generation via
+/// `#[scale_info(skip_type_params(...))]`.
 ///
 /// # Arguments
 ///
-/// * `skip(T, U, ...)` - Generic parameters that should not have bounds added (phantom types)
 /// * `mel(T, U, ...)` - Generic parameters that require `MaxEncodedLen` bound
 /// * `mel_bound(T: Trait, U: Trait)` - Custom bounds for `MaxEncodedLen` instead of default
 ///
 /// # Example
 ///
 /// ```ignore
-/// #[frame_support::stored(skip(Total), mel(Votes))]
+/// #[frame_support::stored(mel(Votes))]
 /// pub struct Tally<Votes, Total> {
 ///     pub ayes: Votes,
 ///     pub nays: Votes,
 ///     dummy: PhantomData<Total>,
 /// }
 /// ```
-///
-/// This expands to include all necessary derives (`CloneNoBound`, `PartialEqNoBound`, etc.)
-/// and proper bounds on the generic parameters.
 #[proc_macro_attribute]
 pub fn stored(attr: TokenStream, item: TokenStream) -> TokenStream {
 	stored::stored(attr, item)

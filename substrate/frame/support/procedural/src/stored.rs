@@ -18,8 +18,8 @@
 //! Implementation of the `#[stored]` attribute macro for storage types.
 //!
 //! This macro simplifies the definition of storage types by automatically generating
-//! the appropriate derive macros and bounds. It intelligently handles phantom type
-//! parameters and `MaxEncodedLen` requirements.
+//! the appropriate derive macros. It handles skipping type parameters in TypeInfo
+//! metadata and `MaxEncodedLen` bounds configuration.
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
@@ -38,7 +38,8 @@ mod keywords {
 
 /// Parsed arguments for the `#[stored]` attribute.
 struct StoredArgs {
-	/// Generic parameters to skip (phantom types that don't need bounds).
+	/// Generic parameters to exclude from TypeInfo metadata generation.
+	/// These are typically indirectly-used types or phantom data.
 	skip: Vec<Ident>,
 	/// Generic parameters that require MaxEncodedLen.
 	mel: Vec<Ident>,
@@ -168,29 +169,22 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 		}
 	}
 
-	// Add bounds to non-skipped generic parameters
-	for param in input.generics.params.iter_mut() {
-		if let syn::GenericParam::Type(type_param) = param {
-			// Skip phantom type parameters
-			if args.skip.contains(&type_param.ident) {
-				continue
-			}
+	// Collect all type parameters for scale_info skip_type_params.
+	// By default, we skip all type parameters in TypeInfo metadata as they're rarely needed.
+	let all_type_params: Vec<_> = input
+		.generics
+		.params
+		.iter()
+		.filter_map(|p| match p {
+			syn::GenericParam::Type(tp) => Some(&tp.ident),
+			_ => None,
+		})
+		.collect();
 
-			// Add standard bounds for storage types
-			type_param.bounds.push(syn::parse_quote!(::core::clone::Clone));
-			type_param.bounds.push(syn::parse_quote!(::core::cmp::PartialEq));
-			type_param.bounds.push(syn::parse_quote!(::core::cmp::Eq));
-			type_param.bounds.push(syn::parse_quote!(::core::fmt::Debug));
-			type_param.bounds.push(syn::parse_quote!(::scale_info::TypeInfo));
-			type_param.bounds.push(syn::parse_quote!(::codec::Codec));
-		}
-	}
-
-	// Generate scale_info attribute for skipped parameters
-	let scale_info_attr = if !args.skip.is_empty() {
-		let skip_params = &args.skip;
+	// Generate scale_info attribute to skip all type parameters
+	let scale_info_attr = if !all_type_params.is_empty() {
 		quote! {
-			#[scale_info(skip_type_params(#(#skip_params),*))]
+			#[scale_info(skip_type_params(#(#all_type_params),*))]
 		}
 	} else {
 		quote! {}
@@ -301,7 +295,7 @@ mod tests {
 
 	#[test]
 	fn stored_macro_expands() {
-		let attr = quote! { skip(Total), mel(Votes) };
+		let attr = quote! { mel(Votes) };
 		let item = quote! {
 			pub struct Tally<Votes, Total> {
 				pub ayes: Votes,

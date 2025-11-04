@@ -23,7 +23,7 @@ use frame_support::stored;
 use scale_info::TypeInfo;
 
 // This is the new way - using the #[stored] macro
-#[stored(skip(Total), mel(Votes))]
+#[stored(mel(Votes))]
 pub struct TallyNew<Votes, Total> {
 	pub ayes: Votes,
 	pub nays: Votes,
