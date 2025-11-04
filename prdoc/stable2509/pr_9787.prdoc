@@ -1,0 +1,16 @@
+title: 'EPMB: fix benchmark funding for exponential deposit growth'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes funding issues in benchmarks that were failing on Asset Hub Kusama with "Funds are  unavailable" errors.
+
+    Two root causes:
+    - `funded_account()` calculated deposits using current queue state, but `GeometricDepositBase` causes exponential  growth: `deposit = base * (1 + increase_factor)^queue_len`.
+    - we were not taking into account transaction fees
+
+    Solution:
+      - Calculate deposits using worst-case scenario with maximum queue size (`T::MaxSubmissions::get()`) to ensure adequate funding regardless of queue state changes during benchmark execution.
+      - Estimate total transaction fees as 1% of min balance x number of operations
+crates:
+- name: pallet-election-provider-multi-block
+  bump: patch

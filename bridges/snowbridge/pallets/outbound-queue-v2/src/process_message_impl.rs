@@ -9,7 +9,7 @@ use frame_support::{
 };
 
 impl<T: Config> ProcessMessage for Pallet<T> {
-	type Origin = AggregateMessageOrigin;
+	type Origin = T::AggregateMessageOrigin;
 	fn process_message(
 		message: &[u8],
 		origin: Self::Origin,

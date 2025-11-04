@@ -407,7 +407,7 @@ async fn follow_with_runtime() {
 	let mut runtime = runtime;
 	runtime.spec_version += 1;
 	let embedded = sp_version::embed::embed_runtime_version(&wasm, runtime.clone()).unwrap();
-	let wasm = sp_maybe_compressed_blob::compress(
+	let wasm = sp_maybe_compressed_blob::compress_strongly(
 		&embedded,
 		sp_maybe_compressed_blob::CODE_BLOB_BOMB_LIMIT,
 	)

@@ -17,18 +17,21 @@
 
 use crate::{
 	assert_refcount,
-	test_utils::{builder::Contract, ALICE},
+	call_builder::VmBinaryModule,
+	debug::DebugSettings,
+	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
 	tests::{
 		builder,
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
-		ExtBuilder, Test,
+		DebugFlag, ExtBuilder, Test,
 	},
-	Code, Config, PristineCode,
+	Code, Config, Error, GenesisConfig, PristineCode,
 };
-use alloy_core::{primitives::U256, sol_types::SolInterface};
-use frame_support::traits::fungible::Mutate;
+use alloy_core::sol_types::{SolCall, SolInterface};
+use frame_support::{assert_err, assert_ok, traits::fungible::Mutate};
 use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType};
 use pretty_assertions::assert_eq;
+use test_case::test_case;
 
 use revm::bytecode::opcode::*;
 
@@ -87,15 +90,10 @@ fn basic_evm_flow_works() {
 			assert_refcount!(contract.code_hash, i as u64);
 
 			let result = builder::bare_call(addr)
-				.data(
-					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: U256::from(10u64) })
-						.abi_encode(),
-				)
+				.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 10u64 }).abi_encode())
 				.build_and_unwrap_result();
-			assert_eq!(
-				U256::from(55u32),
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
-			);
+			let decoded = Fibonacci::fibCall::abi_decode_returns(&result.data).unwrap();
+			assert_eq!(55u64, decoded);
 		}
 
 		// init code is not stored
@@ -107,7 +105,6 @@ fn basic_evm_flow_works() {
 fn basic_evm_flow_tracing_works() {
 	use crate::{
 		evm::{CallTrace, CallTracer, CallType},
-		test_utils::ALICE_ADDR,
 		tracing::trace,
 	};
 	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
@@ -139,17 +136,12 @@ fn basic_evm_flow_tracing_works() {
 		let mut call_tracer = CallTracer::new(Default::default(), |_| crate::U256::zero());
 		let result = trace(&mut call_tracer, || {
 			builder::bare_call(addr)
-				.data(
-					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: U256::from(10u64) })
-						.abi_encode(),
-				)
+				.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 10u64 }).abi_encode())
 				.build_and_unwrap_result()
 		});
 
-		assert_eq!(
-			U256::from(55u32),
-			U256::from_be_bytes::<32>(result.data.clone().try_into().unwrap())
-		);
+		let decoded = Fibonacci::fibCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(55u64, decoded);
 
 		assert_eq!(
 			call_tracer.collect_trace().unwrap(),
@@ -157,7 +149,7 @@ fn basic_evm_flow_tracing_works() {
 				call_type: CallType::Call,
 				from: ALICE_ADDR,
 				to: addr,
-				input: Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: U256::from(10u64) })
+				input: Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 10u64 })
 					.abi_encode()
 					.into(),
 				output: result.data.into(),
@@ -165,5 +157,111 @@ fn basic_evm_flow_tracing_works() {
 				..Default::default()
 			},
 		);
+	});
+}
+
+#[test]
+fn eth_contract_too_large() {
+	// Generate EVM bytecode that is one byte larger than the EIP-3860 limit.
+	let contract_size = u32::try_from(revm::primitives::eip3860::MAX_INITCODE_SIZE + 1)
+		.expect("usize value doesn't fit in u32");
+	let code = VmBinaryModule::evm_sized(contract_size).code;
+
+	for (allow_unlimited_contract_size, debug_flag) in
+		[(true, false), (true, true), (false, false), (false, true)]
+	{
+		// Set the DebugEnabled flag to the desired value for this iteration of the test.
+		DebugFlag::set(debug_flag);
+
+		// Initialize genesis config with allow_unlimited_contract_size
+		let genesis_config = GenesisConfig::<Test> {
+			debug_settings: Some(DebugSettings::new(allow_unlimited_contract_size)),
+			..Default::default()
+		};
+
+		ExtBuilder::default()
+			.genesis_config(Some(genesis_config))
+			.build()
+			.execute_with(|| {
+				let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+				let result = builder::bare_instantiate(Code::Upload(code.clone())).build();
+
+				if allow_unlimited_contract_size && debug_flag {
+					// The contract is too large, but the DebugEnabled flag is set and
+					// allow_unlimited_contract_size is true.
+					assert_ok!(result.result);
+				} else {
+					// The contract is too large and either the DebugEnabled flag is not set or
+					// allow_unlimited_contract_size is false.
+					assert_err!(result.result, <Error<Test>>::BlobTooLarge);
+				}
+			});
+	}
+}
+
+#[test]
+fn upload_evm_runtime_code_works() {
+	use crate::{
+		exec::Executable,
+		primitives::ExecConfig,
+		storage::{AccountInfo, ContractInfo},
+		Pallet,
+	};
+
+	let (runtime_code, _runtime_hash) =
+		compile_module_with_type("Fibonacci", FixtureType::SolcRuntime).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let deployer = ALICE;
+		let deployer_addr = ALICE_ADDR;
+		let _ = Pallet::<Test>::set_evm_balance(&deployer_addr, 1_000_000_000.into());
+
+		let (uploaded_blob, _) = Pallet::<Test>::try_upload_code(
+			deployer,
+			runtime_code.clone(),
+			crate::vm::BytecodeType::Evm,
+			u64::MAX,
+			&ExecConfig::new_substrate_tx(),
+		)
+		.unwrap();
+
+		let contract_address = crate::address::create1(&deployer_addr, 0u32.into());
+
+		let contract_info =
+			ContractInfo::<Test>::new(&contract_address, 0u32.into(), *uploaded_blob.code_hash())
+				.unwrap();
+		AccountInfo::<Test>::insert_contract(&contract_address, contract_info);
+
+		// Call the contract and verify it works
+		let result = builder::bare_call(contract_address)
+			.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 10u64 }).abi_encode())
+			.build_and_unwrap_result();
+		let decoded = Fibonacci::fibCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(55u64, decoded, "Contract should correctly compute fibonacci(10)");
+	});
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn dust_work_with_child_calls(fixture_type: FixtureType) {
+	use pallet_revive_fixtures::CallSelfWithDust;
+	let (code, _) = compile_module_with_type("CallSelfWithDust", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+
+		let value = 1_000_000_000.into();
+		builder::bare_call(addr)
+			.data(
+				CallSelfWithDust::CallSelfWithDustCalls::call(CallSelfWithDust::callCall {})
+					.abi_encode(),
+			)
+			.evm_value(value)
+			.build_and_unwrap_result();
+
+		assert_eq!(crate::Pallet::<Test>::evm_balance(&addr), value);
 	});
 }
