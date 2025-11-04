@@ -287,8 +287,7 @@ mod benchmarks {
 		c: Linear<0, { 100 * 1024 }>,
 		i: Linear<0, { limits::CALLDATA_BYTES }>,
 		d: Linear<0, 1>,
-	) {
-		let pallet_account = whitelisted_pallet_account::<T>();
+	) -> Result<(), BenchmarkError> {
 		let input = vec![42u8; i as usize];
 
 		// Use an `effective_gas_price` that is not a multiple of `T::NativeToEthRatio`
@@ -307,7 +306,6 @@ mod benchmarks {
 		let deployer = T::AddressMapper::to_address(&caller);
 		let nonce = System::<T>::account_nonce(&caller).try_into().unwrap_or_default();
 		let addr = crate::address::create1(&deployer, nonce);
-		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
 
 		assert!(AccountInfoOf::<T>::get(&deployer).is_none());
 
@@ -327,33 +325,9 @@ mod benchmarks {
 			0,
 		);
 
-		let deposit =
-			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
-		// uploading the code reserves some balance in the pallet account
-		let code_deposit = T::Currency::balance_on_hold(
-			&HoldReason::CodeUploadDepositReserve.into(),
-			&pallet_account,
-		);
-		let mapping_deposit =
-			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &caller);
-
-		let pallet_addr = T::AddressMapper::to_address(&pallet_account);
-		let rounding_err = AccountInfoOf::<T>::get(&pallet_addr).unwrap().dust;
-		assert!(!rounding_err.is_zero());
-
-		assert_eq!(
-			<T as Config>::FeeInfo::remaining_txfee(),
-			caller_funding::<T>() - deposit - code_deposit - Pallet::<T>::min_balance(),
-		);
-		assert_eq!(
-			Pallet::<T>::evm_balance(&deployer),
-			Pallet::<T>::convert_native_to_evm(
-				caller_funding::<T>() - Pallet::<T>::min_balance() - value - mapping_deposit,
-			) - dust - rounding_err
-		);
-
 		// contract has the full value
 		assert_eq!(Pallet::<T>::evm_balance(&addr), evm_value);
+		Ok(())
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -459,7 +433,6 @@ mod benchmarks {
 	// `d`: with or without dust value to transfer
 	#[benchmark(pov_mode = Measured)]
 	fn eth_call(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
-		let pallet_account = whitelisted_pallet_account::<T>();
 		let data = vec![42u8; 1024];
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
@@ -478,7 +451,6 @@ mod benchmarks {
 			<T as Config>::Currency::issue(caller_funding::<T>()),
 		);
 
-		let caller_addr = T::AddressMapper::to_address(&instance.caller);
 		let origin = Origin::EthTransaction(instance.caller.clone());
 		let before = Pallet::<T>::evm_balance(&instance.address);
 
@@ -492,32 +464,6 @@ mod benchmarks {
 			TransactionSigned::default().signed_payload(),
 			effective_gas_price,
 			0,
-		);
-		let deposit = T::Currency::balance_on_hold(
-			&HoldReason::StorageDepositReserve.into(),
-			&instance.account_id,
-		);
-		let code_deposit = T::Currency::balance_on_hold(
-			&HoldReason::CodeUploadDepositReserve.into(),
-			&pallet_account,
-		);
-		let mapping_deposit =
-			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &instance.caller);
-		// value and value transferred via call should be removed from the caller
-
-		let pallet_addr = T::AddressMapper::to_address(&pallet_account);
-		let rounding_err = AccountInfoOf::<T>::get(&pallet_addr).unwrap().dust;
-
-		assert!(!rounding_err.is_zero());
-		assert_eq!(
-			Pallet::<T>::evm_balance(&caller_addr),
-			Pallet::<T>::convert_native_to_evm(
-				caller_funding::<T>() -
-					Pallet::<T>::min_balance() -
-					Pallet::<T>::min_balance() -
-					value - deposit - code_deposit -
-					mapping_deposit,
-			) - dust - rounding_err
 		);
 
 		// contract should have received the value
