@@ -138,8 +138,8 @@ where
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
-	tracing::info!(target: LOG_TARGET, "Starting slot-based block-builder task.");
 	async move {
+		tracing::info!(target: LOG_TARGET, "Starting slot-based block-builder task.");
 		let BuilderTaskParams {
 			relay_client,
 			create_inherent_data_providers,
