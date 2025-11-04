@@ -25,6 +25,13 @@ use core::marker::PhantomData;
 pub mod substrate_execution {
 	use super::*;
 
+	/// Create a transaction-level (root) meter for Substrate-style execution.
+	///
+	/// This constructs the root resource meter that enforces explicit weight and
+	/// storage-deposit limits for the whole transaction. The returned `TransactionMeter`:
+	/// - charges weight via `WeightMeter` with the provided `weight_limit`,
+	/// - accounts storage deposit via `RootStorageMeter` with the provided `deposit_limit`,
+	/// - records that the transaction's limit mode is `WeightAndDeposit`.
 	pub fn new_root<T: Config>(
 		weight_limit: Weight,
 		deposit_limit: BalanceOf<T>,
@@ -41,6 +48,18 @@ pub mod substrate_execution {
 		})
 	}
 
+	/// Create a nested (frame) meter derived from a parent `ResourceMeter`.
+	///
+	/// This produces a frame-local meter that enforces the resource limits for
+	/// a nested call. It computes how much of the parent's remaining resources are available
+	/// to the nested frame by:
+	/// - collecting the parent's own consumed amounts (`self_consumed_*`),
+	/// - deriving the total consumed amounts up to this point,
+	/// - applying the requested `CallResources` (no limits, ethereum gas conversion, or explicit
+	///   weight+deposit) to derive per-frame limits.
+	///
+	/// Returns `Err(Error::OutOfGas)` when weight is exhausted, or
+	/// `Err(Error::StorageDepositLimitExhausted)` when deposit bookkeeping forbids further storage.
 	pub fn new_nested_meter<T: Config, S: State>(
 		meter: &ResourceMeter<T, S>,
 		limit: &CallResources<T>,
@@ -73,6 +92,10 @@ pub mod substrate_execution {
 				CallResources::NoLimits => (weight_left, deposit_left),
 
 				CallResources::Ethereum(gas) => {
+					// Convert leftover weight and deposit to an ethereum-gas equivalent,
+					// then cap that gas by the requested `gas`. Distribute the capped gas
+					// back into weight and deposit portions using the same ratio so that
+					// the nested frame receives proportional limits.
 					let weight_gas = T::FeeInfo::weight_to_fee_average(&weight_left);
 					let deposit_gas = T::FeeInfo::next_fee_multiplier_reciprocal()
 						.saturating_mul_int(deposit_left);
@@ -97,7 +120,9 @@ pub mod substrate_execution {
 					}
 				},
 
-				CallResources::Precise { weight, deposit_limit } =>
+				CallResources::WeightDeposit { weight, deposit_limit } =>
+				// when explicit weight+deposit requested, take the minimum of parent's left
+				// and the requested per-call limits.
 					(weight_left.min(*weight), deposit_left.min(*deposit_limit)),
 			}
 		};
@@ -113,6 +138,10 @@ pub mod substrate_execution {
 		})
 	}
 
+	/// Compute the remaining ethereum-gas-equivalent for a Substrate-style transaction.
+	///
+	/// Converts the remaining weight and deposit into their gas-equivalents (via `FeeInfo`) and
+	/// returns the sum. Returns `None` if either component there is not enough as left
 	pub fn eth_gas_left<T: Config, S: State>(meter: &ResourceMeter<T, S>) -> Option<BalanceOf<T>> {
 		match (meter.weight_left(), meter.deposit_left()) {
 			(Some(weight_left), Some(deposit_left)) => {
@@ -126,6 +155,9 @@ pub mod substrate_execution {
 		}
 	}
 
+	/// Return remaining weight available in the given meter.
+	///
+	/// Subtracts the weight already consumed in the current frame from the configured limit.
 	pub fn weight_left<T: Config, S: State>(meter: &ResourceMeter<T, S>) -> Option<Weight> {
 		let weight_limit = meter
 			.weight
@@ -134,6 +166,10 @@ pub mod substrate_execution {
 		weight_limit.checked_sub(&meter.weight.weight_consumed())
 	}
 
+	/// Return remaining deposit available to the given meter.
+	///
+	/// Subtracts the storage deposit already consumed in the current frame from the configured
+	/// limit.
 	pub fn deposit_left<T: Config, S: State>(meter: &ResourceMeter<T, S>) -> Option<BalanceOf<T>> {
 		let deposit_limit = meter
 			.deposit
@@ -142,6 +178,10 @@ pub mod substrate_execution {
 		meter.deposit.consumed().available(&deposit_limit)
 	}
 
+	/// Compute the total consumed gas (signed) for Substrate-style execution.
+	///
+	/// This returns a `SignedGas` as the consumed gas can be negative (when there are major storage
+	/// deposit refunds)
 	pub fn total_consumed_gas<T: Config, S: State>(meter: &ResourceMeter<T, S>) -> SignedGas<T> {
 		let self_consumed_weight = meter.weight.weight_consumed();
 		let self_consumed_deposit = meter.deposit.consumed();
@@ -168,6 +208,12 @@ pub mod substrate_execution {
 pub mod ethereum_execution {
 	use super::*;
 
+	/// Create a transaction-level (root) meter for Ethereum-style execution.
+	///
+	/// This constructs a root `TransactionMeter` where the global limit is an
+	/// ethereum-gas budget (`max_total_gas`). Weight and deposit meters are left unbounded
+	/// (None). The function validates that there is positive gas left after initialization,
+	/// otherwise it returns an error.
 	pub fn new_root<T: Config>(
 		eth_gas_limit: BalanceOf<T>,
 		eth_tx_info: EthTxInfo<T>,
@@ -189,6 +235,17 @@ pub mod ethereum_execution {
 		}
 	}
 
+	/// Create a nested (frame) meter for an Ethereum-style execution.
+	///
+	/// - computes the gas already consumed by the transaction and determines how much gas is left,
+	/// - if the parent is in a simple gas-only mode, returns a child meter that is limited only by
+	///   gas (no per-frame weight/deposit limits),
+	/// - otherwise computes concrete nested weight/deposit limits derived from the remaining
+	///   ethereum gas
+	///
+	/// The function ensures the nested frame's derived gas+resources remain within the parent's
+	/// remaining budget and returns `Err(Error::OutOfGas)` when the derived limits would exhaust
+	/// available resources.
 	pub fn new_nested_meter<T: Config, S: State>(
 		meter: &ResourceMeter<T, S>,
 		limit: &CallResources<T>,
@@ -212,6 +269,8 @@ pub mod ethereum_execution {
 		};
 
 		let (nested_gas_limit, nested_weight_limit, nested_deposit_limit) = {
+			// In the simple case the parent has no explicit weight and storage deposit limits and
+			// the requested CallResources are gas-only; then nested frames only need a gas cap.
 			let is_simple = meter.weight.weight_limit.is_none() &&
 				matches!(limit, CallResources::NoLimits | CallResources::Ethereum(..));
 
@@ -223,6 +282,7 @@ pub mod ethereum_execution {
 				};
 				(nested_gas_limit, None, None)
 			} else {
+				// More complex path: derive a concrete weight_left and deposit_left.
 				let weight_left = {
 					let unbounded_weight_left = eth_tx_info
 						.weight_remaining(
@@ -259,7 +319,7 @@ pub mod ethereum_execution {
 					CallResources::NoLimits => (gas_left, Some(weight_left), Some(deposit_left)),
 					CallResources::Ethereum(gas) =>
 						(gas_left.min(*gas), Some(weight_left), Some(deposit_left)),
-					CallResources::Precise { weight, deposit_limit } => {
+					CallResources::WeightDeposit { weight, deposit_limit } => {
 						let nested_weight_limit = weight_left.min(*weight);
 						let nested_deposit_limit = deposit_left.min(*deposit_limit);
 
@@ -299,6 +359,7 @@ pub mod ethereum_execution {
 		})
 	}
 
+	/// Compute remaining ethereum gas for an Ethereum-style execution.
 	pub fn eth_gas_left<T: Config, S: State>(
 		meter: &ResourceMeter<T, S>,
 		eth_tx_info: &EthTxInfo<T>,
@@ -317,6 +378,7 @@ pub mod ethereum_execution {
 		meter.max_total_gas.saturating_sub(&total_gas_consumption).as_positive()
 	}
 
+	/// Return the remaining weight available to a nested frame under Ethereum-style execution.
 	pub fn weight_left<T: Config, S: State>(
 		meter: &ResourceMeter<T, S>,
 		eth_tx_info: &EthTxInfo<T>,
@@ -341,6 +403,7 @@ pub mod ethereum_execution {
 		})
 	}
 
+	/// Return remaining deposit available to a nested frame under Ethereum-style execution.
 	pub fn deposit_left<T: Config, S: State>(
 		meter: &ResourceMeter<T, S>,
 		eth_tx_info: &EthTxInfo<T>,
@@ -357,6 +420,7 @@ pub mod ethereum_execution {
 		})
 	}
 
+	/// Compute the total consumed gas (signed) for Ethereum-style execution.
 	pub fn total_consumed_gas<T: Config, S: State>(
 		meter: &ResourceMeter<T, S>,
 		eth_tx_info: &EthTxInfo<T>,

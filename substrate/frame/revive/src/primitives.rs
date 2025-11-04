@@ -61,7 +61,7 @@ pub struct ContractResult<R, Balance> {
 	/// is `Err`. This is because on error all storage changes are rolled back including the
 	/// payment of the deposit.
 	pub storage_deposit: StorageDeposit<Balance>,
-	/// The maximual storage deposit amount that occured at any time during the execution.
+	/// The maximal storage deposit amount that occured at any time during the execution.
 	/// This can be higher than the final storage_deposit due to refunds
 	/// This is always a StorageDeposit::Charge(..)
 	pub max_storage_deposit: StorageDeposit<Balance>,
@@ -335,22 +335,6 @@ where
 			Refund(amount) => Some(limit.saturating_add(*amount)),
 		}
 	}
-
-	pub fn negate(&self) -> Self {
-		use StorageDeposit::*;
-		match self {
-			Charge(amount) => Refund(*amount),
-			Refund(amount) => Charge(*amount),
-		}
-	}
-
-	pub fn scale_by_factor(&self, rhs: &FixedU128) -> Self {
-		use StorageDeposit::*;
-		match self {
-			Charge(amount) => Charge(rhs.saturating_mul_int(*amount)),
-			Refund(amount) => Refund(rhs.saturating_mul_int(*amount)),
-		}
-	}
 }
 
 /// The type for Ethereum gas. We need to deal with negative and positive values and the structure
@@ -444,6 +428,7 @@ impl<T: Config> SignedGas<T> {
 		}
 	}
 
+	/// Return the balance of the `SignedGas` if it is `Positive`, otherwise return `None`
 	pub fn as_positive(&self) -> Option<BalanceOf<T>> {
 		use SignedGas::*;
 		match self {

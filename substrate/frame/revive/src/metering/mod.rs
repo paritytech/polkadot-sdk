@@ -36,17 +36,20 @@ use weight::{ChargedAmount, Token, WeightMeter};
 
 use sp_runtime::{DispatchError, DispatchResult, FixedU128, SaturatedConversion};
 
-/// Used to implement a type state pattern for the meter.
+/// A type-state pattern ensuring that meters can only be used in valid states (root vs nested).
 ///
 /// It is sealed and cannot be implemented outside of this module.
 pub trait State: private::Sealed + Default + Debug {}
 
-/// State parameter that constitutes a meter that is in its root state.
+/// Root state for transaction-level resource metering.
+///
+/// Represents the top-level accounting of a transaction's resource usage.
 #[derive(Default, Debug)]
 pub struct Root;
 
-/// State parameter that constitutes a meter that is in its nested state.
-/// Its value indicates whether the nested meter has its own limit.
+/// Nested state for frame-level resource metering.
+///
+/// Represents resource accounting for a single call frame.
 #[derive(Default, Debug)]
 pub struct Nested;
 
@@ -62,8 +65,17 @@ mod private {
 pub type TransactionMeter<T> = ResourceMeter<T, Root>;
 pub type FrameMeter<T> = ResourceMeter<T, Nested>;
 
-/// invariant: either the limits in both meters are both None or both Some(..)
-/// they will always be defined if `transaction_limits` is `TransactionLimits::WeightAndDeposit`
+/// Resource meter tracking weight and storage deposit consumption.
+///
+/// This type maintains the core invariant that either:
+/// - Both weight and deposit limits are None, or
+/// - Both limits are Some(value)
+///
+/// A resource meter tracks:
+/// - Current frame's weight consumption via WeightMeter
+/// - Current frame's storage deposit changes via GenericStorageMeter
+/// - Total resources consumed before this frame started
+/// - Transaction-wide resource limits and execution mode
 #[derive(DefaultNoBound)]
 pub struct ResourceMeter<T: Config, S: State> {
 	weight: WeightMeter<T>,
@@ -79,6 +91,11 @@ pub struct ResourceMeter<T: Config, S: State> {
 	_phantom: PhantomData<S>,
 }
 
+/// Transaction-wide resource limit configuration.
+///
+/// Represents the two supported resource accounting modes:
+/// - EthereumGas: Single gas limit
+/// - WeightAndDeposit: Explicit limits for both computational weight and storage deposit
 #[derive(DebugNoBound, Clone)]
 pub enum TransactionLimits<T: Config> {
 	EthereumGas { eth_gas_limit: BalanceOf<T>, eth_tx_info: EthTxInfo<T> },
@@ -95,6 +112,9 @@ impl<T: Config> Default for TransactionLimits<T> {
 }
 
 impl<T: Config, S: State> ResourceMeter<T, S> {
+	/// Charge a weight token against this meter's remaining weight limit.
+	///
+	/// Returns `Err(Error::OutOfGas)` if the weight limit would be exceeded.
 	pub fn charge_weight_token<Tok: Token<T>>(
 		&mut self,
 		token: Tok,
@@ -105,6 +125,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		self.weight.charge(token, weight_left)
 	}
 
+	/// Try to charge a weight token or halt if not enough weight is left.
 	pub fn charge_or_halt<Tok: Token<T>>(
 		&mut self,
 		token: Tok,
@@ -115,10 +136,16 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		self.weight.charge_or_halt(token, weight_left)
 	}
 
+	/// Adjust an earlier weight charge with the actual weight consumed.
 	pub fn adjust_weight<Tok: Token<T>>(&mut self, charged_amount: ChargedAmount, token: Tok) {
 		self.weight.adjust_weight(charged_amount, token);
 	}
 
+	/// Synchronize meter state with PolkaVM executor's fuel consumption.
+	///
+	/// Maps the VM's internal fuel accounting to weight consumption:
+	/// - Converts engine fuel units to weight units
+	/// - Updates meter state to match actual VM resource usage
 	pub fn sync_from_executor(&mut self, engine_fuel: polkavm::Gas) -> Result<(), DispatchError> {
 		// TODO: optimize
 		let weight_left = self.weight_left().ok_or(<Error<T>>::OutOfGas)?;
@@ -128,6 +155,19 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 			.sync_from_executor(engine_fuel, weight_left.saturating_add(weight_consumed))
 	}
 
+	/// Convert meter state to PolkaVM executor fuel units.
+	///
+	/// Prepares for VM execution by:
+	/// - Computing remaining available weight
+	/// - Converting weight units to VM fuel units and return
+	pub fn sync_to_executor(&mut self) -> polkavm::Gas {
+		// TODO: optimize
+		let weight_left = self.weight_left().unwrap_or_default();
+
+		self.weight.sync_to_executor(weight_left)
+	}
+
+	/// Consume all remaining weight in the meter.
 	pub fn consume_all_weight(&mut self) {
 		// TODO: optimize
 		let weight_left = self.weight_left().unwrap_or_default();
@@ -136,13 +176,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		self.weight.consume_all(weight_left.saturating_add(weight_consumed));
 	}
 
-	pub fn sync_to_executor(&mut self) -> polkavm::Gas {
-		// TODO: optimize
-		let weight_left = self.weight_left().unwrap_or_default();
-
-		self.weight.sync_to_executor(weight_left)
-	}
-
+	/// Record a storage deposit charge against this meter.
 	pub fn charge_deposit(&mut self, deposit: &DepositOf<T>) -> DispatchResult {
 		self.deposit.record_charge(deposit);
 
@@ -156,10 +190,12 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		Ok(())
 	}
 
+	/// Absorb only the weight consumption from a nested frame meter.
 	pub fn absorb_weight_meter_only(&mut self, other: FrameMeter<T>) {
 		self.weight.absorb_nested(other.weight);
 	}
 
+	/// Absorb all resource consumption from a nested frame meter.
 	pub fn absorb_all_meters(
 		&mut self,
 		other: FrameMeter<T>,
@@ -170,6 +206,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		self.deposit.absorb(other.deposit, contract, info);
 	}
 
+	/// Create a new nested meter with derived resource limits.
 	pub fn new_nested(&self, limit: &CallResources<T>) -> Result<FrameMeter<T>, DispatchError> {
 		match &self.transaction_limits {
 			TransactionLimits::EthereumGas { eth_tx_info, .. } =>
@@ -179,6 +216,12 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		}
 	}
 
+	/// Get remaining ethereum gas equivalent.
+	///
+	/// Converts remaining resources to ethereum gas units:
+	/// - For ethereum mode: computes directly from gas accounting
+	/// - For substrate mode: converts weight+deposit to gas equivalent
+	/// Returns None if resources are exhausted or conversion fails.
 	pub fn eth_gas_left(&self) -> Option<BalanceOf<T>> {
 		match &self.transaction_limits {
 			TransactionLimits::EthereumGas { eth_tx_info, .. } =>
@@ -188,6 +231,12 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		}
 	}
 
+	/// Get remaining weight available.
+	///
+	/// Computes remaining computational capacity:
+	/// - For ethereum mode: converts from gas to weight units
+	/// - For substrate mode: subtracts consumed from weight limit
+	/// Returns None if resources are exhausted.
 	pub fn weight_left(&self) -> Option<Weight> {
 		match &self.transaction_limits {
 			TransactionLimits::EthereumGas { eth_tx_info, .. } =>
@@ -197,6 +246,12 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		}
 	}
 
+	/// Get remaining deposit available.
+	///
+	/// Computes remaining storage deposit allowance:
+	/// - For ethereum mode: converts from gas to deposit units
+	/// - For substrate mode: subtracts consumed from deposit limit
+	/// Returns None if resources are exhausted.
 	pub fn deposit_left(&self) -> Option<BalanceOf<T>> {
 		match &self.transaction_limits {
 			TransactionLimits::EthereumGas { eth_tx_info, .. } =>
@@ -206,6 +261,12 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		}
 	}
 
+	/// Calculate total gas consumed so far.
+	///
+	/// Computes the ethereum-gas equivalent of all resource usage:
+	/// - Converts weight and deposit consumption to gas units
+	/// - For ethereum mode: uses direct gas accounting
+	/// - For substrate mode: synthesizes from weight+deposit usage
 	pub fn total_consumed_gas(&self) -> BalanceOf<T> {
 		let signed_gas = match &self.transaction_limits {
 			TransactionLimits::EthereumGas { eth_tx_info, .. } =>
@@ -217,24 +278,41 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		signed_gas.as_positive().unwrap_or_default()
 	}
 
+	/// Get total weight consumed
 	pub fn weight_consumed(&self) -> Weight {
 		self.weight.weight_consumed()
 	}
 
+	/// Get total weight required
+	/// This is the maxmimum amount of weight consumption that occurred during execution so far
+	/// This is relevant because consumed weight can decrease in case it is asjusted a posteriori
+	/// for some operations
 	pub fn weight_required(&self) -> Weight {
 		self.weight.weight_required()
 	}
 
+	/// Get total storage deposit consumed in the current frame.
+	///
+	/// Returns the net storage deposit change from this frame,
 	pub fn deposit_consumed(&self) -> DepositOf<T> {
 		self.deposit.consumed()
 	}
 
+	/// Get maximum storage deposit required at any point.
+	///
+	/// Returns the highest deposit amount needed during execution,
+	/// accounting for temporary storage spikes before later refunds.
 	pub fn deposit_required(&self) -> DepositOf<T> {
 		self.deposit.max_charged()
 	}
 }
 
 impl<T: Config> TransactionMeter<T> {
+	/// Create a new transaction-level meter with the specified resource limits.
+	///
+	/// Initializes either:
+	/// - An ethereum-style gas-based meter or
+	/// - A substrate-style meter with explicit weight and deposit limits
 	pub fn new(transaction_limits: TransactionLimits<T>) -> Result<Self, DispatchError> {
 		match transaction_limits {
 			TransactionLimits::EthereumGas { eth_gas_limit, eth_tx_info } =>
@@ -244,6 +322,7 @@ impl<T: Config> TransactionMeter<T> {
 		}
 	}
 
+	/// Convenience constructor for substrate-style weight+deposit limits.
 	pub fn new_from_limits(
 		weight_limit: Weight,
 		deposit_limit: BalanceOf<T>,
@@ -251,6 +330,9 @@ impl<T: Config> TransactionMeter<T> {
 		Self::new(TransactionLimits::WeightAndDeposit { weight_limit, deposit_limit })
 	}
 
+	/// Execute all postponed storage deposit operations.
+	///
+	/// Returns `Err(Error::StorageDepositNotEnoughFunds)` if deposit limit would be exceeded.
 	pub fn execute_postponed_deposits(
 		&mut self,
 		origin: &Origin<T>,
@@ -264,6 +346,7 @@ impl<T: Config> TransactionMeter<T> {
 		self.deposit.execute_postponed_deposits(origin, exec_config)
 	}
 
+	/// Absorb resources from a terminated contract.
 	pub fn terminate_absorb(
 		&mut self,
 		contract_account: T::AccountId,
@@ -277,6 +360,10 @@ impl<T: Config> TransactionMeter<T> {
 }
 
 impl<T: Config> FrameMeter<T> {
+	/// Record a contract's storage deposit and schedule the transfer.
+	///
+	/// Updates the frame's deposit accounting and schedules the actual token transfer
+	/// for later execution – at the end of the transaction execution.
 	pub fn charge_contract_deposit_and_transfer(
 		&mut self,
 		contract: T::AccountId,
@@ -285,6 +372,7 @@ impl<T: Config> FrameMeter<T> {
 		self.deposit.charge_deposit(contract, amount)
 	}
 
+	/// Record storage changes of a contract.
 	pub fn record_contract_storage_changes(&mut self, diff: &Diff) {
 		self.deposit.charge(diff);
 	}
@@ -303,18 +391,27 @@ impl<T: Config> FrameMeter<T> {
 	}
 }
 
+/// Ethereum transaction context for gas conversions.
+///
+/// Contains the parameters needed to convert between ethereum gas and substrate resources
+/// (weight/deposit)
 #[derive(DebugNoBound, Clone)]
 pub struct EthTxInfo<T: Config> {
+	/// The encoding length of the extrinsic
 	pub encoded_len: u32,
+	/// The extra weight of the transaction. The total weight of the extrinsic is `extra_weight` +
+	/// the weight consumed during smart contract execution.
 	pub extra_weight: Weight,
 	_phantom: PhantomData<T>,
 }
 
 impl<T: Config> EthTxInfo<T> {
+	/// Create a new ethereum transaction context with the given parameters.
 	pub fn new(encoded_len: u32, extra_weight: Weight) -> Self {
 		Self { encoded_len, extra_weight, _phantom: PhantomData }
 	}
 
+	/// Calculate total gas consumed by weight and storage operations.
 	pub fn gas_consumption(
 		&self,
 		consumed_weight: &Weight,
@@ -332,13 +429,10 @@ impl<T: Config> EthTxInfo<T> {
 		scaled_gas.saturating_add(&weight_fee)
 	}
 
-	pub fn gas_remaining(
-		max_total_gas: &SignedGas<T>,
-		total_gas_consumption: &SignedGas<T>,
-	) -> Option<BalanceOf<T>> {
-		max_total_gas.saturating_sub(total_gas_consumption).as_positive()
-	}
-
+	/// Calculate maximal possible remaining weight that can be consumed given a particular gas
+	/// limit.
+	///
+	/// Returns None if remaining gas would not allow any more weight consumption.
 	pub fn weight_remaining(
 		&self,
 		max_total_gas: &SignedGas<T>,

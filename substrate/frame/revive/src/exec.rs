@@ -201,16 +201,21 @@ pub enum CallResources<T: Config> {
 	/// Resources are not limited
 	NoLimits,
 	/// Resources encoded using their actual values.
-	Precise { weight: Weight, deposit_limit: BalanceOf<T> },
+	WeightDeposit { weight: Weight, deposit_limit: BalanceOf<T> },
 	/// Resources encoded as unified ethereum gas.
 	Ethereum(BalanceOf<T>),
 }
 
 impl<T: Config> CallResources<T> {
+	/// Creates a new `CallResources` with weight and deposit limits.
 	pub fn from_weight_and_deposit(weight: Weight, deposit_limit: U256) -> Self {
-		Self::Precise { weight, deposit_limit: deposit_limit.saturated_into::<BalanceOf<T>>() }
+		Self::WeightDeposit {
+			weight,
+			deposit_limit: deposit_limit.saturated_into::<BalanceOf<T>>(),
+		}
 	}
 
+	/// Creates a new `CallResources` from Ethereum gas limits.
 	pub fn from_ethereum_gas(gas: U256) -> Self {
 		Self::Ethereum(gas.saturated_into::<BalanceOf<T>>())
 	}
@@ -218,7 +223,7 @@ impl<T: Config> CallResources<T> {
 
 impl<T: Config> Default for CallResources<T> {
 	fn default() -> Self {
-		Self::Precise { weight: Default::default(), deposit_limit: Default::default() }
+		Self::WeightDeposit { weight: Default::default(), deposit_limit: Default::default() }
 	}
 }
 
@@ -295,6 +300,8 @@ pub trait PrecompileExt: sealing::Sealed {
 		self.gas_meter_mut().charge_weight_token(RuntimeCosts::Precompile(weight))
 	}
 
+	/// Reconcile an earlier gas charge with the actual weight consumed.
+	/// This updates the current weight meter to reflect the real cost of the token.
 	fn adjust_gas(&mut self, charged: ChargedAmount, actual_weight: Weight) {
 		self.gas_meter_mut()
 			.adjust_weight(charged, RuntimeCosts::Precompile(actual_weight));
