@@ -138,6 +138,7 @@ where
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
+	tracing::info!(target: LOG_TARGET, "Starting slot-based block-builder task.");
 	async move {
 		let BuilderTaskParams {
 			relay_client,
@@ -156,8 +157,6 @@ where
 			slot_offset,
 			max_pov_percentage,
 		} = params;
-
-		tracing::info!(target: LOG_TARGET, ?para_id, ?authoring_duration, ?relay_chain_slot_duration, "Starting slot-based block-builder task.");
 
 		let mut slot_timer = SlotTimer::<_, _, P>::new_with_offset(
 			para_client.clone(),
