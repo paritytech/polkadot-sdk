@@ -179,8 +179,8 @@ jobs:
             rpmname=$(find release-artifacts/ -name 'polkadot-*.rpm' | head -n 1)
 
             echo "Signing package with pgpkms (via AWS KMS)..."
-            chmod +x .github/scripts/pgpkms-gpg-wrapper.sh
-            cp .github/workflows/rpmmacros $HOME/.rpmmacros
+            chmod +x .github/scripts/release/pgpkms-gpg-wrapper.sh
+            cp .github/scripts/release/rpmmacros $HOME/.rpmmacros
 
             echo "Dumping rpm gpg-related macros..."
             rpm --showrc | grep gpg || true
