@@ -2,14 +2,18 @@ title: revive fix reported gas used
 doc:
 - audience: Runtime Dev
   description: |-
-    Fix gas_used calculation introduced in #9418  to use the actual gas instead of just ref_time.
-    Fix as well the compute_actual_fee, and introduce a new `compute_actual_fee` in Config::FeeInfo.
+    Fix `gas_used` calculation introduced in #9418 to use the actual gas instead of just `ref_time`.
 
-    The current calculation was skipping the `extension_weight`
+    With these changes we now guarantee that `tx_cost = effective_gas_price * gas`.  
+    Note that since we compute gas as `fee / gas_price`, this can lead to rounding errors when the chain uses `SlowAdjustingFeeUpdate` (i.e. the fee is not a multiple of the gas price).  
+    The changes in this PR ensure the fee still matches by burning the rounding remainder.
 
-    The updated test here, ensure that the tx cost reported by the receipt match the fees deducted from the user account
+    This PR also fixes how the actual fee is computed and introduces a new `compute_actual_fee` in `Config::FeeInfo`.  
+    The previous fee calculation was skipping the `extension_weight` in the fee calculation.
 
-    https://github.com/paritytech/evm-test-suite/blob/a1110499ca39610be22645d1f4d7a7484cca0ed7/src/methods.test.ts?plain=1#L272-L264
+    The updated tests ensure that the tx cost reported in the receipt matches the fees deducted from the user account:
+
+    https://github.com/paritytech/evm-test-suite/blob/460b2c9aa3a3019d3508bb5a34a2498ea86035ff/src/gas.test.ts?plain=1#L31-L61
 crates:
 - name: pallet-revive
   bump: patch
