@@ -39,7 +39,7 @@ const BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS: Duration = Duration::from_millis(500
 
 /// The amount of time the authoring duration of the last block production attempt
 /// should be reduced by to fit into the slot timing.
-const BLOCK_PRODUCTION_ADJUSTMENT_MS: Duration = Duration::from_millis(500);
+const BLOCK_PRODUCTION_ADJUSTMENT_MS: Duration = Duration::from_millis(1000);
 
 #[derive(Debug)]
 pub(crate) struct SlotInfo {
