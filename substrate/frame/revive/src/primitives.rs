@@ -96,7 +96,7 @@ pub enum BalanceConversionError {
 
 /// A Balance amount along with some "dust" to represent the lowest decimals that can't be expressed
 /// in the native currency
-#[derive(Default, Clone, Copy, Eq, PartialEq, Debug)]
+#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct BalanceWithDust<Balance> {
 	/// The value expressed in the native currency
 	value: Balance,

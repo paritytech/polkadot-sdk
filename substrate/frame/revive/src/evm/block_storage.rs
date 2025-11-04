@@ -19,6 +19,7 @@ use crate::{
 	evm::{
 		block_hash::{AccumulateReceipt, EthereumBlockBuilder, LogsBloom},
 		fees::InfoT,
+		transfer_with_dust,
 	},
 	limits,
 	sp_runtime::traits::One,
@@ -108,7 +109,7 @@ impl EthereumCallResult {
 			let round_up_fee = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(tx_cost - fee)
 				.expect("value fits into BalanceOf<T>; qed");
 			log::debug!(target: LOG_TARGET, "Collecting round_up fee from {signer:?}: {round_up_fee:?}");
-			let _ = Pallet::<T>::transfer_with_dust(&signer, &Pallet::<T>::account_id(), round_up_fee)
+			let _ = transfer_with_dust::<T>(&signer, &Pallet::<T>::account_id(), round_up_fee)
 					.inspect_err(|e| log::debug!(target: LOG_TARGET, "Failed to collect round up fee {round_up_fee:?} from {signer:?}: {e:?}"));
 		}
 

@@ -20,6 +20,7 @@ use crate::{
 	evm::{
 		block_storage,
 		fees::{Combinator, InfoT},
+		transfer_with_dust,
 	},
 	gas::GasMeter,
 	limits,
@@ -1000,7 +1001,7 @@ where
 							return Ok(None);
 						},
 					(None, Some(precompile)) if precompile.has_contract_info() => {
-						log::trace!(target: crate::LOG_TARGET, "found precompile for address {address:?}");
+						log::trace!(target: LOG_TARGET, "found precompile for address {address:?}");
 						if let Some(info) = AccountInfo::<T>::load_contract(&address) {
 							CachedContract::Cached(info)
 						} else {
@@ -1527,7 +1528,7 @@ where
 		}
 
 		if <System<T>>::account_exists(to) {
-			return Contracts::<T>::transfer_with_dust(from, to, value)
+			return transfer_with_dust::<T>(from, to, value)
 		}
 
 		let origin = origin.account_id()?;
@@ -1540,7 +1541,7 @@ where
 						.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
 					Ok(())
 				})
-				.and_then(|_| Contracts::<T>::transfer_with_dust(from, to, value))
+				.and_then(|_| transfer_with_dust::<T>(from, to, value))
 			{
 				Ok(_) => TransactionOutcome::Commit(Ok(())),
 				Err(err) => TransactionOutcome::Rollback(Err(err)),
@@ -1598,7 +1599,7 @@ where
 
 	/// Returns the *free* balance of the supplied AccountId.
 	fn account_balance(&self, who: &T::AccountId) -> U256 {
-		let balance = AccountInfo::<T>::balance(AccountIdOrAddress::AccountId(who.clone()));
+		let balance = AccountInfo::<T>::balance_of(AccountIdOrAddress::AccountId(who.clone()));
 		crate::Pallet::<T>::convert_native_to_evm(balance)
 	}
 
@@ -1657,7 +1658,7 @@ where
 			delete_code,
 		);
 
-		log::debug!(target: crate::LOG_TARGET, "Contract at {contract_address:?} registered termination. Beneficiary: {beneficiary_address:?}, delete_code: {delete_code}");
+		log::debug!(target: LOG_TARGET, "Contract at {contract_address:?} registered termination. Beneficiary: {beneficiary_address:?}, delete_code: {delete_code}");
 	}
 
 	/// Returns true if the current context has contract info.
