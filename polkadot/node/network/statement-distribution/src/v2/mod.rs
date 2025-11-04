@@ -47,11 +47,10 @@ use polkadot_node_subsystem_util::{
 	request_min_backing_votes, request_node_features, runtime::ClaimQueueSnapshot,
 };
 use polkadot_primitives::{
-	node_features::FeatureIndex,
-	vstaging::{transpose_claim_queue, CandidateDescriptorVersion, TransposedClaimQueue},
-	AuthorityDiscoveryId, CandidateHash, CompactStatement, CoreIndex, GroupIndex,
+	node_features::FeatureIndex, transpose_claim_queue, AuthorityDiscoveryId,
+	CandidateDescriptorVersion, CandidateHash, CompactStatement, CoreIndex, GroupIndex,
 	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, SessionIndex, SessionInfo, SignedStatement,
-	SigningContext, UncheckedSignedStatement, ValidatorId, ValidatorIndex,
+	SigningContext, TransposedClaimQueue, UncheckedSignedStatement, ValidatorId, ValidatorIndex,
 };
 
 use sp_keystore::KeystorePtr;

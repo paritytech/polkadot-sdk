@@ -42,6 +42,7 @@ use sp_runtime::{
 };
 
 const TEST_KEY: &[u8] = b":test:key:";
+const TEST_KEY_2: &[u8] = b":test:key_2:";
 
 #[frame_support::pallet(dev_mode)]
 mod custom {
@@ -354,6 +355,7 @@ impl frame_system::Config for Runtime {
 	type PostTransactions = MockedSystemCallbacks;
 	type MultiBlockMigrator = MockedModeGetter;
 	type ExtensionsWeightInfo = MockExtensionsWeights;
+	type SingleBlockMigrations = CustomOnRuntimeUpgrade;
 }
 
 #[derive(
@@ -479,10 +481,11 @@ type TestBlock = Block<UncheckedXt>;
 // Will contain `true` when the custom runtime logic was called.
 const CUSTOM_ON_RUNTIME_KEY: &[u8] = b":custom:on_runtime";
 
-struct CustomOnRuntimeUpgrade;
+pub struct CustomOnRuntimeUpgrade;
 impl OnRuntimeUpgrade for CustomOnRuntimeUpgrade {
 	fn on_runtime_upgrade() -> Weight {
 		sp_io::storage::set(TEST_KEY, "custom_upgrade".as_bytes());
+		sp_io::storage::set(TEST_KEY_2, "try_runtime_upgrade_works".as_bytes());
 		sp_io::storage::set(CUSTOM_ON_RUNTIME_KEY, &true.encode());
 		System::deposit_event(frame_system::Event::CodeUpdated);
 
@@ -490,8 +493,18 @@ impl OnRuntimeUpgrade for CustomOnRuntimeUpgrade {
 
 		Weight::from_parts(100, 0)
 	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
+		assert_eq!(&sp_io::storage::get(TEST_KEY_2).unwrap()[..], *b"try_runtime_upgrade_works");
+		Ok(())
+	}
 }
 
+/// TODO: The `OnRuntimeUpgrade` generic parameter in `Executive` is deprecated and will be
+/// removed in a future version. Once removed, this `#[allow(deprecated)]` attribute
+/// can be safely deleted.
+#[allow(deprecated)]
 type Executive = super::Executive<
 	Runtime,
 	Block<UncheckedXt>,
@@ -651,18 +664,21 @@ fn block_import_works() {
 }
 fn block_import_works_inner(mut ext: sp_io::TestExternalities, state_root: H256) {
 	ext.execute_with(|| {
-		Executive::execute_block(Block {
-			header: Header {
-				parent_hash: [69u8; 32].into(),
-				number: 1,
-				state_root,
-				extrinsics_root: array_bytes::hex_n_into_unchecked(
-					"03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314",
-				),
-				digest: Digest { logs: vec![] },
-			},
-			extrinsics: vec![],
-		});
+		Executive::execute_block(
+			Block {
+				header: Header {
+					parent_hash: [69u8; 32].into(),
+					number: 1,
+					state_root,
+					extrinsics_root: array_bytes::hex_n_into_unchecked(
+						"03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314",
+					),
+					digest: Digest { logs: vec![] },
+				},
+				extrinsics: vec![],
+			}
+			.into(),
+		);
 	});
 }
 
@@ -670,18 +686,21 @@ fn block_import_works_inner(mut ext: sp_io::TestExternalities, state_root: H256)
 #[should_panic]
 fn block_import_of_bad_state_root_fails() {
 	new_test_ext(1).execute_with(|| {
-		Executive::execute_block(Block {
-			header: Header {
-				parent_hash: [69u8; 32].into(),
-				number: 1,
-				state_root: [0u8; 32].into(),
-				extrinsics_root: array_bytes::hex_n_into_unchecked(
-					"03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314",
-				),
-				digest: Digest { logs: vec![] },
-			},
-			extrinsics: vec![],
-		});
+		Executive::execute_block(
+			Block {
+				header: Header {
+					parent_hash: [69u8; 32].into(),
+					number: 1,
+					state_root: [0u8; 32].into(),
+					extrinsics_root: array_bytes::hex_n_into_unchecked(
+						"03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314",
+					),
+					digest: Digest { logs: vec![] },
+				},
+				extrinsics: vec![],
+			}
+			.into(),
+		);
 	});
 }
 
@@ -689,18 +708,21 @@ fn block_import_of_bad_state_root_fails() {
 #[should_panic]
 fn block_import_of_bad_extrinsic_root_fails() {
 	new_test_ext(1).execute_with(|| {
-		Executive::execute_block(Block {
-			header: Header {
-				parent_hash: [69u8; 32].into(),
-				number: 1,
-				state_root: array_bytes::hex_n_into_unchecked(
-					"75e7d8f360d375bbe91bcf8019c01ab6362448b4a89e3b329717eb9d910340e5",
-				),
-				extrinsics_root: [0u8; 32].into(),
-				digest: Digest { logs: vec![] },
-			},
-			extrinsics: vec![],
-		});
+		Executive::execute_block(
+			Block {
+				header: Header {
+					parent_hash: [69u8; 32].into(),
+					number: 1,
+					state_root: array_bytes::hex_n_into_unchecked(
+						"75e7d8f360d375bbe91bcf8019c01ab6362448b4a89e3b329717eb9d910340e5",
+					),
+					extrinsics_root: [0u8; 32].into(),
+					digest: Digest { logs: vec![] },
+				},
+				extrinsics: vec![],
+			}
+			.into(),
+		);
 	});
 }
 
@@ -1043,10 +1065,9 @@ fn custom_runtime_upgrade_is_called_when_using_execute_block_trait() {
 			*v = sp_version::RuntimeVersion { spec_version: 1, ..Default::default() }
 		});
 
-		<Executive as ExecuteBlock<Block<UncheckedXt>>>::execute_block(Block::new(
-			header,
-			vec![xt],
-		));
+		<Executive as ExecuteBlock<Block<UncheckedXt>>>::execute_block(
+			Block::new(header, vec![xt]).into(),
+		);
 
 		assert_eq!(&sp_io::storage::get(TEST_KEY).unwrap()[..], *b"module");
 		assert_eq!(sp_io::storage::get(CUSTOM_ON_RUNTIME_KEY).unwrap(), true.encode());
@@ -1074,9 +1095,7 @@ fn all_weights_are_recorded_correctly() {
 		MockedSystemCallbacks::reset();
 
 		// All weights that show up in the `initialize_block_impl`
-		let custom_runtime_upgrade_weight = CustomOnRuntimeUpgrade::on_runtime_upgrade();
-		let runtime_upgrade_weight =
-			<AllPalletsWithSystem as OnRuntimeUpgrade>::on_runtime_upgrade();
+		let runtime_upgrade_weight = Executive::execute_on_runtime_upgrade();
 		let on_initialize_weight =
 			<AllPalletsWithSystem as OnInitialize<u64>>::on_initialize(block_number);
 		let base_block_weight = <Runtime as frame_system::Config>::BlockWeights::get().base_block;
@@ -1084,10 +1103,7 @@ fn all_weights_are_recorded_correctly() {
 		// Weights are recorded correctly
 		assert_eq!(
 			frame_system::Pallet::<Runtime>::block_weight().total(),
-			custom_runtime_upgrade_weight +
-				runtime_upgrade_weight +
-				on_initialize_weight +
-				base_block_weight,
+			runtime_upgrade_weight + on_initialize_weight + base_block_weight,
 		);
 	});
 }
@@ -1124,7 +1140,7 @@ fn calculating_storage_root_twice_works() {
 	});
 
 	new_test_ext(1).execute_with(|| {
-		Executive::execute_block(Block::new(header, vec![xt]));
+		Executive::execute_block(Block::new(header, vec![xt]).into());
 	});
 }
 
@@ -1150,7 +1166,7 @@ fn invalid_inherent_position_fail() {
 	});
 
 	new_test_ext(1).execute_with(|| {
-		Executive::execute_block(Block::new(header, vec![xt1, xt2]));
+		Executive::execute_block(Block::new(header, vec![xt1, xt2]).into());
 	});
 }
 
@@ -1170,7 +1186,7 @@ fn valid_inherents_position_works() {
 	});
 
 	new_test_ext(1).execute_with(|| {
-		Executive::execute_block(Block::new(header, vec![xt1, xt2]));
+		Executive::execute_block(Block::new(header, vec![xt1, xt2]).into());
 	});
 }
 
@@ -1185,10 +1201,19 @@ fn invalid_inherents_fail_block_execution() {
 	);
 
 	new_test_ext(1).execute_with(|| {
-		Executive::execute_block(Block::new(
-			Header::new(1, H256::default(), H256::default(), [69u8; 32].into(), Digest::default()),
-			vec![xt1],
-		));
+		Executive::execute_block(
+			Block::new(
+				Header::new(
+					1,
+					H256::default(),
+					H256::default(),
+					[69u8; 32].into(),
+					Digest::default(),
+				),
+				vec![xt1],
+			)
+			.into(),
+		);
 	});
 }
 
@@ -1221,7 +1246,7 @@ fn inherents_ok_while_exts_forbidden_works() {
 
 	new_test_ext(1).execute_with(|| {
 		// Tell `initialize_block` to forbid extrinsics:
-		Executive::execute_block(Block::new(header, vec![xt1]));
+		Executive::execute_block(Block::new(header, vec![xt1]).into());
 	});
 }
 
@@ -1243,7 +1268,7 @@ fn transactions_in_only_inherents_block_errors() {
 
 	new_test_ext(1).execute_with(|| {
 		MbmActive::set(true);
-		Executive::execute_block(Block::new(header, vec![xt1, xt2]));
+		Executive::execute_block(Block::new(header, vec![xt1, xt2]).into());
 	});
 }
 
@@ -1264,7 +1289,7 @@ fn transactions_in_normal_block_works() {
 
 	new_test_ext(1).execute_with(|| {
 		// Tell `initialize_block` to forbid extrinsics:
-		Executive::execute_block(Block::new(header, vec![xt1, xt2]));
+		Executive::execute_block(Block::new(header, vec![xt1, xt2]).into());
 	});
 }
 
@@ -1285,12 +1310,41 @@ fn try_execute_block_works() {
 
 	new_test_ext(1).execute_with(|| {
 		Executive::try_execute_block(
-			Block::new(header, vec![xt1, xt2]),
+			Block::new(header, vec![xt1, xt2]).into(),
 			true,
 			true,
 			frame_try_runtime::TryStateSelect::All,
 		)
 		.unwrap();
+	});
+}
+
+#[test]
+#[cfg(feature = "try-runtime")]
+fn try_runtime_upgrade_works() {
+	use frame_support::traits::OnGenesis;
+
+	sp_tracing::init_for_tests();
+
+	type ExecutiveWithoutMigrations = super::Executive<
+		Runtime,
+		Block<UncheckedXt>,
+		ChainContext<Runtime>,
+		Runtime,
+		AllPalletsWithSystem,
+	>;
+
+	new_test_ext(1).execute_with(|| {
+		// Call `on_genesis` to reset the storage version of all pallets.
+		AllPalletsWithSystem::on_genesis();
+
+		// Make sure the test storages are un-set
+		assert!(&sp_io::storage::get(TEST_KEY_2).is_none());
+
+		ExecutiveWithoutMigrations::try_runtime_upgrade(UpgradeCheckSelect::All).unwrap();
+
+		// Make sure the test storages were set
+		assert_eq!(&sp_io::storage::get(TEST_KEY_2).unwrap()[..], *b"try_runtime_upgrade_works");
 	});
 }
 
@@ -1315,7 +1369,7 @@ fn try_execute_tx_forbidden_errors() {
 	new_test_ext(1).execute_with(|| {
 		MbmActive::set(true);
 		Executive::try_execute_block(
-			Block::new(header, vec![xt1, xt2]),
+			Block::new(header, vec![xt1, xt2]).into(),
 			true,
 			true,
 			frame_try_runtime::TryStateSelect::All,
@@ -1343,7 +1397,7 @@ fn apply_extrinsics_checks_inherents_are_first() {
 		assert_ok!(
 			Executive::apply_extrinsics(
 				ExtrinsicInclusionMode::AllExtrinsics,
-				[xt2.clone()].into_iter(),
+				[Ok(xt2.clone())].into_iter(),
 				|_, _| Ok(Ok(()))
 			),
 			()
@@ -1351,7 +1405,7 @@ fn apply_extrinsics_checks_inherents_are_first() {
 		assert_ok!(
 			Executive::apply_extrinsics(
 				ExtrinsicInclusionMode::AllExtrinsics,
-				[in1.clone()].into_iter(),
+				[Ok(in1.clone())].into_iter(),
 				|_, _| Ok(Ok(()))
 			),
 			()
@@ -1359,7 +1413,7 @@ fn apply_extrinsics_checks_inherents_are_first() {
 		assert_ok!(
 			Executive::apply_extrinsics(
 				ExtrinsicInclusionMode::AllExtrinsics,
-				[in1.clone(), xt2.clone()].into_iter(),
+				[Ok(in1.clone()), Ok(xt2.clone())].into_iter(),
 				|_, _| Ok(Ok(()))
 			),
 			()
@@ -1367,7 +1421,7 @@ fn apply_extrinsics_checks_inherents_are_first() {
 		assert_ok!(
 			Executive::apply_extrinsics(
 				ExtrinsicInclusionMode::AllExtrinsics,
-				[in2.clone(), in1.clone(), xt2.clone()].into_iter(),
+				[Ok(in2.clone()), Ok(in1.clone()), Ok(xt2.clone())].into_iter(),
 				|_, _| Ok(Ok(()))
 			),
 			()
@@ -1376,7 +1430,7 @@ fn apply_extrinsics_checks_inherents_are_first() {
 		assert_err!(
 			Executive::apply_extrinsics(
 				ExtrinsicInclusionMode::AllExtrinsics,
-				[xt2.clone(), in1.clone()].into_iter(),
+				[Ok(xt2.clone()), Ok(in1.clone())].into_iter(),
 				|_, _| Ok(Ok(()))
 			),
 			ExecutiveError::InvalidInherentPosition(1)
@@ -1384,7 +1438,7 @@ fn apply_extrinsics_checks_inherents_are_first() {
 		assert_err!(
 			Executive::apply_extrinsics(
 				ExtrinsicInclusionMode::AllExtrinsics,
-				[xt2.clone(), xt2.clone(), in1.clone()].into_iter(),
+				[Ok(xt2.clone()), Ok(xt2.clone()), Ok(in1.clone())].into_iter(),
 				|_, _| Ok(Ok(()))
 			),
 			ExecutiveError::InvalidInherentPosition(2)
@@ -1392,10 +1446,25 @@ fn apply_extrinsics_checks_inherents_are_first() {
 		assert_err!(
 			Executive::apply_extrinsics(
 				ExtrinsicInclusionMode::AllExtrinsics,
-				[xt2.clone(), xt2.clone(), xt2.clone(), in2.clone()].into_iter(),
+				[Ok(xt2.clone()), Ok(xt2.clone()), Ok(xt2.clone()), Ok(in2.clone())].into_iter(),
 				|_, _| Ok(Ok(()))
 			),
 			ExecutiveError::InvalidInherentPosition(3)
+		);
+
+		assert_err!(
+			Executive::apply_extrinsics(
+				ExtrinsicInclusionMode::AllExtrinsics,
+				[
+					Ok(in2.clone()),
+					Ok(in1.clone()),
+					Err(codec::Error::from("Test")),
+					Ok(xt2.clone())
+				]
+				.into_iter(),
+				|_, _| Ok(Ok(()))
+			),
+			ExecutiveError::UnableToDecodeExtrinsic
 		);
 	});
 }
@@ -1448,7 +1517,7 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 
 		new_test_ext(10).execute_with(|| {
 			let header = std::panic::catch_unwind(|| {
-				Executive::execute_block(Block::new(header, extrinsics));
+				Executive::execute_block(Block::new(header, extrinsics).into());
 			});
 
 			match header {
@@ -1495,7 +1564,7 @@ fn post_inherent_called_after_all_inherents() {
 	#[cfg(feature = "try-runtime")]
 	new_test_ext(1).execute_with(|| {
 		Executive::try_execute_block(
-			Block::new(header.clone(), vec![in1.clone(), xt1.clone()]),
+			Block::new(header.clone(), vec![in1.clone(), xt1.clone()]).into(),
 			true,
 			true,
 			frame_try_runtime::TryStateSelect::All,
@@ -1506,7 +1575,7 @@ fn post_inherent_called_after_all_inherents() {
 
 	new_test_ext(1).execute_with(|| {
 		MockedSystemCallbacks::reset();
-		Executive::execute_block(Block::new(header, vec![in1, xt1]));
+		Executive::execute_block(Block::new(header, vec![in1, xt1]).into());
 		assert!(MockedSystemCallbacks::post_transactions_called());
 	});
 }
@@ -1535,7 +1604,7 @@ fn post_inherent_called_after_all_optional_inherents() {
 	#[cfg(feature = "try-runtime")]
 	new_test_ext(1).execute_with(|| {
 		Executive::try_execute_block(
-			Block::new(header.clone(), vec![in1.clone(), xt1.clone()]),
+			Block::new(header.clone(), vec![in1.clone(), xt1.clone()]).into(),
 			true,
 			true,
 			frame_try_runtime::TryStateSelect::All,
@@ -1546,7 +1615,7 @@ fn post_inherent_called_after_all_optional_inherents() {
 
 	new_test_ext(1).execute_with(|| {
 		MockedSystemCallbacks::reset();
-		Executive::execute_block(Block::new(header, vec![in1, xt1]));
+		Executive::execute_block(Block::new(header, vec![in1, xt1]).into());
 		assert!(MockedSystemCallbacks::post_transactions_called());
 	});
 }

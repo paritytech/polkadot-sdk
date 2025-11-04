@@ -14,6 +14,7 @@ workspace = true
 [dependencies]
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 hex-literal = { workspace = true, default-features = true }
+log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde_json = { features = ["alloc"], workspace = true }
 tracing = { workspace = true }
@@ -36,6 +37,7 @@ pallet-asset-rate = { workspace = true }
 pallet-asset-rewards = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-assets-freezer = { workspace = true }
+pallet-assets-precompiles = { workspace = true }
 pallet-aura = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-bags-list = { workspace = true }
@@ -97,6 +99,7 @@ primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace 
 # Polkadot
 pallet-xcm = { workspace = true }
 pallet-xcm-benchmarks = { optional = true, workspace = true }
+pallet-xcm-precompiles = { workspace = true }
 polkadot-parachain-primitives = { workspace = true }
 polkadot-runtime-common = { workspace = true }
 westend-runtime-constants = { workspace = true }
@@ -137,6 +140,7 @@ alloy-core = { workspace = true, features = ["sol-types"] }
 asset-test-utils = { workspace = true, default-features = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
@@ -163,6 +167,7 @@ runtime-benchmarks = [
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-asset-rewards/runtime-benchmarks",
 	"pallet-assets-freezer/runtime-benchmarks",
+	"pallet-assets-precompiles/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
@@ -183,6 +188,7 @@ runtime-benchmarks = [
 	"pallet-referenda/runtime-benchmarks",
 	"pallet-revive/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
 	"pallet-staking-async-rc-client/runtime-benchmarks",
 	"pallet-staking-async/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
@@ -197,6 +203,7 @@ runtime-benchmarks = [
 	"pallet-whitelist/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"pallet-xcm-bridge-hub-router/runtime-benchmarks",
+	"pallet-xcm-precompiles/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
@@ -230,6 +237,7 @@ try-runtime = [
 	"pallet-asset-rate/try-runtime",
 	"pallet-asset-rewards/try-runtime",
 	"pallet-assets-freezer/try-runtime",
+	"pallet-assets-precompiles/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-aura/try-runtime",
 	"pallet-authorship/try-runtime",
@@ -266,6 +274,7 @@ try-runtime = [
 	"pallet-vesting/try-runtime",
 	"pallet-whitelist/try-runtime",
 	"pallet-xcm-bridge-hub-router/try-runtime",
+	"pallet-xcm-precompiles/try-runtime",
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
 	"parachains-common/try-runtime",
@@ -300,6 +309,7 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"frame-try-runtime?/std",
+	"log/std",
 	"pallet-ah-ops/std",
 	"pallet-asset-conversion-ops/std",
 	"pallet-asset-conversion-tx-payment/std",
@@ -307,6 +317,7 @@ std = [
 	"pallet-asset-rate/std",
 	"pallet-asset-rewards/std",
 	"pallet-assets-freezer/std",
+	"pallet-assets-precompiles/std",
 	"pallet-assets/std",
 	"pallet-aura/std",
 	"pallet-authorship/std",
@@ -348,6 +359,7 @@ std = [
 	"pallet-whitelist/std",
 	"pallet-xcm-benchmarks?/std",
 	"pallet-xcm-bridge-hub-router/std",
+	"pallet-xcm-precompiles/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
 	"parachains-common/std",

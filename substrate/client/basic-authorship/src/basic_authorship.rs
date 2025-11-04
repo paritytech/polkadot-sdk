@@ -26,7 +26,7 @@ use futures::{
 	future,
 	future::{Future, FutureExt},
 };
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, info, log_enabled, trace, warn, Level};
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
 use sc_proposer_metrics::{EndProposingReason, MetricsLink as PrometheusMetrics};
@@ -414,8 +414,18 @@ where
 		inherent_data: InherentData,
 	) -> Result<(), sp_blockchain::Error> {
 		let create_inherents_start = time::Instant::now();
+
+		let inherent_identifiers = log_enabled!(target: LOG_TARGET, Level::Debug).then(|| {
+			inherent_data
+				.identifiers()
+				.map(|id| String::from_utf8_lossy(id).to_string())
+				.collect::<Vec<String>>()
+		});
+
 		let inherents = block_builder.create_inherents(inherent_data)?;
 		let create_inherents_end = time::Instant::now();
+
+		debug!(target: LOG_TARGET, "apply_inherents: Runtime provided {} inherents. Inherent identifiers present: {:?}", inherents.len(), inherent_identifiers);
 
 		self.metrics.report(|metrics| {
 			metrics.create_inherents_time.observe(
@@ -467,6 +477,7 @@ where
 			now + time::Duration::from_micros(self.soft_deadline_percent.mul_floor(left_micros));
 		let mut skipped = 0;
 		let mut unqueue_invalid = TxInvalidityReportMap::new();
+		let mut limit_hit_reason: Option<EndProposingReason> = None;
 
 		let delay = deadline.saturating_duration_since((self.now)()) / 8;
 		let mut pending_iterator =
@@ -486,7 +497,7 @@ where
 					"No more transactions, proceeding with proposing."
 				);
 
-				break EndProposingReason::NoMoreTransactions
+				break limit_hit_reason.unwrap_or(EndProposingReason::NoMoreTransactions)
 			};
 
 			let now = (self.now)();
@@ -496,7 +507,7 @@ where
 					"Consensus deadline reached when pushing block transactions, \
 				proceeding with proposing."
 				);
-				break EndProposingReason::HitDeadline
+				break limit_hit_reason.unwrap_or(EndProposingReason::HitDeadline)
 			}
 
 			let pending_tx_data = (**pending_tx.data()).clone();
@@ -506,6 +517,7 @@ where
 				block_builder.estimate_block_size(self.include_proof_in_block_size_estimation);
 			if block_size + pending_tx_data.encoded_size() > block_size_limit {
 				pending_iterator.report_invalid(&pending_tx);
+				limit_hit_reason = Some(EndProposingReason::HitBlockSizeLimit);
 				if skipped < MAX_SKIPPED_TRANSACTIONS {
 					skipped += 1;
 					debug!(
@@ -536,10 +548,12 @@ where
 			match sc_block_builder::BlockBuilder::push(block_builder, pending_tx_data) {
 				Ok(()) => {
 					transaction_pushed = true;
+					limit_hit_reason = None;
 					trace!(target: LOG_TARGET, "[{:?}] Pushed to the block.", pending_tx_hash);
 				},
 				Err(ApplyExtrinsicFailed(Validity(e))) if e.exhausted_resources() => {
 					pending_iterator.report_invalid(&pending_tx);
+					limit_hit_reason = Some(EndProposingReason::HitBlockWeightLimit);
 					if skipped < MAX_SKIPPED_TRANSACTIONS {
 						skipped += 1;
 						debug!(target: LOG_TARGET,
@@ -833,7 +847,7 @@ mod tests {
 		assert_eq!(proposal.block.extrinsics().len(), 1);
 
 		let api = client.runtime_api();
-		api.execute_block(genesis_hash, proposal.block).unwrap();
+		api.execute_block(genesis_hash, proposal.block.into()).unwrap();
 
 		let state = backend.state_at(genesis_hash, TrieCacheContext::Untrusted).unwrap();
 

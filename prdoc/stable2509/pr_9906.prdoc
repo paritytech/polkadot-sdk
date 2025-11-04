@@ -1,0 +1,16 @@
+title: 'Increase PARENT_SEARCH_DEPTH to 40'
+doc:
+- audience: [Runtime Dev, Node Dev]
+  description: |-
+    Required to support 500ms blocks for parachains using Elastic Scaling.
+    
+    A chain needs to have the `UNINCLUDED_SEGMENT_CAPACITY` configured to  `(2 + RELAY_PARENT_OFFSET) *
+    BLOCK_PROCESSING_VELOCITY + 1`.
+
+    When a parachain is configured to build 12 blocks per relay parent and the relay parent offset 
+    is 1, the required search depth needs to be at least 37.
+
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch
+

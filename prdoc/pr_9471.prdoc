@@ -1,0 +1,30 @@
+title: Support for generating proof of possession alongside signing on the owner's Id
+doc:
+- audience: Runtime Dev
+  description: |-
+    When signing on a new session key, the signer must also use the session key to sign on the authority’s signer key in order to prove that it is not faking the ownership of someone else’s key. This, in part, prevents mounting a front-runner attack. 
+
+    On the other hand, for aggregatable crypto schemes, such as BLS, to be secure, the authority submitting a new session key should prove it is in possession of the private key. To prevent these proofs from abuse, a specific statement in a separate domain must be used in signing, one that is never used in the usual signing process. This is to prevent the rogue key attack described in [1].
+
+    This means that those schemes need to submit two signatures to prove the legitimacy of the submitted session key, in contrast to non-aggregatable  schemes, which need one.
+
+    Additionally, it is foreseeable that in the future, some crypto schemes might require the key submitter to prove other facts before accepting their submission.
+
+    To accommodate such flexibility, this PR introduces a new customized type `ProofOfPossession` for `Pair`s (in addition to `Public` and `Signature`) to represent these proofs. 
+
+    Currently `ProofOfPossession = Signature` for `ecdsa`, `ed25519` and `sr25519` while `ProofOfPossession = Signature | Signature` for `bls381 and `ProofOfPossession = ecdsa:Signature | bls381:Signature | bls381:Signature` for `ecdsa_bls381` paired_key scheme.
+
+    - [1] Ristenpart, T., & Yilek, S. (2007). The power of proofs-of-possession: Securing multiparty signatures against rogue-key attacks. In , Annual International Conference on the Theory and Applications of Cryptographic Techniques (pp. 228–245).:  {Springer}.
+crates:
+- name: sp-core
+  bump: patch
+- name: sp-application-crypto
+  bump: patch
+- name: sp-io
+  bump: patch
+- name: sp-keystore
+  bump: patch
+- name: sc-keystore
+  bump: patch
+- name: sp-runtime
+  bump: patch
