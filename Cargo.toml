@@ -356,6 +356,7 @@ members = [
 	"substrate/frame/contracts/uapi",
 	"substrate/frame/conviction-voting",
 	"substrate/frame/conviction-voting/precompiles",
+	"substrate/frame/conviction-voting/precompiles-benchmarks",
 	"substrate/frame/core-fellowship",
 	"substrate/frame/delegated-staking",
 	"substrate/frame/democracy",
