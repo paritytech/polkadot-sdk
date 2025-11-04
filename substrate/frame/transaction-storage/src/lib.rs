@@ -90,7 +90,7 @@ pub struct TransactionInfo {
 impl TransactionInfo {
 	/// Get the number of total chunks.
 	///
-	/// See `TransactionInfo::block_chunks`.
+	/// See the `block_chunks` field of [`TransactionInfo`] for details.
 	pub fn total_chunks(txs: &[TransactionInfo]) -> ChunkIndex {
 		txs.last().map_or(0, |t| t.block_chunks)
 	}
