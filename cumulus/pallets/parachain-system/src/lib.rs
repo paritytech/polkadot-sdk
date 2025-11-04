@@ -362,7 +362,18 @@ pub mod pallet {
 				UpwardMessages::<T>::put(&up[..num as usize]);
 				*up = up.split_off(num as usize);
 
-				// Send the pending UMP signals + the core selector UMP signal.
+				if let Some(core_info) =
+					CumulusDigestItem::find_core_info(&frame_system::Pallet::<T>::digest())
+				{
+					PendingUpwardSignals::<T>::mutate(|signals| {
+						signals.push(
+							UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset)
+								.encode(),
+						);
+					});
+				}
+
+				// Send the pending UMP signals.
 				Self::send_ump_signals();
 
 				// If the total size of the pending messages is less than the threshold,
@@ -1520,20 +1531,9 @@ impl<T: Config> Pallet<T> {
 		CustomValidationHeadData::<T>::put(head_data);
 	}
 
-	/// Send the ump signals
+	/// Send the pending ump signals
 	fn send_ump_signals() {
-		// Take the pending UMP signals.
 		let mut ump_signals = PendingUpwardSignals::<T>::take();
-		// Append the core selector signal.
-		if let Some(core_info) =
-			CumulusDigestItem::find_core_info(&frame_system::Pallet::<T>::digest())
-		{
-			ump_signals.push(
-				UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset).encode(),
-			);
-		}
-
-		// Send all the UMP signals.
 		if !ump_signals.is_empty() {
 			UpwardMessages::<T>::mutate(|up| {
 				up.push(UMP_SEPARATOR);
