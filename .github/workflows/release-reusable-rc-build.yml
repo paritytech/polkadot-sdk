@@ -54,7 +54,7 @@ jobs:
   build-rc:
     if: ${{ inputs.target == 'x86_64-unknown-linux-gnu' }}
     needs: [set-image]
-    runs-on: ubuntu-latest-m
+    runs-on: ubuntu-latest
     environment: release
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
