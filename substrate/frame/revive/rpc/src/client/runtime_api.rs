@@ -22,10 +22,10 @@ use crate::{
 };
 use pallet_revive::{
 	evm::{
-		decode_revert_reason, Block as EthBlock, BlockNumberOrTagOrHash, BlockTag,
+		Block as EthBlock, BlockNumberOrTagOrHash, BlockTag,
 		GenericTransaction, ReceiptGasInfo, Trace, H160, U256,
 	},
-	EthTransactError, EthTransactInfo,
+	EthTransactInfo,
 };
 use sp_core::H256;
 use sp_timestamp::Timestamp;
