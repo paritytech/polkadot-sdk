@@ -149,16 +149,19 @@ macro_rules! log {
 pub trait SendToRelayChain {
 	/// The validator account ids.
 	type AccountId;
+	/// Maximum number of validators.
+	type MaxValidators: Get<u32>;
 
 	/// Send a new validator set report to relay chain.
 	#[allow(clippy::result_unit_err)]
-	fn validator_set(report: ValidatorSetReport<Self::AccountId>) -> Result<(), ()>;
+	fn validator_set(report: ValidatorSetReport<Self::AccountId, Self::MaxValidators>) -> Result<(), ()>;
 }
 
 #[cfg(feature = "std")]
 impl SendToRelayChain for () {
 	type AccountId = u64;
-	fn validator_set(_report: ValidatorSetReport<Self::AccountId>) -> Result<(), ()> {
+	type MaxValidators = ConstU32<1000>;
+	fn validator_set(_report: ValidatorSetReport<Self::AccountId, Self::MaxValidators>) -> Result<(), ()> {
 		unimplemented!();
 	}
 }
@@ -202,11 +205,12 @@ impl SendToAssetHub for () {
 	}
 }
 
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo)]
+#[scale_info(skip_type_params(MaxValidators))]
 /// A report about a new validator set. This is sent from AH -> RC.
-pub struct ValidatorSetReport<AccountId> {
+pub struct ValidatorSetReport<AccountId, MaxValidators: Get<u32> = ConstU32<1000>> {
 	/// The new validator set.
-	pub new_validator_set: Vec<AccountId>,
+	pub new_validator_set: BoundedVec<AccountId, MaxValidators>,
 	/// The id of this validator set.
 	///
 	/// Is an always incrementing identifier for this validator set, the activation of which can be
@@ -224,7 +228,18 @@ pub struct ValidatorSetReport<AccountId> {
 	pub leftover: bool,
 }
 
-impl<AccountId: core::fmt::Debug> core::fmt::Debug for ValidatorSetReport<AccountId> {
+impl<AccountId: Clone, MaxValidators: Get<u32>> Clone for ValidatorSetReport<AccountId, MaxValidators> {
+	fn clone(&self) -> Self {
+		Self {
+			new_validator_set: self.new_validator_set.clone(),
+			id: self.id,
+			prune_up_to: self.prune_up_to,
+			leftover: self.leftover,
+		}
+	}
+}
+
+impl<AccountId: core::fmt::Debug, MaxValidators: Get<u32>> core::fmt::Debug for ValidatorSetReport<AccountId, MaxValidators> {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		f.debug_struct("ValidatorSetReport")
 			.field("new_validator_set", &self.new_validator_set)
@@ -235,7 +250,7 @@ impl<AccountId: core::fmt::Debug> core::fmt::Debug for ValidatorSetReport<Accoun
 	}
 }
 
-impl<AccountId> core::fmt::Display for ValidatorSetReport<AccountId> {
+impl<AccountId, MaxValidators: Get<u32>> core::fmt::Display for ValidatorSetReport<AccountId, MaxValidators> {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		f.debug_struct("ValidatorSetReport")
 			.field("new_validator_set", &self.new_validator_set.len())
@@ -246,7 +261,7 @@ impl<AccountId> core::fmt::Display for ValidatorSetReport<AccountId> {
 	}
 }
 
-impl<AccountId> ValidatorSetReport<AccountId> {
+impl<AccountId: core::fmt::Debug, MaxValidators: Get<u32>> ValidatorSetReport<AccountId, MaxValidators> {
 	/// A new instance of self that is terminal. This is useful when we want to send everything in
 	/// one go.
 	pub fn new_terminal(
@@ -254,7 +269,7 @@ impl<AccountId> ValidatorSetReport<AccountId> {
 		id: u32,
 		prune_up_to: Option<SessionIndex>,
 	) -> Self {
-		Self { new_validator_set, id, prune_up_to, leftover: false }
+		Self { new_validator_set: new_validator_set.try_into().expect("validator set exceeds maximum"), id, prune_up_to, leftover: false }
 	}
 
 	/// Merge oneself with another instance.
@@ -263,7 +278,8 @@ impl<AccountId> ValidatorSetReport<AccountId> {
 			// Must be some bug -- don't merge.
 			return Err(UnexpectedKind::ValidatorSetIntegrityFailed);
 		}
-		self.new_validator_set.extend(other.new_validator_set);
+		self.new_validator_set.try_extend(other.new_validator_set.into_iter())
+			.map_err(|_| UnexpectedKind::ValidatorSetIntegrityFailed)?;
 		self.leftover = other.leftover;
 		Ok(self)
 	}
@@ -276,7 +292,11 @@ impl<AccountId> ValidatorSetReport<AccountId> {
 		let splitted_points = self.new_validator_set.chunks(chunk_size.max(1)).map(|x| x.to_vec());
 		let mut parts = splitted_points
 			.into_iter()
-			.map(|new_validator_set| Self { new_validator_set, leftover: true, ..self })
+			.map(|new_validator_set| Self {
+				new_validator_set: new_validator_set.try_into().expect("chunk size should be within bounds"),
+				leftover: true,
+				..self
+			})
 			.collect::<Vec<_>>();
 		if let Some(x) = parts.last_mut() {
 			x.leftover = false
@@ -400,7 +420,7 @@ impl<AccountId: Clone> SplittableMessage for SessionReport<AccountId> {
 	}
 }
 
-impl<AccountId: Clone> SplittableMessage for ValidatorSetReport<AccountId> {
+impl<AccountId: Clone + core::fmt::Debug, MaxValidators: Get<u32>> SplittableMessage for ValidatorSetReport<AccountId, MaxValidators> {
 	fn split_by(self, chunk_size: usize) -> Vec<Self> {
 		self.split(chunk_size)
 	}
@@ -627,7 +647,7 @@ pub mod pallet {
 	// need its MEL critically.
 	#[pallet::unbounded]
 	pub type OutgoingValidatorSet<T: Config> =
-		StorageValue<_, (ValidatorSetReport<T::AccountId>, u32), OptionQuery>;
+		StorageValue<_, (ValidatorSetReport<T::AccountId, <T::SendToRelayChain as SendToRelayChain>::MaxValidators>, u32), OptionQuery>;
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -728,7 +748,7 @@ pub mod pallet {
 			id: u32,
 			prune_up_tp: Option<u32>,
 		) {
-			let report = ValidatorSetReport::new_terminal(new_validator_set, id, prune_up_tp);
+			let report = ValidatorSetReport::<T::AccountId, <T::SendToRelayChain as SendToRelayChain>::MaxValidators>::new_terminal(new_validator_set, id, prune_up_tp);
 			// just store the report to be outgoing, it will be sent in the next on-init.
 			OutgoingValidatorSet::<T>::put((report, T::MaxValidatorSetRetries::get()));
 		}
@@ -845,5 +865,158 @@ pub mod pallet {
 
 			Ok(Some(weight).into())
 		}
+	}
+}
+
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use frame_support::traits::ConstU32;
+
+	type TestAccountId = u64;
+
+	#[test]
+	fn validator_set_report_respects_max_validators() {
+		// Test with default max (1000)
+		let validators: Vec<TestAccountId> = (0..100).collect();
+		let report = ValidatorSetReport::<TestAccountId>::new_terminal(
+			validators.clone(),
+			1,
+			None,
+		);
+		assert_eq!(report.new_validator_set.len(), 100);
+		assert_eq!(report.id, 1);
+	}
+
+	#[test]
+	#[should_panic(expected = "validator set exceeds maximum")]
+	fn validator_set_report_panics_when_exceeding_max() {
+		// Test with custom small max
+		let validators: Vec<TestAccountId> = (0..100).collect();
+		let _report = ValidatorSetReport::<TestAccountId, ConstU32<10>>::new_terminal(
+			validators,
+			1,
+			None,
+		);
+	}
+
+	#[test]
+	fn validator_set_report_try_into_success() {
+		// Test successful conversion from Vec to BoundedVec
+		let validators: Vec<TestAccountId> = (0..50).collect();
+		let bounded: Result<BoundedVec<TestAccountId, ConstU32<100>>, _> = validators.try_into();
+		assert!(bounded.is_ok());
+		assert_eq!(bounded.unwrap().len(), 50);
+	}
+
+	#[test]
+	fn validator_set_report_try_into_failure() {
+		// Test failed conversion when exceeding bounds
+		let validators: Vec<TestAccountId> = (0..100).collect();
+		let bounded: Result<BoundedVec<TestAccountId, ConstU32<50>>, _> = validators.try_into();
+		assert!(bounded.is_err());
+	}
+
+	#[test]
+	fn validator_set_report_merge_respects_bounds() {
+		// Create two reports that can be merged within bounds
+		let validators1: Vec<TestAccountId> = (0..30).collect();
+		let validators2: Vec<TestAccountId> = (30..60).collect();
+
+		let report1 = ValidatorSetReport::<TestAccountId, ConstU32<100>>::new_terminal(
+			validators1,
+			1,
+			None,
+		);
+		let mut report2 = ValidatorSetReport::<TestAccountId, ConstU32<100>>::new_terminal(
+			validators2,
+			1,
+			None,
+		);
+		report2.leftover = true;
+
+		let merged = report1.merge(report2).unwrap();
+		assert_eq!(merged.new_validator_set.len(), 60);
+	}
+
+	#[test]
+	fn validator_set_report_merge_fails_when_exceeding_bounds() {
+		// Create two reports that cannot be merged within bounds
+		let validators1: Vec<TestAccountId> = (0..60).collect();
+		let validators2: Vec<TestAccountId> = (60..120).collect();
+
+		let report1 = ValidatorSetReport::<TestAccountId, ConstU32<100>>::new_terminal(
+			validators1,
+			1,
+			None,
+		);
+		let mut report2 = ValidatorSetReport::<TestAccountId, ConstU32<100>>::new_terminal(
+			validators2,
+			1,
+			None,
+		);
+		report2.leftover = true;
+
+		let result = report1.merge(report2);
+		assert!(result.is_err());
+		assert_eq!(result.unwrap_err(), UnexpectedKind::ValidatorSetIntegrityFailed);
+	}
+
+	#[test]
+	fn validator_set_report_split_maintains_bounds() {
+		// Test that splitting maintains the bounds
+		let validators: Vec<TestAccountId> = (0..100).collect();
+		let report = ValidatorSetReport::<TestAccountId, ConstU32<1000>>::new_terminal(
+			validators,
+			1,
+			None,
+		);
+
+		let parts = report.split(30);
+		assert_eq!(parts.len(), 4); // 30, 30, 30, 10
+		assert_eq!(parts[0].new_validator_set.len(), 30);
+		assert_eq!(parts[1].new_validator_set.len(), 30);
+		assert_eq!(parts[2].new_validator_set.len(), 30);
+		assert_eq!(parts[3].new_validator_set.len(), 10);
+
+		// Check leftover flags
+		assert!(parts[0].leftover);
+		assert!(parts[1].leftover);
+		assert!(parts[2].leftover);
+		assert!(!parts[3].leftover); // Last one should be false
+	}
+
+	#[test]
+	fn validator_set_report_split_and_merge_roundtrip() {
+		// Test that split and merge are inverse operations
+		let validators: Vec<TestAccountId> = (0..100).collect();
+		let original = ValidatorSetReport::<TestAccountId, ConstU32<1000>>::new_terminal(
+			validators,
+			42,
+			Some(10),
+		);
+
+		let parts = original.clone().split(25);
+		let merged = parts.into_iter().reduce(|acc, x| acc.merge(x).unwrap()).unwrap();
+
+		assert_eq!(merged.new_validator_set.len(), original.new_validator_set.len());
+		assert_eq!(merged.id, original.id);
+		assert_eq!(merged.prune_up_to, original.prune_up_to);
+		assert_eq!(merged.leftover, original.leftover);
+	}
+
+	#[test]
+	fn validator_set_report_with_custom_max_validators() {
+		// Test using a custom MaxValidators type parameter
+		type SmallMax = ConstU32<32>;
+
+		let validators: Vec<TestAccountId> = (0..32).collect();
+		let report = ValidatorSetReport::<TestAccountId, SmallMax>::new_terminal(
+			validators,
+			1,
+			None,
+		);
+		assert_eq!(report.new_validator_set.len(), 32);
 	}
 }
