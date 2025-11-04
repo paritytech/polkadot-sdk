@@ -253,7 +253,7 @@ pub async fn assert_relay_parent_offset(
 	para_client: &OnlineClient<PolkadotConfig>,
 	offset: u32,
 	block_limit: u32,
-) -> Result<(), anyhow::Error> {
+) -> Result<u32, anyhow::Error> {
 	let mut relay_block_stream = relay_client.blocks().subscribe_all().await?;
 
 	// First parachain header #0 does not contains RSPR digest item.
@@ -284,7 +284,7 @@ pub async fn assert_relay_parent_offset(
 			}
 		}
 	}
-	Ok(())
+	Ok(highest_relay_block_seen)
 }
 
 /// Extract relay parent information from the digest logs.
