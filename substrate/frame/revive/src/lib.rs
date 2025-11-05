@@ -1608,7 +1608,7 @@ impl<T: Config> Pallet<T> {
 	/// - `tx`: The Ethereum transaction to simulate.
 	pub fn dry_run_eth_transact(
 		mut tx: GenericTransaction,
-		timestamp_override: Option<u64>,
+		dry_run_config: DryRunConfig<T>,
 	) -> Result<EthTransactInfo<BalanceOf<T>>, EthTransactError>
 	where
 		T::Nonce: Into<U256>,
@@ -1673,7 +1673,7 @@ impl<T: Config> Pallet<T> {
 				call_info.encoded_len,
 				base_info.total_weight(),
 			)
-			.with_dry_run(timestamp_override)
+			.with_dry_run(dry_run_config)
 		};
 
 		// emulate transaction behavior

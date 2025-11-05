@@ -21,7 +21,7 @@ use crate::{
 	test_utils::{builder::Contract, ALICE},
 	tests::{builder, Contracts, ExtBuilder, System, Test, Timestamp},
 	vm::evm::DIFFICULTY,
-	Code, Config, ExecConfig, Pallet,
+	Code, Config, DryRunConfig, ExecConfig, Pallet,
 };
 
 use alloy_core::sol_types::{SolCall, SolInterface};
@@ -63,13 +63,15 @@ fn block_number_dry_run_works(fixture_type: FixtureType) {
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		System::set_block_number(42);
-		let override_ts = Timestamp::get() + 10_000;
+		let timestamp_override = Some(Timestamp::get() + 10_000);
 
 		let result = builder::bare_call(addr)
 			.data(
 				BlockInfo::BlockInfoCalls::blockNumber(BlockInfo::blockNumberCall {}).abi_encode(),
 			)
-			.exec_config(ExecConfig::new_substrate_tx().with_dry_run(Some(override_ts)))
+			.exec_config(
+				ExecConfig::new_substrate_tx().with_dry_run(DryRunConfig { timestamp_override }),
+			)
 			.build_and_unwrap_result();
 		let decoded = BlockInfo::blockNumberCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(43u64, decoded);
@@ -145,16 +147,18 @@ fn timestamp_dry_run_override_works(fixture_type: FixtureType) {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-		let override_ts = Timestamp::get() + 10_000;
+		let timestamp_override = Some(Timestamp::get() + 10_000);
 		let result: crate::ExecReturnValue = builder::bare_call(addr)
 			.data(BlockInfo::BlockInfoCalls::timestamp(BlockInfo::timestampCall {}).abi_encode())
-			.exec_config(ExecConfig::new_substrate_tx().with_dry_run(Some(override_ts)))
+			.exec_config(
+				ExecConfig::new_substrate_tx().with_dry_run(DryRunConfig { timestamp_override }),
+			)
 			.build_and_unwrap_result();
 		let decoded = BlockInfo::timestampCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(
 			// Solidity expects timestamps in seconds, whereas pallet_timestamp uses
 			// milliseconds.
-			(override_ts / 1000) as u64,
+			(timestamp_override.unwrap() / 1000) as u64,
 			decoded
 		);
 	});

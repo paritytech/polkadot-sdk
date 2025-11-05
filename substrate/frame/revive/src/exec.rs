@@ -951,24 +951,22 @@ where
 			return Ok(None);
 		};
 
-		let mut latest_timestamp = T::Time::now();
+		let mut timestamp = T::Time::now();
 		let mut block_number = <frame_system::Pallet<T>>::block_number();
 		// if dry run with timestamp override is provided we simulate the run in a `pending` block
-		if let Some(moment_override) =
+		if let Some(timestamp_override) =
 			exec_config.is_dry_run.as_ref().and_then(|cfg| cfg.timestamp_override)
 		{
-			block_number += 1u32.saturated_into();
-			let moment_override: <<T as Config>::Time as Time>::Moment =
-				moment_override.saturated_into();
-			let delta: <<T as Config>::Time as Time>::Moment = 1000u64.saturated_into();
-			latest_timestamp = cmp::max(latest_timestamp + delta, moment_override);
+			block_number += 1u32.into();
+			let delta = 1000u32.into();
+			timestamp = cmp::max(timestamp + delta, timestamp_override);
 		}
 
 		let stack = Self {
 			origin,
 			gas_meter,
 			storage_meter,
-			timestamp: latest_timestamp,
+			timestamp,
 			block_number,
 			first_frame,
 			frames: Default::default(),

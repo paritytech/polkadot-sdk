@@ -17,10 +17,10 @@
 
 //! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
-use crate::{mock::MockHandler, storage::WriteOutcome, BalanceOf, Config, H160, U256};
+use crate::{mock::MockHandler, storage::WriteOutcome, BalanceOf, Config, Time, H160, U256};
 use alloc::{boxed::Box, fmt::Debug, string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::weights::Weight;
+use frame_support::{weights::Weight, DefaultNoBound};
 use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
 use sp_core::Get;
@@ -331,10 +331,10 @@ where
 }
 
 /// Configuration specific to a dry-run execution.
-#[derive(Clone)]
-pub struct DryRunConfig {
+#[derive(Clone, DefaultNoBound)]
+pub struct DryRunConfig<T: Config> {
 	/// Optional timestamp override for dry-run in pending block.
-	pub timestamp_override: Option<u64>,
+	pub timestamp_override: Option<<<T as Config>::Time as Time>::Moment>,
 }
 
 /// `Stack` wide configuration options.
@@ -367,7 +367,7 @@ pub struct ExecConfig<T: Config> {
 	pub effective_gas_price: Option<U256>,
 	/// Whether this configuration was created for a dry-run execution.
 	/// Use to enable logic that should only run in dry-run mode.
-	pub is_dry_run: Option<DryRunConfig>,
+	pub is_dry_run: Option<DryRunConfig<T>>,
 	/// An optional mock handler that can be used to override certain behaviors.
 	/// This is primarily used for testing purposes and should be `None` in production
 	/// environments.
@@ -408,8 +408,8 @@ impl<T: Config> ExecConfig<T> {
 	}
 
 	/// Set this config to be a dry-run.
-	pub fn with_dry_run(mut self, timestamp: Option<u64>) -> Self {
-		self.is_dry_run = Some(DryRunConfig { timestamp_override: timestamp });
+	pub fn with_dry_run(mut self, dry_run_config: DryRunConfig<T>) -> Self {
+		self.is_dry_run = Some(dry_run_config);
 		self
 	}
 }
