@@ -918,9 +918,9 @@ reason = "changed"
 [[crate]]
 # polkadot/node/primitives
 name = "polkadot-node-primitives"
-from = "19.0.0"
-to = "20.0.0"
-bump = "major"
+from = "20.0.0"
+to = "20.1.0"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -1236,8 +1236,8 @@ reason = "changed"
 [[crate]]
 # substrate/client/statement-store
 name = "sc-statement-store"
-from = "22.0.0"
-to = "22.1.0"
+from = "22.1.0"
+to = "22.2.0"
 bump = "minor"
 reason = "changed"
 
@@ -1602,8 +1602,8 @@ reason = "changed"
 [[crate]]
 # substrate/frame/ranked-collective
 name = "pallet-ranked-collective"
-from = "41.0.0"
-to = "41.0.1"
+from = "41.0.1"
+to = "41.0.2"
 bump = "patch"
 reason = "changed"
 
@@ -2088,9 +2088,9 @@ reason = "changed"
 [[crate]]
 # substrate/client/network/statement
 name = "sc-network-statement"
-from = "0.32.0"
-to = "0.33.0"
-bump = "major"
+from = "0.33.0"
+to = "0.33.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -3644,9 +3644,9 @@ reason = "changed"
 [[crate]]
 # polkadot/node/network/approval-distribution
 name = "polkadot-approval-distribution"
-from = "23.0.0"
-to = "24.0.0"
-bump = "major"
+from = "24.0.0"
+to = "24.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]

@@ -12951,7 +12951,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-ranked-collective"
-version = "41.0.1"
+version = "41.0.2"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -14807,7 +14807,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-approval-distribution"
-version = "24.0.0"
+version = "24.0.1"
 dependencies = [
  "assert_matches",
  "futures",
@@ -15611,7 +15611,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-primitives"
-version = "20.0.0"
+version = "20.1.0"
 dependencies = [
  "bitvec",
  "bounded-vec",
@@ -20098,7 +20098,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-statement"
-version = "0.33.0"
+version = "0.33.1"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
@@ -20544,7 +20544,7 @@ dependencies = [
 
 [[package]]
 name = "sc-statement-store"
-version = "22.1.0"
+version = "22.2.0"
 dependencies = [
  "log",
  "parity-db",
