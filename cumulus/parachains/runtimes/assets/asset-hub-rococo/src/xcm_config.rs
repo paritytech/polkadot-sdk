@@ -21,8 +21,8 @@ use super::{
 };
 use assets_common::{
 	matching::{
-		ForeignAssetFromTrustedReserve, FromNetwork, IsForeignConcreteAsset, ParentLocation,
-		TeleportableForeignAsset,
+		FromNetwork, IsForeignConcreteAsset, NonTeleportableAssetFromTrustedReserve,
+		ParentLocation, TeleportableAssetWithTrustedReserve,
 	},
 	TrustBackedAssetsAsLocation,
 };
@@ -307,7 +307,9 @@ pub type WaivedLocations = (
 pub type TrustedReserves = (
 	bridging::to_westend::WestendOrEthereumAssetFromAssetHubWestend,
 	bridging::to_ethereum::EthereumAssetFromEthereum,
-	IsForeignConcreteAsset<ForeignAssetFromTrustedReserve<AssetHubParaId, crate::ForeignAssets>>,
+	IsForeignConcreteAsset<
+		NonTeleportableAssetFromTrustedReserve<AssetHubParaId, crate::ForeignAssets>,
+	>,
 );
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
@@ -316,8 +318,9 @@ pub type TrustedReserves = (
 /// - Sibling parachains' assets from where they originate (as `ForeignCreators`).
 pub type TrustedTeleporters = (
 	ConcreteAssetFromSystem<TokenLocation>,
-	// TODO: add migration to include reserves info for existing teleportable assets (e.g. vDOT)
-	IsForeignConcreteAsset<TeleportableForeignAsset<AssetHubParaId, crate::ForeignAssets>>,
+	IsForeignConcreteAsset<
+		TeleportableAssetWithTrustedReserve<AssetHubParaId, crate::ForeignAssets>,
+	>,
 );
 
 /// Defines origin aliasing rules for this chain.

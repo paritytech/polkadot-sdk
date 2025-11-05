@@ -368,7 +368,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 	XcmConfig: xcm_executor::Config,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetId:
 		From<xcm::v5::Location> + Into<xcm::v5::Location>,
-	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::ReserveId:
+	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::ReserveData:
 		From<xcm::v5::Location> + Into<xcm::v5::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetIdParameter:
 		From<xcm::v5::Location> + Into<xcm::v5::Location>,

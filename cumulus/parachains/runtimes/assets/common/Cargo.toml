@@ -15,6 +15,7 @@ workspace = true
 codec = { features = ["derive"], workspace = true }
 impl-trait-for-tuples = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+serde = { workspace = true }
 tracing = { workspace = true }
 
 # Substrate

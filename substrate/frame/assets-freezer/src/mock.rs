@@ -91,7 +91,7 @@ impl pallet_balances::Config for Test {
 impl pallet_assets::Config for Test {
 	type AssetId = AssetId;
 	type AssetIdParameter = Compact<AssetId>;
-	type ReserveId = ();
+	type ReserveData = ();
 	type AssetDeposit = ConstU64<1>;
 	type Balance = Balance;
 	type AssetAccountDeposit = ConstU64<1>;

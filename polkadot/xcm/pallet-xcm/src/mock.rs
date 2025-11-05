@@ -302,7 +302,7 @@ impl pallet_assets::Config for Test {
 	type Balance = Balance;
 	type AssetId = Location;
 	type AssetIdParameter = Location;
-	type ReserveId = ();
+	type ReserveData = ();
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = EnsureRoot<AccountId>;

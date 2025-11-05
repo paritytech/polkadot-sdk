@@ -18,7 +18,7 @@ use cumulus_primitives_core::ParaId;
 use sp_runtime::traits::Get;
 use xcm::latest::prelude::*;
 
-/// Simple conversion of `u32` into an `AssetId` and `ReserveId` for use in benchmarking.
+/// Simple conversion of `u32` into an `AssetId` and `ReserveData` for use in benchmarking.
 pub struct LocationAssetsBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_assets::BenchmarkHelper<xcm::v5::Location, xcm::v5::Location>

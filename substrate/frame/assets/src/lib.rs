@@ -169,6 +169,7 @@ mod types;
 pub use types::*;
 
 extern crate alloc;
+extern crate core;
 
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -177,7 +178,7 @@ use sp_runtime::{
 };
 
 use alloc::vec::Vec;
-use core::marker::PhantomData;
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -298,7 +299,7 @@ pub mod pallet {
 			type RemoveItemsLimit = ConstU32<5>;
 			type AssetId = u32;
 			type AssetIdParameter = u32;
-			type ReserveId = ();
+			type ReserveData = ();
 			type AssetDeposit = ConstUint<1>;
 			type AssetAccountDeposit = ConstUint<10>;
 			type MetadataDepositBase = ConstUint<1>;
@@ -353,8 +354,8 @@ pub mod pallet {
 		/// directly.
 		type AssetIdParameter: Parameter + From<Self::AssetId> + Into<Self::AssetId> + MaxEncodedLen;
 
-		/// Identifier for a reserve location for a class of asset.
-		type ReserveId: Parameter + MaybeSerializeDeserialize + MaxEncodedLen;
+		/// Information about reserve locations for a class of asset.
+		type ReserveData: Debug + Parameter + MaybeSerializeDeserialize + MaxEncodedLen;
 
 		/// The currency mechanism.
 		#[pallet::no_default]
@@ -429,7 +430,7 @@ pub mod pallet {
 
 		/// Helper trait for benchmarks.
 		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper: BenchmarkHelper<Self::AssetIdParameter, Self::ReserveId>;
+		type BenchmarkHelper: BenchmarkHelper<Self::AssetIdParameter, Self::ReserveData>;
 	}
 
 	#[pallet::storage]
@@ -482,7 +483,7 @@ pub mod pallet {
 		_,
 		Blake2_128Concat,
 		T::AssetId,
-		BoundedVec<T::ReserveId, ConstU32<MAX_RESERVES>>,
+		BoundedVec<T::ReserveData, ConstU32<MAX_RESERVES>>,
 		ValueQuery,
 	>;
 
@@ -515,7 +516,7 @@ pub mod pallet {
 		/// genesis config. It sets the [`NextAssetId`] after they have been created.
 		pub next_asset_id: Option<T::AssetId>,
 		/// Genesis assets and their reserves
-		pub reserves: Vec<(T::AssetId, Vec<T::ReserveId>)>,
+		pub reserves: Vec<(T::AssetId, Vec<T::ReserveData>)>,
 	}
 
 	#[pallet::genesis_build]
@@ -678,7 +679,7 @@ pub mod pallet {
 		/// Some assets were withdrawn from the account (e.g. for transaction fees).
 		Withdrawn { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
 		/// Reserve locations were set or updated for `asset_id`.
-		ReservesUpdated { asset_id: T::AssetId, reserves: Vec<T::ReserveId> },
+		ReservesUpdated { asset_id: T::AssetId, reserves: Vec<T::ReserveData> },
 		/// Reserve locations were removed for `asset_id`.
 		ReservesRemoved { asset_id: T::AssetId },
 	}
@@ -1871,7 +1872,7 @@ pub mod pallet {
 		pub fn set_reserves(
 			origin: OriginFor<T>,
 			id: T::AssetIdParameter,
-			reserves: Vec<T::ReserveId>,
+			reserves: Vec<T::ReserveData>,
 		) -> DispatchResult {
 			let id: T::AssetId = id.into();
 			let origin = ensure_signed(origin.clone())
@@ -1907,7 +1908,7 @@ pub mod pallet {
 		}
 
 		/// Provide the configured reserves for asset `id`.
-		pub fn get_reserves(id: T::AssetId) -> Vec<T::ReserveId> {
+		pub fn get_reserves(id: T::AssetId) -> Vec<T::ReserveData> {
 			Self::reserves(&id)
 		}
 	}
@@ -1950,9 +1951,9 @@ pub mod pallet {
 
 	/// Implements [`ProvideAssetReserves`] trait for getting the list of trusted reserves for a
 	/// given asset.
-	impl<T: Config<I>, I: 'static> ProvideAssetReserves<T::AssetId, T::ReserveId> for Pallet<T, I> {
+	impl<T: Config<I>, I: 'static> ProvideAssetReserves<T::AssetId, T::ReserveData> for Pallet<T, I> {
 		/// Provide the configured reserves for asset `id`.
-		fn reserves(id: &T::AssetId) -> Vec<T::ReserveId> {
+		fn reserves(id: &T::AssetId) -> Vec<T::ReserveData> {
 			ReserveLocations::<T, I>::get(id).into_inner()
 		}
 	}

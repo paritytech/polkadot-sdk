@@ -1099,7 +1099,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Does not check validity of asset id, caller should check it.
 	pub fn unchecked_update_reserves(
 		id: T::AssetId,
-		reserves: Vec<T::ReserveId>,
+		reserves: Vec<T::ReserveData>,
 	) -> Result<(), Error<T, I>> {
 		if reserves.is_empty() {
 			ReserveLocations::<T, I>::remove(&id);

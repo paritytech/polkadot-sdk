@@ -59,11 +59,11 @@ fn create_default_asset<T: Config<I>, I: 'static>(
 }
 
 fn create_default_reserves<T: Config<I>, I: 'static>(
-) -> (T::AssetIdParameter, T::AccountId, Vec<T::ReserveId>) {
+) -> (T::AssetIdParameter, T::AccountId, Vec<T::ReserveData>) {
 	// create asset
 	let (asset_id, caller, _) = create_default_asset::<T, I>(true);
 	// build max number of reserves
-	let mut reserves = Vec::<T::ReserveId>::new();
+	let mut reserves = Vec::<T::ReserveData>::new();
 	for i in 0..MAX_RESERVES {
 		reserves.push(T::BenchmarkHelper::create_reserve_id_parameter(i));
 	}

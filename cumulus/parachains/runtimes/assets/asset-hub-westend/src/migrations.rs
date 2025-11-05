@@ -15,7 +15,10 @@
 
 use crate::xcm_config::bridging::to_rococo::{AssetHubRococo, RococoEcosystem};
 use alloc::{vec, vec::Vec};
-use assets_common::migrations::foreign_assets_reserves::ForeignAssetsReservesProvider;
+use assets_common::{
+	local_and_foreign_assets::ForeignAssetReserveData,
+	migrations::foreign_assets_reserves::ForeignAssetsReservesProvider,
+};
 use frame_support::traits::Contains;
 use testnet_parachains_constants::westend::snowbridge::EthereumLocation;
 use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
@@ -36,13 +39,14 @@ use xcm_builder::StartsWith;
 ///  ----> trusted reserve locations: Asset Hub Rococo.
 pub struct AssetHubWestendForeignAssetsReservesProvider;
 impl ForeignAssetsReservesProvider for AssetHubWestendForeignAssetsReservesProvider {
-	fn reserves_for(asset_id: &Location) -> Vec<Location> {
+	type ReserveData = ForeignAssetReserveData;
+	fn reserves_for(asset_id: &Location) -> Vec<Self::ReserveData> {
 		let reserves = if StartsWith::<RococoEcosystem>::contains(asset_id) {
-			// rule 3: rococo asset
-			vec![AssetHubRococo::get()]
+			// rule 3: rococo asset, Asset Hub Rococo reserve, non teleportable
+			vec![(AssetHubRococo::get(), false).into()]
 		} else if StartsWith::<EthereumLocation>::contains(asset_id) {
-			// rule 2: ethereum asset
-			vec![EthereumLocation::get()]
+			// rule 2: ethereum asset, ethereum reserve, non teleportable
+			vec![(EthereumLocation::get(), false).into()]
 		} else {
 			match asset_id.unpack() {
 				(1, interior) => {
@@ -50,11 +54,12 @@ impl ForeignAssetsReservesProvider for AssetHubWestendForeignAssetsReservesProvi
 						Some(Junction::Parachain(sibling_para_id))
 							if sibling_para_id.ne(&ASSET_HUB_ID) =>
 						{
-							// rule 1: sibling parachain asset
-							vec![
-								Location::new(1, Junction::Parachain(*sibling_para_id)),
-								Location::here(),
-							]
+							// rule 1: sibling parachain asset, sibling parachain reserve,
+							// teleportable
+							vec![ForeignAssetReserveData {
+								reserve: Location::new(1, Junction::Parachain(*sibling_para_id)),
+								teleportable: true,
+							}]
 						},
 						_ => vec![],
 					}
@@ -72,7 +77,7 @@ impl ForeignAssetsReservesProvider for AssetHubWestendForeignAssetsReservesProvi
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn check_reserves_for(asset_id: &Location, reserves: Vec<Location>) -> bool {
+	fn check_reserves_for(asset_id: &Location, reserves: Vec<Self::ReserveData>) -> bool {
 		if StartsWith::<RococoEcosystem>::contains(asset_id) {
 			// rule 3: rococo asset
 			reserves.len() == 1 && AssetHubRococo::get().eq(reserves.get(0).unwrap())

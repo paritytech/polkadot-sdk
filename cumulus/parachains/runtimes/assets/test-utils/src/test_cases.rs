@@ -401,7 +401,7 @@ pub fn teleports_for_foreign_assets_works<
 		From<xcm::v5::Location> + Into<xcm::v5::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetIdParameter:
 		From<xcm::v5::Location> + Into<xcm::v5::Location>,
-	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::ReserveId:
+	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::ReserveData:
 		From<xcm::v5::Location> + Into<xcm::v5::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::Balance:
 		From<Balance> + Into<u128>,

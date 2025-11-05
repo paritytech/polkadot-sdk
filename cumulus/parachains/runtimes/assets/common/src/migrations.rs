@@ -27,7 +27,7 @@
 pub mod foreign_assets_reserves {
 	use crate::*;
 	use codec::{Decode, Encode, MaxEncodedLen};
-	use core::marker::PhantomData;
+	use core::{fmt::Debug, marker::PhantomData};
 	use frame_support::{
 		migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 		weights::WeightMeter,
@@ -53,9 +53,10 @@ pub mod foreign_assets_reserves {
 	/// Trait for plugging in the type that chooses the correct reserves per asset_id for this
 	/// migration.
 	pub trait ForeignAssetsReservesProvider {
-		fn reserves_for(asset_id: &Location) -> Vec<Location>;
+		type ReserveData: Debug;
+		fn reserves_for(asset_id: &Location) -> Vec<Self::ReserveData>;
 		#[cfg(feature = "try-runtime")]
-		fn check_reserves_for(asset_id: &Location, reserves: Vec<Location>) -> bool;
+		fn check_reserves_for(asset_id: &Location, reserves: Vec<Self::ReserveData>) -> bool;
 	}
 
 	/// The resulting state of the step and the actual weight consumed.
@@ -79,9 +80,13 @@ pub mod foreign_assets_reserves {
 	impl<T, I, ReservesProvider> SteppedMigration
 		for ForeignAssetsReservesMigration<T, I, ReservesProvider>
 	where
-		T: pallet_assets::Config<I, AssetId = Location, ReserveId = Location>,
-		I: 'static,
 		ReservesProvider: ForeignAssetsReservesProvider,
+		T: pallet_assets::Config<
+			I,
+			AssetId = Location,
+			ReserveData = ReservesProvider::ReserveData,
+		>,
+		I: 'static,
 	{
 		type Cursor = StepResultOf<T, I>;
 		type Identifier = MigrationId<23>;
@@ -153,9 +158,13 @@ pub mod foreign_assets_reserves {
 
 	impl<T, I, ReservesProvider> ForeignAssetsReservesMigration<T, I, ReservesProvider>
 	where
-		T: pallet_assets::Config<I, AssetId = Location, ReserveId = Location>,
-		I: 'static,
 		ReservesProvider: ForeignAssetsReservesProvider,
+		T: pallet_assets::Config<
+			I,
+			AssetId = Location,
+			ReserveData = ReservesProvider::ReserveData,
+		>,
+		I: 'static,
 	{
 		fn asset_step(maybe_last_key: Option<&T::AssetId>) -> StepResultOf<T, I> {
 			tracing::debug!(target: "runtime::ForeignAssetsReservesMigration::asset_step", ?maybe_last_key);
