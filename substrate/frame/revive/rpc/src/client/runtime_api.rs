@@ -91,8 +91,8 @@ impl RuntimeApi {
 			.call(payload)
 			.or_else(|err| async {
 				match err {
-					Metadata(MetadataError::RuntimeMethodNotFound(_)) => {
-						log::debug!(target: LOG_TARGET, "Method not found falling back to eth_transact");
+					Metadata(MetadataError::RuntimeMethodNotFound(name)) => {
+						log::debug!(target: LOG_TARGET, "Method {name:?} not found falling back to eth_transact");
 						let payload = subxt_client::apis().revive_api().eth_transact(tx.into());
 						self.0.call(payload).await
 					},
