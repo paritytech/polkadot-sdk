@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Pallet that serves no other purpose than benchmarking the `conviction-voting-precompiles` crate.
-
+#![cfg_attr(not(feature = "std"), no_std)]
 pub use pallet::*;
 
 #[cfg(feature = "runtime-benchmarks")]
