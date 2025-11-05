@@ -99,7 +99,7 @@ pub use crate::{
 	exec::{DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
 	pallet::{genesis, *},
 	storage::{AccountInfo, ContractInfo},
-	vm::ContractBlob,
+	vm::{BytecodeType, ContractBlob},
 };
 pub use codec;
 pub use frame_support::{self, dispatch::DispatchInfo, weights::Weight};
@@ -1224,7 +1224,8 @@ pub mod pallet {
 			effective_gas_price: U256,
 			encoded_len: u32,
 		) -> DispatchResultWithPostInfo {
-			let origin = Self::ensure_eth_origin(origin)?;
+			let signer = Self::ensure_eth_signed(origin)?;
+			let origin = OriginFor::<T>::signed(signer.clone());
 			Self::ensure_non_contract_if_signed(&origin)?;
 			let mut call = Call::<T>::eth_instantiate_with_code {
 				value,
@@ -1241,7 +1242,7 @@ pub mod pallet {
 			drop(call);
 
 			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
-				let mut output = Self::bare_instantiate(
+				let output = Self::bare_instantiate(
 					origin,
 					value,
 					gas_limit,
@@ -1256,19 +1257,14 @@ pub mod pallet {
 					),
 				);
 
-				if let Ok(retval) = &output.result {
-					if retval.result.did_revert() {
-						output.result = Err(<Error<T>>::ContractReverted.into());
-					}
-				}
-
-				let result = dispatch_result(
-					output.result.map(|result| result.result),
-					output.gas_consumed,
+				block_storage::EthereumCallResult::new::<T>(
+					signer,
+					output.map_result(|r| r.result),
 					base_info.call_weight,
-				);
-				let result = T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result);
-				(output.gas_consumed, result)
+					encoded_len,
+					&info,
+					effective_gas_price,
+				)
 			})
 		}
 
@@ -1290,7 +1286,9 @@ pub mod pallet {
 			effective_gas_price: U256,
 			encoded_len: u32,
 		) -> DispatchResultWithPostInfo {
-			let origin = Self::ensure_eth_origin(origin)?;
+			let signer = Self::ensure_eth_signed(origin)?;
+			let origin = OriginFor::<T>::signed(signer.clone());
+
 			Self::ensure_non_contract_if_signed(&origin)?;
 			let mut call = Call::<T>::eth_call {
 				dest,
@@ -1307,7 +1305,7 @@ pub mod pallet {
 			drop(call);
 
 			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
-				let mut output = Self::bare_call(
+				let output = Self::bare_call(
 					origin,
 					dest,
 					value,
@@ -1321,16 +1319,14 @@ pub mod pallet {
 					),
 				);
 
-				if let Ok(return_value) = &output.result {
-					if return_value.did_revert() {
-						output.result = Err(<Error<T>>::ContractReverted.into());
-					}
-				}
-
-				let result =
-					dispatch_result(output.result, output.gas_consumed, base_info.call_weight);
-				let result = T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result);
-				(output.gas_consumed, result)
+				block_storage::EthereumCallResult::new::<T>(
+					signer,
+					output,
+					base_info.call_weight,
+					encoded_len,
+					&info,
+					effective_gas_price,
+				)
 			})
 		}
 
@@ -1556,9 +1552,10 @@ impl<T: Config> Pallet<T> {
 			let (executable, upload_deposit) = match code {
 				Code::Upload(code) if code.starts_with(&polkavm_common::program::BLOB_MAGIC) => {
 					let upload_account = T::UploadOrigin::ensure_origin(origin)?;
-					let (executable, upload_deposit) = Self::try_upload_pvm_code(
+					let (executable, upload_deposit) = Self::try_upload_code(
 						upload_account,
 						code,
+						BytecodeType::Pvm,
 						storage_deposit_limit,
 						&exec_config,
 					)?;
@@ -1860,7 +1857,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns the spendable balance excluding the existential deposit.
 	pub fn evm_balance(address: &H160) -> U256 {
-		let balance = AccountInfo::<T>::balance((*address).into());
+		let balance = AccountInfo::<T>::balance_of((*address).into());
 		Self::convert_native_to_evm(balance)
 	}
 
@@ -1990,9 +1987,10 @@ impl<T: Config> Pallet<T> {
 		storage_deposit_limit: BalanceOf<T>,
 	) -> CodeUploadResult<BalanceOf<T>> {
 		let origin = T::UploadOrigin::ensure_origin(origin)?;
-		let (module, deposit) = Self::try_upload_pvm_code(
+		let (module, deposit) = Self::try_upload_code(
 			origin,
 			code,
+			BytecodeType::Pvm,
 			storage_deposit_limit,
 			&ExecConfig::new_substrate_tx(),
 		)?;
@@ -2133,13 +2131,17 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
-	pub fn try_upload_pvm_code(
+	pub fn try_upload_code(
 		origin: T::AccountId,
 		code: Vec<u8>,
+		code_type: BytecodeType,
 		storage_deposit_limit: BalanceOf<T>,
 		exec_config: &ExecConfig<T>,
 	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
-		let mut module = ContractBlob::from_pvm_code(code, origin)?;
+		let mut module = match code_type {
+			BytecodeType::Pvm => ContractBlob::from_pvm_code(code, origin)?,
+			BytecodeType::Evm => ContractBlob::from_evm_runtime_code(code, origin)?,
+		};
 		let deposit = module.store_code(exec_config, None)?;
 		ensure!(storage_deposit_limit >= deposit, <Error<T>>::StorageDepositLimitExhausted);
 		Ok((module, deposit))
@@ -2288,10 +2290,10 @@ impl<T: Config> Pallet<T> {
 		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
 	}
 
-	/// Tranform a [`Origin::EthTransaction`] into a signed origin.
-	fn ensure_eth_origin(origin: OriginFor<T>) -> Result<OriginFor<T>, DispatchError> {
+	// Returns Ok with the account that signed the eth transaction.
+	fn ensure_eth_signed(origin: OriginFor<T>) -> Result<AccountIdOf<T>, DispatchError> {
 		match <T as Config>::RuntimeOrigin::from(origin).into() {
-			Ok(Origin::EthTransaction(signer)) => Ok(OriginFor::<T>::signed(signer)),
+			Ok(Origin::EthTransaction(signer)) => Ok(signer),
 			_ => Err(BadOrigin.into()),
 		}
 	}
