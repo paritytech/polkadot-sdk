@@ -85,7 +85,7 @@ where
 	T: CreateTransactionBase<LocalCall>,
 {
 	/// A convenience method to submit an extrinsic onchain.
-	pub fn submit_transaction(xt: T::Extrinsic) -> Result<(), ()> {
+	pub fn submit_transaction(xt: T::Extrinsic2) -> Result<(), ()> {
 		sp_io::offchain::submit_transaction(xt.encode())
 	}
 }
@@ -450,12 +450,12 @@ pub trait SigningTypes: crate::Config {
 /// Common interface for the `CreateTransaction` trait family to unify the `Call` type.
 pub trait CreateTransactionBase<LocalCall> {
 	/// The extrinsic.
-	type Extrinsic: ExtrinsicLike + Encode;
+	type Extrinsic2: ExtrinsicLike + Encode;
 
 	/// The runtime's call type.
 	///
 	/// This has additional bound to be able to be created from pallet-local `Call` types.
-	type RuntimeCall: From<LocalCall> + Encode;
+	type RuntimeCall2: From<LocalCall> + Encode;
 }
 
 /// Interface for creating a transaction.
@@ -465,14 +465,16 @@ pub trait CreateTransaction<LocalCall>: CreateTransactionBase<LocalCall> {
 
 	/// Create a transaction using the call and the desired transaction extension.
 	fn create_transaction(
-		call: <Self as CreateTransactionBase<LocalCall>>::RuntimeCall,
+		call: <Self as CreateTransactionBase<LocalCall>>::RuntimeCall2,
 		extension: Self::Extension,
-	) -> Self::Extrinsic;
+	) -> Self::Extrinsic2;
 }
+use crate::pallet_prelude::ExtrinsicFor;
+
 
 /// Interface for creating an old-school signed transaction.
 pub trait CreateSignedTransaction<LocalCall>:
-	CreateTransactionBase<LocalCall> + SigningTypes
+	CreateTransactionBase<LocalCall, Extrinsic2 = ExtrinsicFor<Self>, RuntimeCall2 = Self::RuntimeCall> + SigningTypes
 {
 	/// Attempt to create signed extrinsic data that encodes call from given account.
 	///
@@ -481,17 +483,17 @@ pub trait CreateSignedTransaction<LocalCall>:
 	/// Returns `None` if signed extrinsic could not be created (either because signing failed
 	/// or because of any other runtime-specific reason).
 	fn create_signed_transaction<C: AppCrypto<Self::Public, Self::Signature>>(
-		call: <Self as CreateTransactionBase<LocalCall>>::RuntimeCall,
+		call: <Self as CreateTransactionBase<LocalCall>>::RuntimeCall2,
 		public: Self::Public,
 		account: Self::AccountId,
 		nonce: Self::Nonce,
-	) -> Option<Self::Extrinsic>;
+	) -> Option<<Self as CreateTransactionBase<crate::pallet::Call<Self>>>::Extrinsic2>;
 }
 
 /// Interface for creating an inherent.
 pub trait CreateInherent<LocalCall>: CreateTransactionBase<LocalCall> {
 	/// Create an inherent.
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic;
+	fn create_inherent(call: Self::RuntimeCall2) -> Self::Extrinsic2;
 }
 
 /// A message signer.
@@ -535,7 +537,7 @@ pub trait CreateAuthorizedTransaction<LocalCall>: CreateTransaction<LocalCall> {
 	/// Create a new transaction for an authorized call.
 	///
 	/// For more information about authorized call see [`frame_support::pallet_prelude::authorize`].
-	fn create_authorized_transaction(call: Self::RuntimeCall) -> Self::Extrinsic {
+	fn create_authorized_transaction(call: Self::RuntimeCall2) -> Self::Extrinsic2 {
 		Self::create_transaction(call, Self::create_extension())
 	}
 }
@@ -573,8 +575,8 @@ pub trait SendSignedTransaction<
 			account.id,
 			account_data.nonce,
 		);
-		let transaction = T::create_signed_transaction::<C>(
-			call.into(),
+		let transaction = <T as CreateSignedTransaction<LocalCall>>::create_signed_transaction::<C>(
+			<T as CreateTransactionBase<LocalCall>>::RuntimeCall2::from(call),
 			account.public.clone(),
 			account.id.clone(),
 			account_data.nonce,
@@ -659,12 +661,12 @@ mod tests {
 	type Extrinsic = TestXt<RuntimeCall, ()>;
 
 	impl CreateTransactionBase<RuntimeCall> for TestRuntime {
-		type Extrinsic = Extrinsic;
-		type RuntimeCall = RuntimeCall;
+		type Extrinsic2 = Extrinsic;
+		type RuntimeCall2 = RuntimeCall;
 	}
 
 	impl CreateInherent<RuntimeCall> for TestRuntime {
-		fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		fn create_inherent(call: Self::RuntimeCall2) -> Self::Extrinsic2 {
 			Extrinsic::new_bare(call)
 		}
 	}

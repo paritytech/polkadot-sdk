@@ -263,6 +263,7 @@ impl<T> Lookup for IdentityLookup<T> {
 }
 
 /// A lookup implementation returning the `AccountId` from a `MultiAddress`.
+#[derive_where::derive_where(Default)]
 pub struct AccountIdLookup<AccountId, AccountIndex>(PhantomData<(AccountId, AccountIndex)>);
 impl<AccountId, AccountIndex> StaticLookup for AccountIdLookup<AccountId, AccountIndex>
 where
@@ -1862,6 +1863,19 @@ pub trait ValidateUnsigned {
 	///
 	/// Changes made to storage should be discarded by caller.
 	fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity;
+}
+
+pub struct DenyAllUnsigned<Call>(core::marker::PhantomData<Call>);
+impl<Call> ValidateUnsigned for DenyAllUnsigned<Call> {
+	type Call = Call;
+
+	fn validate_unsigned(
+		_source: TransactionSource,
+		_call: &Self::Call,
+	) -> TransactionValidity {
+		 use crate::transaction_validity::InvalidTransaction;
+		Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
+	}
 }
 
 /// Opaque data type that may be destructured into a series of raw byte slices (which represent

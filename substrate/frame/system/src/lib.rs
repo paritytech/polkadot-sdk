@@ -99,30 +99,10 @@
 
 extern crate alloc;
 
+use crate::offchain::CreateAuthorizedTransaction;
 use alloc::{borrow::Cow, boxed::Box, vec, vec::Vec};
-use core::{fmt::Debug, marker::PhantomData};
-use pallet_prelude::{BlockNumberFor, HeaderFor};
-#[cfg(feature = "std")]
-use serde::Serialize;
-use sp_io::hashing::blake2_256;
-#[cfg(feature = "runtime-benchmarks")]
-use sp_runtime::traits::TrailingZeroInput;
-use sp_runtime::{
-	generic,
-	traits::{
-		self, AsTransactionAuthorizedOrigin, AtLeast32Bit, BadOrigin, BlockNumberProvider, Bounded,
-		CheckEqual, Dispatchable, Hash, Header, Lookup, LookupError, MaybeDisplay,
-		MaybeSerializeDeserialize, Member, One, Saturating, SimpleBitOps, StaticLookup, Zero,
-	},
-	transaction_validity::{
-		InvalidTransaction, TransactionLongevity, TransactionSource, TransactionValidity,
-		ValidTransaction,
-	},
-	DispatchError, RuntimeDebug,
-};
-use sp_version::RuntimeVersion;
-
 use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, FullCodec, MaxEncodedLen};
+use core::{fmt::Debug, marker::PhantomData};
 #[cfg(feature = "std")]
 use frame_support::traits::BuildGenesisConfig;
 use frame_support::{
@@ -142,12 +122,29 @@ use frame_support::{
 	},
 	Parameter,
 };
+use pallet_prelude::{BlockNumberFor, HeaderFor};
 use scale_info::TypeInfo;
+#[cfg(feature = "std")]
+use serde::Serialize;
 use sp_core::storage::well_known_keys;
+use sp_io::hashing::blake2_256;
+#[cfg(feature = "runtime-benchmarks")]
+use sp_runtime::traits::TrailingZeroInput;
 use sp_runtime::{
-	traits::{DispatchInfoOf, PostDispatchInfoOf},
-	transaction_validity::TransactionValidityError,
+	generic,
+	traits::{
+		self, AsTransactionAuthorizedOrigin, AtLeast32Bit, BadOrigin, BlockNumberProvider, Bounded,
+		CheckEqual, DispatchInfoOf, Dispatchable, Hash, Header, Lookup, LookupError, MaybeDisplay,
+		MaybeSerializeDeserialize, Member, One, PostDispatchInfoOf, Saturating, SimpleBitOps,
+		StaticLookup, Zero,
+	},
+	transaction_validity::{
+		InvalidTransaction, TransactionLongevity, TransactionSource, TransactionValidity,
+		TransactionValidityError, ValidTransaction,
+	},
+	DispatchError, RuntimeDebug,
 };
+use sp_version::RuntimeVersion;
 use sp_weights::{RuntimeDbWeight, Weight};
 
 #[cfg(any(feature = "std", test))]
@@ -294,6 +291,7 @@ pub mod pallet {
 	use crate::{self as frame_system, pallet_prelude::*, *};
 	use codec::HasCompact;
 	use frame_support::pallet_prelude::*;
+	use sp_runtime::traits::{Applyable, Checkable};
 
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
@@ -480,7 +478,16 @@ pub mod pallet {
 	/// System configuration trait. Implemented by runtime.
 	#[pallet::config(with_default)]
 	#[pallet::disable_frame_system_supertrait_check]
-	pub trait Config: 'static + Eq + Clone {
+	pub trait Config:
+		'static
+		+ Eq
+		+ Clone
+		+ CreateAuthorizedTransaction<
+			Call<Self>,
+			Extrinsic2 = ExtrinsicFor<Self>,
+			RuntimeCall2 = Self::RuntimeCall,
+		>
+	{
 		/// The aggregated event type of the runtime.
 		#[pallet::no_default_bounds]
 		type RuntimeEvent: Parameter
@@ -522,8 +529,11 @@ pub mod pallet {
 		/// The aggregated `RuntimeCall` type.
 		#[pallet::no_default_bounds]
 		type RuntimeCall: Parameter
-			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
-			+ Debug
+			+ Dispatchable<
+				RuntimeOrigin = Self::RuntimeOrigin,
+				Info = DispatchInfo,
+				PostInfo = PostDispatchInfo,
+			> + Debug
 			+ GetDispatchInfo
 			+ From<Call<Self>>
 			+ Authorize;
@@ -578,12 +588,18 @@ pub mod pallet {
 		/// transactions. It's perfectly reasonable for this to be an identity conversion (with the
 		/// source type being `AccountId`), but other pallets (e.g. Indices pallet) may provide more
 		/// functional/efficient alternatives.
-		type Lookup: StaticLookup<Target = Self::AccountId>;
+		type Lookup: StaticLookup<Target = Self::AccountId> + Default;
 
 		/// The Block type used by the runtime. This is used by `construct_runtime` to retrieve the
 		/// extrinsics or other block specific data as needed.
 		#[pallet::no_default]
-		type Block: Parameter + Member + traits::Block<Hash = Self::Hash>;
+		type Block: Parameter
+			+ Member
+			+ traits::Block<
+				Hash = Self::Hash,
+				Extrinsic: GetDispatchInfo
+				               + Checkable<Self::Lookup, Checked: Applyable<Call = Self::RuntimeCall>>,
+			>;
 
 		/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
 		#[pallet::constant]
@@ -684,6 +700,27 @@ pub mod pallet {
 		#[cfg(feature = "std")]
 		fn integrity_test() {
 			T::BlockWeights::get().validate().expect("The weights are invalid.");
+
+			// Ensure authorized calls are valid.
+			{
+				use sp_runtime::traits::DenyAllUnsigned;
+
+				let unchecked_ext = T::create_authorized_transaction(
+					Call::apply_authorized_upgrade { code: vec![] }.into(),
+				);
+				let encoded_len = unchecked_ext.encoded_size();
+				let dispatch_info = unchecked_ext.get_dispatch_info();
+				let checked_ext = unchecked_ext
+					.check(&Default::default())
+					.expect("authorized transaction must be successful.");
+				checked_ext
+					.validate::<DenyAllUnsigned<T::RuntimeCall>>(
+						TransactionSource::External,
+						&dispatch_info,
+						encoded_len,
+					)
+					.expect("authorized transaction must be valid.");
+			}
 		}
 	}
 
