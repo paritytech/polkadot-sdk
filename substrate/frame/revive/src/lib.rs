@@ -62,7 +62,7 @@ use crate::{
 	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
-use codec::{Codec, Decode, DecodeLimit, Encode};
+use codec::{Codec, Decode, Encode};
 use environmental::*;
 use frame_support::{
 	dispatch::{
@@ -77,7 +77,7 @@ use frame_support::{
 		ConstU32, ConstU64, EnsureOrigin, Get, IsSubType, IsType, OriginTrait, Time,
 	},
 	weights::WeightMeter,
-	BoundedVec, RuntimeDebugNoBound, MAX_EXTRINSIC_DEPTH,
+	BoundedVec, RuntimeDebugNoBound,
 };
 use frame_system::{
 	ensure_signed,
@@ -1334,74 +1334,36 @@ pub mod pallet {
 			})
 		}
 
-		/// Executes a Revive runtime call from an Ethereum transaction.
+		/// Executes a Substrate runtime call from an Ethereum transaction.
 		///
 		/// This dispatchable is intended to be called **only** through the EVM compatibility layer.
 		///
 		/// # Parameters
 		///
 		/// * `origin`: Must be an [`Origin::EthTransaction`] origin.
-		/// * `code`: Encoded runtime call data.
+		/// * `call`: The Substrate runtime call to execute.
 		#[pallet::call_index(12)]
 		#[pallet::weight({
-			let code_len = code.len() as u32;
-			let overhead = T::WeightInfo::eth_substrate_call_upload_code(code_len).saturating_sub(T::WeightInfo::upload_code(code_len));
-			// Add maximum weight of allowed inner calls
-			let max_inner_weight = T::WeightInfo::upload_code(code_len)
-				.max(T::WeightInfo::remove_code())
-				.max(T::WeightInfo::unmap_account());
+			let overhead = T::WeightInfo::eth_substrate_call_upload_code(0u32).saturating_sub(T::WeightInfo::upload_code(0u32));
 			// Total: overhead + inner call weight
-			overhead.saturating_add(max_inner_weight)
+			overhead.saturating_add(call.get_dispatch_info().call_weight)
 		})]
 		pub fn eth_substrate_call(
 			origin: OriginFor<T>,
-			code: Vec<u8>,
+			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResultWithPostInfo {
-			// Ensure the origin is an Ethereum transaction and get the signer.
+			// Extract the signer from the `Origin::EthTransaction` origin.
+			//
+			// Prevents recursion: the inner dispatch uses `RawOrigin::Signed`, which cannot
+			// re-enter `eth_substrate_call` (which requires `Origin::EthTransaction`).
 			let signer = ensure_signed(Self::ensure_eth_origin(origin)?)?;
 
-			block_storage::with_ethereum_context::<T>(code.clone(), || {
-				let create_dispatch_error_result = |err: DispatchError| {
-					let result = dispatch_result::<()>(Err(err), Weight::zero(), Weight::zero());
-					(Weight::zero(), result)
-				};
-
-				let dispatch_call = match <CallOf<T>>::decode_all_with_depth_limit(
-					MAX_EXTRINSIC_DEPTH,
-					&mut &code[..],
-				) {
-					Ok(call) => call,
-					Err(err) => {
-						log::warn!(target: LOG_TARGET, "Failed to decode data as Call; err: {:?}", err);
-						return create_dispatch_error_result(<Error<T>>::DecodingFailed.into());
-					},
-				};
-
-				let Some(revive_call) =
-					<CallOf<T> as IsSubType<Call<T>>>::is_sub_type(&dispatch_call)
-				else {
-					log::warn!(target: LOG_TARGET, "Not a call from Revive pallet");
-					return create_dispatch_error_result(DispatchError::BadOrigin);
-				};
-
-				let is_allowed = matches!(
-					revive_call,
-					Call::upload_code { .. } |
-						Call::remove_code { .. } |
-						Call::unmap_account { .. }
-				);
-
-				if !is_allowed {
-					log::warn!(target: LOG_TARGET, "Unauthorized call attempted via eth_substrate_call");
-					return create_dispatch_error_result(DispatchError::CannotLookup);
-				}
-
-				let call_weight = dispatch_call.get_dispatch_info().call_weight;
-				let call_result =
-					dispatch_call.dispatch(RawOrigin::Signed(signer).into()).map_err(|err| {
-						log::warn!(target: LOG_TARGET, "Dispatch failed: {:?}", err.error);
-						err.error
-					});
+			block_storage::with_ethereum_context::<T>(call.encode(), || {
+				let call_weight = call.get_dispatch_info().call_weight;
+				let call_result = call.dispatch(RawOrigin::Signed(signer).into()).map_err(|err| {
+					log::warn!(target: LOG_TARGET, "Dispatch failed: {:?}", err.error);
+					err.error
+				});
 				let dispatch_res =
 					dispatch_result::<PostDispatchInfo>(call_result, Weight::zero(), call_weight);
 				(Weight::zero(), dispatch_res)

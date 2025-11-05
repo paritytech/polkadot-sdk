@@ -22,7 +22,9 @@ use crate::{
 	extract_code_and_data, BalanceOf, CallOf, Config, GenericTransaction, Pallet, Weight, Zero,
 	LOG_TARGET, RUNTIME_PALLETS_ADDR, U256,
 };
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
+use codec::DecodeLimit;
+use frame_support::MAX_EXTRINSIC_DEPTH;
 use sp_core::Get;
 use sp_runtime::{transaction_validity::InvalidTransaction, FixedPointNumber, SaturatedConversion};
 
@@ -101,11 +103,19 @@ where
 
 	let mut call = if let Some(dest) = tx.to {
 		if dest == RUNTIME_PALLETS_ADDR {
+			let call =
+				CallOf::<T>::decode_all_with_depth_limit(MAX_EXTRINSIC_DEPTH, &mut &data[..])
+					.map_err(|_| {
+						log::debug!(target: LOG_TARGET, "Failed to decode data as Call");
+						InvalidTransaction::Call
+					})?;
+
 			if !value.is_zero() {
 				log::debug!(target: LOG_TARGET, "Runtime pallets address cannot be called with value");
 				return Err(InvalidTransaction::Call)
 			}
-			crate::Call::eth_substrate_call::<T> { code: data }.into()
+
+			crate::Call::eth_substrate_call::<T> { call: Box::new(call) }.into()
 		} else {
 			let call = crate::Call::eth_call::<T> {
 				dest,
