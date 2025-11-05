@@ -22,11 +22,28 @@
 
 mod logging;
 
+mod retry;
+pub use retry::RetryConfig;
+
+// std
+use std::{
+	cmp::{max, min},
+	fs,
+	ops::{Deref, DerefMut},
+	path::{Path, PathBuf},
+	sync::Arc,
+	time::{Duration, Instant},
+};
+// crates.io
+use anyhow::Result;
 use codec::{Compact, Decode, Encode};
+use futures::future;
 use indicatif::{ProgressBar, ProgressStyle};
 use jsonrpsee::{core::params::ArrayParams, http_client::HttpClient};
 use log::*;
 use serde::de::DeserializeOwned;
+use tokio::sync::Semaphore;
+// self
 use sp_core::{
 	hexdisplay::HexDisplay,
 	storage::{
@@ -39,18 +56,7 @@ use sp_runtime::{
 	StateVersion,
 };
 use sp_state_machine::TestExternalities;
-use std::{
-	cmp::{max, min},
-	fs,
-	ops::{Deref, DerefMut},
-	path::{Path, PathBuf},
-	sync::Arc,
-	time::{Duration, Instant},
-};
 use substrate_rpc_client::{rpc_params, BatchRequestBuilder, ChainApi, ClientT, StateApi};
-use tokio_retry::{strategy::FixedInterval, Retry};
-
-type Result<T, E = &'static str> = std::result::Result<T, E>;
 
 type KeyValue = (StorageKey, StorageData);
 type TopKeyValues = Vec<KeyValue>;
@@ -91,17 +97,18 @@ impl<B: BlockT> Snapshot<B> {
 	}
 
 	fn load(path: &PathBuf) -> Result<Snapshot<B>> {
-		let bytes = fs::read(path).map_err(|_| "fs::read failed.")?;
+		let bytes = fs::read(path)?;
 		// The first item in the SCALE encoded struct bytes is the snapshot version. We decode and
 		// check that first, before proceeding to decode the rest of the snapshot.
-		let snapshot_version = SnapshotVersion::decode(&mut &*bytes)
-			.map_err(|_| "Failed to decode snapshot version")?;
+		let snapshot_version = SnapshotVersion::decode(&mut &*bytes)?;
 
 		if snapshot_version != SNAPSHOT_VERSION {
-			return Err("Unsupported snapshot version detected. Please create a new snapshot.")
+			return Err(anyhow::anyhow!(
+				"Unsupported snapshot version detected. Please create a new snapshot."
+			))
 		}
 
-		Decode::decode(&mut &*bytes).map_err(|_| "Decode failed")
+		Decode::decode(&mut &*bytes).map_err(|e| anyhow::anyhow!("Failed to decode snapshot: {e}"))
 	}
 }
 
@@ -182,23 +189,40 @@ impl Transport {
 			let uri = if uri.starts_with("ws://") {
 				let uri = uri.replace("ws://", "http://");
 				info!(target: LOG_TARGET, "replacing ws:// in uri with http://: {uri:?} (ws is currently unstable for fetching remote storage, for more see https://github.com/paritytech/jsonrpsee/issues/1086)");
+
 				uri
 			} else if uri.starts_with("wss://") {
 				let uri = uri.replace("wss://", "https://");
 				info!(target: LOG_TARGET, "replacing wss:// in uri with https://: {uri:?} (ws is currently unstable for fetching remote storage, for more see https://github.com/paritytech/jsonrpsee/issues/1086)");
+
 				uri
 			} else {
 				uri.clone()
 			};
-			let http_client = HttpClient::builder()
-				.max_request_size(u32::MAX)
-				.max_response_size(u32::MAX)
-				.request_timeout(std::time::Duration::from_secs(60 * 5))
-				.build(uri)
-				.map_err(|e| {
-					error!(target: LOG_TARGET, "error: {e:?}");
-					"failed to build http client"
-				})?;
+			let http_client = retry::with_retry(
+				RetryConfig {
+					max_retries: Some(5),
+					initial_delay: Duration::from_secs(1),
+					max_delay: Duration::from_secs(15),
+				},
+				move || {
+					let uri_clone = uri.clone();
+
+					async move {
+						HttpClient::builder()
+							.max_request_size(u32::MAX)
+							.max_response_size(u32::MAX)
+							.request_timeout(std::time::Duration::from_secs(60 * 5))
+							.build(uri_clone)
+							.map_err(|e| {
+								error!(target: LOG_TARGET, "Failed to build HTTP client: {e:?}");
+								e
+							})
+					}
+				},
+				"initialize_http_client",
+			)
+			.await?;
 
 			*self = Self::RemoteClient(http_client)
 		}
@@ -240,6 +264,8 @@ pub struct OnlineConfig<H> {
 	pub hashed_prefixes: Vec<Vec<u8>>,
 	/// Storage entry keys to be injected into the externalities. The *hashed* key must be given.
 	pub hashed_keys: Vec<Vec<u8>>,
+	/// Retry configuration for RPC calls
+	pub retry_config: RetryConfig,
 }
 
 impl<H: Clone> OnlineConfig<H> {
@@ -260,11 +286,12 @@ impl<H> Default for OnlineConfig<H> {
 		Self {
 			transport: Transport::from(DEFAULT_HTTP_ENDPOINT.to_owned()),
 			child_trie: true,
-			at: None,
-			state_snapshot: None,
+			at: Default::default(),
+			state_snapshot: Default::default(),
 			pallets: Default::default(),
 			hashed_keys: Default::default(),
 			hashed_prefixes: Default::default(),
+			retry_config: Default::default(),
 		}
 	}
 }
@@ -301,7 +328,7 @@ impl Default for SnapshotConfig {
 }
 
 /// Builder for remote-externalities.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Builder<B: BlockT> {
 	/// Custom key-pairs to be injected into the final externalities. The *hashed* keys and values
 	/// must be given.
@@ -317,18 +344,7 @@ pub struct Builder<B: BlockT> {
 	overwrite_state_version: Option<StateVersion>,
 }
 
-impl<B: BlockT> Default for Builder<B> {
-	fn default() -> Self {
-		Self {
-			mode: Default::default(),
-			hashed_key_values: Default::default(),
-			hashed_blacklist: Default::default(),
-			overwrite_state_version: None,
-		}
-	}
-}
-
-// Mode methods
+// Mode methods.
 impl<B: BlockT> Builder<B> {
 	fn as_online(&self) -> &OnlineConfig<B::Hash> {
 		match &self.mode {
@@ -354,38 +370,59 @@ where
 	B::Header: DeserializeOwned,
 {
 	const PARALLEL_REQUESTS: usize = 4;
-	const BATCH_SIZE_INCREASE_FACTOR: f32 = 1.10;
-	const BATCH_SIZE_DECREASE_FACTOR: f32 = 0.50;
+	const BATCH_SIZE_INCREASE_FACTOR: f32 = 1.1;
+	const BATCH_SIZE_DECREASE_FACTOR: f32 = 0.5;
 	const REQUEST_DURATION_TARGET: Duration = Duration::from_secs(15);
 	const INITIAL_BATCH_SIZE: usize = 10;
-	// nodes by default will not return more than 1000 keys per request
-	const DEFAULT_KEY_DOWNLOAD_PAGE: u32 = 1000;
-	const MAX_RETRIES: usize = 12;
-	const KEYS_PAGE_RETRY_INTERVAL: Duration = Duration::from_secs(5);
+	// Nodes by default will not return more than 1000 keys per request.
+	const DEFAULT_KEY_DOWNLOAD_PAGE: u32 = 1_000;
 
 	async fn rpc_get_storage(
 		&self,
 		key: StorageKey,
 		maybe_at: Option<B::Hash>,
 	) -> Result<Option<StorageData>> {
-		trace!(target: LOG_TARGET, "rpc: get_storage");
-		self.as_online().rpc_client().storage(key, maybe_at).await.map_err(|e| {
-			error!(target: LOG_TARGET, "Error = {e:?}");
-			"rpc get_storage failed."
-		})
+		trace!(target: LOG_TARGET, "RPC: get_storage");
+
+		let online = self.as_online();
+		let client = online.rpc_client().clone();
+		let retry_config = online.retry_config.clone();
+
+		retry::with_retry(
+			retry_config,
+			move || {
+				let client = client.clone();
+				let key_clone = key.clone();
+				let maybe_at_clone = maybe_at;
+
+				async move { client.storage(key_clone, maybe_at_clone).await }
+			},
+			"get_storage",
+		)
+		.await
 	}
 
 	/// Get the latest finalized head.
 	async fn rpc_get_head(&self) -> Result<B::Hash> {
-		trace!(target: LOG_TARGET, "rpc: finalized_head");
+		trace!(target: LOG_TARGET, "RPC: finalized_head");
 
-		// sadly this pretty much unreadable...
-		ChainApi::<(), _, B::Header, ()>::finalized_head(self.as_online().rpc_client())
-			.await
-			.map_err(|e| {
-				error!(target: LOG_TARGET, "Error = {e:?}");
-				"rpc finalized_head failed."
-			})
+		let online = self.as_online();
+		let client = online.rpc_client().clone();
+		let retry_config = online.retry_config.clone();
+
+		retry::with_retry(
+			retry_config,
+			move || {
+				let client = client.clone();
+
+				async move {
+					// Sadly this pretty much unreadable...
+					ChainApi::<(), _, B::Header, ()>::finalized_head(&client).await
+				}
+			},
+			"finalized_head",
+		)
+		.await
 	}
 
 	async fn get_keys_single_page(
@@ -394,14 +431,32 @@ where
 		start_key: Option<StorageKey>,
 		at: B::Hash,
 	) -> Result<Vec<StorageKey>> {
-		self.as_online()
-			.rpc_client()
-			.storage_keys_paged(prefix, Self::DEFAULT_KEY_DOWNLOAD_PAGE, start_key, Some(at))
-			.await
-			.map_err(|e| {
-				error!(target: LOG_TARGET, "Error = {e:?}");
-				"rpc get_keys failed"
-			})
+		let online = self.as_online();
+		let client = online.rpc_client().clone();
+		let retry_config = online.retry_config.clone();
+
+		retry::with_retry(
+			retry_config,
+			move || {
+				let client = client.clone();
+				let prefix_clone = prefix.clone();
+				let start_key_clone = start_key.clone();
+				let at_clone = at;
+
+				async move {
+					client
+						.storage_keys_paged(
+							prefix_clone,
+							Self::DEFAULT_KEY_DOWNLOAD_PAGE,
+							start_key_clone,
+							Some(at_clone),
+						)
+						.await
+				}
+			},
+			"get_keys_single_page",
+		)
+		.await
 	}
 
 	/// Get keys with `prefix` at `block` in a parallel manner.
@@ -417,7 +472,7 @@ where
 			let mut prefix = prefix.as_ref().to_vec();
 			let scale = 32usize.saturating_sub(prefix.len());
 
-			// no need to divide workload
+			// No need to divide workload.
 			if scale < 9 {
 				prefix.extend(vec![0; scale]);
 				return vec![StorageKey(prefix)]
@@ -431,8 +486,10 @@ where
 				.map(|i| {
 					let mut key = prefix.clone();
 					let start = i * step;
+
 					key.extend(vec![(start >> 8) as u8, (start & 0xff) as u8]);
 					key.extend(vec![0; ext]);
+
 					StorageKey(key)
 				})
 				.collect()
@@ -443,12 +500,15 @@ where
 		let mut end_keys: Vec<Option<&StorageKey>> = start_keys[1..].to_vec();
 		end_keys.push(None);
 
-		// use a semaphore to limit max scraping tasks
-		let parallel = Arc::new(tokio::sync::Semaphore::new(parallel));
+		// Use a semaphore to limit max scraping tasks.
+		let parallel = Arc::new(Semaphore::new(parallel));
 		let builder = Arc::new(self.clone());
 		let mut handles = vec![];
 
-		for (start_key, end_key) in start_keys.into_iter().zip(end_keys) {
+		// Maintain indices and key ranges for retry.
+		let mut key_ranges = Vec::new();
+
+		for (i, (start_key, end_key)) in start_keys.into_iter().zip(end_keys).enumerate() {
 			let permit = parallel
 				.clone()
 				.acquire_owned()
@@ -460,12 +520,15 @@ where
 			let start_key = start_key.cloned();
 			let end_key = end_key.cloned();
 
+			// Save index and key range for potential retry.
+			key_ranges.push((i, start_key.clone(), end_key.clone()));
+
 			let handle = tokio::spawn(async move {
 				let res = builder
 					.rpc_get_keys_in_range(&prefix, block, start_key.as_ref(), end_key.as_ref())
 					.await;
 				drop(permit);
-				res
+				(i, res)
 			});
 
 			handles.push(handle);
@@ -473,15 +536,80 @@ where
 
 		parallel.close();
 
-		let keys = futures::future::join_all(handles)
-			.await
-			.into_iter()
-			.filter_map(|res| match res {
-				Ok(Ok(keys)) => Some(keys),
-				_ => None,
-			})
-			.flatten()
-			.collect::<Vec<StorageKey>>();
+		// Collect results and handle failures.
+		let range_results = future::join_all(handles).await.into_iter().collect::<Vec<_>>();
+		// Process any failed ranges.
+		let mut keys = Vec::new();
+		let mut failed_ranges = Vec::new();
+
+		for range_result in range_results {
+			match range_result {
+				Ok((_, Ok(range_keys))) => {
+					keys.extend(range_keys);
+				},
+				Ok((i, Err(e))) => {
+					warn!(
+						target: LOG_TARGET,
+						"Failed to fetch key range {i}: {e}. Will retry this range individually.",
+					);
+
+					// Record failed range for retry.
+					if let Some((_, start_key, end_key)) = key_ranges.get(i) {
+						failed_ranges.push((i, start_key.clone(), end_key.clone()));
+					}
+				},
+				Err(e) => {
+					warn!(
+						target: LOG_TARGET,
+						"Task for fetching key range panicked: {e}. Cannot retry specific range."
+					);
+				},
+			}
+		}
+
+		// Retry failed ranges individually
+		for (i, start_key, end_key) in failed_ranges {
+			debug!(
+				target: LOG_TARGET,
+				"Retrying failed key range {i} with start_key: {start_key:?}, end_key: {end_key:?}",
+			);
+
+			// Use standard retry mechanism for failed ranges.
+			let retry_result = retry::with_retry(
+				Default::default(),
+				move || {
+					let builder = self.clone();
+					let prefix = prefix.clone();
+					let start_key_clone = start_key.clone();
+					let end_key_clone = end_key.clone();
+
+					async move {
+						builder
+							.rpc_get_keys_in_range(
+								&prefix,
+								block,
+								start_key_clone.as_ref(),
+								end_key_clone.as_ref(),
+							)
+							.await
+					}
+				},
+				&format!("retry_key_range_{i}"),
+			)
+			.await;
+
+			match retry_result {
+				Ok(range_keys) => {
+					keys.extend(range_keys);
+				},
+				Err(e) => {
+					warn!(
+						target: LOG_TARGET,
+						"Failed to fetch key range {i} even after retries: {e}. Continuing without these keys.",
+					);
+				},
+			}
+		}
 
 		Ok(keys)
 	}
@@ -495,17 +623,26 @@ where
 		start_key: Option<&StorageKey>,
 		end_key: Option<&StorageKey>,
 	) -> Result<Vec<StorageKey>> {
-		let mut last_key: Option<&StorageKey> = start_key;
+		let mut last_key = start_key;
 		let mut keys: Vec<StorageKey> = vec![];
 
 		loop {
 			// This loop can hit the node with very rapid requests, occasionally causing it to
 			// error out in CI (https://github.com/paritytech/substrate/issues/14129), so we retry.
-			let retry_strategy =
-				FixedInterval::new(Self::KEYS_PAGE_RETRY_INTERVAL).take(Self::MAX_RETRIES);
-			let get_page_closure =
-				|| self.get_keys_single_page(Some(prefix.clone()), last_key.cloned(), block);
-			let mut page = Retry::spawn(retry_strategy, get_page_closure).await?;
+			let mut page = retry::with_retry(
+				Default::default(),
+				move || {
+					let prefix = prefix.clone();
+					let last_key_clone = last_key.cloned();
+					let block_hash = block;
+
+					async move {
+						self.get_keys_single_page(Some(prefix), last_key_clone, block_hash).await
+					}
+				},
+				"get_keys_single_page",
+			)
+			.await?;
 
 			// avoid duplicated keys across workloads
 			if let (Some(last), Some(end)) = (page.last(), end_key) {
@@ -536,10 +673,11 @@ where
 		Ok(keys)
 	}
 
-	/// Fetches storage data from a node using a dynamic batch size.
+	/// Fetches storage data from a node using a dynamic batch size with automatic retries.
 	///
 	/// This function adjusts the batch size on the fly to help prevent overwhelming the node with
-	/// large batch requests, and stay within request size limits enforced by the node.
+	/// large batch requests, and stay within request size limits enforced by the node. It also
+	/// implements a standard retry mechanism for handling transient network failures.
 	///
 	/// # Arguments
 	///
@@ -558,6 +696,7 @@ where
 	/// * The batch request fails and the batch size is less than 2.
 	/// * There are invalid batch params.
 	/// * There is an error in the batch response.
+	/// * All retry attempts are exhausted.
 	///
 	/// # Example
 	///
@@ -580,14 +719,14 @@ where
 	///     }
 	/// }
 	/// ```
+
 	async fn get_storage_data_dynamic_batch_size(
 		client: &HttpClient,
 		payloads: Vec<(String, ArrayParams)>,
 		bar: &ProgressBar,
-	) -> Result<Vec<Option<StorageData>>, String> {
+	) -> Result<Vec<Option<StorageData>>> {
 		let mut all_data: Vec<Option<StorageData>> = vec![];
 		let mut start_index = 0;
-		let mut retries = 0usize;
 		let mut batch_size = Self::INITIAL_BATCH_SIZE;
 		let total_payloads = payloads.len();
 
@@ -606,37 +745,56 @@ where
 			for (method, params) in page.iter() {
 				batch
 					.insert(method, params.clone())
-					.map_err(|_| "Invalid batch method and/or params")?;
+					.map_err(|e| anyhow::anyhow!("Invalid batch method and/or params: {e}"))?;
 			}
 
 			let request_started = Instant::now();
-			let batch_response = match client.batch_request::<Option<StorageData>>(batch).await {
-				Ok(batch_response) => {
-					retries = 0;
-					batch_response
+
+			let batch_response = retry::with_retry(
+				Default::default(),
+				move || {
+					let client = client.clone();
+					let batch_clone = batch.clone();
+
+					async move {
+						client.batch_request::<Option<StorageData>>(batch_clone).await.map_err(
+							|e| {
+								debug!(
+									target: LOG_TARGET,
+									"Batch request failed. Error: {e}. Retrying..."
+								);
+
+								e
+							},
+						)
+					}
 				},
+				"batch_request",
+			)
+			.await;
+
+			// Process batch response.
+			let batch_response = match batch_response {
+				Ok(response) => response,
 				Err(e) => {
-					if retries > Self::MAX_RETRIES {
-						return Err(e.to_string())
+					warn!(
+						target: LOG_TARGET,
+						"Batch request failed after maximum retries. Error: {e}. Reducing batch size and continuing..."
+					);
+
+					// Reduce batch size but not below 1
+					batch_size =
+						max(1, (batch_size as f32 * Self::BATCH_SIZE_DECREASE_FACTOR) as usize);
+
+					// If batch size is already 1 but still failing, this may indicate a more
+					// serious problem
+					if batch_size == 1 && end_index - start_index <= 1 {
+						return Err(anyhow::anyhow!(
+							"Cannot process request even with minimum batch size: {e}"
+						));
 					}
 
-					retries += 1;
-					let failure_log = format!(
-						"Batch request failed ({retries}/{} retries). Error: {e}",
-						Self::MAX_RETRIES
-					);
-					// after 2 subsequent failures something very wrong is happening. log a warning
-					// and reset the batch size down to 1.
-					if retries >= 2 {
-						warn!("{failure_log}");
-						batch_size = 1;
-					} else {
-						debug!("{failure_log}");
-						// Decrease batch size by DECREASE_FACTOR
-						batch_size =
-							(batch_size as f32 * Self::BATCH_SIZE_DECREASE_FACTOR) as usize;
-					}
-					continue
+					continue;
 				},
 			};
 
@@ -666,7 +824,7 @@ where
 			for item in batch_response.into_iter() {
 				match item {
 					Ok(x) => all_data.push(x),
-					Err(e) => return Err(e.message().to_string()),
+					Err(e) => return Err(anyhow::anyhow!("{}", e.message())),
 				}
 			}
 			bar.inc(batch_response_len as u64);
@@ -730,14 +888,15 @@ where
 			Self::get_storage_data_dynamic_batch_size(client, payload_chunk.to_vec(), &bar)
 		});
 		// Execute the requests and move the Result outside.
-		let storage_data_result: Result<Vec<_>, _> =
+		let storage_data_result: Result<Vec<_>> =
 			futures::future::join_all(requests).await.into_iter().collect();
 		// Handle the Result.
 		let storage_data = match storage_data_result {
 			Ok(storage_data) => storage_data.into_iter().flatten().collect::<Vec<_>>(),
 			Err(e) => {
 				error!(target: LOG_TARGET, "Error while getting storage data: {e}");
-				return Err("Error while getting storage data")
+
+				return Err(anyhow::anyhow!("Error while getting storage data: {e}"))
 			},
 		};
 		bar.finish_with_message("✅ Downloaded key values");
@@ -809,7 +968,8 @@ where
 				Ok(storage_data) => storage_data,
 				Err(e) => {
 					error!(target: LOG_TARGET, "batch processing failed: {e:?}");
-					return Err("batch processing failed")
+
+					return Err(anyhow::anyhow!("batch processing failed: {e:?}"))
 				},
 			};
 
@@ -834,30 +994,44 @@ where
 		child_prefix: StorageKey,
 		at: B::Hash,
 	) -> Result<Vec<StorageKey>> {
-		let retry_strategy =
-			FixedInterval::new(Self::KEYS_PAGE_RETRY_INTERVAL).take(Self::MAX_RETRIES);
-		let mut all_child_keys = Vec::new();
+		let client = client.clone();
+		let prefixed_top_key = prefixed_top_key.clone();
 		let mut start_key = None;
+		let mut all_child_keys = Vec::new();
 
 		loop {
-			let get_child_keys_closure = || {
-				let top_key = PrefixedStorageKey::new(prefixed_top_key.0.clone());
-				substrate_rpc_client::ChildStateApi::storage_keys_paged(
-					client,
-					top_key,
-					Some(child_prefix.clone()),
-					Self::DEFAULT_KEY_DOWNLOAD_PAGE,
-					start_key.clone(),
-					Some(at),
-				)
-			};
+			let client_clone = client.clone();
+			let prefixed_top_key_clone = prefixed_top_key.clone();
+			let child_prefix_clone = child_prefix.clone();
+			let start_key_clone = start_key.clone();
+			let at_clone = at;
 
-			let child_keys = Retry::spawn(retry_strategy.clone(), get_child_keys_closure)
-				.await
-				.map_err(|e| {
-					error!(target: LOG_TARGET, "Error = {e:?}");
-					"rpc child_get_keys failed."
-				})?;
+			let child_keys = retry::with_retry(
+				Default::default(),
+				move || {
+					let client = client_clone.clone();
+					let prefixed_top_key = prefixed_top_key_clone.clone();
+					let child_prefix = child_prefix_clone.clone();
+					let start_key = start_key_clone.clone();
+					let at = at_clone;
+
+					async move {
+						let top_key = PrefixedStorageKey::new(prefixed_top_key.0.clone());
+						
+						substrate_rpc_client::ChildStateApi::storage_keys_paged(
+							&client,
+							top_key,
+							Some(child_prefix),
+							Self::DEFAULT_KEY_DOWNLOAD_PAGE,
+							start_key,
+							Some(at),
+						)
+						.await
+					}
+				},
+				"child_get_keys",
+			)
+			.await?;
 
 			let keys_count = child_keys.len();
 			if keys_count == 0 {
@@ -877,7 +1051,7 @@ where
 			"[thread = {:?}] scraped {} child-keys of the child-bearing top key: {}",
 			std::thread::current().id(),
 			all_child_keys.len(),
-			HexDisplay::from(prefixed_top_key)
+			HexDisplay::from(&prefixed_top_key)
 		);
 
 		Ok(all_child_keys)
@@ -936,7 +1110,8 @@ where
 				Some((ChildType::ParentKeyId, storage_key)) => storage_key,
 				None => {
 					error!(target: LOG_TARGET, "invalid key: {prefixed_top_key:?}");
-					return Err("Invalid child key")
+
+					return Err(anyhow::anyhow!("Invalid child key"))
 				},
 			};
 
@@ -1055,18 +1230,23 @@ where
 	}
 
 	async fn load_header(&self) -> Result<B::Header> {
-		let retry_strategy =
-			FixedInterval::new(Self::KEYS_PAGE_RETRY_INTERVAL).take(Self::MAX_RETRIES);
-		let get_header_closure = || {
-			ChainApi::<(), _, B::Header, ()>::header(
-				self.as_online().rpc_client(),
-				Some(self.as_online().at_expected()),
-			)
-		};
-		Retry::spawn(retry_strategy, get_header_closure)
-			.await
-			.map_err(|_| "Failed to fetch header for block from network")?
-			.ok_or("Network returned None block header")
+		let online = self.as_online();
+		let client = online.rpc_client().clone();
+		let at = online.at_expected();
+		let retry_config = online.retry_config.clone();
+		let header = retry::with_retry(
+			retry_config,
+			move || {
+				let client = client.clone();
+				let at = at;
+
+				async move { ChainApi::<(), _, B::Header, ()>::header(&client, Some(at)).await }
+			},
+			"load_header",
+		)
+		.await?;
+
+		header.ok_or_else(|| anyhow::anyhow!("Network returned none block header"))
 	}
 
 	/// Load the data from a remote server. The main code path is calling into `load_top_remote` and
@@ -1074,14 +1254,23 @@ where
 	///
 	/// Must be called after `init_remote_client`.
 	async fn load_remote_and_maybe_save(&mut self) -> Result<TestExternalities<HashingFor<B>>> {
-		let state_version =
-			StateApi::<B::Hash>::runtime_version(self.as_online().rpc_client(), None)
-				.await
-				.map_err(|e| {
-					error!(target: LOG_TARGET, "Error = {e:?}");
-					"rpc runtime_version failed."
-				})
-				.map(|v| v.state_version())?;
+		let online = self.as_online();
+		let client = online.rpc_client().clone();
+		let retry_config = online.retry_config.clone();
+		let state_version = retry::with_retry(
+			retry_config,
+			move || {
+				let client = client.clone();
+
+				async move {
+					StateApi::<B::Hash>::runtime_version(&client, None)
+						.await
+						.map(|v| v.state_version())
+				}
+			},
+			"runtime_version",
+		)
+		.await?;
 		let mut pending_ext = TestExternalities::new_with_code_and_state(
 			Default::default(),
 			Default::default(),
@@ -1107,7 +1296,8 @@ where
 				"writing snapshot of {} bytes to {path:?}",
 				encoded.len(),
 			);
-			std::fs::write(path, encoded).map_err(|_| "fs::write failed")?;
+
+			fs::write(path, encoded)?;
 
 			// pending_ext was consumed when creating the snapshot, need to reinitailize it
 			return Ok(TestExternalities::from_raw_snapshot(
@@ -1187,14 +1377,20 @@ where
 }
 
 // Public methods
-impl<B: BlockT> Builder<B>
+impl<B> Builder<B>
 where
+	B: BlockT,
 	B::Hash: DeserializeOwned,
 	B::Header: DeserializeOwned,
 {
 	/// Create a new builder.
 	pub fn new() -> Self {
-		Default::default()
+		Self {
+			hashed_key_values: Default::default(),
+			hashed_blacklist: Default::default(),
+			mode: Default::default(),
+			overwrite_state_version: None,
+		}
 	}
 
 	/// Inject a manual list of key and values to the storage.
@@ -1218,6 +1414,19 @@ where
 		self
 	}
 
+	/// Configure retry settings for online mode.
+	///
+	/// This will apply to all RPC calls made during data retrieval.
+	pub fn retry_config(mut self, config: RetryConfig) -> Self {
+		if let Mode::Online(online_config) | Mode::OfflineOrElseOnline(_, online_config) =
+			&mut self.mode
+		{
+			online_config.retry_config = config;
+		}
+
+		self
+	}
+
 	/// The state version to use.
 	pub fn overwrite_state_version(mut self, version: StateVersion) -> Self {
 		self.overwrite_state_version = Some(version);
@@ -1226,7 +1435,8 @@ where
 
 	pub async fn build(self) -> Result<RemoteExternalities<B>> {
 		let mut ext = self.pre_build().await?;
-		ext.commit_all().unwrap();
+		ext.commit_all()
+			.map_err(|e| anyhow::anyhow!("Failed to commit externalities: {e}"))?;
 
 		info!(
 			target: LOG_TARGET,
