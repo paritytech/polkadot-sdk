@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{primitives::ExecReturnValue, Code, DispatchError, Key, Weight};
+use crate::{primitives::ExecReturnValue, Code, DispatchError, Key};
 use alloc::vec::Vec;
 use environmental::environmental;
 use sp_core::{H160, H256, U256};
@@ -54,7 +54,7 @@ pub trait Tracing {
 		_is_read_only: bool,
 		_value: U256,
 		_input: &[u8],
-		_weight: Weight,
+		_gas_limit: U256,
 	) {
 	}
 
@@ -80,8 +80,8 @@ pub trait Tracing {
 	fn log_event(&mut self, _event: H160, _topics: &[H256], _data: &[u8]) {}
 
 	/// Called after a contract call is executed
-	fn exit_child_span(&mut self, _output: &ExecReturnValue, _weight_left: Weight) {}
+	fn exit_child_span(&mut self, _output: &ExecReturnValue, _gas_used: U256) {}
 
 	/// Called when a contract call terminates with an error
-	fn exit_child_span_with_error(&mut self, _error: DispatchError, _weight_left: Weight) {}
+	fn exit_child_span_with_error(&mut self, _error: DispatchError, _gas_used: U256) {}
 }

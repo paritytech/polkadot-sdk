@@ -203,6 +203,34 @@ pub mod substrate_execution {
 
 		consumed_deposit_gas.saturating_add(&SignedGas::Positive(consumed_weight_gas))
 	}
+
+	/// Compute the gas (signed) during the lifetime of this meter for Substrate-style execution.
+	pub fn eth_gas_consumed<T: Config, S: State>(meter: &ResourceMeter<T, S>) -> SignedGas<T> {
+		let self_consumed_weight = meter.weight.weight_consumed();
+		let self_consumed_deposit = meter.deposit.consumed();
+
+		let total_consumed_weight =
+			meter.total_consumed_weight_before.saturating_add(self_consumed_weight);
+
+		let consumed_weight_gas_before = SignedGas::Positive(T::FeeInfo::weight_to_fee_average(
+			&meter.total_consumed_weight_before,
+		));
+		let consumed_weight_gas =
+			SignedGas::Positive(T::FeeInfo::weight_to_fee_average(&total_consumed_weight));
+
+		let self_consumed_weight_gas =
+			consumed_weight_gas.saturating_sub(&consumed_weight_gas_before);
+
+		let multiplier = T::FeeInfo::next_fee_multiplier_reciprocal();
+		let self_consumed_deposit_gas = match self_consumed_deposit {
+			StorageDeposit::Charge(amount) =>
+				SignedGas::Positive(multiplier.saturating_mul_int(amount)),
+			StorageDeposit::Refund(amount) =>
+				SignedGas::Negative(multiplier.saturating_mul_int(amount)),
+		};
+
+		self_consumed_deposit_gas.saturating_add(&self_consumed_weight_gas)
+	}
 }
 
 pub mod ethereum_execution {
@@ -434,5 +462,28 @@ pub mod ethereum_execution {
 			meter.total_consumed_deposit_before.saturating_add(&self_consumed_deposit);
 
 		eth_tx_info.gas_consumption(&total_consumed_weight, &total_consumed_deposit)
+	}
+
+	/// Compute the gas (signed) during the lifetime of this meter for Ethereum-style execution.
+	pub fn eth_gas_consumed<T: Config, S: State>(
+		meter: &ResourceMeter<T, S>,
+		eth_tx_info: &EthTxInfo<T>,
+	) -> SignedGas<T> {
+		let self_consumed_weight = meter.weight.weight_consumed();
+		let self_consumed_deposit = meter.deposit.consumed();
+
+		let total_consumed_weight =
+			meter.total_consumed_weight_before.saturating_add(self_consumed_weight);
+		let total_consumed_deposit =
+			meter.total_consumed_deposit_before.saturating_add(&self_consumed_deposit);
+
+		let total_gas_consumed =
+			eth_tx_info.gas_consumption(&total_consumed_weight, &total_consumed_deposit);
+		let total_gas_consumed_before = eth_tx_info.gas_consumption(
+			&meter.total_consumed_weight_before,
+			&meter.total_consumed_deposit_before,
+		);
+
+		total_gas_consumed.saturating_sub(&total_gas_consumed_before)
 	}
 }

@@ -4138,7 +4138,7 @@ fn unstable_interface_rejected() {
 fn tracing_works_for_transfers() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
-		let mut tracer = CallTracer::new(Default::default(), |_| U256::zero());
+		let mut tracer = CallTracer::new(Default::default());
 		trace(&mut tracer, || {
 			builder::bare_call(BOB_ADDR).evm_value(10.into()).build_and_unwrap_result();
 		});
@@ -4192,6 +4192,8 @@ fn call_tracing_works() {
 		*/
 
 		// Discarding gas usage, check that traces reported are correct
+		let mut ed_required: u64 = 200;
+
 		for config in tracer_configs {
 			let logs = if config.with_logs {
 				vec![
@@ -4227,6 +4229,8 @@ fn call_tracing_works() {
 							error: Some("execution reverted".to_string()),
 							call_type: Call,
 							value: Some(U256::from(0)),
+							gas: 1248904700460u64.into(),
+							gas_used: 11967774.into(),
 							..Default::default()
 						},
 						CallTrace {
@@ -4236,6 +4240,8 @@ fn call_tracing_works() {
 							call_type: Call,
 							logs: logs.clone(),
 							value: Some(U256::from(0)),
+							gas: 1247950604625u64.into(),
+							gas_used: (4332765740u64 + ed_required).into(),
 							calls: vec![
 								CallTrace {
 									from: addr,
@@ -4245,6 +4251,8 @@ fn call_tracing_works() {
 									error: Some("ContractTrapped".to_string()),
 									call_type: Call,
 									value: Some(U256::from(0)),
+									gas: 1247105006008u64.into(),
+									gas_used: 1100894.into(),
 									..Default::default()
 								},
 								CallTrace {
@@ -4254,6 +4262,8 @@ fn call_tracing_works() {
 									call_type: Call,
 									logs: logs.clone(),
 									value: Some(U256::from(0)),
+									gas: 1246161777053u64.into(),
+									gas_used: (2543578433u64 + ed_required).into(),
 									calls: vec![
 										CallTrace {
 											from: addr,
@@ -4262,6 +4272,8 @@ fn call_tracing_works() {
 											output: 0u32.to_le_bytes().to_vec().into(),
 											call_type: Call,
 											value: Some(U256::from(0)),
+											gas: 1245316178436u64.into(),
+											gas_used: 1705726.into(),
 											..Default::default()
 										},
 										CallTrace {
@@ -4270,6 +4282,8 @@ fn call_tracing_works() {
 											input: (0u32, addr_callee).encode().into(),
 											call_type: Call,
 											value: Some(U256::from(0)),
+											gas: 1244372344649u64.into(),
+											gas_used: (753786293 + ed_required).into(),
 											calls: vec![
 												CallTrace {
 													from: addr,
@@ -4293,7 +4307,7 @@ fn call_tracing_works() {
 					]
 			};
 
-			let mut tracer = CallTracer::new(config, |_| U256::zero());
+			let mut tracer = CallTracer::new(config);
 			trace(&mut tracer, || {
 				builder::bare_call(addr).data((3u32, addr_callee).encode()).build()
 			});
@@ -4308,6 +4322,8 @@ fn call_tracing_works() {
 					value: Some(U256::from(0)),
 					calls: calls,
 					child_call_count: 2,
+					gas: 1249750299077u64.into(),
+					gas_used: (6132819927u64 + ed_required).into(), // 6132819927u64 or 6132820127u64
 					..Default::default()
 				};
 
@@ -4315,6 +4331,9 @@ fn call_tracing_works() {
 				trace,
 				expected_trace.into(),
 			);
+
+			// the innermost call transfers a value of 100 to BOB, this requires an extra 200 storage deposit for the ed on the first iteration
+			ed_required = 0;
 		}
 	});
 }
@@ -4326,7 +4345,7 @@ fn create_call_tracing_works() {
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
 
-		let mut tracer = CallTracer::new(Default::default(), |_| U256::zero());
+		let mut tracer = CallTracer::new(Default::default());
 
 		let Contract { addr, .. } = trace(&mut tracer, || {
 			builder::bare_instantiate(Code::Upload(code.clone()))
@@ -4344,11 +4363,13 @@ fn create_call_tracing_works() {
 				value: Some(100.into()),
 				input: Bytes(code.clone()),
 				call_type: CallType::Create,
+				gas: 1250009998433u64.into(),
+				gas_used: 36747.into(),
 				..Default::default()
 			}
 		);
 
-		let mut tracer = CallTracer::new(Default::default(), |_| U256::zero());
+		let mut tracer = CallTracer::new(Default::default());
 		let data = b"garbage";
 		let input = (code_hash, data).encode();
 		trace(&mut tracer, || {
@@ -4365,12 +4386,16 @@ fn create_call_tracing_works() {
 				to: addr,
 				value: Some(0.into()),
 				input: input.clone().into(),
+				gas: 1249861529896u64.into(),
+				gas_used: 983784141.into(),
 				calls: vec![CallTrace {
 					from: addr,
 					input: input.clone().into(),
 					to: child_addr,
 					value: Some(0.into()),
 					call_type: CallType::Create2,
+					gas: 1248878034317u64.into(),
+					gas_used: 36748.into(),
 					..Default::default()
 				},],
 				child_call_count: 1,

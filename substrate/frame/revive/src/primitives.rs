@@ -20,7 +20,7 @@
 use crate::{mock::MockHandler, storage::WriteOutcome, BalanceOf, Config, H160, U256};
 use alloc::{boxed::Box, fmt::Debug, string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{traits::tokens::Balance, weights::Weight};
+use frame_support::{traits::tokens::Balance, weights::Weight, DebugNoBound};
 use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
 use sp_core::Get;
@@ -341,7 +341,7 @@ where
 /// of this type resembles `StorageDeposit` but the enum variants have a more obvious name to avoid
 /// confusion and errors
 #[derive(
-	Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo,
+	Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, DebugNoBound, TypeInfo,
 )]
 pub enum SignedGas<T: Config> {
 	/// Positive gas amount

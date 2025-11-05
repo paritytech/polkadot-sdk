@@ -876,8 +876,8 @@ where
 			};
 
 			if_tracing(|t| match result {
-				Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
-				Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
+				Ok(ref output) => t.exit_child_span(&output, Default::default()),
+				Err(e) => t.exit_child_span_with_error(e.error.into(), Default::default()),
 			});
 
 			log::trace!(target: LOG_TARGET, "call finished with: {result:?}");
@@ -1194,7 +1194,7 @@ where
 				frame.read_only,
 				frame.value_transferred,
 				&input_data,
-				frame.frame_meter.weight_left().unwrap_or_default(),
+				frame.frame_meter.eth_gas_left().unwrap_or_default().into(),
 			);
 		});
 		let mock_answer = self.exec_config.mock_handler.as_ref().and_then(|handler| {
@@ -1407,11 +1407,15 @@ where
 			// `with_transactional` executed successfully, and we have the expected output.
 			Ok((success, output)) => {
 				if_tracing(|tracer| {
-					let weight_consumed = top_frame!(self).frame_meter.weight_consumed();
+					let gas_consumed = top_frame!(self)
+						.frame_meter
+						.eth_gas_consumed()
+						.as_positive()
+						.unwrap_or_default()
+						.into();
 					match &output {
-						Ok(output) => tracer.exit_child_span(&output, weight_consumed),
-						Err(e) =>
-							tracer.exit_child_span_with_error(e.error.into(), weight_consumed),
+						Ok(output) => tracer.exit_child_span(&output, gas_consumed),
+						Err(e) => tracer.exit_child_span_with_error(e.error.into(), gas_consumed),
 					}
 				});
 
@@ -1421,8 +1425,13 @@ where
 			// has changed.
 			Err(error) => {
 				if_tracing(|tracer| {
-					let weight_consumed = top_frame!(self).frame_meter.weight_consumed();
-					tracer.exit_child_span_with_error(error.into(), weight_consumed);
+					let gas_consumed = top_frame!(self)
+						.frame_meter
+						.eth_gas_consumed()
+						.as_positive()
+						.unwrap_or_default()
+						.into();
+					tracer.exit_child_span_with_error(error.into(), gas_consumed);
 				});
 
 				(false, Err(error.into()))
@@ -2028,7 +2037,7 @@ where
 						is_read_only,
 						value,
 						&input_data,
-						Weight::zero(),
+						Default::default(),
 					);
 				});
 				let result = if let Some(mock_answer) =
@@ -2055,8 +2064,8 @@ where
 				};
 
 				if_tracing(|t| match result {
-					Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
-					Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
+					Ok(ref output) => t.exit_child_span(&output, Default::default()),
+					Err(e) => t.exit_child_span_with_error(e.error.into(), Default::default()),
 				});
 
 				result.map(|_| ())

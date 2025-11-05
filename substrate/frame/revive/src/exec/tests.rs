@@ -2710,7 +2710,7 @@ fn block_hash_returns_proper_values() {
 		assert_eq!(
 			ctx.ext.block_hash(U256::from(0)),
 			Some(H256::from(hex_literal::hex!(
-				"b9be84fb00044994dff6b62393b4c8aa8191717c5ea046f270bd2695524e9f85"
+				"92690939a7c8ccc70096c9c8d07e0314b3bc52005c01cc075cca22cdc355375a"
 			)))
 		);
 

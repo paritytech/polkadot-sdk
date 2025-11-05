@@ -104,7 +104,8 @@ impl<T: Config> PrimitivePrecompile for Bn128Pairing<T> {
 		} else {
 			// (a, b_a, b_b - each 64-byte affine coordinates)
 			let elements = input.len() / 192;
-			env.gas_meter_mut().charge_weight_token(RuntimeCosts::Bn128Pairing(elements as u32))?;
+			env.gas_meter_mut()
+				.charge_weight_token(RuntimeCosts::Bn128Pairing(elements as u32))?;
 
 			let mut vals = Vec::new();
 			for i in 0..elements {

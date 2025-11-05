@@ -305,6 +305,16 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	pub fn deposit_required(&self) -> DepositOf<T> {
 		self.deposit.max_charged()
 	}
+
+	/// Get the Ethereum gas that has been consumed during the lifetime of this meter
+	pub fn eth_gas_consumed(&self) -> SignedGas<T> {
+		match &self.transaction_limits {
+			TransactionLimits::EthereumGas { eth_tx_info, .. } =>
+				math::ethereum_execution::eth_gas_consumed(self, eth_tx_info),
+			TransactionLimits::WeightAndDeposit { .. } =>
+				math::substrate_execution::eth_gas_consumed(self),
+		}
+	}
 }
 
 impl<T: Config> TransactionMeter<T> {

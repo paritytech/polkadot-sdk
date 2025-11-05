@@ -17,7 +17,7 @@
 use crate::{
 	evm::{Bytes, PrestateTrace, PrestateTraceInfo, PrestateTracerConfig},
 	tracing::Tracing,
-	AccountInfo, Code, Config, ExecReturnValue, Key, Pallet, PristineCode, Weight,
+	AccountInfo, Code, Config, ExecReturnValue, Key, Pallet, PristineCode,
 };
 use alloc::{collections::BTreeMap, vec::Vec};
 use sp_core::{H160, U256};
@@ -183,7 +183,7 @@ where
 		_is_read_only: bool,
 		_value: U256,
 		_input: &[u8],
-		_weight: Weight,
+		_gas_limit: U256,
 	) {
 		let include_code = !self.config.disable_code;
 		self.trace.0.entry(from).or_insert_with_key(|addr| {
@@ -209,11 +209,11 @@ where
 		}
 	}
 
-	fn exit_child_span_with_error(&mut self, _error: crate::DispatchError, _weight_used: Weight) {
+	fn exit_child_span_with_error(&mut self, _error: crate::DispatchError, _gas_used: U256) {
 		self.is_create = None;
 	}
 
-	fn exit_child_span(&mut self, output: &ExecReturnValue, _weight_used: Weight) {
+	fn exit_child_span(&mut self, output: &ExecReturnValue, _gas_used: U256) {
 		let create_code = self.is_create.take();
 		if output.did_revert() {
 			return
