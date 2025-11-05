@@ -79,11 +79,15 @@ impl ForeignAssetsReservesProvider for AssetHubWestendForeignAssetsReservesProvi
 	#[cfg(feature = "try-runtime")]
 	fn check_reserves_for(asset_id: &Location, reserves: Vec<Self::ReserveData>) -> bool {
 		if StartsWith::<RococoEcosystem>::contains(asset_id) {
+			let expected =
+				ForeignAssetReserveData { reserve: AssetHubRococo::get(), teleportable: false };
 			// rule 3: rococo asset
-			reserves.len() == 1 && AssetHubRococo::get().eq(reserves.get(0).unwrap())
+			reserves.len() == 1 && expected.eq(reserves.get(0).unwrap())
 		} else if StartsWith::<EthereumLocation>::contains(asset_id) {
+			let expected =
+				ForeignAssetReserveData { reserve: EthereumLocation::get(), teleportable: false };
 			// rule 2: ethereum asset
-			reserves.len() == 1 && EthereumLocation::get().eq(reserves.get(0).unwrap())
+			reserves.len() == 1 && expected.eq(reserves.get(0).unwrap())
 		} else {
 			match asset_id.unpack() {
 				(1, interior) => {
@@ -91,13 +95,12 @@ impl ForeignAssetsReservesProvider for AssetHubWestendForeignAssetsReservesProvi
 						Some(Junction::Parachain(sibling_para_id))
 							if sibling_para_id.ne(&ASSET_HUB_ID) =>
 						{
+							let expected = ForeignAssetReserveData {
+								reserve: Location::new(1, Junction::Parachain(*sibling_para_id)),
+								teleportable: true,
+							};
 							// rule 1: sibling parachain asset
-							reserves.len() == 2 &&
-								reserves.contains(&Location::here()) &&
-								reserves.contains(&Location::new(
-									1,
-									Junction::Parachain(*sibling_para_id),
-								))
+							reserves.len() == 1 && expected.eq(reserves.get(0).unwrap())
 						},
 						// unexpected asset
 						_ => false,

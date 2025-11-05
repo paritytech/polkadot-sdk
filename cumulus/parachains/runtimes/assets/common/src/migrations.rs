@@ -148,9 +148,9 @@ pub mod foreign_assets_reserves {
 				.expect("Failed to decode the previous storage state");
 			// let local_chain = Location::here();
 			for id in prev_state.assets {
-				let reserves = pallet_assets::ReserveLocations::<T, I>::get(id.clone());
+				let reserves = pallet_assets::Pallet::<T, I>::get_reserves(id.clone());
 				tracing::info!(target: "runtime::ForeignAssetsReservesMigration::post_upgrade", ?id, ?reserves, "verify asset");
-				assert!(ReservesProvider::check_reserves_for(&id, reserves.into()));
+				assert!(ReservesProvider::check_reserves_for(&id, reserves));
 			}
 			Ok(())
 		}
