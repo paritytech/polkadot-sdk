@@ -2563,7 +2563,10 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						sp_runtime::traits::TransactionExtension,
 						sp_runtime::traits::Block as BlockT
 					};
-					$crate::Pallet::<Self>::dry_run_eth_transact(tx, timestamp)
+					let dry_run_config = $crate::DryRunConfig::<Self> {
+						timestamp_override: timestamp,
+					};
+					$crate::Pallet::<Self>::dry_run_eth_transact(tx, dry_run_config)
 				}
 
 				fn call(
@@ -2586,7 +2589,9 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						gas_limit.unwrap_or(blockweights.max_block),
 						storage_deposit_limit.unwrap_or(u128::MAX),
 						input_data,
-						$crate::ExecConfig::new_substrate_tx().with_dry_run(None),
+						$crate::ExecConfig::new_substrate_tx().with_dry_run(
+							Default::default(),
+						),
 					)
 				}
 
@@ -2612,7 +2617,9 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						code,
 						data,
 						salt,
-						$crate::ExecConfig::new_substrate_tx().with_dry_run(None),
+						$crate::ExecConfig::new_substrate_tx().with_dry_run(
+							Default::default(),
+						),
 					)
 				}
 
