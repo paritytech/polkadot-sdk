@@ -27,6 +27,8 @@ use sp_core::{H160, U256};
 pub struct DryRunConfig<Moment> {
 	/// Optional timestamp override for dry-run in pending block.
 	pub timestamp_override: Option<Moment>,
+	/// Used for future extensions without breaking encoding.
+	pub reserved: Option<()>,
 }
 
 impl From<BlockNumberOrTag> for BlockNumberOrTagOrHash {
