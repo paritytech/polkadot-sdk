@@ -64,7 +64,6 @@ jobs:
             done
             NODE_VERSION="$(get_polkadot_node_version_from_code)"
 
-            # TODO: add package_type input here as well and use it below
             fetch_debian_package_from_s3 polkadot
             fetch_rpm_package_from_s3 polkadot
           else
