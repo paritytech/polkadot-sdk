@@ -2507,6 +2507,8 @@ sp_api::decl_runtime_apis! {
 macro_rules! impl_runtime_apis_plus_revive_traits {
 	($Runtime: ty, $Revive: ident, $Executive: ty, $EthExtra: ty, $($rest:tt)*) => {
 
+		type __ReviveMacroMoment = <<$Runtime as $crate::Config>::Time as $crate::Time>::Moment;
+
 		impl $crate::evm::runtime::SetWeightLimit for RuntimeCall {
 			fn set_weight_limit(&mut self, weight_limit: Weight) -> Weight {
 				use $crate::pallet::Call as ReviveCall;
@@ -2528,7 +2530,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 			$($rest)*
 
 
-			impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber, Moment> for $Runtime
+			impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber, __ReviveMacroMoment> for $Runtime
 			{
 				fn eth_block() -> $crate::EthBlock {
 					$crate::Pallet::<Self>::eth_block()
@@ -2582,7 +2584,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 				fn eth_transact_with_config(
 					tx: $crate::evm::GenericTransaction,
-					config: $crate::DryRunConfig<Moment>,
+					config: $crate::DryRunConfig<__ReviveMacroMoment>,
 				) -> Result<$crate::EthTransactInfo<Balance>, $crate::EthTransactError> {
 					use $crate::{
 						codec::Encode, evm::runtime::EthExtra, frame_support::traits::Get,
