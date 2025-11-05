@@ -1,0 +1,23 @@
+title: '[frame-system] Introduce event segment to store multiple events under one key'
+
+doc:
+  - audience: [Runtime User, Runtime Dev]
+    description: |-
+      Introduce a runtime config item `EventSegmentSize` and a runtime storage
+      `EventSegments` to replace `Events` to manage the runtime event in `frame-system`.
+    
+      If `EventSegmentSize` is set to `()` or explicit `0`, the `EventSegments` is not used
+      and the event is still stored in `Events` as it is. If `EventSegmentSize` is set to `> 0`,
+      `EventSegments` is used instead of `Events`.
+    
+      For runtime users, if you need to query the event through runtime storage directly
+      (e.g. generate storage proof for a event) be aware to use `EventSegments` if it is
+      activated.
+
+      For runtime developers, there is a storage migration `migrate_event_from_previous_block`
+      that properly clean up the event from the previous block, do include this migration to
+      the runtime whenever `EventSegmentSize` is changed.
+
+crates:
+- name: frame-system
+  bump: minor
