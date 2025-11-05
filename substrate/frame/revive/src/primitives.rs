@@ -331,10 +331,10 @@ where
 }
 
 /// Configuration specific to a dry-run execution.
-#[derive(Clone, DefaultNoBound)]
-pub struct DryRunConfig<T: Config> {
+#[derive(Encode, Decode, TypeInfo, Clone, DefaultNoBound)]
+pub struct DryRunConfig<Moment> {
 	/// Optional timestamp override for dry-run in pending block.
-	pub timestamp_override: Option<<<T as Config>::Time as Time>::Moment>,
+	pub timestamp_override: Option<Moment>,
 }
 
 /// `Stack` wide configuration options.
@@ -367,7 +367,7 @@ pub struct ExecConfig<T: Config> {
 	pub effective_gas_price: Option<U256>,
 	/// Whether this configuration was created for a dry-run execution.
 	/// Use to enable logic that should only run in dry-run mode.
-	pub is_dry_run: Option<DryRunConfig<T>>,
+	pub is_dry_run: Option<DryRunConfig<<<T as Config>::Time as Time>::Moment>>,
 	/// An optional mock handler that can be used to override certain behaviors.
 	/// This is primarily used for testing purposes and should be `None` in production
 	/// environments.
@@ -408,7 +408,10 @@ impl<T: Config> ExecConfig<T> {
 	}
 
 	/// Set this config to be a dry-run.
-	pub fn with_dry_run(mut self, dry_run_config: DryRunConfig<T>) -> Self {
+	pub fn with_dry_run(
+		mut self,
+		dry_run_config: DryRunConfig<<<T as Config>::Time as Time>::Moment>,
+	) -> Self {
 		self.is_dry_run = Some(dry_run_config);
 		self
 	}

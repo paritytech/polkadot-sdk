@@ -74,7 +74,7 @@ use frame_support::{
 	traits::{
 		fungible::{Balanced, Inspect, Mutate, MutateHold},
 		tokens::Balance,
-		ConstU32, ConstU64, EnsureOrigin, Get, IsSubType, IsType, OriginTrait, Time,
+		ConstU32, ConstU64, EnsureOrigin, Get, IsSubType, IsType, OriginTrait,
 	},
 	weights::WeightMeter,
 	BoundedVec, RuntimeDebugNoBound,
@@ -100,9 +100,10 @@ pub use crate::{
 	pallet::{genesis, *},
 	storage::{AccountInfo, ContractInfo},
 	vm::{BytecodeType, ContractBlob},
+	DryRunConfig,
 };
 pub use codec;
-pub use frame_support::{self, dispatch::DispatchInfo, weights::Weight};
+pub use frame_support::{self, dispatch::DispatchInfo, traits::Time, weights::Weight};
 pub use frame_system::{self, limits::BlockWeights};
 pub use primitives::*;
 pub use sp_core::{keccak_256, H160, H256, U256};
@@ -1608,7 +1609,7 @@ impl<T: Config> Pallet<T> {
 	/// - `tx`: The Ethereum transaction to simulate.
 	pub fn dry_run_eth_transact(
 		mut tx: GenericTransaction,
-		dry_run_config: DryRunConfig<T>,
+		dry_run_config: DryRunConfig<<<T as Config>::Time as Time>::Moment>,
 	) -> Result<EthTransactInfo<BalanceOf<T>>, EthTransactError>
 	where
 		T::Nonce: Into<U256>,
@@ -2336,11 +2337,12 @@ environmental!(executing_contract: bool);
 sp_api::decl_runtime_apis! {
 	/// The API used to dry-run contract interactions.
 	#[api_version(1)]
-	pub trait ReviveApi<AccountId, Balance, Nonce, BlockNumber> where
+	pub trait ReviveApi<AccountId, Balance, Nonce, BlockNumber, Moment> where
 		AccountId: Codec,
 		Balance: Codec,
 		Nonce: Codec,
 		BlockNumber: Codec,
+		Moment: Codec,
 	{
 		/// Returns the current ETH block.
 		///
@@ -2397,8 +2399,17 @@ sp_api::decl_runtime_apis! {
 
 		/// Perform an Ethereum call.
 		///
+		/// Deprecated use `v2` version instead.
 		/// See [`crate::Pallet::dry_run_eth_transact`]
-		fn eth_transact(tx: GenericTransaction, timestamp: Option<u64>) -> Result<EthTransactInfo<Balance>, EthTransactError>;
+		fn eth_transact(tx: GenericTransaction) -> Result<EthTransactInfo<Balance>, EthTransactError>;
+
+		/// Perform an Ethereum call.
+		///
+		/// See [`crate::Pallet::dry_run_eth_transact`]
+		fn eth_transact_with_config(
+			tx: GenericTransaction,
+			config: DryRunConfig<Moment>,
+		) -> Result<EthTransactInfo<Balance>, EthTransactError>;
 
 		/// Upload new code without instantiating a contract from it.
 		///
@@ -2514,7 +2525,9 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 		impl_runtime_apis! {
 			$($rest)*
 
-			impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber> for $Runtime {
+
+			impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber, Moment> for $Runtime
+			{
 				fn eth_block() -> $crate::EthBlock {
 					$crate::Pallet::<Self>::eth_block()
 				}
@@ -2556,17 +2569,25 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 				fn eth_transact(
 					tx: $crate::evm::GenericTransaction,
-					timestamp: Option<u64>
 				) -> Result<$crate::EthTransactInfo<Balance>, $crate::EthTransactError> {
 					use $crate::{
 						codec::Encode, evm::runtime::EthExtra, frame_support::traits::Get,
 						sp_runtime::traits::TransactionExtension,
 						sp_runtime::traits::Block as BlockT
 					};
-					let dry_run_config = $crate::DryRunConfig::<Self> {
-						timestamp_override: timestamp,
+					$crate::Pallet::<Self>::dry_run_eth_transact(tx, Default::default())
+				}
+
+				fn eth_transact_with_config(
+					tx: $crate::evm::GenericTransaction,
+					config: $crate::DryRunConfig<Moment>,
+				) -> Result<$crate::EthTransactInfo<Balance>, $crate::EthTransactError> {
+					use $crate::{
+						codec::Encode, evm::runtime::EthExtra, frame_support::traits::Get,
+						sp_runtime::traits::TransactionExtension,
+						sp_runtime::traits::Block as BlockT
 					};
-					$crate::Pallet::<Self>::dry_run_eth_transact(tx, dry_run_config)
+					$crate::Pallet::<Self>::dry_run_eth_transact(tx, config)
 				}
 
 				fn call(
@@ -2589,9 +2610,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						gas_limit.unwrap_or(blockweights.max_block),
 						storage_deposit_limit.unwrap_or(u128::MAX),
 						input_data,
-						$crate::ExecConfig::new_substrate_tx().with_dry_run(
-							Default::default(),
-						),
+						$crate::ExecConfig::new_substrate_tx().with_dry_run(Default::default()),
 					)
 				}
 
@@ -2617,9 +2636,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						code,
 						data,
 						salt,
-						$crate::ExecConfig::new_substrate_tx().with_dry_run(
-							Default::default(),
-						),
+						$crate::ExecConfig::new_substrate_tx().with_dry_run(Default::default()),
 					)
 				}
 
@@ -2703,7 +2720,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 					t.watch_address(&tx.from.unwrap_or_default());
 					t.watch_address(&$crate::Pallet::<Self>::block_author());
-					let result = trace(t, || Self::eth_transact(tx, None));
+					let result = trace(t, || Self::eth_transact(tx));
 
 					if let Some(trace) = tracer.collect_trace() {
 						Ok(trace)

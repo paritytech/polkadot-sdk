@@ -357,7 +357,8 @@ impl pallet_revive::Config for Runtime {
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
 	type DebugEnabled = ConstBool<false>;
 }
-
+use crate::polkadot_sdk_frame::traits::Time;
+type Moment = <<Runtime as pallet_revive::Config>::Time as Time>::Moment;
 pallet_revive::impl_runtime_apis_plus_revive_traits!(
 	Runtime,
 	Revive,

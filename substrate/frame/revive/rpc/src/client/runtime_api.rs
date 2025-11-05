@@ -71,12 +71,13 @@ impl RuntimeApi {
 		tx: GenericTransaction,
 		block: BlockNumberOrTagOrHash,
 	) -> Result<EthTransactInfo<Balance>, ClientError> {
-		let timestamp_override = match block {
+		let _timestamp_override = match block {
 			BlockNumberOrTagOrHash::BlockTag(BlockTag::Pending) =>
 				Some(Timestamp::current().as_millis()),
 			_ => None,
 		};
-		let payload = subxt_client::apis().revive_api().eth_transact(tx.into(), timestamp_override);
+		// TODO use eth_transact_with_config when available
+		let payload = subxt_client::apis().revive_api().eth_transact(tx.into());
 		let result = self.0.call(payload).await?;
 		match result {
 			Err(err) => {
