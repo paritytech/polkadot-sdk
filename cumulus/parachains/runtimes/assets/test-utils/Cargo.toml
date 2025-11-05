@@ -26,6 +26,7 @@ sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 
 # Cumulus
+assets-common = { workspace = true }
 cumulus-pallet-parachain-system = { workspace = true }
 cumulus-pallet-xcmp-queue = { workspace = true }
 cumulus-primitives-core = { workspace = true }
@@ -47,6 +48,7 @@ pallet-xcm-bridge-hub-router = { workspace = true }
 [features]
 default = ["std"]
 std = [
+	"assets-common/std",
 	"codec/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-pallet-xcmp-queue/std",

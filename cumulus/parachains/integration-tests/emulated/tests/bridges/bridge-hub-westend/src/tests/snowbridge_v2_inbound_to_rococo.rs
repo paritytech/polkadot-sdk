@@ -415,7 +415,7 @@ fn send_roc_from_ethereum_to_rococo() {
 	create_foreign_on_ah_westend(
 		bridged_roc_at_asset_hub_westend.clone(),
 		true,
-		vec![asset_hub_rococo_location()],
+		vec![(asset_hub_rococo_location(), false).into()],
 		vec![],
 	);
 	set_up_pool_with_wnd_on_ah_westend(

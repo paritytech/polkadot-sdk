@@ -1141,7 +1141,7 @@ fn send_weth_from_ethereum_to_ahw_to_ahr_back_to_ahw_and_ethereum() {
 	]);
 
 	let bridged_wnd_at_asset_hub_rococo = bridged_wnd_at_ah_rococo();
-	let wnd_reserve = vec![asset_hub_westend_global_location()];
+	let wnd_reserve = vec![(asset_hub_westend_global_location(), false).into()];
 	create_foreign_on_ah_rococo(bridged_wnd_at_asset_hub_rococo.clone(), true, wnd_reserve);
 	create_pool_with_native_on!(
 		AssetHubRococo,
@@ -1444,7 +1444,7 @@ fn transfer_penpal_native_asset() {
 	AssetHubWestend::set_foreign_asset_reserves(
 		pal_at_asset_hub.clone(),
 		asset_owner.into(),
-		vec![pal_at_asset_hub.clone(), Location::here()],
+		vec![(pal_at_asset_hub.clone(), true).into()],
 	);
 
 	let penpal_sovereign = AssetHubWestend::sovereign_account_id_of(
@@ -1977,7 +1977,7 @@ fn transfer_roc_from_ah_with_legacy_api_will_fail() {
 	create_foreign_on_ah_westend(
 		bridged_roc_at_asset_hub_westend.clone(),
 		true,
-		vec![asset_hub_rococo_location()],
+		vec![(asset_hub_rococo_location(), false).into()],
 		vec![],
 	);
 
@@ -2047,7 +2047,7 @@ fn transfer_roc_from_ah_with_transfer_and_then() {
 	create_foreign_on_ah_westend(
 		bridged_roc_at_asset_hub_westend.clone(),
 		true,
-		vec![asset_hub_rococo_location()],
+		vec![(asset_hub_rococo_location(), false).into()],
 		vec![],
 	);
 

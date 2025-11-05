@@ -96,7 +96,7 @@ pub(crate) fn weth_at_asset_hubs() -> Location {
 pub(crate) fn create_foreign_on_ah_rococo(
 	id: v5::Location,
 	sufficient: bool,
-	reserves: Vec<v5::Location>,
+	reserves: Vec<ForeignAssetReserveData>,
 	prefund_accounts: Vec<(AccountId, u128)>,
 ) {
 	let owner = AssetHubRococo::account_id_of(ALICE);
@@ -114,7 +114,7 @@ pub(crate) fn create_foreign_on_ah_rococo(
 pub(crate) fn create_foreign_on_ah_westend(
 	id: v5::Location,
 	sufficient: bool,
-	reserves: Vec<v5::Location>,
+	reserves: Vec<ForeignAssetReserveData>,
 ) {
 	let owner = AssetHubWestend::account_id_of(ALICE);
 	AssetHubWestend::force_create_foreign_asset(

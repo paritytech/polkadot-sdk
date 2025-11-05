@@ -17,6 +17,7 @@
 
 use super::xcm_helpers;
 use crate::{assert_matches_reserve_asset_deposited_instructions, get_fungible_delivery_fees};
+use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
 use codec::Encode;
 use core::ops::Mul;
 use cumulus_primitives_core::{UpwardMessageSender, XcmpMessageSource};
@@ -382,7 +383,7 @@ pub fn teleports_for_foreign_assets_works<
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
 		+ cumulus_pallet_xcmp_queue::Config
-		+ pallet_assets::Config<ForeignAssetsPalletInstance>
+		+ pallet_assets::Config<ForeignAssetsPalletInstance, ReserveData = ForeignAssetReserveData>
 		+ pallet_timestamp::Config,
 	AllPalletsWithoutSystem:
 		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
@@ -400,8 +401,6 @@ pub fn teleports_for_foreign_assets_works<
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetId:
 		From<xcm::v5::Location> + Into<xcm::v5::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetIdParameter:
-		From<xcm::v5::Location> + Into<xcm::v5::Location>,
-	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::ReserveData:
 		From<xcm::v5::Location> + Into<xcm::v5::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::Balance:
 		From<Balance> + Into<u128>,
@@ -422,9 +421,12 @@ pub fn teleports_for_foreign_assets_works<
 		]
 		.into(),
 	};
-	let foreign_asset_reserve_location = xcm::v5::Location {
-		parents: 1,
-		interior: [xcm::v5::Junction::Parachain(foreign_para_id)].into(),
+	let foreign_asset_reserve_data = ForeignAssetReserveData {
+		reserve: xcm::v5::Location {
+			parents: 1,
+			interior: [xcm::v5::Junction::Parachain(foreign_para_id)].into(),
+		},
+		teleportable: true,
 	};
 
 	// foreign creator, which can be sibling parachain to match ForeignCreators
@@ -514,7 +516,7 @@ pub fn teleports_for_foreign_assets_works<
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::set_reserves(
 					RuntimeHelper::<Runtime>::origin_of(asset_owner.into()),
 					foreign_asset_id_location.clone().into(),
-					vec![foreign_asset_reserve_location.into(), Location::here().into()],
+					vec![foreign_asset_reserve_data],
 				)
 			);
 

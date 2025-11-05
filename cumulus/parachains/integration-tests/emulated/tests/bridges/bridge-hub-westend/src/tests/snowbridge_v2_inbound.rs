@@ -435,7 +435,11 @@ fn register_and_send_token_in_one_transaction_fails() {
 			Transact {
 				origin_kind: OriginKind::Xcm,
 				fallback_max_weight: None,
-				call: (SetReservesCallIndex::get(), token_location.clone(), vec![ethereum()])
+				call: (
+					SetReservesCallIndex::get(),
+					token_location.clone(),
+					vec![ForeignAssetReserveData { reserve: ethereum(), teleportable: false }],
+				)
 					.encode()
 					.into(),
 			},

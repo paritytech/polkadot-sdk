@@ -82,7 +82,6 @@ pub fn set_up_foreign_asset(
 		penpal_sovereign_account.clone()
 	);
 
-	let mut reserve_locations = vec![penpal_location];
 	if teleportable {
 		// Configure Penpal to allow teleports of this asset to AH
 		PenpalA::execute_with(|| {
@@ -94,13 +93,12 @@ pub fn set_up_foreign_asset(
 				)],
 			));
 		});
-		// mark the foreign asset as teleportable on Asset Hub
-		reserve_locations.push(Location::here());
 	}
+	let reserves_data = vec![(penpal_location, teleportable).into()];
 	AssetHubWestend::set_foreign_asset_reserves(
 		foreign_asset_at_asset_hub.clone(),
 		penpal_sovereign_account.clone(),
-		reserve_locations,
+		reserves_data,
 	);
 	(asset_location_on_penpal, foreign_asset_at_asset_hub)
 }
@@ -108,7 +106,7 @@ pub fn set_up_foreign_asset(
 // Helper for Penpal root to call ForeignAssets::set_reserves() on Asset Hub.
 pub fn penpal_set_foreign_asset_reserves_on_asset_hub(
 	asset_id_on_ah: Location,
-	reserves: Vec<Location>,
+	reserves: Vec<ForeignAssetReserveData>,
 ) {
 	// Encoded `set_reserves` call to be executed in AssetHub
 	let call = <AssetHubWestend as Chain>::RuntimeCall::ForeignAssets(pallet_assets::Call::<
@@ -474,6 +472,10 @@ fn verify_foreign_asset_origin_checks() {
 	let penpal_sovereign = AssetHubWestend::sovereign_account_id_of(
 		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
 	);
+	let reserves_data = ForeignAssetReserveData {
+		reserve: AssetHubWestend::sibling_location_of(PenpalA::para_id()),
+		teleportable: true,
+	};
 	// Set asset reserves using signed `owner` account.
 	let origin = <AssetHubWestend as Chain>::RuntimeOrigin::signed(penpal_sovereign);
 	AssetHubWestend::execute_with(|| {
@@ -481,7 +483,7 @@ fn verify_foreign_asset_origin_checks() {
 		<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::set_reserves(
 			origin,
 			foreign_asset_location_on_ah.clone(),
-			vec![Location::here()],
+			vec![reserves_data.clone()],
 		)
 		.unwrap();
 		assert_expected_events!(
@@ -499,7 +501,7 @@ fn verify_foreign_asset_origin_checks() {
 		assert!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::set_reserves(
 			origin,
 			foreign_asset_location_on_ah.clone(),
-			vec![Location::here()],
+			vec![reserves_data],
 		)
 		.is_err());
 	});

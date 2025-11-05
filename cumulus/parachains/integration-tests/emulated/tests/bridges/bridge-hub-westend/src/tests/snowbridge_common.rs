@@ -116,7 +116,11 @@ pub fn register_foreign_asset(token_location: Location) {
 			token_location.clone().try_into().unwrap(),
 		));
 	});
-	AssetHubWestend::set_foreign_asset_reserves(token_location, bridge_owner, vec![ethereum()]);
+	AssetHubWestend::set_foreign_asset_reserves(
+		token_location,
+		bridge_owner,
+		vec![(ethereum(), false).into()],
+	);
 }
 
 pub fn register_pal_on_ah() {

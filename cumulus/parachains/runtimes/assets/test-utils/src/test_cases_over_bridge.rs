@@ -17,6 +17,7 @@
 //! over a bridge.
 
 use crate::{assert_matches_reserve_asset_deposited_instructions, get_fungible_delivery_fees};
+use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
 use codec::Encode;
 use cumulus_primitives_core::XcmpMessageSource;
 use frame_support::{
@@ -341,9 +342,9 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 	(
 		foreign_asset_owner,
 		foreign_asset_id_location,
-		foreign_asset_reserve_location,
+		foreign_asset_reserve_data,
 		foreign_asset_id_minimum_balance,
-	): (AccountIdOf<Runtime>, xcm::v5::Location, xcm::v5::Location, u128),
+	): (AccountIdOf<Runtime>, xcm::v5::Location, ForeignAssetReserveData, u128),
 	foreign_asset_id_amount_to_transfer: u128,
 	prepare_configuration: impl FnOnce() -> TestBridgingConfig,
 	(bridge_instance, universal_origin, descend_origin): (Junctions, Junction, Junctions), /* bridge adds origin manipulation on the way */
@@ -358,7 +359,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
 		+ cumulus_pallet_xcmp_queue::Config
-		+ pallet_assets::Config<ForeignAssetsPalletInstance>
+		+ pallet_assets::Config<ForeignAssetsPalletInstance, ReserveData = ForeignAssetReserveData>
 		+ pallet_timestamp::Config,
 	AllPalletsWithoutSystem:
 		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
@@ -367,8 +368,6 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 	BalanceOf<Runtime>: From<Balance> + Into<Balance>,
 	XcmConfig: xcm_executor::Config,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetId:
-		From<xcm::v5::Location> + Into<xcm::v5::Location>,
-	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::ReserveData:
 		From<xcm::v5::Location> + Into<xcm::v5::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetIdParameter:
 		From<xcm::v5::Location> + Into<xcm::v5::Location>,
@@ -415,7 +414,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 						foreign_asset_owner
 					),
 					foreign_asset_id_location.clone().into(),
-					vec![foreign_asset_reserve_location.into()],
+					vec![foreign_asset_reserve_data],
 				)
 			);
 

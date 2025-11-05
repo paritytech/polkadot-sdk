@@ -1474,6 +1474,7 @@ dependencies = [
 name = "asset-test-utils"
 version = "7.0.0"
 dependencies = [
+ "assets-common",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",

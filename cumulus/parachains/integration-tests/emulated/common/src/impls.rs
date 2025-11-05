@@ -802,7 +802,7 @@ macro_rules! impl_assets_helpers_for_parachain {
 
 #[macro_export]
 macro_rules! impl_foreign_assets_helpers_for_parachain {
-	($chain:ident, $asset_id_type:ty) => {
+	($chain:ident, $asset_id_type:ty, $reserve_data_type:ty) => {
 		$crate::impls::paste::paste! {
 			impl<N: $crate::impls::Network> $chain<N> {
 				/// Create foreign assets using sudo `ForeignAssets::force_create()`
@@ -850,7 +850,7 @@ macro_rules! impl_foreign_assets_helpers_for_parachain {
 				pub fn set_foreign_asset_reserves(
 					id: $asset_id_type,
 					owner: $crate::impls::AccountId,
-					reserves: Vec<$asset_id_type>,
+					reserves: Vec<$reserve_data_type>,
 				) {
 					use $crate::impls::Inspect;
 					let owner_origin =

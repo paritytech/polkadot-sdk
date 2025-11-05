@@ -154,7 +154,7 @@ fn send_roc_from_asset_hub_rococo_to_ethereum() {
 	create_foreign_on_ah_westend(
 		bridged_roc_at_asset_hub_westend.clone(),
 		true,
-		vec![asset_hub_rococo_location()],
+		vec![(asset_hub_rococo_location(), false).into()],
 		vec![],
 	);
 	set_up_pool_with_wnd_on_ah_westend(
@@ -176,7 +176,7 @@ fn send_roc_from_asset_hub_rococo_to_ethereum() {
 			ethereum()
 		));
 	});
-	create_foreign_on_ah_westend(ethereum(), true, vec![ethereum()], vec![]);
+	create_foreign_on_ah_westend(ethereum(), true, vec![(ethereum(), false).into()], vec![]);
 	set_up_pool_with_wnd_on_ah_westend(ethereum(), true, initial_fund, initial_liquidity);
 	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id(), initial_fund);
 	AssetHubRococo::fund_accounts(vec![(AssetHubRococoSender::get(), initial_fund)]);

@@ -137,13 +137,13 @@ pub fn genesis() -> Storage {
 			reserves: vec![
 				(
 					PenpalATeleportableAssetLocation::get(),
-					vec![PenpalALocation::get(), Location::here()],
+					vec![(PenpalALocation::get(), true).into()],
 				),
 				(
 					PenpalBTeleportableAssetLocation::get(),
-					vec![PenpalBLocation::get(), Location::here()],
+					vec![(PenpalBLocation::get(), true).into()],
 				),
-				(EthereumLocation::get(), vec![EthereumLocation::get()]),
+				(EthereumLocation::get(), vec![(EthereumLocation::get(), false).into()]),
 				(
 					Location::new(
 						2,
@@ -152,7 +152,7 @@ pub fn genesis() -> Storage {
 							AccountKey20 { network: None, key: WETH.into() },
 						],
 					),
-					vec![EthereumLocation::get()],
+					vec![(EthereumLocation::get(), false).into()],
 				),
 			],
 			..Default::default()

@@ -737,7 +737,7 @@ fn limited_reserve_transfer_assets_for_native_asset_over_bridge_works(
 
 mod asset_hub_rococo_tests {
 	use super::*;
-	use asset_hub_rococo_runtime::PolkadotXcm;
+	use asset_hub_rococo_runtime::{ForeignAssetReserveData, PolkadotXcm};
 	use xcm::latest::WESTEND_GENESIS_HASH;
 	use xcm_executor::traits::ConvertLocation;
 
@@ -773,6 +773,8 @@ mod asset_hub_rococo_tests {
 			Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]);
 		let reserve_location =
 			Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1000)]);
+		let foreign_asset_reserve_data =
+			ForeignAssetReserveData { reserve: reserve_location, teleportable: false };
 		let foreign_asset_id_minimum_balance = 1_000_000_000;
 		// sovereign account as foreign asset owner (can be whoever for this scenario)
 		let foreign_asset_owner =
@@ -780,7 +782,7 @@ mod asset_hub_rococo_tests {
 		let foreign_asset_create_params = (
 			foreign_asset_owner.clone(),
 			foreign_asset_id_location.clone(),
-			reserve_location,
+			foreign_asset_reserve_data,
 			foreign_asset_id_minimum_balance,
 		);
 		let pool_params = (
@@ -855,6 +857,8 @@ mod asset_hub_rococo_tests {
 			Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]);
 		let reserve_location =
 			Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1000)]);
+		let foreign_asset_reserve_data =
+			ForeignAssetReserveData { reserve: reserve_location, teleportable: false };
 		let foreign_asset_id_minimum_balance = 1_000_000_000;
 		// sovereign account as foreign asset owner (can be whoever for this scenario)
 		let foreign_asset_owner =
@@ -862,7 +866,7 @@ mod asset_hub_rococo_tests {
 		let foreign_asset_create_params = (
 			foreign_asset_owner.clone(),
 			foreign_asset_id_location.clone(),
-			reserve_location,
+			foreign_asset_reserve_data,
 			foreign_asset_id_minimum_balance,
 		);
 		let pool_params = (
