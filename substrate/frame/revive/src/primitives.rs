@@ -17,10 +17,13 @@
 
 //! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
-use crate::{mock::MockHandler, storage::WriteOutcome, BalanceOf, Config, Time, H160, U256};
+use crate::{
+	evm::DryRunConfig, mock::MockHandler, storage::WriteOutcome, BalanceOf, Config, Time, H160,
+	U256,
+};
 use alloc::{boxed::Box, fmt::Debug, string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{weights::Weight, DefaultNoBound};
+use frame_support::weights::Weight;
 use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
 use sp_core::Get;
@@ -328,13 +331,6 @@ where
 			Refund(amount) => limit.saturating_add(*amount),
 		}
 	}
-}
-
-/// Configuration specific to a dry-run execution.
-#[derive(Encode, Decode, TypeInfo, Clone, DefaultNoBound)]
-pub struct DryRunConfig<Moment> {
-	/// Optional timestamp override for dry-run in pending block.
-	pub timestamp_override: Option<Moment>,
 }
 
 /// `Stack` wide configuration options.

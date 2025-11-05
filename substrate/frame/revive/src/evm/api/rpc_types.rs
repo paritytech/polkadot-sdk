@@ -17,7 +17,17 @@
 //! Utility impl for the RPC types.
 use super::*;
 use alloc::vec::Vec;
+use codec::{Decode, Encode};
+use frame_support::DefaultNoBound;
+use scale_info::TypeInfo;
 use sp_core::{H160, U256};
+
+/// Configuration specific to a dry-run execution.
+#[derive(Debug, Encode, Decode, TypeInfo, Clone, DefaultNoBound)]
+pub struct DryRunConfig<Moment> {
+	/// Optional timestamp override for dry-run in pending block.
+	pub timestamp_override: Option<Moment>,
+}
 
 impl From<BlockNumberOrTag> for BlockNumberOrTagOrHash {
 	fn from(b: BlockNumberOrTag) -> Self {

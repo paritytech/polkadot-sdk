@@ -25,7 +25,7 @@ use pallet_revive::{
 		Block as EthBlock, BlockNumberOrTagOrHash, BlockTag, GenericTransaction, ReceiptGasInfo,
 		Trace, H160, U256,
 	},
-	EthTransactInfo,
+	DryRunConfig, EthTransactInfo,
 };
 use sp_core::H256;
 use sp_timestamp::Timestamp;
@@ -71,13 +71,17 @@ impl RuntimeApi {
 		tx: GenericTransaction,
 		block: BlockNumberOrTagOrHash,
 	) -> Result<EthTransactInfo<Balance>, ClientError> {
-		let _timestamp_override = match block {
+		let timestamp_override = match block {
 			BlockNumberOrTagOrHash::BlockTag(BlockTag::Pending) =>
 				Some(Timestamp::current().as_millis()),
 			_ => None,
 		};
-		// TODO use eth_transact_with_config when available
-		let payload = subxt_client::apis().revive_api().eth_transact(tx.into());
+
+		// TODO fallback to eth_transact when eth_transact_with_config not available
+		let payload = subxt_client::apis()
+			.revive_api()
+			.eth_transact_with_config(tx.into(), DryRunConfig { timestamp_override }.into());
+		// let payload = subxt_client::apis().revive_api().eth_transact(tx.into());
 		let result = self.0.call(payload).await?;
 		match result {
 			Err(err) => {
