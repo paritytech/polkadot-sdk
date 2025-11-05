@@ -22315,6 +22315,7 @@ name = "snowbridge-inbound-queue-primitives"
 version = "0.9.0"
 dependencies = [
  "alloy-core",
+ "assets-common",
  "frame-support",
  "frame-system",
  "hex-literal",

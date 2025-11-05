@@ -275,7 +275,10 @@ where
 		claimer: Location,
 	) -> Xcm<()> {
 		let bridge_owner_bytes: [u8; 32] = bridge_owner.into();
-		let reserve_location = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
+		let reserve_data = assets_common::local_and_foreign_assets::ForeignAssetReserveData {
+			reserve: Location::new(2, [GlobalConsensus(EthereumNetwork::get())]),
+			teleportable: false,
+		};
 		vec![
 			// Exchange eth for dot to pay the asset creation deposit.
 			ExchangeAsset {
@@ -306,7 +309,7 @@ where
 			Transact {
 				origin_kind: OriginKind::Xcm,
 				fallback_max_weight: None,
-				call: (set_reserves_call_index, asset_id, vec![reserve_location]).encode().into(),
+				call: (set_reserves_call_index, asset_id, vec![reserve_data]).encode().into(),
 			},
 			RefundSurplus,
 			// Deposit leftover funds to Snowbridge sovereign
