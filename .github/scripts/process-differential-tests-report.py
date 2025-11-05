@@ -67,6 +67,12 @@ MetadataFilePathString = str
 CaseIdxString = str
 """The index of a case as a string. For example '0'"""
 
+PlatformString = typing.Union[
+    typing.Literal["revive-dev-node-revm-solc"],
+    typing.Literal["revive-dev-node-polkavm-resolc"],
+]
+"""A string of the platform on which the test was run"""
+
 
 def path_relative_to_resolc_compiler_test_directory(path: str) -> str:
     """
@@ -84,9 +90,19 @@ def main() -> None:
     with open(sys.argv[1], "r") as file:
         report: Report = json.load(file)
 
+    # Getting the platform string and resolving it into a simpler version of
+    # itself.
+    platform_identifier: PlatformString = typing.cast(PlatformString, sys.argv[2])
+    if platform_identifier == "revive-dev-node-polkavm-resolc":
+        platform: str = "PolkaVM"
+    elif platform_identifier == "revive-dev-node-revm-solc":
+        platform: str = "REVM"
+    else:
+        platform: str = platform_identifier
+
     # Starting the markdown document and adding information to it as we go.
     markdown_document: io.TextIOWrapper = open("report.md", "w")
-    print("# Differential Tests Results", file=markdown_document)
+    print(f"# Differential Tests Results ({platform})", file=markdown_document)
 
     # Getting all of the test specifiers from the report and making them relative to the tests dir.
     test_specifiers: list[str] = list(
