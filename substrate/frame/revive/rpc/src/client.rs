@@ -824,7 +824,7 @@ impl Client {
 		let gas_limit = runtime_api.block_gas_limit().await.unwrap_or_default();
 
 		let header = block.header();
-		let timestamp = extract_block_timestamp(block).await.unwrap_or_default();
+		let timestamp = extract_block_timestamp(block).await;
 		let block_author = runtime_api.block_author().await.ok().unwrap_or_default();
 
 		// TODO: remove once subxt is updated
