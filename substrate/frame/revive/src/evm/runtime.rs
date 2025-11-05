@@ -374,7 +374,7 @@ mod test {
 	};
 	use frame_support::{error::LookupError, traits::fungible::Mutate};
 	use pallet_revive_fixtures::compile_module;
-	use sp_runtime::traits::{self, Checkable, DispatchTransaction, Get};
+	use sp_runtime::traits::{self, Checkable, DispatchTransaction};
 
 	type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
@@ -529,7 +529,8 @@ mod test {
 		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
 		let (expected_encoded_len, call, _, tx, weight_required, signed_transaction) =
 			builder.check().unwrap();
-		let expected_effective_gas_price: u32 = <Test as Config>::NativeToEthRatio::get();
+		let expected_effective_gas_price =
+			ExtBuilder::default().build().execute_with(|| Pallet::<Test>::evm_base_fee());
 
 		match call {
 			RuntimeCall::Contracts(crate::Call::eth_call::<Test> {
@@ -545,7 +546,7 @@ mod test {
 				value == tx.value.unwrap_or_default().as_u64().into() &&
 				data == tx.input.to_vec() &&
 				transaction_encoded == signed_transaction.signed_payload() &&
-				effective_gas_price == expected_effective_gas_price.into() =>
+				effective_gas_price == expected_effective_gas_price =>
 			{
 				assert_eq!(encoded_len, expected_encoded_len);
 				assert!(
@@ -567,7 +568,8 @@ mod test {
 		);
 		let (expected_encoded_len, call, _, tx, weight_required, signed_transaction) =
 			builder.check().unwrap();
-		let expected_effective_gas_price: u32 = <Test as Config>::NativeToEthRatio::get();
+		let expected_effective_gas_price =
+			ExtBuilder::default().build().execute_with(|| Pallet::<Test>::evm_base_fee());
 		let expected_value = tx.value.unwrap_or_default().as_u64().into();
 
 		match call {
@@ -584,7 +586,7 @@ mod test {
 				code == expected_code &&
 				data == expected_data &&
 				transaction_encoded == signed_transaction.signed_payload() &&
-				effective_gas_price == expected_effective_gas_price.into() =>
+				effective_gas_price == expected_effective_gas_price =>
 			{
 				assert_eq!(encoded_len, expected_encoded_len);
 				assert!(

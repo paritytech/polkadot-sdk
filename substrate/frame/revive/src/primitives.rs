@@ -114,7 +114,7 @@ pub enum BalanceConversionError {
 
 /// A Balance amount along with some "dust" to represent the lowest decimals that can't be expressed
 /// in the native currency
-#[derive(Default, Clone, Copy, Eq, PartialEq, Debug)]
+#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct BalanceWithDust<Balance> {
 	/// The value expressed in the native currency
 	value: Balance,
@@ -251,6 +251,18 @@ pub enum StorageDeposit<Balance> {
 	/// This means that the specified amount of balance was transferred from the origin
 	/// to the involved deposit accounts.
 	Charge(Balance),
+}
+
+impl<T, Balance> ContractResult<T, Balance> {
+	pub fn map_result<V>(self, map_fn: impl FnOnce(T) -> V) -> ContractResult<V, Balance> {
+		ContractResult {
+			weight_consumed: self.weight_consumed,
+			weight_required: self.weight_required,
+			storage_deposit: self.storage_deposit,
+			max_storage_deposit: self.max_storage_deposit,
+			result: self.result.map(map_fn),
+		}
+	}
 }
 
 impl<Balance: Zero> Default for StorageDeposit<Balance> {
