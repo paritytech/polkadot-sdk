@@ -244,15 +244,20 @@ pub mod ethereum_execution {
 	/// otherwise it returns an error.
 	pub fn new_root<T: Config>(
 		eth_gas_limit: BalanceOf<T>,
+		maybe_weight_limit: Option<Weight>,
 		eth_tx_info: EthTxInfo<T>,
 	) -> Result<TransactionMeter<T>, DispatchError> {
 		let meter = TransactionMeter {
-			weight: WeightMeter::new(None),
+			weight: WeightMeter::new(maybe_weight_limit),
 			deposit: RootStorageMeter::new(None),
 			max_total_gas: SignedGas::Positive(eth_gas_limit),
 			total_consumed_weight_before: Default::default(),
 			total_consumed_deposit_before: Default::default(),
-			transaction_limits: TransactionLimits::EthereumGas { eth_gas_limit, eth_tx_info },
+			transaction_limits: TransactionLimits::EthereumGas {
+				eth_gas_limit,
+				maybe_weight_limit,
+				eth_tx_info,
+			},
 			_phantom: PhantomData,
 		};
 

@@ -63,6 +63,9 @@ where
 		return Err(InvalidTransaction::Call);
 	};
 
+	// Currently, effective_gas_price will always be the same as base_fee
+	// Because all callers of `create_call` will prepare `tx` that way. Some of the subsequent
+	// logic will not work correctly anymore if we change that assumption.
 	let Some(effective_gas_price) = tx.gas_price else {
 		log::debug!(target: LOG_TARGET, "No gas_price provided.");
 		return Err(InvalidTransaction::Payment);
@@ -165,28 +168,33 @@ where
 
 		let remaining_fee = {
 			let adjusted = eth_fee.checked_sub(fixed_fee.into()).ok_or_else(|| {
-							log::debug!(target: LOG_TARGET, "Not enough gas supplied to cover base and len fee. eth_fee={eth_fee:?} fixed_fee={fixed_fee:?}");
-							InvalidTransaction::Payment
-						})?;
+				log::debug!(target: LOG_TARGET, "Not enough gas supplied to cover base and len fee. eth_fee={eth_fee:?} fixed_fee={fixed_fee:?}");
+				InvalidTransaction::Payment
+			})?;
 			let unadjusted = <T as Config>::FeeInfo::next_fee_multiplier_reciprocal()
 				.saturating_mul_int(<BalanceOf<T>>::saturated_from(adjusted));
+
 			unadjusted
 		};
 		let remaining_fee_weight = <T as Config>::FeeInfo::fee_to_weight(remaining_fee);
 		let weight_limit = remaining_fee_weight
-						.checked_sub(&info.total_weight()).ok_or_else(|| {
-							log::debug!(target: LOG_TARGET, "Not enough gas supplied to cover the weight ({:?}) of the extrinsic. remaining_fee_weight: {remaining_fee_weight:?}", info.total_weight(),);
-							InvalidTransaction::Payment
-						})?;
+			.checked_sub(&info.total_weight()).ok_or_else(|| {
+			log::debug!(target: LOG_TARGET, "Not enough gas supplied to cover the weight ({:?}) of the extrinsic. remaining_fee_weight: {remaining_fee_weight:?}", info.total_weight(),);
+			InvalidTransaction::Payment
+		})?;
 
 		call.set_weight_limit(weight_limit);
-		let info = <T as Config>::FeeInfo::dispatch_info(&call);
-		let max_weight =
-			if apply_weight_cap { <Pallet<T>>::evm_max_extrinsic_weight() } else { Weight::MAX };
-		let overweight_by = info.total_weight().saturating_sub(max_weight);
-		let capped_weight = weight_limit.saturating_sub(overweight_by);
-		call.set_weight_limit(capped_weight);
-		capped_weight
+
+		if apply_weight_cap {
+			let max_weight = <Pallet<T>>::evm_max_extrinsic_weight();
+			let info = <T as Config>::FeeInfo::dispatch_info(&call);
+			let overweight_by = info.total_weight().saturating_sub(max_weight);
+			let capped_weight = weight_limit.saturating_sub(overweight_by);
+			call.set_weight_limit(capped_weight);
+			capped_weight
+		} else {
+			weight_limit
+		}
 	};
 
 	// the overall fee of the extrinsic including the gas limit

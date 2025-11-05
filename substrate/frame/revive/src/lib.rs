@@ -1271,6 +1271,7 @@ pub mod pallet {
 					value,
 					TransactionLimits::EthereumGas {
 						eth_gas_limit: eth_gas_limit.saturated_into(),
+						maybe_weight_limit: Some(weight_limit),
 						eth_tx_info: EthTxInfo::new(encoded_len, extra_weight),
 					},
 					Code::Upload(code),
@@ -1350,6 +1351,7 @@ pub mod pallet {
 					value,
 					TransactionLimits::EthereumGas {
 						eth_gas_limit: eth_gas_limit.saturated_into(),
+						maybe_weight_limit: Some(weight_limit),
 						eth_tx_info: EthTxInfo::new(encoded_len, extra_weight),
 					},
 					data,
@@ -1671,9 +1673,10 @@ impl<T: Config> Pallet<T> {
 		if tx.chain_id.is_none() {
 			tx.chain_id = Some(T::ChainId::get().into());
 		}
-		if tx.gas_price.is_none() {
-			tx.gas_price = Some(effective_gas_price);
-		}
+
+		// create_call expects tx.gas_price to be the effective gas price
+		tx.gas_price = Some(effective_gas_price);
+
 		if tx.max_priority_fee_per_gas.is_none() {
 			tx.max_priority_fee_per_gas = Some(effective_gas_price);
 		}
@@ -1762,6 +1765,9 @@ impl<T: Config> Pallet<T> {
 						value,
 						TransactionLimits::EthereumGas {
 							eth_gas_limit: call_info.eth_gas_limit.saturated_into(),
+							// no need to limit weight here, we will check later whether it exceeds
+							// evm_max_extrinsic_weight
+							maybe_weight_limit: None,
 							eth_tx_info: EthTxInfo::new(call_info.encoded_len, base_weight),
 						},
 						input.clone(),
@@ -1805,6 +1811,9 @@ impl<T: Config> Pallet<T> {
 					value,
 					TransactionLimits::EthereumGas {
 						eth_gas_limit: call_info.eth_gas_limit.saturated_into(),
+						// no need to limit weight here, we will check later whether it exceeds
+						// evm_max_extrinsic_weight
+						maybe_weight_limit: None,
 						eth_tx_info: EthTxInfo::new(call_info.encoded_len, base_weight),
 					},
 					Code::Upload(code.clone()),

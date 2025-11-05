@@ -98,8 +98,17 @@ pub struct ResourceMeter<T: Config, S: State> {
 /// - WeightAndDeposit: Explicit limits for both computational weight and storage deposit
 #[derive(DebugNoBound, Clone)]
 pub enum TransactionLimits<T: Config> {
-	EthereumGas { eth_gas_limit: BalanceOf<T>, eth_tx_info: EthTxInfo<T> },
-	WeightAndDeposit { weight_limit: Weight, deposit_limit: BalanceOf<T> },
+	EthereumGas {
+		eth_gas_limit: BalanceOf<T>,
+		// if this is provided, we will additionally ensure that execution will not exhaust this
+		// weight limit
+		maybe_weight_limit: Option<Weight>,
+		eth_tx_info: EthTxInfo<T>,
+	},
+	WeightAndDeposit {
+		weight_limit: Weight,
+		deposit_limit: BalanceOf<T>,
+	},
 }
 
 impl<T: Config> Default for TransactionLimits<T> {
@@ -325,8 +334,8 @@ impl<T: Config> TransactionMeter<T> {
 	/// - A substrate-style meter with explicit weight and deposit limits
 	pub fn new(transaction_limits: TransactionLimits<T>) -> Result<Self, DispatchError> {
 		match transaction_limits {
-			TransactionLimits::EthereumGas { eth_gas_limit, eth_tx_info } =>
-				math::ethereum_execution::new_root(eth_gas_limit, eth_tx_info),
+			TransactionLimits::EthereumGas { eth_gas_limit, maybe_weight_limit, eth_tx_info } =>
+				math::ethereum_execution::new_root(eth_gas_limit, maybe_weight_limit, eth_tx_info),
 			TransactionLimits::WeightAndDeposit { weight_limit, deposit_limit } =>
 				math::substrate_execution::new_root(weight_limit, deposit_limit),
 		}
