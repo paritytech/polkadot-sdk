@@ -212,7 +212,7 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api: Metadata<Block> + Core<Block>,
+	Client::Api: Metadata<Block>,
 {
 	/// Create a new `BlockExecutor`
 	pub fn new(
