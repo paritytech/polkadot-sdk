@@ -128,7 +128,7 @@ pub mod pallet {
 
 		/// Max number of retries for failed renewals
 		#[pallet::constant]
-		type MaxAutoRenewalRetries: Get<RenewalRetriesCount>;
+		type MaxAutoRenewalRetries: Get<u8>;
 
 		/// The smallest amount of credits a user can purchase.
 		///
