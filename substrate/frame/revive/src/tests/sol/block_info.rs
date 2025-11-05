@@ -68,7 +68,7 @@ fn block_number_dry_run_works(fixture_type: FixtureType) {
 			.data(
 				BlockInfo::BlockInfoCalls::blockNumber(BlockInfo::blockNumberCall {}).abi_encode(),
 			)
-			.exec_config(ExecConfig::new_substrate_tx().with_dry_run(None))
+			.exec_config(ExecConfig::new_substrate_tx().with_dry_run(Some(43)))
 			.build_and_unwrap_result();
 		let decoded = BlockInfo::blockNumberCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(43u64, decoded);
