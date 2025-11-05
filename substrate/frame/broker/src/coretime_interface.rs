@@ -37,9 +37,6 @@ pub type TaskId = u32;
 /// Fraction expressed as a nominator with an assumed denominator of 57,600.
 pub type PartsOf57600 = u16;
 
-/// Count of failed renewal retries
-pub type RenewalRetriesCount = u8;
-
 /// An element to which a core can be assigned.
 #[derive(
 	Encode,
