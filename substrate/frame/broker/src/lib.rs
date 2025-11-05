@@ -205,7 +205,7 @@ pub mod pallet {
 	/// The amount of renewal retries for this payer
 	#[pallet::storage]
 	pub type AutoRenewalRetries<T: Config> =
-		StorageMap<_, Blake2_128Concat, (CoreIndex, T::AccountId), RenewalRetriesCount, ValueQuery>;
+		StorageMap<_, Blake2_128Concat, (CoreIndex, T::AccountId), u8, ValueQuery>;
 
 	/// Received revenue info from the relay chain.
 	#[pallet::storage]
