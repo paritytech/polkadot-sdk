@@ -1090,7 +1090,7 @@ mod benchmarks {
 		digest.push(DigestItem::Seal(AURA_ENGINE_ID, slot.encode()));
 
 		frame_system::Pallet::<T>::initialize(
-			&BlockNumberFor::<T>::from(1u32),
+			&BlockNumberFor::<T>::from(2u32),
 			&Default::default(),
 			&digest,
 		);
