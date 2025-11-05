@@ -259,7 +259,7 @@ where
 		// Ensure no blocks are produced in the last second of the slot,
 		// regardless of authoring duration.
 		if deadline == Duration::ZERO {
-			tracing::warn!(
+			tracing::debug!(
 				target: LOG_TARGET,
 				?next_duration_change,
 				?next_slot_change,
@@ -284,7 +284,7 @@ where
 			if authoring_duration <
 				BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS.saturating_sub(BLOCK_PRODUCTION_THRESHOLD_MS)
 			{
-				tracing::warn!(
+				tracing::debug!(
 					target: LOG_TARGET,
 					?authoring_duration,
 					?next_slot,
