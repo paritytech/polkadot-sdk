@@ -1359,20 +1359,36 @@ pub mod pallet {
 			// Prevents recursion: the inner dispatch uses `RawOrigin::Signed`, which cannot
 			// re-enter `eth_substrate_call` (which requires `Origin::EthTransaction`).
 			let signer = ensure_signed(Self::ensure_eth_origin(origin)?)?;
+
 			if !DebugSettings::is_eth_substrate_call_allowed::<T>() {
 				log::warn!(target: LOG_TARGET, "eth_substrate_call can only be used in development.");
 				return Err(<Error<T>>::EthSubstrateCallNotAllowed.into());
 			}
 
 			block_storage::with_ethereum_context::<T>(call.encode(), || {
-				let call_weight = call.get_dispatch_info().call_weight;
-				let call_result = call.dispatch(RawOrigin::Signed(signer).into()).map_err(|err| {
-					log::warn!(target: LOG_TARGET, "Dispatch failed: {:?}", err.error);
-					err.error
-				});
-				let dispatch_res =
-					dispatch_result::<PostDispatchInfo>(call_result, Weight::zero(), call_weight);
-				(Weight::zero(), dispatch_res)
+				// Calculate the overhead weight of this dispatchable.
+				let overhead = T::WeightInfo::eth_substrate_call_upload_code(0u32)
+					.saturating_sub(T::WeightInfo::upload_code(0u32));
+
+				let mut call_result = call.dispatch(RawOrigin::Signed(signer).into());
+
+				// Add overhead to the actual weight in PostDispatchInfo
+				match &mut call_result {
+					Ok(post_info) | Err(DispatchErrorWithPostInfo { post_info, .. }) => {
+						post_info.actual_weight = Some(
+							post_info
+								.actual_weight
+								.unwrap_or_else(|| Weight::zero())
+								.saturating_add(overhead),
+						);
+					},
+				}
+
+				// Return zero for EVM gas consumed since this extrinsic is called via substrate
+				// transaction. The gas value here is only used for building the Ethereum
+				// transaction receipt. The actual weight consumed is already tracked in
+				// `post_info.actual_weight`.
+				(Weight::zero(), call_result)
 			})
 		}
 
