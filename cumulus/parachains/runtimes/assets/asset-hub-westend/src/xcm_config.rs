@@ -23,7 +23,7 @@ use super::{
 use alloc::{collections::BTreeSet, vec, vec::Vec};
 use assets_common::{
 	matching::{
-		NonTeleportableAssetFromTrustedReserve, IsForeignConcreteAsset, ParentLocation,
+		IsForeignConcreteAsset, NonTeleportableAssetFromTrustedReserve, ParentLocation,
 		TeleportableAssetWithTrustedReserve,
 	},
 	TrustBackedAssetsAsLocation,
@@ -363,7 +363,9 @@ pub type WaivedLocations = (
 // Asset Hub accepts incoming reserve transfers only for "Foreign Assets" and only from locations
 // explicitly set by the asset's owner.
 pub type TrustedReserves = (
-	IsForeignConcreteAsset<NonTeleportableAssetFromTrustedReserve<AssetHubParaId, crate::ForeignAssets>>,
+	IsForeignConcreteAsset<
+		NonTeleportableAssetFromTrustedReserve<AssetHubParaId, crate::ForeignAssets>,
+	>,
 );
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
@@ -373,7 +375,9 @@ pub type TrustedReserves = (
 ///   `Here` and `origin` are both trusted reserve locations).
 pub type TrustedTeleporters = (
 	ConcreteAssetFromSystem<WestendLocation>,
-	IsForeignConcreteAsset<TeleportableAssetWithTrustedReserve<AssetHubParaId, crate::ForeignAssets>>,
+	IsForeignConcreteAsset<
+		TeleportableAssetWithTrustedReserve<AssetHubParaId, crate::ForeignAssets>,
+	>,
 );
 
 /// Defines origin aliasing rules for this chain.
