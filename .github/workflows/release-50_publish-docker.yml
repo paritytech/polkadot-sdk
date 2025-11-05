@@ -1,4 +1,3 @@
-# Trigger comment
 name: Release - Publish Docker Image
 
 # This workflow listens to published releases or can be triggered manually.

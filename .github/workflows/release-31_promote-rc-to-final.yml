@@ -1,4 +1,3 @@
-# Trigger comment
 name: Release - Promote RC to final candidate on S3
 
 on:
