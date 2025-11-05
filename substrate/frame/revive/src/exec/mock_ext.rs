@@ -17,7 +17,10 @@
 
 #![cfg(test)]
 use crate::{
-	exec::{AccountIdOf, ExecError, Ext, Key, Origin, PrecompileExt, PrecompileWithInfoExt},
+	exec::{
+		AccountIdOf, ExecError, ExportedFunction, Ext, Key, Origin, PrecompileExt,
+		PrecompileWithInfoExt,
+	},
 	gas::GasMeter,
 	precompiles::Diff,
 	storage::{ContractInfo, WriteOutcome},
@@ -239,6 +242,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 	}
 
 	fn charge_storage(&mut self, _diff: &Diff) {}
+
+	fn entry_point(&self) -> ExportedFunction {
+		panic!("MockExt::entry_point")
+	}
 }
 
 impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
