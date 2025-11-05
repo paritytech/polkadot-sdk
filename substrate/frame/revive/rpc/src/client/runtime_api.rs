@@ -77,11 +77,27 @@ impl RuntimeApi {
 			_ => None,
 		};
 
-		// TODO fallback to eth_transact when eth_transact_with_config not available
-		let payload = subxt_client::apis()
-			.revive_api()
-			.eth_transact_with_config(tx.into(), DryRunConfig { timestamp_override }.into());
-		// let payload = subxt_client::apis().revive_api().eth_transact(tx.into());
+		let payload = subxt_client::apis().revive_api().eth_transact_with_config(
+			tx.clone().into(),
+			DryRunConfig { timestamp_override }.into(),
+		);
+
+		// check if eth_transact_with_config is available
+		if let Err(err) = self.0.validate(&payload) {
+			log::debug!(target: LOG_TARGET, "Validate failed {err:?}");
+			// Fallback to eth_transact if validation fails
+			let payload = subxt_client::apis().revive_api().eth_transact(tx.into());
+			let result = self.0.call(payload).await?;
+			return match result {
+				Err(err) => {
+					log::debug!(target: LOG_TARGET, "Dry run failed {err:?}");
+					Err(ClientError::TransactError(err.0))
+				},
+				Ok(result) => Ok(result.0),
+			};
+		}
+
+		// Validation passed, call dry run
 		let result = self.0.call(payload).await?;
 		match result {
 			Err(err) => {
