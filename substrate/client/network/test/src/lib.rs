@@ -673,7 +673,13 @@ impl<B: BlockT> WarpSyncProvider<B> for TestWarpSyncProvider<B> {
 	) -> Result<VerificationResult<B>, Box<dyn std::error::Error + Send + Sync>> {
 		let EncodedProof(encoded) = proof;
 		let header = B::Header::decode(&mut encoded.as_slice()).unwrap();
-		Ok(VerificationResult::Complete(0, Default::default(), header, Default::default()))
+		Ok(VerificationResult::Complete(
+			0,
+			Default::default(),
+			header,
+			Default::default(),
+			Default::default(),
+		))
 	}
 	fn current_authorities(&self) -> AuthorityList {
 		Default::default()

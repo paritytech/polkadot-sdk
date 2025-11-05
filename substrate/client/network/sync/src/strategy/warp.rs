@@ -1303,6 +1303,7 @@ mod test {
 					authorities,
 					target_header.hash(),
 					vec![(target_header, justifications)],
+					Default::default(),
 				))
 			});
 		}
@@ -1387,6 +1388,7 @@ mod test {
 					authorities,
 					target_header.clone(),
 					vec![(target_header, justifications)],
+					Default::default(),
 				))
 			});
 		}
@@ -1492,7 +1494,13 @@ mod test {
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
 		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header, Default::default()))
+			Ok(VerificationResult::Complete(
+				set_id,
+				authorities,
+				target_header,
+				Default::default(),
+				Default::default(),
+			))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
@@ -1566,7 +1574,13 @@ mod test {
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
 		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header, Default::default()))
+			Ok(VerificationResult::Complete(
+				set_id,
+				authorities,
+				target_header,
+				Default::default(),
+				Default::default(),
+			))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
@@ -1605,7 +1619,13 @@ mod test {
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
 		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header, Default::default()))
+			Ok(VerificationResult::Complete(
+				set_id,
+				authorities,
+				target_header,
+				Default::default(),
+				Default::default(),
+			))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
@@ -1660,7 +1680,13 @@ mod test {
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
 		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header, Default::default()))
+			Ok(VerificationResult::Complete(
+				set_id,
+				authorities,
+				target_header,
+				Default::default(),
+				Default::default(),
+			))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
@@ -1738,7 +1764,13 @@ mod test {
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
 		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header, Default::default()))
+			Ok(VerificationResult::Complete(
+				set_id,
+				authorities,
+				target_header,
+				Default::default(),
+				Default::default(),
+			))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
@@ -1792,7 +1824,13 @@ mod test {
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
 		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header, Default::default()))
+			Ok(VerificationResult::Complete(
+				set_id,
+				authorities,
+				target_header,
+				Default::default(),
+				Default::default(),
+			))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
