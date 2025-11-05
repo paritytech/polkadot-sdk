@@ -2500,13 +2500,14 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 						true,
 						1u128,
 					));
+					let reserves = ForeignAssetReserveData { reserve, teleportable: false };
 					// set trusted reserve
 					assert_ok!(ForeignAssets::set_reserves(
 						RuntimeOrigin::signed(account),
 						roc_id.clone().into(),
-						vec![reserve.clone()],
+						vec![reserves.clone()],
 					));
-					Some((roc, reserve))
+					Some((roc, reserves.reserve))
 				}
 			}
 

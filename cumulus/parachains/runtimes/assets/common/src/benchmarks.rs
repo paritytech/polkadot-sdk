@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::local_and_foreign_assets::ForeignAssetReserveData;
 use core::{fmt::Debug, marker::PhantomData};
 use cumulus_primitives_core::ParaId;
 use sp_runtime::traits::Get;
@@ -21,14 +22,14 @@ use xcm::latest::prelude::*;
 /// Simple conversion of `u32` into an `AssetId` and `ReserveData` for use in benchmarking.
 pub struct LocationAssetsBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_assets::BenchmarkHelper<xcm::v5::Location, xcm::v5::Location>
+impl pallet_assets::BenchmarkHelper<xcm::v5::Location, ForeignAssetReserveData>
 	for LocationAssetsBenchmarkHelper
 {
 	fn create_asset_id_parameter(id: u32) -> xcm::v5::Location {
 		xcm::v5::Location::new(1, [xcm::v5::Junction::Parachain(id)])
 	}
-	fn create_reserve_id_parameter(id: u32) -> xcm::v5::Location {
-		xcm::v5::Location::new(1, [xcm::v5::Junction::Parachain(id)])
+	fn create_reserve_id_parameter(id: u32) -> ForeignAssetReserveData {
+		(xcm::v5::Location::new(1, [xcm::v5::Junction::Parachain(id)]), false).into()
 	}
 }
 

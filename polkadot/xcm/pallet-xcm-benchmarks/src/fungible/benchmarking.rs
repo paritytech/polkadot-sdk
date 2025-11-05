@@ -117,7 +117,9 @@ benchmarks_instance_pallet! {
 	}
 
 	reserve_asset_deposited {
-		let (trusted_reserve, transferable_reserve_asset) = T::TrustedReserve::get()
+		let (trusted_reserve, transferable_reserve_asset) = T::TrustedReserve::get().or_else(|| {
+			T::get_foreign_asset().map(|(asset, location)| (location, asset))
+		})
 			.ok_or(BenchmarkError::Override(
 				BenchmarkResult::from_weight(Weight::MAX)
 			))?;
