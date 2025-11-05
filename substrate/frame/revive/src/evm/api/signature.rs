@@ -42,6 +42,8 @@ impl TransactionUnsigned {
 		match tx {
 			TransactionSigned::TransactionLegacySigned(signed) =>
 				Self::TransactionLegacyUnsigned(signed.transaction_legacy_unsigned),
+			TransactionSigned::Transaction7702Signed(signed) =>
+				Self::Transaction7702Unsigned(signed.transaction_7702_unsigned),
 			TransactionSigned::Transaction4844Signed(signed) =>
 				Self::Transaction4844Unsigned(signed.transaction_4844_unsigned),
 			TransactionSigned::Transaction1559Signed(signed) =>
@@ -58,6 +60,15 @@ impl TransactionUnsigned {
 		let recovery_id = signature[64];
 
 		match self {
+			TransactionUnsigned::Transaction7702Unsigned(transaction_7702_unsigned) =>
+				Transaction7702Signed {
+					transaction_7702_unsigned,
+					r,
+					s,
+					v: None,
+					y_parity: U256::from(recovery_id),
+				}
+				.into(),
 			TransactionUnsigned::Transaction2930Unsigned(transaction_2930_unsigned) =>
 				Transaction2930Signed {
 					transaction_2930_unsigned,
@@ -108,6 +119,7 @@ impl TransactionSigned {
 		use TransactionSigned::*;
 		let (r, s, v) = match self {
 			TransactionLegacySigned(tx) => (tx.r, tx.s, tx.extract_recovery_id().ok_or(())?),
+			Transaction7702Signed(tx) => (tx.r, tx.s, tx.y_parity.try_into().map_err(|_| ())?),
 			Transaction4844Signed(tx) => (tx.r, tx.s, tx.y_parity.try_into().map_err(|_| ())?),
 			Transaction1559Signed(tx) => (tx.r, tx.s, tx.y_parity.try_into().map_err(|_| ())?),
 			Transaction2930Signed(tx) => (tx.r, tx.s, tx.y_parity.try_into().map_err(|_| ())?),
@@ -127,6 +139,11 @@ impl TransactionSigned {
 		match self {
 			TransactionLegacySigned(tx) => {
 				let tx = &tx.transaction_legacy_unsigned;
+				s.append(tx);
+			},
+			Transaction7702Signed(tx) => {
+				let tx = &tx.transaction_7702_unsigned;
+				s.append(&tx.r#type.value());
 				s.append(tx);
 			},
 			Transaction4844Signed(tx) => {

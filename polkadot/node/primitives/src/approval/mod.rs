@@ -291,12 +291,11 @@ pub mod v2 {
 		}
 
 		/// Returns an iterator over inner bits.
-		pub fn iter_ones(&self) -> bitvec::slice::IterOnes<u8, bitvec::order::Lsb0> {
+		pub fn iter_ones(&self) -> bitvec::slice::IterOnes<'_, u8, bitvec::order::Lsb0> {
 			self.0.iter_ones()
 		}
 
 		/// For testing purpose, we want a inner mutable ref.
-		#[cfg(test)]
 		pub fn inner_mut(&mut self) -> &mut BitVec<u8, bitvec::order::Lsb0> {
 			&mut self.0
 		}

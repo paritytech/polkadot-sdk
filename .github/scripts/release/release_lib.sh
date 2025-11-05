@@ -195,6 +195,9 @@ function get_s3_url_base() {
       eth-rpc)
         printf "releases.parity.io/eth-rpc"
         ;;
+      subkey)
+        printf "releases.parity.io/subkey"
+        ;;
       *)
         printf "UNSUPPORTED BINARY $name"
         exit 1

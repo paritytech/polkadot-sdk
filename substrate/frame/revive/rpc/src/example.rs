@@ -27,6 +27,7 @@ pub struct TransactionBuilder<Client: EthRpcClient + Sync + Send> {
 	value: U256,
 	input: Bytes,
 	to: Option<H160>,
+	nonce: Option<U256>,
 	mutate: Box<dyn FnOnce(&mut TransactionLegacyUnsigned)>,
 }
 
@@ -48,6 +49,10 @@ impl<Client: EthRpcClient + Sync + Send> SubmittedTransaction<Client> {
 		self.tx.gas.unwrap()
 	}
 
+	pub fn generic_transaction(&self) -> GenericTransaction {
+		self.tx.clone()
+	}
+
 	/// Wait for the receipt of the transaction.
 	pub async fn wait_for_receipt(&self) -> anyhow::Result<ReceiptInfo> {
 		let hash = self.hash();
@@ -62,7 +67,7 @@ impl<Client: EthRpcClient + Sync + Send> SubmittedTransaction<Client> {
 					);
 					return Ok(receipt)
 				} else {
-					anyhow::bail!("Transaction failed")
+					anyhow::bail!("Transaction failed receipt: {receipt:?}")
 				}
 			}
 		}
@@ -79,6 +84,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 			value: U256::zero(),
 			input: Bytes::default(),
 			to: None,
+			nonce: None,
 			mutate: Box::new(|_| {}),
 		}
 	}
@@ -103,6 +109,12 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 	/// Set the destination.
 	pub fn to(mut self, to: H160) -> Self {
 		self.to = Some(to);
+		self
+	}
+
+	/// Set the nonce.
+	pub fn nonce(mut self, nonce: U256) -> Self {
+		self.nonce = Some(nonce);
 		self
 	}
 
@@ -135,15 +147,19 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 
 	/// Send the transaction.
 	pub async fn send(self) -> anyhow::Result<SubmittedTransaction<Client>> {
-		let TransactionBuilder { client, signer, value, input, to, mutate } = self;
+		let TransactionBuilder { client, signer, value, input, to, nonce, mutate } = self;
 
 		let from = signer.address();
 		let chain_id = Some(client.chain_id().await?);
 		let gas_price = client.gas_price().await?;
-		let nonce = client
-			.get_transaction_count(from, BlockTag::Latest.into())
-			.await
-			.with_context(|| "Failed to fetch account nonce")?;
+		let nonce = if let Some(nonce) = nonce {
+			nonce
+		} else {
+			client
+				.get_transaction_count(from, BlockTag::Latest.into())
+				.await
+				.with_context(|| "Failed to fetch account nonce")?
+		};
 
 		let gas = client
 			.estimate_gas(
@@ -180,7 +196,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 		let hash = client
 			.send_raw_transaction(bytes.into())
 			.await
-			.with_context(|| "transaction failed")?;
+			.with_context(|| "send_raw_transaction failed")?;
 
 		Ok(SubmittedTransaction {
 			tx: GenericTransaction::from_signed(signed_tx, gas_price, Some(from)),

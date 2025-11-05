@@ -340,6 +340,10 @@ pub use pallet_assets_freezer;
 #[cfg(feature = "pallet-assets-holder")]
 pub use pallet_assets_holder;
 
+/// Provides precompiles for `pallet-assets`.
+#[cfg(feature = "pallet-assets-precompiles")]
+pub use pallet_assets_precompiles;
+
 /// FRAME atomic swap pallet.
 #[cfg(feature = "pallet-atomic-swap")]
 pub use pallet_atomic_swap;
@@ -535,6 +539,10 @@ pub use pallet_mixnet;
 #[cfg(feature = "pallet-mmr")]
 pub use pallet_mmr;
 
+/// FRAME pallet to manage multi-asset and cross-chain bounties.
+#[cfg(feature = "pallet-multi-asset-bounties")]
+pub use pallet_multi_asset_bounties;
+
 /// FRAME multi-signature dispatch pallet.
 #[cfg(feature = "pallet-multisig")]
 pub use pallet_multisig;
@@ -578,6 +586,14 @@ pub use pallet_offences;
 /// FRAME offences pallet benchmarking.
 #[cfg(feature = "pallet-offences-benchmarking")]
 pub use pallet_offences_benchmarking;
+
+/// FRAME oracle pallet for off-chain data.
+#[cfg(feature = "pallet-oracle")]
+pub use pallet_oracle;
+
+/// Runtime API for the oracle pallet.
+#[cfg(feature = "pallet-oracle-runtime-api")]
+pub use pallet_oracle_runtime_api;
 
 /// Pallet to give some execution allowance for some origins.
 #[cfg(feature = "pallet-origin-restriction")]
@@ -623,10 +639,6 @@ pub use pallet_remark;
 /// FRAME pallet for PolkaVM contracts.
 #[cfg(feature = "pallet-revive")]
 pub use pallet_revive;
-
-/// An Ethereum JSON-RPC server for pallet-revive.
-#[cfg(feature = "pallet-revive-eth-rpc")]
-pub use pallet_revive_eth_rpc;
 
 /// Procedural macros used in pallet_revive.
 #[cfg(feature = "pallet-revive-proc-macro")]
@@ -794,6 +806,10 @@ pub use pallet_xcm_bridge_hub;
 /// Bridge hub interface for sibling/parent chains with dynamic fees support.
 #[cfg(feature = "pallet-xcm-bridge-hub-router")]
 pub use pallet_xcm_bridge_hub_router;
+
+/// Provides precompiles for `pallet-xcm`.
+#[cfg(feature = "pallet-xcm-precompiles")]
+pub use pallet_xcm_precompiles;
 
 /// Logic which is common to all parachain runtimes.
 #[cfg(feature = "parachains-common")]
@@ -979,6 +995,10 @@ pub use polkadot_parachain_primitives;
 /// Shared primitives used by Polkadot runtime.
 #[cfg(feature = "polkadot-primitives")]
 pub use polkadot_primitives;
+
+/// Test helpers for Polkadot runtime primitives.
+#[cfg(feature = "polkadot-primitives-test-helpers")]
+pub use polkadot_primitives_test_helpers;
 
 /// Polkadot specific RPC functionality.
 #[cfg(feature = "polkadot-rpc")]

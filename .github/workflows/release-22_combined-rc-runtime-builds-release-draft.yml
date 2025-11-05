@@ -1,0 +1,107 @@
+name: Release - Combined Builds Flow
+
+on:
+  workflow_dispatch:
+    inputs:
+      chain:
+        description: The chain to use for runtime builds
+        default: all
+        required: true
+        type: choice
+        options:
+          - all
+          - westend
+          - asset-hub-westend
+          - bridge-hub-westend
+          - collectives-westend
+          - coretime-westend
+          - glutton-westend
+          - people-westend
+      runtime_dir:
+        description: The runtime dir to be used (⚠️ this parameter is optional and needed only in case of the single runtime build, set it accordingly to the runtime you want to build)
+        default: polkadot/runtime/westend
+        type: choice
+        options:
+          - polkadot/runtime/westend
+          - cumulus/parachains/runtimes/assets/asset-hub-westend
+          - cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend
+          - cumulus/parachains/runtimes/collectives/collectives-westend
+          - cumulus/parachains/runtimes/coretime/coretime-westend
+          - cumulus/parachains/runtimes/people/people-westend
+          - cumulus/parachains/runtimes/glutton/glutton-westend
+      binary:
+        description: Binary to be built for the release candidate
+        default: all
+        type: choice
+        options:
+          - polkadot
+          - polkadot-parachain
+          - polkadot-omni-node
+          - frame-omni-bencher
+          - chain-spec-builder
+          - substrate-node
+          - eth-rpc
+          - subkey
+          - all
+      release_tag:
+        description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcY or polkadot-stableYYMM(-X)
+        type: string
+        required: true
+
+jobs:
+  check-synchronization:
+    uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
+    secrets:
+      fork_writer_app_key: ${{ secrets.UPSTREAM_CONTENT_SYNC_APP_KEY }}
+
+  validate-inputs:
+    needs: [check-synchronization]
+    if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Validate inputs
+        id: validate_inputs
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          RELEASE_TAG=$(validate_stable_tag ${{ inputs.release_tag }})
+          echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
+
+  build-runtimes-flow:
+    needs: [validate-inputs]
+    uses: "./.github/workflows/release-21_build-runtimes.yml"
+    with:
+      chain: ${{ inputs.chain }}
+      runtime_dir: ${{ inputs.runtime_dir }}
+      release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+    secrets: inherit
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+
+  build-rc-flow:
+    needs: [validate-inputs]
+    uses: "./.github/workflows/release-20_build-rc.yml"
+    with:
+      binary: ${{ inputs.binary }}
+      release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+    secrets: inherit
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+
+  trigger-release-draft:
+    needs: [build-runtimes-flow, build-rc-flow, validate-inputs]
+    uses: "./.github/workflows/release-30_publish_release_draft.yml"
+    with:
+      release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+      build_run_id: ${{ github.run_id }}
+      runtimes: '${{ needs.build-runtimes-flow.outputs.published_runtimes }}'
+    secrets: inherit

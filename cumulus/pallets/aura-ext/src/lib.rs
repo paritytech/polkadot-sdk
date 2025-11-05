@@ -25,7 +25,6 @@
 //! ```
 //! # struct Runtime;
 //! # struct Executive;
-//! # struct CheckInherents;
 //! cumulus_pallet_parachain_system::register_validate_block! {
 //!     Runtime = Runtime,
 //!     BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
@@ -37,7 +36,7 @@
 use frame_support::traits::{ExecuteBlock, FindAuthor};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_consensus_aura::{digests::CompatibleDigestItem, Slot};
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, LazyBlock};
 
 pub mod consensus_hook;
 pub mod migration;
@@ -125,8 +124,8 @@ where
 	T: Config,
 	I: ExecuteBlock<Block>,
 {
-	fn execute_block(block: Block) {
-		let (mut header, extrinsics) = block.deconstruct();
+	fn execute_block(mut block: Block::LazyBlock) {
+		let header = block.header_mut();
 		// We need to fetch the authorities before we execute the block, to get the authorities
 		// before any potential update.
 		let authorities = Authorities::<T>::get();
@@ -164,6 +163,6 @@ where
 			panic!("Invalid AuRa seal");
 		}
 
-		I::execute_block(Block::new(header, extrinsics));
+		I::execute_block(block);
 	}
 }
