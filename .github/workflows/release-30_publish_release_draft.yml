@@ -81,7 +81,7 @@ jobs:
         with:
             app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
             private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
-            owner: BDevParity
+            owner: paritytech
             repositories: polkadot-sdk
 
       - name: Download runtimes artifacts
@@ -171,7 +171,7 @@ jobs:
         with:
             app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
             private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
-            owner: BDevParity
+            owner: paritytech
             repositories: polkadot-sdk
 
       - name: Download runtimes
@@ -240,7 +240,7 @@ jobs:
         with:
             app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
             private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
-            owner: BDevParity
+            owner: paritytech
             repositories: polkadot-sdk
 
       - name: Upload ${{ matrix.binary }} binary to release draft
