@@ -323,8 +323,6 @@ where
 			})
 			.collect::<Vec<_>>();
 
-		//let eras_verified = proof.proofs.len() as u64;
-
 		if proof.is_finished {
 			Ok(VerificationResult::<Block>::Complete(
 				next_set_id,
