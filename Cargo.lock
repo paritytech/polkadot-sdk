@@ -3750,22 +3750,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "conviction-voting-precompiles"
-version = "0.1.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "pallet-balances",
- "pallet-conviction-voting",
- "pallet-revive",
- "parity-scale-codec",
- "scale-info",
- "sp-io",
- "sp-runtime",
- "tracing",
-]
-
-[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12199,15 +12183,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-conviction-voting-precompiles"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-conviction-voting",
+ "pallet-revive",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+ "sp-runtime",
+ "tracing",
+]
+
+[[package]]
 name = "pallet-conviction-voting-precompiles-benchmarks"
 version = "0.1.0"
 dependencies = [
- "conviction-voting-precompiles",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-balances",
  "pallet-conviction-voting",
+ "pallet-conviction-voting-precompiles",
  "pallet-revive",
  "parity-scale-codec",
  "scale-info",
@@ -16600,6 +16600,7 @@ dependencies = [
  "pallet-contracts-proc-macro",
  "pallet-contracts-uapi",
  "pallet-conviction-voting",
+ "pallet-conviction-voting-precompiles",
  "pallet-core-fellowship",
  "pallet-delegated-staking",
  "pallet-democracy",

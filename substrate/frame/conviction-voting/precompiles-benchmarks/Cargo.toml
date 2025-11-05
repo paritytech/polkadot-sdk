@@ -23,7 +23,7 @@ frame-support = { workspace = true }
 pallet-revive = { workspace = true }
 
 pallet-conviction-voting = { workspace = true }
-conviction-voting-precompiles = {workspace = true, default-features = true}
+pallet-conviction-voting-precompiles = {workspace = true, default-features = true}
 
 frame-benchmarking = { workspace = true }
 frame-system = { workspace = true, default-features = true }
