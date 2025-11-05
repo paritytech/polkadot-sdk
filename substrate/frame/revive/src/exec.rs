@@ -957,9 +957,10 @@ where
 		if let Some(timestamp_override) =
 			exec_config.is_dry_run.as_ref().and_then(|cfg| cfg.timestamp_override)
 		{
-			block_number += 1u32.into();
+			block_number = block_number.saturating_add(1u32.into());
+			// Delta is in milliseconds; increment timestamp by one second
 			let delta = 1000u32.into();
-			timestamp = cmp::max(timestamp + delta, timestamp_override);
+			timestamp = cmp::max(timestamp.saturating_add(delta), timestamp_override);
 		}
 
 		let stack = Self {

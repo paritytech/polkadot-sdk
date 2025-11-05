@@ -79,7 +79,7 @@ impl RuntimeApi {
 
 		let payload = subxt_client::apis().revive_api().eth_transact_with_config(
 			tx.clone().into(),
-			DryRunConfig { timestamp_override }.into(),
+			DryRunConfig::new(timestamp_override).into(),
 		);
 		let result = match self.0.validate(&payload) {
 			Ok(_) => self.0.call(payload).await?,

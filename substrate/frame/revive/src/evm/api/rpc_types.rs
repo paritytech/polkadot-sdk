@@ -30,6 +30,15 @@ pub struct DryRunConfig<Moment> {
 	/// Used for future extensions without breaking encoding.
 	pub reserved: Option<()>,
 }
+impl<Moment> DryRunConfig<Moment> {
+	/// Create a new `DryRunConfig` with an optional timestamp override.
+	pub fn new(timestamp_override: Option<Moment>) -> Self {
+		Self {
+			timestamp_override,
+			reserved: None, // default value
+		}
+	}
+}
 
 impl From<BlockNumberOrTag> for BlockNumberOrTagOrHash {
 	fn from(b: BlockNumberOrTag) -> Self {
