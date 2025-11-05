@@ -1,4 +1,4 @@
-title: Xpan auto retry limit
+title: Add auto retry limit to Coretime autorenewal
 doc:
 - audience: Runtime Dev
   description: |-
