@@ -169,7 +169,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		let call = subxt_client::tx().revive().eth_transact(transaction.0);
 
 		// Subscribe to new block only when automine is enabled.
-		let receiver = self.client.tx_notifier().map(|sender| sender.subscribe());
+		let receiver = self.client.block_notifier().map(|sender| sender.subscribe());
 
 		// Submit the transaction
 		let substrate_hash = self.client.submit(call).await.map_err(|err| {
@@ -183,8 +183,14 @@ impl EthRpcServer for EthRpcServerImpl {
 		if let Some(mut receiver) = receiver {
 			if let Err(err) = tokio::time::timeout(Duration::from_millis(500), async {
 				loop {
-					if let Ok(mined_hash) = receiver.recv().await {
-						if mined_hash == hash {
+					if let Ok(block_hash) = receiver.recv().await {
+						let Ok(Some(block)) = self.client.block_by_hash(&block_hash).await else {
+							continue
+						};
+						let Some(evm_block) = self.client.evm_block(block, false).await else {
+							continue
+						};
+						if evm_block.transactions.transaction_present(hash) {
 							log::debug!(target: LOG_TARGET, "{hash:} was included in a block");
 							break;
 						}

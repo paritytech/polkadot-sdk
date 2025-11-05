@@ -540,6 +540,14 @@ impl HashesOrTransactionInfos {
 	pub fn is_empty(&self) -> bool {
 		self.len() == 0
 	}
+
+	pub fn transaction_present(&self, hash: H256) -> bool {
+		match self {
+			HashesOrTransactionInfos::Hashes(hashes) => hashes.iter().any(|h256| *h256 == hash),
+			HashesOrTransactionInfos::TransactionInfos(transaction_infos) =>
+				transaction_infos.iter().any(|ti| ti.hash == hash),
+		}
+	}
 }
 
 /// log
