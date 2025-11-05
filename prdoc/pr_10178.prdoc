@@ -10,27 +10,6 @@ doc:
     Introduce `T::MaxAutoRenewalRetries` constant in `Config` trait track retry count in `AutoRenewalRetries` storage map, increment on each failed renewal attempt. When retries >= max, emit `AutoRenewalFailed`, remove auto-renew record, and reset counter to 0. Add integration tests:
     - persistent retry when count < max
     - record removal when count >= max
-
-    ## Integration
-    Downstream projects using pallet-broker must define `MaxAutoRenewalRetries` config. They just need to pass a retries limit. Can be set to `0` for no retry. This is similar to current logic.
-
-    ## Review Notes
-    ### Changes:
-    1.  Added `MaxAutoRenewalRetries` to config trait. Default type is `u8`.
-    2. Added a storage for renewal retries record. This increments for failed retries. It resets on success or when renewal is cancelled.
-    3. Existing code needs to add the new configuration parameter.
-    4. Added the config parameter with default `constu8<2>` as in test into `coretime-rococo` and `coretime-westend`.
-
-    # Checklist
-
-    * [x] My PR includes a detailed description as outlined in the "Description" and its two subsections above.
-    * [x] My PR follows the [labeling requirements](
-    https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process
-    ) of this project (at minimum one label for `T` required)
-        * External contributors: Use `/cmd label <label-name>` to add labels
-        * Maintainers can also add labels manually
-    * [  ] I have made corresponding changes to the documentation (if applicable)
-    * [x] I have added tests that prove my fix is effective or that my feature works (if applicable)
 crates:
 - name: pallet-broker
   bump: major
