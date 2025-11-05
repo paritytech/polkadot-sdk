@@ -147,18 +147,19 @@ fn timestamp_dry_run_override_works(fixture_type: FixtureType) {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-		let timestamp_override = Some(Timestamp::get() + 10_000);
+		let timestamp_override = Timestamp::get() + 10_000;
 		let result: crate::ExecReturnValue = builder::bare_call(addr)
 			.data(BlockInfo::BlockInfoCalls::timestamp(BlockInfo::timestampCall {}).abi_encode())
 			.exec_config(
-				ExecConfig::new_substrate_tx().with_dry_run(DryRunConfig { timestamp_override }),
+				ExecConfig::new_substrate_tx()
+					.with_dry_run(DryRunConfig { timestamp_override: Some(timestamp_override) }),
 			)
 			.build_and_unwrap_result();
 		let decoded = BlockInfo::timestampCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(
 			// Solidity expects timestamps in seconds, whereas pallet_timestamp uses
 			// milliseconds.
-			(timestamp_override.unwrap() / 1000) as u64,
+			(timestamp_override / 1000) as u64,
 			decoded
 		);
 	});
