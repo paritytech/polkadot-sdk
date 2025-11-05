@@ -1,7 +1,6 @@
 # This workflow has combined functionality of branching-off a new stable release branch and tagging an RC.
 # The options to branch-off and/or tag an RC can be chosen independently by ticking the appropriate checkbox in the launching form,
 # as the branch-off happens only ones per quarter and a tagging activity done more frequently for each new RC during the release process.
-# aa
 name: Release - Branch off stable branch and/or tag rc
 
 on:
