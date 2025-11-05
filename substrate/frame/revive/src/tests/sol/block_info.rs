@@ -63,12 +63,13 @@ fn block_number_dry_run_works(fixture_type: FixtureType) {
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		System::set_block_number(42);
+		let override_ts = Timestamp::get() + 10_000;
 
 		let result = builder::bare_call(addr)
 			.data(
 				BlockInfo::BlockInfoCalls::blockNumber(BlockInfo::blockNumberCall {}).abi_encode(),
 			)
-			.exec_config(ExecConfig::new_substrate_tx().with_dry_run(Some(43)))
+			.exec_config(ExecConfig::new_substrate_tx().with_dry_run(Some(override_ts)))
 			.build_and_unwrap_result();
 		let decoded = BlockInfo::blockNumberCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(43u64, decoded);

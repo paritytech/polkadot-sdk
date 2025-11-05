@@ -145,7 +145,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		block: Option<BlockNumberOrTag>,
 	) -> RpcResult<U256> {
 		log::trace!(target: LOG_TARGET, "estimate_gas transaction={transaction:?} block={block:?}");
-		let block = block.unwrap_or(BlockNumberOrTag::BlockTag(BlockTag::Pending));
+		let block = block.unwrap_or_default();
 		let hash = self.client.block_hash_for_tag(block.clone().into()).await?;
 		let runtime_api = self.client.runtime_api(hash);
 		let dry_run = runtime_api.dry_run(transaction, block.into()).await?;

@@ -319,6 +319,13 @@ where
 	}
 }
 
+/// Configuration specific to a dry-run execution.
+#[derive(Clone)]
+pub struct DryRunConfig {
+	/// Optional timestamp override for dry-run in pending block.
+	pub timestamp_override: Option<u64>,
+}
+
 /// `Stack` wide configuration options.
 pub struct ExecConfig<T: Config> {
 	/// Indicates whether the account nonce should be incremented after instantiating a new
@@ -349,9 +356,7 @@ pub struct ExecConfig<T: Config> {
 	pub effective_gas_price: Option<U256>,
 	/// Whether this configuration was created for a dry-run execution.
 	/// Use to enable logic that should only run in dry-run mode.
-	pub is_dry_run: bool,
-	/// An optional timestamp override for dry-run executions.
-	pub dry_run_timestamp_override: Option<u64>,
+	pub is_dry_run: Option<DryRunConfig>,
 	/// An optional mock handler that can be used to override certain behaviors.
 	/// This is primarily used for testing purposes and should be `None` in production
 	/// environments.
@@ -365,8 +370,7 @@ impl<T: Config> ExecConfig<T> {
 			bump_nonce: true,
 			collect_deposit_from_hold: None,
 			effective_gas_price: None,
-			is_dry_run: false,
-			dry_run_timestamp_override: None,
+			is_dry_run: None,
 			mock_handler: None,
 		}
 	}
@@ -377,8 +381,7 @@ impl<T: Config> ExecConfig<T> {
 			collect_deposit_from_hold: None,
 			effective_gas_price: None,
 			mock_handler: None,
-			is_dry_run: false,
-			dry_run_timestamp_override: None,
+			is_dry_run: None,
 		}
 	}
 
@@ -389,15 +392,13 @@ impl<T: Config> ExecConfig<T> {
 			collect_deposit_from_hold: Some((encoded_len, base_weight)),
 			effective_gas_price: Some(effective_gas_price),
 			mock_handler: None,
-			is_dry_run: false,
-			dry_run_timestamp_override: None,
+			is_dry_run: None,
 		}
 	}
 
 	/// Set this config to be a dry-run.
 	pub fn with_dry_run(mut self, timestamp: Option<u64>) -> Self {
-		self.is_dry_run = true;
-		self.dry_run_timestamp_override = timestamp;
+		self.is_dry_run = Some(DryRunConfig { timestamp_override: timestamp });
 		self
 	}
 }

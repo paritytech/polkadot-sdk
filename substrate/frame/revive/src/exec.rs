@@ -954,14 +954,14 @@ where
 		let mut latest_timestamp = T::Time::now();
 		let mut block_number = <frame_system::Pallet<T>>::block_number();
 		// if dry run with timestamp override is provided we simulate the run in a `pending` block
-		if exec_config.is_dry_run {
-			if let Some(ts_override) = exec_config.dry_run_timestamp_override {
-				block_number += 1u32.saturated_into();
-				let moment_override: <<T as Config>::Time as Time>::Moment =
-					ts_override.saturated_into();
-				let delta: <<T as Config>::Time as Time>::Moment = 1000u64.saturated_into();
-				latest_timestamp = cmp::max(latest_timestamp + delta, moment_override);
-			}
+		if let Some(moment_override) =
+			exec_config.is_dry_run.as_ref().and_then(|cfg| cfg.timestamp_override)
+		{
+			block_number += 1u32.saturated_into();
+			let moment_override: <<T as Config>::Time as Time>::Moment =
+				moment_override.saturated_into();
+			let delta: <<T as Config>::Time as Time>::Moment = 1000u64.saturated_into();
+			latest_timestamp = cmp::max(latest_timestamp + delta, moment_override);
 		}
 
 		let stack = Self {
@@ -1336,7 +1336,7 @@ where
 					// When a dry-run simulates contract deployment, keep the execution result's
 					// data.
 					let data = if crate::tracing::if_tracing(|_| {}).is_none() &&
-						!self.exec_config.is_dry_run
+						self.exec_config.is_dry_run.is_none()
 					{
 						core::mem::replace(&mut output.data, Default::default())
 					} else {
