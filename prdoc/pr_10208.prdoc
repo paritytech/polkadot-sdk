@@ -1,0 +1,9 @@
+title: '`trace_block`: Support overwriting `execute_block`'
+doc:
+- audience: Node Dev
+  description: |-
+    This is required for example for parachains that require special extensions to be registered (e.g. `ProofSizeExt`) to succeed the block execution.
+    The node will make a best effort to detect whether its a parachain or not.
+crates:
+- name: sc-tracing
+  bump: patch
