@@ -347,7 +347,7 @@ fn pay_xcm_fee_with_some_asset_swapped_for_native() {
 	});
 
 	PenpalA::execute_with(|| {
-		// send xcm transact from `penpal` account which while paying with `ASSET_ID` tokens on
+		// send xcm transact from `penpal` account while paying with `ASSET_ID` tokens on
 		// `AssetHubWestend`
 		let call = <AssetHubWestend as Chain>::RuntimeCall::System(frame_system::Call::<
 			<AssetHubWestend as Chain>::Runtime,
