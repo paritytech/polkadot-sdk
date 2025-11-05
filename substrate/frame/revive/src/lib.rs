@@ -1224,7 +1224,8 @@ pub mod pallet {
 			effective_gas_price: U256,
 			encoded_len: u32,
 		) -> DispatchResultWithPostInfo {
-			let origin = Self::ensure_eth_origin(origin)?;
+			let signer = Self::ensure_eth_signed(origin)?;
+			let origin = OriginFor::<T>::signed(signer.clone());
 			Self::ensure_non_contract_if_signed(&origin)?;
 			let mut call = Call::<T>::eth_instantiate_with_code {
 				value,
@@ -1241,7 +1242,7 @@ pub mod pallet {
 			drop(call);
 
 			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
-				let mut output = Self::bare_instantiate(
+				let output = Self::bare_instantiate(
 					origin,
 					value,
 					gas_limit,
@@ -1256,19 +1257,14 @@ pub mod pallet {
 					),
 				);
 
-				if let Ok(retval) = &output.result {
-					if retval.result.did_revert() {
-						output.result = Err(<Error<T>>::ContractReverted.into());
-					}
-				}
-
-				let result = dispatch_result(
-					output.result.map(|result| result.result),
-					output.gas_consumed,
+				block_storage::EthereumCallResult::new::<T>(
+					signer,
+					output.map_result(|r| r.result),
 					base_info.call_weight,
-				);
-				let result = T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result);
-				(output.gas_consumed, result)
+					encoded_len,
+					&info,
+					effective_gas_price,
+				)
 			})
 		}
 
@@ -1290,7 +1286,9 @@ pub mod pallet {
 			effective_gas_price: U256,
 			encoded_len: u32,
 		) -> DispatchResultWithPostInfo {
-			let origin = Self::ensure_eth_origin(origin)?;
+			let signer = Self::ensure_eth_signed(origin)?;
+			let origin = OriginFor::<T>::signed(signer.clone());
+
 			Self::ensure_non_contract_if_signed(&origin)?;
 			let mut call = Call::<T>::eth_call {
 				dest,
@@ -1307,7 +1305,7 @@ pub mod pallet {
 			drop(call);
 
 			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
-				let mut output = Self::bare_call(
+				let output = Self::bare_call(
 					origin,
 					dest,
 					value,
@@ -1321,16 +1319,14 @@ pub mod pallet {
 					),
 				);
 
-				if let Ok(return_value) = &output.result {
-					if return_value.did_revert() {
-						output.result = Err(<Error<T>>::ContractReverted.into());
-					}
-				}
-
-				let result =
-					dispatch_result(output.result, output.gas_consumed, base_info.call_weight);
-				let result = T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result);
-				(output.gas_consumed, result)
+				block_storage::EthereumCallResult::new::<T>(
+					signer,
+					output,
+					base_info.call_weight,
+					encoded_len,
+					&info,
+					effective_gas_price,
+				)
 			})
 		}
 
@@ -2303,10 +2299,10 @@ impl<T: Config> Pallet<T> {
 		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
 	}
 
-	/// Tranform a [`Origin::EthTransaction`] into a signed origin.
-	fn ensure_eth_origin(origin: OriginFor<T>) -> Result<OriginFor<T>, DispatchError> {
+	// Returns Ok with the account that signed the eth transaction.
+	fn ensure_eth_signed(origin: OriginFor<T>) -> Result<AccountIdOf<T>, DispatchError> {
 		match <T as Config>::RuntimeOrigin::from(origin).into() {
-			Ok(Origin::EthTransaction(signer)) => Ok(OriginFor::<T>::signed(signer)),
+			Ok(Origin::EthTransaction(signer)) => Ok(signer),
 			_ => Err(BadOrigin.into()),
 		}
 	}
