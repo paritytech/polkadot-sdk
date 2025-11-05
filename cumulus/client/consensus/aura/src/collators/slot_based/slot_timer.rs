@@ -37,6 +37,20 @@ use std::{
 /// Defensive mechanism, corresponds to 12 cores at 6 second block time.
 const BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS: Duration = Duration::from_millis(500);
 
+/// Theoretically, the block production is capped at `BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS`.
+/// In practice, there might be slight deviations due to timing inaccuracies and delays.
+///
+/// This constant is taken into account while adjusting the authoring duration to fit into the slot.
+/// Therefore, it will only reduce the authoring duration if we are within the
+/// `BLOCK_PRODUCTION_ADJUSTMENT_MS` threshold of the next slot.
+///
+/// ### 12 cores 500ms blocks
+///
+/// For example, for 12 cores 500ms blocks: the next slot is scheduled in 490ms due to delays.
+/// In that case, we still want to attempt producing the block, as missing the slot would be worse
+/// than producing slightly too fast.
+const BLOCK_PRODUCTION_THRESHOLD_MS: Duration = Duration::from_millis(50);
+
 /// The amount of time the authoring duration of the last block production attempt
 /// should be reduced by to fit into the slot timing.
 const BLOCK_PRODUCTION_ADJUSTMENT_MS: Duration = Duration::from_millis(1000);
@@ -260,8 +274,16 @@ where
 		if authoring_duration >= deadline {
 			authoring_duration = deadline;
 
-			// Ensure we are not going below the minimum interval.
-			if authoring_duration < BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS {
+			// Ensure we are not going below the minimum interval within a reasonable threshold.
+			// For 12 cores, we might have a scenario where the last 3 blocks are skipped:
+			// - Block 10: next slot change in 1.493s:
+			// 	 - After adjusting the deadline: 1.493s - 1s = 0.493s the block could be produced
+			//     without issues.
+			// - Block 11: next slot change in 0.993s - skipped by the deadline
+			// - Block 12: next slot change in 0.493s - skipped by the deadline
+			if authoring_duration <
+				BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS.saturating_sub(BLOCK_PRODUCTION_THRESHOLD_MS)
+			{
 				tracing::warn!(
 					target: LOG_TARGET,
 					?authoring_duration,
