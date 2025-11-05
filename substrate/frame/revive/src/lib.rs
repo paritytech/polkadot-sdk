@@ -25,7 +25,6 @@ extern crate alloc;
 mod address;
 mod benchmarking;
 mod call_builder;
-mod debug;
 mod exec;
 mod gas;
 mod impl_fungibles;
@@ -38,6 +37,7 @@ mod transient_storage;
 mod vm;
 mod weightinfo_extension;
 
+pub mod debug;
 pub mod evm;
 pub mod migrations;
 pub mod mock;
@@ -564,6 +564,8 @@ pub mod pallet {
 		///
 		/// This happens if the passed `gas` inside the ethereum transaction is too low.
 		TxFeeOverdraw = 0x35,
+		/// `eth_substrate_call` can only be used in development.
+		EthSubstrateCallNotAllowed = 0x36,
 
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
@@ -1357,6 +1359,10 @@ pub mod pallet {
 			// Prevents recursion: the inner dispatch uses `RawOrigin::Signed`, which cannot
 			// re-enter `eth_substrate_call` (which requires `Origin::EthTransaction`).
 			let signer = ensure_signed(Self::ensure_eth_origin(origin)?)?;
+			if !DebugSettings::is_eth_substrate_call_allowed::<T>() {
+				log::warn!(target: LOG_TARGET, "eth_substrate_call can only be used in development.");
+				return Err(<Error<T>>::EthSubstrateCallNotAllowed.into());
+			}
 
 			block_storage::with_ethereum_context::<T>(call.encode(), || {
 				let call_weight = call.get_dispatch_info().call_weight;

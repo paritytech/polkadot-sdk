@@ -31,6 +31,7 @@ use frame_support::weights::{
 };
 use frame_system::limits::BlockWeights;
 use pallet_revive::{
+	debug::DebugSettings,
 	evm::{
 		fees::{BlockRatioFee, Info as FeeInfo},
 		runtime::EthExtra,
@@ -111,6 +112,12 @@ pub mod genesis_config_presets {
 					.collect::<Vec<_>>(),
 			},
 			sudo: SudoConfig { key: Some(Sr25519Keyring::Alice.to_account_id()) },
+			revive: ReviveConfig {
+				debug_settings: Some(DebugSettings::new(
+					false, // allow_unlimited_contract_size
+					true,  // allow_eth_substrate_calls
+				)),
+			},
 		})
 	}
 
