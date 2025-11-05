@@ -32,6 +32,10 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::{
 	storage::child::{self, ChildInfo},
+	traits::{
+		fungible::Inspect,
+		tokens::{Fortitude::Polite, Preservation::Preserve},
+	},
 	weights::{Weight, WeightMeter},
 	CloneNoBound, DebugNoBound, DefaultNoBound,
 };
@@ -157,15 +161,15 @@ impl<T: Config> AccountInfo<T> {
 	}
 
 	/// Returns the balance of the account at the given address.
-	pub fn balance(account: AccountIdOrAddress<T>) -> BalanceWithDust<BalanceOf<T>> {
-		use frame_support::traits::{
-			fungible::Inspect,
-			tokens::{Fortitude::Polite, Preservation::Preserve},
-		};
+	pub fn balance_of(account: AccountIdOrAddress<T>) -> BalanceWithDust<BalanceOf<T>> {
+		let info = <AccountInfoOf<T>>::get(account.address()).unwrap_or_default();
+		info.balance(&account.account_id())
+	}
 
-		let value = T::Currency::reducible_balance(&account.account_id(), Preserve, Polite);
-		let dust = <AccountInfoOf<T>>::get(account.address()).map(|a| a.dust).unwrap_or_default();
-		BalanceWithDust::new_unchecked::<T>(value, dust)
+	/// Returns the balance of this account info.
+	pub fn balance(&self, account: &AccountIdOf<T>) -> BalanceWithDust<BalanceOf<T>> {
+		let value = T::Currency::reducible_balance(account, Preserve, Polite);
+		BalanceWithDust::new_unchecked::<T>(value, self.dust)
 	}
 
 	/// Loads the contract information for a given address.
