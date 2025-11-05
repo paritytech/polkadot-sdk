@@ -90,9 +90,10 @@ impl<B: BlockT> InformantDisplay<B> {
 		} else {
 			(diff_bytes_inbound, diff_bytes_outbound)
 		};
+		// let warp_sync = sync_status.warp_sync.clone();
 
 		let (level, status, target) =
-			match (sync_status.state, sync_status.state_sync, sync_status.warp_sync) {
+			match (sync_status.state, sync_status.state_sync, sync_status.warp_sync.clone()) {
 				// Do not set status to "Block history" when we are doing a major sync.
 				//
 				// A node could for example have been warp synced to the tip of the chain and
@@ -105,20 +106,20 @@ impl<B: BlockT> InformantDisplay<B> {
 				) if !sync_status.is_major_syncing() => ("⏩", "Block history".into(), format!(", #{}", n)),
 				// Handle all phases besides the two phases we already handle above.
 				(_, _, Some(warp))
-					if !matches!(warp.phase, WarpSyncPhase::DownloadingBlocks(_)) => 
-                    {
-                        let progress_text = if warp.eras_synced > 0 {
-                            format!(", {} eras synced, {:.2} Mib", warp.eras_synced, (warp.total_bytes as f32) / (1024f32 * 1024f32))
-                        } else {
-                            format!(", {:.2} Mib", (warp.total_bytes as f32) / (1024f32 * 1024f32))
-                        };
+					if !matches!(warp.phase, WarpSyncPhase::DownloadingBlocks(_)) =>
+				{
+					let progress_text = if warp.eras_synced > 0 {
+						format!(
+							", {} eras synced, {:.2} Mib",
+							warp.eras_synced,
+							(warp.total_bytes as f32) / (1024f32 * 1024f32)
+						)
+					} else {
+						format!(", {:.2} Mib", (warp.total_bytes as f32) / (1024f32 * 1024f32))
+					};
 
-					    (
-						    "⏩",
-						    "Warping".into(),
-                            progress_text,
-					    )
-                    },
+					("⏩", "Warping".into(), progress_text)
+				},
 				(_, Some(state), _) => (
 					"⚙️ ",
 					"State sync".into(),
@@ -136,20 +137,41 @@ impl<B: BlockT> InformantDisplay<B> {
 					("⚙️ ", format!("Preparing{}", speed), format!(", target=#{target}")),
 			};
 
-		info!(
-			target: "substrate",
-			"{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), ⬇ {} ⬆ {}",
-			level,
-			style(&status).white().bold(),
-			target,
-			style(num_connected_peers).white().bold(),
-			style(best_number).white().bold(),
-			PrintFullHashOnDebugLogging(&best_hash),
-			style(finalized_number).white().bold(),
-			PrintFullHashOnDebugLogging(&info.chain.finalized_hash),
-			style(TransferRateFormat(avg_bytes_per_sec_inbound)).green(),
-			style(TransferRateFormat(avg_bytes_per_sec_outbound)).red(),
-		)
+		let (show_best_block, show_finalized_block) = match sync_status.warp_sync {
+			Some(warp) if !matches!(warp.phase, WarpSyncPhase::DownloadingBlocks(_)) =>
+				(false, false),
+			_ => (true, true),
+		};
+
+		if show_best_block && show_finalized_block {
+			// Show full log with best/finalized blocks
+			info!(
+				target: "substrate",
+				"{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), ⬇ {} ⬆ {}",
+				level,
+				style(&status).white().bold(),
+				target,
+				style(num_connected_peers).white().bold(),
+				style(best_number).white().bold(),
+				PrintFullHashOnDebugLogging(&best_hash),
+				style(finalized_number).white().bold(),
+				PrintFullHashOnDebugLogging(&info.chain.finalized_hash),
+				style(TransferRateFormat(avg_bytes_per_sec_inbound)).green(),
+				style(TransferRateFormat(avg_bytes_per_sec_outbound)).red(),
+			)
+		} else {
+			// Simplified log for warp sync without best/finalized blocks
+			info!(
+				target: "substrate",
+				"{} {}{} ({} peers), ⬇ {} ⬆ {}",
+				level,
+				style(&status).white().bold(),
+				target,
+				style(num_connected_peers).white().bold(),
+				style(TransferRateFormat(avg_bytes_per_sec_inbound)).green(),
+				style(TransferRateFormat(avg_bytes_per_sec_outbound)).red(),
+			)
+		}
 	}
 }
 

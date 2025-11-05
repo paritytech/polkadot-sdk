@@ -312,7 +312,7 @@ where
 			.ok_or_else(|| "Empty proof".to_string())?;
 		let (next_set_id, next_authorities) =
 			proof.verify(set_id, authorities, &self.hard_forks).map_err(Box::new)?;
-        let eras_verified = proof.proofs.len() as u64;
+		let eras_verified = proof.proofs.len() as u64;
 		let justifications = proof
 			.proofs
 			.into_iter()
@@ -323,7 +323,7 @@ where
 			})
 			.collect::<Vec<_>>();
 
-        //let eras_verified = proof.proofs.len() as u64;
+		//let eras_verified = proof.proofs.len() as u64;
 
 		if proof.is_finished {
 			Ok(VerificationResult::<Block>::Complete(
@@ -331,7 +331,7 @@ where
 				next_authorities,
 				last_header,
 				justifications,
-                eras_verified,
+				eras_verified,
 			))
 		} else {
 			Ok(VerificationResult::<Block>::Partial(
@@ -339,7 +339,7 @@ where
 				next_authorities,
 				last_header.hash(),
 				justifications,
-                eras_verified,
+				eras_verified,
 			))
 		}
 	}

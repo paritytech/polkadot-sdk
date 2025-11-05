@@ -151,8 +151,8 @@ pub struct WarpSyncProgress<Block: BlockT> {
 	pub phase: WarpSyncPhase<Block>,
 	/// Total bytes downloaded so far.
 	pub total_bytes: u64,
-    /// Number of eras that have been verified and synced.
-    pub eras_synced: u64,
+	/// Number of eras that have been verified and synced.
+	pub eras_synced: u64,
 }
 
 /// Warp sync configuration as accepted by [`WarpSync`].
@@ -219,7 +219,7 @@ pub struct WarpSync<B: BlockT, Client> {
 	result: Option<WarpSyncResult<B>>,
 	/// Number of peers that need to be connected before warp sync is started.
 	min_peers_to_start_warp_sync: usize,
-    eras_synced: u64,
+	eras_synced: u64,
 }
 
 impl<B, Client> WarpSync<B, Client>
@@ -259,7 +259,7 @@ where
 				actions: vec![SyncingAction::Finished],
 				result: None,
 				min_peers_to_start_warp_sync,
-                eras_synced: 0,
+				eras_synced: 0,
 			}
 		}
 
@@ -281,7 +281,7 @@ where
 			actions: Vec::new(),
 			result: None,
 			min_peers_to_start_warp_sync,
-            eras_synced: 0,
+			eras_synced: 0,
 		}
 	}
 
@@ -340,7 +340,7 @@ where
 			last_hash: self.client.info().genesis_hash,
 			warp_sync_provider: Arc::clone(warp_sync_provider),
 		};
-        self.eras_synced = 0;
+		self.eras_synced = 0;
 		trace!(target: LOG_TARGET, "Started warp sync with {} peers.", self.peers.len());
 	}
 
@@ -436,7 +436,13 @@ where
 				self.actions
 					.push(SyncingAction::DropPeer(BadPeer(*peer_id, rep::BAD_WARP_PROOF)))
 			},
-			Ok(VerificationResult::Partial(new_set_id, new_authorities, new_last_hash, proofs, eras_verified)) => {
+			Ok(VerificationResult::Partial(
+				new_set_id,
+				new_authorities,
+				new_last_hash,
+				proofs,
+				eras_verified,
+			)) => {
 				log::debug!(target: LOG_TARGET, "Verified partial proof, set_id={:?}", new_set_id);
 				*set_id = new_set_id;
 				*authorities = new_authorities;
@@ -446,7 +452,7 @@ where
 					origin: BlockOrigin::NetworkInitialSync,
 					blocks: proofs.into_iter().map(proof_to_incoming_block).collect(),
 				});
-                self.eras_synced = eras_verified;
+				self.eras_synced = eras_verified;
 			},
 			Ok(VerificationResult::Complete(new_set_id, _, header, proofs, eras_verified)) => {
 				log::debug!(
@@ -462,7 +468,7 @@ where
 					origin: BlockOrigin::NetworkInitialSync,
 					blocks: proofs.into_iter().map(proof_to_incoming_block).collect(),
 				});
-                self.eras_synced = eras_verified;
+				self.eras_synced = eras_verified;
 			},
 		}
 	}
@@ -657,22 +663,22 @@ where
 					required_peers: self.min_peers_to_start_warp_sync,
 				},
 				total_bytes: self.total_proof_bytes,
-                eras_synced: self.eras_synced,
+				eras_synced: self.eras_synced,
 			},
 			Phase::WarpProof { .. } => WarpSyncProgress {
 				phase: WarpSyncPhase::DownloadingWarpProofs,
 				total_bytes: self.total_proof_bytes,
-                eras_synced: self.eras_synced,
+				eras_synced: self.eras_synced,
 			},
 			Phase::TargetBlock(_) => WarpSyncProgress {
 				phase: WarpSyncPhase::DownloadingTargetBlock,
 				total_bytes: self.total_proof_bytes,
-                eras_synced: self.eras_synced,
+				eras_synced: self.eras_synced,
 			},
 			Phase::Complete => WarpSyncProgress {
 				phase: WarpSyncPhase::Complete,
 				total_bytes: self.total_proof_bytes + self.total_state_bytes,
-                eras_synced: self.eras_synced,
+				eras_synced: self.eras_synced,
 			},
 		}
 	}

@@ -839,7 +839,7 @@ where
 		let warp_sync_progress = self.gap_sync.as_ref().map(|gap_sync| WarpSyncProgress {
 			phase: WarpSyncPhase::DownloadingBlocks(gap_sync.best_queued_number),
 			total_bytes: 0,
-            eras_synced: 0,
+			eras_synced: 0,
 		});
 
 		SyncStatus {
