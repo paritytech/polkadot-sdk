@@ -108,7 +108,8 @@ pub use dispatch::EnsureOneOf;
 pub use dispatch::{
 	AsEnsureOriginWithArg, Authorize, CallerTrait, EitherOf, EitherOfDiverse, EnsureOrigin,
 	EnsureOriginEqualOrHigherPrivilege, EnsureOriginWithArg, MapSuccess, NeverEnsureOrigin,
-	OriginTrait, TryMapSuccess, TryWithMorphedArg, UnfilteredDispatchable,
+	OriginTrait, TryMapSuccess, TryWithMorphedArg, UnfilteredDispatchable, FromWithBasicFilter,
+	IntoWithBasicFilter,
 };
 
 mod voting;

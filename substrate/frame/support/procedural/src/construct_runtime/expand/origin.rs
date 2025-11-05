@@ -175,16 +175,19 @@ pub fn expand_outer_origin(
 				}
 			}
 
-			fn none() -> Self {
-				#system_path::RawOrigin::None.into()
+			fn none_with_basic_filter() -> Self {
+				use #scrate::traits::IntoWithBasicFilter;
+				#system_path::RawOrigin::None.into_with_basic_filter()
 			}
 
 			fn root() -> Self {
-				#system_path::RawOrigin::Root.into()
+				use #scrate::traits::IntoWithBasicFilter;
+				#system_path::RawOrigin::Root.into_with_basic_filter()
 			}
 
-			fn signed(by: Self::AccountId) -> Self {
-				#system_path::RawOrigin::Signed(by).into()
+			fn signed_with_basic_filter(by: Self::AccountId) -> Self {
+				use #scrate::traits::IntoWithBasicFilter;
+				#system_path::RawOrigin::Signed(by).into_with_basic_filter()
 			}
 		}
 
@@ -211,8 +214,8 @@ pub fn expand_outer_origin(
 		#[allow(dead_code)]
 		impl RuntimeOrigin {
 			#[doc = #doc_string_none_origin]
-			pub fn none() -> Self {
-				<RuntimeOrigin as #scrate::traits::OriginTrait>::none()
+			pub fn none_with_basic_filter() -> Self {
+				<RuntimeOrigin as #scrate::traits::OriginTrait>::none_with_basic_filter()
 			}
 
 			#[doc = #doc_string_root_origin]
@@ -221,8 +224,8 @@ pub fn expand_outer_origin(
 			}
 
 			#[doc = #doc_string_signed_origin]
-			pub fn signed(by: <#runtime as #system_path::Config>::AccountId) -> Self {
-				<RuntimeOrigin as #scrate::traits::OriginTrait>::signed(by)
+			pub fn signed_with_basic_filter(by: <#runtime as #system_path::Config>::AccountId) -> Self {
+				<RuntimeOrigin as #scrate::traits::OriginTrait>::signed_with_basic_filter(by)
 			}
 		}
 
@@ -260,17 +263,19 @@ pub fn expand_outer_origin(
 			}
 		}
 
-		impl From<#system_path::Origin<#runtime>> for RuntimeOrigin {
+		impl #scrate::traits::FromWithBasicFilter<#system_path::Origin<#runtime>> for RuntimeOrigin {
 
 			#[doc = #doc_string_runtime_origin]
-			fn from(x: #system_path::Origin<#runtime>) -> Self {
+			fn from_with_basic_filter(x: #system_path::Origin<#runtime>) -> Self {
+				use #scrate::traits::IntoWithBasicFilter;
 				let o: OriginCaller = x.into();
-				o.into()
+				o.into_with_basic_filter()
 			}
 		}
 
-		impl From<OriginCaller> for RuntimeOrigin {
-			fn from(x: OriginCaller) -> Self {
+		impl #scrate::traits::FromWithBasicFilter<OriginCaller> for RuntimeOrigin {
+			fn from_with_basic_filter(x: OriginCaller) -> Self {
+				use #scrate::traits::IntoWithBasicFilter;
 				let mut o = RuntimeOrigin {
 					caller: x,
 					filter: #scrate::__private::Rc::new(#scrate::__private::Box::new(|_| true)),
@@ -292,10 +297,11 @@ pub fn expand_outer_origin(
 				}
 			}
 		}
-		impl From<Option<<#runtime as #system_path::Config>::AccountId>> for RuntimeOrigin {
+		impl #scrate::traits::FromWithBasicFilter<Option<<#runtime as #system_path::Config>::AccountId>> for RuntimeOrigin {
 			#[doc = #doc_string_runtime_origin_with_caller]
 			fn from(x: Option<<#runtime as #system_path::Config>::AccountId>) -> Self {
-				<#system_path::Origin<#runtime>>::from(x).into()
+				use #scrate::traits::IntoWithBasicFilter;
+				<#system_path::Origin<#runtime>>::from(x).into_with_basic_filter()
 			}
 		}
 
@@ -385,11 +391,12 @@ fn expand_origin_pallet_conversions(
 		}
 
 		#attr
-		impl From<#pallet_origin> for RuntimeOrigin {
+		impl FromWithBasicFilter<#pallet_origin> for RuntimeOrigin {
 			#[doc = #doc_string]
-			fn from(x: #pallet_origin) -> Self {
+			fn from_with_basic_filter(x: #pallet_origin) -> Self {
+				use crate::traits::IntoWithBasicFilter;
 				let x: OriginCaller = x.into();
-				x.into()
+				x.into_with_basic_filter()
 			}
 		}
 

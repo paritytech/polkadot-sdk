@@ -525,13 +525,13 @@ pub trait OriginTrait: Sized {
 	) -> Result<R, Self>;
 
 	/// Create with system none origin and `frame_system::Config::BaseCallFilter`.
-	fn none() -> Self;
+	fn none_with_basic_filter() -> Self;
 
 	/// Create with system root origin and `frame_system::Config::BaseCallFilter`.
 	fn root() -> Self;
 
 	/// Create with system signed origin and `frame_system::Config::BaseCallFilter`.
-	fn signed(by: Self::AccountId) -> Self;
+	fn signed_with_basic_filter(by: Self::AccountId) -> Self;
 
 	/// Extract the signer from the message if it is a `Signed` origin.
 	#[deprecated = "Use `into_signer` instead"]
@@ -588,6 +588,14 @@ pub trait Authorize {
 
 	/// The weight of the authorization function.
 	fn weight_of_authorize(&self) -> Weight;
+}
+
+pub trait FromWithBasicFilter<T>: Sized {
+	fn from_with_basic_filter(value: T) -> Self;
+}
+
+pub trait IntoWithBasicFilter<T> {
+	fn into_with_basic_filter(self) -> T;
 }
 
 #[cfg(test)]
