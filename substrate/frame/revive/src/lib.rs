@@ -1366,11 +1366,11 @@ pub mod pallet {
 			}
 
 			block_storage::with_ethereum_context::<T>(call.encode(), || {
-				// Calculate the overhead weight of this dispatchable.
+				let mut call_result = call.dispatch(RawOrigin::Signed(signer).into());
+
+				// Calculate the overhead weight of this extrinsic.
 				let overhead = T::WeightInfo::eth_substrate_call_upload_code(0u32)
 					.saturating_sub(T::WeightInfo::upload_code(0u32));
-
-				let mut call_result = call.dispatch(RawOrigin::Signed(signer).into());
 
 				// Add overhead to the actual weight in PostDispatchInfo
 				match &mut call_result {
