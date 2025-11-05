@@ -174,7 +174,7 @@ impl ParachainInherentDataProvider {
 	) -> Option<ParachainInherentData> {
 		let collator_peer_id = ApprovedPeerId::try_from(collator_peer_id.to_bytes())
 			.inspect_err(|_e| {
-				tracing::error!(
+				tracing::warn!(
 					target: LOG_TARGET,
 					"Could not convert collator_peer_id into ApprovedPeerId. The collator_peer_id \
 					should contain a sequence of at most 64 bytes",
