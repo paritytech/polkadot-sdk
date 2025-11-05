@@ -20,6 +20,7 @@ use crate::{
 	subxt_client::{self, SrcChainConfig},
 	ClientError,
 };
+use futures::TryFutureExt;
 use pallet_revive::{
 	evm::{
 		Block as EthBlock, BlockNumberOrTagOrHash, BlockTag, GenericTransaction, ReceiptGasInfo,
@@ -29,7 +30,7 @@ use pallet_revive::{
 };
 use sp_core::H256;
 use sp_timestamp::Timestamp;
-use subxt::OnlineClient;
+use subxt::{error::MetadataError, Error::Metadata, OnlineClient};
 
 const LOG_TARGET: &str = "eth-rpc::runtime_api";
 
@@ -77,18 +78,28 @@ impl RuntimeApi {
 			_ => None,
 		};
 
-		let payload = subxt_client::apis().revive_api().eth_transact_with_config(
-			tx.clone().into(),
-			DryRunConfig::new(timestamp_override).into(),
-		);
-		let result = match self.0.validate(&payload) {
-			Ok(_) => self.0.call(payload).await?,
-			Err(err) => {
-				log::debug!(target: LOG_TARGET, "Dry run payload validation failed {err:?}, falling back to eth_transact");
-				let payload = subxt_client::apis().revive_api().eth_transact(tx.into());
-				self.0.call(payload).await?
-			},
-		};
+		let payload = subxt_client::apis()
+			.revive_api()
+			.eth_transact_with_config(
+				tx.clone().into(),
+				DryRunConfig::new(timestamp_override).into(),
+			)
+			.unvalidated();
+
+		let result = self
+			.0
+			.call(payload)
+			.or_else(|err| async {
+				match err {
+					Metadata(MetadataError::RuntimeMethodNotFound(_)) => {
+						log::debug!(target: LOG_TARGET, "Method not found falling back to eth_transact");
+						let payload = subxt_client::apis().revive_api().eth_transact(tx.into());
+						self.0.call(payload).await
+					},
+					e => Err(e),
+				}
+			})
+			.await?;
 
 		match result {
 			Err(err) => {
