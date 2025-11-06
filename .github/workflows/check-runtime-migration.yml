@@ -122,6 +122,11 @@ jobs:
               --runtime ./target/release/wbuild/${{ matrix.package }}/${{ matrix.wasm }} \
               on-runtime-upgrade --disable-spec-version-check --checks=all ${{ matrix.subcommand_extra_args }} snap -p snapshot.raw
           sleep 5
+          
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "25.x"
+          registry-url: "https://npm.pkg.github.com"
 
       - name: Check Runtime Compatibility
         id: required3
