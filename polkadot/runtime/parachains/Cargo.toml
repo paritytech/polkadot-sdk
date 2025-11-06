@@ -62,12 +62,12 @@ rand_chacha = { workspace = true }
 static_assertions = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
-polkadot-primitives = { workspace = true, features = ["test"] }
-pretty_assertions = { workspace = true }
 assert_matches = { workspace = true }
 frame-support-test = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, features = ["test"] }
 polkadot-primitives-test-helpers = { workspace = true }
+pretty_assertions = { workspace = true }
 rstest = { workspace = true }
 sc-keystore = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
