@@ -553,8 +553,13 @@ pub type MigrateV2ToV3<T> = VersionedMigration<
 /// removed once all networks have upgraded.
 #[allow(deprecated)]
 mod v4 {
-	use super::*;
-	use crate::{assigner_coretime as deprecated_assigner_coretime, on_demand, scheduler};
+	use super::{
+		assigner_coretime::{
+			AssignmentState, CoreDescriptor, PartsOf57600, QueueDescriptor, Schedule, WorkState,
+		},
+		*,
+	};
+	use crate::{assigner_coretime as old, on_demand, scheduler};
 
 	// V3 ClaimQueue storage (to be migrated from)
 	#[storage_alias]
@@ -564,9 +569,7 @@ mod v4 {
 	/// Migration to V4
 	pub struct UncheckedMigrateToV4<T>(core::marker::PhantomData<T>);
 
-	impl<T: Config + deprecated_assigner_coretime::pallet::Config> UncheckedOnRuntimeUpgrade
-		for UncheckedMigrateToV4<T>
-	{
+	impl<T: Config + old::pallet::Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV4<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight: Weight = Weight::zero();
 
@@ -577,17 +580,14 @@ mod v4 {
 			// Step 1 & 2: Migrate CoreDescriptors and CoreSchedules together by enumerating cores
 			let mut schedule_count = 0u64;
 			let mut descriptor_count = 0u64;
-			let mut new_descriptors: BTreeMap<
-				CoreIndex,
-				super::assigner_coretime::CoreDescriptor<BlockNumberFor<T>>,
-			> = BTreeMap::new();
+			let mut new_descriptors: BTreeMap<CoreIndex, CoreDescriptor<BlockNumberFor<T>>> =
+				BTreeMap::new();
 
 			for core_idx in 0..num_cores {
 				let core_index = CoreIndex(core_idx);
 
 				// Get the descriptor for this core
-				let old_descriptor =
-					deprecated_assigner_coretime::pallet::CoreDescriptors::<T>::get(core_index);
+				let old_descriptor = old::pallet::CoreDescriptors::<T>::get(core_index);
 				weight.saturating_accrue(T::DbWeight::get().reads(1));
 
 				// Check if this core has a non-default descriptor
@@ -604,9 +604,7 @@ mod v4 {
 					while let Some(block_number) = current_block {
 						let key = (block_number, core_index);
 
-						if let Some(old_schedule) =
-							deprecated_assigner_coretime::pallet::CoreSchedules::<T>::take(key)
-						{
+						if let Some(old_schedule) = old::pallet::CoreSchedules::<T>::take(key) {
 							schedule_count += 1;
 							weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
@@ -614,12 +612,12 @@ mod v4 {
 							let next = old_schedule.next_schedule;
 
 							// Convert and insert into new storage
-							let new_schedule = super::assigner_coretime::Schedule {
+							let new_schedule = Schedule {
 								assignments: old_schedule
 									.assignments
 									.into_iter()
 									.map(|(assignment, parts)| {
-										(assignment, super::assigner_coretime::PartsOf57600::new_saturating(parts.0))
+										(assignment, PartsOf57600::new_saturating(parts.0))
 									})
 									.collect(),
 								end_hint: old_schedule.end_hint,
@@ -644,34 +642,27 @@ mod v4 {
 				}
 
 				// Convert descriptor from old type to new type
-				let new_desc = super::assigner_coretime::CoreDescriptor {
-					queue: old_descriptor.queue.map(|q| {
-						super::assigner_coretime::QueueDescriptor {
-							first: q.first,
-							last: q.last,
-						}
-					}),
-					current_work: old_descriptor.current_work.map(|w| {
-						super::assigner_coretime::WorkState {
-							assignments: w
-								.assignments
-								.into_iter()
-								.map(|(assignment, state)| {
-									(
-										assignment,
-										super::assigner_coretime::AssignmentState {
-											ratio: super::assigner_coretime::PartsOf57600::new_saturating(state.ratio.0),
-											remaining: super::assigner_coretime::PartsOf57600::new_saturating(state.remaining.0),
-										},
-									)
-								})
-								.collect(),
-							end_hint: w.end_hint,
-							pos: w.pos,
-							step: super::assigner_coretime::PartsOf57600::new_saturating(
-								w.step.0,
-							),
-						}
+				let new_desc = CoreDescriptor {
+					queue: old_descriptor
+						.queue
+						.map(|q| QueueDescriptor { first: q.first, last: q.last }),
+					current_work: old_descriptor.current_work.map(|w| WorkState {
+						assignments: w
+							.assignments
+							.into_iter()
+							.map(|(assignment, state)| {
+								(
+									assignment,
+									AssignmentState {
+										ratio: PartsOf57600::new_saturating(state.ratio.0),
+										remaining: PartsOf57600::new_saturating(state.remaining.0),
+									},
+								)
+							})
+							.collect(),
+						end_hint: w.end_hint,
+						pos: w.pos,
+						step: PartsOf57600::new_saturating(w.step.0),
 					}),
 				};
 				new_descriptors.insert(core_index, new_desc);
@@ -728,8 +719,7 @@ mod v4 {
 
 			for core_idx in 0..num_cores {
 				let core_index = CoreIndex(core_idx);
-				let descriptor =
-					deprecated_assigner_coretime::pallet::CoreDescriptors::<T>::get(core_index);
+				let descriptor = old::pallet::CoreDescriptors::<T>::get(core_index);
 
 				if descriptor.queue.is_some() || descriptor.current_work.is_some() {
 					descriptor_count += 1;
@@ -739,9 +729,7 @@ mod v4 {
 						let mut current_block = Some(queue.first);
 						while let Some(block_number) = current_block {
 							let key = (block_number, core_index);
-							if let Some(schedule) =
-								deprecated_assigner_coretime::pallet::CoreSchedules::<T>::get(key)
-							{
+							if let Some(schedule) = old::pallet::CoreSchedules::<T>::get(key) {
 								schedule_count += 1;
 								current_block = schedule.next_schedule;
 							} else {
@@ -799,8 +787,7 @@ mod v4 {
 				let core_index = CoreIndex(core_idx);
 
 				// Check descriptor is default/empty
-				let old_descriptor =
-					deprecated_assigner_coretime::pallet::CoreDescriptors::<T>::get(core_index);
+				let old_descriptor = old::pallet::CoreDescriptors::<T>::get(core_index);
 				ensure!(
 					old_descriptor.queue.is_none() && old_descriptor.current_work.is_none(),
 					"Old CoreDescriptors should be empty"
@@ -851,7 +838,7 @@ pub type MigrateV3ToV4<T> = VersionedMigration<
 mod v4_tests {
 	use super::*;
 	use crate::{
-		assigner_coretime as deprecated_assigner_coretime,
+		assigner_coretime as old,
 		mock::{new_test_ext, MockGenesisConfig, Test},
 		scheduler,
 	};
@@ -875,33 +862,24 @@ mod v4_tests {
 			let para_id = ParaId::from(1000);
 
 			// Create old schedule
-			let old_schedule = deprecated_assigner_coretime::Schedule {
+			let old_schedule = old::Schedule {
 				assignments: vec![(
 					BrokerCoreAssignment::Task(para_id.into()),
-					deprecated_assigner_coretime::PartsOf57600(28800),
+					old::PartsOf57600(28800),
 				)],
 				end_hint: Some(100u32),
 				next_schedule: None,
 			};
 
 			// Create old descriptor with queue pointing to this schedule
-			let old_descriptor = deprecated_assigner_coretime::CoreDescriptor {
-				queue: Some(deprecated_assigner_coretime::QueueDescriptor {
-					first: block_number,
-					last: block_number,
-				}),
+			let old_descriptor = old::CoreDescriptor {
+				queue: Some(old::QueueDescriptor { first: block_number, last: block_number }),
 				current_work: None,
 			};
 
 			// Write to old storage
-			deprecated_assigner_coretime::pallet::CoreSchedules::<Test>::insert(
-				(block_number, core),
-				old_schedule,
-			);
-			deprecated_assigner_coretime::pallet::CoreDescriptors::<Test>::insert(
-				core,
-				old_descriptor,
-			);
+			old::pallet::CoreSchedules::<Test>::insert((block_number, core), old_schedule);
+			old::pallet::CoreDescriptors::<Test>::insert(core, old_descriptor);
 
 			// Set storage version to 3
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
@@ -922,11 +900,7 @@ mod v4_tests {
 			assert!(new_descriptor.current_work.is_none());
 
 			// Verify old storage is empty
-			assert!(deprecated_assigner_coretime::pallet::CoreSchedules::<Test>::get((
-				block_number,
-				core
-			))
-			.is_none());
+			assert!(old::pallet::CoreSchedules::<Test>::get((block_number, core)).is_none());
 		});
 	}
 
@@ -945,31 +919,22 @@ mod v4_tests {
 				let core = CoreIndex(core_idx);
 				let para_id = ParaId::from(1000 + core_idx);
 
-				let old_schedule = deprecated_assigner_coretime::Schedule {
+				let old_schedule = old::Schedule {
 					assignments: vec![(
 						BrokerCoreAssignment::Task(para_id.into()),
-						deprecated_assigner_coretime::PartsOf57600(57600),
+						old::PartsOf57600(57600),
 					)],
 					end_hint: None,
 					next_schedule: None,
 				};
 
-				let old_descriptor = deprecated_assigner_coretime::CoreDescriptor {
-					queue: Some(deprecated_assigner_coretime::QueueDescriptor {
-						first: block_number,
-						last: block_number,
-					}),
+				let old_descriptor = old::CoreDescriptor {
+					queue: Some(old::QueueDescriptor { first: block_number, last: block_number }),
 					current_work: None,
 				};
 
-				deprecated_assigner_coretime::pallet::CoreSchedules::<Test>::insert(
-					(block_number, core),
-					old_schedule,
-				);
-				deprecated_assigner_coretime::pallet::CoreDescriptors::<Test>::insert(
-					core,
-					old_descriptor,
-				);
+				old::pallet::CoreSchedules::<Test>::insert((block_number, core), old_schedule);
+				old::pallet::CoreDescriptors::<Test>::insert(core, old_descriptor);
 			}
 
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
@@ -1001,60 +966,45 @@ mod v4_tests {
 			let para_id = ParaId::from(1000);
 
 			// Create a linked list: block 10 -> 20 -> 30
-			let schedule_30 = deprecated_assigner_coretime::Schedule {
+			let schedule_30 = old::Schedule {
 				assignments: vec![(
 					BrokerCoreAssignment::Task(para_id.into()),
-					deprecated_assigner_coretime::PartsOf57600(57600),
+					old::PartsOf57600(57600),
 				)],
 				end_hint: None,
 				next_schedule: None,
 			};
 
-			let schedule_20 = deprecated_assigner_coretime::Schedule {
+			let schedule_20 = old::Schedule {
 				assignments: vec![(
 					BrokerCoreAssignment::Task(para_id.into()),
-					deprecated_assigner_coretime::PartsOf57600(57600),
+					old::PartsOf57600(57600),
 				)],
 				end_hint: None,
 				next_schedule: Some(30u32),
 			};
 
-			let schedule_10 = deprecated_assigner_coretime::Schedule {
+			let schedule_10 = old::Schedule {
 				assignments: vec![(
 					BrokerCoreAssignment::Task(para_id.into()),
-					deprecated_assigner_coretime::PartsOf57600(57600),
+					old::PartsOf57600(57600),
 				)],
 				end_hint: None,
 				next_schedule: Some(20u32),
 			};
 
 			// Write schedules
-			deprecated_assigner_coretime::pallet::CoreSchedules::<Test>::insert(
-				(10u32, core),
-				schedule_10,
-			);
-			deprecated_assigner_coretime::pallet::CoreSchedules::<Test>::insert(
-				(20u32, core),
-				schedule_20,
-			);
-			deprecated_assigner_coretime::pallet::CoreSchedules::<Test>::insert(
-				(30u32, core),
-				schedule_30,
-			);
+			old::pallet::CoreSchedules::<Test>::insert((10u32, core), schedule_10);
+			old::pallet::CoreSchedules::<Test>::insert((20u32, core), schedule_20);
+			old::pallet::CoreSchedules::<Test>::insert((30u32, core), schedule_30);
 
 			// Descriptor points to first schedule
-			let old_descriptor = deprecated_assigner_coretime::CoreDescriptor {
-				queue: Some(deprecated_assigner_coretime::QueueDescriptor {
-					first: 10u32,
-					last: 30u32,
-				}),
+			let old_descriptor = old::CoreDescriptor {
+				queue: Some(old::QueueDescriptor { first: 10u32, last: 30u32 }),
 				current_work: None,
 			};
 
-			deprecated_assigner_coretime::pallet::CoreDescriptors::<Test>::insert(
-				core,
-				old_descriptor,
-			);
+			old::pallet::CoreDescriptors::<Test>::insert(core, old_descriptor);
 
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
@@ -1165,41 +1115,32 @@ mod v4_tests {
 			let para_id = ParaId::from(1000);
 
 			// Create schedule with various PartsOf57600 values
-			let old_schedule = deprecated_assigner_coretime::Schedule {
+			let old_schedule = old::Schedule {
 				assignments: vec![
 					(
 						BrokerCoreAssignment::Task(para_id.into()),
-						deprecated_assigner_coretime::PartsOf57600(14400), // 1/4
+						old::PartsOf57600(14400), // 1/4
 					),
 					(
 						BrokerCoreAssignment::Task(ParaId::from(1001).into()),
-						deprecated_assigner_coretime::PartsOf57600(28800), // 1/2
+						old::PartsOf57600(28800), // 1/2
 					),
 					(
 						BrokerCoreAssignment::Task(ParaId::from(1002).into()),
-						deprecated_assigner_coretime::PartsOf57600(14400), // 1/4
+						old::PartsOf57600(14400), // 1/4
 					),
 				],
 				end_hint: None,
 				next_schedule: None,
 			};
 
-			let old_descriptor = deprecated_assigner_coretime::CoreDescriptor {
-				queue: Some(deprecated_assigner_coretime::QueueDescriptor {
-					first: block_number,
-					last: block_number,
-				}),
+			let old_descriptor = old::CoreDescriptor {
+				queue: Some(old::QueueDescriptor { first: block_number, last: block_number }),
 				current_work: None,
 			};
 
-			deprecated_assigner_coretime::pallet::CoreSchedules::<Test>::insert(
-				(block_number, core),
-				old_schedule,
-			);
-			deprecated_assigner_coretime::pallet::CoreDescriptors::<Test>::insert(
-				core,
-				old_descriptor,
-			);
+			old::pallet::CoreSchedules::<Test>::insert((block_number, core), old_schedule);
+			old::pallet::CoreDescriptors::<Test>::insert(core, old_descriptor);
 
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
@@ -1228,26 +1169,23 @@ mod v4_tests {
 			let para_id = ParaId::from(1000);
 
 			// Create descriptor with current_work
-			let old_descriptor = deprecated_assigner_coretime::CoreDescriptor {
+			let old_descriptor = old::CoreDescriptor {
 				queue: None,
-				current_work: Some(deprecated_assigner_coretime::WorkState {
+				current_work: Some(old::WorkState {
 					assignments: vec![(
 						BrokerCoreAssignment::Task(para_id.into()),
-						deprecated_assigner_coretime::AssignmentState {
-							ratio: deprecated_assigner_coretime::PartsOf57600(57600),
-							remaining: deprecated_assigner_coretime::PartsOf57600(28800),
+						old::AssignmentState {
+							ratio: old::PartsOf57600(57600),
+							remaining: old::PartsOf57600(28800),
 						},
 					)],
 					end_hint: Some(100u32),
 					pos: 0,
-					step: deprecated_assigner_coretime::PartsOf57600(1),
+					step: old::PartsOf57600(1),
 				}),
 			};
 
-			deprecated_assigner_coretime::pallet::CoreDescriptors::<Test>::insert(
-				core,
-				old_descriptor,
-			);
+			old::pallet::CoreDescriptors::<Test>::insert(core, old_descriptor);
 
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
