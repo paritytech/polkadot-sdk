@@ -31,8 +31,8 @@ use crate::{
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
 	AccountInfo, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf, CodeRemoved, Config,
-	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
-	LOG_TARGET,
+	ContractInfo, DebugSettings, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts,
+	RuntimeCosts, LOG_TARGET,
 };
 use alloc::{
 	collections::{BTreeMap, BTreeSet},
@@ -470,6 +470,9 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff);
+
+	/// Check if unlimited contract size is allowed.
+	fn is_unlimited_contract_size_allowed(&self) -> bool;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -2295,6 +2298,10 @@ where
 	fn charge_storage(&mut self, diff: &Diff) {
 		assert!(self.has_contract_info());
 		self.top_frame_mut().nested_storage.charge(diff)
+	}
+
+	fn is_unlimited_contract_size_allowed(&self) -> bool {
+		DebugSettings::is_unlimited_contract_size_allowed::<T>()
 	}
 }
 
