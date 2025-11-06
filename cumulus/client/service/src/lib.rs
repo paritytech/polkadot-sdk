@@ -628,7 +628,7 @@ where
 		runtime_api.record_proof_with_recorder(storage_proof_recorder);
 
 		runtime_api
-			.execute_block(*block.header().parent_hash(), block)
+			.execute_block(*block.header().parent_hash(), block.into())
 			.map_err(Into::into)
 	}
 }
