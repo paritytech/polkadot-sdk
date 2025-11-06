@@ -1825,7 +1825,6 @@ where
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
 	) -> Result<H160, ExecError> {
-		log::info!(target: LOG_TARGET, "Instantiating contract with value: {value:?}");
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
 		// This is for example the case when creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
