@@ -48,7 +48,6 @@ mod enter {
 		ApprovedPeerId, ClaimQueueOffset, CoreSelector, UMPSignal,
 	};
 	use rstest::rstest;
-
 	use crate::{
 		builder::{junk_collator, junk_collator_signature, Bench, BenchBuilder, CandidateModifier},
 		disputes::clear_dispute_storage,
@@ -66,8 +65,14 @@ mod enter {
 		vstaging::{
 			CandidateDescriptorV2, CommittedCandidateReceiptV2, InternalVersion, MutateDescriptorV2,
 		},
-		AvailabilityBitfield, CandidateDescriptor, UncheckedSigned,
+		AvailabilityBitfield,
+	CandidateDescriptor,
+		ApprovedPeerId,
+	ClaimQueueOffset,
+	CoreSelector,
+	UMPSignal, UncheckedSigned,
 	};
+	use pretty_assertions::assert_eq;
 	use sp_runtime::Perbill;
 
 	struct TestConfig {
