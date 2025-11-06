@@ -56,6 +56,7 @@ use assets_common::{
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 
+use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -507,7 +508,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type Balance = Balance;
 	type AssetId = ForeignAssetsAssetId;
 	type AssetIdParameter = ForeignAssetsAssetId;
-	type ReserveData = ();
+	type ReserveData = ForeignAssetReserveData;
 	type Currency = Balances;
 	// This is to allow any other remote location to create foreign assets. Used in tests, not
 	// recommended on real chains.
