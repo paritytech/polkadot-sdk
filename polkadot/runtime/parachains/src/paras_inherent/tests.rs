@@ -60,10 +60,9 @@ mod enter {
 	use polkadot_primitives::{
 		vstaging::{
 			ApprovedPeerId, CandidateDescriptorV2, ClaimQueueOffset, CommittedCandidateReceiptV2,
-			CoreSelector, InternalVersion, MutateDescriptorV2, UMPSignal,
+			CoreSelector, InternalVersion, MutateDescriptorV2, UMPSignal, 
 		},
-		ApprovedPeerId, AvailabilityBitfield, CandidateDescriptor, ClaimQueueOffset, CoreSelector,
-		UMPSignal, UncheckedSigned,
+		AvailabilityBitfield, CandidateDescriptor, UncheckedSigned,
 	};
 	use pretty_assertions::assert_eq;
 	use rstest::rstest;
