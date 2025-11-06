@@ -480,7 +480,6 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let origin = Origin::EthTransaction(caller);
-		// Allow substrate calls
 		DebugSettings::default().allow_eth_substrate_call().write_to_storage::<T>();
 		let dispatchable = frame_system::Call::remark { remark: vec![42u8; c as usize] }.into();
 		#[extrinsic_call]

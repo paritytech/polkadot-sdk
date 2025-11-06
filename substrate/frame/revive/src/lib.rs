@@ -1346,9 +1346,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResultWithPostInfo {
-			// Extract the signer from the `Origin::EthTransaction` origin.
-			//
-			// Prevents recursion: the inner dispatch uses `RawOrigin::Signed`, which cannot
+			// Note that the inner dispatch uses `RawOrigin::Signed`, which cannot
 			// re-enter `eth_substrate_call` (which requires `Origin::EthTransaction`).
 			let signer = Self::ensure_eth_signed(origin)?;
 
@@ -1356,20 +1354,20 @@ pub mod pallet {
 				log::warn!(target: LOG_TARGET, "eth_substrate_call can only be used in development.");
 				return Err(<Error<T>>::EthSubstrateCallNotAllowed.into());
 			}
-			// Calculate the overhead weight of this extrinsic.
-			let overhead = T::WeightInfo::eth_substrate_call(call.encoded_size() as u32);
 
 			block_storage::with_ethereum_context::<T>(call.encode(), || {
+				let extrinsic_overhead =
+					T::WeightInfo::eth_substrate_call(call.encoded_size() as u32);
 				let mut call_result = call.dispatch(RawOrigin::Signed(signer).into());
 
-				// Add overhead to the actual weight in PostDispatchInfo
+				// Add extrinsic_overhead to the actual weight in PostDispatchInfo
 				match &mut call_result {
 					Ok(post_info) | Err(DispatchErrorWithPostInfo { post_info, .. }) => {
 						post_info.actual_weight = Some(
 							post_info
 								.actual_weight
 								.unwrap_or_else(|| Weight::zero())
-								.saturating_add(overhead),
+								.saturating_add(extrinsic_overhead),
 						);
 					},
 				}
