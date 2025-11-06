@@ -5151,9 +5151,7 @@ fn existential_deposit_shall_not_charged_twice() {
 		let callee_account = <Test as Config>::AddressMapper::to_account_id(&callee_addr);
 
 		// first send funds to callee_addr
-		let result = builder::bare_call(callee_addr)
-			.native_value(666_000_000_000)
-			.build();
+		let result = builder::bare_call(callee_addr).native_value(666_000_000_000).build();
 		assert_ok!(result.result);
 		assert_eq!(get_balance(&callee_account), 666_000_000_000 + Contracts::min_balance());
 
@@ -5161,7 +5159,7 @@ fn existential_deposit_shall_not_charged_twice() {
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
 			.salt(Some(salt))
 			.build_and_unwrap_contract();
-		
+
 		assert_eq!(callee_addr, addr);
 
 		// check we charged ed only 1 time

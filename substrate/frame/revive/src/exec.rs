@@ -1222,7 +1222,8 @@ where
 				// if we reached this point the origin has an associated account.
 				let origin = &self.origin.account_id()?;
 
-				// get balance of the account before charging ED, only charge ED if balance insufficient
+				// get balance of the account before charging ED, only charge ED if balance
+				// insufficient
 				let balance = T::Currency::total_balance(account_id);
 				let ed = <Contracts<T>>::min_balance();
 				if balance < ed {
