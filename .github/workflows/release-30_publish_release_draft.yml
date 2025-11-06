@@ -83,12 +83,13 @@ jobs:
             private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
             owner: paritytech
             repositories: polkadot-sdk
-      - name: Download artifacts
+
+      - name: Download runtimes artifacts
         env:
           GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
         run: |
           mkdir -p ${{ github.workspace}}/runtimes/
-          gh run download ${{ github.event.inputs.build_run_id }} --dir ${{ github.workspace}}/runtimes
+          gh run download ${{ inputs.build_run_id }} --dir ${{ github.workspace}}/runtimes
           ls -la ${{ github.workspace}}/runtimes
 
       - name: Prepare tooling

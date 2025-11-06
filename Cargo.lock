@@ -4325,7 +4325,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-consensus-aura"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "async-trait",
  "cumulus-client-collator",
@@ -11364,7 +11364,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-assets"
-version = "46.0.0"
+version = "46.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -12958,7 +12958,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-ranked-collective"
-version = "43.0.0"
+version = "43.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -13360,7 +13360,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "env_logger 0.11.3",
@@ -14877,7 +14877,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-approval-distribution"
-version = "26.0.0"
+version = "26.0.1"
 dependencies = [
  "assert_matches",
  "futures",
@@ -15684,7 +15684,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-primitives"
-version = "22.0.0"
+version = "22.1.0"
 dependencies = [
  "bitvec",
  "bounded-vec",
@@ -19701,7 +19701,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-aura"
-version = "0.53.0"
+version = "0.53.1"
 dependencies = [
  "async-trait",
  "fork-tree",
@@ -20288,10 +20288,11 @@ dependencies = [
 
 [[package]]
 name = "sc-network-statement"
-version = "0.35.0"
+version = "0.35.1"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
+ "async-trait",
  "futures",
  "log",
  "parity-scale-codec",
@@ -20303,6 +20304,7 @@ dependencies = [
  "sp-runtime",
  "sp-statement-store",
  "substrate-prometheus-endpoint",
+ "tokio",
 ]
 
 [[package]]
@@ -20732,13 +20734,14 @@ dependencies = [
 
 [[package]]
 name = "sc-statement-store"
-version = "24.0.0"
+version = "24.1.0"
 dependencies = [
  "log",
  "parity-db",
  "parking_lot 0.12.3",
  "sc-client-api",
  "sc-keystore",
+ "sc-network-statement",
  "sp-api",
  "sp-blockchain",
  "sp-core 38.1.0",
@@ -23425,7 +23428,7 @@ dependencies = [
 
 [[package]]
 name = "sp-statement-store"
-version = "23.0.0"
+version = "23.1.0"
 dependencies = [
  "aes-gcm",
  "curve25519-dalek",
