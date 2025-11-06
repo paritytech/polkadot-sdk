@@ -7,3 +7,4 @@ doc:
 crates:
 - name: sc-tracing
   bump: patch
+  validate: false
