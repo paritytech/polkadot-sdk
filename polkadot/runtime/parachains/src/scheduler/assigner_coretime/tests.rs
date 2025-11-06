@@ -20,6 +20,7 @@ use crate::{
 	initializer::SessionChangeNotification,
 	mock::{new_test_ext, OnDemand, Paras, ParasShared, RuntimeOrigin, Scheduler, System, Test},
 	paras::{ParaGenesisArgs, ParaKind},
+	scheduler::{CoreDescriptors, CoreSchedules},
 };
 use frame_support::{assert_noop, assert_ok, pallet_prelude::*};
 use pallet_broker::TaskId;

@@ -112,19 +112,54 @@ impl PartsOf57600 {
 #[derive(Encode, Decode, TypeInfo)]
 #[cfg_attr(test, derive(PartialEq, RuntimeDebug))]
 pub(super) struct Schedule<N> {
-	// Original assignments
-	pub(super) assignments: Vec<(CoreAssignment, PartsOf57600)>,
+	/// Original assignments.
+	assignments: Vec<(CoreAssignment, PartsOf57600)>,
 	/// When do our assignments become invalid, if at all?
 	///
 	/// If this is `Some`, then this `CoreState` will be dropped at that block number. If this is
 	/// `None`, then we will keep serving our core assignments in a circle until a new set of
 	/// assignments is scheduled.
-	pub(super) end_hint: Option<N>,
+	end_hint: Option<N>,
 
 	/// The next queued schedule for this core.
 	///
 	/// Schedules are forming a queue.
-	pub(super) next_schedule: Option<N>,
+	next_schedule: Option<N>,
+}
+
+impl<N> Schedule<N> {
+	/// Creates a new Schedule (for migration).
+	pub(super) fn new(
+		assignments: Vec<(CoreAssignment, PartsOf57600)>,
+		end_hint: Option<N>,
+		next_schedule: Option<N>,
+	) -> Self {
+		Self { assignments, end_hint, next_schedule }
+	}
+
+	/// Test-only accessor for assignments.
+	#[cfg(test)]
+	pub(super) fn assignments(&self) -> &[(CoreAssignment, PartsOf57600)] {
+		&self.assignments
+	}
+
+	/// Test-only accessor for end_hint.
+	#[cfg(test)]
+	pub(super) fn end_hint(&self) -> Option<N>
+	where
+		N: Copy,
+	{
+		self.end_hint
+	}
+
+	/// Test-only accessor for next_schedule.
+	#[cfg(test)]
+	pub(super) fn next_schedule(&self) -> Option<N>
+	where
+		N: Copy,
+	{
+		self.next_schedule
+	}
 }
 
 /// Descriptor for a core.
@@ -135,9 +170,31 @@ pub(super) struct Schedule<N> {
 #[cfg_attr(test, derive(PartialEq, RuntimeDebug, Clone))]
 pub(super) struct CoreDescriptor<N> {
 	/// Meta data about the queued schedules for this core.
-	pub(super) queue: Option<QueueDescriptor<N>>,
+	queue: Option<QueueDescriptor<N>>,
 	/// Currently performed work.
-	pub(super) current_work: Option<WorkState<N>>,
+	current_work: Option<WorkState<N>>,
+}
+
+impl<N> CoreDescriptor<N> {
+	/// Creates a new CoreDescriptor (for migration).
+	pub(super) fn new(
+		queue: Option<QueueDescriptor<N>>,
+		current_work: Option<WorkState<N>>,
+	) -> Self {
+		Self { queue, current_work }
+	}
+
+	/// Test-only accessor for queue.
+	#[cfg(test)]
+	pub(super) fn queue(&self) -> Option<&QueueDescriptor<N>> {
+		self.queue.as_ref()
+	}
+
+	/// Test-only accessor for current_work.
+	#[cfg(test)]
+	pub(super) fn current_work(&self) -> Option<&WorkState<N>> {
+		self.current_work.as_ref()
+	}
 }
 
 /// Pointers into `CoreSchedules` for a particular core.

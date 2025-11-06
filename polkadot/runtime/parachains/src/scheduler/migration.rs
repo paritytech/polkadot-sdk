@@ -893,9 +893,9 @@ mod v4_tests {
 			// Verify new storage
 			let new_schedule = super::CoreSchedules::<Test>::get((block_number, core))
 				.expect("Schedule should be migrated");
-			assert_eq!(new_schedule.assignments.len(), 1);
-			assert_eq!(new_schedule.end_hint, Some(100u32));
-			assert_eq!(new_schedule.next_schedule, None);
+			assert_eq!(new_schedule.assignments().len(), 1);
+			assert_eq!(new_schedule.end_hint(), Some(100u32));
+			assert_eq!(new_schedule.next_schedule(), None);
 
 			let new_descriptors = super::CoreDescriptors::<Test>::get();
 			let new_descriptor = new_descriptors.get(&core).expect("Descriptor should be migrated");
@@ -1021,13 +1021,13 @@ mod v4_tests {
 
 			// Verify next_schedule links preserved
 			let new_10 = super::CoreSchedules::<Test>::get((10u32, core)).unwrap();
-			assert_eq!(new_10.next_schedule, Some(20u32));
+			assert_eq!(new_10.next_schedule(), Some(20u32));
 
 			let new_20 = super::CoreSchedules::<Test>::get((20u32, core)).unwrap();
-			assert_eq!(new_20.next_schedule, Some(30u32));
+			assert_eq!(new_20.next_schedule(), Some(30u32));
 
 			let new_30 = super::CoreSchedules::<Test>::get((30u32, core)).unwrap();
-			assert_eq!(new_30.next_schedule, None);
+			assert_eq!(new_30.next_schedule(), None);
 		});
 	}
 
@@ -1203,11 +1203,11 @@ mod v4_tests {
 			// Verify assignments and their parts converted correctly
 			let new_schedule = super::CoreSchedules::<Test>::get((block_number, core))
 				.expect("Schedule should be migrated");
-			assert_eq!(new_schedule.assignments.len(), 3);
+			assert_eq!(new_schedule.assignments().len(), 3);
 
 			// Check sum of parts equals full allocation (14400 + 28800 + 14400 = 57600)
 			let sum: u16 = new_schedule
-				.assignments
+				.assignments()
 				.iter()
 				.map(|(_, parts)| parts.value())
 				.sum();
@@ -1255,7 +1255,7 @@ mod v4_tests {
 			let new_descriptor = new_descriptors.get(&core).expect("Descriptor should exist");
 			assert!(new_descriptor.current_work().is_some());
 
-			let work = new_descriptor.current_work().as_ref().unwrap();
+			let work = new_descriptor.current_work().unwrap();
 			assert_eq!(work.assignments.len(), 1);
 
 			// Verify the assignment details match what we set up
