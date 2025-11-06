@@ -30,7 +30,7 @@ use pallet_revive::{
 };
 use sp_core::H256;
 use sp_timestamp::Timestamp;
-use subxt::{error::MetadataError, Error::Metadata, OnlineClient};
+use subxt::{error::MetadataError, ext::subxt_rpcs::UserError, Error::Metadata, OnlineClient};
 
 const LOG_TARGET: &str = "eth-rpc::runtime_api";
 
@@ -91,8 +91,19 @@ impl RuntimeApi {
 			.call(payload)
 			.or_else(|err| async {
 				match err {
+					// This will be hit if subxt metadata (subxt uses the latest finalized block
+					// metadata when the eth-rpc starts) does not contain the new method
 					Metadata(MetadataError::RuntimeMethodNotFound(name)) => {
 						log::debug!(target: LOG_TARGET, "Method {name:?} not found falling back to eth_transact");
+						let payload = subxt_client::apis().revive_api().eth_transact(tx.into());
+						self.0.call(payload).await
+					},
+					// This will be hit if we are trying to hit a block where the runtime did not
+					// have this new runtime `eth_transact_with_config` defined
+					subxt::Error::Rpc(subxt::error::RpcError::ClientError(
+						subxt::ext::subxt_rpcs::Error::User(UserError { message, .. }),
+					)) if message.contains("eth_transact_with_config is not found") => {
+						log::debug!(target: LOG_TARGET, "{message:?} not found falling back to eth_transact");
 						let payload = subxt_client::apis().revive_api().eth_transact(tx.into());
 						self.0.call(payload).await
 					},
