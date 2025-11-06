@@ -16,13 +16,11 @@
 // limitations under the License.
 
 use crate::cli::Consensus;
-use futures::FutureExt;
 use polkadot_sdk::{
-	sc_client_api::{backend::Backend, StorageProvider},
+	sc_client_api::StorageProvider,
 	sc_executor::WasmExecutor,
 	sc_service::{error::Error as ServiceError, Configuration, TaskManager},
 	sc_telemetry::{Telemetry, TelemetryWorker},
-	sc_transaction_pool_api::OffchainTransactionPoolFactory,
 	sp_runtime::traits::Block as BlockT,
 	*,
 };
