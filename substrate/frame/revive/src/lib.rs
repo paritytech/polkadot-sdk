@@ -1355,9 +1355,11 @@ pub mod pallet {
 				return Err(<Error<T>>::EthSubstrateCallNotAllowed.into());
 			}
 
-			block_storage::with_ethereum_context::<T>(call.encode(), || {
-				let extrinsic_overhead =
-					T::WeightInfo::eth_substrate_call(call.encoded_size() as u32);
+			let call_encoded = call.encode();
+			let encoded_size = call_encoded.len() as u32;
+
+			block_storage::with_ethereum_context::<T>(call_encoded, || {
+				let extrinsic_overhead = T::WeightInfo::eth_substrate_call(encoded_size);
 				let mut call_result = call.dispatch(RawOrigin::Signed(signer).into());
 
 				// Add extrinsic_overhead to the actual weight in PostDispatchInfo
