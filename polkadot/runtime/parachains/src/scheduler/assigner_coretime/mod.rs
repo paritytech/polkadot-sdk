@@ -33,7 +33,7 @@ use alloc::{
 	collections::{BTreeMap, VecDeque},
 	vec::Vec,
 };
-use frame_support::{defensive, pallet_prelude::*, storage_alias};
+use frame_support::{defensive, pallet_prelude::*};
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::CoreIndex;
 use scale_info::TypeInfo;
@@ -47,34 +47,7 @@ pub use pallet_broker::CoreAssignment;
 
 pub use super::Config;
 
-// TODO: Add back + fix.
-// pub mod migration;
 
-/// Scheduled assignment sets.
-///
-/// Assignments as of the given block number. They will go into state once the block number is
-/// reached (and replace whatever was in there before).
-/// TODO: Write migration (Twox256 -> Twox64Concat)
-#[storage_alias]
-type CoreSchedules<T: Config> = StorageMap<
-	super::Pallet<T>,
-	Twox64Concat,
-	(BlockNumberFor<T>, CoreIndex),
-	Schedule<BlockNumberFor<T>>,
-	OptionQuery,
->;
-
-/// Assignments which are currently active.
-///
-/// They will be picked from `PendingAssignments` once we reach the scheduled block number in
-/// `PendingAssignments`.
-/// TODO: Migration
-#[storage_alias]
-type CoreDescriptors<T: Config> = StorageValue<
-	super::Pallet<T>,
-	BTreeMap<CoreIndex, CoreDescriptor<BlockNumberFor<T>>>,
-	ValueQuery,
->;
 
 /// Fraction expressed as a nominator with an assumed denominator of 57,600.
 #[derive(
@@ -98,6 +71,12 @@ impl PartsOf57600 {
 
 	pub fn new_saturating(v: u16) -> Self {
 		Self::ZERO.saturating_add(Self(v))
+	}
+
+	/// Returns the inner value (test-only accessor).
+	#[cfg(test)]
+	pub fn value(&self) -> u16 {
+		self.0
 	}
 
 	pub fn is_full(&self) -> bool {
@@ -132,20 +111,20 @@ impl PartsOf57600 {
 /// for a particular core.
 #[derive(Encode, Decode, TypeInfo)]
 #[cfg_attr(test, derive(PartialEq, RuntimeDebug))]
-struct Schedule<N> {
+pub(super) struct Schedule<N> {
 	// Original assignments
-	assignments: Vec<(CoreAssignment, PartsOf57600)>,
+	pub(super) assignments: Vec<(CoreAssignment, PartsOf57600)>,
 	/// When do our assignments become invalid, if at all?
 	///
 	/// If this is `Some`, then this `CoreState` will be dropped at that block number. If this is
 	/// `None`, then we will keep serving our core assignments in a circle until a new set of
 	/// assignments is scheduled.
-	end_hint: Option<N>,
+	pub(super) end_hint: Option<N>,
 
 	/// The next queued schedule for this core.
 	///
 	/// Schedules are forming a queue.
-	next_schedule: Option<N>,
+	pub(super) next_schedule: Option<N>,
 }
 
 /// Descriptor for a core.
@@ -154,11 +133,11 @@ struct Schedule<N> {
 /// of the currently active work as well.
 #[derive(Encode, Decode, TypeInfo, Default)]
 #[cfg_attr(test, derive(PartialEq, RuntimeDebug, Clone))]
-struct CoreDescriptor<N> {
+pub(super) struct CoreDescriptor<N> {
 	/// Meta data about the queued schedules for this core.
-	queue: Option<QueueDescriptor<N>>,
+	pub(super) queue: Option<QueueDescriptor<N>>,
 	/// Currently performed work.
-	current_work: Option<WorkState<N>>,
+	pub(super) current_work: Option<WorkState<N>>,
 }
 
 /// Pointers into `CoreSchedules` for a particular core.
@@ -167,45 +146,45 @@ struct CoreDescriptor<N> {
 /// item.
 #[derive(Encode, Decode, TypeInfo, Copy, Clone)]
 #[cfg_attr(test, derive(PartialEq, RuntimeDebug))]
-struct QueueDescriptor<N> {
+pub struct QueueDescriptor<N> {
 	/// First scheduled item, that is not yet active.
-	first: N,
+	pub first: N,
 	/// Last scheduled item.
-	last: N,
+	pub last: N,
 }
 
 #[derive(Encode, Decode, TypeInfo)]
 #[cfg_attr(test, derive(PartialEq, RuntimeDebug, Clone))]
-struct WorkState<N> {
+pub struct WorkState<N> {
 	/// Assignments with current state.
 	///
 	/// Assignments and book keeping on how much has been served already. We keep track of serviced
 	/// assignments in order to adhere to the specified ratios.
-	assignments: Vec<(CoreAssignment, AssignmentState)>,
+	pub assignments: Vec<(CoreAssignment, AssignmentState)>,
 	/// When do our assignments become invalid if at all?
 	///
 	/// If this is `Some`, then this `CoreState` will be dropped at that block number. If this is
 	/// `None`, then we will keep serving our core assignments in a circle until a new set of
 	/// assignments is scheduled.
-	end_hint: Option<N>,
+	pub end_hint: Option<N>,
 	/// Position in the assignments we are currently in.
 	///
 	/// Aka which core assignment will be popped next on
 	/// `AssignmentProvider::advance_assignments`.
-	pos: u16,
+	pub pos: u16,
 	/// Step width
 	///
 	/// How much we subtract from `AssignmentState::remaining` for a core served.
-	step: PartsOf57600,
+	pub step: PartsOf57600,
 }
 
 #[derive(Encode, Decode, TypeInfo)]
 #[cfg_attr(test, derive(PartialEq, RuntimeDebug, Clone, Copy))]
-struct AssignmentState {
+pub struct AssignmentState {
 	/// Ratio of the core this assignment has.
 	///
 	/// As initially received via `assign_core`.
-	ratio: PartsOf57600,
+	pub ratio: PartsOf57600,
 	/// How many parts are remaining in this round?
 	///
 	/// At the end of each round (in preparation for the next), ratio will be added to remaining.
@@ -214,7 +193,7 @@ struct AssignmentState {
 	/// item in the `Vec`.
 	///
 	/// The first round starts with remaining = ratio.
-	remaining: PartsOf57600,
+	pub remaining: PartsOf57600,
 }
 
 /// How storage is accessed.
@@ -259,8 +238,8 @@ impl<'a, T: Config> AccessMode<'a, T> {
 		core_idx: CoreIndex,
 	) -> Option<Schedule<BlockNumberFor<T>>> {
 		match self {
-			Self::Peek { .. } => CoreSchedules::<T>::get((next_scheduled, core_idx)),
-			Self::Pop => CoreSchedules::<T>::take((next_scheduled, core_idx)),
+			Self::Peek { .. } => super::CoreSchedules::<T>::get((next_scheduled, core_idx)),
+			Self::Pop => super::CoreSchedules::<T>::take((next_scheduled, core_idx)),
 		}
 	}
 }
@@ -346,7 +325,7 @@ pub(super) fn advance_assignments<T: Config, F: Fn(CoreIndex) -> bool>(
 ) -> BTreeMap<CoreIndex, ParaId> {
 	let now = frame_system::Pallet::<T>::block_number();
 
-	let assignments = CoreDescriptors::<T>::mutate(|core_states| {
+	let assignments = super::CoreDescriptors::<T>::mutate(|core_states| {
 		advance_assignments_single_impl::<T>(now, core_states, AccessMode::<T>::pop())
 	});
 
@@ -367,7 +346,7 @@ pub(super) fn advance_assignments<T: Config, F: Fn(CoreIndex) -> bool>(
 	// Try to fill missing assignments from the next position (duplication to allow asynchronous
 	// backing even for first assignment coming in on a previously empty core):
 	let next = now.saturating_plus_one();
-	let mut core_states = CoreDescriptors::<T>::get();
+	let mut core_states = super::CoreDescriptors::<T>::get();
 	let mut on_demand_orders = on_demand::Pallet::<T>::peek_order_queue();
 	let next_assignments = advance_assignments_single_impl(
 		next,
@@ -410,7 +389,7 @@ pub(super) fn assign_core<T: Config>(
 	// There should be at least one assignment.
 	ensure!(!assignments.is_empty(), Error::AssignmentsEmpty);
 
-	CoreDescriptors::<T>::mutate(|core_descriptors| {
+	super::CoreDescriptors::<T>::mutate(|core_descriptors| {
 		let core_descriptor = core_descriptors.entry(core_idx).or_default();
 		let new_queue = match core_descriptor.queue {
 			Some(queue) => {
@@ -418,7 +397,7 @@ pub(super) fn assign_core<T: Config>(
 
 				// Update queue if we are appending:
 				if begin > queue.last {
-					CoreSchedules::<T>::mutate((queue.last, core_idx), |schedule| {
+					super::CoreSchedules::<T>::mutate((queue.last, core_idx), |schedule| {
 						if let Some(schedule) = schedule.as_mut() {
 							debug_assert!(schedule.next_schedule.is_none(), "queue.end was supposed to be the end, so the next item must be `None`!");
 							schedule.next_schedule = Some(begin);
@@ -428,7 +407,7 @@ pub(super) fn assign_core<T: Config>(
 					});
 				}
 
-				CoreSchedules::<T>::mutate((begin, core_idx), |schedule| {
+				super::CoreSchedules::<T>::mutate((begin, core_idx), |schedule| {
 					let assignments = if let Some(mut old_schedule) = schedule.take() {
 						old_schedule.assignments.append(&mut assignments);
 						old_schedule.assignments
@@ -442,7 +421,7 @@ pub(super) fn assign_core<T: Config>(
 			},
 			None => {
 				// Queue empty, just insert:
-				CoreSchedules::<T>::insert(
+				super::CoreSchedules::<T>::insert(
 					(begin, core_idx),
 					Schedule { assignments, end_hint, next_schedule: None },
 				);
@@ -462,7 +441,7 @@ fn peek_impl<T: Config>(
 	mut now: BlockNumberFor<T>,
 	num_entries: u32,
 ) -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
-	let mut core_states = CoreDescriptors::<T>::get();
+	let mut core_states = super::CoreDescriptors::<T>::get();
 	let mut result = BTreeMap::new();
 	let mut on_demand_orders = on_demand::Pallet::<T>::peek_order_queue();
 	for i in 0..num_entries {

@@ -612,17 +612,17 @@ mod v4 {
 							let next = old_schedule.next_schedule;
 
 							// Convert and insert into new storage
-							let new_schedule = Schedule {
-								assignments: old_schedule
+							let new_schedule = Schedule::new(
+								old_schedule
 									.assignments
 									.into_iter()
 									.map(|(assignment, parts)| {
 										(assignment, PartsOf57600::new_saturating(parts.0))
 									})
 									.collect(),
-								end_hint: old_schedule.end_hint,
-								next_schedule: old_schedule.next_schedule,
-							};
+								old_schedule.end_hint,
+								old_schedule.next_schedule,
+							);
 							super::CoreSchedules::<T>::insert(key, new_schedule);
 							weight.saturating_accrue(T::DbWeight::get().writes(1));
 
@@ -642,11 +642,11 @@ mod v4 {
 				}
 
 				// Convert descriptor from old type to new type
-				let new_desc = CoreDescriptor {
-					queue: old_descriptor
+				let new_desc = CoreDescriptor::new(
+					old_descriptor
 						.queue
 						.map(|q| QueueDescriptor { first: q.first, last: q.last }),
-					current_work: old_descriptor.current_work.map(|w| WorkState {
+					old_descriptor.current_work.map(|w| WorkState {
 						assignments: w
 							.assignments
 							.into_iter()
@@ -664,7 +664,7 @@ mod v4 {
 						pos: w.pos,
 						step: PartsOf57600::new_saturating(w.step.0),
 					}),
-				};
+				);
 				new_descriptors.insert(core_index, new_desc);
 			}
 
@@ -690,8 +690,11 @@ mod v4 {
 						on_demand::Pallet::<T>::push_back_order(*para_id);
 						migrated_pool_assignments = migrated_pool_assignments.saturating_add(1);
 					}
-					// Bulk assignments are intentionally dropped - they'll be reassigned
-					// from the coretime/broker chain.
+					// Bulk assignments are intentionally dropped - this is
+					// technically not fully correct, but will not matter in
+					// practice as virtually nobody is sharing cores right now
+					// and even if so, this lack in preciseness would hardly be
+					// noticable.
 				}
 			}
 
@@ -838,8 +841,8 @@ pub type MigrateV3ToV4<T> = VersionedMigration<
 mod v4_tests {
 	use super::*;
 	use crate::{
-		assigner_coretime as old,
-		mock::{new_test_ext, MockGenesisConfig, Test},
+		assigner_coretime as old, configuration, on_demand,
+		mock::{new_test_ext, MockGenesisConfig, System, Test},
 		scheduler,
 	};
 	use alloc::collections::BTreeMap;
@@ -896,8 +899,8 @@ mod v4_tests {
 
 			let new_descriptors = super::CoreDescriptors::<Test>::get();
 			let new_descriptor = new_descriptors.get(&core).expect("Descriptor should be migrated");
-			assert!(new_descriptor.queue.is_some());
-			assert!(new_descriptor.current_work.is_none());
+			assert!(new_descriptor.queue().is_some());
+			assert!(new_descriptor.current_work().is_none());
 
 			// Verify old storage is empty
 			assert!(old::pallet::CoreSchedules::<Test>::get((block_number, core)).is_none());
@@ -1055,23 +1058,61 @@ mod v4_tests {
 			assert!(!v4::ClaimQueue::<Test>::exists());
 
 			// Verify pool assignments went to on-demand
-			// Note: We can't directly check the on-demand queue without its internals,
-			// but we can verify the migration completed without panicking
+			// The migration calls `on_demand::Pallet::<T>::push_back_order` for each pool assignment,
+			// which adds them to the on-demand queue. We verify by popping assignments.
+			// Orders are ready 2 blocks after being placed (asynchronous backing).
+			let mut on_demand_queue = on_demand::Pallet::<Test>::peek_order_queue();
+			let now = System::block_number().saturating_add(2);  // Advance 2 blocks for async backing
+			let popped: Vec<ParaId> = on_demand_queue
+				.pop_assignment_for_cores::<Test>(now, 2)
+				.collect();
+
+			assert_eq!(popped.len(), 2, "Should have 2 pool assignments in on-demand queue");
+			assert!(popped.contains(&pool_para_1), "pool_para_1 should be in queue");
+			assert!(popped.contains(&pool_para_2), "pool_para_2 should be in queue");
 		});
 	}
 
 	#[test]
 	fn claim_queue_bulk_assignments_dropped() {
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
-			let core = CoreIndex(0);
-			let bulk_para_1 = ParaId::from(2000);
-			let bulk_para_2 = ParaId::from(2001);
+			// Setup configuration with 1 core
+			configuration::ActiveConfig::<Test>::mutate(|c| {
+				c.scheduler_params.num_cores = 1;
+			});
 
-			// Create ClaimQueue with only bulk assignments
+			let core = CoreIndex(0);
+			let block_number = System::block_number().saturating_plus_one();
+
+			// Create CoreSchedule with different bulk assignments (these should win)
+			let descriptor_para_1 = ParaId::from(3000);
+			let descriptor_para_2 = ParaId::from(3001);
+
+			let descriptor_schedule = old::Schedule {
+				assignments: vec![
+					(BrokerCoreAssignment::Task(descriptor_para_1.into()), old::PartsOf57600(28800)),
+					(BrokerCoreAssignment::Task(descriptor_para_2.into()), old::PartsOf57600(28800)),
+				],
+				end_hint: None,
+				next_schedule: None,
+			};
+
+			let descriptor = old::CoreDescriptor {
+				queue: Some(old::QueueDescriptor { first: block_number, last: block_number }),
+				current_work: None,
+			};
+
+			old::pallet::CoreSchedules::<Test>::insert((block_number, core), descriptor_schedule);
+			old::pallet::CoreDescriptors::<Test>::insert(core, descriptor);
+
+			// Create ClaimQueue with different bulk assignments (these should be dropped)
+			let claimqueue_para_1 = ParaId::from(2000);
+			let claimqueue_para_2 = ParaId::from(2001);
+
 			let mut claim_queue = BTreeMap::new();
 			let mut assignments = VecDeque::new();
-			assignments.push_back(Assignment::Bulk(bulk_para_1));
-			assignments.push_back(Assignment::Bulk(bulk_para_2));
+			assignments.push_back(Assignment::Bulk(claimqueue_para_1));
+			assignments.push_back(Assignment::Bulk(claimqueue_para_2));
 			claim_queue.insert(core, assignments);
 
 			v4::ClaimQueue::<Test>::put(claim_queue);
@@ -1083,7 +1124,19 @@ mod v4_tests {
 
 			// Verify ClaimQueue is removed
 			assert!(!v4::ClaimQueue::<Test>::exists());
-			// Bulk assignments should be dropped (not added to on-demand)
+
+			// Peek at the next block to see what will be scheduled
+			// Should see assignments from descriptor (3000, 3001), NOT from ClaimQueue (2000, 2001)
+			let peeked = scheduler::assigner_coretime::peek_next_block::<Test>(10);
+
+			let core_assignments = peeked.get(&core).expect("Core should have assignments");
+			let para_ids: Vec<ParaId> = core_assignments.iter().copied().collect();
+
+			// Verify we see descriptor paras, not claimqueue paras
+			assert!(para_ids.contains(&descriptor_para_1), "Should contain para from descriptor");
+			assert!(para_ids.contains(&descriptor_para_2), "Should contain para from descriptor");
+			assert!(!para_ids.contains(&claimqueue_para_1), "Should NOT contain para from old ClaimQueue");
+			assert!(!para_ids.contains(&claimqueue_para_2), "Should NOT contain para from old ClaimQueue");
 		});
 	}
 
@@ -1152,8 +1205,13 @@ mod v4_tests {
 				.expect("Schedule should be migrated");
 			assert_eq!(new_schedule.assignments.len(), 3);
 
-			// Check sum of parts equals full allocation
-			// (can't directly access the u16 field without making it public in the new module)
+			// Check sum of parts equals full allocation (14400 + 28800 + 14400 = 57600)
+			let sum: u16 = new_schedule
+				.assignments
+				.iter()
+				.map(|(_, parts)| parts.value())
+				.sum();
+			assert_eq!(sum, 57600, "Sum of parts should equal full allocation");
 		});
 	}
 
@@ -1195,12 +1253,28 @@ mod v4_tests {
 			// Verify current_work migrated
 			let new_descriptors = super::CoreDescriptors::<Test>::get();
 			let new_descriptor = new_descriptors.get(&core).expect("Descriptor should exist");
-			assert!(new_descriptor.current_work.is_some());
+			assert!(new_descriptor.current_work().is_some());
 
-			let work = new_descriptor.current_work.as_ref().unwrap();
+			let work = new_descriptor.current_work().as_ref().unwrap();
 			assert_eq!(work.assignments.len(), 1);
+
+			// Verify the assignment details match what we set up
+			let (assignment, state) = &work.assignments[0];
+			match assignment {
+				BrokerCoreAssignment::Task(task_id) => {
+					assert_eq!(ParaId::from(*task_id), para_id, "ParaId should match");
+				},
+				_ => panic!("Expected Task assignment"),
+			}
+
+			// Verify assignment state values
+			assert_eq!(state.ratio.value(), 57600, "Ratio should be full allocation");
+			assert_eq!(state.remaining.value(), 28800, "Remaining should be half");
+
+			// Verify work state metadata
 			assert_eq!(work.end_hint, Some(100u32));
 			assert_eq!(work.pos, 0);
+			assert_eq!(work.step.value(), 1, "Step should be 1");
 		});
 	}
 }
