@@ -1,4 +1,4 @@
-use crate::{pallet};
+use crate::pallet;
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, Contains, PollStatus, Polling},
@@ -28,10 +28,6 @@ frame_support::construct_runtime!(
 		Revive: pallet_revive,
 	}
 );
-
-impl crate::pallet::Config for Test {
-    type RuntimeCall = RuntimeCall;
-}
 
 // Test that a filtered call can be dispatched.
 pub struct BaseFilter;

@@ -25,15 +25,10 @@ mod mock;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::{dispatch::GetDispatchInfo, pallet_prelude::Encode};
-	use sp_runtime::traits::Dispatchable;
-
 	#[pallet::config]
-	pub trait Config<I: 'static = ()>: frame_system::Config + pallet_conviction_voting::Config + pallet_revive::Config {
-		type RuntimeCall: Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
-			+ GetDispatchInfo
-			+ From<frame_system::Call<Self>>
-			+ Encode;
+	pub trait Config<I: 'static = ()>:
+		frame_system::Config + pallet_conviction_voting::Config<I> + pallet_revive::Config
+	{
 	}
 
 	#[pallet::pallet]
