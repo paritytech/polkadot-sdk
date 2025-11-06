@@ -1222,11 +1222,12 @@ where
 				// if we reached this point the origin has an associated account.
 				let origin = &self.origin.account_id()?;
 
-				let ed = <Contracts<T>>::min_balance();
-				frame.nested_storage.record_charge(&StorageDeposit::Charge(ed))?;
-				<Contracts<T>>::charge_deposit(None, origin, account_id, ed, self.exec_config)
-					.map_err(|_| <Error<T>>::StorageDepositNotEnoughFunds)?;
-
+				if !frame_system::Pallet::<T>::account_exists(&account_id) {
+					let ed = <Contracts<T>>::min_balance();
+					frame.nested_storage.record_charge(&StorageDeposit::Charge(ed))?;
+					<Contracts<T>>::charge_deposit(None, origin, account_id, ed, self.exec_config)
+						.map_err(|_| <Error<T>>::StorageDepositNotEnoughFunds)?;
+				}
 				// A consumer is added at account creation and removed it on termination, otherwise
 				// the runtime could remove the account. As long as a contract exists its
 				// account must exist. With the consumer, a correct runtime cannot remove the
