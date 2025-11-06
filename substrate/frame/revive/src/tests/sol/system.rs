@@ -23,7 +23,7 @@ use crate::{
 	tests::{builder, Contracts, ExtBuilder, Test},
 	Code, Combinator, Config, ExecConfig, U256,
 };
-use alloy_core::sol_types::{SolCall, SolConstructor};
+use alloy_core::sol_types::{Revert, SolCall, SolConstructor, SolError};
 use frame_support::traits::fungible::{Balanced, Mutate};
 use pallet_revive_fixtures::{
 	compile_module_with_type, Callee, FixtureType, System as SystemFixture,
@@ -330,17 +330,8 @@ fn constructor_with_argument_works(fixture_type: FixtureType) {
 			.unwrap()
 			.result;
 		assert!(result.did_revert());
-		assert_eq!(
-			result.data,
-			[
-				8, 195, 121, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 60, 82, 101, 118, 101, 114, 116, 101,
-				100, 32, 98, 101, 99, 97, 117, 115, 101, 32, 114, 101, 118, 101, 114, 116, 61, 116,
-				114, 117, 101, 32, 119, 97, 115, 32, 115, 101, 116, 32, 97, 115, 32, 99, 111, 110,
-				115, 116, 114, 117, 99, 116, 111, 114, 32, 97, 114, 103, 117, 109, 101, 110, 116,
-				0, 0, 0, 0,
-			],
-		)
+
+		let expected_message = "Reverted because revert=true was set as constructor argument";
+		assert_eq!(result.data, Revert::from(expected_message).abi_encode());
 	});
 }
