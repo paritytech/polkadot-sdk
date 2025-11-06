@@ -37,7 +37,7 @@ use tracing::{
 use crate::{SpanDatum, TraceEvent, Values};
 use frame_metadata::{RuntimeMetadata, RuntimeMetadataPrefixed};
 use sc_client_api::BlockBackend;
-use sp_api::{ApiExt, Core, Metadata, ProofRecorder, ProvideRuntimeApi};
+use sp_api::{ApiExt, Core, Metadata, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_core::{hexdisplay::HexDisplay, OpaqueMetadata};
 use sp_rpc::tracing::{BlockTrace, Span, TraceBlockResponse};
@@ -271,10 +271,11 @@ where
 				if self.record_proof {
 					// This is a parachain runtime - enable proof recording
 					let mut runtime_api = self.client.runtime_api();
-					let storage_proof_recorder = ProofRecorder::<Block>::default();
-					runtime_api
-						.register_extension(ProofSizeExt::new(storage_proof_recorder.clone()));
-					runtime_api.record_proof_with_recorder(storage_proof_recorder);
+					runtime_api.record_proof();
+					let storage_proof_recorder = runtime_api
+						.proof_recorder()
+						.expect("Proof recording enabled in the line above.");
+					runtime_api.register_extension(ProofSizeExt::new(storage_proof_recorder));
 					runtime_api.execute_block(parent_hash, block)
 				} else {
 					// This is a solochain runtime - execute normally
