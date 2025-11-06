@@ -22,6 +22,7 @@ use frame_support::{
 	pallet_prelude::Get,
 	traits::fungible::{Inspect, Mutate},
 	weights::Weight,
+	BoundedVec,
 };
 use sp_runtime::traits::Bounded;
 use xcm::latest::{prelude::*, AssetTransferFilter, MAX_ITEMS_IN_ASSETS};
@@ -321,7 +322,7 @@ benchmarks_instance_pallet! {
 			remote_fees: Some(AssetTransferFilter::ReserveDeposit(asset.clone().into())),
 			// It's more expensive if we reanchor the origin.
 			preserve_origin: true,
-			assets: vec![AssetTransferFilter::ReserveDeposit(asset.into())],
+			assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveDeposit(asset.into())]),
 			remote_xcm: Xcm::new(),
 		};
 		let xcm = Xcm(vec![instruction]);

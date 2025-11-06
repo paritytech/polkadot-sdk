@@ -167,7 +167,7 @@ impl PeerInfoBehaviour {
 	/// Returns `None` if we don't know anything about this node. Always returns `Some` for nodes
 	/// we're connected to, meaning that if `None` is returned then we're not connected to that
 	/// node.
-	pub fn node(&self, peer_id: &PeerId) -> Option<Node> {
+	pub fn node(&self, peer_id: &PeerId) -> Option<Node<'_>> {
 		self.nodes_info.get(peer_id).map(Node)
 	}
 
@@ -579,6 +579,10 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 					error!(target: LOG_TARGET,
 						"Unknown peer {:?} to change address from {:?} to {:?}", peer_id, old, new);
 				}
+			},
+			FromSwarm::NewExternalAddrOfPeer(e) => {
+				self.ping.on_swarm_event(FromSwarm::NewExternalAddrOfPeer(e));
+				self.identify.on_swarm_event(FromSwarm::NewExternalAddrOfPeer(e));
 			},
 			event => {
 				debug!(target: LOG_TARGET, "New unknown `FromSwarm` libp2p event: {event:?}");

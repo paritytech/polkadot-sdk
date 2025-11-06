@@ -89,7 +89,7 @@ impl From<u128> for RegionId {
 }
 impl From<RegionId> for u128 {
 	fn from(x: RegionId) -> Self {
-		(x.begin as u128) << 96 | (x.core as u128) << 80 | u128::from(x.mask)
+		((x.begin as u128) << 96) | ((x.core as u128) << 80) | u128::from(x.mask)
 	}
 }
 #[test]

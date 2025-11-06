@@ -30,7 +30,7 @@
 //! > Made with *Substrate*, for *Polkadot*.
 //!
 //! [![github]](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/examples/basic)
-//! [![polkadot]](https://polkadot.network)
+//! [![polkadot]](https://polkadot.com)
 //!
 //! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
 //! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
@@ -163,9 +163,6 @@ pub mod pallet {
 		// Setting a constant config parameter from the runtime
 		#[pallet::constant]
 		type MagicNumber: Get<Self::Balance>;
-
-		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Type representing the weight of this pallet
 		type WeightInfo: WeightInfo;

@@ -194,6 +194,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// Overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The treasury's pallet id, used for deriving its sovereign account ID.

@@ -24,9 +24,9 @@ default_command = "polkadot-parachain"
 default_args = [
 	"--force-authoring",
 	"--pool-kbytes 2048000",
-	"--pool-limit 300",
+	"--pool-limit 10000",
 	"--pool-type=fork-aware",
-	"--rpc-max-connections 15000",
+	"--rpc-max-connections 100000",
 	"--rpc-max-response-size 150",
 	"--rpc-max-subscriptions-per-connection=128000",
 	"--state-pruning=1024",
@@ -36,10 +36,11 @@ default_args = [
 	"-lsub-libp2p=info",
 	"-lsync=info",
 	"-ltxpool=debug",
+	"-ltxpoolstat=debug",
 ]
 [parachains.genesis.runtimeGenesis.patch.balances]
 devAccounts = [
-	100,
+	80000,
 	1000000000000000000,
 	"//Sender//{}",
 ]

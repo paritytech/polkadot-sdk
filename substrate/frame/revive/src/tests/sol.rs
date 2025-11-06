@@ -1,0 +1,304 @@
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+use crate::{
+	assert_refcount,
+	call_builder::VmBinaryModule,
+	debug::DebugSettings,
+	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
+	tests::{
+		builder,
+		test_utils::{contract_base_deposit, ensure_stored, get_contract},
+		AllowEvmBytecode, DebugFlag, ExtBuilder, RuntimeOrigin, Test,
+	},
+	Code, Config, Error, GenesisConfig, Pallet, PristineCode,
+};
+use alloy_core::sol_types::{SolCall, SolInterface};
+use frame_support::{assert_err, assert_ok, traits::fungible::Mutate};
+use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType};
+use pretty_assertions::assert_eq;
+use test_case::test_case;
+
+use revm::bytecode::opcode::*;
+
+mod arithmetic;
+mod bitwise;
+mod block_info;
+mod contract;
+mod control;
+mod host;
+mod memory;
+mod stack;
+mod system;
+mod tx_info;
+
+fn make_initcode_from_runtime_code(runtime_code: &Vec<u8>) -> Vec<u8> {
+	let runtime_code_len = runtime_code.len();
+	assert!(runtime_code_len < 256, "runtime code length must be less than 256 bytes");
+	let mut init_code: Vec<u8> = vec![
+		vec![PUSH1, 0x80_u8],
+		vec![PUSH1, 0x40_u8],
+		vec![MSTORE],
+		vec![PUSH1, 0x40_u8],
+		vec![MLOAD],
+		vec![PUSH1, runtime_code_len as u8],
+		vec![PUSH1, 0x13_u8],
+		vec![DUP3],
+		vec![CODECOPY],
+		vec![PUSH1, runtime_code_len as u8],
+		vec![SWAP1],
+		vec![RETURN],
+		vec![INVALID],
+	]
+	.into_iter()
+	.flatten()
+	.collect();
+	init_code.extend(runtime_code);
+	init_code
+}
+
+#[test]
+fn basic_evm_flow_works() {
+	let (code, init_hash) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		for i in 1u8..=2 {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
+				.salt(Some([i; 32]))
+				.build_and_unwrap_contract();
+
+			// check the code exists
+			let contract = get_contract(&addr);
+			ensure_stored(contract.code_hash);
+			let deposit = contract_base_deposit(&addr);
+			assert_eq!(contract.total_deposit(), deposit);
+			assert_refcount!(contract.code_hash, i as u64);
+
+			let result = builder::bare_call(addr)
+				.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 10u64 }).abi_encode())
+				.build_and_unwrap_result();
+			let decoded = Fibonacci::fibCall::abi_decode_returns(&result.data).unwrap();
+			assert_eq!(55u64, decoded);
+		}
+
+		// init code is not stored
+		assert!(!PristineCode::<Test>::contains_key(init_hash));
+	});
+}
+
+#[test]
+fn basic_evm_flow_tracing_works() {
+	use crate::{
+		evm::{CallTrace, CallTracer, CallType},
+		tracing::trace,
+	};
+	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let mut tracer = CallTracer::new(Default::default(), |_| crate::U256::zero());
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr, .. } = trace(&mut tracer, || {
+			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract()
+		});
+
+		let contract = get_contract(&addr);
+		let runtime_code = PristineCode::<Test>::get(contract.code_hash).unwrap();
+
+		assert_eq!(
+			tracer.collect_trace().unwrap(),
+			CallTrace {
+				from: ALICE_ADDR,
+				call_type: CallType::Create2,
+				to: addr,
+				input: code.into(),
+				output: runtime_code.into(),
+				value: Some(crate::U256::zero()),
+				..Default::default()
+			}
+		);
+
+		let mut call_tracer = CallTracer::new(Default::default(), |_| crate::U256::zero());
+		let result = trace(&mut call_tracer, || {
+			builder::bare_call(addr)
+				.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 10u64 }).abi_encode())
+				.build_and_unwrap_result()
+		});
+
+		let decoded = Fibonacci::fibCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(55u64, decoded);
+
+		assert_eq!(
+			call_tracer.collect_trace().unwrap(),
+			CallTrace {
+				call_type: CallType::Call,
+				from: ALICE_ADDR,
+				to: addr,
+				input: Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 10u64 })
+					.abi_encode()
+					.into(),
+				output: result.data.into(),
+				value: Some(crate::U256::zero()),
+				..Default::default()
+			},
+		);
+	});
+}
+
+#[test]
+fn eth_contract_too_large() {
+	// Generate EVM bytecode that is one byte larger than the EIP-3860 limit.
+	let contract_size = u32::try_from(revm::primitives::eip3860::MAX_INITCODE_SIZE + 1)
+		.expect("usize value doesn't fit in u32");
+	let code = VmBinaryModule::evm_sized(contract_size).code;
+
+	for (allow_unlimited_contract_size, debug_flag) in
+		[(true, false), (true, true), (false, false), (false, true)]
+	{
+		// Set the DebugEnabled flag to the desired value for this iteration of the test.
+		DebugFlag::set(debug_flag);
+
+		// Initialize genesis config with allow_unlimited_contract_size
+		let genesis_config = GenesisConfig::<Test> {
+			debug_settings: Some(DebugSettings::new(allow_unlimited_contract_size)),
+			..Default::default()
+		};
+
+		ExtBuilder::default()
+			.genesis_config(Some(genesis_config))
+			.build()
+			.execute_with(|| {
+				let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+				let result = builder::bare_instantiate(Code::Upload(code.clone())).build();
+
+				if allow_unlimited_contract_size && debug_flag {
+					// The contract is too large, but the DebugEnabled flag is set and
+					// allow_unlimited_contract_size is true.
+					assert_ok!(result.result);
+				} else {
+					// The contract is too large and either the DebugEnabled flag is not set or
+					// allow_unlimited_contract_size is false.
+					assert_err!(result.result, <Error<Test>>::BlobTooLarge);
+				}
+			});
+	}
+}
+
+#[test]
+fn upload_evm_runtime_code_works() {
+	use crate::{
+		exec::Executable,
+		primitives::ExecConfig,
+		storage::{AccountInfo, ContractInfo},
+	};
+
+	let (runtime_code, _runtime_hash) =
+		compile_module_with_type("Fibonacci", FixtureType::SolcRuntime).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let deployer = ALICE;
+		let deployer_addr = ALICE_ADDR;
+		let _ = Pallet::<Test>::set_evm_balance(&deployer_addr, 1_000_000_000.into());
+
+		let (uploaded_blob, _) = Pallet::<Test>::try_upload_code(
+			deployer,
+			runtime_code.clone(),
+			crate::vm::BytecodeType::Evm,
+			u64::MAX,
+			&ExecConfig::new_substrate_tx(),
+		)
+		.unwrap();
+
+		let contract_address = crate::address::create1(&deployer_addr, 0u32.into());
+
+		let contract_info =
+			ContractInfo::<Test>::new(&contract_address, 0u32.into(), *uploaded_blob.code_hash())
+				.unwrap();
+		AccountInfo::<Test>::insert_contract(&contract_address, contract_info);
+
+		// Call the contract and verify it works
+		let result = builder::bare_call(contract_address)
+			.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 10u64 }).abi_encode())
+			.build_and_unwrap_result();
+		let decoded = Fibonacci::fibCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(55u64, decoded, "Contract should correctly compute fibonacci(10)");
+	});
+}
+
+#[test]
+fn upload_and_remove_code_works_for_evm() {
+	let (code, code_hash) = compile_module_with_type("Dummy", FixtureType::SolcRuntime).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = Pallet::<Test>::set_evm_balance(&ALICE_ADDR, 5_000_000_000u64.into());
+
+		// Ensure the code is not already stored.
+		assert!(!PristineCode::<Test>::contains_key(&code_hash));
+
+		// Upload the code.
+		assert_ok!(Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u64));
+
+		// Ensure the contract was stored.
+		ensure_stored(code_hash);
+
+		// Remove the code.
+		assert_ok!(Pallet::<Test>::remove_code(RuntimeOrigin::signed(ALICE), code_hash));
+
+		// Ensure the code is no longer stored.
+		assert!(!PristineCode::<Test>::contains_key(&code_hash));
+	});
+}
+
+#[test]
+fn upload_fails_if_evm_bytecode_disabled() {
+	let (code, _) = compile_module_with_type("Dummy", FixtureType::SolcRuntime).unwrap();
+
+	AllowEvmBytecode::set(false); // Disable support for EVM bytecode.
+	ExtBuilder::default().build().execute_with(|| {
+		// Upload should fail since support for EVM bytecode is disabled.
+		assert_err!(
+			Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u64),
+			<Error<Test>>::CodeRejected
+		);
+	});
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn dust_work_with_child_calls(fixture_type: FixtureType) {
+	use pallet_revive_fixtures::CallSelfWithDust;
+	let (code, _) = compile_module_with_type("CallSelfWithDust", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+
+		let value = 1_000_000_000.into();
+		builder::bare_call(addr)
+			.data(
+				CallSelfWithDust::CallSelfWithDustCalls::call(CallSelfWithDust::callCall {})
+					.abi_encode(),
+			)
+			.evm_value(value)
+			.build_and_unwrap_result();
+
+		assert_eq!(crate::Pallet::<Test>::evm_balance(&addr), value);
+	});
+}

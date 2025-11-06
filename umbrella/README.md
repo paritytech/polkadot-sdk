@@ -21,7 +21,8 @@ importantly, it guarantees the compatible combination of crate versions. So even
 which crates to use, you may still benefit from using `polkadot-sdk` for painless dependency
 updates.
 
-You may have seen another umbrella crate named `polkadot-sdk-frame`. For clarification, while
+You may have seen another umbrella crate named `polkadot-sdk-frame`, also known as the FRAME umbrella crate.
+For clarification, while
 `polkadot-sdk` aims to ease dependency management, `polkadot-sdk-frame` intends to simplify
 [FRAME](https://docs.polkadot.com/polkadot-protocol/glossary/#frame-framework-for-runtime-aggregation-of-modularized-entities)
 pallet implementation, as demonstrated in the example below.
@@ -168,6 +169,8 @@ pub mod pallet {
     }
 }
 ```
+
+For more detailed documentation and examples on `polkadot-sdk-frame`, see [`polkadot_sdk_frame`](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_frame/index.html).
 
 To learn more about building with the Polkadot SDK, you may start with these
 [guides](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/index.html) and

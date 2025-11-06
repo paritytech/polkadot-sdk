@@ -41,6 +41,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+mod genesis_config_presets;
 mod weights;
 pub mod xcm_config;
 
@@ -53,7 +54,8 @@ use assets_common::{
 	AssetIdForTrustBackedAssetsConvert,
 };
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
-use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector, ParaId};
+use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
+
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -64,10 +66,10 @@ use frame_support::{
 	traits::{
 		tokens::{fungible, fungibles, imbalance::ResolveAssetTo},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, Everything,
-		Nothing, TransformOrigin,
+		TransformOrigin,
 	},
 	weights::{
-		constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, FeePolynomial, WeightToFee as _,
+		constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, FeePolynomial,
 		WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
 	},
 	PalletId,
@@ -89,7 +91,7 @@ use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult, FixedU128,
 };
 pub use sp_runtime::{traits::ConvertInto, MultiAddress, Perbill, Permill};
 #[cfg(feature = "std")]
@@ -100,7 +102,6 @@ use xcm_config::{ForeignAssetsAssetId, LocationToAccountId, XcmOriginToTransactD
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 
-use parachains_common::{AccountId, Signature};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{
@@ -113,23 +114,11 @@ use xcm_runtime_apis::{
 	fees::Error as XcmPaymentApiError,
 };
 
-/// Balance of an account.
-pub type Balance = u128;
-
-/// Index of a transaction in the chain.
-pub type Nonce = u32;
-
-/// A hash of some data used by the chain.
-pub type Hash = sp_core::H256;
-
-/// An index to a block.
-pub type BlockNumber = u32;
+use parachains_common::{AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature};
+use testnet_parachains_constants::westend::{consensus::*, time::*};
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;
-
-/// Block header type as expected by this runtime.
-pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 
 /// Block type as expected by this runtime.
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
@@ -154,6 +143,8 @@ pub type TxExtension = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_asset_tx_payment::ChargeAssetTxPayment<Runtime>,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+	pallet_revive::evm::tx_extension::SetOrigin<Runtime>,
 	frame_system::WeightReclaim<Runtime>,
 );
 
@@ -176,6 +167,8 @@ impl EthExtra for EthExtraImpl {
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_asset_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None),
+			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::new_from_eth_transaction(),
 			frame_system::WeightReclaim::<Runtime>::new(),
 		)
 			.into()
@@ -202,7 +195,6 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	Migrations,
 >;
 
 /// Handles converting a weight scalar to a fee value, based on the scale and granularity of the
@@ -297,23 +289,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	system_version: 1,
 };
 
-/// This determines the average expected block time that we are targeting.
-/// Blocks will be produced at a minimum duration defined by `SLOT_DURATION`.
-/// `SLOT_DURATION` is picked up by `pallet_timestamp` which is in turn picked
-/// up by `pallet_aura` to implement `fn slot_duration()`.
-///
-/// Change this to adjust the block time.
-pub const MILLISECS_PER_BLOCK: u64 = 12000;
-
-// NOTE: Currently it is not possible to change the slot duration after the chain has started.
-//       Attempting to do so will brick block production.
-pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
-
-// Time is measured by number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-pub const HOURS: BlockNumber = MINUTES * 60;
-pub const DAYS: BlockNumber = HOURS * 24;
-
 // Unit = the base number of indivisible units for balances
 pub const UNIT: Balance = 1_000_000_000_000;
 pub const MILLIUNIT: Balance = 1_000_000_000;
@@ -335,15 +310,6 @@ const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 	WEIGHT_REF_TIME_PER_SECOND.saturating_div(2),
 	cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
 );
-
-/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
-/// into the relay chain.
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
-/// How many parachain blocks are processed by the relay chain per parent. Limits the
-/// number of blocks authored per slot.
-const BLOCK_PROCESSING_VELOCITY: u32 = 1;
-/// Relay chain slot duration, in milliseconds.
-const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
@@ -430,6 +396,7 @@ impl frame_system::Config for Runtime {
 	/// The action to take on a Runtime Upgrade
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type SingleBlockMigrations = Migrations;
 }
 
 impl pallet_timestamp::Config for Runtime {
@@ -476,7 +443,7 @@ parameter_types! {
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
-	type WeightToFee = WeightToFee;
+	type WeightToFee = pallet_revive::evm::fees::BlockRatioFee<1, 1, Self>;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
 	type OperationalFeeMultiplier = ConstU8<5>;
@@ -668,6 +635,13 @@ parameter_types! {
 	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
 }
 
+type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
+	Runtime,
+	RELAY_CHAIN_SLOT_DURATION_MILLIS,
+	BLOCK_PROCESSING_VELOCITY,
+	UNINCLUDED_SEGMENT_CAPACITY,
+>;
+
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
@@ -685,7 +659,8 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		BLOCK_PROCESSING_VELOCITY,
 		UNINCLUDED_SEGMENT_CAPACITY,
 	>;
-	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
+
+	type RelayParentOffset = ConstU32<0>;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -749,7 +724,6 @@ parameter_types! {
 	pub const Period: u32 = 6 * HOURS;
 	pub const Offset: u32 = 0;
 }
-
 impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
@@ -763,14 +737,16 @@ impl pallet_session::Config for Runtime {
 	type Keys = SessionKeys;
 	type DisablingStrategy = ();
 	type WeightInfo = ();
+	type Currency = Balances;
+	type KeyDeposit = ();
 }
 
 impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<100_000>;
-	type AllowMultipleBlocksPerSlot = ConstBool<false>;
-	type SlotDuration = pallet_aura::MinimumPeriodTimesTwo<Self>;
+	type AllowMultipleBlocksPerSlot = ConstBool<true>;
+	type SlotDuration = ConstU64<SLOT_DURATION>;
 }
 
 parameter_types! {
@@ -830,51 +806,52 @@ impl pallet_asset_tx_payment::Config for Runtime {
 
 parameter_types! {
 	pub const DepositPerItem: Balance = 0;
+	pub const DepositPerChildTrieItem: Balance = 0;
 	pub const DepositPerByte: Balance = 0;
 	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
+	pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(9, 10);
 }
 
 impl pallet_revive::Config for Runtime {
 	type Time = Timestamp;
+	type Balance = Balance;
 	type Currency = Balances;
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
-	type CallFilter = Nothing;
+	type RuntimeOrigin = RuntimeOrigin;
 	type DepositPerItem = DepositPerItem;
+	type DepositPerChildTrieItem = DepositPerChildTrieItem;
 	type DepositPerByte = DepositPerByte;
-	type WeightPrice = pallet_transaction_payment::Pallet<Self>;
 	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
-	type ChainExtension = ();
+	type Precompiles = ();
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
 	type UnsafeUnstableInterface = ConstBool<true>;
+	type AllowEVMBytecode = ConstBool<true>;
 	type UploadOrigin = EnsureSigned<Self::AccountId>;
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
-	type Xcm = PolkadotXcm;
 	type ChainId = ConstU64<420_420_999>;
 	type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
-	type EthGasEncoder = ();
 	type FindAuthor = <Runtime as pallet_authorship::Config>::FindAuthor;
-}
-
-impl TryFrom<RuntimeCall> for pallet_revive::Call<Runtime> {
-	type Error = ();
-
-	fn try_from(value: RuntimeCall) -> Result<Self, Self::Error> {
-		match value {
-			RuntimeCall::Revive(call) => Ok(call),
-			_ => Err(()),
-		}
-	}
+	type FeeInfo = pallet_revive::evm::fees::Info<Address, Signature, EthExtraImpl>;
+	type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
+	type DebugEnabled = ConstBool<false>;
 }
 
 impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
+}
+
+impl pallet_utility::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -905,6 +882,9 @@ construct_runtime!(
 		CumulusXcm: cumulus_pallet_xcm = 32,
 		MessageQueue: pallet_message_queue = 34,
 
+		// Handy utilities.
+		Utility: pallet_utility = 40,
+
 		// The main stage.
 		Assets: pallet_assets::<Instance1> = 50,
 		ForeignAssets: pallet_assets::<Instance2> = 51,
@@ -930,13 +910,19 @@ mod benches {
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
+		[pallet_utility, Utility]
 	);
 }
 
-impl_runtime_apis! {
+pallet_revive::impl_runtime_apis_plus_revive_traits!(
+	Runtime,
+	Revive,
+	Executive,
+	EthExtraImpl,
+
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
-			sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration())
+			sp_consensus_aura::SlotDuration::from_millis(SLOT_DURATION)
 		}
 
 		fn authorities() -> Vec<AuraId> {
@@ -949,7 +935,7 @@ impl_runtime_apis! {
 			VERSION
 		}
 
-		fn execute_block(block: Block) {
+		fn execute_block(block: <Block as BlockT>::LazyBlock) {
 			Executive::execute_block(block)
 		}
 
@@ -986,7 +972,7 @@ impl_runtime_apis! {
 		}
 
 		fn check_inherents(
-			block: Block,
+			block: <Block as BlockT>::LazyBlock,
 			data: sp_inherents::InherentData,
 		) -> sp_inherents::CheckInherentsResult {
 			data.check_extrinsics(&block)
@@ -1077,12 +1063,6 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl cumulus_primitives_core::GetCoreSelectorApi<Block> for Runtime {
-		fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
-			ParachainSystem::core_selector()
-		}
-	}
-
 	impl xcm_runtime_apis::fees::XcmPaymentApi<Block> for Runtime {
 		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
 			let acceptable_assets = vec![AssetLocationId(xcm_config::RelayLocation::get())];
@@ -1090,20 +1070,11 @@ impl_runtime_apis! {
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
-			match asset.try_as::<AssetLocationId>() {
-				Ok(asset_id) if asset_id.0 == xcm_config::RelayLocation::get() => {
-					// for native token
-					Ok(WeightToFee::weight_to_fee(&weight))
-				},
-				Ok(asset_id) => {
-					log::trace!(target: "xcm::xcm_runtime_apis", "query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!");
-					Err(XcmPaymentApiError::AssetNotFound)
-				},
-				Err(_) => {
-					log::trace!(target: "xcm::xcm_runtime_apis", "query_weight_to_asset_fee - failed to convert asset: {asset:?}!");
-					Err(XcmPaymentApiError::VersionedConversionFailed)
-				}
-			}
+			use crate::xcm_config::XcmConfig;
+
+			type Trader = <XcmConfig as xcm_executor::Config>::Trader;
+
+			PolkadotXcm::query_weight_to_asset_fee::<Trader>(weight, asset)
 		}
 
 		fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
@@ -1121,7 +1092,43 @@ impl_runtime_apis! {
 		}
 
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			PolkadotXcm::dry_run_xcm::<Runtime, xcm_config::XcmRouter, RuntimeCall, xcm_config::XcmConfig>(origin_location, xcm)
+			PolkadotXcm::dry_run_xcm::<xcm_config::XcmRouter>(origin_location, xcm)
+		}
+	}
+
+	impl xcm_runtime_apis::conversions::LocationToAccountApi<Block, AccountId> for Runtime {
+		fn convert_location(location: VersionedLocation) -> Result<
+			AccountId,
+			xcm_runtime_apis::conversions::Error
+		> {
+			xcm_runtime_apis::conversions::LocationToAccountHelper::<
+				AccountId,
+				xcm_config::LocationToAccountId,
+			>::convert_location(location)
+		}
+	}
+
+	impl xcm_runtime_apis::trusted_query::TrustedQueryApi<Block> for Runtime {
+		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
+			PolkadotXcm::is_trusted_reserve(asset, location)
+		}
+		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
+			PolkadotXcm::is_trusted_teleporter(asset, location)
+		}
+	}
+
+	impl xcm_runtime_apis::authorized_aliases::AuthorizedAliasersApi<Block> for Runtime {
+		fn authorized_aliasers(target: VersionedLocation) -> Result<
+			Vec<xcm_runtime_apis::authorized_aliases::OriginAliaser>,
+			xcm_runtime_apis::authorized_aliases::Error
+		> {
+			PolkadotXcm::authorized_aliasers(target)
+		}
+		fn is_authorized_alias(origin: VersionedLocation, target: VersionedLocation) -> Result<
+			bool,
+			xcm_runtime_apis::authorized_aliases::Error
+		> {
+			PolkadotXcm::is_authorized_alias(origin, target)
 		}
 	}
 
@@ -1133,7 +1140,7 @@ impl_runtime_apis! {
 		}
 
 		fn execute_block(
-			block: Block,
+			block: <Block as BlockT>::LazyBlock,
 			state_root_check: bool,
 			signature_check: bool,
 			select: frame_try_runtime::TryStateSelect,
@@ -1195,23 +1202,29 @@ impl_runtime_apis! {
 		}
 
 		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
-			get_preset::<RuntimeGenesisConfig>(id, |_| None)
+			get_preset::<RuntimeGenesisConfig>(id, &genesis_config_presets::get_preset)
 		}
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-			vec![]
+			genesis_config_presets::preset_names()
 		}
 	}
 
-	impl xcm_runtime_apis::trusted_query::TrustedQueryApi<Block> for Runtime {
-		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
-			PolkadotXcm::is_trusted_reserve(asset, location)
-		}
-		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
-			PolkadotXcm::is_trusted_teleporter(asset, location)
+	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
+		fn parachain_id() -> ParaId {
+			ParachainInfo::parachain_id()
 		}
 	}
-}
+
+	impl cumulus_primitives_aura::AuraUnincludedSegmentApi<Block> for Runtime {
+		fn can_build_upon(
+			included_hash: <Block as BlockT>::Hash,
+			slot: cumulus_primitives_aura::Slot,
+		) -> bool {
+			ConsensusHook::can_build_upon(included_hash, slot)
+		}
+	}
+);
 
 cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,

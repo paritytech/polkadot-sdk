@@ -40,6 +40,7 @@ frame_support::construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
 		Session: pallet_session,
+		Balances: pallet_balances,
 		ImOnline: imonline,
 		Historical: pallet_session_historical,
 	}
@@ -109,7 +110,13 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
+	type AccountData = pallet_balances::AccountData<u64>;
 	type Block = Block;
+}
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+impl pallet_balances::Config for Runtime {
+	type AccountStore = System;
 }
 
 parameter_types! {
@@ -129,9 +136,12 @@ impl pallet_session::Config for Runtime {
 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
 	type DisablingStrategy = ();
 	type WeightInfo = ();
+	type Currency = Balances;
+	type KeyDeposit = ();
 }
 
 impl pallet_session::historical::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = u64;
 	type FullIdentificationOf = ConvertInto;
 }
@@ -196,11 +206,11 @@ where
 	type Extrinsic = Extrinsic;
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 		Extrinsic::new_bare(call)
 	}
 }

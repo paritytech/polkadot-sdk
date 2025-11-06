@@ -21,6 +21,7 @@ use crate::{
 	multihash::{Code, Error, Multihash},
 };
 use rand::Rng;
+use serde_with::{DeserializeFromStr, SerializeDisplay};
 
 use std::{fmt, hash::Hash, str::FromStr};
 
@@ -32,7 +33,9 @@ const MAX_INLINE_KEY_LENGTH: usize = 42;
 ///
 /// The data is a CIDv0 compatible multihash of the protobuf encoded public key of the peer
 /// as specified in [specs/peer-ids](https://github.com/libp2p/specs/blob/master/peer-ids/peer-ids.md).
-#[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(
+	Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd, SerializeDisplay, DeserializeFromStr,
+)]
 pub struct PeerId {
 	multihash: Multihash,
 }

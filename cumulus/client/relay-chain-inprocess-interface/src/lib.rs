@@ -16,31 +16,39 @@
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use std::{
-	collections::{BTreeMap, VecDeque},
+	collections::{BTreeMap, HashSet, VecDeque},
 	pin::Pin,
 	sync::Arc,
 	time::Duration,
 };
 
 use async_trait::async_trait;
+use cumulus_client_bootnodes::bootnode_request_response_config;
 use cumulus_primitives_core::{
 	relay_chain::{
-		runtime_api::ParachainHost,
-		vstaging::{CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState},
-		Block as PBlock, BlockId, BlockNumber, CoreIndex, Hash as PHash, Header as PHeader,
-		InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
+		runtime_api::ParachainHost, Block as PBlock, BlockId, BlockNumber,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState,
+		Hash as PHash, Header as PHeader, InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex,
+		ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
 use futures::{FutureExt, Stream, StreamExt};
+use polkadot_primitives::CandidateEvent;
 use polkadot_service::{
-	CollatorPair, Configuration, FullBackend, FullClient, Handle, NewFull, TaskManager,
+	builder::PolkadotServiceBuilder, CollatorOverseerGen, CollatorPair, Configuration, FullBackend,
+	FullClient, Handle, NewFull, NewFullParams, TaskManager,
 };
 use sc_cli::{RuntimeVersion, SubstrateCli};
 use sc_client_api::{
 	blockchain::BlockStatus, Backend, BlockchainEvents, HeaderBackend, ImportNotifications,
-	StorageProof,
+	StorageProof, TrieCacheContext,
+};
+use sc_network::{
+	config::NetworkBackendType,
+	request_responses::IncomingRequest,
+	service::traits::{NetworkBackend, NetworkService},
 };
 use sc_telemetry::TelemetryWorkerHandle;
 use sp_api::{CallApiAt, CallApiAtParams, CallContext, ProvideRuntimeApi};
@@ -217,7 +225,7 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		relay_parent: PHash,
 		key: &[u8],
 	) -> RelayChainResult<Option<StorageValue>> {
-		let state = self.backend.state_at(relay_parent)?;
+		let state = self.backend.state_at(relay_parent, TrieCacheContext::Untrusted)?;
 		state.storage(key).map_err(RelayChainError::GenericError)
 	}
 
@@ -226,7 +234,7 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		relay_parent: PHash,
 		relevant_keys: &Vec<Vec<u8>>,
 	) -> RelayChainResult<StorageProof> {
-		let state_backend = self.backend.state_at(relay_parent)?;
+		let state_backend = self.backend.state_at(relay_parent, TrieCacheContext::Untrusted)?;
 
 		sp_state_machine::prove_read(state_backend, relevant_keys)
 			.map_err(RelayChainError::StateMachineError)
@@ -321,6 +329,10 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 	async fn scheduling_lookahead(&self, hash: PHash) -> RelayChainResult<u32> {
 		Ok(self.full_client.runtime_api().scheduling_lookahead(hash)?)
 	}
+
+	async fn candidate_events(&self, hash: PHash) -> RelayChainResult<Vec<CandidateEvent>> {
+		Ok(self.full_client.runtime_api().candidate_events(hash)?)
+	}
 }
 
 pub enum BlockCheckStatus {
@@ -347,6 +359,25 @@ pub fn check_block_in_chain(
 	Ok(BlockCheckStatus::Unknown(listener))
 }
 
+/// Build Polkadot full node with parachain bootnode request-response protocol.
+fn build_polkadot_with_paranode_protocol<Network>(
+	config: Configuration,
+	params: NewFullParams<CollatorOverseerGen>,
+) -> Result<(NewFull, async_channel::Receiver<IncomingRequest>), polkadot_service::Error>
+where
+	Network: NetworkBackend<PBlock, PHash>,
+{
+	let fork_id = config.chain_spec.fork_id().map(ToString::to_string);
+	let mut polkadot_builder = PolkadotServiceBuilder::<_, Network>::new(config, params)?;
+	let (config, request_receiver) = bootnode_request_response_config::<_, _, Network>(
+		polkadot_builder.genesis_hash(),
+		fork_id.as_deref(),
+	);
+	polkadot_builder.add_extra_request_response_protocol(config);
+
+	Ok((polkadot_builder.build()?, request_receiver))
+}
+
 /// Build the Polkadot full node using the given `config`.
 #[sc_tracing::logging::prefix_logs_with("Relaychain")]
 fn build_polkadot_full_node(
@@ -354,7 +385,10 @@ fn build_polkadot_full_node(
 	parachain_config: &Configuration,
 	telemetry_worker_handle: Option<TelemetryWorkerHandle>,
 	hwbench: Option<sc_sysinfo::HwBench>,
-) -> Result<(NewFull, Option<CollatorPair>), polkadot_service::Error> {
+) -> Result<
+	(NewFull, Option<CollatorPair>, async_channel::Receiver<IncomingRequest>),
+	polkadot_service::Error,
+> {
 	let (is_parachain_node, maybe_collator_key) = if parachain_config.role.is_authority() {
 		let collator_key = CollatorPair::generate().0;
 		(polkadot_service::IsParachainNode::Collator(collator_key.clone()), Some(collator_key))
@@ -362,34 +396,41 @@ fn build_polkadot_full_node(
 		(polkadot_service::IsParachainNode::FullNode, None)
 	};
 
-	let relay_chain_full_node = polkadot_service::build_full(
-		config,
-		polkadot_service::NewFullParams {
-			is_parachain_node,
-			// Disable BEEFY. It should not be required by the internal relay chain node.
-			enable_beefy: false,
-			force_authoring_backoff: false,
-			telemetry_worker_handle,
+	let new_full_params = polkadot_service::NewFullParams {
+		is_parachain_node,
+		// Disable BEEFY. It should not be required by the internal relay chain node.
+		enable_beefy: false,
+		force_authoring_backoff: false,
+		telemetry_worker_handle,
 
-			// Cumulus doesn't spawn PVF workers, so we can disable version checks.
-			node_version: None,
-			secure_validator_mode: false,
-			workers_path: None,
-			workers_names: None,
+		// Cumulus doesn't spawn PVF workers, so we can disable version checks.
+		node_version: None,
+		secure_validator_mode: false,
+		workers_path: None,
+		workers_names: None,
 
-			overseer_gen: polkadot_service::CollatorOverseerGen,
-			overseer_message_channel_capacity_override: None,
-			malus_finality_delay: None,
-			hwbench,
-			execute_workers_max_num: None,
-			prepare_workers_hard_max_num: None,
-			prepare_workers_soft_max_num: None,
-			enable_approval_voting_parallel: false,
-			keep_finalized_for: None,
-		},
-	)?;
+		overseer_gen: CollatorOverseerGen,
+		overseer_message_channel_capacity_override: None,
+		malus_finality_delay: None,
+		hwbench,
+		execute_workers_max_num: None,
+		prepare_workers_hard_max_num: None,
+		prepare_workers_soft_max_num: None,
+		keep_finalized_for: None,
+		invulnerable_ah_collators: HashSet::new(),
+		collator_protocol_hold_off: None,
+	};
 
-	Ok((relay_chain_full_node, maybe_collator_key))
+	let (relay_chain_full_node, paranode_req_receiver) = match config.network.network_backend {
+		NetworkBackendType::Libp2p => build_polkadot_with_paranode_protocol::<
+			sc_network::NetworkWorker<_, _>,
+		>(config, new_full_params)?,
+		NetworkBackendType::Litep2p => build_polkadot_with_paranode_protocol::<
+			sc_network::Litep2pNetworkBackend,
+		>(config, new_full_params)?,
+	};
+
+	Ok((relay_chain_full_node, maybe_collator_key, paranode_req_receiver))
 }
 
 /// Builds a relay chain interface by constructing a full relay chain node
@@ -399,13 +440,18 @@ pub fn build_inprocess_relay_chain(
 	telemetry_worker_handle: Option<TelemetryWorkerHandle>,
 	task_manager: &mut TaskManager,
 	hwbench: Option<sc_sysinfo::HwBench>,
-) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
+) -> RelayChainResult<(
+	Arc<(dyn RelayChainInterface + 'static)>,
+	Option<CollatorPair>,
+	Arc<dyn NetworkService>,
+	async_channel::Receiver<IncomingRequest>,
+)> {
 	// This is essentially a hack, but we want to ensure that we send the correct node version
 	// to the telemetry.
 	polkadot_config.impl_version = polkadot_cli::Cli::impl_version();
 	polkadot_config.impl_name = polkadot_cli::Cli::impl_name();
 
-	let (full_node, collator_key) = build_polkadot_full_node(
+	let (full_node, collator_key, paranode_req_receiver) = build_polkadot_full_node(
 		polkadot_config,
 		parachain_config,
 		telemetry_worker_handle,
@@ -424,7 +470,7 @@ pub fn build_inprocess_relay_chain(
 
 	task_manager.add_child(full_node.task_manager);
 
-	Ok((relay_chain_interface, collator_key))
+	Ok((relay_chain_interface, collator_key, full_node.network, paranode_req_receiver))
 }
 
 #[cfg(test)]

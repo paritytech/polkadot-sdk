@@ -15,39 +15,92 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::evm::{Bytes, CallTracer};
-use alloc::{fmt, string::String, vec::Vec};
+use crate::evm::Bytes;
+use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use codec::{Decode, Encode};
+use derive_more::From;
 use scale_info::TypeInfo;
 use serde::{
-	de::{self, MapAccess, Visitor},
-	Deserialize, Deserializer, Serialize,
+	ser::{SerializeMap, Serializer},
+	Deserialize, Serialize,
 };
 use sp_core::{H160, H256, U256};
 
-/// Tracer configuration used to trace calls.
-#[derive(TypeInfo, Debug, Clone, Encode, Decode, Serialize, PartialEq)]
-#[serde(tag = "tracer", content = "tracerConfig")]
-pub enum TracerConfig {
-	/// A tracer that captures call traces.
-	#[serde(rename = "callTracer")]
-	CallTracer {
-		/// Whether or not to capture logs.
-		#[serde(rename = "withLog")]
-		with_logs: bool,
-	},
+/// The type of tracer to use.
+/// Only "callTracer" is supported for now.
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "tracer", content = "tracerConfig", rename_all = "camelCase")]
+pub enum TracerType {
+	/// A tracer that traces calls.
+	CallTracer(Option<CallTracerConfig>),
+
+	/// A tracer that traces the prestate.
+	PrestateTracer(Option<PrestateTracerConfig>),
 }
 
-impl TracerConfig {
-	/// Build the tracer associated to this config.
-	pub fn build<G>(self, gas_mapper: G) -> CallTracer<U256, G> {
-		match self {
-			Self::CallTracer { with_logs } => CallTracer::new(with_logs, gas_mapper),
-		}
+impl From<CallTracerConfig> for TracerType {
+	fn from(config: CallTracerConfig) -> Self {
+		TracerType::CallTracer(Some(config))
 	}
 }
 
-/// Custom deserializer to support the following JSON format:
+impl Default for TracerType {
+	fn default() -> Self {
+		TracerType::CallTracer(Some(CallTracerConfig::default()))
+	}
+}
+
+/// Tracer configuration used to trace calls.
+#[derive(TypeInfo, Debug, Clone, Default, PartialEq)]
+#[cfg_attr(feature = "std", derive(Deserialize, Serialize), serde(rename_all = "camelCase"))]
+pub struct TracerConfig {
+	/// The tracer type.
+	#[cfg_attr(feature = "std", serde(flatten, default))]
+	pub config: TracerType,
+
+	/// Timeout for the tracer.
+	#[cfg_attr(feature = "std", serde(with = "humantime_serde", default))]
+	pub timeout: Option<core::time::Duration>,
+}
+
+/// The configuration for the call tracer.
+#[derive(Clone, Debug, Decode, Serialize, Deserialize, Encode, PartialEq, TypeInfo)]
+#[serde(default, rename_all = "camelCase")]
+pub struct CallTracerConfig {
+	/// Whether to include logs in the trace.
+	pub with_logs: bool,
+
+	/// Whether to only include the top-level calls in the trace.
+	pub only_top_call: bool,
+}
+
+impl Default for CallTracerConfig {
+	fn default() -> Self {
+		Self { with_logs: true, only_top_call: false }
+	}
+}
+
+/// The configuration for the prestate tracer.
+#[derive(Clone, Debug, Decode, Serialize, Deserialize, Encode, PartialEq, TypeInfo)]
+#[serde(default, rename_all = "camelCase")]
+pub struct PrestateTracerConfig {
+	/// Whether to include the diff mode in the trace.
+	pub diff_mode: bool,
+
+	/// Whether to include storage in the trace.
+	pub disable_storage: bool,
+
+	/// Whether to include code in the trace.
+	pub disable_code: bool,
+}
+
+impl Default for PrestateTracerConfig {
+	fn default() -> Self {
+		Self { diff_mode: false, disable_storage: false, disable_code: false }
+	}
+}
+
+/// Serialization should support the following JSON format:
 ///
 /// ```json
 /// { "tracer": "callTracer", "tracerConfig": { "withLogs": false } }
@@ -56,68 +109,33 @@ impl TracerConfig {
 /// ```json
 /// { "tracer": "callTracer" }
 /// ```
-impl<'de> Deserialize<'de> for TracerConfig {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: Deserializer<'de>,
-	{
-		struct TracerConfigVisitor;
-
-		impl<'de> Visitor<'de> for TracerConfigVisitor {
-			type Value = TracerConfig;
-
-			fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-				formatter.write_str("a map with tracer and optional tracerConfig")
-			}
-
-			fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
-			where
-				M: MapAccess<'de>,
-			{
-				let mut tracer_type: Option<String> = None;
-				let mut with_logs = None;
-
-				while let Some(key) = map.next_key::<String>()? {
-					match key.as_str() {
-						"tracer" => {
-							tracer_type = map.next_value()?;
-						},
-						"tracerConfig" => {
-							#[derive(Deserialize)]
-							struct CallTracerConfig {
-								#[serde(rename = "withLogs")]
-								with_logs: Option<bool>,
-							}
-							let inner: CallTracerConfig = map.next_value()?;
-							with_logs = inner.with_logs;
-						},
-						_ => {},
-					}
-				}
-
-				match tracer_type.as_deref() {
-					Some("callTracer") =>
-						Ok(TracerConfig::CallTracer { with_logs: with_logs.unwrap_or(true) }),
-					_ => Err(de::Error::custom("Unsupported or missing tracer type")),
-				}
-			}
-		}
-
-		deserializer.deserialize_map(TracerConfigVisitor)
-	}
-}
-
 #[test]
 fn test_tracer_config_serialization() {
 	let tracers = vec![
-		(r#"{"tracer": "callTracer"}"#, TracerConfig::CallTracer { with_logs: true }),
 		(
-			r#"{"tracer": "callTracer", "tracerConfig": { "withLogs": true }}"#,
-			TracerConfig::CallTracer { with_logs: true },
+			r#"{"tracer": "callTracer"}"#,
+			TracerConfig { config: TracerType::CallTracer(None), timeout: None },
 		),
 		(
 			r#"{"tracer": "callTracer", "tracerConfig": { "withLogs": false }}"#,
-			TracerConfig::CallTracer { with_logs: false },
+			TracerConfig {
+				config: CallTracerConfig { with_logs: false, only_top_call: false }.into(),
+				timeout: None,
+			},
+		),
+		(
+			r#"{"tracer": "callTracer", "tracerConfig": { "onlyTopCall": true }}"#,
+			TracerConfig {
+				config: CallTracerConfig { with_logs: true, only_top_call: true }.into(),
+				timeout: None,
+			},
+		),
+		(
+			r#"{"tracer": "callTracer", "tracerConfig": { "onlyTopCall": true }, "timeout": "10ms"}"#,
+			TracerConfig {
+				config: CallTracerConfig { with_logs: true, only_top_call: true }.into(),
+				timeout: Some(core::time::Duration::from_millis(10)),
+			},
 		),
 	];
 
@@ -125,12 +143,6 @@ fn test_tracer_config_serialization() {
 		let result: TracerConfig =
 			serde_json::from_str(json_data).expect("Deserialization should succeed");
 		assert_eq!(result, expected);
-	}
-}
-
-impl Default for TracerConfig {
-	fn default() -> Self {
-		TracerConfig::CallTracer { with_logs: false }
 	}
 }
 
@@ -147,19 +159,112 @@ pub enum CallType {
 	StaticCall,
 	/// A delegate call.
 	DelegateCall,
+	/// A create call.
+	Create,
+	/// A create2 call.
+	Create2,
+}
+
+/// A Trace
+#[derive(TypeInfo, From, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[serde(untagged)]
+pub enum Trace {
+	/// A call trace.
+	Call(CallTrace),
+	/// A prestate trace.
+	Prestate(PrestateTrace),
+}
+
+/// A prestate Trace
+#[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[serde(untagged)]
+pub enum PrestateTrace {
+	/// The Prestate mode returns the accounts necessary to execute a given transaction
+	Prestate(BTreeMap<H160, PrestateTraceInfo>),
+
+	/// The diff mode returns the differences between the transaction's pre and post-state
+	/// The result only contains the accounts that were modified by the transaction
+	DiffMode {
+		/// The state before the call.
+		///  The accounts in the `pre` field will contain all of their basic fields, even if those
+		/// fields have not been modified. For `storage` however, only non-empty slots that have
+		/// been modified will be included
+		pre: BTreeMap<H160, PrestateTraceInfo>,
+		/// The state after the call.
+		/// It only contains the specific fields that were actually modified during the transaction
+		post: BTreeMap<H160, PrestateTraceInfo>,
+	},
+}
+
+impl PrestateTrace {
+	/// Returns the pre and post trace info.
+	pub fn state_mut(
+		&mut self,
+	) -> (&mut BTreeMap<H160, PrestateTraceInfo>, Option<&mut BTreeMap<H160, PrestateTraceInfo>>) {
+		match self {
+			PrestateTrace::Prestate(pre) => (pre, None),
+			PrestateTrace::DiffMode { pre, post } => (pre, Some(post)),
+		}
+	}
+}
+
+/// The info of a prestate trace.
+#[derive(
+	TypeInfo, Default, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
+)]
+pub struct PrestateTraceInfo {
+	/// The balance of the account.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub balance: Option<U256>,
+	/// The nonce of the account.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub nonce: Option<u32>,
+	/// The code of the contract account.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub code: Option<Bytes>,
+	/// The storage of the contract account.
+	#[serde(skip_serializing_if = "is_empty", serialize_with = "serialize_map_skip_none")]
+	pub storage: BTreeMap<Bytes, Option<Bytes>>,
+}
+
+/// Returns true if the map has no `Some` element
+pub fn is_empty<K, V>(map: &BTreeMap<K, Option<V>>) -> bool {
+	!map.values().any(|v| v.is_some())
+}
+
+/// Serializes a map, skipping `None` values.
+pub fn serialize_map_skip_none<S, K, V>(
+	map: &BTreeMap<K, Option<V>>,
+	serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+	S: Serializer,
+	K: serde::Serialize,
+	V: serde::Serialize,
+{
+	let len = map.values().filter(|v| v.is_some()).count();
+	let mut ser_map = serializer.serialize_map(Some(len))?;
+
+	for (key, opt_val) in map {
+		if let Some(val) = opt_val {
+			ser_map.serialize_entry(key, val)?;
+		}
+	}
+
+	ser_map.end()
 }
 
 /// A smart contract execution call trace.
 #[derive(
 	TypeInfo, Default, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
 )]
+#[serde(rename_all = "camelCase")]
 pub struct CallTrace<Gas = U256> {
 	/// Address of the sender.
 	pub from: H160,
 	/// Amount of gas provided for the call.
 	pub gas: Gas,
 	/// Amount of gas used.
-	#[serde(rename = "gasUsed")]
 	pub gas_used: Gas,
 	/// Address of the receiver.
 	pub to: H160,
@@ -172,7 +277,7 @@ pub struct CallTrace<Gas = U256> {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub error: Option<String>,
 	/// The revert reason, if the call reverted.
-	#[serde(rename = "revertReason", skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub revert_reason: Option<String>,
 	/// List of sub-calls.
 	#[serde(skip_serializing_if = "Vec::is_empty")]
@@ -186,6 +291,9 @@ pub struct CallTrace<Gas = U256> {
 	/// Type of call.
 	#[serde(rename = "type")]
 	pub call_type: CallType,
+	/// Number of child calls entered (for log position calculation)
+	#[serde(skip)]
+	pub child_call_count: u32,
 }
 
 /// A log emitted during a call.
@@ -208,11 +316,11 @@ pub struct CallLog {
 
 /// A transaction trace
 #[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct TransactionTrace {
 	/// The transaction hash.
-	#[serde(rename = "txHash")]
 	pub tx_hash: H256,
 	/// The trace of the transaction.
 	#[serde(rename = "result")]
-	pub trace: CallTrace,
+	pub trace: Trace,
 }

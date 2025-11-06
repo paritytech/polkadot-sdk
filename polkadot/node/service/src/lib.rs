@@ -314,23 +314,6 @@ impl IdentifyVariant for Box<dyn ChainSpec> {
 	}
 }
 
-/// A trait to identify the network backend based on the chain spec.
-pub trait IdentifyNetworkBackend {
-	/// Returns the default network backend.
-	fn network_backend(&self) -> sc_network::config::NetworkBackendType;
-}
-
-impl IdentifyNetworkBackend for Box<dyn ChainSpec> {
-	fn network_backend(&self) -> sc_network::config::NetworkBackendType {
-		// By default litep2p is enabled only on Kusama.
-		if self.is_kusama() {
-			sc_network::config::NetworkBackendType::Litep2p
-		} else {
-			sc_network::config::NetworkBackendType::Libp2p
-		}
-	}
-}
-
 #[cfg(feature = "full-node")]
 pub fn open_database(db_source: &DatabaseSource) -> Result<Arc<dyn Database>, Error> {
 	let parachains_db = match db_source {
@@ -460,11 +443,7 @@ pub fn build_full<OverseerGenerator: OverseerGen>(
 			capacity
 		});
 
-	// If the network backend is unspecified, use the default for the given chain.
-	let default_backend = config.chain_spec.network_backend();
-	let network_backend = config.network.network_backend.unwrap_or(default_backend);
-
-	match network_backend {
+	match config.network.network_backend {
 		sc_network::config::NetworkBackendType::Libp2p =>
 			new_full::<_, sc_network::NetworkWorker<Block, Hash>>(config, params),
 		sc_network::config::NetworkBackendType::Litep2p =>

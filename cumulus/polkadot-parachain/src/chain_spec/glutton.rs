@@ -17,7 +17,6 @@
 use cumulus_primitives_core::ParaId;
 use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 use sc_service::ChainType;
-use sp_keyring::Sr25519Keyring;
 
 /// Generic Glutton Westend Config for all currently used setups.
 pub fn glutton_westend_config(
@@ -28,26 +27,18 @@ pub fn glutton_westend_config(
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("ss58Format".into(), 42.into());
 
-	let authorities = match chain_type {
-		ChainType::Development => vec![Sr25519Keyring::Alice.public().into()],
-		// Even the westend live setup does currently use Alice & Bob.
-		_ => vec![Sr25519Keyring::Alice.public().into(), Sr25519Keyring::Bob.public().into()],
-	};
-
 	GenericChainSpec::builder(
 		glutton_westend_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: relay_chain.into(), para_id: para_id.into() },
+		Extensions::new_with_relay_chain(relay_chain.into()),
 	)
 	.with_name(&chain_type_name(para_id, &chain_type))
 	.with_id(&chain_id(para_id, &chain_type))
-	.with_chain_type(chain_type)
-	.with_genesis_config_patch(
-		glutton_westend_runtime::genesis_config_presets::glutton_westend_genesis(
-			authorities,
-			Some(Sr25519Keyring::Alice.to_account_id()),
-			para_id,
-		),
-	)
+	.with_chain_type(chain_type.clone())
+	.with_genesis_config_preset_name(match chain_type {
+		ChainType::Development => sp_genesis_builder::DEV_RUNTIME_PRESET,
+		ChainType::Local => sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET,
+		_ => panic!("chain_type: {chain_type:?} not supported here!"),
+	})
 	.build()
 }
 

@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! External C API to communicate with substrate contracts runtime module.
+//! External C API to communicate with Polkadot SDK's `pallet-revive` module.
 //!
-//! Refer to substrate FRAME contract module for more documentation.
+//! Refer to the FRAME `pallet-revive` module for more documentation.
 
 #![no_std]
 #![cfg_attr(docsrs, feature(doc_cfg))]
@@ -23,6 +23,11 @@ mod flags;
 pub use flags::*;
 mod host;
 mod macros;
+
+pub mod precompiles;
+pub use precompiles::{
+	storage::STORAGE_PRECOMPILE_ADDR, system::SYSTEM_PRECOMPILE_ADDR, utils::solidity_selector,
+};
 
 pub use host::{HostFn, HostFnImpl};
 
@@ -105,16 +110,10 @@ define_error_codes! {
 	TransferFailed = 4,
 	/// The subcall ran out of weight or storage deposit.
 	OutOfResources = 5,
-	/// The call dispatched by `call_runtime` was executed but returned an error.
-	CallRuntimeFailed = 6,
 	/// ECDSA public key recovery failed. Most probably wrong recovery id or signature.
 	EcdsaRecoveryFailed = 7,
 	/// sr25519 signature verification failed.
 	Sr25519VerifyFailed = 8,
-	/// The `xcm_execute` call failed.
-	XcmExecutionFailed = 9,
-	/// The `xcm_send` call failed.
-	XcmSendFailed = 10,
 	/// Contract instantiation failed because the address already exists.
 	/// Occurs when instantiating the same contract with the same salt more than once.
 	DuplicateContractAddress = 11,

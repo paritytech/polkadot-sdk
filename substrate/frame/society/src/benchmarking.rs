@@ -510,6 +510,54 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn poke_deposit() -> Result<(), BenchmarkError> {
+		// Set up society
+		setup_society::<T, I>()?;
+		let bidder: T::AccountId = whitelisted_caller();
+		T::Currency::make_free_balance_be(&bidder, BalanceOf::<T, I>::max_value());
+
+		// Make initial bid
+		let initial_deposit = mock_balance_deposit::<T, I>();
+		Society::<T, I>::bid(RawOrigin::Signed(bidder.clone()).into(), 0u32.into())?;
+
+		// Verify initial state
+		assert_eq!(T::Currency::reserved_balance(&bidder), initial_deposit);
+		let bids = Bids::<T, I>::get();
+		let existing_bid = bids.iter().find(|b| b.who == bidder).expect("Bid should exist");
+		assert_eq!(existing_bid.kind, BidKind::Deposit(initial_deposit));
+
+		// Artificially increase deposit in storage and reserve extra balance
+		let extra_amount = 2u32.into();
+		let increased_deposit = initial_deposit.saturating_add(extra_amount);
+		Bids::<T, I>::try_mutate(|bids| -> Result<(), BenchmarkError> {
+			if let Some(existing_bid) = bids.iter_mut().find(|b| b.who == bidder) {
+				existing_bid.kind = BidKind::Deposit(increased_deposit);
+				Ok(())
+			} else {
+				Err(BenchmarkError::Stop("Bid not found"))
+			}
+		})?;
+		T::Currency::reserve(&bidder, extra_amount)?;
+
+		// Verify increased state
+		assert_eq!(T::Currency::reserved_balance(&bidder), increased_deposit);
+		let bids = Bids::<T, I>::get();
+		let existing_bid = bids.iter().find(|b| b.who == bidder).expect("Bid should exist");
+		assert_eq!(existing_bid.kind, BidKind::Deposit(increased_deposit));
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(bidder.clone()));
+
+		// Verify final state returned to initial deposit
+		assert_eq!(T::Currency::reserved_balance(&bidder), initial_deposit);
+		let bids = Bids::<T, I>::get();
+		let existing_bid = bids.iter().find(|b| b.who == bidder).expect("Bid should exist");
+		assert_eq!(existing_bid.kind, BidKind::Deposit(initial_deposit));
+
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(
 		Society,
 		sp_io::TestExternalities::from(

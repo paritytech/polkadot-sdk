@@ -17,7 +17,6 @@
 //! Mock runtime for tests.
 //! Implements both runtime APIs for fee estimation and getting the messages for transfers.
 
-use codec::Encode;
 use core::{cell::RefCell, marker::PhantomData};
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types, sp_runtime,
@@ -26,8 +25,8 @@ use frame_support::{
 		BuildStorage, SaturatedConversion,
 	},
 	traits::{
-		AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, ContainsPair, Everything, Nothing,
-		OriginTrait,
+		AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, ContainsPair, Disabled, Everything,
+		Nothing, OriginTrait,
 	},
 	weights::WeightToFee as WeightToFeeT,
 };
@@ -50,6 +49,7 @@ use xcm_runtime_apis::{
 	fees::{Error as XcmPaymentApiError, XcmPaymentApi},
 	trusted_query::{Error as TrustedQueryApiError, TrustedQueryApi},
 };
+use xcm_simulator::helpers::derive_topic_id;
 
 construct_runtime! {
 	pub enum TestRuntime {
@@ -124,7 +124,7 @@ impl SendXcm for TestXcmSender {
 		Ok((ticket, fees))
 	}
 	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
-		let hash = fake_message_hash(&ticket.1);
+		let hash = derive_topic_id(&ticket.1);
 		SENT_XCM.with(|q| q.borrow_mut().push(ticket));
 		Ok(hash)
 	}
@@ -148,10 +148,6 @@ impl InspectMessageQueues for TestXcmSender {
 				.collect()
 		})
 	}
-}
-
-pub(crate) fn fake_message_hash<Call>(message: &Xcm<Call>) -> XcmHash {
-	message.using_encoded(sp_io::hashing::blake2_256)
 }
 
 pub type XcmRouter = TestXcmSender;
@@ -351,6 +347,8 @@ where
 	}
 }
 
+/// Converts a local signed origin into an XCM location. Forms the basis for local origins
+/// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountIndex64<RuntimeOrigin, AccountId>;
 
 impl pallet_xcm::Config for TestRuntime {
@@ -377,6 +375,7 @@ impl pallet_xcm::Config for TestRuntime {
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = TestWeightInfo;
+	type AuthorizedAliasConsideration = Disabled;
 }
 
 #[allow(dead_code)]
@@ -434,7 +433,7 @@ pub(crate) struct RuntimeApi {
 
 impl sp_api::ProvideRuntimeApi<Block> for TestClient {
 	type Api = RuntimeApi;
-	fn runtime_api(&self) -> sp_api::ApiRef<Self::Api> {
+	fn runtime_api(&self) -> sp_api::ApiRef<'_, Self::Api> {
 		RuntimeApi { _inner: self.clone() }.into()
 	}
 }
@@ -478,16 +477,18 @@ sp_api::mock_impl_runtime_apis! {
 					Ok(WeightToFee::weight_to_fee(&weight))
 				},
 				Ok(asset_id) => {
-					log::trace!(
+					tracing::trace!(
 						target: "xcm::XcmPaymentApi::query_weight_to_asset_fee",
-						"query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!"
+						?asset_id,
+						"query_weight_to_asset_fee - unhandled!"
 					);
 					Err(XcmPaymentApiError::AssetNotFound)
 				},
 				Err(_) => {
-					log::trace!(
+					tracing::trace!(
 						target: "xcm::XcmPaymentApi::query_weight_to_asset_fee",
-						"query_weight_to_asset_fee - failed to convert asset: {asset:?}!"
+						?asset,
+						"query_weight_to_asset_fee - failed to convert!"
 					);
 					Err(XcmPaymentApiError::VersionedConversionFailed)
 				}
@@ -516,7 +517,7 @@ sp_api::mock_impl_runtime_apis! {
 		}
 
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			pallet_xcm::Pallet::<TestRuntime>::dry_run_xcm::<TestRuntime, XcmRouter, RuntimeCall, XcmConfig>(origin_location, xcm)
+			pallet_xcm::Pallet::<TestRuntime>::dry_run_xcm::<XcmRouter>(origin_location, xcm)
 		}
 	}
 }

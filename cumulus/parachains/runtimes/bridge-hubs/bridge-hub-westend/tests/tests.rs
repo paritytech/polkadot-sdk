@@ -16,6 +16,7 @@
 
 #![cfg(test)]
 
+use crate::bridge_common_config::BridgeRewardBeneficiaries;
 use bp_messages::LegacyLaneId;
 use bp_polkadot_core::Signature;
 use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
@@ -40,6 +41,7 @@ use bridge_to_rococo_config::{
 	DeliveryRewardInBalance, WithBridgeHubRococoMessagesInstance, XcmOverBridgeHubRococoInstance,
 };
 use codec::{Decode, Encode};
+use cumulus_primitives_core::UpwardMessageSender;
 use frame_support::{
 	assert_err, assert_ok,
 	dispatch::GetDispatchInfo,
@@ -60,7 +62,10 @@ use sp_runtime::{
 	AccountId32, Either, Perbill,
 };
 use testnet_parachains_constants::westend::{consensus::*, fee::WeightToFee};
-use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
+use xcm::{
+	latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
+	VersionedLocation,
+};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 // Random para id of sibling chain used in tests.
@@ -74,7 +79,6 @@ parameter_types! {
 	pub SiblingParachainLocation: Location = Location::new(1, [Parachain(SIBLING_PARACHAIN_ID)]);
 	pub SiblingSystemParachainLocation: Location = Location::new(1, [Parachain(SIBLING_SYSTEM_PARACHAIN_ID)]);
 	pub BridgedUniversalLocation: InteriorLocation = [GlobalConsensus(RococoGlobalConsensusNetwork::get()), Parachain(BRIDGED_LOCATION_PARACHAIN_ID)].into();
-	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub Governance: GovernanceOrigin<RuntimeOrigin> = GovernanceOrigin::Location(GovernanceLocation::get());
 }
 
@@ -151,7 +155,7 @@ bridge_hub_test_utils::test_cases::include_teleports_for_native_asset_works!(
 	Runtime,
 	AllPalletsWithoutSystem,
 	XcmConfig,
-	CheckingAccount,
+	(),
 	WeightToFee,
 	ParachainSystem,
 	collator_session_keys(),
@@ -315,7 +319,7 @@ fn message_dispatch_routing_works() {
 				_ => None,
 			}
 		}),
-		|| (),
+		|| <ParachainSystem as UpwardMessageSender>::ensure_successful_delivery(),
 	)
 }
 
@@ -686,6 +690,7 @@ fn xcm_payment_api_works() {
 		RuntimeCall,
 		RuntimeOrigin,
 		Block,
+		WeightToFee,
 	>();
 }
 
@@ -716,6 +721,8 @@ pub fn bridge_rewards_works() {
 			assert_ok!(Balances::mint_into(&expected_reward1_account, ExistentialDeposit::get()));
 			assert_ok!(Balances::mint_into(&expected_reward1_account, reward1.into()));
 			assert_ok!(Balances::mint_into(&account1, ExistentialDeposit::get()));
+			// To pay for delivery to AH when claiming the reward on BH
+			assert_ok!(Balances::mint_into(&account2, ExistentialDeposit::get() * 10000));
 
 			// register rewards
 			use bp_relayers::RewardLedger;
@@ -757,11 +764,31 @@ pub fn bridge_rewards_works() {
 				pallet_bridge_relayers::Error::<Runtime, BridgeRelayersInstance>::NoRewardForRelayer
 			);
 
-			// not yet implemented for Snowbridge
+			// Local account claiming is not supported for Snowbridge
 			assert_err!(
 				BridgeRelayers::claim_rewards(
 					RuntimeOrigin::signed(account2.clone()),
 					BridgeReward::Snowbridge
+				),
+				pallet_bridge_relayers::Error::<Runtime, BridgeRelayersInstance>::FailedToPayReward
+			);
+
+			let claim_location = VersionedLocation::V5(Location::new(
+				1,
+				[
+					Parachain(1000),
+					xcm::latest::Junction::AccountId32 {
+						id: account2.clone().into(),
+						network: None,
+					},
+				],
+			));
+			// In unit tests without proper HRMP channel setup, the claim will fail at XCM sending.
+			assert_err!(
+				BridgeRelayers::claim_rewards_to(
+					RuntimeOrigin::signed(account2.clone()),
+					BridgeReward::Snowbridge,
+					BridgeRewardBeneficiaries::AssetHubLocation(claim_location)
 				),
 				pallet_bridge_relayers::Error::<Runtime, BridgeRelayersInstance>::FailedToPayReward
 			);
@@ -779,23 +806,20 @@ fn governance_authorize_upgrade_works() {
 			Runtime,
 			RuntimeOrigin,
 		>(GovernanceOrigin::Location(Location::new(1, Parachain(12334)))),
-		Either::Right(XcmError::Barrier)
+		Either::Right(InstructionError { index: 0, error: XcmError::Barrier })
 	);
-	// no - AssetHub
-	assert_err!(
-		parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
-			Runtime,
-			RuntimeOrigin,
-		>(GovernanceOrigin::Location(Location::new(1, Parachain(ASSET_HUB_ID)))),
-		Either::Right(XcmError::Barrier)
-	);
+	// ok - AssetHub
+	assert_ok!(parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
+		Runtime,
+		RuntimeOrigin,
+	>(GovernanceOrigin::Location(Location::new(1, Parachain(ASSET_HUB_ID)))));
 	// no - Collectives
 	assert_err!(
 		parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
 			Runtime,
 			RuntimeOrigin,
 		>(GovernanceOrigin::Location(Location::new(1, Parachain(COLLECTIVES_ID)))),
-		Either::Right(XcmError::Barrier)
+		Either::Right(InstructionError { index: 0, error: XcmError::Barrier })
 	);
 	// no - Collectives Voice of Fellows plurality
 	assert_err!(
@@ -806,7 +830,7 @@ fn governance_authorize_upgrade_works() {
 			Location::new(1, Parachain(COLLECTIVES_ID)),
 			Plurality { id: BodyId::Technical, part: BodyPart::Voice }.into()
 		)),
-		Either::Right(XcmError::Barrier)
+		Either::Right(InstructionError { index: 0, error: XcmError::Barrier })
 	);
 
 	// ok - relaychain
@@ -814,6 +838,8 @@ fn governance_authorize_upgrade_works() {
 		Runtime,
 		RuntimeOrigin,
 	>(GovernanceOrigin::Location(Location::parent())));
+
+	// ok - governance location
 	assert_ok!(parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
 		Runtime,
 		RuntimeOrigin,

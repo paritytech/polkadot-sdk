@@ -10,7 +10,7 @@
 //! [Rust Analyzer](https://rust-analyzer.github.io/) is the defacto [LSP](https://langserver.org/) for Rust. Its default
 //! settings are fine for smaller projects, but not well optimised for polkadot-sdk.
 //!
-//! Below is a suggested configuration for VSCode:
+//! Below is a suggested configuration for VSCode or any VSCode-based editor like Cursor:
 //!
 //! ```json
 //! {
@@ -85,6 +85,39 @@
 //! },
 //! ```
 //!
+//! Alternatively for neovim, if you are using [Rustaceanvim](https://github.com/mrcjkb/rustaceanvim),
+//! you can achieve the same configuring `rust-analyzer` via `rustaceanvim` as follows:
+//! ```lua
+//! return {
+//!  {
+//!    "mrcjkb/rustaceanvim",
+//!    opts = {
+//!      server = {
+//!        default_settings = {
+//!           ["rust-analyzer"] = {
+//!            // put the same config as for nvim-lspconfig here
+//!          },
+//!        },
+//!      },
+//!    },
+//!  },
+//! }
+//! ```
+//!
+//! Similarly for Zed, you can replicate the same VSCode configuration  in
+//! `~/.config/zed/settings.json` as follows:
+//! ```json
+//! "lsp": {
+//!   "rust-analyzer": {
+//!     "initialization_options": {
+//!       // same config as for VSCode for rust, cargo, procMacros, ...
+//!     }
+//!   }
+//! },
+//! ```
+//!
+//! In general, refer to your favorite editor / IDE's documentation to properly configure
+//! `rust-analyzer` as language server.
 //! For the full set of configuration options see <https://rust-analyzer.github.io/manual.html#configuration>.
 //!
 //! ## Cargo Usage
@@ -118,7 +151,8 @@
 //! freeing up local resources for other tasks like `rust-analyzer`.
 //!
 //! When using `cargo-remote`, you can configure your editor to perform the the typical
-//! "check-on-save" remotely as well. The configuration for VSCode is as follows:
+//! "check-on-save" remotely as well. The configuration for VSCode (or any VSCode-based editor like
+//! Cursor) is as follows:
 //!
 //! ```json
 //! {
@@ -169,20 +203,20 @@
 //!         "--target-dir=target/rust-analyzer"
 //!       },
 //!     },
-//!     check = {
-//!       overrideCommand = {
-//!         "cargo",
-//!         "remote",
-//!         "--build-env",
-//!         "SKIP_WASM_BUILD=1",
-//!         "--",
-//!         "check",
-//!         "--workspace",
-//!         "--message-format=json",
-//!         "--all-targets",
-//!         "--all-features",
-//!         "--target-dir=target/rust-analyzer"
-//!       },
+//!   },
+//!   check = {
+//!     overrideCommand = {
+//!       "cargo",
+//!       "remote",
+//!       "--build-env",
+//!       "SKIP_WASM_BUILD=1",
+//!       "--",
+//!       "check",
+//!       "--workspace",
+//!       "--message-format=json",
+//!       "--all-targets",
+//!       "--all-features",
+//!       "--target-dir=target/rust-analyzer"
 //!     },
 //!   },
 //! },

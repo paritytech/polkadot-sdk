@@ -1,0 +1,8 @@
+title: Fetch parent block `api_version`
+doc:
+- audience: Node Dev
+  description: |-
+    This is required to ensure that we use the `api_version` of the runtime that will be used on the relay chain to validate the block. Otherwise the node may thinks the runtime was already upgraded and sends data to the relay chain that can not be decoded by the runtime and thus, the validation fails.
+crates:
+- name: cumulus-client-collator
+  bump: patch

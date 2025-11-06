@@ -66,7 +66,28 @@ use std::{
 	pin::Pin,
 	str::{self, FromStr},
 	sync::Arc,
+	time::Duration,
 };
+
+/// Default timeout for idle connections of 10 seconds is good enough for most networks.
+/// It doesn't make sense to expose it as a CLI parameter on individual nodes, but customizations
+/// are possible in custom nodes through [`NetworkConfiguration`].
+pub const DEFAULT_IDLE_CONNECTION_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Maximum number of locally kept Kademlia provider keys.
+///
+/// 10000 keys is enough for a testnet with fast runtime (1-minute epoch) and 13 parachains.
+pub const KADEMLIA_MAX_PROVIDER_KEYS: usize = 10000;
+
+/// Time to keep Kademlia content provider records.
+///
+/// 10 h is enough time to keep the parachain bootnode record for two 4-hour epochs.
+pub const KADEMLIA_PROVIDER_RECORD_TTL: Duration = Duration::from_secs(10 * 3600);
+
+/// Interval of republishing Kademlia provider records.
+///
+/// 3.5 h means we refresh next epoch provider record 30 minutes before next 4-hour epoch comes.
+pub const KADEMLIA_PROVIDER_REPUBLISH_INTERVAL: Duration = Duration::from_secs(12600);
 
 /// Protocol name prefix, transmitted on the wire for legacy protocol names.
 /// I.e., `dot` in `/dot/sync/2`. Should be unique for each chain. Always UTF-8.
@@ -620,11 +641,19 @@ pub struct NetworkConfiguration {
 	/// Configuration for the transport layer.
 	pub transport: TransportConfig,
 
+	/// Idle connection timeout.
+	///
+	/// Set by default to [`DEFAULT_IDLE_CONNECTION_TIMEOUT`].
+	pub idle_connection_timeout: Duration,
+
 	/// Maximum number of peers to ask the same blocks in parallel.
 	pub max_parallel_downloads: u32,
 
 	/// Maximum number of blocks per request.
 	pub max_blocks_per_request: u32,
+
+	/// Number of peers that need to be connected before warp sync is started.
+	pub min_peers_to_start_warp_sync: Option<usize>,
 
 	/// Initial syncing mode.
 	pub sync_mode: SyncMode,
@@ -651,7 +680,7 @@ pub struct NetworkConfiguration {
 	pub ipfs_server: bool,
 
 	/// Networking backend used for P2P communication.
-	pub network_backend: Option<NetworkBackendType>,
+	pub network_backend: NetworkBackendType,
 }
 
 impl NetworkConfiguration {
@@ -674,8 +703,10 @@ impl NetworkConfiguration {
 			client_version: client_version.into(),
 			node_name: node_name.into(),
 			transport: TransportConfig::Normal { enable_mdns: false, allow_private_ip: true },
+			idle_connection_timeout: DEFAULT_IDLE_CONNECTION_TIMEOUT,
 			max_parallel_downloads: 5,
 			max_blocks_per_request: 64,
+			min_peers_to_start_warp_sync: None,
 			sync_mode: SyncMode::Full,
 			enable_dht_random_walk: true,
 			allow_non_globals_in_dht: false,
@@ -683,7 +714,7 @@ impl NetworkConfiguration {
 			kademlia_replication_factor: NonZeroUsize::new(DEFAULT_KADEMLIA_REPLICATION_FACTOR)
 				.expect("value is a constant; constant is non-zero; qed."),
 			ipfs_server: false,
-			network_backend: None,
+			network_backend: NetworkBackendType::Litep2p,
 		}
 	}
 
@@ -911,12 +942,19 @@ impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfig
 /// Network backend type.
 #[derive(Debug, Clone, Default, Copy)]
 pub enum NetworkBackendType {
-	/// Use libp2p for P2P networking.
-	#[default]
-	Libp2p,
-
 	/// Use litep2p for P2P networking.
+	///
+	/// This is the preferred option for Substrate-based chains.
+	#[default]
 	Litep2p,
+
+	/// Use libp2p for P2P networking.
+	///
+	/// The libp2p is still used for compatibility reasons until the
+	/// ecosystem switches entirely to litep2p. The backend will enter
+	/// a "best-effort" maintenance mode, where only critical issues will
+	/// get fixed. If you are unsure, please use `NetworkBackendType::Litep2p`.
+	Libp2p,
 }
 
 #[cfg(test)]

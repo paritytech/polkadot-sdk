@@ -296,17 +296,17 @@ use sp_runtime::traits::BlockNumberProvider;
 pub type BlockNumberFor<T, I> =
 	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
-type BalanceOf<T, I> =
+pub type BalanceOf<T, I> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T, I> = <<T as Config<I>>::Currency as Currency<
+pub type NegativeImbalanceOf<T, I> = <<T as Config<I>>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
-type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+pub type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct Vote {
-	approve: bool,
-	weight: u32,
+	pub approve: bool,
+	pub weight: u32,
 }
 
 /// A judgement by the suspension judgement origin on a suspended candidate.
@@ -327,13 +327,13 @@ pub enum Judgement {
 )]
 pub struct Payout<Balance, BlockNumber> {
 	/// Total value of the payout.
-	value: Balance,
+	pub value: Balance,
 	/// Block number at which the payout begins.
-	begin: BlockNumber,
+	pub begin: BlockNumber,
 	/// Total number of blocks over which the payout is spread.
-	duration: BlockNumber,
+	pub duration: BlockNumber,
 	/// Total value paid out so far.
-	paid: Balance,
+	pub paid: Balance,
 }
 
 /// Status of a vouching member.
@@ -352,11 +352,11 @@ pub type StrikeCount = u32;
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct Bid<AccountId, Balance> {
 	/// The bidder/candidate trying to enter society
-	who: AccountId,
+	pub who: AccountId,
 	/// The kind of bid placed for this bidder/candidate. See `BidKind`.
-	kind: BidKind<AccountId, Balance>,
+	pub kind: BidKind<AccountId, Balance>,
 	/// The reward that the bidder has requested for successfully joining the society.
-	value: Balance,
+	pub value: Balance,
 }
 
 /// The index of a round of candidates.
@@ -374,9 +374,9 @@ pub type VoteCount = u32;
 )]
 pub struct Tally {
 	/// The approval votes.
-	approvals: VoteCount,
+	pub approvals: VoteCount,
 	/// The rejection votes.
-	rejections: VoteCount,
+	pub rejections: VoteCount,
 }
 
 impl Tally {
@@ -401,15 +401,15 @@ impl Tally {
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct Candidacy<AccountId, Balance> {
 	/// The index of the round where the candidacy began.
-	round: RoundIndex,
+	pub round: RoundIndex,
 	/// The kind of bid placed for this bidder/candidate. See `BidKind`.
-	kind: BidKind<AccountId, Balance>,
+	pub kind: BidKind<AccountId, Balance>,
 	/// The reward that the bidder has requested for successfully joining the society.
-	bid: Balance,
+	pub bid: Balance,
 	/// The tally of votes so far.
-	tally: Tally,
+	pub tally: Tally,
 	/// True if the skeptic was already punished for note voting.
-	skeptic_struck: bool,
+	pub skeptic_struck: bool,
 }
 
 /// A vote by a member on a candidate application.
@@ -434,17 +434,17 @@ pub type PayoutsFor<T, I> =
 /// Information concerning a member.
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct MemberRecord {
-	rank: Rank,
-	strikes: StrikeCount,
-	vouching: Option<VouchingStatus>,
-	index: u32,
+	pub rank: Rank,
+	pub strikes: StrikeCount,
+	pub vouching: Option<VouchingStatus>,
+	pub index: u32,
 }
 
 /// Information concerning a member.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, Default, MaxEncodedLen)]
 pub struct PayoutRecord<Balance, PayoutsVec> {
-	paid: Balance,
-	payouts: PayoutsVec,
+	pub paid: Balance,
+	pub payouts: PayoutsVec,
 }
 
 pub type PayoutRecordFor<T, I> = PayoutRecord<
@@ -455,9 +455,9 @@ pub type PayoutRecordFor<T, I> = PayoutRecord<
 /// Record for an individual new member who was elevated from a candidate recently.
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct IntakeRecord<AccountId, Balance> {
-	who: AccountId,
-	bid: Balance,
-	round: RoundIndex,
+	pub who: AccountId,
+	pub bid: Balance,
+	pub round: RoundIndex,
 }
 
 pub type IntakeRecordFor<T, I> =
@@ -476,10 +476,10 @@ pub type IntakeRecordFor<T, I> =
 	MaxEncodedLen,
 )]
 pub struct GroupParams<Balance> {
-	max_members: u32,
-	max_intake: u32,
-	max_strikes: u32,
-	candidate_deposit: Balance,
+	pub max_members: u32,
+	pub max_intake: u32,
+	pub max_strikes: u32,
+	pub candidate_deposit: Balance,
 }
 
 pub type GroupParamsFor<T, I> = GroupParams<BalanceOf<T, I>>;
@@ -497,6 +497,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -518,13 +519,14 @@ pub mod pallet {
 		#[pallet::constant]
 		type PeriodSpend: Get<BalanceOf<Self, I>>;
 
-		/// The number of blocks on which new candidates should be voted on. Together with
+		/// The number of [Config::BlockNumberProvider] blocks on which new candidates should be
+		/// voted on. Together with
 		/// `ClaimPeriod`, this sums to the number of blocks between candidate intake periods.
 		#[pallet::constant]
 		type VotingPeriod: Get<BlockNumberFor<Self, I>>;
 
-		/// The number of blocks on which new candidates can claim their membership and be the
-		/// named head.
+		/// The number of [Config::BlockNumberProvider] blocks on which new candidates can claim
+		/// their membership and be the named head.
 		#[pallet::constant]
 		type ClaimPeriod: Get<BlockNumberFor<Self, I>>;
 
@@ -535,9 +537,9 @@ pub mod pallet {
 		/// The origin that is allowed to call `found`.
 		type FounderSetOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// The number of blocks between membership challenges.
+		/// The number of [Config::BlockNumberProvider] blocks between membership challenges.
 		#[pallet::constant]
-		type ChallengePeriod: Get<SystemBlockNumberFor<Self>>;
+		type ChallengePeriod: Get<BlockNumberFor<Self, I>>;
 
 		/// The maximum number of payouts a member may have waiting unclaimed.
 		#[pallet::constant]
@@ -619,6 +621,8 @@ pub mod pallet {
 		InsufficientFunds,
 		/// The candidate/defender has no stale votes to remove.
 		NoVotes,
+		/// There is no deposit associated with a bid.
+		NoDeposit,
 	}
 
 	#[pallet::event]
@@ -661,6 +665,12 @@ pub mod pallet {
 		Deposit { value: BalanceOf<T, I> },
 		/// A \[member\] got elevated to \[rank\].
 		Elevated { member: T::AccountId, rank: Rank },
+		/// A deposit was poked / adjusted.
+		DepositPoked {
+			who: T::AccountId,
+			old_deposit: BalanceOf<T, I>,
+			new_deposit: BalanceOf<T, I>,
+		},
 	}
 
 	/// Old name generated by `decl_event`.
@@ -775,11 +785,20 @@ pub mod pallet {
 	pub type DefenderVotes<T: Config<I>, I: 'static = ()> =
 		StorageDoubleMap<_, Twox64Concat, RoundIndex, Twox64Concat, T::AccountId, Vote>;
 
+	/// Next intake rotation scheduled with [Config::BlockNumberProvider].
+	#[pallet::storage]
+	pub type NextIntakeAt<T: Config<I>, I: 'static = ()> = StorageValue<_, BlockNumberFor<T, I>>;
+
+	/// Next challenge rotation scheduled with [Config::BlockNumberProvider].
+	#[pallet::storage]
+	pub type NextChallengeAt<T: Config<I>, I: 'static = ()> = StorageValue<_, BlockNumberFor<T, I>>;
+
 	#[pallet::hooks]
 	impl<T: Config<I>, I: 'static> Hooks<SystemBlockNumberFor<T>> for Pallet<T, I> {
-		fn on_initialize(n: SystemBlockNumberFor<T>) -> Weight {
+		fn on_initialize(_n: SystemBlockNumberFor<T>) -> Weight {
 			let mut weight = Weight::zero();
 			let weights = T::BlockWeights::get();
+			let now = T::BlockNumberProvider::current_block_number();
 
 			let phrase = b"society_rotation";
 			// we'll need a random seed here.
@@ -792,18 +811,21 @@ pub mod pallet {
 			let mut rng = ChaChaRng::from_seed(seed);
 
 			// Run a candidate/membership rotation
-			match Self::period() {
-				Period::Voting { elapsed, .. } if elapsed.is_zero() => {
-					Self::rotate_intake(&mut rng);
-					weight.saturating_accrue(weights.max_block / 20);
-				},
-				_ => {},
+			let is_intake_moment = match Self::period() {
+				Period::Intake { .. } => true,
+				_ => false,
+			};
+			if is_intake_moment {
+				Self::rotate_intake(&mut rng);
+				weight.saturating_accrue(weights.max_block / 20);
+				Self::set_next_intake_at();
 			}
 
 			// Run a challenge rotation
-			if (n % T::ChallengePeriod::get()).is_zero() {
+			if now >= Self::next_challenge_at() {
 				Self::rotate_challenge(&mut rng);
 				weight.saturating_accrue(weights.max_block / 20);
+				Self::set_next_challenge_at();
 			}
 
 			weight
@@ -1382,6 +1404,63 @@ pub mod pallet {
 			// if backend == 0 { return Err(Error::<T, I>::NoVotes.into()); };
 			Ok(Pays::No.into())
 		}
+
+		/// Poke the deposit reserved when bidding.
+		///
+		/// The dispatch origin for this call must be _Signed_ and must be the bidder.
+		///
+		/// The transaction fee is waived if the deposit is changed after poking/reconsideration.
+		///
+		/// Emits `DepositPoked` if successful.
+		#[pallet::call_index(20)]
+		#[pallet::weight(T::WeightInfo::poke_deposit())]
+		pub fn poke_deposit(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+
+			// Get current bids and find the bidder's bid
+			let mut bids = Bids::<T, I>::get();
+			let bid = bids.iter_mut().find(|bid| bid.who == who).ok_or(Error::<T, I>::NotBidder)?;
+
+			// Only handle deposit bids
+			let old_deposit = match &bid.kind {
+				BidKind::Deposit(amount) => *amount,
+				_ => return Err(Error::<T, I>::NoDeposit.into()),
+			};
+
+			let params = Parameters::<T, I>::get().ok_or(Error::<T, I>::NotGroup)?;
+			let new_deposit = params.candidate_deposit;
+
+			if old_deposit == new_deposit {
+				return Ok(Pays::Yes.into());
+			}
+
+			if new_deposit > old_deposit {
+				// Need to reserve more
+				let extra = new_deposit.saturating_sub(old_deposit);
+				T::Currency::reserve(&who, extra)?;
+			} else {
+				// Need to unreserve some
+				let excess = old_deposit.saturating_sub(new_deposit);
+				let remaining_unreserved = T::Currency::unreserve(&who, excess);
+				if !remaining_unreserved.is_zero() {
+					defensive!(
+						"Failed to unreserve for full amount for bid (Requested, Actual)",
+						(excess, excess.saturating_sub(remaining_unreserved))
+					);
+				}
+			}
+
+			bid.kind = BidKind::Deposit(new_deposit);
+			Bids::<T, I>::put(bids);
+
+			Self::deposit_event(Event::<T, I>::DepositPoked {
+				who: who.clone(),
+				old_deposit,
+				new_deposit,
+			});
+
+			Ok(Pays::No.into())
+		}
 	}
 }
 
@@ -1390,10 +1469,10 @@ pub struct EnsureFounder<T>(core::marker::PhantomData<T>);
 impl<T: Config> EnsureOrigin<<T as frame_system::Config>::RuntimeOrigin> for EnsureFounder<T> {
 	type Success = T::AccountId;
 	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
-		o.into().and_then(|o| match (o, Founder::<T>::get()) {
-			(frame_system::RawOrigin::Signed(ref who), Some(ref f)) if who == f => Ok(who.clone()),
-			(r, _) => Err(T::RuntimeOrigin::from(r)),
-		})
+		match (o.as_signer(), Founder::<T>::get()) {
+			(Some(who), Some(f)) if *who == f => Ok(f),
+			_ => Err(o),
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1409,9 +1488,11 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 	{}
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub enum Period<BlockNumber> {
 	Voting { elapsed: BlockNumber, more: BlockNumber },
 	Claim { elapsed: BlockNumber, more: BlockNumber },
+	Intake { elapsed: BlockNumber },
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -1422,11 +1503,70 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let rotation_period = voting_period + claim_period;
 		let now = T::BlockNumberProvider::current_block_number();
 		let phase = now % rotation_period;
-		if phase < voting_period {
+		if now >= Self::next_intake_at() {
+			Period::Intake { elapsed: now - Self::next_intake_at() }
+		} else if phase < voting_period {
 			Period::Voting { elapsed: phase, more: voting_period - phase }
 		} else {
 			Period::Claim { elapsed: phase - voting_period, more: rotation_period - phase }
 		}
+	}
+
+	/// Next intake (candidate/membership) rotation scheduled with [Config::BlockNumberProvider].
+	///
+	/// Rounds the previous block number up to the next rotation period (voting + claim periods).
+	pub fn next_intake_at() -> BlockNumberFor<T, I> {
+		match NextIntakeAt::<T, I>::get() {
+			Some(next) => next,
+			None => {
+				// executed once.
+				let now = T::BlockNumberProvider::current_block_number();
+				let prev_block = now.saturating_sub(BlockNumberFor::<T, I>::one());
+				let rotation_period = T::VotingPeriod::get().saturating_add(T::ClaimPeriod::get());
+				let elapsed = prev_block % rotation_period;
+				let next_intake_at = prev_block + (rotation_period - elapsed);
+				NextIntakeAt::<T, I>::put(next_intake_at);
+				next_intake_at
+			},
+		}
+	}
+
+	/// Set the next intake (candidate/membership) rotation.
+	///
+	/// This supposed to be called once the current intake is executed.
+	fn set_next_intake_at() {
+		let prev_next_intake_at = Self::next_intake_at();
+		let next_intake_at = prev_next_intake_at
+			.saturating_add(T::VotingPeriod::get().saturating_add(T::ClaimPeriod::get()));
+		NextIntakeAt::<T, I>::put(next_intake_at);
+	}
+
+	/// Returns the next challenge rotation scheduled with [Config::BlockNumberProvider].
+	///
+	/// Rounds the previous block number up to the next multiple of the challenge duration.
+	pub fn next_challenge_at() -> BlockNumberFor<T, I> {
+		match NextChallengeAt::<T, I>::get() {
+			Some(next) => next,
+			None => {
+				// executed once.
+				let now = T::BlockNumberProvider::current_block_number();
+				let prev_block = now.saturating_sub(BlockNumberFor::<T, I>::one());
+				let challenge_period = T::ChallengePeriod::get();
+				let elapsed = prev_block % challenge_period;
+				let next_challenge_at = prev_block + (challenge_period - elapsed);
+				NextChallengeAt::<T, I>::put(next_challenge_at);
+				next_challenge_at
+			},
+		}
+	}
+
+	/// Set the next challenge rotation.
+	///
+	/// This supposed to be called once the current challenge is executed.
+	fn set_next_challenge_at() {
+		let prev_next_challenge_at = Self::next_challenge_at();
+		let next_challenge_at = prev_next_challenge_at.saturating_add(T::ChallengePeriod::get());
+		NextChallengeAt::<T, I>::put(next_challenge_at);
 	}
 
 	/// Returns true if the given `target_round` is still in its initial voting phase.

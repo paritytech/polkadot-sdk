@@ -21,6 +21,7 @@ use super::*;
 use frame_election_provider_support::{SortedListProvider, VoteWeight};
 use list::Bag;
 use mock::{test_utils::*, *};
+use substrate_test_utils::assert_eq_uvec;
 
 #[docify::export]
 #[test]
@@ -138,6 +139,39 @@ mod pallet {
 		});
 	}
 
+	#[test]
+	fn rebag_when_missing() {
+		ExtBuilder::default().build_and_execute(|| {
+			// given
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			// when
+			NEXT_VOTE_WEIGHT_MAP.with(|m| m.borrow_mut().remove(&3));
+
+			// then
+			assert_ok!(BagsList::rebag(RuntimeOrigin::signed(0), 3));
+
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 4])]);
+		});
+	}
+
+	#[test]
+	fn rebag_when_added() {
+		ExtBuilder::default().build_and_execute(|| {
+			// given
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			// when 5 is added, but somehow it is not present in the bags list.
+			NEXT_VOTE_WEIGHT_MAP.with(|m| m.borrow_mut().insert(5, 10));
+
+			// then
+			assert_ok!(BagsList::rebag(RuntimeOrigin::signed(0), 5));
+
+			// 5 is added
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1, 5]), (1_000, vec![2, 3, 4])]);
+		});
+	}
+
 	// Rebagging the tail of a bag results in the old bag having a new tail and an overall correct
 	// state.
 	#[test]
@@ -210,8 +244,9 @@ mod pallet {
 	fn wrong_rebag_errs() {
 		ExtBuilder::default().build_and_execute(|| {
 			let node_3 = list::Node::<Runtime>::get(&3).unwrap();
+
+			NEXT_VOTE_WEIGHT_MAP.with(|m| m.borrow_mut().insert(500, 500));
 			// when account 3 is _not_ misplaced with score 500
-			NextVoteWeight::set(500);
 			assert!(!node_3.is_misplaced(500));
 
 			// then calling rebag on account 3 with score 500 is a noop
@@ -733,6 +768,483 @@ mod sorted_list_provider {
 
 			let non_existent_ids = vec![&42, &666, &13];
 			assert!(non_existent_ids.iter().all(|id| !BagsList::contains(id)));
+		})
+	}
+}
+
+mod on_idle {
+	use super::*;
+	use frame_support::traits::OnIdle;
+
+	fn run_to_block(n: u64, on_idle_weight: Weight) -> Weight {
+		let mut total_weight = Weight::zero();
+
+		System::run_to_block_with::<AllPalletsWithSystem>(
+			n,
+			frame_system::RunToBlockHooks::default().after_initialize(|bn| {
+				let w = AllPalletsWithSystem::on_idle(bn, on_idle_weight);
+				total_weight = total_weight.saturating_add(w);
+			}),
+		);
+
+		total_weight
+	}
+
+	#[test]
+	fn does_nothing_when_feature_is_disabled() {
+		ExtBuilder::default().build_and_execute(|| {
+			// given
+			// Set auto-rebag limit to 0 nodes per block
+			<Runtime as Config>::MaxAutoRebagPerBlock::set(0);
+			assert_eq!(<Runtime as Config>::MaxAutoRebagPerBlock::get(), 0);
+
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			// Change the score of node 3 to make it need rebagging
+			StakingMock::set_score_of(&3, 10);
+
+			// Call on_idle
+			run_to_block(1, Weight::MAX);
+
+			// The bags should remain unchanged
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			// LastNodeAutoRebagged should not be set
+			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), None);
+		});
+	}
+
+	#[test]
+	fn rebags_nodes_when_feature_is_enabled() {
+		ExtBuilder::default().build_and_execute(|| {
+			// Set auto-rebag limit to 2 nodes per block
+			<Runtime as Config>::MaxAutoRebagPerBlock::set(2);
+
+			// given
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			// Change score of node 3 to move it into the 10 bag
+			StakingMock::set_score_of(&3, 10); // <-- ВНУТРИ build_and_execute!
+
+			// Trigger on_idle
+			run_to_block(1, Weight::MAX);
+
+			// Assert rebagging occurred
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1, 3]), (1_000, vec![2, 4])]);
+			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), Some(4));
+		});
+	}
+
+	#[test]
+	fn does_nothing_when_list_empty() {
+		ExtBuilder::default().skip_genesis_ids().build_and_execute(|| {
+			// Set auto-rebag limit to 2 nodes per block
+			<Runtime as Config>::MaxAutoRebagPerBlock::set(2);
+
+			// given
+			assert_eq!(List::<Runtime>::get_bags(), vec![]);
+			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), None);
+
+			// when
+			run_to_block(1, Weight::MAX);
+
+			// then
+			assert_eq!(List::<Runtime>::get_bags(), vec![]);
+			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), None);
+		})
+	}
+
+	#[test]
+	fn rebags_limited_by_budget() {
+		ExtBuilder::default().build_and_execute(|| {
+			// Set auto-rebag limit to 2 nodes per block
+			<Runtime as Config>::MaxAutoRebagPerBlock::set(2);
+
+			// given
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), None);
+
+			// Change the score of all nodes
+			StakingMock::set_score_of(&1, 1000);
+			StakingMock::set_score_of(&2, 10);
+			StakingMock::set_score_of(&3, 10);
+			StakingMock::set_score_of(&4, 10);
+
+			// Trigger on_idle
+			run_to_block(1, Weight::MAX);
+
+			// Assert only 2 rebagging happened
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1, 2, 3]), (1_000, vec![4])]);
+			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), Some(4));
+		});
+	}
+
+	#[test]
+	fn rebags_resumes_from_node_after_rebagging() {
+		ExtBuilder::default().build_and_execute(|| {
+			// Set auto-rebag limit to 1 node per block
+			<Runtime as Config>::MaxAutoRebagPerBlock::set(1);
+
+			// given
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), None);
+
+			// Change the score of all nodes
+			StakingMock::set_score_of(&1, 1000);
+			StakingMock::set_score_of(&2, 10);
+			StakingMock::set_score_of(&3, 10);
+			StakingMock::set_score_of(&4, 10);
+
+			// Trigger on_idle for 2 blocks
+			run_to_block(2, Weight::MAX);
+
+			// Assert only 2 rebagging happened
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1, 2, 3]), (1_000, vec![4])]);
+			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), Some(4));
+		});
+	}
+	#[test]
+	fn can_rebag_across_bags() {
+		ExtBuilder::default().build_and_execute(|| {
+			// Set the auto-rebag limit to a large enough value to process all
+			<Runtime as Config>::MaxAutoRebagPerBlock::set(4);
+
+			// given
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), None);
+
+			// Change scores to make rebag across bags
+			// Move 1 to 2_000 bag
+			StakingMock::set_score_of(&1, 2_000);
+			// Move 2,3,4 to 10 bag
+			StakingMock::set_score_of(&2, 10);
+			StakingMock::set_score_of(&3, 10);
+			StakingMock::set_score_of(&4, 10);
+
+			// Trigger on_idle
+			run_to_block(2, Weight::MAX);
+
+			// then — assert nodes are rebagged across bags
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![2, 3, 4]), (2_000, vec![1])]);
+
+			// and the cursor is cleared (end of a list)
+			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), None);
+		});
+	}
+
+	#[test]
+	fn when_we_hit_the_end_of_the_list() {
+		ExtBuilder::default().build_and_execute(|| {
+			// Set the auto-rebag limit to a large enough value to process all
+			<Runtime as Config>::MaxAutoRebagPerBlock::set(2);
+
+			// given
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), None);
+
+			// Change scores to make rebag across bags
+			// Move 1 to 2_000 bag
+			StakingMock::set_score_of(&1, 2_000);
+			// Move 2,3,4 to 10 bag
+			StakingMock::set_score_of(&2, 10);
+			StakingMock::set_score_of(&3, 10);
+			StakingMock::set_score_of(&4, 10);
+
+			// Trigger on_idle
+			run_to_block(4, Weight::MAX);
+
+			// then — assert nodes are rebagged across bags
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![2, 3, 4]), (2_000, vec![1])]);
+
+			// and the cursor is cleared (end of a list)
+			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), None);
+		});
+	}
+
+	#[test]
+	fn does_nothing_when_no_weight_left() {
+		ExtBuilder::default().build_and_execute(|| {
+			// given
+			// Set MaxAutoRebagPerBlock to a non-zero value to allow rebagging in theory
+			<Runtime as Config>::MaxAutoRebagPerBlock::set(2);
+
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), None);
+
+			// Modify scores to trigger rebagging logic.
+			StakingMock::set_score_of(&1, 2_000);
+			StakingMock::set_score_of(&2, 10);
+			StakingMock::set_score_of(&3, 10);
+			StakingMock::set_score_of(&4, 10);
+
+			// Trigger on_idle with zero available weight
+			let weight_used = run_to_block(4, Weight::zero());
+
+			// Confirm no weight was consumed
+			assert_eq!(weight_used, Weight::zero());
+
+			// Nothing should change due to lack of available weight
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			// Cursor should not have advanced
+			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), None);
+		});
+	}
+
+	#[test]
+	fn pending_rebag_not_used_when_auto_rebag_disabled() {
+		ExtBuilder::default().skip_genesis_ids().build_and_execute(|| {
+			<Runtime as Config>::MaxAutoRebagPerBlock::set(0);
+
+			assert_ok!(List::<Runtime>::insert(1, 10));
+			assert_eq!(PendingRebag::<Runtime>::count(), 0);
+
+			BagsList::lock();
+
+			// Try to insert while locked with auto-rebag disabled
+			assert_eq!(BagsList::on_insert(5, 15), Err(ListError::Locked));
+
+			// Should NOT be added to PendingRebag since auto-rebag is disabled
+			assert_eq!(PendingRebag::<Runtime>::count(), 0);
+			assert!(!PendingRebag::<Runtime>::contains_key(&5));
+
+			BagsList::unlock();
+
+			// The account can still be inserted manually via rebag extrinsic
+			StakingMock::set_score_of(&5, 15);
+			assert_ok!(List::<Runtime>::insert(5, 15));
+			assert!(List::<Runtime>::contains(&5));
+		});
+	}
+
+	/// Tests the PendingRebag feature that handles accounts that fail to be inserted due to
+	/// locking.
+	#[test]
+	fn pending_rebag() {
+		ExtBuilder::default().skip_genesis_ids().build_and_execute(|| {
+			<Runtime as Config>::MaxAutoRebagPerBlock::set(3);
+
+			// Create more initial nodes to ensure cursor is set
+			assert_ok!(List::<Runtime>::insert(1, 10));
+			assert_ok!(List::<Runtime>::insert(2, 1000));
+			assert_ok!(List::<Runtime>::insert(3, 1000));
+			assert_ok!(List::<Runtime>::insert(4, 1000));
+			assert_ok!(List::<Runtime>::insert(9, 1000));
+			assert_ok!(List::<Runtime>::insert(10, 1000));
+
+			assert_eq!(
+				List::<Runtime>::get_bags(),
+				vec![(10, vec![1]), (1_000, vec![2, 3, 4, 9, 10])]
+			);
+			assert_eq!(PendingRebag::<Runtime>::count(), 0);
+
+			BagsList::lock();
+
+			// Try to insert 6 new nodes while locked - 5 regular + 1 that will lose staking status
+			assert_eq!(BagsList::on_insert(5, 15), Err(ListError::Locked));
+			assert_eq!(BagsList::on_insert(6, 45), Err(ListError::Locked));
+			assert_eq!(BagsList::on_insert(7, 55), Err(ListError::Locked));
+			assert_eq!(BagsList::on_insert(8, 1500), Err(ListError::Locked));
+			assert_eq!(BagsList::on_insert(11, 100), Err(ListError::Locked));
+			assert_eq!(BagsList::on_insert(99, 500), Err(ListError::Locked)); // Will lose staking
+
+			// Verify they're in PendingRebag
+			let pending: Vec<_> = PendingRebag::<Runtime>::iter_keys().collect();
+			assert_eq_uvec!(pending, vec![5, 6, 7, 8, 11, 99]);
+
+			// Verify they're NOT in the list yet
+			assert!(!List::<Runtime>::contains(&5));
+			assert!(!List::<Runtime>::contains(&6));
+			assert!(!List::<Runtime>::contains(&7));
+			assert!(!List::<Runtime>::contains(&8));
+			assert!(!List::<Runtime>::contains(&11));
+			assert!(!List::<Runtime>::contains(&99));
+
+			BagsList::unlock();
+
+			// Set scores for regular nodes
+			StakingMock::set_score_of(&1, 10); // Keep account 1 at score 10
+			StakingMock::set_score_of(&2, 10); // Regular node needs rebagging
+			StakingMock::set_score_of(&3, 20); // Regular node needs rebagging
+			StakingMock::set_score_of(&4, 1000); // Keep account 4 at score 1000
+			StakingMock::set_score_of(&9, 1000); // Keep account 9 at score 1000
+			StakingMock::set_score_of(&10, 1000); // Keep account 10 at score 1000
+
+			StakingMock::set_score_of(&5, 15);
+			StakingMock::set_score_of(&6, 45);
+			StakingMock::set_score_of(&7, 55);
+			StakingMock::set_score_of(&8, 1500);
+			StakingMock::set_score_of(&11, 100);
+			// Note: account 99 deliberately has NO score provider - it will be cleaned up
+
+			// Run on_idle with budget of 3 - processes first 3 accounts: [6, 5, 8]
+			let weight_used = run_to_block(1, Weight::MAX);
+			assert!(weight_used.ref_time() > 0);
+			assert!(weight_used.proof_size() > 0);
+
+			// With iteration order [6, 5, 8, 7, 11, 99] and budget of 3, we process: [6, 5, 8]
+			// Account 99 remains pending (not reached with budget 3)
+			assert_eq!(PendingRebag::<Runtime>::count(), 3); // Three pending accounts remain (7, 11, 99)
+
+			let expected_processed = vec![5, 6, 8];
+			let expected_unprocessed = vec![7, 11, 99];
+
+			let actual_processed: Vec<_> = [5, 6, 7, 8, 11]
+				.iter()
+				.filter(|id| List::<Runtime>::contains(id))
+				.copied()
+				.collect();
+			assert_eq!(actual_processed, expected_processed);
+
+			let actual_pending: Vec<_> = [5, 6, 7, 8, 11, 99]
+				.iter()
+				.filter(|id| PendingRebag::<Runtime>::contains_key(id))
+				.copied()
+				.collect();
+			assert_eq!(actual_pending, expected_unprocessed);
+
+			// Verify account 99 is still pending (not processed yet due to budget limit)
+			assert!(!List::<Runtime>::contains(&99));
+			assert!(PendingRebag::<Runtime>::contains_key(&99));
+
+			assert_eq!(List::<Runtime>::get_score(&6).unwrap(), 45);
+			assert_eq!(List::<Runtime>::get_score(&5).unwrap(), 15);
+			assert_eq!(List::<Runtime>::get_score(&8).unwrap(), 1500);
+
+			// Verify the bags contain the right accounts
+			// After processing 3 pending accounts (5, 6, 8):
+			// - Account 1: score 10 -> bag 10 (unchanged)
+			// - Account 2: score 10 -> still in bag 1000 (not rebagged, only pending accounts
+			//   processed)
+			// - Account 3: score 20 -> still in bag 1000 (not rebagged, only pending accounts
+			//   processed)
+			// - Account 4: score 1000 -> bag 1000 (unchanged)
+			// - Account 5: score 15 -> bag 20 (newly inserted from pending)
+			// - Account 6: score 45 -> bag 50 (newly inserted from pending)
+			// - Account 8: score 1500 -> bag 2000 (newly inserted from pending)
+			// - Account 9: score 1000 -> bag 1000 (unchanged)
+			// - Account 10: score 1000 -> bag 1000 (unchanged)
+			assert_eq!(
+				List::<Runtime>::get_bags(),
+				vec![
+					(10, vec![1]),
+					(20, vec![5]),
+					(50, vec![6]),
+					(1_000, vec![2, 3, 4, 9, 10]),
+					(2_000, vec![8])
+				]
+			);
+
+			// After processing 3 pending accounts [6, 5, 8] with budget of 3:
+			// The 4th account collected would be the next pending account (7), but since
+			// we filter out pending accounts from the cursor, it should be None
+			let cursor_after_first = NextNodeAutoRebagged::<Runtime>::get();
+			assert_eq!(
+				cursor_after_first, None,
+				"Cursor should be None since we only processed pending accounts"
+			);
+
+			// Process remaining pending accounts (budget 3: accounts 7, 11, 99)
+			run_to_block(2, Weight::MAX);
+
+			// All pending accounts should now be processed (including cleanup of 99)
+			assert_eq!(PendingRebag::<Runtime>::count(), 0);
+
+			// Verify accounts 7 and 11 are now in the list
+			assert!(List::<Runtime>::contains(&7));
+			assert!(List::<Runtime>::contains(&11));
+
+			// Verify account 99 was cleaned up (not in list, removed from pending)
+			assert!(!List::<Runtime>::contains(&99));
+			assert!(!PendingRebag::<Runtime>::contains_key(&99));
+
+			// Verify all processed accounts are in their correct bags
+			let final_bags = List::<Runtime>::get_bags();
+			assert!(final_bags.iter().any(|(t, accs)| *t == 20 && accs.contains(&5)));
+			assert!(final_bags.iter().any(|(t, accs)| *t == 50 && accs.contains(&6)));
+			assert!(final_bags.iter().any(|(t, accs)| *t == 60 && accs.contains(&7)));
+			assert!(final_bags.iter().any(|(t, accs)| *t == 2_000 && accs.contains(&8)));
+			assert!(final_bags.iter().any(|(t, accs)| *t == 1_000 && accs.contains(&11)));
+
+			// Verify final list contains exactly the expected accounts (original + successfully
+			// inserted pending)
+			let final_list: Vec<_> = List::<Runtime>::iter().map(|n| *n.id()).collect();
+			let mut expected_final = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+			expected_final.sort();
+			let mut actual_final = final_list.clone();
+			actual_final.sort();
+			assert_eq!(actual_final, expected_final);
+		});
+	}
+
+	#[test]
+	fn rebag_extrinsic_removes_from_pending() {
+		ExtBuilder::default().skip_genesis_ids().build_and_execute(|| {
+			BagsList::lock();
+
+			// Try to insert while locked - should go to PendingRebag
+			StakingMock::set_score_of(&1, 1000);
+			assert_eq!(BagsList::on_insert(1, 1000), Err(ListError::Locked));
+			assert!(PendingRebag::<Runtime>::contains_key(&1));
+			assert!(!List::<Runtime>::contains(&1));
+
+			// Unlock
+			BagsList::unlock();
+
+			// Call rebag extrinsic - should insert the account and remove from PendingRebag
+			assert_ok!(BagsList::rebag(RuntimeOrigin::signed(0), 1));
+
+			// Verify account is now in the list and removed from PendingRebag
+			assert!(!PendingRebag::<Runtime>::contains_key(&1));
+			assert_eq!(List::<Runtime>::get_bags(), vec![(1000, vec![1])]);
+		});
+	}
+}
+
+pub mod lock {
+	use super::*;
+
+	#[test]
+	fn lock_prevents_list_update() {
+		ExtBuilder::default().build_and_execute(|| {
+			// given
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			// when
+			BagsList::lock();
+
+			assert_noop!(BagsList::on_update(&3, 2_000), ListError::Locked);
+			assert_noop!(BagsList::on_increase(&3, 2_000), ListError::Locked);
+			assert_noop!(BagsList::on_decrease(&3, 2_000), ListError::Locked);
+			assert_noop!(BagsList::on_remove(&3), ListError::Locked);
+
+			// when
+			BagsList::unlock();
+
+			// then
+			assert_ok!(BagsList::on_remove(&3));
+		})
+	}
+
+	#[test]
+	fn lock_prevents_calls() {
+		ExtBuilder::default().build_and_execute(|| {
+			// given
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			// when
+			BagsList::lock();
+
+			// then
+			assert_noop!(BagsList::rebag(RuntimeOrigin::signed(0), 3), Error::<Runtime>::Locked);
+			assert_noop!(
+				BagsList::put_in_front_of(RuntimeOrigin::signed(3), 4),
+				Error::<Runtime>::Locked
+			);
+			assert_noop!(
+				BagsList::put_in_front_of_other(RuntimeOrigin::signed(0), 3u64, 4),
+				Error::<Runtime>::Locked
+			);
 		})
 	}
 }

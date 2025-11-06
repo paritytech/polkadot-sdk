@@ -14,13 +14,15 @@
 // limitations under the License.
 
 use crate::imports::*;
+use emulated_integration_tests_common::{snowbridge, snowbridge::WETH};
+use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 use xcm::opaque::v5;
+use xcm_executor::traits::ConvertLocation;
 
 mod asset_transfers;
 mod claim_assets;
 mod register_bridged_assets;
 mod send_xcm;
-mod snowbridge;
 mod teleport;
 
 pub(crate) fn asset_hub_westend_location() -> Location {
@@ -76,8 +78,8 @@ pub(crate) fn weth_at_asset_hubs() -> Location {
 	Location::new(
 		2,
 		[
-			GlobalConsensus(Ethereum { chain_id: snowbridge::CHAIN_ID }),
-			AccountKey20 { network: None, key: snowbridge::WETH },
+			GlobalConsensus(Ethereum { chain_id: snowbridge::SEPOLIA_ID }),
+			AccountKey20 { network: None, key: WETH },
 		],
 	)
 }
@@ -171,19 +173,36 @@ pub(crate) fn send_assets_from_asset_hub_rococo(
 	destination: Location,
 	assets: Assets,
 	fee_idx: u32,
+	// For knowing what reserve to pick.
+	// We only allow using the same transfer type for assets and fees right now.
+	// And only `LocalReserve` or `DestinationReserve`.
+	transfer_type: TransferType,
 ) -> DispatchResult {
 	let signed_origin =
 		<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get());
 	let beneficiary: Location =
 		AccountId32Junction { network: None, id: AssetHubWestendReceiver::get().into() }.into();
 
+	type Runtime = <AssetHubRococo as Chain>::Runtime;
+	let remote_fee_id: AssetId = assets
+		.clone()
+		.into_inner()
+		.get(fee_idx as usize)
+		.ok_or(pallet_xcm::Error::<Runtime>::Empty)?
+		.clone()
+		.id;
+
 	AssetHubRococo::execute_with(|| {
-		<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::limited_reserve_transfer_assets(
+		<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 			signed_origin,
 			bx!(destination.into()),
-			bx!(beneficiary.into()),
 			bx!(assets.into()),
-			fee_idx,
+			bx!(transfer_type.clone()),
+			bx!(remote_fee_id.into()),
+			bx!(transfer_type),
+			bx!(VersionedXcm::from(
+				Xcm::<()>::builder_unsafe().deposit_asset(AllCounted(1), beneficiary).build()
+			)),
 			WeightLimit::Unlimited,
 		)
 	})
@@ -236,4 +255,21 @@ pub(crate) fn assert_bridge_hub_westend_message_received() {
 			]
 		);
 	})
+}
+
+pub fn snowbridge_sovereign() -> sp_runtime::AccountId32 {
+	use asset_hub_rococo_runtime::xcm_config::UniversalLocation as AssetHubRococoUniversalLocation;
+	let ethereum_sovereign: AccountId = AssetHubRococo::execute_with(|| {
+		ExternalConsensusLocationsConverterFor::<
+			AssetHubRococoUniversalLocation,
+			[u8; 32],
+		>::convert_location(&Location::new(
+			2,
+			[xcm::v5::Junction::GlobalConsensus(EthereumNetwork::get())],
+		))
+			.unwrap()
+			.into()
+	});
+
+	ethereum_sovereign
 }

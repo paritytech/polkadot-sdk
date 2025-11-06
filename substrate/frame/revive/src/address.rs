@@ -42,7 +42,7 @@ use sp_runtime::{AccountId32, DispatchResult, Saturating};
 /// different sizes one direction of the mapping is necessarily lossy. This requires the mapping to
 /// make use of the [`OriginalAccount`] storage item to reverse the mapping.
 pub trait AddressMapper<T: Config>: private::Sealed {
-	/// Convert an account id to an ethereum adress.
+	/// Convert an account id to an ethereum address.
 	fn to_address(account_id: &T::AccountId) -> H160;
 
 	/// Convert an ethereum address to a native account id.
@@ -62,13 +62,19 @@ pub trait AddressMapper<T: Config>: private::Sealed {
 	/// `account_id` instead of the fallback account id.
 	fn map(account_id: &T::AccountId) -> DispatchResult;
 
+	/// Map an account id without taking any deposit.
+	/// This is only useful for genesis configuration, or benchmarks.
+	fn map_no_deposit(account_id: &T::AccountId) -> DispatchResult {
+		Self::map(account_id)
+	}
+
 	/// Remove the mapping in order to reclaim the deposit.
 	///
 	/// There is no reason why one would unmap their `account_id` except
 	/// for reclaiming the deposit.
 	fn unmap(account_id: &T::AccountId) -> DispatchResult;
 
-	/// Returns true if the `account_id` is useable as an origin.
+	/// Returns true if the `account_id` is usable as an origin.
 	///
 	/// This means either the `account_id` doesn't require a stateful mapping
 	/// or a stateful mapping exists.
@@ -79,6 +85,7 @@ mod private {
 	pub trait Sealed {}
 	impl<T> Sealed for super::AccountId32Mapper<T> {}
 	impl<T> Sealed for super::H160Mapper<T> {}
+	impl<T> Sealed for super::TestAccountMapper<T> {}
 }
 
 /// The mapper to be used if the account id is `AccountId32`.
@@ -92,7 +99,11 @@ pub struct AccountId32Mapper<T>(PhantomData<T>);
 /// The mapper to be used if the account id is `H160`.
 ///
 /// It just trivially returns its inputs and doesn't make use of any state.
+#[allow(dead_code)]
 pub struct H160Mapper<T>(PhantomData<T>);
+
+/// An account mapper that can be used for testing u64 account ids.
+pub struct TestAccountMapper<T>(PhantomData<T>);
 
 impl<T> AddressMapper<T> for AccountId32Mapper<T>
 where
@@ -100,7 +111,7 @@ where
 {
 	fn to_address(account_id: &AccountId32) -> H160 {
 		let account_bytes: &[u8; 32] = account_id.as_ref();
-		if Self::is_eth_derived(account_id) {
+		if is_eth_derived(account_id) {
 			// this was originally an eth address
 			// we just strip the 0xEE suffix to get the original address
 			H160::from_slice(&account_bytes[..20])
@@ -136,6 +147,12 @@ where
 		Ok(())
 	}
 
+	fn map_no_deposit(account_id: &T::AccountId) -> DispatchResult {
+		ensure!(!Self::is_mapped(account_id), <Error<T>>::AccountAlreadyMapped);
+		<OriginalAccount<T>>::insert(Self::to_address(account_id), account_id);
+		Ok(())
+	}
+
 	fn unmap(account_id: &T::AccountId) -> DispatchResult {
 		// will do nothing if address is not mapped so no check required
 		<OriginalAccount<T>>::remove(Self::to_address(account_id));
@@ -148,25 +165,51 @@ where
 	}
 
 	fn is_mapped(account_id: &T::AccountId) -> bool {
-		Self::is_eth_derived(account_id) ||
+		is_eth_derived(account_id) ||
 			<OriginalAccount<T>>::contains_key(Self::to_address(account_id))
 	}
 }
 
-impl<T> AccountId32Mapper<T>
+impl<T> AddressMapper<T> for TestAccountMapper<T>
 where
-	T: Config<AccountId = AccountId32>,
+	T: Config<AccountId = u64>,
 {
-	/// Returns true if the passed account id is controlled by an eth key.
-	///
-	/// This is a stateless check that just compares the last 12 bytes. Please note that it is
-	/// theoretically possible to create an ed25519 keypair that passed this filter. However,
-	/// this can't be used for an attack. It also won't happen by accident since everbody is using
-	/// sr25519 where this is not a valid public key.
-	fn is_eth_derived(account_id: &T::AccountId) -> bool {
-		let account_bytes: &[u8; 32] = account_id.as_ref();
-		&account_bytes[20..] == &[0xEE; 12]
+	fn to_address(account_id: &T::AccountId) -> H160 {
+		let mut bytes = [0u8; 20];
+		bytes[12..].copy_from_slice(&account_id.to_be_bytes());
+		H160::from(bytes)
 	}
+
+	fn to_account_id(address: &H160) -> T::AccountId {
+		Self::to_fallback_account_id(address)
+	}
+
+	fn to_fallback_account_id(address: &H160) -> T::AccountId {
+		u64::from_be_bytes(address.as_ref()[12..].try_into().unwrap())
+	}
+
+	fn map(_account_id: &T::AccountId) -> DispatchResult {
+		Ok(())
+	}
+
+	fn unmap(_account_id: &T::AccountId) -> DispatchResult {
+		Ok(())
+	}
+
+	fn is_mapped(_account_id: &T::AccountId) -> bool {
+		true
+	}
+}
+
+/// Returns true if the passed account id is controlled by an eth key.
+///
+/// This is a stateless check that just compares the last 12 bytes. Please note that it is
+/// theoretically possible to create an ed25519 keypair that passed this filter. However,
+/// this can't be used for an attack. It also won't happen by accident since everybody is using
+/// sr25519 where this is not a valid public key.
+pub fn is_eth_derived(account_id: &AccountId32) -> bool {
+	let account_bytes: &[u8; 32] = account_id.as_ref();
+	&account_bytes[20..] == &[0xEE; 12]
 }
 
 impl<T> AddressMapper<T> for H160Mapper<T>

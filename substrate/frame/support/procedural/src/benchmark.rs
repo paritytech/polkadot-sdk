@@ -736,6 +736,7 @@ pub fn benchmarks(
 					verify: bool,
 					internal_repeats: u32,
 				) -> Result<#krate::__private::Vec<#krate::BenchmarkResult>, #krate::BenchmarkError> {
+					#krate::benchmarking::wipe_db();
 					let extrinsic = #krate::__private::str::from_utf8(extrinsic).map_err(|_| "`extrinsic` is not a valid utf-8 string!")?;
 					let selected_benchmark = match extrinsic {
 						#(#selected_benchmark_mappings),
@@ -820,9 +821,9 @@ pub fn benchmarks(
 						);
 
 						// Time the storage root recalculation.
-						let start_storage_root = #krate::benchmarking::current_time();
+						let start_storage_root = #krate::current_time();
 						#krate::__private::storage_root(#krate::__private::StateVersion::V1);
-						let finish_storage_root = #krate::benchmarking::current_time();
+						let finish_storage_root = #krate::current_time();
 						let elapsed_storage_root = finish_storage_root - start_storage_root;
 
 						let skip_meta = [ #(#skip_meta_benchmark_names_str),* ];

@@ -21,10 +21,9 @@ sp-core = { workspace = true }
 sp-runtime = { workspace = true }
 
 [dev-dependencies]
-pallet-balances = { features = ["std"], workspace = true, default-features = true }
-pallet-example-basic = { features = ["std"], workspace = true, default-features = true }
-sp-core = { features = ["std"], workspace = true, default-features = true }
-sp-io = { features = ["std"], workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-example-basic = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

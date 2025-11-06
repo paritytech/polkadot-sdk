@@ -17,10 +17,7 @@
 
 use super::{Balance, Balances, Pages, Runtime, RuntimeEvent, SignedPallet, System};
 use crate::{
-	mock::{
-		balances, multi_block_events, roll_next, roll_to_signed_validation_open, verifier_events,
-		AccountId, RuntimeHoldReason, RuntimeOrigin, VerifierPallet,
-	},
+	mock::*,
 	signed::{self as signed_pallet, Event as SignedEvent, Submissions},
 	unsigned::miner::MinerConfig,
 	verifier::{self, AsynchronousVerifier, SolutionDataProvider, VerificationResult, Verifier},
@@ -28,14 +25,14 @@ use crate::{
 };
 use frame_election_provider_support::PageIndex;
 use frame_support::{
-	assert_ok, dispatch::PostDispatchInfo, parameter_types, traits::EstimateCallFee, BoundedVec,
+	assert_ok, dispatch::PostDispatchInfo, parameter_types, traits::EstimateCallFee,
 };
 use sp_npos_elections::ElectionScore;
 use sp_runtime::{traits::Zero, Perbill};
 
 parameter_types! {
-	pub static MockSignedNextSolution: Option<BoundedVec<SolutionOf<Runtime>, Pages>> = None;
-	pub static MockSignedNextScore: Option<ElectionScore> = Default::default();
+	pub static MockSignedNextSolution: Option<Vec<SolutionOf<Runtime>>> = None;
+	pub static MockSignedNextScore: ElectionScore = Default::default();
 	pub static MockSignedResults: Vec<VerificationResult> = Default::default();
 }
 
@@ -43,14 +40,17 @@ parameter_types! {
 /// directly.
 ///
 /// Useful for when you don't care too much about the signed phase.
+#[allow(dead_code)]
 pub struct MockSignedPhase;
 impl SolutionDataProvider for MockSignedPhase {
 	type Solution = <Runtime as MinerConfig>::Solution;
-	fn get_page(page: PageIndex) -> Option<Self::Solution> {
-		MockSignedNextSolution::get().map(|i| i.get(page as usize).cloned().unwrap_or_default())
+	fn get_page(page: PageIndex) -> Self::Solution {
+		MockSignedNextSolution::get()
+			.and_then(|i| i.get(page as usize).cloned())
+			.unwrap_or_default()
 	}
 
-	fn get_score() -> Option<ElectionScore> {
+	fn get_score() -> ElectionScore {
 		MockSignedNextScore::get()
 	}
 
@@ -69,22 +69,24 @@ impl EstimateCallFee<signed_pallet::Call<Runtime>, Balance> for FixedCallFee {
 parameter_types! {
 	pub static SignedDepositBase: Balance = 5;
 	pub static SignedDepositPerPage: Balance = 1;
+	pub static InvulnerableDeposit: Balance = 7;
 	pub static SignedMaxSubmissions: u32 = 3;
 	pub static SignedRewardBase: Balance = 3;
 	pub static SignedPhaseSwitch: SignedSwitch = SignedSwitch::Real;
 	pub static BailoutGraceRatio: Perbill = Perbill::from_percent(20);
+	pub static EjectGraceRatio: Perbill = Perbill::from_percent(20);
 }
 
 impl crate::signed::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type Currency = Balances;
 	type DepositBase = SignedDepositBase;
 	type DepositPerPage = SignedDepositPerPage;
+	type InvulnerableDeposit = InvulnerableDeposit;
 	type EstimateCallFee = FixedCallFee;
 	type MaxSubmissions = SignedMaxSubmissions;
 	type RewardBase = SignedRewardBase;
 	type BailoutGraceRatio = BailoutGraceRatio;
+	type EjectGraceRatio = EjectGraceRatio;
 	type WeightInfo = ();
 }
 
@@ -98,15 +100,16 @@ pub enum SignedSwitch {
 pub struct DualSignedPhase;
 impl SolutionDataProvider for DualSignedPhase {
 	type Solution = <Runtime as MinerConfig>::Solution;
-	fn get_page(page: PageIndex) -> Option<Self::Solution> {
+	fn get_page(page: PageIndex) -> Self::Solution {
 		match SignedPhaseSwitch::get() {
 			SignedSwitch::Mock => MockSignedNextSolution::get()
-				.map(|i| i.get(page as usize).cloned().unwrap_or_default()),
+				.and_then(|i| i.get(page as usize).cloned())
+				.unwrap_or_default(),
 			SignedSwitch::Real => SignedPallet::get_page(page),
 		}
 	}
 
-	fn get_score() -> Option<ElectionScore> {
+	fn get_score() -> ElectionScore {
 		match SignedPhaseSwitch::get() {
 			SignedSwitch::Mock => MockSignedNextScore::get(),
 			SignedSwitch::Real => SignedPallet::get_score(),
@@ -119,6 +122,17 @@ impl SolutionDataProvider for DualSignedPhase {
 			SignedSwitch::Real => SignedPallet::report_result(result),
 		}
 	}
+}
+
+parameter_types! {
+	static SignedEventsIndex: u32 = 0;
+}
+
+pub fn signed_events_since_last_call() -> Vec<crate::signed::Event<Runtime>> {
+	let events = signed_events();
+	let already_seen = SignedEventsIndex::get();
+	SignedEventsIndex::set(events.len() as u32);
+	events.into_iter().skip(already_seen as usize).collect()
 }
 
 /// get the events of the verifier pallet.
@@ -176,9 +190,15 @@ pub fn load_signed_for_verification_and_start(
 	assert_eq!(
 		multi_block_events(),
 		vec![
-			Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
-			Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
-			Event::PhaseTransitioned { from: Phase::Signed, to: Phase::SignedValidation(20) }
+			Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
+			Event::PhaseTransitioned {
+				from: Phase::Snapshot(0),
+				to: Phase::Signed(SignedPhase::get() - 1)
+			},
+			Event::PhaseTransitioned {
+				from: Phase::Signed(0),
+				to: Phase::SignedValidation(SignedValidationPhase::get())
+			}
 		]
 	);
 	assert_eq!(verifier_events(), vec![]);
@@ -200,9 +220,15 @@ pub fn load_signed_for_verification_and_start_and_roll_to_verified(
 	assert_eq!(
 		multi_block_events(),
 		vec![
-			Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
-			Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
-			Event::PhaseTransitioned { from: Phase::Signed, to: Phase::SignedValidation(20) }
+			Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(Pages::get()) },
+			Event::PhaseTransitioned {
+				from: Phase::Snapshot(0),
+				to: Phase::Signed(SignedPhase::get() - 1)
+			},
+			Event::PhaseTransitioned {
+				from: Phase::Signed(0),
+				to: Phase::SignedValidation(SignedValidationPhase::get())
+			}
 		]
 	);
 	assert_eq!(verifier_events(), vec![]);
@@ -211,14 +237,14 @@ pub fn load_signed_for_verification_and_start_and_roll_to_verified(
 	assert_eq!(<Runtime as crate::Config>::Verifier::queued_score(), None);
 
 	// roll to the block it is finalized.
-	for _ in 0..Pages::get() {
+	for _ in 0..Pages::get() + 1 {
 		roll_next();
 	}
 
 	assert_eq!(
 		verifier_events(),
 		vec![
-			// TODO: these are hardcoded for 3 page.
+			// NOTE: these are hardcoded for 3 page.
 			verifier::Event::Verified(2, 2),
 			verifier::Event::Verified(1, 2),
 			verifier::Event::Verified(0, 2),
@@ -241,7 +267,7 @@ pub fn load_mock_signed_and_start(raw_paged: PagedRawSolution<Runtime>) {
 		"you should not use this if mock phase is not being mocked"
 	);
 	MockSignedNextSolution::set(Some(raw_paged.solution_pages.pad_solution_pages(Pages::get())));
-	MockSignedNextScore::set(Some(raw_paged.score));
+	MockSignedNextScore::set(raw_paged.score);
 
 	// Let's gooooo!
 	assert_ok!(<VerifierPallet as AsynchronousVerifier>::start());

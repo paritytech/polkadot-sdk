@@ -18,8 +18,9 @@
 //! Traits for encoding data related to pallet's storage items.
 
 use alloc::{collections::btree_set::BTreeSet, vec, vec::Vec};
-use codec::{Encode, FullCodec, MaxEncodedLen};
-use core::marker::PhantomData;
+use codec::{Decode, DecodeWithMemTracking, Encode, FullCodec, MaxEncodedLen};
+use core::{marker::PhantomData, mem, ops::Drop};
+use frame_support::CloneNoBound;
 use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::TypeInfo;
 pub use sp_core::storage::TrackedStorageKey;
@@ -212,6 +213,23 @@ where
 	}
 }
 
+/// Placeholder marking functionality disabled. Useful for disabling various (sub)features.
+#[derive(CloneNoBound, Debug, Encode, Eq, Decode, TypeInfo, MaxEncodedLen, PartialEq)]
+pub struct Disabled;
+impl<A, F> Consideration<A, F> for Disabled {
+	fn new(_: &A, _: F) -> Result<Self, DispatchError> {
+		Err(DispatchError::Other("Disabled"))
+	}
+	fn update(self, _: &A, _: F) -> Result<Self, DispatchError> {
+		Err(DispatchError::Other("Disabled"))
+	}
+	fn drop(self, _: &A) -> Result<(), DispatchError> {
+		Ok(())
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(_: &A, _: F) {}
+}
+
 /// Some sort of cost taken from account temporarily in order to offset the cost to the chain of
 /// holding some data [`Footprint`] in state.
 ///
@@ -323,6 +341,80 @@ where
 }
 
 impl_incrementable!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128);
+
+/// Wrap a type so that is `Drop` impl is never called.
+///
+/// Useful when storing types like `Imbalance` which would trigger their `Drop`
+/// implementation whenever they are written to storage as they are dropped after
+/// being serialized.
+#[derive(Default, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo)]
+pub struct NoDrop<T: Default>(T);
+
+impl<T: Default> Drop for NoDrop<T> {
+	fn drop(&mut self) {
+		mem::forget(mem::take(&mut self.0))
+	}
+}
+
+/// Sealed trait that marks a type with a suppressed Drop implementation.
+///
+/// Useful for constraining your storage items types by this bound to make
+/// sure they won't run drop when stored.
+pub trait SuppressedDrop: sealed::Sealed {
+	/// The wrapped whose drop function is ignored.
+	type Inner;
+
+	fn new(inner: Self::Inner) -> Self;
+	fn as_ref(&self) -> &Self::Inner;
+	fn as_mut(&mut self) -> &mut Self::Inner;
+	fn into_inner(self) -> Self::Inner;
+}
+
+impl SuppressedDrop for () {
+	type Inner = ();
+
+	fn new(inner: Self::Inner) -> Self {
+		inner
+	}
+
+	fn as_ref(&self) -> &Self::Inner {
+		self
+	}
+
+	fn as_mut(&mut self) -> &mut Self::Inner {
+		self
+	}
+
+	fn into_inner(self) -> Self::Inner {
+		self
+	}
+}
+
+impl<T: Default> SuppressedDrop for NoDrop<T> {
+	type Inner = T;
+
+	fn as_ref(&self) -> &Self::Inner {
+		&self.0
+	}
+
+	fn as_mut(&mut self) -> &mut Self::Inner {
+		&mut self.0
+	}
+
+	fn into_inner(mut self) -> Self::Inner {
+		mem::take(&mut self.0)
+	}
+
+	fn new(inner: Self::Inner) -> Self {
+		Self(inner)
+	}
+}
+
+mod sealed {
+	pub trait Sealed {}
+	impl Sealed for () {}
+	impl<T: Default> Sealed for super::NoDrop<T> {}
+}
 
 #[cfg(test)]
 mod tests {

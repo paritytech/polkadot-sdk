@@ -24,7 +24,7 @@ use super::{
 use crate::governance::pallet_custom_origins::Treasurer;
 use frame_support::{
 	parameter_types,
-	traits::{Contains, Equals, Everything, Nothing},
+	traits::{Contains, Disabled, Equals, Everything, Nothing},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
@@ -42,7 +42,7 @@ use xcm_builder::{
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	ChildParachainAsNative, ChildParachainConvertsVia, DescribeAllTerminal, DescribeFamily,
 	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsChildSystemParachain,
-	IsConcrete, MintLocation, OriginToPluralityVoice, SendXcmFeeToAccount,
+	IsConcrete, LocationAsSuperuser, MintLocation, OriginToPluralityVoice, SendXcmFeeToAccount,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents,
@@ -55,12 +55,15 @@ parameter_types! {
 	pub const ThisNetwork: NetworkId = ByGenesis(WESTEND_GENESIS_HASH);
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(ThisNetwork::get())].into();
 	pub CheckAccount: AccountId = XcmPallet::check_account();
-	pub LocalCheckAccount: (AccountId, MintLocation) = (CheckAccount::get(), MintLocation::Local);
+	/// Westend does not have mint authority anymore after the Asset Hub migration.
+	pub TeleportTracking: Option<(AccountId, MintLocation)> = None;
 	pub TreasuryAccount: AccountId = Treasury::account_id();
 	/// The asset ID for the asset that we use to pay for message delivery fees.
 	pub FeeAssetId: AssetId = AssetId(TokenLocation::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
+	// Fellows pluralistic body.
+	pub const FellowsBodyId: BodyId = BodyId::Technical;
 }
 
 pub type LocationConverter = (
@@ -81,11 +84,12 @@ pub type LocalAssetTransactor = FungibleAdapter<
 	LocationConverter,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
-	// It's a native asset so we keep track of the teleports to maintain total issuance.
-	LocalCheckAccount,
+	TeleportTracking,
 >;
 
 type LocalOriginConverter = (
+	// Asset Hub can gain root on the relay chain.
+	LocationAsSuperuser<Equals<AssetHub>, RuntimeOrigin>,
 	// If the origin kind is `Sovereign`, then return a `Signed` origin with the account determined
 	// by the `LocationConverter` converter.
 	SovereignSignedViaLocation<LocationConverter, RuntimeOrigin>,
@@ -243,13 +247,16 @@ parameter_types! {
 	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(FELLOWSHIP_ADMIN_INDEX);
 	// `Treasurer` pluralistic body.
 	pub const TreasurerBodyId: BodyId = BodyId::Treasury;
+	// DDay pluralistic body.
+	pub const DDayBodyId: BodyId = BodyId::Moniker([b'd', b'd', b'a', b'y']);
 }
 
 /// Type to convert the `GeneralAdmin` origin to a Plurality `Location` value.
 pub type GeneralAdminToPlurality =
 	OriginToPluralityVoice<RuntimeOrigin, GeneralAdmin, GeneralAdminBodyId>;
 
-/// location of this chain.
+/// Converts a local signed origin into an XCM location. Forms the basis for local origins
+/// sending/executing XCMs.
 pub type LocalOriginToLocation = (
 	GeneralAdminToPlurality,
 	// And a usual Signed origin to be used in XCM as a corresponding AccountId32
@@ -314,4 +321,6 @@ impl pallet_xcm::Config for Runtime {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = crate::weights::pallet_xcm::WeightInfo<Runtime>;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	// Aliasing is disabled: xcm_executor::Config::Aliasers only allows `AliasChildLocation`.
+	type AuthorizedAliasConsideration = Disabled;
 }

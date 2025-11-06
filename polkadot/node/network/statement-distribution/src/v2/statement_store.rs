@@ -24,7 +24,7 @@
 //! groups, and views based on the validators themselves.
 
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
-use polkadot_node_network_protocol::v2::StatementFilter;
+use polkadot_node_network_protocol::v3::StatementFilter;
 use polkadot_primitives::{
 	CandidateHash, CompactStatement, GroupIndex, SignedStatement, ValidatorIndex,
 };

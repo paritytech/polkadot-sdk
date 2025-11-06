@@ -550,8 +550,8 @@ impl TryFrom<OldAsset> for Asset {
 )]
 pub struct Assets(Vec<Asset>);
 
-/// Maximum number of items we expect in a single `Assets` value. Note this is not (yet)
-/// enforced, and just serves to provide a sensible `max_encoded_len` for `Assets`.
+/// Maximum number of items we expect in a single `Assets` value.
+/// This is enforced when decoding and provides a sensible `max_encoded_len` for `Assets`.
 pub const MAX_ITEMS_IN_ASSETS: usize = 20;
 
 impl MaxEncodedLen for Assets {
@@ -562,10 +562,13 @@ impl MaxEncodedLen for Assets {
 
 impl Decode for Assets {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
-		let bounded_instructions =
+		let mut bounded_instructions =
 			BoundedVec::<Asset, ConstU32<{ MAX_ITEMS_IN_ASSETS as u32 }>>::decode(input)?;
+
+		bounded_instructions.sort();
+
 		Self::from_sorted_and_deduplicated(bounded_instructions.into_inner())
-			.map_err(|()| "Out of order".into())
+			.map_err(|()| "Duplicate items".into())
 	}
 }
 

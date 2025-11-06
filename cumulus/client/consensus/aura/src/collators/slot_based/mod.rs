@@ -67,40 +67,40 @@
 //! 2. Submission to the collation-generation subsystem
 
 use self::{block_builder_task::run_block_builder, collation_task::run_collation_task};
+pub use block_import::{SlotBasedBlockImport, SlotBasedBlockImportHandle};
 use codec::Codec;
 use consensus_common::ParachainCandidate;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector, GetCoreSelectorApi};
+use cumulus_primitives_core::RelayParentOffsetApi;
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::FutureExt;
 use polkadot_primitives::{
-	vstaging::DEFAULT_CLAIM_QUEUE_OFFSET, CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId,
-	ValidationCodeHash,
+	CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId, ValidationCodeHash,
 };
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_utils::mpsc::tracing_unbounded;
-use sp_api::{ApiExt, ProvideRuntimeApi};
+use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::AuraApi;
-use sp_core::{crypto::Pair, traits::SpawnNamed, U256};
+use sp_core::{crypto::Pair, traits::SpawnNamed};
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, Member, NumberFor, One};
+use sp_runtime::traits::{Block as BlockT, Member};
 use std::{path::PathBuf, sync::Arc, time::Duration};
-
-pub use block_import::{SlotBasedBlockImport, SlotBasedBlockImportHandle};
 
 mod block_builder_task;
 mod block_import;
 mod collation_task;
 mod relay_chain_data_cache;
-
 mod slot_timer;
+
+#[cfg(test)]
+mod tests;
 
 /// Parameters for [`run`].
 pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner> {
@@ -143,6 +143,9 @@ pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, 
 	pub relay_chain_slot_duration: Duration,
 	/// When set, the collator will export every produced `POV` to this folder.
 	pub export_pov: Option<PathBuf>,
+	/// The maximum percentage of the maximum PoV size that the collator can use.
+	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
+	pub max_pov_percentage: Option<u32>,
 }
 
 /// Run aura-based block building and collation task.
@@ -160,7 +163,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		+ Sync
 		+ 'static,
 	Client::Api:
-		AuraApi<Block, P::Public> + GetCoreSelectorApi<Block> + AuraUnincludedSegmentApi<Block>,
+		AuraApi<Block, P::Public> + AuraUnincludedSegmentApi<Block> + RelayParentOffsetApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -169,10 +172,10 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
-	P: Pair + 'static,
+	P: Pair + Send + Sync + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
-	Spawner: SpawnNamed,
+	Spawner: SpawnNamed + Clone + 'static,
 {
 	let Params {
 		create_inherent_data_providers,
@@ -193,6 +196,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		spawner,
 		export_pov,
 		relay_chain_slot_duration,
+		max_pov_percentage,
 	} = params;
 
 	let (tx, rx) = tracing_unbounded("mpsc_builder_to_collator", 100);
@@ -224,6 +228,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		collator_sender: tx,
 		relay_chain_slot_duration,
 		slot_offset,
+		max_pov_percentage,
 	};
 
 	let block_builder_fut =
@@ -257,27 +262,4 @@ struct CollatorMessage<Block: BlockT> {
 	pub core_index: CoreIndex,
 	/// Maximum pov size. Currently needed only for exporting PoV.
 	pub max_pov_size: u32,
-}
-
-/// Fetch the `CoreSelector` and `ClaimQueueOffset` for `parent_hash`.
-fn core_selector<Block: BlockT, Client>(
-	para_client: &Client,
-	parent_hash: Block::Hash,
-	parent_number: NumberFor<Block>,
-) -> Result<(CoreSelector, ClaimQueueOffset), sp_api::ApiError>
-where
-	Client: ProvideRuntimeApi<Block> + Send + Sync,
-	Client::Api: GetCoreSelectorApi<Block>,
-{
-	let runtime_api = para_client.runtime_api();
-
-	if runtime_api.has_api::<dyn GetCoreSelectorApi<Block>>(parent_hash)? {
-		Ok(runtime_api.core_selector(parent_hash)?)
-	} else {
-		let next_block_number: U256 = (parent_number + One::one()).into();
-
-		// If the runtime API does not support the core selector API, fallback to some default
-		// values.
-		Ok((CoreSelector(next_block_number.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)))
-	}
 }

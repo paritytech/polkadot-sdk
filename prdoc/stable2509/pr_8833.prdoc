@@ -1,0 +1,15 @@
+title: 'Check artifact integrity before execution'
+doc:
+- audience: Node Dev
+  description: In case of a corrupted artifact, we can find it out before execution and re-prepare the artifact.
+crates:
+- name: polkadot-node-core-pvf-common
+  bump: major
+- name: polkadot-node-core-pvf
+  bump: major
+- name: polkadot-node-core-pvf-prepare-worker
+  bump: minor
+- name: polkadot-node-core-pvf-execute-worker
+  bump: minor
+- name: polkadot-node-core-candidate-validation
+  bump: minor

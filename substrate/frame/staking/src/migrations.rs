@@ -23,11 +23,8 @@ use frame_support::{
 	pallet_prelude::ValueQuery,
 	storage_alias,
 	traits::{GetStorageVersion, OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade},
-	Twox64Concat,
 };
 
-#[cfg(feature = "try-runtime")]
-use frame_support::ensure;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
@@ -56,91 +53,13 @@ impl Default for ObsoleteReleases {
 #[storage_alias]
 type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, ValueQuery>;
 
-/// Migrates `UnappliedSlashes` to a new storage structure to support paged slashing.
-/// This ensures that slashing can be processed in batches, preventing large storage operations in a
-/// single block.
+/// Supports the migration of Validator Disabling from pallet-staking to pallet-session
 pub mod v17 {
 	use super::*;
 
-	#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
-	struct OldUnappliedSlash<T: Config> {
-		validator: T::AccountId,
-		/// The validator's own slash.
-		own: BalanceOf<T>,
-		/// All other slashed stakers and amounts.
-		others: Vec<(T::AccountId, BalanceOf<T>)>,
-		/// Reporters of the offence; bounty payout recipients.
-		reporters: Vec<T::AccountId>,
-		/// The amount of payout.
-		payout: BalanceOf<T>,
-	}
-
-	#[frame_support::storage_alias]
-	pub type OldUnappliedSlashes<T: Config> =
-		StorageMap<Pallet<T>, Twox64Concat, EraIndex, Vec<OldUnappliedSlash<T>>, ValueQuery>;
-
 	#[frame_support::storage_alias]
 	pub type DisabledValidators<T: Config> =
-		StorageValue<Pallet<T>, BoundedVec<(u32, OffenceSeverity), ConstU32<100>>, ValueQuery>;
-
-	pub struct VersionUncheckedMigrateV16ToV17<T>(core::marker::PhantomData<T>);
-	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV16ToV17<T> {
-		fn on_runtime_upgrade() -> Weight {
-			let mut weight: Weight = Weight::zero();
-
-			OldUnappliedSlashes::<T>::drain().for_each(|(era, slashes)| {
-				weight.saturating_accrue(T::DbWeight::get().reads(1));
-
-				for slash in slashes {
-					let validator = slash.validator.clone();
-					let new_slash = UnappliedSlash {
-						validator: validator.clone(),
-						own: slash.own,
-						others: WeakBoundedVec::force_from(slash.others, None),
-						payout: slash.payout,
-						reporter: slash.reporters.first().cloned(),
-					};
-
-					// creating a slash key which is improbable to conflict with a new offence.
-					let slash_key = (validator, Perbill::from_percent(99), 9999);
-					UnappliedSlashes::<T>::insert(era, slash_key, new_slash);
-					weight.saturating_accrue(T::DbWeight::get().writes(1));
-				}
-			});
-
-			weight
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-			let mut expected_slashes: u32 = 0;
-			OldUnappliedSlashes::<T>::iter().for_each(|(_, slashes)| {
-				expected_slashes += slashes.len() as u32;
-			});
-
-			Ok(expected_slashes.encode())
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
-			let expected_slash_count =
-				u32::decode(&mut state.as_slice()).expect("Failed to decode state");
-
-			let actual_slash_count = UnappliedSlashes::<T>::iter().count() as u32;
-
-			ensure!(expected_slash_count == actual_slash_count, "Slash count mismatch");
-
-			Ok(())
-		}
-	}
-
-	pub type MigrateV16ToV17<T> = VersionedMigration<
-		16,
-		17,
-		VersionUncheckedMigrateV16ToV17<T>,
-		Pallet<T>,
-		<T as frame_system::Config>::DbWeight,
-	>;
+		StorageValue<Pallet<T>, BoundedVec<(u32, OffenceSeverity), ConstU32<333>>, ValueQuery>;
 
 	pub struct MigrateDisabledToSession<T>(core::marker::PhantomData<T>);
 	impl<T: Config> pallet_session::migrations::v1::MigrateDisabledValidators
@@ -161,38 +80,11 @@ pub mod v17 {
 /// severity for re-enabling purposes.
 pub mod v16 {
 	use super::*;
-	use frame_support::Twox64Concat;
 	use sp_staking::offence::OffenceSeverity;
-
-	#[frame_support::storage_alias]
-	pub(crate) type Invulnerables<T: Config> =
-		StorageValue<Pallet<T>, Vec<<T as frame_system::Config>::AccountId>, ValueQuery>;
 
 	#[frame_support::storage_alias]
 	pub(crate) type DisabledValidators<T: Config> =
 		StorageValue<Pallet<T>, Vec<(u32, OffenceSeverity)>, ValueQuery>;
-
-	#[frame_support::storage_alias]
-	pub(crate) type ErasStakers<T: Config> = StorageDoubleMap<
-		Pallet<T>,
-		Twox64Concat,
-		EraIndex,
-		Twox64Concat,
-		<T as frame_system::Config>::AccountId,
-		Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
-		ValueQuery,
-	>;
-
-	#[frame_support::storage_alias]
-	pub(crate) type ErasStakersClipped<T: Config> = StorageDoubleMap<
-		Pallet<T>,
-		Twox64Concat,
-		EraIndex,
-		Twox64Concat,
-		<T as frame_system::Config>::AccountId,
-		Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
-		ValueQuery,
-	>;
 
 	pub struct VersionUncheckedMigrateV15ToV16<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV15ToV16<T> {

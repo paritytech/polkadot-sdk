@@ -1,0 +1,10 @@
+title: '[Xcm Precompile] Remove return value'
+doc:
+- audience: Runtime User
+  description: |-
+    This PR removes any return value from xcm send and execute. Additionally it improves upon the documentation of the interface by reorganising where comments are placed.
+
+
+crates:
+- name: pallet-xcm
+  bump: major

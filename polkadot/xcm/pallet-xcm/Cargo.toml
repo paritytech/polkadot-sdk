@@ -31,13 +31,15 @@ xcm-runtime-apis = { workspace = true }
 
 # marked optional, used in benchmarking
 frame-benchmarking = { optional = true, workspace = true }
+hex-literal = { workspace = true, default-features = false }
 pallet-balances = { optional = true, workspace = true }
 
 [dev-dependencies]
 pallet-assets = { workspace = true, default-features = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-runtime-parachains = { workspace = true, default-features = true }
-sp-tracing = { features = ["test-utils"], workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+xcm-simulator = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -73,6 +75,7 @@ runtime-benchmarks = [
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
 ]
+test-utils = ["std"]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",

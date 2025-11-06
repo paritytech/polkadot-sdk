@@ -20,8 +20,7 @@ use std::sync::Arc;
 
 use cli::{AuthoringPolicy, RelayChainCli, Subcommand, TestCollatorCli};
 use cumulus_primitives_core::relay_chain::CollatorPair;
-use cumulus_test_service::{chain_spec, new_partial, AnnounceBlockFn};
-use polkadot_service::IdentifyNetworkBackend;
+use cumulus_test_service::{new_partial, AnnounceBlockFn};
 use sc_cli::{CliConfiguration, SubstrateCli};
 use sp_core::Pair;
 
@@ -37,9 +36,15 @@ fn main() -> Result<(), sc_cli::Error> {
 	let cli = TestCollatorCli::from_args();
 
 	match &cli.subcommand {
+		#[allow(deprecated)]
 		Some(Subcommand::BuildSpec(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
+		},
+
+		Some(Subcommand::ExportChainSpec(cmd)) => {
+			let chain_spec = cli.load_spec(&cmd.chain)?;
+			cmd.run(chain_spec)
 		},
 
 		Some(Subcommand::ExportGenesisHead(cmd)) => {
@@ -80,11 +85,6 @@ fn main() -> Result<(), sc_cli::Error> {
 			)
 			.map_err(|err| format!("Relay chain argument error: {}", err))?;
 
-			let parachain_id = chain_spec::Extensions::try_get(&*parachain_config.chain_spec)
-				.map(|e| e.para_id)
-				.ok_or("Could not find parachain extension in chain-spec.")?;
-
-			tracing::info!("Parachain id: {:?}", parachain_id);
 			tracing::info!(
 				"Is collating: {}",
 				if parachain_config.role.is_authority() { "yes" } else { "no" }
@@ -96,22 +96,10 @@ fn main() -> Result<(), sc_cli::Error> {
 			let collator_key =
 				parachain_config.role.is_authority().then(|| CollatorPair::generate().0);
 
-			let consensus = cli
-				.use_null_consensus
-				.then(|| {
-					tracing::info!("Using null consensus.");
-					cumulus_test_service::Consensus::Null
-				})
-				.unwrap_or(cumulus_test_service::Consensus::Aura);
-
-			// If the network backend is unspecified, use the default for the given chain.
-			let default_backend = relay_chain_config.chain_spec.network_backend();
-			let network_backend =
-				relay_chain_config.network.network_backend.unwrap_or(default_backend);
 			let use_slot_based_collator = cli.authoring == AuthoringPolicy::SlotBased;
 			let (mut task_manager, _, _, _, _, _) = tokio_runtime
 				.block_on(async move {
-					match network_backend {
+					match relay_chain_config.network.network_backend {
 						sc_network::config::NetworkBackendType::Libp2p =>
 							cumulus_test_service::start_node_impl::<
 								_,
@@ -120,11 +108,9 @@ fn main() -> Result<(), sc_cli::Error> {
 								parachain_config,
 								collator_key,
 								relay_chain_config,
-								parachain_id.into(),
 								cli.disable_block_announcements.then(wrap_announce_block),
 								cli.fail_pov_recovery,
 								|_| Ok(jsonrpsee::RpcModule::new(())),
-								consensus,
 								collator_options,
 								true,
 								use_slot_based_collator,
@@ -138,11 +124,9 @@ fn main() -> Result<(), sc_cli::Error> {
 								parachain_config,
 								collator_key,
 								relay_chain_config,
-								parachain_id.into(),
 								cli.disable_block_announcements.then(wrap_announce_block),
 								cli.fail_pov_recovery,
 								|_| Ok(jsonrpsee::RpcModule::new(())),
-								consensus,
 								collator_options,
 								true,
 								use_slot_based_collator,

@@ -1,0 +1,13 @@
+title: Allow genesis-presets to be patched and remove native runtime calls from the
+  staging-node-cli
+doc:
+- audience: Node Dev
+  description: |-
+    This allows that we can update the hardcoded genesis-presets with some json-values, closes https://github.com/paritytech/polkadot-sdk/issues/7748.
+
+    Ideally, we should be able to remove calls into the native runtime with this (i.e., don't link the runtime in the node's code).
+crates:
+- name: sc-chain-spec
+  bump: patch
+- name: polkadot-parachain-bin
+  bump: patch

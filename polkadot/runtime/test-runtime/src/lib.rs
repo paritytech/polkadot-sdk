@@ -39,7 +39,7 @@ use polkadot_runtime_parachains::{
 	initializer as parachains_initializer, on_demand as parachains_on_demand,
 	origin as parachains_origin, paras as parachains_paras,
 	paras_inherent as parachains_paras_inherent,
-	runtime_api_impl::{v11 as runtime_impl, vstaging as staging_runtime_impl},
+	runtime_api_impl::{v13 as runtime_impl, vstaging as staging_runtime_impl},
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
 };
@@ -51,7 +51,6 @@ use frame_election_provider_support::{
 use frame_support::{
 	construct_runtime, derive_impl,
 	genesis_builder_helper::{build_state, get_preset},
-	pallet_prelude::Get,
 	parameter_types,
 	traits::{KeyOwnerProofSystem, WithdrawReasons},
 	PalletId,
@@ -61,14 +60,11 @@ use pallet_session::historical as session_historical;
 use pallet_timestamp::Now;
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use polkadot_primitives::{
-	slashing,
-	vstaging::{
-		async_backing::Constraints, CandidateEvent,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, ScrapedOnChainVotes,
-	},
-	AccountId, AccountIndex, Balance, BlockNumber, CandidateHash, CoreIndex, DisputeState,
-	ExecutorParams, GroupRotationInfo, Hash as HashT, Id as ParaId, InboundDownwardMessage,
-	InboundHrmpMessage, Moment, Nonce, OccupiedCoreAssumption, PersistedValidationData,
+	async_backing::Constraints, slashing, AccountId, AccountIndex, Balance, BlockNumber,
+	CandidateEvent, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	CoreIndex, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash as HashT,
+	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, Moment, Nonce,
+	OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes,
 	SessionInfo as SessionInfoData, Signature, ValidationCode, ValidationCodeHash, ValidatorId,
 	ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
@@ -79,7 +75,7 @@ use polkadot_runtime_common::{
 use polkadot_runtime_parachains::reward_points::RewardValidatorsWithEraPoints;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_beefy::ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature};
-use sp_core::{ConstBool, ConstU32, OpaqueMetadata};
+use sp_core::{ConstBool, ConstU32, ConstUint, Get, OpaqueMetadata};
 use sp_mmr_primitives as mmr;
 use sp_runtime::{
 	curve::PiecewiseLinear,
@@ -179,11 +175,11 @@ where
 	type Extrinsic = UncheckedExtrinsic;
 }
 
-impl<C> frame_system::offchain::CreateInherent<C> for Runtime
+impl<C> frame_system::offchain::CreateBare<C> for Runtime
 where
 	RuntimeCall: From<C>,
 {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 		UncheckedExtrinsic::new_bare(call)
 	}
 }
@@ -332,7 +328,7 @@ impl_opaque_keys! {
 impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
-	type ValidatorIdOf = pallet_staking::StashOf<Self>;
+	type ValidatorIdOf = sp_runtime::traits::ConvertInto;
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
 	type SessionManager = Staking;
@@ -340,11 +336,14 @@ impl pallet_session::Config for Runtime {
 	type Keys = SessionKeys;
 	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy;
 	type WeightInfo = ();
+	type Currency = Balances;
+	type KeyDeposit = ();
 }
 
 impl pallet_session::historical::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = ();
-	type FullIdentificationOf = pallet_staking::NullIdentity;
+	type FullIdentificationOf = pallet_staking::UnitIdentificationOf<Self>;
 }
 
 pallet_staking_reward_curve::build! {
@@ -423,8 +422,6 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = ();
 	type WeightInfo = ();
 	type MaxValidatorSet = MaxAuthorities;
-	type MaxInvulnerables = ConstU32<20>;
-	type MaxDisabledValidators = ConstU32<100>;
 	type Filter = frame_support::traits::Nothing;
 }
 
@@ -556,7 +553,7 @@ impl parachains_shared::Config for Runtime {
 impl parachains_inclusion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DisputesHandler = ParasDisputes;
-	type RewardValidators = RewardValidatorsWithEraPoints<Runtime>;
+	type RewardValidators = RewardValidatorsWithEraPoints<Runtime, Staking>;
 	type MessageQueue = ();
 	type WeightInfo = ();
 }
@@ -612,6 +609,9 @@ impl parachains_paras::Config for Runtime {
 	type NextSessionRotation = Babe;
 	type OnNewHead = ();
 	type AssignCoretime = CoretimeAssignmentProvider;
+	type Fungible = Balances;
+	type CooldownRemovalMultiplier = ConstUint<1>;
+	type AuthorizeCurrentCodeOrigin = frame_system::EnsureRoot<AccountId>;
 }
 
 parameter_types! {
@@ -719,6 +719,7 @@ pub mod pallet_test_notifier {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + pallet_xcm::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: IsType<<Self as frame_system::Config>::RuntimeEvent> + From<Event<Self>>;
 		type RuntimeOrigin: IsType<<Self as frame_system::Config>::RuntimeOrigin>
 			+ Into<Result<pallet_xcm::Origin, <Self as Config>::RuntimeOrigin>>;
@@ -895,7 +896,7 @@ sp_api::impl_runtime_apis! {
 			VERSION
 		}
 
-		fn execute_block(block: Block) {
+		fn execute_block(block: <Block as BlockT>::LazyBlock) {
 			Executive::execute_block(block);
 		}
 
@@ -932,7 +933,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn check_inherents(
-			block: Block,
+			block: <Block as BlockT>::LazyBlock,
 			data: sp_inherents::InherentData,
 		) -> sp_inherents::CheckInherentsResult {
 			data.check_extrinsics(&block)
@@ -961,7 +962,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(12)]
+	#[api_version(15)]
 	impl polkadot_primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			runtime_impl::validators::<Runtime>()
@@ -1067,8 +1068,13 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn unapplied_slashes(
-		) -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)> {
+		) -> Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)> {
 			runtime_impl::unapplied_slashes::<Runtime>()
+		}
+
+		fn unapplied_slashes_v2(
+		) -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)> {
+			runtime_impl::unapplied_slashes_v2::<Runtime>()
 		}
 
 		fn key_ownership_proof(
@@ -1095,7 +1101,7 @@ sp_api::impl_runtime_apis! {
 			runtime_impl::minimum_backing_votes::<Runtime>()
 		}
 
-		fn para_backing_state(para_id: ParaId) -> Option<polkadot_primitives::vstaging::async_backing::BackingState> {
+		fn para_backing_state(para_id: ParaId) -> Option<polkadot_primitives::async_backing::BackingState> {
 			#[allow(deprecated)]
 			runtime_impl::backing_state::<Runtime>(para_id)
 		}
@@ -1126,18 +1132,23 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn backing_constraints(para_id: ParaId) -> Option<Constraints> {
-			staging_runtime_impl::backing_constraints::<Runtime>(para_id)
+			runtime_impl::backing_constraints::<Runtime>(para_id)
 		}
 
 		fn scheduling_lookahead() -> u32 {
-			staging_runtime_impl::scheduling_lookahead::<Runtime>()
+			runtime_impl::scheduling_lookahead::<Runtime>()
 		}
 
 		fn validation_code_bomb_limit() -> u32 {
-			staging_runtime_impl::validation_code_bomb_limit::<Runtime>()
+			runtime_impl::validation_code_bomb_limit::<Runtime>()
+		}
+
+		fn para_ids() -> Vec<ParaId> {
+			staging_runtime_impl::para_ids::<Runtime>()
 		}
 	}
 
+	#[api_version(6)]
 	impl sp_consensus_beefy::BeefyApi<Block, BeefyId> for Runtime {
 		fn beefy_genesis() -> Option<BlockNumber> {
 			// dummy implementation due to lack of BEEFY pallet.
@@ -1185,15 +1196,9 @@ sp_api::impl_runtime_apis! {
 		) -> Option<sp_consensus_beefy::OpaqueKeyOwnershipProof> {
 			None
 		}
-
-		fn generate_ancestry_proof(
-			_prev_block_number: BlockNumber,
-			_best_known_block_number: Option<BlockNumber>,
-		) -> Option<sp_runtime::OpaqueValue> {
-			None
-		}
 	}
 
+	#[api_version(3)]
 	impl mmr::MmrApi<Block, Hash, BlockNumber> for Runtime {
 		fn mmr_root() -> Result<Hash, mmr::Error> {
 			Err(mmr::Error::PalletNotIncluded)
@@ -1207,6 +1212,13 @@ sp_api::impl_runtime_apis! {
 			_block_numbers: Vec<BlockNumber>,
 			_best_known_block_number: Option<BlockNumber>,
 		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::LeafProof<Hash>), mmr::Error> {
+			Err(mmr::Error::PalletNotIncluded)
+		}
+
+		fn generate_ancestry_proof(
+			_prev_block_number: BlockNumber,
+			_best_known_block_number: Option<BlockNumber>,
+		) -> Result<mmr::AncestryProof<Hash>, mmr::Error> {
 			Err(mmr::Error::PalletNotIncluded)
 		}
 

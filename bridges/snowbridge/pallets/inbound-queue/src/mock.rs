@@ -8,14 +8,12 @@ use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
 };
 use snowbridge_core::{
-	gwei,
-	inbound::{Log, Proof, VerificationError},
-	meth, Channel, ChannelId, PricingParameters, Rewards, StaticLookup, TokenId,
+	gwei, meth, Channel, ChannelId, PricingParameters, Rewards, StaticLookup, TokenId,
 };
-use snowbridge_router_primitives::inbound::MessageToXcm;
+use snowbridge_inbound_queue_primitives::{v1::MessageToXcm, Log, Proof, VerificationError};
 use sp_core::{H160, H256};
 use sp_runtime::{
-	traits::{IdentifyAccount, IdentityLookup, MaybeEquivalence, Verify},
+	traits::{IdentifyAccount, IdentityLookup, MaybeConvert, Verify},
 	BuildStorage, FixedU128, MultiSignature,
 };
 use sp_std::{convert::From, default::Default};
@@ -24,6 +22,11 @@ use xcm::{
 	prelude::*,
 };
 use xcm_executor::AssetsInHolding;
+
+#[cfg(feature = "runtime-benchmarks")]
+use snowbridge_inbound_queue_primitives::EventFixture;
+#[cfg(feature = "runtime-benchmarks")]
+use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
 
 use crate::{self as inbound_queue};
 
@@ -64,30 +67,34 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub const ChainForkVersions: ForkVersions = ForkVersions{
+	pub const ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
-			version: [0, 0, 0, 1], // 0x00000001
+			version: hex!("00000001"),
 			epoch: 0,
 		},
 		altair: Fork {
-			version: [1, 0, 0, 1], // 0x01000001
+			version: hex!("01000001"),
 			epoch: 0,
 		},
 		bellatrix: Fork {
-			version: [2, 0, 0, 1], // 0x02000001
+			version: hex!("02000001"),
 			epoch: 0,
 		},
 		capella: Fork {
-			version: [3, 0, 0, 1], // 0x03000001
+			version: hex!("03000001"),
 			epoch: 0,
 		},
 		deneb: Fork {
-			version: [4, 0, 0, 1], // 0x04000001
+			version: hex!("04000001"),
 			epoch: 0,
 		},
 		electra: Fork {
-			version: [5, 0, 0, 0], // 0x05000000
+			version: hex!("05000000"),
 			epoch: 80000000000,
+		},
+		fulu: Fork {
+			version: hex!("06000000"),
+			epoch: 80000000001,
 		}
 	};
 }
@@ -126,8 +133,9 @@ parameter_types! {
 
 #[cfg(feature = "runtime-benchmarks")]
 impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Test {
-	// not implemented since the MockVerifier is used for tests
-	fn initialize_storage(_: BeaconHeader, _: H256) {}
+	fn initialize_storage() -> EventFixture {
+		make_register_token_message()
+	}
 }
 
 // Mock XCM sender that always succeeds
@@ -216,12 +224,9 @@ impl TransactAsset for SuccessfulTransactor {
 }
 
 pub struct MockTokenIdConvert;
-impl MaybeEquivalence<TokenId, Location> for MockTokenIdConvert {
-	fn convert(_id: &TokenId) -> Option<Location> {
+impl MaybeConvert<TokenId, Location> for MockTokenIdConvert {
+	fn maybe_convert(_id: TokenId) -> Option<Location> {
 		Some(Location::parent())
-	}
-	fn convert_back(_loc: &Location) -> Option<TokenId> {
-		None
 	}
 }
 

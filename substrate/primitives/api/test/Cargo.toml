@@ -14,6 +14,10 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[[bench]]
+name = "bench"
+harness = false
+
 [dependencies]
 codec = { workspace = true, default-features = true }
 rustversion = { workspace = true }
@@ -35,10 +39,6 @@ futures = { workspace = true }
 log = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 static_assertions = { workspace = true, default-features = true }
-
-[[bench]]
-name = "bench"
-harness = false
 
 [features]
 enable-staging-api = []

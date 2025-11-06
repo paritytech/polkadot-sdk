@@ -22,7 +22,9 @@ use super::{
 use frame_support::{
 	pallet_prelude::PalletInfoAccess,
 	parameter_types,
-	traits::{tokens::imbalance::ResolveTo, ConstU32, Contains, Equals, Everything, Nothing},
+	traits::{
+		tokens::imbalance::ResolveTo, ConstU32, Contains, Disabled, Equals, Everything, Nothing,
+	},
 };
 use frame_system::EnsureRoot;
 use pallet_collator_selection::StakingPotAccountId;
@@ -183,6 +185,10 @@ pub type WaivedLocations = (
 	Equals<RelayTreasuryLocation>,
 );
 
+/// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
+/// - ROC with the parent Relay Chain and sibling parachains.
+pub type TrustedTeleporters = ConcreteAssetFromSystem<RocRelayLocation>;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -193,8 +199,7 @@ impl xcm_executor::Config for XcmConfig {
 	// Coretime chain does not recognize a reserve location for any asset. Users must teleport ROC
 	// where allowed (e.g. with the Relay Chain).
 	type IsReserve = ();
-	/// Only allow teleportation of ROC.
-	type IsTeleporter = ConcreteAssetFromSystem<RocRelayLocation>;
+	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = WeightInfoBounds<
@@ -279,6 +284,8 @@ impl pallet_xcm::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
+	// Aliasing is disabled: xcm_executor::Config::Aliasers is set to `Nothing`.
+	type AuthorizedAliasConsideration = Disabled;
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {

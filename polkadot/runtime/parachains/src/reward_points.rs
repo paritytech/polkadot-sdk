@@ -23,7 +23,7 @@
 
 use crate::{session_info, shared};
 use alloc::collections::btree_set::BTreeSet;
-use frame_support::traits::{Defensive, ValidatorSet};
+use frame_support::traits::{Defensive, RewardsReporter, ValidatorSet};
 use polkadot_primitives::{SessionIndex, ValidatorIndex};
 
 /// The amount of era points given by backing a candidate that is included.
@@ -32,12 +32,13 @@ pub const BACKING_POINTS: u32 = 20;
 pub const DISPUTE_STATEMENT_POINTS: u32 = 20;
 
 /// Rewards validators for participating in parachains with era points in pallet-staking.
-pub struct RewardValidatorsWithEraPoints<C>(core::marker::PhantomData<C>);
+pub struct RewardValidatorsWithEraPoints<C, R>(core::marker::PhantomData<(C, R)>);
 
-impl<C> RewardValidatorsWithEraPoints<C>
+impl<C, R> RewardValidatorsWithEraPoints<C, R>
 where
-	C: pallet_staking::Config + session_info::Config,
+	C: session_info::Config,
 	C::ValidatorSet: ValidatorSet<C::AccountId, ValidatorId = C::AccountId>,
+	R: RewardsReporter<C::AccountId>,
 {
 	/// Reward validators in session with points, but only if they are in the active set.
 	fn reward_only_active(
@@ -61,14 +62,15 @@ where
 			.filter(|v| active_set.contains(v))
 			.map(|v| (v, points));
 
-		<pallet_staking::Pallet<C>>::reward_by_ids(rewards);
+		R::reward_by_ids(rewards);
 	}
 }
 
-impl<C> crate::inclusion::RewardValidators for RewardValidatorsWithEraPoints<C>
+impl<C, R> crate::inclusion::RewardValidators for RewardValidatorsWithEraPoints<C, R>
 where
-	C: pallet_staking::Config + shared::Config + session_info::Config,
+	C: shared::Config + session_info::Config,
 	C::ValidatorSet: ValidatorSet<C::AccountId, ValidatorId = C::AccountId>,
+	R: RewardsReporter<C::AccountId>,
 {
 	fn reward_backing(indices: impl IntoIterator<Item = ValidatorIndex>) {
 		let session_index = shared::CurrentSessionIndex::<C>::get();
@@ -78,10 +80,11 @@ where
 	fn reward_bitfields(_validators: impl IntoIterator<Item = ValidatorIndex>) {}
 }
 
-impl<C> crate::disputes::RewardValidators for RewardValidatorsWithEraPoints<C>
+impl<C, R> crate::disputes::RewardValidators for RewardValidatorsWithEraPoints<C, R>
 where
-	C: pallet_staking::Config + session_info::Config,
+	C: session_info::Config,
 	C::ValidatorSet: ValidatorSet<C::AccountId, ValidatorId = C::AccountId>,
+	R: RewardsReporter<C::AccountId>,
 {
 	fn reward_dispute_statement(
 		session: SessionIndex,

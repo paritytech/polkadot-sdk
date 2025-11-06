@@ -50,11 +50,16 @@ sc-client-db = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
 sc-consensus-manual-seal = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
+sc-keystore = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
+sc-network-statement = { workspace = true, default-features = true }
+sc-network-sync = { workspace = true, default-features = true }
 sc-offchain = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
 sc-runtime-utilities = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = false }
+sc-statement-store = { workspace = true, default-features = true }
+sc-storage-monitor = { workspace = true, default-features = true }
 sc-sysinfo = { workspace = true, default-features = true }
 sc-telemetry = { workspace = true, default-features = true }
 sc-tracing = { workspace = true, default-features = true }
@@ -65,13 +70,13 @@ sp-block-builder = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-consensus-aura = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
-sp-crypto-hashing = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-offchain = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
 sp-session = { workspace = true, default-features = true }
+sp-statement-store = { workspace = true, default-features = true }
 sp-storage = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true, default-features = true }
 sp-transaction-pool = { workspace = true, default-features = true }
@@ -81,10 +86,13 @@ substrate-frame-rpc-system = { workspace = true, default-features = true }
 substrate-state-trie-migration-rpc = { workspace = true, default-features = true }
 
 # Polkadot
-polkadot-cli = { workspace = true, default-features = true, features = ["service"] }
+polkadot-cli = { workspace = true, default-features = true, features = [
+	"service",
+] }
 polkadot-primitives = { workspace = true, default-features = true }
 
 # Cumulus
+cumulus-client-bootnodes = { workspace = true, default-features = true }
 cumulus-client-cli = { workspace = true, default-features = true }
 cumulus-client-collator = { workspace = true, default-features = true }
 cumulus-client-consensus-aura = { workspace = true, default-features = true }
@@ -96,13 +104,14 @@ cumulus-client-service = { workspace = true, default-features = true }
 cumulus-primitives-aura = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
-futures-timer = "3.0.3"
+futures-timer = { workspace = true }
+sc-consensus-aura = { workspace = true }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
 cumulus-test-runtime = { workspace = true }
 nix = { features = ["signal"], workspace = true }
-tokio = { version = "1.32.0", features = ["macros", "parking_lot", "time"] }
+tokio = { version = "1.43.1", features = ["macros", "parking_lot", "time"] }
 wait-timeout = { workspace = true }
 
 [features]
@@ -126,6 +135,7 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-try-runtime/try-runtime",
 	"pallet-transaction-payment/try-runtime",
+	"parachains-common/try-runtime",
 	"polkadot-cli/try-runtime",
 	"sp-runtime/try-runtime",
 ]

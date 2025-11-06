@@ -148,7 +148,7 @@ use sp_runtime::{
 	traits::{DispatchInfoOf, PostDispatchInfoOf},
 	transaction_validity::TransactionValidityError,
 };
-use sp_weights::{RuntimeDbWeight, Weight};
+use sp_weights::{RuntimeDbWeight, Weight, WeightMeter};
 
 #[cfg(any(feature = "std", test))]
 use sp_io::TestExternalities;
@@ -169,11 +169,17 @@ pub mod weights;
 pub mod migrations;
 
 pub use extensions::{
-	authorize_call::AuthorizeCall, check_genesis::CheckGenesis, check_mortality::CheckMortality,
-	check_non_zero_sender::CheckNonZeroSender, check_nonce::CheckNonce,
-	check_spec_version::CheckSpecVersion, check_tx_version::CheckTxVersion,
-	check_weight::CheckWeight, weight_reclaim::WeightReclaim,
-	weights::SubstrateWeight as SubstrateExtensionsWeight, WeightInfo as ExtensionsWeightInfo,
+	authorize_call::AuthorizeCall,
+	check_genesis::CheckGenesis,
+	check_mortality::CheckMortality,
+	check_non_zero_sender::CheckNonZeroSender,
+	check_nonce::{CheckNonce, ValidNonceInfo},
+	check_spec_version::CheckSpecVersion,
+	check_tx_version::CheckTxVersion,
+	check_weight::CheckWeight,
+	weight_reclaim::WeightReclaim,
+	weights::SubstrateWeight as SubstrateExtensionsWeight,
+	WeightInfo as ExtensionsWeightInfo,
 };
 // Backward compatible re-export.
 pub use extensions::check_mortality::CheckMortality as CheckEra;
@@ -263,6 +269,16 @@ where
 	code_hash: T::Hash,
 	/// Whether or not to carry out version checks.
 	check_version: bool,
+}
+
+#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+impl<T> CodeUpgradeAuthorization<T>
+where
+	T: Config,
+{
+	pub fn code_hash(&self) -> &T::Hash {
+		&self.code_hash
+	}
 }
 
 /// Information about the dispatch of a call, to be displayed in the
@@ -478,7 +494,7 @@ pub mod pallet {
 	}
 
 	/// System configuration trait. Implemented by runtime.
-	#[pallet::config(with_default)]
+	#[pallet::config(with_default, frame_system_config)]
 	#[pallet::disable_frame_system_supertrait_check]
 	pub trait Config: 'static + Eq + Clone {
 		/// The aggregated event type of the runtime.
@@ -993,10 +1009,12 @@ pub mod pallet {
 
 	/// Total extrinsics count for the current block.
 	#[pallet::storage]
+	#[pallet::whitelist_storage]
 	pub(super) type ExtrinsicCount<T: Config> = StorageValue<_, u32>;
 
 	/// Whether all inherents have been applied.
 	#[pallet::storage]
+	#[pallet::whitelist_storage]
 	pub type InherentsApplied<T: Config> = StorageValue<_, bool, ValueQuery>;
 
 	/// The current weight for the block.
@@ -1243,20 +1261,18 @@ impl From<RuntimeVersion> for LastRuntimeUpgradeInfo {
 
 /// Ensure the origin is Root.
 pub struct EnsureRoot<AccountId>(core::marker::PhantomData<AccountId>);
-impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId>
-	EnsureOrigin<O> for EnsureRoot<AccountId>
-{
+impl<O: OriginTrait, AccountId> EnsureOrigin<O> for EnsureRoot<AccountId> {
 	type Success = ();
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Root => Ok(()),
-			r => Err(O::from(r)),
-		})
+		match o.as_system_ref() {
+			Some(RawOrigin::Root) => Ok(()),
+			_ => Err(o),
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<O, ()> {
-		Ok(O::from(RawOrigin::Root))
+		Ok(O::root())
 	}
 }
 
@@ -1270,23 +1286,20 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 pub struct EnsureRootWithSuccess<AccountId, Success>(
 	core::marker::PhantomData<(AccountId, Success)>,
 );
-impl<
-		O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>,
-		AccountId,
-		Success: TypedGet,
-	> EnsureOrigin<O> for EnsureRootWithSuccess<AccountId, Success>
+impl<O: OriginTrait, AccountId, Success: TypedGet> EnsureOrigin<O>
+	for EnsureRootWithSuccess<AccountId, Success>
 {
 	type Success = Success::Type;
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Root => Ok(Success::get()),
-			r => Err(O::from(r)),
-		})
+		match o.as_system_ref() {
+			Some(RawOrigin::Root) => Ok(Success::get()),
+			_ => Err(o),
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<O, ()> {
-		Ok(O::from(RawOrigin::Root))
+		Ok(O::root())
 	}
 }
 
@@ -1301,12 +1314,8 @@ pub struct EnsureWithSuccess<Ensure, AccountId, Success>(
 	core::marker::PhantomData<(Ensure, AccountId, Success)>,
 );
 
-impl<
-		O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>,
-		Ensure: EnsureOrigin<O>,
-		AccountId,
-		Success: TypedGet,
-	> EnsureOrigin<O> for EnsureWithSuccess<Ensure, AccountId, Success>
+impl<O: OriginTrait, Ensure: EnsureOrigin<O>, AccountId, Success: TypedGet> EnsureOrigin<O>
+	for EnsureWithSuccess<Ensure, AccountId, Success>
 {
 	type Success = Success::Type;
 
@@ -1322,27 +1331,27 @@ impl<
 
 /// Ensure the origin is any `Signed` origin.
 pub struct EnsureSigned<AccountId>(core::marker::PhantomData<AccountId>);
-impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId: Decode>
-	EnsureOrigin<O> for EnsureSigned<AccountId>
+impl<O: OriginTrait<AccountId = AccountId>, AccountId: Decode + Clone> EnsureOrigin<O>
+	for EnsureSigned<AccountId>
 {
 	type Success = AccountId;
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Signed(who) => Ok(who),
-			r => Err(O::from(r)),
-		})
+		match o.as_system_ref() {
+			Some(RawOrigin::Signed(who)) => Ok(who.clone()),
+			_ => Err(o),
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<O, ()> {
 		let zero_account_id =
 			AccountId::decode(&mut TrailingZeroInput::zeroes()).map_err(|_| ())?;
-		Ok(O::from(RawOrigin::Signed(zero_account_id)))
+		Ok(O::signed(zero_account_id))
 	}
 }
 
 impl_ensure_origin_with_arg_ignoring_arg! {
-	impl< { O: .., AccountId: Decode, T } >
+	impl< { O: OriginTrait<AccountId = AccountId>, AccountId: Decode + Clone, T } >
 		EnsureOriginWithArg<O, T> for EnsureSigned<AccountId>
 	{}
 }
@@ -1350,17 +1359,17 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 /// Ensure the origin is `Signed` origin from the given `AccountId`.
 pub struct EnsureSignedBy<Who, AccountId>(core::marker::PhantomData<(Who, AccountId)>);
 impl<
-		O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>,
+		O: OriginTrait<AccountId = AccountId>,
 		Who: SortedMembers<AccountId>,
 		AccountId: PartialEq + Clone + Ord + Decode,
 	> EnsureOrigin<O> for EnsureSignedBy<Who, AccountId>
 {
 	type Success = AccountId;
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Signed(ref who) if Who::contains(who) => Ok(who.clone()),
-			r => Err(O::from(r)),
-		})
+		match o.as_system_ref() {
+			Some(RawOrigin::Signed(ref who)) if Who::contains(who) => Ok(who.clone()),
+			_ => Err(o),
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1369,37 +1378,35 @@ impl<
 			Some(account) => account.clone(),
 			None => AccountId::decode(&mut TrailingZeroInput::zeroes()).map_err(|_| ())?,
 		};
-		Ok(O::from(RawOrigin::Signed(first_member)))
+		Ok(O::signed(first_member))
 	}
 }
 
 impl_ensure_origin_with_arg_ignoring_arg! {
-	impl< { O: .., Who: SortedMembers<AccountId>, AccountId: PartialEq + Clone + Ord + Decode, T } >
+	impl< { O: OriginTrait<AccountId = AccountId>, Who: SortedMembers<AccountId>, AccountId: PartialEq + Clone + Ord + Decode, T } >
 		EnsureOriginWithArg<O, T> for EnsureSignedBy<Who, AccountId>
 	{}
 }
 
 /// Ensure the origin is `None`. i.e. unsigned transaction.
 pub struct EnsureNone<AccountId>(core::marker::PhantomData<AccountId>);
-impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId>
-	EnsureOrigin<O> for EnsureNone<AccountId>
-{
+impl<O: OriginTrait<AccountId = AccountId>, AccountId> EnsureOrigin<O> for EnsureNone<AccountId> {
 	type Success = ();
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::None => Ok(()),
-			r => Err(O::from(r)),
-		})
+		match o.as_system_ref() {
+			Some(RawOrigin::None) => Ok(()),
+			_ => Err(o),
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<O, ()> {
-		Ok(O::from(RawOrigin::None))
+		Ok(O::none())
 	}
 }
 
 impl_ensure_origin_with_arg_ignoring_arg! {
-	impl< { O: .., AccountId, T } >
+	impl< { O: OriginTrait<AccountId = AccountId>, AccountId, T } >
 		EnsureOriginWithArg<O, T> for EnsureNone<AccountId>
 	{}
 }
@@ -1704,7 +1711,7 @@ impl<T: Config> Pallet<T> {
 						DecRefStatus::Reaped
 					},
 					(x, _) => {
-						account.sufficients = x - 1;
+						account.sufficients = x.saturating_sub(1);
 						*maybe_account = Some(account);
 						DecRefStatus::Exists
 					},
@@ -1896,7 +1903,15 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Start the execution of a particular block.
+	///
+	/// # Panics
+	///
+	/// Panics when the given `number` is not `Self::block_number() + 1`. If you are using this in
+	/// tests, you can use [`Self::set_block_number`] to make the check succeed.
 	pub fn initialize(number: &BlockNumberFor<T>, parent_hash: &T::Hash, digest: &generic::Digest) {
+		let expected_block_number = Self::block_number() + One::one();
+		assert_eq!(expected_block_number, *number, "Block number must be strictly increasing.");
+
 		// populate environment
 		ExecutionPhase::<T>::put(Phase::Initialization);
 		storage::unhashed::put(well_known_keys::EXTRINSIC_INDEX, &0u32);
@@ -1906,19 +1921,20 @@ impl<T: Config> Pallet<T> {
 		<Digest<T>>::put(digest);
 		<ParentHash<T>>::put(parent_hash);
 		<BlockHash<T>>::insert(*number - One::one(), parent_hash);
-		<InherentsApplied<T>>::kill();
 
 		// Remove previous block data from storage
 		BlockWeight::<T>::kill();
 	}
 
-	/// Remove temporary "environment" entries in storage, compute the storage root and return the
-	/// resulting header for this block.
-	pub fn finalize() -> HeaderFor<T> {
+	/// Log the entire resouce usage report up until this point.
+	///
+	/// Uses `crate::LOG_TARGET`, level `debug` and prints the weight and block length usage.
+	pub fn resource_usage_report() {
 		log::debug!(
 			target: LOG_TARGET,
 			"[{:?}] {} extrinsics, length: {} (normal {}%, op: {}%, mandatory {}%) / normal weight:\
-			 {} ({}%) op weight {} ({}%) / mandatory weight {} ({}%)",
+			 {} (ref_time: {}%, proof_size: {}%) op weight {} (ref_time {}%, proof_size {}%) / \
+			  mandatory weight {} (ref_time: {}%, proof_size: {}%)",
 			Self::block_number(),
 			Self::extrinsic_count(),
 			Self::all_extrinsics_len(),
@@ -1939,17 +1955,35 @@ impl<T: Config> Pallet<T> {
 				Self::block_weight().get(DispatchClass::Normal).ref_time(),
 				T::BlockWeights::get().get(DispatchClass::Normal).max_total.unwrap_or(Bounded::max_value()).ref_time()
 			).deconstruct(),
+			sp_runtime::Percent::from_rational(
+				Self::block_weight().get(DispatchClass::Normal).proof_size(),
+				T::BlockWeights::get().get(DispatchClass::Normal).max_total.unwrap_or(Bounded::max_value()).proof_size()
+			).deconstruct(),
 			Self::block_weight().get(DispatchClass::Operational),
 			sp_runtime::Percent::from_rational(
 				Self::block_weight().get(DispatchClass::Operational).ref_time(),
 				T::BlockWeights::get().get(DispatchClass::Operational).max_total.unwrap_or(Bounded::max_value()).ref_time()
+			).deconstruct(),
+			sp_runtime::Percent::from_rational(
+				Self::block_weight().get(DispatchClass::Operational).proof_size(),
+				T::BlockWeights::get().get(DispatchClass::Operational).max_total.unwrap_or(Bounded::max_value()).proof_size()
 			).deconstruct(),
 			Self::block_weight().get(DispatchClass::Mandatory),
 			sp_runtime::Percent::from_rational(
 				Self::block_weight().get(DispatchClass::Mandatory).ref_time(),
 				T::BlockWeights::get().get(DispatchClass::Mandatory).max_total.unwrap_or(Bounded::max_value()).ref_time()
 			).deconstruct(),
+			sp_runtime::Percent::from_rational(
+				Self::block_weight().get(DispatchClass::Mandatory).proof_size(),
+				T::BlockWeights::get().get(DispatchClass::Mandatory).max_total.unwrap_or(Bounded::max_value()).proof_size()
+			).deconstruct(),
 		);
+	}
+
+	/// Remove temporary "environment" entries in storage, compute the storage root and return the
+	/// resulting header for this block.
+	pub fn finalize() -> HeaderFor<T> {
+		Self::resource_usage_report();
 		ExecutionPhase::<T>::kill();
 		AllExtrinsicsLen::<T>::kill();
 		storage::unhashed::kill(well_known_keys::INTRABLOCK_ENTROPY);
@@ -2393,6 +2427,14 @@ impl<T: Config> Pallet<T> {
 			Err(InvalidTransaction::Call.into())
 		}
 	}
+
+	/// Returns the remaining weight of the block.
+	pub fn remaining_block_weight() -> WeightMeter {
+		let limit = T::BlockWeights::get().max_block;
+		let consumed = BlockWeight::<T>::get().total();
+
+		WeightMeter::with_consumed_and_limit(consumed, limit)
+	}
 }
 
 /// Returns a 32 byte datum which is guaranteed to be universally unique. `entropy` is provided
@@ -2600,4 +2642,7 @@ pub mod pallet_prelude {
 
 	/// Type alias for the `RuntimeCall` associated type of system config.
 	pub type RuntimeCallFor<T> = <T as crate::Config>::RuntimeCall;
+
+	/// Type alias for the `AccountId` associated type of system config.
+	pub type AccountIdFor<T> = <T as crate::Config>::AccountId;
 }

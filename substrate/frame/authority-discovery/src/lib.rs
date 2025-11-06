@@ -189,6 +189,7 @@ mod tests {
 		{
 			System: frame_system,
 			Session: pallet_session,
+			Balances: pallet_balances,
 			AuthorityDiscovery: pallet_authority_discovery,
 		}
 	);
@@ -212,11 +213,8 @@ mod tests {
 		type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
 		type DisablingStrategy = ();
 		type WeightInfo = ();
-	}
-
-	impl pallet_session::historical::Config for Test {
-		type FullIdentification = ();
-		type FullIdentificationOf = ();
+		type Currency = Balances;
+		type KeyDeposit = ();
 	}
 
 	pub type BlockNumber = u64;
@@ -231,6 +229,12 @@ mod tests {
 		type AccountId = AuthorityId;
 		type Lookup = IdentityLookup<Self::AccountId>;
 		type Block = Block;
+		type AccountData = pallet_balances::AccountData<u64>;
+	}
+
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+	impl pallet_balances::Config for Test {
+		type AccountStore = System;
 	}
 
 	pub struct TestSessionHandler;

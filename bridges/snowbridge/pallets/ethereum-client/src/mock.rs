@@ -5,12 +5,13 @@ use crate::config;
 use frame_support::{derive_impl, dispatch::DispatchResult, parameter_types};
 use pallet_timestamp;
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
-use snowbridge_core::inbound::{Log, Proof};
+use snowbridge_verification_primitives::{Log, Proof};
 use sp_std::default::Default;
 use std::{fs::File, path::PathBuf};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 use frame_support::traits::ConstU32;
+use hex_literal::hex;
 use sp_runtime::BuildStorage;
 
 fn load_fixture<T>(basename: String) -> Result<T, serde_json::Error>
@@ -88,7 +89,7 @@ pub fn load_sync_committee_update_period_0_newer_fixture() -> Box<
 
 pub fn get_message_verification_payload() -> (Log, Proof) {
 	let inbound_fixture = snowbridge_pallet_ethereum_client_fixtures::make_inbound_fixture();
-	(inbound_fixture.message.event_log, inbound_fixture.message.proof)
+	(inbound_fixture.event.event_log, inbound_fixture.event.proof)
 }
 
 frame_support::construct_runtime!(
@@ -114,28 +115,32 @@ impl pallet_timestamp::Config for Test {
 parameter_types! {
 	pub const ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
-			version: [0, 0, 0, 0], // 0x00000000
+			version: hex!("00000000"),
 			epoch: 0,
 		},
 		altair: Fork {
-			version: [1, 0, 0, 0], // 0x01000000
+			version: hex!("01000000"),
 			epoch: 0,
 		},
 		bellatrix: Fork {
-			version: [2, 0, 0, 0], // 0x02000000
+			version: hex!("02000000"),
 			epoch: 0,
 		},
 		capella: Fork {
-			version: [3, 0, 0, 0], // 0x03000000
+			version: hex!("03000000"),
 			epoch: 0,
 		},
 		deneb: Fork {
-			version: [4, 0, 0, 0], // 0x04000000
+			version: hex!("04000000"),
 			epoch: 0,
 		},
 		electra: Fork {
-			version: [5, 0, 0, 0], // 0x05000000
-			epoch: 80000000000,
+			version: hex!("05000000"),
+			epoch: 0,
+		},
+		fulu: Fork {
+			version: hex!("06000000"),
+			epoch: 100000000,
 		}
 	};
 }

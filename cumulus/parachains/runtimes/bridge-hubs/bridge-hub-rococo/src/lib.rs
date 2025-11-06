@@ -57,14 +57,14 @@ use sp_runtime::{
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector, ParaId};
+use cumulus_primitives_core::ParaId;
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{ConstBool, ConstU32, ConstU64, ConstU8, Get, TransformOrigin},
-	weights::{ConstantMultiplier, Weight, WeightToFee as _},
+	weights::{ConstantMultiplier, Weight},
 	PalletId,
 };
 use frame_system::{
@@ -91,10 +91,8 @@ pub use sp_runtime::BuildStorage;
 
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use rococo_runtime_constants::system_parachain::{ASSET_HUB_ID, BRIDGE_HUB_ID};
-use snowbridge_core::{
-	outbound::{Command, Fee},
-	AgentId, PricingParameters,
-};
+use snowbridge_core::{AgentId, PricingParameters};
+pub use snowbridge_outbound_queue_primitives::v1::{Command, ConstantGasMeter, Fee};
 use xcm::{latest::prelude::*, prelude::*, Version as XcmVersion};
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
@@ -161,6 +159,7 @@ pub type Migrations = (
 		ConstU32<BRIDGE_HUB_ID>,
 		ConstU32<ASSET_HUB_ID>,
 	>,
+	snowbridge_pallet_system::migration::FeePerGasMigrationV0ToV1<Runtime>,
 	pallet_bridge_messages::migration::v1::MigrationToV1<
 		Runtime,
 		bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
@@ -240,7 +239,6 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	Migrations,
 >;
 
 impl_opaque_keys! {
@@ -254,7 +252,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("bridge-hub-rococo"),
 	impl_name: alloc::borrow::Cow::Borrowed("bridge-hub-rococo"),
 	authoring_version: 1,
-	spec_version: 1_017_001,
+	spec_version: 1_020_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -325,6 +323,7 @@ impl frame_system::Config for Runtime {
 	/// The action to take on a Runtime Upgrade
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type SingleBlockMigrations = Migrations;
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
@@ -400,7 +399,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ReservedXcmpWeight = ReservedXcmpWeight;
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
-	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
+	type RelayParentOffset = ConstU32<0>;
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
@@ -507,6 +506,8 @@ impl pallet_session::Config for Runtime {
 	type Keys = SessionKeys;
 	type DisablingStrategy = ();
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
+	type Currency = Balances;
+	type KeyDeposit = ();
 }
 
 impl pallet_aura::Config for Runtime {
@@ -724,6 +725,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
+		fn relay_parent_offset() -> u32 {
+			0
+		}
+	}
+
 	impl cumulus_primitives_aura::AuraUnincludedSegmentApi<Block> for Runtime {
 		fn can_build_upon(
 			included_hash: <Block as BlockT>::Hash,
@@ -738,7 +745,7 @@ impl_runtime_apis! {
 			VERSION
 		}
 
-		fn execute_block(block: Block) {
+		fn execute_block(block: <Block as BlockT>::LazyBlock) {
 			Executive::execute_block(block)
 		}
 
@@ -775,7 +782,7 @@ impl_runtime_apis! {
 		}
 
 		fn check_inherents(
-			block: Block,
+			block: <Block as BlockT>::LazyBlock,
 			data: sp_inherents::InherentData,
 		) -> sp_inherents::CheckInherentsResult {
 			data.check_extrinsics(&block)
@@ -867,21 +874,11 @@ impl_runtime_apis! {
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
-			let latest_asset_id: Result<AssetId, ()> = asset.clone().try_into();
-			match latest_asset_id {
-				Ok(asset_id) if asset_id.0 == xcm_config::TokenLocation::get() => {
-					// for native token
-					Ok(WeightToFee::weight_to_fee(&weight))
-				},
-				Ok(asset_id) => {
-					log::trace!(target: "xcm::xcm_runtime_apis", "query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!");
-					Err(XcmPaymentApiError::AssetNotFound)
-				},
-				Err(_) => {
-					log::trace!(target: "xcm::xcm_runtime_apis", "query_weight_to_asset_fee - failed to convert asset: {asset:?}!");
-					Err(XcmPaymentApiError::VersionedConversionFailed)
-				}
-			}
+			use crate::xcm_config::XcmConfig;
+
+			type Trader = <XcmConfig as xcm_executor::Config>::Trader;
+
+			PolkadotXcm::query_weight_to_asset_fee::<Trader>(weight, asset)
 		}
 
 		fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
@@ -899,7 +896,7 @@ impl_runtime_apis! {
 		}
 
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			PolkadotXcm::dry_run_xcm::<Runtime, xcm_config::XcmRouter, RuntimeCall, xcm_config::XcmConfig>(origin_location, xcm)
+			PolkadotXcm::dry_run_xcm::<xcm_config::XcmRouter>(origin_location, xcm)
 		}
 	}
 
@@ -918,12 +915,6 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
 		fn collect_collation_info(header: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {
 			ParachainSystem::collect_collation_info(header)
-		}
-	}
-
-	impl cumulus_primitives_core::GetCoreSelectorApi<Block> for Runtime {
-		fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
-			ParachainSystem::core_selector()
 		}
 	}
 
@@ -1024,7 +1015,7 @@ impl_runtime_apis! {
 	}
 
 	impl snowbridge_outbound_queue_runtime_api::OutboundQueueApi<Block, Balance> for Runtime {
-		fn prove_message(leaf_index: u64) -> Option<snowbridge_pallet_outbound_queue::MerkleProof> {
+		fn prove_message(leaf_index: u64) -> Option<snowbridge_merkle_tree::MerkleProof> {
 			snowbridge_pallet_outbound_queue::api::prove_message::<Runtime>(leaf_index)
 		}
 
@@ -1047,7 +1038,7 @@ impl_runtime_apis! {
 		}
 
 		fn execute_block(
-			block: Block,
+			block: <Block as BlockT>::LazyBlock,
 			state_root_check: bool,
 			signature_check: bool,
 			select: frame_try_runtime::TryStateSelect,
@@ -1116,16 +1107,28 @@ impl_runtime_apis! {
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
+			use xcm::latest::prelude::*;
+			use xcm_config::TokenLocation;
+			use testnet_parachains_constants::rococo::locations::{AssetHubParaId, AssetHubLocation};
+			parameter_types! {
+				pub ExistentialDepositAsset: Option<Asset> = Some((
+					TokenLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+			}
+
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
-				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
-					xcm_config::XcmConfig,
-					ExistentialDepositAsset,
-					xcm_config::PriceForParentDelivery,
-				>;
+				type DeliveryHelper = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						PriceForSiblingParachainDelivery,
+						AssetHubParaId,
+						ParachainSystem,
+					>;
 
 				fn reachable_dest() -> Option<Location> {
-					Some(Parent.into())
+					Some(AssetHubLocation::get())
 				}
 
 				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
@@ -1133,9 +1136,9 @@ impl_runtime_apis! {
 					Some((
 						Asset {
 							fun: Fungible(ExistentialDeposit::get()),
-							id: AssetId(Parent.into())
+							id: AssetId(TokenLocation::get())
 						},
-						Parent.into(),
+						AssetHubLocation::get(),
 					))
 				}
 
@@ -1148,8 +1151,8 @@ impl_runtime_apis! {
 				) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
 					// BH only supports teleports to system parachain.
 					// Relay/native token can be teleported between BH and Relay.
-					let native_location = Parent.into();
-					let dest = Parent.into();
+					let native_location = TokenLocation::get();
+					let dest = AssetHubLocation::get();
 					pallet_xcm::benchmarking::helpers::native_teleport_as_asset_transfer::<Runtime>(
 						native_location,
 						dest
@@ -1164,26 +1167,18 @@ impl_runtime_apis! {
 				}
 			}
 
-			use xcm::latest::prelude::*;
-			use xcm_config::TokenLocation;
-
-			parameter_types! {
-				pub ExistentialDepositAsset: Option<Asset> = Some((
-					TokenLocation::get(),
-					ExistentialDeposit::get()
-				).into());
-			}
-
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
-				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
-					xcm_config::XcmConfig,
-					ExistentialDepositAsset,
-					xcm_config::PriceForParentDelivery,
-				>;
+				type DeliveryHelper = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						PriceForSiblingParachainDelivery,
+						AssetHubParaId,
+						ParachainSystem,
+					>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
-					Ok(TokenLocation::get())
+					Ok(AssetHubLocation::get())
 				}
 				fn worst_case_holding(_depositable_count: u32) -> Assets {
 					// just concrete assets according to relay chain.
@@ -1198,8 +1193,8 @@ impl_runtime_apis! {
 			}
 
 			parameter_types! {
-				pub const TrustedTeleporter: Option<(Location, Asset)> = Some((
-					TokenLocation::get(),
+				pub TrustedTeleporter: Option<(Location, Asset)> = Some((
+					AssetHubLocation::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(TokenLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
@@ -1238,25 +1233,25 @@ impl_runtime_apis! {
 				}
 
 				fn transact_origin_and_runtime_call() -> Result<(Location, RuntimeCall), BenchmarkError> {
-					Ok((TokenLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
+					Ok((AssetHubLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
 				}
 
 				fn subscribe_origin() -> Result<Location, BenchmarkError> {
-					Ok(TokenLocation::get())
+					Ok(AssetHubLocation::get())
 				}
 
 				fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError> {
-					let origin = TokenLocation::get();
+					let origin = AssetHubLocation::get();
 					let assets: Assets = (AssetId(TokenLocation::get()), 1_000 * UNITS).into();
 					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
 				}
 
-				fn fee_asset() -> Result<Asset, BenchmarkError> {
-					Ok(Asset {
+				fn worst_case_for_trader() -> Result<(Asset, WeightLimit), BenchmarkError> {
+					Ok((Asset {
 						id: AssetId(TokenLocation::get()),
 						fun: Fungible(1_000_000 * UNITS),
-					})
+					}, WeightLimit::Limited(Weight::from_parts(5000, 5000))))
 				}
 
 				fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError> {
@@ -1271,12 +1266,13 @@ impl_runtime_apis! {
 						Box::new(bridge_to_westend_config::BridgeHubWestendLocation::get()),
 						XCM_VERSION,
 					).map_err(|e| {
-						log::error!(
-							"Failed to dispatch `force_xcm_version({:?}, {:?}, {:?})`, error: {:?}",
-							RuntimeOrigin::root(),
-							bridge_to_westend_config::BridgeHubWestendLocation::get(),
-							XCM_VERSION,
-							e
+						tracing::error!(
+							target: "bridges::benchmark",
+							error=?e,
+							origin=?RuntimeOrigin::root(),
+							location=?bridge_to_westend_config::BridgeHubWestendLocation::get(),
+							version=?XCM_VERSION,
+							"Failed to dispatch `force_xcm_version`"
 						);
 						BenchmarkError::Stop("XcmVersion was not stored!")
 					})?;
@@ -1306,11 +1302,12 @@ impl_runtime_apis! {
 						bp_messages::LegacyLaneId([1, 2, 3, 4]),
 						true,
 					).map_err(|e| {
-						log::error!(
-							"Failed to `XcmOverBridgeHubWestend::open_bridge`({:?}, {:?})`, error: {:?}",
-							sibling_parachain_location,
-							bridge_destination_universal_location,
-							e
+						tracing::error!(
+							target: "bridges::benchmark",
+							error=?e,
+							locations=?sibling_parachain_location,
+							lane_id=?bridge_destination_universal_location,
+							"Failed to `XcmOverBridgeHubWestend::open_bridge`"
 						);
 						BenchmarkError::Stop("Bridge was not opened!")
 					})?;
@@ -1573,6 +1570,18 @@ impl_runtime_apis! {
 		}
 		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
 			PolkadotXcm::is_trusted_teleporter(asset, location)
+		}
+	}
+
+	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
+		fn parachain_id() -> ParaId {
+			ParachainInfo::parachain_id()
+		}
+	}
+
+	impl cumulus_primitives_core::SlotSchedule<Block> for Runtime {
+		fn next_slot_schedule(_num_cores: u32) -> cumulus_primitives_core::NextSlotSchedule {
+			cumulus_primitives_core::NextSlotSchedule::one_block_using_one_core()
 		}
 	}
 }

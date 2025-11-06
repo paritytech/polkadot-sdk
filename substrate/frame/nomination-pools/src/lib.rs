@@ -513,6 +513,7 @@ impl ClaimPermission {
 #[derive(
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	RuntimeDebugNoBound,
@@ -719,7 +720,9 @@ pub enum PoolState {
 /// Any pool has a depositor, which can never change. But, all the other roles are optional, and
 /// cannot exist. Note that if `root` is set to `None`, it basically means that the roles of this
 /// pool can never change again (except via governance).
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Debug, PartialEq, Clone)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Debug, PartialEq, Clone,
+)]
 pub struct PoolRoles<AccountId> {
 	/// Creates the pool and is the initial member. They can only leave the pool once all other
 	/// members have left. Once they fully leave, the pool is destroyed.
@@ -764,7 +767,16 @@ pub enum CommissionClaimPermission<AccountId> {
 /// An optional commission `change_rate` allows the pool to set strict limits to how much commission
 /// can change in each update, and how often updates can take place.
 #[derive(
-	Encode, Decode, DefaultNoBound, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Copy, Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	DefaultNoBound,
+	MaxEncodedLen,
+	TypeInfo,
+	DebugNoBound,
+	PartialEq,
+	Copy,
+	Clone,
 )]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
@@ -970,7 +982,9 @@ pub struct CommissionChangeRate<BlockNumber> {
 }
 
 /// Pool permissions and state
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Clone)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Clone,
+)]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
 pub struct BondedPoolInner<T: Config> {
@@ -1343,6 +1357,7 @@ impl<T: Config> BondedPool<T> {
 	Encode,
 	Decode,
 	MaxEncodedLen,
+	DecodeWithMemTracking,
 	TypeInfo,
 	CloneNoBound,
 	PartialEqNoBound,
@@ -1512,6 +1527,7 @@ impl<T: Config> RewardPool<T> {
 	Encode,
 	Decode,
 	MaxEncodedLen,
+	DecodeWithMemTracking,
 	TypeInfo,
 	DefaultNoBound,
 	RuntimeDebugNoBound,
@@ -1564,6 +1580,7 @@ impl<T: Config> UnbondPool<T> {
 	Encode,
 	Decode,
 	MaxEncodedLen,
+	DecodeWithMemTracking,
 	TypeInfo,
 	DefaultNoBound,
 	RuntimeDebugNoBound,
@@ -1654,6 +1671,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Weight information for extrinsics in this pallet.
@@ -2275,7 +2293,7 @@ pub mod pallet {
 				bonded_pool.points,
 				bonded_pool.commission.current(),
 			)?;
-			let _ = Self::do_reward_payout(
+			Self::do_reward_payout(
 				&member_account,
 				&mut member,
 				&mut bonded_pool,
@@ -2344,7 +2362,7 @@ pub mod pallet {
 			pool_id: PoolId,
 			num_slashing_spans: u32,
 		) -> DispatchResult {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			// ensure pool is not in an un-migrated state.
 			ensure!(!Self::api_pool_needs_delegate_migration(pool_id), Error::<T>::NotMigrated);
 
@@ -3679,12 +3697,7 @@ impl<T: Config> Pallet<T> {
 		let (mut member, mut bonded_pool, mut reward_pool) =
 			Self::get_member_with_pools(&member_account)?;
 
-		let _ = Self::do_reward_payout(
-			&member_account,
-			&mut member,
-			&mut bonded_pool,
-			&mut reward_pool,
-		)?;
+		Self::do_reward_payout(&member_account, &mut member, &mut bonded_pool, &mut reward_pool)?;
 
 		Self::put_member_with_pools(&member_account, member, bonded_pool, reward_pool);
 		Ok(())
@@ -3917,7 +3930,8 @@ impl<T: Config> Pallet<T> {
 			// If this happens, this is most likely due to an old bug and not a recent code change.
 			// We warn about this in try-runtime checks but do not panic.
 			if !pending_rewards_lt_leftover_bal {
-				log::warn!(
+				log!(
+					warn,
 					"pool {:?}, sum pending rewards = {:?}, remaining balance = {:?}",
 					id,
 					pools_members_pending_rewards.get(&id),
@@ -3942,12 +3956,19 @@ impl<T: Config> Pallet<T> {
 			);
 
 			let depositor = PoolMembers::<T>::get(&bonded_pool.roles.depositor).unwrap();
-			ensure!(
-				bonded_pool.is_destroying_and_only_depositor(depositor.active_points()) ||
-					depositor.active_points() >= MinCreateBond::<T>::get(),
-				"depositor must always have MinCreateBond stake in the pool, except for when the \
-				pool is being destroyed and the depositor is the last member",
-			);
+			let depositor_has_enough_stake = bonded_pool
+				.is_destroying_and_only_depositor(depositor.active_points()) ||
+				depositor.active_points() >= MinCreateBond::<T>::get();
+			if !depositor_has_enough_stake {
+				log!(
+					warn,
+					"pool {:?} has depositor {:?} with insufficient stake {:?}, minimum required is {:?}",
+					id,
+					bonded_pool.roles.depositor,
+					depositor.active_points(),
+					MinCreateBond::<T>::get()
+				);
+			}
 
 			ensure!(
 				bonded_pool.points >= bonded_pool.points_to_balance(bonded_pool.points),
@@ -3984,25 +4005,28 @@ impl<T: Config> Pallet<T> {
 
 			let sum_unbonding_balance = subs.sum_unbonding_balance();
 			let bonded_balance = T::StakeAdapter::active_stake(Pool::from(pool_account.clone()));
+			// TODO: should be total_balance + unclaimed_withdrawals from delegated staking
 			let total_balance = T::StakeAdapter::total_balance(Pool::from(pool_account.clone()))
 				// At the time when StakeAdapter is changed to `DelegateStake` but pool is not yet
 				// migrated, the total balance would be none.
 				.unwrap_or(T::Currency::total_balance(&pool_account));
 
-			assert!(
-				total_balance >= bonded_balance + sum_unbonding_balance,
-				"faulty pool: {:?} / {:?}, total_balance {:?} >= bonded_balance {:?} + sum_unbonding_balance {:?}",
-				pool_id,
-				_pool,
-				total_balance,
-				bonded_balance,
-				sum_unbonding_balance
-			);
+			if total_balance < bonded_balance + sum_unbonding_balance {
+				log!(
+						warn,
+						"possibly faulty pool: {:?} / {:?}, total_balance {:?} >= bonded_balance {:?} + sum_unbonding_balance {:?}",
+						pool_id,
+						_pool,
+						total_balance,
+						bonded_balance,
+						sum_unbonding_balance
+					)
+			};
 		}
 
 		// Warn if any pool has incorrect ED frozen. We don't want to fail hard as this could be a
 		// result of an intentional ED change.
-		let _ = Self::check_ed_imbalance()?;
+		let _needs_adjust = Self::check_ed_imbalance()?;
 
 		Ok(())
 	}
@@ -4017,8 +4041,8 @@ impl<T: Config> Pallet<T> {
 		test,
 		debug_assertions
 	))]
-	pub fn check_ed_imbalance() -> Result<(), DispatchError> {
-		let mut failed: u32 = 0;
+	pub fn check_ed_imbalance() -> Result<u32, DispatchError> {
+		let mut needs_adjust = 0;
 		BondedPools::<T>::iter_keys().for_each(|id| {
 			let reward_acc = Self::generate_reward_account(id);
 			let frozen_balance =
@@ -4026,9 +4050,10 @@ impl<T: Config> Pallet<T> {
 
 			let expected_frozen_balance = T::Currency::minimum_balance();
 			if frozen_balance != expected_frozen_balance {
-				failed += 1;
-				log::warn!(
-					"pool {:?} has incorrect ED frozen that can result from change in ED. Expected  = {:?},  Actual = {:?}",
+				needs_adjust += 1;
+				log!(
+					warn,
+					"pool {:?} has incorrect ED frozen that can result from change in ED. Expected  = {:?},  Actual = {:?}. Use `adjust_pool_deposit` to fix it",
 					id,
 					expected_frozen_balance,
 					frozen_balance,
@@ -4036,8 +4061,7 @@ impl<T: Config> Pallet<T> {
 			}
 		});
 
-		ensure!(failed == 0, "Some pools do not have correct ED frozen");
-		Ok(())
+		Ok(needs_adjust)
 	}
 	/// Fully unbond the shares of `member`, when executed from `origin`.
 	///

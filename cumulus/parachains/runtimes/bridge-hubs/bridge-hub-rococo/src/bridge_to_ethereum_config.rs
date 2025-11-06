@@ -24,7 +24,9 @@ use crate::{
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
-use snowbridge_router_primitives::{inbound::MessageToXcm, outbound::EthereumBlobExporter};
+use snowbridge_inbound_queue_primitives::v1::MessageToXcm;
+use snowbridge_outbound_queue_primitives::v1::EthereumBlobExporter;
+
 use sp_core::H160;
 use testnet_parachains_constants::rococo::{
 	currency::*,
@@ -35,6 +37,7 @@ use testnet_parachains_constants::rococo::{
 use crate::xcm_config::RelayNetwork;
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::DoNothingRouter;
+use bp_asset_hub_rococo::CreateForeignAssetDeposit;
 use frame_support::{parameter_types, weights::ConstantMultiplier};
 use hex_literal::hex;
 use pallet_xcm::EnsureXcm;
@@ -60,7 +63,6 @@ parameter_types! {
 
 parameter_types! {
 	pub const CreateAssetCall: [u8;2] = [53, 0];
-	pub const CreateAssetDeposit: u128 = (UNITS / 10) + EXISTENTIAL_DEPOSIT;
 	pub Parameters: PricingParameters<u128> = PricingParameters {
 		exchange_rate: FixedU128::from_rational(1, 400),
 		fee_per_gas: gwei(20),
@@ -85,7 +87,7 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type Helper = Runtime;
 	type MessageConverter = MessageToXcm<
 		CreateAssetCall,
-		CreateAssetDeposit,
+		CreateForeignAssetDeposit,
 		ConstU8<INBOUND_QUEUE_PALLET_INDEX>,
 		AccountId,
 		Balance,
@@ -108,7 +110,7 @@ impl snowbridge_pallet_outbound_queue::Config for Runtime {
 	type Decimals = ConstU8<12>;
 	type MaxMessagePayloadSize = ConstU32<2048>;
 	type MaxMessagesPerBlock = ConstU32<32>;
-	type GasMeter = snowbridge_core::outbound::ConstantGasMeter;
+	type GasMeter = crate::ConstantGasMeter;
 	type Balance = Balance;
 	type WeightToFee = WeightToFee;
 	type WeightInfo = crate::weights::snowbridge_pallet_outbound_queue::WeightInfo<Runtime>;
@@ -141,7 +143,11 @@ parameter_types! {
 		},
 		electra: Fork {
 			version: hex!("05000000"),
-			epoch: 80000000000,
+			epoch: 0,
+		},
+		fulu: Fork {
+			version: hex!("06000000"),
+			epoch: 5000000,
 		}
 	};
 }
@@ -171,7 +177,11 @@ parameter_types! {
 		},
 		electra: Fork {
 			version: hex!("90000074"),
-			epoch: 222464, // https://github.com/ethereum/EIPs/pull/9322/files
+			epoch: 222464,
+		},
+		fulu: Fork {
+			version: hex!("90000075"),
+			epoch: 272640, // https://notes.ethereum.org/@bbusa/fusaka-bpo-timeline
 		},
 	};
 }
@@ -206,14 +216,20 @@ impl snowbridge_pallet_system::Config for Runtime {
 pub mod benchmark_helpers {
 	use crate::{EthereumBeaconClient, Runtime, RuntimeOrigin};
 	use codec::Encode;
-	use snowbridge_beacon_primitives::BeaconHeader;
+	use snowbridge_inbound_queue_primitives::EventFixture;
 	use snowbridge_pallet_inbound_queue::BenchmarkHelper;
-	use sp_core::H256;
+	use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
 	use xcm::latest::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
 
 	impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Runtime {
-		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256) {
-			EthereumBeaconClient::store_finalized_header(beacon_header, block_roots_root).unwrap();
+		fn initialize_storage() -> EventFixture {
+			let message = make_register_token_message();
+			EthereumBeaconClient::store_finalized_header(
+				message.finalized_header,
+				message.block_roots_root,
+			)
+			.unwrap();
+			message
 		}
 	}
 

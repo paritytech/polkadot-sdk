@@ -38,6 +38,7 @@ pallet-staking-reward-curve = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -62,7 +63,6 @@ std = [
 	"sp-runtime/std",
 	"sp-staking/std",
 ]
-
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-election-provider-support/runtime-benchmarks",
@@ -73,6 +73,7 @@ runtime-benchmarks = [
 	"pallet-grandpa/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
 	"pallet-offences/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",

@@ -20,7 +20,7 @@ sudo apt-get install graphviz # for Ubuntu/Debian
 Then install and build the book:
 
 ```sh
-cargo install mdbook mdbook-linkcheck mdbook-graphviz mdbook-mermaid mdbook-last-changed
+cargo install mdbook mdbook-linkcheck mdbook-graphviz mdbook-mermaid mdbook-last-changed --locked
 mdbook serve roadmap/implementers-guide
 ```
 

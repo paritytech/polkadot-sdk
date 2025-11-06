@@ -16,6 +16,7 @@
 
 //! Convenient interface to runtime information.
 
+use polkadot_node_primitives::MAX_FINALITY_LAG;
 use schnellru::{ByLength, LruMap};
 
 use codec::Encode;
@@ -30,13 +31,11 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
-	node_features::FeatureIndex,
-	slashing,
-	vstaging::{CandidateEvent, CoreState, OccupiedCore, ScrapedOnChainVotes},
-	CandidateHash, CoreIndex, EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
-	Id as ParaId, IndexedVec, NodeFeatures, SessionIndex, SessionInfo, Signed, SigningContext,
-	UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	DEFAULT_SCHEDULING_LOOKAHEAD,
+	node_features::FeatureIndex, slashing, CandidateEvent, CandidateHash, CoreIndex, CoreState,
+	EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, IndexedVec,
+	NodeFeatures, OccupiedCore, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed,
+	SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId,
+	ValidatorIndex, DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 
 use std::collections::{BTreeMap, VecDeque};
@@ -46,7 +45,8 @@ use crate::{
 	request_disabled_validators, request_from_runtime, request_key_ownership_proof,
 	request_node_features, request_on_chain_votes, request_session_executor_params,
 	request_session_index_for_child, request_session_info, request_submit_report_dispute_lost,
-	request_unapplied_slashes, request_validation_code_by_hash, request_validator_groups,
+	request_unapplied_slashes, request_unapplied_slashes_v2, request_validation_code_by_hash,
+	request_validator_groups,
 };
 
 /// Errors that can happen on runtime fetches.
@@ -135,7 +135,12 @@ impl RuntimeInfo {
 	/// Create with more elaborate configuration options.
 	pub fn new_with_config(cfg: Config) -> Self {
 		Self {
-			session_index_cache: LruMap::new(ByLength::new(cfg.session_cache_lru_size.max(10))),
+			// Usually messages are processed for blocks pointing to hashes from last finalized
+			// block to to best, so make this cache large enough to hold at least this amount of
+			// hashes, so that we get the benefit of caching even when finality lag is large.
+			session_index_cache: LruMap::new(ByLength::new(
+				cfg.session_cache_lru_size.max(2 * MAX_FINALITY_LAG),
+			)),
 			session_info_cache: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
 			disabled_validators_cache: LruMap::new(ByLength::new(100)),
 			pinned_blocks: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
@@ -420,6 +425,8 @@ where
 }
 
 /// Fetch a list of `PendingSlashes` from the runtime.
+/// Will fallback to `unapplied_slashes` if the runtime does not
+/// support `unapplied_slashes_v2`.
 pub async fn get_unapplied_slashes<Sender>(
 	sender: &mut Sender,
 	relay_parent: Hash,
@@ -427,7 +434,29 @@ pub async fn get_unapplied_slashes<Sender>(
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	recv_runtime(request_unapplied_slashes(relay_parent, sender).await).await
+	match recv_runtime(request_unapplied_slashes_v2(relay_parent, sender).await).await {
+		Ok(v2) => Ok(v2),
+		Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) => {
+			// Fallback to legacy unapplied_slashes
+			let legacy =
+				recv_runtime(request_unapplied_slashes(relay_parent, sender).await).await?;
+			// Convert legacy slashes to PendingSlashes
+			Ok(legacy
+				.into_iter()
+				.map(|(session, candidate_hash, legacy_slash)| {
+					(
+						session,
+						candidate_hash,
+						slashing::PendingSlashes {
+							keys: legacy_slash.keys,
+							kind: legacy_slash.kind.into(),
+						},
+					)
+				})
+				.collect())
+		},
+		Err(e) => Err(e),
+	}
 }
 
 /// Generate validator key ownership proof.
@@ -468,7 +497,7 @@ where
 }
 
 /// A snapshot of the runtime claim queue at an arbitrary relay chain block.
-#[derive(Default)]
+#[derive(Default, Clone, Debug)]
 pub struct ClaimQueueSnapshot(pub BTreeMap<CoreIndex, VecDeque<ParaId>>);
 
 impl From<BTreeMap<CoreIndex, VecDeque<ParaId>>> for ClaimQueueSnapshot {
@@ -506,6 +535,17 @@ impl ClaimQueueSnapshot {
 	/// Returns an iterator over the whole claim queue.
 	pub fn iter_all_claims(&self) -> impl Iterator<Item = (&CoreIndex, &VecDeque<ParaId>)> + '_ {
 		self.0.iter()
+	}
+
+	/// Get all claimed cores for the given `para_id` at the specified depth.
+	pub fn iter_claims_at_depth_for_para(
+		&self,
+		depth: usize,
+		para_id: ParaId,
+	) -> impl Iterator<Item = CoreIndex> + '_ {
+		self.0.iter().filter_map(move |(core_index, ids)| {
+			ids.get(depth).filter(|id| **id == para_id).map(|_| *core_index)
+		})
 	}
 }
 
@@ -577,5 +617,97 @@ pub async fn fetch_validation_code_bomb_limit(
 		Ok(polkadot_node_primitives::VALIDATION_CODE_BOMB_LIMIT as u32)
 	} else {
 		res
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[test]
+	fn iter_claims_at_depth_for_para_works() {
+		let claim_queue = ClaimQueueSnapshot(BTreeMap::from_iter(
+			[
+				(
+					CoreIndex(0),
+					VecDeque::from_iter([ParaId::from(1), ParaId::from(2), ParaId::from(1)]),
+				),
+				(
+					CoreIndex(1),
+					VecDeque::from_iter([ParaId::from(1), ParaId::from(1), ParaId::from(2)]),
+				),
+				(
+					CoreIndex(2),
+					VecDeque::from_iter([ParaId::from(1), ParaId::from(2), ParaId::from(3)]),
+				),
+				(
+					CoreIndex(3),
+					VecDeque::from_iter([ParaId::from(2), ParaId::from(1), ParaId::from(3)]),
+				),
+			]
+			.into_iter(),
+		));
+
+		// Test getting claims for para_id 1 at depth 0: cores 0, 1, 2
+		let depth_0_cores =
+			claim_queue.iter_claims_at_depth_for_para(0, 1u32.into()).collect::<Vec<_>>();
+		assert_eq!(depth_0_cores.len(), 3);
+		assert_eq!(depth_0_cores, vec![CoreIndex(0), CoreIndex(1), CoreIndex(2)]);
+
+		// Test getting claims for para_id 1 at depth 1: cores 1, 3
+		let depth_1_cores =
+			claim_queue.iter_claims_at_depth_for_para(1, 1u32.into()).collect::<Vec<_>>();
+		assert_eq!(depth_1_cores.len(), 2);
+		assert_eq!(depth_1_cores, vec![CoreIndex(1), CoreIndex(3)]);
+
+		// Test getting claims for para_id 1 at depth 2: core 0
+		let depth_2_cores =
+			claim_queue.iter_claims_at_depth_for_para(2, 1u32.into()).collect::<Vec<_>>();
+		assert_eq!(depth_2_cores.len(), 1);
+		assert_eq!(depth_2_cores, vec![CoreIndex(0)]);
+
+		// Test getting claims for para_id 1 at depth 3: no claims
+		let depth_3_cores =
+			claim_queue.iter_claims_at_depth_for_para(3, 1u32.into()).collect::<Vec<_>>();
+		assert!(depth_3_cores.is_empty());
+
+		// Test getting claims for para_id 2 at depth 0: core 3
+		let depth_0_cores =
+			claim_queue.iter_claims_at_depth_for_para(0, 2u32.into()).collect::<Vec<_>>();
+		assert_eq!(depth_0_cores.len(), 1);
+		assert_eq!(depth_0_cores, vec![CoreIndex(3)]);
+
+		// Test getting claims for para_id 2 at depth 1: cores 0, 2
+		let depth_1_cores =
+			claim_queue.iter_claims_at_depth_for_para(1, 2u32.into()).collect::<Vec<_>>();
+		assert_eq!(depth_1_cores.len(), 2);
+		assert_eq!(depth_1_cores, vec![CoreIndex(0), CoreIndex(2)]);
+
+		// Test getting claims for para_id 2 at depth 2: core 1
+		let depth_2_cores =
+			claim_queue.iter_claims_at_depth_for_para(2, 2u32.into()).collect::<Vec<_>>();
+		assert_eq!(depth_2_cores.len(), 1);
+		assert_eq!(depth_2_cores, vec![CoreIndex(1)]);
+
+		// Test getting claims for para_id 3 at depth 0: no claims
+		let depth_0_cores =
+			claim_queue.iter_claims_at_depth_for_para(0, 3u32.into()).collect::<Vec<_>>();
+		assert!(depth_0_cores.is_empty());
+
+		// Test getting claims for para_id 3 at depth 1: no claims
+		let depth_1_cores =
+			claim_queue.iter_claims_at_depth_for_para(1, 3u32.into()).collect::<Vec<_>>();
+		assert!(depth_1_cores.is_empty());
+
+		// Test getting claims for para_id 3 at depth 2: cores 2, 3
+		let depth_2_cores =
+			claim_queue.iter_claims_at_depth_for_para(2, 3u32.into()).collect::<Vec<_>>();
+		assert_eq!(depth_2_cores.len(), 2);
+		assert_eq!(depth_2_cores, vec![CoreIndex(2), CoreIndex(3)]);
+
+		// Test getting claims for non-existent para_id at depth 0: no claims
+		let depth_0_cores =
+			claim_queue.iter_claims_at_depth_for_para(0, 99u32.into()).collect::<Vec<_>>();
+		assert!(depth_0_cores.is_empty());
 	}
 }

@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout repo
-        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc #v4.1.7
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #v4.1.7
       - name: Check prdoc format
         run: |
           echo "Pulling $IMAGE"
@@ -47,10 +47,30 @@ jobs:
           echo "Labels: ${labels}"
           echo "labels=${labels}" >> "$GITHUB_OUTPUT"
 
-      - name: Validate prdoc for PR#${{ github.event.pull_request.number }}
+      - name: Get Original PR number
+        if: ${{ github.event.pull_request.number != '' && !contains(steps.get-labels.outputs.labels, 'R0') }}
+        shell: bash
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          . ./.github/scripts/common/lib.sh
+          original_pr_number=''
+
+          echo "Checking PR title: $PR_TITLE"
+
+          if [[ "$PR_TITLE" =~ 'Backport' ]]; then
+            # Extracting the original PR number from the backport's PR title
+            original_pr_number=$(extract_pr_number_from_pr_title "$PR_TITLE")
+            echo "Extracted PR number: $original_pr_number"
+          else
+            original_pr_number=${{ github.event.pull_request.number }}
+          fi
+          echo "PR_NUMBER=$original_pr_number" >> $GITHUB_ENV
+
+      - name: Validate prdoc for PR#${{ env.PR_NUMBER }}
         if: ${{ github.event.pull_request.number != '' && !contains(steps.get-labels.outputs.labels, 'R0') }}
         run: |
-          echo "Validating PR#${GITHUB_PR}"
+          echo "Validating PR#${{ env.PR_NUMBER }}"
           python3 --version
           python3 -m pip install cargo-workspace==1.2.1
-          python3 .github/scripts/check-prdoc.py Cargo.toml prdoc/pr_${GITHUB_PR}.prdoc
+          python3 .github/scripts/check-prdoc.py Cargo.toml prdoc/pr_${{ env.PR_NUMBER }}.prdoc

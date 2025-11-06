@@ -16,9 +16,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { features = [
-	"derive",
-], workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
 sp-block-builder = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }

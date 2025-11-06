@@ -12,9 +12,10 @@ anyhow = { workspace = true, default-features = true }
 codec = { workspace = true, features = ["derive"] }
 log = { workspace = true }
 polkadot-primitives = { workspace = true, default-features = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-subxt = { workspace = true, features = ["native"] }
-subxt-signer = { workspace = true }
-tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+cumulus-primitives-core = { workspace = true, default-features = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
+zombienet-sdk = { workspace = true }
+futures = { workspace = true }
+zombienet-configuration = { workspace = true }
+
 

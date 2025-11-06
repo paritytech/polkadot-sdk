@@ -48,8 +48,8 @@ pub use junction::{
 pub use junctions::Junctions;
 pub use location::{Ancestor, AncestorThen, InteriorLocation, Location, Parent, ParentThen};
 pub use traits::{
-	send_xcm, validate_send, Error, ExecuteXcm, Outcome, PreparedMessage, Reanchorable, Result,
-	SendError, SendResult, SendXcm, Weight, XcmHash,
+	send_xcm, validate_send, Error, ExecuteXcm, InstructionError, InstructionIndex, Outcome,
+	PreparedMessage, Reanchorable, Result, SendError, SendResult, SendXcm, Weight, XcmHash,
 };
 // These parts of XCM v4 are unchanged in XCM v5, and are re-imported here.
 pub use super::v4::{MaxDispatchErrorLen, MaybeErrorCode, OriginKind, WeightLimit};
@@ -183,10 +183,10 @@ pub mod prelude {
 			Hint::{self, *},
 			HintNumVariants,
 			Instruction::*,
-			InteriorLocation,
+			InstructionError, InstructionIndex, InteriorLocation,
 			Junction::{self, *},
 			Junctions::{self, Here},
-			Location, MaybeErrorCode,
+			Location, MaxAssetTransferFilters, MaybeErrorCode,
 			NetworkId::{self, *},
 			OriginKind, Outcome, PalletInfo, Parent, ParentThen, PreparedMessage, QueryId,
 			QueryResponseInfo, Reanchorable, Response, Result as XcmResult, SendError, SendResult,
@@ -210,6 +210,7 @@ pub mod prelude {
 parameter_types! {
 	pub MaxPalletNameLen: u32 = 48;
 	pub MaxPalletsInfo: u32 = 64;
+	pub MaxAssetTransferFilters: u32 = 6;
 }
 
 #[derive(
@@ -355,6 +356,15 @@ impl XcmContext {
 	/// topic unset.
 	pub fn with_message_id(message_id: XcmHash) -> XcmContext {
 		XcmContext { origin: None, message_id, topic: None }
+	}
+
+	/// Returns the topic if set, otherwise the message_id.
+	pub fn topic_or_message_id(&self) -> XcmHash {
+		if let Some(id) = self.topic {
+			id.into()
+		} else {
+			self.message_id
+		}
 	}
 }
 
@@ -1097,7 +1107,7 @@ pub enum Instruction<Call> {
 		destination: Location,
 		remote_fees: Option<AssetTransferFilter>,
 		preserve_origin: bool,
-		assets: Vec<AssetTransferFilter>,
+		assets: BoundedVec<AssetTransferFilter, MaxAssetTransferFilters>,
 		remote_xcm: Xcm<()>,
 	},
 

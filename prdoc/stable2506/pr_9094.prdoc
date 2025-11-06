@@ -1,0 +1,12 @@
+title: 'bitfield_distribution: fix subsystem clogged at begining of a session'
+doc:
+- audience: Node Dev
+  description: |-
+    `handle_peer_view_change` gets called on NewGossipTopology with the existing view of the peer to cover for the case when the topology might arrive late, but in that case in the view will contain old blocks from previous session, so since the X/Y neighbour change because of the topology change you end up sending a lot of messages for blocks before the session changed.
+
+    Fix it by checking the send message only for relay chains that are in the same session as the current topology.
+crates:
+- name: polkadot-availability-bitfield-distribution
+  bump: patch
+- name: polkadot-node-network-protocol
+  bump: minor

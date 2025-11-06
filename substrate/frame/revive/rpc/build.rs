@@ -14,10 +14,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use std::process::Command;
+use std::{fs, process::Command};
 
-/// Get the current branch and commit hash.
 fn main() {
+	generate_git_revision();
+	generate_metadata_file();
+}
+
+fn generate_git_revision() {
 	let output = Command::new("rustc")
 		.arg("--version")
 		.output()
@@ -46,4 +50,13 @@ fn main() {
 	println!("cargo:rustc-env=RUSTC_VERSION={rustc_version}");
 	println!("cargo:rustc-env=TARGET={target}");
 	println!("cargo:rustc-env=GIT_REVISION={branch}-{id}");
+}
+
+fn generate_metadata_file() {
+	let mut ext = sp_io::TestExternalities::new(Default::default());
+	ext.execute_with(|| {
+		let metadata = revive_dev_runtime::Runtime::metadata_at_version(16).unwrap();
+		let bytes: &[u8] = &metadata;
+		fs::write("revive_chain.scale", bytes).unwrap();
+	});
 }

@@ -1,0 +1,12 @@
+title: 'cumulus-aura: Improve equivocation checks'
+doc:
+- audience: Node Dev
+  description: |-
+    Instead of just checking for the slot, we also take the block number and the relay parent into account (as we actually allow to build multiple blocks per slot). Then this pr also ensures that we are still able to import blocks from availability recovery. This ensures that a network doesn't get stuck on a storm of equivocations. The next step after this pull request would be to implement on chain slashing for equivocations and probably disabling of the offending author.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch
+- name: cumulus-client-pov-recovery
+  bump: none
+- name: cumulus-pallet-parachain-system
+  bump: none

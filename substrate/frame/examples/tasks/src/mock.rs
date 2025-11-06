@@ -75,6 +75,15 @@ where
 	}
 }
 
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
+		Extrinsic::new_bare(call)
+	}
+}
+
 impl pallet_example_tasks::Config for Runtime {
 	type RuntimeTask = RuntimeTask;
 	type WeightInfo = ();

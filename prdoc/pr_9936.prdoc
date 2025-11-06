@@ -1,0 +1,8 @@
+title: Additional invulnerable AssetHub collators for Polkadot and Kusama
+doc:
+- audience: Node Operator
+  description: Update the list of invlunerable AssetHub collators for Polkadot and Kusama
+crates:
+- name: polkadot-cli
+  bump: patch
+

@@ -44,6 +44,7 @@ mod utils;
 use linked_hash_map::LinkedHashMap;
 use log::{debug, trace, warn};
 use parking_lot::{Mutex, RwLock};
+use prometheus_endpoint::Registry;
 use std::{
 	collections::{HashMap, HashSet},
 	io,
@@ -55,7 +56,7 @@ use crate::{
 	pinned_blocks_cache::PinnedBlocksCache,
 	record_stats_state::RecordStatsState,
 	stats::StateUsageStats,
-	utils::{meta_keys, read_db, read_meta, DatabaseType, Meta},
+	utils::{meta_keys, read_db, read_meta, remove_from_db, DatabaseType, Meta},
 };
 use codec::{Decode, Encode};
 use hash_db::Prefix;
@@ -64,7 +65,7 @@ use sc_client_api::{
 	blockchain::{BlockGap, BlockGapType},
 	leaves::{FinalizationOutcome, LeafSet},
 	utils::is_descendent_of,
-	IoInfo, MemoryInfo, MemorySize, UsageInfo,
+	IoInfo, MemoryInfo, MemorySize, TrieCacheContext, UsageInfo,
 };
 use sc_state_db::{IsPruned, LastCanonicalized, StateDb};
 use sp_arithmetic::traits::Saturating;
@@ -312,6 +313,9 @@ pub struct DatabaseSettings {
 	///
 	/// NOTE: only finalized blocks are subject for removal!
 	pub blocks_pruning: BlocksPruning,
+
+	/// Prometheus metrics registry.
+	pub metrics_registry: Option<Registry>,
 }
 
 /// Block pruning settings.
@@ -1171,6 +1175,7 @@ impl<Block: BlockT> Backend<Block> {
 			state_pruning: Some(state_pruning),
 			source: DatabaseSource::Custom { db, require_create_flag: true },
 			blocks_pruning,
+			metrics_registry: None,
 		};
 
 		Self::new(db_setting, canonicalization_delay).expect("failed to create test-db")
@@ -1191,6 +1196,16 @@ impl<Block: BlockT> Backend<Block> {
 	#[cfg(feature = "runtime-benchmarks")]
 	pub fn expose_storage(&self) -> Arc<dyn sp_state_machine::Storage<HashingFor<Block>>> {
 		self.storage.clone()
+	}
+
+	/// Expose the shared trie cache that is used by this backend.
+	///
+	/// Should only be needed for benchmarking.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn expose_shared_trie_cache(
+		&self,
+	) -> Option<sp_trie::cache::SharedTrieCache<HashingFor<Block>>> {
+		self.shared_trie_cache.clone()
 	}
 
 	fn from_database(
@@ -1224,6 +1239,22 @@ impl<Block: BlockT> Backend<Block> {
 
 		let offchain_storage = offchain::LocalStorage::new(db.clone());
 
+		let shared_trie_cache = config.trie_cache_maximum_size.map(|maximum_size| {
+			let system_memory = sysinfo::System::new_all();
+			let used_memory = system_memory.used_memory();
+			let total_memory = system_memory.total_memory();
+
+			debug!("Initializing shared trie cache with size {} bytes, {}% of total memory", maximum_size, (maximum_size as f64 / total_memory as f64 * 100.0));
+			if maximum_size as u64 > total_memory - used_memory {
+				warn!(
+					"Not enough memory to initialize shared trie cache. Cache size: {} bytes. System memory: used {} bytes, total {} bytes",
+					maximum_size, used_memory, total_memory,
+				);
+			}
+
+			SharedTrieCache::new(sp_trie::cache::CacheSize::new(maximum_size), config.metrics_registry.as_ref())
+		});
+
 		let backend = Backend {
 			storage: Arc::new(storage_db),
 			offchain_storage,
@@ -1235,9 +1266,7 @@ impl<Block: BlockT> Backend<Block> {
 			state_usage: Arc::new(StateUsageStats::new()),
 			blocks_pruning: config.blocks_pruning,
 			genesis_state: RwLock::new(None),
-			shared_trie_cache: config.trie_cache_maximum_size.map(|maximum_size| {
-				SharedTrieCache::new(sp_trie::cache::CacheSize::new(maximum_size))
-			}),
+			shared_trie_cache,
 		};
 
 		// Older DB versions have no last state key. Check if the state is available and set it.
@@ -1869,7 +1898,11 @@ impl<Block: BlockT> Backend<Block> {
 		}
 
 		if remove_displaced {
-			let new_displaced = self.blockchain.displaced_leaves_after_finalizing(f_hash, f_num)?;
+			let new_displaced = self.blockchain.displaced_leaves_after_finalizing(
+				f_hash,
+				f_num,
+				*f_header.parent_hash(),
+			)?;
 
 			self.blockchain.leaves.write().remove_displaced_leaves(FinalizationOutcome::new(
 				new_displaced.displaced_leaves.iter().copied(),
@@ -1978,7 +2011,7 @@ impl<Block: BlockT> Backend<Block> {
 	fn empty_state(&self) -> RecordStatsState<RefTrackingState<Block>, Block> {
 		let root = EmptyStorage::<Block>::new().0; // Empty trie
 		let db_state = DbStateBuilder::<HashingFor<Block>>::new(self.storage.clone(), root)
-			.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache()))
+			.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache_untrusted()))
 			.build();
 		let state = RefTrackingState::new(db_state, self.storage.clone(), None);
 		RecordStatsState::new(state, None, self.state_usage.clone())
@@ -2131,7 +2164,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		if block == Default::default() {
 			operation.old_state = self.empty_state();
 		} else {
-			operation.old_state = self.state_at(block)?;
+			operation.old_state = self.state_at(block, TrieCacheContext::Untrusted)?;
 		}
 
 		operation.commit_state = true;
@@ -2297,7 +2330,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 						"Error reverting to {hash_to_revert}. Block header not found.",
 					))
 				})?;
-				let removed_hash = removed.hash();
+				let removed_hash = hash_to_revert;
 
 				let prev_number = number_to_revert.saturating_sub(One::one());
 				let prev_hash =
@@ -2331,12 +2364,10 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 							if let Some((hash, _)) = self.blockchain.info().finalized_state {
 								if hash == hash_to_revert {
 									if !number_to_revert.is_zero() &&
-										self.have_state_at(
-											prev_hash,
-											number_to_revert - One::one(),
-										) {
+										self.have_state_at(prev_hash, prev_number)
+									{
 										let lookup_key = utils::number_and_hash_to_lookup_key(
-											number_to_revert - One::one(),
+											prev_number,
 											prev_hash,
 										)?;
 										transaction.set_from_vec(
@@ -2351,15 +2382,28 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 								}
 							}
 						}
+
 						transaction.set_from_vec(columns::META, meta_keys::BEST_BLOCK, key);
-						transaction.remove(columns::KEY_LOOKUP, removed.hash().as_ref());
+						transaction.remove(columns::KEY_LOOKUP, removed_hash.as_ref());
 						children::remove_children(
 							&mut transaction,
 							columns::META,
 							meta_keys::CHILDREN_PREFIX,
 							hash_to_revert,
 						);
+						self.prune_block(&mut transaction, BlockId::Hash(removed_hash))?;
+						remove_from_db::<Block>(
+							&mut transaction,
+							&*self.storage.db,
+							columns::KEY_LOOKUP,
+							columns::HEADER,
+							BlockId::Hash(removed_hash),
+						)?;
+
 						self.storage.db.commit(transaction)?;
+
+						// Clean the cache
+						self.blockchain.remove_header_metadata(removed_hash);
 
 						let is_best = number_to_revert < best_number;
 
@@ -2384,7 +2428,23 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			let mut transaction = Transaction::new();
 			let mut leaves = self.blockchain.leaves.write();
 
-			leaves.revert(hash_to_revert, number_to_revert);
+			leaves.revert(hash_to_revert, number_to_revert).into_iter().try_for_each(
+				|(h, _)| {
+					self.blockchain.remove_header_metadata(h);
+					transaction.remove(columns::KEY_LOOKUP, h.as_ref());
+
+					self.prune_block(&mut transaction, BlockId::Hash(h))?;
+					remove_from_db::<Block>(
+						&mut transaction,
+						&*self.storage.db,
+						columns::KEY_LOOKUP,
+						columns::HEADER,
+						BlockId::Hash(h),
+					)?;
+
+					Ok::<_, ClientError>(())
+				},
+			)?;
 			leaves.prepare_transaction(&mut transaction, columns::META, meta_keys::LEAF_PREFIX);
 			self.storage.db.commit(transaction)?;
 
@@ -2464,15 +2524,23 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		&self.blockchain
 	}
 
-	fn state_at(&self, hash: Block::Hash) -> ClientResult<Self::State> {
+	fn state_at(
+		&self,
+		hash: Block::Hash,
+		trie_cache_context: TrieCacheContext,
+	) -> ClientResult<Self::State> {
 		if hash == self.blockchain.meta.read().genesis_hash {
 			if let Some(genesis_state) = &*self.genesis_state.read() {
 				let root = genesis_state.root;
 				let db_state =
 					DbStateBuilder::<HashingFor<Block>>::new(genesis_state.clone(), root)
-						.with_optional_cache(
-							self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
-						)
+						.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| {
+							if matches!(trie_cache_context, TrieCacheContext::Trusted) {
+								c.local_cache_trusted()
+							} else {
+								c.local_cache_untrusted()
+							}
+						}))
 						.build();
 
 				let state = RefTrackingState::new(db_state, self.storage.clone(), None);
@@ -2494,9 +2562,13 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 					let root = hdr.state_root;
 					let db_state =
 						DbStateBuilder::<HashingFor<Block>>::new(self.storage.clone(), root)
-							.with_optional_cache(
-								self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
-							)
+							.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| {
+								if matches!(trie_cache_context, TrieCacheContext::Trusted) {
+									c.local_cache_trusted()
+								} else {
+									c.local_cache_untrusted()
+								}
+							}))
 							.build();
 					let state = RefTrackingState::new(db_state, self.storage.clone(), Some(hash));
 					Ok(RecordStatsState::new(state, Some(hash), self.state_usage.clone()))
@@ -2598,7 +2670,7 @@ impl<Block: BlockT> sc_client_api::backend::LocalBackend<Block> for Backend<Bloc
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::columns;
+	use crate::{columns, utils::number_and_hash_to_lookup_key};
 	use hash_db::{HashDB, EMPTY_PREFIX};
 	use sc_client_api::{
 		backend::{Backend as BTrait, BlockImportOperation as Op},
@@ -2710,7 +2782,7 @@ pub(crate) mod tests {
 		let mut op = backend.begin_operation().unwrap();
 
 		let root = backend
-			.state_at(parent_hash)
+			.state_at(parent_hash, TrieCacheContext::Untrusted)
 			.unwrap_or_else(|_| {
 				if parent_hash == Default::default() {
 					backend.empty_state()
@@ -2772,6 +2844,7 @@ pub(crate) mod tests {
 				state_pruning: Some(PruningMode::blocks_pruning(1)),
 				source: DatabaseSource::Custom { db: backing, require_create_flag: false },
 				blocks_pruning: BlocksPruning::KeepFinalized,
+				metrics_registry: None,
 			},
 			0,
 		)
@@ -2821,7 +2894,7 @@ pub(crate) mod tests {
 
 			db.commit_operation(op).unwrap();
 
-			let state = db.state_at(hash).unwrap();
+			let state = db.state_at(hash, TrieCacheContext::Untrusted).unwrap();
 
 			assert_eq!(state.storage(&[1, 3, 5]).unwrap(), Some(vec![2, 4, 6]));
 			assert_eq!(state.storage(&[1, 2, 3]).unwrap(), Some(vec![9, 9, 9]));
@@ -2856,7 +2929,7 @@ pub(crate) mod tests {
 
 			db.commit_operation(op).unwrap();
 
-			let state = db.state_at(header.hash()).unwrap();
+			let state = db.state_at(header.hash(), TrieCacheContext::Untrusted).unwrap();
 
 			assert_eq!(state.storage(&[1, 3, 5]).unwrap(), None);
 			assert_eq!(state.storage(&[1, 2, 3]).unwrap(), Some(vec![9, 9, 9]));
@@ -3220,16 +3293,18 @@ pub(crate) mod tests {
 		let a4_hash =
 			insert_disconnected_header(&backend, a4_number, a3_hash, H256::from([2; 32]), true);
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(a3_hash, a3_number, H256::from([200; 32]))
+				.unwrap();
 			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, genesis_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![(genesis_number, genesis_hash)]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
 		}
 
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(a4_hash, a4_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(a4_hash, a4_number, a3_hash)
+				.unwrap();
 			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, genesis_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![(genesis_number, genesis_hash)]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
@@ -3246,8 +3321,9 @@ pub(crate) mod tests {
 			false,
 		);
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(a3_hash, a3_number, H256::from([2; 32]))
+				.unwrap();
 			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, a1_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
@@ -3265,8 +3341,9 @@ pub(crate) mod tests {
 			false,
 		);
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(a3_hash, a3_number, H256::from([2; 32]))
+				.unwrap();
 			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, a1_hash, b1_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
@@ -3289,8 +3366,9 @@ pub(crate) mod tests {
 		let b5_hash =
 			insert_disconnected_header(&backend, b5_number, b4_hash, H256::from([43; 32]), false);
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(a3_hash, a3_number, H256::from([2; 32]))
+				.unwrap();
 			assert_eq!(blockchain.leaves().unwrap(), vec![b5_hash, a4_hash, a1_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
@@ -3305,8 +3383,9 @@ pub(crate) mod tests {
 		let c4_hash =
 			insert_disconnected_header(&backend, c4_number, a3_hash, H256::from([44; 32]), false);
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(a4_hash, a4_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(a4_hash, a4_number, a3_hash)
+				.unwrap();
 			assert_eq!(blockchain.leaves().unwrap(), vec![b5_hash, a4_hash, c4_hash, a1_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![(c4_number, c4_hash)]);
 			assert_eq!(displaced.displaced_blocks, vec![c4_hash]);
@@ -3335,24 +3414,27 @@ pub(crate) mod tests {
 
 		{
 			let displaced = blockchain
-				.displaced_leaves_after_finalizing(genesis_hash, genesis_number)
+				.displaced_leaves_after_finalizing(genesis_hash, genesis_number, Default::default())
 				.unwrap();
 			assert_eq!(displaced.displaced_leaves, vec![]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
 		}
 		{
-			let displaced_a1 =
-				blockchain.displaced_leaves_after_finalizing(a1_hash, a1_number).unwrap();
+			let displaced_a1 = blockchain
+				.displaced_leaves_after_finalizing(a1_hash, a1_number, genesis_hash)
+				.unwrap();
 			assert_eq!(displaced_a1.displaced_leaves, vec![]);
 			assert_eq!(displaced_a1.displaced_blocks, vec![]);
 
-			let displaced_a2 =
-				blockchain.displaced_leaves_after_finalizing(a2_hash, a3_number).unwrap();
+			let displaced_a2 = blockchain
+				.displaced_leaves_after_finalizing(a2_hash, a2_number, a1_hash)
+				.unwrap();
 			assert_eq!(displaced_a2.displaced_leaves, vec![]);
 			assert_eq!(displaced_a2.displaced_blocks, vec![]);
 
-			let displaced_a3 =
-				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			let displaced_a3 = blockchain
+				.displaced_leaves_after_finalizing(a3_hash, a3_number, a2_hash)
+				.unwrap();
 			assert_eq!(displaced_a3.displaced_leaves, vec![]);
 			assert_eq!(displaced_a3.displaced_blocks, vec![]);
 		}
@@ -3360,8 +3442,9 @@ pub(crate) mod tests {
 			// Finalized block is above leaves and not imported yet.
 			// We will not be able to make a connection,
 			// nothing can be marked as displaced.
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(H256::from([57; 32]), 10).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(H256::from([57; 32]), 10, H256::from([56; 32]))
+				.unwrap();
 			assert_eq!(displaced.displaced_leaves, vec![]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
 		}
@@ -3385,8 +3468,9 @@ pub(crate) mod tests {
 		let d2_hash = insert_header(&backend, d2_number, d1_hash, None, Default::default());
 
 		{
-			let displaced_a1 =
-				blockchain.displaced_leaves_after_finalizing(a1_hash, a1_number).unwrap();
+			let displaced_a1 = blockchain
+				.displaced_leaves_after_finalizing(a1_hash, a1_number, genesis_hash)
+				.unwrap();
 			assert_eq!(
 				displaced_a1.displaced_leaves,
 				vec![(c2_number, c2_hash), (d2_number, d2_hash)]
@@ -3395,27 +3479,31 @@ pub(crate) mod tests {
 			displaced_blocks.sort();
 			assert_eq!(displaced_a1.displaced_blocks, displaced_blocks);
 
-			let displaced_a2 =
-				blockchain.displaced_leaves_after_finalizing(a2_hash, a2_number).unwrap();
+			let displaced_a2 = blockchain
+				.displaced_leaves_after_finalizing(a2_hash, a2_number, a1_hash)
+				.unwrap();
 			assert_eq!(displaced_a1.displaced_leaves, displaced_a2.displaced_leaves);
 			assert_eq!(displaced_a1.displaced_blocks, displaced_a2.displaced_blocks);
 
-			let displaced_a3 =
-				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			let displaced_a3 = blockchain
+				.displaced_leaves_after_finalizing(a3_hash, a3_number, a2_hash)
+				.unwrap();
 			assert_eq!(displaced_a1.displaced_leaves, displaced_a3.displaced_leaves);
 			assert_eq!(displaced_a1.displaced_blocks, displaced_a3.displaced_blocks);
 		}
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(b1_hash, b1_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(b1_hash, b1_number, genesis_hash)
+				.unwrap();
 			assert_eq!(displaced.displaced_leaves, vec![(a3_number, a3_hash)]);
 			let mut displaced_blocks = vec![a1_hash, a2_hash, a3_hash];
 			displaced_blocks.sort();
 			assert_eq!(displaced.displaced_blocks, displaced_blocks);
 		}
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(b2_hash, b2_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(b2_hash, b2_number, b1_hash)
+				.unwrap();
 			assert_eq!(
 				displaced.displaced_leaves,
 				vec![(a3_number, a3_hash), (d2_number, d2_hash)]
@@ -3425,8 +3513,9 @@ pub(crate) mod tests {
 			assert_eq!(displaced.displaced_blocks, displaced_blocks);
 		}
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(c2_hash, c2_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(c2_hash, c2_number, c1_hash)
+				.unwrap();
 			assert_eq!(
 				displaced.displaced_leaves,
 				vec![(a3_number, a3_hash), (d2_number, d2_hash)]
@@ -3646,7 +3735,11 @@ pub(crate) mod tests {
 			hash
 		};
 
-		let block0_hash = backend.state_at(hash0).unwrap().storage_hash(&b"test"[..]).unwrap();
+		let block0_hash = backend
+			.state_at(hash0, TrieCacheContext::Untrusted)
+			.unwrap()
+			.storage_hash(&b"test"[..])
+			.unwrap();
 
 		let hash1 = {
 			let mut op = backend.begin_operation().unwrap();
@@ -3685,7 +3778,11 @@ pub(crate) mod tests {
 			backend.commit_operation(op).unwrap();
 		}
 
-		let block1_hash = backend.state_at(hash1).unwrap().storage_hash(&b"test"[..]).unwrap();
+		let block1_hash = backend
+			.state_at(hash1, TrieCacheContext::Untrusted)
+			.unwrap()
+			.storage_hash(&b"test"[..])
+			.unwrap();
 
 		assert_ne!(block0_hash, block1_hash);
 	}
@@ -4308,10 +4405,34 @@ pub(crate) mod tests {
 		assert_eq!(3, backend.revert(1, false).unwrap().0);
 
 		assert!(backend.have_state_at(block1, 1));
-		assert!(!backend.have_state_at(block2, 2));
-		assert!(!backend.have_state_at(block3, 3));
-		assert!(!backend.have_state_at(block4, 4));
-		assert!(!backend.have_state_at(block3_fork, 3));
+
+		let ensure_pruned = |hash, number: u32| {
+			assert_eq!(
+				backend.blockchain.status(hash).unwrap(),
+				sc_client_api::blockchain::BlockStatus::Unknown
+			);
+			assert!(
+				backend
+					.blockchain
+					.db
+					.get(columns::BODY, &number_and_hash_to_lookup_key(number, hash).unwrap())
+					.is_none(),
+				"{number}"
+			);
+			assert!(
+				backend
+					.blockchain
+					.db
+					.get(columns::HEADER, &number_and_hash_to_lookup_key(number, hash).unwrap())
+					.is_none(),
+				"{number}"
+			);
+		};
+
+		ensure_pruned(block2, 2);
+		ensure_pruned(block3, 3);
+		ensure_pruned(block4, 4);
+		ensure_pruned(block3_fork, 3);
 
 		assert_eq!(backend.blockchain.leaves().unwrap(), vec![block1]);
 		assert_eq!(1, backend.blockchain.leaves.read().highest_leaf().unwrap().0);

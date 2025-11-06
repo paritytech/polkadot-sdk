@@ -140,12 +140,17 @@ macro_rules! versioned_type {
 		}
 		impl IntoVersion for $n {
 			fn into_version(self, n: Version) -> Result<Self, ()> {
-				Ok(match n {
-					3 => Self::V3(self.try_into()?),
-					4 => Self::V4(self.try_into()?),
-					5 => Self::V5(self.try_into()?),
-					_ => return Err(()),
-				})
+				let version = self.identify_version();
+				if version == n {
+					Ok(self)
+				} else {
+					Ok(match n {
+						3 => Self::V3(self.try_into()?),
+						4 => Self::V4(self.try_into()?),
+						5 => Self::V5(self.try_into()?),
+						_ => return Err(()),
+					})
+				}
 			}
 		}
 		impl From<$v3> for $n {
@@ -359,7 +364,7 @@ impl<C> VersionedXcm<C> {
 			Self::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut enc).map(|_| ())
 		})
 		.map_err(|e| {
-			log::error!(target: "xcm::check_is_decodable", "Decode error: {e:?} for xcm: {self:?}!");
+			tracing::error!(target: "xcm::check_is_decodable", error=?e, xcm=?self, "Decode error!");
 			()
 		})
 	}
@@ -474,7 +479,7 @@ impl GetVersion for AlwaysV3 {
 	}
 }
 
-/// `WrapVersion` implementation which attempts to always convert the XCM to version 3 before
+/// `WrapVersion` implementation which attempts to always convert the XCM to version 4 before
 /// wrapping it.
 pub struct AlwaysV4;
 impl WrapVersion for AlwaysV4 {
@@ -491,7 +496,7 @@ impl GetVersion for AlwaysV4 {
 	}
 }
 
-/// `WrapVersion` implementation which attempts to always convert the XCM to version 3 before
+/// `WrapVersion` implementation which attempts to always convert the XCM to version 5 before
 /// wrapping it.
 pub struct AlwaysV5;
 impl WrapVersion for AlwaysV5 {

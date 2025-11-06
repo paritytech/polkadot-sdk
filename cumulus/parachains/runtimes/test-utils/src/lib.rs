@@ -16,6 +16,9 @@
 use core::marker::PhantomData;
 
 use codec::{Decode, DecodeLimit};
+use cumulus_pallet_parachain_system::parachain_inherent::{
+	deconstruct_parachain_inherent_data, InboundMessagesData,
+};
 use cumulus_primitives_core::{
 	relay_chain::Slot, AbridgedHrmpChannel, ParaId, PersistedValidationData,
 };
@@ -346,11 +349,20 @@ where
 				relay_chain_state,
 				downward_messages: Default::default(),
 				horizontal_messages: Default::default(),
+				relay_parent_descendants: Default::default(),
+				collator_peer_id: None,
 			};
+
+			let (inherent_data, downward_messages, horizontal_messages) =
+				deconstruct_parachain_inherent_data(inherent_data);
 
 			let _ = cumulus_pallet_parachain_system::Pallet::<Runtime>::set_validation_data(
 				Runtime::RuntimeOrigin::none(),
 				inherent_data,
+				InboundMessagesData::new(
+					downward_messages.into_abridged(&mut usize::MAX.clone()),
+					horizontal_messages.into_abridged(&mut usize::MAX.clone()),
+				),
 			);
 			let _ = pallet_timestamp::Pallet::<Runtime>::set(
 				Runtime::RuntimeOrigin::none(),
@@ -475,7 +487,7 @@ impl<
 	pub fn execute_as_governance_call<Call: Dispatchable + Encode>(
 		call: Call,
 		governance_origin: GovernanceOrigin<Call::RuntimeOrigin>,
-	) -> Result<(), Either<DispatchError, XcmError>> {
+	) -> Result<(), Either<DispatchError, InstructionError>> {
 		// execute xcm as governance would send
 		let execute_xcm = |call: Call, governance_location, descend_origin| {
 			// prepare xcm
@@ -502,6 +514,10 @@ impl<
 		};
 
 		match governance_origin {
+			// we are simulating a case of receiving an XCM
+			// and Location::Here() is not a valid destionation for XcmRouter in the fist place
+			GovernanceOrigin::Location(location) if location == Location::here() =>
+				panic!("Location::here() not supported, use GovernanceOrigin::Origin instead"),
 			GovernanceOrigin::Location(location) =>
 				execute_xcm(call, location, None).ensure_complete().map_err(Either::Right),
 			GovernanceOrigin::LocationAndDescendOrigin(location, descend_origin) =>
@@ -708,6 +724,8 @@ pub fn mock_open_hrmp_channel<
 			relay_chain_state,
 			downward_messages: Default::default(),
 			horizontal_messages: Default::default(),
+			relay_parent_descendants: Default::default(),
+			collator_peer_id: None,
 		};
 		inherent_data
 			.put_data(

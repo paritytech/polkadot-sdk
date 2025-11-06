@@ -33,7 +33,7 @@ use sp_keystore::{Keystore, KeystorePtr};
 
 use polkadot_node_primitives::{DisputeMessage, SignedDisputeStatement};
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, AuthorityDiscoveryId, CandidateHash, Hash,
+	AuthorityDiscoveryId, CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash,
 	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::dummy_candidate_descriptor_v2;

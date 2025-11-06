@@ -312,8 +312,8 @@ pub trait ConversionFromAssetBalance<AssetBalance, AssetId, OutBalance> {
 	fn ensure_successful(asset_id: AssetId);
 }
 
-/// Implements [`ConversionFromAssetBalance`], enabling a 1:1 conversion of the asset balance
-/// value to the balance.
+/// Implements [`ConversionFromAssetBalance`] and [`ConversionToAssetBalance`],
+/// enabling a 1:1 conversion between the asset balance and the native balance.
 pub struct UnityAssetBalanceConversion;
 impl<AssetBalance, AssetId, OutBalance>
 	ConversionFromAssetBalance<AssetBalance, AssetId, OutBalance> for UnityAssetBalanceConversion
@@ -326,6 +326,16 @@ where
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(_: AssetId) {}
+}
+impl<InBalance, AssetId, AssetBalance> ConversionToAssetBalance<InBalance, AssetId, AssetBalance>
+	for UnityAssetBalanceConversion
+where
+	InBalance: Into<AssetBalance>,
+{
+	type Error = ();
+	fn to_asset_balance(balance: InBalance, _: AssetId) -> Result<AssetBalance, Self::Error> {
+		Ok(balance.into())
+	}
 }
 
 /// Implements [`ConversionFromAssetBalance`], allowing for a 1:1 balance conversion of the asset
@@ -387,7 +397,17 @@ impl<A, R, B, C: Convert<R, B>> GetSalary<R, A, B> for ConvertRank<C> {
 }
 
 /// An identifier and balance.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+)]
 pub struct IdAmount<Id, Balance> {
 	/// An identifier for this item.
 	pub id: Id,

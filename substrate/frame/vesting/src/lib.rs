@@ -160,6 +160,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The currency trait.
@@ -218,7 +219,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
-			assert!(T::MAX_VESTING_SCHEDULES > 0, "`MaxVestingSchedules` must ge greater than 0");
+			assert!(T::MAX_VESTING_SCHEDULES > 0, "`MaxVestingSchedules` must be greater than 0");
 		}
 	}
 
@@ -285,6 +286,8 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
+		/// A vesting schedule has been created.
+		VestingCreated { account: T::AccountId, schedule_index: u32 },
 		/// The amount vested has been updated. This could indicate a change in funds available.
 		/// The balance given is the amount which is left unvested (and thus locked).
 		VestingUpdated { account: T::AccountId, unvested: BalanceOf<T> },
@@ -735,7 +738,7 @@ where
 	/// reduction of the lock over time as it diminishes, the account owner must use `vest` or
 	/// `vest_other`.
 	///
-	/// Is a no-op if the amount to be vested is zero.
+	/// It is a no-op if the amount to be vested is zero.
 	///
 	/// NOTE: This doesn't alter the free balance of the account.
 	fn add_vesting_schedule(
@@ -759,6 +762,13 @@ where
 		// NOTE: we must push the new schedule so that `exec_action`
 		// will give the correct new locked amount.
 		ensure!(schedules.try_push(vesting_schedule).is_ok(), Error::<T>::AtMaxVestingSchedules);
+
+		debug_assert!(schedules.len() > 0, "schedules cannot be empty after insertion");
+		let schedule_index = schedules.len() - 1;
+		Self::deposit_event(Event::<T>::VestingCreated {
+			account: who.clone(),
+			schedule_index: schedule_index as u32,
+		});
 
 		let (schedules, locked_now) =
 			Self::exec_action(schedules.to_vec(), VestingAction::Passive)?;

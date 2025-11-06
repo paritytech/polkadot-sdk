@@ -12,6 +12,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+async-channel = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
@@ -19,6 +20,7 @@ futures-timer = { workspace = true }
 # Substrate
 sc-cli = { workspace = true, default-features = false }
 sc-client-api = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
 sc-sysinfo = { workspace = true, default-features = true }
 sc-telemetry = { workspace = true, default-features = true }
 sc-tracing = { workspace = true, default-features = true }
@@ -30,18 +32,18 @@ sp-state-machine = { workspace = true, default-features = true }
 
 # Polkadot
 polkadot-cli = { features = ["cli"], workspace = true }
+polkadot-primitives = { workspace = true, default-features = true }
 polkadot-service = { workspace = true, default-features = true }
 
 # Cumulus
+cumulus-client-bootnodes = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
 
 [dev-dependencies]
-
 # Substrate
 sp-keyring = { workspace = true, default-features = true }
 
 # Polkadot
 metered = { features = ["futures_channel"], workspace = true }
-polkadot-primitives = { workspace = true, default-features = true }
 polkadot-test-client = { workspace = true }

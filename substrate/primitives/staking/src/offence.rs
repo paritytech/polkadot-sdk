@@ -259,10 +259,30 @@ impl<Reporter, Evidence> OffenceReportSystem<Reporter, Evidence> for () {
 	Encode,
 	Decode,
 	MaxEncodedLen,
-	sp_runtime::RuntimeDebug,
+	core::fmt::Debug,
 	scale_info::TypeInfo,
 )]
 pub struct OffenceSeverity(pub Perbill);
+
+impl OffenceSeverity {
+	/// Returns the maximum severity.
+	pub fn max_severity() -> Self {
+		Self(Perbill::from_percent(100))
+	}
+
+	/// Returns the minimum severity.
+	pub fn min_severity() -> Self {
+		Self(Perbill::from_percent(0))
+	}
+}
+
+impl Default for OffenceSeverity {
+	/// Default is the maximum severity.
+	/// When severity is unclear it is best to assume the worst.
+	fn default() -> Self {
+		Self::max_severity()
+	}
+}
 
 impl PartialOrd for OffenceSeverity {
 	fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {

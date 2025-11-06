@@ -20,7 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::{types::*, *};
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use frame_benchmarking::v2::*;
 use frame_support::{
 	assert_ok,
@@ -47,11 +47,14 @@ fn create_unexposed_batch<T: Config>(batch_size: u32) -> Vec<T::AccountId> {
 
 fn fund_and_bond_account<T: Config>(account: &T::AccountId) {
 	let stake = CurrencyOf::<T>::minimum_balance() * 100u32.into();
-	CurrencyOf::<T>::make_free_balance_be(&account, stake * 10u32.into());
+	CurrencyOf::<T>::make_free_balance_be(&account, stake * 100u32.into());
 
-	// bond and nominate ourselves, this will guarantee that we are not backing anyone.
+	// bond without nominating - fast-unstake works with non-nominating bonded accounts.
+	// Note that if we want to nominate a validator, we must first create a valid one; otherwise,
+	// `nominate()` will fail with a BadTarget error. However, fast-unstaking is intended for
+	// accounts that are bonded but not actively nominating, making this an unnecessary complication
+	// for our needs.
 	assert_ok!(T::Staking::bond(account, stake, account));
-	assert_ok!(T::Staking::nominate(account, vec![account.clone()]));
 }
 
 pub(crate) fn fast_unstake_events<T: Config>() -> Vec<crate::Event<T>> {

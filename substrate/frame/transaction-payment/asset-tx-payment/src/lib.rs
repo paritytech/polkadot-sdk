@@ -121,6 +121,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config + pallet_transaction_payment::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The fungibles instance used to pay for transactions in assets.
 		type Fungibles: Balanced<Self::AccountId>;
@@ -383,7 +384,7 @@ where
 		};
 
 		match initial_payment {
-			InitialPayment::Native(already_withdrawn) => {
+			InitialPayment::Native(liquidity_info) => {
 				// Take into account the weight used by this extension before calculating the
 				// refund.
 				let actual_ext_weight = <T as Config>::WeightInfo::charge_asset_tx_payment_native();
@@ -391,11 +392,7 @@ where
 				let mut actual_post_info = *post_info;
 				actual_post_info.refund(unspent_weight);
 				pallet_transaction_payment::ChargeTransactionPayment::<T>::post_dispatch_details(
-					pallet_transaction_payment::Pre::Charge {
-						tip,
-						who,
-						imbalance: already_withdrawn,
-					},
+					pallet_transaction_payment::Pre::Charge { tip, who, liquidity_info },
 					info,
 					&actual_post_info,
 					len,

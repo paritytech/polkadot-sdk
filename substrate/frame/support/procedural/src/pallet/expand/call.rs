@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{
+	deprecation::extract_or_return_allow_attrs,
 	pallet::{
 		expand::warnings::{weight_constant_warning, weight_witness_warning},
 		parse::{
@@ -252,11 +253,10 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 	let maybe_allow_attrs = methods
 		.iter()
 		.map(|method| {
-			method
-				.attrs
-				.iter()
-				.find(|attr| attr.path().is_ident("allow"))
-				.map_or(proc_macro2::TokenStream::new(), |attr| attr.to_token_stream())
+			let attrs = extract_or_return_allow_attrs(&method.attrs);
+			quote::quote! {
+					#(#attrs)*
+			}
 		})
 		.collect::<Vec<_>>();
 
@@ -281,7 +281,6 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 
 	let deprecation = match crate::deprecation::get_deprecation_enum(
 		&quote::quote! {#frame_support},
-		def.call.as_ref().map(|call| call.attrs.as_ref()).unwrap_or(&[]),
 		methods.iter().map(|item| (item.call_index as u8, item.attrs.as_ref())),
 	) {
 		Ok(deprecation) => deprecation,
@@ -541,6 +540,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 									#frame_support::__private::sp_tracing::trace_span!(stringify!(#fn_name))
 								);
 								#maybe_allow_attrs
+								#[allow(clippy::useless_conversion)]
 								<#pallet_ident<#type_use_gen>>::#fn_name(origin, #( #args_name, )* )
 									.map(Into::into).map_err(Into::into)
 							},

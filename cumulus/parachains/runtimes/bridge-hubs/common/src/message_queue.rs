@@ -23,6 +23,7 @@ use frame_support::{
 use pallet_message_queue::OnQueueChanged;
 use scale_info::TypeInfo;
 use snowbridge_core::ChannelId;
+use sp_core::H256;
 use xcm::latest::prelude::{Junction, Location};
 
 /// The aggregate origin of an inbound message.
@@ -55,6 +56,7 @@ pub enum AggregateMessageOrigin {
 	///
 	/// This is used by Snowbridge inbound queue.
 	Snowbridge(ChannelId),
+	SnowbridgeV2(H256),
 }
 
 impl From<AggregateMessageOrigin> for Location {
@@ -66,7 +68,7 @@ impl From<AggregateMessageOrigin> for Location {
 			Sibling(id) => Location::new(1, Junction::Parachain(id.into())),
 			// NOTE: We don't need this conversion for Snowbridge. However, we have to
 			// implement it anyway as xcm_builder::ProcessXcmMessage requires it.
-			Snowbridge(_) => Location::default(),
+			_ => Location::default(),
 		}
 	}
 }
@@ -78,6 +80,12 @@ impl From<CumulusAggregateMessageOrigin> for AggregateMessageOrigin {
 			CumulusAggregateMessageOrigin::Parent => Self::Parent,
 			CumulusAggregateMessageOrigin::Sibling(id) => Self::Sibling(id),
 		}
+	}
+}
+
+impl From<H256> for AggregateMessageOrigin {
+	fn from(hash: H256) -> Self {
+		Self::SnowbridgeV2(hash)
 	}
 }
 
@@ -99,12 +107,43 @@ pub struct BridgeHubMessageRouter<XcmpProcessor, SnowbridgeProcessor>(
 where
 	XcmpProcessor: ProcessMessage<Origin = AggregateMessageOrigin>,
 	SnowbridgeProcessor: ProcessMessage<Origin = AggregateMessageOrigin>;
-
 impl<XcmpProcessor, SnowbridgeProcessor> ProcessMessage
 	for BridgeHubMessageRouter<XcmpProcessor, SnowbridgeProcessor>
 where
 	XcmpProcessor: ProcessMessage<Origin = AggregateMessageOrigin>,
 	SnowbridgeProcessor: ProcessMessage<Origin = AggregateMessageOrigin>,
+{
+	type Origin = AggregateMessageOrigin;
+	fn process_message(
+		message: &[u8],
+		origin: Self::Origin,
+		meter: &mut WeightMeter,
+		id: &mut [u8; 32],
+	) -> Result<bool, ProcessMessageError> {
+		use AggregateMessageOrigin::*;
+		match origin {
+			Here | Parent | Sibling(_) =>
+				XcmpProcessor::process_message(message, origin, meter, id),
+			Snowbridge(_) => SnowbridgeProcessor::process_message(message, origin, meter, id),
+			SnowbridgeV2(_) => Err(ProcessMessageError::Unsupported),
+		}
+	}
+}
+
+/// Routes messages to either the XCMP|Snowbridge V1 processor|Snowbridge V2 processor
+pub struct BridgeHubDualMessageRouter<XcmpProcessor, SnowbridgeProcessor, SnowbridgeProcessorV2>(
+	PhantomData<(XcmpProcessor, SnowbridgeProcessor, SnowbridgeProcessorV2)>,
+)
+where
+	XcmpProcessor: ProcessMessage<Origin = AggregateMessageOrigin>,
+	SnowbridgeProcessor: ProcessMessage<Origin = AggregateMessageOrigin>;
+
+impl<XcmpProcessor, SnowbridgeProcessor, SnowbridgeProcessorV2> ProcessMessage
+	for BridgeHubDualMessageRouter<XcmpProcessor, SnowbridgeProcessor, SnowbridgeProcessorV2>
+where
+	XcmpProcessor: ProcessMessage<Origin = AggregateMessageOrigin>,
+	SnowbridgeProcessor: ProcessMessage<Origin = AggregateMessageOrigin>,
+	SnowbridgeProcessorV2: ProcessMessage<Origin = AggregateMessageOrigin>,
 {
 	type Origin = AggregateMessageOrigin;
 
@@ -119,6 +158,7 @@ where
 			Here | Parent | Sibling(_) =>
 				XcmpProcessor::process_message(message, origin, meter, id),
 			Snowbridge(_) => SnowbridgeProcessor::process_message(message, origin, meter, id),
+			SnowbridgeV2(_) => SnowbridgeProcessorV2::process_message(message, origin, meter, id),
 		}
 	}
 }

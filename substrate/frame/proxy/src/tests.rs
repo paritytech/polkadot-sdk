@@ -333,7 +333,7 @@ fn filtering_works() {
 			ProxyEvent::ProxyExecuted { result: Err(SystemError::CallFiltered.into()) }.into(),
 		);
 
-		let derivative_id = Utility::derivative_account_id(1, 0);
+		let derivative_id = pallet_utility::derivative_account_id(1, 0);
 		Balances::make_free_balance_be(&derivative_id, 1000);
 		let inner = Box::new(call_transfer(6, 1));
 
@@ -403,6 +403,34 @@ fn filtering_works() {
 		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, call.clone()));
 		expect_events(vec![
 			BalancesEvent::<Test>::Unreserved { who: 1, amount: 5 }.into(),
+			ProxyEvent::ProxyRemoved {
+				delegator: 1,
+				delegatee: 2,
+				proxy_type: ProxyType::Any,
+				delay: 0,
+			}
+			.into(),
+			ProxyEvent::ProxyRemoved {
+				delegator: 1,
+				delegatee: 3,
+				proxy_type: ProxyType::JustTransfer,
+				delay: 0,
+			}
+			.into(),
+			ProxyEvent::ProxyRemoved {
+				delegator: 1,
+				delegatee: 4,
+				proxy_type: ProxyType::JustUtility,
+				delay: 0,
+			}
+			.into(),
+			ProxyEvent::ProxyRemoved {
+				delegator: 1,
+				delegatee: 5,
+				proxy_type: ProxyType::Any,
+				delay: 0,
+			}
+			.into(),
 			ProxyEvent::ProxyExecuted { result: Ok(()) }.into(),
 		]);
 	});
@@ -546,6 +574,8 @@ fn pure_works() {
 				who: 1,
 				proxy_type: ProxyType::Any,
 				disambiguation_index: 0,
+				at: <Test as Config>::BlockNumberProvider::current_block_number(),
+				extrinsic_index: System::extrinsic_index().unwrap(),
 			}
 			.into(),
 		);
@@ -567,6 +597,7 @@ fn pure_works() {
 
 		let call = Box::new(call_transfer(6, 1));
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), anon, 5));
+		assert_eq!(Balances::free_balance(6), 0);
 		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(1), anon, None, call));
 		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Ok(()) }.into());
 		assert_eq!(Balances::free_balance(6), 1);
@@ -579,7 +610,7 @@ fn pure_works() {
 			0,
 		)));
 		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), anon2, None, call.clone()));
-		let de = DispatchError::from(Error::<Test>::NoPermission).stripped();
+		let de: DispatchError = DispatchError::from(Error::<Test>::NoPermission).stripped();
 		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Err(de) }.into());
 		assert_noop!(
 			Proxy::kill_pure(RuntimeOrigin::signed(1), 1, ProxyType::Any, 0, 1, 0),
@@ -591,6 +622,18 @@ fn pure_works() {
 		assert_noop!(
 			Proxy::proxy(RuntimeOrigin::signed(1), anon, None, call.clone()),
 			Error::<Test>::NotProxy
+		);
+
+		// Actually kill the pure proxy.
+		assert_ok!(Proxy::kill_pure(RuntimeOrigin::signed(anon), 1, ProxyType::Any, 0, 1, 0));
+		System::assert_last_event(
+			ProxyEvent::PureKilled {
+				pure: anon,
+				spawner: 1,
+				proxy_type: ProxyType::Any,
+				disambiguation_index: 0,
+			}
+			.into(),
 		);
 	});
 }

@@ -34,7 +34,7 @@ use sp_runtime::{
 	impl_opaque_keys,
 	testing::TestXt,
 	traits::{Header as HeaderT, OpaqueKeys},
-	BoundedVec, BuildStorage, Perbill,
+	BuildStorage, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
 use sp_state_machine::BasicExternalities;
@@ -81,11 +81,11 @@ where
 	type Extrinsic = TestXt<RuntimeCall, ()>;
 }
 
-impl<C> frame_system::offchain::CreateInherent<C> for Test
+impl<C> frame_system::offchain::CreateBare<C> for Test
 where
 	RuntimeCall: From<C>,
 {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 		TestXt::new_bare(call)
 	}
 }
@@ -119,13 +119,6 @@ pub struct MockAncestryHelper;
 impl<Header: HeaderT> AncestryHelper<Header> for MockAncestryHelper {
 	type Proof = MockAncestryProof;
 	type ValidationContext = MockAncestryProofContext;
-
-	fn generate_proof(
-		_prev_block_number: Header::Number,
-		_best_known_block_number: Option<Header::Number>,
-	) -> Option<Self::Proof> {
-		unimplemented!()
-	}
 
 	fn is_proof_optimal(proof: &Self::Proof) -> bool {
 		proof.is_optimal
@@ -178,7 +171,7 @@ parameter_types! {
 impl pallet_session::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = u64;
-	type ValidatorIdOf = pallet_staking::StashOf<Self>;
+	type ValidatorIdOf = sp_runtime::traits::ConvertInto;
 	type ShouldEndSession = pallet_session::PeriodicSessions<ConstU64<1>, ConstU64<0>>;
 	type NextSessionRotation = pallet_session::PeriodicSessions<ConstU64<1>, ConstU64<0>>;
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
@@ -186,11 +179,14 @@ impl pallet_session::Config for Test {
 	type Keys = MockSessionKeys;
 	type DisablingStrategy = ();
 	type WeightInfo = ();
+	type Currency = Balances;
+	type KeyDeposit = ();
 }
 
 impl pallet_session::historical::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = ();
-	type FullIdentificationOf = pallet_staking::NullIdentity;
+	type FullIdentificationOf = pallet_staking::UnitIdentificationOf<Self>;
 }
 
 impl pallet_authorship::Config for Test {
@@ -198,9 +194,10 @@ impl pallet_authorship::Config for Test {
 	type EventHandler = ();
 }
 
+type Balance = u128;
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type Balance = u128;
+	type Balance = Balance;
 	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
 }
@@ -315,7 +312,7 @@ impl ExtBuilder {
 			validator_count: 2,
 			force_era: pallet_staking::Forcing::ForceNew,
 			minimum_validator_count: 0,
-			invulnerables: BoundedVec::new(),
+			invulnerables: vec![],
 			..Default::default()
 		};
 

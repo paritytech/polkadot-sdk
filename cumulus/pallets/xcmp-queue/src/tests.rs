@@ -17,102 +17,365 @@ use super::{
 	mock::{mk_page, versioned_xcm, EnqueuedMessages, HRMP_PARA_ID},
 	*,
 };
+use std::collections::BTreeMap;
 use XcmpMessageFormat::*;
 
 use codec::Input;
 use cumulus_primitives_core::{ParaId, XcmpMessageHandler};
 use frame_support::{
-	assert_err, assert_noop, assert_ok, assert_storage_noop, hypothetically, traits::Hooks,
+	assert_err, assert_noop, assert_ok, assert_storage_noop, hypothetically,
+	traits::{BatchFootprint, Hooks},
 	StorageNoopGuard,
 };
-use mock::{new_test_ext, ParachainSystem, RuntimeOrigin as Origin, Test, XcmpQueue};
+use mock::{new_test_ext, FirstPagePos, ParachainSystem, RuntimeOrigin as Origin, Test, XcmpQueue};
 use sp_runtime::traits::{BadOrigin, Zero};
 use std::iter::{once, repeat};
 use xcm::{MAX_INSTRUCTIONS_TO_DECODE, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
 
+fn generate_mock_xcm(idx: usize) -> VersionedXcm<Test> {
+	VersionedXcm::<Test>::from(Xcm::<Test>(vec![Trap(idx as u64)]))
+}
+
+fn generate_mock_xcm_batch(start_idx: usize, xcm_count: usize) -> Vec<VersionedXcm<Test>> {
+	let mut batch = vec![];
+	for i in 0..xcm_count {
+		batch.push(generate_mock_xcm(start_idx + i));
+	}
+	batch
+}
+
+fn encode_xcm_batch(
+	xcms: Vec<VersionedXcm<Test>>,
+	xcm_encoding: XcmEncoding,
+) -> Vec<BoundedVec<u8, MaxXcmpMessageLenOf<Test>>> {
+	let mut data = vec![];
+
+	for xcm in xcms {
+		let xcm = match xcm_encoding {
+			XcmEncoding::Simple => xcm.encode(),
+			XcmEncoding::Double => xcm.encode().encode(),
+		};
+		data.push(BoundedVec::try_from(xcm).unwrap());
+	}
+	data
+}
+
+fn generate_mock_xcm_page(
+	start_idx: usize,
+	xcm_count: usize,
+	xcm_encoding: XcmEncoding,
+) -> Vec<u8> {
+	let mut data: Vec<u8> = match xcm_encoding {
+		XcmEncoding::Simple => ConcatenatedVersionedXcm,
+		XcmEncoding::Double => ConcatenatedOpaqueVersionedXcm,
+	}
+	.encode();
+
+	let xcms = generate_mock_xcm_batch(start_idx, xcm_count);
+	let xcms = encode_xcm_batch(xcms, xcm_encoding);
+	for xcm in xcms {
+		data.extend(xcm)
+	}
+	data
+}
+
+#[test]
+fn handling_signals_works() {
+	new_test_ext().execute_with(|| {
+		fn get_channel(recipient: ParaId) -> Option<OutboundChannelDetails> {
+			<OutboundXcmpStatus<Test>>::get()
+				.into_iter()
+				.find(|item| item.recipient == recipient)
+		}
+
+		// Suspend works;
+		let page = (XcmpMessageFormat::Signals, ChannelSignal::Suspend).encode();
+		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
+		let channel = get_channel(1000.into()).unwrap();
+		assert_eq!(channel.state, OutboundState::Suspended);
+
+		// Resume works
+		let page = (XcmpMessageFormat::Signals, ChannelSignal::Resume).encode();
+		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
+		let channel = get_channel(1000.into());
+		assert_eq!(channel, None);
+
+		// Only the first 3 signals are processed
+		let page = (
+			XcmpMessageFormat::Signals,
+			ChannelSignal::Suspend,
+			ChannelSignal::Resume,
+			ChannelSignal::Suspend,
+			ChannelSignal::Resume,
+			ChannelSignal::Resume,
+			ChannelSignal::Resume,
+		)
+			.encode();
+		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
+		let channel = get_channel(1000.into()).unwrap();
+		assert_eq!(channel.state, OutboundState::Suspended);
+	})
+}
+
 #[test]
 fn empty_concatenated_works() {
 	new_test_ext().execute_with(|| {
-		let data = ConcatenatedVersionedXcm.encode();
-
-		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, data.as_slice())), Weight::MAX);
+		let page = generate_mock_xcm_page(0, 0, XcmEncoding::Simple);
+		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
+		assert_eq!(EnqueuedMessages::get(), vec![]);
 	})
 }
 
-#[test]
-fn xcm_enqueueing_basic_works() {
+fn test_basic_xcm_enqueueing(xcm_encoding: XcmEncoding) {
 	new_test_ext().execute_with(|| {
-		let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin])).encode();
-		let data = [ConcatenatedVersionedXcm.encode(), xcm.clone()].concat();
+		// Empty page should work
+		EnqueuedMessages::set(vec![]);
+		let page = generate_mock_xcm_page(0, 0, xcm_encoding);
+		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
+		assert_eq!(EnqueuedMessages::get(), vec![]);
 
-		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, data.as_slice())), Weight::MAX);
-
-		assert_eq!(EnqueuedMessages::get(), vec![(1000.into(), xcm)]);
-	})
-}
-
-#[test]
-fn xcm_enqueueing_many_works() {
-	new_test_ext().execute_with(|| {
-		let mut encoded_xcms = vec![];
-		for i in 0..10 {
-			let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin; i as usize]));
-			encoded_xcms.push(xcm.encode());
-		}
-		let mut data = ConcatenatedVersionedXcm.encode();
-		data.extend(encoded_xcms.iter().flatten());
-
-		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, data.as_slice())), Weight::MAX);
-
+		// A page with a single message works
+		EnqueuedMessages::set(vec![]);
+		let page = generate_mock_xcm_page(0, 1, xcm_encoding);
+		let xcms = encode_xcm_batch(generate_mock_xcm_batch(0, 1), XcmEncoding::Simple);
+		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
 		assert_eq!(
 			EnqueuedMessages::get(),
-			encoded_xcms.into_iter().map(|xcm| (1000.into(), xcm)).collect::<Vec<_>>(),
+			xcms.into_iter().map(|xcm| (1000.into(), xcm.into_inner())).collect::<Vec<_>>()
 		);
-	})
-}
 
-#[test]
-fn xcm_enqueueing_multiple_times_works() {
-	new_test_ext().execute_with(|| {
-		let mut encoded_xcms = vec![];
-		for _ in 0..10 {
-			let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin]));
-			encoded_xcms.push(xcm.encode());
-		}
-		let mut data = ConcatenatedVersionedXcm.encode();
-		data.extend(encoded_xcms.iter().flatten());
+		// A page with few message (less than a batch) works
+		EnqueuedMessages::set(vec![]);
+		let page = generate_mock_xcm_page(0, 10, xcm_encoding);
+		let xcms = encode_xcm_batch(generate_mock_xcm_batch(0, 10), XcmEncoding::Simple);
+		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
+		assert_eq!(
+			EnqueuedMessages::get(),
+			xcms.into_iter().map(|xcm| (1000.into(), xcm.into_inner())).collect::<Vec<_>>(),
+		);
 
-		for i in 0..10 {
-			XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, data.as_slice())), Weight::MAX);
+		// Enqueueing multiple times works
+		EnqueuedMessages::set(vec![]);
+		// The drop threshold is 48 and our mock message queue enqueues 1 message per page
+		let mut xcms = vec![];
+		for i in 0..4 {
+			let page = generate_mock_xcm_page(i * 10, 10, xcm_encoding);
+			xcms.extend(encode_xcm_batch(generate_mock_xcm_batch(i * 10, 10), XcmEncoding::Simple));
+			XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
 			assert_eq!((i + 1) * 10, EnqueuedMessages::get().len());
 		}
+		assert_eq!(
+			EnqueuedMessages::get(),
+			xcms.into_iter().map(|xcm| (1000.into(), xcm.into_inner())).collect::<Vec<_>>()
+		);
+	});
+}
+
+#[test]
+fn basic_xcm_enqueueing_works() {
+	test_basic_xcm_enqueueing(XcmEncoding::Simple);
+	test_basic_xcm_enqueueing(XcmEncoding::Double);
+}
+
+fn test_enqueueing_more_than_a_xcm_batch(xcm_encoding: XcmEncoding) {
+	new_test_ext().execute_with(|| {
+		EnqueuedMessages::set(vec![]);
+		<QueueConfig<Test>>::set(QueueConfigData {
+			suspend_threshold: 500,
+			drop_threshold: 500,
+			resume_threshold: 500,
+		});
+
+		let page = generate_mock_xcm_page(0, 300, xcm_encoding);
+		let xcms = encode_xcm_batch(generate_mock_xcm_batch(0, 300), XcmEncoding::Simple);
+		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
 
 		assert_eq!(
 			EnqueuedMessages::get(),
-			encoded_xcms
-				.into_iter()
-				.map(|xcm| (1000.into(), xcm))
-				.cycle()
-				.take(100)
-				.collect::<Vec<_>>(),
+			xcms.into_iter().map(|xcm| (1000.into(), xcm.into_inner())).collect::<Vec<_>>()
 		);
 	})
 }
 
 #[test]
-#[cfg_attr(debug_assertions, should_panic = "Could not enqueue XCMP messages.")]
-fn xcm_enqueueing_starts_dropping_on_overflow() {
+fn test_enqueueing_more_than_a_xcm_batch_works() {
+	test_enqueueing_more_than_a_xcm_batch(XcmEncoding::Simple);
+	test_enqueueing_more_than_a_xcm_batch(XcmEncoding::Double);
+}
+
+fn test_xcm_enqueueing_starts_dropping_on_overflow(xcm_encoding: XcmEncoding) {
+	// We use the fact that our mocked queue enqueues 1 message per page.
 	new_test_ext().execute_with(|| {
-		let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin]));
-		let data = (ConcatenatedVersionedXcm, xcm).encode();
-		// Its possible to enqueue 256 messages at most:
-		let limit = 256;
+		// enqueue less than a batch
+		EnqueuedMessages::set(vec![]);
+		<QueueConfig<Test>>::set(QueueConfigData {
+			suspend_threshold: 10,
+			drop_threshold: 10,
+			resume_threshold: 10,
+		});
 
 		XcmpQueue::handle_xcmp_messages(
-			repeat((1000.into(), 1, data.as_slice())).take(limit * 2),
+			once((1000.into(), 1, generate_mock_xcm_page(0, 11, xcm_encoding).as_slice())),
 			Weight::MAX,
 		);
+		assert_eq!(EnqueuedMessages::get().len(), 10);
+
+		// enqueue messages from multiple origins
+		EnqueuedMessages::set(vec![]);
+		XcmpQueue::handle_xcmp_messages(
+			[
+				(1000.into(), 1, generate_mock_xcm_page(0, 10, xcm_encoding).as_slice()),
+				(2000.into(), 1, generate_mock_xcm_page(0, 10, xcm_encoding).as_slice()),
+			]
+			.into_iter(),
+			Weight::MAX,
+		);
+		assert_eq!(EnqueuedMessages::get().len(), 20);
+
+		// enqueue more than a batch
+		<QueueConfig<Test>>::set(QueueConfigData {
+			suspend_threshold: 300,
+			drop_threshold: 300,
+			resume_threshold: 300,
+		});
+		EnqueuedMessages::set(vec![]);
+		XcmpQueue::handle_xcmp_messages(
+			once((1000.into(), 1, generate_mock_xcm_page(0, 315, xcm_encoding).as_slice())),
+			Weight::MAX,
+		);
+		assert_eq!(EnqueuedMessages::get().len(), 300);
+
+		// enqueue messages from multiple pages
+		EnqueuedMessages::set(vec![]);
+		XcmpQueue::handle_xcmp_messages(
+			[
+				(1000.into(), 1, generate_mock_xcm_page(0, 200, xcm_encoding).as_slice()),
+				(1000.into(), 1, generate_mock_xcm_page(0, 150, xcm_encoding).as_slice()),
+			]
+			.into_iter(),
+			Weight::MAX,
+		);
+		assert_eq!(EnqueuedMessages::get().len(), 300);
+	})
+}
+
+#[test]
+fn xcm_enqueueing_starts_dropping_on_overflow() {
+	test_xcm_enqueueing_starts_dropping_on_overflow(XcmEncoding::Simple);
+	test_xcm_enqueueing_starts_dropping_on_overflow(XcmEncoding::Double);
+}
+
+#[test]
+fn xcm_enqueueing_starts_dropping_on_out_of_weight() {
+	// Our mocked queue enqueues 1 message per page.
+	// Let's make sure we don't hit the drop threshold.
+	new_test_ext().execute_with(|| {
+		<QueueConfig<Test>>::set(QueueConfigData {
+			suspend_threshold: 300,
+			drop_threshold: 300,
+			resume_threshold: 300,
+		});
+
+		let mut total_size = 0;
+		let xcms = encode_xcm_batch(generate_mock_xcm_batch(0, 10), XcmEncoding::Simple);
+		for (idx, xcm) in xcms.iter().enumerate() {
+			EnqueuedMessages::set(vec![]);
+			total_size += xcm.len();
+			let required_weight = <<Test as Config>::WeightInfo>::enqueue_xcmp_messages(
+				0,
+				&BatchFootprint {
+					msgs_count: idx + 1,
+					size_in_bytes: total_size,
+					new_pages_count: idx as u32 + 1,
+				},
+				true,
+			);
+
+			let mut weight_meter = WeightMeter::with_limit(required_weight);
+			let res = XcmpQueue::enqueue_xcmp_messages(
+				1000.into(),
+				&xcms.iter().map(|xcm| xcm.as_bounded_slice()).collect::<Vec<_>>(),
+				true,
+				&mut weight_meter,
+			);
+			if idx < xcms.len() - 1 {
+				assert!(res.is_err());
+			} else {
+				assert!(res.is_ok());
+			}
+
+			assert_eq!(
+				EnqueuedMessages::get(),
+				xcms[..idx + 1]
+					.iter()
+					.map(|xcm| (1000.into(), xcm.to_vec()))
+					.collect::<Vec<_>>()
+			);
+		}
+	})
+}
+
+#[test]
+fn xcm_enqueueing_uses_correct_pov_size() {
+	test_xcm_enqueueing_uses_correct_pov_size(XcmEncoding::Simple);
+	test_xcm_enqueueing_uses_correct_pov_size(XcmEncoding::Double);
+}
+
+fn test_xcm_enqueueing_uses_correct_pov_size(xcm_encoding: XcmEncoding) {
+	let first_page_pos = 100_000;
+	// Our mocked queue enqueues 1 message per page.
+	// Let's make sure we don't hit the drop threshold.
+	new_test_ext().execute_with(|| {
+		<QueueConfig<Test>>::set(QueueConfigData {
+			suspend_threshold: 300,
+			drop_threshold: 300,
+			resume_threshold: 300,
+		});
+		FirstPagePos::set(BTreeMap::from([
+			(1000.into(), first_page_pos),
+			(2000.into(), first_page_pos),
+		]));
+
+		let page = generate_mock_xcm_page(0, 1, xcm_encoding);
+		let consumed_weight = XcmpQueue::handle_xcmp_messages(
+			[
+				// For the first page for a certain sender, we should take into account the
+				// `first_page_pos` in the PoV size
+				(1000.into(), 1, page.as_slice()),
+				// For the following pages, we shouldn't take into account the
+				// `first_page_pos` in the PoV size anymore
+				(1000.into(), 1, page.as_slice()),
+				(1000.into(), 1, page.as_slice()),
+				(1000.into(), 1, page.as_slice()),
+				(1000.into(), 1, page.as_slice()),
+			]
+			.into_iter(),
+			Weight::MAX,
+		);
+		assert!(consumed_weight.proof_size() > first_page_pos as u64);
+		assert!(consumed_weight.proof_size() < 2 * first_page_pos as u64);
+
+		let consumed_weight = XcmpQueue::handle_xcmp_messages(
+			[
+				// For the first page for a certain sender, we should take into account the
+				// `first_page_pos` in the PoV size
+				(1000.into(), 1, page.as_slice()),
+				// For the first page for a different sender, we should take into account the
+				// `first_page_pos` in the PoV size
+				(2000.into(), 1, page.as_slice()),
+				// For the following pages, we shouldn't take into account the
+				// `first_page_pos` in the PoV size anymore
+				(1000.into(), 1, page.as_slice()),
+				(2000.into(), 1, page.as_slice()),
+				(1000.into(), 1, page.as_slice()),
+				(2000.into(), 1, page.as_slice()),
+			]
+			.into_iter(),
+			Weight::MAX,
+		);
+		assert!(consumed_weight.proof_size() > 2 * first_page_pos as u64);
+		assert!(consumed_weight.proof_size() < 3 * first_page_pos as u64);
 	})
 }
 
@@ -134,7 +397,7 @@ fn xcm_enqueueing_broken_xcm_works() {
 		let mut bad = ConcatenatedVersionedXcm.encode();
 		bad.extend(vec![0u8].into_iter());
 
-		// Of we enqueue them in multiple pages, then its fine.
+		// If we enqueue them in multiple pages, then it's fine.
 		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, good.as_slice())), Weight::MAX);
 		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, bad.as_slice())), Weight::MAX);
 		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, good.as_slice())), Weight::MAX);
@@ -255,36 +518,39 @@ fn suspend_and_resume_xcm_execution_work() {
 }
 
 #[test]
-#[cfg(not(debug_assertions))]
 fn xcm_enqueueing_backpressure_works() {
 	let para: ParaId = 1000.into();
 	new_test_ext().execute_with(|| {
-		let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin]));
-		let data = (ConcatenatedVersionedXcm, xcm).encode();
+		assert_ok!(XcmpQueue::update_resume_threshold(Origin::root(), 1));
+		assert_ok!(XcmpQueue::update_suspend_threshold(Origin::root(), 3));
+		assert_ok!(XcmpQueue::update_drop_threshold(Origin::root(), 5));
+		let page = generate_mock_xcm_page(0, 1, XcmEncoding::Simple);
 
-		XcmpQueue::handle_xcmp_messages(repeat((para, 1, data.as_slice())).take(170), Weight::MAX);
-
-		assert_eq!(EnqueuedMessages::get().len(), 170,);
+		XcmpQueue::handle_xcmp_messages(repeat((para, 1, page.as_slice())).take(2), Weight::MAX);
+		assert_eq!(EnqueuedMessages::get().len(), 2);
 		// Not yet suspended:
 		assert!(InboundXcmpSuspended::<Test>::get().is_empty());
-		// Enqueueing one more will suspend it:
-		let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin])).encode();
-		let small = [ConcatenatedVersionedXcm.encode(), xcm].concat();
 
-		XcmpQueue::handle_xcmp_messages(once((para, 1, small.as_slice())), Weight::MAX);
+		XcmpQueue::handle_xcmp_messages(once((para, 1, page.as_slice())), Weight::MAX);
 		// Suspended:
 		assert_eq!(InboundXcmpSuspended::<Test>::get().iter().collect::<Vec<_>>(), vec![&para]);
 
-		// Now enqueueing many more will only work until the drop threshold:
-		XcmpQueue::handle_xcmp_messages(repeat((para, 1, data.as_slice())).take(100), Weight::MAX);
-		assert_eq!(mock::EnqueuedMessages::get().len(), 256);
+		// We want to ignore the defensive panic :)
+		let _ = std::panic::catch_unwind(|| {
+			// Now enqueueing many more will only work until the drop threshold:
+			XcmpQueue::handle_xcmp_messages(
+				repeat((para, 1, page.as_slice())).take(10),
+				Weight::MAX,
+			)
+		});
+		assert_eq!(EnqueuedMessages::get().len(), 5);
 
-		crate::mock::EnqueueToLocalStorage::<Pallet<Test>>::sweep_queue(para);
-		XcmpQueue::handle_xcmp_messages(once((para, 1, small.as_slice())), Weight::MAX);
+		mock::EnqueueToLocalStorage::<Pallet<Test>>::sweep_queue(para);
+		XcmpQueue::handle_xcmp_messages(once((para, 1, page.as_slice())), Weight::MAX);
 		// Got resumed:
 		assert!(InboundXcmpSuspended::<Test>::get().is_empty());
 		// Still resumed:
-		XcmpQueue::handle_xcmp_messages(once((para, 1, small.as_slice())), Weight::MAX);
+		XcmpQueue::handle_xcmp_messages(once((para, 1, page.as_slice())), Weight::MAX);
 		assert!(InboundXcmpSuspended::<Test>::get().is_empty());
 	});
 }
@@ -579,12 +845,12 @@ fn take_first_concatenated_xcm_works() {
 
 	for i in 0..100 {
 		let xcm = XcmpQueue::take_first_concatenated_xcm(input, &mut WeightMeter::new()).unwrap();
-		match (i % 2, xcm) {
-			(0, data) | (2, data) => {
-				assert_eq!(data, versioned_xcm(older_xcm_version).encode());
+		match i % 2 {
+			0 => {
+				assert_eq!(xcm.to_vec(), versioned_xcm(older_xcm_version).encode());
 			},
-			(1, data) | (3, data) => {
-				assert_eq!(data, versioned_xcm(newer_xcm_version).encode());
+			1 => {
+				assert_eq!(xcm.to_vec(), versioned_xcm(newer_xcm_version).encode());
 			},
 			unexpected => unreachable!("{:?}", unexpected),
 		}
@@ -615,10 +881,53 @@ fn take_first_concatenated_xcm_good_bad_depth_errors() {
 	let bad = VersionedXcm::from(bad);
 
 	let page = bad.encode();
-	assert_err!(
+	assert_eq!(
 		XcmpQueue::take_first_concatenated_xcm(&mut &page[..], &mut WeightMeter::new()),
-		()
+		Err(())
 	);
+}
+
+fn test_take_first_concatenated_xcms(xcm_encoding: XcmEncoding) {
+	// Should return correctly when can't fill a full batch
+	let page = generate_mock_xcm_page(0, 9, xcm_encoding);
+	let xcms = encode_xcm_batch(generate_mock_xcm_batch(0, 9), XcmEncoding::Simple);
+	let data = &mut &page[1..];
+	assert_eq!(
+		XcmpQueue::take_first_concatenated_xcms(data, xcm_encoding, 5, &mut WeightMeter::new()),
+		Ok(xcms[0..5].iter().map(|xcm| xcm.as_bounded_slice()).collect())
+	);
+	assert_eq!(
+		XcmpQueue::take_first_concatenated_xcms(data, xcm_encoding, 5, &mut WeightMeter::new()),
+		Ok(xcms[5..9].iter().map(|xcm| xcm.as_bounded_slice()).collect())
+	);
+
+	// Should return partial batch on error
+	let mut page = generate_mock_xcm_page(0, 5, xcm_encoding);
+	match xcm_encoding {
+		XcmEncoding::Simple => {
+			// Claim that an XCM with version 100 should follow, even if version 100 doesn't exist.
+			page.push(100);
+		},
+		XcmEncoding::Double => {
+			// Claim that an 1 byte XCM should follow, even if it doesn't.
+			page.extend(Compact::<u32>::from(1).encode());
+		},
+	}
+	assert_eq!(
+		XcmpQueue::take_first_concatenated_xcms(
+			&mut &page[1..],
+			xcm_encoding,
+			10,
+			&mut WeightMeter::new()
+		),
+		Err(xcms[0..5].iter().map(|xcm| xcm.as_bounded_slice()).collect())
+	);
+}
+
+#[test]
+fn take_first_concatenated_xcms_works() {
+	test_take_first_concatenated_xcms(XcmEncoding::Simple);
+	test_take_first_concatenated_xcms(XcmEncoding::Double);
 }
 
 #[test]
@@ -790,8 +1099,8 @@ fn verify_fee_factor_increase_and_decrease() {
 	xcmp_message.extend(versioned_xcm.encode());
 
 	new_test_ext().execute_with(|| {
-		let initial = InitialFactor::get();
-		assert_eq!(DeliveryFeeFactor::<Test>::get(sibling_para_id), initial);
+		let initial = Pallet::<Test>::MIN_FEE_FACTOR;
+		assert_eq!(Pallet::<Test>::get_fee_factor(sibling_para_id), initial);
 
 		// Open channel so messages can actually be sent
 		ParachainSystem::open_custom_outbound_hrmp_channel_for_benchmarks_or_tests(

@@ -32,8 +32,8 @@
 use super::{
 	seconded_and_sufficient, CandidateDescriptorVersion, TransposedClaimQueue,
 	BENEFIT_VALID_RESPONSE, BENEFIT_VALID_STATEMENT, COST_IMPROPERLY_DECODED_RESPONSE,
-	COST_INVALID_CORE_INDEX, COST_INVALID_RESPONSE, COST_INVALID_SESSION_INDEX,
-	COST_INVALID_SIGNATURE, COST_UNREQUESTED_RESPONSE_STATEMENT,
+	COST_INVALID_RESPONSE, COST_INVALID_SESSION_INDEX, COST_INVALID_SIGNATURE,
+	COST_INVALID_UMP_SIGNALS, COST_UNREQUESTED_RESPONSE_STATEMENT,
 	COST_UNSUPPORTED_DESCRIPTOR_VERSION, REQUEST_RETRY_DELAY,
 };
 use crate::LOG_TARGET;
@@ -45,13 +45,13 @@ use polkadot_node_network_protocol::{
 		v2::{AttestedCandidateRequest, AttestedCandidateResponse},
 		OutgoingRequest, OutgoingResult, MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS,
 	},
-	v2::StatementFilter,
+	v3::StatementFilter,
 	PeerId, UnifiedReputationChange as Rep,
 };
 use polkadot_primitives::{
-	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CandidateHash,
-	CompactStatement, GroupIndex, Hash, Id as ParaId, PersistedValidationData, SessionIndex,
-	SignedStatement, SigningContext, ValidatorId, ValidatorIndex,
+	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CompactStatement,
+	GroupIndex, Hash, Id as ParaId, PersistedValidationData, SessionIndex, SignedStatement,
+	SigningContext, ValidatorId, ValidatorIndex,
 };
 
 use futures::{future::BoxFuture, prelude::*, stream::FuturesUnordered};
@@ -184,7 +184,7 @@ impl RequestManager {
 		relay_parent: Hash,
 		candidate_hash: CandidateHash,
 		group_index: GroupIndex,
-	) -> Entry {
+	) -> Entry<'_> {
 		let identifier = CandidateIdentifier { relay_parent, candidate_hash, group_index };
 
 		let (candidate, fresh) = match self.requests.entry(identifier.clone()) {
@@ -741,16 +741,16 @@ fn validate_complete_response(
 			);
 			return invalid_candidate_output(COST_UNSUPPORTED_DESCRIPTOR_VERSION)
 		}
-		// Validate the core index.
-		if let Err(err) = response.candidate_receipt.check_core_index(transposed_cq) {
+		// Validate the ump signals.
+		if let Err(err) = response.candidate_receipt.parse_ump_signals(transposed_cq) {
 			gum::debug!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				?err,
 				peer = ?requested_peer,
-				"Received candidate has invalid core index"
+				"Received candidate has invalid UMP signals"
 			);
-			return invalid_candidate_output(COST_INVALID_CORE_INDEX)
+			return invalid_candidate_output(COST_INVALID_UMP_SIGNALS)
 		}
 
 		// Check if `session_index` of relay parent matches candidate descriptor
@@ -1295,7 +1295,6 @@ mod tests {
 		candidate_receipt.descriptor.persisted_validation_data_hash =
 			persisted_validation_data.hash();
 		let candidate = candidate_receipt.hash();
-		let candidate_receipt: CommittedCandidateReceipt = candidate_receipt.into();
 		let requested_peer = PeerId::random();
 
 		let identifier = request_manager
@@ -1337,7 +1336,7 @@ mod tests {
 					requested_peer,
 					props: request_properties.clone(),
 					response: Ok(AttestedCandidateResponse {
-						candidate_receipt: candidate_receipt.clone(),
+						candidate_receipt: candidate_receipt.clone().into(),
 						persisted_validation_data: persisted_validation_data.clone(),
 						statements,
 					}),
@@ -1362,7 +1361,7 @@ mod tests {
 				ResponseValidationOutput {
 					requested_peer,
 					request_status: CandidateRequestStatus::Complete {
-						candidate: candidate_receipt.clone(),
+						candidate: candidate_receipt.clone().into(),
 						persisted_validation_data: persisted_validation_data.clone(),
 						statements,
 					},

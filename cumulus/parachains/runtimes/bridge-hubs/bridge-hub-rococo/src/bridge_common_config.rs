@@ -62,6 +62,7 @@ impl pallet_bridge_parachains::Config<BridgeParachainWestendInstance> for Runtim
 		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_westend::BridgeHubWestend>;
 	type HeadsToKeep = ParachainHeadsToKeep;
 	type MaxParaHeadDataSize = MaxWestendParaHeadDataSize;
+	type OnNewHead = ();
 }
 
 /// Allows collect and claim rewards for relayers

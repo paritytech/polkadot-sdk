@@ -13,9 +13,13 @@ permissions:
   actions: write # It may have to backport changes to the CI as well.
 
 jobs:
-  backport:
-    name: Backport pull request
+  check-labels:
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    outputs:
+      LABELS: ${{ steps.check_labels.outputs.LABELS }}
+      found: ${{ steps.check_labels.outputs.found }}
 
     # The 'github.event.pull_request.merged' ensures that it got into master:
     if: >
@@ -23,24 +27,58 @@ jobs:
       (
         github.event_name == 'pull_request_target' &&
         github.event.pull_request.merged &&
-        github.event.pull_request.base.ref == 'master' &&
-        contains(github.event.pull_request.labels.*.name, 'A4-needs-backport')
+        github.event.pull_request.base.ref == 'master'
       )
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Check for backport labels
+        id: check_labels
+        run: |
+          LABELS=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+
+          if echo "$LABELS" | grep -qE '^A4-backport-(stable|unstable)'; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            readarray -t labels_array <<< "$LABELS"
+            echo "LABELS=${labels_array[@]}" >> $GITHUB_OUTPUT
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+          fi
+
+  backport:
+    name: Backport pull request
+    runs-on: ubuntu-latest
+    needs: [check-labels]
+    if: ${{ needs.check-labels.outputs.found == 'true' }}
+    steps:
 
       - name: Generate token
         id: generate_token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
         with:
-          app_id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
-          private_key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
+
+      - name: Checkout sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          token: ${{ steps.generate_token.outputs.token }}
+
+      - name: Get branches to backport to
+        id: branches
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          LABELS="${{ needs.check-labels.outputs.LABELS }}"
+          BACKPORT_BRANCHES=$(parse_branch_names_from_backport_labels "$LABELS")
+          echo "BACKPORT_BRANCHES=${BACKPORT_BRANCHES}" >> $GITHUB_OUTPUT
+
 
       - name: Create backport pull requests
-        uses: korthout/backport-action@v3
+        uses: korthout/backport-action@d07416681cab29bf2661702f925f020aaa962997 # v3.4.1
         id: backport
         with:
-          target_branches: stable2407 stable2409 stable2412 stable2503
+          target_branches: ${{ steps.branches.outputs.BACKPORT_BRANCHES }}
           merge_commits: skip
           github_token: ${{ steps.generate_token.outputs.token }}
           pull_description: |
@@ -59,10 +97,11 @@ jobs:
               "conflict_resolution": "draft_commit_conflicts"
             }
           copy_assignees: true
+          label_pattern: ''
 
       - name: Label Backports
         if: ${{ steps.backport.outputs.created_pull_numbers != '' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             const pullNumbers = '${{ steps.backport.outputs.created_pull_numbers }}'.split(' ');
@@ -79,18 +118,18 @@ jobs:
 
       - name: Request Review
         if: ${{ steps.backport.outputs.created_pull_numbers != '' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             const pullNumbers = '${{ steps.backport.outputs.created_pull_numbers }}'.split(' ');
             const reviewer = '${{ github.event.pull_request.user.login }}';
 
             for (const pullNumber of pullNumbers) {
-              await github.pulls.requestReviewers({
+              await github.rest.pulls.requestReviewers({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: parseInt(pullNumber),
-                reviewers: [ reviewer ]
+                reviewers: [reviewer]
               });
               console.log(`Requested review from ${reviewer} for PR #${pullNumber}`);
             }

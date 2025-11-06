@@ -26,6 +26,7 @@ use emulated_integration_tests_common::{
 	impl_assets_helpers_for_parachain, impl_assets_helpers_for_system_parachain,
 	impl_bridge_helpers_for_chain, impl_foreign_assets_helpers_for_parachain,
 	impl_xcm_helpers_for_parachain, impls::Parachain, xcm_emulator::decl_test_parachains,
+	AuraDigestProvider,
 };
 use westend_emulated_chain::Westend;
 
@@ -42,6 +43,8 @@ decl_test_parachains! {
 			LocationToAccountId: asset_hub_westend_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: asset_hub_westend_runtime::ParachainInfo,
 			MessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,
+			DigestProvider: AuraDigestProvider,
+			AdditionalInherentCode: (),
 		},
 		pallets = {
 			PolkadotXcm: asset_hub_westend_runtime::PolkadotXcm,
@@ -50,6 +53,8 @@ decl_test_parachains! {
 			ForeignAssets: asset_hub_westend_runtime::ForeignAssets,
 			PoolAssets: asset_hub_westend_runtime::PoolAssets,
 			AssetConversion: asset_hub_westend_runtime::AssetConversion,
+			SnowbridgeSystemFrontend: asset_hub_westend_runtime::SnowbridgeSystemFrontend,
+			Revive: asset_hub_westend_runtime::Revive,
 		}
 	},
 }

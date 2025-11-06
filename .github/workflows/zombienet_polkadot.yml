@@ -1,0 +1,141 @@
+name: Zombienet Polkadot
+
+on:
+  workflow_call:
+    inputs:
+      build_run_id:
+        type: string
+        description: "Build run ID from the build workflow."
+        required: true
+      ref_slug:
+        type: string
+        description: "Source ref slug from the build workflow."
+        required: false
+      test_pattern:
+        type: string
+        description: "Run tests which names match this pattern (also flaky)"
+        default: ""
+        required: false
+  workflow_dispatch:
+    inputs:
+      test_pattern:
+        type: string
+        description: "Run tests which names match this pattern (also flaky)"
+        default: ""
+        required: false
+
+concurrency:
+  group: polkadot-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.run_id }}
+  cancel-in-progress: true
+
+permissions: read-all
+
+env:
+  FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
+  LOCAL_DIR: "./polkadot/zombienet_tests"
+  GHA_CLUSTER_SERVER_ADDR: "https://kubernetes.default:443"
+  # use spot by default
+  X_INFRA_INSTANCE: "spot"
+  # don't retry sdk tests
+  NEXTEST_RETRIES: 0
+  KUBECONFIG: "/data/config"
+  ZOMBIE_CLEANER_DISABLED: 1
+
+# only run if we have changes in [subtrate, polkadot] directories or this workflow.
+jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
+  preflight:
+    needs: isdraft
+    uses: ./.github/workflows/zombienet-reusable-preflight.yml
+    with:
+      tests_yaml: .github/zombienet-tests/zombienet_polkadot_tests.yml
+      test_pattern: ${{ inputs.test_pattern }}
+      build_run_id: ${{ inputs.build_run_id }}
+      ref_slug: ${{ inputs.ref_slug }}
+
+  zombienet-polkadot-tests:
+    name: ${{ matrix.test.job-name }}
+    runs-on: ${{ matrix.test.runner-type == 'large' && (matrix.test.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER) || (matrix.test.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER || needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER) }}
+    timeout-minutes: 70 # 60 for test + 10 for send logs
+    needs: [preflight]
+    if: ${{ github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch' || github.event_name == 'merge_group' || (needs.preflight.outputs.changes_substrate == 'true' || needs.preflight.outputs.changes_polkadot == 'true' || needs.preflight.outputs.changes_zombienet == 'true') }}
+    container:
+      image: ${{ matrix.test.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_IMAGE || needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      options: -v /tmp/zombienet:/tmp/zombienet
+    env:
+      ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/colander:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/${{ matrix.test.cumulus-image || 'polkadot-parachain-debug' }}:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      MALUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/malus:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      DEBUG: ${{ needs.preflight.outputs.DEBUG }}
+      ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
+      RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
+      ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
+    strategy:
+      fail-fast: false
+      matrix:
+        test: ${{ fromJson(needs.preflight.outputs.TEST_MATRIX) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Set additional environment variables
+        if: ${{ matrix.test.additional-env }}
+        shell: bash
+        run: |
+          echo '${{ toJson(matrix.test.additional-env) }}' | jq -r 'to_entries[] | "\(.key)=\(.value)"' >> $GITHUB_ENV
+
+      - name: Additional setup
+        if: ${{ matrix.test.additional-setup }}
+        shell: bash
+        run: ${{ matrix.test.additional-setup }}
+
+      - name: zombienet_test (v1)
+        if: ${{ !matrix.test.use-zombienet-sdk }}
+        timeout-minutes: 60
+        uses: ./.github/actions/zombienet
+        with:
+          test-definition: ${{ matrix.test.test-definition }}
+          job-name: ${{ matrix.test.job-name }}
+          local-dir: ${{ matrix.test.local-dir }}
+          concurrency: ${{ matrix.test.concurrency || 1 }}
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+
+      - name: zombienet_test (sdk)
+        if: ${{ matrix.test.use-zombienet-sdk }}
+        uses: ./.github/actions/zombienet-sdk
+        with:
+          test-filter: ${{ matrix.test.test-filter }}
+          job-name: ${{ matrix.test.job-name }}
+          prefix: "polkadot"
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+
+      - name: process_logs
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          echo "Processing log files"
+          echo "::group::Logs"
+          # do not fail the whole run if this step fails
+          if ! ./.github/scripts/process-logs-zombienet.sh ; then
+            echo "::endgroup::"
+            echo "::warning ::WARNING: Failed to process logs"
+          else
+            echo "::endgroup::"
+          fi
+
+
+      - name: upload_logs
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: ${{ always() }}
+        with:
+          name: zombienet-logs-${{ matrix.test.job-name }}-${{ github.sha }}
+          path: |
+            /tmp/zombie*/logs/*

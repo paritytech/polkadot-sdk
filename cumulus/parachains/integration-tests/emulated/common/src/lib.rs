@@ -17,7 +17,10 @@ pub mod impls;
 pub mod macros;
 pub mod xcm_helpers;
 
+use codec::Encode;
+use cumulus_primitives_core::relay_chain::Slot;
 pub use xcm_emulator;
+pub use xcm_simulator;
 
 // Substrate
 use frame_support::parameter_types;
@@ -27,9 +30,9 @@ use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_core::storage::Storage;
 use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
-use sp_runtime::{traits::AccountIdConversion, BuildStorage};
+use sp_runtime::{traits::AccountIdConversion, BuildStorage, Digest, DigestItem};
 
-// Polakdot
+// Polkadot
 use parachains_common::BlockNumber;
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_parachains::configuration::HostConfiguration;
@@ -37,6 +40,8 @@ use polkadot_runtime_parachains::configuration::HostConfiguration;
 // Cumulus
 use parachains_common::{AccountId, AuraId};
 use polkadot_primitives::{AssignmentId, ValidatorId};
+use sp_runtime::traits::Convert;
+use xcm_emulator::{RelayBlockNumber, AURA_ENGINE_ID};
 
 pub const XCM_V2: u32 = 2;
 pub const XCM_V3: u32 = 3;
@@ -61,6 +66,17 @@ pub const PENPAL_B_ID: u32 = 2001;
 pub const ASSET_HUB_ROCOCO_ID: u32 = 1000;
 pub const ASSET_HUB_WESTEND_ID: u32 = 1000;
 pub const ASSETS_PALLET_ID: u8 = 50;
+
+pub struct AuraDigestProvider {}
+
+impl Convert<(BlockNumber, RelayBlockNumber), Digest> for AuraDigestProvider {
+	fn convert((_, relay_block_number): (BlockNumber, RelayBlockNumber)) -> Digest {
+		let slot: Slot = (relay_block_number as u64).into();
+		let mut digest = Digest::default();
+		digest.logs.push(DigestItem::PreRuntime(AURA_ENGINE_ID, slot.encode()));
+		digest
+	}
+}
 
 parameter_types! {
 	pub PenpalATeleportableAssetLocation: xcm::v5::Location
@@ -126,8 +142,8 @@ pub mod collators {
 
 	pub fn invulnerables() -> Vec<(AccountId, AuraId)> {
 		vec![
-			(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
-			(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
+			(Sr25519Keyring::Dave.to_account_id(), Sr25519Keyring::Dave.public().into()),
+			(Sr25519Keyring::Eve.to_account_id(), Sr25519Keyring::Eve.public().into()),
 		]
 	}
 }
@@ -158,4 +174,14 @@ pub mod validators {
 			BeefyId::from(Keyring::<BeefyId>::Alice.public()),
 		)]
 	}
+}
+
+pub mod snowbridge {
+	use hex_literal::hex;
+	// Address of WETH ERC20 token contract on remote Ethereum network
+	pub const WETH: [u8; 20] = hex!("fff9976782d46cc05630d1f6ebab18b2324d6b14");
+	// The Ethereum network chain ID. In this case, Sepolia testnet's chain ID.
+	pub const SEPOLIA_ID: u64 = 11155111;
+	// The minimum balance for ether assets pre-registered in emulated tests.
+	pub const ETHER_MIN_BALANCE: u128 = 1000;
 }

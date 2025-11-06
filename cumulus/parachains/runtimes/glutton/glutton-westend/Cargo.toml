@@ -54,7 +54,6 @@ cumulus-pallet-parachain-system = { workspace = true }
 cumulus-pallet-xcm = { workspace = true }
 cumulus-primitives-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true }
-cumulus-primitives-timestamp = { workspace = true }
 parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 testnet-parachains-constants = { features = ["westend"], workspace = true }
@@ -88,7 +87,6 @@ std = [
 	"cumulus-pallet-xcm/std",
 	"cumulus-primitives-aura/std",
 	"cumulus-primitives-core/std",
-	"cumulus-primitives-timestamp/std",
 	"frame-benchmarking?/std",
 	"frame-executive/std",
 	"frame-support/std",
@@ -137,6 +135,7 @@ try-runtime = [
 	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"parachain-info/try-runtime",
+	"parachains-common/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 

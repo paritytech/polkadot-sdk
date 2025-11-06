@@ -52,10 +52,12 @@ use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header, Member, NumberFor};
 
+mod authorities_tracker;
 mod import_queue;
 pub mod standalone;
 
 pub use crate::standalone::{find_pre_digest, slot_duration};
+pub use authorities_tracker::AuthoritiesTracker;
 pub use import_queue::{
 	build_verifier, import_queue, AuraVerifier, BuildVerifierParams, CheckForEquivocation,
 	ImportQueueParams,
@@ -358,7 +360,7 @@ where
 	}
 
 	fn aux_data(&self, header: &B::Header, _slot: Slot) -> Result<Self::AuxData, ConsensusError> {
-		authorities(
+		fetch_authorities_from_runtime(
 			self.client.as_ref(),
 			header.hash(),
 			*header.number() + 1u32.into(),
@@ -481,9 +483,6 @@ pub enum Error<B: BlockT> {
 	/// Client Error
 	#[error(transparent)]
 	Client(sp_blockchain::Error),
-	/// Unknown inherent error for identifier
-	#[error("Unknown inherent error for identifier: {}", String::from_utf8_lossy(.0))]
-	UnknownInherentError(sp_inherents::InherentIdentifier),
 	/// Inherents Error
 	#[error("Inherent error: {0}")]
 	Inherent(sp_inherents::Error),
@@ -504,7 +503,7 @@ impl<B: BlockT> From<crate::standalone::PreDigestLookupError> for Error<B> {
 	}
 }
 
-fn authorities<A, B, C>(
+fn fetch_authorities_from_runtime<A, B, C>(
 	client: &C,
 	parent_hash: B::Hash,
 	context_block_number: NumberFor<B>,
@@ -631,7 +630,7 @@ mod tests {
 				InherentDataProviders = (InherentDataProvider,),
 			>,
 		>,
-		u64,
+		TestBlock,
 	>;
 	type AuraPeer = Peer<(), PeersClient>;
 

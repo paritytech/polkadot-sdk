@@ -15,38 +15,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Provides implementations for the runtime interface traits.
+//! Provides implementations for the runtime interface types which can be
+//! passed directly without any serialization strategy wrappers.
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 use crate::host::*;
-#[cfg(not(feature = "std"))]
+#[cfg(substrate_runtime)]
 use crate::wasm::*;
-use crate::{
-	pass_by::{Codec, Enum, Inner, PassBy, PassByInner},
-	util::{pack_ptr_and_len, unpack_ptr_and_len},
-	Pointer, RIType,
-};
+use crate::{Pointer, RIType};
 
-#[cfg(all(not(feature = "std"), not(feature = "disable_target_static_assertions")))]
-use static_assertions::assert_eq_size;
-
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 use sp_wasm_interface::{FunctionContext, Result};
 
-use codec::{Decode, Encode};
-
-use core::{any::TypeId, mem};
-
-use alloc::vec::Vec;
-
-#[cfg(feature = "std")]
-use alloc::borrow::Cow;
-
 // Make sure that our assumptions for storing a pointer + its size in `u64` is valid.
-#[cfg(all(not(feature = "std"), not(feature = "disable_target_static_assertions")))]
-assert_eq_size!(usize, u32);
-#[cfg(all(not(feature = "std"), not(feature = "disable_target_static_assertions")))]
-assert_eq_size!(*const u8, u32);
+#[cfg(all(substrate_runtime, not(feature = "disable_target_static_assertions")))]
+const _: () = {
+	assert!(core::mem::size_of::<usize>() == core::mem::size_of::<u32>());
+	assert!(core::mem::size_of::<*const u8>() == core::mem::size_of::<u32>());
+};
 
 /// Implement the traits for the given primitive traits.
 macro_rules! impl_traits_for_primitives {
@@ -59,37 +45,42 @@ macro_rules! impl_traits_for_primitives {
 			/// The type is passed directly.
 			impl RIType for $rty {
 				type FFIType = $fty;
+				type Inner = Self;
 			}
 
-			#[cfg(not(feature = "std"))]
+			#[cfg(substrate_runtime)]
 			impl IntoFFIValue for $rty {
-				type Owned = ();
+				type Destructor = ();
 
-				fn into_ffi_value(&self) -> WrappedFFIValue<$fty> {
-					(*self as $fty).into()
+				fn into_ffi_value(value: &mut $rty) -> (Self::FFIType, Self::Destructor) {
+					(*value as $fty, ())
 				}
 			}
 
-			#[cfg(not(feature = "std"))]
+			#[cfg(substrate_runtime)]
 			impl FromFFIValue for $rty {
 				fn from_ffi_value(arg: $fty) -> $rty {
 					arg as $rty
 				}
 			}
 
-			#[cfg(feature = "std")]
-			impl FromFFIValue for $rty {
-				type SelfInstance = $rty;
+			#[cfg(not(substrate_runtime))]
+			impl<'a> FromFFIValue<'a> for $rty {
+				type Owned = Self;
 
 				fn from_ffi_value(_: &mut dyn FunctionContext, arg: $fty) -> Result<$rty> {
 					Ok(arg as $rty)
 				}
+
+				fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
+					*owned
+				}
 			}
 
-			#[cfg(feature = "std")]
+			#[cfg(not(substrate_runtime))]
 			impl IntoFFIValue for $rty {
-				fn into_ffi_value(self, _: &mut dyn FunctionContext) -> Result<$fty> {
-					Ok(self as $fty)
+				fn into_ffi_value(value: Self::Inner, _: &mut dyn FunctionContext) -> Result<$fty> {
+					Ok(value as $fty)
 				}
 			}
 		)*
@@ -113,425 +104,90 @@ impl_traits_for_primitives! {
 /// - `0`: false
 impl RIType for bool {
 	type FFIType = u32;
+	type Inner = Self;
 }
 
-#[cfg(not(feature = "std"))]
+#[cfg(substrate_runtime)]
 impl IntoFFIValue for bool {
-	type Owned = ();
+	type Destructor = ();
 
-	fn into_ffi_value(&self) -> WrappedFFIValue<u32> {
-		if *self { 1 } else { 0 }.into()
+	fn into_ffi_value(value: &mut bool) -> (Self::FFIType, Self::Destructor) {
+		(if *value { 1 } else { 0 }, ())
 	}
 }
 
-#[cfg(not(feature = "std"))]
+#[cfg(substrate_runtime)]
 impl FromFFIValue for bool {
 	fn from_ffi_value(arg: u32) -> bool {
 		arg == 1
 	}
 }
 
-#[cfg(feature = "std")]
-impl FromFFIValue for bool {
-	type SelfInstance = bool;
+#[cfg(not(substrate_runtime))]
+impl<'a> FromFFIValue<'a> for bool {
+	type Owned = Self;
 
 	fn from_ffi_value(_: &mut dyn FunctionContext, arg: u32) -> Result<bool> {
 		Ok(arg == 1)
 	}
+
+	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
+		*owned
+	}
 }
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 impl IntoFFIValue for bool {
-	fn into_ffi_value(self, _: &mut dyn FunctionContext) -> Result<u32> {
-		Ok(if self { 1 } else { 0 })
+	fn into_ffi_value(value: Self, _: &mut dyn FunctionContext) -> Result<u32> {
+		Ok(if value { 1 } else { 0 })
 	}
 }
 
-/// The type is passed as `u64`.
-///
-/// The `u64` value is build by `length 32bit << 32 | pointer 32bit`
-///
-/// If `T == u8` the length and the pointer are taken directly from `Self`.
-/// Otherwise `Self` is encoded and the length and the pointer are taken from the encoded vector.
-impl<T> RIType for Vec<T> {
-	type FFIType = u64;
-}
-
-#[cfg(feature = "std")]
-impl<T: 'static + Encode> IntoFFIValue for Vec<T> {
-	fn into_ffi_value(self, context: &mut dyn FunctionContext) -> Result<u64> {
-		let vec: Cow<'_, [u8]> = if TypeId::of::<T>() == TypeId::of::<u8>() {
-			unsafe { Cow::Borrowed(mem::transmute(&self[..])) }
-		} else {
-			Cow::Owned(self.encode())
-		};
-
-		let ptr = context.allocate_memory(vec.as_ref().len() as u32)?;
-		context.write_memory(ptr, &vec)?;
-
-		Ok(pack_ptr_and_len(ptr.into(), vec.len() as u32))
-	}
-}
-
-#[cfg(feature = "std")]
-impl<T: 'static + Decode> FromFFIValue for Vec<T> {
-	type SelfInstance = Vec<T>;
-
-	fn from_ffi_value(context: &mut dyn FunctionContext, arg: u64) -> Result<Vec<T>> {
-		<[T] as FromFFIValue>::from_ffi_value(context, arg)
-	}
-}
-
-#[cfg(not(feature = "std"))]
-impl<T: 'static + Encode> IntoFFIValue for Vec<T> {
-	type Owned = Vec<u8>;
-
-	fn into_ffi_value(&self) -> WrappedFFIValue<u64, Vec<u8>> {
-		self[..].into_ffi_value()
-	}
-}
-
-#[cfg(not(feature = "std"))]
-impl<T: 'static + Decode> FromFFIValue for Vec<T> {
-	fn from_ffi_value(arg: u64) -> Vec<T> {
-		let (ptr, len) = unpack_ptr_and_len(arg);
-		let len = len as usize;
-
-		if len == 0 {
-			return Vec::new()
-		}
-
-		let data = unsafe { Vec::from_raw_parts(ptr as *mut u8, len, len) };
-
-		if TypeId::of::<T>() == TypeId::of::<u8>() {
-			unsafe { mem::transmute(data) }
-		} else {
-			Self::decode(&mut &data[..]).expect("Host to wasm values are encoded correctly; qed")
-		}
-	}
-}
-
-/// The type is passed as `u64`.
-///
-/// The `u64` value is build by `length 32bit << 32 | pointer 32bit`
-///
-/// If `T == u8` the length and the pointer are taken directly from `Self`.
-/// Otherwise `Self` is encoded and the length and the pointer are taken from the encoded vector.
-impl<T> RIType for [T] {
-	type FFIType = u64;
-}
-
-#[cfg(feature = "std")]
-impl<T: 'static + Decode> FromFFIValue for [T] {
-	type SelfInstance = Vec<T>;
-
-	fn from_ffi_value(context: &mut dyn FunctionContext, arg: u64) -> Result<Vec<T>> {
-		let (ptr, len) = unpack_ptr_and_len(arg);
-
-		let vec = context.read_memory(Pointer::new(ptr), len)?;
-
-		if TypeId::of::<T>() == TypeId::of::<u8>() {
-			Ok(unsafe { mem::transmute(vec) })
-		} else {
-			Ok(Vec::<T>::decode(&mut &vec[..])
-				.expect("Wasm to host values are encoded correctly; qed"))
-		}
-	}
-}
-
-#[cfg(feature = "std")]
-impl IntoPreallocatedFFIValue for [u8] {
-	type SelfInstance = Vec<u8>;
-
-	fn into_preallocated_ffi_value(
-		self_instance: Self::SelfInstance,
-		context: &mut dyn FunctionContext,
-		allocated: u64,
-	) -> Result<()> {
-		let (ptr, len) = unpack_ptr_and_len(allocated);
-
-		if (len as usize) < self_instance.len() {
-			Err(format!(
-				"Preallocated buffer is not big enough (given {} vs needed {})!",
-				len,
-				self_instance.len()
-			))
-		} else {
-			context.write_memory(Pointer::new(ptr), &self_instance)
-		}
-	}
-}
-
-#[cfg(not(feature = "std"))]
-impl<T: 'static + Encode> IntoFFIValue for [T] {
-	type Owned = Vec<u8>;
-
-	fn into_ffi_value(&self) -> WrappedFFIValue<u64, Vec<u8>> {
-		if TypeId::of::<T>() == TypeId::of::<u8>() {
-			let slice = unsafe { mem::transmute::<&[T], &[u8]>(self) };
-			pack_ptr_and_len(slice.as_ptr() as u32, slice.len() as u32).into()
-		} else {
-			let data = self.encode();
-			let ffi_value = pack_ptr_and_len(data.as_ptr() as u32, data.len() as u32);
-			(ffi_value, data).into()
-		}
-	}
-}
-
-/// The type is passed as `u32`.
-///
-/// The `u32` is the pointer to the array.
-impl<const N: usize> RIType for [u8; N] {
-	type FFIType = u32;
-}
-
-#[cfg(not(feature = "std"))]
-impl<const N: usize> IntoFFIValue for [u8; N] {
-	type Owned = ();
-
-	fn into_ffi_value(&self) -> WrappedFFIValue<u32> {
-		(self.as_ptr() as u32).into()
-	}
-}
-
-#[cfg(not(feature = "std"))]
-impl<const N: usize> FromFFIValue for [u8; N] {
-	fn from_ffi_value(arg: u32) -> [u8; N] {
-		let mut res = [0u8; N];
-		let data = unsafe { Vec::from_raw_parts(arg as *mut u8, N, N) };
-
-		res.copy_from_slice(&data);
-
-		res
-	}
-}
-
-#[cfg(feature = "std")]
-impl<const N: usize> FromFFIValue for [u8; N] {
-	type SelfInstance = [u8; N];
-
-	fn from_ffi_value(context: &mut dyn FunctionContext, arg: u32) -> Result<[u8; N]> {
-		let mut res = [0u8; N];
-		context.read_memory_into(Pointer::new(arg), &mut res)?;
-		Ok(res)
-	}
-}
-
-#[cfg(feature = "std")]
-impl<const N: usize> IntoFFIValue for [u8; N] {
-	fn into_ffi_value(self, context: &mut dyn FunctionContext) -> Result<u32> {
-		let addr = context.allocate_memory(N as u32)?;
-		context.write_memory(addr, &self)?;
-		Ok(addr.into())
-	}
-}
-
-#[cfg(feature = "std")]
-impl<const N: usize> IntoPreallocatedFFIValue for [u8; N] {
-	type SelfInstance = [u8; N];
-
-	fn into_preallocated_ffi_value(
-		self_instance: Self::SelfInstance,
-		context: &mut dyn FunctionContext,
-		allocated: u32,
-	) -> Result<()> {
-		context.write_memory(Pointer::new(allocated), &self_instance)
-	}
-}
-
-impl<T: codec::Codec, E: codec::Codec> PassBy for core::result::Result<T, E> {
-	type PassBy = Codec<Self>;
-}
-
-impl<T: codec::Codec> PassBy for Option<T> {
-	type PassBy = Codec<Self>;
-}
-
-#[impl_trait_for_tuples::impl_for_tuples(30)]
-#[tuple_types_no_default_trait_bound]
-impl PassBy for Tuple
-where
-	Self: codec::Codec,
-{
-	type PassBy = Codec<Self>;
-}
-
-/// Implement `PassBy` with `Inner` for the given fixed sized hash types.
-macro_rules! for_primitive_types {
-	{ $( $hash:ident $n:expr ),* $(,)? } => {
-		$(
-			impl PassBy for primitive_types::$hash {
-				type PassBy = Inner<Self, [u8; $n]>;
-			}
-
-			impl PassByInner for primitive_types::$hash {
-				type Inner = [u8; $n];
-
-				fn inner(&self) -> &Self::Inner {
-					&self.0
-				}
-
-				fn into_inner(self) -> Self::Inner {
-					self.0
-				}
-
-				fn from_inner(inner: Self::Inner) -> Self {
-					Self(inner)
-				}
-			}
-		)*
-	}
-}
-
-for_primitive_types! {
-	H160 20,
-	H256 32,
-	H512 64,
-}
-
-/// The type is passed as `u64`.
-///
-/// The `u64` value is build by `length 32bit << 32 | pointer 32bit`
-///
-/// The length and the pointer are taken directly from `Self`.
-impl RIType for str {
-	type FFIType = u64;
-}
-
-#[cfg(feature = "std")]
-impl FromFFIValue for str {
-	type SelfInstance = String;
-
-	fn from_ffi_value(context: &mut dyn FunctionContext, arg: u64) -> Result<String> {
-		let (ptr, len) = unpack_ptr_and_len(arg);
-
-		let vec = context.read_memory(Pointer::new(ptr), len)?;
-
-		// The data is valid utf8, as it is stored as `&str` in wasm.
-		String::from_utf8(vec).map_err(|_| "Invalid utf8 data provided".into())
-	}
-}
-
-#[cfg(not(feature = "std"))]
-impl IntoFFIValue for str {
-	type Owned = ();
-
-	fn into_ffi_value(&self) -> WrappedFFIValue<u64, ()> {
-		let bytes = self.as_bytes();
-		pack_ptr_and_len(bytes.as_ptr() as u32, bytes.len() as u32).into()
-	}
-}
-
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 impl<T: sp_wasm_interface::PointerType> RIType for Pointer<T> {
 	type FFIType = u32;
+	type Inner = Self;
 }
 
 /// The type is passed as `u32`.
-#[cfg(not(feature = "std"))]
+#[cfg(substrate_runtime)]
 impl<T> RIType for Pointer<T> {
 	type FFIType = u32;
+	type Inner = Self;
 }
 
-#[cfg(not(feature = "std"))]
+#[cfg(substrate_runtime)]
 impl<T> IntoFFIValue for Pointer<T> {
-	type Owned = ();
+	type Destructor = ();
 
-	fn into_ffi_value(&self) -> WrappedFFIValue<u32> {
-		(*self as u32).into()
+	fn into_ffi_value(value: &mut Pointer<T>) -> (Self::FFIType, Self::Destructor) {
+		(*value as u32, ())
 	}
 }
 
-#[cfg(not(feature = "std"))]
+#[cfg(substrate_runtime)]
 impl<T> FromFFIValue for Pointer<T> {
 	fn from_ffi_value(arg: u32) -> Self {
 		arg as _
 	}
 }
 
-#[cfg(feature = "std")]
-impl<T: sp_wasm_interface::PointerType> FromFFIValue for Pointer<T> {
-	type SelfInstance = Self;
+#[cfg(not(substrate_runtime))]
+impl<'a, T: sp_wasm_interface::PointerType> FromFFIValue<'a> for Pointer<T> {
+	type Owned = Self;
 
 	fn from_ffi_value(_: &mut dyn FunctionContext, arg: u32) -> Result<Self> {
 		Ok(Pointer::new(arg))
 	}
-}
 
-#[cfg(feature = "std")]
-impl<T: sp_wasm_interface::PointerType> IntoFFIValue for Pointer<T> {
-	fn into_ffi_value(self, _: &mut dyn FunctionContext) -> Result<u32> {
-		Ok(self.into())
+	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
+		*owned
 	}
 }
 
-/// Implement the traits for `u128`/`i128`
-macro_rules! for_u128_i128 {
-	($type:ty) => {
-		/// `u128`/`i128` is passed as `u32`.
-		///
-		/// The `u32` is a pointer to an `[u8; 16]` array.
-		impl RIType for $type {
-			type FFIType = u32;
-		}
-
-		#[cfg(not(feature = "std"))]
-		impl IntoFFIValue for $type {
-			type Owned = ();
-
-			fn into_ffi_value(&self) -> WrappedFFIValue<u32> {
-				unsafe { (mem::transmute::<&Self, *const u8>(self) as u32).into() }
-			}
-		}
-
-		#[cfg(not(feature = "std"))]
-		impl FromFFIValue for $type {
-			fn from_ffi_value(arg: u32) -> $type {
-				<$type>::from_le_bytes(<[u8; mem::size_of::<$type>()]>::from_ffi_value(arg))
-			}
-		}
-
-		#[cfg(feature = "std")]
-		impl FromFFIValue for $type {
-			type SelfInstance = $type;
-
-			fn from_ffi_value(context: &mut dyn FunctionContext, arg: u32) -> Result<$type> {
-				let mut res = [0u8; mem::size_of::<$type>()];
-				context.read_memory_into(Pointer::new(arg), &mut res)?;
-				Ok(<$type>::from_le_bytes(res))
-			}
-		}
-
-		#[cfg(feature = "std")]
-		impl IntoFFIValue for $type {
-			fn into_ffi_value(self, context: &mut dyn FunctionContext) -> Result<u32> {
-				let addr = context.allocate_memory(mem::size_of::<$type>() as u32)?;
-				context.write_memory(addr, &self.to_le_bytes())?;
-				Ok(addr.into())
-			}
-		}
-	};
-}
-
-for_u128_i128!(u128);
-for_u128_i128!(i128);
-
-impl PassBy for sp_wasm_interface::ValueType {
-	type PassBy = Enum<sp_wasm_interface::ValueType>;
-}
-
-impl PassBy for sp_wasm_interface::Value {
-	type PassBy = Codec<sp_wasm_interface::Value>;
-}
-
-impl PassBy for sp_storage::TrackedStorageKey {
-	type PassBy = Codec<Self>;
-}
-
-impl PassBy for sp_storage::StateVersion {
-	type PassBy = Enum<Self>;
-}
-
-impl PassBy for sp_externalities::MultiRemovalResults {
-	type PassBy = Codec<Self>;
+#[cfg(not(substrate_runtime))]
+impl<T: sp_wasm_interface::PointerType> IntoFFIValue for Pointer<T> {
+	fn into_ffi_value(value: Self, _: &mut dyn FunctionContext) -> Result<u32> {
+		Ok(value.into())
+	}
 }

@@ -25,11 +25,9 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64, OneSessionHandler},
-	BoundedVec,
+	traits::{ConstBool, ConstU32, ConstU64, OneSessionHandler},
 };
 use pallet_staking::{BalanceOf, StakerStatus};
-use sp_core::ConstBool;
 use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{EraIndex, SessionIndex};
 
@@ -148,8 +146,9 @@ impl pallet_staking::Config for Test {
 }
 
 impl pallet_session::historical::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = ();
-	type FullIdentificationOf = pallet_staking::NullIdentity;
+	type FullIdentificationOf = pallet_staking::UnitIdentificationOf<Self>;
 }
 
 sp_runtime::impl_opaque_keys! {
@@ -165,10 +164,12 @@ impl pallet_session::Config for Test {
 	type SessionHandler = (OtherSessionHandler,);
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
-	type ValidatorIdOf = pallet_staking::StashOf<Test>;
+	type ValidatorIdOf = sp_runtime::traits::ConvertInto;
 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
 	type DisablingStrategy = ();
 	type WeightInfo = ();
+	type Currency = Balances;
+	type KeyDeposit = ();
 }
 
 impl pallet_timestamp::Config for Test {
@@ -180,12 +181,14 @@ impl pallet_timestamp::Config for Test {
 
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type OffenceHandler = Staking;
+	type ReportOffence = ();
 }
 
 pub struct ExtBuilder {
 	validator_count: u32,
 	minimum_validator_count: u32,
-	invulnerables: BoundedVec<AccountId, <Test as pallet_staking::Config>::MaxInvulnerables>,
+	invulnerables: Vec<AccountId>,
 	balance_factor: Balance,
 }
 
@@ -194,7 +197,7 @@ impl Default for ExtBuilder {
 		Self {
 			validator_count: 2,
 			minimum_validator_count: 0,
-			invulnerables: BoundedVec::new(),
+			invulnerables: vec![],
 			balance_factor: 1,
 		}
 	}

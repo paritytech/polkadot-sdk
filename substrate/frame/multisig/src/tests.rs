@@ -595,6 +595,16 @@ fn multisig_1_of_3_works() {
 			call_transfer(6, 15)
 		));
 
+		System::assert_last_event(
+			pallet_multisig::Event::MultisigExecuted {
+				approving: 1,
+				timepoint: now(),
+				multisig: multi,
+				call_hash: hash,
+				result: Ok(()),
+			}
+			.into(),
+		);
 		assert_eq!(Balances::free_balance(6), 15);
 	});
 }

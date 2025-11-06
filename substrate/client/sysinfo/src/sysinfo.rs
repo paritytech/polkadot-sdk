@@ -317,6 +317,9 @@ pub fn gather_sysinfo() -> SysInfo {
 	#[cfg(target_os = "linux")]
 	crate::sysinfo_linux::gather_linux_sysinfo(&mut sysinfo);
 
+	#[cfg(target_os = "freebsd")]
+	crate::sysinfo_freebsd::gather_freebsd_sysinfo(&mut sysinfo);
+
 	sysinfo
 }
 

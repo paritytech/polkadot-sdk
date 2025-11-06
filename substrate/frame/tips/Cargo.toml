@@ -40,14 +40,12 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"pallet-balances/std",
 	"pallet-treasury/std",
 	"scale-info/std",
 	"serde",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-storage/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

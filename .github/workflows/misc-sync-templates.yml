@@ -47,7 +47,7 @@ jobs:
             runtime_wasm_path: parachain-template-runtime/parachain_template_runtime.compact.compressed.wasm
             relay_chain: 'rococo-local'
     steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
           with:
             ref: "${{ github.event.inputs.stable_release_branch }}"
 
@@ -69,12 +69,8 @@ jobs:
             srtool build --package ${{ matrix.package_name }} --runtime-dir ${{ matrix.runtime_path }} --root
             
             # Generate chain spec
-            # Note that para-id is set to 1000 for both minimal/parachain templates. 
-            # `parachain-runtime` is hardcoded to use this parachain id. 
-            # `minimal` template isn't using it, but when started with Omni Node, this para id is required (any number can do it, so setting it to 1000 for convenience).
             chain-spec-builder -c dev_chain_spec.json create \
               --relay-chain "${{ matrix.relay_chain }}" \
-              --para-id 1000 \
               --runtime "${{ matrix.runtime_path }}/target/srtool/release/wbuild/${{ matrix.runtime_wasm_path }}" \
               named-preset development
 
@@ -84,7 +80,7 @@ jobs:
             cp dev_chain_spec.json artifacts-${{ matrix.template }}/dev_chain_spec.json
 
         - name: Upload template directory
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
           with:
             name: artifacts-${{ matrix.template }}
             path: artifacts-${{ matrix.template }}/dev_chain_spec.json
@@ -107,25 +103,25 @@ jobs:
         run: |
           git config --global user.name "Template Bot"
           git config --global user.email "163342540+paritytech-polkadotsdk-templatebot[bot]@users.noreply.github.com"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           path: polkadot-sdk
           ref: "${{ github.event.inputs.stable_release_branch }}"
       - name: Download template artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           name: artifacts-${{ matrix.template }}
           path: templates/${{ matrix.template }}/
         if: matrix.template != 'solochain'
       - name: Generate a token for the template repository
         id: app_token
-        uses: actions/create-github-app-token@v1.9.3
+        uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
         with:
           owner: "paritytech"
           repositories: "polkadot-sdk-${{ matrix.template }}-template"
           app-id: ${{ secrets.TEMPLATE_APP_ID }}
           private-key: ${{ secrets.TEMPLATE_APP_KEY }}
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: "paritytech/polkadot-sdk-${{ matrix.template }}-template"
           path: "${{ env.template-path }}"
@@ -162,9 +158,9 @@ jobs:
           [workspace]
           EOF
 
-          [ ${{ matrix.template }} != "solochain" ] && echo "# Leave out the node compilation from regular template usage." \
+          [ ${{ matrix.template }} == "parachain" ] && echo "# Leave out the node compilation from regular template usage." \
             && echo "default-members = [\"pallets/template\", \"runtime\"]" >> Cargo.toml
-          [ ${{ matrix.template }} == "solochain" ] && echo "# The node isn't yet replaceable by Omni Node."
+          [ ${{ matrix.template }} != "parachain" ] && echo "# The node isn't yet replaceable by Omni Node."
           cat << EOF >> Cargo.toml
           members = [
               "node",
@@ -178,6 +174,7 @@ jobs:
 
           echo "$(toml get -r ./runtime/Cargo.toml 'package.name') = { path = \"./runtime\", default-features = false }" >> Cargo.toml
           echo "$(toml get -r ./pallets/template/Cargo.toml 'package.name') = { path = \"./pallets/template\", default-features = false }" >> Cargo.toml
+
         shell: bash
         working-directory: polkadot-sdk/templates/${{ matrix.template }}/
       - name: Update workspace configuration
@@ -230,6 +227,24 @@ jobs:
             # And copy the dependency from the monorepo.
             toml get ../polkadot-sdk/Cargo.toml 'workspace.dependencies' --output-toml | grep "^${missing_dep} = " >> Cargo.toml
           done;
+        working-directory: "${{ env.template-path }}"
+
+      - name: Add build profiles
+        run: |
+          # Add profile configurations to resulting Cargo.toml
+          cat << EOF >> Cargo.toml
+
+          [profile.release]
+          opt-level = 3
+          panic = "unwind"
+
+          [profile.production]
+          codegen-units = 1
+          inherits = "release"
+          lto = true
+
+          EOF
+          
         working-directory: "${{ env.template-path }}"
 
       - name: Print the result Cargo.tomls for debugging after copying required workspace dependencies

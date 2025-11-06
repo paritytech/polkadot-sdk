@@ -78,6 +78,7 @@ pub fn derive_partial_ord_no_bound(input: proc_macro::TokenStream) -> proc_macro
 
 	quote::quote!(
 		const _: () = {
+			#[allow(deprecated)]
 			impl #impl_generics core::cmp::PartialOrd for #name #ty_generics #where_clause {
 				fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
 					#impl_

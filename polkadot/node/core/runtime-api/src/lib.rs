@@ -165,6 +165,9 @@ where
 				self.requests_cache.cache_disputes(relay_parent, disputes),
 			UnappliedSlashes(relay_parent, unapplied_slashes) =>
 				self.requests_cache.cache_unapplied_slashes(relay_parent, unapplied_slashes),
+			UnappliedSlashesV2(relay_parent, unapplied_slashes_v2) => self
+				.requests_cache
+				.cache_unapplied_slashes_v2(relay_parent, unapplied_slashes_v2),
 			KeyOwnershipProof(relay_parent, validator_id, key_ownership_proof) => self
 				.requests_cache
 				.cache_key_ownership_proof((relay_parent, validator_id), key_ownership_proof),
@@ -191,6 +194,9 @@ where
 				.cache_scheduling_lookahead(session_index, scheduling_lookahead),
 			ValidationCodeBombLimit(session_index, limit) =>
 				self.requests_cache.cache_validation_code_bomb_limit(session_index, limit),
+			ParaIds(session_index, para_ids) => {
+				self.requests_cache.cache_para_ids(session_index, para_ids);
+			},
 		}
 	}
 
@@ -310,6 +316,8 @@ where
 				query!(disputes(), sender).map(|sender| Request::Disputes(sender)),
 			Request::UnappliedSlashes(sender) =>
 				query!(unapplied_slashes(), sender).map(|sender| Request::UnappliedSlashes(sender)),
+			Request::UnappliedSlashesV2(sender) => query!(unapplied_slashes_v2(), sender)
+				.map(|sender| Request::UnappliedSlashesV2(sender)),
 			Request::KeyOwnershipProof(validator_id, sender) =>
 				query!(key_ownership_proof(validator_id), sender)
 					.map(|sender| Request::KeyOwnershipProof(validator_id, sender)),
@@ -366,6 +374,15 @@ where
 					None
 				} else {
 					Some(Request::ValidationCodeBombLimit(index, sender))
+				}
+			},
+			Request::ParaIds(index, sender) => {
+				if let Some(value) = self.requests_cache.para_ids(index) {
+					self.metrics.on_cached_request();
+					let _ = sender.send(Ok(value.clone()));
+					None
+				} else {
+					Some(Request::ParaIds(index, sender))
 				}
 			},
 		}
@@ -701,6 +718,19 @@ where
 			ver = Request::VALIDATION_CODE_BOMB_LIMIT_RUNTIME_REQUIREMENT,
 			sender,
 			result = (index)
+		),
+		Request::ParaIds(index, sender) => query!(
+			ParaIds,
+			para_ids(),
+			ver = Request::PARAIDS_RUNTIME_REQUIREMENT,
+			sender,
+			result = (index)
+		),
+		Request::UnappliedSlashesV2(sender) => query!(
+			UnappliedSlashesV2,
+			unapplied_slashes_v2(),
+			ver = Request::UNAPPLIED_SLASHES_V2_RUNTIME_REQUIREMENT,
+			sender
 		),
 	}
 }

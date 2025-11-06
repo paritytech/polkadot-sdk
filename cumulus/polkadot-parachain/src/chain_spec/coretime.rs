@@ -14,7 +14,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use cumulus_primitives_core::ParaId;
 use polkadot_omni_node_lib::chain_spec::GenericChainSpec;
 use sc_chain_spec::{ChainSpec, ChainType};
 use std::{borrow::Cow, str::FromStr};
@@ -97,8 +96,6 @@ impl From<CoretimeRuntimeType> for ChainType {
 	}
 }
 
-pub const CORETIME_PARA_ID: ParaId = ParaId::new(1005);
-
 impl CoretimeRuntimeType {
 	pub const ID_PREFIX: &'static str = "coretime";
 
@@ -133,7 +130,7 @@ impl CoretimeRuntimeType {
 }
 
 /// Generate the name directly from the ChainType
-pub fn chain_type_name(chain_type: &ChainType) -> Cow<str> {
+pub fn chain_type_name(chain_type: &ChainType) -> Cow<'_, str> {
 	match chain_type {
 		ChainType::Development => "Development",
 		ChainType::Local => "Local",
@@ -162,7 +159,6 @@ pub mod rococo {
 
 		let chain_type = runtime_type.into();
 		let chain_name = format!("Coretime Rococo {}", chain_type_name(&chain_type));
-		let para_id = super::CORETIME_PARA_ID;
 
 		let wasm_binary = if matches!(chain_type, ChainType::Local | ChainType::Development) {
 			coretime_rococo_runtime::fast_runtime_binary::WASM_BINARY
@@ -174,7 +170,7 @@ pub mod rococo {
 
 		GenericChainSpec::builder(
 			wasm_binary,
-			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
+			Extensions::new_with_relay_chain(relay_chain.to_string()),
 		)
 		.with_name(&chain_name)
 		.with_id(runtime_type.into())
@@ -208,12 +204,11 @@ pub mod westend {
 
 		let chain_type = runtime_type.into();
 		let chain_name = format!("Coretime Westend {}", chain_type_name(&chain_type));
-		let para_id = super::CORETIME_PARA_ID;
 
 		GenericChainSpec::builder(
 			coretime_westend_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
-			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
+			Extensions::new_with_relay_chain(relay_chain.to_string()),
 		)
 		.with_name(&chain_name)
 		.with_id(runtime_type.into())

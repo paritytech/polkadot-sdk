@@ -640,7 +640,7 @@ where
 	]);
 
 	// get weight
-	let weight = XcmConfig::Weigher::weight(&mut xcm);
+	let weight = XcmConfig::Weigher::weight(&mut xcm, Weight::MAX);
 	assert_ok!(weight);
 	let weight = weight.unwrap();
 	// check if sane

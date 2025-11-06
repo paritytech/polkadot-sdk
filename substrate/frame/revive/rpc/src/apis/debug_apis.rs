@@ -24,7 +24,7 @@ pub trait DebugRpc {
 	///
 	/// ## References
 	///
-	/// - <https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtraceblockbynumb>er
+	/// - <https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtraceblockbynumber>
 	#[method(name = "debug_traceBlockByNumber")]
 	async fn trace_block_by_number(
 		&self,
@@ -42,7 +42,7 @@ pub trait DebugRpc {
 		&self,
 		transaction_hash: H256,
 		tracer_config: TracerConfig,
-	) -> RpcResult<CallTrace>;
+	) -> RpcResult<Trace>;
 
 	/// Dry run a call and returns the transaction's traces.
 	///
@@ -53,9 +53,12 @@ pub trait DebugRpc {
 	async fn trace_call(
 		&self,
 		transaction: GenericTransaction,
-		block: BlockNumberOrTag,
+		block: BlockNumberOrTagOrHash,
 		tracer_config: TracerConfig,
-	) -> RpcResult<CallTrace>;
+	) -> RpcResult<Trace>;
+
+	#[method(name = "debug_getAutomine")]
+	async fn get_automine(&self) -> RpcResult<bool>;
 }
 
 pub struct DebugRpcServerImpl {
@@ -68,6 +71,24 @@ impl DebugRpcServerImpl {
 	}
 }
 
+async fn with_timeout<T>(
+	timeout: Option<core::time::Duration>,
+	fut: impl std::future::Future<Output = Result<T, ClientError>>,
+) -> RpcResult<T> {
+	if let Some(timeout) = timeout {
+		match tokio::time::timeout(timeout, fut).await {
+			Ok(r) => Ok(r?),
+			Err(_) => Err(ErrorObjectOwned::owned::<String>(
+				-32000,
+				"execution timeout".to_string(),
+				None,
+			)),
+		}
+	} else {
+		Ok(fut.await?)
+	}
+}
+
 #[async_trait]
 impl DebugRpcServer for DebugRpcServerImpl {
 	async fn trace_block_by_number(
@@ -75,28 +96,30 @@ impl DebugRpcServer for DebugRpcServerImpl {
 		block: BlockNumberOrTag,
 		tracer_config: TracerConfig,
 	) -> RpcResult<Vec<TransactionTrace>> {
-		log::debug!(target: crate::LOG_TARGET, "trace_block_by_number: {block:?} config: {tracer_config:?}");
-		let traces = self.client.trace_block_by_number(block, tracer_config).await?;
-		Ok(traces)
+		let TracerConfig { config, timeout } = tracer_config;
+		with_timeout(timeout, self.client.trace_block_by_number(block, config)).await
 	}
 
 	async fn trace_transaction(
 		&self,
 		transaction_hash: H256,
 		tracer_config: TracerConfig,
-	) -> RpcResult<CallTrace> {
-		let trace = self.client.trace_transaction(transaction_hash, tracer_config).await?;
-		Ok(trace)
+	) -> RpcResult<Trace> {
+		let TracerConfig { config, timeout } = tracer_config;
+		with_timeout(timeout, self.client.trace_transaction(transaction_hash, config)).await
 	}
 
 	async fn trace_call(
 		&self,
 		transaction: GenericTransaction,
-		block: BlockNumberOrTag,
+		block: BlockNumberOrTagOrHash,
 		tracer_config: TracerConfig,
-	) -> RpcResult<CallTrace> {
-		log::debug!(target: crate::LOG_TARGET, "trace_call: {transaction:?} block: {block:?} config: {tracer_config:?}");
-		let trace = self.client.trace_call(transaction, block, tracer_config).await?;
-		Ok(trace)
+	) -> RpcResult<Trace> {
+		let TracerConfig { config, timeout } = tracer_config;
+		with_timeout(timeout, self.client.trace_call(transaction, block, config)).await
+	}
+
+	async fn get_automine(&self) -> RpcResult<bool> {
+		sc_service::Result::Ok(self.client.get_automine().await)
 	}
 }

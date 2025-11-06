@@ -75,9 +75,12 @@ impl<Exporter: ExportXcm, UniversalLocation: Get<InteriorLocation>> SendXcm
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<Exporter::Ticket> {
 		// This `clone` ensures that `dest` is not consumed in any case.
-		let d = dest.clone().take().ok_or(MissingArgument)?;
+		let d = dest.clone().ok_or(MissingArgument)?;
 		let universal_source = UniversalLocation::get();
-		let devolved = ensure_is_remote(universal_source.clone(), d).map_err(|_| NotApplicable)?;
+		let devolved = ensure_is_remote(universal_source.clone(), d).map_err(|error| {
+			tracing::debug!(target: "xcm::universal_exports", ?error, "Failed to devolve location");
+			NotApplicable
+		})?;
 		let (remote_network, remote_location) = devolved;
 		let xcm = msg.take().ok_or(MissingArgument)?;
 
@@ -119,9 +122,12 @@ impl<Exporter: ExportXcm, UniversalLocation: Get<InteriorLocation>> SendXcm
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<Exporter::Ticket> {
 		// This `clone` ensures that `dest` is not consumed in any case.
-		let d = dest.clone().take().ok_or(MissingArgument)?;
+		let d = dest.clone().ok_or(MissingArgument)?;
 		let universal_source = UniversalLocation::get();
-		let devolved = ensure_is_remote(universal_source.clone(), d).map_err(|_| NotApplicable)?;
+		let devolved = ensure_is_remote(universal_source.clone(), d).map_err(|error| {
+			tracing::debug!(target: "xcm::universal_exports", ?error, "Failed to devolve location");
+			NotApplicable
+		})?;
 		let (remote_network, remote_location) = devolved;
 		let xcm = msg.take().ok_or(MissingArgument)?;
 
@@ -233,10 +239,6 @@ impl<T: Get<Vec<NetworkExportTableItem>>> ExporterFor for NetworkExportTable<T> 
 	}
 }
 
-pub fn forward_id_for(original_id: &XcmHash) -> XcmHash {
-	(b"forward_id_for", original_id).using_encoded(sp_io::hashing::blake2_256)
-}
-
 /// Implementation of `SendXcm` which wraps the message inside an `ExportMessage` instruction
 /// and sends it to a destination known to be able to handle it.
 ///
@@ -253,9 +255,9 @@ pub fn forward_id_for(original_id: &XcmHash) -> XcmHash {
 ///
 /// In the case that the message ends with a `SetTopic(T)` (as should be the case if the top-level
 /// router is `WithUniqueTopic`), then the forwarding message (i.e. the one carrying the
-/// export instruction *to* the bridge in local consensus) will also end with a `SetTopic` whose
-/// inner is `forward_id_for(T)`. If this is not the case then the onward message will not be given
-/// the `SetTopic` afterword.
+/// export instruction *to* the bridge in local consensus) will also end with the same
+/// `SetTopic(T)`. If this is not the case, then the onward message will not be given the `SetTopic`
+/// afterward.
 pub struct UnpaidRemoteExporter<Bridges, Router, UniversalLocation>(
 	PhantomData<(Bridges, Router, UniversalLocation)>,
 );
@@ -269,8 +271,11 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<Router::Ticket> {
 		// This `clone` ensures that `dest` is not consumed in any case.
-		let d = dest.clone().take().ok_or(MissingArgument)?;
-		let devolved = ensure_is_remote(UniversalLocation::get(), d).map_err(|_| NotApplicable)?;
+		let d = dest.clone().ok_or(MissingArgument)?;
+		let devolved = ensure_is_remote(UniversalLocation::get(), d).map_err(|error| {
+			tracing::debug!(target: "xcm::universal_exports", ?error, "Failed to devolve location");
+			NotApplicable
+		})?;
 		let (remote_network, remote_location) = devolved;
 		let xcm = msg.take().ok_or(MissingArgument)?;
 
@@ -282,12 +287,11 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 			*msg = Some(xcm);
 			return Err(NotApplicable)
 		};
-		ensure!(maybe_payment.is_none(), Unroutable);
 
 		// `xcm` should already end with `SetTopic` - if it does, then extract and derive into
 		// an onward topic ID.
 		let maybe_forward_id = match xcm.last() {
-			Some(SetTopic(t)) => Some(forward_id_for(t)),
+			Some(SetTopic(t)) => Some(*t),
 			_ => None,
 		};
 
@@ -305,12 +309,16 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		if let Some(forward_id) = maybe_forward_id {
 			message.0.push(SetTopic(forward_id));
 		}
-		validate_send::<Router>(bridge, message).inspect_err(|err| {
+		let (v, mut cost) = validate_send::<Router>(bridge, message).inspect_err(|err| {
 			if let NotApplicable = err {
 				// We need to make sure that msg is not consumed in case of `NotApplicable`.
 				*msg = Some(xcm);
 			}
-		})
+		})?;
+		if let Some(bridge_payment) = maybe_payment {
+			cost.push(bridge_payment);
+		}
+		Ok((v, cost))
 	}
 
 	fn deliver(validation: Self::Ticket) -> Result<XcmHash, SendError> {
@@ -320,6 +328,18 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful_delivery(location: Option<Location>) {
 		Router::ensure_successful_delivery(location);
+	}
+}
+
+impl<Bridges, Router, UniversalLocation> InspectMessageQueues
+	for UnpaidRemoteExporter<Bridges, Router, UniversalLocation>
+{
+	fn clear_messages() {}
+
+	/// This router needs to implement `InspectMessageQueues` but doesn't have to
+	/// return any messages, since it just reuses the `XcmpQueue` router.
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		Vec::new()
 	}
 }
 
@@ -335,9 +355,9 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 ///
 /// In the case that the message ends with a `SetTopic(T)` (as should be the case if the top-level
 /// router is `WithUniqueTopic`), then the forwarding message (i.e. the one carrying the
-/// export instruction *to* the bridge in local consensus) will also end with a `SetTopic` whose
-/// inner is `forward_id_for(T)`. If this is not the case then the onward message will not be given
-/// the `SetTopic` afterword.
+/// export instruction *to* the bridge in local consensus) will also end with the same
+/// `SetTopic(T)`. If this is not the case, then the onward message will not be given the `SetTopic`
+/// afterward.
 pub struct SovereignPaidRemoteExporter<Bridges, Router, UniversalLocation>(
 	PhantomData<(Bridges, Router, UniversalLocation)>,
 );
@@ -351,8 +371,11 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<Router::Ticket> {
 		// This `clone` ensures that `dest` is not consumed in any case.
-		let d = dest.clone().take().ok_or(MissingArgument)?;
-		let devolved = ensure_is_remote(UniversalLocation::get(), d).map_err(|_| NotApplicable)?;
+		let d = dest.clone().ok_or(MissingArgument)?;
+		let devolved = ensure_is_remote(UniversalLocation::get(), d).map_err(|error| {
+			tracing::debug!(target: "xcm::universal_exports", ?error, "Failed to devolve location");
+			NotApplicable
+		})?;
 		let (remote_network, remote_location) = devolved;
 		let xcm = msg.take().ok_or(MissingArgument)?;
 
@@ -368,12 +391,14 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		// `xcm` should already end with `SetTopic` - if it does, then extract and derive into
 		// an onward topic ID.
 		let maybe_forward_id = match xcm.last() {
-			Some(SetTopic(t)) => Some(forward_id_for(t)),
+			Some(SetTopic(t)) => Some(*t),
 			_ => None,
 		};
 
-		let local_from_bridge =
-			UniversalLocation::get().invert_target(&bridge).map_err(|_| Unroutable)?;
+		let local_from_bridge = UniversalLocation::get().invert_target(&bridge).map_err(|_| {
+			tracing::debug!(target: "xcm::universal_exports", "Failed to invert bridge location");
+			Unroutable
+		})?;
 		let export_instruction = ExportMessage {
 			network: remote_network,
 			destination: remote_location,
@@ -381,10 +406,11 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		};
 
 		let mut message = Xcm(if let Some(ref payment) = maybe_payment {
-			let fees = payment
-				.clone()
-				.reanchored(&bridge, &UniversalLocation::get())
-				.map_err(|_| Unroutable)?;
+			let fees =
+				payment.clone().reanchored(&bridge, &UniversalLocation::get()).map_err(|_| {
+					tracing::debug!(target: "xcm::universal_exports", "Failed to reanchor payment");
+					Unroutable
+				})?;
 			vec![
 				WithdrawAsset(fees.clone().into()),
 				BuyExecution { fees, weight_limit: Unlimited },
@@ -504,22 +530,32 @@ impl<
 {
 	fn dispatch_blob(blob: Vec<u8>) -> Result<(), DispatchBlobError> {
 		let our_universal = OurPlace::get();
-		let our_global =
-			our_universal.global_consensus().map_err(|()| DispatchBlobError::Unbridgable)?;
+		let our_global = our_universal.global_consensus().map_err(|()| {
+			tracing::debug!(target: "xcm::universal_exports", "Failed to get global consensus");
+			DispatchBlobError::Unbridgable
+		})?;
 		let BridgeMessage { universal_dest, message } =
-			Decode::decode(&mut &blob[..]).map_err(|_| DispatchBlobError::InvalidEncoding)?;
-		let universal_dest: InteriorLocation = universal_dest
-			.try_into()
-			.map_err(|_| DispatchBlobError::UnsupportedLocationVersion)?;
+			Decode::decode(&mut &blob[..]).map_err(|error| {
+				tracing::debug!(target: "xcm::universal_exports", ?error, "Failed to decode blob");
+				DispatchBlobError::InvalidEncoding
+			})?;
+		let universal_dest: InteriorLocation = universal_dest.try_into().map_err(|_| {
+			tracing::debug!(target: "xcm::universal_exports", "Failed to convert universal destination");
+			DispatchBlobError::UnsupportedLocationVersion
+		})?;
 		// `universal_dest` is the desired destination within the universe: first we need to check
 		// we're in the right global consensus.
 		let intended_global = universal_dest
 			.global_consensus()
-			.map_err(|()| DispatchBlobError::NonUniversalDestination)?;
+			.map_err(|()| {
+				tracing::debug!(target: "xcm::universal_exports", "Failed to get global consensus from universal destination");
+				DispatchBlobError::NonUniversalDestination })?;
 		ensure!(intended_global == our_global, DispatchBlobError::WrongGlobal);
 		let dest = universal_dest.relative_to(&our_universal);
-		let mut message: Xcm<()> =
-			message.try_into().map_err(|_| DispatchBlobError::UnsupportedXcmVersion)?;
+		let mut message: Xcm<()> = message.try_into().map_err(|_| {
+			tracing::debug!(target: "xcm::universal_exports", "Failed to convert message");
+			DispatchBlobError::UnsupportedXcmVersion
+		})?;
 
 		// Prepend our bridge instance discriminator.
 		// Can be used for fine-grained control of origin on destination in case of multiple bridge
@@ -529,7 +565,10 @@ impl<
 			message.0.insert(0, DescendOrigin(bridge_instance));
 		}
 
-		let _ = send_xcm::<Router>(dest, message).map_err(|_| DispatchBlobError::RoutingError)?;
+		send_xcm::<Router>(dest, message).map_err(|error| {
+			tracing::debug!(target: "xcm::universal_exports", ?error, "Failed to send XCM");
+			DispatchBlobError::RoutingError
+		})?;
 		Ok(())
 	}
 }
@@ -596,7 +635,10 @@ impl<
 			.take()
 			.ok_or(SendError::MissingArgument)?
 			.split_global()
-			.map_err(|()| SendError::Unroutable)?;
+			.map_err(|()| {
+				tracing::debug!(target: "xcm::universal_exports", "Failed to split global consensus");
+				SendError::Unroutable
+			})?;
 		let mut message = message.take().ok_or(SendError::MissingArgument)?;
 		let maybe_id = match message.last() {
 			Some(SetTopic(t)) => Some(*t),
@@ -610,12 +652,15 @@ impl<
 		// We cannot use the latest `Versioned` because we don't know if the target chain already
 		// supports the same version. Therefore, we better control the destination version with best
 		// efforts.
-		let message = VersionedXcm::from(message)
-			.into_version(version)
-			.map_err(|()| SendError::DestinationUnsupported)?;
+		let message = VersionedXcm::from(message).into_version(version).map_err(|()| {
+			tracing::debug!(target: "xcm::universal_exports", "Failed to convert message to versioned XCM");
+			SendError::DestinationUnsupported
+		})?;
 		let universal_dest = VersionedInteriorLocation::from(universal_dest)
 			.into_version(version)
-			.map_err(|()| SendError::DestinationUnsupported)?;
+			.map_err(|()| {
+				tracing::debug!(target: "xcm::universal_exports", "Failed to convert destination to versioned location");
+				SendError::DestinationUnsupported })?;
 
 		let id = maybe_id.unwrap_or_else(|| message.using_encoded(sp_io::hashing::blake2_256));
 		let blob = BridgeMessage { universal_dest, message }.encode();

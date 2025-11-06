@@ -222,11 +222,10 @@ mod test {
 			assert_eq!(
 				mnemonic.to_entropy(),
 				&expected_entropy[..],
-				"Entropy is incorrect for {}",
-				phrase
+				"Entropy is incorrect for {phrase}"
 			);
-			assert_eq!(&seed[..], &expected_seed[..], "Seed is incorrect for {}", phrase);
-			assert_eq!(&secret[..], &expected_seed[..32], "Secret is incorrect for {}", phrase);
+			assert_eq!(&seed[..], &expected_seed[..], "Seed is incorrect for {phrase}");
+			assert_eq!(&secret[..], &expected_seed[..32], "Secret is incorrect for {phrase}");
 		}
 	}
 }

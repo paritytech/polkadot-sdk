@@ -433,7 +433,7 @@ impl RequestResponseProtocol {
 					Some(sender) => {
 						log::debug!(
 							target: LOG_TARGET,
-							"{}: failed to negotiate protocol with {:?}, try fallback request: ({})",
+							"{}: failed to negotiate protocol with {:?}. Trying the fallback protocol ({})",
 							self.protocol,
 							peer,
 							protocol,

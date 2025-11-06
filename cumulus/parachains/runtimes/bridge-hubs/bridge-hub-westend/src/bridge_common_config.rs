@@ -22,12 +22,20 @@
 //! GRANDPA tracking pallet only needs to be aware of one chain.
 
 use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
+use crate::{
+	bridge_to_ethereum_config::InboundQueueV2Location, xcm_config::XcmConfig, RuntimeCall,
+	XcmRouter,
+};
 use bp_messages::LegacyLaneId;
 use bp_relayers::RewardsAccountParams;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::parameter_types;
 use scale_info::TypeInfo;
-use xcm::VersionedLocation;
+use testnet_parachains_constants::westend::{
+	locations::AssetHubLocation, snowbridge::EthereumNetwork,
+};
+use xcm::{opaque::latest::Location, VersionedLocation};
+use xcm_executor::XcmExecutor;
 
 parameter_types! {
 	pub storage RequiredStakeForStakeAndSlash: Balance = 1_000_000;
@@ -106,8 +114,27 @@ impl bp_relayers::PaymentProcedure<AccountId, BridgeReward, u128> for BridgeRewa
 					BridgeRewardBeneficiaries::AssetHubLocation(_) => Err(Self::Error::Other("`AssetHubLocation` beneficiary is not supported for `RococoWestend` rewards!")),
 				}
 			},
-			BridgeReward::Snowbridge =>
-				Err(sp_runtime::DispatchError::Other("Not implemented yet, check also `fn prepare_rewards_account` to return `alternative_beneficiary`!")),
+			BridgeReward::Snowbridge => {
+				match beneficiary {
+					BridgeRewardBeneficiaries::LocalAccount(_) => Err(Self::Error::Other("`LocalAccount` beneficiary is not supported for `Snowbridge` rewards!")),
+					BridgeRewardBeneficiaries::AssetHubLocation(account_location) => {
+						let account_location = Location::try_from(account_location)
+							.map_err(|_| Self::Error::Other("`AssetHubLocation` beneficiary location version is not supported for `Snowbridge` rewards!"))?;
+						snowbridge_core::reward::PayAccountOnLocation::<
+							AccountId,
+							u128,
+							EthereumNetwork,
+							AssetHubLocation,
+							InboundQueueV2Location,
+							XcmRouter,
+							XcmExecutor<XcmConfig>,
+							RuntimeCall
+						>::pay_reward(
+							relayer, (), reward, account_location
+						)
+					}
+				}
+			}
 		}
 	}
 }

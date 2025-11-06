@@ -258,6 +258,7 @@ fn maybe_compact_and_compress_wasm(
 			// We at least want to lower the `sign-ext` code to `mvp`.
 			wasm_opt::OptimizationOptions::new_opt_level_0()
 				.add_pass(wasm_opt::Pass::SignextLowering)
+				.debug_info(true)
 				.run(bloaty_blob_binary.bloaty_path(), bloaty_blob_binary.bloaty_path())
 				.expect("Failed to lower sign-ext in WASM binary.");
 
@@ -526,10 +527,22 @@ fn create_project_cargo_toml(
 		//
 		// TODO: Remove this once a new version of `bitvec` (which uses a new version of `radium`
 		//       which doesn't have this problem) is released on crates.io.
-		let patch = toml::toml! {
-			[crates-io]
+		let radium_patch = toml::toml! {
 			radium = { git = "https://github.com/paritytech/radium-0.7-fork.git", rev = "a5da15a15c90fd169d661d206cf0db592487f52b" }
 		};
+
+		let mut patch = wasm_workspace_toml
+			.get("patch")
+			.and_then(|p| p.as_table().cloned())
+			.unwrap_or_default();
+
+		if let Some(existing_crates_io) = patch.get_mut("crates-io").and_then(|t| t.as_table_mut())
+		{
+			existing_crates_io.extend(radium_patch);
+		} else {
+			patch.insert("crates-io".into(), radium_patch.into());
+		}
+
 		wasm_workspace_toml.insert("patch".into(), patch.into());
 	}
 
@@ -1045,7 +1058,9 @@ fn try_compress_blob(compact_blob_path: &Path, out_name: &str) -> Option<WasmBin
 
 	let start = std::time::Instant::now();
 	let data = fs::read(compact_blob_path).expect("Failed to read WASM binary");
-	if let Some(compressed) = sp_maybe_compressed_blob::compress(&data, CODE_BLOB_BOMB_LIMIT) {
+	if let Some(compressed) =
+		sp_maybe_compressed_blob::compress_strongly(&data, CODE_BLOB_BOMB_LIMIT)
+	{
 		fs::write(&compact_compressed_blob_path, &compressed[..])
 			.expect("Failed to write WASM binary");
 
