@@ -124,8 +124,15 @@ jobs:
               --runtime ./target/release/wbuild/${{ matrix.package }}/${{ matrix.wasm }} \
               on-runtime-upgrade --disable-spec-version-check --checks=all ${{ matrix.subcommand_extra_args }} snap -p snapshot.raw
           sleep 5
+
+      - name: Check Runtime Compatibility
+        id: required3
+        run: |
+          echo "---------- Checking runtime compatibility for ${{ matrix.network }} ----------"
+          npx @polkadot-api/check-runtime@latest problems ${{ matrix.uri }} --wasm ./target/release/wbuild/${{ matrix.package }}/${{ matrix.wasm }}
+
       - name: Stop all workflows if failed
-        if: ${{ failure() && (steps.required1.conclusion == 'failure' || steps.required2.conclusion == 'failure') }}
+        if: ${{ failure() && (steps.required1.conclusion == 'failure' || steps.required2.conclusion == 'failure' || steps.required3.conclusion == 'failure') }}
         uses: ./.github/actions/workflow-stopper
         with:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
