@@ -1222,11 +1222,8 @@ where
 				// if we reached this point the origin has an associated account.
 				let origin = &self.origin.account_id()?;
 
-				// get balance of the account before charging ED, only charge ED if balance
-				// insufficient
-				let balance = T::Currency::total_balance(account_id);
-				let ed = <Contracts<T>>::min_balance();
-				if balance < ed {
+				if !frame_system::Pallet::<T>::account_exists(&account_id) {
+					let ed = <Contracts<T>>::min_balance();
 					frame.nested_storage.record_charge(&StorageDeposit::Charge(ed))?;
 					<Contracts<T>>::charge_deposit(None, origin, account_id, ed, self.exec_config)
 						.map_err(|_| <Error<T>>::StorageDepositNotEnoughFunds)?;
