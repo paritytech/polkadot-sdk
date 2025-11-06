@@ -106,14 +106,8 @@ pub fn calldataload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Hal
 	let offset = as_usize_saturated(*offset_ptr);
 	let is_constructor = interpreter.ext.entry_point().is_evm_constructor();
 	let input = interpreter.input.as_slice();
-	let bytecode = interpreter.bytecode.bytecode_slice();
-	let inside_bytecode = offset < bytecode.len();
 
-	let (input, offset) = match (is_constructor, inside_bytecode) {
-		(true, true) => (bytecode, offset),
-		(true, false) => (input, offset - bytecode.len()),
-		(false, _) => (input, offset),
-	};
+	let input = if is_constructor { &[] } else { input };
 
 	let input_len = input.len();
 	if offset < input_len {
@@ -236,7 +230,7 @@ fn in_data_copy<E: Ext>(
 	}
 
 	let writes = match (is_constructor, is_codecopy) {
-		(true, _) => {
+		(true, true) => {
 			let bytes_written = bytecode.len().saturating_sub(data_offset).min(len);
 			&[
 				Write { memory_offset, data_offset, len: bytes_written, slice: bytecode },
@@ -248,6 +242,7 @@ fn in_data_copy<E: Ext>(
 				},
 			][..]
 		},
+		(true, false) => &[Write { memory_offset, data_offset, len, slice: &[] }],
 		(false, true) => &[Write { memory_offset, data_offset, len, slice: bytecode }],
 		(false, false) => &[Write { memory_offset, data_offset, len, slice: input }],
 	};
@@ -269,7 +264,8 @@ fn in_data_size<E: Ext>(interpreter: &mut Interpreter<E>, is_codecopy: bool) -> 
 	let is_constructor = interpreter.ext.entry_point().is_evm_constructor();
 
 	match (is_constructor, is_codecopy) {
-		(true, _) => bytecode_len.saturating_add(input_len),
+		(true, true) => bytecode_len.saturating_add(input_len),
+		(true, false) => 0,
 		(false, true) => bytecode_len,
 		(false, false) => input_len,
 	}
