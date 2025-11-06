@@ -66,8 +66,7 @@ use polkadot_runtime_common::{
 	BlockHashCount, BlockLength, SlowAdjustingFeeUpdate,
 };
 use polkadot_runtime_parachains::{
-	assigner_coretime as parachains_assigner_coretime,
-	configuration as parachains_configuration,
+	assigner_coretime as parachains_assigner_coretime, configuration as parachains_configuration,
 	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio,
 	coretime, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
@@ -1730,8 +1729,6 @@ pub mod migrations {
         pallet_society::migrations::MigrateToV2<Runtime, (), ()>,
         parachains_configuration::migration::v7::MigrateToV7<Runtime>,
         assigned_slots::migration::v1::MigrateToV1<Runtime>,
-		// TODO: Add migration
-        // parachains_scheduler::migration::MigrateV1ToV2<Runtime>,
         parachains_configuration::migration::v8::MigrateToV8<Runtime>,
         parachains_configuration::migration::v9::MigrateToV9<Runtime>,
         paras_registrar::migration::MigrateToV1<Runtime, ()>,
@@ -1759,9 +1756,6 @@ pub mod migrations {
 
         // Migrate Identity pallet for Usernames
         pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
-		// TODO: Add migration
-        // parachains_scheduler::migration::MigrateV1ToV2<Runtime>,
-        // parachains_on_demand::migration::MigrateV0ToV1<Runtime>,
 
 		// migrates session storage item
 		pallet_session::migrations::v1::MigrateV0ToV1<Runtime, pallet_session::migrations::v1::InitOffenceSeverity<Runtime>>,
