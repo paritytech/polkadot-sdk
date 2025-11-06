@@ -35,14 +35,9 @@ use core::mem;
 
 use sp_runtime::traits::Zero;
 mod benchmarking;
-// TODO: Add back & fix.
-// pub mod migration;
-mod mock_helpers;
+pub mod migration;
 
 extern crate alloc;
-
-#[cfg(test)]
-mod tests;
 
 use crate::{configuration, paras};
 use alloc::{collections::BTreeSet, vec::Vec};
@@ -63,9 +58,13 @@ use sp_runtime::{
 	FixedPointNumber, FixedPointOperand, FixedU128, Perbill, Saturating,
 };
 
-const LOG_TARGET: &str = "runtime::parachains::on-demand";
-
 pub use pallet::*;
+
+mod mock_helpers;
+#[cfg(test)]
+mod tests;
+
+const LOG_TARGET: &str = "runtime::parachains::on-demand";
 
 pub trait WeightInfo {
 	fn place_order_allow_death() -> Weight;
@@ -196,7 +195,7 @@ pub mod pallet {
 	use super::*;
 	use polkadot_primitives::Id as ParaId;
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]

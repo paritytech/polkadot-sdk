@@ -40,6 +40,11 @@ pub mod scheduler;
 pub mod session_info;
 pub mod shared;
 
+/// DEPRECATED: Stub pallet for migration purposes only.
+/// Will be removed after all networks migrate to scheduler v4.
+#[deprecated(note = "Functionality moved to scheduler::assigner_coretime. This stub exists only for storage migration.")]
+pub mod assigner_coretime;
+
 pub mod runtime_api_impl;
 
 mod util;

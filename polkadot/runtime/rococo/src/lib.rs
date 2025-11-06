@@ -66,6 +66,7 @@ use polkadot_runtime_common::{
 	BlockHashCount, BlockLength, SlowAdjustingFeeUpdate,
 };
 use polkadot_runtime_parachains::{
+	assigner_coretime as parachains_assigner_coretime,
 	configuration as parachains_configuration,
 	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio,
 	coretime, disputes as parachains_disputes,
@@ -1141,6 +1142,9 @@ impl parachains_paras_inherent::Config for Runtime {
 
 impl parachains_scheduler::Config for Runtime {}
 
+#[allow(deprecated)]
+impl parachains_assigner_coretime::Config for Runtime {}
+
 parameter_types! {
 	pub const BrokerId: u32 = BROKER_ID;
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
@@ -1583,6 +1587,8 @@ construct_runtime! {
 		ParasSlashing: parachains_slashing = 63,
 		MessageQueue: pallet_message_queue = 64,
 		OnDemandAssignmentProvider: parachains_on_demand = 66,
+		// DEPRECATED: Stub pallet for storage migration only. Remove after v4 migration completes.
+		CoretimeAssignmentProvider: parachains_assigner_coretime = 68,
 
 		// Parachain Onboarding Pallets. Start indices at 70 to leave room.
 		Registrar: paras_registrar = 70,
@@ -1760,12 +1766,14 @@ pub mod migrations {
 		// migrates session storage item
 		pallet_session::migrations::v1::MigrateV0ToV1<Runtime, pallet_session::migrations::v1::InitOffenceSeverity<Runtime>>,
 
+		// Migrate scheduler v3 -> v4 and on-demand v1 -> v2
+		parachains_scheduler::migration::MigrateV3ToV4<Runtime>,
+		parachains_on_demand::migration::MigrateV1ToV2<Runtime>,
+
         // permanent
         pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
         parachains_inclusion::migration::MigrateToV1<Runtime>,
 		parachains_shared::migration::MigrateToV1<Runtime>,
-		// TODO: Add proper migration.
-        // parachains_scheduler::migration::MigrateV2ToV3<Runtime>,
     );
 }
 
