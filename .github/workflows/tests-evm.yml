@@ -50,7 +50,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: paritytech/revive-differential-tests
-          ref: fb009f65c1489aca82788a1548f84428a5db786b
+          ref: f9a63a5641216f1af1962307741f0829e180dc9b
           path: revive-differential-tests
           submodules: recursive
       - name: Installing Retester
