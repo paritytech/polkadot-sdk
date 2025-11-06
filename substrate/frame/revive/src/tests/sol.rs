@@ -19,16 +19,18 @@ use crate::{
 	assert_refcount,
 	call_builder::VmBinaryModule,
 	debug::DebugSettings,
-	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
+	test_utils::{builder::Contract, ALICE, ALICE_ADDR, BOB},
 	tests::{
 		builder,
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
-		DebugFlag, ExtBuilder, Test,
+		AllowEvmBytecode, DebugFlag, ExtBuilder, RuntimeOrigin, Test,
 	},
-	Code, Config, Error, GenesisConfig, PristineCode,
+	Code, Config, Error, GenesisConfig, Origin, Pallet, PristineCode,
 };
 use alloy_core::sol_types::{SolCall, SolInterface};
-use frame_support::{assert_err, assert_ok, traits::fungible::Mutate};
+use frame_support::{
+	assert_err, assert_noop, assert_ok, dispatch::GetDispatchInfo, traits::fungible::Mutate,
+};
 use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType};
 use pretty_assertions::assert_eq;
 use test_case::test_case;
@@ -263,5 +265,98 @@ fn dust_work_with_child_calls(fixture_type: FixtureType) {
 			.build_and_unwrap_result();
 
 		assert_eq!(crate::Pallet::<Test>::evm_balance(&addr), value);
+	});
+}
+
+#[test]
+fn eth_substrate_call_dispatches_successfully() {
+	use frame_support::traits::fungible::Inspect;
+	ExtBuilder::default().build().execute_with(|| {
+		DebugSettings::default().allow_eth_substrate_call().write_to_storage::<Test>();
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000);
+		let _ = <Test as Config>::Currency::set_balance(&BOB, 100);
+
+		let transfer_call =
+			crate::tests::RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
+				dest: BOB,
+				value: 50,
+			});
+
+		assert_ok!(Pallet::<Test>::eth_substrate_call(
+			Origin::EthTransaction(ALICE).into(),
+			Box::new(transfer_call),
+		));
+
+		// Verify balance changed
+		assert_eq!(<Test as Config>::Currency::balance(&ALICE), 950);
+		assert_eq!(<Test as Config>::Currency::balance(&BOB), 150);
+	});
+}
+
+#[test]
+fn eth_substrate_call_requires_eth_origin() {
+	ExtBuilder::default().build().execute_with(|| {
+		DebugSettings::default().allow_eth_substrate_call().write_to_storage::<Test>();
+
+		let inner_call = frame_system::Call::remark { remark: vec![] };
+
+		// Should fail with non-EthTransaction origin
+		assert_noop!(
+			Pallet::<Test>::eth_substrate_call(
+				RuntimeOrigin::signed(ALICE),
+				Box::new(inner_call.into()),
+			),
+			sp_runtime::traits::BadOrigin
+		);
+	});
+}
+
+#[test]
+fn eth_substrate_call_requires_debug_flag() {
+	ExtBuilder::default().build().execute_with(|| {
+		// ensure eth_substrate_call is NOT allowed
+		assert!(!DebugSettings::is_eth_substrate_call_allowed::<Test>());
+
+		let inner_call = frame_system::Call::remark { remark: vec![] };
+
+		// Should fail since eth_substrate_call is not allowed
+		assert_noop!(
+			Pallet::<Test>::eth_substrate_call(
+				Origin::EthTransaction(ALICE).into(),
+				Box::new(inner_call.into())
+			),
+			Error::<Test>::EthSubstrateCallNotAllowed
+		);
+	});
+}
+
+#[test]
+fn eth_substrate_call_tracks_weight_correctly() {
+	use crate::{codec::Encode, weights::WeightInfo};
+	ExtBuilder::default().build().execute_with(|| {
+		DebugSettings::default().allow_eth_substrate_call().write_to_storage::<Test>();
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000);
+
+		let inner_call = frame_system::Call::remark { remark: vec![0u8; 100] };
+
+		let result = Pallet::<Test>::eth_substrate_call(
+			Origin::EthTransaction(ALICE).into(),
+			Box::new(inner_call.clone().into()),
+		);
+
+		assert_ok!(result);
+		let post_info = result.unwrap();
+		let overhead =
+			<Test as Config>::WeightInfo::eth_substrate_call(inner_call.encoded_size() as u32);
+
+		let expected_max_weight =
+			overhead.saturating_add(inner_call.get_dispatch_info().call_weight);
+
+		assert!(
+			expected_max_weight.ref_time() >= post_info.actual_weight.unwrap().ref_time(),
+			"expected_max_weight ref_time ({}) should be >= actual_weight ({})",
+			expected_max_weight.ref_time(),
+			post_info.actual_weight.unwrap().ref_time(),
+		);
 	});
 }
