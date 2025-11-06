@@ -20,6 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
+	debug::DebugSettings,
 	evm::{
 		block_hash::EthereumBlockBuilder, block_storage, TransactionLegacyUnsigned,
 		TransactionSigned, TransactionUnsigned,
@@ -475,27 +476,34 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn eth_substrate_call_upload_code(c: Linear<0, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
+	fn eth_substrate_call(c: Linear<0, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
-		let pallet_account = whitelisted_pallet_account::<T>();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
-		let VmBinaryModule { code, hash, .. } = VmBinaryModule::sized(c);
-		let origin = RawOrigin::Signed(caller.clone());
-		let storage_deposit = default_deposit_limit::<T>();
-
-		// Encode the upload_code call
-		let upload_code_call =
-			Call::<T>::upload_code { code: code.clone(), storage_deposit_limit: storage_deposit };
-
-		let encoded_call = upload_code_call.encode();
-
+		let origin = Origin::EthTransaction(caller);
+		// Allow substrate calls
+		DebugSettings::default().allow_eth_substrate_call().write_to_storage::<T>();
+		let dispatchable = frame_system::Call::remark { remark: vec![42u8; c as usize] }.into();
 		#[extrinsic_call]
-		eth_substrate_call(origin, encoded_call);
-		// uploading the code reserves some balance in the pallet's account
-		assert!(T::Currency::total_balance_on_hold(&pallet_account) > 0u32.into());
-		assert!(<Contract<T>>::code_exists(&hash));
+		_(origin, Box::new(dispatchable));
 
 		Ok(())
+	}
+
+	// Benchmark with_ethereum_context scaling with transaction size
+	// `c`: Transaction payload size in bytes
+	#[benchmark(pov_mode = Measured)]
+	fn with_ethereum_context_no_events(c: Linear<0, { 100 * 1024 }>) {
+		let transaction_encoded = vec![0x42u8; c as usize];
+
+		#[block]
+		{
+			let _ = block_storage::with_ethereum_context::<T>(transaction_encoded, || {
+				block_storage::EthereumCallResult {
+					receipt_gas_info: ReceiptGasInfo::default(),
+					result: Ok(PostDispatchInfo::default()),
+				}
+			});
+		}
 	}
 
 	// This constructs a contract that is maximal expensive to instrument.

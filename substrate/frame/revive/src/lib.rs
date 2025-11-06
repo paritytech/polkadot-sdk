@@ -1341,11 +1341,7 @@ pub mod pallet {
 		/// * `origin`: Must be an [`Origin::EthTransaction`] origin.
 		/// * `call`: The Substrate runtime call to execute.
 		#[pallet::call_index(12)]
-		#[pallet::weight({
-			let overhead = T::WeightInfo::eth_substrate_call_upload_code(0u32).saturating_sub(T::WeightInfo::upload_code(0u32));
-			// Total: overhead + inner call weight
-			overhead.saturating_add(call.get_dispatch_info().call_weight)
-		})]
+		#[pallet::weight(T::WeightInfo::eth_substrate_call(call.encoded_size() as u32).saturating_add(call.get_dispatch_info().call_weight))]
 		pub fn eth_substrate_call(
 			origin: OriginFor<T>,
 			call: Box<<T as Config>::RuntimeCall>,
@@ -1360,13 +1356,11 @@ pub mod pallet {
 				log::warn!(target: LOG_TARGET, "eth_substrate_call can only be used in development.");
 				return Err(<Error<T>>::EthSubstrateCallNotAllowed.into());
 			}
+			// Calculate the overhead weight of this extrinsic.
+			let overhead = T::WeightInfo::eth_substrate_call(call.encoded_size() as u32);
 
 			block_storage::with_ethereum_context::<T>(call.encode(), || {
 				let mut call_result = call.dispatch(RawOrigin::Signed(signer).into());
-
-				// Calculate the overhead weight of this extrinsic.
-				let overhead = T::WeightInfo::eth_substrate_call_upload_code(0u32)
-					.saturating_sub(T::WeightInfo::upload_code(0u32));
 
 				// Add overhead to the actual weight in PostDispatchInfo
 				match &mut call_result {
