@@ -1222,11 +1222,14 @@ where
 				// if we reached this point the origin has an associated account.
 				let origin = &self.origin.account_id()?;
 
+				// get balance of the account before charging ED, only charge ED if balance insufficient
+				let balance = T::Currency::total_balance(account_id);
 				let ed = <Contracts<T>>::min_balance();
-				frame.nested_storage.record_charge(&StorageDeposit::Charge(ed))?;
-				<Contracts<T>>::charge_deposit(None, origin, account_id, ed, self.exec_config)
-					.map_err(|_| <Error<T>>::StorageDepositNotEnoughFunds)?;
-
+				if balance < ed {
+					frame.nested_storage.record_charge(&StorageDeposit::Charge(ed))?;
+					<Contracts<T>>::charge_deposit(None, origin, account_id, ed, self.exec_config)
+						.map_err(|_| <Error<T>>::StorageDepositNotEnoughFunds)?;
+				}
 				// A consumer is added at account creation and removed it on termination, otherwise
 				// the runtime could remove the account. As long as a contract exists its
 				// account must exist. With the consumer, a correct runtime cannot remove the
@@ -1822,6 +1825,7 @@ where
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
 	) -> Result<H160, ExecError> {
+		log::info!(target: LOG_TARGET, "Instantiating contract with value: {value:?}");
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
 		// This is for example the case when creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
