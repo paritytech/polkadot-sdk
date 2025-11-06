@@ -749,7 +749,7 @@ impl Client {
 		self.max_block_weight
 	}
 
-	/// Get the block notifier, if automine is enabled war Self::create_block_notifier was called.
+	/// Get the block notifier, if automine is enabled or Self::create_block_notifier was called.
 	pub fn block_notifier(&self) -> Option<tokio::sync::broadcast::Sender<H256>> {
 		self.block_notifier.clone()
 	}
