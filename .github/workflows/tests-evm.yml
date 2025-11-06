@@ -50,7 +50,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: paritytech/revive-differential-tests
-          ref: dff4c25e24c62f4f2c5558a5997eee81d9dc66d8
+          ref: fb009f65c1489aca82788a1548f84428a5db786b
           path: revive-differential-tests
           submodules: recursive
       - name: Installing Retester
@@ -70,7 +70,7 @@ jobs:
             --platform ${{ matrix.platform }} \
             --concurrency.number-of-nodes 10 \
             --concurrency.number-of-threads 10 \
-            --concurrency.number-of-concurrent-tasks 2000 \
+            --concurrency.number-of-concurrent-tasks 1000 \
             --working-directory ./workdir \
             --revive-dev-node.consensus manual-seal-300000 \
             --revive-dev-node.path ./target/release/revive-dev-node \
