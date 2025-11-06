@@ -13,7 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use penpal_runtime::{self, xcm_config::RelayNetworkId as PenpalRelayNetworkId};
+pub use penpal_runtime::{
+	self, xcm_config::RelayNetworkId as PenpalRelayNetworkId, ForeignAssetReserveData,
+};
 
 mod genesis;
 pub use genesis::{genesis, PenpalAssetOwner, PenpalSudoAccount, ED, PARA_ID_A, PARA_ID_B};
@@ -95,8 +97,8 @@ impl_accounts_helpers_for_parachain!(PenpalB);
 impl_assert_events_helpers_for_parachain!(PenpalA);
 impl_assert_events_helpers_for_parachain!(PenpalB);
 impl_assets_helpers_for_parachain!(PenpalA);
-impl_foreign_assets_helpers_for_parachain!(PenpalA, xcm::latest::Location, ());
+impl_foreign_assets_helpers_for_parachain!(PenpalA, xcm::latest::Location, ForeignAssetReserveData);
 impl_assets_helpers_for_parachain!(PenpalB);
-impl_foreign_assets_helpers_for_parachain!(PenpalB, xcm::latest::Location, ());
+impl_foreign_assets_helpers_for_parachain!(PenpalB, xcm::latest::Location, ForeignAssetReserveData);
 impl_xcm_helpers_for_parachain!(PenpalA);
 impl_xcm_helpers_for_parachain!(PenpalB);
