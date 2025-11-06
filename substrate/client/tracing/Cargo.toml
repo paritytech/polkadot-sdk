@@ -23,7 +23,6 @@ harness = false
 chrono = { workspace = true }
 codec = { workspace = true, default-features = true }
 console = { workspace = true }
-frame-metadata = { workspace = true, features = ["current", "decode"] }
 is-terminal = { workspace = true }
 libc = { workspace = true }
 log = { workspace = true, default-features = true }
@@ -46,6 +45,7 @@ sp-runtime.workspace = true
 sp-tracing.default-features = true
 sp-tracing.workspace = true
 sp-trie = { workspace = true, default-features = true }
+frame-metadata = { workspace = true, features = ["decode", "current"] }
 thiserror = { workspace = true }
 tracing = { workspace = true, default-features = true }
 tracing-log = { workspace = true }
