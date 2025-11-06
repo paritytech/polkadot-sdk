@@ -25,18 +25,18 @@ use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
 use xcm::v5::{Junction, Location};
 use xcm_builder::StartsWith;
 
-/// This type provides the reserve locations for `asset_id`. To be used in a migration running on
-/// the Asset Hub Westend upgrade which changes the Foreign Assets reserve-transfers and
+/// This type provides reserves information for `asset_id`. Meant to be used in a migration running
+/// on the Asset Hub Westend upgrade which changes the Foreign Assets reserve-transfers and
 /// teleports from hardcoded rules to per-asset configured reserves.
 ///
-/// The hardcoded rules (see xcm_config.rs) being replaced here:
+/// The hardcoded rules (see `xcm_config.rs`) migrated here:
 /// 1. Foreign Assets native to sibling parachains are teleportable between the asset's native chain
 ///    and Asset Hub.
-///  ----> trusted reserve locations: the asset's native chain and `Here` (Asset Hub).
+///  ----> `ForeignAssetReserveData { reserve: "Asset's native chain", teleport: true }`
 /// 2. Foreign assets native to Ethereum Ecosystem have Ethereum as trusted reserve.
-///  ----> trusted reserve locations: Ethereum.
+///  ----> `ForeignAssetReserveData { reserve: "Ethereum", teleport: false }`
 /// 3. Foreign assets native to Rococo Ecosystem have Asset Hub Rococo as trusted reserve.
-///  ----> trusted reserve locations: Asset Hub Rococo.
+///  ----> `ForeignAssetReserveData { reserve: "Asset Hub Rococo", teleport: false }`
 pub struct AssetHubWestendForeignAssetsReservesProvider;
 impl ForeignAssetsReservesProvider for AssetHubWestendForeignAssetsReservesProvider {
 	type ReserveData = ForeignAssetReserveData;

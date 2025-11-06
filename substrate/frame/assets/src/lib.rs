@@ -117,7 +117,7 @@
 //!   Owner.
 //! * `set_metadata`: Set the metadata of an asset class; called by the asset class's Owner.
 //! * `clear_metadata`: Remove the metadata of an asset class; called by the asset class's Owner.
-//! * `set_reserves`: Set the reserve location(s) of an asset class; called by the asset class's
+//! * `set_reserves`: Set the reserve information of an asset class; called by the asset class's
 //!   Owner.
 //! * `block`: Disallows further `transfer`s to and from an account; called by the asset class's
 //!   Freezer.
@@ -477,7 +477,7 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	/// Maps an asset to a list of its configured reserve locations.
+	/// Maps an asset to a list of its configured reserve information.
 	#[pallet::storage]
 	pub type ReserveLocations<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
@@ -678,9 +678,9 @@ pub mod pallet {
 		Deposited { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
 		/// Some assets were withdrawn from the account (e.g. for transaction fees).
 		Withdrawn { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
-		/// Reserve locations were set or updated for `asset_id`.
+		/// Reserve information was set or updated for `asset_id`.
 		ReservesUpdated { asset_id: T::AssetId, reserves: Vec<T::ReserveData> },
-		/// Reserve locations were removed for `asset_id`.
+		/// Reserve information was removed for `asset_id`.
 		ReservesRemoved { asset_id: T::AssetId },
 	}
 
@@ -1858,13 +1858,13 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Sets the trusted reserve locations of an asset.
+		/// Sets the trusted reserve information of an asset.
 		///
 		/// Origin must be the Owner of the asset `id`. The origin must conform to the configured
 		/// `CreateOrigin` or be the signed `owner` configured during asset creation.
 		///
 		/// - `id`: The identifier of the asset.
-		/// - `reserves`: The full list of trusted reserves.
+		/// - `reserves`: The full list of trusted reserves information.
 		///
 		/// Emits `AssetMinBalanceChanged` event when successful.
 		#[pallet::call_index(33)]
@@ -1907,8 +1907,8 @@ pub mod pallet {
 			Metadata::<T, I>::try_get(id).ok()
 		}
 
-		/// Provide the configured reserves for asset `id`.
-		pub fn get_reserves(id: T::AssetId) -> Vec<T::ReserveData> {
+		/// Provide the configured reserves data for asset `id`.
+		pub fn get_reserves_data(id: T::AssetId) -> Vec<T::ReserveData> {
 			Self::reserves(&id)
 		}
 	}

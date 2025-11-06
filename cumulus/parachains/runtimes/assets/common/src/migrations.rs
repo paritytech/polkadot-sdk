@@ -16,12 +16,15 @@
 /// `pallet-assets` has been enhanced with asset reserves information so that AH foreign assets
 /// can be registered as either teleportable or reserve-based.
 /// Originally, all foreign assets were exclusively teleportable, whereas now, after creation the
-/// asset `Owner` also needs to set the asset's trusted reserves.
+/// asset `Owner` also needs to set the asset's trusted reserves and teleport relationships.
 ///
 /// This migration adds the origin chain of each existing foreign asset as a trusted reserve for it.
-/// It also adds `Here` (the local chain) as a trusted reserve for the existing Sibling Parachain
-/// foreign assets so as to preserve their existing teleportable status. For new assets, that status
-/// needs to be explicitly opted-in to by the asset's `Owner`.
+/// It marks Sibling Parachain foreign assets as teleportable between the local chain and the
+/// sibling parachain.
+/// It marks external ecosystems (bridged) foreign assets as non-teleportable between the local
+/// chain and the external ecosystem.
+/// For new assets, the reserve location(s) and teleport status need to be explicitly configured by
+/// the asset's `Owner`.
 ///
 /// See <https://github.com/paritytech/polkadot-sdk/pull/9948> for more info.
 pub mod foreign_assets_reserves {
@@ -50,8 +53,8 @@ pub mod foreign_assets_reserves {
 		Finished,
 	}
 
-	/// Trait for plugging in the type that chooses the correct reserves per asset_id for this
-	/// migration.
+	/// Trait for plugging in the type that chooses the correct reserves information per asset_id
+	/// for this migration.
 	pub trait ForeignAssetsReservesProvider {
 		type ReserveData: Debug;
 		fn reserves_for(asset_id: &Location) -> Vec<Self::ReserveData>;
@@ -62,18 +65,10 @@ pub mod foreign_assets_reserves {
 	/// The resulting state of the step and the actual weight consumed.
 	type StepResultOf<T, I> = MigrationState<<T as pallet_assets::Config<I>>::AssetId>;
 
-	/// This migration adds the native origin chain as a trusted reserve for already existing
-	/// Foreign Assets registered on Asset Hub. Also, for Sibling Parachain foreign assets which
-	/// have been teleportable since registration, this migration is used to add the local chain
-	/// (`Here` - Asset Hub) as a reserve for existing foreign assets, so as not to change any
-	/// existing behaviors.
-	///
-	/// Newly registered foreign assets will not have any reserves set by default so they will not
-	/// be transferable cross-chain unless the asset `owner` also configures trusted reserves for
-	/// them, through a dedicated `pallet_assets::set_reserves()` call done post-asset-creation.
-	///
-	/// `ReservesProvider` implementation shall provide the migration with the actual reserve
-	/// locations for each asset_id.
+	/// This migration adds assets reserves information for Foreign Assets registered on Asset Hub.
+	/// The migration can be used by multiple runtimes that need to populate reserves information
+	/// for existing assets. The actual reserves information is provided by an external type
+	/// `ReservesProvider` implementing the `ForeignAssetsReservesProvider` trait.
 	pub struct ForeignAssetsReservesMigration<T, I, ReservesProvider>(
 		PhantomData<(T, I, ReservesProvider)>,
 	);
@@ -148,7 +143,7 @@ pub mod foreign_assets_reserves {
 				.expect("Failed to decode the previous storage state");
 			// let local_chain = Location::here();
 			for id in prev_state.assets {
-				let reserves = pallet_assets::Pallet::<T, I>::get_reserves(id.clone());
+				let reserves = pallet_assets::Pallet::<T, I>::get_reserves_data(id.clone());
 				tracing::info!(target: "runtime::ForeignAssetsReservesMigration::post_upgrade", ?id, ?reserves, "verify asset");
 				assert!(ReservesProvider::check_reserves_for(&id, reserves));
 			}
