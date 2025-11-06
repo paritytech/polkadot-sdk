@@ -953,7 +953,11 @@ where
 		// OffchainWorker RuntimeApi should skip initialization.
 		let digests = header.digest().clone();
 
-		<frame_system::Pallet<System>>::initialize(header.number(), header.parent_hash(), &digests);
+		// Let's deposit all the logs we are not yet aware of. These are the logs set by the `node`.
+		let existing_digest = frame_system::Pallet::<System>::digest();
+		for digest in digests.logs().iter().filter(|d| !existing_digest.logs.contains(d)) {
+			frame_system::Pallet::<System>::deposit_log(digest.clone());
+		}
 
 		// Frame system only inserts the parent hash into the block hashes as normally we don't know
 		// the hash for the header before. However, here we are aware of the hash and we can add it
