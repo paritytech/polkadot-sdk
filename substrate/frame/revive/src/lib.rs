@@ -819,10 +819,11 @@ pub mod pallet {
 			// Build genesis block
 			block_storage::on_finalize_build_eth_block::<T>(
 				H160::zero(),
-				U256::zero(),
+				frame_system::Pallet::<T>::block_number().into(),
 				Pallet::<T>::evm_base_fee(),
 				Pallet::<T>::evm_block_gas_limit(),
-				U256::zero(),
+				// Eth uses timestamps in seconds
+				(T::Time::now() / 1000u32.into()).into(),
 			);
 
 			// Set debug settings.
