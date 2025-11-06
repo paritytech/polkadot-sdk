@@ -46,6 +46,8 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::{CoreIndex, GroupIndex, GroupRotationInfo, Id as ParaId, ValidatorIndex};
 use sp_runtime::traits::{One, Saturating};
 
+const LOG_TARGET: &str = "runtime::parachains::scheduler";
+
 pub use assigner_coretime::{CoreAssignment, PartsOf57600};
 pub use pallet::*;
 pub use polkadot_core_primitives::v2::BlockNumber;
@@ -58,6 +60,9 @@ mod tests;
 /// Depends on the ondemand pallet to assign pool cores.
 mod assigner_coretime;
 
+/// Storage migrations for the scheduler pallet.
+pub mod migration;
+
 #[frame_support::pallet]
 pub mod pallet {
 
@@ -65,7 +70,7 @@ pub mod pallet {
 
 	use super::*;
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -112,13 +117,32 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type SessionStartBlock<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
-	/// Additional storage implemented as alias in assigner_coretime submodule.
+	/// Scheduled assignment sets for coretime cores.
 	///
-	/// Alias needed because pallet macro does not support nested modules.
-	type _CoreSchedules = ();
+	/// Assignments as of the given block number. They will go into state once the block number is
+	/// reached (and replace whatever was in there before).
+	///
+	/// Managed by the `assigner_coretime` submodule.
+	#[pallet::storage]
+	pub(crate) type CoreSchedules<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		(BlockNumberFor<T>, CoreIndex),
+		assigner_coretime::Schedule<BlockNumberFor<T>>,
+		OptionQuery,
+	>;
 
-	/// Additional sotrage implemented as alias in assigner_coretime submodule
-	type _CoreDescriptors = ();
+	/// Assignments which are currently active for each core.
+	///
+	/// They will be picked from `CoreSchedules` once we reach the scheduled block number.
+	///
+	/// Managed by the `assigner_coretime` submodule.
+	#[pallet::storage]
+	pub(crate) type CoreDescriptors<T: Config> = StorageValue<
+		_,
+		BTreeMap<CoreIndex, assigner_coretime::CoreDescriptor<BlockNumberFor<T>>>,
+		ValueQuery,
+	>;
 
 	/// Availability timeout status of a core.
 	pub(crate) struct AvailabilityTimeoutStatus<BlockNumber> {
