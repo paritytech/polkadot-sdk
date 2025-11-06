@@ -53,6 +53,7 @@ std = [
 	"pallet-xcm/std",
 	"parachains-common/std",
 	"scale-info/std",
+	"serde/std",
 	"sp-api/std",
 	"sp-core/std",
 	"sp-runtime/std",
