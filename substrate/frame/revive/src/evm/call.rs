@@ -170,10 +170,10 @@ where
 				.saturating_mul_int(<BalanceOf<T>>::saturated_from(adjusted));
 			unadjusted
 		};
-
-		let weight_limit = <T as Config>::FeeInfo::fee_to_weight(remaining_fee)
+		let remaining_fee_weight = <T as Config>::FeeInfo::fee_to_weight(remaining_fee);
+		let weight_limit = remaining_fee_weight
 						.checked_sub(&info.total_weight()).ok_or_else(|| {
-							log::debug!(target: LOG_TARGET, "Not enough gas supplied to cover the weight of the extrinsic.");
+							log::debug!(target: LOG_TARGET, "Not enough gas supplied to cover the weight ({:?}) of the extrinsic. remaining_fee_weight: {remaining_fee_weight:?}", info.total_weight(),);
 							InvalidTransaction::Payment
 						})?;
 

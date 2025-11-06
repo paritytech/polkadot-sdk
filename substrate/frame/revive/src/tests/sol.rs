@@ -19,7 +19,7 @@ use crate::{
 	assert_refcount,
 	call_builder::VmBinaryModule,
 	debug::DebugSettings,
-	test_utils::{builder::Contract, ALICE},
+	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
 	tests::{
 		builder,
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
@@ -31,6 +31,7 @@ use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::{assert_err, assert_ok, traits::fungible::Mutate};
 use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType};
 use pretty_assertions::assert_eq;
+use test_case::test_case;
 
 use revm::bytecode::opcode::*;
 
@@ -104,7 +105,6 @@ fn basic_evm_flow_works() {
 fn basic_evm_flow_tracing_works() {
 	use crate::{
 		evm::{CallTrace, CallTracer, CallType},
-		test_utils::ALICE_ADDR,
 		tracing::trace,
 	};
 	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
@@ -198,4 +198,70 @@ fn eth_contract_too_large() {
 				}
 			});
 	}
+}
+
+#[test]
+fn upload_evm_runtime_code_works() {
+	use crate::{
+		exec::Executable,
+		primitives::ExecConfig,
+		storage::{AccountInfo, ContractInfo},
+		Pallet,
+	};
+
+	let (runtime_code, _runtime_hash) =
+		compile_module_with_type("Fibonacci", FixtureType::SolcRuntime).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let deployer = ALICE;
+		let deployer_addr = ALICE_ADDR;
+		let _ = Pallet::<Test>::set_evm_balance(&deployer_addr, 1_000_000_000.into());
+
+		let (uploaded_blob, _) = Pallet::<Test>::try_upload_code(
+			deployer,
+			runtime_code.clone(),
+			crate::vm::BytecodeType::Evm,
+			u64::MAX,
+			&ExecConfig::new_substrate_tx(),
+		)
+		.unwrap();
+
+		let contract_address = crate::address::create1(&deployer_addr, 0u32.into());
+
+		let contract_info =
+			ContractInfo::<Test>::new(&contract_address, 0u32.into(), *uploaded_blob.code_hash())
+				.unwrap();
+		AccountInfo::<Test>::insert_contract(&contract_address, contract_info);
+
+		// Call the contract and verify it works
+		let result = builder::bare_call(contract_address)
+			.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 10u64 }).abi_encode())
+			.build_and_unwrap_result();
+		let decoded = Fibonacci::fibCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(55u64, decoded, "Contract should correctly compute fibonacci(10)");
+	});
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn dust_work_with_child_calls(fixture_type: FixtureType) {
+	use pallet_revive_fixtures::CallSelfWithDust;
+	let (code, _) = compile_module_with_type("CallSelfWithDust", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+
+		let value = 1_000_000_000.into();
+		builder::bare_call(addr)
+			.data(
+				CallSelfWithDust::CallSelfWithDustCalls::call(CallSelfWithDust::callCall {})
+					.abi_encode(),
+			)
+			.evm_value(value)
+			.build_and_unwrap_result();
+
+		assert_eq!(crate::Pallet::<Test>::evm_balance(&addr), value);
+	});
 }
