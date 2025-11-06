@@ -44,7 +44,6 @@ use crate::{
 };
 
 mod benchmarking;
-// pub mod migration;
 
 const LOG_TARGET: &str = "runtime::parachains::coretime";
 
