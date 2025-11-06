@@ -283,6 +283,8 @@ impl<Block: BlockT, Backend: ClientBackend<Block>> WarpSyncProvider<Block>
 where
 	NumberFor<Block>: BlockNumberOps,
 {
+	type Context = (SetId, AuthorityList);
+
 	fn generate(
 		&self,
 		start: Block::Hash,
@@ -299,9 +301,10 @@ where
 	fn verify(
 		&self,
 		proof: &EncodedProof,
-		set_id: SetId,
-		authorities: AuthorityList,
-	) -> Result<VerificationResult<Block>, Box<dyn std::error::Error + Send + Sync>> {
+		context: &Self::Context,
+	) -> Result<VerificationResult<Block, Self::Context>, Box<dyn std::error::Error + Send + Sync>>
+	{
+		let (set_id, authorities) = context;
 		let EncodedProof(proof) = proof;
 		let proof = WarpSyncProof::<Block>::decode_all(&mut proof.as_slice())
 			.map_err(|e| format!("Proof decoding error: {:?}", e))?;
@@ -311,7 +314,7 @@ where
 			.map(|p| p.header.clone())
 			.ok_or_else(|| "Empty proof".to_string())?;
 		let (next_set_id, next_authorities) =
-			proof.verify(set_id, authorities, &self.hard_forks).map_err(Box::new)?;
+			proof.verify(*set_id, authorities.clone(), &self.hard_forks).map_err(Box::new)?;
 		let justifications = proof
 			.proofs
 			.into_iter()
@@ -322,24 +325,23 @@ where
 			})
 			.collect::<Vec<_>>();
 		if proof.is_finished {
-			Ok(VerificationResult::<Block>::Complete(
-				next_set_id,
-				next_authorities,
+			Ok(VerificationResult::Complete(
+				(next_set_id, next_authorities),
 				last_header,
 				justifications,
 			))
 		} else {
-			Ok(VerificationResult::<Block>::Partial(
-				next_set_id,
-				next_authorities,
+			Ok(VerificationResult::Partial(
+				(next_set_id, next_authorities),
 				last_header.hash(),
 				justifications,
 			))
 		}
 	}
 
-	fn current_authorities(&self) -> AuthorityList {
-		self.authority_set.inner().current_authorities.clone()
+	fn current_context(&self) -> Self::Context {
+		let authority_set = self.authority_set.inner();
+		(0, authority_set.current_authorities.clone())
 	}
 }
 

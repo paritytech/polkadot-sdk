@@ -41,7 +41,7 @@ use sc_network::{
 	config::SyncMode, request_responses::IncomingRequest, service::traits::NetworkService,
 	NetworkBackend,
 };
-use sc_network_sync::SyncingService;
+use sc_network_sync::{strategy::warp::WarpSyncContext, SyncingService};
 use sc_network_transactions::TransactionsHandlerController;
 use sc_service::{Configuration, SpawnTaskHandle, TaskManager, WarpSyncConfig};
 use sc_telemetry::{log, TelemetryWorkerHandle};
@@ -297,7 +297,7 @@ pub struct BuildNetworkParams<
 }
 
 /// Build the network service, the network status sinks and an RPC sender.
-pub async fn build_network<'a, Block, Client, RCInterface, IQ, Network>(
+pub async fn build_network<'a, Block, Client, RCInterface, IQ, Network, Context>(
 	BuildNetworkParams {
 		parachain_config,
 		net_config,
@@ -336,6 +336,7 @@ where
 	RCInterface: RelayChainInterface + Clone + 'static,
 	IQ: ImportQueue<Block> + 'static,
 	Network: NetworkBackend<Block, <Block as BlockT>::Hash>,
+	Context: WarpSyncContext,
 {
 	let warp_sync_config = match parachain_config.network.sync_mode {
 		SyncMode::Warp => {
@@ -351,7 +352,7 @@ where
 							e
 						);
 					})?;
-			Some(WarpSyncConfig::WithTarget(target_block))
+			Some(WarpSyncConfig::<Block, Context>::WithTarget(target_block))
 		},
 		_ => None,
 	};
@@ -368,18 +369,20 @@ where
 		},
 	};
 
-	sc_service::build_network(sc_service::BuildNetworkParams {
-		config: parachain_config,
-		net_config,
-		client,
-		transaction_pool,
-		spawn_handle,
-		import_queue,
-		block_announce_validator_builder: Some(Box::new(move |_| block_announce_validator)),
-		warp_sync_config,
-		block_relay: None,
-		metrics,
-	})
+	sc_service::build_network::<Block, Network, _, _, Client, Context>(
+		sc_service::BuildNetworkParams {
+			config: parachain_config,
+			net_config,
+			client,
+			transaction_pool,
+			spawn_handle,
+			import_queue,
+			block_announce_validator_builder: Some(Box::new(move |_| block_announce_validator)),
+			warp_sync_config,
+			block_relay: None,
+			metrics,
+		},
+	)
 }
 
 /// Waits for the relay chain to have finished syncing and then gets the parachain header that

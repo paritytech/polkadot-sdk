@@ -70,10 +70,7 @@ use sc_network_sync::{
 	state_request_handler::StateRequestHandler,
 	strategy::{
 		polkadot::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
-		warp::{
-			AuthorityList, EncodedProof, SetId, VerificationResult, WarpSyncConfig,
-			WarpSyncProvider,
-		},
+		warp::{EncodedProof, VerificationResult, WarpSyncConfig, WarpSyncProvider},
 	},
 	warp_request_handler,
 };
@@ -657,6 +654,8 @@ impl<B: BlockT> VerifierAdapter<B> {
 struct TestWarpSyncProvider<B: BlockT>(Arc<dyn HeaderBackend<B>>);
 
 impl<B: BlockT> WarpSyncProvider<B> for TestWarpSyncProvider<B> {
+	type Context = ();
+
 	fn generate(
 		&self,
 		_start: B::Hash,
@@ -668,15 +667,14 @@ impl<B: BlockT> WarpSyncProvider<B> for TestWarpSyncProvider<B> {
 	fn verify(
 		&self,
 		proof: &EncodedProof,
-		_set_id: SetId,
-		_authorities: AuthorityList,
-	) -> Result<VerificationResult<B>, Box<dyn std::error::Error + Send + Sync>> {
+		_context: &Self::Context,
+	) -> Result<VerificationResult<B, Self::Context>, Box<dyn std::error::Error + Send + Sync>> {
 		let EncodedProof(encoded) = proof;
 		let header = B::Header::decode(&mut encoded.as_slice()).unwrap();
-		Ok(VerificationResult::Complete(0, Default::default(), header, Default::default()))
+		Ok(VerificationResult::Complete((), header, Default::default()))
 	}
-	fn current_authorities(&self) -> AuthorityList {
-		Default::default()
+	fn current_context(&self) -> Self::Context {
+		()
 	}
 }
 
