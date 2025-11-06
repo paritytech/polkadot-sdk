@@ -136,6 +136,9 @@ async fn collect_relay_storage_proof(
 		relevant_keys.push(relay_well_known_keys::NEXT_AUTHORITIES.to_vec());
 	}
 
+	// Include broadcaster published data roots
+	relevant_keys.push(relay_well_known_keys::BROADCASTER_PUBLISHED_DATA_ROOTS.to_vec());
+
 	// Add additional relay state keys
 	let unique_keys: Vec<Vec<u8>> = additional_relay_state_keys
 		.into_iter()

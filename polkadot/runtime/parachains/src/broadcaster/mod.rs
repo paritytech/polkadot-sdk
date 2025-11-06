@@ -169,6 +169,12 @@ pub mod pallet {
 				T::MaxValueLength::get() <= xcm::v5::MaxPublishValueLength::get(),
 				"Broadcaster MaxValueLength exceeds XCM MaxPublishValueLength upper bound"
 			);
+			assert_eq!(
+				&PublishedDataRoots::<T>::hashed_key(),
+				polkadot_primitives::well_known_keys::BROADCASTER_PUBLISHED_DATA_ROOTS,
+				"`well_known_keys::BROADCASTER_PUBLISHED_DATA_ROOTS` doesn't match key of `PublishedDataRoots`! \
+				Make sure that the name of the broadcaster pallet is `Broadcaster` in the runtime!",
+			);
 		}
 	}
 
@@ -237,6 +243,26 @@ pub mod pallet {
 
 			// Update the published keys storage
 			PublishedKeys::<T>::insert(origin_para_id, published_keys);
+
+			// Calculate and update the child trie root for this publisher
+			let child_root = frame_support::storage::child::root(&child_info,
+				sp_runtime::StateVersion::V1);
+
+			// Update the aggregated roots storage
+			let mut roots = PublishedDataRoots::<T>::get();
+
+			// Convert child_root once
+			if let Ok(bounded_root) = BoundedVec::try_from(child_root) {
+				// Find and update existing entry or add new one
+				if let Some((_, root_hash)) = roots.iter_mut().find(|(para_id, _)| *para_id == origin_para_id) {
+					*root_hash = bounded_root;
+				} else {
+					// Not found, add new entry
+					roots.try_push((origin_para_id, bounded_root)).defensive_ok();
+				}
+			}
+
+			PublishedDataRoots::<T>::put(roots);
 
 			Self::deposit_event(Event::DataPublished { publisher: origin_para_id, items_count });
 
