@@ -8,6 +8,6 @@ doc:
     Modify the send_raw_transaction to look for the transaction hash in the transactions field of the evm block.
 crates:
 - name: pallet-revive-eth-rpc
-  bump: patch
+  bump: major
 - name: pallet-revive
-  bump: patch
+  bump: minor
