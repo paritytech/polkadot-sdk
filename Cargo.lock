@@ -20551,6 +20551,7 @@ dependencies = [
  "parking_lot 0.12.3",
  "sc-client-api",
  "sc-keystore",
+ "sc-network-statement",
  "sp-api 37.0.0",
  "sp-blockchain",
  "sp-core 37.0.0",
