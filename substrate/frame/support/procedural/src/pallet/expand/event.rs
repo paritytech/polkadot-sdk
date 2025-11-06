@@ -17,7 +17,7 @@
 
 use crate::{
 	deprecation::extract_or_return_allow_attrs,
-	pallet::{parse::event::PalletEventDepositAttr, Def},
+	pallet::{parse::event::{PalletEventDepositAttr, CapturedField}, Def},
 	COUNTER,
 };
 use frame_support_procedural_tools::get_doc_literals;
@@ -147,24 +147,30 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 
 		let PalletEventDepositAttr { fn_vis, fn_span, .. } = deposit_event;
 
-		quote::quote_spanned!(*fn_span =>
-			impl<#type_impl_gen> #pallet_ident<#type_use_gen> #completed_where_clause {
-				#(#maybe_allow_attrs)*
-				#fn_vis fn deposit_event(event: Event<#event_use_gen>) {
-					let event = <
-						<T as #frame_system::Config>::RuntimeEvent as
-						From<Event<#event_use_gen>>
-					>::from(event);
+        if event.capture_for_chain_batch {
+            generate_deposit_event_with_capture(def, event, deposit_event)
+        } else {
 
-					let event = <
-						<T as #frame_system::Config>::RuntimeEvent as
-						Into<<T as #frame_system::Config>::RuntimeEvent>
-					>::into(event);
+		    quote::quote_spanned!(*fn_span =>
+			    impl<#type_impl_gen> #pallet_ident<#type_use_gen> #completed_where_clause {
+				    #(#maybe_allow_attrs)*
+				    #fn_vis fn deposit_event(event: Event<#event_use_gen>) {
+					    let event = <
+						    <T as #frame_system::Config>::RuntimeEvent as
+						    From<Event<#event_use_gen>>
+					    >::from(event);
 
-					<#frame_system::Pallet<T>>::deposit_event(event)
-				}
-			}
-		)
+					    let event = <
+						    <T as #frame_system::Config>::RuntimeEvent as
+						    Into<<T as #frame_system::Config>::RuntimeEvent>
+					    >::into(event);
+
+					    <#frame_system::Pallet<T>>::deposit_event(event)
+				    }
+			    }
+		    )
+        }
+
 	} else {
 		Default::default()
 	};
@@ -201,4 +207,105 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		}
 	)
+}
+
+/// Generate deposit event function with chain batch capture
+fn generate_deposit_event_with_capture(
+	def: &Def,
+	event: &crate::pallet::parse::event::EventDef,
+	deposit_event: &PalletEventDepositAttr,
+) -> proc_macro2::TokenStream {
+	let event_use_gen = &event.gen_kind.type_use_gen(event.attr_span);
+	let type_impl_gen = &def.type_impl_generics(event.attr_span);
+	let type_use_gen = &def.type_use_generics(event.attr_span);
+	let pallet_ident = &def.pallet_struct.pallet;
+	let frame_system = &def.frame_system;
+	let frame_support = &def.frame_support;
+	
+	let PalletEventDepositAttr { fn_vis, fn_span, .. } = deposit_event;
+
+	let completed_where_clause =
+		super::merge_where_clauses(&[&event.where_clause, &def.config.where_clause]);
+
+	// Get the module name from the def.item
+	let module_name = def.item.ident.to_string();
+
+	// Generate match arms for capturing event data
+	let capture_arms = generate_capture_arms(&event.captured_fields, &module_name, frame_support);
+
+	quote::quote_spanned!(*fn_span =>
+		impl<#type_impl_gen> #pallet_ident<#type_use_gen> #completed_where_clause {
+			#fn_vis fn deposit_event(event: Event<#event_use_gen>) {
+				// Capture event data for chain batching before depositing
+				#capture_arms
+
+				let event = <
+					<T as #frame_system::Config>::RuntimeEvent as
+					From<Event<#event_use_gen>>
+				>::from(event);
+
+				let event = <
+					<T as #frame_system::Config>::RuntimeEvent as
+					Into<<T as #frame_system::Config>::RuntimeEvent>
+				>::into(event);
+
+				<#frame_system::Pallet<T>>::deposit_event(event)
+			}
+		}
+	)
+}
+
+/// Generate match arms for capturing event fields
+fn generate_capture_arms(
+	captured_fields: &[CapturedField],
+	module_name: &str,
+	frame_support: &syn::Path,
+) -> proc_macro2::TokenStream {
+	if captured_fields.is_empty() {
+		return quote::quote! {};
+	}
+
+	// Group captured fields by variant
+	use std::collections::HashMap;
+	let mut fields_by_variant: HashMap<&syn::Ident, Vec<&CapturedField>> = HashMap::new();
+	
+	for field in captured_fields {
+		fields_by_variant
+			.entry(&field.variant_ident)
+			.or_insert_with(Vec::new)
+			.push(field);
+	}
+	
+	let mut arms = Vec::new();
+	
+	for (variant_ident, fields) in fields_by_variant {
+		let field_idents: Vec<_> = fields.iter().map(|f| &f.field_ident).collect();
+		let field_names: Vec<_> = fields.iter().map(|f| &f.capture_name).collect();
+		
+		let capture_calls: Vec<_> = field_idents.iter().zip(field_names.iter()).map(|(field_ident, field_name)| {
+			quote::quote! {
+				#frame_support::dispatch_context::capture_event_field(
+					#module_name,
+					stringify!(#variant_ident),
+					#field_name,
+					#field_ident.encode()
+				);
+			}
+		}).collect();
+		
+		// Create the pattern that includes all captured fields and ignores the rest with `..`
+		let arm = quote::quote! {
+			Event::#variant_ident { #(#field_idents),*, .. } => {
+				#(#capture_calls)*
+			}
+		};
+		arms.push(arm);
+	}
+	
+	quote::quote! {
+		match &event {
+			#(#arms)*
+			_ => {}
+		}
+	}
 }
