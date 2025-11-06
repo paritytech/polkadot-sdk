@@ -213,12 +213,12 @@ impl<Message: InboundMessage> AbridgedInboundMessagesCollection<Message> {
 	pub fn check_enough_messages_included_advanced(
 		&self,
 		collection_name: &str,
-		maybe_size_info: AbridgedInboundMessagesSizeInfo,
+		size_info: AbridgedInboundMessagesSizeInfo,
 	) {
 		// We should check that the collection contains as many full messages as possible
 		// without exceeding the max expected size.
 		let AbridgedInboundMessagesSizeInfo { max_full_messages_size, first_hashed_msg_max_size } =
-			maybe_size_info;
+			size_info;
 
 		let mut full_messages_size = 0usize;
 		for msg in &self.full_messages {

@@ -1193,20 +1193,19 @@ impl<T: Config> Pallet<T> {
 		ingress_channels: &[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
 		sender: ParaId,
 	) -> &cumulus_primitives_core::AbridgedHrmpChannel {
-		let maybe_channel_idx =
-			ingress_channels.binary_search_by_key(&sender, |&(channel_sender, _)| channel_sender);
-		let Ok(channel_idx) = maybe_channel_idx else {
+		let maybe_channel_idx = ingress_channels
+			.binary_search_by_key(&sender, |&(channel_sender, _)| channel_sender)
+			.ok();
+		let maybe_channel = maybe_channel_idx
+			.and_then(|channel_idx| ingress_channels.get(channel_idx))
+			.map(|(_, channel)| channel);
+		maybe_channel.unwrap_or_else(|| {
 			panic!(
 				"One of the messages submitted by the collator was sent from a sender ({}) \
 				that doesn't have a channel opened to this parachain",
 				<ParaId as Into<u32>>::into(sender)
 			)
-		};
-
-		ingress_channels
-			.get(channel_idx)
-			.map(|(_, channel)| channel)
-			.expect("Channel index was just calculated and is correct; qed")
+		})
 	}
 
 	fn check_hrmp_mcq_heads(
