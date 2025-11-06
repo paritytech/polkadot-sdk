@@ -697,6 +697,33 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ErasValidatorReward<T: Config> = StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
 
+	/// Extra validator rewards set by governance for specific eras.
+	///
+	/// This storage allows administrators to set additional rewards for specific eras to compensate
+	/// for underpayment bugs or other issues. These extra rewards are claimed separately via
+	/// `payout_stakers_extra` and do not auto-prune - they must be manually pruned after
+	/// [`Config::HistoryDepth`] eras using `prune_extra_era_rewards`.
+	#[pallet::storage]
+	pub type ExtraErasValidatorReward<T: Config> =
+		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
+
+	/// History of claimed extra paged rewards by era and validator.
+	///
+	/// Tracks which pages have been claimed for extra era rewards. This is separate from
+	/// [`ClaimedRewards`] to allow independent claiming of normal and extra rewards.
+	///
+	/// Must be manually pruned via `prune_extra_era_rewards` after [`Config::HistoryDepth`] eras.
+	#[pallet::storage]
+	pub type ExtraClaimedRewards<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		EraIndex,
+		Twox64Concat,
+		T::AccountId,
+		WeakBoundedVec<Page, ClaimedRewardsBound<T>>,
+		ValueQuery,
+	>;
+
 	/// Rewards for the last [`Config::HistoryDepth`] eras.
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
 	#[pallet::storage]
@@ -1133,6 +1160,22 @@ pub mod pallet {
 			page: Page,
 			next: Option<Page>,
 		},
+		/// A Page of extra stakers rewards are getting paid. `next` is `None` if all pages are
+		/// claimed.
+		ExtraPayoutStarted {
+			era_index: EraIndex,
+			validator_stash: T::AccountId,
+			page: Page,
+			next: Option<Page>,
+		},
+		/// The staker has been rewarded by this amount with extra rewards for compensation.
+		ExtraRewarded {
+			stash: T::AccountId,
+			dest: RewardDestination<T::AccountId>,
+			amount: BalanceOf<T>,
+		},
+		/// Extra era reward has been set by admin origin.
+		ExtraEraRewardSet { era_index: EraIndex, payout: BalanceOf<T> },
 		/// A validator has set their preferences.
 		ValidatorPrefsSet {
 			stash: T::AccountId,
@@ -2717,6 +2760,143 @@ pub mod pallet {
 			Ok(frame_support::dispatch::PostDispatchInfo {
 				actual_weight: Some(actual_weight),
 				pays_fee: frame_support::dispatch::Pays::No,
+			})
+		}
+
+		/// Set an extra reward for validators and their nominators for a specific era.
+		///
+		/// This extrinsic allows governance to compensate validators for underpayment bugs or
+		/// other issues that occurred in a past era. The extra reward is distributed in the same
+		/// proportion as the original era rewards, respecting validator commission and nominator
+		/// stake.
+		///
+		/// The extra reward can be claimed via `payout_stakers_extra` or
+		/// `payout_stakers_extra_by_page` extrinsics.
+		///
+		/// Extra rewards are not automatically pruned and must be manually removed via
+		/// `prune_extra_era_rewards` after they are no longer needed.
+		///
+		/// # Parameters
+		/// - `era`: The era index for which to set the extra reward
+		/// - `payout`: The total extra payout amount to be distributed among validators
+		///
+		/// # Errors
+		/// - Requires `T::AdminOrigin` authorization
+		#[pallet::call_index(33)]
+		#[pallet::weight(T::DbWeight::get().writes(1))]
+		pub fn set_extra_era_reward(
+			origin: OriginFor<T>,
+			era: EraIndex,
+			payout: BalanceOf<T>,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			crate::session_rotation::Eras::<T>::set_extra_validators_reward(era, payout);
+			Self::deposit_event(Event::<T>::ExtraEraRewardSet { era_index: era, payout });
+			Ok(())
+		}
+
+		/// Pay out extra rewards for all pages of a validator for the given era.
+		///
+		/// This pays out the next unclaimed page of extra rewards. To claim specific pages, use
+		/// `payout_stakers_extra_by_page`.
+		///
+		/// The origin of this call must be signed by any account.
+		///
+		/// # Parameters
+		/// - `validator_stash`: The stash account of the validator
+		/// - `era`: The era for which to pay out extra rewards
+		///
+		/// # Errors
+		/// - `InvalidEraToReward`: Era is too old or doesn't have extra rewards set
+		/// - `InvalidPage`: All pages have already been claimed
+		/// - `NotStash`: The provided account is not a stash account
+		#[pallet::call_index(34)]
+		#[pallet::weight(T::WeightInfo::payout_stakers_alive_staked(T::MaxExposurePageSize::get()))]
+		pub fn payout_stakers_extra(
+			origin: OriginFor<T>,
+			validator_stash: T::AccountId,
+			era: EraIndex,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+			Self::do_payout_stakers_extra(validator_stash, era)
+		}
+
+		/// Pay out extra rewards for a specific page of a validator's nominators for the given
+		/// era.
+		///
+		/// This is useful when a validator has many nominators and their exposure is split across
+		/// multiple pages. Each page must be claimed separately.
+		///
+		/// The origin of this call must be signed by any account.
+		///
+		/// # Parameters
+		/// - `validator_stash`: The stash account of the validator
+		/// - `era`: The era for which to pay out extra rewards
+		/// - `page`: The page index to claim (starting from 0)
+		///
+		/// # Errors
+		/// - `InvalidEraToReward`: Era is too old or doesn't have extra rewards set
+		/// - `InvalidPage`: Page index is out of bounds or already claimed
+		/// - `NotStash`: The provided account is not a stash account
+		#[pallet::call_index(35)]
+		#[pallet::weight(T::WeightInfo::payout_stakers_alive_staked(T::MaxExposurePageSize::get()))]
+		pub fn payout_stakers_extra_by_page(
+			origin: OriginFor<T>,
+			validator_stash: T::AccountId,
+			era: EraIndex,
+			page: Page,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+			Self::do_payout_stakers_extra_by_page(validator_stash, era, page)
+		}
+
+		/// Prune extra era rewards storage for a given era.
+		///
+		/// This is a permissionless call that removes `ExtraErasValidatorReward` and all
+		/// `ExtraClaimedRewards` entries for the specified era. Unlike normal era storage which is
+		/// auto-pruned, extra era rewards must be manually pruned after they are no longer needed.
+		///
+		/// Typically, this should be called after the era is older than `HistoryDepth` eras to
+		/// match the pruning behavior of normal rewards.
+		///
+		/// The origin of this call must be signed by any account.
+		///
+		/// # Parameters
+		/// - `era`: The era index for which to prune extra rewards storage
+		///
+		/// # Returns
+		/// Returns `Pays::No` to incentivize maintenance when work is performed.
+		#[pallet::call_index(36)]
+		#[pallet::weight({
+			let v = T::MaxValidatorSet::get();
+			// Reading ExtraErasValidatorReward + removing it + removing claimed rewards for all validators
+			T::DbWeight::get().reads_writes(1 + v as u64, 1 + v as u64)
+		})]
+		pub fn prune_extra_era_rewards(
+			origin: OriginFor<T>,
+			era: EraIndex,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+
+			// Check if there's an extra reward set for this era
+			let had_reward = ExtraErasValidatorReward::<T>::contains_key(era);
+
+			// Remove the extra era validator reward
+			ExtraErasValidatorReward::<T>::remove(era);
+
+			// Remove all claimed rewards for this era
+			let removed = ExtraClaimedRewards::<T>::clear_prefix(era, u32::MAX, None);
+
+			let actual_writes = if had_reward { 1 + removed.unique as u64 } else { 0 };
+			let actual_weight = T::DbWeight::get().reads_writes(1, actual_writes);
+
+			Ok(frame_support::dispatch::PostDispatchInfo {
+				actual_weight: Some(actual_weight),
+				pays_fee: if had_reward || removed.unique > 0 {
+					frame_support::dispatch::Pays::No
+				} else {
+					frame_support::dispatch::Pays::Yes
+				},
 			})
 		}
 	}

@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::*;
-use crate::session_rotation::Eras;
+use crate::{mock, session_rotation::Eras};
 use frame_support::dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo};
 use sp_runtime::{bounded_btree_map, traits::Dispatchable};
 
@@ -1690,5 +1690,327 @@ fn test_runtime_api_pending_rewards() {
 		assert!(Eras::<T>::pending_rewards(0, &validator_two));
 		// and payout works again for validator two.
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_two, 0));
+	});
+}
+
+#[test]
+fn set_extra_era_reward_requires_admin_origin() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Non-admin origin should fail (account 2 is not admin in mock)
+		assert_noop!(
+			Staking::set_extra_era_reward(RuntimeOrigin::signed(2), 0, 1000),
+			sp_runtime::DispatchError::BadOrigin
+		);
+
+		// Root origin should succeed
+		assert_ok!(Staking::set_extra_era_reward(RuntimeOrigin::root(), 0, 1000));
+
+		// Account 1 is also admin (EnsureSignedBy<One>) in mock, so it should succeed
+		assert_ok!(Staking::set_extra_era_reward(RuntimeOrigin::signed(1), 0, 2000));
+	});
+}
+
+#[test]
+fn extra_rewards_payout_works() {
+	// Test basic extra reward payout functionality
+	ExtBuilder::default().build_and_execute(|| {
+		let validator = 11;
+		let nominator = 101;
+		let stake = 1000;
+
+		// Setup payees
+		Payee::<T>::insert(validator, RewardDestination::Staked);
+		Payee::<T>::insert(nominator, RewardDestination::Staked);
+
+		// Setup exposure for era 0
+		let exposure = Exposure::<AccountId, Balance> {
+			total: stake * 2,
+			own: stake,
+			others: vec![IndividualExposure { who: nominator, value: stake }],
+		};
+		Eras::<T>::upsert_exposure(0, &validator, exposure);
+
+		// Add reward points for the validator
+		ErasRewardPoints::<T>::insert(
+			0,
+			EraRewardPoints { total: 100, individual: bounded_btree_map![validator => 100] },
+		);
+
+		let init_balance_validator = asset::total_balance::<T>(&validator);
+		let init_balance_nominator = asset::total_balance::<T>(&nominator);
+
+		// Set extra reward for era 0
+		let extra_payout = 2000;
+		assert_ok!(Staking::set_extra_era_reward(RuntimeOrigin::root(), 0, extra_payout));
+
+		// Verify event
+		assert!(System::events().iter().any(|r| matches!(
+			&r.event,
+			RuntimeEvent::Staking(Event::ExtraEraRewardSet { era_index: 0, payout: 2000 })
+		)));
+
+		// Verify storage was updated
+		assert_eq!(ExtraErasValidatorReward::<T>::get(0), Some(extra_payout));
+
+		// Claim extra rewards
+		assert_ok!(Staking::payout_stakers_extra_by_page(
+			RuntimeOrigin::signed(1337),
+			validator,
+			0,
+			0
+		));
+
+		// Verify balances increased
+		assert!(asset::total_balance::<T>(&validator) > init_balance_validator);
+		assert!(asset::total_balance::<T>(&nominator) > init_balance_nominator);
+
+		// Verify events
+		assert!(System::events().iter().any(|r| matches!(
+			&r.event,
+			RuntimeEvent::Staking(Event::ExtraPayoutStarted { era_index: 0, .. })
+		)));
+		assert!(System::events()
+			.iter()
+			.any(|r| matches!(&r.event, RuntimeEvent::Staking(Event::ExtraRewarded { .. }))));
+
+		// Verify claimed rewards tracking
+		assert_eq!(ExtraClaimedRewards::<T>::get(0, &validator), vec![0]);
+	});
+}
+
+#[test]
+fn extra_rewards_cannot_double_claim() {
+	ExtBuilder::default().build_and_execute(|| {
+		let validator = 11;
+		let stake = 1000;
+
+		Payee::<T>::insert(validator, RewardDestination::Staked);
+
+		let exposure = Exposure::<AccountId, Balance> {
+			total: stake,
+			own: stake,
+			others: vec![],
+		};
+		Eras::<T>::upsert_exposure(0, &validator, exposure);
+
+		ErasRewardPoints::<T>::insert(
+			0,
+			EraRewardPoints { total: 100, individual: bounded_btree_map![validator => 100] },
+		);
+
+		// Set extra reward
+		assert_ok!(Staking::set_extra_era_reward(RuntimeOrigin::root(), 0, 1000));
+
+		// First claim should succeed
+		assert_ok!(Staking::payout_stakers_extra_by_page(
+			RuntimeOrigin::signed(1337),
+			validator,
+			0,
+			0
+		));
+
+		// Second claim should fail
+		let err_weight = <T as Config>::WeightInfo::payout_stakers_alive_staked(0);
+		assert_noop!(
+			Staking::payout_stakers_extra_by_page(RuntimeOrigin::signed(1337), validator, 0, 0),
+			Error::<T>::AlreadyClaimed.with_weight(err_weight)
+		);
+	});
+}
+
+#[test]
+fn extra_rewards_independent_from_normal_rewards() {
+	// Verify that extra rewards and normal rewards are completely independent
+	ExtBuilder::default().build_and_execute(|| {
+		let validator = 11;
+		let stake = 1000;
+
+		Payee::<T>::insert(validator, RewardDestination::Staked);
+
+		let exposure = Exposure::<AccountId, Balance> {
+			total: stake,
+			own: stake,
+			others: vec![],
+		};
+		Eras::<T>::upsert_exposure(0, &validator, exposure);
+
+		ErasRewardPoints::<T>::insert(
+			0,
+			EraRewardPoints { total: 100, individual: bounded_btree_map![validator => 100] },
+		);
+
+		// Set and claim normal rewards
+		ErasValidatorReward::<T>::insert(0, 1000);
+		assert_ok!(Staking::payout_stakers_by_page(
+			RuntimeOrigin::signed(1337),
+			validator,
+			0,
+			0
+		));
+
+		// Verify normal rewards were claimed
+		assert_eq!(ClaimedRewards::<T>::get(0, &validator), vec![0]);
+
+		// Now set extra rewards
+		assert_ok!(Staking::set_extra_era_reward(RuntimeOrigin::root(), 0, 500));
+
+		// Should be able to claim extra rewards even though normal rewards were claimed
+		assert_ok!(Staking::payout_stakers_extra_by_page(
+			RuntimeOrigin::signed(1337),
+			validator,
+			0,
+			0
+		));
+
+		// Both should be tracked separately
+		assert_eq!(ClaimedRewards::<T>::get(0, &validator), vec![0]);
+		assert_eq!(ExtraClaimedRewards::<T>::get(0, &validator), vec![0]);
+	});
+}
+
+#[test]
+fn extra_rewards_multi_page_payout() {
+	// Test extra rewards claimed tracking with multi-page exposure
+	ExtBuilder::default().build_and_execute(|| {
+		let validator = 11;
+		let stake = 1000;
+
+		Payee::<T>::insert(validator, RewardDestination::Staked);
+
+		// Create exposure with validator only (simplest case)
+		let exposure = Exposure::<AccountId, Balance> {
+			total: stake as Balance,
+			own: stake as Balance,
+			others: vec![],
+		};
+		Eras::<T>::upsert_exposure(0, &validator, exposure);
+
+		ErasRewardPoints::<T>::insert(
+			0,
+			EraRewardPoints { total: 100, individual: bounded_btree_map![validator => 100] },
+		);
+
+		// Set extra reward
+		assert_ok!(Staking::set_extra_era_reward(RuntimeOrigin::root(), 0, 5000));
+
+		// Claim page 0
+		assert_ok!(Staking::payout_stakers_extra_by_page(
+			RuntimeOrigin::signed(1337),
+			validator,
+			0,
+			0
+		));
+		assert_eq!(ExtraClaimedRewards::<T>::get(0, &validator), vec![0]);
+
+		// Trying to claim page 0 again should fail
+		let err_weight = <T as Config>::WeightInfo::payout_stakers_alive_staked(0);
+		assert_noop!(
+			Staking::payout_stakers_extra_by_page(RuntimeOrigin::signed(1337), validator, 0, 0),
+			Error::<T>::AlreadyClaimed.with_weight(err_weight)
+		);
+
+		// Using payout_stakers_extra should also fail as page 0 is already claimed
+		assert_noop!(
+			Staking::payout_stakers_extra(RuntimeOrigin::signed(1337), validator, 0),
+			Error::<T>::AlreadyClaimed.with_weight(err_weight)
+		);
+	});
+}
+
+#[test]
+fn prune_extra_era_rewards_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		let validator1 = 11;
+		let validator2 = 21;
+
+		// Set extra rewards for era 0
+		assert_ok!(Staking::set_extra_era_reward(RuntimeOrigin::root(), 0, 1000));
+
+		// Simulate some claims
+		ExtraClaimedRewards::<T>::insert(
+			0,
+			&validator1,
+			WeakBoundedVec::force_from(vec![0], None),
+		);
+		ExtraClaimedRewards::<T>::insert(
+			0,
+			&validator2,
+			WeakBoundedVec::force_from(vec![0, 1], None),
+		);
+
+		// Verify storage exists
+		assert!(ExtraErasValidatorReward::<T>::contains_key(0));
+		assert!(!ExtraClaimedRewards::<T>::get(0, &validator1).is_empty());
+		assert!(!ExtraClaimedRewards::<T>::get(0, &validator2).is_empty());
+
+		// Prune
+		assert_ok!(Staking::prune_extra_era_rewards(RuntimeOrigin::signed(1337), 0));
+
+		// Verify storage cleared
+		assert!(!ExtraErasValidatorReward::<T>::contains_key(0));
+		assert!(ExtraClaimedRewards::<T>::get(0, &validator1).is_empty());
+		assert!(ExtraClaimedRewards::<T>::get(0, &validator2).is_empty());
+	});
+}
+
+#[test]
+fn prune_extra_era_rewards_no_op_if_empty() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Try to prune era that has no extra rewards
+		assert_ok!(Staking::prune_extra_era_rewards(RuntimeOrigin::signed(1337), 5));
+	});
+}
+
+#[test]
+fn extra_rewards_respects_commission() {
+	// Verify extra rewards respect validator commission
+	ExtBuilder::default().build_and_execute(|| {
+		let validator = 11;
+		let nominator = 101;
+		let stake = 1000;
+
+		Payee::<T>::insert(validator, RewardDestination::Staked);
+		Payee::<T>::insert(nominator, RewardDestination::Staked);
+
+		// Set validator commission to 50%
+		ErasValidatorPrefs::<T>::insert(
+			0,
+			&validator,
+			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() },
+		);
+
+		let exposure = Exposure::<AccountId, Balance> {
+			total: stake * 2,
+			own: stake,
+			others: vec![IndividualExposure { who: nominator, value: stake }],
+		};
+		Eras::<T>::upsert_exposure(0, &validator, exposure);
+
+		ErasRewardPoints::<T>::insert(
+			0,
+			EraRewardPoints { total: 100, individual: bounded_btree_map![validator => 100] },
+		);
+
+		let init_validator = asset::total_balance::<T>(&validator);
+		let init_nominator = asset::total_balance::<T>(&nominator);
+
+		// Set extra reward
+		assert_ok!(Staking::set_extra_era_reward(RuntimeOrigin::root(), 0, 2000));
+
+		// Claim extra rewards
+		assert_ok!(Staking::payout_stakers_extra_by_page(
+			RuntimeOrigin::signed(1337),
+			validator,
+			0,
+			0
+		));
+
+		let validator_reward = asset::total_balance::<T>(&validator) - init_validator;
+		let nominator_reward = asset::total_balance::<T>(&nominator) - init_nominator;
+
+		// With 50% commission and equal stake, validator should get more than nominator
+		// Validator gets: 50% commission + (50% * 50% of remaining)
+		// Nominator gets: 50% * 50% of remaining
+		assert!(validator_reward > nominator_reward);
 	});
 }

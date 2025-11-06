@@ -356,6 +356,68 @@ impl<T: Config> Eras<T> {
 		ErasValidatorReward::<T>::get(era)
 	}
 
+	/// Set extra validator rewards for a specific era.
+	///
+	/// Used by governance to compensate validators for underpayment issues.
+	pub(crate) fn set_extra_validators_reward(era: EraIndex, amount: BalanceOf<T>) {
+		ExtraErasValidatorReward::<T>::insert(era, amount);
+	}
+
+	/// Get extra validator rewards for a specific era.
+	pub(crate) fn get_extra_validators_reward(era: EraIndex) -> Option<BalanceOf<T>> {
+		ExtraErasValidatorReward::<T>::get(era)
+	}
+
+	/// Check if the extra rewards for the given era and page index have been claimed.
+	pub(crate) fn is_extra_rewards_claimed(
+		era: EraIndex,
+		validator: &T::AccountId,
+		page: Page,
+	) -> bool {
+		ExtraClaimedRewards::<T>::get(era, validator).contains(&page)
+	}
+
+	/// Creates an entry to track validator extra reward has been claimed for a given era and page.
+	/// Noop if already claimed.
+	pub(crate) fn set_extra_rewards_as_claimed(
+		era: EraIndex,
+		validator: &T::AccountId,
+		page: Page,
+	) {
+		let mut claimed_pages = ExtraClaimedRewards::<T>::get(era, validator).into_inner();
+
+		// this should never be called if the reward has already been claimed
+		if claimed_pages.contains(&page) {
+			defensive!("Trying to set an already claimed extra reward");
+			// nevertheless don't do anything since the page already exist in claimed rewards.
+			return
+		}
+
+		// add page to claimed entries
+		claimed_pages.push(page);
+		ExtraClaimedRewards::<T>::insert(
+			era,
+			validator,
+			WeakBoundedVec::<_, _>::force_from(
+				claimed_pages,
+				Some("set_extra_rewards_as_claimed"),
+			),
+		);
+	}
+
+	/// Returns the next extra reward page that can be claimed or `None` if nothing to claim.
+	pub(crate) fn get_next_extra_claimable_page(
+		era: EraIndex,
+		validator: &T::AccountId,
+	) -> Option<Page> {
+		// Find next claimable page of paged exposure.
+		let page_count = Self::exposure_page_count(era, validator);
+		let all_claimable_pages: Vec<Page> = (0..page_count).collect();
+		let claimed_pages = ExtraClaimedRewards::<T>::get(era, validator);
+
+		all_claimable_pages.into_iter().find(|p| !claimed_pages.contains(p))
+	}
+
 	/// Update the total exposure for all the elected validators in the era.
 	pub(crate) fn add_total_stake(era: EraIndex, stake: BalanceOf<T>) {
 		<ErasTotalStake<T>>::mutate(era, |total_stake| {

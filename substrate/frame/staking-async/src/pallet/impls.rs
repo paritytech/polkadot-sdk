@@ -519,6 +519,171 @@ impl<T: Config> Pallet<T> {
 		maybe_imbalance.map(|imbalance| (imbalance, dest))
 	}
 
+	/// Payout extra rewards for a validator and their nominators for a given era.
+	///
+	/// This is similar to `do_payout_stakers` but uses `ExtraErasValidatorReward` and
+	/// `ExtraClaimedRewards` storage items.
+	pub(super) fn do_payout_stakers_extra(
+		validator_stash: T::AccountId,
+		era: EraIndex,
+	) -> DispatchResultWithPostInfo {
+		let page = Eras::<T>::get_next_extra_claimable_page(era, &validator_stash).ok_or_else(
+			|| {
+				Error::<T>::AlreadyClaimed.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+			},
+		)?;
+
+		Self::do_payout_stakers_extra_by_page(validator_stash, era, page)
+	}
+
+	/// Payout extra rewards for a specific page of a validator's nominators.
+	pub(super) fn do_payout_stakers_extra_by_page(
+		validator_stash: T::AccountId,
+		era: EraIndex,
+		page: Page,
+	) -> DispatchResultWithPostInfo {
+		// Validate input data
+		let current_era = CurrentEra::<T>::get().ok_or_else(|| {
+			Error::<T>::InvalidEraToReward
+				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+		})?;
+
+		let history_depth = T::HistoryDepth::get();
+
+		ensure!(
+			era <= current_era && era >= current_era.saturating_sub(history_depth),
+			Error::<T>::InvalidEraToReward
+				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+		);
+
+		ensure!(
+			page < Eras::<T>::exposure_page_count(era, &validator_stash),
+			Error::<T>::InvalidPage.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+		);
+
+		// Note: if era has no extra reward to be claimed, era may be future.
+		let era_payout = Eras::<T>::get_extra_validators_reward(era).ok_or_else(|| {
+			Error::<T>::InvalidEraToReward
+				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+		})?;
+
+		let account = StakingAccount::Stash(validator_stash.clone());
+		let ledger = Self::ledger(account.clone()).or_else(|_| {
+			if StakingLedger::<T>::is_bonded(account) {
+				Err(Error::<T>::NotController.into())
+			} else {
+				Err(Error::<T>::NotStash.with_weight(T::WeightInfo::payout_stakers_alive_staked(0)))
+			}
+		})?;
+
+		ledger.clone().update()?;
+
+		let stash = ledger.stash.clone();
+
+		if Eras::<T>::is_extra_rewards_claimed(era, &stash, page) {
+			return Err(Error::<T>::AlreadyClaimed
+				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0)))
+		}
+
+		Eras::<T>::set_extra_rewards_as_claimed(era, &stash, page);
+
+		let exposure = Eras::<T>::get_paged_exposure(era, &stash, page).ok_or_else(|| {
+			Error::<T>::InvalidEraToReward
+				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+		})?;
+
+		// Input data seems good, no errors allowed after this point
+
+		// Get Era reward points. It has TOTAL and INDIVIDUAL
+		// Find the fraction of the era reward that belongs to the validator
+		// Take that fraction of the eras rewards to split to nominator and validator
+		//
+		// Then look at the validator, figure out the proportion of their reward
+		// which goes to them and each of their nominators.
+
+		let era_reward_points = Eras::<T>::get_reward_points(era);
+		let total_reward_points = era_reward_points.total;
+		let validator_reward_points =
+			era_reward_points.individual.get(&stash).copied().unwrap_or_else(Zero::zero);
+
+		// Nothing to do if they have no reward points.
+		if validator_reward_points.is_zero() {
+			return Ok(Some(T::WeightInfo::payout_stakers_alive_staked(0)).into())
+		}
+
+		// This is the fraction of the total reward that the validator and the
+		// nominators will get.
+		let validator_total_reward_part =
+			Perbill::from_rational(validator_reward_points, total_reward_points);
+
+		// This is how much validator + nominators are entitled to.
+		let validator_total_payout = validator_total_reward_part * era_payout;
+
+		let validator_commission = Eras::<T>::get_validator_commission(era, &ledger.stash);
+		// total commission validator takes across all nominator pages
+		let validator_total_commission_payout = validator_commission * validator_total_payout;
+
+		let validator_leftover_payout =
+			validator_total_payout.defensive_saturating_sub(validator_total_commission_payout);
+		// Now let's calculate how this is split to the validator.
+		let validator_exposure_part = Perbill::from_rational(exposure.own(), exposure.total());
+		let validator_staking_payout = validator_exposure_part * validator_leftover_payout;
+		let page_stake_part = Perbill::from_rational(exposure.page_total(), exposure.total());
+		// validator commission is paid out in fraction across pages proportional to the page stake.
+		let validator_commission_payout = page_stake_part * validator_total_commission_payout;
+
+		Self::deposit_event(Event::<T>::ExtraPayoutStarted {
+			era_index: era,
+			validator_stash: stash.clone(),
+			page,
+			next: Eras::<T>::get_next_extra_claimable_page(era, &stash),
+		});
+
+		let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
+		// We can now make total validator payout:
+		if let Some((imbalance, dest)) =
+			Self::make_payout(&stash, validator_staking_payout + validator_commission_payout)
+		{
+			Self::deposit_event(Event::<T>::ExtraRewarded {
+				stash,
+				dest,
+				amount: imbalance.peek(),
+			});
+			total_imbalance.subsume(imbalance);
+		}
+
+		// Track the number of payout ops to nominators. Note:
+		// `WeightInfo::payout_stakers_alive_staked` always assumes at least a validator is paid
+		// out, so we do not need to count their payout op.
+		let mut nominator_payout_count: u32 = 0;
+
+		// Lets now calculate how this is split to the nominators.
+		// Reward only the clipped exposures. Note this is not necessarily sorted.
+		for nominator in exposure.others().iter() {
+			let nominator_exposure_part = Perbill::from_rational(nominator.value, exposure.total());
+
+			let nominator_reward: BalanceOf<T> =
+				nominator_exposure_part * validator_leftover_payout;
+			// We can now make nominator payout:
+			if let Some((imbalance, dest)) = Self::make_payout(&nominator.who, nominator_reward) {
+				// Note: this logic does not count payouts for `RewardDestination::None`.
+				nominator_payout_count += 1;
+				let e = Event::<T>::ExtraRewarded {
+					stash: nominator.who.clone(),
+					dest,
+					amount: imbalance.peek(),
+				};
+				Self::deposit_event(e);
+				total_imbalance.subsume(imbalance);
+			}
+		}
+
+		T::Reward::on_unbalanced(total_imbalance);
+		debug_assert!(nominator_payout_count <= T::MaxExposurePageSize::get());
+
+		Ok(Some(T::WeightInfo::payout_stakers_alive_staked(nominator_payout_count)).into())
+	}
+
 	/// Remove all associated data of a stash account from the staking system.
 	///
 	/// Assumes storage is upgraded before calling.
