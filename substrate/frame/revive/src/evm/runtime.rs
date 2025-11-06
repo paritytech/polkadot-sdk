@@ -695,7 +695,6 @@ mod test {
 			UncheckedExtrinsicBuilder::call_with(RUNTIME_PALLETS_ADDR).data(remark.encode());
 		let (_, call, _, _, _, _) = builder.check().unwrap();
 
-		// The call should now be wrapped in eth_substrate_call
 		match call {
 			RuntimeCall::Contracts(crate::Call::eth_substrate_call { call: inner_call }) => {
 				assert_eq!(*inner_call, remark);

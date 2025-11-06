@@ -1354,7 +1354,7 @@ pub mod pallet {
 			//
 			// Prevents recursion: the inner dispatch uses `RawOrigin::Signed`, which cannot
 			// re-enter `eth_substrate_call` (which requires `Origin::EthTransaction`).
-			let signer = ensure_signed(Self::ensure_eth_origin(origin)?)?;
+			let signer = Self::ensure_eth_signed(origin)?;
 
 			if !DebugSettings::is_eth_substrate_call_allowed::<T>() {
 				log::warn!(target: LOG_TARGET, "eth_substrate_call can only be used in development.");
@@ -1380,11 +1380,12 @@ pub mod pallet {
 					},
 				}
 
-				// Return zero for EVM gas consumed since this extrinsic is called via substrate
-				// transaction. The gas value here is only used for building the Ethereum
-				// transaction receipt. The actual weight consumed is already tracked in
-				// `post_info.actual_weight`.
-				(Weight::zero(), call_result)
+				// Return zero EVM gas (Substrate dispatch, not EVM contract call).
+				// Actual weight is in `post_info.actual_weight`.
+				block_storage::EthereumCallResult {
+					receipt_gas_info: ReceiptGasInfo::default(),
+					result: call_result,
+				}
 			})
 		}
 

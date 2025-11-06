@@ -97,11 +97,8 @@ pub fn kitchensink_genesis(
 		},
 		revive: ReviveConfig {
 			mapped_accounts: endowed_accounts.iter().filter(|x| ! is_eth_derived(x)).cloned().collect(),
-			debug_settings: Some(DebugSettings::new(
-				false,  // allow_unlimited_contract_size
-				true,  // allow_eth_substrate_call
-			)),
-		  },
+			debug_settings: Some(DebugSettings::default().allow_eth_substrate_call()),
+		},
 	})
 }
 

@@ -113,10 +113,7 @@ pub mod genesis_config_presets {
 			},
 			sudo: SudoConfig { key: Some(Sr25519Keyring::Alice.to_account_id()) },
 			revive: ReviveConfig {
-				debug_settings: Some(DebugSettings::new(
-					false, // allow_unlimited_contract_size
-					true,  // allow_eth_substrate_calls
-				)),
+				debug_settings: Some(DebugSettings::default().allow_eth_substrate_call()),
 			},
 		})
 	}

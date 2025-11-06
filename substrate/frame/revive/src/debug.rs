@@ -38,6 +38,7 @@ use sp_runtime::RuntimeDebug;
 pub struct DebugSettings {
 	/// Whether to allow unlimited contract size.
 	allow_unlimited_contract_size: bool,
+	/// Whether the `eth_substrate_call` extrinsic is allowed to execute.
 	allow_eth_substrate_call: bool,
 }
 
@@ -67,5 +68,11 @@ impl DebugSettings {
 				"Debug settings changed, but debug features are disabled in the runtime configuration."
 			);
 		}
+	}
+
+	/// Set this config to allow eth_substrate_call.
+	pub fn allow_eth_substrate_call(mut self) -> Self {
+		self.allow_eth_substrate_call = true;
+		self
 	}
 }
