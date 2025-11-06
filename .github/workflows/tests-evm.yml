@@ -70,7 +70,7 @@ jobs:
             --platform ${{ matrix.platform }} \
             --concurrency.number-of-nodes 10 \
             --concurrency.number-of-threads 10 \
-            --concurrency.number-of-concurrent-tasks 50 \
+            --concurrency.number-of-concurrent-tasks 1000 \
             --working-directory ./workdir \
             --revive-dev-node.consensus manual-seal-200 \
             --revive-dev-node.path ./target/release/revive-dev-node \
