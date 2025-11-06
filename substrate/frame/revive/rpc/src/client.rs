@@ -134,6 +134,8 @@ pub enum ClientError {
 const LOG_TARGET: &str = "eth-rpc::client";
 
 const REVERT_CODE: i32 = 3;
+
+const NOTIFIER_CAPACITY: usize = 16;
 impl From<ClientError> for ErrorObjectOwned {
 	fn from(err: ClientError) -> Self {
 		match err {
@@ -246,7 +248,8 @@ impl Client {
 			chain_id,
 			max_block_weight,
 			automine,
-			block_notifier: automine.then(|| tokio::sync::broadcast::channel::<H256>(10).0),
+			block_notifier: automine
+				.then(|| tokio::sync::broadcast::channel::<H256>(NOTIFIER_CAPACITY).0),
 			subscription_lock: Arc::new(Mutex::new(())),
 		};
 
@@ -746,7 +749,7 @@ impl Client {
 		self.max_block_weight
 	}
 
-	/// Get the block notifier.
+	/// Get the block notifier, if automine is enabled war Self::create_block_notifier was called.
 	pub fn block_notifier(&self) -> Option<tokio::sync::broadcast::Sender<H256>> {
 		self.block_notifier.clone()
 	}

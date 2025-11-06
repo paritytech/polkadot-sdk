@@ -541,7 +541,7 @@ impl HashesOrTransactionInfos {
 		self.len() == 0
 	}
 
-	pub fn transaction_present(&self, hash: H256) -> bool {
+	pub fn contains_tx(&self, hash: H256) -> bool {
 		match self {
 			HashesOrTransactionInfos::Hashes(hashes) => hashes.iter().any(|h256| *h256 == hash),
 			HashesOrTransactionInfos::TransactionInfos(transaction_infos) =>
