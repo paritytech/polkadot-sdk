@@ -1,14 +1,9 @@
-title: Fix executor params classification and add test
+title: Fix executor parameters classification
 doc:
 - audience: Node Dev
   description: |-
-    Closes #8054
-
     Executor parameters may be hashed in two ways: a full hash that changes if any parameter changes, and a prep_hash, which changes only if the parameter change will affect the prepared artifact (thus requiring artifact recompilation).
-
-    As was discovered in #8054, the initial classification of parameters was wrong, and some parameters that affect the artifact were not classified as such, and vice versa.
-
-    This PR aims to fix that and to add a test that should prevent this from happening in the future.
+    This PR aims to fix a bug in the initial classification and to add a test that should prevent those bugs from happening in the future.
 crates:
 - name: polkadot-node-core-pvf-common
   bump: patch
