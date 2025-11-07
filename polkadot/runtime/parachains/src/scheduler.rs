@@ -39,6 +39,7 @@
 use crate::{configuration, initializer::SessionChangeNotification, paras::AssignCoretime};
 use alloc::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	vec,
 	vec::Vec,
 };
 use frame_support::{pallet_prelude::*, traits::Defensive};

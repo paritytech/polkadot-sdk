@@ -28,6 +28,7 @@
 //! Storage items `CoreSchedules` and `CoreDescriptors` are migrated from this pallet
 //! to the `Scheduler` pallet via the `scheduler::migration::v4::MigrateV3ToV4` migration.
 
+use alloc::vec::Vec;
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use pallet_broker::CoreAssignment;
