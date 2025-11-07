@@ -16,10 +16,10 @@
 
 //! Mocks for all the traits.
 
-#[allow(deprecated)]
-use crate::assigner_coretime;
+#![allow(deprecated)]
+
 use crate::{
-	configuration, coretime, disputes, dmp, hrmp,
+	assigner_coretime, configuration, coretime, disputes, dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, on_demand, origin, paras,
 	paras::ParaKind,
@@ -64,7 +64,6 @@ use xcm::{
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlockU32<Test>;
 
-#[allow(deprecated)]
 frame_support::construct_runtime!(
 	pub enum Test
 	{
