@@ -1761,8 +1761,8 @@ pub mod migrations {
 		pallet_session::migrations::v1::MigrateV0ToV1<Runtime, pallet_session::migrations::v1::InitOffenceSeverity<Runtime>>,
 
 		// Migrate scheduler v3 -> v4 and on-demand v1 -> v2
-		parachains_scheduler::migration::MigrateV3ToV4<Runtime>,
 		parachains_on_demand::migration::MigrateV1ToV2<Runtime>,
+		parachains_scheduler::migration::MigrateV3ToV4<Runtime>,
 
         // permanent
         pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,

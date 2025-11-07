@@ -2096,8 +2096,9 @@ pub mod migrations {
 			pallet_staking::migrations::v17::MigrateDisabledToSession<Runtime>,
 		>,
 		// Migrate scheduler v3 -> v4 and on-demand v1 -> v2
-		parachains_scheduler::migration::MigrateV3ToV4<Runtime>,
+		parachains_on_demand::migration::MigrateToOnDemandPalletName<Runtime>,
 		parachains_on_demand::migration::MigrateV1ToV2<Runtime>,
+		parachains_scheduler::migration::MigrateV3ToV4<Runtime>,
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	);
