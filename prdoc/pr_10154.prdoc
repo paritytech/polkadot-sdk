@@ -1,83 +1,12 @@
 title: 'aura/slot_based: Reduce authoring duration of the last produced block '
 doc:
 - audience: Node Dev
-  description: "This PR reduces the authoring duration of the last parachain produced\
-    \ block. Effectively ensures that the next author has sufficient time to import\
-    \ the previous block.\n\n- Only the last authoring duration is reduced by 500ms\
-    \ (`BLOCK_PRODUCTION_ADJUSTMENT_MS`)\n- The authorizing duration was already capped\
-    \ at a minimum of 500ms (`BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS`)\n- The number\
-    \ of para blocks that the relay chain can fit is inferred by the `relay slot duration\
-    \ / default authoring time`\n- `SlotInfo` is adjusted to account for the number\
-    \ of para blocks produced so far\n- While at it, have added a few extra trace\
-    \ logs\n\n### Testing Done\n\nTested on top of:\n- https://github.com/paritytech/polkadot-sdk/pull/9880\n\
-    \n```\nDEBUG tokio-runtime-worker aura::cumulus: [Parachain] New block production\
-    \ opportunity. slot_duration=SlotDuration(6000) aura_slot=Slot(293621792)\nDEBUG\
-    \ tokio-runtime-worker aura::cumulus: [Parachain] Parachain slot adjusted to relay\
-    \ chain. timestamp=Timestamp(1761730746000) slot=Slot(293621791)\nDEBUG tokio-runtime-worker\
-    \ aura::cumulus: [Parachain] Going to claim core relay_parent=0xa486a45c3a10e9ade7d4ddefef7615d4b001d47c962013386b95719d8f37aeae\
-    \ core_selector=CoreSelector(0) claim_queue_offset=ClaimQueueOffset(1)\nDEBUG\
-    \ tokio-runtime-worker aura::cumulus: [Parachain] Building block. unincluded_segment_len=0\
-    \ relay_parent=0xa486\u2026aeae relay_parent_num=61 relay_parent_offset=1 included_hash=0x21c3\u2026\
-    ac1b included_num=84 parent=0x21c3\u2026ac1b slot=Slot(293621791)\nDEBUG tokio-runtime-worker\
-    \ aura::cumulus: [Parachain] Expected to produce for 3 cores but only have 1 slots.\
-    \ Attempting to produce multiple blocks per slot. block_production_interval=2s\n\
-    DEBUG tokio-runtime-worker aura::cumulus: [Parachain] Adjusting authoring duration\
-    \ for slot. blocks_produced_for_slot=1 blocks_produced_per_relay_slot=3 authoring_duration=2s\
-    \ duration=1.99s\nDEBUG tokio-runtime-worker aura::cumulus: [Parachain] Adjusted\
-    \ proposal duration. duration=1.99s\n\n INFO tokio-runtime-worker sc_basic_authorship::basic_authorship:\
-    \ [Parachain] \U0001F381 Prepared block for proposing at 85 (8 ms) hash: 0x7579638578324c2f7b5b9f8af0f2bb1aa238f665db70dfcd1ddcb77475733e28;\
-    \ parent_hash: 0x21c3\u2026ac1b; end: NoMoreTransactions; extrinsics_count: 2\n\
-    \ INFO tokio-runtime-worker substrate: [Parachain] \U0001F195 Imported #85 (0x21c3\u2026\
-    ac1b \u2192 0x183a\u20265b0d)\n\nDEBUG tokio-runtime-worker aura::cumulus: [Parachain]\
-    \ Expected to produce for 3 cores but only have 1 slots. Attempting to produce\
-    \ multiple blocks per slot. block_production_interval=2s\nTRACE tokio-runtime-worker\
-    \ aura::cumulus: [Parachain] Determined next block production opportunity. time_until_next_attempt=1.977s\
-    \ aura_slot=Slot(293621792) last_reported=LastReportedSlot { slot: Some(Slot(293621792)),\
-    \ blocks_produced: 1 }\nTRACE tokio-runtime-worker aura::cumulus: [Parachain]\
-    \ Sleeping until the next slot. time_until_next_attempt=1.977s\nDEBUG tokio-runtime-worker\
-    \ aura::cumulus: [Parachain] New block production opportunity. slot_duration=SlotDuration(6000)\
-    \ aura_slot=Slot(293621792)\nDEBUG tokio-runtime-worker aura::cumulus: [Parachain]\
-    \ Parachain slot adjusted to relay chain. timestamp=Timestamp(1761730746000) slot=Slot(293621791)\n\
-    DEBUG tokio-runtime-worker aura::cumulus: [Parachain] Going to claim core relay_parent=0xa486a45c3a10e9ade7d4ddefef7615d4b001d47c962013386b95719d8f37aeae\
-    \ core_selector=CoreSelector(1) claim_queue_offset=ClaimQueueOffset(1)\nDEBUG\
-    \ tokio-runtime-worker aura::cumulus: [Parachain] Building block. unincluded_segment_len=1\
-    \ relay_parent=0xa486\u2026aeae relay_parent_num=61 relay_parent_offset=1 included_hash=0x21c3\u2026\
-    ac1b included_num=84 parent=0x183a\u20265b0d slot=Slot(293621791)\nDEBUG tokio-runtime-worker\
-    \ aura::cumulus: [Parachain] Expected to produce for 3 cores but only have 1 slots.\
-    \ Attempting to produce multiple blocks per slot. block_production_interval=2s\n\
-    DEBUG tokio-runtime-worker aura::cumulus: [Parachain] Adjusting authoring duration\
-    \ for slot. blocks_produced_for_slot=2 blocks_produced_per_relay_slot=3 authoring_duration=2s\
-    \ duration=1.988s\n\nDEBUG tokio-runtime-worker aura::cumulus: [Parachain] Adjusted\
-    \ proposal duration. duration=1.988s\n INFO tokio-runtime-worker sc_basic_authorship::basic_authorship:\
-    \ [Parachain] \U0001F381 Prepared block for proposing at 86 (232 ms) hash: 0x17b4f3fc6f13a8bad577d3e12f026a8c51b37fecd33551beb32e059fc510c941;\
-    \ parent_hash: 0x183a\u20265b0d; end: NoMoreTransactions; extrinsics_count: 2\n\
-    \ INFO tokio-runtime-worker substrate: [Parachain] \U0001F195 Imported #86 (0x183a\u2026\
-    5b0d \u2192 0x9504\u2026a66d)\nDEBUG tokio-runtime-worker aura::cumulus: [Parachain]\
-    \ Expected to produce for 3 cores but only have 1 slots. Attempting to produce\
-    \ multiple blocks per slot. block_production_interval=2s\nTRACE tokio-runtime-worker\
-    \ aura::cumulus: [Parachain] Determined next block production opportunity. time_until_next_attempt=1.751s\
-    \ aura_slot=Slot(293621792) last_reported=LastReportedSlot { slot: Some(Slot(293621792)),\
-    \ blocks_produced: 2 }\nTRACE tokio-runtime-worker aura::cumulus: [Parachain]\
-    \ Sleeping until the next slot. time_until_next_attempt=1.751s\nDEBUG tokio-runtime-worker\
-    \ aura::cumulus: [Parachain] New block production opportunity. slot_duration=SlotDuration(6000)\
-    \ aura_slot=Slot(293621792)\nDEBUG tokio-runtime-worker aura::cumulus: [Parachain]\
-    \ Parachain slot adjusted to relay chain. timestamp=Timestamp(1761730746000) slot=Slot(293621791)\n\
-    DEBUG tokio-runtime-worker aura::cumulus: [Parachain] Going to claim core relay_parent=0xa486a45c3a10e9ade7d4ddefef7615d4b001d47c962013386b95719d8f37aeae\
-    \ core_selector=CoreSelector(2) claim_queue_offset=ClaimQueueOffset(1)\nDEBUG\
-    \ tokio-runtime-worker aura::cumulus: [Parachain] Building block. unincluded_segment_len=2\
-    \ relay_parent=0xa486\u2026aeae relay_parent_num=61 relay_parent_offset=1 included_hash=0x21c3\u2026\
-    ac1b included_num=84 parent=0x9504\u2026a66d slot=Slot(293621791)\nDEBUG tokio-runtime-worker\
-    \ aura::cumulus: [Parachain] Expected to produce for 3 cores but only have 1 slots.\
-    \ Attempting to produce multiple blocks per slot. block_production_interval=2s\n\
-    \nDEBUG tokio-runtime-worker aura::cumulus: [Parachain] Adjusting authoring duration\
-    \ for slot. blocks_produced_for_slot=3 blocks_produced_per_relay_slot=3 authoring_duration=2s\
-    \ duration=1.99s\nDEBUG tokio-runtime-worker aura::cumulus: [Parachain] Adjusted\
-    \ the last block production attempt for the slot. aura_slot=Slot(293621793) blocks_produced_for_slot=3\
-    \ blocks_produced_per_relay_slot=3 authoring_duration=1.49s\nDEBUG tokio-runtime-worker\
-    \ aura::cumulus: [Parachain] Adjusted proposal duration. duration=1.49s\n```\n\
-    \n- The first two blocks are adjusted to `duration=1.99s` and `duration=1.988s`\
-    \ respectively\n- The last block is adjusted to `duration=1.49s` (ie reduced by\
-    \ another 500ms)\n\nPart of: https://github.com/paritytech/polkadot-sdk/issues/9848"
+  description: |-
+    This PR adjusts the block authoring to stop producing blocks 1 second before the scheduled slot change.
+    This introduces a safety buffer to prevent blocks from being authored too late for inclusion.
+      - 2s blocks / 3 cores: The authoring duration of the last block is reduced from 2s to 1s.
+      - 500ms blocks / 12 cores: The authoring duration cannot be reduced past 500ms, therefore the last two blocks are no longer authored
+
 crates:
 - name: cumulus-client-consensus-aura
   bump: patch
