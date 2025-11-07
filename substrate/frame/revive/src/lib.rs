@@ -1359,7 +1359,6 @@ pub mod pallet {
 			let encoded_size = call_encoded.len() as u32;
 
 			block_storage::with_ethereum_context::<T>(call_encoded, || {
-				let extrinsic_overhead = T::WeightInfo::eth_substrate_call(encoded_size);
 				let mut call_result = call.dispatch(RawOrigin::Signed(signer).into());
 
 				// Add extrinsic_overhead to the actual weight in PostDispatchInfo
@@ -1369,7 +1368,7 @@ pub mod pallet {
 							post_info
 								.actual_weight
 								.unwrap_or_else(|| Weight::zero())
-								.saturating_add(extrinsic_overhead),
+								.saturating_add(T::WeightInfo::eth_substrate_call(encoded_size)),
 						);
 					},
 				}
