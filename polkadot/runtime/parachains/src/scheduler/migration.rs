@@ -833,6 +833,7 @@ pub type MigrateV3ToV4<T> = VersionedMigration<
 >;
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod v4_tests {
 	use super::*;
 	use crate::{
@@ -841,10 +842,9 @@ mod v4_tests {
 		on_demand, scheduler,
 	};
 	use alloc::collections::BTreeMap;
-	use frame_support::traits::{OnRuntimeUpgrade, StorageVersion};
+	use frame_support::traits::StorageVersion;
 	use pallet_broker::CoreAssignment as BrokerCoreAssignment;
 	use polkadot_primitives::{CoreIndex, Id as ParaId};
-	use sp_core::Get;
 
 	#[test]
 	fn basic_migration_works() {
