@@ -262,7 +262,7 @@ fn limited_teleport_native_assets_from_relay_to_asset_hub_checking_acc_fails() {
 	let destination = Westend::child_location_of(AssetHubWestend::para_id());
 	let beneficiary_id = AssetHubWestendReceiver::get().into();
 	let assets = (Here, amount_to_send_larger_than_checking_acc).into();
-	let fee_asset_id: AssetId = (Here).into();
+	let fee_asset_id: AssetId = Here.into();
 
 	let test_args = TestContext {
 		sender: WestendSender::get(),
@@ -331,7 +331,7 @@ fn limited_teleport_native_assets_from_relay_to_asset_hub_checking_acc_burn_work
 	let destination = Westend::child_location_of(AssetHubWestend::para_id());
 	let beneficiary_id = AssetHubWestendReceiver::get().into();
 	let assets = (Here, amount_to_send).into();
-	let fee_asset_id: AssetId = (Here).into();
+	let fee_asset_id: AssetId = Here.into();
 
 	let test_args = TestContext {
 		sender: WestendSender::get(),

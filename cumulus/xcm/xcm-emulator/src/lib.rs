@@ -1567,7 +1567,7 @@ impl TestArgs {
 			amount,
 			assets: (Here, amount).into(),
 			asset_id: None,
-			fee_asset_id: (Here).into(),
+			fee_asset_id: Here.into(),
 			weight_limit: WeightLimit::Unlimited,
 		}
 	}

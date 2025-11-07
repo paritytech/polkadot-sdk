@@ -81,7 +81,7 @@ fn transfer_assets_wnd_reserve_transfer_relay_to_para_fails() {
 	let amount_to_send: Balance = WESTEND_ED * 1000;
 	let assets: Assets = (Here, amount_to_send).into();
 
-	let fee_asset_id: AssetId = (Here).into();
+	let fee_asset_id: AssetId = Here.into();
 	Westend::execute_with(|| {
 		let result = <Westend as WestendPallet>::XcmPallet::transfer_assets(
 			<Westend as Chain>::RuntimeOrigin::signed(WestendSender::get()),

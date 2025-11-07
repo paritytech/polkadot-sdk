@@ -634,7 +634,7 @@ fn reserve_transfer_native_asset_from_relay_to_asset_hub_fails() {
 		AccountId32Junction { network: None, id: AssetHubRococoReceiver::get().into() }.into();
 	let amount_to_send: Balance = ROCOCO_ED * 1000;
 	let assets: Assets = (Here, amount_to_send).into();
-	let fee_asset_id: AssetId = (Here).into();
+	let fee_asset_id: AssetId = Here.into();
 
 	// this should fail
 	Rococo::execute_with(|| {
