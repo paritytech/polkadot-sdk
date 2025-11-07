@@ -19,6 +19,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit.
 #![recursion_limit = "512"]
+// Allow deprecated assigner_coretime pallet (exists only for migration)
+#![allow(deprecated)]
 
 #[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), target_feature = "e"))]
 // Allocate 2 MiB stack.

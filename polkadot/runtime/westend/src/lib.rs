@@ -19,6 +19,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 // `#[frame_support::runtime]!` does a lot of recursion and requires us to increase the limit.
 #![recursion_limit = "512"]
+// Allow deprecated assigner_coretime pallet (exists only for migration)
+#![allow(deprecated)]
 
 extern crate alloc;
 
