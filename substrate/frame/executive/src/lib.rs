@@ -959,6 +959,9 @@ where
 			frame_system::Pallet::<System>::deposit_log(digest.clone());
 		}
 
+		// Initialize the intra block entropy, which is maybe used by offchain workers.
+		frame_system::Pallet::<System>::initialize_intra_block_entropy(header.parent_hash());
+
 		// Frame system only inserts the parent hash into the block hashes as normally we don't know
 		// the hash for the header before. However, here we are aware of the hash and we can add it
 		// as well.
