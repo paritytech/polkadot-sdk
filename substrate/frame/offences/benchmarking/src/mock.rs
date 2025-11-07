@@ -180,6 +180,28 @@ where
 	}
 }
 
+impl<T> frame_system::offchain::CreateTransaction<T> for Test
+where
+	RuntimeCall: From<T>,
+{
+	type Extension = ();
+	fn create_transaction(
+		call: <Self as frame_system::offchain::CreateTransactionBase<T>>::RuntimeCall,
+		extension: Self::Extension,
+	) -> Self::Extrinsic {
+		UncheckedExtrinsic::new_transaction(call, extension)
+	}
+}
+
+impl<T> frame_system::offchain::CreateAuthorizedTransaction<T> for Test
+where
+	RuntimeCall: From<T>,
+{
+	fn create_extension() -> Self::Extension {
+		()
+	}
+}
+
 impl crate::Config for Test {}
 
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;

@@ -52,6 +52,7 @@
 use crate::{disputes, initializer::ValidatorSetCount, session_info::IdentificationTuple};
 use frame_support::{
 	dispatch::Pays,
+	pallet_prelude::{DispatchError, DispatchResultWithPostInfo},
 	traits::{Defensive, Get, KeyOwnerProofSystem, ValidatorSet, ValidatorSetWithIdentification},
 	weights::Weight,
 };
@@ -378,11 +379,15 @@ impl<T: Config> HandleReports<T> for () {
 
 pub trait WeightInfo {
 	fn report_dispute_lost_unsigned(validator_count: ValidatorSetCount) -> Weight;
+	fn authorize_report_dispute_lost_unsigned() -> Weight;
 }
 
 pub struct TestWeightInfo;
 impl WeightInfo for TestWeightInfo {
 	fn report_dispute_lost_unsigned(_validator_count: ValidatorSetCount) -> Weight {
+		Weight::zero()
+	}
+	fn authorize_report_dispute_lost_unsigned() -> Weight {
 		Weight::zero()
 	}
 }
@@ -415,9 +420,10 @@ pub mod pallet {
 		/// The slashing report handling subsystem, defines methods to report an
 		/// offence (after the slashing report has been validated) and for
 		/// submitting a transaction to report a slash (from an offchain
-		/// context). NOTE: when enabling slashing report handling (i.e. this
-		/// type isn't set to `()`) you must use this pallet's
-		/// `ValidateUnsigned` in the runtime definition.
+		/// context).
+		/// NOTE: when enabling slashing report handling (i.e. this
+		/// type isn't set to `()`) you must use frame system authorize transaction
+		/// extension in the transaction extension pipeline.
 		type HandleReports: HandleReports<Self>;
 
 		/// Weight information for extrinsics in this pallet.
@@ -464,19 +470,34 @@ pub mod pallet {
 		DuplicateSlashingReport,
 	}
 
-	#[pallet::call]
+	#[pallet::call(weight = <T as Config>::WeightInfo)]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		#[pallet::weight(<T as Config>::WeightInfo::report_dispute_lost_unsigned(
-			key_owner_proof.validator_count()
-		))]
+		#[pallet::weight(
+			<T as Config>::WeightInfo::report_dispute_lost_unsigned(
+				key_owner_proof.validator_count()
+			)
+			// We need to include the weight for the `validate_unsigned` or authorization logic.
+			// The validation logic weight is same as the authorization logic.
+			.saturating_add(<T as Config>::WeightInfo::authorize_report_dispute_lost_unsigned())
+		)]
+		#[pallet::authorize(|source, dispute_proof, key_owner_proof| {
+			Self::validate_report_dispute_lost_call(source, dispute_proof, key_owner_proof)
+
+		})]
+		// The weight is taken into account in the call weight.
+		#[pallet::weight_of_authorize(Weight::zero())]
 		pub fn report_dispute_lost_unsigned(
 			origin: OriginFor<T>,
 			// box to decrease the size of the call
 			dispute_proof: Box<DisputeProof>,
 			key_owner_proof: T::KeyOwnerProof,
 		) -> DispatchResultWithPostInfo {
-			ensure_none(origin)?;
+			let is_none = ensure_none(origin.clone()).is_ok();
+			let is_authorized = ensure_authorized(origin).is_ok();
+
+			ensure!(is_none || is_authorized, DispatchError::BadOrigin);
+
 			let validator_set_count = key_owner_proof.validator_count() as ValidatorSetCount;
 			// check the membership proof to extract the offender's id
 			let key =
@@ -578,6 +599,48 @@ impl<T: Config> Pallet<T> {
 	) -> Option<()> {
 		T::HandleReports::submit_unsigned_slashing_report(dispute_proof, key_ownership_proof).ok()
 	}
+
+	fn validate_report_dispute_lost_call(
+		source: TransactionSource,
+		dispute_proof: &Box<DisputeProof>,
+		key_owner_proof: &T::KeyOwnerProof,
+	) -> Result<(ValidTransaction, Weight), TransactionValidityError> {
+		// discard slashing report not coming from the local node
+		match source {
+			TransactionSource::Local | TransactionSource::InBlock => { /* allowed */ },
+			_ => {
+				log::warn!(
+					target: LOG_TARGET,
+					"rejecting unsigned transaction because it is not local/in-block."
+				);
+
+				return Err(InvalidTransaction::Call.into())
+			},
+		}
+
+		// check report staleness
+		is_known_offence::<T>(dispute_proof, key_owner_proof)?;
+
+		let longevity = <T::HandleReports as HandleReports<T>>::ReportLongevity::get();
+
+		let tag_prefix = match dispute_proof.kind {
+			DisputeOffenceKind::ForInvalidBacked => "DisputeForInvalidBacked",
+			DisputeOffenceKind::ForInvalidApproved => "DisputeForInvalidApproved",
+			DisputeOffenceKind::AgainstValid => "DisputeAgainstValid",
+		};
+
+		let valid_transaction = ValidTransaction::with_tag_prefix(tag_prefix)
+			// We assign the maximum priority for any report.
+			.priority(TransactionPriority::max_value())
+			// Only one report for the same offender at the same slot.
+			.and_provides((dispute_proof.time_slot.clone(), dispute_proof.validator_id.clone()))
+			.longevity(longevity)
+			// We don't propagate this. This can never be included on a remote node.
+			.propagate(false)
+			.into();
+
+		Ok((valid_transaction, Weight::zero()))
+	}
 }
 
 /// Methods for the `ValidateUnsigned` implementation:
@@ -588,39 +651,8 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> Pallet<T> {
 	pub fn validate_unsigned(source: TransactionSource, call: &Call<T>) -> TransactionValidity {
 		if let Call::report_dispute_lost_unsigned { dispute_proof, key_owner_proof } = call {
-			// discard slashing report not coming from the local node
-			match source {
-				TransactionSource::Local | TransactionSource::InBlock => { /* allowed */ },
-				_ => {
-					log::warn!(
-						target: LOG_TARGET,
-						"rejecting unsigned transaction because it is not local/in-block."
-					);
-
-					return InvalidTransaction::Call.into()
-				},
-			}
-
-			// check report staleness
-			is_known_offence::<T>(dispute_proof, key_owner_proof)?;
-
-			let longevity = <T::HandleReports as HandleReports<T>>::ReportLongevity::get();
-
-			let tag_prefix = match dispute_proof.kind {
-				DisputeOffenceKind::ForInvalidBacked => "DisputeForInvalidBacked",
-				DisputeOffenceKind::ForInvalidApproved => "DisputeForInvalidApproved",
-				DisputeOffenceKind::AgainstValid => "DisputeAgainstValid",
-			};
-
-			ValidTransaction::with_tag_prefix(tag_prefix)
-				// We assign the maximum priority for any report.
-				.priority(TransactionPriority::max_value())
-				// Only one report for the same offender at the same slot.
-				.and_provides((dispute_proof.time_slot.clone(), dispute_proof.validator_id.clone()))
-				.longevity(longevity)
-				// We don't propagate this. This can never be included on a remote node.
-				.propagate(false)
-				.build()
+			Self::validate_report_dispute_lost_call(source, dispute_proof, key_owner_proof)
+				.map(|(valid_transaction, _)| valid_transaction)
 		} else {
 			InvalidTransaction::Call.into()
 		}

@@ -336,4 +336,7 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::paras::WeightInfo for
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
+	fn authorize_include_pvf_check_statement() -> Weight {
+		Weight::zero()
+	}
 }

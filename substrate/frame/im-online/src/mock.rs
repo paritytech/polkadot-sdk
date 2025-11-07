@@ -34,7 +34,11 @@ use sp_staking::{
 use crate as imonline;
 use crate::Config;
 
-type Block = frame_system::mocking::MockBlock<Runtime>;
+pub type Extension = frame_system::AuthorizeCall<Runtime>;
+pub type Header = sp_runtime::generic::Header<u64, sp_runtime::traits::BlakeTwo256>;
+pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
+pub type UncheckedExtrinsic =
+	sp_runtime::generic::UncheckedExtrinsic<u64, RuntimeCall, UintAuthorityId, Extension>;
 
 frame_support::construct_runtime!(
 	pub enum Runtime {
@@ -73,8 +77,6 @@ impl pallet_session::historical::SessionManager<u64, u64> for TestSessionManager
 	fn start_session(_: SessionIndex) {}
 }
 
-/// An extrinsic type used for tests.
-pub type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
 type IdentificationTuple = (u64, u64);
 type Offence = crate::UnresponsivenessOffence<IdentificationTuple>;
 
@@ -203,7 +205,26 @@ where
 	RuntimeCall: From<LocalCall>,
 {
 	type RuntimeCall = RuntimeCall;
-	type Extrinsic = Extrinsic;
+	type Extrinsic = UncheckedExtrinsic;
+}
+
+impl<LocalCall> frame_system::offchain::CreateTransaction<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	type Extension = Extension;
+	fn create_transaction(call: Self::RuntimeCall, extension: Self::Extension) -> Self::Extrinsic {
+		UncheckedExtrinsic::new_transaction(call, extension)
+	}
+}
+
+impl<LocalCall> frame_system::offchain::CreateAuthorizedTransaction<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_extension() -> Self::Extension {
+		Extension::new()
+	}
 }
 
 impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Runtime
@@ -211,7 +232,7 @@ where
 	RuntimeCall: From<LocalCall>,
 {
 	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
-		Extrinsic::new_bare(call)
+		UncheckedExtrinsic::new_bare(call)
 	}
 }
 

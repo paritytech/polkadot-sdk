@@ -1411,6 +1411,32 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 	{}
 }
 
+/// Ensure the origin is `Authorized`. i.e. authorized call.
+pub struct EnsureAuthorized<AccountId>(core::marker::PhantomData<AccountId>);
+impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId>
+	EnsureOrigin<O> for EnsureAuthorized<AccountId>
+{
+	type Success = ();
+	fn try_origin(o: O) -> Result<Self::Success, O> {
+		o.into().and_then(|o| match o {
+			RawOrigin::Authorized => Ok(()),
+			r => Err(O::from(r)),
+		})
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<O, ()> {
+		Ok(O::from(RawOrigin::Authorized))
+	}
+}
+
+// TODO
+// impl_ensure_origin_with_arg_ignoring_arg! {
+// 	impl< { O: .., AccountId, T } >
+// 		EnsureOriginWithArg<O, T> for EnsureAuthorized<AccountId>
+// 	{}
+// }
+
 /// Always fail.
 pub struct EnsureNever<Success>(core::marker::PhantomData<Success>);
 impl<O, Success> EnsureOrigin<O> for EnsureNever<Success> {
