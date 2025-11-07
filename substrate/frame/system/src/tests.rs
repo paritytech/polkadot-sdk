@@ -1011,6 +1011,7 @@ fn set_code_via_authorization_and_general_transaction() {
 	});
 }
 
+#[test]
 #[should_panic(expected = "Block number must be strictly increasing.")]
 fn initialize_block_number_must_be_sequential() {
 	new_test_ext().execute_with(|| {
