@@ -53,6 +53,7 @@ polkadot-sdk = { workspace = true, default-features = false, features = [
 # Cumulus
 cumulus-pallet-parachain-system = { workspace = true }
 cumulus-tic-tac-toe = { workspace = true }
+cumulus-chess-game = { workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
@@ -63,6 +64,7 @@ std = [
 	"codec/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-tic-tac-toe/std",
+	"cumulus-chess-game/std",
 	"polkadot-sdk/std",
 	"scale-info/std",
 	"serde_json/std",

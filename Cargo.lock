@@ -2984,6 +2984,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "btoi"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9dd6407f73a9b8b6162d8a2ef999fe6afd7cc15902ebf42c5cd296addf17e0ad"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "build-helper"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4343,6 +4352,23 @@ checksum = "90eeab0aa92f3f9b4e87f258c72b139c207d251f9cbc1080a0086b86a8870dd3"
 dependencies = [
  "nix 0.29.0",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "cumulus-chess-game"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "shakmaty",
+ "sp-core 28.0.0",
+ "sp-io",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -21909,6 +21935,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "shakmaty"
+version = "0.27.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f414cadc4e727893d1a3b0dca62aaef4c1c821dcbd969f0b10a92e12d684d53a"
+dependencies = [
+ "arrayvec 0.7.6",
+ "bitflags 2.9.4",
+ "btoi",
+ "nohash-hasher",
+ "serde",
+]
+
+[[package]]
 name = "sharded-slab"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -28510,6 +28549,7 @@ dependencies = [
 name = "yet-another-parachain-runtime"
 version = "0.6.0"
 dependencies = [
+ "cumulus-chess-game",
  "cumulus-pallet-parachain-system",
  "cumulus-tic-tac-toe",
  "parity-scale-codec",

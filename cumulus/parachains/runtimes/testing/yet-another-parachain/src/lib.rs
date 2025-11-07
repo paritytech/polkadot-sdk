@@ -480,6 +480,13 @@ impl cumulus_tic_tac_toe::Config for Runtime {
 	type RcBlockNumberProvider = cumulus_pallet_parachain_system::RelaychainDataProvider<Runtime>;
 }
 
+impl cumulus_chess_game::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type UnixTime = Timestamp;
+}
+
 #[frame_support::runtime]
 mod runtime {
 	#[runtime::runtime]
@@ -510,6 +517,9 @@ mod runtime {
 
 	#[runtime::pallet_index(5)]
 	pub type TicTacToe = cumulus_tic_tac_toe;
+
+	#[runtime::pallet_index(6)]
+	pub type ChessGame = cumulus_chess_game;
 
 	#[runtime::pallet_index(20)]
 	pub type ParachainSystem = cumulus_pallet_parachain_system;
