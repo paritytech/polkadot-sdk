@@ -1,0 +1,26 @@
+title: Make tasks local only.
+doc:
+- audience:
+  - Runtime Dev
+  - Node Dev
+  description: |-
+    Related to https://github.com/paritytech/polkadot-sdk/issues/9693
+
+    In the transaction pool, transaction are identified by the tag they provide.
+
+    For tasks the provided tag is simply the hash for the encoded task.
+
+    Nothing in the doc says that implementers should be careful that tasks are not too many for a single operation. What I mean is if a task is `migrate_keys(limit)`, with valid first from 1 to 10_000. Then all tasks `migrate_keys(1)`, `migrate_keys(2)` ... `migrate_keys(10_000)` are valid and effectively do the same operation: they all migrate part of the keys.
+    In this case a malicious person can submit all those tasks at once and spam the transaction pool with 10_000 transactions.
+
+    I see multiple solution:
+    * (1) we are careful when we implement tasks, we make the doc clear, but the API is error prone. (in my example above we would implement just `migrate_keys` and inside the call we would do a basic rate of migration of 1000 keys in a bulk).
+    * (2) we have a new value returned that is the provided tag for the task. Or we use the task index as provided tag.
+    * (3) we only accept local tasks: <-- implemented in this PR.
+
+    maybe (2) is a better API if we want external submission of tasks.
+crates:
+- name: frame-support-procedural
+  bump: major
+- name: frame-system
+  bump: major
