@@ -920,7 +920,7 @@ pub mod pallet {
 		let elapsed_ms = current_time.saturating_sub(time_state.last_move_timestamp);
 
 		// Determine whose turn just finished (they made the move)
-		let is_white_move = (game.move_count - 1) % 2 == 0;
+		let is_white_move = game.move_count.saturating_sub(1) % 2 == 0;
 
 		if is_white_move {
 			// White just moved, deduct time and add increment
@@ -982,80 +982,56 @@ pub mod pallet {
 mod tests {
 	use super::*;
 	use frame_support::{
-		assert_noop, assert_ok, construct_runtime, parameter_types,
+		assert_noop, assert_ok, derive_impl, parameter_types,
 		traits::{
 			fungible::{Inspect, InspectHold, Mutate},
 			tokens::{Fortitude, Precision, Preservation},
+			ConstU32, ConstU64,
 		},
 	};
-	use sp_runtime::{BuildStorage, traits::{BlakeTwo256, IdentityLookup}};
-	use sp_core::H256;
+	use sp_runtime::{BuildStorage, traits::IdentityLookup};
 
 	// Configure a mock runtime to test the pallet
-	construct_runtime!(
-		enum Test {
+	frame_support::construct_runtime!(
+		pub enum Test {
 			System: frame_system,
 			Balances: pallet_balances,
 			Timestamp: pallet_timestamp,
-			ChessGame: crate,
+			Chess: pallet,
 		}
 	);
 
 	type Block = frame_system::mocking::MockBlock<Test>;
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
-		type BaseCallFilter = frame_support::traits::Everything;
-		type BlockWeights = ();
-		type BlockLength = ();
-		type DbWeight = ();
-		type RuntimeOrigin = RuntimeOrigin;
-		type RuntimeCall = RuntimeCall;
-		type Nonce = u64;
-		type Hash = sp_core::H256;
-		type Hashing = sp_runtime::traits::BlakeTwo256;
-		type AccountId = u64;
-		type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
 		type Block = Block;
-		type RuntimeEvent = RuntimeEvent;
-		type Version = ();
-		type PalletInfo = PalletInfo;
+		type AccountId = u64;
+		type Lookup = IdentityLookup<Self::AccountId>;
 		type AccountData = pallet_balances::AccountData<u64>;
-		type OnNewAccount = ();
-		type OnKilledAccount = ();
-		type SystemWeightInfo = ();
-		type SS58Prefix = ();
-		type OnSetCode = ();
-		type MaxConsumers = frame_support::traits::ConstU32<16>;
-		type RuntimeTask = ();
-		type SingleBlockMigrations = ();
-		type MultiBlockMigrator = ();
-		type PreInherents = ();
-		type PostInherents = ();
-		type PostTransactions = ();
 	}
 
 	impl pallet_balances::Config for Test {
-		type MaxLocks = ();
-		type MaxReserves = ();
+		type MaxLocks = ConstU32<50>;
+		type MaxReserves = ConstU32<50>;
 		type ReserveIdentifier = [u8; 8];
 		type Balance = u64;
 		type RuntimeEvent = RuntimeEvent;
 		type DustRemoval = ();
-		type ExistentialDeposit = frame_support::traits::ConstU64<1>;
+		type ExistentialDeposit = ConstU64<1>;
 		type AccountStore = System;
 		type WeightInfo = ();
 		type FreezeIdentifier = ();
-		type MaxFreezes = ();
+		type MaxFreezes = ConstU32<0>;
 		type RuntimeHoldReason = RuntimeHoldReason;
-		type RuntimeFreezeReason = ();
-		type MaxHolds = frame_support::traits::ConstU32<1>;
+		type RuntimeFreezeReason = RuntimeFreezeReason;
 		type DoneSlashHandler = ();
 	}
 
 	impl pallet_timestamp::Config for Test {
 		type Moment = u64;
 		type OnTimestampSet = ();
-		type MinimumPeriod = frame_support::traits::ConstU64<1>;
+		type MinimumPeriod = ConstU64<1>;
 		type WeightInfo = ();
 	}
 
@@ -1072,7 +1048,7 @@ mod tests {
 
 		pallet_balances::GenesisConfig::<Test> {
 			balances: vec![(1, 1000), (2, 1000), (3, 1000)],
-			dev_accounts: vec![],
+			dev_accounts: None,
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();

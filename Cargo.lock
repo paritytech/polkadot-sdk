@@ -4355,7 +4355,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cumulus-chess-game"
+name = "cumulus-chess"
 version = "0.1.0"
 dependencies = [
  "frame-support",
@@ -28549,7 +28549,7 @@ dependencies = [
 name = "yet-another-parachain-runtime"
 version = "0.6.0"
 dependencies = [
- "cumulus-chess-game",
+ "cumulus-chess",
  "cumulus-pallet-parachain-system",
  "cumulus-tic-tac-toe",
  "parity-scale-codec",
