@@ -5133,3 +5133,35 @@ fn consume_all_gas_works() {
 		);
 	});
 }
+
+#[test]
+fn existential_deposit_shall_not_charged_twice() {
+	let (code, _) = compile_module("dummy").unwrap();
+
+	let salt = [0u8; 32];
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
+		let callee_addr = create2(
+			&ALICE_ADDR,
+			&code,
+			&[0u8; 0], // empty input
+			&salt,
+		);
+		let callee_account = <Test as Config>::AddressMapper::to_account_id(&callee_addr);
+
+		// first send funds to callee_addr
+		let _ = <Test as Config>::Currency::set_balance(&callee_account, Contracts::min_balance());
+		assert_eq!(get_balance(&callee_account), Contracts::min_balance());
+
+		// then deploy contract to callee_addr using create2
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
+			.salt(Some(salt))
+			.build_and_unwrap_contract();
+
+		assert_eq!(callee_addr, addr);
+
+		// check we charged ed only 1 time
+		assert_eq!(get_balance(&callee_account), Contracts::min_balance());
+	});
+}
