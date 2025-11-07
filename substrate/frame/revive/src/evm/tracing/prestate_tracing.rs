@@ -40,6 +40,9 @@ pub struct PrestateTracer<T> {
 	/// Stack of calls.
 	calls: Vec<Call>,
 
+	// The code used by create transaction
+	create_code: Option<Code>,
+
 	// pre / post state
 	trace: (BTreeMap<H160, PrestateTraceInfo>, BTreeMap<H160, PrestateTraceInfo>),
 
@@ -186,7 +189,11 @@ where
 	}
 
 	fn instantiate_code(&mut self, code: &crate::Code, _salt: Option<&[u8; 32]>) {
-		self.calls.last_mut().map(|c| c.create_code = Some(code.clone()));
+		if let Some(current) = self.calls.last_mut() {
+			current.create_code = Some(code.clone());
+		} else {
+			self.create_code = Some(code.clone());
+		}
 	}
 
 	fn enter_child_span(
@@ -219,7 +226,7 @@ where
 		}
 
 		if !is_delegate_call {
-			self.calls.push(Call { addr: to, create_code: None });
+			self.calls.push(Call { addr: to, create_code: self.create_code.take() });
 		}
 	}
 
