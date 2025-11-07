@@ -212,12 +212,12 @@ test(
 		const apis = await getApis();
 		// This test is meant to not run automatically, so most things are commented out.
 
-		const downSub = apis.rcClient.blocks$.subscribe((block) => {
-			if (block.number > 10) {
-				logger.verbose(`spammer::down spamming at height ${block.number}`);
-				sendDown(apis.rcApi, (block.number * 10) + 50);
-			}
-		});
+		// const downSub = apis.rcClient.blocks$.subscribe((block) => {
+		// 	if (block.number > 10) {
+		// 		logger.verbose(`spammer::down spamming at height ${block.number}`);
+		// 		sendDown(apis.rcApi, (block.number * 10) + 50);
+		// 	}
+		// });
 		// const upSub = apis.paraClient.blocks$.subscribe((block) => {
 		// 	if (block.number > 0) {
 		// 		logger.verbose(`spammer::up spamming at height ${block.number}`);
