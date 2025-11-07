@@ -16,17 +16,15 @@
 // limitations under the License.
 
 use crate::cli::Consensus;
-use futures::FutureExt;
 use polkadot_sdk::{
-	sc_client_api::backend::Backend,
+	sc_client_api::StorageProvider,
 	sc_executor::WasmExecutor,
 	sc_service::{error::Error as ServiceError, Configuration, TaskManager},
 	sc_telemetry::{Telemetry, TelemetryWorker},
-	sc_transaction_pool_api::OffchainTransactionPoolFactory,
 	sp_runtime::traits::Block as BlockT,
 	*,
 };
-use revive_dev_runtime::{OpaqueBlock as Block, RuntimeApi};
+use revive_dev_runtime::{OpaqueBlock as Block, Runtime, RuntimeApi};
 use std::sync::Arc;
 
 type HostFunctions = sp_io::SubstrateHostFunctions;
@@ -142,33 +140,13 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 			metrics,
 		})?;
 
-	if config.offchain_worker.enabled {
-		let offchain_workers =
-			sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
-				runtime_api_provider: client.clone(),
-				is_validator: config.role.is_authority(),
-				keystore: Some(keystore_container.keystore()),
-				offchain_db: backend.offchain_storage(),
-				transaction_pool: Some(OffchainTransactionPoolFactory::new(
-					transaction_pool.clone(),
-				)),
-				network_provider: Arc::new(network.clone()),
-				enable_http_requests: true,
-				custom_extensions: |_| vec![],
-			})?;
-		task_manager.spawn_handle().spawn(
-			"offchain-workers-runner",
-			"offchain-worker",
-			offchain_workers.run(client.clone(), task_manager.spawn_handle()).boxed(),
-		);
-	}
-
 	let rpc_extensions_builder = {
 		let client = client.clone();
 		let pool = transaction_pool.clone();
 
 		Box::new(move |_| {
-			let deps = crate::rpc::FullDeps { client: client.clone(), pool: pool.clone() };
+			let deps =
+				crate::rpc::FullDeps { client: client.clone(), pool: pool.clone(), consensus };
 			crate::rpc::create_full(deps).map_err(Into::into)
 		})
 	};
@@ -186,6 +164,7 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		sync_service,
 		config,
 		telemetry: telemetry.as_mut(),
+		tracing_execute_block: None,
 	})?;
 
 	let proposer = sc_basic_authorship::ProposerFactory::new(
@@ -196,6 +175,40 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		telemetry.as_ref().map(|x| x.handle()),
 	);
 
+	// Due to instant seal or low block time multiple blocks can have the same timestamp.
+	// This is because Etereum only uses second granularity (as opposed to ms).
+	// Here we make sure that we increment by at least a second from the last block.
+	//
+	// # Warning
+	//
+	// This will lead to blocks with timestamps in the future. This might cause other issues
+	// when dealing with off chain data. But for a development node it is more important to not
+	// have duplicate timestamps. The only way to not have timestamps in the future and no
+	// duplicates is to set the block time to at least one second (`--consensus manual-seal-1000`).
+	let timestamp_provider = {
+		let client = client.clone();
+		move |parent, ()| {
+			let client = client.clone();
+			async move {
+				let key = sp_core::storage::StorageKey(
+					polkadot_sdk::pallet_timestamp::Now::<Runtime>::hashed_key().to_vec(),
+				);
+				let current = sp_timestamp::Timestamp::current();
+				let next = client
+					.storage(parent, &key)
+					.ok()
+					.flatten()
+					.and_then(|data| data.0.try_into().ok())
+					.map(|data| {
+						let last = u64::from_le_bytes(data) / 1000;
+						sp_timestamp::Timestamp::new((last + 1) * 1000)
+					})
+					.unwrap_or(current);
+				Ok(sp_timestamp::InherentDataProvider::new(current.max(next)))
+			}
+		}
+	};
+
 	match consensus {
 		Consensus::InstantSeal => {
 			let params = sc_consensus_manual_seal::InstantSealParams {
@@ -205,9 +218,7 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 				pool: transaction_pool,
 				select_chain,
 				consensus_data_provider: None,
-				create_inherent_data_providers: move |_, ()| async move {
-					Ok(sp_timestamp::InherentDataProvider::from_system_time())
-				},
+				create_inherent_data_providers: timestamp_provider,
 			};
 
 			let authorship_future = sc_consensus_manual_seal::run_instant_seal(params);
@@ -241,9 +252,7 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 				select_chain,
 				commands_stream: Box::pin(commands_stream),
 				consensus_data_provider: None,
-				create_inherent_data_providers: move |_, ()| async move {
-					Ok(sp_timestamp::InherentDataProvider::from_system_time())
-				},
+				create_inherent_data_providers: timestamp_provider,
 			};
 			let authorship_future = sc_consensus_manual_seal::run_manual_seal(params);
 

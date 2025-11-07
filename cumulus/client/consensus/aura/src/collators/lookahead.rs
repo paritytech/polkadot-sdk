@@ -45,7 +45,11 @@ use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CollatorPair, Id as ParaId, OccupiedCoreAssumption};
 
-use crate::{collator as collator_util, collators::claim_queue_at, export_pov_to_path};
+use crate::{
+	collator as collator_util,
+	collators::{claim_queue_at, BackingGroupConnectionHelper},
+	export_pov_to_path,
+};
 use futures::prelude::*;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
@@ -122,7 +126,7 @@ where
 	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
-	P: Pair,
+	P: Pair + Send + Sync + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
@@ -174,7 +178,7 @@ where
 	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
-	P: Pair,
+	P: Pair + Send + Sync + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
@@ -214,6 +218,13 @@ where
 
 			collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
 		};
+
+		let mut connection_helper: BackingGroupConnectionHelper<Client> =
+			BackingGroupConnectionHelper::new(
+				params.para_client.clone(),
+				params.keystore.clone(),
+				params.overseer_handle.clone(),
+			);
 
 		while let Some(relay_parent_header) = import_notifications.next().await {
 			let relay_parent = relay_parent_header.hash();
@@ -290,14 +301,17 @@ where
 					relay_chain_slot_duration = ?params.relay_chain_slot_duration,
 					"Adjusted relay-chain slot to parachain slot"
 				);
-				Some(super::can_build_upon::<_, _, P>(
+				Some((
 					slot_now,
-					relay_slot,
-					timestamp,
-					block_hash,
-					included_block.hash(),
-					para_client,
-					&keystore,
+					super::can_build_upon::<_, _, P>(
+						slot_now,
+						relay_slot,
+						timestamp,
+						block_hash,
+						included_block.hash(),
+						para_client,
+						&keystore,
+					),
 				))
 			};
 
@@ -316,8 +330,11 @@ where
 			// scheduled chains this ensures that the backlog will grow steadily.
 			for n_built in 0..2 {
 				let slot_claim = match can_build_upon(parent_hash) {
-					Some(fut) => match fut.await {
-						None => break,
+					Some((current_slot, fut)) => match fut.await {
+						None => {
+							connection_helper.update::<Block, P>(current_slot, parent_hash).await;
+							break
+						},
 						Some(c) => c,
 					},
 					None => break,

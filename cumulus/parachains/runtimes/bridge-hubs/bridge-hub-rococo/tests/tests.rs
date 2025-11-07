@@ -143,14 +143,11 @@ mod bridge_hub_westend_tests {
 
 	// Random para id of sibling chain used in tests.
 	pub const SIBLING_PARACHAIN_ID: u32 = 2053;
-	// Random para id of sibling chain used in tests.
-	pub const SIBLING_SYSTEM_PARACHAIN_ID: u32 = 1008;
 	// Random para id of bridged chain from different global consensus used in tests.
 	pub const BRIDGED_LOCATION_PARACHAIN_ID: u32 = 1075;
 
 	parameter_types! {
 		pub SiblingParachainLocation: Location = Location::new(1, [Parachain(SIBLING_PARACHAIN_ID)]);
-		pub SiblingSystemParachainLocation: Location = Location::new(1, [Parachain(SIBLING_SYSTEM_PARACHAIN_ID)]);
 		pub BridgedUniversalLocation: InteriorLocation = [GlobalConsensus(WestendGlobalConsensusNetwork::get()), Parachain(BRIDGED_LOCATION_PARACHAIN_ID)].into();
 	}
 
