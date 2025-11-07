@@ -12205,6 +12205,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "pallet-balances",
  "pallet-conviction-voting",
  "pallet-conviction-voting-precompiles",
  "pallet-revive",

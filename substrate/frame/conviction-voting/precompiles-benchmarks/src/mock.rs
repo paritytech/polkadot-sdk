@@ -239,18 +239,6 @@ impl VotingHooks<AccountId, ReferendumIndex, Balance> for HooksHandler {
 #[cfg(feature = "runtime-benchmarks")]
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-
-	pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
-		.assimilate_storage(&mut t)
-		.unwrap();
-
-	pallet_revive::GenesisConfig::<Test> {
-		mapped_accounts: vec![ALICE, BOB, CHARLIE, DAVE],
-		..Default::default()
-	}
-	.assimilate_storage(&mut t)
-	.unwrap();
-
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
