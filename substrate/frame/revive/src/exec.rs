@@ -38,7 +38,7 @@ use alloc::{
 	collections::{BTreeMap, BTreeSet},
 	vec::Vec,
 };
-use core::{fmt::Debug, marker::PhantomData, mem, ops::ControlFlow};
+use core::{cmp, fmt::Debug, marker::PhantomData, mem, ops::ControlFlow};
 use frame_support::{
 	crypto::ecdsa::ECDSAExt,
 	dispatch::DispatchResult,
@@ -951,12 +951,24 @@ where
 			return Ok(None);
 		};
 
+		let mut timestamp = T::Time::now();
+		let mut block_number = <frame_system::Pallet<T>>::block_number();
+		// if dry run with timestamp override is provided we simulate the run in a `pending` block
+		if let Some(timestamp_override) =
+			exec_config.is_dry_run.as_ref().and_then(|cfg| cfg.timestamp_override)
+		{
+			block_number = block_number.saturating_add(1u32.into());
+			// Delta is in milliseconds; increment timestamp by one second
+			let delta = 1000u32.into();
+			timestamp = cmp::max(timestamp.saturating_add(delta), timestamp_override);
+		}
+
 		let stack = Self {
 			origin,
 			gas_meter,
 			storage_meter,
-			timestamp: T::Time::now(),
-			block_number: <frame_system::Pallet<T>>::block_number(),
+			timestamp,
+			block_number,
 			first_frame,
 			frames: Default::default(),
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
@@ -965,7 +977,6 @@ where
 			contracts_to_be_destroyed: BTreeMap::new(),
 			_phantom: Default::default(),
 		};
-
 		Ok(Some((stack, executable)))
 	}
 
@@ -1222,11 +1233,12 @@ where
 				// if we reached this point the origin has an associated account.
 				let origin = &self.origin.account_id()?;
 
-				let ed = <Contracts<T>>::min_balance();
-				frame.nested_storage.record_charge(&StorageDeposit::Charge(ed))?;
-				<Contracts<T>>::charge_deposit(None, origin, account_id, ed, self.exec_config)
-					.map_err(|_| <Error<T>>::StorageDepositNotEnoughFunds)?;
-
+				if !frame_system::Pallet::<T>::account_exists(&account_id) {
+					let ed = <Contracts<T>>::min_balance();
+					frame.nested_storage.record_charge(&StorageDeposit::Charge(ed))?;
+					<Contracts<T>>::charge_deposit(None, origin, account_id, ed, self.exec_config)
+						.map_err(|_| <Error<T>>::StorageDepositNotEnoughFunds)?;
+				}
 				// A consumer is added at account creation and removed it on termination, otherwise
 				// the runtime could remove the account. As long as a contract exists its
 				// account must exist. With the consumer, a correct runtime cannot remove the
@@ -1324,7 +1336,7 @@ where
 					// When a dry-run simulates contract deployment, keep the execution result's
 					// data.
 					let data = if crate::tracing::if_tracing(|_| {}).is_none() &&
-						!self.exec_config.is_dry_run
+						self.exec_config.is_dry_run.is_none()
 					{
 						core::mem::replace(&mut output.data, Default::default())
 					} else {
@@ -1411,7 +1423,6 @@ where
 		} else {
 			self.transient_storage.rollback_transaction();
 		}
-
 		log::trace!(target: LOG_TARGET, "frame finished with: {output:?}");
 
 		self.pop_frame(success);
