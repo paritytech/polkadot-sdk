@@ -1,6 +1,6 @@
 [package]
 name = "bridge-hub-rococo-runtime"
-version = "0.22.1"
+version = "0.22.2"
 authors.workspace = true
 edition.workspace = true
 description = "Rococo's BridgeHub parachain runtime"
@@ -111,11 +111,11 @@ xcm-executor.workspace = true
 xcm-runtime-apis.workspace = true
 
 [dev-dependencies]
-bridge-hub-test-utils = { default-features = true, workspace = true }
-bridge-runtime-common = { features = ["integrity-test"], default-features = true, workspace = true }
-pallet-bridge-relayers = { features = ["integrity-test"], default-features = false, workspace = true }
-parachains-runtimes-test-utils = { default-features = true, workspace = true }
-snowbridge-runtime-test-common = { default-features = true, workspace = true }
+bridge-hub-test-utils = { default-features = true, path = "../test-utils" }
+bridge-runtime-common = { features = ["integrity-test"], default-features = true, path = "../../../../../bridges/bin/runtime-common" }
+pallet-bridge-relayers = { features = ["integrity-test"], default-features = false, path = "../../../../../bridges/modules/relayers" }
+parachains-runtimes-test-utils = { default-features = true, path = "../../test-utils" }
+snowbridge-runtime-test-common = { default-features = true, path = "../../../../../bridges/snowbridge/runtime/test-common" }
 
 [features]
 default = ["std"]
@@ -252,7 +252,6 @@ runtime-benchmarks = [
 	"snowbridge-pallet-outbound-queue/runtime-benchmarks",
 	"snowbridge-pallet-system/runtime-benchmarks",
 	"snowbridge-runtime-common/runtime-benchmarks",
-	"snowbridge-runtime-test-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
