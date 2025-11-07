@@ -1010,6 +1010,7 @@ parameter_types! {
 	pub const VoteLockingPeriod: BlockNumber = 30 * DAYS;
 }
 
+
 impl pallet_conviction_voting::Config for Runtime {
 	type WeightInfo = pallet_conviction_voting::weights::SubstrateWeight<Self>;
 	type RuntimeEvent = RuntimeEvent;
@@ -1020,6 +1021,10 @@ impl pallet_conviction_voting::Config for Runtime {
 	type Polls = Referenda;
 	type BlockNumberProvider = System;
 	type VotingHooks = ();
+}
+
+impl pallet_conviction_voting_precompiles_benchmarks::Config for Runtime {
+	
 }
 
 parameter_types! {
@@ -2861,8 +2866,7 @@ mod runtime {
 	pub type MultiAssetBounties = pallet_multi_asset_bounties::Pallet<Runtime>;
 
 	#[runtime::pallet_index(91)]
-	pub type ConvictionVotingPrecompilesBenchmarks =
-		pallet_conviction_voting_precompiles_benchmarks::Pallet<Runtime>;
+	pub type ConvictionVotingPrecompilesBenchmarks = pallet_conviction_voting_precompiles_benchmarks::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -3115,6 +3119,7 @@ mod benches {
 		[pallet_child_bounties, ChildBounties]
 		[pallet_collective, Council]
 		[pallet_conviction_voting, ConvictionVoting]
+		[pallet_conviction_voting_precompiles_benchmarks, ConvictionVotingPrecompilesBenchmarks]
 		[pallet_contracts, Contracts]
 		[pallet_revive, Revive]
 		[pallet_core_fellowship, CoreFellowship]
@@ -3177,7 +3182,6 @@ mod benches {
 		[pallet_asset_conversion_ops, AssetConversionMigration]
 		[pallet_verify_signature, VerifySignature]
 		[pallet_meta_tx, MetaTx]
-		[pallet_conviction_voting_precompiles_benchmarks, ConvictionVotingPrecompilesBenchmarks]
 	);
 }
 

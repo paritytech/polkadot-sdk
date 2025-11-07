@@ -282,6 +282,7 @@ runtime-benchmarks = [
 	"pallet-contracts-mock-network?/runtime-benchmarks",
 	"pallet-contracts?/runtime-benchmarks",
 	"pallet-conviction-voting?/runtime-benchmarks",
+	"pallet-conviction-voting-precompiles?/runtime-benchmarks",
 	"pallet-conviction-voting-precompiles-benchmarks?/runtime-benchmarks",
 	"pallet-core-fellowship?/runtime-benchmarks",
 	"pallet-delegated-staking?/runtime-benchmarks",
