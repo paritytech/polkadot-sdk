@@ -80,7 +80,7 @@ where
 	let stmt_n_sig = stmts.pop().unwrap();
 
 	for (stmt, sig) in stmts {
-		let r = Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into(), stmt, sig);
+		let r = Pallet::<T>::include_pvf_check_statement(RawOrigin::Authorized.into(), stmt, sig);
 		assert!(r.is_ok());
 	}
 

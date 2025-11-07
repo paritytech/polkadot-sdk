@@ -1113,6 +1113,26 @@ where
 	}
 }
 
+impl<LocalCall> frame_system::offchain::CreateAuthorizedTransaction<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_extension() -> Self::Extension {
+		(
+			frame_system::CheckNonZeroSender::<Runtime>::new(),
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckMortality::<Runtime>::from(generic::Era::immortal()),
+			frame_system::CheckNonce::<Runtime>::from(0),
+			frame_system::CheckWeight::<Runtime>::new(),
+			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
+			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+			frame_system::WeightReclaim::<Runtime>::new(),
+		)
+	}
+}
+
 /// Submits a transaction with the node's public and signature type. Adheres to the signed extension
 /// format of the chain.
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime

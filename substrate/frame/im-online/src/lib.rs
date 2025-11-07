@@ -95,7 +95,7 @@ use frame_support::{
 	BoundedSlice, WeakBoundedVec,
 };
 use frame_system::{
-	offchain::{CreateBare, SubmitTransaction},
+	offchain::{CreateAuthorizedTransaction, SubmitTransaction},
 	pallet_prelude::*,
 };
 pub use pallet::*;
@@ -261,7 +261,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: CreateBare<Call<Self>> + frame_system::Config {
+	pub trait Config: CreateAuthorizedTransaction<Call<Self>> + frame_system::Config {
 		/// The identifier type for an authority.
 		type AuthorityId: Member
 			+ Parameter
@@ -379,7 +379,7 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::call]
+	#[pallet::call(weight = T::WeightInfo)]
 	impl<T: Config> Pallet<T> {
 		/// ## Complexity:
 		/// - `O(K)` where K is length of `Keys` (heartbeat.validators_len)
@@ -390,30 +390,28 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::validate_unsigned_and_then_heartbeat(
 			heartbeat.validators_len,
 		))]
+		#[pallet::authorize(|_source, heartbeat, sig|
+			Pallet::<T>::validate_heartbeat(heartbeat, sig).map(|v| (v, Weight::zero()))
+		)]
 		pub fn heartbeat(
 			origin: OriginFor<T>,
 			heartbeat: Heartbeat<BlockNumberFor<T>>,
 			// since signature verification is done in `validate_unsigned`
 			// we can skip doing it here again.
 			_signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
-		) -> DispatchResult {
-			ensure_none(origin)?;
+		) -> DispatchResultWithPostInfo {
+			let is_none = ensure_none(origin.clone()).is_ok();
+			let is_authorized = ensure_authorized(origin).is_ok();
 
-			let current_session = T::ValidatorSet::session_index();
-			let exists =
-				ReceivedHeartbeats::<T>::contains_key(current_session, heartbeat.authority_index);
-			let keys = Keys::<T>::get();
-			let public = keys.get(heartbeat.authority_index as usize);
-			if let (false, Some(public)) = (exists, public) {
-				Self::deposit_event(Event::<T>::HeartbeatReceived { authority_id: public.clone() });
+			ensure!(is_none || is_authorized, DispatchError::BadOrigin);
 
-				ReceivedHeartbeats::<T>::insert(current_session, heartbeat.authority_index, true);
+			let heartbeat_validators_len = heartbeat.validators_len;
+			Self::do_verified_heartbeat(heartbeat)?;
 
-				Ok(())
-			} else if exists {
-				Err(Error::<T>::DuplicatedHeartbeat.into())
+			if is_authorized {
+				Ok(Some(T::WeightInfo::heartbeat(heartbeat_validators_len)).into())
 			} else {
-				Err(Error::<T>::InvalidKey.into())
+				Ok(().into())
 			}
 		}
 	}
@@ -453,47 +451,7 @@ pub mod pallet {
 
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			if let Call::heartbeat { heartbeat, signature } = call {
-				if <Pallet<T>>::is_online(heartbeat.authority_index) {
-					// we already received a heartbeat for this authority
-					return InvalidTransaction::Stale.into()
-				}
-
-				// check if session index from heartbeat is recent
-				let current_session = T::ValidatorSet::session_index();
-				if heartbeat.session_index != current_session {
-					return InvalidTransaction::Stale.into()
-				}
-
-				// verify that the incoming (unverified) pubkey is actually an authority id
-				let keys = Keys::<T>::get();
-				if keys.len() as u32 != heartbeat.validators_len {
-					return InvalidTransaction::Custom(INVALID_VALIDATORS_LEN).into()
-				}
-				let authority_id = match keys.get(heartbeat.authority_index as usize) {
-					Some(id) => id,
-					None => return InvalidTransaction::BadProof.into(),
-				};
-
-				// check signature (this is expensive so we do it last).
-				let signature_valid = heartbeat.using_encoded(|encoded_heartbeat| {
-					authority_id.verify(&encoded_heartbeat, signature)
-				});
-
-				if !signature_valid {
-					return InvalidTransaction::BadProof.into()
-				}
-
-				ValidTransaction::with_tag_prefix("ImOnline")
-					.priority(T::UnsignedPriority::get())
-					.and_provides((current_session, authority_id))
-					.longevity(
-						TryInto::<u64>::try_into(
-							T::NextSessionRotation::average_session_length() / 2u32.into(),
-						)
-						.unwrap_or(64_u64),
-					)
-					.propagate(true)
-					.build()
+				Self::validate_heartbeat(heartbeat, signature)
 			} else {
 				InvalidTransaction::Call.into()
 			}
@@ -512,6 +470,25 @@ impl<T: Config + pallet_authorship::Config>
 }
 
 impl<T: Config> Pallet<T> {
+	fn do_verified_heartbeat(heartbeat: Heartbeat<BlockNumberFor<T>>) -> DispatchResult {
+		let current_session = T::ValidatorSet::session_index();
+		let exists =
+			ReceivedHeartbeats::<T>::contains_key(current_session, heartbeat.authority_index);
+		let keys = Keys::<T>::get();
+		let public = keys.get(heartbeat.authority_index as usize);
+		if let (false, Some(public)) = (exists, public) {
+			Self::deposit_event(Event::<T>::HeartbeatReceived { authority_id: public.clone() });
+
+			ReceivedHeartbeats::<T>::insert(current_session, heartbeat.authority_index, true);
+
+			Ok(())
+		} else if exists {
+			Err(Error::<T>::DuplicatedHeartbeat.into())
+		} else {
+			Err(Error::<T>::InvalidKey.into())
+		}
+	}
+
 	/// Returns `true` if a heartbeat has been received for the authority at
 	/// `authority_index` in the authorities series or if the authority has
 	/// authored at least one block, during the current session. Otherwise
@@ -643,7 +620,7 @@ impl<T: Config> Pallet<T> {
 				call,
 			);
 
-			let xt = T::create_bare(call.into());
+			let xt = T::create_authorized_transaction(call.into());
 			SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
 				.map_err(|_| OffchainErr::SubmitTransaction)?;
 
@@ -733,6 +710,52 @@ impl<T: Config> Pallet<T> {
 		let bounded_keys = WeakBoundedVec::<_, T::MaxKeys>::try_from(keys)
 			.expect("More than the maximum number of keys provided");
 		Keys::<T>::put(bounded_keys);
+	}
+
+	fn validate_heartbeat(
+		heartbeat: &Heartbeat<BlockNumberFor<T>>,
+		signature: &<T::AuthorityId as RuntimeAppPublic>::Signature,
+	) -> TransactionValidity {
+		if <Pallet<T>>::is_online(heartbeat.authority_index) {
+			// we already received a heartbeat for this authority
+			return InvalidTransaction::Stale.into()
+		}
+
+		// check if session index from heartbeat is recent
+		let current_session = T::ValidatorSet::session_index();
+		if heartbeat.session_index != current_session {
+			return InvalidTransaction::Stale.into()
+		}
+
+		// verify that the incoming (unverified) pubkey is actually an authority id
+		let keys = Keys::<T>::get();
+		if keys.len() as u32 != heartbeat.validators_len {
+			return InvalidTransaction::Custom(INVALID_VALIDATORS_LEN).into()
+		}
+		let authority_id = match keys.get(heartbeat.authority_index as usize) {
+			Some(id) => id,
+			None => return InvalidTransaction::BadProof.into(),
+		};
+
+		// check signature (this is expensive so we do it last).
+		let signature_valid = heartbeat
+			.using_encoded(|encoded_heartbeat| authority_id.verify(&encoded_heartbeat, signature));
+
+		if !signature_valid {
+			return InvalidTransaction::BadProof.into()
+		}
+
+		ValidTransaction::with_tag_prefix("ImOnline")
+			.priority(T::UnsignedPriority::get())
+			.and_provides((current_session, authority_id))
+			.longevity(
+				TryInto::<u64>::try_into(
+					T::NextSessionRotation::average_session_length() / 2u32.into(),
+				)
+				.unwrap_or(64_u64),
+			)
+			.propagate(true)
+			.build()
 	}
 }
 

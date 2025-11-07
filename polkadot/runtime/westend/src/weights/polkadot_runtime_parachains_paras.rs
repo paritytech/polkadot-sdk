@@ -292,6 +292,7 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::paras::WeightInfo for
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	fn authorize_include_pvf_check_statement() -> Weight { Weight::zero() }
 	/// Storage: `Paras::UpgradeCooldowns` (r:1 w:1)
 	/// Proof: `Paras::UpgradeCooldowns` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Paras::UpgradeRestrictionSignal` (r:0 w:1)

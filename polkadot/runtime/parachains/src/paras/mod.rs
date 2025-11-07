@@ -580,6 +580,7 @@ pub trait WeightInfo {
 	fn include_pvf_check_statement_finalize_onboarding_accept() -> Weight;
 	fn include_pvf_check_statement_finalize_onboarding_reject() -> Weight;
 	fn include_pvf_check_statement() -> Weight;
+	fn authorize_include_pvf_check_statement() -> Weight;
 	fn authorize_force_set_current_code_hash() -> Weight;
 	fn apply_authorized_force_set_current_code(c: u32) -> Weight;
 }
@@ -627,6 +628,9 @@ impl WeightInfo for TestWeightInfo {
 		// This special value is to distinguish from the finalizing variants above in tests.
 		Weight::MAX - Weight::from_parts(1, 1)
 	}
+	fn authorize_include_pvf_check_statement() -> Weight {
+		Weight::MAX
+	}
 	fn remove_upgrade_cooldown() -> Weight {
 		Weight::MAX
 	}
@@ -647,7 +651,6 @@ pub mod pallet {
 	};
 	use sp_runtime::transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
-		ValidTransaction,
 	};
 
 	type BalanceOf<T> = <<T as Config>::Fungible as Inspect<AccountIdFor<T>>>::Balance;
@@ -661,7 +664,7 @@ pub mod pallet {
 		frame_system::Config
 		+ configuration::Config
 		+ shared::Config
-		+ frame_system::offchain::CreateBare<Call<Self>>
+		+ frame_system::offchain::CreateAuthorizedTransaction<Call<Self>>
 	{
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -978,7 +981,7 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::call]
+	#[pallet::call(weight = <T as Config>::WeightInfo)]
 	impl<T: Config> Pallet<T> {
 		/// Set the storage for the parachain validation code immediately.
 		#[pallet::call_index(0)]
@@ -1142,47 +1145,60 @@ pub mod pallet {
 		#[pallet::weight(
 			<T as Config>::WeightInfo::include_pvf_check_statement_finalize_upgrade_accept()
 				.max(<T as Config>::WeightInfo::include_pvf_check_statement_finalize_upgrade_reject())
-				.max(<T as Config>::WeightInfo::include_pvf_check_statement_finalize_onboarding_accept()
-					.max(<T as Config>::WeightInfo::include_pvf_check_statement_finalize_onboarding_reject())
-				)
+				.max(<T as Config>::WeightInfo::include_pvf_check_statement_finalize_onboarding_accept())
+				.max(<T as Config>::WeightInfo::include_pvf_check_statement_finalize_onboarding_reject())
+				.saturating_add(<T as Config>::WeightInfo::authorize_include_pvf_check_statement())
 		)]
+		#[pallet::authorize(|_source, stmt, sig| Pallet::<T>::validate_include_pvf_check_statement(stmt, sig).map(|v| (v, Weight::zero())))]
+		// Weight is already accounted for in the call.
+		#[pallet::weight_of_authorize(Weight::zero())]
 		pub fn include_pvf_check_statement(
 			origin: OriginFor<T>,
 			stmt: PvfCheckStatement,
 			signature: ValidatorSignature,
 		) -> DispatchResultWithPostInfo {
-			ensure_none(origin)?;
+			let is_none = ensure_none(origin.clone()).is_ok();
+			let is_authorized = ensure_authorized(origin).is_ok();
+
+			ensure!(is_none || is_authorized, DispatchError::BadOrigin);
 
 			let validators = shared::ActiveValidatorKeys::<T>::get();
-			let current_session = shared::CurrentSessionIndex::<T>::get();
-			if stmt.session_index < current_session {
-				return Err(Error::<T>::PvfCheckStatementStale.into())
-			} else if stmt.session_index > current_session {
-				return Err(Error::<T>::PvfCheckStatementFuture.into())
-			}
 			let validator_index = stmt.validator_index.0 as usize;
-			let validator_public = validators
-				.get(validator_index)
-				.ok_or(Error::<T>::PvfCheckValidatorIndexOutOfBounds)?;
-
-			let signing_payload = stmt.signing_payload();
-			ensure!(
-				signature.verify(&signing_payload[..], &validator_public),
-				Error::<T>::PvfCheckInvalidSignature,
-			);
-
 			let mut active_vote = PvfActiveVoteMap::<T>::get(&stmt.subject)
 				.ok_or(Error::<T>::PvfCheckSubjectInvalid)?;
 
-			// Ensure that the validator submitting this statement hasn't voted already.
-			ensure!(
-				!active_vote
-					.has_vote(validator_index)
-					.ok_or(Error::<T>::PvfCheckValidatorIndexOutOfBounds)?,
-				Error::<T>::PvfCheckDoubleVote,
-			);
+			// Transaction validation checks:
+			// * statement.session_index is not stale nor future.
+			// * signature is correct.
+			// * no double vote.
+			// We need to check it for none origin only.
+			if is_none {
+				let current_session = shared::CurrentSessionIndex::<T>::get();
+				if stmt.session_index < current_session {
+					return Err(Error::<T>::PvfCheckStatementStale.into())
+				} else if stmt.session_index > current_session {
+					return Err(Error::<T>::PvfCheckStatementFuture.into())
+				}
+				let validator_public = validators
+					.get(validator_index)
+					.ok_or(Error::<T>::PvfCheckValidatorIndexOutOfBounds)?;
 
-			// Finally, cast the vote and persist.
+				let signing_payload = stmt.signing_payload();
+				ensure!(
+					signature.verify(&signing_payload[..], &validator_public),
+					Error::<T>::PvfCheckInvalidSignature,
+				);
+
+				// Ensure that the validator submitting this statement hasn't voted already.
+				ensure!(
+					!active_vote
+						.has_vote(validator_index)
+						.ok_or(Error::<T>::PvfCheckValidatorIndexOutOfBounds)?,
+					Error::<T>::PvfCheckDoubleVote,
+				);
+			}
+
+			// Cast the vote and persist.
 			if stmt.accept {
 				active_vote.votes_accept.set(validator_index, true);
 			} else {
@@ -1371,52 +1387,8 @@ pub mod pallet {
 
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			match call {
-				Call::include_pvf_check_statement { stmt, signature } => {
-					let current_session = shared::CurrentSessionIndex::<T>::get();
-					if stmt.session_index < current_session {
-						return InvalidTransaction::Stale.into()
-					} else if stmt.session_index > current_session {
-						return InvalidTransaction::Future.into()
-					}
-
-					let validator_index = stmt.validator_index.0 as usize;
-					let validators = shared::ActiveValidatorKeys::<T>::get();
-					let validator_public = match validators.get(validator_index) {
-						Some(pk) => pk,
-						None =>
-							return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into(),
-					};
-
-					let signing_payload = stmt.signing_payload();
-					if !signature.verify(&signing_payload[..], &validator_public) {
-						return InvalidTransaction::BadProof.into();
-					}
-
-					let active_vote = match PvfActiveVoteMap::<T>::get(&stmt.subject) {
-						Some(v) => v,
-						None => return InvalidTransaction::Custom(INVALID_TX_BAD_SUBJECT).into(),
-					};
-
-					match active_vote.has_vote(validator_index) {
-						Some(false) => (),
-						Some(true) =>
-							return InvalidTransaction::Custom(INVALID_TX_DOUBLE_VOTE).into(),
-						None =>
-							return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into(),
-					}
-
-					ValidTransaction::with_tag_prefix("PvfPreCheckingVote")
-						.priority(T::UnsignedPriority::get())
-						.longevity(
-							TryInto::<u64>::try_into(
-								T::NextSessionRotation::average_session_length() / 2u32.into(),
-							)
-							.unwrap_or(64_u64),
-						)
-						.and_provides((stmt.session_index, stmt.validator_index, stmt.subject))
-						.propagate(true)
-						.build()
-				},
+				Call::include_pvf_check_statement { stmt, signature } =>
+					Self::validate_include_pvf_check_statement(stmt, signature),
 				Call::apply_authorized_force_set_current_code { para, new_code } =>
 					match Self::validate_code_is_authorized(new_code, para) {
 						Ok(authorized_code) => {
@@ -2442,7 +2414,9 @@ impl<T: Config> Pallet<T> {
 	) {
 		use frame_system::offchain::SubmitTransaction;
 
-		let xt = T::create_bare(Call::include_pvf_check_statement { stmt, signature }.into());
+		let xt = T::create_authorized_transaction(
+			Call::include_pvf_check_statement { stmt, signature }.into(),
+		);
 		if let Err(e) = SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
 			log::error!(target: LOG_TARGET, "Error submitting pvf check statement: {:?}", e,);
 		}
@@ -2583,6 +2557,59 @@ impl<T: Config> Pallet<T> {
 
 		Heads::<T>::insert(&id, &genesis_data.genesis_head);
 		MostRecentContext::<T>::insert(&id, BlockNumberFor::<T>::from(0u32));
+	}
+
+	/// Validate the transaction `include_pvf_check_statement`.
+	///
+	/// Checks:
+	/// * statement.session_index is not stale nor future.
+	/// * signature is correct.
+	/// * no double vote.
+	fn validate_include_pvf_check_statement(
+		stmt: &PvfCheckStatement,
+		signature: &ValidatorSignature,
+	) -> TransactionValidity {
+		let current_session = shared::CurrentSessionIndex::<T>::get();
+		if stmt.session_index < current_session {
+			return InvalidTransaction::Stale.into()
+		} else if stmt.session_index > current_session {
+			return InvalidTransaction::Future.into()
+		}
+
+		let validator_index = stmt.validator_index.0 as usize;
+		let validators = shared::ActiveValidatorKeys::<T>::get();
+		let validator_public = match validators.get(validator_index) {
+			Some(pk) => pk,
+			None => return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into(),
+		};
+
+		let signing_payload = stmt.signing_payload();
+		if !signature.verify(&signing_payload[..], &validator_public) {
+			return InvalidTransaction::BadProof.into()
+		}
+
+		let active_vote = match PvfActiveVoteMap::<T>::get(&stmt.subject) {
+			Some(v) => v,
+			None => return InvalidTransaction::Custom(INVALID_TX_BAD_SUBJECT).into(),
+		};
+
+		match active_vote.has_vote(validator_index) {
+			Some(false) => (),
+			Some(true) => return InvalidTransaction::Custom(INVALID_TX_DOUBLE_VOTE).into(),
+			None => return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into(),
+		}
+
+		ValidTransaction::with_tag_prefix("PvfPreCheckingVote")
+			.priority(T::UnsignedPriority::get())
+			.longevity(
+				TryInto::<u64>::try_into(
+					T::NextSessionRotation::average_session_length() / 2u32.into(),
+				)
+				.unwrap_or(64_u64),
+			)
+			.and_provides((stmt.session_index, stmt.validator_index, stmt.subject))
+			.propagate(true)
+			.build()
 	}
 
 	#[cfg(test)]

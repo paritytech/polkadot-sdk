@@ -166,4 +166,22 @@ mod benchmarks {
 		let unapplied = <UnappliedSlashes<T>>::get(session_index, CANDIDATE_HASH);
 		assert!(unapplied.is_none());
 	}
+
+	#[benchmark]
+	fn authorize_report_dispute_lost_unsigned(n: Linear<4, { max_validators_for::<T>() }>) {
+		let (session_index, key_owner_proof, validator_id) = setup_validator_set::<T>(n);
+		let dispute_proof = setup_dispute::<T>(session_index, validator_id);
+		let call = Call::<T>::report_dispute_lost_unsigned {
+			dispute_proof: Box::new(dispute_proof),
+			key_owner_proof,
+		};
+
+		#[block]
+		{
+			use frame_support::traits::Authorize;
+			call.authorize(TransactionSource::Local)
+				.expect("Some authorization")
+				.expect("Authorization is successful");
+		}
+	}
 }

@@ -307,13 +307,14 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
-	#[pallet::call]
+	#[pallet::call(weight = T::WeightInfo)]
 	impl<T: Config> Pallet<T> {
 		/// Make a claim to collect your DOTs.
 		///
-		/// The dispatch origin for this call must be _None_.
+		/// The dispatch origin for this call must be _None_ or _Authorized_.
+		/// It can be dispatched with a general transaction or an unsigned transaction.
 		///
-		/// Unsigned Validation:
+		/// Validation/Authorization:
 		/// A call to claim is deemed valid if the signature provided matches
 		/// the expected signed message of:
 		///
@@ -334,13 +335,24 @@ pub mod pallet {
 		/// Total Complexity: O(1)
 		/// </weight>
 		#[pallet::call_index(0)]
+		#[pallet::authorize(|_source, dest, ethereum_sig|
+			Pallet::<T>::validate_claim(dest, ethereum_sig, None).map(|v| (v, Weight::zero()))
+		)]
 		#[pallet::weight(T::WeightInfo::claim())]
+		// Because the weight of both "validate unsigned" and "authorize" logic needs to be added
+		// to the weight of the extrinsic, and because "validate unsigned" weight must be included
+		// in the call weight, the "authorize weight is also included in the call weight.
+		// Thus we set it to zero here.
+		#[pallet::weight_of_authorize(Weight::zero())]
 		pub fn claim(
 			origin: OriginFor<T>,
 			dest: T::AccountId,
 			ethereum_signature: EcdsaSignature,
 		) -> DispatchResult {
-			ensure_none(origin)?;
+			let is_authorized = ensure_authorized(origin.clone()).is_ok();
+			let is_none = ensure_none(origin).is_ok();
+
+			ensure!(is_authorized || is_none, DispatchError::BadOrigin);
 
 			let data = dest.using_encoded(to_ascii_hex);
 			let signer = Self::eth_recover(&ethereum_signature, &data, &[][..])
@@ -390,9 +402,10 @@ pub mod pallet {
 
 		/// Make a claim to collect your DOTs by signing a statement.
 		///
-		/// The dispatch origin for this call must be _None_.
+		/// The dispatch origin for this call must be _None_ or _Authorized_.
+		/// It can be dispatched with a general transaction or an unsigned transaction.
 		///
-		/// Unsigned Validation:
+		/// Validation/Authorization:
 		/// A call to `claim_attest` is deemed valid if the signature provided matches
 		/// the expected signed message of:
 		///
@@ -416,14 +429,25 @@ pub mod pallet {
 		/// Total Complexity: O(1)
 		/// </weight>
 		#[pallet::call_index(2)]
+		#[pallet::authorize(|_source, dest, ethereum_sig, stmt|
+			Pallet::<T>::validate_claim(dest, ethereum_sig, Some(stmt)).map(|v| (v, Weight::zero()))
+		)]
 		#[pallet::weight(T::WeightInfo::claim_attest())]
+		// Because the weight of both "validate unsigned" and "authorize" logic needs to be added
+		// to the weight of the extrinsic, and because "validate unsigned" weight must be included
+		// in the call weight, the "authorize weight is also included in the call weight.
+		// Thus we set it to zero here.
+		#[pallet::weight_of_authorize(Weight::zero())]
 		pub fn claim_attest(
 			origin: OriginFor<T>,
 			dest: T::AccountId,
 			ethereum_signature: EcdsaSignature,
 			statement: Vec<u8>,
 		) -> DispatchResult {
-			ensure_none(origin)?;
+			let is_authorized = ensure_authorized(origin.clone()).is_ok();
+			let is_none = ensure_none(origin).is_ok();
+
+			ensure!(is_authorized || is_none, DispatchError::BadOrigin);
 
 			let data = dest.using_encoded(to_ascii_hex);
 			let signer = Self::eth_recover(&ethereum_signature, &data, &statement)
@@ -500,27 +524,36 @@ pub mod pallet {
 		type Call = Call<T>;
 
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			const PRIORITY: u64 = 100;
-
-			let (maybe_signer, maybe_statement) = match call {
+			match call {
 				// <weight>
 				// The weight of this logic is included in the `claim` dispatchable.
 				// </weight>
-				Call::claim { dest: account, ethereum_signature } => {
-					let data = account.using_encoded(to_ascii_hex);
-					(Self::eth_recover(&ethereum_signature, &data, &[][..]), None)
-				},
+				Call::claim { dest: account, ethereum_signature } =>
+					Self::validate_claim(account, ethereum_signature, None),
 				// <weight>
 				// The weight of this logic is included in the `claim_attest` dispatchable.
 				// </weight>
-				Call::claim_attest { dest: account, ethereum_signature, statement } => {
-					let data = account.using_encoded(to_ascii_hex);
-					(
-						Self::eth_recover(&ethereum_signature, &data, &statement),
-						Some(statement.as_slice()),
-					)
-				},
+				Call::claim_attest { dest: account, ethereum_signature, statement } =>
+					Self::validate_claim(account, ethereum_signature, Some(statement)),
 				_ => return Err(InvalidTransaction::Call.into()),
+			}
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		fn validate_claim(
+			account: &T::AccountId,
+			ethereum_signature: &EcdsaSignature,
+			maybe_statement: Option<&Vec<u8>>,
+		) -> TransactionValidity {
+			const PRIORITY: u64 = 100;
+
+			let maybe_signer = if let Some(statement) = &maybe_statement {
+				let data = account.using_encoded(to_ascii_hex);
+				Self::eth_recover(&ethereum_signature, &data, statement)
+			} else {
+				let data = account.using_encoded(to_ascii_hex);
+				Self::eth_recover(&ethereum_signature, &data, &[][..])
 			};
 
 			let signer = maybe_signer.ok_or(InvalidTransaction::Custom(
@@ -533,7 +566,7 @@ pub mod pallet {
 			let e = InvalidTransaction::Custom(ValidityError::InvalidStatement.into());
 			match Signing::<T>::get(signer) {
 				None => ensure!(maybe_statement.is_none(), e),
-				Some(s) => ensure!(Some(s.to_text()) == maybe_statement, e),
+				Some(s) => ensure!(Some(s.to_text()) == maybe_statement.map(|s| s.as_slice()), e),
 			}
 
 			Ok(ValidTransaction {
@@ -578,7 +611,11 @@ impl<T: Config> Pallet<T> {
 
 	// Attempts to recover the Ethereum address from a message signature signed by using
 	// the Ethereum RPC's `personal_sign` and `eth_sign`.
-	fn eth_recover(s: &EcdsaSignature, what: &[u8], extra: &[u8]) -> Option<EthereumAddress> {
+	pub(crate) fn eth_recover(
+		s: &EcdsaSignature,
+		what: &[u8],
+		extra: &[u8],
+	) -> Option<EthereumAddress> {
 		let msg = keccak_256(&Self::ethereum_signable_message(what, extra));
 		let mut res = EthereumAddress::default();
 		res.0
