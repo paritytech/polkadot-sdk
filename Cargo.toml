@@ -356,6 +356,7 @@ members = [
 	"substrate/frame/contracts/uapi",
 	"substrate/frame/conviction-voting",
 	"substrate/frame/conviction-voting/precompiles",
+	"substrate/frame/conviction-voting/precompiles-benchmarks",
 	"substrate/frame/core-fellowship",
 	"substrate/frame/delegated-staking",
 	"substrate/frame/democracy",
@@ -986,6 +987,7 @@ pallet-contracts-proc-macro = { path = "substrate/frame/contracts/proc-macro", d
 pallet-contracts-uapi = { path = "substrate/frame/contracts/uapi", default-features = false }
 pallet-conviction-voting = { path = "substrate/frame/conviction-voting", default-features = false }
 pallet-conviction-voting-precompiles = { path = "substrate/frame/conviction-voting/precompiles", default-features = false }
+pallet-conviction-voting-precompiles-benchmarks = { path = "substrate/frame/conviction-voting/precompiles-benchmarks", default-features = false }
 pallet-core-fellowship = { path = "substrate/frame/core-fellowship", default-features = false }
 pallet-default-config-example = { path = "substrate/frame/examples/default-config", default-features = false }
 pallet-delegated-staking = { path = "substrate/frame/delegated-staking", default-features = false }

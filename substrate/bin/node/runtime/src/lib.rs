@@ -82,6 +82,7 @@ use pallet_asset_conversion::{AccountIdConverter, Ascending, Chain, WithFirstAss
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_assets_precompiles::{InlineIdConfig, ERC20};
 use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, TaskId};
+use pallet_conviction_voting_precompiles::ConvictionVotingPrecompile;
 use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 use pallet_identity::legacy::IdentityInfo;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -1009,6 +1010,7 @@ parameter_types! {
 	pub const VoteLockingPeriod: BlockNumber = 30 * DAYS;
 }
 
+
 impl pallet_conviction_voting::Config for Runtime {
 	type WeightInfo = pallet_conviction_voting::weights::SubstrateWeight<Self>;
 	type RuntimeEvent = RuntimeEvent;
@@ -1019,6 +1021,10 @@ impl pallet_conviction_voting::Config for Runtime {
 	type Polls = Referenda;
 	type BlockNumberProvider = System;
 	type VotingHooks = ();
+}
+
+impl pallet_conviction_voting_precompiles_benchmarks::Config for Runtime {
+	
 }
 
 parameter_types! {
@@ -1522,8 +1528,11 @@ impl pallet_revive::Config for Runtime {
 	type DepositPerChildTrieItem = DepositPerChildTrieItem;
 	type DepositPerByte = DepositPerByte;
 	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
-	type Precompiles =
-		(ERC20<Self, InlineIdConfig<0x1>, Instance1>, ERC20<Self, InlineIdConfig<0x2>, Instance2>);
+	type Precompiles = (
+		ERC20<Self, InlineIdConfig<0x1>, Instance1>,
+		ERC20<Self, InlineIdConfig<0x2>, Instance2>,
+		ConvictionVotingPrecompile<Self>,
+	);
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
@@ -2855,6 +2864,9 @@ mod runtime {
 
 	#[runtime::pallet_index(90)]
 	pub type MultiAssetBounties = pallet_multi_asset_bounties::Pallet<Runtime>;
+
+	#[runtime::pallet_index(91)]
+	pub type ConvictionVotingPrecompilesBenchmarks = pallet_conviction_voting_precompiles_benchmarks::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -3107,6 +3119,7 @@ mod benches {
 		[pallet_child_bounties, ChildBounties]
 		[pallet_collective, Council]
 		[pallet_conviction_voting, ConvictionVoting]
+		[pallet_conviction_voting_precompiles_benchmarks, ConvictionVotingPrecompilesBenchmarks]
 		[pallet_contracts, Contracts]
 		[pallet_revive, Revive]
 		[pallet_core_fellowship, CoreFellowship]

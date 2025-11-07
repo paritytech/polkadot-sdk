@@ -12189,6 +12189,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-conviction-voting-precompiles-benchmarks"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-conviction-voting",
+ "pallet-conviction-voting-precompiles",
+ "pallet-revive",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+ "sp-runtime",
+ "tracing",
+]
+
+[[package]]
 name = "pallet-core-fellowship"
 version = "12.0.0"
 dependencies = [
@@ -16576,6 +16594,7 @@ dependencies = [
  "pallet-contracts-uapi",
  "pallet-conviction-voting",
  "pallet-conviction-voting-precompiles",
+ "pallet-conviction-voting-precompiles-benchmarks",
  "pallet-core-fellowship",
  "pallet-delegated-staking",
  "pallet-democracy",

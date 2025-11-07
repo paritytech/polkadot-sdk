@@ -443,6 +443,14 @@ pub use pallet_contracts_uapi;
 #[cfg(feature = "pallet-conviction-voting")]
 pub use pallet_conviction_voting;
 
+/// Provides precompiles for the `conviction-voting` pallet.
+#[cfg(feature = "pallet-conviction-voting-precompiles")]
+pub use pallet_conviction_voting_precompiles;
+
+/// Provides benchmarks for the precompiles of the `conviction-voting` pallet.
+#[cfg(feature = "pallet-conviction-voting-precompiles-benchmarks")]
+pub use pallet_conviction_voting_precompiles_benchmarks;
+
 /// Logic as per the description of The Fellowship for core Polkadot technology.
 #[cfg(feature = "pallet-core-fellowship")]
 pub use pallet_core_fellowship;
