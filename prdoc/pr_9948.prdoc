@@ -53,6 +53,8 @@ crates:
   bump: major
 - name: pallet-xcm
   bump: patch
+- name: pallet-xcm-benchmarks
+  bump: patch
 - name: pallet-asset-tx-payment
   bump: patch
 - name: pallet-asset-conversion-tx-payment
