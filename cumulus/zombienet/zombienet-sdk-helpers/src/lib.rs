@@ -288,7 +288,7 @@ pub async fn assert_relay_parent_offset(
 }
 
 /// Extract relay parent information from the digest logs.
-fn extract_relay_parent_storage_root(
+pub fn extract_relay_parent_storage_root(
 	digest: &DigestItem,
 ) -> Option<(relay_chain::Hash, relay_chain::BlockNumber)> {
 	match digest {
