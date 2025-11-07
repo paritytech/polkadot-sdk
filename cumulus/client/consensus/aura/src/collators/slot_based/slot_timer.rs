@@ -19,7 +19,7 @@ use crate::LOG_TARGET;
 use codec::Codec;
 use cumulus_primitives_aura::Slot;
 use cumulus_primitives_core::BlockT;
-use sc_client_api::UsageProvider;
+use sc_client_api::{HeaderBackend, UsageProvider};
 use sc_consensus_aura::SlotDuration;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
@@ -168,7 +168,12 @@ fn time_until_next_attempt(
 impl<Block, Client, P> SlotTimer<Block, Client, P>
 where
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block> + Send + Sync + 'static + UsageProvider<Block>,
+	Client: ProvideRuntimeApi<Block>
+		+ Send
+		+ Sync
+		+ 'static
+		+ UsageProvider<Block>
+		+ HeaderBackend<Block>,
 	Client::Api: AuraApi<Block, P::Public>,
 	P: Pair,
 	P::Public: AppPublic + Member + Codec,
@@ -219,6 +224,30 @@ where
 		)
 	}
 
+	/// Check if two slots have different authors based on AURA round-robin algorithm.
+	///
+	/// Returns true if the authors for the two slots are different.
+	fn check_different_slot_authors(&self, slot: Slot, next_slot: Slot) -> bool {
+		let best_hash = self.client.info().best_hash;
+
+		let Ok(authorities) = self.client.runtime_api().authorities(best_hash) else {
+			tracing::warn!(target: LOG_TARGET, "Failed to fetch authorities for slot author comparison");
+			// Presume they are different, this will adjust the slot authoring duration more
+			// conservatively.
+			return true;
+		};
+
+		let authorities_len = authorities.len() as u64;
+		if authorities_len <= 1 {
+			return false;
+		}
+
+		let author1_idx = *slot % authorities_len;
+		let author2_idx = *next_slot % authorities_len;
+
+		author1_idx != author2_idx
+	}
+
 	/// Adjust the authoring duration to fit into the slot timing.
 	///
 	/// Returns the adjusted authoring duration and the slot that it corresponds to.
@@ -243,6 +272,10 @@ where
 			return Some(authoring_duration);
 		};
 
+		// Check if authors at current and next slots are different
+		let current_slot = self.last_reported_slot.unwrap_or(next_block_slot);
+		let authors_are_different = self.check_different_slot_authors(current_slot, next_slot);
+
 		// The authoring of blocks must stop 1 second before the slot ends.
 		let duration_until_deadline =
 			duration_until_next_slot.saturating_sub(BLOCK_PRODUCTION_ADJUSTMENT_MS);
@@ -255,6 +288,8 @@ where
 			?duration_until_next_slot,
 			?next_slot,
 			?duration_until_deadline,
+			?current_slot,
+			?authors_are_different,
 			"Adjusting authoring duration for slot.",
 		);
 
@@ -271,9 +306,9 @@ where
 			return None;
 		}
 
-		// Clamp the authoring duration to fit into the slot deadline.
+		// Clamp the authoring duration to fit into the slot deadline only if authors are different.
 		// For most cases, the deadline is farther in the future than the authoring duration.
-		if authoring_duration >= duration_until_deadline {
+		if authors_are_different && authoring_duration >= duration_until_deadline {
 			authoring_duration = duration_until_deadline;
 
 			// Ensure we are not going below the minimum interval within a reasonable threshold.
