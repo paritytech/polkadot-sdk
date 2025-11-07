@@ -97,6 +97,9 @@ struct ClaimInfo {
 /// have got one claim which won't be satisfied in the worst case scenario.
 pub(crate) struct ClaimQueueState {
 	block_state: VecDeque<ClaimInfo>,
+	/// Represents blocks which are yet to be created. The claim queue at a leaf tells us what's
+	/// scheduled on the next two blocks. Since they are not yet authored we keep them separately
+	/// here.
 	future_blocks: VecDeque<ClaimInfo>,
 	/// Candidates with claimed slots per relay parent. We need this information in order to remove
 	/// claims. The key is the relay parent of the candidate and the value - the set of candidates
@@ -232,6 +235,9 @@ impl ClaimQueueState {
 		self.find_a_free_claim_v1(relay_parent, para_id, ClaimState::Pending(None))
 	}
 
+	/// Sets the candidate hash for a pending claim. If no such claim is found - returns false.
+	/// Note that the candidate is set at first available `Pending(None)` claim. Tracking the exact
+	/// candidate order is not required here.
 	pub(crate) fn mark_pending_slot_with_candidate(
 		&mut self,
 		relay_parent: &Hash,
@@ -350,7 +356,7 @@ impl ClaimQueueState {
 			.collect()
 	}
 
-	/// TODO
+	/// Returns the number of claims for a specific para id at a specific relay parent.
 	pub(crate) fn get_all_for_para_at(&self, relay_parent: &Hash, para_id: &ParaId) -> usize {
 		let window = self.get_window(relay_parent);
 
@@ -361,8 +367,8 @@ impl ClaimQueueState {
 	/// `removed` should contain hashes in the beginning of the path otherwise they won't be
 	/// removed.
 	///
-	/// Example: if a path is [A, B, C, D] and `removed` contains [A, B] then both A and B will be
-	/// removed. But if `target` contains [B, C] then nothing will be removed.
+	/// Example: if a path is [A, B, C, D] and `targets` contains [A, B] then both A and B will be
+	/// removed. But if `targets` contains [B, C] then nothing will be removed.
 	pub(crate) fn remove_pruned_ancestors(&mut self, targets: &HashSet<Hash>) {
 		// First remove all entries from candidates for each removed relay parent. Any Seconded
 		// entries for it can't be undone anymore, but the claimed ones may need to be freed.
@@ -424,7 +430,7 @@ impl ClaimQueueState {
 		false
 	}
 
-	/// TODO
+	/// Explicitly clears a claim at a specific relay parent.
 	pub(crate) fn release_claim_for_relay_parent(&mut self, relay_parent: &Hash) -> bool {
 		for claim in self.block_state.iter_mut() {
 			if let Some(hash) = claim.hash {
@@ -438,6 +444,7 @@ impl ClaimQueueState {
 		false
 	}
 
+	/// Returns the claim queue entries for all known and future blocks.
 	pub(crate) fn all_assignments<'a>(&'a self) -> impl Iterator<Item = &'a ParaId> + 'a {
 		self.block_state
 			.iter()
@@ -445,6 +452,7 @@ impl ClaimQueueState {
 			.chain(self.future_blocks.iter().filter_map(|claim_info| claim_info.claim.as_ref()))
 	}
 
+	/// Returns the corresponding para ids for all unclaimed slots in the claim queue.
 	pub(crate) fn free_slots(&self) -> Vec<ParaId> {
 		self.block_state
 			.iter()
@@ -491,8 +499,9 @@ impl ClaimQueueState {
 	}
 
 	// Returns `true` if there is a free claim within `relay_parent`'s view of the claim queue for
-	// `para_id`. If `claim_it` is set to `true` the slot is claimed. Otherwise the function just
-	// reports the availability of the slot.
+	// `para_id`. If a claim is found its state is set to `new_state`. To just report the
+	// availability of the slot call the function with `new_state = ClaimState::Free`. This way the
+	// free slot will be set again to free and the function won't have any side effects.
 	fn find_a_free_claim(
 		&mut self,
 		relay_parent: &Hash,
@@ -551,9 +560,8 @@ impl ClaimQueueState {
 		claim_found
 	}
 
-	// Returns `true` if there is a free claim at the `relay_parent` for
-	// `para_id`. If `claim_it` is set to `true` the slot is claimed. Otherwise the function just
-	// reports the availability of the slot.
+	// Alternative of [`find_a_free_claim`] for V1 candidates. Check its documentation for usage
+	// guidelines.
 	fn find_a_free_claim_v1(
 		&mut self,
 		relay_parent: &Hash,
@@ -636,6 +644,12 @@ fn fork_from_state(
 		acc
 	});
 
+	// Transfer any claims from the target relay parent's ancestors onto the new path.
+	// Example:
+	// old_state: [A B C D]; target_relay_parent = B;
+	// Any claims on C and D should also be transferred to the new fork. Because when we claim a
+	// slot at relay parent X we claim it at all possible forks.
+	// Also note that only claims for candidates which fall within new fork's view are transferred.
 	let future_blocks = old_state
 		.get_window(target_relay_parent)
 		.skip(1)
@@ -713,7 +727,7 @@ impl PerLeafClaimQueueState {
 						?leaf,
 						?parent,
 						?claim_queue,
-						"add_leaf: adding fork from a previous -non-leaf block"
+						"add_leaf: adding fork from a previous non-leaf block"
 					);
 					return
 				}
@@ -756,7 +770,7 @@ impl PerLeafClaimQueueState {
 		result
 	}
 
-	/// TODO
+	/// Explicitly clears a claim at a specific relay parent for all leaves.
 	pub fn release_claims_for_relay_parent(&mut self, relay_parent: &Hash) -> bool {
 		let mut result = false;
 		for (_, state) in &mut self.leaves {
@@ -767,7 +781,8 @@ impl PerLeafClaimQueueState {
 		result
 	}
 
-	/// TODO
+	/// Claims the first available slot for `para_id` at `relay_parent` as pending for all leaves.
+	/// Returns `true` if the claim was successful.
 	pub fn claim_pending_slot(
 		&mut self,
 		candidate_hash: Option<CandidateHash>,
@@ -777,6 +792,7 @@ impl PerLeafClaimQueueState {
 		let mut result = false;
 		for (leaf, state) in &mut self.leaves {
 			let claimed = if candidate_hash.is_none() {
+				// special treatment -  we can't claim a future slot for v1 candidates
 				state.claim_pending_at_v1(relay_parent, para_id)
 			} else {
 				state.claim_pending_at(relay_parent, para_id, candidate_hash)
@@ -799,7 +815,9 @@ impl PerLeafClaimQueueState {
 		result
 	}
 
-	/// TODO
+	/// Sets the candidate hash for a pending claim at all leaves. If no such claim is found -
+	/// returns false. Note that the candidate is set at first available `Pending(None)` claim at
+	/// each leaf. Tracking the exact candidate order is not required here.
 	pub fn mark_pending_slot_with_candidate(
 		&mut self,
 		candidate_hash: &CandidateHash,
@@ -851,7 +869,8 @@ impl PerLeafClaimQueueState {
 		result
 	}
 
-	/// TODO
+	/// Returns the number of claims for a specific para id at a specific relay parent for all
+	/// leaves.
 	pub fn get_all_slots_for_para_at(&mut self, relay_parent: &Hash, para_id: &ParaId) -> usize {
 		self.leaves
 			.values()
@@ -860,7 +879,7 @@ impl PerLeafClaimQueueState {
 			.unwrap_or_default()
 	}
 
-	/// TODO
+	/// Returns the claim queue entries for all known and future blocks for all leaves.
 	pub fn all_assignments(&self) -> BTreeSet<ParaId> {
 		self.leaves
 			.values()
@@ -869,17 +888,19 @@ impl PerLeafClaimQueueState {
 			.collect()
 	}
 
-	/// TODO
+	/// Returns the hashes of all tracked leaves.
 	pub fn leaves(&self) -> impl Iterator<Item = &Hash> {
 		self.leaves.keys()
 	}
 
-	/// TODO
+	/// Returns the corresponding para ids for all unclaimed slots in the claim queue for the
+	/// specified leaf.
 	pub fn free_slots(&self, leaf: &Hash) -> Vec<ParaId> {
 		self.leaves.get(leaf).map(|state| state.free_slots()).unwrap_or_default()
 	}
 
-	/// TODO
+	/// Returns the corresponding para ids for all unclaimed slots in the claim queue for all
+	/// leaves.
 	pub fn all_free_slots(&self) -> BTreeSet<ParaId> {
 		self.leaves
 			.values()
