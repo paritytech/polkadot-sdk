@@ -457,4 +457,47 @@ mod tests {
 
 		assert_eq!(wait_duration.as_millis(), expected_wait_duration, "Wait time mismatch."); // Should wait 5 seconds
 	}
+
+	#[rstest]
+	// Basic slot change scenarios
+	#[case(6000, 0, 0, Slot::from(0), 6000, Slot::from(1))]
+	#[case(6000, 1000, 0, Slot::from(0), 5000, Slot::from(1))]
+	#[case(6000, 6000, 0, Slot::from(1), 6000, Slot::from(2))]
+	#[case(6000, 12000, 0, Slot::from(2), 6000, Slot::from(3))]
+	// Test with offset
+	#[case(6000, 1000, 1000, Slot::from(0), 6000, Slot::from(1))]
+	#[case(6000, 2000, 1000, Slot::from(0), 5000, Slot::from(1))]
+	#[case(6000, 6000, 3000, Slot::from(0), 3000, Slot::from(1))]
+	// Different slot durations
+	#[case(3000, 1000, 0, Slot::from(0), 2000, Slot::from(1))]
+	#[case(3000, 3000, 0, Slot::from(1), 3000, Slot::from(2))]
+	#[case(12000, 6000, 0, Slot::from(0), 6000, Slot::from(1))]
+	#[case(12000, 12000, 0, Slot::from(1), 12000, Slot::from(2))]
+	// Edge cases - at slot boundary
+	#[case(6000, 5999, 0, Slot::from(0), 1, Slot::from(1))]
+	#[case(6000, 11999, 0, Slot::from(1), 1, Slot::from(2))]
+	fn test_compute_time_until_next_slot_change(
+		#[case] para_slot_millis: u64,
+		#[case] time_now: u64,
+		#[case] offset_millis: u64,
+		#[case] last_reported_slot: Slot,
+		#[case] expected_duration: u128,
+		#[case] expected_next_slot: Slot,
+	) {
+		let para_slot_duration = SlotDuration::from_millis(para_slot_millis);
+		let time_now = Duration::from_millis(time_now);
+		let offset = Duration::from_millis(offset_millis);
+
+		let result = compute_time_until_next_slot_change(
+			para_slot_duration,
+			time_now,
+			offset,
+			last_reported_slot,
+		);
+
+		assert!(result.is_some(), "Expected result to be Some");
+		let (duration, next_slot) = result.unwrap();
+		assert_eq!(duration.as_millis(), expected_duration, "Duration mismatch");
+		assert_eq!(next_slot, expected_next_slot, "Next slot mismatch");
+	}
 }
