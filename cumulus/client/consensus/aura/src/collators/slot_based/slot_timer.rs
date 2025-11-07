@@ -120,19 +120,23 @@ fn compute_next_wake_up_time(
 }
 
 /// Compute the time until the next slot changes.
+///
+/// Returns None if the next slot cannot be computed.
 fn compute_time_until_next_slot_change(
 	para_slot_duration: SlotDuration,
 	time_now: Duration,
 	time_offset: Duration,
 	last_reported_slot: Slot,
-) -> Result<(Duration, Slot), ()> {
+) -> Option<(Duration, Slot)> {
 	let now = time_now.saturating_sub(time_offset);
 	let next_slot = last_reported_slot + Slot::from(1);
 
-	let Some(next_slot_timestamp) = next_slot.timestamp(para_slot_duration) else { return Err(()) };
+	let Some(next_slot_timestamp) = next_slot.timestamp(para_slot_duration) else {
+		return None;
+	};
 	let remaining_time = next_slot_timestamp.as_duration().saturating_sub(now);
 
-	Ok((remaining_time, next_slot))
+	Some((remaining_time, next_slot))
 }
 
 /// Returns current duration since Unix epoch.
@@ -192,28 +196,21 @@ where
 	}
 
 	/// Returns the slot and how much time left until the next block production attempt.
-	pub fn time_until_next_block(&mut self) -> Result<(Duration, Slot), ()> {
-		let Ok(slot_duration) = crate::slot_duration(&*self.client) else {
-			tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
-			return Err(())
-		};
-
-		Ok(compute_next_wake_up_time(
+	pub fn time_until_next_block(&mut self, slot_duration: SlotDuration) -> (Duration, Slot) {
+		compute_next_wake_up_time(
 			slot_duration,
 			self.relay_slot_duration,
 			self.last_reported_core_num,
 			duration_now(),
 			self.time_offset,
-		))
+		)
 	}
 
 	/// Compute the time until the next slot changes.
-	fn time_until_next_slot_change(&mut self) -> Result<(Duration, Slot), ()> {
-		let Ok(slot_duration) = crate::slot_duration(&*self.client) else {
-			tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
-			return Err(())
-		};
-
+	fn time_until_next_slot_change(
+		&mut self,
+		slot_duration: SlotDuration,
+	) -> Option<(Duration, Slot)> {
 		compute_time_until_next_slot_change(
 			slot_duration,
 			duration_now(),
@@ -229,15 +226,16 @@ where
 		&mut self,
 		mut authoring_duration: Duration,
 	) -> Option<Duration> {
-		let Ok((duration, next_block_slot)) = self.time_until_next_block() else {
-			tracing::error!(
-				target: LOG_TARGET,
-				"Failed to fetch slot duration from runtime. Using unadjusted authoring duration."
-			);
-			return Some(authoring_duration);
+		let Ok(slot_duration) = crate::slot_duration(&*self.client) else {
+			tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
+			return None;
 		};
 
-		let Ok((duration_until_next_slot, next_slot)) = self.time_until_next_slot_change() else {
+		let (duration, next_block_slot) = self.time_until_next_block(slot_duration);
+
+		let Some((duration_until_next_slot, next_slot)) =
+			self.time_until_next_slot_change(slot_duration)
+		else {
 			tracing::error!(
 				target: LOG_TARGET,
 				"Failed to compute time until next slot change. Using unadjusted authoring duration."
@@ -311,7 +309,8 @@ where
 			return Err(())
 		};
 
-		let (time_until_next_attempt, mut next_aura_slot) = self.time_until_next_block()?;
+		let (time_until_next_attempt, mut next_aura_slot) =
+			self.time_until_next_block(slot_duration);
 
 		tracing::trace!(
 			target: LOG_TARGET,
