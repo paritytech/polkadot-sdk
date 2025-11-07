@@ -177,7 +177,7 @@ fn eth_contract_too_large() {
 
 		// Initialize genesis config with allow_unlimited_contract_size
 		let genesis_config = GenesisConfig::<Test> {
-			debug_settings: Some(DebugSettings::new(allow_unlimited_contract_size, false)),
+			debug_settings: Some(DebugSettings::new(allow_unlimited_contract_size)),
 			..Default::default()
 		};
 
@@ -309,7 +309,6 @@ fn dust_work_with_child_calls(fixture_type: FixtureType) {
 fn eth_substrate_call_dispatches_successfully() {
 	use frame_support::traits::fungible::Inspect;
 	ExtBuilder::default().build().execute_with(|| {
-		DebugSettings::default().allow_eth_substrate_call().write_to_storage::<Test>();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000);
 		let _ = <Test as Config>::Currency::set_balance(&BOB, 100);
 
@@ -334,8 +333,6 @@ fn eth_substrate_call_dispatches_successfully() {
 #[test]
 fn eth_substrate_call_requires_eth_origin() {
 	ExtBuilder::default().build().execute_with(|| {
-		DebugSettings::default().allow_eth_substrate_call().write_to_storage::<Test>();
-
 		let inner_call = frame_system::Call::remark { remark: vec![] };
 
 		// Should fail with non-EthTransaction origin
@@ -351,52 +348,9 @@ fn eth_substrate_call_requires_eth_origin() {
 }
 
 #[test]
-fn eth_substrate_call_requires_debug_flag() {
-	use crate::{tests::initialize_block, weights::WeightInfo};
-	ExtBuilder::default().build().execute_with(|| {
-		// Ensure eth_substrate_call is NOT allowed
-		assert!(!DebugSettings::is_eth_substrate_call_allowed::<Test>());
-
-		let inner_call = frame_system::Call::remark { remark: vec![] };
-		let transaction_encoded = vec![];
-		let overhead_weight =
-			<Test as Config>::WeightInfo::eth_substrate_call(transaction_encoded.len() as u32);
-
-		// Drop previous events
-		initialize_block(2);
-
-		// Call should succeed but emit EthExtrinsicRevert event
-		let post_info = Pallet::<Test>::eth_substrate_call(
-			Origin::EthTransaction(ALICE).into(),
-			Box::new(inner_call.into()),
-			transaction_encoded,
-		)
-		.expect("eth_substrate_call should succeed");
-
-		// Verify actual weight includes overhead
-		let actual_weight = post_info.actual_weight.expect("actual_weight should be set");
-		assert!(
-			actual_weight.ref_time() >= overhead_weight.ref_time(),
-			"actual_weight ({}) should be >= overhead weight ({})",
-			actual_weight.ref_time(),
-			overhead_weight.ref_time(),
-		);
-
-		// Verify EthExtrinsicRevert event was emitted
-		crate::tests::System::assert_last_event(
-			crate::Event::EthExtrinsicRevert {
-				dispatch_error: Error::<Test>::EthSubstrateCallNotAllowed.into(),
-			}
-			.into(),
-		);
-	});
-}
-
-#[test]
 fn eth_substrate_call_tracks_weight_correctly() {
 	use crate::weights::WeightInfo;
 	ExtBuilder::default().build().execute_with(|| {
-		DebugSettings::default().allow_eth_substrate_call().write_to_storage::<Test>();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000);
 
 		let inner_call = frame_system::Call::remark { remark: vec![0u8; 100] };

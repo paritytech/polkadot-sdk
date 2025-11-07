@@ -20,7 +20,6 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
-	debug::DebugSettings,
 	evm::{
 		block_hash::EthereumBlockBuilder, block_storage, TransactionLegacyUnsigned,
 		TransactionSigned, TransactionUnsigned,
@@ -478,7 +477,6 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let origin = Origin::EthTransaction(caller);
-		DebugSettings::default().allow_eth_substrate_call().write_to_storage::<T>();
 		let dispatchable = frame_system::Call::remark { remark: vec![] }.into();
 		#[extrinsic_call]
 		_(origin, Box::new(dispatchable), vec![42u8; c as usize]);

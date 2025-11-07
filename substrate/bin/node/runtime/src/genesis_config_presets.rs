@@ -27,7 +27,7 @@ use crate::{
 };
 use alloc::{vec, vec::Vec};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use pallet_revive::{is_eth_derived, DebugSettings};
+use pallet_revive::is_eth_derived;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
@@ -97,7 +97,6 @@ pub fn kitchensink_genesis(
 		},
 		revive: ReviveConfig {
 			mapped_accounts: endowed_accounts.iter().filter(|x| ! is_eth_derived(x)).cloned().collect(),
-			debug_settings: Some(DebugSettings::default().allow_eth_substrate_call()),
 		},
 	})
 }

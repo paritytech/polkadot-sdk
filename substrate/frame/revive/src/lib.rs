@@ -25,6 +25,7 @@ extern crate alloc;
 mod address;
 mod benchmarking;
 mod call_builder;
+mod debug;
 mod exec;
 mod gas;
 mod impl_fungibles;
@@ -37,7 +38,6 @@ mod transient_storage;
 mod vm;
 mod weightinfo_extension;
 
-pub mod debug;
 pub mod evm;
 pub mod migrations;
 pub mod mock;
@@ -1359,18 +1359,6 @@ pub mod pallet {
 				T::WeightInfo::eth_substrate_call(transaction_encoded.len() as u32);
 
 			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
-				if !DebugSettings::is_eth_substrate_call_allowed::<T>() {
-					log::warn!(target: LOG_TARGET, "eth_substrate_call can only be used in development.");
-					return block_storage::EthereumCallResult {
-						receipt_gas_info: ReceiptGasInfo::default(),
-						result: dispatch_result::<()>(
-							Err(<Error<T>>::EthSubstrateCallNotAllowed.into()),
-							Weight::zero(),
-							weight_overhead,
-						),
-					};
-				}
-
 				let mut call_result = call.dispatch(RawOrigin::Signed(signer).into());
 
 				// Add extrinsic_overhead to the actual weight in PostDispatchInfo
