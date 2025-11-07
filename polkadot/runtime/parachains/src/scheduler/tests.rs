@@ -119,7 +119,7 @@ fn next_assignments() -> impl Iterator<Item = (CoreIndex, ParaId)> {
 	let claim_queue = Scheduler::claim_queue();
 	claim_queue
 		.into_iter()
-		.filter_map(|(core_idx, v)| v.front().map(|a| (core_idx, a.clone())))
+		.filter_map(|(core_idx, v)| v.front().map(|a| (core_idx, *a)))
 }
 
 #[test]
@@ -592,11 +592,11 @@ fn session_change_increasing_number_of_cores() {
 
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(0)).unwrap(),
-				[para_a.clone(), para_a.clone()].into_iter().collect::<VecDeque<_>>()
+				[para_a, para_a].into_iter().collect::<VecDeque<_>>()
 			);
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(1)).unwrap(),
-				[para_b.clone(), para_b.clone()].into_iter().collect::<VecDeque<_>>()
+				[para_b, para_b].into_iter().collect::<VecDeque<_>>()
 			);
 		}
 
@@ -696,10 +696,10 @@ fn session_change_decreasing_number_of_cores() {
 			None,
 		)
 		.unwrap();
-		on_demand::Pallet::<Test>::push_back_order(para_a.clone());
-		on_demand::Pallet::<Test>::push_back_order(para_b.clone());
 		on_demand::Pallet::<Test>::push_back_order(para_a);
-		on_demand::Pallet::<Test>::push_back_order(para_b.clone());
+		on_demand::Pallet::<Test>::push_back_order(para_b);
+		on_demand::Pallet::<Test>::push_back_order(para_a);
+		on_demand::Pallet::<Test>::push_back_order(para_b);
 
 		// Decrease number of cores to 1.
 		let old_config = config;
@@ -726,7 +726,7 @@ fn session_change_decreasing_number_of_cores() {
 		// the end.
 		assert_eq!(
 			claim_queue.remove(&CoreIndex(0)).unwrap(),
-			[para_a.clone()].into_iter().collect::<VecDeque<_>>()
+			[para_a].into_iter().collect::<VecDeque<_>>()
 		);
 
 		Scheduler::advance_claim_queue(|_| false);
