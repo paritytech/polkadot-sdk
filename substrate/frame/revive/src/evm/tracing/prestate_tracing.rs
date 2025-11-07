@@ -22,17 +22,23 @@ use crate::{
 use alloc::{collections::BTreeMap, vec::Vec};
 use sp_core::{H160, U256};
 
+/// A call in the call stack.
+#[derive(Debug, Default, Clone, PartialEq)]
+struct Call {
+	/// The address of the call.
+	addr: H160,
+	/// The init code if this is a contract creation.
+	create_code: Option<Code>,
+}
+
 /// A tracer that traces the prestate.
 #[derive(frame_support::DefaultNoBound, Debug, Clone, PartialEq)]
 pub struct PrestateTracer<T> {
 	/// The tracer configuration.
 	config: PrestateTracerConfig,
 
-	/// Stack of the current address of the contract's which storage is being accessed.
-	current_addrs: Vec<H160>,
-
-	/// Whether the current call is a contract creation.
-	is_create: Option<Code>,
+	/// Stack of calls.
+	calls: Vec<Call>,
 
 	// pre / post state
 	trace: (BTreeMap<H160, PrestateTraceInfo>, BTreeMap<H160, PrestateTraceInfo>),
@@ -50,7 +56,11 @@ where
 	}
 
 	fn current_addr(&self) -> H160 {
-		self.current_addrs.last().copied().unwrap_or_default()
+		self.calls.last().map(|c| c.addr.clone()).unwrap_or_default()
+	}
+
+	fn current_is_create(&self) -> bool {
+		self.calls.last().map(|c| c.create_code.is_some()).unwrap_or_default()
 	}
 
 	/// Returns an empty trace.
@@ -176,7 +186,7 @@ where
 	}
 
 	fn instantiate_code(&mut self, code: &crate::Code, _salt: Option<&[u8; 32]>) {
-		self.is_create = Some(code.clone());
+		self.calls.last_mut().map(|c| c.create_code = Some(code.clone()));
 	}
 
 	fn enter_child_span(
@@ -198,7 +208,7 @@ where
 			)
 		});
 
-		if self.is_create.is_none() {
+		if !self.current_is_create() {
 			self.trace.0.entry(to).or_insert_with_key(|addr| {
 				Self::prestate_info(
 					addr,
@@ -209,18 +219,16 @@ where
 		}
 
 		if !is_delegate_call {
-			self.current_addrs.push(to);
+			self.calls.push(Call { addr: to, create_code: None });
 		}
 	}
 
 	fn exit_child_span_with_error(&mut self, _error: crate::DispatchError, _gas_used: Weight) {
-		self.current_addrs.pop();
-		self.is_create = None;
+		self.calls.pop();
 	}
 
 	fn exit_child_span(&mut self, output: &ExecReturnValue, _gas_used: Weight) {
-		let create_code = self.is_create.take();
-		let current_addr = self.current_addrs.pop().unwrap_or_default();
+		let Call { addr: current_addr, create_code } = self.calls.pop().unwrap_or_default();
 		if output.did_revert() {
 			return
 		}
