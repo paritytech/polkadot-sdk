@@ -122,7 +122,6 @@ mod v1 {
 	use frame_system::pallet_prelude::BlockNumberFor;
 
 	use super::*;
-	use crate::scheduler;
 
 	#[storage_alias]
 	pub(super) type ClaimQueue<T: Config> = StorageValue<
@@ -236,7 +235,7 @@ mod v1 {
 				v0::AvailabilityCores::<T>::get().iter().filter(|c| c.is_some()).count() as u32;
 
 			log::info!(
-				target: crate::super::LOG_TARGET,
+				target: super::LOG_TARGET,
 				"Number of scheduled and waiting for availability before: {n}",
 			);
 
@@ -245,7 +244,7 @@ mod v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
-			log::info!(target: crate::super::LOG_TARGET, "Running post_upgrade()");
+			log::info!(target: super::LOG_TARGET, "Running post_upgrade()");
 
 			ensure!(
 				v0::Scheduled::<T>::get().is_empty(),
@@ -259,7 +258,7 @@ mod v1 {
 				.count();
 
 			ensure!(
-				Pallet::<T>::claim_queue_len() as u32 + availability_cores_waiting as u32 ==
+				v1::ClaimQueue::<T>::get().len() as u32 + availability_cores_waiting as u32 ==
 					expected_len,
 				"ClaimQueue and AvailabilityCores should have the correct length",
 			);
@@ -293,7 +292,6 @@ pub type MigrateV0ToV1<T> = VersionedMigration<
 /// - Preserves availability_timeouts and ttl fields in the new ParasEntry structure
 pub(crate) mod v2 {
 	use super::*;
-	use crate::scheduler;
 
 	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, PartialEq)]
 	pub(crate) enum CoreOccupied<N> {
@@ -396,7 +394,7 @@ pub(crate) mod v2 {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
 			log::trace!(
-				target: crate::super::LOG_TARGET,
+				target: super::LOG_TARGET,
 				"ClaimQueue before migration: {}",
 				v1::ClaimQueue::<T>::get().len()
 			);
@@ -408,7 +406,7 @@ pub(crate) mod v2 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
-			log::trace!(target: crate::super::LOG_TARGET, "Running post_upgrade()");
+			log::trace!(target: super::LOG_TARGET, "Running post_upgrade()");
 
 			let old_len = u32::from_be_bytes(state.try_into().unwrap());
 			ensure!(
@@ -447,7 +445,6 @@ pub type MigrateV1ToV2<T> = VersionedMigration<
 /// while the inclusion module handles all availability-related tracking.
 mod v3 {
 	use super::*;
-	use crate::scheduler;
 
 	#[storage_alias]
 	pub(crate) type ClaimQueue<T: Config> =
@@ -489,7 +486,7 @@ mod v3 {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
 			log::trace!(
-				target: crate::super::LOG_TARGET,
+				target: super::LOG_TARGET,
 				"ClaimQueue before migration: {}",
 				v2::ClaimQueue::<T>::get().len()
 			);
@@ -501,7 +498,7 @@ mod v3 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
-			log::trace!(target: crate::super::LOG_TARGET, "Running post_upgrade()");
+			log::trace!(target: super::LOG_TARGET, "Running post_upgrade()");
 
 			let old_len = u32::from_be_bytes(state.try_into().unwrap());
 			ensure!(
@@ -559,7 +556,7 @@ mod v4 {
 		},
 		*,
 	};
-	use crate::{assigner_coretime as old, on_demand, scheduler};
+	use crate::{assigner_coretime as old, on_demand};
 
 	// V3 ClaimQueue storage (to be migrated from)
 	#[storage_alias]
@@ -755,7 +752,7 @@ mod v4 {
 			}
 
 			log::info!(
-				target: crate::super::LOG_TARGET,
+				target: super::LOG_TARGET,
 				"Before migration v4: {} CoreSchedules, {} CoreDescriptors, {} ClaimQueue assignments ({} pool, {} bulk)",
 				schedule_count,
 				descriptor_count,
@@ -769,7 +766,7 @@ mod v4 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
-			log::info!(target: crate::super::LOG_TARGET, "Running post_upgrade() for v4");
+			log::info!(target: super::LOG_TARGET, "Running post_upgrade() for v4");
 
 			let (
 				expected_schedule_count,
@@ -813,7 +810,7 @@ mod v4 {
 			);
 
 			log::info!(
-				target: crate::super::LOG_TARGET,
+				target: super::LOG_TARGET,
 				"Successfully migrated v4: {} CoreSchedules, {} CoreDescriptors from AssignerCoretime to Scheduler; {} ClaimQueue assignments ({} pool pushed to on-demand)",
 				new_schedule_count,
 				new_descriptor_count,

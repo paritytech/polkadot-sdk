@@ -222,12 +222,12 @@ mod v2 {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
 			let old_queue_status = v2::QueueStatus::<T>::get();
-			let free_entries = v2::FreeEntries::<T>::get();
+			let free_entries = v2::FreeEntries::<T>::get().unwrap_or_default();
 			let affinity_keys: alloc::vec::Vec<_> = v2::AffinityEntries::<T>::iter_keys().collect();
 
 			let mut total_orders = free_entries.len();
 			for core_idx in affinity_keys.iter() {
-				total_orders += v2::AffinityEntries::<T>::get(core_idx).len();
+				total_orders += v2::AffinityEntries::<T>::get(core_idx).unwrap_or_default().len();
 			}
 
 			let affinity_count = v2::ParaIdAffinity::<T>::iter().count();
@@ -239,10 +239,11 @@ mod v2 {
 				free_entries.len(),
 				total_orders - free_entries.len(),
 				affinity_count,
-				old_queue_status.traffic
+				old_queue_status.as_ref().map(|s| s.traffic)
 			);
 
-			Ok((total_orders as u32, affinity_count as u32, old_queue_status.traffic).encode())
+			Ok((total_orders as u32, affinity_count as u32, old_queue_status.map(|s| s.traffic))
+				.encode())
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -252,7 +253,7 @@ mod v2 {
 			let (expected_orders, expected_affinity_count, expected_traffic): (
 				u32,
 				u32,
-				FixedU128,
+				Option<FixedU128>,
 			) = Decode::decode(&mut &state[..]).map_err(|_| "Failed to decode pre_upgrade state")?;
 
 			// Verify old storage is cleaned up
@@ -266,10 +267,22 @@ mod v2 {
 
 			// Verify new storage
 			let new_order_status = super::pallet::OrderStatus::<T>::get();
-			ensure!(
-				new_order_status.traffic == expected_traffic,
-				"Traffic value should be preserved"
-			);
+
+			// Compare traffic values, handling the Option case
+			match expected_traffic {
+				Some(expected) => ensure!(
+					new_order_status.traffic == expected,
+					"Traffic value should be preserved"
+				),
+				None => {
+					// If there was no old QueueStatus, traffic should be the default
+					let default_traffic = T::TrafficDefaultValue::get();
+					ensure!(
+						new_order_status.traffic == default_traffic,
+						"Traffic value should be set to default when no old QueueStatus existed"
+					);
+				},
+			}
 
 			let migrated_orders = new_order_status.queue.len() as u32;
 			log::info!(
