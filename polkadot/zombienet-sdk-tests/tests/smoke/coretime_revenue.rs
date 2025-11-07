@@ -318,7 +318,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 					id: AssetId(Location { parents: 0, interior: Junctions::Here }),
 					fun: Fungibility::Fungible(1_500_000_000),
 				}])),
-				0,
+				VersionedAssetId::V4(AssetId(Location { parents: 0, interior: Junctions::Here })),
 			),
 			&alice,
 		)

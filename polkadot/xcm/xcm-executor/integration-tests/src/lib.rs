@@ -336,7 +336,7 @@ fn deposit_reserve_asset_works_for_any_xcm_sender() {
 	// Init values for the simulated origin Parachain
 	let amount_to_send: u128 = 1_000_000_000_000;
 	let assets: Assets = (Parent, amount_to_send).into();
-	let fee_asset_id: AssetId = (Parent).into();
+	let fee_asset_id: AssetId = Parent.into();
 	let max_assets = assets.len() as u32;
 	let fees = assets.inner().iter().find(|a| a.id == fee_asset_id).unwrap().clone();
 	let weight_limit = Unlimited;

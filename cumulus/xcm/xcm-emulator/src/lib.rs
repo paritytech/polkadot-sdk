@@ -302,7 +302,7 @@ pub trait Parachain: Chain {
 	}
 
 	fn parent_location() -> Location {
-		(Parent).into()
+		Parent.into()
 	}
 
 	fn sibling_location_of(para_id: ParaId) -> Location {

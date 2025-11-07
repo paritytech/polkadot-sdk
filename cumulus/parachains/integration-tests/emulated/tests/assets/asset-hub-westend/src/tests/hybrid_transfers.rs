@@ -887,7 +887,7 @@ fn transfer_native_asset_from_penpal_to_relay_through_asset_hub() {
 	let receiver = WestendReceiver::get();
 
 	// Init Test
-	let fee_asset_id: AssetId = (Parent).into();
+	let fee_asset_id: AssetId = Parent.into();
 	let test_args = TestContext {
 		sender: sender.clone(),
 		receiver: receiver.clone(),

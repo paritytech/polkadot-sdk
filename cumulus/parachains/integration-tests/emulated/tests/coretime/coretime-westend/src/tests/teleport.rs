@@ -62,7 +62,7 @@ fn teleport_via_limited_teleport_assets_from_coretime_to_asset_hub() {
 	let amount = ASSET_HUB_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
-	let fee_asset_id: AssetId = (Parent).into();
+	let fee_asset_id: AssetId = Parent.into();
 	test_parachain_is_trusted_teleporter!(
 		CoretimeWestend,       // Origin
 		vec![AssetHubWestend], // Destinations
@@ -77,7 +77,7 @@ fn teleport_via_transfer_assets_from_coretime_to_asset_hub() {
 	let amount = ASSET_HUB_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
-	let fee_asset_id: AssetId = (Parent).into();
+	let fee_asset_id: AssetId = Parent.into();
 	test_parachain_is_trusted_teleporter!(
 		CoretimeWestend,       // Origin
 		vec![AssetHubWestend], // Destinations
@@ -92,7 +92,7 @@ fn teleport_via_limited_teleport_assets_from_asset_hub_to_coretime() {
 	let amount = CORETIME_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
-	let fee_asset_id: AssetId = (Parent).into();
+	let fee_asset_id: AssetId = Parent.into();
 	test_parachain_is_trusted_teleporter!(
 		AssetHubWestend,       // Origin
 		vec![CoretimeWestend], // Destinations
@@ -107,7 +107,7 @@ fn teleport_via_transfer_assets_from_asset_hub_to_coretime() {
 	let amount = CORETIME_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
-	let fee_asset_id: AssetId = (Parent).into();
+	let fee_asset_id: AssetId = Parent.into();
 	test_parachain_is_trusted_teleporter!(
 		AssetHubWestend,       // Origin
 		vec![CoretimeWestend], // Destinations

@@ -191,7 +191,7 @@ fn system_para_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResul
 fn teleport_via_limited_teleport_assets_to_other_system_parachains_works() {
 	let amount = ASSET_HUB_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
-	let fee_asset_id: AssetId = (Parent).into();
+	let fee_asset_id: AssetId = Parent.into();
 
 	test_parachain_is_trusted_teleporter!(
 		AssetHubWestend,        // Origin
@@ -206,7 +206,7 @@ fn teleport_via_limited_teleport_assets_to_other_system_parachains_works() {
 fn teleport_via_transfer_assets_to_other_system_parachains_works() {
 	let amount = ASSET_HUB_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
-	let fee_asset_id: AssetId = (Parent).into();
+	let fee_asset_id: AssetId = Parent.into();
 
 	test_parachain_is_trusted_teleporter!(
 		AssetHubWestend,        // Origin
@@ -409,7 +409,7 @@ fn limited_teleport_native_assets_from_asset_hub_to_relay_checking_acc_mint_work
 	let destination = AssetHubWestend::parent_location().into();
 	let beneficiary_id = WestendReceiver::get().into();
 	let assets = (Parent, amount_to_send).into();
-	let fee_asset_id: AssetId = (Parent).into();
+	let fee_asset_id: AssetId = Parent.into();
 
 	let test_args = TestContext {
 		sender: AssetHubWestendSender::get(),
@@ -533,7 +533,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 		(asset_location_on_penpal.clone(), asset_amount_to_send).into(),
 	]
 	.into();
-	let fee_asset_id: AssetId = (Parent).into();
+	let fee_asset_id: AssetId = Parent.into();
 
 	// fund Parachain's sender account
 	PenpalA::mint_foreign_asset(
@@ -665,7 +665,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 		(foreign_asset_at_asset_hub.clone(), asset_amount_to_send).into(),
 	]
 	.into();
-	let fee_asset_id: AssetId = (Parent).into();
+	let fee_asset_id: AssetId = Parent.into();
 
 	// AH to Penpal test args
 	let ah_to_penpal_test_args = TestContext {

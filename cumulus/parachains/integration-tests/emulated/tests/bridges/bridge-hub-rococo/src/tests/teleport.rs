@@ -20,7 +20,7 @@ fn teleport_via_limited_teleport_assets_to_other_system_parachains_works() {
 	let amount = BRIDGE_HUB_ROCOCO_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
-	let fee_asset_id: AssetId = (Parent).into();
+	let fee_asset_id: AssetId = Parent.into();
 	test_parachain_is_trusted_teleporter!(
 		BridgeHubRococo,      // Origin
 		vec![AssetHubRococo], // Destinations
@@ -35,7 +35,7 @@ fn teleport_via_transfer_assets_to_other_system_parachains_works() {
 	let amount = BRIDGE_HUB_ROCOCO_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
-	let fee_asset_id: AssetId = (Parent).into();
+	let fee_asset_id: AssetId = Parent.into();
 	test_parachain_is_trusted_teleporter!(
 		BridgeHubRococo,      // Origin
 		vec![AssetHubRococo], // Destinations

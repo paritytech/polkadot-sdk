@@ -681,7 +681,7 @@ fn reserve_transfer_native_asset_from_asset_hub_to_relay_fails() {
 	let amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 1000;
 
 	let assets: Assets = (Parent, amount_to_send).into();
-	let fee_asset_id: AssetId = (Parent).into();
+	let fee_asset_id: AssetId = Parent.into();
 
 	// this should fail
 	AssetHubWestend::execute_with(|| {
@@ -762,7 +762,7 @@ fn reserve_transfer_native_asset_from_para_to_relay() {
 	let sender = PenpalASender::get();
 	let amount_to_send: Balance = WESTEND_ED * 1000;
 	let assets: Assets = (Parent, amount_to_send).into();
-	let fee_asset_id: AssetId = (Parent).into();
+	let fee_asset_id: AssetId = Parent.into();
 	let asset_owner = PenpalAssetOwner::get();
 	let relay_native_asset_location = RelayLocation::get();
 
@@ -833,7 +833,7 @@ fn reserve_transfer_native_asset_from_asset_hub_to_para() {
 	let sender = AssetHubWestendSender::get();
 	let amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 2000;
 	let assets: Assets = (Parent, amount_to_send).into();
-	let fee_asset_id: AssetId = (Parent).into();
+	let fee_asset_id: AssetId = Parent.into();
 
 	// Init values for Parachain
 	let system_para_native_asset_location = RelayLocation::get();
@@ -888,7 +888,7 @@ fn reserve_transfer_native_asset_from_para_to_asset_hub() {
 	let sender = PenpalASender::get();
 	let amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 1000;
 	let assets: Assets = (Parent, amount_to_send).into();
-	let fee_asset_id: AssetId = (Parent).into();
+	let fee_asset_id: AssetId = Parent.into();
 	let system_para_native_asset_location = RelayLocation::get();
 	let asset_owner = PenpalAssetOwner::get();
 
@@ -974,7 +974,7 @@ fn reserve_transfer_multiple_assets_from_asset_hub_to_para() {
 			.into(),
 	]
 	.into();
-	let fee_asset_id: AssetId = (Parent).into();
+	let fee_asset_id: AssetId = Parent.into();
 	AssetHubWestend::mint_asset(
 		asset_owner_signer,
 		RESERVABLE_ASSET_ID,
@@ -1073,7 +1073,7 @@ fn reserve_transfer_multiple_assets_from_para_to_asset_hub() {
 		(asset_location_on_penpal.clone(), asset_amount_to_send).into(),
 	]
 	.into();
-	let fee_asset_id: AssetId = (Parent).into();
+	let fee_asset_id: AssetId = Parent.into();
 	// Fund Parachain's sender account with some foreign assets
 	PenpalA::mint_foreign_asset(
 		penpal_asset_owner_signer.clone(),
@@ -1182,7 +1182,7 @@ fn reserve_transfer_native_asset_from_para_to_para_through_relay() {
 	let amount_to_send: Balance = WESTEND_ED * 10000;
 	let asset_owner = PenpalAssetOwner::get();
 	let assets = (Parent, amount_to_send).into();
-	let fee_asset_id: AssetId = (Parent).into();
+	let fee_asset_id: AssetId = Parent.into();
 	let relay_native_asset_location = RelayLocation::get();
 	let sender_as_seen_by_relay = Westend::child_location_of(PenpalA::para_id());
 	let sov_of_sender_on_relay = Westend::sovereign_account_id_of(sender_as_seen_by_relay);
