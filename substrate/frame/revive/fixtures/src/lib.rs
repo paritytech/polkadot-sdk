@@ -31,6 +31,8 @@ pub enum FixtureType {
 	Resolc,
 	/// Solc (compiled Solidity contracts to EVM bytecode)
 	Solc,
+	/// Solc Runtime (compiled Solidity contracts to EVM runtime bytecode)
+	SolcRuntime,
 }
 
 #[cfg(feature = "std")]
@@ -40,6 +42,7 @@ impl FixtureType {
 			Self::Rust => ".polkavm",
 			Self::Resolc => ".resolc.polkavm",
 			Self::Solc => ".sol.bin",
+			Self::SolcRuntime => ".sol.runtime.bin",
 		}
 	}
 }
