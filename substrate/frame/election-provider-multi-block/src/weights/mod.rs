@@ -129,7 +129,8 @@ pub mod traits {
 			fn on_initialize_into_unsigned() -> Weight;
 			fn export_non_terminal() -> Weight;
 			fn export_terminal() -> Weight;
-			fn manage() -> Weight;
+			fn manage_set() -> Weight;
+			fn manage_fallback() -> Weight;
 		}
 
 		impl WeightInfo for () {
@@ -157,7 +158,10 @@ pub mod traits {
 			fn export_terminal() -> Weight {
 				Default::default()
 			}
-			fn manage() -> Weight {
+			fn manage_set() -> Weight {
+				Default::default()
+			}
+			fn manage_fallback() -> Weight {
 				Default::default()
 			}
 		}
