@@ -19,14 +19,17 @@ use crate::{
 	assert_refcount,
 	call_builder::VmBinaryModule,
 	debug::DebugSettings,
+	evm::{PrestateTrace, PrestateTraceInfo, PrestateTracer, PrestateTracerConfig},
 	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
 	tests::{
 		builder,
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
 		AllowEvmBytecode, DebugFlag, ExtBuilder, RuntimeOrigin, Test,
 	},
-	Code, Config, Error, GenesisConfig, Pallet, PristineCode,
+	tracing::trace,
+	Code, Config, Error, GenesisConfig, Pallet, PristineCode, H160,
 };
+use alloc::collections::BTreeMap;
 use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::{assert_err, assert_ok, traits::fungible::Mutate};
 use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType};
@@ -305,36 +308,91 @@ fn dust_work_with_child_calls(fixture_type: FixtureType) {
 
 #[test]
 fn prestate_diff_mode_tracing_works() {
-	use crate::{
-		evm::{PrestateTrace, PrestateTraceInfo, PrestateTracer, PrestateTracerConfig},
-		tracing::trace,
-	};
-	use alloc::collections::BTreeMap;
+	struct TestCase {
+		config: PrestateTracerConfig,
+		build_expected_trace: Box<dyn FnOnce(H160) -> PrestateTrace>,
+	}
+
+	let test_cases = [
+		TestCase {
+			config: PrestateTracerConfig {
+				diff_mode: false,
+				disable_storage: false,
+				disable_code: false,
+			},
+			build_expected_trace: Box::new(|_contract_addr| {
+				let balance = Pallet::<Test>::convert_native_to_evm(
+					1_000_000_000_000 - Pallet::<Test>::min_balance(),
+				);
+				PrestateTrace::Prestate(BTreeMap::from([(
+					ALICE_ADDR,
+					PrestateTraceInfo { balance: Some(balance), ..Default::default() },
+				)]))
+			}),
+		},
+		TestCase {
+			config: PrestateTracerConfig {
+				diff_mode: true,
+				disable_storage: false,
+				disable_code: true,
+			},
+			build_expected_trace: Box::new(|contract_addr| {
+				let balance = Pallet::<Test>::convert_native_to_evm(
+					1_000_000_000_000 - Pallet::<Test>::min_balance(),
+				);
+				let post_balance = Pallet::<Test>::evm_balance(&ALICE_ADDR);
+				let child_addr = crate::address::create1(&contract_addr, 1u64);
+
+				PrestateTrace::DiffMode {
+					pre: BTreeMap::from([(
+						ALICE_ADDR,
+						PrestateTraceInfo { balance: Some(balance), ..Default::default() },
+					)]),
+					post: BTreeMap::from([
+						(
+							ALICE_ADDR,
+							PrestateTraceInfo {
+								balance: Some(post_balance),
+								nonce: Some(1),
+								..Default::default()
+							},
+						),
+						(
+							contract_addr,
+							PrestateTraceInfo {
+								balance: Some(0.into()),
+								nonce: Some(2),
+								..Default::default()
+							},
+						),
+						(
+							child_addr,
+							PrestateTraceInfo {
+								balance: Some(0.into()),
+								nonce: Some(1),
+								..Default::default()
+							},
+						),
+					]),
+				}
+			}),
+		},
+	];
 
 	let (counter_code, _) = compile_module_with_type("NestedCounter", FixtureType::Solc).unwrap();
+	for test_case in test_cases {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000_000);
+			let mut tracer = PrestateTracer::<Test>::new(test_case.config);
 
-	ExtBuilder::default().build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000_000);
-		let initial_balance = Pallet::<Test>::evm_balance(&ALICE_ADDR);
+			let Contract { addr: contract_addr, .. } = trace(&mut tracer, || {
+				builder::bare_instantiate(Code::Upload(counter_code.clone()))
+					.build_and_unwrap_contract()
+			});
 
-		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
-			diff_mode: false,
-			disable_storage: false,
-			disable_code: false,
+			let trace = tracer.collect_trace();
+			let expected_trace = (test_case.build_expected_trace)(contract_addr);
+			assert_eq!(trace, expected_trace);
 		});
-
-		let Contract { addr: contract_addr, .. } = trace(&mut tracer, || {
-			builder::bare_instantiate(Code::Upload(counter_code.clone()))
-				.build_and_unwrap_contract()
-		});
-
-		let trace = tracer.collect_trace();
-
-		let expected_trace = PrestateTrace::Prestate(BTreeMap::from([(
-			ALICE_ADDR,
-			PrestateTraceInfo { balance: Some(initial_balance), ..Default::default() },
-		)]));
-
-		assert_eq!(trace, expected_trace);
-	});
+	}
 }
