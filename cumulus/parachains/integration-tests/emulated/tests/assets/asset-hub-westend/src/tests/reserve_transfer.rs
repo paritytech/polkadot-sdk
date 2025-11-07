@@ -478,7 +478,7 @@ fn para_to_para_asset_hub_hop_assertions(t: ParaToParaThroughAHTest) {
 		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
 	);
 
-	let (_, asset_amount) = fee_asset(&t.args.assets, t.args.fee_asset_id).unwrap();
+	let (_, asset_amount) = fee_asset(&t.args.assets, &t.args.fee_asset_id).unwrap();
 
 	assert_expected_events!(
 		AssetHubWestend,
@@ -526,8 +526,6 @@ fn relay_to_para_reserve_transfer_assets(t: RelayToParaTest) -> DispatchResult {
 		unimplemented!("Destination is not a parachain?")
 	};
 
-	type Runtime = <Westend as Chain>::Runtime;
-
 	Dmp::make_parachain_reachable(para_id);
 	<Westend as WestendPallet>::XcmPallet::transfer_assets_using_type_and_then(
 		t.signed_origin,
@@ -546,8 +544,6 @@ fn relay_to_para_reserve_transfer_assets(t: RelayToParaTest) -> DispatchResult {
 }
 
 fn para_to_relay_reserve_transfer_assets(t: ParaToRelayTest) -> DispatchResult {
-	type Runtime = <PenpalA as Chain>::Runtime;
-
 	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
@@ -565,8 +561,6 @@ fn para_to_relay_reserve_transfer_assets(t: ParaToRelayTest) -> DispatchResult {
 }
 
 fn system_para_to_para_reserve_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
-	type Runtime = <AssetHubWestend as Chain>::Runtime;
-
 	<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
@@ -584,8 +578,6 @@ fn system_para_to_para_reserve_transfer_assets(t: SystemParaToParaTest) -> Dispa
 }
 
 fn para_to_system_para_reserve_transfer_assets(t: ParaToSystemParaTest) -> DispatchResult {
-	type Runtime = <PenpalA as Chain>::Runtime;
-
 	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
@@ -608,8 +600,6 @@ fn para_to_para_through_relay_limited_reserve_transfer_assets(
 	let Junction::Parachain(para_id) = *t.args.dest.chain_location().last().unwrap() else {
 		unimplemented!("Destination is not a parachain?")
 	};
-
-	type Runtime = <PenpalA as Chain>::Runtime;
 
 	let relay_location = VersionedLocation::from(Location::parent());
 
@@ -640,7 +630,7 @@ fn para_to_para_through_asset_hub_limited_reserve_transfer_assets(
 		bx!(t.args.dest.into()),
 		bx!(t.args.beneficiary.into()),
 		bx!(t.args.assets.into()),
-		t.args.fee_asset_id,
+		bx!(t.args.fee_asset_id.into()),
 		t.args.weight_limit,
 	)
 }
@@ -772,6 +762,7 @@ fn reserve_transfer_native_asset_from_para_to_relay() {
 	let sender = PenpalASender::get();
 	let amount_to_send: Balance = WESTEND_ED * 1000;
 	let assets: Assets = (Parent, amount_to_send).into();
+	let fee_asset_id: AssetId = (Parent).into();
 	let asset_owner = PenpalAssetOwner::get();
 	let relay_native_asset_location = RelayLocation::get();
 
@@ -801,7 +792,7 @@ fn reserve_transfer_native_asset_from_para_to_relay() {
 			amount_to_send,
 			assets.clone(),
 			None,
-			0,
+			fee_asset_id,
 		),
 	};
 	let mut test = ParaToRelayTest::new(test_args);
@@ -842,6 +833,7 @@ fn reserve_transfer_native_asset_from_asset_hub_to_para() {
 	let sender = AssetHubWestendSender::get();
 	let amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 2000;
 	let assets: Assets = (Parent, amount_to_send).into();
+	let fee_asset_id: AssetId = (Parent).into();
 
 	// Init values for Parachain
 	let system_para_native_asset_location = RelayLocation::get();
@@ -857,7 +849,7 @@ fn reserve_transfer_native_asset_from_asset_hub_to_para() {
 			amount_to_send,
 			assets.clone(),
 			None,
-			0,
+			fee_asset_id,
 		),
 	};
 	let mut test = SystemParaToParaTest::new(test_args);
@@ -896,6 +888,7 @@ fn reserve_transfer_native_asset_from_para_to_asset_hub() {
 	let sender = PenpalASender::get();
 	let amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 1000;
 	let assets: Assets = (Parent, amount_to_send).into();
+	let fee_asset_id: AssetId = (Parent).into();
 	let system_para_native_asset_location = RelayLocation::get();
 	let asset_owner = PenpalAssetOwner::get();
 
@@ -926,7 +919,7 @@ fn reserve_transfer_native_asset_from_para_to_asset_hub() {
 			amount_to_send,
 			assets.clone(),
 			None,
-			0,
+			fee_asset_id,
 		),
 	};
 	let mut test = ParaToSystemParaTest::new(test_args);
@@ -981,11 +974,7 @@ fn reserve_transfer_multiple_assets_from_asset_hub_to_para() {
 			.into(),
 	]
 	.into();
-	let fee_asset_index = assets
-		.inner()
-		.iter()
-		.position(|r| r == &(Parent, fee_amount_to_send).into())
-		.unwrap() as u32;
+	let fee_asset_id: AssetId = (Parent).into();
 	AssetHubWestend::mint_asset(
 		asset_owner_signer,
 		RESERVABLE_ASSET_ID,
@@ -1011,7 +1000,7 @@ fn reserve_transfer_multiple_assets_from_asset_hub_to_para() {
 			asset_amount_to_send,
 			assets,
 			None,
-			fee_asset_index,
+			fee_asset_id,
 		),
 	};
 	let mut test = SystemParaToParaTest::new(para_test_args);
@@ -1084,11 +1073,7 @@ fn reserve_transfer_multiple_assets_from_para_to_asset_hub() {
 		(asset_location_on_penpal.clone(), asset_amount_to_send).into(),
 	]
 	.into();
-	let fee_asset_index = assets
-		.inner()
-		.iter()
-		.position(|r| r == &(Parent, fee_amount_to_send).into())
-		.unwrap() as u32;
+	let fee_asset_id: AssetId = (Parent).into();
 	// Fund Parachain's sender account with some foreign assets
 	PenpalA::mint_foreign_asset(
 		penpal_asset_owner_signer.clone(),
@@ -1137,7 +1122,7 @@ fn reserve_transfer_multiple_assets_from_para_to_asset_hub() {
 			asset_amount_to_send,
 			assets,
 			None,
-			fee_asset_index,
+			fee_asset_id,
 		),
 	};
 	let mut test = ParaToSystemParaTest::new(para_test_args);
@@ -1197,6 +1182,7 @@ fn reserve_transfer_native_asset_from_para_to_para_through_relay() {
 	let amount_to_send: Balance = WESTEND_ED * 10000;
 	let asset_owner = PenpalAssetOwner::get();
 	let assets = (Parent, amount_to_send).into();
+	let fee_asset_id: AssetId = (Parent).into();
 	let relay_native_asset_location = RelayLocation::get();
 	let sender_as_seen_by_relay = Westend::child_location_of(PenpalA::para_id());
 	let sov_of_sender_on_relay = Westend::sovereign_account_id_of(sender_as_seen_by_relay);
@@ -1219,7 +1205,14 @@ fn reserve_transfer_native_asset_from_para_to_para_through_relay() {
 	let test_args = TestContext {
 		sender: sender.clone(),
 		receiver: receiver.clone(),
-		args: TestArgs::new_para(destination, receiver.clone(), amount_to_send, assets, None, 0),
+		args: TestArgs::new_para(
+			destination,
+			receiver.clone(),
+			amount_to_send,
+			assets,
+			None,
+			fee_asset_id,
+		),
 	};
 	let mut test = ParaToParaThroughRelayTest::new(test_args);
 
@@ -1289,6 +1282,9 @@ fn reserve_transfer_usdt_from_asset_hub_to_para() {
 		.into()]
 	.into();
 
+	let fee_asset_id: AssetId =
+		[PalletInstance(ASSETS_PALLET_ID), GeneralIndex(usdt_id.into())].into();
+
 	let test_args = TestContext {
 		sender: sender.clone(),
 		receiver: receiver.clone(),
@@ -1298,7 +1294,7 @@ fn reserve_transfer_usdt_from_asset_hub_to_para() {
 			asset_amount_to_send,
 			assets,
 			None,
-			0,
+			fee_asset_id,
 		),
 	};
 	let mut test = SystemParaToParaTest::new(test_args);
@@ -1403,6 +1399,7 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 		(usdt_from_asset_hub.clone(), asset_amount_to_send + fee_amount_to_send).into();
 	// Just to be very specific we're not including anything other than USDT.
 	assert_eq!(assets.len(), 1);
+	let fee_asset_id: AssetId = usdt_from_asset_hub.clone().into();
 
 	// Give the sender enough Relay tokens to pay for local delivery fees.
 	// TODO(https://github.com/paritytech/polkadot-sdk/issues/5160): When we support local delivery fee payment in other assets, we don't need this.
@@ -1417,7 +1414,6 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 	let receiver = PenpalBReceiver::get();
 
 	// Init Test
-	let fee_asset_index = 0;
 	let test_args = TestContext {
 		sender: sender.clone(),
 		receiver: receiver.clone(),
@@ -1427,7 +1423,7 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 			asset_amount_to_send,
 			assets,
 			None,
-			fee_asset_index,
+			fee_asset_id,
 		),
 	};
 	let mut test = ParaToParaThroughAHTest::new(test_args);

@@ -61,10 +61,12 @@ fn teleport_via_limited_teleport_assets_from_collectives_to_asset_hub() {
 	let amount = ASSET_HUB_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
+	let fee_asset_id: AssetId = (Parent).into();
 	test_parachain_is_trusted_teleporter!(
 		CollectivesWestend,    // Origin
 		vec![AssetHubWestend], // Destinations
 		(native_asset, amount),
+		fee_asset_id,
 		limited_teleport_assets
 	);
 }
@@ -74,10 +76,12 @@ fn teleport_via_transfer_assets_from_collectives_to_asset_hub() {
 	let amount = ASSET_HUB_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
+	let fee_asset_id: AssetId = (Parent).into();
 	test_parachain_is_trusted_teleporter!(
 		CollectivesWestend,    // Origin
 		vec![AssetHubWestend], // Destinations
 		(native_asset, amount),
+		fee_asset_id,
 		transfer_assets
 	);
 }
@@ -87,10 +91,12 @@ fn teleport_via_limited_teleport_assets_from_asset_hub_to_collectives() {
 	let amount = COLLECTIVES_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
+	let fee_asset_id: AssetId = (Parent).into();
 	test_parachain_is_trusted_teleporter!(
 		AssetHubWestend,          // Origin
 		vec![CollectivesWestend], // Destinations
 		(native_asset, amount),
+		fee_asset_id,
 		limited_teleport_assets
 	);
 }
@@ -100,10 +106,12 @@ fn teleport_via_transfer_assets_from_asset_hub_to_collectives() {
 	let amount = COLLECTIVES_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
+	let fee_asset_id: AssetId = (Parent).into();
 	test_parachain_is_trusted_teleporter!(
 		AssetHubWestend,          // Origin
 		vec![CollectivesWestend], // Destinations
 		(native_asset, amount),
+		fee_asset_id,
 		transfer_assets
 	);
 }

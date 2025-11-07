@@ -364,12 +364,13 @@ fn send_eth_asset_from_asset_hub_to_ethereum_and_back() {
 				AssetHubWestendReceiver::get(),
 			);
 		// Send the Weth back to Ethereum
+		let fee_asset_id: AssetId = AssetId(origin_location.clone());
 		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::limited_reserve_transfer_assets(
 			RuntimeOrigin::signed(AssetHubWestendReceiver::get()),
 			Box::new(destination),
 			Box::new(beneficiary),
 			Box::new(multi_assets),
-			0,
+			Box::new(fee_asset_id.into()),
 			Unlimited,
 		)
 		.unwrap();
@@ -677,12 +678,19 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 				AssetHubWestendReceiver::get(),
 			);
 		// Send the Weth back to Ethereum
+		let fee_asset_id: AssetId = AssetId(Location::new(
+			2,
+			[
+				GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID }),
+				AccountKey20 { network: None, key: WETH },
+			],
+		));
 		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::limited_reserve_transfer_assets(
 			RuntimeOrigin::signed(AssetHubWestendReceiver::get()),
 			Box::new(destination),
 			Box::new(beneficiary),
 			Box::new(versioned_assets),
-			0,
+			Box::new(fee_asset_id.into()),
 			Unlimited,
 		)
 		.unwrap();
@@ -1032,12 +1040,13 @@ fn transfer_ah_token() {
 			[AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }],
 		));
 
+		let fee_asset_id: AssetId = AssetId(asset_id.clone());
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets(
 			RuntimeOrigin::signed(AssetHubWestendSender::get()),
 			Box::new(VersionedLocation::from(ethereum_destination)),
 			Box::new(beneficiary),
 			Box::new(versioned_assets),
-			0,
+			Box::new(fee_asset_id.into()),
 			Unlimited,
 		));
 
@@ -1391,12 +1400,19 @@ fn send_weth_from_ethereum_to_ahw_to_ahr_back_to_ahw_and_ethereum() {
 				AssetHubWestendReceiver::get(),
 			);
 		// Send the Weth back to Ethereum
+		let fee_asset_id: AssetId = AssetId(Location::new(
+			2,
+			[
+				GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID }),
+				AccountKey20 { network: None, key: WETH },
+			],
+		));
 		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::limited_reserve_transfer_assets(
 			RuntimeOrigin::signed(AssetHubWestendReceiver::get()),
 			Box::new(destination),
 			Box::new(beneficiary),
 			Box::new(versioned_assets),
-			0,
+			Box::new(fee_asset_id.into()),
 			Unlimited,
 		)
 		.unwrap();
@@ -1596,13 +1612,14 @@ fn transfer_penpal_native_asset() {
 		let assets =
 			vec![Asset { id: AssetId(pal_at_asset_hub.clone()), fun: Fungible(TOKEN_AMOUNT) }];
 
+		let fee_asset_id: AssetId = AssetId(pal_at_asset_hub.clone());
 		assert_ok!(
 			<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::limited_teleport_assets(
 				RuntimeOrigin::signed(AssetHubWestendSender::get()),
 				Box::new(VersionedLocation::from(destination)),
 				Box::new(VersionedLocation::from(beneficiary)),
 				Box::new(VersionedAssets::from(assets)),
-				0,
+				Box::new(fee_asset_id.into()),
 				Unlimited,
 			)
 		);
@@ -2001,12 +2018,13 @@ fn transfer_roc_from_ah_with_legacy_api_will_fail() {
 			[AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }],
 		));
 
+		let fee_asset_id: AssetId = AssetId(asset_id.clone());
 		let result = <AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets(
 			RuntimeOrigin::signed(AssetHubWestendSender::get()),
 			Box::new(VersionedLocation::from(ethereum_destination)),
 			Box::new(beneficiary),
 			Box::new(versioned_assets),
-			0,
+			Box::new(fee_asset_id.into()),
 			Unlimited,
 		);
 

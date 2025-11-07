@@ -125,6 +125,7 @@ fn multi_hop_works() {
 	// Init values for Parachain Destination
 	let beneficiary_id = PenpalBReceiver::get();
 
+	let fee_asset_id: AssetId = (Parent).into();
 	let test_args = TestContext {
 		sender: PenpalASender::get(),     // Bob in PenpalB.
 		receiver: PenpalBReceiver::get(), // Alice.
@@ -134,7 +135,7 @@ fn multi_hop_works() {
 			amount_to_send,
 			assets,
 			None,
-			0,
+			fee_asset_id,
 		),
 	};
 	let mut test = ParaToParaThroughAHTest::new(test_args);

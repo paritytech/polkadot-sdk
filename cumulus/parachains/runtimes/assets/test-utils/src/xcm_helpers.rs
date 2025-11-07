@@ -89,7 +89,10 @@ fn teleport_assets_dummy_message(
 	Xcm(vec![
 		ReceiveTeleportedAsset(assets.clone()), // Same encoded size as `ReserveAssetDeposited`
 		ClearOrigin,
-		BuyExecution { fees: assets.inner().iter().find(|a| a.id == fee_asset_id).unwrap().clone(), weight_limit },
+		BuyExecution {
+			fees: assets.inner().iter().find(|a| a.id == fee_asset_id).unwrap().clone(),
+			weight_limit,
+		},
 		DepositAsset { assets: Wild(AllCounted(assets.len() as u32)), beneficiary },
 		SetTopic([0u8; 32]), // Dummy topic
 	])

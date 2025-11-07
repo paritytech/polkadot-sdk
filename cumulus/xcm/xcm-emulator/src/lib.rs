@@ -86,7 +86,7 @@ pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueu
 pub use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use sp_core::{crypto::AccountId32, H256};
 pub use xcm::latest::prelude::{
-	AccountId32 as AccountId32Junction, Ancestor, Assets, AssetId, Here, Location,
+	AccountId32 as AccountId32Junction, Ancestor, AssetId, Assets, Here, Location,
 	Parachain as ParachainJunction, Parent, WeightLimit, XcmHash,
 };
 pub use xcm_executor::traits::ConvertLocation;

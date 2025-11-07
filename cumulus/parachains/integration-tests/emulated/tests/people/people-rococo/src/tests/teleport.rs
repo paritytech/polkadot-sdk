@@ -23,12 +23,7 @@ use emulated_integration_tests_common::{
 fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 	let amount = ROCOCO_ED * 100;
 
-	test_relay_is_trusted_teleporter!(
-		Rococo,
-		vec![PeopleRococo],
-		amount,
-		limited_teleport_assets
-	);
+	test_relay_is_trusted_teleporter!(Rococo, vec![PeopleRococo], amount, limited_teleport_assets);
 
 	test_parachain_is_trusted_teleporter_for_relay!(
 		PeopleRococo,
@@ -42,12 +37,7 @@ fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 fn teleport_via_transfer_assets_from_and_to_relay() {
 	let amount = ROCOCO_ED * 100;
 
-	test_relay_is_trusted_teleporter!(
-		Rococo,
-		vec![PeopleRococo],
-		amount,
-		transfer_assets
-	);
+	test_relay_is_trusted_teleporter!(Rococo, vec![PeopleRococo], amount, transfer_assets);
 
 	test_parachain_is_trusted_teleporter_for_relay!(PeopleRococo, Rococo, amount, transfer_assets);
 }
@@ -57,10 +47,12 @@ fn teleport_via_limited_teleport_assets_to_other_system_parachains_works() {
 	let amount = ROCOCO_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
+	let fee_asset_id: AssetId = (Parent).into();
 	test_parachain_is_trusted_teleporter!(
 		PeopleRococo,         // Origin
 		vec![AssetHubRococo], // Destinations
 		(native_asset, amount),
+		fee_asset_id,
 		limited_teleport_assets
 	);
 }
@@ -70,10 +62,12 @@ fn teleport_via_transfer_assets_to_other_system_parachains_works() {
 	let amount = ROCOCO_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
+	let fee_asset_id: AssetId = (Parent).into();
 	test_parachain_is_trusted_teleporter!(
 		PeopleRococo,         // Origin
 		vec![AssetHubRococo], // Destinations
 		(native_asset, amount),
+		fee_asset_id,
 		transfer_assets
 	);
 }
@@ -121,6 +115,7 @@ fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 	let destination = PeopleRococo::parent_location();
 	let beneficiary_id = RococoReceiver::get();
 	let assets = (Parent, amount_to_send).into();
+	let fee_asset_id: AssetId = (Parent).into();
 
 	// Fund a sender
 	PeopleRococo::fund_accounts(vec![(PeopleRococoSender::get(), ROCOCO_ED * 2_000u128)]);
@@ -128,7 +123,14 @@ fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 	let test_args = TestContext {
 		sender: PeopleRococoSender::get(),
 		receiver: RococoReceiver::get(),
-		args: TestArgs::new_para(destination, beneficiary_id, amount_to_send, assets, None, 0),
+		args: TestArgs::new_para(
+			destination,
+			beneficiary_id,
+			amount_to_send,
+			assets,
+			None,
+			fee_asset_id,
+		),
 	};
 
 	let mut test = SystemParaToRelayTest::new(test_args);
@@ -148,7 +150,11 @@ fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 		xcm_helpers::teleport_assets_delivery_fees::<
 			<PeopleRococoXcmConfig as xcm_executor::Config>::XcmSender,
 		>(
-			test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest
+			test.args.assets.clone(),
+			test.args.fee_asset_id,
+			test.args.weight_limit,
+			test.args.beneficiary,
+			test.args.dest,
 		)
 	});
 

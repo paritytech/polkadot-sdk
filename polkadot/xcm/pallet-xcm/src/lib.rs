@@ -1132,7 +1132,7 @@ pub mod pallet {
 		/// **This function is deprecated: Use `limited_teleport_assets` instead.**
 		///
 		/// Fee payment on the destination side is made from the asset in the `assets` vector of
-		/// index `fee_asset_item`. The weight limit for fees is not provided and thus is unlimited,
+		/// id `fee_asset_id`. The weight limit for fees is not provided and thus is unlimited,
 		/// with all fees taken as needed from the asset.
 		///
 		/// - `origin`: Must be capable of withdrawing the `assets` and executing XCM.
@@ -1143,8 +1143,7 @@ pub mod pallet {
 		///   generally be an `AccountId32` value.
 		/// - `assets`: The assets to be withdrawn. This should include the assets used to pay the
 		///   fee on the `dest` chain.
-		/// - `fee_asset_item`: The index into `assets` of the item which should be used to pay
-		///   fees.
+		/// - `fee_asset_id`: Id of the asset from `assets` which should be used to pay fees.
 		#[pallet::call_index(1)]
 		#[allow(deprecated)]
 		#[deprecated(
@@ -1188,7 +1187,7 @@ pub mod pallet {
 		///   generally be an `AccountId32` value.
 		/// - `assets`: The assets to be withdrawn. This should include the assets used to pay the
 		///   fee on the `dest` (and possibly reserve) chains.
-		/// - `fee_asset_id`: Id of the asset which should be used to pay fees.
+		/// - `fee_asset_id`: Id of the asset from `assets` which should be used to pay fees.
 		#[pallet::call_index(2)]
 		#[allow(deprecated)]
 		#[deprecated(
@@ -1354,7 +1353,7 @@ pub mod pallet {
 		///   generally be an `AccountId32` value.
 		/// - `assets`: The assets to be withdrawn. This should include the assets used to pay the
 		///   fee on the `dest` (and possibly reserve) chains.
-		/// - `fee_asset_id`: Id of the asset which should be used to pay fees.
+		/// - `fee_asset_id`: Id of the asset from `assets` which should be used to pay fees.
 		/// - `weight_limit`: The remote-side weight limit, if any, for the XCM fee purchase.
 		#[pallet::call_index(8)]
 		#[pallet::weight(T::WeightInfo::reserve_transfer_assets())]
@@ -1391,7 +1390,7 @@ pub mod pallet {
 		///   generally be an `AccountId32` value.
 		/// - `assets`: The assets to be withdrawn. This should include the assets used to pay the
 		///   fee on the `dest` chain.
-		/// - `fee_asset_id`: The asset which should be used to pay fees.
+		/// - `fee_asset_id`: Id of the asset from `assets` which should be used to pay fees.
 		/// - `weight_limit`: The remote-side weight limit, if any, for the XCM fee purchase.
 		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::teleport_assets())]
@@ -1403,14 +1402,7 @@ pub mod pallet {
 			fee_asset_id: Box<VersionedAssetId>,
 			weight_limit: WeightLimit,
 		) -> DispatchResult {
-			Self::do_teleport_assets(
-				origin,
-				dest,
-				beneficiary,
-				assets,
-				fee_asset_id,
-				weight_limit,
-			)
+			Self::do_teleport_assets(origin, dest, beneficiary, assets, fee_asset_id, weight_limit)
 		}
 
 		/// Set or unset the global suspension state of the XCM executor.
@@ -1454,7 +1446,7 @@ pub mod pallet {
 		///   generally be an `AccountId32` value.
 		/// - `assets`: The assets to be withdrawn. This should include the assets used to pay the
 		///   fee on the `dest` (and possibly reserve) chains.
-		/// - `fee_asset_id`: The asset which should be used to pay fees.
+		/// - `fee_asset_id`: Id of the asset from `assets` which should be used to pay fees.
 		/// - `weight_limit`: The remote-side weight limit, if any, for the XCM fee purchase.
 		#[pallet::call_index(11)]
 		pub fn transfer_assets(
@@ -2200,7 +2192,8 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		// local and remote XCM programs to potentially handle fees separately
 		let fees = if fees_transfer_type == assets_transfer_type {
-			let fees = assets.iter().find(|a| a.id == fee_asset_id).ok_or(Error::<T>::Empty)?.clone();
+			let fees =
+				assets.iter().find(|a| a.id == fee_asset_id).ok_or(Error::<T>::Empty)?.clone();
 			// no need for custom fees instructions, fees are batched with assets
 			FeesHandling::Batched { fees }
 		} else {
@@ -2217,7 +2210,7 @@ impl<T: Config> Pallet<T> {
 			// remove `fees` from `assets` and build separate fees transfer instructions to be
 			// added to assets transfers XCM programs
 			let fee_asset_index =
-                assets.iter().position(|a| a.id == fee_asset_id).ok_or(Error::<T>::FeesNotMet)?;
+				assets.iter().position(|a| a.id == fee_asset_id).ok_or(Error::<T>::FeesNotMet)?;
 			let fees = assets.remove(fee_asset_index);
 			let (local_xcm, remote_xcm) = match fees_transfer_type {
 				TransferType::LocalReserve => Self::local_reserve_fees_instructions(

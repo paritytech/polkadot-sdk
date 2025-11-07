@@ -49,8 +49,7 @@ fn penpal_to_ah_foreign_assets_sender_assertions(t: ParaToSystemParaTest) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 	let system_para_native_asset_location = RelayLocation::get();
 	let expected_asset_id = t.args.asset_id.unwrap();
-	let (_, expected_asset_amount) =
-		non_fee_asset(&t.args.assets, &t.args.fee_asset_id).unwrap();
+	let (_, expected_asset_amount) = non_fee_asset(&t.args.assets, &t.args.fee_asset_id).unwrap();
 
 	PenpalA::assert_xcm_pallet_attempted_complete(None);
 	assert_expected_events!(
@@ -137,8 +136,7 @@ fn ah_to_penpal_foreign_assets_sender_assertions(t: SystemParaToParaTest) {
 fn ah_to_penpal_foreign_assets_receiver_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 	let expected_asset_id = t.args.asset_id.unwrap();
-	let (_, expected_asset_amount) =
-		non_fee_asset(&t.args.assets, &t.args.fee_asset_id).unwrap();
+	let (_, expected_asset_amount) = non_fee_asset(&t.args.assets, &t.args.fee_asset_id).unwrap();
 	let checking_account = <PenpalA as PenpalAPallet>::PolkadotXcm::check_account();
 	let system_para_native_asset_location = RelayLocation::get();
 
@@ -266,12 +264,7 @@ fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 fn teleport_via_transfer_assets_from_and_to_relay() {
 	let amount = ROCOCO_ED * 100;
 
-	test_relay_is_trusted_teleporter!(
-		Rococo,
-		vec![AssetHubRococo],
-		amount,
-		transfer_assets
-	);
+	test_relay_is_trusted_teleporter!(Rococo, vec![AssetHubRococo], amount, transfer_assets);
 
 	test_parachain_is_trusted_teleporter_for_relay!(
 		AssetHubRococo,
@@ -295,7 +288,14 @@ fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 	let test_args = TestContext {
 		sender: AssetHubRococoSender::get(),
 		receiver: RococoReceiver::get(),
-		args: TestArgs::new_para(destination, beneficiary_id, amount_to_send, assets, None, fee_asset_id.clone()),
+		args: TestArgs::new_para(
+			destination,
+			beneficiary_id,
+			amount_to_send,
+			assets,
+			None,
+			fee_asset_id.clone(),
+		),
 	};
 
 	let mut test = SystemParaToRelayTest::new(test_args);
@@ -315,7 +315,11 @@ fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 		xcm_helpers::teleport_assets_delivery_fees::<
 			<AssetHubRococoXcmConfig as xcm_executor::Config>::XcmSender,
 		>(
-			test.args.assets.clone(), fee_asset_id, test.args.weight_limit, test.args.beneficiary, test.args.dest
+			test.args.assets.clone(),
+			fee_asset_id,
+			test.args.weight_limit,
+			test.args.beneficiary,
+			test.args.dest,
 		)
 	});
 

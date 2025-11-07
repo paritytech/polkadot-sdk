@@ -52,7 +52,14 @@ fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 }
 
 fn ah_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
-	let fee: Asset = t.args.assets.inner().iter().find(|a| a.id == t.args.fee_asset_id).cloned().unwrap();
+	let fee: Asset = t
+		.args
+		.assets
+		.inner()
+		.iter()
+		.find(|a| a.id == t.args.fee_asset_id)
+		.cloned()
+		.unwrap();
 	let custom_xcm_on_dest = Xcm::<()>(vec![DepositAsset {
 		assets: Wild(AllCounted(t.args.assets.len() as u32)),
 		beneficiary: t.args.beneficiary,
@@ -70,7 +77,14 @@ fn ah_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
 }
 
 fn para_to_ah_transfer_assets(t: ParaToSystemParaTest) -> DispatchResult {
-	let fee: Asset = t.args.assets.inner().iter().find(|a| a.id == t.args.fee_asset_id).cloned().unwrap();
+	let fee: Asset = t
+		.args
+		.assets
+		.inner()
+		.iter()
+		.find(|a| a.id == t.args.fee_asset_id)
+		.cloned()
+		.unwrap();
 	let custom_xcm_on_dest = Xcm::<()>(vec![DepositAsset {
 		assets: Wild(AllCounted(t.args.assets.len() as u32)),
 		beneficiary: t.args.beneficiary,
@@ -88,7 +102,14 @@ fn para_to_ah_transfer_assets(t: ParaToSystemParaTest) -> DispatchResult {
 }
 
 fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> DispatchResult {
-	let fee: Asset = t.args.assets.inner().iter().find(|a| a.id == t.args.fee_asset_id).cloned().unwrap();
+	let fee: Asset = t
+		.args
+		.assets
+		.inner()
+		.iter()
+		.find(|a| a.id == t.args.fee_asset_id)
+		.cloned()
+		.unwrap();
 	let asset_hub_location: Location = PenpalA::sibling_location_of(AssetHubRococo::para_id());
 	let custom_xcm_on_dest = Xcm::<()>(vec![DepositAsset {
 		assets: Wild(AllCounted(t.args.assets.len() as u32)),
@@ -107,7 +128,14 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 }
 
 fn para_to_asset_hub_teleport_foreign_assets(t: ParaToSystemParaTest) -> DispatchResult {
-	let fee: Asset = t.args.assets.inner().iter().find(|a| a.id == t.args.fee_asset_id).cloned().unwrap();
+	let fee: Asset = t
+		.args
+		.assets
+		.inner()
+		.iter()
+		.find(|a| a.id == t.args.fee_asset_id)
+		.cloned()
+		.unwrap();
 	let custom_xcm_on_dest = Xcm::<()>(vec![DepositAsset {
 		assets: Wild(AllCounted(t.args.assets.len() as u32)),
 		beneficiary: t.args.beneficiary,
@@ -125,7 +153,14 @@ fn para_to_asset_hub_teleport_foreign_assets(t: ParaToSystemParaTest) -> Dispatc
 }
 
 fn asset_hub_to_para_teleport_foreign_assets(t: SystemParaToParaTest) -> DispatchResult {
-	let fee: Asset = t.args.assets.inner().iter().find(|a| a.id == t.args.fee_asset_id).cloned().unwrap();
+	let fee: Asset = t
+		.args
+		.assets
+		.inner()
+		.iter()
+		.find(|a| a.id == t.args.fee_asset_id)
+		.cloned()
+		.unwrap();
 	let custom_xcm_on_dest = Xcm::<()>(vec![DepositAsset {
 		assets: Wild(AllCounted(t.args.assets.len() as u32)),
 		beneficiary: t.args.beneficiary,
@@ -742,7 +777,14 @@ fn transfer_native_asset_from_relay_to_para_through_asset_hub() {
 		);
 	}
 	fn transfer_assets_dispatchable(t: RelayToParaThroughAHTest) -> DispatchResult {
-		let fee: Asset = t.args.assets.inner().iter().find(|a| a.id == t.args.fee_asset_id).cloned().unwrap();
+		let fee: Asset = t
+			.args
+			.assets
+			.inner()
+			.iter()
+			.find(|a| a.id == t.args.fee_asset_id)
+			.cloned()
+			.unwrap();
 		let asset_hub_location = Rococo::child_location_of(AssetHubRococo::para_id());
 		let context = RococoUniversalLocation::get();
 

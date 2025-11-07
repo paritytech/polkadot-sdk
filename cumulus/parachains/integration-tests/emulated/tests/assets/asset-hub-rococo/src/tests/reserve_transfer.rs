@@ -1228,7 +1228,14 @@ fn reserve_transfer_native_asset_from_para_to_para_through_relay() {
 	let test_args = TestContext {
 		sender: sender.clone(),
 		receiver: receiver.clone(),
-		args: TestArgs::new_para(destination, receiver.clone(), amount_to_send, assets, None, fee_asset_id),
+		args: TestArgs::new_para(
+			destination,
+			receiver.clone(),
+			amount_to_send,
+			assets,
+			None,
+			fee_asset_id,
+		),
 	};
 	let mut test = ParaToParaThroughRelayTest::new(test_args);
 
@@ -1349,7 +1356,8 @@ fn reserve_transfer_usdt_from_asset_hub_to_para() {
 		.into()]
 	.into();
 
-	let fee_asset_id: AssetId = [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(usdt_id.into())].into();
+	let fee_asset_id: AssetId =
+		[PalletInstance(ASSETS_PALLET_ID), GeneralIndex(usdt_id.into())].into();
 
 	let test_args = TestContext {
 		sender: sender.clone(),

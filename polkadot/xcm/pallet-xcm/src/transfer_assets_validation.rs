@@ -53,7 +53,7 @@ impl<T: Config> Pallet<T> {
 		// Extract fee asset and check both assets and fees separately.
 		let mut remaining_assets = assets.clone();
 		let fee_asset_index =
-                assets.iter().position(|a| a.id == *fee_asset_id).ok_or(Error::<T>::Empty)?;
+			assets.iter().position(|a| a.id == *fee_asset_id).ok_or(Error::<T>::Empty)?;
 		let fee_asset = remaining_assets.remove(fee_asset_index);
 
 		// Check remaining assets with their transfer type.

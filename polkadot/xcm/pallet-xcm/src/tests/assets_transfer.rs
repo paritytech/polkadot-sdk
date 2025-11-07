@@ -239,7 +239,7 @@ pub(crate) fn set_up_foreign_asset(
 	(reserve_location, reserve_sovereign_account, foreign_asset_id_location)
 }
 
-// Helper function that provides assets list with fee and transfer assets 
+// Helper function that provides assets list with fee and transfer assets
 pub(crate) fn into_assets_checked(
 	fee_asset: Asset,
 	transfer_asset: Asset,
@@ -2055,7 +2055,6 @@ fn intermediary_error_reverts_side_effects() {
 
 		let assets: Assets = vec![(usdc_id_location.clone(), SEND_AMOUNT).into()].into();
 		let fee_asset_id = usdc_id_location.clone();
-		
 
 		// balances checks before
 		assert_eq!(

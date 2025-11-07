@@ -20,10 +20,12 @@ fn teleport_via_limited_teleport_assets_to_other_system_parachains_works() {
 	let amount = BRIDGE_HUB_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
+	let fee_asset_id: AssetId = (Parent).into();
 	test_parachain_is_trusted_teleporter!(
 		BridgeHubWestend,      // Origin
 		vec![AssetHubWestend], // Destinations
 		(native_asset, amount),
+		fee_asset_id,
 		limited_teleport_assets
 	);
 }
@@ -33,10 +35,12 @@ fn teleport_via_transfer_assets_to_other_system_parachains_works() {
 	let amount = BRIDGE_HUB_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
+	let fee_asset_id: AssetId = (Parent).into();
 	test_parachain_is_trusted_teleporter!(
 		BridgeHubWestend,      // Origin
 		vec![AssetHubWestend], // Destinations
 		(native_asset, amount),
+		fee_asset_id,
 		transfer_assets
 	);
 }
@@ -64,12 +68,7 @@ fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 fn teleport_via_transfer_assets_from_and_to_relay() {
 	let amount = WESTEND_ED * 100;
 
-	test_relay_is_trusted_teleporter!(
-		Westend,
-		vec![BridgeHubWestend],
-		amount,
-		transfer_assets
-	);
+	test_relay_is_trusted_teleporter!(Westend, vec![BridgeHubWestend], amount, transfer_assets);
 
 	test_parachain_is_trusted_teleporter_for_relay!(
 		BridgeHubWestend,
