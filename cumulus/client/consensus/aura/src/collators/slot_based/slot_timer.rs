@@ -175,8 +175,8 @@ where
 		self.last_reported_core_num = Some(num_cores_next_block);
 	}
 
-	/// Returns the next slot and how much time left until then.
-	pub fn time_until_next_slot(&mut self) -> Result<(Duration, Slot), ()> {
+	/// Returns the slot and how much time left until the next block production attempt.
+	pub fn time_until_next_block(&mut self) -> Result<(Duration, Slot), ()> {
 		let Ok(slot_duration) = crate::slot_duration(&*self.client) else {
 			tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
 			return Err(())
@@ -217,7 +217,7 @@ where
 		&mut self,
 		mut authoring_duration: Duration,
 	) -> Option<Duration> {
-		let Ok((duration, next_block_slot)) = self.time_until_next_slot() else {
+		let Ok((duration, next_block_slot)) = self.time_until_next_block() else {
 			tracing::error!(
 				target: LOG_TARGET,
 				"Failed to fetch slot duration from runtime. Using unadjusted authoring duration."
@@ -300,7 +300,7 @@ where
 			return Err(())
 		};
 
-		let (time_until_next_attempt, mut next_aura_slot) = self.time_until_next_slot()?;
+		let (time_until_next_attempt, mut next_aura_slot) = self.time_until_next_block()?;
 
 		tracing::trace!(
 			target: LOG_TARGET,
