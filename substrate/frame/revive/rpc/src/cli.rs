@@ -22,7 +22,7 @@ use crate::{
 	LOG_TARGET,
 };
 use clap::Parser;
-use futures::{pin_mut, FutureExt};
+use futures::{future::BoxFuture, pin_mut, FutureExt};
 use jsonrpsee::server::RpcModule;
 use sc_cli::{PrometheusParams, RpcParams, SharedParams, Signals};
 use sc_service::{
@@ -229,17 +229,22 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	task_manager
 		.spawn_essential_handle()
 		.spawn("block-subscription", None, async move {
-			let fut1 = client.subscribe_and_cache_new_blocks(SubscriptionType::BestBlocks);
-			let fut2 = client.subscribe_and_cache_new_blocks(SubscriptionType::FinalizedBlocks);
+			let mut futures: Vec<BoxFuture<'_, Result<(), _>>> =
+				vec![Box::pin(client.subscribe_and_cache_new_blocks(SubscriptionType::BestBlocks))];
 
-			let res = if let Some(index_last_n_blocks) = index_last_n_blocks {
-				let fut3 = client.subscribe_and_cache_blocks(index_last_n_blocks);
-				tokio::try_join!(fut1, fut2, fut3).map(|_| ())
-			} else {
-				tokio::try_join!(fut1, fut2).map(|_| ())
-			};
+			// When the chain has automine turned on, there will be no finalized blocks stream.
+			// We will define the best block as the finalized block in that case.
+			if !client.is_automine() {
+				futures.push(Box::pin(
+					client.subscribe_and_cache_new_blocks(SubscriptionType::FinalizedBlocks),
+				))
+			}
 
-			if let Err(err) = res {
+			if let Some(index_last_n_blocks) = index_last_n_blocks {
+				futures.push(Box::pin(client.subscribe_and_cache_blocks(index_last_n_blocks)));
+			}
+
+			if let Err(err) = futures::future::try_join_all(futures).await {
 				panic!("Block subscription task failed: {err:?}",)
 			}
 		});

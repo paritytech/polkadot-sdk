@@ -30,7 +30,7 @@ use tokio::sync::RwLock;
 #[async_trait]
 pub trait BlockInfoProvider: Send + Sync {
 	/// Update the latest block
-	async fn update_latest(&self, block: SubstrateBlock, subscription_type: SubscriptionType);
+	async fn update_latest(&self, block: Arc<SubstrateBlock>, subscription_type: SubscriptionType);
 
 	/// Return the latest finalized block.
 	async fn latest_finalized_block(&self) -> Arc<SubstrateBlock>;
@@ -86,12 +86,12 @@ impl SubxtBlockInfoProvider {
 
 #[async_trait]
 impl BlockInfoProvider for SubxtBlockInfoProvider {
-	async fn update_latest(&self, block: SubstrateBlock, subscription_type: SubscriptionType) {
+	async fn update_latest(&self, block: Arc<SubstrateBlock>, subscription_type: SubscriptionType) {
 		let mut latest = match subscription_type {
 			SubscriptionType::FinalizedBlocks => self.latest_finalized_block.write().await,
 			SubscriptionType::BestBlocks => self.latest_block.write().await,
 		};
-		*latest = Arc::new(block);
+		*latest = block;
 	}
 
 	async fn latest_block(&self) -> Arc<SubstrateBlock> {

@@ -365,16 +365,24 @@ impl Client {
 				.into_iter()
 				.unzip();
 
-			self.block_provider.update_latest(block, subscription_type).await;
+			let block = Arc::new(block);
+			self.block_provider.update_latest(Arc::clone(&block), subscription_type).await;
+
+			// When automine is enabled, we consider best blocks as finalized blocks as well.
+			if self.automine {
+				self.block_provider
+					.update_latest(block, SubscriptionType::FinalizedBlocks)
+					.await;
+			}
+
 			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
 
-			// Only broadcast for best blocks to avoid duplicate notifications.
-			match (subscription_type, &self.block_notifier) {
-				(SubscriptionType::BestBlocks, Some(sender)) if sender.receiver_count() > 0 => {
+			if let Some(sender) = &self.block_notifier {
+				if sender.receiver_count() > 0 {
 					let _ = sender.send(hash);
-				},
-				_ => {},
+				}
 			}
+
 			Ok(())
 		})
 		.await
