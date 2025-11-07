@@ -286,6 +286,48 @@ mod v2 {
 	}
 }
 
+/// Migration to rename pallet from `OnDemandAssignmentProvider` to `OnDemand`.
+pub struct MigrateToOnDemandPalletName<T>(core::marker::PhantomData<T>);
+
+impl<T: Config> frame_support::traits::OnRuntimeUpgrade for MigrateToOnDemandPalletName<T> {
+	fn on_runtime_upgrade() -> Weight {
+		frame_support::storage::migration::move_pallet(b"OnDemandAssignmentProvider", b"OnDemand");
+		// One read to check existence, one write to move the pallet
+		// TODO: Moving an entire pallet is only one read and write? Let's provide a proper
+		// benchmark?
+		// TODO: Also can we get the actually used pallet names passed in from the runtime? (We actually don't know them here.)
+		T::DbWeight::get().reads_writes(1, 1)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+		use frame_support::ensure;
+		let old_pallet_prefix = sp_io::hashing::twox_128(b"OnDemandAssignmentProvider");
+		ensure!(
+			sp_io::storage::next_key(&old_pallet_prefix).is_some(),
+			"Old pallet OnDemandAssignmentProvider data should exist before migration"
+		);
+		Ok(alloc::vec::Vec::new())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		use frame_support::ensure;
+		let old_pallet_prefix = sp_io::hashing::twox_128(b"OnDemandAssignmentProvider");
+		let new_pallet_prefix = sp_io::hashing::twox_128(b"OnDemand");
+
+		ensure!(
+			sp_io::storage::next_key(&old_pallet_prefix).is_none(),
+			"Old pallet OnDemandAssignmentProvider data should be removed after migration"
+		);
+		ensure!(
+			sp_io::storage::next_key(&new_pallet_prefix).is_some(),
+			"New pallet OnDemand data should exist after migration"
+		);
+		Ok(())
+	}
+}
+
 /// Migrate `V1` to `V2` of the storage format.
 pub type MigrateV1ToV2<T> = VersionedMigration<
 	1,
