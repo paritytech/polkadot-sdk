@@ -2476,13 +2476,19 @@ async fn follow_report_multiple_pruned_block() {
 	// Finalizing block 3 directly will also result in block 1 and 2 being finalized.
 	// It will also mark block 2 and block 3 from the fork as pruned.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+
+	// Sort the hashes to prevent flaky tests.
+	let mut pruned_block_hashes =
+		vec![format!("{:?}", block_2_f_hash), format!("{:?}", block_3_f_hash)];
+	pruned_block_hashes.sort();
+
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![
 			format!("{:?}", block_1_hash),
 			format!("{:?}", block_2_hash),
 			format!("{:?}", block_3_hash),
 		],
-		pruned_block_hashes: vec![format!("{:?}", block_2_f_hash), format!("{:?}", block_3_f_hash)],
+		pruned_block_hashes,
 	});
 	assert_eq!(event, expected);
 
