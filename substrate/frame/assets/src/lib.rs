@@ -479,7 +479,7 @@ pub mod pallet {
 
 	/// Maps an asset to a list of its configured reserve information.
 	#[pallet::storage]
-	pub type ReserveLocations<T: Config<I>, I: 'static = ()> = StorageMap<
+	pub type Reserves<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
 		T::AssetId,
@@ -584,9 +584,9 @@ pub mod pallet {
 			}
 
 			for (id, reserves) in &self.reserves {
-				assert!(!ReserveLocations::<T, I>::contains_key(id), "Asset id already in use");
+				assert!(!Reserves::<T, I>::contains_key(id), "Asset id already in use");
 				let reserves = BoundedVec::try_from(reserves.clone()).expect("too many reserves");
-				ReserveLocations::<T, I>::insert(id, reserves);
+				Reserves::<T, I>::insert(id, reserves);
 			}
 		}
 	}
@@ -1954,7 +1954,7 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> ProvideAssetReserves<T::AssetId, T::ReserveData> for Pallet<T, I> {
 		/// Provide the configured reserves for asset `id`.
 		fn reserves(id: &T::AssetId) -> Vec<T::ReserveData> {
-			ReserveLocations::<T, I>::get(id).into_inner()
+			Reserves::<T, I>::get(id).into_inner()
 		}
 	}
 }

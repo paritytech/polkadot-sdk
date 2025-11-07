@@ -330,8 +330,8 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 	}
 	/// Storage: `ForeignAssets::Asset` (r:1 w:0)
 	/// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
-	/// Storage: `ForeignAssets::ReserveLocations` (r:0 w:1)
-	/// Proof: `ForeignAssets::ReserveLocations` (`max_values`: None, `max_size`: Some(3629), added: 6104, mode: `MaxEncodedLen`)
+	/// Storage: `ForeignAssets::Reserves` (r:0 w:1)
+	/// Proof: `ForeignAssets::Reserves` (`max_values`: None, `max_size`: Some(3629), added: 6104, mode: `MaxEncodedLen`)
 	fn set_reserves() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `242`
@@ -641,8 +641,8 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 	}
 	/// Storage: `ForeignAssets::Asset` (r:1 w:0)
 	/// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
-	/// Storage: `ForeignAssets::ReserveLocations` (r:0 w:1)
-	/// Proof: `ForeignAssets::ReserveLocations` (`max_values`: None, `max_size`: Some(3629), added: 6104, mode: `MaxEncodedLen`)
+	/// Storage: `ForeignAssets::Reserves` (r:0 w:1)
+	/// Proof: `ForeignAssets::Reserves` (`max_values`: None, `max_size`: Some(3629), added: 6104, mode: `MaxEncodedLen`)
 	fn migration_v2_foreign_asset_set_reserve_weight() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `81`

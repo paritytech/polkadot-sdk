@@ -629,7 +629,7 @@ benchmarks_instance_pallet! {
 		Pallet::<T, I>::unchecked_update_reserves(asset_id, vec![reserve.clone()]).unwrap();
 	}
 	verify {
-		assert_eq!(ReserveLocations::<T, I>::get(id)[0], reserve);
+		assert_eq!(Reserves::<T, I>::get(id)[0], reserve);
 	}
 
 	impl_benchmark_test_suite!(Assets, crate::mock::new_test_ext(), crate::mock::Test)
