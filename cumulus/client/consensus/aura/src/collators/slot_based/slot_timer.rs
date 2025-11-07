@@ -199,22 +199,15 @@ where
 		};
 
 		let now = duration_now();
-		let now = now.as_millis().saturating_sub(self.time_offset.as_millis());
+		let now = now.saturating_sub(self.time_offset);
 
 		let last_reported_slot = self.last_reported_slot.unwrap_or_default();
-		let Some(last_slot_timestamp) = last_reported_slot.timestamp(slot_duration) else {
-			tracing::error!(target: LOG_TARGET, "Failed to obtain the last slot timestamp");
-			return Err(())
-		};
+		let next_slot = last_reported_slot + Slot::from(1);
+		let Some(next_slot_timestamp) = next_slot.timestamp(slot_duration) else { return Err(()) };
 
-		// Compute when the next different slot starts.
-		let next_different_slot_time =
-			last_slot_timestamp.as_millis() + slot_duration.as_millis() as u64;
-		let remaining_millis = next_different_slot_time.saturating_sub(now as u64);
-		let next_aura_slot =
-			Slot::from_timestamp(Timestamp::from(next_different_slot_time as u64), slot_duration);
+		let remaining_time = next_slot_timestamp.as_duration().saturating_sub(now);
 
-		Ok((Duration::from_millis(remaining_millis as u64), next_aura_slot))
+		Ok((remaining_time, next_slot))
 	}
 
 	/// Adjust the authoring duration to fit into the slot timing.
