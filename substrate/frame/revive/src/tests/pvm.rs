@@ -5165,3 +5165,35 @@ fn existential_deposit_shall_not_charged_twice() {
 		assert_eq!(get_balance(&callee_account), Contracts::min_balance());
 	});
 }
+
+#[test]
+fn self_destruct_tracing_works() {
+	let (binary, _code_hash) = compile_module("self_destruct_by_syscall").unwrap();
+	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let mut tracer = CallTracer::new(Default::default(), |_| U256::zero());
+
+		// Instantiate the BOB contract.
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
+			.native_value(100_000)
+			.build_and_unwrap_contract();
+
+		// Check that the BOB contract has been instantiated.
+		get_contract(&addr);
+
+		trace(&mut tracer, || {
+			builder::call(addr).build().unwrap();
+		});
+
+		let trace = tracer.collect_trace();
+		assert_eq!(
+			trace,
+			Some(CallTrace {
+				from: ALICE_ADDR,
+				to: H160::zero(),
+				call_type: CallType::Selfdestruct,
+				..Default::default()
+			})
+		);
+	});
+}
