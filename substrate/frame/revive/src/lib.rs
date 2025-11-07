@@ -1986,10 +1986,20 @@ impl<T: Config> Pallet<T> {
 		storage_deposit_limit: BalanceOf<T>,
 	) -> CodeUploadResult<BalanceOf<T>> {
 		let origin = T::UploadOrigin::ensure_origin(origin)?;
+
+		let bytecode_type = if code.starts_with(&polkavm_common::program::BLOB_MAGIC) {
+			BytecodeType::Pvm
+		} else {
+			if !T::AllowEVMBytecode::get() {
+				return Err(<Error<T>>::CodeRejected.into())
+			}
+			BytecodeType::Evm
+		};
+
 		let (module, deposit) = Self::try_upload_code(
 			origin,
 			code,
-			BytecodeType::Pvm,
+			bytecode_type,
 			storage_deposit_limit,
 			&ExecConfig::new_substrate_tx(),
 		)?;
