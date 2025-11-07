@@ -119,6 +119,22 @@ fn compute_next_wake_up_time(
 	(duration, aura_slot)
 }
 
+/// Compute the time until the next slot changes.
+fn compute_time_until_next_slot_change(
+	para_slot_duration: SlotDuration,
+	time_now: Duration,
+	time_offset: Duration,
+	last_reported_slot: Slot,
+) -> Result<(Duration, Slot), ()> {
+	let now = time_now.saturating_sub(time_offset);
+	let next_slot = last_reported_slot + Slot::from(1);
+
+	let Some(next_slot_timestamp) = next_slot.timestamp(para_slot_duration) else { return Err(()) };
+	let remaining_time = next_slot_timestamp.as_duration().saturating_sub(now);
+
+	Ok((remaining_time, next_slot))
+}
+
 /// Returns current duration since Unix epoch.
 fn duration_now() -> Duration {
 	use std::time::SystemTime;
@@ -192,22 +208,18 @@ where
 	}
 
 	/// Compute the time until the next slot changes.
-	fn compute_time_until_next_slot_change(&mut self) -> Result<(Duration, Slot), ()> {
+	fn time_until_next_slot_change(&mut self) -> Result<(Duration, Slot), ()> {
 		let Ok(slot_duration) = crate::slot_duration(&*self.client) else {
 			tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
 			return Err(())
 		};
 
-		let now = duration_now();
-		let now = now.saturating_sub(self.time_offset);
-
-		let last_reported_slot = self.last_reported_slot.unwrap_or_default();
-		let next_slot = last_reported_slot + Slot::from(1);
-		let Some(next_slot_timestamp) = next_slot.timestamp(slot_duration) else { return Err(()) };
-
-		let remaining_time = next_slot_timestamp.as_duration().saturating_sub(now);
-
-		Ok((remaining_time, next_slot))
+		compute_time_until_next_slot_change(
+			slot_duration,
+			duration_now(),
+			self.time_offset,
+			self.last_reported_slot.unwrap_or_default(),
+		)
 	}
 
 	/// Adjust the authoring duration to fit into the slot timing.
@@ -225,8 +237,7 @@ where
 			return Some(authoring_duration);
 		};
 
-		let Ok((duration_until_next_slot, next_slot)) = self.compute_time_until_next_slot_change()
-		else {
+		let Ok((duration_until_next_slot, next_slot)) = self.time_until_next_slot_change() else {
 			tracing::error!(
 				target: LOG_TARGET,
 				"Failed to compute time until next slot change. Using unadjusted authoring duration."
