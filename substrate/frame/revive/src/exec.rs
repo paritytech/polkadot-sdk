@@ -1727,6 +1727,12 @@ where
 	}
 
 	fn terminate_if_same_tx(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
+		if_tracing(|tracer| {
+			tracer.terminate(
+				self.caller().account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
+				self.top_frame().nested_gas.gas_left(),
+			);
+		});
 		let (account_id, contract_address, contract_info) = {
 			let frame = self.top_frame_mut();
 			if frame.entry_point == ExportedFunction::Constructor {
