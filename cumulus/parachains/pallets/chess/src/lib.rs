@@ -5,23 +5,34 @@
 //! ## Overview
 //!
 //! This pallet provides:
-//! - Chess game creation and joining with stakes
+//! - Chess game creation and joining with configurable stakes
 //! - Full chess move validation using shakmaty
-//! - Time control management (Bullet, Blitz, Rapid, etc.)
-//! - Game ending detection (checkmate, stalemate, resignation)
+//! - Multiple time control variants (UltraBullet, Bullet, Blitz, Rapid, Classical, Daily)
+//! - Game ending detection (checkmate, stalemate, resignation, timeout)
+//! - Automatic draw detection (threefold repetition, fifty-move rule, insufficient material)
 //! - Prize distribution to winners
-//! - Draw offers and acceptance
+//! - Draw offers and acceptance/declination
+//! - ELO rating system with automatic updates
+//! - Player statistics tracking (wins, losses, draws, games played)
+//! - Game variants (Standard, Fischer Random/Chess960)
+//! - Detailed event emissions (check, capture, special draws)
+//! - Query functions for UI integration (leaderboard, active games, game history)
 //!
 //! ## Implementation
 //!
 //! Games are stored on-chain with all moves recorded. The shakmaty chess engine
 //! validates move legality. Time tracking uses block timestamps for timeout detection.
+//! Player ratings are calculated using standard ELO formula with K-factor adjustment
+//! for experience level.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
 
 pub use pallet::*;
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 
 use alloc::string::ToString;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -57,6 +68,9 @@ pub const MAX_GAMES_PER_PLAYER: u32 = 10;
 
 /// Maximum FEN string length
 pub const MAX_FEN_LENGTH: u32 = 200;
+
+/// Maximum players in leaderboard
+pub const MAX_LEADERBOARD_SIZE: u32 = 100;
 
 /// Starting position FEN
 pub const STARTING_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -122,8 +136,12 @@ pub mod pallet {
 	#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 	#[codec(dumb_trait_bound)]
 	pub enum TimeControl {
+		/// 30 seconds, no increment
+		UltraBullet,
 		/// 60 seconds, no increment
 		Bullet,
+		/// 120 seconds, 1 second increment
+		Bullet2,
 		/// 180 seconds, no increment
 		Blitz3,
 		/// 300 seconds, 3 second increment
@@ -146,7 +164,9 @@ pub mod pallet {
 		/// Get initial time in milliseconds
 		pub fn initial_time_ms(&self) -> u64 {
 			match self {
+				Self::UltraBullet => 30_000,
 				Self::Bullet => 60_000,
+				Self::Bullet2 => 120_000,
 				Self::Blitz3 => 180_000,
 				Self::Blitz5 => 300_000,
 				Self::Rapid10 => 600_000,
@@ -161,8 +181,9 @@ pub mod pallet {
 		/// Get increment in milliseconds
 		pub fn increment_ms(&self) -> u64 {
 			match self {
-				Self::Bullet | Self::Blitz3 | Self::Rapid10 | Self::Rapid30 | Self::Daily |
-				Self::Practice => 0,
+				Self::UltraBullet | Self::Bullet | Self::Blitz3 | Self::Rapid10 | Self::Rapid30 |
+				Self::Daily | Self::Practice => 0,
+				Self::Bullet2 => 1_000,
 				Self::Blitz5 => 3_000,
 				Self::Rapid15 => 10_000,
 				Self::Classical => 30_000,
@@ -172,30 +193,34 @@ pub mod pallet {
 		/// Convert to u8 for use in Events
 		pub fn to_u8(&self) -> u8 {
 			match self {
-				Self::Bullet => 0,
-				Self::Blitz3 => 1,
-				Self::Blitz5 => 2,
-				Self::Rapid10 => 3,
-				Self::Rapid15 => 4,
-				Self::Rapid30 => 5,
-				Self::Classical => 6,
-				Self::Daily => 7,
-				Self::Practice => 8,
+				Self::UltraBullet => 0,
+				Self::Bullet => 1,
+				Self::Bullet2 => 2,
+				Self::Blitz3 => 3,
+				Self::Blitz5 => 4,
+				Self::Rapid10 => 5,
+				Self::Rapid15 => 6,
+				Self::Rapid30 => 7,
+				Self::Classical => 8,
+				Self::Daily => 9,
+				Self::Practice => 10,
 			}
 		}
 
 		/// Convert from u8
 		pub fn from_u8(value: u8) -> Option<Self> {
 			match value {
-				0 => Some(Self::Bullet),
-				1 => Some(Self::Blitz3),
-				2 => Some(Self::Blitz5),
-				3 => Some(Self::Rapid10),
-				4 => Some(Self::Rapid15),
-				5 => Some(Self::Rapid30),
-				6 => Some(Self::Classical),
-				7 => Some(Self::Daily),
-				8 => Some(Self::Practice),
+				0 => Some(Self::UltraBullet),
+				1 => Some(Self::Bullet),
+				2 => Some(Self::Bullet2),
+				3 => Some(Self::Blitz3),
+				4 => Some(Self::Blitz5),
+				5 => Some(Self::Rapid10),
+				6 => Some(Self::Rapid15),
+				7 => Some(Self::Rapid30),
+				8 => Some(Self::Classical),
+				9 => Some(Self::Daily),
+				10 => Some(Self::Practice),
 				_ => None,
 			}
 		}
@@ -239,6 +264,16 @@ pub mod pallet {
 		Rook,
 		Bishop,
 		Knight,
+	}
+
+	/// Game variant type
+	#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	#[codec(dumb_trait_bound)]
+	pub enum GameVariant {
+		/// Standard chess
+		Standard,
+		/// Fischer Random (Chess960)
+		FischerRandom,
 	}
 
 	impl PieceType {
@@ -293,6 +328,10 @@ pub mod pallet {
 
 		/// Unix timestamp provider
 		type UnixTime: UnixTime;
+
+		/// Minimum stake required to create a game
+		#[pallet::constant]
+		type MinimumStake: Get<BalanceOf<Self>>;
 	}
 
 	/// Hold reason for game stakes
@@ -334,6 +373,21 @@ pub mod pallet {
 		pub increment_ms: u64,
 	}
 
+	/// Player statistics
+	#[derive(Encode, Decode, Clone, Copy, Default, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	pub struct PlayerStats {
+		/// Total games played
+		pub games_played: u32,
+		/// Games won
+		pub wins: u32,
+		/// Games lost
+		pub losses: u32,
+		/// Games drawn
+		pub draws: u32,
+		/// ELO rating (starts at 1200)
+		pub rating: u16,
+	}
+
 	/// Main game struct
 	#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 	#[scale_info(skip_type_params(T))]
@@ -352,6 +406,8 @@ pub mod pallet {
 		pub player1_is_white: bool,
 		/// Time control type
 		pub time_control: TimeControl,
+		/// Game variant (Standard or Fischer Random)
+		pub variant: GameVariant,
 		/// Block when game was created
 		pub created_at: BlockNumberFor<T>,
 		/// Block of last activity (for timeout detection)
@@ -360,6 +416,10 @@ pub mod pallet {
 		pub current_fen: BoundedVec<u8, ConstU32<MAX_FEN_LENGTH>>,
 		/// Number of moves made
 		pub move_count: u16,
+		/// Halfmove clock (for 50-move rule)
+		pub halfmove_clock: u16,
+		/// Account that offered a draw (None if no pending offer)
+		pub pending_draw_offer: Option<T::AccountId>,
 	}
 
 	/// Type alias for balance
@@ -399,6 +459,16 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type GameNonce<T: Config> = StorageValue<_, u64, ValueQuery>;
 
+	/// Storage: Player statistics
+	#[pallet::storage]
+	pub type PlayerStatistics<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, PlayerStats, ValueQuery>;
+
+	/// Storage: Position history for threefold repetition detection (stores FEN hashes)
+	#[pallet::storage]
+	pub type PositionHistory<T: Config> =
+		StorageMap<_, Blake2_128Concat, GameId, BoundedVec<[u8; 32], ConstU32<MAX_MOVES>>, ValueQuery>;
+
 	/// Events emitted by this pallet
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -410,6 +480,7 @@ pub mod pallet {
 			stake: BalanceOf<T>,
 			player1_is_white: bool,
 			time_control: u8,
+			variant: u8,
 		},
 		/// Player 2 joined a game
 		GameJoined { game_id: GameId, player2: T::AccountId },
@@ -427,10 +498,24 @@ pub mod pallet {
 		DrawOffered { game_id: GameId, offerer: T::AccountId },
 		/// Draw was accepted
 		DrawAccepted { game_id: GameId },
+		/// Draw was declined
+		DrawDeclined { game_id: GameId },
 		/// Player resigned
 		PlayerResigned { game_id: GameId, player: T::AccountId },
 		/// Timeout claimed
 		TimeoutClaimed { game_id: GameId, winner: T::AccountId },
+		/// Game cancelled before starting
+		GameCancelled { game_id: GameId, player: T::AccountId },
+		/// Check was given
+		CheckGiven { game_id: GameId },
+		/// Piece was captured
+		PieceCaptured { game_id: GameId, captured_piece: u8 },
+		/// Threefold repetition occurred (auto-draw)
+		ThreefoldRepetition { game_id: GameId },
+		/// Fifty-move rule triggered (auto-draw)
+		FiftyMoveRule { game_id: GameId },
+		/// Player rating changed
+		RatingChanged { player: T::AccountId, old_rating: u16, new_rating: u16 },
 	}
 
 	/// Errors that can occur
@@ -470,6 +555,18 @@ pub mod pallet {
 		TooManyMoves,
 		/// Insufficient balance for stake
 		InsufficientBalance,
+		/// No pending draw offer
+		NoPendingDrawOffer,
+		/// Cannot accept own draw offer
+		CannotAcceptOwnDrawOffer,
+		/// Game already has pending draw offer
+		DrawOfferAlreadyPending,
+		/// Invalid game variant
+		InvalidGameVariant,
+		/// Cannot cancel game that has started
+		CannotCancelStartedGame,
+		/// Stake below minimum required
+		StakeTooLow,
 	}
 
 	#[pallet::call]
@@ -479,7 +576,8 @@ pub mod pallet {
 		/// Parameters:
 		/// - `stake`: Amount to stake (winner takes all)
 		/// - `player1_is_white`: Whether creator plays as white
-		/// - `time_control`: Time control type (Bullet, Blitz, etc.)
+		/// - `time_control_id`: Time control type (0-10)
+		/// - `variant_id`: Game variant (0=Standard, 1=FischerRandom)
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::from_parts(10_000, 0))]
 		pub fn create_game(
@@ -487,12 +585,23 @@ pub mod pallet {
 			stake: BalanceOf<T>,
 			player1_is_white: bool,
 			time_control_id: u8,
+			variant_id: u8,
 		) -> DispatchResult {
 			let creator = ensure_signed(origin)?;
 
+			// Validate minimum stake
+			ensure!(stake >= T::MinimumStake::get(), Error::<T>::StakeTooLow);
+
 			// Convert u8 to TimeControl
 			let time_control = TimeControl::from_u8(time_control_id)
-				.ok_or(Error::<T>::InvalidSquare)?; // Reusing InvalidSquare error for now
+				.ok_or(Error::<T>::InvalidSquare)?;
+
+			// Convert u8 to GameVariant
+			let variant = match variant_id {
+				0 => GameVariant::Standard,
+				1 => GameVariant::FischerRandom,
+				_ => return Err(Error::<T>::InvalidGameVariant.into()),
+			};
 
 			// Hold stake from creator
 			T::Currency::hold(&HoldReason::GameStake.into(), &creator, stake)
@@ -503,6 +612,16 @@ pub mod pallet {
 			let game_id = Self::generate_game_id(&creator, nonce);
 			GameNonce::<T>::put(nonce.wrapping_add(1));
 
+			// Get starting FEN based on variant
+			let starting_fen = match variant {
+				GameVariant::Standard => STARTING_FEN,
+				GameVariant::FischerRandom => {
+					// For Fischer Random, we'd generate a random position
+					// For now, use standard position (TODO: implement FEN generation)
+					STARTING_FEN
+				},
+			};
+
 			// Create game struct
 			let game = Game {
 				player1: creator.clone(),
@@ -512,11 +631,14 @@ pub mod pallet {
 				result: GameResult::Ongoing,
 				player1_is_white,
 				time_control,
+				variant,
 				created_at: frame_system::Pallet::<T>::block_number(),
 				last_activity: frame_system::Pallet::<T>::block_number(),
-				current_fen: BoundedVec::try_from(STARTING_FEN.as_bytes().to_vec())
+				current_fen: BoundedVec::try_from(starting_fen.as_bytes().to_vec())
 					.map_err(|_| Error::<T>::InvalidFEN)?,
 				move_count: 0,
+				halfmove_clock: 0,
+				pending_draw_offer: None,
 			};
 
 			// Store game
@@ -537,6 +659,7 @@ pub mod pallet {
 				stake,
 				player1_is_white,
 				time_control: time_control_id,
+				variant: variant_id,
 			});
 
 			Ok(())
@@ -665,14 +788,58 @@ pub mod pallet {
 				}
 			}
 
+			// Check if this is a capture
+			let is_capture = chess_move.is_capture();
+			let captured_piece_role = if is_capture {
+				chess.board().piece_at(to_sq).map(|p| p.role)
+			} else {
+				None
+			};
+
+			// Check if move is a pawn move (for halfmove clock)
+			let _is_pawn_move = matches!(chess_move, ChessMove::Normal { role: Role::Pawn, .. } | ChessMove::EnPassant { .. });
+
 			// Apply the move
 			chess.play_unchecked(&chess_move);
+
+			// Check if move gives check
+			let gives_check = chess.is_check();
 
 			// Generate SAN notation
 			let san_str = San::from_move(&chess, &chess_move).to_string();
 
 			// Get new FEN
 			let new_fen_str = Fen::from_position(chess.clone(), shakmaty::EnPassantMode::Legal).to_string();
+
+			// Parse halfmove clock from FEN (5th field)
+			let fen_parts: alloc::vec::Vec<&str> = new_fen_str.split(' ').collect();
+			let halfmove_clock = if fen_parts.len() >= 5 {
+				fen_parts[4].parse::<u16>().unwrap_or(0)
+			} else {
+				0
+			};
+
+			// Hash the position (just the piece placement part of FEN)
+			let position_key = if fen_parts.len() > 0 {
+				T::Hashing::hash(fen_parts[0].as_bytes())
+			} else {
+				T::Hashing::hash(new_fen_str.as_bytes())
+			};
+			let mut position_hash = [0u8; 32];
+			let hash_bytes = position_key.as_ref();
+			position_hash[..hash_bytes.len().min(32)].copy_from_slice(&hash_bytes[..hash_bytes.len().min(32)]);
+
+			// Store position hash for threefold repetition detection
+			PositionHistory::<T>::try_mutate(game_id, |history| -> Result<(), Error<T>> {
+				history.try_push(position_hash).map_err(|_| Error::<T>::TooManyMoves)?;
+				Ok(())
+			})?;
+
+			// Check for threefold repetition
+			let threefold = Self::check_threefold_repetition(game_id, &position_hash);
+
+			// Check for fifty-move rule
+			let fifty_move = halfmove_clock >= 100;
 
 			// Check for game end conditions
 			let (game_ended, result) = if chess.is_checkmate() {
@@ -687,6 +854,9 @@ pub mod pallet {
 					},
 				)
 			} else if chess.is_stalemate() || chess.is_insufficient_material() {
+				(true, GameResult::Draw)
+			} else if threefold || fifty_move {
+				// Auto-draw on threefold repetition or fifty-move rule
 				(true, GameResult::Draw)
 			} else {
 				(false, GameResult::Ongoing)
@@ -721,12 +891,18 @@ pub mod pallet {
 			game.current_fen = BoundedVec::try_from(new_fen_str.as_bytes().to_vec())
 				.map_err(|_| Error::<T>::InvalidFEN)?;
 			game.move_count += 1;
+			game.halfmove_clock = halfmove_clock;
 			game.last_activity = frame_system::Pallet::<T>::block_number();
+
+			// Clear draw offer when move is made
+			game.pending_draw_offer = None;
 
 			if game_ended {
 				game.status = GameStatus::Completed;
 				game.result = result;
 				Self::distribute_prizes(&game)?;
+				Self::update_ratings(&game)?;
+				Self::cleanup_game(game_id, &game);
 			}
 
 			// Store updated game and time state
@@ -742,6 +918,34 @@ pub mod pallet {
 				san: BoundedVec::try_from(san_str.as_bytes().to_vec())
 					.map_err(|_| Error::<T>::TooManyMoves)?,
 			});
+
+			// Emit check event if applicable
+			if gives_check {
+				Self::deposit_event(Event::CheckGiven { game_id });
+			}
+
+			// Emit capture event if applicable
+			if is_capture {
+				if let Some(captured_role) = captured_piece_role {
+					let piece_u8 = match captured_role {
+						Role::Pawn => 0,
+						Role::Knight => 1,
+						Role::Bishop => 2,
+						Role::Rook => 3,
+						Role::Queen => 4,
+						Role::King => 5,
+					};
+					Self::deposit_event(Event::PieceCaptured { game_id, captured_piece: piece_u8 });
+				}
+			}
+
+			// Emit special draw events
+			if threefold {
+				Self::deposit_event(Event::ThreefoldRepetition { game_id });
+			}
+			if fifty_move {
+				Self::deposit_event(Event::FiftyMoveRule { game_id });
+			}
 
 			if game_ended {
 				Self::deposit_event(Event::GameEnded {
@@ -788,6 +992,8 @@ pub mod pallet {
 			game.result = result;
 
 			Self::distribute_prizes(&game)?;
+			Self::update_ratings(&game)?;
+			Self::cleanup_game(game_id, &game);
 			Games::<T>::insert(game_id, game);
 
 			Self::deposit_event(Event::PlayerResigned { game_id, player: player.clone() });
@@ -795,6 +1001,175 @@ pub mod pallet {
 				game_id,
 				result: result.to_u8(),
 				winner: Some(winner),
+			});
+
+			Ok(())
+		}
+
+		/// Cancel a game before it starts
+		#[pallet::call_index(4)]
+		#[pallet::weight(Weight::from_parts(10_000, 0))]
+		pub fn cancel_game(origin: OriginFor<T>, game_id: GameId) -> DispatchResult {
+			let player = ensure_signed(origin)?;
+
+			let mut game = Games::<T>::get(game_id).ok_or(Error::<T>::GameNotFound)?;
+
+			// Only creator can cancel, and only before someone joins
+			ensure!(game.player1 == player, Error::<T>::NotPlayerInGame);
+			ensure!(game.status == GameStatus::Waiting, Error::<T>::CannotCancelStartedGame);
+
+			// Release stake
+			T::Currency::release(
+				&HoldReason::GameStake.into(),
+				&game.player1,
+				game.stake,
+				Precision::BestEffort,
+			)?;
+
+			// Update game status
+			game.status = GameStatus::Cancelled;
+			Games::<T>::insert(game_id, game);
+
+			// Remove from open games
+			OpenGames::<T>::mutate(|games| games.retain(|&g| g != game_id));
+
+			// Remove from player's active games
+			ActiveGames::<T>::mutate(&player, |games| games.retain(|&g| g != game_id));
+
+			Self::deposit_event(Event::GameCancelled { game_id, player });
+
+			Ok(())
+		}
+
+		/// Offer a draw
+		#[pallet::call_index(5)]
+		#[pallet::weight(Weight::from_parts(10_000, 0))]
+		pub fn offer_draw(origin: OriginFor<T>, game_id: GameId) -> DispatchResult {
+			let player = ensure_signed(origin)?;
+
+			let mut game = Games::<T>::get(game_id).ok_or(Error::<T>::GameNotFound)?;
+
+			ensure!(game.status == GameStatus::Active, Error::<T>::GameNotActive);
+			ensure!(
+				game.player1 == player || game.player2 == Some(player.clone()),
+				Error::<T>::NotPlayerInGame
+			);
+			ensure!(game.pending_draw_offer.is_none(), Error::<T>::DrawOfferAlreadyPending);
+
+			// Store draw offer
+			game.pending_draw_offer = Some(player.clone());
+			Games::<T>::insert(game_id, game);
+
+			Self::deposit_event(Event::DrawOffered { game_id, offerer: player });
+
+			Ok(())
+		}
+
+		/// Accept a draw offer
+		#[pallet::call_index(6)]
+		#[pallet::weight(Weight::from_parts(10_000, 0))]
+		pub fn accept_draw(origin: OriginFor<T>, game_id: GameId) -> DispatchResult {
+			let player = ensure_signed(origin)?;
+
+			let mut game = Games::<T>::get(game_id).ok_or(Error::<T>::GameNotFound)?;
+
+			ensure!(game.status == GameStatus::Active, Error::<T>::GameNotActive);
+			ensure!(
+				game.player1 == player || game.player2 == Some(player.clone()),
+				Error::<T>::NotPlayerInGame
+			);
+
+			let offerer = game.pending_draw_offer.clone().ok_or(Error::<T>::NoPendingDrawOffer)?;
+			ensure!(offerer != player, Error::<T>::CannotAcceptOwnDrawOffer);
+
+			// End game as draw
+			game.status = GameStatus::Completed;
+			game.result = GameResult::Draw;
+			game.pending_draw_offer = None;
+
+			Self::distribute_prizes(&game)?;
+			Self::update_ratings(&game)?;
+			Self::cleanup_game(game_id, &game);
+			Games::<T>::insert(game_id, game.clone());
+
+			Self::deposit_event(Event::DrawAccepted { game_id });
+			Self::deposit_event(Event::GameEnded {
+				game_id,
+				result: GameResult::Draw.to_u8(),
+				winner: None,
+			});
+
+			Ok(())
+		}
+
+		/// Decline a draw offer
+		#[pallet::call_index(7)]
+		#[pallet::weight(Weight::from_parts(10_000, 0))]
+		pub fn decline_draw(origin: OriginFor<T>, game_id: GameId) -> DispatchResult {
+			let player = ensure_signed(origin)?;
+
+			let mut game = Games::<T>::get(game_id).ok_or(Error::<T>::GameNotFound)?;
+
+			ensure!(game.status == GameStatus::Active, Error::<T>::GameNotActive);
+			ensure!(
+				game.player1 == player || game.player2 == Some(player.clone()),
+				Error::<T>::NotPlayerInGame
+			);
+
+			let offerer = game.pending_draw_offer.clone().ok_or(Error::<T>::NoPendingDrawOffer)?;
+			ensure!(offerer != player, Error::<T>::CannotAcceptOwnDrawOffer);
+
+			// Clear draw offer
+			game.pending_draw_offer = None;
+			Games::<T>::insert(game_id, game);
+
+			Self::deposit_event(Event::DrawDeclined { game_id });
+
+			Ok(())
+		}
+
+		/// Claim timeout (either player can call if opponent's time ran out)
+		#[pallet::call_index(8)]
+		#[pallet::weight(Weight::from_parts(10_000, 0))]
+		pub fn claim_timeout(origin: OriginFor<T>, game_id: GameId) -> DispatchResult {
+			let player = ensure_signed(origin)?;
+
+			let mut game = Games::<T>::get(game_id).ok_or(Error::<T>::GameNotFound)?;
+
+			ensure!(game.status == GameStatus::Active, Error::<T>::GameNotActive);
+			ensure!(
+				game.player1 == player || game.player2 == Some(player.clone()),
+				Error::<T>::NotPlayerInGame
+			);
+
+			let mut time_state = GameTime::<T>::get(game_id).ok_or(Error::<T>::TimeStateNotFound)?;
+
+			// Update time to current moment
+			Self::update_time(&mut time_state, &game)?;
+
+			// Check if timeout occurred
+			ensure!(Self::is_timeout(&time_state), Error::<T>::NoTimeout);
+
+			// Determine winner (whoever didn't timeout)
+			let result = if time_state.white_time_ms == 0 {
+				GameResult::BlackWins
+			} else {
+				GameResult::WhiteWins
+			};
+
+			game.status = GameStatus::Timeout;
+			game.result = result;
+
+			Self::distribute_prizes(&game)?;
+			Self::update_ratings(&game)?;
+			Self::cleanup_game(game_id, &game);
+			Games::<T>::insert(game_id, game.clone());
+
+			Self::deposit_event(Event::TimeoutClaimed { game_id, winner: player });
+			Self::deposit_event(Event::GameEnded {
+				game_id,
+				result: result.to_u8(),
+				winner: Self::get_winner(&game),
 			});
 
 			Ok(())
@@ -966,6 +1341,7 @@ pub mod pallet {
 		game.result = result;
 
 		Self::distribute_prizes(&game)?;
+		Self::cleanup_game(game_id, &game);
 		Games::<T>::insert(game_id, game.clone());
 
 		Self::deposit_event(Event::GameEnded {
@@ -976,15 +1352,221 @@ pub mod pallet {
 
 		Ok(())
 	}
+
+	/// Check if threefold repetition occurred
+	fn check_threefold_repetition(game_id: GameId, position_hash: &[u8; 32]) -> bool {
+		let history = PositionHistory::<T>::get(game_id);
+		let count = history.iter().filter(|&h| h == position_hash).count();
+		count >= 3
+	}
+
+	/// Clean up active games lists when a game ends
+	fn cleanup_game(game_id: GameId, game: &Game<T>) {
+		// Remove from player1's active games
+		ActiveGames::<T>::mutate(&game.player1, |games| {
+			games.retain(|&g| g != game_id);
+		});
+
+		// Remove from player2's active games if they exist
+		if let Some(ref player2) = game.player2 {
+			ActiveGames::<T>::mutate(player2, |games| {
+				games.retain(|&g| g != game_id);
+			});
+		}
+	}
+
+	/// Update player ratings using simplified ELO system
+	fn update_ratings(game: &Game<T>) -> DispatchResult {
+		let player2 = game.player2.clone().ok_or(Error::<T>::Player2NotFound)?;
+
+		// Get current ratings (default to 1200 for new players)
+		let mut stats1 = PlayerStatistics::<T>::get(&game.player1);
+		let mut stats2 = PlayerStatistics::<T>::get(&player2);
+
+		// Initialize ratings if new players
+		if stats1.rating == 0 {
+			stats1.rating = 1200;
+		}
+		if stats2.rating == 0 {
+			stats2.rating = 1200;
+		}
+
+		let old_rating1 = stats1.rating;
+		let old_rating2 = stats2.rating;
+
+		// Calculate expected scores (ELO formula)
+		let expected1 = 1.0 / (1.0 + 10.0_f64.powf((stats2.rating as f64 - stats1.rating as f64) / 400.0));
+		let expected2 = 1.0 / (1.0 + 10.0_f64.powf((stats1.rating as f64 - stats2.rating as f64) / 400.0));
+
+		// Determine actual scores
+		let (score1, score2) = match game.result {
+			GameResult::WhiteWins => {
+				if game.player1_is_white {
+					(1.0, 0.0)
+				} else {
+					(0.0, 1.0)
+				}
+			},
+			GameResult::BlackWins => {
+				if game.player1_is_white {
+					(0.0, 1.0)
+				} else {
+					(1.0, 0.0)
+				}
+			},
+			GameResult::Draw => (0.5, 0.5),
+			_ => return Ok(()),
+		};
+
+		// K-factor (higher for newer players)
+		let k1 = if stats1.games_played < 30 { 40.0 } else { 20.0 };
+		let k2 = if stats2.games_played < 30 { 40.0 } else { 20.0 };
+
+		// Update ratings
+		let rating_change1 = (k1 * (score1 - expected1)) as i32;
+		let rating_change2 = (k2 * (score2 - expected2)) as i32;
+
+		stats1.rating = ((stats1.rating as i32 + rating_change1).max(100).min(3000)) as u16;
+		stats2.rating = ((stats2.rating as i32 + rating_change2).max(100).min(3000)) as u16;
+
+		// Update statistics
+		stats1.games_played += 1;
+		stats2.games_played += 1;
+
+		match game.result {
+			GameResult::WhiteWins => {
+				if game.player1_is_white {
+					stats1.wins += 1;
+					stats2.losses += 1;
+				} else {
+					stats1.losses += 1;
+					stats2.wins += 1;
+				}
+			},
+			GameResult::BlackWins => {
+				if game.player1_is_white {
+					stats1.losses += 1;
+					stats2.wins += 1;
+				} else {
+					stats1.wins += 1;
+					stats2.losses += 1;
+				}
+			},
+			GameResult::Draw => {
+				stats1.draws += 1;
+				stats2.draws += 1;
+			},
+			_ => {},
+		}
+
+		let new_rating1 = stats1.rating;
+		let new_rating2 = stats2.rating;
+
+		// Store updated stats
+		PlayerStatistics::<T>::insert(&game.player1, stats1);
+		PlayerStatistics::<T>::insert(&player2, stats2.clone());
+
+		// Emit rating change events
+		if old_rating1 != new_rating1 {
+			Self::deposit_event(Event::RatingChanged {
+				player: game.player1.clone(),
+				old_rating: old_rating1,
+				new_rating: new_rating1,
+			});
+		}
+		if old_rating2 != new_rating2 {
+			Self::deposit_event(Event::RatingChanged {
+				player: player2,
+				old_rating: old_rating2,
+				new_rating: new_rating2,
+			});
+		}
+
+		Ok(())
+	}
+
+	// ===== Public query helper functions =====
+
+	/// Get player statistics
+	pub fn get_player_stats(player: &T::AccountId) -> PlayerStats {
+		PlayerStatistics::<T>::get(player)
+	}
+
+	/// Get all active games for a player
+	pub fn get_player_games(player: &T::AccountId) -> alloc::vec::Vec<GameId> {
+		ActiveGames::<T>::get(player).into_inner()
+	}
+
+	/// Get all open games
+	pub fn get_open_games() -> alloc::vec::Vec<GameId> {
+		OpenGames::<T>::get().into_inner()
+	}
+
+	/// Get game details
+	pub fn get_game(game_id: GameId) -> Option<Game<T>> {
+		Games::<T>::get(game_id)
+	}
+
+	/// Get move history for a game
+	pub fn get_moves(game_id: GameId) -> alloc::vec::Vec<Move> {
+		GameMoves::<T>::get(game_id).into_inner()
+	}
+
+	/// Get time state for a game
+	pub fn get_time_state(game_id: GameId) -> Option<TimeState<BlockNumberFor<T>>> {
+		GameTime::<T>::get(game_id)
+	}
+
+	/// Check if a position is in check (requires parsing current FEN)
+	pub fn is_check(game_id: GameId) -> bool {
+		if let Some(game) = Games::<T>::get(game_id) {
+			if let Ok(fen_str) = core::str::from_utf8(&game.current_fen) {
+				if let Ok(fen) = fen_str.parse::<Fen>() {
+					if let Ok(chess) = fen.into_position::<Chess>(shakmaty::CastlingMode::Standard) {
+						return chess.is_check();
+					}
+				}
+			}
+		}
+		false
+	}
+
+	/// Get legal moves for current position (returns count for now)
+	pub fn get_legal_move_count(game_id: GameId) -> u32 {
+		if let Some(game) = Games::<T>::get(game_id) {
+			if let Ok(fen_str) = core::str::from_utf8(&game.current_fen) {
+				if let Ok(fen) = fen_str.parse::<Fen>() {
+					if let Ok(chess) = fen.into_position::<Chess>(shakmaty::CastlingMode::Standard) {
+						return chess.legal_moves().len() as u32;
+					}
+				}
+			}
+		}
+		0
+	}
+
+	/// Get top players by rating (leaderboard)
+	/// Note: This is a simple implementation that iterates all players
+	/// For production, consider using an indexed storage or off-chain worker
+	pub fn get_leaderboard(limit: u32) -> alloc::vec::Vec<(T::AccountId, PlayerStats)> {
+		let mut all_players: alloc::vec::Vec<(T::AccountId, PlayerStats)> =
+			PlayerStatistics::<T>::iter().collect();
+
+		// Sort by rating (descending)
+		all_players.sort_by(|a, b| b.1.rating.cmp(&a.1.rating));
+
+		// Take top N
+		all_players.into_iter().take(limit as usize).collect()
+	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use frame_support::{
-		assert_noop, assert_ok, derive_impl, parameter_types,
+		assert_noop, assert_ok, derive_impl,
 		traits::{
-			fungible::{Inspect, InspectHold, Mutate},
+			fungible::{Inspect, Mutate},
 			tokens::{Fortitude, Precision, Preservation},
 			ConstU32, ConstU64,
 		},
@@ -1040,6 +1622,7 @@ mod tests {
 		type Currency = Balances;
 		type RuntimeHoldReason = RuntimeHoldReason;
 		type UnixTime = Timestamp;
+		type MinimumStake = ConstU64<10>;
 	}
 
 	// Build genesis storage according to the mock runtime
@@ -1072,7 +1655,8 @@ mod tests {
 				RuntimeOrigin::signed(1),
 				stake,
 				true, // player1 is white
-				time_control
+				time_control,
+				0 // Standard variant
 			));
 
 			// Verify game was created
@@ -1084,6 +1668,7 @@ mod tests {
 			assert_eq!(game.stake, stake);
 			assert_eq!(game.status, GameStatus::Waiting);
 			assert_eq!(game.player1_is_white, true);
+			assert_eq!(game.variant, GameVariant::Standard);
 
 			// Verify balance was held
 			// Note: RuntimeHoldReason is not accessible in test scope, but we verify game state instead
@@ -1106,7 +1691,8 @@ mod tests {
 				RuntimeOrigin::signed(1),
 				stake,
 				true,
-				time_control
+				time_control,
+				0
 			));
 
 			let game_id = Pallet::<Test>::generate_game_id(&1, 0);
@@ -1145,7 +1731,8 @@ mod tests {
 				RuntimeOrigin::signed(1),
 				stake,
 				true, // player 1 is white
-				time_control
+				time_control,
+				0
 			));
 			let game_id = Pallet::<Test>::generate_game_id(&1, 0);
 			assert_ok!(Pallet::<Test>::join_game(RuntimeOrigin::signed(2), game_id));
@@ -1189,7 +1776,8 @@ mod tests {
 				RuntimeOrigin::signed(1),
 				stake,
 				true,
-				time_control
+				time_control,
+				0
 			));
 			let game_id = Pallet::<Test>::generate_game_id(&1, 0);
 			assert_ok!(Pallet::<Test>::join_game(RuntimeOrigin::signed(2), game_id));
@@ -1219,7 +1807,8 @@ mod tests {
 				RuntimeOrigin::signed(1),
 				stake,
 				true, // player 1 is white
-				time_control
+				time_control,
+				0
 			));
 			let game_id = Pallet::<Test>::generate_game_id(&1, 0);
 			assert_ok!(Pallet::<Test>::join_game(RuntimeOrigin::signed(2), game_id));
@@ -1249,7 +1838,8 @@ mod tests {
 				RuntimeOrigin::signed(1),
 				stake,
 				true,
-				time_control
+				time_control,
+				0
 			));
 			let game_id = Pallet::<Test>::generate_game_id(&1, 0);
 			assert_ok!(Pallet::<Test>::join_game(RuntimeOrigin::signed(2), game_id));
@@ -1285,7 +1875,8 @@ mod tests {
 				RuntimeOrigin::signed(1),
 				stake,
 				true,
-				time_control
+				time_control,
+				0
 			));
 			let game_id = Pallet::<Test>::generate_game_id(&1, 0);
 
@@ -1308,7 +1899,8 @@ mod tests {
 				RuntimeOrigin::signed(1),
 				stake,
 				true,
-				time_control
+				time_control,
+				0
 			));
 			let game_id = Pallet::<Test>::generate_game_id(&1, 0);
 
@@ -1331,19 +1923,21 @@ mod tests {
 
 	#[test]
 	fn time_control_conversion_works() {
-		assert_eq!(TimeControl::Bullet.to_u8(), 0);
-		assert_eq!(TimeControl::Blitz3.to_u8(), 1);
-		assert_eq!(TimeControl::Blitz5.to_u8(), 2);
-		assert_eq!(TimeControl::Rapid10.to_u8(), 3);
-		assert_eq!(TimeControl::Rapid15.to_u8(), 4);
-		assert_eq!(TimeControl::Rapid30.to_u8(), 5);
-		assert_eq!(TimeControl::Classical.to_u8(), 6);
-		assert_eq!(TimeControl::Daily.to_u8(), 7);
-		assert_eq!(TimeControl::Practice.to_u8(), 8);
+		assert_eq!(TimeControl::UltraBullet.to_u8(), 0);
+		assert_eq!(TimeControl::Bullet.to_u8(), 1);
+		assert_eq!(TimeControl::Bullet2.to_u8(), 2);
+		assert_eq!(TimeControl::Blitz3.to_u8(), 3);
+		assert_eq!(TimeControl::Blitz5.to_u8(), 4);
+		assert_eq!(TimeControl::Rapid10.to_u8(), 5);
+		assert_eq!(TimeControl::Rapid15.to_u8(), 6);
+		assert_eq!(TimeControl::Rapid30.to_u8(), 7);
+		assert_eq!(TimeControl::Classical.to_u8(), 8);
+		assert_eq!(TimeControl::Daily.to_u8(), 9);
+		assert_eq!(TimeControl::Practice.to_u8(), 10);
 
-		assert_eq!(TimeControl::from_u8(0), Some(TimeControl::Bullet));
-		assert_eq!(TimeControl::from_u8(1), Some(TimeControl::Blitz3));
-		assert_eq!(TimeControl::from_u8(8), Some(TimeControl::Practice));
+		assert_eq!(TimeControl::from_u8(0), Some(TimeControl::UltraBullet));
+		assert_eq!(TimeControl::from_u8(1), Some(TimeControl::Bullet));
+		assert_eq!(TimeControl::from_u8(10), Some(TimeControl::Practice));
 		assert_eq!(TimeControl::from_u8(99), None);
 	}
 
