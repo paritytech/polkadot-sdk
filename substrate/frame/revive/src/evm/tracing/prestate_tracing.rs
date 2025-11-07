@@ -28,8 +28,8 @@ pub struct PrestateTracer<T> {
 	/// The tracer configuration.
 	config: PrestateTracerConfig,
 
-	/// The current address of the contract's which storage is being accessed.
-	current_addr: H160,
+	/// Stack of the current address of the contract's which storage is being accessed.
+	current_addrs: Vec<H160>,
 
 	/// Whether the current call is a contract creation.
 	is_create: Option<Code>,
@@ -47,6 +47,10 @@ where
 	/// Create a new [`PrestateTracer`] instance.
 	pub fn new(config: PrestateTracerConfig) -> Self {
 		Self { config, ..Default::default() }
+	}
+
+	fn current_addr(&self) -> H160 {
+		self.current_addrs.last().copied().unwrap_or_default()
 	}
 
 	/// Returns an empty trace.
@@ -205,16 +209,18 @@ where
 		}
 
 		if !is_delegate_call {
-			self.current_addr = to;
+			self.current_addrs.push(to);
 		}
 	}
 
 	fn exit_child_span_with_error(&mut self, _error: crate::DispatchError, _gas_used: Weight) {
+		self.current_addrs.pop();
 		self.is_create = None;
 	}
 
 	fn exit_child_span(&mut self, output: &ExecReturnValue, _gas_used: Weight) {
 		let create_code = self.is_create.take();
+		let current_addr = self.current_addrs.pop().unwrap_or_default();
 		if output.did_revert() {
 			return
 		}
@@ -228,12 +234,12 @@ where
 					PristineCode::<T>::get(&code_hash).map(|code| Bytes::from(code.to_vec())),
 			}
 		} else {
-			Self::bytecode(&self.current_addr)
+			Self::bytecode(&current_addr)
 		};
 
 		Self::update_prestate_info(
-			self.trace.1.entry(self.current_addr).or_default(),
-			&self.current_addr,
+			self.trace.1.entry(current_addr).or_default(),
+			&current_addr,
 			code,
 		);
 	}
@@ -244,7 +250,7 @@ where
 		let old_value = self
 			.trace
 			.0
-			.entry(self.current_addr)
+			.entry(self.current_addr())
 			.or_default()
 			.storage
 			.entry(key.clone())
@@ -257,19 +263,19 @@ where
 		if old_value.as_ref().map(|v| v.0.as_ref()) != new_value {
 			self.trace
 				.1
-				.entry(self.current_addr)
+				.entry(self.current_addr())
 				.or_default()
 				.storage
 				.insert(key, new_value.map(|v| v.to_vec().into()));
 		} else {
-			self.trace.1.entry(self.current_addr).or_default().storage.remove(&key);
+			self.trace.1.entry(self.current_addr()).or_default().storage.remove(&key);
 		}
 	}
 
 	fn storage_read(&mut self, key: &Key, value: Option<&[u8]>) {
 		self.trace
 			.0
-			.entry(self.current_addr)
+			.entry(self.current_addr())
 			.or_default()
 			.storage
 			.entry(key.unhashed().to_vec().into())
