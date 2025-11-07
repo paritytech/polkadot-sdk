@@ -5167,7 +5167,7 @@ fn existential_deposit_shall_not_charged_twice() {
 }
 
 #[test]
-fn self_destruct_tracing_works() {
+fn self_destruct_by_syscall_tracing_works() {
 	let (binary, _code_hash) = compile_module("self_destruct_by_syscall").unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
