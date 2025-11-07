@@ -215,6 +215,10 @@ where
 			)
 		});
 
+		if !is_delegate_call {
+			self.calls.push(Call { addr: to, create_code: self.create_code.take() });
+		}
+
 		if !self.current_is_create() {
 			self.trace.0.entry(to).or_insert_with_key(|addr| {
 				Self::prestate_info(
@@ -223,10 +227,6 @@ where
 					include_code.then(|| Self::bytecode(addr)).flatten(),
 				)
 			});
-		}
-
-		if !is_delegate_call {
-			self.calls.push(Call { addr: to, create_code: self.create_code.take() });
 		}
 	}
 
