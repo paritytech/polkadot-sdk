@@ -1,0 +1,50 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix coretime partitioning and improve on-demand latency
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Prior to this PR we would statically pre-populate the claim queue by
+      popping from assignment providers. This behavior was technically not
+      correct, because we would not advance blocks accordingly, which means if
+      in upcoming blocks a new assignment comes in, we would not properly
+      consider it. This is fixed in this PR, by no longer statically
+      pre-populating the claim queue in advance, but by building it on the fly,
+      while we check assignments based on the correct block number. We
+      essentially now fully simulate block chain advancement when peeking into
+      the future. This also simplifies session handling, as nothing needs to be
+      pushed back to the assignment provider anymore. Scheduler and core
+      handling got simplified.
+
+      A pleasant side-effect of this fix is, that on-demand orders are now
+      instant. Meaning, they will be in the claim queue in the very same block
+      the order gets processed.
+
+      Concrete changes:
+
+      - Move coretime assigner logic from separate pallet into scheduler
+      - Migrate on-demand pallet from v1 (affinity-based queues) to v2 (single
+        queue) - this is done so we have an efficient API to fetch on-demand orders
+        for all on-demand cores of a block at once.
+      - Scheduler v3 to v4 migration - remove claim queue storage.
+      - Removing obsolete `assigner_coretime` pallet (deprecated, kept as stub for migration)
+      - Updating on-demand benchmarks to reflect new queue structure (removed linear `s` parameter)
+
+      Breaking changes:
+      - `assigner_coretime` pallet functionality moved to `scheduler::assigner_coretime`
+      - On-demand pallet storage structure changed (handled by migration)
+      - Scheduler storage version updated to v4
+
+crates:
+  - name: polkadot-primitives
+    bump: minor
+  - name: polkadot-runtime-parachains
+    bump: major
+  - name: rococo-runtime
+    bump: major
+  - name: westend-runtime
+    bump: major
+  - name: polkadot-test-runtime
+    bump: major
