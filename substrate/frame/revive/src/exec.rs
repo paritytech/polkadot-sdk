@@ -2221,6 +2221,12 @@ where
 	}
 
 	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError> {
+		if_tracing(|tracer| {
+			tracer.terminate(
+				self.caller().account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
+				self.top_frame().nested_gas.gas_left(),
+			);
+		});
 		let account_id = self.caller().account_id()?.clone();
 		let caller_address = T::AddressMapper::to_address(&account_id);
 		{
