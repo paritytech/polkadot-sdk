@@ -643,9 +643,7 @@ mod v4 {
 
 				// Convert descriptor from old type to new type
 				let new_desc = CoreDescriptor::new(
-					old_descriptor
-						.queue
-						.map(|q| QueueDescriptor { first: q.first, last: q.last }),
+					old_descriptor.queue.map(|q| QueueDescriptor { first: q.first, last: q.last }),
 					old_descriptor.current_work.map(|w| WorkState {
 						assignments: w
 							.assignments
@@ -841,9 +839,9 @@ pub type MigrateV3ToV4<T> = VersionedMigration<
 mod v4_tests {
 	use super::*;
 	use crate::{
-		assigner_coretime as old, configuration, on_demand,
+		assigner_coretime as old, configuration,
 		mock::{new_test_ext, MockGenesisConfig, System, Test},
-		scheduler,
+		on_demand, scheduler,
 	};
 	use alloc::collections::BTreeMap;
 	use frame_support::traits::{OnRuntimeUpgrade, StorageVersion};
@@ -1058,14 +1056,13 @@ mod v4_tests {
 			assert!(!v4::ClaimQueue::<Test>::exists());
 
 			// Verify pool assignments went to on-demand
-			// The migration calls `on_demand::Pallet::<T>::push_back_order` for each pool assignment,
-			// which adds them to the on-demand queue. We verify by popping assignments.
-			// Orders are ready 2 blocks after being placed (asynchronous backing).
+			// The migration calls `on_demand::Pallet::<T>::push_back_order` for each pool
+			// assignment, which adds them to the on-demand queue. We verify by popping
+			// assignments. Orders are ready 2 blocks after being placed (asynchronous backing).
 			let mut on_demand_queue = on_demand::Pallet::<Test>::peek_order_queue();
-			let now = System::block_number().saturating_add(2);  // Advance 2 blocks for async backing
-			let popped: Vec<ParaId> = on_demand_queue
-				.pop_assignment_for_cores::<Test>(now, 2)
-				.collect();
+			let now = System::block_number().saturating_add(2); // Advance 2 blocks for async backing
+			let popped: Vec<ParaId> =
+				on_demand_queue.pop_assignment_for_cores::<Test>(now, 2).collect();
 
 			assert_eq!(popped.len(), 2, "Should have 2 pool assignments in on-demand queue");
 			assert!(popped.contains(&pool_para_1), "pool_para_1 should be in queue");
@@ -1090,8 +1087,14 @@ mod v4_tests {
 
 			let descriptor_schedule = old::Schedule {
 				assignments: vec![
-					(BrokerCoreAssignment::Task(descriptor_para_1.into()), old::PartsOf57600(28800)),
-					(BrokerCoreAssignment::Task(descriptor_para_2.into()), old::PartsOf57600(28800)),
+					(
+						BrokerCoreAssignment::Task(descriptor_para_1.into()),
+						old::PartsOf57600(28800),
+					),
+					(
+						BrokerCoreAssignment::Task(descriptor_para_2.into()),
+						old::PartsOf57600(28800),
+					),
 				],
 				end_hint: None,
 				next_schedule: None,
@@ -1135,8 +1138,14 @@ mod v4_tests {
 			// Verify we see descriptor paras, not claimqueue paras
 			assert!(para_ids.contains(&descriptor_para_1), "Should contain para from descriptor");
 			assert!(para_ids.contains(&descriptor_para_2), "Should contain para from descriptor");
-			assert!(!para_ids.contains(&claimqueue_para_1), "Should NOT contain para from old ClaimQueue");
-			assert!(!para_ids.contains(&claimqueue_para_2), "Should NOT contain para from old ClaimQueue");
+			assert!(
+				!para_ids.contains(&claimqueue_para_1),
+				"Should NOT contain para from old ClaimQueue"
+			);
+			assert!(
+				!para_ids.contains(&claimqueue_para_2),
+				"Should NOT contain para from old ClaimQueue"
+			);
 		});
 	}
 
@@ -1206,11 +1215,7 @@ mod v4_tests {
 			assert_eq!(new_schedule.assignments().len(), 3);
 
 			// Check sum of parts equals full allocation (14400 + 28800 + 14400 = 57600)
-			let sum: u16 = new_schedule
-				.assignments()
-				.iter()
-				.map(|(_, parts)| parts.value())
-				.sum();
+			let sum: u16 = new_schedule.assignments().iter().map(|(_, parts)| parts.value()).sum();
 			assert_eq!(sum, 57600, "Sum of parts should equal full allocation");
 		});
 	}

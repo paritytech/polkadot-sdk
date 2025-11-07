@@ -47,8 +47,6 @@ pub use pallet_broker::CoreAssignment;
 
 pub use super::Config;
 
-
-
 /// Fraction expressed as a nominator with an assumed denominator of 57,600.
 #[derive(
 	RuntimeDebug,

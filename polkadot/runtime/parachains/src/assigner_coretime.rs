@@ -162,13 +162,8 @@ pub mod pallet {
 	///
 	/// **DEPRECATED:** This storage will be empty after migration completes.
 	#[pallet::storage]
-	pub type CoreDescriptors<T: Config> = StorageMap<
-		_,
-		Twox256,
-		CoreIndex,
-		CoreDescriptor<BlockNumberFor<T>>,
-		ValueQuery,
-	>;
+	pub type CoreDescriptors<T: Config> =
+		StorageMap<_, Twox256, CoreIndex, CoreDescriptor<BlockNumberFor<T>>, ValueQuery>;
 }
 
 pub use pallet::*;
