@@ -302,3 +302,39 @@ fn dust_work_with_child_calls(fixture_type: FixtureType) {
 		assert_eq!(crate::Pallet::<Test>::evm_balance(&addr), value);
 	});
 }
+
+#[test]
+fn prestate_diff_mode_tracing_works() {
+	use crate::{
+		evm::{PrestateTrace, PrestateTraceInfo, PrestateTracer, PrestateTracerConfig},
+		tracing::trace,
+	};
+	use alloc::collections::BTreeMap;
+
+	let (counter_code, _) = compile_module_with_type("NestedCounter", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000_000);
+		let initial_balance = Pallet::<Test>::evm_balance(&ALICE_ADDR);
+
+		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
+			diff_mode: false,
+			disable_storage: false,
+			disable_code: false,
+		});
+
+		let Contract { addr: contract_addr, .. } = trace(&mut tracer, || {
+			builder::bare_instantiate(Code::Upload(counter_code.clone()))
+				.build_and_unwrap_contract()
+		});
+
+		let trace = tracer.collect_trace();
+
+		let expected_trace = PrestateTrace::Prestate(BTreeMap::from([(
+			ALICE_ADDR,
+			PrestateTraceInfo { balance: Some(initial_balance), ..Default::default() },
+		)]));
+
+		assert_eq!(trace, expected_trace);
+	});
+}
