@@ -289,6 +289,8 @@ pub struct UnpinHandleInner<Block: BlockT> {
 	hash: Block::Hash,
 	/// Label indicating the notification type
 	label: NotificationLabel,
+	/// ID of the stream this notification belongs to
+	stream_id: u64,
 	unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
 }
 
@@ -303,9 +305,10 @@ impl<Block: BlockT> UnpinHandleInner<Block> {
 	pub fn new(
 		hash: Block::Hash,
 		label: NotificationLabel,
+		stream_id: u64,
 		unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
 	) -> Self {
-		Self { hash, label, unpin_worker_sender }
+		Self { hash, label, stream_id, unpin_worker_sender }
 	}
 }
 
@@ -314,6 +317,7 @@ impl<Block: BlockT> Drop for UnpinHandleInner<Block> {
 		if let Err(err) = self.unpin_worker_sender.unbounded_send(UnpinWorkerMessage::Unpin {
 			hash: self.hash,
 			label: self.label,
+			stream_id: self.stream_id,
 		}) {
 			log::debug!(target: "db", "Unable to unpin block with hash: {}, error: {:?}", self.hash, err);
 		};
@@ -334,10 +338,18 @@ pub enum NotificationLabel {
 /// When the notification is dropped, an `Unpin` message should be sent to the worker.
 #[derive(Debug)]
 pub enum UnpinWorkerMessage<Block: BlockT> {
+	/// Should be sent when a notification stream is created.
+	StreamCreated {
+		stream_id: u64,
+		label: NotificationLabel,
+		backtrace: Arc<std::backtrace::Backtrace>,
+	},
 	/// Should be sent when a import or finality notification is created.
-	AnnouncePin { hash: Block::Hash, label: NotificationLabel },
+	AnnouncePin { hash: Block::Hash, label: NotificationLabel, stream_id: u64 },
 	/// Should be sent when a import or finality notification is dropped.
-	Unpin { hash: Block::Hash, label: NotificationLabel },
+	Unpin { hash: Block::Hash, label: NotificationLabel, stream_id: u64 },
+	/// Should be sent when a notification stream is closed/dropped.
+	StreamClosed { stream_id: u64 },
 }
 
 /// Keeps a specific block pinned while the handle is alive.
@@ -351,9 +363,10 @@ impl<Block: BlockT> UnpinHandle<Block> {
 	pub fn new(
 		hash: Block::Hash,
 		label: NotificationLabel,
+		stream_id: u64,
 		unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
 	) -> UnpinHandle<Block> {
-		UnpinHandle(Arc::new(UnpinHandleInner::new(hash, label, unpin_worker_sender)))
+		UnpinHandle(Arc::new(UnpinHandleInner::new(hash, label, stream_id, unpin_worker_sender)))
 	}
 
 	/// Hash of the block this handle is unpinning on drop
@@ -389,6 +402,7 @@ impl<Block: BlockT> BlockImportNotification<Block> {
 		header: Block::Header,
 		is_new_best: bool,
 		tree_route: Option<Arc<sp_blockchain::TreeRoute<Block>>>,
+		stream_id: u64,
 		unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
 	) -> Self {
 		Self {
@@ -397,7 +411,7 @@ impl<Block: BlockT> BlockImportNotification<Block> {
 			header,
 			is_new_best,
 			tree_route,
-			unpin_handle: UnpinHandle::new(hash, NotificationLabel::Import, unpin_worker_sender),
+			unpin_handle: UnpinHandle::new(hash, NotificationLabel::Import, stream_id, unpin_worker_sender),
 		}
 	}
 
@@ -448,6 +462,7 @@ impl<Block: BlockT> FinalityNotification<Block> {
 	/// Create finality notification from finality summary.
 	pub fn from_summary(
 		mut summary: FinalizeSummary<Block>,
+		stream_id: u64,
 		unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
 	) -> FinalityNotification<Block> {
 		let hash = summary.finalized.pop().unwrap_or_default();
@@ -458,7 +473,7 @@ impl<Block: BlockT> FinalityNotification<Block> {
 			stale_blocks: Arc::from(
 				summary.stale_blocks.into_iter().map(Arc::from).collect::<Vec<_>>(),
 			),
-			unpin_handle: UnpinHandle::new(hash, NotificationLabel::Finality, unpin_worker_sender),
+			unpin_handle: UnpinHandle::new(hash, NotificationLabel::Finality, stream_id, unpin_worker_sender),
 		}
 	}
 
@@ -474,6 +489,7 @@ impl<Block: BlockT> BlockImportNotification<Block> {
 	/// Create finality notification from finality summary.
 	pub fn from_summary(
 		summary: ImportSummary<Block>,
+		stream_id: u64,
 		unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
 	) -> BlockImportNotification<Block> {
 		let hash = summary.hash;
@@ -483,7 +499,7 @@ impl<Block: BlockT> BlockImportNotification<Block> {
 			header: summary.header,
 			is_new_best: summary.is_new_best,
 			tree_route: summary.tree_route.map(Arc::new),
-			unpin_handle: UnpinHandle::new(hash, NotificationLabel::Import, unpin_worker_sender),
+			unpin_handle: UnpinHandle::new(hash, NotificationLabel::Import, stream_id, unpin_worker_sender),
 		}
 	}
 }

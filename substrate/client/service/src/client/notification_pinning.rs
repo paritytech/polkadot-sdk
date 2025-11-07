@@ -24,6 +24,8 @@
 //! listeners can hold onto a [`sc_client_api::UnpinHandle`] to keep a block pinned. Once the handle
 //! is dropped, a message is sent and the worker unpins the respective block.
 use std::{
+	backtrace::Backtrace,
+	collections::HashMap,
 	marker::PhantomData,
 	sync::{Arc, Weak},
 	time::Instant,
@@ -39,6 +41,15 @@ use sp_runtime::traits::Block as BlockT;
 const LOG_TARGET: &str = "db::notification_pinning";
 const NOTIFICATION_PINNING_LIMIT: usize = 1024;
 const STATS_LOG_INTERVAL_SECS: u64 = 60;
+
+/// Tracking information for a notification stream
+struct StreamInfo {
+	label: NotificationLabel,
+	creation_backtrace: Arc<Backtrace>,
+	creation_time: Instant,
+	active_count: usize,
+	is_closed: bool,
+}
 
 /// A limiter which automatically unpins blocks that leave the data structure.
 #[derive(Clone, Debug)]
@@ -130,6 +141,8 @@ pub struct NotificationPinningWorker<Block: BlockT, Back: Backend<Block>> {
 	active_import_count: usize,
 	active_finality_count: usize,
 	last_stats_log: Instant,
+	/// Per-stream tracking information
+	streams: HashMap<u64, StreamInfo>,
 }
 
 impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back> {
@@ -152,10 +165,25 @@ impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back>
 			active_import_count: 0,
 			active_finality_count: 0,
 			last_stats_log: Instant::now(),
+			streams: HashMap::new(),
 		}
 	}
 
-	fn handle_announce_message(&mut self, hash: Block::Hash, label: NotificationLabel) {
+	fn handle_stream_created(&mut self, stream_id: u64, label: NotificationLabel, backtrace: Arc<Backtrace>) {
+		self.streams.insert(
+			stream_id,
+			StreamInfo {
+				label,
+				creation_backtrace: backtrace,
+				creation_time: Instant::now(),
+				active_count: 0,
+				is_closed: false,
+			},
+		);
+		log::debug!(target: LOG_TARGET, "Stream {} created for {:?} notifications", stream_id, label);
+	}
+
+	fn handle_announce_message(&mut self, hash: Block::Hash, label: NotificationLabel, stream_id: u64) {
 		if let Some(entry) = self.pinned_blocks.get_or_insert(hash, Default::default) {
 			*entry = *entry + 1;
 		}
@@ -163,9 +191,16 @@ impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back>
 			NotificationLabel::Import => self.active_import_count += 1,
 			NotificationLabel::Finality => self.active_finality_count += 1,
 		}
+
+		// Update per-stream tracking
+		if let Some(stream_info) = self.streams.get_mut(&stream_id) {
+			stream_info.active_count += 1;
+		} else {
+			log::warn!(target: LOG_TARGET, "Received AnnouncePin for unknown stream {}", stream_id);
+		}
 	}
 
-	fn handle_unpin_message(&mut self, hash: Block::Hash, label: NotificationLabel) -> Result<(), ()> {
+	fn handle_unpin_message(&mut self, hash: Block::Hash, label: NotificationLabel, stream_id: u64) -> Result<(), ()> {
 		if let Some(refcount) = self.pinned_blocks.peek_mut(&hash) {
 			*refcount = *refcount - 1;
 			if *refcount == 0 {
@@ -185,7 +220,35 @@ impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back>
 			NotificationLabel::Import => self.active_import_count = self.active_import_count.saturating_sub(1),
 			NotificationLabel::Finality => self.active_finality_count = self.active_finality_count.saturating_sub(1),
 		}
+
+		// Update per-stream tracking
+		if let Some(stream_info) = self.streams.get_mut(&stream_id) {
+			stream_info.active_count = stream_info.active_count.saturating_sub(1);
+		} else {
+			log::warn!(target: LOG_TARGET, "Received Unpin for unknown stream {}", stream_id);
+		}
+
 		Ok(())
+	}
+
+	fn handle_stream_closed(&mut self, stream_id: u64) {
+		if let Some(stream_info) = self.streams.get_mut(&stream_id) {
+			stream_info.is_closed = true;
+			log::debug!(target: LOG_TARGET, "Stream {} closed with {} active notifications", stream_id, stream_info.active_count);
+
+			// Check for leak immediately
+			if stream_info.active_count > 0 {
+				log::error!(
+					target: LOG_TARGET,
+					"MEMORY LEAK DETECTED: Stream {} has {} leaked notifications\nCreated at: {:#?}",
+					stream_id,
+					stream_info.active_count,
+					stream_info.creation_backtrace
+				);
+			}
+		} else {
+			log::warn!(target: LOG_TARGET, "Received StreamClosed for unknown stream {}", stream_id);
+		}
 	}
 
 	fn log_stats(&mut self) {
@@ -193,11 +256,39 @@ impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back>
 		if total > 0 {
 			log::info!(
 				target: LOG_TARGET,
-				"Notification pinning stats - Import: {}, Finality: {}, Total: {}",
+				"Notification pinning stats - Import: {}, Finality: {}, Total: {}, Streams: {}",
 				self.active_import_count,
 				self.active_finality_count,
-				total
+				total,
+				self.streams.len()
 			);
+
+			// Check for potential leaks: closed streams with active notifications
+			for (stream_id, stream_info) in &self.streams {
+				if stream_info.is_closed && stream_info.active_count > 0 {
+					log::error!(
+						target: LOG_TARGET,
+						"MEMORY LEAK: Stream {} ({:?}) has {} leaked notifications after being closed\nCreated at: {:#?}",
+						stream_id,
+						stream_info.label,
+						stream_info.active_count,
+						stream_info.creation_backtrace
+					);
+				} else if !stream_info.is_closed && stream_info.active_count > 1000 {
+					// Warn about potentially slow consumers
+					log::warn!(
+						target: LOG_TARGET,
+						"Stream {} ({:?}) has {} active notifications (potential slow consumer)\nCreated at: {:#?}",
+						stream_id,
+						stream_info.label,
+						stream_info.active_count,
+						stream_info.creation_backtrace
+					);
+				}
+			}
+
+			// Clean up closed streams with no active notifications
+			self.streams.retain(|_, info| !info.is_closed || info.active_count > 0);
 		}
 		self.last_stats_log = Instant::now();
 	}
@@ -209,12 +300,16 @@ impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back>
 	pub async fn run(mut self) {
 		while let Some(message) = self.unpin_message_rx.next().await {
 			match message {
-				UnpinWorkerMessage::AnnouncePin { hash, label } =>
-					self.handle_announce_message(hash, label),
-				UnpinWorkerMessage::Unpin { hash, label } =>
-					if self.handle_unpin_message(hash, label).is_err() {
+				UnpinWorkerMessage::StreamCreated { stream_id, label, backtrace } =>
+					self.handle_stream_created(stream_id, label, backtrace),
+				UnpinWorkerMessage::AnnouncePin { hash, label, stream_id } =>
+					self.handle_announce_message(hash, label, stream_id),
+				UnpinWorkerMessage::Unpin { hash, label, stream_id } =>
+					if self.handle_unpin_message(hash, label, stream_id).is_err() {
 						return
 					},
+				UnpinWorkerMessage::StreamClosed { stream_id } =>
+					self.handle_stream_closed(stream_id),
 			}
 
 			// Log statistics every 60 seconds

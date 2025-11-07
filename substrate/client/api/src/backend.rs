@@ -92,6 +92,7 @@ pub struct StaleBlock<Block: BlockT> {
 ///
 /// Contains information about the block that just got finalized,
 /// including tree heads that became stale at the moment of finalization.
+#[derive(Clone)]
 pub struct FinalizeSummary<Block: BlockT> {
 	/// Last finalized block header.
 	pub header: Block::Header,

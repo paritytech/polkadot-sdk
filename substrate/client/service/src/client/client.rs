@@ -80,16 +80,47 @@ use sp_state_machine::{
 };
 use sp_trie::{proof_size_extension::ProofSizeExt, CompactProof, MerkleValue, StorageProof};
 use std::{
+	backtrace::Backtrace,
 	collections::{HashMap, HashSet},
 	marker::PhantomData,
 	path::PathBuf,
-	sync::Arc,
+	sync::{
+		atomic::{AtomicU64, Ordering},
+		Arc,
+	},
 };
 
 use super::call_executor::LocalCallExecutor;
 use sp_core::traits::CodeExecutor;
 
-type NotificationSinks<T> = Mutex<Vec<TracingUnboundedSender<T>>>;
+/// Helper struct to track a notification sink with its stream ID
+struct TrackedNotificationSink<T, Block: BlockT> {
+	sink: TracingUnboundedSender<T>,
+	stream_id: u64,
+	unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
+}
+
+impl<T, Block: BlockT> TrackedNotificationSink<T, Block> {
+	fn new(
+		sink: TracingUnboundedSender<T>,
+		stream_id: u64,
+		unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
+	) -> Self {
+		Self { sink, stream_id, unpin_worker_sender }
+	}
+}
+
+impl<T, Block: BlockT> Drop for TrackedNotificationSink<T, Block> {
+	fn drop(&mut self) {
+		if let Err(err) = self.unpin_worker_sender.unbounded_send(UnpinWorkerMessage::StreamClosed {
+			stream_id: self.stream_id,
+		}) {
+			log::debug!(target: "db", "Unable to send StreamClosed message for stream {}: {:?}", self.stream_id, err);
+		}
+	}
+}
+
+type NotificationSinks<T, Block> = Mutex<Vec<TrackedNotificationSink<T, Block>>>;
 
 /// Substrate Client
 pub struct Client<B, E, Block, RA>
@@ -99,9 +130,9 @@ where
 	backend: Arc<B>,
 	executor: E,
 	storage_notifications: StorageNotifications<Block>,
-	import_notification_sinks: NotificationSinks<BlockImportNotification<Block>>,
-	every_import_notification_sinks: NotificationSinks<BlockImportNotification<Block>>,
-	finality_notification_sinks: NotificationSinks<FinalityNotification<Block>>,
+	import_notification_sinks: NotificationSinks<BlockImportNotification<Block>, Block>,
+	every_import_notification_sinks: NotificationSinks<BlockImportNotification<Block>, Block>,
+	finality_notification_sinks: NotificationSinks<FinalityNotification<Block>, Block>,
 	// Collects auxiliary operations to be performed atomically together with
 	// block import operations.
 	import_actions: Mutex<Vec<OnImportAction<Block>>>,
@@ -115,6 +146,8 @@ where
 	telemetry: Option<TelemetryHandle>,
 	unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
 	code_provider: CodeProvider<Block, B, E>,
+	// Counter for generating unique stream IDs
+	next_stream_id: AtomicU64,
 	_phantom: PhantomData<RA>,
 }
 
@@ -253,8 +286,9 @@ where
 
 			let ClientImportOperation { mut op, notify_imported, notify_finalized } = op;
 
-			let finality_notification = notify_finalized.map(|summary| {
-				FinalityNotification::from_summary(summary, self.unpin_worker_sender.clone())
+			// Create temporary finality notification for actions (stream_id=0 is dummy)
+			let finality_notification = notify_finalized.as_ref().map(|summary| {
+				FinalityNotification::from_summary(summary.clone(), 0, self.unpin_worker_sender.clone())
 			});
 
 			let (import_notification, storage_changes, import_notification_action) =
@@ -265,6 +299,7 @@ where
 						(
 							Some(BlockImportNotification::from_summary(
 								summary,
+								0,  // Dummy stream_id for actions
 								self.unpin_worker_sender.clone(),
 							)),
 							storage_changes,
@@ -287,27 +322,14 @@ where
 
 			self.backend.commit_operation(op)?;
 
-			// We need to pin the block in the backend once
-			// for each notification. Once all notifications are
-			// dropped, the block will be unpinned automatically.
+			// Pin blocks in the backend
+			// AnnouncePin messages will be sent per-stream when creating notifications
 			if let Some(ref notification) = finality_notification {
 				if let Err(err) = self.backend.pin_block(notification.hash) {
 					debug!(
 						"Unable to pin block for finality notification. hash: {}, Error: {}",
 						notification.hash, err
 					);
-				} else {
-					let _ = self
-						.unpin_worker_sender
-						.unbounded_send(UnpinWorkerMessage::AnnouncePin {
-							hash: notification.hash,
-							label: NotificationLabel::Finality,
-						})
-						.map_err(|e| {
-							log::error!(
-								"Unable to send AnnouncePin worker message for finality: {e}"
-							)
-						});
 				}
 			}
 
@@ -317,20 +339,10 @@ where
 						"Unable to pin block for import notification. hash: {}, Error: {}",
 						notification.hash, err
 					);
-				} else {
-					let _ = self
-						.unpin_worker_sender
-						.unbounded_send(UnpinWorkerMessage::AnnouncePin {
-							hash: notification.hash,
-							label: NotificationLabel::Import,
-						})
-						.map_err(|e| {
-							log::error!("Unable to send AnnouncePin worker message for import: {e}")
-						});
-				};
+				}
 			}
 
-			self.notify_finalized(finality_notification)?;
+			self.notify_finalized(notify_finalized)?;
 			self.notify_imported(import_notification, import_notification_action, storage_changes)?;
 
 			Ok(r)
@@ -428,19 +440,20 @@ where
 			telemetry,
 			unpin_worker_sender,
 			code_provider,
+			next_stream_id: AtomicU64::new(0),
 			_phantom: Default::default(),
 		})
 	}
 
 	/// returns a reference to the block import notification sinks
 	/// useful for test environments.
-	pub fn import_notification_sinks(&self) -> &NotificationSinks<BlockImportNotification<Block>> {
+	pub fn import_notification_sinks(&self) -> &NotificationSinks<BlockImportNotification<Block>, Block> {
 		&self.import_notification_sinks
 	}
 
 	/// returns a reference to the finality notification sinks
 	/// useful for test environments.
-	pub fn finality_notification_sinks(&self) -> &NotificationSinks<FinalityNotification<Block>> {
+	pub fn finality_notification_sinks(&self) -> &NotificationSinks<FinalityNotification<Block>, Block> {
 		&self.finality_notification_sinks
 	}
 
@@ -966,17 +979,17 @@ where
 
 	fn notify_finalized(
 		&self,
-		notification: Option<FinalityNotification<Block>>,
+		summary: Option<FinalizeSummary<Block>>,
 	) -> sp_blockchain::Result<()> {
 		let mut sinks = self.finality_notification_sinks.lock();
 
-		let notification = match notification {
-			Some(notify_finalized) => notify_finalized,
+		let summary = match summary {
+			Some(summary) => summary,
 			None => {
 				// Cleanup any closed finality notification sinks
 				// since we won't be running the loop below which
 				// would also remove any closed sinks.
-				sinks.retain(|sink| !sink.is_closed());
+				sinks.retain(|sink| !sink.sink.is_closed());
 				return Ok(())
 			},
 		};
@@ -985,11 +998,31 @@ where
 			self.telemetry;
 			SUBSTRATE_INFO;
 			"notify.finalized";
-			"height" => format!("{}", notification.header.number()),
-			"best" => ?notification.hash,
+			"height" => format!("{}", summary.header.number()),
+			"best" => ?summary.finalized.last(),
 		);
 
-		sinks.retain(|sink| sink.unbounded_send(notification.clone()).is_ok());
+		// Create a notification for each sink with its stream_id
+		sinks.retain(|tracked_sink| {
+			let notification = FinalityNotification::from_summary(
+				summary.clone(),
+				tracked_sink.stream_id,
+				self.unpin_worker_sender.clone()
+			);
+
+			// Send AnnouncePin message to worker
+			if let Err(err) = self.unpin_worker_sender.unbounded_send(
+				UnpinWorkerMessage::AnnouncePin {
+					hash: notification.hash,
+					label: NotificationLabel::Finality,
+					stream_id: tracked_sink.stream_id,
+				},
+			) {
+				log::debug!(target: "db", "Unable to send AnnouncePin message: {:?}", err);
+			}
+
+			tracked_sink.sink.unbounded_send(notification).is_ok()
+		});
 
 		Ok(())
 	}
@@ -1009,9 +1042,9 @@ where
 				// won't send any import notifications which could lead to a
 				// temporary leak of closed/discarded notification sinks (e.g.
 				// from consensus code).
-				self.import_notification_sinks.lock().retain(|sink| !sink.is_closed());
+				self.import_notification_sinks.lock().retain(|sink| !sink.sink.is_closed());
 
-				self.every_import_notification_sinks.lock().retain(|sink| !sink.is_closed());
+				self.every_import_notification_sinks.lock().retain(|sink| !sink.sink.is_closed());
 
 				return Ok(())
 			},
@@ -1033,34 +1066,34 @@ where
 				trigger_storage_changes_notification();
 				self.import_notification_sinks
 					.lock()
-					.retain(|sink| sink.unbounded_send(notification.clone()).is_ok());
+					.retain(|sink| sink.sink.unbounded_send(notification.clone()).is_ok());
 
 				self.every_import_notification_sinks
 					.lock()
-					.retain(|sink| sink.unbounded_send(notification.clone()).is_ok());
+					.retain(|sink| sink.sink.unbounded_send(notification.clone()).is_ok());
 			},
 			ImportNotificationAction::RecentBlock => {
 				trigger_storage_changes_notification();
 				self.import_notification_sinks
 					.lock()
-					.retain(|sink| sink.unbounded_send(notification.clone()).is_ok());
+					.retain(|sink| sink.sink.unbounded_send(notification.clone()).is_ok());
 
-				self.every_import_notification_sinks.lock().retain(|sink| !sink.is_closed());
+				self.every_import_notification_sinks.lock().retain(|sink| !sink.sink.is_closed());
 			},
 			ImportNotificationAction::EveryBlock => {
 				self.every_import_notification_sinks
 					.lock()
-					.retain(|sink| sink.unbounded_send(notification.clone()).is_ok());
+					.retain(|sink| sink.sink.unbounded_send(notification.clone()).is_ok());
 
-				self.import_notification_sinks.lock().retain(|sink| !sink.is_closed());
+				self.import_notification_sinks.lock().retain(|sink| !sink.sink.is_closed());
 			},
 			ImportNotificationAction::None => {
 				// This branch is unreachable in fact because the block import notification must be
 				// Some(_) instead of None (it's already handled at the beginning of this function)
 				// at this point.
-				self.import_notification_sinks.lock().retain(|sink| !sink.is_closed());
+				self.import_notification_sinks.lock().retain(|sink| !sink.sink.is_closed());
 
-				self.every_import_notification_sinks.lock().retain(|sink| !sink.is_closed());
+				self.every_import_notification_sinks.lock().retain(|sink| !sink.sink.is_closed());
 			},
 		}
 
@@ -1910,20 +1943,74 @@ where
 {
 	/// Get block import event stream.
 	fn import_notification_stream(&self) -> ImportNotifications<Block> {
+		let stream_id = self.next_stream_id.fetch_add(1, Ordering::Relaxed);
+		let backtrace = Arc::new(Backtrace::capture());
+
+		// Notify worker about stream creation
+		if let Err(err) = self.unpin_worker_sender.unbounded_send(
+			UnpinWorkerMessage::StreamCreated {
+				stream_id,
+				label: NotificationLabel::Import,
+				backtrace,
+			},
+		) {
+			log::debug!(target: "db", "Unable to send StreamCreated message: {:?}", err);
+		}
+
 		let (sink, stream) = tracing_unbounded("mpsc_import_notification_stream", 100_000);
-		self.import_notification_sinks.lock().push(sink);
+
+		// Store tracked sink with stream ID
+		let tracked_sink = TrackedNotificationSink::new(sink, stream_id, self.unpin_worker_sender.clone());
+		self.import_notification_sinks.lock().push(tracked_sink);
+
 		stream
 	}
 
 	fn every_import_notification_stream(&self) -> ImportNotifications<Block> {
+		let stream_id = self.next_stream_id.fetch_add(1, Ordering::Relaxed);
+		let backtrace = Arc::new(Backtrace::capture());
+
+		// Notify worker about stream creation
+		if let Err(err) = self.unpin_worker_sender.unbounded_send(
+			UnpinWorkerMessage::StreamCreated {
+				stream_id,
+				label: NotificationLabel::Import,
+				backtrace,
+			},
+		) {
+			log::debug!(target: "db", "Unable to send StreamCreated message: {:?}", err);
+		}
+
 		let (sink, stream) = tracing_unbounded("mpsc_every_import_notification_stream", 100_000);
-		self.every_import_notification_sinks.lock().push(sink);
+
+		// Store tracked sink with stream ID
+		let tracked_sink = TrackedNotificationSink::new(sink, stream_id, self.unpin_worker_sender.clone());
+		self.every_import_notification_sinks.lock().push(tracked_sink);
+
 		stream
 	}
 
 	fn finality_notification_stream(&self) -> FinalityNotifications<Block> {
+		let stream_id = self.next_stream_id.fetch_add(1, Ordering::Relaxed);
+		let backtrace = Arc::new(Backtrace::capture());
+
+		// Notify worker about stream creation
+		if let Err(err) = self.unpin_worker_sender.unbounded_send(
+			UnpinWorkerMessage::StreamCreated {
+				stream_id,
+				label: NotificationLabel::Finality,
+				backtrace,
+			},
+		) {
+			log::debug!(target: "db", "Unable to send StreamCreated message: {:?}", err);
+		}
+
 		let (sink, stream) = tracing_unbounded("mpsc_finality_notification_stream", 100_000);
-		self.finality_notification_sinks.lock().push(sink);
+
+		// Store tracked sink with stream ID
+		let tracked_sink = TrackedNotificationSink::new(sink, stream_id, self.unpin_worker_sender.clone());
+		self.finality_notification_sinks.lock().push(tracked_sink);
+
 		stream
 	}
 
