@@ -115,7 +115,8 @@ where
 				return Err(InvalidTransaction::Call)
 			}
 
-			crate::Call::eth_substrate_call::<T> { call: Box::new(call) }.into()
+			crate::Call::eth_substrate_call::<T> { call: Box::new(call), transaction_encoded }
+				.into()
 		} else {
 			let call = crate::Call::eth_call::<T> {
 				dest,

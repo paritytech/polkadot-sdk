@@ -472,34 +472,17 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// `c`: Size of the RLP encoded Ethereum transaction in bytes.
 	#[benchmark(pov_mode = Measured)]
 	fn eth_substrate_call(c: Linear<0, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let origin = Origin::EthTransaction(caller);
 		DebugSettings::default().allow_eth_substrate_call().write_to_storage::<T>();
-		let dispatchable = frame_system::Call::remark { remark: vec![42u8; c as usize] }.into();
+		let dispatchable = frame_system::Call::remark { remark: vec![] }.into();
 		#[extrinsic_call]
-		_(origin, Box::new(dispatchable));
-
+		_(origin, Box::new(dispatchable), vec![42u8; c as usize]);
 		Ok(())
-	}
-
-	// Benchmark with_ethereum_context scaling with transaction size
-	// `c`: Transaction payload size in bytes
-	#[benchmark(pov_mode = Measured)]
-	fn with_ethereum_context_no_events(c: Linear<0, { 100 * 1024 }>) {
-		let transaction_encoded = vec![0x42u8; c as usize];
-
-		#[block]
-		{
-			let _ = block_storage::with_ethereum_context::<T>(transaction_encoded, || {
-				block_storage::EthereumCallResult {
-					receipt_gas_info: ReceiptGasInfo::default(),
-					result: Ok(PostDispatchInfo::default()),
-				}
-			});
-		}
 	}
 
 	// This constructs a contract that is maximal expensive to instrument.

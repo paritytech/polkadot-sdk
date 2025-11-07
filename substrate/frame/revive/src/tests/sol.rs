@@ -322,6 +322,7 @@ fn eth_substrate_call_dispatches_successfully() {
 		assert_ok!(Pallet::<Test>::eth_substrate_call(
 			Origin::EthTransaction(ALICE).into(),
 			Box::new(transfer_call),
+			vec![]
 		));
 
 		// Verify balance changed
@@ -342,6 +343,7 @@ fn eth_substrate_call_requires_eth_origin() {
 			Pallet::<Test>::eth_substrate_call(
 				RuntimeOrigin::signed(ALICE),
 				Box::new(inner_call.into()),
+				vec![]
 			),
 			sp_runtime::traits::BadOrigin
 		);
@@ -350,15 +352,15 @@ fn eth_substrate_call_requires_eth_origin() {
 
 #[test]
 fn eth_substrate_call_requires_debug_flag() {
-	use crate::{codec::Encode, tests::initialize_block, weights::WeightInfo};
+	use crate::{tests::initialize_block, weights::WeightInfo};
 	ExtBuilder::default().build().execute_with(|| {
 		// Ensure eth_substrate_call is NOT allowed
 		assert!(!DebugSettings::is_eth_substrate_call_allowed::<Test>());
 
 		let inner_call = frame_system::Call::remark { remark: vec![] };
-		let inner_call_encoded_size = inner_call.encoded_size() as u32;
+		let transaction_encoded = vec![];
 		let overhead_weight =
-			<Test as Config>::WeightInfo::eth_substrate_call(inner_call_encoded_size);
+			<Test as Config>::WeightInfo::eth_substrate_call(transaction_encoded.len() as u32);
 
 		// Drop previous events
 		initialize_block(2);
@@ -367,14 +369,15 @@ fn eth_substrate_call_requires_debug_flag() {
 		let post_info = Pallet::<Test>::eth_substrate_call(
 			Origin::EthTransaction(ALICE).into(),
 			Box::new(inner_call.into()),
+			transaction_encoded,
 		)
 		.expect("eth_substrate_call should succeed");
 
 		// Verify actual weight includes overhead
 		let actual_weight = post_info.actual_weight.expect("actual_weight should be set");
 		assert!(
-			actual_weight.ref_time() > overhead_weight.ref_time(),
-			"actual_weight ({}) should be > overhead weight ({})",
+			actual_weight.ref_time() >= overhead_weight.ref_time(),
+			"actual_weight ({}) should be >= overhead weight ({})",
 			actual_weight.ref_time(),
 			overhead_weight.ref_time(),
 		);
@@ -391,22 +394,24 @@ fn eth_substrate_call_requires_debug_flag() {
 
 #[test]
 fn eth_substrate_call_tracks_weight_correctly() {
-	use crate::{codec::Encode, weights::WeightInfo};
+	use crate::weights::WeightInfo;
 	ExtBuilder::default().build().execute_with(|| {
 		DebugSettings::default().allow_eth_substrate_call().write_to_storage::<Test>();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000);
 
 		let inner_call = frame_system::Call::remark { remark: vec![0u8; 100] };
+		let transaction_encoded = vec![];
+		let transaction_encoded_len = transaction_encoded.len() as u32;
 
 		let result = Pallet::<Test>::eth_substrate_call(
 			Origin::EthTransaction(ALICE).into(),
 			Box::new(inner_call.clone().into()),
+			transaction_encoded,
 		);
 
 		assert_ok!(result);
 		let post_info = result.unwrap();
-		let overhead =
-			<Test as Config>::WeightInfo::eth_substrate_call(inner_call.encoded_size() as u32);
+		let overhead = <Test as Config>::WeightInfo::eth_substrate_call(transaction_encoded_len);
 
 		let expected_max_weight =
 			overhead.saturating_add(inner_call.get_dispatch_info().call_weight);

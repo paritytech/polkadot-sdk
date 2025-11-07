@@ -1344,20 +1344,21 @@ pub mod pallet {
 		///
 		/// * `origin`: Must be an [`Origin::EthTransaction`] origin.
 		/// * `call`: The Substrate runtime call to execute.
+		/// * `transaction_encoded`: The RLP encoding of the Ethereum transaction,
 		#[pallet::call_index(12)]
-		#[pallet::weight(T::WeightInfo::eth_substrate_call(call.encoded_size() as u32).saturating_add(call.get_dispatch_info().call_weight))]
+		#[pallet::weight(T::WeightInfo::eth_substrate_call(transaction_encoded.len() as u32).saturating_add(call.get_dispatch_info().call_weight))]
 		pub fn eth_substrate_call(
 			origin: OriginFor<T>,
 			call: Box<<T as Config>::RuntimeCall>,
+			transaction_encoded: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
 			// Note that the inner dispatch uses `RawOrigin::Signed`, which cannot
 			// re-enter `eth_substrate_call` (which requires `Origin::EthTransaction`).
 			let signer = Self::ensure_eth_signed(origin)?;
+			let weight_overhead =
+				T::WeightInfo::eth_substrate_call(transaction_encoded.len() as u32);
 
-			let call_encoded = call.encode();
-			let encoded_size = call_encoded.len() as u32;
-
-			block_storage::with_ethereum_context::<T>(call_encoded, || {
+			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
 				if !DebugSettings::is_eth_substrate_call_allowed::<T>() {
 					log::warn!(target: LOG_TARGET, "eth_substrate_call can only be used in development.");
 					return block_storage::EthereumCallResult {
@@ -1365,7 +1366,7 @@ pub mod pallet {
 						result: dispatch_result::<()>(
 							Err(<Error<T>>::EthSubstrateCallNotAllowed.into()),
 							Weight::zero(),
-							T::WeightInfo::eth_substrate_call(encoded_size as u32),
+							weight_overhead,
 						),
 					};
 				}
@@ -1379,7 +1380,7 @@ pub mod pallet {
 							post_info
 								.actual_weight
 								.unwrap_or_else(|| Weight::zero())
-								.saturating_add(T::WeightInfo::eth_substrate_call(encoded_size)),
+								.saturating_add(weight_overhead),
 						);
 					},
 				}
