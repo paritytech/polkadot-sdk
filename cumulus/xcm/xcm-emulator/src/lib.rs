@@ -86,7 +86,7 @@ pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueu
 pub use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use sp_core::{crypto::AccountId32, H256};
 pub use xcm::latest::prelude::{
-	AccountId32 as AccountId32Junction, Ancestor, Assets, Here, Location,
+	AccountId32 as AccountId32Junction, Ancestor, Assets, AssetId, Here, Location,
 	Parachain as ParachainJunction, Parent, WeightLimit, XcmHash,
 };
 pub use xcm_executor::traits::ConvertLocation;
@@ -1554,7 +1554,7 @@ pub struct TestArgs {
 	pub amount: Balance,
 	pub assets: Assets,
 	pub asset_id: Option<u32>,
-	pub fee_asset_item: u32,
+	pub fee_asset_id: AssetId,
 	pub weight_limit: WeightLimit,
 }
 
@@ -1567,7 +1567,7 @@ impl TestArgs {
 			amount,
 			assets: (Here, amount).into(),
 			asset_id: None,
-			fee_asset_item: 0,
+			fee_asset_id: (Here).into(),
 			weight_limit: WeightLimit::Unlimited,
 		}
 	}
@@ -1579,7 +1579,7 @@ impl TestArgs {
 		amount: Balance,
 		assets: Assets,
 		asset_id: Option<u32>,
-		fee_asset_item: u32,
+		fee_asset_id: AssetId,
 	) -> Self {
 		Self {
 			dest,
@@ -1587,7 +1587,7 @@ impl TestArgs {
 			amount,
 			assets,
 			asset_id,
-			fee_asset_item,
+			fee_asset_id,
 			weight_limit: WeightLimit::Unlimited,
 		}
 	}

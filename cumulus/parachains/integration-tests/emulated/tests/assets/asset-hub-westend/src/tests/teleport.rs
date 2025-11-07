@@ -35,7 +35,7 @@ fn penpal_to_ah_foreign_assets_sender_assertions(t: ParaToSystemParaTest) {
 	let system_para_native_asset_location = RelayLocation::get();
 	let expected_asset_id = t.args.asset_id.unwrap();
 	let (_, expected_asset_amount) =
-		non_fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
+		non_fee_asset(&t.args.assets, t.args.fee_asset_id).unwrap();
 
 	PenpalA::assert_xcm_pallet_attempted_complete(None);
 	assert_expected_events!(
@@ -62,8 +62,8 @@ fn penpal_to_ah_foreign_assets_receiver_assertions(t: ParaToSystemParaTest) {
 		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
 	);
 	let (_, expected_foreign_asset_amount) =
-		non_fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
-	let (_, fee_asset_amount) = fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
+		non_fee_asset(&t.args.assets, t.args.fee_asset_id).unwrap();
+	let (_, fee_asset_amount) = fee_asset(&t.args.assets, t.args.fee_asset_id).unwrap();
 
 	AssetHubWestend::assert_xcmp_queue_success(None);
 
@@ -94,7 +94,7 @@ fn ah_to_penpal_foreign_assets_sender_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 	AssetHubWestend::assert_xcm_pallet_attempted_complete(None);
 	let (expected_foreign_asset_id, expected_foreign_asset_amount) =
-		non_fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
+		non_fee_asset(&t.args.assets, t.args.fee_asset_id).unwrap();
 	assert_expected_events!(
 		AssetHubWestend,
 		vec![
@@ -112,7 +112,7 @@ fn ah_to_penpal_foreign_assets_receiver_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 	let expected_asset_id = t.args.asset_id.unwrap();
 	let (_, expected_asset_amount) =
-		non_fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
+		non_fee_asset(&t.args.assets, t.args.fee_asset_id).unwrap();
 	let checking_account = <PenpalA as PenpalAPallet>::PolkadotXcm::check_account();
 	let system_para_native_asset_location = RelayLocation::get();
 
@@ -150,29 +150,20 @@ fn relay_to_system_para_limited_teleport_assets(t: RelayToSystemParaTest) -> Dis
 		bx!(t.args.dest.into()),
 		bx!(t.args.beneficiary.into()),
 		bx!(t.args.assets.into()),
-		t.args.fee_asset_item,
+		bx!(t.args.fee_asset_id.into()),
 		t.args.weight_limit,
 	)
 }
 
 fn para_to_system_para_transfer_assets(t: ParaToSystemParaTest) -> DispatchResult {
 	type Runtime = <PenpalA as Chain>::Runtime;
-	let remote_fee_id: AssetId = t
-		.args
-		.assets
-		.clone()
-		.into_inner()
-		.get(t.args.fee_asset_item as usize)
-		.ok_or(pallet_xcm::Error::<Runtime>::Empty)?
-		.clone()
-		.id;
 
 	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
 		bx!(t.args.assets.into()),
 		bx!(TransferType::Teleport),
-		bx!(remote_fee_id.into()),
+		bx!(t.args.fee_asset_id.into()),
 		bx!(TransferType::DestinationReserve),
 		bx!(VersionedXcm::from(
 			Xcm::<()>::builder_unsafe()
@@ -185,22 +176,13 @@ fn para_to_system_para_transfer_assets(t: ParaToSystemParaTest) -> DispatchResul
 
 fn system_para_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
 	type Runtime = <AssetHubWestend as Chain>::Runtime;
-	let remote_fee_id: AssetId = t
-		.args
-		.assets
-		.clone()
-		.into_inner()
-		.get(t.args.fee_asset_item as usize)
-		.ok_or(pallet_xcm::Error::<Runtime>::Empty)?
-		.clone()
-		.id;
 
 	<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
 		bx!(t.args.assets.into()),
 		bx!(TransferType::Teleport),
-		bx!(remote_fee_id.into()),
+		bx!(t.args.fee_asset_id.into()),
 		bx!(TransferType::LocalReserve),
 		bx!(VersionedXcm::from(
 			Xcm::<()>::builder_unsafe()
@@ -215,11 +197,13 @@ fn system_para_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResul
 fn teleport_via_limited_teleport_assets_to_other_system_parachains_works() {
 	let amount = ASSET_HUB_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
+	let fee_asset_id: AssetId = (Parent).into();
 
 	test_parachain_is_trusted_teleporter!(
 		AssetHubWestend,        // Origin
 		vec![BridgeHubWestend], // Destinations
 		(native_asset, amount),
+		fee_asset_id,
 		limited_teleport_assets
 	);
 }
@@ -228,11 +212,13 @@ fn teleport_via_limited_teleport_assets_to_other_system_parachains_works() {
 fn teleport_via_transfer_assets_to_other_system_parachains_works() {
 	let amount = ASSET_HUB_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
+	let fee_asset_id: AssetId = (Parent).into();
 
 	test_parachain_is_trusted_teleporter!(
 		AssetHubWestend,        // Origin
 		vec![BridgeHubWestend], // Destinations
 		(native_asset, amount),
+		fee_asset_id,
 		transfer_assets
 	);
 }
@@ -240,12 +226,11 @@ fn teleport_via_transfer_assets_to_other_system_parachains_works() {
 #[test]
 fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 	let amount = WESTEND_ED * 100;
-	let native_asset: Assets = (Here, amount).into();
 
 	test_relay_is_trusted_teleporter!(
 		Westend,
 		vec![AssetHubWestend],
-		(native_asset, amount),
+		amount,
 		limited_teleport_assets
 	);
 
@@ -260,12 +245,11 @@ fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 #[test]
 fn teleport_via_transfer_assets_from_and_to_relay() {
 	let amount = WESTEND_ED * 100;
-	let native_asset: Assets = (Here, amount).into();
 
 	test_relay_is_trusted_teleporter!(
 		Westend,
 		vec![AssetHubWestend],
-		(native_asset, amount),
+		amount,
 		transfer_assets
 	);
 
@@ -476,7 +460,7 @@ fn limited_teleport_native_assets_from_asset_hub_to_relay_checking_acc_mint_work
 			bx!(t.args.dest.into()),
 			bx!(t.args.beneficiary.into()),
 			bx!(t.args.assets.into()),
-			t.args.fee_asset_item,
+			bx!(t.args.fee_asset_id.into()),
 			t.args.weight_limit,
 		)
 	}

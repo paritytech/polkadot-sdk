@@ -21,12 +21,11 @@ use emulated_integration_tests_common::{
 #[test]
 fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 	let amount = WESTEND_ED * 10;
-	let native_asset: Assets = (Here, amount).into();
 
 	test_relay_is_trusted_teleporter!(
 		Westend,                  // Origin
 		vec![CollectivesWestend], // Destinations
-		(native_asset, amount),
+		amount,
 		limited_teleport_assets
 	);
 
@@ -41,12 +40,11 @@ fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 #[test]
 fn teleport_via_transfer_assets_from_and_to_relay() {
 	let amount = WESTEND_ED * 10;
-	let native_asset: Assets = (Here, amount).into();
 
 	test_relay_is_trusted_teleporter!(
 		Westend,                  // Origin
 		vec![CollectivesWestend], // Destinations
-		(native_asset, amount),
+		amount,
 		transfer_assets
 	);
 

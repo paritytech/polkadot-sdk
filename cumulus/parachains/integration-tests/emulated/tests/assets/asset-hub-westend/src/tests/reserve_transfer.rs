@@ -230,10 +230,10 @@ pub fn para_to_system_para_receiver_assertions(t: ParaToSystemParaTest) {
 		1,
 		Parachain(PenpalA::para_id().into()),
 	));
-	for (idx, asset) in t.args.assets.into_inner().into_iter().enumerate() {
+	for asset in t.args.assets.into_inner().into_iter() {
 		let expected_id = asset.id.0.clone().try_into().unwrap();
 		let asset_amount = if let Fungible(a) = asset.fun { Some(a) } else { None }.unwrap();
-		if idx == t.args.fee_asset_item as usize {
+		if asset.id == t.args.fee_asset_id {
 			assert_expected_events!(
 				AssetHubWestend,
 				vec![
@@ -478,7 +478,7 @@ fn para_to_para_asset_hub_hop_assertions(t: ParaToParaThroughAHTest) {
 		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
 	);
 
-	let (_, asset_amount) = fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
+	let (_, asset_amount) = fee_asset(&t.args.assets, t.args.fee_asset_id).unwrap();
 
 	assert_expected_events!(
 		AssetHubWestend,
@@ -527,15 +527,6 @@ fn relay_to_para_reserve_transfer_assets(t: RelayToParaTest) -> DispatchResult {
 	};
 
 	type Runtime = <Westend as Chain>::Runtime;
-	let remote_fee_id: AssetId = t
-		.args
-		.assets
-		.clone()
-		.into_inner()
-		.get(t.args.fee_asset_item as usize)
-		.ok_or(pallet_xcm::Error::<Runtime>::Empty)?
-		.clone()
-		.id;
 
 	Dmp::make_parachain_reachable(para_id);
 	<Westend as WestendPallet>::XcmPallet::transfer_assets_using_type_and_then(
@@ -543,7 +534,7 @@ fn relay_to_para_reserve_transfer_assets(t: RelayToParaTest) -> DispatchResult {
 		bx!(t.args.dest.into()),
 		bx!(t.args.assets.into()),
 		bx!(TransferType::LocalReserve),
-		bx!(remote_fee_id.into()),
+		bx!(t.args.fee_asset_id.into()),
 		bx!(TransferType::LocalReserve),
 		bx!(VersionedXcm::from(
 			Xcm::<()>::builder_unsafe()
@@ -556,22 +547,13 @@ fn relay_to_para_reserve_transfer_assets(t: RelayToParaTest) -> DispatchResult {
 
 fn para_to_relay_reserve_transfer_assets(t: ParaToRelayTest) -> DispatchResult {
 	type Runtime = <PenpalA as Chain>::Runtime;
-	let remote_fee_id: AssetId = t
-		.args
-		.assets
-		.clone()
-		.into_inner()
-		.get(t.args.fee_asset_item as usize)
-		.ok_or(pallet_xcm::Error::<Runtime>::Empty)?
-		.clone()
-		.id;
 
 	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
 		bx!(t.args.assets.into()),
 		bx!(TransferType::DestinationReserve),
-		bx!(remote_fee_id.into()),
+		bx!(t.args.fee_asset_id.into()),
 		bx!(TransferType::DestinationReserve),
 		bx!(VersionedXcm::from(
 			Xcm::<()>::builder_unsafe()
@@ -584,22 +566,13 @@ fn para_to_relay_reserve_transfer_assets(t: ParaToRelayTest) -> DispatchResult {
 
 fn system_para_to_para_reserve_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
 	type Runtime = <AssetHubWestend as Chain>::Runtime;
-	let remote_fee_id: AssetId = t
-		.args
-		.assets
-		.clone()
-		.into_inner()
-		.get(t.args.fee_asset_item as usize)
-		.ok_or(pallet_xcm::Error::<Runtime>::Empty)?
-		.clone()
-		.id;
 
 	<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
 		bx!(t.args.assets.into()),
 		bx!(TransferType::LocalReserve),
-		bx!(remote_fee_id.into()),
+		bx!(t.args.fee_asset_id.into()),
 		bx!(TransferType::LocalReserve),
 		bx!(VersionedXcm::from(
 			Xcm::<()>::builder_unsafe()
@@ -612,22 +585,13 @@ fn system_para_to_para_reserve_transfer_assets(t: SystemParaToParaTest) -> Dispa
 
 fn para_to_system_para_reserve_transfer_assets(t: ParaToSystemParaTest) -> DispatchResult {
 	type Runtime = <PenpalA as Chain>::Runtime;
-	let remote_fee_id: AssetId = t
-		.args
-		.assets
-		.clone()
-		.into_inner()
-		.get(t.args.fee_asset_item as usize)
-		.ok_or(pallet_xcm::Error::<Runtime>::Empty)?
-		.clone()
-		.id;
 
 	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
 		bx!(t.args.assets.into()),
 		bx!(TransferType::DestinationReserve),
-		bx!(remote_fee_id.into()),
+		bx!(t.args.fee_asset_id.into()),
 		bx!(TransferType::DestinationReserve),
 		bx!(VersionedXcm::from(
 			Xcm::<()>::builder_unsafe()
@@ -646,15 +610,6 @@ fn para_to_para_through_relay_limited_reserve_transfer_assets(
 	};
 
 	type Runtime = <PenpalA as Chain>::Runtime;
-	let remote_fee_id: AssetId = t
-		.args
-		.assets
-		.clone()
-		.into_inner()
-		.get(t.args.fee_asset_item as usize)
-		.ok_or(pallet_xcm::Error::<Runtime>::Empty)?
-		.clone()
-		.id;
 
 	let relay_location = VersionedLocation::from(Location::parent());
 
@@ -666,7 +621,7 @@ fn para_to_para_through_relay_limited_reserve_transfer_assets(
 		bx!(t.args.dest.into()),
 		bx!(t.args.assets.into()),
 		bx!(TransferType::RemoteReserve(relay_location.clone())),
-		bx!(remote_fee_id.into()),
+		bx!(t.args.fee_asset_id.into()),
 		bx!(TransferType::RemoteReserve(relay_location)),
 		bx!(VersionedXcm::from(
 			Xcm::<()>::builder_unsafe()
@@ -685,7 +640,7 @@ fn para_to_para_through_asset_hub_limited_reserve_transfer_assets(
 		bx!(t.args.dest.into()),
 		bx!(t.args.beneficiary.into()),
 		bx!(t.args.assets.into()),
-		t.args.fee_asset_item,
+		t.args.fee_asset_id,
 		t.args.weight_limit,
 	)
 }
@@ -700,7 +655,7 @@ fn reserve_transfer_native_asset_from_relay_to_asset_hub_fails() {
 		AccountId32Junction { network: None, id: AssetHubWestendReceiver::get().into() }.into();
 	let amount_to_send: Balance = WESTEND_ED * 1000;
 	let assets: Assets = (Here, amount_to_send).into();
-	let fee_asset_item = 0;
+	let fee_asset_id: AssetId = (Here).into();
 
 	// this should fail
 	Westend::execute_with(|| {
@@ -709,7 +664,7 @@ fn reserve_transfer_native_asset_from_relay_to_asset_hub_fails() {
 			bx!(destination.into()),
 			bx!(beneficiary.into()),
 			bx!(assets.into()),
-			fee_asset_item,
+			bx!(fee_asset_id.into()),
 			WeightLimit::Unlimited,
 		);
 		assert_err!(
@@ -736,7 +691,7 @@ fn reserve_transfer_native_asset_from_asset_hub_to_relay_fails() {
 	let amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 1000;
 
 	let assets: Assets = (Parent, amount_to_send).into();
-	let fee_asset_item = 0;
+	let fee_asset_id: AssetId = (Parent).into();
 
 	// this should fail
 	AssetHubWestend::execute_with(|| {
@@ -746,7 +701,7 @@ fn reserve_transfer_native_asset_from_asset_hub_to_relay_fails() {
 				bx!(destination.into()),
 				bx!(beneficiary.into()),
 				bx!(assets.into()),
-				fee_asset_item,
+				bx!(fee_asset_id.into()),
 				WeightLimit::Unlimited,
 			);
 		assert_err!(

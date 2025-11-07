@@ -105,6 +105,7 @@ fn multi_hop_works() {
 	let amount_to_send = 1_000_000_000_000;
 	let asset_owner = PenpalAssetOwner::get();
 	let assets: Assets = (Parent, amount_to_send).into();
+	let fee_asset_id: AssetId = (Parent).into();
 	let relay_native_asset_location = Location::parent();
 	let sender_as_seen_by_ah = AssetHubRococo::sibling_location_of(PenpalA::para_id());
 	let sov_of_sender_on_ah = AssetHubRococo::sovereign_account_id_of(sender_as_seen_by_ah.clone());
@@ -132,7 +133,7 @@ fn multi_hop_works() {
 			amount_to_send,
 			assets,
 			None,
-			0,
+			fee_asset_id,
 		),
 	};
 	let mut test = ParaToParaThroughAHTest::new(test_args);

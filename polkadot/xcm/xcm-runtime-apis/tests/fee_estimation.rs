@@ -61,7 +61,7 @@ fn fee_estimation_for_teleport() {
 				(Here, 100u128).into(),
 				(Parent, 20u128).into(),
 			])),
-			fee_asset_item: 1, // Fees are paid with the RelayToken
+			fee_asset_id: Box::new((Parent).into()), // Fees are paid with the RelayToken
 			weight_limit: Unlimited,
 		});
 		let origin = OriginCaller::system(RawOrigin::Signed(who));
@@ -226,7 +226,7 @@ fn dry_run_reserve_asset_transfer_common(
 					.into_version(input_xcm_version)
 					.unwrap(),
 			),
-			fee_asset_item: 0,
+			fee_asset_id: Box::new((Parent).into()),
 			weight_limit: Unlimited,
 		});
 		let origin = OriginCaller::system(RawOrigin::Signed(who));

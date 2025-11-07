@@ -23,12 +23,12 @@ use xcm::latest::prelude::*;
 /// in one asset and that asset is known.
 pub fn teleport_assets_delivery_fees<S: SendXcm>(
 	assets: Assets,
-	fee_asset_item: u32,
+	fee_asset_id: AssetId,
 	weight_limit: WeightLimit,
 	beneficiary: Location,
 	destination: Location,
 ) -> u128 {
-	let message = teleport_assets_dummy_message(assets, fee_asset_item, weight_limit, beneficiary);
+	let message = teleport_assets_dummy_message(assets, fee_asset_id, weight_limit, beneficiary);
 	get_fungible_delivery_fees::<S>(destination, message)
 }
 
@@ -82,14 +82,14 @@ pub fn pay_over_xcm_delivery_fees<S: SendXcm>(
 /// Also has same encoded size as the one created by the reserve transfer assets extrinsic.
 fn teleport_assets_dummy_message(
 	assets: Assets,
-	fee_asset_item: u32,
+	fee_asset_id: AssetId,
 	weight_limit: WeightLimit,
 	beneficiary: Location,
 ) -> Xcm<()> {
 	Xcm(vec![
 		ReceiveTeleportedAsset(assets.clone()), // Same encoded size as `ReserveAssetDeposited`
 		ClearOrigin,
-		BuyExecution { fees: assets.get(fee_asset_item as usize).unwrap().clone(), weight_limit },
+		BuyExecution { fees: assets.inner().iter().find(|a| a.id == fee_asset_id).unwrap().clone(), weight_limit },
 		DepositAsset { assets: Wild(AllCounted(assets.len() as u32)), beneficiary },
 		SetTopic([0u8; 32]), // Dummy topic
 	])

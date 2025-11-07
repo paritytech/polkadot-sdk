@@ -22,12 +22,11 @@ use emulated_integration_tests_common::{
 #[test]
 fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 	let amount = ROCOCO_ED * 100;
-	let native_asset: Assets = (Here, amount).into();
 
 	test_relay_is_trusted_teleporter!(
 		Rococo,
 		vec![PeopleRococo],
-		(native_asset, amount),
+		amount,
 		limited_teleport_assets
 	);
 
@@ -42,12 +41,11 @@ fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 #[test]
 fn teleport_via_transfer_assets_from_and_to_relay() {
 	let amount = ROCOCO_ED * 100;
-	let native_asset: Assets = (Here, amount).into();
 
 	test_relay_is_trusted_teleporter!(
 		Rococo,
 		vec![PeopleRococo],
-		(native_asset, amount),
+		amount,
 		transfer_assets
 	);
 
@@ -109,7 +107,7 @@ fn system_para_limited_teleport_assets(t: SystemParaToRelayTest) -> DispatchResu
 		bx!(t.args.dest.into()),
 		bx!(t.args.beneficiary.into()),
 		bx!(t.args.assets.into()),
-		t.args.fee_asset_item,
+		bx!(t.args.fee_asset_id.into()),
 		t.args.weight_limit,
 	)
 }
