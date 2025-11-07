@@ -1,0 +1,15 @@
+title: Fix origin check in EPMB's manage extrinsic
+doc:
+- audience: Todo
+  description: |-
+    .. And
+
+    - [x] Break down `Admin` and `Manager` origins for easier configuration
+    - [x] update the corresponding weights
+    - [x] a few more tests
+    - [x] complete the `manage` test cases.
+crates:
+- name: asset-hub-westend-runtime
+  bump: major
+- name: pallet-election-provider-multi-block
+  bump: major
