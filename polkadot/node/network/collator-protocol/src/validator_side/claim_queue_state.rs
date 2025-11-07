@@ -1032,7 +1032,7 @@ mod test {
 		}
 
 		#[test]
-		fn basic_claims_work() {
+		fn basic_claims_works() {
 			let mut state = ClaimQueueState::new();
 			let relay_parent_a = Hash::from_low_u64_be(1);
 			let para_id = ParaId::new(1);
