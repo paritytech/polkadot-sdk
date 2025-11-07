@@ -59,7 +59,7 @@ where
 	}
 
 	fn current_addr(&self) -> H160 {
-		self.calls.last().map(|c| c.addr.clone()).unwrap_or_default()
+		self.calls.last().map(|c| c.addr).unwrap_or_default()
 	}
 
 	fn current_is_create(&self) -> bool {
