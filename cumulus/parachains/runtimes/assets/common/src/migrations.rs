@@ -141,7 +141,6 @@ pub mod foreign_assets_reserves {
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 			let prev_state = TryRuntimeState::<T, I>::decode(&mut &state[..])
 				.expect("Failed to decode the previous storage state");
-			// let local_chain = Location::here();
 			for id in prev_state.assets {
 				let reserves = pallet_assets::Pallet::<T, I>::get_reserves_data(id.clone());
 				tracing::info!(target: "runtime::ForeignAssetsReservesMigration::post_upgrade", ?id, ?reserves, "verify asset");
