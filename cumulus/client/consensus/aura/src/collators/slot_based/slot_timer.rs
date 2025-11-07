@@ -217,7 +217,7 @@ where
 		&mut self,
 		mut authoring_duration: Duration,
 	) -> Option<Duration> {
-		let Ok((duration, next_slot)) = self.time_until_next_slot() else {
+		let Ok((duration, next_block_slot)) = self.time_until_next_slot() else {
 			tracing::error!(
 				target: LOG_TARGET,
 				"Failed to fetch slot duration from runtime. Using unadjusted authoring duration."
@@ -225,8 +225,7 @@ where
 			return Some(authoring_duration);
 		};
 
-		let Ok((next_duration_change, next_slot_change)) =
-			self.compute_time_until_next_slot_change()
+		let Ok((duration_until_next_slot, next_slot)) = self.compute_time_until_next_slot_change()
 		else {
 			tracing::error!(
 				target: LOG_TARGET,
@@ -236,26 +235,27 @@ where
 		};
 
 		// The authoring of blocks must stop 1 second before the slot ends.
-		let deadline = next_duration_change.saturating_sub(BLOCK_PRODUCTION_ADJUSTMENT_MS);
+		let duration_until_deadline =
+			duration_until_next_slot.saturating_sub(BLOCK_PRODUCTION_ADJUSTMENT_MS);
 		tracing::debug!(
 			target: LOG_TARGET,
 			?authoring_duration,
 			?duration,
 			last_reported_slot = ?self.last_reported_slot,
+			?next_block_slot,
+			?duration_until_next_slot,
 			?next_slot,
-			?next_duration_change,
-			?next_slot_change,
-			?deadline,
+			?duration_until_deadline,
 			"Adjusting authoring duration for slot.",
 		);
 
 		// Ensure no blocks are produced in the last second of the slot,
 		// regardless of authoring duration.
-		if deadline == Duration::ZERO {
+		if duration_until_deadline == Duration::ZERO {
 			tracing::debug!(
 				target: LOG_TARGET,
-				?next_duration_change,
-				?next_slot_change,
+				?duration_until_next_slot,
+				?next_slot,
 				"Not enough time left in the slot to adjust authoring duration. Skipping block production for the slot."
 			);
 
@@ -264,8 +264,8 @@ where
 
 		// Clamp the authoring duration to fit into the slot deadline.
 		// For most cases, the deadline is farther in the future than the authoring duration.
-		if authoring_duration >= deadline {
-			authoring_duration = deadline;
+		if authoring_duration >= duration_until_deadline {
+			authoring_duration = duration_until_deadline;
 
 			// Ensure we are not going below the minimum interval within a reasonable threshold.
 			// For 12 cores, we might have a scenario where the last 3 blocks are skipped:
