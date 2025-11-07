@@ -169,7 +169,12 @@ impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back>
 		}
 	}
 
-	fn handle_stream_created(&mut self, stream_id: u64, label: NotificationLabel, backtrace: Arc<Backtrace>) {
+	fn handle_stream_created(
+		&mut self,
+		stream_id: u64,
+		label: NotificationLabel,
+		backtrace: Arc<Backtrace>,
+	) {
 		self.streams.insert(
 			stream_id,
 			StreamInfo {
@@ -183,7 +188,12 @@ impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back>
 		log::debug!(target: LOG_TARGET, "Stream {} created for {:?} notifications", stream_id, label);
 	}
 
-	fn handle_announce_message(&mut self, hash: Block::Hash, label: NotificationLabel, stream_id: u64) {
+	fn handle_announce_message(
+		&mut self,
+		hash: Block::Hash,
+		label: NotificationLabel,
+		stream_id: u64,
+	) {
 		if let Some(entry) = self.pinned_blocks.get_or_insert(hash, Default::default) {
 			*entry = *entry + 1;
 		}
@@ -200,7 +210,12 @@ impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back>
 		}
 	}
 
-	fn handle_unpin_message(&mut self, hash: Block::Hash, label: NotificationLabel, stream_id: u64) -> Result<(), ()> {
+	fn handle_unpin_message(
+		&mut self,
+		hash: Block::Hash,
+		label: NotificationLabel,
+		stream_id: u64,
+	) -> Result<(), ()> {
 		if let Some(refcount) = self.pinned_blocks.peek_mut(&hash) {
 			*refcount = *refcount - 1;
 			if *refcount == 0 {
@@ -217,8 +232,10 @@ impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back>
 			log::debug!(target: LOG_TARGET, "Received unpin message for already unpinned block. hash = {hash:?}");
 		}
 		match label {
-			NotificationLabel::Import => self.active_import_count = self.active_import_count.saturating_sub(1),
-			NotificationLabel::Finality => self.active_finality_count = self.active_finality_count.saturating_sub(1),
+			NotificationLabel::Import =>
+				self.active_import_count = self.active_import_count.saturating_sub(1),
+			NotificationLabel::Finality =>
+				self.active_finality_count = self.active_finality_count.saturating_sub(1),
 		}
 
 		// Update per-stream tracking
@@ -274,7 +291,7 @@ impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back>
 						stream_info.active_count,
 						stream_info.creation_backtrace
 					);
-				} else if !stream_info.is_closed && stream_info.active_count > 1000 {
+				} else if !stream_info.is_closed && stream_info.active_count > 10 {
 					// Warn about potentially slow consumers
 					log::warn!(
 						target: LOG_TARGET,

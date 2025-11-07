@@ -106,7 +106,7 @@ async fn forward_collator_events(
 	// Collators do no need to pin any specific blocks
 	let (dummy_sink, _) = tracing_unbounded("does-not-matter", 42);
 	let dummy_unpin_handle =
-		UnpinHandle::new(Default::default(), NotificationLabel::Finality, dummy_sink);
+		UnpinHandle::new(Default::default(), NotificationLabel::Finality, 0, dummy_sink);
 
 	loop {
 		select! {
