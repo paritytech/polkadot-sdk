@@ -25,7 +25,7 @@ use rococo::runtime_types::{
 		junctions::Junctions,
 		location::Location,
 	},
-	xcm::{VersionedAssets, VersionedLocation},
+	xcm::{VersionedAssetId, VersionedAssets, VersionedLocation},
 };
 
 use serde_json::json;
