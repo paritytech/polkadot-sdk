@@ -49,7 +49,7 @@ const BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS: Duration = Duration::from_millis(500
 /// For example, for 12 cores 500ms blocks: the next slot is scheduled in 490ms due to delays.
 /// In that case, we still want to attempt producing the block, as missing the slot would be worse
 /// than producing slightly too fast.
-const BLOCK_PRODUCTION_THRESHOLD_MS: Duration = Duration::from_millis(50);
+const BLOCK_PRODUCTION_THRESHOLD_MS: Duration = Duration::from_millis(100);
 
 /// The amount of time the authoring duration of the last block production attempt
 /// should be reduced by to fit into the slot timing.
