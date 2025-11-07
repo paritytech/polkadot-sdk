@@ -28,7 +28,7 @@ use frame_support::{
 	sp_runtime::traits::StaticLookup,
 	traits::{Currency, Get, Polling},
 };
-use pallet_conviction_voting::{AccountVote, Config, Conviction, Tally, Vote, Voting, WeightInfo};
+use pallet_conviction_voting::{AccountVote, Config, Conviction, Tally, Vote, Voting};
 use pallet_revive::{
 	frame_system,
 	precompiles::{
@@ -46,6 +46,9 @@ use IConvictionVoting::IConvictionVotingCalls;
 mod mock;
 #[cfg(test)]
 mod tests;
+
+pub mod weights;
+pub use weights::WeightInfo;
 
 pub type BalanceOf<T> = <<T as pallet_conviction_voting::Config>::Currency as Currency<
 	<T as pallet_revive::frame_system::Config>::AccountId,
@@ -125,9 +128,8 @@ where
 				conviction,
 				balance,
 			}) => {
-				let _ = env.charge(
-					<T as Config>::WeightInfo::vote_new()
-						.max(<T as Config>::WeightInfo::vote_existing()),
+				let _ = env.charge(<() as WeightInfo>::vote_new()
+						.max(<() as WeightInfo>::vote_existing()),
 				)?;
 
 				let vote = Vote { aye: *aye, conviction: Self::to_conviction(conviction)? };
@@ -141,9 +143,8 @@ where
 				ayeAmount,
 				nayAmount,
 			}) => {
-				let _ = env.charge(
-					<T as Config>::WeightInfo::vote_new()
-						.max(<T as Config>::WeightInfo::vote_existing()),
+				let _ = env.charge(<() as WeightInfo>::vote_new()
+						.max(<() as WeightInfo>::vote_existing()),
 				)?;
 
 				let account_vote = AccountVote::Split {
@@ -159,9 +160,8 @@ where
 				nayAmount,
 				abstainAmount,
 			}) => {
-				let _ = env.charge(
-					<T as Config>::WeightInfo::vote_new()
-						.max(<T as Config>::WeightInfo::vote_existing()),
+				let _ = env.charge(<() as WeightInfo>::vote_new()
+						.max(<() as WeightInfo>::vote_existing()),
 				)?;
 
 				let account_vote = AccountVote::SplitAbstain {
@@ -179,7 +179,7 @@ where
 				balance,
 			}) => {
 				let _ = env
-					.charge(<T as Config>::WeightInfo::delegate(<T as Config>::MaxVotes::get()))?;
+					.charge(<() as WeightInfo>::delegate(<T as Config>::MaxVotes::get()))?;
 
 				let target_account_id = T::AddressMapper::to_account_id(&H160::from(to.0 .0));
 				let target_source = T::Lookup::unlookup(target_account_id);
@@ -197,7 +197,7 @@ where
 				.map_err(|error| revert(&error, "ConvictionVoting: delegation failed"))
 			},
 			IConvictionVotingCalls::undelegate(IConvictionVoting::undelegateCall { trackId }) => {
-				let _ = env.charge(<T as Config>::WeightInfo::undelegate(
+				let _ = env.charge(<() as WeightInfo>::undelegate(
 					<T as Config>::MaxVotes::get(),
 				))?;
 
@@ -213,6 +213,10 @@ where
 				trackId,
 				referendumIndex,
 			}) => {
+				let _ = env.charge(<() as WeightInfo>::get_voting(
+					<T as Config>::MaxVotes::get(),
+				))?;
+
 				let who_account_id = T::AddressMapper::to_account_id(&H160::from(who.0 .0));
 				let track_id = Self::u16_to_track_id(trackId)?;
 				let referendum_index = Self::u32_to_referendum_index(referendumIndex)?;
