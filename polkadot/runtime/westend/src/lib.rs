@@ -76,8 +76,7 @@ use polkadot_runtime_common::{
 	BalanceToU256, BlockHashCount, BlockLength, SlowAdjustingFeeUpdate, U256ToBalance,
 };
 use polkadot_runtime_parachains::{
-	assigner_coretime as parachains_assigner_coretime,
-	configuration as parachains_configuration,
+	assigner_coretime as parachains_assigner_coretime, configuration as parachains_configuration,
 	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio,
 	coretime, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
@@ -2096,7 +2095,6 @@ pub mod migrations {
 			pallet_staking::migrations::v17::MigrateDisabledToSession<Runtime>,
 		>,
 		// Migrate scheduler v3 -> v4 and on-demand v1 -> v2
-		parachains_on_demand::migration::MigrateToOnDemandPalletName<Runtime>,
 		parachains_on_demand::migration::MigrateV1ToV2<Runtime>,
 		parachains_scheduler::migration::MigrateV3ToV4<Runtime>,
 		// permanent
