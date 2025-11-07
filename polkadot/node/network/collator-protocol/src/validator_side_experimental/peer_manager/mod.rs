@@ -71,6 +71,7 @@ enum DeclarationOutcome {
 pub struct PeerManager<B> {
 	db: B,
 	connected: ConnectedPeers,
+	/// The `SessionIndex` of the last finalized block
 	latest_finalized_session: Option<SessionIndex>,
 }
 
@@ -195,7 +196,7 @@ impl<B: Backend> PeerManager<B> {
 		self.db.prune_paras(registered_paras).await;
 	}
 
-	/// Process a potential change of the scheduled paras. Return a record of the disconnected
+	/// Process a potential change of the scheduled paras. Returns a record of the disconnected
 	/// peers.
 	pub async fn scheduled_paras_update<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
