@@ -1,10 +1,10 @@
-title: Add eth_substrate_call extrinsic for development testing
+title: Add eth_substrate_call extrinsic.
 doc:
 - audience: Runtime Dev
   description: |-
     Fixes https://github.com/paritytech/contract-issues/issues/180
 
-    This PR introduces `eth_substrate_call`, a new extrinsic in pallet-revive that enables Substrate runtime calls from Ethereum transactions in development environments. This allows tools like Hardhat to invoke Substrate extrinsics (e.g., `upload_code`) via the Ethereum RPC during contract deployment and testing.
+    This PR introduces `eth_substrate_call`, a new extrinsic in pallet-revive that enables Substrate runtime calls from Ethereum transactions. This allows tools like Hardhat to invoke Substrate extrinsics (e.g., `upload_code`) via the Ethereum RPC.
 
     Includes:
     - New eth-rpc test validating the functionality
