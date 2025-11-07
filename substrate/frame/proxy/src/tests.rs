@@ -403,6 +403,34 @@ fn filtering_works() {
 		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, call.clone()));
 		expect_events(vec![
 			BalancesEvent::<Test>::Unreserved { who: 1, amount: 5 }.into(),
+			ProxyEvent::ProxyRemoved {
+				delegator: 1,
+				delegatee: 2,
+				proxy_type: ProxyType::Any,
+				delay: 0,
+			}
+			.into(),
+			ProxyEvent::ProxyRemoved {
+				delegator: 1,
+				delegatee: 3,
+				proxy_type: ProxyType::JustTransfer,
+				delay: 0,
+			}
+			.into(),
+			ProxyEvent::ProxyRemoved {
+				delegator: 1,
+				delegatee: 4,
+				proxy_type: ProxyType::JustUtility,
+				delay: 0,
+			}
+			.into(),
+			ProxyEvent::ProxyRemoved {
+				delegator: 1,
+				delegatee: 5,
+				proxy_type: ProxyType::Any,
+				delay: 0,
+			}
+			.into(),
 			ProxyEvent::ProxyExecuted { result: Ok(()) }.into(),
 		]);
 	});

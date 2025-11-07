@@ -20,7 +20,7 @@ use sp_runtime::generic::DigestItem;
 
 /// Custom header digest items, inserted as DigestItem::Other
 #[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, RuntimeDebug)]
-pub enum CustomDigestItem {
+pub enum SnowbridgeDigestItem {
 	#[codec(index = 0)]
 	/// Merkle root of outbound Snowbridge messages.
 	Snowbridge(H256),
@@ -30,8 +30,8 @@ pub enum CustomDigestItem {
 }
 
 /// Convert custom application digest item into a concrete digest item
-impl From<CustomDigestItem> for DigestItem {
-	fn from(val: CustomDigestItem) -> Self {
+impl From<SnowbridgeDigestItem> for DigestItem {
+	fn from(val: SnowbridgeDigestItem) -> Self {
 		DigestItem::Other(val.encode())
 	}
 }

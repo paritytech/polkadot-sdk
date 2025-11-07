@@ -1,0 +1,11 @@
+title: Add upload evm code function
+doc:
+- audience: Node Dev
+  description: |-
+    EVM Runtime Code Upload for Foundry Integration
+    This feature enables direct upload of EVM runtime bytecode (deployed contract code without constructor) to the pallet-revive, supporting Foundry's code migration functionality between REVM and pallet-revive execution environments.
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-fixtures
+  bump: major
