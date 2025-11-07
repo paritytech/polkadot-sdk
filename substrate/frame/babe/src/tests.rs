@@ -332,11 +332,11 @@ fn only_root_can_enact_config_change() {
 		let next_config =
 			NextConfigDescriptor::V1 { c: (1, 4), allowed_slots: AllowedSlots::PrimarySlots };
 
-		let res = Babe::plan_config_change(RuntimeOrigin::none(), next_config.clone());
+		let res = Babe::plan_config_change(RuntimeOrigin::none_with_basic_filter(), next_config.clone());
 
 		assert_noop!(res, DispatchError::BadOrigin);
 
-		let res = Babe::plan_config_change(RuntimeOrigin::signed(1), next_config.clone());
+		let res = Babe::plan_config_change(RuntimeOrigin::signed_with_basic_filter(1), next_config.clone());
 
 		assert_noop!(res, DispatchError::BadOrigin);
 
@@ -473,7 +473,7 @@ fn report_equivocation_current_session_works() {
 
 		// report the equivocation
 		Babe::report_equivocation_unsigned(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::none_with_basic_filter(),
 			Box::new(equivocation_proof),
 			key_owner_proof,
 		)
@@ -545,7 +545,7 @@ fn report_equivocation_old_session_works() {
 
 		// report the equivocation
 		Babe::report_equivocation_unsigned(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::none_with_basic_filter(),
 			Box::new(equivocation_proof),
 			key_owner_proof,
 		)
@@ -597,7 +597,7 @@ fn report_equivocation_invalid_key_owner_proof() {
 		key_owner_proof.session = 0;
 		assert_err!(
 			Babe::report_equivocation_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::none_with_basic_filter(),
 				Box::new(equivocation_proof.clone()),
 				key_owner_proof
 			),
@@ -617,7 +617,7 @@ fn report_equivocation_invalid_key_owner_proof() {
 
 		assert_err!(
 			Babe::report_equivocation_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::none_with_basic_filter(),
 				Box::new(equivocation_proof),
 				key_owner_proof,
 			),
@@ -651,7 +651,7 @@ fn report_equivocation_invalid_equivocation_proof() {
 		let assert_invalid_equivocation = |equivocation_proof| {
 			assert_err!(
 				Babe::report_equivocation_unsigned(
-					RuntimeOrigin::none(),
+					RuntimeOrigin::none_with_basic_filter(),
 					Box::new(equivocation_proof),
 					key_owner_proof.clone(),
 				),
@@ -793,7 +793,7 @@ fn report_equivocation_validate_unsigned_prevents_duplicates() {
 
 		// we submit the report
 		Babe::report_equivocation_unsigned(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::none_with_basic_filter(),
 			Box::new(equivocation_proof),
 			key_owner_proof,
 		)
@@ -877,7 +877,7 @@ fn report_equivocation_after_skipped_epochs_works() {
 		// report the equivocation, in order for the validation to pass the mapping
 		// between epoch index and session index must be checked.
 		assert_ok!(Babe::report_equivocation_unsigned(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::none_with_basic_filter(),
 			Box::new(equivocation_proof),
 			key_owner_proof
 		));
@@ -916,7 +916,7 @@ fn valid_equivocation_reports_dont_pay_fees() {
 
 		// report the equivocation.
 		let post_info = Babe::report_equivocation_unsigned(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::none_with_basic_filter(),
 			Box::new(equivocation_proof.clone()),
 			key_owner_proof.clone(),
 		)
@@ -930,7 +930,7 @@ fn valid_equivocation_reports_dont_pay_fees() {
 		// report the equivocation again which is invalid now since it is
 		// duplicate.
 		let post_info = Babe::report_equivocation_unsigned(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::none_with_basic_filter(),
 			Box::new(equivocation_proof),
 			key_owner_proof,
 		)

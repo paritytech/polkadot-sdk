@@ -75,7 +75,7 @@ fn two_party_successful_swap() {
 	// A creates the swap on chain1.
 	chain1.execute_with(|| {
 		AtomicSwap::create_swap(
-			RuntimeOrigin::signed(A),
+			RuntimeOrigin::signed_with_basic_filter(A),
 			B,
 			hashed_proof,
 			BalanceSwapAction::new(50),
@@ -90,7 +90,7 @@ fn two_party_successful_swap() {
 	// B creates the swap on chain2.
 	chain2.execute_with(|| {
 		AtomicSwap::create_swap(
-			RuntimeOrigin::signed(B),
+			RuntimeOrigin::signed_with_basic_filter(B),
 			A,
 			hashed_proof,
 			BalanceSwapAction::new(75),
@@ -105,7 +105,7 @@ fn two_party_successful_swap() {
 	// A reveals the proof and claims the swap on chain2.
 	chain2.execute_with(|| {
 		AtomicSwap::claim_swap(
-			RuntimeOrigin::signed(A),
+			RuntimeOrigin::signed_with_basic_filter(A),
 			proof.to_vec(),
 			BalanceSwapAction::new(75),
 		)
@@ -118,7 +118,7 @@ fn two_party_successful_swap() {
 	// B use the revealed proof to claim the swap on chain1.
 	chain1.execute_with(|| {
 		AtomicSwap::claim_swap(
-			RuntimeOrigin::signed(B),
+			RuntimeOrigin::signed_with_basic_filter(B),
 			proof.to_vec(),
 			BalanceSwapAction::new(50),
 		)

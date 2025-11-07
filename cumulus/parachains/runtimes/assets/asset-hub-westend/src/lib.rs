@@ -1645,13 +1645,13 @@ impl
 		let token_second = alloc::boxed::Box::new(asset_id);
 
 		assert_ok!(AssetConversion::create_pool(
-			RuntimeOrigin::signed(lp_provider.clone()),
+			RuntimeOrigin::signed_with_basic_filter(lp_provider.clone()),
 			token_native.clone(),
 			token_second.clone()
 		));
 
 		assert_ok!(AssetConversion::add_liquidity(
-			RuntimeOrigin::signed(lp_provider.clone()),
+			RuntimeOrigin::signed_with_basic_filter(lp_provider.clone()),
 			token_native,
 			token_second,
 			(u32::MAX / 2).into(), // 1 desired
@@ -2493,7 +2493,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 					let native_asset_location = WestendLocation::get();
 					let native_asset_id = AssetId(native_asset_location.clone());
 					let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
-					let origin = RuntimeOrigin::signed(account.clone());
+					let origin = RuntimeOrigin::signed_with_basic_filter(account.clone());
 					let asset_location = Location::new(1, [Parachain(2001)]);
 					let asset_id = AssetId(asset_location.clone());
 

@@ -145,8 +145,12 @@ pub fn expand_outer_origin(
 				self.caller = caller;
 			}
 
-			fn set_caller_from(&mut self, other: impl Into<Self>) {
-				self.caller = other.into().caller;
+			fn set_caller_from(
+				&mut self,
+				other: impl #scrate::traits::IntoWithBasicFilter<Self>,
+			) {
+				use #scrate::traits::IntoWithBasicFilter;
+				self.caller = other.into_with_basic_filter().caller;
 			}
 
 			fn filter_call(&self, call: &Self::Call) -> bool {
@@ -250,6 +254,16 @@ pub fn expand_outer_origin(
 			}
 		}
 
+		impl #scrate::traits::FromWithBasicFilter<
+			#system_path::RawOrigin<<#runtime as #system_path::Config>::AccountId>
+		> for OriginCaller {
+			fn from_with_basic_filter(
+				x: #system_path::RawOrigin<<#runtime as #system_path::Config>::AccountId>,
+			) -> Self {
+				OriginCaller::system(#system_path::Origin::<#runtime>::from(x))
+			}
+		}
+
 		impl TryFrom<OriginCaller> for #system_path::Origin<#runtime> {
 			type Error = OriginCaller;
 			fn try_from(x: OriginCaller)
@@ -260,6 +274,15 @@ pub fn expand_outer_origin(
 				} else {
 					Err(x)
 				}
+			}
+		}
+
+		impl #scrate::traits::FromWithBasicFilter<#system_path::RawOrigin<<#runtime as #system_path::Config>::AccountId>>
+			for RuntimeOrigin
+		{
+			fn from_with_basic_filter(x: #system_path::RawOrigin<<#runtime as #system_path::Config>::AccountId>) -> Self {
+				use #scrate::traits::IntoWithBasicFilter;
+				<#system_path::Origin<#runtime>>::from(x).into_with_basic_filter()
 			}
 		}
 
@@ -299,7 +322,7 @@ pub fn expand_outer_origin(
 		}
 		impl #scrate::traits::FromWithBasicFilter<Option<<#runtime as #system_path::Config>::AccountId>> for RuntimeOrigin {
 			#[doc = #doc_string_runtime_origin_with_caller]
-			fn from(x: Option<<#runtime as #system_path::Config>::AccountId>) -> Self {
+			fn from_with_basic_filter(x: Option<<#runtime as #system_path::Config>::AccountId>) -> Self {
 				use #scrate::traits::IntoWithBasicFilter;
 				<#system_path::Origin<#runtime>>::from(x).into_with_basic_filter()
 			}
@@ -362,7 +385,7 @@ fn expand_origin_caller_variant(
 }
 
 fn expand_origin_pallet_conversions(
-	_scrate: &TokenStream,
+	scrate: &TokenStream,
 	runtime: &Ident,
 	pallet: &Pallet,
 	instance: Option<&Ident>,
@@ -387,6 +410,12 @@ fn expand_origin_pallet_conversions(
 		impl From<#pallet_origin> for OriginCaller {
 			fn from(x: #pallet_origin) -> Self {
 				OriginCaller::#variant_name(x)
+			}
+		}
+
+		impl #scrate::traits::FromWithBasicFilter<#pallet_origin> for OriginCaller {
+			fn from_with_basic_filter(x: #pallet_origin) -> Self {
+				x.into()
 			}
 		}
 

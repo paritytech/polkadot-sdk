@@ -17,6 +17,7 @@
 
 //! Tests for transaction-storage pallet.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::{Pallet as TransactionStorage, *};
 use crate::mock::*;
 use frame_support::{assert_noop, assert_ok};
@@ -32,11 +33,11 @@ fn discards_data() {
 		run_to_block(1, || None);
 		let caller = 1;
 		assert_ok!(TransactionStorage::<Test>::store(
-			RawOrigin::Signed(caller).into(),
+			RawOrigin::Signed(caller).into_with_basic_filter(),
 			vec![0u8; 2000 as usize]
 		));
 		assert_ok!(TransactionStorage::<Test>::store(
-			RawOrigin::Signed(caller).into(),
+			RawOrigin::Signed(caller).into_with_basic_filter(),
 			vec![0u8; 2000 as usize]
 		));
 		let proof_provider = || {
@@ -65,13 +66,13 @@ fn burns_fee() {
 		let caller = 1;
 		assert_noop!(
 			TransactionStorage::<Test>::store(
-				RawOrigin::Signed(5).into(),
+				RawOrigin::Signed(5).into_with_basic_filter(),
 				vec![0u8; 2000 as usize]
 			),
 			DispatchError::Token(FundsUnavailable),
 		);
 		assert_ok!(TransactionStorage::<Test>::store(
-			RawOrigin::Signed(caller).into(),
+			RawOrigin::Signed(caller).into_with_basic_filter(),
 			vec![0u8; 2000 as usize]
 		));
 		assert_eq!(Balances::free_balance(1), 1_000_000_000 - 2000 * 2 - 200);
@@ -84,7 +85,7 @@ fn checks_proof() {
 		run_to_block(1, || None);
 		let caller = 1;
 		assert_ok!(TransactionStorage::<Test>::store(
-			RawOrigin::Signed(caller).into(),
+			RawOrigin::Signed(caller).into_with_basic_filter(),
 			vec![0u8; MAX_DATA_SIZE as usize]
 		));
 		run_to_block(10, || None);
@@ -93,7 +94,7 @@ fn checks_proof() {
 			.unwrap()
 			.unwrap();
 		assert_noop!(
-			TransactionStorage::<Test>::check_proof(RuntimeOrigin::none(), proof,),
+			TransactionStorage::<Test>::check_proof(RuntimeOrigin::none_with_basic_filter(), proof,),
 			Error::<Test>::UnexpectedProof,
 		);
 		run_to_block(11, || None);
@@ -102,14 +103,14 @@ fn checks_proof() {
 		let invalid_proof =
 			build_proof(parent_hash.as_ref(), vec![vec![0u8; 1000]]).unwrap().unwrap();
 		assert_noop!(
-			TransactionStorage::<Test>::check_proof(RuntimeOrigin::none(), invalid_proof,),
+			TransactionStorage::<Test>::check_proof(RuntimeOrigin::none_with_basic_filter(), invalid_proof,),
 			Error::<Test>::InvalidProof,
 		);
 
 		let proof = build_proof(parent_hash.as_ref(), vec![vec![0u8; MAX_DATA_SIZE as usize]])
 			.unwrap()
 			.unwrap();
-		assert_ok!(TransactionStorage::<Test>::check_proof(RuntimeOrigin::none(), proof));
+		assert_ok!(TransactionStorage::<Test>::check_proof(RuntimeOrigin::none_with_basic_filter(), proof));
 	});
 }
 
@@ -136,7 +137,7 @@ fn verify_chunk_proof_works() {
 		let caller = 1;
 		for transaction in transactions.clone() {
 			assert_ok!(TransactionStorage::<Test>::store(
-				RawOrigin::Signed(caller).into(),
+				RawOrigin::Signed(caller).into_with_basic_filter(),
 				transaction
 			));
 		}
@@ -175,17 +176,17 @@ fn renews_data() {
 		run_to_block(1, || None);
 		let caller = 1;
 		assert_noop!(
-			TransactionStorage::<Test>::store(RawOrigin::Signed(caller).into(), vec![]),
+			TransactionStorage::<Test>::store(RawOrigin::Signed(caller).into_with_basic_filter(), vec![]),
 			Error::<Test>::EmptyTransaction
 		);
 		assert_ok!(TransactionStorage::<Test>::store(
-			RawOrigin::Signed(caller).into(),
+			RawOrigin::Signed(caller).into_with_basic_filter(),
 			vec![0u8; 2000]
 		));
 		let info = BlockTransactions::<Test>::get().last().unwrap().clone();
 		run_to_block(6, || None);
 		assert_ok!(TransactionStorage::<Test>::renew(
-			RawOrigin::Signed(caller).into(),
+			RawOrigin::Signed(caller).into_with_basic_filter(),
 			1, // block
 			0, // transaction
 		));

@@ -521,7 +521,7 @@ fn mock_delegatecall_hook_works(caller_type: FixtureType, callee_type: FixtureTy
 						Callee::echoCall { _data: magic_number }.abi_encode().into(),
 						DelegateInfo {
 							callee: callee_addr,
-							caller: ExecOrigin::<Test>::from_runtime_origin(crate::OriginFor::<Test>::signed(
+							caller: ExecOrigin::<Test>::from_runtime_origin(crate::OriginFor::<Test>::signed_with_basic_filter(
 								<Test as crate::pallet::Config>::AddressMapper::to_fallback_account_id(
 									&caller_addr,
 								),

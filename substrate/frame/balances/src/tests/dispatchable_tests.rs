@@ -17,6 +17,7 @@
 
 //! Tests regarding the functionality of the dispatchables/extrinsics.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use crate::{
 	AdjustmentDirection::{Decrease as Dec, Increase as Inc},
@@ -76,7 +77,7 @@ fn force_transfer_works() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		let _ = Balances::mint_into(&1, 111);
 		assert_noop!(Balances::force_transfer(Some(2).into(), 1, 2, 69), BadOrigin,);
-		assert_ok!(Balances::force_transfer(RawOrigin::Root.into(), 1, 2, 69));
+		assert_ok!(Balances::force_transfer(RawOrigin::Root.into_with_basic_filter(), 1, 2, 69));
 		assert_eq!(Balances::total_balance(&1), 42);
 		assert_eq!(Balances::total_balance(&2), 69);
 	});
@@ -240,13 +241,13 @@ fn force_adjust_total_issuance_example() {
 		assert_eq!(old_ti, 64, "TI should be 64");
 
 		// Now test the increase:
-		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Inc, 32));
+		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into_with_basic_filter(), Inc, 32));
 		let new_ti = pallet_balances::TotalIssuance::<Test>::get();
 		assert_eq!(old_ti + 32, new_ti, "Should increase by 32");
 
 		// If Alice tries to call it, it errors:
 		assert_noop!(
-			Balances::force_adjust_total_issuance(RawOrigin::Signed(ALICE).into(), Inc, 32),
+			Balances::force_adjust_total_issuance(RawOrigin::Signed(ALICE).into_with_basic_filter(), Inc, 32),
 			BadOrigin,
 		);
 	});
@@ -259,7 +260,7 @@ fn force_adjust_total_issuance_works() {
 		let ti = pallet_balances::TotalIssuance::<Test>::get();
 
 		// Increase works:
-		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Inc, 32));
+		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into_with_basic_filter(), Inc, 32));
 		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), ti + 32);
 		System::assert_last_event(RuntimeEvent::Balances(Event::TotalIssuanceForced {
 			old: 64,
@@ -267,7 +268,7 @@ fn force_adjust_total_issuance_works() {
 		}));
 
 		// Decrease works:
-		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, 64));
+		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into_with_basic_filter(), Dec, 64));
 		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), ti - 32);
 		System::assert_last_event(RuntimeEvent::Balances(Event::TotalIssuanceForced {
 			old: 96,
@@ -285,13 +286,13 @@ fn force_adjust_total_issuance_saturates() {
 		assert_eq!(ti, 64);
 
 		// Increment saturates:
-		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Inc, max));
-		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Inc, 123));
+		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into_with_basic_filter(), Inc, max));
+		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into_with_basic_filter(), Inc, 123));
 		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), max);
 
 		// Decrement saturates:
-		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, max));
-		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, 123));
+		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into_with_basic_filter(), Dec, max));
+		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into_with_basic_filter(), Dec, 123));
 		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), 0);
 	});
 }
@@ -300,11 +301,11 @@ fn force_adjust_total_issuance_saturates() {
 fn force_adjust_total_issuance_rejects_zero_delta() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		assert_noop!(
-			Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Inc, 0),
+			Balances::force_adjust_total_issuance(RawOrigin::Root.into_with_basic_filter(), Inc, 0),
 			Error::<Test>::DeltaZero,
 		);
 		assert_noop!(
-			Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, 0),
+			Balances::force_adjust_total_issuance(RawOrigin::Root.into_with_basic_filter(), Dec, 0),
 			Error::<Test>::DeltaZero,
 		);
 	});
@@ -320,17 +321,17 @@ fn force_adjust_total_issuance_rejects_more_than_inactive() {
 		assert_eq!(Balances::active_issuance(), 48);
 
 		// Works with up to 48:
-		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, 40),);
-		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, 8),);
+		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into_with_basic_filter(), Dec, 40),);
+		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into_with_basic_filter(), Dec, 8),);
 		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), 16);
 		assert_eq!(Balances::active_issuance(), 0);
 		// Errors with more than 48:
 		assert_noop!(
-			Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, 1),
+			Balances::force_adjust_total_issuance(RawOrigin::Root.into_with_basic_filter(), Dec, 1),
 			Error::<Test>::IssuanceDeactivated,
 		);
 		// Increasing again increases the inactive issuance:
-		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Inc, 10),);
+		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into_with_basic_filter(), Inc, 10),);
 		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), 26);
 		assert_eq!(Balances::active_issuance(), 10);
 	});

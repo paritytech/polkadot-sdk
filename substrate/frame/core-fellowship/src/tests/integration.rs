@@ -152,7 +152,7 @@ fn promote_n_times(acc: u64, r: u16) {
 }
 
 fn signed(who: u64) -> RuntimeOrigin {
-	RuntimeOrigin::signed(who)
+	RuntimeOrigin::signed_with_basic_filter(who)
 }
 
 fn assert_last_event(generic_event: <Test as Config>::RuntimeEvent) {

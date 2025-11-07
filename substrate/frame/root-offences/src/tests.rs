@@ -29,7 +29,7 @@ fn create_offence_fails_given_signed_origin() {
 	ExtBuilder::default().build_and_execute(|| {
 		let offenders = (&[]).to_vec();
 		assert_err!(
-			RootOffences::create_offence(RuntimeOrigin::signed(1), offenders, None, None),
+			RootOffences::create_offence(RuntimeOrigin::signed_with_basic_filter(1), offenders, None, None),
 			BadOrigin
 		);
 	})

@@ -16,7 +16,7 @@ pub mod pallet_xcm_origin {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		type RuntimeOrigin: From<Origin> + From<<Self as frame_system::Config>::RuntimeOrigin>;
+		type RuntimeOrigin: FromWithBasicFilter<Origin> + From<<Self as frame_system::Config>::RuntimeOrigin>;
 	}
 
 	// Insert this custom Origin into the aggregate RuntimeOrigin
@@ -45,7 +45,7 @@ pub mod pallet_xcm_origin {
 	pub struct EnsureXcm<F>(PhantomData<F>);
 	impl<O: OriginTrait + From<Origin>, F: Contains<Location>> EnsureOrigin<O> for EnsureXcm<F>
 	where
-		O::PalletsOrigin: From<Origin> + TryInto<Origin, Error = O::PalletsOrigin>,
+		O::PalletsOrigin: FromWithBasicFilter<Origin> + TryInto<Origin, Error = O::PalletsOrigin>,
 	{
 		type Success = Location;
 

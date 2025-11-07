@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use crate as pallet_bounties;
 use crate::Pallet as Bounties;
@@ -178,7 +179,7 @@ fn create_funded_bounty<T: Config<I>, I: 'static>() -> Result<BenchmarkBounty<T,
 	<T as pallet::Config<I>>::Paymaster::ensure_concluded(payment_id);
 
 	let caller = account("caller", 0, SEED);
-	Bounties::<T, I>::check_status(RawOrigin::Signed(caller).into(), s.parent_bounty_id, None)?;
+	Bounties::<T, I>::check_status(RawOrigin::Signed(caller).into_with_basic_filter(), s.parent_bounty_id, None)?;
 
 	Ok(s)
 }
@@ -189,7 +190,7 @@ fn create_active_parent_bounty<T: Config<I>, I: 'static>(
 	let curator = s.curator.clone();
 	<T as pallet_bounties::Config<I>>::Consideration::ensure_successful(&curator, s.value);
 
-	Bounties::<T, I>::accept_curator(RawOrigin::Signed(curator).into(), s.parent_bounty_id, None)?;
+	Bounties::<T, I>::accept_curator(RawOrigin::Signed(curator).into_with_basic_filter(), s.parent_bounty_id, None)?;
 
 	Ok(s)
 }
@@ -200,7 +201,7 @@ fn create_child_bounty<T: Config<I>, I: 'static>() -> Result<BenchmarkBounty<T, 
 	let child_curator_lookup = T::Lookup::unlookup(s.child_curator.clone());
 
 	Bounties::<T, I>::fund_child_bounty(
-		RawOrigin::Signed(s.curator.clone()).into(),
+		RawOrigin::Signed(s.curator.clone()).into_with_basic_filter(),
 		s.parent_bounty_id,
 		s.child_value,
 		Some(child_curator_lookup),
@@ -221,7 +222,7 @@ fn create_funded_child_bounty<T: Config<I>, I: 'static>(
 		.expect("no payment attempt");
 	<T as pallet::Config<I>>::Paymaster::ensure_concluded(payment_id);
 	Bounties::<T, I>::check_status(
-		RawOrigin::Signed(caller).into(),
+		RawOrigin::Signed(caller).into_with_basic_filter(),
 		s.parent_bounty_id,
 		Some(s.child_bounty_id),
 	)?;
@@ -236,7 +237,7 @@ fn create_active_child_bounty<T: Config<I>, I: 'static>(
 	<T as pallet_bounties::Config<I>>::Consideration::ensure_successful(&caller, s.child_value);
 
 	Bounties::<T, I>::accept_curator(
-		RawOrigin::Signed(caller).into(),
+		RawOrigin::Signed(caller).into_with_basic_filter(),
 		s.parent_bounty_id,
 		Some(s.child_bounty_id),
 	)?;
@@ -251,7 +252,7 @@ fn create_awarded_child_bounty<T: Config<I>, I: 'static>(
 	let beneficiary_lookup = T::BeneficiaryLookup::unlookup(s.beneficiary.clone());
 
 	Bounties::<T, I>::award_bounty(
-		RawOrigin::Signed(caller).into(),
+		RawOrigin::Signed(caller).into_with_basic_filter(),
 		s.parent_bounty_id,
 		Some(s.child_bounty_id),
 		beneficiary_lookup,
@@ -382,7 +383,7 @@ mod benchmarks {
 		let spend_origin =
 			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		Bounties::<T, I>::unassign_curator(
-			RawOrigin::Signed(s.curator.clone()).into(),
+			RawOrigin::Signed(s.curator.clone()).into_with_basic_filter(),
 			s.parent_bounty_id,
 			None,
 		)?;
@@ -416,7 +417,7 @@ mod benchmarks {
 		let child_curator_lookup = T::Lookup::unlookup(s.child_curator.clone());
 
 		Bounties::<T, I>::unassign_curator(
-			RawOrigin::Signed(s.curator.clone()).into(),
+			RawOrigin::Signed(s.curator.clone()).into_with_basic_filter(),
 			s.parent_bounty_id,
 			Some(s.child_bounty_id),
 		)?;
@@ -424,7 +425,7 @@ mod benchmarks {
 		#[block]
 		{
 			assert_ok!(Bounties::<T, I>::propose_curator(
-				RawOrigin::Signed(s.curator).into(),
+				RawOrigin::Signed(s.curator).into_with_basic_filter(),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
 				child_curator_lookup,
@@ -453,7 +454,7 @@ mod benchmarks {
 		#[block]
 		{
 			assert_ok!(Bounties::<T, I>::accept_curator(
-				RawOrigin::Signed(caller).into(),
+				RawOrigin::Signed(caller).into_with_basic_filter(),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
 			));
@@ -606,7 +607,7 @@ mod benchmarks {
 		#[block]
 		{
 			assert_ok!(Bounties::<T, I>::check_status(
-				RawOrigin::Signed(caller).into(),
+				RawOrigin::Signed(caller).into_with_basic_filter(),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
 			));
@@ -633,7 +634,7 @@ mod benchmarks {
 		let caller = s.curator.clone();
 
 		Bounties::<T, I>::close_bounty(
-			RawOrigin::Signed(caller.clone()).into(),
+			RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 			s.parent_bounty_id,
 			Some(s.child_bounty_id),
 		)?;
@@ -644,7 +645,7 @@ mod benchmarks {
 		#[block]
 		{
 			assert_ok!(Bounties::<T, I>::check_status(
-				RawOrigin::Signed(caller).into(),
+				RawOrigin::Signed(caller).into_with_basic_filter(),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
 			));
@@ -677,7 +678,7 @@ mod benchmarks {
 		#[block]
 		{
 			assert_ok!(Bounties::<T, I>::check_status(
-				RawOrigin::Signed(caller).into(),
+				RawOrigin::Signed(caller).into_with_basic_filter(),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
 			));
@@ -714,7 +715,7 @@ mod benchmarks {
 		#[block]
 		{
 			assert_ok!(Bounties::<T, I>::retry_payment(
-				RawOrigin::Signed(caller.clone()).into(),
+				RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
 			));
@@ -735,7 +736,7 @@ mod benchmarks {
 			PaymentStatus::Failure
 		);
 		assert!(Bounties::<T, I>::retry_payment(
-			RawOrigin::Signed(caller).into(),
+			RawOrigin::Signed(caller).into_with_basic_filter(),
 			s.parent_bounty_id,
 			Some(s.child_bounty_id),
 		)
@@ -762,7 +763,7 @@ mod benchmarks {
 		#[block]
 		{
 			assert_ok!(Bounties::<T, I>::retry_payment(
-				RawOrigin::Signed(caller.clone()).into(),
+				RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
 			));
@@ -783,7 +784,7 @@ mod benchmarks {
 			PaymentStatus::Failure
 		);
 		assert!(Bounties::<T, I>::retry_payment(
-			RawOrigin::Signed(caller).into(),
+			RawOrigin::Signed(caller).into_with_basic_filter(),
 			s.parent_bounty_id,
 			Some(s.child_bounty_id),
 		)
@@ -811,7 +812,7 @@ mod benchmarks {
 		#[block]
 		{
 			assert_ok!(Bounties::<T, I>::retry_payment(
-				RawOrigin::Signed(caller.clone()).into(),
+				RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
 			));
@@ -832,7 +833,7 @@ mod benchmarks {
 			PaymentStatus::Failure
 		);
 		assert!(Bounties::<T, I>::retry_payment(
-			RawOrigin::Signed(caller).into(),
+			RawOrigin::Signed(caller).into_with_basic_filter(),
 			s.parent_bounty_id,
 			Some(s.child_bounty_id),
 		)

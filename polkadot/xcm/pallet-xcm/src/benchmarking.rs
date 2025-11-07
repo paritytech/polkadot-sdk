@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use frame_benchmarking::v2::*;
 use frame_support::{assert_ok, weights::Weight};
@@ -123,7 +124,7 @@ mod benchmarks {
 
 		let caller: T::AccountId = whitelisted_caller();
 		let send_origin = RawOrigin::Signed(caller.clone());
-		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone().into())
+		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone().into_with_basic_filter())
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		if !T::XcmTeleportFilter::contains(&(origin_location.clone(), assets.clone().into_inner()))
 		{
@@ -191,7 +192,7 @@ mod benchmarks {
 
 		let caller: T::AccountId = whitelisted_caller();
 		let send_origin = RawOrigin::Signed(caller.clone());
-		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone().into())
+		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone().into_with_basic_filter())
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		if !T::XcmReserveTransferFilter::contains(&(
 			origin_location.clone(),
@@ -276,7 +277,7 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		let send_origin = RawOrigin::Signed(caller.clone());
 		let recipient = [0u8; 32];
-		let versioned_dest: VersionedLocation = destination.into();
+		let versioned_dest: VersionedLocation = destination.into_with_basic_filter();
 		let versioned_beneficiary: VersionedLocation =
 			AccountId32 { network: None, id: recipient.into() }.into();
 		let versioned_assets: VersionedAssets = assets.into();
@@ -576,7 +577,7 @@ mod benchmarks {
 	#[benchmark]
 	fn claim_assets() -> Result<(), BenchmarkError> {
 		let claim_origin = RawOrigin::Signed(whitelisted_caller());
-		let claim_location = T::ExecuteXcmOrigin::try_origin(claim_origin.clone().into())
+		let claim_location = T::ExecuteXcmOrigin::try_origin(claim_origin.clone().into_with_basic_filter())
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		let asset: Asset = T::get_asset();
 		// Trap assets for claiming later
@@ -602,7 +603,7 @@ mod benchmarks {
 		let who: T::AccountId = whitelisted_caller();
 		let origin = RawOrigin::Signed(who.clone());
 		let origin_location: VersionedLocation =
-			T::ExecuteXcmOrigin::try_origin(origin.clone().into())
+			T::ExecuteXcmOrigin::try_origin(origin.clone().into_with_basic_filter())
 				.map_err(|_| {
 					tracing::error!(
 						target: "xcm::benchmarking::pallet_xcm::add_authorized_alias",
@@ -658,7 +659,7 @@ mod benchmarks {
 		let origin = RawOrigin::Signed(who.clone());
 		let error = BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX));
 		let origin_location =
-			T::ExecuteXcmOrigin::try_origin(origin.clone().into()).map_err(|_| {
+			T::ExecuteXcmOrigin::try_origin(origin.clone().into_with_basic_filter()).map_err(|_| {
 				tracing::error!(
 					target: "xcm::benchmarking::pallet_xcm::remove_authorized_alias",
 					?origin,

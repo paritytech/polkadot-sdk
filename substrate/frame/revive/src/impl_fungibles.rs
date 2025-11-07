@@ -66,7 +66,7 @@ impl<T: Config> fungibles::Inspect<<T as frame_system::Config>::AccountId> for P
 	fn total_issuance(asset_id: Self::AssetId) -> Self::Balance {
 		let data = IERC20::totalSupplyCall {}.abi_encode();
 		let ContractResult { result, .. } = Self::bare_call(
-			OriginFor::<T>::signed(Self::checking_account()),
+			OriginFor::<T>::signed_with_basic_filter(Self::checking_account()),
 			asset_id,
 			U256::zero(),
 			GAS_LIMIT,
@@ -101,7 +101,7 @@ impl<T: Config> fungibles::Inspect<<T as frame_system::Config>::AccountId> for P
 		let address = Address::from(Into::<[u8; 20]>::into(eth_address));
 		let data = IERC20::balanceOfCall { account: address }.abi_encode();
 		let ContractResult { result, .. } = Self::bare_call(
-			OriginFor::<T>::signed(account_id.clone()),
+			OriginFor::<T>::signed_with_basic_filter(account_id.clone()),
 			asset_id,
 			U256::zero(),
 			GAS_LIMIT,
@@ -170,7 +170,7 @@ impl<T: Config> fungibles::Mutate<<T as frame_system::Config>::AccountId> for Pa
 		let data =
 			IERC20::transferCall { to: checking_address, value: EU256::from(amount) }.abi_encode();
 		let ContractResult { result, gas_consumed, .. } = Self::bare_call(
-			OriginFor::<T>::signed(who.clone()),
+			OriginFor::<T>::signed_with_basic_filter(who.clone()),
 			asset_id,
 			U256::zero(),
 			GAS_LIMIT,
@@ -206,7 +206,7 @@ impl<T: Config> fungibles::Mutate<<T as frame_system::Config>::AccountId> for Pa
 		let address = Address::from(Into::<[u8; 20]>::into(eth_address));
 		let data = IERC20::transferCall { to: address, value: EU256::from(amount) }.abi_encode();
 		let ContractResult { result, .. } = Self::bare_call(
-			OriginFor::<T>::signed(Self::checking_account()),
+			OriginFor::<T>::signed_with_basic_filter(Self::checking_account()),
 			asset_id,
 			U256::zero(),
 			GAS_LIMIT,
@@ -292,12 +292,12 @@ mod tests {
 			let amount = EU256::from(1000);
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&amount);
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
-				RuntimeOrigin::signed(ALICE),
+				RuntimeOrigin::signed_with_basic_filter(ALICE),
 				Code::Upload(code),
 			)
 			.data(constructor_data)
 			.build_and_unwrap_contract();
-			let result = BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(ALICE), addr)
+			let result = BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed_with_basic_filter(ALICE), addr)
 				.data(IERC20::totalSupplyCall {}.abi_encode())
 				.build_and_unwrap_result();
 			let balance =
@@ -317,7 +317,7 @@ mod tests {
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&EU256::from(amount));
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
-				RuntimeOrigin::signed(ALICE),
+				RuntimeOrigin::signed_with_basic_filter(ALICE),
 				Code::Upload(code),
 			)
 			.data(constructor_data)
@@ -337,7 +337,7 @@ mod tests {
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&EU256::from(amount));
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
-				RuntimeOrigin::signed(ALICE),
+				RuntimeOrigin::signed_with_basic_filter(ALICE),
 				Code::Upload(code),
 			)
 			.data(constructor_data)
@@ -355,12 +355,12 @@ mod tests {
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&(EU256::from(amount * 2)));
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
-				RuntimeOrigin::signed(ALICE),
+				RuntimeOrigin::signed_with_basic_filter(ALICE),
 				Code::Upload(code),
 			)
 			.data(constructor_data)
 			.build_and_unwrap_contract();
-			let _ = BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(ALICE), addr)
+			let _ = BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed_with_basic_filter(ALICE), addr)
 				.build_and_unwrap_result();
 			assert_eq!(<Contracts as fungibles::Inspect<_>>::balance(addr, &ALICE), amount * 2);
 
@@ -392,7 +392,7 @@ mod tests {
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&EU256::from(amount));
 			// We're instantiating the contract with the `CheckingAccount` so it has `amount` in it.
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
-				RuntimeOrigin::signed(checking_account.clone()),
+				RuntimeOrigin::signed_with_basic_filter(checking_account.clone()),
 				Code::Upload(code),
 			)
 			.storage_deposit_limit(1_000_000_000_000)

@@ -19,6 +19,7 @@
 
 extern crate alloc;
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::vec::Vec;
 use codec::{DecodeAll, DecodeLimit};
 use core::{fmt, marker::PhantomData, num::NonZero};
@@ -77,8 +78,8 @@ where
 	) -> Result<Vec<u8>, Error> {
 		let origin = env.caller();
 		let frame_origin = match origin {
-			Origin::Root => RawOrigin::Root.into(),
-			Origin::Signed(account_id) => RawOrigin::Signed(account_id.clone()).into(),
+			Origin::Root => RawOrigin::Root.into_with_basic_filter(),
+			Origin::Signed(account_id) => RawOrigin::Signed(account_id.clone()).into_with_basic_filter(),
 		};
 
 		match input {

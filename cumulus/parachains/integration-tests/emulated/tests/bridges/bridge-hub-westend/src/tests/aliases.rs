@@ -35,7 +35,7 @@ fn account_on_sibling_syschain_aliases_into_same_local_account() {
 	let fees = WESTEND_ED * 10;
 
 	PenpalB::mint_foreign_asset(
-		<PenpalB as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		<PenpalB as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalAssetOwner::get()),
 		Location::parent(),
 		origin.clone(),
 		fees * 10,
@@ -66,7 +66,7 @@ fn account_on_sibling_syschain_cannot_alias_into_different_local_account() {
 	let fees = WESTEND_ED * 10;
 
 	PenpalB::mint_foreign_asset(
-		<PenpalB as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		<PenpalB as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalAssetOwner::get()),
 		Location::parent(),
 		origin.clone(),
 		fees * 10,
@@ -185,7 +185,7 @@ fn authorized_cross_chain_aliases() {
 	let target: AccountId = [200; 32].into();
 	let fees = WESTEND_ED * 10;
 
-	let pal_admin = <PenpalB as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get());
+	let pal_admin = <PenpalB as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalAssetOwner::get());
 	PenpalB::mint_foreign_asset(pal_admin.clone(), Location::parent(), origin.clone(), fees * 10);
 	PenpalB::mint_foreign_asset(pal_admin, Location::parent(), bad_origin.clone(), fees * 10);
 	BridgeHubWestend::fund_accounts(vec![(target.clone(), fees * 10)]);
@@ -206,7 +206,7 @@ fn authorized_cross_chain_aliases() {
 		// `target` adds `penpal_origin` as authorized alias
 		assert_ok!(
 			<BridgeHubWestend as BridgeHubWestendPallet>::PolkadotXcm::add_authorized_alias(
-				<BridgeHubWestend as Chain>::RuntimeOrigin::signed(target.clone()),
+				<BridgeHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(target.clone()),
 				Box::new(penpal_origin.into()),
 				None
 			)
@@ -242,7 +242,7 @@ fn authorized_cross_chain_aliases() {
 		// `target` removes all authorized aliases
 		assert_ok!(
 			<BridgeHubWestend as BridgeHubWestendPallet>::PolkadotXcm::remove_all_authorized_aliases(
-				<BridgeHubWestend as Chain>::RuntimeOrigin::signed(target.clone())
+				<BridgeHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(target.clone())
 			)
 		);
 	});

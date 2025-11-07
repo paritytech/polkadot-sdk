@@ -195,6 +195,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use frame_support::traits::IntoWithBasicFilter;
 #[cfg(any(feature = "runtime-benchmarks", test))]
 use crate::signed::{CalculateBaseDeposit, CalculatePageDeposit};
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -1447,12 +1448,12 @@ where
 
 		// register alice
 		let alice = crate::Pallet::<T>::funded_account("alice", 0);
-		signed::Pallet::<T>::register(RawOrigin::Signed(alice.clone()).into(), score)?;
+		signed::Pallet::<T>::register(RawOrigin::Signed(alice.clone()).into_with_basic_filter(), score)?;
 
 		// submit pages
 		for (index, page) in solution_pages.pagify(T::Pages::get()) {
 			signed::Pallet::<T>::submit_page(
-				RawOrigin::Signed(alice.clone()).into(),
+				RawOrigin::Signed(alice.clone()).into_with_basic_filter(),
 				index,
 				Some(Box::new(page.clone())),
 			)
@@ -2553,7 +2554,7 @@ mod election_provider {
 
 			// Submit the unsigned solution
 			assert_ok!(UnsignedPallet::submit_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::none_with_basic_filter(),
 				Box::new(unsigned_solution)
 			));
 
@@ -2642,11 +2643,11 @@ mod election_provider {
 
 			// try submit one signed page:
 			assert_noop!(
-				SignedPallet::submit_page(RuntimeOrigin::signed(999), 0, Default::default()),
+				SignedPallet::submit_page(RuntimeOrigin::signed_with_basic_filter(999), 0, Default::default()),
 				crate::signed::Error::<Runtime>::PhaseNotSigned,
 			);
 			assert_noop!(
-				SignedPallet::register(RuntimeOrigin::signed(999), Default::default()),
+				SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(999), Default::default()),
 				crate::signed::Error::<Runtime>::PhaseNotSigned,
 			);
 			assert_storage_noop!(assert!(<UnsignedPallet as ValidateUnsigned>::pre_dispatch(

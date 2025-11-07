@@ -203,7 +203,7 @@ fn add_child_bounty() {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
 		assert_ok!(Bounties::propose_bounty(
-			RuntimeOrigin::signed(account_id(0)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(0)),
 			50,
 			b"12345".to_vec()
 		));
@@ -217,7 +217,7 @@ fn add_child_bounty() {
 
 		Balances::make_free_balance_be(&account_id(4), 10);
 
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(account_id(4)), 0));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(4)), 0));
 
 		// This verifies that the accept curator logic took a deposit.
 		let expected_deposit = CuratorDepositMultiplier::get() * fee;
@@ -229,7 +229,7 @@ fn add_child_bounty() {
 		// Call from invalid origin & check for error "RequireCurator".
 		assert_noop!(
 			ChildBounties::add_child_bounty(
-				RuntimeOrigin::signed(account_id(0)),
+				RuntimeOrigin::signed_with_basic_filter(account_id(0)),
 				0,
 				10,
 				b"12345-p1".to_vec()
@@ -246,7 +246,7 @@ fn add_child_bounty() {
 
 		assert_noop!(
 			ChildBounties::add_child_bounty(
-				RuntimeOrigin::signed(account_id(4)),
+				RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 				0,
 				50,
 				b"12345-p1".to_vec()
@@ -256,7 +256,7 @@ fn add_child_bounty() {
 
 		assert_noop!(
 			ChildBounties::add_child_bounty(
-				RuntimeOrigin::signed(account_id(4)),
+				RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 				0,
 				100,
 				b"12345-p1".to_vec()
@@ -266,7 +266,7 @@ fn add_child_bounty() {
 
 		// Add child-bounty with valid value, which can be funded by parent bounty.
 		assert_ok!(ChildBounties::add_child_bounty(
-			RuntimeOrigin::signed(account_id(4)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 			0,
 			10,
 			b"12345-p1".to_vec()
@@ -317,7 +317,7 @@ fn child_bounty_assign_curator() {
 		Balances::make_free_balance_be(&account_id(8), 101);
 
 		assert_ok!(Bounties::propose_bounty(
-			RuntimeOrigin::signed(account_id(0)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(0)),
 			50,
 			b"12345".to_vec()
 		));
@@ -328,7 +328,7 @@ fn child_bounty_assign_curator() {
 
 		let fee = 4;
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), fee));
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(account_id(4)), 0));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(4)), 0));
 
 		// Bounty account status before adding child-bounty.
 		assert_eq!(Balances::free_balance(Bounties::bounty_account_id(0)), 50);
@@ -343,7 +343,7 @@ fn child_bounty_assign_curator() {
 		// Add child-bounty.
 		// Acc-4 is the parent curator & make sure enough deposit.
 		assert_ok!(ChildBounties::add_child_bounty(
-			RuntimeOrigin::signed(account_id(4)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 			0,
 			10,
 			b"12345-p1".to_vec()
@@ -361,7 +361,7 @@ fn child_bounty_assign_curator() {
 
 		let fee = 6u64;
 		assert_ok!(ChildBounties::propose_curator(
-			RuntimeOrigin::signed(account_id(4)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 			0,
 			0,
 			account_id(8),
@@ -384,11 +384,11 @@ fn child_bounty_assign_curator() {
 		assert_eq!(Balances::reserved_balance(account_id(4)), expected_deposit);
 
 		assert_noop!(
-			ChildBounties::accept_curator(RuntimeOrigin::signed(account_id(3)), 0, 0),
+			ChildBounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(3)), 0, 0),
 			BountiesError::RequireCurator,
 		);
 
-		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed(account_id(8)), 0, 0));
+		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(8)), 0, 0));
 
 		let expected_child_deposit = CuratorDepositMultiplier::get() * fee;
 
@@ -435,7 +435,7 @@ fn award_claim_child_bounty() {
 		Balances::make_free_balance_be(&account_id(8), 101); // Child-bounty curator.
 
 		assert_ok!(Bounties::propose_bounty(
-			RuntimeOrigin::signed(account_id(0)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(0)),
 			50,
 			b"12345".to_vec()
 		));
@@ -445,11 +445,11 @@ fn award_claim_child_bounty() {
 		go_to_block(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), 6));
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(account_id(4)), 0));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(4)), 0));
 
 		// Child-bounty.
 		assert_ok!(ChildBounties::add_child_bounty(
-			RuntimeOrigin::signed(account_id(4)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 			0,
 			10,
 			b"12345-p1".to_vec()
@@ -460,19 +460,19 @@ fn award_claim_child_bounty() {
 		// Propose and accept curator for child-bounty.
 		let fee = 8;
 		assert_ok!(ChildBounties::propose_curator(
-			RuntimeOrigin::signed(account_id(4)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 			0,
 			0,
 			account_id(8),
 			fee
 		));
-		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed(account_id(8)), 0, 0));
+		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(8)), 0, 0));
 
 		// Award child-bounty.
 		// Test for non child-bounty curator.
 		assert_noop!(
 			ChildBounties::award_child_bounty(
-				RuntimeOrigin::signed(account_id(3)),
+				RuntimeOrigin::signed_with_basic_filter(account_id(3)),
 				0,
 				0,
 				account_id(7)
@@ -481,7 +481,7 @@ fn award_claim_child_bounty() {
 		);
 
 		assert_ok!(ChildBounties::award_child_bounty(
-			RuntimeOrigin::signed(account_id(8)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(8)),
 			0,
 			0,
 			account_id(7)
@@ -506,13 +506,13 @@ fn award_claim_child_bounty() {
 		// Claim child-bounty.
 		// Test for Premature condition.
 		assert_noop!(
-			ChildBounties::claim_child_bounty(RuntimeOrigin::signed(account_id(7)), 0, 0),
+			ChildBounties::claim_child_bounty(RuntimeOrigin::signed_with_basic_filter(account_id(7)), 0, 0),
 			BountiesError::Premature
 		);
 
 		go_to_block(9);
 
-		assert_ok!(ChildBounties::claim_child_bounty(RuntimeOrigin::signed(account_id(7)), 0, 0));
+		assert_ok!(ChildBounties::claim_child_bounty(RuntimeOrigin::signed_with_basic_filter(account_id(7)), 0, 0));
 
 		// Ensure child-bounty curator is paid with curator fee & deposit refund.
 		assert_eq!(Balances::free_balance(account_id(8)), 101 + fee);
@@ -545,7 +545,7 @@ fn close_child_bounty_added() {
 		Balances::make_free_balance_be(&account_id(8), 101); // Child-bounty curator.
 
 		assert_ok!(Bounties::propose_bounty(
-			RuntimeOrigin::signed(account_id(0)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(0)),
 			50,
 			b"12345".to_vec()
 		));
@@ -556,11 +556,11 @@ fn close_child_bounty_added() {
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), 6));
 
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(account_id(4)), 0));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(4)), 0));
 
 		// Child-bounty.
 		assert_ok!(ChildBounties::add_child_bounty(
-			RuntimeOrigin::signed(account_id(4)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 			0,
 			10,
 			b"12345-p1".to_vec()
@@ -573,16 +573,16 @@ fn close_child_bounty_added() {
 		// Close child-bounty.
 		// Wrong origin.
 		assert_noop!(
-			ChildBounties::close_child_bounty(RuntimeOrigin::signed(account_id(7)), 0, 0),
+			ChildBounties::close_child_bounty(RuntimeOrigin::signed_with_basic_filter(account_id(7)), 0, 0),
 			BadOrigin
 		);
 		assert_noop!(
-			ChildBounties::close_child_bounty(RuntimeOrigin::signed(account_id(8)), 0, 0),
+			ChildBounties::close_child_bounty(RuntimeOrigin::signed_with_basic_filter(account_id(8)), 0, 0),
 			BadOrigin
 		);
 
 		// Correct origin - parent curator.
-		assert_ok!(ChildBounties::close_child_bounty(RuntimeOrigin::signed(account_id(4)), 0, 0));
+		assert_ok!(ChildBounties::close_child_bounty(RuntimeOrigin::signed_with_basic_filter(account_id(4)), 0, 0));
 
 		// Check the child-bounty count.
 		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 0);
@@ -611,7 +611,7 @@ fn close_child_bounty_active() {
 		Balances::make_free_balance_be(&account_id(8), 101); // Child-bounty curator.
 
 		assert_ok!(Bounties::propose_bounty(
-			RuntimeOrigin::signed(account_id(0)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(0)),
 			50,
 			b"12345".to_vec()
 		));
@@ -622,11 +622,11 @@ fn close_child_bounty_active() {
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), 6));
 
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(account_id(4)), 0));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(4)), 0));
 
 		// Child-bounty.
 		assert_ok!(ChildBounties::add_child_bounty(
-			RuntimeOrigin::signed(account_id(4)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 			0,
 			10,
 			b"12345-p1".to_vec()
@@ -636,16 +636,16 @@ fn close_child_bounty_active() {
 
 		// Propose and accept curator for child-bounty.
 		assert_ok!(ChildBounties::propose_curator(
-			RuntimeOrigin::signed(account_id(4)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 			0,
 			0,
 			account_id(8),
 			2
 		));
-		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed(account_id(8)), 0, 0));
+		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(8)), 0, 0));
 
 		// Close child-bounty in active state.
-		assert_ok!(ChildBounties::close_child_bounty(RuntimeOrigin::signed(account_id(4)), 0, 0));
+		assert_ok!(ChildBounties::close_child_bounty(RuntimeOrigin::signed_with_basic_filter(account_id(4)), 0, 0));
 
 		// Check the child-bounty count.
 		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 0);
@@ -678,7 +678,7 @@ fn close_child_bounty_pending() {
 		Balances::make_free_balance_be(&account_id(8), 101); // Child-bounty curator.
 
 		assert_ok!(Bounties::propose_bounty(
-			RuntimeOrigin::signed(account_id(0)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(0)),
 			50,
 			b"12345".to_vec()
 		));
@@ -689,11 +689,11 @@ fn close_child_bounty_pending() {
 
 		let parent_fee = 6;
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), parent_fee));
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(account_id(4)), 0));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(4)), 0));
 
 		// Child-bounty.
 		assert_ok!(ChildBounties::add_child_bounty(
-			RuntimeOrigin::signed(account_id(4)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 			0,
 			10,
 			b"12345-p1".to_vec()
@@ -704,17 +704,17 @@ fn close_child_bounty_pending() {
 		// Propose and accept curator for child-bounty.
 		let child_fee = 4;
 		assert_ok!(ChildBounties::propose_curator(
-			RuntimeOrigin::signed(account_id(4)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 			0,
 			0,
 			account_id(8),
 			child_fee
 		));
-		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed(account_id(8)), 0, 0));
+		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(8)), 0, 0));
 		let expected_child_deposit = CuratorDepositMin::get();
 
 		assert_ok!(ChildBounties::award_child_bounty(
-			RuntimeOrigin::signed(account_id(8)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(8)),
 			0,
 			0,
 			account_id(7)
@@ -722,7 +722,7 @@ fn close_child_bounty_pending() {
 
 		// Close child-bounty in pending_payout state.
 		assert_noop!(
-			ChildBounties::close_child_bounty(RuntimeOrigin::signed(account_id(4)), 0, 0),
+			ChildBounties::close_child_bounty(RuntimeOrigin::signed_with_basic_filter(account_id(4)), 0, 0),
 			BountiesError::PendingPayout
 		);
 
@@ -753,7 +753,7 @@ fn child_bounty_added_unassign_curator() {
 		Balances::make_free_balance_be(&account_id(8), 101); // Child-bounty curator.
 
 		assert_ok!(Bounties::propose_bounty(
-			RuntimeOrigin::signed(account_id(0)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(0)),
 			50,
 			b"12345".to_vec()
 		));
@@ -764,11 +764,11 @@ fn child_bounty_added_unassign_curator() {
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), 6));
 
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(account_id(4)), 0));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(4)), 0));
 
 		// Child-bounty.
 		assert_ok!(ChildBounties::add_child_bounty(
-			RuntimeOrigin::signed(account_id(4)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 			0,
 			10,
 			b"12345-p1".to_vec()
@@ -778,7 +778,7 @@ fn child_bounty_added_unassign_curator() {
 
 		// Unassign curator in added state.
 		assert_noop!(
-			ChildBounties::unassign_curator(RuntimeOrigin::signed(account_id(4)), 0, 0),
+			ChildBounties::unassign_curator(RuntimeOrigin::signed_with_basic_filter(account_id(4)), 0, 0),
 			BountiesError::UnexpectedStatus
 		);
 	});
@@ -798,7 +798,7 @@ fn child_bounty_curator_proposed_unassign_curator() {
 		Balances::make_free_balance_be(&account_id(8), 101); // Child-bounty curator.
 
 		assert_ok!(Bounties::propose_bounty(
-			RuntimeOrigin::signed(account_id(0)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(0)),
 			50,
 			b"12345".to_vec()
 		));
@@ -809,11 +809,11 @@ fn child_bounty_curator_proposed_unassign_curator() {
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), 6));
 
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(account_id(4)), 0));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(4)), 0));
 
 		// Child-bounty.
 		assert_ok!(ChildBounties::add_child_bounty(
-			RuntimeOrigin::signed(account_id(4)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 			0,
 			10,
 			b"12345-p1".to_vec()
@@ -823,7 +823,7 @@ fn child_bounty_curator_proposed_unassign_curator() {
 
 		// Propose curator for child-bounty.
 		assert_ok!(ChildBounties::propose_curator(
-			RuntimeOrigin::signed(account_id(4)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 			0,
 			0,
 			account_id(8),
@@ -843,12 +843,12 @@ fn child_bounty_curator_proposed_unassign_curator() {
 
 		// Random account cannot unassign the curator when in proposed state.
 		assert_noop!(
-			ChildBounties::unassign_curator(RuntimeOrigin::signed(account_id(99)), 0, 0),
+			ChildBounties::unassign_curator(RuntimeOrigin::signed_with_basic_filter(account_id(99)), 0, 0),
 			BadOrigin
 		);
 
 		// Unassign curator.
-		assert_ok!(ChildBounties::unassign_curator(RuntimeOrigin::signed(account_id(4)), 0, 0));
+		assert_ok!(ChildBounties::unassign_curator(RuntimeOrigin::signed_with_basic_filter(account_id(4)), 0, 0));
 
 		// Verify updated child-bounty status.
 		assert_eq!(
@@ -887,7 +887,7 @@ fn child_bounty_active_unassign_curator() {
 		Balances::make_free_balance_be(&account_id(8), 101); // Child-bounty curator 3.
 
 		assert_ok!(Bounties::propose_bounty(
-			RuntimeOrigin::signed(account_id(0)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(0)),
 			50,
 			b"12345".to_vec()
 		));
@@ -897,11 +897,11 @@ fn child_bounty_active_unassign_curator() {
 		go_to_block(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), 6));
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(account_id(4)), 0));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(4)), 0));
 
 		// Create Child-bounty.
 		assert_ok!(ChildBounties::add_child_bounty(
-			RuntimeOrigin::signed(account_id(4)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 			0,
 			10,
 			b"12345-p1".to_vec()
@@ -913,13 +913,13 @@ fn child_bounty_active_unassign_curator() {
 		// Propose and accept curator for child-bounty.
 		let fee = 6;
 		assert_ok!(ChildBounties::propose_curator(
-			RuntimeOrigin::signed(account_id(4)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 			0,
 			0,
 			account_id(8),
 			fee
 		));
-		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed(account_id(8)), 0, 0));
+		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(8)), 0, 0));
 		let expected_child_deposit = CuratorDepositMultiplier::get() * fee;
 
 		assert_eq!(
@@ -957,13 +957,13 @@ fn child_bounty_active_unassign_curator() {
 		// Propose and accept curator for child-bounty again.
 		let fee = 2;
 		assert_ok!(ChildBounties::propose_curator(
-			RuntimeOrigin::signed(account_id(4)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 			0,
 			0,
 			account_id(7),
 			fee
 		));
-		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed(account_id(7)), 0, 0));
+		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(7)), 0, 0));
 		let expected_child_deposit = CuratorDepositMin::get();
 
 		assert_eq!(
@@ -980,7 +980,7 @@ fn child_bounty_active_unassign_curator() {
 		go_to_block(5);
 
 		// Unassign curator again - from parent curator.
-		assert_ok!(ChildBounties::unassign_curator(RuntimeOrigin::signed(account_id(4)), 0, 0));
+		assert_ok!(ChildBounties::unassign_curator(RuntimeOrigin::signed_with_basic_filter(account_id(4)), 0, 0));
 
 		// Verify updated child-bounty status.
 		assert_eq!(
@@ -1000,13 +1000,13 @@ fn child_bounty_active_unassign_curator() {
 
 		// Propose and accept curator for child-bounty again.
 		assert_ok!(ChildBounties::propose_curator(
-			RuntimeOrigin::signed(account_id(4)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 			0,
 			0,
 			account_id(6),
 			2
 		));
-		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed(account_id(6)), 0, 0));
+		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(6)), 0, 0));
 
 		assert_eq!(
 			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
@@ -1022,7 +1022,7 @@ fn child_bounty_active_unassign_curator() {
 		go_to_block(6);
 
 		// Unassign curator again - from child-bounty curator.
-		assert_ok!(ChildBounties::unassign_curator(RuntimeOrigin::signed(account_id(6)), 0, 0));
+		assert_ok!(ChildBounties::unassign_curator(RuntimeOrigin::signed_with_basic_filter(account_id(6)), 0, 0));
 
 		// Verify updated child-bounty status.
 		assert_eq!(
@@ -1043,13 +1043,13 @@ fn child_bounty_active_unassign_curator() {
 		// Propose and accept curator for child-bounty one last time.
 		let fee = 2;
 		assert_ok!(ChildBounties::propose_curator(
-			RuntimeOrigin::signed(account_id(4)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 			0,
 			0,
 			account_id(6),
 			fee
 		));
-		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed(account_id(6)), 0, 0));
+		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(6)), 0, 0));
 		let expected_child_deposit = CuratorDepositMin::get();
 
 		assert_eq!(
@@ -1068,14 +1068,14 @@ fn child_bounty_active_unassign_curator() {
 		// Unassign curator again - from non curator; non reject origin; some random guy.
 		// Bounty update period is not yet complete.
 		assert_noop!(
-			ChildBounties::unassign_curator(RuntimeOrigin::signed(account_id(3)), 0, 0),
+			ChildBounties::unassign_curator(RuntimeOrigin::signed_with_basic_filter(account_id(3)), 0, 0),
 			BountiesError::Premature
 		);
 
 		go_to_block(20);
 
 		// Unassign child curator from random account after inactivity.
-		assert_ok!(ChildBounties::unassign_curator(RuntimeOrigin::signed(account_id(3)), 0, 0));
+		assert_ok!(ChildBounties::unassign_curator(RuntimeOrigin::signed_with_basic_filter(account_id(3)), 0, 0));
 
 		// Verify updated child-bounty status.
 		assert_eq!(
@@ -1114,7 +1114,7 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 		Balances::make_free_balance_be(&account_id(8), 101); // Child-bounty curator 3.
 
 		assert_ok!(Bounties::propose_bounty(
-			RuntimeOrigin::signed(account_id(0)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(0)),
 			50,
 			b"12345".to_vec()
 		));
@@ -1123,11 +1123,11 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 		go_to_block(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), 6));
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(account_id(4)), 0));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(4)), 0));
 
 		// Create Child-bounty.
 		assert_ok!(ChildBounties::add_child_bounty(
-			RuntimeOrigin::signed(account_id(4)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 			0,
 			10,
 			b"12345-p1".to_vec()
@@ -1139,13 +1139,13 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 		// Propose and accept curator for child-bounty.
 		let fee = 8;
 		assert_ok!(ChildBounties::propose_curator(
-			RuntimeOrigin::signed(account_id(4)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 			0,
 			0,
 			account_id(8),
 			fee
 		));
-		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed(account_id(8)), 0, 0));
+		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(8)), 0, 0));
 		let expected_child_deposit = CuratorDepositMultiplier::get() * fee;
 
 		assert_eq!(
@@ -1169,7 +1169,7 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 		// Try unassign child-bounty curator - from non curator; non reject
 		// origin; some random guy. Bounty update period is not yet complete.
 		assert_noop!(
-			ChildBounties::unassign_curator(RuntimeOrigin::signed(account_id(3)), 0, 0),
+			ChildBounties::unassign_curator(RuntimeOrigin::signed_with_basic_filter(account_id(3)), 0, 0),
 			Error::<Test>::ParentBountyNotActive
 		);
 
@@ -1196,20 +1196,20 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 
 		// Propose and accept curator for parent-bounty again.
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(5), 6));
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(account_id(5)), 0));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(5)), 0));
 
 		go_to_block(7);
 
 		// Propose and accept curator for child-bounty again.
 		let fee = 2;
 		assert_ok!(ChildBounties::propose_curator(
-			RuntimeOrigin::signed(account_id(5)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(5)),
 			0,
 			0,
 			account_id(7),
 			fee
 		));
-		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed(account_id(7)), 0, 0));
+		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(7)), 0, 0));
 		let expected_deposit = CuratorDepositMin::get();
 
 		assert_eq!(
@@ -1226,17 +1226,17 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 		go_to_block(8);
 
 		assert_noop!(
-			ChildBounties::unassign_curator(RuntimeOrigin::signed(account_id(3)), 0, 0),
+			ChildBounties::unassign_curator(RuntimeOrigin::signed_with_basic_filter(account_id(3)), 0, 0),
 			BountiesError::Premature
 		);
 
 		// Unassign parent bounty curator again.
-		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::signed(account_id(5)), 0));
+		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::signed_with_basic_filter(account_id(5)), 0));
 
 		go_to_block(9);
 
 		// Unassign curator again - from parent curator.
-		assert_ok!(ChildBounties::unassign_curator(RuntimeOrigin::signed(account_id(7)), 0, 0));
+		assert_ok!(ChildBounties::unassign_curator(RuntimeOrigin::signed_with_basic_filter(account_id(7)), 0, 0));
 
 		// Verify updated child-bounty status.
 		assert_eq!(
@@ -1270,7 +1270,7 @@ fn close_parent_with_child_bounty() {
 		Balances::make_free_balance_be(&account_id(8), 101); // Child-bounty curator.
 
 		assert_ok!(Bounties::propose_bounty(
-			RuntimeOrigin::signed(account_id(0)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(0)),
 			50,
 			b"12345".to_vec()
 		));
@@ -1280,7 +1280,7 @@ fn close_parent_with_child_bounty() {
 		// Should fail, parent bounty not active yet.
 		assert_noop!(
 			ChildBounties::add_child_bounty(
-				RuntimeOrigin::signed(account_id(4)),
+				RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 				0,
 				10,
 				b"12345-p1".to_vec()
@@ -1291,11 +1291,11 @@ fn close_parent_with_child_bounty() {
 		go_to_block(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), 6));
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(account_id(4)), 0));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(4)), 0));
 
 		// Child-bounty.
 		assert_ok!(ChildBounties::add_child_bounty(
-			RuntimeOrigin::signed(account_id(4)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 			0,
 			10,
 			b"12345-p1".to_vec()
@@ -1343,7 +1343,7 @@ fn children_curator_fee_calculation_test() {
 		Balances::make_free_balance_be(&account_id(8), 101); // Child-bounty curator.
 
 		assert_ok!(Bounties::propose_bounty(
-			RuntimeOrigin::signed(account_id(0)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(0)),
 			50,
 			b"12345".to_vec()
 		));
@@ -1352,11 +1352,11 @@ fn children_curator_fee_calculation_test() {
 		go_to_block(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), 6));
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(account_id(4)), 0));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(4)), 0));
 
 		// Child-bounty.
 		assert_ok!(ChildBounties::add_child_bounty(
-			RuntimeOrigin::signed(account_id(4)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 			0,
 			10,
 			b"12345-p1".to_vec()
@@ -1369,7 +1369,7 @@ fn children_curator_fee_calculation_test() {
 
 		// Propose curator for child-bounty.
 		assert_ok!(ChildBounties::propose_curator(
-			RuntimeOrigin::signed(account_id(4)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(4)),
 			0,
 			0,
 			account_id(8),
@@ -1378,10 +1378,10 @@ fn children_curator_fee_calculation_test() {
 		// Check curator fee added to the sum.
 		assert_eq!(pallet_child_bounties::ChildrenCuratorFees::<Test>::get(0), fee);
 		// Accept curator for child-bounty.
-		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed(account_id(8)), 0, 0));
+		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(account_id(8)), 0, 0));
 		// Award child-bounty.
 		assert_ok!(ChildBounties::award_child_bounty(
-			RuntimeOrigin::signed(account_id(8)),
+			RuntimeOrigin::signed_with_basic_filter(account_id(8)),
 			0,
 			0,
 			account_id(7)
@@ -1407,13 +1407,13 @@ fn children_curator_fee_calculation_test() {
 		go_to_block(9);
 
 		// Claim child-bounty.
-		assert_ok!(ChildBounties::claim_child_bounty(RuntimeOrigin::signed(account_id(7)), 0, 0));
+		assert_ok!(ChildBounties::claim_child_bounty(RuntimeOrigin::signed_with_basic_filter(account_id(7)), 0, 0));
 
 		// Check the child-bounty count.
 		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 0);
 
 		// Award the parent bounty.
-		assert_ok!(Bounties::award_bounty(RuntimeOrigin::signed(account_id(4)), 0, account_id(9)));
+		assert_ok!(Bounties::award_bounty(RuntimeOrigin::signed_with_basic_filter(account_id(4)), 0, account_id(9)));
 
 		go_to_block(15);
 
@@ -1421,7 +1421,7 @@ fn children_curator_fee_calculation_test() {
 		assert_eq!(pallet_child_bounties::ParentTotalChildBounties::<Test>::get(0), 1);
 
 		// Claim the parent bounty.
-		assert_ok!(Bounties::claim_bounty(RuntimeOrigin::signed(account_id(9)), 0));
+		assert_ok!(Bounties::claim_bounty(RuntimeOrigin::signed_with_basic_filter(account_id(9)), 0));
 
 		// Check the total count after the parent bounty removal.
 		assert_eq!(pallet_child_bounties::ParentTotalChildBounties::<Test>::get(0), 0);
@@ -1451,7 +1451,7 @@ fn accept_curator_handles_different_deposit_calculations() {
 		Balances::make_free_balance_be(&Treasury::account_id(), parent_value * 3);
 		Balances::make_free_balance_be(&parent_curator, parent_fee * 100);
 		assert_ok!(Bounties::propose_bounty(
-			RuntimeOrigin::signed(parent_curator),
+			RuntimeOrigin::signed_with_basic_filter(parent_curator),
 			parent_value,
 			b"12345".to_vec()
 		));
@@ -1465,7 +1465,7 @@ fn accept_curator_handles_different_deposit_calculations() {
 			parent_curator,
 			parent_fee
 		));
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(parent_curator), parent_index));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(parent_curator), parent_index));
 
 		// Now we can start creating some child bounties.
 		// Case 1: Parent and child curator are not the same.
@@ -1478,21 +1478,21 @@ fn accept_curator_handles_different_deposit_calculations() {
 
 		Balances::make_free_balance_be(&child_curator, starting_balance);
 		assert_ok!(ChildBounties::add_child_bounty(
-			RuntimeOrigin::signed(parent_curator),
+			RuntimeOrigin::signed_with_basic_filter(parent_curator),
 			parent_index,
 			child_value,
 			b"12345-p1".to_vec()
 		));
 		go_to_block(3);
 		assert_ok!(ChildBounties::propose_curator(
-			RuntimeOrigin::signed(parent_curator),
+			RuntimeOrigin::signed_with_basic_filter(parent_curator),
 			parent_index,
 			child_index,
 			child_curator,
 			child_fee
 		));
 		assert_ok!(ChildBounties::accept_curator(
-			RuntimeOrigin::signed(child_curator),
+			RuntimeOrigin::signed_with_basic_filter(child_curator),
 			parent_index,
 			child_index
 		));
@@ -1512,21 +1512,21 @@ fn accept_curator_handles_different_deposit_calculations() {
 		let reserved_before = Balances::reserved_balance(&parent_curator);
 
 		assert_ok!(ChildBounties::add_child_bounty(
-			RuntimeOrigin::signed(parent_curator),
+			RuntimeOrigin::signed_with_basic_filter(parent_curator),
 			parent_index,
 			child_value,
 			b"12345-p1".to_vec()
 		));
 		go_to_block(4);
 		assert_ok!(ChildBounties::propose_curator(
-			RuntimeOrigin::signed(parent_curator),
+			RuntimeOrigin::signed_with_basic_filter(parent_curator),
 			parent_index,
 			child_index,
 			child_curator,
 			child_fee
 		));
 		assert_ok!(ChildBounties::accept_curator(
-			RuntimeOrigin::signed(child_curator),
+			RuntimeOrigin::signed_with_basic_filter(child_curator),
 			parent_index,
 			child_index
 		));
@@ -1544,21 +1544,21 @@ fn accept_curator_handles_different_deposit_calculations() {
 
 		Balances::make_free_balance_be(&child_curator, starting_balance);
 		assert_ok!(ChildBounties::add_child_bounty(
-			RuntimeOrigin::signed(parent_curator),
+			RuntimeOrigin::signed_with_basic_filter(parent_curator),
 			parent_index,
 			child_value,
 			b"12345-p1".to_vec()
 		));
 		go_to_block(5);
 		assert_ok!(ChildBounties::propose_curator(
-			RuntimeOrigin::signed(parent_curator),
+			RuntimeOrigin::signed_with_basic_filter(parent_curator),
 			parent_index,
 			child_index,
 			child_curator,
 			child_fee
 		));
 		assert_ok!(ChildBounties::accept_curator(
-			RuntimeOrigin::signed(child_curator),
+			RuntimeOrigin::signed_with_basic_filter(child_curator),
 			parent_index,
 			child_index
 		));
@@ -1579,21 +1579,21 @@ fn accept_curator_handles_different_deposit_calculations() {
 
 		Balances::make_free_balance_be(&child_curator, starting_balance);
 		assert_ok!(ChildBounties::add_child_bounty(
-			RuntimeOrigin::signed(parent_curator),
+			RuntimeOrigin::signed_with_basic_filter(parent_curator),
 			parent_index,
 			child_value,
 			b"12345-p1".to_vec()
 		));
 		go_to_block(5);
 		assert_ok!(ChildBounties::propose_curator(
-			RuntimeOrigin::signed(parent_curator),
+			RuntimeOrigin::signed_with_basic_filter(parent_curator),
 			parent_index,
 			child_index,
 			child_curator,
 			child_fee
 		));
 		assert_ok!(ChildBounties::accept_curator(
-			RuntimeOrigin::signed(child_curator),
+			RuntimeOrigin::signed_with_basic_filter(child_curator),
 			parent_index,
 			child_index
 		));

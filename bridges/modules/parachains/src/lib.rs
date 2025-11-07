@@ -894,7 +894,7 @@ pub(crate) mod tests {
 		let justification = make_default_justification(&header);
 		assert_ok!(
 			pallet_bridge_grandpa::Pallet::<TestRuntime, BridgesGrandpaPalletInstance>::submit_finality_proof_ex(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				Box::new(header),
 				justification.clone(),
 				TEST_GRANDPA_SET_ID,
@@ -966,7 +966,7 @@ pub(crate) mod tests {
 		proof: ParaHeadsProof,
 	) -> DispatchResultWithPostInfo {
 		Pallet::<TestRuntime>::submit_parachain_heads(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			(relay_chain_block, test_relay_header(relay_chain_block, relay_state_root).hash()),
 			parachains,
 			proof,
@@ -995,7 +995,7 @@ pub(crate) mod tests {
 			PalletOperatingMode::<TestRuntime>::put(BasicOperatingMode::Halted);
 			assert_noop!(
 				Pallet::<TestRuntime>::submit_parachain_heads(
-					RuntimeOrigin::signed(1),
+					RuntimeOrigin::signed_with_basic_filter(1),
 					(0, test_relay_header(0, state_root).hash()),
 					parachains.clone(),
 					proof.clone(),
@@ -1006,7 +1006,7 @@ pub(crate) mod tests {
 			// `submit_parachain_heads()` should succeed now that the pallet is resumed.
 			PalletOperatingMode::<TestRuntime>::put(BasicOperatingMode::Normal);
 			assert_ok!(Pallet::<TestRuntime>::submit_parachain_heads(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				(0, test_relay_header(0, state_root).hash()),
 				parachains,
 				proof,
@@ -1028,7 +1028,7 @@ pub(crate) mod tests {
 			let expected_weight =
 				WeightInfo::submit_parachain_heads_weight(DbWeight::get(), &proof, 2);
 			let result = Pallet::<TestRuntime>::submit_parachain_heads(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				(0, test_relay_header(0, state_root).hash()),
 				parachains,
 				proof,
@@ -1222,7 +1222,7 @@ pub(crate) mod tests {
 					));
 			initialize(state_root);
 			let result = Pallet::<TestRuntime>::submit_parachain_heads(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				(0, test_relay_header(0, state_root).hash()),
 				parachains,
 				proof,
@@ -1458,7 +1458,7 @@ pub(crate) mod tests {
 			// start with relay block #0 and try to import head#5 of parachain#1 and big parachain
 			initialize(state_root);
 			let result = Pallet::<TestRuntime>::submit_parachain_heads(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				(0, test_relay_header(0, state_root).hash()),
 				parachains,
 				proof,
@@ -1606,7 +1606,7 @@ pub(crate) mod tests {
 			// => we'll leave previous value
 			proceed(20, state_root_10_at_20);
 			assert_ok!(Pallet::<TestRuntime>::submit_parachain_heads(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				(20, test_relay_header(20, state_root_10_at_20).hash()),
 				parachains_10_at_20,
 				proof_10_at_20,
@@ -1622,7 +1622,7 @@ pub(crate) mod tests {
 			// => we'll update value
 			proceed(30, state_root_10_at_30);
 			assert_ok!(Pallet::<TestRuntime>::submit_parachain_heads(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				(30, test_relay_header(30, state_root_10_at_30).hash()),
 				parachains_10_at_30,
 				proof_10_at_30,
@@ -1664,7 +1664,7 @@ pub(crate) mod tests {
 		run_test(|| {
 			initialize(state_root);
 			assert_ok!(Pallet::<TestRuntime>::submit_parachain_heads(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				(0, test_relay_header(0, state_root).hash()),
 				parachains,
 				proof,
@@ -1690,7 +1690,7 @@ pub(crate) mod tests {
 		run_test(|| {
 			initialize(state_root);
 			assert_ok!(Pallet::<TestRuntime>::submit_parachain_heads(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				(0, test_relay_header(0, state_root).hash()),
 				parachains,
 				proof,
@@ -1778,7 +1778,7 @@ pub(crate) mod tests {
 			initialize(state_root);
 			// first submission is free
 			let result = Pallet::<TestRuntime>::submit_parachain_heads(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				(0, test_relay_header(0, state_root).hash()),
 				parachains.clone(),
 				proof.clone(),
@@ -1786,7 +1786,7 @@ pub(crate) mod tests {
 			assert_eq!(result.unwrap().pays_fee, Pays::No);
 			// next submission is NOT free, because we haven't updated anything
 			let result = Pallet::<TestRuntime>::submit_parachain_heads(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				(0, test_relay_header(0, state_root).hash()),
 				parachains,
 				proof,
@@ -1799,7 +1799,7 @@ pub(crate) mod tests {
 			let relay_block_number = FreeHeadersInterval::get() - 1;
 			proceed(relay_block_number, state_root);
 			let result = Pallet::<TestRuntime>::submit_parachain_heads(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				(relay_block_number, test_relay_header(relay_block_number, state_root).hash()),
 				parachains,
 				proof,
@@ -1812,7 +1812,7 @@ pub(crate) mod tests {
 			let relay_block_number = relay_block_number + FreeHeadersInterval::get();
 			proceed(relay_block_number, state_root);
 			let result = Pallet::<TestRuntime>::submit_parachain_heads(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				(relay_block_number, test_relay_header(relay_block_number, state_root).hash()),
 				parachains,
 				proof,
@@ -1827,7 +1827,7 @@ pub(crate) mod tests {
 			let relay_block_number = relay_block_number + FreeHeadersInterval::get();
 			proceed(relay_block_number, state_root);
 			let result = Pallet::<TestRuntime>::submit_parachain_heads(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				(relay_block_number, test_relay_header(relay_block_number, state_root).hash()),
 				parachains,
 				proof,
@@ -1864,7 +1864,7 @@ pub(crate) mod tests {
 				free_headers_remaining = free_headers_remaining - 1;
 				// import free parachain header
 				assert_ok!(Pallet::<TestRuntime>::submit_parachain_heads(
-					RuntimeOrigin::signed(1),
+					RuntimeOrigin::signed_with_basic_filter(1),
 					(relay_block_number, test_relay_header(relay_block_number, state_root).hash()),
 					parachains,
 					proof,
@@ -1883,7 +1883,7 @@ pub(crate) mod tests {
 				prepare_parachain_heads_proof::<RegularParachainHeader>(vec![(2, head_data(2, 7))]);
 			relay_block_number = relay_block_number + FreeHeadersInterval::get();
 			let result = pallet_bridge_grandpa::Pallet::<TestRuntime, BridgesGrandpaPalletInstance>::submit_finality_proof_ex(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				Box::new(test_relay_header(relay_block_number, state_root)),
 				make_default_justification(&test_relay_header(relay_block_number, state_root)),
 				TEST_GRANDPA_SET_ID,
@@ -1892,7 +1892,7 @@ pub(crate) mod tests {
 			assert_eq!(result.unwrap().pays_fee, Pays::Yes);
 			// try to import free parachain header => non-free execution
 			let result = Pallet::<TestRuntime>::submit_parachain_heads(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				(relay_block_number, test_relay_header(relay_block_number, state_root).hash()),
 				parachains,
 				proof,

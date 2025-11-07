@@ -164,7 +164,7 @@ fn debugging_works() {
 		let inner_args = (100u32).encode();
 
 		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			addr_caller.clone(),
 			0,
 			GAS_LIMIT,
@@ -210,7 +210,7 @@ fn call_interception_works() {
 
 		// no interception yet
 		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			account_id.clone(),
 			0,
 			GAS_LIMIT,
@@ -222,7 +222,7 @@ fn call_interception_works() {
 		INTERCEPTED_ADDRESS.with(|i| *i.borrow_mut() = Some(account_id.clone()));
 
 		assert_err_ignore_postinfo!(
-			Contracts::call(RuntimeOrigin::signed(ALICE), account_id, 0, GAS_LIMIT, None, vec![],),
+			Contracts::call(RuntimeOrigin::signed_with_basic_filter(ALICE), account_id, 0, GAS_LIMIT, None, vec![],),
 			<Error<Test>>::ContractReverted,
 		);
 	});

@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::{Pallet as Treasury, *};
 
 use frame_benchmarking::{
@@ -239,7 +240,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			let res = Treasury::<T, _>::payout(RawOrigin::Signed(caller.clone()).into(), 0u32);
+			let res = Treasury::<T, _>::payout(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), 0u32);
 
 			if spend_exists {
 				assert_ok!(res);
@@ -257,7 +258,7 @@ mod benchmarks {
 				_ => panic!("No payout attempt made"),
 			};
 			assert_last_event::<T, I>(Event::Paid { index: 0, payment_id: id }.into());
-			assert!(Treasury::<T, _>::payout(RawOrigin::Signed(caller).into(), 0u32).is_err());
+			assert!(Treasury::<T, _>::payout(RawOrigin::Signed(caller).into_with_basic_filter(), 0u32).is_err());
 		}
 
 		Ok(())
@@ -281,7 +282,7 @@ mod benchmarks {
 				None,
 			)?;
 
-			Treasury::<T, _>::payout(RawOrigin::Signed(caller.clone()).into(), 0u32)?;
+			Treasury::<T, _>::payout(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), 0u32)?;
 			match Spends::<T, I>::get(0).unwrap().status {
 				PaymentState::Attempted { id, .. } => {
 					T::Paymaster::ensure_concluded(id);
@@ -297,7 +298,7 @@ mod benchmarks {
 		#[block]
 		{
 			let res =
-				Treasury::<T, _>::check_status(RawOrigin::Signed(caller.clone()).into(), 0u32);
+				Treasury::<T, _>::check_status(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), 0u32);
 
 			if spend_exists {
 				assert_ok!(res);

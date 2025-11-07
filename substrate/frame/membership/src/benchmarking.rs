@@ -17,6 +17,7 @@
 
 //! Membership pallet benchmarking.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::{Pallet as Membership, *};
 use frame_benchmarking::v1::{account, benchmarks_instance_pallet, whitelist, BenchmarkError};
 use frame_support::{assert_ok, traits::EnsureOrigin};
@@ -135,7 +136,7 @@ benchmarks_instance_pallet! {
 		let add_lookup = T::Lookup::unlookup(add.clone());
 		whitelist!(prime);
 	}: {
-		assert_ok!(Membership::<T, I>::change_key(RawOrigin::Signed(prime.clone()).into(), add_lookup));
+		assert_ok!(Membership::<T, I>::change_key(RawOrigin::Signed(prime.clone()).into_with_basic_filter(), add_lookup));
 	} verify {
 		assert!(!Members::<T, I>::get().contains(&prime));
 		assert!(Members::<T, I>::get().contains(&add));

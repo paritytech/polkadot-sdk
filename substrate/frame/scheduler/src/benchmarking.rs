@@ -17,6 +17,7 @@
 
 //! Scheduler pallet benchmarking.
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::vec;
 use frame_benchmarking::v2::*;
 use frame_support::{
@@ -51,10 +52,10 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 /// - `Some(false)`: plain call
 fn fill_schedule<T: Config>(when: BlockNumberFor<T>, n: u32) -> Result<(), &'static str> {
 	let t = DispatchTime::At(when);
-	let origin: <T as Config>::PalletsOrigin = frame_system::RawOrigin::Root.into();
+	let origin: <T as Config>::PalletsOrigin = frame_system::RawOrigin::Root.into_with_basic_filter();
 	for i in 0..n {
 		let call = make_call::<T>(None);
-		let period = Some(((i + 100).into(), 100));
+		let period = Some(((i + 100).into_with_basic_filter(), 100));
 		let name = u32_to_name(i);
 		Pallet::<T>::do_schedule_named(name, t, period, 0, origin.clone(), call)?;
 	}
@@ -124,8 +125,8 @@ fn make_call<T: Config>(maybe_lookup_len: Option<u32>) -> BoundedCallOf<T> {
 
 fn make_origin<T: Config>(signed: bool) -> <T as Config>::PalletsOrigin {
 	match signed {
-		true => frame_system::RawOrigin::Signed(account("origin", 0, SEED)).into(),
-		false => frame_system::RawOrigin::Root.into(),
+		true => frame_system::RawOrigin::Signed(account("origin", 0, SEED)).into_with_basic_filter(),
+		false => frame_system::RawOrigin::Root.into_with_basic_filter(),
 	}
 }
 
@@ -474,13 +475,13 @@ mod benchmarks {
 		let address = Lookup::<T>::get(name).unwrap();
 		let (when, index) = address;
 		let period = BlockNumberFor::<T>::one();
-		assert!(Pallet::<T>::set_retry(RawOrigin::Root.into(), (when, index), 10, period).is_ok());
+		assert!(Pallet::<T>::set_retry(RawOrigin::Root.into_with_basic_filter(), (when, index), 10, period).is_ok());
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, (when, index));
 
 		assert!(!Retries::<T>::contains_key((when, index)));
-		assert_last_event::<T>(Event::RetryCancelled { task: address, id: None }.into());
+		assert_last_event::<T>(Event::RetryCancelled { task: address, id: None }.into_with_basic_filter());
 
 		Ok(())
 	}
@@ -495,13 +496,13 @@ mod benchmarks {
 		let address = Lookup::<T>::get(name).unwrap();
 		let (when, index) = address;
 		let period = BlockNumberFor::<T>::one();
-		assert!(Pallet::<T>::set_retry_named(RawOrigin::Root.into(), name, 10, period).is_ok());
+		assert!(Pallet::<T>::set_retry_named(RawOrigin::Root.into_with_basic_filter(), name, 10, period).is_ok());
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, name);
 
 		assert!(!Retries::<T>::contains_key((when, index)));
-		assert_last_event::<T>(Event::RetryCancelled { task: address, id: Some(name) }.into());
+		assert_last_event::<T>(Event::RetryCancelled { task: address, id: Some(name) }.into_with_basic_filter());
 
 		Ok(())
 	}

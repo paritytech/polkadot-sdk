@@ -17,6 +17,7 @@
 
 //! Staking pallet benchmarking.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use crate::{asset, ConfigOp, Pallet as Staking};
 use testing_utils::*;
@@ -87,7 +88,7 @@ pub fn create_validator_with_nominators<T: Config>(
 
 	let validator_prefs =
 		ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
-	Staking::<T>::validate(RawOrigin::Signed(v_controller).into(), validator_prefs)?;
+	Staking::<T>::validate(RawOrigin::Signed(v_controller).into_with_basic_filter(), validator_prefs)?;
 	let stash_lookup = T::Lookup::unlookup(v_stash.clone());
 
 	points_total += 10;
@@ -105,7 +106,7 @@ pub fn create_validator_with_nominators<T: Config>(
 		};
 		if i < n {
 			Staking::<T>::nominate(
-				RawOrigin::Signed(n_controller.clone()).into(),
+				RawOrigin::Signed(n_controller.clone()).into_with_basic_filter(),
 				vec![stash_lookup.clone()],
 			)?;
 			nominators.push((n_stash, n_controller));
@@ -178,7 +179,7 @@ impl<T: Config> ListScenario<T> {
 			RewardDestination::Staked,
 		)?;
 		Staking::<T>::nominate(
-			RawOrigin::Signed(origin_controller1.clone()).into(),
+			RawOrigin::Signed(origin_controller1.clone()).into_with_basic_filter(),
 			// NOTE: these don't really need to be validators.
 			vec![T::Lookup::unlookup(account("random_validator", 0, SEED))],
 		)?;
@@ -189,7 +190,7 @@ impl<T: Config> ListScenario<T> {
 			RewardDestination::Staked,
 		)?;
 		Staking::<T>::nominate(
-			RawOrigin::Signed(origin_controller2).into(),
+			RawOrigin::Signed(origin_controller2).into_with_basic_filter(),
 			vec![T::Lookup::unlookup(account("random_validator", 0, SEED))],
 		)?;
 
@@ -209,7 +210,7 @@ impl<T: Config> ListScenario<T> {
 			RewardDestination::Staked,
 		)?;
 		Staking::<T>::nominate(
-			RawOrigin::Signed(dest_controller1).into(),
+			RawOrigin::Signed(dest_controller1).into_with_basic_filter(),
 			vec![T::Lookup::unlookup(account("random_validator", 0, SEED))],
 		)?;
 
@@ -313,7 +314,7 @@ mod benchmarks {
 		let (stash, controller) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
 		add_slashing_spans::<T>(&stash, s);
 		let amount = asset::existential_deposit::<T>() * 5u32.into(); // Half of total
-		Staking::<T>::unbond(RawOrigin::Signed(controller.clone()).into(), amount)?;
+		Staking::<T>::unbond(RawOrigin::Signed(controller.clone()).into_with_basic_filter(), amount)?;
 		CurrentEra::<T>::put(EraIndex::max_value());
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created before")?;
 		let original_total: BalanceOf<T> = ledger.total;
@@ -409,7 +410,7 @@ mod benchmarks {
 		let stash_lookup = T::Lookup::unlookup(stash.clone());
 
 		// they start validating.
-		Staking::<T>::validate(RawOrigin::Signed(controller.clone()).into(), Default::default())?;
+		Staking::<T>::validate(RawOrigin::Signed(controller.clone()).into_with_basic_filter(), Default::default())?;
 
 		// we now create the nominators. there will be `k` of them; each will nominate all
 		// validators. we will then kick each of the `k` nominators from the main validator.
@@ -428,7 +429,7 @@ mod benchmarks {
 			// optimisations/pessimisations.
 			nominations.insert(i as usize % (nominations.len() + 1), stash_lookup.clone());
 			// then we nominate.
-			Staking::<T>::nominate(RawOrigin::Signed(n_controller.clone()).into(), nominations)?;
+			Staking::<T>::nominate(RawOrigin::Signed(n_controller.clone()).into_with_basic_filter(), nominations)?;
 
 			nominator_stashes.push(n_stash);
 		}
@@ -1060,7 +1061,7 @@ mod benchmarks {
 		assert!(T::VoterList::contains(&stash));
 
 		Staking::<T>::set_staking_configs(
-			RawOrigin::Root.into(),
+			RawOrigin::Root.into_with_basic_filter(),
 			ConfigOp::Set(BalanceOf::<T>::max_value()),
 			ConfigOp::Set(BalanceOf::<T>::max_value()),
 			ConfigOp::Set(0),
@@ -1089,7 +1090,7 @@ mod benchmarks {
 		let (stash, controller) = create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
 		let validator_prefs =
 			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
-		Staking::<T>::validate(RawOrigin::Signed(controller).into(), validator_prefs)?;
+		Staking::<T>::validate(RawOrigin::Signed(controller).into_with_basic_filter(), validator_prefs)?;
 
 		// Sanity check
 		assert_eq!(
@@ -1238,7 +1239,7 @@ mod tests {
 
 			let original_stakeable_balance = asset::stakeable_balance::<Test>(&validator_stash);
 			assert_ok!(Staking::payout_stakers_by_page(
-				RuntimeOrigin::signed(1337),
+				RuntimeOrigin::signed_with_basic_filter(1337),
 				validator_stash,
 				current_era,
 				0

@@ -276,12 +276,12 @@ mod test {
 
 			// Make some tips
 			assert_ok!(Tips::report_awesome(
-				RuntimeOrigin::signed(tipper_0),
+				RuntimeOrigin::signed_with_basic_filter(tipper_0),
 				tip_0_reason.clone(),
 				recipient
 			));
 			assert_ok!(Tips::report_awesome(
-				RuntimeOrigin::signed(tipper_1),
+				RuntimeOrigin::signed_with_basic_filter(tipper_1),
 				tip_1_reason.clone(),
 				recipient
 			));

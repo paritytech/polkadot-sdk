@@ -32,10 +32,10 @@ fn change_controller_works() {
 		assert_eq!(Staking::bonded(&stash), Some(controller));
 
 		// `controller` can control `stash` who is initially a validator.
-		assert_ok!(Staking::chill(RuntimeOrigin::signed(controller)));
+		assert_ok!(Staking::chill(RuntimeOrigin::signed_with_basic_filter(controller)));
 
 		// sets controller back to `stash`.
-		assert_ok!(Staking::set_controller(RuntimeOrigin::signed(stash)));
+		assert_ok!(Staking::set_controller(RuntimeOrigin::signed_with_basic_filter(stash)));
 		assert_eq!(Staking::bonded(&stash), Some(stash));
 
 		// fetch the ledger from storage and check if the controller is correct.
@@ -54,10 +54,10 @@ fn change_controller_works() {
 
 		// `controller` is no longer in control. `stash` is now controller.
 		assert_noop!(
-			Staking::validate(RuntimeOrigin::signed(controller), ValidatorPrefs::default()),
+			Staking::validate(RuntimeOrigin::signed_with_basic_filter(controller), ValidatorPrefs::default()),
 			Error::<Test>::NotController,
 		);
-		assert_ok!(Staking::validate(RuntimeOrigin::signed(stash), ValidatorPrefs::default()));
+		assert_ok!(Staking::validate(RuntimeOrigin::signed_with_basic_filter(stash), ValidatorPrefs::default()));
 	})
 }
 
@@ -68,20 +68,20 @@ fn change_controller_already_paired_once_stash() {
 		assert_eq!(Staking::bonded(&11), Some(11));
 
 		// 11 is initially a validator.
-		assert_ok!(Staking::chill(RuntimeOrigin::signed(11)));
+		assert_ok!(Staking::chill(RuntimeOrigin::signed_with_basic_filter(11)));
 
 		// Controller cannot change once matching with stash.
 		assert_noop!(
-			Staking::set_controller(RuntimeOrigin::signed(11)),
+			Staking::set_controller(RuntimeOrigin::signed_with_basic_filter(11)),
 			Error::<Test>::AlreadyPaired
 		);
 		assert_eq!(Staking::bonded(&11), Some(11));
 
 		// 10 is no longer in control.
 		assert_noop!(
-			Staking::validate(RuntimeOrigin::signed(10), ValidatorPrefs::default()),
+			Staking::validate(RuntimeOrigin::signed_with_basic_filter(10), ValidatorPrefs::default()),
 			Error::<Test>::NotController,
 		);
-		assert_ok!(Staking::validate(RuntimeOrigin::signed(11), ValidatorPrefs::default()));
+		assert_ok!(Staking::validate(RuntimeOrigin::signed_with_basic_filter(11), ValidatorPrefs::default()));
 	})
 }

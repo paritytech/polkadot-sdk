@@ -505,7 +505,7 @@ mod test {
 
 				before_validate.map(|f| f());
 				extra.clone().validate_and_prepare(
-					RuntimeOrigin::signed(account_id),
+					RuntimeOrigin::signed_with_basic_filter(account_id),
 					&result.function,
 					&result.function.get_dispatch_info(),
 					encoded_len,

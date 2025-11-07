@@ -37,7 +37,7 @@ fn transfer_assets_wnd_reserve_transfer_para_to_relay_fails() {
 
 	// Mint WND on PenpalA for testing.
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalAssetOwner::get()),
 		RelayLocation::get(),
 		PenpalASender::get(),
 		amount_to_send * 2,
@@ -50,7 +50,7 @@ fn transfer_assets_wnd_reserve_transfer_para_to_relay_fails() {
 
 	PenpalA::execute_with(|| {
 		let result = <PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets(
-			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get()),
+			<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalASender::get()),
 			bx!(destination.into()),
 			bx!(beneficiary.into()),
 			bx!(assets.into()),
@@ -82,7 +82,7 @@ fn transfer_assets_wnd_reserve_transfer_relay_to_para_fails() {
 
 	Westend::execute_with(|| {
 		let result = <Westend as WestendPallet>::XcmPallet::transfer_assets(
-			<Westend as Chain>::RuntimeOrigin::signed(WestendSender::get()),
+			<Westend as Chain>::RuntimeOrigin::signed_with_basic_filter(WestendSender::get()),
 			bx!(destination.into()),
 			bx!(beneficiary.into()),
 			bx!(assets.into()),
@@ -117,7 +117,7 @@ fn transfer_assets_wnd_reserve_transfer_para_to_para_fails() {
 
 	// Mint WND on PenpalA for testing
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalAssetOwner::get()),
 		RelayLocation::get(),
 		PenpalASender::get(),
 		amount_to_send * 2,
@@ -125,7 +125,7 @@ fn transfer_assets_wnd_reserve_transfer_para_to_para_fails() {
 
 	PenpalA::execute_with(|| {
 		let result = <PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets(
-			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get()),
+			<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalASender::get()),
 			bx!(destination.into()),
 			bx!(beneficiary.into()),
 			bx!(assets.into()),
@@ -170,13 +170,13 @@ fn transfer_assets_wnd_as_fee_in_reserve_transfer_fails() {
 
 	// Mint both assets on PenpalA for testing.
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalAssetOwner::get()),
 		foreign_asset_location.clone(),
 		PenpalASender::get(),
 		asset_amount * 2,
 	);
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalAssetOwner::get()),
 		RelayLocation::get(),
 		PenpalASender::get(),
 		fee_amount * 2,
@@ -192,7 +192,7 @@ fn transfer_assets_wnd_as_fee_in_reserve_transfer_fails() {
 
 	PenpalA::execute_with(|| {
 		let result = <PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets(
-			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get()),
+			<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalASender::get()),
 			bx!(destination.into()),
 			bx!(beneficiary.into()),
 			bx!(assets.into()),
@@ -232,13 +232,13 @@ fn transfer_assets_non_native_assets_work() {
 
 	// Mint both USDT and WND on PenpalA, one for sending, the other for paying delivery fees.
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalAssetOwner::get()),
 		RelayLocation::get(),
 		PenpalASender::get(),
 		amount * 2,
 	);
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalAssetOwner::get()),
 		asset_location.clone(),
 		PenpalASender::get(),
 		amount * 2,
@@ -250,7 +250,7 @@ fn transfer_assets_non_native_assets_work() {
 
 	PenpalA::execute_with(|| {
 		let result = <PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets(
-			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get()),
+			<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalASender::get()),
 			bx!(destination.into()),
 			bx!(beneficiary.into()),
 			bx!(assets.into()),

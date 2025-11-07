@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use frame_support::traits::IntoWithBasicFilter;
 use crate::*;
 use frame_support::{
 	assert_noop, assert_ok,
@@ -51,15 +52,15 @@ fn check_whitelist() {
 
 #[test]
 fn origin_works() {
-	let o = RuntimeOrigin::from(RawOrigin::<u64>::Signed(1u64));
-	let x: Result<RawOrigin<u64>, RuntimeOrigin> = o.into();
+	let o = (RawOrigin::<u64>::Signed(1u64)).into_with_basic_filter();
+	let x: Result<RawOrigin<u64>, RuntimeOrigin> = o.into_with_basic_filter();
 	assert_eq!(x.unwrap(), RawOrigin::<u64>::Signed(1u64));
 }
 
 #[test]
 fn unique_datum_works() {
 	new_test_ext().execute_with(|| {
-		System::initialize(&1, &[0u8; 32].into(), &Default::default());
+		System::initialize(&1, &[0u8; 32].into_with_basic_filter(), &Default::default());
 		assert!(sp_io::storage::exists(well_known_keys::INTRABLOCK_ENTROPY));
 
 		let h1 = unique(b"");
@@ -652,7 +653,7 @@ fn set_code_checks_works() {
 		let mut ext = new_test_ext();
 		ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(read_runtime_version));
 		ext.execute_with(|| {
-			let res = System::set_code(RawOrigin::Root.into(), vec![1, 2, 3, 4]);
+			let res = System::set_code(RawOrigin::Root.into_with_basic_filter(), vec![1, 2, 3, 4]);
 
 			assert_runtime_updated_digest(if res.is_ok() { 1 } else { 0 });
 			assert_eq!(expected.map_err(DispatchErrorWithPostInfo::from), res);
@@ -680,7 +681,7 @@ fn set_code_with_real_wasm_blob() {
 	ext.execute_with(|| {
 		System::set_block_number(1);
 		System::set_code(
-			RawOrigin::Root.into(),
+			RawOrigin::Root.into_with_basic_filter(),
 			substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec(),
 		)
 		.unwrap();
@@ -706,7 +707,7 @@ fn set_code_rejects_during_mbm() {
 	ext.execute_with(|| {
 		System::set_block_number(1);
 		let res = System::set_code(
-			RawOrigin::Root.into(),
+			RawOrigin::Root.into_with_basic_filter(),
 			substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec(),
 		);
 		assert_eq!(
@@ -732,14 +733,14 @@ fn set_code_via_authorization_works() {
 
 		// Can't apply before authorization
 		assert_noop!(
-			System::apply_authorized_upgrade(RawOrigin::None.into(), runtime.clone()),
+			System::apply_authorized_upgrade(RawOrigin::None.into_with_basic_filter(), runtime.clone()),
 			Error::<Test>::NothingAuthorized,
 		);
 
 		// Can authorize
-		assert_ok!(System::authorize_upgrade(RawOrigin::Root.into(), hash));
+		assert_ok!(System::authorize_upgrade(RawOrigin::Root.into_with_basic_filter(), hash));
 		System::assert_has_event(
-			SysEvent::UpgradeAuthorized { code_hash: hash, check_version: true }.into(),
+			SysEvent::UpgradeAuthorized { code_hash: hash, check_version: true }.into_with_basic_filter(),
 		);
 		assert_eq!(System::authorized_upgrade().unwrap().code_hash(), &hash);
 
@@ -747,13 +748,13 @@ fn set_code_via_authorization_works() {
 		let mut bad_runtime = substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec();
 		bad_runtime.extend(b"sneaky");
 		assert_noop!(
-			System::apply_authorized_upgrade(RawOrigin::None.into(), bad_runtime),
+			System::apply_authorized_upgrade(RawOrigin::None.into_with_basic_filter(), bad_runtime),
 			Error::<Test>::Unauthorized,
 		);
 
 		// Can apply correct runtime
-		assert_ok!(System::apply_authorized_upgrade(RawOrigin::None.into(), runtime));
-		System::assert_has_event(SysEvent::CodeUpdated.into());
+		assert_ok!(System::apply_authorized_upgrade(RawOrigin::None.into_with_basic_filter(), runtime));
+		System::assert_has_event(SysEvent::CodeUpdated.into_with_basic_filter());
 		assert!(System::authorized_upgrade().is_none());
 	});
 }
@@ -765,7 +766,7 @@ fn runtime_upgraded_with_set_storage() {
 	ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(executor));
 	ext.execute_with(|| {
 		System::set_storage(
-			RawOrigin::Root.into(),
+			RawOrigin::Root.into_with_basic_filter(),
 			vec![(
 				well_known_keys::CODE.to_vec(),
 				substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec(),
@@ -817,7 +818,7 @@ fn runtime_updated_digest_emitted_when_heap_pages_changed() {
 	new_test_ext().execute_with(|| {
 		System::reset_events();
 		System::initialize(&1, &[0u8; 32].into(), &Default::default());
-		System::set_heap_pages(RawOrigin::Root.into(), 5).unwrap();
+		System::set_heap_pages(RawOrigin::Root.into_with_basic_filter(), 5).unwrap();
 		assert_runtime_updated_digest(1);
 	});
 }
@@ -831,7 +832,7 @@ fn ensure_signed_stuff_works() {
 		}
 	}
 
-	let signed_origin = RuntimeOrigin::signed(0u64);
+	let signed_origin = RuntimeOrigin::signed_with_basic_filter(0u64);
 	assert_ok!(<EnsureSigned<_> as EnsureOrigin<_>>::try_origin(signed_origin.clone()));
 	assert_ok!(<EnsureSignedBy<Members, _> as EnsureOrigin<_>>::try_origin(signed_origin));
 

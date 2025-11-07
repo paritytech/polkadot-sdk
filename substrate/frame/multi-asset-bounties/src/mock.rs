@@ -19,6 +19,7 @@
 
 #![cfg(test)]
 
+use frame_support::traits::IntoWithBasicFilter;
 use crate as pallet_bounties;
 use crate::{Event as BountiesEvent, *};
 
@@ -153,12 +154,12 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for TestSpendOrigin {
 			frame_system::RawOrigin::Signed(12) => Ok(20),
 			frame_system::RawOrigin::Signed(13) => Ok(50),
 			frame_system::RawOrigin::Signed(14) => Ok(500),
-			r => Err(RuntimeOrigin::from(r)),
+			r => Err((r).into_with_basic_filter()),
 		})
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
-		Ok(frame_system::RawOrigin::Root.into())
+		Ok(frame_system::RawOrigin::Root.into_with_basic_filter())
 	}
 }
 
@@ -310,7 +311,7 @@ pub fn note_preimage(who: u128) -> <Test as frame_system::Config>::Hash {
 	// note a new preimage on every function invoke.
 	static COUNTER: AtomicU8 = AtomicU8::new(0);
 	let data = vec![COUNTER.fetch_add(1, Ordering::Relaxed)];
-	assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(who), data.clone()));
+	assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed_with_basic_filter(who), data.clone()));
 	let hash = BlakeTwo256::hash(&data);
 	assert!(!Preimage::is_requested(&hash));
 	hash
@@ -353,7 +354,7 @@ pub fn approve_payment(
 	assert_eq!(paid(dest, asset_kind), amount);
 	let payment_id = get_payment_id(parent_bounty_id, child_bounty_id).expect("no payment attempt");
 	set_status(payment_id, PaymentStatus::Success);
-	assert_ok!(Bounties::check_status(RuntimeOrigin::signed(0), parent_bounty_id, child_bounty_id));
+	assert_ok!(Bounties::check_status(RuntimeOrigin::signed_with_basic_filter(0), parent_bounty_id, child_bounty_id));
 }
 
 pub fn reject_payment(
@@ -366,7 +367,7 @@ pub fn reject_payment(
 	unpay(dest, asset_kind, amount);
 	let payment_id = get_payment_id(parent_bounty_id, child_bounty_id).expect("no payment attempt");
 	set_status(payment_id, PaymentStatus::Failure);
-	assert_ok!(Bounties::check_status(RuntimeOrigin::signed(0), parent_bounty_id, child_bounty_id));
+	assert_ok!(Bounties::check_status(RuntimeOrigin::signed_with_basic_filter(0), parent_bounty_id, child_bounty_id));
 }
 
 #[derive(Clone)]
@@ -445,7 +446,7 @@ pub fn create_active_parent_bounty() -> TestBounty {
 	let s = create_funded_parent_bounty();
 
 	assert_ok!(Bounties::accept_curator(
-		RuntimeOrigin::signed(s.curator),
+		RuntimeOrigin::signed_with_basic_filter(s.curator),
 		s.parent_bounty_id,
 		None,
 	));
@@ -457,7 +458,7 @@ pub fn create_parent_bounty_with_unassigned_curator() -> TestBounty {
 	let s = create_funded_parent_bounty();
 
 	assert_ok!(Bounties::unassign_curator(
-		RuntimeOrigin::signed(s.curator),
+		RuntimeOrigin::signed_with_basic_filter(s.curator),
 		s.parent_bounty_id,
 		None,
 	));
@@ -469,7 +470,7 @@ pub fn create_awarded_parent_bounty() -> TestBounty {
 	let s = create_active_parent_bounty();
 
 	assert_ok!(Bounties::award_bounty(
-		RuntimeOrigin::signed(s.curator),
+		RuntimeOrigin::signed_with_basic_filter(s.curator),
 		s.parent_bounty_id,
 		None,
 		s.beneficiary,
@@ -490,7 +491,7 @@ pub fn create_child_bounty_with_curator() -> TestBounty {
 	let mut s = create_active_parent_bounty();
 
 	assert_ok!(Bounties::fund_child_bounty(
-		RuntimeOrigin::signed(s.curator),
+		RuntimeOrigin::signed_with_basic_filter(s.curator),
 		s.parent_bounty_id,
 		s.child_value,
 		Some(s.child_curator),
@@ -523,7 +524,7 @@ pub fn create_child_bounty_with_unassigned_curator() -> TestBounty {
 	let s = create_funded_child_bounty();
 
 	assert_ok!(Bounties::unassign_curator(
-		RuntimeOrigin::signed(s.curator),
+		RuntimeOrigin::signed_with_basic_filter(s.curator),
 		s.parent_bounty_id,
 		Some(s.child_bounty_id),
 	));
@@ -535,7 +536,7 @@ pub fn create_active_child_bounty() -> TestBounty {
 	let s = create_funded_child_bounty();
 
 	assert_ok!(Bounties::accept_curator(
-		RuntimeOrigin::signed(s.child_curator),
+		RuntimeOrigin::signed_with_basic_filter(s.child_curator),
 		s.parent_bounty_id,
 		Some(s.child_bounty_id)
 	));
@@ -547,7 +548,7 @@ pub fn create_canceled_child_bounty() -> TestBounty {
 	let s = create_active_child_bounty();
 
 	assert_ok!(Bounties::close_bounty(
-		RuntimeOrigin::signed(s.curator),
+		RuntimeOrigin::signed_with_basic_filter(s.curator),
 		s.parent_bounty_id,
 		Some(s.child_bounty_id),
 	));
@@ -559,7 +560,7 @@ pub fn create_awarded_child_bounty() -> TestBounty {
 	let s = create_active_child_bounty();
 
 	assert_ok!(Bounties::award_bounty(
-		RuntimeOrigin::signed(s.child_curator),
+		RuntimeOrigin::signed_with_basic_filter(s.child_curator),
 		s.parent_bounty_id,
 		Some(s.child_bounty_id),
 		s.child_beneficiary

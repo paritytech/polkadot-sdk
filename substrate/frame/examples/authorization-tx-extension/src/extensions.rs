@@ -21,6 +21,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+use frame_support::traits::IntoWithBasicFilter;
 use core::{fmt, marker::PhantomData};
 
 use codec::{Decode, DecodeWithMemTracking, Encode};
@@ -127,7 +128,7 @@ where
 		// Turn it into a local `PalletsOrigin`.
 		let local_origin = <T as Config>::PalletsOrigin::from(local_origin);
 		// Then finally into a pallet `RuntimeOrigin`.
-		let local_origin = <T as Config>::RuntimeOrigin::from(local_origin);
+		let local_origin = (local_origin).into_with_basic_filter();
 		// Which the `set_caller_from` function will convert into the overarching `RuntimeOrigin`
 		// created by `construct_runtime!`.
 		origin.set_caller_from(local_origin);

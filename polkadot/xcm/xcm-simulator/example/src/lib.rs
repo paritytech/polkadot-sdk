@@ -140,7 +140,7 @@ pub fn relay_ext() -> sp_io::TestExternalities {
 	ext.execute_with(|| {
 		System::set_block_number(1);
 		assert_eq!(Uniques::force_create(RuntimeOrigin::root(), 1, ALICE, true), Ok(()));
-		assert_eq!(Uniques::mint(RuntimeOrigin::signed(ALICE), 1, 42, child_account_id(1)), Ok(()));
+		assert_eq!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(ALICE), 1, 42, child_account_id(1)), Ok(()));
 	});
 	ext
 }

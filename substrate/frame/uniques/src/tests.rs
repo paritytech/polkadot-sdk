@@ -94,12 +94,12 @@ fn basic_minting_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
 		assert_eq!(collections(), vec![(1, 0)]);
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 1));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, 1));
 		assert_eq!(items(), vec![(1, 0, 42)]);
 
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 1, 2, true));
 		assert_eq!(collections(), vec![(1, 0), (2, 1)]);
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(2), 1, 69, 1));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(2), 1, 69, 1));
 		assert_eq!(items(), vec![(1, 0, 42), (1, 1, 69)]);
 	});
 }
@@ -108,11 +108,11 @@ fn basic_minting_should_work() {
 fn lifecycle_should_work() {
 	new_test_ext().execute_with(|| {
 		Balances::make_free_balance_be(&1, 100);
-		assert_ok!(Uniques::create(RuntimeOrigin::signed(1), 0, 1));
+		assert_ok!(Uniques::create(RuntimeOrigin::signed_with_basic_filter(1), 0, 1));
 		assert_eq!(Balances::reserved_balance(&1), 2);
 		assert_eq!(collections(), vec![(1, 0)]);
 		assert_ok!(Uniques::set_collection_metadata(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			0,
 			bvec![0, 0],
 			false
@@ -120,25 +120,25 @@ fn lifecycle_should_work() {
 		assert_eq!(Balances::reserved_balance(&1), 5);
 		assert!(CollectionMetadataOf::<Test>::contains_key(0));
 
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 10));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, 10));
 		assert_eq!(Balances::reserved_balance(&1), 6);
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 69, 20));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(1), 0, 69, 20));
 		assert_eq!(Balances::reserved_balance(&1), 7);
 		assert_eq!(items(), vec![(10, 0, 42), (20, 0, 69)]);
 		assert_eq!(Collection::<Test>::get(0).unwrap().items, 2);
 		assert_eq!(Collection::<Test>::get(0).unwrap().item_metadatas, 0);
 
-		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed(1), 0, 42, bvec![42, 42], false));
+		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, bvec![42, 42], false));
 		assert_eq!(Balances::reserved_balance(&1), 10);
 		assert!(ItemMetadataOf::<Test>::contains_key(0, 42));
-		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed(1), 0, 69, bvec![69, 69], false));
+		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), 0, 69, bvec![69, 69], false));
 		assert_eq!(Balances::reserved_balance(&1), 13);
 		assert!(ItemMetadataOf::<Test>::contains_key(0, 69));
 
 		let w = Collection::<Test>::get(0).unwrap().destroy_witness();
 		assert_eq!(w.items, 2);
 		assert_eq!(w.item_metadatas, 2);
-		assert_ok!(Uniques::destroy(RuntimeOrigin::signed(1), 0, w));
+		assert_ok!(Uniques::destroy(RuntimeOrigin::signed_with_basic_filter(1), 0, w));
 		assert_eq!(Balances::reserved_balance(&1), 0);
 
 		assert!(!Collection::<Test>::contains_key(0));
@@ -156,11 +156,11 @@ fn lifecycle_should_work() {
 fn destroy_with_bad_witness_should_not_work() {
 	new_test_ext().execute_with(|| {
 		Balances::make_free_balance_be(&1, 100);
-		assert_ok!(Uniques::create(RuntimeOrigin::signed(1), 0, 1));
+		assert_ok!(Uniques::create(RuntimeOrigin::signed_with_basic_filter(1), 0, 1));
 
 		let w = Collection::<Test>::get(0).unwrap().destroy_witness();
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 1));
-		assert_noop!(Uniques::destroy(RuntimeOrigin::signed(1), 0, w), Error::<Test>::BadWitness);
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, 1));
+		assert_noop!(Uniques::destroy(RuntimeOrigin::signed_with_basic_filter(1), 0, w), Error::<Test>::BadWitness);
 	});
 }
 
@@ -168,7 +168,7 @@ fn destroy_with_bad_witness_should_not_work() {
 fn mint_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 1));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, 1));
 		assert_eq!(Uniques::owner(0, 42).unwrap(), 1);
 		assert_eq!(collections(), vec![(1, 0)]);
 		assert_eq!(items(), vec![(1, 0, 42)]);
@@ -179,17 +179,17 @@ fn mint_should_work() {
 fn transfer_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 2));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, 2));
 
-		assert_ok!(Uniques::transfer(RuntimeOrigin::signed(2), 0, 42, 3));
+		assert_ok!(Uniques::transfer(RuntimeOrigin::signed_with_basic_filter(2), 0, 42, 3));
 		assert_eq!(items(), vec![(3, 0, 42)]);
 		assert_noop!(
-			Uniques::transfer(RuntimeOrigin::signed(2), 0, 42, 4),
+			Uniques::transfer(RuntimeOrigin::signed_with_basic_filter(2), 0, 42, 4),
 			Error::<Test>::NoPermission
 		);
 
-		assert_ok!(Uniques::approve_transfer(RuntimeOrigin::signed(3), 0, 42, 2));
-		assert_ok!(Uniques::transfer(RuntimeOrigin::signed(2), 0, 42, 4));
+		assert_ok!(Uniques::approve_transfer(RuntimeOrigin::signed_with_basic_filter(3), 0, 42, 2));
+		assert_ok!(Uniques::transfer(RuntimeOrigin::signed_with_basic_filter(2), 0, 42, 4));
 	});
 }
 
@@ -197,16 +197,16 @@ fn transfer_should_work() {
 fn freezing_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 1));
-		assert_ok!(Uniques::freeze(RuntimeOrigin::signed(1), 0, 42));
-		assert_noop!(Uniques::transfer(RuntimeOrigin::signed(1), 0, 42, 2), Error::<Test>::Frozen);
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, 1));
+		assert_ok!(Uniques::freeze(RuntimeOrigin::signed_with_basic_filter(1), 0, 42));
+		assert_noop!(Uniques::transfer(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, 2), Error::<Test>::Frozen);
 
-		assert_ok!(Uniques::thaw(RuntimeOrigin::signed(1), 0, 42));
-		assert_ok!(Uniques::freeze_collection(RuntimeOrigin::signed(1), 0));
-		assert_noop!(Uniques::transfer(RuntimeOrigin::signed(1), 0, 42, 2), Error::<Test>::Frozen);
+		assert_ok!(Uniques::thaw(RuntimeOrigin::signed_with_basic_filter(1), 0, 42));
+		assert_ok!(Uniques::freeze_collection(RuntimeOrigin::signed_with_basic_filter(1), 0));
+		assert_noop!(Uniques::transfer(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, 2), Error::<Test>::Frozen);
 
-		assert_ok!(Uniques::thaw_collection(RuntimeOrigin::signed(1), 0));
-		assert_ok!(Uniques::transfer(RuntimeOrigin::signed(1), 0, 42, 2));
+		assert_ok!(Uniques::thaw_collection(RuntimeOrigin::signed_with_basic_filter(1), 0));
+		assert_ok!(Uniques::transfer(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, 2));
 	});
 }
 
@@ -214,30 +214,30 @@ fn freezing_should_work() {
 fn origin_guards_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 1));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, 1));
 
 		Balances::make_free_balance_be(&2, 100);
-		assert_ok!(Uniques::set_accept_ownership(RuntimeOrigin::signed(2), Some(0)));
+		assert_ok!(Uniques::set_accept_ownership(RuntimeOrigin::signed_with_basic_filter(2), Some(0)));
 		assert_noop!(
-			Uniques::transfer_ownership(RuntimeOrigin::signed(2), 0, 2),
+			Uniques::transfer_ownership(RuntimeOrigin::signed_with_basic_filter(2), 0, 2),
 			Error::<Test>::NoPermission
 		);
 		assert_noop!(
-			Uniques::set_team(RuntimeOrigin::signed(2), 0, 2, 2, 2),
+			Uniques::set_team(RuntimeOrigin::signed_with_basic_filter(2), 0, 2, 2, 2),
 			Error::<Test>::NoPermission
 		);
-		assert_noop!(Uniques::freeze(RuntimeOrigin::signed(2), 0, 42), Error::<Test>::NoPermission);
-		assert_noop!(Uniques::thaw(RuntimeOrigin::signed(2), 0, 42), Error::<Test>::NoPermission);
+		assert_noop!(Uniques::freeze(RuntimeOrigin::signed_with_basic_filter(2), 0, 42), Error::<Test>::NoPermission);
+		assert_noop!(Uniques::thaw(RuntimeOrigin::signed_with_basic_filter(2), 0, 42), Error::<Test>::NoPermission);
 		assert_noop!(
-			Uniques::mint(RuntimeOrigin::signed(2), 0, 69, 2),
+			Uniques::mint(RuntimeOrigin::signed_with_basic_filter(2), 0, 69, 2),
 			Error::<Test>::NoPermission
 		);
 		assert_noop!(
-			Uniques::burn(RuntimeOrigin::signed(2), 0, 42, None),
+			Uniques::burn(RuntimeOrigin::signed_with_basic_filter(2), 0, 42, None),
 			Error::<Test>::NoPermission
 		);
 		let w = Collection::<Test>::get(0).unwrap().destroy_witness();
-		assert_noop!(Uniques::destroy(RuntimeOrigin::signed(2), 0, w), Error::<Test>::NoPermission);
+		assert_noop!(Uniques::destroy(RuntimeOrigin::signed_with_basic_filter(2), 0, w), Error::<Test>::NoPermission);
 	});
 }
 
@@ -247,16 +247,16 @@ fn transfer_owner_should_work() {
 		Balances::make_free_balance_be(&1, 100);
 		Balances::make_free_balance_be(&2, 100);
 		Balances::make_free_balance_be(&3, 100);
-		assert_ok!(Uniques::create(RuntimeOrigin::signed(1), 0, 1));
+		assert_ok!(Uniques::create(RuntimeOrigin::signed_with_basic_filter(1), 0, 1));
 		assert_eq!(collections(), vec![(1, 0)]);
 		assert_noop!(
-			Uniques::transfer_ownership(RuntimeOrigin::signed(1), 0, 2),
+			Uniques::transfer_ownership(RuntimeOrigin::signed_with_basic_filter(1), 0, 2),
 			Error::<Test>::Unaccepted
 		);
 		assert_eq!(System::consumers(&2), 0);
-		assert_ok!(Uniques::set_accept_ownership(RuntimeOrigin::signed(2), Some(0)));
+		assert_ok!(Uniques::set_accept_ownership(RuntimeOrigin::signed_with_basic_filter(2), Some(0)));
 		assert_eq!(System::consumers(&2), 1);
-		assert_ok!(Uniques::transfer_ownership(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Uniques::transfer_ownership(RuntimeOrigin::signed_with_basic_filter(1), 0, 2));
 		assert_eq!(System::consumers(&2), 1);
 
 		assert_eq!(collections(), vec![(2, 0)]);
@@ -265,23 +265,23 @@ fn transfer_owner_should_work() {
 		assert_eq!(Balances::reserved_balance(&1), 0);
 		assert_eq!(Balances::reserved_balance(&2), 2);
 
-		assert_ok!(Uniques::set_accept_ownership(RuntimeOrigin::signed(1), Some(0)));
+		assert_ok!(Uniques::set_accept_ownership(RuntimeOrigin::signed_with_basic_filter(1), Some(0)));
 		assert_noop!(
-			Uniques::transfer_ownership(RuntimeOrigin::signed(1), 0, 1),
+			Uniques::transfer_ownership(RuntimeOrigin::signed_with_basic_filter(1), 0, 1),
 			Error::<Test>::NoPermission
 		);
 
 		// Mint and set metadata now and make sure that deposit gets transferred back.
 		assert_ok!(Uniques::set_collection_metadata(
-			RuntimeOrigin::signed(2),
+			RuntimeOrigin::signed_with_basic_filter(2),
 			0,
 			bvec![0u8; 20],
 			false
 		));
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 1));
-		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed(2), 0, 42, bvec![0u8; 20], false));
-		assert_ok!(Uniques::set_accept_ownership(RuntimeOrigin::signed(3), Some(0)));
-		assert_ok!(Uniques::transfer_ownership(RuntimeOrigin::signed(2), 0, 3));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, 1));
+		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed_with_basic_filter(2), 0, 42, bvec![0u8; 20], false));
+		assert_ok!(Uniques::set_accept_ownership(RuntimeOrigin::signed_with_basic_filter(3), Some(0)));
+		assert_ok!(Uniques::transfer_ownership(RuntimeOrigin::signed_with_basic_filter(2), 0, 3));
 		assert_eq!(collections(), vec![(3, 0)]);
 		assert_eq!(Balances::total_balance(&2), 57);
 		assert_eq!(Balances::total_balance(&3), 145);
@@ -291,7 +291,7 @@ fn transfer_owner_should_work() {
 		// 2's acceptance from before is reset when it became owner, so it cannot be transferred
 		// without a fresh acceptance.
 		assert_noop!(
-			Uniques::transfer_ownership(RuntimeOrigin::signed(3), 0, 2),
+			Uniques::transfer_ownership(RuntimeOrigin::signed_with_basic_filter(3), 0, 2),
 			Error::<Test>::Unaccepted
 		);
 	});
@@ -301,13 +301,13 @@ fn transfer_owner_should_work() {
 fn set_team_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
-		assert_ok!(Uniques::set_team(RuntimeOrigin::signed(1), 0, 2, 3, 4));
+		assert_ok!(Uniques::set_team(RuntimeOrigin::signed_with_basic_filter(1), 0, 2, 3, 4));
 
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(2), 0, 42, 2));
-		assert_ok!(Uniques::freeze(RuntimeOrigin::signed(4), 0, 42));
-		assert_ok!(Uniques::thaw(RuntimeOrigin::signed(3), 0, 42));
-		assert_ok!(Uniques::transfer(RuntimeOrigin::signed(3), 0, 42, 3));
-		assert_ok!(Uniques::burn(RuntimeOrigin::signed(3), 0, 42, None));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(2), 0, 42, 2));
+		assert_ok!(Uniques::freeze(RuntimeOrigin::signed_with_basic_filter(4), 0, 42));
+		assert_ok!(Uniques::thaw(RuntimeOrigin::signed_with_basic_filter(3), 0, 42));
+		assert_ok!(Uniques::transfer(RuntimeOrigin::signed_with_basic_filter(3), 0, 42, 3));
+		assert_ok!(Uniques::burn(RuntimeOrigin::signed_with_basic_filter(3), 0, 42, None));
 	});
 }
 
@@ -316,20 +316,20 @@ fn set_collection_metadata_should_work() {
 	new_test_ext().execute_with(|| {
 		// Cannot add metadata to unknown item
 		assert_noop!(
-			Uniques::set_collection_metadata(RuntimeOrigin::signed(1), 0, bvec![0u8; 20], false),
+			Uniques::set_collection_metadata(RuntimeOrigin::signed_with_basic_filter(1), 0, bvec![0u8; 20], false),
 			Error::<Test>::UnknownCollection,
 		);
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, false));
 		// Cannot add metadata to unowned item
 		assert_noop!(
-			Uniques::set_collection_metadata(RuntimeOrigin::signed(2), 0, bvec![0u8; 20], false),
+			Uniques::set_collection_metadata(RuntimeOrigin::signed_with_basic_filter(2), 0, bvec![0u8; 20], false),
 			Error::<Test>::NoPermission,
 		);
 
 		// Successfully add metadata and take deposit
 		Balances::make_free_balance_be(&1, 30);
 		assert_ok!(Uniques::set_collection_metadata(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			0,
 			bvec![0u8; 20],
 			false
@@ -347,14 +347,14 @@ fn set_collection_metadata_should_work() {
 
 		// Update deposit
 		assert_ok!(Uniques::set_collection_metadata(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			0,
 			bvec![0u8; 15],
 			false
 		));
 		assert_eq!(Balances::free_balance(&1), 14);
 		assert_ok!(Uniques::set_collection_metadata(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			0,
 			bvec![0u8; 25],
 			false
@@ -363,23 +363,23 @@ fn set_collection_metadata_should_work() {
 
 		// Cannot over-reserve
 		assert_noop!(
-			Uniques::set_collection_metadata(RuntimeOrigin::signed(1), 0, bvec![0u8; 40], false),
+			Uniques::set_collection_metadata(RuntimeOrigin::signed_with_basic_filter(1), 0, bvec![0u8; 40], false),
 			BalancesError::<Test, _>::InsufficientBalance,
 		);
 
 		// Can't set or clear metadata once frozen
 		assert_ok!(Uniques::set_collection_metadata(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			0,
 			bvec![0u8; 15],
 			true
 		));
 		assert_noop!(
-			Uniques::set_collection_metadata(RuntimeOrigin::signed(1), 0, bvec![0u8; 15], false),
+			Uniques::set_collection_metadata(RuntimeOrigin::signed_with_basic_filter(1), 0, bvec![0u8; 15], false),
 			Error::<Test, _>::Frozen,
 		);
 		assert_noop!(
-			Uniques::clear_collection_metadata(RuntimeOrigin::signed(1), 0),
+			Uniques::clear_collection_metadata(RuntimeOrigin::signed_with_basic_filter(1), 0),
 			Error::<Test>::Frozen
 		);
 
@@ -391,14 +391,14 @@ fn set_collection_metadata_should_work() {
 			false
 		));
 		assert_noop!(
-			Uniques::clear_collection_metadata(RuntimeOrigin::signed(2), 0),
+			Uniques::clear_collection_metadata(RuntimeOrigin::signed_with_basic_filter(2), 0),
 			Error::<Test>::NoPermission
 		);
 		assert_noop!(
-			Uniques::clear_collection_metadata(RuntimeOrigin::signed(1), 1),
+			Uniques::clear_collection_metadata(RuntimeOrigin::signed_with_basic_filter(1), 1),
 			Error::<Test>::UnknownCollection
 		);
-		assert_ok!(Uniques::clear_collection_metadata(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Uniques::clear_collection_metadata(RuntimeOrigin::signed_with_basic_filter(1), 0));
 		assert!(!CollectionMetadataOf::<Test>::contains_key(0));
 	});
 }
@@ -410,15 +410,15 @@ fn set_item_metadata_should_work() {
 
 		// Cannot add metadata to unknown item
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, false));
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 1));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, 1));
 		// Cannot add metadata to unowned item
 		assert_noop!(
-			Uniques::set_metadata(RuntimeOrigin::signed(2), 0, 42, bvec![0u8; 20], false),
+			Uniques::set_metadata(RuntimeOrigin::signed_with_basic_filter(2), 0, 42, bvec![0u8; 20], false),
 			Error::<Test>::NoPermission,
 		);
 
 		// Successfully add metadata and take deposit
-		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed(1), 0, 42, bvec![0u8; 20], false));
+		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, bvec![0u8; 20], false));
 		assert_eq!(Balances::free_balance(&1), 8);
 		assert!(ItemMetadataOf::<Test>::contains_key(0, 42));
 
@@ -426,39 +426,39 @@ fn set_item_metadata_should_work() {
 		assert_ok!(Uniques::set_metadata(RuntimeOrigin::root(), 0, 42, bvec![0u8; 18], false));
 
 		// Update deposit
-		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed(1), 0, 42, bvec![0u8; 15], false));
+		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, bvec![0u8; 15], false));
 		assert_eq!(Balances::free_balance(&1), 13);
-		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed(1), 0, 42, bvec![0u8; 25], false));
+		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, bvec![0u8; 25], false));
 		assert_eq!(Balances::free_balance(&1), 3);
 
 		// Cannot over-reserve
 		assert_noop!(
-			Uniques::set_metadata(RuntimeOrigin::signed(1), 0, 42, bvec![0u8; 40], false),
+			Uniques::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, bvec![0u8; 40], false),
 			BalancesError::<Test, _>::InsufficientBalance,
 		);
 
 		// Can't set or clear metadata once frozen
-		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed(1), 0, 42, bvec![0u8; 15], true));
+		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, bvec![0u8; 15], true));
 		assert_noop!(
-			Uniques::set_metadata(RuntimeOrigin::signed(1), 0, 42, bvec![0u8; 15], false),
+			Uniques::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, bvec![0u8; 15], false),
 			Error::<Test, _>::Frozen,
 		);
 		assert_noop!(
-			Uniques::clear_metadata(RuntimeOrigin::signed(1), 0, 42),
+			Uniques::clear_metadata(RuntimeOrigin::signed_with_basic_filter(1), 0, 42),
 			Error::<Test>::Frozen
 		);
 
 		// Clear Metadata
 		assert_ok!(Uniques::set_metadata(RuntimeOrigin::root(), 0, 42, bvec![0u8; 15], false));
 		assert_noop!(
-			Uniques::clear_metadata(RuntimeOrigin::signed(2), 0, 42),
+			Uniques::clear_metadata(RuntimeOrigin::signed_with_basic_filter(2), 0, 42),
 			Error::<Test>::NoPermission
 		);
 		assert_noop!(
-			Uniques::clear_metadata(RuntimeOrigin::signed(1), 1, 42),
+			Uniques::clear_metadata(RuntimeOrigin::signed_with_basic_filter(1), 1, 42),
 			Error::<Test>::UnknownCollection
 		);
-		assert_ok!(Uniques::clear_metadata(RuntimeOrigin::signed(1), 0, 42));
+		assert_ok!(Uniques::clear_metadata(RuntimeOrigin::signed_with_basic_filter(1), 0, 42));
 		assert!(!ItemMetadataOf::<Test>::contains_key(0, 42));
 	});
 }
@@ -470,16 +470,16 @@ fn set_attribute_should_work() {
 
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, false));
 
-		assert_ok!(Uniques::set_attribute(RuntimeOrigin::signed(1), 0, None, bvec![0], bvec![0]));
+		assert_ok!(Uniques::set_attribute(RuntimeOrigin::signed_with_basic_filter(1), 0, None, bvec![0], bvec![0]));
 		assert_ok!(Uniques::set_attribute(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			0,
 			Some(0),
 			bvec![0],
 			bvec![0]
 		));
 		assert_ok!(Uniques::set_attribute(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			0,
 			Some(0),
 			bvec![1],
@@ -496,7 +496,7 @@ fn set_attribute_should_work() {
 		assert_eq!(Balances::reserved_balance(1), 9);
 
 		assert_ok!(Uniques::set_attribute(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			0,
 			None,
 			bvec![0],
@@ -512,7 +512,7 @@ fn set_attribute_should_work() {
 		);
 		assert_eq!(Balances::reserved_balance(1), 18);
 
-		assert_ok!(Uniques::clear_attribute(RuntimeOrigin::signed(1), 0, Some(0), bvec![1]));
+		assert_ok!(Uniques::clear_attribute(RuntimeOrigin::signed_with_basic_filter(1), 0, Some(0), bvec![1]));
 		assert_eq!(
 			attributes(0),
 			vec![(None, bvec![0], bvec![0; 10]), (Some(0), bvec![0], bvec![0]),]
@@ -520,7 +520,7 @@ fn set_attribute_should_work() {
 		assert_eq!(Balances::reserved_balance(1), 15);
 
 		let w = Collection::<Test>::get(0).unwrap().destroy_witness();
-		assert_ok!(Uniques::destroy(RuntimeOrigin::signed(1), 0, w));
+		assert_ok!(Uniques::destroy(RuntimeOrigin::signed_with_basic_filter(1), 0, w));
 		assert_eq!(attributes(0), vec![]);
 		assert_eq!(Balances::reserved_balance(1), 0);
 	});
@@ -533,16 +533,16 @@ fn set_attribute_should_respect_freeze() {
 
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, false));
 
-		assert_ok!(Uniques::set_attribute(RuntimeOrigin::signed(1), 0, None, bvec![0], bvec![0]));
+		assert_ok!(Uniques::set_attribute(RuntimeOrigin::signed_with_basic_filter(1), 0, None, bvec![0], bvec![0]));
 		assert_ok!(Uniques::set_attribute(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			0,
 			Some(0),
 			bvec![0],
 			bvec![0]
 		));
 		assert_ok!(Uniques::set_attribute(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			0,
 			Some(1),
 			bvec![0],
@@ -558,28 +558,28 @@ fn set_attribute_should_respect_freeze() {
 		);
 		assert_eq!(Balances::reserved_balance(1), 9);
 
-		assert_ok!(Uniques::set_collection_metadata(RuntimeOrigin::signed(1), 0, bvec![], true));
+		assert_ok!(Uniques::set_collection_metadata(RuntimeOrigin::signed_with_basic_filter(1), 0, bvec![], true));
 		let e = Error::<Test>::Frozen;
 		assert_noop!(
-			Uniques::set_attribute(RuntimeOrigin::signed(1), 0, None, bvec![0], bvec![0]),
+			Uniques::set_attribute(RuntimeOrigin::signed_with_basic_filter(1), 0, None, bvec![0], bvec![0]),
 			e
 		);
 		assert_ok!(Uniques::set_attribute(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			0,
 			Some(0),
 			bvec![0],
 			bvec![1]
 		));
 
-		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed(1), 0, 0, bvec![], true));
+		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), 0, 0, bvec![], true));
 		let e = Error::<Test>::Frozen;
 		assert_noop!(
-			Uniques::set_attribute(RuntimeOrigin::signed(1), 0, Some(0), bvec![0], bvec![1]),
+			Uniques::set_attribute(RuntimeOrigin::signed_with_basic_filter(1), 0, Some(0), bvec![0], bvec![1]),
 			e
 		);
 		assert_ok!(Uniques::set_attribute(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			0,
 			Some(1),
 			bvec![0],
@@ -594,37 +594,37 @@ fn force_item_status_should_work() {
 		Balances::make_free_balance_be(&1, 100);
 
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, false));
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 1));
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 69, 2));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, 1));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(1), 0, 69, 2));
 		assert_ok!(Uniques::set_collection_metadata(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			0,
 			bvec![0; 20],
 			false
 		));
-		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed(1), 0, 42, bvec![0; 20], false));
-		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed(1), 0, 69, bvec![0; 20], false));
+		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, bvec![0; 20], false));
+		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), 0, 69, bvec![0; 20], false));
 		assert_eq!(Balances::reserved_balance(1), 65);
 
 		// force item status to be free holding
 		assert_ok!(Uniques::force_item_status(RuntimeOrigin::root(), 0, 1, 1, 1, 1, true, false));
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 142, 1));
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 169, 2));
-		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed(1), 0, 142, bvec![0; 20], false));
-		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed(1), 0, 169, bvec![0; 20], false));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(1), 0, 142, 1));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(1), 0, 169, 2));
+		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), 0, 142, bvec![0; 20], false));
+		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), 0, 169, bvec![0; 20], false));
 		assert_eq!(Balances::reserved_balance(1), 65);
 
-		assert_ok!(Uniques::redeposit(RuntimeOrigin::signed(1), 0, bvec![0, 42, 50, 69, 100]));
+		assert_ok!(Uniques::redeposit(RuntimeOrigin::signed_with_basic_filter(1), 0, bvec![0, 42, 50, 69, 100]));
 		assert_eq!(Balances::reserved_balance(1), 63);
 
-		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed(1), 0, 42, bvec![0; 20], false));
+		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, bvec![0; 20], false));
 		assert_eq!(Balances::reserved_balance(1), 42);
 
-		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed(1), 0, 69, bvec![0; 20], false));
+		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), 0, 69, bvec![0; 20], false));
 		assert_eq!(Balances::reserved_balance(1), 21);
 
 		assert_ok!(Uniques::set_collection_metadata(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			0,
 			bvec![0; 20],
 			false
@@ -638,28 +638,28 @@ fn burn_works() {
 	new_test_ext().execute_with(|| {
 		Balances::make_free_balance_be(&1, 100);
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, false));
-		assert_ok!(Uniques::set_team(RuntimeOrigin::signed(1), 0, 2, 3, 4));
+		assert_ok!(Uniques::set_team(RuntimeOrigin::signed_with_basic_filter(1), 0, 2, 3, 4));
 
 		assert_noop!(
-			Uniques::burn(RuntimeOrigin::signed(5), 0, 42, Some(5)),
+			Uniques::burn(RuntimeOrigin::signed_with_basic_filter(5), 0, 42, Some(5)),
 			Error::<Test>::UnknownCollection
 		);
 
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(2), 0, 42, 5));
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(2), 0, 69, 5));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(2), 0, 42, 5));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(2), 0, 69, 5));
 		assert_eq!(Balances::reserved_balance(1), 2);
 
 		assert_noop!(
-			Uniques::burn(RuntimeOrigin::signed(0), 0, 42, None),
+			Uniques::burn(RuntimeOrigin::signed_with_basic_filter(0), 0, 42, None),
 			Error::<Test>::NoPermission
 		);
 		assert_noop!(
-			Uniques::burn(RuntimeOrigin::signed(5), 0, 42, Some(6)),
+			Uniques::burn(RuntimeOrigin::signed_with_basic_filter(5), 0, 42, Some(6)),
 			Error::<Test>::WrongOwner
 		);
 
-		assert_ok!(Uniques::burn(RuntimeOrigin::signed(5), 0, 42, Some(5)));
-		assert_ok!(Uniques::burn(RuntimeOrigin::signed(3), 0, 69, Some(5)));
+		assert_ok!(Uniques::burn(RuntimeOrigin::signed_with_basic_filter(5), 0, 42, Some(5)));
+		assert_ok!(Uniques::burn(RuntimeOrigin::signed_with_basic_filter(3), 0, 69, Some(5)));
 		assert_eq!(Balances::reserved_balance(1), 0);
 	});
 }
@@ -668,17 +668,17 @@ fn burn_works() {
 fn approval_lifecycle_works() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 2));
-		assert_ok!(Uniques::approve_transfer(RuntimeOrigin::signed(2), 0, 42, 3));
-		assert_ok!(Uniques::transfer(RuntimeOrigin::signed(3), 0, 42, 4));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, 2));
+		assert_ok!(Uniques::approve_transfer(RuntimeOrigin::signed_with_basic_filter(2), 0, 42, 3));
+		assert_ok!(Uniques::transfer(RuntimeOrigin::signed_with_basic_filter(3), 0, 42, 4));
 		assert_noop!(
-			Uniques::transfer(RuntimeOrigin::signed(3), 0, 42, 3),
+			Uniques::transfer(RuntimeOrigin::signed_with_basic_filter(3), 0, 42, 3),
 			Error::<Test>::NoPermission
 		);
 		assert!(Item::<Test>::get(0, 42).unwrap().approved.is_none());
 
-		assert_ok!(Uniques::approve_transfer(RuntimeOrigin::signed(4), 0, 42, 2));
-		assert_ok!(Uniques::transfer(RuntimeOrigin::signed(2), 0, 42, 2));
+		assert_ok!(Uniques::approve_transfer(RuntimeOrigin::signed_with_basic_filter(4), 0, 42, 2));
+		assert_ok!(Uniques::transfer(RuntimeOrigin::signed_with_basic_filter(2), 0, 42, 2));
 	});
 }
 
@@ -686,18 +686,18 @@ fn approval_lifecycle_works() {
 fn approved_account_gets_reset_after_transfer() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 2));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, 2));
 
-		assert_ok!(Uniques::approve_transfer(RuntimeOrigin::signed(2), 0, 42, 3));
-		assert_ok!(Uniques::transfer(RuntimeOrigin::signed(2), 0, 42, 5));
+		assert_ok!(Uniques::approve_transfer(RuntimeOrigin::signed_with_basic_filter(2), 0, 42, 3));
+		assert_ok!(Uniques::transfer(RuntimeOrigin::signed_with_basic_filter(2), 0, 42, 5));
 
 		// this shouldn't work because we have just transferred the item to another account.
 		assert_noop!(
-			Uniques::transfer(RuntimeOrigin::signed(3), 0, 42, 4),
+			Uniques::transfer(RuntimeOrigin::signed_with_basic_filter(3), 0, 42, 4),
 			Error::<Test>::NoPermission
 		);
 		// The new owner can transfer fine:
-		assert_ok!(Uniques::transfer(RuntimeOrigin::signed(5), 0, 42, 6));
+		assert_ok!(Uniques::transfer(RuntimeOrigin::signed_with_basic_filter(5), 0, 42, 6));
 	});
 }
 
@@ -710,17 +710,17 @@ fn approved_account_gets_reset_after_buy_item() {
 		Balances::make_free_balance_be(&2, 100);
 
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, item, 1));
-		assert_ok!(Uniques::approve_transfer(RuntimeOrigin::signed(1), 0, item, 5));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(1), 0, item, 1));
+		assert_ok!(Uniques::approve_transfer(RuntimeOrigin::signed_with_basic_filter(1), 0, item, 5));
 
-		assert_ok!(Uniques::set_price(RuntimeOrigin::signed(1), 0, item, Some(price), None));
+		assert_ok!(Uniques::set_price(RuntimeOrigin::signed_with_basic_filter(1), 0, item, Some(price), None));
 
-		assert_ok!(Uniques::buy_item(RuntimeOrigin::signed(2), 0, item, price));
+		assert_ok!(Uniques::buy_item(RuntimeOrigin::signed_with_basic_filter(2), 0, item, price));
 
 		// this shouldn't work because the item has been bough and the approved account should be
 		// reset.
 		assert_noop!(
-			Uniques::transfer(RuntimeOrigin::signed(5), 0, item, 4),
+			Uniques::transfer(RuntimeOrigin::signed_with_basic_filter(5), 0, item, 4),
 			Error::<Test>::NoPermission
 		);
 	});
@@ -730,29 +730,29 @@ fn approved_account_gets_reset_after_buy_item() {
 fn cancel_approval_works() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 2));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, 2));
 
-		assert_ok!(Uniques::approve_transfer(RuntimeOrigin::signed(2), 0, 42, 3));
+		assert_ok!(Uniques::approve_transfer(RuntimeOrigin::signed_with_basic_filter(2), 0, 42, 3));
 		assert_noop!(
-			Uniques::cancel_approval(RuntimeOrigin::signed(2), 1, 42, None),
+			Uniques::cancel_approval(RuntimeOrigin::signed_with_basic_filter(2), 1, 42, None),
 			Error::<Test>::UnknownCollection
 		);
 		assert_noop!(
-			Uniques::cancel_approval(RuntimeOrigin::signed(2), 0, 43, None),
+			Uniques::cancel_approval(RuntimeOrigin::signed_with_basic_filter(2), 0, 43, None),
 			Error::<Test>::UnknownCollection
 		);
 		assert_noop!(
-			Uniques::cancel_approval(RuntimeOrigin::signed(3), 0, 42, None),
+			Uniques::cancel_approval(RuntimeOrigin::signed_with_basic_filter(3), 0, 42, None),
 			Error::<Test>::NoPermission
 		);
 		assert_noop!(
-			Uniques::cancel_approval(RuntimeOrigin::signed(2), 0, 42, Some(4)),
+			Uniques::cancel_approval(RuntimeOrigin::signed_with_basic_filter(2), 0, 42, Some(4)),
 			Error::<Test>::WrongDelegate
 		);
 
-		assert_ok!(Uniques::cancel_approval(RuntimeOrigin::signed(2), 0, 42, Some(3)));
+		assert_ok!(Uniques::cancel_approval(RuntimeOrigin::signed_with_basic_filter(2), 0, 42, Some(3)));
 		assert_noop!(
-			Uniques::cancel_approval(RuntimeOrigin::signed(2), 0, 42, None),
+			Uniques::cancel_approval(RuntimeOrigin::signed_with_basic_filter(2), 0, 42, None),
 			Error::<Test>::NoDelegate
 		);
 	});
@@ -762,25 +762,25 @@ fn cancel_approval_works() {
 fn cancel_approval_works_with_admin() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 2));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, 2));
 
-		assert_ok!(Uniques::approve_transfer(RuntimeOrigin::signed(2), 0, 42, 3));
+		assert_ok!(Uniques::approve_transfer(RuntimeOrigin::signed_with_basic_filter(2), 0, 42, 3));
 		assert_noop!(
-			Uniques::cancel_approval(RuntimeOrigin::signed(1), 1, 42, None),
+			Uniques::cancel_approval(RuntimeOrigin::signed_with_basic_filter(1), 1, 42, None),
 			Error::<Test>::UnknownCollection
 		);
 		assert_noop!(
-			Uniques::cancel_approval(RuntimeOrigin::signed(1), 0, 43, None),
+			Uniques::cancel_approval(RuntimeOrigin::signed_with_basic_filter(1), 0, 43, None),
 			Error::<Test>::UnknownCollection
 		);
 		assert_noop!(
-			Uniques::cancel_approval(RuntimeOrigin::signed(1), 0, 42, Some(4)),
+			Uniques::cancel_approval(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, Some(4)),
 			Error::<Test>::WrongDelegate
 		);
 
-		assert_ok!(Uniques::cancel_approval(RuntimeOrigin::signed(1), 0, 42, Some(3)));
+		assert_ok!(Uniques::cancel_approval(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, Some(3)));
 		assert_noop!(
-			Uniques::cancel_approval(RuntimeOrigin::signed(1), 0, 42, None),
+			Uniques::cancel_approval(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, None),
 			Error::<Test>::NoDelegate
 		);
 	});
@@ -790,9 +790,9 @@ fn cancel_approval_works_with_admin() {
 fn cancel_approval_works_with_force() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 2));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(1), 0, 42, 2));
 
-		assert_ok!(Uniques::approve_transfer(RuntimeOrigin::signed(2), 0, 42, 3));
+		assert_ok!(Uniques::approve_transfer(RuntimeOrigin::signed_with_basic_filter(2), 0, 42, 3));
 		assert_noop!(
 			Uniques::cancel_approval(RuntimeOrigin::root(), 1, 42, None),
 			Error::<Test>::UnknownCollection
@@ -826,7 +826,7 @@ fn max_supply_should_work() {
 		assert!(!CollectionMaxSupply::<Test>::contains_key(collection_id));
 
 		assert_ok!(Uniques::set_collection_max_supply(
-			RuntimeOrigin::signed(user_id),
+			RuntimeOrigin::signed_with_basic_filter(user_id),
 			collection_id,
 			max_supply
 		));
@@ -839,7 +839,7 @@ fn max_supply_should_work() {
 
 		assert_noop!(
 			Uniques::set_collection_max_supply(
-				RuntimeOrigin::signed(user_id),
+				RuntimeOrigin::signed_with_basic_filter(user_id),
 				collection_id,
 				max_supply + 1
 			),
@@ -847,16 +847,16 @@ fn max_supply_should_work() {
 		);
 
 		// validate we can't mint more to max supply
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(user_id), collection_id, 0, user_id));
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(user_id), collection_id, 1, user_id));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(user_id), collection_id, 0, user_id));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(user_id), collection_id, 1, user_id));
 		assert_noop!(
-			Uniques::mint(RuntimeOrigin::signed(user_id), collection_id, 2, user_id),
+			Uniques::mint(RuntimeOrigin::signed_with_basic_filter(user_id), collection_id, 2, user_id),
 			Error::<Test>::MaxSupplyReached
 		);
 
 		// validate we remove the CollectionMaxSupply record when we destroy the collection
 		assert_ok!(Uniques::destroy(
-			RuntimeOrigin::signed(user_id),
+			RuntimeOrigin::signed_with_basic_filter(user_id),
 			collection_id,
 			Collection::<Test>::get(collection_id).unwrap().destroy_witness()
 		));
@@ -874,11 +874,11 @@ fn set_price_should_work() {
 
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), collection_id, user_id, true));
 
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(user_id), collection_id, item_1, user_id));
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(user_id), collection_id, item_2, user_id));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(user_id), collection_id, item_1, user_id));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(user_id), collection_id, item_2, user_id));
 
 		assert_ok!(Uniques::set_price(
-			RuntimeOrigin::signed(user_id),
+			RuntimeOrigin::signed_with_basic_filter(user_id),
 			collection_id,
 			item_1,
 			Some(1),
@@ -886,7 +886,7 @@ fn set_price_should_work() {
 		));
 
 		assert_ok!(Uniques::set_price(
-			RuntimeOrigin::signed(user_id),
+			RuntimeOrigin::signed_with_basic_filter(user_id),
 			collection_id,
 			item_2,
 			Some(2),
@@ -910,7 +910,7 @@ fn set_price_should_work() {
 
 		// validate we can unset the price
 		assert_ok!(Uniques::set_price(
-			RuntimeOrigin::signed(user_id),
+			RuntimeOrigin::signed_with_basic_filter(user_id),
 			collection_id,
 			item_2,
 			None,
@@ -944,12 +944,12 @@ fn buy_item_should_work() {
 
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), collection_id, user_1, true));
 
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(user_1), collection_id, item_1, user_1));
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(user_1), collection_id, item_2, user_1));
-		assert_ok!(Uniques::mint(RuntimeOrigin::signed(user_1), collection_id, item_3, user_1));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(user_1), collection_id, item_1, user_1));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(user_1), collection_id, item_2, user_1));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed_with_basic_filter(user_1), collection_id, item_3, user_1));
 
 		assert_ok!(Uniques::set_price(
-			RuntimeOrigin::signed(user_1),
+			RuntimeOrigin::signed_with_basic_filter(user_1),
 			collection_id,
 			item_1,
 			Some(price_1),
@@ -957,7 +957,7 @@ fn buy_item_should_work() {
 		));
 
 		assert_ok!(Uniques::set_price(
-			RuntimeOrigin::signed(user_1),
+			RuntimeOrigin::signed_with_basic_filter(user_1),
 			collection_id,
 			item_2,
 			Some(price_2),
@@ -966,13 +966,13 @@ fn buy_item_should_work() {
 
 		// can't buy for less
 		assert_noop!(
-			Uniques::buy_item(RuntimeOrigin::signed(user_2), collection_id, item_1, 1),
+			Uniques::buy_item(RuntimeOrigin::signed_with_basic_filter(user_2), collection_id, item_1, 1),
 			Error::<Test>::BidTooLow
 		);
 
 		// pass the higher price to validate it will still deduct correctly
 		assert_ok!(Uniques::buy_item(
-			RuntimeOrigin::signed(user_2),
+			RuntimeOrigin::signed_with_basic_filter(user_2),
 			collection_id,
 			item_1,
 			price_1 + 1,
@@ -986,19 +986,19 @@ fn buy_item_should_work() {
 
 		// can't buy from yourself
 		assert_noop!(
-			Uniques::buy_item(RuntimeOrigin::signed(user_1), collection_id, item_2, price_2),
+			Uniques::buy_item(RuntimeOrigin::signed_with_basic_filter(user_1), collection_id, item_2, price_2),
 			Error::<Test>::NoPermission
 		);
 
 		// can't buy when the item is listed for a specific buyer
 		assert_noop!(
-			Uniques::buy_item(RuntimeOrigin::signed(user_2), collection_id, item_2, price_2),
+			Uniques::buy_item(RuntimeOrigin::signed_with_basic_filter(user_2), collection_id, item_2, price_2),
 			Error::<Test>::NoPermission
 		);
 
 		// can buy when I'm a whitelisted buyer
 		assert_ok!(Uniques::buy_item(
-			RuntimeOrigin::signed(user_3),
+			RuntimeOrigin::signed_with_basic_filter(user_3),
 			collection_id,
 			item_2,
 			price_2,
@@ -1017,14 +1017,14 @@ fn buy_item_should_work() {
 
 		// can't buy when item is not for sale
 		assert_noop!(
-			Uniques::buy_item(RuntimeOrigin::signed(user_2), collection_id, item_3, price_2),
+			Uniques::buy_item(RuntimeOrigin::signed_with_basic_filter(user_2), collection_id, item_3, price_2),
 			Error::<Test>::NotForSale
 		);
 
 		// ensure we can't buy an item when the collection or an item is frozen
 		{
 			assert_ok!(Uniques::set_price(
-				RuntimeOrigin::signed(user_1),
+				RuntimeOrigin::signed_with_basic_filter(user_1),
 				collection_id,
 				item_3,
 				Some(price_1),
@@ -1032,7 +1032,7 @@ fn buy_item_should_work() {
 			));
 
 			// freeze collection
-			assert_ok!(Uniques::freeze_collection(RuntimeOrigin::signed(user_1), collection_id));
+			assert_ok!(Uniques::freeze_collection(RuntimeOrigin::signed_with_basic_filter(user_1), collection_id));
 
 			let buy_item_call = mock::RuntimeCall::Uniques(crate::Call::<Test>::buy_item {
 				collection: collection_id,
@@ -1040,14 +1040,14 @@ fn buy_item_should_work() {
 				bid_price: price_1,
 			});
 			assert_noop!(
-				buy_item_call.dispatch(RuntimeOrigin::signed(user_2)),
+				buy_item_call.dispatch(RuntimeOrigin::signed_with_basic_filter(user_2)),
 				Error::<Test>::Frozen
 			);
 
-			assert_ok!(Uniques::thaw_collection(RuntimeOrigin::signed(user_1), collection_id));
+			assert_ok!(Uniques::thaw_collection(RuntimeOrigin::signed_with_basic_filter(user_1), collection_id));
 
 			// freeze item
-			assert_ok!(Uniques::freeze(RuntimeOrigin::signed(user_1), collection_id, item_3));
+			assert_ok!(Uniques::freeze(RuntimeOrigin::signed_with_basic_filter(user_1), collection_id, item_3));
 
 			let buy_item_call = mock::RuntimeCall::Uniques(crate::Call::<Test>::buy_item {
 				collection: collection_id,
@@ -1055,7 +1055,7 @@ fn buy_item_should_work() {
 				bid_price: price_1,
 			});
 			assert_noop!(
-				buy_item_call.dispatch(RuntimeOrigin::signed(user_2)),
+				buy_item_call.dispatch(RuntimeOrigin::signed_with_basic_filter(user_2)),
 				Error::<Test>::Frozen
 			);
 		}
@@ -1070,13 +1070,13 @@ fn clear_collection_metadata_works() {
 		Balances::reserve(&1, 10).unwrap();
 
 		// Create a Unique which increases total_deposit by 2
-		assert_ok!(Uniques::create(RuntimeOrigin::signed(1), 0, 123));
+		assert_ok!(Uniques::create(RuntimeOrigin::signed_with_basic_filter(1), 0, 123));
 		assert_eq!(Collection::<Test>::get(0).unwrap().total_deposit, 2);
 		assert_eq!(Balances::reserved_balance(&1), 12);
 
 		// Set collection metadata which increases total_deposit by 10
 		assert_ok!(Uniques::set_collection_metadata(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			0,
 			bvec![0, 0, 0, 0, 0, 0, 0, 0, 0],
 			false
@@ -1085,13 +1085,13 @@ fn clear_collection_metadata_works() {
 		assert_eq!(Balances::reserved_balance(&1), 22);
 
 		// Clearing collection metadata reduces total_deposit by the expected amount
-		assert_ok!(Uniques::clear_collection_metadata(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Uniques::clear_collection_metadata(RuntimeOrigin::signed_with_basic_filter(1), 0));
 		assert_eq!(Collection::<Test>::get(0).unwrap().total_deposit, 2);
 		assert_eq!(Balances::reserved_balance(&1), 12);
 
 		// Destroying the collection removes it from storage
 		assert_ok!(Uniques::destroy(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			0,
 			DestroyWitness { items: 0, item_metadatas: 0, attributes: 0 }
 		));
@@ -1142,7 +1142,7 @@ mod asset_ops_tests {
 
 			// Signed origin, same owner
 			assert_ok!(Collection::create(CheckOrigin(
-				RuntimeOrigin::signed(alice),
+				RuntimeOrigin::signed_with_basic_filter(alice),
 				WithConfig::new(
 					(Owner::with_config_value(alice), Admin::with_config_value(collection_admin)),
 					PredefinedId::from(0),
@@ -1152,7 +1152,7 @@ mod asset_ops_tests {
 			// Signed origin, different owner
 			assert_noop!(
 				Collection::create(CheckOrigin(
-					RuntimeOrigin::signed(alice),
+					RuntimeOrigin::signed_with_basic_filter(alice),
 					WithConfig::new(
 						(Owner::with_config_value(bob), Admin::with_config_value(collection_admin)),
 						PredefinedId::from(1),
@@ -1335,7 +1335,7 @@ mod asset_ops_tests {
 				Collection::destroy(
 					&collection_id,
 					CheckOrigin(
-						RuntimeOrigin::signed(collection_admin),
+						RuntimeOrigin::signed_with_basic_filter(collection_admin),
 						WithWitness::check(ok_witness)
 					),
 				),
@@ -1347,7 +1347,7 @@ mod asset_ops_tests {
 				Collection::destroy(
 					&collection_id,
 					CheckOrigin(
-						RuntimeOrigin::signed(collection_owner),
+						RuntimeOrigin::signed_with_basic_filter(collection_owner),
 						WithWitness::check(outdated_witness),
 					),
 				),
@@ -1357,7 +1357,7 @@ mod asset_ops_tests {
 			assert_ok!(Collection::destroy(
 				&collection_id,
 				CheckOrigin(
-					RuntimeOrigin::signed(collection_owner),
+					RuntimeOrigin::signed_with_basic_filter(collection_owner),
 					WithWitness::check(ok_witness)
 				),
 			));
@@ -1438,7 +1438,7 @@ mod asset_ops_tests {
 			let metadata = vec![0xB, 0xE, 0xE, 0xF];
 			let is_frozen = false;
 			assert_ok!(Uniques::set_collection_metadata(
-				RuntimeOrigin::signed(collection_owner),
+				RuntimeOrigin::signed_with_basic_filter(collection_owner),
 				collection_id,
 				metadata.clone().try_into().unwrap(),
 				is_frozen,
@@ -1449,7 +1449,7 @@ mod asset_ops_tests {
 			assert_eq!(retreived_metadata, metadata);
 
 			assert_ok!(Uniques::clear_collection_metadata(
-				RuntimeOrigin::signed(collection_owner),
+				RuntimeOrigin::signed_with_basic_filter(collection_owner),
 				collection_id,
 			));
 
@@ -1480,7 +1480,7 @@ mod asset_ops_tests {
 				let item_id = None;
 
 				assert_ok!(Uniques::set_attribute(
-					RuntimeOrigin::signed(collection_owner),
+					RuntimeOrigin::signed_with_basic_filter(collection_owner),
 					collection_id,
 					item_id,
 					key.clone().try_into().unwrap(),
@@ -1492,7 +1492,7 @@ mod asset_ops_tests {
 				let item_id = None;
 
 				assert_ok!(Uniques::clear_attribute(
-					RuntimeOrigin::signed(collection_owner),
+					RuntimeOrigin::signed_with_basic_filter(collection_owner),
 					collection_id,
 					item_id,
 					key.clone().try_into().unwrap(),
@@ -1623,7 +1623,7 @@ mod asset_ops_tests {
 			)));
 
 			assert_ok!(Uniques::mint(
-				RuntimeOrigin::signed(collection_admin),
+				RuntimeOrigin::signed_with_basic_filter(collection_admin),
 				collection_id,
 				item_id,
 				item_owner,
@@ -1656,7 +1656,7 @@ mod asset_ops_tests {
 			// Not an admin (not an issuer) can't mint new tokens
 			assert_noop!(
 				Item::create(CheckOrigin(
-					RuntimeOrigin::signed(collection_owner),
+					RuntimeOrigin::signed_with_basic_filter(collection_owner),
 					WithConfig::new(
 						Owner::with_config_value(item_owner),
 						PredefinedId::from((collection_id, item_id)),
@@ -1678,7 +1678,7 @@ mod asset_ops_tests {
 			);
 
 			assert_ok!(Item::create(CheckOrigin(
-				RuntimeOrigin::signed(collection_admin),
+				RuntimeOrigin::signed_with_basic_filter(collection_admin),
 				WithConfig::new(
 					Owner::with_config_value(item_owner),
 					PredefinedId::from((collection_id, item_id)),
@@ -1756,7 +1756,7 @@ mod asset_ops_tests {
 			assert_noop!(
 				Item::update(
 					&(collection_id, item_id),
-					CheckOrigin(RuntimeOrigin::signed(bob), Owner::default()),
+					CheckOrigin(RuntimeOrigin::signed_with_basic_filter(bob), Owner::default()),
 					&bob,
 				),
 				Error::<Test>::NoPermission,
@@ -1775,7 +1775,7 @@ mod asset_ops_tests {
 			// The owner can transfer the token
 			assert_ok!(Item::update(
 				&(collection_id, item_id),
-				CheckOrigin(RuntimeOrigin::signed(alice), Owner::default()),
+				CheckOrigin(RuntimeOrigin::signed_with_basic_filter(alice), Owner::default()),
 				&bob,
 			));
 
@@ -1784,7 +1784,7 @@ mod asset_ops_tests {
 			// The admin can transfer the token
 			assert_ok!(Item::update(
 				&(collection_id, item_id),
-				CheckOrigin(RuntimeOrigin::signed(collection_admin), Owner::default()),
+				CheckOrigin(RuntimeOrigin::signed_with_basic_filter(collection_admin), Owner::default()),
 				&alice,
 			));
 
@@ -1792,7 +1792,7 @@ mod asset_ops_tests {
 
 			// Approve Bob to transfer Alice's token
 			assert_ok!(Uniques::approve_transfer(
-				RuntimeOrigin::signed(alice),
+				RuntimeOrigin::signed_with_basic_filter(alice),
 				collection_id,
 				item_id,
 				bob,
@@ -1801,7 +1801,7 @@ mod asset_ops_tests {
 			// Now Bob can transfer Alice's token
 			assert_ok!(Item::update(
 				&(collection_id, item_id),
-				CheckOrigin(RuntimeOrigin::signed(bob), Owner::default()),
+				CheckOrigin(RuntimeOrigin::signed_with_basic_filter(bob), Owner::default()),
 				&bob,
 			));
 
@@ -1891,7 +1891,7 @@ mod asset_ops_tests {
 			let test_value = vec![0xC, 0x0, 0x0, 0x1];
 
 			assert_ok!(Uniques::set_attribute(
-				RuntimeOrigin::signed(collection_owner),
+				RuntimeOrigin::signed_with_basic_filter(collection_owner),
 				collection_id,
 				Some(item_id),
 				test_key.clone().try_into().unwrap(),
@@ -1958,7 +1958,7 @@ mod asset_ops_tests {
 			let test_value = vec![0xC, 0x0, 0x0, 0x1];
 
 			assert_ok!(Uniques::set_attribute(
-				RuntimeOrigin::signed(collection_owner),
+				RuntimeOrigin::signed_with_basic_filter(collection_owner),
 				collection_id,
 				Some(item_id),
 				test_key.clone().try_into().unwrap(),
@@ -2036,7 +2036,7 @@ mod asset_ops_tests {
 			let test_value = vec![0xC, 0x0, 0x0, 0x1];
 
 			assert_ok!(Uniques::set_attribute(
-				RuntimeOrigin::signed(collection_owner),
+				RuntimeOrigin::signed_with_basic_filter(collection_owner),
 				collection_id,
 				Some(item_id),
 				test_key.clone().try_into().unwrap(),
@@ -2057,7 +2057,7 @@ mod asset_ops_tests {
 			assert_noop!(
 				Item::stash(
 					&(collection_id, item_id),
-					CheckOrigin::check(RuntimeOrigin::signed(bob)),
+					CheckOrigin::check(RuntimeOrigin::signed_with_basic_filter(bob)),
 				),
 				Error::<Test>::NoPermission,
 			);
@@ -2071,7 +2071,7 @@ mod asset_ops_tests {
 			// The collection admin can stash tokens
 			assert_ok!(Item::stash(
 				&(collection_id, item_id),
-				CheckOrigin::check(RuntimeOrigin::signed(collection_admin)),
+				CheckOrigin::check(RuntimeOrigin::signed_with_basic_filter(collection_admin)),
 			));
 
 			assert_eq!(items(), vec![]);
@@ -2093,7 +2093,7 @@ mod asset_ops_tests {
 			// The token owner can stash it
 			assert_ok!(Item::stash(
 				&(collection_id, item_id),
-				CheckOrigin::check(RuntimeOrigin::signed(alice)),
+				CheckOrigin::check(RuntimeOrigin::signed_with_basic_filter(alice)),
 			));
 
 			assert_eq!(items(), vec![]);
@@ -2221,7 +2221,7 @@ mod asset_ops_tests {
 
 			let set_attribute = |key: &Vec<u8>, value: &Vec<u8>| {
 				assert_ok!(Uniques::set_attribute(
-					RuntimeOrigin::signed(collection_owner),
+					RuntimeOrigin::signed_with_basic_filter(collection_owner),
 					collection_id,
 					Some(item_id),
 					key.clone().try_into().unwrap(),
@@ -2231,7 +2231,7 @@ mod asset_ops_tests {
 
 			let clear_attribute = |key: &Vec<u8>| {
 				assert_ok!(Uniques::clear_attribute(
-					RuntimeOrigin::signed(collection_owner),
+					RuntimeOrigin::signed_with_basic_filter(collection_owner),
 					collection_id,
 					Some(item_id),
 					key.clone().try_into().unwrap(),
@@ -2372,7 +2372,7 @@ mod asset_ops_tests {
 			assert!(can_update_owner);
 
 			assert_ok!(Uniques::freeze(
-				RuntimeOrigin::signed(collection_admin),
+				RuntimeOrigin::signed_with_basic_filter(collection_admin),
 				collection_id,
 				item_id,
 			));
@@ -2383,7 +2383,7 @@ mod asset_ops_tests {
 			assert!(!can_update_owner);
 
 			assert_ok!(Uniques::thaw(
-				RuntimeOrigin::signed(collection_admin),
+				RuntimeOrigin::signed_with_basic_filter(collection_admin),
 				collection_id,
 				item_id,
 			));

@@ -17,6 +17,7 @@
 
 //! The crate's benchmarks.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use crate::{pallet as pallet_asset_rate, Pallet as AssetRate};
 
@@ -66,7 +67,7 @@ mod benchmarks {
 	fn update() -> Result<(), BenchmarkError> {
 		let asset_kind: T::AssetKind = T::BenchmarkHelper::create_asset_kind(SEED);
 		assert_ok!(AssetRate::<T>::create(
-			RawOrigin::Root.into(),
+			RawOrigin::Root.into_with_basic_filter(),
 			Box::new(asset_kind.clone()),
 			default_conversion_rate()
 		));
@@ -85,7 +86,7 @@ mod benchmarks {
 	fn remove() -> Result<(), BenchmarkError> {
 		let asset_kind: T::AssetKind = T::BenchmarkHelper::create_asset_kind(SEED);
 		assert_ok!(AssetRate::<T>::create(
-			RawOrigin::Root.into(),
+			RawOrigin::Root.into_with_basic_filter(),
 			Box::new(asset_kind.clone()),
 			default_conversion_rate()
 		));

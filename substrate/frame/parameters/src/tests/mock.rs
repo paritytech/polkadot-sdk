@@ -122,7 +122,7 @@ mod custom_origin {
 
 		#[cfg(feature = "runtime-benchmarks")]
 		fn try_successful_origin(_key: &RuntimeParametersKey) -> Result<RuntimeOrigin, ()> {
-			Ok(RuntimeOrigin::signed(123))
+			Ok(RuntimeOrigin::signed_with_basic_filter(123))
 		}
 	}
 }

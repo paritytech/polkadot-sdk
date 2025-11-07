@@ -16,6 +16,7 @@
 
 //! Benchmarking for paras_registrar pallet
 
+use frame_support::traits::IntoWithBasicFilter;
 #[cfg(feature = "runtime-benchmarks")]
 use super::{Pallet as Registrar, *};
 use crate::traits::Registrar as RegistrarT;
@@ -41,9 +42,9 @@ fn register_para<T: Config>(id: u32) -> ParaId {
 	let validation_code = Registrar::<T>::worst_validation_code();
 	let caller: T::AccountId = whitelisted_caller();
 	T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
-	assert_ok!(Registrar::<T>::reserve(RawOrigin::Signed(caller.clone()).into()));
+	assert_ok!(Registrar::<T>::reserve(RawOrigin::Signed(caller.clone()).into_with_basic_filter()));
 	assert_ok!(Registrar::<T>::register(
-		RawOrigin::Signed(caller).into(),
+		RawOrigin::Signed(caller).into_with_basic_filter(),
 		para,
 		genesis_head,
 		validation_code.clone()
@@ -80,7 +81,7 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller.clone()));
 
 		assert_last_event::<T>(
-			Event::<T>::Reserved { para_id: LOWEST_PUBLIC_ID, who: caller }.into(),
+			Event::<T>::Reserved { para_id: LOWEST_PUBLIC_ID, who: caller }.into_with_basic_filter(),
 		);
 		assert!(Paras::<T>::get(LOWEST_PUBLIC_ID).is_some());
 		assert_eq!(paras::Pallet::<T>::lifecycle(LOWEST_PUBLIC_ID), None);
@@ -95,12 +96,12 @@ mod benchmarks {
 		let validation_code = Registrar::<T>::worst_validation_code();
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
-		assert_ok!(Registrar::<T>::reserve(RawOrigin::Signed(caller.clone()).into()));
+		assert_ok!(Registrar::<T>::reserve(RawOrigin::Signed(caller.clone()).into_with_basic_filter()));
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), para, genesis_head, validation_code.clone());
 
-		assert_last_event::<T>(Event::<T>::Registered { para_id: para, manager: caller }.into());
+		assert_last_event::<T>(Event::<T>::Registered { para_id: para, manager: caller }.into_with_basic_filter());
 		assert_eq!(paras::Pallet::<T>::lifecycle(para), Some(ParaLifecycle::Onboarding));
 		assert_ok!(polkadot_runtime_parachains::paras::Pallet::<T>::add_trusted_validation_code(
 			frame_system::Origin::<T>::Root.into(),
@@ -123,7 +124,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Root, manager.clone(), deposit, para, genesis_head, validation_code.clone());
 
-		assert_last_event::<T>(Event::<T>::Registered { para_id: para, manager }.into());
+		assert_last_event::<T>(Event::<T>::Registered { para_id: para, manager }.into_with_basic_filter());
 		assert_eq!(paras::Pallet::<T>::lifecycle(para), Some(ParaLifecycle::Onboarding));
 		assert_ok!(polkadot_runtime_parachains::paras::Pallet::<T>::add_trusted_validation_code(
 			frame_system::Origin::<T>::Root.into(),
@@ -144,7 +145,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), para);
 
-		assert_last_event::<T>(Event::<T>::Deregistered { para_id: para }.into());
+		assert_last_event::<T>(Event::<T>::Deregistered { para_id: para }.into_with_basic_filter());
 
 		Ok(())
 	}

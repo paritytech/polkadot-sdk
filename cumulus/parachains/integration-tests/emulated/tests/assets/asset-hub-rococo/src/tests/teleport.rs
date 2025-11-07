@@ -377,14 +377,14 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 
 	// fund Parachain's sender account
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner.clone()),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(asset_owner.clone()),
 		system_para_native_asset_location.clone(),
 		sender.clone(),
 		fee_amount_to_send * 2,
 	);
 	// No need to create the asset (only mint) as it exists in genesis.
 	PenpalA::mint_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner.clone()),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(asset_owner.clone()),
 		asset_id_on_penpal,
 		sender.clone(),
 		asset_amount_to_send,
@@ -492,7 +492,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	AssetHubRococo::execute_with(|| {
 		type ForeignAssets = <AssetHubRococo as AssetHubRococoPallet>::ForeignAssets;
 		assert_ok!(ForeignAssets::transfer(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoReceiver::get()),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubRococoReceiver::get()),
 			foreign_asset_at_asset_hub_rococo.clone().try_into().unwrap(),
 			AssetHubRococoSender::get().into(),
 			asset_amount_to_send,
@@ -606,7 +606,7 @@ fn teleport_to_untrusted_chain_fails() {
 	// Init values for Parachain Origin
 	let destination = AssetHubRococo::sibling_location_of(PenpalA::para_id());
 	let signed_origin =
-		<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get().into());
+		<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubRococoSender::get().into());
 	let roc_to_send: Balance = ROCOCO_ED * 10000;
 	let roc_location = RelayLocation::get();
 

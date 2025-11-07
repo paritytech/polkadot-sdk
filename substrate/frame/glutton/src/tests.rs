@@ -31,11 +31,11 @@ fn initialize_pallet_works() {
 		assert_eq!(TrashData::<Test>::get(0), None);
 
 		assert_noop!(
-			Glutton::initialize_pallet(RuntimeOrigin::signed(1), 3, None),
+			Glutton::initialize_pallet(RuntimeOrigin::signed_with_basic_filter(1), 3, None),
 			DispatchError::BadOrigin
 		);
 		assert_noop!(
-			Glutton::initialize_pallet(RuntimeOrigin::none(), 3, None),
+			Glutton::initialize_pallet(RuntimeOrigin::none_with_basic_filter(), 3, None),
 			DispatchError::BadOrigin
 		);
 
@@ -98,11 +98,11 @@ fn setting_compute_works() {
 		);
 
 		assert_noop!(
-			Glutton::set_compute(RuntimeOrigin::signed(1), FixedU64::from_float(0.5)),
+			Glutton::set_compute(RuntimeOrigin::signed_with_basic_filter(1), FixedU64::from_float(0.5)),
 			DispatchError::BadOrigin
 		);
 		assert_noop!(
-			Glutton::set_compute(RuntimeOrigin::none(), FixedU64::from_float(0.5)),
+			Glutton::set_compute(RuntimeOrigin::none_with_basic_filter(), FixedU64::from_float(0.5)),
 			DispatchError::BadOrigin
 		);
 	});
@@ -135,11 +135,11 @@ fn setting_block_length_works() {
 		);
 
 		assert_noop!(
-			Glutton::set_block_length(RuntimeOrigin::signed(1), FixedU64::from_float(0.5)),
+			Glutton::set_block_length(RuntimeOrigin::signed_with_basic_filter(1), FixedU64::from_float(0.5)),
 			DispatchError::BadOrigin
 		);
 		assert_noop!(
-			Glutton::set_block_length(RuntimeOrigin::none(), FixedU64::from_float(0.5)),
+			Glutton::set_block_length(RuntimeOrigin::none_with_basic_filter(), FixedU64::from_float(0.5)),
 			DispatchError::BadOrigin
 		);
 	});
@@ -172,11 +172,11 @@ fn setting_storage_works() {
 		);
 
 		assert_noop!(
-			Glutton::set_storage(RuntimeOrigin::signed(1), FixedU64::from_float(0.5)),
+			Glutton::set_storage(RuntimeOrigin::signed_with_basic_filter(1), FixedU64::from_float(0.5)),
 			DispatchError::BadOrigin
 		);
 		assert_noop!(
-			Glutton::set_storage(RuntimeOrigin::none(), FixedU64::from_float(0.5)),
+			Glutton::set_storage(RuntimeOrigin::none_with_basic_filter(), FixedU64::from_float(0.5)),
 			DispatchError::BadOrigin
 		);
 	});

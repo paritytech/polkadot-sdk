@@ -54,7 +54,7 @@ fn tasks_work() {
 			i: 0u32,
 		});
 
-		assert_ok!(System::do_task(RuntimeOrigin::signed(1), task.clone(),));
+		assert_ok!(System::do_task(RuntimeOrigin::signed_with_basic_filter(1), task.clone(),));
 		assert_eq!(Numbers::<Runtime>::get(0), None);
 		assert_eq!(Total::<Runtime>::get(), (0, 1));
 	});

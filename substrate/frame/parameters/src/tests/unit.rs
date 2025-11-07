@@ -38,7 +38,7 @@ fn set_parameters_example() {
 		// This gets rejected since the origin is not root.
 		assert_noop!(
 			PalletParameters::set_parameter(
-				Origin::signed(1),
+				Origin::signed_with_basic_filter(1),
 				Pallet1(pallet1::Parameters::Key3(pallet1::Key3, Some(123))),
 			),
 			DispatchError::BadOrigin
@@ -174,7 +174,7 @@ fn set_parameters_wrong_origin_errors() {
 
 		assert_noop!(
 			PalletParameters::set_parameter(
-				Origin::signed(1),
+				Origin::signed_with_basic_filter(1),
 				Pallet1(pallet1::Parameters::Key3(pallet1::Key3, Some(432))),
 			),
 			DispatchError::BadOrigin
@@ -182,7 +182,7 @@ fn set_parameters_wrong_origin_errors() {
 
 		// Pallet2 is signed origin only:
 		assert_ok!(PalletParameters::set_parameter(
-			Origin::signed(1),
+			Origin::signed_with_basic_filter(1),
 			Pallet2(pallet2::Parameters::Key3(pallet2::Key3, Some(123))),
 		));
 

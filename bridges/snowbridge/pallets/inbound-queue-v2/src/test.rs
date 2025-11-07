@@ -18,7 +18,7 @@ fn test_submit_happy_path() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
 
-		let origin = RuntimeOrigin::signed(relayer.clone());
+		let origin = RuntimeOrigin::signed_with_basic_filter(relayer.clone());
 
 		// Submit message
 		let event = EventProof {
@@ -49,7 +49,7 @@ fn test_submit_happy_path() {
 fn test_submit_with_invalid_gateway() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
-		let origin = RuntimeOrigin::signed(relayer);
+		let origin = RuntimeOrigin::signed_with_basic_filter(relayer);
 
 		// Submit message
 		let event = EventProof {
@@ -71,7 +71,7 @@ fn test_submit_verification_fails_with_invalid_proof() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
 
-		let origin = RuntimeOrigin::signed(relayer.clone());
+		let origin = RuntimeOrigin::signed_with_basic_filter(relayer.clone());
 
 		// Submit message
 		let mut event = EventProof {
@@ -96,7 +96,7 @@ fn test_submit_fails_with_malformed_message() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
 
-		let origin = RuntimeOrigin::signed(relayer.clone());
+		let origin = RuntimeOrigin::signed_with_basic_filter(relayer.clone());
 
 		// Submit message
 		let event = EventProof {
@@ -119,7 +119,7 @@ fn test_using_same_nonce_fails() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
 
-		let origin = RuntimeOrigin::signed(relayer.clone());
+		let origin = RuntimeOrigin::signed_with_basic_filter(relayer.clone());
 
 		// Submit message
 		let event = EventProof {
@@ -153,7 +153,7 @@ fn test_using_same_nonce_fails() {
 fn test_set_operating_mode() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
-		let origin = RuntimeOrigin::signed(relayer);
+		let origin = RuntimeOrigin::signed_with_basic_filter(relayer);
 		let event = EventProof {
 			event_log: mock_event_log(),
 			proof: Proof {
@@ -176,7 +176,7 @@ fn test_set_operating_mode_root_only() {
 	new_tester().execute_with(|| {
 		assert_noop!(
 			InboundQueue::set_operating_mode(
-				RuntimeOrigin::signed(Keyring::Bob.into()),
+				RuntimeOrigin::signed_with_basic_filter(Keyring::Bob.into()),
 				snowbridge_core::BasicOperatingMode::Halted
 			),
 			DispatchError::BadOrigin
@@ -202,7 +202,7 @@ fn test_xcm_send_failure() {
 		);
 		let relayer: AccountId = Keyring::Bob.into();
 
-		let origin = mock::RuntimeOrigin::signed(relayer.clone());
+		let origin = mock::RuntimeOrigin::signed_with_basic_filter(relayer.clone());
 
 		// Submit message
 		let event = EventProof {
@@ -232,7 +232,7 @@ fn test_xcm_send_validate_failure() {
 		);
 		let relayer: AccountId = Keyring::Bob.into();
 
-		let origin = mock::RuntimeOrigin::signed(relayer.clone());
+		let origin = mock::RuntimeOrigin::signed_with_basic_filter(relayer.clone());
 
 		// Submit message
 		let event = EventProof {
@@ -257,7 +257,7 @@ fn test_xcm_charge_fees_failure() {
 
 		let relayer: AccountId = Keyring::Bob.into();
 
-		let origin = mock::RuntimeOrigin::signed(relayer.clone());
+		let origin = mock::RuntimeOrigin::signed_with_basic_filter(relayer.clone());
 
 		// Submit message
 		let event = EventProof {
@@ -279,7 +279,7 @@ fn test_xcm_charge_fees_failure() {
 fn test_register_token() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
-		let origin = RuntimeOrigin::signed(relayer);
+		let origin = RuntimeOrigin::signed_with_basic_filter(relayer);
 		let event = EventProof {
 			event_log: mock_event_log_v2(),
 			proof: Proof {
@@ -296,7 +296,7 @@ fn test_register_token() {
 fn test_switch_operating_mode() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
-		let origin = RuntimeOrigin::signed(relayer);
+		let origin = RuntimeOrigin::signed_with_basic_filter(relayer);
 		let event = EventProof {
 			event_log: mock_event_log(),
 			proof: Proof {

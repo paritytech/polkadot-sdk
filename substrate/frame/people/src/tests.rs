@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use frame_support::traits::IntoWithBasicFilter;
 use crate::{
 	extension::{AsPerson, AsPersonInfo},
 	mock::*,
@@ -324,7 +325,7 @@ fn force_recognize_personhood_works() {
 
 		// Fails for non-root origin.
 		assert_noop!(
-			PeoplePallet::force_recognize_personhood(RuntimeOrigin::signed(0), keys.clone()),
+			PeoplePallet::force_recognize_personhood(RuntimeOrigin::signed_with_basic_filter(0), keys.clone()),
 			sp_runtime::DispatchError::BadOrigin
 		);
 
@@ -404,7 +405,7 @@ fn test_set_personal_id_account() {
 
 		// Create an origin that represents a personal identity.
 		// (Recall that your pallet’s Origin enum has a variant PersonalIdentity.)
-		let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(1));
+		let origin = (PeopleOrigin::PersonalIdentity(1)).into_with_basic_filter();
 		// Call the extrinsic to set personal id account.
 		assert_ok!(PeoplePallet::set_personal_id_account(origin, 42, 0), Pays::No.into());
 
@@ -413,7 +414,7 @@ fn test_set_personal_id_account() {
 		assert_eq!(People::<Test>::get(1).unwrap().account, Some(42));
 
 		// Now update the mapping by calling the extrinsic again.
-		let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(1));
+		let origin = (PeopleOrigin::PersonalIdentity(1)).into_with_basic_filter();
 		// Here we change the account to 43.
 		assert_ok!(PeoplePallet::set_personal_id_account(origin, 43, 0), Pays::Yes.into());
 		// The old mapping for account 42 should be removed.
@@ -423,7 +424,7 @@ fn test_set_personal_id_account() {
 
 		// Test that a non-personal identity origin (for example, a Signed origin)
 		// does not work (the call should error with BadOrigin).
-		let origin = RuntimeOrigin::signed(44);
+		let origin = RuntimeOrigin::signed_with_basic_filter(44);
 		assert_noop!(
 			PeoplePallet::set_personal_id_account(origin, 44, 0),
 			sp_runtime::DispatchError::BadOrigin
@@ -431,10 +432,10 @@ fn test_set_personal_id_account() {
 
 		// Test that trying to use an account that is already in use fails.
 		// First, set a mapping for personal id 2 using account 45.
-		let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(2));
+		let origin = (PeopleOrigin::PersonalIdentity(2)).into_with_basic_filter();
 		assert_ok!(PeoplePallet::set_personal_id_account(origin, 45, 0), Pays::No.into());
 		// Then try to set personal id 3 to use the same account 45.
-		let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(3));
+		let origin = (PeopleOrigin::PersonalIdentity(3)).into_with_basic_filter();
 		assert_noop!(
 			PeoplePallet::set_personal_id_account(origin, 45, 0),
 			Error::<Test>::AccountInUse
@@ -448,7 +449,7 @@ fn test_unset_personal_id_account() {
 		generate_people_with_index(0, 1);
 
 		// First, set a mapping for personal id 1 to account 50.
-		let id_origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(1));
+		let id_origin = (PeopleOrigin::PersonalIdentity(1)).into_with_basic_filter();
 		assert_ok!(
 			PeoplePallet::set_personal_id_account(id_origin.clone(), 50, 0),
 			Pays::No.into()
@@ -726,7 +727,7 @@ mod manual_tasks {
 
 			// build_ring call should succeed
 			assert_ok!(PeoplePallet::build_ring_manual(
-				RuntimeOrigin::signed(0),
+				RuntimeOrigin::signed_with_basic_filter(0),
 				0,
 				Some(OnboardingSize::<Test>::get())
 			));
@@ -740,7 +741,7 @@ mod manual_tasks {
 			generate_people_with_index(0, 19);
 
 			// onboard_people_manual call should succeed
-			assert_ok!(PeoplePallet::onboard_people_manual(RuntimeOrigin::signed(0)));
+			assert_ok!(PeoplePallet::onboard_people_manual(RuntimeOrigin::signed_with_basic_filter(0)));
 		});
 	}
 
@@ -870,7 +871,7 @@ mod merge_rings {
 		TestExt::new().execute_with(|| {
 			RingsState::<Test>::set(RingMembersState::Mutating(1));
 			assert_noop!(
-				PeoplePallet::merge_rings(RuntimeOrigin::signed(0), 1, 2),
+				PeoplePallet::merge_rings(RuntimeOrigin::signed_with_basic_filter(0), 1, 2),
 				Error::<Test>::SuspensionSessionInProgress
 			);
 		});
@@ -880,7 +881,7 @@ mod merge_rings {
 	fn fails_given_rings_with_the_same_id() {
 		TestExt::new().execute_with(|| {
 			assert_noop!(
-				PeoplePallet::merge_rings(RuntimeOrigin::signed(0), 1, 1),
+				PeoplePallet::merge_rings(RuntimeOrigin::signed_with_basic_filter(0), 1, 1),
 				Error::<Test>::InvalidRing
 			);
 		});
@@ -891,11 +892,11 @@ mod merge_rings {
 		TestExt::new().execute_with(|| {
 			CurrentRingIndex::<Test>::set(14);
 			assert_noop!(
-				PeoplePallet::merge_rings(RuntimeOrigin::signed(0), 1, 14),
+				PeoplePallet::merge_rings(RuntimeOrigin::signed_with_basic_filter(0), 1, 14),
 				Error::<Test>::InvalidRing
 			);
 			assert_noop!(
-				PeoplePallet::merge_rings(RuntimeOrigin::signed(0), 14, 1),
+				PeoplePallet::merge_rings(RuntimeOrigin::signed_with_basic_filter(0), 14, 1),
 				Error::<Test>::InvalidRing
 			);
 		});
@@ -915,12 +916,12 @@ mod merge_rings {
 			CurrentRingIndex::<Test>::set(14);
 
 			assert_noop!(
-				PeoplePallet::merge_rings(RuntimeOrigin::signed(0), 0, 1),
+				PeoplePallet::merge_rings(RuntimeOrigin::signed_with_basic_filter(0), 0, 1),
 				Error::<Test>::RingAboveMergeThreshold
 			);
 
 			assert_noop!(
-				PeoplePallet::merge_rings(RuntimeOrigin::signed(0), 1, 0),
+				PeoplePallet::merge_rings(RuntimeOrigin::signed_with_basic_filter(0), 1, 0),
 				Error::<Test>::RingAboveMergeThreshold
 			);
 		});
@@ -957,7 +958,7 @@ mod merge_rings {
 			CurrentRingIndex::<Test>::set(14);
 
 			assert_noop!(
-				PeoplePallet::merge_rings(RuntimeOrigin::signed(0), 0, 1),
+				PeoplePallet::merge_rings(RuntimeOrigin::signed_with_basic_filter(0), 0, 1),
 				Error::<Test>::SuspensionsPending
 			);
 		});
@@ -989,7 +990,7 @@ mod merge_rings {
 			// The current ring has a higher index than the ones being merged
 			CurrentRingIndex::<Test>::set(14);
 
-			assert_ok!(PeoplePallet::merge_rings(RuntimeOrigin::signed(0), 0, 1));
+			assert_ok!(PeoplePallet::merge_rings(RuntimeOrigin::signed_with_basic_filter(0), 0, 1));
 
 			assert_eq!(RingKeys::<Test>::get(RI_ZERO).len(), 8);
 			assert_eq!(RingKeysStatus::<Test>::get(RI_ZERO).total, 8);
@@ -1194,7 +1195,7 @@ mod suspensions {
 			let person_id = 0;
 			let account_id = 42;
 
-			let id_origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(person_id));
+			let id_origin = (PeopleOrigin::PersonalIdentity(person_id)).into_with_basic_filter();
 			assert_ok!(PeoplePallet::set_personal_id_account(id_origin, account_id, 0));
 
 			// The association exists
@@ -1239,7 +1240,7 @@ mod key_migration {
 		TestExt::new().execute_with(|| {
 			let secret = Simple::new_secret([0; 32]);
 			let public = Simple::member_from_secret(&secret);
-			let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(3));
+			let origin = (PeopleOrigin::PersonalIdentity(3)).into_with_basic_filter();
 			assert_noop!(
 				PeoplePallet::migrate_included_key(origin, public),
 				Error::<Test>::NotPerson
@@ -1267,7 +1268,7 @@ mod key_migration {
 			));
 			assert!(matches!(record13.position, RingPosition::Onboarding { queue_page: 0 }));
 
-			let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(3));
+			let origin = (PeopleOrigin::PersonalIdentity(3)).into_with_basic_filter();
 			// The key is already used by person 3 who is included
 			assert_noop!(
 				PeoplePallet::migrate_included_key(origin.clone(), record3.key),
@@ -1278,7 +1279,7 @@ mod key_migration {
 				PeoplePallet::migrate_included_key(origin, record13.key),
 				Error::<Test>::KeyAlreadyInUse
 			);
-			let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(13));
+			let origin = (PeopleOrigin::PersonalIdentity(13)).into_with_basic_filter();
 			// The key is already used by person 3 who is included
 			assert_noop!(
 				PeoplePallet::migrate_onboarding_key(origin.clone(), record3.key),
@@ -1315,7 +1316,7 @@ mod key_migration {
 			assert!(matches!(People::<Test>::get(3).unwrap().position, RingPosition::Suspended));
 			let new_secret = Simple::new_secret([100; 32]);
 			let new_public = Simple::member_from_secret(&new_secret);
-			let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(3));
+			let origin = (PeopleOrigin::PersonalIdentity(3)).into_with_basic_filter();
 			assert_noop!(
 				PeoplePallet::migrate_included_key(origin, new_public),
 				Error::<Test>::Suspended
@@ -1342,7 +1343,7 @@ mod key_migration {
 			));
 			let temp_secret = Simple::new_secret([100; 32]);
 			let temp_public = Simple::member_from_secret(&temp_secret);
-			let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(3));
+			let origin = (PeopleOrigin::PersonalIdentity(3)).into_with_basic_filter();
 			assert_ok!(PeoplePallet::migrate_included_key(origin, temp_public));
 			assert_eq!(KeyMigrationQueue::<Test>::get(3).unwrap(), temp_public);
 
@@ -1362,7 +1363,7 @@ mod key_migration {
 
 			let new_secret = Simple::new_secret([101; 32]);
 			let new_public = Simple::member_from_secret(&new_secret);
-			let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(3));
+			let origin = (PeopleOrigin::PersonalIdentity(3)).into_with_basic_filter();
 
 			assert_ok!(PeoplePallet::migrate_included_key(origin, new_public));
 			assert_eq!(KeyMigrationQueue::<Test>::get(3).unwrap(), new_public);
@@ -1398,7 +1399,7 @@ mod key_migration {
 				.unwrap();
 			let new_secret = Simple::new_secret([100; 32]);
 			let new_public = Simple::member_from_secret(&new_secret);
-			let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(13));
+			let origin = (PeopleOrigin::PersonalIdentity(13)).into_with_basic_filter();
 			assert_ok!(PeoplePallet::migrate_onboarding_key(origin, new_public));
 
 			// The person's record is the same but the key that they onboard with changed.
@@ -1411,7 +1412,7 @@ mod key_migration {
 			// Calling it again with a different key replaces the previous one.
 			let new_secret = Simple::new_secret([101; 32]);
 			let new_public = Simple::member_from_secret(&new_secret);
-			let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(13));
+			let origin = (PeopleOrigin::PersonalIdentity(13)).into_with_basic_filter();
 			let temp_record = personal_record;
 			assert_ok!(PeoplePallet::migrate_onboarding_key(origin, new_public));
 			assert_eq!(Keys::<Test>::get(new_public).unwrap(), 13);
@@ -1433,7 +1434,7 @@ mod key_migration {
 
 			let initial_record = People::<Test>::get(13).unwrap();
 			assert!(matches!(initial_record.position, RingPosition::Onboarding { queue_page: 0 }));
-			let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(13));
+			let origin = (PeopleOrigin::PersonalIdentity(13)).into_with_basic_filter();
 			assert_noop!(
 				PeoplePallet::migrate_included_key(origin, new_public),
 				Error::<Test>::InvalidKeyMigration
@@ -1448,17 +1449,17 @@ mod key_migration {
 					scheduled_for_removal: false
 				}
 			));
-			let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(3));
+			let origin = (PeopleOrigin::PersonalIdentity(3)).into_with_basic_filter();
 			assert_noop!(
 				PeoplePallet::migrate_onboarding_key(origin, new_public),
 				Error::<Test>::InvalidKeyMigration
 			);
 
-			let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(3));
+			let origin = (PeopleOrigin::PersonalIdentity(3)).into_with_basic_filter();
 			assert_ok!(PeoplePallet::migrate_included_key(origin, new_public));
 			let new_secret = Simple::new_secret([101; 32]);
 			let new_public = Simple::member_from_secret(&new_secret);
-			let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(13));
+			let origin = (PeopleOrigin::PersonalIdentity(13)).into_with_basic_filter();
 			assert_ok!(PeoplePallet::migrate_onboarding_key(origin, new_public));
 		});
 	}
@@ -1483,7 +1484,7 @@ mod key_migration {
 			));
 			let secret1 = Simple::new_secret([100; 32]);
 			let public1 = Simple::member_from_secret(&secret1);
-			let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(3));
+			let origin = (PeopleOrigin::PersonalIdentity(3)).into_with_basic_filter();
 			assert_ok!(PeoplePallet::migrate_included_key(origin, public1));
 
 			assert_eq!(KeyMigrationQueue::<Test>::get(3).unwrap(), public1);
@@ -1501,7 +1502,7 @@ mod key_migration {
 
 			let secret2 = Simple::new_secret([101; 32]);
 			let public2 = Simple::member_from_secret(&secret2);
-			let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(4));
+			let origin = (PeopleOrigin::PersonalIdentity(4)).into_with_basic_filter();
 			assert_ok!(PeoplePallet::migrate_included_key(origin, public2));
 			assert_eq!(KeyMigrationQueue::<Test>::get(4).unwrap(), public2);
 
@@ -1538,7 +1539,7 @@ mod key_migration {
 			));
 			let secret1 = Simple::new_secret([100; 32]);
 			let public1 = Simple::member_from_secret(&secret1);
-			let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(3));
+			let origin = (PeopleOrigin::PersonalIdentity(3)).into_with_basic_filter();
 			assert_ok!(PeoplePallet::migrate_included_key(origin.clone(), public1));
 
 			assert_eq!(KeyMigrationQueue::<Test>::get(3).unwrap(), public1);
@@ -1556,7 +1557,7 @@ mod key_migration {
 			assert_eq!(suspended_indices_list(RI_ZERO).into_inner(), vec![3]);
 
 			// Migrate another key without removing the other key.
-			let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(4));
+			let origin = (PeopleOrigin::PersonalIdentity(4)).into_with_basic_filter();
 			let secret2 = Simple::new_secret([101; 32]);
 			let public2 = Simple::member_from_secret(&secret2);
 			assert_ok!(PeoplePallet::migrate_included_key(origin, public2));
@@ -1592,7 +1593,7 @@ mod key_migration {
 			));
 			let secret1 = Simple::new_secret([100; 32]);
 			let public1 = Simple::member_from_secret(&secret1);
-			let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(3));
+			let origin = (PeopleOrigin::PersonalIdentity(3)).into_with_basic_filter();
 			assert_ok!(PeoplePallet::migrate_included_key(origin.clone(), public1));
 
 			assert_eq!(KeyMigrationQueue::<Test>::get(3).unwrap(), public1);
@@ -1639,7 +1640,7 @@ mod key_migration {
 			));
 			let secret1 = Simple::new_secret([100; 32]);
 			let public1 = Simple::member_from_secret(&secret1);
-			let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(3));
+			let origin = (PeopleOrigin::PersonalIdentity(3)).into_with_basic_filter();
 			assert_ok!(PeoplePallet::migrate_included_key(origin.clone(), public1));
 
 			assert_eq!(KeyMigrationQueue::<Test>::get(3).unwrap(), public1);
@@ -1688,7 +1689,7 @@ mod key_migration {
 
 			let migrated_people: Vec<PersonalId> = (0..10).filter(|i| i % 3 == 0).collect();
 			for personal_id in &migrated_people {
-				let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(*personal_id));
+				let origin = (PeopleOrigin::PersonalIdentity(*personal_id)).into_with_basic_filter();
 				assert_ok!(PeoplePallet::migrate_included_key(
 					origin.clone(),
 					new_keys[*personal_id as usize]
@@ -2454,7 +2455,7 @@ mod poll {
 			for i in 0..5 {
 				let new_secret = Simple::new_secret([100 + i; 32]);
 				let new_public = Simple::member_from_secret(&new_secret);
-				let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(i as PersonalId));
+				let origin = (PeopleOrigin::PersonalIdentity(i as PersonalId)).into_with_basic_filter();
 				assert_ok!(PeoplePallet::migrate_included_key(origin, new_public));
 				assert_eq!(KeyMigrationQueue::<Test>::get(i as PersonalId).unwrap(), new_public);
 			}
@@ -2621,7 +2622,7 @@ fn on_poll_works() {
 		for i in 0..5 {
 			let new_secret = Simple::new_secret([250 + i; 32]);
 			let new_public = Simple::member_from_secret(&new_secret);
-			let origin = RuntimeOrigin::from(PeopleOrigin::PersonalIdentity(i as PersonalId));
+			let origin = (PeopleOrigin::PersonalIdentity(i as PersonalId)).into_with_basic_filter();
 			assert_ok!(PeoplePallet::migrate_included_key(origin, new_public));
 			assert_eq!(KeyMigrationQueue::<Test>::get(i as PersonalId).unwrap(), new_public);
 		}
@@ -2752,7 +2753,7 @@ fn test_under_alias_revision_check() {
 		// The account can now use `under_alias` successfully
 		let dummy_call = Box::new(RuntimeCall::from(frame_system::Call::remark { remark: vec![] }));
 		assert_ok!(PeoplePallet::under_alias(
-			RuntimeOrigin::signed(alias_account),
+			RuntimeOrigin::signed_with_basic_filter(alias_account),
 			dummy_call.clone()
 		));
 
@@ -2763,7 +2764,7 @@ fn test_under_alias_revision_check() {
 
 		// Attempt `under_alias` again with the *outdated* revision=0 from storage => should fail.
 		assert_noop!(
-			PeoplePallet::under_alias(RuntimeOrigin::signed(alias_account), dummy_call),
+			PeoplePallet::under_alias(RuntimeOrigin::signed_with_basic_filter(alias_account), dummy_call),
 			sp_runtime::DispatchError::BadOrigin,
 		);
 	});
@@ -2789,19 +2790,19 @@ fn resetting_alias_account_for_new_revision_is_refunded() {
 		let account: u64 = 42;
 		let ca = ContextualAlias { alias: [1u8; 32], context: MOCK_CONTEXT };
 		let rev_ca = RevisedContextualAlias { revision: 0, ring: 0, ca: ca.clone() };
-		let origin = RuntimeOrigin::from(PeopleOrigin::PersonalAlias(rev_ca.clone()));
+		let origin = (PeopleOrigin::PersonalAlias(rev_ca.clone())).into_with_basic_filter();
 		let result = PeoplePallet::set_alias_account(origin, account, 0);
 		assert_eq!(result.unwrap(), frame_support::pallet_prelude::Pays::No.into());
 
 		// Fail attempt to set the same alias again with the *same* revision=0 for the same account.
-		let origin = RuntimeOrigin::from(PeopleOrigin::PersonalAlias(rev_ca.clone()));
+		let origin = (PeopleOrigin::PersonalAlias(rev_ca.clone())).into_with_basic_filter();
 		assert_noop!(
 			PeoplePallet::set_alias_account(origin, account, 0),
 			Error::<Test>::AliasAccountAlreadySet
 		);
 
 		// Attempt to set the same alias again with the *same* revision=0 for a different account.
-		let origin = RuntimeOrigin::from(PeopleOrigin::PersonalAlias(rev_ca.clone()));
+		let origin = (PeopleOrigin::PersonalAlias(rev_ca.clone())).into_with_basic_filter();
 		let account2: u64 = 43;
 		let result = PeoplePallet::set_alias_account(origin, account2, 0);
 		assert_eq!(result.unwrap(), frame_support::pallet_prelude::Pays::Yes.into());
@@ -2813,7 +2814,7 @@ fn resetting_alias_account_for_new_revision_is_refunded() {
 		// Now set the alias account again, but *with the newer revision=1*.
 		// We expect `Pays::No` because the revision of the alias <-> Account is needed.
 		let rev_ca_new = RevisedContextualAlias { revision: 1, ring: 0, ca: ca.clone() };
-		let origin = RuntimeOrigin::from(PeopleOrigin::PersonalAlias(rev_ca_new.clone()));
+		let origin = (PeopleOrigin::PersonalAlias(rev_ca_new.clone())).into_with_basic_filter();
 		let result = PeoplePallet::set_alias_account(origin, account, 0);
 		assert_eq!(result.unwrap(), frame_support::pallet_prelude::Pays::No.into());
 
@@ -2824,7 +2825,7 @@ fn resetting_alias_account_for_new_revision_is_refunded() {
 		// Now set the alias account again, but *with the different ring=1*.
 		// We expect `Pays::No` because the revision of the alias <-> Account is needed.
 		let rev_ca_new = RevisedContextualAlias { revision: 1, ring: 1, ca };
-		let origin = RuntimeOrigin::from(PeopleOrigin::PersonalAlias(rev_ca_new.clone()));
+		let origin = (PeopleOrigin::PersonalAlias(rev_ca_new.clone())).into_with_basic_filter();
 		let result = PeoplePallet::set_alias_account(origin, account, 0);
 		assert_eq!(result.unwrap(), frame_support::pallet_prelude::Pays::No.into());
 	});

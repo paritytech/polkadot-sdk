@@ -19,6 +19,7 @@
 
 #![cfg(test)]
 
+use frame_support::traits::IntoWithBasicFilter;
 use frame_support::{derive_impl, traits::ConstU32};
 use sp_runtime::{
 	testing::H256,

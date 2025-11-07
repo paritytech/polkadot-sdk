@@ -72,7 +72,7 @@ fn test_xcm_send_precompile_works() {
 		let encoded_call = call.abi_encode();
 
 		let result = pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
 			Weight::MAX,
@@ -121,7 +121,7 @@ fn test_xcm_send_precompile_to_parachain() {
 		let encoded_call = call.abi_encode();
 
 		let result = pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
 			Weight::MAX,
@@ -170,7 +170,7 @@ fn test_xcm_send_precompile_fails() {
 		let encoded_call = call.abi_encode();
 
 		let result = pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
 			Weight::MAX,
@@ -220,7 +220,7 @@ fn send_fails_on_old_location_version() {
 		let encoded_call = call.abi_encode();
 
 		let result = pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
 			Weight::MAX,
@@ -247,7 +247,7 @@ fn send_fails_on_old_location_version() {
 		let encoded_call = call.abi_encode();
 
 		let result = pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
 			Weight::MAX,
@@ -297,7 +297,7 @@ fn send_fails_on_old_xcm_version() {
 		let encoded_call = call.abi_encode();
 
 		let result = pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
 			Weight::MAX,
@@ -325,7 +325,7 @@ fn send_fails_on_old_xcm_version() {
 		let encoded_call = call.abi_encode();
 
 		let result = pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
 			Weight::MAX,
@@ -368,7 +368,7 @@ fn test_xcm_execute_precompile_works() {
 		let encoded_weight_call = weight_call.abi_encode();
 
 		let xcm_weight_results = pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
 			Weight::MAX,
@@ -390,7 +390,7 @@ fn test_xcm_execute_precompile_works() {
 		let encoded_call = call.abi_encode();
 
 		let result = pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
 			Weight::MAX,
@@ -429,7 +429,7 @@ fn test_xcm_execute_precompile_different_beneficiary() {
 		let encoded_weight_call = weight_call.abi_encode();
 
 		let xcm_weight_results = pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
 			Weight::MAX,
@@ -451,7 +451,7 @@ fn test_xcm_execute_precompile_different_beneficiary() {
 		let encoded_call = call.abi_encode();
 
 		let result = pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
 			Weight::MAX,
@@ -498,7 +498,7 @@ fn test_xcm_execute_precompile_fails() {
 		let encoded_weight_call = weight_call.abi_encode();
 
 		let xcm_weight_results = pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
 			Weight::MAX,
@@ -520,7 +520,7 @@ fn test_xcm_execute_precompile_fails() {
 		let encoded_call = call.abi_encode();
 
 		let result = pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
 			Weight::MAX,
@@ -566,7 +566,7 @@ fn execute_fails_on_old_version() {
 		let encoded_weight_call = weight_call.abi_encode();
 
 		let xcm_weight_results = pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
 			Weight::MAX,
@@ -595,7 +595,7 @@ fn execute_fails_on_old_version() {
 		let encoded_call = call.abi_encode();
 
 		let result = pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
 			Weight::MAX,
@@ -622,7 +622,7 @@ fn execute_fails_on_old_version() {
 		let encoded_call = call.abi_encode();
 
 		let result = pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
 			Weight::MAX,
@@ -671,7 +671,7 @@ fn weight_fails_on_old_version() {
 		let encoded_weight_call = weight_call.abi_encode();
 
 		let xcm_weight_results = pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
 			Weight::MAX,
@@ -695,7 +695,7 @@ fn weight_fails_on_old_version() {
 		let encoded_weight_call = weight_call.abi_encode();
 
 		let xcm_weight_results = pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
 			Weight::MAX,

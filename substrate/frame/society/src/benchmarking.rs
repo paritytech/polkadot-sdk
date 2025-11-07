@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 
 use frame_benchmarking::v2::*;
@@ -126,7 +127,7 @@ mod benchmarks {
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T, I>::max_value());
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), 10u32.into());
+		_(RawOrigin::Signed(caller.clone()), 10u32.into_with_basic_filter());
 
 		let first_bid: Bid<T::AccountId, BalanceOf<T, I>> = Bid {
 			who: caller.clone(),
@@ -164,7 +165,7 @@ mod benchmarks {
 			T::Lookup::unlookup(vouched.clone());
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), vouched_lookup, 0u32.into(), 0u32.into());
+		_(RawOrigin::Signed(caller.clone()), vouched_lookup, 0u32.into_with_basic_filter(), 0u32.into_with_basic_filter());
 
 		let bids = Bids::<T, I>::get();
 		let vouched_bid: Bid<T::AccountId, BalanceOf<T, I>> = Bid {
@@ -260,7 +261,7 @@ mod benchmarks {
 		Society::<T, I>::bump_payout(&caller, 0u32.into(), 1u32.into());
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), 1u32.into());
+		_(RawOrigin::Signed(caller.clone()), 1u32.into_with_basic_filter());
 
 		let record = Payouts::<T, I>::get(caller);
 		assert!(record.payouts.is_empty());
@@ -304,7 +305,7 @@ mod benchmarks {
 			);
 			let candidate_lookup: <T::Lookup as StaticLookup>::Source =
 				T::Lookup::unlookup(candidate);
-			let _ = Society::<T, I>::vote(RawOrigin::Signed(member).into(), candidate_lookup, true);
+			let _ = Society::<T, I>::vote(RawOrigin::Signed(member).into_with_basic_filter(), candidate_lookup, true);
 		}
 		// Leaving only Founder member.
 		MemberCount::<T, I>::mutate(|i| i.saturating_reduce(members_count));
@@ -472,12 +473,12 @@ mod benchmarks {
 		let candidate_lookup: <T::Lookup as StaticLookup>::Source =
 			T::Lookup::unlookup(candidate.clone());
 		let _ = Society::<T, I>::vote(
-			RawOrigin::Signed(member_one.clone()).into(),
+			RawOrigin::Signed(member_one.clone()).into_with_basic_filter(),
 			candidate_lookup.clone(),
 			true,
 		);
 		let _ = Society::<T, I>::vote(
-			RawOrigin::Signed(member_two.clone()).into(),
+			RawOrigin::Signed(member_two.clone()).into_with_basic_filter(),
 			candidate_lookup,
 			true,
 		);
@@ -498,7 +499,7 @@ mod benchmarks {
 		let _ = Society::<T, I>::insert_member(&member, 0u32.into());
 		let defender: T::AccountId = account("defender", 0, 0);
 		Defending::<T, I>::put((defender.clone(), member.clone(), Tally::default()));
-		let _ = Society::<T, I>::defender_vote(RawOrigin::Signed(member.clone()).into(), true);
+		let _ = Society::<T, I>::defender_vote(RawOrigin::Signed(member.clone()).into_with_basic_filter(), true);
 		ChallengeRoundCount::<T, I>::put(2u32);
 		let mut challenge_round = ChallengeRoundCount::<T, I>::get();
 		challenge_round = challenge_round.saturating_sub(1u32);
@@ -519,7 +520,7 @@ mod benchmarks {
 
 		// Make initial bid
 		let initial_deposit = mock_balance_deposit::<T, I>();
-		Society::<T, I>::bid(RawOrigin::Signed(bidder.clone()).into(), 0u32.into())?;
+		Society::<T, I>::bid(RawOrigin::Signed(bidder.clone()).into_with_basic_filter(), 0u32.into_with_basic_filter())?;
 
 		// Verify initial state
 		assert_eq!(T::Currency::reserved_balance(&bidder), initial_deposit);

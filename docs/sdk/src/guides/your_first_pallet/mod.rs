@@ -555,7 +555,7 @@ pub mod pallet {
 
 				// mint some funds into Alice's account.
 				assert_ok!(Pallet::<Runtime>::mint_unsafe(
-					RuntimeOrigin::signed(ALICE),
+					RuntimeOrigin::signed_with_basic_filter(ALICE),
 					ALICE,
 					100
 				));
@@ -603,7 +603,7 @@ pub mod pallet {
 		fn mint_works() {
 			StateBuilder::default().build_and_execute(|| {
 				// given the initial state, when:
-				assert_ok!(Pallet::<Runtime>::mint_unsafe(RuntimeOrigin::signed(ALICE), BOB, 100));
+				assert_ok!(Pallet::<Runtime>::mint_unsafe(RuntimeOrigin::signed_with_basic_filter(ALICE), BOB, 100));
 
 				// then:
 				assert_eq!(Balances::<Runtime>::get(&BOB), Some(200));
@@ -611,7 +611,7 @@ pub mod pallet {
 
 				// given:
 				assert_ok!(Pallet::<Runtime>::mint_unsafe(
-					RuntimeOrigin::signed(ALICE),
+					RuntimeOrigin::signed_with_basic_filter(ALICE),
 					CHARLIE,
 					100
 				));
@@ -627,7 +627,7 @@ pub mod pallet {
 		fn transfer_works() {
 			StateBuilder::default().build_and_execute(|| {
 				// given the initial state, when:
-				assert_ok!(Pallet::<Runtime>::transfer(RuntimeOrigin::signed(ALICE), BOB, 50));
+				assert_ok!(Pallet::<Runtime>::transfer(RuntimeOrigin::signed_with_basic_filter(ALICE), BOB, 50));
 
 				// then:
 				assert_eq!(Balances::<Runtime>::get(&ALICE), Some(50));
@@ -635,7 +635,7 @@ pub mod pallet {
 				assert_eq!(TotalIssuance::<Runtime>::get(), Some(200));
 
 				// when:
-				assert_ok!(Pallet::<Runtime>::transfer(RuntimeOrigin::signed(BOB), ALICE, 50));
+				assert_ok!(Pallet::<Runtime>::transfer(RuntimeOrigin::signed_with_basic_filter(BOB), ALICE, 50));
 
 				// then:
 				assert_eq!(Balances::<Runtime>::get(&ALICE), Some(100));
@@ -650,7 +650,7 @@ pub mod pallet {
 			StateBuilder::default().build_and_execute(|| {
 				// given the initial state, when:
 				assert_err!(
-					Pallet::<Runtime>::transfer(RuntimeOrigin::signed(CHARLIE), ALICE, 10),
+					Pallet::<Runtime>::transfer(RuntimeOrigin::signed_with_basic_filter(CHARLIE), ALICE, 10),
 					"NonExistentAccount"
 				);
 
@@ -771,7 +771,7 @@ pub mod pallet_v2 {
 				System::set_block_number(ALICE);
 
 				// given the initial state, when:
-				assert_ok!(Pallet::<Runtime>::transfer(RuntimeOrigin::signed(ALICE), BOB, 50));
+				assert_ok!(Pallet::<Runtime>::transfer(RuntimeOrigin::signed_with_basic_filter(ALICE), BOB, 50));
 
 				// then:
 				assert_eq!(Balances::<Runtime>::get(&ALICE), Some(50));

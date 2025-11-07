@@ -2339,7 +2339,7 @@ mod tests {
 					..Default::default()
 				};
 				assert_ok!(MultiPhase::submit(
-					crate::mock::RuntimeOrigin::signed(99),
+					crate::mock::RuntimeOrigin::signed_with_basic_filter(99),
 					Box::new(solution)
 				));
 			}
@@ -2411,7 +2411,7 @@ mod tests {
 
 			let solution = raw_solution();
 			assert_ok!(MultiPhase::submit(
-				crate::mock::RuntimeOrigin::signed(99),
+				crate::mock::RuntimeOrigin::signed_with_basic_filter(99),
 				Box::new(solution)
 			));
 
@@ -2467,7 +2467,7 @@ mod tests {
 			// ensure this solution is valid.
 			assert!(QueuedSolution::<Runtime>::get().is_none());
 			assert_ok!(MultiPhase::submit_unsigned(
-				crate::mock::RuntimeOrigin::none(),
+				crate::mock::RuntimeOrigin::none_with_basic_filter(),
 				Box::new(solution),
 				witness
 			));
@@ -2516,7 +2516,7 @@ mod tests {
 			// submit solution and assert it is queued and ready for elect to be called.
 			let (solution, _, _) = MultiPhase::mine_solution().unwrap();
 			assert_ok!(MultiPhase::submit(
-				crate::mock::RuntimeOrigin::signed(99),
+				crate::mock::RuntimeOrigin::signed_with_basic_filter(99),
 				Box::new(solution),
 			));
 			roll_to(30);
@@ -2636,7 +2636,7 @@ mod tests {
 
 			// no single account can trigger this
 			assert_noop!(
-				MultiPhase::governance_fallback(RuntimeOrigin::signed(99)),
+				MultiPhase::governance_fallback(RuntimeOrigin::signed_with_basic_filter(99)),
 				DispatchError::BadOrigin
 			);
 

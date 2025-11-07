@@ -157,7 +157,7 @@ pub mod pallet_with_custom_origin {
 	#[docify::export(custom_origin_bound)]
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		type RuntimeOrigin: From<<Self as frame_system::Config>::RuntimeOrigin>
+		type RuntimeOrigin: FromWithBasicFilter<<Self as frame_system::Config>::RuntimeOrigin>
 			+ Into<Result<Origin, <Self as Config>::RuntimeOrigin>>;
 	}
 

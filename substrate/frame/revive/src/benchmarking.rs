@@ -18,6 +18,7 @@
 //! Benchmarks for the revive pallet.
 
 #![cfg(feature = "runtime-benchmarks")]
+use frame_support::traits::IntoWithBasicFilter;
 use crate::{
 	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
 	evm::{
@@ -224,7 +225,7 @@ mod benchmarks {
 		#[block]
 		{
 			Pallet::<T>::call(
-				RawOrigin::Signed(instance.caller.clone()).into(),
+				RawOrigin::Signed(instance.caller.clone()).into_with_basic_filter(),
 				instance.address,
 				value,
 				Weight::MAX,
@@ -251,7 +252,7 @@ mod benchmarks {
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, .. } = VmBinaryModule::sized(c);
 		let origin = RawOrigin::Signed(caller.clone());
-		Contracts::<T>::map_account(origin.clone().into()).unwrap();
+		Contracts::<T>::map_account(origin.clone().into_with_basic_filter()).unwrap();
 		let deployer = T::AddressMapper::to_address(&caller);
 		let addr = crate::address::create2(&deployer, &code, &input, &salt);
 		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
@@ -302,7 +303,7 @@ mod benchmarks {
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, .. } = VmBinaryModule::sized(c);
 		let origin = Origin::EthTransaction(caller.clone());
-		Contracts::<T>::map_account(OriginFor::<T>::signed(caller.clone())).unwrap();
+		Contracts::<T>::map_account(OriginFor::<T>::signed_with_basic_filter(caller.clone())).unwrap();
 		let deployer = T::AddressMapper::to_address(&caller);
 		let nonce = System::<T>::account_nonce(&caller).try_into().unwrap_or_default();
 		let addr = crate::address::create1(&deployer, nonce);
@@ -351,7 +352,7 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let origin = RawOrigin::Signed(caller.clone());
-		Contracts::<T>::map_account(origin.clone().into()).unwrap();
+		Contracts::<T>::map_account(origin.clone().into_with_basic_filter()).unwrap();
 		let VmBinaryModule { code, .. } = VmBinaryModule::dummy();
 		let storage_deposit = default_deposit_limit::<T>();
 		let deployer = T::AddressMapper::to_address(&caller);
@@ -504,7 +505,7 @@ mod benchmarks {
 		let origin = RawOrigin::Signed(caller.clone());
 		let storage_deposit = default_deposit_limit::<T>();
 		let uploaded =
-			<Contracts<T>>::bare_upload_code(origin.clone().into(), code, storage_deposit)?;
+			<Contracts<T>>::bare_upload_code(origin.clone().into_with_basic_filter(), code, storage_deposit)?;
 		assert_eq!(uploaded.code_hash, hash);
 		assert_eq!(uploaded.deposit, T::Currency::total_balance_on_hold(&pallet_account));
 		assert!(<Contract<T>>::code_exists(&hash));
@@ -525,7 +526,7 @@ mod benchmarks {
 		let origin = RawOrigin::Signed(instance.caller.clone());
 		let storage_deposit = default_deposit_limit::<T>();
 		let hash =
-			<Contracts<T>>::bare_upload_code(origin.into(), code, storage_deposit)?.code_hash;
+			<Contracts<T>>::bare_upload_code(origin.into_with_basic_filter(), code, storage_deposit)?.code_hash;
 		assert_ne!(instance.info()?.code_hash, hash);
 		#[extrinsic_call]
 		_(RawOrigin::Root, instance.address, hash);
@@ -549,7 +550,7 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let origin = RawOrigin::Signed(caller.clone());
-		<Contracts<T>>::map_account(origin.clone().into()).unwrap();
+		<Contracts<T>>::map_account(origin.clone().into_with_basic_filter()).unwrap();
 		assert!(T::AddressMapper::is_mapped(&caller));
 		#[extrinsic_call]
 		_(origin);
@@ -561,7 +562,7 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let origin = RawOrigin::Signed(caller.clone());
-		let dispatchable = frame_system::Call::remark { remark: vec![] }.into();
+		let dispatchable = frame_system::Call::remark { remark: vec![] }.into_with_basic_filter();
 		#[extrinsic_call]
 		_(origin, Box::new(dispatchable));
 	}

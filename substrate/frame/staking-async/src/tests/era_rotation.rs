@@ -354,12 +354,12 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 		// Only old eras (outside pruning window) can be pruned
 		// Try to prune era 2 (should fail as it's within the history window)
 		assert_noop!(
-			Staking::prune_era_step(RuntimeOrigin::signed(99), 2),
+			Staking::prune_era_step(RuntimeOrigin::signed_with_basic_filter(99), 2),
 			Error::<T>::EraNotPrunable
 		);
 		// Try to prune the current era
 		assert_noop!(
-			Staking::prune_era_step(RuntimeOrigin::signed(99), HistoryDepth::get() + 2),
+			Staking::prune_era_step(RuntimeOrigin::signed_with_basic_filter(99), HistoryDepth::get() + 2),
 			Error::<T>::EraNotPrunable
 		);
 
@@ -394,7 +394,7 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 					expected_step, current_state
 				);
 
-				let result = Staking::prune_era_step(RuntimeOrigin::signed(99), 1);
+				let result = Staking::prune_era_step(RuntimeOrigin::signed_with_basic_filter(99), 1);
 				assert_ok!(&result);
 				let post_info = result.unwrap();
 
@@ -475,7 +475,7 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 		assert!(matches!(&staking_events_since_last_call()[..], &[Event::EraPruned { index: 1 }]));
 
 		// Attempting to prune again should return an error
-		let result = Staking::prune_era_step(RuntimeOrigin::signed(99), 1);
+		let result = Staking::prune_era_step(RuntimeOrigin::signed_with_basic_filter(99), 1);
 		assert_noop!(result, Error::<T>::EraNotPrunable);
 
 		// Now era 1 should be absent
@@ -484,7 +484,7 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 		assert_ok!(Eras::<T>::era_fully_present(2));
 
 		// Call the extrinsic on an already pruned era (should return error)
-		let result = Staking::prune_era_step(RuntimeOrigin::signed(99), 1);
+		let result = Staking::prune_era_step(RuntimeOrigin::signed_with_basic_filter(99), 1);
 		assert_noop!(result, Error::<T>::EraNotPrunable);
 	});
 }

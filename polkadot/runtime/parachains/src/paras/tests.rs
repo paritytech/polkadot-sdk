@@ -2107,7 +2107,7 @@ fn remove_upgrade_cooldown_works() {
 
 		assert_noop!(
 			Call::<Test>::remove_upgrade_cooldown { para: para_id }
-				.dispatch_bypass_filter(RuntimeOrigin::signed(1)),
+				.dispatch_bypass_filter(RuntimeOrigin::signed_with_basic_filter(1)),
 			DispatchError::Token(TokenError::FundsUnavailable)
 		);
 
@@ -2115,7 +2115,7 @@ fn remove_upgrade_cooldown_works() {
 		let issuance = Balances::total_issuance();
 
 		assert_ok!(Call::<Test>::remove_upgrade_cooldown { para: para_id }
-			.dispatch_bypass_filter(RuntimeOrigin::signed(1)));
+			.dispatch_bypass_filter(RuntimeOrigin::signed_with_basic_filter(1)));
 
 		let expected_issuance = issuance -
 			Pallet::<Test>::calculate_remove_upgrade_cooldown_cost(next_possible_upgrade_at);
@@ -2142,7 +2142,7 @@ fn force_set_current_code_works() {
 
 		// non-root user cannot execute
 		assert_err!(
-			Paras::force_set_current_code(RuntimeOrigin::signed(1), para_a, code_1.clone()),
+			Paras::force_set_current_code(RuntimeOrigin::signed_with_basic_filter(1), para_a, code_1.clone()),
 			DispatchError::BadOrigin,
 		);
 		// root can execute
@@ -2171,7 +2171,7 @@ fn authorize_force_set_current_code_hash_works() {
 		// non-root user cannot authorize
 		assert_err!(
 			Paras::authorize_force_set_current_code_hash(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				para_a,
 				code_1_hash,
 				valid_period,
@@ -2284,7 +2284,7 @@ fn apply_authorized_force_set_current_code_works() {
 
 		// cannot apply code when nothing authorized
 		assert_eq!(
-			apply_code(RuntimeOrigin::signed(1), para_a, code_1.clone()),
+			apply_code(RuntimeOrigin::signed_with_basic_filter(1), para_a, code_1.clone()),
 			(
 				Err(InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into()),
 				Err(Error::<Test>::NothingAuthorized.into())
@@ -2300,7 +2300,7 @@ fn apply_authorized_force_set_current_code_works() {
 
 		// cannot apply unauthorized code_2
 		assert_eq!(
-			apply_code(RuntimeOrigin::signed(1), para_a, code_2.clone()),
+			apply_code(RuntimeOrigin::signed_with_basic_filter(1), para_a, code_2.clone()),
 			(
 				Err(InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into()),
 				Err(Error::<Test>::Unauthorized.into())
@@ -2310,7 +2310,7 @@ fn apply_authorized_force_set_current_code_works() {
 		// cannot apply obsolete authorization
 		frame_system::Pallet::<Test>::set_block_number(valid_period + 5 + 10);
 		assert_eq!(
-			apply_code(RuntimeOrigin::signed(1), para_a, code_1.clone(),),
+			apply_code(RuntimeOrigin::signed_with_basic_filter(1), para_a, code_1.clone(),),
 			(
 				Err(InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into()),
 				Err(Error::<Test>::InvalidBlockNumber.into())
@@ -2320,7 +2320,7 @@ fn apply_authorized_force_set_current_code_works() {
 
 		// ok - can apply authorized code
 		let (validate_unsigned, dispatch_result) =
-			apply_code(RuntimeOrigin::signed(1), para_a, code_1.clone());
+			apply_code(RuntimeOrigin::signed_with_basic_filter(1), para_a, code_1.clone());
 		assert_ok!(validate_unsigned);
 		assert_ok!(dispatch_result);
 
@@ -2329,7 +2329,7 @@ fn apply_authorized_force_set_current_code_works() {
 
 		// cannot apply previously authorized code again
 		assert_eq!(
-			apply_code(RuntimeOrigin::signed(1), para_a, code_1,),
+			apply_code(RuntimeOrigin::signed_with_basic_filter(1), para_a, code_1,),
 			(
 				Err(InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into()),
 				Err(Error::<Test>::NothingAuthorized.into())

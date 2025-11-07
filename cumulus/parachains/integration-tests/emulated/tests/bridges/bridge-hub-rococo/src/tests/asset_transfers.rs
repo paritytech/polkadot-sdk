@@ -47,7 +47,7 @@ fn set_up_rocs_for_penpal_rococo_through_ahr_to_ahw(
 	AssetHubRococo::fund_accounts(vec![(sov_penpal_on_ahr.into(), amount * 2)]);
 	// fund Penpal's sender account
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalAssetOwner::get()),
 		roc_at_rococo_parachains.clone(),
 		sender.clone(),
 		amount * 2,
@@ -67,7 +67,7 @@ fn send_assets_from_penpal_rococo_through_rococo_ah_to_westend_ah(
 		);
 		// send message over bridge
 		assert_ok!(PenpalA::execute_with(|| {
-			let signed_origin = <PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get());
+			let signed_origin = <PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalASender::get());
 			<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 				signed_origin,
 				bx!(destination.into()),
@@ -274,25 +274,25 @@ fn send_back_wnds_usdt_and_weth_from_asset_hub_rococo_to_asset_hub_westend() {
 	);
 
 	AssetHubWestend::mint_asset(
-		<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendAssetOwner::get()),
+		<AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubWestendAssetOwner::get()),
 		USDT_ID,
 		sov_ahr_on_ahw.clone(),
 		amount_to_send * 2,
 	);
 	AssetHubWestend::mint_foreign_asset(
-		<AssetHubWestend as Chain>::RuntimeOrigin::signed(snowbridge_sovereign()),
+		<AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(snowbridge_sovereign()),
 		bridged_weth_at_ah.clone(),
 		sov_ahr_on_ahw.clone(),
 		amount_to_send * 2,
 	);
 	AssetHubRococo::mint_foreign_asset(
-		<AssetHubRococo as Chain>::RuntimeOrigin::signed(sov_ahw_on_ahr.clone()),
+		<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(sov_ahw_on_ahr.clone()),
 		bridged_weth_at_ah.clone(),
 		sov_ahr_on_ahw,
 		prefund_amount,
 	);
 	AssetHubRococo::mint_foreign_asset(
-		<AssetHubRococo as Chain>::RuntimeOrigin::signed(sov_ahw_on_ahr),
+		<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(sov_ahw_on_ahr),
 		bridged_weth_at_ah.clone(),
 		sender.clone(),
 		prefund_amount,
@@ -327,7 +327,7 @@ fn send_back_wnds_usdt_and_weth_from_asset_hub_rococo_to_asset_hub_westend() {
 	}]);
 	assert_ok!(AssetHubRococo::execute_with(|| {
 		<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(sender.into()),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(sender.into()),
 			bx!(asset_hub_westend_location().into()),
 			bx!(assets.into()),
 			bx!(TransferType::DestinationReserve),

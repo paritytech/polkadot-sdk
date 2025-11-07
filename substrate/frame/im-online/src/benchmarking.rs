@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use frame_benchmarking::v2::*;
 use frame_support::{traits::UnfilteredDispatchable, WeakBoundedVec};
 use frame_system::RawOrigin;
@@ -104,7 +105,7 @@ mod benchmarks {
 				.map_err(<&str>::from)?;
 			<Call<T> as Decode>::decode(&mut &*call_enc)
 				.expect("call is encoded above, encoding must be correct")
-				.dispatch_bypass_filter(RawOrigin::None.into())?;
+				.dispatch_bypass_filter(RawOrigin::None.into_with_basic_filter())?;
 		}
 
 		Ok(())

@@ -19,6 +19,7 @@
 
 pub mod migration;
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::{vec, vec::Vec};
 use core::result;
 use frame_support::{
@@ -139,7 +140,7 @@ pub mod pallet {
 		/// infallibly convert between this origin and the system origin, but in reality, they're
 		/// the same type, we just can't express that to the Rust type system without writing a
 		/// `where` clause everywhere.
-		type RuntimeOrigin: From<<Self as frame_system::Config>::RuntimeOrigin>
+		type RuntimeOrigin: FromWithBasicFilter<<Self as frame_system::Config>::RuntimeOrigin>
 			+ Into<result::Result<Origin, <Self as Config>::RuntimeOrigin>>;
 
 		/// The system's currency for on-demand parachain payment.
@@ -594,7 +595,7 @@ impl<T: Config> Pallet<T> {
 			return Ok(())
 		}
 
-		let caller_id = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+		let caller_id = ensure_parachain((origin).into_with_basic_filter())?;
 		// Check if matching para id...
 		ensure!(caller_id == id, Error::<T>::NotOwner);
 

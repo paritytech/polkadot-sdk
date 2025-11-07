@@ -179,17 +179,17 @@ mod builder {
 
 	pub fn instantiate_with_code(code: Vec<u8>) -> InstantiateWithCodeBuilder<Test> {
 		InstantiateWithCodeBuilder::<Test>::instantiate_with_code(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			code,
 		)
 	}
 
 	pub fn instantiate(code_hash: CodeHash<Test>) -> InstantiateBuilder<Test> {
-		InstantiateBuilder::<Test>::instantiate(RuntimeOrigin::signed(ALICE), code_hash)
+		InstantiateBuilder::<Test>::instantiate(RuntimeOrigin::signed_with_basic_filter(ALICE), code_hash)
 	}
 
 	pub fn call(dest: AccountIdLookupOf<Test>) -> CallBuilder<Test> {
-		CallBuilder::<Test>::call(RuntimeOrigin::signed(ALICE), dest)
+		CallBuilder::<Test>::call(RuntimeOrigin::signed_with_basic_filter(ALICE), dest)
 	}
 }
 
@@ -662,7 +662,7 @@ fn migration_in_progress_works() {
 
 		assert_err!(
 			Contracts::upload_code(
-				RuntimeOrigin::signed(ALICE),
+				RuntimeOrigin::signed_with_basic_filter(ALICE),
 				vec![],
 				None,
 				Determinism::Enforced
@@ -670,11 +670,11 @@ fn migration_in_progress_works() {
 			Error::<Test>::MigrationInProgress,
 		);
 		assert_err!(
-			Contracts::remove_code(RuntimeOrigin::signed(ALICE), code_hash),
+			Contracts::remove_code(RuntimeOrigin::signed_with_basic_filter(ALICE), code_hash),
 			Error::<Test>::MigrationInProgress,
 		);
 		assert_err!(
-			Contracts::set_code(RuntimeOrigin::signed(ALICE), BOB.clone(), code_hash),
+			Contracts::set_code(RuntimeOrigin::signed_with_basic_filter(ALICE), BOB.clone(), code_hash),
 			Error::<Test>::MigrationInProgress,
 		);
 		assert_err_ignore_postinfo!(builder::call(BOB).build(), Error::<Test>::MigrationInProgress);
@@ -701,7 +701,7 @@ fn instantiate_and_call_and_deposit_event() {
 		// We determine the storage deposit limit after uploading because it depends on ALICEs free
 		// balance which is changed by uploading a module.
 		assert_ok!(Contracts::upload_code(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			wasm,
 			None,
 			Determinism::Enforced
@@ -907,7 +907,7 @@ fn instantiate_unique_trie_id() {
 
 	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		Contracts::upload_code(RuntimeOrigin::signed(ALICE), wasm, None, Determinism::Enforced)
+		Contracts::upload_code(RuntimeOrigin::signed_with_basic_filter(ALICE), wasm, None, Determinism::Enforced)
 			.unwrap();
 
 		// Instantiate the contract and store its trie id for later comparison.
@@ -1179,7 +1179,7 @@ fn delegate_call() {
 			.build_and_unwrap_account_id();
 		// Only upload 'callee' code
 		assert_ok!(Contracts::upload_code(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			callee_wasm,
 			Some(codec::Compact(100_000)),
 			Determinism::Enforced,
@@ -2162,7 +2162,7 @@ fn debug_message_logging_disabled() {
 		let result = builder::bare_call(addr.clone()).build();
 		assert_matches!(result.result, Ok(_));
 		// the dispatchables always run without debugging
-		assert_ok!(Contracts::call(RuntimeOrigin::signed(ALICE), addr, 0, GAS_LIMIT, None, vec![]));
+		assert_ok!(Contracts::call(RuntimeOrigin::signed_with_basic_filter(ALICE), addr, 0, GAS_LIMIT, None, vec![]));
 		assert!(result.debug_message.is_empty());
 	});
 }
@@ -2539,7 +2539,7 @@ fn failed_deposit_charge_should_roll_back_call() {
 				.build_and_unwrap_account_id();
 
 			// Give caller proxy access to Alice.
-			assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(ALICE), addr_caller.clone(), (), 0));
+			assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed_with_basic_filter(ALICE), addr_caller.clone(), (), 0));
 
 			// Create a Proxy call that will attempt to transfer away Alice's balance.
 			let transfer_call =
@@ -2586,7 +2586,7 @@ fn upload_code_works() {
 		assert!(!PristineCode::<Test>::contains_key(&code_hash));
 
 		assert_ok!(Contracts::upload_code(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			wasm,
 			Some(codec::Compact(1_000)),
 			Determinism::Enforced,
@@ -2636,7 +2636,7 @@ fn upload_code_limit_too_low() {
 
 		assert_noop!(
 			Contracts::upload_code(
-				RuntimeOrigin::signed(ALICE),
+				RuntimeOrigin::signed_with_basic_filter(ALICE),
 				wasm,
 				Some(codec::Compact(deposit_insufficient)),
 				Determinism::Enforced
@@ -2662,7 +2662,7 @@ fn upload_code_not_enough_balance() {
 
 		assert_noop!(
 			Contracts::upload_code(
-				RuntimeOrigin::signed(ALICE),
+				RuntimeOrigin::signed_with_basic_filter(ALICE),
 				wasm,
 				Some(codec::Compact(1_000)),
 				Determinism::Enforced
@@ -2685,7 +2685,7 @@ fn remove_code_works() {
 		initialize_block(2);
 
 		assert_ok!(Contracts::upload_code(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			wasm,
 			Some(codec::Compact(1_000)),
 			Determinism::Enforced,
@@ -2693,7 +2693,7 @@ fn remove_code_works() {
 		// Ensure the contract was stored and get expected deposit amount to be reserved.
 		let deposit_expected = expected_deposit(ensure_stored(code_hash));
 
-		assert_ok!(Contracts::remove_code(RuntimeOrigin::signed(ALICE), code_hash));
+		assert_ok!(Contracts::remove_code(RuntimeOrigin::signed_with_basic_filter(ALICE), code_hash));
 		assert_eq!(
 			System::events(),
 			vec![
@@ -2753,7 +2753,7 @@ fn remove_code_wrong_origin() {
 		initialize_block(2);
 
 		assert_ok!(Contracts::upload_code(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			wasm,
 			Some(codec::Compact(1_000)),
 			Determinism::Enforced,
@@ -2762,7 +2762,7 @@ fn remove_code_wrong_origin() {
 		let deposit_expected = expected_deposit(ensure_stored(code_hash));
 
 		assert_noop!(
-			Contracts::remove_code(RuntimeOrigin::signed(BOB), code_hash),
+			Contracts::remove_code(RuntimeOrigin::signed_with_basic_filter(BOB), code_hash),
 			sp_runtime::traits::BadOrigin,
 		);
 
@@ -2807,7 +2807,7 @@ fn remove_code_in_use() {
 		initialize_block(2);
 
 		assert_noop!(
-			Contracts::remove_code(RuntimeOrigin::signed(ALICE), code_hash),
+			Contracts::remove_code(RuntimeOrigin::signed_with_basic_filter(ALICE), code_hash),
 			<Error<Test>>::CodeInUse,
 		);
 
@@ -2826,7 +2826,7 @@ fn remove_code_not_found() {
 		initialize_block(2);
 
 		assert_noop!(
-			Contracts::remove_code(RuntimeOrigin::signed(ALICE), code_hash),
+			Contracts::remove_code(RuntimeOrigin::signed_with_basic_filter(ALICE), code_hash),
 			<Error<Test>>::CodeNotFound,
 		);
 
@@ -3243,7 +3243,7 @@ fn set_code_extrinsic() {
 		let addr = builder::bare_instantiate(Code::Upload(wasm)).build_and_unwrap_account_id();
 
 		assert_ok!(Contracts::upload_code(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			new_wasm,
 			None,
 			Determinism::Enforced
@@ -3258,7 +3258,7 @@ fn set_code_extrinsic() {
 
 		// only root can execute this extrinsic
 		assert_noop!(
-			Contracts::set_code(RuntimeOrigin::signed(ALICE), addr.clone(), new_code_hash),
+			Contracts::set_code(RuntimeOrigin::signed_with_basic_filter(ALICE), addr.clone(), new_code_hash),
 			sp_runtime::traits::BadOrigin,
 		);
 		assert_eq!(get_contract(&addr).code_hash, code_hash);
@@ -3359,7 +3359,7 @@ fn contract_reverted() {
 
 		// We just upload the code for later use
 		assert_ok!(Contracts::upload_code(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			wasm.clone(),
 			None,
 			Determinism::Enforced
@@ -3420,7 +3420,7 @@ fn set_code_hash() {
 			.build_and_unwrap_account_id();
 		// upload new code
 		assert_ok!(Contracts::upload_code(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			new_wasm.clone(),
 			None,
 			Determinism::Enforced
@@ -3654,7 +3654,7 @@ fn deposit_limit_in_nested_instantiate() {
 		// this call should fail on the return from the caller contract.
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller.clone())
-				.origin(RuntimeOrigin::signed(BOB))
+				.origin(RuntimeOrigin::signed_with_basic_filter(BOB))
 				.storage_deposit_limit(Some(codec::Compact(callee_info_len + 2 + ED + 1)))
 				.data((0u32, &code_hash_callee, 0u64).encode())
 				.build(),
@@ -3668,7 +3668,7 @@ fn deposit_limit_in_nested_instantiate() {
 		// return from constructor.
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller.clone())
-				.origin(RuntimeOrigin::signed(BOB))
+				.origin(RuntimeOrigin::signed_with_basic_filter(BOB))
 				.storage_deposit_limit(Some(codec::Compact(callee_info_len + 2 + ED + 2)))
 				.data((1u32, &code_hash_callee, 0u64).encode())
 				.build(),
@@ -3682,7 +3682,7 @@ fn deposit_limit_in_nested_instantiate() {
 		// `RawMeter::charge_instantiate()`
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller.clone())
-				.origin(RuntimeOrigin::signed(BOB))
+				.origin(RuntimeOrigin::signed_with_basic_filter(BOB))
 				.storage_deposit_limit(Some(codec::Compact(callee_info_len + 2 + ED + 2)))
 				.data((0u32, &code_hash_callee, callee_info_len + 2 + ED + 1).encode())
 				.build(),
@@ -3697,7 +3697,7 @@ fn deposit_limit_in_nested_instantiate() {
 		// instantiate. This should fail right after the constructor execution.
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller.clone())
-				.origin(RuntimeOrigin::signed(BOB))
+				.origin(RuntimeOrigin::signed_with_basic_filter(BOB))
 				.storage_deposit_limit(Some(codec::Compact(callee_info_len + 2 + ED + 3))) // enough parent limit
 				.data((1u32, &code_hash_callee, callee_info_len + 2 + ED + 2).encode())
 				.build(),
@@ -3761,7 +3761,7 @@ fn deposit_limit_honors_liquidity_restrictions() {
 		.unwrap();
 		assert_err_ignore_postinfo!(
 			builder::call(addr.clone())
-				.origin(RuntimeOrigin::signed(BOB))
+				.origin(RuntimeOrigin::signed_with_basic_filter(BOB))
 				.storage_deposit_limit(Some(codec::Compact(200)))
 				.data(100u32.to_le_bytes().to_vec())
 				.build(),
@@ -3791,7 +3791,7 @@ fn deposit_limit_honors_existential_deposit() {
 		// check that the deposit can't bring the account below the existential deposit
 		assert_err_ignore_postinfo!(
 			builder::call(addr.clone())
-				.origin(RuntimeOrigin::signed(BOB))
+				.origin(RuntimeOrigin::signed_with_basic_filter(BOB))
 				.storage_deposit_limit(Some(codec::Compact(900)))
 				.data(100u32.to_le_bytes().to_vec())
 				.build(),
@@ -3822,7 +3822,7 @@ fn deposit_limit_honors_min_leftover() {
 		// check that the minimum leftover (value send) is considered
 		assert_err_ignore_postinfo!(
 			builder::call(addr.clone())
-				.origin(RuntimeOrigin::signed(BOB))
+				.origin(RuntimeOrigin::signed_with_basic_filter(BOB))
 				.value(400)
 				.storage_deposit_limit(Some(codec::Compact(500)))
 				.data(100u32.to_le_bytes().to_vec())
@@ -3873,7 +3873,7 @@ fn cannot_instantiate_indeterministic_code() {
 		// Try to upload a non-deterministic code as deterministic
 		assert_err!(
 			Contracts::upload_code(
-				RuntimeOrigin::signed(ALICE),
+				RuntimeOrigin::signed_with_basic_filter(ALICE),
 				wasm.clone(),
 				None,
 				Determinism::Enforced
@@ -3883,7 +3883,7 @@ fn cannot_instantiate_indeterministic_code() {
 
 		// Try to instantiate from already stored indeterministic code hash
 		assert_ok!(Contracts::upload_code(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			wasm,
 			None,
 			Determinism::Relaxed,
@@ -3925,7 +3925,7 @@ fn cannot_set_code_indeterministic_code() {
 
 		// Put the non-deterministic contract on-chain
 		assert_ok!(Contracts::upload_code(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			wasm,
 			None,
 			Determinism::Relaxed,
@@ -3952,7 +3952,7 @@ fn delegate_call_indeterministic_code() {
 
 		// Put the non-deterministic contract on-chain
 		assert_ok!(Contracts::upload_code(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			wasm,
 			None,
 			Determinism::Relaxed,
@@ -4041,7 +4041,7 @@ fn locking_delegate_dependency_works() {
 
 		// Removing the code should fail, since we have added a dependency.
 		assert_err!(
-			Contracts::remove_code(RuntimeOrigin::signed(ALICE), code_hash),
+			Contracts::remove_code(RuntimeOrigin::signed_with_basic_filter(ALICE), code_hash),
 			<Error<Test>>::CodeInUse
 		);
 
@@ -4092,7 +4092,7 @@ fn locking_delegate_dependency_works() {
 		);
 
 		// Since we unlocked the dependency we should now be able to remove the code.
-		assert_ok!(Contracts::remove_code(RuntimeOrigin::signed(ALICE), code_hash));
+		assert_ok!(Contracts::remove_code(RuntimeOrigin::signed_with_basic_filter(ALICE), code_hash));
 
 		// Calling should fail since the delegated contract is not on chain anymore.
 		assert_err!(call(&addr_caller, &noop_input).result, Error::<Test>::ContractTrapped);
@@ -4111,7 +4111,7 @@ fn locking_delegate_dependency_works() {
 		);
 
 		// Terminate should also remove the dependency, so we can remove the code.
-		assert_ok!(Contracts::remove_code(RuntimeOrigin::signed(ALICE), code_hash));
+		assert_ok!(Contracts::remove_code(RuntimeOrigin::signed_with_basic_filter(ALICE), code_hash));
 	});
 }
 
@@ -4131,7 +4131,7 @@ fn native_dependency_deposit_works() {
 
 			// Upload the dummy contract,
 			Contracts::upload_code(
-				RuntimeOrigin::signed(ALICE),
+				RuntimeOrigin::signed_with_basic_filter(ALICE),
 				dummy_wasm.clone(),
 				None,
 				Determinism::Enforced,
@@ -4142,7 +4142,7 @@ fn native_dependency_deposit_works() {
 			let add_upload_deposit = match code {
 				Code::Existing(_) => {
 					Contracts::upload_code(
-						RuntimeOrigin::signed(ALICE),
+						RuntimeOrigin::signed_with_basic_filter(ALICE),
 						wasm.clone(),
 						None,
 						Determinism::Enforced,
@@ -4290,7 +4290,7 @@ fn signed_cannot_set_code() {
 
 	ExtBuilder::default().build().execute_with(|| {
 		assert_noop!(
-			Contracts::set_code(RuntimeOrigin::signed(ALICE), BOB, code_hash),
+			Contracts::set_code(RuntimeOrigin::signed_with_basic_filter(ALICE), BOB, code_hash),
 			DispatchError::BadOrigin,
 		);
 	});
@@ -4300,7 +4300,7 @@ fn signed_cannot_set_code() {
 fn none_cannot_call_code() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_noop!(
-			builder::call(BOB).origin(RuntimeOrigin::none()).build(),
+			builder::call(BOB).origin(RuntimeOrigin::none_with_basic_filter()).build(),
 			DispatchError::BadOrigin,
 		);
 	});
@@ -4364,7 +4364,7 @@ fn only_upload_origin_can_upload() {
 
 		assert_err!(
 			Contracts::upload_code(
-				RuntimeOrigin::signed(BOB),
+				RuntimeOrigin::signed_with_basic_filter(BOB),
 				wasm.clone(),
 				None,
 				Determinism::Enforced,
@@ -4374,7 +4374,7 @@ fn only_upload_origin_can_upload() {
 
 		// Only alice is allowed to upload contract code.
 		assert_ok!(Contracts::upload_code(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			wasm.clone(),
 			None,
 			Determinism::Enforced,
@@ -4399,7 +4399,7 @@ fn only_instantiation_origin_can_instantiate() {
 
 		assert_err_ignore_postinfo!(
 			builder::instantiate_with_code(code.clone())
-				.origin(RuntimeOrigin::signed(BOB))
+				.origin(RuntimeOrigin::signed_with_basic_filter(BOB))
 				.build(),
 			DispatchError::BadOrigin
 		);
@@ -4409,7 +4409,7 @@ fn only_instantiation_origin_can_instantiate() {
 
 		// Bob cannot instantiate with either `instantiate_with_code` or `instantiate`.
 		assert_err_ignore_postinfo!(
-			builder::instantiate(code_hash).origin(RuntimeOrigin::signed(BOB)).build(),
+			builder::instantiate(code_hash).origin(RuntimeOrigin::signed_with_basic_filter(BOB)).build(),
 			DispatchError::BadOrigin
 		);
 	});

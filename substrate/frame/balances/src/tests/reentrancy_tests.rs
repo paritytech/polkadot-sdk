@@ -17,6 +17,7 @@
 
 //! Tests regarding the reentrancy functionality.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use frame_support::traits::tokens::{
 	Fortitude::Force,
@@ -32,13 +33,13 @@ fn transfer_dust_removal_tst1_should_work() {
 		.dust_trap(1)
 		.build_and_execute_with(|| {
 			// Verification of reentrancy in dust removal
-			assert_ok!(Balances::force_set_balance(RawOrigin::Root.into(), 1, 1000));
-			assert_ok!(Balances::force_set_balance(RawOrigin::Root.into(), 2, 500));
+			assert_ok!(Balances::force_set_balance(RawOrigin::Root.into_with_basic_filter(), 1, 1000));
+			assert_ok!(Balances::force_set_balance(RawOrigin::Root.into_with_basic_filter(), 2, 500));
 
 			// In this transaction, account 2 free balance
 			// drops below existential balance
 			// and dust balance is removed from account 2
-			assert_ok!(Balances::transfer_allow_death(RawOrigin::Signed(2).into(), 3, 450));
+			assert_ok!(Balances::transfer_allow_death(RawOrigin::Signed(2).into_with_basic_filter(), 3, 450));
 
 			// As expected dust balance is removed.
 			assert_eq!(Balances::free_balance(&2), 0);
@@ -77,13 +78,13 @@ fn transfer_dust_removal_tst2_should_work() {
 		.dust_trap(1)
 		.build_and_execute_with(|| {
 			// Verification of reentrancy in dust removal
-			assert_ok!(Balances::force_set_balance(RawOrigin::Root.into(), 1, 1000));
-			assert_ok!(Balances::force_set_balance(RawOrigin::Root.into(), 2, 500));
+			assert_ok!(Balances::force_set_balance(RawOrigin::Root.into_with_basic_filter(), 1, 1000));
+			assert_ok!(Balances::force_set_balance(RawOrigin::Root.into_with_basic_filter(), 2, 500));
 
 			// In this transaction, account 2 free balance
 			// drops below existential balance
 			// and dust balance is removed from account 2
-			assert_ok!(Balances::transfer_allow_death(RawOrigin::Signed(2).into(), 1, 450));
+			assert_ok!(Balances::transfer_allow_death(RawOrigin::Signed(2).into_with_basic_filter(), 1, 450));
 
 			// As expected dust balance is removed.
 			assert_eq!(Balances::free_balance(&2), 0);
@@ -118,13 +119,13 @@ fn repatriating_reserved_balance_dust_removal_should_work() {
 		.dust_trap(1)
 		.build_and_execute_with(|| {
 			// Verification of reentrancy in dust removal
-			assert_ok!(Balances::force_set_balance(RawOrigin::Root.into(), 1, 1000));
-			assert_ok!(Balances::force_set_balance(RawOrigin::Root.into(), 2, 500));
+			assert_ok!(Balances::force_set_balance(RawOrigin::Root.into_with_basic_filter(), 1, 1000));
+			assert_ok!(Balances::force_set_balance(RawOrigin::Root.into_with_basic_filter(), 2, 500));
 
 			// Reserve a value on account 2,
 			// Such that free balance is lower than
 			// Existential deposit.
-			assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(2), 1, 450));
+			assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed_with_basic_filter(2), 1, 450));
 
 			// Since free balance of account 2 is lower than
 			// existential deposit, dust amount is
@@ -160,7 +161,7 @@ fn repatriating_reserved_balance_dust_removal_should_work() {
 #[test]
 fn emit_events_with_no_existential_deposit_suicide_with_dust() {
 	ExtBuilder::default().existential_deposit(2).build_and_execute_with(|| {
-		assert_ok!(Balances::force_set_balance(RawOrigin::Root.into(), 1, 100));
+		assert_ok!(Balances::force_set_balance(RawOrigin::Root.into_with_basic_filter(), 1, 100));
 
 		assert_eq!(
 			events(),

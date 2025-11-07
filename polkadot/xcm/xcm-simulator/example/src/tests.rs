@@ -128,7 +128,7 @@ fn reserve_transfer() {
 
 	Relay::execute_with(|| {
 		assert_ok!(RelayChainPalletXcm::limited_reserve_transfer_assets(
-			relay_chain::RuntimeOrigin::signed(ALICE),
+			relay_chain::RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(Parachain(1).into()),
 			Box::new(AccountId32 { network: None, id: ALICE.into() }.into()),
 			Box::new((Here, withdraw_amount).into()),
@@ -175,7 +175,7 @@ fn reserve_transfer_with_error() {
 
 		Relay::execute_with(|| {
 			let result = RelayChainPalletXcm::limited_reserve_transfer_assets(
-				relay_chain::RuntimeOrigin::signed(ALICE),
+				relay_chain::RuntimeOrigin::signed_with_basic_filter(ALICE),
 				invalid_dest,
 				Box::new(AccountId32 { network: None, id: ALICE.into() }.into()),
 				Box::new((Here, withdraw_amount).into()),
@@ -300,7 +300,7 @@ fn teleport_nft() {
 	Relay::execute_with(|| {
 		// Mint the NFT (1, 69) and give it to our "parachain#1 alias".
 		assert_ok!(relay_chain::Uniques::mint(
-			relay_chain::RuntimeOrigin::signed(ALICE),
+			relay_chain::RuntimeOrigin::signed_with_basic_filter(ALICE),
 			1,
 			69,
 			child_account_account_id(1, ALICE),
@@ -369,7 +369,7 @@ fn reserve_asset_transfer_nft() {
 			false
 		));
 		assert_ok!(relay_chain::Uniques::mint(
-			relay_chain::RuntimeOrigin::signed(ALICE),
+			relay_chain::RuntimeOrigin::signed_with_basic_filter(ALICE),
 			2,
 			69,
 			child_account_account_id(1, ALICE)
@@ -435,7 +435,7 @@ fn reserve_asset_class_create_and_reserve_transfer() {
 			false
 		));
 		assert_ok!(relay_chain::Uniques::mint(
-			relay_chain::RuntimeOrigin::signed(ALICE),
+			relay_chain::RuntimeOrigin::signed_with_basic_filter(ALICE),
 			2,
 			69,
 			child_account_account_id(1, ALICE)

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 
 use crate::Pallet as InboundQueue;
@@ -20,7 +21,7 @@ mod benchmarks {
 		#[block]
 		{
 			assert_ok!(InboundQueue::<T>::submit(
-				RawOrigin::Signed(caller.clone()).into(),
+				RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 				Box::new(create_message.event),
 			));
 		}

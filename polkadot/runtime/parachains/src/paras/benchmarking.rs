@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use crate::configuration::HostConfiguration;
 use alloc::vec;
@@ -99,7 +100,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Root, para_id, new_code);
 
-		assert_last_event::<T>(Event::CurrentCodeUpdated(para_id).into());
+		assert_last_event::<T>(Event::CurrentCodeUpdated(para_id).into_with_basic_filter());
 	}
 
 	#[benchmark]
@@ -110,7 +111,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Root, para_id, new_head);
 
-		assert_last_event::<T>(Event::CurrentHeadUpdated(para_id).into());
+		assert_last_event::<T>(Event::CurrentHeadUpdated(para_id).into_with_basic_filter());
 	}
 
 	#[benchmark]
@@ -132,7 +133,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Root, para_id, new_code, block);
 
-		assert_last_event::<T>(Event::CodeUpgradeScheduled(para_id).into());
+		assert_last_event::<T>(Event::CodeUpgradeScheduled(para_id).into_with_basic_filter());
 	}
 
 	#[benchmark]
@@ -158,7 +159,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Root, para_id, new_head);
 
-		assert_last_event::<T>(Event::NewHeadNoted(para_id).into());
+		assert_last_event::<T>(Event::NewHeadNoted(para_id).into_with_basic_filter());
 	}
 
 	#[benchmark]
@@ -171,7 +172,7 @@ mod benchmarks {
 
 		let next_session =
 			crate::shared::CurrentSessionIndex::<T>::get().saturating_add(One::one());
-		assert_last_event::<T>(Event::ActionQueued(para_id, next_session).into());
+		assert_last_event::<T>(Event::ActionQueued(para_id, next_session).into_with_basic_filter());
 	}
 
 	#[benchmark]
@@ -186,7 +187,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn poke_unused_validation_code() {
-		let code_hash = [0; 32].into();
+		let code_hash = [0; 32].into_with_basic_filter();
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, code_hash);
@@ -199,7 +200,7 @@ mod benchmarks {
 		#[block]
 		{
 			let _ =
-				Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into(), stmt, signature);
+				Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into_with_basic_filter(), stmt, signature);
 		}
 	}
 
@@ -211,7 +212,7 @@ mod benchmarks {
 		#[block]
 		{
 			let _ =
-				Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into(), stmt, signature);
+				Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into_with_basic_filter(), stmt, signature);
 		}
 	}
 
@@ -223,7 +224,7 @@ mod benchmarks {
 		#[block]
 		{
 			let _ =
-				Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into(), stmt, signature);
+				Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into_with_basic_filter(), stmt, signature);
 		}
 	}
 
@@ -235,7 +236,7 @@ mod benchmarks {
 		#[block]
 		{
 			let _ =
-				Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into(), stmt, signature);
+				Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into_with_basic_filter(), stmt, signature);
 		}
 	}
 
@@ -247,7 +248,7 @@ mod benchmarks {
 		#[block]
 		{
 			let _ =
-				Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into(), stmt, signature);
+				Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into_with_basic_filter(), stmt, signature);
 		}
 	}
 
@@ -277,7 +278,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(who), para_id);
 
-		assert_last_event::<T>(Event::UpgradeCooldownRemoved { para_id }.into());
+		assert_last_event::<T>(Event::UpgradeCooldownRemoved { para_id }.into_with_basic_filter());
 
 		Ok(())
 	}
@@ -318,7 +319,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Root, para_id, code);
 
-		assert_last_event::<T>(Event::CurrentCodeUpdated(para_id).into());
+		assert_last_event::<T>(Event::CurrentCodeUpdated(para_id).into_with_basic_filter());
 	}
 
 	impl_benchmark_test_suite!(

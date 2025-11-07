@@ -84,11 +84,11 @@ pub mod pallet_coownership {
 	pub trait Config: frame_system::Config {
 		/// The aggregated origin which the dispatch will take.
 		type RuntimeOrigin: OriginTrait<PalletsOrigin = Self::PalletsOrigin>
-			+ From<Self::PalletsOrigin>
+			+ FromWithBasicFilter<Self::PalletsOrigin>
 			+ IsType<<Self as frame_system::Config>::RuntimeOrigin>;
 
 		/// The caller origin, overarching type of all pallets origins.
-		type PalletsOrigin: From<Origin<Self>> + TryInto<Origin<Self>, Error = Self::PalletsOrigin>;
+		type PalletsOrigin: FromWithBasicFilter<Origin<Self>> + TryInto<Origin<Self>, Error = Self::PalletsOrigin>;
 	}
 
 	#[pallet::pallet]

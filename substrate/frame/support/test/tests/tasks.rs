@@ -118,18 +118,18 @@ fn tasks_work() {
 
 		let task = RuntimeTask::MyPallet(my_pallet::Task::<Runtime>::Foo { i: 0u32, j: 2u64 });
 
-		frame_support::assert_ok!(System::do_task(RuntimeOrigin::signed(1), task.clone(),));
+		frame_support::assert_ok!(System::do_task(RuntimeOrigin::signed_with_basic_filter(1), task.clone(),));
 		assert_eq!(my_pallet::SomeStorage::<Runtime>::get(), (0, 2));
 
 		let task = RuntimeTask::MyPallet2(my_pallet::Task::<Runtime, _>::Foo { i: 0u32, j: 2u64 });
 
-		frame_support::assert_ok!(System::do_task(RuntimeOrigin::signed(1), task.clone(),));
+		frame_support::assert_ok!(System::do_task(RuntimeOrigin::signed_with_basic_filter(1), task.clone(),));
 		assert_eq!(my_pallet::SomeStorage::<Runtime, Instance2>::get(), (0, 2));
 
 		let task =
 			RuntimeTask::MyPallet4(my_pallet_2::Task::<Runtime, _>::Foo { i: 0u32, j: 2u64 });
 
-		frame_support::assert_ok!(System::do_task(RuntimeOrigin::signed(1), task.clone(),));
+		frame_support::assert_ok!(System::do_task(RuntimeOrigin::signed_with_basic_filter(1), task.clone(),));
 		assert_eq!(my_pallet_2::SomeStorage::<Runtime, Instance1>::get(), (0, 2));
 	});
 }

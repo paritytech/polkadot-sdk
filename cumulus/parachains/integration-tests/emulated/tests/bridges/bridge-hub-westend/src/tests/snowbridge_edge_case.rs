@@ -60,7 +60,7 @@ fn user_send_message_directly_bypass_exporter_from_ah_will_fail() {
 		};
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::send(
-			RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			RuntimeOrigin::signed_with_basic_filter(AssetHubWestendSender::get()),
 			bx!(VersionedLocation::from(bridge_hub())),
 			bx!(VersionedXcm::from(Xcm(vec![
 				WithdrawAsset(local_fee_asset.clone().into()),
@@ -143,7 +143,7 @@ fn user_exploit_with_arbitrary_message_will_fail() {
 		};
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
-			RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			RuntimeOrigin::signed_with_basic_filter(AssetHubWestendSender::get()),
 			bx!(VersionedLocation::from(ethereum())),
 			bx!(assets),
 			bx!(TransferType::DestinationReserve),

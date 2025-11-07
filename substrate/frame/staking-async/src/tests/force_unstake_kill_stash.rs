@@ -24,18 +24,18 @@ fn force_unstake_works() {
 
 		// Is bonded -- cannot transfer
 		assert_noop!(
-			Balances::transfer_allow_death(RuntimeOrigin::signed(11), 1, 10),
+			Balances::transfer_allow_death(RuntimeOrigin::signed_with_basic_filter(11), 1, 10),
 			TokenError::FundsUnavailable,
 		);
 
 		// Force unstake requires root.
-		assert_noop!(Staking::force_unstake(RuntimeOrigin::signed(11), 11, 0), BadOrigin);
+		assert_noop!(Staking::force_unstake(RuntimeOrigin::signed_with_basic_filter(11), 11, 0), BadOrigin);
 
 		assert_ok!(Staking::force_unstake(RuntimeOrigin::root(), 11, 0));
 
 		// No longer bonded, can transfer out
 		assert_eq!(Staking::bonded(&11), None);
-		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(11), 1, 10));
+		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed_with_basic_filter(11), 1, 10));
 	});
 }
 

@@ -255,7 +255,7 @@ fn ledger_consistency_active_balance_below_ed() {
 
 		// unbonding total of active stake passes because chill occurs implicitly when unbonding
 		// full amount.
-		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 1000));
+		assert_ok!(Staking::unbond(RuntimeOrigin::signed_with_basic_filter(11), 1000));
 
 		// the active balance of the ledger entry is 0, while total balance is 1000 until
 		// `withdraw_unbonded` is called.
@@ -264,13 +264,13 @@ fn ledger_consistency_active_balance_below_ed() {
 
 		// trying to withdraw the unbonded balance won't work yet because not enough bonding
 		// eras have passed.
-		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 0));
+		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed_with_basic_filter(11), 0));
 		assert_eq!(Staking::ledger(11.into()).unwrap().total, 1000);
 
 		// tries to reap stash after chilling, which fails since the stash total balance is
 		// above ED.
 		assert_err!(
-			Staking::reap_stash(RuntimeOrigin::signed(11), 21, 0),
+			Staking::reap_stash(RuntimeOrigin::signed_with_basic_filter(11), 21, 0),
 			Error::<Runtime>::FundedTarget,
 		);
 
@@ -286,7 +286,7 @@ fn ledger_consistency_active_balance_below_ed() {
 			<Runtime as pallet_staking::Config>::BondingDuration::get() as usize,
 			pool_state,
 		);
-		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 0));
+		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed_with_basic_filter(11), 0));
 		assert!(Staking::ledger(11.into()).is_err());
 	});
 }
@@ -326,17 +326,17 @@ fn automatic_unbonding_pools() {
 		let pool_bonded_account = Pools::generate_bonded_account(1);
 
 		// creates a pool with 5 bonded, owned by 1.
-		assert_ok!(Pools::create(RuntimeOrigin::signed(1), 5, 1, 1, 1));
+		assert_ok!(Pools::create(RuntimeOrigin::signed_with_basic_filter(1), 5, 1, 1, 1));
 		assert_eq!(staked_amount_for(pool_bonded_account), 5);
 
 		let init_tvl = TotalValueLocked::<Runtime>::get();
 
 		// 2 joins the pool.
-		assert_ok!(Pools::join(RuntimeOrigin::signed(2), 10, 1));
+		assert_ok!(Pools::join(RuntimeOrigin::signed_with_basic_filter(2), 10, 1));
 		assert_eq!(staked_amount_for(pool_bonded_account), 15);
 
 		// 3 joins the pool.
-		assert_ok!(Pools::join(RuntimeOrigin::signed(3), 10, 1));
+		assert_ok!(Pools::join(RuntimeOrigin::signed_with_basic_filter(3), 10, 1));
 		assert_eq!(staked_amount_for(pool_bonded_account), 25);
 
 		assert_eq!(TotalValueLocked::<Runtime>::get(), 25);
@@ -345,7 +345,7 @@ fn automatic_unbonding_pools() {
 		assert_eq!(unlocking_chunks_of(pool_bonded_account), 0);
 
 		// unbond 2 from pool.
-		assert_ok!(Pools::unbond(RuntimeOrigin::signed(2), 2, 10));
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed_with_basic_filter(2), 2, 10));
 
 		// amount is still locked in the pool, needs to wait for unbonding period.
 		assert_eq!(staked_amount_for(pool_bonded_account), 25);
@@ -357,7 +357,7 @@ fn automatic_unbonding_pools() {
 		// available and the current in the queue haven't been there for more than bonding
 		// duration.
 		assert_err!(
-			Pools::unbond(RuntimeOrigin::signed(3), 3, 10),
+			Pools::unbond(RuntimeOrigin::signed_with_basic_filter(3), 3, 10),
 			pallet_staking::Error::<Runtime>::NoMoreChunks
 		);
 
@@ -375,7 +375,7 @@ fn automatic_unbonding_pools() {
 
 		// now unbonding 3 will work, although the pool's ledger still has the unlocking chunks
 		// filled up.
-		assert_ok!(Pools::unbond(RuntimeOrigin::signed(3), 3, 10));
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed_with_basic_filter(3), 3, 10));
 		assert_eq!(unlocking_chunks_of(pool_bonded_account), 1);
 
 		assert_eq!(
@@ -400,7 +400,7 @@ fn automatic_unbonding_pools() {
 		// from the pool's non staked balance.
 		assert_eq!(delegated_balance_for(pool_bonded_account), 25);
 		assert_eq!(staked_amount_for(pool_bonded_account), 15);
-		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(2), 2, 10));
+		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed_with_basic_filter(2), 2, 10));
 		assert_eq!(delegated_balance_for(pool_bonded_account), 15);
 
 		assert_eq!(Balances::free_balance(2), 20);
@@ -408,7 +408,7 @@ fn automatic_unbonding_pools() {
 
 		// 3 cannot withdraw yet.
 		assert_err!(
-			Pools::withdraw_unbonded(RuntimeOrigin::signed(3), 3, 10),
+			Pools::withdraw_unbonded(RuntimeOrigin::signed_with_basic_filter(3), 3, 10),
 			pallet_nomination_pools::Error::<Runtime>::CannotWithdrawAny
 		);
 
@@ -419,7 +419,7 @@ fn automatic_unbonding_pools() {
 		assert_eq!(current_era(), 6);
 		System::reset_events();
 
-		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(3), 3, 10));
+		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed_with_basic_filter(3), 3, 10));
 
 		// final conditions are the expected.
 		assert_eq!(delegated_balance_for(pool_bonded_account), 5); // 5 init bonded

@@ -1,5 +1,6 @@
 //! Benchmarking setup for pallet-template
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use frame::{deps::frame_benchmarking::v2::*, prelude::*};
 
@@ -16,7 +17,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		do_something(RawOrigin::Signed(caller), 100);
 
-		assert_eq!(Something::<T>::get().map(|v| v.block_number), Some(100u32.into()));
+		assert_eq!(Something::<T>::get().map(|v| v.block_number), Some(100u32.into_with_basic_filter()));
 	}
 
 	#[benchmark]
@@ -26,7 +27,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		cause_error(RawOrigin::Signed(caller));
 
-		assert_eq!(Something::<T>::get().map(|v| v.block_number), Some(101u32.into()));
+		assert_eq!(Something::<T>::get().map(|v| v.block_number), Some(101u32.into_with_basic_filter()));
 	}
 
 	impl_benchmark_test_suite!(Template, crate::mock::new_test_ext(), crate::mock::Test);

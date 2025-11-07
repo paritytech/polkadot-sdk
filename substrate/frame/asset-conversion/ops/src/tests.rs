@@ -42,17 +42,17 @@ fn migrate_pool_account_id_with_native() {
 		assert_ok!(NativeAndAssets::create(token_2.clone(), user, false, 1));
 
 		assert_ok!(AssetConversion::create_pool(
-			RuntimeOrigin::signed(user),
+			RuntimeOrigin::signed_with_basic_filter(user),
 			Box::new(token_1.clone()),
 			Box::new(token_2.clone())
 		));
 
 		let ed = Balances::minimum_balance();
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 10000 * 2 + ed));
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed_with_basic_filter(user), 2, user, 1000));
 
 		assert_ok!(AssetConversion::add_liquidity(
-			RuntimeOrigin::signed(user),
+			RuntimeOrigin::signed_with_basic_filter(user),
 			Box::new(token_1.clone()),
 			Box::new(token_2.clone()),
 			10000,
@@ -84,7 +84,7 @@ fn migrate_pool_account_id_with_native() {
 
 		// migrate.
 		assert_ok!(AssetConversionOps::migrate_to_new_account(
-			RuntimeOrigin::signed(user),
+			RuntimeOrigin::signed_with_basic_filter(user),
 			Box::new(token_1.clone()),
 			Box::new(token_2.clone()),
 		));
@@ -127,16 +127,16 @@ fn migrate_pool_account_id_with_insufficient_assets() {
 		assert_ok!(NativeAndAssets::create(token_2.clone(), user, false, 1));
 
 		assert_ok!(AssetConversion::create_pool(
-			RuntimeOrigin::signed(user),
+			RuntimeOrigin::signed_with_basic_filter(user),
 			Box::new(token_1.clone()),
 			Box::new(token_2.clone())
 		));
 
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 1, user, 20000));
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed_with_basic_filter(user), 1, user, 20000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed_with_basic_filter(user), 2, user, 1000));
 
 		assert_ok!(AssetConversion::add_liquidity(
-			RuntimeOrigin::signed(user),
+			RuntimeOrigin::signed_with_basic_filter(user),
 			Box::new(token_1.clone()),
 			Box::new(token_2.clone()),
 			10000,
@@ -168,7 +168,7 @@ fn migrate_pool_account_id_with_insufficient_assets() {
 
 		// migrate.
 		assert_ok!(AssetConversionOps::migrate_to_new_account(
-			RuntimeOrigin::signed(user),
+			RuntimeOrigin::signed_with_basic_filter(user),
 			Box::new(token_1.clone()),
 			Box::new(token_2.clone()),
 		));
@@ -211,16 +211,16 @@ fn migrate_pool_account_id_with_sufficient_assets() {
 		assert_ok!(NativeAndAssets::create(token_2.clone(), user, true, 1));
 
 		assert_ok!(AssetConversion::create_pool(
-			RuntimeOrigin::signed(user),
+			RuntimeOrigin::signed_with_basic_filter(user),
 			Box::new(token_1.clone()),
 			Box::new(token_2.clone())
 		));
 
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 1, user, 20000));
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed_with_basic_filter(user), 1, user, 20000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed_with_basic_filter(user), 2, user, 1000));
 
 		assert_ok!(AssetConversion::add_liquidity(
-			RuntimeOrigin::signed(user),
+			RuntimeOrigin::signed_with_basic_filter(user),
 			Box::new(token_1.clone()),
 			Box::new(token_2.clone()),
 			10000,
@@ -252,7 +252,7 @@ fn migrate_pool_account_id_with_sufficient_assets() {
 
 		// migrate.
 		assert_ok!(AssetConversionOps::migrate_to_new_account(
-			RuntimeOrigin::signed(user),
+			RuntimeOrigin::signed_with_basic_filter(user),
 			Box::new(token_1.clone()),
 			Box::new(token_2.clone()),
 		));
@@ -290,7 +290,7 @@ fn migrate_empty_pool_account_id() {
 		assert_ok!(NativeAndAssets::create(token_2.clone(), user, false, 1));
 
 		assert_ok!(AssetConversion::create_pool(
-			RuntimeOrigin::signed(user),
+			RuntimeOrigin::signed_with_basic_filter(user),
 			Box::new(token_1.clone()),
 			Box::new(token_2.clone())
 		));
@@ -298,7 +298,7 @@ fn migrate_empty_pool_account_id() {
 		// migrate.
 		assert_noop!(
 			AssetConversionOps::migrate_to_new_account(
-				RuntimeOrigin::signed(user),
+				RuntimeOrigin::signed_with_basic_filter(user),
 				Box::new(token_1.clone()),
 				Box::new(token_2.clone()),
 			),

@@ -110,7 +110,7 @@ fn task_execution_works() {
 			>::AddNumberIntoTotal {
 				i: 1u32,
 			});
-		assert_ok!(System::do_task(RuntimeOrigin::signed(1), task.clone(),));
+		assert_ok!(System::do_task(RuntimeOrigin::signed_with_basic_filter(1), task.clone(),));
 		assert_eq!(Numbers::<Runtime>::get(0), Some(1));
 		assert_eq!(Numbers::<Runtime>::get(1), None);
 		assert_eq!(crate::Total::<Runtime>::get(), (1, 4));
@@ -125,7 +125,7 @@ fn task_execution_fails_for_invalid_task() {
 		Numbers::<Runtime>::insert(1, 4);
 		assert_noop!(
 			System::do_task(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				<Runtime as frame_system::Config>::RuntimeTask::TasksExample(
 					crate::pallet::Task::<Runtime>::AddNumberIntoTotal { i: 0u32 }
 				),

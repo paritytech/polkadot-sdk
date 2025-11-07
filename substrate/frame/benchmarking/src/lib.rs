@@ -154,7 +154,7 @@ pub use v1::*;
 ///
 /// ```ignore
 /// #[extrinsic_call]
-/// _(RawOrigin::Signed(whitelisted_caller()), 0u32.into(), 0);
+/// _(RawOrigin::Signed(whitelisted_caller()), 0u32.into_with_basic_filter(), 0);
 /// ```
 ///
 /// The underscore will be substituted with the name of the benchmark  (i.e. the name of the

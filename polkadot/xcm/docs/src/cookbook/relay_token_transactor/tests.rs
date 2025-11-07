@@ -65,7 +65,7 @@ fn reserve_asset_transfers_work() {
 		// will turn into a non-fungible token instead of a fungible one.
 		let assets: Assets = (Here, 50u128 * CENTS as u128).into();
 		assert_ok!(relay_chain::XcmPallet::transfer_assets_using_type_and_then(
-			relay_chain::RuntimeOrigin::signed(ALICE),
+			relay_chain::RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(VersionedLocation::from(destination.clone())),
 			Box::new(VersionedAssets::from(assets)),
 			Box::new(TransferType::LocalReserve),
@@ -105,7 +105,7 @@ fn reserve_asset_transfers_work() {
 		// and we do so by the Location of the Relay Chain.
 		let assets: Assets = (Parent, 25u128 * CENTS as u128).into();
 		assert_ok!(parachain::XcmPallet::transfer_assets_using_type_and_then(
-			parachain::RuntimeOrigin::signed(BOB),
+			parachain::RuntimeOrigin::signed_with_basic_filter(BOB),
 			Box::new(VersionedLocation::from(destination)),
 			Box::new(VersionedAssets::from(assets)),
 			Box::new(TransferType::DestinationReserve),

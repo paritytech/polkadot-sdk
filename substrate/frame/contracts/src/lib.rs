@@ -93,6 +93,7 @@ mod benchmarking;
 mod exec;
 mod gas;
 mod primitives;
+use frame_support::traits::IntoWithBasicFilter;
 pub use primitives::*;
 
 mod schedule;
@@ -1401,7 +1402,7 @@ impl<T: Config> Origin<T> {
 		match o.into() {
 			Ok(RawOrigin::Root) => Ok(Self::Root),
 			Ok(RawOrigin::Signed(t)) => Ok(Self::Signed(t)),
-			_ => Err(BadOrigin.into()),
+			_ => Err(BadOrigin.into_with_basic_filter()),
 		}
 	}
 	/// Returns the AccountId of a Signed Origin or an error if the origin is Root.

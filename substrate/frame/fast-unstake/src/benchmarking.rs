@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use crate::{types::*, *};
 use alloc::vec::Vec;
 use frame_benchmarking::v2::*;
@@ -103,7 +104,7 @@ mod benchmarks {
 	fn on_idle_unstake(b: Linear<1, { T::BatchSize::get() }>) {
 		ErasToCheckPerBlock::<T>::put(1);
 		for who in create_unexposed_batch::<T>(b).into_iter() {
-			assert_ok!(Pallet::<T>::register_fast_unstake(RawOrigin::Signed(who.clone()).into(),));
+			assert_ok!(Pallet::<T>::register_fast_unstake(RawOrigin::Signed(who.clone()).into_with_basic_filter(),));
 		}
 
 		// Run on_idle once. This will check era 0.
@@ -143,7 +144,7 @@ mod benchmarks {
 			.into_iter()
 			.map(|s| {
 				assert_ok!(
-					Pallet::<T>::register_fast_unstake(RawOrigin::Signed(s.clone()).into(),)
+					Pallet::<T>::register_fast_unstake(RawOrigin::Signed(s.clone()).into_with_basic_filter(),)
 				);
 				(s, T::Deposit::get())
 			})
@@ -186,7 +187,7 @@ mod benchmarks {
 	fn deregister() {
 		ErasToCheckPerBlock::<T>::put(1);
 		let who = create_unexposed_batch::<T>(1).get(0).cloned().unwrap();
-		assert_ok!(Pallet::<T>::register_fast_unstake(RawOrigin::Signed(who.clone()).into(),));
+		assert_ok!(Pallet::<T>::register_fast_unstake(RawOrigin::Signed(who.clone()).into_with_basic_filter(),));
 		assert_eq!(Queue::<T>::count(), 1);
 		whitelist_account!(who);
 

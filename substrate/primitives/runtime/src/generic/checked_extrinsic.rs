@@ -24,8 +24,8 @@ use sp_weights::Weight;
 use crate::{
 	traits::{
 		self, transaction_extension::TransactionExtension, AsTransactionAuthorizedOrigin,
-		DispatchInfoOf, DispatchTransaction, Dispatchable, MaybeDisplay, Member,
-		PostDispatchInfoOf, ValidateUnsigned,
+		DispatchInfoOf, DispatchTransaction, Dispatchable, FromWithBasicFilter, IntoWithBasicFilter,
+		MaybeDisplay, Member, PostDispatchInfoOf, ValidateUnsigned,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 };
@@ -72,7 +72,7 @@ where
 	AccountId: Member + MaybeDisplay,
 	Call: Member + Dispatchable<RuntimeOrigin = RuntimeOrigin> + Encode,
 	Extension: TransactionExtension<Call>,
-	RuntimeOrigin: From<Option<AccountId>> + AsTransactionAuthorizedOrigin,
+	RuntimeOrigin: FromWithBasicFilter<Option<AccountId>> + AsTransactionAuthorizedOrigin,
 {
 	type Call = Call;
 
@@ -89,7 +89,7 @@ where
 				Ok(legacy_validation.combine_with(inherent_validation))
 			},
 			ExtrinsicFormat::Signed(ref signer, ref extension) => {
-				let origin = Some(signer.clone()).into();
+				let origin = Some(signer.clone()).into_with_basic_filter();
 				extension
 					.validate_only(
 						origin,
@@ -102,7 +102,14 @@ where
 					.map(|x| x.0)
 			},
 			ExtrinsicFormat::General(extension_version, ref extension) => extension
-				.validate_only(None.into(), &self.function, info, len, source, extension_version)
+				.validate_only(
+					Option::<AccountId>::None.into_with_basic_filter(),
+					&self.function,
+					info,
+					len,
+					source,
+					extension_version,
+				)
 				.map(|x| x.0),
 		}
 	}
@@ -118,7 +125,9 @@ where
 				// TODO: Separate logic from `TransactionExtension` into a new `InherentExtension`
 				// interface.
 				Extension::bare_validate_and_prepare(&self.function, info, len)?;
-				let res = self.function.dispatch(None.into());
+				let res = self
+					.function
+					.dispatch(Option::<AccountId>::None.into_with_basic_filter());
 				let mut post_info = res.unwrap_or_else(|err| err.post_info);
 				let pd_res = res.map(|_| ()).map_err(|e| e.error);
 				// TODO: Separate logic from `TransactionExtension` into a new `InherentExtension`
@@ -127,14 +136,19 @@ where
 				Ok(res)
 			},
 			ExtrinsicFormat::Signed(signer, extension) => extension.dispatch_transaction(
-				Some(signer).into(),
+				Some(signer).into_with_basic_filter(),
 				self.function,
 				info,
 				len,
 				DEFAULT_EXTENSION_VERSION,
 			),
-			ExtrinsicFormat::General(extension_version, extension) => extension
-				.dispatch_transaction(None.into(), self.function, info, len, extension_version),
+			ExtrinsicFormat::General(extension_version, extension) => extension.dispatch_transaction(
+				Option::<AccountId>::None.into_with_basic_filter(),
+				self.function,
+				info,
+				len,
+				extension_version,
+			),
 		}
 	}
 }

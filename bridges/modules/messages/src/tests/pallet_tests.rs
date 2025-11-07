@@ -81,7 +81,7 @@ fn receive_messages_delivery_proof() {
 	System::<TestRuntime>::reset_events();
 
 	assert_ok!(Pallet::<TestRuntime>::receive_messages_delivery_proof(
-		RuntimeOrigin::signed(1),
+		RuntimeOrigin::signed_with_basic_filter(1),
 		prepare_messages_delivery_proof(
 			test_lane_id(),
 			InboundLaneData {
@@ -134,7 +134,7 @@ fn pallet_rejects_transactions_if_halted() {
 		let messages_proof = prepare_messages_proof(vec![message(2, REGULAR_PAYLOAD)], None);
 		assert_noop!(
 			Pallet::<TestRuntime>::receive_messages_proof(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				TEST_RELAYER_A,
 				messages_proof,
 				1,
@@ -153,7 +153,7 @@ fn pallet_rejects_transactions_if_halted() {
 		);
 		assert_noop!(
 			Pallet::<TestRuntime>::receive_messages_delivery_proof(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				delivery_proof,
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 1,
@@ -175,7 +175,7 @@ fn receive_messages_fails_if_dispatcher_is_inactive() {
 		let proof = prepare_messages_proof(vec![message(1, REGULAR_PAYLOAD)], None);
 		assert_noop!(
 			Pallet::<TestRuntime>::receive_messages_proof(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				TEST_RELAYER_A,
 				proof,
 				1,
@@ -202,7 +202,7 @@ fn pallet_rejects_new_messages_in_rejecting_outbound_messages_operating_mode() {
 		);
 
 		assert_ok!(Pallet::<TestRuntime>::receive_messages_proof(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			TEST_RELAYER_A,
 			prepare_messages_proof(vec![message(1, REGULAR_PAYLOAD)], None),
 			1,
@@ -210,7 +210,7 @@ fn pallet_rejects_new_messages_in_rejecting_outbound_messages_operating_mode() {
 		),);
 
 		assert_ok!(Pallet::<TestRuntime>::receive_messages_delivery_proof(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			prepare_messages_delivery_proof(
 				test_lane_id(),
 				InboundLaneData {
@@ -269,7 +269,7 @@ fn send_message_rejects_too_large_message() {
 fn receive_messages_proof_works() {
 	run_test(|| {
 		assert_ok!(Pallet::<TestRuntime>::receive_messages_proof(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			TEST_RELAYER_A,
 			prepare_messages_proof(vec![message(1, REGULAR_PAYLOAD)], None),
 			1,
@@ -316,7 +316,7 @@ fn receive_messages_proof_updates_confirmed_message_nonce() {
 
 		// message proof includes outbound lane state with latest confirmed message updated to 9
 		assert_ok!(Pallet::<TestRuntime>::receive_messages_proof(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			TEST_RELAYER_A,
 			prepare_messages_proof(
 				vec![message(11, REGULAR_PAYLOAD)],
@@ -374,7 +374,7 @@ fn receive_messages_proof_fails_when_dispatcher_is_inactive() {
 			prepare_messages_proof(vec![message(latest_received_nonce + 1, REGULAR_PAYLOAD)], None);
 		assert_noop!(
 			Pallet::<TestRuntime>::receive_messages_proof(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				TEST_RELAYER_A,
 				messages_proof,
 				1,
@@ -413,7 +413,7 @@ fn receive_messages_succeeds_when_dispatcher_becomes_inactive_in_the_middle_of_t
 		let messages_range = messages_begin..messages_end;
 		let messages_count = BridgedChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 		assert_ok!(Pallet::<TestRuntime>::receive_messages_proof(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			TEST_RELAYER_A,
 			prepare_messages_proof(
 				messages_range.map(|nonce| message(nonce, REGULAR_PAYLOAD)).collect(),
@@ -439,7 +439,7 @@ fn receive_messages_proof_does_not_accept_message_if_dispatch_weight_is_not_enou
 
 		assert_noop!(
 			Pallet::<TestRuntime>::receive_messages_proof(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				TEST_RELAYER_A,
 				proof,
 				1,
@@ -462,7 +462,7 @@ fn receive_messages_proof_rejects_invalid_proof() {
 
 		assert_noop!(
 			Pallet::<TestRuntime, ()>::receive_messages_proof(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				TEST_RELAYER_A,
 				proof,
 				1,
@@ -479,7 +479,7 @@ fn receive_messages_proof_rejects_proof_with_too_many_messages() {
 		let proof = prepare_messages_proof(vec![message(1, REGULAR_PAYLOAD)], None);
 		assert_noop!(
 			Pallet::<TestRuntime, ()>::receive_messages_proof(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				TEST_RELAYER_A,
 				proof,
 				u32::MAX,
@@ -558,7 +558,7 @@ fn receive_messages_delivery_proof_rewards_relayers() {
 		);
 		let single_message_delivery_proof_size = single_message_delivery_proof.size();
 		let result = Pallet::<TestRuntime>::receive_messages_delivery_proof(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			single_message_delivery_proof,
 			UnrewardedRelayersState {
 				unrewarded_relayer_entries: 1,
@@ -598,7 +598,7 @@ fn receive_messages_delivery_proof_rewards_relayers() {
 		);
 		let two_messages_delivery_proof_size = two_messages_delivery_proof.size();
 		let result = Pallet::<TestRuntime>::receive_messages_delivery_proof(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			two_messages_delivery_proof,
 			UnrewardedRelayersState {
 				unrewarded_relayer_entries: 2,
@@ -636,7 +636,7 @@ fn receive_messages_delivery_proof_rejects_invalid_proof() {
 
 		assert_noop!(
 			Pallet::<TestRuntime>::receive_messages_delivery_proof(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				proof,
 				Default::default(),
 			),
@@ -662,7 +662,7 @@ fn receive_messages_delivery_proof_rejects_proof_if_declared_relayers_state_is_i
 		);
 		assert_noop!(
 			Pallet::<TestRuntime>::receive_messages_delivery_proof(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				proof,
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 1,
@@ -688,7 +688,7 @@ fn receive_messages_delivery_proof_rejects_proof_if_declared_relayers_state_is_i
 		);
 		assert_noop!(
 			Pallet::<TestRuntime>::receive_messages_delivery_proof(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				proof,
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 2,
@@ -714,7 +714,7 @@ fn receive_messages_delivery_proof_rejects_proof_if_declared_relayers_state_is_i
 		);
 		assert_noop!(
 			Pallet::<TestRuntime>::receive_messages_delivery_proof(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				proof,
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 2,
@@ -735,7 +735,7 @@ fn receive_messages_accepts_single_message_with_invalid_payload() {
 		invalid_message.payload = Vec::new();
 
 		assert_ok!(Pallet::<TestRuntime, ()>::receive_messages_proof(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			TEST_RELAYER_A,
 			prepare_messages_proof(vec![invalid_message], None),
 			1,
@@ -757,7 +757,7 @@ fn receive_messages_accepts_batch_with_message_with_invalid_payload() {
 		invalid_message.payload = Vec::new();
 
 		assert_ok!(Pallet::<TestRuntime, ()>::receive_messages_proof(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			TEST_RELAYER_A,
 			prepare_messages_proof(
 				vec![message(1, REGULAR_PAYLOAD), invalid_message, message(3, REGULAR_PAYLOAD),],
@@ -784,7 +784,7 @@ fn actual_dispatch_weight_does_not_overflow() {
 		let proof = prepare_messages_proof(vec![message1, message2, message3], None);
 		assert_noop!(
 			Pallet::<TestRuntime, ()>::receive_messages_proof(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				TEST_RELAYER_A,
 				// this may cause overflow if source chain storage is invalid
 				proof,
@@ -818,7 +818,7 @@ fn ref_time_refund_from_receive_messages_proof_works() {
 					REGULAR_PAYLOAD.declared_weight,
 				);
 			let result = Pallet::<TestRuntime>::receive_messages_proof(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				TEST_RELAYER_A,
 				proof,
 				messages_count,
@@ -888,7 +888,7 @@ fn proof_size_refund_from_receive_messages_proof_works() {
 			}),
 		);
 		let post_dispatch_weight = Pallet::<TestRuntime>::receive_messages_proof(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			TEST_RELAYER_A,
 			proof.clone(),
 			messages_count,
@@ -917,7 +917,7 @@ fn proof_size_refund_from_receive_messages_proof_works() {
 			}),
 		);
 		let post_dispatch_weight = Pallet::<TestRuntime>::receive_messages_proof(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			TEST_RELAYER_A,
 			proof,
 			messages_count,
@@ -958,7 +958,7 @@ fn receive_messages_delivery_proof_rejects_proof_if_trying_to_confirm_more_messa
 		);
 		assert_noop!(
 			Pallet::<TestRuntime>::receive_messages_delivery_proof(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				proof,
 				UnrewardedRelayersState { last_delivered_nonce: 1, ..Default::default() },
 			),
@@ -1140,7 +1140,7 @@ fn receive_messages_proof_fails_if_inbound_lane_is_not_opened() {
 
 		assert_noop!(
 			Pallet::<TestRuntime>::receive_messages_proof(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				TEST_RELAYER_A,
 				proof,
 				1,
@@ -1154,7 +1154,7 @@ fn receive_messages_proof_fails_if_inbound_lane_is_not_opened() {
 
 		assert_noop!(
 			Pallet::<TestRuntime>::receive_messages_proof(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				TEST_RELAYER_A,
 				proof,
 				1,
@@ -1186,7 +1186,7 @@ fn receive_messages_delivery_proof_fails_if_outbound_lane_is_unknown() {
 		let proof = make_proof(unknown_lane_id());
 		assert_noop!(
 			Pallet::<TestRuntime>::receive_messages_delivery_proof(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				proof,
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 1,

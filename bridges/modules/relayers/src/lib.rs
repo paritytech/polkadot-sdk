@@ -623,7 +623,7 @@ mod tests {
 
 			// register
 			assert_ok!(Pallet::<TestRuntime>::register(
-				RuntimeOrigin::signed(REGISTER_RELAYER),
+				RuntimeOrigin::signed_with_basic_filter(REGISTER_RELAYER),
 				150,
 			));
 			// check if registered
@@ -672,7 +672,7 @@ mod tests {
 		run_test(|| {
 			assert_noop!(
 				Pallet::<TestRuntime>::claim_rewards(
-					RuntimeOrigin::signed(REGULAR_RELAYER),
+					RuntimeOrigin::signed_with_basic_filter(REGULAR_RELAYER),
 					test_reward_account_param()
 				),
 				Error::<TestRuntime>::NoRewardForRelayer,
@@ -690,7 +690,7 @@ mod tests {
 			);
 			assert_noop!(
 				Pallet::<TestRuntime>::claim_rewards(
-					RuntimeOrigin::signed(FAILING_RELAYER),
+					RuntimeOrigin::signed_with_basic_filter(FAILING_RELAYER),
 					test_reward_account_param()
 				),
 				Error::<TestRuntime>::FailedToPayReward,
@@ -709,7 +709,7 @@ mod tests {
 				100,
 			);
 			assert_ok!(Pallet::<TestRuntime>::claim_rewards(
-				RuntimeOrigin::signed(REGULAR_RELAYER),
+				RuntimeOrigin::signed_with_basic_filter(REGULAR_RELAYER),
 				test_reward_account_param()
 			));
 			assert_eq!(
@@ -745,7 +745,7 @@ mod tests {
 				100,
 			);
 			assert_ok!(Pallet::<TestRuntime>::claim_rewards_to(
-				RuntimeOrigin::signed(REGULAR_RELAYER),
+				RuntimeOrigin::signed_with_basic_filter(REGULAR_RELAYER),
 				test_reward_account_param(),
 				REGULAR_RELAYER2,
 			));
@@ -777,7 +777,7 @@ mod tests {
 			System::<TestRuntime>::set_block_number(100);
 
 			assert_noop!(
-				Pallet::<TestRuntime>::register(RuntimeOrigin::signed(REGISTER_RELAYER), 50),
+				Pallet::<TestRuntime>::register(RuntimeOrigin::signed_with_basic_filter(REGISTER_RELAYER), 50),
 				Error::<TestRuntime>::InvalidRegistrationLease,
 			);
 		});
@@ -790,7 +790,7 @@ mod tests {
 
 			assert_noop!(
 				Pallet::<TestRuntime>::register(
-					RuntimeOrigin::signed(REGISTER_RELAYER),
+					RuntimeOrigin::signed_with_basic_filter(REGISTER_RELAYER),
 					99 + Lease::get()
 				),
 				Error::<TestRuntime>::InvalidRegistrationLease,
@@ -804,7 +804,7 @@ mod tests {
 			get_ready_for_events();
 
 			assert_ok!(Pallet::<TestRuntime>::register(
-				RuntimeOrigin::signed(REGISTER_RELAYER),
+				RuntimeOrigin::signed_with_basic_filter(REGISTER_RELAYER),
 				150
 			));
 			assert_eq!(Balances::reserved_balance(REGISTER_RELAYER), Stake::get());
@@ -831,12 +831,12 @@ mod tests {
 	fn register_fails_if_new_valid_till_is_lesser_than_previous() {
 		run_test(|| {
 			assert_ok!(Pallet::<TestRuntime>::register(
-				RuntimeOrigin::signed(REGISTER_RELAYER),
+				RuntimeOrigin::signed_with_basic_filter(REGISTER_RELAYER),
 				150
 			));
 
 			assert_noop!(
-				Pallet::<TestRuntime>::register(RuntimeOrigin::signed(REGISTER_RELAYER), 125),
+				Pallet::<TestRuntime>::register(RuntimeOrigin::signed_with_basic_filter(REGISTER_RELAYER), 125),
 				Error::<TestRuntime>::CannotReduceRegistrationLease,
 			);
 		});
@@ -851,7 +851,7 @@ mod tests {
 			);
 
 			assert_noop!(
-				Pallet::<TestRuntime>::register(RuntimeOrigin::signed(REGISTER_RELAYER), 150),
+				Pallet::<TestRuntime>::register(RuntimeOrigin::signed_with_basic_filter(REGISTER_RELAYER), 150),
 				Error::<TestRuntime>::FailedToUnreserve,
 			);
 		});
@@ -871,7 +871,7 @@ mod tests {
 			let free_balance = Balances::free_balance(REGISTER_RELAYER);
 
 			assert_ok!(Pallet::<TestRuntime>::register(
-				RuntimeOrigin::signed(REGISTER_RELAYER),
+				RuntimeOrigin::signed_with_basic_filter(REGISTER_RELAYER),
 				150
 			));
 			assert_eq!(Balances::reserved_balance(REGISTER_RELAYER), Stake::get());
@@ -900,7 +900,7 @@ mod tests {
 		run_test(|| {
 			Balances::set_balance(&REGISTER_RELAYER, 0);
 			assert_noop!(
-				Pallet::<TestRuntime>::register(RuntimeOrigin::signed(REGISTER_RELAYER), 150),
+				Pallet::<TestRuntime>::register(RuntimeOrigin::signed_with_basic_filter(REGISTER_RELAYER), 150),
 				Error::<TestRuntime>::FailedToReserve,
 			);
 		});
@@ -916,7 +916,7 @@ mod tests {
 			Balances::set_balance(&REGISTER_RELAYER, 0);
 
 			assert_noop!(
-				Pallet::<TestRuntime>::register(RuntimeOrigin::signed(REGISTER_RELAYER), 150),
+				Pallet::<TestRuntime>::register(RuntimeOrigin::signed_with_basic_filter(REGISTER_RELAYER), 150),
 				Error::<TestRuntime>::FailedToReserve,
 			);
 		});
@@ -935,7 +935,7 @@ mod tests {
 
 			let free_balance = Balances::free_balance(REGISTER_RELAYER);
 			assert_ok!(Pallet::<TestRuntime>::register(
-				RuntimeOrigin::signed(REGISTER_RELAYER),
+				RuntimeOrigin::signed_with_basic_filter(REGISTER_RELAYER),
 				150
 			));
 			assert_eq!(Balances::reserved_balance(REGISTER_RELAYER), Stake::get());
@@ -963,7 +963,7 @@ mod tests {
 	fn deregister_fails_if_not_registered() {
 		run_test(|| {
 			assert_noop!(
-				Pallet::<TestRuntime>::deregister(RuntimeOrigin::signed(REGISTER_RELAYER)),
+				Pallet::<TestRuntime>::deregister(RuntimeOrigin::signed_with_basic_filter(REGISTER_RELAYER)),
 				Error::<TestRuntime>::NotRegistered,
 			);
 		});
@@ -973,14 +973,14 @@ mod tests {
 	fn deregister_fails_if_registration_is_still_active() {
 		run_test(|| {
 			assert_ok!(Pallet::<TestRuntime>::register(
-				RuntimeOrigin::signed(REGISTER_RELAYER),
+				RuntimeOrigin::signed_with_basic_filter(REGISTER_RELAYER),
 				150
 			));
 
 			System::<TestRuntime>::set_block_number(100);
 
 			assert_noop!(
-				Pallet::<TestRuntime>::deregister(RuntimeOrigin::signed(REGISTER_RELAYER)),
+				Pallet::<TestRuntime>::deregister(RuntimeOrigin::signed_with_basic_filter(REGISTER_RELAYER)),
 				Error::<TestRuntime>::RegistrationIsStillActive,
 			);
 		});
@@ -992,7 +992,7 @@ mod tests {
 			get_ready_for_events();
 
 			assert_ok!(Pallet::<TestRuntime>::register(
-				RuntimeOrigin::signed(REGISTER_RELAYER),
+				RuntimeOrigin::signed_with_basic_filter(REGISTER_RELAYER),
 				150
 			));
 
@@ -1000,7 +1000,7 @@ mod tests {
 
 			let reserved_balance = Balances::reserved_balance(REGISTER_RELAYER);
 			let free_balance = Balances::free_balance(REGISTER_RELAYER);
-			assert_ok!(Pallet::<TestRuntime>::deregister(RuntimeOrigin::signed(REGISTER_RELAYER)));
+			assert_ok!(Pallet::<TestRuntime>::deregister(RuntimeOrigin::signed_with_basic_filter(REGISTER_RELAYER)));
 			assert_eq!(
 				Balances::reserved_balance(REGISTER_RELAYER),
 				reserved_balance - Stake::get()

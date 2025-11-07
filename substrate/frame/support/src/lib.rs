@@ -1711,7 +1711,7 @@ pub mod pallet_macros {
 	///     }
 	///
 	/// #    TestExternalities::new_empty().execute_with(|| {
-	///     let origin: RuntimeOrigin = frame_system::RawOrigin::Signed(10).into();
+	///     let origin: RuntimeOrigin = frame_system::RawOrigin::Signed(10).into_with_basic_filter();
 	///     // calling into a dispatchable from within the runtime is simply a function call.
 	///         let _ = custom_pallet::Pallet::<Runtime>::some_dispatchable(origin.clone(), 10);
 	///

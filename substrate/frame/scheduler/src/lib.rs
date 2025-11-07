@@ -87,6 +87,7 @@ pub mod weights;
 
 extern crate alloc;
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{borrow::Borrow, cmp::Ordering, marker::PhantomData};
@@ -250,7 +251,11 @@ impl<T: WeightInfo> MarginalWeightInfo for T {}
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{dispatch::PostDispatchInfo, pallet_prelude::*};
+	use frame_support::{
+		dispatch::PostDispatchInfo,
+		pallet_prelude::*,
+		traits::{FromWithBasicFilter, IntoWithBasicFilter, IsType},
+	};
 	use frame_system::pallet_prelude::{BlockNumberFor as SystemBlockNumberFor, OriginFor};
 
 	/// The in-code storage version.
@@ -269,13 +274,14 @@ pub mod pallet {
 
 		/// The aggregated origin which the dispatch will take.
 		type RuntimeOrigin: OriginTrait<PalletsOrigin = Self::PalletsOrigin>
-			+ From<Self::PalletsOrigin>
+			+ FromWithBasicFilter<Self::PalletsOrigin>
 			+ IsType<<Self as system::Config>::RuntimeOrigin>;
 
 		/// The caller origin, overarching type of all pallets origins.
-		type PalletsOrigin: From<system::RawOrigin<Self::AccountId>>
+		type PalletsOrigin: FromWithBasicFilter<system::RawOrigin<Self::AccountId>>
 			+ CallerTrait<Self::AccountId>
-			+ MaxEncodedLen;
+			+ MaxEncodedLen
+			+ IsType<<<Self as system::Config>::RuntimeOrigin as OriginTrait>::PalletsOrigin>;
 
 		/// The aggregated call type.
 		type RuntimeCall: Parameter
@@ -473,7 +479,6 @@ pub mod pallet {
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
-			let origin = <T as Config>::RuntimeOrigin::from(origin);
 			Self::do_schedule(
 				DispatchTime::At(when),
 				maybe_periodic,
@@ -489,7 +494,6 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::cancel(T::MaxScheduledPerBlock::get()))]
 		pub fn cancel(origin: OriginFor<T>, when: BlockNumberFor<T>, index: u32) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
-			let origin = <T as Config>::RuntimeOrigin::from(origin);
 			Self::do_cancel(Some(origin.caller().clone()), (when, index))?;
 			Ok(())
 		}
@@ -506,7 +510,6 @@ pub mod pallet {
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
-			let origin = <T as Config>::RuntimeOrigin::from(origin);
 			Self::do_schedule_named(
 				id,
 				DispatchTime::At(when),
@@ -523,7 +526,6 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::cancel_named(T::MaxScheduledPerBlock::get()))]
 		pub fn cancel_named(origin: OriginFor<T>, id: TaskName) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
-			let origin = <T as Config>::RuntimeOrigin::from(origin);
 			Self::do_cancel_named(Some(origin.caller().clone()), id)?;
 			Ok(())
 		}
@@ -539,7 +541,6 @@ pub mod pallet {
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
-			let origin = <T as Config>::RuntimeOrigin::from(origin);
 			Self::do_schedule(
 				DispatchTime::After(after),
 				maybe_periodic,
@@ -562,7 +563,6 @@ pub mod pallet {
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
-			let origin = <T as Config>::RuntimeOrigin::from(origin);
 			Self::do_schedule_named(
 				id,
 				DispatchTime::After(after),
@@ -595,7 +595,6 @@ pub mod pallet {
 			period: BlockNumberFor<T>,
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
-			let origin = <T as Config>::RuntimeOrigin::from(origin);
 			let (when, index) = task;
 			let agenda = Agenda::<T>::get(when);
 			let scheduled = agenda
@@ -632,7 +631,6 @@ pub mod pallet {
 			period: BlockNumberFor<T>,
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
-			let origin = <T as Config>::RuntimeOrigin::from(origin);
 			let (when, agenda_index) = Lookup::<T>::get(&id).ok_or(Error::<T>::NotFound)?;
 			let agenda = Agenda::<T>::get(when);
 			let scheduled = agenda
@@ -661,7 +659,6 @@ pub mod pallet {
 			task: TaskAddress<BlockNumberFor<T>>,
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
-			let origin = <T as Config>::RuntimeOrigin::from(origin);
 			Self::do_cancel_retry(origin.caller(), task)?;
 			Self::deposit_event(Event::RetryCancelled { task, id: None });
 			Ok(())
@@ -672,7 +669,6 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::cancel_retry_named())]
 		pub fn cancel_retry_named(origin: OriginFor<T>, id: TaskName) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
-			let origin = <T as Config>::RuntimeOrigin::from(origin);
 			let task = Lookup::<T>::get(&id).ok_or(Error::<T>::NotFound)?;
 			Self::do_cancel_retry(origin.caller(), task)?;
 			Self::deposit_event(Event::RetryCancelled { task, id: Some(id) });
@@ -731,7 +727,7 @@ impl<T: Config> Pallet<T> {
 								priority: schedule.priority,
 								call,
 								maybe_periodic: schedule.maybe_periodic,
-								origin: system::RawOrigin::Root.into(),
+								origin: system::RawOrigin::Root.into_with_basic_filter(),
 								_phantom: Default::default(),
 							})
 						})
@@ -1454,7 +1450,7 @@ impl<T: Config> Pallet<T> {
 			return Err(())
 		}
 
-		let dispatch_origin = origin.into();
+		let dispatch_origin = origin.into_with_basic_filter();
 		let (maybe_actual_call_weight, result) = match call.dispatch(dispatch_origin) {
 			Ok(post_info) => (post_info.actual_weight, Ok(())),
 			Err(error_and_info) =>

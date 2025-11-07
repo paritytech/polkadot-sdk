@@ -380,29 +380,29 @@ pub struct OpenBridgeOrigin;
 
 impl OpenBridgeOrigin {
 	pub fn parent_relay_chain_origin() -> RuntimeOrigin {
-		RuntimeOrigin::signed([0u8; 32].into())
+		RuntimeOrigin::signed_with_basic_filter([0u8; 32].into())
 	}
 
 	pub fn parent_relay_chain_universal_origin() -> RuntimeOrigin {
-		RuntimeOrigin::signed([1u8; 32].into())
+		RuntimeOrigin::signed_with_basic_filter([1u8; 32].into())
 	}
 
 	pub fn sibling_parachain_origin() -> RuntimeOrigin {
 		let mut account = [0u8; 32];
 		account[..4].copy_from_slice(&SIBLING_ASSET_HUB_ID.encode()[..4]);
-		RuntimeOrigin::signed(account.into())
+		RuntimeOrigin::signed_with_basic_filter(account.into())
 	}
 
 	pub fn sibling_parachain_universal_origin() -> RuntimeOrigin {
-		RuntimeOrigin::signed([2u8; 32].into())
+		RuntimeOrigin::signed_with_basic_filter([2u8; 32].into())
 	}
 
 	pub fn origin_without_sovereign_account() -> RuntimeOrigin {
-		RuntimeOrigin::signed([3u8; 32].into())
+		RuntimeOrigin::signed_with_basic_filter([3u8; 32].into())
 	}
 
 	pub fn disallowed_origin() -> RuntimeOrigin {
-		RuntimeOrigin::signed([42u8; 32].into())
+		RuntimeOrigin::signed_with_basic_filter([42u8; 32].into())
 	}
 }
 

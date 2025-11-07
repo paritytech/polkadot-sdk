@@ -17,6 +17,7 @@
 
 //! ConvictionVoting pallet benchmarking.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
@@ -80,7 +81,7 @@ benchmarks_instance_pallet! {
 		let r = polls.len() - 1;
 		// We need to create existing votes
 		for i in polls.iter().skip(1) {
-			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), *i, account_vote)?;
+			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), *i, account_vote)?;
 		}
 		let votes = match VotingFor::<T, I>::get(&caller, &class) {
 			Voting::Casting(Casting { votes, .. }) => votes,
@@ -109,7 +110,7 @@ benchmarks_instance_pallet! {
 		let r = polls.len();
 		// We need to create existing votes
 		for i in polls.iter() {
-			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), *i, old_account_vote)?;
+			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), *i, old_account_vote)?;
 		}
 		let votes = match VotingFor::<T, I>::get(&caller, &class) {
 			Voting::Casting(Casting { votes, .. }) => votes,
@@ -139,7 +140,7 @@ benchmarks_instance_pallet! {
 		let r = polls.len();
 		// We need to create existing votes
 		for i in polls.iter() {
-			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), *i, old_account_vote)?;
+			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), *i, old_account_vote)?;
 		}
 		let votes = match VotingFor::<T, I>::get(&caller, &class) {
 			Voting::Casting(Casting { votes, .. }) => votes,
@@ -170,7 +171,7 @@ benchmarks_instance_pallet! {
 		let r = polls.len();
 		// We need to create existing votes
 		for i in polls.iter() {
-			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(voter.clone()).into(), *i, old_account_vote)?;
+			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(voter.clone()).into_with_basic_filter(), *i, old_account_vote)?;
 		}
 		let votes = match VotingFor::<T, I>::get(&caller, &class) {
 			Voting::Casting(Casting { votes, .. }) => votes,
@@ -204,7 +205,7 @@ benchmarks_instance_pallet! {
 
 		// We need to create existing delegations
 		for i in polls.iter().take(r as usize) {
-			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(voter.clone()).into(), *i, delegate_vote)?;
+			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(voter.clone()).into_with_basic_filter(), *i, delegate_vote)?;
 		}
 		assert_matches!(
 			VotingFor::<T, I>::get(&voter, &class),
@@ -231,7 +232,7 @@ benchmarks_instance_pallet! {
 		let delegate_vote = account_vote::<T, I>(delegated_balance);
 
 		ConvictionVoting::<T, I>::delegate(
-			RawOrigin::Signed(caller.clone()).into(),
+			RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 			class.clone(),
 			voter_lookup,
 			Conviction::Locked1x,
@@ -240,7 +241,7 @@ benchmarks_instance_pallet! {
 
 		// We need to create delegations
 		for i in polls.iter().take(r as usize) {
-			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(voter.clone()).into(), *i, delegate_vote)?;
+			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(voter.clone()).into_with_basic_filter(), *i, delegate_vote)?;
 		}
 		assert_matches!(
 			VotingFor::<T, I>::get(&voter, &class),
@@ -265,7 +266,7 @@ benchmarks_instance_pallet! {
 		for (class, polls) in all_polls.iter() {
 			assert!(polls.len() > 0);
 			for i in polls.iter() {
-				ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), *i, normal_account_vote)?;
+				ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), *i, normal_account_vote)?;
 			}
 		}
 
@@ -274,12 +275,12 @@ benchmarks_instance_pallet! {
 
 		// Vote big on the class with the most ongoing votes of them to bump the lock and make it
 		// hard to recompute when removed.
-		ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), polls[0], big_account_vote)?;
+		ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), polls[0], big_account_vote)?;
 		let now_usable = <T::Currency as fungible::Inspect<T::AccountId>>::reducible_balance(&caller, Expendable, Polite);
 		assert_eq!(orig_usable - now_usable, 100u32.into());
 
 		// Remove the vote
-		ConvictionVoting::<T, I>::remove_vote(RawOrigin::Signed(caller.clone()).into(), Some(class.clone()), polls[0])?;
+		ConvictionVoting::<T, I>::remove_vote(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), Some(class.clone()), polls[0])?;
 
 		// We can now unlock on `class` from 200 to 100...
 	}: _(RawOrigin::Signed(caller.clone()), class, caller_lookup)

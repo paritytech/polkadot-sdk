@@ -2032,7 +2032,7 @@ fn enable_auto_renew_works() {
 
 		// Only the task's sovereign account can enable auto renewal.
 		assert_noop!(
-			Broker::enable_auto_renew(RuntimeOrigin::signed(1), region_id.core, 1001, Some(7)),
+			Broker::enable_auto_renew(RuntimeOrigin::signed_with_basic_filter(1), region_id.core, 1001, Some(7)),
 			Error::<Test>::NoPermission
 		);
 
@@ -2283,7 +2283,7 @@ fn disable_auto_renew_works() {
 
 		// Only the sovereign account can disable:
 		assert_noop!(
-			Broker::disable_auto_renew(RuntimeOrigin::signed(1), 0, 1001),
+			Broker::disable_auto_renew(RuntimeOrigin::signed_with_basic_filter(1), 0, 1001),
 			Error::<Test>::NoPermission
 		);
 		assert_ok!(Broker::do_disable_auto_renew(0, 1001));
@@ -2304,7 +2304,7 @@ fn remove_assignment_works() {
 		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
 		let workplan_key = (region_id.begin, region_id.core);
 		assert_ne!(Workplan::<Test>::get(workplan_key), None);
-		assert_noop!(Broker::remove_assignment(RuntimeOrigin::signed(2), region_id), BadOrigin);
+		assert_noop!(Broker::remove_assignment(RuntimeOrigin::signed_with_basic_filter(2), region_id), BadOrigin);
 		assert_ok!(Broker::remove_assignment(RuntimeOrigin::root(), region_id));
 		assert_eq!(Workplan::<Test>::get(workplan_key), None);
 		assert_noop!(

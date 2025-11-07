@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelisted_caller, BenchmarkError,
 };
@@ -74,7 +75,7 @@ fn create_tips<T: Config<I>, I: 'static>(
 	for i in 0..t {
 		let caller = account("member", i, SEED);
 		ensure!(T::Tippers::contains(&caller), "caller is not a tipper");
-		TipsMod::<T, I>::tip(RawOrigin::Signed(caller).into(), hash, value)?;
+		TipsMod::<T, I>::tip(RawOrigin::Signed(caller).into_with_basic_filter(), hash, value)?;
 	}
 	Tips::<T, I>::mutate(hash, |maybe_tip| {
 		if let Some(open_tip) = maybe_tip {
@@ -105,7 +106,7 @@ benchmarks_instance_pallet! {
 		let (caller, reason, awesome_person) = setup_awesome::<T, I>(r);
 		let awesome_person_lookup = T::Lookup::unlookup(awesome_person.clone());
 		TipsMod::<T, I>::report_awesome(
-			RawOrigin::Signed(caller.clone()).into(),
+			RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 			reason.clone(),
 			awesome_person_lookup
 		)?;
@@ -133,7 +134,7 @@ benchmarks_instance_pallet! {
 		let beneficiary_lookup = T::Lookup::unlookup(beneficiary.clone());
 		let value = T::Currency::minimum_balance().saturating_mul(100u32.into());
 		TipsMod::<T, I>::tip_new(
-			RawOrigin::Signed(member).into(),
+			RawOrigin::Signed(member).into_with_basic_filter(),
 			reason.clone(),
 			beneficiary_lookup,
 			value
@@ -159,7 +160,7 @@ benchmarks_instance_pallet! {
 		let beneficiary_lookup = T::Lookup::unlookup(beneficiary.clone());
 		let value = T::Currency::minimum_balance().saturating_mul(100u32.into());
 		TipsMod::<T, I>::tip_new(
-			RawOrigin::Signed(member).into(),
+			RawOrigin::Signed(member).into_with_basic_filter(),
 			reason.clone(),
 			beneficiary_lookup,
 			value
@@ -189,7 +190,7 @@ benchmarks_instance_pallet! {
 		let beneficiary_lookup = T::Lookup::unlookup(beneficiary.clone());
 		let value = T::Currency::minimum_balance().saturating_mul(100u32.into());
 		TipsMod::<T, I>::tip_new(
-			RawOrigin::Signed(member).into(),
+			RawOrigin::Signed(member).into_with_basic_filter(),
 			reason.clone(),
 			beneficiary_lookup,
 			value

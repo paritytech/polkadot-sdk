@@ -17,6 +17,7 @@
 
 //! Offences pallet benchmarking.
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::{vec, vec::Vec};
 use codec::Decode;
 use frame_benchmarking::v2::*;
@@ -98,14 +99,14 @@ fn create_offender<T: Config>(n: u32, nominators: u32) -> Result<Offender<T>, &'
 	let free_amount = amount.saturating_mul(2u32.into());
 	pallet_staking::asset::set_stakeable_balance::<T>(&stash, free_amount);
 	Staking::<T>::bond(
-		RawOrigin::Signed(stash.clone()).into(),
+		RawOrigin::Signed(stash.clone()).into_with_basic_filter(),
 		amount,
 		reward_destination.clone(),
 	)?;
 
 	let validator_prefs =
 		ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
-	Staking::<T>::validate(RawOrigin::Signed(stash.clone()).into(), validator_prefs)?;
+	Staking::<T>::validate(RawOrigin::Signed(stash.clone()).into_with_basic_filter(), validator_prefs)?;
 
 	// set some fake keys for the validators.
 	let keys =
@@ -113,7 +114,7 @@ fn create_offender<T: Config>(n: u32, nominators: u32) -> Result<Offender<T>, &'
 			.unwrap();
 	let proof: Vec<u8> = vec![0, 1, 2, 3];
 	Session::<T>::ensure_can_pay_key_deposit(&stash)?;
-	Session::<T>::set_keys(RawOrigin::Signed(stash.clone()).into(), keys, proof)?;
+	Session::<T>::set_keys(RawOrigin::Signed(stash.clone()).into_with_basic_filter(), keys, proof)?;
 
 	let mut individual_exposures = vec![];
 	let mut nominator_stashes = vec![];
@@ -124,14 +125,14 @@ fn create_offender<T: Config>(n: u32, nominators: u32) -> Result<Offender<T>, &'
 		pallet_staking::asset::set_stakeable_balance::<T>(&nominator_stash, free_amount);
 
 		Staking::<T>::bond(
-			RawOrigin::Signed(nominator_stash.clone()).into(),
+			RawOrigin::Signed(nominator_stash.clone()).into_with_basic_filter(),
 			amount,
 			reward_destination.clone(),
 		)?;
 
 		let selected_validators: Vec<LookupSourceOf<T>> = vec![stash_lookup.clone()];
 		Staking::<T>::nominate(
-			RawOrigin::Signed(nominator_stash.clone()).into(),
+			RawOrigin::Signed(nominator_stash.clone()).into_with_basic_filter(),
 			selected_validators,
 		)?;
 

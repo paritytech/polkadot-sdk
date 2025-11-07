@@ -67,7 +67,7 @@ fn claim_rewards_works() {
 		let reward_beneficiary =
 			BridgeRewardBeneficiaries::AssetHubLocation(VersionedLocation::V5(relayer_location));
 		let result = BridgeRelayers::claim_rewards_to(
-			RuntimeOrigin::signed(relayer_account.clone()),
+			RuntimeOrigin::signed_with_basic_filter(relayer_account.clone()),
 			BridgeReward::Snowbridge,
 			reward_beneficiary.clone(),
 		);
@@ -143,7 +143,7 @@ fn claim_snowbridge_rewards_to_local_account_fails() {
 
 		let reward_beneficiary = BridgeRewardBeneficiaries::LocalAccount(reward_address);
 		let result = BridgeRelayers::claim_rewards_to(
-			RuntimeOrigin::signed(relayer_account.clone()),
+			RuntimeOrigin::signed_with_basic_filter(relayer_account.clone()),
 			BridgeReward::Snowbridge,
 			reward_beneficiary.clone(),
 		);

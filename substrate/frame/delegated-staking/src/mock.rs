@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use frame_support::traits::IntoWithBasicFilter;
 use crate::{self as delegated_staking, types::AgentLedgerOuter};
 use frame_support::{
 	assert_ok, derive_impl,
@@ -277,7 +278,7 @@ pub(crate) fn setup_delegation_stake(
 	increment: Balance,
 ) -> Balance {
 	fund(&agent, 100);
-	assert_ok!(DelegatedStaking::register_agent(RawOrigin::Signed(agent).into(), reward_acc));
+	assert_ok!(DelegatedStaking::register_agent(RawOrigin::Signed(agent).into_with_basic_filter(), reward_acc));
 	let mut delegated_amount: Balance = 0;
 	for (index, delegator) in delegators.iter().enumerate() {
 		let amount_to_delegate = base_delegate_amount + increment * index as Balance;
@@ -285,7 +286,7 @@ pub(crate) fn setup_delegation_stake(
 
 		fund(delegator, amount_to_delegate + ExistentialDeposit::get());
 		assert_ok!(DelegatedStaking::delegate_to_agent(
-			RawOrigin::Signed(*delegator).into(),
+			RawOrigin::Signed(*delegator).into_with_basic_filter(),
 			agent,
 			amount_to_delegate
 		));

@@ -114,7 +114,7 @@ fn events_are_captured() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
 
 		assert_ok!(Contracts::upload_code(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			binary.clone(),
 			deposit_limit::<Test>(),
 		));

@@ -25,6 +25,7 @@
 // benchmarks.
 #![cfg_attr(test, allow(dead_code))]
 
+use frame_support::traits::IntoWithBasicFilter;
 use crate::{
 	address::AddressMapper,
 	exec::{ExportedFunction, Key, PrecompileExt, Stack},
@@ -246,7 +247,7 @@ where
 	) -> Result<Contract<T>, &'static str> {
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let salt = Some([0xffu8; 32]);
-		let origin: OriginFor<T> = RawOrigin::Signed(caller.clone()).into();
+		let origin: OriginFor<T> = RawOrigin::Signed(caller.clone()).into_with_basic_filter();
 
 		// We ignore the error since we might also pass an already mapped account here.
 		Contracts::<T>::map_account(origin.clone()).ok();

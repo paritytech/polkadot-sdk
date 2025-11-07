@@ -110,8 +110,9 @@ use sp_runtime::traits::TrailingZeroInput;
 use sp_runtime::{
 	generic,
 	traits::{
-		self, AsTransactionAuthorizedOrigin, AtLeast32Bit, BadOrigin, BlockNumberProvider, Bounded,
-		CheckEqual, Dispatchable, Hash, Header, Lookup, LookupError, MaybeDisplay,
+		self, AsTransactionAuthorizedOrigin, AtLeast32Bit, BadOrigin, BlockNumberProvider,
+		Bounded, CheckEqual, Dispatchable, FromWithBasicFilter, Hash, Header, Lookup,
+		LookupError, MaybeDisplay,
 		MaybeSerializeDeserialize, Member, One, Saturating, SimpleBitOps, StaticLookup, Zero,
 	},
 	transaction_validity::{
@@ -137,8 +138,8 @@ use frame_support::{
 	storage::{self, StorageStreamIter},
 	traits::{
 		ConstU32, Contains, EnsureOrigin, EnsureOriginWithArg, Get, HandleLifetime,
-		OnKilledAccount, OnNewAccount, OnRuntimeUpgrade, OriginTrait, PalletInfo, SortedMembers,
-		StoredMap, TypedGet,
+		OnKilledAccount, OnNewAccount, OnRuntimeUpgrade, OriginTrait, PalletInfo,
+		SortedMembers, StoredMap, TypedGet,
 	},
 	Parameter,
 };
@@ -529,7 +530,7 @@ pub mod pallet {
 		/// The `RuntimeOrigin` type used by dispatchable calls.
 		#[pallet::no_default_bounds]
 		type RuntimeOrigin: Into<Result<RawOrigin<Self::AccountId>, Self::RuntimeOrigin>>
-			+ From<RawOrigin<Self::AccountId>>
+			+ FromWithBasicFilter<RawOrigin<Self::AccountId>>
 			+ Clone
 			+ OriginTrait<Call = Self::RuntimeCall, AccountId = Self::AccountId>
 			+ AsTransactionAuthorizedOrigin;
@@ -1349,7 +1350,7 @@ impl<O: OriginTrait<AccountId = AccountId>, AccountId: Decode + Clone> EnsureOri
 	fn try_successful_origin() -> Result<O, ()> {
 		let zero_account_id =
 			AccountId::decode(&mut TrailingZeroInput::zeroes()).map_err(|_| ())?;
-		Ok(O::signed(zero_account_id))
+		Ok(O::signed_with_basic_filter(zero_account_id))
 	}
 }
 
@@ -1381,7 +1382,7 @@ impl<
 			Some(account) => account.clone(),
 			None => AccountId::decode(&mut TrailingZeroInput::zeroes()).map_err(|_| ())?,
 		};
-		Ok(O::signed(first_member))
+		Ok(O::signed_with_basic_filter(first_member))
 	}
 }
 
@@ -1404,7 +1405,7 @@ impl<O: OriginTrait<AccountId = AccountId>, AccountId> EnsureOrigin<O> for Ensur
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<O, ()> {
-		Ok(O::none())
+		Ok(O::none_with_basic_filter())
 	}
 }
 

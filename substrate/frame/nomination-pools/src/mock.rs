@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use crate::{self as pools};
 use frame_support::{
@@ -583,12 +584,12 @@ impl ExtBuilder {
 			// make a pool
 			let amount_to_bond = Pools::depositor_min_bond();
 			Currency::set_balance(&10, amount_to_bond * 5);
-			assert_ok!(Pools::create(RawOrigin::Signed(10).into(), amount_to_bond, 900, 901, 902));
-			assert_ok!(Pools::set_metadata(RuntimeOrigin::signed(900), 1, vec![1, 1]));
+			assert_ok!(Pools::create(RawOrigin::Signed(10).into_with_basic_filter(), amount_to_bond, 900, 901, 902));
+			assert_ok!(Pools::set_metadata(RuntimeOrigin::signed_with_basic_filter(900), 1, vec![1, 1]));
 			let last_pool = LastPoolId::<Runtime>::get();
 			for (account_id, bonded) in self.members {
 				<Runtime as Config>::Currency::set_balance(&account_id, bonded * 2);
-				assert_ok!(Pools::join(RawOrigin::Signed(account_id).into(), bonded, last_pool));
+				assert_ok!(Pools::join(RawOrigin::Signed(account_id).into_with_basic_filter(), bonded, last_pool));
 			}
 		});
 
@@ -652,7 +653,7 @@ pub fn fully_unbond_permissioned(member: AccountId) -> DispatchResult {
 	let points = PoolMembers::<Runtime>::get(member)
 		.map(|d| d.active_points())
 		.unwrap_or_default();
-	Pools::unbond(RuntimeOrigin::signed(member), member, points)
+	Pools::unbond(RuntimeOrigin::signed_with_basic_filter(member), member, points)
 }
 
 pub fn pending_rewards_for_delegator(delegator: AccountId) -> Balance {

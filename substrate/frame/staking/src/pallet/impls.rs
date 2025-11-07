@@ -17,6 +17,7 @@
 
 //! Implementations for the Staking FRAME Pallet.
 
+use frame_support::traits::IntoWithBasicFilter;
 use frame_election_provider_support::{
 	bounds::{CountBound, SizeBound},
 	data_provider, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
@@ -2001,12 +2002,12 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn bond_extra(who: &Self::AccountId, extra: Self::Balance) -> DispatchResult {
-		Self::bond_extra(RawOrigin::Signed(who.clone()).into(), extra)
+		Self::bond_extra(RawOrigin::Signed(who.clone()).into_with_basic_filter(), extra)
 	}
 
 	fn unbond(who: &Self::AccountId, value: Self::Balance) -> DispatchResult {
 		let ctrl = Self::bonded(who).ok_or(Error::<T>::NotStash)?;
-		Self::unbond(RawOrigin::Signed(ctrl).into(), value)
+		Self::unbond(RawOrigin::Signed(ctrl).into_with_basic_filter(), value)
 			.map_err(|with_post| with_post.error)
 			.map(|_| ())
 	}
@@ -2032,7 +2033,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		// defensive-only: any account bonded via this interface has the stash set as the
 		// controller, but we have to be sure. Same comment anywhere else that we read this.
 		let ctrl = Self::bonded(who).ok_or(Error::<T>::NotStash)?;
-		Self::chill(RawOrigin::Signed(ctrl).into())
+		Self::chill(RawOrigin::Signed(ctrl).into_with_basic_filter())
 	}
 
 	fn withdraw_unbonded(
@@ -2040,7 +2041,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		num_slashing_spans: u32,
 	) -> Result<bool, DispatchError> {
 		let ctrl = Self::bonded(&who).ok_or(Error::<T>::NotStash)?;
-		Self::withdraw_unbonded(RawOrigin::Signed(ctrl.clone()).into(), num_slashing_spans)
+		Self::withdraw_unbonded(RawOrigin::Signed(ctrl.clone()).into_with_basic_filter(), num_slashing_spans)
 			.map(|_| !StakingLedger::<T>::is_bonded(StakingAccount::Controller(ctrl)))
 			.map_err(|with_post| with_post.error)
 	}
@@ -2051,7 +2052,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		payee: &Self::AccountId,
 	) -> DispatchResult {
 		Self::bond(
-			RawOrigin::Signed(who.clone()).into(),
+			RawOrigin::Signed(who.clone()).into_with_basic_filter(),
 			value,
 			RewardDestination::Account(payee.clone()),
 		)
@@ -2060,7 +2061,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	fn nominate(who: &Self::AccountId, targets: Vec<Self::AccountId>) -> DispatchResult {
 		let ctrl = Self::bonded(who).ok_or(Error::<T>::NotStash)?;
 		let targets = targets.into_iter().map(T::Lookup::unlookup).collect::<Vec<_>>();
-		Self::nominate(RawOrigin::Signed(ctrl).into(), targets)
+		Self::nominate(RawOrigin::Signed(ctrl).into_with_basic_filter(), targets)
 	}
 
 	fn desired_validator_count() -> u32 {
@@ -2074,7 +2075,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	fn force_unstake(who: Self::AccountId) -> sp_runtime::DispatchResult {
 		let num_slashing_spans =
 			SlashingSpans::<T>::get(&who).map_or(0, |s| s.iter().count() as u32);
-		Self::force_unstake(RawOrigin::Root.into(), who.clone(), num_slashing_spans)
+		Self::force_unstake(RawOrigin::Root.into_with_basic_filter(), who.clone(), num_slashing_spans)
 	}
 
 	fn is_exposed_in_era(who: &Self::AccountId, era: &EraIndex) -> bool {

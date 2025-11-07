@@ -102,7 +102,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	result.execute_with(|| {
 		for i in 1..=6 {
 			System::inc_providers(&i);
-			assert_eq!(Session::set_keys(RuntimeOrigin::signed(i), (i - 1).into(), vec![]), Ok(()));
+			assert_eq!(Session::set_keys(RuntimeOrigin::signed_with_basic_filter(i), (i - 1).into(), vec![]), Ok(()));
 		}
 	});
 	result

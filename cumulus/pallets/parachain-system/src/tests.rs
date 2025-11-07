@@ -16,6 +16,7 @@
 
 #![cfg(test)]
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use crate::mock::*;
 
@@ -214,7 +215,7 @@ fn unincluded_code_upgrade_handles_signal() {
 			}
 		})
 		.add(123, || {
-			assert_ok!(System::set_code(RawOrigin::Root.into(), Default::default()));
+			assert_ok!(System::set_code(RawOrigin::Root.into_with_basic_filter(), Default::default()));
 		})
 		.add_with_post_test(
 			124,
@@ -269,7 +270,7 @@ fn unincluded_code_upgrade_scheduled_after_go_ahead() {
 			}
 		})
 		.add(123, || {
-			assert_ok!(System::set_code(RawOrigin::Root.into(), Default::default()));
+			assert_ok!(System::set_code(RawOrigin::Root.into_with_basic_filter(), Default::default()));
 		})
 		.add_with_post_test(
 			124,
@@ -280,7 +281,7 @@ fn unincluded_code_upgrade_scheduled_after_go_ahead() {
 					"validation function must have been unset"
 				);
 				// The previous go-ahead signal was processed, schedule another upgrade.
-				assert_ok!(System::set_code(RawOrigin::Root.into(), Default::default()));
+				assert_ok!(System::set_code(RawOrigin::Root.into_with_basic_filter(), Default::default()));
 			},
 		)
 		.add_with_post_test(
@@ -873,7 +874,7 @@ fn runtime_upgrade_events() {
 		.add_with_post_test(
 			123,
 			|| {
-				assert_ok!(System::set_code(RawOrigin::Root.into(), Default::default()));
+				assert_ok!(System::set_code(RawOrigin::Root.into_with_basic_filter(), Default::default()));
 			},
 			|| {
 				let events = System::events();
@@ -913,12 +914,12 @@ fn non_overlapping() {
 			builder.host_config.validation_upgrade_delay = 1000;
 		})
 		.add(123, || {
-			assert_ok!(System::set_code(RawOrigin::Root.into(), Default::default()));
+			assert_ok!(System::set_code(RawOrigin::Root.into_with_basic_filter(), Default::default()));
 		})
 		.add(234, || {
 			assert_eq!(
-				System::set_code(RawOrigin::Root.into(), Default::default()),
-				Err(Error::<Test>::OverlappingUpgrades.into()),
+				System::set_code(RawOrigin::Root.into_with_basic_filter(), Default::default()),
+				Err(Error::<Test>::OverlappingUpgrades.into_with_basic_filter()),
 			)
 		});
 }
@@ -936,7 +937,7 @@ fn manipulates_storage() {
 				!<PendingValidationCode<Test>>::exists(),
 				"validation function must not exist yet"
 			);
-			assert_ok!(System::set_code(RawOrigin::Root.into(), Default::default()));
+			assert_ok!(System::set_code(RawOrigin::Root.into_with_basic_filter(), Default::default()));
 			assert!(<PendingValidationCode<Test>>::exists(), "validation function must now exist");
 		})
 		.add_with_post_test(
@@ -960,7 +961,7 @@ fn aborted_upgrade() {
 			}
 		})
 		.add(123, || {
-			assert_ok!(System::set_code(RawOrigin::Root.into(), Default::default()));
+			assert_ok!(System::set_code(RawOrigin::Root.into_with_basic_filter(), Default::default()));
 		})
 		.add_with_post_test(
 			1234,
@@ -987,8 +988,8 @@ fn checks_code_size() {
 		})
 		.add(123, || {
 			assert_eq!(
-				System::set_code(RawOrigin::Root.into(), vec![0; 64]),
-				Err(Error::<Test>::TooBig.into()),
+				System::set_code(RawOrigin::Root.into_with_basic_filter(), vec![0; 64]),
+				Err(Error::<Test>::TooBig.into_with_basic_filter()),
 			);
 		});
 }
@@ -1577,13 +1578,13 @@ fn upgrade_version_checks_should_work() {
 			let new_code = vec![1, 2, 3, 4];
 			let new_code_hash = H256(sp_crypto_hashing::blake2_256(&new_code));
 
-			let _authorize = System::authorize_upgrade(RawOrigin::Root.into(), new_code_hash);
-			assert_ok!(System::apply_authorized_upgrade(RawOrigin::None.into(), new_code));
+			let _authorize = System::authorize_upgrade(RawOrigin::Root.into_with_basic_filter(), new_code_hash);
+			assert_ok!(System::apply_authorized_upgrade(RawOrigin::None.into_with_basic_filter(), new_code));
 
 			System::assert_last_event(
 				frame_system::Event::RejectedInvalidAuthorizedUpgrade {
 					code_hash: new_code_hash,
-					error: expected.into(),
+					error: expected.into_with_basic_filter(),
 				}
 				.into(),
 			);

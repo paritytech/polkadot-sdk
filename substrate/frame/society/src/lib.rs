@@ -259,6 +259,7 @@ pub mod migrations;
 
 extern crate alloc;
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::vec::Vec;
 use frame_support::{
 	impl_ensure_origin_with_arg_ignoring_arg,
@@ -1478,7 +1479,7 @@ impl<T: Config> EnsureOrigin<<T as frame_system::Config>::RuntimeOrigin> for Ens
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<T::RuntimeOrigin, ()> {
 		let founder = Founder::<T>::get().ok_or(())?;
-		Ok(T::RuntimeOrigin::from(frame_system::RawOrigin::Signed(founder)))
+		Ok(T::(frame_system::RawOrigin::Signed(founder)).into_with_basic_filter())
 	}
 }
 

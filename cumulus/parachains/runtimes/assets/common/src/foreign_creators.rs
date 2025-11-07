@@ -30,7 +30,7 @@ impl<
 		IsForeign: ContainsPair<L, L>,
 		AccountOf: ConvertLocation<AccountId>,
 		AccountId: Clone,
-		RuntimeOrigin: From<XcmOrigin> + OriginTrait + Clone + Debug,
+		RuntimeOrigin: FromWithBasicFilter<XcmOrigin> + OriginTrait + Clone + Debug,
 		L: TryFrom<Location> + TryInto<Location> + Clone + Debug,
 	> EnsureOriginWithArg<RuntimeOrigin, L> for ForeignCreators<IsForeign, AccountOf, AccountId, L>
 where

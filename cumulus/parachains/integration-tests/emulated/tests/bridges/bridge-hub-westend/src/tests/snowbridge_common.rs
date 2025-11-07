@@ -449,7 +449,7 @@ pub(crate) fn set_up_pool_with_wnd_on_ah_westend(
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 		let owner = AssetHubWestendSender::get();
-		let signed_owner = <AssetHubWestend as Chain>::RuntimeOrigin::signed(owner.clone());
+		let signed_owner = <AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(owner.clone());
 
 		if is_foreign {
 			assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint(

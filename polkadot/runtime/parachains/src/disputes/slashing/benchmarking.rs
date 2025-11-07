@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 
 use crate::{disputes::SlashingHandler, initializer, shared};
@@ -77,7 +78,7 @@ where
 
 		whitelist_account!(controller);
 		pallet_session::Pallet::<T>::ensure_can_pay_key_deposit(&controller).unwrap();
-		pallet_session::Pallet::<T>::set_keys(RawOrigin::Signed(controller).into(), keys, proof)
+		pallet_session::Pallet::<T>::set_keys(RawOrigin::Signed(controller).into_with_basic_filter(), keys, proof)
 			.expect("session::set_keys should work");
 	}
 

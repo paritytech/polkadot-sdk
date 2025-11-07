@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use crate::Pallet as Oracle;
 
@@ -55,7 +56,7 @@ mod benchmarks {
 		// Feed some values before running `on_finalize` hook
 		System::<T>::set_block_number(1u32.into());
 		let values = T::BenchmarkHelper::get_currency_id_value_pairs();
-		assert_ok!(Oracle::<T, I>::feed_values(RawOrigin::Signed(caller).into(), values));
+		assert_ok!(Oracle::<T, I>::feed_values(RawOrigin::Signed(caller).into_with_basic_filter(), values));
 
 		#[block]
 		{

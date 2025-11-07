@@ -46,6 +46,7 @@ pub mod test_utils;
 pub mod tracing;
 pub mod weights;
 
+use frame_support::traits::IntoWithBasicFilter;
 use crate::{
 	evm::{
 		block_hash::EthereumBlockBuilderIR,
@@ -1225,7 +1226,7 @@ pub mod pallet {
 			encoded_len: u32,
 		) -> DispatchResultWithPostInfo {
 			let signer = Self::ensure_eth_signed(origin)?;
-			let origin = OriginFor::<T>::signed(signer.clone());
+			let origin = OriginFor::<T>::signed_with_basic_filter(signer.clone());
 			Self::ensure_non_contract_if_signed(&origin)?;
 			let mut call = Call::<T>::eth_instantiate_with_code {
 				value,
@@ -1287,7 +1288,7 @@ pub mod pallet {
 			encoded_len: u32,
 		) -> DispatchResultWithPostInfo {
 			let signer = Self::ensure_eth_signed(origin)?;
-			let origin = OriginFor::<T>::signed(signer.clone());
+			let origin = OriginFor::<T>::signed_with_basic_filter(signer.clone());
 
 			Self::ensure_non_contract_if_signed(&origin)?;
 			let mut call = Call::<T>::eth_call {
@@ -1450,7 +1451,7 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 			let unmapped_account =
 				T::AddressMapper::to_fallback_account_id(&T::AddressMapper::to_address(&origin));
-			call.dispatch(RawOrigin::Signed(unmapped_account).into())
+			call.dispatch(RawOrigin::Signed(unmapped_account).into_with_basic_filter())
 		}
 	}
 }
@@ -1711,7 +1712,7 @@ impl<T: Config> Pallet<T> {
 					};
 
 					if let Err(result) =
-						dispatch_call.clone().dispatch(RawOrigin::Signed(origin).into())
+						dispatch_call.clone().dispatch(RawOrigin::Signed(origin).into_with_basic_filter())
 					{
 						return Err(EthTransactError::Message(format!(
 							"Failed to dispatch call: {:?}",
@@ -1723,7 +1724,7 @@ impl<T: Config> Pallet<T> {
 				} else {
 					// Dry run the call.
 					let result = crate::Pallet::<T>::bare_call(
-						OriginFor::<T>::signed(origin),
+						OriginFor::<T>::signed_with_basic_filter(origin),
 						dest,
 						value,
 						call_info.weight_limit,
@@ -1764,7 +1765,7 @@ impl<T: Config> Pallet<T> {
 
 				// Dry run the call.
 				let result = crate::Pallet::<T>::bare_instantiate(
-					OriginFor::<T>::signed(origin),
+					OriginFor::<T>::signed_with_basic_filter(origin),
 					value,
 					call_info.weight_limit,
 					BalanceOf::<T>::max_value(),
@@ -2291,7 +2292,7 @@ impl<T: Config> Pallet<T> {
 
 	// Returns Ok with the account that signed the eth transaction.
 	fn ensure_eth_signed(origin: OriginFor<T>) -> Result<AccountIdOf<T>, DispatchError> {
-		match <T as Config>::RuntimeOrigin::from(origin).into() {
+		match (origin).into_with_basic_filter().into() {
 			Ok(Origin::EthTransaction(signer)) => Ok(signer),
 			_ => Err(BadOrigin.into()),
 		}
@@ -2578,7 +2579,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 					$crate::Pallet::<Self>::prepare_dry_run(&origin);
 					$crate::Pallet::<Self>::bare_call(
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
+						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed_with_basic_filter(origin),
 						dest,
 						$crate::Pallet::<Self>::convert_native_to_evm(value),
 						gas_limit.unwrap_or(blockweights.max_block),
@@ -2603,7 +2604,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 					$crate::Pallet::<Self>::prepare_dry_run(&origin);
 					$crate::Pallet::<Self>::bare_instantiate(
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
+						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed_with_basic_filter(origin),
 						$crate::Pallet::<Self>::convert_native_to_evm(value),
 						gas_limit.unwrap_or(blockweights.max_block),
 						storage_deposit_limit.unwrap_or(u128::MAX),
@@ -2620,7 +2621,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					storage_deposit_limit: Option<Balance>,
 				) -> $crate::CodeUploadResult<Balance> {
 					let origin =
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin);
+						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed_with_basic_filter(origin);
 					$crate::Pallet::<Self>::bare_upload_code(
 						origin,
 						code,

@@ -176,10 +176,10 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config:
 		frame_system::Config<
-		RuntimeOrigin: From<Origin>
+		RuntimeOrigin: FromWithBasicFilter<Origin>
 		                   + From<<Self::RuntimeOrigin as OriginTrait>::PalletsOrigin>
 		                   + OriginTrait<
-			PalletsOrigin: From<Origin>
+			PalletsOrigin: FromWithBasicFilter<Origin>
 			                   + TryInto<
 				Origin,
 				Error = <Self::RuntimeOrigin as OriginTrait>::PalletsOrigin,

@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::vec;
 use frame_benchmarking::{account, v2::*, BenchmarkError};
 use frame_support::{
@@ -61,7 +62,7 @@ mod benchmarks {
 		#[block]
 		{
 			CheckGenesis::<T>::new()
-				.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(().into()))
+				.test_run(RawOrigin::Signed(caller).into_with_basic_filter(), &call, &info, len, 0, |_| Ok(().into_with_basic_filter()))
 				.unwrap()
 				.unwrap();
 		}
@@ -91,7 +92,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(().into()))
+			ext.test_run(RawOrigin::Signed(caller).into_with_basic_filter(), &call, &info, len, 0, |_| Ok(().into_with_basic_filter()))
 				.unwrap()
 				.unwrap();
 		}
@@ -122,7 +123,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(().into()))
+			ext.test_run(RawOrigin::Signed(caller).into_with_basic_filter(), &call, &info, len, 0, |_| Ok(().into_with_basic_filter()))
 				.unwrap()
 				.unwrap();
 		}
@@ -139,7 +140,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(().into()))
+			ext.test_run(RawOrigin::Signed(caller).into_with_basic_filter(), &call, &info, len, 0, |_| Ok(().into_with_basic_filter()))
 				.unwrap()
 				.unwrap();
 		}
@@ -161,8 +162,8 @@ mod benchmarks {
 
 		#[block]
 		{
-			ext.test_run(RawOrigin::Signed(caller.clone()).into(), &call, &info, len, 0, |_| {
-				Ok(().into())
+			ext.test_run(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), &call, &info, len, 0, |_| {
+				Ok(().into_with_basic_filter())
 			})
 			.unwrap()
 			.unwrap();
@@ -183,7 +184,7 @@ mod benchmarks {
 		#[block]
 		{
 			CheckSpecVersion::<T>::new()
-				.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(().into()))
+				.test_run(RawOrigin::Signed(caller).into_with_basic_filter(), &call, &info, len, 0, |_| Ok(().into_with_basic_filter()))
 				.unwrap()
 				.unwrap();
 		}
@@ -200,7 +201,7 @@ mod benchmarks {
 		#[block]
 		{
 			CheckTxVersion::<T>::new()
-				.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(().into()))
+				.test_run(RawOrigin::Signed(caller).into_with_basic_filter(), &call, &info, len, 0, |_| Ok(().into_with_basic_filter()))
 				.unwrap()
 				.unwrap();
 		}
@@ -240,7 +241,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(post_info))
+			ext.test_run(RawOrigin::Signed(caller).into_with_basic_filter(), &call, &info, len, 0, |_| Ok(post_info))
 				.unwrap()
 				.unwrap();
 		}
@@ -284,7 +285,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(post_info))
+			ext.test_run(RawOrigin::Signed(caller).into_with_basic_filter(), &call, &info, len, 0, |_| Ok(post_info))
 				.unwrap()
 				.unwrap();
 		}

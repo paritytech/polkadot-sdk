@@ -300,7 +300,7 @@ pub mod pallet {
 		type UniversalLocation: Get<InteriorLocation>;
 
 		/// The runtime `Origin` type.
-		type RuntimeOrigin: From<Origin> + From<<Self as SysConfig>::RuntimeOrigin>;
+		type RuntimeOrigin: FromWithBasicFilter<Origin> + From<<Self as SysConfig>::RuntimeOrigin>;
 
 		/// The runtime `Call` type.
 		type RuntimeCall: Parameter
@@ -3060,7 +3060,7 @@ impl<T: Config> Pallet<T> {
 		Runtime: crate::Config,
 		Router: InspectMessageQueues,
 		RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo>,
-		<RuntimeCall as Dispatchable>::RuntimeOrigin: From<OriginCaller>,
+		<RuntimeCall as Dispatchable>::RuntimeOrigin: FromWithBasicFilter<OriginCaller>,
 	{
 		crate::Pallet::<Runtime>::set_record_xcm(true);
 		// Clear other messages in queues...
@@ -4270,7 +4270,7 @@ where
 /// A simple passthrough where we reuse the `Location`-typed XCM origin as the inner value of
 /// this crate's `Origin::Xcm` value.
 pub struct XcmPassthrough<RuntimeOrigin>(PhantomData<RuntimeOrigin>);
-impl<RuntimeOrigin: From<crate::Origin>> ConvertOrigin<RuntimeOrigin>
+impl<RuntimeOrigin: FromWithBasicFilter<crate::Origin>> ConvertOrigin<RuntimeOrigin>
 	for XcmPassthrough<RuntimeOrigin>
 {
 	fn convert_origin(

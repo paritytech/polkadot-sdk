@@ -142,7 +142,7 @@ pub(crate) fn send_assets_from_asset_hub_westend(
 	transfer_type: TransferType,
 ) -> DispatchResult {
 	let signed_origin =
-		<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get().into());
+		<AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubWestendSender::get().into());
 	let beneficiary: Location =
 		AccountId32Junction { network: None, id: AssetHubRococoReceiver::get().into() }.into();
 

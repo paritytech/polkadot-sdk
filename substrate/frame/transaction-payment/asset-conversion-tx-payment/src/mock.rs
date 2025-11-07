@@ -342,13 +342,13 @@ impl BenchmarkHelperTrait<u64, NativeOrWithId<u32>, NativeOrWithId<u32>> for Hel
 		let token_1 = Box::new(NativeOrWithId::Native);
 		let token_2 = Box::new(asset_id);
 		assert_ok!(AssetConversion::create_pool(
-			RuntimeOrigin::signed(lp_provider),
+			RuntimeOrigin::signed_with_basic_filter(lp_provider),
 			token_1.clone(),
 			token_2.clone()
 		));
 
 		assert_ok!(AssetConversion::add_liquidity(
-			RuntimeOrigin::signed(lp_provider),
+			RuntimeOrigin::signed_with_basic_filter(lp_provider),
 			token_1,
 			token_2,
 			(u32::MAX / 8).into(), // 1 desired

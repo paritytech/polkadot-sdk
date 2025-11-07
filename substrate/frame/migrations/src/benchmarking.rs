@@ -17,6 +17,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 
 use core::array;
@@ -207,7 +208,7 @@ mod benches {
 		#[extrinsic_call]
 		_(
 			RawOrigin::Root,
-			HistoricCleanupSelector::Wildcard { limit: n.into(), previous_cursor: None },
+			HistoricCleanupSelector::Wildcard { limit: n.into_with_basic_filter(), previous_cursor: None },
 		);
 	}
 

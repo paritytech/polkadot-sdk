@@ -77,7 +77,7 @@ fn assert_hypothetically_earned(
 			<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker);
 
 		// Harvest the rewards.
-		assert_ok!(StakingRewards::harvest_rewards(RuntimeOrigin::signed(staker), pool_id, None),);
+		assert_ok!(StakingRewards::harvest_rewards(RuntimeOrigin::signed_with_basic_filter(staker), pool_id, None),);
 
 		// Sanity check: staker rewards are reset to 0 if some `amount` is still staked, otherwise
 		// the storage item removed.
@@ -348,7 +348,7 @@ mod create_pool {
 			let expiry_block = 100u64;
 			assert_err!(
 				StakingRewards::create_pool(
-					RuntimeOrigin::signed(user),
+					RuntimeOrigin::signed_with_basic_filter(user),
 					Box::new(staked_asset_id.clone()),
 					Box::new(reward_asset_id.clone()),
 					reward_rate_per_block,
@@ -412,7 +412,7 @@ mod stake {
 			);
 
 			// User stakes tokens
-			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(user), pool_id, 1000));
+			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed_with_basic_filter(user), pool_id, 1000));
 
 			// Check that the user's staked amount is updated
 			assert_eq!(PoolStakers::<MockRuntime>::get(pool_id, user).unwrap().amount, 1000);
@@ -438,7 +438,7 @@ mod stake {
 			);
 
 			// User stakes more tokens
-			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(user), pool_id, 500));
+			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed_with_basic_filter(user), pool_id, 500));
 
 			// Event is emitted.
 			assert_eq!(
@@ -472,7 +472,7 @@ mod stake {
 		new_test_ext().execute_with(|| {
 			let user = 1;
 			assert_err!(
-				StakingRewards::stake(RuntimeOrigin::signed(user), 999, 1000),
+				StakingRewards::stake(RuntimeOrigin::signed_with_basic_filter(user), 999, 1000),
 				Error::<MockRuntime>::NonExistentPool
 			);
 		});
@@ -491,7 +491,7 @@ mod stake {
 				Fortitude::Force,
 			);
 			assert_err!(
-				StakingRewards::stake(RuntimeOrigin::signed(user), pool_id, initial_balance + 1),
+				StakingRewards::stake(RuntimeOrigin::signed_with_basic_filter(user), pool_id, initial_balance + 1),
 				TokenError::FundsUnavailable,
 			);
 		})
@@ -509,10 +509,10 @@ mod unstake {
 			let pool_id = 0;
 
 			// User stakes tokens
-			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(user), pool_id, 1000));
+			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed_with_basic_filter(user), pool_id, 1000));
 
 			// User unstakes tokens
-			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(user), pool_id, 500, None));
+			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed_with_basic_filter(user), pool_id, 500, None));
 
 			// Event is emitted.
 			assert_eq!(
@@ -532,7 +532,7 @@ mod unstake {
 			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().total_tokens_staked, 500);
 
 			// User unstakes remaining tokens
-			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(user), pool_id, 500, None));
+			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed_with_basic_filter(user), pool_id, 500, None));
 
 			// Check that the storage items is removed since stake amount and rewards are zero.
 			assert!(PoolStakers::<MockRuntime>::get(pool_id, user).is_none());
@@ -553,18 +553,18 @@ mod unstake {
 			create_default_pool();
 
 			// User stakes tokens
-			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker), pool_id, 1000));
+			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed_with_basic_filter(staker), pool_id, 1000));
 
 			// Fails to unstake for other since pool is still active
 			assert_noop!(
-				StakingRewards::unstake(RuntimeOrigin::signed(caller), pool_id, 500, Some(staker)),
+				StakingRewards::unstake(RuntimeOrigin::signed_with_basic_filter(caller), pool_id, 500, Some(staker)),
 				BadOrigin,
 			);
 
 			System::set_block_number(init_block + DEFAULT_EXPIRE_AFTER + 1);
 
 			assert_ok!(StakingRewards::unstake(
-				RuntimeOrigin::signed(caller),
+				RuntimeOrigin::signed_with_basic_filter(caller),
 				pool_id,
 				500,
 				Some(staker)
@@ -587,7 +587,7 @@ mod unstake {
 			// User tries to unstake tokens from a non-existent pool
 			assert_err!(
 				StakingRewards::unstake(
-					RuntimeOrigin::signed(user),
+					RuntimeOrigin::signed_with_basic_filter(user),
 					non_existent_pool_id,
 					500,
 					None
@@ -605,11 +605,11 @@ mod unstake {
 			let pool_id = 0;
 
 			// User stakes tokens
-			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(user), pool_id, 1000));
+			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed_with_basic_filter(user), pool_id, 1000));
 
 			// User tries to unstake more tokens than they have staked
 			assert_err!(
-				StakingRewards::unstake(RuntimeOrigin::signed(user), pool_id, 1500, None),
+				StakingRewards::unstake(RuntimeOrigin::signed_with_basic_filter(user), pool_id, 1500, None),
 				Error::<MockRuntime>::NotEnoughTokens
 			);
 		});
@@ -629,14 +629,14 @@ mod harvest_rewards {
 
 			// Stake
 			System::set_block_number(10);
-			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker), pool_id, 1000));
+			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed_with_basic_filter(staker), pool_id, 1000));
 
 			// Harvest
 			System::set_block_number(20);
 			let balance_before: <MockRuntime as Config>::Balance =
 				<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker);
 			assert_ok!(StakingRewards::harvest_rewards(
-				RuntimeOrigin::signed(staker),
+				RuntimeOrigin::signed_with_basic_filter(staker),
 				pool_id,
 				None
 			));
@@ -672,14 +672,14 @@ mod harvest_rewards {
 
 			// Stake
 			System::set_block_number(10);
-			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker), pool_id, 1000));
+			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed_with_basic_filter(staker), pool_id, 1000));
 
 			System::set_block_number(20);
 
 			// Fails to harvest for staker since pool is still active
 			assert_noop!(
 				StakingRewards::harvest_rewards(
-					RuntimeOrigin::signed(caller),
+					RuntimeOrigin::signed_with_basic_filter(caller),
 					pool_id,
 					Some(staker)
 				),
@@ -690,7 +690,7 @@ mod harvest_rewards {
 
 			// Harvest for staker
 			assert_ok!(StakingRewards::harvest_rewards(
-				RuntimeOrigin::signed(caller),
+				RuntimeOrigin::signed_with_basic_filter(caller),
 				pool_id,
 				Some(staker),
 			));
@@ -715,7 +715,7 @@ mod harvest_rewards {
 			create_default_pool();
 			assert_err!(
 				StakingRewards::harvest_rewards(
-					RuntimeOrigin::signed(non_existent_staker),
+					RuntimeOrigin::signed_with_basic_filter(non_existent_staker),
 					0,
 					None
 				),
@@ -732,7 +732,7 @@ mod harvest_rewards {
 
 			assert_err!(
 				StakingRewards::harvest_rewards(
-					RuntimeOrigin::signed(staker),
+					RuntimeOrigin::signed_with_basic_filter(staker),
 					non_existent_pool_id,
 					None,
 				),
@@ -755,7 +755,7 @@ mod set_pool_admin {
 
 			// Modify the pool admin
 			assert_ok!(StakingRewards::set_pool_admin(
-				RuntimeOrigin::signed(admin),
+				RuntimeOrigin::signed_with_basic_filter(admin),
 				pool_id,
 				new_admin,
 			));
@@ -797,7 +797,7 @@ mod set_pool_admin {
 
 			assert_err!(
 				StakingRewards::set_pool_admin(
-					RuntimeOrigin::signed(admin),
+					RuntimeOrigin::signed_with_basic_filter(admin),
 					non_existent_pool_id,
 					new_admin
 				),
@@ -816,7 +816,7 @@ mod set_pool_admin {
 
 			assert_err!(
 				StakingRewards::set_pool_admin(
-					RuntimeOrigin::signed(non_admin),
+					RuntimeOrigin::signed_with_basic_filter(non_admin),
 					pool_id,
 					new_admin
 				),
@@ -860,7 +860,7 @@ mod set_pool_expiry_block {
 			create_default_pool();
 
 			assert_ok!(StakingRewards::set_pool_expiry_block(
-				RuntimeOrigin::signed(admin),
+				RuntimeOrigin::signed_with_basic_filter(admin),
 				pool_id,
 				DispatchTime::At(new_expiry_block)
 			));
@@ -885,7 +885,7 @@ mod set_pool_expiry_block {
 			create_default_pool();
 
 			// Regular reward accumulation
-			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker), pool_id, 1000));
+			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed_with_basic_filter(staker), pool_id, 1000));
 			System::set_block_number(20);
 			assert_hypothetically_earned(
 				staker,
@@ -905,7 +905,7 @@ mod set_pool_expiry_block {
 
 			// Extend expiry 50 more blocks
 			assert_ok!(StakingRewards::set_pool_expiry_block(
-				RuntimeOrigin::signed(admin),
+				RuntimeOrigin::signed_with_basic_filter(admin),
 				pool_id,
 				DispatchTime::At(new_expiry_block)
 			));
@@ -930,7 +930,7 @@ mod set_pool_expiry_block {
 
 			assert_noop!(
 				StakingRewards::set_pool_expiry_block(
-					RuntimeOrigin::signed(admin),
+					RuntimeOrigin::signed_with_basic_filter(admin),
 					pool_id,
 					DispatchTime::After(30)
 				),
@@ -948,7 +948,7 @@ mod set_pool_expiry_block {
 
 			assert_err!(
 				StakingRewards::set_pool_expiry_block(
-					RuntimeOrigin::signed(admin),
+					RuntimeOrigin::signed_with_basic_filter(admin),
 					non_existent_pool_id,
 					DispatchTime::After(new_expiry_block)
 				),
@@ -967,7 +967,7 @@ mod set_pool_expiry_block {
 
 			assert_err!(
 				StakingRewards::set_pool_expiry_block(
-					RuntimeOrigin::signed(non_admin),
+					RuntimeOrigin::signed_with_basic_filter(non_admin),
 					pool_id,
 					DispatchTime::After(new_expiry_block)
 				),
@@ -985,7 +985,7 @@ mod set_pool_expiry_block {
 			System::set_block_number(50);
 			assert_err!(
 				StakingRewards::set_pool_expiry_block(
-					RuntimeOrigin::signed(admin),
+					RuntimeOrigin::signed_with_basic_filter(admin),
 					pool_id,
 					DispatchTime::At(40u64)
 				),
@@ -1007,7 +1007,7 @@ mod set_pool_reward_rate_per_block {
 
 			// Pool Admin can modify
 			assert_ok!(StakingRewards::set_pool_reward_rate_per_block(
-				RuntimeOrigin::signed(DEFAULT_ADMIN),
+				RuntimeOrigin::signed_with_basic_filter(DEFAULT_ADMIN),
 				pool_id,
 				new_reward_rate
 			));
@@ -1071,12 +1071,12 @@ mod set_pool_reward_rate_per_block {
 
 			// Stake some tokens, and accumulate 10 blocks of rewards at the default pool rate (100)
 			System::set_block_number(10);
-			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker), pool_id, 1000));
+			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed_with_basic_filter(staker), pool_id, 1000));
 			System::set_block_number(20);
 
 			// Increase the reward rate
 			assert_ok!(StakingRewards::set_pool_reward_rate_per_block(
-				RuntimeOrigin::signed(admin),
+				RuntimeOrigin::signed_with_basic_filter(admin),
 				pool_id,
 				new_reward_rate
 			));
@@ -1103,7 +1103,7 @@ mod set_pool_reward_rate_per_block {
 
 			assert_err!(
 				StakingRewards::set_pool_reward_rate_per_block(
-					RuntimeOrigin::signed(admin),
+					RuntimeOrigin::signed_with_basic_filter(admin),
 					non_existent_pool_id,
 					new_reward_rate
 				),
@@ -1122,7 +1122,7 @@ mod set_pool_reward_rate_per_block {
 
 			assert_err!(
 				StakingRewards::set_pool_reward_rate_per_block(
-					RuntimeOrigin::signed(non_admin),
+					RuntimeOrigin::signed_with_basic_filter(non_admin),
 					pool_id,
 					new_reward_rate
 				),
@@ -1168,7 +1168,7 @@ mod deposit_reward_tokens {
 				&pool_account_id,
 			);
 			assert_ok!(StakingRewards::deposit_reward_tokens(
-				RuntimeOrigin::signed(depositor),
+				RuntimeOrigin::signed_with_basic_filter(depositor),
 				pool_id,
 				amount
 			));
@@ -1186,7 +1186,7 @@ mod deposit_reward_tokens {
 	fn fails_for_non_existent_pool() {
 		new_test_ext().execute_with(|| {
 			assert_err!(
-				StakingRewards::deposit_reward_tokens(RuntimeOrigin::signed(1), 999, 100),
+				StakingRewards::deposit_reward_tokens(RuntimeOrigin::signed_with_basic_filter(1), 999, 100),
 				Error::<MockRuntime>::NonExistentPool
 			);
 		});
@@ -1197,7 +1197,7 @@ mod deposit_reward_tokens {
 		new_test_ext().execute_with(|| {
 			create_default_pool();
 			assert_err!(
-				StakingRewards::deposit_reward_tokens(RuntimeOrigin::signed(1), 0, 100_000_000),
+				StakingRewards::deposit_reward_tokens(RuntimeOrigin::signed_with_basic_filter(1), 0, 100_000_000),
 				ArithmeticError::Underflow
 			);
 		});
@@ -1217,7 +1217,7 @@ mod cleanup_pool {
 			create_default_pool();
 			assert!(Pools::<MockRuntime>::get(pool_id).is_some());
 
-			assert_ok!(StakingRewards::cleanup_pool(RuntimeOrigin::signed(admin), pool_id));
+			assert_ok!(StakingRewards::cleanup_pool(RuntimeOrigin::signed_with_basic_filter(admin), pool_id));
 
 			assert_eq!(
 				<Balances as fungible::Inspect<u128>>::balance(&admin),
@@ -1240,25 +1240,25 @@ mod cleanup_pool {
 			create_default_pool();
 
 			// stake to prevent pool cleanup
-			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker), pool_id, 100));
+			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed_with_basic_filter(staker), pool_id, 100));
 
 			assert_noop!(
-				StakingRewards::cleanup_pool(RuntimeOrigin::signed(admin), pool_id),
+				StakingRewards::cleanup_pool(RuntimeOrigin::signed_with_basic_filter(admin), pool_id),
 				Error::<MockRuntime>::NonEmptyPool
 			);
 
 			// unstake partially
-			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(staker), pool_id, 50, None));
+			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed_with_basic_filter(staker), pool_id, 50, None));
 
 			assert_noop!(
-				StakingRewards::cleanup_pool(RuntimeOrigin::signed(admin), pool_id),
+				StakingRewards::cleanup_pool(RuntimeOrigin::signed_with_basic_filter(admin), pool_id),
 				Error::<MockRuntime>::NonEmptyPool
 			);
 
 			// unstake all
-			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(staker), pool_id, 50, None));
+			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed_with_basic_filter(staker), pool_id, 50, None));
 
-			assert_ok!(StakingRewards::cleanup_pool(RuntimeOrigin::signed(admin), pool_id),);
+			assert_ok!(StakingRewards::cleanup_pool(RuntimeOrigin::signed_with_basic_filter(admin), pool_id),);
 
 			assert_eq!(Pools::<MockRuntime>::get(pool_id), None);
 			assert_eq!(PoolStakers::<MockRuntime>::iter_prefix_values(pool_id).count(), 0);
@@ -1274,7 +1274,7 @@ mod cleanup_pool {
 			create_default_pool();
 
 			assert_noop!(
-				StakingRewards::cleanup_pool(RuntimeOrigin::signed(caller), pool_id),
+				StakingRewards::cleanup_pool(RuntimeOrigin::signed_with_basic_filter(caller), pool_id),
 				BadOrigin
 			);
 		});
@@ -1313,7 +1313,7 @@ fn integration() {
 
 		// Block 7: Staker 1 stakes 100 tokens.
 		System::set_block_number(7);
-		assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker1), pool_id, 100));
+		assert_ok!(StakingRewards::stake(RuntimeOrigin::signed_with_basic_filter(staker1), pool_id, 100));
 		// At this point
 		// - Staker 1 has earned 0 tokens.
 		// - Staker 1 is earning 100 tokens per block.
@@ -1323,7 +1323,7 @@ fn integration() {
 
 		// Block 9: Staker 2 stakes 100 tokens.
 		System::set_block_number(9);
-		assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker2), pool_id, 100));
+		assert_ok!(StakingRewards::stake(RuntimeOrigin::signed_with_basic_filter(staker2), pool_id, 100));
 		// At this point
 		// - Staker 1 has earned 200 (100*2) tokens.
 		// - Staker 2 has earned 0 tokens.
@@ -1336,7 +1336,7 @@ fn integration() {
 
 		// Block 12: Staker 1 stakes an additional 100 tokens.
 		System::set_block_number(12);
-		assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker1), pool_id, 100));
+		assert_ok!(StakingRewards::stake(RuntimeOrigin::signed_with_basic_filter(staker1), pool_id, 100));
 		// At this point
 		// - Staker 1 has earned 350 (200 + (50 * 3)) tokens.
 		// - Staker 2 has earned 150 (50 * 3) tokens.
@@ -1349,7 +1349,7 @@ fn integration() {
 
 		// Block 22: Staker 1 unstakes 100 tokens.
 		System::set_block_number(22);
-		assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(staker1), pool_id, 100, None));
+		assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed_with_basic_filter(staker1), pool_id, 100, None));
 		// - Staker 1 has earned 1016 (350 + 66.66 * 10) tokens.
 		// - Staker 2 has earned 483 (150 + 33.33 * 10) tokens.
 		// - Staker 1 is earning 50 tokens per block.
@@ -1359,7 +1359,7 @@ fn integration() {
 
 		// Block 23: Staker 1 unstakes 100 tokens.
 		System::set_block_number(23);
-		assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(staker1), pool_id, 100, None));
+		assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed_with_basic_filter(staker1), pool_id, 100, None));
 		// - Staker 1 has earned 1065 (1015 + 50) tokens.
 		// - Staker 2 has earned 533 (483 + 50) tokens.
 		// - Staker 1 is earning 0 tokens per block.
@@ -1381,7 +1381,7 @@ fn integration() {
 		// - Staker 1 is earning 0 tokens per block.
 		// - Staker 2 is earning 100 tokens per block.
 		assert_ok!(StakingRewards::set_pool_expiry_block(
-			RuntimeOrigin::signed(admin),
+			RuntimeOrigin::signed_with_basic_filter(admin),
 			pool_id,
 			DispatchTime::At(60u64),
 		));
@@ -1402,7 +1402,7 @@ fn integration() {
 		// - Staker 2 is earning 50 tokens per block.
 		System::set_block_number(55);
 		assert_ok!(StakingRewards::set_pool_reward_rate_per_block(
-			RuntimeOrigin::signed(admin),
+			RuntimeOrigin::signed_with_basic_filter(admin),
 			pool_id,
 			150
 		));
@@ -1416,7 +1416,7 @@ fn integration() {
 		// Get the pre-harvest balance.
 		let balance_before: <MockRuntime as Config>::Balance =
 			<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker2);
-		assert_ok!(StakingRewards::harvest_rewards(RuntimeOrigin::signed(staker2), pool_id, None));
+		assert_ok!(StakingRewards::harvest_rewards(RuntimeOrigin::signed_with_basic_filter(staker2), pool_id, None));
 		let balance_after =
 			<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker2);
 		assert_eq!(balance_after - balance_before, 1433u128);

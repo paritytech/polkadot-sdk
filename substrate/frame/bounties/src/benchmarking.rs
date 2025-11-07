@@ -17,6 +17,7 @@
 
 //! Bounties pallet benchmarking.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 
 use alloc::{vec, vec::Vec};
@@ -48,7 +49,7 @@ fn create_approved_bounties<T: Config<I>, I: 'static>(n: u32) -> Result<(), Benc
 	for i in 0..n {
 		let (caller, _curator, _fee, value, reason) =
 			setup_bounty::<T, I>(i, T::MaximumReasonLength::get());
-		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason)?;
+		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into_with_basic_filter(), value, reason)?;
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let approve_origin =
 			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
@@ -81,7 +82,7 @@ fn create_bounty<T: Config<I>, I: 'static>(
 	let (caller, curator, fee, value, reason) =
 		setup_bounty::<T, I>(0, T::MaximumReasonLength::get());
 	let curator_lookup = T::Lookup::unlookup(curator.clone());
-	Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason)?;
+	Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into_with_basic_filter(), value, reason)?;
 	let bounty_id = BountyCount::<T, I>::get() - 1;
 	let approve_origin =
 		T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
@@ -89,7 +90,7 @@ fn create_bounty<T: Config<I>, I: 'static>(
 	set_block_number::<T, I>(T::SpendPeriod::get());
 	Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 	Bounties::<T, I>::propose_curator(approve_origin, bounty_id, curator_lookup.clone(), fee)?;
-	Bounties::<T, I>::accept_curator(RawOrigin::Signed(curator).into(), bounty_id)?;
+	Bounties::<T, I>::accept_curator(RawOrigin::Signed(curator).into_with_basic_filter(), bounty_id)?;
 	Ok((curator_lookup, bounty_id))
 }
 
@@ -118,7 +119,7 @@ mod benchmarks {
 	#[benchmark]
 	fn approve_bounty() -> Result<(), BenchmarkError> {
 		let (caller, _, _, value, reason) = setup_bounty::<T, I>(0, T::MaximumReasonLength::get());
-		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason)?;
+		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into_with_basic_filter(), value, reason)?;
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let approve_origin =
 			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
@@ -135,7 +136,7 @@ mod benchmarks {
 		let (caller, curator, fee, value, reason) =
 			setup_bounty::<T, I>(0, T::MaximumReasonLength::get());
 		let curator_lookup = T::Lookup::unlookup(curator);
-		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason)?;
+		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into_with_basic_filter(), value, reason)?;
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let approve_origin =
 			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
@@ -155,7 +156,7 @@ mod benchmarks {
 		let (caller, curator, fee, value, reason) =
 			setup_bounty::<T, I>(0, T::MaximumReasonLength::get());
 		let curator_lookup = T::Lookup::unlookup(curator.clone());
-		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason)?;
+		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into_with_basic_filter(), value, reason)?;
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let approve_origin =
 			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
@@ -186,10 +187,10 @@ mod benchmarks {
 		let origin = if Pallet::<T, I>::treasury_block_number() <= inactivity_timeout {
 			let curator = T::Lookup::lookup(curator_lookup).map_err(<&str>::from)?;
 			T::RejectOrigin::try_successful_origin()
-				.unwrap_or_else(|_| RawOrigin::Signed(curator).into())
+				.unwrap_or_else(|_| RawOrigin::Signed(curator).into_with_basic_filter())
 		} else {
 			let caller = whitelisted_caller();
-			RawOrigin::Signed(caller).into()
+			RawOrigin::Signed(caller).into_with_basic_filter()
 		};
 
 		#[extrinsic_call]
@@ -204,7 +205,7 @@ mod benchmarks {
 		let (caller, curator, fee, value, reason) =
 			setup_bounty::<T, I>(0, T::MaximumReasonLength::get());
 		let curator_lookup = T::Lookup::unlookup(curator.clone());
-		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason)?;
+		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into_with_basic_filter(), value, reason)?;
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let approve_origin =
 			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
@@ -248,13 +249,13 @@ mod benchmarks {
 		let beneficiary_account: T::AccountId = account("beneficiary", 0, SEED);
 		let beneficiary = T::Lookup::unlookup(beneficiary_account.clone());
 		Bounties::<T, I>::award_bounty(
-			RawOrigin::Signed(curator.clone()).into(),
+			RawOrigin::Signed(curator.clone()).into_with_basic_filter(),
 			bounty_id,
 			beneficiary,
 		)?;
 
 		set_block_number::<T, I>(
-			T::SpendPeriod::get() + T::BountyDepositPayoutDelay::get() + 1u32.into(),
+			T::SpendPeriod::get() + T::BountyDepositPayoutDelay::get() + 1u32.into_with_basic_filter(),
 		);
 		assert!(
 			T::Currency::free_balance(&beneficiary_account).is_zero(),
@@ -276,7 +277,7 @@ mod benchmarks {
 	fn close_bounty_proposed() -> Result<(), BenchmarkError> {
 		setup_pot_account::<T, I>();
 		let (caller, _, _, value, reason) = setup_bounty::<T, I>(0, 0);
-		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason)?;
+		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into_with_basic_filter(), value, reason)?;
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let approve_origin =
 			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
@@ -316,7 +317,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(curator), bounty_id, Vec::new());
 
-		assert_last_event::<T, I>(Event::BountyExtended { index: bounty_id }.into());
+		assert_last_event::<T, I>(Event::BountyExtended { index: bounty_id }.into_with_basic_filter());
 
 		Ok(())
 	}
@@ -357,7 +358,7 @@ mod benchmarks {
 	fn poke_deposit() -> Result<(), BenchmarkError> {
 		// Create a bounty
 		let (caller, _, _, value, reason) = setup_bounty::<T, I>(0, 5); // 5 bytes description
-		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller.clone()).into(), value, reason)?;
+		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), value, reason)?;
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let old_deposit = T::Currency::reserved_balance(&caller);
 		// Modify the description to be maximum length

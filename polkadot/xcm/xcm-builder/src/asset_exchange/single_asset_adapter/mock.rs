@@ -16,6 +16,7 @@
 
 //! Mock to test [`SingleAssetExchangeAdapter`].
 
+use frame_support::traits::IntoWithBasicFilter;
 use core::marker::PhantomData;
 use frame_support::{
 	assert_ok, construct_runtime, derive_impl, ord_parameter_types, parameter_types,
@@ -277,14 +278,14 @@ pub struct SignedToAccountIndex64<RuntimeOrigin, AccountId, Network>(
 impl<RuntimeOrigin: OriginTrait + Clone, AccountId: Into<u64>, Network: Get<Option<NetworkId>>>
 	TryConvert<RuntimeOrigin, Location> for SignedToAccountIndex64<RuntimeOrigin, AccountId, Network>
 where
-	RuntimeOrigin::PalletsOrigin: From<frame_system::RawOrigin<AccountId>>
+	RuntimeOrigin::PalletsOrigin: FromWithBasicFilter<frame_system::RawOrigin<AccountId>>
 		+ TryInto<frame_system::RawOrigin<AccountId>, Error = RuntimeOrigin::PalletsOrigin>,
 {
 	fn try_convert(o: RuntimeOrigin) -> Result<Location, RuntimeOrigin> {
 		o.try_with_caller(|caller| match caller.try_into() {
 			Ok(frame_system::RawOrigin::Signed(who)) =>
-				Ok(Junction::AccountIndex64 { network: Network::get(), index: who.into() }.into()),
-			Ok(other) => Err(other.into()),
+				Ok(Junction::AccountIndex64 { network: Network::get(), index: who.into_with_basic_filter() }.into_with_basic_filter()),
+			Ok(other) => Err(other.into_with_basic_filter()),
 			Err(other) => Err(other),
 		})
 	}
@@ -360,12 +361,12 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		assert_ok!(AssetsPallet::force_create(RuntimeOrigin::root(), 1, owner, false, 1,));
 		assert_ok!(AssetsPallet::mint_into(1, &owner, INITIAL_BALANCE,));
 		assert_ok!(AssetConversion::create_pool(
-			RuntimeOrigin::signed(owner),
+			RuntimeOrigin::signed_with_basic_filter(owner),
 			Box::new(NativeOrWithId::Native),
 			Box::new(NativeOrWithId::WithId(1)),
 		));
 		assert_ok!(AssetConversion::add_liquidity(
-			RuntimeOrigin::signed(owner),
+			RuntimeOrigin::signed_with_basic_filter(owner),
 			Box::new(NativeOrWithId::Native),
 			Box::new(NativeOrWithId::WithId(1)),
 			50_000_000,

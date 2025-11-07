@@ -18,6 +18,7 @@
 //! Testing utils for staking. Provides some common functions to setup staking state, such as
 //! bonding validators, nominators, and generating different types of solutions.
 
+use frame_support::traits::IntoWithBasicFilter;
 use crate::{Pallet as Staking, *};
 use frame_benchmarking::account;
 use frame_system::RawOrigin;
@@ -78,7 +79,7 @@ pub fn create_stash_controller<T: Config>(
 	let staker = create_funded_user::<T>("stash", n, balance_factor);
 	let amount =
 		asset::existential_deposit::<T>().max(1u64.into()) * (balance_factor / 10).max(1).into();
-	Staking::<T>::bond(RawOrigin::Signed(staker.clone()).into(), amount, destination)?;
+	Staking::<T>::bond(RawOrigin::Signed(staker.clone()).into_with_basic_filter(), amount, destination)?;
 	Ok((staker.clone(), staker))
 }
 
@@ -97,7 +98,7 @@ pub fn create_unique_stash_controller<T: Config>(
 		create_funded_user::<T>("controller", n, balance_factor)
 	};
 	let amount = asset::existential_deposit::<T>() * (balance_factor / 10).max(1).into();
-	Staking::<T>::bond(RawOrigin::Signed(stash.clone()).into(), amount, destination)?;
+	Staking::<T>::bond(RawOrigin::Signed(stash.clone()).into_with_basic_filter(), amount, destination)?;
 
 	// update ledger to be a *different* controller to stash
 	if let Some(l) = Ledger::<T>::take(&stash) {
@@ -116,7 +117,7 @@ pub fn create_stash_controller_with_balance<T: Config>(
 	destination: RewardDestination<T::AccountId>,
 ) -> Result<(T::AccountId, T::AccountId), &'static str> {
 	let staker = create_funded_user_with_balance::<T>("stash", n, balance);
-	Staking::<T>::bond(RawOrigin::Signed(staker.clone()).into(), balance, destination)?;
+	Staking::<T>::bond(RawOrigin::Signed(staker.clone()).into_with_basic_filter(), balance, destination)?;
 	Ok((staker.clone(), staker))
 }
 
@@ -131,7 +132,7 @@ pub fn create_stash_and_dead_payee<T: Config>(
 	let payee = create_funded_user::<T>("payee", n, 0);
 	let amount = asset::existential_deposit::<T>() * (balance_factor / 10).max(1).into();
 	Staking::<T>::bond(
-		RawOrigin::Signed(staker.clone()).into(),
+		RawOrigin::Signed(staker.clone()).into_with_basic_filter(),
 		amount,
 		RewardDestination::Account(payee),
 	)?;
@@ -158,7 +159,7 @@ pub fn create_validators_with_seed<T: Config>(
 			create_stash_controller::<T>(i + seed, balance_factor, RewardDestination::Staked)?;
 		let validator_prefs =
 			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
-		Staking::<T>::validate(RawOrigin::Signed(controller).into(), validator_prefs)?;
+		Staking::<T>::validate(RawOrigin::Signed(controller).into_with_basic_filter(), validator_prefs)?;
 		let stash_lookup = T::Lookup::unlookup(stash);
 		validators.push(stash_lookup);
 	}
@@ -199,7 +200,7 @@ pub fn create_validators_with_nominators_for_era<T: Config>(
 			create_stash_controller::<T>(i, balance_factor, RewardDestination::Staked)?;
 		let validator_prefs =
 			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
-		Staking::<T>::validate(RawOrigin::Signed(v_controller.clone()).into(), validator_prefs)?;
+		Staking::<T>::validate(RawOrigin::Signed(v_controller.clone()).into_with_basic_filter(), validator_prefs)?;
 		let stash_lookup = T::Lookup::unlookup(v_stash.clone());
 		validators_stash.push(stash_lookup.clone());
 	}
@@ -224,7 +225,7 @@ pub fn create_validators_with_nominators_for_era<T: Config>(
 			selected_validators.push(validator);
 		}
 		Staking::<T>::nominate(
-			RawOrigin::Signed(n_controller.clone()).into(),
+			RawOrigin::Signed(n_controller.clone()).into_with_basic_filter(),
 			selected_validators,
 		)?;
 	}

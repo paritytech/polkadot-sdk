@@ -18,6 +18,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::{Pallet, *};
 use crate::{
 	configuration::{HostConfiguration, Pallet as ConfigurationPallet},
@@ -74,7 +75,7 @@ mod benchmarks {
 		Pallet::<T>::populate_queue(para_id, s);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.into()), BalanceOf::<T>::max_value(), para_id)
+		_(RawOrigin::Signed(caller.into_with_basic_filter()), BalanceOf::<T>::max_value(), para_id)
 	}
 
 	#[benchmark]
@@ -88,7 +89,7 @@ mod benchmarks {
 		Pallet::<T>::populate_queue(para_id, s);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.into()), BalanceOf::<T>::max_value(), para_id)
+		_(RawOrigin::Signed(caller.into_with_basic_filter()), BalanceOf::<T>::max_value(), para_id)
 	}
 
 	#[benchmark]
@@ -102,7 +103,7 @@ mod benchmarks {
 		Pallet::<T>::populate_queue(para_id, s);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.into()), BalanceOf::<T>::max_value(), para_id)
+		_(RawOrigin::Signed(caller.into_with_basic_filter()), BalanceOf::<T>::max_value(), para_id)
 	}
 
 	impl_benchmark_test_suite!(

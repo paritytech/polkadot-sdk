@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 
 use frame_benchmarking::v2::*;
@@ -361,7 +362,7 @@ mod benchmarks {
 		let call = Call::<T>::emit_event {};
 		#[block]
 		{
-			call.dispatch_bypass_filter(RawOrigin::Root.into()).unwrap();
+			call.dispatch_bypass_filter(RawOrigin::Root.into_with_basic_filter()).unwrap();
 		}
 		assert_eq!(System::<T>::events().len(), 1);
 	}
@@ -372,7 +373,7 @@ mod benchmarks {
 		let call = Call::<T>::noop {};
 		#[block]
 		{
-			call.dispatch_bypass_filter(RawOrigin::Root.into()).unwrap();
+			call.dispatch_bypass_filter(RawOrigin::Root.into_with_basic_filter()).unwrap();
 		}
 	}
 

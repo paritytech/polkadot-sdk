@@ -22,6 +22,7 @@
 #![deny(warnings)]
 
 pub use frame_support::dispatch::RawOrigin;
+use sp_runtime::traits::FromWithBasicFilter;
 use frame_system::pallet_prelude::BlockNumberFor;
 
 pub use self::pallet::*;
@@ -47,7 +48,7 @@ pub mod pallet {
 		type BaseCallFilter: frame_support::traits::Contains<Self::RuntimeCall>;
 		/// The runtime origin type.
 		type RuntimeOrigin: Into<Result<RawOrigin<Self::AccountId>, Self::RuntimeOrigin>>
-			+ From<RawOrigin<Self::AccountId>>;
+			+ FromWithBasicFilter<RawOrigin<Self::AccountId>>;
 		/// The runtime call type.
 		type RuntimeCall;
 		/// Contains an aggregation of all tasks in this runtime.

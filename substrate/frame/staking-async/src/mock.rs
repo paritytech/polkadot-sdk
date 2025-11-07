@@ -730,17 +730,17 @@ pub(crate) fn current_era() -> EraIndex {
 
 pub(crate) fn bond(who: AccountId, val: Balance) {
 	let _ = asset::set_stakeable_balance::<Test>(&who, val);
-	assert_ok!(Staking::bond(RuntimeOrigin::signed(who), val, RewardDestination::Stash));
+	assert_ok!(Staking::bond(RuntimeOrigin::signed_with_basic_filter(who), val, RewardDestination::Stash));
 }
 
 pub(crate) fn bond_validator(who: AccountId, val: Balance) {
 	bond(who, val);
-	assert_ok!(Staking::validate(RuntimeOrigin::signed(who), ValidatorPrefs::default()));
+	assert_ok!(Staking::validate(RuntimeOrigin::signed_with_basic_filter(who), ValidatorPrefs::default()));
 }
 
 pub(crate) fn bond_nominator(who: AccountId, val: Balance, target: Vec<AccountId>) {
 	bond(who, val);
-	assert_ok!(Staking::nominate(RuntimeOrigin::signed(who), target));
+	assert_ok!(Staking::nominate(RuntimeOrigin::signed_with_basic_filter(who), target));
 }
 
 pub(crate) fn bond_virtual_nominator(
@@ -751,7 +751,7 @@ pub(crate) fn bond_virtual_nominator(
 ) {
 	// Bond who virtually.
 	assert_ok!(<Staking as sp_staking::StakingUnchecked>::virtual_bond(&who, val, &payee));
-	assert_ok!(Staking::nominate(RuntimeOrigin::signed(who), target));
+	assert_ok!(Staking::nominate(RuntimeOrigin::signed_with_basic_filter(who), target));
 }
 
 pub(crate) fn validator_payout_for(duration: u64) -> Balance {
@@ -844,7 +844,7 @@ pub(crate) fn make_all_reward_payment(era: EraIndex) {
 		let ledger = <Ledger<Test>>::get(&validator_controller).unwrap();
 		for page in 0..Eras::<Test>::exposure_page_count(era, &ledger.stash) {
 			assert_ok!(Staking::payout_stakers_by_page(
-				RuntimeOrigin::signed(1337),
+				RuntimeOrigin::signed_with_basic_filter(1337),
 				ledger.stash,
 				era,
 				page
@@ -894,9 +894,9 @@ pub(crate) fn setup_double_bonded_ledgers() {
 	let _ = asset::set_stakeable_balance::<Test>(&555, 2000);
 	let _ = asset::set_stakeable_balance::<Test>(&777, 2000);
 
-	assert_ok!(Staking::bond(RuntimeOrigin::signed(333), 10, RewardDestination::Staked));
-	assert_ok!(Staking::bond(RuntimeOrigin::signed(444), 20, RewardDestination::Staked));
-	assert_ok!(Staking::bond(RuntimeOrigin::signed(555), 20, RewardDestination::Staked));
+	assert_ok!(Staking::bond(RuntimeOrigin::signed_with_basic_filter(333), 10, RewardDestination::Staked));
+	assert_ok!(Staking::bond(RuntimeOrigin::signed_with_basic_filter(444), 20, RewardDestination::Staked));
+	assert_ok!(Staking::bond(RuntimeOrigin::signed_with_basic_filter(555), 20, RewardDestination::Staked));
 	// not relevant to the test case, but ensures try-runtime checks pass.
 	[333, 444, 555]
 		.iter()
@@ -1023,6 +1023,6 @@ pub(crate) fn apply_pending_slashes_from_previous_era() {
 
 pub(crate) fn apply_pending_slashes_from_era(era: EraIndex) {
 	for (key, _) in UnappliedSlashes::<T>::iter_prefix(era) {
-		assert_ok!(Staking::apply_slash(RuntimeOrigin::signed(1), era, key));
+		assert_ok!(Staking::apply_slash(RuntimeOrigin::signed_with_basic_filter(1), era, key));
 	}
 }

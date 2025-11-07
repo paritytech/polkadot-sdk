@@ -40,7 +40,7 @@ fn create_and_claim_treasury_spend() {
 	// treasury spend beneficiary.
 	let alice: AccountId = Westend::account_id_of(ALICE);
 	let bob: AccountId = Westend::account_id_of(BOB);
-	let bob_signed = <Westend as Chain>::RuntimeOrigin::signed(bob.clone());
+	let bob_signed = <Westend as Chain>::RuntimeOrigin::signed_with_basic_filter(bob.clone());
 
 	AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::Assets;

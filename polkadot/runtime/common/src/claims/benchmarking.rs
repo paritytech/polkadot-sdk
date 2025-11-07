@@ -16,6 +16,7 @@
 
 //! Benchmarking for claims pallet
 
+use frame_support::traits::IntoWithBasicFilter;
 #[cfg(feature = "runtime-benchmarks")]
 use super::*;
 use crate::claims::Call;
@@ -41,9 +42,9 @@ fn create_claim<T: Config>(input: u32) -> DispatchResult {
 	let eth_address = eth(&secret_key);
 	let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
 	super::Pallet::<T>::mint_claim(
-		RawOrigin::Root.into(),
+		RawOrigin::Root.into_with_basic_filter(),
 		eth_address,
-		VALUE.into(),
+		VALUE.into_with_basic_filter(),
 		vesting,
 		None,
 	)?;
@@ -55,9 +56,9 @@ fn create_claim_attest<T: Config>(input: u32) -> DispatchResult {
 	let eth_address = eth(&secret_key);
 	let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
 	super::Pallet::<T>::mint_claim(
-		RawOrigin::Root.into(),
+		RawOrigin::Root.into_with_basic_filter(),
 		eth_address,
-		VALUE.into(),
+		VALUE.into_with_basic_filter(),
 		vesting,
 		Some(Default::default()),
 	)?;
@@ -88,13 +89,13 @@ mod benchmarks {
 		let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
 		let signature = sig::<T>(&secret_key, &account.encode(), &[][..]);
 		super::Pallet::<T>::mint_claim(
-			RawOrigin::Root.into(),
+			RawOrigin::Root.into_with_basic_filter(),
 			eth_address,
-			VALUE.into(),
+			VALUE.into_with_basic_filter(),
 			vesting,
 			None,
 		)?;
-		assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
+		assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into_with_basic_filter()));
 		let source = sp_runtime::transaction_validity::TransactionSource::External;
 		let call_enc =
 			Call::<T>::claim { dest: account.clone(), ethereum_signature: signature.clone() }
@@ -106,7 +107,7 @@ mod benchmarks {
 				.expect("call is encoded above, encoding must be correct");
 			super::Pallet::<T>::validate_unsigned(source, &call)
 				.map_err(|e| -> &'static str { e.into() })?;
-			call.dispatch_bypass_filter(RawOrigin::None.into())?;
+			call.dispatch_bypass_filter(RawOrigin::None.into_with_basic_filter())?;
 		}
 
 		assert_eq!(Claims::<T>::get(eth_address), None);
@@ -126,9 +127,9 @@ mod benchmarks {
 		let statement = StatementKind::Regular;
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, eth_address, VALUE.into(), vesting, Some(statement));
+		_(RawOrigin::Root, eth_address, VALUE.into_with_basic_filter(), vesting, Some(statement));
 
-		assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
+		assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into_with_basic_filter()));
 		Ok(())
 	}
 
@@ -149,13 +150,13 @@ mod benchmarks {
 		let statement = StatementKind::Regular;
 		let signature = sig::<T>(&secret_key, &account.encode(), statement.to_text());
 		super::Pallet::<T>::mint_claim(
-			RawOrigin::Root.into(),
+			RawOrigin::Root.into_with_basic_filter(),
 			eth_address,
-			VALUE.into(),
+			VALUE.into_with_basic_filter(),
 			vesting,
 			Some(statement),
 		)?;
-		assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
+		assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into_with_basic_filter()));
 		let call_enc = Call::<T>::claim_attest {
 			dest: account.clone(),
 			ethereum_signature: signature.clone(),
@@ -170,7 +171,7 @@ mod benchmarks {
 				.expect("call is encoded above, encoding must be correct");
 			super::Pallet::<T>::validate_unsigned(source, &call)
 				.map_err(|e| -> &'static str { e.into() })?;
-			call.dispatch_bypass_filter(RawOrigin::None.into())?;
+			call.dispatch_bypass_filter(RawOrigin::None.into_with_basic_filter())?;
 		}
 
 		assert_eq!(Claims::<T>::get(eth_address), None);
@@ -192,9 +193,9 @@ mod benchmarks {
 		let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
 		let statement = StatementKind::Regular;
 		super::Pallet::<T>::mint_claim(
-			RawOrigin::Root.into(),
+			RawOrigin::Root.into_with_basic_filter(),
 			eth_address,
-			VALUE.into(),
+			VALUE.into_with_basic_filter(),
 			vesting,
 			Some(statement),
 		)?;
@@ -288,9 +289,9 @@ mod benchmarks {
 		let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
 		let statement = StatementKind::Regular;
 		super::Pallet::<T>::mint_claim(
-			RawOrigin::Root.into(),
+			RawOrigin::Root.into_with_basic_filter(),
 			eth_address,
-			VALUE.into(),
+			VALUE.into_with_basic_filter(),
 			vesting,
 			Some(statement),
 		)?;
@@ -300,7 +301,7 @@ mod benchmarks {
 		#[block]
 		{
 			assert!(ext
-				.test_run(RawOrigin::Signed(account).into(), &call, &info, 0, 0, |_| {
+				.test_run(RawOrigin::Signed(account).into_with_basic_filter(), &call, &info, 0, 0, |_| {
 					Ok(Default::default())
 				})
 				.unwrap()

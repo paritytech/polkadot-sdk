@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use frame_support::traits::IntoWithBasicFilter;
 use codec::EncodeLike;
 use frame_support::{assert_noop, assert_ok, assert_storage_noop};
 use frame_system::RawOrigin;
@@ -474,7 +475,7 @@ fn force_vested_transfer_works() {
 			BadOrigin
 		);
 		assert_ok!(Vesting::force_vested_transfer(
-			RawOrigin::Root.into(),
+			RawOrigin::Root.into_with_basic_filter(),
 			3,
 			4,
 			new_vesting_schedule
@@ -535,7 +536,7 @@ fn force_vested_transfer_correctly_fails() {
 			VestingInfo::new(<Test as Config>::MinVestedTransfer::get() - 1, 64, 10);
 		assert_noop!(
 			Vesting::force_vested_transfer(
-				RawOrigin::Root.into(),
+				RawOrigin::Root.into_with_basic_filter(),
 				3,
 				4,
 				new_vesting_schedule_too_low
@@ -547,14 +548,14 @@ fn force_vested_transfer_correctly_fails() {
 		let schedule_per_block_0 =
 			VestingInfo::new(<Test as Config>::MinVestedTransfer::get(), 0, 10);
 		assert_noop!(
-			Vesting::force_vested_transfer(RawOrigin::Root.into(), 13, 4, schedule_per_block_0),
+			Vesting::force_vested_transfer(RawOrigin::Root.into_with_basic_filter(), 13, 4, schedule_per_block_0),
 			Error::<Test>::InvalidScheduleParams,
 		);
 
 		// `locked` is 0.
 		let schedule_locked_0 = VestingInfo::new(0, 1, 10);
 		assert_noop!(
-			Vesting::force_vested_transfer(RawOrigin::Root.into(), 3, 4, schedule_locked_0),
+			Vesting::force_vested_transfer(RawOrigin::Root.into_with_basic_filter(), 3, 4, schedule_locked_0),
 			Error::<Test>::AmountLow,
 		);
 
@@ -579,7 +580,7 @@ fn force_vested_transfer_allows_max_schedules() {
 
 		// Add max amount schedules to user 4.
 		for _ in 0..max_schedules {
-			assert_ok!(Vesting::force_vested_transfer(RawOrigin::Root.into(), 13, 4, sched));
+			assert_ok!(Vesting::force_vested_transfer(RawOrigin::Root.into_with_basic_filter(), 13, 4, sched));
 		}
 
 		// The schedules count towards vesting balance.
@@ -591,7 +592,7 @@ fn force_vested_transfer_allows_max_schedules() {
 
 		// Cannot insert a 4th vesting schedule when `MaxVestingSchedules` === 3
 		assert_noop!(
-			Vesting::force_vested_transfer(RawOrigin::Root.into(), 3, 4, sched),
+			Vesting::force_vested_transfer(RawOrigin::Root.into_with_basic_filter(), 3, 4, sched),
 			Error::<Test>::AtMaxVestingSchedules,
 		);
 		// so the free balance does not change.
@@ -1172,7 +1173,7 @@ fn vested_transfer_less_than_existential_deposit_fails() {
 		assert_noop!(Vesting::vested_transfer(Some(3).into(), 99, sched), TokenError::BelowMinimum,);
 		// force_vested_transfer fails.
 		assert_noop!(
-			Vesting::force_vested_transfer(RawOrigin::Root.into(), 3, 99, sched),
+			Vesting::force_vested_transfer(RawOrigin::Root.into_with_basic_filter(), 3, 99, sched),
 			TokenError::BelowMinimum,
 		);
 	});
@@ -1208,16 +1209,16 @@ fn remove_vesting_schedule() {
 		// Verify only root can call.
 		assert_noop!(Vesting::force_remove_vesting_schedule(Some(4).into(), 4, 0), BadOrigin);
 		// Verify that root can remove the schedule.
-		assert_ok!(Vesting::force_remove_vesting_schedule(RawOrigin::Root.into(), 4, 0));
+		assert_ok!(Vesting::force_remove_vesting_schedule(RawOrigin::Root.into_with_basic_filter(), 4, 0));
 		// Verify that last event is VestingCompleted.
-		System::assert_last_event(Event::VestingCompleted { account: 4 }.into());
+		System::assert_last_event(Event::VestingCompleted { account: 4 }.into_with_basic_filter());
 		// Appropriate storage is cleaned up.
 		assert!(!<VestingStorage<Test>>::contains_key(4));
 		// Check the vesting balance is zero.
 		assert_eq!(VestingStorage::<Test>::get(&4), None);
 		// Verifies that trying to remove a schedule when it doesnt exist throws error.
 		assert_noop!(
-			Vesting::force_remove_vesting_schedule(RawOrigin::Root.into(), 4, 0),
+			Vesting::force_remove_vesting_schedule(RawOrigin::Root.into_with_basic_filter(), 4, 0),
 			Error::<Test>::InvalidScheduleParams
 		);
 	});

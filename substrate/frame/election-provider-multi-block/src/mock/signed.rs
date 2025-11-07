@@ -149,7 +149,7 @@ pub fn load_signed_for_verification(who: AccountId, paged: PagedRawSolution<Runt
 	let initial_balance = Balances::free_balance(&who);
 	assert_eq!(balances(who), (initial_balance, 0));
 
-	assert_ok!(SignedPallet::register(RuntimeOrigin::signed(who), paged.score));
+	assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(who), paged.score));
 
 	assert_eq!(
 		balances(who),
@@ -158,7 +158,7 @@ pub fn load_signed_for_verification(who: AccountId, paged: PagedRawSolution<Runt
 
 	for (page_index, solution_page) in paged.solution_pages.pagify(Pages::get()) {
 		assert_ok!(SignedPallet::submit_page(
-			RuntimeOrigin::signed(who),
+			RuntimeOrigin::signed_with_basic_filter(who),
 			page_index,
 			Some(Box::new(solution_page.clone()))
 		));

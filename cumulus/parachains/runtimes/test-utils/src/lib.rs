@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use frame_support::traits::IntoWithBasicFilter;
 use core::marker::PhantomData;
 
 use codec::{Decode, DecodeLimit};
@@ -357,7 +358,7 @@ where
 				deconstruct_parachain_inherent_data(inherent_data);
 
 			let _ = cumulus_pallet_parachain_system::Pallet::<Runtime>::set_validation_data(
-				Runtime::RuntimeOrigin::none(),
+				Runtime::RuntimeOrigin::none_with_basic_filter(),
 				inherent_data,
 				InboundMessagesData::new(
 					downward_messages.into_abridged(&mut usize::MAX.clone()),
@@ -365,7 +366,7 @@ where
 				),
 			);
 			let _ = pallet_timestamp::Pallet::<Runtime>::set(
-				Runtime::RuntimeOrigin::none(),
+				Runtime::RuntimeOrigin::none_with_basic_filter(),
 				300_u32.into(),
 			);
 			AllPalletsWithoutSystem::on_finalize(next_block_number);
@@ -386,7 +387,7 @@ where
 	pub fn origin_of(
 		account_id: AccountIdOf<Runtime>,
 	) -> <Runtime as frame_system::Config>::RuntimeOrigin {
-		<Runtime as frame_system::Config>::RuntimeOrigin::signed(account_id.into())
+		<Runtime as frame_system::Config>::RuntimeOrigin::signed_with_basic_filter(account_id.into())
 	}
 }
 
@@ -739,7 +740,7 @@ pub fn mock_open_hrmp_channel<
 	// execute the block
 	T::create_inherent(&inherent_data)
 		.expect("got an inherent")
-		.dispatch_bypass_filter(RawOrigin::None.into())
+		.dispatch_bypass_filter(RawOrigin::None.into_with_basic_filter())
 		.expect("dispatch succeeded");
 }
 

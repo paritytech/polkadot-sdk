@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 
 use crate::Pallet as Lottery;
@@ -80,7 +81,7 @@ mod benchmarks {
 		let call = frame_system::Call::<T>::remark { remark: vec![] };
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), Box::new(call.into()));
+		_(RawOrigin::Signed(caller), Box::new(call.into_with_basic_filter()));
 
 		assert_eq!(TicketsCount::<T>::get(), 1);
 
@@ -149,9 +150,9 @@ mod benchmarks {
 		);
 		// Buy a ticket
 		let call = frame_system::Call::<T>::remark { remark: vec![] };
-		Lottery::<T>::buy_ticket(RawOrigin::Signed(winner.clone()).into(), Box::new(call.into()))?;
+		Lottery::<T>::buy_ticket(RawOrigin::Signed(winner.clone()).into_with_basic_filter(), Box::new(call.into_with_basic_filter()))?;
 		// Kill user account for worst case
-		T::Currency::make_free_balance_be(&winner, 0u32.into());
+		T::Currency::make_free_balance_be(&winner, 0u32.into_with_basic_filter());
 		// Assert that lotto is set up for winner
 		assert_eq!(TicketsCount::<T>::get(), 1);
 		assert!(!Lottery::<T>::pot().1.is_zero());
@@ -188,9 +189,9 @@ mod benchmarks {
 		);
 		// Buy a ticket
 		let call = frame_system::Call::<T>::remark { remark: vec![] };
-		Lottery::<T>::buy_ticket(RawOrigin::Signed(winner.clone()).into(), Box::new(call.into()))?;
+		Lottery::<T>::buy_ticket(RawOrigin::Signed(winner.clone()).into_with_basic_filter(), Box::new(call.into_with_basic_filter()))?;
 		// Kill user account for worst case
-		T::Currency::make_free_balance_be(&winner, 0u32.into());
+		T::Currency::make_free_balance_be(&winner, 0u32.into_with_basic_filter());
 		// Assert that lotto is set up for winner
 		assert_eq!(TicketsCount::<T>::get(), 1);
 		assert!(!Lottery::<T>::pot().1.is_zero());

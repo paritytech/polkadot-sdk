@@ -2453,6 +2453,38 @@ impl BlockNumberProvider for () {
 	}
 }
 
+/// Conversion into a runtime origin (or similar type) while ensuring the runtime's basic call
+/// filter is taken into account.
+pub trait FromWithBasicFilter<T>: Sized {
+	/// Perform the conversion from `value` into `Self` while respecting the basic call filter.
+	fn from_with_basic_filter(value: T) -> Self;
+}
+
+/// Conversion from a runtime origin (or similar type) while ensuring the runtime's basic call
+/// filter is taken into account.
+pub trait IntoWithBasicFilter<T> {
+	/// Convert `self` into `T` while respecting the basic call filter.
+	fn into_with_basic_filter(self) -> T;
+}
+
+impl<T, U> FromWithBasicFilter<T> for U
+where
+	U: From<T>,
+{
+	fn from_with_basic_filter(value: T) -> Self {
+		value.into()
+	}
+}
+
+impl<T, U> IntoWithBasicFilter<U> for T
+where
+	U: FromWithBasicFilter<T>,
+{
+	fn into_with_basic_filter(self) -> U {
+		U::from_with_basic_filter(self)
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;

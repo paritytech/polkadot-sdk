@@ -16,6 +16,7 @@
 //! Benchmarking setup for pallet-session.
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::{vec, vec::Vec};
 
 use codec::Decode;
@@ -51,7 +52,7 @@ mod benchmarks {
 		let proof: Vec<u8> = vec![0, 1, 2, 3];
 		<pallet_session::Pallet<T>>::ensure_can_pay_key_deposit(&caller).unwrap();
 		let _t = pallet_session::Pallet::<T>::set_keys(
-			RawOrigin::Signed(caller.clone()).into(),
+			RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 			keys,
 			proof,
 		);

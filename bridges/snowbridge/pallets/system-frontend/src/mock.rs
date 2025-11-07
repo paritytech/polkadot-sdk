@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
+use frame_support::traits::IntoWithBasicFilter;
 use crate as snowbridge_system_frontend;
 #[cfg(feature = "runtime-benchmarks")]
 use crate::BenchmarkHelper;
@@ -54,7 +55,7 @@ impl pallet_xcm_origin::Config for Test {
 #[cfg(feature = "runtime-benchmarks")]
 impl BenchmarkHelper<RuntimeOrigin, AccountId> for () {
 	fn make_xcm_origin(location: Location) -> RuntimeOrigin {
-		RuntimeOrigin::from(pallet_xcm_origin::Origin(location))
+		(pallet_xcm_origin::Origin(location)).into_with_basic_filter()
 	}
 
 	fn initialize_storage(_: Location, _: Location) {}

@@ -17,6 +17,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use frame_benchmarking::v2::*;
 use frame_support::traits::UnfilteredDispatchable;
@@ -102,7 +103,7 @@ mod benchmarks {
 
 		let caller = whitelisted_caller();
 		let origin: <T as frame_system::Config>::RuntimeOrigin =
-			frame_system::RawOrigin::Signed(caller).into();
+			frame_system::RawOrigin::Signed(caller).into_with_basic_filter();
 		let call = Call::<T>::dispatch { meta_tx: Box::new(meta_tx) };
 
 		#[block]

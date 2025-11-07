@@ -68,7 +68,7 @@ fn account_id(i: u32) -> AccountId32 {
 
 fn signed(i: u32) -> RuntimeOrigin {
 	let account_id = account_id(i);
-	RuntimeOrigin::signed(account_id)
+	RuntimeOrigin::signed_with_basic_filter(account_id)
 }
 
 frame_support::construct_runtime!(
@@ -1670,7 +1670,7 @@ fn cant_bid_on_existing_lease_periods() {
 		// Bids cannot be made which intersect
 		assert_noop!(
 			Auctions::bid(
-				RuntimeOrigin::signed(crowdloan_account.clone()),
+				RuntimeOrigin::signed_with_basic_filter(crowdloan_account.clone()),
 				ParaId::from(2000),
 				2,
 				lease_period_index_start + 0,
@@ -1682,7 +1682,7 @@ fn cant_bid_on_existing_lease_periods() {
 
 		assert_noop!(
 			Auctions::bid(
-				RuntimeOrigin::signed(crowdloan_account.clone()),
+				RuntimeOrigin::signed_with_basic_filter(crowdloan_account.clone()),
 				ParaId::from(2000),
 				2,
 				lease_period_index_start + 1,
@@ -1694,7 +1694,7 @@ fn cant_bid_on_existing_lease_periods() {
 
 		assert_noop!(
 			Auctions::bid(
-				RuntimeOrigin::signed(crowdloan_account.clone()),
+				RuntimeOrigin::signed_with_basic_filter(crowdloan_account.clone()),
 				ParaId::from(2000),
 				2,
 				lease_period_index_start - 1,
@@ -1706,7 +1706,7 @@ fn cant_bid_on_existing_lease_periods() {
 
 		assert_noop!(
 			Auctions::bid(
-				RuntimeOrigin::signed(crowdloan_account.clone()),
+				RuntimeOrigin::signed_with_basic_filter(crowdloan_account.clone()),
 				ParaId::from(2000),
 				2,
 				lease_period_index_start + 0,
@@ -1718,7 +1718,7 @@ fn cant_bid_on_existing_lease_periods() {
 
 		assert_noop!(
 			Auctions::bid(
-				RuntimeOrigin::signed(crowdloan_account.clone()),
+				RuntimeOrigin::signed_with_basic_filter(crowdloan_account.clone()),
 				ParaId::from(2000),
 				2,
 				lease_period_index_start + 1,
@@ -1730,7 +1730,7 @@ fn cant_bid_on_existing_lease_periods() {
 
 		assert_noop!(
 			Auctions::bid(
-				RuntimeOrigin::signed(crowdloan_account.clone()),
+				RuntimeOrigin::signed_with_basic_filter(crowdloan_account.clone()),
 				ParaId::from(2000),
 				2,
 				lease_period_index_start - 1,
@@ -1742,7 +1742,7 @@ fn cant_bid_on_existing_lease_periods() {
 
 		// Will work when not overlapping
 		assert_ok!(Auctions::bid(
-			RuntimeOrigin::signed(crowdloan_account.clone()),
+			RuntimeOrigin::signed_with_basic_filter(crowdloan_account.clone()),
 			ParaId::from(2000),
 			2,
 			lease_period_index_start + 2,

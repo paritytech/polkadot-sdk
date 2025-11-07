@@ -19,6 +19,7 @@
 
 #![cfg(test)]
 
+use frame_support::traits::IntoWithBasicFilter;
 use frame_support::{derive_impl, parameter_types, traits::ConstU32};
 use sp_runtime::{
 	testing::H256,
@@ -126,7 +127,10 @@ thread_local! {
 mod benchmarks {
 	use super::{new_test_ext, pallet_test::Value, Test, VALUES_PER_COMPONENT};
 	use crate::{account, BenchmarkError, BenchmarkParameter, BenchmarkResult, BenchmarkingSetup};
-	use frame_support::{assert_err, assert_ok, ensure, traits::Get};
+	use frame_support::{
+		assert_err, assert_ok, ensure,
+		traits::{FromWithBasicFilter, Get},
+	};
 	use frame_system::RawOrigin;
 	use rusty_fork::rusty_fork_test;
 
@@ -136,7 +140,9 @@ mod benchmarks {
 	crate::benchmarks! {
 		where_clause {
 			where
-				crate::tests::RuntimeOrigin: From<RawOrigin<<T as frame_system::Config>::AccountId>>,
+				crate::tests::RuntimeOrigin: FromWithBasicFilter<
+					RawOrigin<<T as frame_system::Config>::AccountId>,
+				>,
 		}
 
 		set_value {

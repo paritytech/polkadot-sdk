@@ -44,7 +44,7 @@ fn sudo_basics() {
 			i: 42,
 			weight: Weight::from_parts(1_000, 0),
 		}));
-		assert_ok!(Sudo::sudo(RuntimeOrigin::signed(1), call));
+		assert_ok!(Sudo::sudo(RuntimeOrigin::signed_with_basic_filter(1), call));
 		assert_eq!(Logger::i32_log(), vec![42i32]);
 
 		// A privileged function should not work when `sudo` is passed a non-root `key` as `origin`.
@@ -52,7 +52,7 @@ fn sudo_basics() {
 			i: 42,
 			weight: Weight::from_parts(1_000, 0),
 		}));
-		assert_noop!(Sudo::sudo(RuntimeOrigin::signed(2), call), Error::<Test>::RequireSudo);
+		assert_noop!(Sudo::sudo(RuntimeOrigin::signed_with_basic_filter(2), call), Error::<Test>::RequireSudo);
 	});
 }
 
@@ -64,7 +64,7 @@ fn sudo_emits_events_correctly() {
 			i: 42,
 			weight: Weight::from_parts(1, 0),
 		}));
-		assert_ok!(Sudo::sudo(RuntimeOrigin::signed(1), call));
+		assert_ok!(Sudo::sudo(RuntimeOrigin::signed_with_basic_filter(1), call));
 		System::assert_has_event(TestEvent::Sudo(Event::Sudid { sudo_result: Ok(()) }));
 	})
 }
@@ -78,7 +78,7 @@ fn sudo_unchecked_weight_basics() {
 			weight: Weight::from_parts(1_000, 0),
 		}));
 		assert_ok!(Sudo::sudo_unchecked_weight(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			call,
 			Weight::from_parts(1_000, 0)
 		));
@@ -91,7 +91,7 @@ fn sudo_unchecked_weight_basics() {
 		}));
 		assert_noop!(
 			Sudo::sudo_unchecked_weight(
-				RuntimeOrigin::signed(2),
+				RuntimeOrigin::signed_with_basic_filter(2),
 				call,
 				Weight::from_parts(1_000, 0)
 			),
@@ -121,7 +121,7 @@ fn sudo_unchecked_weight_emits_events_correctly() {
 			weight: Weight::from_parts(1, 0),
 		}));
 		assert_ok!(Sudo::sudo_unchecked_weight(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			call,
 			Weight::from_parts(1_000, 0)
 		));
@@ -134,14 +134,14 @@ fn sudo_unchecked_weight_emits_events_correctly() {
 fn set_key_basics() {
 	new_test_ext(1).execute_with(|| {
 		// A root `key` can change the root `key`
-		assert_ok!(Sudo::set_key(RuntimeOrigin::signed(1), 2));
+		assert_ok!(Sudo::set_key(RuntimeOrigin::signed_with_basic_filter(1), 2));
 		assert_eq!(Key::<Test>::get(), Some(2u64));
 	});
 
 	new_test_ext(1).execute_with(|| {
 		// A non-root `key` will trigger a `RequireSudo` error and a non-root `key` cannot change
 		// the root `key`.
-		assert_noop!(Sudo::set_key(RuntimeOrigin::signed(2), 3), Error::<Test>::RequireSudo);
+		assert_noop!(Sudo::set_key(RuntimeOrigin::signed_with_basic_filter(2), 3), Error::<Test>::RequireSudo);
 	});
 }
 
@@ -149,10 +149,10 @@ fn set_key_basics() {
 fn set_key_emits_events_correctly() {
 	new_test_ext(1).execute_with(|| {
 		// A root `key` can change the root `key`.
-		assert_ok!(Sudo::set_key(RuntimeOrigin::signed(1), 2));
+		assert_ok!(Sudo::set_key(RuntimeOrigin::signed_with_basic_filter(1), 2));
 		System::assert_has_event(TestEvent::Sudo(Event::KeyChanged { old: Some(1), new: 2 }));
 		// Double check.
-		assert_ok!(Sudo::set_key(RuntimeOrigin::signed(2), 4));
+		assert_ok!(Sudo::set_key(RuntimeOrigin::signed_with_basic_filter(2), 4));
 		System::assert_has_event(TestEvent::Sudo(Event::KeyChanged { old: Some(2), new: 4 }));
 	});
 }
@@ -160,12 +160,12 @@ fn set_key_emits_events_correctly() {
 #[test]
 fn remove_key_works() {
 	new_test_ext(1).execute_with(|| {
-		assert_ok!(Sudo::remove_key(RuntimeOrigin::signed(1)));
+		assert_ok!(Sudo::remove_key(RuntimeOrigin::signed_with_basic_filter(1)));
 		assert!(Key::<Test>::get().is_none());
 		System::assert_has_event(TestEvent::Sudo(Event::KeyRemoved {}));
 
-		assert_noop!(Sudo::remove_key(RuntimeOrigin::signed(1)), Error::<Test>::RequireSudo);
-		assert_noop!(Sudo::set_key(RuntimeOrigin::signed(1), 1), Error::<Test>::RequireSudo);
+		assert_noop!(Sudo::remove_key(RuntimeOrigin::signed_with_basic_filter(1)), Error::<Test>::RequireSudo);
+		assert_noop!(Sudo::set_key(RuntimeOrigin::signed_with_basic_filter(1), 1), Error::<Test>::RequireSudo);
 	});
 }
 
@@ -189,7 +189,7 @@ fn sudo_as_basics() {
 			i: 42,
 			weight: Weight::from_parts(1_000, 0),
 		}));
-		assert_ok!(Sudo::sudo_as(RuntimeOrigin::signed(1), 2, call));
+		assert_ok!(Sudo::sudo_as(RuntimeOrigin::signed_with_basic_filter(1), 2, call));
 		assert!(Logger::i32_log().is_empty());
 		assert!(Logger::account_log().is_empty());
 
@@ -198,14 +198,14 @@ fn sudo_as_basics() {
 			i: 42,
 			weight: Weight::from_parts(1, 0),
 		}));
-		assert_noop!(Sudo::sudo_as(RuntimeOrigin::signed(3), 2, call), Error::<Test>::RequireSudo);
+		assert_noop!(Sudo::sudo_as(RuntimeOrigin::signed_with_basic_filter(3), 2, call), Error::<Test>::RequireSudo);
 
 		// A non-privileged function will work when passed to `sudo_as` with the root `key`.
 		let call = Box::new(RuntimeCall::Logger(LoggerCall::non_privileged_log {
 			i: 42,
 			weight: Weight::from_parts(1, 0),
 		}));
-		assert_ok!(Sudo::sudo_as(RuntimeOrigin::signed(1), 2, call));
+		assert_ok!(Sudo::sudo_as(RuntimeOrigin::signed_with_basic_filter(1), 2, call));
 		assert_eq!(Logger::i32_log(), vec![42i32]);
 		// The correct user makes the call within `sudo_as`.
 		assert_eq!(Logger::account_log(), vec![2]);
@@ -221,7 +221,7 @@ fn sudo_as_emits_events_correctly() {
 			i: 42,
 			weight: Weight::from_parts(1, 0),
 		}));
-		assert_ok!(Sudo::sudo_as(RuntimeOrigin::signed(1), 2, call));
+		assert_ok!(Sudo::sudo_as(RuntimeOrigin::signed_with_basic_filter(1), 2, call));
 		System::assert_has_event(TestEvent::Sudo(Event::SudoAsDone { sudo_result: Ok(()) }));
 	});
 }

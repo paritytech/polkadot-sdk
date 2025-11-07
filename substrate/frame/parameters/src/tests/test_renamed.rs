@@ -123,7 +123,7 @@ fn set_parameters_example() {
 		// This gets rejected since the origin is not root.
 		assert_noop!(
 			PalletParameters::set_parameter(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				Pallet1(pallet1::Parameters::Key3(pallet1::Key3, Some(123))),
 			),
 			DispatchError::BadOrigin

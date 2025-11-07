@@ -17,6 +17,7 @@
 
 //! Tests for remarks pallet.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::{Error, Event, Pallet as Remark};
 use crate::mock::*;
 use frame_support::{assert_noop, assert_ok};
@@ -28,7 +29,7 @@ fn generates_event() {
 		let caller = 1;
 		let data = vec![0u8; 100];
 		System::set_block_number(System::block_number() + 1); //otherwise event won't be registered.
-		assert_ok!(Remark::<Test>::store(RawOrigin::Signed(caller).into(), data.clone(),));
+		assert_ok!(Remark::<Test>::store(RawOrigin::Signed(caller).into_with_basic_filter(), data.clone(),));
 		let events = System::events();
 		// this one we create as we expect it
 		let system_event: <Test as frame_system::Config>::RuntimeEvent = Event::Stored {
@@ -50,7 +51,7 @@ fn does_not_store_empty() {
 		let data = vec![];
 		System::set_block_number(System::block_number() + 1); //otherwise event won't be registered.
 		assert_noop!(
-			Remark::<Test>::store(RawOrigin::Signed(caller).into(), data.clone(),),
+			Remark::<Test>::store(RawOrigin::Signed(caller).into_with_basic_filter(), data.clone(),),
 			Error::<Test>::Empty
 		);
 		assert!(System::events().is_empty());

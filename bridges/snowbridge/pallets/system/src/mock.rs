@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
+use frame_support::traits::IntoWithBasicFilter;
 use crate as snowbridge_system;
 use frame_support::{
 	derive_impl, parameter_types,
@@ -44,7 +45,7 @@ mod pallet_xcm_origin {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		type RuntimeOrigin: From<Origin> + From<<Self as frame_system::Config>::RuntimeOrigin>;
+		type RuntimeOrigin: FromWithBasicFilter<Origin> + From<<Self as frame_system::Config>::RuntimeOrigin>;
 	}
 
 	// Insert this custom Origin into the aggregate RuntimeOrigin
@@ -206,7 +207,7 @@ parameter_types! {
 #[cfg(feature = "runtime-benchmarks")]
 impl BenchmarkHelper<RuntimeOrigin> for () {
 	fn make_xcm_origin(location: Location) -> RuntimeOrigin {
-		RuntimeOrigin::from(pallet_xcm_origin::Origin(location))
+		(pallet_xcm_origin::Origin(location)).into_with_basic_filter()
 	}
 }
 

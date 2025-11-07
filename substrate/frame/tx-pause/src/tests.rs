@@ -26,18 +26,18 @@ use frame::testing_prelude::*;
 #[test]
 fn can_pause_specific_call() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(call_transfer(1, 1).dispatch(RuntimeOrigin::signed(0)));
+		assert_ok!(call_transfer(1, 1).dispatch(RuntimeOrigin::signed_with_basic_filter(0)));
 
 		assert_ok!(TxPause::pause(
-			RuntimeOrigin::signed(mock::PauseOrigin::get()),
+			RuntimeOrigin::signed_with_basic_filter(mock::PauseOrigin::get()),
 			full_name::<Test>(b"Balances", b"transfer_allow_death")
 		));
 
 		assert_err!(
-			call_transfer(2, 1).dispatch(RuntimeOrigin::signed(2)),
+			call_transfer(2, 1).dispatch(RuntimeOrigin::signed_with_basic_filter(2)),
 			frame_system::Error::<Test>::CallFiltered
 		);
-		assert_ok!(call_transfer_keep_alive(3, 1).dispatch(RuntimeOrigin::signed(3)));
+		assert_ok!(call_transfer_keep_alive(3, 1).dispatch(RuntimeOrigin::signed_with_basic_filter(3)));
 	});
 }
 
@@ -45,19 +45,19 @@ fn can_pause_specific_call() {
 #[test]
 fn can_pause_all_calls_in_pallet_except_on_whitelist() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(call_transfer(1, 1).dispatch(RuntimeOrigin::signed(0)));
+		assert_ok!(call_transfer(1, 1).dispatch(RuntimeOrigin::signed_with_basic_filter(0)));
 
 		let batch_call =
 			RuntimeCall::Utility(pallet_utility::Call::batch { calls: vec![call_transfer(1, 1)] });
-		assert_ok!(batch_call.clone().dispatch(RuntimeOrigin::signed(0)));
+		assert_ok!(batch_call.clone().dispatch(RuntimeOrigin::signed_with_basic_filter(0)));
 
 		assert_ok!(TxPause::pause(
-			RuntimeOrigin::signed(mock::PauseOrigin::get()),
+			RuntimeOrigin::signed_with_basic_filter(mock::PauseOrigin::get()),
 			full_name::<Test>(b"Utility", b"batch")
 		),);
 
 		assert_err!(
-			batch_call.clone().dispatch(RuntimeOrigin::signed(0)),
+			batch_call.clone().dispatch(RuntimeOrigin::signed_with_basic_filter(0)),
 			frame_system::Error::<Test>::CallFiltered
 		);
 	});
@@ -68,19 +68,19 @@ fn can_pause_all_calls_in_pallet_except_on_whitelist() {
 fn can_unpause_specific_call() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(TxPause::pause(
-			RuntimeOrigin::signed(mock::PauseOrigin::get()),
+			RuntimeOrigin::signed_with_basic_filter(mock::PauseOrigin::get()),
 			full_name::<Test>(b"Balances", b"transfer_allow_death"),
 		));
 		assert_err!(
-			call_transfer(2, 1).dispatch(RuntimeOrigin::signed(2)),
+			call_transfer(2, 1).dispatch(RuntimeOrigin::signed_with_basic_filter(2)),
 			frame_system::Error::<Test>::CallFiltered
 		);
 
 		assert_ok!(TxPause::unpause(
-			RuntimeOrigin::signed(mock::UnpauseOrigin::get()),
+			RuntimeOrigin::signed_with_basic_filter(mock::UnpauseOrigin::get()),
 			full_name::<Test>(b"Balances", b"transfer_allow_death"),
 		));
-		assert_ok!(call_transfer(4, 1).dispatch(RuntimeOrigin::signed(0)));
+		assert_ok!(call_transfer(4, 1).dispatch(RuntimeOrigin::signed_with_basic_filter(0)));
 	});
 }
 
@@ -91,11 +91,11 @@ fn can_filter_balance_in_batch_when_paused() {
 			RuntimeCall::Utility(pallet_utility::Call::batch { calls: vec![call_transfer(1, 1)] });
 
 		assert_ok!(TxPause::pause(
-			RuntimeOrigin::signed(mock::PauseOrigin::get()),
+			RuntimeOrigin::signed_with_basic_filter(mock::PauseOrigin::get()),
 			full_name::<Test>(b"Balances", b"transfer_allow_death"),
 		));
 
-		assert_ok!(batch_call.clone().dispatch(RuntimeOrigin::signed(0)));
+		assert_ok!(batch_call.clone().dispatch(RuntimeOrigin::signed_with_basic_filter(0)));
 		System::assert_last_event(
 			pallet_utility::Event::BatchInterrupted {
 				index: 0,
@@ -110,13 +110,13 @@ fn can_filter_balance_in_batch_when_paused() {
 fn can_filter_balance_in_proxy_when_paused() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(TxPause::pause(
-			RuntimeOrigin::signed(mock::PauseOrigin::get()),
+			RuntimeOrigin::signed_with_basic_filter(mock::PauseOrigin::get()),
 			full_name::<Test>(b"Balances", b"transfer_allow_death"),
 		));
 
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::JustTransfer, 0));
+		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed_with_basic_filter(1), 2, ProxyType::JustTransfer, 0));
 
-		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, Box::new(call_transfer(1, 1))));
+		assert_ok!(Proxy::proxy(RuntimeOrigin::signed_with_basic_filter(2), 1, None, Box::new(call_transfer(1, 1))));
 		System::assert_last_event(
 			pallet_proxy::Event::ProxyExecuted {
 				result: DispatchError::from(frame_system::Error::<Test>::CallFiltered).into(),
@@ -133,7 +133,7 @@ fn fails_to_pause_self() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
 			TxPause::pause(
-				RuntimeOrigin::signed(mock::PauseOrigin::get()),
+				RuntimeOrigin::signed_with_basic_filter(mock::PauseOrigin::get()),
 				full_name::<Test>(b"TxPause", b"pause"),
 			),
 			Error::<Test>::Unpausable
@@ -144,20 +144,20 @@ fn fails_to_pause_self() {
 #[test]
 fn fails_to_pause_unpausable_call_when_other_call_is_paused() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(call_transfer(1, 1).dispatch(RuntimeOrigin::signed(0)));
+		assert_ok!(call_transfer(1, 1).dispatch(RuntimeOrigin::signed_with_basic_filter(0)));
 
 		let batch_call =
 			RuntimeCall::Utility(pallet_utility::Call::batch { calls: vec![call_transfer(1, 1)] });
-		assert_ok!(batch_call.clone().dispatch(RuntimeOrigin::signed(0)));
+		assert_ok!(batch_call.clone().dispatch(RuntimeOrigin::signed_with_basic_filter(0)));
 
 		assert_ok!(TxPause::pause(
-			RuntimeOrigin::signed(mock::PauseOrigin::get()),
+			RuntimeOrigin::signed_with_basic_filter(mock::PauseOrigin::get()),
 			full_name::<Test>(b"Balances", b"transfer_allow_death"),
 		));
 
-		assert_ok!(call_transfer_keep_alive(3, 1).dispatch(RuntimeOrigin::signed(3)));
+		assert_ok!(call_transfer_keep_alive(3, 1).dispatch(RuntimeOrigin::signed_with_basic_filter(3)));
 		assert_err!(
-			call_transfer(2, 1).dispatch(RuntimeOrigin::signed(0)),
+			call_transfer(2, 1).dispatch(RuntimeOrigin::signed_with_basic_filter(0)),
 			frame_system::Error::<Test>::CallFiltered
 		);
 	});
@@ -168,7 +168,7 @@ fn fails_to_pause_unpausable_call() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
 			TxPause::pause(
-				RuntimeOrigin::signed(mock::PauseOrigin::get()),
+				RuntimeOrigin::signed_with_basic_filter(mock::PauseOrigin::get()),
 				full_name::<Test>(b"Balances", b"transfer_keep_alive"),
 			),
 			Error::<Test>::Unpausable
@@ -180,13 +180,13 @@ fn fails_to_pause_unpausable_call() {
 fn fails_to_pause_already_paused_pallet() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(TxPause::pause(
-			RuntimeOrigin::signed(mock::PauseOrigin::get()),
+			RuntimeOrigin::signed_with_basic_filter(mock::PauseOrigin::get()),
 			full_name::<Test>(b"Balances", b"transfer_allow_death"),
 		));
 
 		assert_noop!(
 			TxPause::pause(
-				RuntimeOrigin::signed(mock::PauseOrigin::get()),
+				RuntimeOrigin::signed_with_basic_filter(mock::PauseOrigin::get()),
 				full_name::<Test>(b"Balances", b"transfer_allow_death"),
 			),
 			Error::<Test>::IsPaused
@@ -199,7 +199,7 @@ fn fails_to_unpause_not_paused_pallet() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
 			TxPause::unpause(
-				RuntimeOrigin::signed(mock::UnpauseOrigin::get()),
+				RuntimeOrigin::signed_with_basic_filter(mock::UnpauseOrigin::get()),
 				full_name::<Test>(b"Balances", b"transfer_keep_alive"),
 			),
 			Error::<Test>::IsUnpaused

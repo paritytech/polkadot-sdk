@@ -37,7 +37,7 @@ fn test_whitelist_call_and_remove() {
 		);
 
 		assert_noop!(
-			Whitelist::whitelist_call(RuntimeOrigin::signed(1), call_hash),
+			Whitelist::whitelist_call(RuntimeOrigin::signed_with_basic_filter(1), call_hash),
 			DispatchError::BadOrigin,
 		);
 
@@ -51,7 +51,7 @@ fn test_whitelist_call_and_remove() {
 		);
 
 		assert_noop!(
-			Whitelist::remove_whitelisted_call(RuntimeOrigin::signed(1), call_hash),
+			Whitelist::remove_whitelisted_call(RuntimeOrigin::signed_with_basic_filter(1), call_hash),
 			DispatchError::BadOrigin,
 		);
 
@@ -89,7 +89,7 @@ fn test_whitelist_call_and_execute() {
 
 		assert_noop!(
 			Whitelist::dispatch_whitelisted_call(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				call_hash,
 				call_encoded_len,
 				call_weight

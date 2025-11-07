@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 
+use frame_support::traits::{FromWithBasicFilter, IntoWithBasicFilter};
 use frame_support::{
 	dispatch::RawOrigin,
 	sp_runtime::traits::MaybeEquivalence,
@@ -22,7 +23,7 @@ impl<
 		AssetInspect: frame_support::traits::fungibles::roles::Inspect<AccountId>,
 		AccountId: Eq + Clone,
 		LocationToAccountId: xcm_executor::traits::ConvertLocation<AccountId>,
-		RuntimeOrigin: From<XcmOrigin> + OriginTrait + Clone,
+		RuntimeOrigin: FromWithBasicFilter<XcmOrigin> + OriginTrait + Clone,
 		L: From<Location> + Into<Location> + Clone,
 	> EnsureOriginWithArg<RuntimeOrigin, L>
 	for ForeignAssetOwner<IsForeign, AssetInspect, AccountId, LocationToAccountId, L>
@@ -53,7 +54,7 @@ where
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin(a: &L) -> Result<RuntimeOrigin, ()> {
 		let latest_location: Location = (*a).clone().try_into().map_err(|_| ())?;
-		Ok(pallet_xcm::Origin::Xcm(latest_location).into())
+		Ok(pallet_xcm::Origin::Xcm(latest_location).into_with_basic_filter())
 	}
 }
 
@@ -74,7 +75,8 @@ impl<
 	> EnsureOriginWithArg<RuntimeOrigin, L>
 	for LocalAssetOwner<MatchAssetId, AssetInspect, AccountId, AssetId, L>
 where
-	RuntimeOrigin: Into<Result<RawOrigin<AccountId>, RuntimeOrigin>> + From<RawOrigin<AccountId>>,
+	RuntimeOrigin: Into<Result<RawOrigin<AccountId>, RuntimeOrigin>>
+		+ FromWithBasicFilter<RawOrigin<AccountId>>,
 	<AssetInspect as frame_support::traits::fungibles::Inspect<AccountId>>::AssetId: From<AssetId>,
 {
 	type Success = L;
@@ -94,6 +96,6 @@ where
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin(_: &L) -> Result<RuntimeOrigin, ()> {
-		Ok(RawOrigin::Root.into())
+		Ok(RawOrigin::Root.into_with_basic_filter())
 	}
 }

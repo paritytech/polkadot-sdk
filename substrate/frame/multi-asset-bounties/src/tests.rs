@@ -112,7 +112,7 @@ fn fund_bounty_in_batch_respects_max_total() {
 				})
 			]
 		})
-		.dispatch(RuntimeOrigin::signed(spend_origin)));
+		.dispatch(RuntimeOrigin::signed_with_basic_filter(spend_origin)));
 
 		// Given
 		let value = 5; // `native_amount` is 5
@@ -136,7 +136,7 @@ fn fund_bounty_in_batch_respects_max_total() {
 					})
 				]
 			})
-			.dispatch(RuntimeOrigin::signed(spend_origin)),
+			.dispatch(RuntimeOrigin::signed_with_basic_filter(spend_origin)),
 			Error::<Test>::InsufficientPermission
 		);
 	});
@@ -183,14 +183,14 @@ fn fund_bounty_fails() {
 		let _ = Balances::mint_into(&curator, Balances::minimum_balance());
 
 		// When/Then
-		let invalid_origin = RuntimeOrigin::none();
+		let invalid_origin = RuntimeOrigin::none_with_basic_filter();
 		assert_noop!(
 			Bounties::fund_bounty(invalid_origin, Box::new(asset_kind), value, curator, metadata),
 			BadOrigin
 		);
 
 		// When/Then
-		let invalid_origin = RuntimeOrigin::signed(0);
+		let invalid_origin = RuntimeOrigin::signed_with_basic_filter(0);
 		assert_noop!(
 			Bounties::fund_bounty(invalid_origin, Box::new(asset_kind), value, curator, metadata),
 			BadOrigin
@@ -213,7 +213,7 @@ fn fund_bounty_fails() {
 		let invalid_value = 11;
 		assert_noop!(
 			Bounties::fund_bounty(
-				RuntimeOrigin::signed(10), // max spending of 10
+				RuntimeOrigin::signed_with_basic_filter(10), // max spending of 10
 				Box::new(asset_kind),
 				invalid_value,
 				curator,
@@ -259,7 +259,7 @@ fn fund_child_bounty_works() {
 
 		// When
 		assert_ok!(Bounties::fund_child_bounty(
-			RuntimeOrigin::signed(s.curator),
+			RuntimeOrigin::signed_with_basic_filter(s.curator),
 			s.parent_bounty_id,
 			s.child_value,
 			Some(s.child_curator),
@@ -319,7 +319,7 @@ fn fund_child_bounty_works() {
 
 		// When
 		assert_ok!(Bounties::fund_child_bounty(
-			RuntimeOrigin::signed(s.curator),
+			RuntimeOrigin::signed_with_basic_filter(s.curator),
 			s.parent_bounty_id,
 			s.child_value,
 			None,
@@ -377,7 +377,7 @@ fn fund_child_bounty_fails() {
 		let s = create_active_parent_bounty();
 
 		// When/Then
-		let invalid_origin = RuntimeOrigin::none();
+		let invalid_origin = RuntimeOrigin::none_with_basic_filter();
 		assert_noop!(
 			Bounties::fund_child_bounty(
 				invalid_origin,
@@ -393,7 +393,7 @@ fn fund_child_bounty_fails() {
 		let invalid_parent_index = 2;
 		assert_noop!(
 			Bounties::fund_child_bounty(
-				RuntimeOrigin::signed(s.curator),
+				RuntimeOrigin::signed_with_basic_filter(s.curator),
 				invalid_parent_index,
 				s.child_value,
 				None,
@@ -406,7 +406,7 @@ fn fund_child_bounty_fails() {
 		let invalid_value = 0;
 		assert_noop!(
 			Bounties::fund_child_bounty(
-				RuntimeOrigin::signed(s.curator),
+				RuntimeOrigin::signed_with_basic_filter(s.curator),
 				s.parent_bounty_id,
 				invalid_value,
 				None,
@@ -419,7 +419,7 @@ fn fund_child_bounty_fails() {
 		let invalid_metadata: <Test as frame_system::Config>::Hash = [1u8; 32].into();
 		assert_noop!(
 			Bounties::fund_child_bounty(
-				RuntimeOrigin::signed(s.curator),
+				RuntimeOrigin::signed_with_basic_filter(s.curator),
 				s.parent_bounty_id,
 				s.child_value,
 				None,
@@ -429,7 +429,7 @@ fn fund_child_bounty_fails() {
 		);
 
 		// When/Then
-		let invalid_origin = RuntimeOrigin::signed(1);
+		let invalid_origin = RuntimeOrigin::signed_with_basic_filter(1);
 		assert_noop!(
 			Bounties::fund_child_bounty(
 				invalid_origin,
@@ -445,7 +445,7 @@ fn fund_child_bounty_fails() {
 		let invalid_value = s.value + 1;
 		assert_noop!(
 			Bounties::fund_child_bounty(
-				RuntimeOrigin::signed(s.curator),
+				RuntimeOrigin::signed_with_basic_filter(s.curator),
 				s.parent_bounty_id,
 				invalid_value,
 				None,
@@ -457,7 +457,7 @@ fn fund_child_bounty_fails() {
 		// Given
 		MaxActiveChildBountyCount::set(1);
 		assert_ok!(Bounties::fund_child_bounty(
-			RuntimeOrigin::signed(s.curator),
+			RuntimeOrigin::signed_with_basic_filter(s.curator),
 			s.parent_bounty_id,
 			s.child_value,
 			None,
@@ -467,7 +467,7 @@ fn fund_child_bounty_fails() {
 		// When/Then
 		assert_noop!(
 			Bounties::fund_child_bounty(
-				RuntimeOrigin::signed(s.curator),
+				RuntimeOrigin::signed_with_basic_filter(s.curator),
 				s.parent_bounty_id,
 				s.child_value,
 				None,
@@ -482,7 +482,7 @@ fn fund_child_bounty_fails() {
 		// When/Then
 		assert_noop!(
 			Bounties::fund_child_bounty(
-				RuntimeOrigin::signed(s.curator),
+				RuntimeOrigin::signed_with_basic_filter(s.curator),
 				s.parent_bounty_id,
 				s.child_value,
 				None,
@@ -502,7 +502,7 @@ fn check_status_works() {
 		set_status(payment_id, PaymentStatus::Failure);
 
 		// When
-		assert_ok!(Bounties::check_status(RuntimeOrigin::signed(1), s.parent_bounty_id, None));
+		assert_ok!(Bounties::check_status(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, None));
 
 		// Then
 		assert_eq!(
@@ -536,7 +536,7 @@ fn check_status_works() {
 		set_status(payment_id, PaymentStatus::Success);
 
 		// When
-		assert_ok!(Bounties::check_status(RuntimeOrigin::signed(1), s.parent_bounty_id, None));
+		assert_ok!(Bounties::check_status(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, None));
 
 		// Then
 		assert_eq!(
@@ -554,7 +554,7 @@ fn check_status_works() {
 		set_status(payment_id, PaymentStatus::Failure);
 
 		// When
-		assert_ok!(Bounties::check_status(RuntimeOrigin::signed(1), s.parent_bounty_id, None));
+		assert_ok!(Bounties::check_status(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, None));
 
 		// Then
 		assert_eq!(
@@ -587,7 +587,7 @@ fn check_status_works() {
 		set_status(payment_id, PaymentStatus::Success);
 
 		// When
-		assert_ok!(Bounties::check_status(RuntimeOrigin::signed(1), s.parent_bounty_id, None));
+		assert_ok!(Bounties::check_status(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, None));
 
 		// Then
 		assert_eq!(
@@ -617,7 +617,7 @@ fn check_status_works() {
 		set_status(payment_id, PaymentStatus::Failure);
 
 		// When
-		assert_ok!(Bounties::check_status(RuntimeOrigin::signed(1), s.parent_bounty_id, None));
+		assert_ok!(Bounties::check_status(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, None));
 
 		// Then
 		expect_events(vec![BountiesEvent::PaymentFailed {
@@ -647,7 +647,7 @@ fn check_status_works() {
 		set_status(payment_id, PaymentStatus::Success);
 
 		// When
-		assert_ok!(Bounties::check_status(RuntimeOrigin::signed(1), s.parent_bounty_id, None));
+		assert_ok!(Bounties::check_status(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, None));
 
 		// Then
 		expect_events(vec![BountiesEvent::BountyPayoutProcessed {
@@ -682,7 +682,7 @@ fn check_status_works() {
 
 		// When
 		assert_ok!(Bounties::check_status(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			s.parent_bounty_id,
 			Some(s.child_bounty_id)
 		));
@@ -725,7 +725,7 @@ fn check_status_works() {
 
 		// When
 		assert_ok!(Bounties::check_status(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			s.parent_bounty_id,
 			Some(s.child_bounty_id)
 		));
@@ -757,7 +757,7 @@ fn check_status_works() {
 
 		// When
 		assert_ok!(Bounties::check_status(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			s.parent_bounty_id,
 			Some(s.child_bounty_id)
 		));
@@ -807,7 +807,7 @@ fn check_status_works() {
 
 		// When
 		assert_ok!(Bounties::check_status(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			s.parent_bounty_id,
 			Some(s.child_bounty_id)
 		));
@@ -853,7 +853,7 @@ fn check_status_works() {
 		// Given: child-bounty without curator and status `RefundAttempted` and payment succeeds
 		let s = create_active_parent_bounty();
 		assert_ok!(Bounties::fund_child_bounty(
-			RuntimeOrigin::signed(s.curator),
+			RuntimeOrigin::signed_with_basic_filter(s.curator),
 			s.parent_bounty_id,
 			s.child_value,
 			None,
@@ -870,7 +870,7 @@ fn check_status_works() {
 			s.child_value,
 		);
 		assert_ok!(Bounties::close_bounty(
-			RuntimeOrigin::signed(s.curator),
+			RuntimeOrigin::signed_with_basic_filter(s.curator),
 			s.parent_bounty_id,
 			Some(s.child_bounty_id),
 		));
@@ -881,7 +881,7 @@ fn check_status_works() {
 
 		// When
 		assert_ok!(Bounties::check_status(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			s.parent_bounty_id,
 			Some(s.child_bounty_id)
 		));
@@ -898,7 +898,7 @@ fn check_status_works() {
 
 		// When
 		assert_ok!(Bounties::check_status(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			s.parent_bounty_id,
 			Some(s.child_bounty_id)
 		));
@@ -936,7 +936,7 @@ fn check_status_works() {
 
 		// Given: award same parent bounty as previous `Given` setup
 		assert_ok!(Bounties::award_bounty(
-			RuntimeOrigin::signed(s.curator),
+			RuntimeOrigin::signed_with_basic_filter(s.curator),
 			s.parent_bounty_id,
 			None,
 			s.beneficiary
@@ -945,7 +945,7 @@ fn check_status_works() {
 		// When
 		let payment_id = get_payment_id(s.parent_bounty_id, None).expect("no payment attempt");
 		set_status(payment_id, PaymentStatus::Success);
-		assert_ok!(Bounties::check_status(RuntimeOrigin::signed(1), s.parent_bounty_id, None));
+		assert_ok!(Bounties::check_status(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, None));
 
 		// Then
 		assert_eq!(
@@ -963,34 +963,34 @@ fn check_status_fails() {
 		let s = create_parent_bounty();
 
 		// When/Then
-		assert_noop!(Bounties::check_status(RuntimeOrigin::none(), 2, None), BadOrigin);
+		assert_noop!(Bounties::check_status(RuntimeOrigin::none_with_basic_filter(), 2, None), BadOrigin);
 
 		// When/Then
 		assert_noop!(
-			Bounties::check_status(RuntimeOrigin::signed(1), 2, None),
+			Bounties::check_status(RuntimeOrigin::signed_with_basic_filter(1), 2, None),
 			Error::<Test>::InvalidIndex
 		);
 
 		// When/Then
 		assert_noop!(
-			Bounties::check_status(RuntimeOrigin::signed(1), s.parent_bounty_id, Some(2)),
+			Bounties::check_status(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, Some(2)),
 			Error::<Test>::InvalidIndex
 		);
 
 		// When/Then
 		assert_noop!(
-			Bounties::check_status(RuntimeOrigin::signed(1), s.parent_bounty_id, None),
+			Bounties::check_status(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, None),
 			Error::<Test>::FundingInconclusive
 		);
 
 		// Given
 		let payment_id = get_payment_id(s.parent_bounty_id, None).expect("no payment attempt");
 		set_status(payment_id, PaymentStatus::Failure);
-		assert_ok!(Bounties::check_status(RuntimeOrigin::signed(1), s.parent_bounty_id, None));
+		assert_ok!(Bounties::check_status(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, None));
 
 		// Then
 		assert_noop!(
-			Bounties::check_status(RuntimeOrigin::signed(1), s.parent_bounty_id, None),
+			Bounties::check_status(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, None),
 			Error::<Test>::UnexpectedStatus
 		);
 
@@ -999,7 +999,7 @@ fn check_status_fails() {
 
 		// Then
 		assert_noop!(
-			Bounties::check_status(RuntimeOrigin::signed(1), s.parent_bounty_id, None),
+			Bounties::check_status(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, None),
 			Error::<Test>::RefundInconclusive
 		);
 
@@ -1008,7 +1008,7 @@ fn check_status_fails() {
 
 		// Then
 		assert_noop!(
-			Bounties::check_status(RuntimeOrigin::signed(1), s.parent_bounty_id, None),
+			Bounties::check_status(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, None),
 			Error::<Test>::PayoutInconclusive
 		);
 	});
@@ -1024,7 +1024,7 @@ fn retry_payment_works() {
 		reject_payment(parent_bounty_account, s.parent_bounty_id, None, s.asset_kind, s.value);
 
 		// When
-		assert_ok!(Bounties::retry_payment(RuntimeOrigin::signed(1), s.parent_bounty_id, None));
+		assert_ok!(Bounties::retry_payment(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, None));
 
 		// Then
 		let payment_id = get_payment_id(s.parent_bounty_id, None).expect("no payment attempt");
@@ -1057,7 +1057,7 @@ fn retry_payment_works() {
 		reject_payment(funding_source_account, s.parent_bounty_id, None, s.asset_kind, s.value);
 
 		// When
-		assert_ok!(Bounties::retry_payment(RuntimeOrigin::signed(1), s.parent_bounty_id, None));
+		assert_ok!(Bounties::retry_payment(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, None));
 
 		// Then
 		let payment_id = get_payment_id(s.parent_bounty_id, None).expect("no payment attempt");
@@ -1079,7 +1079,7 @@ fn retry_payment_works() {
 		reject_payment(s.beneficiary, s.parent_bounty_id, None, s.asset_kind, s.value);
 
 		// When
-		assert_ok!(Bounties::retry_payment(RuntimeOrigin::signed(1), s.parent_bounty_id, None));
+		assert_ok!(Bounties::retry_payment(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, None));
 
 		// Then
 		let payment_id = get_payment_id(s.parent_bounty_id, None).expect("no payment attempt");
@@ -1112,7 +1112,7 @@ fn retry_payment_works() {
 
 		// When
 		assert_ok!(Bounties::retry_payment(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			s.parent_bounty_id,
 			Some(s.child_bounty_id)
 		));
@@ -1167,7 +1167,7 @@ fn retry_payment_works() {
 
 		// When
 		assert_ok!(Bounties::retry_payment(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			s.parent_bounty_id,
 			Some(s.child_bounty_id)
 		));
@@ -1206,7 +1206,7 @@ fn retry_payment_works() {
 
 		// When
 		assert_ok!(Bounties::retry_payment(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			s.parent_bounty_id,
 			Some(s.child_bounty_id)
 		));
@@ -1241,25 +1241,25 @@ fn retry_payment_fails() {
 
 		// When/Then
 		assert_noop!(
-			Bounties::retry_payment(RuntimeOrigin::signed(1), s.parent_bounty_id, None),
+			Bounties::retry_payment(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, None),
 			Error::<Test>::UnexpectedStatus
 		);
 
 		// When/Then
 		assert_noop!(
-			Bounties::retry_payment(RuntimeOrigin::none(), s.parent_bounty_id, None),
+			Bounties::retry_payment(RuntimeOrigin::none_with_basic_filter(), s.parent_bounty_id, None),
 			BadOrigin
 		);
 
 		// When/Then
 		assert_noop!(
-			Bounties::retry_payment(RuntimeOrigin::signed(1), 2, None),
+			Bounties::retry_payment(RuntimeOrigin::signed_with_basic_filter(1), 2, None),
 			Error::<Test>::InvalidIndex
 		);
 
 		// When/Then
 		assert_noop!(
-			Bounties::retry_payment(RuntimeOrigin::signed(1), s.parent_bounty_id, Some(1)),
+			Bounties::retry_payment(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, Some(1)),
 			Error::<Test>::InvalidIndex
 		);
 
@@ -1270,7 +1270,7 @@ fn retry_payment_fails() {
 
 		// When/Then
 		assert_noop!(
-			Bounties::retry_payment(RuntimeOrigin::signed(1), s.parent_bounty_id, None),
+			Bounties::retry_payment(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, None),
 			Error::<Test>::UnexpectedStatus
 		);
 
@@ -1281,7 +1281,7 @@ fn retry_payment_fails() {
 
 		// When/Then
 		assert_noop!(
-			Bounties::retry_payment(RuntimeOrigin::signed(1), s.parent_bounty_id, None),
+			Bounties::retry_payment(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, None),
 			Error::<Test>::UnexpectedStatus
 		);
 
@@ -1292,7 +1292,7 @@ fn retry_payment_fails() {
 
 		// When/Then
 		assert_noop!(
-			Bounties::retry_payment(RuntimeOrigin::signed(1), s.parent_bounty_id, None),
+			Bounties::retry_payment(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, None),
 			Error::<Test>::UnexpectedStatus
 		);
 
@@ -1305,7 +1305,7 @@ fn retry_payment_fails() {
 		// When/Then
 		assert_noop!(
 			Bounties::retry_payment(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id)
 			),
@@ -1322,7 +1322,7 @@ fn accept_curator_works() {
 
 		// When
 		assert_ok!(Bounties::accept_curator(
-			RuntimeOrigin::signed(s.curator),
+			RuntimeOrigin::signed_with_basic_filter(s.curator),
 			s.parent_bounty_id,
 			None,
 		));
@@ -1349,7 +1349,7 @@ fn accept_curator_works() {
 
 		// When
 		assert_ok!(Bounties::accept_curator(
-			RuntimeOrigin::signed(s.child_curator),
+			RuntimeOrigin::signed_with_basic_filter(s.child_curator),
 			s.parent_bounty_id,
 			Some(s.child_bounty_id),
 		));
@@ -1378,7 +1378,7 @@ fn accept_curator_works() {
 		// Given: 2nd child-bounty with same curator
 		let _ = Balances::mint_into(&s.child_curator, s.child_curator_deposit);
 		assert_ok!(Bounties::fund_child_bounty(
-			RuntimeOrigin::signed(s.curator),
+			RuntimeOrigin::signed_with_basic_filter(s.curator),
 			s.parent_bounty_id,
 			s.child_value,
 			Some(s.child_curator),
@@ -1399,7 +1399,7 @@ fn accept_curator_works() {
 
 		// When
 		assert_ok!(Bounties::accept_curator(
-			RuntimeOrigin::signed(s.child_curator),
+			RuntimeOrigin::signed_with_basic_filter(s.child_curator),
 			s.parent_bounty_id,
 			Some(child_bounty_id),
 		));
@@ -1438,7 +1438,7 @@ fn accept_curator_handles_different_deposit_calculations() {
 
 		// When
 		assert_ok!(Bounties::accept_curator(
-			RuntimeOrigin::signed(curator),
+			RuntimeOrigin::signed_with_basic_filter(curator),
 			parent_bounty_id,
 			None,
 		));
@@ -1468,7 +1468,7 @@ fn accept_curator_handles_different_deposit_calculations() {
 
 		// When
 		assert_ok!(Bounties::accept_curator(
-			RuntimeOrigin::signed(curator),
+			RuntimeOrigin::signed_with_basic_filter(curator),
 			parent_bounty_id,
 			None,
 		));
@@ -1488,26 +1488,26 @@ fn accept_curator_fails() {
 
 		// When/Then
 		assert_noop!(
-			Bounties::accept_curator(RuntimeOrigin::signed(s.curator), s.parent_bounty_id, None,),
+			Bounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(s.curator), s.parent_bounty_id, None,),
 			Error::<Test>::UnexpectedStatus
 		);
 
 		// When/Then
 		assert_noop!(
-			Bounties::accept_curator(RuntimeOrigin::none(), s.parent_bounty_id, None,),
+			Bounties::accept_curator(RuntimeOrigin::none_with_basic_filter(), s.parent_bounty_id, None,),
 			BadOrigin
 		);
 
 		// When/Then
 		assert_noop!(
-			Bounties::accept_curator(RuntimeOrigin::signed(s.curator), 2, None),
+			Bounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(s.curator), 2, None),
 			Error::<Test>::InvalidIndex
 		);
 
 		// When/Then
 		assert_noop!(
 			Bounties::accept_curator(
-				RuntimeOrigin::signed(s.child_curator),
+				RuntimeOrigin::signed_with_basic_filter(s.child_curator),
 				s.parent_bounty_id,
 				Some(2),
 			),
@@ -1522,13 +1522,13 @@ fn accept_curator_fails() {
 
 		// When/Then
 		assert_noop!(
-			Bounties::accept_curator(RuntimeOrigin::signed(1), s.parent_bounty_id, None,),
+			Bounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, None,),
 			Error::<Test>::RequireCurator
 		);
 
 		// When/Then
 		assert_noop!(
-			Bounties::accept_curator(RuntimeOrigin::signed(s.curator), s.parent_bounty_id, None,),
+			Bounties::accept_curator(RuntimeOrigin::signed_with_basic_filter(s.curator), s.parent_bounty_id, None,),
 			TokenError::FundsUnavailable
 		);
 
@@ -1549,7 +1549,7 @@ fn accept_curator_fails() {
 		// When/Then
 		assert_noop!(
 			Bounties::accept_curator(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
 			),
@@ -1559,7 +1559,7 @@ fn accept_curator_fails() {
 		// When/Then
 		assert_noop!(
 			Bounties::accept_curator(
-				RuntimeOrigin::signed(s.child_curator),
+				RuntimeOrigin::signed_with_basic_filter(s.child_curator),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
 			),
@@ -1576,7 +1576,7 @@ fn unassign_curator_works() {
 
 		// When: sender is the curator
 		assert_ok!(Bounties::unassign_curator(
-			RuntimeOrigin::signed(s.curator),
+			RuntimeOrigin::signed_with_basic_filter(s.curator),
 			s.parent_bounty_id,
 			None
 		));
@@ -1621,7 +1621,7 @@ fn unassign_curator_works() {
 
 		// When: sender is the curator
 		assert_ok!(Bounties::unassign_curator(
-			RuntimeOrigin::signed(s.curator),
+			RuntimeOrigin::signed_with_basic_filter(s.curator),
 			s.parent_bounty_id,
 			None
 		));
@@ -1646,7 +1646,7 @@ fn unassign_curator_works() {
 
 		// When: sender is the child curator
 		assert_ok!(Bounties::unassign_curator(
-			RuntimeOrigin::signed(s.child_curator),
+			RuntimeOrigin::signed_with_basic_filter(s.child_curator),
 			s.parent_bounty_id,
 			Some(s.child_bounty_id)
 		));
@@ -1699,7 +1699,7 @@ fn unassign_curator_works() {
 
 		// When: sender is child curator
 		assert_ok!(Bounties::unassign_curator(
-			RuntimeOrigin::signed(s.child_curator),
+			RuntimeOrigin::signed_with_basic_filter(s.child_curator),
 			s.parent_bounty_id,
 			Some(s.child_bounty_id)
 		));
@@ -1715,7 +1715,7 @@ fn unassign_curator_works() {
 
 		// When: sender is parent curator
 		assert_ok!(Bounties::unassign_curator(
-			RuntimeOrigin::signed(s.curator),
+			RuntimeOrigin::signed_with_basic_filter(s.curator),
 			s.parent_bounty_id,
 			Some(s.child_bounty_id)
 		));
@@ -1749,13 +1749,13 @@ fn unassign_curator_fails() {
 
 		// When/Then
 		assert_noop!(
-			Bounties::unassign_curator(RuntimeOrigin::none(), s.parent_bounty_id, None),
+			Bounties::unassign_curator(RuntimeOrigin::none_with_basic_filter(), s.parent_bounty_id, None),
 			BadOrigin
 		);
 
 		// When/Then
 		assert_noop!(
-			Bounties::unassign_curator(RuntimeOrigin::signed(1), s.parent_bounty_id, None),
+			Bounties::unassign_curator(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, None),
 			BadOrigin
 		);
 
@@ -1776,7 +1776,7 @@ fn unassign_curator_fails() {
 
 		// When/Then
 		assert_noop!(
-			Bounties::unassign_curator(RuntimeOrigin::signed(1), s.parent_bounty_id, None),
+			Bounties::unassign_curator(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, None),
 			BadOrigin
 		);
 	});
@@ -1824,7 +1824,7 @@ fn propose_curator_works() {
 
 		// When
 		assert_ok!(Bounties::propose_curator(
-			RuntimeOrigin::signed(s.curator),
+			RuntimeOrigin::signed_with_basic_filter(s.curator),
 			s.parent_bounty_id,
 			Some(s.child_bounty_id),
 			s.child_curator,
@@ -1877,7 +1877,7 @@ fn propose_curator_fails() {
 		// When/Then
 		assert_noop!(
 			Bounties::propose_curator(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				s.parent_bounty_id,
 				None,
 				s.curator,
@@ -1902,7 +1902,7 @@ fn propose_curator_fails() {
 		SpendLimit::set(s.value);
 		let s = create_active_parent_bounty();
 		assert_ok!(Bounties::fund_child_bounty(
-			RuntimeOrigin::signed(s.curator),
+			RuntimeOrigin::signed_with_basic_filter(s.curator),
 			s.parent_bounty_id,
 			s.child_value,
 			Some(s.child_curator),
@@ -1912,7 +1912,7 @@ fn propose_curator_fails() {
 		// When/Then
 		assert_noop!(
 			Bounties::propose_curator(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
 				s.child_curator,
@@ -1926,7 +1926,7 @@ fn propose_curator_fails() {
 		// When/Then
 		assert_noop!(
 			Bounties::propose_curator(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
 				s.child_curator,
@@ -1937,7 +1937,7 @@ fn propose_curator_fails() {
 		// When/Then
 		assert_noop!(
 			Bounties::propose_curator(
-				RuntimeOrigin::signed(s.curator),
+				RuntimeOrigin::signed_with_basic_filter(s.curator),
 				s.parent_bounty_id,
 				Some(3),
 				s.child_curator,
@@ -1959,7 +1959,7 @@ fn propose_curator_fails() {
 		// When/Then
 		assert_noop!(
 			Bounties::propose_curator(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
 				s.child_curator,
@@ -1978,7 +1978,7 @@ fn award_bounty_works() {
 
 		// When
 		assert_ok!(Bounties::award_bounty(
-			RuntimeOrigin::signed(s.curator),
+			RuntimeOrigin::signed_with_basic_filter(s.curator),
 			s.parent_bounty_id,
 			None,
 			s.beneficiary
@@ -2019,7 +2019,7 @@ fn award_bounty_works() {
 
 		// When
 		assert_ok!(Bounties::award_bounty(
-			RuntimeOrigin::signed(s.child_curator),
+			RuntimeOrigin::signed_with_basic_filter(s.child_curator),
 			s.parent_bounty_id,
 			Some(s.child_bounty_id),
 			s.child_beneficiary
@@ -2074,7 +2074,7 @@ fn award_bounty_fails() {
 		// When/Then
 		assert_noop!(
 			Bounties::award_bounty(
-				RuntimeOrigin::signed(s.curator),
+				RuntimeOrigin::signed_with_basic_filter(s.curator),
 				s.parent_bounty_id,
 				None,
 				s.beneficiary
@@ -2088,7 +2088,7 @@ fn award_bounty_fails() {
 		// When/Then
 		assert_noop!(
 			Bounties::award_bounty(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				s.parent_bounty_id,
 				None,
 				s.beneficiary
@@ -2098,7 +2098,7 @@ fn award_bounty_fails() {
 
 		// When/Then
 		assert_noop!(
-			Bounties::award_bounty(RuntimeOrigin::signed(s.curator), 3, None, s.beneficiary),
+			Bounties::award_bounty(RuntimeOrigin::signed_with_basic_filter(s.curator), 3, None, s.beneficiary),
 			Error::<Test>::InvalidIndex
 		);
 
@@ -2108,7 +2108,7 @@ fn award_bounty_fails() {
 		// When/Then
 		assert_noop!(
 			Bounties::award_bounty(
-				RuntimeOrigin::signed(s.child_curator),
+				RuntimeOrigin::signed_with_basic_filter(s.child_curator),
 				s.parent_bounty_id,
 				Some(3),
 				s.child_beneficiary
@@ -2155,7 +2155,7 @@ fn close_bounty_works() {
 
 		// When: sender is parent curator
 		assert_ok!(Bounties::close_bounty(
-			RuntimeOrigin::signed(s.curator),
+			RuntimeOrigin::signed_with_basic_filter(s.curator),
 			s.parent_bounty_id,
 			None,
 		));
@@ -2232,7 +2232,7 @@ fn close_bounty_works() {
 
 		// When: sender is curator
 		assert_ok!(Bounties::close_bounty(
-			RuntimeOrigin::signed(s.child_curator),
+			RuntimeOrigin::signed_with_basic_filter(s.child_curator),
 			s.parent_bounty_id,
 			Some(s.child_bounty_id)
 		));
@@ -2255,7 +2255,7 @@ fn close_bounty_works() {
 
 		// When: sender is parent curator
 		assert_ok!(Bounties::close_bounty(
-			RuntimeOrigin::signed(s.curator),
+			RuntimeOrigin::signed_with_basic_filter(s.curator),
 			s.parent_bounty_id,
 			Some(s.child_bounty_id)
 		));
@@ -2315,7 +2315,7 @@ fn close_bounty_fails() {
 
 		// When/Then
 		assert_noop!(
-			Bounties::close_bounty(RuntimeOrigin::signed(s.curator), s.parent_bounty_id, None),
+			Bounties::close_bounty(RuntimeOrigin::signed_with_basic_filter(s.curator), s.parent_bounty_id, None),
 			BadOrigin
 		);
 
@@ -2324,13 +2324,13 @@ fn close_bounty_fails() {
 
 		// When/Then
 		assert_noop!(
-			Bounties::close_bounty(RuntimeOrigin::none(), s.parent_bounty_id, None),
+			Bounties::close_bounty(RuntimeOrigin::none_with_basic_filter(), s.parent_bounty_id, None),
 			BadOrigin
 		);
 
 		// When/Then
 		assert_noop!(
-			Bounties::close_bounty(RuntimeOrigin::signed(1), s.parent_bounty_id, None),
+			Bounties::close_bounty(RuntimeOrigin::signed_with_basic_filter(1), s.parent_bounty_id, None),
 			BadOrigin
 		);
 
@@ -2342,7 +2342,7 @@ fn close_bounty_fails() {
 
 		// Given
 		assert_ok!(Bounties::fund_child_bounty(
-			RuntimeOrigin::signed(s.curator),
+			RuntimeOrigin::signed_with_basic_filter(s.curator),
 			s.parent_bounty_id,
 			s.child_value,
 			Some(s.child_curator),
@@ -2367,7 +2367,7 @@ fn close_bounty_fails() {
 		// When/Then
 		assert_noop!(
 			Bounties::close_bounty(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id)
 			),
@@ -2377,7 +2377,7 @@ fn close_bounty_fails() {
 		// When/Then
 		assert_noop!(
 			Bounties::close_bounty(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::none_with_basic_filter(),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id)
 			),
@@ -2390,7 +2390,7 @@ fn close_bounty_fails() {
 		// When/Then
 		assert_noop!(
 			Bounties::close_bounty(
-				RuntimeOrigin::signed(s.child_curator),
+				RuntimeOrigin::signed_with_basic_filter(s.child_curator),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id)
 			),
@@ -2413,7 +2413,7 @@ fn close_parent_with_child_bounty() {
 
 		// Given: close child bounty
 		assert_ok!(Bounties::close_bounty(
-			RuntimeOrigin::signed(s.curator),
+			RuntimeOrigin::signed_with_basic_filter(s.curator),
 			s.parent_bounty_id,
 			Some(s.child_bounty_id)
 		));
@@ -2454,7 +2454,7 @@ fn fund_and_award_child_bounty_without_curator_works() {
 
 		// When
 		assert_ok!(Bounties::fund_child_bounty(
-			RuntimeOrigin::signed(s.curator),
+			RuntimeOrigin::signed_with_basic_filter(s.curator),
 			s.parent_bounty_id,
 			s.child_value,
 			None,
@@ -2472,7 +2472,7 @@ fn fund_and_award_child_bounty_without_curator_works() {
 			s.child_value,
 		);
 		assert_ok!(Bounties::award_bounty(
-			RuntimeOrigin::signed(s.curator),
+			RuntimeOrigin::signed_with_basic_filter(s.curator),
 			s.parent_bounty_id,
 			Some(child_bounty_id),
 			s.child_beneficiary

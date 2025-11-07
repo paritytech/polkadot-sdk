@@ -19,6 +19,7 @@
 //!
 //! Has to be compiled and run twice to calibrate on new hardware.
 
+use frame_support::traits::IntoWithBasicFilter;
 #[cfg(feature = "runtime-benchmarks")]
 use frame_benchmarking::v2::*;
 use frame_support::{pallet_prelude::*, weights::constants::*};
@@ -35,7 +36,7 @@ mod benchmarks {
 	fn initialize_pallet_grow(n: Linear<0, 1_000>) -> Result<(), BenchmarkError> {
 		#[block]
 		{
-			Pallet::<T>::initialize_pallet(RawOrigin::Root.into(), n, None)?;
+			Pallet::<T>::initialize_pallet(RawOrigin::Root.into_with_basic_filter(), n, None)?;
 		}
 
 		assert_eq!(TrashDataCount::<T>::get(), n);
@@ -45,11 +46,11 @@ mod benchmarks {
 
 	#[benchmark]
 	fn initialize_pallet_shrink(n: Linear<0, 1_000>) -> Result<(), BenchmarkError> {
-		Pallet::<T>::initialize_pallet(RawOrigin::Root.into(), n, None)?;
+		Pallet::<T>::initialize_pallet(RawOrigin::Root.into_with_basic_filter(), n, None)?;
 
 		#[block]
 		{
-			Pallet::<T>::initialize_pallet(RawOrigin::Root.into(), 0, Some(n))?;
+			Pallet::<T>::initialize_pallet(RawOrigin::Root.into_with_basic_filter(), 0, Some(n))?;
 		}
 
 		assert_eq!(TrashDataCount::<T>::get(), 0);
@@ -81,8 +82,8 @@ mod benchmarks {
 	#[benchmark]
 	fn on_idle_high_proof_waste() {
 		(0..5000).for_each(|i| TrashData::<T>::insert(i, [i as u8; 1024]));
-		let _ = Pallet::<T>::set_compute(RawOrigin::Root.into(), One::one());
-		let _ = Pallet::<T>::set_storage(RawOrigin::Root.into(), One::one());
+		let _ = Pallet::<T>::set_compute(RawOrigin::Root.into_with_basic_filter(), One::one());
+		let _ = Pallet::<T>::set_storage(RawOrigin::Root.into_with_basic_filter(), One::one());
 
 		#[block]
 		{
@@ -97,8 +98,8 @@ mod benchmarks {
 	#[benchmark]
 	fn on_idle_low_proof_waste() {
 		(0..5000).for_each(|i| TrashData::<T>::insert(i, [i as u8; 1024]));
-		let _ = Pallet::<T>::set_compute(RawOrigin::Root.into(), One::one());
-		let _ = Pallet::<T>::set_storage(RawOrigin::Root.into(), One::one());
+		let _ = Pallet::<T>::set_compute(RawOrigin::Root.into_with_basic_filter(), One::one());
+		let _ = Pallet::<T>::set_storage(RawOrigin::Root.into_with_basic_filter(), One::one());
 
 		#[block]
 		{

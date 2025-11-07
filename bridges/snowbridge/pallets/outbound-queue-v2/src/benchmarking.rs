@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 
 use crate::fixture::make_submit_delivery_receipt_message;
@@ -170,7 +171,7 @@ mod benchmarks {
 		#[block]
 		{
 			assert_ok!(OutboundQueue::<T>::submit_delivery_receipt(
-				RawOrigin::Signed(caller.clone()).into(),
+				RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 				Box::new(message.event),
 			));
 		}

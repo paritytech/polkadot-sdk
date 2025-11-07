@@ -21,7 +21,7 @@ use crate::dispatch::{DispatchResultWithPostInfo, Parameter, RawOrigin};
 use codec::MaxEncodedLen;
 use core::{cmp::Ordering, marker::PhantomData};
 use sp_runtime::{
-	traits::{BadOrigin, Get, Member, Morph, TryMorph},
+	traits::{BadOrigin, FromWithBasicFilter, Get, IntoWithBasicFilter, Member, Morph, TryMorph},
 	transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},
 	Either,
 };
@@ -455,7 +455,7 @@ pub trait UnfilteredDispatchable {
 /// Unlike `OriginTrait` impls, this does not include any kind of dispatch/call filter. Also, this
 /// trait is more flexible in terms of how it can be used: it is a `Parameter` and `Member`, so it
 /// can be used as dispatchable parameters as well as in storage items.
-pub trait CallerTrait<AccountId>: Parameter + Member + From<RawOrigin<AccountId>> {
+pub trait CallerTrait<AccountId>: Parameter + Member + FromWithBasicFilter<RawOrigin<AccountId>> {
 	/// Extract the signer from the message if it is a `Signed` origin.
 	fn into_system(self) -> Option<RawOrigin<AccountId>>;
 
@@ -484,7 +484,11 @@ pub trait OriginTrait: Sized {
 	type Call;
 
 	/// The caller origin, overarching type of all pallets origins.
-	type PalletsOrigin: Send + Sync + Into<Self> + CallerTrait<Self::AccountId> + MaxEncodedLen;
+	type PalletsOrigin: Send
+		+ Sync
+		+ IntoWithBasicFilter<Self>
+		+ CallerTrait<Self::AccountId>
+		+ MaxEncodedLen;
 
 	/// The AccountId used across the system.
 	type AccountId;
@@ -496,14 +500,16 @@ pub trait OriginTrait: Sized {
 	fn reset_filter(&mut self);
 
 	/// Replace the caller with caller from the other origin
-	fn set_caller_from(&mut self, other: impl Into<Self>);
+	fn set_caller_from(&mut self, other: impl IntoWithBasicFilter<Self>);
 
 	/// Replace the caller with caller from the other origin
 	fn set_caller(&mut self, caller: Self::PalletsOrigin);
 
 	/// Replace the caller with caller from the other origin
 	fn set_caller_from_signed(&mut self, caller_account: Self::AccountId) {
-		self.set_caller(Self::PalletsOrigin::from(RawOrigin::Signed(caller_account)))
+		self.set_caller(
+			Self::PalletsOrigin::from_with_basic_filter(RawOrigin::Signed(caller_account)),
+		)
 	}
 
 	/// Filter the call if caller is not root, if false is returned then the call must be filtered
@@ -588,14 +594,6 @@ pub trait Authorize {
 
 	/// The weight of the authorization function.
 	fn weight_of_authorize(&self) -> Weight;
-}
-
-pub trait FromWithBasicFilter<T>: Sized {
-	fn from_with_basic_filter(value: T) -> Self;
-}
-
-pub trait IntoWithBasicFilter<T> {
-	fn into_with_basic_filter(self) -> T;
 }
 
 #[cfg(test)]

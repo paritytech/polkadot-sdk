@@ -496,7 +496,7 @@ fn pop_assignment_for_core_works() {
 		schedule_blank_para(para_id, ParaKind::Parathread);
 		on_demand::Credits::<Test>::insert(&alice, amt);
 		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
-		assert_ok!(OnDemand::place_order_with_credits(RuntimeOrigin::signed(alice), amt, para_id));
+		assert_ok!(OnDemand::place_order_with_credits(RuntimeOrigin::signed_with_basic_filter(alice), amt, para_id));
 
 		// Case 1: Assignment idle
 		assert_ok!(CoretimeAssigner::assign_core(

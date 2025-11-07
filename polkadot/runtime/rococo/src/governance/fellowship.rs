@@ -16,6 +16,7 @@
 
 //! Elements of governance concerning the Rococo Fellowship.
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::borrow::Cow;
 use frame_support::traits::{MapSuccess, TryMapSuccess};
 use pallet_referenda::{Track, TrackInfo};
@@ -270,7 +271,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 		{
 			// For benchmarks, we enable a root origin.
 			// It is important that this is not available in production!
-			let root: Self::RuntimeOrigin = frame_system::RawOrigin::Root.into();
+			let root: Self::RuntimeOrigin = frame_system::RawOrigin::Root.into_with_basic_filter();
 			if &root == id {
 				return Ok(9)
 			}

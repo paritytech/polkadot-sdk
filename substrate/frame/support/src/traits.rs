@@ -108,9 +108,9 @@ pub use dispatch::EnsureOneOf;
 pub use dispatch::{
 	AsEnsureOriginWithArg, Authorize, CallerTrait, EitherOf, EitherOfDiverse, EnsureOrigin,
 	EnsureOriginEqualOrHigherPrivilege, EnsureOriginWithArg, MapSuccess, NeverEnsureOrigin,
-	OriginTrait, TryMapSuccess, TryWithMorphedArg, UnfilteredDispatchable, FromWithBasicFilter,
-	IntoWithBasicFilter,
+	OriginTrait, TryMapSuccess, TryWithMorphedArg, UnfilteredDispatchable,
 };
+pub use sp_runtime::traits::{FromWithBasicFilter, IntoWithBasicFilter};
 
 mod voting;
 pub use voting::{ClassCountOf, NoOpPoll, PollStatus, Polling, VoteTally};

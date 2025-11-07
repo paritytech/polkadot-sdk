@@ -303,10 +303,10 @@ mod with_pallet_assets {
 				20
 			));
 			assert_noop!(
-				Assets::transfer(RuntimeOrigin::signed(WHO), Compact(ASSET_ID), 2, 81),
+				Assets::transfer(RuntimeOrigin::signed_with_basic_filter(WHO), Compact(ASSET_ID), 2, 81),
 				pallet_assets::Error::<Test>::BalanceLow,
 			);
-			assert_ok!(Assets::transfer(RuntimeOrigin::signed(WHO), Compact(ASSET_ID), 2, 80));
+			assert_ok!(Assets::transfer(RuntimeOrigin::signed_with_basic_filter(WHO), Compact(ASSET_ID), 2, 80));
 		});
 	}
 }

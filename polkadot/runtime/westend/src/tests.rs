@@ -193,7 +193,7 @@ mod remote_tests {
 				{
 					assert_ok!(
 						pallet_nomination_pools::Pallet::<Runtime>::migrate_pool_to_delegate_stake(
-							RuntimeOrigin::signed(alice.clone()).into(),
+							RuntimeOrigin::signed_with_basic_filter(alice.clone()).into(),
 							k,
 						)
 					);
@@ -214,7 +214,7 @@ mod remote_tests {
 					let is_direct_staker = pallet_staking::Bonded::<Runtime>::contains_key(&k);
 
 					let migration = pallet_nomination_pools::Pallet::<Runtime>::migrate_delegation(
-						RuntimeOrigin::signed(alice.clone()).into(),
+						RuntimeOrigin::signed_with_basic_filter(alice.clone()).into(),
 						sp_runtime::MultiAddress::Id(k.clone()),
 					);
 
@@ -300,7 +300,7 @@ mod remote_tests {
 			// iterate over all stakers
 			pallet_staking::Ledger::<Runtime>::iter().for_each(|(ctrl, ledger)| {
 				match pallet_staking::Pallet::<Runtime>::migrate_currency(
-					RuntimeOrigin::signed(alice.clone()).into(),
+					RuntimeOrigin::signed_with_basic_filter(alice.clone()).into(),
 					ledger.stash.clone(),
 				) {
 					Ok(_) => {

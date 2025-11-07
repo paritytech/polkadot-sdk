@@ -19,6 +19,7 @@
 
 extern crate alloc;
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::vec::Vec;
 
 use super::*;
@@ -52,30 +53,30 @@ mod benches {
 		#[extrinsic_call]
 		_(RawOrigin::Root, c);
 
-		assert_last_event::<T>(Event::IdsReserved { count: c }.into());
+		assert_last_event::<T>(Event::IdsReserved { count: c }.into_with_basic_filter());
 		Ok(())
 	}
 
 	#[benchmark]
 	fn renew_id_reservation() -> Result<(), BenchmarkError> {
-		assert_ok!(DummyDim::<T>::reserve_ids(RawOrigin::Root.into(), 1));
-		assert_ok!(DummyDim::<T>::cancel_id_reservation(RawOrigin::Root.into(), 0));
+		assert_ok!(DummyDim::<T>::reserve_ids(RawOrigin::Root.into_with_basic_filter(), 1));
+		assert_ok!(DummyDim::<T>::cancel_id_reservation(RawOrigin::Root.into_with_basic_filter(), 0));
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, 0);
 
-		assert_last_event::<T>(Event::IdRenewed { id: 0 }.into());
+		assert_last_event::<T>(Event::IdRenewed { id: 0 }.into_with_basic_filter());
 		Ok(())
 	}
 
 	#[benchmark]
 	fn cancel_id_reservation() -> Result<(), BenchmarkError> {
-		assert_ok!(DummyDim::<T>::reserve_ids(RawOrigin::Root.into(), 1));
+		assert_ok!(DummyDim::<T>::reserve_ids(RawOrigin::Root.into_with_basic_filter(), 1));
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, 0);
 
-		assert_last_event::<T>(Event::IdUnreserved { id: 0 }.into());
+		assert_last_event::<T>(Event::IdUnreserved { id: 0 }.into_with_basic_filter());
 		Ok(())
 	}
 
@@ -83,7 +84,7 @@ mod benches {
 	fn recognize_personhood(
 		c: Linear<1, { T::MaxPersonBatchSize::get() }>,
 	) -> Result<(), BenchmarkError> {
-		assert_ok!(DummyDim::<T>::reserve_ids(RawOrigin::Root.into(), c));
+		assert_ok!(DummyDim::<T>::reserve_ids(RawOrigin::Root.into_with_basic_filter(), c));
 		let keys = generate_members::<T>(0, c);
 		let keys_and_ids: Vec<_> =
 			(0..c).map(|i| (i as PersonalId, keys[i as usize].0.clone())).collect();
@@ -91,7 +92,7 @@ mod benches {
 		#[extrinsic_call]
 		_(RawOrigin::Root, keys_and_ids.try_into().unwrap());
 
-		assert_last_event::<T>(Event::PeopleRegistered { count: c }.into());
+		assert_last_event::<T>(Event::PeopleRegistered { count: c }.into_with_basic_filter());
 		Ok(())
 	}
 
@@ -99,12 +100,12 @@ mod benches {
 	fn suspend_personhood(
 		c: Linear<1, { T::MaxPersonBatchSize::get() }>,
 	) -> Result<(), BenchmarkError> {
-		assert_ok!(DummyDim::<T>::reserve_ids(RawOrigin::Root.into(), c));
+		assert_ok!(DummyDim::<T>::reserve_ids(RawOrigin::Root.into_with_basic_filter(), c));
 		let keys = generate_members::<T>(0, c);
 		let keys_and_ids: Vec<_> =
 			(0..c).map(|i| (i as PersonalId, keys[i as usize].0.clone())).collect();
 		assert_ok!(DummyDim::<T>::recognize_personhood(
-			RawOrigin::Root.into(),
+			RawOrigin::Root.into_with_basic_filter(),
 			keys_and_ids.try_into().unwrap()
 		));
 		assert_ok!(T::People::start_people_set_mutation_session());
@@ -113,33 +114,33 @@ mod benches {
 		#[extrinsic_call]
 		_(RawOrigin::Root, ids.try_into().unwrap());
 
-		assert_last_event::<T>(Event::PeopleSuspended { count: c }.into());
+		assert_last_event::<T>(Event::PeopleSuspended { count: c }.into_with_basic_filter());
 		Ok(())
 	}
 
 	#[benchmark]
 	fn resume_personhood() -> Result<(), BenchmarkError> {
 		let people_count = T::MaxPersonBatchSize::get();
-		assert_ok!(DummyDim::<T>::reserve_ids(RawOrigin::Root.into(), people_count));
+		assert_ok!(DummyDim::<T>::reserve_ids(RawOrigin::Root.into_with_basic_filter(), people_count));
 		let keys = generate_members::<T>(0, people_count);
 		let keys_and_ids: Vec<_> = (0..people_count)
 			.map(|i| (i as PersonalId, keys[i as usize].0.clone()))
 			.collect();
 		assert_ok!(DummyDim::<T>::recognize_personhood(
-			RawOrigin::Root.into(),
+			RawOrigin::Root.into_with_basic_filter(),
 			keys_and_ids.try_into().unwrap()
 		));
 		assert_ok!(T::People::start_people_set_mutation_session());
 		let ids: Vec<_> = (0..people_count as PersonalId).collect();
 		assert_ok!(DummyDim::<T>::suspend_personhood(
-			RawOrigin::Root.into(),
+			RawOrigin::Root.into_with_basic_filter(),
 			ids.clone().try_into().unwrap()
 		));
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, 0);
 
-		assert_last_event::<T>(Event::PersonhoodResumed { id: 0 }.into());
+		assert_last_event::<T>(Event::PersonhoodResumed { id: 0 }.into_with_basic_filter());
 		Ok(())
 	}
 
@@ -148,7 +149,7 @@ mod benches {
 		#[extrinsic_call]
 		_(RawOrigin::Root);
 
-		assert_last_event::<T>(Event::SuspensionsStarted.into());
+		assert_last_event::<T>(Event::SuspensionsStarted.into_with_basic_filter());
 		Ok(())
 	}
 
@@ -159,7 +160,7 @@ mod benches {
 		#[extrinsic_call]
 		_(RawOrigin::Root);
 
-		assert_last_event::<T>(Event::SuspensionsEnded.into());
+		assert_last_event::<T>(Event::SuspensionsEnded.into_with_basic_filter());
 		Ok(())
 	}
 

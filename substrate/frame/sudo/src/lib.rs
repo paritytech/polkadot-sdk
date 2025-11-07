@@ -123,6 +123,7 @@
 
 extern crate alloc;
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::boxed::Box;
 
 use sp_runtime::{traits::StaticLookup, DispatchResult};
@@ -208,11 +209,11 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			Self::ensure_sudo(origin)?;
 
-			let res = call.dispatch_bypass_filter(RawOrigin::Root.into());
+			let res = call.dispatch_bypass_filter(RawOrigin::Root.into_with_basic_filter());
 			Self::deposit_event(Event::Sudid { sudo_result: res.map(|_| ()).map_err(|e| e.error) });
 
 			// Sudo user does not pay a fee.
-			Ok(Pays::No.into())
+			Ok(Pays::No.into_with_basic_filter())
 		}
 
 		/// Authenticates the sudo key and dispatches a function call with `Root` origin.
@@ -230,11 +231,11 @@ pub mod pallet {
 			Self::ensure_sudo(origin)?;
 			let _ = weight; // We don't check the weight witness since it is a root call.
 
-			let res = call.dispatch_bypass_filter(RawOrigin::Root.into());
+			let res = call.dispatch_bypass_filter(RawOrigin::Root.into_with_basic_filter());
 			Self::deposit_event(Event::Sudid { sudo_result: res.map(|_| ()).map_err(|e| e.error) });
 
 			// Sudo user does not pay a fee.
-			Ok(Pays::No.into())
+			Ok(Pays::No.into_with_basic_filter())
 		}
 
 		/// Authenticates the current sudo key and sets the given AccountId (`new`) as the new sudo
@@ -275,7 +276,7 @@ pub mod pallet {
 			Self::ensure_sudo(origin)?;
 
 			let who = T::Lookup::lookup(who)?;
-			let res = call.dispatch_bypass_filter(RawOrigin::Signed(who).into());
+			let res = call.dispatch_bypass_filter(RawOrigin::Signed(who).into_with_basic_filter());
 			Self::deposit_event(Event::SudoAsDone {
 				sudo_result: res.map(|_| ()).map_err(|e| e.error),
 			});

@@ -58,6 +58,7 @@ pub mod weights;
 
 extern crate alloc;
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
@@ -460,7 +461,7 @@ pub mod pallet {
 			ensure_root(origin)?;
 			let _ = weight; // Explicitly don't check the the weight witness.
 
-			let res = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
+			let res = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into_with_basic_filter());
 			res.map(|_| ()).map_err(|e| e.error)
 		}
 

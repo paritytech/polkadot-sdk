@@ -728,7 +728,7 @@ macro_rules! decl_test_parachains {
 					now: relay_block_number as u64 * slot_duration,
 					}.into();
 					$crate::assert_ok!(
-						timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none())
+						timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none_with_basic_filter())
 					);
 
 					// 2. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
@@ -744,7 +744,7 @@ macro_rules! decl_test_parachains {
 							inbound_messages_data
 						}.into();
 						$crate::assert_ok!(
-							set_validation_data.dispatch(<Self as Chain>::RuntimeOrigin::none())
+							set_validation_data.dispatch(<Self as Chain>::RuntimeOrigin::none_with_basic_filter())
 						);
 
 						$crate::assert_ok!(
@@ -1668,7 +1668,7 @@ where
 				account_id: test_args.receiver.clone(),
 				balance: Destination::account_data_of(test_args.receiver.clone()).free,
 			},
-			signed_origin: <Origin as Chain>::RuntimeOrigin::signed(test_args.sender),
+			signed_origin: <Origin as Chain>::RuntimeOrigin::signed_with_basic_filter(test_args.sender),
 			root_origin: <Origin as Chain>::RuntimeOrigin::root(),
 			hops_assertion: Default::default(),
 			hops_dispatchable: Default::default(),

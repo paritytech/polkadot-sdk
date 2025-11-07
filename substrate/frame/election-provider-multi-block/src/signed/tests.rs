@@ -43,7 +43,7 @@ mod calls {
 			roll_to_signed_open();
 			// 777 is not funded.
 			assert_noop!(
-				SignedPallet::register(RuntimeOrigin::signed(777), Default::default()),
+				SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(777), Default::default()),
 				DispatchError::Token(FundsUnavailable)
 			);
 		});
@@ -54,7 +54,7 @@ mod calls {
 			assert_eq!(balances(99), (100, 0));
 			SignedDepositBase::set(101);
 			assert_noop!(
-				SignedPallet::register(RuntimeOrigin::signed(99), Default::default()),
+				SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(99), Default::default()),
 				DispatchError::Token(FundsUnavailable)
 			);
 		})
@@ -65,7 +65,7 @@ mod calls {
 		ExtBuilder::signed().build_and_execute(|| {
 			assert!(!crate::Pallet::<T>::current_phase().is_signed());
 			assert_noop!(
-				SignedPallet::register(RuntimeOrigin::signed(99), Default::default()),
+				SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(99), Default::default()),
 				Error::<T>::PhaseNotSigned
 			);
 		})
@@ -80,7 +80,7 @@ mod calls {
 			assert_eq!(balances(99), (100, 0));
 			let score = ElectionScore { minimal_stake: 100, ..Default::default() };
 
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(99), score));
 			assert_eq!(balances(99), (95, 5));
 
 			assert_eq!(Submissions::<Runtime>::metadata_iter(1).count(), 0);
@@ -106,7 +106,7 @@ mod calls {
 			// second ones submits
 			assert_eq!(balances(999), (100, 0));
 			let score = ElectionScore { minimal_stake: 90, ..Default::default() };
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(999), score));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(999), score));
 			assert_eq!(balances(999), (95, 5));
 
 			assert_eq!(
@@ -137,7 +137,7 @@ mod calls {
 			// submit again with a new score.
 			assert_noop!(
 				SignedPallet::register(
-					RuntimeOrigin::signed(999),
+					RuntimeOrigin::signed_with_basic_filter(999),
 					ElectionScore { minimal_stake: 80, ..Default::default() }
 				),
 				Error::<T>::Duplicate,
@@ -152,7 +152,7 @@ mod calls {
 			assert_full_snapshot();
 
 			let score = ElectionScore { minimal_stake: 100, ..Default::default() };
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(99), score));
 
 			// fee for register is recorded.
 			assert_eq!(
@@ -168,7 +168,7 @@ mod calls {
 
 			// fee for page submission is recorded.
 			assert_ok!(SignedPallet::submit_page(
-				RuntimeOrigin::signed(99),
+				RuntimeOrigin::signed_with_basic_filter(99),
 				0,
 				Some(Default::default())
 			));
@@ -185,7 +185,7 @@ mod calls {
 
 			// another fee for page submission is recorded.
 			assert_ok!(SignedPallet::submit_page(
-				RuntimeOrigin::signed(99),
+				RuntimeOrigin::signed_with_basic_filter(99),
 				1,
 				Some(Default::default())
 			));
@@ -201,7 +201,7 @@ mod calls {
 			);
 
 			// removal updates deposit but not the fee
-			assert_ok!(SignedPallet::submit_page(RuntimeOrigin::signed(99), 1, None));
+			assert_ok!(SignedPallet::submit_page(RuntimeOrigin::signed_with_basic_filter(99), 1, None));
 
 			assert_eq!(
 				Submissions::<Runtime>::metadata_of(0, 99).unwrap(),
@@ -222,13 +222,13 @@ mod calls {
 			roll_to_signed_open();
 			assert_full_snapshot();
 
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(91), score_from(100)));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(91), score_from(100)));
 			assert_eq!(*Submissions::<Runtime>::leaderboard(0), vec![(91, score_from(100))]);
 			assert_eq!(balances(91), (95, 5));
 			assert!(matches!(signed_events().as_slice(), &[SignedEvent::Registered(_, 91, _)]));
 
 			// weaker one comes while we have space.
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(92), score_from(90)));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(92), score_from(90)));
 			assert_eq!(
 				*Submissions::<Runtime>::leaderboard(0),
 				vec![(92, score_from(90)), (91, score_from(100))]
@@ -240,7 +240,7 @@ mod calls {
 			));
 
 			// stronger one comes while we have have space.
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(93), score_from(110)));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(93), score_from(110)));
 			assert_eq!(
 				*Submissions::<Runtime>::leaderboard(0),
 				vec![(92, score_from(90)), (91, score_from(100)), (93, score_from(110))]
@@ -257,7 +257,7 @@ mod calls {
 
 			// weaker one comes while we don't have space.
 			assert_noop!(
-				SignedPallet::register(RuntimeOrigin::signed(94), score_from(80)),
+				SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(94), score_from(80)),
 				Error::<T>::QueueFull
 			);
 			assert_eq!(
@@ -276,7 +276,7 @@ mod calls {
 			));
 
 			// stronger one comes while we don't have space. Eject the weakest
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(94), score_from(120)));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(94), score_from(120)));
 			assert_eq!(
 				*Submissions::<Runtime>::leaderboard(0),
 				vec![(91, score_from(100)), (93, score_from(110)), (94, score_from(120))]
@@ -297,7 +297,7 @@ mod calls {
 			assert_eq!(balances(92), (96, 0));
 
 			// another stronger one comes, only replace the weakest.
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(95), score_from(105)));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(95), score_from(105)));
 			assert_eq!(
 				*Submissions::<Runtime>::leaderboard(0),
 				vec![(95, score_from(105)), (93, score_from(110)), (94, score_from(120))]
@@ -327,14 +327,14 @@ mod calls {
 			assert_full_snapshot();
 
 			let score = ElectionScore { minimal_stake: 100, ..Default::default() };
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(99), score));
 			assert_eq!(balances(99), (95, 5));
 
 			// not submitted, cannot bailout.
-			assert_noop!(SignedPallet::bail(RuntimeOrigin::signed(999)), Error::<T>::NoSubmission);
+			assert_noop!(SignedPallet::bail(RuntimeOrigin::signed_with_basic_filter(999)), Error::<T>::NoSubmission);
 
 			// can bail.
-			assert_ok!(SignedPallet::bail(RuntimeOrigin::signed(99)));
+			assert_ok!(SignedPallet::bail(RuntimeOrigin::signed_with_basic_filter(99)));
 			// 20% of the deposit returned, which is 1, 4 is slashed.
 			assert_eq!(balances(99), (96, 0));
 			assert_no_data_for(0, 99);
@@ -353,12 +353,12 @@ mod calls {
 			assert_full_snapshot();
 
 			assert_noop!(
-				SignedPallet::submit_page(RuntimeOrigin::signed(99), 0, Default::default()),
+				SignedPallet::submit_page(RuntimeOrigin::signed_with_basic_filter(99), 0, Default::default()),
 				Error::<T>::NotRegistered
 			);
 
 			assert_ok!(SignedPallet::register(
-				RuntimeOrigin::signed(99),
+				RuntimeOrigin::signed_with_basic_filter(99),
 				ElectionScore { minimal_stake: 100, ..Default::default() }
 			));
 
@@ -367,13 +367,13 @@ mod calls {
 
 			// indices 0, 1, 2 are valid.
 			assert_noop!(
-				SignedPallet::submit_page(RuntimeOrigin::signed(99), 3, Default::default()),
+				SignedPallet::submit_page(RuntimeOrigin::signed_with_basic_filter(99), 3, Default::default()),
 				Error::<T>::BadPageIndex
 			);
 
 			// add the first page.
 			assert_ok!(SignedPallet::submit_page(
-				RuntimeOrigin::signed(99),
+				RuntimeOrigin::signed_with_basic_filter(99),
 				0,
 				Some(Default::default())
 			));
@@ -386,7 +386,7 @@ mod calls {
 
 			// replace it again, nada.
 			assert_ok!(SignedPallet::submit_page(
-				RuntimeOrigin::signed(99),
+				RuntimeOrigin::signed_with_basic_filter(99),
 				0,
 				Some(Default::default())
 			));
@@ -395,7 +395,7 @@ mod calls {
 
 			// add a new one.
 			assert_ok!(SignedPallet::submit_page(
-				RuntimeOrigin::signed(99),
+				RuntimeOrigin::signed_with_basic_filter(99),
 				1,
 				Some(Default::default())
 			));
@@ -407,7 +407,7 @@ mod calls {
 			);
 
 			// remove one, deposit is back.
-			assert_ok!(SignedPallet::submit_page(RuntimeOrigin::signed(99), 0, None));
+			assert_ok!(SignedPallet::submit_page(RuntimeOrigin::signed_with_basic_filter(99), 0, None));
 			assert_eq!(Submissions::<Runtime>::pages_of(0, 99).count(), 1);
 			assert_eq!(balances(99), (94, 6));
 			assert_eq!(
@@ -443,9 +443,9 @@ mod e2e {
 			{
 				let score =
 					ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 100 };
-				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score));
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(99), score));
 				assert_ok!(SignedPallet::submit_page(
-					RuntimeOrigin::signed(99),
+					RuntimeOrigin::signed_with_basic_filter(99),
 					0,
 					Some(Default::default())
 				));
@@ -465,7 +465,7 @@ mod e2e {
 			{
 				let mut score = strong_score;
 				score.minimal_stake *= 2;
-				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(92), score));
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(92), score));
 				assert_eq!(balances(92), (95, 5));
 				// we don't even bother to submit a page..
 			}
@@ -634,7 +634,7 @@ mod e2e {
 
 			// we cannot cleanup just yet.
 			assert_noop!(
-				SignedPallet::clear_old_round_data(RuntimeOrigin::signed(99), 0, Pages::get()),
+				SignedPallet::clear_old_round_data(RuntimeOrigin::signed_with_basic_filter(99), 0, Pages::get()),
 				Error::<T>::RoundNotOver
 			);
 
@@ -642,7 +642,7 @@ mod e2e {
 
 			// now we can delete our stuff.
 			assert_ok!(SignedPallet::clear_old_round_data(
-				RuntimeOrigin::signed(99),
+				RuntimeOrigin::signed_with_basic_filter(99),
 				0,
 				Pages::get()
 			));
@@ -669,7 +669,7 @@ mod e2e {
 			// Submit only an invalid solution (register but don't submit pages)
 			let invalid_score =
 				ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 100 };
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), invalid_score));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(99), invalid_score));
 
 			let current_round = SignedPallet::current_round();
 			assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 1);
@@ -733,12 +733,12 @@ mod e2e {
 				paged.solution_pages.len()
 			);
 
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(submitter), real_score));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(submitter), real_score));
 
 			// Submit ONLY page 0 of the solution, deliberately skip pages 1 and 2.
 			let first_page = paged.solution_pages.pagify(Pages::get()).next().unwrap();
 			assert_ok!(SignedPallet::submit_page(
-				RuntimeOrigin::signed(submitter),
+				RuntimeOrigin::signed_with_basic_filter(submitter),
 				first_page.0,
 				Some(Box::new(first_page.1.clone()))
 			));
@@ -801,7 +801,7 @@ mod e2e {
 				{
 					let mut strong_score = mine_full_solution().unwrap().score;
 					strong_score.minimal_stake *= 2;
-					assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), strong_score));
+					assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(99), strong_score));
 					// Don't submit any pages - this will cause it to be slashed
 				}
 
@@ -1139,14 +1139,14 @@ mod e2e {
 					score.minimal_stake *= 2; // Make it attractive but it will be invalid
 					score
 				};
-				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(91), invalid_score1));
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(91), invalid_score1));
 
 				let invalid_score2 = {
 					let mut score = mine_full_solution().unwrap().score;
 					score.minimal_stake *= 3; // Make it even more attractive but still invalid
 					score
 				};
-				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(92), invalid_score2));
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(92), invalid_score2));
 
 				// Submit one valid solution at the end
 				let valid_solution = mine_full_solution().unwrap();
@@ -1274,7 +1274,7 @@ mod invulnerables {
 		ExtBuilder::signed().build_and_execute(|| {
 			// Should fail with non-admin origin
 			assert_noop!(
-				SignedPallet::set_invulnerables(RuntimeOrigin::signed(1), vec![99]),
+				SignedPallet::set_invulnerables(RuntimeOrigin::signed_with_basic_filter(1), vec![99]),
 				sp_runtime::DispatchError::BadOrigin
 			);
 
@@ -1307,7 +1307,7 @@ mod invulnerables {
 
 			let score = ElectionScore { minimal_stake: 100, ..Default::default() };
 
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(99), score));
 			assert_eq!(balances(99), (93, 7));
 
 			assert_eq!(
@@ -1324,7 +1324,7 @@ mod invulnerables {
 			);
 
 			assert_ok!(SignedPallet::submit_page(
-				RuntimeOrigin::signed(99),
+				RuntimeOrigin::signed_with_basic_filter(99),
 				0,
 				Some(Default::default())
 			));
@@ -1344,12 +1344,12 @@ mod invulnerables {
 
 			// Submit additional pages to verify deposit remains fixed
 			assert_ok!(SignedPallet::submit_page(
-				RuntimeOrigin::signed(99),
+				RuntimeOrigin::signed_with_basic_filter(99),
 				1,
 				Some(Default::default())
 			));
 			assert_ok!(SignedPallet::submit_page(
-				RuntimeOrigin::signed(99),
+				RuntimeOrigin::signed_with_basic_filter(99),
 				2,
 				Some(Default::default())
 			));
@@ -1387,9 +1387,9 @@ mod invulnerables {
 			let score = ElectionScore { minimal_stake: 100, ..Default::default() };
 
 			// All should pay the same fixed deposit
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score));
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(98), score));
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(97), score));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(99), score));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(98), score));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(97), score));
 
 			// All should have paid exactly InvulnerableDeposit (7)
 			assert_eq!(balances(99), (93, 7));
@@ -1405,9 +1405,9 @@ mod invulnerables {
 			assert_full_snapshot();
 			make_invulnerable(99);
 
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score_from(100)));
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(98), score_from(150)));
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(97), score_from(200)));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(99), score_from(100)));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(98), score_from(150)));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(97), score_from(200)));
 
 			assert_eq!(
 				Submissions::<Runtime>::leaderboard(0),
@@ -1416,11 +1416,11 @@ mod invulnerables {
 
 			// inserting someone who would eject 99 won't work.
 			assert_noop!(
-				SignedPallet::register(RuntimeOrigin::signed(96), score_from(100)),
+				SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(96), score_from(100)),
 				Error::<T>::QueueFull,
 			);
 			// inserting someone who would eject 98 will work.
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(96), score_from(155)));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(96), score_from(155)));
 			assert_eq!(
 				Submissions::<Runtime>::leaderboard(0),
 				vec![(99, score_from(100)), (96, score_from(155)), (97, score_from(200))]
@@ -1435,9 +1435,9 @@ mod invulnerables {
 			assert_full_snapshot();
 			make_invulnerable(99);
 
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score_from(150)));
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(98), score_from(100)));
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(97), score_from(200)));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(99), score_from(150)));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(98), score_from(100)));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(97), score_from(200)));
 
 			assert_eq!(
 				Submissions::<Runtime>::leaderboard(0),
@@ -1446,13 +1446,13 @@ mod invulnerables {
 
 			// worse than all
 			assert_noop!(
-				SignedPallet::register(RuntimeOrigin::signed(96), score_from(50)),
+				SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(96), score_from(50)),
 				Error::<T>::QueueFull,
 			);
 
 			// better than our first item
 			hypothetically!({
-				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(96), score_from(125)));
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(96), score_from(125)));
 				assert_eq!(
 					Submissions::<Runtime>::leaderboard(0),
 					vec![(96, score_from(125)), (99, score_from(150)), (97, score_from(200))]
@@ -1461,7 +1461,7 @@ mod invulnerables {
 
 			// better than inv
 			hypothetically!({
-				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(96), score_from(175)));
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(96), score_from(175)));
 				assert_eq!(
 					Submissions::<Runtime>::leaderboard(0),
 					vec![(99, score_from(150)), (96, score_from(175)), (97, score_from(200))]
@@ -1470,7 +1470,7 @@ mod invulnerables {
 
 			// better than all
 			hypothetically!({
-				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(96), score_from(225)));
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(96), score_from(225)));
 				assert_eq!(
 					Submissions::<Runtime>::leaderboard(0),
 					vec![(99, score_from(150)), (97, score_from(200)), (96, score_from(225))]
@@ -1486,13 +1486,13 @@ mod invulnerables {
 			assert_full_snapshot();
 			assert_ok!(SignedPallet::set_invulnerables(RuntimeOrigin::root(), vec![99, 98, 97]));
 
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score_from(150)));
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(98), score_from(100)));
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(97), score_from(200)));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(99), score_from(150)));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(98), score_from(100)));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(97), score_from(200)));
 
 			// Nothing can touch our boys now.
 			assert_noop!(
-				SignedPallet::register(RuntimeOrigin::signed(96), score_from(1000)),
+				SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(96), score_from(1000)),
 				Error::<T>::QueueFull,
 			);
 		})
@@ -1506,7 +1506,7 @@ mod invulnerables {
 			roll_to_signed_open();
 
 			// a weak, discarded solution from 99
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), Default::default()));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(99), Default::default()));
 			assert!(matches!(
 				Submissions::<Runtime>::metadata_of(0, 99).unwrap(),
 				SubmissionMetadata { deposit: 7, fee: 1, .. }
@@ -1552,7 +1552,7 @@ mod invulnerables {
 
 			// now we can delete our stuff.
 			assert_ok!(SignedPallet::clear_old_round_data(
-				RuntimeOrigin::signed(99),
+				RuntimeOrigin::signed_with_basic_filter(99),
 				0,
 				Pages::get()
 			));
@@ -1572,7 +1572,7 @@ mod invulnerables {
 			assert_full_snapshot();
 
 			let score = ElectionScore { minimal_stake: 100, ..Default::default() };
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(99), score));
 			assert_eq!(Submissions::<Runtime>::metadata_of(0, 99).unwrap().deposit, 7);
 
 			// Clear round and remove from invulnerables
@@ -1586,7 +1586,7 @@ mod invulnerables {
 			// Now roll to signed open for the new round
 			roll_to_signed_open();
 			assert_full_snapshot();
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(99), score));
 			let new_deposit =
 				Submissions::<Runtime>::metadata_of(MultiBlock::round(), 99).unwrap().deposit;
 			assert_eq!(new_deposit, 5); // Should not be fixed deposit anymore
@@ -1602,7 +1602,7 @@ mod invulnerables {
 			assert!(Invulnerables::<T>::get().contains(&99));
 
 			let invalid_score = score_from(777);
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), invalid_score));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(99), invalid_score));
 
 			roll_to_signed_validation_open();
 			roll_next(); // one block so signed pallet will send start signal.
@@ -1650,11 +1650,11 @@ mod defensive_tests {
 			roll_to_signed_open();
 			assert_eq!(balances(99), (100, 0));
 			let score = ElectionScore { minimal_stake: 100, ..Default::default() };
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed_with_basic_filter(99), score));
 			assert_eq!(balances(99), (95, 5)); // deposit taken
 
 			// Submit a solution page to have something to verify
-			assert_ok!(SignedPallet::submit_page(RuntimeOrigin::signed(99), 0, Default::default()));
+			assert_ok!(SignedPallet::submit_page(RuntimeOrigin::signed_with_basic_filter(99), 0, Default::default()));
 
 			assert_ok!(<VerifierPallet as AsynchronousVerifier>::start());
 

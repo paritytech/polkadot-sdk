@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 
 use frame_benchmarking::v2::*;
@@ -51,7 +52,7 @@ fn add_proposal<T: Config>(n: u32) -> Result<T::Hash, &'static str> {
 	let other = funded_account::<T>("proposer", n);
 	let value = T::MinimumDeposit::get();
 	let proposal = make_proposal::<T>(n);
-	Democracy::<T>::propose(RawOrigin::Signed(other).into(), proposal.clone(), value)?;
+	Democracy::<T>::propose(RawOrigin::Signed(other).into_with_basic_filter(), proposal.clone(), value)?;
 	Ok(proposal.hash())
 }
 
@@ -129,7 +130,7 @@ mod benchmarks {
 		// we must reserve one deposit for the `proposal` and one for our benchmarked `second` call.
 		for i in 0..T::MaxDeposits::get() - 2 {
 			let seconder = funded_account::<T>("seconder", i);
-			Democracy::<T>::second(RawOrigin::Signed(seconder).into(), 0)?;
+			Democracy::<T>::second(RawOrigin::Signed(seconder).into_with_basic_filter(), 0)?;
 		}
 
 		let deposits = DepositOf::<T>::get(0).ok_or("Proposal not created")?;
@@ -157,7 +158,7 @@ mod benchmarks {
 		for i in 0..T::MaxVotes::get() - 1 {
 			let ref_index = add_referendum::<T>(i).0;
 			Democracy::<T>::vote(
-				RawOrigin::Signed(caller.clone()).into(),
+				RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 				ref_index,
 				account_vote,
 			)?;
@@ -176,7 +177,7 @@ mod benchmarks {
 
 		let votes = match VotingOf::<T>::get(&caller) {
 			Voting::Direct { votes, .. } => votes,
-			_ => return Err("Votes are not direct".into()),
+			_ => return Err("Votes are not direct".into_with_basic_filter()),
 		};
 
 		assert_eq!(votes.len(), T::MaxVotes::get() as usize, "Vote was not recorded.");
@@ -192,7 +193,7 @@ mod benchmarks {
 		for i in 0..T::MaxVotes::get() {
 			let ref_index = add_referendum::<T>(i).0;
 			Democracy::<T>::vote(
-				RawOrigin::Signed(caller.clone()).into(),
+				RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 				ref_index,
 				account_vote,
 			)?;
@@ -216,7 +217,7 @@ mod benchmarks {
 
 		let votes = match VotingOf::<T>::get(&caller) {
 			Voting::Direct { votes, .. } => votes,
-			_ => return Err("Votes are not direct".into()),
+			_ => return Err("Votes are not direct".into_with_basic_filter()),
 		};
 		assert_eq!(votes.len(), T::MaxVotes::get() as usize, "Vote was incorrectly added");
 		let referendum_info =
@@ -412,7 +413,7 @@ mod benchmarks {
 		let proposer = funded_account::<T>("proposer", 0);
 		let preimage_hash = note_preimage::<T>();
 		assert_ok!(Democracy::<T>::set_metadata(
-			RawOrigin::Signed(proposer).into(),
+			RawOrigin::Signed(proposer).into_with_basic_filter(),
 			MetadataOwner::Proposal(0),
 			Some(preimage_hash)
 		));
@@ -442,7 +443,7 @@ mod benchmarks {
 				owner: MetadataOwner::Referendum(0),
 				hash: preimage_hash,
 			}
-			.into(),
+			.into_with_basic_filter(),
 		);
 		Ok(())
 	}
@@ -608,7 +609,7 @@ mod benchmarks {
 		let old_delegate: T::AccountId = funded_account::<T>("old_delegate", r);
 		let old_delegate_lookup = T::Lookup::unlookup(old_delegate.clone());
 		Democracy::<T>::delegate(
-			RawOrigin::Signed(caller.clone()).into(),
+			RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 			old_delegate_lookup,
 			Conviction::Locked1x,
 			delegated_balance,
@@ -627,7 +628,7 @@ mod benchmarks {
 		for i in 0..r {
 			let ref_index = add_referendum::<T>(i).0;
 			Democracy::<T>::vote(
-				RawOrigin::Signed(new_delegate.clone()).into(),
+				RawOrigin::Signed(new_delegate.clone()).into_with_basic_filter(),
 				ref_index,
 				account_vote,
 			)?;
@@ -671,7 +672,7 @@ mod benchmarks {
 		let the_delegate: T::AccountId = funded_account::<T>("delegate", r);
 		let the_delegate_lookup = T::Lookup::unlookup(the_delegate.clone());
 		Democracy::<T>::delegate(
-			RawOrigin::Signed(caller.clone()).into(),
+			RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 			the_delegate_lookup,
 			Conviction::Locked1x,
 			delegated_balance,
@@ -687,7 +688,7 @@ mod benchmarks {
 		for i in 0..r {
 			let ref_index = add_referendum::<T>(i).0;
 			Democracy::<T>::vote(
-				RawOrigin::Signed(the_delegate.clone()).into(),
+				RawOrigin::Signed(the_delegate.clone()).into_with_basic_filter(),
 				ref_index,
 				account_vote,
 			)?;
@@ -705,7 +706,7 @@ mod benchmarks {
 		// Voting should now be direct
 		match VotingOf::<T>::get(&caller) {
 			Voting::Direct { .. } => (),
-			_ => return Err("undelegation failed".into()),
+			_ => return Err("undelegation failed".into_with_basic_filter()),
 		}
 		Ok(())
 	}
@@ -731,8 +732,8 @@ mod benchmarks {
 		// Vote and immediately unvote
 		for i in 0..r {
 			let ref_index = add_referendum::<T>(i).0;
-			Democracy::<T>::vote(RawOrigin::Signed(locker.clone()).into(), ref_index, small_vote)?;
-			Democracy::<T>::remove_vote(RawOrigin::Signed(locker.clone()).into(), ref_index)?;
+			Democracy::<T>::vote(RawOrigin::Signed(locker.clone()).into_with_basic_filter(), ref_index, small_vote)?;
+			Democracy::<T>::remove_vote(RawOrigin::Signed(locker.clone()).into_with_basic_filter(), ref_index)?;
 		}
 
 		let caller = funded_account::<T>("caller", 0);
@@ -757,13 +758,13 @@ mod benchmarks {
 		let small_vote = account_vote::<T>(base_balance);
 		for i in 0..r {
 			let ref_index = add_referendum::<T>(i).0;
-			Democracy::<T>::vote(RawOrigin::Signed(locker.clone()).into(), ref_index, small_vote)?;
+			Democracy::<T>::vote(RawOrigin::Signed(locker.clone()).into_with_basic_filter(), ref_index, small_vote)?;
 		}
 
 		// Create a big vote so lock increases
-		let big_vote = account_vote::<T>(base_balance * 10u32.into());
+		let big_vote = account_vote::<T>(base_balance * 10u32.into_with_basic_filter());
 		let ref_index = add_referendum::<T>(r).0;
-		Democracy::<T>::vote(RawOrigin::Signed(locker.clone()).into(), ref_index, big_vote)?;
+		Democracy::<T>::vote(RawOrigin::Signed(locker.clone()).into_with_basic_filter(), ref_index, big_vote)?;
 
 		let votes = match VotingOf::<T>::get(&locker) {
 			Voting::Direct { votes, .. } => votes,
@@ -774,7 +775,7 @@ mod benchmarks {
 		let voting = VotingOf::<T>::get(&locker);
 		assert_eq!(voting.locked_balance(), base_balance * 10u32.into());
 
-		Democracy::<T>::remove_vote(RawOrigin::Signed(locker.clone()).into(), ref_index)?;
+		Democracy::<T>::remove_vote(RawOrigin::Signed(locker.clone()).into_with_basic_filter(), ref_index)?;
 
 		let caller = funded_account::<T>("caller", 0);
 		whitelist_account!(caller);
@@ -784,7 +785,7 @@ mod benchmarks {
 
 		let votes = match VotingOf::<T>::get(&locker) {
 			Voting::Direct { votes, .. } => votes,
-			_ => return Err("Votes are not direct".into()),
+			_ => return Err("Votes are not direct".into_with_basic_filter()),
 		};
 		assert_eq!(votes.len(), r as usize, "Vote was not removed");
 
@@ -802,7 +803,7 @@ mod benchmarks {
 		for i in 0..r {
 			let ref_index = add_referendum::<T>(i).0;
 			Democracy::<T>::vote(
-				RawOrigin::Signed(caller.clone()).into(),
+				RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 				ref_index,
 				account_vote,
 			)?;
@@ -822,7 +823,7 @@ mod benchmarks {
 
 		let votes = match VotingOf::<T>::get(&caller) {
 			Voting::Direct { votes, .. } => votes,
-			_ => return Err("Votes are not direct".into()),
+			_ => return Err("Votes are not direct".into_with_basic_filter()),
 		};
 		assert_eq!(votes.len(), (r - 1) as usize, "Vote was not removed");
 		Ok(())
@@ -838,7 +839,7 @@ mod benchmarks {
 		for i in 0..r {
 			let ref_index = add_referendum::<T>(i).0;
 			Democracy::<T>::vote(
-				RawOrigin::Signed(caller.clone()).into(),
+				RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 				ref_index,
 				account_vote,
 			)?;
@@ -858,7 +859,7 @@ mod benchmarks {
 
 		let votes = match VotingOf::<T>::get(&caller) {
 			Voting::Direct { votes, .. } => votes,
-			_ => return Err("Votes are not direct".into()),
+			_ => return Err("Votes are not direct".into_with_basic_filter()),
 		};
 		assert_eq!(votes.len(), (r - 1) as usize, "Vote was not removed");
 		Ok(())
@@ -909,7 +910,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		set_metadata(RawOrigin::Signed(proposer), owner.clone(), Some(hash));
 
-		assert_last_event::<T>(crate::Event::MetadataSet { owner, hash }.into());
+		assert_last_event::<T>(crate::Event::MetadataSet { owner, hash }.into_with_basic_filter());
 		Ok(())
 	}
 
@@ -923,7 +924,7 @@ mod benchmarks {
 		let owner = MetadataOwner::Proposal(0);
 		let hash = note_preimage::<T>();
 		assert_ok!(Democracy::<T>::set_metadata(
-			RawOrigin::Signed(proposer.clone()).into(),
+			RawOrigin::Signed(proposer.clone()).into_with_basic_filter(),
 			owner.clone(),
 			Some(hash)
 		));
@@ -931,7 +932,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		set_metadata::<T::RuntimeOrigin>(RawOrigin::Signed(proposer), owner.clone(), None);
 
-		assert_last_event::<T>(crate::Event::MetadataCleared { owner, hash }.into());
+		assert_last_event::<T>(crate::Event::MetadataCleared { owner, hash }.into_with_basic_filter());
 		Ok(())
 	}
 
@@ -949,7 +950,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		set_metadata::<T::RuntimeOrigin>(RawOrigin::Root, owner.clone(), Some(hash));
 
-		assert_last_event::<T>(crate::Event::MetadataSet { owner, hash }.into());
+		assert_last_event::<T>(crate::Event::MetadataSet { owner, hash }.into_with_basic_filter());
 		Ok(())
 	}
 
@@ -968,7 +969,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		set_metadata::<T::RuntimeOrigin>(RawOrigin::Signed(caller), owner.clone(), None);
 
-		assert_last_event::<T>(crate::Event::MetadataCleared { owner, hash }.into());
+		assert_last_event::<T>(crate::Event::MetadataCleared { owner, hash }.into_with_basic_filter());
 		Ok(())
 	}
 

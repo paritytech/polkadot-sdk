@@ -1281,7 +1281,7 @@ mod tests {
 		run_test(|| {
 			initialize_environment(100, 100, 100);
 
-			BridgeRelayers::register(RuntimeOrigin::signed(relayer_account_at_this_chain()), 1000)
+			BridgeRelayers::register(RuntimeOrigin::signed_with_basic_filter(relayer_account_at_this_chain()), 1000)
 				.unwrap();
 
 			let priority_of_100_messages_delivery =
@@ -1311,7 +1311,7 @@ mod tests {
 		run_test(|| {
 			initialize_environment(100, 100, 100);
 
-			BridgeRelayers::register(RuntimeOrigin::signed(relayer_account_at_this_chain()), 1000)
+			BridgeRelayers::register(RuntimeOrigin::signed_with_basic_filter(relayer_account_at_this_chain()), 1000)
 				.unwrap();
 
 			let priority_of_max_messages_delivery = run_validate(message_delivery_call(
@@ -1915,7 +1915,7 @@ mod tests {
 			);
 
 			// slashing works for message delivery calls
-			BridgeRelayers::register(RuntimeOrigin::signed(relayer_account_at_this_chain()), 1000)
+			BridgeRelayers::register(RuntimeOrigin::signed_with_basic_filter(relayer_account_at_this_chain()), 1000)
 				.unwrap();
 			assert_eq!(Balances::reserved_balance(relayer_account_at_this_chain()), test_stake);
 			run_post_dispatch(Some(delivery_pre_dispatch_data()), Ok(()));
@@ -1925,7 +1925,7 @@ mod tests {
 				Balances::free_balance(delivery_rewards_account())
 			);
 
-			BridgeRelayers::register(RuntimeOrigin::signed(relayer_account_at_this_chain()), 1000)
+			BridgeRelayers::register(RuntimeOrigin::signed_with_basic_filter(relayer_account_at_this_chain()), 1000)
 				.unwrap();
 			assert_eq!(Balances::reserved_balance(relayer_account_at_this_chain()), test_stake);
 			run_post_dispatch(Some(parachain_finality_pre_dispatch_data()), Ok(()));
@@ -1935,7 +1935,7 @@ mod tests {
 				Balances::free_balance(delivery_rewards_account())
 			);
 
-			BridgeRelayers::register(RuntimeOrigin::signed(relayer_account_at_this_chain()), 1000)
+			BridgeRelayers::register(RuntimeOrigin::signed_with_basic_filter(relayer_account_at_this_chain()), 1000)
 				.unwrap();
 			assert_eq!(Balances::reserved_balance(relayer_account_at_this_chain()), test_stake);
 			run_post_dispatch(Some(all_finality_pre_dispatch_data()), Ok(()));
@@ -2410,7 +2410,7 @@ mod tests {
 			initialize_environment(100, 100, best_delivered_message);
 
 			// register relayer so it gets priority boost
-			BridgeRelayers::register(RuntimeOrigin::signed(relayer_account_at_this_chain()), 1000)
+			BridgeRelayers::register(RuntimeOrigin::signed_with_basic_filter(relayer_account_at_this_chain()), 1000)
 				.unwrap();
 
 			// allow empty message delivery transactions

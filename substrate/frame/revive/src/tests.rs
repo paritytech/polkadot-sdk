@@ -222,26 +222,26 @@ pub(crate) mod builder {
 	use sp_core::{H160, H256};
 
 	pub fn bare_instantiate(code: Code) -> BareInstantiateBuilder<Test> {
-		BareInstantiateBuilder::<Test>::bare_instantiate(RuntimeOrigin::signed(ALICE), code)
+		BareInstantiateBuilder::<Test>::bare_instantiate(RuntimeOrigin::signed_with_basic_filter(ALICE), code)
 	}
 
 	pub fn bare_call(dest: H160) -> BareCallBuilder<Test> {
-		BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(ALICE), dest)
+		BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed_with_basic_filter(ALICE), dest)
 	}
 
 	pub fn instantiate_with_code(code: Vec<u8>) -> InstantiateWithCodeBuilder<Test> {
 		InstantiateWithCodeBuilder::<Test>::instantiate_with_code(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			code,
 		)
 	}
 
 	pub fn instantiate(code_hash: H256) -> InstantiateBuilder<Test> {
-		InstantiateBuilder::<Test>::instantiate(RuntimeOrigin::signed(ALICE), code_hash)
+		InstantiateBuilder::<Test>::instantiate(RuntimeOrigin::signed_with_basic_filter(ALICE), code_hash)
 	}
 
 	pub fn call(dest: H160) -> CallBuilder<Test> {
-		CallBuilder::<Test>::call(RuntimeOrigin::signed(ALICE), dest)
+		CallBuilder::<Test>::call(RuntimeOrigin::signed_with_basic_filter(ALICE), dest)
 	}
 
 	pub fn eth_call(dest: H160) -> EthCallBuilder<Test> {
@@ -502,7 +502,7 @@ impl ExtBuilder {
 			}
 		});
 		ext.execute_with(|| {
-			assert_ok!(Pallet::<Test>::map_account(RuntimeOrigin::signed(checking_account)));
+			assert_ok!(Pallet::<Test>::map_account(RuntimeOrigin::signed_with_basic_filter(checking_account)));
 		});
 		ext
 	}
@@ -532,7 +532,7 @@ pub struct MockHandlerImpl<T: crate::pallet::Config> {
 impl<T: crate::pallet::Config> MockHandler<T> for MockHandlerImpl<T> {
 	fn mock_caller(&self, _frames_len: usize) -> Option<OriginFor<T>> {
 		self.mock_caller.as_ref().map(|mock_caller| {
-			OriginFor::<T>::signed(T::AddressMapper::to_fallback_account_id(mock_caller))
+			OriginFor::<T>::signed_with_basic_filter(T::AddressMapper::to_fallback_account_id(mock_caller))
 		})
 	}
 

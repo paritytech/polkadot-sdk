@@ -655,7 +655,7 @@ macro_rules! impl_assets_helpers_for_system_parachain {
 					);
 
 					// Mint asset for System Parachain's sender
-					let signed_origin = <Self as Chain>::RuntimeOrigin::signed(asset_owner.clone());
+					let signed_origin = <Self as Chain>::RuntimeOrigin::signed_with_basic_filter(asset_owner.clone());
 					Self::mint_asset(signed_origin, id, asset_owner, amount_to_mint);
 				}
 
@@ -739,7 +739,7 @@ macro_rules! impl_assets_helpers_for_parachain {
 					});
 					for (beneficiary, amount) in prefund_accounts.into_iter() {
 						let signed_origin =
-							<$chain<N> as $crate::impls::Chain>::RuntimeOrigin::signed(owner.clone());
+							<$chain<N> as $crate::impls::Chain>::RuntimeOrigin::signed_with_basic_filter(owner.clone());
 						Self::mint_asset(signed_origin, id.clone(), beneficiary, amount);
 					}
 				}
@@ -841,7 +841,7 @@ macro_rules! impl_foreign_assets_helpers_for_parachain {
 					});
 					for (beneficiary, amount) in prefund_accounts.into_iter() {
 						let signed_origin =
-							<$chain<N> as $crate::impls::Chain>::RuntimeOrigin::signed(owner.clone());
+							<$chain<N> as $crate::impls::Chain>::RuntimeOrigin::signed_with_basic_filter(owner.clone());
 						Self::mint_foreign_asset(signed_origin, id.clone(), beneficiary, amount);
 					}
 				}

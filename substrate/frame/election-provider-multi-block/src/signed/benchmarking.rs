@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use frame_support::traits::IntoWithBasicFilter;
 use crate::{
 	signed::{Config, Pallet, Submissions},
 	types::PagedRawSolution,
@@ -43,7 +44,7 @@ mod benchmarks {
 		assert_eq!(Submissions::<T>::sorted_submitters(round).len(), 0);
 		#[block]
 		{
-			Pallet::<T>::register(RawOrigin::Signed(alice).into(), score)?;
+			Pallet::<T>::register(RawOrigin::Signed(alice).into_with_basic_filter(), score)?;
 		}
 
 		assert_eq!(Submissions::<T>::sorted_submitters(round).len(), 1);
@@ -58,13 +59,13 @@ mod benchmarks {
 		for i in 0..T::MaxSubmissions::get() {
 			let submitter = crate::Pallet::<T>::funded_account("submitter", i);
 			let score = ElectionScore { minimal_stake: i.into(), ..Default::default() };
-			Pallet::<T>::register(RawOrigin::Signed(submitter.clone()).into(), score)?;
+			Pallet::<T>::register(RawOrigin::Signed(submitter.clone()).into_with_basic_filter(), score)?;
 
 			// The first one, which will be ejected, has also submitted all pages
 			if i == 0 {
 				for p in 0..T::Pages::get() {
 					let page = Some(Default::default());
-					Pallet::<T>::submit_page(RawOrigin::Signed(submitter.clone()).into(), p, page)?;
+					Pallet::<T>::submit_page(RawOrigin::Signed(submitter.clone()).into_with_basic_filter(), p, page)?;
 				}
 			}
 		}
@@ -80,7 +81,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			Pallet::<T>::register(RawOrigin::Signed(who).into(), score)?;
+			Pallet::<T>::register(RawOrigin::Signed(who).into_with_basic_filter(), score)?;
 		}
 
 		assert_eq!(
@@ -107,11 +108,11 @@ mod benchmarks {
 
 		// register alice
 		let alice = crate::Pallet::<T>::funded_account("alice", 0);
-		Pallet::<T>::register(RawOrigin::Signed(alice.clone()).into(), score)?;
+		Pallet::<T>::register(RawOrigin::Signed(alice.clone()).into_with_basic_filter(), score)?;
 
 		#[block]
 		{
-			Pallet::<T>::submit_page(RawOrigin::Signed(alice).into(), 0, page)?;
+			Pallet::<T>::submit_page(RawOrigin::Signed(alice).into_with_basic_filter(), 0, page)?;
 		}
 
 		Ok(())
@@ -134,14 +135,14 @@ mod benchmarks {
 
 		// register alice
 		let alice = crate::Pallet::<T>::funded_account("alice", 0);
-		Pallet::<T>::register(RawOrigin::Signed(alice.clone()).into(), score)?;
+		Pallet::<T>::register(RawOrigin::Signed(alice.clone()).into_with_basic_filter(), score)?;
 
 		// submit page
-		Pallet::<T>::submit_page(RawOrigin::Signed(alice.clone()).into(), 0, page)?;
+		Pallet::<T>::submit_page(RawOrigin::Signed(alice.clone()).into_with_basic_filter(), 0, page)?;
 
 		#[block]
 		{
-			Pallet::<T>::submit_page(RawOrigin::Signed(alice).into(), 0, None)?;
+			Pallet::<T>::submit_page(RawOrigin::Signed(alice).into_with_basic_filter(), 0, None)?;
 		}
 
 		Ok(())
@@ -154,17 +155,17 @@ mod benchmarks {
 
 		// register alice
 		let score = ElectionScore::default();
-		Pallet::<T>::register(RawOrigin::Signed(alice.clone()).into(), score)?;
+		Pallet::<T>::register(RawOrigin::Signed(alice.clone()).into_with_basic_filter(), score)?;
 
 		// submit all pages
 		for p in 0..T::Pages::get() {
 			let page = Some(Default::default());
-			Pallet::<T>::submit_page(RawOrigin::Signed(alice.clone()).into(), p, page)?;
+			Pallet::<T>::submit_page(RawOrigin::Signed(alice.clone()).into_with_basic_filter(), p, page)?;
 		}
 
 		#[block]
 		{
-			Pallet::<T>::bail(RawOrigin::Signed(alice).into())?;
+			Pallet::<T>::bail(RawOrigin::Signed(alice).into_with_basic_filter())?;
 		}
 
 		Ok(())
@@ -178,12 +179,12 @@ mod benchmarks {
 
 		// register alice
 		let score = ElectionScore::default();
-		Pallet::<T>::register(RawOrigin::Signed(alice.clone()).into(), score)?;
+		Pallet::<T>::register(RawOrigin::Signed(alice.clone()).into_with_basic_filter(), score)?;
 
 		// submit a solution with p pages.
 		for pp in 0..p {
 			let page = Some(Default::default());
-			Pallet::<T>::submit_page(RawOrigin::Signed(alice.clone()).into(), pp, page)?;
+			Pallet::<T>::submit_page(RawOrigin::Signed(alice.clone()).into_with_basic_filter(), pp, page)?;
 		}
 
 		// force rotate to the next round.
@@ -192,7 +193,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			Pallet::<T>::clear_old_round_data(RawOrigin::Signed(alice).into(), prev_round, p)?;
+			Pallet::<T>::clear_old_round_data(RawOrigin::Signed(alice).into_with_basic_filter(), prev_round, p)?;
 		}
 
 		Ok(())

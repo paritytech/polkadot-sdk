@@ -19,6 +19,7 @@
 
 #![cfg(test)]
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 
 use crate as utility;
@@ -275,13 +276,13 @@ fn utility_events() -> Vec<Event> {
 fn as_derivative_works() {
 	new_test_ext().execute_with(|| {
 		let sub_1_0 = derivative_account_id(1, 0);
-		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(1), sub_1_0, 5));
+		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed_with_basic_filter(1), sub_1_0, 5));
 		assert_err_ignore_postinfo!(
-			Utility::as_derivative(RuntimeOrigin::signed(1), 1, Box::new(call_transfer(6, 3)),),
+			Utility::as_derivative(RuntimeOrigin::signed_with_basic_filter(1), 1, Box::new(call_transfer(6, 3)),),
 			TokenError::FundsUnavailable,
 		);
 		assert_ok!(Utility::as_derivative(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			0,
 			Box::new(call_transfer(2, 3)),
 		));
@@ -304,7 +305,7 @@ fn as_derivative_handles_weight_refund() {
 			call: Box::new(inner_call),
 		});
 		let info = call.get_dispatch_info();
-		let result = call.dispatch(RuntimeOrigin::signed(1));
+		let result = call.dispatch(RuntimeOrigin::signed_with_basic_filter(1));
 		assert_ok!(result);
 		assert_eq!(extract_actual_weight(&result, &info), info.call_weight);
 
@@ -315,7 +316,7 @@ fn as_derivative_handles_weight_refund() {
 			call: Box::new(inner_call),
 		});
 		let info = call.get_dispatch_info();
-		let result = call.dispatch(RuntimeOrigin::signed(1));
+		let result = call.dispatch(RuntimeOrigin::signed_with_basic_filter(1));
 		assert_ok!(result);
 		// Diff is refunded
 		assert_eq!(extract_actual_weight(&result, &info), info.call_weight - diff);
@@ -327,7 +328,7 @@ fn as_derivative_handles_weight_refund() {
 			call: Box::new(inner_call),
 		});
 		let info = call.get_dispatch_info();
-		let result = call.dispatch(RuntimeOrigin::signed(1));
+		let result = call.dispatch(RuntimeOrigin::signed_with_basic_filter(1));
 		assert_noop!(
 			result,
 			DispatchErrorWithPostInfo {
@@ -347,7 +348,7 @@ fn as_derivative_handles_weight_refund() {
 			call: Box::new(inner_call),
 		});
 		let info = call.get_dispatch_info();
-		let result = call.dispatch(RuntimeOrigin::signed(1));
+		let result = call.dispatch(RuntimeOrigin::signed_with_basic_filter(1));
 		assert_noop!(
 			result,
 			DispatchErrorWithPostInfo {
@@ -367,7 +368,7 @@ fn as_derivative_filters() {
 	new_test_ext().execute_with(|| {
 		assert_err_ignore_postinfo!(
 			Utility::as_derivative(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				1,
 				Box::new(RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
 					dest: 2,
@@ -417,7 +418,7 @@ fn batch_with_signed_works() {
 		assert_eq!(Balances::free_balance(1), 10);
 		assert_eq!(Balances::free_balance(2), 10);
 		assert_ok!(Utility::batch(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			vec![call_transfer(2, 5), call_transfer(2, 5)]
 		),);
 		assert_eq!(Balances::free_balance(1), 0);
@@ -429,7 +430,7 @@ fn batch_with_signed_works() {
 fn batch_with_signed_filters() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Utility::batch(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			vec![RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
 				dest: 2,
 				value: 1
@@ -451,7 +452,7 @@ fn batch_early_exit_works() {
 		assert_eq!(Balances::free_balance(1), 10);
 		assert_eq!(Balances::free_balance(2), 10);
 		assert_ok!(Utility::batch(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			vec![call_transfer(2, 5), call_transfer(2, 10), call_transfer(2, 5),]
 		),);
 		assert_eq!(Balances::free_balance(1), 5);
@@ -490,7 +491,7 @@ fn batch_handles_weight_refund() {
 		let batch_calls = vec![inner_call; batch_len as usize];
 		let call = RuntimeCall::Utility(UtilityCall::batch { calls: batch_calls });
 		let info = call.get_dispatch_info();
-		let result = call.dispatch(RuntimeOrigin::signed(1));
+		let result = call.dispatch(RuntimeOrigin::signed_with_basic_filter(1));
 		assert_ok!(result);
 		assert_eq!(extract_actual_weight(&result, &info), info.call_weight);
 
@@ -499,7 +500,7 @@ fn batch_handles_weight_refund() {
 		let batch_calls = vec![inner_call; batch_len as usize];
 		let call = RuntimeCall::Utility(UtilityCall::batch { calls: batch_calls });
 		let info = call.get_dispatch_info();
-		let result = call.dispatch(RuntimeOrigin::signed(1));
+		let result = call.dispatch(RuntimeOrigin::signed_with_basic_filter(1));
 		assert_ok!(result);
 		// Diff is refunded
 		assert_eq!(extract_actual_weight(&result, &info), info.call_weight - diff * batch_len);
@@ -510,7 +511,7 @@ fn batch_handles_weight_refund() {
 		let batch_calls = vec![good_call, bad_call];
 		let call = RuntimeCall::Utility(UtilityCall::batch { calls: batch_calls });
 		let info = call.get_dispatch_info();
-		let result = call.dispatch(RuntimeOrigin::signed(1));
+		let result = call.dispatch(RuntimeOrigin::signed_with_basic_filter(1));
 		assert_ok!(result);
 		System::assert_last_event(
 			utility::Event::BatchInterrupted { index: 1, error: DispatchError::Other("") }.into(),
@@ -525,7 +526,7 @@ fn batch_handles_weight_refund() {
 		let batch_len = batch_calls.len() as u64;
 		let call = RuntimeCall::Utility(UtilityCall::batch { calls: batch_calls });
 		let info = call.get_dispatch_info();
-		let result = call.dispatch(RuntimeOrigin::signed(1));
+		let result = call.dispatch(RuntimeOrigin::signed_with_basic_filter(1));
 		assert_ok!(result);
 		System::assert_last_event(
 			utility::Event::BatchInterrupted { index: 1, error: DispatchError::Other("") }.into(),
@@ -538,7 +539,7 @@ fn batch_handles_weight_refund() {
 		let batch_calls = vec![good_call, bad_call.clone(), bad_call];
 		let call = RuntimeCall::Utility(UtilityCall::batch { calls: batch_calls });
 		let info = call.get_dispatch_info();
-		let result = call.dispatch(RuntimeOrigin::signed(1));
+		let result = call.dispatch(RuntimeOrigin::signed_with_basic_filter(1));
 		assert_ok!(result);
 		System::assert_last_event(
 			utility::Event::BatchInterrupted { index: 1, error: DispatchError::Other("") }.into(),
@@ -557,7 +558,7 @@ fn batch_all_works() {
 		assert_eq!(Balances::free_balance(1), 10);
 		assert_eq!(Balances::free_balance(2), 10);
 		assert_ok!(Utility::batch_all(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			vec![call_transfer(2, 5), call_transfer(2, 5)]
 		),);
 		assert_eq!(Balances::free_balance(1), 0);
@@ -577,7 +578,7 @@ fn batch_all_revert() {
 			calls: vec![call_transfer(2, 5), call_transfer(2, 10), call_transfer(2, 5)],
 		});
 		assert_noop!(
-			batch_all_calls.dispatch(RuntimeOrigin::signed(1)),
+			batch_all_calls.dispatch(RuntimeOrigin::signed_with_basic_filter(1)),
 			DispatchErrorWithPostInfo {
 				post_info: PostDispatchInfo {
 					actual_weight: Some(
@@ -606,7 +607,7 @@ fn batch_all_handles_weight_refund() {
 		let batch_calls = vec![inner_call; batch_len as usize];
 		let call = RuntimeCall::Utility(UtilityCall::batch_all { calls: batch_calls });
 		let info = call.get_dispatch_info();
-		let result = call.dispatch(RuntimeOrigin::signed(1));
+		let result = call.dispatch(RuntimeOrigin::signed_with_basic_filter(1));
 		assert_ok!(result);
 		assert_eq!(extract_actual_weight(&result, &info), info.call_weight);
 
@@ -615,7 +616,7 @@ fn batch_all_handles_weight_refund() {
 		let batch_calls = vec![inner_call; batch_len as usize];
 		let call = RuntimeCall::Utility(UtilityCall::batch_all { calls: batch_calls });
 		let info = call.get_dispatch_info();
-		let result = call.dispatch(RuntimeOrigin::signed(1));
+		let result = call.dispatch(RuntimeOrigin::signed_with_basic_filter(1));
 		assert_ok!(result);
 		// Diff is refunded
 		assert_eq!(extract_actual_weight(&result, &info), info.call_weight - diff * batch_len);
@@ -626,7 +627,7 @@ fn batch_all_handles_weight_refund() {
 		let batch_calls = vec![good_call, bad_call];
 		let call = RuntimeCall::Utility(UtilityCall::batch_all { calls: batch_calls });
 		let info = call.get_dispatch_info();
-		let result = call.dispatch(RuntimeOrigin::signed(1));
+		let result = call.dispatch(RuntimeOrigin::signed_with_basic_filter(1));
 		assert_err_ignore_postinfo!(result, "The cake is a lie.");
 		// No weight is refunded
 		assert_eq!(extract_actual_weight(&result, &info), info.call_weight);
@@ -638,7 +639,7 @@ fn batch_all_handles_weight_refund() {
 		let batch_len = batch_calls.len() as u64;
 		let call = RuntimeCall::Utility(UtilityCall::batch_all { calls: batch_calls });
 		let info = call.get_dispatch_info();
-		let result = call.dispatch(RuntimeOrigin::signed(1));
+		let result = call.dispatch(RuntimeOrigin::signed_with_basic_filter(1));
 		assert_err_ignore_postinfo!(result, "The cake is a lie.");
 		assert_eq!(extract_actual_weight(&result, &info), info.call_weight - diff * batch_len);
 
@@ -648,7 +649,7 @@ fn batch_all_handles_weight_refund() {
 		let batch_calls = vec![good_call, bad_call.clone(), bad_call];
 		let call = RuntimeCall::Utility(UtilityCall::batch_all { calls: batch_calls });
 		let info = call.get_dispatch_info();
-		let result = call.dispatch(RuntimeOrigin::signed(1));
+		let result = call.dispatch(RuntimeOrigin::signed_with_basic_filter(1));
 		assert_err_ignore_postinfo!(result, "The cake is a lie.");
 		assert_eq!(
 			extract_actual_weight(&result, &info),
@@ -671,7 +672,7 @@ fn batch_all_does_not_nest() {
 		assert_eq!(Balances::free_balance(2), 10);
 		// A nested batch_all call will not pass the filter, and fail with `BadOrigin`.
 		assert_noop!(
-			Utility::batch_all(RuntimeOrigin::signed(1), vec![batch_all.clone()]),
+			Utility::batch_all(RuntimeOrigin::signed_with_basic_filter(1), vec![batch_all.clone()]),
 			DispatchErrorWithPostInfo {
 				post_info: PostDispatchInfo {
 					actual_weight: Some(
@@ -689,7 +690,7 @@ fn batch_all_does_not_nest() {
 		let batch_nested = RuntimeCall::Utility(UtilityCall::batch { calls: vec![batch_all] });
 		// Batch will end with `Ok`, but does not actually execute as we can see from the event
 		// and balances.
-		assert_ok!(Utility::batch_all(RuntimeOrigin::signed(1), vec![batch_nested]));
+		assert_ok!(Utility::batch_all(RuntimeOrigin::signed_with_basic_filter(1), vec![batch_nested]));
 		System::assert_has_event(
 			utility::Event::BatchInterrupted {
 				index: 0,
@@ -707,11 +708,11 @@ fn batch_limit() {
 	new_test_ext().execute_with(|| {
 		let calls = vec![RuntimeCall::System(SystemCall::remark { remark: vec![] }); 40_000];
 		assert_noop!(
-			Utility::batch(RuntimeOrigin::signed(1), calls.clone()),
+			Utility::batch(RuntimeOrigin::signed_with_basic_filter(1), calls.clone()),
 			Error::<Test>::TooManyCalls
 		);
 		assert_noop!(
-			Utility::batch_all(RuntimeOrigin::signed(1), calls),
+			Utility::batch_all(RuntimeOrigin::signed_with_basic_filter(1), calls),
 			Error::<Test>::TooManyCalls
 		);
 	});
@@ -723,7 +724,7 @@ fn force_batch_works() {
 		assert_eq!(Balances::free_balance(1), 10);
 		assert_eq!(Balances::free_balance(2), 10);
 		assert_ok!(Utility::force_batch(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			vec![
 				call_transfer(2, 5),
 				call_foobar(true, Weight::from_parts(75, 0), None),
@@ -739,12 +740,12 @@ fn force_batch_works() {
 		assert_eq!(Balances::free_balance(2), 20);
 
 		assert_ok!(Utility::force_batch(
-			RuntimeOrigin::signed(2),
+			RuntimeOrigin::signed_with_basic_filter(2),
 			vec![call_transfer(1, 5), call_transfer(1, 5),]
 		));
 		System::assert_last_event(utility::Event::BatchCompleted.into());
 
-		assert_ok!(Utility::force_batch(RuntimeOrigin::signed(1), vec![call_transfer(2, 50),]),);
+		assert_ok!(Utility::force_batch(RuntimeOrigin::signed_with_basic_filter(1), vec![call_transfer(2, 50),]),);
 		System::assert_last_event(utility::Event::BatchCompletedWithErrors.into());
 	});
 }
@@ -752,9 +753,9 @@ fn force_batch_works() {
 #[test]
 fn none_origin_does_not_work() {
 	new_test_ext().execute_with(|| {
-		assert_noop!(Utility::force_batch(RuntimeOrigin::none(), vec![]), BadOrigin);
-		assert_noop!(Utility::batch(RuntimeOrigin::none(), vec![]), BadOrigin);
-		assert_noop!(Utility::batch_all(RuntimeOrigin::none(), vec![]), BadOrigin);
+		assert_noop!(Utility::force_batch(RuntimeOrigin::none_with_basic_filter(), vec![]), BadOrigin);
+		assert_noop!(Utility::batch(RuntimeOrigin::none_with_basic_filter(), vec![]), BadOrigin);
+		assert_noop!(Utility::batch_all(RuntimeOrigin::none_with_basic_filter(), vec![]), BadOrigin);
 	})
 }
 
@@ -763,7 +764,7 @@ fn batch_doesnt_work_with_inherents() {
 	new_test_ext().execute_with(|| {
 		// fails because inherents expect the origin to be none.
 		assert_ok!(Utility::batch(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			vec![RuntimeCall::Timestamp(TimestampCall::set { now: 42 }),]
 		));
 		System::assert_last_event(
@@ -798,7 +799,7 @@ fn batch_all_doesnt_work_with_inherents() {
 
 		// fails because inherents expect the origin to be none.
 		assert_noop!(
-			batch_all.dispatch(RuntimeOrigin::signed(1)),
+			batch_all.dispatch(RuntimeOrigin::signed_with_basic_filter(1)),
 			DispatchErrorWithPostInfo {
 				post_info: PostDispatchInfo {
 					actual_weight: Some(info.call_weight),
@@ -821,19 +822,19 @@ fn batch_works_with_council_origin() {
 		let hash = BlakeTwo256::hash_of(&proposal);
 
 		assert_ok!(Council::propose(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			3,
 			Box::new(proposal.clone()),
 			proposal_len
 		));
 
-		assert_ok!(Council::vote(RuntimeOrigin::signed(1), hash, 0, true));
-		assert_ok!(Council::vote(RuntimeOrigin::signed(2), hash, 0, true));
-		assert_ok!(Council::vote(RuntimeOrigin::signed(3), hash, 0, true));
+		assert_ok!(Council::vote(RuntimeOrigin::signed_with_basic_filter(1), hash, 0, true));
+		assert_ok!(Council::vote(RuntimeOrigin::signed_with_basic_filter(2), hash, 0, true));
+		assert_ok!(Council::vote(RuntimeOrigin::signed_with_basic_filter(3), hash, 0, true));
 
 		System::set_block_number(4);
 		assert_ok!(Council::close(
-			RuntimeOrigin::signed(4),
+			RuntimeOrigin::signed_with_basic_filter(4),
 			hash,
 			0,
 			proposal_weight,
@@ -858,19 +859,19 @@ fn force_batch_works_with_council_origin() {
 		let hash = BlakeTwo256::hash_of(&proposal);
 
 		assert_ok!(Council::propose(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			3,
 			Box::new(proposal.clone()),
 			proposal_len
 		));
 
-		assert_ok!(Council::vote(RuntimeOrigin::signed(1), hash, 0, true));
-		assert_ok!(Council::vote(RuntimeOrigin::signed(2), hash, 0, true));
-		assert_ok!(Council::vote(RuntimeOrigin::signed(3), hash, 0, true));
+		assert_ok!(Council::vote(RuntimeOrigin::signed_with_basic_filter(1), hash, 0, true));
+		assert_ok!(Council::vote(RuntimeOrigin::signed_with_basic_filter(2), hash, 0, true));
+		assert_ok!(Council::vote(RuntimeOrigin::signed_with_basic_filter(3), hash, 0, true));
 
 		System::set_block_number(4);
 		assert_ok!(Council::close(
-			RuntimeOrigin::signed(4),
+			RuntimeOrigin::signed_with_basic_filter(4),
 			hash,
 			0,
 			proposal_weight,
@@ -888,7 +889,7 @@ fn force_batch_works_with_council_origin() {
 fn batch_all_works_with_council_origin() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Utility::batch_all(
-			RuntimeOrigin::from(pallet_collective::RawOrigin::Members(3, 3)),
+			(pallet_collective::RawOrigin::Members(3, 3)).into_with_basic_filter(),
 			vec![RuntimeCall::Democracy(mock_democracy::Call::external_propose_majority {})]
 		));
 	})
@@ -986,7 +987,7 @@ fn if_else_with_signed_works() {
 		assert_eq!(Balances::free_balance(1), 10);
 		assert_eq!(Balances::free_balance(2), 10);
 		assert_ok!(Utility::if_else(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			call_transfer(2, 11).into(),
 			call_transfer(2, 5).into()
 		));
@@ -1008,7 +1009,7 @@ fn if_else_successful_main_call() {
 		assert_eq!(Balances::free_balance(1), 10);
 		assert_eq!(Balances::free_balance(2), 10);
 		assert_ok!(Utility::if_else(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			call_transfer(2, 9).into(),
 			call_transfer(2, 1).into()
 		));
@@ -1051,7 +1052,7 @@ fn if_else_failing_fallback_call() {
 		assert_eq!(Balances::free_balance(2), 10);
 		assert_err_ignore_postinfo!(
 			Utility::if_else(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				call_transfer(2, 11).into(),
 				call_transfer(2, 11).into()
 			),
@@ -1077,7 +1078,7 @@ fn if_else_with_nested_if_else_works() {
 
 		// Nested `if_else` call.
 		assert_ok!(Utility::if_else(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			nested_if_else_call,
 			call_transfer(2, 7).into()
 		));

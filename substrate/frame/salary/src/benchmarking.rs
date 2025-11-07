@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use crate::Pallet as Salary;
 
@@ -57,20 +58,20 @@ mod benchmarks {
 	#[benchmark]
 	fn bump() {
 		let caller: T::AccountId = whitelisted_caller();
-		Salary::<T, I>::init(RawOrigin::Signed(caller.clone()).into()).unwrap();
+		Salary::<T, I>::init(RawOrigin::Signed(caller.clone()).into_with_basic_filter()).unwrap();
 		System::<T>::set_block_number(System::<T>::block_number() + Salary::<T, I>::cycle_period());
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()));
 
-		assert_eq!(Salary::<T, I>::status().unwrap().cycle_index, 1u32.into());
+		assert_eq!(Salary::<T, I>::status().unwrap().cycle_index, 1u32.into_with_basic_filter());
 	}
 
 	#[benchmark]
 	fn induct() {
 		let caller = whitelisted_caller();
 		ensure_member_with_salary::<T, I>(&caller);
-		Salary::<T, I>::init(RawOrigin::Signed(caller.clone()).into()).unwrap();
+		Salary::<T, I>::init(RawOrigin::Signed(caller.clone()).into_with_basic_filter()).unwrap();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()));
@@ -82,25 +83,25 @@ mod benchmarks {
 	fn register() {
 		let caller = whitelisted_caller();
 		ensure_member_with_salary::<T, I>(&caller);
-		Salary::<T, I>::init(RawOrigin::Signed(caller.clone()).into()).unwrap();
-		Salary::<T, I>::induct(RawOrigin::Signed(caller.clone()).into()).unwrap();
+		Salary::<T, I>::init(RawOrigin::Signed(caller.clone()).into_with_basic_filter()).unwrap();
+		Salary::<T, I>::induct(RawOrigin::Signed(caller.clone()).into_with_basic_filter()).unwrap();
 		System::<T>::set_block_number(System::<T>::block_number() + Salary::<T, I>::cycle_period());
-		Salary::<T, I>::bump(RawOrigin::Signed(caller.clone()).into()).unwrap();
+		Salary::<T, I>::bump(RawOrigin::Signed(caller.clone()).into_with_basic_filter()).unwrap();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()));
 
-		assert_eq!(Salary::<T, I>::last_active(&caller).unwrap(), 1u32.into());
+		assert_eq!(Salary::<T, I>::last_active(&caller).unwrap(), 1u32.into_with_basic_filter());
 	}
 
 	#[benchmark]
 	fn payout() {
 		let caller = whitelisted_caller();
 		ensure_member_with_salary::<T, I>(&caller);
-		Salary::<T, I>::init(RawOrigin::Signed(caller.clone()).into()).unwrap();
-		Salary::<T, I>::induct(RawOrigin::Signed(caller.clone()).into()).unwrap();
+		Salary::<T, I>::init(RawOrigin::Signed(caller.clone()).into_with_basic_filter()).unwrap();
+		Salary::<T, I>::induct(RawOrigin::Signed(caller.clone()).into_with_basic_filter()).unwrap();
 		System::<T>::set_block_number(System::<T>::block_number() + Salary::<T, I>::cycle_period());
-		Salary::<T, I>::bump(RawOrigin::Signed(caller.clone()).into()).unwrap();
+		Salary::<T, I>::bump(RawOrigin::Signed(caller.clone()).into_with_basic_filter()).unwrap();
 		System::<T>::set_block_number(System::<T>::block_number() + T::RegistrationPeriod::get());
 
 		let salary = T::Salary::get_salary(T::Members::rank_of(&caller).unwrap(), &caller);
@@ -111,22 +112,22 @@ mod benchmarks {
 
 		match Claimant::<T, I>::get(&caller) {
 			Some(ClaimantStatus { last_active, status: Attempted { id, .. } }) => {
-				assert_eq!(last_active, 1u32.into());
+				assert_eq!(last_active, 1u32.into_with_basic_filter());
 				assert_ne!(T::Paymaster::check_payment(id), PaymentStatus::Failure);
 			},
 			_ => panic!("No claim made"),
 		}
-		assert!(Salary::<T, I>::payout(RawOrigin::Signed(caller.clone()).into()).is_err());
+		assert!(Salary::<T, I>::payout(RawOrigin::Signed(caller.clone()).into_with_basic_filter()).is_err());
 	}
 
 	#[benchmark]
 	fn payout_other() {
 		let caller = whitelisted_caller();
 		ensure_member_with_salary::<T, I>(&caller);
-		Salary::<T, I>::init(RawOrigin::Signed(caller.clone()).into()).unwrap();
-		Salary::<T, I>::induct(RawOrigin::Signed(caller.clone()).into()).unwrap();
+		Salary::<T, I>::init(RawOrigin::Signed(caller.clone()).into_with_basic_filter()).unwrap();
+		Salary::<T, I>::induct(RawOrigin::Signed(caller.clone()).into_with_basic_filter()).unwrap();
 		System::<T>::set_block_number(System::<T>::block_number() + Salary::<T, I>::cycle_period());
-		Salary::<T, I>::bump(RawOrigin::Signed(caller.clone()).into()).unwrap();
+		Salary::<T, I>::bump(RawOrigin::Signed(caller.clone()).into_with_basic_filter()).unwrap();
 		System::<T>::set_block_number(System::<T>::block_number() + T::RegistrationPeriod::get());
 
 		let salary = T::Salary::get_salary(T::Members::rank_of(&caller).unwrap(), &caller);
@@ -143,23 +144,23 @@ mod benchmarks {
 			},
 			_ => panic!("No claim made"),
 		}
-		assert!(Salary::<T, I>::payout(RawOrigin::Signed(caller.clone()).into()).is_err());
+		assert!(Salary::<T, I>::payout(RawOrigin::Signed(caller.clone()).into_with_basic_filter()).is_err());
 	}
 
 	#[benchmark]
 	fn check_payment() {
 		let caller = whitelisted_caller();
 		ensure_member_with_salary::<T, I>(&caller);
-		Salary::<T, I>::init(RawOrigin::Signed(caller.clone()).into()).unwrap();
-		Salary::<T, I>::induct(RawOrigin::Signed(caller.clone()).into()).unwrap();
+		Salary::<T, I>::init(RawOrigin::Signed(caller.clone()).into_with_basic_filter()).unwrap();
+		Salary::<T, I>::induct(RawOrigin::Signed(caller.clone()).into_with_basic_filter()).unwrap();
 		System::<T>::set_block_number(System::<T>::block_number() + Salary::<T, I>::cycle_period());
-		Salary::<T, I>::bump(RawOrigin::Signed(caller.clone()).into()).unwrap();
+		Salary::<T, I>::bump(RawOrigin::Signed(caller.clone()).into_with_basic_filter()).unwrap();
 		System::<T>::set_block_number(System::<T>::block_number() + T::RegistrationPeriod::get());
 
 		let salary = T::Salary::get_salary(T::Members::rank_of(&caller).unwrap(), &caller);
 		let recipient: T::AccountId = account("recipient", 0, SEED);
 		T::Paymaster::ensure_successful(&recipient, (), salary);
-		Salary::<T, I>::payout(RawOrigin::Signed(caller.clone()).into()).unwrap();
+		Salary::<T, I>::payout(RawOrigin::Signed(caller.clone()).into_with_basic_filter()).unwrap();
 		let id = match Claimant::<T, I>::get(&caller).unwrap().status {
 			Attempted { id, .. } => id,
 			_ => panic!("No claim made"),

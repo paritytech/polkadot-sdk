@@ -16,6 +16,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use crate::{
 	configuration::Pallet as Configuration,
 	hrmp::{Pallet as Hrmp, *},
@@ -76,7 +77,7 @@ fn establish_para_connection<T: Config>(
 	until: ParachainSetupStep,
 ) -> [(ParaId, crate::Origin); 2]
 where
-	<T as frame_system::Config>::RuntimeOrigin: From<crate::Origin>,
+	<T as frame_system::Config>::RuntimeOrigin: FromWithBasicFilter<crate::Origin>,
 {
 	let config = configuration::ActiveConfig::<T>::get();
 	let ed = T::Currency::minimum_balance();
@@ -150,7 +151,7 @@ static_assertions::const_assert!(MAX_UNIQUE_CHANNELS < PREFIX_0);
 static_assertions::const_assert!(HRMP_MAX_INBOUND_CHANNELS_BOUND < PREFIX_0);
 static_assertions::const_assert!(HRMP_MAX_OUTBOUND_CHANNELS_BOUND < PREFIX_0);
 
-#[benchmarks(where <T as frame_system::Config>::RuntimeOrigin: From<crate::Origin>)]
+#[benchmarks(where <T as frame_system::Config>::RuntimeOrigin: FromWithBasicFilter<crate::Origin>)]
 mod benchmarks {
 	use super::*;
 
@@ -222,15 +223,15 @@ mod benchmarks {
 	) {
 		// first, update the configs to support this many open channels...
 		assert_ok!(Configuration::<T>::set_hrmp_max_parachain_outbound_channels(
-			frame_system::RawOrigin::Root.into(),
+			frame_system::RawOrigin::Root.into_with_basic_filter(),
 			e + 1
 		));
 		assert_ok!(Configuration::<T>::set_hrmp_max_parachain_inbound_channels(
-			frame_system::RawOrigin::Root.into(),
+			frame_system::RawOrigin::Root.into_with_basic_filter(),
 			i + 1
 		));
 		assert_ok!(Configuration::<T>::set_max_downward_message_size(
-			frame_system::RawOrigin::Root.into(),
+			frame_system::RawOrigin::Root.into_with_basic_filter(),
 			1024
 		));
 		// .. and enact it.
@@ -507,7 +508,7 @@ mod benchmarks {
 
 		assert_last_event::<T>(
 			Event::<T>::OpenChannelDepositsUpdated { sender: sender_id, recipient: recipient_id }
-				.into(),
+				.into_with_basic_filter(),
 		);
 		let channel = HrmpChannels::<T>::get(&channel_id).unwrap();
 		// Check that the deposit was updated in the channel state.

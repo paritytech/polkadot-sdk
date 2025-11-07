@@ -794,7 +794,7 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 
 	// Mint the asset into the bridge sovereign account, to mimic locked funds
 	AssetHubWestend::mint_asset(
-		<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendAssetOwner::get()),
+		<AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubWestendAssetOwner::get()),
 		RESERVABLE_ASSET_ID,
 		ethereum_sovereign.clone(),
 		TOKEN_AMOUNT,
@@ -1072,7 +1072,7 @@ pub fn add_tip_from_asset_hub_user_origin() {
 		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::add_tip(
-			RuntimeOrigin::signed(relayer.clone()),
+			RuntimeOrigin::signed_with_basic_filter(relayer.clone()),
 			tip_message_id.clone(),
 			xcm::prelude::Asset::from((dot, 1_000_000_000u128)),
 		));

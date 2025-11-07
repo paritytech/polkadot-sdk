@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 
 use frame_support::{
@@ -135,13 +136,13 @@ fn setup_lp(asset_id: u32, balance_factor: u64) {
 	let token_1 = NativeOrWithId::Native;
 	let token_2 = NativeOrWithId::WithId(asset_id);
 	assert_ok!(AssetConversion::create_pool(
-		RuntimeOrigin::signed(lp_provider),
+		RuntimeOrigin::signed_with_basic_filter(lp_provider),
 		Box::new(token_1.clone()),
 		Box::new(token_2.clone())
 	));
 
 	assert_ok!(AssetConversion::add_liquidity(
-		RuntimeOrigin::signed(lp_provider),
+		RuntimeOrigin::signed_with_basic_filter(lp_provider),
 		Box::new(token_1),
 		Box::new(token_2),
 		1_000 * balance_factor,  // 1 desired
@@ -902,7 +903,7 @@ fn no_fee_and_no_weight_for_other_origins() {
 
 		let len = CALL.encoded_size();
 
-		let origin = frame_system::RawOrigin::Root.into();
+		let origin = frame_system::RawOrigin::Root.into_with_basic_filter();
 		let (pre, origin) = ext.validate_and_prepare(origin, CALL, &info, len, 0).unwrap();
 
 		assert!(origin.as_system_ref().unwrap().is_root());

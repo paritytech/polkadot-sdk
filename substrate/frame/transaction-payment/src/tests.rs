@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use crate as pallet_transaction_payment;
 
@@ -855,7 +856,7 @@ fn no_fee_and_no_weight_for_other_origins() {
 
 		let len = CALL.encoded_size();
 
-		let origin = frame_system::RawOrigin::Root.into();
+		let origin = frame_system::RawOrigin::Root.into_with_basic_filter();
 		let (pre, origin) = ext.validate_and_prepare(origin, CALL, &info, len, 0).unwrap();
 
 		assert!(origin.as_system_ref().unwrap().is_root());

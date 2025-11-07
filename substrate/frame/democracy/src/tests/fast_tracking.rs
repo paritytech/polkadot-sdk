@@ -25,23 +25,23 @@ fn fast_track_referendum_works() {
 		System::set_block_number(0);
 		let h = set_balance_proposal(2).hash();
 		assert_noop!(
-			Democracy::fast_track(RuntimeOrigin::signed(5), h, 3, 2),
+			Democracy::fast_track(RuntimeOrigin::signed_with_basic_filter(5), h, 3, 2),
 			Error::<Test>::ProposalMissing
 		);
 		assert_ok!(Democracy::external_propose_majority(
-			RuntimeOrigin::signed(3),
+			RuntimeOrigin::signed_with_basic_filter(3),
 			set_balance_proposal(2)
 		));
 		let hash = note_preimage(1);
 		assert!(MetadataOf::<Test>::get(MetadataOwner::External).is_none());
 		assert_ok!(Democracy::set_metadata(
-			RuntimeOrigin::signed(3),
+			RuntimeOrigin::signed_with_basic_filter(3),
 			MetadataOwner::External,
 			Some(hash),
 		),);
 		assert!(MetadataOf::<Test>::get(MetadataOwner::External).is_some());
-		assert_noop!(Democracy::fast_track(RuntimeOrigin::signed(1), h, 3, 2), BadOrigin);
-		assert_ok!(Democracy::fast_track(RuntimeOrigin::signed(5), h, 2, 0));
+		assert_noop!(Democracy::fast_track(RuntimeOrigin::signed_with_basic_filter(1), h, 3, 2), BadOrigin);
+		assert_ok!(Democracy::fast_track(RuntimeOrigin::signed_with_basic_filter(5), h, 2, 0));
 		assert_eq!(
 			Democracy::referendum_status(0),
 			Ok(ReferendumStatus {
@@ -64,25 +64,25 @@ fn instant_referendum_works() {
 		System::set_block_number(0);
 		let h = set_balance_proposal(2).hash();
 		assert_noop!(
-			Democracy::fast_track(RuntimeOrigin::signed(5), h, 3, 2),
+			Democracy::fast_track(RuntimeOrigin::signed_with_basic_filter(5), h, 3, 2),
 			Error::<Test>::ProposalMissing
 		);
 		assert_ok!(Democracy::external_propose_majority(
-			RuntimeOrigin::signed(3),
+			RuntimeOrigin::signed_with_basic_filter(3),
 			set_balance_proposal(2)
 		));
-		assert_noop!(Democracy::fast_track(RuntimeOrigin::signed(1), h, 3, 2), BadOrigin);
-		assert_noop!(Democracy::fast_track(RuntimeOrigin::signed(5), h, 1, 0), BadOrigin);
+		assert_noop!(Democracy::fast_track(RuntimeOrigin::signed_with_basic_filter(1), h, 3, 2), BadOrigin);
+		assert_noop!(Democracy::fast_track(RuntimeOrigin::signed_with_basic_filter(5), h, 1, 0), BadOrigin);
 		assert_noop!(
-			Democracy::fast_track(RuntimeOrigin::signed(6), h, 1, 0),
+			Democracy::fast_track(RuntimeOrigin::signed_with_basic_filter(6), h, 1, 0),
 			Error::<Test>::InstantNotAllowed
 		);
 		INSTANT_ALLOWED.with(|v| *v.borrow_mut() = true);
 		assert_noop!(
-			Democracy::fast_track(RuntimeOrigin::signed(6), h, 0, 0),
+			Democracy::fast_track(RuntimeOrigin::signed_with_basic_filter(6), h, 0, 0),
 			Error::<Test>::VotingPeriodLow
 		);
-		assert_ok!(Democracy::fast_track(RuntimeOrigin::signed(6), h, 1, 0));
+		assert_ok!(Democracy::fast_track(RuntimeOrigin::signed_with_basic_filter(6), h, 1, 0));
 		assert_eq!(
 			Democracy::referendum_status(0),
 			Ok(ReferendumStatus {
@@ -113,13 +113,13 @@ fn instant_next_block_referendum_backed() {
 
 		// propose with majority origin
 		assert_ok!(Democracy::external_propose_majority(
-			RuntimeOrigin::signed(majority_origin_id),
+			RuntimeOrigin::signed_with_basic_filter(majority_origin_id),
 			proposal.clone()
 		));
 
 		// fast track with instant origin and voting period pointing to the next block
 		assert_ok!(Democracy::fast_track(
-			RuntimeOrigin::signed(instant_origin_id),
+			RuntimeOrigin::signed_with_basic_filter(instant_origin_id),
 			proposal.hash(),
 			voting_period,
 			delay
@@ -155,9 +155,9 @@ fn fast_track_referendum_fails_when_no_simple_majority() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(0);
 		let h = set_balance_proposal(2).hash();
-		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2)));
+		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed_with_basic_filter(2), set_balance_proposal(2)));
 		assert_noop!(
-			Democracy::fast_track(RuntimeOrigin::signed(5), h, 3, 2),
+			Democracy::fast_track(RuntimeOrigin::signed_with_basic_filter(5), h, 3, 2),
 			Error::<Test>::NotSimpleMajority
 		);
 	});

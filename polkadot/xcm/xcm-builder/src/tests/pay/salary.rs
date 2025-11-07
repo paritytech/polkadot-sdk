@@ -131,13 +131,13 @@ fn salary_pay_over_xcm_works() {
 		assert_eq!(mock::Assets::balance(AssetIdGeneralIndex::get(), &recipient.clone()), 0);
 
 		// Use salary pallet to call `PayOverXcm::pay`
-		assert_ok!(Salary::init(RuntimeOrigin::signed(recipient.clone())));
+		assert_ok!(Salary::init(RuntimeOrigin::signed_with_basic_filter(recipient.clone())));
 		run_to(5);
-		assert_ok!(Salary::induct(RuntimeOrigin::signed(recipient.clone())));
-		assert_ok!(Salary::bump(RuntimeOrigin::signed(recipient.clone())));
-		assert_ok!(Salary::register(RuntimeOrigin::signed(recipient.clone())));
+		assert_ok!(Salary::induct(RuntimeOrigin::signed_with_basic_filter(recipient.clone())));
+		assert_ok!(Salary::bump(RuntimeOrigin::signed_with_basic_filter(recipient.clone())));
+		assert_ok!(Salary::register(RuntimeOrigin::signed_with_basic_filter(recipient.clone())));
 		run_to(7);
-		assert_ok!(Salary::payout(RuntimeOrigin::signed(recipient.clone())));
+		assert_ok!(Salary::payout(RuntimeOrigin::signed_with_basic_filter(recipient.clone())));
 
 		// Get message from mock transport layer
 		let (_, message, mut hash) = sent_xcm()[0].clone();

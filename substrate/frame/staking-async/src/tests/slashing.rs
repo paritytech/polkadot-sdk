@@ -459,8 +459,8 @@ fn retroactive_deferred_slashes_one_before() {
 			// unbond at slash era.
 			Session::roll_until_active_era(2);
 
-			assert_ok!(Staking::chill(RuntimeOrigin::signed(11)));
-			assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 100));
+			assert_ok!(Staking::chill(RuntimeOrigin::signed_with_basic_filter(11)));
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed_with_basic_filter(11), 100));
 
 			Session::roll_until_active_era(3);
 			// ignore all events thus far
@@ -507,7 +507,7 @@ fn retroactive_deferred_slashes_one_before() {
 
 			// their ledger has already been slashed.
 			assert_eq!(Staking::ledger(11.into()).unwrap().total, 900);
-			assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 1000));
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed_with_basic_filter(11), 1000));
 			assert_eq!(Staking::ledger(11.into()).unwrap().total, 900);
 		})
 }
@@ -883,7 +883,7 @@ fn fully_slashed_account_can_be_reaped() {
 			assert_eq!(asset::total_balance::<T>(&11), ExistentialDeposit::get());
 
 			// And the account can be reaped.
-			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
+			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed_with_basic_filter(20), 11, 0));
 		})
 }
 
@@ -942,8 +942,8 @@ fn staker_cannot_bail_deferred_slash() {
 			);
 
 			// now we chill
-			assert_ok!(Staking::chill(RuntimeOrigin::signed(101)));
-			assert_ok!(Staking::unbond(RuntimeOrigin::signed(101), 500));
+			assert_ok!(Staking::chill(RuntimeOrigin::signed_with_basic_filter(101)));
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed_with_basic_filter(101), 500));
 
 			assert_eq!(CurrentEra::<T>::get().unwrap(), 1);
 			assert_eq!(active_era(), 1);
@@ -977,7 +977,7 @@ fn staker_cannot_bail_deferred_slash() {
 
 			// and cannot yet unbond:
 			assert_storage_noop!(assert!(Staking::withdraw_unbonded(
-				RuntimeOrigin::signed(101),
+				RuntimeOrigin::signed_with_basic_filter(101),
 				0
 			)
 			.is_ok()));
@@ -1338,7 +1338,7 @@ fn apply_slash_rejects_cancelled_slashes() {
 
 		// Try to manually apply the cancelled slash - this should fail
 		assert_noop!(
-			Staking::apply_slash(RuntimeOrigin::signed(1), slash_era, slash_key),
+			Staking::apply_slash(RuntimeOrigin::signed_with_basic_filter(1), slash_era, slash_key),
 			Error::<T>::CancelledSlash
 		);
 
@@ -1621,9 +1621,9 @@ fn withdrawals_are_blocked_for_unprocessed_and_unapplied_slashes() {
 
 			// create unbonding chunks for the next two eras.
 			Session::roll_until_active_era(2);
-			assert_ok!(Staking::unbond(RuntimeOrigin::signed(nominator), 100));
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed_with_basic_filter(nominator), 100));
 			Session::roll_until_active_era(3);
-			assert_ok!(Staking::unbond(RuntimeOrigin::signed(nominator), 150));
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed_with_basic_filter(nominator), 150));
 
 			// Rationale: We want to simulate a backlog of offences from era 3 that remain
 			// unprocessed by the time unbonding becomes possible in era 6.
@@ -1676,7 +1676,7 @@ fn withdrawals_are_blocked_for_unprocessed_and_unapplied_slashes() {
 			// WHEN: the nominator tries to withdraw unbonded funds while there are unapplied
 			// offence in the last era.
 			assert_noop!(
-				Staking::withdraw_unbonded(RuntimeOrigin::signed(nominator), 0),
+				Staking::withdraw_unbonded(RuntimeOrigin::signed_with_basic_filter(nominator), 0),
 				Error::<T>::UnappliedSlashesInPreviousEra
 			);
 
@@ -1686,7 +1686,7 @@ fn withdrawals_are_blocked_for_unprocessed_and_unapplied_slashes() {
 			assert_eq!(era_unapplied_slash_count(5), 0);
 
 			// WHEN: the nominator tries to withdraw unbonded funds.
-			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(nominator), 0));
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed_with_basic_filter(nominator), 0));
 
 			// THEN: only the first unbonding chunk is withdrawn, as the second one is blocked by
 			// unprocessed offences.
@@ -1705,7 +1705,7 @@ fn withdrawals_are_blocked_for_unprocessed_and_unapplied_slashes() {
 			assert_eq!(era_unprocessed_offence_count(3), 1);
 
 			// withdrawals are still not possible for era (3 + 3 =) 6.
-			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(nominator), 0));
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed_with_basic_filter(nominator), 0));
 			assert_eq!(Balances::free_balance(&nominator), nominator_balance_post_withdraw_1);
 
 			// WHEN: all offences are processed.
@@ -1723,7 +1723,7 @@ fn withdrawals_are_blocked_for_unprocessed_and_unapplied_slashes() {
 			assert_eq!(OffenceQueueEras::<T>::get(), None);
 
 			// Withdrawing for era 3 should be possible.
-			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(nominator), 0));
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed_with_basic_filter(nominator), 0));
 			assert_eq!(Balances::free_balance(&nominator), nominator_balance_post_withdraw_1 + 150);
 
 			// Finally, we clear the unapplied slashes for era 5. Otherwise our try state checks
@@ -2146,7 +2146,7 @@ mod paged_slashing {
 			let expected_slash = slash_fraction * validator_stake;
 
 			// only 101 nominates 11, lets remove them.
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![21]));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed_with_basic_filter(101), vec![21]));
 
 			Session::roll_until_active_era(2);
 

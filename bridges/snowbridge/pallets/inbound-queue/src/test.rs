@@ -20,7 +20,7 @@ fn test_submit_happy_path() {
 		let relayer: AccountId = Keyring::Bob.into();
 		let channel_sovereign = sibling_sovereign_account::<Test>(ASSET_HUB_PARAID.into());
 
-		let origin = RuntimeOrigin::signed(relayer.clone());
+		let origin = RuntimeOrigin::signed_with_basic_filter(relayer.clone());
 
 		// Submit event proof
 		let event = EventProof {
@@ -65,7 +65,7 @@ fn test_submit_happy_path() {
 fn test_submit_xcm_invalid_channel() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
-		let origin = RuntimeOrigin::signed(relayer);
+		let origin = RuntimeOrigin::signed_with_basic_filter(relayer);
 
 		// Deposit funds into sovereign account of parachain 1001
 		let sovereign_account = sibling_sovereign_account::<Test>(TEMPLATE_PARAID.into());
@@ -91,7 +91,7 @@ fn test_submit_xcm_invalid_channel() {
 fn test_submit_with_invalid_gateway() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
-		let origin = RuntimeOrigin::signed(relayer);
+		let origin = RuntimeOrigin::signed_with_basic_filter(relayer);
 
 		// Deposit funds into sovereign account of Asset Hub (Statemint)
 		let sovereign_account = sibling_sovereign_account::<Test>(ASSET_HUB_PARAID.into());
@@ -116,7 +116,7 @@ fn test_submit_with_invalid_gateway() {
 fn test_submit_with_invalid_nonce() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
-		let origin = RuntimeOrigin::signed(relayer);
+		let origin = RuntimeOrigin::signed_with_basic_filter(relayer);
 
 		// Deposit funds into sovereign account of Asset Hub (Statemint)
 		let sovereign_account = sibling_sovereign_account::<Test>(ASSET_HUB_PARAID.into());
@@ -149,7 +149,7 @@ fn test_submit_with_invalid_nonce() {
 fn test_submit_no_funds_to_reward_relayers_just_ignore() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
-		let origin = RuntimeOrigin::signed(relayer);
+		let origin = RuntimeOrigin::signed_with_basic_filter(relayer);
 
 		// Reset balance of sovereign_account to zero first
 		let sovereign_account = sibling_sovereign_account::<Test>(ASSET_HUB_PARAID.into());
@@ -172,7 +172,7 @@ fn test_submit_no_funds_to_reward_relayers_just_ignore() {
 fn test_set_operating_mode() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
-		let origin = RuntimeOrigin::signed(relayer);
+		let origin = RuntimeOrigin::signed_with_basic_filter(relayer);
 		let event = EventProof {
 			event_log: mock_event_log(),
 			proof: Proof {
@@ -195,7 +195,7 @@ fn test_set_operating_mode_root_only() {
 	new_tester().execute_with(|| {
 		assert_noop!(
 			InboundQueue::set_operating_mode(
-				RuntimeOrigin::signed(Keyring::Bob.into()),
+				RuntimeOrigin::signed_with_basic_filter(Keyring::Bob.into()),
 				snowbridge_core::BasicOperatingMode::Halted
 			),
 			DispatchError::BadOrigin
@@ -207,7 +207,7 @@ fn test_set_operating_mode_root_only() {
 fn test_submit_no_funds_to_reward_relayers_and_ed_preserved() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
-		let origin = RuntimeOrigin::signed(relayer);
+		let origin = RuntimeOrigin::signed_with_basic_filter(relayer);
 
 		// Reset balance of sovereign account to (ED+1) first
 		let sovereign_account = sibling_sovereign_account::<Test>(ASSET_HUB_PARAID.into());

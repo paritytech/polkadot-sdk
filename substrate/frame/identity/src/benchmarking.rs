@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 
 use crate::{migration::v2::LazyMigrationV1ToV2, Pallet as Identity};
@@ -62,9 +63,9 @@ fn add_registrars<T: Config>(r: u32) -> Result<(), &'static str> {
 		let registrar_origin = T::RegistrarOrigin::try_successful_origin()
 			.expect("RegistrarOrigin has no successful origin required for the benchmark");
 		Identity::<T>::add_registrar(registrar_origin, registrar_lookup)?;
-		Identity::<T>::set_fee(RawOrigin::Signed(registrar.clone()).into(), i, 10u32.into())?;
+		Identity::<T>::set_fee(RawOrigin::Signed(registrar.clone()).into_with_basic_filter(), i, 10u32.into_with_basic_filter())?;
 		let fields = T::IdentityInformation::all_fields();
-		Identity::<T>::set_fields(RawOrigin::Signed(registrar.clone()).into(), i, fields)?;
+		Identity::<T>::set_fields(RawOrigin::Signed(registrar.clone()).into_with_basic_filter(), i, fields)?;
 	}
 
 	assert_eq!(Registrars::<T>::get().len(), r as usize);
@@ -105,7 +106,7 @@ fn add_sub_accounts<T: Config>(
 	let who_origin = RawOrigin::Signed(who.clone());
 	let subs = create_sub_accounts::<T>(who, s)?;
 
-	Identity::<T>::set_subs(who_origin.into(), subs.clone())?;
+	Identity::<T>::set_subs(who_origin.into_with_basic_filter(), subs.clone())?;
 
 	Ok(subs)
 }
@@ -153,7 +154,7 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
 		let caller_origin: <T as frame_system::Config>::RuntimeOrigin =
-			RawOrigin::Signed(caller.clone()).into();
+			RawOrigin::Signed(caller.clone()).into_with_basic_filter();
 		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 
 		// Add an initial identity
@@ -169,7 +170,7 @@ mod benchmarks {
 
 			Identity::<T>::request_judgement(caller_origin.clone(), i, 10u32.into())?;
 			Identity::<T>::provide_judgement(
-				RawOrigin::Signed(registrar).into(),
+				RawOrigin::Signed(registrar).into_with_basic_filter(),
 				i,
 				caller_lookup.clone(),
 				Judgement::Reasonable,
@@ -183,7 +184,7 @@ mod benchmarks {
 			Box::new(T::IdentityInformation::create_identity_info()),
 		);
 
-		assert_last_event::<T>(Event::<T>::IdentitySet { who: caller }.into());
+		assert_last_event::<T>(Event::<T>::IdentitySet { who: caller }.into_with_basic_filter());
 		Ok(())
 	}
 
@@ -230,7 +231,7 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let caller_origin =
-			<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
+			(RawOrigin::Signed(caller.clone())).into_with_basic_filter();
 		let caller_lookup = <T::Lookup as StaticLookup>::unlookup(caller.clone());
 		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 
@@ -252,7 +253,7 @@ mod benchmarks {
 
 			Identity::<T>::request_judgement(caller_origin.clone(), i, 10u32.into())?;
 			Identity::<T>::provide_judgement(
-				RawOrigin::Signed(registrar).into(),
+				RawOrigin::Signed(registrar).into_with_basic_filter(),
 				i,
 				caller_lookup.clone(),
 				Judgement::Reasonable,
@@ -280,14 +281,14 @@ mod benchmarks {
 		// Create their main identity with x additional fields
 		let info = T::IdentityInformation::create_identity_info();
 		let caller_origin =
-			<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
+			(RawOrigin::Signed(caller.clone())).into_with_basic_filter();
 		Identity::<T>::set_identity(caller_origin.clone(), Box::new(info))?;
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), r - 1, 10u32.into());
+		_(RawOrigin::Signed(caller.clone()), r - 1, 10u32.into_with_basic_filter());
 
 		assert_last_event::<T>(
-			Event::<T>::JudgementRequested { who: caller, registrar_index: r - 1 }.into(),
+			Event::<T>::JudgementRequested { who: caller, registrar_index: r - 1 }.into_with_basic_filter(),
 		);
 
 		Ok(())
@@ -304,16 +305,16 @@ mod benchmarks {
 		// Create their main identity with x additional fields
 		let info = T::IdentityInformation::create_identity_info();
 		let caller_origin =
-			<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
+			(RawOrigin::Signed(caller.clone())).into_with_basic_filter();
 		Identity::<T>::set_identity(caller_origin.clone(), Box::new(info))?;
 
-		Identity::<T>::request_judgement(caller_origin.clone(), r - 1, 10u32.into())?;
+		Identity::<T>::request_judgement(caller_origin.clone(), r - 1, 10u32.into_with_basic_filter())?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), r - 1);
 
 		assert_last_event::<T>(
-			Event::<T>::JudgementUnrequested { who: caller, registrar_index: r - 1 }.into(),
+			Event::<T>::JudgementUnrequested { who: caller, registrar_index: r - 1 }.into_with_basic_filter(),
 		);
 
 		Ok(())
@@ -334,11 +335,11 @@ mod benchmarks {
 		ensure!(registrars[r as usize].as_ref().unwrap().fee == 0u32.into(), "Fee already set.");
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), r, 100u32.into());
+		_(RawOrigin::Signed(caller), r, 100u32.into_with_basic_filter());
 
 		let updated_registrars = Registrars::<T>::get();
 		ensure!(
-			updated_registrars[r as usize].as_ref().unwrap().fee == 100u32.into(),
+			updated_registrars[r as usize].as_ref().unwrap().fee == 100u32.into_with_basic_filter(),
 			"Fee not changed."
 		);
 
@@ -412,7 +413,7 @@ mod benchmarks {
 		// The user
 		let user: T::AccountId = account("user", r, SEED);
 		let user_origin =
-			<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(user.clone()));
+			(RawOrigin::Signed(user.clone())).into_with_basic_filter();
 		let user_lookup = <T::Lookup as StaticLookup>::unlookup(user.clone());
 		let _ = T::Currency::make_free_balance_be(&user, BalanceOf::<T>::max_value());
 
@@ -435,7 +436,7 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller), r, user_lookup, Judgement::Reasonable, info_hash);
 
 		assert_last_event::<T>(
-			Event::<T>::JudgementGiven { target: user, registrar_index: r }.into(),
+			Event::<T>::JudgementGiven { target: user, registrar_index: r }.into_with_basic_filter(),
 		);
 
 		Ok(())
@@ -450,7 +451,7 @@ mod benchmarks {
 
 		let target: T::AccountId = account("target", 0, SEED);
 		let target_origin: <T as frame_system::Config>::RuntimeOrigin =
-			RawOrigin::Signed(target.clone()).into();
+			RawOrigin::Signed(target.clone()).into_with_basic_filter();
 		let target_lookup = T::Lookup::unlookup(target.clone());
 		let _ = T::Currency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
 
@@ -466,7 +467,7 @@ mod benchmarks {
 
 			Identity::<T>::request_judgement(target_origin.clone(), i, 10u32.into())?;
 			Identity::<T>::provide_judgement(
-				RawOrigin::Signed(registrar).into(),
+				RawOrigin::Signed(registrar).into_with_basic_filter(),
 				i,
 				target_lookup.clone(),
 				Judgement::Reasonable,
@@ -539,7 +540,7 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		let sup = account("super", 0, SEED);
 		add_sub_accounts::<T>(&sup, s)?;
-		let sup_origin = RawOrigin::Signed(sup).into();
+		let sup_origin = RawOrigin::Signed(sup).into_with_basic_filter();
 		Identity::<T>::add_sub(
 			sup_origin,
 			T::Lookup::unlookup(caller.clone()),
@@ -633,8 +634,8 @@ mod benchmarks {
 		set_username_for(
 			RawOrigin::Signed(authority.clone()),
 			who_lookup,
-			bounded_username.clone().into(),
-			Some(signature.into()),
+			bounded_username.clone().into_with_basic_filter(),
+			Some(signature.into_with_basic_filter()),
 			use_allocation,
 		);
 
@@ -670,7 +671,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), username.clone());
 
-		assert_last_event::<T>(Event::<T>::UsernameSet { who: caller, username }.into());
+		assert_last_event::<T>(Event::<T>::UsernameSet { who: caller, username }.into_with_basic_filter());
 		Ok(())
 	}
 
@@ -713,7 +714,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), username);
 
-		assert_last_event::<T>(Event::<T>::PreapprovalExpired { whose: caller }.into());
+		assert_last_event::<T>(Event::<T>::PreapprovalExpired { whose: caller }.into_with_basic_filter());
 		match p {
 			0 => {
 				assert_eq!(T::Currency::free_balance(&authority), BalanceOf::<T>::max_value());
@@ -741,7 +742,7 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller.clone()), second_username.clone());
 
 		assert_last_event::<T>(
-			Event::<T>::PrimaryUsernameSet { who: caller, username: second_username }.into(),
+			Event::<T>::PrimaryUsernameSet { who: caller, username: second_username }.into_with_basic_filter(),
 		);
 		Ok(())
 	}
@@ -777,7 +778,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(authority), username.clone());
 
-		assert_last_event::<T>(Event::<T>::UsernameUnbound { username }.into());
+		assert_last_event::<T>(Event::<T>::UsernameUnbound { username }.into_with_basic_filter());
 		Ok(())
 	}
 
@@ -805,7 +806,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), username.clone());
 
-		assert_last_event::<T>(Event::<T>::UsernameRemoved { username }.into());
+		assert_last_event::<T>(Event::<T>::UsernameRemoved { username }.into_with_basic_filter());
 		Ok(())
 	}
 
@@ -844,7 +845,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Root, username.clone());
 
-		assert_last_event::<T>(Event::<T>::UsernameKilled { username }.into());
+		assert_last_event::<T>(Event::<T>::UsernameKilled { username }.into_with_basic_filter());
 		match p {
 			0 => {
 				assert_eq!(

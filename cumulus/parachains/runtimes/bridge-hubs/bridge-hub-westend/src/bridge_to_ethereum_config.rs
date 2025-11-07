@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use frame_support::traits::IntoWithBasicFilter;
 use crate::{
 	bridge_common_config::BridgeReward,
 	xcm_config,
@@ -388,13 +389,13 @@ pub mod benchmark_helpers {
 
 	impl snowbridge_pallet_system::BenchmarkHelper<RuntimeOrigin> for () {
 		fn make_xcm_origin(location: Location) -> RuntimeOrigin {
-			RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
+			(pallet_xcm::Origin::Xcm(location)).into_with_basic_filter()
 		}
 	}
 
 	impl snowbridge_pallet_system_v2::BenchmarkHelper<RuntimeOrigin> for () {
 		fn make_xcm_origin(location: Location) -> RuntimeOrigin {
-			RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
+			(pallet_xcm::Origin::Xcm(location)).into_with_basic_filter()
 		}
 	}
 }

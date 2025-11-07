@@ -40,7 +40,7 @@ pub(crate) fn set_up_pool_with_wnd_on_ah_westend(
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 		let owner = AssetHubWestendSender::get();
-		let signed_owner = <AssetHubWestend as Chain>::RuntimeOrigin::signed(owner.clone());
+		let signed_owner = <AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(owner.clone());
 
 		if is_foreign {
 			assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint(
@@ -165,11 +165,11 @@ fn send_roc_from_asset_hub_rococo_to_ethereum() {
 	let previous_owner = snowbridge_sovereign();
 	AssetHubWestend::execute_with(|| {
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::start_destroy(
-			<AssetHubWestend as Chain>::RuntimeOrigin::signed(previous_owner),
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(previous_owner),
 			ethereum()
 		));
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::finish_destroy(
-			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestend::account_id_of(
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubWestend::account_id_of(
 				ALICE
 			)),
 			ethereum()
@@ -241,7 +241,7 @@ fn send_roc_from_asset_hub_rococo_to_ethereum() {
 
 	let _ = AssetHubRococo::execute_with(|| {
 		<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::execute(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(sender),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(sender),
 			bx!(xcm),
 			Weight::from(EXECUTION_WEIGHT),
 		)

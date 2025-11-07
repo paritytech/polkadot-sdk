@@ -17,6 +17,7 @@
 //! Benchmarking for assigned_slots pallet
 
 #![cfg(feature = "runtime-benchmarks")]
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 
 use frame_benchmarking::v2::*;
@@ -61,7 +62,7 @@ mod benchmarks {
 		let caller = RawOrigin::Root;
 
 		let _ =
-			AssignedSlots::<T>::set_max_permanent_slots(frame_system::Origin::<T>::Root.into(), 10);
+			AssignedSlots::<T>::set_max_permanent_slots(frame_system::Origin::<T>::Root.into_with_basic_filter(), 10);
 		register_parachain::<T>(para_id);
 
 		let counter = PermanentSlotCount::<T>::get();
@@ -88,7 +89,7 @@ mod benchmarks {
 		let caller = RawOrigin::Root;
 
 		let _ =
-			AssignedSlots::<T>::set_max_temporary_slots(frame_system::Origin::<T>::Root.into(), 10);
+			AssignedSlots::<T>::set_max_temporary_slots(frame_system::Origin::<T>::Root.into_with_basic_filter(), 10);
 		register_parachain::<T>(para_id);
 
 		let current_lease_period: BlockNumberFor<T> =
@@ -117,7 +118,7 @@ mod benchmarks {
 		let caller = RawOrigin::Root;
 
 		let _ =
-			AssignedSlots::<T>::set_max_temporary_slots(frame_system::Origin::<T>::Root.into(), 10);
+			AssignedSlots::<T>::set_max_temporary_slots(frame_system::Origin::<T>::Root.into_with_basic_filter(), 10);
 		register_parachain::<T>(para_id);
 
 		let _ = AssignedSlots::<T>::assign_temp_parachain_slot(

@@ -19,6 +19,7 @@
 
 extern crate alloc;
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use crate::Pallet;
 use frame_benchmarking::v2::*;
@@ -75,7 +76,7 @@ mod benchmarks {
 		#[block]
 		{
 			assert!(ext
-				.test_run(RawOrigin::Signed(caller.clone()).into(), &call, &info, 10, 0, |_| Ok(
+				.test_run(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), &call, &info, 10, 0, |_| Ok(
 					post_info
 				))
 				.unwrap()

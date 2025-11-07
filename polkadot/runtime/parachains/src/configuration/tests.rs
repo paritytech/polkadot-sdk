@@ -493,7 +493,7 @@ fn setting_pending_config_members() {
 #[test]
 fn non_root_cannot_set_config() {
 	new_test_ext(Default::default()).execute_with(|| {
-		assert!(Configuration::set_validation_upgrade_delay(RuntimeOrigin::signed(1), 100).is_err());
+		assert!(Configuration::set_validation_upgrade_delay(RuntimeOrigin::signed_with_basic_filter(1), 100).is_err());
 	});
 }
 

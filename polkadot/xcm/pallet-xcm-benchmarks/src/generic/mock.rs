@@ -213,7 +213,7 @@ where
 		_origin: impl Into<Location>,
 		_kind: OriginKind,
 	) -> Result<RuntimeOrigin, Location> {
-		Ok(RuntimeOrigin::signed(
+		Ok(RuntimeOrigin::signed_with_basic_filter(
 			<RuntimeOrigin as OriginTrait>::AccountId::decode(&mut TrailingZeroInput::zeroes())
 				.expect("infinite length input; no invalid inputs for type; qed"),
 		))

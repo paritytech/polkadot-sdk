@@ -526,7 +526,7 @@ impl ExtBuilder {
 				// min some funds, create account and ref counts
 				pallet_balances::Pallet::<T>::mint_into(&v, INITIAL_BALANCE).unwrap();
 				pallet_session::Pallet::<T>::set_keys(
-					RuntimeOrigin::signed(v),
+					RuntimeOrigin::signed_with_basic_filter(v),
 					SessionKeys { other: UintAuthorityId(v) },
 					vec![],
 				)

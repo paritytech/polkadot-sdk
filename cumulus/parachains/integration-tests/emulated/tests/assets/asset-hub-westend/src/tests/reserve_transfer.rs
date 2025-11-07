@@ -694,7 +694,7 @@ fn para_to_para_through_asset_hub_limited_reserve_transfer_assets(
 #[test]
 fn reserve_transfer_native_asset_from_relay_to_asset_hub_fails() {
 	// Init values for Relay Chain
-	let signed_origin = <Westend as Chain>::RuntimeOrigin::signed(WestendSender::get().into());
+	let signed_origin = <Westend as Chain>::RuntimeOrigin::signed_with_basic_filter(WestendSender::get().into());
 	let destination = Westend::child_location_of(AssetHubWestend::para_id());
 	let beneficiary: Location =
 		AccountId32Junction { network: None, id: AssetHubWestendReceiver::get().into() }.into();
@@ -728,7 +728,7 @@ fn reserve_transfer_native_asset_from_relay_to_asset_hub_fails() {
 fn reserve_transfer_native_asset_from_asset_hub_to_relay_fails() {
 	// Init values for Asset Hub
 	let signed_origin =
-		<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get().into());
+		<AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubWestendSender::get().into());
 	let destination = AssetHubWestend::parent_location();
 	let beneficiary_id = WestendReceiver::get();
 	let beneficiary: Location =
@@ -822,7 +822,7 @@ fn reserve_transfer_native_asset_from_para_to_relay() {
 
 	// fund Parachain's sender account
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(asset_owner),
 		relay_native_asset_location.clone(),
 		sender.clone(),
 		amount_to_send * 2,
@@ -946,7 +946,7 @@ fn reserve_transfer_native_asset_from_para_to_asset_hub() {
 
 	// fund Parachain's sender account
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(asset_owner),
 		system_para_native_asset_location.clone(),
 		sender.clone(),
 		amount_to_send * 2,
@@ -1016,7 +1016,7 @@ fn reserve_transfer_multiple_assets_from_asset_hub_to_para() {
 	let fee_amount_to_send = ASSET_HUB_WESTEND_ED * 100;
 	let asset_amount_to_send = ASSET_HUB_WESTEND_ED * 100;
 	let asset_owner = AssetHubWestendAssetOwner::get();
-	let asset_owner_signer = <AssetHubWestend as Chain>::RuntimeOrigin::signed(asset_owner.clone());
+	let asset_owner_signer = <AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(asset_owner.clone());
 	let assets: Assets = vec![
 		(Parent, fee_amount_to_send).into(),
 		(
@@ -1121,7 +1121,7 @@ fn reserve_transfer_multiple_assets_from_para_to_asset_hub() {
 	let fee_amount_to_send = ASSET_HUB_WESTEND_ED * 100;
 	let asset_amount_to_send = ASSET_HUB_WESTEND_ED * 100;
 	let penpal_asset_owner = PenpalAssetOwner::get();
-	let penpal_asset_owner_signer = <PenpalA as Chain>::RuntimeOrigin::signed(penpal_asset_owner);
+	let penpal_asset_owner_signer = <PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(penpal_asset_owner);
 	let asset_location_on_penpal = PenpalLocalReservableFromAssetHub::get();
 	let system_asset_location_on_penpal = RelayLocation::get();
 	let assets: Assets = vec![
@@ -1157,7 +1157,7 @@ fn reserve_transfer_multiple_assets_from_para_to_asset_hub() {
 	let sov_penpal_on_ahr =
 		AssetHubWestend::sovereign_account_id_of(penpal_location_as_seen_by_ahr);
 	let ah_asset_owner = AssetHubWestendAssetOwner::get();
-	let ah_asset_owner_signer = <AssetHubWestend as Chain>::RuntimeOrigin::signed(ah_asset_owner);
+	let ah_asset_owner_signer = <AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(ah_asset_owner);
 
 	// Fund SA-of-Penpal-on-AHR to be able to pay for the fees.
 	AssetHubWestend::fund_accounts(vec![(
@@ -1248,7 +1248,7 @@ fn reserve_transfer_native_asset_from_para_to_para_through_relay() {
 
 	// fund Parachain's sender account
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(asset_owner),
 		relay_native_asset_location.clone(),
 		sender.clone(),
 		amount_to_send * 2,
@@ -1452,7 +1452,7 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 	// Give the sender enough Relay tokens to pay for local delivery fees.
 	// TODO(https://github.com/paritytech/polkadot-sdk/issues/5160): When we support local delivery fee payment in other assets, we don't need this.
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalAssetOwner::get()),
 		RelayLocation::get(),
 		sender.clone(),
 		10_000_000_000_000, // Large estimate to make sure it works.
@@ -1505,7 +1505,7 @@ fn reserve_withdraw_from_untrusted_reserve_fails() {
 	// Init values for Parachain Origin
 	let destination = AssetHubWestend::sibling_location_of(PenpalA::para_id());
 	let signed_origin =
-		<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get().into());
+		<AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubWestendSender::get().into());
 	let roc_to_send: Balance = WESTEND_ED * 10000;
 	let roc_location = RelayLocation::get();
 

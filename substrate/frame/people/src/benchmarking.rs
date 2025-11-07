@@ -17,6 +17,7 @@
 
 extern crate alloc;
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::vec;
 
 use super::*;
@@ -854,7 +855,7 @@ mod benches {
 
 		#[block]
 		{
-			ext.test_run(RawOrigin::Signed(account).into(), &call, &info, len, 0, |_| {
+			ext.test_run(RawOrigin::Signed(account).into_with_basic_filter(), &call, &info, len, 0, |_| {
 				Ok(post_info)
 			})
 			.unwrap()
@@ -905,7 +906,7 @@ mod benches {
 
 		#[block]
 		{
-			ext.test_run(RawOrigin::Signed(account).into(), &call, &info, len, 0, |_| {
+			ext.test_run(RawOrigin::Signed(account).into_with_basic_filter(), &call, &info, len, 0, |_| {
 				Ok(post_info)
 			})
 			.unwrap()
@@ -961,7 +962,7 @@ mod benches {
 
 		#[block]
 		{
-			ext.test_run(RawOrigin::None.into(), &call, &info, len, 0, |_| Ok(post_info))
+			ext.test_run(RawOrigin::None.into_with_basic_filter(), &call, &info, len, 0, |_| Ok(post_info))
 				.unwrap()
 				.unwrap();
 		}
@@ -1009,7 +1010,7 @@ mod benches {
 
 		#[block]
 		{
-			ext.test_run(RawOrigin::None.into(), &call, &info, len, 0, |_| Ok(post_info))
+			ext.test_run(RawOrigin::None.into_with_basic_filter(), &call, &info, len, 0, |_| Ok(post_info))
 				.unwrap()
 				.unwrap();
 		}

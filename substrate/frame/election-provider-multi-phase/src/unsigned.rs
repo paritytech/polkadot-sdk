@@ -1309,7 +1309,7 @@ mod tests {
 				witness: witness(),
 			};
 			let runtime_call: RuntimeCall = call.into();
-			let _ = runtime_call.dispatch(RuntimeOrigin::none());
+			let _ = runtime_call.dispatch(RuntimeOrigin::none_with_basic_filter());
 		})
 	}
 
@@ -1335,7 +1335,7 @@ mod tests {
 				witness: correct_witness,
 			};
 			let runtime_call: RuntimeCall = call.into();
-			let _ = runtime_call.dispatch(RuntimeOrigin::none());
+			let _ = runtime_call.dispatch(RuntimeOrigin::none_with_basic_filter());
 		})
 	}
 
@@ -1355,7 +1355,7 @@ mod tests {
 			// ensure this solution is valid.
 			assert!(QueuedSolution::<Runtime>::get().is_none());
 			assert_ok!(MultiPhase::submit_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::none_with_basic_filter(),
 				Box::new(solution),
 				witness
 			));
@@ -1478,7 +1478,7 @@ mod tests {
 				let solution = RawSolution { solution: raw, score, round: Round::<Runtime>::get() };
 				assert_ok!(MultiPhase::unsigned_pre_dispatch_checks(&solution));
 				assert_ok!(MultiPhase::submit_unsigned(
-					RuntimeOrigin::none(),
+					RuntimeOrigin::none_with_basic_filter(),
 					Box::new(solution),
 					witness
 				));
@@ -1563,7 +1563,7 @@ mod tests {
 				// this should work
 				assert_ok!(MultiPhase::unsigned_pre_dispatch_checks(&solution));
 				assert_ok!(MultiPhase::submit_unsigned(
-					RuntimeOrigin::none(),
+					RuntimeOrigin::none_with_basic_filter(),
 					Box::new(solution),
 					witness
 				));
@@ -1596,7 +1596,7 @@ mod tests {
 				// and it is fine
 				assert_ok!(MultiPhase::unsigned_pre_dispatch_checks(&solution));
 				assert_ok!(MultiPhase::submit_unsigned(
-					RuntimeOrigin::none(),
+					RuntimeOrigin::none_with_basic_filter(),
 					Box::new(solution),
 					witness
 				));

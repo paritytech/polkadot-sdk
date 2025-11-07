@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use frame_support::traits::IntoWithBasicFilter;
 use crate::{
 	configuration::{self, HostConfiguration},
 	dmp, ensure_parachain, initializer, paras,
@@ -262,7 +263,7 @@ pub mod pallet {
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		type RuntimeOrigin: From<crate::Origin>
+		type RuntimeOrigin: FromWithBasicFilter<crate::Origin>
 			+ From<<Self as frame_system::Config>::RuntimeOrigin>
 			+ Into<Result<crate::Origin, <Self as Config>::RuntimeOrigin>>;
 
@@ -520,7 +521,7 @@ pub mod pallet {
 			proposed_max_capacity: u32,
 			proposed_max_message_size: u32,
 		) -> DispatchResult {
-			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			let origin = ensure_parachain((origin).into_with_basic_filter())?;
 			Self::init_open_channel(
 				origin,
 				recipient,
@@ -542,7 +543,7 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::hrmp_accept_open_channel())]
 		pub fn hrmp_accept_open_channel(origin: OriginFor<T>, sender: ParaId) -> DispatchResult {
-			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			let origin = ensure_parachain((origin).into_with_basic_filter())?;
 			Self::accept_open_channel(origin, sender)?;
 			Self::deposit_event(Event::OpenChannelAccepted { sender, recipient: origin });
 			Ok(())
@@ -558,7 +559,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			channel_id: HrmpChannelId,
 		) -> DispatchResult {
-			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			let origin = ensure_parachain((origin).into_with_basic_filter())?;
 			Self::close_channel(origin, channel_id.clone())?;
 			Self::deposit_event(Event::ChannelClosed { by_parachain: origin, channel_id });
 			Ok(())
@@ -658,7 +659,7 @@ pub mod pallet {
 			channel_id: HrmpChannelId,
 			open_requests: u32,
 		) -> DispatchResult {
-			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			let origin = ensure_parachain((origin).into_with_basic_filter())?;
 			ensure!(
 				HrmpOpenChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32 <=
 					open_requests,
@@ -868,7 +869,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			target_system_chain: ParaId,
 		) -> DispatchResultWithPostInfo {
-			let sender = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			let sender = ensure_parachain((origin).into_with_basic_filter())?;
 
 			ensure!(target_system_chain.is_system(), Error::<T>::ChannelCreationNotAuthorized);
 

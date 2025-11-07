@@ -27,7 +27,7 @@ fn swap_locally_on_chain_using_local_assets() {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::Assets::create(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubRococoSender::get()),
 			ASSET_ID.into(),
 			AssetHubRococoSender::get().into(),
 			1000,
@@ -35,14 +35,14 @@ fn swap_locally_on_chain_using_local_assets() {
 		assert!(<AssetHubRococo as AssetHubRococoPallet>::Assets::asset_exists(ASSET_ID));
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::Assets::mint(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubRococoSender::get()),
 			ASSET_ID.into(),
 			AssetHubRococoSender::get().into(),
 			100_000_000_000_000,
 		));
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubRococoSender::get()),
 			asset_native.clone(),
 			asset_one.clone(),
 		));
@@ -55,7 +55,7 @@ fn swap_locally_on_chain_using_local_assets() {
 		);
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::add_liquidity(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubRococoSender::get()),
 			asset_native.clone(),
 			asset_one.clone(),
 			1_000_000_000_000,
@@ -76,7 +76,7 @@ fn swap_locally_on_chain_using_local_assets() {
 
 		assert_ok!(
 			<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::swap_exact_tokens_for_tokens(
-				<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+				<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubRococoSender::get()),
 				path,
 				100,
 				1,
@@ -96,7 +96,7 @@ fn swap_locally_on_chain_using_local_assets() {
 		);
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::remove_liquidity(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubRococoSender::get()),
 			asset_native,
 			asset_one,
 			1414213562273 - ASSET_HUB_ROCOCO_ED * 2, // all but the 2 EDs can't be retrieved.
@@ -137,7 +137,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 		// 1. Mint foreign asset (in reality this should be a teleport or some such)
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::ForeignAssets::mint(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahr.clone().into()),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(sov_penpal_on_ahr.clone().into()),
 			foreign_asset_at_asset_hub_rococo.clone(),
 			sov_penpal_on_ahr.clone().into(),
 			ASSET_HUB_ROCOCO_ED * 3_000_000_000_000,
@@ -152,7 +152,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 
 		// 2. Create pool:
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubRococoSender::get()),
 			asset_native.clone(),
 			Box::new(foreign_asset_at_asset_hub_rococo.clone()),
 		));
@@ -166,7 +166,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 
 		// 3. Add liquidity:
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::add_liquidity(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahr.clone()),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(sov_penpal_on_ahr.clone()),
 			asset_native.clone(),
 			Box::new(foreign_asset_at_asset_hub_rococo.clone()),
 			1_000_000_000_000,
@@ -190,7 +190,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 
 		assert_ok!(
 			<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::swap_exact_tokens_for_tokens(
-				<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+				<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubRococoSender::get()),
 				path,
 				100000 * ASSET_HUB_ROCOCO_ED,
 				1000 * ASSET_HUB_ROCOCO_ED,
@@ -211,7 +211,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 
 		// 5. Remove liquidity
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::remove_liquidity(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahr.clone()),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(sov_penpal_on_ahr.clone()),
 			asset_native.clone(),
 			Box::new(foreign_asset_at_asset_hub_rococo.clone()),
 			1414213562273 - ASSET_HUB_ROCOCO_ED * 2, // all but the 2 EDs can't be retrieved.
@@ -232,7 +232,7 @@ fn cannot_create_pool_from_pool_assets() {
 		let pool_owner_account_id = AssetHubRococoAssetConversionOrigin::get();
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::PoolAssets::create(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(pool_owner_account_id.clone()),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(pool_owner_account_id.clone()),
 			ASSET_ID.into(),
 			pool_owner_account_id.clone().into(),
 			1000,
@@ -240,7 +240,7 @@ fn cannot_create_pool_from_pool_assets() {
 		assert!(<AssetHubRococo as AssetHubRococoPallet>::PoolAssets::asset_exists(ASSET_ID));
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::PoolAssets::mint(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(pool_owner_account_id),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(pool_owner_account_id),
 			ASSET_ID.into(),
 			AssetHubRococoSender::get().into(),
 			3_000_000_000_000,
@@ -248,7 +248,7 @@ fn cannot_create_pool_from_pool_assets() {
 
 		assert_matches::assert_matches!(
 			<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
-				<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+				<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubRococoSender::get()),
 				Box::new(Location::try_from(asset_native).unwrap()),
 				Box::new(Location::try_from(asset_one).unwrap()),
 			),
@@ -277,7 +277,7 @@ fn pay_xcm_fee_with_some_asset_swapped_for_native() {
 
 		// set up pool with ASSET_ID <> NATIVE pair
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::Assets::create(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubRococoSender::get()),
 			ASSET_ID.into(),
 			AssetHubRococoSender::get().into(),
 			ASSET_MIN_BALANCE,
@@ -285,14 +285,14 @@ fn pay_xcm_fee_with_some_asset_swapped_for_native() {
 		assert!(<AssetHubRococo as AssetHubRococoPallet>::Assets::asset_exists(ASSET_ID));
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::Assets::mint(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubRococoSender::get()),
 			ASSET_ID.into(),
 			AssetHubRococoSender::get().into(),
 			3_000_000_000_000,
 		));
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubRococoSender::get()),
 			Box::new(asset_native.clone()),
 			Box::new(asset_one.clone()),
 		));
@@ -305,7 +305,7 @@ fn pay_xcm_fee_with_some_asset_swapped_for_native() {
 		);
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::add_liquidity(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubRococoSender::get()),
 			Box::new(asset_native),
 			Box::new(asset_one),
 			1_000_000_000_000,
@@ -329,13 +329,13 @@ fn pay_xcm_fee_with_some_asset_swapped_for_native() {
 		);
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::Assets::touch_other(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubRococoSender::get()),
 			ASSET_ID.into(),
 			penpal.clone().into(),
 		));
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::Assets::mint(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubRococoSender::get()),
 			ASSET_ID.into(),
 			penpal.clone().into(),
 			10_000_000_000_000,

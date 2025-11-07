@@ -188,7 +188,7 @@ pub fn register_usdt_not_from_owner_on_asset_hub_will_fail() {
 		assert_noop!(
 			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::register_token(
 				// The owner is Alice, while AssetHubWestendReceiver is Bob, so it should fail
-				RuntimeOrigin::signed(AssetHubWestendReceiver::get()),
+				RuntimeOrigin::signed_with_basic_filter(AssetHubWestendReceiver::get()),
 				bx!(VersionedLocation::from(usdt_at_ah_westend())),
 				AssetMetadata {
 					name: "usdt".as_bytes().to_vec().try_into().unwrap(),
@@ -215,7 +215,7 @@ pub fn register_relay_token_from_asset_hub_user_origin_will_fail() {
 
 		assert_noop!(
 			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::register_token(
-				RuntimeOrigin::signed(AssetHubWestendSender::get()),
+				RuntimeOrigin::signed_with_basic_filter(AssetHubWestendSender::get()),
 				bx!(VersionedLocation::from(Location { parents: 1, interior: [].into() })),
 				AssetMetadata {
 					name: "wnd".as_bytes().to_vec().try_into().unwrap(),
@@ -316,7 +316,7 @@ fn transfer_from_penpal_to_ethereum_trapped_on_ah_and_then_claim_can_work() {
 		]));
 
 		assert_ok!(<PenpalB as PenpalBPallet>::PolkadotXcm::execute(
-			RuntimeOrigin::signed(PenpalBSender::get()),
+			RuntimeOrigin::signed_with_basic_filter(PenpalBSender::get()),
 			bx!(xcm.clone()),
 			Weight::from(EXECUTION_WEIGHT),
 		));
@@ -371,7 +371,7 @@ fn transfer_from_penpal_to_ethereum_trapped_on_ah_and_then_claim_can_work() {
 		]));
 
 		assert_ok!(<PenpalB as PenpalBPallet>::PolkadotXcm::execute(
-			RuntimeOrigin::signed(PenpalBSender::get()),
+			RuntimeOrigin::signed_with_basic_filter(PenpalBSender::get()),
 			bx!(xcm.clone()),
 			Weight::from(EXECUTION_WEIGHT),
 		));
@@ -407,7 +407,7 @@ pub fn exploit_v2_route_with_legacy_v1_transfer_will_fail() {
 
 	assert_ok!(AssetHubWestend::execute_with(|| {
 		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
-			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubWestendSender::get()),
 			bx!(eth_location().into()),
 			bx!(assets.into()),
 			bx!(TransferType::DestinationReserve),

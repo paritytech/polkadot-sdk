@@ -71,7 +71,7 @@ macro_rules! test_parachain_is_trusted_teleporter {
 			let sender = [<$sender_para Sender>]::get();
 			let mut para_sender_balance_before =
 				<$sender_para as $crate::macros::Chain>::account_data_of(sender.clone()).free;
-			let origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed(sender.clone());
+			let origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed_with_basic_filter(sender.clone());
 			let fee_asset_item = 0;
 			let weight_limit = $crate::macros::WeightLimit::Unlimited;
 
@@ -145,7 +145,7 @@ macro_rules! test_parachain_is_trusted_teleporter {
 
 					// Send XCM message from Origin Parachain
 					<$sender_para as $crate::macros::TestExt>::execute_with(|| {
-						let origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed(sender.clone());
+						let origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed_with_basic_filter(sender.clone());
 						$crate::macros::assert_ok!(<_ as $crate::macros::Dispatchable>::dispatch(call, origin));
 
 						type RuntimeEvent = <$sender_para as $crate::macros::Chain>::RuntimeEvent;
@@ -279,7 +279,7 @@ macro_rules! test_relay_is_trusted_teleporter {
 					<$sender_relay as $crate::macros::TestExt>::execute_with(|| {
 						$crate::macros::Dmp::<<$sender_relay as $crate::macros::Chain>::Runtime>::make_parachain_reachable(
 							<$receiver_para as $crate::macros::Para>::para_id());
-						let origin = <$sender_relay as $crate::macros::Chain>::RuntimeOrigin::signed(sender.clone());
+						let origin = <$sender_relay as $crate::macros::Chain>::RuntimeOrigin::signed_with_basic_filter(sender.clone());
 						$crate::macros::assert_ok!(<_ as $crate::macros::Dispatchable>::dispatch(call, origin));
 
 						type RuntimeEvent = <$sender_relay as $crate::macros::Chain>::RuntimeEvent;
@@ -348,7 +348,7 @@ macro_rules! test_parachain_is_trusted_teleporter_for_relay {
 			});
 			let mut para_sender_balance_before =
 				<$sender_para as $crate::macros::Chain>::account_data_of(sender.clone()).free;
-			let origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed(sender.clone());
+			let origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed_with_basic_filter(sender.clone());
 			let assets: $crate::macros::Assets = ($crate::macros::Parent, $amount).into();
 			let fee_asset_item = 0;
 			let weight_limit = $crate::macros::WeightLimit::Unlimited;
@@ -438,7 +438,7 @@ macro_rules! test_parachain_is_trusted_teleporter_for_relay {
 
 			// Send XCM message from Parachain.
 			<$sender_para as $crate::macros::TestExt>::execute_with(|| {
-				let origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed(sender.clone());
+				let origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed_with_basic_filter(sender.clone());
 				$crate::macros::assert_ok!(<_ as $crate::macros::Dispatchable>::dispatch(call, origin));
 
 				type RuntimeEvent = <$sender_para as $crate::macros::Chain>::RuntimeEvent;
@@ -496,7 +496,7 @@ macro_rules! test_chain_can_claim_assets {
 	( $sender_para:ty, $runtime_call:ty, $network_id:expr, $assets:expr, $amount:expr ) => {
 		$crate::macros::paste::paste! {
 			let sender = [<$sender_para Sender>]::get();
-			let origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed(sender.clone());
+			let origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed_with_basic_filter(sender.clone());
 			// Receiver is the same as sender
 			let beneficiary: $crate::macros::Location =
 				$crate::macros::Junction::AccountId32 { network: Some($network_id), id: sender.clone().into() }.into();
@@ -525,7 +525,7 @@ macro_rules! test_chain_can_claim_assets {
 					as $crate::macros::Currency<_>>::free_balance(&sender);
 
 				// Different origin or different assets won't work.
-				let other_origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed([<$sender_para Receiver>]::get());
+				let other_origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed_with_basic_filter([<$sender_para Receiver>]::get());
 				assert!(<$sender_para as [<$sender_para Pallet>]>::PolkadotXcm::claim_assets(
 					other_origin,
 					Box::new(versioned_assets.clone().into()),
@@ -646,7 +646,7 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 			// Fund parachain's sender account.
 			// TODO: consider mint_foreign_asset to be part of xcm_emulator::Chain trait
 			$sender_para::mint_foreign_asset(
-				<$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed(asset_owner.clone()),
+				<$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed_with_basic_filter(asset_owner.clone()),
 				$asset_id.clone().into(),
 				sender.clone(),
 				$amount * 2,
@@ -778,7 +778,7 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 
 			// Fund accounts again.
 			$sender_para::mint_foreign_asset(
-				<$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed(asset_owner),
+				<$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed_with_basic_filter(asset_owner),
 				$asset_id.clone().into(),
 				sender.clone(),
 				$amount * 2,
@@ -897,7 +897,7 @@ macro_rules! test_xcm_fee_querying_apis_work_for_asset_hub {
 					$crate::macros::GeneralIndex($crate::macros::USDT_ID.into())]);
 				let sender = [<$asset_hub Sender>]::get();
 				$crate::macros::assert_ok!(AssetConversion::create_pool(
-					RuntimeOrigin::signed(sender.clone()),
+					RuntimeOrigin::signed_with_basic_filter(sender.clone()),
 					Box::new(wnd.clone()),
 					Box::new(usdt.clone()),
 				));
@@ -936,14 +936,14 @@ macro_rules! test_xcm_fee_querying_apis_work_for_asset_hub {
 				assert_eq!(fee_in_usdt_fail, Err($crate::macros::XcmPaymentApiError::AssetNotFound));
 				// We add some.
 				$crate::macros::assert_ok!(Assets::mint(
-					RuntimeOrigin::signed(sender.clone()),
+					RuntimeOrigin::signed_with_basic_filter(sender.clone()),
 					$crate::macros::USDT_ID.into(),
 					sender.clone().into(),
 					5_000_000_000_000
 				));
 				// We make 1 WND = 4 USDT.
 				$crate::macros::assert_ok!(AssetConversion::add_liquidity(
-					RuntimeOrigin::signed(sender.clone()),
+					RuntimeOrigin::signed_with_basic_filter(sender.clone()),
 					Box::new(wnd),
 					Box::new(usdt.clone()),
 					1_000_000_000_000,
@@ -1011,7 +1011,7 @@ macro_rules! test_cross_chain_alias {
 								beneficiary: account.clone().into() },
 						]);
 
-						let signed_origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed(account.into());
+						let signed_origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed_with_basic_filter(account.into());
 						$crate::macros::assert_ok!(<$sender_para as [<$sender_para Pallet>]>::PolkadotXcm::execute(
 							signed_origin,
 							Box::new($crate::macros::VersionedXcm::from(xcm_message.into())),
@@ -1061,7 +1061,7 @@ macro_rules! create_pool_with_native_on {
 			<$chain as $crate::macros::TestExt>::execute_with(|| {
 				type RuntimeEvent = <$chain as $crate::macros::Chain>::RuntimeEvent;
 				let owner = $asset_owner;
-				let signed_owner = <$chain as $crate::macros::Chain>::RuntimeOrigin::signed(owner.clone());
+				let signed_owner = <$chain as $crate::macros::Chain>::RuntimeOrigin::signed_with_basic_filter(owner.clone());
 				let native_asset: $crate::macros::Location = $crate::macros::Parent.into();
 
 				if $is_foreign {

@@ -16,6 +16,7 @@
 
 //! This module focuses on the benchmarking of the `include_pvf_check_statement` dispatchable.
 
+use frame_support::traits::IntoWithBasicFilter;
 use crate::{configuration, paras::*, shared::Pallet as ParasShared};
 use alloc::{vec, vec::Vec};
 use frame_support::assert_ok;
@@ -80,7 +81,7 @@ where
 	let stmt_n_sig = stmts.pop().unwrap();
 
 	for (stmt, sig) in stmts {
-		let r = Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into(), stmt, sig);
+		let r = Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into_with_basic_filter(), stmt, sig);
 		assert!(r.is_ok());
 	}
 

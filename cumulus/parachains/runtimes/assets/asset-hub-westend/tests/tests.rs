@@ -125,7 +125,7 @@ fn slot_durations() -> SlotDurations {
 
 /// Build a bare_instantiate call.
 fn bare_instantiate(origin: &AccountId, code: Vec<u8>) -> BareInstantiateBuilder<Runtime> {
-	let origin = RuntimeOrigin::signed(origin.clone());
+	let origin = RuntimeOrigin::signed_with_basic_filter(origin.clone());
 	BareInstantiateBuilder::<Runtime>::bare_instantiate(origin, Code::Upload(code))
 }
 
@@ -1680,9 +1680,9 @@ fn withdraw_and_deposit_erc20s() {
 		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
 
 		// We need to map all accounts.
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed_with_basic_filter(checking_account.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed_with_basic_filter(sender.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed_with_basic_filter(beneficiary.clone())));
 
 		let code = ERC20_PVM.to_vec();
 
@@ -1711,7 +1711,7 @@ fn withdraw_and_deposit_erc20s() {
 			.deposit_asset(AllCounted(1), sender.clone())
 			.build();
 		assert_ok!(PolkadotXcm::execute(
-			RuntimeOrigin::signed(sender.clone()),
+			RuntimeOrigin::signed_with_basic_filter(sender.clone()),
 			Box::new(VersionedXcm::V5(message)),
 			Weight::from_parts(600_000_000_000, 15 * 1024 * 1024),
 		));
@@ -1750,9 +1750,9 @@ fn non_existent_erc20_will_error() {
 		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
 
 		// We need to map all accounts.
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed_with_basic_filter(checking_account.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed_with_basic_filter(sender.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed_with_basic_filter(beneficiary.clone())));
 
 		let wnd_amount_for_fees = 1_000_000_000_000u128;
 		let erc20_transfer_amount = 100u128;
@@ -1767,7 +1767,7 @@ fn non_existent_erc20_will_error() {
 			.build();
 		// Execution fails but doesn't panic.
 		assert!(PolkadotXcm::execute(
-			RuntimeOrigin::signed(sender.clone()),
+			RuntimeOrigin::signed_with_basic_filter(sender.clone()),
 			Box::new(VersionedXcm::V5(message)),
 			Weight::from_parts(2_500_000_000, 120_000),
 		)
@@ -1795,9 +1795,9 @@ fn smart_contract_not_erc20_will_error() {
 		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
 
 		// We need to map all accounts.
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed_with_basic_filter(checking_account.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed_with_basic_filter(sender.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed_with_basic_filter(beneficiary.clone())));
 
 		let (code, _) = compile_module("dummy").unwrap();
 
@@ -1819,7 +1819,7 @@ fn smart_contract_not_erc20_will_error() {
 			.build();
 		// Execution fails but doesn't panic.
 		assert!(PolkadotXcm::execute(
-			RuntimeOrigin::signed(sender.clone()),
+			RuntimeOrigin::signed_with_basic_filter(sender.clone()),
 			Box::new(VersionedXcm::V5(message)),
 			Weight::from_parts(2_500_000_000, 120_000),
 		)
@@ -1849,9 +1849,9 @@ fn smart_contract_does_not_return_bool_fails() {
 		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
 
 		// We need to map all accounts.
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed_with_basic_filter(checking_account.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed_with_basic_filter(sender.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed_with_basic_filter(beneficiary.clone())));
 
 		// This contract implements the ERC20 interface for `transfer` except it returns a uint256.
 		let code = FAKE_ERC20_PVM.to_vec();
@@ -1878,7 +1878,7 @@ fn smart_contract_does_not_return_bool_fails() {
 			.build();
 		// Execution fails but doesn't panic.
 		assert!(PolkadotXcm::execute(
-			RuntimeOrigin::signed(sender.clone()),
+			RuntimeOrigin::signed_with_basic_filter(sender.clone()),
 			Box::new(VersionedXcm::V5(message)),
 			Weight::from_parts(2_500_000_000, 220_000),
 		)
@@ -1906,9 +1906,9 @@ fn expensive_erc20_runs_out_of_gas() {
 		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
 
 		// We need to map all accounts.
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed_with_basic_filter(checking_account.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed_with_basic_filter(sender.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed_with_basic_filter(beneficiary.clone())));
 
 		// This contract does a lot more storage writes in `transfer`.
 		let code = EXPENSIVE_ERC20_PVM.to_vec();
@@ -1934,7 +1934,7 @@ fn expensive_erc20_runs_out_of_gas() {
 			.build();
 		// Execution fails but doesn't panic.
 		assert!(PolkadotXcm::execute(
-			RuntimeOrigin::signed(sender.clone()),
+			RuntimeOrigin::signed_with_basic_filter(sender.clone()),
 			Box::new(VersionedXcm::V5(message)),
 			Weight::from_parts(2_500_000_000, 120_000),
 		)

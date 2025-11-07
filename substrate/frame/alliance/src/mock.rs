@@ -310,61 +310,61 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| {
-		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 1));
+		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed_with_basic_filter(1), 1));
 
 		let info = test_identity_info();
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(1), Box::new(info.clone())));
+		assert_ok!(Identity::set_identity(RuntimeOrigin::signed_with_basic_filter(1), Box::new(info.clone())));
 		assert_ok!(Identity::provide_judgement(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			0,
 			1,
 			Judgement::KnownGood,
 			BlakeTwo256::hash_of(&info)
 		));
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(2), Box::new(info.clone())));
+		assert_ok!(Identity::set_identity(RuntimeOrigin::signed_with_basic_filter(2), Box::new(info.clone())));
 		assert_ok!(Identity::provide_judgement(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			0,
 			2,
 			Judgement::KnownGood,
 			BlakeTwo256::hash_of(&info)
 		));
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(3), Box::new(info.clone())));
+		assert_ok!(Identity::set_identity(RuntimeOrigin::signed_with_basic_filter(3), Box::new(info.clone())));
 		assert_ok!(Identity::provide_judgement(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			0,
 			3,
 			Judgement::KnownGood,
 			BlakeTwo256::hash_of(&info)
 		));
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(4), Box::new(info.clone())));
+		assert_ok!(Identity::set_identity(RuntimeOrigin::signed_with_basic_filter(4), Box::new(info.clone())));
 		assert_ok!(Identity::provide_judgement(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			0,
 			4,
 			Judgement::KnownGood,
 			BlakeTwo256::hash_of(&info)
 		));
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(5), Box::new(info.clone())));
+		assert_ok!(Identity::set_identity(RuntimeOrigin::signed_with_basic_filter(5), Box::new(info.clone())));
 		assert_ok!(Identity::provide_judgement(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			0,
 			5,
 			Judgement::KnownGood,
 			BlakeTwo256::hash_of(&info)
 		));
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(6), Box::new(info.clone())));
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(8), Box::new(info.clone())));
+		assert_ok!(Identity::set_identity(RuntimeOrigin::signed_with_basic_filter(6), Box::new(info.clone())));
+		assert_ok!(Identity::set_identity(RuntimeOrigin::signed_with_basic_filter(8), Box::new(info.clone())));
 		assert_ok!(Identity::provide_judgement(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			0,
 			8,
 			Judgement::KnownGood,
 			BlakeTwo256::hash_of(&info)
 		));
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(9), Box::new(info.clone())));
+		assert_ok!(Identity::set_identity(RuntimeOrigin::signed_with_basic_filter(9), Box::new(info.clone())));
 		assert_ok!(Identity::provide_judgement(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			0,
 			9,
 			Judgement::KnownGood,
@@ -373,7 +373,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 		// Joining before init should fail.
 		assert_noop!(
-			Alliance::join_alliance(RuntimeOrigin::signed(1)),
+			Alliance::join_alliance(RuntimeOrigin::signed_with_basic_filter(1)),
 			Error::<Test, ()>::AllianceNotYetInitialized
 		);
 

@@ -683,7 +683,7 @@ fn para_to_para_through_relay_limited_reserve_transfer_assets(
 #[test]
 fn reserve_transfer_native_asset_from_relay_to_asset_hub_fails() {
 	// Init values for Relay Chain
-	let signed_origin = <Rococo as Chain>::RuntimeOrigin::signed(RococoSender::get().into());
+	let signed_origin = <Rococo as Chain>::RuntimeOrigin::signed_with_basic_filter(RococoSender::get().into());
 	let destination = Rococo::child_location_of(AssetHubRococo::para_id());
 	let beneficiary: Location =
 		AccountId32Junction { network: None, id: AssetHubRococoReceiver::get().into() }.into();
@@ -717,7 +717,7 @@ fn reserve_transfer_native_asset_from_relay_to_asset_hub_fails() {
 fn reserve_transfer_native_asset_from_asset_hub_to_relay_fails() {
 	// Init values for Asset Hub
 	let signed_origin =
-		<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get().into());
+		<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubRococoSender::get().into());
 	let destination = AssetHubRococo::parent_location();
 	let beneficiary_id = RococoReceiver::get();
 	let beneficiary: Location =
@@ -815,7 +815,7 @@ fn reserve_transfer_native_asset_from_para_to_relay() {
 
 	// fund Parachain's sender account
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(asset_owner),
 		relay_native_asset_location.clone(),
 		sender.clone(),
 		amount_to_send * 2,
@@ -948,7 +948,7 @@ fn reserve_transfer_native_asset_from_para_to_asset_hub() {
 
 	// fund Parachain's sender account
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(asset_owner),
 		system_para_native_asset_location.clone(),
 		sender.clone(),
 		amount_to_send * 2,
@@ -1021,7 +1021,7 @@ fn reserve_transfer_multiple_assets_from_asset_hub_to_para() {
 	let fee_amount_to_send = ASSET_HUB_ROCOCO_ED * 10000;
 	let asset_amount_to_send = PENPAL_ED * 10000;
 	let asset_owner = AssetHubRococoAssetOwner::get();
-	let asset_owner_signer = <AssetHubRococo as Chain>::RuntimeOrigin::signed(asset_owner.clone());
+	let asset_owner_signer = <AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(asset_owner.clone());
 	let assets: Assets = vec![
 		(Parent, fee_amount_to_send).into(),
 		(
@@ -1137,7 +1137,7 @@ fn reserve_transfer_multiple_assets_from_para_to_asset_hub() {
 	let fee_amount_to_send = ASSET_HUB_ROCOCO_ED * 10000;
 	let asset_amount_to_send = ASSET_HUB_ROCOCO_ED * 10000;
 	let penpal_asset_owner = PenpalAssetOwner::get();
-	let penpal_asset_owner_signer = <PenpalA as Chain>::RuntimeOrigin::signed(penpal_asset_owner);
+	let penpal_asset_owner_signer = <PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(penpal_asset_owner);
 	let asset_location_on_penpal = PenpalLocalReservableFromAssetHub::get();
 	let system_asset_location_on_penpal = RelayLocation::get();
 	let assets: Assets = vec![
@@ -1172,7 +1172,7 @@ fn reserve_transfer_multiple_assets_from_para_to_asset_hub() {
 	let penpal_location_as_seen_by_ahr = AssetHubRococo::sibling_location_of(PenpalA::para_id());
 	let sov_penpal_on_ahr = AssetHubRococo::sovereign_account_id_of(penpal_location_as_seen_by_ahr);
 	let ah_asset_owner = AssetHubRococoAssetOwner::get();
-	let ah_asset_owner_signer = <AssetHubRococo as Chain>::RuntimeOrigin::signed(ah_asset_owner);
+	let ah_asset_owner_signer = <AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(ah_asset_owner);
 
 	// Fund SA-of-Penpal-on-AHR to be able to pay for the fees.
 	AssetHubRococo::fund_accounts(vec![(
@@ -1271,7 +1271,7 @@ fn reserve_transfer_native_asset_from_para_to_para_through_relay() {
 
 	// fund Parachain's sender account
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(asset_owner),
 		relay_native_asset_location.clone(),
 		sender.clone(),
 		amount_to_send * 2,
@@ -1362,14 +1362,14 @@ fn reserve_transfer_usdt_from_asset_hub_to_para() {
 		type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 
 		assert_ok!(<PenpalA as PenpalAPallet>::ForeignAssets::mint(
-			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+			<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalAssetOwner::get()),
 			usdt_from_asset_hub.clone().into(),
 			PenpalASender::get().into(),
 			10_000_000_000_000, // For it to have more than enough.
 		));
 
 		assert_ok!(<PenpalA as PenpalAPallet>::AssetConversion::create_pool(
-			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get()),
+			<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalASender::get()),
 			Box::new(relay_asset_penpal_pov.clone()),
 			Box::new(usdt_from_asset_hub.clone()),
 		));
@@ -1382,7 +1382,7 @@ fn reserve_transfer_usdt_from_asset_hub_to_para() {
 		);
 
 		assert_ok!(<PenpalA as PenpalAPallet>::AssetConversion::add_liquidity(
-			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get()),
+			<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalASender::get()),
 			Box::new(relay_asset_penpal_pov),
 			Box::new(usdt_from_asset_hub.clone()),
 			// `usdt_from_asset_hub` is worth a third of `relay_asset_penpal_pov`
@@ -1513,14 +1513,14 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::Assets::mint(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubRococoSender::get()),
 			usdt_id.into(),
 			AssetHubRococoSender::get().into(),
 			10_000_000_000_000, // For it to have more than enough.
 		));
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubRococoSender::get()),
 			Box::new(native_asset.clone()),
 			Box::new(usdt.clone()),
 		));
@@ -1533,7 +1533,7 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 		);
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::add_liquidity(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubRococoSender::get()),
 			Box::new(native_asset),
 			Box::new(usdt),
 			1_000_000_000_000,
@@ -1559,14 +1559,14 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 		let relay_asset = RelayLocation::get();
 
 		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::mint(
-			<PenpalB as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+			<PenpalB as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalAssetOwner::get()),
 			usdt_from_asset_hub.clone().into(),
 			PenpalBReceiver::get().into(),
 			10_000_000_000_000, // For it to have more than enough.
 		));
 
 		assert_ok!(<PenpalB as PenpalBPallet>::AssetConversion::create_pool(
-			<PenpalB as Chain>::RuntimeOrigin::signed(PenpalBReceiver::get()),
+			<PenpalB as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalBReceiver::get()),
 			Box::new(relay_asset.clone()),
 			Box::new(usdt_from_asset_hub.clone()),
 		));
@@ -1579,7 +1579,7 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 		);
 
 		assert_ok!(<PenpalB as PenpalBPallet>::AssetConversion::add_liquidity(
-			<PenpalB as Chain>::RuntimeOrigin::signed(PenpalBReceiver::get()),
+			<PenpalB as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalBReceiver::get()),
 			Box::new(relay_asset),
 			Box::new(usdt_from_asset_hub.clone()),
 			1_000_000_000_000,
@@ -1616,7 +1616,7 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 	// Give the sender enough Relay tokens to pay for local delivery fees.
 	// TODO(https://github.com/paritytech/polkadot-sdk/issues/5160): When we support local delivery fee payment in other assets, we don't need this.
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalAssetOwner::get()),
 		RelayLocation::get(),
 		sender.clone(),
 		10_000_000_000_000, // Large estimate to make sure it works.
@@ -1680,7 +1680,7 @@ fn reserve_withdraw_from_untrusted_reserve_fails() {
 	// Init values for Parachain Origin
 	let destination = AssetHubRococo::sibling_location_of(PenpalA::para_id());
 	let signed_origin =
-		<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get().into());
+		<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubRococoSender::get().into());
 	let roc_to_send: Balance = ROCOCO_ED * 10000;
 	let roc_location = RelayLocation::get();
 

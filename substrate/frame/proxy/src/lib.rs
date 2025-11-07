@@ -34,6 +34,7 @@ mod tests;
 pub mod weights;
 
 extern crate alloc;
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::{boxed::Box, vec};
 use frame::{
 	prelude::*,
@@ -998,7 +999,7 @@ impl<T: Config> Pallet<T> {
 	) {
 		use frame::traits::{InstanceFilter as _, OriginTrait as _};
 		// This is a freshly authenticated new account, the origin restrictions doesn't apply.
-		let mut origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(real).into();
+		let mut origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(real).into_with_basic_filter();
 		origin.add_filter(move |c: &<T as frame_system::Config>::RuntimeCall| {
 			let c = <T as Config>::RuntimeCall::from_ref(c);
 			// We make sure the proxy call does access this pallet to change modify proxies.

@@ -17,6 +17,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 
 use crate::Pallet;
@@ -153,7 +154,7 @@ mod benchmarks {
 		_(RawOrigin::Root, lost_lookup, rescuer_lookup);
 
 		assert_last_event::<T>(
-			Event::AccountRecovered { lost_account: lost, rescuer_account: rescuer }.into(),
+			Event::AccountRecovered { lost_account: lost, rescuer_account: rescuer }.into_with_basic_filter(),
 		);
 	}
 
@@ -166,9 +167,9 @@ mod benchmarks {
 		let friends = generate_friends::<T>(n);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), friends, n as u16, DEFAULT_DELAY.into());
+		_(RawOrigin::Signed(caller.clone()), friends, n as u16, DEFAULT_DELAY.into_with_basic_filter());
 
-		assert_last_event::<T>(Event::RecoveryCreated { account: caller }.into());
+		assert_last_event::<T>(Event::RecoveryCreated { account: caller }.into_with_basic_filter());
 	}
 
 	#[benchmark]
@@ -185,7 +186,7 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller.clone()), lost_account_lookup);
 
 		assert_last_event::<T>(
-			Event::RecoveryInitiated { lost_account, rescuer_account: caller }.into(),
+			Event::RecoveryInitiated { lost_account, rescuer_account: caller }.into_with_basic_filter(),
 		);
 	}
 
@@ -230,7 +231,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), lost_account_lookup, rescuer_account_lookup);
 		assert_last_event::<T>(
-			Event::RecoveryVouched { lost_account, rescuer_account, sender: caller }.into(),
+			Event::RecoveryVouched { lost_account, rescuer_account, sender: caller }.into_with_basic_filter(),
 		);
 	}
 
@@ -275,7 +276,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), lost_account_lookup);
 		assert_last_event::<T>(
-			Event::AccountRecovered { lost_account, rescuer_account: caller }.into(),
+			Event::AccountRecovered { lost_account, rescuer_account: caller }.into_with_basic_filter(),
 		);
 	}
 
@@ -321,7 +322,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), rescuer_account_lookup);
 		assert_last_event::<T>(
-			Event::RecoveryClosed { lost_account: caller, rescuer_account }.into(),
+			Event::RecoveryClosed { lost_account: caller, rescuer_account }.into_with_basic_filter(),
 		);
 	}
 
@@ -353,7 +354,7 @@ mod benchmarks {
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()));
-		assert_last_event::<T>(Event::RecoveryRemoved { lost_account: caller }.into());
+		assert_last_event::<T>(Event::RecoveryRemoved { lost_account: caller }.into_with_basic_filter());
 	}
 
 	#[benchmark]

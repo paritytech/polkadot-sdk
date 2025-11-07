@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::vec;
 use frame_benchmarking::{v2::*, BenchmarkError};
 use frame_support::ensure;
@@ -109,7 +110,7 @@ fn activate_bounty<T: Config>(
 	let mut child_bounty_setup = setup_child_bounty::<T>(user, description);
 	let curator_lookup = T::Lookup::unlookup(child_bounty_setup.curator.clone());
 	Bounties::<T>::propose_bounty(
-		RawOrigin::Signed(child_bounty_setup.caller.clone()).into(),
+		RawOrigin::Signed(child_bounty_setup.caller.clone()).into_with_basic_filter(),
 		child_bounty_setup.value,
 		child_bounty_setup.reason.clone(),
 	)?;
@@ -122,13 +123,13 @@ fn activate_bounty<T: Config>(
 	set_block_number::<T>(T::SpendPeriod::get());
 	Treasury::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
 	Bounties::<T>::propose_curator(
-		RawOrigin::Root.into(),
+		RawOrigin::Root.into_with_basic_filter(),
 		child_bounty_setup.bounty_id,
 		curator_lookup,
 		child_bounty_setup.fee,
 	)?;
 	Bounties::<T>::accept_curator(
-		RawOrigin::Signed(child_bounty_setup.curator.clone()).into(),
+		RawOrigin::Signed(child_bounty_setup.curator.clone()).into_with_basic_filter(),
 		child_bounty_setup.bounty_id,
 	)?;
 
@@ -143,7 +144,7 @@ fn activate_child_bounty<T: Config>(
 	let child_curator_lookup = T::Lookup::unlookup(bounty_setup.child_curator.clone());
 
 	Pallet::<T>::add_child_bounty(
-		RawOrigin::Signed(bounty_setup.curator.clone()).into(),
+		RawOrigin::Signed(bounty_setup.curator.clone()).into_with_basic_filter(),
 		bounty_setup.bounty_id,
 		bounty_setup.child_bounty_value,
 		bounty_setup.reason.clone(),
@@ -152,7 +153,7 @@ fn activate_child_bounty<T: Config>(
 	bounty_setup.child_bounty_id = ParentTotalChildBounties::<T>::get(bounty_setup.bounty_id) - 1;
 
 	Pallet::<T>::propose_curator(
-		RawOrigin::Signed(bounty_setup.curator.clone()).into(),
+		RawOrigin::Signed(bounty_setup.curator.clone()).into_with_basic_filter(),
 		bounty_setup.bounty_id,
 		bounty_setup.child_bounty_id,
 		child_curator_lookup,
@@ -160,7 +161,7 @@ fn activate_child_bounty<T: Config>(
 	)?;
 
 	Pallet::<T>::accept_curator(
-		RawOrigin::Signed(bounty_setup.child_curator.clone()).into(),
+		RawOrigin::Signed(bounty_setup.child_curator.clone()).into_with_basic_filter(),
 		bounty_setup.bounty_id,
 		bounty_setup.child_bounty_id,
 	)?;
@@ -215,7 +216,7 @@ mod benchmarks {
 		let child_curator_lookup = T::Lookup::unlookup(bounty_setup.child_curator.clone());
 
 		Pallet::<T>::add_child_bounty(
-			RawOrigin::Signed(bounty_setup.curator.clone()).into(),
+			RawOrigin::Signed(bounty_setup.curator.clone()).into_with_basic_filter(),
 			bounty_setup.bounty_id,
 			bounty_setup.child_bounty_value,
 			bounty_setup.reason.clone(),
@@ -241,7 +242,7 @@ mod benchmarks {
 		let child_curator_lookup = T::Lookup::unlookup(bounty_setup.child_curator.clone());
 
 		Pallet::<T>::add_child_bounty(
-			RawOrigin::Signed(bounty_setup.curator.clone()).into(),
+			RawOrigin::Signed(bounty_setup.curator.clone()).into_with_basic_filter(),
 			bounty_setup.bounty_id,
 			bounty_setup.child_bounty_value,
 			bounty_setup.reason.clone(),
@@ -250,7 +251,7 @@ mod benchmarks {
 			ParentTotalChildBounties::<T>::get(bounty_setup.bounty_id) - 1;
 
 		Pallet::<T>::propose_curator(
-			RawOrigin::Signed(bounty_setup.curator.clone()).into(),
+			RawOrigin::Signed(bounty_setup.curator.clone()).into_with_basic_filter(),
 			bounty_setup.bounty_id,
 			bounty_setup.child_bounty_id,
 			child_curator_lookup,
@@ -284,10 +285,10 @@ mod benchmarks {
 		{
 			let child_curator = bounty_setup.child_curator;
 			T::RejectOrigin::try_successful_origin()
-				.unwrap_or_else(|_| RawOrigin::Signed(child_curator).into())
+				.unwrap_or_else(|_| RawOrigin::Signed(child_curator).into_with_basic_filter())
 		} else {
 			let caller = whitelisted_caller();
-			RawOrigin::Signed(caller).into()
+			RawOrigin::Signed(caller).into_with_basic_filter()
 		};
 
 		#[extrinsic_call]
@@ -331,7 +332,7 @@ mod benchmarks {
 		let beneficiary = T::Lookup::unlookup(beneficiary_account);
 
 		Pallet::<T>::award_child_bounty(
-			RawOrigin::Signed(bounty_setup.child_curator.clone()).into(),
+			RawOrigin::Signed(bounty_setup.child_curator.clone()).into_with_basic_filter(),
 			bounty_setup.bounty_id,
 			bounty_setup.child_bounty_id,
 			beneficiary,
@@ -367,7 +368,7 @@ mod benchmarks {
 		let mut bounty_setup = activate_bounty::<T>(0, T::MaximumReasonLength::get())?;
 
 		Pallet::<T>::add_child_bounty(
-			RawOrigin::Signed(bounty_setup.curator.clone()).into(),
+			RawOrigin::Signed(bounty_setup.curator.clone()).into_with_basic_filter(),
 			bounty_setup.bounty_id,
 			bounty_setup.child_bounty_value,
 			bounty_setup.reason.clone(),

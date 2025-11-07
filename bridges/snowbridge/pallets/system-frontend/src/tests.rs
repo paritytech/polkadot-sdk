@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
+use frame_support::traits::IntoWithBasicFilter;
 use crate::{mock::*, DispatchError::Other, Error};
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::RawOrigin;
@@ -114,7 +115,7 @@ fn register_token_fails_unroutable() {
 fn test_switch_operating_mode() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(EthereumSystemFrontend::set_operating_mode(
-			RawOrigin::Root.into(),
+			RawOrigin::Root.into_with_basic_filter(),
 			BasicOperatingMode::Halted,
 		));
 		let origin_location = Location::new(1, [Parachain(2000)]);
@@ -139,7 +140,7 @@ fn test_switch_operating_mode() {
 			crate::Error::<Test>::Halted
 		);
 		assert_ok!(EthereumSystemFrontend::set_operating_mode(
-			RawOrigin::Root.into(),
+			RawOrigin::Root.into_with_basic_filter(),
 			BasicOperatingMode::Normal,
 		));
 		assert_ok!(EthereumSystemFrontend::register_token(origin, asset_id, asset_metadata, asset));
@@ -156,7 +157,7 @@ fn add_tip_ether_asset_succeeds() {
 		let asset = Asset::from((ether_location.clone(), tip_amount));
 
 		assert_ok!(EthereumSystemFrontend::add_tip(
-			RuntimeOrigin::signed(who.clone()),
+			RuntimeOrigin::signed_with_basic_filter(who.clone()),
 			message_id.clone(),
 			asset.clone()
 		));
@@ -183,7 +184,7 @@ fn add_tip_non_ether_asset_succeeds() {
 		let asset = Asset::from((non_ether_location.clone(), tip_amount));
 
 		assert_ok!(EthereumSystemFrontend::add_tip(
-			RuntimeOrigin::signed(who.clone()),
+			RuntimeOrigin::signed_with_basic_filter(who.clone()),
 			message_id.clone(),
 			asset.clone()
 		));
@@ -210,7 +211,7 @@ fn add_tip_unsupported_asset_fails() {
 			fun: Fungibility::NonFungible(AssetInstance::Array4([0u8; 4])),
 		};
 		assert_noop!(
-			EthereumSystemFrontend::add_tip(RuntimeOrigin::signed(who), message_id, asset),
+			EthereumSystemFrontend::add_tip(RuntimeOrigin::signed_with_basic_filter(who), message_id, asset),
 			Error::<Test>::UnsupportedAsset
 		);
 	});
@@ -229,7 +230,7 @@ fn add_tip_send_xcm_failure() {
 		let tip_amount = 3000;
 		let asset = Asset::from((ether_location.clone(), tip_amount));
 		assert_noop!(
-			EthereumSystemFrontend::add_tip(RuntimeOrigin::signed(who), message_id, asset),
+			EthereumSystemFrontend::add_tip(RuntimeOrigin::signed_with_basic_filter(who), message_id, asset),
 			Error::<Test>::SendFailure
 		);
 	});
@@ -260,7 +261,7 @@ fn tip_fails_due_to_swap_error() {
 		let asset = Asset::from((non_ether_location.clone(), tip_amount));
 
 		assert_noop!(
-			EthereumSystemFrontend::add_tip(RuntimeOrigin::signed(who), message_id, asset),
+			EthereumSystemFrontend::add_tip(RuntimeOrigin::signed_with_basic_filter(who), message_id, asset),
 			Other("Swap failed for test")
 		);
 	});

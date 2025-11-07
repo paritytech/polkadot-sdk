@@ -20,6 +20,7 @@
 
 extern crate alloc;
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::{vec, vec::Vec};
 use cumulus_pallet_xcm::{ensure_sibling_para, Origin as CumulusOrigin};
 use cumulus_primitives_core::ParaId;
@@ -51,7 +52,7 @@ pub mod pallet {
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		type RuntimeOrigin: From<<Self as SystemConfig>::RuntimeOrigin>
+		type RuntimeOrigin: FromWithBasicFilter<<Self as SystemConfig>::RuntimeOrigin>
 			+ Into<Result<CumulusOrigin, <Self as Config>::RuntimeOrigin>>;
 
 		/// The overarching call type; we assume sibling chains use the same type.
@@ -203,7 +204,7 @@ pub mod pallet {
 		#[pallet::weight({0})]
 		pub fn ping(origin: OriginFor<T>, seq: u32, payload: Vec<u8>) -> DispatchResult {
 			// Only accept pings from other chains.
-			let para = ensure_sibling_para(<T as Config>::RuntimeOrigin::from(origin))?;
+			let para = ensure_sibling_para((origin).into_with_basic_filter())?;
 
 			Self::deposit_event(Event::Pinged(para, seq, payload.clone()));
 			match send_xcm::<T::XcmSender>(
@@ -230,7 +231,7 @@ pub mod pallet {
 		#[pallet::weight({0})]
 		pub fn pong(origin: OriginFor<T>, seq: u32, payload: Vec<u8>) -> DispatchResult {
 			// Only accept pings from other chains.
-			let para = ensure_sibling_para(<T as Config>::RuntimeOrigin::from(origin))?;
+			let para = ensure_sibling_para((origin).into_with_basic_filter())?;
 
 			if let Some(sent_at) = Pings::<T>::take(seq) {
 				Self::deposit_event(Event::Ponged(

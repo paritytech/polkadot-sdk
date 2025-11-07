@@ -17,6 +17,7 @@
 
 //! Preimage pallet benchmarking.
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::vec;
 use frame_benchmarking::v2::*;
 use frame_support::assert_ok;
@@ -110,7 +111,7 @@ mod benchmarks {
 	fn unnote_preimage() {
 		let caller = funded_account::<T>();
 		let (preimage, hash) = preimage_and_hash::<T>();
-		assert_ok!(Pallet::<T>::note_preimage(RawOrigin::Signed(caller.clone()).into(), preimage));
+		assert_ok!(Pallet::<T>::note_preimage(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), preimage));
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), hash);
@@ -139,7 +140,7 @@ mod benchmarks {
 			.expect("ManagerOrigin has no successful origin required for the benchmark");
 		let (preimage, hash) = preimage_and_hash::<T>();
 		let noter = funded_account::<T>();
-		assert_ok!(Pallet::<T>::note_preimage(RawOrigin::Signed(noter.clone()).into(), preimage));
+		assert_ok!(Pallet::<T>::note_preimage(RawOrigin::Signed(noter.clone()).into_with_basic_filter(), preimage));
 
 		#[extrinsic_call]
 		_(o as T::RuntimeOrigin, hash);

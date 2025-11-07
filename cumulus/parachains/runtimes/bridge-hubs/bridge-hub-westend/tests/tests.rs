@@ -746,7 +746,7 @@ pub fn bridge_rewards_works() {
 
 			// claim rewards
 			assert_ok!(BridgeRelayers::claim_rewards(
-				RuntimeOrigin::signed(account1.clone()),
+				RuntimeOrigin::signed_with_basic_filter(account1.clone()),
 				reward1_for.into()
 			));
 			assert_eq!(Balances::total_balance(&account1), ExistentialDeposit::get() + reward1);
@@ -758,7 +758,7 @@ pub fn bridge_rewards_works() {
 			// already claimed
 			assert_err!(
 				BridgeRelayers::claim_rewards(
-					RuntimeOrigin::signed(account1.clone()),
+					RuntimeOrigin::signed_with_basic_filter(account1.clone()),
 					reward1_for.into()
 				),
 				pallet_bridge_relayers::Error::<Runtime, BridgeRelayersInstance>::NoRewardForRelayer
@@ -767,7 +767,7 @@ pub fn bridge_rewards_works() {
 			// Local account claiming is not supported for Snowbridge
 			assert_err!(
 				BridgeRelayers::claim_rewards(
-					RuntimeOrigin::signed(account2.clone()),
+					RuntimeOrigin::signed_with_basic_filter(account2.clone()),
 					BridgeReward::Snowbridge
 				),
 				pallet_bridge_relayers::Error::<Runtime, BridgeRelayersInstance>::FailedToPayReward
@@ -786,7 +786,7 @@ pub fn bridge_rewards_works() {
 			// In unit tests without proper HRMP channel setup, the claim will fail at XCM sending.
 			assert_err!(
 				BridgeRelayers::claim_rewards_to(
-					RuntimeOrigin::signed(account2.clone()),
+					RuntimeOrigin::signed_with_basic_filter(account2.clone()),
 					BridgeReward::Snowbridge,
 					BridgeRewardBeneficiaries::AssetHubLocation(claim_location)
 				),

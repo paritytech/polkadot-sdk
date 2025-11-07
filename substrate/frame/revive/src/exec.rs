@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use frame_support::traits::IntoWithBasicFilter;
 use crate::{
 	address::{self, AddressMapper},
 	evm::{
@@ -168,7 +169,7 @@ impl<T: Config> Origin<T> {
 		match o.into() {
 			Ok(RawOrigin::Root) => Ok(Self::Root),
 			Ok(RawOrigin::Signed(t)) => Ok(Self::Signed(t)),
-			_ => Err(BadOrigin.into()),
+			_ => Err(BadOrigin.into_with_basic_filter()),
 		}
 	}
 

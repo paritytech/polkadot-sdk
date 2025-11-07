@@ -125,7 +125,7 @@ fn spend_roc_on_asset_hub() {
 
 		// Claim the spend.
 
-		let bob_signed = RuntimeOrigin::signed(Rococo::account_id_of(BOB));
+		let bob_signed = RuntimeOrigin::signed_with_basic_filter(Rococo::account_id_of(BOB));
 		assert_ok!(Treasury::payout(bob_signed.clone(), 0));
 
 		assert_expected_events!(
@@ -181,7 +181,7 @@ fn create_and_claim_treasury_spend_in_usdt() {
 	// treasury spend beneficiary.
 	let alice: AccountId = Rococo::account_id_of(ALICE);
 	let bob: AccountId = Rococo::account_id_of(BOB);
-	let bob_signed = <Rococo as Chain>::RuntimeOrigin::signed(bob.clone());
+	let bob_signed = <Rococo as Chain>::RuntimeOrigin::signed_with_basic_filter(bob.clone());
 
 	AssetHubRococo::execute_with(|| {
 		type Assets = <AssetHubRococo as AssetHubRococoPallet>::Assets;

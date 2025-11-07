@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use crate::*;
 use alloc::{vec, vec::Vec};
 use frame_benchmarking::v2::*;
@@ -134,7 +135,7 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller.clone()), vec![0u8; l as usize]);
 
 		assert!(!BlockTransactions::<T>::get().is_empty());
-		assert_last_event::<T>(Event::Stored { index: 0 }.into());
+		assert_last_event::<T>(Event::Stored { index: 0 }.into_with_basic_filter());
 	}
 
 	#[benchmark]
@@ -143,15 +144,15 @@ mod benchmarks {
 		let initial_balance = BalanceOf::<T>::max_value().checked_div(&2u32.into()).unwrap();
 		T::Currency::set_balance(&caller, initial_balance);
 		Pallet::<T>::store(
-			RawOrigin::Signed(caller.clone()).into(),
+			RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 			vec![0u8; T::MaxTransactionSize::get() as usize],
 		)?;
-		run_to_block::<T>(1u32.into());
+		run_to_block::<T>(1u32.into_with_basic_filter());
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), BlockNumberFor::<T>::zero(), 0);
 
-		assert_last_event::<T>(Event::Renewed { index: 0 }.into());
+		assert_last_event::<T>(Event::Renewed { index: 0 }.into_with_basic_filter());
 
 		Ok(())
 	}
@@ -164,7 +165,7 @@ mod benchmarks {
 		T::Currency::set_balance(&caller, initial_balance);
 		for _ in 0..T::MaxBlockTransactions::get() {
 			Pallet::<T>::store(
-				RawOrigin::Signed(caller.clone()).into(),
+				RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 				vec![0u8; T::MaxTransactionSize::get() as usize],
 			)?;
 		}
@@ -175,7 +176,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		check_proof(RawOrigin::None, proof);
 
-		assert_last_event::<T>(Event::ProofChecked.into());
+		assert_last_event::<T>(Event::ProofChecked.into_with_basic_filter());
 
 		Ok(())
 	}

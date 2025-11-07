@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use frame_benchmarking::{benchmarking::add_to_whitelist, v2::*};
 use frame_support::traits::OnFinalize;
 use frame_system::RawOrigin;
@@ -45,15 +46,15 @@ mod benchmarks {
 		});
 
 		#[extrinsic_call]
-		_(RawOrigin::None, t.into());
+		_(RawOrigin::None, t.into_with_basic_filter());
 
-		assert_eq!(Now::<T>::get(), t.into(), "Time was not set.");
+		assert_eq!(Now::<T>::get(), t.into_with_basic_filter(), "Time was not set.");
 	}
 
 	#[benchmark]
 	fn on_finalize() {
 		let t = MAX_TIME;
-		Pallet::<T>::set(RawOrigin::None.into(), t.into()).unwrap();
+		Pallet::<T>::set(RawOrigin::None.into_with_basic_filter(), t.into_with_basic_filter()).unwrap();
 		assert!(DidUpdate::<T>::exists(), "Time was not set.");
 
 		// Ignore read/write to `DidUpdate` since it is transient.

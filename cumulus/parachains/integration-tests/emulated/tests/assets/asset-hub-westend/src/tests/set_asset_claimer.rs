@@ -54,7 +54,7 @@ fn test_set_asset_claimer_within_a_chain() {
 			message: bx!(VersionedXcm::from(asset_trap_xcm)),
 			max_weight: Weight::from_parts(4_000_000_000_000, 300_000),
 		})
-		.dispatch(AssetHubRuntimeOrigin::signed(alice_account.clone())));
+		.dispatch(AssetHubRuntimeOrigin::signed_with_basic_filter(alice_account.clone())));
 	});
 
 	let balance_after_trap =
@@ -72,7 +72,7 @@ fn test_set_asset_claimer_within_a_chain() {
 			message: bx!(VersionedXcm::from(claim_xcm)),
 			max_weight: Weight::from_parts(4_000_000_000_000, 300_000),
 		})
-		.dispatch(AssetHubRuntimeOrigin::signed(bob_account.clone())));
+		.dispatch(AssetHubRuntimeOrigin::signed_with_basic_filter(bob_account.clone())));
 	});
 
 	let bob_balance_after = <AssetHubWestend as Chain>::account_data_of(bob_account.clone()).free;
@@ -126,7 +126,7 @@ fn test_set_asset_claimer_between_the_chains() {
 			message: bx!(VersionedXcm::from(trap_xcm)),
 			max_weight: Weight::from_parts(4_000_000_000_000, 700_000),
 		})
-		.dispatch(BridgeHubRuntimeOrigin::signed(bob.clone())));
+		.dispatch(BridgeHubRuntimeOrigin::signed_with_basic_filter(bob.clone())));
 	});
 
 	let alice_bh_acc = LocationToAccountId::convert_location(&alice_bh_sibling).unwrap();
@@ -142,7 +142,7 @@ fn test_set_asset_claimer_between_the_chains() {
 	let bh_on_ah = AssetHubWestend::sibling_location_of(BridgeHubWestend::para_id()).into();
 	AssetHubWestend::execute_with(|| {
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::send(
-			AssetHubRuntimeOrigin::signed(alice.clone()),
+			AssetHubRuntimeOrigin::signed_with_basic_filter(alice.clone()),
 			bx!(bh_on_ah),
 			bx!(VersionedXcm::from(xcm_on_bh)),
 		));

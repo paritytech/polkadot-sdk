@@ -58,8 +58,8 @@ fn basic_setup_session_queuing_should_work() {
 		}
 
 		// add a new candidate for being a validator. account 3.
-		assert_ok!(Staking::bond(RuntimeOrigin::signed(3), 1500, RewardDestination::Account(3)));
-		assert_ok!(Staking::validate(RuntimeOrigin::signed(3), ValidatorPrefs::default()));
+		assert_ok!(Staking::bond(RuntimeOrigin::signed_with_basic_filter(3), 1500, RewardDestination::Account(3)));
+		assert_ok!(Staking::validate(RuntimeOrigin::signed_with_basic_filter(3), ValidatorPrefs::default()));
 
 		// No effects will be seen so far.
 		assert_eq_uvec!(Session::validators(), vec![21, 11]);
@@ -77,7 +77,7 @@ fn basic_setup_session_queuing_should_work() {
 		assert_eq!(Session::queued_validators(), None);
 
 		// then chill 3
-		Staking::chill(RuntimeOrigin::signed(3)).unwrap();
+		Staking::chill(RuntimeOrigin::signed_with_basic_filter(3)).unwrap();
 
 		// nothing. 3 is still there.
 		Session::roll_until_session(7);
@@ -436,8 +436,8 @@ mod staking_interface {
 				);
 
 				// Unbond all of the funds in stash.
-				Staking::chill(RuntimeOrigin::signed(11)).unwrap();
-				Staking::unbond(RuntimeOrigin::signed(11), 1000).unwrap();
+				Staking::chill(RuntimeOrigin::signed_with_basic_filter(11)).unwrap();
+				Staking::unbond(RuntimeOrigin::signed_with_basic_filter(11), 1000).unwrap();
 				assert_eq!(
 					Staking::ledger(11.into()).unwrap(),
 					StakingLedgerInspect {
@@ -452,7 +452,7 @@ mod staking_interface {
 				Session::roll_until_active_era(4);
 
 				// withdraw unbonded
-				assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 0));
+				assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed_with_basic_filter(11), 0));
 
 				// empty stash has been reaped
 				assert!(!<Ledger<Test>>::contains_key(&11));
@@ -638,7 +638,7 @@ mod staking_unchecked {
 			asset::set_stakeable_balance::<Test>(&200, 2000);
 
 			// stake
-			assert_ok!(Staking::bond(RuntimeOrigin::signed(200), 1000, RewardDestination::Staked));
+			assert_ok!(Staking::bond(RuntimeOrigin::signed_with_basic_filter(200), 1000, RewardDestination::Staked));
 			assert_eq!(asset::staked::<Test>(&200), 1000);
 
 			// migrate them to virtual staker
@@ -770,10 +770,10 @@ mod staking_unchecked {
 				assert_eq!(SlashObserver::get().get(&101).unwrap(), &nominator_stake);
 
 				// validator can be reaped.
-				assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(10), 11, 0));
+				assert_ok!(Staking::reap_stash(RuntimeOrigin::signed_with_basic_filter(10), 11, 0));
 				// nominator is a virtual staker and cannot be reaped.
 				assert_noop!(
-					Staking::reap_stash(RuntimeOrigin::signed(10), 101, 0),
+					Staking::reap_stash(RuntimeOrigin::signed_with_basic_filter(10), 101, 0),
 					Error::<Test>::VirtualStakerNotAllowed
 				);
 			})
@@ -832,7 +832,7 @@ mod hold_migration {
 				let _ = asset::mint_into_existing::<Test>(&alice, 100);
 
 				// WHEN new fund is bonded to ledger.
-				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(alice), 100));
+				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed_with_basic_filter(alice), 100));
 
 				// THEN new hold is created
 				assert_eq!(asset::staked::<Test>(&alice), 1000 + 100);
@@ -847,7 +847,7 @@ mod hold_migration {
 
 			hypothetically!({
 				// WHEN new fund is unbonded from ledger.
-				assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), 100));
+				assert_ok!(Staking::unbond(RuntimeOrigin::signed_with_basic_filter(alice), 100));
 
 				// THEN hold is updated.
 				assert_eq!(asset::staked::<Test>(&alice), 1000);
@@ -861,7 +861,7 @@ mod hold_migration {
 			});
 
 			// WHEN alice currency is migrated.
-			assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed(1), alice));
+			assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed_with_basic_filter(1), alice));
 
 			// THEN hold is updated.
 			assert_eq!(asset::staked::<Test>(&alice), 1000);
@@ -872,7 +872,7 @@ mod hold_migration {
 
 			// ensure cannot migrate again.
 			assert_noop!(
-				Staking::migrate_currency(RuntimeOrigin::signed(1), alice),
+				Staking::migrate_currency(RuntimeOrigin::signed_with_basic_filter(1), alice),
 				Error::<Test>::AlreadyMigrated
 			);
 
@@ -894,7 +894,7 @@ mod hold_migration {
 			let _ = staking_events_since_last_call();
 
 			// WHEN alice currency is migrated.
-			assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed(1), alice));
+			assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed_with_basic_filter(1), alice));
 
 			// THEN
 			// the extra consumer from old code is removed.
@@ -915,7 +915,7 @@ mod hold_migration {
 
 			// ensure cannot migrate again.
 			assert_noop!(
-				Staking::migrate_currency(RuntimeOrigin::signed(1), alice),
+				Staking::migrate_currency(RuntimeOrigin::signed_with_basic_filter(1), alice),
 				Error::<Test>::AlreadyMigrated
 			);
 		});
@@ -940,7 +940,7 @@ mod hold_migration {
 
 			// Get rid of the extra ED to emulate all their balance including ED is staked.
 			assert_ok!(Balances::transfer_allow_death(
-				RuntimeOrigin::signed(alice),
+				RuntimeOrigin::signed_with_basic_filter(alice),
 				10,
 				ExistentialDeposit::get()
 			));
@@ -949,7 +949,7 @@ mod hold_migration {
 
 			// ledger mutation would fail in this case before migration because of failing hold.
 			assert_noop!(
-				Staking::unbond(RuntimeOrigin::signed(alice), 100),
+				Staking::unbond(RuntimeOrigin::signed_with_basic_filter(alice), 100),
 				Error::<Test>::NotEnoughFunds
 			);
 
@@ -957,7 +957,7 @@ mod hold_migration {
 			let _ = staking_events_since_last_call();
 
 			// WHEN alice currency is migrated.
-			assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed(1), alice));
+			assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed_with_basic_filter(1), alice));
 
 			// THEN
 			let expected_hold = stake - expected_force_withdraw;
@@ -980,12 +980,12 @@ mod hold_migration {
 
 			// ensure cannot migrate again.
 			assert_noop!(
-				Staking::migrate_currency(RuntimeOrigin::signed(1), alice),
+				Staking::migrate_currency(RuntimeOrigin::signed_with_basic_filter(1), alice),
 				Error::<Test>::AlreadyMigrated
 			);
 
 			// unbond works after migration.
-			assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), 100));
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed_with_basic_filter(alice), 100));
 		});
 	}
 
@@ -1003,7 +1003,7 @@ mod hold_migration {
 
 			hypothetically!({
 				// migrate 200
-				assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed(1), 200));
+				assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed_with_basic_filter(1), 200));
 
 				// ensure account does not exist in system anymore.
 				assert_eq!(System::consumers(&200), 0);
@@ -1012,7 +1012,7 @@ mod hold_migration {
 
 				// ensure cannot migrate again.
 				assert_noop!(
-					Staking::migrate_currency(RuntimeOrigin::signed(1), 200),
+					Staking::migrate_currency(RuntimeOrigin::signed_with_basic_filter(1), 200),
 					Error::<Test>::AlreadyMigrated
 				);
 			});
@@ -1023,19 +1023,19 @@ mod hold_migration {
 
 				// causes migration to fail.
 				assert_noop!(
-					Staking::migrate_currency(RuntimeOrigin::signed(1), 200),
+					Staking::migrate_currency(RuntimeOrigin::signed_with_basic_filter(1), 200),
 					Error::<Test>::BadState
 				);
 			});
 
 			// 200 is funded for more than ED by a random account.
-			assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(999), 200, 10));
+			assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed_with_basic_filter(999), 200, 10));
 
 			// it has an extra provider now.
 			assert_eq!(System::providers(&200), 2);
 
 			// migrate 200
-			assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed(1), 200));
+			assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed_with_basic_filter(1), 200));
 
 			// 1 provider is left, consumers is 0.
 			assert_eq!(System::providers(&200), 1);
@@ -1043,7 +1043,7 @@ mod hold_migration {
 
 			// ensure cannot migrate again.
 			assert_noop!(
-				Staking::migrate_currency(RuntimeOrigin::signed(1), 200),
+				Staking::migrate_currency(RuntimeOrigin::signed_with_basic_filter(1), 200),
 				Error::<Test>::AlreadyMigrated
 			);
 		});
@@ -1084,7 +1084,7 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 		assert_eq!(full_exposure_after.others, vec![]);
 
 		ErasValidatorReward::<Test>::insert(0, stake);
-		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 0, 0));
+		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed_with_basic_filter(1337), 11, 0, 0));
 		assert_eq!(asset::stakeable_balance::<Test>(&11), stake * 2);
 
 		// ensure ledger has `stake` and no more.
@@ -1102,7 +1102,7 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 		let _ = asset::set_stakeable_balance::<Test>(&2, stake);
 
 		// only slashes out of bonded stake are applied. without this line, it is 0.
-		Staking::bond(RuntimeOrigin::signed(2), stake - 1, RewardDestination::Staked).unwrap();
+		Staking::bond(RuntimeOrigin::signed_with_basic_filter(2), stake - 1, RewardDestination::Staked).unwrap();
 
 		// Override metadata and exposures of 11 so that it exposes minmal self stake and `stake` -
 		// 1 from nominator 2.
@@ -1147,7 +1147,7 @@ fn validator_is_not_disabled_for_an_offence_in_previous_era() {
 			mock::start_active_era(2);
 
 			// the validator is not disabled in the new era
-			Staking::validate(RuntimeOrigin::signed(11), Default::default()).unwrap();
+			Staking::validate(RuntimeOrigin::signed_with_basic_filter(11), Default::default()).unwrap();
 			assert_eq!(ForceEra::<Test>::get(), Forcing::NotForcing);
 			assert!(<Validators<Test>>::contains_key(11));
 			assert!(Session::validators().contains(&11));
@@ -1239,7 +1239,7 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 			assert!(is_disabled(11));
 
 			// actually re-bond the slashed validator
-			assert_ok!(Staking::validate(RuntimeOrigin::signed(11), Default::default()));
+			assert_ok!(Staking::validate(RuntimeOrigin::signed_with_basic_filter(11), Default::default()));
 
 			mock::start_active_era(2);
 			let exposure_11 = Staking::eras_stakers(active_era(), &11);

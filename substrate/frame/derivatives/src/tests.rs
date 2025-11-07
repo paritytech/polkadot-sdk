@@ -30,12 +30,12 @@ fn predefined_id_collection() {
 
 		// An invalid origin is rejected.
 		assert_err!(
-			PredefinedIdDerivativeCollections::create_derivative(RuntimeOrigin::none(), id.clone()),
+			PredefinedIdDerivativeCollections::create_derivative(RuntimeOrigin::none_with_basic_filter(), id.clone()),
 			DispatchError::BadOrigin,
 		);
 
 		assert_ok!(PredefinedIdDerivativeCollections::create_derivative(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			id.clone()
 		));
 
@@ -49,7 +49,7 @@ fn predefined_id_collection() {
 		// The inner errors are propagated
 		assert_err!(
 			PredefinedIdDerivativeCollections::create_derivative(
-				RuntimeOrigin::signed(2),
+				RuntimeOrigin::signed_with_basic_filter(2),
 				id.clone()
 			),
 			unique_items::Error::<Test, PredefinedIdCollectionsInstance>::AlreadyExists,
@@ -58,7 +58,7 @@ fn predefined_id_collection() {
 		// An invalid origin is rejected.
 		assert_err!(
 			PredefinedIdDerivativeCollections::destroy_derivative(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				id.clone()
 			),
 			DispatchError::BadOrigin,
@@ -76,7 +76,7 @@ fn predefined_id_collection() {
 		// cna be registered as derivatives
 		let invalid_id = AssetId(Location::new(0, [PalletInstance(42), GeneralIndex(1)]));
 		assert_err!(
-			PredefinedIdDerivativeCollections::create_derivative(RuntimeOrigin::signed(3), invalid_id),
+			PredefinedIdDerivativeCollections::create_derivative(RuntimeOrigin::signed_with_basic_filter(3), invalid_id),
 			pallet_derivatives::Error::<Test, PredefinedIdDerivativeCollectionsInstance>::InvalidAsset,
 		);
 	});
@@ -92,12 +92,12 @@ fn auto_id_collection() {
 
 		// An invalid origin is rejected.
 		assert_err!(
-			AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::none(), id_a.clone()),
+			AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::none_with_basic_filter(), id_a.clone()),
 			DispatchError::BadOrigin,
 		);
 
 		assert_ok!(AutoIdDerivativeCollections::create_derivative(
-			RuntimeOrigin::signed(3),
+			RuntimeOrigin::signed_with_basic_filter(3),
 			id_a.clone()
 		));
 
@@ -113,12 +113,12 @@ fn auto_id_collection() {
 
 		// The stored mapping prevents derivative duplication
 		assert_err!(
-			AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::signed(4), id_a.clone()),
+			AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::signed_with_basic_filter(4), id_a.clone()),
 			pallet_derivatives::Error::<Test, AutoIdCollectionsInstance>::DerivativeAlreadyExists,
 		);
 
 		assert_ok!(AutoIdDerivativeCollections::create_derivative(
-			RuntimeOrigin::signed(5),
+			RuntimeOrigin::signed_with_basic_filter(5),
 			id_b.clone()
 		));
 
@@ -136,13 +136,13 @@ fn auto_id_collection() {
 
 		// The stored mapping prevents derivative duplication
 		assert_err!(
-			AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::signed(6), id_b.clone()),
+			AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::signed_with_basic_filter(6), id_b.clone()),
 			pallet_derivatives::Error::<Test, AutoIdCollectionsInstance>::DerivativeAlreadyExists,
 		);
 
 		// An invalid origin is rejected.
 		assert_err!(
-			AutoIdDerivativeCollections::destroy_derivative(RuntimeOrigin::signed(7), id_a.clone()),
+			AutoIdDerivativeCollections::destroy_derivative(RuntimeOrigin::signed_with_basic_filter(7), id_a.clone()),
 			DispatchError::BadOrigin,
 		);
 
@@ -164,7 +164,7 @@ fn auto_id_collection() {
 		// cna be registered as derivatives
 		let invalid_id = AssetId(Location::new(0, [PalletInstance(42), GeneralIndex(1)]));
 		assert_err!(
-			AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::signed(8), invalid_id),
+			AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::signed_with_basic_filter(8), invalid_id),
 			pallet_derivatives::Error::<Test, AutoIdDerivativeCollectionsInstance>::InvalidAsset,
 		);
 	});
@@ -251,7 +251,7 @@ fn derivative_nfts() {
 		));
 		let foreign_nft_id = Index(112);
 		assert_ok!(AutoIdDerivativeCollections::create_derivative(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			foreign_collection_id.clone(),
 		));
 

@@ -74,7 +74,7 @@ pub fn send_inbound_message(fixture: EventFixture) -> DispatchResult {
 	)
 	.unwrap();
 	EthereumInboundQueue::submit(
-		BridgeHubWestendRuntimeOrigin::signed(BridgeHubWestendSender::get()),
+		BridgeHubWestendRuntimeOrigin::signed_with_basic_filter(BridgeHubWestendSender::get()),
 		fixture.event,
 	)
 }
@@ -186,7 +186,7 @@ fn send_weth_from_ethereum_to_penpal() {
 	]
 	.into();
 	PenpalB::mint_foreign_asset(
-		<PenpalB as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		<PenpalB as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalAssetOwner::get()),
 		native_id,
 		receiver,
 		penpal_runtime::EXISTENTIAL_DEPOSIT,
@@ -365,7 +365,7 @@ fn send_eth_asset_from_asset_hub_to_ethereum_and_back() {
 			);
 		// Send the Weth back to Ethereum
 		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::limited_reserve_transfer_assets(
-			RuntimeOrigin::signed(AssetHubWestendReceiver::get()),
+			RuntimeOrigin::signed_with_basic_filter(AssetHubWestendReceiver::get()),
 			Box::new(destination),
 			Box::new(beneficiary),
 			Box::new(multi_assets),
@@ -678,7 +678,7 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 			);
 		// Send the Weth back to Ethereum
 		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::limited_reserve_transfer_assets(
-			RuntimeOrigin::signed(AssetHubWestendReceiver::get()),
+			RuntimeOrigin::signed_with_basic_filter(AssetHubWestendReceiver::get()),
 			Box::new(destination),
 			Box::new(beneficiary),
 			Box::new(versioned_assets),
@@ -866,7 +866,7 @@ fn transfer_relay_token() {
 		);
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
-			RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			RuntimeOrigin::signed_with_basic_filter(AssetHubWestendSender::get()),
 			Box::new(destination),
 			Box::new(versioned_assets),
 			Box::new(TransferType::LocalReserve),
@@ -1011,7 +1011,7 @@ fn transfer_ah_token() {
 
 	// Mint some token
 	AssetHubWestend::mint_asset(
-		<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendAssetOwner::get()),
+		<AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubWestendAssetOwner::get()),
 		RESERVABLE_ASSET_ID,
 		AssetHubWestendSender::get(),
 		TOKEN_AMOUNT,
@@ -1033,7 +1033,7 @@ fn transfer_ah_token() {
 		));
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets(
-			RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			RuntimeOrigin::signed_with_basic_filter(AssetHubWestendSender::get()),
 			Box::new(VersionedLocation::from(ethereum_destination)),
 			Box::new(beneficiary),
 			Box::new(versioned_assets),
@@ -1221,7 +1221,7 @@ fn send_weth_from_ethereum_to_ahw_to_ahr_back_to_ahw_and_ethereum() {
 
 	assert_ok!(AssetHubWestend::execute_with(|| {
 		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
-			<AssetHubWestend as Chain>::RuntimeOrigin::signed(sender.clone()),
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(sender.clone()),
 			bx!(asset_hub_rococo_location().into()),
 			bx!(assets.clone().into()),
 			bx!(TransferType::LocalReserve),
@@ -1290,7 +1290,7 @@ fn send_weth_from_ethereum_to_ahw_to_ahr_back_to_ahw_and_ethereum() {
 	// Transfer the token back to Westend.
 	assert_ok!(AssetHubRococo::execute_with(|| {
 		<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoReceiver::get()),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubRococoReceiver::get()),
 			bx!(asset_hub_westend_global_location().into()),
 			bx!(assets.into()),
 			bx!(TransferType::DestinationReserve),
@@ -1392,7 +1392,7 @@ fn send_weth_from_ethereum_to_ahw_to_ahr_back_to_ahw_and_ethereum() {
 			);
 		// Send the Weth back to Ethereum
 		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::limited_reserve_transfer_assets(
-			RuntimeOrigin::signed(AssetHubWestendReceiver::get()),
+			RuntimeOrigin::signed_with_basic_filter(AssetHubWestendReceiver::get()),
 			Box::new(destination),
 			Box::new(beneficiary),
 			Box::new(versioned_assets),
@@ -1512,7 +1512,7 @@ fn transfer_penpal_native_asset() {
 		}]);
 
 		assert_ok!(<PenpalB as PenpalBPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
-			RuntimeOrigin::signed(PenpalBSender::get()),
+			RuntimeOrigin::signed_with_basic_filter(PenpalBSender::get()),
 			Box::new(VersionedLocation::from(destination)),
 			Box::new(VersionedAssets::from(assets)),
 			Box::new(TransferType::Teleport),
@@ -1598,7 +1598,7 @@ fn transfer_penpal_native_asset() {
 
 		assert_ok!(
 			<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::limited_teleport_assets(
-				RuntimeOrigin::signed(AssetHubWestendSender::get()),
+				RuntimeOrigin::signed_with_basic_filter(AssetHubWestendSender::get()),
 				Box::new(VersionedLocation::from(destination)),
 				Box::new(VersionedLocation::from(beneficiary)),
 				Box::new(VersionedAssets::from(assets)),
@@ -1720,7 +1720,7 @@ fn transfer_penpal_teleport_enabled_asset() {
 		}]);
 
 		assert_ok!(<PenpalB as PenpalBPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
-			RuntimeOrigin::signed(PenpalBSender::get()),
+			RuntimeOrigin::signed_with_basic_filter(PenpalBSender::get()),
 			Box::new(VersionedLocation::from(destination)),
 			Box::new(VersionedAssets::from(assets)),
 			Box::new(TransferType::Teleport),
@@ -1822,7 +1822,7 @@ fn transfer_penpal_teleport_enabled_asset() {
 
 		assert_ok!(
 			<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
-				RuntimeOrigin::signed(AssetHubWestendSender::get()),
+				RuntimeOrigin::signed_with_basic_filter(AssetHubWestendSender::get()),
 				Box::new(VersionedLocation::from(destination)),
 				Box::new(VersionedAssets::from(assets)),
 				Box::new(TransferType::Teleport),
@@ -1905,7 +1905,7 @@ pub(crate) fn set_up_pool_with_wnd_on_ah_westend(
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 		let owner = AssetHubWestendSender::get();
-		let signed_owner = <AssetHubWestend as Chain>::RuntimeOrigin::signed(owner.clone());
+		let signed_owner = <AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(owner.clone());
 
 		if is_foreign {
 			assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint(
@@ -2002,7 +2002,7 @@ fn transfer_roc_from_ah_with_legacy_api_will_fail() {
 		));
 
 		let result = <AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets(
-			RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			RuntimeOrigin::signed_with_basic_filter(AssetHubWestendSender::get()),
 			Box::new(VersionedLocation::from(ethereum_destination)),
 			Box::new(beneficiary),
 			Box::new(versioned_assets),
@@ -2073,7 +2073,7 @@ fn transfer_roc_from_ah_with_transfer_and_then() {
 		}]);
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
-			RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			RuntimeOrigin::signed_with_basic_filter(AssetHubWestendSender::get()),
 			Box::new(VersionedLocation::from(ethereum_destination)),
 			Box::new(versioned_assets),
 			Box::new(TransferType::LocalReserve),
@@ -2228,7 +2228,7 @@ fn register_pna_in_v5_while_transfer_in_v4_should_work() {
 		);
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
-			RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			RuntimeOrigin::signed_with_basic_filter(AssetHubWestendSender::get()),
 			Box::new(destination),
 			Box::new(versioned_assets),
 			Box::new(TransferType::LocalReserve),

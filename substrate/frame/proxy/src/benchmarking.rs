@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use crate::Pallet as Proxy;
 use alloc::{boxed::Box, vec};
@@ -43,7 +44,7 @@ fn add_proxies<T: Config>(n: u32, maybe_who: Option<T::AccountId>) -> Result<(),
 		let real = T::Lookup::unlookup(account("target", i, SEED));
 
 		Proxy::<T>::add_proxy(
-			RawOrigin::Signed(caller.clone()).into(),
+			RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 			real,
 			T::ProxyType::default(),
 			BlockNumberFor::<T>::zero(),
@@ -66,7 +67,7 @@ fn add_announcements<T: Config>(
 		let real = account("real", 0, SEED);
 		T::Currency::make_free_balance_be(&real, BalanceOf::<T>::max_value() / 2u32.into());
 		Proxy::<T>::add_proxy(
-			RawOrigin::Signed(real.clone()).into(),
+			RawOrigin::Signed(real.clone()).into_with_basic_filter(),
 			caller_lookup,
 			T::ProxyType::default(),
 			BlockNumberFor::<T>::zero(),
@@ -76,7 +77,7 @@ fn add_announcements<T: Config>(
 	let real_lookup = T::Lookup::unlookup(real);
 	for _ in 0..n {
 		Proxy::<T>::announce(
-			RawOrigin::Signed(caller.clone()).into(),
+			RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 			real_lookup.clone(),
 			T::CallHasher::hash_of(&("add_announcement", n)),
 		)?;
@@ -103,7 +104,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), real_lookup, Some(T::ProxyType::default()), Box::new(call));
 
-		assert_last_event::<T>(Event::ProxyExecuted { result: Ok(()) }.into());
+		assert_last_event::<T>(Event::ProxyExecuted { result: Ok(()) }.into_with_basic_filter());
 
 		Ok(())
 	}
@@ -125,7 +126,7 @@ mod benchmarks {
 		let call: <T as Config>::RuntimeCall =
 			frame_system::Call::<T>::remark { remark: vec![] }.into();
 		Proxy::<T>::announce(
-			RawOrigin::Signed(delegate.clone()).into(),
+			RawOrigin::Signed(delegate.clone()).into_with_basic_filter(),
 			real_lookup.clone(),
 			T::CallHasher::hash_of(&call),
 		)?;
@@ -140,7 +141,7 @@ mod benchmarks {
 			Box::new(call),
 		);
 
-		assert_last_event::<T>(Event::ProxyExecuted { result: Ok(()) }.into());
+		assert_last_event::<T>(Event::ProxyExecuted { result: Ok(()) }.into_with_basic_filter());
 
 		Ok(())
 	}
@@ -160,7 +161,7 @@ mod benchmarks {
 		let call: <T as Config>::RuntimeCall =
 			frame_system::Call::<T>::remark { remark: vec![] }.into();
 		Proxy::<T>::announce(
-			RawOrigin::Signed(caller.clone()).into(),
+			RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 			real_lookup.clone(),
 			T::CallHasher::hash_of(&call),
 		)?;
@@ -191,7 +192,7 @@ mod benchmarks {
 		let call: <T as Config>::RuntimeCall =
 			frame_system::Call::<T>::remark { remark: vec![] }.into();
 		Proxy::<T>::announce(
-			RawOrigin::Signed(caller.clone()).into(),
+			RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 			real_lookup,
 			T::CallHasher::hash_of(&call),
 		)?;
@@ -226,7 +227,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), real_lookup, call_hash);
 
-		assert_last_event::<T>(Event::Announced { real, proxy: caller, call_hash }.into());
+		assert_last_event::<T>(Event::Announced { real, proxy: caller, call_hash }.into_with_basic_filter());
 
 		Ok(())
 	}
@@ -320,7 +321,7 @@ mod benchmarks {
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 		Pallet::<T>::create_pure(
-			RawOrigin::Signed(whitelisted_caller()).into(),
+			RawOrigin::Signed(whitelisted_caller()).into_with_basic_filter(),
 			T::ProxyType::default(),
 			BlockNumberFor::<T>::zero(),
 			0,
@@ -361,13 +362,13 @@ mod benchmarks {
 
 		// Add proxy relationships
 		Proxy::<T>::add_proxy(
-			RawOrigin::Signed(account_1.clone()).into(),
+			RawOrigin::Signed(account_1.clone()).into_with_basic_filter(),
 			T::Lookup::unlookup(account_2.clone()),
 			T::ProxyType::default(),
 			BlockNumberFor::<T>::zero(),
 		)?;
 		Proxy::<T>::add_proxy(
-			RawOrigin::Signed(account_2.clone()).into(),
+			RawOrigin::Signed(account_2.clone()).into_with_basic_filter(),
 			T::Lookup::unlookup(account_3.clone()),
 			T::ProxyType::default(),
 			BlockNumberFor::<T>::zero(),
@@ -378,7 +379,7 @@ mod benchmarks {
 
 		// Create announcement
 		Proxy::<T>::announce(
-			RawOrigin::Signed(account_2.clone()).into(),
+			RawOrigin::Signed(account_2.clone()).into_with_basic_filter(),
 			T::Lookup::unlookup(account_1.clone()),
 			T::CallHasher::hash_of(&("add_announcement", 1)),
 		)?;

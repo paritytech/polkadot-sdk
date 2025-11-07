@@ -59,7 +59,7 @@ fn set_up_wnds_for_penpal_westend_through_ahw_to_ahr(
 	AssetHubWestend::fund_accounts(vec![(sov_penpal_on_ahw.into(), amount * 2)]);
 	// fund Penpal's sender account
 	PenpalB::mint_foreign_asset(
-		<PenpalB as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		<PenpalB as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalAssetOwner::get()),
 		wnd_at_westend_parachains.clone(),
 		sender.clone(),
 		amount * 2,
@@ -79,7 +79,7 @@ fn send_assets_from_penpal_westend_through_westend_ah_to_rococo_ah(
 		);
 		// send message over bridge
 		assert_ok!(PenpalB::execute_with(|| {
-			let signed_origin = <PenpalB as Chain>::RuntimeOrigin::signed(PenpalBSender::get());
+			let signed_origin = <PenpalB as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalBSender::get());
 			<PenpalB as PenpalBPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 				signed_origin,
 				bx!(destination.into()),
@@ -203,14 +203,14 @@ fn send_wnds_usdt_and_weth_from_asset_hub_westend_to_asset_hub_rococo() {
 
 	// mint USDT in sender's account (USDT already created in genesis)
 	AssetHubWestend::mint_asset(
-		<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendAssetOwner::get()),
+		<AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubWestendAssetOwner::get()),
 		USDT_ID,
 		sender.clone(),
 		amount * 2,
 	);
 	// create wETH at src and dest and prefund sender's account
 	AssetHubWestend::mint_foreign_asset(
-		<AssetHubWestend as Chain>::RuntimeOrigin::signed(snowbridge_sovereign()),
+		<AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(snowbridge_sovereign()),
 		bridged_weth_at_ah.clone(),
 		sender.clone(),
 		amount * 2,
@@ -243,7 +243,7 @@ fn send_wnds_usdt_and_weth_from_asset_hub_westend_to_asset_hub_rococo() {
 	}]);
 	assert_ok!(AssetHubWestend::execute_with(|| {
 		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
-			<AssetHubWestend as Chain>::RuntimeOrigin::signed(sender.into()),
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(sender.into()),
 			bx!(asset_hub_rococo_location().into()),
 			bx!(assets.into()),
 			bx!(TransferType::LocalReserve),
@@ -653,7 +653,7 @@ fn send_wnds_from_westend_relay_through_asset_hub_westend_to_asset_hub_rococo_to
 				Dmp::<<Westend as Chain>::Runtime>::make_parachain_reachable(
 					AssetHubWestend::para_id(),
 				);
-				let signed_origin = <Westend as Chain>::RuntimeOrigin::signed(WestendSender::get());
+				let signed_origin = <Westend as Chain>::RuntimeOrigin::signed_with_basic_filter(WestendSender::get());
 				<Westend as WestendPallet>::XcmPallet::execute(
 					signed_origin,
 					bx!(xcm::VersionedXcm::V5(kusama_xcm.into())),
@@ -864,7 +864,7 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 	let asset_owner: AccountId = AssetHubWestend::account_id_of(ALICE);
 	// Fund WNDs on Westend Penpal
 	PenpalB::mint_foreign_asset(
-		<PenpalB as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		<PenpalB as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalAssetOwner::get()),
 		Location::parent(),
 		sender.clone(),
 		amount,
@@ -952,7 +952,7 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 		send_assets_over_bridge(|| {
 			// send message over bridge
 			assert_ok!(PenpalB::execute_with(|| {
-				let signed_origin = <PenpalB as Chain>::RuntimeOrigin::signed(sender.clone());
+				let signed_origin = <PenpalB as Chain>::RuntimeOrigin::signed_with_basic_filter(sender.clone());
 				<PenpalB as PenpalBPallet>::PolkadotXcm::execute(
 					signed_origin,
 					bx!(xcm::VersionedXcm::V5(xcm.into())),
@@ -1051,7 +1051,7 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 	let asset_owner: AccountId = AssetHubWestend::account_id_of(ALICE);
 	// Fund WNDs on Westend Penpal
 	PenpalB::mint_foreign_asset(
-		<PenpalB as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		<PenpalB as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalAssetOwner::get()),
 		Location::parent(),
 		sender.clone(),
 		amount,
@@ -1139,7 +1139,7 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 		send_assets_over_bridge(|| {
 			// send message over bridge
 			assert_ok!(PenpalB::execute_with(|| {
-				let signed_origin = <PenpalB as Chain>::RuntimeOrigin::signed(sender.clone());
+				let signed_origin = <PenpalB as Chain>::RuntimeOrigin::signed_with_basic_filter(sender.clone());
 				let result = <PenpalB as PenpalBPallet>::PolkadotXcm::execute(
 					signed_origin,
 					bx!(xcm::VersionedXcm::V5(xcm.into())),
@@ -1251,7 +1251,7 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 		assert_ok!(PenpalB::execute_with(|| {
 			let destination = asset_hub_rococo_location();
 			let local_asset_hub = PenpalB::sibling_location_of(AssetHubWestend::para_id());
-			let signed_origin = <PenpalB as Chain>::RuntimeOrigin::signed(PenpalBSender::get());
+			let signed_origin = <PenpalB as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalBSender::get());
 			let beneficiary: Location =
 				AccountId32Junction { network: None, id: AssetHubRococoReceiver::get().into() }
 					.into();
@@ -1417,7 +1417,7 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 	// ---------- Set up Penpal Westend ----------
 	// Fund Penpal's sender account. No need to create the asset (only mint), it exists in genesis.
 	PenpalB::mint_asset(
-		<PenpalB as Chain>::RuntimeOrigin::signed(owner.clone()),
+		<PenpalB as Chain>::RuntimeOrigin::signed_with_basic_filter(owner.clone()),
 		pens_id_on_penpal,
 		sender.clone(),
 		pens_to_send * 2,

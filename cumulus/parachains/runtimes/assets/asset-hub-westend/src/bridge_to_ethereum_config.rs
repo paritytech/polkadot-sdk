@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use frame_support::traits::IntoWithBasicFilter;
 #[cfg(not(feature = "runtime-benchmarks"))]
 use crate::xcm_config::XcmRouter;
 use crate::{
@@ -127,7 +128,7 @@ pub mod benchmark_helpers {
 
 	impl snowbridge_pallet_system_frontend::BenchmarkHelper<RuntimeOrigin, AccountId> for () {
 		fn make_xcm_origin(location: Location) -> RuntimeOrigin {
-			RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
+			(pallet_xcm::Origin::Xcm(location)).into_with_basic_filter()
 		}
 
 		fn initialize_storage(asset_location: Location, asset_owner_location: Location) {
@@ -161,7 +162,7 @@ pub mod benchmark_helpers {
 			)
 			.unwrap();
 
-			let signed_owner = RuntimeOrigin::signed(asset_owner.clone());
+			let signed_owner = RuntimeOrigin::signed_with_basic_filter(asset_owner.clone());
 
 			// Prefund the asset owner's account with DOT and Ether to create the pools
 			ForeignAssets::mint(

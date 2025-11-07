@@ -43,13 +43,14 @@
 
 extern crate alloc;
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{marker::PhantomData, result};
 use scale_info::TypeInfo;
 use sp_io::storage;
 use sp_runtime::{
-	traits::{Dispatchable, Hash},
+	traits::{Dispatchable, FromWithBasicFilter, Hash},
 	DispatchError, RuntimeDebug,
 };
 
@@ -337,7 +338,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The runtime origin type.
-		type RuntimeOrigin: From<RawOrigin<Self::AccountId, I>>;
+		type RuntimeOrigin: FromWithBasicFilter<RawOrigin<Self::AccountId, I>>;
 
 		/// The runtime call dispatch type.
 		type Proposal: Parameter
@@ -655,7 +656,7 @@ pub mod pallet {
 			ensure!(proposal_len <= length_bound as usize, Error::<T, I>::WrongProposalLength);
 
 			let proposal_hash = T::Hashing::hash_of(&proposal);
-			let result = proposal.dispatch(RawOrigin::Member(who).into());
+			let result = proposal.dispatch(RawOrigin::Member(who).into_with_basic_filter());
 			Self::deposit_event(Event::MemberExecuted {
 				proposal_hash,
 				result: result.map(|_| ()).map_err(|e| e.error),
@@ -936,7 +937,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		ensure!(!<ProposalOf<T, I>>::contains_key(proposal_hash), Error::<T, I>::DuplicateProposal);
 
 		let seats = Members::<T, I>::get().len() as MemberCount;
-		let result = proposal.dispatch(RawOrigin::Members(1, seats).into());
+		let result = proposal.dispatch(RawOrigin::Members(1, seats).into_with_basic_filter());
 		Self::deposit_event(Event::Executed {
 			proposal_hash,
 			result: result.map(|_| ()).map_err(|e| e.error),
@@ -1169,7 +1170,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Self::deposit_event(Event::Approved { proposal_hash });
 
 		let dispatch_weight = proposal.get_dispatch_info().call_weight;
-		let origin = RawOrigin::Members(yes_votes, seats).into();
+		let origin = RawOrigin::Members(yes_votes, seats).into_with_basic_filter();
 		let result = proposal.dispatch(origin);
 		Self::deposit_event(Event::Executed {
 			proposal_hash,
@@ -1392,7 +1393,7 @@ where
 }
 
 pub struct EnsureMember<AccountId, I: 'static>(PhantomData<(AccountId, I)>);
-impl<O: OriginTrait + From<RawOrigin<AccountId, I>>, I, AccountId: Decode + Clone> EnsureOrigin<O>
+impl<O: OriginTrait + FromWithBasicFilter<RawOrigin<AccountId, I>>, I, AccountId: Decode + Clone> EnsureOrigin<O>
 	for EnsureMember<AccountId, I>
 where
 	for<'a> &'a O::PalletsOrigin: TryInto<&'a RawOrigin<AccountId, I>>,
@@ -1412,11 +1413,11 @@ where
 		let zero_account_id =
 			AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
 				.expect("infinite length input; no invalid inputs for type; qed");
-		Ok(O::from(RawOrigin::Member(zero_account_id)))
+		Ok(O::from_with_basic_filter(RawOrigin::Member(zero_account_id)))
 	}
 }
 
-impl<O: OriginTrait + From<RawOrigin<AccountId, I>>, I, AccountId: Decode + Clone, T>
+impl<O: OriginTrait + FromWithBasicFilter<RawOrigin<AccountId, I>>, I, AccountId: Decode + Clone, T>
 	EnsureOriginWithArg<O, T> for EnsureMember<AccountId, I>
 where
 	for<'a> &'a O::PalletsOrigin: TryInto<&'a RawOrigin<AccountId, I>>,
@@ -1432,7 +1433,7 @@ where
 }
 
 pub struct EnsureMembers<AccountId, I: 'static, const N: u32>(PhantomData<(AccountId, I)>);
-impl<O: OriginTrait + From<RawOrigin<AccountId, I>>, AccountId, I, const N: u32> EnsureOrigin<O>
+impl<O: OriginTrait + FromWithBasicFilter<RawOrigin<AccountId, I>>, AccountId, I, const N: u32> EnsureOrigin<O>
 	for EnsureMembers<AccountId, I, N>
 where
 	for<'a> &'a O::PalletsOrigin: TryInto<&'a RawOrigin<AccountId, I>>,
@@ -1449,11 +1450,11 @@ where
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<O, ()> {
-		Ok(O::from(RawOrigin::Members(N, N)))
+		Ok(O::from_with_basic_filter(RawOrigin::Members(N, N)))
 	}
 }
 
-impl<O: OriginTrait + From<RawOrigin<AccountId, I>>, AccountId, I, const N: u32, T>
+impl<O: OriginTrait + FromWithBasicFilter<RawOrigin<AccountId, I>>, AccountId, I, const N: u32, T>
 	EnsureOriginWithArg<O, T> for EnsureMembers<AccountId, I, N>
 where
 	for<'a> &'a O::PalletsOrigin: TryInto<&'a RawOrigin<AccountId, I>>,
@@ -1471,7 +1472,7 @@ where
 pub struct EnsureProportionMoreThan<AccountId, I: 'static, const N: u32, const D: u32>(
 	PhantomData<(AccountId, I)>,
 );
-impl<O: OriginTrait + From<RawOrigin<AccountId, I>>, AccountId, I, const N: u32, const D: u32>
+impl<O: OriginTrait + FromWithBasicFilter<RawOrigin<AccountId, I>>, AccountId, I, const N: u32, const D: u32>
 	EnsureOrigin<O> for EnsureProportionMoreThan<AccountId, I, N, D>
 where
 	for<'a> &'a O::PalletsOrigin: TryInto<&'a RawOrigin<AccountId, I>>,
@@ -1488,12 +1489,12 @@ where
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<O, ()> {
-		Ok(O::from(RawOrigin::Members(1u32, 0u32)))
+		Ok(O::from_with_basic_filter(RawOrigin::Members(1u32, 0u32)))
 	}
 }
 
 impl<
-		O: OriginTrait + From<RawOrigin<AccountId, I>>,
+		O: OriginTrait + FromWithBasicFilter<RawOrigin<AccountId, I>>,
 		AccountId,
 		I,
 		const N: u32,
@@ -1516,7 +1517,7 @@ where
 pub struct EnsureProportionAtLeast<AccountId, I: 'static, const N: u32, const D: u32>(
 	PhantomData<(AccountId, I)>,
 );
-impl<O: OriginTrait + From<RawOrigin<AccountId, I>>, AccountId, I, const N: u32, const D: u32>
+impl<O: OriginTrait + FromWithBasicFilter<RawOrigin<AccountId, I>>, AccountId, I, const N: u32, const D: u32>
 	EnsureOrigin<O> for EnsureProportionAtLeast<AccountId, I, N, D>
 where
 	for<'a> &'a O::PalletsOrigin: TryInto<&'a RawOrigin<AccountId, I>>,
@@ -1533,12 +1534,12 @@ where
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<O, ()> {
-		Ok(O::from(RawOrigin::Members(0u32, 0u32)))
+		Ok(O::from_with_basic_filter(RawOrigin::Members(0u32, 0u32)))
 	}
 }
 
 impl<
-		O: OriginTrait + From<RawOrigin<AccountId, I>>,
+		O: OriginTrait + FromWithBasicFilter<RawOrigin<AccountId, I>>,
 		AccountId,
 		I,
 		const N: u32,

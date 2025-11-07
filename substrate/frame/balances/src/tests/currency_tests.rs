@@ -17,6 +17,7 @@
 
 //! Tests regarding the functionality of the `Currency` trait set implementations.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use crate::{Event, NegativeImbalance};
 use frame_support::{
@@ -787,7 +788,7 @@ fn cannot_set_genesis_value_twice() {
 fn existential_deposit_respected_when_reserving() {
 	ExtBuilder::default().existential_deposit(100).build_and_execute_with(|| {
 		// Set balance to free and reserved at the existential deposit
-		assert_ok!(Balances::force_set_balance(RawOrigin::Root.into(), 1, 101));
+		assert_ok!(Balances::force_set_balance(RawOrigin::Root.into_with_basic_filter(), 1, 101));
 		// Check balance
 		assert_eq!(Balances::free_balance(1), 101);
 		assert_eq!(Balances::reserved_balance(1), 0);
@@ -807,7 +808,7 @@ fn existential_deposit_respected_when_reserving() {
 fn slash_fails_when_account_needed() {
 	ExtBuilder::default().existential_deposit(50).build_and_execute_with(|| {
 		// Set balance to free and reserved at the existential deposit
-		assert_ok!(Balances::force_set_balance(RawOrigin::Root.into(), 1, 52));
+		assert_ok!(Balances::force_set_balance(RawOrigin::Root.into_with_basic_filter(), 1, 52));
 		assert_ok!(Balances::reserve(&1, 1));
 		// Check balance
 		assert_eq!(Balances::free_balance(1), 51);
@@ -835,7 +836,7 @@ fn slash_fails_when_account_needed() {
 fn account_deleted_when_just_dust() {
 	ExtBuilder::default().existential_deposit(50).build_and_execute_with(|| {
 		// Set balance to free and reserved at the existential deposit
-		assert_ok!(Balances::force_set_balance(RawOrigin::Root.into(), 1, 50));
+		assert_ok!(Balances::force_set_balance(RawOrigin::Root.into_with_basic_filter(), 1, 50));
 		// Check balance
 		assert_eq!(Balances::free_balance(1), 50);
 
@@ -938,7 +939,7 @@ fn emit_events_with_changing_locks() {
 #[test]
 fn emit_events_with_existential_deposit() {
 	ExtBuilder::default().existential_deposit(100).build_and_execute_with(|| {
-		assert_ok!(Balances::force_set_balance(RawOrigin::Root.into(), 1, 100));
+		assert_ok!(Balances::force_set_balance(RawOrigin::Root.into_with_basic_filter(), 1, 100));
 
 		assert_eq!(
 			events(),

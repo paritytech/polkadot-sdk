@@ -3073,13 +3073,13 @@ impl
 		let token_second = alloc::boxed::Box::new(asset_id);
 
 		assert_ok!(AssetConversion::create_pool(
-			RuntimeOrigin::signed(lp_provider.clone()),
+			RuntimeOrigin::signed_with_basic_filter(lp_provider.clone()),
 			token_native.clone(),
 			token_second.clone()
 		));
 
 		assert_ok!(AssetConversion::add_liquidity(
-			RuntimeOrigin::signed(lp_provider.clone()),
+			RuntimeOrigin::signed_with_basic_filter(lp_provider.clone()),
 			token_native,
 			token_second,
 			u64::MAX.into(), // 1 desired

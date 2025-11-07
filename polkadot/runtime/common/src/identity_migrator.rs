@@ -25,6 +25,7 @@
 //! After the migration is complete, the pallet may be removed from both chains' runtimes as well as
 //! the `polkadot-runtime-common` crate.
 
+use frame_support::traits::IntoWithBasicFilter;
 use frame_support::{dispatch::DispatchResult, traits::Currency, weights::Weight};
 pub use pallet::*;
 use pallet_identity;
@@ -210,14 +211,14 @@ mod benchmarks {
 		// set up target
 		let target: T::AccountId = account("target", 0, SEED);
 		let target_origin =
-			<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(target.clone()));
+			(RawOrigin::Signed(target.clone())).into_with_basic_filter();
 		let target_lookup = T::Lookup::unlookup(target.clone());
 		let _ = T::Currency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
 
 		// set identity
 		let info = <T as pallet_identity::Config>::IdentityInformation::create_identity_info();
 		Identity::<T>::set_identity(
-			RawOrigin::Signed(target.clone()).into(),
+			RawOrigin::Signed(target.clone()).into_with_basic_filter(),
 			Box::new(info.clone()),
 		)?;
 
@@ -250,14 +251,14 @@ mod benchmarks {
 
 			// add registrar
 			Identity::<T>::add_registrar(registrar_origin.clone(), registrar_lookup)?;
-			Identity::<T>::set_fee(RawOrigin::Signed(registrar.clone()).into(), ii, 10u32.into())?;
+			Identity::<T>::set_fee(RawOrigin::Signed(registrar.clone()).into_with_basic_filter(), ii, 10u32.into_with_basic_filter())?;
 			let fields = <T as pallet_identity::Config>::IdentityInformation::all_fields();
-			Identity::<T>::set_fields(RawOrigin::Signed(registrar.clone()).into(), ii, fields)?;
+			Identity::<T>::set_fields(RawOrigin::Signed(registrar.clone()).into_with_basic_filter(), ii, fields)?;
 
 			// request and provide judgement
-			Identity::<T>::request_judgement(target_origin.clone(), ii, 10u32.into())?;
+			Identity::<T>::request_judgement(target_origin.clone(), ii, 10u32.into_with_basic_filter())?;
 			Identity::<T>::provide_judgement(
-				RawOrigin::Signed(registrar).into(),
+				RawOrigin::Signed(registrar).into_with_basic_filter(),
 				ii,
 				target_lookup.clone(),
 				Judgement::Reasonable,
@@ -309,7 +310,7 @@ mod benchmarks {
 				identity: expected_id_deposit,
 				subs: expected_sub_deposit,
 			}
-			.into(),
+			.into_with_basic_filter(),
 		);
 
 		Ok(())

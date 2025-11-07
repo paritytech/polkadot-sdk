@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use frame::benchmarking::prelude::*;
 
 use crate::*;
@@ -39,10 +40,10 @@ fn fill_queues<T: Config>() -> Result<(), DispatchError> {
 	T::Currency::set_balance(&caller, T::MinBid::get() * BalanceOf::<T>::from(queues + bids));
 
 	for _ in 0..bids {
-		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), T::MinBid::get(), 1)?;
+		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), T::MinBid::get(), 1)?;
 	}
 	for d in 1..queues {
-		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), T::MinBid::get(), 1 + d)?;
+		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), T::MinBid::get(), 1 + d)?;
 	}
 	Ok(())
 }
@@ -58,7 +59,7 @@ mod benchmarks {
 		let bid = T::MinBid::get();
 		T::Currency::set_balance(&caller, (ed + bid) * BalanceOf::<T>::from(l + 1) + bid);
 		for _ in 0..l {
-			Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), T::MinBid::get(), 1)?;
+			Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), T::MinBid::get(), 1)?;
 		}
 
 		#[extrinsic_call]
@@ -81,7 +82,7 @@ mod benchmarks {
 		let ql = T::MaxQueueLen::get();
 		T::Currency::set_balance(&caller, (ed + bid) * BalanceOf::<T>::from(ql + 1) + bid);
 		for _ in 0..T::MaxQueueLen::get() {
-			Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), T::MinBid::get(), 1)?;
+			Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), T::MinBid::get(), 1)?;
 		}
 
 		#[extrinsic_call]
@@ -105,7 +106,7 @@ mod benchmarks {
 		let bid = T::MinBid::get();
 		T::Currency::set_balance(&caller, (ed + bid) * BalanceOf::<T>::from(l + 1) + bid);
 		for _ in 0..l {
-			Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), T::MinBid::get(), 1)?;
+			Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), T::MinBid::get(), 1)?;
 		}
 
 		#[extrinsic_call]
@@ -128,9 +129,9 @@ mod benchmarks {
 		let bid = T::MinBid::get().max(One::one());
 		let ed = T::Currency::minimum_balance();
 		T::Currency::set_balance(&caller, ed + bid);
-		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
+		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), bid, 1)?;
 		Pallet::<T>::process_queues(Perquintill::one(), 1, 1, &mut WeightCounter::unlimited());
-		Pallet::<T>::communify(RawOrigin::Signed(caller.clone()).into(), 0)?;
+		Pallet::<T>::communify(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), 0)?;
 		let original = T::Currency::balance(&Pallet::<T>::account_id());
 		T::Currency::set_balance(&Pallet::<T>::account_id(), BalanceOf::<T>::min_value());
 
@@ -153,8 +154,8 @@ mod benchmarks {
 		let bid = T::MinBid::get().max(One::one()) * 100u32.into();
 		let ed = T::Currency::minimum_balance();
 		T::Currency::set_balance(&caller, ed + bid + bid);
-		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
-		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
+		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), bid, 1)?;
+		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), bid, 1)?;
 		Pallet::<T>::process_queues(Perquintill::one(), 1, 2, &mut WeightCounter::unlimited());
 
 		#[extrinsic_call]
@@ -172,10 +173,10 @@ mod benchmarks {
 		let bid = T::MinBid::get().max(One::one());
 		let ed = T::Currency::minimum_balance();
 		T::Currency::set_balance(&caller, ed + bid + bid);
-		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
-		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
+		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), bid, 1)?;
+		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), bid, 1)?;
 		Pallet::<T>::process_queues(Perquintill::one(), 1, 2, &mut WeightCounter::unlimited());
-		Pallet::<T>::communify(RawOrigin::Signed(caller.clone()).into(), 0)?;
+		Pallet::<T>::communify(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), 0)?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), 0);
@@ -200,8 +201,8 @@ mod benchmarks {
 				.0
 				.saturating_reciprocal_mul_ceil(T::Currency::balance(&caller)),
 		);
-		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
-		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
+		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), bid, 1)?;
+		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), bid, 1)?;
 		Pallet::<T>::process_queues(Perquintill::one(), 1, 2, &mut WeightCounter::unlimited());
 		frame_system::Pallet::<T>::set_block_number(Receipts::<T>::get(0).unwrap().expiry);
 
@@ -228,11 +229,11 @@ mod benchmarks {
 				.0
 				.saturating_reciprocal_mul_ceil(T::Currency::balance(&caller)),
 		);
-		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
-		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
+		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), bid, 1)?;
+		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), bid, 1)?;
 		Pallet::<T>::process_queues(Perquintill::one(), 1, 2, &mut WeightCounter::unlimited());
 		frame_system::Pallet::<T>::set_block_number(Receipts::<T>::get(0).unwrap().expiry);
-		Pallet::<T>::communify(RawOrigin::Signed(caller.clone()).into(), 0)?;
+		Pallet::<T>::communify(RawOrigin::Signed(caller.clone()).into_with_basic_filter(), 0)?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), 0);

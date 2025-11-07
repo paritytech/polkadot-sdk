@@ -17,6 +17,7 @@
 
 //! Implementations of public traits, namely [`DelegationInterface`] and [`OnStakingUpdate`].
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use sp_staking::{DelegationInterface, DelegationMigrator, OnStakingUpdate};
 
@@ -47,14 +48,14 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		reward_account: &Self::AccountId,
 	) -> DispatchResult {
 		Pallet::<T>::register_agent(
-			RawOrigin::Signed(agent.clone().get()).into(),
+			RawOrigin::Signed(agent.clone().get()).into_with_basic_filter(),
 			reward_account.clone(),
 		)
 	}
 
 	/// Remove `Agent` registration.
 	fn remove_agent(agent: Agent<Self::AccountId>) -> DispatchResult {
-		Pallet::<T>::remove_agent(RawOrigin::Signed(agent.clone().get()).into())
+		Pallet::<T>::remove_agent(RawOrigin::Signed(agent.clone().get()).into_with_basic_filter())
 	}
 
 	/// Add more delegation to the `Agent` account.
@@ -63,7 +64,7 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		agent: Agent<Self::AccountId>,
 		amount: Self::Balance,
 	) -> DispatchResult {
-		Pallet::<T>::delegate_to_agent(RawOrigin::Signed(who.get()).into(), agent.get(), amount)
+		Pallet::<T>::delegate_to_agent(RawOrigin::Signed(who.get()).into_with_basic_filter(), agent.get(), amount)
 	}
 
 	/// Withdraw delegation of `delegator` to `Agent`.
@@ -77,7 +78,7 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		num_slashing_spans: u32,
 	) -> DispatchResult {
 		Pallet::<T>::release_delegation(
-			RawOrigin::Signed(agent.get()).into(),
+			RawOrigin::Signed(agent.get()).into_with_basic_filter(),
 			delegator.get(),
 			amount,
 			num_slashing_spans,
@@ -107,7 +108,7 @@ impl<T: Config> DelegationMigrator for Pallet<T> {
 		agent: Agent<Self::AccountId>,
 		reward_account: &Self::AccountId,
 	) -> DispatchResult {
-		Pallet::<T>::migrate_to_agent(RawOrigin::Signed(agent.get()).into(), reward_account.clone())
+		Pallet::<T>::migrate_to_agent(RawOrigin::Signed(agent.get()).into_with_basic_filter(), reward_account.clone())
 	}
 	fn migrate_delegation(
 		agent: Agent<Self::AccountId>,
@@ -115,7 +116,7 @@ impl<T: Config> DelegationMigrator for Pallet<T> {
 		value: Self::Balance,
 	) -> DispatchResult {
 		Pallet::<T>::migrate_delegation(
-			RawOrigin::Signed(agent.get()).into(),
+			RawOrigin::Signed(agent.get()).into_with_basic_filter(),
 			delegator.get(),
 			value,
 		)

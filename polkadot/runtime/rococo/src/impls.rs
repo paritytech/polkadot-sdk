@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use frame_support::traits::IntoWithBasicFilter;
 use crate::xcm_config;
 use alloc::{boxed::Box, vec};
 use codec::{Decode, Encode};
@@ -170,7 +171,7 @@ where
 
 		// send
 		<pallet_xcm::Pallet<Runtime>>::send(
-			RawOrigin::Root.into(),
+			RawOrigin::Root.into_with_basic_filter(),
 			Box::new(VersionedLocation::from(destination)),
 			Box::new(VersionedXcm::from(program)),
 		)?;

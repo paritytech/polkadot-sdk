@@ -721,7 +721,7 @@ mod tests {
 	fn grandpa_wrapper_boosts_extensions_for_registered_relayer() {
 		run_test(|| {
 			initialize_environment(100, 100, 100);
-			BridgeRelayers::register(RuntimeOrigin::signed(relayer_account_at_this_chain()), 1000)
+			BridgeRelayers::register(RuntimeOrigin::signed_with_basic_filter(relayer_account_at_this_chain()), 1000)
 				.unwrap();
 
 			let priority_boost = BridgeGrandpaWrapper::validate(
@@ -739,7 +739,7 @@ mod tests {
 	fn grandpa_wrapper_slashes_registered_relayer_if_transaction_fails() {
 		run_test(|| {
 			initialize_environment(100, 100, 100);
-			BridgeRelayers::register(RuntimeOrigin::signed(relayer_account_at_this_chain()), 1000)
+			BridgeRelayers::register(RuntimeOrigin::signed_with_basic_filter(relayer_account_at_this_chain()), 1000)
 				.unwrap();
 
 			assert!(BridgeRelayers::is_registration_active(&relayer_account_at_this_chain()));
@@ -752,7 +752,7 @@ mod tests {
 	fn grandpa_wrapper_does_not_slash_registered_relayer_if_transaction_succeeds() {
 		run_test(|| {
 			initialize_environment(100, 100, 100);
-			BridgeRelayers::register(RuntimeOrigin::signed(relayer_account_at_this_chain()), 1000)
+			BridgeRelayers::register(RuntimeOrigin::signed_with_basic_filter(relayer_account_at_this_chain()), 1000)
 				.unwrap();
 
 			assert!(BridgeRelayers::is_registration_active(&relayer_account_at_this_chain()));
@@ -789,7 +789,7 @@ mod tests {
 	fn parachains_wrapper_boosts_extensions_for_registered_relayer() {
 		run_test(|| {
 			initialize_environment(100, 100, 100);
-			BridgeRelayers::register(RuntimeOrigin::signed(relayer_account_at_this_chain()), 1000)
+			BridgeRelayers::register(RuntimeOrigin::signed_with_basic_filter(relayer_account_at_this_chain()), 1000)
 				.unwrap();
 
 			let priority_boost = BridgeParachainsWrapper::validate(
@@ -807,7 +807,7 @@ mod tests {
 	fn parachains_wrapper_slashes_registered_relayer_if_transaction_fails() {
 		run_test(|| {
 			initialize_environment(100, 100, 100);
-			BridgeRelayers::register(RuntimeOrigin::signed(relayer_account_at_this_chain()), 1000)
+			BridgeRelayers::register(RuntimeOrigin::signed_with_basic_filter(relayer_account_at_this_chain()), 1000)
 				.unwrap();
 
 			assert!(BridgeRelayers::is_registration_active(&relayer_account_at_this_chain()));
@@ -829,7 +829,7 @@ mod tests {
 	fn parachains_wrapper_does_not_slash_registered_relayer_if_transaction_succeeds() {
 		run_test(|| {
 			initialize_environment(100, 100, 100);
-			BridgeRelayers::register(RuntimeOrigin::signed(relayer_account_at_this_chain()), 1000)
+			BridgeRelayers::register(RuntimeOrigin::signed_with_basic_filter(relayer_account_at_this_chain()), 1000)
 				.unwrap();
 
 			assert!(BridgeRelayers::is_registration_active(&relayer_account_at_this_chain()));

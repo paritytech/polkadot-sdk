@@ -154,6 +154,7 @@
 
 extern crate alloc;
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
@@ -340,7 +341,7 @@ pub mod pallet {
 		type VetoOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
 
 		/// Overarching type of all pallets origins.
-		type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
+		type PalletsOrigin: FromWithBasicFilter<frame_system::RawOrigin<Self::AccountId>>;
 
 		/// Handler for the unbalanced reduction when slashing a preimage deposit.
 		type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
@@ -1612,7 +1613,7 @@ impl<T: Config> Pallet<T> {
 				DispatchTime::At(when),
 				None,
 				63,
-				frame_system::RawOrigin::Root.into(),
+				frame_system::RawOrigin::Root.into_with_basic_filter(),
 				status.proposal,
 			)
 			.is_err()

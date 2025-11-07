@@ -17,6 +17,7 @@
 //! Benchmarking for auctions pallet
 
 #![cfg(feature = "runtime-benchmarks")]
+use frame_support::traits::IntoWithBasicFilter;
 use super::{Pallet as Auctions, *};
 use frame_support::{
 	assert_ok,
@@ -69,11 +70,11 @@ fn fill_winners<T: Config + paras::Config>(lease_period_index: LeasePeriodOf<T>)
 		let (start, end) = slot_range.as_pair();
 
 		assert!(Auctions::<T>::bid(
-			RawOrigin::Signed(bidder).into(),
+			RawOrigin::Signed(bidder).into_with_basic_filter(),
 			ParaId::from(n),
 			auction_index,
-			lease_period_index + start.into(),        // First Slot
-			lease_period_index + end.into(),          // Last slot
+			lease_period_index + start.into_with_basic_filter(),        // First Slot
+			lease_period_index + end.into_with_basic_filter(),          // Last slot
 			minimum_balance.saturating_mul(n.into()), // Amount
 		)
 		.is_ok());
@@ -152,7 +153,7 @@ mod benchmarks {
 		let first_bidder: T::AccountId = account("first_bidder", 0, 0);
 		CurrencyOf::<T>::make_free_balance_be(&first_bidder, BalanceOf::<T>::max_value());
 		Auctions::<T>::bid(
-			RawOrigin::Signed(first_bidder.clone()).into(),
+			RawOrigin::Signed(first_bidder.clone()).into_with_basic_filter(),
 			para,
 			auction_index,
 			first_slot,

@@ -231,13 +231,13 @@ fn editing_subaccounts_should_work() {
 		let [one, two, three, _, ten, twenty, _, _] = accounts();
 
 		assert_noop!(
-			Identity::add_sub(RuntimeOrigin::signed(ten.clone()), twenty.clone(), data(1)),
+			Identity::add_sub(RuntimeOrigin::signed_with_basic_filter(ten.clone()), twenty.clone(), data(1)),
 			Error::<Test>::NoIdentity
 		);
 
 		let ten_info = infoof_ten();
 		assert_ok!(Identity::set_identity(
-			RuntimeOrigin::signed(ten.clone()),
+			RuntimeOrigin::signed_with_basic_filter(ten.clone()),
 			Box::new(ten_info.clone())
 		));
 		let id_deposit = id_deposit(&ten_info);
@@ -246,24 +246,24 @@ fn editing_subaccounts_should_work() {
 		let sub_deposit: u64 = <<Test as Config>::SubAccountDeposit as Get<u64>>::get();
 
 		// first sub account
-		assert_ok!(Identity::add_sub(RuntimeOrigin::signed(ten.clone()), one.clone(), data(1)));
+		assert_ok!(Identity::add_sub(RuntimeOrigin::signed_with_basic_filter(ten.clone()), one.clone(), data(1)));
 		assert_eq!(SuperOf::<Test>::get(one.clone()), Some((ten.clone(), data(1))));
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - sub_deposit);
 
 		// second sub account
-		assert_ok!(Identity::add_sub(RuntimeOrigin::signed(ten.clone()), two.clone(), data(2)));
+		assert_ok!(Identity::add_sub(RuntimeOrigin::signed_with_basic_filter(ten.clone()), two.clone(), data(2)));
 		assert_eq!(SuperOf::<Test>::get(one.clone()), Some((ten.clone(), data(1))));
 		assert_eq!(SuperOf::<Test>::get(two.clone()), Some((ten.clone(), data(2))));
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - 2 * sub_deposit);
 
 		// third sub account is too many
 		assert_noop!(
-			Identity::add_sub(RuntimeOrigin::signed(ten.clone()), three.clone(), data(3)),
+			Identity::add_sub(RuntimeOrigin::signed_with_basic_filter(ten.clone()), three.clone(), data(3)),
 			Error::<Test>::TooManySubAccounts
 		);
 
 		// rename first sub account
-		assert_ok!(Identity::rename_sub(RuntimeOrigin::signed(ten.clone()), one.clone(), data(11)));
+		assert_ok!(Identity::rename_sub(RuntimeOrigin::signed_with_basic_filter(ten.clone()), one.clone(), data(11)));
 		System::assert_last_event(tests::RuntimeEvent::Identity(Event::SubIdentityRenamed {
 			main: ten.clone(),
 			sub: one.clone(),
@@ -273,13 +273,13 @@ fn editing_subaccounts_should_work() {
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - 2 * sub_deposit);
 
 		// remove first sub account
-		assert_ok!(Identity::remove_sub(RuntimeOrigin::signed(ten.clone()), one.clone()));
+		assert_ok!(Identity::remove_sub(RuntimeOrigin::signed_with_basic_filter(ten.clone()), one.clone()));
 		assert_eq!(SuperOf::<Test>::get(one.clone()), None);
 		assert_eq!(SuperOf::<Test>::get(two.clone()), Some((ten.clone(), data(2))));
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - sub_deposit);
 
 		// add third sub account
-		assert_ok!(Identity::add_sub(RuntimeOrigin::signed(ten.clone()), three.clone(), data(3)));
+		assert_ok!(Identity::add_sub(RuntimeOrigin::signed_with_basic_filter(ten.clone()), three.clone(), data(3)));
 		assert_eq!(SuperOf::<Test>::get(one), None);
 		assert_eq!(SuperOf::<Test>::get(two), Some((ten.clone(), data(2))));
 		assert_eq!(SuperOf::<Test>::get(three), Some((ten.clone(), data(3))));
@@ -298,32 +298,32 @@ fn resolving_subaccount_ownership_works() {
 		let ten_deposit = id_deposit(&ten_info);
 		let twenty_info = infoof_twenty();
 		let twenty_deposit = id_deposit(&twenty_info);
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(ten.clone()), Box::new(ten_info)));
+		assert_ok!(Identity::set_identity(RuntimeOrigin::signed_with_basic_filter(ten.clone()), Box::new(ten_info)));
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - ten_deposit);
 		assert_ok!(Identity::set_identity(
-			RuntimeOrigin::signed(twenty.clone()),
+			RuntimeOrigin::signed_with_basic_filter(twenty.clone()),
 			Box::new(twenty_info)
 		));
 		assert_eq!(Balances::free_balance(twenty.clone()), 1000 - twenty_deposit);
 
 		// 10 claims 1 as a subaccount
-		assert_ok!(Identity::add_sub(RuntimeOrigin::signed(ten.clone()), one.clone(), data(1)));
+		assert_ok!(Identity::add_sub(RuntimeOrigin::signed_with_basic_filter(ten.clone()), one.clone(), data(1)));
 		assert_eq!(Balances::free_balance(one.clone()), 100);
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - ten_deposit - sub_deposit);
 		assert_eq!(Balances::reserved_balance(ten.clone()), ten_deposit + sub_deposit);
 		// 20 cannot claim 1 now
 		assert_noop!(
-			Identity::add_sub(RuntimeOrigin::signed(twenty.clone()), one.clone(), data(1)),
+			Identity::add_sub(RuntimeOrigin::signed_with_basic_filter(twenty.clone()), one.clone(), data(1)),
 			Error::<Test>::AlreadyClaimed
 		);
 		// 1 wants to be with 20 so it quits from 10
-		assert_ok!(Identity::quit_sub(RuntimeOrigin::signed(one.clone())));
+		assert_ok!(Identity::quit_sub(RuntimeOrigin::signed_with_basic_filter(one.clone())));
 		// 1 gets the 10 that 10 paid.
 		assert_eq!(Balances::free_balance(one.clone()), 100 + sub_deposit);
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - ten_deposit - sub_deposit);
 		assert_eq!(Balances::reserved_balance(ten), ten_deposit);
 		// 20 can claim 1 now
-		assert_ok!(Identity::add_sub(RuntimeOrigin::signed(twenty), one, data(1)));
+		assert_ok!(Identity::add_sub(RuntimeOrigin::signed_with_basic_filter(twenty), one, data(1)));
 	});
 }
 
@@ -342,10 +342,10 @@ fn adding_registrar_invalid_index() {
 	new_test_ext().execute_with(|| {
 		let [_, _, three, _, _, _, _, _] = accounts();
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
-		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(three.clone()), 0, 10));
+		assert_ok!(Identity::set_fee(RuntimeOrigin::signed_with_basic_filter(three.clone()), 0, 10));
 		let fields = IdentityField::Display | IdentityField::Legal;
 		assert_noop!(
-			Identity::set_fields(RuntimeOrigin::signed(three), 100, fields.bits()),
+			Identity::set_fields(RuntimeOrigin::signed_with_basic_filter(three), 100, fields.bits()),
 			Error::<Test>::InvalidIndex
 		);
 	});
@@ -356,9 +356,9 @@ fn adding_registrar_should_work() {
 	new_test_ext().execute_with(|| {
 		let [_, _, three, _, _, _, _, _] = accounts();
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
-		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(three.clone()), 0, 10));
+		assert_ok!(Identity::set_fee(RuntimeOrigin::signed_with_basic_filter(three.clone()), 0, 10));
 		let fields = IdentityField::Display | IdentityField::Legal;
-		assert_ok!(Identity::set_fields(RuntimeOrigin::signed(three.clone()), 0, fields.bits()));
+		assert_ok!(Identity::set_fields(RuntimeOrigin::signed_with_basic_filter(three.clone()), 0, fields.bits()));
 		assert_eq!(
 			Registrars::<Test>::get(),
 			vec![Some(RegistrarInfo { account: three, fee: 10, fields: fields.bits() })]
@@ -385,7 +385,7 @@ fn registration_should_work() {
 	new_test_ext().execute_with(|| {
 		let [_, _, three, _, ten, _, _, _] = accounts();
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
-		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(three.clone()), 0, 10));
+		assert_ok!(Identity::set_fee(RuntimeOrigin::signed_with_basic_filter(three.clone()), 0, 10));
 		let mut three_fields = infoof_ten();
 		three_fields.additional.try_push(Default::default()).unwrap();
 		three_fields.additional.try_push(Default::default()).unwrap();
@@ -393,15 +393,15 @@ fn registration_should_work() {
 		let ten_info = infoof_ten();
 		let id_deposit = id_deposit(&ten_info);
 		assert_ok!(Identity::set_identity(
-			RuntimeOrigin::signed(ten.clone()),
+			RuntimeOrigin::signed_with_basic_filter(ten.clone()),
 			Box::new(ten_info.clone())
 		));
 		assert_eq!(IdentityOf::<Test>::get(ten.clone()).unwrap().info, ten_info);
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit);
-		assert_ok!(Identity::clear_identity(RuntimeOrigin::signed(ten.clone())));
+		assert_ok!(Identity::clear_identity(RuntimeOrigin::signed_with_basic_filter(ten.clone())));
 		assert_eq!(Balances::free_balance(ten.clone()), 1000);
 		assert_noop!(
-			Identity::clear_identity(RuntimeOrigin::signed(ten)),
+			Identity::clear_identity(RuntimeOrigin::signed_with_basic_filter(ten)),
 			Error::<Test>::NoIdentity
 		);
 	});
@@ -413,7 +413,7 @@ fn uninvited_judgement_should_work() {
 		let [_, _, three, _, ten, _, _, _] = accounts();
 		assert_noop!(
 			Identity::provide_judgement(
-				RuntimeOrigin::signed(three.clone()),
+				RuntimeOrigin::signed_with_basic_filter(three.clone()),
 				0,
 				ten.clone(),
 				Judgement::Reasonable,
@@ -425,7 +425,7 @@ fn uninvited_judgement_should_work() {
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
 		assert_noop!(
 			Identity::provide_judgement(
-				RuntimeOrigin::signed(three.clone()),
+				RuntimeOrigin::signed_with_basic_filter(three.clone()),
 				0,
 				ten.clone(),
 				Judgement::Reasonable,
@@ -435,12 +435,12 @@ fn uninvited_judgement_should_work() {
 		);
 
 		assert_ok!(Identity::set_identity(
-			RuntimeOrigin::signed(ten.clone()),
+			RuntimeOrigin::signed_with_basic_filter(ten.clone()),
 			Box::new(infoof_ten())
 		));
 		assert_noop!(
 			Identity::provide_judgement(
-				RuntimeOrigin::signed(three.clone()),
+				RuntimeOrigin::signed_with_basic_filter(three.clone()),
 				0,
 				ten.clone(),
 				Judgement::Reasonable,
@@ -453,7 +453,7 @@ fn uninvited_judgement_should_work() {
 
 		assert_noop!(
 			Identity::provide_judgement(
-				RuntimeOrigin::signed(ten.clone()),
+				RuntimeOrigin::signed_with_basic_filter(ten.clone()),
 				0,
 				ten.clone(),
 				Judgement::Reasonable,
@@ -463,7 +463,7 @@ fn uninvited_judgement_should_work() {
 		);
 		assert_noop!(
 			Identity::provide_judgement(
-				RuntimeOrigin::signed(three.clone()),
+				RuntimeOrigin::signed_with_basic_filter(three.clone()),
 				0,
 				ten.clone(),
 				Judgement::FeePaid(1),
@@ -473,7 +473,7 @@ fn uninvited_judgement_should_work() {
 		);
 
 		assert_ok!(Identity::provide_judgement(
-			RuntimeOrigin::signed(three.clone()),
+			RuntimeOrigin::signed_with_basic_filter(three.clone()),
 			0,
 			ten.clone(),
 			Judgement::Reasonable,
@@ -492,17 +492,17 @@ fn clearing_judgement_should_work() {
 		let [_, _, three, _, ten, _, _, _] = accounts();
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
 		assert_ok!(Identity::set_identity(
-			RuntimeOrigin::signed(ten.clone()),
+			RuntimeOrigin::signed_with_basic_filter(ten.clone()),
 			Box::new(infoof_ten())
 		));
 		assert_ok!(Identity::provide_judgement(
-			RuntimeOrigin::signed(three.clone()),
+			RuntimeOrigin::signed_with_basic_filter(three.clone()),
 			0,
 			ten.clone(),
 			Judgement::Reasonable,
 			BlakeTwo256::hash_of(&infoof_ten())
 		));
-		assert_ok!(Identity::clear_identity(RuntimeOrigin::signed(ten.clone())));
+		assert_ok!(Identity::clear_identity(RuntimeOrigin::signed_with_basic_filter(ten.clone())));
 		assert_eq!(IdentityOf::<Test>::get(ten), None);
 	});
 }
@@ -513,8 +513,8 @@ fn killing_slashing_should_work() {
 		let [one, _, _, _, ten, _, _, _] = accounts();
 		let ten_info = infoof_ten();
 		let id_deposit = id_deposit(&ten_info);
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(ten.clone()), Box::new(ten_info)));
-		assert_noop!(Identity::kill_identity(RuntimeOrigin::signed(one), ten.clone()), BadOrigin);
+		assert_ok!(Identity::set_identity(RuntimeOrigin::signed_with_basic_filter(ten.clone()), Box::new(ten_info)));
+		assert_noop!(Identity::kill_identity(RuntimeOrigin::signed_with_basic_filter(one), ten.clone()), BadOrigin);
 		assert_ok!(Identity::kill_identity(RuntimeOrigin::root(), ten.clone()));
 		assert_eq!(IdentityOf::<Test>::get(ten.clone()), None);
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit);
@@ -534,13 +534,13 @@ fn setting_subaccounts_should_work() {
 		let sub_deposit: u64 = <<Test as Config>::SubAccountDeposit as Get<u64>>::get();
 		let mut subs = vec![(twenty.clone(), Data::Raw(vec![40; 1].try_into().unwrap()))];
 		assert_noop!(
-			Identity::set_subs(RuntimeOrigin::signed(ten.clone()), subs.clone()),
+			Identity::set_subs(RuntimeOrigin::signed_with_basic_filter(ten.clone()), subs.clone()),
 			Error::<Test>::NotFound
 		);
 
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(ten.clone()), Box::new(ten_info)));
+		assert_ok!(Identity::set_identity(RuntimeOrigin::signed_with_basic_filter(ten.clone()), Box::new(ten_info)));
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit);
-		assert_ok!(Identity::set_subs(RuntimeOrigin::signed(ten.clone()), subs.clone()));
+		assert_ok!(Identity::set_subs(RuntimeOrigin::signed_with_basic_filter(ten.clone()), subs.clone()));
 
 		System::assert_last_event(tests::RuntimeEvent::Identity(Event::SubIdentitiesSet {
 			main: ten.clone(),
@@ -560,7 +560,7 @@ fn setting_subaccounts_should_work() {
 
 		// push another item and re-set it.
 		subs.push((thirty.clone(), Data::Raw(vec![50; 1].try_into().unwrap())));
-		assert_ok!(Identity::set_subs(RuntimeOrigin::signed(ten.clone()), subs.clone()));
+		assert_ok!(Identity::set_subs(RuntimeOrigin::signed_with_basic_filter(ten.clone()), subs.clone()));
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - 2 * sub_deposit);
 		assert_eq!(
 			SubsOf::<Test>::get(ten.clone()),
@@ -577,7 +577,7 @@ fn setting_subaccounts_should_work() {
 
 		// switch out one of the items and re-set.
 		subs[0] = (forty.clone(), Data::Raw(vec![60; 1].try_into().unwrap()));
-		assert_ok!(Identity::set_subs(RuntimeOrigin::signed(ten.clone()), subs.clone()));
+		assert_ok!(Identity::set_subs(RuntimeOrigin::signed_with_basic_filter(ten.clone()), subs.clone()));
 		// no change in the balance
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - 2 * sub_deposit);
 		assert_eq!(
@@ -595,7 +595,7 @@ fn setting_subaccounts_should_work() {
 		);
 
 		// clear
-		assert_ok!(Identity::set_subs(RuntimeOrigin::signed(ten.clone()), vec![]));
+		assert_ok!(Identity::set_subs(RuntimeOrigin::signed_with_basic_filter(ten.clone()), vec![]));
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit);
 		assert_eq!(SubsOf::<Test>::get(ten.clone()), (0, BoundedVec::default()));
 		assert_eq!(SuperOf::<Test>::get(thirty.clone()), None);
@@ -603,7 +603,7 @@ fn setting_subaccounts_should_work() {
 
 		subs.push((twenty, Data::Raw(vec![40; 1].try_into().unwrap())));
 		assert_noop!(
-			Identity::set_subs(RuntimeOrigin::signed(ten), subs.clone()),
+			Identity::set_subs(RuntimeOrigin::signed_with_basic_filter(ten), subs.clone()),
 			Error::<Test>::TooManySubAccounts
 		);
 	});
@@ -615,15 +615,15 @@ fn clearing_account_should_remove_subaccounts_and_refund() {
 		let [_, _, _, _, ten, twenty, _, _] = accounts();
 		let ten_info = infoof_ten();
 		assert_ok!(Identity::set_identity(
-			RuntimeOrigin::signed(ten.clone()),
+			RuntimeOrigin::signed_with_basic_filter(ten.clone()),
 			Box::new(ten_info.clone())
 		));
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit(&ten_info));
 		assert_ok!(Identity::set_subs(
-			RuntimeOrigin::signed(ten.clone()),
+			RuntimeOrigin::signed_with_basic_filter(ten.clone()),
 			vec![(twenty.clone(), Data::Raw(vec![40; 1].try_into().unwrap()))]
 		));
-		assert_ok!(Identity::clear_identity(RuntimeOrigin::signed(ten.clone())));
+		assert_ok!(Identity::clear_identity(RuntimeOrigin::signed_with_basic_filter(ten.clone())));
 		assert_eq!(Balances::free_balance(ten), 1000);
 		assert!(SuperOf::<Test>::get(twenty).is_none());
 	});
@@ -636,10 +636,10 @@ fn killing_account_should_remove_subaccounts_and_not_refund() {
 		let ten_info = infoof_ten();
 		let id_deposit = id_deposit(&ten_info);
 		let sub_deposit: u64 = <<Test as Config>::SubAccountDeposit as Get<u64>>::get();
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(ten.clone()), Box::new(ten_info)));
+		assert_ok!(Identity::set_identity(RuntimeOrigin::signed_with_basic_filter(ten.clone()), Box::new(ten_info)));
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit);
 		assert_ok!(Identity::set_subs(
-			RuntimeOrigin::signed(ten.clone()),
+			RuntimeOrigin::signed_with_basic_filter(ten.clone()),
 			vec![(twenty.clone(), Data::Raw(vec![40; 1].try_into().unwrap()))]
 		));
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - sub_deposit);
@@ -654,34 +654,34 @@ fn cancelling_requested_judgement_should_work() {
 	new_test_ext().execute_with(|| {
 		let [_, _, three, _, ten, _, _, _] = accounts();
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
-		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(three.clone()), 0, 10));
+		assert_ok!(Identity::set_fee(RuntimeOrigin::signed_with_basic_filter(three.clone()), 0, 10));
 		assert_noop!(
-			Identity::cancel_request(RuntimeOrigin::signed(ten.clone()), 0),
+			Identity::cancel_request(RuntimeOrigin::signed_with_basic_filter(ten.clone()), 0),
 			Error::<Test>::NoIdentity
 		);
 		let ten_info = infoof_ten();
 		assert_ok!(Identity::set_identity(
-			RuntimeOrigin::signed(ten.clone()),
+			RuntimeOrigin::signed_with_basic_filter(ten.clone()),
 			Box::new(ten_info.clone())
 		));
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit(&ten_info));
-		assert_ok!(Identity::request_judgement(RuntimeOrigin::signed(ten.clone()), 0, 10));
-		assert_ok!(Identity::cancel_request(RuntimeOrigin::signed(ten.clone()), 0));
+		assert_ok!(Identity::request_judgement(RuntimeOrigin::signed_with_basic_filter(ten.clone()), 0, 10));
+		assert_ok!(Identity::cancel_request(RuntimeOrigin::signed_with_basic_filter(ten.clone()), 0));
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit(&ten_info));
 		assert_noop!(
-			Identity::cancel_request(RuntimeOrigin::signed(ten.clone()), 0),
+			Identity::cancel_request(RuntimeOrigin::signed_with_basic_filter(ten.clone()), 0),
 			Error::<Test>::NotFound
 		);
 
 		assert_ok!(Identity::provide_judgement(
-			RuntimeOrigin::signed(three),
+			RuntimeOrigin::signed_with_basic_filter(three),
 			0,
 			ten.clone(),
 			Judgement::Reasonable,
 			BlakeTwo256::hash_of(&ten_info)
 		));
 		assert_noop!(
-			Identity::cancel_request(RuntimeOrigin::signed(ten), 0),
+			Identity::cancel_request(RuntimeOrigin::signed_with_basic_filter(ten), 0),
 			Error::<Test>::JudgementGiven
 		);
 	});
@@ -692,29 +692,29 @@ fn requesting_judgement_should_work() {
 	new_test_ext().execute_with(|| {
 		let [_, _, three, four, ten, _, _, _] = accounts();
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
-		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(three.clone()), 0, 10));
+		assert_ok!(Identity::set_fee(RuntimeOrigin::signed_with_basic_filter(three.clone()), 0, 10));
 		let ten_info = infoof_ten();
 		let id_deposit = id_deposit(&ten_info);
 		assert_ok!(Identity::set_identity(
-			RuntimeOrigin::signed(ten.clone()),
+			RuntimeOrigin::signed_with_basic_filter(ten.clone()),
 			Box::new(ten_info.clone())
 		));
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit);
 		assert_noop!(
-			Identity::request_judgement(RuntimeOrigin::signed(ten.clone()), 0, 9),
+			Identity::request_judgement(RuntimeOrigin::signed_with_basic_filter(ten.clone()), 0, 9),
 			Error::<Test>::FeeChanged
 		);
-		assert_ok!(Identity::request_judgement(RuntimeOrigin::signed(ten.clone()), 0, 10));
+		assert_ok!(Identity::request_judgement(RuntimeOrigin::signed_with_basic_filter(ten.clone()), 0, 10));
 		// 10 for the judgement request and the deposit for the identity.
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - 10);
 
 		// Re-requesting won't work as we already paid.
 		assert_noop!(
-			Identity::request_judgement(RuntimeOrigin::signed(ten.clone()), 0, 10),
+			Identity::request_judgement(RuntimeOrigin::signed_with_basic_filter(ten.clone()), 0, 10),
 			Error::<Test>::StickyJudgement
 		);
 		assert_ok!(Identity::provide_judgement(
-			RuntimeOrigin::signed(three.clone()),
+			RuntimeOrigin::signed_with_basic_filter(three.clone()),
 			0,
 			ten.clone(),
 			Judgement::Erroneous,
@@ -726,23 +726,23 @@ fn requesting_judgement_should_work() {
 
 		// Re-requesting still won't work as it's erroneous.
 		assert_noop!(
-			Identity::request_judgement(RuntimeOrigin::signed(ten.clone()), 0, 10),
+			Identity::request_judgement(RuntimeOrigin::signed_with_basic_filter(ten.clone()), 0, 10),
 			Error::<Test>::StickyJudgement
 		);
 
 		// Requesting from a second registrar still works.
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), four));
-		assert_ok!(Identity::request_judgement(RuntimeOrigin::signed(ten.clone()), 1, 10));
+		assert_ok!(Identity::request_judgement(RuntimeOrigin::signed_with_basic_filter(ten.clone()), 1, 10));
 
 		// Re-requesting after the judgement has been reduced works.
 		assert_ok!(Identity::provide_judgement(
-			RuntimeOrigin::signed(three),
+			RuntimeOrigin::signed_with_basic_filter(three),
 			0,
 			ten.clone(),
 			Judgement::OutOfDate,
 			BlakeTwo256::hash_of(&ten_info)
 		));
-		assert_ok!(Identity::request_judgement(RuntimeOrigin::signed(ten), 0, 10));
+		assert_ok!(Identity::request_judgement(RuntimeOrigin::signed_with_basic_filter(ten), 0, 10));
 	});
 }
 
@@ -753,12 +753,12 @@ fn provide_judgement_should_return_judgement_payment_failed_error() {
 		let ten_info = infoof_ten();
 		let id_deposit = id_deposit(&ten_info);
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
-		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(three.clone()), 0, 10));
+		assert_ok!(Identity::set_fee(RuntimeOrigin::signed_with_basic_filter(three.clone()), 0, 10));
 		assert_ok!(Identity::set_identity(
-			RuntimeOrigin::signed(ten.clone()),
+			RuntimeOrigin::signed_with_basic_filter(ten.clone()),
 			Box::new(ten_info.clone())
 		));
-		assert_ok!(Identity::request_judgement(RuntimeOrigin::signed(ten.clone()), 0, 10));
+		assert_ok!(Identity::request_judgement(RuntimeOrigin::signed_with_basic_filter(ten.clone()), 0, 10));
 		// 10 for the judgement request and the deposit for the identity.
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - 10);
 
@@ -766,7 +766,7 @@ fn provide_judgement_should_return_judgement_payment_failed_error() {
 		Balances::make_free_balance_be(&three, 0);
 		assert_noop!(
 			Identity::provide_judgement(
-				RuntimeOrigin::signed(three.clone()),
+				RuntimeOrigin::signed_with_basic_filter(three.clone()),
 				0,
 				ten.clone(),
 				Judgement::Erroneous,
@@ -782,7 +782,7 @@ fn field_deposit_should_work() {
 	new_test_ext().execute_with(|| {
 		let [_, _, three, _, ten, _, _, _] = accounts();
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
-		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(three), 0, 10));
+		assert_ok!(Identity::set_fee(RuntimeOrigin::signed_with_basic_filter(three), 0, 10));
 		let id = IdentityInfo {
 			additional: vec![
 				(
@@ -799,7 +799,7 @@ fn field_deposit_should_work() {
 			..Default::default()
 		};
 		let id_deposit = id_deposit(&id);
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(ten.clone()), Box::new(id)));
+		assert_ok!(Identity::set_identity(RuntimeOrigin::signed_with_basic_filter(ten.clone()), Box::new(id)));
 		assert_eq!(Balances::free_balance(ten), 1000 - id_deposit);
 	});
 }
@@ -811,13 +811,13 @@ fn setting_account_id_should_work() {
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
 		// account 4 cannot change the first registrar's identity since it's owned by 3.
 		assert_noop!(
-			Identity::set_account_id(RuntimeOrigin::signed(four.clone()), 0, three.clone()),
+			Identity::set_account_id(RuntimeOrigin::signed_with_basic_filter(four.clone()), 0, three.clone()),
 			Error::<Test>::InvalidIndex
 		);
 		// account 3 can, because that's the registrar's current account.
-		assert_ok!(Identity::set_account_id(RuntimeOrigin::signed(three.clone()), 0, four.clone()));
+		assert_ok!(Identity::set_account_id(RuntimeOrigin::signed_with_basic_filter(three.clone()), 0, four.clone()));
 		// account 4 can now, because that's their new ID.
-		assert_ok!(Identity::set_account_id(RuntimeOrigin::signed(four), 0, three));
+		assert_ok!(Identity::set_account_id(RuntimeOrigin::signed_with_basic_filter(four), 0, three));
 	});
 }
 
@@ -826,7 +826,7 @@ fn test_has_identity() {
 	new_test_ext().execute_with(|| {
 		let [_, _, _, _, ten, _, _, _] = accounts();
 		assert_ok!(Identity::set_identity(
-			RuntimeOrigin::signed(ten.clone()),
+			RuntimeOrigin::signed_with_basic_filter(ten.clone()),
 			Box::new(infoof_ten())
 		));
 		assert!(Identity::has_identity(&ten, IdentityField::Display as u64));
@@ -848,11 +848,11 @@ fn reap_identity_works() {
 		let [_, _, _, _, ten, twenty, _, _] = accounts();
 		let ten_info = infoof_ten();
 		assert_ok!(Identity::set_identity(
-			RuntimeOrigin::signed(ten.clone()),
+			RuntimeOrigin::signed_with_basic_filter(ten.clone()),
 			Box::new(ten_info.clone())
 		));
 		assert_ok!(Identity::set_subs(
-			RuntimeOrigin::signed(ten.clone()),
+			RuntimeOrigin::signed_with_basic_filter(ten.clone()),
 			vec![(twenty.clone(), Data::Raw(vec![40; 1].try_into().unwrap()))]
 		));
 		// deposit is correct
@@ -1033,7 +1033,7 @@ fn set_username_with_signature_without_existing_identity_should_work() {
 			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &username[..]).unwrap());
 
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority.clone()),
+			RuntimeOrigin::signed_with_basic_filter(authority.clone()),
 			who_account.clone(),
 			username.clone().into(),
 			Some(signature),
@@ -1072,7 +1072,7 @@ fn set_username_with_signature_without_existing_identity_should_work() {
 			MultiSignature::Sr25519(sr25519_sign(1.into(), &public, &second_username[..]).unwrap());
 		// don't use the allocation this time
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority.clone()),
+			RuntimeOrigin::signed_with_basic_filter(authority.clone()),
 			second_who.clone(),
 			second_username.clone().into(),
 			Some(signature),
@@ -1133,11 +1133,11 @@ fn set_username_with_signature_with_existing_identity_should_work() {
 		Balances::make_free_balance_be(&who_account, 1000);
 		let ten_info = infoof_ten();
 		assert_ok!(Identity::set_identity(
-			RuntimeOrigin::signed(who_account.clone()),
+			RuntimeOrigin::signed_with_basic_filter(who_account.clone()),
 			Box::new(ten_info.clone())
 		));
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority),
+			RuntimeOrigin::signed_with_basic_filter(authority),
 			who_account.clone(),
 			username.clone().into(),
 			Some(signature),
@@ -1184,7 +1184,7 @@ fn set_username_through_deposit_with_existing_identity_should_work() {
 		let ten_info = infoof_ten();
 		let expected_identity_deposit = Identity::calculate_identity_deposit(&ten_info);
 		assert_ok!(Identity::set_identity(
-			RuntimeOrigin::signed(who_account.clone()),
+			RuntimeOrigin::signed_with_basic_filter(who_account.clone()),
 			Box::new(ten_info.clone())
 		));
 		assert_eq!(
@@ -1193,7 +1193,7 @@ fn set_username_through_deposit_with_existing_identity_should_work() {
 		);
 		assert_eq!(Balances::reserved_balance(&who_account), expected_identity_deposit);
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority.clone()),
+			RuntimeOrigin::signed_with_basic_filter(authority.clone()),
 			who_account.clone(),
 			username.clone().into(),
 			Some(signature),
@@ -1278,7 +1278,7 @@ fn set_username_with_bytes_signature_should_work() {
 		// Make sure it really works in context. Call `set_username_for` with the signature on the
 		// wrapped data.
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority),
+			RuntimeOrigin::signed_with_basic_filter(authority),
 			who_account.clone(),
 			username.clone().into(),
 			Some(signature_on_wrapped),
@@ -1320,7 +1320,7 @@ fn set_username_with_acceptance_should_work() {
 		let expiration = now + <<Test as Config>::PendingUsernameExpiration as Get<u64>>::get();
 
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority.clone()),
+			RuntimeOrigin::signed_with_basic_filter(authority.clone()),
 			who.clone(),
 			username.clone().into(),
 			None,
@@ -1334,7 +1334,7 @@ fn set_username_with_acceptance_should_work() {
 		);
 
 		// Now the user can accept
-		assert_ok!(Identity::accept_username(RuntimeOrigin::signed(who.clone()), username.clone()));
+		assert_ok!(Identity::accept_username(RuntimeOrigin::signed_with_basic_filter(who.clone()), username.clone()));
 
 		// No more pending
 		assert!(PendingUsernames::<Test>::get::<&Username<Test>>(&username).is_none());
@@ -1351,7 +1351,7 @@ fn set_username_with_acceptance_should_work() {
 		let second_caller = account(99);
 		let second_username = test_username_of(b"102".to_vec(), suffix);
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority.clone()),
+			RuntimeOrigin::signed_with_basic_filter(authority.clone()),
 			second_caller.clone(),
 			second_username.clone().into(),
 			None,
@@ -1370,7 +1370,7 @@ fn set_username_with_acceptance_should_work() {
 		);
 		// Now the user can accept
 		assert_ok!(Identity::accept_username(
-			RuntimeOrigin::signed(second_caller.clone()),
+			RuntimeOrigin::signed_with_basic_filter(second_caller.clone()),
 			second_username.clone()
 		));
 
@@ -1446,7 +1446,7 @@ fn invalid_usernames_should_be_rejected() {
 		}) {
 			assert_noop!(
 				Identity::set_username_for(
-					RuntimeOrigin::signed(authority.clone()),
+					RuntimeOrigin::signed_with_basic_filter(authority.clone()),
 					who.clone(),
 					username.clone(),
 					None,
@@ -1461,7 +1461,7 @@ fn invalid_usernames_should_be_rejected() {
 		valid_username.push(b'.');
 		valid_username.extend(valid_suffix);
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority),
+			RuntimeOrigin::signed_with_basic_filter(authority),
 			who,
 			valid_username,
 			None,
@@ -1486,14 +1486,14 @@ fn authorities_should_run_out_of_allocation() {
 		));
 
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority.clone()),
+			RuntimeOrigin::signed_with_basic_filter(authority.clone()),
 			pi,
 			b"username314159.test".to_vec(),
 			None,
 			true,
 		));
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority.clone()),
+			RuntimeOrigin::signed_with_basic_filter(authority.clone()),
 			e,
 			b"username271828.test".to_vec(),
 			None,
@@ -1501,7 +1501,7 @@ fn authorities_should_run_out_of_allocation() {
 		));
 		assert_noop!(
 			Identity::set_username_for(
-				RuntimeOrigin::signed(authority.clone()),
+				RuntimeOrigin::signed_with_basic_filter(authority.clone()),
 				c,
 				b"username299792458.test".to_vec(),
 				None,
@@ -1536,7 +1536,7 @@ fn setting_primary_should_work() {
 			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &first_username[..]).unwrap());
 
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority.clone()),
+			RuntimeOrigin::signed_with_basic_filter(authority.clone()),
 			who_account.clone(),
 			first_username.clone().into(),
 			Some(first_signature),
@@ -1552,7 +1552,7 @@ fn setting_primary_should_work() {
 			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &second_username[..]).unwrap());
 
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority),
+			RuntimeOrigin::signed_with_basic_filter(authority),
 			who_account.clone(),
 			second_username.clone().into(),
 			Some(second_signature),
@@ -1575,7 +1575,7 @@ fn setting_primary_should_work() {
 		);
 
 		assert_ok!(Identity::set_primary_username(
-			RuntimeOrigin::signed(who_account.clone()),
+			RuntimeOrigin::signed_with_basic_filter(who_account.clone()),
 			second_username.clone()
 		));
 
@@ -1615,7 +1615,7 @@ fn must_own_primary() {
 		let pi_signature =
 			MultiSignature::Sr25519(sr25519_sign(0.into(), &pi_public, &pi_username[..]).unwrap());
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority.clone()),
+			RuntimeOrigin::signed_with_basic_filter(authority.clone()),
 			pi_account.clone(),
 			pi_username.clone().into(),
 			Some(pi_signature),
@@ -1629,7 +1629,7 @@ fn must_own_primary() {
 		let e_signature =
 			MultiSignature::Sr25519(sr25519_sign(1.into(), &e_public, &e_username[..]).unwrap());
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority.clone()),
+			RuntimeOrigin::signed_with_basic_filter(authority.clone()),
 			e_account.clone(),
 			e_username.clone().into(),
 			Some(e_signature),
@@ -1653,13 +1653,13 @@ fn must_own_primary() {
 		// Cannot set primary to a username that does not exist.
 		let c_username = test_username_of(b"speedoflight".to_vec(), suffix.clone());
 		assert_err!(
-			Identity::set_primary_username(RuntimeOrigin::signed(pi_account.clone()), c_username),
+			Identity::set_primary_username(RuntimeOrigin::signed_with_basic_filter(pi_account.clone()), c_username),
 			Error::<Test>::NoUsername
 		);
 
 		// Cannot take someone else's username as your primary.
 		assert_err!(
-			Identity::set_primary_username(RuntimeOrigin::signed(pi_account.clone()), e_username),
+			Identity::set_primary_username(RuntimeOrigin::signed_with_basic_filter(pi_account.clone()), e_username),
 			Error::<Test>::InvalidUsername
 		);
 	});
@@ -1690,7 +1690,7 @@ fn unaccepted_usernames_through_grant_should_expire() {
 
 		assert_eq!(AuthorityOf::<Test>::get(&suffix).unwrap().allocation, 10);
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority.clone()),
+			RuntimeOrigin::signed_with_basic_filter(authority.clone()),
 			who.clone(),
 			username.clone().into(),
 			None,
@@ -1709,7 +1709,7 @@ fn unaccepted_usernames_through_grant_should_expire() {
 
 		// Cannot be removed
 		assert_noop!(
-			Identity::remove_expired_approval(RuntimeOrigin::signed(account(1)), username.clone()),
+			Identity::remove_expired_approval(RuntimeOrigin::signed_with_basic_filter(account(1)), username.clone()),
 			Error::<Test>::NotExpired
 		);
 
@@ -1717,7 +1717,7 @@ fn unaccepted_usernames_through_grant_should_expire() {
 
 		// Anyone can remove
 		assert_ok!(Identity::remove_expired_approval(
-			RuntimeOrigin::signed(account(1)),
+			RuntimeOrigin::signed_with_basic_filter(account(1)),
 			username.clone()
 		));
 		assert_eq!(Balances::free_balance(&authority), initial_authority_balance);
@@ -1755,7 +1755,7 @@ fn unaccepted_usernames_through_deposit_should_expire() {
 
 		assert_eq!(AuthorityOf::<Test>::get(&suffix).unwrap().allocation, 10);
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority.clone()),
+			RuntimeOrigin::signed_with_basic_filter(authority.clone()),
 			who.clone(),
 			username.clone().into(),
 			None,
@@ -1777,7 +1777,7 @@ fn unaccepted_usernames_through_deposit_should_expire() {
 
 		// Cannot be removed
 		assert_noop!(
-			Identity::remove_expired_approval(RuntimeOrigin::signed(account(1)), username.clone()),
+			Identity::remove_expired_approval(RuntimeOrigin::signed_with_basic_filter(account(1)), username.clone()),
 			Error::<Test>::NotExpired
 		);
 
@@ -1790,7 +1790,7 @@ fn unaccepted_usernames_through_deposit_should_expire() {
 		);
 		assert_eq!(Balances::reserved_balance(&authority), username_deposit);
 		assert_ok!(Identity::remove_expired_approval(
-			RuntimeOrigin::signed(account(1)),
+			RuntimeOrigin::signed_with_basic_filter(account(1)),
 			username.clone()
 		));
 		// Deposit was refunded
@@ -1843,7 +1843,7 @@ fn kill_username_should_work() {
 		// Set an identity for who. They need some balance though.
 		Balances::make_free_balance_be(&who_account, 1000);
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority.clone()),
+			RuntimeOrigin::signed_with_basic_filter(authority.clone()),
 			who_account.clone(),
 			username.clone().into(),
 			Some(signature),
@@ -1862,7 +1862,7 @@ fn kill_username_should_work() {
 			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &username_two[..]).unwrap());
 
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority.clone()),
+			RuntimeOrigin::signed_with_basic_filter(authority.clone()),
 			who_account.clone(),
 			username_two.clone().into(),
 			Some(signature_two),
@@ -1881,7 +1881,7 @@ fn kill_username_should_work() {
 			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &username_three[..]).unwrap());
 
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(second_authority.clone()),
+			RuntimeOrigin::signed_with_basic_filter(second_authority.clone()),
 			who_account.clone(),
 			username_three.clone().into(),
 			Some(signature_three),
@@ -1912,7 +1912,7 @@ fn kill_username_should_work() {
 
 		// Regular accounts can't kill a username, not even the authority that granted it.
 		assert_noop!(
-			Identity::kill_username(RuntimeOrigin::signed(authority.clone()), username.clone()),
+			Identity::kill_username(RuntimeOrigin::signed_with_basic_filter(authority.clone()), username.clone()),
 			BadOrigin
 		);
 
@@ -1927,7 +1927,7 @@ fn kill_username_should_work() {
 
 		// Unbind the second username.
 		assert_ok!(Identity::unbind_username(
-			RuntimeOrigin::signed(authority.clone()),
+			RuntimeOrigin::signed_with_basic_filter(authority.clone()),
 			username_two.clone()
 		));
 
@@ -2003,7 +2003,7 @@ fn unbind_and_remove_username_should_work() {
 		// Set an identity for who. They need some balance though.
 		Balances::make_free_balance_be(&who_account, 1000);
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority.clone()),
+			RuntimeOrigin::signed_with_basic_filter(authority.clone()),
 			who_account.clone(),
 			username.clone().into(),
 			Some(signature),
@@ -2022,7 +2022,7 @@ fn unbind_and_remove_username_should_work() {
 			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &username_two[..]).unwrap());
 
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority.clone()),
+			RuntimeOrigin::signed_with_basic_filter(authority.clone()),
 			who_account.clone(),
 			username_two.clone().into(),
 			Some(signature_two),
@@ -2055,7 +2055,7 @@ fn unbind_and_remove_username_should_work() {
 
 		// Regular accounts can't kill a username, not even the authority that granted it.
 		assert_noop!(
-			Identity::kill_username(RuntimeOrigin::signed(authority.clone()), username.clone()),
+			Identity::kill_username(RuntimeOrigin::signed_with_basic_filter(authority.clone()), username.clone()),
 			BadOrigin
 		);
 
@@ -2065,7 +2065,7 @@ fn unbind_and_remove_username_should_work() {
 		let dummy_authority = account(78);
 		assert_noop!(
 			Identity::unbind_username(
-				RuntimeOrigin::signed(dummy_authority.clone()),
+				RuntimeOrigin::signed_with_basic_filter(dummy_authority.clone()),
 				dummy_username.clone()
 			),
 			Error::<Test>::NoUsername
@@ -2079,7 +2079,7 @@ fn unbind_and_remove_username_should_work() {
 		);
 		assert_noop!(
 			Identity::unbind_username(
-				RuntimeOrigin::signed(dummy_authority.clone()),
+				RuntimeOrigin::signed_with_basic_filter(dummy_authority.clone()),
 				dummy_username.clone()
 			),
 			Error::<Test>::NotUsernameAuthority
@@ -2093,7 +2093,7 @@ fn unbind_and_remove_username_should_work() {
 		// originally granted the username.
 		assert_noop!(
 			Identity::unbind_username(
-				RuntimeOrigin::signed(authority.clone()),
+				RuntimeOrigin::signed_with_basic_filter(authority.clone()),
 				dummy_username.clone()
 			),
 			Error::<Test>::NotUsernameAuthority
@@ -2104,7 +2104,7 @@ fn unbind_and_remove_username_should_work() {
 
 		// We can successfully unbind the username as the authority that granted it.
 		assert_ok!(Identity::unbind_username(
-			RuntimeOrigin::signed(authority.clone()),
+			RuntimeOrigin::signed_with_basic_filter(authority.clone()),
 			username_two.clone()
 		));
 		let grace_period: BlockNumberFor<Test> = <Test as Config>::UsernameGracePeriod::get();
@@ -2118,7 +2118,7 @@ fn unbind_and_remove_username_should_work() {
 
 		// Still in the grace period.
 		assert_noop!(
-			Identity::remove_username(RuntimeOrigin::signed(account(0)), username_two.clone()),
+			Identity::remove_username(RuntimeOrigin::signed_with_basic_filter(account(0)), username_two.clone()),
 			Error::<Test>::TooEarly
 		);
 
@@ -2128,7 +2128,7 @@ fn unbind_and_remove_username_should_work() {
 		let suffix: Suffix<Test> = suffix.try_into().unwrap();
 		// We can now remove the username from any account.
 		assert_ok!(Identity::remove_username(
-			RuntimeOrigin::signed(account(0)),
+			RuntimeOrigin::signed_with_basic_filter(account(0)),
 			username_two.clone()
 		));
 		// The username is gone.
@@ -2146,7 +2146,7 @@ fn unbind_and_remove_username_should_work() {
 
 		// Unbind the first username as well.
 		assert_ok!(Identity::unbind_username(
-			RuntimeOrigin::signed(authority.clone()),
+			RuntimeOrigin::signed_with_basic_filter(authority.clone()),
 			username.clone()
 		));
 		let now: BlockNumberFor<Test> = expected_grace_period_expiry;
@@ -2156,7 +2156,7 @@ fn unbind_and_remove_username_should_work() {
 		// Advance the block number to simulate the grace period passing.
 		System::set_block_number(expected_grace_period_expiry);
 		// We can now remove the username from any account.
-		assert_ok!(Identity::remove_username(RuntimeOrigin::signed(account(0)), username.clone()));
+		assert_ok!(Identity::remove_username(RuntimeOrigin::signed_with_basic_filter(account(0)), username.clone()));
 		// The username is gone.
 		assert!(!UnbindingUsernames::<Test>::contains_key(&username));
 		assert!(!UsernameInfoOf::<Test>::contains_key(&username));
@@ -2200,7 +2200,7 @@ fn unbind_dangling_username_defensive_should_panic() {
 		// Set an identity for who. They need some balance though.
 		Balances::make_free_balance_be(&who_account, 1000);
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority.clone()),
+			RuntimeOrigin::signed_with_basic_filter(authority.clone()),
 			who_account.clone(),
 			username.clone().into(),
 			Some(signature),
@@ -2213,7 +2213,7 @@ fn unbind_dangling_username_defensive_should_panic() {
 
 		// We can successfully unbind the username as the authority that granted it.
 		assert_ok!(Identity::unbind_username(
-			RuntimeOrigin::signed(authority.clone()),
+			RuntimeOrigin::signed_with_basic_filter(authority.clone()),
 			username.clone()
 		));
 		assert_eq!(System::block_number(), 1);
@@ -2221,7 +2221,7 @@ fn unbind_dangling_username_defensive_should_panic() {
 
 		// Still in the grace period.
 		assert_noop!(
-			Identity::remove_username(RuntimeOrigin::signed(account(0)), username.clone()),
+			Identity::remove_username(RuntimeOrigin::signed_with_basic_filter(account(0)), username.clone()),
 			Error::<Test>::TooEarly
 		);
 
@@ -2232,7 +2232,7 @@ fn unbind_dangling_username_defensive_should_panic() {
 		UsernameInfoOf::<Test>::remove(&username);
 		UsernameOf::<Test>::remove(&who_account);
 		assert_noop!(
-			Identity::remove_username(RuntimeOrigin::signed(account(0)), username.clone()),
+			Identity::remove_username(RuntimeOrigin::signed_with_basic_filter(account(0)), username.clone()),
 			Error::<Test>::NoUsername
 		);
 	});

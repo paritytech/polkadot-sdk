@@ -208,7 +208,7 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 		vec![],
 	);
 	AssetHubWestend::mint_foreign_asset(
-		<AssetHubWestend as Chain>::RuntimeOrigin::signed(assets_owner),
+		<AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(assets_owner),
 		roc_at_westend_parachains.clone().try_into().unwrap(),
 		sender.clone(),
 		foreign_amount_to_send * 2,
@@ -340,13 +340,13 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 
 	// fund Parachain's sender account
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(assets_owner.clone()),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(assets_owner.clone()),
 		native_asset_location.clone(),
 		sender.clone(),
 		native_amount_to_send * 2,
 	);
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(assets_owner.clone()),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(assets_owner.clone()),
 		roc_at_westend_parachains.clone(),
 		sender.clone(),
 		foreign_amount_to_send * 2,
@@ -364,7 +364,7 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 		native_amount_to_send * 2,
 	)]);
 	AssetHubWestend::mint_foreign_asset(
-		<AssetHubWestend as Chain>::RuntimeOrigin::signed(assets_owner),
+		<AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(assets_owner),
 		roc_at_westend_parachains.clone().try_into().unwrap(),
 		sov_penpal_on_ahr,
 		foreign_amount_to_send * 2,
@@ -515,13 +515,13 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 
 	// fund Parachain's sender account
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(assets_owner.clone()),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(assets_owner.clone()),
 		wnd_location.clone(),
 		sender.clone(),
 		wnd_to_send * 2,
 	);
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(assets_owner.clone()),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(assets_owner.clone()),
 		roc_at_westend_parachains.clone(),
 		sender.clone(),
 		roc_to_send * 2,
@@ -529,7 +529,7 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 	// fund the Parachain Origin's SA on Asset Hub with the assets held in reserve
 	AssetHubWestend::fund_accounts(vec![(sov_of_sender_on_ah.clone().into(), wnd_to_send * 2)]);
 	AssetHubWestend::mint_foreign_asset(
-		<AssetHubWestend as Chain>::RuntimeOrigin::signed(assets_owner),
+		<AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(assets_owner),
 		roc_at_westend_parachains.clone().try_into().unwrap(),
 		sov_of_sender_on_ah.clone(),
 		roc_to_send * 2,
@@ -873,7 +873,7 @@ fn transfer_native_asset_from_penpal_to_relay_through_asset_hub() {
 	);
 	// fund Penpal's sender account
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalAssetOwner::get()),
 		relay_native_asset_location.clone(),
 		sender.clone(),
 		amount_to_send * 2,

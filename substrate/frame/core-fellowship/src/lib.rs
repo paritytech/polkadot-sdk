@@ -61,6 +61,7 @@
 
 extern crate alloc;
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::boxed::Box;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
@@ -769,7 +770,7 @@ impl<T: Config<I>, I: 'static, const MIN_RANK: u16> EnsureOrigin<T::RuntimeOrigi
 		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o)?;
 		match T::Members::rank_of(&who) {
 			Some(rank) if rank >= MIN_RANK && Member::<T, I>::contains_key(&who) => Ok(who),
-			_ => Err(frame_system::RawOrigin::Signed(who).into()),
+			_ => Err(frame_system::RawOrigin::Signed(who).into_with_basic_filter()),
 		}
 	}
 
@@ -784,7 +785,7 @@ impl<T: Config<I>, I: 'static, const MIN_RANK: u16> EnsureOrigin<T::RuntimeOrigi
 				T::Members::promote(&who).map_err(|_| ())?;
 			}
 		}
-		Ok(frame_system::RawOrigin::Signed(who).into())
+		Ok(frame_system::RawOrigin::Signed(who).into_with_basic_filter())
 	}
 }
 
@@ -826,6 +827,6 @@ impl<T: Config<I>, I: 'static>
 {
 	fn ensure_member(who: &<T as frame_system::Config>::AccountId) {
 		#[allow(deprecated)]
-		Self::import(frame_system::RawOrigin::Signed(who.clone()).into()).unwrap();
+		Self::import(frame_system::RawOrigin::Signed(who.clone()).into_with_basic_filter()).unwrap();
 	}
 }

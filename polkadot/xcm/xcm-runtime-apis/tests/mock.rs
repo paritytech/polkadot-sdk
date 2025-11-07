@@ -17,6 +17,7 @@
 //! Mock runtime for tests.
 //! Implements both runtime APIs for fee estimation and getting the messages for transfers.
 
+use frame_support::traits::IntoWithBasicFilter;
 use core::{cell::RefCell, marker::PhantomData};
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types, sp_runtime,
@@ -334,14 +335,14 @@ pub struct SignedToAccountIndex64<RuntimeOrigin, AccountId>(
 impl<RuntimeOrigin: OriginTrait + Clone, AccountId: Into<u64>> TryConvert<RuntimeOrigin, Location>
 	for SignedToAccountIndex64<RuntimeOrigin, AccountId>
 where
-	RuntimeOrigin::PalletsOrigin: From<SystemRawOrigin<AccountId>>
+	RuntimeOrigin::PalletsOrigin: FromWithBasicFilter<SystemRawOrigin<AccountId>>
 		+ TryInto<SystemRawOrigin<AccountId>, Error = RuntimeOrigin::PalletsOrigin>,
 {
 	fn try_convert(origin: RuntimeOrigin) -> Result<Location, RuntimeOrigin> {
 		origin.try_with_caller(|caller| match caller.try_into() {
 			Ok(SystemRawOrigin::Signed(who)) =>
-				Ok(Junction::AccountIndex64 { network: None, index: who.into() }.into()),
-			Ok(other) => Err(other.into()),
+				Ok(Junction::AccountIndex64 { network: None, index: who.into_with_basic_filter() }.into_with_basic_filter()),
+			Ok(other) => Err(other.into_with_basic_filter()),
 			Err(other) => Err(other),
 		})
 	}

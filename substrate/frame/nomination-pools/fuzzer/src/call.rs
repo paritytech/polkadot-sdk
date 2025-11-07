@@ -60,11 +60,11 @@ fn random_signed_origin<R: Rng>(rng: &mut R) -> (RuntimeOrigin, AccountId) {
 		let acc =
 			if candidate == REWARD_AGENT_ACCOUNT { rng.gen::<AccountId>() } else { candidate };
 
-		(RuntimeOrigin::signed(acc), acc)
+		(RuntimeOrigin::signed_with_basic_filter(acc), acc)
 	} else {
 		// create a new account
 		let acc = rng.gen::<AccountId>();
-		(RuntimeOrigin::signed(acc), acc)
+		(RuntimeOrigin::signed_with_basic_filter(acc), acc)
 	}
 }
 
@@ -177,7 +177,7 @@ impl RewardAgent {
 		}
 		let pool_id = LastPoolId::<T>::get();
 		let amount = 10 * ExistentialDeposit::get();
-		let origin = RuntimeOrigin::signed(self.who);
+		let origin = RuntimeOrigin::signed_with_basic_filter(self.who);
 		let _ = Balances::deposit_creating(&self.who, 10 * amount);
 		self.pool_id = Some(pool_id);
 		log::info!(target: "reward-agent", "🤖 reward agent joining in {} with {}", pool_id, amount);
@@ -192,7 +192,7 @@ impl RewardAgent {
 			return
 		}
 		let pre = Balances::free_balance(&42);
-		let origin = RuntimeOrigin::signed(42);
+		let origin = RuntimeOrigin::signed_with_basic_filter(42);
 		assert_ok!(PoolsCall::<T>::claim_payout {}.dispatch_bypass_filter(origin));
 		let post = Balances::free_balance(&42);
 

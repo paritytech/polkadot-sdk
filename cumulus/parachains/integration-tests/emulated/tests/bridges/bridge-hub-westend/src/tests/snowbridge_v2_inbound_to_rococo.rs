@@ -449,7 +449,7 @@ fn send_roc_from_ethereum_to_rococo() {
 	AssetHubWestend::execute_with(|| {
 		// Mint the asset into the bridge sovereign account, to mimic locked funds
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint(
-			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendAssetOwner::get()),
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubWestendAssetOwner::get()),
 			bridged_roc_at_asset_hub_westend.clone().into(),
 			ethereum_sovereign.clone().into(),
 			TOKEN_AMOUNT,

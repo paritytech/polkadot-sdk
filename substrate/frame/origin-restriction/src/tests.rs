@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use frame_support::traits::IntoWithBasicFilter;
 use crate::{mock::*, *};
 use frame_support::{assert_noop, assert_ok};
 use sp_runtime::{testing::UintAuthorityId, transaction_validity::InvalidTransaction};
@@ -177,7 +178,7 @@ fn clean_usage_works() {
 		// 1) Attempt to clean usage with no recorded usage => should fail with NoUsage.
 		assert_noop!(
 			OriginsRestriction::clean_usage(
-				frame_system::RawOrigin::Root.into(),
+				frame_system::RawOrigin::Root.into_with_basic_filter(),
 				RuntimeRestrictedEntity::A
 			),
 			Error::<Test>::NoUsage
@@ -191,7 +192,7 @@ fn clean_usage_works() {
 		// 2) Try cleaning while usage is non-zero => should fail with NotZero.
 		assert_noop!(
 			OriginsRestriction::clean_usage(
-				frame_system::RawOrigin::Root.into(),
+				frame_system::RawOrigin::Root.into_with_basic_filter(),
 				RuntimeRestrictedEntity::A
 			),
 			Error::<Test>::NotZero
@@ -208,7 +209,7 @@ fn clean_usage_works() {
 		// 3) Now that enough blocks have passed, usage should be zero => clean_usage should
 		//    succeed.
 		assert_ok!(OriginsRestriction::clean_usage(
-			frame_system::RawOrigin::Root.into(),
+			frame_system::RawOrigin::Root.into_with_basic_filter(),
 			RuntimeRestrictedEntity::A
 		));
 
@@ -221,7 +222,7 @@ fn clean_usage_works() {
 		// 4) Calling again when there is no usage => fail with NoUsage.
 		assert_noop!(
 			OriginsRestriction::clean_usage(
-				frame_system::RawOrigin::Root.into(),
+				frame_system::RawOrigin::Root.into_with_basic_filter(),
 				RuntimeRestrictedEntity::A
 			),
 			Error::<Test>::NoUsage

@@ -643,10 +643,12 @@ macro_rules! benchmarks_iter {
 #[doc(hidden)]
 macro_rules! to_origin {
 	($origin:expr) => {
-		$origin.into()
+		frame_support::traits::IntoWithBasicFilter::into_with_basic_filter($origin)
 	};
 	($origin:expr, $origin_type:ty) => {
-		<<T as frame_system::Config>::RuntimeOrigin as From<$origin_type>>::from($origin)
+		<<T as frame_system::Config>::RuntimeOrigin as frame_support::traits::FromWithBasicFilter<
+			$origin_type,
+		>>::from_with_basic_filter($origin)
 	};
 }
 

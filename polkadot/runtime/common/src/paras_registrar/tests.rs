@@ -39,9 +39,9 @@ fn end_to_end_scenario_works() {
 		assert!(!Parachains::is_parathread(para_id));
 		// We register the Para ID
 		let validation_code = test_validation_code(32);
-		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed(1)));
+		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed_with_basic_filter(1)));
 		assert_ok!(mock::Registrar::register(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			para_id,
 			test_genesis_head(32),
 			validation_code.clone(),
@@ -82,10 +82,10 @@ fn register_works() {
 		assert!(!Parachains::is_parathread(para_id));
 
 		let validation_code = test_validation_code(32);
-		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed(1)));
+		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed_with_basic_filter(1)));
 		assert_eq!(Balances::reserved_balance(&1), <Test as Config>::ParaDeposit::get());
 		assert_ok!(mock::Registrar::register(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			para_id,
 			test_genesis_head(32),
 			validation_code.clone(),
@@ -118,10 +118,10 @@ fn schedule_code_upgrade_validates_code() {
 		assert!(!Parachains::is_parathread(para_id));
 
 		let validation_code = test_validation_code(32);
-		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed(1)));
+		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed_with_basic_filter(1)));
 		assert_eq!(Balances::reserved_balance(&1), <Test as Config>::ParaDeposit::get());
 		assert_ok!(mock::Registrar::register(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			para_id,
 			test_genesis_head(32),
 			validation_code.clone(),
@@ -134,7 +134,7 @@ fn schedule_code_upgrade_validates_code() {
 		let new_code = test_validation_code(0);
 		assert_noop!(
 			mock::Registrar::schedule_code_upgrade(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				para_id,
 				new_code.clone(),
 			),
@@ -144,7 +144,7 @@ fn schedule_code_upgrade_validates_code() {
 		let new_code = test_validation_code(max_code_size() as usize + 1);
 		assert_noop!(
 			mock::Registrar::schedule_code_upgrade(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				para_id,
 				new_code.clone(),
 			),
@@ -160,7 +160,7 @@ fn register_handles_basic_errors() {
 
 		assert_noop!(
 			mock::Registrar::register(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				para_id,
 				test_genesis_head(max_head_size() as usize),
 				test_validation_code(max_code_size() as usize),
@@ -169,11 +169,11 @@ fn register_handles_basic_errors() {
 		);
 
 		// Successfully register para
-		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed(1)));
+		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed_with_basic_filter(1)));
 
 		assert_noop!(
 			mock::Registrar::register(
-				RuntimeOrigin::signed(2),
+				RuntimeOrigin::signed_with_basic_filter(2),
 				para_id,
 				test_genesis_head(max_head_size() as usize),
 				test_validation_code(max_code_size() as usize),
@@ -182,7 +182,7 @@ fn register_handles_basic_errors() {
 		);
 
 		assert_ok!(mock::Registrar::register(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			para_id,
 			test_genesis_head(max_head_size() as usize),
 			test_validation_code(max_code_size() as usize),
@@ -195,7 +195,7 @@ fn register_handles_basic_errors() {
 		// Can't do it again
 		assert_noop!(
 			mock::Registrar::register(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				para_id,
 				test_genesis_head(max_head_size() as usize),
 				test_validation_code(max_code_size() as usize),
@@ -204,10 +204,10 @@ fn register_handles_basic_errors() {
 		);
 
 		// Head Size Check
-		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed(2)));
+		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed_with_basic_filter(2)));
 		assert_noop!(
 			mock::Registrar::register(
-				RuntimeOrigin::signed(2),
+				RuntimeOrigin::signed_with_basic_filter(2),
 				para_id + 1,
 				test_genesis_head((max_head_size() + 1) as usize),
 				test_validation_code(max_code_size() as usize),
@@ -218,7 +218,7 @@ fn register_handles_basic_errors() {
 		// Code Size Check
 		assert_noop!(
 			mock::Registrar::register(
-				RuntimeOrigin::signed(2),
+				RuntimeOrigin::signed_with_basic_filter(2),
 				para_id + 1,
 				test_genesis_head(max_head_size() as usize),
 				test_validation_code((max_code_size() + 1) as usize),
@@ -228,7 +228,7 @@ fn register_handles_basic_errors() {
 
 		// Needs enough funds for deposit
 		assert_noop!(
-			mock::Registrar::reserve(RuntimeOrigin::signed(1337)),
+			mock::Registrar::reserve(RuntimeOrigin::signed_with_basic_filter(1337)),
 			BalancesError::<Test, _>::InsufficientBalance
 		);
 	});
@@ -244,9 +244,9 @@ fn deregister_works() {
 		assert!(!Parachains::is_parathread(para_id));
 
 		let validation_code = test_validation_code(32);
-		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed(1)));
+		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed_with_basic_filter(1)));
 		assert_ok!(mock::Registrar::register(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			para_id,
 			test_genesis_head(32),
 			validation_code.clone(),
@@ -272,9 +272,9 @@ fn deregister_handles_basic_errors() {
 		assert!(!Parachains::is_parathread(para_id));
 
 		let validation_code = test_validation_code(32);
-		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed(1)));
+		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed_with_basic_filter(1)));
 		assert_ok!(mock::Registrar::register(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			para_id,
 			test_genesis_head(32),
 			validation_code.clone(),
@@ -284,7 +284,7 @@ fn deregister_handles_basic_errors() {
 		run_to_session(START_SESSION_INDEX + 2);
 		assert!(Parachains::is_parathread(para_id));
 		// Owner check
-		assert_noop!(mock::Registrar::deregister(RuntimeOrigin::signed(2), para_id,), BadOrigin);
+		assert_noop!(mock::Registrar::deregister(RuntimeOrigin::signed_with_basic_filter(2), para_id,), BadOrigin);
 		assert_ok!(mock::Registrar::make_parachain(para_id));
 		run_to_session(START_SESSION_INDEX + 4);
 		// Cant directly deregister parachain
@@ -306,16 +306,16 @@ fn swap_works() {
 		let para_2 = LOWEST_PUBLIC_ID + 1;
 
 		let validation_code = test_validation_code(max_code_size() as usize);
-		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed(1)));
+		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed_with_basic_filter(1)));
 		assert_ok!(mock::Registrar::register(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			para_1,
 			test_genesis_head(max_head_size() as usize),
 			validation_code.clone(),
 		));
-		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed(2)));
+		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed_with_basic_filter(2)));
 		assert_ok!(mock::Registrar::register(
-			RuntimeOrigin::signed(2),
+			RuntimeOrigin::signed_with_basic_filter(2),
 			para_2,
 			test_genesis_head(max_head_size() as usize),
 			validation_code.clone(),
@@ -378,9 +378,9 @@ fn swap_works() {
 		// Parachain to parachain swap
 		let para_3 = LOWEST_PUBLIC_ID + 2;
 		let validation_code = test_validation_code(max_code_size() as usize);
-		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed(3)));
+		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed_with_basic_filter(3)));
 		assert_ok!(mock::Registrar::register(
-			RuntimeOrigin::signed(3),
+			RuntimeOrigin::signed_with_basic_filter(3),
 			para_3,
 			test_genesis_head(max_head_size() as usize),
 			validation_code.clone(),
@@ -425,36 +425,36 @@ fn para_lock_works() {
 	new_test_ext().execute_with(|| {
 		run_to_block(1);
 
-		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed(1)));
+		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed_with_basic_filter(1)));
 		let para_id = LOWEST_PUBLIC_ID;
 		assert_ok!(mock::Registrar::register(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			para_id,
 			vec![1; 3].into(),
 			test_validation_code(32)
 		));
 
-		assert_noop!(mock::Registrar::add_lock(RuntimeOrigin::signed(2), para_id), BadOrigin);
+		assert_noop!(mock::Registrar::add_lock(RuntimeOrigin::signed_with_basic_filter(2), para_id), BadOrigin);
 
 		// Once they produces new block, we lock them in.
 		mock::Registrar::on_new_head(para_id, &Default::default());
 
 		// Owner cannot pass origin check when checking lock
 		assert_noop!(
-			mock::Registrar::ensure_root_para_or_owner(RuntimeOrigin::signed(1), para_id),
+			mock::Registrar::ensure_root_para_or_owner(RuntimeOrigin::signed_with_basic_filter(1), para_id),
 			Error::<Test>::ParaLocked,
 		);
 		// Owner cannot remove lock.
-		assert_noop!(mock::Registrar::remove_lock(RuntimeOrigin::signed(1), para_id), BadOrigin);
+		assert_noop!(mock::Registrar::remove_lock(RuntimeOrigin::signed_with_basic_filter(1), para_id), BadOrigin);
 		// Para can.
 		assert_ok!(mock::Registrar::remove_lock(para_origin(para_id), para_id));
 		// Owner can pass origin check again
-		assert_ok!(mock::Registrar::ensure_root_para_or_owner(RuntimeOrigin::signed(1), para_id));
+		assert_ok!(mock::Registrar::ensure_root_para_or_owner(RuntimeOrigin::signed_with_basic_filter(1), para_id));
 
 		// Won't lock again after it is unlocked
 		mock::Registrar::on_new_head(para_id, &Default::default());
 
-		assert_ok!(mock::Registrar::ensure_root_para_or_owner(RuntimeOrigin::signed(1), para_id));
+		assert_ok!(mock::Registrar::ensure_root_para_or_owner(RuntimeOrigin::signed_with_basic_filter(1), para_id));
 	});
 }
 
@@ -479,16 +479,16 @@ fn swap_handles_bad_states() {
 
 		// We register Paras 1 and 2
 		let validation_code = test_validation_code(32);
-		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed(1)));
-		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed(2)));
+		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed_with_basic_filter(1)));
+		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed_with_basic_filter(2)));
 		assert_ok!(mock::Registrar::register(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			para_1,
 			test_genesis_head(32),
 			validation_code.clone(),
 		));
 		assert_ok!(mock::Registrar::register(
-			RuntimeOrigin::signed(2),
+			RuntimeOrigin::signed_with_basic_filter(2),
 			para_2,
 			test_genesis_head(32),
 			validation_code.clone(),

@@ -49,8 +49,8 @@ fn set_minimum_active_stake_lower_bond_works() {
 		assert_eq!(MinNominatorBond::<Test>::get(), 1);
 		assert_eq!(<Test as Config>::VoterList::count(), 4);
 
-		assert_ok!(Staking::bond(RuntimeOrigin::signed(4), 5, RewardDestination::Staked,));
-		assert_ok!(Staking::nominate(RuntimeOrigin::signed(4), vec![11]));
+		assert_ok!(Staking::bond(RuntimeOrigin::signed_with_basic_filter(4), 5, RewardDestination::Staked,));
+		assert_ok!(Staking::nominate(RuntimeOrigin::signed_with_basic_filter(4), vec![11]));
 		assert_eq!(<Test as Config>::VoterList::count(), 5);
 
 		let voters_before =
@@ -92,9 +92,9 @@ fn set_minimum_active_bond_corrupt_state() {
 			assert_eq!(MinimumActiveStake::<Test>::get(), 500);
 
 			Session::roll_until_active_era(10);
-			assert_ok!(Staking::unbond(RuntimeOrigin::signed(101), 200));
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed_with_basic_filter(101), 200));
 			Session::roll_until_active_era(20);
-			assert_ok!(Staking::unbond(RuntimeOrigin::signed(101), 100));
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed_with_basic_filter(101), 100));
 
 			// corrupt ledger state by lowering max unlocking chunks bounds.
 			MaxUnlockingChunks::set(1);
@@ -278,12 +278,12 @@ fn nomination_quota_checks_at_nominate_works() {
 		assert_eq!(Staking::api_nominations_quota(222), 2);
 
 		// nominating with targets below the nomination quota works.
-		assert_ok!(Staking::nominate(RuntimeOrigin::signed(61), vec![11]));
-		assert_ok!(Staking::nominate(RuntimeOrigin::signed(61), vec![11, 21]));
+		assert_ok!(Staking::nominate(RuntimeOrigin::signed_with_basic_filter(61), vec![11]));
+		assert_ok!(Staking::nominate(RuntimeOrigin::signed_with_basic_filter(61), vec![11, 21]));
 
 		// nominating with targets above the nomination quota returns error.
 		assert_noop!(
-			Staking::nominate(RuntimeOrigin::signed(61), vec![11, 21, 31]),
+			Staking::nominate(RuntimeOrigin::signed_with_basic_filter(61), vec![11, 21, 31]),
 			Error::<Test>::TooManyTargets
 		);
 	});
@@ -329,7 +329,7 @@ fn change_of_absolute_max_nominations() {
 			// No one can be chilled on account of non-decodable keys.
 			for k in Nominators::<Test>::iter_keys() {
 				assert_noop!(
-					Staking::chill_other(RuntimeOrigin::signed(1), k),
+					Staking::chill_other(RuntimeOrigin::signed_with_basic_filter(1), k),
 					Error::<Test>::CannotChillOther
 				);
 			}
@@ -348,7 +348,7 @@ fn change_of_absolute_max_nominations() {
 			// As before, no one can be chilled on account of non-decodable keys.
 			for k in Nominators::<Test>::iter_keys() {
 				assert_noop!(
-					Staking::chill_other(RuntimeOrigin::signed(1), k),
+					Staking::chill_other(RuntimeOrigin::signed_with_basic_filter(1), k),
 					Error::<Test>::CannotChillOther
 				);
 			}
@@ -367,7 +367,7 @@ fn change_of_absolute_max_nominations() {
 			// 101 and 61 still cannot be chilled by someone else.
 			for k in [101, 61].iter() {
 				assert_noop!(
-					Staking::chill_other(RuntimeOrigin::signed(1), *k),
+					Staking::chill_other(RuntimeOrigin::signed_with_basic_filter(1), *k),
 					Error::<Test>::CannotChillOther
 				);
 			}
@@ -393,7 +393,7 @@ fn change_of_absolute_max_nominations() {
 
 			// 61 *still* cannot be chilled by someone else.
 			assert_noop!(
-				Staking::chill_other(RuntimeOrigin::signed(1), 61),
+				Staking::chill_other(RuntimeOrigin::signed_with_basic_filter(1), 61),
 				Error::<Test>::CannotChillOther
 			);
 
@@ -404,7 +404,7 @@ fn change_of_absolute_max_nominations() {
 			assert_eq!(Staking::electing_voters(bounds, 0).unwrap().len(), 3 + 1);
 
 			// now one of them can revive themselves by re-nominating to a proper value.
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(71), vec![1]));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed_with_basic_filter(71), vec![1]));
 			assert_eq!(
 				Nominators::<Test>::iter()
 					.map(|(k, n)| (k, n.targets.len()))
@@ -415,7 +415,7 @@ fn change_of_absolute_max_nominations() {
 			// or they can be chilled by any account.
 			assert!(Nominators::<Test>::contains_key(101));
 			assert!(Nominators::<Test>::get(101).is_none());
-			assert_ok!(Staking::chill_other(RuntimeOrigin::signed(71), 101));
+			assert_ok!(Staking::chill_other(RuntimeOrigin::signed_with_basic_filter(71), 101));
 			assert_eq!(*staking_events().last().unwrap(), Event::Chilled { stash: 101 });
 			assert!(!Nominators::<Test>::contains_key(101));
 			assert!(Nominators::<Test>::get(101).is_none());
@@ -478,7 +478,7 @@ fn lazy_quota_npos_voters_works_above_quota() {
 		.build_and_execute(|| {
 			// unbond 78 from stash 60 so that it's bonded balance is 222, which has a lower
 			// nomination quota than at nomination time (max 2 targets).
-			assert_ok!(Staking::unbond(RuntimeOrigin::signed(61), 78));
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed_with_basic_filter(61), 78));
 			assert_eq!(Staking::api_nominations_quota(300 - 78), 2);
 
 			// even through 61 has nomination quota of 2 at the time of the election, all the
@@ -549,7 +549,7 @@ mod sorted_list_provider {
 			);
 
 			// when account 101 renominates
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![31]));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed_with_basic_filter(101), vec![31]));
 
 			// then counts don't change
 			assert_eq!(<Test as Config>::VoterList::count(), pre_insert_voter_count);
@@ -572,7 +572,7 @@ mod sorted_list_provider {
 			assert_eq!(<Test as Config>::VoterList::iter().collect::<Vec<_>>(), vec![11, 21, 31]);
 
 			// when account 11 re-validates
-			assert_ok!(Staking::validate(RuntimeOrigin::signed(11), Default::default()));
+			assert_ok!(Staking::validate(RuntimeOrigin::signed_with_basic_filter(11), Default::default()));
 
 			// then counts don't change
 			assert_eq!(<Test as Config>::VoterList::count(), pre_insert_voter_count);
@@ -831,7 +831,7 @@ mod paged_snapshot {
 				// 51 who is already part of the list might want to unbond. They are already in the
 				// snapshot, and their position is not updated
 				hypothetically!({
-					assert_ok!(Staking::unbond(RuntimeOrigin::signed(51), 500));
+					assert_ok!(Staking::unbond(RuntimeOrigin::signed_with_basic_filter(51), 500));
 					// they are still in the original bag
 					assert_eq!(
 						pallet_bags_list::ListNodes::<T, VoterBagsListInstance>::get(51)
@@ -845,7 +845,7 @@ mod paged_snapshot {
 				// not reflected in this election.
 				hypothetically!({
 					crate::asset::set_stakeable_balance::<T>(&11, 10000);
-					assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(11), 5000));
+					assert_ok!(Staking::bond_extra(RuntimeOrigin::signed_with_basic_filter(11), 5000));
 					// they are still in the original bag
 					assert_eq!(
 						pallet_bags_list::ListNodes::<T, VoterBagsListInstance>::get(11)

@@ -27,7 +27,7 @@ fn should_feed_values_from_member() {
 
 		assert_noop!(
 			ModuleOracle::feed_values(
-				RuntimeOrigin::signed(5),
+				RuntimeOrigin::signed_with_basic_filter(5),
 				vec![(50, 1000), (51, 900), (52, 800)].try_into().unwrap()
 			),
 			Error::<Test, _>::NoPermission,
@@ -35,7 +35,7 @@ fn should_feed_values_from_member() {
 
 		assert_eq!(
 			ModuleOracle::feed_values(
-				RuntimeOrigin::signed(account_id),
+				RuntimeOrigin::signed_with_basic_filter(account_id),
 				vec![(50, 1000), (51, 900), (52, 800)].try_into().unwrap()
 			)
 			.unwrap()
@@ -106,7 +106,7 @@ fn should_not_feed_values_from_root_directly() {
 
 		assert_noop!(
 			ModuleOracle::feed_values(
-				RuntimeOrigin::signed(root_feeder),
+				RuntimeOrigin::signed_with_basic_filter(root_feeder),
 				vec![(50, 1000), (51, 900), (52, 800)].try_into().unwrap()
 			),
 			Error::<Test, _>::NoPermission,
@@ -123,11 +123,11 @@ fn should_read_raw_values() {
 		assert_eq!(raw_values, vec![]);
 
 		assert_ok!(ModuleOracle::feed_values(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			vec![(key, 1000)].try_into().unwrap()
 		));
 		assert_ok!(ModuleOracle::feed_values(
-			RuntimeOrigin::signed(2),
+			RuntimeOrigin::signed_with_basic_filter(2),
 			vec![(key, 1200)].try_into().unwrap()
 		));
 
@@ -148,15 +148,15 @@ fn should_combined_data() {
 		let key: u32 = 50;
 
 		assert_ok!(ModuleOracle::feed_values(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			vec![(key, 1300)].try_into().unwrap()
 		));
 		assert_ok!(ModuleOracle::feed_values(
-			RuntimeOrigin::signed(2),
+			RuntimeOrigin::signed_with_basic_filter(2),
 			vec![(key, 1000)].try_into().unwrap()
 		));
 		assert_ok!(ModuleOracle::feed_values(
-			RuntimeOrigin::signed(3),
+			RuntimeOrigin::signed_with_basic_filter(3),
 			vec![(key, 1200)].try_into().unwrap()
 		));
 
@@ -181,14 +181,14 @@ fn should_return_none_for_non_exist_key() {
 fn multiple_calls_should_fail() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(ModuleOracle::feed_values(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			vec![(50, 1300)].try_into().unwrap()
 		));
 
 		// Fails feeding by the extrinsic
 		assert_noop!(
 			ModuleOracle::feed_values(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				vec![(50, 1300)].try_into().unwrap()
 			),
 			Error::<Test, _>::AlreadyFeeded,
@@ -200,7 +200,7 @@ fn multiple_calls_should_fail() {
 		ModuleOracle::on_finalize(1);
 
 		assert_ok!(ModuleOracle::feed_values(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			vec![(50, 1300)].try_into().unwrap()
 		));
 	});
@@ -216,15 +216,15 @@ fn get_all_values_should_work() {
 
 		// feed eur & jpy
 		assert_ok!(ModuleOracle::feed_values(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			vec![(eur, 1300)].try_into().unwrap()
 		));
 		assert_ok!(ModuleOracle::feed_values(
-			RuntimeOrigin::signed(2),
+			RuntimeOrigin::signed_with_basic_filter(2),
 			vec![(eur, 1000)].try_into().unwrap()
 		));
 		assert_ok!(ModuleOracle::feed_values(
-			RuntimeOrigin::signed(3),
+			RuntimeOrigin::signed_with_basic_filter(3),
 			vec![(jpy, 9000)].try_into().unwrap()
 		));
 
@@ -238,11 +238,11 @@ fn get_all_values_should_work() {
 
 		// feed eur & jpy
 		assert_ok!(ModuleOracle::feed_values(
-			RuntimeOrigin::signed(3),
+			RuntimeOrigin::signed_with_basic_filter(3),
 			vec![(eur, 1200)].try_into().unwrap()
 		));
 		assert_ok!(ModuleOracle::feed_values(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			vec![(jpy, 8000)].try_into().unwrap()
 		));
 
@@ -257,7 +257,7 @@ fn get_all_values_should_work() {
 
 		// feed jpy
 		assert_ok!(ModuleOracle::feed_values(
-			RuntimeOrigin::signed(2),
+			RuntimeOrigin::signed_with_basic_filter(2),
 			vec![(jpy, 7000)].try_into().unwrap()
 		));
 
@@ -279,17 +279,17 @@ fn change_member_should_work() {
 		<ModuleOracle as ChangeMembers<AccountId>>::change_members_sorted(&[4], &[1], &[2, 3, 4]);
 		assert_noop!(
 			ModuleOracle::feed_values(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				vec![(50, 1000)].try_into().unwrap()
 			),
 			Error::<Test, _>::NoPermission,
 		);
 		assert_ok!(ModuleOracle::feed_values(
-			RuntimeOrigin::signed(2),
+			RuntimeOrigin::signed_with_basic_filter(2),
 			vec![(50, 1000)].try_into().unwrap()
 		));
 		assert_ok!(ModuleOracle::feed_values(
-			RuntimeOrigin::signed(4),
+			RuntimeOrigin::signed_with_basic_filter(4),
 			vec![(50, 1000)].try_into().unwrap()
 		));
 	});
@@ -299,11 +299,11 @@ fn change_member_should_work() {
 fn should_clear_data_for_removed_members() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(ModuleOracle::feed_values(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			vec![(50, 1000)].try_into().unwrap()
 		));
 		assert_ok!(ModuleOracle::feed_values(
-			RuntimeOrigin::signed(2),
+			RuntimeOrigin::signed_with_basic_filter(2),
 			vec![(50, 1000)].try_into().unwrap()
 		));
 
@@ -317,11 +317,11 @@ fn should_clear_data_for_removed_members() {
 fn values_are_updated_on_feed() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(ModuleOracle::feed_values(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			vec![(50, 900)].try_into().unwrap()
 		));
 		assert_ok!(ModuleOracle::feed_values(
-			RuntimeOrigin::signed(2),
+			RuntimeOrigin::signed_with_basic_filter(2),
 			vec![(50, 1000)].try_into().unwrap()
 		));
 
@@ -330,7 +330,7 @@ fn values_are_updated_on_feed() {
 		// Upon the third price feed, the value is updated immediately after `combine`
 		// can produce valid result.
 		assert_ok!(ModuleOracle::feed_values(
-			RuntimeOrigin::signed(3),
+			RuntimeOrigin::signed_with_basic_filter(3),
 			vec![(50, 1100)].try_into().unwrap()
 		));
 		assert_eq!(

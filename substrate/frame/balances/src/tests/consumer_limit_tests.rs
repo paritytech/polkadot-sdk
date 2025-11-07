@@ -17,6 +17,7 @@
 
 //! Tests for consumer limit behavior in balance locks.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use frame_support::traits::{
 	fungible::{InspectFreeze, MutateFreeze, MutateHold},
@@ -69,7 +70,7 @@ fn lock_behavior_when_consumer_limit_fully_exhausted() {
 
 			// And this account cannot transfer any funds out.
 			assert_noop!(
-				Balances::transfer_allow_death(frame_system::RawOrigin::Signed(1).into(), 2, 90),
+				Balances::transfer_allow_death(frame_system::RawOrigin::Signed(1).into_with_basic_filter(), 2, 90),
 				DispatchError::Token(TokenError::Frozen)
 			);
 		});

@@ -346,7 +346,7 @@ fn open_system_channel_works() {
 		register_parachain(para_b);
 
 		run_to_block(5, Some(vec![4, 5]));
-		Hrmp::establish_system_channel(RuntimeOrigin::signed(1), para_a, para_b).unwrap();
+		Hrmp::establish_system_channel(RuntimeOrigin::signed_with_basic_filter(1), para_a, para_b).unwrap();
 		Hrmp::assert_storage_consistency_exhaustive();
 		assert!(System::events().iter().any(|record| record.event ==
 			MockEvent::Hrmp(Event::HrmpSystemChannelOpened {
@@ -380,7 +380,7 @@ fn open_system_channel_does_not_work_for_non_system_chains() {
 
 		run_to_block(5, Some(vec![4, 5]));
 		assert_noop!(
-			Hrmp::establish_system_channel(RuntimeOrigin::signed(1), para_a, para_b),
+			Hrmp::establish_system_channel(RuntimeOrigin::signed_with_basic_filter(1), para_a, para_b),
 			Error::<Test>::ChannelCreationNotAuthorized
 		);
 		Hrmp::assert_storage_consistency_exhaustive();
@@ -399,7 +399,7 @@ fn open_system_channel_does_not_work_with_one_non_system_chain() {
 
 		run_to_block(5, Some(vec![4, 5]));
 		assert_noop!(
-			Hrmp::establish_system_channel(RuntimeOrigin::signed(1), para_a, para_b),
+			Hrmp::establish_system_channel(RuntimeOrigin::signed_with_basic_filter(1), para_a, para_b),
 			Error::<Test>::ChannelCreationNotAuthorized
 		);
 		Hrmp::assert_storage_consistency_exhaustive();
@@ -443,7 +443,7 @@ fn poke_deposits_works() {
 			config.hrmp_recipient_deposit
 		));
 
-		assert_ok!(Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), para_a, para_b));
+		assert_ok!(Hrmp::poke_channel_deposits(RuntimeOrigin::signed_with_basic_filter(1), para_a, para_b));
 
 		assert_eq!(
 			<Test as Config>::Currency::reserved_balance(&para_a.into_account_truncating()),
@@ -1084,7 +1084,7 @@ fn establish_channel_with_system_with_invalid_args() {
 
 		run_to_block(5, Some(vec![4, 5]));
 		assert_noop!(
-			Hrmp::establish_channel_with_system(RuntimeOrigin::signed(1), para_b),
+			Hrmp::establish_channel_with_system(RuntimeOrigin::signed_with_basic_filter(1), para_b),
 			BadOrigin
 		);
 		assert_noop!(

@@ -17,6 +17,7 @@
 
 //! The crate's tests.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use crate::{self as pallet_referenda, types::Track};
 use alloc::borrow::Cow;
@@ -305,8 +306,8 @@ pub fn set_balance_proposal_bounded(value: u64) -> BoundedCallOf<Test, ()> {
 #[allow(dead_code)]
 pub fn propose_set_balance(who: u64, value: u64, delay: u64) -> DispatchResult {
 	Referenda::submit(
-		RuntimeOrigin::signed(who),
-		Box::new(frame_system::RawOrigin::Root.into()),
+		RuntimeOrigin::signed_with_basic_filter(who),
+		Box::new(frame_system::RawOrigin::Root.into_with_basic_filter()),
 		set_balance_proposal_bounded(value),
 		DispatchTime::After(delay),
 	)
@@ -433,12 +434,12 @@ pub enum RefState {
 impl RefState {
 	pub fn create(self) -> ReferendumIndex {
 		assert_ok!(Referenda::submit(
-			RuntimeOrigin::signed(1),
-			Box::new(frame_support::dispatch::RawOrigin::Root.into()),
+			RuntimeOrigin::signed_with_basic_filter(1),
+			Box::new(frame_support::dispatch::RawOrigin::Root.into_with_basic_filter()),
 			set_balance_proposal_bounded(1),
 			DispatchTime::At(10),
 		));
-		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0));
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed_with_basic_filter(2), 0));
 		if matches!(self, RefState::Confirming { immediate: true }) {
 			set_tally(0, 100, 0);
 		}
@@ -467,7 +468,7 @@ pub fn note_preimage(who: u64) -> <Test as frame_system::Config>::Hash {
 	// note a new preimage on every function invoke.
 	static COUNTER: AtomicU8 = AtomicU8::new(0);
 	let data = vec![COUNTER.fetch_add(1, Ordering::Relaxed)];
-	assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(who), data.clone()));
+	assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed_with_basic_filter(who), data.clone()));
 	let hash = BlakeTwo256::hash(&data);
 	assert!(!Preimage::is_requested(&hash));
 	hash

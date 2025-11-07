@@ -17,6 +17,7 @@
 
 //! Environment definition of the wasm smart-contract runtime.
 
+use frame_support::traits::IntoWithBasicFilter;
 use crate::{
 	exec::{ExecError, ExecResult, Ext, Key, TopicOf},
 	gas::{ChargedAmount, Token},
@@ -2353,7 +2354,7 @@ pub mod env {
 			dispatch_info,
 			RuntimeCosts::CallXcmExecute,
 			|ctx| {
-				let origin = crate::RawOrigin::Signed(ctx.ext.address().clone()).into();
+				let origin = crate::RawOrigin::Signed(ctx.ext.address().clone()).into_with_basic_filter();
 				let weight_used = <<E::T as Config>::Xcm>::execute(
 					origin,
 					Box::new(message),
@@ -2386,9 +2387,9 @@ pub mod env {
 			ctx.read_sandbox_memory_as_unbounded(memory, msg_ptr, msg_len)?;
 		let weight = <<E::T as Config>::Xcm as SendController<_>>::WeightInfo::send();
 		ctx.charge_gas(RuntimeCosts::CallRuntime(weight))?;
-		let origin = crate::RawOrigin::Signed(ctx.ext.address().clone()).into();
+		let origin = crate::RawOrigin::Signed(ctx.ext.address().clone()).into_with_basic_filter();
 
-		match <<E::T as Config>::Xcm>::send(origin, dest.into(), message.into()) {
+		match <<E::T as Config>::Xcm>::send(origin, dest.into_with_basic_filter(), message.into_with_basic_filter()) {
 			Ok(message_id) => {
 				ctx.write_sandbox_memory(memory, output_ptr, &message_id.encode())?;
 				Ok(ReturnErrorCode::Success)

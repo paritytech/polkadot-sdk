@@ -87,7 +87,7 @@ fn set_identity_cross_chain() {
 		]);
 
 		let signed_origin =
-			<AssetHubWestend as Chain>::RuntimeOrigin::signed(asset_hub_westend_alice);
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(asset_hub_westend_alice);
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::execute(
 			signed_origin,
 			bx!(xcm::VersionedXcm::from(xcm_message.into())),

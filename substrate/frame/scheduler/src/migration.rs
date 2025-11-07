@@ -17,6 +17,7 @@
 
 //! Migrations for the scheduler pallet.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use frame_support::traits::OnRuntimeUpgrade;
 
@@ -557,6 +558,6 @@ mod test {
 	}
 
 	fn signed(i: u64) -> OriginCaller {
-		system::RawOrigin::Signed(i).into()
+		system::RawOrigin::Signed(i).into_with_basic_filter()
 	}
 }

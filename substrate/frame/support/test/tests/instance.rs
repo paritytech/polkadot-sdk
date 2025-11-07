@@ -53,7 +53,7 @@ mod module1 {
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
-		type RuntimeOrigin: From<Origin<Self, I>>;
+		type RuntimeOrigin: FromWithBasicFilter<Origin<Self, I>>;
 		type SomeParameter: Get<u32>;
 		type GenericType: Parameter + Member + MaybeSerializeDeserialize + Default + MaxEncodedLen;
 	}
@@ -172,7 +172,7 @@ mod module2 {
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
-		type RuntimeOrigin: From<Origin<Self, I>>;
+		type RuntimeOrigin: FromWithBasicFilter<Origin<Self, I>>;
 	}
 
 	impl<T: Config<I>, I: 'static> Currency for Pallet<T, I> {}

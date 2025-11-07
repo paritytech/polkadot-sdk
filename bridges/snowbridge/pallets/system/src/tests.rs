@@ -39,7 +39,7 @@ fn upgrade_as_root() {
 #[test]
 fn upgrade_as_signed_fails() {
 	new_test_ext(true).execute_with(|| {
-		let origin = RuntimeOrigin::signed(AccountId32::new([0; 32]));
+		let origin = RuntimeOrigin::signed_with_basic_filter(AccountId32::new([0; 32]));
 		let address: H160 = Default::default();
 		let code_hash: H256 = Default::default();
 
@@ -76,7 +76,7 @@ fn set_operating_mode() {
 #[test]
 fn set_operating_mode_as_signed_fails() {
 	new_test_ext(true).execute_with(|| {
-		let origin = RuntimeOrigin::signed([14; 32].into());
+		let origin = RuntimeOrigin::signed_with_basic_filter([14; 32].into());
 		let mode = OperatingMode::RejectingOutboundMessages;
 
 		assert_noop!(EthereumSystem::set_operating_mode(origin, mode), BadOrigin);
@@ -99,7 +99,7 @@ fn set_pricing_parameters() {
 #[test]
 fn set_pricing_parameters_as_signed_fails() {
 	new_test_ext(true).execute_with(|| {
-		let origin = RuntimeOrigin::signed([14; 32].into());
+		let origin = RuntimeOrigin::signed_with_basic_filter([14; 32].into());
 		let params = Parameters::get();
 
 		assert_noop!(EthereumSystem::set_pricing_parameters(origin, params), BadOrigin);
@@ -157,7 +157,7 @@ fn set_token_transfer_fees() {
 #[test]
 fn set_token_transfer_fees_root_only() {
 	new_test_ext(true).execute_with(|| {
-		let origin = RuntimeOrigin::signed([14; 32].into());
+		let origin = RuntimeOrigin::signed_with_basic_filter([14; 32].into());
 
 		assert_noop!(EthereumSystem::set_token_transfer_fees(origin, 1, 1, 1.into()), BadOrigin);
 	});
@@ -192,7 +192,7 @@ fn no_genesis_build_is_uninitialized() {
 #[test]
 fn register_token_with_signed_yields_bad_origin() {
 	new_test_ext(true).execute_with(|| {
-		let origin = RuntimeOrigin::signed([14; 32].into());
+		let origin = RuntimeOrigin::signed_with_basic_filter([14; 32].into());
 		let location = Location::new(1, [Parachain(2000)]);
 		let versioned_location: Box<VersionedLocation> = Box::new(location.clone().into());
 		assert_noop!(

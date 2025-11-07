@@ -539,14 +539,14 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 
 	// fund Parachain's sender account
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner.clone()),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(asset_owner.clone()),
 		system_para_native_asset_location.clone(),
 		sender.clone(),
 		fee_amount_to_send * 2,
 	);
 	// No need to create the asset (only mint) as it exists in genesis.
 	PenpalA::mint_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner.clone()),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(asset_owner.clone()),
 		asset_id_on_penpal,
 		sender.clone(),
 		asset_amount_to_send * 2,
@@ -649,7 +649,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	AssetHubWestend::execute_with(|| {
 		type ForeignAssets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
 		assert_ok!(ForeignAssets::transfer(
-			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendReceiver::get()),
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubWestendReceiver::get()),
 			foreign_asset_at_asset_hub.clone().try_into().unwrap(),
 			AssetHubWestendSender::get().into(),
 			asset_amount_to_send,
@@ -755,7 +755,7 @@ fn teleport_to_untrusted_chain_fails() {
 	// Init values for Parachain Origin
 	let destination = AssetHubWestend::sibling_location_of(PenpalA::para_id());
 	let signed_origin =
-		<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get().into());
+		<AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubWestendSender::get().into());
 	let roc_to_send: Balance = WESTEND_ED * 10000;
 	let roc_location = RelayLocation::get();
 

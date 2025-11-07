@@ -20,6 +20,7 @@
 mod signed;
 mod staking;
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use crate::{
 	self as multi_block,
@@ -733,7 +734,7 @@ pub fn roll_to_with_ocw(n: BlockNumber, maybe_pool: Option<Arc<RwLock<PoolState>
 				.into_iter()
 				.map(|uxt| <Extrinsic as codec::Decode>::decode(&mut &*uxt).unwrap())
 				.for_each(|xt| {
-					xt.function.dispatch(frame_system::RawOrigin::None.into()).unwrap();
+					xt.function.dispatch(frame_system::RawOrigin::None.into_with_basic_filter()).unwrap();
 				});
 			pool.try_write().unwrap().transactions.clear();
 		}

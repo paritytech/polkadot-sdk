@@ -16,6 +16,7 @@
 
 //! Common try-runtime only tests for runtimes.
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use frame_support::{
 	dispatch::RawOrigin,
@@ -54,7 +55,7 @@ where
 	);
 	for ctrl in eligible {
 		if let Err(why) =
-			FastUnstake::<T>::register_fast_unstake(RawOrigin::Signed(ctrl.clone()).into())
+			FastUnstake::<T>::register_fast_unstake(RawOrigin::Signed(ctrl.clone()).into_with_basic_filter())
 		{
 			log::warn!(target: "runtime::test", "failed to register {:?} due to {:?}", ctrl, why);
 		}

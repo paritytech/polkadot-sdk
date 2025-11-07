@@ -28,7 +28,7 @@ fn cancel_referendum_should_work() {
 			VoteThreshold::SuperMajorityApprove,
 			0,
 		);
-		assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), r, aye(1)));
+		assert_ok!(Democracy::vote(RuntimeOrigin::signed_with_basic_filter(1), r, aye(1)));
 		assert_ok!(Democracy::cancel_referendum(RuntimeOrigin::root(), r.into()));
 		assert_eq!(LowestUnbaked::<Test>::get(), 0);
 
@@ -54,8 +54,8 @@ fn emergency_cancel_should_work() {
 		);
 		assert!(Democracy::referendum_status(r).is_ok());
 
-		assert_noop!(Democracy::emergency_cancel(RuntimeOrigin::signed(3), r), BadOrigin);
-		assert_ok!(Democracy::emergency_cancel(RuntimeOrigin::signed(4), r));
+		assert_noop!(Democracy::emergency_cancel(RuntimeOrigin::signed_with_basic_filter(3), r), BadOrigin);
+		assert_ok!(Democracy::emergency_cancel(RuntimeOrigin::signed_with_basic_filter(4), r));
 		assert!(ReferendumInfoOf::<Test>::get(r).is_none());
 
 		// some time later...
@@ -68,7 +68,7 @@ fn emergency_cancel_should_work() {
 		);
 		assert!(Democracy::referendum_status(r).is_ok());
 		assert_noop!(
-			Democracy::emergency_cancel(RuntimeOrigin::signed(4), r),
+			Democracy::emergency_cancel(RuntimeOrigin::signed_with_basic_filter(4), r),
 			Error::<Test>::AlreadyCanceled,
 		);
 	});

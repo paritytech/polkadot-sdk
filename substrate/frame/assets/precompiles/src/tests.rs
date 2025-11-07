@@ -67,13 +67,13 @@ fn precompile_transfer_works() {
 		let from_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&from);
 		let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, from, true, 1));
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(from), asset_id, from, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed_with_basic_filter(from), asset_id, from, 100));
 
 		let data =
 			IERC20::transferCall { to: to_addr.0.into(), value: U256::from(10) }.abi_encode();
 
 		pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(from),
+			RuntimeOrigin::signed_with_basic_filter(from),
 			H160::from(asset_addr),
 			0u32.into(),
 			Weight::MAX,
@@ -107,12 +107,12 @@ fn total_supply_works() {
 
 		Balances::make_free_balance_be(&owner, 100);
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 1000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed_with_basic_filter(owner), asset_id, owner, 1000));
 
 		let data = IERC20::totalSupplyCall {}.abi_encode();
 
 		let data = pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(owner),
+			RuntimeOrigin::signed_with_basic_filter(owner),
 			H160::from(asset_addr),
 			0u32.into(),
 			Weight::MAX,
@@ -139,13 +139,13 @@ fn balance_of_works() {
 		let owner = 123456789;
 
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 1000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed_with_basic_filter(owner), asset_id, owner, 1000));
 
 		let account = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner).0.into();
 		let data = IERC20::balanceOfCall { account }.abi_encode();
 
 		let data = pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(owner),
+			RuntimeOrigin::signed_with_basic_filter(owner),
 			H160::from(asset_addr),
 			0u32.into(),
 			Weight::MAX,
@@ -185,13 +185,13 @@ fn approval_works() {
 		let other_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&other);
 
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed_with_basic_filter(owner), asset_id, owner, 100));
 
 		let data = IERC20::approveCall { spender: spender_addr.0.into(), value: U256::from(25) }
 			.abi_encode();
 
 		pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(owner),
+			RuntimeOrigin::signed_with_basic_filter(owner),
 			H160::from(asset_addr),
 			0u32.into(),
 			Weight::MAX,
@@ -214,7 +214,7 @@ fn approval_works() {
 				.abi_encode();
 
 		let data = pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(owner),
+			RuntimeOrigin::signed_with_basic_filter(owner),
 			H160::from(asset_addr),
 			0u32.into(),
 			Weight::MAX,
@@ -237,7 +237,7 @@ fn approval_works() {
 		.abi_encode();
 
 		pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(spender),
+			RuntimeOrigin::signed_with_basic_filter(spender),
 			H160::from(asset_addr),
 			0u32.into(),
 			Weight::MAX,

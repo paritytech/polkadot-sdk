@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use crate::Pallet as CoreFellowship;
 
@@ -38,7 +39,7 @@ mod benchmarks {
 	fn ensure_evidence<T: Config<I>, I: 'static>(who: &T::AccountId) -> BenchResult {
 		let evidence = BoundedVec::try_from(vec![0; Evidence::<T, I>::bound()]).unwrap();
 		let wish = Wish::Retention;
-		let origin = RawOrigin::Signed(who.clone()).into();
+		let origin = RawOrigin::Signed(who.clone()).into_with_basic_filter();
 		CoreFellowship::<T, I>::submit_evidence(origin, wish, evidence)?;
 		assert!(MemberEvidence::<T, I>::contains_key(who));
 		Ok(())
@@ -51,7 +52,7 @@ mod benchmarks {
 			T::Members::promote(&member)?;
 		}
 		#[allow(deprecated)]
-		CoreFellowship::<T, I>::import(RawOrigin::Signed(member.clone()).into())?;
+		CoreFellowship::<T, I>::import(RawOrigin::Signed(member.clone()).into_with_basic_filter())?;
 		Ok(member)
 	}
 
@@ -65,7 +66,7 @@ mod benchmarks {
 			offboard_timeout: 1u32.into(),
 		};
 
-		CoreFellowship::<T, I>::set_params(RawOrigin::Root.into(), Box::new(params))?;
+		CoreFellowship::<T, I>::set_params(RawOrigin::Root.into_with_basic_filter(), Box::new(params))?;
 		Ok(())
 	}
 
@@ -99,7 +100,7 @@ mod benchmarks {
 			min_promotion_period: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
 			offboard_timeout: 1u32.into(),
 		};
-		CoreFellowship::<T, I>::set_params(RawOrigin::Root.into(), Box::new(params))?;
+		CoreFellowship::<T, I>::set_params(RawOrigin::Root.into_with_basic_filter(), Box::new(params))?;
 
 		let default_params = Params::<T, I>::get();
 		let expected_params = ParamsType {
@@ -307,7 +308,7 @@ mod benchmarks {
 		assert_eq!(Member::<T, I>::get(&member).unwrap().last_proof, then);
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, member.clone(), 1u8.into());
+		_(RawOrigin::Root, member.clone(), 1u8.into_with_basic_filter());
 
 		assert_eq!(Member::<T, I>::get(&member).unwrap().last_proof, now);
 		assert!(!MemberEvidence::<T, I>::contains_key(&member));

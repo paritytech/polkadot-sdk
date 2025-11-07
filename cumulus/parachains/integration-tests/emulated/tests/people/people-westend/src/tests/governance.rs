@@ -89,7 +89,7 @@ fn relay_commands_add_registrar_wrong_origin() {
 	let origins = vec![
 		(
 			OriginKind::SovereignAccount,
-			<Westend as Chain>::RuntimeOrigin::signed(people_westend_alice),
+			<Westend as Chain>::RuntimeOrigin::signed_with_basic_filter(people_westend_alice),
 		),
 		(OriginKind::Xcm, GeneralAdminOrigin.into()),
 	];
@@ -165,7 +165,7 @@ fn relay_commands_kill_identity() {
 		type PeopleRuntimeEvent = <PeopleWestend as Chain>::RuntimeEvent;
 
 		let people_westend_alice =
-			<PeopleWestend as Chain>::RuntimeOrigin::signed(PeopleWestend::account_id_of(ALICE));
+			<PeopleWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(PeopleWestend::account_id_of(ALICE));
 
 		let identity_info = IdentityInfo {
 			email: Data::Raw(b"test@test.io".to_vec().try_into().unwrap()),
@@ -247,7 +247,7 @@ fn relay_commands_kill_identity_wrong_origin() {
 	let origins = vec![
 		(
 			OriginKind::SovereignAccount,
-			<Westend as Chain>::RuntimeOrigin::signed(people_westend_alice),
+			<Westend as Chain>::RuntimeOrigin::signed_with_basic_filter(people_westend_alice),
 		),
 		(OriginKind::Xcm, GeneralAdminOrigin.into()),
 	];
@@ -362,7 +362,7 @@ fn relay_commands_add_remove_username_authority() {
 		let full_username = [usr.to_owned(), ".suffix1".to_owned()].concat().into_bytes();
 
 		assert_ok!(<PeopleWestend as PeopleWestendPallet>::Identity::set_username_for(
-			<PeopleWestend as Chain>::RuntimeOrigin::signed(people_westend_alice.clone()),
+			<PeopleWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(people_westend_alice.clone()),
 			people_westend_runtime::MultiAddress::Id(people_westend_bob.clone()),
 			full_username,
 			None,
@@ -383,7 +383,7 @@ fn relay_commands_add_remove_username_authority() {
 		let full_username = [usr.to_owned(), ".suffix1".to_owned()].concat().into_bytes();
 
 		assert_ok!(<PeopleWestend as PeopleWestendPallet>::Identity::accept_username(
-			<PeopleWestend as Chain>::RuntimeOrigin::signed(people_westend_bob.clone()),
+			<PeopleWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(people_westend_bob.clone()),
 			full_username.try_into().unwrap(),
 		));
 
@@ -455,7 +455,7 @@ fn relay_commands_add_remove_username_authority_wrong_origin() {
 	let origins = vec![
 		(
 			OriginKind::SovereignAccount,
-			<Westend as Chain>::RuntimeOrigin::signed(people_westend_alice.clone()),
+			<Westend as Chain>::RuntimeOrigin::signed_with_basic_filter(people_westend_alice.clone()),
 		),
 		(OriginKind::Xcm, GeneralAdminOrigin.into()),
 	];

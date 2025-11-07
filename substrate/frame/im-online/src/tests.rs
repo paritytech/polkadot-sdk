@@ -129,7 +129,7 @@ fn heartbeat(
 			"invalid validators len",
 		e @ _ => <&'static str>::from(e),
 	})?;
-	ImOnline::heartbeat(RuntimeOrigin::none(), heartbeat, signature)
+	ImOnline::heartbeat(RuntimeOrigin::none_with_basic_filter(), heartbeat, signature)
 }
 
 #[test]

@@ -321,11 +321,11 @@ pub fn create_exposed_nominator(exposed: AccountId, era: u32) {
 
 	Balances::make_free_balance_be(&exposed, 100);
 	assert_ok!(Staking::bond(
-		RuntimeOrigin::signed(exposed),
+		RuntimeOrigin::signed_with_basic_filter(exposed),
 		10,
 		pallet_staking::RewardDestination::Staked
 	));
-	assert_ok!(Staking::nominate(RuntimeOrigin::signed(exposed), vec![exposed]));
+	assert_ok!(Staking::nominate(RuntimeOrigin::signed_with_basic_filter(exposed), vec![exposed]));
 	// register the exposed one.
-	assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(exposed)));
+	assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed_with_basic_filter(exposed)));
 }

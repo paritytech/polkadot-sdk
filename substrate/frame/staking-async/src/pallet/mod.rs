@@ -17,6 +17,7 @@
 
 //! `pallet-staking-async`'s main `pallet` module.
 
+use frame_support::traits::IntoWithBasicFilter;
 use crate::{
 	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
 	EraRewardPoints, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
@@ -888,7 +889,7 @@ pub mod pallet {
 
 			assert_ok!(T::Currency::mint_into(&who, stake * two));
 			assert_ok!(<Pallet<T>>::bond(
-				T::RuntimeOrigin::from(Some(who.clone()).into()),
+				Some(who.clone()).into()).into_with_basic_filter(),
 				stake,
 				RewardDestination::Staked,
 			));
@@ -942,12 +943,12 @@ pub mod pallet {
 							"Stash does not have enough balance to bond."
 						);
 						assert_ok!(<Pallet<T>>::bond(
-							T::RuntimeOrigin::from(Some(stash.clone()).into()),
+							Some(stash.clone()).into()).into_with_basic_filter(),
 							balance,
 							RewardDestination::Staked,
 						));
 						assert_ok!(<Pallet<T>>::validate(
-							T::RuntimeOrigin::from(Some(stash.clone()).into()),
+							Some(stash.clone()).into()).into_with_basic_filter(),
 							Default::default(),
 						));
 					},
@@ -964,7 +965,7 @@ pub mod pallet {
 							"Stash does not have enough balance to bond."
 						);
 						assert_ok!(<Pallet<T>>::bond(
-							T::RuntimeOrigin::from(Some(stash.clone()).into()),
+							Some(stash.clone()).into()).into_with_basic_filter(),
 							balance,
 							RewardDestination::Staked,
 						));
@@ -989,12 +990,12 @@ pub mod pallet {
 							"Stash does not have enough balance to bond."
 						);
 						assert_ok!(<Pallet<T>>::bond(
-							T::RuntimeOrigin::from(Some(stash.clone()).into()),
+							Some(stash.clone()).into()).into_with_basic_filter(),
 							balance,
 							RewardDestination::Staked,
 						));
 						assert_ok!(<Pallet<T>>::nominate(
-							T::RuntimeOrigin::from(Some(stash.clone()).into()),
+							Some(stash.clone()).into()).into_with_basic_filter(),
 							votes.iter().map(|l| T::Lookup::unlookup(l.clone())).collect(),
 						));
 					},
@@ -1028,7 +1029,7 @@ pub mod pallet {
 					let derivation = base_derivation.replace("{}", &format!("validator{}", index));
 					let who = Self::generate_endowed_bonded_account(&derivation, &mut rng);
 					assert_ok!(<Pallet<T>>::validate(
-						T::RuntimeOrigin::from(Some(who.clone()).into()),
+						Some(who.clone()).into()).into_with_basic_filter(),
 						Default::default(),
 					));
 				});
@@ -1047,7 +1048,7 @@ pub mod pallet {
 						.collect::<Vec<_>>();
 
 					assert_ok!(<Pallet<T>>::nominate(
-						T::RuntimeOrigin::from(Some(who.clone()).into()),
+						Some(who.clone()).into()).into_with_basic_filter(),
 						random_nominations.iter().map(|l| T::Lookup::unlookup(l.clone())).collect(),
 					));
 				})

@@ -162,8 +162,8 @@ fn swap_simple_works() {
 
 			assert_ok!(Club::add_member(RuntimeOrigin::root(), acc));
 			promote_n_times(acc, i);
-			let _ = Salary::init(RuntimeOrigin::signed(acc));
-			assert_ok!(Salary::induct(RuntimeOrigin::signed(acc)));
+			let _ = Salary::init(RuntimeOrigin::signed_with_basic_filter(acc));
+			assert_ok!(Salary::induct(RuntimeOrigin::signed_with_basic_filter(acc)));
 
 			// Swapping normally works:
 			assert_ok!(Club::exchange_member(RuntimeOrigin::root(), acc, acc + 10));
@@ -178,8 +178,8 @@ fn swap_exhaustive_works() {
 		let root_add = hypothetically!({
 			assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
 			assert_ok!(Club::promote_member(RuntimeOrigin::root(), 1));
-			assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
-			assert_ok!(Salary::induct(RuntimeOrigin::signed(1)));
+			assert_ok!(Salary::init(RuntimeOrigin::signed_with_basic_filter(1)));
+			assert_ok!(Salary::induct(RuntimeOrigin::signed_with_basic_filter(1)));
 
 			// The events mess up the storage root:
 			System::reset_events();
@@ -189,8 +189,8 @@ fn swap_exhaustive_works() {
 		let root_swap = hypothetically!({
 			assert_ok!(Club::add_member(RuntimeOrigin::root(), 0));
 			assert_ok!(Club::promote_member(RuntimeOrigin::root(), 0));
-			assert_ok!(Salary::init(RuntimeOrigin::signed(0)));
-			assert_ok!(Salary::induct(RuntimeOrigin::signed(0)));
+			assert_ok!(Salary::init(RuntimeOrigin::signed_with_basic_filter(0)));
+			assert_ok!(Salary::induct(RuntimeOrigin::signed_with_basic_filter(0)));
 
 			assert_ok!(Club::exchange_member(RuntimeOrigin::root(), 0, 1));
 
@@ -210,11 +210,11 @@ fn swap_bad_noops() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 0));
 		promote_n_times(0, 0);
-		assert_ok!(Salary::init(RuntimeOrigin::signed(0)));
-		assert_ok!(Salary::induct(RuntimeOrigin::signed(0)));
+		assert_ok!(Salary::init(RuntimeOrigin::signed_with_basic_filter(0)));
+		assert_ok!(Salary::induct(RuntimeOrigin::signed_with_basic_filter(0)));
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
 		promote_n_times(1, 1);
-		assert_ok!(Salary::induct(RuntimeOrigin::signed(1)));
+		assert_ok!(Salary::induct(RuntimeOrigin::signed_with_basic_filter(1)));
 
 		// Swapping for another member is a noop:
 		assert_noop!(

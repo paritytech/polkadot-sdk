@@ -829,7 +829,7 @@ mod tests {
 
 			assert_noop!(
 				AssignedSlots::assign_perm_parachain_slot(
-					RuntimeOrigin::signed(1),
+					RuntimeOrigin::signed_with_basic_filter(1),
 					ParaId::from(1_u32),
 				),
 				BadOrigin
@@ -1014,7 +1014,7 @@ mod tests {
 
 			assert_noop!(
 				AssignedSlots::assign_temp_parachain_slot(
-					RuntimeOrigin::signed(1),
+					RuntimeOrigin::signed_with_basic_filter(1),
 					ParaId::from(1_u32),
 					SlotLeasePeriodStart::Current
 				),
@@ -1325,7 +1325,7 @@ mod tests {
 
 			assert_noop!(
 				AssignedSlots::assign_perm_parachain_slot(
-					RuntimeOrigin::signed(1),
+					RuntimeOrigin::signed_with_basic_filter(1),
 					ParaId::from(1_u32),
 				),
 				BadOrigin
@@ -1404,7 +1404,7 @@ mod tests {
 			System::run_to_block::<AllPalletsWithSystem>(1);
 
 			assert_noop!(
-				AssignedSlots::set_max_permanent_slots(RuntimeOrigin::signed(1), 5),
+				AssignedSlots::set_max_permanent_slots(RuntimeOrigin::signed_with_basic_filter(1), 5),
 				BadOrigin
 			);
 		});
@@ -1426,7 +1426,7 @@ mod tests {
 			System::run_to_block::<AllPalletsWithSystem>(1);
 
 			assert_noop!(
-				AssignedSlots::set_max_temporary_slots(RuntimeOrigin::signed(1), 5),
+				AssignedSlots::set_max_temporary_slots(RuntimeOrigin::signed_with_basic_filter(1), 5),
 				BadOrigin
 			);
 		});

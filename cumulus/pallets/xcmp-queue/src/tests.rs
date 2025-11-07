@@ -499,7 +499,7 @@ fn suspend_xcm_execution_works() {
 #[test]
 fn suspend_and_resume_xcm_execution_work() {
 	new_test_ext().execute_with(|| {
-		assert_noop!(XcmpQueue::suspend_xcm_execution(Origin::signed(1)), BadOrigin);
+		assert_noop!(XcmpQueue::suspend_xcm_execution(Origin::signed_with_basic_filter(1)), BadOrigin);
 		assert_ok!(XcmpQueue::suspend_xcm_execution(Origin::root()));
 		assert_noop!(
 			XcmpQueue::suspend_xcm_execution(Origin::root()),
@@ -507,7 +507,7 @@ fn suspend_and_resume_xcm_execution_work() {
 		);
 		assert!(QueueSuspended::<Test>::get());
 
-		assert_noop!(XcmpQueue::resume_xcm_execution(Origin::signed(1)), BadOrigin);
+		assert_noop!(XcmpQueue::resume_xcm_execution(Origin::signed_with_basic_filter(1)), BadOrigin);
 		assert_ok!(XcmpQueue::resume_xcm_execution(Origin::root()));
 		assert_noop!(
 			XcmpQueue::resume_xcm_execution(Origin::root()),
@@ -559,7 +559,7 @@ fn xcm_enqueueing_backpressure_works() {
 fn update_suspend_threshold_works() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(<QueueConfig<Test>>::get().suspend_threshold, 32);
-		assert_noop!(XcmpQueue::update_suspend_threshold(Origin::signed(2), 49), BadOrigin);
+		assert_noop!(XcmpQueue::update_suspend_threshold(Origin::signed_with_basic_filter(2), 49), BadOrigin);
 
 		assert_ok!(XcmpQueue::update_suspend_threshold(Origin::root(), 33));
 		assert_eq!(<QueueConfig<Test>>::get().suspend_threshold, 33);
@@ -571,7 +571,7 @@ fn update_drop_threshold_works() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(<QueueConfig<Test>>::get().drop_threshold, 48);
 		assert_ok!(XcmpQueue::update_drop_threshold(Origin::root(), 4000));
-		assert_noop!(XcmpQueue::update_drop_threshold(Origin::signed(2), 7), BadOrigin);
+		assert_noop!(XcmpQueue::update_drop_threshold(Origin::signed_with_basic_filter(2), 7), BadOrigin);
 
 		assert_eq!(<QueueConfig<Test>>::get().drop_threshold, 4000);
 	});
@@ -590,7 +590,7 @@ fn update_resume_threshold_works() {
 			Error::<Test>::BadQueueConfig
 		);
 		assert_ok!(XcmpQueue::update_resume_threshold(Origin::root(), 16));
-		assert_noop!(XcmpQueue::update_resume_threshold(Origin::signed(7), 3), BadOrigin);
+		assert_noop!(XcmpQueue::update_resume_threshold(Origin::signed_with_basic_filter(7), 3), BadOrigin);
 
 		assert_eq!(<QueueConfig<Test>>::get().resume_threshold, 16);
 	});

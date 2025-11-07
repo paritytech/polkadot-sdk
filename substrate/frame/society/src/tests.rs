@@ -154,12 +154,12 @@ fn founding_works() {
 		// Account 1 is set as the founder origin
 		// Account 5 cannot start a society
 		assert_noop!(
-			Society::found_society(Origin::signed(5), 20, 100, 10, 2, 25, vec![]),
+			Society::found_society(Origin::signed_with_basic_filter(5), 20, 100, 10, 2, 25, vec![]),
 			BadOrigin
 		);
 		// Account 1 can start a society, where 10 is the founding member
 		assert_ok!(Society::found_society(
-			Origin::signed(1),
+			Origin::signed_with_basic_filter(1),
 			10,
 			100,
 			10,
@@ -182,7 +182,7 @@ fn founding_works() {
 		assert_eq!(Pot::<Test>::get(), 1000);
 		// Cannot start another society
 		assert_noop!(
-			Society::found_society(Origin::signed(1), 20, 100, 10, 2, 25, vec![]),
+			Society::found_society(Origin::signed_with_basic_filter(1), 20, 100, 10, 2, 25, vec![]),
 			Error::<Test>::AlreadyFounded
 		);
 	});
@@ -192,22 +192,22 @@ fn founding_works() {
 fn unfounding_works() {
 	EnvBuilder::new().founded(false).execute(|| {
 		// Account 1 sets the founder...
-		assert_ok!(Society::found_society(Origin::signed(1), 10, 100, 10, 2, 25, vec![]));
+		assert_ok!(Society::found_society(Origin::signed_with_basic_filter(1), 10, 100, 10, 2, 25, vec![]));
 		// Account 2 cannot unfound it as it's not the founder.
-		assert_noop!(Society::dissolve(Origin::signed(2)), Error::<Test>::NotFounder);
+		assert_noop!(Society::dissolve(Origin::signed_with_basic_filter(2)), Error::<Test>::NotFounder);
 		// Account 10 can, though.
-		assert_ok!(Society::dissolve(Origin::signed(10)));
+		assert_ok!(Society::dissolve(Origin::signed_with_basic_filter(10)));
 
 		// 1 sets the founder to 20 this time
-		assert_ok!(Society::found_society(Origin::signed(1), 20, 100, 10, 2, 25, vec![]));
+		assert_ok!(Society::found_society(Origin::signed_with_basic_filter(1), 20, 100, 10, 2, 25, vec![]));
 		// Bring in a new member...
-		assert_ok!(Society::bid(Origin::signed(10), 0));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(10), 0));
 		next_intake();
-		assert_ok!(Society::vote(Origin::signed(20), 10, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(20), 10, true));
 		conclude_intake(true, None);
 
 		// Unfounding won't work now, even though it's from 20.
-		assert_noop!(Society::dissolve(Origin::signed(20)), Error::<Test>::NotHead);
+		assert_noop!(Society::dissolve(Origin::signed_with_basic_filter(20)), Error::<Test>::NotHead);
 	});
 }
 
@@ -216,7 +216,7 @@ fn basic_new_member_works() {
 	EnvBuilder::new().execute(|| {
 		assert_eq!(Balances::free_balance(20), 50);
 		// Bid causes Candidate Deposit to be reserved.
-		assert_ok!(Society::bid(RuntimeOrigin::signed(20), 0));
+		assert_ok!(Society::bid(RuntimeOrigin::signed_with_basic_filter(20), 0));
 		assert_eq!(Balances::free_balance(20), 25);
 		assert_eq!(Balances::reserved_balance(20), 25);
 		// Rotate period every 4 blocks
@@ -224,7 +224,7 @@ fn basic_new_member_works() {
 		// 20 is now a candidate
 		assert_eq!(candidacies(), vec![(20, candidacy(1, 0, Deposit(25), 0, 0))]);
 		// 10 (a member) can vote for the candidate
-		assert_ok!(Society::vote(Origin::signed(10), 20, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(10), 20, true));
 		conclude_intake(true, None);
 		// Rotate period every 4 blocks
 		next_intake();
@@ -240,10 +240,10 @@ fn basic_new_member_works() {
 fn bidding_works() {
 	EnvBuilder::new().execute(|| {
 		// Users make bids of various amounts
-		assert_ok!(Society::bid(RuntimeOrigin::signed(60), 1900));
-		assert_ok!(Society::bid(RuntimeOrigin::signed(50), 500));
-		assert_ok!(Society::bid(RuntimeOrigin::signed(40), 400));
-		assert_ok!(Society::bid(RuntimeOrigin::signed(30), 300));
+		assert_ok!(Society::bid(RuntimeOrigin::signed_with_basic_filter(60), 1900));
+		assert_ok!(Society::bid(RuntimeOrigin::signed_with_basic_filter(50), 500));
+		assert_ok!(Society::bid(RuntimeOrigin::signed_with_basic_filter(40), 400));
+		assert_ok!(Society::bid(RuntimeOrigin::signed_with_basic_filter(30), 300));
 		// Rotate period
 		next_intake();
 		// Pot is 1000 after "PeriodSpend"
@@ -258,8 +258,8 @@ fn bidding_works() {
 			]
 		);
 		// A member votes for these candidates to join the society
-		assert_ok!(Society::vote(Origin::signed(10), 30, true));
-		assert_ok!(Society::vote(Origin::signed(10), 40, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(10), 30, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(10), 40, true));
 		conclude_intake(true, None);
 		next_intake();
 		// Candidates become members after a period rotation
@@ -270,7 +270,7 @@ fn bidding_works() {
 		// Left over from the original bids is 50 who satisfies the condition of bid less than pot.
 		assert_eq!(candidacies(), vec![(50, candidacy(2, 500, Deposit(25), 0, 0))]);
 		// 40, now a member, can vote for 50
-		assert_ok!(Society::vote(Origin::signed(40), 50, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(40), 50, true));
 		conclude_intake(true, None);
 		System::run_to_block::<AllPalletsWithSystem>(12);
 		// 50 is now a member
@@ -280,7 +280,7 @@ fn bidding_works() {
 		assert_eq!(Balances::free_balance(Society::account_id()), 8_800);
 		// No more candidates satisfy the requirements
 		assert_eq!(candidacies(), vec![]);
-		assert_ok!(Society::defender_vote(Origin::signed(10), true)); // Keep defender around
+		assert_ok!(Society::defender_vote(Origin::signed_with_basic_filter(10), true)); // Keep defender around
 																// Next period
 		System::run_to_block::<AllPalletsWithSystem>(16);
 		// Same members
@@ -292,7 +292,7 @@ fn bidding_works() {
 		// Candidate 60 now qualifies based on the increased pot size.
 		assert_eq!(candidacies(), vec![(60, candidacy(4, 1900, Deposit(25), 0, 0))]);
 		// Candidate 60 is voted in.
-		assert_ok!(Society::vote(Origin::signed(50), 60, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(50), 60, true));
 		conclude_intake(true, None);
 		System::run_to_block::<AllPalletsWithSystem>(20);
 		// 60 joins as a member
@@ -307,14 +307,14 @@ fn bidding_works() {
 fn unbidding_works() {
 	EnvBuilder::new().execute(|| {
 		// 20 and 30 make bids
-		assert_ok!(Society::bid(RuntimeOrigin::signed(20), 1000));
-		assert_ok!(Society::bid(RuntimeOrigin::signed(30), 0));
+		assert_ok!(Society::bid(RuntimeOrigin::signed_with_basic_filter(20), 1000));
+		assert_ok!(Society::bid(RuntimeOrigin::signed_with_basic_filter(30), 0));
 		// Balances are reserved
 		assert_eq!(Balances::free_balance(30), 25);
 		assert_eq!(Balances::reserved_balance(30), 25);
 		// Can unbid themselves with the right position
-		assert_ok!(Society::unbid(Origin::signed(30)));
-		assert_noop!(Society::unbid(Origin::signed(30)), Error::<Test>::NotBidder);
+		assert_ok!(Society::unbid(Origin::signed_with_basic_filter(30)));
+		assert_noop!(Society::unbid(Origin::signed_with_basic_filter(30)), Error::<Test>::NotBidder);
 		// Balance is returned
 		assert_eq!(Balances::free_balance(30), 50);
 		assert_eq!(Balances::reserved_balance(30), 0);
@@ -329,15 +329,15 @@ fn payout_works() {
 	EnvBuilder::new().execute(|| {
 		// Original balance of 50
 		assert_eq!(Balances::free_balance(20), 50);
-		assert_ok!(Society::bid(Origin::signed(20), 1000));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(20), 1000));
 		next_intake();
-		assert_ok!(Society::vote(Origin::signed(10), 20, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(10), 20, true));
 		conclude_intake(true, None);
 		// payout not ready
-		assert_noop!(Society::payout(Origin::signed(20)), Error::<Test>::NoPayout);
+		assert_noop!(Society::payout(Origin::signed_with_basic_filter(20)), Error::<Test>::NoPayout);
 		next_intake();
 		// payout should be here
-		assert_ok!(Society::payout(RuntimeOrigin::signed(20)));
+		assert_ok!(Society::payout(RuntimeOrigin::signed_with_basic_filter(20)));
 		assert_eq!(Balances::free_balance(20), 1050);
 	});
 }
@@ -346,7 +346,7 @@ fn payout_works() {
 fn non_voting_skeptic_is_punished() {
 	EnvBuilder::new().execute(|| {
 		assert_eq!(Members::<Test>::get(10).unwrap().strikes, 0);
-		assert_ok!(Society::bid(Origin::signed(20), 0));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(20), 0));
 		next_intake();
 		assert_eq!(candidacies(), vec![(20, candidacy(1, 0, Deposit(25), 0, 0))]);
 		conclude_intake(true, None);
@@ -360,11 +360,11 @@ fn non_voting_skeptic_is_punished() {
 fn rejecting_skeptic_on_approved_is_punished() {
 	EnvBuilder::new().execute(|| {
 		place_members([20, 30]);
-		assert_ok!(Society::bid(Origin::signed(40), 0));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(40), 0));
 		next_intake();
 		let skeptic = Skeptic::<Test>::get().unwrap();
 		for &i in &[10, 20, 30][..] {
-			assert_ok!(Society::vote(Origin::signed(i), 40, i != skeptic));
+			assert_ok!(Society::vote(Origin::signed_with_basic_filter(i), 40, i != skeptic));
 		}
 		conclude_intake(true, None);
 		assert_eq!(Members::<Test>::get(10).unwrap().strikes, 0);
@@ -380,14 +380,14 @@ fn basic_new_member_reject_works() {
 		// Starting Balance
 		assert_eq!(Balances::free_balance(20), 50);
 		// 20 makes a bid
-		assert_ok!(Society::bid(RuntimeOrigin::signed(20), 0));
+		assert_ok!(Society::bid(RuntimeOrigin::signed_with_basic_filter(20), 0));
 		assert_eq!(Balances::free_balance(20), 25);
 		assert_eq!(Balances::reserved_balance(20), 25);
 		// Rotation Period
 		next_intake();
 		assert_eq!(candidacies(), vec![(20, candidacy(1, 0, Deposit(25), 0, 0))]);
 		// We say no
-		assert_ok!(Society::vote(Origin::signed(10), 20, false));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(10), 20, false));
 		conclude_intake(true, None);
 		next_intake();
 		// User is not added as member
@@ -402,16 +402,16 @@ fn basic_new_member_reject_works() {
 fn slash_payout_works() {
 	EnvBuilder::new().execute(|| {
 		assert_eq!(Balances::free_balance(20), 50);
-		assert_ok!(Society::bid(Origin::signed(20), 1000));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(20), 1000));
 		next_intake();
-		assert_ok!(Society::vote(Origin::signed(10), 20, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(10), 20, true));
 		conclude_intake(true, None);
 		// payout in queue
 		assert_eq!(
 			Payouts::<Test>::get(20),
 			PayoutRecord { paid: 0, payouts: vec![(8, 1000)].try_into().unwrap() }
 		);
-		assert_noop!(Society::payout(Origin::signed(20)), Error::<Test>::NoPayout);
+		assert_noop!(Society::payout(Origin::signed_with_basic_filter(20)), Error::<Test>::NoPayout);
 		// slash payout
 		assert_eq!(Society::slash_payout(&20, 500), 500);
 		assert_eq!(
@@ -420,7 +420,7 @@ fn slash_payout_works() {
 		);
 		System::run_to_block::<AllPalletsWithSystem>(8);
 		// payout should be here, but 500 less
-		assert_ok!(Society::payout(RuntimeOrigin::signed(20)));
+		assert_ok!(Society::payout(RuntimeOrigin::signed_with_basic_filter(20)));
 		assert_eq!(Balances::free_balance(20), 550);
 		assert_eq!(
 			Payouts::<Test>::get(20),
@@ -472,8 +472,8 @@ fn suspended_member_life_cycle_works() {
 		assert!(!SuspendedMembers::<Test>::contains_key(20));
 
 		// Let's suspend account 20 by giving them 2 strikes by not voting
-		assert_ok!(Society::bid(Origin::signed(30), 0));
-		assert_ok!(Society::bid(Origin::signed(40), 1));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(30), 0));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(40), 1));
 		next_intake();
 		conclude_intake(false, None);
 
@@ -483,17 +483,17 @@ fn suspended_member_life_cycle_works() {
 
 		// Suspended members cannot get payout
 		Society::bump_payout(&20, 10, 100);
-		assert_noop!(Society::payout(Origin::signed(20)), Error::<Test>::NotMember);
+		assert_noop!(Society::payout(Origin::signed_with_basic_filter(20)), Error::<Test>::NotMember);
 
 		// Normal people cannot make judgement
 		assert_noop!(
-			Society::judge_suspended_member(Origin::signed(20), 20, true),
+			Society::judge_suspended_member(Origin::signed_with_basic_filter(20), 20, true),
 			Error::<Test>::NotFounder
 		);
 
 		// Suspension judgment origin can judge thee
 		// Suspension judgement origin forgives the suspended member
-		assert_ok!(Society::judge_suspended_member(Origin::signed(10), 20, true));
+		assert_ok!(Society::judge_suspended_member(Origin::signed_with_basic_filter(10), 20, true));
 		assert!(!SuspendedMembers::<Test>::contains_key(20));
 		assert_eq!(members(), vec![10, 20]);
 
@@ -501,7 +501,7 @@ fn suspended_member_life_cycle_works() {
 		assert_ok!(Society::suspend_member(&20));
 		assert!(SuspendedMembers::<Test>::contains_key(20));
 		// Suspension judgement origin does not forgive the suspended member
-		assert_ok!(Society::judge_suspended_member(Origin::signed(10), 20, false));
+		assert_ok!(Society::judge_suspended_member(Origin::signed_with_basic_filter(10), 20, false));
 		// Cleaned up
 		assert!(!SuspendedMembers::<Test>::contains_key(20));
 		assert_eq!(members(), vec![10]);
@@ -518,7 +518,7 @@ fn suspended_candidate_rejected_works() {
 		place_members([20, 30]);
 		// 40, 50, 60, 70, 80 make bids
 		for &x in &[40u128, 50, 60, 70] {
-			assert_ok!(Society::bid(Origin::signed(x), 10));
+			assert_ok!(Society::bid(Origin::signed_with_basic_filter(x), 10));
 			assert_eq!(Balances::free_balance(x), 25);
 			assert_eq!(Balances::reserved_balance(x), 25);
 		}
@@ -537,8 +537,8 @@ fn suspended_candidate_rejected_works() {
 
 		// Split vote over all.
 		for &x in &[40, 50, 60, 70] {
-			assert_ok!(Society::vote(Origin::signed(20), x, false));
-			assert_ok!(Society::vote(Origin::signed(30), x, true));
+			assert_ok!(Society::vote(Origin::signed_with_basic_filter(20), x, false));
+			assert_ok!(Society::vote(Origin::signed_with_basic_filter(30), x, true));
 		}
 
 		// Voting continues, as no candidate is clearly accepted yet and the founder chooses not to
@@ -549,8 +549,8 @@ fn suspended_candidate_rejected_works() {
 
 		// 40 gets approved after founder weighs in giving it a clear approval.
 		// but the founder's rejection of 60 doesn't do much for now.
-		assert_ok!(Society::vote(Origin::signed(10), 40, true));
-		assert_ok!(Society::vote(Origin::signed(10), 60, false));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(10), 40, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(10), 60, false));
 		conclude_intake(false, None);
 		assert_eq!(members(), vec![10, 20, 30, 40]);
 		assert_eq!(candidates(), vec![50, 60, 70]);
@@ -559,7 +559,7 @@ fn suspended_candidate_rejected_works() {
 		assert_eq!(Balances::free_balance(Society::account_id()), 9990);
 
 		// Founder manually bestows membership on 50 and kicks 70.
-		assert_ok!(Society::bestow_membership(Origin::signed(10), 50));
+		assert_ok!(Society::bestow_membership(Origin::signed_with_basic_filter(10), 50));
 		assert_eq!(members(), vec![10, 20, 30, 40, 50]);
 		assert_eq!(candidates(), vec![60, 70]);
 		assert_eq!(Balances::free_balance(50), 50);
@@ -569,7 +569,7 @@ fn suspended_candidate_rejected_works() {
 		assert_eq!(Balances::free_balance(70), 25);
 		assert_eq!(Balances::reserved_balance(70), 25);
 
-		assert_ok!(Society::kick_candidate(Origin::signed(10), 70));
+		assert_ok!(Society::kick_candidate(Origin::signed_with_basic_filter(10), 70));
 		assert_eq!(members(), vec![10, 20, 30, 40, 50]);
 		assert_eq!(candidates(), vec![60]);
 		assert_eq!(Balances::free_balance(70), 25);
@@ -600,13 +600,13 @@ fn unpaid_vouch_works() {
 		// 10 is the only member
 		assert_eq!(members(), vec![10]);
 		// A non-member cannot vouch
-		assert_noop!(Society::vouch(Origin::signed(1), 20, 1000, 100), Error::<Test>::NotMember);
+		assert_noop!(Society::vouch(Origin::signed_with_basic_filter(1), 20, 1000, 100), Error::<Test>::NotMember);
 		// A member can though
-		assert_ok!(Society::vouch(Origin::signed(10), 20, 1000, 100));
+		assert_ok!(Society::vouch(Origin::signed_with_basic_filter(10), 20, 1000, 100));
 		assert_eq!(Members::<Test>::get(10).unwrap().vouching, Some(VouchingStatus::Vouching));
 		// A member cannot vouch twice at the same time
 		assert_noop!(
-			Society::vouch(Origin::signed(10), 30, 100, 0),
+			Society::vouch(Origin::signed_with_basic_filter(10), 30, 100, 0),
 			Error::<Test>::AlreadyVouching
 		);
 		// Vouching creates the right kind of bid
@@ -615,7 +615,7 @@ fn unpaid_vouch_works() {
 		next_intake();
 		assert_eq!(candidacies(), vec![(20, candidacy(1, 1000, Vouch(10, 100), 0, 0))]);
 		// Vote yes
-		assert_ok!(Society::vote(RuntimeOrigin::signed(10), 20, true));
+		assert_ok!(Society::vote(RuntimeOrigin::signed_with_basic_filter(10), 20, true));
 		// Vouched user can win
 		conclude_intake(true, None);
 		assert_eq!(members(), vec![10, 20]);
@@ -635,13 +635,13 @@ fn paid_vouch_works() {
 		place_members([20]);
 		assert_eq!(members(), vec![10, 20]);
 
-		assert_ok!(Society::vouch(Origin::signed(20), 30, 1000, 100));
+		assert_ok!(Society::vouch(Origin::signed_with_basic_filter(20), 30, 1000, 100));
 		assert_eq!(Members::<Test>::get(20).unwrap().vouching, Some(VouchingStatus::Vouching));
 		assert_eq!(Bids::<Test>::get().into_inner(), vec![bid(30, Vouch(20, 100), 1000)]);
 
 		next_intake();
 		assert_eq!(candidacies(), vec![(30, candidacy(1, 1000, Vouch(20, 100), 0, 0))]);
-		assert_ok!(Society::vote(Origin::signed(20), 30, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(20), 30, true));
 		conclude_intake(true, None);
 
 		assert_eq!(members(), vec![10, 20, 30]);
@@ -665,14 +665,14 @@ fn voucher_cannot_win_more_than_bid() {
 	EnvBuilder::new().execute(|| {
 		place_members([20]);
 		// 20 vouches, but asks for more than the bid
-		assert_ok!(Society::vouch(Origin::signed(20), 30, 100, 1000));
+		assert_ok!(Society::vouch(Origin::signed_with_basic_filter(20), 30, 100, 1000));
 		// Vouching creates the right kind of bid
 		assert_eq!(Bids::<Test>::get().into_inner(), vec![bid(30, Vouch(20, 1000), 100)]);
 		// Vouched user can become candidate
 		next_intake();
 		assert_eq!(candidacies(), vec![(30, candidacy(1, 100, Vouch(20, 1000), 0, 0))]);
 		// Vote yes
-		assert_ok!(Society::vote(Origin::signed(20), 30, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(20), 30, true));
 		// Vouched user can win
 		conclude_intake(true, None);
 		assert_eq!(members(), vec![10, 20, 30]);
@@ -695,28 +695,28 @@ fn unvouch_works() {
 		// 10 is the only member
 		assert_eq!(members(), vec![10]);
 		// 10 vouches for 20
-		assert_ok!(Society::vouch(RuntimeOrigin::signed(10), 20, 100, 0));
+		assert_ok!(Society::vouch(RuntimeOrigin::signed_with_basic_filter(10), 20, 100, 0));
 		// 20 has a bid
 		assert_eq!(Bids::<Test>::get().into_inner(), vec![bid(20, Vouch(10, 0), 100)]);
 		// 10 is vouched
 		assert_eq!(Members::<Test>::get(10).unwrap().vouching, Some(VouchingStatus::Vouching));
 		// 10 can unvouch
-		assert_ok!(Society::unvouch(Origin::signed(10)));
+		assert_ok!(Society::unvouch(Origin::signed_with_basic_filter(10)));
 		// 20 no longer has a bid
 		assert_eq!(Bids::<Test>::get().into_inner(), vec![]);
 		// 10 is no longer vouching
 		assert_eq!(Members::<Test>::get(10).unwrap().vouching, None);
 
 		// Cannot unvouch after they become candidate
-		assert_ok!(Society::vouch(Origin::signed(10), 20, 100, 0));
+		assert_ok!(Society::vouch(Origin::signed_with_basic_filter(10), 20, 100, 0));
 		next_intake();
 		assert_eq!(candidacies(), vec![(20, candidacy(1, 100, Vouch(10, 0), 0, 0))]);
-		assert_noop!(Society::unvouch(Origin::signed(10)), Error::<Test>::NotVouchingOnBidder);
+		assert_noop!(Society::unvouch(Origin::signed_with_basic_filter(10)), Error::<Test>::NotVouchingOnBidder);
 
 		// 10 is still vouching until candidate is approved or rejected
 		assert_eq!(Members::<Test>::get(10).unwrap().vouching, Some(VouchingStatus::Vouching));
 		// Voucher inexplicably votes against their pick.
-		assert_ok!(Society::vote(Origin::signed(10), 20, false));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(10), 20, false));
 		// But their pick doesn't resign (yet).
 		conclude_intake(false, None);
 		// Voting still happening and voucher cannot unvouch.
@@ -731,11 +731,11 @@ fn unvouch_works() {
 
 		// 10 cannot vouch again
 		assert_noop!(
-			Society::vouch(Origin::signed(10), 30, 100, 0),
+			Society::vouch(Origin::signed_with_basic_filter(10), 30, 100, 0),
 			Error::<Test>::AlreadyVouching
 		);
 		// 10 cannot unvouch either, so they are banned forever.
-		assert_noop!(Society::unvouch(Origin::signed(10)), Error::<Test>::NotVouchingOnBidder);
+		assert_noop!(Society::unvouch(Origin::signed_with_basic_filter(10)), Error::<Test>::NotVouchingOnBidder);
 	});
 }
 
@@ -745,13 +745,13 @@ fn unbid_vouch_works() {
 		// 10 is the only member
 		assert_eq!(members(), vec![10]);
 		// 10 vouches for 20
-		assert_ok!(Society::vouch(RuntimeOrigin::signed(10), 20, 100, 0));
+		assert_ok!(Society::vouch(RuntimeOrigin::signed_with_basic_filter(10), 20, 100, 0));
 		// 20 has a bid
 		assert_eq!(Bids::<Test>::get().into_inner(), vec![bid(20, Vouch(10, 0), 100)]);
 		// 10 is vouched
 		assert_eq!(Members::<Test>::get(10).unwrap().vouching, Some(VouchingStatus::Vouching));
 		// 20 doesn't want to be a member and can unbid themselves.
-		assert_ok!(Society::unbid(Origin::signed(20)));
+		assert_ok!(Society::unbid(Origin::signed_with_basic_filter(20)));
 		// Everything is cleaned up
 		assert_eq!(Members::<Test>::get(10).unwrap().vouching, None);
 		assert_eq!(Bids::<Test>::get().into_inner(), vec![]);
@@ -766,24 +766,24 @@ fn founder_and_head_cannot_be_removed() {
 		assert_eq!(Founder::<Test>::get(), Some(10));
 		assert_eq!(Head::<Test>::get(), Some(10));
 		// 10 can still accumulate strikes
-		assert_ok!(Society::bid(Origin::signed(20), 0));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(20), 0));
 		next_intake();
 		conclude_intake(false, None);
 		assert_eq!(Members::<Test>::get(10).unwrap().strikes, 1);
-		assert_ok!(Society::bid(Origin::signed(30), 0));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(30), 0));
 		next_intake();
 		conclude_intake(false, None);
 		assert_eq!(Members::<Test>::get(10).unwrap().strikes, 2);
 		// Awkwardly they can obtain more than MAX_STRIKES...
-		assert_ok!(Society::bid(Origin::signed(40), 0));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(40), 0));
 		next_intake();
 		conclude_intake(false, None);
 		assert_eq!(Members::<Test>::get(10).unwrap().strikes, 3);
 
 		// Replace the head
-		assert_ok!(Society::bid(Origin::signed(50), 0));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(50), 0));
 		next_intake();
-		assert_ok!(Society::vote(Origin::signed(10), 50, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(10), 50, true));
 		conclude_intake(false, None);
 		assert_eq!(members(), vec![10, 50]);
 		assert_eq!(Head::<Test>::get(), Some(10));
@@ -793,13 +793,13 @@ fn founder_and_head_cannot_be_removed() {
 		assert_eq!(Founder::<Test>::get(), Some(10));
 
 		// 50 can still accumulate strikes
-		assert_ok!(Society::bid(Origin::signed(60), 0));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(60), 0));
 		next_intake();
 		// Force 50 to be Skeptic so it gets a strike.
 		Skeptic::<Test>::put(50);
 		conclude_intake(false, None);
 		assert_eq!(Members::<Test>::get(50).unwrap().strikes, 1);
-		assert_ok!(Society::bid(Origin::signed(70), 0));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(70), 0));
 		next_intake();
 		// Force 50 to be Skeptic so it gets a strike.
 		Skeptic::<Test>::put(50);
@@ -807,10 +807,10 @@ fn founder_and_head_cannot_be_removed() {
 		assert_eq!(Members::<Test>::get(50).unwrap().strikes, 2);
 
 		// Replace the head
-		assert_ok!(Society::bid(Origin::signed(80), 0));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(80), 0));
 		next_intake();
-		assert_ok!(Society::vote(Origin::signed(10), 80, true));
-		assert_ok!(Society::vote(Origin::signed(50), 80, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(10), 80, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(50), 80, true));
 		conclude_intake(false, None);
 		next_intake();
 		assert_eq!(members(), vec![10, 50, 80]);
@@ -818,7 +818,7 @@ fn founder_and_head_cannot_be_removed() {
 		assert_eq!(Founder::<Test>::get(), Some(10));
 
 		// 50 can now be suspended for strikes
-		assert_ok!(Society::bid(Origin::signed(90), 0));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(90), 0));
 		next_intake();
 		// Force 50 to be Skeptic and get it a strike.
 		Skeptic::<Test>::put(50);
@@ -850,28 +850,28 @@ fn challenges_work() {
 		next_challenge();
 		assert_eq!(Defending::<Test>::get().unwrap().0, 40);
 		// They can always free vote for themselves
-		assert_ok!(Society::defender_vote(Origin::signed(40), true));
+		assert_ok!(Society::defender_vote(Origin::signed_with_basic_filter(40), true));
 
 		// If no one else votes, nothing happens
 		next_challenge();
 		assert_eq!(members(), vec![10, 20, 30, 40, 50]);
 		// Reset votes for last challenge
-		assert_ok!(Society::cleanup_challenge(Origin::signed(0), 0, 10));
+		assert_ok!(Society::cleanup_challenge(Origin::signed_with_basic_filter(0), 0, 10));
 		// New challenge period, 20 is challenged
 		assert_eq!(Defending::<Test>::get().unwrap().0, 20);
 		// Non-member cannot vote
-		assert_noop!(Society::defender_vote(Origin::signed(1), true), Error::<Test>::NotMember);
+		assert_noop!(Society::defender_vote(Origin::signed_with_basic_filter(1), true), Error::<Test>::NotMember);
 		// 3 people say accept, 1 reject
-		assert_ok!(Society::defender_vote(Origin::signed(20), true));
-		assert_ok!(Society::defender_vote(Origin::signed(30), true));
-		assert_ok!(Society::defender_vote(Origin::signed(40), true));
-		assert_ok!(Society::defender_vote(Origin::signed(50), false));
+		assert_ok!(Society::defender_vote(Origin::signed_with_basic_filter(20), true));
+		assert_ok!(Society::defender_vote(Origin::signed_with_basic_filter(30), true));
+		assert_ok!(Society::defender_vote(Origin::signed_with_basic_filter(40), true));
+		assert_ok!(Society::defender_vote(Origin::signed_with_basic_filter(50), false));
 
 		next_challenge();
 		// 20 survives
 		assert_eq!(members(), vec![10, 20, 30, 40, 50]);
 		// Reset votes for last challenge
-		assert_ok!(Society::cleanup_challenge(Origin::signed(0), 1, 10));
+		assert_ok!(Society::cleanup_challenge(Origin::signed_with_basic_filter(0), 1, 10));
 		// Votes are reset
 		assert_eq!(DefenderVotes::<Test>::get(0, 20), None);
 		assert_eq!(DefenderVotes::<Test>::get(0, 30), None);
@@ -881,10 +881,10 @@ fn challenges_work() {
 		// One more time, 40 is challenged
 		assert_eq!(Defending::<Test>::get().unwrap().0, 40);
 		// 2 people say accept, 2 reject
-		assert_ok!(Society::defender_vote(Origin::signed(20), true));
-		assert_ok!(Society::defender_vote(Origin::signed(30), true));
-		assert_ok!(Society::defender_vote(Origin::signed(40), false));
-		assert_ok!(Society::defender_vote(Origin::signed(50), false));
+		assert_ok!(Society::defender_vote(Origin::signed_with_basic_filter(20), true));
+		assert_ok!(Society::defender_vote(Origin::signed_with_basic_filter(30), true));
+		assert_ok!(Society::defender_vote(Origin::signed_with_basic_filter(40), false));
+		assert_ok!(Society::defender_vote(Origin::signed_with_basic_filter(50), false));
 
 		next_challenge();
 		// 40 is suspended
@@ -894,7 +894,7 @@ fn challenges_work() {
 			Some(MemberRecord { rank: 0, strikes: 0, vouching: None, index: 3 })
 		);
 		// Reset votes for last challenge
-		assert_ok!(Society::cleanup_challenge(Origin::signed(0), 2, 10));
+		assert_ok!(Society::cleanup_challenge(Origin::signed_with_basic_filter(0), 2, 10));
 		// New defender is chosen, 30 is challenged
 		assert_eq!(Defending::<Test>::get().unwrap().0, 30);
 		// Votes are reset
@@ -934,14 +934,14 @@ fn bad_vote_slash_works() {
 			PayoutRecord { paid: 0, payouts: vec![(5, 100)].try_into().unwrap() }
 		);
 		// Create a new bid
-		assert_ok!(Society::bid(Origin::signed(60), 1000));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(60), 1000));
 		next_intake();
 		// Force 20 to be the skeptic, and make it vote against the settled majority.
 		Skeptic::<Test>::put(20);
-		assert_ok!(Society::vote(Origin::signed(20), 60, true));
-		assert_ok!(Society::vote(Origin::signed(30), 60, false));
-		assert_ok!(Society::vote(Origin::signed(40), 60, false));
-		assert_ok!(Society::vote(Origin::signed(50), 60, false));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(20), 60, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(30), 60, false));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(40), 60, false));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(50), 60, false));
 		conclude_intake(false, None);
 		// Wrong voter gained a strike
 		assert_eq!(Members::<Test>::get(20).unwrap().strikes, 1);
@@ -972,14 +972,14 @@ fn bad_vote_slash_works() {
 fn user_cannot_bid_twice() {
 	EnvBuilder::new().execute(|| {
 		// Cannot bid twice
-		assert_ok!(Society::bid(Origin::signed(20), 100));
-		assert_noop!(Society::bid(Origin::signed(20), 100), Error::<Test>::AlreadyBid);
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(20), 100));
+		assert_noop!(Society::bid(Origin::signed_with_basic_filter(20), 100), Error::<Test>::AlreadyBid);
 		// Cannot bid when vouched
-		assert_ok!(Society::vouch(Origin::signed(10), 30, 100, 100));
-		assert_noop!(Society::bid(Origin::signed(30), 100), Error::<Test>::AlreadyBid);
+		assert_ok!(Society::vouch(Origin::signed_with_basic_filter(10), 30, 100, 100));
+		assert_noop!(Society::bid(Origin::signed_with_basic_filter(30), 100), Error::<Test>::AlreadyBid);
 		// Cannot vouch when already bid
 		place_members([50]);
-		assert_noop!(Society::vouch(Origin::signed(50), 20, 100, 100), Error::<Test>::AlreadyBid);
+		assert_noop!(Society::vouch(Origin::signed_with_basic_filter(50), 20, 100, 100), Error::<Test>::AlreadyBid);
 	});
 }
 
@@ -989,7 +989,7 @@ fn vouching_handles_removed_member_with_bid() {
 		// Add a member
 		place_members([20]);
 		// Have that member vouch for a user
-		assert_ok!(Society::vouch(RuntimeOrigin::signed(20), 30, 1000, 100));
+		assert_ok!(Society::vouch(RuntimeOrigin::signed_with_basic_filter(20), 30, 1000, 100));
 		// That user is now a bid and the member is vouching
 		assert_eq!(Bids::<Test>::get().into_inner(), vec![bid(30, Vouch(20, 100), 1000)]);
 		assert_eq!(Members::<Test>::get(20).unwrap().vouching, Some(VouchingStatus::Vouching));
@@ -1009,7 +1009,7 @@ fn vouching_handles_removed_member_with_candidate() {
 		// Add a member
 		place_members([20]);
 		// Have that member vouch for a user
-		assert_ok!(Society::vouch(RuntimeOrigin::signed(20), 30, 1000, 100));
+		assert_ok!(Society::vouch(RuntimeOrigin::signed_with_basic_filter(20), 30, 1000, 100));
 		// That user is now a bid and the member is vouching
 		assert_eq!(Bids::<Test>::get().into_inner(), vec![bid(30, Vouch(20, 100), 1000)]);
 		assert_eq!(Members::<Test>::get(20).unwrap().vouching, Some(VouchingStatus::Vouching));
@@ -1025,7 +1025,7 @@ fn vouching_handles_removed_member_with_candidate() {
 		assert_eq!(candidacies(), vec![(30, candidacy(1, 1000, Vouch(20, 100), 0, 0))]);
 
 		// Candidate wins
-		assert_ok!(Society::vote(Origin::signed(10), 30, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(10), 30, true));
 		conclude_intake(false, None);
 		assert_eq!(members(), vec![10, 30]);
 		// Payout does not go to removed member
@@ -1048,17 +1048,17 @@ fn votes_are_working() {
 		assert_eq!(Members::<Test>::get(10).unwrap().rank, 1);
 		assert_eq!(Members::<Test>::get(20).unwrap().rank, 0);
 		// Users make bids of various amounts
-		assert_ok!(Society::bid(RuntimeOrigin::signed(50), 500));
-		assert_ok!(Society::bid(RuntimeOrigin::signed(40), 400));
-		assert_ok!(Society::bid(RuntimeOrigin::signed(30), 300));
+		assert_ok!(Society::bid(RuntimeOrigin::signed_with_basic_filter(50), 500));
+		assert_ok!(Society::bid(RuntimeOrigin::signed_with_basic_filter(40), 400));
+		assert_ok!(Society::bid(RuntimeOrigin::signed_with_basic_filter(30), 300));
 		// Rotate period
 		next_intake();
 		// A member votes for these candidates to join the society
-		assert_ok!(Society::vote(Origin::signed(10), 30, true));
-		assert_ok!(Society::vote(Origin::signed(20), 30, true));
-		assert_ok!(Society::vote(Origin::signed(10), 40, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(10), 30, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(20), 30, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(10), 40, true));
 		// You cannot vote for a non-candidate
-		assert_noop!(Society::vote(Origin::signed(10), 50, true), Error::<Test>::NotCandidate);
+		assert_noop!(Society::vote(Origin::signed_with_basic_filter(10), 50, true), Error::<Test>::NotCandidate);
 		// Votes are stored
 		assert_eq!(Votes::<Test>::get(30, 10), Some(Vote { approve: true, weight: 4 }));
 		assert_eq!(Votes::<Test>::get(30, 20), Some(Vote { approve: true, weight: 1 }));
@@ -1075,14 +1075,14 @@ fn votes_are_working() {
 			Tally { approvals: 4, rejections: 0 }
 		);
 		// Member 10 changes his vote for Candidate 30
-		assert_ok!(Society::vote(Origin::signed(10), 30, false));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(10), 30, false));
 		// Assert the tally calculation is correct
 		assert_eq!(
 			Candidates::<Test>::get(30).unwrap().tally,
 			Tally { approvals: 1, rejections: 4 }
 		);
 		// Member 10 changes his vote again
-		assert_ok!(Society::vote(Origin::signed(10), 30, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(10), 30, true));
 		// Assert the tally is still correct
 		assert_eq!(
 			Candidates::<Test>::get(30).unwrap().tally,
@@ -1092,8 +1092,8 @@ fn votes_are_working() {
 		// Finish intake
 		conclude_intake(false, None);
 		// Cleanup the candidacy
-		assert_ok!(Society::cleanup_candidacy(Origin::signed(0), 30, 10));
-		assert_ok!(Society::cleanup_candidacy(Origin::signed(0), 40, 10));
+		assert_ok!(Society::cleanup_candidacy(Origin::signed_with_basic_filter(0), 30, 10));
+		assert_ok!(Society::cleanup_candidacy(Origin::signed_with_basic_filter(0), 40, 10));
 		// Candidates become members after a period rotation
 		assert_eq!(members(), vec![10, 20, 30, 40]);
 		// Votes are cleaned up
@@ -1111,7 +1111,7 @@ fn max_bids_work() {
 		for i in (0..=10).rev() {
 			// Give them some funds and bid
 			let _ = Balances::make_free_balance_be(&((i + 100) as u128), 1000);
-			assert_ok!(Society::bid(Origin::signed((i + 100) as u128), i));
+			assert_ok!(Society::bid(Origin::signed_with_basic_filter((i + 100) as u128), i));
 		}
 		let bids = Bids::<Test>::get();
 		// Length is 1000
@@ -1131,8 +1131,8 @@ fn candidates_are_limited_by_membership_size() {
 		// One place left from 10
 		assert_eq!(members().len(), 9);
 
-		assert_ok!(Society::bid(Origin::signed(20), 0));
-		assert_ok!(Society::bid(Origin::signed(30), 1));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(20), 0));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(30), 1));
 		next_intake();
 		assert_eq!(candidates().len(), 1);
 	});
@@ -1148,7 +1148,7 @@ fn candidates_are_limited_by_maximum() {
 		for i in (1..=9).rev() {
 			// Give them some funds and bid
 			let _ = Balances::make_free_balance_be(&((i + 100) as u128), 1000);
-			assert_ok!(Society::bid(Origin::signed((i + 100) as u128), i));
+			assert_ok!(Society::bid(Origin::signed_with_basic_filter((i + 100) as u128), i));
 		}
 		next_intake();
 
@@ -1162,18 +1162,18 @@ fn too_many_candidates_cannot_overflow_membership() {
 	EnvBuilder::new().execute(|| {
 		// One place left
 		place_members([1, 2, 3, 4, 5, 6, 7, 8]);
-		assert_ok!(Society::bid(Origin::signed(20), 0));
-		assert_ok!(Society::bid(Origin::signed(30), 1));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(20), 0));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(30), 1));
 		next_intake();
 		// Candidate says a candidate.
 		next_intake();
 		// Another candidate taken.
 		// Both approved.
-		assert_ok!(Society::vote(Origin::signed(10), 20, true));
-		assert_ok!(Society::vote(Origin::signed(10), 30, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(10), 20, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(10), 30, true));
 		next_voting();
-		assert_ok!(Society::claim_membership(Origin::signed(20)));
-		assert_noop!(Society::claim_membership(Origin::signed(30)), Error::<Test>::MaxMembers);
+		assert_ok!(Society::claim_membership(Origin::signed_with_basic_filter(20)));
+		assert_noop!(Society::claim_membership(Origin::signed_with_basic_filter(30)), Error::<Test>::MaxMembers);
 
 		// Maximum members.
 		assert_eq!(members().len(), 10);
@@ -1181,8 +1181,8 @@ fn too_many_candidates_cannot_overflow_membership() {
 		assert_eq!(candidates().len(), 1);
 
 		// Increase max-members and the candidate can get in.
-		assert_ok!(Society::set_parameters(Origin::signed(10), 11, 8, 3, 25));
-		assert_ok!(Society::claim_membership(Origin::signed(30)));
+		assert_ok!(Society::set_parameters(Origin::signed_with_basic_filter(10), 11, 8, 3, 25));
+		assert_ok!(Society::claim_membership(Origin::signed_with_basic_filter(30)));
 	});
 }
 
@@ -1193,11 +1193,11 @@ fn zero_bid_works() {
 	// * That zero bid is placed as head when accepted.
 	EnvBuilder::new().execute(|| {
 		// Users make bids of various amounts
-		assert_ok!(Society::bid(RuntimeOrigin::signed(60), 400));
-		assert_ok!(Society::bid(RuntimeOrigin::signed(50), 300));
-		assert_ok!(Society::bid(RuntimeOrigin::signed(30), 0));
-		assert_ok!(Society::bid(RuntimeOrigin::signed(20), 0));
-		assert_ok!(Society::bid(RuntimeOrigin::signed(40), 0));
+		assert_ok!(Society::bid(RuntimeOrigin::signed_with_basic_filter(60), 400));
+		assert_ok!(Society::bid(RuntimeOrigin::signed_with_basic_filter(50), 300));
+		assert_ok!(Society::bid(RuntimeOrigin::signed_with_basic_filter(30), 0));
+		assert_ok!(Society::bid(RuntimeOrigin::signed_with_basic_filter(20), 0));
+		assert_ok!(Society::bid(RuntimeOrigin::signed_with_basic_filter(40), 0));
 
 		// Rotate period
 		next_intake();
@@ -1215,9 +1215,9 @@ fn zero_bid_works() {
 		);
 		assert_eq!(Bids::<Test>::get(), vec![bid(20, Deposit(25), 0), bid(40, Deposit(25), 0),],);
 		// A member votes for these candidates to join the society
-		assert_ok!(Society::vote(Origin::signed(10), 30, true));
-		assert_ok!(Society::vote(Origin::signed(10), 50, true));
-		assert_ok!(Society::vote(Origin::signed(10), 60, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(10), 30, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(10), 50, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(10), 60, true));
 		conclude_intake(false, None);
 		// Candidates become members after a period rotation
 		assert_eq!(members(), vec![10, 30, 50, 60]);
@@ -1237,7 +1237,7 @@ fn bids_ordered_correctly() {
 				// Give them some funds
 				let who = 100 + (i * 5 + j) as u128;
 				let _ = Balances::make_free_balance_be(&who, 1000);
-				assert_ok!(Society::bid(Origin::signed(who), j));
+				assert_ok!(Society::bid(Origin::signed_with_basic_filter(who), j));
 			}
 		}
 
@@ -1264,7 +1264,7 @@ fn waive_repay_works() {
 			PayoutRecord { paid: 0, payouts: vec![(5, 100)].try_into().unwrap() }
 		);
 		assert_eq!(Members::<Test>::get(20).unwrap().rank, 0);
-		assert_ok!(Society::waive_repay(Origin::signed(20), 100));
+		assert_ok!(Society::waive_repay(Origin::signed_with_basic_filter(20), 100));
 		assert_eq!(
 			Payouts::<Test>::get(20),
 			PayoutRecord { paid: 0, payouts: vec![].try_into().unwrap() }
@@ -1278,13 +1278,13 @@ fn waive_repay_works() {
 fn punish_skeptic_works() {
 	EnvBuilder::new().execute(|| {
 		place_members([20]);
-		assert_ok!(Society::bid(Origin::signed(30), 0));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(30), 0));
 		next_intake();
 		// Force 20 to be Skeptic so it gets a strike.
 		Skeptic::<Test>::put(20);
 		next_voting();
 		// 30 decides to punish the skeptic (20).
-		assert_ok!(Society::punish_skeptic(Origin::signed(30)));
+		assert_ok!(Society::punish_skeptic(Origin::signed_with_basic_filter(30)));
 		// 20 gets 1 strike.
 		assert_eq!(Members::<Test>::get(20).unwrap().strikes, 1);
 		let candidacy = Candidates::<Test>::get(&30).unwrap();
@@ -1296,10 +1296,10 @@ fn punish_skeptic_works() {
 #[test]
 fn resign_candidacy_works() {
 	EnvBuilder::new().execute(|| {
-		assert_ok!(Society::bid(Origin::signed(30), 45));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(30), 45));
 		next_intake();
 		assert_eq!(candidates(), vec![30]);
-		assert_ok!(Society::resign_candidacy(Origin::signed(30)));
+		assert_ok!(Society::resign_candidacy(Origin::signed_with_basic_filter(30)));
 		// 30 candidacy has gone.
 		assert_eq!(candidates(), vec![]);
 	});
@@ -1309,14 +1309,14 @@ fn resign_candidacy_works() {
 fn drop_candidate_works() {
 	EnvBuilder::new().execute(|| {
 		place_members([20, 30]);
-		assert_ok!(Society::bid(Origin::signed(40), 45));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(40), 45));
 		next_intake();
 		assert_eq!(candidates(), vec![40]);
-		assert_ok!(Society::vote(Origin::signed(10), 40, false));
-		assert_ok!(Society::vote(Origin::signed(20), 40, false));
-		assert_ok!(Society::vote(Origin::signed(30), 40, false));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(10), 40, false));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(20), 40, false));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(30), 40, false));
 		System::run_to_block::<AllPalletsWithSystem>(12);
-		assert_ok!(Society::drop_candidate(Origin::signed(50), 40));
+		assert_ok!(Society::drop_candidate(Origin::signed_with_basic_filter(50), 40));
 		// 40 candidacy has gone.
 		assert_eq!(candidates(), vec![]);
 	});
@@ -1325,12 +1325,12 @@ fn drop_candidate_works() {
 #[test]
 fn poke_deposit_fails_for_non_bidder() {
 	EnvBuilder::new().execute(|| {
-		assert_noop!(Society::poke_deposit(Origin::signed(20)), Error::<Test>::NotBidder);
+		assert_noop!(Society::poke_deposit(Origin::signed_with_basic_filter(20)), Error::<Test>::NotBidder);
 		assert_eq!(Balances::reserved_balance(20), 0);
 
 		// Also fails for vouched bid (no deposit)
-		assert_ok!(Society::vouch(Origin::signed(10), 20, 100, 0));
-		assert_noop!(Society::poke_deposit(Origin::signed(20)), Error::<Test>::NoDeposit);
+		assert_ok!(Society::vouch(Origin::signed_with_basic_filter(10), 20, 100, 0));
+		assert_noop!(Society::poke_deposit(Origin::signed_with_basic_filter(20)), Error::<Test>::NoDeposit);
 		assert_eq!(Balances::reserved_balance(20), 0);
 	});
 }
@@ -1339,7 +1339,7 @@ fn poke_deposit_fails_for_non_bidder() {
 fn poke_deposit_works_when_deposit_increases() {
 	EnvBuilder::new().execute(|| {
 		// Place initial bid with initial deposit
-		assert_ok!(Society::bid(Origin::signed(20), 0));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(20), 0));
 
 		// Verify initial state
 		let old_deposit = Parameters::<Test>::get().unwrap().candidate_deposit;
@@ -1353,7 +1353,7 @@ fn poke_deposit_works_when_deposit_increases() {
 		// Change parameters to require higher deposit
 		let new_deposit = old_deposit.saturating_add(2);
 		assert_ok!(Society::set_parameters(
-			Origin::signed(10), // founder
+			Origin::signed_with_basic_filter(10), // founder
 			10,
 			8,
 			3,
@@ -1361,7 +1361,7 @@ fn poke_deposit_works_when_deposit_increases() {
 		));
 
 		// Poke deposit and verify it's free when changed
-		let result = Society::poke_deposit(Origin::signed(20));
+		let result = Society::poke_deposit(Origin::signed_with_basic_filter(20));
 		assert_ok!(result.as_ref());
 		assert_eq!(result.unwrap(), Pays::No.into());
 
@@ -1385,10 +1385,10 @@ fn poke_deposit_works_when_deposit_decreases() {
 	EnvBuilder::new().execute(|| {
 		// Set high initial deposit
 		let old_deposit = 30;
-		assert_ok!(Society::set_parameters(Origin::signed(10), 10, 8, 3, old_deposit,));
+		assert_ok!(Society::set_parameters(Origin::signed_with_basic_filter(10), 10, 8, 3, old_deposit,));
 
 		// Place bid with high deposit
-		assert_ok!(Society::bid(Origin::signed(20), 0));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(20), 0));
 		assert_eq!(Balances::reserved_balance(20), old_deposit);
 
 		// Verify bid storage
@@ -1398,10 +1398,10 @@ fn poke_deposit_works_when_deposit_decreases() {
 
 		// Change parameters to require lower deposit
 		let new_deposit = old_deposit - 25;
-		assert_ok!(Society::set_parameters(Origin::signed(10), 10, 8, 3, new_deposit,));
+		assert_ok!(Society::set_parameters(Origin::signed_with_basic_filter(10), 10, 8, 3, new_deposit,));
 
 		// Poke deposit
-		let result = Society::poke_deposit(Origin::signed(20));
+		let result = Society::poke_deposit(Origin::signed_with_basic_filter(20));
 		assert_ok!(result.as_ref());
 		assert_eq!(result.unwrap(), Pays::No.into());
 
@@ -1424,7 +1424,7 @@ fn poke_deposit_works_when_deposit_decreases() {
 fn poke_deposit_charges_fee_when_unchanged() {
 	EnvBuilder::new().execute(|| {
 		// Place bid
-		assert_ok!(Society::bid(Origin::signed(20), 0));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(20), 0));
 
 		let deposit = Parameters::<Test>::get().unwrap().candidate_deposit;
 		assert_eq!(Balances::reserved_balance(20), deposit);
@@ -1435,7 +1435,7 @@ fn poke_deposit_charges_fee_when_unchanged() {
 		assert_eq!(bid.kind, BidKind::Deposit(deposit));
 
 		// Poke deposit without changing parameters
-		let result = Society::poke_deposit(Origin::signed(20));
+		let result = Society::poke_deposit(Origin::signed_with_basic_filter(20));
 		assert_ok!(result.as_ref());
 		assert_eq!(result.unwrap(), Pays::Yes.into());
 
@@ -1456,15 +1456,15 @@ fn poke_deposit_charges_fee_when_unchanged() {
 #[test]
 fn poke_deposit_handles_insufficient_balance() {
 	EnvBuilder::new().execute(|| {
-		assert_ok!(Society::bid(Origin::signed(20), 0));
+		assert_ok!(Society::bid(Origin::signed_with_basic_filter(20), 0));
 		let initial_deposit = Parameters::<Test>::get().unwrap().candidate_deposit;
 
 		// Change parameters to require higher deposit
-		assert_ok!(Society::set_parameters(Origin::signed(10), 10, 8, 3, initial_deposit + 50,));
+		assert_ok!(Society::set_parameters(Origin::signed_with_basic_filter(10), 10, 8, 3, initial_deposit + 50,));
 
 		// Should fail due to insufficient balance
 		assert_noop!(
-			Society::poke_deposit(Origin::signed(20)),
+			Society::poke_deposit(Origin::signed_with_basic_filter(20)),
 			pallet_balances::Error::<Test>::InsufficientBalance
 		);
 	});
@@ -1506,11 +1506,11 @@ fn challenge_with_non_consecutive_blocks_works() {
 		Society::on_initialize(0);
 		assert_eq!(Defending::<Test>::get().unwrap().0, 40);
 		// They can always free vote for themselves
-		assert_ok!(Society::defender_vote(Origin::signed(40), false));
+		assert_ok!(Society::defender_vote(Origin::signed_with_basic_filter(40), false));
 		// everyone votes against 40
-		assert_ok!(Society::defender_vote(Origin::signed(20), false));
-		assert_ok!(Society::defender_vote(Origin::signed(30), false));
-		assert_ok!(Society::defender_vote(Origin::signed(50), false));
+		assert_ok!(Society::defender_vote(Origin::signed_with_basic_filter(20), false));
+		assert_ok!(Society::defender_vote(Origin::signed_with_basic_filter(30), false));
+		assert_ok!(Society::defender_vote(Origin::signed_with_basic_filter(50), false));
 
 		let next_challenge_at = next_challenge_at + challenge_period;
 		assert_eq!(Society::next_challenge_at(), next_challenge_at);
@@ -1538,7 +1538,7 @@ fn challenge_with_non_consecutive_blocks_works() {
 			Some(MemberRecord { rank: 0, strikes: 0, vouching: None, index: 3 })
 		);
 		// Reset votes for last challenge
-		assert_ok!(Society::cleanup_challenge(Origin::signed(0), 0, 10));
+		assert_ok!(Society::cleanup_challenge(Origin::signed_with_basic_filter(0), 0, 10));
 		// New defender is chosen, 30 is challenged
 		assert_eq!(Defending::<Test>::get().unwrap().0, 30);
 		// Votes are reset
@@ -1566,7 +1566,7 @@ fn intake_with_non_consecutive_blocks_works() {
 
 		assert_eq!(Balances::free_balance(20), 50);
 		// Bid causes Candidate Deposit to be reserved.
-		assert_ok!(Society::bid(RuntimeOrigin::signed(20), 0));
+		assert_ok!(Society::bid(RuntimeOrigin::signed_with_basic_filter(20), 0));
 		assert_eq!(Balances::free_balance(20), 25);
 
 		// early for intake
@@ -1584,7 +1584,7 @@ fn intake_with_non_consecutive_blocks_works() {
 		// 20 is now a candidate
 		assert_eq!(candidacies(), vec![(20, candidacy(1, 0, Deposit(25), 0, 0))]);
 		// 10 (a member) can vote for the candidate
-		assert_ok!(Society::vote(Origin::signed(10), 20, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(10), 20, true));
 		conclude_intake(true, None);
 
 		let next_intake_at = next_intake_at + rotation_period;
@@ -1620,7 +1620,7 @@ fn intake_idempotency() {
 
 		// Bid to become a candidate
 		assert_eq!(Balances::free_balance(20), 50);
-		assert_ok!(Society::bid(RuntimeOrigin::signed(20), 0));
+		assert_ok!(Society::bid(RuntimeOrigin::signed_with_basic_filter(20), 0));
 
 		// intake
 		let now = next_intake_at;
@@ -1632,7 +1632,7 @@ fn intake_idempotency() {
 
 		// Bid one more account to become a candidate
 		assert_eq!(Balances::free_balance(40), 50);
-		assert_ok!(Society::bid(RuntimeOrigin::signed(40), 10));
+		assert_ok!(Society::bid(RuntimeOrigin::signed_with_basic_filter(40), 10));
 
 		// next intake has updated
 		let next_intake_at = next_intake_at + rotation_period;
@@ -1645,7 +1645,7 @@ fn intake_idempotency() {
 		assert_eq!(candidacies(), vec![(20, candidacy(1, 0, Deposit(25), 0, 0))]);
 
 		// 10 (a member) can vote for the candidate
-		assert_ok!(Society::vote(Origin::signed(10), 20, true));
+		assert_ok!(Society::vote(Origin::signed_with_basic_filter(10), 20, true));
 		// moves the block to the Claim period
 		conclude_intake(true, None);
 

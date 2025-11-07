@@ -18,6 +18,7 @@
 //!
 //! <https://github.com/polkadot-fellows/RFCs/blob/main/text/0005-coretime-interface.md>
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::{vec, vec::Vec};
 use core::result;
 use frame_support::{
@@ -116,7 +117,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + assigner_coretime::Config + on_demand::Config {
-		type RuntimeOrigin: From<<Self as frame_system::Config>::RuntimeOrigin>
+		type RuntimeOrigin: FromWithBasicFilter<<Self as frame_system::Config>::RuntimeOrigin>
 			+ Into<result::Result<Origin, <Self as Config>::RuntimeOrigin>>;
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -245,7 +246,7 @@ impl<T: Config> Pallet<T> {
 		origin: <T as frame_system::Config>::RuntimeOrigin,
 		id: ParaId,
 	) -> DispatchResult {
-		if let Ok(caller_id) = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin.clone()))
+		if let Ok(caller_id) = ensure_parachain((origin.clone()).into_with_basic_filter())
 		{
 			// Check if matching para id...
 			ensure!(caller_id == id, Error::<T>::NotBroker);

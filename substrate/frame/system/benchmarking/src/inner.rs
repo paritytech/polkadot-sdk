@@ -17,6 +17,7 @@
 
 //! Frame System benchmarks.
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::{vec, vec::Vec};
 use codec::Encode;
 use frame_benchmarking::v2::*;
@@ -76,7 +77,7 @@ mod benchmarks {
 		remark_with_event(RawOrigin::Signed(caller.clone()), remark_message);
 
 		System::<T>::assert_last_event(
-			frame_system::Event::<T>::Remarked { sender: caller, hash }.into(),
+			frame_system::Event::<T>::Remarked { sender: caller, hash }.into_with_basic_filter(),
 		);
 		Ok(())
 	}
@@ -109,7 +110,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			System::<T>::set_code_without_checks(RawOrigin::Root.into(), code)?;
+			System::<T>::set_code_without_checks(RawOrigin::Root.into_with_basic_filter(), code)?;
 		}
 
 		let current_code =
@@ -215,7 +216,7 @@ mod benchmarks {
 		T::setup_set_code_requirements(&runtime_blob)?;
 		let hash = T::Hashing::hash(&runtime_blob);
 		// Will be heavier when it needs to do verification (i.e. don't use `...without_checks`).
-		System::<T>::authorize_upgrade(RawOrigin::Root.into(), hash)?;
+		System::<T>::authorize_upgrade(RawOrigin::Root.into_with_basic_filter(), hash)?;
 
 		#[extrinsic_call]
 		apply_authorized_upgrade(RawOrigin::Root, runtime_blob);

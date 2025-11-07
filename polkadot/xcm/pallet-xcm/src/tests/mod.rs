@@ -204,7 +204,7 @@ fn custom_querier_works() {
 	new_test_ext_with_balances(balances).execute_with(|| {
 		let querier: Location = (Parent, AccountId32 { network: None, id: ALICE.into() }).into();
 
-		let r = TestNotifier::prepare_new_query(RuntimeOrigin::signed(ALICE), querier.clone());
+		let r = TestNotifier::prepare_new_query(RuntimeOrigin::signed_with_basic_filter(ALICE), querier.clone());
 		assert_eq!(r, Ok(()));
 		let status = QueryStatus::Pending {
 			responder: Location::from(AccountId32 { network: None, id: ALICE.into() }).into(),
@@ -317,7 +317,7 @@ fn send_works() {
 		let versioned_dest = Box::new(RelayLocation::get().into());
 		let versioned_message = Box::new(VersionedXcm::from(message.clone()));
 		assert_ok!(XcmPallet::send(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			versioned_dest,
 			versioned_message
 		));
@@ -364,7 +364,7 @@ fn send_fails_when_xcm_router_blocks() {
 		let (log_capture, subscriber) = init_log_capture(Level::DEBUG, true);
 		subscriber::with_default(subscriber, || {
 			let result = XcmPallet::send(
-				RuntimeOrigin::signed(ALICE),
+				RuntimeOrigin::signed_with_basic_filter(ALICE),
 				Box::new(Location::ancestor(8).into()),
 				Box::new(VersionedXcm::from(message.clone())),
 			);
@@ -390,7 +390,7 @@ fn execute_withdraw_to_deposit_works() {
 		let dest: Location = Junction::AccountId32 { network: None, id: BOB.into() }.into();
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		assert_ok!(XcmPallet::execute(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(VersionedXcm::from(Xcm(vec![
 				WithdrawAsset((Here, SEND_AMOUNT).into()),
 				buy_execution((Here, SEND_AMOUNT)),
@@ -418,7 +418,7 @@ fn authorized_aliases_work() {
 		let alias: Location = AccountId32 { network: None, id: BOB.into() }.into();
 		assert_eq!(
 			XcmPallet::add_authorized_alias(
-				RuntimeOrigin::signed(BOB),
+				RuntimeOrigin::signed_with_basic_filter(BOB),
 				Box::new(alias.into()),
 				None
 			),
@@ -430,7 +430,7 @@ fn authorized_aliases_work() {
 		let expires = Some(System::current_block_number().saturated_into::<u64>());
 		assert_eq!(
 			XcmPallet::add_authorized_alias(
-				RuntimeOrigin::signed(BOB),
+				RuntimeOrigin::signed_with_basic_filter(BOB),
 				Box::new(alias.clone().into()),
 				expires
 			),
@@ -440,7 +440,7 @@ fn authorized_aliases_work() {
 		// --- storage deposit not covered (BOB has no funds)
 		assert_eq!(
 			XcmPallet::add_authorized_alias(
-				RuntimeOrigin::signed(BOB),
+				RuntimeOrigin::signed_with_basic_filter(BOB),
 				Box::new(alias.clone().into()),
 				None
 			),
@@ -454,7 +454,7 @@ fn authorized_aliases_work() {
 		let free_balance = <Balances as Currency<_>>::free_balance(&who);
 		assert_eq!(free_balance, total_balance_before);
 		assert_ok!(XcmPallet::add_authorized_alias(
-			RuntimeOrigin::signed(who.clone()),
+			RuntimeOrigin::signed_with_basic_filter(who.clone()),
 			Box::new(first_alias.clone().into()),
 			None
 		));
@@ -467,7 +467,7 @@ fn authorized_aliases_work() {
 
 		// --- setting same alias again only updates its expiry
 		assert_ok!(XcmPallet::add_authorized_alias(
-			RuntimeOrigin::signed(who.clone()),
+			RuntimeOrigin::signed_with_basic_filter(who.clone()),
 			Box::new(first_alias.clone().into()),
 			Some(100)
 		));
@@ -479,7 +479,7 @@ fn authorized_aliases_work() {
 		for i in 1..MaxAuthorizedAliases::get() {
 			let alias = Location::new(0, [Parachain(OTHER_PARA_ID), GeneralIndex(i as u128)]);
 			assert_ok!(XcmPallet::add_authorized_alias(
-				RuntimeOrigin::signed(who.clone()),
+				RuntimeOrigin::signed_with_basic_filter(who.clone()),
 				Box::new(alias.clone().into()),
 				None
 			));
@@ -501,7 +501,7 @@ fn authorized_aliases_work() {
 		);
 		assert_eq!(
 			XcmPallet::add_authorized_alias(
-				RuntimeOrigin::signed(who.clone()),
+				RuntimeOrigin::signed_with_basic_filter(who.clone()),
 				Box::new(alias.clone().into()),
 				None
 			),
@@ -511,7 +511,7 @@ fn authorized_aliases_work() {
 		// --- remove one alias
 		let target: Location = AccountId32 { network: None, id: who.clone().into() }.into();
 		assert_ok!(XcmPallet::remove_authorized_alias(
-			RuntimeOrigin::signed(who.clone()),
+			RuntimeOrigin::signed_with_basic_filter(who.clone()),
 			Box::new(first_alias.clone().into()),
 		));
 		// deposit held for MaxAliases - 1
@@ -529,7 +529,7 @@ fn authorized_aliases_work() {
 
 		// --- adding one more is now allowed
 		assert_ok!(XcmPallet::add_authorized_alias(
-			RuntimeOrigin::signed(who.clone()),
+			RuntimeOrigin::signed_with_basic_filter(who.clone()),
 			Box::new(alias.clone().into()),
 			None
 		));
@@ -550,7 +550,7 @@ fn authorized_aliases_work() {
 		}
 		// --- remove alias then verify no longer allowed
 		assert_ok!(XcmPallet::remove_authorized_alias(
-			RuntimeOrigin::signed(who.clone()),
+			RuntimeOrigin::signed_with_basic_filter(who.clone()),
 			Box::new(aliases[0].clone().into()),
 		));
 		assert!(!AuthorizedAliasers::<Test>::contains(&aliases[0], &target));
@@ -558,7 +558,7 @@ fn authorized_aliases_work() {
 		// --- remove nonexistent alias
 		assert_eq!(
 			XcmPallet::remove_authorized_alias(
-				RuntimeOrigin::signed(ALICE),
+				RuntimeOrigin::signed_with_basic_filter(ALICE),
 				Box::new(Location::parent().into())
 			),
 			Err(Error::<Test>::AliasNotFound.into())
@@ -567,14 +567,14 @@ fn authorized_aliases_work() {
 		// --- remove nonexistent alias (BOB has no registered aliases)
 		assert_eq!(
 			XcmPallet::remove_authorized_alias(
-				RuntimeOrigin::signed(BOB),
+				RuntimeOrigin::signed_with_basic_filter(BOB),
 				Box::new(Location::parent().into()),
 			),
 			Err(Error::<Test>::AliasNotFound.into())
 		);
 
 		// --- remove all aliases then verify all deposit is returned
-		assert_ok!(XcmPallet::remove_all_authorized_aliases(RuntimeOrigin::signed(who.clone())));
+		assert_ok!(XcmPallet::remove_all_authorized_aliases(RuntimeOrigin::signed_with_basic_filter(who.clone())));
 		// de-authorization event
 		assert_eq!(
 			last_events(1),
@@ -596,7 +596,7 @@ fn trapped_assets_can_be_claimed() {
 		let dest: Location = Junction::AccountId32 { network: None, id: BOB.into() }.into();
 
 		assert_ok!(XcmPallet::execute(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(VersionedXcm::from(Xcm(vec![
 				WithdrawAsset((Here, SEND_AMOUNT).into()),
 				buy_execution((Here, SEND_AMOUNT)),
@@ -634,7 +634,7 @@ fn trapped_assets_can_be_claimed() {
 
 		let weight = BaseXcmWeight::get() * 3;
 		assert_ok!(XcmPallet::execute(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(VersionedXcm::from(Xcm(vec![
 				ClaimAsset { assets: (Here, SEND_AMOUNT).into(), ticket: Here.into() },
 				buy_execution((Here, SEND_AMOUNT)),
@@ -650,7 +650,7 @@ fn trapped_assets_can_be_claimed() {
 		// Can't claim twice.
 		assert_err_ignore_postinfo!(
 			XcmPallet::execute(
-				RuntimeOrigin::signed(ALICE),
+				RuntimeOrigin::signed_with_basic_filter(ALICE),
 				Box::new(VersionedXcm::from(Xcm(vec![
 					ClaimAsset { assets: (Here, SEND_AMOUNT).into(), ticket: Here.into() },
 					buy_execution((Here, SEND_AMOUNT)),
@@ -676,7 +676,7 @@ fn claim_assets_works() {
 			Xcm::<RuntimeCall>::builder_unsafe().withdraw_asset((Here, SEND_AMOUNT)).build();
 		// Even though assets are trapped, the extrinsic returns success.
 		assert_ok!(XcmPallet::execute(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(VersionedXcm::from(trapping_program)),
 			BaseXcmWeight::get() * 2,
 		));
@@ -706,7 +706,7 @@ fn claim_assets_works() {
 
 		// Now claim them with the extrinsic.
 		assert_ok!(XcmPallet::claim_assets(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(VersionedAssets::from(Assets::from((Here, SEND_AMOUNT)))),
 			Box::new(VersionedLocation::from(Location::from(AccountId32 {
 				network: None,
@@ -732,7 +732,7 @@ fn incomplete_execute_reverts_side_effects() {
 		let amount_to_send = INITIAL_BALANCE - ExistentialDeposit::get();
 		let assets: Assets = (Here, amount_to_send).into();
 		let result = XcmPallet::execute(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(VersionedXcm::from(Xcm(vec![
 				// Withdraw + BuyExec + Deposit should work
 				WithdrawAsset(assets.clone()),
@@ -1657,7 +1657,7 @@ fn record_xcm_works() {
 
 		// By default the message won't be recorded.
 		assert_ok!(XcmPallet::execute(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(VersionedXcm::from(message.clone())),
 			BaseXcmWeight::get() * 3,
 		));
@@ -1666,7 +1666,7 @@ fn record_xcm_works() {
 		// We explicitly set the record flag to true so we record the XCM.
 		ShouldRecordXcm::<Test>::put(true);
 		assert_ok!(XcmPallet::execute(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(VersionedXcm::from(message.clone())),
 			BaseXcmWeight::get() * 3,
 		));
@@ -1700,7 +1700,7 @@ fn execute_initiate_transfer_and_check_sent_event() {
 			}]);
 
 			let result = XcmPallet::execute(
-				RuntimeOrigin::signed(ALICE),
+				RuntimeOrigin::signed_with_basic_filter(ALICE),
 				Box::new(VersionedXcm::from(message.clone())),
 				BaseXcmWeight::get() * 3,
 			);
@@ -1757,7 +1757,7 @@ fn deliver_failure_with_expect_error() {
 			}]);
 
 			let result = XcmPallet::execute(
-				RuntimeOrigin::signed(ALICE),
+				RuntimeOrigin::signed_with_basic_filter(ALICE),
 				Box::new(VersionedXcm::from(message.clone())),
 				BaseXcmWeight::get() * 3,
 			);

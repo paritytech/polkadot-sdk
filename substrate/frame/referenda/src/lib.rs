@@ -66,6 +66,7 @@
 
 extern crate alloc;
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::boxed::Box;
 use codec::{Codec, Encode};
 use core::fmt::Debug;
@@ -819,7 +820,7 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 				.expect("infinite length input; no invalid inputs for type; qed");
 		let mut status = ReferendumStatusOf::<T, I> {
 			track: class,
-			origin: frame_support::dispatch::RawOrigin::Root.into(),
+			origin: frame_support::dispatch::RawOrigin::Root.into_with_basic_filter(),
 			proposal: T::Preimages::bound(CallOf::<T, I>::from(Call::nudge_referendum { index }))
 				.map_err(|_| ())?,
 			enactment: DispatchTime::After(Zero::zero()),
@@ -937,7 +938,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			DispatchTime::At(when),
 			None,
 			128u8,
-			frame_system::RawOrigin::Root.into(),
+			frame_system::RawOrigin::Root.into_with_basic_filter(),
 			call,
 		);
 		debug_assert!(

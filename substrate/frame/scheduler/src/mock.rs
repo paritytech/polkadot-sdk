@@ -17,6 +17,7 @@
 
 //! # Scheduler test environment.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 
 use crate as scheduler;
@@ -241,5 +242,5 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 pub fn root() -> OriginCaller {
-	system::RawOrigin::Root.into()
+	system::RawOrigin::Root.into_with_basic_filter()
 }

@@ -590,7 +590,7 @@ mod tests {
 			solution.round = Round::<Runtime>::get() - 1;
 
 			assert_noop!(
-				MultiPhase::submit(RuntimeOrigin::signed(10), Box::new(solution)),
+				MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(10), Box::new(solution)),
 				Error::<Runtime>::PreDispatchDifferentRound,
 			);
 
@@ -600,7 +600,7 @@ mod tests {
 			solution.round = Round::<Runtime>::get() + 1;
 
 			assert_noop!(
-				MultiPhase::submit(RuntimeOrigin::signed(10), Box::new(solution)),
+				MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(10), Box::new(solution)),
 				Error::<Runtime>::PreDispatchDifferentRound,
 			);
 		})
@@ -617,7 +617,7 @@ mod tests {
 			let solution = raw_solution();
 
 			assert_noop!(
-				MultiPhase::submit(RuntimeOrigin::signed(10), Box::new(solution)),
+				MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(10), Box::new(solution)),
 				Error::<Runtime>::PreDispatchEarlySubmission,
 			);
 
@@ -685,7 +685,7 @@ mod tests {
 			let solution = raw_solution();
 			assert_eq!(balances(&99), (100, 0));
 
-			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(99), Box::new(solution)));
+			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(99), Box::new(solution)));
 
 			assert_eq!(balances(&99), (95, 5));
 			assert_eq!(MultiPhase::signed_submissions().iter().next().unwrap().deposit, 5);
@@ -713,7 +713,7 @@ mod tests {
 			let solution = raw_solution();
 			assert_eq!(balances(&99), (100, 0));
 
-			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(99), Box::new(solution)));
+			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(99), Box::new(solution)));
 			assert_eq!(balances(&99), (95, 5));
 
 			assert!(MultiPhase::finalize_signed_phase());
@@ -746,7 +746,7 @@ mod tests {
 			// make the solution invalid.
 			solution.score.minimal_stake += 1;
 
-			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(99), Box::new(solution)));
+			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(99), Box::new(solution)));
 			assert_eq!(balances(&99), (95, 5));
 
 			// no good solution was stored.
@@ -780,11 +780,11 @@ mod tests {
 			assert_eq!(balances(&999), (100, 0));
 
 			// submit as correct.
-			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(99), Box::new(solution.clone())));
+			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(99), Box::new(solution.clone())));
 
 			// make the solution invalid and weaker.
 			solution.score.minimal_stake -= 1;
-			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(999), Box::new(solution)));
+			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(999), Box::new(solution)));
 			assert_eq!(balances(&99), (95, 5));
 			assert_eq!(balances(&999), (95, 5));
 
@@ -827,7 +827,7 @@ mod tests {
 					score: ElectionScore { minimal_stake: (5 + s).into(), ..Default::default() },
 					..Default::default()
 				};
-				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(99), Box::new(solution)));
+				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(99), Box::new(solution)));
 			}
 
 			// weaker.
@@ -837,7 +837,7 @@ mod tests {
 			};
 
 			assert_noop!(
-				MultiPhase::submit(RuntimeOrigin::signed(99), Box::new(solution)),
+				MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(99), Box::new(solution)),
 				Error::<Runtime>::SignedQueueFull,
 			);
 		})
@@ -857,7 +857,7 @@ mod tests {
 				let mut solution = raw_solution();
 				solution.score.minimal_stake -= s as u128;
 
-				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(account), Box::new(solution)));
+				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(account), Box::new(solution)));
 				assert_eq!(balances(&account).1, expected[s as usize])
 			}
 		};
@@ -908,7 +908,7 @@ mod tests {
 				let mut solution = raw_solution();
 				solution.score.minimal_stake -= s as u128;
 
-				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(account), Box::new(solution)));
+				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(account), Box::new(solution)));
 				assert_eq!(balances(&account), (95, 5));
 			}
 
@@ -988,7 +988,7 @@ mod tests {
 					},
 					..Default::default()
 				};
-				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(99), Box::new(solution)));
+				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(99), Box::new(solution)));
 
 				// This is 10% better, so does not meet the 20% threshold and is therefore rejected.
 				solution = RawSolution {
@@ -1001,7 +1001,7 @@ mod tests {
 				};
 
 				assert_noop!(
-					MultiPhase::submit(RuntimeOrigin::signed(99), Box::new(solution)),
+					MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(99), Box::new(solution)),
 					Error::<Runtime>::SignedQueueFull,
 				);
 
@@ -1015,7 +1015,7 @@ mod tests {
 					..Default::default()
 				};
 
-				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(99), Box::new(solution)));
+				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(99), Box::new(solution)));
 				assert_eq!(
 					multi_phase_events(),
 					vec![
@@ -1049,7 +1049,7 @@ mod tests {
 					score: ElectionScore { minimal_stake: (5 + s).into(), ..Default::default() },
 					..Default::default()
 				};
-				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(account), Box::new(solution)));
+				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(account), Box::new(solution)));
 				assert_eq!(balances(&account), (95, 5));
 			}
 
@@ -1066,7 +1066,7 @@ mod tests {
 				score: ElectionScore { minimal_stake: 20, ..Default::default() },
 				..Default::default()
 			};
-			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(999), Box::new(solution)));
+			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(999), Box::new(solution)));
 
 			// the one with score 5 was rejected, the new one inserted.
 			assert_eq!(
@@ -1094,14 +1094,14 @@ mod tests {
 					score: ElectionScore { minimal_stake: (5 + s).into(), ..Default::default() },
 					..Default::default()
 				};
-				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(99), Box::new(solution)));
+				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(99), Box::new(solution)));
 			}
 
 			let solution = RawSolution {
 				score: ElectionScore { minimal_stake: 4, ..Default::default() },
 				..Default::default()
 			};
-			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(99), Box::new(solution)));
+			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(99), Box::new(solution)));
 
 			assert_eq!(
 				MultiPhase::signed_submissions()
@@ -1116,7 +1116,7 @@ mod tests {
 				score: ElectionScore { minimal_stake: 5, ..Default::default() },
 				..Default::default()
 			};
-			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(99), Box::new(solution)));
+			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(99), Box::new(solution)));
 
 			// the one with score 5 was rejected, the new one inserted.
 			assert_eq!(
@@ -1141,7 +1141,7 @@ mod tests {
 					score: ElectionScore { minimal_stake: (5 + s).into(), ..Default::default() },
 					..Default::default()
 				};
-				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(99), Box::new(solution)));
+				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(99), Box::new(solution)));
 			}
 
 			assert_eq!(balances(&99).1, 2 * 5);
@@ -1152,7 +1152,7 @@ mod tests {
 				score: ElectionScore { minimal_stake: 20, ..Default::default() },
 				..Default::default()
 			};
-			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(999), Box::new(solution)));
+			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(999), Box::new(solution)));
 
 			// got one bond back.
 			assert_eq!(balances(&99).1, 2 * 4);
@@ -1172,7 +1172,7 @@ mod tests {
 					score: ElectionScore { minimal_stake: (5 + i).into(), ..Default::default() },
 					..Default::default()
 				};
-				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(99), Box::new(solution)));
+				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(99), Box::new(solution)));
 			}
 
 			assert_eq!(
@@ -1189,7 +1189,7 @@ mod tests {
 				..Default::default()
 			};
 			assert_noop!(
-				MultiPhase::submit(RuntimeOrigin::signed(99), Box::new(solution)),
+				MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(99), Box::new(solution)),
 				Error::<Runtime>::SignedQueueFull,
 			);
 		})
@@ -1206,7 +1206,7 @@ mod tests {
 				score: ElectionScore { minimal_stake: 5, ..Default::default() },
 				..Default::default()
 			};
-			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(99), Box::new(solution)));
+			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(99), Box::new(solution)));
 
 			assert_eq!(
 				MultiPhase::signed_submissions()
@@ -1221,7 +1221,7 @@ mod tests {
 				score: ElectionScore { minimal_stake: 5, ..Default::default() },
 				..Default::default()
 			};
-			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(999), Box::new(solution)));
+			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(999), Box::new(solution)));
 
 			assert_eq!(
 				MultiPhase::signed_submissions()
@@ -1235,7 +1235,7 @@ mod tests {
 				score: ElectionScore { minimal_stake: 6, ..Default::default() },
 				..Default::default()
 			};
-			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(9999), Box::new(solution)));
+			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(9999), Box::new(solution)));
 
 			assert_eq!(
 				MultiPhase::signed_submissions()
@@ -1258,7 +1258,7 @@ mod tests {
 				roll_to((15 + i).into());
 				let solution = raw_solution();
 				assert_ok!(MultiPhase::submit(
-					RuntimeOrigin::signed(100 + i as AccountId),
+					RuntimeOrigin::signed_with_basic_filter(100 + i as AccountId),
 					Box::new(solution)
 				));
 			}
@@ -1321,18 +1321,18 @@ mod tests {
 			let solution = raw_solution();
 
 			// submit a correct one.
-			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(99), Box::new(solution.clone())));
+			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(99), Box::new(solution.clone())));
 
 			// make the solution invalidly better and submit. This ought to be slashed.
 			let mut solution_999 = solution.clone();
 			solution_999.score.minimal_stake += 1;
-			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(999), Box::new(solution_999)));
+			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(999), Box::new(solution_999)));
 
 			// make the solution invalidly worse and submit. This ought to be suppressed and
 			// returned.
 			let mut solution_9999 = solution.clone();
 			solution_9999.score.minimal_stake -= 1;
-			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(9999), Box::new(solution_9999)));
+			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(9999), Box::new(solution_9999)));
 
 			assert_eq!(
 				MultiPhase::signed_submissions().iter().map(|x| x.who).collect::<Vec<_>>(),
@@ -1398,14 +1398,14 @@ mod tests {
 					Weight::from_parts(40, u64::MAX)
 				);
 
-				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(99), Box::new(raw.clone())));
+				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(99), Box::new(raw.clone())));
 
 				<SignedMaxWeight>::set(Weight::from_parts(30, u64::MAX));
 
 				// note: resubmitting the same solution is technically okay as long as the queue has
 				// space.
 				assert_noop!(
-					MultiPhase::submit(RuntimeOrigin::signed(99), Box::new(raw)),
+					MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(99), Box::new(raw)),
 					Error::<Runtime>::SignedTooMuchWeight,
 				);
 			})
@@ -1421,7 +1421,7 @@ mod tests {
 
 			assert_eq!(balances(&123), (0, 0));
 			assert_noop!(
-				MultiPhase::submit(RuntimeOrigin::signed(123), Box::new(solution)),
+				MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(123), Box::new(solution)),
 				Error::<Runtime>::SignedCannotPayDeposit,
 			);
 
@@ -1443,7 +1443,7 @@ mod tests {
 					score: ElectionScore { minimal_stake: (5 + s).into(), ..Default::default() },
 					..Default::default()
 				};
-				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(99), Box::new(solution)));
+				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(99), Box::new(solution)));
 			}
 
 			// this solution has a higher score than any in the queue
@@ -1457,7 +1457,7 @@ mod tests {
 
 			assert_eq!(balances(&123), (0, 0));
 			assert_noop!(
-				MultiPhase::submit(RuntimeOrigin::signed(123), Box::new(solution)),
+				MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(123), Box::new(solution)),
 				Error::<Runtime>::SignedCannotPayDeposit,
 			);
 
@@ -1486,7 +1486,7 @@ mod tests {
 			let solution = raw_solution();
 
 			// submit a correct one.
-			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(99), Box::new(solution)));
+			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed_with_basic_filter(99), Box::new(solution)));
 
 			// _some_ good solution was stored.
 			assert!(MultiPhase::finalize_signed_phase());

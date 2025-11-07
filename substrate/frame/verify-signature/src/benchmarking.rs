@@ -21,6 +21,7 @@
 
 extern crate alloc;
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 
 #[allow(unused)]
@@ -77,7 +78,7 @@ mod benchmarks {
 		{
 			assert!(ext
 				.validate_only(
-					RawOrigin::None.into(),
+					RawOrigin::None.into_with_basic_filter(),
 					&call,
 					&info,
 					0,

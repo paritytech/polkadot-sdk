@@ -421,7 +421,7 @@ mod tests {
 
 			let len = CALL.encoded_size();
 
-			let origin = crate::RawOrigin::Root.into();
+			let origin = crate::RawOrigin::Root.into_with_basic_filter();
 			let (pre, origin) = ext.validate_and_prepare(origin, CALL, &info, len, 0).unwrap();
 
 			assert!(origin.as_system_ref().unwrap().is_root());

@@ -69,14 +69,14 @@ fn init_members_works() {
 		);
 
 		// give a retirement notice to check later a retiring member not removed
-		assert_ok!(Alliance::give_retirement_notice(RuntimeOrigin::signed(2)));
+		assert_ok!(Alliance::give_retirement_notice(RuntimeOrigin::signed_with_basic_filter(2)));
 		assert!(Alliance::is_member_of(&2, MemberRole::Retiring));
 
 		// disband the Alliance to init new
 		assert_ok!(Alliance::disband(RuntimeOrigin::root(), DisbandWitness::new(2, 0)));
 
 		// fails without root
-		assert_noop!(Alliance::init_members(RuntimeOrigin::signed(1), vec![], vec![]), BadOrigin);
+		assert_noop!(Alliance::init_members(RuntimeOrigin::signed_with_basic_filter(1), vec![], vec![]), BadOrigin);
 
 		// fellows missing, other members given
 		assert_noop!(
@@ -113,18 +113,18 @@ fn disband_works() {
 		assert_eq!(Alliance::voting_members(), vec![1, 2, 3]);
 
 		// give a retirement notice to check later a retiring member not removed
-		assert_ok!(Alliance::give_retirement_notice(RuntimeOrigin::signed(2)));
+		assert_ok!(Alliance::give_retirement_notice(RuntimeOrigin::signed_with_basic_filter(2)));
 		assert!(Alliance::is_member_of(&2, MemberRole::Retiring));
 
 		// join alliance and reserve funds
 		assert_eq!(Balances::free_balance(9), 1000 - id_deposit);
-		assert_ok!(Alliance::join_alliance(RuntimeOrigin::signed(9)));
+		assert_ok!(Alliance::join_alliance(RuntimeOrigin::signed_with_basic_filter(9)));
 		assert_eq!(alliance::DepositOf::<Test>::get(9), Some(expected_join_deposit));
 		assert_eq!(Balances::free_balance(9), 1000 - id_deposit - expected_join_deposit);
 		assert!(Alliance::is_member_of(&9, MemberRole::Ally));
 
 		// fails without root
-		assert_noop!(Alliance::disband(RuntimeOrigin::signed(1), Default::default()), BadOrigin);
+		assert_noop!(Alliance::disband(RuntimeOrigin::signed_with_basic_filter(1), Default::default()), BadOrigin);
 
 		// bad witness data checks
 		assert_noop!(
@@ -174,7 +174,7 @@ fn propose_works() {
 		// only voting member can propose proposal, 4 is ally not have vote rights
 		assert_noop!(
 			Alliance::propose(
-				RuntimeOrigin::signed(4),
+				RuntimeOrigin::signed_with_basic_filter(4),
 				3,
 				Box::new(proposal.clone()),
 				proposal_len
@@ -183,7 +183,7 @@ fn propose_works() {
 		);
 
 		assert_ok!(Alliance::propose(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			3,
 			Box::new(proposal.clone()),
 			proposal_len
@@ -211,12 +211,12 @@ fn vote_works() {
 	build_and_execute(|| {
 		let (proposal, proposal_len, hash) = make_remark_proposal(42);
 		assert_ok!(Alliance::propose(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			3,
 			Box::new(proposal.clone()),
 			proposal_len
 		));
-		assert_ok!(Alliance::vote(RuntimeOrigin::signed(2), hash, 0, true));
+		assert_ok!(Alliance::vote(RuntimeOrigin::signed_with_basic_filter(2), hash, 0, true));
 
 		let record = |event| EventRecord { phase: Phase::Initialization, event, topics: vec![] };
 		assert_eq!(
@@ -246,16 +246,16 @@ fn close_works() {
 		let (proposal, proposal_len, hash) = make_remark_proposal(42);
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		assert_ok!(Alliance::propose(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			3,
 			Box::new(proposal.clone()),
 			proposal_len
 		));
-		assert_ok!(Alliance::vote(RuntimeOrigin::signed(1), hash, 0, true));
-		assert_ok!(Alliance::vote(RuntimeOrigin::signed(2), hash, 0, true));
-		assert_ok!(Alliance::vote(RuntimeOrigin::signed(3), hash, 0, true));
+		assert_ok!(Alliance::vote(RuntimeOrigin::signed_with_basic_filter(1), hash, 0, true));
+		assert_ok!(Alliance::vote(RuntimeOrigin::signed_with_basic_filter(2), hash, 0, true));
+		assert_ok!(Alliance::vote(RuntimeOrigin::signed_with_basic_filter(3), hash, 0, true));
 		assert_ok!(Alliance::close(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			hash,
 			0,
 			proposal_weight,
@@ -314,7 +314,7 @@ fn close_works() {
 fn set_rule_works() {
 	build_and_execute(|| {
 		let cid = test_cid();
-		assert_ok!(Alliance::set_rule(RuntimeOrigin::signed(1), cid.clone()));
+		assert_ok!(Alliance::set_rule(RuntimeOrigin::signed_with_basic_filter(1), cid.clone()));
 		assert_eq!(alliance::Rule::<Test>::get(), Some(cid.clone()));
 
 		System::assert_last_event(mock::RuntimeEvent::Alliance(crate::Event::NewRuleSet {
@@ -328,9 +328,9 @@ fn announce_works() {
 	build_and_execute(|| {
 		let cid = test_cid();
 
-		assert_noop!(Alliance::announce(RuntimeOrigin::signed(2), cid.clone()), BadOrigin);
+		assert_noop!(Alliance::announce(RuntimeOrigin::signed_with_basic_filter(2), cid.clone()), BadOrigin);
 
-		assert_ok!(Alliance::announce(RuntimeOrigin::signed(3), cid.clone()));
+		assert_ok!(Alliance::announce(RuntimeOrigin::signed_with_basic_filter(3), cid.clone()));
 		assert_eq!(alliance::Announcements::<Test>::get(), vec![cid.clone()]);
 
 		System::assert_last_event(mock::RuntimeEvent::Alliance(crate::Event::Announced {
@@ -343,7 +343,7 @@ fn announce_works() {
 fn remove_announcement_works() {
 	build_and_execute(|| {
 		let cid = test_cid();
-		assert_ok!(Alliance::announce(RuntimeOrigin::signed(3), cid.clone()));
+		assert_ok!(Alliance::announce(RuntimeOrigin::signed_with_basic_filter(3), cid.clone()));
 		assert_eq!(alliance::Announcements::<Test>::get(), vec![cid.clone()]);
 		System::assert_last_event(mock::RuntimeEvent::Alliance(crate::Event::Announced {
 			announcement: cid.clone(),
@@ -351,7 +351,7 @@ fn remove_announcement_works() {
 
 		System::set_block_number(2);
 
-		assert_ok!(Alliance::remove_announcement(RuntimeOrigin::signed(3), cid.clone()));
+		assert_ok!(Alliance::remove_announcement(RuntimeOrigin::signed_with_basic_filter(3), cid.clone()));
 		assert_eq!(alliance::Announcements::<Test>::get(), vec![]);
 		System::assert_last_event(mock::RuntimeEvent::Alliance(
 			crate::Event::AnnouncementRemoved { announcement: cid },
@@ -367,53 +367,53 @@ fn join_alliance_works() {
 		assert_eq!(Balances::free_balance(9), 1000 - id_deposit);
 		// check already member
 		assert_noop!(
-			Alliance::join_alliance(RuntimeOrigin::signed(1)),
+			Alliance::join_alliance(RuntimeOrigin::signed_with_basic_filter(1)),
 			Error::<Test, ()>::AlreadyMember
 		);
 
 		// check already listed as unscrupulous
 		assert_ok!(Alliance::add_unscrupulous_items(
-			RuntimeOrigin::signed(3),
+			RuntimeOrigin::signed_with_basic_filter(3),
 			vec![UnscrupulousItem::AccountId(4)]
 		));
 		assert_noop!(
-			Alliance::join_alliance(RuntimeOrigin::signed(4)),
+			Alliance::join_alliance(RuntimeOrigin::signed_with_basic_filter(4)),
 			Error::<Test, ()>::AccountNonGrata
 		);
 		assert_ok!(Alliance::remove_unscrupulous_items(
-			RuntimeOrigin::signed(3),
+			RuntimeOrigin::signed_with_basic_filter(3),
 			vec![UnscrupulousItem::AccountId(4)]
 		));
 
 		// check deposit funds
 		assert_noop!(
-			Alliance::join_alliance(RuntimeOrigin::signed(5)),
+			Alliance::join_alliance(RuntimeOrigin::signed_with_basic_filter(5)),
 			Error::<Test, ()>::InsufficientFunds
 		);
 
 		assert_eq!(Balances::free_balance(4), 1000 - id_deposit);
 		// success to submit
-		assert_ok!(Alliance::join_alliance(RuntimeOrigin::signed(4)));
+		assert_ok!(Alliance::join_alliance(RuntimeOrigin::signed_with_basic_filter(4)));
 		assert_eq!(Balances::free_balance(4), 1000 - id_deposit - join_deposit);
 		assert_eq!(alliance::DepositOf::<Test>::get(4), Some(25));
 		assert_eq!(alliance::Members::<Test>::get(MemberRole::Ally), vec![4]);
 
 		// check already member
 		assert_noop!(
-			Alliance::join_alliance(RuntimeOrigin::signed(4)),
+			Alliance::join_alliance(RuntimeOrigin::signed_with_basic_filter(4)),
 			Error::<Test, ()>::AlreadyMember
 		);
 
 		// check missing identity judgement
 		#[cfg(not(feature = "runtime-benchmarks"))]
 		assert_noop!(
-			Alliance::join_alliance(RuntimeOrigin::signed(6)),
+			Alliance::join_alliance(RuntimeOrigin::signed_with_basic_filter(6)),
 			Error::<Test, ()>::WithoutGoodIdentityJudgement
 		);
 		// check missing identity info
 		#[cfg(not(feature = "runtime-benchmarks"))]
 		assert_noop!(
-			Alliance::join_alliance(RuntimeOrigin::signed(7)),
+			Alliance::join_alliance(RuntimeOrigin::signed_with_basic_filter(7)),
 			Error::<Test, ()>::WithoutRequiredIdentityFields
 		);
 	});
@@ -424,51 +424,51 @@ fn nominate_ally_works() {
 	build_and_execute(|| {
 		// check already member
 		assert_noop!(
-			Alliance::nominate_ally(RuntimeOrigin::signed(1), 2),
+			Alliance::nominate_ally(RuntimeOrigin::signed_with_basic_filter(1), 2),
 			Error::<Test, ()>::AlreadyMember
 		);
 
 		// only voting members (Fellows) have nominate right
 		assert_noop!(
-			Alliance::nominate_ally(RuntimeOrigin::signed(5), 4),
+			Alliance::nominate_ally(RuntimeOrigin::signed_with_basic_filter(5), 4),
 			Error::<Test, ()>::NoVotingRights
 		);
 
 		// check already listed as unscrupulous
 		assert_ok!(Alliance::add_unscrupulous_items(
-			RuntimeOrigin::signed(3),
+			RuntimeOrigin::signed_with_basic_filter(3),
 			vec![UnscrupulousItem::AccountId(4)]
 		));
 		assert_noop!(
-			Alliance::nominate_ally(RuntimeOrigin::signed(1), 4),
+			Alliance::nominate_ally(RuntimeOrigin::signed_with_basic_filter(1), 4),
 			Error::<Test, ()>::AccountNonGrata
 		);
 		assert_ok!(Alliance::remove_unscrupulous_items(
-			RuntimeOrigin::signed(3),
+			RuntimeOrigin::signed_with_basic_filter(3),
 			vec![UnscrupulousItem::AccountId(4)]
 		));
 
 		// success to nominate
-		assert_ok!(Alliance::nominate_ally(RuntimeOrigin::signed(1), 4));
+		assert_ok!(Alliance::nominate_ally(RuntimeOrigin::signed_with_basic_filter(1), 4));
 		assert_eq!(alliance::DepositOf::<Test>::get(4), None);
 		assert_eq!(alliance::Members::<Test>::get(MemberRole::Ally), vec![4]);
 
 		// check already member
 		assert_noop!(
-			Alliance::nominate_ally(RuntimeOrigin::signed(1), 4),
+			Alliance::nominate_ally(RuntimeOrigin::signed_with_basic_filter(1), 4),
 			Error::<Test, ()>::AlreadyMember
 		);
 
 		// check missing identity judgement
 		#[cfg(not(feature = "runtime-benchmarks"))]
 		assert_noop!(
-			Alliance::join_alliance(RuntimeOrigin::signed(6)),
+			Alliance::join_alliance(RuntimeOrigin::signed_with_basic_filter(6)),
 			Error::<Test, ()>::WithoutGoodIdentityJudgement
 		);
 		// check missing identity info
 		#[cfg(not(feature = "runtime-benchmarks"))]
 		assert_noop!(
-			Alliance::join_alliance(RuntimeOrigin::signed(7)),
+			Alliance::join_alliance(RuntimeOrigin::signed_with_basic_filter(7)),
 			Error::<Test, ()>::WithoutRequiredIdentityFields
 		);
 	});
@@ -478,15 +478,15 @@ fn nominate_ally_works() {
 fn elevate_ally_works() {
 	build_and_execute(|| {
 		assert_noop!(
-			Alliance::elevate_ally(RuntimeOrigin::signed(2), 4),
+			Alliance::elevate_ally(RuntimeOrigin::signed_with_basic_filter(2), 4),
 			Error::<Test, ()>::NotAlly
 		);
 
-		assert_ok!(Alliance::join_alliance(RuntimeOrigin::signed(4)));
+		assert_ok!(Alliance::join_alliance(RuntimeOrigin::signed_with_basic_filter(4)));
 		assert_eq!(alliance::Members::<Test>::get(MemberRole::Ally), vec![4]);
 		assert_eq!(alliance::Members::<Test>::get(MemberRole::Fellow), vec![1, 2, 3]);
 
-		assert_ok!(Alliance::elevate_ally(RuntimeOrigin::signed(2), 4));
+		assert_ok!(Alliance::elevate_ally(RuntimeOrigin::signed_with_basic_filter(2), 4));
 		assert_eq!(alliance::Members::<Test>::get(MemberRole::Ally), Vec::<u64>::new());
 		assert_eq!(alliance::Members::<Test>::get(MemberRole::Fellow), vec![1, 2, 3, 4]);
 	});
@@ -496,12 +496,12 @@ fn elevate_ally_works() {
 fn give_retirement_notice_work() {
 	build_and_execute(|| {
 		assert_noop!(
-			Alliance::give_retirement_notice(RuntimeOrigin::signed(4)),
+			Alliance::give_retirement_notice(RuntimeOrigin::signed_with_basic_filter(4)),
 			Error::<Test, ()>::NotMember
 		);
 
 		assert_eq!(alliance::Members::<Test>::get(MemberRole::Fellow), vec![1, 2, 3]);
-		assert_ok!(Alliance::give_retirement_notice(RuntimeOrigin::signed(3)));
+		assert_ok!(Alliance::give_retirement_notice(RuntimeOrigin::signed_with_basic_filter(3)));
 		assert_eq!(alliance::Members::<Test>::get(MemberRole::Fellow), vec![1, 2]);
 		assert_eq!(alliance::Members::<Test>::get(MemberRole::Retiring), vec![3]);
 		System::assert_last_event(mock::RuntimeEvent::Alliance(
@@ -509,7 +509,7 @@ fn give_retirement_notice_work() {
 		));
 
 		assert_noop!(
-			Alliance::give_retirement_notice(RuntimeOrigin::signed(3)),
+			Alliance::give_retirement_notice(RuntimeOrigin::signed_with_basic_filter(3)),
 			Error::<Test, ()>::AlreadyRetiring
 		);
 	});
@@ -519,23 +519,23 @@ fn give_retirement_notice_work() {
 fn retire_works() {
 	build_and_execute(|| {
 		assert_noop!(
-			Alliance::retire(RuntimeOrigin::signed(2)),
+			Alliance::retire(RuntimeOrigin::signed_with_basic_filter(2)),
 			Error::<Test, ()>::RetirementNoticeNotGiven
 		);
 
 		assert_noop!(
-			Alliance::retire(RuntimeOrigin::signed(4)),
+			Alliance::retire(RuntimeOrigin::signed_with_basic_filter(4)),
 			Error::<Test, ()>::RetirementNoticeNotGiven
 		);
 
 		assert_eq!(alliance::Members::<Test>::get(MemberRole::Fellow), vec![1, 2, 3]);
-		assert_ok!(Alliance::give_retirement_notice(RuntimeOrigin::signed(3)));
+		assert_ok!(Alliance::give_retirement_notice(RuntimeOrigin::signed_with_basic_filter(3)));
 		assert_noop!(
-			Alliance::retire(RuntimeOrigin::signed(3)),
+			Alliance::retire(RuntimeOrigin::signed_with_basic_filter(3)),
 			Error::<Test, ()>::RetirementPeriodNotPassed
 		);
 		System::set_block_number(System::block_number() + RetirementPeriod::get());
-		assert_ok!(Alliance::retire(RuntimeOrigin::signed(3)));
+		assert_ok!(Alliance::retire(RuntimeOrigin::signed_with_basic_filter(3)));
 		assert_eq!(alliance::Members::<Test>::get(MemberRole::Fellow), vec![1, 2]);
 		System::assert_last_event(mock::RuntimeEvent::Alliance(crate::Event::MemberRetired {
 			member: (3),
@@ -545,7 +545,7 @@ fn retire_works() {
 		// Move time on:
 		System::set_block_number(System::block_number() + RetirementPeriod::get());
 
-		assert_powerless(RuntimeOrigin::signed(3), false);
+		assert_powerless(RuntimeOrigin::signed_with_basic_filter(3), false);
 	});
 }
 
@@ -553,29 +553,29 @@ fn retire_works() {
 fn abdicate_works() {
 	build_and_execute(|| {
 		assert_eq!(alliance::Members::<Test>::get(MemberRole::Fellow), vec![1, 2, 3]);
-		assert_ok!(Alliance::abdicate_fellow_status(RuntimeOrigin::signed(3)));
+		assert_ok!(Alliance::abdicate_fellow_status(RuntimeOrigin::signed_with_basic_filter(3)));
 
 		System::assert_last_event(mock::RuntimeEvent::Alliance(crate::Event::FellowAbdicated {
 			fellow: (3),
 		}));
 
-		assert_powerless(RuntimeOrigin::signed(3), true);
+		assert_powerless(RuntimeOrigin::signed_with_basic_filter(3), true);
 	});
 }
 
 #[test]
 fn kick_member_works() {
 	build_and_execute(|| {
-		assert_noop!(Alliance::kick_member(RuntimeOrigin::signed(4), 4), BadOrigin);
+		assert_noop!(Alliance::kick_member(RuntimeOrigin::signed_with_basic_filter(4), 4), BadOrigin);
 
 		assert_noop!(
-			Alliance::kick_member(RuntimeOrigin::signed(2), 4),
+			Alliance::kick_member(RuntimeOrigin::signed_with_basic_filter(2), 4),
 			Error::<Test, ()>::NotMember
 		);
 
 		<DepositOf<Test, ()>>::insert(2, 25);
 		assert_eq!(alliance::Members::<Test>::get(MemberRole::Fellow), vec![1, 2, 3]);
-		assert_ok!(Alliance::kick_member(RuntimeOrigin::signed(2), 2));
+		assert_ok!(Alliance::kick_member(RuntimeOrigin::signed_with_basic_filter(2), 2));
 		assert_eq!(alliance::Members::<Test>::get(MemberRole::Fellow), vec![1, 3]);
 		assert_eq!(<DepositOf<Test, ()>>::get(2), None);
 		System::assert_last_event(mock::RuntimeEvent::Alliance(crate::Event::MemberKicked {
@@ -588,10 +588,10 @@ fn kick_member_works() {
 #[test]
 fn add_unscrupulous_items_works() {
 	build_and_execute(|| {
-		assert_noop!(Alliance::add_unscrupulous_items(RuntimeOrigin::signed(2), vec![]), BadOrigin);
+		assert_noop!(Alliance::add_unscrupulous_items(RuntimeOrigin::signed_with_basic_filter(2), vec![]), BadOrigin);
 
 		assert_ok!(Alliance::add_unscrupulous_items(
-			RuntimeOrigin::signed(3),
+			RuntimeOrigin::signed_with_basic_filter(3),
 			vec![
 				UnscrupulousItem::AccountId(3),
 				UnscrupulousItem::Website("abc".as_bytes().to_vec().try_into().unwrap())
@@ -605,7 +605,7 @@ fn add_unscrupulous_items_works() {
 
 		assert_noop!(
 			Alliance::add_unscrupulous_items(
-				RuntimeOrigin::signed(3),
+				RuntimeOrigin::signed_with_basic_filter(3),
 				vec![UnscrupulousItem::AccountId(3)]
 			),
 			Error::<Test, ()>::AlreadyUnscrupulous
@@ -617,25 +617,25 @@ fn add_unscrupulous_items_works() {
 fn remove_unscrupulous_items_works() {
 	build_and_execute(|| {
 		assert_noop!(
-			Alliance::remove_unscrupulous_items(RuntimeOrigin::signed(2), vec![]),
+			Alliance::remove_unscrupulous_items(RuntimeOrigin::signed_with_basic_filter(2), vec![]),
 			BadOrigin
 		);
 
 		assert_noop!(
 			Alliance::remove_unscrupulous_items(
-				RuntimeOrigin::signed(3),
+				RuntimeOrigin::signed_with_basic_filter(3),
 				vec![UnscrupulousItem::AccountId(3)]
 			),
 			Error::<Test, ()>::NotListedAsUnscrupulous
 		);
 
 		assert_ok!(Alliance::add_unscrupulous_items(
-			RuntimeOrigin::signed(3),
+			RuntimeOrigin::signed_with_basic_filter(3),
 			vec![UnscrupulousItem::AccountId(3)]
 		));
 		assert_eq!(alliance::UnscrupulousAccounts::<Test>::get(), vec![3]);
 		assert_ok!(Alliance::remove_unscrupulous_items(
-			RuntimeOrigin::signed(3),
+			RuntimeOrigin::signed_with_basic_filter(3),
 			vec![UnscrupulousItem::AccountId(3)]
 		));
 		assert_eq!(alliance::UnscrupulousAccounts::<Test>::get(), Vec::<u64>::new());

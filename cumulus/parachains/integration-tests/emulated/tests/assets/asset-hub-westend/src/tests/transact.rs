@@ -26,7 +26,7 @@ fn transfer_and_transact_in_same_xcm(
 	beneficiary: Location,
 	call: xcm::DoubleEncoded<()>,
 ) {
-	let signed_origin = <PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get().into());
+	let signed_origin = <PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalASender::get().into());
 	let context = PenpalUniversalLocation::get();
 	let asset_hub_location = PenpalA::sibling_location_of(AssetHubWestend::para_id());
 
@@ -138,7 +138,7 @@ fn transact_from_para_to_para_through_asset_hub() {
 
 	// Give the sender enough Relay tokens to pay for local delivery fees.
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalAssetOwner::get()),
 		RelayLocation::get(),
 		sender.clone(),
 		10_000_000_000_000, // Large estimate to make sure it works.
@@ -235,7 +235,7 @@ fn transact_using_authorized_alias_from_para_to_asset_hub_and_back_to_para() {
 	)]);
 	// Give the sender enough WND
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalAssetOwner::get()),
 		wnd_from_parachain_pov.clone(),
 		sender.clone(),
 		amount_of_wnd_to_transfer_to_ah,
@@ -255,7 +255,7 @@ fn transact_using_authorized_alias_from_para_to_asset_hub_and_back_to_para() {
 	// (instead of aliasing into Sovereign Account of sender)
 	AssetHubWestend::execute_with(|| {
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::add_authorized_alias(
-			<AssetHubWestend as Chain>::RuntimeOrigin::signed(sender.clone()),
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(sender.clone()),
 			Box::new(sender_as_seen_from_ah.into()),
 			None
 		));
@@ -286,7 +286,7 @@ fn transact_using_authorized_alias_from_para_to_asset_hub_and_back_to_para() {
 	let penpal_location_ah_pov = AssetHubWestend::sibling_location_of(PenpalA::para_id());
 
 	PenpalA::execute_with(|| {
-		let sender_signed_origin = <PenpalA as Chain>::RuntimeOrigin::signed(sender.clone());
+		let sender_signed_origin = <PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(sender.clone());
 
 		let local_fees_amount = 80_000_000_000_000u128;
 		let remote_fees_amount = 90_000_000_000_000u128;
@@ -457,7 +457,7 @@ fn transact_using_sov_account_from_para_to_asset_hub_and_back_to_para() {
 	)]);
 	// Give the sender enough WND
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalAssetOwner::get()),
 		wnd_from_parachain_pov.clone(),
 		sender.clone(),
 		amount_of_wnd_to_transfer_to_ah,
@@ -499,7 +499,7 @@ fn transact_using_sov_account_from_para_to_asset_hub_and_back_to_para() {
 	let penpal_location_ah_pov = AssetHubWestend::sibling_location_of(PenpalA::para_id());
 
 	PenpalA::execute_with(|| {
-		let sender_signed_origin = <PenpalA as Chain>::RuntimeOrigin::signed(sender.clone());
+		let sender_signed_origin = <PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(sender.clone());
 
 		let local_fees_amount = 80_000_000_000_000u128;
 		let remote_fees_amount = 90_000_000_000_000u128;

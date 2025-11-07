@@ -85,7 +85,7 @@ fn test_exchange_asset(
 	let alice: AccountId = Westend::account_id_of(ALICE);
 	let native_asset_location = WestendLocation::get();
 	let native_asset_id = AssetId(native_asset_location.clone());
-	let origin = RuntimeOrigin::signed(alice.clone());
+	let origin = RuntimeOrigin::signed_with_basic_filter(alice.clone());
 	let asset_location = Location::new(1, [Parachain(2001)]);
 	let asset_id = AssetId(asset_location.clone());
 
@@ -180,7 +180,7 @@ fn exchange_asset_from_penpal_via_asset_hub_back_to_penpal() {
 	)]);
 	// Give the sender enough WND
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(PenpalAssetOwner::get()),
 		wnd_from_parachain_pov.clone(),
 		sender.clone(),
 		amount_of_wnd_to_transfer_to_ah,
@@ -205,7 +205,7 @@ fn exchange_asset_from_penpal_via_asset_hub_back_to_penpal() {
 	let penpal_location_ah_pov = AssetHubWestend::sibling_location_of(PenpalA::para_id());
 
 	PenpalA::execute_with(|| {
-		let sender_signed_origin = <PenpalA as Chain>::RuntimeOrigin::signed(sender.clone());
+		let sender_signed_origin = <PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(sender.clone());
 
 		let local_fees_amount = 80_000_000_000_000u128;
 		let remote_fees_amount = 200_000_000_000_000u128;

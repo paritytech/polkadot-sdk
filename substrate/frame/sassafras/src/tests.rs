@@ -823,7 +823,7 @@ fn submit_tickets_with_ring_proof_check_works() {
 		let max_tickets_per_call = Sassafras::epoch_length() as usize;
 		tickets.chunks(max_tickets_per_call).for_each(|chunk| {
 			let chunk = BoundedVec::truncate_from(chunk.to_vec());
-			Sassafras::submit_tickets(RuntimeOrigin::none(), chunk).unwrap();
+			Sassafras::submit_tickets(RuntimeOrigin::none_with_basic_filter(), chunk).unwrap();
 		});
 
 		// Check state after submission

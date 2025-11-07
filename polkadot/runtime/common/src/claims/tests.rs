@@ -64,7 +64,7 @@ fn claiming_works() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::free_balance(42), 0);
 		assert_ok!(claims::mock::Claims::claim(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::none_with_basic_filter(),
 			42,
 			sig::<Test>(&alice(), &42u64.encode(), &[][..])
 		));
@@ -80,7 +80,7 @@ fn basic_claim_moving_works() {
 		assert_eq!(Balances::free_balance(42), 0);
 		assert_noop!(
 			claims::mock::Claims::move_claim(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				eth(&alice()),
 				eth(&bob()),
 				None
@@ -88,21 +88,21 @@ fn basic_claim_moving_works() {
 			BadOrigin
 		);
 		assert_ok!(claims::mock::Claims::move_claim(
-			RuntimeOrigin::signed(6),
+			RuntimeOrigin::signed_with_basic_filter(6),
 			eth(&alice()),
 			eth(&bob()),
 			None
 		));
 		assert_noop!(
 			claims::mock::Claims::claim(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::none_with_basic_filter(),
 				42,
 				sig::<Test>(&alice(), &42u64.encode(), &[][..])
 			),
 			Error::<Test>::SignerHasNoClaim
 		);
 		assert_ok!(claims::mock::Claims::claim(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::none_with_basic_filter(),
 			42,
 			sig::<Test>(&bob(), &42u64.encode(), &[][..])
 		));
@@ -116,14 +116,14 @@ fn basic_claim_moving_works() {
 fn claim_attest_moving_works() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(claims::mock::Claims::move_claim(
-			RuntimeOrigin::signed(6),
+			RuntimeOrigin::signed_with_basic_filter(6),
 			eth(&dave()),
 			eth(&bob()),
 			None
 		));
 		let s = sig::<Test>(&bob(), &42u64.encode(), StatementKind::Regular.to_text());
 		assert_ok!(claims::mock::Claims::claim_attest(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::none_with_basic_filter(),
 			42,
 			s,
 			StatementKind::Regular.to_text().to_vec()
@@ -136,13 +136,13 @@ fn claim_attest_moving_works() {
 fn attest_moving_works() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(claims::mock::Claims::move_claim(
-			RuntimeOrigin::signed(6),
+			RuntimeOrigin::signed_with_basic_filter(6),
 			eth(&eve()),
 			eth(&bob()),
 			Some(42)
 		));
 		assert_ok!(claims::mock::Claims::attest(
-			RuntimeOrigin::signed(42),
+			RuntimeOrigin::signed_with_basic_filter(42),
 			StatementKind::Saft.to_text().to_vec()
 		));
 		assert_eq!(Balances::free_balance(&42), 300);
@@ -153,13 +153,13 @@ fn attest_moving_works() {
 fn claiming_does_not_bypass_signing() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(claims::mock::Claims::claim(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::none_with_basic_filter(),
 			42,
 			sig::<Test>(&alice(), &42u64.encode(), &[][..])
 		));
 		assert_noop!(
 			claims::mock::Claims::claim(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::none_with_basic_filter(),
 				42,
 				sig::<Test>(&dave(), &42u64.encode(), &[][..])
 			),
@@ -167,14 +167,14 @@ fn claiming_does_not_bypass_signing() {
 		);
 		assert_noop!(
 			claims::mock::Claims::claim(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::none_with_basic_filter(),
 				42,
 				sig::<Test>(&eve(), &42u64.encode(), &[][..])
 			),
 			Error::<Test>::InvalidStatement,
 		);
 		assert_ok!(claims::mock::Claims::claim(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::none_with_basic_filter(),
 			42,
 			sig::<Test>(&frank(), &42u64.encode(), &[][..])
 		));
@@ -187,7 +187,7 @@ fn attest_claiming_works() {
 		assert_eq!(Balances::free_balance(42), 0);
 		let s = sig::<Test>(&dave(), &42u64.encode(), StatementKind::Saft.to_text());
 		let r = claims::mock::Claims::claim_attest(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::none_with_basic_filter(),
 			42,
 			s.clone(),
 			StatementKind::Saft.to_text().to_vec(),
@@ -195,7 +195,7 @@ fn attest_claiming_works() {
 		assert_noop!(r, Error::<Test>::InvalidStatement);
 
 		let r = claims::mock::Claims::claim_attest(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::none_with_basic_filter(),
 			42,
 			s,
 			StatementKind::Regular.to_text().to_vec(),
@@ -206,7 +206,7 @@ fn attest_claiming_works() {
 
 		let s = sig::<Test>(&dave(), &42u64.encode(), StatementKind::Regular.to_text());
 		assert_ok!(claims::mock::Claims::claim_attest(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::none_with_basic_filter(),
 			42,
 			s,
 			StatementKind::Regular.to_text().to_vec()
@@ -216,7 +216,7 @@ fn attest_claiming_works() {
 
 		let s = sig::<Test>(&dave(), &42u64.encode(), StatementKind::Regular.to_text());
 		let r = claims::mock::Claims::claim_attest(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::none_with_basic_filter(),
 			42,
 			s,
 			StatementKind::Regular.to_text().to_vec(),
@@ -231,20 +231,20 @@ fn attesting_works() {
 		assert_eq!(Balances::free_balance(42), 0);
 		assert_noop!(
 			claims::mock::Claims::attest(
-				RuntimeOrigin::signed(69),
+				RuntimeOrigin::signed_with_basic_filter(69),
 				StatementKind::Saft.to_text().to_vec()
 			),
 			Error::<Test>::SenderHasNoClaim
 		);
 		assert_noop!(
 			claims::mock::Claims::attest(
-				RuntimeOrigin::signed(42),
+				RuntimeOrigin::signed_with_basic_filter(42),
 				StatementKind::Regular.to_text().to_vec()
 			),
 			Error::<Test>::InvalidStatement
 		);
 		assert_ok!(claims::mock::Claims::attest(
-			RuntimeOrigin::signed(42),
+			RuntimeOrigin::signed_with_basic_filter(42),
 			StatementKind::Saft.to_text().to_vec()
 		));
 		assert_eq!(Balances::free_balance(&42), 300);
@@ -258,14 +258,14 @@ fn claim_cannot_clobber_preclaim() {
 		assert_eq!(Balances::free_balance(42), 0);
 		// Alice's claim is 100
 		assert_ok!(claims::mock::Claims::claim(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::none_with_basic_filter(),
 			42,
 			sig::<Test>(&alice(), &42u64.encode(), &[][..])
 		));
 		assert_eq!(Balances::free_balance(&42), 100);
 		// Eve's claim is 300 through Account 42
 		assert_ok!(claims::mock::Claims::attest(
-			RuntimeOrigin::signed(42),
+			RuntimeOrigin::signed_with_basic_filter(42),
 			StatementKind::Saft.to_text().to_vec()
 		));
 		assert_eq!(Balances::free_balance(&42), 100 + 300);
@@ -311,7 +311,7 @@ fn cannot_bypass_attest_claiming() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::free_balance(42), 0);
 		let s = sig::<Test>(&dave(), &42u64.encode(), &[]);
-		let r = claims::mock::Claims::claim(RuntimeOrigin::none(), 42, s.clone());
+		let r = claims::mock::Claims::claim(RuntimeOrigin::none_with_basic_filter(), 42, s.clone());
 		assert_noop!(r, Error::<Test>::InvalidStatement);
 	});
 }
@@ -321,7 +321,7 @@ fn add_claim_works() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
 			claims::mock::Claims::mint_claim(
-				RuntimeOrigin::signed(42),
+				RuntimeOrigin::signed_with_basic_filter(42),
 				eth(&bob()),
 				200,
 				None,
@@ -332,7 +332,7 @@ fn add_claim_works() {
 		assert_eq!(Balances::free_balance(42), 0);
 		assert_noop!(
 			claims::mock::Claims::claim(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::none_with_basic_filter(),
 				69,
 				sig::<Test>(&bob(), &69u64.encode(), &[][..])
 			),
@@ -347,7 +347,7 @@ fn add_claim_works() {
 		));
 		assert_eq!(claims::Total::<Test>::get(), total_claims() + 200);
 		assert_ok!(claims::mock::Claims::claim(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::none_with_basic_filter(),
 			69,
 			sig::<Test>(&bob(), &69u64.encode(), &[][..])
 		));
@@ -362,7 +362,7 @@ fn add_claim_with_vesting_works() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
 			claims::mock::Claims::mint_claim(
-				RuntimeOrigin::signed(42),
+				RuntimeOrigin::signed_with_basic_filter(42),
 				eth(&bob()),
 				200,
 				Some((50, 10, 1)),
@@ -373,7 +373,7 @@ fn add_claim_with_vesting_works() {
 		assert_eq!(Balances::free_balance(42), 0);
 		assert_noop!(
 			claims::mock::Claims::claim(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::none_with_basic_filter(),
 				69,
 				sig::<Test>(&bob(), &69u64.encode(), &[][..])
 			),
@@ -387,7 +387,7 @@ fn add_claim_with_vesting_works() {
 			None
 		));
 		assert_ok!(claims::mock::Claims::claim(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::none_with_basic_filter(),
 			69,
 			sig::<Test>(&bob(), &69u64.encode(), &[][..])
 		));
@@ -407,7 +407,7 @@ fn add_claim_with_statement_works() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
 			claims::mock::Claims::mint_claim(
-				RuntimeOrigin::signed(42),
+				RuntimeOrigin::signed_with_basic_filter(42),
 				eth(&bob()),
 				200,
 				None,
@@ -419,7 +419,7 @@ fn add_claim_with_statement_works() {
 		let signature = sig::<Test>(&bob(), &69u64.encode(), StatementKind::Regular.to_text());
 		assert_noop!(
 			claims::mock::Claims::claim_attest(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::none_with_basic_filter(),
 				69,
 				signature.clone(),
 				StatementKind::Regular.to_text().to_vec()
@@ -435,7 +435,7 @@ fn add_claim_with_statement_works() {
 		));
 		assert_noop!(
 			claims::mock::Claims::claim_attest(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::none_with_basic_filter(),
 				69,
 				signature.clone(),
 				vec![],
@@ -443,7 +443,7 @@ fn add_claim_with_statement_works() {
 			Error::<Test>::SignerHasNoClaim
 		);
 		assert_ok!(claims::mock::Claims::claim_attest(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::none_with_basic_filter(),
 			69,
 			signature.clone(),
 			StatementKind::Regular.to_text().to_vec()
@@ -458,7 +458,7 @@ fn origin_signed_claiming_fail() {
 		assert_eq!(Balances::free_balance(42), 0);
 		assert_err!(
 			claims::mock::Claims::claim(
-				RuntimeOrigin::signed(42),
+				RuntimeOrigin::signed_with_basic_filter(42),
 				42,
 				sig::<Test>(&alice(), &42u64.encode(), &[][..])
 			),
@@ -472,13 +472,13 @@ fn double_claiming_doesnt_work() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::free_balance(42), 0);
 		assert_ok!(claims::mock::Claims::claim(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::none_with_basic_filter(),
 			42,
 			sig::<Test>(&alice(), &42u64.encode(), &[][..])
 		));
 		assert_noop!(
 			claims::mock::Claims::claim(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::none_with_basic_filter(),
 				42,
 				sig::<Test>(&alice(), &42u64.encode(), &[][..])
 			),
@@ -512,7 +512,7 @@ fn claiming_while_vested_doesnt_work() {
 		// They should not be able to claim
 		assert_noop!(
 			claims::mock::Claims::claim(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::none_with_basic_filter(),
 				69,
 				sig::<Test>(&bob(), &69u64.encode(), &[][..])
 			),
@@ -527,7 +527,7 @@ fn non_sender_sig_doesnt_work() {
 		assert_eq!(Balances::free_balance(42), 0);
 		assert_noop!(
 			claims::mock::Claims::claim(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::none_with_basic_filter(),
 				42,
 				sig::<Test>(&alice(), &69u64.encode(), &[][..])
 			),
@@ -542,7 +542,7 @@ fn non_claimant_doesnt_work() {
 		assert_eq!(Balances::free_balance(42), 0);
 		assert_noop!(
 			claims::mock::Claims::claim(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::none_with_basic_filter(),
 				42,
 				sig::<Test>(&bob(), &69u64.encode(), &[][..])
 			),

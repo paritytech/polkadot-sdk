@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use frame_support::traits::IntoWithBasicFilter;
 pub use core::cell::RefCell;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
@@ -132,7 +133,7 @@ pub mod pallet_test_notifier {
 			query_id: QueryId,
 			response: Response,
 		) -> DispatchResult {
-			let responder = ensure_response(<T as Config>::RuntimeOrigin::from(origin))?;
+			let responder = ensure_response((origin).into_with_basic_filter())?;
 			Self::deposit_event(Event::<T>::ResponseReceived(responder, query_id, response));
 			Ok(())
 		}

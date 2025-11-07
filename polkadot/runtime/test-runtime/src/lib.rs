@@ -22,6 +22,7 @@
 
 extern crate alloc;
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
 	vec,
@@ -784,7 +785,7 @@ pub mod pallet_test_notifier {
 			query_id: QueryId,
 			response: Response,
 		) -> DispatchResult {
-			let responder = ensure_response(<T as Config>::RuntimeOrigin::from(origin))?;
+			let responder = ensure_response((origin).into_with_basic_filter())?;
 			Self::deposit_event(Event::<T>::ResponseReceived(responder, query_id, response));
 			Ok(())
 		}

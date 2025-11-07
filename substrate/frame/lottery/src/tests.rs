@@ -58,7 +58,7 @@ fn basic_end_to_end_works() {
 			dest: 2,
 			value: 20,
 		}));
-		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(1), call.clone()));
+		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed_with_basic_filter(1), call.clone()));
 		// 20 from the transfer, 10 from buying a ticket
 		assert_eq!(Balances::free_balance(&1), 100 - 20 - 10);
 		assert_eq!(Participants::<Test>::get(&1).1.len(), 1);
@@ -67,14 +67,14 @@ fn basic_end_to_end_works() {
 		assert_eq!(Tickets::<Test>::get(0), Some(1));
 
 		// More ticket purchases
-		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(2), call.clone()));
-		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(3), call.clone()));
-		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(4), call.clone()));
+		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed_with_basic_filter(2), call.clone()));
+		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed_with_basic_filter(3), call.clone()));
+		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed_with_basic_filter(4), call.clone()));
 		assert_eq!(TicketsCount::<Test>::get(), 4);
 
 		// Go to end
 		System::run_to_block::<AllPalletsWithSystem>(20);
-		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(5), call.clone()));
+		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed_with_basic_filter(5), call.clone()));
 		// Ticket isn't bought
 		assert_eq!(TicketsCount::<Test>::get(), 4);
 
@@ -106,7 +106,7 @@ fn stop_repeat_works() {
 		assert_ok!(Lottery::start_lottery(RuntimeOrigin::root(), price, length, delay, true));
 
 		// Non-manager fails to `stop_repeat`.
-		assert_noop!(Lottery::stop_repeat(RuntimeOrigin::signed(1)), DispatchError::BadOrigin);
+		assert_noop!(Lottery::stop_repeat(RuntimeOrigin::signed_with_basic_filter(1)), DispatchError::BadOrigin);
 		// Manager can `stop_repeat`, even twice.
 		assert_ok!(Lottery::stop_repeat(RuntimeOrigin::root()));
 		assert_ok!(Lottery::stop_repeat(RuntimeOrigin::root()));
@@ -183,7 +183,7 @@ fn start_lottery_works() {
 
 		// Setup ignores bad origin
 		assert_noop!(
-			Lottery::start_lottery(RuntimeOrigin::signed(1), price, length, delay, false),
+			Lottery::start_lottery(RuntimeOrigin::signed_with_basic_filter(1), price, length, delay, false),
 			BadOrigin,
 		);
 
@@ -209,7 +209,7 @@ fn buy_ticket_works_as_simple_passthrough() {
 			value: 20,
 		}));
 		// This is just a basic transfer then
-		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(1), call.clone()));
+		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed_with_basic_filter(1), call.clone()));
 		assert_eq!(Balances::free_balance(&1), 100 - 20);
 		assert_eq!(TicketsCount::<Test>::get(), 0);
 
@@ -222,7 +222,7 @@ fn buy_ticket_works_as_simple_passthrough() {
 
 		// Ticket price of 60 would kill the user's account
 		assert_ok!(Lottery::start_lottery(RuntimeOrigin::root(), 60, 10, 5, false));
-		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(1), call.clone()));
+		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed_with_basic_filter(1), call.clone()));
 		assert_eq!(Balances::free_balance(&1), 100 - 20 - 20);
 		assert_eq!(TicketsCount::<Test>::get(), 0);
 
@@ -232,7 +232,7 @@ fn buy_ticket_works_as_simple_passthrough() {
 			value: 1000,
 		}));
 		assert_noop!(
-			Lottery::buy_ticket(RuntimeOrigin::signed(1), fail_call),
+			Lottery::buy_ticket(RuntimeOrigin::signed_with_basic_filter(1), fail_call),
 			ArithmeticError::Underflow,
 		);
 
@@ -241,19 +241,19 @@ fn buy_ticket_works_as_simple_passthrough() {
 			dest: 0,
 			value: 0,
 		}));
-		assert_noop!(Lottery::buy_ticket(RuntimeOrigin::signed(1), bad_origin_call), BadOrigin,);
+		assert_noop!(Lottery::buy_ticket(RuntimeOrigin::signed_with_basic_filter(1), bad_origin_call), BadOrigin,);
 
 		// User can call other txs, but doesn't get a ticket
 		let remark_call =
 			Box::new(RuntimeCall::System(SystemCall::remark { remark: b"hello, world!".to_vec() }));
-		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(2), remark_call));
+		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed_with_basic_filter(2), remark_call));
 		assert_eq!(TicketsCount::<Test>::get(), 0);
 
 		let successful_call = Box::new(RuntimeCall::Balances(BalancesCall::transfer_allow_death {
 			dest: 2,
 			value: 1,
 		}));
-		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(2), successful_call));
+		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed_with_basic_filter(2), successful_call));
 		assert_eq!(TicketsCount::<Test>::get(), 1);
 	});
 }
@@ -273,7 +273,7 @@ fn buy_ticket_works() {
 			dest: 2,
 			value: 1,
 		}));
-		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(1), call.clone()));
+		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed_with_basic_filter(1), call.clone()));
 		assert_eq!(TicketsCount::<Test>::get(), 0);
 
 		// Start lottery
@@ -281,7 +281,7 @@ fn buy_ticket_works() {
 
 		// Go to start, buy ticket for transfer
 		System::run_to_block::<AllPalletsWithSystem>(5);
-		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(1), call));
+		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed_with_basic_filter(1), call));
 		assert_eq!(TicketsCount::<Test>::get(), 1);
 
 		// Can't buy another of the same ticket (even if call is slightly changed)
@@ -289,23 +289,23 @@ fn buy_ticket_works() {
 			dest: 3,
 			value: 30,
 		}));
-		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(1), call));
+		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed_with_basic_filter(1), call));
 		assert_eq!(TicketsCount::<Test>::get(), 1);
 
 		// Buy ticket for remark
 		let call =
 			Box::new(RuntimeCall::System(SystemCall::remark { remark: b"hello, world!".to_vec() }));
-		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(1), call.clone()));
+		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed_with_basic_filter(1), call.clone()));
 		assert_eq!(TicketsCount::<Test>::get(), 2);
 
 		// Go to end, can't buy tickets anymore
 		System::run_to_block::<AllPalletsWithSystem>(20);
-		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(2), call.clone()));
+		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed_with_basic_filter(2), call.clone()));
 		assert_eq!(TicketsCount::<Test>::get(), 2);
 
 		// Go to payout, can't buy tickets when there is no lottery open
 		System::run_to_block::<AllPalletsWithSystem>(25);
-		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(2), call.clone()));
+		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed_with_basic_filter(2), call.clone()));
 		assert_eq!(TicketsCount::<Test>::get(), 0);
 		assert_eq!(LotteryIndex::<Test>::get(), 1);
 	});
@@ -339,10 +339,10 @@ fn buy_ticket_already_participating() {
 
 		// Buying once works.
 		let call = Box::new(calls[0].clone());
-		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(1), call.clone()));
+		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed_with_basic_filter(1), call.clone()));
 
 		// Buying the same ticket again returns Ok, but changes nothing.
-		assert_storage_noop!(Lottery::buy_ticket(RuntimeOrigin::signed(1), call).unwrap());
+		assert_storage_noop!(Lottery::buy_ticket(RuntimeOrigin::signed_with_basic_filter(1), call).unwrap());
 
 		// Exactly one ticket exists.
 		assert_eq!(TicketsCount::<Test>::get(), 1);
@@ -361,7 +361,7 @@ fn buy_ticket_insufficient_balance() {
 		let call = Box::new(calls[0].clone());
 
 		// Buying a ticket returns Ok, but changes nothing.
-		assert_storage_noop!(Lottery::buy_ticket(RuntimeOrigin::signed(1), call).unwrap());
+		assert_storage_noop!(Lottery::buy_ticket(RuntimeOrigin::signed_with_basic_filter(1), call).unwrap());
 		assert!(TicketsCount::<Test>::get().is_zero());
 	});
 }
@@ -443,7 +443,7 @@ fn choose_account_one_participant() {
 		let call = Box::new(calls[0].clone());
 
 		// Buy one ticket with account 1.
-		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(1), call));
+		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed_with_basic_filter(1), call));
 		// Account 1 is always the winner.
 		assert_eq!(Lottery::choose_account().unwrap(), 1);
 	});

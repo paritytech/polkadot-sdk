@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use frame_support::traits::IntoWithBasicFilter;
 use crate::{
 	debug::{CallInterceptor, CallSpan, Tracing},
 	gas::GasMeter,
@@ -1548,7 +1549,7 @@ where
 	}
 
 	fn call_runtime(&self, call: <Self::T as Config>::RuntimeCall) -> DispatchResultWithPostInfo {
-		let mut origin: T::RuntimeOrigin = RawOrigin::Signed(self.address().clone()).into();
+		let mut origin: T::RuntimeOrigin = RawOrigin::Signed(self.address().clone()).into_with_basic_filter();
 		origin.add_filter(T::CallFilter::contains);
 		call.dispatch(origin)
 	}

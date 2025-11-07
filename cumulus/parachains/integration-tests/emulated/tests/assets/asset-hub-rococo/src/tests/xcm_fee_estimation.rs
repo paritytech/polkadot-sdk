@@ -111,7 +111,7 @@ fn multi_hop_works() {
 
 	// fund Parachain's sender account
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner.clone()),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(asset_owner.clone()),
 		relay_native_asset_location.clone(),
 		sender.clone(),
 		amount_to_send * 2,
@@ -228,7 +228,7 @@ fn multi_hop_works() {
 
 	// Fund accounts again.
 	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner),
+		<PenpalA as Chain>::RuntimeOrigin::signed_with_basic_filter(asset_owner),
 		relay_native_asset_location.clone(),
 		sender.clone(),
 		amount_to_send * 2,

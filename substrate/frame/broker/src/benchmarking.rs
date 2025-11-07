@@ -17,6 +17,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 
 use crate::{CoreAssignment::Task, Pallet as Broker};
@@ -458,7 +459,7 @@ mod benches {
 			.map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), region, 0x00000_fffff_fffff_00000.into());
+		_(RawOrigin::Signed(caller), region, 0x00000_fffff_fffff_00000.into_with_basic_filter());
 
 		assert_last_event::<T>(
 			Event::Interlaced {
@@ -672,7 +673,7 @@ mod benches {
 		assert_last_event::<T>(
 			Event::RegionDropped {
 				region_id: RegionId { begin: region.begin, core, mask: CoreMask::complete() },
-				duration: 3u32.into(),
+				duration: 3u32.into_with_basic_filter(),
 			}
 			.into(),
 		);
@@ -713,7 +714,7 @@ mod benches {
 			Event::ContributionDropped {
 				region_id: RegionId { begin: region.begin, core, mask: CoreMask::complete() },
 			}
-			.into(),
+			.into_with_basic_filter(),
 		);
 
 		Ok(())
@@ -744,7 +745,7 @@ mod benches {
 		_(RawOrigin::Signed(caller), when);
 
 		assert!(InstaPoolHistory::<T>::get(when).is_none());
-		assert_last_event::<T>(Event::HistoryDropped { when, revenue }.into());
+		assert_last_event::<T>(Event::HistoryDropped { when, revenue }.into_with_basic_filter());
 
 		Ok(())
 	}
@@ -773,7 +774,7 @@ mod benches {
 		_(RawOrigin::Signed(caller), core, when);
 
 		assert!(PotentialRenewals::<T>::get(id).is_none());
-		assert_last_event::<T>(Event::PotentialRenewalDropped { core, when }.into());
+		assert_last_event::<T>(Event::PotentialRenewalDropped { core, when }.into_with_basic_filter());
 
 		Ok(())
 	}
@@ -1213,7 +1214,7 @@ mod benches {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), region.core, 2001, None);
 
-		assert_last_event::<T>(Event::AutoRenewalEnabled { core: region.core, task: 2001 }.into());
+		assert_last_event::<T>(Event::AutoRenewalEnabled { core: region.core, task: 2001 }.into_with_basic_filter());
 		// Make sure we indeed renewed:
 		let sale = SaleInfo::<T>::get().expect("Sales have started.");
 		assert!(PotentialRenewals::<T>::get(PotentialRenewalId {
@@ -1262,7 +1263,7 @@ mod benches {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), core, task);
 
-		assert_last_event::<T>(Event::AutoRenewalDisabled { core, task }.into());
+		assert_last_event::<T>(Event::AutoRenewalDisabled { core, task }.into_with_basic_filter());
 
 		Ok(())
 	}

@@ -42,6 +42,7 @@
 
 extern crate alloc;
 
+use frame_support::traits::IntoWithBasicFilter;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::{
@@ -318,7 +319,7 @@ impl<T: Config<I>, I: 'static> EnsureOriginWithArg<T::RuntimeOrigin, Rank> for E
 		let who = frame_benchmarking::account::<T::AccountId>("successful_origin", 0, 0);
 		crate::Pallet::<T, I>::do_add_member_to_rank(who.clone(), *min_rank, true)
 			.expect("Could not add members for benchmarks");
-		Ok(frame_system::RawOrigin::Signed(who).into())
+		Ok(frame_system::RawOrigin::Signed(who).into_with_basic_filter())
 	}
 }
 
@@ -375,7 +376,7 @@ impl<T: Config<I>, I: 'static, const MIN_RANK: u16> EnsureOrigin<T::RuntimeOrigi
 		let who = frame_benchmarking::account::<T::AccountId>("successful_origin", 0, 0);
 		crate::Pallet::<T, I>::do_add_member_to_rank(who.clone(), MIN_RANK, true)
 			.expect("Could not add members for benchmarks");
-		Ok(frame_system::RawOrigin::Signed(who).into())
+		Ok(frame_system::RawOrigin::Signed(who).into_with_basic_filter())
 	}
 }
 

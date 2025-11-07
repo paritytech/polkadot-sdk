@@ -99,7 +99,7 @@ fn place_order_run_to_blocknumber(para_id: ParaId, blocknumber: Option<BlockNumb
 		run_to_block(bn, |n| if n == bn { Some(Default::default()) } else { None });
 	}
 	#[allow(deprecated)]
-	OnDemand::place_order_allow_death(RuntimeOrigin::signed(alice), amt, para_id).unwrap()
+	OnDemand::place_order_allow_death(RuntimeOrigin::signed_with_basic_filter(alice), amt, para_id).unwrap()
 }
 
 fn place_order_run_to_101(para_id: ParaId) {
@@ -285,27 +285,27 @@ fn place_order_works() {
 
 		// Does not work unsigned
 		assert_noop!(
-			OnDemand::place_order_allow_death(RuntimeOrigin::none(), amt, para_id),
+			OnDemand::place_order_allow_death(RuntimeOrigin::none_with_basic_filter(), amt, para_id),
 			BadOrigin
 		);
 
 		// Does not work with max_amount lower than fee
 		let low_max_amt = 1u128;
 		assert_noop!(
-			OnDemand::place_order_allow_death(RuntimeOrigin::signed(alice), low_max_amt, para_id,),
+			OnDemand::place_order_allow_death(RuntimeOrigin::signed_with_basic_filter(alice), low_max_amt, para_id,),
 			Error::<Test>::SpotPriceHigherThanMaxAmount,
 		);
 
 		// Does not work with insufficient balance
 		assert_noop!(
-			OnDemand::place_order_allow_death(RuntimeOrigin::signed(alice), amt, para_id),
+			OnDemand::place_order_allow_death(RuntimeOrigin::signed_with_basic_filter(alice), amt, para_id),
 			BalancesError::<Test, _>::InsufficientBalance
 		);
 
 		// Works
 		Balances::make_free_balance_be(&alice, amt);
 		run_to_block(101, |n| if n == 101 { Some(Default::default()) } else { None });
-		assert_ok!(OnDemand::place_order_allow_death(RuntimeOrigin::signed(alice), amt, para_id));
+		assert_ok!(OnDemand::place_order_allow_death(RuntimeOrigin::signed_with_basic_filter(alice), amt, para_id));
 	});
 }
 
@@ -329,13 +329,13 @@ fn place_order_keep_alive_keeps_alive() {
 		assert!(Paras::is_parathread(para_id));
 
 		assert_noop!(
-			OnDemand::place_order_keep_alive(RuntimeOrigin::signed(alice), max_amt, para_id),
+			OnDemand::place_order_keep_alive(RuntimeOrigin::signed_with_basic_filter(alice), max_amt, para_id),
 			BalancesError::<Test, _>::InsufficientBalance
 		);
 
 		Balances::make_free_balance_be(&alice, max_amt);
 		assert_ok!(OnDemand::place_order_keep_alive(
-			RuntimeOrigin::signed(alice),
+			RuntimeOrigin::signed_with_basic_filter(alice),
 			max_amt,
 			para_id
 		),);
@@ -377,7 +377,7 @@ fn place_order_with_credits() {
 
 		// Create an order and pay for it with credits.
 		assert_ok!(OnDemand::place_order_with_credits(
-			RuntimeOrigin::signed(alice),
+			RuntimeOrigin::signed_with_basic_filter(alice),
 			initial_credit,
 			para_id
 		));
@@ -391,7 +391,7 @@ fn place_order_with_credits() {
 		Credits::<Test>::insert(alice, 1u128);
 		assert_noop!(
 			OnDemand::place_order_with_credits(
-				RuntimeOrigin::signed(alice),
+				RuntimeOrigin::signed_with_basic_filter(alice),
 				1_000_000u128,
 				para_id
 			),

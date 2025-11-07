@@ -1693,7 +1693,7 @@ where
 		let asset_id = 1984u32; // USDT.
 		let usdt_token: Location = (PalletInstance(50), GeneralIndex(asset_id.into())).into();
 		assert_ok!(pallet_assets::Pallet::<Runtime, pallet_assets::Instance1>::create(
-			RuntimeOrigin::signed(test_account.clone()),
+			RuntimeOrigin::signed_with_basic_filter(test_account.clone()),
 			asset_id.into(),
 			test_account.clone().into(),
 			1000
@@ -1704,7 +1704,7 @@ where
 
 		// We add it to a pool with native.
 		assert_ok!(pallet_asset_conversion::Pallet::<Runtime>::create_pool(
-			RuntimeOrigin::signed(test_account.clone()),
+			RuntimeOrigin::signed_with_basic_filter(test_account.clone()),
 			native_token.clone().try_into().unwrap(),
 			usdt_token.clone().try_into().unwrap()
 		));
@@ -1715,14 +1715,14 @@ where
 
 		// We mint some of the asset...
 		assert_ok!(pallet_assets::Pallet::<Runtime, pallet_assets::Instance1>::mint(
-			RuntimeOrigin::signed(test_account.clone()),
+			RuntimeOrigin::signed_with_basic_filter(test_account.clone()),
 			asset_id.into(),
 			test_account.clone().into(),
 			3_000_000_000_000,
 		));
 		// ...so we can add liquidity to the pool.
 		assert_ok!(pallet_asset_conversion::Pallet::<Runtime>::add_liquidity(
-			RuntimeOrigin::signed(test_account.clone()),
+			RuntimeOrigin::signed_with_basic_filter(test_account.clone()),
 			native_token.clone().try_into().unwrap(),
 			usdt_token.clone().try_into().unwrap(),
 			1_000_000_000_000,
@@ -1786,20 +1786,20 @@ pub fn setup_pool_for_paying_fees_with_foreign_assets<Runtime, RuntimeOrigin>(
 	);
 
 	assert_ok!(pallet_assets::Pallet::<Runtime, pallet_assets::Instance2>::mint(
-		RuntimeOrigin::signed(foreign_asset_owner),
+		RuntimeOrigin::signed_with_basic_filter(foreign_asset_owner),
 		foreign_asset_id_location.clone().into(),
 		pool_owner.clone().into(),
 		(foreign_asset_id_minimum_balance + pool_liquidity).mul(2).into(),
 	));
 
 	assert_ok!(pallet_asset_conversion::Pallet::<Runtime>::create_pool(
-		RuntimeOrigin::signed(pool_owner.clone()),
+		RuntimeOrigin::signed_with_basic_filter(pool_owner.clone()),
 		Box::new(native_asset.clone().into()),
 		Box::new(foreign_asset_id_location.clone().into())
 	));
 
 	assert_ok!(pallet_asset_conversion::Pallet::<Runtime>::add_liquidity(
-		RuntimeOrigin::signed(pool_owner.clone()),
+		RuntimeOrigin::signed_with_basic_filter(pool_owner.clone()),
 		Box::new(native_asset.into()),
 		Box::new(foreign_asset_id_location.into()),
 		pool_liquidity,

@@ -20,6 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 #![allow(unused_assignments)] // Needed for `ready_ring_knit`.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::{mock_helpers::*, Pallet as MessageQueue, *};
 
 use frame_benchmarking::v2::*;
@@ -206,9 +207,9 @@ mod benchmarks {
 		assert!(Pages::<T>::contains_key(&origin, 0));
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(whitelisted_caller()), 0u32.into(), 0);
+		_(RawOrigin::Signed(whitelisted_caller()), 0u32.into_with_basic_filter(), 0);
 
-		assert_last_event::<T>(Event::PageReaped { origin: 0.into(), index: 0 }.into());
+		assert_last_event::<T>(Event::PageReaped { origin: 0.into_with_basic_filter(), index: 0 }.into_with_basic_filter());
 		assert!(!Pages::<T>::contains_key(&origin, 0));
 	}
 
@@ -232,10 +233,10 @@ mod benchmarks {
 		#[block]
 		{
 			MessageQueue::<T>::execute_overweight(
-				RawOrigin::Signed(whitelisted_caller()).into(),
-				0u32.into(),
+				RawOrigin::Signed(whitelisted_caller()).into_with_basic_filter(),
+				0u32.into_with_basic_filter(),
 				0u32,
-				((msgs - 1) as u32).into(),
+				((msgs - 1) as u32).into_with_basic_filter(),
 				Weight::MAX,
 			)
 			.unwrap();
@@ -269,10 +270,10 @@ mod benchmarks {
 		#[block]
 		{
 			MessageQueue::<T>::execute_overweight(
-				RawOrigin::Signed(whitelisted_caller()).into(),
-				0u32.into(),
+				RawOrigin::Signed(whitelisted_caller()).into_with_basic_filter(),
+				0u32.into_with_basic_filter(),
 				0u32,
-				((msgs - 1) as u32).into(),
+				((msgs - 1) as u32).into_with_basic_filter(),
 				Weight::MAX,
 			)
 			.unwrap();

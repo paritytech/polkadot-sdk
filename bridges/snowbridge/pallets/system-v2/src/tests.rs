@@ -65,7 +65,7 @@ fn upgrade_as_root() {
 #[test]
 fn upgrade_as_signed_fails() {
 	new_test_ext(true).execute_with(|| {
-		let origin = RuntimeOrigin::signed(sp_runtime::AccountId32::new([0; 32]));
+		let origin = RuntimeOrigin::signed_with_basic_filter(sp_runtime::AccountId32::new([0; 32]));
 		let address: H160 = Default::default();
 		let code_hash: H256 = Default::default();
 		let initializer = Initializer { params: [0; 256].into(), maximum_required_gas: 10000 };

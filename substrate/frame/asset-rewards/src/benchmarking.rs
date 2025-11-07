@@ -17,6 +17,7 @@
 
 //! Asset Rewards pallet benchmarking.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use crate::Pallet as AssetRewards;
 use frame_benchmarking::{v2::*, whitelisted_caller, BenchmarkError};
@@ -173,7 +174,7 @@ mod benchmarks {
 
 		// stake first to get worth case benchmark.
 		assert_ok!(AssetRewards::<T>::stake(
-			RawOrigin::Signed(staker.clone()).into(),
+			RawOrigin::Signed(staker.clone()).into_with_basic_filter(),
 			0,
 			min_balance
 		));
@@ -181,7 +182,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(staker.clone()), 0, min_balance);
 
-		assert_last_event::<T>(Event::Staked { staker, pool_id: 0, amount: min_balance }.into());
+		assert_last_event::<T>(Event::Staked { staker, pool_id: 0, amount: min_balance }.into_with_basic_filter());
 
 		Ok(())
 	}
@@ -194,7 +195,7 @@ mod benchmarks {
 		let min_balance = mint_into::<T>(&staker, &T::BenchmarkHelper::staked_asset());
 
 		assert_ok!(AssetRewards::<T>::stake(
-			RawOrigin::Signed(staker.clone()).into(),
+			RawOrigin::Signed(staker.clone()).into_with_basic_filter(),
 			0,
 			min_balance,
 		));
@@ -204,7 +205,7 @@ mod benchmarks {
 
 		assert_last_event::<T>(
 			Event::Unstaked { caller: staker.clone(), staker, pool_id: 0, amount: min_balance }
-				.into(),
+				.into_with_basic_filter(),
 		);
 
 		Ok(())
@@ -220,7 +221,7 @@ mod benchmarks {
 		let staker = whitelisted_caller();
 		let _ = mint_into::<T>(&staker, &T::BenchmarkHelper::staked_asset());
 		assert_ok!(AssetRewards::<T>::stake(
-			RawOrigin::Signed(staker.clone()).into(),
+			RawOrigin::Signed(staker.clone()).into_with_basic_filter(),
 			0,
 			T::Balance::one(),
 		));
@@ -239,7 +240,7 @@ mod benchmarks {
 				pool_id: 0,
 				amount: min_reward_balance,
 			}
-			.into(),
+			.into_with_basic_filter(),
 		);
 
 		Ok(())
@@ -254,7 +255,7 @@ mod benchmarks {
 			let staker: T::AccountId = whitelisted_caller();
 			let min_balance = mint_into::<T>(&staker, &T::BenchmarkHelper::staked_asset());
 
-			assert_ok!(AssetRewards::<T>::stake(RawOrigin::Signed(staker).into(), 0, min_balance));
+			assert_ok!(AssetRewards::<T>::stake(RawOrigin::Signed(staker).into_with_basic_filter(), 0, min_balance));
 		}
 
 		let new_reward_rate_per_block =
@@ -292,7 +293,7 @@ mod benchmarks {
 			let staker: T::AccountId = whitelisted_caller();
 			let min_balance = mint_into::<T>(&staker, &T::BenchmarkHelper::staked_asset());
 
-			assert_ok!(AssetRewards::<T>::stake(RawOrigin::Signed(staker).into(), 0, min_balance));
+			assert_ok!(AssetRewards::<T>::stake(RawOrigin::Signed(staker).into_with_basic_filter(), 0, min_balance));
 		}
 
 		let new_expiry_block = pool_expire::<T>()
@@ -341,7 +342,7 @@ mod benchmarks {
 			let reward_asset = T::BenchmarkHelper::reward_asset();
 			let min_balance = mint_into::<T>(&caller, &reward_asset);
 			assert_ok!(AssetRewards::<T>::deposit_reward_tokens(
-				RawOrigin::Signed(caller).into(),
+				RawOrigin::Signed(caller).into_with_basic_filter(),
 				0,
 				min_balance
 			));
@@ -350,7 +351,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), 0);
 
-		assert_last_event::<T>(Event::PoolCleanedUp { pool_id: 0 }.into());
+		assert_last_event::<T>(Event::PoolCleanedUp { pool_id: 0 }.into_with_basic_filter());
 
 		Ok(())
 	}

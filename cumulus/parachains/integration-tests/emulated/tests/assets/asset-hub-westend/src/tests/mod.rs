@@ -74,7 +74,7 @@ macro_rules! create_pool_with_wnd_on {
 			<$chain>::execute_with(|| {
 				type RuntimeEvent = <$chain as Chain>::RuntimeEvent;
 				let owner = $asset_owner;
-				let signed_owner = <$chain as Chain>::RuntimeOrigin::signed(owner.clone());
+				let signed_owner = <$chain as Chain>::RuntimeOrigin::signed_with_basic_filter(owner.clone());
 				let wnd_location: Location = Parent.into();
 				if $is_foreign {
 					assert_ok!(<$chain as [<$chain Pallet>]>::ForeignAssets::mint(

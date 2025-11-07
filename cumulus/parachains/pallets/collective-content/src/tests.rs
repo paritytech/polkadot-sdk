@@ -29,12 +29,12 @@ fn create_cid(i: u8) -> OpaqueCid {
 fn set_charter_works() {
 	new_test_ext().execute_with(|| {
 		// wrong origin.
-		let origin = RuntimeOrigin::signed(SomeAccount::get());
+		let origin = RuntimeOrigin::signed_with_basic_filter(SomeAccount::get());
 		let cid = create_cid(1);
 		assert_noop!(CollectiveContent::set_charter(origin, cid), BadOrigin);
 
 		// success.
-		let origin = RuntimeOrigin::signed(CharterManager::get());
+		let origin = RuntimeOrigin::signed_with_basic_filter(CharterManager::get());
 		let cid = create_cid(2);
 
 		assert_ok!(CollectiveContent::set_charter(origin, cid.clone()));
@@ -42,7 +42,7 @@ fn set_charter_works() {
 		System::assert_last_event(RuntimeEvent::CollectiveContent(Event::NewCharterSet { cid }));
 
 		// reset. success.
-		let origin = RuntimeOrigin::signed(CharterManager::get());
+		let origin = RuntimeOrigin::signed_with_basic_filter(CharterManager::get());
 		let cid = create_cid(3);
 
 		assert_ok!(CollectiveContent::set_charter(origin, cid.clone()));
@@ -56,13 +56,13 @@ fn announce_works() {
 	new_test_ext().execute_with(|| {
 		let now = frame_system::Pallet::<Test>::block_number();
 		// wrong origin.
-		let origin = RuntimeOrigin::signed(SomeAccount::get());
+		let origin = RuntimeOrigin::signed_with_basic_filter(SomeAccount::get());
 		let cid = create_cid(1);
 
 		assert_noop!(CollectiveContent::announce(origin, cid, None), BadOrigin);
 
 		// success.
-		let origin = RuntimeOrigin::signed(AnnouncementManager::get());
+		let origin = RuntimeOrigin::signed_with_basic_filter(AnnouncementManager::get());
 		let cid = create_cid(2);
 		let maybe_expire_at = None;
 
@@ -73,7 +73,7 @@ fn announce_works() {
 		}));
 
 		// one more. success.
-		let origin = RuntimeOrigin::signed(AnnouncementManager::get());
+		let origin = RuntimeOrigin::signed_with_basic_filter(AnnouncementManager::get());
 		let cid = create_cid(3);
 		let maybe_expire_at = None;
 
@@ -84,7 +84,7 @@ fn announce_works() {
 		}));
 
 		// one more with expire. success.
-		let origin = RuntimeOrigin::signed(AnnouncementManager::get());
+		let origin = RuntimeOrigin::signed_with_basic_filter(AnnouncementManager::get());
 		let cid = create_cid(4);
 		let maybe_expire_at = DispatchTime::<_>::After(10);
 
@@ -95,7 +95,7 @@ fn announce_works() {
 		}));
 
 		// one more with later expire. success.
-		let origin = RuntimeOrigin::signed(AnnouncementManager::get());
+		let origin = RuntimeOrigin::signed_with_basic_filter(AnnouncementManager::get());
 		let cid = create_cid(5);
 		let maybe_expire_at = DispatchTime::<_>::At(now + 20);
 
@@ -106,7 +106,7 @@ fn announce_works() {
 		}));
 
 		// one more with earlier expire. success.
-		let origin = RuntimeOrigin::signed(AnnouncementManager::get());
+		let origin = RuntimeOrigin::signed_with_basic_filter(AnnouncementManager::get());
 		let cid = create_cid(6);
 		let maybe_expire_at = DispatchTime::<_>::At(now + 5);
 
@@ -117,7 +117,7 @@ fn announce_works() {
 		}));
 
 		// one more with earlier expire. success.
-		let origin = RuntimeOrigin::signed(AnnouncementManager::get());
+		let origin = RuntimeOrigin::signed_with_basic_filter(AnnouncementManager::get());
 		let cid = create_cid(7);
 		let maybe_expire_at = DispatchTime::<_>::At(now + 5);
 
@@ -133,7 +133,7 @@ fn announce_works() {
 fn remove_announcement_works() {
 	new_test_ext().execute_with(|| {
 		// wrong origin.
-		let origin = RuntimeOrigin::signed(CharterManager::get());
+		let origin = RuntimeOrigin::signed_with_basic_filter(CharterManager::get());
 		let cid = create_cid(8);
 
 		assert_noop!(
@@ -142,7 +142,7 @@ fn remove_announcement_works() {
 		);
 
 		// missing announcement.
-		let origin = RuntimeOrigin::signed(AnnouncementManager::get());
+		let origin = RuntimeOrigin::signed_with_basic_filter(AnnouncementManager::get());
 		let cid = create_cid(9);
 
 		assert_noop!(
@@ -151,20 +151,20 @@ fn remove_announcement_works() {
 		);
 
 		// wrong origin. announcement not yet expired.
-		let origin = RuntimeOrigin::signed(AnnouncementManager::get());
+		let origin = RuntimeOrigin::signed_with_basic_filter(AnnouncementManager::get());
 		let cid = create_cid(10);
 		assert_ok!(CollectiveContent::announce(origin.clone(), cid.clone(), None));
 		assert!(<Announcements<Test>>::contains_key(cid.clone()));
 
-		let origin = RuntimeOrigin::signed(SomeAccount::get());
+		let origin = RuntimeOrigin::signed_with_basic_filter(SomeAccount::get());
 		assert_noop!(CollectiveContent::remove_announcement(origin, cid.clone()), BadOrigin);
-		let origin = RuntimeOrigin::signed(AnnouncementManager::get());
+		let origin = RuntimeOrigin::signed_with_basic_filter(AnnouncementManager::get());
 		assert_ok!(CollectiveContent::remove_announcement(origin, cid));
 
 		// success.
 
 		// remove first announcement and assert.
-		let origin = RuntimeOrigin::signed(AnnouncementManager::get());
+		let origin = RuntimeOrigin::signed_with_basic_filter(AnnouncementManager::get());
 		let cid = create_cid(11);
 		assert_ok!(CollectiveContent::announce(origin.clone(), cid.clone(), None));
 		assert!(<Announcements<Test>>::contains_key(cid.clone()));
@@ -181,7 +181,7 @@ fn remove_announcement_works() {
 		assert!(!<Announcements<Test>>::contains_key(cid));
 
 		// remove expired announcement and assert.
-		let origin = RuntimeOrigin::signed(AnnouncementManager::get());
+		let origin = RuntimeOrigin::signed_with_basic_filter(AnnouncementManager::get());
 		let cid = create_cid(12);
 		assert_ok!(CollectiveContent::announce(
 			origin.clone(),
@@ -191,7 +191,7 @@ fn remove_announcement_works() {
 		assert!(<Announcements<Test>>::contains_key(cid.clone()));
 
 		System::set_block_number(11);
-		let origin = RuntimeOrigin::signed(SomeAccount::get());
+		let origin = RuntimeOrigin::signed_with_basic_filter(SomeAccount::get());
 		let info = CollectiveContent::remove_announcement(origin.clone(), cid.clone()).unwrap();
 		assert_eq!(info.pays_fee, Pays::No);
 		System::assert_last_event(RuntimeEvent::CollectiveContent(Event::AnnouncementRemoved {

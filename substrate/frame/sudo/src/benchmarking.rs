@@ -17,6 +17,7 @@
 
 //! Benchmarks for Sudo Pallet
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use crate::Pallet;
 use alloc::{boxed::Box, vec};
@@ -110,7 +111,7 @@ mod benchmarks {
 		#[block]
 		{
 			assert!(ext
-				.test_run(RawOrigin::Signed(caller).into(), &call, &info, 0, 0, |_| Ok(
+				.test_run(RawOrigin::Signed(caller).into_with_basic_filter(), &call, &info, 0, 0, |_| Ok(
 					Default::default()
 				))
 				.unwrap()

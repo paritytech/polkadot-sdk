@@ -17,6 +17,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 
 #[allow(unused)]
@@ -80,7 +81,7 @@ fn register_validators<T: Config + session::Config>(count: u32) -> Vec<T::Accoun
 
 	for (who, keys) in validators.clone() {
 		<session::Pallet<T>>::ensure_can_pay_key_deposit(&who).unwrap();
-		<session::Pallet<T>>::set_keys(RawOrigin::Signed(who).into(), keys, Vec::new()).unwrap();
+		<session::Pallet<T>>::set_keys(RawOrigin::Signed(who).into_with_basic_filter(), keys, Vec::new()).unwrap();
 	}
 
 	validators.into_iter().map(|(who, _)| who).collect()
@@ -95,7 +96,7 @@ fn register_candidates<T: Config>(count: u32) {
 			&who,
 			CandidacyBond::<T>::get() * 3u32.into(),
 		);
-		<CollatorSelection<T>>::register_as_candidate(RawOrigin::Signed(who).into()).unwrap();
+		<CollatorSelection<T>>::register_as_candidate(RawOrigin::Signed(who).into_with_basic_filter()).unwrap();
 	}
 }
 
@@ -160,7 +161,7 @@ mod benchmarks {
 		// set their keys ...
 		for (who, keys) in candidates.clone() {
 			<session::Pallet<T>>::ensure_can_pay_key_deposit(&who).unwrap();
-			<session::Pallet<T>>::set_keys(RawOrigin::Signed(who).into(), keys, Vec::new())
+			<session::Pallet<T>>::set_keys(RawOrigin::Signed(who).into_with_basic_filter(), keys, Vec::new())
 				.unwrap();
 		}
 		// ... and register them.
@@ -277,7 +278,7 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller.clone()), bond_amount);
 
 		assert_last_event::<T>(
-			Event::CandidateBondUpdated { account_id: caller, deposit: bond_amount }.into(),
+			Event::CandidateBondUpdated { account_id: caller, deposit: bond_amount }.into_with_basic_filter(),
 		);
 		assert!(
 			CandidateList::<T>::get().iter().last().unwrap().deposit ==
@@ -302,7 +303,7 @@ mod benchmarks {
 
 		<session::Pallet<T>>::ensure_can_pay_key_deposit(&caller).unwrap();
 		<session::Pallet<T>>::set_keys(
-			RawOrigin::Signed(caller.clone()).into(),
+			RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 			keys::<T>(c + 1),
 			Vec::new(),
 		)
@@ -312,7 +313,7 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller.clone()));
 
 		assert_last_event::<T>(
-			Event::CandidateAdded { account_id: caller, deposit: bond / 2u32.into() }.into(),
+			Event::CandidateAdded { account_id: caller, deposit: bond / 2u32.into_with_basic_filter() }.into_with_basic_filter(),
 		);
 	}
 
@@ -330,7 +331,7 @@ mod benchmarks {
 
 		<session::Pallet<T>>::ensure_can_pay_key_deposit(&caller).unwrap();
 		<session::Pallet<T>>::set_keys(
-			RawOrigin::Signed(caller.clone()).into(),
+			RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 			keys::<T>(c + 1),
 			Vec::new(),
 		)
@@ -339,11 +340,11 @@ mod benchmarks {
 		let target = CandidateList::<T>::get().iter().last().unwrap().who.clone();
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), bond / 2u32.into(), target.clone());
+		_(RawOrigin::Signed(caller.clone()), bond / 2u32.into_with_basic_filter(), target.clone());
 
 		assert_last_event::<T>(
-			Event::CandidateReplaced { old: target, new: caller, deposit: bond / 2u32.into() }
-				.into(),
+			Event::CandidateReplaced { old: target, new: caller, deposit: bond / 2u32.into_with_basic_filter() }
+				.into_with_basic_filter(),
 		);
 	}
 
@@ -362,7 +363,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(leaving.clone()));
 
-		assert_last_event::<T>(Event::CandidateRemoved { account_id: leaving }.into());
+		assert_last_event::<T>(Event::CandidateRemoved { account_id: leaving }.into_with_basic_filter());
 	}
 
 	// worse case is paying a non-existing candidate account.

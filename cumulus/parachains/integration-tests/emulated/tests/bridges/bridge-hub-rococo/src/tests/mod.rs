@@ -118,7 +118,7 @@ pub(crate) fn set_up_pool_with_wnd_on_ah_westend(asset: v5::Location, is_foreign
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 		let owner = AssetHubWestendSender::get();
-		let signed_owner = <AssetHubWestend as Chain>::RuntimeOrigin::signed(owner.clone());
+		let signed_owner = <AssetHubWestend as Chain>::RuntimeOrigin::signed_with_basic_filter(owner.clone());
 
 		if is_foreign {
 			assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint(
@@ -179,7 +179,7 @@ pub(crate) fn send_assets_from_asset_hub_rococo(
 	transfer_type: TransferType,
 ) -> DispatchResult {
 	let signed_origin =
-		<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get());
+		<AssetHubRococo as Chain>::RuntimeOrigin::signed_with_basic_filter(AssetHubRococoSender::get());
 	let beneficiary: Location =
 		AccountId32Junction { network: None, id: AssetHubWestendReceiver::get().into() }.into();
 

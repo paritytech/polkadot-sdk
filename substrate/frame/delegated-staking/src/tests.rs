@@ -17,6 +17,7 @@
 
 //! Tests for pallet-delegated-staking.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use crate::mock::*;
 use frame_support::{assert_noop, assert_ok, traits::fungible::InspectHold};
@@ -34,14 +35,14 @@ fn create_an_agent_with_first_delegator() {
 		// set intention to accept delegation.
 		fund(&agent, 1000);
 		assert_ok!(DelegatedStaking::register_agent(
-			RawOrigin::Signed(agent).into(),
+			RawOrigin::Signed(agent).into_with_basic_filter(),
 			reward_account
 		));
 
 		// delegate to this account
 		fund(&delegator, 1000);
 		assert_ok!(DelegatedStaking::delegate_to_agent(
-			RawOrigin::Signed(delegator).into(),
+			RawOrigin::Signed(delegator).into_with_basic_filter(),
 			agent,
 			100
 		));
@@ -62,7 +63,7 @@ fn cannot_become_agent() {
 	ExtBuilder::default().build_and_execute(|| {
 		// cannot set reward account same as agent account
 		assert_noop!(
-			DelegatedStaking::register_agent(RawOrigin::Signed(100).into(), 100),
+			DelegatedStaking::register_agent(RawOrigin::Signed(100).into_with_basic_filter(), 100),
 			Error::<T>::InvalidRewardDestination
 		);
 	});
@@ -81,7 +82,7 @@ fn create_multiple_delegators() {
 
 		// set intention to accept delegation.
 		assert_ok!(DelegatedStaking::register_agent(
-			RawOrigin::Signed(agent).into(),
+			RawOrigin::Signed(agent).into_with_basic_filter(),
 			reward_account
 		));
 
@@ -89,7 +90,7 @@ fn create_multiple_delegators() {
 		for i in 202..302 {
 			fund(&i, 100 + ExistentialDeposit::get());
 			assert_ok!(DelegatedStaking::delegate_to_agent(
-				RawOrigin::Signed(i).into(),
+				RawOrigin::Signed(i).into_with_basic_filter(),
 				agent,
 				100
 			));
@@ -111,12 +112,12 @@ fn agent_restrictions() {
 		let delegator_one = 210;
 		fund(&agent_one, 100);
 		assert_ok!(DelegatedStaking::register_agent(
-			RawOrigin::Signed(agent_one).into(),
+			RawOrigin::Signed(agent_one).into_with_basic_filter(),
 			agent_one + 1
 		));
 		fund(&delegator_one, 200);
 		assert_ok!(DelegatedStaking::delegate_to_agent(
-			RawOrigin::Signed(delegator_one).into(),
+			RawOrigin::Signed(delegator_one).into_with_basic_filter(),
 			agent_one,
 			100
 		));
@@ -125,26 +126,26 @@ fn agent_restrictions() {
 		let delegator_two = 310;
 		fund(&agent_two, 100);
 		assert_ok!(DelegatedStaking::register_agent(
-			RawOrigin::Signed(agent_two).into(),
+			RawOrigin::Signed(agent_two).into_with_basic_filter(),
 			agent_two + 1
 		));
 		fund(&delegator_two, 200);
 		assert_ok!(DelegatedStaking::delegate_to_agent(
-			RawOrigin::Signed(delegator_two).into(),
+			RawOrigin::Signed(delegator_two).into_with_basic_filter(),
 			agent_two,
 			100
 		));
 
 		// agent one tries to delegate to agent 2
 		assert_noop!(
-			DelegatedStaking::delegate_to_agent(RawOrigin::Signed(agent_one).into(), agent_two, 10),
+			DelegatedStaking::delegate_to_agent(RawOrigin::Signed(agent_one).into_with_basic_filter(), agent_two, 10),
 			Error::<T>::InvalidDelegation
 		);
 
 		// agent one tries to delegate to a delegator
 		assert_noop!(
 			DelegatedStaking::delegate_to_agent(
-				RawOrigin::Signed(agent_one).into(),
+				RawOrigin::Signed(agent_one).into_with_basic_filter(),
 				delegator_one,
 				10
 			),
@@ -152,7 +153,7 @@ fn agent_restrictions() {
 		);
 		assert_noop!(
 			DelegatedStaking::delegate_to_agent(
-				RawOrigin::Signed(agent_one).into(),
+				RawOrigin::Signed(agent_one).into_with_basic_filter(),
 				delegator_two,
 				10
 			),
@@ -163,7 +164,7 @@ fn agent_restrictions() {
 		// 1)
 		assert_noop!(
 			DelegatedStaking::delegate_to_agent(
-				RawOrigin::Signed(delegator_one).into(),
+				RawOrigin::Signed(delegator_one).into_with_basic_filter(),
 				agent_two,
 				10
 			),
@@ -176,7 +177,7 @@ fn agent_restrictions() {
 		fund(&non_agent, 200);
 		assert_noop!(
 			DelegatedStaking::delegate_to_agent(
-				RawOrigin::Signed(delegator_one).into(),
+				RawOrigin::Signed(delegator_one).into_with_basic_filter(),
 				non_agent,
 				10
 			),
@@ -186,7 +187,7 @@ fn agent_restrictions() {
 		// cannot delegate to a delegator
 		assert_noop!(
 			DelegatedStaking::delegate_to_agent(
-				RawOrigin::Signed(delegator_one).into(),
+				RawOrigin::Signed(delegator_one).into_with_basic_filter(),
 				delegator_two,
 				10
 			),
@@ -196,7 +197,7 @@ fn agent_restrictions() {
 		// delegator cannot delegate to self
 		assert_noop!(
 			DelegatedStaking::delegate_to_agent(
-				RawOrigin::Signed(delegator_one).into(),
+				RawOrigin::Signed(delegator_one).into_with_basic_filter(),
 				delegator_one,
 				10
 			),
@@ -205,7 +206,7 @@ fn agent_restrictions() {
 
 		// agent cannot delegate to self
 		assert_noop!(
-			DelegatedStaking::delegate_to_agent(RawOrigin::Signed(agent_one).into(), agent_one, 10),
+			DelegatedStaking::delegate_to_agent(RawOrigin::Signed(agent_one).into_with_basic_filter(), agent_one, 10),
 			Error::<T>::InvalidDelegation
 		);
 	});
@@ -318,12 +319,12 @@ fn allow_full_amount_to_be_delegated() {
 
 		// set intention to accept delegation.
 		fund(&agent, 1000);
-		assert_ok!(DelegatedStaking::register_agent(RawOrigin::Signed(agent).into(), reward_acc));
+		assert_ok!(DelegatedStaking::register_agent(RawOrigin::Signed(agent).into_with_basic_filter(), reward_acc));
 
 		// delegate to this account
 		fund(&delegator, 1000);
 		assert_ok!(DelegatedStaking::delegate_to_agent(
-			RawOrigin::Signed(delegator).into(),
+			RawOrigin::Signed(delegator).into_with_basic_filter(),
 			agent,
 			1000
 		));
@@ -354,7 +355,7 @@ mod staking_integration {
 			// set intention to become an agent
 			fund(&agent, 100);
 			assert_ok!(DelegatedStaking::register_agent(
-				RawOrigin::Signed(agent).into(),
+				RawOrigin::Signed(agent).into_with_basic_filter(),
 				reward_acc
 			));
 			assert_eq!(DelegatedStaking::stakeable_balance(Agent::from(agent)), 0);
@@ -365,13 +366,13 @@ mod staking_integration {
 			for delegator in 200..250 {
 				fund(&delegator, 200);
 				assert_ok!(DelegatedStaking::delegate_to_agent(
-					RawOrigin::Signed(delegator).into(),
+					RawOrigin::Signed(delegator).into_with_basic_filter(),
 					agent,
 					100
 				));
 				delegated_balance += 100;
 				assert_eq!(
-					Balances::balance_on_hold(&HoldReason::StakingDelegation.into(), &delegator),
+					Balances::balance_on_hold(&HoldReason::StakingDelegation.into_with_basic_filter(), &delegator),
 					100
 				);
 				assert_eq!(
@@ -406,20 +407,20 @@ mod staking_integration {
 			assert!(eq_stake(agent, total_staked, total_staked));
 			// Withdrawing without unbonding would fail.
 			assert_noop!(
-				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 301, 50, 0),
+				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into_with_basic_filter(), 301, 50, 0),
 				Error::<T>::NotEnoughFunds
 			);
 
 			// 305 wants to unbond 50 in era 2, withdrawable in era 5.
-			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 50));
+			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into_with_basic_filter(), 50));
 
 			// 310 wants to unbond 100 in era 3, withdrawable in era 6.
 			start_era(3);
-			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 100));
+			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into_with_basic_filter(), 100));
 
 			// 320 wants to unbond 200 in era 4, withdrawable in era 7.
 			start_era(4);
-			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 200));
+			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into_with_basic_filter(), 200));
 
 			// active stake is now reduced..
 			let expected_active = total_staked - (50 + 100 + 200);
@@ -427,7 +428,7 @@ mod staking_integration {
 
 			// nothing to withdraw at era 4
 			assert_noop!(
-				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 305, 50, 0),
+				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into_with_basic_filter(), 305, 50, 0),
 				Error::<T>::NotEnoughFunds
 			);
 
@@ -438,18 +439,18 @@ mod staking_integration {
 			start_era(5);
 			// at era 5, 50 tokens are withdrawable, cannot withdraw more.
 			assert_noop!(
-				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 305, 51, 0),
+				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into_with_basic_filter(), 305, 51, 0),
 				Error::<T>::NotEnoughFunds
 			);
 			// less is possible
 			assert_ok!(DelegatedStaking::release_delegation(
-				RawOrigin::Signed(agent).into(),
+				RawOrigin::Signed(agent).into_with_basic_filter(),
 				305,
 				30,
 				0
 			));
 			assert_ok!(DelegatedStaking::release_delegation(
-				RawOrigin::Signed(agent).into(),
+				RawOrigin::Signed(agent).into_with_basic_filter(),
 				305,
 				20,
 				0
@@ -459,30 +460,30 @@ mod staking_integration {
 			start_era(7);
 			// 305 has no more amount delegated so it cannot withdraw.
 			assert_noop!(
-				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 305, 5, 0),
+				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into_with_basic_filter(), 305, 5, 0),
 				Error::<T>::NotDelegator
 			);
 			// 309 is an active delegator but has total delegation of 90, so it cannot withdraw more
 			// than that.
 			assert_noop!(
-				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 309, 91, 0),
+				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into_with_basic_filter(), 309, 91, 0),
 				Error::<T>::NotEnoughFunds
 			);
 			// 310 cannot withdraw more than delegated funds.
 			assert_noop!(
-				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 310, 101, 0),
+				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into_with_basic_filter(), 310, 101, 0),
 				Error::<T>::NotEnoughFunds
 			);
 			// but can withdraw all its delegation amount.
 			assert_ok!(DelegatedStaking::release_delegation(
-				RawOrigin::Signed(agent).into(),
+				RawOrigin::Signed(agent).into_with_basic_filter(),
 				310,
 				100,
 				0
 			));
 			// 320 can withdraw all its delegation amount.
 			assert_ok!(DelegatedStaking::release_delegation(
-				RawOrigin::Signed(agent).into(),
+				RawOrigin::Signed(agent).into_with_basic_filter(),
 				320,
 				200,
 				0
@@ -490,11 +491,11 @@ mod staking_integration {
 
 			// cannot withdraw anything more..
 			assert_noop!(
-				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 301, 1, 0),
+				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into_with_basic_filter(), 301, 1, 0),
 				Error::<T>::NotEnoughFunds
 			);
 			assert_noop!(
-				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 350, 1, 0),
+				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into_with_basic_filter(), 350, 1, 0),
 				Error::<T>::NotEnoughFunds
 			);
 		});
@@ -509,7 +510,7 @@ mod staking_integration {
 
 			// verify withdraw not possible yet
 			assert_noop!(
-				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 300, 320, 0),
+				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into_with_basic_filter(), 300, 320, 0),
 				Error::<T>::NotEnoughFunds
 			);
 
@@ -517,14 +518,14 @@ mod staking_integration {
 			// 32 is the max chunks
 			for i in 2..=33 {
 				start_era(i);
-				assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 10));
+				assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into_with_basic_filter(), 10));
 				// no withdrawals from core staking yet.
 				assert_eq!(get_agent_ledger(&agent).ledger.unclaimed_withdrawals, 0);
 			}
 
 			// another unbond would trigger withdrawal
 			start_era(34);
-			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 10));
+			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into_with_basic_filter(), 10));
 
 			// 30 previous unbonds would be withdrawn as they were already unlocked. Unlocking
 			// period is 3 eras.
@@ -532,7 +533,7 @@ mod staking_integration {
 
 			// release some delegation now.
 			assert_ok!(DelegatedStaking::release_delegation(
-				RawOrigin::Signed(agent).into(),
+				RawOrigin::Signed(agent).into_with_basic_filter(),
 				300,
 				160,
 				0
@@ -541,11 +542,11 @@ mod staking_integration {
 
 			// cannot release more than available
 			assert_noop!(
-				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 300, 141, 0),
+				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into_with_basic_filter(), 300, 141, 0),
 				Error::<T>::NotEnoughFunds
 			);
 			assert_ok!(DelegatedStaking::release_delegation(
-				RawOrigin::Signed(agent).into(),
+				RawOrigin::Signed(agent).into_with_basic_filter(),
 				300,
 				140,
 				0
@@ -564,16 +565,16 @@ mod staking_integration {
 
 			// `Agent` account cannot be reward destination
 			assert_noop!(
-				DelegatedStaking::register_agent(RawOrigin::Signed(200).into(), 200),
+				DelegatedStaking::register_agent(RawOrigin::Signed(200).into_with_basic_filter(), 200),
 				Error::<T>::InvalidRewardDestination
 			);
 
 			// different reward account works
-			assert_ok!(DelegatedStaking::register_agent(RawOrigin::Signed(200).into(), 201));
+			assert_ok!(DelegatedStaking::register_agent(RawOrigin::Signed(200).into_with_basic_filter(), 201));
 			// add some delegations to it
 			fund(&300, 1000);
 			assert_ok!(DelegatedStaking::delegate_to_agent(
-				RawOrigin::Signed(300).into(),
+				RawOrigin::Signed(300).into_with_basic_filter(),
 				200,
 				100
 			));
@@ -604,12 +605,12 @@ mod staking_integration {
 
 			// Registering again is noop
 			assert_noop!(
-				DelegatedStaking::register_agent(RawOrigin::Signed(200).into(), 201),
+				DelegatedStaking::register_agent(RawOrigin::Signed(200).into_with_basic_filter(), 201),
 				Error::<T>::NotAllowed
 			);
 			// a delegator cannot become delegate
 			assert_noop!(
-				DelegatedStaking::register_agent(RawOrigin::Signed(202).into(), 203),
+				DelegatedStaking::register_agent(RawOrigin::Signed(202).into_with_basic_filter(), 203),
 				Error::<T>::NotAllowed
 			);
 		});
@@ -628,11 +629,11 @@ mod staking_integration {
 			fund(&agent, agent_amount);
 
 			assert_ok!(Staking::bond(
-				RuntimeOrigin::signed(agent),
+				RuntimeOrigin::signed_with_basic_filter(agent),
 				staked_amount,
 				RewardDestination::Account(201)
 			));
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(agent), vec![GENESIS_VALIDATOR],));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed_with_basic_filter(agent), vec![GENESIS_VALIDATOR],));
 			let init_stake = Staking::stake(&agent).unwrap();
 			// no extra provider added.
 			assert_eq!(System::providers(&agent), 1);
@@ -649,7 +650,7 @@ mod staking_integration {
 			let proxy_delegator =
 				DelegatedStaking::generate_proxy_delegator(Agent::from(agent)).get();
 
-			assert_ok!(DelegatedStaking::migrate_to_agent(RawOrigin::Signed(agent).into(), 201));
+			assert_ok!(DelegatedStaking::migrate_to_agent(RawOrigin::Signed(agent).into_with_basic_filter(), 201));
 			// after migration, no provider left since free balance is 0 and staking pallet released
 			// all funds.
 			assert_eq!(System::providers(&agent), 0);
@@ -682,7 +683,7 @@ mod staking_integration {
 
 				// No pre-balance needed to migrate delegator.
 				assert_ok!(DelegatedStaking::migrate_delegation(
-					RawOrigin::Signed(agent).into(),
+					RawOrigin::Signed(agent).into_with_basic_filter(),
 					delegator,
 					delegator_share
 				));
@@ -712,7 +713,7 @@ mod staking_integration {
 
 			// cannot use migrate delegator anymore
 			assert_noop!(
-				DelegatedStaking::migrate_delegation(RawOrigin::Signed(agent).into(), 305, 1),
+				DelegatedStaking::migrate_delegation(RawOrigin::Signed(agent).into_with_basic_filter(), 305, 1),
 				Error::<T>::NotEnoughFunds
 			);
 
@@ -720,13 +721,13 @@ mod staking_integration {
 			assert_eq!(System::providers(&proxy_delegator), 0);
 
 			// withdraw all delegations from delegators
-			assert_ok!(Staking::chill(RuntimeOrigin::signed(agent)));
-			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), staked_amount));
+			assert_ok!(Staking::chill(RuntimeOrigin::signed_with_basic_filter(agent)));
+			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into_with_basic_filter(), staked_amount));
 			start_era(4);
-			assert_ok!(Staking::withdraw_unbonded(RawOrigin::Signed(agent).into(), 0));
+			assert_ok!(Staking::withdraw_unbonded(RawOrigin::Signed(agent).into_with_basic_filter(), 0));
 			for delegator in 300..304 {
 				assert_ok!(DelegatedStaking::release_delegation(
-					RawOrigin::Signed(agent).into(),
+					RawOrigin::Signed(agent).into_with_basic_filter(),
 					delegator,
 					delegator_share,
 					0
@@ -740,7 +741,7 @@ mod staking_integration {
 			}
 
 			// Agent can be removed now.
-			assert_ok!(DelegatedStaking::remove_agent(RawOrigin::Signed(agent).into()));
+			assert_ok!(DelegatedStaking::remove_agent(RawOrigin::Signed(agent).into_with_basic_filter()));
 			// agent is correctly removed.
 			assert!(!Agents::<T>::contains_key(agent));
 			// and no provider left.
@@ -761,7 +762,7 @@ mod staking_integration {
 			// Agent is provided since it has balance > ED.
 			assert_eq!(System::providers(&agent), 1);
 			assert_ok!(DelegatedStaking::register_agent(
-				RawOrigin::Signed(agent).into(),
+				RawOrigin::Signed(agent).into_with_basic_filter(),
 				reward_acc
 			));
 
@@ -770,7 +771,7 @@ mod staking_integration {
 			// account has one provider since its funded.
 			assert_eq!(System::providers(&delegator), 1);
 			assert_ok!(DelegatedStaking::delegate_to_agent(
-				RawOrigin::Signed(delegator).into(),
+				RawOrigin::Signed(delegator).into_with_basic_filter(),
 				agent,
 				500
 			));
@@ -778,7 +779,7 @@ mod staking_integration {
 			assert_eq!(System::providers(&delegator), 2);
 			// all 1000 tokens including ED can be held.
 			assert_ok!(DelegatedStaking::delegate_to_agent(
-				RawOrigin::Signed(delegator).into(),
+				RawOrigin::Signed(delegator).into_with_basic_filter(),
 				agent,
 				500
 			));
@@ -787,33 +788,33 @@ mod staking_integration {
 			assert_eq!(System::providers(&delegator), 1);
 
 			// withdraw all delegation
-			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 1000));
+			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into_with_basic_filter(), 1000));
 			start_era(4);
-			assert_ok!(Staking::withdraw_unbonded(RawOrigin::Signed(agent).into(), 0));
+			assert_ok!(Staking::withdraw_unbonded(RawOrigin::Signed(agent).into_with_basic_filter(), 0));
 
 			// Since delegations are still left, agents cannot be removed yet from storage.
 			assert_noop!(
-				DelegatedStaking::remove_agent(RawOrigin::Signed(agent).into()),
+				DelegatedStaking::remove_agent(RawOrigin::Signed(agent).into_with_basic_filter()),
 				Error::<T>::NotAllowed
 			);
 
 			assert_ok!(DelegatedStaking::release_delegation(
-				RawOrigin::Signed(agent).into(),
+				RawOrigin::Signed(agent).into_with_basic_filter(),
 				delegator,
 				1000,
 				0
 			));
 
 			// now agents can be removed.
-			assert_ok!(DelegatedStaking::remove_agent(RawOrigin::Signed(agent).into()));
+			assert_ok!(DelegatedStaking::remove_agent(RawOrigin::Signed(agent).into_with_basic_filter()));
 
 			// agent and delegator provider is decremented.
 			assert_eq!(System::providers(&delegator), 1);
 			assert_eq!(System::providers(&agent), 1);
 
 			// if we transfer all funds, providers are removed.
-			assert_ok!(Balances::transfer_all(RawOrigin::Signed(delegator).into(), 1337, false));
-			assert_ok!(Balances::transfer_all(RawOrigin::Signed(agent).into(), 1337, false));
+			assert_ok!(Balances::transfer_all(RawOrigin::Signed(delegator).into_with_basic_filter(), 1337, false));
+			assert_ok!(Balances::transfer_all(RawOrigin::Signed(agent).into_with_basic_filter(), 1337, false));
 			assert_eq!(System::providers(&delegator), 0);
 			assert_eq!(System::providers(&agent), 0);
 		});
@@ -836,7 +837,7 @@ mod pool_integration {
 
 			// create pool
 			assert_ok!(Pools::create(
-				RawOrigin::Signed(creator).into(),
+				RawOrigin::Signed(creator).into_with_basic_filter(),
 				delegate_amount,
 				creator,
 				creator,
@@ -874,7 +875,7 @@ mod pool_integration {
 			assert_eq!(DelegatedStaking::held_balance_of(Delegator::from(delegator)), 0);
 
 			// delegator joins pool
-			assert_ok!(Pools::join(RawOrigin::Signed(delegator).into(), 100, pool_id));
+			assert_ok!(Pools::join(RawOrigin::Signed(delegator).into_with_basic_filter(), 100, pool_id));
 			staked_amount += 100;
 
 			// correct amount is locked in depositor's account.
@@ -892,14 +893,14 @@ mod pool_integration {
 
 			// cannot reap agent in staking.
 			assert_noop!(
-				Staking::reap_stash(RuntimeOrigin::signed(100), pool_agent.key, 0),
+				Staking::reap_stash(RuntimeOrigin::signed_with_basic_filter(100), pool_agent.key, 0),
 				StakingError::<T>::VirtualStakerNotAllowed
 			);
 
 			// let a bunch of delegators join this pool
 			for i in 301..350 {
 				fund(&i, 500);
-				assert_ok!(Pools::join(RawOrigin::Signed(i).into(), 100 + i, pool_id));
+				assert_ok!(Pools::join(RawOrigin::Signed(i).into_with_basic_filter(), 100 + i, pool_id));
 				staked_amount += 100 + i;
 				assert_eq!(DelegatedStaking::held_balance_of(Delegator::from(i)), 100 + i);
 			}
@@ -923,7 +924,7 @@ mod pool_integration {
 			// bond extra to pool
 			for i in 300..310 {
 				assert_ok!(Pools::bond_extra(
-					RawOrigin::Signed(i).into(),
+					RawOrigin::Signed(i).into_with_basic_filter(),
 					BondExtra::FreeBalance(50)
 				));
 				staked_amount += 50;
@@ -953,7 +954,7 @@ mod pool_integration {
 				let delegator_staked_balance =
 					DelegatedStaking::held_balance_of(Delegator::from(i));
 				// payout reward
-				assert_ok!(Pools::claim_payout(RawOrigin::Signed(i).into()));
+				assert_ok!(Pools::claim_payout(RawOrigin::Signed(i).into_with_basic_filter()));
 
 				let reward = Balances::free_balance(i) - pre_balance;
 				assert_eq!(reward, delegator_staked_balance * reward_amount / total_staked);
@@ -961,7 +962,7 @@ mod pool_integration {
 
 			// payout creator
 			let pre_balance = Balances::free_balance(creator);
-			assert_ok!(Pools::claim_payout(RawOrigin::Signed(creator).into()));
+			assert_ok!(Pools::claim_payout(RawOrigin::Signed(creator).into_with_basic_filter()));
 			// verify they are paid out correctly
 			let reward = Balances::free_balance(creator) - pre_balance;
 			assert_eq!(reward, creator_stake * reward_amount / total_staked);
@@ -986,20 +987,20 @@ mod pool_integration {
 			start_era(2);
 			// nothing to release yet.
 			assert_noop!(
-				Pools::withdraw_unbonded(RawOrigin::Signed(301).into(), 301, 0),
+				Pools::withdraw_unbonded(RawOrigin::Signed(301).into_with_basic_filter(), 301, 0),
 				PoolsError::<T>::SubPoolsNotFound
 			);
 
 			// 301 wants to unbond 50 in era 2, withdrawable in era 5.
-			assert_ok!(Pools::unbond(RawOrigin::Signed(301).into(), 301, 50));
+			assert_ok!(Pools::unbond(RawOrigin::Signed(301).into_with_basic_filter(), 301, 50));
 
 			// 302 wants to unbond 100 in era 3, withdrawable in era 6.
 			start_era(3);
-			assert_ok!(Pools::unbond(RawOrigin::Signed(302).into(), 302, 100));
+			assert_ok!(Pools::unbond(RawOrigin::Signed(302).into_with_basic_filter(), 302, 100));
 
 			// 303 wants to unbond 200 in era 4, withdrawable in era 7.
 			start_era(4);
-			assert_ok!(Pools::unbond(RawOrigin::Signed(303).into(), 303, 200));
+			assert_ok!(Pools::unbond(RawOrigin::Signed(303).into_with_basic_filter(), 303, 200));
 
 			// active stake is now reduced..
 			let expected_active = total_staked - (50 + 100 + 200);
@@ -1008,7 +1009,7 @@ mod pool_integration {
 			// nothing to withdraw at era 4
 			for i in 301..310 {
 				assert_noop!(
-					Pools::withdraw_unbonded(RawOrigin::Signed(i).into(), i, 0),
+					Pools::withdraw_unbonded(RawOrigin::Signed(i).into_with_basic_filter(), i, 0),
 					PoolsError::<T>::CannotWithdrawAny
 				);
 			}
@@ -1022,7 +1023,7 @@ mod pool_integration {
 			let held_301 = DelegatedStaking::held_balance_of(Delegator::from(301));
 			let free_301 = Balances::free_balance(301);
 
-			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(301).into(), 301, 0));
+			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(301).into_with_basic_filter(), 301, 0));
 			assert_eq!(
 				events_since_last_call(),
 				vec![Event::Released { agent: pool_acc, delegator: 301, amount: 50 }]
@@ -1036,8 +1037,8 @@ mod pool_integration {
 
 			start_era(7);
 			// era 7 both delegators can withdraw
-			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(302).into(), 302, 0));
-			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(303).into(), 303, 0));
+			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(302).into_with_basic_filter(), 302, 0));
+			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(303).into_with_basic_filter(), 303, 0));
 
 			assert_eq!(
 				events_since_last_call(),
@@ -1071,28 +1072,28 @@ mod pool_integration {
 			start_era(2);
 			// 1000 tokens to be unbonded in era 5.
 			for i in 300..310 {
-				assert_ok!(Pools::unbond(RawOrigin::Signed(i).into(), i, 100));
+				assert_ok!(Pools::unbond(RawOrigin::Signed(i).into_with_basic_filter(), i, 100));
 			}
 
 			start_era(3);
 			// 500 tokens to be unbonded in era 6.
 			for i in 300..310 {
-				assert_ok!(Pools::unbond(RawOrigin::Signed(i).into(), i, 50));
+				assert_ok!(Pools::unbond(RawOrigin::Signed(i).into_with_basic_filter(), i, 50));
 			}
 
 			start_era(5);
 			// withdraw pool should withdraw 1000 tokens
-			assert_ok!(Pools::pool_withdraw_unbonded(RawOrigin::Signed(100).into(), pool_id, 0));
+			assert_ok!(Pools::pool_withdraw_unbonded(RawOrigin::Signed(100).into_with_basic_filter(), pool_id, 0));
 			assert_eq!(get_pool_agent(pool_id).total_unbonded(), 1000);
 
 			start_era(6);
 			// should withdraw 500 more
-			assert_ok!(Pools::pool_withdraw_unbonded(RawOrigin::Signed(100).into(), pool_id, 0));
+			assert_ok!(Pools::pool_withdraw_unbonded(RawOrigin::Signed(100).into_with_basic_filter(), pool_id, 0));
 			assert_eq!(get_pool_agent(pool_id).total_unbonded(), 1000 + 500);
 
 			start_era(7);
 			// Nothing to withdraw, still at 1500.
-			assert_ok!(Pools::pool_withdraw_unbonded(RawOrigin::Signed(100).into(), pool_id, 0));
+			assert_ok!(Pools::pool_withdraw_unbonded(RawOrigin::Signed(100).into_with_basic_filter(), pool_id, 0));
 			assert_eq!(get_pool_agent(pool_id).total_unbonded(), 1500);
 		});
 	}
@@ -1103,17 +1104,17 @@ mod pool_integration {
 			start_era(1);
 			// can't nominate for non-existent pool
 			assert_noop!(
-				Pools::nominate(RawOrigin::Signed(100).into(), 1, vec![99]),
+				Pools::nominate(RawOrigin::Signed(100).into_with_basic_filter(), 1, vec![99]),
 				PoolsError::<T>::PoolNotFound
 			);
 
 			let pool_id = create_pool(100, 1000);
 			let pool_acc = Pools::generate_bonded_account(pool_id);
-			assert_ok!(Pools::nominate(RawOrigin::Signed(100).into(), 1, vec![20, 21, 22]));
+			assert_ok!(Pools::nominate(RawOrigin::Signed(100).into_with_basic_filter(), 1, vec![20, 21, 22]));
 			assert!(Staking::status(&pool_acc) == Ok(StakerStatus::Nominator(vec![20, 21, 22])));
 
 			start_era(3);
-			assert_ok!(Pools::nominate(RawOrigin::Signed(100).into(), 1, vec![18, 19, 22]));
+			assert_ok!(Pools::nominate(RawOrigin::Signed(100).into_with_basic_filter(), 1, vec![18, 19, 22]));
 			assert!(Staking::status(&pool_acc) == Ok(StakerStatus::Nominator(vec![18, 19, 22])));
 		});
 	}
@@ -1130,30 +1131,30 @@ mod pool_integration {
 			start_era(3);
 			// lets destroy the pool
 			assert_ok!(Pools::set_state(
-				RawOrigin::Signed(creator).into(),
+				RawOrigin::Signed(creator).into_with_basic_filter(),
 				pool_id,
 				PoolState::Destroying
 			));
-			assert_ok!(Pools::chill(RawOrigin::Signed(creator).into(), pool_id));
+			assert_ok!(Pools::chill(RawOrigin::Signed(creator).into_with_basic_filter(), pool_id));
 
 			// unbond all members by the creator/admin
 			for i in 300..310 {
-				assert_ok!(Pools::unbond(RawOrigin::Signed(creator).into(), i, 200));
+				assert_ok!(Pools::unbond(RawOrigin::Signed(creator).into_with_basic_filter(), i, 200));
 			}
 
 			start_era(6);
 			// withdraw all members by the creator/admin
 			for i in 300..310 {
-				assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(creator).into(), i, 0));
+				assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(creator).into_with_basic_filter(), i, 0));
 			}
 
 			// unbond creator
-			assert_ok!(Pools::unbond(RawOrigin::Signed(creator).into(), creator, creator_stake));
+			assert_ok!(Pools::unbond(RawOrigin::Signed(creator).into_with_basic_filter(), creator, creator_stake));
 
 			start_era(9);
 			System::reset_events();
 			// Withdraw self
-			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(creator).into(), creator, 0));
+			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(creator).into_with_basic_filter(), creator, 0));
 			assert_eq!(
 				pool_events_since_last_call(),
 				vec![
@@ -1194,13 +1195,13 @@ mod pool_integration {
 
 			// lets unbond a delegator each in next eras (2, 3, 4).
 			start_era(2);
-			assert_ok!(Pools::unbond(RawOrigin::Signed(300).into(), 300, delegator_stake));
+			assert_ok!(Pools::unbond(RawOrigin::Signed(300).into_with_basic_filter(), 300, delegator_stake));
 
 			start_era(3);
-			assert_ok!(Pools::unbond(RawOrigin::Signed(301).into(), 301, delegator_stake));
+			assert_ok!(Pools::unbond(RawOrigin::Signed(301).into_with_basic_filter(), 301, delegator_stake));
 
 			start_era(4);
-			assert_ok!(Pools::unbond(RawOrigin::Signed(302).into(), 302, delegator_stake));
+			assert_ok!(Pools::unbond(RawOrigin::Signed(302).into_with_basic_filter(), 302, delegator_stake));
 			System::reset_events();
 
 			// slash the pool at era 3
@@ -1255,7 +1256,7 @@ mod pool_integration {
 			System::reset_events();
 
 			// 300 is not slashed and can withdraw all balance.
-			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(300).into(), 300, 1));
+			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(300).into_with_basic_filter(), 300, 1));
 			assert_eq!(
 				events_since_last_call(),
 				vec![Event::Released { agent: pool_acc, delegator: 300, amount: 100 }]
@@ -1266,7 +1267,7 @@ mod pool_integration {
 			for i in 301..=302 {
 				let pre_balance = Balances::free_balance(i);
 				let pre_pending_slash = get_pool_agent(pool_id).ledger.pending_slash;
-				assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(i).into(), i, 0));
+				assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(i).into_with_basic_filter(), i, 0));
 				assert_eq!(
 					events_since_last_call(),
 					vec![
@@ -1291,7 +1292,7 @@ mod pool_integration {
 				// delegator has pending slash of 50.
 				assert_eq!(Pools::api_member_pending_slash(i), 50);
 				// apply slash
-				assert_ok!(Pools::apply_slash(RawOrigin::Signed(slash_reporter).into(), i));
+				assert_ok!(Pools::apply_slash(RawOrigin::Signed(slash_reporter).into_with_basic_filter(), i));
 				// nothing pending anymore.
 				assert_eq!(Pools::api_member_pending_slash(i), 0);
 
@@ -1311,7 +1312,7 @@ mod pool_integration {
 			// creator has pending slash.
 			assert_eq!(Pools::api_member_pending_slash(creator), 250);
 			// slash creator
-			assert_ok!(Pools::apply_slash(RawOrigin::Signed(slash_reporter).into(), creator));
+			assert_ok!(Pools::apply_slash(RawOrigin::Signed(slash_reporter).into_with_basic_filter(), creator));
 			// no pending slash anymore.
 			assert_eq!(Pools::api_member_pending_slash(creator), 0);
 
@@ -1337,12 +1338,12 @@ mod pool_integration {
 			// WHEN: delegator joins a pool
 			let delegator = 100;
 			fund(&delegator, 1000);
-			assert_ok!(Pools::join(RawOrigin::Signed(delegator).into(), 200, pool_id));
+			assert_ok!(Pools::join(RawOrigin::Signed(delegator).into_with_basic_filter(), 200, pool_id));
 
 			// THEN: they cannot stake anymore
 			assert_noop!(
 				Staking::bond(
-					RuntimeOrigin::signed(delegator),
+					RuntimeOrigin::signed_with_basic_filter(delegator),
 					500,
 					RewardDestination::Account(101)
 				),
@@ -1364,15 +1365,15 @@ mod pool_integration {
 			fund(&staker, 1000);
 
 			assert_ok!(Staking::bond(
-				RuntimeOrigin::signed(staker),
+				RuntimeOrigin::signed_with_basic_filter(staker),
 				500,
 				RewardDestination::Account(101)
 			));
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(staker), vec![GENESIS_VALIDATOR]));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed_with_basic_filter(staker), vec![GENESIS_VALIDATOR]));
 
 			// THEN: they cannot join pool.
 			assert_noop!(
-				Pools::join(RawOrigin::Signed(staker).into(), 200, pool_id),
+				Pools::join(RawOrigin::Signed(staker).into_with_basic_filter(), 200, pool_id),
 				PoolsError::<T>::Restricted
 			);
 		});
@@ -1381,7 +1382,7 @@ mod pool_integration {
 	fn create_pool(creator: AccountId, amount: Balance) -> u32 {
 		fund(&creator, amount * 2);
 		assert_ok!(Pools::create(
-			RawOrigin::Signed(creator).into(),
+			RawOrigin::Signed(creator).into_with_basic_filter(),
 			amount,
 			creator,
 			creator,
@@ -1394,7 +1395,7 @@ mod pool_integration {
 	fn add_delegators_to_pool(pool_id: u32, delegators: Vec<AccountId>, amount: Balance) {
 		for delegator in delegators {
 			fund(&delegator, amount * 2);
-			assert_ok!(Pools::join(RawOrigin::Signed(delegator).into(), amount, pool_id));
+			assert_ok!(Pools::join(RawOrigin::Signed(delegator).into_with_basic_filter(), amount, pool_id));
 		}
 	}
 

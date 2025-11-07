@@ -17,6 +17,7 @@
 
 //! # Scheduler tests.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use crate::mock::{
 	logger::{self, Threshold},
@@ -83,7 +84,7 @@ fn scheduling_with_preimages_works() {
 		assert_ok!(Scheduler::do_schedule(DispatchTime::At(4), None, 127, root(), hashed));
 
 		// Register preimage on chain
-		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(0), call.encode()));
+		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed_with_basic_filter(0), call.encode()));
 		assert!(Preimage::is_requested(&hash));
 
 		// `log` runtime call should not have executed yet
@@ -842,7 +843,7 @@ fn set_retry_bad_origin() {
 		assert!(Agenda::<Test>::get(4)[0].is_some());
 		// try to change the retry config with a different (non-root) account
 		let res: Result<(), DispatchError> =
-			Scheduler::set_retry(RuntimeOrigin::signed(102), (4, 0), 10, 2);
+			Scheduler::set_retry(RuntimeOrigin::signed_with_basic_filter(102), (4, 0), 10, 2);
 		assert_eq!(res, Err(BadOrigin.into()));
 	});
 }
@@ -867,7 +868,7 @@ fn set_named_retry_bad_origin() {
 		assert!(Agenda::<Test>::get(4)[0].is_some());
 		// try to change the retry config with a different (non-root) account
 		let res: Result<(), DispatchError> =
-			Scheduler::set_retry_named(RuntimeOrigin::signed(102), [42u8; 32], 10, 2);
+			Scheduler::set_retry_named(RuntimeOrigin::signed_with_basic_filter(102), [42u8; 32], 10, 2);
 		assert_eq!(res, Err(BadOrigin.into()));
 	});
 }
@@ -1495,7 +1496,7 @@ fn scheduler_handles_periodic_unavailable_preimage() {
 		assert!(Preimage::is_requested(&hash));
 
 		// Note the preimage.
-		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(1), call.encode()));
+		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed_with_basic_filter(1), call.encode()));
 
 		// Executes 1 times till block 4.
 		System::run_to_block::<AllPalletsWithSystem>(4);
@@ -1777,20 +1778,20 @@ fn should_use_origin() {
 			weight: Weight::from_parts(10, 0),
 		}));
 		assert_ok!(Scheduler::schedule_named(
-			system::RawOrigin::Signed(1).into(),
+			system::RawOrigin::Signed(1).into_with_basic_filter(),
 			[1u8; 32],
 			4,
 			None,
 			127,
 			call,
 		));
-		assert_ok!(Scheduler::schedule(system::RawOrigin::Signed(1).into(), 4, None, 127, call2,));
+		assert_ok!(Scheduler::schedule(system::RawOrigin::Signed(1).into_with_basic_filter(), 4, None, 127, call2,));
 		System::run_to_block::<AllPalletsWithSystem>(3);
 		// Scheduled calls are in the agenda.
 		assert_eq!(Agenda::<Test>::get(4).len(), 2);
 		assert!(logger::log().is_empty());
-		assert_ok!(Scheduler::cancel_named(system::RawOrigin::Signed(1).into(), [1u8; 32]));
-		assert_ok!(Scheduler::cancel(system::RawOrigin::Signed(1).into(), 4, 1));
+		assert_ok!(Scheduler::cancel_named(system::RawOrigin::Signed(1).into_with_basic_filter(), [1u8; 32]));
+		assert_ok!(Scheduler::cancel(system::RawOrigin::Signed(1).into_with_basic_filter(), 4, 1));
 		// Scheduled calls are made NONE, so should not effect state
 		System::run_to_block::<AllPalletsWithSystem>(100);
 		assert!(logger::log().is_empty());
@@ -1810,7 +1811,7 @@ fn should_check_origin() {
 		}));
 		assert_noop!(
 			Scheduler::schedule_named(
-				system::RawOrigin::Signed(2).into(),
+				system::RawOrigin::Signed(2).into_with_basic_filter(),
 				[1u8; 32],
 				4,
 				None,
@@ -1820,7 +1821,7 @@ fn should_check_origin() {
 			BadOrigin
 		);
 		assert_noop!(
-			Scheduler::schedule(system::RawOrigin::Signed(2).into(), 4, None, 127, call2),
+			Scheduler::schedule(system::RawOrigin::Signed(2).into_with_basic_filter(), 4, None, 127, call2),
 			BadOrigin
 		);
 	});
@@ -1838,31 +1839,31 @@ fn should_check_origin_for_cancel() {
 			weight: Weight::from_parts(10, 0),
 		}));
 		assert_ok!(Scheduler::schedule_named(
-			system::RawOrigin::Signed(1).into(),
+			system::RawOrigin::Signed(1).into_with_basic_filter(),
 			[1u8; 32],
 			4,
 			None,
 			127,
 			call,
 		));
-		assert_ok!(Scheduler::schedule(system::RawOrigin::Signed(1).into(), 4, None, 127, call2,));
+		assert_ok!(Scheduler::schedule(system::RawOrigin::Signed(1).into_with_basic_filter(), 4, None, 127, call2,));
 		System::run_to_block::<AllPalletsWithSystem>(3);
 		// Scheduled calls are in the agenda.
 		assert_eq!(Agenda::<Test>::get(4).len(), 2);
 		assert!(logger::log().is_empty());
 		assert_noop!(
-			Scheduler::cancel_named(system::RawOrigin::Signed(2).into(), [1u8; 32]),
+			Scheduler::cancel_named(system::RawOrigin::Signed(2).into_with_basic_filter(), [1u8; 32]),
 			BadOrigin
 		);
-		assert_noop!(Scheduler::cancel(system::RawOrigin::Signed(2).into(), 4, 1), BadOrigin);
-		assert_noop!(Scheduler::cancel_named(system::RawOrigin::Root.into(), [1u8; 32]), BadOrigin);
-		assert_noop!(Scheduler::cancel(system::RawOrigin::Root.into(), 4, 1), BadOrigin);
+		assert_noop!(Scheduler::cancel(system::RawOrigin::Signed(2).into_with_basic_filter(), 4, 1), BadOrigin);
+		assert_noop!(Scheduler::cancel_named(system::RawOrigin::Root.into_with_basic_filter(), [1u8; 32]), BadOrigin);
+		assert_noop!(Scheduler::cancel(system::RawOrigin::Root.into_with_basic_filter(), 4, 1), BadOrigin);
 		System::run_to_block::<AllPalletsWithSystem>(5);
 		assert_eq!(
 			logger::log(),
 			vec![
-				(system::RawOrigin::Signed(1).into(), 69u32),
-				(system::RawOrigin::Signed(1).into(), 42u32)
+				(system::RawOrigin::Signed(1).into_with_basic_filter(), 69u32),
+				(system::RawOrigin::Signed(1).into_with_basic_filter(), 42u32)
 			]
 		);
 	});
@@ -2136,10 +2137,10 @@ fn migration_to_v4_works() {
 impl Into<OriginCaller> for u32 {
 	fn into(self) -> OriginCaller {
 		match self {
-			3u32 => system::RawOrigin::Root.into(),
-			2u32 => system::RawOrigin::None.into(),
-			101u32 => system::RawOrigin::Signed(101).into(),
-			102u32 => system::RawOrigin::Signed(102).into(),
+			3u32 => system::RawOrigin::Root.into_with_basic_filter(),
+			2u32 => system::RawOrigin::None.into_with_basic_filter(),
+			101u32 => system::RawOrigin::Signed(101).into_with_basic_filter(),
+			102u32 => system::RawOrigin::Signed(102).into_with_basic_filter(),
 			_ => unreachable!("test make no use of it"),
 		}
 	}
@@ -2197,7 +2198,7 @@ fn test_migrate_origin() {
 							}))
 							.unwrap(),
 							maybe_periodic: None,
-							origin: system::RawOrigin::Root.into(),
+							origin: system::RawOrigin::Root.into_with_basic_filter(),
 							_phantom: PhantomData::<u64>::default(),
 						}),
 						None,
@@ -2210,7 +2211,7 @@ fn test_migrate_origin() {
 							}))
 							.unwrap(),
 							maybe_periodic: Some((456u64, 10)),
-							origin: system::RawOrigin::None.into(),
+							origin: system::RawOrigin::None.into_with_basic_filter(),
 							_phantom: PhantomData::<u64>::default(),
 						}),
 					]
@@ -2227,7 +2228,7 @@ fn test_migrate_origin() {
 							}))
 							.unwrap(),
 							maybe_periodic: None,
-							origin: system::RawOrigin::Root.into(),
+							origin: system::RawOrigin::Root.into_with_basic_filter(),
 							_phantom: PhantomData::<u64>::default(),
 						}),
 						None,
@@ -2240,7 +2241,7 @@ fn test_migrate_origin() {
 							}))
 							.unwrap(),
 							maybe_periodic: Some((456u64, 10)),
-							origin: system::RawOrigin::None.into(),
+							origin: system::RawOrigin::None.into_with_basic_filter(),
 							_phantom: PhantomData::<u64>::default(),
 						}),
 					]
@@ -2257,7 +2258,7 @@ fn test_migrate_origin() {
 							}))
 							.unwrap(),
 							maybe_periodic: None,
-							origin: system::RawOrigin::Root.into(),
+							origin: system::RawOrigin::Root.into_with_basic_filter(),
 							_phantom: PhantomData::<u64>::default(),
 						}),
 						None,
@@ -2270,7 +2271,7 @@ fn test_migrate_origin() {
 							}))
 							.unwrap(),
 							maybe_periodic: Some((456u64, 10)),
-							origin: system::RawOrigin::None.into(),
+							origin: system::RawOrigin::None.into_with_basic_filter(),
 							_phantom: PhantomData::<u64>::default(),
 						}),
 					]
@@ -2336,7 +2337,7 @@ fn postponed_named_task_cannot_be_rescheduled() {
 		);
 
 		// Finally add the preimage.
-		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(0), call.encode()));
+		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed_with_basic_filter(0), call.encode()));
 
 		System::run_to_block::<AllPalletsWithSystem>(1000);
 		// It did not execute.

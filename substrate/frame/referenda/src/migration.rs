@@ -17,6 +17,7 @@
 
 //! Storage migrations for the referenda pallet.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use frame_support::{pallet_prelude::*, storage_alias, traits::OnRuntimeUpgrade};
@@ -311,7 +312,7 @@ pub mod test {
 
 	// create referendum status v0.
 	fn create_status_v0() -> v0::ReferendumStatusOf<T, ()> {
-		let origin: OriginCaller = frame_system::RawOrigin::Root.into();
+		let origin: OriginCaller = frame_system::RawOrigin::Root.into_with_basic_filter();
 		let track = <T as Config<()>>::Tracks::track_for(&origin).unwrap();
 		v0::ReferendumStatusOf::<T, ()> {
 			track,

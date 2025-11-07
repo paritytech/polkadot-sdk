@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
+use frame_support::traits::IntoWithBasicFilter;
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{tokens::fungible::Mutate, ConstU128, Contains},
@@ -92,7 +93,7 @@ parameter_types! {
 #[cfg(feature = "runtime-benchmarks")]
 impl BenchmarkHelper<RuntimeOrigin> for () {
 	fn make_xcm_origin(location: Location) -> RuntimeOrigin {
-		RuntimeOrigin::from(pallet_xcm_origin::Origin(location))
+		(pallet_xcm_origin::Origin(location)).into_with_basic_filter()
 	}
 }
 
@@ -128,7 +129,7 @@ parameter_types! {
 #[cfg(feature = "runtime-benchmarks")]
 impl snowbridge_pallet_system::BenchmarkHelper<RuntimeOrigin> for () {
 	fn make_xcm_origin(location: Location) -> RuntimeOrigin {
-		RuntimeOrigin::from(pallet_xcm_origin::Origin(location))
+		(pallet_xcm_origin::Origin(location)).into_with_basic_filter()
 	}
 }
 

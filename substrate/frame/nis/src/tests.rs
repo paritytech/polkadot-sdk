@@ -34,7 +34,7 @@ fn holdings() -> Balance {
 }
 
 fn signed(who: u64) -> RuntimeOrigin {
-	RuntimeOrigin::signed(who)
+	RuntimeOrigin::signed_with_basic_filter(who)
 }
 
 fn enlarge(amount: Balance, max_bids: u32) {

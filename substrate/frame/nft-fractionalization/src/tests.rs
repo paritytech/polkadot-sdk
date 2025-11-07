@@ -73,7 +73,7 @@ fn fractionalize_should_work() {
 			CollectionConfig::default(),
 		));
 		assert_ok!(Nfts::mint(
-			RuntimeOrigin::signed(account(1)),
+			RuntimeOrigin::signed_with_basic_filter(account(1)),
 			nft_collection_id,
 			nft_id,
 			account(1),
@@ -81,7 +81,7 @@ fn fractionalize_should_work() {
 		));
 
 		assert_ok!(NftFractionalization::fractionalize(
-			RuntimeOrigin::signed(account(1)),
+			RuntimeOrigin::signed_with_basic_filter(account(1)),
 			nft_collection_id,
 			nft_id,
 			asset_id,
@@ -102,7 +102,7 @@ fn fractionalize_should_work() {
 		assert_eq!(Nfts::owner(nft_collection_id, nft_id), Some(account(1)));
 		assert_noop!(
 			Nfts::transfer(
-				RuntimeOrigin::signed(account(1)),
+				RuntimeOrigin::signed_with_basic_filter(account(1)),
 				nft_collection_id,
 				nft_id,
 				account(2),
@@ -128,7 +128,7 @@ fn fractionalize_should_work() {
 
 		// owner can't burn an already fractionalized NFT
 		assert_noop!(
-			Nfts::burn(RuntimeOrigin::signed(account(1)), nft_collection_id, nft_id),
+			Nfts::burn(RuntimeOrigin::signed_with_basic_filter(account(1)), nft_collection_id, nft_id),
 			DispatchError::Module(ModuleError {
 				index: 4,
 				error: [12, 0, 0, 0],
@@ -139,7 +139,7 @@ fn fractionalize_should_work() {
 		// can't fractionalize twice
 		assert_noop!(
 			NftFractionalization::fractionalize(
-				RuntimeOrigin::signed(account(1)),
+				RuntimeOrigin::signed_with_basic_filter(account(1)),
 				nft_collection_id,
 				nft_id,
 				asset_id + 1,
@@ -156,7 +156,7 @@ fn fractionalize_should_work() {
 		let nft_id = nft_id + 1;
 		assert_noop!(
 			NftFractionalization::fractionalize(
-				RuntimeOrigin::signed(account(1)),
+				RuntimeOrigin::signed_with_basic_filter(account(1)),
 				nft_collection_id,
 				nft_id,
 				asset_id,
@@ -167,7 +167,7 @@ fn fractionalize_should_work() {
 		);
 
 		assert_ok!(Nfts::mint(
-			RuntimeOrigin::signed(account(1)),
+			RuntimeOrigin::signed_with_basic_filter(account(1)),
 			nft_collection_id,
 			nft_id,
 			account(2),
@@ -175,7 +175,7 @@ fn fractionalize_should_work() {
 		));
 		assert_noop!(
 			NftFractionalization::fractionalize(
-				RuntimeOrigin::signed(account(1)),
+				RuntimeOrigin::signed_with_basic_filter(account(1)),
 				nft_collection_id,
 				nft_id,
 				asset_id,
@@ -204,14 +204,14 @@ fn unify_should_work() {
 			CollectionConfig::default(),
 		));
 		assert_ok!(Nfts::mint(
-			RuntimeOrigin::signed(account(1)),
+			RuntimeOrigin::signed_with_basic_filter(account(1)),
 			nft_collection_id,
 			nft_id,
 			account(1),
 			None,
 		));
 		assert_ok!(NftFractionalization::fractionalize(
-			RuntimeOrigin::signed(account(1)),
+			RuntimeOrigin::signed_with_basic_filter(account(1)),
 			nft_collection_id,
 			nft_id,
 			asset_id,
@@ -221,7 +221,7 @@ fn unify_should_work() {
 
 		assert_noop!(
 			NftFractionalization::unify(
-				RuntimeOrigin::signed(account(2)),
+				RuntimeOrigin::signed_with_basic_filter(account(2)),
 				nft_collection_id + 1,
 				nft_id,
 				asset_id,
@@ -231,7 +231,7 @@ fn unify_should_work() {
 		);
 		assert_noop!(
 			NftFractionalization::unify(
-				RuntimeOrigin::signed(account(2)),
+				RuntimeOrigin::signed_with_basic_filter(account(2)),
 				nft_collection_id,
 				nft_id,
 				asset_id + 1,
@@ -243,7 +243,7 @@ fn unify_should_work() {
 		// can't unify the asset a user doesn't hold
 		assert_noop!(
 			NftFractionalization::unify(
-				RuntimeOrigin::signed(account(1)),
+				RuntimeOrigin::signed_with_basic_filter(account(1)),
 				nft_collection_id,
 				nft_id,
 				asset_id,
@@ -253,7 +253,7 @@ fn unify_should_work() {
 		);
 
 		assert_ok!(NftFractionalization::unify(
-			RuntimeOrigin::signed(account(2)),
+			RuntimeOrigin::signed_with_basic_filter(account(2)),
 			nft_collection_id,
 			nft_id,
 			asset_id,
@@ -275,19 +275,19 @@ fn unify_should_work() {
 		// validate we need to hold the full balance to un-fractionalize the NFT
 		let asset_id = asset_id + 1;
 		assert_ok!(NftFractionalization::fractionalize(
-			RuntimeOrigin::signed(account(1)),
+			RuntimeOrigin::signed_with_basic_filter(account(1)),
 			nft_collection_id,
 			nft_id,
 			asset_id,
 			account(1),
 			fractions,
 		));
-		assert_ok!(Assets::transfer(RuntimeOrigin::signed(account(1)), asset_id, account(2), 1));
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed_with_basic_filter(account(1)), asset_id, account(2), 1));
 		assert_eq!(Assets::balance(asset_id, account(1)), fractions - 1);
 		assert_eq!(Assets::balance(asset_id, account(2)), 1);
 		assert_noop!(
 			NftFractionalization::unify(
-				RuntimeOrigin::signed(account(1)),
+				RuntimeOrigin::signed_with_basic_filter(account(1)),
 				nft_collection_id,
 				nft_id,
 				asset_id,
@@ -296,9 +296,9 @@ fn unify_should_work() {
 			DispatchError::Token(FundsUnavailable)
 		);
 
-		assert_ok!(Assets::transfer(RuntimeOrigin::signed(account(2)), asset_id, account(1), 1));
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed_with_basic_filter(account(2)), asset_id, account(1), 1));
 		assert_ok!(NftFractionalization::unify(
-			RuntimeOrigin::signed(account(1)),
+			RuntimeOrigin::signed_with_basic_filter(account(1)),
 			nft_collection_id,
 			nft_id,
 			asset_id,

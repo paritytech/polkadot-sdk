@@ -17,6 +17,7 @@
 
 //! Benchmarks for pallet origin restriction.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use frame_benchmarking::{v2::*, BenchmarkError};
 use sp_runtime::traits::DispatchTransaction;
@@ -42,7 +43,7 @@ mod benches {
 		#[extrinsic_call]
 		_(frame_system::RawOrigin::Root, entity.clone());
 
-		assert_last_event::<T>(Event::UsageCleaned { entity }.into());
+		assert_last_event::<T>(Event::UsageCleaned { entity }.into_with_basic_filter());
 
 		Ok(())
 	}

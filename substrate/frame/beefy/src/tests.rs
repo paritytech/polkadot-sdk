@@ -308,7 +308,7 @@ fn report_double_voting(
 	);
 
 	Beefy::report_double_voting_unsigned(
-		RuntimeOrigin::none(),
+		RuntimeOrigin::none_with_basic_filter(),
 		Box::new(equivocation_proof),
 		key_owner_proof,
 	)
@@ -683,7 +683,7 @@ fn report_double_voting_invalid_equivocation_proof() {
 		let assert_invalid_equivocation_proof = |equivocation_proof| {
 			assert_err!(
 				Beefy::report_double_voting_unsigned(
-					RuntimeOrigin::none(),
+					RuntimeOrigin::none_with_basic_filter(),
 					Box::new(equivocation_proof),
 					key_owner_proof.clone(),
 				),
@@ -796,7 +796,7 @@ fn report_double_voting_validate_unsigned_prevents_duplicates() {
 
 		// we submit the report
 		Beefy::report_double_voting_unsigned(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::none_with_basic_filter(),
 			Box::new(equivocation_proof),
 			key_owner_proof,
 		)
@@ -863,7 +863,7 @@ fn report_fork_voting(
 	);
 
 	Beefy::report_fork_voting_unsigned(
-		RuntimeOrigin::none(),
+		RuntimeOrigin::none_with_basic_filter(),
 		Box::new(equivocation_proof),
 		key_owner_proof,
 	)
@@ -933,7 +933,7 @@ fn report_fork_voting_non_optimal_equivocation_proof() {
 		);
 		assert_err!(
 			Beefy::report_fork_voting_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::none_with_basic_filter(),
 				Box::new(equivocation_proof),
 				key_owner_proof.clone(),
 			),
@@ -981,7 +981,7 @@ fn report_fork_voting_invalid_equivocation_proof() {
 		);
 		assert_err!(
 			Beefy::report_fork_voting_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::none_with_basic_filter(),
 				Box::new(equivocation_proof),
 				key_owner_proof.clone(),
 			),
@@ -996,7 +996,7 @@ fn report_fork_voting_invalid_equivocation_proof() {
 		);
 		assert_err!(
 			Beefy::report_fork_voting_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::none_with_basic_filter(),
 				Box::new(equivocation_proof),
 				key_owner_proof.clone(),
 			),
@@ -1064,7 +1064,7 @@ fn report_fork_voting_invalid_context() {
 		AncestryProofContext::set(&None);
 		assert_err!(
 			Beefy::report_fork_voting_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::none_with_basic_filter(),
 				Box::new(equivocation_proof.clone()),
 				key_owner_proof.clone(),
 			),
@@ -1075,7 +1075,7 @@ fn report_fork_voting_invalid_context() {
 		AncestryProofContext::set(&Some(MockAncestryProofContext { is_valid: false }));
 		assert_err!(
 			Beefy::report_fork_voting_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::none_with_basic_filter(),
 				Box::new(equivocation_proof),
 				key_owner_proof,
 			),
@@ -1106,7 +1106,7 @@ fn report_future_block_voting(
 	));
 
 	Beefy::report_future_block_voting_unsigned(
-		RuntimeOrigin::none(),
+		RuntimeOrigin::none_with_basic_filter(),
 		Box::new(equivocation_proof),
 		key_owner_proof,
 	)
@@ -1165,7 +1165,7 @@ fn report_future_block_voting_invalid_equivocation_proof() {
 		// vote targeting old block
 		assert_err!(
 			Beefy::report_future_block_voting_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::none_with_basic_filter(),
 				Box::new(generate_future_block_voting_proof((
 					1,
 					payload.clone(),

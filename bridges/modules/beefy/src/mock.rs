@@ -143,7 +143,7 @@ pub fn import_commitment(
 	header: crate::mock_chain::HeaderAndCommitment,
 ) -> sp_runtime::DispatchResult {
 	crate::Pallet::<TestRuntime>::submit_commitment(
-		RuntimeOrigin::signed(1),
+		RuntimeOrigin::signed_with_basic_filter(1),
 		header
 			.commitment
 			.expect("thou shall not call import_commitment on header without commitment"),

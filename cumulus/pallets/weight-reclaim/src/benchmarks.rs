@@ -16,6 +16,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use frame_support::pallet_prelude::{DispatchClass, Pays};
 use frame_system::RawOrigin;
@@ -35,7 +36,7 @@ mod bench {
 	fn storage_weight_reclaim() {
 		let ext = StorageWeightReclaim::<T, ()>::new(());
 
-		let origin = RawOrigin::Root.into();
+		let origin = RawOrigin::Root.into_with_basic_filter();
 		let call = T::RuntimeCall::from(frame_system::Call::remark { remark: alloc::vec![] });
 
 		let overestimate = 10_000;

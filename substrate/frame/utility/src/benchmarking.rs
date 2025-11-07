@@ -19,9 +19,10 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::vec;
 use frame_benchmarking::{benchmarking::add_to_whitelist, v2::*};
-use frame_system::RawOrigin;
+use frame_system::{pallet_prelude::OriginFor, RawOrigin};
 
 use crate::*;
 
@@ -43,7 +44,7 @@ mod benchmark {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), calls);
 
-		assert_last_event::<T>(Event::BatchCompleted.into());
+		assert_last_event::<T>(Event::BatchCompleted.into_with_basic_filter());
 	}
 
 	#[benchmark]
@@ -60,20 +61,20 @@ mod benchmark {
 
 	#[benchmark]
 	fn batch_all(c: Linear<0, 1000>) {
-		let calls = vec![frame_system::Call::remark { remark: vec![] }.into(); c as usize];
+		let calls = vec![frame_system::Call::remark { remark: vec![] }.into_with_basic_filter(); c as usize];
 		let caller = whitelisted_caller();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), calls);
 
-		assert_last_event::<T>(Event::BatchCompleted.into());
+		assert_last_event::<T>(Event::BatchCompleted.into_with_basic_filter());
 	}
 
 	#[benchmark]
 	fn dispatch_as() {
 		let caller = account("caller", SEED, SEED);
 		let call = Box::new(frame_system::Call::remark { remark: vec![] }.into());
-		let origin = T::RuntimeOrigin::from(RawOrigin::Signed(caller));
+		let origin: OriginFor<T> = RawOrigin::Signed(caller).into_with_basic_filter();
 		let pallets_origin = origin.caller().clone();
 		let pallets_origin = T::PalletsOrigin::from(pallets_origin);
 
@@ -83,20 +84,20 @@ mod benchmark {
 
 	#[benchmark]
 	fn force_batch(c: Linear<0, 1000>) {
-		let calls = vec![frame_system::Call::remark { remark: vec![] }.into(); c as usize];
+		let calls = vec![frame_system::Call::remark { remark: vec![] }.into_with_basic_filter(); c as usize];
 		let caller = whitelisted_caller();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), calls);
 
-		assert_last_event::<T>(Event::BatchCompleted.into());
+		assert_last_event::<T>(Event::BatchCompleted.into_with_basic_filter());
 	}
 
 	#[benchmark]
 	fn dispatch_as_fallible() {
 		let caller = account("caller", SEED, SEED);
 		let call = Box::new(frame_system::Call::remark { remark: vec![] }.into());
-		let origin: T::RuntimeOrigin = RawOrigin::Signed(caller).into();
+		let origin: T::RuntimeOrigin = RawOrigin::Signed(caller).into_with_basic_filter();
 		let pallets_origin = origin.caller().clone();
 		let pallets_origin = T::PalletsOrigin::from(pallets_origin);
 
@@ -107,7 +108,7 @@ mod benchmark {
 	#[benchmark]
 	fn if_else() {
 		// Failing main call.
-		let main_call = Box::new(frame_system::Call::set_code { code: vec![1] }.into());
+		let main_call = Box::new(frame_system::Call::set_code { code: vec![1] }.into_with_basic_filter());
 		let fallback_call = Box::new(frame_system::Call::remark { remark: vec![1] }.into());
 		let caller = whitelisted_caller();
 

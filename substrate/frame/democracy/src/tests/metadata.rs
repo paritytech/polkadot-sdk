@@ -28,25 +28,25 @@ fn set_external_metadata_works() {
 		let owner = MetadataOwner::External;
 		// fails to set metadata if an external proposal does not exist.
 		assert_noop!(
-			Democracy::set_metadata(RuntimeOrigin::signed(2), owner.clone(), Some(invalid_hash)),
+			Democracy::set_metadata(RuntimeOrigin::signed_with_basic_filter(2), owner.clone(), Some(invalid_hash)),
 			Error::<Test>::NoProposal,
 		);
 		// create an external proposal.
-		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2)));
+		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed_with_basic_filter(2), set_balance_proposal(2)));
 		assert!(NextExternal::<Test>::exists());
 		// fails to set metadata with non external origin.
 		assert_noop!(
-			Democracy::set_metadata(RuntimeOrigin::signed(1), owner.clone(), Some(invalid_hash)),
+			Democracy::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), owner.clone(), Some(invalid_hash)),
 			BadOrigin,
 		);
 		// fails to set non-existing preimage.
 		assert_noop!(
-			Democracy::set_metadata(RuntimeOrigin::signed(2), owner.clone(), Some(invalid_hash)),
+			Democracy::set_metadata(RuntimeOrigin::signed_with_basic_filter(2), owner.clone(), Some(invalid_hash)),
 			Error::<Test>::PreimageNotExist,
 		);
 		// set metadata successful.
 		let hash = note_preimage(1);
-		assert_ok!(Democracy::set_metadata(RuntimeOrigin::signed(2), owner.clone(), Some(hash)));
+		assert_ok!(Democracy::set_metadata(RuntimeOrigin::signed_with_basic_filter(2), owner.clone(), Some(hash)));
 		System::assert_last_event(RuntimeEvent::Democracy(crate::Event::MetadataSet {
 			owner,
 			hash,
@@ -60,18 +60,18 @@ fn clear_metadata_works() {
 		// metadata owner is an external proposal.
 		let owner = MetadataOwner::External;
 		// create an external proposal.
-		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2)));
+		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed_with_basic_filter(2), set_balance_proposal(2)));
 		assert!(NextExternal::<Test>::exists());
 		// set metadata.
 		let hash = note_preimage(1);
-		assert_ok!(Democracy::set_metadata(RuntimeOrigin::signed(2), owner.clone(), Some(hash)));
+		assert_ok!(Democracy::set_metadata(RuntimeOrigin::signed_with_basic_filter(2), owner.clone(), Some(hash)));
 		// fails to clear metadata with a wrong origin.
 		assert_noop!(
-			Democracy::set_metadata(RuntimeOrigin::signed(1), owner.clone(), None),
+			Democracy::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), owner.clone(), None),
 			BadOrigin,
 		);
 		// clear metadata successful.
-		assert_ok!(Democracy::set_metadata(RuntimeOrigin::signed(2), owner.clone(), None));
+		assert_ok!(Democracy::set_metadata(RuntimeOrigin::signed_with_basic_filter(2), owner.clone(), None));
 		System::assert_last_event(RuntimeEvent::Democracy(crate::Event::MetadataCleared {
 			owner,
 			hash,
@@ -90,18 +90,18 @@ fn set_proposal_metadata_works() {
 		let owner = MetadataOwner::Proposal(PublicPropCount::<Test>::get() - 1);
 		// fails to set non-existing preimage.
 		assert_noop!(
-			Democracy::set_metadata(RuntimeOrigin::signed(1), owner.clone(), Some(invalid_hash)),
+			Democracy::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), owner.clone(), Some(invalid_hash)),
 			Error::<Test>::PreimageNotExist,
 		);
 		// note preimage.
 		let hash = note_preimage(1);
 		// fails to set a preimage if an origin is not a proposer.
 		assert_noop!(
-			Democracy::set_metadata(RuntimeOrigin::signed(3), owner.clone(), Some(hash)),
+			Democracy::set_metadata(RuntimeOrigin::signed_with_basic_filter(3), owner.clone(), Some(hash)),
 			Error::<Test>::NoPermission,
 		);
 		// set metadata successful.
-		assert_ok!(Democracy::set_metadata(RuntimeOrigin::signed(1), owner.clone(), Some(hash)));
+		assert_ok!(Democracy::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), owner.clone(), Some(hash)));
 		System::assert_last_event(RuntimeEvent::Democracy(crate::Event::MetadataSet {
 			owner,
 			hash,
@@ -118,14 +118,14 @@ fn clear_proposal_metadata_works() {
 		let owner = MetadataOwner::Proposal(PublicPropCount::<Test>::get() - 1);
 		// set metadata.
 		let hash = note_preimage(1);
-		assert_ok!(Democracy::set_metadata(RuntimeOrigin::signed(1), owner.clone(), Some(hash)));
+		assert_ok!(Democracy::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), owner.clone(), Some(hash)));
 		// fails to clear metadata with a wrong origin.
 		assert_noop!(
-			Democracy::set_metadata(RuntimeOrigin::signed(3), owner.clone(), None),
+			Democracy::set_metadata(RuntimeOrigin::signed_with_basic_filter(3), owner.clone(), None),
 			Error::<Test>::NoPermission,
 		);
 		// clear metadata successful.
-		assert_ok!(Democracy::set_metadata(RuntimeOrigin::signed(1), owner.clone(), None));
+		assert_ok!(Democracy::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), owner.clone(), None));
 		System::assert_last_event(RuntimeEvent::Democracy(crate::Event::MetadataCleared {
 			owner,
 			hash,
@@ -148,12 +148,12 @@ fn set_referendum_metadata_by_root() {
 		let hash = note_preimage(1);
 		// fails to set if not a root.
 		assert_noop!(
-			Democracy::set_metadata(RuntimeOrigin::signed(3), owner.clone(), Some(hash)),
+			Democracy::set_metadata(RuntimeOrigin::signed_with_basic_filter(3), owner.clone(), Some(hash)),
 			Error::<Test>::NoPermission,
 		);
 		// fails to clear if not a root.
 		assert_noop!(
-			Democracy::set_metadata(RuntimeOrigin::signed(3), owner.clone(), None),
+			Democracy::set_metadata(RuntimeOrigin::signed_with_basic_filter(3), owner.clone(), None),
 			Error::<Test>::NoPermission,
 		);
 		// succeed to set metadata by a root for an ongoing referendum.
@@ -189,7 +189,7 @@ fn clear_referendum_metadata_works() {
 		MetadataOf::<Test>::insert(owner.clone(), hash);
 		// no permission to clear metadata of an ongoing referendum.
 		assert_noop!(
-			Democracy::set_metadata(RuntimeOrigin::signed(1), owner.clone(), None),
+			Democracy::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), owner.clone(), None),
 			Error::<Test>::NoPermission,
 		);
 		// referendum finished.
@@ -198,7 +198,7 @@ fn clear_referendum_metadata_works() {
 			ReferendumInfo::Finished { end: 1, approved: true },
 		);
 		// clear metadata successful.
-		assert_ok!(Democracy::set_metadata(RuntimeOrigin::signed(1), owner.clone(), None));
+		assert_ok!(Democracy::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), owner.clone(), None));
 		System::assert_last_event(RuntimeEvent::Democracy(crate::Event::MetadataCleared {
 			owner,
 			hash,

@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use crate::{inclusion, ParaId};
 use alloc::collections::btree_map::BTreeMap;
@@ -134,7 +135,7 @@ mod benchmarks {
 		>,
 	) -> Result<(), BenchmarkError> {
 		configuration::Pallet::<T>::set_node_feature(
-			RawOrigin::Root.into(),
+			RawOrigin::Root.into_with_basic_filter(),
 			FeatureIndex::CandidateReceiptV2 as u8,
 			true,
 		)
@@ -192,7 +193,7 @@ mod benchmarks {
 	#[benchmark]
 	fn enter_backed_candidate_code_upgrade() -> Result<(), BenchmarkError> {
 		configuration::Pallet::<T>::set_node_feature(
-			RawOrigin::Root.into(),
+			RawOrigin::Root.into_with_basic_filter(),
 			FeatureIndex::CandidateReceiptV2 as u8,
 			true,
 		)

@@ -20,7 +20,7 @@ use super::*;
 #[test]
 fn paired_account_works() {
 	ExtBuilder::default().build_and_execute(|| {
-		assert_ok!(Staking::bond(RuntimeOrigin::signed(10), 100, RewardDestination::Account(10)));
+		assert_ok!(Staking::bond(RuntimeOrigin::signed_with_basic_filter(10), 100, RewardDestination::Account(10)));
 
 		assert_eq!(<Bonded<Test>>::get(&10), Some(10));
 		assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Controller(10)), Some(10));
@@ -166,7 +166,7 @@ fn bond_controller_cannot_be_stash_works() {
 
 		// existing controller should not be able become a stash.
 		assert_noop!(
-			Staking::bond(RuntimeOrigin::signed(controller), 10, RewardDestination::Staked),
+			Staking::bond(RuntimeOrigin::signed_with_basic_filter(controller), 10, RewardDestination::Staked),
 			Error::<Test>::AlreadyPaired,
 		);
 	})
@@ -196,7 +196,7 @@ fn set_payee_errors_on_controller_destination() {
 	ExtBuilder::default().build_and_execute(|| {
 		Payee::<Test>::insert(11, RewardDestination::Staked);
 		assert_noop!(
-			Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Controller),
+			Staking::set_payee(RuntimeOrigin::signed_with_basic_filter(11), RewardDestination::Controller),
 			Error::<Test>::ControllerDeprecated
 		);
 		assert_eq!(Payee::<Test>::get(&11), Some(RewardDestination::Staked));
@@ -210,14 +210,14 @@ fn update_payee_migration_works() {
 		// migrate a `Controller` variant to `Account` variant.
 		Payee::<Test>::insert(11, RewardDestination::Controller);
 		assert_eq!(Payee::<Test>::get(&11), Some(RewardDestination::Controller));
-		assert_ok!(Staking::update_payee(RuntimeOrigin::signed(11), 11));
+		assert_ok!(Staking::update_payee(RuntimeOrigin::signed_with_basic_filter(11), 11));
 		assert_eq!(Payee::<Test>::get(&11), Some(RewardDestination::Account(11)));
 
 		// Do not migrate a variant if not `Controller`.
 		Payee::<Test>::insert(21, RewardDestination::Stash);
 		assert_eq!(Payee::<Test>::get(&21), Some(RewardDestination::Stash));
 		assert_noop!(
-			Staking::update_payee(RuntimeOrigin::signed(11), 21),
+			Staking::update_payee(RuntimeOrigin::signed_with_basic_filter(11), 21),
 			Error::<Test>::NotController
 		);
 		assert_eq!(Payee::<Test>::get(&21), Some(RewardDestination::Stash));
@@ -230,9 +230,9 @@ fn set_controller_with_bad_state_ok() {
 		setup_double_bonded_ledgers();
 
 		// in this case, setting controller works due to the ordering of the calls.
-		assert_ok!(Staking::set_controller(RuntimeOrigin::signed(333)));
-		assert_ok!(Staking::set_controller(RuntimeOrigin::signed(444)));
-		assert_ok!(Staking::set_controller(RuntimeOrigin::signed(555)));
+		assert_ok!(Staking::set_controller(RuntimeOrigin::signed_with_basic_filter(333)));
+		assert_ok!(Staking::set_controller(RuntimeOrigin::signed_with_basic_filter(444)));
+		assert_ok!(Staking::set_controller(RuntimeOrigin::signed_with_basic_filter(555)));
 	})
 }
 
@@ -243,9 +243,9 @@ fn set_controller_with_bad_state_fails() {
 
 		// setting the controller of ledger associated with stash 555 fails since its stash is a
 		// controller of another ledger.
-		assert_noop!(Staking::set_controller(RuntimeOrigin::signed(555)), Error::<Test>::BadState);
-		assert_noop!(Staking::set_controller(RuntimeOrigin::signed(444)), Error::<Test>::BadState);
-		assert_ok!(Staking::set_controller(RuntimeOrigin::signed(333)));
+		assert_noop!(Staking::set_controller(RuntimeOrigin::signed_with_basic_filter(555)), Error::<Test>::BadState);
+		assert_noop!(Staking::set_controller(RuntimeOrigin::signed_with_basic_filter(444)), Error::<Test>::BadState);
+		assert_ok!(Staking::set_controller(RuntimeOrigin::signed_with_basic_filter(333)));
 	})
 }
 
@@ -288,7 +288,7 @@ mod deprecate_controller_call {
 			// Only `AdminOrigin` can sign.
 			assert_noop!(
 				Staking::deprecate_controller_batch(
-					RuntimeOrigin::signed(2),
+					RuntimeOrigin::signed_with_basic_filter(2),
 					bounded_controllers.clone()
 				),
 				BadOrigin

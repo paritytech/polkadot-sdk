@@ -124,7 +124,7 @@ fn fellowship_treasury_spend() {
 
 		// Claim the spend.
 
-		let alice_signed = RuntimeOrigin::signed(Westend::account_id_of(ALICE));
+		let alice_signed = RuntimeOrigin::signed_with_basic_filter(Westend::account_id_of(ALICE));
 		assert_ok!(Treasury::payout(alice_signed.clone(), 0));
 
 		assert_expected_events!(
@@ -202,7 +202,7 @@ fn fellowship_treasury_spend() {
 
 		// Claim the spend.
 
-		let alice_signed = RuntimeOrigin::signed(CollectivesWestend::account_id_of(ALICE));
+		let alice_signed = RuntimeOrigin::signed_with_basic_filter(CollectivesWestend::account_id_of(ALICE));
 		assert_ok!(FellowshipTreasury::payout(alice_signed.clone(), 0));
 
 		assert_expected_events!(

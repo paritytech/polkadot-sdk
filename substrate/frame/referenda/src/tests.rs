@@ -17,6 +17,7 @@
 
 //! The crate's tests.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use crate::mock::{RefState::*, *};
 use assert_matches::assert_matches;
@@ -39,14 +40,14 @@ fn basic_happy_path_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		// #1: submit
 		assert_ok!(Referenda::submit(
-			RuntimeOrigin::signed(1),
-			Box::new(RawOrigin::Root.into()),
+			RuntimeOrigin::signed_with_basic_filter(1),
+			Box::new(RawOrigin::Root.into_with_basic_filter()),
 			set_balance_proposal_bounded(1),
 			DispatchTime::At(10),
 		));
 		assert_eq!(Balances::reserved_balance(&1), 2);
 		assert_eq!(ReferendumCount::<Test>::get(), 1);
-		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0));
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed_with_basic_filter(2), 0));
 		run_to(4);
 		assert_eq!(DecidingCount::<Test>::get(0), 0);
 		run_to(5);
@@ -60,7 +61,7 @@ fn basic_happy_path_works() {
 		run_to(9);
 		// #8: Should be confirmed & ended.
 		assert_eq!(approved_since(0), 9);
-		assert_ok!(Referenda::refund_decision_deposit(RuntimeOrigin::signed(2), 0));
+		assert_ok!(Referenda::refund_decision_deposit(RuntimeOrigin::signed_with_basic_filter(2), 0));
 		run_to(12);
 		// #9: Should not yet be enacted.
 		assert_eq!(Balances::free_balance(&42), 0);
@@ -170,26 +171,26 @@ fn queueing_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Submit a proposal into a track with a queue len of 1.
 		assert_ok!(Referenda::submit(
-			RuntimeOrigin::signed(5),
-			Box::new(RawOrigin::Root.into()),
+			RuntimeOrigin::signed_with_basic_filter(5),
+			Box::new(RawOrigin::Root.into_with_basic_filter()),
 			set_balance_proposal_bounded(0),
 			DispatchTime::After(0),
 		));
-		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(5), 0));
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed_with_basic_filter(5), 0));
 
 		run_to(2);
 
 		// Submit 3 more proposals into the same queue.
 		for i in 1..=4 {
 			assert_ok!(Referenda::submit(
-				RuntimeOrigin::signed(i),
-				Box::new(RawOrigin::Root.into()),
+				RuntimeOrigin::signed_with_basic_filter(i),
+				Box::new(RawOrigin::Root.into_with_basic_filter()),
 				set_balance_proposal_bounded(i),
 				DispatchTime::After(0),
 			));
 		}
 		for i in [1, 2, 4] {
-			assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(i), i as u32));
+			assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed_with_basic_filter(i), i as u32));
 			// TODO: decision deposit after some initial votes with a non-highest voted coming
 			// first.
 		}
@@ -213,7 +214,7 @@ fn queueing_works() {
 		println!("{:?}", Vec::<_>::from(TrackQueue::<Test>::get(0)));
 
 		// Cancel the first.
-		assert_ok!(Referenda::cancel(RuntimeOrigin::signed(4), 0));
+		assert_ok!(Referenda::cancel(RuntimeOrigin::signed_with_basic_filter(4), 0));
 		assert_eq!(cancelled_since(0), 6);
 
 		// The other with the most approvals (#4) should be being decided.
@@ -309,8 +310,8 @@ fn auto_timeout_should_happen_with_nothing_but_submit() {
 	ExtBuilder::default().build_and_execute(|| {
 		// #1: submit
 		assert_ok!(Referenda::submit(
-			RuntimeOrigin::signed(1),
-			Box::new(RawOrigin::Root.into()),
+			RuntimeOrigin::signed_with_basic_filter(1),
+			Box::new(RawOrigin::Root.into_with_basic_filter()),
 			set_balance_proposal_bounded(1),
 			DispatchTime::At(20),
 		));
@@ -329,20 +330,20 @@ fn auto_timeout_should_happen_with_nothing_but_submit() {
 fn tracks_are_distinguished() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert_ok!(Referenda::submit(
-			RuntimeOrigin::signed(1),
-			Box::new(RawOrigin::Root.into()),
+			RuntimeOrigin::signed_with_basic_filter(1),
+			Box::new(RawOrigin::Root.into_with_basic_filter()),
 			set_balance_proposal_bounded(1),
 			DispatchTime::At(10),
 		));
 		assert_ok!(Referenda::submit(
-			RuntimeOrigin::signed(2),
-			Box::new(RawOrigin::None.into()),
+			RuntimeOrigin::signed_with_basic_filter(2),
+			Box::new(RawOrigin::None.into_with_basic_filter()),
 			set_balance_proposal_bounded(2),
 			DispatchTime::At(20),
 		));
 
-		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(3), 0));
-		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(4), 1));
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed_with_basic_filter(3), 0));
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed_with_basic_filter(4), 1));
 
 		let mut i = ReferendumInfoFor::<Test>::iter().collect::<Vec<_>>();
 		i.sort_by_key(|x| x.0);
@@ -393,8 +394,8 @@ fn submit_errors_work() {
 		// No track for Signed origins.
 		assert_noop!(
 			Referenda::submit(
-				RuntimeOrigin::signed(1),
-				Box::new(RawOrigin::Signed(2).into()),
+				RuntimeOrigin::signed_with_basic_filter(1),
+				Box::new(RawOrigin::Signed(2).into_with_basic_filter()),
 				h.clone(),
 				DispatchTime::At(10),
 			),
@@ -404,8 +405,8 @@ fn submit_errors_work() {
 		// No funds for deposit
 		assert_noop!(
 			Referenda::submit(
-				RuntimeOrigin::signed(10),
-				Box::new(RawOrigin::Root.into()),
+				RuntimeOrigin::signed_with_basic_filter(10),
+				Box::new(RawOrigin::Root.into_with_basic_filter()),
 				h,
 				DispatchTime::At(10),
 			),
@@ -418,21 +419,21 @@ fn submit_errors_work() {
 fn decision_deposit_errors_work() {
 	ExtBuilder::default().build_and_execute(|| {
 		let e = Error::<Test>::NotOngoing;
-		assert_noop!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0), e);
+		assert_noop!(Referenda::place_decision_deposit(RuntimeOrigin::signed_with_basic_filter(2), 0), e);
 
 		let h = set_balance_proposal_bounded(1);
 		assert_ok!(Referenda::submit(
-			RuntimeOrigin::signed(1),
-			Box::new(RawOrigin::Root.into()),
+			RuntimeOrigin::signed_with_basic_filter(1),
+			Box::new(RawOrigin::Root.into_with_basic_filter()),
 			h,
 			DispatchTime::At(10),
 		));
 		let e = BalancesError::<Test>::InsufficientBalance;
-		assert_noop!(Referenda::place_decision_deposit(RuntimeOrigin::signed(10), 0), e);
+		assert_noop!(Referenda::place_decision_deposit(RuntimeOrigin::signed_with_basic_filter(10), 0), e);
 
-		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0));
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed_with_basic_filter(2), 0));
 		let e = Error::<Test>::HasDeposit;
-		assert_noop!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0), e);
+		assert_noop!(Referenda::place_decision_deposit(RuntimeOrigin::signed_with_basic_filter(2), 0), e);
 	});
 }
 
@@ -440,24 +441,24 @@ fn decision_deposit_errors_work() {
 fn refund_deposit_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let e = Error::<Test>::BadReferendum;
-		assert_noop!(Referenda::refund_decision_deposit(RuntimeOrigin::signed(1), 0), e);
+		assert_noop!(Referenda::refund_decision_deposit(RuntimeOrigin::signed_with_basic_filter(1), 0), e);
 
 		let h = set_balance_proposal_bounded(1);
 		assert_ok!(Referenda::submit(
-			RuntimeOrigin::signed(1),
-			Box::new(RawOrigin::Root.into()),
+			RuntimeOrigin::signed_with_basic_filter(1),
+			Box::new(RawOrigin::Root.into_with_basic_filter()),
 			h,
 			DispatchTime::At(10),
 		));
 		let e = Error::<Test>::NoDeposit;
-		assert_noop!(Referenda::refund_decision_deposit(RuntimeOrigin::signed(2), 0), e);
+		assert_noop!(Referenda::refund_decision_deposit(RuntimeOrigin::signed_with_basic_filter(2), 0), e);
 
-		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0));
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed_with_basic_filter(2), 0));
 		let e = Error::<Test>::Unfinished;
-		assert_noop!(Referenda::refund_decision_deposit(RuntimeOrigin::signed(3), 0), e);
+		assert_noop!(Referenda::refund_decision_deposit(RuntimeOrigin::signed_with_basic_filter(3), 0), e);
 
 		run_to(11);
-		assert_ok!(Referenda::refund_decision_deposit(RuntimeOrigin::signed(3), 0));
+		assert_ok!(Referenda::refund_decision_deposit(RuntimeOrigin::signed_with_basic_filter(3), 0));
 	});
 }
 
@@ -466,36 +467,36 @@ fn refund_submission_deposit_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		// refund of non existing referendum fails.
 		let e = Error::<Test>::BadReferendum;
-		assert_noop!(Referenda::refund_submission_deposit(RuntimeOrigin::signed(1), 0), e);
+		assert_noop!(Referenda::refund_submission_deposit(RuntimeOrigin::signed_with_basic_filter(1), 0), e);
 		// create a referendum.
 		let h = set_balance_proposal_bounded(1);
 		assert_ok!(Referenda::submit(
-			RuntimeOrigin::signed(1),
-			Box::new(RawOrigin::Root.into()),
+			RuntimeOrigin::signed_with_basic_filter(1),
+			Box::new(RawOrigin::Root.into_with_basic_filter()),
 			h.clone(),
 			DispatchTime::At(10),
 		));
 		// refund of an ongoing referendum fails.
 		let e = Error::<Test>::BadStatus;
-		assert_noop!(Referenda::refund_submission_deposit(RuntimeOrigin::signed(3), 0), e);
+		assert_noop!(Referenda::refund_submission_deposit(RuntimeOrigin::signed_with_basic_filter(3), 0), e);
 		// cancel referendum.
-		assert_ok!(Referenda::cancel(RuntimeOrigin::signed(4), 0));
+		assert_ok!(Referenda::cancel(RuntimeOrigin::signed_with_basic_filter(4), 0));
 		// refund of canceled referendum works.
-		assert_ok!(Referenda::refund_submission_deposit(RuntimeOrigin::signed(3), 0));
+		assert_ok!(Referenda::refund_submission_deposit(RuntimeOrigin::signed_with_basic_filter(3), 0));
 		// fails if already refunded.
 		let e = Error::<Test>::NoDeposit;
-		assert_noop!(Referenda::refund_submission_deposit(RuntimeOrigin::signed(2), 0), e);
+		assert_noop!(Referenda::refund_submission_deposit(RuntimeOrigin::signed_with_basic_filter(2), 0), e);
 		// create second referendum.
 		assert_ok!(Referenda::submit(
-			RuntimeOrigin::signed(1),
-			Box::new(RawOrigin::Root.into()),
+			RuntimeOrigin::signed_with_basic_filter(1),
+			Box::new(RawOrigin::Root.into_with_basic_filter()),
 			h,
 			DispatchTime::At(10),
 		));
 		// refund of a killed referendum fails.
 		assert_ok!(Referenda::kill(RuntimeOrigin::root(), 1));
 		let e = Error::<Test>::NoDeposit;
-		assert_noop!(Referenda::refund_submission_deposit(RuntimeOrigin::signed(2), 0), e);
+		assert_noop!(Referenda::refund_submission_deposit(RuntimeOrigin::signed_with_basic_filter(2), 0), e);
 	});
 }
 
@@ -504,16 +505,16 @@ fn cancel_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let h = set_balance_proposal_bounded(1);
 		assert_ok!(Referenda::submit(
-			RuntimeOrigin::signed(1),
-			Box::new(RawOrigin::Root.into()),
+			RuntimeOrigin::signed_with_basic_filter(1),
+			Box::new(RawOrigin::Root.into_with_basic_filter()),
 			h,
 			DispatchTime::At(10),
 		));
-		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0));
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed_with_basic_filter(2), 0));
 
 		run_to(8);
-		assert_ok!(Referenda::cancel(RuntimeOrigin::signed(4), 0));
-		assert_ok!(Referenda::refund_decision_deposit(RuntimeOrigin::signed(3), 0));
+		assert_ok!(Referenda::cancel(RuntimeOrigin::signed_with_basic_filter(4), 0));
+		assert_ok!(Referenda::refund_decision_deposit(RuntimeOrigin::signed_with_basic_filter(3), 0));
 		assert_eq!(cancelled_since(0), 8);
 	});
 }
@@ -523,16 +524,16 @@ fn cancel_errors_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let h = set_balance_proposal_bounded(1);
 		assert_ok!(Referenda::submit(
-			RuntimeOrigin::signed(1),
-			Box::new(RawOrigin::Root.into()),
+			RuntimeOrigin::signed_with_basic_filter(1),
+			Box::new(RawOrigin::Root.into_with_basic_filter()),
 			h,
 			DispatchTime::At(10),
 		));
-		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0));
-		assert_noop!(Referenda::cancel(RuntimeOrigin::signed(1), 0), BadOrigin);
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed_with_basic_filter(2), 0));
+		assert_noop!(Referenda::cancel(RuntimeOrigin::signed_with_basic_filter(1), 0), BadOrigin);
 
 		run_to(11);
-		assert_noop!(Referenda::cancel(RuntimeOrigin::signed(4), 0), Error::<Test>::NotOngoing);
+		assert_noop!(Referenda::cancel(RuntimeOrigin::signed_with_basic_filter(4), 0), Error::<Test>::NotOngoing);
 	});
 }
 
@@ -541,17 +542,17 @@ fn kill_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let h = set_balance_proposal_bounded(1);
 		assert_ok!(Referenda::submit(
-			RuntimeOrigin::signed(1),
-			Box::new(RawOrigin::Root.into()),
+			RuntimeOrigin::signed_with_basic_filter(1),
+			Box::new(RawOrigin::Root.into_with_basic_filter()),
 			h,
 			DispatchTime::At(10),
 		));
-		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0));
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed_with_basic_filter(2), 0));
 
 		run_to(8);
 		assert_ok!(Referenda::kill(RuntimeOrigin::root(), 0));
 		let e = Error::<Test>::NoDeposit;
-		assert_noop!(Referenda::refund_decision_deposit(RuntimeOrigin::signed(3), 0), e);
+		assert_noop!(Referenda::refund_decision_deposit(RuntimeOrigin::signed_with_basic_filter(3), 0), e);
 		assert_eq!(killed_since(0), 8);
 	});
 }
@@ -561,13 +562,13 @@ fn kill_errors_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let h = set_balance_proposal_bounded(1);
 		assert_ok!(Referenda::submit(
-			RuntimeOrigin::signed(1),
-			Box::new(RawOrigin::Root.into()),
+			RuntimeOrigin::signed_with_basic_filter(1),
+			Box::new(RawOrigin::Root.into_with_basic_filter()),
 			h,
 			DispatchTime::At(10),
 		));
-		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0));
-		assert_noop!(Referenda::kill(RuntimeOrigin::signed(4), 0), BadOrigin);
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed_with_basic_filter(2), 0));
+		assert_noop!(Referenda::kill(RuntimeOrigin::signed_with_basic_filter(4), 0), BadOrigin);
 
 		run_to(11);
 		assert_noop!(Referenda::kill(RuntimeOrigin::root(), 0), Error::<Test>::NotOngoing);
@@ -604,39 +605,39 @@ fn set_metadata_works() {
 		let invalid_hash: <Test as frame_system::Config>::Hash = [1u8; 32].into();
 		// fails to set metadata for a finished referendum.
 		assert_ok!(Referenda::submit(
-			RuntimeOrigin::signed(1),
-			Box::new(RawOrigin::Root.into()),
+			RuntimeOrigin::signed_with_basic_filter(1),
+			Box::new(RawOrigin::Root.into_with_basic_filter()),
 			set_balance_proposal_bounded(1),
 			DispatchTime::At(1),
 		));
 		let index = ReferendumCount::<Test>::get() - 1;
 		assert_ok!(Referenda::kill(RuntimeOrigin::root(), index));
 		assert_noop!(
-			Referenda::set_metadata(RuntimeOrigin::signed(1), index, Some(invalid_hash)),
+			Referenda::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), index, Some(invalid_hash)),
 			Error::<Test>::NotOngoing,
 		);
 		// no permission to set metadata.
 		assert_ok!(Referenda::submit(
-			RuntimeOrigin::signed(1),
-			Box::new(RawOrigin::Root.into()),
+			RuntimeOrigin::signed_with_basic_filter(1),
+			Box::new(RawOrigin::Root.into_with_basic_filter()),
 			set_balance_proposal_bounded(1),
 			DispatchTime::At(1),
 		));
 		let index = ReferendumCount::<Test>::get() - 1;
 		assert_noop!(
-			Referenda::set_metadata(RuntimeOrigin::signed(2), index, Some(invalid_hash)),
+			Referenda::set_metadata(RuntimeOrigin::signed_with_basic_filter(2), index, Some(invalid_hash)),
 			Error::<Test>::NoPermission,
 		);
 		// preimage does not exist.
 		let index = ReferendumCount::<Test>::get() - 1;
 		assert_noop!(
-			Referenda::set_metadata(RuntimeOrigin::signed(1), index, Some(invalid_hash)),
+			Referenda::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), index, Some(invalid_hash)),
 			Error::<Test>::PreimageNotExist,
 		);
 		// metadata set.
 		let index = ReferendumCount::<Test>::get() - 1;
 		let hash = note_preimage(1);
-		assert_ok!(Referenda::set_metadata(RuntimeOrigin::signed(1), index, Some(hash)));
+		assert_ok!(Referenda::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), index, Some(hash)));
 		System::assert_last_event(RuntimeEvent::Referenda(crate::Event::MetadataSet {
 			index,
 			hash,
@@ -649,18 +650,18 @@ fn clear_metadata_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let hash = note_preimage(1);
 		assert_ok!(Referenda::submit(
-			RuntimeOrigin::signed(1),
-			Box::new(RawOrigin::Root.into()),
+			RuntimeOrigin::signed_with_basic_filter(1),
+			Box::new(RawOrigin::Root.into_with_basic_filter()),
 			set_balance_proposal_bounded(1),
 			DispatchTime::At(1),
 		));
 		let index = ReferendumCount::<Test>::get() - 1;
-		assert_ok!(Referenda::set_metadata(RuntimeOrigin::signed(1), index, Some(hash)));
+		assert_ok!(Referenda::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), index, Some(hash)));
 		assert_noop!(
-			Referenda::set_metadata(RuntimeOrigin::signed(2), index, None),
+			Referenda::set_metadata(RuntimeOrigin::signed_with_basic_filter(2), index, None),
 			Error::<Test>::NoPermission,
 		);
-		assert_ok!(Referenda::set_metadata(RuntimeOrigin::signed(1), index, None),);
+		assert_ok!(Referenda::set_metadata(RuntimeOrigin::signed_with_basic_filter(1), index, None),);
 		System::assert_last_event(RuntimeEvent::Referenda(crate::Event::MetadataCleared {
 			index,
 			hash,
@@ -674,8 +675,8 @@ fn detects_incorrect_len() {
 		let hash = note_preimage(1);
 		assert_noop!(
 			Referenda::submit(
-				RuntimeOrigin::signed(1),
-				Box::new(RawOrigin::Root.into()),
+				RuntimeOrigin::signed_with_basic_filter(1),
+				Box::new(RawOrigin::Root.into_with_basic_filter()),
 				frame_support::traits::Bounded::Lookup { hash, len: 3 },
 				DispatchTime::At(1),
 			),
@@ -690,15 +691,15 @@ fn zero_enactment_delay_executes_proposal_at_next_block() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert_eq!(Balances::free_balance(42), 0);
 		assert_ok!(Referenda::submit(
-			RuntimeOrigin::signed(1),
-			Box::new(RawOrigin::Signed(1).into()),
+			RuntimeOrigin::signed_with_basic_filter(1),
+			Box::new(RawOrigin::Signed(1).into_with_basic_filter()),
 			Preimage::bound(
-				pallet_balances::Call::transfer_keep_alive { dest: 42, value: 20 }.into()
+				pallet_balances::Call::transfer_keep_alive { dest: 42, value: 20 }.into_with_basic_filter()
 			)
 			.unwrap(),
 			DispatchTime::After(0),
 		));
-		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed_with_basic_filter(1), 0));
 		assert_eq!(ReferendumCount::<Test>::get(), 1);
 		set_tally(0, 100, 0);
 

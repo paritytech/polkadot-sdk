@@ -21,6 +21,7 @@
 mod call_builder;
 mod code;
 mod sandbox;
+use frame_support::traits::IntoWithBasicFilter;
 use self::{
 	call_builder::CallSetup,
 	code::{body, ImportedMemory, Location, ModuleDefinition, WasmModule},
@@ -108,7 +109,7 @@ where
 
 		Contracts::<T>::store_code_raw(module.code, caller.clone())?;
 		Contracts::<T>::instantiate(
-			RawOrigin::Signed(caller.clone()).into(),
+			RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 			value,
 			Weight::MAX,
 			None,
@@ -528,7 +529,7 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller.clone()), value, Weight::MAX, None, hash, input, salt);
 
 		let deposit =
-			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &addr);
+			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into_with_basic_filter(), &addr);
 		// value was removed from the caller
 		assert_eq!(
 			T::Currency::balance(&caller),
@@ -602,7 +603,7 @@ mod benchmarks {
 		let origin = RawOrigin::Signed(caller.clone());
 		#[extrinsic_call]
 		upload_code(origin, code, None, Determinism::Relaxed);
-		assert!(T::Currency::total_balance_on_hold(&caller) > 0u32.into());
+		assert!(T::Currency::total_balance_on_hold(&caller) > 0u32.into_with_basic_filter());
 		assert!(<Contract<T>>::code_exists(&hash));
 		// Ensure that the benchmark follows the most expensive path, i.e., the code is saved with
 		assert_eq!(CodeInfoOf::<T>::get(&hash).unwrap().determinism(), Determinism::Relaxed);

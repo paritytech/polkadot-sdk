@@ -49,6 +49,7 @@ mod tests;
 pub mod weights;
 
 extern crate alloc;
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::{boxed::Box, vec, vec::Vec};
 use frame::{
 	prelude::*,
@@ -334,7 +335,7 @@ pub mod pallet {
 			let id = Self::multi_account_id(&signatories, 1);
 
 			let (call_len, call_hash) = call.using_encoded(|c| (c.len(), blake2_256(&c)));
-			let result = call.dispatch(RawOrigin::Signed(id.clone()).into());
+			let result = call.dispatch(RawOrigin::Signed(id.clone()).into_with_basic_filter());
 
 			Self::deposit_event(Event::MultisigExecuted {
 				approving: who,
@@ -691,7 +692,7 @@ impl<T: Config> Pallet<T> {
 				<Multisigs<T>>::remove(&id, call_hash);
 				T::Currency::unreserve(&m.depositor, m.deposit);
 
-				let result = call.dispatch(RawOrigin::Signed(id.clone()).into());
+				let result = call.dispatch(RawOrigin::Signed(id.clone()).into_with_basic_filter());
 				Self::deposit_event(Event::MultisigExecuted {
 					approving: who,
 					timepoint,

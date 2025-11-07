@@ -111,7 +111,7 @@ fn it_works_for_optional_value() {
 fn set_dummy_works() {
 	new_test_ext().execute_with(|| {
 		let test_val = 133;
-		assert_ok!(Example::set_bar(RuntimeOrigin::signed(1), test_val.into()));
+		assert_ok!(Example::set_bar(RuntimeOrigin::signed_with_basic_filter(1), test_val.into()));
 		assert_eq!(Bar::<Test>::get(1), Some(test_val));
 	});
 }

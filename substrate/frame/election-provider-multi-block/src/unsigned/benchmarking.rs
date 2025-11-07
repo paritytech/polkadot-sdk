@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use frame_support::traits::IntoWithBasicFilter;
 use crate::{
 	unsigned::{miner::OffchainWorkerMiner, Call, Config, Pallet},
 	verifier::Verifier,
@@ -69,7 +70,7 @@ mod benchmarks {
 		assert!(T::Verifier::queued_score().is_none());
 		#[block]
 		{
-			assert_ok!(Pallet::<T>::submit_unsigned(RawOrigin::None.into(), Box::new(solution)));
+			assert_ok!(Pallet::<T>::submit_unsigned(RawOrigin::None.into_with_basic_filter(), Box::new(solution)));
 		}
 
 		// something is queued

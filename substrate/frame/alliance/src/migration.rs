@@ -167,7 +167,7 @@ mod test {
 	#[test]
 	fn migration_v1_to_v2_works() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(Alliance::join_alliance(RuntimeOrigin::signed(4)));
+			assert_ok!(Alliance::join_alliance(RuntimeOrigin::signed_with_basic_filter(4)));
 			assert_eq!(Members::<Test>::get(MemberRole::Ally), vec![4]);
 			assert_eq!(Members::<Test>::get(MemberRole::Fellow), vec![1, 2, 3]);
 			v1_to_v2::migrate::<Test, ()>();

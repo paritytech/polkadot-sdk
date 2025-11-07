@@ -17,6 +17,7 @@
 
 //! Precompiles added to the test runtime.
 
+use frame_support::traits::IntoWithBasicFilter;
 use crate::{
 	exec::{ErrorOrigin, ExecError},
 	precompiles::{AddressMatcher, Error, Ext, ExtWithInfo, Precompile, Token},
@@ -96,8 +97,8 @@ impl<T: Config> Precompile for NoInfo<T> {
 			INoInfoCalls::callRuntime(INoInfo::callRuntimeCall { call }) => {
 				let origin = env.caller();
 				let frame_origin = match origin {
-					Origin::Root => RawOrigin::Root.into(),
-					Origin::Signed(account_id) => RawOrigin::Signed(account_id.clone()).into(),
+					Origin::Root => RawOrigin::Root.into_with_basic_filter(),
+					Origin::Signed(account_id) => RawOrigin::Signed(account_id.clone()).into_with_basic_filter(),
 				};
 
 				let call = <T as Config>::RuntimeCall::decode(&mut &call[..]).unwrap();

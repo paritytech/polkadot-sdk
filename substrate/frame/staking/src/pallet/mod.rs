@@ -17,6 +17,7 @@
 
 //! Staking FRAME Pallet.
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::vec::Vec;
 use codec::Codec;
 use frame_election_provider_support::{ElectionProvider, SortedListProvider, VoteWeight};
@@ -790,17 +791,17 @@ pub mod pallet {
 					"Stash does not have enough balance to bond."
 				);
 				frame_support::assert_ok!(<Pallet<T>>::bond(
-					T::RuntimeOrigin::from(Some(stash.clone()).into()),
+					Some(stash.clone()).into()).into_with_basic_filter(),
 					balance,
 					RewardDestination::Staked,
 				));
 				frame_support::assert_ok!(match status {
 					crate::StakerStatus::Validator => <Pallet<T>>::validate(
-						T::RuntimeOrigin::from(Some(stash.clone()).into()),
+						Some(stash.clone()).into()).into_with_basic_filter(),
 						Default::default(),
 					),
 					crate::StakerStatus::Nominator(votes) => <Pallet<T>>::nominate(
-						T::RuntimeOrigin::from(Some(stash.clone()).into()),
+						Some(stash.clone()).into()).into_with_basic_filter(),
 						votes.iter().map(|l| T::Lookup::unlookup(l.clone())).collect(),
 					),
 					_ => Ok(()),

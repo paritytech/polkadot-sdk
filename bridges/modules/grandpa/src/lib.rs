@@ -883,7 +883,7 @@ mod tests {
 		let justification = make_default_justification(&header);
 
 		Pallet::<TestRuntime>::submit_finality_proof_ex(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			Box::new(header),
 			justification,
 			TEST_GRANDPA_SET_ID,
@@ -903,7 +903,7 @@ mod tests {
 		});
 
 		Pallet::<TestRuntime>::submit_finality_proof_ex(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			Box::new(header),
 			justification,
 			set_id,
@@ -932,7 +932,7 @@ mod tests {
 		});
 
 		Pallet::<TestRuntime>::submit_finality_proof_ex(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			Box::new(header),
 			justification,
 			set_id,
@@ -985,13 +985,13 @@ mod tests {
 	#[test]
 	fn init_root_or_owner_origin_can_initialize_pallet() {
 		run_test(|| {
-			assert_noop!(init_with_origin(RuntimeOrigin::signed(1)), DispatchError::BadOrigin);
+			assert_noop!(init_with_origin(RuntimeOrigin::signed_with_basic_filter(1)), DispatchError::BadOrigin);
 			assert_ok!(init_with_origin(RuntimeOrigin::root()));
 
 			// Reset storage so we can initialize the pallet again
 			BestFinalized::<TestRuntime>::kill();
 			PalletOwner::<TestRuntime>::put(2);
-			assert_ok!(init_with_origin(RuntimeOrigin::signed(2)));
+			assert_ok!(init_with_origin(RuntimeOrigin::signed_with_basic_filter(2)));
 		})
 	}
 
@@ -1148,7 +1148,7 @@ mod tests {
 
 			assert_err!(
 				Pallet::<TestRuntime>::submit_finality_proof_ex(
-					RuntimeOrigin::signed(1),
+					RuntimeOrigin::signed_with_basic_filter(1),
 					Box::new(header.clone()),
 					justification.clone(),
 					TEST_GRANDPA_SET_ID,
@@ -1158,7 +1158,7 @@ mod tests {
 			);
 			assert_err!(
 				Pallet::<TestRuntime>::submit_finality_proof_ex(
-					RuntimeOrigin::signed(1),
+					RuntimeOrigin::signed_with_basic_filter(1),
 					Box::new(header),
 					justification,
 					next_set_id,
@@ -1180,7 +1180,7 @@ mod tests {
 
 			assert_err!(
 				Pallet::<TestRuntime>::submit_finality_proof_ex(
-					RuntimeOrigin::signed(1),
+					RuntimeOrigin::signed_with_basic_filter(1),
 					Box::new(header),
 					justification,
 					TEST_GRANDPA_SET_ID,
@@ -1211,7 +1211,7 @@ mod tests {
 
 			assert_err!(
 				Pallet::<TestRuntime>::submit_finality_proof_ex(
-					RuntimeOrigin::signed(1),
+					RuntimeOrigin::signed_with_basic_filter(1),
 					Box::new(header),
 					justification,
 					TEST_GRANDPA_SET_ID,
@@ -1251,7 +1251,7 @@ mod tests {
 
 			// Let's import our test header
 			let result = Pallet::<TestRuntime>::submit_finality_proof_ex(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				Box::new(header.clone()),
 				justification.clone(),
 				TEST_GRANDPA_SET_ID,
@@ -1315,7 +1315,7 @@ mod tests {
 			// without large digest item ^^^ the relayer would have paid zero transaction fee
 			// (`Pays::No`)
 			let result = Pallet::<TestRuntime>::submit_finality_proof_ex(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				Box::new(header.clone()),
 				justification,
 				TEST_GRANDPA_SET_ID,
@@ -1348,7 +1348,7 @@ mod tests {
 			// without many headers in votes ancestries ^^^ the relayer would have paid zero
 			// transaction fee (`Pays::No`)
 			let result = Pallet::<TestRuntime>::submit_finality_proof_ex(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed_with_basic_filter(1),
 				Box::new(header.clone()),
 				justification,
 				TEST_GRANDPA_SET_ID,
@@ -1379,7 +1379,7 @@ mod tests {
 			// Should not be allowed to import this header
 			assert_err!(
 				Pallet::<TestRuntime>::submit_finality_proof_ex(
-					RuntimeOrigin::signed(1),
+					RuntimeOrigin::signed_with_basic_filter(1),
 					Box::new(header),
 					justification,
 					TEST_GRANDPA_SET_ID,
@@ -1406,7 +1406,7 @@ mod tests {
 			// Should not be allowed to import this header
 			assert_err!(
 				Pallet::<TestRuntime>::submit_finality_proof_ex(
-					RuntimeOrigin::signed(1),
+					RuntimeOrigin::signed_with_basic_filter(1),
 					Box::new(header),
 					justification,
 					TEST_GRANDPA_SET_ID,
@@ -1433,7 +1433,7 @@ mod tests {
 			// Should not be allowed to import this header
 			assert_err!(
 				Pallet::<TestRuntime>::submit_finality_proof_ex(
-					RuntimeOrigin::signed(1),
+					RuntimeOrigin::signed_with_basic_filter(1),
 					Box::new(header),
 					justification,
 					TEST_GRANDPA_SET_ID,
@@ -1500,7 +1500,7 @@ mod tests {
 				invalid_justification.round = 42;
 
 				Pallet::<TestRuntime>::submit_finality_proof_ex(
-					RuntimeOrigin::signed(1),
+					RuntimeOrigin::signed_with_basic_filter(1),
 					Box::new(header),
 					invalid_justification,
 					TEST_GRANDPA_SET_ID,
@@ -1771,7 +1771,7 @@ mod tests {
 			// wrong origin => error
 			assert_noop!(
 				Pallet::<TestRuntime>::force_set_pallet_state(
-					RuntimeOrigin::signed(1),
+					RuntimeOrigin::signed_with_basic_filter(1),
 					ok_new_set_id,
 					ok_new_authorities.clone(),
 					Box::new(header50.clone()),

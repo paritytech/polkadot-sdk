@@ -152,6 +152,7 @@
 
 extern crate alloc;
 
+use frame_support::traits::IntoWithBasicFilter;
 use alloc::{boxed::Box, vec::Vec};
 
 use frame::{
@@ -434,7 +435,7 @@ pub mod pallet {
 			// Check `who` is allowed to make a call on behalf of `account`
 			let target = Self::proxy(&who).ok_or(Error::<T>::NotAllowed)?;
 			ensure!(target == account, Error::<T>::NotAllowed);
-			call.dispatch(frame_system::RawOrigin::Signed(account).into())
+			call.dispatch(frame_system::RawOrigin::Signed(account).into_with_basic_filter())
 				.map(|_| ())
 				.map_err(|e| e.error)
 		}

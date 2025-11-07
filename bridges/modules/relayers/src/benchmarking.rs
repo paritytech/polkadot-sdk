@@ -18,6 +18,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use crate::*;
 
 use frame_benchmarking::v2::*;
@@ -136,7 +137,7 @@ mod benchmarks {
 			.saturating_add(One::one())
 			.saturating_add(One::one());
 		T::deposit_account(relayer.clone(), crate::Pallet::<T, I>::required_stake());
-		crate::Pallet::<T, I>::register(RawOrigin::Signed(relayer.clone()).into(), valid_till)
+		crate::Pallet::<T, I>::register(RawOrigin::Signed(relayer.clone()).into_with_basic_filter(), valid_till)
 			.unwrap();
 		frame_system::Pallet::<T>::set_block_number(valid_till.saturating_add(One::one()));
 
@@ -159,7 +160,7 @@ mod benchmarks {
 			.saturating_add(One::one());
 		T::deposit_account(relayer.clone(), crate::Pallet::<T, I>::required_stake());
 		assert_ok!(crate::Pallet::<T, I>::register(
-			RawOrigin::Signed(relayer.clone()).into(),
+			RawOrigin::Signed(relayer.clone()).into_with_basic_filter(),
 			valid_till
 		));
 

@@ -53,7 +53,7 @@ fn limited_teleport_assets_works() {
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		// call extrinsic
 		assert_ok!(XcmPallet::limited_teleport_assets(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(RelayLocation::get().into()),
 			Box::new(expected_beneficiary.clone().into()),
 			Box::new((Here, SEND_AMOUNT).into()),
@@ -106,7 +106,7 @@ fn limited_teleport_filtered_assets_disallowed() {
 	let beneficiary: Location = AccountId32 { network: None, id: BOB.into() }.into();
 	new_test_ext_with_balances(vec![(ALICE, INITIAL_BALANCE)]).execute_with(|| {
 		let result = XcmPallet::limited_teleport_assets(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(FilteredTeleportLocation::get().into()),
 			Box::new(beneficiary.into()),
 			Box::new(FilteredTeleportAsset::get().into()),
@@ -140,7 +140,7 @@ fn reserve_transfer_assets_with_paid_router_works() {
 			Junction::AccountId32 { network: None, id: user_account.clone().into() }.into();
 		assert_eq!(Balances::total_balance(&user_account), INITIAL_BALANCE);
 		assert_ok!(XcmPallet::limited_reserve_transfer_assets(
-			RuntimeOrigin::signed(user_account.clone()),
+			RuntimeOrigin::signed_with_basic_filter(user_account.clone()),
 			Box::new(Parachain(paid_para_id).into()),
 			Box::new(dest.clone().into()),
 			Box::new((Here, SEND_AMOUNT).into()),
@@ -230,7 +230,7 @@ pub(crate) fn set_up_foreign_asset(
 	// this asset should have been teleported/reserve-transferred in, but for this test we just
 	// mint it locally.
 	assert_ok!(AssetsPallet::mint(
-		RuntimeOrigin::signed(BOB),
+		RuntimeOrigin::signed_with_basic_filter(BOB),
 		foreign_asset_id_location.clone(),
 		beneficiary,
 		initial_amount
@@ -287,7 +287,7 @@ fn local_asset_reserve_and_local_fee_reserve_call<Call>(
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		// call extrinsic
 		let result = tested_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(dest.clone().into()),
 			Box::new(beneficiary.clone().into()),
 			Box::new((Here, SEND_AMOUNT).into()),
@@ -431,7 +431,7 @@ fn destination_asset_reserve_and_local_fee_reserve_call<Call>(
 
 		// do the transfer
 		let result = tested_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(dest.clone().into()),
 			Box::new(beneficiary.clone().into()),
 			Box::new(assets.into()),
@@ -586,7 +586,7 @@ fn remote_asset_reserve_and_local_fee_reserve_call_disallowed<Call>(
 
 		// try the transfer
 		let result = tested_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
 			Box::new(assets.into()),
@@ -706,7 +706,7 @@ fn local_asset_reserve_and_destination_fee_reserve_call<Call>(
 
 		// do the transfer
 		let result = tested_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(dest.clone().into()),
 			Box::new(beneficiary.clone().into()),
 			Box::new(assets.into()),
@@ -860,7 +860,7 @@ fn destination_asset_reserve_and_destination_fee_reserve_call<Call>(
 
 		// do the transfer
 		let result = tested_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(dest.clone().into()),
 			Box::new(beneficiary.clone().into()),
 			Box::new(assets.into()),
@@ -1027,7 +1027,7 @@ fn remote_asset_reserve_and_destination_fee_reserve_call_disallowed<Call>(
 
 		// do the transfer
 		let result = tested_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
 			Box::new(assets.into()),
@@ -1140,7 +1140,7 @@ fn local_asset_reserve_and_remote_fee_reserve_call_disallowed<Call>(
 
 		// do the transfer
 		let result = tested_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
 			Box::new(assets.into()),
@@ -1258,7 +1258,7 @@ fn destination_asset_reserve_and_remote_fee_reserve_call_disallowed<Call>(
 
 		// do the transfer
 		let result = tested_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
 			Box::new(assets.into()),
@@ -1398,7 +1398,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 
 		// do the transfer
 		let result = tested_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(dest.clone().into()),
 			Box::new(beneficiary.clone().into()),
 			Box::new(assets.into()),
@@ -1544,7 +1544,7 @@ fn local_asset_reserve_and_teleported_fee_call<Call>(
 
 		// do the transfer
 		let result = tested_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(dest.clone().into()),
 			Box::new(beneficiary.clone().into()),
 			Box::new(assets.into()),
@@ -1706,7 +1706,7 @@ fn destination_asset_reserve_and_teleported_fee_call<Call>(
 
 		// do the transfer
 		let result = tested_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(dest.clone().into()),
 			Box::new(beneficiary.clone().into()),
 			Box::new(assets.into()),
@@ -1876,7 +1876,7 @@ fn remote_asset_reserve_and_teleported_fee_reserve_call_disallowed<Call>(
 
 		// try the transfer
 		let result = tested_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
 			Box::new(assets.into()),
@@ -1975,7 +1975,7 @@ fn reserve_transfer_assets_with_teleportable_asset_disallowed() {
 
 		// do the transfer
 		let res = XcmPallet::limited_reserve_transfer_assets(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
 			Box::new(assets.into()),
@@ -2016,7 +2016,7 @@ fn transfer_assets_with_filtered_teleported_fee_disallowed() {
 			(Location::here(), SEND_AMOUNT).into(),
 		);
 		let result = XcmPallet::transfer_assets(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(FilteredTeleportLocation::get().into()),
 			Box::new(beneficiary.into()),
 			Box::new(assets.into()),
@@ -2072,7 +2072,7 @@ fn intermediary_error_reverts_side_effects() {
 		let (log_capture, subscriber) = init_log_capture(Level::DEBUG, true);
 		subscriber::with_default(subscriber, || {
 			let result = XcmPallet::limited_reserve_transfer_assets(
-				RuntimeOrigin::signed(ALICE),
+				RuntimeOrigin::signed_with_basic_filter(ALICE),
 				Box::new(dest.into()),
 				Box::new(beneficiary.into()),
 				Box::new(assets.into()),
@@ -2172,7 +2172,7 @@ fn teleport_asset_using_local_fee_reserve_call<Call>(
 
 		// do the transfer
 		let result = tested_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(dest.clone().into()),
 			Box::new(beneficiary.clone().into()),
 			Box::new(assets.into()),
@@ -2333,7 +2333,7 @@ fn teleported_asset_using_destination_reserve_fee_call<Call>(
 
 		// do the transfer
 		let result = tested_call(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed_with_basic_filter(ALICE),
 			Box::new(dest.clone().into()),
 			Box::new(beneficiary.clone().into()),
 			Box::new(assets.into()),
@@ -2513,7 +2513,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 
 		// do the transfer
 		let result = tested_call(
-			RuntimeOrigin::signed(user_account.clone()),
+			RuntimeOrigin::signed_with_basic_filter(user_account.clone()),
 			Box::new(dest.clone().into()),
 			Box::new(beneficiary.clone().into()),
 			Box::new(transferred_asset.into()),

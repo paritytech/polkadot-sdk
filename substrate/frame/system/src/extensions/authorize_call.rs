@@ -21,7 +21,7 @@ use frame_support::{
 	pallet_prelude::{
 		Decode, DecodeWithMemTracking, DispatchResult, Encode, TransactionSource, TypeInfo, Weight,
 	},
-	traits::Authorize,
+	traits::{Authorize, IntoWithBasicFilter},
 	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use sp_runtime::{
@@ -78,7 +78,11 @@ where
 		if !origin.is_transaction_authorized() {
 			if let Some(authorize) = call.authorize(source) {
 				return authorize.map(|(validity, unspent)| {
-					(validity, unspent, crate::Origin::<T>::Authorized.into())
+					(
+						validity,
+						unspent,
+						crate::Origin::<T>::Authorized.into_with_basic_filter(),
+					)
 				})
 			}
 		}

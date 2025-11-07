@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use frame_benchmarking::{v2::*, BenchmarkError};
 use frame_support::assert_ok;
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
@@ -309,8 +310,8 @@ mod benchmarks {
 		merge_schedules(RawOrigin::Signed(caller.clone()), 0, s - 1);
 
 		let expected_schedule = VestingInfo::new(
-			T::MinVestedTransfer::get() * 20_u32.into() * 2_u32.into(),
-			T::MinVestedTransfer::get() * 2_u32.into(),
+			T::MinVestedTransfer::get() * 20_u32.into_with_basic_filter() * 2_u32.into_with_basic_filter(),
+			T::MinVestedTransfer::get() * 2_u32.into_with_basic_filter(),
 			1_u32.into(),
 		);
 		let expected_index = (s - 2) as usize;
@@ -373,8 +374,8 @@ mod benchmarks {
 		merge_schedules(RawOrigin::Signed(caller.clone()), 0, s - 1);
 
 		let expected_schedule = VestingInfo::new(
-			T::MinVestedTransfer::get() * 2_u32.into() * 10_u32.into(),
-			T::MinVestedTransfer::get() * 2_u32.into(),
+			T::MinVestedTransfer::get() * 2_u32.into_with_basic_filter() * 10_u32.into_with_basic_filter(),
+			T::MinVestedTransfer::get() * 2_u32.into_with_basic_filter(),
 			11_u32.into(),
 		);
 		let expected_index = (s - 2) as usize;

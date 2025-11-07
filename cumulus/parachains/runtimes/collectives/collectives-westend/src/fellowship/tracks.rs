@@ -16,6 +16,7 @@
 
 //! Track configurations for Fellowship.
 
+use frame_support::traits::IntoWithBasicFilter;
 use crate::{Balance, BlockNumber, RuntimeOrigin, DAYS, DOLLARS, HOURS, MINUTES};
 use pallet_ranked_collective::Rank;
 use sp_runtime::{str_array as s, traits::Convert, Perbill};
@@ -498,7 +499,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 		{
 			// For benchmarks, we enable a root origin.
 			// It is important that this is not available in production!
-			let root: Self::RuntimeOrigin = frame_system::RawOrigin::Root.into();
+			let root: Self::RuntimeOrigin = frame_system::RawOrigin::Root.into_with_basic_filter();
 			if &root == id {
 				return Ok(tracks::GRAND_MASTERS)
 			}

@@ -18,6 +18,7 @@
 
 #![cfg(test)]
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 
 use alloc::collections::vec_deque::VecDeque;
@@ -442,7 +443,7 @@ impl BlockTests {
 			ParachainSystem::on_initialize(*n);
 			ParachainSystem::create_inherent(&inherent_data)
 				.expect("got an inherent")
-				.dispatch_bypass_filter(RawOrigin::None.into())
+				.dispatch_bypass_filter(RawOrigin::None.into_with_basic_filter())
 				.expect("dispatch succeeded");
 			MessageQueue::on_initialize(*n);
 			within_block();

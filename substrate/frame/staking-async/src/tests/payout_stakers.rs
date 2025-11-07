@@ -409,7 +409,7 @@ fn reward_destination_stash() {
 	ExtBuilder::default().nominate(false).build_and_execute(|| {
 		// initial conditions
 		assert!(Session::validators().contains(&11));
-		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Stash));
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed_with_basic_filter(11), RewardDestination::Stash));
 		assert_eq!(asset::total_balance::<T>(&11), 1001);
 		assert_eq!(
 			Staking::ledger(11.into()).unwrap(),
@@ -456,7 +456,7 @@ fn reward_destination_account() {
 	ExtBuilder::default().nominate(false).build_and_execute(|| {
 		// initial conditions
 		assert!(Session::validators().contains(&11));
-		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Account(7)));
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed_with_basic_filter(11), RewardDestination::Account(7)));
 
 		assert_eq!(asset::total_balance::<T>(&11), 1001);
 		assert_eq!(
@@ -571,7 +571,7 @@ fn min_commission_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		// account 11 controls the stash of itself.
 		assert_ok!(Staking::validate(
-			RuntimeOrigin::signed(11),
+			RuntimeOrigin::signed_with_basic_filter(11),
 			ValidatorPrefs { commission: Perbill::from_percent(5), blocked: false }
 		));
 
@@ -598,7 +598,7 @@ fn min_commission_works() {
 		// can't make it less than 10 now
 		assert_noop!(
 			Staking::validate(
-				RuntimeOrigin::signed(11),
+				RuntimeOrigin::signed_with_basic_filter(11),
 				ValidatorPrefs { commission: Perbill::from_percent(5), blocked: false }
 			),
 			Error::<T>::CommissionTooLow
@@ -606,12 +606,12 @@ fn min_commission_works() {
 
 		// can only change to higher.
 		assert_ok!(Staking::validate(
-			RuntimeOrigin::signed(11),
+			RuntimeOrigin::signed_with_basic_filter(11),
 			ValidatorPrefs { commission: Perbill::from_percent(10), blocked: false }
 		));
 
 		assert_ok!(Staking::validate(
-			RuntimeOrigin::signed(11),
+			RuntimeOrigin::signed_with_basic_filter(11),
 			ValidatorPrefs { commission: Perbill::from_percent(15), blocked: false }
 		));
 	})
@@ -630,20 +630,20 @@ fn set_min_commission_works_with_admin_origin() {
 
 		// Non privileged origin can not set min_commission
 		assert_noop!(
-			Staking::set_min_commission(RuntimeOrigin::signed(2), Perbill::from_percent(15)),
+			Staking::set_min_commission(RuntimeOrigin::signed_with_basic_filter(2), Perbill::from_percent(15)),
 			BadOrigin
 		);
 
 		// Admin Origin can set min commission
 		assert_ok!(Staking::set_min_commission(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed_with_basic_filter(1),
 			Perbill::from_percent(15),
 		));
 
 		// setting commission below min_commission fails
 		assert_noop!(
 			Staking::validate(
-				RuntimeOrigin::signed(11),
+				RuntimeOrigin::signed_with_basic_filter(11),
 				ValidatorPrefs { commission: Perbill::from_percent(14), blocked: false }
 			),
 			Error::<T>::CommissionTooLow
@@ -651,7 +651,7 @@ fn set_min_commission_works_with_admin_origin() {
 
 		// setting commission >= min_commission works
 		assert_ok!(Staking::validate(
-			RuntimeOrigin::signed(11),
+			RuntimeOrigin::signed_with_basic_filter(11),
 			ValidatorPrefs { commission: Perbill::from_percent(15), blocked: false }
 		));
 	})
@@ -662,31 +662,31 @@ fn force_apply_min_commission_works() {
 	let prefs = |c| ValidatorPrefs { commission: Perbill::from_percent(c), blocked: false };
 	let validators = || Validators::<T>::iter().collect::<Vec<_>>();
 	ExtBuilder::default().build_and_execute(|| {
-		assert_ok!(Staking::validate(RuntimeOrigin::signed(31), prefs(10)));
-		assert_ok!(Staking::validate(RuntimeOrigin::signed(21), prefs(5)));
+		assert_ok!(Staking::validate(RuntimeOrigin::signed_with_basic_filter(31), prefs(10)));
+		assert_ok!(Staking::validate(RuntimeOrigin::signed_with_basic_filter(21), prefs(5)));
 
 		// Given
 		assert_eq!(validators(), vec![(31, prefs(10)), (21, prefs(5)), (11, prefs(0))]);
 		MinCommission::<T>::set(Perbill::from_percent(5));
 
 		// When applying to a commission greater than min
-		assert_ok!(Staking::force_apply_min_commission(RuntimeOrigin::signed(1), 31));
+		assert_ok!(Staking::force_apply_min_commission(RuntimeOrigin::signed_with_basic_filter(1), 31));
 		// Then the commission is not changed
 		assert_eq!(validators(), vec![(31, prefs(10)), (21, prefs(5)), (11, prefs(0))]);
 
 		// When applying to a commission that is equal to min
-		assert_ok!(Staking::force_apply_min_commission(RuntimeOrigin::signed(1), 21));
+		assert_ok!(Staking::force_apply_min_commission(RuntimeOrigin::signed_with_basic_filter(1), 21));
 		// Then the commission is not changed
 		assert_eq!(validators(), vec![(31, prefs(10)), (21, prefs(5)), (11, prefs(0))]);
 
 		// When applying to a commission that is less than the min
-		assert_ok!(Staking::force_apply_min_commission(RuntimeOrigin::signed(1), 11));
+		assert_ok!(Staking::force_apply_min_commission(RuntimeOrigin::signed_with_basic_filter(1), 11));
 		// Then the commission is bumped to the min
 		assert_eq!(validators(), vec![(31, prefs(10)), (21, prefs(5)), (11, prefs(5))]);
 
 		// When applying commission to a validator that doesn't exist then storage is not altered
 		assert_noop!(
-			Staking::force_apply_min_commission(RuntimeOrigin::signed(1), 420),
+			Staking::force_apply_min_commission(RuntimeOrigin::signed_with_basic_filter(1), 420),
 			Error::<T>::NotStash
 		);
 	});
@@ -725,12 +725,12 @@ fn claim_reward_at_the_last_era_and_no_double_claim_and_invalid_claim() {
 
 		// Last kept is 1:
 		assert_noop!(
-			Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 0, 0),
+			Staking::payout_stakers_by_page(RuntimeOrigin::signed_with_basic_filter(1337), 11, 0, 0),
 			// Fail: Era out of history
 			Error::<T>::InvalidEraToReward.with_weight(err_weight)
 		);
 
-		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 1, 0));
+		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed_with_basic_filter(1337), 11, 1, 0));
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![
@@ -740,7 +740,7 @@ fn claim_reward_at_the_last_era_and_no_double_claim_and_invalid_claim() {
 			]
 		);
 
-		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 2, 0));
+		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed_with_basic_filter(1337), 11, 2, 0));
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![
@@ -751,13 +751,13 @@ fn claim_reward_at_the_last_era_and_no_double_claim_and_invalid_claim() {
 		);
 
 		assert_noop!(
-			Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 2, 0),
+			Staking::payout_stakers_by_page(RuntimeOrigin::signed_with_basic_filter(1337), 11, 2, 0),
 			// Fail: Double claim
 			Error::<T>::AlreadyClaimed.with_weight(err_weight)
 		);
 
 		assert_noop!(
-			Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, active_era(), 0),
+			Staking::payout_stakers_by_page(RuntimeOrigin::signed_with_basic_filter(1337), 11, active_era(), 0),
 			// Fail: Era ongoing
 			Error::<T>::InvalidEraToReward.with_weight(err_weight)
 		);
@@ -773,11 +773,11 @@ fn nominators_over_max_exposure_page_size_are_rewarded() {
 			let balance = 10_000 + i as Balance;
 			asset::set_stakeable_balance::<T>(&stash, balance);
 			assert_ok!(Staking::bond(
-				RuntimeOrigin::signed(stash),
+				RuntimeOrigin::signed_with_basic_filter(stash),
 				balance,
 				RewardDestination::Stash
 			));
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(stash), vec![11]));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed_with_basic_filter(stash), vec![11]));
 		}
 
 		// enact new staker set -- era 2
@@ -815,11 +815,11 @@ fn test_nominators_are_rewarded_for_all_exposure_page() {
 			let balance = 10_000 + i as Balance;
 			asset::set_stakeable_balance::<T>(&stash, balance);
 			assert_ok!(Staking::bond(
-				RuntimeOrigin::signed(stash),
+				RuntimeOrigin::signed_with_basic_filter(stash),
 				balance,
 				RewardDestination::Stash
 			));
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(stash), vec![11]));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed_with_basic_filter(stash), vec![11]));
 		}
 
 		// enact
@@ -902,7 +902,7 @@ fn test_multi_page_payout_stakers_by_page() {
 
 		let controller_balance_before_p0_payout = asset::stakeable_balance::<T>(&11);
 		// Payout rewards for first exposure page
-		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 2, 0));
+		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed_with_basic_filter(1337), 11, 2, 0));
 
 		// verify `Rewarded` events are being executed
 		assert!(matches!(
@@ -925,7 +925,7 @@ fn test_multi_page_payout_stakers_by_page() {
 		assert!(controller_balance_after_p0_payout > controller_balance_before_p0_payout);
 
 		// Payout the second and last page of nominators
-		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 2, 1));
+		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed_with_basic_filter(1337), 11, 2, 1));
 
 		// verify `Rewarded` events are being executed for the second page.
 		let events = staking_events_since_last_call();
@@ -1007,7 +1007,7 @@ fn test_multi_page_payout_stakers_by_page() {
 
 		// verify only page 0 is marked as claimed
 		assert_ok!(Staking::payout_stakers_by_page(
-			RuntimeOrigin::signed(1337),
+			RuntimeOrigin::signed_with_basic_filter(1337),
 			11,
 			first_claimable_reward_era,
 			0
@@ -1016,7 +1016,7 @@ fn test_multi_page_payout_stakers_by_page() {
 
 		// verify page 0 and 1 are marked as claimed
 		assert_ok!(Staking::payout_stakers_by_page(
-			RuntimeOrigin::signed(1337),
+			RuntimeOrigin::signed_with_basic_filter(1337),
 			11,
 			first_claimable_reward_era,
 			1
@@ -1025,7 +1025,7 @@ fn test_multi_page_payout_stakers_by_page() {
 
 		// verify only page 0 is marked as claimed
 		assert_ok!(Staking::payout_stakers_by_page(
-			RuntimeOrigin::signed(1337),
+			RuntimeOrigin::signed_with_basic_filter(1337),
 			11,
 			last_reward_era,
 			0
@@ -1034,7 +1034,7 @@ fn test_multi_page_payout_stakers_by_page() {
 
 		// verify page 0 and 1 are marked as claimed
 		assert_ok!(Staking::payout_stakers_by_page(
-			RuntimeOrigin::signed(1337),
+			RuntimeOrigin::signed_with_basic_filter(1337),
 			11,
 			last_reward_era,
 			1
@@ -1042,11 +1042,11 @@ fn test_multi_page_payout_stakers_by_page() {
 		assert_eq!(ClaimedRewards::<T>::get(last_reward_era, &11), vec![0, 1]);
 
 		// Out of order claims works.
-		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 69, 0));
+		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed_with_basic_filter(1337), 11, 69, 0));
 		assert_eq!(ClaimedRewards::<T>::get(69, &11), vec![0]);
-		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 23, 1));
+		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed_with_basic_filter(1337), 11, 23, 1));
 		assert_eq!(ClaimedRewards::<T>::get(23, &11), vec![1]);
-		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 42, 0));
+		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed_with_basic_filter(1337), 11, 42, 0));
 		assert_eq!(ClaimedRewards::<T>::get(42, &11), vec![0]);
 	});
 }
@@ -1098,10 +1098,10 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 
 		let controller_balance_before_p0_payout = asset::stakeable_balance::<T>(&11);
 		// Payout rewards for first exposure page
-		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), 11, 2));
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed_with_basic_filter(1337), 11, 2));
 		// page 0 is claimed
 		assert_noop!(
-			Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 2, 0),
+			Staking::payout_stakers_by_page(RuntimeOrigin::signed_with_basic_filter(1337), 11, 2, 0),
 			Error::<T>::AlreadyClaimed.with_weight(err_weight)
 		);
 
@@ -1115,11 +1115,11 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 		assert!(controller_balance_after_p0_payout > controller_balance_before_p0_payout);
 
 		// This should payout the second and last page of nominators
-		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), 11, 2));
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed_with_basic_filter(1337), 11, 2));
 
 		// cannot claim any more pages
 		assert_noop!(
-			Staking::payout_stakers(RuntimeOrigin::signed(1337), 11, 2),
+			Staking::payout_stakers(RuntimeOrigin::signed_with_basic_filter(1337), 11, 2),
 			Error::<T>::AlreadyClaimed.with_weight(err_weight)
 		);
 
@@ -1192,7 +1192,7 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 
 		// verify only page 0 is marked as claimed
 		assert_ok!(Staking::payout_stakers(
-			RuntimeOrigin::signed(1337),
+			RuntimeOrigin::signed_with_basic_filter(1337),
 			11,
 			first_claimable_reward_era
 		));
@@ -1200,7 +1200,7 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 
 		// verify page 0 and 1 are marked as claimed
 		assert_ok!(Staking::payout_stakers(
-			RuntimeOrigin::signed(1337),
+			RuntimeOrigin::signed_with_basic_filter(1337),
 			11,
 			first_claimable_reward_era,
 		));
@@ -1208,7 +1208,7 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 
 		// change order and verify only page 1 is marked as claimed
 		assert_ok!(Staking::payout_stakers_by_page(
-			RuntimeOrigin::signed(1337),
+			RuntimeOrigin::signed_with_basic_filter(1337),
 			11,
 			last_reward_era,
 			1
@@ -1216,13 +1216,13 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 		assert_eq!(ClaimedRewards::<T>::get(last_reward_era, &11), vec![1]);
 
 		// verify page 0 is claimed even when explicit page is not passed
-		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), 11, last_reward_era,));
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed_with_basic_filter(1337), 11, last_reward_era,));
 
 		assert_eq!(ClaimedRewards::<T>::get(last_reward_era, &11), vec![1, 0]);
 
 		// cannot claim any more pages
 		assert_noop!(
-			Staking::payout_stakers(RuntimeOrigin::signed(1337), 11, last_reward_era),
+			Staking::payout_stakers(RuntimeOrigin::signed_with_basic_filter(1337), 11, last_reward_era),
 			Error::<T>::AlreadyClaimed.with_weight(err_weight)
 		);
 
@@ -1242,22 +1242,22 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 		Session::roll_until_active_era(test_era + 1);
 
 		// Out of order claims works.
-		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, test_era, 2));
+		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed_with_basic_filter(1337), 11, test_era, 2));
 		assert_eq!(ClaimedRewards::<T>::get(test_era, &11), vec![2]);
 
-		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), 11, test_era));
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed_with_basic_filter(1337), 11, test_era));
 		assert_eq!(ClaimedRewards::<T>::get(test_era, &11), vec![2, 0]);
 
 		// cannot claim page 2 again
 		assert_noop!(
-			Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, test_era, 2),
+			Staking::payout_stakers_by_page(RuntimeOrigin::signed_with_basic_filter(1337), 11, test_era, 2),
 			Error::<T>::AlreadyClaimed.with_weight(err_weight)
 		);
 
-		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), 11, test_era));
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed_with_basic_filter(1337), 11, test_era));
 		assert_eq!(ClaimedRewards::<T>::get(test_era, &11), vec![2, 0, 1]);
 
-		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), 11, test_era));
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed_with_basic_filter(1337), 11, test_era));
 		assert_eq!(ClaimedRewards::<T>::get(test_era, &11), vec![2, 0, 1, 3]);
 	});
 }
@@ -1331,12 +1331,12 @@ fn payout_stakers_handles_basic_errors() {
 
 		// Wrong Era, too big
 		assert_noop!(
-			Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 3, 0),
+			Staking::payout_stakers_by_page(RuntimeOrigin::signed_with_basic_filter(1337), 11, 3, 0),
 			Error::<T>::InvalidEraToReward.with_weight(err_weight)
 		);
 		// Wrong Staker
 		assert_noop!(
-			Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 10, 2, 0),
+			Staking::payout_stakers_by_page(RuntimeOrigin::signed_with_basic_filter(1337), 10, 2, 0),
 			Error::<T>::NotStash.with_weight(err_weight)
 		);
 
@@ -1357,7 +1357,7 @@ fn payout_stakers_handles_basic_errors() {
 		// expected_last_reward_era=98 (80 total eras), but not 18 or 99.
 		assert_noop!(
 			Staking::payout_stakers_by_page(
-				RuntimeOrigin::signed(1337),
+				RuntimeOrigin::signed_with_basic_filter(1337),
 				11,
 				expected_start_reward_era - 1,
 				0
@@ -1366,7 +1366,7 @@ fn payout_stakers_handles_basic_errors() {
 		);
 		assert_noop!(
 			Staking::payout_stakers_by_page(
-				RuntimeOrigin::signed(1337),
+				RuntimeOrigin::signed_with_basic_filter(1337),
 				11,
 				expected_last_reward_era + 1,
 				0
@@ -1374,13 +1374,13 @@ fn payout_stakers_handles_basic_errors() {
 			Error::<T>::InvalidEraToReward.with_weight(err_weight)
 		);
 		assert_ok!(Staking::payout_stakers_by_page(
-			RuntimeOrigin::signed(1337),
+			RuntimeOrigin::signed_with_basic_filter(1337),
 			11,
 			expected_start_reward_era,
 			0
 		));
 		assert_ok!(Staking::payout_stakers_by_page(
-			RuntimeOrigin::signed(1337),
+			RuntimeOrigin::signed_with_basic_filter(1337),
 			11,
 			expected_last_reward_era,
 			0
@@ -1388,7 +1388,7 @@ fn payout_stakers_handles_basic_errors() {
 
 		// can call page 1
 		assert_ok!(Staking::payout_stakers_by_page(
-			RuntimeOrigin::signed(1337),
+			RuntimeOrigin::signed_with_basic_filter(1337),
 			11,
 			expected_last_reward_era,
 			1
@@ -1397,7 +1397,7 @@ fn payout_stakers_handles_basic_errors() {
 		// Can't claim again
 		assert_noop!(
 			Staking::payout_stakers_by_page(
-				RuntimeOrigin::signed(1337),
+				RuntimeOrigin::signed_with_basic_filter(1337),
 				11,
 				expected_start_reward_era,
 				0
@@ -1407,7 +1407,7 @@ fn payout_stakers_handles_basic_errors() {
 
 		assert_noop!(
 			Staking::payout_stakers_by_page(
-				RuntimeOrigin::signed(1337),
+				RuntimeOrigin::signed_with_basic_filter(1337),
 				11,
 				expected_last_reward_era,
 				0
@@ -1417,7 +1417,7 @@ fn payout_stakers_handles_basic_errors() {
 
 		assert_noop!(
 			Staking::payout_stakers_by_page(
-				RuntimeOrigin::signed(1337),
+				RuntimeOrigin::signed_with_basic_filter(1337),
 				11,
 				expected_last_reward_era,
 				1
@@ -1428,7 +1428,7 @@ fn payout_stakers_handles_basic_errors() {
 		// invalid page
 		assert_noop!(
 			Staking::payout_stakers_by_page(
-				RuntimeOrigin::signed(1337),
+				RuntimeOrigin::signed_with_basic_filter(1337),
 				11,
 				expected_last_reward_era,
 				2
@@ -1447,7 +1447,7 @@ fn test_commission_paid_across_pages() {
 		// Create a validator:
 		bond_validator(11, balance);
 		assert_ok!(Staking::validate(
-			RuntimeOrigin::signed(11),
+			RuntimeOrigin::signed_with_basic_filter(11),
 			ValidatorPrefs { commission: Perbill::from_percent(commission), blocked: false }
 		));
 		assert_eq!(Validators::<T>::count(), 1);
@@ -1471,7 +1471,7 @@ fn test_commission_paid_across_pages() {
 
 		let initial_balance = asset::stakeable_balance::<T>(&11);
 		// Payout rewards for first exposure page
-		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 2, 0));
+		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed_with_basic_filter(1337), 11, 2, 0));
 
 		let controller_balance_after_p0_payout = asset::stakeable_balance::<T>(&11);
 
@@ -1481,7 +1481,7 @@ fn test_commission_paid_across_pages() {
 		// payout all pages
 		for i in 1..4 {
 			let before_balance = asset::stakeable_balance::<T>(&11);
-			assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 2, i));
+			assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed_with_basic_filter(1337), 11, 2, i));
 			let after_balance = asset::stakeable_balance::<T>(&11);
 			// some commission is paid for every page
 			assert!(before_balance < after_balance);
@@ -1542,7 +1542,7 @@ fn payout_stakers_handles_weight_refund() {
 			page: 0,
 		});
 		let info = call.get_dispatch_info();
-		let result = call.dispatch(RuntimeOrigin::signed(20));
+		let result = call.dispatch(RuntimeOrigin::signed_with_basic_filter(20));
 
 		assert_ok!(result);
 		assert_eq!(extract_actual_weight(&result, &info), zero_nom_payouts_weight);
@@ -1560,7 +1560,7 @@ fn payout_stakers_handles_weight_refund() {
 			page: 0,
 		});
 		let info = call.get_dispatch_info();
-		let result = call.dispatch(RuntimeOrigin::signed(20));
+		let result = call.dispatch(RuntimeOrigin::signed_with_basic_filter(20));
 		assert_ok!(result);
 		assert_eq!(extract_actual_weight(&result, &info), zero_nom_payouts_weight);
 
@@ -1577,7 +1577,7 @@ fn payout_stakers_handles_weight_refund() {
 			page: 0,
 		});
 		let info = call.get_dispatch_info();
-		let result = call.dispatch(RuntimeOrigin::signed(20));
+		let result = call.dispatch(RuntimeOrigin::signed_with_basic_filter(20));
 		assert_ok!(result);
 		assert_eq!(extract_actual_weight(&result, &info), half_max_nom_rewarded_weight);
 
@@ -1604,7 +1604,7 @@ fn payout_stakers_handles_weight_refund() {
 			page: 0,
 		});
 		let info = call.get_dispatch_info();
-		let result = call.dispatch(RuntimeOrigin::signed(20));
+		let result = call.dispatch(RuntimeOrigin::signed_with_basic_filter(20));
 		assert_ok!(result);
 		assert_eq!(extract_actual_weight(&result, &info), max_nom_rewarded_weight);
 
@@ -1615,7 +1615,7 @@ fn payout_stakers_handles_weight_refund() {
 			page: 0,
 		});
 		let info = call.get_dispatch_info();
-		let result = call.dispatch(RuntimeOrigin::signed(20));
+		let result = call.dispatch(RuntimeOrigin::signed_with_basic_filter(20));
 		assert!(result.is_err());
 		// When there is an error the consumed weight == weight when there are 0 nominator payouts.
 		assert_eq!(extract_actual_weight(&result, &info), zero_nom_payouts_weight);
@@ -1639,7 +1639,7 @@ fn test_runtime_api_pending_rewards() {
 		// Set staker
 		for v in validator_one..=validator_three {
 			let _ = asset::set_stakeable_balance::<T>(&v, stake);
-			assert_ok!(Staking::bond(RuntimeOrigin::signed(v), stake, RewardDestination::Staked));
+			assert_ok!(Staking::bond(RuntimeOrigin::signed_with_basic_filter(v), stake, RewardDestination::Staked));
 		}
 
 		// Add reward points
@@ -1672,23 +1672,23 @@ fn test_runtime_api_pending_rewards() {
 		assert!(Eras::<T>::pending_rewards(0, &validator_one));
 		assert!(Eras::<T>::pending_rewards(0, &validator_two));
 		// and payout works
-		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_one, 0));
-		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_two, 0));
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed_with_basic_filter(1337), validator_one, 0));
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed_with_basic_filter(1337), validator_two, 0));
 		// validators have two pages of exposure, so pending rewards is still true.
 		assert!(Eras::<T>::pending_rewards(0, &validator_one));
 		assert!(Eras::<T>::pending_rewards(0, &validator_two));
 		// payout again only for validator one
-		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_one, 0));
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed_with_basic_filter(1337), validator_one, 0));
 		// now pending rewards is false for validator one
 		assert!(!Eras::<T>::pending_rewards(0, &validator_one));
 		// and payout fails for validator one
 		assert_noop!(
-			Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_one, 0),
+			Staking::payout_stakers(RuntimeOrigin::signed_with_basic_filter(1337), validator_one, 0),
 			Error::<T>::AlreadyClaimed.with_weight(err_weight)
 		);
 		// while pending reward is true for validator two
 		assert!(Eras::<T>::pending_rewards(0, &validator_two));
 		// and payout works again for validator two.
-		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_two, 0));
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed_with_basic_filter(1337), validator_two, 0));
 	});
 }

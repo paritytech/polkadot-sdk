@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use frame_benchmarking::v2::*;
 use frame_support::{dispatch::DispatchResultWithPostInfo, traits::OnInitialize};
 use frame_system::RawOrigin;
@@ -68,7 +69,7 @@ fn submit_candidates<T: Config>(
 		.map(|i| {
 			let account = endowed_account::<T>(prefix, i);
 			Pallet::<T>::submit_candidacy(
-				RawOrigin::Signed(account.clone()).into(),
+				RawOrigin::Signed(account.clone()).into_with_basic_filter(),
 				candidate_count::<T>(),
 			)
 			.map_err(|_| "failed to submit candidacy")?;
@@ -96,7 +97,7 @@ fn submit_voter<T: Config>(
 	votes: Vec<T::AccountId>,
 	stake: BalanceOf<T>,
 ) -> DispatchResultWithPostInfo {
-	Pallet::<T>::vote(RawOrigin::Signed(caller).into(), votes, stake)
+	Pallet::<T>::vote(RawOrigin::Signed(caller).into_with_basic_filter(), votes, stake)
 }
 
 // Create `num_voter` voters who randomly vote for at most `votes` of `all_candidates` if

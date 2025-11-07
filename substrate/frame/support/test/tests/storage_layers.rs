@@ -231,10 +231,10 @@ fn storage_layer_in_pallet_call() {
 	TestExternalities::default().execute_with(|| {
 		use sp_runtime::traits::Dispatchable;
 		let call1 = RuntimeCall::MyPallet(pallet::Call::set_value { value: 2 });
-		assert_ok!(call1.dispatch(RuntimeOrigin::signed(0)));
+		assert_ok!(call1.dispatch(RuntimeOrigin::signed_with_basic_filter(0)));
 		assert_eq!(Value::<Runtime>::get(), 2);
 
 		let call2 = RuntimeCall::MyPallet(pallet::Call::set_value { value: 1 });
-		assert_noop!(call2.dispatch(RuntimeOrigin::signed(0)), Error::<Runtime>::Revert);
+		assert_noop!(call2.dispatch(RuntimeOrigin::signed_with_basic_filter(0)), Error::<Runtime>::Revert);
 	});
 }

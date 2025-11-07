@@ -35,16 +35,16 @@ fn query_membership_works() {
 #[test]
 fn prime_member_works() {
 	new_test_ext().execute_with(|| {
-		assert_noop!(Membership::set_prime(RuntimeOrigin::signed(4), 20), BadOrigin);
+		assert_noop!(Membership::set_prime(RuntimeOrigin::signed_with_basic_filter(4), 20), BadOrigin);
 		assert_noop!(
-			Membership::set_prime(RuntimeOrigin::signed(5), 15),
+			Membership::set_prime(RuntimeOrigin::signed_with_basic_filter(5), 15),
 			Error::<Test, _>::NotMember
 		);
-		assert_ok!(Membership::set_prime(RuntimeOrigin::signed(5), 20));
+		assert_ok!(Membership::set_prime(RuntimeOrigin::signed_with_basic_filter(5), 20));
 		assert_eq!(crate::Prime::<Test>::get(), Some(20));
 		assert_eq!(PRIME.with(|m| *m.borrow()), crate::Prime::<Test>::get());
 
-		assert_ok!(Membership::clear_prime(RuntimeOrigin::signed(5)));
+		assert_ok!(Membership::clear_prime(RuntimeOrigin::signed_with_basic_filter(5)));
 		assert_eq!(crate::Prime::<Test>::get(), None);
 		assert_eq!(PRIME.with(|m| *m.borrow()), crate::Prime::<Test>::get());
 	});
@@ -53,12 +53,12 @@ fn prime_member_works() {
 #[test]
 fn add_member_works() {
 	new_test_ext().execute_with(|| {
-		assert_noop!(Membership::add_member(RuntimeOrigin::signed(5), 15), BadOrigin);
+		assert_noop!(Membership::add_member(RuntimeOrigin::signed_with_basic_filter(5), 15), BadOrigin);
 		assert_noop!(
-			Membership::add_member(RuntimeOrigin::signed(1), 10),
+			Membership::add_member(RuntimeOrigin::signed_with_basic_filter(1), 10),
 			Error::<Test, _>::AlreadyMember
 		);
-		assert_ok!(Membership::add_member(RuntimeOrigin::signed(1), 15));
+		assert_ok!(Membership::add_member(RuntimeOrigin::signed_with_basic_filter(1), 15));
 		assert_eq!(crate::Members::<Test>::get(), vec![10, 15, 20, 30]);
 		assert_eq!(MEMBERS.with(|m| m.borrow().clone()), crate::Members::<Test>::get().to_vec());
 	});
@@ -67,13 +67,13 @@ fn add_member_works() {
 #[test]
 fn remove_member_works() {
 	new_test_ext().execute_with(|| {
-		assert_noop!(Membership::remove_member(RuntimeOrigin::signed(5), 20), BadOrigin);
+		assert_noop!(Membership::remove_member(RuntimeOrigin::signed_with_basic_filter(5), 20), BadOrigin);
 		assert_noop!(
-			Membership::remove_member(RuntimeOrigin::signed(2), 15),
+			Membership::remove_member(RuntimeOrigin::signed_with_basic_filter(2), 15),
 			Error::<Test, _>::NotMember
 		);
-		assert_ok!(Membership::set_prime(RuntimeOrigin::signed(5), 20));
-		assert_ok!(Membership::remove_member(RuntimeOrigin::signed(2), 20));
+		assert_ok!(Membership::set_prime(RuntimeOrigin::signed_with_basic_filter(5), 20));
+		assert_ok!(Membership::remove_member(RuntimeOrigin::signed_with_basic_filter(2), 20));
 		assert_eq!(crate::Members::<Test>::get(), vec![10, 30]);
 		assert_eq!(MEMBERS.with(|m| m.borrow().clone()), crate::Members::<Test>::get().to_vec());
 		assert_eq!(crate::Prime::<Test>::get(), None);
@@ -84,24 +84,24 @@ fn remove_member_works() {
 #[test]
 fn swap_member_works() {
 	new_test_ext().execute_with(|| {
-		assert_noop!(Membership::swap_member(RuntimeOrigin::signed(5), 10, 25), BadOrigin);
+		assert_noop!(Membership::swap_member(RuntimeOrigin::signed_with_basic_filter(5), 10, 25), BadOrigin);
 		assert_noop!(
-			Membership::swap_member(RuntimeOrigin::signed(3), 15, 25),
+			Membership::swap_member(RuntimeOrigin::signed_with_basic_filter(3), 15, 25),
 			Error::<Test, _>::NotMember
 		);
 		assert_noop!(
-			Membership::swap_member(RuntimeOrigin::signed(3), 10, 30),
+			Membership::swap_member(RuntimeOrigin::signed_with_basic_filter(3), 10, 30),
 			Error::<Test, _>::AlreadyMember
 		);
 
-		assert_ok!(Membership::set_prime(RuntimeOrigin::signed(5), 20));
-		assert_ok!(Membership::swap_member(RuntimeOrigin::signed(3), 20, 20));
+		assert_ok!(Membership::set_prime(RuntimeOrigin::signed_with_basic_filter(5), 20));
+		assert_ok!(Membership::swap_member(RuntimeOrigin::signed_with_basic_filter(3), 20, 20));
 		assert_eq!(crate::Members::<Test>::get(), vec![10, 20, 30]);
 		assert_eq!(crate::Prime::<Test>::get(), Some(20));
 		assert_eq!(PRIME.with(|m| *m.borrow()), crate::Prime::<Test>::get());
 
-		assert_ok!(Membership::set_prime(RuntimeOrigin::signed(5), 10));
-		assert_ok!(Membership::swap_member(RuntimeOrigin::signed(3), 10, 25));
+		assert_ok!(Membership::set_prime(RuntimeOrigin::signed_with_basic_filter(5), 10));
+		assert_ok!(Membership::swap_member(RuntimeOrigin::signed_with_basic_filter(3), 10, 25));
 		assert_eq!(crate::Members::<Test>::get(), vec![20, 25, 30]);
 		assert_eq!(MEMBERS.with(|m| m.borrow().clone()), crate::Members::<Test>::get().to_vec());
 		assert_eq!(crate::Prime::<Test>::get(), None);
@@ -112,7 +112,7 @@ fn swap_member_works() {
 #[test]
 fn swap_member_works_that_does_not_change_order() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Membership::swap_member(RuntimeOrigin::signed(3), 10, 5));
+		assert_ok!(Membership::swap_member(RuntimeOrigin::signed_with_basic_filter(3), 10, 5));
 		assert_eq!(crate::Members::<Test>::get(), vec![5, 20, 30]);
 		assert_eq!(MEMBERS.with(|m| m.borrow().clone()), crate::Members::<Test>::get().to_vec());
 	});
@@ -121,23 +121,23 @@ fn swap_member_works_that_does_not_change_order() {
 #[test]
 fn swap_member_with_identical_arguments_changes_nothing() {
 	new_test_ext().execute_with(|| {
-		assert_storage_noop!(assert_ok!(Membership::swap_member(RuntimeOrigin::signed(3), 10, 10)));
+		assert_storage_noop!(assert_ok!(Membership::swap_member(RuntimeOrigin::signed_with_basic_filter(3), 10, 10)));
 	});
 }
 
 #[test]
 fn change_key_works() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Membership::set_prime(RuntimeOrigin::signed(5), 10));
+		assert_ok!(Membership::set_prime(RuntimeOrigin::signed_with_basic_filter(5), 10));
 		assert_noop!(
-			Membership::change_key(RuntimeOrigin::signed(3), 25),
+			Membership::change_key(RuntimeOrigin::signed_with_basic_filter(3), 25),
 			Error::<Test, _>::NotMember
 		);
 		assert_noop!(
-			Membership::change_key(RuntimeOrigin::signed(10), 20),
+			Membership::change_key(RuntimeOrigin::signed_with_basic_filter(10), 20),
 			Error::<Test, _>::AlreadyMember
 		);
-		assert_ok!(Membership::change_key(RuntimeOrigin::signed(10), 40));
+		assert_ok!(Membership::change_key(RuntimeOrigin::signed_with_basic_filter(10), 40));
 		assert_eq!(crate::Members::<Test>::get(), vec![20, 30, 40]);
 		assert_eq!(MEMBERS.with(|m| m.borrow().clone()), crate::Members::<Test>::get().to_vec());
 		assert_eq!(crate::Prime::<Test>::get(), Some(40));
@@ -148,7 +148,7 @@ fn change_key_works() {
 #[test]
 fn change_key_works_that_does_not_change_order() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Membership::change_key(RuntimeOrigin::signed(10), 5));
+		assert_ok!(Membership::change_key(RuntimeOrigin::signed_with_basic_filter(10), 5));
 		assert_eq!(crate::Members::<Test>::get(), vec![5, 20, 30]);
 		assert_eq!(MEMBERS.with(|m| m.borrow().clone()), crate::Members::<Test>::get().to_vec());
 	});
@@ -157,26 +157,26 @@ fn change_key_works_that_does_not_change_order() {
 #[test]
 fn change_key_with_same_caller_as_argument_changes_nothing() {
 	new_test_ext().execute_with(|| {
-		assert_storage_noop!(assert_ok!(Membership::change_key(RuntimeOrigin::signed(10), 10)));
+		assert_storage_noop!(assert_ok!(Membership::change_key(RuntimeOrigin::signed_with_basic_filter(10), 10)));
 	});
 }
 
 #[test]
 fn reset_members_works() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Membership::set_prime(RuntimeOrigin::signed(5), 20));
+		assert_ok!(Membership::set_prime(RuntimeOrigin::signed_with_basic_filter(5), 20));
 		assert_noop!(
-			Membership::reset_members(RuntimeOrigin::signed(1), bounded_vec![20, 40, 30]),
+			Membership::reset_members(RuntimeOrigin::signed_with_basic_filter(1), bounded_vec![20, 40, 30]),
 			BadOrigin
 		);
 
-		assert_ok!(Membership::reset_members(RuntimeOrigin::signed(4), vec![20, 40, 30]));
+		assert_ok!(Membership::reset_members(RuntimeOrigin::signed_with_basic_filter(4), vec![20, 40, 30]));
 		assert_eq!(crate::Members::<Test>::get(), vec![20, 30, 40]);
 		assert_eq!(MEMBERS.with(|m| m.borrow().clone()), crate::Members::<Test>::get().to_vec());
 		assert_eq!(crate::Prime::<Test>::get(), Some(20));
 		assert_eq!(PRIME.with(|m| *m.borrow()), crate::Prime::<Test>::get());
 
-		assert_ok!(Membership::reset_members(RuntimeOrigin::signed(4), vec![10, 40, 30]));
+		assert_ok!(Membership::reset_members(RuntimeOrigin::signed_with_basic_filter(4), vec![10, 40, 30]));
 		assert_eq!(crate::Members::<Test>::get(), vec![10, 30, 40]);
 		assert_eq!(MEMBERS.with(|m| m.borrow().clone()), crate::Members::<Test>::get().to_vec());
 		assert_eq!(crate::Prime::<Test>::get(), None);

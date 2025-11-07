@@ -130,10 +130,10 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 pub fn setup() {
 	let statement = b"Hello, World".to_vec();
 	let unlock_block = 100;
-	Purchase::set_statement(RuntimeOrigin::signed(configuration_origin()), statement).unwrap();
-	Purchase::set_unlock_block(RuntimeOrigin::signed(configuration_origin()), unlock_block)
+	Purchase::set_statement(RuntimeOrigin::signed_with_basic_filter(configuration_origin()), statement).unwrap();
+	Purchase::set_unlock_block(RuntimeOrigin::signed_with_basic_filter(configuration_origin()), unlock_block)
 		.unwrap();
-	Purchase::set_payment_account(RuntimeOrigin::signed(configuration_origin()), payment_account())
+	Purchase::set_payment_account(RuntimeOrigin::signed_with_basic_filter(configuration_origin()), payment_account())
 		.unwrap();
 	Balances::make_free_balance_be(&payment_account(), 100_000);
 }

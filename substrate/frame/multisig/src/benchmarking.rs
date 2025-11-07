@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use frame::benchmarking::prelude::*;
 
@@ -107,7 +108,7 @@ mod benchmarks {
 		let timepoint = Multisig::<T>::timepoint();
 		// Create the multi
 		Multisig::<T>::as_multi(
-			RawOrigin::Signed(caller).into(),
+			RawOrigin::Signed(caller).into_with_basic_filter(),
 			s as u16,
 			signatories,
 			None,
@@ -152,7 +153,7 @@ mod benchmarks {
 		let timepoint = Multisig::<T>::timepoint();
 		// Create the multi
 		Multisig::<T>::as_multi(
-			RawOrigin::Signed(caller).into(),
+			RawOrigin::Signed(caller).into_with_basic_filter(),
 			s as u16,
 			signatories,
 			None,
@@ -163,7 +164,7 @@ mod benchmarks {
 		for i in 1..s - 1 {
 			let mut signatories_loop = signatories2.clone();
 			let caller_loop = signatories_loop.remove(i as usize);
-			let o = RawOrigin::Signed(caller_loop).into();
+			let o = RawOrigin::Signed(caller_loop).into_with_basic_filter();
 			Multisig::<T>::as_multi(
 				o,
 				s as u16,
@@ -241,7 +242,7 @@ mod benchmarks {
 		let timepoint = Multisig::<T>::timepoint();
 		// Create the multi
 		Multisig::<T>::as_multi(
-			RawOrigin::Signed(caller).into(),
+			RawOrigin::Signed(caller).into_with_basic_filter(),
 			s as u16,
 			signatories,
 			None,
@@ -281,7 +282,7 @@ mod benchmarks {
 		let call_hash = call.using_encoded(blake2_256);
 		let timepoint = Multisig::<T>::timepoint();
 		// Create the multi
-		let o = RawOrigin::Signed(caller.clone()).into();
+		let o = RawOrigin::Signed(caller.clone()).into_with_basic_filter();
 		Multisig::<T>::as_multi(o, s as u16, signatories.clone(), None, call, Weight::zero())?;
 		assert!(Multisigs::<T>::contains_key(&multi_account_id, call_hash));
 		// Whitelist caller account from further DB operations.
@@ -307,7 +308,7 @@ mod benchmarks {
 		let call_hash = call.using_encoded(blake2_256);
 		// Create the multi
 		Multisig::<T>::as_multi(
-			RawOrigin::Signed(caller.clone()).into(),
+			RawOrigin::Signed(caller.clone()).into_with_basic_filter(),
 			s as u16,
 			signatories.clone(),
 			None,

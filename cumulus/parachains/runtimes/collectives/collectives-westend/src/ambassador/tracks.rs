@@ -15,6 +15,7 @@
 
 //! The Ambassador Program's referenda voting tracks.
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::Origin;
 use crate::{Balance, BlockNumber, RuntimeOrigin, DAYS, DOLLARS, HOURS};
 use sp_runtime::{str_array as s, Perbill};
@@ -260,7 +261,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 		{
 			// For benchmarks, we enable a root origin.
 			// It is important that this is not available in production!
-			let root: Self::RuntimeOrigin = frame_system::RawOrigin::Root.into();
+			let root: Self::RuntimeOrigin = frame_system::RawOrigin::Root.into_with_basic_filter();
 			if &root == id {
 				return Ok(constants::MASTER_AMBASSADOR_TIER_9)
 			}

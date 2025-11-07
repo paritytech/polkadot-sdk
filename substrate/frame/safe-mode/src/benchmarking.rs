@@ -17,6 +17,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::{Pallet as SafeMode, *};
 use frame::benchmarking::prelude::*;
 
@@ -100,7 +101,7 @@ mod benchmarks {
 
 		assert_eq!(
 			EnteredUntil::<T>::get().unwrap(),
-			frame_system::Pallet::<T>::block_number() + 1u32.into() + T::ExtendDuration::get()
+			frame_system::Pallet::<T>::block_number() + 1u32.into_with_basic_filter() + T::ExtendDuration::get()
 		);
 		Ok(())
 	}

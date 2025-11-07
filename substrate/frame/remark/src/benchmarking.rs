@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use frame_support::traits::IntoWithBasicFilter;
 use super::*;
 use alloc::vec;
 use frame_benchmarking::v2::*;
@@ -48,7 +49,7 @@ mod benchmarks {
 		assert_last_event::<T>(
 			Event::Stored {
 				sender: caller,
-				content_hash: sp_io::hashing::blake2_256(&vec![0u8; l as usize]).into(),
+				content_hash: sp_io::hashing::blake2_256(&vec![0u8; l as usize]).into_with_basic_filter(),
 			}
 			.into(),
 		);

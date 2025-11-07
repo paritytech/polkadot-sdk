@@ -206,7 +206,7 @@ fn set_balance_proposal_is_correctly_filtered_out() {
 }
 
 fn propose_set_balance(who: u64, value: u64, delay: u64) -> DispatchResult {
-	Democracy::propose(RuntimeOrigin::signed(who), set_balance_proposal(value), delay)
+	Democracy::propose(RuntimeOrigin::signed_with_basic_filter(who), set_balance_proposal(value), delay)
 }
 
 fn next_block() {
@@ -254,7 +254,7 @@ fn note_preimage(who: u64) -> <Test as frame_system::Config>::Hash {
 	// note a new preimage on every function invoke.
 	static COUNTER: AtomicU8 = AtomicU8::new(0);
 	let data = vec![COUNTER.fetch_add(1, Ordering::Relaxed)];
-	assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(who), data.clone()));
+	assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed_with_basic_filter(who), data.clone()));
 	let hash = BlakeTwo256::hash(&data);
 	assert!(!Preimage::is_requested(&hash));
 	hash

@@ -85,7 +85,7 @@ fn send_weth_from_asset_hub_to_ethereum() {
 
 		// Send the Weth back to Ethereum
 		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::execute(
-			RuntimeOrigin::signed(AssetHubWestendReceiver::get()),
+			RuntimeOrigin::signed_with_basic_filter(AssetHubWestendReceiver::get()),
 			bx!(xcm),
 			Weight::from(EXECUTION_WEIGHT),
 		)
@@ -172,7 +172,7 @@ pub fn register_usdt_from_owner_on_asset_hub() {
 
 		assert_ok!(
 			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::register_token(
-				RuntimeOrigin::signed(AssetHubWestendAssetOwner::get()),
+				RuntimeOrigin::signed_with_basic_filter(AssetHubWestendAssetOwner::get()),
 				bx!(VersionedLocation::from(usdt_at_ah_westend())),
 				AssetMetadata {
 					name: "usdt".as_bytes().to_vec().try_into().unwrap(),
@@ -240,7 +240,7 @@ pub fn add_tip_from_asset_hub_user_origin() {
 
 		// Send the Weth back to Ethereum
 		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::execute(
-			RuntimeOrigin::signed(AssetHubWestendReceiver::get()),
+			RuntimeOrigin::signed_with_basic_filter(AssetHubWestendReceiver::get()),
 			bx!(xcm),
 			Weight::from(EXECUTION_WEIGHT),
 		)
@@ -255,7 +255,7 @@ pub fn add_tip_from_asset_hub_user_origin() {
 		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::add_tip(
-			RuntimeOrigin::signed(relayer.clone()),
+			RuntimeOrigin::signed_with_basic_filter(relayer.clone()),
 			tip_message_id.clone(),
 			xcm::prelude::Asset::from((dot, 1_000_000_000u128)),
 		));
@@ -294,7 +294,7 @@ pub fn tip_to_invalid_nonce_is_added_to_lost_tips() {
 		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::add_tip(
-			RuntimeOrigin::signed(relayer.clone()),
+			RuntimeOrigin::signed_with_basic_filter(relayer.clone()),
 			tip_message_id.clone(),
 			xcm::prelude::Asset::from((dot, 1_000_000_000u128)),
 		));
@@ -379,7 +379,7 @@ fn transfer_relay_token_from_ah() {
 
 		// Send DOT to Ethereum
 		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::execute(
-			RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			RuntimeOrigin::signed_with_basic_filter(AssetHubWestendSender::get()),
 			bx!(xcm),
 			Weight::from(EXECUTION_WEIGHT),
 		)
@@ -478,7 +478,7 @@ fn send_weth_and_dot_from_asset_hub_to_ethereum() {
 		]));
 
 		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::execute(
-			RuntimeOrigin::signed(AssetHubWestendReceiver::get()),
+			RuntimeOrigin::signed_with_basic_filter(AssetHubWestendReceiver::get()),
 			bx!(xcms),
 			Weight::from(EXECUTION_WEIGHT),
 		)
@@ -574,7 +574,7 @@ fn transact_with_agent_from_asset_hub() {
 		]));
 
 		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::execute(
-			RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			RuntimeOrigin::signed_with_basic_filter(AssetHubWestendSender::get()),
 			bx!(xcms),
 			Weight::from(EXECUTION_WEIGHT),
 		)
@@ -658,7 +658,7 @@ fn transact_with_agent_from_asset_hub_without_any_asset_transfer() {
 		]));
 
 		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::execute(
-			RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			RuntimeOrigin::signed_with_basic_filter(AssetHubWestendSender::get()),
 			bx!(xcms),
 			Weight::from(EXECUTION_WEIGHT),
 		)
@@ -913,7 +913,7 @@ fn send_message_from_penpal_to_ethereum(sudo: bool) {
 			));
 		} else {
 			assert_ok!(<PenpalB as PenpalBPallet>::PolkadotXcm::execute(
-				RuntimeOrigin::signed(PenpalBSender::get()),
+				RuntimeOrigin::signed_with_basic_filter(PenpalBSender::get()),
 				bx!(xcm.clone()),
 				Weight::from(EXECUTION_WEIGHT),
 			));
@@ -1026,7 +1026,7 @@ fn export_message_from_asset_hub_to_ethereum_is_banned_when_set_operating_mode()
 		// Send the Weth back to Ethereum
 		assert_err_ignore_postinfo!(
 			<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::execute(
-				RuntimeOrigin::signed(AssetHubWestendReceiver::get()),
+				RuntimeOrigin::signed_with_basic_filter(AssetHubWestendReceiver::get()),
 				bx!(xcm),
 				Weight::from(EXECUTION_WEIGHT),
 			),

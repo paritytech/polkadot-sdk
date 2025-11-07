@@ -16,6 +16,7 @@
 
 //! Various implementations for `ConvertOrigin`.
 
+use frame_support::traits::IntoWithBasicFilter;
 use core::marker::PhantomData;
 use frame_support::traits::{Contains, EnsureOrigin, Get, GetBacking, OriginTrait};
 use frame_system::RawOrigin as SystemRawOrigin;
@@ -46,7 +47,7 @@ where
 		);
 		if let OriginKind::SovereignAccount = kind {
 			let location = LocationConverter::convert_location(&origin).ok_or(origin)?;
-			Ok(RuntimeOrigin::signed(location).into())
+			Ok(RuntimeOrigin::signed_with_basic_filter(location).into())
 		} else {
 			Err(origin)
 		}
@@ -118,7 +119,7 @@ impl<ParaId: IsSystem + From<u32>, RuntimeOrigin: OriginTrait> ConvertOrigin<Run
 pub struct ChildParachainAsNative<ParachainOrigin, RuntimeOrigin>(
 	PhantomData<(ParachainOrigin, RuntimeOrigin)>,
 );
-impl<ParachainOrigin: From<u32>, RuntimeOrigin: From<ParachainOrigin>> ConvertOrigin<RuntimeOrigin>
+impl<ParachainOrigin: From<u32>, RuntimeOrigin: FromWithBasicFilter<ParachainOrigin>> ConvertOrigin<RuntimeOrigin>
 	for ChildParachainAsNative<ParachainOrigin, RuntimeOrigin>
 {
 	fn convert_origin(
@@ -129,7 +130,7 @@ impl<ParachainOrigin: From<u32>, RuntimeOrigin: From<ParachainOrigin>> ConvertOr
 		tracing::trace!(target: "xcm::origin_conversion", ?origin, ?kind, "ChildParachainAsNative");
 		match (kind, origin.unpack()) {
 			(OriginKind::Native, (0, [Junction::Parachain(id)])) =>
-				Ok(RuntimeOrigin::from(ParachainOrigin::from(*id))),
+				Ok((ParachainOrigin::from(*id)).into_with_basic_filter()),
 			_ => Err(origin),
 		}
 	}
@@ -138,7 +139,7 @@ impl<ParachainOrigin: From<u32>, RuntimeOrigin: From<ParachainOrigin>> ConvertOr
 pub struct SiblingParachainAsNative<ParachainOrigin, RuntimeOrigin>(
 	PhantomData<(ParachainOrigin, RuntimeOrigin)>,
 );
-impl<ParachainOrigin: From<u32>, RuntimeOrigin: From<ParachainOrigin>> ConvertOrigin<RuntimeOrigin>
+impl<ParachainOrigin: From<u32>, RuntimeOrigin: FromWithBasicFilter<ParachainOrigin>> ConvertOrigin<RuntimeOrigin>
 	for SiblingParachainAsNative<ParachainOrigin, RuntimeOrigin>
 {
 	fn convert_origin(
@@ -153,7 +154,7 @@ impl<ParachainOrigin: From<u32>, RuntimeOrigin: From<ParachainOrigin>> ConvertOr
 		);
 		match (kind, origin.unpack()) {
 			(OriginKind::Native, (1, [Junction::Parachain(id)])) =>
-				Ok(RuntimeOrigin::from(ParachainOrigin::from(*id))),
+				Ok((ParachainOrigin::from(*id)).into_with_basic_filter()),
 			_ => Err(origin),
 		}
 	}
@@ -199,7 +200,7 @@ where
 		match (kind, origin.unpack()) {
 			(OriginKind::Native, (0, [Junction::AccountId32 { id, network }]))
 				if matches!(network, None) || *network == Network::get() =>
-				Ok(RuntimeOrigin::signed((*id).into())),
+				Ok(RuntimeOrigin::signed_with_basic_filter((*id).into())),
 			_ => Err(origin),
 		}
 	}
@@ -226,7 +227,7 @@ where
 		match (kind, origin.unpack()) {
 			(OriginKind::Native, (0, [Junction::AccountKey20 { key, network }]))
 				if (matches!(network, None) || *network == Network::get()) =>
-				Ok(RuntimeOrigin::signed((*key).into())),
+				Ok(RuntimeOrigin::signed_with_basic_filter((*key).into())),
 			_ => Err(origin),
 		}
 	}
@@ -274,14 +275,14 @@ impl<
 		Network: Get<Option<NetworkId>>,
 	> TryConvert<RuntimeOrigin, Location> for SignedToAccountId32<RuntimeOrigin, AccountId, Network>
 where
-	RuntimeOrigin::PalletsOrigin: From<SystemRawOrigin<AccountId>>
+	RuntimeOrigin::PalletsOrigin: FromWithBasicFilter<SystemRawOrigin<AccountId>>
 		+ TryInto<SystemRawOrigin<AccountId>, Error = RuntimeOrigin::PalletsOrigin>,
 {
 	fn try_convert(o: RuntimeOrigin) -> Result<Location, RuntimeOrigin> {
 		o.try_with_caller(|caller| match caller.try_into() {
 			Ok(SystemRawOrigin::Signed(who)) =>
-				Ok(Junction::AccountId32 { network: Network::get(), id: who.into() }.into()),
-			Ok(other) => Err(other.into()),
+				Ok(Junction::AccountId32 { network: Network::get(), id: who.into_with_basic_filter() }.into_with_basic_filter()),
+			Ok(other) => Err(other.into_with_basic_filter()),
 			Err(other) => Err(other),
 		})
 	}
