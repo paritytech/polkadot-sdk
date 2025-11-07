@@ -350,19 +350,41 @@ fn eth_substrate_call_requires_eth_origin() {
 
 #[test]
 fn eth_substrate_call_requires_debug_flag() {
+	use crate::{codec::Encode, tests::initialize_block, weights::WeightInfo};
 	ExtBuilder::default().build().execute_with(|| {
-		// ensure eth_substrate_call is NOT allowed
+		// Ensure eth_substrate_call is NOT allowed
 		assert!(!DebugSettings::is_eth_substrate_call_allowed::<Test>());
 
 		let inner_call = frame_system::Call::remark { remark: vec![] };
+		let inner_call_encoded_size = inner_call.encoded_size() as u32;
+		let overhead_weight =
+			<Test as Config>::WeightInfo::eth_substrate_call(inner_call_encoded_size);
 
-		// Should fail since eth_substrate_call is not allowed
-		assert_noop!(
-			Pallet::<Test>::eth_substrate_call(
-				Origin::EthTransaction(ALICE).into(),
-				Box::new(inner_call.into())
-			),
-			Error::<Test>::EthSubstrateCallNotAllowed
+		// Drop previous events
+		initialize_block(2);
+
+		// Call should succeed but emit EthExtrinsicRevert event
+		let post_info = Pallet::<Test>::eth_substrate_call(
+			Origin::EthTransaction(ALICE).into(),
+			Box::new(inner_call.into()),
+		)
+		.expect("eth_substrate_call should succeed");
+
+		// Verify actual weight includes overhead
+		let actual_weight = post_info.actual_weight.expect("actual_weight should be set");
+		assert!(
+			actual_weight.ref_time() > overhead_weight.ref_time(),
+			"actual_weight ({}) should be > overhead weight ({})",
+			actual_weight.ref_time(),
+			overhead_weight.ref_time(),
+		);
+
+		// Verify EthExtrinsicRevert event was emitted
+		crate::tests::System::assert_last_event(
+			crate::Event::EthExtrinsicRevert {
+				dispatch_error: Error::<Test>::EthSubstrateCallNotAllowed.into(),
+			}
+			.into(),
 		);
 	});
 }

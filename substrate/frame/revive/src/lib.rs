@@ -1354,15 +1354,22 @@ pub mod pallet {
 			// re-enter `eth_substrate_call` (which requires `Origin::EthTransaction`).
 			let signer = Self::ensure_eth_signed(origin)?;
 
-			if !DebugSettings::is_eth_substrate_call_allowed::<T>() {
-				log::warn!(target: LOG_TARGET, "eth_substrate_call can only be used in development.");
-				return Err(<Error<T>>::EthSubstrateCallNotAllowed.into());
-			}
-
 			let call_encoded = call.encode();
 			let encoded_size = call_encoded.len() as u32;
 
 			block_storage::with_ethereum_context::<T>(call_encoded, || {
+				if !DebugSettings::is_eth_substrate_call_allowed::<T>() {
+					log::warn!(target: LOG_TARGET, "eth_substrate_call can only be used in development.");
+					return block_storage::EthereumCallResult {
+						receipt_gas_info: ReceiptGasInfo::default(),
+						result: dispatch_result::<()>(
+							Err(<Error<T>>::EthSubstrateCallNotAllowed.into()),
+							Weight::zero(),
+							T::WeightInfo::eth_substrate_call(encoded_size as u32),
+						),
+					};
+				}
+
 				let mut call_result = call.dispatch(RawOrigin::Signed(signer).into());
 
 				// Add extrinsic_overhead to the actual weight in PostDispatchInfo
