@@ -121,7 +121,7 @@ jobs:
           check_gpg  ${{ matrix.binaries }}
 
       - name: Upload ${{ matrix.binaries }} artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: ${{ matrix.binaries }}_${{ inputs.target }}
           path: /artifacts/${{ matrix.binaries }}
@@ -262,7 +262,7 @@ jobs:
           check_gpg  ${{ matrix.binaries }}
 
       - name: Upload ${{ matrix.binaries }} artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: ${{ matrix.binaries }}_${{ inputs.target }}
           path: ${{ env.ARTIFACTS_PATH }}
@@ -280,21 +280,21 @@ jobs:
         fetch-depth: 0
 
     - name: Download polkadot_x86_64-unknown-linux-gnu artifacts
-      uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+      uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
       with:
         name: polkadot_x86_64-unknown-linux-gnu
         path: target/production
         merge-multiple: true
 
     - name: Download polkadot-execute-worker_x86_64-unknown-linux-gnu artifacts
-      uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+      uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
       with:
         name: polkadot-execute-worker_x86_64-unknown-linux-gnu
         path: target/production
         merge-multiple: true
 
     - name: Download polkadot-prepare-worker_x86_64-unknown-linux-gnu artifacts
-      uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+      uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
       with:
         name: polkadot-prepare-worker_x86_64-unknown-linux-gnu
         path: target/production
@@ -313,7 +313,7 @@ jobs:
         subject-path: target/production/*.deb
 
     - name: Upload ${{inputs.package }} artifacts
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
       with:
         name: ${{ inputs.package }}_${{ inputs.target }}
         path: target/production
