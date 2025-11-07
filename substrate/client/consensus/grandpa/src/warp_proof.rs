@@ -341,7 +341,7 @@ where
 
 	fn current_context(&self) -> Self::Context {
 		let authority_set = self.authority_set.inner();
-		(0, authority_set.current_authorities.clone())
+		(authority_set.set_id, authority_set.current_authorities.clone())
 	}
 }
 
