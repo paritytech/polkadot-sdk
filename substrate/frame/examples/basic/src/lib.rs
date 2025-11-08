@@ -192,6 +192,15 @@ pub mod pallet {
 			// Perform necessary data/state clean up here.
 		}
 
+		// `on_idle` is executed after all extrinsics if there is remaining weight in the block.
+		// It should never consume more than the provided `remaining_weight` and must return the
+		// weight it actually consumed. This hook is included here to demonstrate the full set of
+		// pallet hooks available in FRAME.
+		fn on_idle(_n: BlockNumberFor<T>, _remaining_weight: Weight) -> Weight {
+			// No-op demo hook; consume no weight.
+			Weight::zero()
+		}
+
 		// A runtime code run after every block and have access to extended set of APIs.
 		//
 		// For instance you can generate extrinsics for the upcoming produced block.
