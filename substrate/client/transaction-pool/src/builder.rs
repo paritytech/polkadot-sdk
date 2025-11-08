@@ -23,9 +23,8 @@ use crate::{
 	fork_aware_txpool::ForkAwareTxPool as ForkAwareFullPool,
 	graph::{base_pool::Transaction, ChainApi, ExtrinsicFor, ExtrinsicHash, IsValidator, Options},
 	single_state_txpool::BasicPool as SingleStateFullPool,
-	TransactionPoolWrapper, LOG_TARGET,
+	TransactionPoolWrapper, TransactionReceiptDb, LOG_TARGET,
 };
-use crate::TransactionReceiptDb;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{LocalTransactionPool, MaintainedTransactionPool};
 use sp_core::traits::SpawnEssentialNamed;

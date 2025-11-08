@@ -265,6 +265,11 @@ where
 	> {
 		self.pool.get_transaction_receipt(tx_hash)
 	}
+
+	/// Get access to the receipt database for transaction tracking
+	pub fn receipt_db(&self) -> Option<Arc<TransactionReceiptDb>> {
+		self.receipt_db.lock().clone()
+	}
 }
 
 #[async_trait]

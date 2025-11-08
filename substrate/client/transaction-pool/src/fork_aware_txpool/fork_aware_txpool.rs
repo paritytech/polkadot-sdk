@@ -1048,6 +1048,11 @@ where
 			}
 		}
 	}
+
+	/// Get access to the receipt database for transaction tracking
+	pub fn receipt_db(&self) -> Option<Arc<TransactionReceiptDb>> {
+		self.receipt_db.lock().clone()
+	}
 }
 
 /// Converts the input view-to-statuses map into the output vector of statuses.
