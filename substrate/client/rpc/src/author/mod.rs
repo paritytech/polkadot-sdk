@@ -18,8 +18,6 @@
 
 //! Substrate block-author/full-node API.
 
-//! Substrate block-author/full-node API.
-
 #[cfg(test)]
 mod tests;
 
