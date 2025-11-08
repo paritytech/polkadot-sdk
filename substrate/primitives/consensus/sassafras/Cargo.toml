@@ -27,7 +27,7 @@ serde = { features = ["derive"], optional = true, workspace = true }
 sp-api = { workspace = true }
 sp-application-crypto = { features = ["bandersnatch-experimental"], workspace = true }
 sp-consensus-slots = { workspace = true }
-sp-core = { features = ["bandersnatch-experimental"], workspace = true }
+sp-core = { features = ["bandersnatch-experimental", "ec-crypto-hostcalls"], workspace = true }
 sp-runtime = { workspace = true }
 
 [features]

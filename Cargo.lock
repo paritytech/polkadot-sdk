@@ -23186,6 +23186,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "sp-crypto-ec-utils",
  "sp-crypto-hashing 0.1.0",
  "sp-debug-derive 14.0.0",
  "sp-externalities 0.25.0",
