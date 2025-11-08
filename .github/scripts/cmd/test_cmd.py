@@ -428,5 +428,346 @@ class TestCmd(unittest.TestCase):
             mock_exit.assert_not_called()
             self.mock_generate_prdoc_main.assert_called_with(mock_parse_args.return_value[0])
 
+    @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
+    @patch('cmd.get_allowed_labels')
+    @patch('cmd.check_pr_status')
+    @patch('argparse.ArgumentParser.parse_known_args')
+    def test_label_command_valid_labels(self, mock_parse_args, mock_check_pr_status, mock_get_labels):
+        """Test label command with valid labels"""
+        mock_get_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required', 'D2-substantial']
+        mock_check_pr_status.return_value = True  # PR is open
+        mock_parse_args.return_value = (argparse.Namespace(
+            command='label',
+            labels=['T1-FRAME', 'R0-no-crate-publish-required']
+        ), [])
+
+        with patch('sys.exit') as mock_exit, patch('builtins.print') as mock_print:
+            import cmd
+            cmd.main()
+            mock_exit.assert_not_called()
+
+            # Check that JSON output was printed
+            json_call = None
+            for call in mock_print.call_args_list:
+                if 'LABELS_JSON:' in str(call):
+                    json_call = call
+                    break
+
+            self.assertIsNotNone(json_call)
+            self.assertIn('T1-FRAME', str(json_call))
+            self.assertIn('R0-no-crate-publish-required', str(json_call))
+
+    @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
+    @patch('cmd.get_allowed_labels')
+    @patch('cmd.check_pr_status')
+    @patch('argparse.ArgumentParser.parse_known_args')
+    def test_label_command_auto_correction(self, mock_parse_args, mock_check_pr_status, mock_get_labels):
+        """Test label command with auto-correctable typos"""
+        mock_get_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required', 'D2-substantial']
+        mock_check_pr_status.return_value = True  # PR is open
+        mock_parse_args.return_value = (argparse.Namespace(
+            command='label',
+            labels=['T1-FRAM', 'R0-no-crate-publish']  # Typos that should be auto-corrected
+        ), [])
+
+        with patch('sys.exit') as mock_exit, patch('builtins.print') as mock_print:
+            import cmd
+            cmd.main()
+            mock_exit.assert_not_called()
+
+            # Check for auto-correction messages
+            correction_messages = [str(call) for call in mock_print.call_args_list if 'Auto-corrected' in str(call)]
+            self.assertTrue(len(correction_messages) > 0)
+
+            # Check that JSON output contains corrected labels
+            json_call = None
+            for call in mock_print.call_args_list:
+                if 'LABELS_JSON:' in str(call):
+                    json_call = call
+                    break
+
+            self.assertIsNotNone(json_call)
+            self.assertIn('T1-FRAME', str(json_call))
+            self.assertIn('R0-no-crate-publish-required', str(json_call))
+
+    @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
+    @patch('cmd.get_allowed_labels')
+    @patch('cmd.check_pr_status')
+    @patch('argparse.ArgumentParser.parse_known_args')
+    def test_label_command_prefix_correction(self, mock_parse_args, mock_check_pr_status, mock_get_labels):
+        """Test label command with prefix matching"""
+        mock_get_labels.return_value = ['T1-FRAME', 'T2-pallets', 'R0-no-crate-publish-required']
+        mock_check_pr_status.return_value = True  # PR is open
+        mock_parse_args.return_value = (argparse.Namespace(
+            command='label',
+            labels=['T1-something']  # Should match T1-FRAME as the only T1- label
+        ), [])
+
+        with patch('sys.exit') as mock_exit, patch('builtins.print') as mock_print:
+            import cmd
+            cmd.main()
+            mock_exit.assert_not_called()
+
+            # Check that JSON output contains corrected label
+            json_call = None
+            for call in mock_print.call_args_list:
+                if 'LABELS_JSON:' in str(call):
+                    json_call = call
+                    break
+
+            self.assertIsNotNone(json_call)
+            self.assertIn('T1-FRAME', str(json_call))
+
+    @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
+    @patch('cmd.get_allowed_labels')
+    @patch('cmd.check_pr_status')
+    @patch('argparse.ArgumentParser.parse_known_args')
+    def test_label_command_invalid_labels(self, mock_parse_args, mock_check_pr_status, mock_get_labels):
+        """Test label command with invalid labels that cannot be corrected"""
+        mock_get_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required', 'D2-substantial']
+        mock_check_pr_status.return_value = True  # PR is open
+        mock_parse_args.return_value = (argparse.Namespace(
+            command='label',
+            labels=['INVALID-LABEL', 'ANOTHER-BAD-LABEL']
+        ), [])
+
+        with patch('sys.exit') as mock_exit, patch('builtins.print') as mock_print:
+            import cmd
+            cmd.main()
+            mock_exit.assert_called_with(1)  # Should exit with error code
+
+            # Check for error JSON output
+            error_json_call = None
+            for call in mock_print.call_args_list:
+                if 'ERROR_JSON:' in str(call):
+                    error_json_call = call
+                    break
+
+            self.assertIsNotNone(error_json_call)
+            self.assertIn('validation_failed', str(error_json_call))
+
+    @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
+    @patch('cmd.get_allowed_labels')
+    @patch('cmd.check_pr_status')
+    @patch('argparse.ArgumentParser.parse_known_args')
+    def test_label_command_mixed_valid_invalid(self, mock_parse_args, mock_check_pr_status, mock_get_labels):
+        """Test label command with mix of valid and invalid labels"""
+        mock_get_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required', 'D2-substantial']
+        mock_check_pr_status.return_value = True  # PR is open
+        mock_parse_args.return_value = (argparse.Namespace(
+            command='label',
+            labels=['T1-FRAME', 'INVALID-LABEL', 'D2-substantial']
+        ), [])
+
+        with patch('sys.exit') as mock_exit, patch('builtins.print') as mock_print:
+            import cmd
+            cmd.main()
+            mock_exit.assert_called_with(1)  # Should exit with error code due to invalid label
+
+            # Check for error JSON output
+            error_json_call = None
+            for call in mock_print.call_args_list:
+                if 'ERROR_JSON:' in str(call):
+                    error_json_call = call
+                    break
+
+            self.assertIsNotNone(error_json_call)
+
+    @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
+    @patch('cmd.get_allowed_labels')
+    @patch('cmd.check_pr_status')
+    @patch('argparse.ArgumentParser.parse_known_args')
+    def test_label_command_fetch_failure(self, mock_parse_args, mock_check_pr_status, mock_get_labels):
+        """Test label command when label fetching fails"""
+        mock_get_labels.side_effect = RuntimeError("Failed to fetch labels from repository. Please check your connection and try again.")
+        mock_check_pr_status.return_value = True  # PR is open
+        mock_parse_args.return_value = (argparse.Namespace(
+            command='label',
+            labels=['T1-FRAME']
+        ), [])
+
+        with patch('sys.exit') as mock_exit, patch('builtins.print') as mock_print:
+            import cmd
+            cmd.main()
+            mock_exit.assert_called_with(1)  # Should exit with error code
+
+            # Check for error JSON output
+            error_json_call = None
+            for call in mock_print.call_args_list:
+                if 'ERROR_JSON:' in str(call):
+                    error_json_call = call
+                    break
+
+            self.assertIsNotNone(error_json_call)
+            self.assertIn('Failed to fetch labels from repository', str(error_json_call))
+
+    def test_auto_correct_labels_function(self):
+        """Test the auto_correct_labels function directly"""
+        import cmd
+
+        valid_labels = ['T1-FRAME', 'R0-no-crate-publish-required', 'D2-substantial', 'I2-bug']
+
+        # Test high similarity auto-correction
+        corrections, suggestions = cmd.auto_correct_labels(['T1-FRAM'], valid_labels)
+        self.assertEqual(len(corrections), 1)
+        self.assertEqual(corrections[0][0], 'T1-FRAM')
+        self.assertEqual(corrections[0][1], 'T1-FRAME')
+
+        # Test low similarity suggestions
+        corrections, suggestions = cmd.auto_correct_labels(['TOTALLY-WRONG'], valid_labels)
+        self.assertEqual(len(corrections), 0)
+        self.assertEqual(len(suggestions), 1)
+
+    def test_find_closest_labels_function(self):
+        """Test the find_closest_labels function directly"""
+        import cmd
+
+        valid_labels = ['T1-FRAME', 'T2-pallets', 'R0-no-crate-publish-required']
+
+        # Test finding close matches
+        matches = cmd.find_closest_labels('T1-FRAM', valid_labels)
+        self.assertIn('T1-FRAME', matches)
+
+        # Test no close matches
+        matches = cmd.find_closest_labels('COMPLETELY-DIFFERENT', valid_labels, cutoff=0.8)
+        self.assertEqual(len(matches), 0)
+
+    @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
+    @patch('cmd.get_allowed_labels')
+    @patch('cmd.check_pr_status')
+    @patch('argparse.ArgumentParser.parse_known_args')
+    def test_label_command_merged_pr(self, mock_parse_args, mock_check_pr_status, mock_get_labels):
+        """Test label command on merged PR should fail"""
+        mock_get_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required']
+        mock_check_pr_status.return_value = False  # PR is merged/closed
+        mock_parse_args.return_value = (argparse.Namespace(
+            command='label',
+            labels=['T1-FRAME']
+        ), [])
+
+        with patch('sys.exit') as mock_exit, patch('builtins.print') as mock_print:
+            import cmd
+            cmd.main()
+            mock_exit.assert_called_with(1)
+
+            # Check for error JSON output
+            error_json_call = None
+            for call in mock_print.call_args_list:
+                if 'ERROR_JSON:' in str(call):
+                    error_json_call = call
+                    break
+
+            self.assertIsNotNone(error_json_call)
+            self.assertIn('Cannot modify labels on merged PRs', str(error_json_call))
+
+    @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
+    @patch('cmd.get_allowed_labels')
+    @patch('cmd.check_pr_status')
+    @patch('argparse.ArgumentParser.parse_known_args')
+    def test_label_command_open_pr(self, mock_parse_args, mock_check_pr_status, mock_get_labels):
+        """Test label command on open PR should succeed"""
+        mock_get_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required']
+        mock_check_pr_status.return_value = True  # PR is open
+        mock_parse_args.return_value = (argparse.Namespace(
+            command='label',
+            labels=['T1-FRAME']
+        ), [])
+
+        with patch('sys.exit') as mock_exit, patch('builtins.print') as mock_print:
+            import cmd
+            cmd.main()
+            mock_exit.assert_not_called()
+
+            # Check that JSON output was printed
+            json_call = None
+            for call in mock_print.call_args_list:
+                if 'LABELS_JSON:' in str(call):
+                    json_call = call
+                    break
+
+            self.assertIsNotNone(json_call)
+
+    @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'false', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
+    @patch('cmd.get_allowed_labels')
+    @patch('cmd.check_pr_status')
+    @patch('argparse.ArgumentParser.parse_known_args')
+    def test_label_command_unauthorized_user(self, mock_parse_args, mock_check_pr_status, mock_get_labels):
+        """Test label command by unauthorized user should fail"""
+        mock_get_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required']
+        mock_check_pr_status.return_value = True  # PR is open
+        mock_parse_args.return_value = (argparse.Namespace(
+            command='label',
+            labels=['T1-FRAME']
+        ), [])
+
+        with patch('sys.exit') as mock_exit, patch('builtins.print') as mock_print:
+            import cmd
+            cmd.main()
+            mock_exit.assert_called_with(1)
+
+            # Check for error JSON output
+            error_json_call = None
+            for call in mock_print.call_args_list:
+                if 'ERROR_JSON:' in str(call):
+                    error_json_call = call
+                    break
+
+            self.assertIsNotNone(error_json_call)
+            self.assertIn('Only the PR author or organization members can modify labels', str(error_json_call))
+
+    @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'false', 'IS_PR_AUTHOR': 'true', 'GITHUB_TOKEN': 'fake_token'})
+    @patch('cmd.get_allowed_labels')
+    @patch('cmd.check_pr_status')
+    @patch('argparse.ArgumentParser.parse_known_args')
+    def test_label_command_pr_author(self, mock_parse_args, mock_check_pr_status, mock_get_labels):
+        """Test label command by PR author should succeed"""
+        mock_get_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required']
+        mock_check_pr_status.return_value = True  # PR is open
+        mock_parse_args.return_value = (argparse.Namespace(
+            command='label',
+            labels=['T1-FRAME']
+        ), [])
+
+        with patch('sys.exit') as mock_exit, patch('builtins.print') as mock_print:
+            import cmd
+            cmd.main()
+            mock_exit.assert_not_called()
+
+            # Check that JSON output was printed
+            json_call = None
+            for call in mock_print.call_args_list:
+                if 'LABELS_JSON:' in str(call):
+                    json_call = call
+                    break
+
+            self.assertIsNotNone(json_call)
+
+    @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
+    @patch('cmd.get_allowed_labels')
+    @patch('cmd.check_pr_status')
+    @patch('argparse.ArgumentParser.parse_known_args')
+    def test_label_command_org_member(self, mock_parse_args, mock_check_pr_status, mock_get_labels):
+        """Test label command by org member should succeed"""
+        mock_get_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required']
+        mock_check_pr_status.return_value = True  # PR is open
+        mock_parse_args.return_value = (argparse.Namespace(
+            command='label',
+            labels=['T1-FRAME']
+        ), [])
+
+        with patch('sys.exit') as mock_exit, patch('builtins.print') as mock_print:
+            import cmd
+            cmd.main()
+            mock_exit.assert_not_called()
+
+            # Check that JSON output was printed
+            json_call = None
+            for call in mock_print.call_args_list:
+                if 'LABELS_JSON:' in str(call):
+                    json_call = call
+                    break
+
+            self.assertIsNotNone(json_call)
+
 if __name__ == '__main__':
     unittest.main()

@@ -441,8 +441,8 @@ impl ConfigDef {
 				}
 			}
 
-			while let Ok(Some(pallet_attr)) =
-				helper::take_first_item_pallet_attr::<PalletAttr>(trait_item)
+			while let Some(pallet_attr) =
+				helper::take_first_item_pallet_attr::<PalletAttr>(trait_item)?
 			{
 				match (pallet_attr.typ, &trait_item) {
 					(PalletAttrType::Constant(_), syn::TraitItem::Type(ref typ)) => {

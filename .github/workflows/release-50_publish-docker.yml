@@ -117,7 +117,7 @@ jobs:
           fi
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: release-artifacts
           path: release-artifacts/x86_64-unknown-linux-gnu/${{ env.BINARY }}/**/*
@@ -133,7 +133,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Download artifacts
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
 
       - name: Check sha256 ${{ env.BINARY }}
         # if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'polkadot' }}
@@ -261,6 +261,8 @@ jobs:
       - name: Get version
         id: fetch-latest-apt
         run: |
+          gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys 90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE
+          gpg --export 90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE > /usr/share/keyrings/parity.gpg
           apt update
           apt show polkadot
           version=$(apt show polkadot 2>/dev/null | grep "Version:" | awk '{print $2}')
