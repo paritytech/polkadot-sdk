@@ -1,22 +1,17 @@
 #![cfg(all(feature = "runtime-benchmarks", feature = "std"))]
 
-
 use pallet_referenda_precompiles::ReferendaPrecompile;
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use frame_support::pallet_prelude::TypeInfo;
 use frame_support::{
 	derive_impl, ord_parameter_types, parameter_types,
-	traits::{ConstU32, ConstU64, ConstU128, Contains, EqualPrivilegeOnly, OriginTrait, VoteTally},
+	traits::{ConstU128, ConstU32, ConstU64, Contains, EqualPrivilegeOnly, OriginTrait, VoteTally},
 	weights::Weight,
 };
-use frame_support::pallet_prelude::TypeInfo;
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_referenda::{Curve, Track, TrackInfo, TracksInfo};
-use sp_runtime::{
-	str_array as s,
-	traits::IdentityLookup,
-	BuildStorage, Perbill, AccountId32,
-};
+use sp_runtime::{str_array as s, traits::IdentityLookup, AccountId32, BuildStorage, Perbill};
 use std::borrow::Cow;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -114,7 +109,9 @@ impl pallet_scheduler::Config for Test {
 	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
-#[derive(Encode, Debug, Decode, DecodeWithMemTracking, TypeInfo, Eq, PartialEq, Clone, MaxEncodedLen)]
+#[derive(
+	Encode, Debug, Decode, DecodeWithMemTracking, TypeInfo, Eq, PartialEq, Clone, MaxEncodedLen,
+)]
 pub struct Tally {
 	pub ayes: u32,
 	pub nays: u32,
@@ -291,4 +288,3 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext.execute_with(|| frame_system::Pallet::<Test>::set_block_number(1));
 	ext
 }
-

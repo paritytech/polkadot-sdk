@@ -21,23 +21,22 @@ use crate::ReferendaPrecompile;
 
 use alloc::borrow::Cow;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use frame_support::pallet_prelude::TypeInfo;
+use frame_support::traits::{QueryPreimage, StorePreimage};
 use frame_support::{
-	assert_ok,
-	derive_impl, ord_parameter_types, parameter_types,
+	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU32, ConstU64, ConstU128, Contains, EqualPrivilegeOnly, OriginTrait, VoteTally,OnInitialize
+		ConstU128, ConstU32, ConstU64, Contains, EqualPrivilegeOnly, OnInitialize, OriginTrait,
+		VoteTally,
 	},
 	weights::Weight,
 };
-use frame_support::pallet_prelude::TypeInfo;
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_referenda::{Curve, Track, TrackInfo, TracksInfo};
-use frame_support::traits::{QueryPreimage, StorePreimage};
 use sp_runtime::{
 	str_array as s,
-	traits::{BlakeTwo256, Hash,IdentityLookup},
-	BuildStorage, Perbill, AccountId32,
-
+	traits::{BlakeTwo256, Hash, IdentityLookup},
+	AccountId32, BuildStorage, Perbill,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -126,7 +125,6 @@ impl pallet_balances::Config for Test {
 // Configure pallet-revive with our precompile
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
 impl pallet_revive::Config for Test {
-
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type Balance = Balance;
 	type Currency = Balances;
@@ -134,9 +132,7 @@ impl pallet_revive::Config for Test {
 	type Time = Timestamp;
 	type UploadOrigin = frame_system::EnsureSigned<AccountId>;
 	type InstantiateOrigin = frame_system::EnsureSigned<AccountId>;
-	
 }
-
 
 impl pallet_preimage::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -172,7 +168,7 @@ impl pallet_referenda::Config for Test {
 	type Slash = ();
 	type Votes = u32;
 	type Tally = Tally;
-	type SubmissionDeposit = ConstU128<2>;  // FIX 3: Changed from ConstU64 to ConstU128
+	type SubmissionDeposit = ConstU128<2>; // FIX 3: Changed from ConstU64 to ConstU128
 	type MaxQueued = ConstU32<3>;
 	type UndecidingTimeout = ConstU64<20>;
 	type AlarmInterval = AlarmInterval;
@@ -326,11 +322,6 @@ pub fn note_preimage(who: AccountId32) -> <Test as frame_system::Config>::Hash {
 	hash
 }
 // ====== helper functions =====
-pub fn map_account(who: AccountId32, value: u128) {
-	// Set balance then map the account
-	let _ = Balances::force_set_balance(RuntimeOrigin::root(), who.clone(), value);
-	assert_ok!(pallet_revive::Pallet::<Test>::map_account(RuntimeOrigin::signed(who)));
-}
 pub fn set_balance_proposal_bounded(value: u128) -> BoundedCallOf<Test, ()> {
 	let who = AccountId32::new([42u8; 32]);
 	let c =
@@ -346,7 +337,6 @@ pub fn set_balance_proposal_bytes(value: u128) -> Vec<u8> {
 	c.encode()
 }
 
-
 // ====== transaction builder =====
 pub struct ExtBuilder {}
 
@@ -359,15 +349,22 @@ impl Default for ExtBuilder {
 impl ExtBuilder {
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-		let balances =
-			vec![(ALICE, 100), (BOB, 100), (CHARLIE, 100), (DAVE, 100), (EVE, 100), (FERDIE, 100),(POOR,1)];
+		let balances = vec![
+			(ALICE, 100),
+			(BOB, 100),
+			(CHARLIE, 100),
+			(DAVE, 100),
+			(EVE, 100),
+			(FERDIE, 100),
+			(POOR, 1),
+		];
 		pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
 
 		// Set up account mapping for EVM precompiles
 		pallet_revive::GenesisConfig::<Test> {
-			mapped_accounts: vec![ALICE, BOB, CHARLIE,POOR],
+			mapped_accounts: vec![ALICE, BOB, CHARLIE, POOR],
 			..Default::default()
 		}
 		.assimilate_storage(&mut t)
@@ -391,8 +388,9 @@ impl ExtBuilder {
 	/// Must be called within `execute_with` context.
 	pub fn submit_referendum(submitter: AccountId32) -> u32 {
 		use frame_support::traits::schedule::DispatchTime;
-		
-		let proposal_origin = OriginCaller::system(frame_system::RawOrigin::Signed(submitter.clone()));
+
+		let proposal_origin =
+			OriginCaller::system(frame_system::RawOrigin::Signed(submitter.clone()));
 		let proposal = set_balance_proposal_bounded(100u128);
 		let enactment_moment = DispatchTime::At(10u64.into());
 
@@ -402,7 +400,7 @@ impl ExtBuilder {
 			proposal,
 			enactment_moment,
 		));
-		
+
 		let count = pallet_referenda::ReferendumCount::<Test>::get();
 		assert!(count > 0, "Referendum should be created");
 		count - 1 // Return the index (0-based)
@@ -424,7 +422,7 @@ impl ExtBuilder {
 			RuntimeOrigin::signed(depositor),
 			referendum_index,
 		));
-		
+
 		// Verify deposit was placed
 		let referendum_info = pallet_referenda::ReferendumInfoFor::<Test>::get(referendum_index);
 		if let Some(pallet_referenda::ReferendumInfo::Ongoing(status)) = referendum_info {
