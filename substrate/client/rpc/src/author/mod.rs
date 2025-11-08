@@ -18,6 +18,8 @@
 
 //! Substrate block-author/full-node API.
 
+//! Substrate block-author/full-node API.
+
 #[cfg(test)]
 mod tests;
 
@@ -31,7 +33,7 @@ use jsonrpsee::{core::async_trait, types::ErrorObject, Extensions, PendingSubscr
 use sc_rpc_api::check_if_safe;
 use sc_transaction_pool_api::{
 	error::IntoPoolError, BlockHash, InPoolTransaction, TransactionFor, TransactionPool,
-	TransactionReceipt, TransactionSource, TxHash, TxInvalidityReportMap,
+	TransactionReceipt, TransactionSource, TransactionStatus, TxHash, TxInvalidityReportMap,
 };
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
@@ -40,6 +42,8 @@ use sp_keystore::{KeystoreExt, KeystorePtr};
 use sp_runtime::traits::Block as BlockT;
 use sp_session::SessionKeys;
 use std::sync::Arc;
+
+use sc_transaction_pool::TransactionReceiptDb;
 
 /// Re-export the API for backward compatibility.
 pub use sc_rpc_api::author::*;
@@ -54,6 +58,8 @@ pub struct Author<P, Client> {
 	keystore: KeystorePtr,
 	/// Executor to spawn subscriptions.
 	executor: SubscriptionTaskExecutor,
+	/// Transaction receipt database
+	receipt_db: Option<Arc<TransactionReceiptDb>>,
 }
 
 impl<P, Client> Author<P, Client> {
@@ -63,8 +69,9 @@ impl<P, Client> Author<P, Client> {
 		pool: Arc<P>,
 		keystore: KeystorePtr,
 		executor: SubscriptionTaskExecutor,
+		receipt_db: Option<Arc<TransactionReceiptDb>>,
 	) -> Self {
-		Author { client, pool, keystore, executor }
+		Author { client, pool, keystore, executor, receipt_db }
 	}
 }
 
@@ -74,6 +81,58 @@ impl<P, Client> Author<P, Client> {
 /// of such transactions, so that the block authors can inject
 /// some unique transactions via RPC and have them included in the pool.
 const TX_SOURCE: TransactionSource = TransactionSource::External;
+
+/// Helper function to convert string-based events to typed events
+fn convert_string_event_to_typed<TxHash, BlockHash>(
+	event: &TransactionStatus<String, String>,
+) -> Option<TransactionStatus<TxHash, BlockHash>>
+where
+	TxHash: Decode,
+	BlockHash: Decode,
+{
+	match event {
+		TransactionStatus::Ready => Some(TransactionStatus::Ready),
+		TransactionStatus::Future => Some(TransactionStatus::Future),
+		TransactionStatus::Broadcast(peers) => Some(TransactionStatus::Broadcast(peers.clone())),
+		TransactionStatus::InBlock((hash_str, idx)) => {
+			let clean_str = hash_str.trim_start_matches("0x");
+			hex::decode(clean_str)
+				.ok()
+				.and_then(|bytes| BlockHash::decode(&mut &bytes[..]).ok())
+				.map(|hash| TransactionStatus::InBlock((hash, *idx)))
+		},
+		TransactionStatus::Retracted(hash_str) => {
+			let clean_str = hash_str.trim_start_matches("0x");
+			hex::decode(clean_str)
+				.ok()
+				.and_then(|bytes| BlockHash::decode(&mut &bytes[..]).ok())
+				.map(TransactionStatus::Retracted)
+		},
+		TransactionStatus::FinalityTimeout(hash_str) => {
+			let clean_str = hash_str.trim_start_matches("0x");
+			hex::decode(clean_str)
+				.ok()
+				.and_then(|bytes| BlockHash::decode(&mut &bytes[..]).ok())
+				.map(TransactionStatus::FinalityTimeout)
+		},
+		TransactionStatus::Finalized((hash_str, idx)) => {
+			let clean_str = hash_str.trim_start_matches("0x");
+			hex::decode(clean_str)
+				.ok()
+				.and_then(|bytes| BlockHash::decode(&mut &bytes[..]).ok())
+				.map(|hash| TransactionStatus::Finalized((hash, *idx)))
+		},
+		TransactionStatus::Usurped(hash_str) => {
+			let clean_str = hash_str.trim_start_matches("0x");
+			hex::decode(clean_str)
+				.ok()
+				.and_then(|bytes| TxHash::decode(&mut &bytes[..]).ok())
+				.map(TransactionStatus::Usurped)
+		},
+		TransactionStatus::Dropped => Some(TransactionStatus::Dropped),
+		TransactionStatus::Invalid => Some(TransactionStatus::Invalid),
+	}
+}
 
 #[async_trait]
 impl<P, Client> AuthorApiServer<TxHash<P>, BlockHash<P>> for Author<P, Client>
@@ -219,9 +278,55 @@ where
 		&self,
 		hash: TxHash<P>,
 	) -> std::result::Result<Option<TransactionReceipt<BlockHash<P>, TxHash<P>>>, Error> {
-		match self.pool.get_transaction_receipt(&hash).await {
-			Some(receipt) => Ok(Some(receipt)),
-			None => Ok(None),
+		// First try to get from the pool's in-memory tracker
+		if let Some(receipt) = self.pool.get_transaction_receipt(&hash).await {
+			return Ok(Some(receipt));
+		}
+
+		// Fallback to database if available
+		if let Some(ref db) = self.receipt_db {
+			// Use hex encoding of the hash for database lookup
+			let hash_bytes = hash.encode();
+			let hash_str = format!("0x{}", hex::encode(&hash_bytes));
+
+			match db.get_transaction_receipt(&hash_str).await {
+				Ok(Some(receipt)) => {
+					// Convert string-based receipt to proper types
+					let block_hash = receipt.block_hash.and_then(|bh_str| {
+						let clean_str = bh_str.trim_start_matches("0x");
+						hex::decode(clean_str)
+							.ok()
+							.and_then(|bytes| BlockHash::<P>::decode(&mut &bytes[..]).ok())
+					});
+
+					// Convert string events back to proper types
+					let events: Vec<TransactionStatus<TxHash<P>, BlockHash<P>>> = receipt
+						.events
+						.iter()
+						.filter_map(|event| {
+							convert_string_event_to_typed::<TxHash<P>, BlockHash<P>>(event)
+						})
+						.collect();
+
+					let converted_receipt = TransactionReceipt {
+						status: receipt.status,
+						block_hash,
+						block_number: receipt.block_number,
+						transaction_index: receipt.transaction_index,
+						events,
+						transaction_hash: hash,
+						submitted_at: receipt.submitted_at,
+					};
+					Ok(Some(converted_receipt))
+				},
+				Ok(None) => Ok(None),
+				Err(e) => {
+					log::warn!("Failed to get transaction receipt from database: {}", e);
+					Ok(None)
+				},
+			}
+		} else {
+			Ok(None)
 		}
 	}
 }

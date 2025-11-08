@@ -33,7 +33,7 @@ use crate::{
 		self, base_pool::TimedTransactionSource, EventHandler, ExtrinsicHash, IsValidator,
 		RawExtrinsicFor,
 	},
-	ReadyIteratorFor, ValidateTransactionPriority, LOG_TARGET,
+	ReadyIteratorFor, TransactionReceiptDb, ValidateTransactionPriority, LOG_TARGET,
 };
 use async_trait::async_trait;
 use futures::{channel::oneshot, future, prelude::*, Future, FutureExt};
@@ -75,6 +75,7 @@ where
 	ready_poll: Arc<Mutex<ReadyPoll<ReadyIteratorFor<PoolApi>, Block>>>,
 	metrics: PrometheusMetrics,
 	enactment_state: Arc<Mutex<EnactmentState<Block>>>,
+	receipt_db: Arc<Mutex<Option<Arc<TransactionReceiptDb>>>>,
 }
 
 struct ReadyPoll<T, Block: BlockT> {
@@ -174,6 +175,7 @@ where
 					best_block_hash,
 					finalized_hash,
 				))),
+				receipt_db: Arc::new(Mutex::new(None)),
 			},
 			background_task,
 		)
@@ -229,6 +231,7 @@ where
 				best_block_hash,
 				finalized_hash,
 			))),
+			receipt_db: Arc::new(Mutex::new(None)),
 		}
 	}
 
@@ -457,8 +460,10 @@ where
 		prometheus: Option<&PrometheusRegistry>,
 		spawner: impl SpawnEssentialNamed,
 		client: Arc<Client>,
+		receipt_db: Option<Arc<TransactionReceiptDb>>,
 	) -> Self {
 		let pool_api = Arc::new(FullChainApi::new(client.clone(), prometheus, &spawner));
+
 		let pool = Self::with_revalidation_type(
 			options,
 			is_validator,
@@ -471,7 +476,17 @@ where
 			client.usage_info().chain.finalized_hash,
 		);
 
+		// Set receipt database
+		if let Some(db) = receipt_db {
+			pool.set_receipt_db(db);
+		}
+
 		pool
+	}
+
+	/// Set the receipt database for transaction tracking
+	pub fn set_receipt_db(&self, receipt_db: Arc<TransactionReceiptDb>) {
+		*self.receipt_db.lock() = Some(receipt_db);
 	}
 }
 
@@ -802,6 +817,148 @@ where
 			self.revalidation_queue.revalidate_later(hash_and_number.hash, hashes).await;
 
 			self.revalidation_strategy.lock().clear();
+		}
+	}
+
+	/// Track a pending transaction
+	async fn track_pending_transaction(&self, tx_hash: Block::Hash) {
+		if let Some(ref db) = *self.receipt_db.lock() {
+			let tx_hash_bytes = tx_hash.as_ref();
+			let submitted_at = std::time::SystemTime::now()
+				.duration_since(std::time::UNIX_EPOCH)
+				.unwrap()
+				.as_millis() as u64;
+
+			if let Err(e) =
+				db.add_pending_transaction(&hex::encode(tx_hash_bytes), submitted_at).await
+			{
+				log::warn!(
+					"Failed to track pending transaction {}: {}",
+					hex::encode(tx_hash_bytes),
+					e
+				);
+			}
+		}
+	}
+
+	/// Track transaction included in block
+	async fn track_transaction_in_block(
+		&self,
+		tx_hash: Block::Hash,
+		block_hash: Block::Hash,
+		block_number: NumberFor<Block>,
+		index: usize,
+		events: Vec<sc_transaction_pool_api::TransactionStatus<Block::Hash, Block::Hash>>,
+	) {
+		if let Some(ref db) = *self.receipt_db.lock() {
+			let tx_hash_str = format!("{:?}", tx_hash);
+			let block_hash_str = format!("{:?}", block_hash);
+			let block_number_u64 = block_number.saturated_into();
+
+			// Convert events to string format for storage
+			let events_str: Vec<sc_transaction_pool_api::TransactionStatus<String, String>> =
+				events
+					.into_iter()
+					.map(|event| match event {
+						sc_transaction_pool_api::TransactionStatus::Ready =>
+							sc_transaction_pool_api::TransactionStatus::Ready,
+						sc_transaction_pool_api::TransactionStatus::Future =>
+							sc_transaction_pool_api::TransactionStatus::Future,
+						sc_transaction_pool_api::TransactionStatus::Broadcast(peers) =>
+							sc_transaction_pool_api::TransactionStatus::Broadcast(peers),
+						sc_transaction_pool_api::TransactionStatus::InBlock((hash, idx)) =>
+							sc_transaction_pool_api::TransactionStatus::InBlock((
+								format!("{:?}", hash),
+								idx,
+							)),
+						sc_transaction_pool_api::TransactionStatus::Retracted(hash) =>
+							sc_transaction_pool_api::TransactionStatus::Retracted(format!(
+								"{:?}",
+								hash
+							)),
+						sc_transaction_pool_api::TransactionStatus::FinalityTimeout(hash) =>
+							sc_transaction_pool_api::TransactionStatus::FinalityTimeout(format!(
+								"{:?}",
+								hash
+							)),
+						sc_transaction_pool_api::TransactionStatus::Finalized((hash, idx)) =>
+							sc_transaction_pool_api::TransactionStatus::Finalized((
+								format!("{:?}", hash),
+								idx,
+							)),
+						sc_transaction_pool_api::TransactionStatus::Usurped(hash) =>
+							sc_transaction_pool_api::TransactionStatus::Usurped(format!(
+								"{:?}",
+								hash
+							)),
+						sc_transaction_pool_api::TransactionStatus::Dropped =>
+							sc_transaction_pool_api::TransactionStatus::Dropped,
+						sc_transaction_pool_api::TransactionStatus::Invalid =>
+							sc_transaction_pool_api::TransactionStatus::Invalid,
+					})
+					.collect();
+
+			if let Err(e) = db
+				.update_transaction_in_block(
+					&tx_hash_str,
+					&block_hash_str,
+					block_number_u64,
+					index,
+					&events_str,
+				)
+				.await
+			{
+				log::warn!("Failed to track transaction in block {}: {}", tx_hash_str, e);
+			}
+		}
+	}
+
+	/// Track finalized transaction
+	async fn track_transaction_finalized(
+		&self,
+		tx_hash: Block::Hash,
+		block_hash: Block::Hash,
+		block_number: NumberFor<Block>,
+		index: usize,
+	) {
+		if let Some(ref db) = *self.receipt_db.lock() {
+			let tx_hash_str = format!("{:?}", tx_hash);
+			let block_hash_str = format!("{:?}", block_hash);
+			let block_number_u64 = block_number.saturated_into();
+
+			if let Err(e) = db
+				.update_transaction_finalized(
+					&tx_hash_str,
+					&block_hash_str,
+					block_number_u64,
+					index,
+				)
+				.await
+			{
+				log::warn!("Failed to track finalized transaction {}: {}", tx_hash_str, e);
+			}
+		}
+	}
+
+	/// Track dropped transaction
+	async fn track_transaction_dropped(&self, tx_hash: Block::Hash) {
+		if let Some(ref db) = *self.receipt_db.lock() {
+			let tx_hash_str = format!("{:?}", tx_hash);
+
+			if let Err(e) = db.mark_transaction_dropped(&tx_hash_str).await {
+				log::warn!("Failed to track dropped transaction {}: {}", tx_hash_str, e);
+			}
+		}
+	}
+
+	/// Track invalid transaction
+	async fn track_transaction_invalid(&self, tx_hash: Block::Hash) {
+		if let Some(ref db) = *self.receipt_db.lock() {
+			let tx_hash_str = format!("{:?}", tx_hash);
+
+			if let Err(e) = db.mark_transaction_invalid(&tx_hash_str).await {
+				log::warn!("Failed to track invalid transaction {}: {}", tx_hash_str, e);
+			}
 		}
 	}
 }
