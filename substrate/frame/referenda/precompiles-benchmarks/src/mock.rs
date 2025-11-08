@@ -271,6 +271,8 @@ impl VoteTally<u32, u8> for Tally {
 	fn setup(_: u8, _: Perbill) {}
 }
 
+impl crate::pallet::Config for Test {}
+
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let balances = vec![(ALICE, 100), (BOB, 100)];
