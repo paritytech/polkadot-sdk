@@ -567,8 +567,6 @@ pub mod pallet {
 		///
 		/// This happens if the passed `gas` inside the ethereum transaction is too low.
 		TxFeeOverdraw = 0x35,
-		/// `eth_substrate_call` can only be used in development.
-		EthSubstrateCallNotAllowed = 0x36,
 
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]

@@ -29,7 +29,7 @@ use crate::{
 };
 use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::{
-	assert_err, assert_noop, assert_ok, dispatch::GetDispatchInfo, traits::fungible::Mutate,
+	assert_err, assert_noop, assert_ok, traits::fungible::Mutate,
 };
 use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType};
 use pretty_assertions::assert_eq;
@@ -365,16 +365,16 @@ fn eth_substrate_call_tracks_weight_correctly() {
 
 		assert_ok!(result);
 		let post_info = result.unwrap();
-		let overhead = <Test as Config>::WeightInfo::eth_substrate_call(transaction_encoded_len);
 
-		let expected_max_weight =
-			overhead.saturating_add(inner_call.get_dispatch_info().call_weight);
-
+		// Remark call returns default PostInfo, so the actual weight should equal the overhead from
+		// eth_substrate_call.
+		let expected_weight =
+			<Test as Config>::WeightInfo::eth_substrate_call(transaction_encoded_len);
 		assert!(
-			expected_max_weight.ref_time() >= post_info.actual_weight.unwrap().ref_time(),
-			"expected_max_weight ref_time ({}) should be >= actual_weight ({})",
-			expected_max_weight.ref_time(),
-			post_info.actual_weight.unwrap().ref_time(),
+			expected_weight == post_info.actual_weight.unwrap(),
+			"expected_weight ({}) should be == actual_weight ({})",
+			expected_weight,
+			post_info.actual_weight.unwrap(),
 		);
 	});
 }
