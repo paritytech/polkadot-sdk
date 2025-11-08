@@ -13267,6 +13267,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-referenda-precompiles-benchmarks"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-preimage",
+ "pallet-referenda",
+ "pallet-referenda-precompiles",
+ "pallet-revive",
+ "pallet-scheduler",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+ "sp-runtime",
+ "tracing",
+]
+
+[[package]]
 name = "pallet-remark"
 version = "28.0.0"
 dependencies = [
@@ -16626,6 +16647,8 @@ dependencies = [
  "pallet-ranked-collective",
  "pallet-recovery",
  "pallet-referenda",
+ "pallet-referenda-precompiles",
+ "pallet-referenda-precompiles-benchmarks",
  "pallet-remark",
  "pallet-revive",
  "pallet-revive-proc-macro",

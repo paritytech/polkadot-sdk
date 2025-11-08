@@ -1,0 +1,71 @@
+[package]
+name = "pallet-referenda-precompiles-benchmarks"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "Provides benchmarks for the precompiles of the referenda pallet"
+publish = false
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { features = ["derive"], workspace = true }
+tracing = { workspace = true }
+
+frame-support = { workspace = true }
+pallet-revive = { workspace = true }
+
+pallet-referenda = { workspace = true }
+pallet-referenda-precompiles = {workspace = true}
+
+frame-benchmarking = { workspace = true }
+frame-system = { workspace = true}
+pallet-balances = { workspace = true }
+pallet-timestamp = { workspace = true }
+pallet-preimage = { workspace = true }
+pallet-scheduler = { workspace = true }
+
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+scale-info = { workspace = true }
+
+
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"frame-benchmarking/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-revive/std",
+	"pallet-referenda/std",
+	"pallet-referenda-precompiles/std",
+	"pallet-balances/std",
+	"pallet-timestamp/std",
+	"pallet-preimage/std",
+	"pallet-scheduler/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"tracing/std",
+	"scale-info/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-revive/runtime-benchmarks",
+	"pallet-referenda/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-preimage/runtime-benchmarks",
+	"pallet-scheduler/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

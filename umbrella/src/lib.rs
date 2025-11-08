@@ -631,7 +631,13 @@ pub use pallet_recovery;
 /// FRAME pallet for inclusive on-chain decisions.
 #[cfg(feature = "pallet-referenda")]
 pub use pallet_referenda;
+/// Provides precompiles for the `referenda` pallet.
+#[cfg(feature = "pallet-referenda-precompiles")]
+pub use pallet_referenda_precompiles;
 
+/// Provides benchmarks for the precompiles of the `referenda` pallet.
+#[cfg(feature = "pallet-referenda-precompiles-benchmarks")]
+pub use pallet_referenda_precompiles_benchmarks;
 /// Remark storage pallet.
 #[cfg(feature = "pallet-remark")]
 pub use pallet_remark;

@@ -131,6 +131,8 @@ std = [
 	"pallet-ranked-collective?/std",
 	"pallet-recovery?/std",
 	"pallet-referenda?/std",
+		"pallet-referenda-precompiles?/std",
+	"pallet-referenda-precompiles-benchmarks?/std",
 	"pallet-remark?/std",
 	"pallet-revive?/std",
 	"pallet-root-offences?/std",
@@ -320,6 +322,8 @@ runtime-benchmarks = [
 	"pallet-ranked-collective?/runtime-benchmarks",
 	"pallet-recovery?/runtime-benchmarks",
 	"pallet-referenda?/runtime-benchmarks",
+	"pallet-referenda-precompiles?/runtime-benchmarks",
+	"pallet-referenda-precompiles-benchmarks?/runtime-benchmarks",
 	"pallet-remark?/runtime-benchmarks",
 	"pallet-revive?/runtime-benchmarks",
 	"pallet-root-offences?/runtime-benchmarks",
@@ -461,6 +465,7 @@ try-runtime = [
 	"pallet-ranked-collective?/try-runtime",
 	"pallet-recovery?/try-runtime",
 	"pallet-referenda?/try-runtime",
+	"pallet-referenda-precompiles?/try-runtime",
 	"pallet-remark?/try-runtime",
 	"pallet-revive?/try-runtime",
 	"pallet-root-offences?/try-runtime",
@@ -680,6 +685,8 @@ runtime-full = [
 	"pallet-ranked-collective",
 	"pallet-recovery",
 	"pallet-referenda",
+	"pallet-referenda-precompiles",
+	"pallet-referenda-precompiles-benchmarks",
 	"pallet-remark",
 	"pallet-revive",
 	"pallet-revive-proc-macro",
@@ -1644,6 +1651,16 @@ path = "../substrate/frame/recovery"
 default-features = false
 optional = true
 path = "../substrate/frame/referenda"
+
+[dependencies.pallet-referenda-precompiles]
+default-features = false
+optional = true
+path = "../substrate/frame/referenda/precompiles"
+
+[dependencies.pallet-referenda-precompiles-benchmarks]
+default-features = false
+optional = true
+path = "../substrate/frame/referenda/precompiles-benchmarks"
 
 [dependencies.pallet-remark]
 default-features = false
