@@ -24,20 +24,19 @@ use crate::{
 	BalanceWithDust, Code, Config, EthBlock, EthBlockBuilderFirstValues, EthBlockBuilderIR,
 	EthereumBlock, Pallet, ReceiptGasInfo, ReceiptInfoData,
 };
-
+use alloy_consensus::RlpEncodableReceipt;
+use alloy_core::primitives::{FixedBytes, Log as AlloyLog};
 use frame_support::traits::{
 	fungible::{Balanced, Mutate},
 	Hooks,
 };
 use pallet_revive_fixtures::compile_module;
 
-use alloy_consensus::RlpEncodableReceipt;
-use alloy_core::primitives::{FixedBytes, Log as AlloyLog};
-
 #[test]
 fn on_initialize_clears_storage() {
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let receipt_data = vec![ReceiptGasInfo { gas_used: 1.into() }];
+		let receipt_data =
+			vec![ReceiptGasInfo { gas_used: 1.into(), effective_gas_price: 1.into() }];
 		ReceiptInfoData::<Test>::put(receipt_data.clone());
 		assert_eq!(ReceiptInfoData::<Test>::get(), receipt_data);
 
@@ -64,29 +63,29 @@ fn transactions_are_captured() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(binary.clone())).build_and_unwrap_contract();
+		let Contract { addr: addr2, .. } =
+			builder::bare_instantiate(Code::Upload(gas_binary.clone())).build_and_unwrap_contract();
 		let balance =
 			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
 
 		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(5_000_000_000));
 
-		assert_ok!(builder::eth_call(addr).value(balance).build());
-		assert_ok!(builder::eth_instantiate_with_code(binary).value(balance).build());
+		// eth calls are captured.
+		assert_ok!(builder::eth_call(addr).transaction_encoded(vec![1]).value(balance).build());
+		assert_ok!(builder::eth_instantiate_with_code(binary)
+			.value(balance)
+			.transaction_encoded(vec![2])
+			.build());
+		assert_ok!(builder::eth_call(addr2).transaction_encoded(vec![3]).build());
 
-		// Call is not captured.
+		// non-eth calls are not captured.
 		assert_ok!(builder::call(addr).value(1).build());
-		// Instantiate with code is not captured.
-		assert_ok!(builder::instantiate_with_code(gas_binary).value(1).build());
+		assert_ok!(builder::instantiate_with_code(gas_binary).salt(Some([1u8; 32])).build());
 
 		let block_builder = EthBlockBuilderIR::<Test>::get();
-		// Only 2 transactions were captured.
-		assert_eq!(block_builder.gas_info.len(), 2);
+		assert_eq!(block_builder.gas_info.len(), 3, "3 transactions were captured");
 
-		let expected_payloads = vec![
-			// Signed payload of eth_call.
-			TransactionSigned::TransactionLegacySigned(Default::default()).signed_payload(),
-			// Signed payload of eth_instantiate_with_code.
-			TransactionSigned::Transaction4844Signed(Default::default()).signed_payload(),
-		];
+		let expected_payloads = vec![vec![1u8], vec![2u8], vec![3u8]];
 		let expected_tx_root = Block::compute_trie_root(&expected_payloads);
 
 		// Double check the trie root hash.
@@ -99,6 +98,7 @@ fn transactions_are_captured() {
 		assert_eq!(tx_root, expected_tx_root.0.into());
 
 		Contracts::on_finalize(0);
+		assert_eq!(crate::EthereumBlock::<Test>::get().transactions.len(), 3);
 
 		// Builder is killed on finalize.
 		let block_builder = EthBlockBuilderIR::<Test>::get();
