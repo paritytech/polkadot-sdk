@@ -60,205 +60,11 @@ use frame_system::{EventRecord, Phase};
 use pallet_revive_fixtures::compile_module;
 use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 use pretty_assertions::{assert_eq, assert_ne};
-use sp_core::{Get, U256};
+use sp_core::U256;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-	testing::H256, traits::Zero, AccountId32, BoundedVec, DispatchError, SaturatedConversion,
-	TokenError,
+	testing::H256, AccountId32, BoundedVec, DispatchError, SaturatedConversion, TokenError,
 };
-
-#[test]
-fn transfer_with_dust_works() {
-	struct TestCase {
-		description: &'static str,
-		from: H160,
-		to: H160,
-		from_balance: BalanceWithDust<u64>,
-		to_balance: BalanceWithDust<u64>,
-		amount: BalanceWithDust<u64>,
-		expected_from_balance: BalanceWithDust<u64>,
-		expected_to_balance: BalanceWithDust<u64>,
-		total_issuance_diff: i64,
-		expected_error: Option<DispatchError>,
-	}
-
-	let plank: u32 = <Test as Config>::NativeToEthRatio::get();
-
-	let test_cases = vec![
-		TestCase {
-			description: "without dust",
-			from: ALICE_ADDR,
-			to: BOB_ADDR,
-			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 0),
-			to_balance: BalanceWithDust::new_unchecked::<Test>(0, 0),
-			amount: BalanceWithDust::new_unchecked::<Test>(1, 0),
-			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(99, 0),
-			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(1, 0),
-			total_issuance_diff: 0,
-			expected_error: None,
-		},
-		TestCase {
-			description: "with dust",
-			from: ALICE_ADDR,
-			to: BOB_ADDR,
-			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 0),
-			to_balance: BalanceWithDust::new_unchecked::<Test>(0, 0),
-			amount: BalanceWithDust::new_unchecked::<Test>(1, 10),
-			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(98, plank - 10),
-			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(1, 10),
-			total_issuance_diff: 1,
-			expected_error: None,
-		},
-		TestCase {
-			description: "just dust",
-			from: ALICE_ADDR,
-			to: BOB_ADDR,
-			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 0),
-			to_balance: BalanceWithDust::new_unchecked::<Test>(0, 0),
-			amount: BalanceWithDust::new_unchecked::<Test>(0, 10),
-			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(99, plank - 10),
-			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
-			total_issuance_diff: 1,
-			expected_error: None,
-		},
-		TestCase {
-			description: "with existing dust",
-			from: ALICE_ADDR,
-			to: BOB_ADDR,
-			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 5),
-			to_balance: BalanceWithDust::new_unchecked::<Test>(0, plank - 5),
-			amount: BalanceWithDust::new_unchecked::<Test>(1, 10),
-			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(98, plank - 5),
-			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(2, 5),
-			total_issuance_diff: 0,
-			expected_error: None,
-		},
-		TestCase {
-			description: "with enough existing dust",
-			from: ALICE_ADDR,
-			to: BOB_ADDR,
-			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 10),
-			to_balance: BalanceWithDust::new_unchecked::<Test>(0, plank - 10),
-			amount: BalanceWithDust::new_unchecked::<Test>(1, 10),
-			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(99, 0),
-			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(2, 0),
-			total_issuance_diff: -1,
-			expected_error: None,
-		},
-		TestCase {
-			description: "receiver dust less than 1 plank",
-			from: ALICE_ADDR,
-			to: BOB_ADDR,
-			from_balance: BalanceWithDust::new_unchecked::<Test>(100, plank / 10),
-			to_balance: BalanceWithDust::new_unchecked::<Test>(0, plank / 2),
-			amount: BalanceWithDust::new_unchecked::<Test>(1, plank / 10 * 3),
-			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(98, plank / 10 * 8),
-			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(1, plank / 10 * 8),
-			total_issuance_diff: 1,
-			expected_error: None,
-		},
-		TestCase {
-			description: "insufficient balance",
-			from: ALICE_ADDR,
-			to: BOB_ADDR,
-			from_balance: BalanceWithDust::new_unchecked::<Test>(10, 0),
-			to_balance: BalanceWithDust::new_unchecked::<Test>(10, 0),
-			amount: BalanceWithDust::new_unchecked::<Test>(20, 0),
-			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(10, 0),
-			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(10, 0),
-			total_issuance_diff: 0,
-			expected_error: Some(Error::<Test>::TransferFailed.into()),
-		},
-		TestCase {
-			description: "from = to with insufficient balance",
-			from: ALICE_ADDR,
-			to: ALICE_ADDR,
-			from_balance: BalanceWithDust::new_unchecked::<Test>(10, 0),
-			to_balance: BalanceWithDust::new_unchecked::<Test>(10, 0),
-			amount: BalanceWithDust::new_unchecked::<Test>(20, 0),
-			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(10, 0),
-			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(10, 0),
-			total_issuance_diff: 0,
-			expected_error: Some(Error::<Test>::TransferFailed.into()),
-		},
-		TestCase {
-			description: "from = to with insufficient balance",
-			from: ALICE_ADDR,
-			to: ALICE_ADDR,
-			from_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
-			to_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
-			amount: BalanceWithDust::new_unchecked::<Test>(0, 20),
-			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
-			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
-			total_issuance_diff: 0,
-			expected_error: Some(Error::<Test>::TransferFailed.into()),
-		},
-		TestCase {
-			description: "from = to",
-			from: ALICE_ADDR,
-			to: ALICE_ADDR,
-			from_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
-			to_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
-			amount: BalanceWithDust::new_unchecked::<Test>(0, 5),
-			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
-			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
-			total_issuance_diff: 0,
-			expected_error: None,
-		},
-	];
-
-	for TestCase {
-		description,
-		from,
-		to,
-		from_balance,
-		to_balance,
-		amount,
-		expected_from_balance,
-		expected_to_balance,
-		total_issuance_diff,
-		expected_error,
-	} in test_cases.into_iter()
-	{
-		ExtBuilder::default().build().execute_with(|| {
-			set_balance_with_dust(&from, from_balance);
-			set_balance_with_dust(&to, to_balance);
-
-			let total_issuance = <Test as Config>::Currency::total_issuance();
-			let evm_value = Pallet::<Test>::convert_native_to_evm(amount);
-
-			let (value, dust) = amount.deconstruct();
-			assert_eq!(Pallet::<Test>::has_dust(evm_value), !dust.is_zero());
-			assert_eq!(Pallet::<Test>::has_balance(evm_value), !value.is_zero());
-
-			let result = builder::bare_call(to).evm_value(evm_value).build();
-
-			if let Some(expected_error) = expected_error {
-				assert_err!(result.result, expected_error);
-			} else {
-				assert_eq!(result.result.unwrap(), Default::default(), "{description} tx failed");
-			}
-
-			assert_eq!(
-				Pallet::<Test>::evm_balance(&from),
-				Pallet::<Test>::convert_native_to_evm(expected_from_balance),
-				"{description}: invalid from balance"
-			);
-
-			assert_eq!(
-				Pallet::<Test>::evm_balance(&to),
-				Pallet::<Test>::convert_native_to_evm(expected_to_balance),
-				"{description}: invalid to balance"
-			);
-
-			assert_eq!(
-				total_issuance as i64 - total_issuance_diff,
-				<Test as Config>::Currency::total_issuance() as i64,
-				"{description}: total issuance should match"
-			);
-		});
-	}
-}
 
 #[test]
 fn eth_call_transfer_with_dust_works() {
@@ -5325,5 +5131,37 @@ fn consume_all_gas_works() {
 			GAS_LIMIT,
 			"callvalue == 1 should not consume all gas"
 		);
+	});
+}
+
+#[test]
+fn existential_deposit_shall_not_charged_twice() {
+	let (code, _) = compile_module("dummy").unwrap();
+
+	let salt = [0u8; 32];
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
+		let callee_addr = create2(
+			&ALICE_ADDR,
+			&code,
+			&[0u8; 0], // empty input
+			&salt,
+		);
+		let callee_account = <Test as Config>::AddressMapper::to_account_id(&callee_addr);
+
+		// first send funds to callee_addr
+		let _ = <Test as Config>::Currency::set_balance(&callee_account, Contracts::min_balance());
+		assert_eq!(get_balance(&callee_account), Contracts::min_balance());
+
+		// then deploy contract to callee_addr using create2
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
+			.salt(Some(salt))
+			.build_and_unwrap_contract();
+
+		assert_eq!(callee_addr, addr);
+
+		// check we charged ed only 1 time
+		assert_eq!(get_balance(&callee_account), Contracts::min_balance());
 	});
 }
