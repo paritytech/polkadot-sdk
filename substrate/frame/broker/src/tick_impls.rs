@@ -267,6 +267,7 @@ impl<T: Config> Pallet<T> {
 		Self::renew_cores(&new_sale);
 
 		Self::deposit_event(Event::SaleInitialized {
+			sale_id: region_begin,
 			sale_start,
 			leadin_length,
 			start_price: Self::sale_price(&new_sale, now),

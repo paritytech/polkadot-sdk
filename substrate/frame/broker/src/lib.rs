@@ -318,6 +318,9 @@ pub mod pallet {
 		},
 		/// A new sale has been initialized.
 		SaleInitialized {
+			/// Identifier of the sale period. This is the first timeslice (`region_begin`) for which
+			/// regions are being sold and uniquely identifies the sale.
+			sale_id: Timeslice,
 			/// The relay block number at which the sale will/did start.
 			sale_start: RelayBlockNumberOf<T>,
 			/// The length in relay chain blocks of the Leadin Period (where the price is
