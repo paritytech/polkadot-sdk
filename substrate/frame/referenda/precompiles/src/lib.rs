@@ -41,7 +41,7 @@ use pallet_revive::{
 use tracing::{error, info};
 
 alloy::sol!("src/interfaces/IReferenda.sol");
-use frame_support::weights::Weight;
+use frame_support::{dispatch::DispatchInfo, weights::Weight};
 use IReferenda::IReferendaCalls;
 const LOG_TARGET: &str = "referenda::precompiles";
 pub type RuntimeOriginFor<T> = <T as frame_system::Config>::RuntimeOrigin;
@@ -254,21 +254,26 @@ where
 					},
 					ExecOrigin::Root => frame_system::RawOrigin::Root.into(),
 				};
-				// 2. Charge gas (max weight for place_decision_deposit across all branches)
-				env.charge(<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::place_decision_deposit_worst_case())?;				// 3. Decode proposal origin
 
-				// let max_weight = Weight::zero()
-				// 	.max(<Runtime as pallet_referenda::Config>::WeightInfo::place_decision_deposit_preparing())
-				// 	.max(<Runtime as pallet_referenda::Config>::WeightInfo::place_decision_deposit_queued())
-				// 	.max(<Runtime as pallet_referenda::Config>::WeightInfo::place_decision_deposit_not_queued())
-				// 	.max(<Runtime as pallet_referenda::Config>::WeightInfo::place_decision_deposit_passing())
-				// 	.max(<Runtime as pallet_referenda::Config>::WeightInfo::place_decision_deposit_failing());
-				// env.charge(max_weight)?;
+				// 2. Pre-charge worst-case weight
+				let weight_to_charge =
+					<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::place_decision_deposit_worst_case();
+				let charged_amount = env.charge(weight_to_charge)?;
 
 				// 3. Place deposit
 				let result =
 					pallet_referenda::Pallet::<Runtime>::place_decision_deposit(origin, *index);
 
+				// 4. Extract actual weight and adjust gas (refund unused)
+				let pre = DispatchInfo {
+					call_weight: weight_to_charge,
+					extension_weight: Weight::zero(),
+					..Default::default()
+				};
+				let actual_weight = frame_support::dispatch::extract_actual_weight(&result, &pre);
+				env.adjust_gas(charged_amount, actual_weight);
+
+				// 5. Handle result
 				match result {
 					Ok(_) => Ok(Vec::new()),
 					Err(e) => Err(revert(&e, "Referenda place decision deposit failed")),
