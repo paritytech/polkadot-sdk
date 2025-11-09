@@ -312,7 +312,7 @@ pub use sp_api_proc_macro::decl_runtime_apis;
 /// #       fn version() -> sp_version::RuntimeVersion {
 /// #           unimplemented!()
 /// #       }
-/// #       fn execute_block(_block: Block) {}
+/// #       fn execute_block(_block: <Block as BlockT>::LazyBlock) {}
 /// #       fn initialize_block(_header: &<Block as BlockT>::Header) -> ExtrinsicInclusionMode {
 /// #           unimplemented!()
 /// #       }
@@ -825,7 +825,7 @@ decl_runtime_apis! {
 		/// Returns the version of the runtime.
 		fn version() -> RuntimeVersion;
 		/// Execute the given block.
-		fn execute_block(block: Block);
+		fn execute_block(block: Block::LazyBlock);
 		/// Initialize a block with the given header.
 		#[changed_in(5)]
 		#[renamed("initialise_block", 2)]

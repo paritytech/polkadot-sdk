@@ -22,7 +22,6 @@ pub mod meter;
 use crate::{
 	address::AddressMapper,
 	exec::{AccountIdOf, Key},
-	storage::meter::Diff,
 	tracing::if_tracing,
 	weights::WeightInfo,
 	AccountInfoOf, BalanceOf, BalanceWithDust, Config, DeletionQueue, DeletionQueueCounter, Error,
@@ -33,6 +32,10 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::{
 	storage::child::{self, ChildInfo},
+	traits::{
+		fungible::Inspect,
+		tokens::{Fortitude::Polite, Preservation::Preserve},
+	},
 	weights::{Weight, WeightMeter},
 	CloneNoBound, DebugNoBound, DefaultNoBound,
 };
@@ -157,15 +160,15 @@ impl<T: Config> AccountInfo<T> {
 	}
 
 	/// Returns the balance of the account at the given address.
-	pub fn balance(account: AccountIdOrAddress<T>) -> BalanceWithDust<BalanceOf<T>> {
-		use frame_support::traits::{
-			fungible::Inspect,
-			tokens::{Fortitude::Polite, Preservation::Preserve},
-		};
+	pub fn balance_of(account: AccountIdOrAddress<T>) -> BalanceWithDust<BalanceOf<T>> {
+		let info = <AccountInfoOf<T>>::get(account.address()).unwrap_or_default();
+		info.balance(&account.account_id())
+	}
 
-		let value = T::Currency::reducible_balance(&account.account_id(), Preserve, Polite);
-		let dust = <AccountInfoOf<T>>::get(account.address()).map(|a| a.dust).unwrap_or_default();
-		BalanceWithDust::new_unchecked::<T>(value, dust)
+	/// Returns the balance of this account info.
+	pub fn balance(&self, account: &AccountIdOf<T>) -> BalanceWithDust<BalanceOf<T>> {
+		let value = T::Currency::reducible_balance(account, Preserve, Polite);
+		BalanceWithDust::new_unchecked::<T>(value, self.dust)
 	}
 
 	/// Loads the contract information for a given address.
@@ -356,13 +359,15 @@ impl<T: Config> ContractInfo<T> {
 	/// the deposit paid to upload the contract's code. It also depends on the size of immutable
 	/// storage which is also changed when the code hash of a contract is changed.
 	pub fn update_base_deposit(&mut self, code_deposit: BalanceOf<T>) -> BalanceOf<T> {
-		let contract_deposit = Diff {
-			bytes_added: (self.encoded_size() as u32).saturating_add(self.immutable_data_len),
-			items_added: if self.immutable_data_len == 0 { 1 } else { 2 },
-			..Default::default()
-		}
-		.update_contract::<T>(None)
-		.charge_or_zero();
+		let contract_deposit = {
+			let bytes_added: u32 =
+				(self.encoded_size() as u32).saturating_add(self.immutable_data_len);
+			let items_added: u32 = if self.immutable_data_len == 0 { 1 } else { 2 };
+
+			T::DepositPerByte::get()
+				.saturating_mul(bytes_added.into())
+				.saturating_add(T::DepositPerItem::get().saturating_mul(items_added.into()))
+		};
 
 		// Instantiating the contract prevents its code to be deleted, therefore the base deposit
 		// includes a fraction (`T::CodeHashLockupDepositPercent`) of the original storage deposit
