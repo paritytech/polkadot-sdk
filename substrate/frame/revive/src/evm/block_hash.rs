@@ -42,6 +42,9 @@ use sp_core::{H256, U256};
 pub struct ReceiptGasInfo {
 	/// The amount of gas used for this specific transaction alone.
 	pub gas_used: U256,
+
+	/// The effective gas price for this transaction.
+	pub effective_gas_price: U256,
 }
 
 impl Block {

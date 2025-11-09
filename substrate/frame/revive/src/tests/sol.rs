@@ -23,14 +23,15 @@ use crate::{
 	tests::{
 		builder,
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
-		DebugFlag, ExtBuilder, Test,
+		AllowEvmBytecode, DebugFlag, ExtBuilder, RuntimeOrigin, Test,
 	},
-	Code, Config, Error, GenesisConfig, PristineCode,
+	Code, Config, Error, GenesisConfig, Pallet, PristineCode,
 };
 use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::{assert_err, assert_ok, traits::fungible::Mutate};
 use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType};
 use pretty_assertions::assert_eq;
+use test_case::test_case;
 
 use revm::bytecode::opcode::*;
 
@@ -205,7 +206,6 @@ fn upload_evm_runtime_code_works() {
 		exec::Executable,
 		primitives::ExecConfig,
 		storage::{AccountInfo, ContractInfo},
-		Pallet,
 	};
 
 	let (runtime_code, _runtime_hash) =
@@ -238,5 +238,67 @@ fn upload_evm_runtime_code_works() {
 			.build_and_unwrap_result();
 		let decoded = Fibonacci::fibCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(55u64, decoded, "Contract should correctly compute fibonacci(10)");
+	});
+}
+
+#[test]
+fn upload_and_remove_code_works_for_evm() {
+	let (code, code_hash) = compile_module_with_type("Dummy", FixtureType::SolcRuntime).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = Pallet::<Test>::set_evm_balance(&ALICE_ADDR, 5_000_000_000u64.into());
+
+		// Ensure the code is not already stored.
+		assert!(!PristineCode::<Test>::contains_key(&code_hash));
+
+		// Upload the code.
+		assert_ok!(Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u64));
+
+		// Ensure the contract was stored.
+		ensure_stored(code_hash);
+
+		// Remove the code.
+		assert_ok!(Pallet::<Test>::remove_code(RuntimeOrigin::signed(ALICE), code_hash));
+
+		// Ensure the code is no longer stored.
+		assert!(!PristineCode::<Test>::contains_key(&code_hash));
+	});
+}
+
+#[test]
+fn upload_fails_if_evm_bytecode_disabled() {
+	let (code, _) = compile_module_with_type("Dummy", FixtureType::SolcRuntime).unwrap();
+
+	AllowEvmBytecode::set(false); // Disable support for EVM bytecode.
+	ExtBuilder::default().build().execute_with(|| {
+		// Upload should fail since support for EVM bytecode is disabled.
+		assert_err!(
+			Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u64),
+			<Error<Test>>::CodeRejected
+		);
+	});
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn dust_work_with_child_calls(fixture_type: FixtureType) {
+	use pallet_revive_fixtures::CallSelfWithDust;
+	let (code, _) = compile_module_with_type("CallSelfWithDust", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+
+		let value = 1_000_000_000.into();
+		builder::bare_call(addr)
+			.data(
+				CallSelfWithDust::CallSelfWithDustCalls::call(CallSelfWithDust::callCall {})
+					.abi_encode(),
+			)
+			.evm_value(value)
+			.build_and_unwrap_result();
+
+		assert_eq!(crate::Pallet::<Test>::evm_balance(&addr), value);
 	});
 }

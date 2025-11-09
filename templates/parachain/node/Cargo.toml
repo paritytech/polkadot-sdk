@@ -23,7 +23,7 @@ jsonrpsee = { features = ["server"], workspace = true }
 log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 
-polkadot-sdk = { workspace = true, features = ["node"] }
+polkadot-sdk = { workspace = true, features = ["node", "polkadot-primitives"] }
 
 parachain-template-runtime = { workspace = true }
 
