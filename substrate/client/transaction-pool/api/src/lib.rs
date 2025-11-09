@@ -242,20 +242,20 @@ pub trait InPoolTransaction {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TransactionReceipt<BlockHash, TxHash> {
-    /// Current transaction status
-    pub status: TransactionStatusRpc,
-    /// Block hash where transaction is included (if any)
-    pub block_hash: Option<BlockHash>,
-    /// Block number where transaction is included (if any)
-    pub block_number: Option<u64>,
-    /// Transaction index within the block (if any)
-    pub transaction_index: Option<usize>,
-    /// All emitted events from this transaction
-    pub events: Vec<TransactionStatus<TxHash, BlockHash>>,
-    /// Transaction hash
-    pub transaction_hash: TxHash,
-    /// When the transaction was submitted (milliseconds since epoch)
-    pub submitted_at: u64,
+	/// Current transaction status
+	pub status: TransactionStatusRpc,
+	/// Block hash where transaction is included (if any)
+	pub block_hash: Option<BlockHash>,
+	/// Block number where transaction is included (if any)
+	pub block_number: Option<u64>,
+	/// Transaction index within the block (if any)
+	pub transaction_index: Option<usize>,
+	/// All emitted events from this transaction
+	pub events: Vec<TransactionStatus<TxHash, BlockHash>>,
+	/// Transaction hash
+	pub transaction_hash: TxHash,
+	/// When the transaction was submitted (milliseconds since epoch)
+	pub submitted_at: u64,
 }
 
 /// Simplified transaction status for RPC receipt

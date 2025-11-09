@@ -591,6 +591,7 @@ mod tests {
 			None,
 			spawner,
 			client.clone(),
+			None,
 		));
 		let source = sp_runtime::transaction_validity::TransactionSource::External;
 		let best = block_on(longest_chain.best_chain()).unwrap();

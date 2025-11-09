@@ -606,7 +606,7 @@ where
 		.map(|registry| sc_rpc_spec_v2::transaction::TransactionMetrics::new(registry))
 		.transpose()?;
 
-		let receipt_db: Option<Arc<sc_transaction_pool::TransactionReceiptDb>> = None;
+	let receipt_db: Option<Arc<sc_transaction_pool::TransactionReceiptDb>> = None;
 
 	let gen_rpc_module = || {
 		gen_rpc_module(GenRpcModuleParams {
@@ -791,7 +791,7 @@ pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl, TRpc, TExPool> {
 	/// Will be used by the `trace_block` RPC to execute the actual block.
 	pub tracing_execute_block: Option<Arc<dyn TracingExecuteBlock<TBl>>>,
 	/// Transaction receipt database for persistent storage
-    pub receipt_db: Option<Arc<sc_transaction_pool::TransactionReceiptDb>>,
+	pub receipt_db: Option<Arc<sc_transaction_pool::TransactionReceiptDb>>,
 }
 
 /// Generate RPC module using provided configuration
@@ -909,13 +909,13 @@ where
 	.into_rpc();
 
 	let author = sc_rpc::author::Author::new(
-        client.clone(),
-        transaction_pool,
-        keystore,
-        task_executor.clone(),
-        receipt_db,
-    )
-    .into_rpc();
+		client.clone(),
+		transaction_pool,
+		keystore,
+		task_executor.clone(),
+		receipt_db,
+	)
+	.into_rpc();
 
 	let system = sc_rpc::system::System::new(system_info, system_rpc_tx).into_rpc();
 

@@ -68,7 +68,7 @@ use sp_runtime::{
 	traits,
 	traits::{Block as BlockT, NumberFor},
 	transaction_validity::{TransactionTag as Tag, TransactionValidityError, ValidTransaction},
-	SaturatedConversion, Saturating,
+	Saturating,
 };
 use std::{
 	collections::{BTreeMap, HashMap, HashSet},
@@ -894,10 +894,12 @@ where
 		self.import_notification_sink.notified_items_len()
 	}
 
+	/// Sets the transaction receipt database for persistent transaction tracking.
 	pub fn set_receipt_db(&self, receipt_db: Arc<TransactionReceiptDb>) {
 		*self.receipt_db.lock() = Some(receipt_db);
 	}
 
+	/// Get transaction receipt
 	pub async fn get_transaction_receipt(
 		&self,
 		tx_hash: &graph::ExtrinsicHash<ChainApi>,
@@ -912,142 +914,142 @@ where
 		}
 	}
 
-	async fn track_pending_transaction(&self, tx_hash: Block::Hash) {
-		if let Some(ref db) = *self.receipt_db.lock() {
-			let tx_hash_bytes = tx_hash.as_ref();
-			let submitted_at = std::time::SystemTime::now()
-				.duration_since(std::time::UNIX_EPOCH)
-				.unwrap()
-				.as_millis() as u64;
+	// async fn track_pending_transaction(&self, tx_hash: Block::Hash) {
+	// 	if let Some(ref db) = *self.receipt_db.lock() {
+	// 		let tx_hash_bytes = tx_hash.as_ref();
+	// 		let submitted_at = std::time::SystemTime::now()
+	// 			.duration_since(std::time::UNIX_EPOCH)
+	// 			.unwrap()
+	// 			.as_millis() as u64;
 
-			if let Err(e) =
-				db.add_pending_transaction(&hex::encode(tx_hash_bytes), submitted_at).await
-			{
-				log::warn!(
-					"Failed to track pending transaction {}: {}",
-					hex::encode(tx_hash_bytes),
-					e
-				);
-			}
-		}
-	}
+	// 		if let Err(e) =
+	// 			db.add_pending_transaction(&hex::encode(tx_hash_bytes), submitted_at).await
+	// 		{
+	// 			log::warn!(
+	// 				"Failed to track pending transaction {}: {}",
+	// 				hex::encode(tx_hash_bytes),
+	// 				e
+	// 			);
+	// 		}
+	// 	}
+	// }
 
-	async fn track_transaction_in_block(
-		&self,
-		tx_hash: Block::Hash,
-		block_hash: Block::Hash,
-		block_number: NumberFor<Block>,
-		index: usize,
-		events: Vec<sc_transaction_pool_api::TransactionStatus<Block::Hash, Block::Hash>>,
-	) {
-		if let Some(ref db) = *self.receipt_db.lock() {
-			let tx_hash_str = format!("{:?}", tx_hash);
-			let block_hash_str = format!("{:?}", block_hash);
-			let block_number_u64 = block_number.saturated_into();
+	// async fn track_transaction_in_block(
+	// 	&self,
+	// 	tx_hash: Block::Hash,
+	// 	block_hash: Block::Hash,
+	// 	block_number: NumberFor<Block>,
+	// 	index: usize,
+	// 	events: Vec<sc_transaction_pool_api::TransactionStatus<Block::Hash, Block::Hash>>,
+	// ) {
+	// 	if let Some(ref db) = *self.receipt_db.lock() {
+	// 		let tx_hash_str = format!("{:?}", tx_hash);
+	// 		let block_hash_str = format!("{:?}", block_hash);
+	// 		let block_number_u64 = block_number.saturated_into();
 
-			// Convert events to string format for storage
-			let events_str: Vec<sc_transaction_pool_api::TransactionStatus<String, String>> =
-				events
-					.into_iter()
-					.map(|event| match event {
-						sc_transaction_pool_api::TransactionStatus::Ready =>
-							sc_transaction_pool_api::TransactionStatus::Ready,
-						sc_transaction_pool_api::TransactionStatus::Future =>
-							sc_transaction_pool_api::TransactionStatus::Future,
-						sc_transaction_pool_api::TransactionStatus::Broadcast(peers) =>
-							sc_transaction_pool_api::TransactionStatus::Broadcast(peers),
-						sc_transaction_pool_api::TransactionStatus::InBlock((hash, idx)) =>
-							sc_transaction_pool_api::TransactionStatus::InBlock((
-								format!("{:?}", hash),
-								idx,
-							)),
-						sc_transaction_pool_api::TransactionStatus::Retracted(hash) =>
-							sc_transaction_pool_api::TransactionStatus::Retracted(format!(
-								"{:?}",
-								hash
-							)),
-						sc_transaction_pool_api::TransactionStatus::FinalityTimeout(hash) =>
-							sc_transaction_pool_api::TransactionStatus::FinalityTimeout(format!(
-								"{:?}",
-								hash
-							)),
-						sc_transaction_pool_api::TransactionStatus::Finalized((hash, idx)) =>
-							sc_transaction_pool_api::TransactionStatus::Finalized((
-								format!("{:?}", hash),
-								idx,
-							)),
-						sc_transaction_pool_api::TransactionStatus::Usurped(hash) =>
-							sc_transaction_pool_api::TransactionStatus::Usurped(format!(
-								"{:?}",
-								hash
-							)),
-						sc_transaction_pool_api::TransactionStatus::Dropped =>
-							sc_transaction_pool_api::TransactionStatus::Dropped,
-						sc_transaction_pool_api::TransactionStatus::Invalid =>
-							sc_transaction_pool_api::TransactionStatus::Invalid,
-					})
-					.collect();
+	// 		// Convert events to string format for storage
+	// 		let events_str: Vec<sc_transaction_pool_api::TransactionStatus<String, String>> =
+	// 			events
+	// 				.into_iter()
+	// 				.map(|event| match event {
+	// 					sc_transaction_pool_api::TransactionStatus::Ready =>
+	// 						sc_transaction_pool_api::TransactionStatus::Ready,
+	// 					sc_transaction_pool_api::TransactionStatus::Future =>
+	// 						sc_transaction_pool_api::TransactionStatus::Future,
+	// 					sc_transaction_pool_api::TransactionStatus::Broadcast(peers) =>
+	// 						sc_transaction_pool_api::TransactionStatus::Broadcast(peers),
+	// 					sc_transaction_pool_api::TransactionStatus::InBlock((hash, idx)) =>
+	// 						sc_transaction_pool_api::TransactionStatus::InBlock((
+	// 							format!("{:?}", hash),
+	// 							idx,
+	// 						)),
+	// 					sc_transaction_pool_api::TransactionStatus::Retracted(hash) =>
+	// 						sc_transaction_pool_api::TransactionStatus::Retracted(format!(
+	// 							"{:?}",
+	// 							hash
+	// 						)),
+	// 					sc_transaction_pool_api::TransactionStatus::FinalityTimeout(hash) =>
+	// 						sc_transaction_pool_api::TransactionStatus::FinalityTimeout(format!(
+	// 							"{:?}",
+	// 							hash
+	// 						)),
+	// 					sc_transaction_pool_api::TransactionStatus::Finalized((hash, idx)) =>
+	// 						sc_transaction_pool_api::TransactionStatus::Finalized((
+	// 							format!("{:?}", hash),
+	// 							idx,
+	// 						)),
+	// 					sc_transaction_pool_api::TransactionStatus::Usurped(hash) =>
+	// 						sc_transaction_pool_api::TransactionStatus::Usurped(format!(
+	// 							"{:?}",
+	// 							hash
+	// 						)),
+	// 					sc_transaction_pool_api::TransactionStatus::Dropped =>
+	// 						sc_transaction_pool_api::TransactionStatus::Dropped,
+	// 					sc_transaction_pool_api::TransactionStatus::Invalid =>
+	// 						sc_transaction_pool_api::TransactionStatus::Invalid,
+	// 				})
+	// 				.collect();
 
-			if let Err(e) = db
-				.update_transaction_in_block(
-					&tx_hash_str,
-					&block_hash_str,
-					block_number_u64,
-					index,
-					&events_str,
-				)
-				.await
-			{
-				log::warn!("Failed to track transaction in block {}: {}", tx_hash_str, e);
-			}
-		}
-	}
+	// 		if let Err(e) = db
+	// 			.update_transaction_in_block(
+	// 				&tx_hash_str,
+	// 				&block_hash_str,
+	// 				block_number_u64,
+	// 				index,
+	// 				&events_str,
+	// 			)
+	// 			.await
+	// 		{
+	// 			log::warn!("Failed to track transaction in block {}: {}", tx_hash_str, e);
+	// 		}
+	// 	}
+	// }
 
-	async fn track_transaction_finalized(
-		&self,
-		tx_hash: Block::Hash,
-		block_hash: Block::Hash,
-		block_number: NumberFor<Block>,
-		index: usize,
-	) {
-		if let Some(ref db) = *self.receipt_db.lock() {
-			let tx_hash_str = format!("{:?}", tx_hash);
-			let block_hash_str = format!("{:?}", block_hash);
-			let block_number_u64 = block_number.saturated_into();
+	// async fn track_transaction_finalized(
+	// 	&self,
+	// 	tx_hash: Block::Hash,
+	// 	block_hash: Block::Hash,
+	// 	block_number: NumberFor<Block>,
+	// 	index: usize,
+	// ) {
+	// 	if let Some(ref db) = *self.receipt_db.lock() {
+	// 		let tx_hash_str = format!("{:?}", tx_hash);
+	// 		let block_hash_str = format!("{:?}", block_hash);
+	// 		let block_number_u64 = block_number.saturated_into();
 
-			if let Err(e) = db
-				.update_transaction_finalized(
-					&tx_hash_str,
-					&block_hash_str,
-					block_number_u64,
-					index,
-				)
-				.await
-			{
-				log::warn!("Failed to track finalized transaction {}: {}", tx_hash_str, e);
-			}
-		}
-	}
+	// 		if let Err(e) = db
+	// 			.update_transaction_finalized(
+	// 				&tx_hash_str,
+	// 				&block_hash_str,
+	// 				block_number_u64,
+	// 				index,
+	// 			)
+	// 			.await
+	// 		{
+	// 			log::warn!("Failed to track finalized transaction {}: {}", tx_hash_str, e);
+	// 		}
+	// 	}
+	// }
 
-	async fn track_transaction_dropped(&self, tx_hash: Block::Hash) {
-		if let Some(ref db) = *self.receipt_db.lock() {
-			let tx_hash_str = format!("{:?}", tx_hash);
+	// async fn track_transaction_dropped(&self, tx_hash: Block::Hash) {
+	// 	if let Some(ref db) = *self.receipt_db.lock() {
+	// 		let tx_hash_str = format!("{:?}", tx_hash);
 
-			if let Err(e) = db.mark_transaction_dropped(&tx_hash_str).await {
-				log::warn!("Failed to track dropped transaction {}: {}", tx_hash_str, e);
-			}
-		}
-	}
+	// 		if let Err(e) = db.mark_transaction_dropped(&tx_hash_str).await {
+	// 			log::warn!("Failed to track dropped transaction {}: {}", tx_hash_str, e);
+	// 		}
+	// 	}
+	// }
 
-	async fn track_transaction_invalid(&self, tx_hash: Block::Hash) {
-		if let Some(ref db) = *self.receipt_db.lock() {
-			let tx_hash_str = format!("{:?}", tx_hash);
+	// async fn track_transaction_invalid(&self, tx_hash: Block::Hash) {
+	// 	if let Some(ref db) = *self.receipt_db.lock() {
+	// 		let tx_hash_str = format!("{:?}", tx_hash);
 
-			if let Err(e) = db.mark_transaction_invalid(&tx_hash_str).await {
-				log::warn!("Failed to track invalid transaction {}: {}", tx_hash_str, e);
-			}
-		}
-	}
+	// 		if let Err(e) = db.mark_transaction_invalid(&tx_hash_str).await {
+	// 			log::warn!("Failed to track invalid transaction {}: {}", tx_hash_str, e);
+	// 		}
+	// 	}
+	// }
 
 	/// Get access to the receipt database for transaction tracking
 	pub fn receipt_db(&self) -> Option<Arc<TransactionReceiptDb>> {
@@ -1314,6 +1316,10 @@ where
 		self.ready_at_with_timeout_internal(at, timeout).await
 	}
 
+	/// Retrieves a transaction receipt for the given transaction hash.
+	///
+	/// Returns a transaction receipt containing status, block information, and events
+	/// if the transaction is known to the pool.
 	async fn get_transaction_receipt(
 		&self,
 		hash: &Self::Hash,

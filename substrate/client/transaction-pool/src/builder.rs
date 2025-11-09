@@ -224,6 +224,7 @@ where
 		self
 	}
 
+	/// Sets the transaction receipt database for persistent transaction tracking.
 	pub fn with_receipt_db(mut self, receipt_db: Option<Arc<TransactionReceiptDb>>) -> Self {
 		self.receipt_db = receipt_db;
 		self

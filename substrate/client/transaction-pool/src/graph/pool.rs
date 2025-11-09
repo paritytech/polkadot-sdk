@@ -244,7 +244,10 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		// Track pending transactions
 		for (tx_hash, validated_tx) in &validated_transactions {
 			if let ValidatedTransaction::Valid(_) = validated_tx {
-				self.validated_pool.transaction_tracker().add_pending_transaction(*tx_hash);
+				self.validated_pool
+					.transaction_tracker()
+					.add_pending_transaction(*tx_hash)
+					.await;
 			}
 		}
 
@@ -466,12 +469,15 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		for tx in &prune_status.pruned {
 			// Use the block hash from the at parameter
 			let block_hash = at.hash;
-			self.validated_pool.transaction_tracker().transaction_in_block(
-				tx.hash,
-				block_hash,
-				at.number.saturated_into(),
-				0, // We'll need to get the actual index
-			);
+			self.validated_pool
+				.transaction_tracker()
+				.transaction_in_block(
+					tx.hash,
+					block_hash,
+					at.number.saturated_into(),
+					0, // We'll need to get the actual index
+				)
+				.await;
 		}
 
 		// Make sure that we don't revalidate extrinsics that were part of the recently
@@ -607,8 +613,8 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 	}
 
 	/// Notify when block is finalized
-	pub fn on_block_finalized(&self, block_hash: BlockHash<B>, block_number: NumberFor<B>) {
-		self.validated_pool.on_block_finalized(block_hash, block_number);
+	pub async fn on_block_finalized(&self, block_hash: BlockHash<B>, block_number: NumberFor<B>) {
+		self.validated_pool.on_block_finalized(block_hash, block_number).await;
 	}
 
 	/// Get transaction receipt for RPC
@@ -628,13 +634,15 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 	}
 
 	/// Notify when transactions are included in a block
-	pub fn on_block_imported(
+	pub async fn on_block_imported(
 		&self,
 		block_hash: BlockHash<B>,
 		block_number: NumberFor<B>,
 		included_txs: Vec<(ExtrinsicHash<B>, usize)>, // (tx_hash, index_in_block)
 	) {
-		self.validated_pool.on_block_imported(block_hash, block_number, included_txs);
+		self.validated_pool
+			.on_block_imported(block_hash, block_number, included_txs)
+			.await;
 	}
 
 	/// Get all transactions in a block

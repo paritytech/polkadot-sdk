@@ -396,83 +396,83 @@ mod tests {
 	// Define a concrete block type for testing
 	type TestBlock = Block<Extrinsic>;
 
-	#[test]
-	fn test_transaction_tracking_lifecycle() {
-		let tracker = TransactionTracker::<TestBlock>::new();
+	#[tokio::test]
+	async fn test_transaction_tracking_lifecycle() {
+		let tracker = TransactionTracker::<TestBlock>::new(None);
 		let tx_hash = H256::random();
 
 		// Test pending
-		tracker.add_pending_transaction(tx_hash);
+		tracker.add_pending_transaction(tx_hash).await;
 		assert_eq!(
-			tracker.get_transaction_status(&tx_hash),
+			tracker.get_transaction_status(&tx_hash).await,
 			Some(TrackedTransactionStatus::Pending)
 		);
 
 		// Test in block
 		let block_hash = H256::random();
-		tracker.transaction_in_block(tx_hash, block_hash, 1, 0);
+		tracker.transaction_in_block(tx_hash, block_hash, 1, 0).await;
 		assert!(matches!(
-			tracker.get_transaction_status(&tx_hash),
+			tracker.get_transaction_status(&tx_hash).await,
 			Some(TrackedTransactionStatus::InBlock { .. })
 		));
 
 		// Test finalized
-		tracker.transaction_finalized(tx_hash, block_hash, 1, 0);
+		tracker.transaction_finalized(tx_hash, block_hash, 1, 0).await;
 		assert!(matches!(
-			tracker.get_transaction_status(&tx_hash),
+			tracker.get_transaction_status(&tx_hash).await,
 			Some(TrackedTransactionStatus::Finalized { .. })
 		));
 
 		// Test receipt
-		let receipt = tracker.get_transaction_receipt(&tx_hash);
+		let receipt = tracker.get_transaction_receipt(&tx_hash).await;
 		assert!(receipt.is_some());
 		let receipt = receipt.unwrap();
 		assert_eq!(receipt.transaction_hash, tx_hash);
 		assert_eq!(receipt.block_hash, Some(block_hash));
 	}
 
-	#[test]
-	fn test_transaction_dropped() {
-		let tracker = TransactionTracker::<TestBlock>::new();
+	#[tokio::test]
+	async fn test_transaction_dropped() {
+		let tracker = TransactionTracker::<TestBlock>::new(None);
 		let tx_hash = H256::random();
 
-		tracker.add_pending_transaction(tx_hash);
-		tracker.transaction_dropped(tx_hash);
+		tracker.add_pending_transaction(tx_hash).await;
+		tracker.transaction_dropped(tx_hash).await;
 
 		assert_eq!(
-			tracker.get_transaction_status(&tx_hash),
+			tracker.get_transaction_status(&tx_hash).await,
 			Some(TrackedTransactionStatus::Dropped)
 		);
 	}
 
-	#[test]
-	fn test_transaction_invalid() {
-		let tracker = TransactionTracker::<TestBlock>::new();
+	#[tokio::test]
+	async fn test_transaction_invalid() {
+		let tracker = TransactionTracker::<TestBlock>::new(None);
 		let tx_hash = H256::random();
 
-		tracker.add_pending_transaction(tx_hash);
-		tracker.transaction_invalid(tx_hash);
+		tracker.add_pending_transaction(tx_hash).await;
+		tracker.transaction_invalid(tx_hash).await;
 
 		assert_eq!(
-			tracker.get_transaction_status(&tx_hash),
+			tracker.get_transaction_status(&tx_hash).await,
 			Some(TrackedTransactionStatus::Invalid)
 		);
 	}
 
-	#[test]
-	fn test_cleanup_old_transactions() {
-		let tracker = TransactionTracker::<TestBlock>::new();
+	#[tokio::test]
+	async fn test_cleanup_old_transactions() {
+		let tracker = TransactionTracker::<TestBlock>::new(None);
 		let tx_hash = H256::random();
 
-		tracker.add_pending_transaction(tx_hash);
+		tracker.add_pending_transaction(tx_hash).await;
 
 		// Should still exist
-		assert!(tracker.get_transaction_status(&tx_hash).is_some());
+		assert!(tracker.get_transaction_status(&tx_hash).await.is_some());
 
 		// Clean up transactions older than 1 nanosecond (should remove our transaction)
-		tracker.cleanup_old_transactions(std::time::Duration::from_nanos(1));
+		tracker.cleanup_old_transactions(std::time::Duration::from_nanos(1)).await;
 
 		// Should be removed
-		assert!(tracker.get_transaction_status(&tx_hash).is_none());
+		assert!(tracker.get_transaction_status(&tx_hash).await.is_none());
 	}
 }

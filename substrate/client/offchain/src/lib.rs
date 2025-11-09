@@ -452,6 +452,7 @@ mod tests {
 			None,
 			spawner,
 			client.clone(),
+			None,
 		));
 		let network = Arc::new(TestNetwork());
 		let header = client.header(client.chain_info().genesis_hash).unwrap().unwrap();

@@ -302,12 +302,12 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 	}
 
 	/// Mark transaction as dropped
-	pub fn mark_transaction_dropped(&self, tx_hash: &ExtrinsicHash<B>) {
-		self.transaction_tracker.transaction_dropped(*tx_hash);
+	pub async fn mark_transaction_dropped(&self, tx_hash: &ExtrinsicHash<B>) {
+		self.transaction_tracker.transaction_dropped(*tx_hash).await;
 	}
 
 	/// Notify when transactions are included in a block
-	pub fn on_block_imported(
+	pub async fn on_block_imported(
 		&self,
 		block_hash: BlockHash<B>,
 		block_number: NumberFor<B::Block>,
@@ -315,12 +315,9 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 	) {
 		let block_number_u64 = block_number.saturated_into();
 		for (tx_hash, index) in included_txs {
-			self.transaction_tracker.transaction_in_block(
-				tx_hash,
-				block_hash,
-				block_number_u64,
-				index,
-			);
+			self.transaction_tracker
+				.transaction_in_block(tx_hash, block_hash, block_number_u64, index)
+				.await;
 		}
 	}
 
@@ -343,8 +340,8 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 	}
 
 	/// Remove transaction from tracking when it's removed from pool
-	pub fn remove_tracked_transaction(&self, tx_hash: &ExtrinsicHash<B>) {
-		self.transaction_tracker.remove_transaction(tx_hash);
+	pub async fn remove_tracked_transaction(&self, tx_hash: &ExtrinsicHash<B>) {
+		self.transaction_tracker.remove_transaction(tx_hash).await;
 	}
 
 	/// Bans given set of hashes.
@@ -527,7 +524,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 			// run notifications
 			let mut event_dispatcher = self.event_dispatcher.write();
 			for h in &removed {
-				self.transaction_tracker.transaction_dropped(*h);
+				futures::executor::block_on(self.transaction_tracker.transaction_dropped(*h));
 				event_dispatcher.limits_enforced(h);
 			}
 
@@ -882,7 +879,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 
 		// Track dropped transactions
 		for tx in &invalid {
-			self.transaction_tracker.transaction_dropped(tx.hash);
+			futures::executor::block_on(self.transaction_tracker.transaction_dropped(tx.hash));
 		}
 
 		trace!(

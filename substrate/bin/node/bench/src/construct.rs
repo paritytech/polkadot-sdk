@@ -30,8 +30,8 @@ use async_trait::async_trait;
 use node_primitives::Block;
 use node_testing::bench::{BenchDb, BlockType, DatabaseType, KeyTypes};
 use sc_transaction_pool_api::{
-	ImportNotificationStream, PoolStatus, ReadyTransactions, TransactionFor, TransactionSource,
-	TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
+	BlockHash, ImportNotificationStream, PoolStatus, ReadyTransactions, TransactionFor,
+	TransactionSource, TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
 };
 use sp_consensus::{Environment, Proposer};
 use sp_inherents::InherentDataProvider;
