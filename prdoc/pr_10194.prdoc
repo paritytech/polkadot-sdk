@@ -7,5 +7,7 @@ doc:
 crates:
 - name: polkadot-node-core-pvf-common
   bump: patch
+- name: polkadot-node-core-pvf
+  bump: patch
 - name: polkadot-primitives
   bump: patch
