@@ -4,7 +4,6 @@ extern crate alloc;
 
 use super::*;
 use alloc::{boxed::Box, vec::Vec};
-use scale_info::prelude::vec;
 use codec::Encode;
 use frame_benchmarking::v2::*;
 use frame_support::{
@@ -18,6 +17,7 @@ use pallet_revive::{
 	precompiles::alloy::{hex, sol_types::SolInterface},
 	ExecConfig, ExecReturnValue, Weight, H160, U256,
 };
+use scale_info::prelude::vec;
 use sp_runtime::traits::Saturating;
 
 use crate::Pallet as ReferendaPrecompilesBenchmarks;
@@ -226,15 +226,14 @@ mod benchmarks {
 		// Small inline proposal (10 bytes)
 		let proposal_data = (0..10).map(|_| 0u8).collect::<Vec<_>>();
 
-		let encoded_call = IReferenda::IReferendaCalls::submitInline(
-			IReferenda::submitInlineCall {
+		let encoded_call =
+			IReferenda::IReferendaCalls::submitInline(IReferenda::submitInlineCall {
 				origin: encoded_origin.into(),
 				proposal: proposal_data.into(),
 				timing: IReferenda::Timing::AfterBlock,
 				enactmentMoment: 0u32,
-			},
-		)
-		.abi_encode();
+			})
+			.abi_encode();
 
 		let result;
 		#[block]
@@ -258,15 +257,14 @@ mod benchmarks {
 		// Maximum inline proposal size (128 bytes)
 		let proposal_data = (0..128).map(|_| 0u8).collect::<Vec<_>>();
 
-		let encoded_call = IReferenda::IReferendaCalls::submitInline(
-			IReferenda::submitInlineCall {
+		let encoded_call =
+			IReferenda::IReferendaCalls::submitInline(IReferenda::submitInlineCall {
 				origin: encoded_origin.into(),
 				proposal: proposal_data.into(),
 				timing: IReferenda::Timing::AfterBlock,
 				enactmentMoment: 0u32,
-			},
-		)
-		.abi_encode();
+			})
+			.abi_encode();
 
 		let result;
 		#[block]
@@ -300,16 +298,15 @@ mod benchmarks {
 			bytes
 		});
 
-		let encoded_call = IReferenda::IReferendaCalls::submitLookup(
-			IReferenda::submitLookupCall {
+		let encoded_call =
+			IReferenda::IReferendaCalls::submitLookup(IReferenda::submitLookupCall {
 				origin: encoded_origin.into(),
 				hash: hash_bytes.into(),
 				preimageLength: 100u32, // Small preimage length
 				timing: IReferenda::Timing::AfterBlock,
 				enactmentMoment: 0u32,
-			},
-		)
-		.abi_encode();
+			})
+			.abi_encode();
 
 		let result;
 		#[block]
@@ -346,16 +343,15 @@ mod benchmarks {
 		// Maximum preimage length (u32::MAX would be too large, use a large reasonable value)
 		let max_preimage_length = 1_000_000u32;
 
-		let encoded_call = IReferenda::IReferendaCalls::submitLookup(
-			IReferenda::submitLookupCall {
+		let encoded_call =
+			IReferenda::IReferendaCalls::submitLookup(IReferenda::submitLookupCall {
 				origin: encoded_origin.into(),
 				hash: hash_bytes.into(),
 				preimageLength: max_preimage_length,
 				timing: IReferenda::Timing::AfterBlock,
 				enactmentMoment: 0u32,
-			},
-		)
-		.abi_encode();
+			})
+			.abi_encode();
 
 		let result;
 		#[block]
@@ -376,9 +372,7 @@ mod benchmarks {
 		let referendum_index = create_referendum_helper::<T, ()>(submitter);
 
 		let encoded_call = IReferenda::IReferendaCalls::placeDecisionDeposit(
-			IReferenda::placeDecisionDepositCall {
-				referendumIndex: referendum_index,
-			},
+			IReferenda::placeDecisionDepositCall { referendumIndex: referendum_index },
 		)
 		.abi_encode();
 
@@ -395,7 +389,7 @@ mod benchmarks {
 	fn place_decision_deposit_worst_case() {
 		// Worst case: Place deposit when referendum is ready to start deciding immediately
 		// This triggers BeginDecidingPassing/Failing branch (complex state transition)
-		// 
+		//
 		// Note: The precompile calls env.charge() with max weight BEFORE executing:
 		//   let max_weight = Weight::zero()
 		//       .max(place_decision_deposit_preparing())  // ~45M
@@ -404,7 +398,7 @@ mod benchmarks {
 		//       .max(place_decision_deposit_passing())    // ~53M
 		//       .max(place_decision_deposit_failing());    // ~51M
 		//   env.charge(max_weight)?;
-		// 
+		//
 		// This benchmark measures the full execution path including:
 		//   1. env.charge() overhead (max weight calculation + gas meter update)
 		//   2. Actual pallet execution (BeginDecidingPassing/Failing branch)
@@ -431,9 +425,7 @@ mod benchmarks {
 		// Now place deposit - this will trigger service_referendum which will
 		// result in BeginDecidingPassing or BeginDecidingFailing branch (most complex)
 		let encoded_call = IReferenda::IReferendaCalls::placeDecisionDeposit(
-			IReferenda::placeDecisionDepositCall {
-				referendumIndex: referendum_index,
-			},
+			IReferenda::placeDecisionDepositCall { referendumIndex: referendum_index },
 		)
 		.abi_encode();
 

@@ -45,7 +45,7 @@ use frame_support::{dispatch::DispatchInfo, weights::Weight};
 use IReferenda::IReferendaCalls;
 const LOG_TARGET: &str = "referenda::precompiles";
 pub type RuntimeOriginFor<T> = <T as frame_system::Config>::RuntimeOrigin;
- pub mod weights;
+pub mod weights;
 pub use weights::WeightInfo;
 
 #[cfg(test)]
@@ -172,7 +172,7 @@ where
 				};
 
 				// 2. Charge gas
-				env.charge(<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::submit_lookup_worst_case())?;				// 3. Decode proposal origin
+				env.charge(<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::submit_lookup_worst_case())?; // 3. Decode proposal origin
 				let proposal_origin = decode_proposal_origin::<Runtime>(&origin)?;
 
 				// 4. Convert timing
@@ -219,7 +219,7 @@ where
 				};
 
 				// 2. Charge gas
-				env.charge(<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::submit_inline_worst_case())?;				// 3. Decode proposal origin
+				env.charge(<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::submit_inline_worst_case())?; // 3. Decode proposal origin
 
 				// 3. Decode proposal origin
 				let proposal_origin = decode_proposal_origin::<Runtime>(&origin)?;
@@ -288,7 +288,7 @@ where
 			IReferendaCalls::decisionDeposit(IReferenda::decisionDepositCall {
 				referendumIndex: index,
 			}) => {
-				env.charge(<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::decision_deposit_ongoing_with_deposit())?;				// 3. Decode proposal origin
+				env.charge(<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::decision_deposit_ongoing_with_deposit())?; // 3. Decode proposal origin
 
 				// Get the referendum info to find the track
 				let referendum_info = ReferendumInfoFor::<Runtime, ()>::get(*index);
