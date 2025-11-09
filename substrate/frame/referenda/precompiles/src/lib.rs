@@ -288,30 +288,49 @@ where
 			IReferendaCalls::decisionDeposit(IReferenda::decisionDepositCall {
 				referendumIndex: index,
 			}) => {
-				env.charge(<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::decision_deposit_ongoing_with_deposit())?; // 3. Decode proposal origin
+				// Charge worst-case upfront (before any storage reads)
+				let max_charge =
+					<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::decision_deposit_ongoing_no_deposit();
+				let charged_amount = env.charge(max_charge)?;
 
 				// Get the referendum info to find the track
 				let referendum_info = ReferendumInfoFor::<Runtime, ()>::get(*index);
 
-				let decision_deposit_amount = match referendum_info {
+				// Calculate actual weight and deposit amount based on path
+				let (actual_weight, decision_deposit_amount) = match &referendum_info {
 					Some(pallet_referenda::ReferendumInfo::Ongoing(status)) => {
 						// Check if deposit is already placed
 						if status.decision_deposit.is_some() {
-							// Deposit already placed, nothing left to place
-							0u128
+							// Lighter path - no track lookup needed
+							let weight =
+								<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::decision_deposit_ongoing_with_deposit();
+							(weight, 0u128)
 						} else {
-							// Get track info to get the required decision deposit amount
-							let track =
-								<Runtime as pallet_referenda::Config>::Tracks::info(status.track)
-									.ok_or(Error::Revert("Track not found".into()))?;
-							track.decision_deposit.saturated_into::<u128>()
+							// Heavier path - needs track lookup (already charged worst-case)
+							let weight =
+								<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::decision_deposit_ongoing_no_deposit();
+							let track = <Runtime as pallet_referenda::Config>::Tracks::info(status.track)
+								.ok_or(Error::Revert("Track not found".into()))?;
+							let deposit = track.decision_deposit.saturated_into::<u128>();
+							(weight, deposit)
 						}
 					},
 					// For completed referenda, return 0 (nothing left to place)
-					Some(_) => 0u128,
+					Some(_) => {
+						let weight =
+							<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::decision_deposit_not_found_or_completed();
+						(weight, 0u128)
+					},
 					// Referendum doesn't exist - return 0 (nothing left to place)
-					None => 0u128,
+					None => {
+						let weight =
+							<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::decision_deposit_not_found_or_completed();
+						(weight, 0u128)
+					},
 				};
+
+				// Refund unused gas
+				env.adjust_gas(charged_amount, actual_weight);
 
 				Ok(decision_deposit_amount.abi_encode())
 			},
