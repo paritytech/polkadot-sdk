@@ -1,4 +1,4 @@
-name: Post Crates Release Activities
+name: Release - Post Crates Release Activities
 
 on:
   push:
