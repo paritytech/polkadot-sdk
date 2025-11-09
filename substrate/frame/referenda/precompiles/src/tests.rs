@@ -74,7 +74,7 @@ fn test_referenda_submit_lookup_works() {
 		// Verify the call succeeded
 		match result.result {
 			Ok(return_value) => {
-				println!("✅ Precompile call succeeded");
+				println!("Precompile call succeeded");
 				println!("Return value: {:?}", return_value);
 				if return_value.did_revert() {
 					panic!("Precompile call reverted");
@@ -94,7 +94,7 @@ fn test_referenda_submit_lookup_works() {
 		let referendum_info = pallet_referenda::ReferendumInfoFor::<Test>::get(0);
 		assert!(referendum_info.is_some(), "Referendum should exist");
 
-		println!("✅ submitLookup test passed - referendum created successfully");
+		println!("submitLookup test passed - referendum created successfully");
 	});
 }
 #[test]
@@ -140,7 +140,7 @@ fn test_referenda_submit_inline_works() {
 		// Verify the call succeeded
 		match result.result {
 			Ok(return_value) => {
-				println!("✅ Precompile call succeeded");
+				println!("Precompile call succeeded");
 				println!("Return value: {:?}", return_value);
 				if return_value.did_revert() {
 					panic!("Precompile call reverted");
@@ -160,7 +160,7 @@ fn test_referenda_submit_inline_works() {
 		let referendum_info = pallet_referenda::ReferendumInfoFor::<Test>::get(0);
 		assert!(referendum_info.is_some(), "Referendum should exist");
 
-		println!("✅ submitInline test passed - referendum created successfully");
+		println!("submitInline test passed - referendum created successfully");
 	});
 }
 
@@ -216,7 +216,7 @@ fn test_referenda_submit_inline_fails_with_oversized_proposal() {
 		// Verify no referendum was created
 		assert_eq!(pallet_referenda::ReferendumCount::<Test>::get(), 0);
 
-		println!("✅ submitInline test passed - correctly failed with oversized proposal");
+		println!("submitInline test passed - correctly failed with oversized proposal");
 	});
 }
 
@@ -263,7 +263,7 @@ fn test_referenda_submit_lookup_fails_without_preimage() {
 		// Verify no referendum was created
 		// assert_eq!(pallet_referenda::ReferendumCount::<Test>::get(), 0);
 
-		println!("✅ submitLookup test passed - correctly failed without preimage");
+		println!("submitLookup test passed - correctly failed without preimage");
 	});
 }
 
@@ -275,7 +275,7 @@ fn test_balances_initialized() {
 		assert_eq!(Balances::free_balance(&BOB), 100);
 		assert_eq!(Balances::free_balance(&CHARLIE), 100);
 
-		println!("✅ Balances initialized correctly");
+		println!("Balances initialized correctly");
 	});
 }
 
@@ -342,7 +342,7 @@ fn test_multiple_referenda_submissions() {
 		assert!(pallet_referenda::ReferendumInfoFor::<Test>::get(0).is_some());
 		assert!(pallet_referenda::ReferendumInfoFor::<Test>::get(1).is_some());
 
-		println!("✅ Multiple referenda submissions test passed");
+		println!("Multiple referenda submissions test passed");
 	});
 }
 
@@ -416,7 +416,7 @@ fn test_referenda_place_decision_deposit_works() {
 			);
 		}
 
-		println!("✅ placeDecisionDeposit test passed - deposit placed successfully");
+		println!("placeDecisionDeposit test passed - deposit placed successfully");
 	});
 }
 
@@ -446,7 +446,7 @@ fn test_referenda_place_decision_deposit_fails_not_ongoing() {
 		assert!(return_value.did_revert(), "Call should revert due to non-existent referendum");
 
 		println!(
-			"✅ placeDecisionDeposit test passed - correctly failed for non-existent referendum"
+			"placeDecisionDeposit test passed - correctly failed for non-existent referendum"
 		);
 	});
 }
@@ -504,7 +504,7 @@ fn test_referenda_place_decision_deposit_fails_insufficient_balance() {
 		assert!(return_value.did_revert(), "Call should revert due to insufficient balance");
 
 		println!(
-			"✅ placeDecisionDeposit test passed - correctly failed with insufficient balance"
+			"placeDecisionDeposit test passed - correctly failed with insufficient balance"
 		);
 	});
 }
@@ -581,7 +581,7 @@ fn test_referenda_place_decision_deposit_fails_already_has_deposit() {
 
 		assert!(return_value.did_revert(), "Call should revert due to existing deposit");
 
-		println!("✅ placeDecisionDeposit test passed - correctly failed for duplicate deposit");
+		println!("placeDecisionDeposit test passed - correctly failed for duplicate deposit");
 	});
 }
 
@@ -614,7 +614,7 @@ fn test_submission_deposit_returns_correct_amount() {
 				// SubmissionDeposit is set to 2 in the mock
 				assert_eq!(deposit_amount, 2, "Submission deposit should be 2");
 
-				println!("✅ submissionDeposit returned: {}", deposit_amount);
+				println!("submissionDeposit returned: {}", deposit_amount);
 			},
 			Err(e) => panic!("submissionDeposit call failed: {:?}", e),
 		}
@@ -665,12 +665,12 @@ fn test_decision_deposit_returns_track_amount_for_new_referendum() {
 				// The referendum should be on track 2 since it's submitted with Signed origin
 				assert_eq!(deposit_amount, 1, "Decision deposit should be 1 for track 2");
 
-				println!("✅ decisionDeposit returned: {}", deposit_amount);
+				println!("decisionDeposit returned: {}", deposit_amount);
 			},
 			Err(e) => panic!("decisionDeposit call failed: {:?}", e),
 		}
 
-		println!("✅ decisionDeposit test passed - returned correct track amount");
+		println!("decisionDeposit test passed - returned correct track amount");
 	});
 }
 #[test]
@@ -719,14 +719,14 @@ fn test_decision_deposit_returns_zero_after_deposit_placed() {
 				);
 
 				println!(
-					"✅ decisionDeposit returned: {} (deposit already placed)",
+					"decisionDeposit returned: {} (deposit already placed)",
 					deposit_amount
 				);
 			},
 			Err(e) => panic!("decisionDeposit call failed: {:?}", e),
 		}
 
-		println!("✅ decisionDeposit test passed - returned 0 after deposit placed");
+		println!("decisionDeposit test passed - returned 0 after deposit placed");
 	});
 }
 
@@ -763,13 +763,100 @@ fn test_decision_deposit_returns_zero_for_nonexistent_referendum() {
 				);
 
 				println!(
-					"✅ decisionDeposit returned: {} for nonexistent referendum",
+					"decisionDeposit returned: {} for nonexistent referendum",
 					deposit_amount
 				);
 			},
 			Err(e) => panic!("decisionDeposit call failed: {:?}", e),
 		}
 
-		println!("✅ decisionDeposit test passed - returned 0 for nonexistent referendum");
+		println!("decisionDeposit test passed - returned 0 for nonexistent referendum");
+	});
+}
+
+#[test]
+fn test_submit_inline_fails_with_invalid_origin_encoding() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Create malformed origin bytes (invalid encoding)
+		let invalid_origin = vec![0xFF, 0xFF, 0xFF]; // Invalid SCALE encoding
+
+		// Create a valid proposal
+		let proposal_bytes = set_balance_proposal_bytes(100u128);
+
+		// Create the submitInline call with invalid origin
+		let submit_param = IReferenda::submitInlineCall {
+			origin: invalid_origin.into(),
+			proposal: proposal_bytes.into(),
+			timing: IReferenda::Timing::AtBlock,
+			enactmentMoment: 10,
+		};
+
+		let call = IReferenda::IReferendaCalls::submitInline(submit_param);
+		let result = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(ALICE),
+			referenda_precompile_address(),
+			U256::zero(),
+			Weight::MAX,
+			u128::MAX,
+			call.abi_encode(),
+			ExecConfig::new_substrate_tx(),
+		);
+
+		// Verify the call reverted due to invalid origin encoding
+		let return_value = match result.result {
+			Ok(value) => value,
+			Err(err) => panic!("Precompile call failed with error: {err:?}"),
+		};
+
+		assert!(return_value.did_revert(), "Call should revert due to invalid origin encoding");
+
+		// Verify no referendum was created
+		assert_eq!(pallet_referenda::ReferendumCount::<Test>::get(), 0);
+
+		println!("submitInline test passed - correctly failed with invalid origin encoding");
+	});
+}
+
+#[test]
+fn test_submit_lookup_fails_with_invalid_origin_encoding() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Create a preimage first
+		let hash = note_preimage(ALICE);
+
+		// Create malformed origin bytes (invalid encoding)
+		let invalid_origin = vec![0xFF, 0xFF, 0xFF]; // Invalid SCALE encoding
+
+		// Create the submitLookup call with invalid origin
+		let submit_param = IReferenda::submitLookupCall {
+			origin: invalid_origin.into(),
+			hash: hash.as_fixed_bytes().into(),
+			preimageLength: 1,
+			timing: IReferenda::Timing::AtBlock,
+			enactmentMoment: 10,
+		};
+
+		let call = IReferenda::IReferendaCalls::submitLookup(submit_param);
+		let result = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(ALICE),
+			referenda_precompile_address(),
+			U256::zero(),
+			Weight::MAX,
+			u128::MAX,
+			call.abi_encode(),
+			ExecConfig::new_substrate_tx(),
+		);
+
+		// Verify the call reverted due to invalid origin encoding
+		let return_value = match result.result {
+			Ok(value) => value,
+			Err(err) => panic!("Precompile call failed with error: {err:?}"),
+		};
+
+		assert!(return_value.did_revert(), "Call should revert due to invalid origin encoding");
+
+		// Verify no referendum was created
+		assert_eq!(pallet_referenda::ReferendumCount::<Test>::get(), 0);
+
+		println!("submitLookup test passed - correctly failed with invalid origin encoding");
 	});
 }
