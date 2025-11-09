@@ -25,15 +25,6 @@ use alloc::{
 };
 use sp_core::{H160, U256};
 
-/// A call in the call stack.
-#[derive(Debug, Default, Clone, PartialEq)]
-struct Call {
-	/// The address of the call.
-	addr: H160,
-	/// The init code if this is a contract creation.
-	create_code: Option<Code>,
-}
-
 /// A tracer that traces the prestate.
 #[derive(frame_support::DefaultNoBound, Debug, Clone, PartialEq)]
 pub struct PrestateTracer<T> {
@@ -41,7 +32,7 @@ pub struct PrestateTracer<T> {
 	config: PrestateTracerConfig,
 
 	/// Stack of calls.
-	calls: Vec<Call>,
+	calls: Vec<H160>,
 
 	/// The code used by create transaction
 	create_code: Option<Code>,
@@ -65,11 +56,7 @@ where
 	}
 
 	fn current_addr(&self) -> H160 {
-		self.calls.last().map(|c| c.addr).unwrap_or_default()
-	}
-
-	fn current_is_create(&self) -> bool {
-		self.calls.last().map(|c| c.create_code.is_some()).unwrap_or_default()
+		self.calls.last().copied().unwrap_or_default()
 	}
 
 	/// Returns an empty trace.
@@ -233,12 +220,12 @@ where
 		_gas: Weight,
 	) {
 		if is_delegate_call {
-			self.calls.push(Call { addr: self.current_addr(), create_code: None });
+			self.calls.push(self.current_addr());
 		} else {
-			self.calls.push(Call { addr: to, create_code: self.create_code.take() });
+			self.calls.push(to);
 		}
 
-		if self.current_is_create() {
+		if self.create_code.take().is_some() {
 			self.created_addrs.insert(to);
 		}
 		self.read_account_prestate(from);
@@ -250,22 +237,12 @@ where
 	}
 
 	fn exit_child_span(&mut self, output: &ExecReturnValue, _gas_used: Weight) {
-		let Call { addr: current_addr, create_code } = self.calls.pop().unwrap_or_default();
+		let current_addr = self.calls.pop().unwrap_or_default();
 		if output.did_revert() {
 			return
 		}
 
-		let code = if self.config.disable_code {
-			None
-		} else if let Some(code) = create_code {
-			match code {
-				Code::Upload(code) => Some(code.into()),
-				Code::Existing(code_hash) =>
-					PristineCode::<T>::get(&code_hash).map(|code| Bytes::from(code.to_vec())),
-			}
-		} else {
-			Self::bytecode(&current_addr)
-		};
+		let code = if self.config.disable_code { None } else { Self::bytecode(&current_addr) };
 
 		Self::update_prestate_info(
 			self.trace.1.entry(current_addr).or_default(),
