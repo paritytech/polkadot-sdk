@@ -17,69 +17,151 @@
 
 use core::{
 	alloc::{GlobalAlloc, Layout},
-	ptr,
+	arch::wasm32,
+	cell::UnsafeCell,
+	ptr::NonNull,
 };
 
-/// The type used to store the offset between the real pointer and the returned pointer.
-type Offset = u16;
-
-/// The length of [`Offset`].
-const OFFSET_LENGTH: usize = core::mem::size_of::<Offset>();
-
 /// Allocator used by Substrate from within the runtime.
-///
-/// The allocator needs to align the returned pointer to given layout. We assume that on the host
-/// side the freeing-bump allocator is used with a fixed alignment of `8` and a `HEADER_SIZE` of
-/// `8`. The freeing-bump allocator is storing the header in the 8 bytes before the actual pointer
-/// returned by `alloc`. The problem is that the runtime not only sees pointers allocated by this
-/// `RuntimeAllocator`, but also pointers allocated by the host. The header is stored as a
-/// little-endian `u64`. The allocation header consists of 8 bytes. The first four bytes (as written
-/// in memory) are used to store the order of the allocation (or the link to the next slot, if
-/// unallocated). Then the least significant bit of the next byte determines whether a given slot is
-/// occupied or free, and the last three bytes are unused.
-///
-/// The `RuntimeAllocator` aligns the pointer to the required alignment before returning it to the
-/// user code. As we are assuming the freeing-bump allocator that already aligns by `8` by default,
-/// we only need to take care of alignments above `8`. The offset is stored in two bytes before the
-/// pointer that we return to the user. Depending on the alignment, we may write into the header,
-/// but given the assumptions above this should be no problem.
 struct RuntimeAllocator;
 
 #[global_allocator]
 static ALLOCATOR: RuntimeAllocator = RuntimeAllocator;
 
+const WASM_PAGE_SIZE: usize = 64 * 1024;
+
+extern "C" {
+	static __heap_base: u8;
+}
+
+#[inline(always)]
+fn aligned_heap_base() -> *mut u8 {
+	// SAFETY: Wasmtime must export the symbol at correct address (end of data segment)
+	let base = unsafe { &__heap_base as *const u8 as usize };
+	((base + 31) & !31) as *mut u8
+}
+
+impl picoalloc::Env for RuntimeAllocator {
+	fn total_space(&self) -> picoalloc::Size {
+		// Compute the maximum virtual space available for the heap.
+		// We do not pre-grow memory here; we only advertise a virtual cap. Actual memory
+		// is grown on demand in `expand_memory_until` and will be clamped by the VM's
+		// configured maximum.
+		let base = aligned_heap_base() as usize;
+		// Keep the end strictly below 4GiB and aligned to 32 bytes.
+		let end = usize::MAX & !31;
+		if base >= end {
+			return picoalloc::Size::from_bytes_usize(0)
+				.expect("Conversion from u32 to Size never fails on wasm32");
+		}
+		let total = (end - base) & !31;
+		picoalloc::Size::from_bytes_usize(total)
+			.expect("Conversion from u32 to Size never fails on wasm32")
+	}
+
+	unsafe fn allocate_address_space(&mut self) -> *mut u8 {
+		aligned_heap_base()
+	}
+
+	unsafe fn expand_memory_until(&mut self, base: *mut u8, size: picoalloc::Size) -> bool {
+		let base_offset = base as usize;
+		let Some(requested_end) = base_offset.checked_add(size.bytes() as usize) else {
+			return false;
+		};
+
+		let current_pages = wasm32::memory_size(0) as usize;
+		let current_end = current_pages * WASM_PAGE_SIZE;
+
+		if requested_end <= current_end {
+			return true;
+		}
+
+		let grow_bytes = requested_end - current_end;
+		let grow_pages = (grow_bytes + WASM_PAGE_SIZE - 1) / WASM_PAGE_SIZE;
+
+		wasm32::memory_grow(0, grow_pages) != usize::MAX
+	}
+
+	unsafe fn free_address_space(&mut self, _base: *mut u8) {}
+}
+
+/// The local allocator used to manage the local heap.
+struct LocalAllocator(UnsafeCell<picoalloc::Allocator<RuntimeAllocator>>);
+
+// SAFETY: This is runtime-only, and runtimes are single-threaded, so this is safe.
+unsafe impl Send for LocalAllocator {}
+
+// SAFETY: This is runtime-only, and runtimes are single-threaded, so this is safe.
+unsafe impl Sync for LocalAllocator {}
+
+static LOCAL_ALLOCATOR: LocalAllocator =
+	LocalAllocator(UnsafeCell::new(picoalloc::Allocator::new(RuntimeAllocator)));
+
+fn local_allocator() -> &'static mut picoalloc::Allocator<RuntimeAllocator> {
+	// SAFETY: This is only called when allocating memory, and the allocator
+	// doesn't trigger the global allocator recursively, so only a single
+	// &mut will ever exist at the same time.
+	unsafe { &mut *LOCAL_ALLOCATOR.0.get() }
+}
+
 unsafe impl GlobalAlloc for RuntimeAllocator {
 	unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-		let align = layout.align();
-		let size = layout.size();
+		// These should never fail, but let's do proper error checking anyway.
+		let Some(align) = picoalloc::Size::from_bytes_usize(layout.align()) else {
+			return core::ptr::null_mut();
+		};
 
-		// Allocate for the required size, plus a potential alignment.
-		//
-		// As the host side already aligns the pointer by `8`, we only need to account for any
-		// excess.
-		let ptr = crate::allocator::malloc((size + align.saturating_sub(8)) as u32);
+		let Some(size) = picoalloc::Size::from_bytes_usize(layout.size()) else {
+			return core::ptr::null_mut();
+		};
 
-		// Calculate the required alignment.
-		let ptr_offset = ptr.align_offset(align);
-
-		// Should never happen, but just to be sure.
-		if ptr_offset > u16::MAX as usize || ptr.is_null() {
-			return ptr::null_mut()
+		if let Some(pointer) = local_allocator().alloc(align, size) {
+			pointer.as_ptr()
+		} else {
+			core::ptr::null_mut()
 		}
-
-		// Align the pointer.
-		let ptr = ptr.add(ptr_offset);
-
-		unsafe {
-			(ptr.sub(OFFSET_LENGTH) as *mut Offset).write_unaligned(ptr_offset as Offset);
-		}
-
-		ptr
 	}
 
 	unsafe fn dealloc(&self, ptr: *mut u8, _: Layout) {
-		let offset = unsafe { (ptr.sub(OFFSET_LENGTH) as *const Offset).read_unaligned() };
+		// SAFETY: Pointers only come from the local heap.
+		unsafe { local_allocator().free(NonNull::new_unchecked(ptr)) }
+	}
 
-		crate::allocator::free(ptr.sub(offset as usize))
+	unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
+		let Some(align) = picoalloc::Size::from_bytes_usize(layout.align()) else {
+			return core::ptr::null_mut();
+		};
+
+		let Some(size) = picoalloc::Size::from_bytes_usize(layout.size()) else {
+			return core::ptr::null_mut();
+		};
+
+		// First try the local allocator. Use its `alloc_zeroed` as its
+		// smart enough to not unnecessarily zero-fill the memory if it's
+		// the very first allocation which touches this region of the heap.
+		if let Some(pointer) = local_allocator().alloc_zeroed(align, size) {
+			return pointer.as_ptr();
+		} else {
+			core::ptr::null_mut()
+		}
+	}
+
+	unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
+		let Some(align) = picoalloc::Size::from_bytes_usize(layout.align()) else {
+			return core::ptr::null_mut();
+		};
+
+		let Some(new_size_s) = picoalloc::Size::from_bytes_usize(new_size) else {
+			return core::ptr::null_mut();
+		};
+
+		// SAFETY: Pointers only come from the local heap.
+		if let Some(pointer) =
+			unsafe { local_allocator().realloc(NonNull::new_unchecked(ptr), align, new_size_s) }
+		{
+			pointer.as_ptr()
+		} else {
+			core::ptr::null_mut()
+		}
 	}
 }

@@ -15041,6 +15041,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "picoalloc"
+version = "5.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e1912f9b1d3aea43590e3986afdcf4ed1d9662edae24744a095738157d65b6a"
+
+[[package]]
 name = "pin-project"
 version = "1.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -22902,6 +22908,7 @@ dependencies = [
  "sp-api-proc-macro",
  "sp-core 28.0.0",
  "sp-externalities 0.25.0",
+ "sp-io",
  "sp-metadata-ir",
  "sp-runtime",
  "sp-runtime-interface 24.0.0",
@@ -23407,12 +23414,15 @@ dependencies = [
 name = "sp-io"
 version = "30.0.0"
 dependencies = [
+ "anyhow",
+ "byte-slice-cast",
  "bytes",
  "docify",
  "ed25519-dalek",
  "libsecp256k1",
  "log",
  "parity-scale-codec",
+ "picoalloc",
  "polkavm-derive 0.26.0",
  "rustversion",
  "secp256k1 0.28.2",
@@ -23424,6 +23434,7 @@ dependencies = [
  "sp-state-machine",
  "sp-tracing 16.0.0",
  "sp-trie",
+ "strum 0.26.3",
  "tracing",
  "tracing-core",
 ]
@@ -23581,6 +23592,7 @@ dependencies = [
 name = "sp-runtime-interface"
 version = "24.0.0"
 dependencies = [
+ "byte-slice-cast",
  "bytes",
  "impl-trait-for-tuples",
  "parity-scale-codec",

@@ -1135,7 +1135,7 @@ macro_rules! impl_benchmark {
 
 					// Time the storage root recalculation.
 					let start_storage_root = $crate::current_time();
-					$crate::__private::storage_root($crate::__private::StateVersion::V1);
+					$crate::__private::storage_root();
 					let finish_storage_root = $crate::current_time();
 					let elapsed_storage_root = finish_storage_root - start_storage_root;
 

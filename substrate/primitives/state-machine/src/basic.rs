@@ -41,12 +41,17 @@ use sp_trie::{empty_child_trie_root, LayoutV0, LayoutV1, TrieConfiguration};
 pub struct BasicExternalities {
 	overlay: OverlayedChanges<Blake2Hasher>,
 	extensions: Extensions,
+	last_cursor: Option<Vec<u8>>,
 }
 
 impl BasicExternalities {
 	/// Create a new instance of `BasicExternalities`
 	pub fn new(inner: Storage) -> Self {
-		BasicExternalities { overlay: inner.into(), extensions: Default::default() }
+		BasicExternalities {
+			overlay: inner.into(),
+			extensions: Default::default(),
+			last_cursor: None,
+		}
 	}
 
 	/// New basic externalities with empty storage.
@@ -344,6 +349,14 @@ impl Externalities for BasicExternalities {
 
 	fn get_read_and_written_keys(&self) -> Vec<(Vec<u8>, u32, u32, bool)> {
 		unimplemented!("get_read_and_written_keys is not supported in Basic")
+	}
+
+	fn store_last_cursor(&mut self, cursor: &[u8]) {
+		self.last_cursor = Some(cursor.to_vec());
+	}
+
+	fn take_last_cursor(&mut self) -> Option<Vec<u8>> {
+		self.last_cursor.take()
 	}
 }
 

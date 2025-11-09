@@ -242,6 +242,7 @@ type HostFunctions = (
 	sp_io::allocator::HostFunctions,
 	sp_io::logging::HostFunctions,
 	sp_io::trie::HostFunctions,
+	sp_io::input::HostFunctions,
 );
 
 /// The validation externalities that will panic on any storage related access. (PVFs should not
@@ -331,6 +332,14 @@ impl sp_externalities::Externalities for ValidationExternalities {
 
 	fn storage_commit_transaction(&mut self) -> Result<(), ()> {
 		panic!("storage_commit_transaction: unsupported feature for parachain validation")
+	}
+
+	fn store_last_cursor(&mut self, _cursor: &[u8]) {
+		panic!("store_last_cursor: unsupported feature for parachain validation")
+	}
+
+	fn take_last_cursor(&mut self) -> Option<Vec<u8>> {
+		panic!("take_last_cursor: unsupported feature for parachain validation")
 	}
 
 	fn wipe(&mut self) {

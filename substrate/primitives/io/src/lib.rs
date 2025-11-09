@@ -79,7 +79,9 @@
 
 extern crate alloc;
 
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
+
+use strum::{EnumCount, FromRepr};
 
 #[cfg(not(substrate_runtime))]
 use tracing;
@@ -115,9 +117,11 @@ use sp_trie::{LayoutV0, LayoutV1, TrieConfiguration};
 
 use sp_runtime_interface::{
 	pass_by::{
-		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer, PassAs,
-		PassFatPointerAndDecode, PassFatPointerAndDecodeSlice, PassFatPointerAndRead,
-		PassFatPointerAndReadWrite, PassPointerAndRead, PassPointerAndReadCopy, ReturnAs,
+		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer,
+		ConvertAndPassAs, ConvertAndReturnAs, PassAs, PassFatPointerAndDecode,
+		PassFatPointerAndDecodeSlice, PassFatPointerAndRead, PassFatPointerAndReadWrite,
+		PassFatPointerAndWriteInputData, PassMaybeFatPointerAndRead, PassPointerAndRead,
+		PassPointerAndReadCopy, PassPointerAndWrite, PassPointerToPrimitiveAndWrite, ReturnAs,
 	},
 	runtime_interface, Pointer,
 };
@@ -159,6 +163,95 @@ pub enum EcdsaVerifyError {
 	BadSignature,
 }
 
+// The FFI representation of EcdsaVerifyError.
+#[derive(EnumCount, FromRepr)]
+#[repr(i16)]
+#[allow(missing_docs)]
+pub enum RIEcdsaVerifyError {
+	BadRS = -1_i16,
+	BadV = -2_i16,
+	BadSignature = -3_i16,
+}
+
+impl From<RIEcdsaVerifyError> for i64 {
+	fn from(error: RIEcdsaVerifyError) -> Self {
+		error as i64
+	}
+}
+
+impl TryFrom<i64> for RIEcdsaVerifyError {
+	type Error = ();
+	fn try_from(value: i64) -> Result<Self, Self::Error> {
+		let value: i16 = value.try_into().map_err(|_| ())?;
+		RIEcdsaVerifyError::from_repr(value).ok_or(())
+	}
+}
+
+impl From<EcdsaVerifyError> for RIEcdsaVerifyError {
+	fn from(error: EcdsaVerifyError) -> Self {
+		match error {
+			EcdsaVerifyError::BadRS => RIEcdsaVerifyError::BadRS,
+			EcdsaVerifyError::BadV => RIEcdsaVerifyError::BadV,
+			EcdsaVerifyError::BadSignature => RIEcdsaVerifyError::BadSignature,
+		}
+	}
+}
+
+impl From<RIEcdsaVerifyError> for EcdsaVerifyError {
+	fn from(error: RIEcdsaVerifyError) -> Self {
+		match error {
+			RIEcdsaVerifyError::BadRS => EcdsaVerifyError::BadRS,
+			RIEcdsaVerifyError::BadV => EcdsaVerifyError::BadV,
+			RIEcdsaVerifyError::BadSignature => EcdsaVerifyError::BadSignature,
+		}
+	}
+}
+
+// The FFI representation of HttpError.
+#[derive(EnumCount, FromRepr)]
+#[repr(i16)]
+#[allow(missing_docs)]
+pub enum RIHttpError {
+	DeadlineReached = -1_i16,
+	IoError = -2_i16,
+	Invalid = -3_i16,
+}
+
+impl From<RIHttpError> for i64 {
+	fn from(error: RIHttpError) -> Self {
+		error as i64
+	}
+}
+
+impl TryFrom<i64> for RIHttpError {
+	type Error = ();
+
+	fn try_from(value: i64) -> Result<Self, Self::Error> {
+		let value: i16 = value.try_into().map_err(|_| ())?;
+		RIHttpError::from_repr(value).ok_or(())
+	}
+}
+
+impl From<HttpError> for RIHttpError {
+	fn from(error: HttpError) -> Self {
+		match error {
+			HttpError::DeadlineReached => RIHttpError::DeadlineReached,
+			HttpError::IoError => RIHttpError::IoError,
+			HttpError::Invalid => RIHttpError::Invalid,
+		}
+	}
+}
+
+impl From<RIHttpError> for HttpError {
+	fn from(error: RIHttpError) -> Self {
+		match error {
+			RIHttpError::DeadlineReached => HttpError::DeadlineReached,
+			RIHttpError::IoError => HttpError::IoError,
+			RIHttpError::Invalid => HttpError::Invalid,
+		}
+	}
+}
+
 /// The outcome of calling `storage_kill`. Returned value is the number of storage items
 /// removed from the backend from making the `storage_kill` call.
 #[derive(Encode, Decode)]
@@ -182,11 +275,293 @@ impl From<MultiRemovalResults> for KillStorageResult {
 		}
 	}
 }
+/// A workaround for 512-bit values (`[u8; 64]`) not implementing `Default`.
+pub struct Val512(pub [u8; 64]);
+
+impl Default for Val512 {
+	fn default() -> Self {
+		Self([0; 64])
+	}
+}
+
+impl AsRef<[u8]> for Val512 {
+	fn as_ref(&self) -> &[u8] {
+		&self.0
+	}
+}
+
+impl AsMut<[u8]> for Val512 {
+	fn as_mut(&mut self) -> &mut [u8] {
+		&mut self.0
+	}
+}
+
+/// Wrapper type for 512-bit hashes.
+pub type Hash512 = Val512;
+/// Wrapper type for 512-bit pubkeys.
+pub type Pubkey512 = Val512;
+
+/// A workaround wrapper type for 264-bit values (`[u8; 33]`) not implementing `Default`.
+pub struct Pubkey264(pub [u8; 33]);
+
+impl Default for Pubkey264 {
+	fn default() -> Self {
+		Self([0; 33])
+	}
+}
+
+impl AsRef<[u8]> for Pubkey264 {
+	fn as_ref(&self) -> &[u8] {
+		&self.0
+	}
+}
+
+impl AsMut<[u8]> for Pubkey264 {
+	fn as_mut(&mut self) -> &mut [u8] {
+		&mut self.0
+	}
+}
+
+/// Represents an opaque network peer ID
+pub struct NetworkPeerId(pub [u8; 38]);
+
+impl Default for NetworkPeerId {
+	fn default() -> Self {
+		Self([0; 38])
+	}
+}
+
+impl AsRef<[u8]> for NetworkPeerId {
+	fn as_ref(&self) -> &[u8] {
+		&self.0
+	}
+}
+
+impl AsMut<[u8]> for NetworkPeerId {
+	fn as_mut(&mut self) -> &mut [u8] {
+		&mut self.0
+	}
+}
+
+trait LessThan64BitPositiveInteger: Into<i64> {
+	const MAX: i64;
+}
+
+impl LessThan64BitPositiveInteger for u8 {
+	const MAX: i64 = u8::MAX as i64;
+}
+impl LessThan64BitPositiveInteger for u16 {
+	const MAX: i64 = u16::MAX as i64;
+}
+impl LessThan64BitPositiveInteger for u32 {
+	const MAX: i64 = u32::MAX as i64;
+}
+
+/// A wrapper around `Option<T>` for the FFI marshalling.
+///
+/// Used to return less-than-64-bit passed as `i64` through the FFI boundary. `-1_i64` is used to
+/// represent `None`.
+#[derive(Copy, Clone)]
+pub struct RIIntOption<T>(Option<T>);
+
+impl<T: LessThan64BitPositiveInteger> From<RIIntOption<T>> for Option<T> {
+	fn from(r: RIIntOption<T>) -> Self {
+		r.0
+	}
+}
+
+impl<T: LessThan64BitPositiveInteger> From<Option<T>> for RIIntOption<T> {
+	fn from(r: Option<T>) -> Self {
+		Self(r)
+	}
+}
+
+impl<T: LessThan64BitPositiveInteger> From<RIIntOption<T>> for i64 {
+	fn from(r: RIIntOption<T>) -> Self {
+		match r.0 {
+			Some(value) => value.into(),
+			None => -1,
+		}
+	}
+}
+
+impl<T: TryFrom<i64> + LessThan64BitPositiveInteger> TryFrom<i64> for RIIntOption<T> {
+	type Error = ();
+
+	fn try_from(value: i64) -> Result<Self, Self::Error> {
+		if value == -1 {
+			Ok(RIIntOption(None))
+		} else if value >= 0 && value <= T::MAX.into() {
+			Ok(RIIntOption(Some(value.try_into().map_err(|_| ())?)))
+		} else {
+			// Invalid FFI value (e.g., -2, or too large for T).
+			// `ConvertAndReturnAs` will panic when `TryFrom` returns an `Err`, which is the correct
+			// behavior here.
+			Err(())
+		}
+	}
+}
+
+/// Used to return less-than-64-bit value passed as `i64` through the FFI boundary.
+/// Negative values are used to represent error variants.
+pub enum RIIntResult<R, E> {
+	/// Successful result
+	Ok(R),
+	/// Error result
+	Err(E),
+}
+
+impl<R, E, OR, OE> From<Result<OR, OE>> for RIIntResult<R, E>
+where
+	R: From<OR>,
+	E: From<OE>,
+{
+	fn from(result: Result<OR, OE>) -> Self {
+		match result {
+			Ok(value) => Self::Ok(value.into()),
+			Err(error) => Self::Err(error.into()),
+		}
+	}
+}
+
+impl<R, E, OR, OE> From<RIIntResult<R, E>> for Result<OR, OE>
+where
+	OR: From<R>,
+	OE: From<E>,
+{
+	fn from(result: RIIntResult<R, E>) -> Self {
+		match result {
+			RIIntResult::Ok(value) => Ok(value.into()),
+			RIIntResult::Err(error) => Err(error.into()),
+		}
+	}
+}
+
+/// Represents a void successful result (always 0 in FFI)
+pub struct VoidResult;
+
+impl LessThan64BitPositiveInteger for VoidResult {
+	const MAX: i64 = 0;
+}
+
+impl From<VoidResult> for u32 {
+	fn from(_: VoidResult) -> Self {
+		0
+	}
+}
+
+impl From<u32> for VoidResult {
+	fn from(_: u32) -> Self {
+		VoidResult
+	}
+}
+
+impl From<()> for VoidResult {
+	fn from(_: ()) -> Self {
+		VoidResult
+	}
+}
+
+impl From<VoidResult> for () {
+	fn from(_: VoidResult) -> Self {
+		()
+	}
+}
+
+impl From<VoidResult> for i64 {
+	fn from(_: VoidResult) -> Self {
+		0
+	}
+}
+
+impl TryFrom<i64> for VoidResult {
+	type Error = ();
+
+	fn try_from(value: i64) -> Result<Self, Self::Error> {
+		if value == 0 {
+			Ok(VoidResult)
+		} else {
+			Err(())
+		}
+	}
+}
+
+/// Represents a void error (always -1 in FFI)
+pub struct VoidError;
+
+impl strum::EnumCount for VoidError {
+	const COUNT: usize = 1;
+}
+
+impl From<VoidError> for i64 {
+	fn from(_: VoidError) -> Self {
+		-1
+	}
+}
+
+impl From<VoidError> for () {
+	fn from(_: VoidError) -> Self {
+		()
+	}
+}
+
+impl From<()> for VoidError {
+	fn from(_: ()) -> Self {
+		VoidError
+	}
+}
+
+impl TryFrom<i64> for VoidError {
+	type Error = ();
+
+	fn try_from(value: i64) -> Result<Self, Self::Error> {
+		if value == -1 {
+			Ok(VoidError)
+		} else {
+			Err(())
+		}
+	}
+}
+
+impl<R: Into<i64> + LessThan64BitPositiveInteger, E: Into<i64> + strum::EnumCount>
+	From<RIIntResult<R, E>> for i64
+{
+	fn from(result: RIIntResult<R, E>) -> Self {
+		match result {
+			RIIntResult::Ok(value) => value.into(),
+			RIIntResult::Err(e) => {
+				let error_code: i64 = e.into();
+				assert!(
+					error_code > 0 && error_code <= E::COUNT as i64,
+					"Error variant index out of bounds"
+				);
+				-error_code
+			},
+		}
+	}
+}
+
+impl<R: TryFrom<i64> + LessThan64BitPositiveInteger, E: TryFrom<i64> + strum::EnumCount>
+	TryFrom<i64> for RIIntResult<R, E>
+{
+	type Error = ();
+
+	fn try_from(value: i64) -> Result<Self, Self::Error> {
+		if value >= 0 && value <= R::MAX.into() {
+			Ok(RIIntResult::Ok(value.try_into().map_err(|_| ())?))
+		} else if value < 0 && value >= -(E::COUNT as i64) {
+			Ok(RIIntResult::Err(value.try_into().map_err(|_| ())?))
+		} else {
+			Err(())
+		}
+	}
+}
 
 /// Interface for accessing the storage from within the runtime.
 #[runtime_interface]
 pub trait Storage {
 	/// Returns the data for `key` in the storage or `None` if the key can not be found.
+	#[version(1, register_only)]
 	fn get(
 		&mut self,
 		key: PassFatPointerAndRead<&[u8]>,
@@ -212,6 +587,42 @@ pub trait Storage {
 			value_out[..written].copy_from_slice(&data[..written]);
 			data.len() as u32
 		})
+	}
+
+	/// Get `key` from storage, placing the value into `value_out` and return the number of
+	/// bytes that the entry in storage has beyond the offset or `None` if the storage entry
+	/// doesn't exist at all.
+	/// If `value_out` length is smaller than the returned length, only `value_out` length bytes
+	/// are copied into `value_out`.
+	#[version(2)]
+	fn read(
+		&mut self,
+		key: PassFatPointerAndRead<&[u8]>,
+		value_out: PassFatPointerAndReadWrite<&mut [u8]>,
+		value_offset: u32,
+	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
+		self.storage(key).map(|value| {
+			let value_offset = value_offset as usize;
+			let data = &value[value_offset.min(value.len())..];
+			if value_out.len() >= data.len() {
+				value_out[..data.len()].copy_from_slice(&data[..]);
+			}
+			data.len() as u32
+		})
+	}
+
+	/// A convenience wrapper implementing the deprecated `get` host function
+	/// functionality through the new interface.
+	#[wrapper]
+	fn get(key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+		let mut value_out = vec![0u8; 256];
+		let len = read(key.as_ref(), &mut value_out[..], 0)?;
+		if len as usize > value_out.len() {
+			value_out.resize(len as usize, 0);
+			read(key.as_ref(), &mut value_out[..], 0)?;
+		}
+		value_out.truncate(len as usize);
+		Some(value_out)
 	}
 
 	/// Set `key` to `value` in the storage.
@@ -288,32 +699,81 @@ pub trait Storage {
 	/// operating on the same prefix should always pass `Some`, and this should be equal to the
 	/// previous call result's `maybe_cursor` field.
 	///
-	/// Returns [`MultiRemovalResults`](sp_io::MultiRemovalResults) to inform about the result. Once
-	/// the resultant `maybe_cursor` field is `None`, then no further items remain to be deleted.
+	/// Stores the output cursor and three counters (backend deletions, unique key deletions, number
+	/// of iterations performed) into the provided output buffers. See
+	/// [`MultiRemovalResults`](sp_io::MultiRemovalResults) for more details.
 	///
-	/// NOTE: After the initial call for any given prefix, it is important that no keys further
+	/// Returns the number of bytes in the output cursor. If the output buffer is not large enough,
+	/// the cursor will be truncated to the length of the buffer, but the full length of the cursor
+	/// is still returned.
+	///
+	/// NOTE: After the initial call for any given prefix, it is important that no further
 	/// keys under the same prefix are inserted. If so, then they may or may not be deleted by
 	/// subsequent calls.
 	///
-	/// # Note
-	///
-	/// Please note that keys which are residing in the overlay for that prefix when
+	/// NOTE: Please note that keys which are residing in the overlay for that prefix when
 	/// issuing this call are deleted without counting towards the `limit`.
-	#[version(3, register_only)]
+	#[version(3)]
+	#[wrapped]
 	fn clear_prefix(
 		&mut self,
 		maybe_prefix: PassFatPointerAndRead<&[u8]>,
-		maybe_limit: PassFatPointerAndDecode<Option<u32>>,
-		maybe_cursor: PassFatPointerAndDecode<Option<Vec<u8>>>, /* TODO Make work or just
-		                                                         * Option<Vec<u8>>? */
-	) -> AllocateAndReturnByCodec<MultiRemovalResults> {
-		Externalities::clear_prefix(
+		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
+		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
+		maybe_cursor_out: PassFatPointerAndReadWrite<&mut [u8]>,
+		backend: PassPointerToPrimitiveAndWrite<&mut u32>,
+		unique: PassPointerToPrimitiveAndWrite<&mut u32>,
+		loops: PassPointerToPrimitiveAndWrite<&mut u32>,
+	) -> u32 {
+		let removal_results = Externalities::clear_prefix(
 			*self,
 			maybe_prefix,
 			maybe_limit,
-			maybe_cursor.as_ref().map(|x| &x[..]),
-		)
-		.into()
+			maybe_cursor_in.as_ref().map(|x| &x[..]),
+		);
+		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
+		if let Some(cursor_out) = removal_results.maybe_cursor {
+			self.store_last_cursor(&cursor_out[..]);
+			if maybe_cursor_out.len() >= cursor_out_len {
+				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
+			}
+		}
+		*backend = removal_results.backend;
+		*unique = removal_results.unique;
+		*loops = removal_results.loops;
+		cursor_out_len as u32
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `clear_prefix` host
+	/// function.
+	#[wrapper]
+	fn clear_prefix(
+		maybe_prefix: impl AsRef<[u8]>,
+		maybe_limit: Option<u32>,
+		maybe_cursor_in: Option<&[u8]>,
+	) -> MultiRemovalResults {
+		let mut result = MultiRemovalResults::default();
+		let mut maybe_cursor_out = vec![0u8; 1024];
+		let cursor_len = clear_prefix__wrapped(
+			maybe_prefix.as_ref(),
+			maybe_limit,
+			maybe_cursor_in,
+			&mut maybe_cursor_out,
+			&mut result.backend,
+			&mut result.unique,
+			&mut result.loops,
+		) as usize;
+		if cursor_len > 0 {
+			if maybe_cursor_out.len() < cursor_len {
+				maybe_cursor_out.resize(cursor_len, 0);
+				let cached_cursor_len = misc::last_cursor(maybe_cursor_out.as_mut_slice());
+				debug_assert!(cached_cursor_len.is_some());
+				debug_assert_eq!(cached_cursor_len.unwrap_or(0) as usize, cursor_len);
+			}
+			maybe_cursor_out.truncate(cursor_len);
+			result.maybe_cursor = Some(maybe_cursor_out);
+		}
+		result
 	}
 
 	/// Append the encoded `value` to the storage item at `key`.
@@ -347,7 +807,37 @@ pub trait Storage {
 		self.storage_root(version)
 	}
 
+	/// "Commit" all existing operations and compute the resulting storage root.
+	///
+	/// The hashing algorithm is defined by the `Block`.
+	///
+	/// Fills provided output buffer with the SCALE encoded hash.
+	#[version(3)]
+	#[wrapped]
+	fn root(&mut self, out: PassFatPointerAndReadWrite<&mut [u8]>) -> u32 {
+		let root = self.storage_root(StateVersion::V0);
+		if out.len() >= root.len() {
+			out[..root.len()].copy_from_slice(&root[..]);
+		}
+		root.len() as u32
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `root` host
+	/// function.
+	#[wrapper]
+	fn root() -> Vec<u8> {
+		let mut root_out = vec![0u8; 256];
+		let len = root__wrapped(&mut root_out[..]);
+		if len as usize > root_out.len() {
+			root_out.resize(len as usize, 0);
+			root__wrapped(&mut root_out[..]);
+		}
+		root_out.truncate(len as usize);
+		root_out
+	}
+
 	/// Always returns `None`. This function exists for compatibility reasons.
+	#[version(1, register_only)]
 	fn changes_root(
 		&mut self,
 		_parent_hash: PassFatPointerAndRead<&[u8]>,
@@ -361,6 +851,42 @@ pub trait Storage {
 		key: PassFatPointerAndRead<&[u8]>,
 	) -> AllocateAndReturnByCodec<Option<Vec<u8>>> {
 		self.next_storage_key(key)
+	}
+
+	/// Get the next key in storage after the given one in lexicographic order.
+	#[wrapped]
+	#[version(2)]
+	fn next_key(
+		&mut self,
+		key_in: PassFatPointerAndRead<&[u8]>,
+		key_out: PassFatPointerAndReadWrite<&mut [u8]>,
+	) -> u32 {
+		let next_key = self.next_storage_key(key_in);
+		let next_key_len = next_key.as_ref().map(|k| k.len()).unwrap_or(0);
+		if let Some(next_key) = next_key {
+			if key_out.len() >= next_key_len {
+				key_out[..next_key_len].copy_from_slice(&next_key[..]);
+			}
+		}
+		next_key_len as u32
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `next_key` host
+	/// function.
+	#[wrapper]
+	fn next_key(key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+		let mut key_out = vec![0u8; 256];
+		let len = next_key__wrapped(key.as_ref(), &mut key_out[..]);
+		if len as usize > key_out.len() {
+			key_out.resize(len as usize, 0);
+			next_key__wrapped(key.as_ref(), &mut key_out[..]);
+		}
+		key_out.truncate(len as usize);
+		if len > 0 {
+			Some(key_out)
+		} else {
+			None
+		}
 	}
 
 	/// Start a new nested transaction.
@@ -412,6 +938,7 @@ pub trait DefaultChildStorage {
 	///
 	/// Parameter `storage_key` is the unprefixed location of the root of the child trie in the
 	/// parent trie. Result is `None` if the value for `key` in the child storage can not be found.
+	#[version(1, register_only)]
 	fn get(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
@@ -443,6 +970,48 @@ pub trait DefaultChildStorage {
 			value_out[..written].copy_from_slice(&data[..written]);
 			data.len() as u32
 		})
+	}
+
+	/// Allocation efficient variant of `get`.
+	///
+	/// Get `key` from child storage, placing the value into `value_out` and return the number
+	/// of bytes that the entry in storage has beyond the offset or `None` if the storage entry
+	/// doesn't exist at all.
+	/// If `value_out` length is smaller than the returned length, only `value_out` length bytes
+	/// are copied into `value_out`.
+	#[version(2)]
+	fn read(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		key: PassFatPointerAndRead<&[u8]>,
+		value_out: PassFatPointerAndReadWrite<&mut [u8]>,
+		value_offset: u32,
+	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
+		let child_info = ChildInfo::new_default(storage_key);
+		self.child_storage(&child_info, key)
+			.map(|value| {
+				let value_offset = value_offset as usize;
+				let data = &value[value_offset.min(value.len())..];
+				if value_out.len() >= data.len() {
+					value_out[..data.len()].copy_from_slice(&data[..]);
+				}
+				data.len() as u32
+			})
+			.into()
+	}
+
+	/// A convenience wrapper implementing the deprecated `get` host function
+	/// functionality through the new interface.
+	#[wrapper]
+	fn get(storage_key: impl AsRef<[u8]>, key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+		let mut value_out = vec![0u8; 256];
+		let len = read(storage_key.as_ref(), key.as_ref(), &mut value_out[..], 0)?;
+		if len as usize > value_out.len() {
+			value_out.resize(len as usize, 0);
+			read(storage_key.as_ref(), key.as_ref(), &mut value_out[..], 0)?;
+		}
+		value_out.truncate(len as usize);
+		Some(value_out)
 	}
 
 	/// Set a child storage value.
@@ -508,17 +1077,69 @@ pub trait DefaultChildStorage {
 
 	/// Clear a child storage key.
 	///
-	/// See `Storage` module `clear_prefix` documentation for `limit` usage.
-	#[version(4, register_only)]
+	/// See `Storage` module `clear_prefix` documentation.
+	#[version(4)]
+	#[wrapped]
 	fn storage_kill(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
-		maybe_limit: PassFatPointerAndDecode<Option<u32>>,
-		maybe_cursor: PassFatPointerAndDecode<Option<Vec<u8>>>,
-	) -> AllocateAndReturnByCodec<MultiRemovalResults> {
+		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
+		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
+		maybe_cursor_out: PassFatPointerAndReadWrite<&mut [u8]>,
+		backend: PassPointerToPrimitiveAndWrite<&mut u32>,
+		unique: PassPointerToPrimitiveAndWrite<&mut u32>,
+		loops: PassPointerToPrimitiveAndWrite<&mut u32>,
+	) -> u32 {
 		let child_info = ChildInfo::new_default(storage_key);
-		self.kill_child_storage(&child_info, maybe_limit, maybe_cursor.as_ref().map(|x| &x[..]))
-			.into()
+		let removal_results = self.kill_child_storage(
+			&child_info,
+			maybe_limit,
+			maybe_cursor_in.as_ref().map(|x| &x[..]),
+		);
+		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
+		if let Some(cursor_out) = removal_results.maybe_cursor {
+			self.store_last_cursor(&cursor_out[..]);
+			if maybe_cursor_out.len() >= cursor_out_len {
+				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
+			}
+		}
+		*backend = removal_results.backend;
+		*unique = removal_results.unique;
+		*loops = removal_results.loops;
+		cursor_out_len as u32
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `storage_kill` host
+	/// function.
+	#[wrapper]
+	fn storage_kill(
+		storage_key: impl AsRef<[u8]>,
+		maybe_limit: Option<u32>,
+		maybe_cursor: Option<&[u8]>,
+	) -> MultiRemovalResults {
+		let mut result = MultiRemovalResults::default();
+		let mut maybe_cursor_out = vec![0u8; 1024];
+		let cursor_len = storage_kill__wrapped(
+			storage_key.as_ref(),
+			maybe_limit,
+			maybe_cursor,
+			&mut maybe_cursor_out[..],
+			&mut result.backend,
+			&mut result.unique,
+			&mut result.loops,
+		) as usize;
+		if cursor_len > 0 {
+			if maybe_cursor_out.len() < cursor_len {
+				maybe_cursor_out.resize(cursor_len, 0);
+				let cached_cursor_len = misc::last_cursor(maybe_cursor_out.as_mut_slice());
+				debug_assert!(cached_cursor_len.is_some());
+				debug_assert_eq!(cached_cursor_len.unwrap_or(0) as usize, cursor_len);
+			}
+			maybe_cursor_out.truncate(cursor_len);
+			result.maybe_cursor = Some(maybe_cursor_out);
+		}
+
+		result
 	}
 
 	/// Check a child storage key.
@@ -561,23 +1182,72 @@ pub trait DefaultChildStorage {
 
 	/// Clear the child storage of each key-value pair where the key starts with the given `prefix`.
 	///
-	/// See `Storage` module `clear_prefix` documentation for `limit` usage.
-	#[version(3, register_only)]
+	/// See `Storage` module `clear_prefix` documentation.
+	#[version(3)]
+	#[wrapped]
 	fn clear_prefix(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
 		prefix: PassFatPointerAndRead<&[u8]>,
-		maybe_limit: PassFatPointerAndDecode<Option<u32>>,
-		maybe_cursor: PassFatPointerAndDecode<Option<Vec<u8>>>,
-	) -> AllocateAndReturnByCodec<MultiRemovalResults> {
+		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
+		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
+		maybe_cursor_out: PassFatPointerAndReadWrite<&mut [u8]>,
+		backend: PassPointerToPrimitiveAndWrite<&mut u32>,
+		unique: PassPointerToPrimitiveAndWrite<&mut u32>,
+		loops: PassPointerToPrimitiveAndWrite<&mut u32>,
+	) -> u32 {
 		let child_info = ChildInfo::new_default(storage_key);
-		self.clear_child_prefix(
+		let removal_results = self.clear_child_prefix(
 			&child_info,
 			prefix,
 			maybe_limit,
-			maybe_cursor.as_ref().map(|x| &x[..]),
-		)
-		.into()
+			maybe_cursor_in.as_ref().map(|x| &x[..]),
+		);
+		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
+		if let Some(cursor_out) = removal_results.maybe_cursor {
+			self.store_last_cursor(&cursor_out[..]);
+			if maybe_cursor_out.len() >= cursor_out_len {
+				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
+			}
+		}
+		*backend = removal_results.backend;
+		*unique = removal_results.unique;
+		*loops = removal_results.loops;
+		cursor_out_len as u32
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `clear_prefix` host
+	/// function.
+	#[wrapper]
+	fn clear_prefix(
+		storage_key: impl AsRef<[u8]>,
+		maybe_prefix: impl AsRef<[u8]>,
+		maybe_limit: Option<u32>,
+		maybe_cursor_in: Option<&[u8]>,
+	) -> MultiRemovalResults {
+		let mut result = MultiRemovalResults::default();
+		let mut maybe_cursor_out = vec![0u8; 1024];
+		let cursor_len = clear_prefix__wrapped(
+			storage_key.as_ref(),
+			maybe_prefix.as_ref(),
+			maybe_limit,
+			maybe_cursor_in,
+			&mut maybe_cursor_out,
+			&mut result.backend,
+			&mut result.unique,
+			&mut result.loops,
+		) as usize;
+		if cursor_len > 0 {
+			if maybe_cursor_out.len() < cursor_len {
+				maybe_cursor_out.resize(cursor_len, 0);
+				let cached_cursor_len = misc::last_cursor(maybe_cursor_out.as_mut_slice());
+				debug_assert!(cached_cursor_len.is_some());
+				debug_assert_eq!(cached_cursor_len.unwrap_or(0) as usize, cursor_len);
+			}
+			maybe_cursor_out.truncate(cursor_len);
+			result.maybe_cursor = Some(maybe_cursor_out);
+		}
+		result
 	}
 
 	/// Default child root calculation.
@@ -610,6 +1280,41 @@ pub trait DefaultChildStorage {
 		self.child_storage_root(&child_info, version)
 	}
 
+	/// Default child root calculation.
+	///
+	/// "Commit" all existing operations and compute the resulting child storage root.
+	/// The hashing algorithm is defined by the `Block`.
+	///
+	/// Fills provided output buffer with the SCALE encoded hash.
+	#[version(3)]
+	#[wrapped]
+	fn root(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		out: PassFatPointerAndReadWrite<&mut [u8]>,
+	) -> u32 {
+		let child_info = ChildInfo::new_default(storage_key);
+		let root = self.child_storage_root(&child_info, StateVersion::V0);
+		if out.len() >= root.len() {
+			out[..root.len()].copy_from_slice(&root[..]);
+		}
+		root.len() as u32
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `root` host
+	/// function.
+	#[wrapper]
+	fn root(storage_key: impl AsRef<[u8]>) -> Vec<u8> {
+		let mut root_out = vec![0u8; 256];
+		let len = root__wrapped(storage_key.as_ref(), &mut root_out[..]);
+		if len as usize > root_out.len() {
+			root_out.resize(len as usize, 0);
+			root__wrapped(storage_key.as_ref(), &mut root_out[..]);
+		}
+		root_out.truncate(len as usize);
+		root_out
+	}
+
 	/// Child storage key iteration.
 	///
 	/// Get the next key in storage after the given one in lexicographic order in child storage.
@@ -620,6 +1325,47 @@ pub trait DefaultChildStorage {
 	) -> AllocateAndReturnByCodec<Option<Vec<u8>>> {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.next_child_storage_key(&child_info, key)
+	}
+
+	// TODO: Interface changed, reflect in RFC
+	/// Child storage key iteration.
+	///
+	/// Get the next key in storage after the given one in lexicographic order in child storage.
+	#[version(2)]
+	#[wrapped]
+	fn next_key(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		key_in: PassFatPointerAndRead<&[u8]>,
+		key_out: PassFatPointerAndReadWrite<&mut [u8]>,
+	) -> u32 {
+		let child_info = ChildInfo::new_default(storage_key);
+		let next_key = self.next_child_storage_key(&child_info, key_in);
+		let next_key_len = next_key.as_ref().map(|k| k.len()).unwrap_or(0);
+		if let Some(next_key) = next_key {
+			if key_out.len() >= next_key_len {
+				key_out[..next_key_len].copy_from_slice(&next_key[..]);
+			}
+		}
+		next_key_len as u32
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `next_key` host
+	/// function.
+	#[wrapper]
+	fn next_key(storage_key: impl AsRef<[u8]>, key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+		let mut key_out = vec![0u8; 256];
+		let len = next_key__wrapped(storage_key.as_ref(), key.as_ref(), &mut key_out[..]);
+		if len as usize > key_out.len() {
+			key_out.resize(len as usize, 0);
+			next_key__wrapped(storage_key.as_ref(), key.as_ref(), &mut key_out[..]);
+		}
+		key_out.truncate(len as usize);
+		if len > 0 {
+			Some(key_out)
+		} else {
+			None
+		}
 	}
 }
 
@@ -645,6 +1391,29 @@ pub trait Trie {
 		}
 	}
 
+	/// A trie root formed from the iterated items.
+	#[version(3)]
+	#[wrapped]
+	fn blake2_256_root(
+		input: PassFatPointerAndDecode<Vec<(Vec<u8>, Vec<u8>)>>,
+		version: PassAs<StateVersion, u8>,
+		out: PassPointerAndWrite<&mut H256, 32>,
+	) {
+		let root = match version {
+			StateVersion::V0 => LayoutV0::<sp_core::Blake2Hasher>::trie_root(input),
+			StateVersion::V1 => LayoutV1::<sp_core::Blake2Hasher>::trie_root(input),
+		};
+		out.0.copy_from_slice(&root.0);
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `blake2_256_root`
+	/// host function.
+	#[wrapper]
+	fn blake2_256_root(data: Vec<(Vec<u8>, Vec<u8>)>, state_version: StateVersion) -> H256 {
+		let mut root = H256::default();
+		blake2_256_root__wrapped(data, state_version, &mut root);
+		root
+	}
 	/// A trie root formed from the enumerated items.
 	fn blake2_256_ordered_root(
 		input: PassFatPointerAndDecode<Vec<Vec<u8>>>,
@@ -662,6 +1431,30 @@ pub trait Trie {
 			StateVersion::V0 => LayoutV0::<sp_core::Blake2Hasher>::ordered_trie_root(input),
 			StateVersion::V1 => LayoutV1::<sp_core::Blake2Hasher>::ordered_trie_root(input),
 		}
+	}
+
+	/// A trie root formed from the enumerated items.
+	#[version(3)]
+	#[wrapped]
+	fn blake2_256_ordered_root(
+		input: PassFatPointerAndDecode<Vec<Vec<u8>>>,
+		version: PassAs<StateVersion, u8>,
+		out: PassPointerAndWrite<&mut H256, 32>,
+	) {
+		let root = match version {
+			StateVersion::V0 => LayoutV0::<sp_core::Blake2Hasher>::ordered_trie_root(input),
+			StateVersion::V1 => LayoutV1::<sp_core::Blake2Hasher>::ordered_trie_root(input),
+		};
+		out.0.copy_from_slice(&root.0);
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `blake2_256_ordered_root` host function.
+	#[wrapper]
+	fn blake2_256_ordered_root(data: Vec<Vec<u8>>, state_version: StateVersion) -> H256 {
+		let mut root = H256::default();
+		blake2_256_ordered_root__wrapped(data, state_version, &mut root);
+		root
 	}
 
 	/// A trie root formed from the iterated items.
@@ -683,6 +1476,30 @@ pub trait Trie {
 		}
 	}
 
+	/// A trie root formed from the iterated items.
+	#[version(3)]
+	#[wrapped]
+	fn keccak_256_root(
+		input: PassFatPointerAndDecode<Vec<(Vec<u8>, Vec<u8>)>>,
+		version: PassAs<StateVersion, u8>,
+		out: PassPointerAndWrite<&mut H256, 32>,
+	) {
+		let root = match version {
+			StateVersion::V0 => LayoutV0::<sp_core::KeccakHasher>::trie_root(input),
+			StateVersion::V1 => LayoutV1::<sp_core::KeccakHasher>::trie_root(input),
+		};
+		out.0.copy_from_slice(&root.0);
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `keccak_256_root`
+	/// host function.
+	#[wrapper]
+	fn keccak_256_root(data: Vec<(Vec<u8>, Vec<u8>)>, state_version: StateVersion) -> H256 {
+		let mut root = H256::default();
+		keccak_256_root__wrapped(data, state_version, &mut root);
+		root
+	}
+
 	/// A trie root formed from the enumerated items.
 	fn keccak_256_ordered_root(
 		input: PassFatPointerAndDecode<Vec<Vec<u8>>>,
@@ -700,6 +1517,30 @@ pub trait Trie {
 			StateVersion::V0 => LayoutV0::<sp_core::KeccakHasher>::ordered_trie_root(input),
 			StateVersion::V1 => LayoutV1::<sp_core::KeccakHasher>::ordered_trie_root(input),
 		}
+	}
+
+	/// A trie root formed from the enumerated items.
+	#[version(3)]
+	#[wrapped]
+	fn keccak_256_ordered_root(
+		input: PassFatPointerAndDecode<Vec<Vec<u8>>>,
+		version: PassAs<StateVersion, u8>,
+		out: PassPointerAndWrite<&mut H256, 32>,
+	) {
+		let root = match version {
+			StateVersion::V0 => LayoutV0::<sp_core::KeccakHasher>::ordered_trie_root(input),
+			StateVersion::V1 => LayoutV1::<sp_core::KeccakHasher>::ordered_trie_root(input),
+		};
+		out.0.copy_from_slice(&root.0);
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `keccak_256_ordered_root` host function.
+	#[wrapper]
+	fn keccak_256_ordered_root(data: Vec<Vec<u8>>, state_version: StateVersion) -> H256 {
+		let mut root = H256::default();
+		keccak_256_ordered_root__wrapped(data, state_version, &mut root);
+		root
 	}
 
 	/// Verify trie proof
@@ -850,6 +1691,87 @@ pub trait Misc {
 			},
 		}
 	}
+
+	/// Extract the runtime version of the given wasm blob by calling `Core_version`.
+	///
+	/// Returns `None` if calling the function failed for any reason. Otherwise, write the
+	/// SCALE-encoded version information to the provided output buffer and returns the full length
+	/// of the encoded version information. If the output buffer is not large enough, the version
+	/// information is truncated.
+	///
+	/// # Performance
+	///
+	/// This function may be very expensive to call depending on the wasm binary. It may be
+	/// relatively cheap if the wasm binary contains version information. In that case,
+	/// uncompression of the wasm blob is the dominating factor.
+	///
+	/// If the wasm binary does not have the version information attached, then a legacy mechanism
+	/// may be involved. This means that a runtime call will be performed to query the version.
+	///
+	/// Calling into the runtime may be incredible expensive and should be approached with care.
+	#[version(2)]
+	#[wrapped]
+	fn runtime_version(
+		&mut self,
+		wasm: PassFatPointerAndRead<&[u8]>,
+		out: PassFatPointerAndReadWrite<&mut [u8]>,
+	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
+		use sp_core::traits::ReadRuntimeVersionExt;
+
+		let mut ext = sp_state_machine::BasicExternalities::default();
+
+		match self
+			.extension::<ReadRuntimeVersionExt>()
+			.expect("No `ReadRuntimeVersionExt` associated for the current context!")
+			.read_runtime_version(wasm, &mut ext)
+		{
+			Ok(v) => {
+				if out.len() >= v.len() {
+					out.copy_from_slice(&v[..]);
+				}
+				Some(v.len() as u32)
+			},
+			Err(err) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"cannot read version from the given runtime: {}",
+					err,
+				);
+				None
+			},
+		}
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `runtime_version`
+	/// host function.
+	#[wrapper]
+	fn runtime_version(code: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+		let mut version = vec![0u8; 1024];
+		let maybe_len = runtime_version__wrapped(code.as_ref(), &mut version);
+		maybe_len.map(|len| {
+			version.truncate(len as usize);
+			version
+		})
+	}
+
+	/// Get the last storage cursor stored by `storage::clear_prefix`,
+	/// `default_child_storage::clear_prefix` and `default_child_storage::kill_prefix`.
+	///
+	/// Returns the length of the cursor or `None` if no cursor is stored.
+	fn last_cursor(
+		&mut self,
+		out: PassFatPointerAndReadWrite<&mut [u8]>,
+	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
+		let cursor = self.take_last_cursor()?;
+
+		if out.len() >= cursor.len() {
+			out.copy_from_slice(&cursor[..]);
+		} else {
+			self.store_last_cursor(&cursor[..]);
+		}
+
+		Some(cursor.len() as u32)
+	}
 }
 
 #[cfg(not(substrate_runtime))]
@@ -893,6 +1815,31 @@ pub trait Crypto {
 			.ed25519_public_keys(id)
 	}
 
+	/// Returns the number of `ed25519` public keys for the given key type in the keystore.
+	fn ed25519_num_public_keys(&mut self, id: PassPointerAndReadCopy<KeyTypeId, 4>) -> u32 {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.ed25519_public_keys(id)
+			.len() as u32
+	}
+
+	/// Returns the `ed25519` public key for the given key type and index in the keystore.
+	/// Panics if the key index is out of bounds.
+	fn ed25519_public_key(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		index: u32,
+		out: PassPointerAndWrite<&mut ed25519::Public, 32>,
+	) {
+		out.0.copy_from_slice(
+			self.extension::<KeystoreExt>()
+				.expect("No `keystore` associated for the current context!")
+				.ed25519_public_keys(id)
+				.get(index as usize)
+				.expect("Key index out of bounds!"),
+		);
+	}
+
 	/// Generate an `ed22519` key for the given key type using an optional `seed` and
 	/// store it in the keystore.
 	///
@@ -911,6 +1858,39 @@ pub trait Crypto {
 			.expect("`ed25519_generate` failed")
 	}
 
+	/// Generate an `ed22519` key for the given key type using an optional `seed` and
+	/// store it in the keystore.
+	///
+	/// The `seed` needs to be a valid utf8.
+	///
+	/// Stores the public key in the provided output buffer.
+	#[version(2)]
+	#[wrapped]
+	fn ed25519_generate(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		seed: PassFatPointerAndDecode<Option<Vec<u8>>>,
+		out: PassPointerAndWrite<&mut ed25519::Public, 32>,
+	) {
+		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
+		out.0.copy_from_slice(
+			&self
+				.extension::<KeystoreExt>()
+				.expect("No `keystore` associated for the current context!")
+				.ed25519_generate_new(id, seed)
+				.expect("`ed25519_generate` failed"),
+		);
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `ed25519_generate`
+	/// host function.
+	#[wrapper]
+	fn ed25519_generate(id: KeyTypeId, seed: Option<Vec<u8>>) -> ed25519::Public {
+		let mut public = ed25519::Public::default();
+		ed25519_generate__wrapped(id, seed, &mut public);
+		public
+	}
+
 	/// Sign the given `msg` with the `ed25519` key that corresponds to the given public key and
 	/// key type in the keystore.
 	///
@@ -926,6 +1906,43 @@ pub trait Crypto {
 			.ed25519_sign(id, pub_key, msg)
 			.ok()
 			.flatten()
+	}
+
+	/// Sign the given `msg` with the `ed25519` key that corresponds to the given public key and
+	/// key type in the keystore.
+	///
+	/// Returns the signature.
+	#[version(2)]
+	#[wrapped]
+	fn ed25519_sign(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		pub_key: PassPointerAndRead<&ed25519::Public, 32>,
+		msg: PassFatPointerAndRead<&[u8]>,
+		out: PassPointerAndWrite<&mut ed25519::Signature, 64>,
+	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i64> {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.ed25519_sign(id, pub_key, msg)
+			.ok()
+			.flatten()
+			.map(|sig| {
+				out.0.copy_from_slice(&sig);
+			})
+			.ok_or(())
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `ed25519_sign` host
+	/// function.
+	#[wrapper]
+	fn ed25519_sign(
+		id: KeyTypeId,
+		pub_key: &ed25519::Public,
+		message: &[u8],
+	) -> Option<ed25519::Signature> {
+		let mut signature = ed25519::Signature::default();
+		ed25519_sign__wrapped(id, pub_key, message, &mut signature).ok()?;
+		Some(signature)
 	}
 
 	/// Verify `ed25519` signature.
@@ -1072,6 +2089,31 @@ pub trait Crypto {
 			.sr25519_public_keys(id)
 	}
 
+	/// Returns the number of `sr25519` public keys for the given key type in the keystore.
+	fn sr25519_num_public_keys(&mut self, id: PassPointerAndReadCopy<KeyTypeId, 4>) -> u32 {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.sr25519_public_keys(id)
+			.len() as u32
+	}
+
+	/// Returns the `sr25519` public key for the given key type and index in the keystore.
+	/// Panics if the key index is out of bounds.
+	fn sr25519_public_key(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		index: u32,
+		out: PassPointerAndWrite<&mut sr25519::Public, 32>,
+	) {
+		out.0.copy_from_slice(
+			self.extension::<KeystoreExt>()
+				.expect("No `keystore` associated for the current context!")
+				.sr25519_public_keys(id)
+				.get(index as usize)
+				.expect("Key index out of bounds!"),
+		);
+	}
+
 	/// Generate an `sr22519` key for the given key type using an optional seed and
 	/// store it in the keystore.
 	///
@@ -1090,6 +2132,39 @@ pub trait Crypto {
 			.expect("`sr25519_generate` failed")
 	}
 
+	/// Generate an `sr22519` key for the given key type using an optional seed and
+	/// store it in the keystore.
+	///
+	/// The `seed` needs to be a valid utf8.
+	///
+	/// Stores the public key in the provided output buffer.
+	#[version(2)]
+	#[wrapped]
+	fn sr25519_generate(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		seed: PassFatPointerAndDecode<Option<Vec<u8>>>,
+		out: PassPointerAndWrite<&mut sr25519::Public, 32>,
+	) {
+		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
+		out.0.copy_from_slice(
+			&self
+				.extension::<KeystoreExt>()
+				.expect("No `keystore` associated for the current context!")
+				.sr25519_generate_new(id, seed)
+				.expect("`sr25519_generate` failed"),
+		);
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `sr25519_generate`
+	/// host function.
+	#[wrapper]
+	fn sr25519_generate(id: KeyTypeId, seed: Option<Vec<u8>>) -> sr25519::Public {
+		let mut public = sr25519::Public::default();
+		sr25519_generate__wrapped(id, seed, &mut public);
+		public
+	}
+
 	/// Sign the given `msg` with the `sr25519` key that corresponds to the given public key and
 	/// key type in the keystore.
 	///
@@ -1105,6 +2180,43 @@ pub trait Crypto {
 			.sr25519_sign(id, pub_key, msg)
 			.ok()
 			.flatten()
+	}
+
+	/// Sign the given `msg` with the `sr25519` key that corresponds to the given public key and
+	/// key type in the keystore.
+	///
+	/// Returns the signature.
+	#[version(2)]
+	#[wrapped]
+	fn sr25519_sign(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		pub_key: PassPointerAndRead<&sr25519::Public, 32>,
+		msg: PassFatPointerAndRead<&[u8]>,
+		out: PassPointerAndWrite<&mut sr25519::Signature, 64>,
+	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i64> {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.sr25519_sign(id, pub_key, msg)
+			.ok()
+			.flatten()
+			.map(|sig| {
+				out.0.copy_from_slice(&sig);
+			})
+			.ok_or(())
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `sr25519_sign` host
+	/// function.
+	#[wrapper]
+	fn sr25519_sign(
+		id: KeyTypeId,
+		pub_key: &sr25519::Public,
+		message: &[u8],
+	) -> Option<sr25519::Signature> {
+		let mut signature = sr25519::Signature::default();
+		sr25519_sign__wrapped(id, pub_key, message, &mut signature).ok()?;
+		Some(signature)
 	}
 
 	/// Verify an `sr25519` signature.
@@ -1129,6 +2241,31 @@ pub trait Crypto {
 			.ecdsa_public_keys(id)
 	}
 
+	/// Returns the number of `ecdsa` public keys for the given key type in the keystore.
+	fn ecdsa_num_public_keys(&mut self, id: PassPointerAndReadCopy<KeyTypeId, 4>) -> u32 {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.ecdsa_public_keys(id)
+			.len() as u32
+	}
+
+	/// Returns the `ecdsa` public key for the given key type and index in the keystore.
+	/// Panics if the key index is out of bounds.
+	fn ecdsa_public_key(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		index: u32,
+		out: PassPointerAndWrite<&mut ecdsa::Public, 33>,
+	) {
+		out.0.copy_from_slice(
+			self.extension::<KeystoreExt>()
+				.expect("No `keystore` associated for the current context!")
+				.ecdsa_public_keys(id)
+				.get(index as usize)
+				.expect("Key index out of bounds!"),
+		);
+	}
+
 	/// Generate an `ecdsa` key for the given key type using an optional `seed` and
 	/// store it in the keystore.
 	///
@@ -1145,6 +2282,39 @@ pub trait Crypto {
 			.expect("No `keystore` associated for the current context!")
 			.ecdsa_generate_new(id, seed)
 			.expect("`ecdsa_generate` failed")
+	}
+
+	/// Generate an `ecdsa` key for the given key type using an optional `seed` and
+	/// store it in the keystore.
+	///
+	/// The `seed` needs to be a valid utf8.
+	///
+	/// Stores the public key in the provided output buffer.
+	#[version(2)]
+	#[wrapped]
+	fn ecdsa_generate(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		seed: PassFatPointerAndDecode<Option<Vec<u8>>>,
+		out: PassPointerAndWrite<&mut ecdsa::Public, 33>,
+	) {
+		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
+		out.0.copy_from_slice(
+			&self
+				.extension::<KeystoreExt>()
+				.expect("No `keystore` associated for the current context!")
+				.ecdsa_generate_new(id, seed)
+				.expect("`ecdsa_generate` failed"),
+		);
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `ecdsa_generate` host
+	/// function.
+	#[wrapper]
+	fn ecdsa_generate(id: KeyTypeId, seed: Option<Vec<u8>>) -> ecdsa::Public {
+		let mut public = ecdsa::Public::default();
+		ecdsa_generate__wrapped(id, seed, &mut public);
+		public
 	}
 
 	/// Sign the given `msg` with the `ecdsa` key that corresponds to the given public key and
@@ -1164,6 +2334,43 @@ pub trait Crypto {
 			.flatten()
 	}
 
+	/// Sign the given `msg` with the `ecdsa` key that corresponds to the given public key and
+	/// key type in the keystore.
+	///
+	/// Returns the signature.
+	#[version(2)]
+	#[wrapped]
+	fn ecdsa_sign(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		pub_key: PassPointerAndRead<&ecdsa::Public, 33>,
+		msg: PassFatPointerAndRead<&[u8]>,
+		out: PassPointerAndWrite<&mut ecdsa::Signature, 65>,
+	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i64> {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.ecdsa_sign(id, pub_key, msg)
+			.ok()
+			.flatten()
+			.map(|sig| {
+				out.0.copy_from_slice(&sig);
+			})
+			.ok_or(())
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `ecdsa_sign` host
+	/// function.
+	#[wrapper]
+	fn ecdsa_sign(
+		id: KeyTypeId,
+		pub_key: &ecdsa::Public,
+		message: &[u8],
+	) -> Option<ecdsa::Signature> {
+		let mut signature = ecdsa::Signature::default();
+		ecdsa_sign__wrapped(id, pub_key, message, &mut signature).ok()?;
+		Some(signature)
+	}
+
 	/// Sign the given a pre-hashed `msg` with the `ecdsa` key that corresponds to the given public
 	/// key and key type in the keystore.
 	///
@@ -1179,6 +2386,29 @@ pub trait Crypto {
 			.ecdsa_sign_prehashed(id, pub_key, msg)
 			.ok()
 			.flatten()
+	}
+
+	/// Sign the given a pre-hashed `msg` with the `ecdsa` key that corresponds to the given public
+	/// key and key type in the keystore.
+	///
+	/// Returns the signature.
+	#[version(2)]
+	fn ecdsa_sign_prehashed(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		pub_key: PassPointerAndRead<&ecdsa::Public, 33>,
+		msg: PassPointerAndRead<&[u8; 32], 32>,
+		out: PassPointerAndWrite<&mut ecdsa::Signature, 65>,
+	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i64> {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.ecdsa_sign_prehashed(id, pub_key, msg)
+			.ok()
+			.flatten()
+			.map(|sig| {
+				out.0.copy_from_slice(&sig);
+			})
+			.ok_or(())
 	}
 
 	/// Verify `ecdsa` signature.
@@ -1295,8 +2525,52 @@ pub trait Crypto {
 		let ctx = secp256k1::Secp256k1::<secp256k1::VerifyOnly>::gen_new();
 		let pubkey = ctx.recover_ecdsa(&msg, &sig).map_err(|_| EcdsaVerifyError::BadSignature)?;
 		let mut res = [0u8; 64];
-		res.copy_from_slice(&pubkey.serialize_uncompressed()[1..]);
+		res.copy_from_slice(&pubkey.serialize_uncompressed()[1..65]);
 		Ok(res)
+	}
+
+	/// Verify and recover a SECP256k1 ECDSA signature.
+	///
+	/// - `sig` is passed in RSV format. V should be either `0/1` or `27/28`.
+	/// - `msg` is the blake2-256 hash of the message.
+	///
+	/// Returns `Err` if the signature is bad, otherwise the 64-byte pubkey
+	/// (doesn't include the 0x04 prefix).
+	#[version(3)]
+	#[wrapped]
+	fn secp256k1_ecdsa_recover(
+		sig: PassPointerAndRead<&[u8; 65], 65>,
+		msg: PassPointerAndRead<&[u8; 32], 32>,
+		out: PassPointerAndWrite<&mut Pubkey512, 64>,
+	) -> ConvertAndReturnAs<
+		Result<(), EcdsaVerifyError>,
+		RIIntResult<VoidResult, RIEcdsaVerifyError>,
+		i64,
+	> {
+		let rid = RecoveryId::from_i32(if sig[64] > 26 { sig[64] - 27 } else { sig[64] } as i32)
+			.map_err(|_| EcdsaVerifyError::BadV)?;
+		let sig = RecoverableSignature::from_compact(&sig[..64], rid)
+			.map_err(|_| EcdsaVerifyError::BadRS)?;
+		let msg = Message::from_digest_slice(msg).expect("Message is 32 bytes; qed");
+		#[cfg(feature = "std")]
+		let ctx = secp256k1::SECP256K1;
+		#[cfg(not(feature = "std"))]
+		let ctx = secp256k1::Secp256k1::<secp256k1::VerifyOnly>::gen_new();
+		let pubkey = ctx.recover_ecdsa(&msg, &sig).map_err(|_| EcdsaVerifyError::BadSignature)?;
+		out.0.copy_from_slice(&pubkey.serialize_uncompressed()[1..]);
+		Ok(())
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `secp256k1_ecdsa_recover` host function.
+	#[wrapper]
+	fn secp256k1_ecdsa_recover(
+		signature: &[u8; 65],
+		message: &[u8; 32],
+	) -> Result<[u8; 64], EcdsaVerifyError> {
+		let mut public = Val512([0u8; 64]);
+		secp256k1_ecdsa_recover__wrapped(signature, message, &mut public)?;
+		Ok(public.0)
 	}
 
 	/// Verify and recover a SECP256k1 ECDSA signature.
@@ -1343,6 +2617,49 @@ pub trait Crypto {
 		let ctx = secp256k1::Secp256k1::<secp256k1::VerifyOnly>::gen_new();
 		let pubkey = ctx.recover_ecdsa(&msg, &sig).map_err(|_| EcdsaVerifyError::BadSignature)?;
 		Ok(pubkey.serialize())
+	}
+
+	/// Verify and recover a SECP256k1 ECDSA signature.
+	///
+	/// - `sig` is passed in RSV format. V should be either `0/1` or `27/28`.
+	/// - `msg` is the blake2-256 hash of the message.
+	///
+	/// Returns `Err` if the signature is bad, otherwise the 33-byte compressed pubkey.
+	#[version(3)]
+	#[wrapped]
+	fn secp256k1_ecdsa_recover_compressed(
+		sig: PassPointerAndRead<&[u8; 65], 65>,
+		msg: PassPointerAndRead<&[u8; 32], 32>,
+		out: PassPointerAndWrite<&mut Pubkey264, 33>,
+	) -> ConvertAndReturnAs<
+		Result<(), EcdsaVerifyError>,
+		RIIntResult<VoidResult, RIEcdsaVerifyError>,
+		i64,
+	> {
+		let rid = RecoveryId::from_i32(if sig[64] > 26 { sig[64] - 27 } else { sig[64] } as i32)
+			.map_err(|_| EcdsaVerifyError::BadV)?;
+		let sig = RecoverableSignature::from_compact(&sig[..64], rid)
+			.map_err(|_| EcdsaVerifyError::BadRS)?;
+		let msg = Message::from_digest_slice(msg).expect("Message is 32 bytes; qed");
+		#[cfg(feature = "std")]
+		let ctx = secp256k1::SECP256K1;
+		#[cfg(not(feature = "std"))]
+		let ctx = secp256k1::Secp256k1::<secp256k1::VerifyOnly>::gen_new();
+		let pubkey = ctx.recover_ecdsa(&msg, &sig).map_err(|_| EcdsaVerifyError::BadSignature)?;
+		out.0.copy_from_slice(&pubkey.serialize());
+		Ok(())
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `secp256k1_ecdsa_recover_compressed` host function.
+	#[wrapper]
+	fn secp256k1_ecdsa_recover_compressed(
+		signature: &[u8; 65],
+		message: &[u8; 32],
+	) -> Result<[u8; 33], EcdsaVerifyError> {
+		let mut public = Pubkey264([0u8; 33]);
+		secp256k1_ecdsa_recover_compressed__wrapped(signature, message, &mut public)?;
+		Ok(public.0)
 	}
 
 	/// Generate an `bls12-381` key for the given key type using an optional `seed` and
@@ -1447,9 +2764,41 @@ pub trait Hashing {
 		sp_crypto_hashing::keccak_256(data)
 	}
 
+	/// Conduct a 256-bit Keccak hash.
+	#[version(2)]
+	#[wrapped]
+	fn keccak_256(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 32], 32>) {
+		out.copy_from_slice(&sp_crypto_hashing::keccak_256(data));
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `keccak_256` host function.
+	#[wrapper]
+	fn keccak_256(data: &[u8]) -> [u8; 32] {
+		let mut out = [0u8; 32];
+		keccak_256__wrapped(data, &mut out);
+		out
+	}
+
 	/// Conduct a 512-bit Keccak hash.
 	fn keccak_512(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnPointer<[u8; 64], 64> {
 		sp_crypto_hashing::keccak_512(data)
+	}
+
+	/// Conduct a 512-bit Keccak hash.
+	#[version(2)]
+	#[wrapped]
+	fn keccak_512(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut Val512, 64>) {
+		out.0.copy_from_slice(&sp_crypto_hashing::keccak_512(data));
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `keccak_512` host function.
+	#[wrapper]
+	fn keccak_512(data: &[u8]) -> [u8; 64] {
+		let mut out = Val512::default();
+		keccak_512__wrapped(data, &mut out);
+		out.0
 	}
 
 	/// Conduct a 256-bit Sha2 hash.
@@ -1457,9 +2806,41 @@ pub trait Hashing {
 		sp_crypto_hashing::sha2_256(data)
 	}
 
+	/// Conduct a 256-bit Sha2 hash.
+	#[version(2)]
+	#[wrapped]
+	fn sha2_256(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 32], 32>) {
+		out.copy_from_slice(&sp_crypto_hashing::sha2_256(data));
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `sha2_256` host function.
+	#[wrapper]
+	fn sha2_256(data: &[u8]) -> [u8; 32] {
+		let mut out = [0u8; 32];
+		sha2_256__wrapped(data, &mut out);
+		out
+	}
+
 	/// Conduct a 128-bit Blake2 hash.
 	fn blake2_128(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnPointer<[u8; 16], 16> {
 		sp_crypto_hashing::blake2_128(data)
+	}
+
+	/// Conduct a 128-bit Blake2 hash.
+	#[version(2)]
+	#[wrapped]
+	fn blake2_128(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 16], 16>) {
+		out.copy_from_slice(&sp_crypto_hashing::blake2_128(data));
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `blake2_128` host function.
+	#[wrapper]
+	fn blake2_128(data: &[u8]) -> [u8; 16] {
+		let mut out = [0u8; 16];
+		blake2_128__wrapped(data, &mut out);
+		out
 	}
 
 	/// Conduct a 256-bit Blake2 hash.
@@ -1467,9 +2848,41 @@ pub trait Hashing {
 		sp_crypto_hashing::blake2_256(data)
 	}
 
+	/// Conduct a 256-bit Blake2 hash.
+	#[version(2)]
+	#[wrapped]
+	fn blake2_256(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 32], 32>) {
+		out.copy_from_slice(&sp_crypto_hashing::blake2_256(data));
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `blake2_256` host function.
+	#[wrapper]
+	fn blake2_256(data: &[u8]) -> [u8; 32] {
+		let mut out = [0u8; 32];
+		blake2_256__wrapped(data, &mut out);
+		out
+	}
+
 	/// Conduct four XX hashes to give a 256-bit result.
 	fn twox_256(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnPointer<[u8; 32], 32> {
 		sp_crypto_hashing::twox_256(data)
+	}
+
+	/// Conduct four XX hashes to give a 256-bit result.
+	#[version(2)]
+	#[wrapped]
+	fn twox_256(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 32], 32>) {
+		out.copy_from_slice(&sp_crypto_hashing::twox_256(data));
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `twox_256` host function.
+	#[wrapper]
+	fn twox_256(data: &[u8]) -> [u8; 32] {
+		let mut out = [0u8; 32];
+		twox_256__wrapped(data, &mut out);
+		out
 	}
 
 	/// Conduct two XX hashes to give a 128-bit result.
@@ -1477,9 +2890,41 @@ pub trait Hashing {
 		sp_crypto_hashing::twox_128(data)
 	}
 
+	/// Conduct two XX hashes to give a 128-bit result.
+	#[version(2)]
+	#[wrapped]
+	fn twox_128(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 16], 16>) {
+		out.copy_from_slice(&sp_crypto_hashing::twox_128(data));
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `twox_128` host function.
+	#[wrapper]
+	fn twox_128(data: &[u8]) -> [u8; 16] {
+		let mut out = [0u8; 16];
+		twox_128__wrapped(data, &mut out);
+		out
+	}
+
 	/// Conduct two XX hashes to give a 64-bit result.
 	fn twox_64(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnPointer<[u8; 8], 8> {
 		sp_crypto_hashing::twox_64(data)
+	}
+
+	/// Conduct two XX hashes to give a 64-bit result.
+	#[version(2)]
+	#[wrapped]
+	fn twox_64(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 8], 8>) {
+		out.copy_from_slice(&sp_crypto_hashing::twox_64(data));
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `twox_64` host function.
+	#[wrapper]
+	fn twox_64(data: &[u8]) -> [u8; 8] {
+		let mut out = [0u8; 8];
+		twox_64__wrapped(data, &mut out);
+		out
 	}
 }
 
@@ -1555,11 +3000,44 @@ pub trait Offchain {
 			.submit_transaction(data)
 	}
 
+	/// Submit an encoded transaction to the pool.
+	///
+	/// The transaction will end up in the pool.
+	#[version(2)]
+	fn submit_transaction(
+		&mut self,
+		data: PassFatPointerAndRead<Vec<u8>>,
+	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i64> {
+		self.extension::<TransactionPoolExt>()
+			.expect(
+				"submit_transaction can be called only in the offchain call context with
+				TransactionPool capabilities enabled",
+			)
+			.submit_transaction(data)
+	}
+
 	/// Returns information about the local node's network state.
+	#[version(1, register_only)]
 	fn network_state(&mut self) -> AllocateAndReturnByCodec<Result<OpaqueNetworkState, ()>> {
 		self.extension::<OffchainWorkerExt>()
 			.expect("network_state can be called only in the offchain worker context")
 			.network_state()
+	}
+
+	/// Returns the peer ID of the local node.
+	fn network_peer_id(
+		&mut self,
+		out: PassPointerAndWrite<&mut NetworkPeerId, 38>,
+	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i64> {
+		let peer_id = self
+			.extension::<OffchainWorkerExt>()
+			.expect("network_state can be called only in the offchain worker context")
+			.network_state()?
+			.peer_id
+			.0;
+
+		out.0.copy_from_slice(&peer_id);
+		Ok(())
 	}
 
 	/// Returns current UNIX timestamp (in millis)
@@ -1584,6 +3062,30 @@ pub trait Offchain {
 		self.extension::<OffchainWorkerExt>()
 			.expect("random_seed can be called only in the offchain worker context")
 			.random_seed()
+	}
+
+	/// Writes a random seed to the provided output buffer.
+	///
+	/// This is a truly random, non-deterministic seed generated by host environment.
+	/// Obviously fine in the off-chain worker context.
+	#[version(2)]
+	#[wrapped]
+	fn random_seed(&mut self, out: PassPointerAndWrite<&mut [u8; 32], 32>) {
+		out.copy_from_slice(
+			&self
+				.extension::<OffchainWorkerExt>()
+				.expect("random_seed can be called only in the offchain worker context")
+				.random_seed(),
+		);
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `random_seed` host
+	/// function.
+	#[wrapper]
+	fn random_seed() -> [u8; 32] {
+		let mut seed = [0u8; 32];
+		random_seed__wrapped(&mut seed);
+		seed
 	}
 
 	/// Sets a value in the local storage.
@@ -1650,6 +3152,7 @@ pub trait Offchain {
 	/// If the value does not exist in the storage `None` will be returned.
 	/// Note this storage is not part of the consensus, it's only accessible by
 	/// offchain worker tasks running on the same machine. It IS persisted between runs.
+	#[version(1, register_only)]
 	fn local_storage_get(
 		&mut self,
 		kind: PassAs<StorageKind, u32>,
@@ -1661,6 +3164,33 @@ pub trait Offchain {
 				OffchainDb extension",
 			)
 			.local_storage_get(kind, key)
+	}
+
+	/// Reads a value from the local storage.
+	///
+	/// If the value does not exist in the storage `None` will be returned.
+	/// Note this storage is not part of the consensus, it's only accessible by
+	/// offchain worker tasks running on the same machine. It IS persisted between runs.
+	fn local_storage_read(
+		&mut self,
+		kind: PassAs<StorageKind, u32>,
+		key: PassFatPointerAndRead<&[u8]>,
+		value_out: PassFatPointerAndReadWrite<&mut [u8]>,
+		offset: u32,
+	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
+		self.extension::<OffchainDbExt>()
+			.expect(
+				"local_storage_get can be called only in the offchain call context with
+				OffchainDb extension",
+			)
+			.local_storage_get(kind, key)
+			.map(|v| {
+				let value_offset = offset as usize;
+				let data = &v[value_offset.min(v.len())..];
+				let written = core::cmp::min(data.len(), value_out.len());
+				value_out[..written].copy_from_slice(&data[..written]);
+				data.len() as u32
+			})
 	}
 
 	/// Initiates a http request given HTTP verb and the URL.
@@ -1678,6 +3208,23 @@ pub trait Offchain {
 			.http_request_start(method, uri, meta)
 	}
 
+	/// Initiates a http request given HTTP verb and the URL.
+	///
+	/// Meta is a future-reserved field containing additional, parity-scale-codec encoded
+	/// parameters. Returns the id of newly started request.
+	#[version(2)]
+	fn http_request_start(
+		&mut self,
+		method: PassFatPointerAndRead<&str>,
+		uri: PassFatPointerAndRead<&str>,
+		meta: PassFatPointerAndRead<&[u8]>,
+	) -> ConvertAndReturnAs<Result<HttpRequestId, ()>, RIIntResult<u16, VoidError>, i64> {
+		self.extension::<OffchainWorkerExt>()
+			.expect("http_request_start can be called only in the offchain worker context")
+			.http_request_start(method, uri, meta)
+			.into()
+	}
+
 	/// Append header to the request.
 	fn http_request_add_header(
 		&mut self,
@@ -1685,6 +3232,19 @@ pub trait Offchain {
 		name: PassFatPointerAndRead<&str>,
 		value: PassFatPointerAndRead<&str>,
 	) -> AllocateAndReturnByCodec<Result<(), ()>> {
+		self.extension::<OffchainWorkerExt>()
+			.expect("http_request_add_header can be called only in the offchain worker context")
+			.http_request_add_header(request_id, name, value)
+	}
+
+	/// Append header to the request.
+	#[version(2)]
+	fn http_request_add_header(
+		&mut self,
+		request_id: PassAs<HttpRequestId, u16>,
+		name: PassFatPointerAndRead<&str>,
+		value: PassFatPointerAndRead<&str>,
+	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i64> {
 		self.extension::<OffchainWorkerExt>()
 			.expect("http_request_add_header can be called only in the offchain worker context")
 			.http_request_add_header(request_id, name, value)
@@ -1707,6 +3267,24 @@ pub trait Offchain {
 			.http_request_write_body(request_id, chunk, deadline)
 	}
 
+	/// Write a chunk of request body.
+	///
+	/// Writing an empty chunks finalizes the request.
+	/// Passing `None` as deadline blocks forever.
+	///
+	/// Returns an error in case deadline is reached or the chunk couldn't be written.
+	#[version(2)]
+	fn http_request_write_body(
+		&mut self,
+		request_id: PassAs<HttpRequestId, u16>,
+		chunk: PassFatPointerAndRead<&[u8]>,
+		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
+	) -> ConvertAndReturnAs<Result<(), HttpError>, RIIntResult<VoidResult, RIHttpError>, i64> {
+		self.extension::<OffchainWorkerExt>()
+			.expect("http_request_write_body can be called only in the offchain worker context")
+			.http_request_write_body(request_id, chunk, deadline)
+	}
+
 	/// Block and wait for the responses for given requests.
 	///
 	/// Returns a vector of request statuses (the len is the same as ids).
@@ -1724,10 +3302,56 @@ pub trait Offchain {
 			.http_response_wait(ids, deadline)
 	}
 
+	/// TODO: Original error codes are used as they do not contradict anything. That should be
+	/// either reflected in RFC-145 or changed here.
+	///
+	/// Block and wait for the responses for given requests.
+	///
+	/// Fills the provided output buffer with request statuses. The length of the provided buffer
+	/// should be no less than the length of the input ids.
+	///
+	/// Note that if deadline is not provided the method will block indefinitely,
+	/// otherwise unready responses will produce `DeadlineReached` status.
+	///
+	/// Passing `None` as deadline blocks forever.
+	#[version(2)]
+	#[wrapped]
+	fn http_response_wait(
+		&mut self,
+		ids: PassFatPointerAndDecodeSlice<&[HttpRequestId]>,
+		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
+		out: PassFatPointerAndReadWrite<&mut [u32]>,
+	) {
+		assert_eq!(out.len(), ids.len());
+		let statuses = self
+			.extension::<OffchainWorkerExt>()
+			.expect("http_response_wait can be called only in the offchain worker context")
+			.http_response_wait(ids, deadline);
+		statuses.into_iter().zip(out).for_each(|(status, out)| {
+			*out = status.into();
+		});
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `http_response_wait`
+	/// host function.
+	#[wrapper]
+	fn http_response_wait(
+		ids: &[HttpRequestId],
+		deadline: Option<Timestamp>,
+	) -> Vec<HttpRequestStatus> {
+		let mut statuses = vec![0u32; ids.len()];
+		http_response_wait__wrapped(&ids, deadline.into(), &mut statuses[..]);
+		statuses
+			.into_iter()
+			.map(|s| HttpRequestStatus::try_from(s).unwrap_or(HttpRequestStatus::Invalid))
+			.collect::<Vec<_>>()
+	}
+
 	/// Read all response headers.
 	///
 	/// Returns a vector of pairs `(HeaderKey, HeaderValue)`.
 	/// NOTE: response headers have to be read before response body.
+	#[version(1, register_only)]
 	fn http_response_headers(
 		&mut self,
 		request_id: PassAs<HttpRequestId, u16>,
@@ -1735,6 +3359,52 @@ pub trait Offchain {
 		self.extension::<OffchainWorkerExt>()
 			.expect("http_response_headers can be called only in the offchain worker context")
 			.http_response_headers(request_id)
+	}
+
+	/// Read the name of the header at the given index into the provided output buffer.
+	///
+	/// Returns the full length of the header name. If the output buffer is not large enough,
+	/// the header name is truncated.
+	///
+	/// Returns `None` if the index is out of bounds.
+	fn http_response_header_name(
+		&mut self,
+		request_id: PassAs<HttpRequestId, u16>,
+		header_index: u32,
+		out: PassFatPointerAndReadWrite<&mut [u8]>,
+	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
+		let headers = self
+			.extension::<OffchainWorkerExt>()
+			.expect("http_response_header_name can be called only in the offchain worker context")
+			.http_response_headers(request_id);
+		let res = &headers.get(header_index as usize)?.0;
+		if out.len() >= res.len() {
+			out.copy_from_slice(&res[..]);
+		}
+		Some(res.len() as u32)
+	}
+
+	/// Read the value of the header at the given index into the provided output buffer.
+	///
+	/// Returns the full length of the header value. If the output buffer is not large enough,
+	/// the header value is truncated.
+	///
+	/// Returns `None` if the index is out of bounds.
+	fn http_response_header_value(
+		&mut self,
+		request_id: PassAs<HttpRequestId, u16>,
+		header_index: u32,
+		out: PassFatPointerAndReadWrite<&mut [u8]>,
+	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
+		let headers = self
+			.extension::<OffchainWorkerExt>()
+			.expect("http_response_header_value can be called only in the offchain worker context")
+			.http_response_headers(request_id);
+		let res = &headers.get(header_index as usize)?.1;
+		if out.len() >= res.len() {
+			out.copy_from_slice(&res[..]);
+		}
+		Some(res.len() as u32)
 	}
 
 	/// Read a chunk of body response to given buffer.
@@ -1751,6 +3421,27 @@ pub trait Offchain {
 		buffer: PassFatPointerAndReadWrite<&mut [u8]>,
 		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
 	) -> AllocateAndReturnByCodec<Result<u32, HttpError>> {
+		self.extension::<OffchainWorkerExt>()
+			.expect("http_response_read_body can be called only in the offchain worker context")
+			.http_response_read_body(request_id, buffer, deadline)
+			.map(|r| r as u32)
+	}
+
+	/// Read a chunk of body response to given buffer.
+	///
+	/// Returns the number of bytes written or an error in case a deadline
+	/// is reached or server closed the connection.
+	/// If `0` is returned it means that the response has been fully consumed
+	/// and the `request_id` is now invalid.
+	/// NOTE: this implies that response headers must be read before draining the body.
+	/// Passing `None` as a deadline blocks forever.
+	#[version(2)]
+	fn http_response_read_body(
+		&mut self,
+		request_id: PassAs<HttpRequestId, u16>,
+		buffer: PassFatPointerAndReadWrite<&mut [u8]>,
+		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
+	) -> ConvertAndReturnAs<Result<u32, HttpError>, RIIntResult<u32, RIHttpError>, i64> {
 		self.extension::<OffchainWorkerExt>()
 			.expect("http_response_read_body can be called only in the offchain worker context")
 			.http_response_read_body(request_id, buffer, deadline)
@@ -1994,6 +3685,16 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 	}
 }
 
+/// Input data handling functions
+#[runtime_interface]
+pub trait Input {
+	/// Read input data into the provided buffer.
+	fn read(_buffer: PassFatPointerAndWriteInputData<&mut [u8]>) {
+		// The body has been deliberately left empty. The logic is handled by a specific marshalling
+		// strategy (see [`PassFatPointerAndWriteInputData`]).
+	}
+}
+
 /// Type alias for Externalities implementation used in tests.
 #[cfg(feature = "std")] // NOTE: Deliberately isn't `not(substrate_runtime)`.
 pub type TestExternalities = sp_state_machine::TestExternalities<sp_core::Blake2Hasher>;
@@ -2017,6 +3718,7 @@ pub type SubstrateHostFunctions = (
 	crate::trie::HostFunctions,
 	offchain_index::HostFunctions,
 	transaction_index::HostFunctions,
+	input::HostFunctions,
 );
 
 #[cfg(test)]
@@ -2088,30 +3790,20 @@ mod tests {
 		});
 
 		t.execute_with(|| {
-			// We can switch to this once we enable v3 of the `clear_prefix`.
-			//assert!(matches!(
-			//	storage::clear_prefix(b":abc", None),
-			//	MultiRemovalResults::NoneLeft { db: 2, total: 2 }
-			//));
-			assert!(matches!(
-				storage::clear_prefix(b":abc", None),
-				KillStorageResult::AllRemoved(2),
-			));
+			let res = storage::clear_prefix(b":abc", None, None);
+			assert_eq!(res.backend, 2);
+			assert_eq!(res.unique, 2);
+			assert_eq!(res.loops, 2);
 
 			assert!(storage::get(b":a").is_some());
 			assert!(storage::get(b":abdd").is_some());
 			assert!(storage::get(b":abcd").is_none());
 			assert!(storage::get(b":abc").is_none());
 
-			// We can switch to this once we enable v3 of the `clear_prefix`.
-			//assert!(matches!(
-			//	storage::clear_prefix(b":abc", None),
-			//	MultiRemovalResults::NoneLeft { db: 0, total: 0 }
-			//));
-			assert!(matches!(
-				storage::clear_prefix(b":abc", None),
-				KillStorageResult::AllRemoved(0),
-			));
+			let res = storage::clear_prefix(b":abc", None, None);
+			assert_eq!(res.backend, 0);
+			assert_eq!(res.unique, 0);
+			assert_eq!(res.loops, 0);
 		});
 	}
 

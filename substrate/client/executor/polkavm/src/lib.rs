@@ -189,6 +189,14 @@ impl<'r, 'a> FunctionContext for Context<'r, 'a> {
 	fn register_panic_error_message(&mut self, _message: &str) {
 		unimplemented!("'register_panic_error_message' is never used when running under PolkaVM");
 	}
+
+	fn fill_input_data(
+		&mut self,
+		_ptr: Pointer<u8>,
+		_size: WordSize,
+	) -> sp_wasm_interface::Result<()> {
+		todo!("Implement 'fill_input_data' for PolkaVM");
+	}
 }
 
 fn call_host_function(caller: &mut Caller<()>, function: &dyn Function) -> Result<(), String> {

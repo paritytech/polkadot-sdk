@@ -37,6 +37,8 @@ type HostFunctions = (
 	sp_io::storage::HostFunctions,
 	// The hashing functions.
 	sp_io::hashing::HostFunctions,
+	// Input reading.
+	sp_io::input::HostFunctions,
 );
 
 /// Generate the metadata hash.

@@ -116,7 +116,7 @@ mod custom {
 		}
 
 		pub fn calculate_storage_root(_origin: OriginFor<T>) -> DispatchResult {
-			let root = sp_io::storage::root(sp_runtime::StateVersion::V1);
+			let root = sp_io::storage::root();
 			sp_io::storage::set("storage_root".as_bytes(), &root);
 			Ok(())
 		}

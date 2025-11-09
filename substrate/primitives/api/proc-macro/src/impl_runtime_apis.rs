@@ -234,13 +234,13 @@ fn generate_wasm_interface(impls: &[ItemImpl]) -> Result<TokenStream> {
                         #( #attrs )*
                         #[no_mangle]
                         #[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64"), #c::__private::polkavm_export(abi = #c::__private::polkavm_abi))]
-                        pub unsafe extern fn #fn_name(input_data: *mut u8, input_len: usize) -> u64 {
-                            let mut #input = if input_len == 0 {
-                                &[0u8; 0]
-                            } else {
-                                unsafe {
-                                    ::core::slice::from_raw_parts(input_data, input_len)
-                                }
+                        pub unsafe extern fn #fn_name(input_len: usize) -> u64 {
+							let mut input_vec = #c::__private::vec![0; input_len];
+                            let mut #input = {
+								if input_len != 0 {
+									#c::sp_io::input::read(&mut input_vec[..]);
+								}
+								&input_vec[..]
                             };
 
                             #c::init_runtime_logger();

@@ -41,7 +41,6 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_core::{Get, H160};
-use sp_io::KillStorageResult;
 use sp_runtime::{
 	traits::{Hash, Saturating, Zero},
 	DispatchError, RuntimeDebug,
@@ -421,24 +420,20 @@ impl<T: Config> ContractInfo<T> {
 		while remaining_key_budget > 0 {
 			let Some(entry) = queue.next() else { break };
 
-			#[allow(deprecated)]
-			let outcome = child::kill_storage(
+			let outcome = child::clear_storage(
 				&ChildInfo::new_default(&entry.trie_id),
 				Some(remaining_key_budget),
+				None,
 			);
 
-			match outcome {
-				// This happens when our budget wasn't large enough to remove all keys.
-				KillStorageResult::SomeRemaining(keys_removed) => {
-					remaining_key_budget.saturating_reduce(keys_removed);
-					break
-				},
-				KillStorageResult::AllRemoved(keys_removed) => {
-					entry.remove();
-					// charge at least one key even if none were removed.
-					remaining_key_budget = remaining_key_budget.saturating_sub(keys_removed.max(1));
-				},
-			};
+			if outcome.maybe_cursor.is_some() {
+				remaining_key_budget.saturating_reduce(outcome.backend);
+				break
+			} else {
+				entry.remove();
+				// charge at least one key even if none were removed.
+				remaining_key_budget = remaining_key_budget.saturating_sub(outcome.backend.max(1));
+			}
 		}
 
 		meter.consume(weight_per_key.saturating_mul(u64::from(budget - remaining_key_budget)))
