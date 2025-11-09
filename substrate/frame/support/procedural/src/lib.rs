@@ -477,20 +477,19 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 		.into()
 }
 
-/// Attribute macro for simplifying storage type definitions.
+/// Derive macro for simplifying storage type definitions with consistent field-based bounding.
 ///
-/// This macro automatically applies the appropriate derives for types stored in runtime
-/// storage. It automatically skips all type parameters in TypeInfo metadata and allows
-/// configuration of `MaxEncodedLen` bounds.
+/// This macro automatically extracts field types and applies derives with bounds on those fields
+/// (consistent with codec's strategy), rather than naively bounding type parameters. This ensures
+/// predictable and consistent behavior across all traits.
 ///
 /// # Automatic Behavior
 ///
-/// The macro automatically applies these derives:
-/// - `CloneNoBound`, `PartialEqNoBound`, `EqNoBound`, `RuntimeDebugNoBound`
-/// - `TypeInfo`, `Encode`, `Decode`, `DecodeWithMemTracking`, `MaxEncodedLen`
-///
-/// All type parameters are automatically excluded from TypeInfo metadata generation via
-/// `#[scale_info(skip_type_params(...))]`.
+/// The macro automatically:
+/// - Extracts all field types from the struct
+/// - Applies `derive_where(Clone, Eq, PartialEq, Debug; field_type1, field_type2, ...)`
+/// - Applies codec derives (Encode, Decode, MaxEncodedLen, DecodeWithMemTracking, TypeInfo)
+/// - Skips all type parameters in TypeInfo metadata (they're rarely needed)
 ///
 /// # Arguments
 ///
@@ -500,12 +499,22 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 /// # Example
 ///
 /// ```ignore
-/// #[frame_support::stored(mel(Votes))]
-/// pub struct Tally<Votes, Total> {
-///     pub ayes: Votes,
-///     pub nays: Votes,
-///     dummy: PhantomData<Total>,
+/// pub trait Config {
+///     type Foo;
+///     type Foo2;
 /// }
+///
+/// #[frame_support::derive_stored]
+/// pub struct Foo<T: Config> {
+///     f: T::Foo,
+///     f2: Vec<T::Foo2>,
+/// }
+///
+/// // Expands to:
+/// // #[derive_where(Clone, Eq, PartialEq, Debug; T::Foo, Vec<T::Foo2>)]
+/// // #[derive(Encode, Decode, MaxEncodedLen, DecodeWithMemTracking, TypeInfo)]
+/// // #[scale_info(skip_type_params(T))]
+/// // pub struct Foo<T: Config> { ... }
 /// ```
 #[proc_macro_attribute]
 pub fn stored(attr: TokenStream, item: TokenStream) -> TokenStream {

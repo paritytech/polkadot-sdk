@@ -15,11 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Implementation of the `#[stored]` attribute macro for storage types.
+//! Implementation of the `#[derive_stored]` attribute macro for storage types.
 //!
-//! This macro simplifies the definition of storage types by automatically generating
-//! the appropriate derive macros. It handles skipping type parameters in TypeInfo
-//! metadata and `MaxEncodedLen` bounds configuration.
+//! This macro simplifies storage type definitions by automatically generating derives
+//! with consistent field-based bounding strategy. It extracts field types and applies
+//! bounds to those fields (like codec does), ensuring consistent behavior across all traits.
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
@@ -31,16 +31,12 @@ use syn::{
 };
 
 mod keywords {
-	syn::custom_keyword!(skip);
 	syn::custom_keyword!(mel);
 	syn::custom_keyword!(mel_bound);
 }
 
-/// Parsed arguments for the `#[stored]` attribute.
+/// Parsed arguments for the `#[derive_stored]` attribute.
 struct StoredArgs {
-	/// Generic parameters to exclude from TypeInfo metadata generation.
-	/// These are typically indirectly-used types or phantom data.
-	skip: Vec<Ident>,
 	/// Generic parameters that require MaxEncodedLen.
 	mel: Vec<Ident>,
 	/// Custom MaxEncodedLen bounds to use instead of inferring.
@@ -49,7 +45,6 @@ struct StoredArgs {
 
 impl Parse for StoredArgs {
 	fn parse(input: ParseStream) -> Result<Self> {
-		let mut skip = Vec::new();
 		let mut mel = Vec::new();
 		let mut mel_bound = None;
 
@@ -57,15 +52,6 @@ impl Parse for StoredArgs {
 
 		for arg in args {
 			match arg {
-				StoredArg::Skip(idents) => {
-					if !skip.is_empty() {
-						return Err(Error::new(
-							idents.first().unwrap().span(),
-							"`skip` can only be specified once",
-						))
-					}
-					skip = idents;
-				},
 				StoredArg::Mel(idents) => {
 					if !mel.is_empty() {
 						return Err(Error::new(
@@ -87,14 +73,12 @@ impl Parse for StoredArgs {
 			}
 		}
 
-		Ok(StoredArgs { skip, mel, mel_bound })
+		Ok(StoredArgs { mel, mel_bound })
 	}
 }
 
-/// Individual argument in the `#[stored(...)]` attribute.
+/// Individual argument in the `#[derive_stored(...)]` attribute.
 enum StoredArg {
-	/// `skip(A, B, C)`
-	Skip(Vec<Ident>),
 	/// `mel(A, B, C)`
 	Mel(Vec<Ident>),
 	/// `mel_bound(A: MaxEncodedLen, B: MaxEncodedLen + Encode)`
@@ -104,13 +88,7 @@ enum StoredArg {
 impl Parse for StoredArg {
 	fn parse(input: ParseStream) -> Result<Self> {
 		let lookahead = input.lookahead1();
-		if lookahead.peek(keywords::skip) {
-			input.parse::<keywords::skip>()?;
-			let content;
-			syn::parenthesized!(content in input);
-			let idents = Punctuated::<Ident, Token![,]>::parse_terminated(&content)?;
-			Ok(StoredArg::Skip(idents.into_iter().collect()))
-		} else if lookahead.peek(keywords::mel_bound) {
+		if lookahead.peek(keywords::mel_bound) {
 			input.parse::<keywords::mel_bound>()?;
 			let content;
 			syn::parenthesized!(content in input);
@@ -128,7 +106,7 @@ impl Parse for StoredArg {
 	}
 }
 
-/// Main implementation of the `#[stored]` macro.
+/// Main implementation of the `#[derive_stored]` macro.
 pub fn stored(
 	attr: proc_macro::TokenStream,
 	item: proc_macro::TokenStream,
@@ -143,31 +121,28 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 	let args: StoredArgs = syn::parse2(attr)?;
 	let input: syn::DeriveInput = syn::parse2(item)?;
 
-	// Validate that skipped parameters are actually generic parameters
-	for skip_param in &args.skip {
-		if !input.generics.params.iter().any(|p| match p {
-			syn::GenericParam::Type(tp) => &tp.ident == skip_param,
-			_ => false,
-		}) {
+	// Extract field types from the struct
+	let field_types = match &input.data {
+		syn::Data::Struct(data_struct) => match &data_struct.fields {
+			syn::Fields::Named(fields) => {
+				fields.named.iter().map(|f| &f.ty).collect::<Vec<_>>()
+			},
+			syn::Fields::Unnamed(fields) => {
+				fields.unnamed.iter().map(|f| &f.ty).collect::<Vec<_>>()
+			},
+			syn::Fields::Unit => Vec::new(),
+		},
+		syn::Data::Enum(_) =>
 			return Err(Error::new(
-				skip_param.span(),
-				format!("generic parameter `{}` not found", skip_param),
-			))
-		}
-	}
-
-	// Validate mel parameters
-	for mel_param in &args.mel {
-		if !input.generics.params.iter().any(|p| match p {
-			syn::GenericParam::Type(tp) => &tp.ident == mel_param,
-			_ => false,
-		}) {
+				input.span(),
+				"#[derive_stored] is only supported on structs, not enums",
+			)),
+		syn::Data::Union(_) =>
 			return Err(Error::new(
-				mel_param.span(),
-				format!("generic parameter `{}` not found", mel_param),
-			))
-		}
-	}
+				input.span(),
+				"#[derive_stored] is only supported on structs, not unions",
+			)),
+	};
 
 	// Collect all type parameters for scale_info skip_type_params.
 	// By default, we skip all type parameters in TypeInfo metadata as they're rarely needed.
@@ -208,6 +183,19 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 		quote! {}
 	};
 
+	// Generate derive_where with field-based bounds
+	// This ensures consistent bounding strategy: bounds are applied to field types, not type parameters
+	let derive_where_attr = if !field_types.is_empty() {
+		quote! {
+			#[derive_where(Clone, Eq, PartialEq, Debug; #(#field_types),*)]
+		}
+	} else {
+		// For unit structs, no field types to bound
+		quote! {
+			#[derive_where(Clone, Eq, PartialEq, Debug)]
+		}
+	};
+
 	let name = &input.ident;
 	let vis = &input.vis;
 	let generics = &input.generics;
@@ -226,24 +214,12 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 			},
 			syn::Fields::Unit => quote! { ; },
 		},
-		syn::Data::Enum(_) =>
-			return Err(Error::new(
-				input.span(),
-				"#[stored] is only supported on structs, not enums",
-			)),
-		syn::Data::Union(_) =>
-			return Err(Error::new(
-				input.span(),
-				"#[stored] is only supported on structs, not unions",
-			)),
+		_ => unreachable!(), // Already checked above
 	};
 
 	Ok(quote! {
+		#derive_where_attr
 		#[derive(
-			::frame_support::CloneNoBound,
-			::frame_support::PartialEqNoBound,
-			::frame_support::EqNoBound,
-			::frame_support::RuntimeDebugNoBound,
 			::scale_info::TypeInfo,
 			::codec::Encode,
 			::codec::Decode,
@@ -263,31 +239,28 @@ mod tests {
 	use quote::quote;
 
 	#[test]
-	fn stored_parse_skip_and_mel() {
+	fn stored_parse_mel() {
 		let input = quote! {
-			skip(Total), mel(Votes)
+			mel(Votes)
 		};
 		let args: StoredArgs = syn::parse2(input).unwrap();
-		assert_eq!(args.skip.len(), 1);
 		assert_eq!(args.mel.len(), 1);
-		assert_eq!(args.skip[0].to_string(), "Total");
 		assert_eq!(args.mel[0].to_string(), "Votes");
 	}
 
 	#[test]
 	fn stored_parse_mel_bound() {
 		let input = quote! {
-			skip(T), mel_bound(S: MaxEncodedLen)
+			mel_bound(S: MaxEncodedLen)
 		};
 		let args: StoredArgs = syn::parse2(input).unwrap();
-		assert_eq!(args.skip.len(), 1);
 		assert!(args.mel_bound.is_some());
 	}
 
 	#[test]
-	fn stored_rejects_duplicate_skip() {
+	fn stored_rejects_duplicate_mel() {
 		let input = quote! {
-			skip(A), skip(B)
+			mel(A), mel(B)
 		};
 		let result: Result<StoredArgs> = syn::parse2(input);
 		assert!(result.is_err());
