@@ -1,4 +1,4 @@
-name: Post Crates Release Activities
+name: Release - Post Crates Release Activities
 
 on:
   push:
@@ -23,19 +23,48 @@ jobs:
   post-crates-activities:
     needs: set-image
     runs-on: ubuntu-latest
+    environment: release
+    env:
+      PGP_KMS_KEY: ${{ secrets.PGP_KMS_SIGN_COMMITS_KEY }}
+      PGP_KMS_HASH: ${{ secrets.PGP_KMS_HASH }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
 
     steps:
+      - name: Install pgpkms
+        run: |
+          # Install pgpkms that is used to sign commits
+          pip install git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed
+          # Find and display where pgpkms-git is installed
+          echo "pgpkms-git location: $(which pgpkms-git)"
+          ls -la $(which pgpkms-git)
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Import GPG keys
+        shell: bash
+        run: |
+          . ./.github/scripts/common/lib.sh
+          import_gpg_keys
+
       - name: Configure git
+        shell: bash
         run: |
           git config --global --add safe.directory "${GITHUB_WORKSPACE}"
-
+          git config --global commit.gpgsign true
+          # Dynamically find pgpkms-git path
+          PGPKMS_PATH=$(which pgpkms-git)
+          echo "Using pgpkms-git at: $PGPKMS_PATH"
+          git config --global gpg.program "$PGPKMS_PATH"
+          git config --global user.name "ParityReleases"
+          git config --global user.email "release-team@parity.io"
+          git config --global user.signingKey "D8018FBB3F534D866A45998293C5FB5F6A367B51"
       - name: Bump NODE_VERSION for polkadot
         run: |
           echo "Checking current NODE_VERSION in polkadot..."
@@ -44,7 +73,6 @@ jobs:
           echo "ACTION REQUIRED: Please bump NODE_VERSION manually in polkadot/node/primitives/src/lib.rs"
           echo "Current version:"
           grep "NODE_VERSION" polkadot/node/primitives/src/lib.rs || true
-
       - name: Bump NODE_VERSION for polkadot-parachain and polkadot-omni-node
         run: |
           echo "Checking current NODE_VERSION in cumulus..."
@@ -53,59 +81,35 @@ jobs:
           echo "ACTION REQUIRED: Please bump NODE_VERSION manually in cumulus/polkadot-omni-node/lib/src/nodes/mod.rs"
           echo "Current version:"
           grep "NODE_VERSION" cumulus/polkadot-omni-node/lib/src/nodes/mod.rs || true
-
       - name: Check spec_version for runtimes
         run: |
           echo "ACTION REQUIRED: Please check if spec_version needs to be bumped for runtimes"
-
       - name: Move prdocs to release folder
+        shell: bash
         run: |
+          . ./.github/scripts/release/release_lib.sh
+
           # Extract release name from branch name (everything after "post-crates-release-")
           BRANCH_NAME="${{ github.ref_name }}"
           echo "Branch name: $BRANCH_NAME"
 
-          # Extract release folder name (everything after "post-crates-release-")
           if [[ "$BRANCH_NAME" =~ post-crates-release-(.+)$ ]]; then
             RELEASE_FOLDER="${BASH_REMATCH[1]}"
             echo "Release folder name: $RELEASE_FOLDER"
 
-            # Check if prdoc directory exists
-            if [ -d "prdoc" ]; then
-              # Create the release folder
-              mkdir -p "prdoc/$RELEASE_FOLDER"
-              echo "Created folder: prdoc/$RELEASE_FOLDER"
-
-              # Count pr_*.prdoc files
-              PRDOC_COUNT=$(find prdoc -maxdepth 1 -name "pr_*.prdoc" -type f | wc -l)
-              echo "Found $PRDOC_COUNT prdoc files to move"
-
-              # Move all pr_*.prdoc files to the release folder
-              if [ "$PRDOC_COUNT" -gt 0 ]; then
-                find prdoc -maxdepth 1 -name "pr_*.prdoc" -type f -exec mv {} "prdoc/$RELEASE_FOLDER/" \;
-                echo "Moved prdoc files to prdoc/$RELEASE_FOLDER/"
-
-                # List moved files
-                echo "Files in prdoc/$RELEASE_FOLDER/:"
-                ls -la "prdoc/$RELEASE_FOLDER/"
-              else
-                echo "No pr_*.prdoc files found to move"
-              fi
-            else
-              echo "WARNING: prdoc directory not found"
-            fi
+            # Use the reorder_prdocs helper function
+            reorder_prdocs "$RELEASE_FOLDER"
           else
             echo "WARNING: Could not extract release name from branch name: $BRANCH_NAME"
             echo "Expected format: post-crates-release-<release-name>"
+            exit 1
           fi
-
       - name: Replace path dependencies
         run: |
           echo "Running replace-all-path-deps.sh..."
           bash scripts/release/replace-all-path-deps.sh
-
           # Show git diff to see what changed
           git diff --stat
-
       - name: Remove versions where path deps are present
         run: |
           echo "Running delete-versions-if-path-is-present.sh..."
@@ -114,86 +118,81 @@ jobs:
           else
             echo "WARNING: delete-versions-if-path-is-present.sh not found"
           fi
-
           # Show git diff to see what changed
           git diff --stat
-
       - name: Remove version from umbrella/Cargo.toml
         run: |
           echo "Running delete-version-from-umbrella.sh..."
           bash scripts/release/delete-version-from-umbrella.sh
-
           # Show git diff to see what changed
           git diff --stat
-
       - name: Install and run Zepter - check issues
         run: |
           echo "Installing zepter..."
-          cargo install zepter --locked || echo "zepter installation failed or already installed"
-
+          cargo install zepter --version 0.17.0 --locked || echo "zepter installation failed or already installed"
           echo "Running zepter run check to identify issues..."
           zepter run check || echo "Zepter found issues that need to be fixed"
-
       - name: Run Zepter - fix issues
         run: |
           echo "Running zepter to fix issues..."
           zepter || echo "Zepter fix completed"
-
           # Show git diff to see what changed
           git diff --stat
-
       - name: Run Zepter - verify fixes
         run: |
           echo "Running zepter run check again to verify fixes..."
           zepter run check || echo "There are still issues to fix manually"
-
       - name: Install taplo
         run: |
           echo "Installing taplo 0.8.1..."
           cargo install taplo-cli --version 0.8.1 --locked || echo "taplo installation failed or already installed"
-
       - name: Run taplo - check formatting
         run: |
           echo "Running taplo format check..."
           taplo format --check --config .config/taplo.toml || echo "Taplo found formatting issues"
-
       - name: Run taplo - format
         run: |
           echo "Running taplo format..."
           taplo format --config .config/taplo.toml
-
           # Show git diff to see what changed
           git diff --stat
-
       - name: Run taplo - verify formatting
         run: |
           echo "Running taplo format check again..."
           taplo format --check --config .config/taplo.toml || echo "There are still formatting issues"
-
+      - name: Install Python dependencies
+        run: |
+          echo "Installing Python dependencies..."
+          pip3 install toml "cargo-workspace>=1.2.6"
       - name: Run workspace check
         run: |
           echo "Running workspace check..."
           python3 .github/scripts/check-workspace.py . --exclude \
             "substrate/frame/contracts/fixtures/build" \
             "substrate/frame/contracts/fixtures/contracts/common"
-
       - name: Deny git dependencies
         run: |
           echo "Checking for git dependencies..."
           python3 .github/scripts/deny-git-deps.py .
-
-      - name: Commit and push changes
+      - name: Check git status before commit
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          echo "=== Git status ==="
+          git status
+          echo ""
+          echo "=== Git status --porcelain ==="
+          git status --porcelain
+          echo ""
+          echo "=== Changed files count ==="
+          git status --porcelain | wc -l
+      - name: Commit and push changes
+        shell: bash
+        run: |
+          . ./.github/scripts/release/release_lib.sh
 
           # Check if there are changes to commit
           if [[ -n $(git status --porcelain) ]]; then
-            git add .
-            git commit -m "chore: post crates release actions"
-
+            commit_with_message "chore: post crates release actions - path deps, zepter, taplo"
             echo "Changes committed successfully"
-
             # Push changes to the branch
             echo "Pushing changes to branch..."
             git push
