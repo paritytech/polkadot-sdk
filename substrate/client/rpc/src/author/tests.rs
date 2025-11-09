@@ -72,6 +72,7 @@ impl Default for TestSetup {
 			None,
 			spawner,
 			client.clone(),
+			None,
 		));
 		TestSetup { client, keystore, pool }
 	}
