@@ -488,8 +488,8 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 /// The macro automatically:
 /// - Extracts all field types from the struct (same approach as parity-scale-codec)
 /// - Applies `derive_where(Clone, Eq, PartialEq, Debug; field_type1, field_type2, ...)`
-/// - Applies codec derives (Encode, Decode, MaxEncodedLen, DecodeWithMemTracking, TypeInfo)
-///   using their default field-bounding strategy
+/// - Applies codec derives (Encode, Decode, MaxEncodedLen, DecodeWithMemTracking, TypeInfo) using
+///   their default field-bounding strategy
 /// - Skips all type parameters in TypeInfo metadata (they're rarely needed)
 ///
 /// # Example
