@@ -1,32 +1,15 @@
 name: Post Crates Release Activities
 
 on:
-  pull_request:
-    types: [opened, synchronize]
+  push:
+    branches:
+      - 'post-crates-release-*'
 
 permissions:
   contents: write
-  pull-requests: read
 
 jobs:
-  # Only run if PR title contains "Post crates"
-  check-pr-title:
-    runs-on: ubuntu-latest
-    outputs:
-      should_run: ${{ steps.check.outputs.should_run }}
-    steps:
-      - name: Check PR title
-        id: check
-        run: |
-          if [[ "${{ github.event.pull_request.title }}" =~ "Post crates" ]]; then
-            echo "should_run=true" >> $GITHUB_OUTPUT
-          else
-            echo "should_run=false" >> $GITHUB_OUTPUT
-          fi
-
   set-image:
-    needs: check-pr-title
-    if: needs.check-pr-title.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
@@ -38,8 +21,7 @@ jobs:
         run: cat .github/env >> $GITHUB_OUTPUT
 
   post-crates-activities:
-    needs: [check-pr-title, set-image]
-    if: needs.check-pr-title.outputs.should_run == 'true'
+    needs: set-image
     runs-on: ubuntu-latest
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -78,12 +60,12 @@ jobs:
 
       - name: Move prdocs to release folder
         run: |
-          # Extract release name from branch name (everything after "release-")
-          BRANCH_NAME="${{ github.head_ref }}"
+          # Extract release name from branch name (everything after "post-crates-release-")
+          BRANCH_NAME="${{ github.ref_name }}"
           echo "Branch name: $BRANCH_NAME"
 
-          # Extract release folder name (everything after "release-")
-          if [[ "$BRANCH_NAME" =~ release-(.+)$ ]]; then
+          # Extract release folder name (everything after "post-crates-release-")
+          if [[ "$BRANCH_NAME" =~ post-crates-release-(.+)$ ]]; then
             RELEASE_FOLDER="${BASH_REMATCH[1]}"
             echo "Release folder name: $RELEASE_FOLDER"
 
@@ -113,7 +95,7 @@ jobs:
             fi
           else
             echo "WARNING: Could not extract release name from branch name: $BRANCH_NAME"
-            echo "Expected format: *release-<release-name>"
+            echo "Expected format: post-crates-release-<release-name>"
           fi
 
       - name: Replace path dependencies
