@@ -4428,6 +4428,7 @@ dependencies = [
  "sc-consensus-aura",
  "sc-consensus-babe",
  "sc-consensus-slots",
+ "sc-network-types",
  "sc-telemetry",
  "sc-utils",
  "schnellru",
@@ -4575,6 +4576,7 @@ dependencies = [
  "parity-scale-codec",
  "sc-client-api",
  "sc-consensus-babe",
+ "sc-network-types",
  "sp-crypto-hashing 0.1.0",
  "sp-inherents",
  "sp-runtime",
@@ -9309,9 +9311,9 @@ dependencies = [
 
 [[package]]
 name = "kvdb-rocksdb"
-version = "0.20.0"
+version = "0.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8beb5ce840610e5a945f0306f6e7a2d5b3e68ea3e64e9a4f081fa4ee5aa6525"
+checksum = "3b089b6062662d720a836f055931434439fcd3a90f0059db0b831a99da6db460"
 dependencies = [
  "kvdb",
  "num_cpus",
@@ -15849,6 +15851,7 @@ dependencies = [
  "tempfile",
  "thiserror 1.0.65",
  "tracing-gum",
+ "wat",
 ]
 
 [[package]]
@@ -18051,7 +18054,7 @@ checksum = "f8650aabb6c35b860610e9cff5dc1af886c9e25073b7b1712a68972af4281302"
 dependencies = [
  "bytes",
  "heck 0.5.0",
- "itertools 0.13.0",
+ "itertools 0.10.5",
  "log",
  "multimap",
  "once_cell",
