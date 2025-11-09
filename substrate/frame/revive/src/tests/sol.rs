@@ -19,7 +19,7 @@ use crate::{
 	assert_refcount,
 	call_builder::VmBinaryModule,
 	debug::DebugSettings,
-	evm::{PrestateTrace, PrestateTraceInfo, PrestateTracer, PrestateTracerConfig},
+	evm::{PrestateTracer, PrestateTracerConfig},
 	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
 	tests::{
 		builder,
@@ -27,9 +27,8 @@ use crate::{
 		AllowEvmBytecode, DebugFlag, ExtBuilder, RuntimeOrigin, Test,
 	},
 	tracing::trace,
-	Code, Config, Error, GenesisConfig, Pallet, PristineCode, H160,
+	Code, Config, Error, GenesisConfig, Pallet, PristineCode,
 };
-use alloc::collections::BTreeMap;
 use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::{assert_err, assert_ok, traits::fungible::Mutate};
 use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType};
@@ -117,7 +116,9 @@ fn basic_evm_flow_tracing_works() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
 		let Contract { addr, .. } = trace(&mut tracer, || {
-			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract()
+			builder::bare_instantiate(Code::Upload(code.clone()))
+				.salt(None)
+				.build_and_unwrap_contract()
 		});
 
 		let contract = get_contract(&addr);
@@ -127,7 +128,7 @@ fn basic_evm_flow_tracing_works() {
 			tracer.collect_trace().unwrap(),
 			CallTrace {
 				from: ALICE_ADDR,
-				call_type: CallType::Create2,
+				call_type: CallType::Create,
 				to: addr,
 				input: code.into(),
 				output: runtime_code.into(),
@@ -308,10 +309,20 @@ fn dust_work_with_child_calls(fixture_type: FixtureType) {
 
 #[test]
 fn prestate_diff_mode_tracing_works() {
+	use alloy_core::hex;
+	use pallet_revive_fixtures::NestedCounter;
+
 	struct TestCase {
 		config: PrestateTracerConfig,
-		build_expected_trace: Box<dyn FnOnce(H160) -> PrestateTrace>,
+		expected_instantiate_trace_json: &'static str,
+		expected_call_trace_json: &'static str,
 	}
+
+	let (counter_code, _) = compile_module_with_type("NestedCounter", FixtureType::Solc).unwrap();
+	let (contract_runtime_code, _) =
+		compile_module_with_type("NestedCounter", FixtureType::SolcRuntime).unwrap();
+	let (child_runtime_code, _) =
+		compile_module_with_type("Counter", FixtureType::SolcRuntime).unwrap();
 
 	let test_cases = [
 		TestCase {
@@ -320,79 +331,170 @@ fn prestate_diff_mode_tracing_works() {
 				disable_storage: false,
 				disable_code: false,
 			},
-			build_expected_trace: Box::new(|_contract_addr| {
-				let balance = Pallet::<Test>::convert_native_to_evm(
-					1_000_000_000_000 - Pallet::<Test>::min_balance(),
-				);
-				PrestateTrace::Prestate(BTreeMap::from([(
-					ALICE_ADDR,
-					PrestateTraceInfo { balance: Some(balance), ..Default::default() },
-				)]))
-			}),
+			expected_instantiate_trace_json: r#"{
+  "{{ALICE_ADDR}}": {
+    "balance": "{{ALICE_BALANCE_PRE}}"
+  }
+}"#,
+			expected_call_trace_json: r#"{
+  "{{ALICE_ADDR}}": {
+    "balance": "{{ALICE_BALANCE_POST}}",
+    "nonce": 1
+  },
+  "{{CONTRACT_ADDR}}": {
+    "balance": "0x0",
+    "nonce": 2,
+    "code": "{{CONTRACT_CODE}}",
+    "storage": {
+      "0x0000000000000000000000000000000000000000000000000000000000000000": "{{CHILD_ADDR_PADDED}}",
+      "0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000007"
+    }
+  },
+  "{{CHILD_ADDR}}": {
+    "balance": "0x0",
+    "nonce": 1,
+    "code": "{{CHILD_CODE}}",
+    "storage": {
+      "0x0000000000000000000000000000000000000000000000000000000000000000": "0x000000000000000000000000000000000000000000000000000000000000000a"
+    }
+  }
+}"#,
 		},
 		TestCase {
 			config: PrestateTracerConfig {
 				diff_mode: true,
 				disable_storage: false,
-				disable_code: true,
+				disable_code: false,
 			},
-			build_expected_trace: Box::new(|contract_addr| {
-				let balance = Pallet::<Test>::convert_native_to_evm(
-					1_000_000_000_000 - Pallet::<Test>::min_balance(),
-				);
-				let post_balance = Pallet::<Test>::evm_balance(&ALICE_ADDR);
-				let child_addr = crate::address::create1(&contract_addr, 1u64);
-
-				PrestateTrace::DiffMode {
-					pre: BTreeMap::from([(
-						ALICE_ADDR,
-						PrestateTraceInfo { balance: Some(balance), ..Default::default() },
-					)]),
-					post: BTreeMap::from([
-						(
-							ALICE_ADDR,
-							PrestateTraceInfo {
-								balance: Some(post_balance),
-								nonce: Some(1),
-								..Default::default()
-							},
-						),
-						(
-							contract_addr,
-							PrestateTraceInfo {
-								balance: Some(0.into()),
-								nonce: Some(2),
-								..Default::default()
-							},
-						),
-						(
-							child_addr,
-							PrestateTraceInfo {
-								balance: Some(0.into()),
-								nonce: Some(1),
-								..Default::default()
-							},
-						),
-					]),
-				}
-			}),
+			expected_instantiate_trace_json: r#"{
+  "pre": {
+    "{{ALICE_ADDR}}": {
+      "balance": "{{ALICE_BALANCE_PRE}}"
+    }
+  },
+  "post": {
+    "{{ALICE_ADDR}}": {
+      "balance": "{{ALICE_BALANCE_POST}}",
+      "nonce": 1
+    },
+    "{{CONTRACT_ADDR}}": {
+      "balance": "0x0",
+      "nonce": 2,
+      "code": "{{CONTRACT_CODE}}"
+    },
+    "{{CHILD_ADDR}}": {
+      "balance": "0x0",
+      "nonce": 1,
+      "code": "{{CHILD_CODE}}"
+    }
+  }
+}"#,
+			expected_call_trace_json: r#"{
+  "pre": {
+    "{{CONTRACT_ADDR}}": {
+      "balance": "0x0",
+      "nonce": 2,
+      "code": "{{CONTRACT_CODE}}",
+      "storage": {
+        "0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000007"
+      }
+    },
+    "{{CHILD_ADDR}}": {
+      "balance": "0x0",
+      "nonce": 1,
+      "code": "{{CHILD_CODE}}",
+      "storage": {
+        "0x0000000000000000000000000000000000000000000000000000000000000000": "0x000000000000000000000000000000000000000000000000000000000000000a"
+      }
+    }
+  },
+  "post": {
+    "{{CONTRACT_ADDR}}": {
+      "storage": {
+        "0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000008"
+      }
+    },
+    "{{CHILD_ADDR}}": {
+      "storage": {
+        "0x0000000000000000000000000000000000000000000000000000000000000000": "0x0000000000000000000000000000000000000000000000000000000000000007"
+      }
+    }
+  }
+}"#,
 		},
 	];
 
-	let (counter_code, _) = compile_module_with_type("NestedCounter", FixtureType::Solc).unwrap();
 	for test_case in test_cases {
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000_000);
-			let mut tracer = PrestateTracer::<Test>::new(test_case.config);
 
-			let Contract { addr: contract_addr, .. } = trace(&mut tracer, || {
+			let contract_addr = crate::address::create1(&ALICE_ADDR, 0u64);
+			let child_addr = crate::address::create1(&contract_addr, 1u64);
+
+			// Compute balances
+			let alice_balance_pre = Pallet::<Test>::convert_native_to_evm(
+				1_000_000_000_000 - Pallet::<Test>::min_balance(),
+			);
+
+			let replace_placeholders = |json: &str| -> String {
+				let alice_balance_post = Pallet::<Test>::evm_balance(&ALICE_ADDR);
+
+				let mut child_addr_bytes = [0u8; 32];
+				child_addr_bytes[12..32].copy_from_slice(child_addr.as_bytes());
+
+				json.replace("{{ALICE_ADDR}}", &format!("{:#x}", ALICE_ADDR))
+					.replace("{{CONTRACT_ADDR}}", &format!("{:#x}", contract_addr))
+					.replace("{{CHILD_ADDR}}", &format!("{:#x}", child_addr))
+					.replace("{{ALICE_BALANCE_PRE}}", &format!("{:#x}", alice_balance_pre))
+					.replace("{{ALICE_BALANCE_POST}}", &format!("{:#x}", alice_balance_post))
+					.replace(
+						"{{CONTRACT_CODE}}",
+						&format!("0x{}", hex::encode(&contract_runtime_code)),
+					)
+					.replace("{{CHILD_CODE}}", &format!("0x{}", hex::encode(&child_runtime_code)))
+					.replace(
+						"{{CHILD_ADDR_PADDED}}",
+						&format!("0x{}", hex::encode(child_addr_bytes)),
+					)
+			};
+
+			let mut tracer = PrestateTracer::<Test>::new(test_case.config.clone());
+			let Contract { addr: contract_addr_actual, .. } = trace(&mut tracer, || {
 				builder::bare_instantiate(Code::Upload(counter_code.clone()))
+					.salt(None)
 					.build_and_unwrap_contract()
 			});
+			assert_eq!(contract_addr, contract_addr_actual, "contract address mismatch");
 
-			let trace = tracer.collect_trace();
-			let expected_trace = (test_case.build_expected_trace)(contract_addr);
-			assert_eq!(trace, expected_trace);
+			let instantiate_trace = tracer.collect_trace();
+			let actual_json = serde_json::to_string_pretty(&instantiate_trace).unwrap();
+			let expected_json = replace_placeholders(test_case.expected_instantiate_trace_json);
+			assert_eq!(
+				actual_json, expected_json,
+				"unexpected instantiate trace for {:?}",
+				test_case.config
+			);
+
+			let mut tracer = PrestateTracer::<Test>::new(test_case.config.clone());
+			trace(&mut tracer, || {
+				builder::bare_call(contract_addr)
+					.data(
+						NestedCounter::NestedCounterCalls::nestedNumber(
+							NestedCounter::nestedNumberCall {},
+						)
+						.abi_encode(),
+					)
+					.build_and_unwrap_result();
+			});
+
+			let call_trace = tracer.collect_trace();
+			let actual_json = serde_json::to_string_pretty(&call_trace).unwrap();
+			let expected_json = replace_placeholders(test_case.expected_call_trace_json);
+			assert_eq!(
+				actual_json, expected_json,
+				"unexpected call trace for {:?}",
+				test_case.config
+			);
 		});
 	}
 }
