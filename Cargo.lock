@@ -15851,6 +15851,7 @@ dependencies = [
  "tempfile",
  "thiserror 1.0.65",
  "tracing-gum",
+ "wat",
 ]
 
 [[package]]
