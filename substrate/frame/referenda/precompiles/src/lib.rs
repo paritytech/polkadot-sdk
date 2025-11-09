@@ -42,10 +42,11 @@ use tracing::{error, info};
 
 alloy::sol!("src/interfaces/IReferenda.sol");
 use frame_support::weights::Weight;
-use pallet_referenda::WeightInfo;
 use IReferenda::IReferendaCalls;
 const LOG_TARGET: &str = "referenda::precompiles";
 pub type RuntimeOriginFor<T> = <T as frame_system::Config>::RuntimeOrigin;
+ pub mod weights;
+pub use weights::WeightInfo;
 
 #[cfg(test)]
 mod mock;
@@ -171,9 +172,7 @@ where
 				};
 
 				// 2. Charge gas
-				env.charge(<<Runtime as pallet_referenda::Config>::WeightInfo  as pallet_referenda::WeightInfo>::submit())?;
-
-				// 3. Decode proposal origin
+				env.charge(<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::submit_lookup_worst_case())?;				// 3. Decode proposal origin
 				let proposal_origin = decode_proposal_origin::<Runtime>(&origin)?;
 
 				// 4. Convert timing
@@ -220,7 +219,7 @@ where
 				};
 
 				// 2. Charge gas
-				env.charge(<<Runtime as pallet_referenda::Config>::WeightInfo  as pallet_referenda::WeightInfo>::submit())?;
+				env.charge(<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::submit_inline_worst_case())?;				// 3. Decode proposal origin
 
 				// 3. Decode proposal origin
 				let proposal_origin = decode_proposal_origin::<Runtime>(&origin)?;
@@ -256,14 +255,15 @@ where
 					ExecOrigin::Root => frame_system::RawOrigin::Root.into(),
 				};
 				// 2. Charge gas (max weight for place_decision_deposit across all branches)
+				env.charge(<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::place_decision_deposit_worst_case())?;				// 3. Decode proposal origin
 
-				let max_weight = Weight::zero()
-					.max(<Runtime as pallet_referenda::Config>::WeightInfo::place_decision_deposit_preparing())
-					.max(<Runtime as pallet_referenda::Config>::WeightInfo::place_decision_deposit_queued())
-					.max(<Runtime as pallet_referenda::Config>::WeightInfo::place_decision_deposit_not_queued())
-					.max(<Runtime as pallet_referenda::Config>::WeightInfo::place_decision_deposit_passing())
-					.max(<Runtime as pallet_referenda::Config>::WeightInfo::place_decision_deposit_failing());
-				env.charge(max_weight)?;
+				// let max_weight = Weight::zero()
+				// 	.max(<Runtime as pallet_referenda::Config>::WeightInfo::place_decision_deposit_preparing())
+				// 	.max(<Runtime as pallet_referenda::Config>::WeightInfo::place_decision_deposit_queued())
+				// 	.max(<Runtime as pallet_referenda::Config>::WeightInfo::place_decision_deposit_not_queued())
+				// 	.max(<Runtime as pallet_referenda::Config>::WeightInfo::place_decision_deposit_passing())
+				// 	.max(<Runtime as pallet_referenda::Config>::WeightInfo::place_decision_deposit_failing());
+				// env.charge(max_weight)?;
 
 				// 3. Place deposit
 				let result =
@@ -283,6 +283,8 @@ where
 			IReferendaCalls::decisionDeposit(IReferenda::decisionDepositCall {
 				referendumIndex: index,
 			}) => {
+				env.charge(<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::decision_deposit_ongoing_with_deposit())?;				// 3. Decode proposal origin
+
 				// Get the referendum info to find the track
 				let referendum_info = ReferendumInfoFor::<Runtime, ()>::get(*index);
 
