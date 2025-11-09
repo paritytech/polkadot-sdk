@@ -94,6 +94,14 @@ where
 		};
 
 		if self.config.diff_mode {
+			if include_code {
+				for addr in &self.created_addrs {
+					if let Some(info) = post.get_mut(addr) {
+						info.code = Self::bytecode(addr);
+					}
+				}
+			}
+
 			// clean up the storage that are in pre but not in post these are just read
 			pre.iter_mut().for_each(|(addr, info)| {
 				if let Some(post_info) = post.get(addr) {
@@ -179,7 +187,7 @@ where
 	}
 
 	/// Record a read
-	fn account_read(&mut self, addr: H160) {
+	fn read_account_prestate(&mut self, addr: H160) {
 		if self.created_addrs.contains(&addr) {
 			return
 		}
@@ -233,8 +241,8 @@ where
 		if self.current_is_create() {
 			self.created_addrs.insert(to);
 		}
-		self.account_read(from);
-		self.account_read(to);
+		self.read_account_prestate(from);
+		self.read_account_prestate(to);
 	}
 
 	fn exit_child_span_with_error(&mut self, _error: crate::DispatchError, _gas_used: Weight) {
