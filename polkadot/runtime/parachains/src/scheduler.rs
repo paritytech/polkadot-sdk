@@ -396,6 +396,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	#[cfg(test)]
+	#[allow(dead_code)]
 	pub(crate) fn claim_queue_is_empty() -> bool {
 		Self::claim_queue_len() == 0
 	}
