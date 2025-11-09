@@ -360,10 +360,10 @@ async fn archive_storage_hashes_values() {
 	let key = hex_string(&KEY);
 
 	let items: Vec<StorageQuery<String>> = vec![
-		StorageQuery { key: key.clone(), query_type: StorageQueryType::DescendantsHashes },
-		StorageQuery { key: key.clone(), query_type: StorageQueryType::DescendantsValues },
-		StorageQuery { key: key.clone(), query_type: StorageQueryType::Hash },
-		StorageQuery { key: key.clone(), query_type: StorageQueryType::Value },
+		StorageQuery { key: key.clone(), query_type: StorageQueryType::DescendantsHashes, pagination_start_key: None },
+		StorageQuery { key: key.clone(), query_type: StorageQueryType::DescendantsValues, pagination_start_key: None },
+		StorageQuery { key: key.clone(), query_type: StorageQueryType::Hash, pagination_start_key: None },
+		StorageQuery { key: key.clone(), query_type: StorageQueryType::Value, pagination_start_key: None },
 	];
 
 	let mut sub = api
@@ -450,8 +450,8 @@ async fn archive_storage_hashes_values_child_trie() {
 	let expected_value = hex_string(&CHILD_VALUE);
 
 	let items: Vec<StorageQuery<String>> = vec![
-		StorageQuery { key: key.clone(), query_type: StorageQueryType::DescendantsHashes },
-		StorageQuery { key: key.clone(), query_type: StorageQueryType::DescendantsValues },
+		StorageQuery { key: key.clone(), query_type: StorageQueryType::DescendantsHashes, pagination_start_key: None },
+		StorageQuery { key: key.clone(), query_type: StorageQueryType::DescendantsValues, pagination_start_key: None },
 	];
 	let mut sub = api
 		.subscribe_unbounded("archive_v1_storage", rpc_params![&genesis_hash, items, &child_info])
@@ -505,38 +505,46 @@ async fn archive_storage_closest_merkle_value() {
 						StorageQuery {
 							key: hex_string(b":AAAA"),
 							query_type: StorageQueryType::ClosestDescendantMerkleValue,
+							pagination_start_key: None
 						},
 						StorageQuery {
 							key: hex_string(b":AAAB"),
 							query_type: StorageQueryType::ClosestDescendantMerkleValue,
+							pagination_start_key: None
 						},
 						// Key with descendant.
 						StorageQuery {
 							key: hex_string(b":A"),
 							query_type: StorageQueryType::ClosestDescendantMerkleValue,
+							pagination_start_key: None
 						},
 						StorageQuery {
 							key: hex_string(b":AA"),
 							query_type: StorageQueryType::ClosestDescendantMerkleValue,
+							pagination_start_key: None
 						},
 						// Keys below this comment do not produce a result.
 						// Key that exceed the keyspace of the trie.
 						StorageQuery {
 							key: hex_string(b":AAAAX"),
 							query_type: StorageQueryType::ClosestDescendantMerkleValue,
+							pagination_start_key: None
 						},
 						StorageQuery {
 							key: hex_string(b":AAABX"),
 							query_type: StorageQueryType::ClosestDescendantMerkleValue,
+							pagination_start_key: None
 						},
 						// Key that are not part of the trie.
 						StorageQuery {
 							key: hex_string(b":AAX"),
 							query_type: StorageQueryType::ClosestDescendantMerkleValue,
+							pagination_start_key: None
 						},
 						StorageQuery {
 							key: hex_string(b":AAAX"),
 							query_type: StorageQueryType::ClosestDescendantMerkleValue,
+							pagination_start_key: None
 						},
 					]
 				],
@@ -666,6 +674,7 @@ async fn archive_storage_iterations() {
 				vec![StorageQuery {
 					key: hex_string(b":m"),
 					query_type: StorageQueryType::DescendantsValues,
+					pagination_start_key: None
 				}]
 			],
 		)
@@ -686,6 +695,7 @@ async fn archive_storage_iterations() {
 				vec![StorageQuery {
 					key: hex_string(b":m"),
 					query_type: StorageQueryType::DescendantsValues,
+					pagination_start_key: None
 				}]
 			],
 		)

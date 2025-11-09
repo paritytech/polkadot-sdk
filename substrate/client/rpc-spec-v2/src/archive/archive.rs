@@ -231,7 +231,23 @@ where
 				.into_iter()
 				.map(|query| {
 					let key = StorageKey(parse_hex_param(query.key)?);
-					Ok(StorageQuery { key, query_type: query.query_type })
+
+					// Validate that paginationStartKey is only used with descendant queries
+					if query.pagination_start_key.is_some() &&
+						!query.query_type.is_descendant_query()
+					{
+						return Err(ArchiveError::InvalidParam(
+							"paginationStartKey is only valid for descendantsValues and descendantsHashes query types"
+								.to_string(),
+						));
+					}
+
+					let pagination_start_key = query
+						.pagination_start_key
+						.map(|key| parse_hex_param(key).map(StorageKey))
+						.transpose()?;
+
+					Ok(StorageQuery { key, query_type: query.query_type, pagination_start_key })
 				})
 				.collect::<Result<Vec<_>, ArchiveError>>()
 			{
