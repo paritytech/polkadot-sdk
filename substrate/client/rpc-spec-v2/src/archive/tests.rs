@@ -754,6 +754,329 @@ async fn archive_storage_iterations() {
 }
 
 #[tokio::test]
+async fn archive_storage_pagination_descendant_values() {
+	let (client, api) = setup_api();
+
+	// Import a new block with multiple storage entries.
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap();
+	builder.push_storage_change(b":prefix:aa".to_vec(), Some(b"value_a".to_vec())).unwrap();
+	builder.push_storage_change(b":prefix:bb".to_vec(), Some(b"value_b".to_vec())).unwrap();
+	builder.push_storage_change(b":prefix:cc".to_vec(), Some(b"value_c".to_vec())).unwrap();
+	builder.push_storage_change(b":prefix:dd".to_vec(), Some(b"value_d".to_vec())).unwrap();
+	let block = builder.build().unwrap().block;
+	let block_hash = format!("{:?}", block.header.hash());
+	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+
+	// First request without pagination - should get all results.
+	let mut sub = api
+		.subscribe_unbounded(
+			"archive_v1_storage",
+			rpc_params![
+				&block_hash,
+				vec![StorageQuery {
+					key: hex_string(b":prefix:"),
+					query_type: StorageQueryType::DescendantsValues,
+					pagination_start_key: None,
+				}]
+			],
+		)
+		.await
+		.unwrap();
+
+	assert_eq!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::Storage(StorageResult {
+			key: hex_string(b":prefix:aa"),
+			result: StorageResultType::Value(hex_string(b"value_a")),
+			child_trie_key: None,
+		})
+	);
+
+	assert_eq!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::Storage(StorageResult {
+			key: hex_string(b":prefix:bb"),
+			result: StorageResultType::Value(hex_string(b"value_b")),
+			child_trie_key: None,
+		})
+	);
+
+	assert_eq!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::Storage(StorageResult {
+			key: hex_string(b":prefix:cc"),
+			result: StorageResultType::Value(hex_string(b"value_c")),
+			child_trie_key: None,
+		})
+	);
+
+	assert_eq!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::Storage(StorageResult {
+			key: hex_string(b":prefix:dd"),
+			result: StorageResultType::Value(hex_string(b"value_d")),
+			child_trie_key: None,
+		})
+	);
+
+	assert_matches!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::StorageDone
+	);
+
+	// Second request with pagination starting from `:prefix:bb` - should skip aa and bb.
+	let mut sub = api
+		.subscribe_unbounded(
+			"archive_v1_storage",
+			rpc_params![
+				&block_hash,
+				vec![StorageQuery {
+					key: hex_string(b":prefix:"),
+					query_type: StorageQueryType::DescendantsValues,
+					pagination_start_key: Some(hex_string(b":prefix:bb")),
+				}]
+			],
+		)
+		.await
+		.unwrap();
+
+	assert_eq!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::Storage(StorageResult {
+			key: hex_string(b":prefix:cc"),
+			result: StorageResultType::Value(hex_string(b"value_c")),
+			child_trie_key: None,
+		})
+	);
+
+	assert_eq!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::Storage(StorageResult {
+			key: hex_string(b":prefix:dd"),
+			result: StorageResultType::Value(hex_string(b"value_d")),
+			child_trie_key: None,
+		})
+	);
+
+	assert_matches!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::StorageDone
+	);
+}
+
+#[tokio::test]
+async fn archive_storage_pagination_descendant_hashes() {
+	let (client, api) = setup_api();
+
+	// Import a new block with multiple storage entries.
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap();
+	builder.push_storage_change(b":test:1".to_vec(), Some(b"val1".to_vec())).unwrap();
+	builder.push_storage_change(b":test:2".to_vec(), Some(b"val2".to_vec())).unwrap();
+	builder.push_storage_change(b":test:3".to_vec(), Some(b"val3".to_vec())).unwrap();
+	let block = builder.build().unwrap().block;
+	let block_hash = format!("{:?}", block.header.hash());
+	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+
+	// let expected_hash_1 = format!("{:?}", Blake2Hasher::hash(b"val1"));
+	let expected_hash_2 = format!("{:?}", Blake2Hasher::hash(b"val2"));
+	let expected_hash_3 = format!("{:?}", Blake2Hasher::hash(b"val3"));
+
+	// Request with pagination starting from `:test:1` - should skip keys 1 and get 2 and 3.
+	let mut sub = api
+		.subscribe_unbounded(
+			"archive_v1_storage",
+			rpc_params![
+				&block_hash,
+				vec![StorageQuery {
+					key: hex_string(b":test:"),
+					query_type: StorageQueryType::DescendantsHashes,
+					pagination_start_key: Some(hex_string(b":test:1")),
+				}]
+			],
+		)
+		.await
+		.unwrap();
+
+	assert_eq!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::Storage(StorageResult {
+			key: hex_string(b":test:2"),
+			result: StorageResultType::Hash(expected_hash_2),
+			child_trie_key: None,
+		})
+	);
+
+	assert_eq!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::Storage(StorageResult {
+			key: hex_string(b":test:3"),
+			result: StorageResultType::Hash(expected_hash_3),
+			child_trie_key: None,
+		})
+	);
+
+	assert_matches!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::StorageDone
+	);
+}
+
+#[tokio::test]
+async fn archive_storage_pagination_invalid_query_type() {
+	let (client, api) = setup_api();
+	let block_hash = format!("{:?}", client.genesis_hash());
+
+	// Test that paginationStartKey with Value query type returns an error.
+	let mut sub = api
+		.subscribe_unbounded(
+			"archive_v1_storage",
+			rpc_params![
+				&block_hash,
+				vec![StorageQuery {
+					key: hex_string(b":test"),
+					query_type: StorageQueryType::Value,
+					pagination_start_key: Some(hex_string(b":test:a")),
+				}]
+			],
+		)
+		.await
+		.unwrap();
+
+	assert_matches!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::StorageError(err) if err.error.contains(
+			"paginationStartKey is only valid for descendantsValues and descendantsHashes query types"
+		)
+	);
+
+	// Test that paginationStartKey with Hash query type returns an error.
+	let mut sub = api
+		.subscribe_unbounded(
+			"archive_v1_storage",
+			rpc_params![
+				&block_hash,
+				vec![StorageQuery {
+					key: hex_string(b":test"),
+					query_type: StorageQueryType::Hash,
+					pagination_start_key: Some(hex_string(b":test:a")),
+				}]
+			],
+		)
+		.await
+		.unwrap();
+
+	assert_matches!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::StorageError(err) if err.error.contains(
+			"paginationStartKey is only valid for descendantsValues and descendantsHashes query types"
+		)
+	);
+
+	// Test that paginationStartKey with ClosestDescendantMerkleValue query type returns an error.
+	let mut sub = api
+		.subscribe_unbounded(
+			"archive_v1_storage",
+			rpc_params![
+				&block_hash,
+				vec![StorageQuery {
+					key: hex_string(b":test"),
+					query_type: StorageQueryType::ClosestDescendantMerkleValue,
+					pagination_start_key: Some(hex_string(b":test:a")),
+				}]
+			],
+		)
+		.await
+		.unwrap();
+
+	assert_matches!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::StorageError(err) if err.error.contains(
+			"paginationStartKey is only valid for descendantsValues and descendantsHashes query types"
+		)
+	);
+}
+
+#[tokio::test]
+async fn archive_storage_pagination_invalid_hex() {
+	let (client, api) = setup_api();
+	let block_hash = format!("{:?}", client.genesis_hash());
+
+	// Test that invalid hex in pagination_start_key returns an error.
+	let mut sub = api
+		.subscribe_unbounded(
+			"archive_v1_storage",
+			rpc_params![
+				&block_hash,
+				vec![StorageQuery {
+					key: hex_string(b":test:"),
+					query_type: StorageQueryType::DescendantsValues,
+					pagination_start_key: Some("0xINVALID_HEX".to_string()),
+				}]
+			],
+		)
+		.await
+		.unwrap();
+
+	assert_matches!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::StorageError(err) if err.error.contains("Invalid parameter") 
+			&& err.error.contains("0xINVALID_HEX")
+	);
+
+	// Test that invalid hex in key also returns an error.
+	let mut sub = api
+		.subscribe_unbounded(
+			"archive_v1_storage",
+			rpc_params![
+				&block_hash,
+				vec![StorageQuery {
+					key: "NOT_HEX".to_string(),
+					query_type: StorageQueryType::Value,
+					pagination_start_key: None,
+				}]
+			],
+		)
+		.await
+		.unwrap();
+
+	assert_matches!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::StorageError(err) if err.error.contains("Invalid parameter")
+			&& err.error.contains("NOT_HEX")
+	);
+
+	// Test that pagination_start_key with empty string is valid (gets converted to empty bytes).
+	let mut sub = api
+		.subscribe_unbounded(
+			"archive_v1_storage",
+			rpc_params![
+				&block_hash,
+				vec![StorageQuery {
+					key: hex_string(b":test:"),
+					query_type: StorageQueryType::DescendantsValues,
+					pagination_start_key: Some("".to_string()),
+				}]
+			],
+		)
+		.await
+		.unwrap();
+
+	// Should complete successfully, not error
+	assert_matches!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::StorageDone
+	);
+}
+
+#[tokio::test]
 async fn archive_storage_diff_main_trie() {
 	let (client, api) = setup_api();
 
