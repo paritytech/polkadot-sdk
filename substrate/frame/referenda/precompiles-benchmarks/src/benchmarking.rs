@@ -3,7 +3,8 @@
 extern crate alloc;
 
 use super::*;
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
+use scale_info::prelude::vec;
 use codec::Encode;
 use frame_benchmarking::v2::*;
 use frame_support::{
@@ -202,6 +203,239 @@ mod benchmarks {
 				referendumIndex: referendum_index,
 			})
 			.abi_encode();
+
+		let result;
+		#[block]
+		{
+			result = call_precompile::<T, ()>(caller, encoded_call);
+		}
+
+		assert!(result.is_ok());
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn submit_inline_best_case() {
+		// Best case: Empty queue, small proposal, simple origin
+		let caller = funded_mapped_account::<T, ()>("caller", 0);
+
+		// Simple origin (Root) - encode as PalletsOrigin
+		use pallet_referenda::PalletsOriginOf;
+		let proposal_origin: PalletsOriginOf<T> = RawOrigin::Root.into();
+		let encoded_origin = proposal_origin.encode();
+
+		// Small inline proposal (10 bytes)
+		let proposal_data = (0..10).map(|_| 0u8).collect::<Vec<_>>();
+
+		let encoded_call = IReferenda::IReferendaCalls::submitInline(
+			IReferenda::submitInlineCall {
+				origin: encoded_origin.into(),
+				proposal: proposal_data.into(),
+				timing: IReferenda::Timing::AfterBlock,
+				enactmentMoment: 0u32,
+			},
+		)
+		.abi_encode();
+
+		let result;
+		#[block]
+		{
+			result = call_precompile::<T, ()>(caller, encoded_call);
+		}
+
+		assert!(result.is_ok());
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn submit_inline_worst_case() {
+		// Worst case: Maximum proposal size (128 bytes)
+		let caller = funded_mapped_account::<T, ()>("caller", 0);
+
+		// Simple origin (Root) - encode as PalletsOrigin
+		use pallet_referenda::PalletsOriginOf;
+		let proposal_origin: PalletsOriginOf<T> = RawOrigin::Root.into();
+		let encoded_origin = proposal_origin.encode();
+
+		// Maximum inline proposal size (128 bytes)
+		let proposal_data = (0..128).map(|_| 0u8).collect::<Vec<_>>();
+
+		let encoded_call = IReferenda::IReferendaCalls::submitInline(
+			IReferenda::submitInlineCall {
+				origin: encoded_origin.into(),
+				proposal: proposal_data.into(),
+				timing: IReferenda::Timing::AfterBlock,
+				enactmentMoment: 0u32,
+			},
+		)
+		.abi_encode();
+
+		let result;
+		#[block]
+		{
+			result = call_precompile::<T, ()>(caller, encoded_call);
+		}
+
+		assert!(result.is_ok());
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn submit_lookup_best_case() {
+		// Best case: Empty queue, simple origin, small preimage length
+		let caller = funded_mapped_account::<T, ()>("caller", 0);
+
+		// Simple origin (Root) - encode as PalletsOrigin
+		use pallet_referenda::PalletsOriginOf;
+		let proposal_origin: PalletsOriginOf<T> = RawOrigin::Root.into();
+		let encoded_origin = proposal_origin.encode();
+
+		// Create a dummy hash (preimage doesn't need to exist at submission time)
+		use sp_runtime::traits::Hash;
+		let dummy_data = b"dummy_preimage";
+		let hash = <T as frame_system::Config>::Hashing::hash(dummy_data);
+		// Convert hash to [u8; 32] - hash implements AsRef<[u8]>
+		let hash_bytes: [u8; 32] = hash.as_ref().try_into().unwrap_or_else(|_| {
+			// Fallback: use encode if as_ref doesn't give us exactly 32 bytes
+			let encoded = hash.encode();
+			let mut bytes = [0u8; 32];
+			bytes.copy_from_slice(&encoded[..32.min(encoded.len())]);
+			bytes
+		});
+
+		let encoded_call = IReferenda::IReferendaCalls::submitLookup(
+			IReferenda::submitLookupCall {
+				origin: encoded_origin.into(),
+				hash: hash_bytes.into(),
+				preimageLength: 100u32, // Small preimage length
+				timing: IReferenda::Timing::AfterBlock,
+				enactmentMoment: 0u32,
+			},
+		)
+		.abi_encode();
+
+		let result;
+		#[block]
+		{
+			result = call_precompile::<T, ()>(caller, encoded_call);
+		}
+
+		assert!(result.is_ok());
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn submit_lookup_worst_case() {
+		// Worst case: Maximum preimage length parameter
+		let caller = funded_mapped_account::<T, ()>("caller", 0);
+
+		// Simple origin (Root) - encode as PalletsOrigin
+		use pallet_referenda::PalletsOriginOf;
+		let proposal_origin: PalletsOriginOf<T> = RawOrigin::Root.into();
+		let encoded_origin = proposal_origin.encode();
+
+		// Create a dummy hash (preimage doesn't need to exist at submission time)
+		use sp_runtime::traits::Hash;
+		let dummy_data = b"dummy_preimage_large";
+		let hash = <T as frame_system::Config>::Hashing::hash(dummy_data);
+		// Convert hash to [u8; 32] - hash implements AsRef<[u8]>
+		let hash_bytes: [u8; 32] = hash.as_ref().try_into().unwrap_or_else(|_| {
+			// Fallback: use encode if as_ref doesn't give us exactly 32 bytes
+			let encoded = hash.encode();
+			let mut bytes = [0u8; 32];
+			bytes.copy_from_slice(&encoded[..32.min(encoded.len())]);
+			bytes
+		});
+
+		// Maximum preimage length (u32::MAX would be too large, use a large reasonable value)
+		let max_preimage_length = 1_000_000u32;
+
+		let encoded_call = IReferenda::IReferendaCalls::submitLookup(
+			IReferenda::submitLookupCall {
+				origin: encoded_origin.into(),
+				hash: hash_bytes.into(),
+				preimageLength: max_preimage_length,
+				timing: IReferenda::Timing::AfterBlock,
+				enactmentMoment: 0u32,
+			},
+		)
+		.abi_encode();
+
+		let result;
+		#[block]
+		{
+			result = call_precompile::<T, ()>(caller, encoded_call);
+		}
+
+		assert!(result.is_ok());
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn place_decision_deposit_best_case() {
+		// Best case: Referendum in AwaitingDeposit phase (simple state)
+		let caller = funded_mapped_account::<T, ()>("caller", 0);
+		let submitter = funded_mapped_account::<T, ()>("submitter", 1);
+
+		// Create referendum WITHOUT decision deposit
+		let referendum_index = create_referendum_helper::<T, ()>(submitter);
+
+		let encoded_call = IReferenda::IReferendaCalls::placeDecisionDeposit(
+			IReferenda::placeDecisionDepositCall {
+				referendumIndex: referendum_index,
+			},
+		)
+		.abi_encode();
+
+		let result;
+		#[block]
+		{
+			result = call_precompile::<T, ()>(caller, encoded_call);
+		}
+
+		assert!(result.is_ok());
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn place_decision_deposit_worst_case() {
+		// Worst case: Place deposit when referendum is ready to start deciding immediately
+		// This triggers BeginDecidingPassing/Failing branch (complex state transition)
+		// 
+		// Note: The precompile calls env.charge() with max weight BEFORE executing:
+		//   let max_weight = Weight::zero()
+		//       .max(place_decision_deposit_preparing())  // ~45M
+		//       .max(place_decision_deposit_queued())     // ~65M
+		//       .max(place_decision_deposit_not_queued()) // ~66M (heaviest)
+		//       .max(place_decision_deposit_passing())    // ~53M
+		//       .max(place_decision_deposit_failing());    // ~51M
+		//   env.charge(max_weight)?;
+		// 
+		// This benchmark measures the full execution path including:
+		//   1. env.charge() overhead (max weight calculation + gas meter update)
+		//   2. Actual pallet execution (BeginDecidingPassing/Failing branch)
+		// Users always pay max weight (~66M), but execution time varies by branch
+		let caller = funded_mapped_account::<T, ()>("caller", 0);
+		let submitter = funded_mapped_account::<T, ()>("submitter", 1);
+
+		use pallet_referenda::Pallet as Referenda;
+		use sp_runtime::traits::BlockNumberProvider;
+
+		// Create referendum
+		let referendum_index = create_referendum_helper::<T, ()>(submitter.clone());
+
+		// Get prepare period and advance blocks so referendum is ready to start deciding
+		let status = Referenda::<T>::ensure_ongoing(referendum_index).unwrap();
+		let track = <T as pallet_referenda::Config<()>>::Tracks::info(status.track).unwrap();
+		let prepare_period = track.prepare_period;
+
+		// Advance blocks past prepare period so it's ready to start deciding
+		let submitted = status.submitted;
+		let target_block = submitted.saturating_add(prepare_period);
+		<T as pallet_referenda::Config<()>>::BlockNumberProvider::set_block_number(target_block);
+
+		// Now place deposit - this will trigger service_referendum which will
+		// result in BeginDecidingPassing or BeginDecidingFailing branch (most complex)
+		let encoded_call = IReferenda::IReferendaCalls::placeDecisionDeposit(
+			IReferenda::placeDecisionDepositCall {
+				referendumIndex: referendum_index,
+			},
+		)
+		.abi_encode();
 
 		let result;
 		#[block]
