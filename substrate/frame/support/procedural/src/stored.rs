@@ -42,7 +42,8 @@ impl Parse for StoredArgs {
 			// Codec derives use their default strategy which bounds fields automatically
 			Err(Error::new(
 				input.span(),
-				"#[derive_stored] does not accept arguments. Codec derives use their default field-bounding strategy.",
+				"#[derive_stored] does not accept arguments. Codec derives use their default \
+				field-bounding strategy.",
 			))
 		}
 	}
@@ -65,12 +66,9 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 
 	let field_types = match &input.data {
 		syn::Data::Struct(data_struct) => match &data_struct.fields {
-			syn::Fields::Named(fields) => {
-				fields.named.iter().map(|f| &f.ty).collect::<Vec<_>>()
-			},
-			syn::Fields::Unnamed(fields) => {
-				fields.unnamed.iter().map(|f| &f.ty).collect::<Vec<_>>()
-			},
+			syn::Fields::Named(fields) => fields.named.iter().map(|f| &f.ty).collect::<Vec<_>>(),
+			syn::Fields::Unnamed(fields) =>
+				fields.unnamed.iter().map(|f| &f.ty).collect::<Vec<_>>(),
 			syn::Fields::Unit => Vec::new(),
 		},
 		syn::Data::Enum(_) =>
@@ -107,8 +105,8 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 	};
 
 	// Generate derive_where with field-based bounds
-	// This ensures consistent bounding strategy: bounds are applied to field types, not type parameters
-	// Codec derives use their default strategy which also bounds fields automatically
+	// This ensures consistent bounding strategy: bounds are applied to field types, not type
+	// parameters. Codec derives use their default strategy which also bounds fields automatically.
 	let derive_where_attr = if !field_types.is_empty() {
 		quote! {
 			#[derive_where(Clone, Eq, PartialEq, Debug; #(#field_types),*)]
@@ -137,7 +135,11 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 			},
 			syn::Fields::Unit => quote! { ; },
 		},
-		_ => unreachable!(), 
+		_ => unreachable!(
+			"input.data is already matched above for Struct/Enum/Union;\
+			all variants covered;\
+			qed"
+		),
 	};
 
 	Ok(quote! {
