@@ -479,22 +479,18 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 
 /// Derive macro for simplifying storage type definitions with consistent field-based bounding.
 ///
-/// This macro automatically extracts field types and applies derives with bounds on those fields
-/// (consistent with codec's strategy), rather than naively bounding type parameters. This ensures
-/// predictable and consistent behavior across all traits.
+/// This macro automatically extracts field types (using the same approach as parity-scale-codec)
+/// and applies derives with bounds on those fields. Codec derives use their default strategy
+/// which also bounds fields automatically, ensuring consistent behavior across all traits.
 ///
 /// # Automatic Behavior
 ///
 /// The macro automatically:
-/// - Extracts all field types from the struct
+/// - Extracts all field types from the struct (same approach as parity-scale-codec)
 /// - Applies `derive_where(Clone, Eq, PartialEq, Debug; field_type1, field_type2, ...)`
 /// - Applies codec derives (Encode, Decode, MaxEncodedLen, DecodeWithMemTracking, TypeInfo)
+///   using their default field-bounding strategy
 /// - Skips all type parameters in TypeInfo metadata (they're rarely needed)
-///
-/// # Arguments
-///
-/// * `mel(T, U, ...)` - Generic parameters that require `MaxEncodedLen` bound
-/// * `mel_bound(T: Trait, U: Trait)` - Custom bounds for `MaxEncodedLen` instead of default
 ///
 /// # Example
 ///

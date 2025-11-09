@@ -25,83 +25,25 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{
 	parse::{Parse, ParseStream},
-	punctuated::Punctuated,
 	spanned::Spanned,
-	Error, Ident, Result, Token, WherePredicate,
+	Error, Result,
 };
 
-mod keywords {
-	syn::custom_keyword!(mel);
-	syn::custom_keyword!(mel_bound);
-}
-
 /// Parsed arguments for the `#[derive_stored]` attribute.
-struct StoredArgs {
-	/// Generic parameters that require MaxEncodedLen.
-	mel: Vec<Ident>,
-	/// Custom MaxEncodedLen bounds to use instead of inferring.
-	mel_bound: Option<Punctuated<WherePredicate, Token![,]>>,
-}
+/// Currently no arguments are needed - codec uses its default field-bounding strategy.
+struct StoredArgs;
 
 impl Parse for StoredArgs {
 	fn parse(input: ParseStream) -> Result<Self> {
-		let mut mel = Vec::new();
-		let mut mel_bound = None;
-
-		let args = Punctuated::<StoredArg, Token![,]>::parse_terminated(input)?;
-
-		for arg in args {
-			match arg {
-				StoredArg::Mel(idents) => {
-					if !mel.is_empty() {
-						return Err(Error::new(
-							idents.first().unwrap().span(),
-							"`mel` can only be specified once",
-						))
-					}
-					mel = idents;
-				},
-				StoredArg::MelBound(bounds) => {
-					if mel_bound.is_some() {
-						return Err(Error::new(
-							input.span(),
-							"`mel_bound` can only be specified once",
-						))
-					}
-					mel_bound = Some(bounds);
-				},
-			}
-		}
-
-		Ok(StoredArgs { mel, mel_bound })
-	}
-}
-
-/// Individual argument in the `#[derive_stored(...)]` attribute.
-enum StoredArg {
-	/// `mel(A, B, C)`
-	Mel(Vec<Ident>),
-	/// `mel_bound(A: MaxEncodedLen, B: MaxEncodedLen + Encode)`
-	MelBound(Punctuated<WherePredicate, Token![,]>),
-}
-
-impl Parse for StoredArg {
-	fn parse(input: ParseStream) -> Result<Self> {
-		let lookahead = input.lookahead1();
-		if lookahead.peek(keywords::mel_bound) {
-			input.parse::<keywords::mel_bound>()?;
-			let content;
-			syn::parenthesized!(content in input);
-			let bounds = Punctuated::<WherePredicate, Token![,]>::parse_terminated(&content)?;
-			Ok(StoredArg::MelBound(bounds))
-		} else if lookahead.peek(keywords::mel) {
-			input.parse::<keywords::mel>()?;
-			let content;
-			syn::parenthesized!(content in input);
-			let idents = Punctuated::<Ident, Token![,]>::parse_terminated(&content)?;
-			Ok(StoredArg::Mel(idents.into_iter().collect()))
+		// Allow empty attributes or no attributes at all
+		if input.is_empty() {
+			Ok(StoredArgs)
 		} else {
-			Err(lookahead.error())
+			// Codec derives use their default strategy which bounds fields automatically
+			Err(Error::new(
+				input.span(),
+				"#[derive_stored] does not accept arguments. Codec derives use their default field-bounding strategy.",
+			))
 		}
 	}
 }
@@ -118,10 +60,9 @@ pub fn stored(
 }
 
 fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
-	let args: StoredArgs = syn::parse2(attr)?;
+	let _args: StoredArgs = syn::parse2(attr)?;
 	let input: syn::DeriveInput = syn::parse2(item)?;
 
-	// Extract field types from the struct
 	let field_types = match &input.data {
 		syn::Data::Struct(data_struct) => match &data_struct.fields {
 			syn::Fields::Named(fields) => {
@@ -165,26 +106,9 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 		quote! {}
 	};
 
-	// Generate codec mel_bound attribute
-	let codec_attr = if let Some(ref mel_bound) = args.mel_bound {
-		// Use custom bounds
-		quote! {
-			#[codec(mel_bound(#mel_bound))]
-		}
-	} else if !args.mel.is_empty() {
-		// Generate bounds for mel parameters
-		let mel_bounds = args.mel.iter().map(|ident| {
-			quote! { #ident: ::codec::MaxEncodedLen }
-		});
-		quote! {
-			#[codec(mel_bound(#(#mel_bounds),*))]
-		}
-	} else {
-		quote! {}
-	};
-
 	// Generate derive_where with field-based bounds
 	// This ensures consistent bounding strategy: bounds are applied to field types, not type parameters
+	// Codec derives use their default strategy which also bounds fields automatically
 	let derive_where_attr = if !field_types.is_empty() {
 		quote! {
 			#[derive_where(Clone, Eq, PartialEq, Debug; #(#field_types),*)]
@@ -201,7 +125,6 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 	let generics = &input.generics;
 	let attrs = &input.attrs;
 
-	// Reconstruct the struct body
 	let body = match &input.data {
 		syn::Data::Struct(data_struct) => match &data_struct.fields {
 			syn::Fields::Named(fields) => {
@@ -214,7 +137,7 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 			},
 			syn::Fields::Unit => quote! { ; },
 		},
-		_ => unreachable!(), // Already checked above
+		_ => unreachable!(), 
 	};
 
 	Ok(quote! {
@@ -227,7 +150,6 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 			::codec::MaxEncodedLen,
 		)]
 		#scale_info_attr
-		#codec_attr
 		#(#attrs)*
 		#vis struct #name #generics #body
 	})
@@ -239,28 +161,16 @@ mod tests {
 	use quote::quote;
 
 	#[test]
-	fn stored_parse_mel() {
-		let input = quote! {
-			mel(Votes)
-		};
-		let args: StoredArgs = syn::parse2(input).unwrap();
-		assert_eq!(args.mel.len(), 1);
-		assert_eq!(args.mel[0].to_string(), "Votes");
+	fn stored_accepts_empty_attributes() {
+		let input = quote! {};
+		let args: Result<StoredArgs> = syn::parse2(input);
+		assert!(args.is_ok());
 	}
 
 	#[test]
-	fn stored_parse_mel_bound() {
+	fn stored_rejects_arguments() {
 		let input = quote! {
-			mel_bound(S: MaxEncodedLen)
-		};
-		let args: StoredArgs = syn::parse2(input).unwrap();
-		assert!(args.mel_bound.is_some());
-	}
-
-	#[test]
-	fn stored_rejects_duplicate_mel() {
-		let input = quote! {
-			mel(A), mel(B)
+			some_arg
 		};
 		let result: Result<StoredArgs> = syn::parse2(input);
 		assert!(result.is_err());
@@ -268,7 +178,7 @@ mod tests {
 
 	#[test]
 	fn stored_macro_expands() {
-		let attr = quote! { mel(Votes) };
+		let attr = quote! {};
 		let item = quote! {
 			pub struct Tally<Votes, Total> {
 				pub ayes: Votes,
@@ -277,5 +187,19 @@ mod tests {
 		};
 		let result = stored_impl(attr, item);
 		assert!(result.is_ok());
+	}
+
+	#[test]
+	fn stored_extracts_field_types() {
+		let attr = quote! {};
+		let item = quote! {
+			pub struct Foo<T: Config> {
+				f: T::Foo,
+				f2: Vec<T::Foo2>,
+			}
+		};
+		let result = stored_impl(attr, item);
+		assert!(result.is_ok());
+		// The macro should extract T::Foo and Vec<T::Foo2> for derive_where
 	}
 }
