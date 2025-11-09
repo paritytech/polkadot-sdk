@@ -4,7 +4,6 @@ extern crate alloc;
 
 use super::*;
 use alloc::{boxed::Box, vec::Vec};
-use codec::Encode;
 use frame_benchmarking::v2::*;
 use frame_support::{
 	assert_ok,
@@ -19,8 +18,6 @@ use pallet_revive::{
 };
 use scale_info::prelude::vec;
 use sp_runtime::traits::Saturating;
-
-use crate::Pallet as ReferendaPrecompilesBenchmarks;
 
 fn call_precompile<T: Config<I>, I: 'static>(
 	from: T::AccountId,

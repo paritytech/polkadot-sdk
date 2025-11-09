@@ -171,8 +171,10 @@ where
 					ExecOrigin::Root => frame_system::RawOrigin::Root.into(),
 				};
 
-				// 2. Charge gas
-				env.charge(<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::submit_lookup_worst_case())?; // 3. Decode proposal origin
+				// 2. Charge gas (worst-case weight for submitLookup)
+				env.charge(<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::submit_lookup_worst_case())?;
+
+				// 3. Decode proposal origin
 				let proposal_origin = decode_proposal_origin::<Runtime>(&origin)?;
 
 				// 4. Convert timing
@@ -191,7 +193,7 @@ where
 					len: *preimage_length,
 				};
 
-				// 7. Submit referendum and get the actual created index
+				// 7. Submit referendum
 				let referendum_index = submit_dispatch::<Runtime, ()>(
 					transaction_origin,
 					proposal_origin,
@@ -201,7 +203,6 @@ where
 				Ok(referendum_index.abi_encode())
 			},
 
-			// TODO: Implement submitInline
 			IReferendaCalls::submitInline(IReferenda::submitInlineCall {
 				origin,
 				proposal,
@@ -218,8 +219,8 @@ where
 					ExecOrigin::Root => frame_system::RawOrigin::Root.into(),
 				};
 
-				// 2. Charge gas
-				env.charge(<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::submit_inline_worst_case())?; // 3. Decode proposal origin
+				// 2. Charge gas (worst-case weight for submitInline)
+				env.charge(<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::submit_inline_worst_case())?;
 
 				// 3. Decode proposal origin
 				let proposal_origin = decode_proposal_origin::<Runtime>(&origin)?;
@@ -234,7 +235,7 @@ where
 					.map_err(|_| Error::Revert("Proposal exceeds 128 byte limit".into()))?;
 				let proposal_inline = BoundedCallOf::<Runtime, ()>::Inline(bounded_proposal);
 
-				// 7. Submit referendum and get the actual created index
+				// 6. Submit referendum
 				let referendum_index = submit_dispatch::<Runtime, ()>(
 					transaction_origin,
 					proposal_origin,
@@ -280,6 +281,11 @@ where
 				}
 			},
 			IReferendaCalls::submissionDeposit(IReferenda::submissionDepositCall) => {
+				// Charge gas for submissionDeposit (read-only operation)
+				env.charge(
+					<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::submission_deposit(),
+				)?;
+
 				let submission_deposit =
 					<Runtime as pallet_referenda::Config>::SubmissionDeposit::get();
 				let deposit_u128: u128 = submission_deposit.saturated_into();
@@ -309,8 +315,9 @@ where
 							// Heavier path - needs track lookup (already charged worst-case)
 							let weight =
 								<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::decision_deposit_ongoing_no_deposit();
-							let track = <Runtime as pallet_referenda::Config>::Tracks::info(status.track)
-								.ok_or(Error::Revert("Track not found".into()))?;
+							let track =
+								<Runtime as pallet_referenda::Config>::Tracks::info(status.track)
+									.ok_or(Error::Revert("Track not found".into()))?;
 							let deposit = track.decision_deposit.saturated_into::<u128>();
 							(weight, deposit)
 						}
