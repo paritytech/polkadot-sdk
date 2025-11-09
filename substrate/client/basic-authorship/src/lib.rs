@@ -38,6 +38,7 @@
 //! #     None,
 //! #     spawner.clone(),
 //! #     client.clone(),
+//! #     None,
 //! # ));
 //! // The first step is to create a `ProposerFactory`.
 //! let mut proposer_factory = ProposerFactory::new(
