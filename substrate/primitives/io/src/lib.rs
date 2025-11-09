@@ -605,7 +605,7 @@ pub trait Storage {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
 			if value_out.len() >= data.len() {
-				value_out[..data.len()].copy_from_slice(&data[..]);
+				value_out[..data.len()].copy_from_slice(data);
 			}
 			data.len() as u32
 		})
@@ -993,7 +993,7 @@ pub trait DefaultChildStorage {
 				let value_offset = value_offset as usize;
 				let data = &value[value_offset.min(value.len())..];
 				if value_out.len() >= data.len() {
-					value_out[..data.len()].copy_from_slice(&data[..]);
+					value_out[..data.len()].copy_from_slice(data);
 				}
 				data.len() as u32
 			})
@@ -1806,6 +1806,7 @@ impl Default for UseDalekExt {
 #[runtime_interface]
 pub trait Crypto {
 	/// Returns all `ed25519` public keys for the given key id from the keystore.
+	#[version(1, register_only)]
 	fn ed25519_public_keys(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -1838,6 +1839,20 @@ pub trait Crypto {
 				.get(index as usize)
 				.expect("Key index out of bounds!"),
 		);
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the obsoleted
+	/// `ed25519_public_keys` host function
+	#[wrapper]
+	fn ed25519_public_keys(id: KeyTypeId) -> Vec<ed25519::Public> {
+		let num_keys = ed25519_num_public_keys(id);
+		let mut keys = Vec::new();
+		for i in 0..num_keys {
+			let mut key = ed25519::Public::default();
+			ed25519_public_key(id, i, &mut key);
+			keys.push(key);
+		}
+		keys
 	}
 
 	/// Generate an `ed22519` key for the given key type using an optional `seed` and
@@ -2080,6 +2095,7 @@ pub trait Crypto {
 	}
 
 	/// Returns all `sr25519` public keys for the given key id from the keystore.
+	#[version(1, register_only)]
 	fn sr25519_public_keys(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -2112,6 +2128,20 @@ pub trait Crypto {
 				.get(index as usize)
 				.expect("Key index out of bounds!"),
 		);
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the obsoleted
+	/// `sr25519_public_keys` host function
+	#[wrapper]
+	fn sr25519_public_keys(id: KeyTypeId) -> Vec<sr25519::Public> {
+		let num_keys = sr25519_num_public_keys(id);
+		let mut keys = Vec::new();
+		for i in 0..num_keys {
+			let mut key = sr25519::Public::default();
+			sr25519_public_key(id, i, &mut key);
+			keys.push(key);
+		}
+		keys
 	}
 
 	/// Generate an `sr22519` key for the given key type using an optional seed and
@@ -2232,6 +2262,7 @@ pub trait Crypto {
 	}
 
 	/// Returns all `ecdsa` public keys for the given key id from the keystore.
+	#[version(1, register_only)]
 	fn ecdsa_public_keys(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -2264,6 +2295,20 @@ pub trait Crypto {
 				.get(index as usize)
 				.expect("Key index out of bounds!"),
 		);
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the obsoleted
+	/// `ecdsa_public_keys` host function
+	#[wrapper]
+	fn ecdsa_public_keys(id: KeyTypeId) -> Vec<ecdsa::Public> {
+		let num_keys = ecdsa_num_public_keys(id);
+		let mut keys = Vec::new();
+		for i in 0..num_keys {
+			let mut key = ecdsa::Public::default();
+			ecdsa_public_key(id, i, &mut key);
+			keys.push(key);
+		}
+		keys
 	}
 
 	/// Generate an `ecdsa` key for the given key type using an optional `seed` and
@@ -3193,6 +3238,20 @@ pub trait Offchain {
 			})
 	}
 
+	/// A convenience wrapper implementing the deprecated `get` host function
+	/// functionality through the new interface.
+	#[wrapper]
+	fn local_storage_get(kind: StorageKind, key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+		let mut value_out = vec![0u8; 256];
+		let len = local_storage_read(kind, key.as_ref(), &mut value_out[..], 0)?;
+		if len as usize > value_out.len() {
+			value_out.resize(len as usize, 0);
+			local_storage_read(kind, key.as_ref(), &mut value_out[..], 0)?;
+		}
+		value_out.truncate(len as usize);
+		Some(value_out)
+	}
+
 	/// Initiates a http request given HTTP verb and the URL.
 	///
 	/// Meta is a future-reserved field containing additional, parity-scale-codec encoded
@@ -3405,6 +3464,36 @@ pub trait Offchain {
 			out.copy_from_slice(&res[..]);
 		}
 		Some(res.len() as u32)
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the obsoleted
+	/// `http_response_headers` host function.
+	#[wrapper]
+	fn http_response_headers(&mut self, request_id: HttpRequestId) -> Vec<(Vec<u8>, Vec<u8>)> {
+		let mut name_buf = vec![0u8; 256];
+		let mut value_buf = vec![0u8; 256];
+		let mut head_idx = 0;
+		let mut headers = Vec::new();
+
+		while let Some(name_len) =
+			http_response_header_name(request_id, head_idx, &mut name_buf[..])
+		{
+			if name_len as usize > name_buf.len() {
+				name_buf.resize(name_len as usize, 0);
+				http_response_header_name(request_id, head_idx, &mut name_buf[..])
+					.expect("It was checked that the header exists");
+			}
+			let value_len = http_response_header_value(request_id, head_idx, &mut value_buf[..])
+				.expect("It was checked that the header exists");
+			if value_len as usize > value_buf.len() {
+				value_buf.resize(value_len as usize, 0);
+				http_response_header_value(request_id, head_idx, &mut value_buf[..])
+					.expect("It was checked that the header exists");
+			}
+			headers.push((name_buf.clone(), value_buf.clone()));
+			head_idx += 1;
+		}
+		headers
 	}
 
 	/// Read a chunk of body response to given buffer.
