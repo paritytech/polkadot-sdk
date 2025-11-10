@@ -19,7 +19,7 @@ use crate::{
 	assert_refcount,
 	call_builder::VmBinaryModule,
 	debug::DebugSettings,
-	evm::{PrestateTracer, PrestateTracerConfig},
+	evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig},
 	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
 	tests::{
 		builder,
@@ -31,11 +31,10 @@ use crate::{
 };
 use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::{assert_err, assert_ok, traits::fungible::Mutate};
-use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType};
+use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType, NestedCounter};
 use pretty_assertions::assert_eq;
-use test_case::test_case;
-
 use revm::bytecode::opcode::*;
+use test_case::test_case;
 
 mod arithmetic;
 mod bitwise;
@@ -310,7 +309,6 @@ fn dust_work_with_child_calls(fixture_type: FixtureType) {
 #[test]
 fn prestate_diff_mode_tracing_works() {
 	use alloy_core::hex;
-	use pallet_revive_fixtures::NestedCounter;
 
 	struct TestCase {
 		config: PrestateTracerConfig,
@@ -332,33 +330,33 @@ fn prestate_diff_mode_tracing_works() {
 				disable_code: false,
 			},
 			expected_instantiate_trace_json: r#"{
-  "{{ALICE_ADDR}}": {
-    "balance": "{{ALICE_BALANCE_PRE}}"
-  }
-}"#,
+					"{{ALICE_ADDR}}": {
+						"balance": "{{ALICE_BALANCE_PRE}}"
+					}
+				}"#,
 			expected_call_trace_json: r#"{
-  "{{ALICE_ADDR}}": {
-    "balance": "{{ALICE_BALANCE_POST}}",
-    "nonce": 1
-  },
-  "{{CONTRACT_ADDR}}": {
-    "balance": "0x0",
-    "nonce": 2,
-    "code": "{{CONTRACT_CODE}}",
-    "storage": {
-      "0x0000000000000000000000000000000000000000000000000000000000000000": "{{CHILD_ADDR_PADDED}}",
-      "0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000007"
-    }
-  },
-  "{{CHILD_ADDR}}": {
-    "balance": "0x0",
-    "nonce": 1,
-    "code": "{{CHILD_CODE}}",
-    "storage": {
-      "0x0000000000000000000000000000000000000000000000000000000000000000": "0x000000000000000000000000000000000000000000000000000000000000000a"
-    }
-  }
-}"#,
+					"{{ALICE_ADDR}}": {
+						"balance": "{{ALICE_BALANCE_POST}}",
+						"nonce": 1
+					},
+					"{{CONTRACT_ADDR}}": {
+						"balance": "0x0",
+						"nonce": 2,
+						"code": "{{CONTRACT_CODE}}",
+						"storage": {
+						"0x0000000000000000000000000000000000000000000000000000000000000000": "{{CHILD_ADDR_PADDED}}",
+						"0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000007"
+						}
+					},
+					"{{CHILD_ADDR}}": {
+						"balance": "0x0",
+						"nonce": 1,
+						"code": "{{CHILD_CODE}}",
+						"storage": {
+						"0x0000000000000000000000000000000000000000000000000000000000000000": "0x000000000000000000000000000000000000000000000000000000000000000a"
+						}
+					}
+				}"#,
 		},
 		TestCase {
 			config: PrestateTracerConfig {
@@ -367,60 +365,60 @@ fn prestate_diff_mode_tracing_works() {
 				disable_code: false,
 			},
 			expected_instantiate_trace_json: r#"{
-  "pre": {
-    "{{ALICE_ADDR}}": {
-      "balance": "{{ALICE_BALANCE_PRE}}"
-    }
-  },
-  "post": {
-    "{{ALICE_ADDR}}": {
-      "balance": "{{ALICE_BALANCE_POST}}",
-      "nonce": 1
-    },
-    "{{CONTRACT_ADDR}}": {
-      "balance": "0x0",
-      "nonce": 2,
-      "code": "{{CONTRACT_CODE}}"
-    },
-    "{{CHILD_ADDR}}": {
-      "balance": "0x0",
-      "nonce": 1,
-      "code": "{{CHILD_CODE}}"
-    }
-  }
-}"#,
+					"pre": {
+						"{{ALICE_ADDR}}": {
+						"balance": "{{ALICE_BALANCE_PRE}}"
+						}
+					},
+					"post": {
+						"{{ALICE_ADDR}}": {
+						"balance": "{{ALICE_BALANCE_POST}}",
+						"nonce": 1
+						},
+						"{{CONTRACT_ADDR}}": {
+						"balance": "0x0",
+						"nonce": 2,
+						"code": "{{CONTRACT_CODE}}"
+						},
+						"{{CHILD_ADDR}}": {
+						"balance": "0x0",
+						"nonce": 1,
+						"code": "{{CHILD_CODE}}"
+						}
+					}
+				}"#,
 			expected_call_trace_json: r#"{
-  "pre": {
-    "{{CONTRACT_ADDR}}": {
-      "balance": "0x0",
-      "nonce": 2,
-      "code": "{{CONTRACT_CODE}}",
-      "storage": {
-        "0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000007"
-      }
-    },
-    "{{CHILD_ADDR}}": {
-      "balance": "0x0",
-      "nonce": 1,
-      "code": "{{CHILD_CODE}}",
-      "storage": {
-        "0x0000000000000000000000000000000000000000000000000000000000000000": "0x000000000000000000000000000000000000000000000000000000000000000a"
-      }
-    }
-  },
-  "post": {
-    "{{CONTRACT_ADDR}}": {
-      "storage": {
-        "0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000008"
-      }
-    },
-    "{{CHILD_ADDR}}": {
-      "storage": {
-        "0x0000000000000000000000000000000000000000000000000000000000000000": "0x0000000000000000000000000000000000000000000000000000000000000007"
-      }
-    }
-  }
-}"#,
+					"pre": {
+						"{{CONTRACT_ADDR}}": {
+						"balance": "0x0",
+						"nonce": 2,
+						"code": "{{CONTRACT_CODE}}",
+						"storage": {
+							"0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000007"
+						}
+						},
+						"{{CHILD_ADDR}}": {
+						"balance": "0x0",
+						"nonce": 1,
+						"code": "{{CHILD_CODE}}",
+						"storage": {
+							"0x0000000000000000000000000000000000000000000000000000000000000000": "0x000000000000000000000000000000000000000000000000000000000000000a"
+						}
+						}
+					},
+					"post": {
+						"{{CONTRACT_ADDR}}": {
+						"storage": {
+							"0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000008"
+						}
+						},
+						"{{CHILD_ADDR}}": {
+						"storage": {
+							"0x0000000000000000000000000000000000000000000000000000000000000000": "0x0000000000000000000000000000000000000000000000000000000000000007"
+						}
+						}
+					}
+				}"#,
 		},
 	];
 
@@ -467,10 +465,11 @@ fn prestate_diff_mode_tracing_works() {
 			assert_eq!(contract_addr, contract_addr_actual, "contract address mismatch");
 
 			let instantiate_trace = tracer.collect_trace();
-			let actual_json = serde_json::to_string_pretty(&instantiate_trace).unwrap();
+
 			let expected_json = replace_placeholders(test_case.expected_instantiate_trace_json);
+			let expected_trace: PrestateTrace = serde_json::from_str(&expected_json).unwrap();
 			assert_eq!(
-				actual_json, expected_json,
+				instantiate_trace, expected_trace,
 				"unexpected instantiate trace for {:?}",
 				test_case.config
 			);
@@ -488,10 +487,10 @@ fn prestate_diff_mode_tracing_works() {
 			});
 
 			let call_trace = tracer.collect_trace();
-			let actual_json = serde_json::to_string_pretty(&call_trace).unwrap();
 			let expected_json = replace_placeholders(test_case.expected_call_trace_json);
+			let expected_trace: PrestateTrace = serde_json::from_str(&expected_json).unwrap();
 			assert_eq!(
-				actual_json, expected_json,
+				call_trace, expected_trace,
 				"unexpected call trace for {:?}",
 				test_case.config
 			);
