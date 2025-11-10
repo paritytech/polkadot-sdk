@@ -431,6 +431,7 @@ where
 		prometheus_registry: None,
 	})?;
 
+	let collator_peer_id = network.local_peer_id();
 	if let Some(collator_key) = collator_key {
 		let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
 			task_manager.spawn_handle(),
@@ -473,6 +474,7 @@ where
 				spawner: task_manager.spawn_handle(),
 				export_pov: None,
 				max_pov_percentage: None,
+				collator_peer_id,
 			};
 
 			slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
@@ -489,6 +491,7 @@ where
 				},
 				keystore,
 				collator_key,
+				collator_peer_id,
 				para_id,
 				overseer_handle,
 				relay_chain_slot_duration,
