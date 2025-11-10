@@ -361,7 +361,16 @@ jobs:
           echo "RUST_VERSION=${RUST_VERSION}" >> $GITHUB_ENV
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@1ccc07ccd54b6048295516a3eb89b192c35057dc # master from 12.09.2024
+      # Is broken because of different bash versions
+      # - name: Install rust ${{ env.RUST_VERSION }}
+      #   uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
+      #   with:
+      #     cache: false
+      #     toolchain: ${{ env.RUST_VERSION }}
+      #     target: wasm32-unknown-unknown
+      #     components: cargo, clippy, rust-docs, rust-src, rustfmt, rustc, rust-std
       - name: Install rust ${{ env.RUST_VERSION }}
+<<<<<<< HEAD
         uses: actions-rust-lang/setup-rust-toolchain@9d7e65c320fdb52dcd45ffaa68deb6c02c8754d9 # v1.12.0
         with:
           cache: false
@@ -370,14 +379,42 @@ jobs:
           components: cargo, clippy, rust-docs, rust-src, rustfmt, rustc, rust-std
       - name: Install protobuf
         run: brew install protobuf
+=======
+        run: |
+          curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain $RUST_VERSION
+          source $HOME/.cargo/env
+          rustup target add wasm32-unknown-unknown
+          rustup component add clippy rust-docs rust-src rustfmt rustc rust-std
+      - name: Install protobuf
+        run: brew install protobuf
+      - name: install solc
+        run: brew install solidity
+      - name: Install resolc
+        run: |
+          source $HOME/.cargo/env
+          VERSION="0.3.0"
+          ASSET_URL="https://github.com/paritytech/revive/releases/download/v$VERSION/resolc-universal-apple-darwin"
+          echo "Downloading resolc v$VERSION from $ASSET_URL"
+          curl -Lsf --show-error -o $HOME/.cargo/bin/resolc "$ASSET_URL"
+          chmod +x $HOME/.cargo/bin/resolc
+          xattr -c $HOME/.cargo/bin/resolc
+          resolc --version
+      - name: Install llvm
+        run: |
+          brew install llvm@20
+          brew link llvm@20
+>>>>>>> 73de3bed (ci: fix cargo-check-all-crate-macos (#10268))
       - name: cargo info
         run: |
+          source $HOME/.cargo/env
           echo "######## rustup show ########"
           rustup show
           echo "######## cargo --version ########"
           cargo --version
       - name: Run cargo check
-        run: cargo check --workspace --locked
+        run: |
+          source $HOME/.cargo/env
+          cargo check --workspace --locked
 
   confirm-required-test-misc-jobs-passed:
     runs-on: ubuntu-latest
