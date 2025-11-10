@@ -116,11 +116,6 @@ fn create_elastic_scaling_test_client() -> (Client, Header) {
 	(client, genesis_header)
 }
 
-fn pop_seal(mut block: Block) -> Block {
-	assert!(block.header.digest.pop().unwrap().as_seal().is_some());
-	block
-}
-
 struct TestBlockData {
 	block: ParachainBlockData<Block>,
 	validation_data: PersistedValidationData,
@@ -157,7 +152,7 @@ fn build_block_with_witness(
 
 fn build_multiple_blocks_with_witness(
 	client: &Client,
-	parent_head: Header,
+	arent_head: Header,
 	mut sproof_builder: RelayStateSproofBuilder,
 	num_blocks: usize,
 ) -> TestBlockData {
