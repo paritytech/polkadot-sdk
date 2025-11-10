@@ -381,6 +381,7 @@ jobs:
         run: brew install solidity
       - name: Install resolc
         run: |
+          source $HOME/.cargo/env
           VERSION="0.3.0"
           ASSET_URL="https://github.com/paritytech/revive/releases/download/v$VERSION/resolc-universal-apple-darwin"
           echo "Downloading resolc v$VERSION from $ASSET_URL"
@@ -394,12 +395,15 @@ jobs:
           brew link llvm@20
       - name: cargo info
         run: |
+          source $HOME/.cargo/env
           echo "######## rustup show ########"
           rustup show
           echo "######## cargo --version ########"
           cargo --version
       - name: Run cargo check
-        run: cargo check --workspace --locked
+        run: |
+          source $HOME/.cargo/env
+          cargo check --workspace --locked
 
   confirm-required-test-misc-jobs-passed:
     runs-on: ubuntu-latest
