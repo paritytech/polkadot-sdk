@@ -19,7 +19,7 @@ contract Counter {
 contract NestedCounter {
     Counter public counter;
     uint256 public number;
-    
+
 
     constructor() {
         counter = new Counter();
@@ -29,7 +29,7 @@ contract NestedCounter {
 
     function nestedNumber() public returns (uint256) {
         uint256 currentNumber = counter.setNumber(number);
-        number++; /// This gets recorded as happening in the storage of count instead of the `NestedCounter` where it actually happens.
+        number++;
         return currentNumber;
     }
 }
