@@ -12,6 +12,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+array-bytes = { workspace = true }
 bytes = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 cumulus-pallet-parachain-system-proc-macro.workspace = true
@@ -53,6 +54,7 @@ trie-standardmap = { workspace = true }
 
 
 # Substrate
+sc-consensus = { workspace = true }
 sp-consensus-slots = { default-features = true, workspace = true }
 sp-crypto-hashing = { default-features = true, workspace = true }
 sp-keyring = { default-features = true, workspace = true }
