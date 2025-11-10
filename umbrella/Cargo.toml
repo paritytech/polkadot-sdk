@@ -1214,7 +1214,7 @@ version = "41.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/executive"
-version = "41.0.1"
+version = "41.0.2"
 
 [dependencies.frame-metadata-hash-extension]
 default-features = false
@@ -1244,7 +1244,7 @@ version = "12.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/system"
-version = "41.0.1"
+version = "41.0.2"
 
 [dependencies.frame-system-benchmarking]
 default-features = false

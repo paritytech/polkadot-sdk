@@ -6727,7 +6727,7 @@ dependencies = [
 
 [[package]]
 name = "frame-executive"
-version = "41.0.1"
+version = "41.0.2"
 dependencies = [
  "aquamarine",
  "array-bytes 6.2.2",
@@ -7028,7 +7028,7 @@ dependencies = [
 
 [[package]]
 name = "frame-system"
-version = "41.0.1"
+version = "41.0.2"
 dependencies = [
  "cfg-if",
  "criterion",

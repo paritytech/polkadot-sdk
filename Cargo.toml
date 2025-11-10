@@ -812,7 +812,7 @@ frame-benchmarking-cli = { path = "substrate/utils/frame/benchmarking-cli", defa
 frame-benchmarking-pallet-pov = { default-features = false, path = "substrate/frame/benchmarking/pov" }
 frame-election-provider-solution-type = { path = "substrate/frame/election-provider-support/solution-type", default-features = false, version = "16.1.1" }
 frame-election-provider-support = { path = "substrate/frame/election-provider-support", default-features = false, version = "41.0.0" }
-frame-executive = { path = "substrate/frame/executive", default-features = false, version = "41.0.1" }
+frame-executive = { path = "substrate/frame/executive", default-features = false, version = "41.0.2" }
 frame-metadata = { version = "23.0.0", default-features = false }
 frame-metadata-hash-extension = { path = "substrate/frame/metadata-hash-extension", default-features = false, version = "0.9.0" }
 frame-storage-access-test-runtime = { path = "substrate/utils/frame/storage-access-test-runtime", default-features = false, version = "0.2.0" }
@@ -821,7 +821,7 @@ frame-support-procedural = { path = "substrate/frame/support/procedural", defaul
 frame-support-procedural-tools = { path = "substrate/frame/support/procedural/tools", default-features = false, version = "13.0.1" }
 frame-support-procedural-tools-derive = { path = "substrate/frame/support/procedural/tools/derive", default-features = false, version = "12.0.0" }
 frame-support-test = { path = "substrate/frame/support/test" }
-frame-system = { path = "substrate/frame/system", default-features = false, version = "41.0.1" }
+frame-system = { path = "substrate/frame/system", default-features = false, version = "41.0.2" }
 frame-system-benchmarking = { path = "substrate/frame/system/benchmarking", default-features = false, version = "41.0.0" }
 frame-system-rpc-runtime-api = { path = "substrate/frame/system/rpc/runtime-api", default-features = false, version = "37.0.0" }
 frame-try-runtime = { path = "substrate/frame/try-runtime", default-features = false, version = "0.47.0" }
