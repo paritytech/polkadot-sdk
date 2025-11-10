@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-runtime-parachains"
-version = "20.0.2"
+version = "20.0.3"
 description = "Relay Chain runtime code responsible for Parachains."
 authors.workspace = true
 edition.workspace = true
@@ -57,17 +57,17 @@ xcm.workspace = true
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-frame-support-test = { workspace = true }
+frame-support-test = { path = "../../../substrate/frame/support/test" }
 hex-literal = { workspace = true, default-features = true }
-polkadot-primitives = { features = ["test"], default-features = false, workspace = true }
-polkadot-primitives-test-helpers = { workspace = true }
+polkadot-primitives = { features = ["test"], default-features = false, path = "../../primitives" }
+polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
-sc-keystore = { default-features = true, workspace = true }
+sc-keystore = { default-features = true, path = "../../../substrate/client/keystore" }
 serde_json = { workspace = true, default-features = true }
-sp-crypto-hashing = { default-features = true, workspace = true }
-sp-keyring = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
+sp-crypto-hashing = { default-features = true, path = "../../../substrate/primitives/crypto/hashing" }
+sp-keyring = { default-features = true, path = "../../../substrate/primitives/keyring" }
+sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
 thousands = { workspace = true }
 
 [features]
@@ -117,7 +117,6 @@ std = [
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-election-provider-support/runtime-benchmarks",
-	"frame-support-test/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
@@ -139,7 +138,6 @@ runtime-benchmarks = [
 ]
 try-runtime = [
 	"frame-election-provider-support?/try-runtime",
-	"frame-support-test/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-authority-discovery/try-runtime",
