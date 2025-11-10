@@ -471,6 +471,18 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// `c`: Size of the RLP encoded Ethereum transaction in bytes.
+	#[benchmark(pov_mode = Measured)]
+	fn eth_substrate_call(c: Linear<0, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
+		let caller = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		let origin = Origin::EthTransaction(caller);
+		let dispatchable = frame_system::Call::remark { remark: vec![] }.into();
+		#[extrinsic_call]
+		_(origin, Box::new(dispatchable), vec![42u8; c as usize]);
+		Ok(())
+	}
+
 	// This constructs a contract that is maximal expensive to instrument.
 	// It creates a maximum number of metering blocks per byte.
 	// `c`: Size of the code in bytes.

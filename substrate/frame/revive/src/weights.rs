@@ -82,6 +82,7 @@ pub trait WeightInfo {
 	fn instantiate(i: u32, ) -> Weight;
 	fn call() -> Weight;
 	fn eth_call(d: u32, ) -> Weight;
+	fn eth_substrate_call(c: u32, ) -> Weight;
 	fn upload_code(c: u32, ) -> Weight;
 	fn remove_code() -> Weight;
 	fn set_code() -> Weight;
@@ -421,6 +422,26 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(2_207_885, 0).saturating_mul(d.into()))
 			.saturating_add(T::DbWeight::get().reads(9_u64))
 			.saturating_add(T::DbWeight::get().writes(5_u64))
+	}
+	/// Storage: `SafeMode::EnteredUntil` (r:1 w:0)
+	/// Proof: `SafeMode::EnteredUntil` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `TxPause::PausedCalls` (r:1 w:0)
+	/// Proof: `TxPause::PausedCalls` (`max_values`: None, `max_size`: Some(532), added: 3007, mode: `Measured`)
+	/// Storage: `Revive::EthBlockBuilderIR` (r:1 w:1)
+	/// Proof: `Revive::EthBlockBuilderIR` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Revive::EthBlockBuilderFirstValues` (r:0 w:1)
+	/// Proof: `Revive::EthBlockBuilderFirstValues` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// The range of component `c` is `[0, 102400]`.
+	fn eth_substrate_call(c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `358`
+		//  Estimated: `3823`
+		// Minimum execution time: 26_805_000 picoseconds.
+		Weight::from_parts(20_317_546, 3823)
+			// Standard Error: 12
+			.saturating_add(Weight::from_parts(6_369, 0).saturating_mul(c.into()))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:0)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
@@ -1679,6 +1700,26 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(2_207_885, 0).saturating_mul(d.into()))
 			.saturating_add(RocksDbWeight::get().reads(9_u64))
 			.saturating_add(RocksDbWeight::get().writes(5_u64))
+	}
+	/// Storage: `SafeMode::EnteredUntil` (r:1 w:0)
+	/// Proof: `SafeMode::EnteredUntil` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `TxPause::PausedCalls` (r:1 w:0)
+	/// Proof: `TxPause::PausedCalls` (`max_values`: None, `max_size`: Some(532), added: 3007, mode: `Measured`)
+	/// Storage: `Revive::EthBlockBuilderIR` (r:1 w:1)
+	/// Proof: `Revive::EthBlockBuilderIR` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Revive::EthBlockBuilderFirstValues` (r:0 w:1)
+	/// Proof: `Revive::EthBlockBuilderFirstValues` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// The range of component `c` is `[0, 102400]`.
+	fn eth_substrate_call(c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `358`
+		//  Estimated: `3823`
+		// Minimum execution time: 26_805_000 picoseconds.
+		Weight::from_parts(20_317_546, 3823)
+			// Standard Error: 12
+			.saturating_add(Weight::from_parts(6_369, 0).saturating_mul(c.into()))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:0)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
