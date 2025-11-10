@@ -172,7 +172,7 @@ pub mod test {
 	impl BlockInfoProvider for MockBlockInfoProvider {
 		async fn update_latest(
 			&self,
-			_block: SubstrateBlock,
+			_block: Arc<SubstrateBlock>,
 			_subscription_type: SubscriptionType,
 		) {
 		}
