@@ -300,6 +300,7 @@ where
 		.spawn("cumulus-pov-recovery", None, pov_recovery.run());
 
 	let parachain_informant = parachain_informant::<Block, _>(
+		para_id,
 		relay_chain_interface.clone(),
 		client.clone(),
 		prometheus_registry.map(ParachainInformantMetrics::new).transpose()?,
@@ -605,6 +606,7 @@ where
 
 /// Task for logging candidate events and some related metrics.
 async fn parachain_informant<Block: BlockT, Client>(
+	para_id: ParaId,
 	relay_chain_interface: impl RelayChainInterface + Clone,
 	client: Arc<Client>,
 	metrics: Option<ParachainInformantMetrics>,
@@ -632,7 +634,10 @@ async fn parachain_informant<Block: BlockT, Client>(
 		let mut timed_out_candidates = Vec::new();
 		for event in candidate_events {
 			match event {
-				CandidateEvent::CandidateBacked(_, head, _, _) => {
+				CandidateEvent::CandidateBacked(receipt, head, _, _) => {
+					if receipt.descriptor.para_id() != para_id {
+						continue;
+					}
 					let backed_block = match Block::Header::decode(&mut &head.0[..]) {
 						Ok(header) => header,
 						Err(e) => {
@@ -652,7 +657,10 @@ async fn parachain_informant<Block: BlockT, Client>(
 					last_backed_block_time = Some(backed_block_time);
 					backed_candidates.push(backed_block);
 				},
-				CandidateEvent::CandidateIncluded(_, head, _, _) => {
+				CandidateEvent::CandidateIncluded(receipt, head, _, _) => {
+					if receipt.descriptor.para_id() != para_id {
+						continue;
+					}
 					let included_block = match Block::Header::decode(&mut &head.0[..]) {
 						Ok(header) => header,
 						Err(e) => {
@@ -670,7 +678,10 @@ async fn parachain_informant<Block: BlockT, Client>(
 					}
 					included_candidates.push(included_block);
 				},
-				CandidateEvent::CandidateTimedOut(_, head, _) => {
+				CandidateEvent::CandidateTimedOut(receipt, head, _) => {
+					if receipt.descriptor.para_id() != para_id {
+						continue;
+					}
 					let timed_out_block = match Block::Header::decode(&mut &head.0[..]) {
 						Ok(header) => header,
 						Err(e) => {
