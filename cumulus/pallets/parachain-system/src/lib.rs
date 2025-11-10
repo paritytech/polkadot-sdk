@@ -365,12 +365,10 @@ pub mod pallet {
 				if let Some(core_info) =
 					CumulusDigestItem::find_core_info(&frame_system::Pallet::<T>::digest())
 				{
-					PendingUpwardSignals::<T>::mutate(|signals| {
-						signals.push(
-							UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset)
-								.encode(),
-						);
-					});
+					PendingUpwardSignals::<T>::append(
+						UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset)
+							.encode(),
+					);
 				}
 
 				// Send the pending UMP signals.
@@ -706,9 +704,9 @@ pub mod pallet {
 			<T::OnSystemEvent as OnSystemEvent>::on_validation_data(&vfp);
 
 			if let Some(collator_peer_id) = collator_peer_id {
-				PendingUpwardSignals::<T>::mutate(|signals| {
-					signals.push(UMPSignal::ApprovedPeer(collator_peer_id).encode());
-				});
+				PendingUpwardSignals::<T>::append(
+					UMPSignal::ApprovedPeer(collator_peer_id).encode(),
+				);
 			}
 
 			total_weight.saturating_accrue(Self::enqueue_inbound_downward_messages(
@@ -1533,12 +1531,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Send the pending ump signals
 	fn send_ump_signals() {
-		let mut ump_signals = PendingUpwardSignals::<T>::take();
+		let ump_signals = PendingUpwardSignals::<T>::take();
 		if !ump_signals.is_empty() {
-			UpwardMessages::<T>::mutate(|up| {
-				up.push(UMP_SEPARATOR);
-				up.append(&mut ump_signals);
-			});
+			UpwardMessages::<T>::append(UMP_SEPARATOR);
+			ump_signals.into_iter().for_each(|s| UpwardMessages::<T>::append(s));
 		}
 	}
 
