@@ -63,7 +63,7 @@ use sc_consensus::{
 	BlockImportParams, DefaultImportQueue, LongestChain,
 };
 use sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider;
-use sc_network::{config::FullNetworkConfiguration, NotificationMetrics};
+use sc_network::{config::FullNetworkConfiguration, NotificationMetrics, PeerId};
 use sc_service::{Configuration, Error, PartialComponents, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
@@ -567,6 +567,7 @@ where
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
 		collator_key: CollatorPair,
+		collator_peer_id: PeerId,
 		_overseer_handle: OverseerHandle,
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
@@ -601,6 +602,7 @@ where
 			},
 			keystore,
 			collator_key,
+			collator_peer_id,
 			para_id,
 			proposer,
 			collator_service,
@@ -692,6 +694,7 @@ where
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
 		collator_key: CollatorPair,
+		collator_peer_id: PeerId,
 		overseer_handle: OverseerHandle,
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
@@ -705,7 +708,6 @@ where
 			prometheus_registry,
 			telemetry.clone(),
 		);
-
 		let collator_service = CollatorService::new(
 			client.clone(),
 			Arc::new(task_manager.spawn_handle()),
@@ -729,6 +731,7 @@ where
 				},
 				keystore,
 				collator_key,
+				collator_peer_id,
 				para_id,
 				overseer_handle,
 				relay_chain_slot_duration,
