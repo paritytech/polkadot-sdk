@@ -1864,8 +1864,8 @@ impl<T: Config> Pallet<T> {
 	/// The Ethereum block number is identical to the Substrate block number.
 	/// If the provided block number is outside of the pruning None is returned.
 	pub fn eth_block_hash_from_number(number: U256) -> Option<H256> {
-		let block_num: u32 = number.try_into().ok()?;
-		let hash = <BlockHash<T>>::get(BlockNumberFor::<T>::from(block_num));
+		let number = BlockNumberFor::<T>::try_from(number).ok()?;
+		let hash = <BlockHash<T>>::get(number);
 		if hash == H256::zero() {
 			None
 		} else {
