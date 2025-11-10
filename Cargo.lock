@@ -4553,7 +4553,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-parachain-system"
-version = "0.21.0"
+version = "0.21.1"
 dependencies = [
  "array-bytes 6.2.2",
  "assert_matches",

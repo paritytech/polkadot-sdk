@@ -1094,7 +1094,7 @@ version = "0.21.0"
 default-features = false
 optional = true
 path = "../cumulus/pallets/parachain-system"
-version = "0.21.0"
+version = "0.21.1"
 
 [dependencies.cumulus-pallet-parachain-system-proc-macro]
 default-features = false
