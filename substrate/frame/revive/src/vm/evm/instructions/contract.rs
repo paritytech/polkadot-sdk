@@ -23,7 +23,7 @@ use crate::{
 		evm::{interpreter::Halt, util::as_usize_or_halt, Interpreter},
 		Ext, RuntimeCosts,
 	},
-	Code, Error, Pallet, Weight, H160, LOG_TARGET, U256,
+	Code, DebugSettings, Error, Pallet, Weight, H160, LOG_TARGET, U256,
 };
 use alloc::{vec, vec::Vec};
 pub use call_helpers::{calc_call_gas, get_memory_in_and_out_ranges};
@@ -58,7 +58,9 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 	let mut code = Vec::new();
 	if len != 0 {
 		// EIP-3860: Limit initcode
-		if len > revm::primitives::eip3860::MAX_INITCODE_SIZE {
+		if len > revm::primitives::eip3860::MAX_INITCODE_SIZE &&
+			!DebugSettings::is_unlimited_contract_size_allowed::<E::T>()
+		{
 			return ControlFlow::Break(Error::<E::T>::BlobTooLarge.into());
 		}
 
