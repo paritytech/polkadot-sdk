@@ -969,7 +969,9 @@ mod benchmarks {
 		let mut executor = ExecuteXcmOf::<T>::new(Location::default(), XcmHash::default());
 
 		// Whitelist the hot read so it doesn't count towards PoV.
-		frame_benchmarking::benchmarking::add_to_whitelist(<pallet_xcm::ShouldRecordXcm<T>>::hashed_key().to_vec());
+		frame_benchmarking::benchmarking::add_to_whitelist(
+			<pallet_xcm::ShouldRecordXcm<T>>::hashed_key().to_vec(),
+		);
 
 		#[block]
 		{
