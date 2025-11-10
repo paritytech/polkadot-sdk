@@ -214,9 +214,7 @@ pub fn on_finalize_build_eth_block<T: Config>(block_number: BlockNumberFor<T>) {
 
 	// Prune older block hashes.
 	let block_hash_count = BLOCK_HASH_COUNT;
-	let to_remove = block_number
-		.saturating_sub(block_hash_count.into())
-		.saturating_sub(One::one());
+	let to_remove = block_number.saturating_sub(block_hash_count.into()).saturating_sub(One::one());
 	if !Zero::is_zero(&to_remove) {
 		<BlockHash<T>>::remove(to_remove);
 	}
