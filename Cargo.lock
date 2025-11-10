@@ -2508,7 +2508,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-rococo-runtime"
-version = "0.22.1"
+version = "0.22.2"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -2712,7 +2712,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-westend-runtime"
-version = "0.19.1"
+version = "0.19.2"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -22011,7 +22011,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-beacon-primitives"
-version = "0.15.1"
+version = "0.15.2"
 dependencies = [
  "byte-slice-cast",
  "frame-support",
@@ -22179,7 +22179,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-ethereum-client"
-version = "0.15.1"
+version = "0.15.2"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -22216,7 +22216,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue"
-version = "0.15.1"
+version = "0.15.2"
 dependencies = [
  "alloy-core",
  "frame-benchmarking",
