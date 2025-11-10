@@ -58,9 +58,7 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 	let mut code = Vec::new();
 	if len != 0 {
 		// EIP-3860: Limit initcode
-		if len > revm::primitives::eip3860::MAX_INITCODE_SIZE &&
-			!interpreter.ext.is_unlimited_contract_size_allowed()
-		{
+		if len > revm::primitives::eip3860::MAX_INITCODE_SIZE {
 			return ControlFlow::Break(Error::<E::T>::BlobTooLarge.into());
 		}
 

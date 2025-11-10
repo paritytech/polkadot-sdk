@@ -239,10 +239,6 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 	}
 
 	fn charge_storage(&mut self, _diff: &Diff) {}
-
-	fn is_unlimited_contract_size_allowed(&self) -> bool {
-		false
-	}
 }
 
 impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
