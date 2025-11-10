@@ -510,7 +510,6 @@ fn ensure_we_only_like_blockchains() {
 			.output()
 			.expect("Runs the test");
 
-		dbg!(String::from_utf8(output.stdout.clone()));
 		assert!(output.status.success());
 
 		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
