@@ -33,7 +33,9 @@ use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::traits::Time;
 use scale_info::TypeInfo;
+use sp_arithmetic::traits::Saturating;
 use sp_core::{keccak_256, H160, H256, U256};
+use sp_runtime::traits::{One, Zero};
 
 const LOG_TARGET: &str = "runtime::revive::block_builder";
 
@@ -167,9 +169,13 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 	}
 
 	/// Build the ethereum block from provided data.
-	pub fn build_block(&mut self, block_number: U256) -> (Block, Vec<ReceiptGasInfo>) {
-		let parent_hash = if block_number > U256::zero() {
-			crate::BlockHash::<T>::get(block_number - 1)
+	pub fn build_block(
+		&mut self,
+		block_number: crate::BlockNumberFor<T>,
+	) -> (Block, Vec<ReceiptGasInfo>) {
+		let parent_hash = if !Zero::is_zero(&block_number) {
+			let prev_block_num = block_number.saturating_sub(One::one());
+			crate::BlockHash::<T>::get(prev_block_num)
 		} else {
 			H256::default()
 		};
@@ -177,7 +183,8 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 		let timestamp = (T::Time::now() / 1000u32.into()).into();
 		let block_author = crate::Pallet::<T>::block_author();
 
-		self.build_block_with_params(block_number, parent_hash, timestamp, block_author)
+		let eth_block_num: U256 = block_number.into();
+		self.build_block_with_params(eth_block_num, parent_hash, timestamp, block_author)
 	}
 
 	/// Build the ethereum block from provided parameters.

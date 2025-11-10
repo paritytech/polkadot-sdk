@@ -22,11 +22,11 @@ use crate::{
 		fees::InfoT,
 	},
 	limits,
-	sp_runtime::traits::One,
+	sp_runtime::traits::{One, Zero},
 	weights::WeightInfo,
-	AccountIdOf, BalanceOf, BalanceWithDust, BlockHash, Config, ContractResult, Error,
-	EthBlockBuilderIR, EthereumBlock, Event, ExecReturnValue, Pallet, ReceiptGasInfo,
-	ReceiptInfoData, StorageDeposit, UniqueSaturatedInto, Weight, H160, H256, LOG_TARGET,
+	AccountIdOf, BalanceOf, BalanceWithDust, BlockHash, BlockNumberFor, Config, ContractResult,
+	Error, EthBlockBuilderIR, EthereumBlock, Event, ExecReturnValue, Pallet, ReceiptGasInfo,
+	ReceiptInfoData, StorageDeposit, Weight, H160, H256, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use environmental::environmental;
@@ -202,26 +202,23 @@ pub fn on_initialize<T: Config>() {
 }
 
 /// Build the ethereum block and store it into the pallet storage.
-pub fn on_finalize_build_eth_block<T: Config>() {
+pub fn on_finalize_build_eth_block<T: Config>(block_number: BlockNumberFor<T>) {
 	let block_builder_ir = EthBlockBuilderIR::<T>::get();
 	EthBlockBuilderIR::<T>::kill();
 
-	// Load the first values if not already loaded.
-	let eth_block_num = frame_system::Pallet::<T>::block_number().into();
 	let (block, receipt_data) =
-		EthereumBlockBuilder::<T>::from_ir(block_builder_ir).build_block(eth_block_num);
+		EthereumBlockBuilder::<T>::from_ir(block_builder_ir).build_block(block_number);
 
 	// Put the block hash into storage.
-	BlockHash::<T>::insert(eth_block_num, block.hash);
+	BlockHash::<T>::insert(block_number, block.hash);
 
 	// Prune older block hashes.
 	let block_hash_count = BLOCK_HASH_COUNT;
-	let to_remove =
-		eth_block_num.saturating_sub(block_hash_count.into()).saturating_sub(One::one());
-	if !to_remove.is_zero() {
-		<BlockHash<T>>::remove(U256::from(UniqueSaturatedInto::<u32>::unique_saturated_into(
-			to_remove,
-		)));
+	let to_remove = block_number
+		.saturating_sub(block_hash_count.into())
+		.saturating_sub(One::one());
+	if !Zero::is_zero(&to_remove) {
+		<BlockHash<T>>::remove(to_remove);
 	}
 	// Store the ETH block into the last block.
 	EthereumBlock::<T>::put(block);

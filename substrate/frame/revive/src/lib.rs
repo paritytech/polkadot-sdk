@@ -658,7 +658,8 @@ pub mod pallet {
 	///
 	/// The maximum number of elements stored is capped by the block hash count `BLOCK_HASH_COUNT`.
 	#[pallet::storage]
-	pub(crate) type BlockHash<T: Config> = StorageMap<_, Identity, U256, H256, ValueQuery>;
+	pub(crate) type BlockHash<T: Config> =
+		StorageMap<_, Identity, BlockNumberFor<T>, H256, ValueQuery>;
 
 	/// The details needed to reconstruct the receipt info offchain.
 	///
@@ -820,7 +821,7 @@ pub mod pallet {
 			}
 
 			// Build genesis block
-			block_storage::on_finalize_build_eth_block::<T>();
+			block_storage::on_finalize_build_eth_block::<T>(0u32.into());
 
 			// Set debug settings.
 			if let Some(settings) = self.debug_settings.as_ref() {
@@ -847,9 +848,9 @@ pub mod pallet {
 			<T as Config>::WeightInfo::on_finalize_block_fixed()
 		}
 
-		fn on_finalize(_block_number: BlockNumberFor<T>) {
+		fn on_finalize(block_number: BlockNumberFor<T>) {
 			// Build the ethereum block and place it in storage.
-			block_storage::on_finalize_build_eth_block::<T>();
+			block_storage::on_finalize_build_eth_block::<T>(block_number);
 		}
 
 		fn integrity_test() {
@@ -1863,7 +1864,8 @@ impl<T: Config> Pallet<T> {
 	/// The Ethereum block number is identical to the Substrate block number.
 	/// If the provided block number is outside of the pruning None is returned.
 	pub fn eth_block_hash_from_number(number: U256) -> Option<H256> {
-		let hash = <BlockHash<T>>::get(number);
+		let block_num: u32 = number.try_into().ok()?;
+		let hash = <BlockHash<T>>::get(BlockNumberFor::<T>::from(block_num));
 		if hash == H256::zero() {
 			None
 		} else {
