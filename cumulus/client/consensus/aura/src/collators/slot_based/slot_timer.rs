@@ -19,7 +19,7 @@ use crate::LOG_TARGET;
 use codec::Codec;
 use cumulus_primitives_aura::Slot;
 use cumulus_primitives_core::BlockT;
-use sc_client_api::{HeaderBackend, UsageProvider};
+use sc_client_api::UsageProvider;
 use sc_consensus_aura::SlotDuration;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
@@ -148,6 +148,81 @@ fn duration_now() -> Duration {
 	})
 }
 
+/// Adjust the authoring duration.
+fn adjust_authoring_duration(
+	mut authoring_duration: Duration,
+	next_block: (Duration, Slot),
+	next_slot_change: (Duration, Slot),
+	different_authors: bool,
+) -> Option<Duration> {
+	let (duration, next_block_slot) = next_block;
+	let (duration_until_next_slot, next_slot) = next_slot_change;
+
+	// The authoring of blocks must stop 1 second before the slot ends.
+	let duration_until_deadline =
+		duration_until_next_slot.saturating_sub(BLOCK_PRODUCTION_ADJUSTMENT_MS);
+	tracing::debug!(
+		target: LOG_TARGET,
+		?authoring_duration,
+		?duration,
+		?next_block_slot,
+		?duration_until_next_slot,
+		?next_slot,
+		?duration_until_deadline,
+		?different_authors,
+		"Adjusting authoring duration for slot.",
+	);
+
+	// Ensure no blocks are produced in the last second of the slot,
+	// regardless of authoring duration.
+	if duration_until_deadline == Duration::ZERO {
+		if different_authors {
+			tracing::debug!(
+				target: LOG_TARGET,
+				?duration_until_next_slot,
+				?next_slot,
+				"Not enough time left in the slot to adjust authoring duration. Skipping block production for the slot."
+			);
+
+			return None;
+		}
+
+		// If authors are the same, we can still attempt producing the block
+		// considering the next block duration.
+		return Some(authoring_duration.min(duration));
+	}
+
+	// Clamp the authoring duration to fit into the slot deadline only if authors are different.
+	// For most cases, the deadline is farther in the future than the authoring duration.
+	if different_authors && authoring_duration >= duration_until_deadline {
+		authoring_duration = duration_until_deadline;
+
+		// Ensure we are not going below the minimum interval within a reasonable threshold.
+		// For 12 cores, we might have a scenario where the last 3 blocks are skipped:
+		// - Block 10: next slot change in 1.493s:
+		// 	 - After adjusting the deadline: 1.493s - 1s = 0.493s the block could be produced
+		//     without issues.
+		// - Block 11: next slot change in 0.993s - skipped by the deadline
+		// - Block 12: next slot change in 0.493s - skipped by the deadline
+		if authoring_duration <
+			BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS.saturating_sub(BLOCK_PRODUCTION_THRESHOLD_MS)
+		{
+			tracing::debug!(
+				target: LOG_TARGET,
+				?authoring_duration,
+				?next_slot,
+				"Authoring duration is below minimum. Skipping block production for the slot."
+			);
+			return None;
+		}
+	}
+
+	// The `duration` intends to slightly adjust when then block production
+	// attempt happens. This goes slightly below the `BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS`
+	// threshold.
+	Some(authoring_duration.min(duration))
+}
+
 /// Returns the duration until the next block production should be attempted.
 /// Returns:
 /// - Duration: The duration until the next attempt.
@@ -168,12 +243,7 @@ fn time_until_next_attempt(
 impl<Block, Client, P> SlotTimer<Block, Client, P>
 where
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block>
-		+ Send
-		+ Sync
-		+ 'static
-		+ UsageProvider<Block>
-		+ HeaderBackend<Block>,
+	Client: ProvideRuntimeApi<Block> + UsageProvider<Block> + Send + Sync + 'static,
 	Client::Api: AuraApi<Block, P::Public>,
 	P: Pair,
 	P::Public: AppPublic + Member + Codec,
@@ -228,7 +298,7 @@ where
 	///
 	/// Returns true if the authors for the two slots are different.
 	fn check_different_slot_authors(&self, slot: Slot, next_slot: Slot) -> bool {
-		let best_hash = self.client.info().best_hash;
+		let best_hash = self.client.usage_info().chain.best_hash;
 
 		let Ok(authorities) = self.client.runtime_api().authorities(best_hash) else {
 			tracing::warn!(target: LOG_TARGET, "Failed to fetch authorities for slot author comparison");
@@ -251,20 +321,14 @@ where
 	/// Adjust the authoring duration to fit into the slot timing.
 	///
 	/// Returns the adjusted authoring duration and the slot that it corresponds to.
-	pub fn adjust_authoring_duration(
-		&mut self,
-		mut authoring_duration: Duration,
-	) -> Option<Duration> {
+	pub fn adjust_authoring_duration(&mut self, authoring_duration: Duration) -> Option<Duration> {
 		let Ok(slot_duration) = crate::slot_duration(&*self.client) else {
 			tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
 			return None;
 		};
 
-		let (duration, next_block_slot) = self.time_until_next_block(slot_duration);
-
-		let Some((duration_until_next_slot, next_slot)) =
-			self.time_until_next_slot_change(slot_duration)
-		else {
+		let next_block = self.time_until_next_block(slot_duration);
+		let Some(next_slot_change) = self.time_until_next_slot_change(slot_duration) else {
 			tracing::error!(
 				target: LOG_TARGET,
 				"Failed to compute time until next slot change. Using unadjusted authoring duration."
@@ -273,68 +337,15 @@ where
 		};
 
 		// Check if authors at current and next slots are different
-		let current_slot = self.last_reported_slot.unwrap_or(next_block_slot);
-		let authors_are_different = self.check_different_slot_authors(current_slot, next_slot);
+		let current_slot = self.last_reported_slot.unwrap_or(next_block.1);
+		let different_authors = self.check_different_slot_authors(current_slot, next_slot_change.1);
 
-		// The authoring of blocks must stop 1 second before the slot ends.
-		let duration_until_deadline =
-			duration_until_next_slot.saturating_sub(BLOCK_PRODUCTION_ADJUSTMENT_MS);
-		tracing::debug!(
-			target: LOG_TARGET,
-			?authoring_duration,
-			?duration,
-			last_reported_slot = ?self.last_reported_slot,
-			?next_block_slot,
-			?duration_until_next_slot,
-			?next_slot,
-			?duration_until_deadline,
-			?current_slot,
-			?authors_are_different,
-			"Adjusting authoring duration for slot.",
-		);
-
-		// Ensure no blocks are produced in the last second of the slot,
-		// regardless of authoring duration.
-		if duration_until_deadline == Duration::ZERO {
-			tracing::debug!(
-				target: LOG_TARGET,
-				?duration_until_next_slot,
-				?next_slot,
-				"Not enough time left in the slot to adjust authoring duration. Skipping block production for the slot."
-			);
-
-			return None;
-		}
-
-		// Clamp the authoring duration to fit into the slot deadline only if authors are different.
-		// For most cases, the deadline is farther in the future than the authoring duration.
-		if authors_are_different && authoring_duration >= duration_until_deadline {
-			authoring_duration = duration_until_deadline;
-
-			// Ensure we are not going below the minimum interval within a reasonable threshold.
-			// For 12 cores, we might have a scenario where the last 3 blocks are skipped:
-			// - Block 10: next slot change in 1.493s:
-			// 	 - After adjusting the deadline: 1.493s - 1s = 0.493s the block could be produced
-			//     without issues.
-			// - Block 11: next slot change in 0.993s - skipped by the deadline
-			// - Block 12: next slot change in 0.493s - skipped by the deadline
-			if authoring_duration <
-				BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS.saturating_sub(BLOCK_PRODUCTION_THRESHOLD_MS)
-			{
-				tracing::debug!(
-					target: LOG_TARGET,
-					?authoring_duration,
-					?next_slot,
-					"Authoring duration is below minimum. Skipping block production for the slot."
-				);
-				return None;
-			}
-		}
-
-		// The `duration` intends to slightly adjust when then block production
-		// attempt happens. This goes slightly below the `BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS`
-		// threshold.
-		Some(authoring_duration.min(duration))
+		adjust_authoring_duration(
+			authoring_duration,
+			next_block,
+			next_slot_change,
+			different_authors,
+		)
 	}
 
 	/// Returns a future that resolves when the next block production should be attempted.
@@ -499,5 +510,134 @@ mod tests {
 		let (duration, next_slot) = result.unwrap();
 		assert_eq!(duration.as_millis(), expected_duration, "Duration mismatch");
 		assert_eq!(next_slot, expected_next_slot, "Next slot mismatch");
+	}
+
+	#[rstest]
+	// Various scenarios for 2s block production adjustment.
+	#[case::blocks_2s_fits_next_block(
+		Duration::from_millis(2000), // Authoring duration
+		(Duration::from_millis(2000), Slot::from(1)), // Next block
+		(Duration::from_millis(4000), Slot::from(2)), // Next slot change
+		true, // Different authors
+		Some(Duration::from_millis(2000)), // Expected
+	)]
+	#[case::blocks_2s_closer_next_slot(
+		Duration::from_millis(2000), // Authoring duration
+		(Duration::from_millis(1950), Slot::from(1)), // Next block
+		(Duration::from_millis(4000), Slot::from(2)), // Next slot change
+		true, // Different authors
+		Some(Duration::from_millis(1950)), // Expected
+	)]
+	#[case::blocks_2s_closer_next_slot_bigger(
+		Duration::from_millis(2000), // Authoring duration
+		(Duration::from_millis(1500), Slot::from(1)), // Next block
+		(Duration::from_millis(4000), Slot::from(2)), // Next slot change
+		true, // Different authors
+		Some(Duration::from_millis(1500)), // Expected
+	)]
+	#[case::blocks_2s_reduce_by_1s(
+		Duration::from_millis(2000), // Authoring duration
+		(Duration::from_millis(2000), Slot::from(1)), // Next block
+		(Duration::from_millis(2000), Slot::from(2)), // Next slot change
+		true, // Different authors
+		Some(Duration::from_millis(1000)), // Expected
+	)]
+	#[case::blocks_2s_reduce_by_1s_plus_offset(
+		Duration::from_millis(2000), // Authoring duration
+		(Duration::from_millis(1950), Slot::from(1)), // Next block
+		(Duration::from_millis(1950), Slot::from(2)), // Next slot change
+		true, // Different authors
+		Some(Duration::from_millis(950)), // Expected
+	)]
+	#[case::blocks_2s_reduce_to_minimum(
+		Duration::from_millis(2000), // Authoring duration
+		(Duration::from_millis(1400), Slot::from(1)), // Next block
+		(Duration::from_millis(1400), Slot::from(2)), // Next slot change
+		true, // Different authors
+		Some(Duration::from_millis(400)), // Expected
+	)]
+	#[case::blocks_2s_reduce_below_minimum(
+		Duration::from_millis(2000), // Authoring duration
+		(Duration::from_millis(1300), Slot::from(1)), // Next block
+		(Duration::from_millis(1300), Slot::from(2)), // Next slot change
+		true, // Different authors
+		None, // Expected to reduce below minimum
+	)]
+	#[case::blocks_2s_same_author(
+		Duration::from_millis(2000), // Authoring duration
+		(Duration::from_millis(1400), Slot::from(1)), // Next block
+		(Duration::from_millis(1400), Slot::from(2)), // Next slot change
+		false, // Different authors
+		Some(Duration::from_millis(1400)), // Expected no adjustment for last second.
+	)]
+	// Various scenarios for 500ms block production adjustment.
+	#[case::blocks_500ms_fits_next_block(
+		Duration::from_millis(500), // Authoring duration
+		(Duration::from_millis(500), Slot::from(1)), // Next block
+		(Duration::from_millis(2000), Slot::from(2)), // Next slot change
+		true, // Different authors
+		Some(Duration::from_millis(500)), // Expected
+	)]
+	#[case::blocks_500ms_closer_next_slot(
+		Duration::from_millis(500), // Authoring duration
+		(Duration::from_millis(450), Slot::from(1)), // Next block
+		(Duration::from_millis(2000), Slot::from(2)), // Next slot change
+		true, // Different authors
+		Some(Duration::from_millis(450)), // Expected
+	)]
+	#[case::blocks_500ms_closer_next_slot_bigger(
+		Duration::from_millis(500), // Authoring duration
+		(Duration::from_millis(400), Slot::from(1)), // Next block
+		(Duration::from_millis(1500), Slot::from(2)), // Next slot change
+		true, // Different authors
+		Some(Duration::from_millis(400)), // Expected
+	)]
+	#[case::blocks_500ms_reduce_by_1s(
+		Duration::from_millis(500), // Authoring duration
+		(Duration::from_millis(500), Slot::from(1)), // Next block
+		(Duration::from_millis(1000), Slot::from(2)), // Next slot change
+		true, // Different authors
+		None, // Expected
+	)]
+	#[case::blocks_500ms_reduce_by_1s_closer(
+		Duration::from_millis(500), // Authoring duration
+		(Duration::from_millis(500), Slot::from(1)), // Next block
+		(Duration::from_millis(500), Slot::from(2)), // Next slot change
+		true, // Different authors
+		None, // Expected
+	)]
+	// If we are producing with 1 collator for 500ms authoring duration,
+	// we must produce the last two slots and ignore the 1s adjustment.
+	#[case::blocks_500ms_same_author(
+		Duration::from_millis(500), // Authoring duration
+		(Duration::from_millis(410), Slot::from(1)), // Next block
+		(Duration::from_millis(1000), Slot::from(2)), // Next slot change
+		false, // Different authors
+		Some(Duration::from_millis(410)), // Expected no adjustment for last second.
+	)]
+	#[case::blocks_500ms_same_author_closer(
+		Duration::from_millis(500), // Authoring duration
+		(Duration::from_millis(400), Slot::from(1)), // Next block
+		(Duration::from_millis(400), Slot::from(2)), // Next slot change
+		false, // Different authors
+		Some(Duration::from_millis(400)), // Expected no adjustment for last second.
+	)]
+	fn test_adjust_authoring_duration(
+		#[case] authoring_duration: Duration,
+		#[case] next_block: (Duration, Slot),
+		#[case] next_slot_change: (Duration, Slot),
+		#[case] different_authors: bool,
+		#[case] expected: Option<Duration>,
+	) {
+		sp_tracing::init_for_tests();
+
+		let result = adjust_authoring_duration(
+			authoring_duration,
+			next_block,
+			next_slot_change,
+			different_authors,
+		);
+		tracing::debug!("Adjusted authoring duration: {:?}", result);
+		assert_eq!(result, expected);
 	}
 }
