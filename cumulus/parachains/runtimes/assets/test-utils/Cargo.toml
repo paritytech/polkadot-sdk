@@ -73,3 +73,21 @@ std = [
 	"xcm-runtime-apis/std",
 	"xcm/std",
 ]
+try-runtime = [
+	"assets-common/try-runtime",
+	"cumulus-pallet-parachain-system/try-runtime",
+	"cumulus-pallet-xcmp-queue/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-asset-conversion/try-runtime",
+	"pallet-assets/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-collator-selection/try-runtime",
+	"pallet-session/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"pallet-xcm/try-runtime",
+	"pallet-xcm-bridge-hub-router/try-runtime",
+	"parachains-common/try-runtime",
+	"sp-runtime/try-runtime",
+	"parachain-info/try-runtime"
+]
