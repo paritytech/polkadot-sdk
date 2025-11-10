@@ -18,3 +18,5 @@ crates:
   bump: none
 - name: sc-tracing
   bump: none
+- name: frame-executive
+  bump: none
