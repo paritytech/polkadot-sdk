@@ -62,7 +62,7 @@ where
 {
 	PalletsOriginOf::<T>::decode(&mut &origin_bytes[..]).map_err(|e| {
 		error!(target: LOG_TARGET, ?e, "Failed to decode proposal origin");
-		Error::Revert("Invalid origin encoding".into())
+		Error::Revert("Referenda Precompile: Invalid origin encoding".into())
 	})
 }
 
@@ -85,7 +85,7 @@ where
 	match timing {
 		IReferenda::Timing::AtBlock => Ok(DispatchTime::At(moment)),
 		IReferenda::Timing::AfterBlock => Ok(DispatchTime::After(moment)),
-		_ => Err(Error::Revert("Invalid timing variant".into())),
+		_ => Err(Error::Revert("Referenda Precompile: Invalid timing variant".into())),
 	}
 }
 
@@ -122,7 +122,7 @@ where
 			let referendum_index = ReferendumCount::<Runtime, Instance>::get().saturating_sub(1);
 			Ok(referendum_index)
 		},
-		Err(e) => Err(revert(&e, "Referenda submission failed")),
+		Err(e) => Err(revert(&e, "Referenda Precompile: Submission failed")),
 	}
 }
 
@@ -185,7 +185,7 @@ where
 				let hash_bytes: [u8; 32] = *hash.as_ref();
 				let preimage_hash =
 					<Runtime as frame_system::Config>::Hash::decode(&mut &hash_bytes[..])
-						.map_err(|_| Error::Revert("Invalid hash format".into()))?;
+						.map_err(|_| Error::Revert("Referenda Precompile: Invalid hash format".into()))?;
 
 				// 6. Build lookup proposal
 				let proposal = BoundedCallOf::<Runtime, ()>::Lookup {
@@ -232,7 +232,7 @@ where
 				// 5. Build inline proposal
 				// Convert Vec<u8> to BoundedInline (max 128 bytes)
 				let bounded_proposal = BoundedInline::try_from(proposal.to_vec())
-					.map_err(|_| Error::Revert("Proposal exceeds 128 byte limit".into()))?;
+					.map_err(|_| Error::Revert("Referenda Precompile: Proposal exceeds 128 byte limit".into()))?;
 				let proposal_inline = BoundedCallOf::<Runtime, ()>::Inline(bounded_proposal);
 
 				// 6. Submit referendum
@@ -277,7 +277,7 @@ where
 				// 5. Handle result
 				match result {
 					Ok(_) => Ok(Vec::new()),
-					Err(e) => Err(revert(&e, "Referenda place decision deposit failed")),
+					Err(e) => Err(revert(&e, "Referenda Precompile: Place decision deposit failed")),
 				}
 			},
 			IReferendaCalls::submissionDeposit(IReferenda::submissionDepositCall) => {
@@ -317,7 +317,7 @@ where
 								<crate::weights::SubstrateWeight<Runtime> as WeightInfo>::decision_deposit_ongoing_no_deposit();
 							let track =
 								<Runtime as pallet_referenda::Config>::Tracks::info(status.track)
-									.ok_or(Error::Revert("Track not found".into()))?;
+									.ok_or(Error::Revert("Referenda Precompile: Track not found".into()))?;
 							let deposit = track.decision_deposit.saturated_into::<u128>();
 							(weight, deposit)
 						}
