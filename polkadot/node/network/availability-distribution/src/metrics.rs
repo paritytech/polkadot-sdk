@@ -57,16 +57,14 @@ struct MetricsInner {
 	/// query further validators.
 	retries: Counter<U64>,
 
-	/// Number of candidates for which we initiated early chunk fetching.
-	early_candidates_fetched: Counter<U64>,
-	/// Number of candidates for which we initiated on-time (slow path) chunk fetching.
-	slow_candidates_fetched: Counter<U64>,
-	/// Number of early-fetched candidates that never made it on-chain.
-	early_candidates_never_onchain: Counter<U64>,
+	/// Number of candidates for which we initiated chunk fetching before getting backed on chain (early path).
+	early_fetched_candidates: Counter<U64>,
+	
+	/// Number of candidates for which we initiated chunk fetching after getting backed on chain (late path).
+	late_fetched_candidates: Counter<U64>,
 
-	/// Number of candidates fetched early that later appeared on slow path, implying we skipped a
-	/// duplicate fetch when they became occupied.
-	early_candidates_skipped_on_slow: Counter<U64>,
+	/// Number of candidates fetched early that later appeared as backed on-chain.
+	early_candidates_backed_on_chain: Counter<U64>,
 }
 
 impl Metrics {
@@ -111,30 +109,23 @@ impl Metrics {
 	}
 
 	/// Increment early candidates fetched counter.
-	pub fn on_early_candidate_fetched(&self) {
+	pub fn on_early_fetched_candidate(&self) {
 		if let Some(metrics) = &self.0 {
-			metrics.early_candidates_fetched.inc()
+			metrics.early_fetched_candidates.inc()
 		}
 	}
 
-	/// Increment slow candidates fetched counter.
-	pub fn on_slow_candidate_fetched(&self) {
+	/// Increment late candidates fetched counter.
+	pub fn on_late_fetched_candidate(&self) {
 		if let Some(metrics) = &self.0 {
-			metrics.slow_candidates_fetched.inc()
+			metrics.late_fetched_candidates.inc()
 		}
 	}
 
-	/// Increment early candidates that never made it on-chain counter.
-	pub fn on_early_candidate_never_onchain(&self) {
+	/// Increment early fetched candidates that later got backed on chain counter.(skipped duplicate fetch)
+	pub fn on_early_candidate_backed_on_chain(&self) {
 		if let Some(metrics) = &self.0 {
-			metrics.early_candidates_never_onchain.inc()
-		}
-	}
-
-	/// Increment early candidates that later appeared on slow path (duplicate fetch skipped).
-	pub fn on_early_candidate_skipped_on_slow(&self) {
-		if let Some(metrics) = &self.0 {
-			metrics.early_candidates_skipped_on_slow.inc()
+			metrics.early_candidates_backed_on_chain.inc()
 		}
 	}
 }
@@ -189,31 +180,24 @@ impl metrics::Metrics for Metrics {
 				)?,
 				registry,
 			)?,
-			early_candidates_fetched: prometheus::register(
+			early_fetched_candidates: prometheus::register(
 				Counter::new(
-					"polkadot_parachain_early_candidates_fetched_total",
-					"Number of candidates for which we initiated early chunk fetching.",
+					"polkadot_parachain_early_fetched_candidates_total",
+					"Number of candidates for which we initiated chunk fetching before getting backed on chain (early path).",
 				)?,
 				registry,
 			)?,
-			slow_candidates_fetched: prometheus::register(
+			late_fetched_candidates: prometheus::register(
 				Counter::new(
-					"polkadot_parachain_slow_candidates_fetched_total",
-					"Number of candidates for which we initiated on-time (slow path) chunk fetching.",
+					"polkadot_parachain_late_fetched_candidates_total",
+					"Number of candidates for which we initiated chunk fetching after getting backed on chain (late path).",
 				)?,
 				registry,
 			)?,
-			early_candidates_never_onchain: prometheus::register(
+			early_candidates_backed_on_chain: prometheus::register(
 				Counter::new(
-					"polkadot_parachain_early_candidates_never_onchain_total",
-					"Number of early-fetched candidates that never made it on-chain.",
-				)?,
-				registry,
-			)?,
-			early_candidates_skipped_on_slow: prometheus::register(
-				Counter::new(
-					"polkadot_parachain_early_candidates_skipped_on_slow_total",
-					"Number of early-fetched candidates that later appeared on the slow path (duplicate fetch skipped).",
+					"polkadot_parachain_early_candidates_backed_on_chain_total",
+					"Number of early-fetched candidates that later got backed on chain (duplicate fetch skipped).",
 				)?,
 				registry,
 			)?,

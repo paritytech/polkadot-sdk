@@ -57,9 +57,9 @@ use session_cache::SessionCache;
 
 /// A task fetching a particular chunk.
 mod fetch_task;
-use crate::error::Error::{
+use crate::{error::Error::{
 	CanceledValidatorGroups, FailedValidatorGroups, GetBackableCandidates, SubsystemUtil,
-};
+}, requester::fetch_task::BackedOnChain};
 use fetch_task::{FetchTask, FetchTaskConfig, FromFetchTask};
 
 /// Requester takes care of requesting erasure chunks from backing groups and stores them in the
@@ -74,12 +74,6 @@ pub struct Requester {
 	///
 	/// We remove them on failure, so we get retries on the next block still pending availability.
 	fetches: HashMap<CandidateHash, FetchTask>,
-
-	/// Track candidates for which we initiated early fetching.
-	early_candidates: HashSet<CandidateHash>,
-
-	/// The last session index we've seen, used to detect session changes
-	last_session: Option<SessionIndex>,
 
 	/// Localized information about sessions we are currently interested in.
 	session_cache: SessionCache,
@@ -115,7 +109,7 @@ struct CoreInfo {
 
 enum FetchOrigin {
 	Early,
-	Slow,
+	Late,
 }
 
 #[overseer::contextbounds(AvailabilityDistribution, prefix = self::overseer)]
@@ -131,8 +125,6 @@ impl Requester {
 		let (tx, rx) = mpsc::channel(1);
 		Requester {
 			fetches: HashMap::new(),
-			early_candidates: HashSet::new(),
-			last_session: None,
 			session_cache: SessionCache::new(),
 			tx,
 			rx,
@@ -155,28 +147,6 @@ impl Requester {
 		if let Some(leaf) = activated {
 			// Order important! We need to handle activated, prior to deactivated, otherwise we
 			// might cancel still needed jobs.
-
-			// Get the session index for this leaf
-			let current_session = runtime
-				.get_session_index_for_child(&mut ctx.sender().clone(), leaf.hash)
-				.await?;
-
-			// Check for session change or first initialization
-			match self.last_session {
-				None => {
-					// First initialization counts as a session change
-					self.handle_session_change();
-				},
-				Some(last_session) if current_session > last_session => {
-					// Session has changed, clean up early candidates
-					self.handle_session_change();
-				},
-				_ => {},
-			}
-
-			// Update our last seen session
-			self.last_session = Some(current_session);
-
 			self.start_requesting_chunks(ctx, runtime, leaf).await?;
 		}
 
@@ -213,9 +183,29 @@ impl Requester {
 				"Query occupied core"
 			);
 
+			// TODO: remove
+			if hash == leaf {
+				gum::info!(
+					target: LOG_TARGET,
+					occupied_cores_len = ?occupied_cores.len(),
+					leaf = ?leaf,
+					"Occupied cores for new activated leaf"
+				);
+			}
+
 			let cores = occupied_cores
 				.into_iter()
 				.map(|(index, occ)| {
+					// TODO: remove
+					gum::info!(
+						target: LOG_TARGET,
+						leaf = ?hash,
+						occ_candidate_hash = ?occ.candidate_hash,
+						core_index = ?index,
+						next_up = ?occ.next_up_on_available,
+						"Next up on available core",
+					);
+
 					(
 						index,
 						CoreInfo {
@@ -235,9 +225,10 @@ impl Requester {
 			// The next time the subsystem receives leaf update, some of spawned task will be bumped
 			// to be live in fresh relay parent, while some might get dropped due to the current
 			// leaf being deactivated.
-			self.add_cores(ctx, runtime, leaf, leaf_session_index, cores, FetchOrigin::Slow)
+			self.add_cores(ctx, runtime, leaf, leaf_session_index, cores, FetchOrigin::Late)
 				.await?;
 		}
+
 
 		if let Err(err) = self
 			.early_request_chunks(ctx, runtime, new_head, leaf_session_index)
@@ -287,16 +278,29 @@ impl Requester {
 					let Some(core_index) = core_index else { return None };
 
 					let receipt = candidate.candidate();
-					
+
+					let group_responsible = validator_groups
+						.1
+						.group_for_core(core_index, total_cores);
+
+					// TODO: remove
+					gum::info!(
+						target: LOG_TARGET,
+						leaf = ?activated_leaf.hash,
+						candidate_hash = ?receipt.hash(),
+						core_index = ?receipt.descriptor.core_index(),
+						para_id = ?receipt.descriptor.para_id(),
+						group_responsible = ?group_responsible,
+						"Scheduled candidate core index and para id",
+					);
+
 					Some((
 						core_index,
 						CoreInfo {
 							candidate_hash: receipt.hash(),
 							relay_parent: receipt.descriptor.relay_parent(),
 							erasure_root: receipt.descriptor.erasure_root(),
-							group_responsible: validator_groups
-								.1
-								.group_for_core(core_index, total_cores),
+							group_responsible,
 						},
 					))
 				})
@@ -367,17 +371,6 @@ impl Requester {
 		});
 	}
 
-	/// Clean up early candidate tracking at session change.
-	///
-	/// Any candidates that were fetched early but never seen on chain by session change
-	/// can be considered "never made it" since backing groups change at session boundaries.
-	fn handle_session_change(&mut self) {
-		// Process all remaining early candidates that never made it on-chain
-		for _candidate_hash in self.early_candidates.drain() {
-			self.metrics.on_early_candidate_never_onchain();
-		}
-	}
-
 	/// Add candidates corresponding for a particular relay parent.
 	///
 	/// Starting requests where necessary.
@@ -398,17 +391,15 @@ impl Requester {
 			if let Some(e) = self.fetches.get_mut(&core.candidate_hash) {
 				// Just book keeping - we are already requesting that chunk:
 				e.add_leaf(leaf);
-				self.process_known_candidate(core.candidate_hash);
-			} else {
-				// If we are on the slow path and this candidate was already fetched early (even
-				// if the task has completed), skip starting a duplicate fetch and record it.
-				if matches!(origin, FetchOrigin::Slow) &&
-					self.early_candidates.contains(&core.candidate_hash)
-				{
-					self.process_known_candidate(core.candidate_hash);
-					continue;
+
+				// Fetch task initiated on early path, when candidate was not backed on chain,
+				// and now it appears to fetch the chunk on Late path when candidate is backed on chain.
+				if matches!(e.backed_on_chain, BackedOnChain::No) && matches!(origin, FetchOrigin::Late)  {
+					e.backed_on_chain = BackedOnChain::Yes;
+					self.metrics.on_early_candidate_backed_on_chain();
 				}
 
+			} else {
 				let tx = self.tx.clone();
 				let metrics = self.metrics.clone();
 
@@ -447,6 +438,11 @@ impl Requester {
 						session_info.our_index,
 					)?;
 
+					let backed_on_chain = match origin {
+						FetchOrigin::Early => BackedOnChain::No,
+						FetchOrigin::Late => BackedOnChain::Yes,
+					};
+
 					let task_cfg = FetchTaskConfig::new(
 						leaf,
 						&core,
@@ -454,6 +450,7 @@ impl Requester {
 						metrics,
 						session_info,
 						chunk_index,
+						backed_on_chain,
 						self.req_protocol_names.get_name(v1::ChunkFetchingRequest::PROTOCOL),
 						self.req_protocol_names.get_name(v2::ChunkFetchingRequest::PROTOCOL),
 					);
@@ -469,30 +466,21 @@ impl Requester {
 								candidate_hash = ?core.candidate_hash,
 								"Early candidate fetch initiated"
 							);
-							self.metrics.on_early_candidate_fetched();
-							self.early_candidates.insert(core.candidate_hash);
+							self.metrics.on_early_fetched_candidate();
 						},
-						FetchOrigin::Slow => {
+						FetchOrigin::Late => {
 							gum::debug!(
 								target: LOG_TARGET,
 								candidate_hash = ?core.candidate_hash,
-								"Slow path candidate fetch initiated"
+								"Late path candidate fetch initiated"
 							);
-							self.metrics.on_slow_candidate_fetched();
+							self.metrics.on_late_fetched_candidate();
 						},
 					}
 				}
 			}
 		}
 		Ok(())
-	}
-
-	fn process_known_candidate(&mut self, candidate: CandidateHash) {
-		// Only increment skip metric if we actually remove the candidate
-		// This ensures we only count unique skips
-		if self.early_candidates.remove(&candidate) {
-			self.metrics.on_early_candidate_skipped_on_slow();
-		}
 	}
 }
 

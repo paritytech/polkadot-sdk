@@ -58,12 +58,22 @@ mod tests;
 /// This exists to separate preparation of a `FetchTask` from actual starting it, which is
 /// beneficial as this allows as for taking session info by reference.
 pub struct FetchTaskConfig {
+	backed_on_chain: BackedOnChain,
 	prepared_running: Option<RunningTask>,
 	live_in: HashSet<Hash>,
 }
 
+// the candidate for which we are fetching the chunk is already backed on-chain or not.
+pub enum BackedOnChain {
+	Yes,
+	No,
+}
+
 /// Information about a task fetching an erasure chunk.
 pub struct FetchTask {
+	/// Whether the candidate is backed on-chain or not.
+	pub(crate) backed_on_chain: BackedOnChain,
+
 	/// For what relay parents this task is relevant.
 	///
 	/// In other words, for which relay chain parents this candidate is considered live.
@@ -153,6 +163,7 @@ impl FetchTaskConfig {
 		metrics: Metrics,
 		session_info: &SessionInfo,
 		chunk_index: ChunkIndex,
+		backed_on_chain: BackedOnChain,
 		req_v1_protocol_name: ProtocolName,
 		req_v2_protocol_name: ProtocolName,
 	) -> Self {
@@ -160,7 +171,7 @@ impl FetchTaskConfig {
 
 		// Don't run tasks for our backing group:
 		if session_info.our_group == Some(core.group_responsible) {
-			return FetchTaskConfig { live_in, prepared_running: None };
+			return FetchTaskConfig { backed_on_chain, live_in, prepared_running: None };
 		}
 
 		let prepared_running = RunningTask {
@@ -181,7 +192,7 @@ impl FetchTaskConfig {
 			req_v1_protocol_name,
 			req_v2_protocol_name
 		};
-		FetchTaskConfig { live_in, prepared_running: Some(prepared_running) }
+		FetchTaskConfig { backed_on_chain, live_in, prepared_running: Some(prepared_running) }
 	}
 }
 
@@ -191,7 +202,7 @@ impl FetchTask {
 	///
 	/// A task handling the fetching of the configured chunk will be spawned.
 	pub async fn start<Context>(config: FetchTaskConfig, ctx: &mut Context) -> Result<Self> {
-		let FetchTaskConfig { prepared_running, live_in } = config;
+		let FetchTaskConfig { prepared_running, live_in, backed_on_chain } = config;
 
 		if let Some(running) = prepared_running {
 			let (handle, kill) = oneshot::channel();
@@ -199,9 +210,9 @@ impl FetchTask {
 			ctx.spawn("chunk-fetcher", running.run(kill).boxed())
 				.map_err(|e| FatalError::SpawnTask(e))?;
 
-			Ok(FetchTask { live_in, state: FetchedState::Started(handle) })
+			Ok(FetchTask { backed_on_chain, live_in, state: FetchedState::Started(handle) })
 		} else {
-			Ok(FetchTask { live_in, state: FetchedState::Canceled })
+			Ok(FetchTask { backed_on_chain, live_in, state: FetchedState::Canceled })
 		}
 	}
 
