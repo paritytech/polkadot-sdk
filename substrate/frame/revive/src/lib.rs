@@ -1334,6 +1334,54 @@ pub mod pallet {
 			})
 		}
 
+		/// Executes a Substrate runtime call from an Ethereum transaction.
+		///
+		/// This dispatchable is intended to be called **only** through the EVM compatibility
+		/// layer. The provided call will be dispatched using `RawOrigin::Signed`.
+		///
+		/// # Parameters
+		///
+		/// * `origin`: Must be an [`Origin::EthTransaction`] origin.
+		/// * `call`: The Substrate runtime call to execute.
+		/// * `transaction_encoded`: The RLP encoding of the Ethereum transaction,
+		#[pallet::call_index(12)]
+		#[pallet::weight(T::WeightInfo::eth_substrate_call(transaction_encoded.len() as u32).saturating_add(call.get_dispatch_info().call_weight))]
+		pub fn eth_substrate_call(
+			origin: OriginFor<T>,
+			call: Box<<T as Config>::RuntimeCall>,
+			transaction_encoded: Vec<u8>,
+		) -> DispatchResultWithPostInfo {
+			// Note that the inner dispatch uses `RawOrigin::Signed`, which cannot
+			// re-enter `eth_substrate_call` (which requires `Origin::EthTransaction`).
+			let signer = Self::ensure_eth_signed(origin)?;
+			let weight_overhead =
+				T::WeightInfo::eth_substrate_call(transaction_encoded.len() as u32);
+
+			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
+				let call_weight = call.get_dispatch_info().call_weight;
+				let mut call_result = call.dispatch(RawOrigin::Signed(signer).into());
+
+				// Add extrinsic_overhead to the actual weight in PostDispatchInfo
+				match &mut call_result {
+					Ok(post_info) | Err(DispatchErrorWithPostInfo { post_info, .. }) => {
+						post_info.actual_weight = Some(
+							post_info
+								.actual_weight
+								.unwrap_or_else(|| call_weight)
+								.saturating_add(weight_overhead),
+						);
+					},
+				}
+
+				// Return zero EVM gas (Substrate dispatch, not EVM contract call).
+				// Actual weight is in `post_info.actual_weight`.
+				block_storage::EthereumCallResult {
+					receipt_gas_info: ReceiptGasInfo::default(),
+					result: call_result,
+				}
+			})
+		}
+
 		/// Upload new `code` without instantiating a contract from it.
 		///
 		/// If the code does not already exist a deposit is reserved from the caller

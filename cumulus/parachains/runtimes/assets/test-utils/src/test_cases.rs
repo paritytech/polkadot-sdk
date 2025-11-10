@@ -45,7 +45,7 @@ use xcm_executor::{
 	XcmExecutor,
 };
 use xcm_runtime_apis::fees::{
-	runtime_decl_for_xcm_payment_api::XcmPaymentApiV1, Error as XcmPaymentApiError,
+	runtime_decl_for_xcm_payment_api::XcmPaymentApiV2, Error as XcmPaymentApiError,
 };
 
 type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
@@ -1650,7 +1650,7 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 
 pub fn xcm_payment_api_with_pools_works<Runtime, RuntimeCall, RuntimeOrigin, Block, WeightToFee>()
 where
-	Runtime: XcmPaymentApiV1<Block>
+	Runtime: XcmPaymentApiV2<Block>
 		+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>
 		+ pallet_balances::Config<Balance = u128>
 		+ pallet_session::Config
@@ -1837,7 +1837,7 @@ pub fn xcm_payment_api_foreign_asset_pool_works<
 	existential_deposit: Balance,
 	another_network_genesis_hash: [u8; 32],
 ) where
-	Runtime: XcmPaymentApiV1<Block>
+	Runtime: XcmPaymentApiV2<Block>
 		+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>
 		+ pallet_balances::Config<Balance = u128>
 		+ pallet_session::Config
