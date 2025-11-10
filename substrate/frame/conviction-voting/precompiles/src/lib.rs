@@ -27,6 +27,7 @@ use frame_support::{
 	dispatch::RawOrigin,
 	sp_runtime::traits::StaticLookup,
 	traits::{Currency, Get, Polling},
+	dispatch::DispatchInfo,
 };
 use pallet_conviction_voting::{AccountVote, Config, Conviction, Tally, Vote, Voting};
 use pallet_revive::{
@@ -35,7 +36,7 @@ use pallet_revive::{
 		alloy::{self, sol_types::SolValue},
 		AddressMatcher, Error, Ext, Precompile,
 	},
-	AddressMapper, ExecOrigin as Origin, H160,
+	AddressMapper, ExecOrigin as Origin, H160, Weight
 };
 use tracing::error;
 
@@ -178,35 +179,65 @@ where
 				conviction,
 				balance,
 			}) => {
-				let _ = env
-					.charge(<() as WeightInfo>::delegate(<T as Config>::MaxVotes::get()))?;
+				let weight_to_charge = <() as WeightInfo>::delegate(<T as Config>::MaxVotes::get());
+				let charged_amount = env
+					.charge(weight_to_charge)?;
 
 				let target_account_id = T::AddressMapper::to_account_id(&H160::from(to.0 .0));
 				let target_source = T::Lookup::unlookup(target_account_id);
 
 				let runtime_conviction = Self::to_conviction(conviction)?;
 
-				pallet_conviction_voting::Pallet::<T>::delegate(
+				let result = pallet_conviction_voting::Pallet::<T>::delegate(
 					frame_origin,
 					Self::u16_to_track_id(trackId)?,
 					target_source,
 					runtime_conviction,
 					Self::u128_to_balance(balance)?,
-				)
-				.map(|_| Vec::new())
-				.map_err(|error| revert(&error, "ConvictionVoting: delegation failed"))
+				);
+
+				let pre = DispatchInfo {
+					call_weight: weight_to_charge,
+					extension_weight: Weight::zero(),
+					..Default::default()
+				};
+
+				// Adjust gas using actual weight or fallback to initially charged weight
+				let actual_weight = frame_support::dispatch::extract_actual_weight(&result, &pre);
+				env.adjust_gas(charged_amount, actual_weight);
+
+				result.map(|_| Vec::new()).map_err(|error| {
+					revert(
+							&error,
+							"ConvictionVoting: delegation failed"
+						)
+				})
 			},
 			IConvictionVotingCalls::undelegate(IConvictionVoting::undelegateCall { trackId }) => {
-				let _ = env.charge(<() as WeightInfo>::undelegate(
-					<T as Config>::MaxVotes::get(),
-				))?;
+				let weight_to_charge = <() as WeightInfo>::undelegate(<T as Config>::MaxVotes::get());
+				let charged_amount = env.charge(weight_to_charge)?;
 
-				pallet_conviction_voting::Pallet::<T>::undelegate(
+				let result = pallet_conviction_voting::Pallet::<T>::undelegate(
 					frame_origin,
 					Self::u16_to_track_id(trackId)?,
-				)
-				.map(|_| Vec::new())
-				.map_err(|error| revert(&error, "ConvictionVoting: undelegation failed"))
+				);
+
+				let pre = DispatchInfo {
+					call_weight: weight_to_charge,
+					extension_weight: Weight::zero(),
+					..Default::default()
+				};
+
+				// Adjust gas using actual weight or fallback to initially charged weight
+				let actual_weight = frame_support::dispatch::extract_actual_weight(&result, &pre);
+				env.adjust_gas(charged_amount, actual_weight);
+
+				result.map(|_| Vec::new()).map_err(|error| {
+					revert(
+							&error,
+							"ConvictionVoting: undelegation failed"
+						)
+				})
 			},
 			IConvictionVotingCalls::getVoting(IConvictionVoting::getVotingCall {
 				who,
@@ -237,7 +268,7 @@ where
 										IConvictionVoting::VotingType::Standard,
 										vote.aye,
 										Self::balance_to_u128(balance) * (vote.aye as u128),
-										Self::balance_to_u128(balance) * (vote.aye as u128),
+										Self::balance_to_u128(balance) * (!vote.aye as u128),
 										0u128,
 										Self::from_conviction(vote.conviction),
 									),
