@@ -474,7 +474,7 @@ mod test {
 
 				let ir = incremental_block.to_ir();
 				incremental_block = EthereumBlockBuilder::from_ir(ir);
-				log::debug!(target: LOG_TARGET, " Log size {:?}", log_size);
+				log::debug!(target: LOG_TARGET, " Log size {log_size:?}");
 			}
 
 			// The block hash would differ here because we don't take into account
