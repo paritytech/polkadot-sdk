@@ -406,7 +406,7 @@ fn mock_caller_hook_works(caller_type: FixtureType, callee_type: FixtureType) {
 				bump_nonce: false,
 				collect_deposit_from_hold: None,
 				effective_gas_price: None,
-				is_dry_run: false,
+				is_dry_run: None,
 				mock_handler: Some(Box::new(MockHandlerImpl {
 					mock_caller: Some(BOB_ADDR),
 					mock_call: Default::default(),
@@ -459,7 +459,7 @@ fn mock_call_hook_works(caller_type: FixtureType, callee_type: FixtureType) {
 				bump_nonce: false,
 				collect_deposit_from_hold: None,
 				effective_gas_price: None,
-				is_dry_run: false,
+				is_dry_run: None,
 				mock_handler: Some(Box::new(MockHandlerImpl {
 					mock_caller: None,
 					mock_call: iter::once((
@@ -519,7 +519,7 @@ fn mock_delegatecall_hook_works(caller_type: FixtureType, callee_type: FixtureTy
 				bump_nonce: false,
 				collect_deposit_from_hold: None,
 				effective_gas_price: None,
-				is_dry_run: false,
+				is_dry_run: None,
 				mock_handler: Some(Box::new(MockHandlerImpl {
 					mock_caller: None,
 					mock_call: Default::default(),
