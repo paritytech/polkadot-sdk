@@ -229,16 +229,10 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	task_manager
 		.spawn_essential_handle()
 		.spawn("block-subscription", None, async move {
-			let mut futures: Vec<BoxFuture<'_, Result<(), _>>> =
-				vec![Box::pin(client.subscribe_and_cache_new_blocks(SubscriptionType::BestBlocks))];
-
-			// When the chain has automine turned on, there will be no finalized blocks stream.
-			// We will define the best block as the finalized block in that case.
-			if !client.is_automine() {
-				futures.push(Box::pin(
-					client.subscribe_and_cache_new_blocks(SubscriptionType::FinalizedBlocks),
-				))
-			}
+			let mut futures: Vec<BoxFuture<'_, Result<(), _>>> = vec![
+				Box::pin(client.subscribe_and_cache_new_blocks(SubscriptionType::BestBlocks)),
+				Box::pin(client.subscribe_and_cache_new_blocks(SubscriptionType::FinalizedBlocks)),
+			];
 
 			if let Some(index_last_n_blocks) = index_last_n_blocks {
 				futures.push(Box::pin(client.subscribe_and_cache_blocks(index_last_n_blocks)));

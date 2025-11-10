@@ -356,6 +356,11 @@ impl Client {
 	) -> Result<(), ClientError> {
 		log::info!(target: LOG_TARGET, "🔌 Subscribing to new blocks ({subscription_type:?})");
 		self.subscribe_new_blocks(subscription_type, |block| async {
+			// Skip finalized block processing when automine is enabled.
+			if matches!(subscription_type, SubscriptionType::FinalizedBlocks) && self.automine {
+				return Ok(())
+			}
+
 			let hash = block.hash();
 			let evm_block = self.runtime_api(hash).eth_block().await?;
 			let (_, receipts): (Vec<_>, Vec<_>) = self
@@ -368,7 +373,7 @@ impl Client {
 			let block = Arc::new(block);
 			self.block_provider.update_latest(Arc::clone(&block), subscription_type).await;
 
-			// When automine is enabled, we consider best blocks as finalized blocks as well.
+			// If automine is enabled, set the finalized block to be the best block.
 			if self.automine {
 				self.block_provider
 					.update_latest(block, SubscriptionType::FinalizedBlocks)
