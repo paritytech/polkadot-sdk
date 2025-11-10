@@ -44,14 +44,11 @@ fn default_config() -> MockGenesisConfig {
 #[cfg(not(feature = "runtime-benchmarks"))]
 mod enter {
 	use super::{inclusion::tests::TestCandidateBuilder, *};
-<<<<<<< HEAD
 	use polkadot_primitives::vstaging::{
 		ApprovedPeerId, ClaimQueueOffset, CoreSelector, UMPSignal,
 	};
 	use rstest::rstest;
 
-=======
->>>>>>> 12f9d598 (frame-system: Ensure that `BlockNumber` is strictly increasing (#10180))
 	use crate::{
 		builder::{junk_collator, junk_collator_signature, Bench, BenchBuilder, CandidateModifier},
 		disputes::clear_dispute_storage,
@@ -66,22 +63,12 @@ mod enter {
 	use frame_support::assert_ok;
 	use frame_system::limits;
 	use polkadot_primitives::{
-<<<<<<< HEAD
 		vstaging::{
 			CandidateDescriptorV2, CommittedCandidateReceiptV2, InternalVersion, MutateDescriptorV2,
 		},
 		AvailabilityBitfield, CandidateDescriptor, UncheckedSigned,
 	};
-=======
-		ApprovedPeerId, AvailabilityBitfield, CandidateDescriptorV2, ClaimQueueOffset, CollatorId,
-		CollatorSignature, CommittedCandidateReceiptV2, CoreSelector, InternalVersion,
-		MutateDescriptorV2, UMPSignal, UncheckedSigned,
-	};
-	use polkadot_primitives_test_helpers::CandidateDescriptor;
 	use pretty_assertions::assert_eq;
-	use rstest::rstest;
-	use sp_core::ByteArray;
->>>>>>> 12f9d598 (frame-system: Ensure that `BlockNumber` is strictly increasing (#10180))
 	use sp_runtime::Perbill;
 
 	struct TestConfig {
