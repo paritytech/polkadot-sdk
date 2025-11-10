@@ -53,8 +53,6 @@ crates:
   bump: major
 - name: pallet-xcm
   bump: patch
-- name: pallet-xcm-benchmarks
-  bump: patch
 - name: pallet-asset-tx-payment
   bump: patch
 - name: pallet-asset-conversion-tx-payment
@@ -76,14 +74,30 @@ crates:
 - name: xcm-runtime-apis
   bump: patch
 - name: asset-test-utils
-  bump: major
+  bump: minor
 - name: assets-common
   bump: minor
 - name: penpal-runtime
-  bump: minor
+  bump: major
 - name: rococo-parachain-runtime
   bump: minor
 - name: asset-hub-westend-runtime
   bump: major
 - name: asset-hub-rococo-runtime
   bump: major
+- name: staging-xcm-executor
+  bump: patch
+- name: emulated-integration-tests-common
+  bump: minor
+- name: pallet-xcm-precompiles
+  bump: minor
+- name: snowbridge-pallet-inbound-queue
+  bump: patch
+- name: snowbridge-inbound-queue-primitives
+  bump: major
+- name: snowbridge-pallet-inbound-queue-v2
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
