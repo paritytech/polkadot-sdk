@@ -35,6 +35,17 @@ enum ClaimState {
 	Seconded(CandidateHash),
 }
 
+impl ClaimState {
+	fn clone_or_default(&self, known_candidates: &HashSet<CandidateHash>) -> Self {
+		match self {
+			ClaimState::Pending(Some(candidate)) | ClaimState::Seconded(candidate)
+				if !known_candidates.contains(candidate) =>
+				ClaimState::Free,
+			_ => self.clone(),
+		}
+	}
+}
+
 /// Represents a single claim from the claim queue, mapped to the relay chain block where it could
 /// be backed on-chain.
 #[derive(Debug, PartialEq, Clone)]
@@ -48,6 +59,38 @@ struct ClaimInfo {
 	claim_queue_len: usize,
 	/// The claim state.
 	claimed: ClaimState,
+}
+
+impl ClaimInfo {
+	fn hash_equals(&self, hash: &Hash) -> bool {
+		self.hash.as_ref() == Some(hash)
+	}
+}
+
+trait ClaimInfoRef {
+	fn hash_equals(&self, hash: &Hash) -> bool;
+
+	fn claim_queue_len(&self) -> usize;
+}
+
+impl<'a> ClaimInfoRef for &'a ClaimInfo {
+	fn hash_equals(&self, hash: &Hash) -> bool {
+		ClaimInfo::hash_equals(self, hash)
+	}
+
+	fn claim_queue_len(&self) -> usize {
+		self.claim_queue_len
+	}
+}
+
+impl<'a> ClaimInfoRef for &'a mut ClaimInfo {
+	fn hash_equals(&self, hash: &Hash) -> bool {
+		ClaimInfo::hash_equals(self, hash)
+	}
+
+	fn claim_queue_len(&self) -> usize {
+		self.claim_queue_len
+	}
 }
 
 /// Tracks the state of the claim queue over a set of relay blocks.
@@ -145,9 +188,10 @@ impl ClaimQueueState {
 				Some(future_block) =>
 					if future_block.claim.as_ref() != Some(expected_claim) {
 						// There is an inconsistency. Update our view with the one from the claim
-						// queue. `claimed` can't be true anymore since the `ParaId` has changed.
-						future_block.claimed = ClaimState::Free;
+						// queue.
 						future_block.claim = Some(*expected_claim);
+						// We mark the slot as unclaimed since the `ParaId` has changed.
+						future_block.claimed = ClaimState::Free;
 
 						// IMPORTANT: at this point there will be a slight inconsistency between
 						// `block_state`/`future_blocks` and `candidates`. We just removed a future
@@ -174,29 +218,38 @@ impl ClaimQueueState {
 		}
 
 		// Now pop the first future block and add it as a leaf
-		let claim_info = if let Some(new_leaf) = self.future_blocks.pop_front() {
-			ClaimInfo {
+		let claim_info = match self.future_blocks.pop_front() {
+			Some(new_leaf) => ClaimInfo {
 				hash: Some(*hash),
-				claim: claim_queue.front().copied(),
+				claim: new_leaf.claim,
 				claim_queue_len: claim_queue.len(),
 				claimed: new_leaf.claimed,
-			}
-		} else {
-			// maybe the claim queue was empty but we still need to add a leaf
-			ClaimInfo {
-				hash: Some(*hash),
-				claim: claim_queue.front().copied(),
-				claim_queue_len: claim_queue.len(),
-				claimed: ClaimState::Free,
-			}
+			},
+			None => {
+				// maybe the claim queue was empty, but we still need to add a leaf
+				ClaimInfo {
+					hash: Some(*hash),
+					claim: claim_queue.front().copied(),
+					claim_queue_len: claim_queue.len(),
+					claimed: ClaimState::Free,
+				}
+			},
 		};
 
 		// `future_blocks` can't be longer than the length of the claim queue at the last block - 1.
-		// For example this can happen if at relay block N we have got a claim queue of a length 4
+		// For example this can happen if at relay block N we have got a claim queue of length 4
 		// and it's shrunk to 2.
 		self.future_blocks.truncate(claim_queue.len().saturating_sub(1));
 
 		self.block_state.push_back(claim_info);
+	}
+
+	fn contains_candidate(&self, relay_parent: &Hash, candidate_hash: &CandidateHash) -> bool {
+		self.candidates.get(relay_parent).map_or(false, |c| c.contains(candidate_hash))
+	}
+
+	fn insert_candidate(&mut self, relay_parent: Hash, candidate_hash: CandidateHash) {
+		self.candidates.entry(relay_parent).or_default().insert(candidate_hash);
 	}
 
 	/// Claims the first available slot for `para_id` at `relay_parent` as pending. Returns `true`
@@ -244,7 +297,7 @@ impl ClaimQueueState {
 		para_id: &ParaId,
 		candidate_hash: CandidateHash,
 	) -> bool {
-		if self.candidates.get(relay_parent).map_or(false, |c| c.contains(&candidate_hash)) {
+		if self.contains_candidate(relay_parent, &candidate_hash) {
 			// there is already a claim for this candidate - return now
 			gum::trace!(
 				target: LOG_TARGET,
@@ -271,10 +324,7 @@ impl ClaimQueueState {
 
 		// Save the candidate hash
 		if claim_found {
-			self.candidates
-				.entry(*relay_parent)
-				.or_insert_with(HashSet::new)
-				.insert(candidate_hash);
+			self.insert_candidate(*relay_parent, candidate_hash);
 		}
 
 		claim_found
@@ -296,7 +346,7 @@ impl ClaimQueueState {
 			"second_at"
 		);
 
-		if self.candidates.get(relay_parent).map_or(false, |c| c.contains(&candidate_hash)) {
+		if self.contains_candidate(relay_parent, &candidate_hash) {
 			let window = self.get_window_mut(relay_parent);
 
 			for w in window {
@@ -349,7 +399,6 @@ impl ClaimQueueState {
 	/// Returns a `Vec` of `ParaId`s with all free claims at `relay_parent`.
 	pub(crate) fn get_free_at(&self, relay_parent: &Hash) -> VecDeque<ParaId> {
 		let window = self.get_window(relay_parent);
-
 		window
 			.filter(|b| matches!(b.claimed, ClaimState::Free))
 			.filter_map(|b| b.claim)
@@ -357,33 +406,32 @@ impl ClaimQueueState {
 	}
 
 	/// Returns the number of claims for a specific para id at a specific relay parent.
-	pub(crate) fn get_all_for_para_at(&self, relay_parent: &Hash, para_id: &ParaId) -> usize {
+	fn count_all_for_para_at(&self, relay_parent: &Hash, para_id: &ParaId) -> usize {
 		let window = self.get_window(relay_parent);
-
-		window.filter(|b| matches!(b.claim, Some(claim) if &claim == para_id)).count()
+		window.filter(|info| info.claim == Some(*para_id)).count()
 	}
 
-	/// Removes pruned blocks from all paths. `targets` is a set of hashes which were pruned.
-	/// `removed` should contain hashes in the beginning of the path otherwise they won't be
-	/// removed.
+	/// Removes pruned relay parent blocks from the beginning of all paths.
+	///
+	/// Only the hashes that are at the beginning of the paths will be removed.
 	///
 	/// Example: if a path is [A, B, C, D] and `targets` contains [A, B] then both A and B will be
 	/// removed. But if `targets` contains [B, C] then nothing will be removed.
-	pub(crate) fn remove_pruned_ancestors(&mut self, targets: &HashSet<Hash>) {
+	fn remove_pruned_ancestors(&mut self, targets: &HashSet<Hash>) {
 		// First remove all entries from candidates for each removed relay parent. Any Seconded
 		// entries for it can't be undone anymore, but the claimed ones may need to be freed.
-		let mut removed_claims = HashSet::with_capacity(targets.len());
-		for removed in targets {
-			if let Some(removed) = self.candidates.remove(removed) {
-				removed_claims.extend(removed.into_iter());
+		let mut removed_candidates = HashSet::with_capacity(targets.len());
+		for target in targets {
+			if let Some(candidates) = self.candidates.remove(target) {
+				removed_candidates.extend(candidates.into_iter());
 			}
 		}
 
-		// All the blocks that should be pruned are in the front of `block_state`. Since `target` is
-		// not ordered - keep popping until the first element is not found in `targets`.
+		// All the blocks that should be pruned are in the front of `block_state`. Since `targets`
+		// is not ordered - keep popping until the first element is not found in `targets`.
 		loop {
-			match self.block_state.front().and_then(|b| b.hash) {
-				Some(h) if targets.contains(&h) => {
+			match self.block_state.front().and_then(|claim_info| claim_info.hash) {
+				Some(hash) if targets.contains(&hash) => {
 					self.block_state.pop_front();
 				},
 				_ => break,
@@ -392,7 +440,7 @@ impl ClaimQueueState {
 
 		for claim_info in self.block_state.iter_mut() {
 			if let ClaimState::Pending(Some(candidate_hash)) = claim_info.claimed {
-				if removed_claims.contains(&candidate_hash) {
+				if removed_candidates.contains(&candidate_hash) {
 					claim_info.claimed = ClaimState::Free;
 				}
 			}
@@ -400,22 +448,24 @@ impl ClaimQueueState {
 	}
 
 	/// Returns true if the path is empty
-	pub(crate) fn is_empty(&self) -> bool {
+	fn is_empty(&self) -> bool {
 		self.block_state.is_empty()
 	}
 
 	/// Releases a pending or seconded claim (sets it to free) for a candidate.
-	pub(crate) fn release_claim(&mut self, candidate_hash: &CandidateHash) -> bool {
-		// Get information about the claim (relay parent and para id) from candidates.
+	fn release_claim(&mut self, candidate_hash: &CandidateHash) -> bool {
+		// Get the relay parent from candidates.
 		let mut maybe_relay_parent = None;
-		for (rp, candidates) in &mut self.candidates {
+		for (relay_parent, candidates) in &mut self.candidates {
 			if candidates.remove(candidate_hash) {
-				maybe_relay_parent = Some(*rp);
+				maybe_relay_parent = Some(*relay_parent);
 				break
 			}
 		}
-
-		let relay_parent = if let Some(rp) = maybe_relay_parent { rp } else { return false };
+		let relay_parent = match maybe_relay_parent {
+			Some(relay_parent) => relay_parent,
+			None => return false,
+		};
 
 		let window = self.get_window_mut(&relay_parent);
 		for w in window {
@@ -431,71 +481,63 @@ impl ClaimQueueState {
 	}
 
 	/// Explicitly clears a claim at a specific relay parent.
-	pub(crate) fn release_claim_for_relay_parent(&mut self, relay_parent: &Hash) -> bool {
+	fn release_claim_for_relay_parent(&mut self, relay_parent: &Hash) -> bool {
 		for claim in self.block_state.iter_mut() {
-			if let Some(hash) = claim.hash {
-				if &hash == relay_parent {
-					claim.claimed = ClaimState::Free;
-					return true
-				}
+			if claim.hash.as_ref() == Some(relay_parent) {
+				claim.claimed = ClaimState::Free;
+				return true
 			}
 		}
 
 		false
 	}
 
+	fn get_full_path(&self) -> impl Iterator<Item = &ClaimInfo> {
+		self.block_state.iter().chain(self.future_blocks.iter())
+	}
+
 	/// Returns the claim queue entries for all known and future blocks.
-	pub(crate) fn all_assignments<'a>(&'a self) -> impl Iterator<Item = &'a ParaId> + 'a {
-		self.block_state
-			.iter()
-			.filter_map(|claim_info| claim_info.claim.as_ref())
-			.chain(self.future_blocks.iter().filter_map(|claim_info| claim_info.claim.as_ref()))
+	fn all_assignments(&self) -> impl Iterator<Item = &ParaId> {
+		self.get_full_path().filter_map(|claim_info| claim_info.claim.as_ref())
 	}
 
 	/// Returns the corresponding para ids for all unclaimed slots in the claim queue.
-	pub(crate) fn free_slots(&self) -> Vec<ParaId> {
-		self.block_state
-			.iter()
+	fn free_slots(&self) -> Vec<ParaId> {
+		self.get_full_path()
 			.filter_map(|claim_info| {
 				if claim_info.claimed == ClaimState::Free {
-					claim_info.claim
-				} else {
-					None
+					return claim_info.claim;
 				}
+				None
 			})
-			.chain(self.future_blocks.iter().filter_map(|claim_info| {
-				if claim_info.claimed == ClaimState::Free {
-					claim_info.claim
-				} else {
-					None
-				}
-			}))
 			.collect()
+	}
+
+	fn do_get_window<T: ClaimInfoRef, I: Iterator<Item = T>>(
+		block_state: I,
+		future_blocks: I,
+		relay_parent: &Hash,
+	) -> impl Iterator<Item = T> + use<'_, T, I> {
+		let mut window = block_state.skip_while(|info| !info.hash_equals(relay_parent)).peekable();
+		let len = window.peek().map_or(0, |info| info.claim_queue_len());
+		window.chain(future_blocks).take(len)
+	}
+
+	/// Returns an iterator over the claim queue of `relay_parent`
+	fn get_window<'a>(&'a self, relay_parent: &'a Hash) -> impl Iterator<Item = &'a ClaimInfo> {
+		Self::do_get_window(self.block_state.iter(), self.future_blocks.iter(), relay_parent)
 	}
 
 	/// Returns a mutating iterator over the claim queue of `relay_parent`
 	fn get_window_mut<'a>(
 		&'a mut self,
 		relay_parent: &'a Hash,
-	) -> impl Iterator<Item = &'a mut ClaimInfo> + 'a {
-		let mut window = self
-			.block_state
-			.iter_mut()
-			.skip_while(|b| b.hash != Some(*relay_parent))
-			.peekable();
-		let cq_len = window.peek().map_or(0, |b| b.claim_queue_len);
-		window.chain(self.future_blocks.iter_mut()).take(cq_len)
-	}
-
-	/// Returns an iterator over the claim queue of `relay_parent`
-	fn get_window<'a>(
-		&'a self,
-		relay_parent: &'a Hash,
-	) -> impl Iterator<Item = &'a ClaimInfo> + 'a {
-		let mut window =
-			self.block_state.iter().skip_while(|b| b.hash != Some(*relay_parent)).peekable();
-		let cq_len = window.peek().map_or(0, |b| b.claim_queue_len);
-		window.chain(self.future_blocks.iter()).take(cq_len)
+	) -> impl Iterator<Item = &'a mut ClaimInfo> {
+		Self::do_get_window(
+			self.block_state.iter_mut(),
+			self.future_blocks.iter_mut(),
+			relay_parent,
+		)
 	}
 
 	// Returns `true` if there is a free claim within `relay_parent`'s view of the claim queue for
@@ -510,7 +552,7 @@ impl ClaimQueueState {
 		new_state: ClaimState,
 	) -> bool {
 		if let Some(candidate_hash) = maybe_candidate_hash {
-			if self.candidates.get(relay_parent).map_or(false, |c| c.contains(&candidate_hash)) {
+			if self.contains_candidate(relay_parent, &candidate_hash) {
 				// there is already a claim for this candidate - return now
 				gum::trace!(
 					target: LOG_TARGET,
@@ -550,10 +592,7 @@ impl ClaimQueueState {
 		// Save the candidate hash
 		if let Some(candidate_hash) = maybe_candidate_hash {
 			if claim_found && make_a_claim {
-				self.candidates
-					.entry(*relay_parent)
-					.or_insert_with(HashSet::new)
-					.insert(candidate_hash);
+				self.insert_candidate(*relay_parent, candidate_hash);
 			}
 		}
 
@@ -653,24 +692,11 @@ fn fork_from_state(
 	let future_blocks = old_state
 		.get_window(target_relay_parent)
 		.skip(1)
-		.map(|c| {
-			let claim_state = match c.claimed {
-				ClaimState::Free => ClaimState::Free,
-				ClaimState::Pending(Some(candidate)) =>
-					if candidates_in_view.contains(&candidate) {
-						ClaimState::Pending(Some(candidate))
-					} else {
-						ClaimState::Free
-					},
-				ClaimState::Pending(None) => ClaimState::Pending(None),
-				ClaimState::Seconded(candidate) =>
-					if candidates_in_view.contains(&candidate) {
-						ClaimState::Seconded(candidate)
-					} else {
-						ClaimState::Free
-					},
-			};
-			ClaimInfo { hash: None, claim: c.claim, claim_queue_len: 1, claimed: claim_state }
+		.map(|c| ClaimInfo {
+			hash: None,
+			claim: c.claim,
+			claim_queue_len: 1,
+			claimed: c.claimed.clone_or_default(&candidates_in_view),
 		})
 		.collect::<VecDeque<_>>();
 
@@ -874,7 +900,7 @@ impl PerLeafClaimQueueState {
 	pub fn get_all_slots_for_para_at(&mut self, relay_parent: &Hash, para_id: &ParaId) -> usize {
 		self.leaves
 			.values()
-			.map(|s| s.get_all_for_para_at(relay_parent, para_id))
+			.map(|s| s.count_all_for_para_at(relay_parent, para_id))
 			.max()
 			.unwrap_or_default()
 	}

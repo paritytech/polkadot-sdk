@@ -243,9 +243,8 @@ pub struct Collations {
 }
 
 impl Collations {
-	pub(super) fn new<'a>(group_assignments: impl Iterator<Item = &'a ParaId> + 'a) -> Self {
+	pub(super) fn new<'a>(group_assignments: impl Iterator<Item = &'a ParaId>) -> Self {
 		let mut candidates_state = BTreeMap::<ParaId, CandidatesStatePerPara>::new();
-
 		for para_id in group_assignments {
 			candidates_state.entry(*para_id).or_default().claims_per_para += 1;
 		}

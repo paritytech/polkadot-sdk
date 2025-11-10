@@ -765,7 +765,7 @@ impl CollationManager {
 					if queue_blocked_collations {
 						self.blocked_from_seconding
 							.entry(BlockedCollationId { para_id, parent_head_data_hash: parent })
-							.or_insert_with(Vec::new)
+							.or_default()
 							.push(fetched_collation);
 					}
 

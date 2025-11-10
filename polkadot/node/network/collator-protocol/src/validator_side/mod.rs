@@ -513,6 +513,12 @@ struct State {
 }
 
 impl State {
+	fn collations(&self, relay_parent: &Hash) -> Option<&Collations> {
+		self.per_relay_parent
+			.get(relay_parent)
+			.map(|per_relay_parent| &per_relay_parent.collations)
+	}
+
 	// Returns the number of seconded and pending collations for a specific `ParaId`. Pending
 	// collations are:
 	// 1. Collations being fetched from a collator.
@@ -520,16 +526,14 @@ impl State {
 	// 3. Collations blocked from seconding due to parent not being known by backing subsystem.
 	fn seconded_and_pending_for_para(&self, relay_parent: &Hash, para_id: &ParaId) -> usize {
 		let seconded = self
-			.per_relay_parent
-			.get(relay_parent)
-			.map_or(0, |per_relay_parent| per_relay_parent.collations.seconded_for_para(para_id));
+			.collations(relay_parent)
+			.map_or(0, |collations| collations.seconded_for_para(para_id));
 
-		let pending_fetch = self.per_relay_parent.get(relay_parent).map_or(0, |rp_state| {
-			match rp_state.collations.status {
+		let pending_fetch =
+			self.collations(relay_parent).map_or(0, |collations| match collations.status {
 				CollationStatus::Fetching(pending_para_id) if pending_para_id == *para_id => 1,
 				_ => 0,
-			}
-		});
+			});
 
 		let waiting_for_validation = self
 			.fetched_candidates
@@ -564,9 +568,8 @@ impl State {
 
 	/// Returns the number of collations pending to be fetched for a `ParaId`
 	fn in_waiting_queue_for_para(&self, relay_parent: &Hash, para_id: &ParaId) -> usize {
-		self.per_relay_parent
-			.get(relay_parent)
-			.map_or(0, |rp_state| rp_state.collations.queued_for_para(para_id))
+		self.collations(relay_parent)
+			.map_or(0, |collations| collations.queued_for_para(para_id))
 	}
 }
 
@@ -1267,12 +1270,11 @@ fn ensure_seconding_limit_is_respected(
 		"Checking seconding limit",
 	);
 
+	let in_waiting_queue = state.in_waiting_queue_for_para(relay_parent, &para_id);
 	let mut has_claim_at_some_path = false;
 	for path in paths {
 		let mut cq_state = ClaimQueueState::new();
 		for ancestor in &path {
-			let seconded_and_pending = state.seconded_and_pending_for_para(&ancestor, &para_id) +
-				state.in_waiting_queue_for_para(relay_parent, &para_id);
 			cq_state.add_leaf(
 				&ancestor,
 				&state
@@ -1282,6 +1284,9 @@ fn ensure_seconding_limit_is_respected(
 					.assignment
 					.current,
 			);
+
+			let seconded_and_pending =
+				state.seconded_and_pending_for_para(&ancestor, &para_id) + in_waiting_queue;
 			for _ in 0..seconded_and_pending {
 				// It doesn't matter which type of claim we make for the purposes of this subsystem
 				// (pending or seconded).
