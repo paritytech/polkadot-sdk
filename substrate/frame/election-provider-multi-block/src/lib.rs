@@ -2984,7 +2984,6 @@ mod manage_ops {
 				ManagerOperation::ForceSetPhase(Phase::Unsigned(UnsignedPhase::get() - 2))
 			));
 			assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(UnsignedPhase::get() - 2));
-
 		});
 	}
 }
