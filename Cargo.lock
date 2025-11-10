@@ -4579,6 +4579,7 @@ dependencies = [
  "polkadot-runtime-parachains",
  "rand 0.8.5",
  "rstest",
+ "sc-consensus",
  "scale-info",
  "sp-consensus-babe",
  "sp-consensus-slots",

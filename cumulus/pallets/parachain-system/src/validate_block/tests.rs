@@ -31,6 +31,7 @@ use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use polkadot_parachain_primitives::primitives::ValidationResult;
 #[cfg(feature = "experimental-ump-signals")]
 use relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
+use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 use std::{env, process::Command};
@@ -156,7 +157,7 @@ fn build_block_with_witness(
 
 fn build_multiple_blocks_with_witness(
 	client: &Client,
-	mut parent_head: Header,
+	parent_head: Header,
 	mut sproof_builder: RelayStateSproofBuilder,
 	num_blocks: usize,
 ) -> TestBlockData {
@@ -191,51 +192,8 @@ fn build_multiple_blocks_with_witness(
 		let (build_blocks, build_proof) =
 			block_builder.build_parachain_block(*parent_head.state_root()).into_inner();
 
-<<<<<<< HEAD
 		proof.get_or_insert_with(|| build_proof);
-=======
-		let mut built_block = block_builder.build().unwrap();
-		built_block.block = seal_block(built_block.block, &client);
->>>>>>> 1654f94 (Ensure that multiple blocks in a PoV form a chain (#10149))
-
-		blocks.extend(build_blocks.into_iter().inspect(|b| {
-			futures::executor::block_on(client.import_as_best(BlockOrigin::Own, b.clone()))
-				.unwrap();
-
-<<<<<<< HEAD
-			parent_head = b.header.clone();
-		}));
-=======
-			let mut api = client.runtime_api();
-			let proof_recorder = ProofRecorder::<Block>::with_ignored_nodes(ignored_nodes.clone());
-			api.record_proof_with_recorder(proof_recorder.clone());
-			api.register_extension(ProofSizeExt::new(proof_recorder));
-			api.execute_block(parent_hash, pop_seal(built_block.block.clone()).into())
-				.unwrap();
-
-			let (mut header, extrinsics) = built_block.block.clone().deconstruct();
-			let seal = header.digest.pop().unwrap();
-
-			let mut import = BlockImportParams::new(BlockOrigin::Own, header);
-			import.body = Some(extrinsics);
-			import.post_digests.push(seal);
-			import.fork_choice = Some(ForkChoiceStrategy::Custom(true));
-			import.state_action = api.into_storage_changes(&state, parent_hash).unwrap().into();
-
-			BlockImport::import_block(&client, import)
-		})
-		.unwrap();
-
-		ignored_nodes.extend(IgnoredNodes::from_storage_proof::<BlakeTwo256>(
-			&built_block.proof.clone().unwrap(),
-		));
-		ignored_nodes.extend(IgnoredNodes::from_memory_db(built_block.storage_changes.transaction));
-		proof = StorageProof::merge([proof, built_block.proof.unwrap()]);
-
-		parent_head = built_block.block.header.clone();
-
-		blocks.push(built_block.block);
->>>>>>> 1654f94 (Ensure that multiple blocks in a PoV form a chain (#10149))
+		blocks.extend(build_blocks);
 	}
 
 	TestBlockData {
@@ -374,18 +332,8 @@ fn validate_block_fails_on_invalid_validation_data() {
 
 	if env::var("RUN_TEST").is_ok() {
 		let (client, parent_head) = create_test_client();
-<<<<<<< HEAD
 		let TestBlockData { block, .. } =
 			build_block_with_witness(&client, Vec::new(), parent_head.clone(), Default::default());
-=======
-		let TestBlockData { block, .. } = build_block_with_witness(
-			&client,
-			Vec::new(),
-			parent_head.clone(),
-			Default::default(),
-			Default::default(),
-		);
->>>>>>> 1654f94 (Ensure that multiple blocks in a PoV form a chain (#10149))
 
 		call_validate_block(parent_head, block, Hash::random()).unwrap_err();
 	} else {
@@ -506,75 +454,8 @@ fn validate_block_works_with_child_tries() {
 	assert_eq!(header, res_header);
 }
 
-#[test]
-<<<<<<< HEAD
 #[cfg(feature = "experimental-ump-signals")]
-=======
-fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
-	sp_tracing::try_init_simple();
-
-	let blocks_per_pov = 12;
-	// disable the core selection logic
-	let (client, genesis_head) = create_elastic_scaling_test_client();
-
-	// 1. Build the initial block that stores values in the map.
-	let TestBlockData { block: initial_block_data, .. } = build_block_with_witness(
-		&client,
-		vec![generate_extrinsic_with_pair(
-			&client,
-			Alice.into(),
-			TestPalletCall::store_values_in_map { max_key: 4095 },
-			Some(0),
-		)],
-		genesis_head.clone(),
-		RelayStateSproofBuilder { current_slot: 1.into(), ..Default::default() },
-		Vec::new(),
-	);
-
-	let initial_block = initial_block_data.blocks()[0].clone();
-	let (mut header, extrinsics) = initial_block.clone().deconstruct();
-	let seal = header.digest.pop().unwrap();
-
-	let mut import = BlockImportParams::new(BlockOrigin::Own, header.clone());
-	import.body = Some(extrinsics);
-	import.post_digests.push(seal);
-	import.fork_choice = Some(ForkChoiceStrategy::Custom(true));
-
-	futures::executor::block_on(BlockImport::import_block(&client, import)).unwrap();
-	let initial_block_header = initial_block.header().clone();
-
-	// 2. Build the PoV block that removes values from the map.
-	let TestBlockData { block: pov_block_data, validation_data: pov_validation_data } =
-		build_multiple_blocks_with_witness(
-			&client,
-			initial_block_header.clone(), // Start building PoV from the initial block's header
-			RelayStateSproofBuilder { current_slot: 2.into(), ..Default::default() },
-			blocks_per_pov,
-			|i| {
-				// Each block `i` (0-11) removes key `116 + i`.
-				let key_to_remove = 116 + i;
-				vec![generate_extrinsic_with_pair(
-					&client,
-					Bob.into(), // Use Bob to avoid nonce conflicts with Alice
-					TestPalletCall::remove_value_from_map { key: key_to_remove },
-					Some(i),
-				)]
-			},
-		);
-
-	// 3. Validate the PoV.
-	let final_pov_header = pov_block_data.blocks().last().unwrap().header().clone();
-	let res_header = call_validate_block_elastic_scaling(
-		initial_block_header, // The parent is the head of the initial block before the PoV
-		pov_block_data,
-		pov_validation_data.relay_parent_storage_root,
-	)
-	.expect("Calls `validate_block` after building the PoV");
-	assert_eq!(final_pov_header, res_header);
-}
-
 #[test]
->>>>>>> 1654f94 (Ensure that multiple blocks in a PoV form a chain (#10149))
 fn validate_block_handles_ump_signal() {
 	sp_tracing::try_init_simple();
 
@@ -615,13 +496,8 @@ fn ensure_we_only_like_blockchains() {
 
 	if env::var("RUN_TEST").is_ok() {
 		let (client, parent_head) = create_elastic_scaling_test_client();
-		let TestBlockData { mut block, validation_data } = build_multiple_blocks_with_witness(
-			&client,
-			parent_head.clone(),
-			Default::default(),
-			4,
-			|_| Default::default(),
-		);
+		let TestBlockData { mut block, validation_data } =
+			build_multiple_blocks_with_witness(&client, parent_head.clone(), Default::default(), 4);
 
 		// Reference some non existing parent.
 		block.blocks_mut()[2].header.parent_hash = Hash::default();
@@ -638,6 +514,8 @@ fn ensure_we_only_like_blockchains() {
 			.env("RUN_TEST", "1")
 			.output()
 			.expect("Runs the test");
+
+		dbg!(String::from_utf8(output.stdout.clone()));
 		assert!(output.status.success());
 
 		assert!(dbg!(String::from_utf8(output.stderr).unwrap())

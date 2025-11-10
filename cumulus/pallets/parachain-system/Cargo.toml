@@ -54,6 +54,7 @@ trie-standardmap = { workspace = true }
 
 
 # Substrate
+sc-consensus = { workspace = true }
 sp-consensus-slots = { default-features = true, workspace = true }
 sp-crypto-hashing = { default-features = true, workspace = true }
 sp-keyring = { default-features = true, workspace = true }
