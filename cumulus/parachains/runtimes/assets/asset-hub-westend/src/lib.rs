@@ -2448,7 +2448,33 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 					PeopleLocation::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(WestendLocation::get()) },
 				));
-				pub TrustedReserve: Option<(Location, Asset)> = None;
+				pub TrustedReserve: Option<(Location, Asset)> = Some({
+					use frame_support::traits::tokens::fungible::{Inspect, Mutate};
+					let roc_id = xcm_config::bridging::to_rococo::RocLocation::get();
+					let roc = Asset::from((roc_id.clone(), 1000000000000 as u128));
+					let reserve = xcm_config::bridging::to_rococo::AssetHubRococo::get();
+					let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
+					assert_ok!(<Balances as Mutate<_>>::mint_into(
+						&account,
+						<Balances as Inspect<_>>::minimum_balance(),
+					));
+					// register foreign ROCs
+					assert_ok!(ForeignAssets::force_create(
+						RuntimeOrigin::root(),
+						roc_id.clone().into(),
+						account.clone().into(),
+						true,
+						1u128,
+					));
+					let reserves = ForeignAssetReserveData { reserve, teleportable: false };
+					// set trusted reserve
+					assert_ok!(ForeignAssets::set_reserves(
+						RuntimeOrigin::signed(account),
+						roc_id.clone().into(),
+						vec![reserves.clone()],
+					));
+					(reserves.reserve, roc)
+				});
 			}
 
 			impl pallet_xcm_benchmarks::fungible::Config for Runtime {
@@ -2480,34 +2506,6 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 						id: AssetId(asset_location),
 						fun: Fungible(amount),
 					}
-				}
-				// AssetHubWestend trusts AssetHubRococo as reserve for ROCs
-				fn get_foreign_asset() -> Option<(xcm::latest::Asset, xcm::latest::Location)> {
-					use frame_support::traits::tokens::fungible::{Inspect, Mutate};
-					let roc_id = xcm_config::bridging::to_rococo::RocLocation::get();
-					let roc = Asset::from((roc_id.clone(), 1000000000000 as u128));
-					let reserve = xcm_config::bridging::to_rococo::AssetHubRococo::get();
-					let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
-					assert_ok!(<Balances as Mutate<_>>::mint_into(
-						&account,
-						<Balances as Inspect<_>>::minimum_balance(),
-					));
-					// register foreign ROCs
-					assert_ok!(ForeignAssets::force_create(
-						RuntimeOrigin::root(),
-						roc_id.clone().into(),
-						account.clone().into(),
-						true,
-						1u128,
-					));
-					let reserves = ForeignAssetReserveData { reserve, teleportable: false };
-					// set trusted reserve
-					assert_ok!(ForeignAssets::set_reserves(
-						RuntimeOrigin::signed(account),
-						roc_id.clone().into(),
-						vec![reserves.clone()],
-					));
-					Some((roc, reserves.reserve))
 				}
 			}
 
