@@ -108,6 +108,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
+	"cumulus-test-client/runtime-benchmarks"
 ]
 
 try-runtime = [
