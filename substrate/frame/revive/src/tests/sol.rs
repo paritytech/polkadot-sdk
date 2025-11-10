@@ -20,17 +20,19 @@ use crate::{
 	call_builder::VmBinaryModule,
 	debug::DebugSettings,
 	evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig},
-	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
+	test_utils::{builder::Contract, ALICE, ALICE_ADDR, BOB},
 	tests::{
 		builder,
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
 		AllowEvmBytecode, DebugFlag, ExtBuilder, RuntimeOrigin, Test,
 	},
 	tracing::trace,
-	Code, Config, Error, GenesisConfig, Pallet, PristineCode,
+	Code, Config, Error, EthBlockBuilderFirstValues, GenesisConfig, Origin, Pallet, PristineCode,
 };
 use alloy_core::sol_types::{SolCall, SolInterface};
-use frame_support::{assert_err, assert_ok, traits::fungible::Mutate};
+use frame_support::{
+	assert_err, assert_noop, assert_ok, dispatch::GetDispatchInfo, traits::fungible::Mutate,
+};
 use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType, NestedCounter};
 use pretty_assertions::assert_eq;
 use revm::bytecode::opcode::*;
@@ -496,4 +498,80 @@ fn prestate_diff_mode_tracing_works() {
 			);
 		});
 	}
+}
+
+#[test]
+fn eth_substrate_call_dispatches_successfully() {
+	use frame_support::traits::fungible::Inspect;
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000);
+		let _ = <Test as Config>::Currency::set_balance(&BOB, 100);
+
+		let transfer_call =
+			crate::tests::RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
+				dest: BOB,
+				value: 50,
+			});
+
+		assert!(EthBlockBuilderFirstValues::<Test>::get().is_none());
+
+		assert_ok!(Pallet::<Test>::eth_substrate_call(
+			Origin::EthTransaction(ALICE).into(),
+			Box::new(transfer_call),
+			vec![]
+		));
+
+		// Verify balance changed
+		assert_eq!(<Test as Config>::Currency::balance(&ALICE), 950);
+		assert_eq!(<Test as Config>::Currency::balance(&BOB), 150);
+
+		assert!(EthBlockBuilderFirstValues::<Test>::get().is_some());
+	});
+}
+
+#[test]
+fn eth_substrate_call_requires_eth_origin() {
+	ExtBuilder::default().build().execute_with(|| {
+		let inner_call = frame_system::Call::remark { remark: vec![] };
+
+		// Should fail with non-EthTransaction origin
+		assert_noop!(
+			Pallet::<Test>::eth_substrate_call(
+				RuntimeOrigin::signed(ALICE),
+				Box::new(inner_call.into()),
+				vec![]
+			),
+			sp_runtime::traits::BadOrigin
+		);
+	});
+}
+
+#[test]
+fn eth_substrate_call_tracks_weight_correctly() {
+	use crate::weights::WeightInfo;
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000);
+
+		let inner_call = frame_system::Call::remark { remark: vec![0u8; 100] };
+		let transaction_encoded = vec![];
+		let transaction_encoded_len = transaction_encoded.len() as u32;
+
+		let result = Pallet::<Test>::eth_substrate_call(
+			Origin::EthTransaction(ALICE).into(),
+			Box::new(inner_call.clone().into()),
+			transaction_encoded,
+		);
+
+		assert_ok!(result);
+		let post_info = result.unwrap();
+
+		let overhead = <Test as Config>::WeightInfo::eth_substrate_call(transaction_encoded_len);
+		let expected_weight = overhead.saturating_add(inner_call.get_dispatch_info().call_weight);
+		assert!(
+			expected_weight == post_info.actual_weight.unwrap(),
+			"expected_weight ({}) should be == actual_weight ({})",
+			expected_weight,
+			post_info.actual_weight.unwrap(),
+		);
+	});
 }
