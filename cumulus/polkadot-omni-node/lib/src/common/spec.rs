@@ -28,6 +28,7 @@ use crate::{
 		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
 };
+use codec::Encode;
 use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_service::{
@@ -444,6 +445,8 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				})
 			};
 
+			let database_path = parachain_config.database.path().map(|p| p.to_path_buf());
+
 			sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 				rpc_builder,
 				client: client.clone(),
@@ -461,6 +464,16 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					client.clone(),
 				))),
 			})?;
+
+			// Spawn the storage monitor
+			if let Some(database_path) = database_path {
+				sc_storage_monitor::StorageMonitorService::try_spawn(
+					node_extra_args.storage_monitor.clone(),
+					database_path,
+					&task_manager.spawn_essential_handle(),
+				)
+				.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+			}
 
 			if let Some(hwbench) = hwbench {
 				sc_sysinfo::print_hwbench(&hwbench);
@@ -518,7 +531,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				request_receiver: paranode_rx,
 				parachain_network: network,
 				advertise_non_global_ips,
-				parachain_genesis_hash: client.chain_info().genesis_hash,
+				parachain_genesis_hash: client.chain_info().genesis_hash.encode(),
 				parachain_fork_id,
 				parachain_public_addresses,
 			});

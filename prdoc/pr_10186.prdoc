@@ -1,0 +1,12 @@
+title: Return the correct block difficulty from the eth-rpc
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    This PR fixes an issue in the eth-rpc/pallet-revive that was causing it to return an incorrect value for the block's difficulty or prevrandao.
+
+    In the VM/interpreter implementation we use a constant for the block difficulty. However, the eth block construction side was unaware of this constant being used and therefore the RPC was always returning a block difficulty of zero.
+crates:
+- name: pallet-revive
+  bump: patch

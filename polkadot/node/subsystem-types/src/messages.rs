@@ -265,6 +265,12 @@ pub enum CollatorProtocolMessage {
 	///
 	/// The hash is the relay parent.
 	Seconded(Hash, SignedFullStatement),
+	/// A message sent by Cumulus consensus engine to the collator protocol to
+	/// pre-connect to backing groups at all allowed relay parents.
+	ConnectToBackingGroups,
+	/// A message sent by Cumulus consensus engine to the collator protocol to
+	/// disconnect from backing groups.
+	DisconnectFromBackingGroups,
 }
 
 impl Default for CollatorProtocolMessage {
