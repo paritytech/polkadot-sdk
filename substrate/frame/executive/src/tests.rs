@@ -854,6 +854,10 @@ fn validate_unsigned() {
 	let mut t = new_test_ext(1);
 
 	t.execute_with(|| {
+		// Need to initialize the block before applying extrinsics for the `MockedSystemCallbacks`
+		// check.
+		Executive::initialize_block(&Header::new_from_number(1));
+
 		assert_eq!(
 			Executive::validate_transaction(
 				TransactionSource::InBlock,
@@ -870,9 +874,6 @@ fn validate_unsigned() {
 			),
 			Err(TransactionValidityError::Unknown(UnknownTransaction::NoUnsignedValidator)),
 		);
-		// Need to initialize the block before applying extrinsics for the `MockedSystemCallbacks`
-		// check.
-		Executive::initialize_block(&Header::new_from_number(1));
 		assert_eq!(Executive::apply_extrinsic(valid), Ok(Err(DispatchError::BadOrigin)));
 		assert_eq!(
 			Executive::apply_extrinsic(invalid),
