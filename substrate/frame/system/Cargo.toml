@@ -1,6 +1,6 @@
 [package]
 name = "frame-system"
-version = "41.0.0"
+version = "41.0.2"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
