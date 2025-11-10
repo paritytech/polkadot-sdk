@@ -49,6 +49,42 @@ on:
         description: Tag matching the actual stable release version in the format polkadot-stableYYMM(-rcX) or polkadot-stableYYMM-X(-rcX) for patch releases
         required: true
 
+  workflow_call:
+    inputs:
+      image_type:
+        description: Type of the image to be published
+        required: true
+        default: rc
+        type: string
+
+      binary:
+        description: Binary to be published
+        required: true
+        default: polkadot
+        type: string
+
+      registry:
+        description: Container registry
+        required: true
+        type: string
+        default: docker.io
+
+      owner:
+        description: Owner of the container image repo
+        required: true
+        type: string
+        default: parity
+
+      version:
+        description: Version of the polkadot node release in format v1.16.0 or v1.16.0-rc1
+        required: true
+        type: string
+
+      stable_tag:
+        description: Tag matching the actual stable release version in the format polkadot-stableYYMM(-rcX) or polkadot-stableYYMM-X(-rcX) for patch releases
+        required: true
+        type: string
+
 permissions:
   contents: write
 
