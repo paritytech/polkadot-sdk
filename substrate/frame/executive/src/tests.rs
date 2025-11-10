@@ -1101,7 +1101,14 @@ fn all_weights_are_recorded_correctly() {
 fn offchain_worker_works_as_expected() {
 	new_test_ext(1).execute_with(|| {
 		let parent_hash = sp_core::H256::from([69u8; 32]);
+
+		// Emulate block production before running the offchain worker.
+		System::initialize(&1, &parent_hash, &Digest::default());
+		System::finalize();
+
 		let mut digest = Digest::default();
+		// As `Seal` is added by the node after the block was build, it was not part of
+		// `System::initialize` above.
 		digest.push(DigestItem::Seal([1, 2, 3, 4], vec![5, 6, 7, 8]));
 
 		let header = Header::new(1, H256::default(), H256::default(), parent_hash, digest.clone());
