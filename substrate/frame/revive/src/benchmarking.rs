@@ -2263,6 +2263,28 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn p256_verify() {
+		use hex_literal::hex;
+		let input = hex!("4cee90eb86eaa050036147a12d49004b6b9c72bd725d39d4785011fe190f0b4da73bd4903f0ce3b639bbbf6e8e80d16931ff4bcf5993d58468e8fb19086e8cac36dbcd03009df8c59286b162af3bd7fcc0450c9aa81be5d10d312af6c66b1d604aebd3099c618202fcfe16ae7770b0c49ab5eadf74b754204a3bb6060e44eff37618b065f9832de4ca6ca971a7a1adc826d0f7c00181a5fb2ddf79ae00b4e10e").to_vec();
+		let expected = U256::one().to_big_endian();
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+
+		let result;
+
+		#[block]
+		{
+			result = run_builtin_precompile(
+				&mut ext,
+				H160::from_low_u64_be(100).as_fixed_bytes(),
+				input,
+			);
+		}
+
+		assert_eq!(result.unwrap().data, expected);
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn bn128_add() {
 		use hex_literal::hex;
 		let input = hex!("089142debb13c461f61523586a60732d8b69c5b38a3380a74da7b2961d867dbf2d5fc7bbc013c16d7945f190b232eacc25da675c0eb093fe6b9f1b4b4e107b3625f8c89ea3437f44f8fc8b6bfbb6312074dc6f983809a5e809ff4e1d076dd5850b38c7ced6e4daef9c4347f370d6d8b58f4b1d8dc61a3c59d651a0644a2a27cf").to_vec();
