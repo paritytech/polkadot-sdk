@@ -361,13 +361,20 @@ jobs:
           echo "RUST_VERSION=${RUST_VERSION}" >> $GITHUB_ENV
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@1ccc07ccd54b6048295516a3eb89b192c35057dc # master from 12.09.2024
+      # Is broken because of different bash versions
+      # - name: Install rust ${{ env.RUST_VERSION }}
+      #   uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
+      #   with:
+      #     cache: false
+      #     toolchain: ${{ env.RUST_VERSION }}
+      #     target: wasm32-unknown-unknown
+      #     components: cargo, clippy, rust-docs, rust-src, rustfmt, rustc, rust-std
       - name: Install rust ${{ env.RUST_VERSION }}
-        uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
-        with:
-          cache: false
-          toolchain: ${{ env.RUST_VERSION }}
-          target: wasm32-unknown-unknown
-          components: cargo, clippy, rust-docs, rust-src, rustfmt, rustc, rust-std
+        run: |
+          curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain $RUST_VERSION
+          source $HOME/.cargo/env
+          rustup target add wasm32-unknown-unknown
+          rustup component add clippy rust-docs rust-src rustfmt rustc rust-std
       - name: Install protobuf
         run: brew install protobuf
       - name: install solc
@@ -420,4 +427,3 @@ jobs:
           else
             echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
           fi
-
