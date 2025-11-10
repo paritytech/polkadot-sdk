@@ -1,0 +1,15 @@
+title: fix NextFeeMultiplier update before Revive::on_finalize
+doc:
+- audience: Runtime Dev
+  description: "Fix https://github.com/paritytech/polkadot-sdk/issues/10177\n\nStore\
+    \ `base_fee_per_gas` and `block_gas_limit` in the  EthBlockBuilderIR, since these\
+    \ values are derived from the NextFeeMultiplier and we can't read it from Revive::on_finalize\
+    \ since this runs (in most Runtime) after TransactionPayment::on_finalize where\
+    \ the value is updated for the next block.\n\nalso use `BlockNumberFor<T>` for\
+    \ the BlockHash map instead of U256. No release have been performed yet since\
+    \ the introduction of that change, so that should not require any migration.\n\
+    ```\n\t#[pallet::storage]\n\tpub(crate) type BlockHash<T: Config> =\n\t\tStorageMap<_,\
+    \ Identity, BlockNumberFor<T>, H256, ValueQuery>;\n```"
+crates:
+- name: pallet-revive
+  bump: patch
