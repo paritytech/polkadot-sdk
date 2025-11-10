@@ -1336,7 +1336,8 @@ pub mod pallet {
 
 		/// Executes a Substrate runtime call from an Ethereum transaction.
 		///
-		/// This dispatchable is intended to be called **only** through the EVM compatibility layer.
+		/// /// This dispatchable is intended to be called **only** through the EVM compatibility
+		/// layer. The provided call will be dispatched using `RawOrigin::Signed`.
 		///
 		/// # Parameters
 		///

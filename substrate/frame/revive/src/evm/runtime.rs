@@ -702,7 +702,7 @@ mod test {
 			}) => {
 				assert_eq!(*inner_call, remark);
 			},
-			_ => assert!(false, "Call does not match."),
+			_ => panic!("Expected the RuntimeCall::Contracts variant, got: {:?}", call),
 		}
 	}
 }
