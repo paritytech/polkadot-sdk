@@ -503,6 +503,7 @@ try-runtime = [
 	"polkadot-service?/try-runtime",
 	"sp-runtime?/try-runtime",
 	"staging-parachain-info?/try-runtime",
+	"asset-test-utils?/try-runtime"
 ]
 serde = [
 	"bp-polkadot-core?/serde",
