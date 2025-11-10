@@ -4555,6 +4555,7 @@ dependencies = [
 name = "cumulus-pallet-parachain-system"
 version = "0.21.0"
 dependencies = [
+ "array-bytes 6.2.2",
  "assert_matches",
  "bytes",
  "cumulus-pallet-parachain-system-proc-macro",
@@ -4578,6 +4579,7 @@ dependencies = [
  "polkadot-runtime-parachains",
  "rand 0.8.5",
  "rstest",
+ "sc-consensus",
  "scale-info",
  "sp-consensus-babe",
  "sp-consensus-slots",
