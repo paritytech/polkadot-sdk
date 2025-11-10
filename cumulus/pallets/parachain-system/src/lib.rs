@@ -33,9 +33,10 @@ use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, DecodeLimit, Encode};
 use core::cmp;
 use cumulus_primitives_core::{
-	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
-	CumulusDigestItem, GetChannelInfo, ListChannelInfos, MessageSendError, OutboundHrmpMessage,
-	ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender, XcmpMessageHandler,
+	relay_chain::{self, UMPSignal, UMP_SEPARATOR},
+	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, CumulusDigestItem,
+	GetChannelInfo, ListChannelInfos, MessageSendError, OutboundHrmpMessage, ParaId,
+	PersistedValidationData, UpwardMessage, UpwardMessageSender, XcmpMessageHandler,
 	XcmpMessageSource,
 };
 use cumulus_primitives_parachain_inherent::{v0, MessageQueueChain, ParachainInherentData};
@@ -359,8 +360,19 @@ pub mod pallet {
 				UpwardMessages::<T>::put(&up[..num as usize]);
 				*up = up.split_off(num as usize);
 
-				// Send the core selector UMP signal.
-				Self::send_ump_signal();
+				if let Some(core_info) =
+					CumulusDigestItem::find_core_info(&frame_system::Pallet::<T>::digest())
+				{
+					PendingUpwardSignals::<T>::mutate(|signals| {
+						signals.push(
+							UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset)
+								.encode(),
+						);
+					});
+				}
+
+				// Send the pending UMP signals.
+				Self::send_ump_signals();
 
 				// If the total size of the pending messages is less than the threshold,
 				// we decrease the fee factor, since the queue is less congested.
@@ -585,7 +597,7 @@ pub mod pallet {
 				validation_data: vfp,
 				relay_chain_state,
 				relay_parent_descendants,
-				collator_peer_id: _,
+				collator_peer_id,
 			} = data;
 
 			// Check that the associated relay chain block number is as expected.
@@ -692,6 +704,12 @@ pub mod pallet {
 			<HostConfiguration<T>>::put(host_config);
 
 			<T::OnSystemEvent as OnSystemEvent>::on_validation_data(&vfp);
+
+			if let Some(collator_peer_id) = collator_peer_id {
+				PendingUpwardSignals::<T>::mutate(|signals| {
+					signals.push(UMPSignal::ApprovedPeer(collator_peer_id).encode());
+				});
+			}
 
 			total_weight.saturating_accrue(Self::enqueue_inbound_downward_messages(
 				relevant_messaging_state.dmq_mqc_head,
@@ -910,13 +928,19 @@ pub mod pallet {
 
 	/// Upward messages that were sent in a block.
 	///
-	/// This will be cleared in `on_initialize` of each new block.
+	/// This will be cleared in `on_initialize` for each new block.
 	#[pallet::storage]
 	pub type UpwardMessages<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
 
-	/// Upward messages that are still pending and not yet send to the relay chain.
+	/// Upward messages that are still pending and not yet sent to the relay chain.
 	#[pallet::storage]
 	pub type PendingUpwardMessages<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
+
+	/// Upward signals that are still pending and not yet sent to the relay chain.
+	///
+	/// This will be cleared in `on_finalize` for each block.
+	#[pallet::storage]
+	pub type PendingUpwardSignals<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
 
 	/// The factor to multiply the base delivery fee by for UMP.
 	#[pallet::storage]
@@ -1516,21 +1540,12 @@ impl<T: Config> Pallet<T> {
 		CustomValidationHeadData::<T>::put(head_data);
 	}
 
-	/// Send the ump signals
-	fn send_ump_signal() {
-		use cumulus_primitives_core::relay_chain::{UMPSignal, UMP_SEPARATOR};
-
-		if let Some(core_info) =
-			CumulusDigestItem::find_core_info(&frame_system::Pallet::<T>::digest())
-		{
+	/// Send the pending ump signals
+	fn send_ump_signals() {
+		let mut ump_signals = PendingUpwardSignals::<T>::take();
+		if !ump_signals.is_empty() {
 			UpwardMessages::<T>::mutate(|up| {
-				up.push(UMP_SEPARATOR);
-
-				// Send the core selector signal.
-				up.push(
-					UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset)
-						.encode(),
-				);
+				up.append(&mut ump_signals);
 			});
 		}
 	}

@@ -264,15 +264,3 @@ pub fn seal_block(mut block: Block, client: &Client) -> Block {
 
 	block
 }
-
-/// Seals all the blocks in the given [`ParachainBlockData`] with an AURA seal.
-///
-/// Assumes that the authorities of the test runtime are present in the keyring.
-pub fn seal_parachain_block_data(block: ParachainBlockData, client: &Client) -> ParachainBlockData {
-	let (blocks, proof) = block.into_inner();
-
-	ParachainBlockData::new(
-		blocks.into_iter().map(|block| seal_block(block, &client)).collect::<Vec<_>>(),
-		proof,
-	)
-}

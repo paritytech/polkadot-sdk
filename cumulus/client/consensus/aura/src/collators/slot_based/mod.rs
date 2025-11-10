@@ -83,6 +83,7 @@ use sc_client_api::{
 	backend::AuxStore, client::PreCommitActions, BlockBackend, BlockOf, UsageProvider,
 };
 use sc_consensus::BlockImport;
+use sc_network_types::PeerId;
 use sc_utils::mpsc::tracing_unbounded;
 use sp_api::{ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
@@ -125,6 +126,8 @@ pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, 
 	pub keystore: KeystorePtr,
 	/// The collator key used to sign collations before submitting to validators.
 	pub collator_key: CollatorPair,
+	/// The collator network peer id.
+	pub collator_peer_id: PeerId,
 	/// The para's ID.
 	pub para_id: ParaId,
 	/// The proposer for building blocks.
@@ -177,10 +180,10 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	Proposer: Environment<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + Sync + 'static,
-	P: Pair + 'static,
+	P: Pair + Send + Sync + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
-	Spawner: SpawnNamed,
+	Spawner: SpawnNamed + Clone + 'static,
 {
 	let Params {
 		create_inherent_data_providers,
@@ -191,6 +194,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		code_hash_provider,
 		keystore,
 		collator_key,
+		collator_peer_id,
 		para_id,
 		proposer,
 		collator_service,
@@ -228,6 +232,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		relay_client,
 		code_hash_provider,
 		keystore,
+		collator_peer_id,
 		para_id,
 		proposer,
 		collator_service,

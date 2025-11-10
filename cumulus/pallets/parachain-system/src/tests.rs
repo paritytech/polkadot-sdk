@@ -19,8 +19,12 @@
 use super::*;
 use crate::mock::*;
 
+use alloc::collections::BTreeMap;
 use core::num::NonZeroU32;
-use cumulus_primitives_core::{AbridgedHrmpChannel, InboundDownwardMessage, InboundHrmpMessage};
+use cumulus_primitives_core::{
+	relay_chain::ApprovedPeerId, AbridgedHrmpChannel, ClaimQueueOffset, CoreInfo, CoreSelector,
+	InboundDownwardMessage, InboundHrmpMessage, CUMULUS_CONSENSUS_ID,
+};
 use cumulus_primitives_parachain_inherent::{
 	v0, INHERENT_IDENTIFIER, PARACHAIN_INHERENT_IDENTIFIER_V0,
 };
@@ -31,6 +35,7 @@ use rand::Rng;
 use relay_chain::HrmpChannelId;
 use sp_core::H256;
 use sp_inherents::InherentDataProvider;
+use sp_runtime::DigestItem;
 use sp_trie::StorageProof;
 
 #[test]
@@ -152,7 +157,7 @@ fn unincluded_segment_works() {
 	BlockTests::new()
 		.with_inclusion_delay(1)
 		.add_with_post_test(
-			123,
+			1,
 			|| {},
 			|| {
 				let segment = <UnincludedSegment<Test>>::get();
@@ -161,7 +166,7 @@ fn unincluded_segment_works() {
 			},
 		)
 		.add_with_post_test(
-			124,
+			2,
 			|| {},
 			|| {
 				let segment = <UnincludedSegment<Test>>::get();
@@ -169,11 +174,11 @@ fn unincluded_segment_works() {
 			},
 		)
 		.add_with_post_test(
-			125,
+			3,
 			|| {},
 			|| {
 				let segment = <UnincludedSegment<Test>>::get();
-				// Block 123 was popped from the segment, the len is still 2.
+				// Block 1 was popped from the segment, the len is still 2.
 				assert_eq!(segment.len(), 2);
 			},
 		);
@@ -189,7 +194,7 @@ fn unincluded_segment_is_limited() {
 	BlockTests::new()
 		.with_inclusion_delay(2)
 		.add_with_post_test(
-			123,
+			1,
 			|| {},
 			|| {
 				let segment = <UnincludedSegment<Test>>::get();
@@ -197,7 +202,7 @@ fn unincluded_segment_is_limited() {
 				assert!(<AggregatedUnincludedSegment<Test>>::get().is_some());
 			},
 		)
-		.add(124, || {}); // The previous block wasn't included yet, should panic in `create_inherent`.
+		.add(2, || {}); // The previous block wasn't included yet, should panic in `create_inherent`.
 }
 
 #[test]
@@ -209,15 +214,15 @@ fn unincluded_code_upgrade_handles_signal() {
 	BlockTests::new()
 		.with_inclusion_delay(1)
 		.with_relay_sproof_builder(|_, block_number, builder| {
-			if block_number > 123 && block_number <= 125 {
+			if block_number > 1 && block_number <= 3 {
 				builder.upgrade_go_ahead = Some(relay_chain::UpgradeGoAhead::GoAhead);
 			}
 		})
-		.add(123, || {
+		.add(1, || {
 			assert_ok!(System::set_code(RawOrigin::Root.into(), Default::default()));
 		})
 		.add_with_post_test(
-			124,
+			2,
 			|| {},
 			|| {
 				assert!(
@@ -227,7 +232,7 @@ fn unincluded_code_upgrade_handles_signal() {
 			},
 		)
 		.add_with_post_test(
-			125,
+			3,
 			|| {
 				// The signal is present in relay state proof and ignored.
 				// Block that processed the signal is still not included.
@@ -244,7 +249,7 @@ fn unincluded_code_upgrade_handles_signal() {
 			},
 		)
 		.add_with_post_test(
-			126,
+			4,
 			|| {},
 			|| {
 				let aggregated_segment =
@@ -264,15 +269,15 @@ fn unincluded_code_upgrade_scheduled_after_go_ahead() {
 	BlockTests::new()
 		.with_inclusion_delay(1)
 		.with_relay_sproof_builder(|_, block_number, builder| {
-			if block_number > 123 && block_number <= 125 {
+			if block_number > 1 && block_number <= 3 {
 				builder.upgrade_go_ahead = Some(relay_chain::UpgradeGoAhead::GoAhead);
 			}
 		})
-		.add(123, || {
+		.add(1, || {
 			assert_ok!(System::set_code(RawOrigin::Root.into(), Default::default()));
 		})
 		.add_with_post_test(
-			124,
+			2,
 			|| {},
 			|| {
 				assert!(
@@ -284,7 +289,7 @@ fn unincluded_code_upgrade_scheduled_after_go_ahead() {
 			},
 		)
 		.add_with_post_test(
-			125,
+			3,
 			|| {
 				// The signal is present in relay state proof and ignored.
 				// Block that processed the signal is still not included.
@@ -301,7 +306,7 @@ fn unincluded_code_upgrade_scheduled_after_go_ahead() {
 			},
 		)
 		.add_with_post_test(
-			126,
+			4,
 			|| {},
 			|| {
 				assert!(<PendingValidationCode<Test>>::exists(), "upgrade is pending");
@@ -684,10 +689,10 @@ fn hrmp_ingress_channels_are_checked() {
 
 	let mut test = BlockTests::new()
 		.with_inclusion_delay(1)
-		.with_relay_block_number(|block_number| 2.max(*block_number as RelayChainBlockNumber))
+		.with_relay_block_number(|block_number| 1.max(*block_number as RelayChainBlockNumber))
 		.with_relay_sproof_builder(move |_, relay_block_num, sproof| match relay_block_num {
 			// Let's open a channel only with parachain 1000.
-			2 => {
+			1 => {
 				let mqc_head =
 					sproof.upsert_inbound_channel(1000.into()).mqc_head.get_or_insert_default();
 				let mut mqc = MessageQueueChain::new(*mqc_head);
@@ -697,14 +702,14 @@ fn hrmp_ingress_channels_are_checked() {
 			_ => {},
 		})
 		.with_inherent_data(move |_, relay_block_num, data| match relay_block_num {
-			// Simulate receiving a message from parachain 1000 at block 2. This should work.
-			2 => {
+			// Simulate receiving a message from parachain 1000 at block 1. This should work.
+			1 => {
 				let entry = data.horizontal_messages.entry(1000.into()).or_default();
 				entry.push(mk_hrmp(1, 100))
 			},
 			_ => {},
 		})
-		.add(2, move || {
+		.add(1, move || {
 			HANDLED_XCMP_MESSAGES.with(|m| {
 				let m = m.borrow_mut();
 				assert_eq!(&*m, &vec![(1000.into(), 1, vec![1; 100])]);
@@ -713,11 +718,11 @@ fn hrmp_ingress_channels_are_checked() {
 	test.run();
 
 	let mut test = test
-		.with_relay_block_number(|block_number| 3.max(*block_number as RelayChainBlockNumber))
+		.with_relay_block_number(|block_number| 2.max(*block_number as RelayChainBlockNumber))
 		.with_inherent_data(move |_, relay_block_num, data| match relay_block_num {
-			// Simulate receiving a message from parachain 2000 at block 3. This should lead to a
+			// Simulate receiving a message from parachain 2000 at block 2. This should lead to a
 			// panic.
-			3 => {
+			2 => {
 				let entry = data.horizontal_messages.entry(2000.into()).or_default();
 				entry.push(mk_hrmp(1, 100))
 			},
@@ -866,12 +871,12 @@ fn hrmp_outbound_respects_used_bandwidth() {
 fn runtime_upgrade_events() {
 	BlockTests::new()
 		.with_relay_sproof_builder(|_, block_number, builder| {
-			if block_number > 123 {
+			if block_number > 1 {
 				builder.upgrade_go_ahead = Some(relay_chain::UpgradeGoAhead::GoAhead);
 			}
 		})
 		.add_with_post_test(
-			123,
+			1,
 			|| {
 				assert_ok!(System::set_code(RawOrigin::Root.into(), Default::default()));
 			},
@@ -884,7 +889,7 @@ fn runtime_upgrade_events() {
 			},
 		)
 		.add_with_post_test(
-			1234,
+			2,
 			|| {},
 			|| {
 				let events = System::events();
@@ -894,7 +899,7 @@ fn runtime_upgrade_events() {
 				assert_eq!(
 					events[1].event,
 					RuntimeEvent::ParachainSystem(crate::Event::ValidationFunctionApplied {
-						relay_chain_block_num: 1234
+						relay_chain_block_num: 2
 					})
 				);
 
@@ -912,10 +917,10 @@ fn non_overlapping() {
 		.with_relay_sproof_builder(|_, _, builder| {
 			builder.host_config.validation_upgrade_delay = 1000;
 		})
-		.add(123, || {
+		.add(1, || {
 			assert_ok!(System::set_code(RawOrigin::Root.into(), Default::default()));
 		})
-		.add(234, || {
+		.add(2, || {
 			assert_eq!(
 				System::set_code(RawOrigin::Root.into(), Default::default()),
 				Err(Error::<Test>::OverlappingUpgrades.into()),
@@ -927,11 +932,11 @@ fn non_overlapping() {
 fn manipulates_storage() {
 	BlockTests::new()
 		.with_relay_sproof_builder(|_, block_number, builder| {
-			if block_number > 123 {
+			if block_number > 1 {
 				builder.upgrade_go_ahead = Some(relay_chain::UpgradeGoAhead::GoAhead);
 			}
 		})
-		.add(123, || {
+		.add(1, || {
 			assert!(
 				!<PendingValidationCode<Test>>::exists(),
 				"validation function must not exist yet"
@@ -940,7 +945,7 @@ fn manipulates_storage() {
 			assert!(<PendingValidationCode<Test>>::exists(), "validation function must now exist");
 		})
 		.add_with_post_test(
-			1234,
+			2,
 			|| {},
 			|| {
 				assert!(
@@ -955,15 +960,15 @@ fn manipulates_storage() {
 fn aborted_upgrade() {
 	BlockTests::new()
 		.with_relay_sproof_builder(|_, block_number, builder| {
-			if block_number > 123 {
+			if block_number > 1 {
 				builder.upgrade_go_ahead = Some(relay_chain::UpgradeGoAhead::Abort);
 			}
 		})
-		.add(123, || {
+		.add(1, || {
 			assert_ok!(System::set_code(RawOrigin::Root.into(), Default::default()));
 		})
 		.add_with_post_test(
-			1234,
+			2,
 			|| {},
 			|| {
 				assert!(
@@ -985,7 +990,7 @@ fn checks_code_size() {
 		.with_relay_sproof_builder(|_, _, builder| {
 			builder.host_config.max_code_size = 8;
 		})
-		.add(123, || {
+		.add(1, || {
 			assert_eq!(
 				System::set_code(RawOrigin::Root.into(), vec![0; 64]),
 				Err(Error::<Test>::TooBig.into()),
@@ -1161,7 +1166,7 @@ fn send_hrmp_message_buffer_channel_close() {
 			2,
 			|| {},
 			|| {
-				// both channels are at capacity so we do not expect any messages.
+				// Both channels are at capacity so we do not expect any messages.
 				let v = HrmpOutboundMessages::<Test>::get();
 				assert!(v.is_empty());
 			},
@@ -1381,7 +1386,7 @@ fn receive_hrmp() {
 				data.horizontal_messages.insert(
 					ParaId::from(300),
 					vec![
-						// can't be sent at the block 1 actually. However, we cheat here
+						// Can't be sent at the block 1 actually. However, we cheat here
 						// because we want to test the case where there are multiple messages
 						// but the harness at the moment doesn't support block skipping.
 						mk_hrmp(2, 1).clone(),
@@ -1594,7 +1599,7 @@ fn upgrade_version_checks_should_work() {
 #[test]
 fn deposits_relay_parent_storage_root() {
 	BlockTests::new().add_with_post_test(
-		123,
+		1,
 		|| {},
 		|| {
 			let digest = System::digest();
@@ -1654,4 +1659,75 @@ fn ump_fee_factor_increases_and_decreases() {
 				assert_eq!(UpwardDeliveryFeeFactor::<Test>::get(), FixedU128::from_u32(1));
 			},
 		);
+}
+
+#[test]
+fn ump_signals_are_sent_correctly() {
+	let core_info = CoreInfo {
+		selector: CoreSelector(1),
+		claim_queue_offset: ClaimQueueOffset(1),
+		number_of_cores: codec::Compact(1),
+	};
+
+	// Test cases list with the following format:
+	// `((expect_approved_peer, expect_select_core), expected_upward_messages)`
+	let test_cases = BTreeMap::from([
+		((false, false), vec![b"Test".to_vec()]),
+		(
+			(true, false),
+			vec![
+				b"Test".to_vec(),
+				UMP_SEPARATOR,
+				UMPSignal::ApprovedPeer(ApprovedPeerId::try_from(b"12345".to_vec()).unwrap())
+					.encode(),
+			],
+		),
+		(
+			(false, true),
+			vec![
+				b"Test".to_vec(),
+				UMP_SEPARATOR,
+				UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset).encode(),
+			],
+		),
+		(
+			(true, true),
+			vec![
+				b"Test".to_vec(),
+				UMP_SEPARATOR,
+				UMPSignal::ApprovedPeer(ApprovedPeerId::try_from(b"12345".to_vec()).unwrap())
+					.encode(),
+				UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset).encode(),
+			],
+		),
+	]);
+
+	for ((expect_approved_peer, expect_select_core), expected_upward_messages) in test_cases {
+		let core_info_digest = CumulusDigestItem::CoreInfo(core_info.clone()).encode();
+
+		BlockTests::new()
+			.with_inherent_data(move |_, _, data| {
+				if expect_approved_peer {
+					data.collator_peer_id =
+						Some(ApprovedPeerId::try_from(b"12345".to_vec()).unwrap());
+				}
+			})
+			.add_with_post_test(
+				1,
+				move || {
+					ParachainSystem::send_upward_message(b"Test".to_vec()).unwrap();
+
+					if expect_select_core {
+						System::deposit_log(DigestItem::PreRuntime(
+							CUMULUS_CONSENSUS_ID,
+							core_info_digest.clone(),
+						));
+					}
+				},
+				move || {
+					assert_eq!(PendingUpwardSignals::<Test>::get(), Vec::<Vec<u8>>::new());
+					assert_eq!(UpwardMessages::<Test>::get(), expected_upward_messages);
+				},
+			);
+	}
 }

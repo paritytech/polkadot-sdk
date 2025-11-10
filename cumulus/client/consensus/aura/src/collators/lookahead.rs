@@ -45,10 +45,15 @@ use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CollatorPair, Id as ParaId, OccupiedCoreAssumption};
 
-use crate::{collator as collator_util, collators::claim_queue_at, export_pov_to_path};
+use crate::{
+	collator as collator_util,
+	collators::{claim_queue_at, BackingGroupConnectionHelper},
+	export_pov_to_path,
+};
 use futures::prelude::*;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
+use sc_network_types::PeerId;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
@@ -79,6 +84,8 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, ProposerFactory, CS> 
 	pub keystore: KeystorePtr,
 	/// The collator key used to sign collations before submitting to validators.
 	pub collator_key: CollatorPair,
+	/// The collator network peer id.
+	pub collator_peer_id: PeerId,
 	/// The para's ID.
 	pub para_id: ParaId,
 	/// A handle to the relay-chain client's "Overseer" or task orchestrator.
@@ -122,7 +129,7 @@ where
 	Proposer: Environment<Block> + Clone + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
-	P: Pair,
+	P: Pair + Send + Sync + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
@@ -174,7 +181,7 @@ where
 	Proposer: Environment<Block> + Clone + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
-	P: Pair,
+	P: Pair + Send + Sync + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
@@ -207,6 +214,7 @@ where
 				block_import: params.block_import,
 				relay_client: params.relay_client.clone(),
 				keystore: params.keystore.clone(),
+				collator_peer_id: params.collator_peer_id,
 				para_id: params.para_id,
 				proposer: params.proposer,
 				collator_service: params.collator_service,
@@ -214,6 +222,13 @@ where
 
 			collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
 		};
+
+		let mut connection_helper: BackingGroupConnectionHelper<Client> =
+			BackingGroupConnectionHelper::new(
+				params.para_client.clone(),
+				params.keystore.clone(),
+				params.overseer_handle.clone(),
+			);
 
 		while let Some(relay_parent_header) = import_notifications.next().await {
 			let relay_parent = relay_parent_header.hash();
@@ -292,14 +307,17 @@ where
 					relay_chain_slot_duration = ?params.relay_chain_slot_duration,
 					"Adjusted relay-chain slot to parachain slot"
 				);
-				Some(super::can_build_upon::<_, _, P>(
+				Some((
 					slot_now,
-					relay_slot,
-					timestamp,
-					block_hash,
-					included_block.hash(),
-					para_client,
-					&keystore,
+					super::can_build_upon::<_, _, P>(
+						slot_now,
+						relay_slot,
+						timestamp,
+						block_hash,
+						included_block.hash(),
+						para_client,
+						&keystore,
+					),
 				))
 			};
 
@@ -318,8 +336,11 @@ where
 			// scheduled chains this ensures that the backlog will grow steadily.
 			for n_built in 0..2 {
 				let slot_claim = match can_build_upon(parent_hash) {
-					Some(fut) => match fut.await {
-						None => break,
+					Some((current_slot, fut)) => match fut.await {
+						None => {
+							connection_helper.update::<Block, P>(current_slot, parent_hash).await;
+							break
+						},
 						Some(c) => c,
 					},
 					None => break,
@@ -347,6 +368,7 @@ where
 						&validation_data,
 						parent_hash,
 						slot_claim.timestamp(),
+						params.collator_peer_id,
 					)
 					.await
 				{

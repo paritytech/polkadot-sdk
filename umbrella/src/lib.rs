@@ -535,6 +535,10 @@ pub use pallet_mixnet;
 #[cfg(feature = "pallet-mmr")]
 pub use pallet_mmr;
 
+/// FRAME pallet to manage multi-asset and cross-chain bounties.
+#[cfg(feature = "pallet-multi-asset-bounties")]
+pub use pallet_multi_asset_bounties;
+
 /// FRAME multi-signature dispatch pallet.
 #[cfg(feature = "pallet-multisig")]
 pub use pallet_multisig;

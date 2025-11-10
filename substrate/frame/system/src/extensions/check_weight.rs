@@ -59,13 +59,14 @@ where
 		len: usize,
 	) -> Result<(), TransactionValidityError> {
 		let max = T::BlockWeights::get().get(info.class).max_extrinsic;
-		let total_weight_including_length = info.total_weight().add_proof_size(len as u64);
+		let total_weight_including_length =
+			info.total_weight().saturating_add_proof_size(len as u64);
 		match max {
 			Some(max) if total_weight_including_length.any_gt(max) => {
 				log::debug!(
 					target: LOG_TARGET,
-					"Extrinsic {} is greater than the max extrinsic {}",
-					info.total_weight(),
+					"Extrinsic with length included {} is greater than the max extrinsic {}",
+					total_weight_including_length,
 					max,
 				);
 
@@ -1012,7 +1013,24 @@ mod tests {
 			};
 			// Should handle large lengths gracefully via saturating conversion
 			let large_len = usize::MAX;
+
+			// Weight proof size should equal u64::MAX (initial zero + u64::MAX)
 			let result = CheckWeight::<Test>::check_extrinsic_weight(&info_zero, large_len);
+			// This should fail because u64::MAX proof size exceeds limits
+			assert_err!(result, InvalidTransaction::ExhaustsResources);
+
+			// Test with very large length
+			let info_with_minimal_proof_size = DispatchInfo {
+				call_weight: Weight::from_parts(0, 10),
+				class: DispatchClass::Normal,
+				..Default::default()
+			};
+
+			// Weight proof size saturates at u64::MAX (initial 10 + u64::MAX)
+			let result = CheckWeight::<Test>::check_extrinsic_weight(
+				&info_with_minimal_proof_size,
+				large_len,
+			);
 			// This should fail because u64::MAX proof size exceeds limits
 			assert_err!(result, InvalidTransaction::ExhaustsResources);
 		});

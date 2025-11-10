@@ -24,7 +24,7 @@ use crate::{
 			relay_chain_data_cache::RelayChainDataCache,
 			slot_timer::{SlotInfo, SlotTimer},
 		},
-		RelayParentData,
+		BackingGroupConnectionHelper, RelayParentData,
 	},
 	LOG_TARGET,
 };
@@ -45,6 +45,7 @@ use polkadot_primitives::{
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
+use sc_network_types::PeerId;
 use sp_api::{ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
 use sp_block_builder::BlockBuilder;
@@ -94,6 +95,8 @@ pub struct BuilderTaskParams<
 	pub code_hash_provider: CHP,
 	/// The underlying keystore, which should contain Aura consensus keys.
 	pub keystore: KeystorePtr,
+	/// The collator network peer id.
+	pub collator_peer_id: PeerId,
 	/// The para's ID.
 	pub para_id: ParaId,
 	/// The proposer for building blocks.
@@ -145,7 +148,7 @@ where
 	Proposer: Environment<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + Sync + 'static,
-	P: Pair,
+	P: Pair + Send + Sync + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
@@ -157,6 +160,7 @@ where
 			para_client,
 			keystore,
 			block_import,
+			collator_peer_id,
 			para_id,
 			proposer,
 			collator_service,
@@ -176,6 +180,7 @@ where
 				block_import,
 				relay_client: relay_client.clone(),
 				keystore: keystore.clone(),
+				collator_peer_id,
 				para_id,
 				proposer,
 				collator_service,
@@ -185,6 +190,16 @@ where
 		};
 
 		let mut relay_chain_data_cache = RelayChainDataCache::new(relay_client.clone(), para_id);
+
+		let mut maybe_connection_helper = relay_client
+			.overseer_handle()
+			.ok()
+			.map(|h| BackingGroupConnectionHelper::new(para_client.clone(), keystore.clone(), h.clone()))
+			.or_else(|| {
+				tracing::warn!(target: LOG_TARGET,
+					"Relay chain interface does not provide overseer handle. Backing group pre-connect is disabled.");
+				None
+			});
 
 		loop {
 			// We wait here until the next slot arrives.
@@ -294,6 +309,9 @@ where
 					slot = ?slot_info.slot,
 					"Not eligible to claim slot."
 				);
+				if let Some(ref mut connection_helper) = maybe_connection_helper {
+					connection_helper.update::<Block, P>(slot_info.slot, initial_parent.hash).await;
+				}
 				continue
 			};
 
@@ -392,6 +410,8 @@ where
 					time_for_core,
 					cores.is_last_core() &&
 						slot_time.is_parachain_slot_ending(para_slot_duration.as_duration()),
+					collator_peer_id,
+					rp_data.clone(),
 				)
 				.await
 				{
@@ -434,6 +454,8 @@ async fn build_collation_for_core<Block: BlockT, P, RelayClient, BI, CIDP, Propo
 	blocks_per_core: u32,
 	slot_time_for_core: Duration,
 	is_last_core_in_parachain_slot: bool,
+	collator_peer_id: PeerId,
+	relay_parent_data: RelayParentData,
 ) -> Result<Option<Block::Header>, ()>
 where
 	RelayClient: RelayChainInterface + 'static,
@@ -525,11 +547,13 @@ where
 		let authoring_duration = block_time.min(slot_time_for_block);
 
 		let (parachain_inherent_data, other_inherent_data) = match collator
-			.create_inherent_data(
+			.create_inherent_data_with_rp_offset(
 				relay_parent_hash,
 				&validation_data,
 				parent_hash,
 				slot_claim.timestamp(),
+				Some(relay_parent_data.clone()),
+				collator_peer_id,
 			)
 			.await
 		{
