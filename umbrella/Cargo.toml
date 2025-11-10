@@ -373,6 +373,7 @@ runtime-benchmarks = [
 	"xcm-runtime-apis?/runtime-benchmarks",
 ]
 try-runtime = [
+	"asset-test-utils?/try-runtime",
 	"assets-common?/try-runtime",
 	"cumulus-pallet-aura-ext?/try-runtime",
 	"cumulus-pallet-dmp-queue?/try-runtime",
@@ -503,7 +504,6 @@ try-runtime = [
 	"polkadot-service?/try-runtime",
 	"sp-runtime?/try-runtime",
 	"staging-parachain-info?/try-runtime",
-	"asset-test-utils?/try-runtime"
 ]
 serde = [
 	"bp-polkadot-core?/serde",

@@ -219,6 +219,7 @@ runtime-benchmarks = [
 	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
+	"asset-test-utils/try-runtime",
 	"assets-common/try-runtime",
 	"cumulus-pallet-aura-ext/try-runtime",
 	"cumulus-pallet-parachain-system/try-runtime",
@@ -282,7 +283,6 @@ try-runtime = [
 	"snowbridge-pallet-system-frontend/try-runtime",
 	"snowbridge-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
-	"asset-test-utils/try-runtime"
 ]
 std = [
 	"alloy-core/std",
