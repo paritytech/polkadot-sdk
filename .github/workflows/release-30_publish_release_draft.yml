@@ -209,7 +209,7 @@ jobs:
     strategy:
       matrix:
         binary: [ polkadot, polkadot-execute-worker, polkadot-prepare-worker, polkadot-parachain, polkadot-omni-node, frame-omni-bencher, chain-spec-builder ]
-        target: [ x86_64-unknown-linux-gnu, aarch64-apple-darwin ]
+        target: [ x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, aarch64-apple-darwin ]
 
     steps:
       - name: Checkout sources
@@ -234,6 +234,18 @@ jobs:
           sha256sum "${{ matrix.binary }}-aarch64-apple-darwin" | tee "${{ matrix.binary }}-aarch64-apple-darwin.sha256"
           check_sha256 "${{ matrix.binary }}-aarch64-apple-darwin" && echo "OK" || echo "ERR"
 
+      - name: Rename aarch64-unknown-linux-gnu binaries
+        if: ${{ matrix.target == 'aarch64-unknown-linux-gnu' }}
+        working-directory: ${{ github.workspace}}/release-artifacts/${{ matrix.target }}/${{ matrix.binary }}
+        run: |
+          . ../../../.github/scripts/common/lib.sh
+
+          mv ${{ matrix.binary }} ${{ matrix.binary }}-aarch64-unknown-linux-gnu
+          mv ${{ matrix.binary }}.asc ${{ matrix.binary }}-aarch64-unknown-linux-gnu.asc
+
+          sha256sum "${{ matrix.binary }}-aarch64-unknown-linux-gnu" | tee "${{ matrix.binary }}-aarch64-unknown-linux-gnu.sha256"
+          check_sha256 "${{ matrix.binary }}-aarch64-unknown-linux-gnu" && echo "OK" || echo "ERR"
+
       - name: Generate content write token for the release automation
         id: generate_write_token
         uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
@@ -254,6 +266,12 @@ jobs:
               ${{ matrix.binary }}-aarch64-apple-darwin \
               ${{ matrix.binary }}-aarch64-apple-darwin.asc \
               ${{ matrix.binary }}-aarch64-apple-darwin.sha256
+          elif [[ ${{ matrix.target }} == "aarch64-unknown-linux-gnu" ]]; then
+            gh release upload ${{ needs.validate-inputs.outputs.release_tag }} \
+              --repo paritytech/polkadot-sdk \
+              ${{ matrix.binary }}-aarch64-unknown-linux-gnu \
+              ${{ matrix.binary }}-aarch64-unknown-linux-gnu.asc \
+              ${{ matrix.binary }}-aarch64-unknown-linux-gnu.sha256
           else
             gh release upload ${{ needs.validate-inputs.outputs.release_tag }} \
               --repo paritytech/polkadot-sdk \

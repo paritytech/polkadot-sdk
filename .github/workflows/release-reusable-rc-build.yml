@@ -52,7 +52,7 @@ jobs:
         run: cat .github/env >> $GITHUB_OUTPUT
 
   build-rc:
-    if: ${{ inputs.target == 'x86_64-unknown-linux-gnu' }}
+    if: ${{ inputs.target == 'x86_64-unknown-linux-gnu' || inputs.target == 'aarch64-unknown-linux-gnu' }}
     needs: [set-image]
     runs-on: ubuntu-latest-m
     environment: release
@@ -88,7 +88,17 @@ jobs:
 
           import_gpg_keys
 
+      - name: Setup ARM64 cross-compilation
+        if: ${{ inputs.target == 'aarch64-unknown-linux-gnu' }}
+        run: |
+          apt-get update
+          apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          rustup target add aarch64-unknown-linux-gnu
+
       - name: Build binary
+        env:
+          TARGET: ${{ inputs.target == 'aarch64-unknown-linux-gnu' && 'aarch64-unknown-linux-gnu' || '' }}
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: ${{ inputs.target == 'aarch64-unknown-linux-gnu' && 'aarch64-linux-gnu-gcc' || '' }}
         run: |
           git config --global --add safe.directory "${GITHUB_WORKSPACE}" #avoid "detected dubious ownership" error
           ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} ${{ inputs.package }} ${{ inputs.features }}
@@ -268,7 +278,7 @@ jobs:
           path: ${{ env.ARTIFACTS_PATH }}
 
   build-polkadot-deb-package:
-    if: ${{ inputs.package == 'polkadot' && inputs.target == 'x86_64-unknown-linux-gnu' }}
+    if: ${{ inputs.package == 'polkadot' && (inputs.target == 'x86_64-unknown-linux-gnu' || inputs.target == 'aarch64-unknown-linux-gnu') }}
     needs: [build-rc]
     runs-on: ubuntu-latest
 
