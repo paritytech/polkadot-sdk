@@ -225,12 +225,8 @@ fn build_multiple_blocks_with_witness(
 			let proof_recorder = ProofRecorder::<Block>::with_ignored_nodes(ignored_nodes.clone());
 			api.record_proof_with_recorder(proof_recorder.clone());
 			api.register_extension(ProofSizeExt::new(proof_recorder));
-<<<<<<< HEAD
-			api.execute_block(parent_hash, built_block.block.clone()).unwrap();
-=======
 			api.execute_block(parent_hash, pop_seal(built_block.block.clone()).into())
 				.unwrap();
->>>>>>> 1654f948 (Ensure that multiple blocks in a PoV form a chain (#10149))
 
 			let (mut header, extrinsics) = built_block.block.clone().deconstruct();
 			let seal = header.digest.pop().unwrap();
