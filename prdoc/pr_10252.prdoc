@@ -1,0 +1,7 @@
+title: '[pallet-revive] set finalize = best when automine is on'
+doc:
+- audience: Runtime Dev
+  description: Make the finalized block == best block when automine is on
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
