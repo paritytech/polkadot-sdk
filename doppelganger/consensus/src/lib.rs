@@ -1,5 +1,5 @@
 use std::{
-	collections::HashMap, env, io::{self, Write}
+	collections::HashMap, env, io::{self, Write}, time::Duration
 };
 
 use codec::{Decode, Encode};
@@ -19,7 +19,7 @@ use sc_executor::WasmExecutor;
 use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header, PhantomData};
 use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey, StorageChild};
-use tokio::io::AsyncWriteExt;
+use tokio::{io::AsyncWriteExt, time::sleep};
 use futures::channel::oneshot::Receiver;
 use sp_core::traits::SpawnEssentialNamed;
 
@@ -51,7 +51,9 @@ impl std::fmt::Display for DoppelGangerContext {
 
 pub async fn teardown_com(rx: Receiver<()>) {
 	let _ = rx.await;
-	warn!("shutdown received");
+	warn!("🪞 Shutdown received, waiting 6s before shutdown");
+	sleep(Duration::from_secs(6)).await;
+	warn!("🪞 Shutting down now");
 }
 
 pub struct DoppelGangerBlockImport<BI, Block>
