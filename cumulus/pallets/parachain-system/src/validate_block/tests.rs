@@ -152,7 +152,7 @@ fn build_block_with_witness(
 
 fn build_multiple_blocks_with_witness(
 	client: &Client,
-	arent_head: Header,
+	parent_head: Header,
 	mut sproof_builder: RelayStateSproofBuilder,
 	num_blocks: usize,
 ) -> TestBlockData {
