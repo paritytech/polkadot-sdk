@@ -20,12 +20,16 @@ sp-core = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 # External erasure-coding package for v2 functions
-erasure-coding-ext = { git = "https://github.com/paritytech/erasure-coding", package = "erasure-coding", default-features = false }
+erasure-coding-ext = { git = "https://github.com/paritytech/erasure-coding", package = "erasure-coding", default-features = false, features = ["simd"] }
 
 [dev-dependencies]
 criterion = { features = ["cargo_bench_support"], workspace = true }
 quickcheck = { workspace = true }
+rand = { workspace = true, default-features = true }
 
 [[bench]]
 name = "scaling_with_validators"
 harness = false
+
+[[example]]
+name = "performance_comparison"

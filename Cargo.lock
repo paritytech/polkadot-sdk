@@ -15398,6 +15398,7 @@ dependencies = [
  "polkadot-node-primitives",
  "polkadot-primitives",
  "quickcheck",
+ "rand 0.8.5",
  "reed-solomon-novelpoly",
  "sp-core 28.0.0",
  "sp-trie",
