@@ -366,7 +366,7 @@ impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_m
 	/// Proof: `MultiBlockElectionVerifier::QueuedValidVariant` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
 	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionY` (r:0 w:1)
 	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionY` (`max_values`: None, `max_size`: Some(33794026), added: 33796501, mode: `Measured`)
-	fn manage_set() -> Weight {
+	fn admin_set() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `308`
 		//  Estimated: `3773`

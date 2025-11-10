@@ -268,11 +268,10 @@ mod benchmarks {
 		CurrentPhase::<T>::set(Phase::Emergency);
 		let origin = T::ManagerOrigin::try_successful_origin()
 			.map_err(|_| -> BenchmarkError { "cannot create admin origin".into() })?;
-
 		#[block]
 		{
 			// fallback might decide to fail, that's okay..
-			let maybe_err = Pallet::<T>::manage(origin, crate::AdminOperation::EmergencyFallback);
+			let maybe_err = Pallet::<T>::manage(origin, crate::ManagerOperation::EmergencyFallback);
 			//.. but it cannot be bad origin.
 			assert!(maybe_err.is_ok() || maybe_err.unwrap_err() != DispatchError::BadOrigin.into());
 		}
@@ -281,7 +280,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn manage_set() -> Result<(), BenchmarkError> {
+	fn admin_set() -> Result<(), BenchmarkError> {
 		// heaviest case is emergency set.
 		#[cfg(test)]
 		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
@@ -317,7 +316,7 @@ mod benchmarks {
 			.map_err(|_| -> BenchmarkError { "cannot create admin origin".into() })?;
 		#[block]
 		{
-			assert_ok!(Pallet::<T>::manage(
+			assert_ok!(Pallet::<T>::admin(
 				origin,
 				crate::AdminOperation::EmergencySetSolution(
 					sp_std::boxed::Box::new(single_support),

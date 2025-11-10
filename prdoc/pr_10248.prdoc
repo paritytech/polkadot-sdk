@@ -1,13 +1,11 @@
 title: Fix origin check in EPMB's manage extrinsic
 doc:
-- audience: Todo
+- audience: Runtime Dev
   description: |-
-    .. And
+    Fix origin check in EPMB's manage extrinsic and:
 
-    - [x] Break down `Admin` and `Manager` origins for easier configuration
-    - [x] update the corresponding weights
-    - [x] a few more tests
-    - [x] complete the `manage` test cases.
+    - Break down `Admin` and `Manager` origins/extrinsics for easier configuration
+    - update the corresponding weights
 crates:
 - name: asset-hub-westend-runtime
   bump: major
