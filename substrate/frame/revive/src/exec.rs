@@ -2046,6 +2046,15 @@ where
 	}
 
 	fn origin(&self) -> &Origin<T> {
+		if let Some(mock_origin) = self
+			.exec_config
+			.mock_handler
+			.as_ref()
+			.and_then(|mock_handler| mock_handler.mock_origin())
+		{
+			return mock_origin;
+		}
+
 		&self.origin
 	}
 
