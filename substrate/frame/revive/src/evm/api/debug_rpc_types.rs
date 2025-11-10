@@ -167,8 +167,7 @@ pub enum CallType {
 }
 
 /// A Trace
-#[derive(TypeInfo, Serialize, From, Encode, Decode, Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "std", derive(Deserialize))]
+#[derive(TypeInfo, Deserialize, Serialize, From, Encode, Decode, Clone, Debug, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum Trace {
 	/// A call trace.
