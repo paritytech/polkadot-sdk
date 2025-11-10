@@ -27,7 +27,6 @@ use serde::{
 use sp_core::{H160, H256, U256};
 
 /// The type of tracer to use.
-/// Only "callTracer" is supported for now.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "tracer", content = "tracerConfig", rename_all = "camelCase")]
 pub enum TracerType {
