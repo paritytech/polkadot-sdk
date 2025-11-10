@@ -127,7 +127,7 @@ polkadot-node-core-chain-api = { optional = true, workspace = true, default-feat
 polkadot-node-core-chain-selection = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-dispute-coordinator = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-prospective-parachains = { optional = true, workspace = true, default-features = true }
-polkadot-node-core-consensus-statistics-collector = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-rewards-statistics-collector = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-provisioner = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-pvf = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-pvf-checker = { optional = true, workspace = true, default-features = true }
@@ -170,7 +170,7 @@ full-node = [
 	"polkadot-node-core-chain-selection",
 	"polkadot-node-core-dispute-coordinator",
 	"polkadot-node-core-prospective-parachains",
-	"polkadot-node-core-consensus-statistics-collector",
+	"polkadot-node-core-rewards-statistics-collector",
 	"polkadot-node-core-provisioner",
 	"polkadot-node-core-pvf",
 	"polkadot-node-core-pvf-checker",

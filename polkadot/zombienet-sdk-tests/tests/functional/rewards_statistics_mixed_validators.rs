@@ -34,6 +34,7 @@ async fn rewards_statistics_mixed_validators_test() -> Result<(), anyhow::Error>
                 .with_genesis_overrides(json!({
 					"configuration": {
 						"config": {
+                            "relay_vrf_modulo_samples": 1,
 							"scheduler_params": {
 								"group_rotation_frequency": 4
 							}
@@ -51,16 +52,11 @@ async fn rewards_statistics_mixed_validators_test() -> Result<(), anyhow::Error>
                     node.with_name(&format!("malus-{i}"))
                         .with_args(vec![
                             "-lparachain=debug,MALUS=trace".into(),
-                            "--alice".into(),
+                            "--no-hardware-benchmarks".into(),
                             "--insecure-validator-i-know-what-i-do".into(),
                         ])
-                        .with_image(
-                            std::env::var("MALUS_IMAGE")
-                                .unwrap_or("docker.io/paritypr/malus".to_string())
-                                .as_str(),
-                        )
                         .with_command("malus")
-                        .with_subcommand("dispute-valid-candidates")
+                        .with_subcommand("dispute-ancestor")
                         .invulnerable(false)
                 })
             })
@@ -96,21 +92,16 @@ async fn rewards_statistics_mixed_validators_test() -> Result<(), anyhow::Error>
     let relay_node = network.get_node("validator-0")?;
     let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-    let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
-
-    // wait for session one to be finalized
-    wait_for_nth_session_change(&mut blocks_sub, 2).await;
-
-    assert_approval_usages_medians(
-        1,
-        12,
-        vec![("validator", 0..9), ("malus", 9..12)],
-        &network,
+    assert_para_throughput(
+        &relay_client,
+        15,
+        [(ParaId::from(2000), 11..16), (ParaId::from(2001), 11..16)]
+            .into_iter()
+            .collect(),
     ).await?;
 
     Ok(())
 }
-
 async fn assert_approval_usages_medians(
     session: SessionIndex,
     num_validators: usize,

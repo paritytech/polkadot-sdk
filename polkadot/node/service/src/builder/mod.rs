@@ -41,7 +41,10 @@ use polkadot_node_core_chain_selection::{
 	self as chain_selection_subsystem, Config as ChainSelectionConfig,
 };
 use polkadot_node_core_dispute_coordinator::Config as DisputeCoordinatorConfig;
-use polkadot_node_core_consensus_statistics_collector::Config as ConsensusStatisticsCollectorConfig;
+use polkadot_node_core_rewards_statistics_collector::{
+	Config as RewardsStatisticsCollectorConfig,
+	RewardsStatisticsCollector
+};
 use polkadot_node_network_protocol::{
 	peer_set::{PeerSet, PeerSetProtocolNames},
 	request_response::{IncomingRequest, ReqProtocolNames},
@@ -63,7 +66,6 @@ use std::{
 	sync::Arc,
 	time::Duration,
 };
-use polkadot_node_core_consensus_statistics_collector::ConsensusStatisticsCollector;
 
 /// Polkadot node service initialization parameters.
 pub struct NewFullParams<OverseerGenerator: OverseerGen> {
@@ -441,7 +443,7 @@ where
 				},
 			};
 
-			let consensus_statistics_collector_config = ConsensusStatisticsCollectorConfig{
+			let consensus_statistics_collector_config = RewardsStatisticsCollectorConfig{
 				publish_per_validator_approval_metrics,
 			};
 

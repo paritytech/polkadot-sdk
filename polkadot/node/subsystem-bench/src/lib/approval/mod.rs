@@ -54,9 +54,9 @@ use polkadot_node_primitives::approval::time::{
 	slot_number_to_tick, tick_to_slot_number, Clock, ClockExt, SystemClock,
 };
 
-use polkadot_node_core_consensus_statistics_collector::{
-	ConsensusStatisticsCollector as ConsensusStatisticsCollectorSubsystem,
-	metrics::Metrics as ConsensusStatisticsMetrics,
+use polkadot_node_core_rewards_statistics_collector::{
+	RewardsStatisticsCollector as RewardsStatisticsCollectorSubsystem,
+	metrics::Metrics as RewardsStatisticsMetrics,
 };
 use polkadot_node_core_approval_voting::{
 	ApprovalVotingSubsystem, Config as ApprovalVotingConfig, RealAssignmentCriteria,

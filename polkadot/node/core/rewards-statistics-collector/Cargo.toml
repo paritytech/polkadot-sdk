@@ -1,5 +1,5 @@
 [package]
-name = "polkadot-node-core-consensus-statistics-collector"
+name = "polkadot-node-core-rewards-statistics-collector"
 version = "6.0.0"
 authors.workspace = true
 edition.workspace = true

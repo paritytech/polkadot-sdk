@@ -36,7 +36,7 @@ polkadot-availability-recovery = { features = ["subsystem-benchmarks"], workspac
 polkadot-dispute-distribution = { workspace = true, default-features = true }
 polkadot-node-core-av-store = { workspace = true, default-features = true }
 polkadot-node-core-dispute-coordinator = { workspace = true, default-features = true }
-polkadot-node-core-consensus-statistics-collector = { workspace = true, default-features = true }
+polkadot-node-core-rewards-statistics-collector = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }

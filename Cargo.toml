@@ -180,7 +180,7 @@ members = [
 	"polkadot/node/core/dispute-coordinator",
 	"polkadot/node/core/parachains-inherent",
 	"polkadot/node/core/prospective-parachains",
-	"polkadot/node/core/consensus-statistics-collector",
+	"polkadot/node/core/rewards-statistics-collector",
 	"polkadot/node/core/provisioner",
 	"polkadot/node/core/pvf",
 	"polkadot/node/core/pvf-checker",
@@ -1141,7 +1141,7 @@ polkadot-node-core-chain-selection = { path = "polkadot/node/core/chain-selectio
 polkadot-node-core-dispute-coordinator = { path = "polkadot/node/core/dispute-coordinator", default-features = false }
 polkadot-node-core-parachains-inherent = { path = "polkadot/node/core/parachains-inherent", default-features = false }
 polkadot-node-core-prospective-parachains = { path = "polkadot/node/core/prospective-parachains", default-features = false }
-polkadot-node-core-consensus-statistics-collector = { path = "polkadot/node/core/consensus-statistics-collector", default-features = false }
+polkadot-node-core-rewards-statistics-collector = { path = "polkadot/node/core/rewards-statistics-collector", default-features = false }
 polkadot-node-core-provisioner = { path = "polkadot/node/core/provisioner", default-features = false }
 polkadot-node-core-pvf = { path = "polkadot/node/core/pvf",	default-features = false }
 polkadot-node-core-pvf-checker = { path = "polkadot/node/core/pvf-checker", default-features = false }

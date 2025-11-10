@@ -52,7 +52,7 @@ use crate::availability_distribution_metrics::{handle_chunk_uploaded, handle_chu
 use self::metrics::Metrics;
 
 const MAX_SESSIONS_TO_KEEP: u32 = 2;
-const LOG_TARGET: &str = "parachain::consensus-statistics-collector";
+const LOG_TARGET: &str = "parachain::rewards-statistics-collector";
 
 #[derive(Default)]
 pub struct Config {
@@ -131,12 +131,12 @@ impl View {
 
 /// The statistics collector subsystem.
 #[derive(Default)]
-pub struct ConsensusStatisticsCollector {
+pub struct RewardsStatisticsCollector {
     metrics: Metrics,
     config: Config
 }
 
-impl ConsensusStatisticsCollector {
+impl RewardsStatisticsCollector {
     /// Create a new instance of the `ConsensusStatisticsCollector`.
     pub fn new(metrics: Metrics, config: Config) -> Self {
         Self {
@@ -147,7 +147,7 @@ impl ConsensusStatisticsCollector {
 }
 
 #[overseer::subsystem(ConsensusStatisticsCollector, error = SubsystemError, prefix = self::overseer)]
-impl<Context> ConsensusStatisticsCollector
+impl<Context> RewardsStatisticsCollector
 where
     Context: Send + Sync,
 {
@@ -156,7 +156,7 @@ where
             future: run(ctx, (self.metrics, self.config.publish_per_validator_approval_metrics))
                 .map_err(|e| SubsystemError::with_origin("statistics-parachains", e))
                 .boxed(),
-            name: "consensus-statistics-collector-subsystem",
+            name: "rewards-statistics-collector-subsystem",
         }
     }
 }

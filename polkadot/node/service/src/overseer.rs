@@ -21,7 +21,7 @@ use sp_core::traits::SpawnNamed;
 
 use polkadot_availability_distribution::IncomingRequestReceivers;
 use polkadot_node_core_approval_voting::Config as ApprovalVotingConfig;
-use polkadot_node_core_consensus_statistics_collector::Config as ConsensusStatisticsCollectorConfig;
+use polkadot_node_core_rewards_statistics_collector::Config as RewardsStatisticsCollectorConfig;
 use polkadot_node_core_av_store::Config as AvailabilityConfig;
 use polkadot_node_core_candidate_validation::Config as CandidateValidationConfig;
 use polkadot_node_core_chain_selection::Config as ChainSelectionConfig;
@@ -78,7 +78,7 @@ pub use polkadot_node_core_provisioner::ProvisionerSubsystem;
 pub use polkadot_node_core_pvf_checker::PvfCheckerSubsystem;
 pub use polkadot_node_core_runtime_api::RuntimeApiSubsystem;
 pub use polkadot_statement_distribution::StatementDistributionSubsystem;
-pub use polkadot_node_core_consensus_statistics_collector::ConsensusStatisticsCollector;
+pub use polkadot_node_core_rewards_statistics_collector::RewardsStatisticsCollector;
 
 /// Arguments passed for overseer construction.
 pub struct OverseerGenArgs<'a, Spawner, RuntimeClient>
@@ -135,7 +135,7 @@ pub struct ExtendedOverseerGenArgs {
 	pub candidate_req_v2_receiver: IncomingRequestReceiver<request_v2::AttestedCandidateRequest>,
 	/// Configuration for the approval voting subsystem.
 	pub approval_voting_config: ApprovalVotingConfig,
-	pub consensus_statistics_collector_config: ConsensusStatisticsCollectorConfig,
+	pub consensus_statistics_collector_config: RewardsStatisticsCollectorConfig,
 	/// Receiver for incoming disputes.
 	pub dispute_req_receiver: IncomingRequestReceiver<request_v1::DisputeRequest>,
 	/// Configuration for the dispute coordinator subsystem.
@@ -224,7 +224,7 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		DisputeDistributionSubsystem<AuthorityDiscoveryService>,
 		ChainSelectionSubsystem,
 		ProspectiveParachainsSubsystem,
-		ConsensusStatisticsCollector,
+        RewardsStatisticsCollector,
 	>,
 	Error,
 >
@@ -358,7 +358,7 @@ where
 		))
 		.chain_selection(ChainSelectionSubsystem::new(chain_selection_config, parachains_db))
 		.prospective_parachains(ProspectiveParachainsSubsystem::new(Metrics::register(registry)?))
-		.consensus_statistics_collector(ConsensusStatisticsCollector::new(
+		.consensus_statistics_collector(RewardsStatisticsCollector::new(
 			Metrics::register(registry)?,
 			consensus_statistics_collector_config,
 		))
