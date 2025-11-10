@@ -377,10 +377,12 @@ impl Client {
 
 			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
 
-			if let Some(sender) = &self.block_notifier {
-				if sender.receiver_count() > 0 {
+			// Only broadcast for best blocks to avoid duplicate notifications.
+			match (subscription_type, &self.block_notifier) {
+				(SubscriptionType::BestBlocks, Some(sender)) if sender.receiver_count() > 0 => {
 					let _ = sender.send(hash);
-				}
+				},
+				_ => {},
 			}
 
 			Ok(())
