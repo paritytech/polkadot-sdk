@@ -8,6 +8,7 @@ pub use polkadot_parachain_primitives::primitives::{
 	Id as ParaId, IsSystem, Sibling as SiblingParaId,
 };
 pub use sp_core::U256;
+use sp_std::marker::PhantomData;
 
 use codec::Encode;
 use sp_core::H256;
@@ -30,6 +31,7 @@ pub type AgentIdOf = HashedDescription<
 		DescribeHere,
 		DescribeFamily<DescribeAllTerminal>,
 		DescribeGlobalPrefix<(DescribeTerminus, DescribeFamily<DescribeTokenTerminal>)>,
+		DescribeEthereumRoundTripAddress<DescribeAllTerminal>,
 	),
 >;
 
@@ -95,6 +97,26 @@ impl DescribeLocation for DescribeTokenTerminal {
 
 			// Reject all other locations
 			_ => None,
+		}
+	}
+}
+
+/// `DescribeEthereumRoundTripAddress` handles cases where an end user from Ethereum sends a message
+/// to Polkadot, and within the same XCM, constructs an inner XCM to send another message back to
+/// Ethereum. Since the original origin is preserved throughout, when the message arrives on
+/// BridgeHub, its location is re-anchored and represents as: `AliasOrigin: { parents: '0',
+/// interior: { X1: [ { AccountKey20: { network: null, key: key20 } } ] }` which was not supported
+/// by the previous Describe implementation.
+pub struct DescribeEthereumRoundTripAddress<DescribeInterior>(PhantomData<DescribeInterior>);
+impl<Suffix: DescribeLocation> DescribeLocation for DescribeEthereumRoundTripAddress<Suffix> {
+	fn describe_location(l: &Location) -> Option<Vec<u8>> {
+		match (l.parent_count(), l.first_interior()) {
+			(0, Some(AccountKey20 { .. })) => {
+				let tail = l.interior().clone().into();
+				let interior = Suffix::describe_location(&tail)?;
+				Some((b"RoundTrip", interior).encode())
+			},
+			_ => return None,
 		}
 	}
 }

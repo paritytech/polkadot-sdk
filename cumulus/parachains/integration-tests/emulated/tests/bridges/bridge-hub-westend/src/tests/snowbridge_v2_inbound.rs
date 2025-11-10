@@ -17,7 +17,7 @@ use crate::{
 	tests::snowbridge_common::{
 		erc20_token_location, eth_location, fund_on_ah, fund_on_bh, register_assets_on_ah,
 		register_foreign_asset, set_up_eth_and_dot_pool, set_up_eth_and_dot_pool_on_penpal,
-		snowbridge_sovereign, weth_location,
+		snowbridge_sovereign, weth_location, ETHEREUM_DESTINATION_ADDRESS,
 	},
 };
 use asset_hub_westend_runtime::ForeignAssets;
@@ -41,7 +41,7 @@ use snowbridge_inbound_queue_primitives::v2::{
 use sp_core::{H160, H256};
 use sp_io::hashing::blake2_256;
 use sp_runtime::MultiAddress;
-use xcm::opaque::latest::AssetTransferFilter::ReserveDeposit;
+use xcm::opaque::latest::{AssetTransferFilter, AssetTransferFilter::ReserveDeposit};
 use xcm_executor::traits::ConvertLocation;
 
 const TOKEN_AMOUNT: u128 = 100_000_000_000;
@@ -51,6 +51,15 @@ const INITIAL_FUND: u128 = 5_000_000_000_000;
 
 /// An ERC-20 token to be registered and sent.
 const TOKEN_ID: [u8; 20] = hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2");
+
+/// USDC ERC-20 token address (using a mock address for testing)
+const USDC_TOKEN_ID: [u8; 20] = hex!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48");
+const ORIGIN: [u8; 20] = hex!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48");
+
+/// Helper function to get USDC location
+fn usdc_location() -> Location {
+	erc20_token_location(USDC_TOKEN_ID.into())
+}
 
 #[test]
 fn register_token_v2() {
@@ -1089,6 +1098,243 @@ pub fn add_tip_from_asset_hub_user_origin() {
 					if *sender == relayer &&*message_id == tip_message_id.clone() && *success, // expect success
 			)),
 			"tip added event found"
+		);
+	});
+}
+
+#[test]
+fn send_token_with_swap_and_bridge_back_v2() {
+	let relayer_account = BridgeHubWestendSender::get();
+	let relayer_reward = 1_500_000_000_000u128;
+	let claimer = AccountId32 { network: None, id: H256::random().into() };
+	let claimer_bytes = claimer.encode();
+
+	// Register USDC as a foreign asset
+	register_foreign_asset(usdc_location());
+
+	// Set up ETH/DOT pool
+	crate::tests::snowbridge_common::create_pools_on_ah();
+
+	// Set up DOT/USDC pool
+	let ethereum_sovereign = snowbridge_sovereign();
+	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND * 10)]);
+	create_pool_with_native_on!(AssetHubWestend, usdc_location(), true, ethereum_sovereign.clone());
+
+	// Amount of ETH to send from Ethereum
+	let eth_transfer_value = 100_000_000_000_000u128;
+	let eth_swap_value = 70_000_000_000_000u128;
+
+	// Expected amounts after swaps (these are approximate and depend on pool liquidity)
+	let expected_dot_amount = 12_000_000_000_000u128;
+	let dot_reserved_for_fees = 4_000_000_000_000u128;
+	let dot_for_usdc_swap = expected_dot_amount - dot_reserved_for_fees;
+	let expected_usdc_amount = 1_500_000_00000u128;
+
+	let ether_fee_for_bridge = 20_000_000_000_000u128;
+
+	let assets = vec![];
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+
+		let dot_asset = Location::new(1, Here);
+		let eth_asset_location = eth_location();
+		let usdc_asset_location = usdc_location();
+
+		// Build the XCM instructions
+		let instructions = vec![
+			// Step 1: Swap all ETHER for DOT
+			ExchangeAsset {
+				give: Definite(vec![(eth_asset_location.clone(), eth_swap_value).into()].into()),
+				want: vec![(dot_asset.clone(), expected_dot_amount).into()].into(),
+				maximal: true,
+			},
+			// Step 2: Swap most DOT for USDC, keeping dot_reserved_for_fees
+			ExchangeAsset {
+				give: Definite(vec![(dot_asset.clone(), dot_for_usdc_swap).into()].into()),
+				want: vec![(usdc_asset_location.clone(), expected_usdc_amount).into()].into(),
+				maximal: true,
+			},
+			// Step 3: Initiate transfer to send USDC back to Ethereum
+			InitiateTransfer {
+				destination: Location::new(2, [GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })]),
+				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
+					vec![(eth_asset_location.clone(), ether_fee_for_bridge).into()].into(),
+				))),
+				preserve_origin: true,
+				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveWithdraw(
+					Wild(AllOf {
+						id: AssetId(usdc_asset_location.clone()),
+						fun: WildFungibility::Fungible,
+					}),
+				)]),
+				remote_xcm: vec![DepositAsset {
+					assets: Wild(All),
+					beneficiary: Location::new(
+						0,
+						[AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }],
+					),
+				}]
+				.into(),
+			},
+		];
+
+		let xcm: Xcm<()> = instructions.into();
+		let versioned_message_xcm = VersionedXcm::V5(xcm);
+		let origin = EthereumGatewayAddress::get();
+
+		let message = Message {
+			gateway: origin,
+			nonce: 1,
+			origin: ORIGIN.into(),
+			assets,
+			xcm: XcmPayload::Raw(versioned_message_xcm.encode()),
+			claimer: Some(claimer_bytes),
+			value: eth_transfer_value + 10_500_000_000_000u128 + 103_106_789_997_917u128,
+			execution_fee: 123_106_789_997_917u128,
+			relayer_fee: relayer_reward,
+		};
+
+		EthereumInboundQueueV2::process_message(relayer_account.clone(), message).unwrap();
+
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![
+				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
+				// Check that the relayer reward was registered.
+				RuntimeEvent::BridgeRelayers(pallet_bridge_relayers::Event::RewardRegistered { relayer, reward_kind, reward_balance }) => {
+					relayer: *relayer == relayer_account,
+					reward_kind: *reward_kind == BridgeReward::Snowbridge,
+					reward_balance: *reward_balance == relayer_reward,
+				},
+			]
+		);
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				// message processed successfully
+				RuntimeEvent::MessageQueue(
+					pallet_message_queue::Event::Processed { success: true, .. }
+				) => {},
+			]
+		);
+
+		let events = AssetHubWestend::events();
+		println!("AssetHubWestend::events(): {:?}", events);
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
+		);
+	});
+}
+
+#[test]
+fn send_usdc_from_asset_hub_to_ethereum() {
+	fund_on_bh();
+	register_assets_on_ah();
+	fund_on_ah();
+
+	// Register USDC as a foreign asset
+	register_foreign_asset(usdc_location());
+
+	let snowbridge_sovereign = snowbridge_sovereign();
+
+	// Fund AssetHub sender with USDC
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		// Mint USDC to sender
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint(
+			RuntimeOrigin::signed(snowbridge_sovereign),
+			usdc_location().clone().into(),
+			AssetHubWestendSender::get().into(),
+			32_864_721u128,
+		));
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		// Build the XCM to send to BridgeHub, which will then export to Ethereum
+		let xcm = VersionedXcm::from(Xcm(vec![
+			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+			ExportMessage {
+				network: Ethereum { chain_id: 11155111 },
+				destination: Here,
+				xcm: Xcm(vec![
+					// Withdraw ETH for fees
+					WithdrawAsset(
+						vec![(Location::new(0, Here), 10_000_000_000_000_000u128).into()].into(),
+					),
+					// Pay fees with ETH
+					PayFees { asset: (Location::new(0, Here), 10_000_000_000_000_000u128).into() },
+					// Withdraw USDC
+					WithdrawAsset(
+						vec![(
+							Location::new(
+								0,
+								[AccountKey20 {
+									network: None,
+									key: hex!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"),
+								}],
+							),
+							32_864_721u128,
+						)
+							.into()]
+						.into(),
+					),
+					// Set origin to Ethereum beneficiary
+					AliasOrigin(Location::new(
+						0,
+						[AccountKey20 {
+							network: None,
+							key: hex!("c189de708158e75e5c88c0abfa5f9a26c71f54d1"),
+						}],
+					)),
+					//AliasOrigin(Location::new(0, Here)),
+					// Deposit assets to beneficiary
+					DepositAsset {
+						assets: Wild(AllCounted(2)),
+						beneficiary: Location::new(
+							0,
+							[AccountKey20 {
+								network: None,
+								key: hex!("c189de708158e75e5c88c0abfa5f9a26c71f54d1"),
+							}],
+						),
+					},
+					SetTopic(H256::zero().into()),
+				]),
+			},
+			SetTopic(H256::zero().into()),
+		]));
+
+		// Send XCM from AssetHub (Parachain 1000) to BridgeHub
+		let destination = AssetHubWestend::sibling_location_of(BridgeHubWestend::para_id());
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::send(
+			RuntimeOrigin::root(),
+			bx!(destination.into()),
+			bx!(xcm),
+		));
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		// Check that the Ethereum message was queued in the Outbound Queue
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![
+				RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},
+			]
 		);
 	});
 }

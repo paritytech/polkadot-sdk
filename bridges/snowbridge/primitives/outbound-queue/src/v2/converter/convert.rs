@@ -5,6 +5,7 @@
 use codec::DecodeAll;
 use core::slice::Iter;
 use frame_support::{ensure, BoundedVec};
+use hex_literal::hex;
 use snowbridge_core::{AgentIdOf, TokenId, TokenIdOf};
 
 use crate::v2::{
@@ -243,6 +244,13 @@ where
 		let origin_location = match_expression!(self.next()?, AliasOrigin(origin), origin)
 			.ok_or(AliasOriginExpected)?;
 		let origin = AgentIdOf::convert_location(origin_location).ok_or(InvalidOrigin)?;
+		// This ensures that, under no circumstances, the origin can hash to the V1 Asset Hub agent
+		// — the primary agent that holds all Snowbridge-locked assets.
+		ensure!(
+			origin !=
+				hex!("81c5ab2571199e3188135178f3c2c8e2d268be1313d029b30f534fa579b69b79").into(),
+			InvalidOrigin
+		);
 
 		let (deposit_assets, beneficiary) = match_expression!(
 			self.next()?,
