@@ -25,13 +25,13 @@ use crate::{
 		},
 		Block, HashesOrTransactionInfos, TYPE_EIP1559, TYPE_EIP2930, TYPE_EIP4844, TYPE_EIP7702,
 	},
-	ReceiptGasInfo,
+	Config, ReceiptGasInfo,
 };
 
 use alloc::{vec, vec::Vec};
 
 use codec::{Decode, Encode};
-use frame_support::DefaultNoBound;
+use frame_support::traits::Time;
 use scale_info::TypeInfo;
 use sp_core::{keccak_256, H160, H256, U256};
 
@@ -41,22 +41,39 @@ const LOG_TARGET: &str = "runtime::revive::block_builder";
 ///
 /// This builder is optimized to minimize memory usage and pallet storage by leveraging the internal
 /// structure of the Ethereum trie and the RLP encoding of receipts.
-#[derive(DefaultNoBound)]
 pub struct EthereumBlockBuilder<T> {
 	pub(crate) transaction_root_builder: IncrementalHashBuilder,
 	pub(crate) receipts_root_builder: IncrementalHashBuilder,
 	pub(crate) tx_hashes: Vec<H256>,
 	gas_used: U256,
+	base_fee_per_gas: U256,
+	block_gas_limit: U256,
 	logs_bloom: LogsBloom,
 	gas_info: Vec<ReceiptGasInfo>,
 	_phantom: core::marker::PhantomData<T>,
+}
+
+impl<T: Config> Default for EthereumBlockBuilder<T> {
+	fn default() -> Self {
+		Self {
+			transaction_root_builder: IncrementalHashBuilder::default(),
+			receipts_root_builder: IncrementalHashBuilder::default(),
+			gas_used: U256::zero(),
+			tx_hashes: vec![],
+			logs_bloom: LogsBloom::default(),
+			gas_info: vec![],
+			base_fee_per_gas: crate::Pallet::<T>::evm_base_fee(),
+			block_gas_limit: crate::Pallet::<T>::evm_block_gas_limit(),
+			_phantom: core::marker::PhantomData,
+		}
+	}
 }
 
 impl<T: crate::Config> EthereumBlockBuilder<T> {
 	/// Converts the builder into an intermediate representation.
 	///
 	/// The intermediate representation is extracted from the pallet storage.
-	pub fn to_ir(self) -> EthereumBlockBuilderIR {
+	pub fn to_ir(self) -> EthereumBlockBuilderIR<T> {
 		EthereumBlockBuilderIR {
 			transaction_root_builder: self.transaction_root_builder.to_ir(),
 			receipts_root_builder: self.receipts_root_builder.to_ir(),
@@ -64,17 +81,22 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 			tx_hashes: self.tx_hashes,
 			logs_bloom: self.logs_bloom.bloom,
 			gas_info: self.gas_info,
+			base_fee_per_gas: self.base_fee_per_gas,
+			block_gas_limit: self.block_gas_limit,
+			_phantom: core::marker::PhantomData,
 		}
 	}
 
 	/// Converts the intermediate representation back into a builder.
 	///
 	/// The intermediate representation is placed into the pallet storage.
-	pub fn from_ir(ir: EthereumBlockBuilderIR) -> Self {
+	pub fn from_ir(ir: EthereumBlockBuilderIR<T>) -> Self {
 		Self {
 			transaction_root_builder: IncrementalHashBuilder::from_ir(ir.transaction_root_builder),
 			receipts_root_builder: IncrementalHashBuilder::from_ir(ir.receipts_root_builder),
 			gas_used: ir.gas_used,
+			base_fee_per_gas: ir.base_fee_per_gas,
+			block_gas_limit: ir.block_gas_limit,
 			tx_hashes: ir.tx_hashes,
 			logs_bloom: LogsBloom { bloom: ir.logs_bloom },
 			gas_info: ir.gas_info,
@@ -145,14 +167,27 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 	}
 
 	/// Build the ethereum block from provided data.
-	pub fn build(
+	pub fn build_block(&mut self, block_number: U256) -> (Block, Vec<ReceiptGasInfo>) {
+		let parent_hash = if block_number > U256::zero() {
+			crate::BlockHash::<T>::get(block_number - 1)
+		} else {
+			H256::default()
+		};
+		// Eth uses timestamps in seconds
+		let timestamp = (T::Time::now() / 1000u32.into()).into();
+		let block_author = crate::Pallet::<T>::block_author();
+
+		self.build_block_with_params(block_number, parent_hash, timestamp, block_author)
+	}
+
+	/// Build the ethereum block from provided parameters.
+	/// This is useful for testing with custom block metadata.
+	fn build_block_with_params(
 		&mut self,
 		block_number: U256,
-		base_fee_per_gas: U256,
 		parent_hash: H256,
 		timestamp: U256,
 		block_author: H160,
-		gas_limit: U256,
 	) -> (Block, Vec<ReceiptGasInfo>) {
 		if self.transaction_root_builder.needs_first_value(BuilderPhase::Build) {
 			if let Some((first_tx, first_receipt)) = self.pallet_take_first_values() {
@@ -177,13 +212,13 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 			parent_hash,
 			timestamp,
 			miner: block_author,
-			gas_limit,
 
 			state_root: transactions_root,
 			transactions_root,
 			receipts_root,
 
-			base_fee_per_gas,
+			gas_limit: self.block_gas_limit,
+			base_fee_per_gas: self.base_fee_per_gas,
 			gas_used: self.gas_used,
 
 			logs_bloom: self.logs_bloom.bloom.into(),
@@ -221,16 +256,20 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 
 /// The intermediate representation of the Ethereum block builder.
 #[derive(Encode, Decode, TypeInfo)]
-pub struct EthereumBlockBuilderIR {
+#[scale_info(skip_type_params(T))]
+pub struct EthereumBlockBuilderIR<T: Config> {
 	transaction_root_builder: IncrementalHashBuilderIR,
 	receipts_root_builder: IncrementalHashBuilderIR,
+	base_fee_per_gas: U256,
+	block_gas_limit: U256,
 	gas_used: U256,
 	logs_bloom: [u8; BLOOM_SIZE_BYTES],
 	pub(crate) tx_hashes: Vec<H256>,
 	pub(crate) gas_info: Vec<ReceiptGasInfo>,
+	_phantom: core::marker::PhantomData<T>,
 }
 
-impl Default for EthereumBlockBuilderIR {
+impl<T: Config> Default for EthereumBlockBuilderIR<T> {
 	fn default() -> Self {
 		Self {
 			// Default not implemented for [u8; BLOOM_SIZE_BYTES]
@@ -240,6 +279,9 @@ impl Default for EthereumBlockBuilderIR {
 			gas_used: U256::zero(),
 			tx_hashes: Vec::new(),
 			gas_info: Vec::new(),
+			base_fee_per_gas: crate::Pallet::<T>::evm_base_fee(),
+			block_gas_limit: crate::Pallet::<T>::evm_block_gas_limit(),
+			_phantom: core::marker::PhantomData,
 		}
 	}
 }
@@ -425,20 +467,18 @@ mod test {
 
 				let ir = incremental_block.to_ir();
 				incremental_block = EthereumBlockBuilder::from_ir(ir);
-				println!(" Log size {:?}", log_size);
+				log::debug!(target: LOG_TARGET, " Log size {:?}", log_size);
 			}
 
 			// The block hash would differ here because we don't take into account
 			// the ommers and other fields from the substrate perspective.
 			// However, the state roots must be identical.
 			let built_block = incremental_block
-				.build(
+				.build_block_with_params(
 					block.number,
-					block.base_fee_per_gas,
 					block.parent_hash,
 					block.timestamp,
 					block.miner,
-					Default::default(),
 				)
 				.0;
 
@@ -456,7 +496,7 @@ mod test {
 			for enc in &encoded_tx {
 				total_size += enc.len();
 			}
-			println!("Total size used by transactions: {:?}", total_size);
+			log::debug!(target: LOG_TARGET, "Total size used by transactions: {:?}", total_size);
 
 			let mut builder = IncrementalHashBuilder::default();
 			let mut loaded = false;
@@ -478,10 +518,10 @@ mod test {
 
 			let incremental_hash = builder.finish();
 
-			println!("Incremental hash: {:?}", incremental_hash);
-			println!("Manual Hash: {:?}", manual_hash);
-			println!("Built block Hash: {:?}", built_block.transactions_root);
-			println!("Real Block Tx Hash: {:?}", block.transactions_root);
+			log::debug!(target: LOG_TARGET, "Incremental hash: {incremental_hash:?}");
+			log::debug!(target: LOG_TARGET, "Manual Hash: {manual_hash:?}");
+			log::debug!(target: LOG_TARGET, "Built block Hash: {:?}", built_block.transactions_root);
+			log::debug!(target: LOG_TARGET, "Real Block Tx Hash: {:?}", block.transactions_root);
 
 			assert_eq!(incremental_hash, block.transactions_root);
 

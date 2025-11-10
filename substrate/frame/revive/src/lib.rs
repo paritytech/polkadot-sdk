@@ -674,7 +674,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::unbounded]
 	pub(crate) type EthBlockBuilderIR<T: Config> =
-		StorageValue<_, EthereumBlockBuilderIR, ValueQuery>;
+		StorageValue<_, EthereumBlockBuilderIR<T>, ValueQuery>;
 
 	/// The first transaction and receipt of the ethereum block.
 	///
@@ -820,14 +820,7 @@ pub mod pallet {
 			}
 
 			// Build genesis block
-			block_storage::on_finalize_build_eth_block::<T>(
-				H160::zero(),
-				frame_system::Pallet::<T>::block_number().into(),
-				Pallet::<T>::evm_base_fee(),
-				Pallet::<T>::evm_block_gas_limit(),
-				// Eth uses timestamps in seconds
-				(T::Time::now() / 1000u32.into()).into(),
-			);
+			block_storage::on_finalize_build_eth_block::<T>();
 
 			// Set debug settings.
 			if let Some(settings) = self.debug_settings.as_ref() {
@@ -854,16 +847,9 @@ pub mod pallet {
 			<T as Config>::WeightInfo::on_finalize_block_fixed()
 		}
 
-		fn on_finalize(block_number: BlockNumberFor<T>) {
+		fn on_finalize(_block_number: BlockNumberFor<T>) {
 			// Build the ethereum block and place it in storage.
-			block_storage::on_finalize_build_eth_block::<T>(
-				Self::block_author(),
-				block_number.into(),
-				Self::evm_base_fee(),
-				Self::evm_block_gas_limit(),
-				// Eth uses timestamps in seconds
-				(T::Time::now() / 1000u32.into()).into(),
-			);
+			block_storage::on_finalize_build_eth_block::<T>();
 		}
 
 		fn integrity_test() {

@@ -202,31 +202,14 @@ pub fn on_initialize<T: Config>() {
 }
 
 /// Build the ethereum block and store it into the pallet storage.
-pub fn on_finalize_build_eth_block<T: Config>(
-	block_author: H160,
-	eth_block_num: U256,
-	eth_block_base_fee: U256,
-	gas_limit: U256,
-	timestamp: U256,
-) {
-	let parent_hash = if eth_block_num > U256::zero() {
-		BlockHash::<T>::get(eth_block_num - 1)
-	} else {
-		H256::default()
-	};
-
+pub fn on_finalize_build_eth_block<T: Config>() {
 	let block_builder_ir = EthBlockBuilderIR::<T>::get();
 	EthBlockBuilderIR::<T>::kill();
 
 	// Load the first values if not already loaded.
-	let (block, receipt_data) = EthereumBlockBuilder::<T>::from_ir(block_builder_ir).build(
-		eth_block_num,
-		eth_block_base_fee,
-		parent_hash,
-		timestamp,
-		block_author,
-		gas_limit,
-	);
+	let eth_block_num = frame_system::Pallet::<T>::block_number().into();
+	let (block, receipt_data) =
+		EthereumBlockBuilder::<T>::from_ir(block_builder_ir).build_block(eth_block_num);
 
 	// Put the block hash into storage.
 	BlockHash::<T>::insert(eth_block_num, block.hash);
