@@ -968,6 +968,9 @@ mod benchmarks {
 		let xcm = T::worst_case_for_not_passing_barrier().map_err(|_| BenchmarkError::Skip)?;
 		let mut executor = ExecuteXcmOf::<T>::new(Location::default(), XcmHash::default());
 
+		// Whitelist the hot read so it doesn't count towards PoV.
+		frame_benchmarking::benchmarking::add_to_whitelist(<pallet_xcm::ShouldRecordXcm<T>>::hashed_key().to_vec());
+
 		#[block]
 		{
 			executor.execute(xcm.into())?;
