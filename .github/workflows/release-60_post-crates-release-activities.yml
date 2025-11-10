@@ -210,7 +210,7 @@ jobs:
 
           # Check if there are changes to commit
           if [[ -n $(git status --porcelain) ]]; then
-            commit_with_message "chore: post crates release actions - path deps, zepter, taplo"
+            commit_with_message "chore: post crates release actions - version bumps, path deps, zepter, taplo"
             echo "Changes committed successfully"
             # Push changes to the branch
             echo "Pushing changes to branch..."
