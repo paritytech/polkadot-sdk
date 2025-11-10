@@ -55,6 +55,7 @@ use core::marker::PhantomData;
 /// Weight functions needed for cumulus_pallet_parachain_system.
 pub trait WeightInfo {
 	fn enqueue_inbound_downward_messages(n: u32, ) -> Weight;
+	fn process_published_data(p: u32, k: u32, v: u32, ) -> Weight;
 }
 
 /// Weights for cumulus_pallet_parachain_system using the Substrate node and recommended hardware.
@@ -84,6 +85,33 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
+
+	/// Storage: `ParachainSystem::PreviousPublishedDataRoots` (r:1 w:1)
+	/// Proof: `ParachainSystem::PreviousPublishedDataRoots` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `ParachainSystem::PublishedData` (r:1600 w:1600)
+	/// Proof: `ParachainSystem::PublishedData` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// The range of component `p` is `[1, 100]`.
+	/// The range of component `k` is `[1, 16]`.
+	/// The range of component `v` is `[1, 1024]`.
+	fn process_published_data(p: u32, k: u32, _v: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0 + k * (8700 ±0) + p * (1453 ±0)`
+		//  Estimated: `42129 + k * (152196 ±69) + p * (24762 ±11)`
+		// Minimum execution time: 44_000_000 picoseconds.
+		Weight::from_parts(47_000_000, 42129)
+			// Standard Error: 358_553
+			.saturating_add(Weight::from_parts(30_340_884, 0).saturating_mul(p.into()))
+			// Standard Error: 2_254_225
+			.saturating_add(Weight::from_parts(160_483_325, 0).saturating_mul(k.into()))
+			.saturating_add(T::DbWeight::get().reads(17_u64))
+			.saturating_add(T::DbWeight::get().reads((10_u64).saturating_mul(p.into())))
+			.saturating_add(T::DbWeight::get().reads((59_u64).saturating_mul(k.into())))
+			.saturating_add(T::DbWeight::get().writes(17_u64))
+			.saturating_add(T::DbWeight::get().writes((10_u64).saturating_mul(p.into())))
+			.saturating_add(T::DbWeight::get().writes((59_u64).saturating_mul(k.into())))
+			.saturating_add(Weight::from_parts(0, 152196).saturating_mul(k.into()))
+			.saturating_add(Weight::from_parts(0, 24762).saturating_mul(p.into()))
+	}
 }
 
 // For backwards compatibility and tests
@@ -111,5 +139,32 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(25_300_108, 0).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
+	}
+
+	/// Storage: `ParachainSystem::PreviousPublishedDataRoots` (r:1 w:1)
+	/// Proof: `ParachainSystem::PreviousPublishedDataRoots` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `ParachainSystem::PublishedData` (r:1600 w:1600)
+	/// Proof: `ParachainSystem::PublishedData` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// The range of component `p` is `[1, 100]`.
+	/// The range of component `k` is `[1, 16]`.
+	/// The range of component `v` is `[1, 1024]`.
+	fn process_published_data(p: u32, k: u32, _v: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0 + k * (8700 ±0) + p * (1453 ±0)`
+		//  Estimated: `42129 + k * (152196 ±69) + p * (24762 ±11)`
+		// Minimum execution time: 44_000_000 picoseconds.
+		Weight::from_parts(47_000_000, 42129)
+			// Standard Error: 358_553
+			.saturating_add(Weight::from_parts(30_340_884, 0).saturating_mul(p.into()))
+			// Standard Error: 2_254_225
+			.saturating_add(Weight::from_parts(160_483_325, 0).saturating_mul(k.into()))
+			.saturating_add(RocksDbWeight::get().reads(17_u64))
+			.saturating_add(RocksDbWeight::get().reads((10_u64).saturating_mul(p.into())))
+			.saturating_add(RocksDbWeight::get().reads((59_u64).saturating_mul(k.into())))
+			.saturating_add(RocksDbWeight::get().writes(17_u64))
+			.saturating_add(RocksDbWeight::get().writes((10_u64).saturating_mul(p.into())))
+			.saturating_add(RocksDbWeight::get().writes((59_u64).saturating_mul(k.into())))
+			.saturating_add(Weight::from_parts(0, 152196).saturating_mul(k.into()))
+			.saturating_add(Weight::from_parts(0, 24762).saturating_mul(p.into()))
 	}
 }

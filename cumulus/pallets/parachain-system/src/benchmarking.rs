@@ -54,6 +54,59 @@ mod benchmarks {
 		assert_eq!(LastDmqMqcHead::<T>::get().head(), head);
 	}
 
+	/// Benchmark processing published data from the broadcaster pallet.
+	///
+	/// - `p`: Number of publishers with changed data
+	/// - `k`: Number of key-value pairs per publisher
+	/// - `v`: Size of each value in bytes
+	#[benchmark]
+	fn process_published_data(
+		p: Linear<1, 100>,
+		k: Linear<1, 16>,
+		v: Linear<1, 1024>,
+	) {
+		use alloc::collections::BTreeMap;
+
+		// Populate storage with existing data to maximize clear_prefix cost
+		for i in 0..p {
+			let para_id = ParaId::from(1000 + i);
+			for j in 0..k {
+				PublishedData::<T>::insert(
+					para_id,
+					vec![j as u8; 32],
+					vec![0u8; v as usize],
+				);
+			}
+		}
+
+		// Store initial roots
+		let initial_roots: BTreeMap<ParaId, Vec<u8>> = (0..p)
+			.map(|i| (ParaId::from(1000 + i), vec![0xBB; 32]))
+			.collect();
+		PreviousPublishedDataRoots::<T>::put(initial_roots);
+
+		// Prepare new data with changed roots
+		let mut published_data = BTreeMap::new();
+		let mut current_roots = Vec::new();
+
+		for i in 0..p {
+			let para_id = ParaId::from(1000 + i);
+			let entries: Vec<(Vec<u8>, Vec<u8>)> = (0..k)
+				.map(|j| (vec![j as u8; 32], vec![1u8; v as usize]))
+				.collect();
+			published_data.insert(para_id, entries);
+			current_roots.push((para_id, vec![0xAA; 32]));
+		}
+
+		#[block]
+		{
+			Pallet::<T>::process_published_data(&published_data, &current_roots);
+		}
+
+		// Verify storage updated
+		assert_eq!(PreviousPublishedDataRoots::<T>::get().len(), p as usize);
+	}
+
 	/// Re-implements an easy version of the `MessageQueueChain` for testing purposes.
 	fn mqp_head(msgs: &Vec<InboundDownwardMessage>) -> RelayHash {
 		let mut head = Default::default();

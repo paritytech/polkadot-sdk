@@ -703,8 +703,15 @@ pub mod pallet {
 			<RelevantMessagingState<T>>::put(relevant_messaging_state.clone());
 			<HostConfiguration<T>>::put(host_config);
 
-			// Store published data from the broadcaster pallet.
-			Self::store_published_data(&published_data.data);
+			// Extract published data roots from relay chain state
+			let current_roots = relay_state_proof
+				.read_published_data_roots()
+				.ok()
+				.flatten()
+				.unwrap_or_default();
+
+			// Process published data from the broadcaster pallet
+			total_weight.saturating_accrue(Self::process_published_data(&published_data.data, &current_roots));
 
 			<T::OnSystemEvent as OnSystemEvent>::on_validation_data(&vfp);
 
@@ -872,6 +879,16 @@ pub mod pallet {
 		Vec<u8>,          // Key
 		Vec<u8>,          // Value
 		OptionQuery,
+	>;
+
+	/// Previous data roots of published data, used to detect changes.
+	/// Contains (ParaId, root_hash) pairs from the previous block for comparison.
+	/// Stored as BTreeMap for efficient lookups without conversion overhead.
+	#[pallet::storage]
+	pub type PreviousPublishedDataRoots<T: Config> = StorageValue<
+		_,
+		BTreeMap<ParaId, Vec<u8>>,
+		ValueQuery,
 	>;
 
 	/// The snapshot of some state related to messaging relevant to the current parachain as per
@@ -1699,19 +1716,71 @@ impl<T: Config> Pallet<T> {
 		LastRelayChainBlockNumber::<T>::get()
 	}
 
-	/// Store all published data from parachains.
+	/// Process published data from the broadcaster pallet and store it in parachain storage.
 	///
-	/// Clears existing data and stores all new published data without filtering.
-	fn store_published_data(published_data: &BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>) {
-		// Clear all existing published data
-		let _ = PublishedData::<T>::clear(u32::MAX, None);
+	/// Uses child trie roots to detect changes between blocks, only updating storage for
+	/// publishers whose data has changed. Clears data for publishers that have been removed.
+	fn process_published_data(
+		published_data: &BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>,
+		current_roots: &Vec<(ParaId, Vec<u8>)>,
+	) -> Weight {
+		let previous_roots = <PreviousPublishedDataRoots<T>>::get();
 
-		// Store all new published data
-		for (publisher, data_entries) in published_data {
-			for (key, value) in data_entries {
-				PublishedData::<T>::insert(publisher, key, value);
+		if current_roots.is_empty() && published_data.is_empty() && previous_roots.is_empty() {
+			return T::DbWeight::get().reads(1);
+		}
+
+		// Calculate weight parameters for benchmarking
+		let mut p = 0u32;
+		let mut k = 0u32;
+		let mut v = 0u32;
+
+		for entries in published_data.values() {
+			p += 1;
+			let entry_count = entries.len() as u32;
+			k = k.max(entry_count);
+
+			for (_, value) in entries {
+				v = v.max(value.len() as u32);
 			}
 		}
+
+		// Convert current roots to map for efficient lookups.
+		let current_roots_map: BTreeMap<ParaId, Vec<u8>> = current_roots.iter()
+			.map(|(para_id, root)| (*para_id, root.clone()))
+			.collect();
+
+		// Update storage for publishers with changed roots.
+		for (publisher, data_entries) in published_data {
+			let should_update = match previous_roots.get(publisher) {
+				Some(prev_root) => match current_roots_map.get(publisher) {
+					Some(curr_root) if prev_root == curr_root => false,
+					_ => true,
+				},
+				None => true,
+			};
+
+			if should_update {
+				let result = PublishedData::<T>::clear_prefix(publisher, u32::MAX, None);
+				debug_assert!(result.maybe_cursor.is_none());
+
+				for (key, value) in data_entries {
+					PublishedData::<T>::insert(publisher, key, value);
+				}
+			}
+		}
+
+		// Clear storage for removed publishers.
+		for (para_id, _) in previous_roots.iter() {
+			if !current_roots_map.contains_key(para_id) {
+				let result = PublishedData::<T>::clear_prefix(para_id, u32::MAX, None);
+				debug_assert!(result.maybe_cursor.is_none());
+			}
+		}
+
+		<PreviousPublishedDataRoots<T>>::put(current_roots_map);
+
+		T::WeightInfo::process_published_data(p, k, v)
 	}
 }
 
