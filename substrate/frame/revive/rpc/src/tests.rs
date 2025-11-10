@@ -39,7 +39,6 @@ use pallet_revive::{
 };
 use static_init::dynamic;
 use std::{collections::BTreeMap, sync::Arc, thread};
-use substrate_cli_test_utils::*;
 use subxt::{
 	backend::rpc::RpcClient,
 	ext::subxt_rpcs::rpc_params,
@@ -72,14 +71,12 @@ struct SharedResources {
 
 impl SharedResources {
 	fn start() -> Self {
-		// Start the node.
+		// Start revive-dev-node
 		let _node_handle = thread::spawn(move || {
-			if let Err(e) = start_node_inline(vec![
-				"--dev",
-				"--rpc-port=45789",
-				"--no-telemetry",
-				"--no-prometheus",
-				"-lerror,evm=debug,sc_rpc_server=info,runtime::revive=trace",
+			if let Err(e) = revive_dev_node::command::run_with_args(vec![
+				"--dev".to_string(),
+				"--rpc-port=45789".to_string(),
+				"-lerror,sc_rpc_server=info,runtime::revive=debug".to_string(),
 			]) {
 				panic!("Node exited with error: {e:?}");
 			}
