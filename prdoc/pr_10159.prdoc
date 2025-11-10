@@ -3,12 +3,16 @@ doc:
 - audience: Runtime Dev
   description: |-
     Fixes https://github.com/paritytech/contract-issues/issues/180
+    This PR introduces eth_substrate_call, a new extrinsic in pallet-revive that enables Substrate runtime calls from Ethereum transactions. This allows tools like Hardhat to invoke Substrate extrinsics (e.g., upload_code) via the Ethereum RPC.
 
-    This PR introduces `eth_substrate_call`, a new extrinsic in pallet-revive that enables Substrate runtime calls from Ethereum transactions. This allows tools like Hardhat to invoke Substrate extrinsics (e.g., `upload_code`) via the Ethereum RPC.
+    This implements a new approach for dispatching Substrate extrinsics through the magic RUNTIME_PALLETS_ADDR address, which fixes two shortcomings of the previous implementation:
+    1. Incorrect origin verification - The origin is now correctly verified as EthTransaction.
+    2. Missing Ethereum transaction receipts - Receipts are now properly generated for all Ethereum transactions.
 
     Includes:
-    - New eth-rpc test validating the functionality
+    - New eth-rpc integration test validating end-to-end functionality
     - Benchmark measuring the extrinsic overhead
+    - Unit tests
 crates:
 - name: pallet-revive
   bump: patch
