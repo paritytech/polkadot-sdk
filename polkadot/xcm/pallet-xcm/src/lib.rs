@@ -941,6 +941,7 @@ pub mod pallet {
 	///
 	/// Only relevant if this pallet is being used as the [`xcm_executor::traits::RecordXcm`]
 	/// implementation in the XCM executor configuration.
+	#[pallet::whitelist_storage]
 	#[pallet::storage]
 	pub(crate) type ShouldRecordXcm<T: Config> = StorageValue<_, bool, ValueQuery>;
 
