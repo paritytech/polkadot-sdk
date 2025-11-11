@@ -54,6 +54,7 @@ env_logger = { workspace = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
 pretty_assertions = { workspace = true }
 revive-dev-node = { workspace = true }
+sp-io = { workspace = true, default-features = true }
 static_init = { workspace = true }
 
 [build-dependencies]
