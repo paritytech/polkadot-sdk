@@ -835,7 +835,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						RuntimeCall::Session(..) |
 						RuntimeCall::Utility(..) |
 						RuntimeCall::NominationPools(..) |
-						RuntimeCall::FastUnstake(..) |
 						RuntimeCall::VoterList(..)
 				)
 			},
@@ -1369,7 +1368,8 @@ construct_runtime!(
 		// Staking.
 		Staking: pallet_staking_async = 80,
 		NominationPools: pallet_nomination_pools = 81,
-		FastUnstake: pallet_fast_unstake = 82,
+		// decommissioned in AHs.
+		// FastUnstake: pallet_fast_unstake = 82,
 		VoterList: pallet_bags_list::<Instance1> = 83,
 		DelegatedStaking: pallet_delegated_staking = 84,
 		StakingRcClient: pallet_staking_async_rc_client = 89,
@@ -1679,12 +1679,10 @@ mod benches {
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
 		[pallet_conviction_voting, ConvictionVoting]
-		// Temporarily disabled due to https://github.com/paritytech/polkadot-sdk/issues/7714
-		// [pallet_election_provider_multi_block, MultiBlockElection]
-		// [pallet_election_provider_multi_block_verifier, MultiBlockElectionVerifier]
+		[pallet_election_provider_multi_block, MultiBlockElection]
+		[pallet_election_provider_multi_block_verifier, MultiBlockElectionVerifier]
 		[pallet_election_provider_multi_block_unsigned, MultiBlockElectionUnsigned]
 		[pallet_election_provider_multi_block_signed, MultiBlockElectionSigned]
-		[pallet_fast_unstake, FastUnstake]
 		[pallet_message_queue, MessageQueue]
 		[pallet_migrations, MultiBlockMigrations]
 		[pallet_multisig, Multisig]
