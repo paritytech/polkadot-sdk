@@ -25,7 +25,7 @@ use crate::{
 		},
 		Block, HashesOrTransactionInfos, TYPE_EIP1559, TYPE_EIP2930, TYPE_EIP4844, TYPE_EIP7702,
 	},
-	Config, ReceiptGasInfo,
+	Config, Pallet, ReceiptGasInfo,
 };
 
 use alloc::{vec, vec::Vec};
@@ -64,8 +64,8 @@ impl<T: Config> Default for EthereumBlockBuilder<T> {
 			tx_hashes: vec![],
 			logs_bloom: LogsBloom::default(),
 			gas_info: vec![],
-			base_fee_per_gas: crate::Pallet::<T>::evm_base_fee(),
-			block_gas_limit: crate::Pallet::<T>::evm_block_gas_limit(),
+			base_fee_per_gas: Pallet::<T>::evm_base_fee(),
+			block_gas_limit: Pallet::<T>::evm_block_gas_limit(),
 			_phantom: core::marker::PhantomData,
 		}
 	}
@@ -181,7 +181,7 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 		};
 		// Eth uses timestamps in seconds
 		let timestamp = (T::Time::now() / 1000u32.into()).into();
-		let block_author = crate::Pallet::<T>::block_author();
+		let block_author = Pallet::<T>::block_author();
 
 		let eth_block_num: U256 = block_number.into();
 		self.build_block_with_params(eth_block_num, parent_hash, timestamp, block_author)
@@ -286,8 +286,8 @@ impl<T: Config> Default for EthereumBlockBuilderIR<T> {
 			gas_used: U256::zero(),
 			tx_hashes: Vec::new(),
 			gas_info: Vec::new(),
-			base_fee_per_gas: crate::Pallet::<T>::evm_base_fee(),
-			block_gas_limit: crate::Pallet::<T>::evm_block_gas_limit(),
+			base_fee_per_gas: Pallet::<T>::evm_base_fee(),
+			block_gas_limit: Pallet::<T>::evm_block_gas_limit(),
 			_phantom: core::marker::PhantomData,
 		}
 	}
