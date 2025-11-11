@@ -745,8 +745,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						RuntimeCall::Utility { .. } |
 						RuntimeCall::Multisig { .. } |
 						RuntimeCall::NftFractionalization { .. } |
-						RuntimeCall::Nfts { .. } |
-						RuntimeCall::Uniques { .. }
+						RuntimeCall::Nfts { .. } | RuntimeCall::Uniques { .. }
 				)
 			},
 			ProxyType::AssetOwner => matches!(
@@ -832,8 +831,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				matches!(
 					c,
 					RuntimeCall::Staking(..) |
-						RuntimeCall::Session(..) |
-						RuntimeCall::Utility(..) |
+						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
 						RuntimeCall::NominationPools(..) |
 						RuntimeCall::VoterList(..)
 				)
@@ -1221,10 +1219,6 @@ impl pallet_migrations::Config for Runtime {
 	type Migrations = (
 		pallet_revive::migrations::v1::Migration<Runtime>,
 		pallet_revive::migrations::v2::Migration<Runtime>,
-		frame_support::migrations::RemovePallet<
-			FastUnstakeName,
-			<Runtime as frame_system::Config>::DbWeight,
-		>,
 	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1481,6 +1475,10 @@ pub type Migrations = (
 	pallet_session::migrations::v1::MigrateV0ToV1<
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
+	>,
+	frame_support::migrations::RemovePallet<
+		FastUnstakeName,
+		<Runtime as frame_system::Config>::DbWeight,
 	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
