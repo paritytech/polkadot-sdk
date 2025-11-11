@@ -470,9 +470,6 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff);
-
-	/// Are we inside the constructor?
-	fn entry_point(&self) -> ExportedFunction;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -2298,10 +2295,6 @@ where
 	fn charge_storage(&mut self, diff: &Diff) {
 		assert!(self.has_contract_info());
 		self.top_frame_mut().nested_storage.charge(diff)
-	}
-
-	fn entry_point(&self) -> ExportedFunction {
-		self.top_frame().entry_point
 	}
 }
 

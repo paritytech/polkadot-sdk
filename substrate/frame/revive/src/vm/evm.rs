@@ -17,7 +17,7 @@
 use crate::{
 	debug::DebugSettings,
 	precompiles::Token,
-	vm::{evm::instructions::exec_instruction, BytecodeType, ExecResult, ExportedFunction, Ext},
+	vm::{evm::instructions::exec_instruction, BytecodeType, ExecResult, Ext},
 	weights::WeightInfo,
 	AccountIdOf, CodeInfo, Config, ContractBlob, DispatchError, Error, Weight, H256, LOG_TARGET,
 };
@@ -138,11 +138,5 @@ fn run_plain<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt, Infa
 		let opcode = interpreter.bytecode.opcode();
 		interpreter.bytecode.relative_jump(1);
 		exec_instruction(interpreter, opcode)?;
-	}
-}
-
-impl ExportedFunction {
-	fn is_evm_constructor(&self) -> bool {
-		matches!(self, ExportedFunction::Constructor)
 	}
 }

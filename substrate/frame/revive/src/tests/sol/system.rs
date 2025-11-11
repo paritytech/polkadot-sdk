@@ -41,7 +41,7 @@ fn keccak_256_works(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.data(SystemFixture::constructorCall { panic: false }.abi_encode())
+			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
 			.build_and_unwrap_contract();
 
 		let pre = b"revive";
@@ -62,7 +62,7 @@ fn address_works(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.data(SystemFixture::constructorCall { panic: false }.abi_encode())
+			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
 			.build_and_unwrap_contract();
 
 		let result = builder::bare_call(addr)
@@ -81,7 +81,7 @@ fn caller_works(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.data(SystemFixture::constructorCall { panic: false }.abi_encode())
+			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
 			.build_and_unwrap_contract();
 
 		let result = builder::bare_call(addr)
@@ -100,7 +100,7 @@ fn callvalue_works(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.data(SystemFixture::constructorCall { panic: false }.abi_encode())
+			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
 			.build_and_unwrap_contract();
 
 		let value = 1337u64;
@@ -122,7 +122,7 @@ fn calldataload_works(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.data(SystemFixture::constructorCall { panic: false }.abi_encode())
+			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
 			.build_and_unwrap_contract();
 
 		let result = builder::bare_call(addr)
@@ -142,7 +142,7 @@ fn calldatasize_works(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.data(SystemFixture::constructorCall { panic: false }.abi_encode())
+			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
 			.build_and_unwrap_contract();
 
 		// calldata = selector + encoded argument
@@ -163,7 +163,7 @@ fn calldatacopy_works(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.data(SystemFixture::constructorCall { panic: false }.abi_encode())
+			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
 			.build_and_unwrap_contract();
 
 		let call_data = SystemFixture::calldatacopyCall {
@@ -194,7 +194,7 @@ fn codesize_works(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
-			.data(SystemFixture::constructorCall { panic: false }.abi_encode())
+			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
 			.build_and_unwrap_contract();
 
 		let result = builder::bare_call(addr)
@@ -218,7 +218,7 @@ fn gas_works(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
-			.data(SystemFixture::constructorCall { panic: false }.abi_encode())
+			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
 			.build_and_unwrap_contract();
 
 		// enable txhold collection which we expect to be on when using the evm backend
@@ -258,7 +258,7 @@ fn returndatasize_works(caller_type: FixtureType, callee_type: FixtureType) {
 			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.data(SystemFixture::constructorCall { panic: false }.abi_encode())
+			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
 			.build_and_unwrap_contract();
 
 		let magic_number = 42u64;
@@ -293,7 +293,7 @@ fn returndatacopy_works(caller_type: FixtureType, callee_type: FixtureType) {
 			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.data(SystemFixture::constructorCall { panic: false }.abi_encode())
+			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
 			.build_and_unwrap_contract();
 
 		let magic_number = U256::from(42);
@@ -324,7 +324,7 @@ fn constructor_with_argument_works(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let result = builder::bare_instantiate(Code::Upload(code))
-			.data(SystemFixture::constructorCall { panic: true }.abi_encode())
+			.constructor_data(SystemFixture::constructorCall { panic: true }.abi_encode())
 			.build()
 			.result
 			.unwrap()
