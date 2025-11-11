@@ -247,11 +247,18 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 }
 
 /// The intermediate representation of the Ethereum block builder.
+///
+/// # Note
+///
+/// `base_fee_per_gas` and `block_gas_limit` are derived from the `NextFeeMultiplier`.
+/// We store these values instead of computing them in `on_finalize` to ensure
+/// they reflect the current block’s values, not those of the next block.
 #[derive(Encode, Decode, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct EthereumBlockBuilderIR<T: Config> {
 	transaction_root_builder: IncrementalHashBuilderIR,
 	receipts_root_builder: IncrementalHashBuilderIR,
+
 	base_fee_per_gas: U256,
 	block_gas_limit: U256,
 	gas_used: U256,
