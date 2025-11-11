@@ -355,7 +355,7 @@ where
 	fn convert(message: Message) -> Result<Xcm<()>, ConvertMessageError> {
 		let message = Self::prepare(message)?;
 
-		log::trace!(target: LOG_TARGET, "prepared message: {:?}", message);
+		tracing::trace!(target: LOG_TARGET, ?message, "prepared message");
 
 		let mut instructions = vec![
 			DescendOrigin(InboundQueueLocation::get()),
