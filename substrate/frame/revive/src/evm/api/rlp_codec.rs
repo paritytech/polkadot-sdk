@@ -114,9 +114,9 @@ impl TransactionSigned {
 				TYPE_EIP7702 => rlp::decode::<Transaction7702Signed>(&data[1..]).map(Into::into),
 				_ => Err(rlp::DecoderError::Custom("Unknown transaction type")),
 			}
+		} else {
+			rlp::decode::<TransactionLegacySigned>(data).map(Into::into)
 		}
-
-		rlp::decode::<TransactionLegacySigned>(data).map(Into::into)
 	}
 }
 
