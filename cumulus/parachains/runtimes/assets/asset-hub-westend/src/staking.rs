@@ -27,11 +27,6 @@ use sp_runtime::{
 };
 use xcm::latest::prelude::*;
 
-// Some re-exports needed to make the weight templates work
-use pallet_election_provider_multi_block::signed as pallet_election_provider_multi_block_signed;
-use pallet_election_provider_multi_block::verifier as pallet_election_provider_multi_block_verifier;
-use pallet_election_provider_multi_block::unsigned as pallet_election_provider_multi_block_unsigned;
-
 
 parameter_types! {
 	/// Number of election pages that we operate upon. 32 * 6s block = 192s = 3.2min snapshots
