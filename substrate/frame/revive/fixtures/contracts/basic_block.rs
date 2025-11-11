@@ -19,8 +19,7 @@
 
 #![no_std]
 #![no_main]
-
-extern crate common;
+include!("../panic_handler.rs");
 
 use core::arch::asm;
 

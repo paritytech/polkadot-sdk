@@ -21,6 +21,7 @@ use coretime_rococo_runtime::{
 };
 use parachains_common::AccountId;
 use sp_core::crypto::Ss58Codec;
+use testnet_parachains_constants::rococo::fee::WeightToFee;
 use xcm::latest::prelude::*;
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
@@ -142,5 +143,6 @@ fn xcm_payment_api_works() {
 		RuntimeCall,
 		RuntimeOrigin,
 		Block,
+		WeightToFee,
 	>();
 }

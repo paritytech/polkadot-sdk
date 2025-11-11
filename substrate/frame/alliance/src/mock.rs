@@ -103,6 +103,16 @@ ord_parameter_types! {
 type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;
 type EnsureTwoOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<Two, AccountId>>;
 
+#[cfg(feature = "runtime-benchmarks")]
+pub struct BenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_identity::BenchmarkHelper<AccountU64, AccountU64> for BenchmarkHelper {
+	fn sign_message(_message: &[u8]) -> (AccountU64, AccountU64) {
+		(AccountU64(0), AccountU64(0))
+	}
+}
+
 impl pallet_identity::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -123,10 +133,12 @@ impl pallet_identity::Config for Test {
 	type UsernameGracePeriod = UsernameGracePeriod;
 	type MaxSuffixLength = ConstU32<7>;
 	type MaxUsernameLength = ConstU32<32>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = BenchmarkHelper;
 	type WeightInfo = ();
 }
 
-#[derive(Clone, Debug, Encode, Decode, PartialEq, Eq, TypeInfo)]
+#[derive(Clone, Debug, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, TypeInfo)]
 pub struct AccountU64(u64);
 impl IdentifyAccount for AccountU64 {
 	type AccountId = u64;
@@ -370,6 +382,13 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		System::set_block_number(1);
 	});
 	ext
+}
+
+pub fn build_and_execute(test: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		test();
+		Alliance::do_try_state().expect("All invariants must hold after a test");
+	})
 }
 
 #[cfg(feature = "runtime-benchmarks")]

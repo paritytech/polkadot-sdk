@@ -19,9 +19,9 @@ use async_trait::async_trait;
 use core::time::Duration;
 use cumulus_primitives_core::{
 	relay_chain::{
-		vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash as RelayHash,
-		Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex,
-		ValidationCodeHash, ValidatorId,
+		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+		Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption,
+		SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -40,16 +40,11 @@ use std::{collections::btree_map::BTreeMap, pin::Pin};
 use cumulus_primitives_core::relay_chain::BlockId;
 pub use url::Url;
 
-mod light_client_worker;
 mod metrics;
 mod reconnecting_ws_client;
 mod rpc_client;
-mod tokio_platform;
 
-pub use rpc_client::{
-	create_client_and_start_light_client_worker, create_client_and_start_worker,
-	RelayChainRpcClient,
-};
+pub use rpc_client::{create_client_and_start_worker, RelayChainRpcClient};
 
 const TIMEOUT_IN_SECONDS: u64 = 6;
 
@@ -286,5 +281,12 @@ impl RelayChainInterface for RelayChainRpcInterface {
 
 	async fn scheduling_lookahead(&self, relay_parent: RelayHash) -> RelayChainResult<u32> {
 		self.rpc_client.parachain_host_scheduling_lookahead(relay_parent).await
+	}
+
+	async fn candidate_events(
+		&self,
+		relay_parent: RelayHash,
+	) -> RelayChainResult<Vec<CandidateEvent>> {
+		self.rpc_client.parachain_host_candidate_events(relay_parent).await
 	}
 }

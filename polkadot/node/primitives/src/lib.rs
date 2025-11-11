@@ -30,10 +30,11 @@ use futures::Future;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use polkadot_primitives::{
-	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, BlakeTwo256, BlockNumber,
-	CandidateCommitments, CandidateHash, ChunkIndex, CollatorPair, CompactStatement, CoreIndex,
-	EncodeAs, Hash, HashT, HeadData, Id as ParaId, PersistedValidationData, SessionIndex, Signed,
-	UncheckedSigned, ValidationCode, ValidationCodeHash, MAX_CODE_SIZE, MAX_POV_SIZE,
+	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateHash, ChunkIndex, CollatorPair,
+	CommittedCandidateReceiptError, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	CompactStatement, CoreIndex, EncodeAs, Hash, HashT, HeadData, Id as ParaId,
+	PersistedValidationData, SessionIndex, Signed, UncheckedSigned, ValidationCode,
+	ValidationCodeHash, MAX_CODE_SIZE, MAX_POV_SIZE,
 };
 pub use sp_consensus_babe::{
 	AllowedSlots as BabeAllowedSlots, BabeEpochConfiguration, Epoch as BabeEpoch,
@@ -59,7 +60,7 @@ pub use disputes::{
 /// relatively rare.
 ///
 /// The associated worker binaries should use the same version as the node that spawns them.
-pub const NODE_VERSION: &'static str = "1.17.1";
+pub const NODE_VERSION: &'static str = "1.20.1";
 
 // For a 16-ary Merkle Prefix Trie, we can expect at most 16 32-byte hashes per node
 // plus some overhead:
@@ -69,6 +70,10 @@ const MERKLE_NODE_MAX_SIZE: usize = 512 + 100;
 const MERKLE_PROOF_MAX_DEPTH: usize = 8;
 
 /// The bomb limit for decompressing code blobs.
+#[deprecated(
+	note = "`VALIDATION_CODE_BOMB_LIMIT` will be removed. Use `validation_code_bomb_limit`
+	runtime API to retrieve the value from the runtime"
+)]
 pub const VALIDATION_CODE_BOMB_LIMIT: usize = (MAX_CODE_SIZE * 4u32) as usize;
 
 /// The bomb limit for decompressing PoV blobs.
@@ -350,8 +355,8 @@ pub enum InvalidCandidate {
 	CommitmentsHashMismatch,
 	/// The candidate receipt contains an invalid session index.
 	InvalidSessionIndex,
-	/// The candidate receipt contains an invalid core index.
-	InvalidCoreIndex,
+	/// The candidate receipt invalid UMP signals.
+	InvalidUMPSignals(CommittedCandidateReceiptError),
 }
 
 /// Result of the validation of the candidate.
@@ -660,7 +665,7 @@ impl ErasureChunk {
 #[cfg(not(target_os = "unknown"))]
 pub fn maybe_compress_pov(pov: PoV) -> PoV {
 	let PoV { block_data: BlockData(raw) } = pov;
-	let raw = sp_maybe_compressed_blob::compress(&raw, POV_BOMB_LIMIT).unwrap_or(raw);
+	let raw = sp_maybe_compressed_blob::compress_weakly(&raw, POV_BOMB_LIMIT).unwrap_or(raw);
 
 	let pov = PoV { block_data: BlockData(raw) };
 	pov

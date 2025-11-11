@@ -15,16 +15,6 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
-[features]
-default = ["rocksdb"]
-# The RocksDB feature activates the RocksDB database backend. If it is not activated, and you pass
-# a path to a database, an error will be produced at runtime.
-rocksdb = ["sc-client-db/rocksdb"]
-runtime-benchmarks = [
-	"sc-client-db/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-]
-
 [dependencies]
 async-trait = { workspace = true }
 codec = { workspace = true, default-features = true }
@@ -87,3 +77,13 @@ tracing-futures = { workspace = true }
 [dev-dependencies]
 substrate-test-runtime = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
+
+[features]
+default = ["rocksdb"]
+# The RocksDB feature activates the RocksDB database backend. If it is not activated, and you pass
+# a path to a database, an error will be produced at runtime.
+rocksdb = ["sc-client-db/rocksdb"]
+runtime-benchmarks = [
+	"sc-client-db/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

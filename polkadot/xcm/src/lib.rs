@@ -24,7 +24,9 @@
 
 extern crate alloc;
 
-use codec::{Decode, DecodeLimit, Encode, Error as CodecError, Input, MaxEncodedLen};
+use codec::{
+	Decode, DecodeLimit, DecodeWithMemTracking, Encode, Error as CodecError, Input, MaxEncodedLen,
+};
 use derive_where::derive_where;
 use frame_support::dispatch::GetDispatchInfo;
 use scale_info::TypeInfo;
@@ -44,11 +46,17 @@ pub mod latest {
 mod double_encoded;
 pub use double_encoded::DoubleEncoded;
 
+mod utils;
+
 #[cfg(test)]
 mod tests;
 
 /// Maximum nesting level for XCM decoding.
 pub const MAX_XCM_DECODE_DEPTH: u32 = 8;
+/// The maximal number of instructions in an XCM before decoding fails.
+///
+/// This is a deliberate limit - not a technical one.
+pub const MAX_INSTRUCTIONS_TO_DECODE: u8 = 100;
 
 /// A version of XCM.
 pub type Version = u32;
@@ -88,7 +96,7 @@ macro_rules! versioned_type {
 		$(#[$index5:meta])+
 		V5($v5:ty),
 	}) => {
-		#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
+		#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 		#[codec(encode_bound())]
 		#[codec(decode_bound())]
 		#[scale_info(replace_segment("staging_xcm", "xcm"))]
@@ -132,12 +140,17 @@ macro_rules! versioned_type {
 		}
 		impl IntoVersion for $n {
 			fn into_version(self, n: Version) -> Result<Self, ()> {
-				Ok(match n {
-					3 => Self::V3(self.try_into()?),
-					4 => Self::V4(self.try_into()?),
-					5 => Self::V5(self.try_into()?),
-					_ => return Err(()),
-				})
+				let version = self.identify_version();
+				if version == n {
+					Ok(self)
+				} else {
+					Ok(match n {
+						3 => Self::V3(self.try_into()?),
+						4 => Self::V4(self.try_into()?),
+						5 => Self::V5(self.try_into()?),
+						_ => return Err(()),
+					})
+				}
 			}
 		}
 		impl From<$v3> for $n {
@@ -305,7 +318,7 @@ versioned_type! {
 }
 
 /// A single XCM message, together with its version code.
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 #[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
@@ -342,17 +355,16 @@ impl<C> IdentifyVersion for VersionedXcm<C> {
 }
 
 impl<C> VersionedXcm<C> {
-	/// Checks that the XCM is decodable with `MAX_XCM_DECODE_DEPTH`. Consequently, it also checks
-	/// all decode implementations and limits, such as MAX_ITEMS_IN_ASSETS or
-	/// MAX_INSTRUCTIONS_TO_DECODE.
+	/// Checks if the XCM is decodable. Consequently, it checks all decoding constraints,
+	/// such as `MAX_XCM_DECODE_DEPTH`, `MAX_ITEMS_IN_ASSETS` or `MAX_INSTRUCTIONS_TO_DECODE`.
 	///
 	/// Note that this uses the limit of the sender - not the receiver. It is a best effort.
-	pub fn validate_xcm_nesting(&self) -> Result<(), ()> {
+	pub fn check_is_decodable(&self) -> Result<(), ()> {
 		self.using_encoded(|mut enc| {
 			Self::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut enc).map(|_| ())
 		})
 		.map_err(|e| {
-			log::error!(target: "xcm::validate_xcm_nesting", "Decode error: {e:?} for xcm: {self:?}!");
+			tracing::error!(target: "xcm::check_is_decodable", error=?e, xcm=?self, "Decode error!");
 			()
 		})
 	}
@@ -467,7 +479,7 @@ impl GetVersion for AlwaysV3 {
 	}
 }
 
-/// `WrapVersion` implementation which attempts to always convert the XCM to version 3 before
+/// `WrapVersion` implementation which attempts to always convert the XCM to version 4 before
 /// wrapping it.
 pub struct AlwaysV4;
 impl WrapVersion for AlwaysV4 {
@@ -484,7 +496,7 @@ impl GetVersion for AlwaysV4 {
 	}
 }
 
-/// `WrapVersion` implementation which attempts to always convert the XCM to version 3 before
+/// `WrapVersion` implementation which attempts to always convert the XCM to version 5 before
 /// wrapping it.
 pub struct AlwaysV5;
 impl WrapVersion for AlwaysV5 {
@@ -516,6 +528,9 @@ pub mod prelude {
 		VersionedAssetId, VersionedAssets, VersionedInteriorLocation, VersionedLocation,
 		VersionedResponse, VersionedXcm, WrapVersion,
 	};
+
+	/// The minimal supported XCM version
+	pub const MIN_XCM_VERSION: XcmVersion = 3;
 }
 
 pub mod opaque {
@@ -608,10 +623,13 @@ fn size_limits() {
 }
 
 #[test]
-fn validate_xcm_nesting_works() {
-	use crate::latest::{
-		prelude::{GeneralIndex, ReserveAssetDeposited, SetAppendix},
-		Assets, Xcm, MAX_INSTRUCTIONS_TO_DECODE, MAX_ITEMS_IN_ASSETS,
+fn check_is_decodable_works() {
+	use crate::{
+		latest::{
+			prelude::{GeneralIndex, ReserveAssetDeposited, SetAppendix},
+			Assets, Xcm, MAX_ITEMS_IN_ASSETS,
+		},
+		MAX_INSTRUCTIONS_TO_DECODE,
 	};
 
 	// closure generates assets of `count`
@@ -637,46 +655,46 @@ fn validate_xcm_nesting_works() {
 		ReserveAssetDeposited(assets(1));
 		(MAX_INSTRUCTIONS_TO_DECODE - 1) as usize
 	]))
-	.validate_xcm_nesting()
+	.check_is_decodable()
 	.is_ok());
 	assert!(VersionedXcm::<()>::from(Xcm(vec![
 		ReserveAssetDeposited(assets(1));
 		MAX_INSTRUCTIONS_TO_DECODE as usize
 	]))
-	.validate_xcm_nesting()
+	.check_is_decodable()
 	.is_ok());
 	assert!(VersionedXcm::<()>::from(Xcm(vec![
 		ReserveAssetDeposited(assets(1));
 		(MAX_INSTRUCTIONS_TO_DECODE + 1) as usize
 	]))
-	.validate_xcm_nesting()
+	.check_is_decodable()
 	.is_err());
 
 	// `MAX_XCM_DECODE_DEPTH` check
 	assert!(VersionedXcm::<()>::from(with_instr(MAX_XCM_DECODE_DEPTH - 1))
-		.validate_xcm_nesting()
+		.check_is_decodable()
 		.is_ok());
 	assert!(VersionedXcm::<()>::from(with_instr(MAX_XCM_DECODE_DEPTH))
-		.validate_xcm_nesting()
+		.check_is_decodable()
 		.is_ok());
 	assert!(VersionedXcm::<()>::from(with_instr(MAX_XCM_DECODE_DEPTH + 1))
-		.validate_xcm_nesting()
+		.check_is_decodable()
 		.is_err());
 
 	// `MAX_ITEMS_IN_ASSETS` check
 	assert!(VersionedXcm::<()>::from(Xcm(vec![ReserveAssetDeposited(assets(
 		MAX_ITEMS_IN_ASSETS
 	))]))
-	.validate_xcm_nesting()
+	.check_is_decodable()
 	.is_ok());
 	assert!(VersionedXcm::<()>::from(Xcm(vec![ReserveAssetDeposited(assets(
 		MAX_ITEMS_IN_ASSETS - 1
 	))]))
-	.validate_xcm_nesting()
+	.check_is_decodable()
 	.is_ok());
 	assert!(VersionedXcm::<()>::from(Xcm(vec![ReserveAssetDeposited(assets(
 		MAX_ITEMS_IN_ASSETS + 1
 	))]))
-	.validate_xcm_nesting()
+	.check_is_decodable()
 	.is_err());
 }

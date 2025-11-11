@@ -18,7 +18,7 @@
 //! > Made with *Substrate*, for *Polkadot*.
 //!
 //! [![github]](https://github.com/paritytech/substrate/frame/fast-unstake) -
-//! [![polkadot]](https://polkadot.network)
+//! [![polkadot]](https://polkadot.com)
 //!
 //! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
 //! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
@@ -84,7 +84,7 @@ pub use benchmarking::ArgumentsFactory;
 
 extern crate alloc;
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 use alloc::{boxed::Box, collections::btree_map::BTreeMap};
@@ -151,21 +151,41 @@ pub type ProposalIndex = u32;
 
 /// A spending proposal.
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	MaxEncodedLen,
+	RuntimeDebug,
+	TypeInfo,
+)]
 pub struct Proposal<AccountId, Balance> {
 	/// The account proposing it.
-	proposer: AccountId,
+	pub proposer: AccountId,
 	/// The (total) amount that should be paid if the proposal is accepted.
-	value: Balance,
+	pub value: Balance,
 	/// The account to whom the payment should be made if the proposal is accepted.
-	beneficiary: AccountId,
+	pub beneficiary: AccountId,
 	/// The amount held on deposit (reserved) for making this proposal.
-	bond: Balance,
+	pub bond: Balance,
 }
 
 /// The state of the payment claim.
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	MaxEncodedLen,
+	RuntimeDebug,
+	TypeInfo,
+)]
 pub enum PaymentState<Id> {
 	/// Pending claim.
 	Pending,
@@ -177,20 +197,30 @@ pub enum PaymentState<Id> {
 
 /// Info regarding an approved treasury spend.
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	MaxEncodedLen,
+	RuntimeDebug,
+	TypeInfo,
+)]
 pub struct SpendStatus<AssetKind, AssetBalance, Beneficiary, BlockNumber, PaymentId> {
 	// The kind of asset to be spent.
-	asset_kind: AssetKind,
+	pub asset_kind: AssetKind,
 	/// The asset amount of the spend.
-	amount: AssetBalance,
+	pub amount: AssetBalance,
 	/// The beneficiary of the spend.
-	beneficiary: Beneficiary,
+	pub beneficiary: Beneficiary,
 	/// The block number from which the spend can be claimed.
-	valid_from: BlockNumber,
+	pub valid_from: BlockNumber,
 	/// The block number by which the spend has to be claimed.
-	expire_at: BlockNumber,
+	pub expire_at: BlockNumber,
 	/// The status of the payout/claim.
-	status: PaymentState<PaymentId>,
+	pub status: PaymentState<PaymentId>,
 }
 
 /// Index of an approved treasury spend.
@@ -218,6 +248,7 @@ pub mod pallet {
 		type RejectOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -289,6 +320,14 @@ pub mod pallet {
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 
+	#[pallet::extra_constants]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Gets this pallet's derived pot account.
+		fn pot_account() -> T::AccountId {
+			Self::account_id()
+		}
+	}
+
 	/// DEPRECATED: associated with `spend_local` call and will be removed in May 2025.
 	/// Refer to <https://github.com/paritytech/polkadot-sdk/pull/5961> for migration to `spend`.
 	///
@@ -324,7 +363,7 @@ pub mod pallet {
 
 	/// The count of spends that have been made.
 	#[pallet::storage]
-	pub(crate) type SpendCount<T, I = ()> = StorageValue<_, SpendIndex, ValueQuery>;
+	pub type SpendCount<T, I = ()> = StorageValue<_, SpendIndex, ValueQuery>;
 
 	/// Spends that have been approved and being processed.
 	// Hasher: Twox safe since `SpendIndex` is an internal count based index.
@@ -345,7 +384,7 @@ pub mod pallet {
 
 	/// The blocknumber for the last triggered spend period.
 	#[pallet::storage]
-	pub(crate) type LastSpendPeriod<T, I = ()> = StorageValue<_, BlockNumberFor<T, I>, OptionQuery>;
+	pub type LastSpendPeriod<T, I = ()> = StorageValue<_, BlockNumberFor<T, I>, OptionQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -735,6 +774,7 @@ pub mod pallet {
 				.map_err(|_| Error::<T, I>::PayoutError)?;
 
 			spend.status = PaymentState::Attempted { id };
+			spend.expire_at = now.saturating_add(T::PayoutPeriod::get());
 			Spends::<T, I>::insert(index, spend);
 
 			Self::deposit_event(Event::<T, I>::Paid { index, payment_id: id });

@@ -23,7 +23,10 @@ use sp_runtime::traits::{One, StaticLookup, TrailingZeroInput};
 
 use codec::Decode;
 use frame_benchmarking::v2::*;
-use frame_support::traits::{Get, KeyOwnerProofSystem, OnInitialize};
+use frame_support::{
+	assert_ok,
+	traits::{Get, KeyOwnerProofSystem, OnInitialize},
+};
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_session::{historical::Pallet as Historical, Pallet as Session, *};
 use pallet_staking::{
@@ -66,6 +69,7 @@ mod benchmarks {
 		// Whitelist controller account from further DB operations.
 		let v_controller_key = frame_system::Account::<T>::hashed_key_for(&v_controller);
 		frame_benchmarking::benchmarking::add_to_whitelist(v_controller_key.into());
+		assert_ok!(Session::<T>::ensure_can_pay_key_deposit(&v_controller));
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(v_controller), keys, proof);
@@ -86,6 +90,7 @@ mod benchmarks {
 		let v_controller = pallet_staking::Pallet::<T>::bonded(&v_stash).ok_or("not stash")?;
 		let keys = T::Keys::decode(&mut TrailingZeroInput::zeroes()).unwrap();
 		let proof: Vec<u8> = vec![0, 1, 2, 3];
+		assert_ok!(Session::<T>::ensure_can_pay_key_deposit(&v_controller));
 		Session::<T>::set_keys(RawOrigin::Signed(v_controller.clone()).into(), keys, proof)?;
 		// Whitelist controller account from further DB operations.
 		let v_controller_key = frame_system::Account::<T>::hashed_key_for(&v_controller);
@@ -163,6 +168,8 @@ fn check_membership_proof_setup<T: Config>(
 			keys
 		};
 
+		// TODO: this benchmark is broken, session keys cannot be decoded into 128 bytes anymore,
+		// but not an issue for CI since it is `extra`.
 		let keys: T::Keys = Decode::decode(&mut &keys[..]).unwrap();
 		let proof: Vec<u8> = vec![];
 

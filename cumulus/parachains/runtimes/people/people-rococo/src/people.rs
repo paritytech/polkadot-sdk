@@ -62,6 +62,8 @@ impl pallet_identity::Config for Runtime {
 	type UsernameGracePeriod = ConstU32<{ 3 * DAYS }>;
 	type MaxSuffixLength = ConstU32<7>;
 	type MaxUsernameLength = ConstU32<32>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 	type WeightInfo = weights::pallet_identity::WeightInfo<Runtime>;
 }
 
@@ -88,6 +90,7 @@ pub enum IdentityField {
 	CloneNoBound,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	EqNoBound,
 	MaxEncodedLen,
 	PartialEqNoBound,

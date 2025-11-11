@@ -109,6 +109,7 @@ impl WasmInstance for Instance {
 					None,
 				),
 			Err(CallError::NotEnoughGas) => unreachable!("gas metering is never enabled"),
+			Err(CallError::Step) => unreachable!("stepping is never enabled"),
 		};
 
 		let result_pointer = self.0.reg(Reg::A0);

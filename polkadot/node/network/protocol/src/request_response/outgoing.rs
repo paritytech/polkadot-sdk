@@ -37,8 +37,6 @@ pub enum Requests {
 	PoVFetchingV1(OutgoingRequest<v1::PoVFetchingRequest>),
 	/// Request full available data from a node.
 	AvailableDataFetchingV1(OutgoingRequest<v1::AvailableDataFetchingRequest>),
-	/// Requests for fetching large statements as part of statement distribution.
-	StatementFetchingV1(OutgoingRequest<v1::StatementFetchingRequest>),
 	/// Requests for notifying about an ongoing dispute.
 	DisputeSendingV1(OutgoingRequest<v1::DisputeRequest>),
 
@@ -64,7 +62,6 @@ impl Requests {
 			Self::CollationFetchingV2(r) => r.encode_request(),
 			Self::PoVFetchingV1(r) => r.encode_request(),
 			Self::AvailableDataFetchingV1(r) => r.encode_request(),
-			Self::StatementFetchingV1(r) => r.encode_request(),
 			Self::DisputeSendingV1(r) => r.encode_request(),
 			Self::AttestedCandidateV2(r) => r.encode_request(),
 		}

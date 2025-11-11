@@ -1,0 +1,11 @@
+title: 'Omni Node: Enable OCW http'
+doc:
+- audience: Node Operator
+  description: |-
+    This enables the HTTP support for the OCW.
+
+
+    Closes: https://github.com/paritytech/polkadot-sdk/issues/8203
+crates:
+- name: polkadot-omni-node-lib
+  bump: patch

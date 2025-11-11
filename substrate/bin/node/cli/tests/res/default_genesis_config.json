@@ -39,6 +39,8 @@
     "nonAuthorityKeys": []
 
   },
+  "revive": {
+  },
   "democracy": {},
   "council": {
     "members": []
@@ -85,13 +87,15 @@
     "assets": [],
     "metadata": [],
     "accounts": [],
-    "nextAssetId": null
+    "nextAssetId": null,
+    "reserves": []
   },
   "poolAssets": {
     "assets": [],
     "metadata": [],
     "accounts": [],
-    "nextAssetId": null
+    "nextAssetId": null,
+    "reserves": []
   },
   "transactionStorage": {
     "byteFee": 10,

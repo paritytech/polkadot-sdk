@@ -467,7 +467,10 @@ pub(crate) fn write_results(
 				file_name = format!("{}_{}", file_name, instance.to_snake_case());
 			}
 			// "mod::pallet_name.rs" becomes "mod_pallet_name.rs".
-			file_path.push(file_name.replace("::", "_"));
+			file_name = file_name.replace("::", "_");
+			// Some old runtimes have a bug with the pallet and instance name containing a space
+			file_name = file_name.replace(" ", "");
+			file_path.push(file_name);
 			file_path.set_extension("rs");
 		}
 

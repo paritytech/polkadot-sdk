@@ -21,7 +21,8 @@ use polkadot_omni_node_lib::{
 		AuraConsensusId, BlockNumber, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
 	},
 };
-use sc_chain_spec::ChainSpec;
+use sc_chain_spec::{ChainSpec, ChainType};
+use yet_another_parachain::yet_another_parachain_config;
 
 pub mod asset_hubs;
 pub mod bridge_hubs;
@@ -31,9 +32,7 @@ pub mod glutton;
 pub mod penpal;
 pub mod people;
 pub mod rococo_parachain;
-
-/// The default XCM version to set in genesis config.
-const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
+pub mod yet_another_parachain;
 
 /// Extracts the normalized chain id and parachain id from the input chain id.
 /// (H/T to Phala for the idea)
@@ -151,14 +150,18 @@ impl LoadSpec for ChainSpecLoader {
 			// -- Glutton Westend
 			id if id.starts_with("glutton-westend-dev") => {
 				let (_, _, para_id) = extract_parachain_id(&id, &["glutton-westend-dev-"]);
-				Box::new(glutton::glutton_westend_development_config(
+				Box::new(glutton::glutton_westend_config(
 					para_id.expect("Must specify parachain id"),
+					ChainType::Development,
+					"westend-dev",
 				))
 			},
 			id if id.starts_with("glutton-westend-local") => {
 				let (_, _, para_id) = extract_parachain_id(&id, &["glutton-westend-local-"]);
-				Box::new(glutton::glutton_westend_local_config(
+				Box::new(glutton::glutton_westend_config(
 					para_id.expect("Must specify parachain id"),
+					ChainType::Local,
+					"westend-local",
 				))
 			},
 			// the chain spec as used for generating the upgrade genesis values
@@ -166,7 +169,28 @@ impl LoadSpec for ChainSpecLoader {
 				let (_, _, para_id) = extract_parachain_id(&id, &["glutton-westend-genesis-"]);
 				Box::new(glutton::glutton_westend_config(
 					para_id.expect("Must specify parachain id"),
+					ChainType::Live,
+					"westend",
 				))
+			},
+
+			id if id.starts_with("yap-") => {
+				let tok: Vec<String> = id.split('-').map(|s| s.to_owned()).collect();
+				assert!(
+					tok.len() == 4,
+					"Invalid YAP chain id, should be 'yap-<relay>-<chaintype>-<para-id>'"
+				);
+				let relay = if &tok[2] == "live" { tok[1].clone() } else { tok[1..=2].join("-") };
+				let chain_type = match tok[2].as_str() {
+					"local" => ChainType::Local,
+					"dev" => ChainType::Development,
+					"live" => ChainType::Live,
+					_ => unimplemented!("Unknown chain type {}", tok[2]),
+				};
+				let para_id: u32 =
+					tok[3].parse().expect(&format!("Illegal para id '{}' provided", tok[3]));
+
+				Box::new(yet_another_parachain_config(relay, chain_type, para_id))
 			},
 
 			// -- People
@@ -271,7 +295,6 @@ mod tests {
 	use super::*;
 	use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup, ChainType, Extension};
 	use serde::{Deserialize, Serialize};
-	use sp_keyring::Sr25519Keyring;
 
 	#[derive(
 		Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension, Default,
@@ -306,12 +329,7 @@ mod tests {
 		.with_name("Dummy local testnet")
 		.with_id(id)
 		.with_chain_type(ChainType::Local)
-		.with_genesis_config_patch(crate::chain_spec::rococo_parachain::testnet_genesis(
-			Sr25519Keyring::Alice.to_account_id(),
-			vec![Sr25519Keyring::Alice.public().into(), Sr25519Keyring::Bob.public().into()],
-			vec![Sr25519Keyring::Bob.to_account_id()],
-			1000.into(),
-		))
+		.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
 		.build()
 	}
 

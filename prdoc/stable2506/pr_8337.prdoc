@@ -1,0 +1,12 @@
+title: add staking/election related view functions
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds two self-explanatory view functions to staking/election related pallets.
+    To be used by wallets wishing to perform rebag operation, and use by staking miner(s) to know
+    how much deposit they need in advance.
+crates:
+- name: pallet-bags-list
+  bump: minor
+- name: pallet-election-provider-multi-block
+  bump: minor

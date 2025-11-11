@@ -31,8 +31,8 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{database::Database, TimeoutExt};
 use polkadot_primitives::{
-	node_features, vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, CoreIndex,
-	GroupIndex, HeadData, Header, PersistedValidationData, ValidatorId,
+	node_features, CandidateHash, CandidateReceiptV2 as CandidateReceipt, CoreIndex, GroupIndex,
+	HeadData, Header, PersistedValidationData, ValidatorId,
 };
 use polkadot_primitives_test_helpers::TestCandidateBuilder;
 use sp_keyring::Sr25519Keyring;
@@ -510,12 +510,8 @@ fn store_pov_and_queries_work() {
 
 				let query_all_chunks_res = query_all_chunks(
 					&mut virtual_overseer,
-					availability_chunk_indices(
-						Some(&node_features),
-						n_validators as usize,
-						core_index,
-					)
-					.unwrap(),
+					availability_chunk_indices(&node_features, n_validators as usize, core_index)
+						.unwrap(),
 					candidate_hash,
 				)
 				.await;
@@ -596,12 +592,8 @@ fn store_pov_and_queries_work() {
 
 				let query_all_chunks_res = query_all_chunks(
 					&mut virtual_overseer,
-					availability_chunk_indices(
-						Some(&node_features),
-						n_validators as usize,
-						core_index,
-					)
-					.unwrap(),
+					availability_chunk_indices(&node_features, n_validators as usize, core_index)
+						.unwrap(),
 					candidate_hash,
 				)
 				.await;
@@ -618,7 +610,7 @@ fn store_pov_and_queries_work() {
 					.await
 					.unwrap();
 					let expected_chunk_index = availability_chunk_index(
-						Some(&node_features),
+						&node_features,
 						n_validators as usize,
 						core_index,
 						ValidatorIndex(validator_index),
@@ -723,7 +715,8 @@ fn query_all_chunks_works() {
 		}
 
 		let chunk_indices =
-			availability_chunk_indices(None, n_validators as usize, CoreIndex(0)).unwrap();
+			availability_chunk_indices(&NodeFeatures::EMPTY, n_validators as usize, CoreIndex(0))
+				.unwrap();
 
 		assert_eq!(
 			query_all_chunks(&mut virtual_overseer, chunk_indices.clone(), candidate_hash_1)

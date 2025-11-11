@@ -1,21 +1,44 @@
 name: Zombienet Substrate
 
 on:
-  push:
-    branches:
-      - master
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-  merge_group:
+  workflow_call:
+    inputs:
+      build_run_id:
+        type: string
+        description: "Build run ID from the build workflow."
+        required: true
+      ref_slug:
+        type: string
+        description: "Source ref slug from the build workflow."
+        required: false
+      test_pattern:
+        type: string
+        description: "Run tests which names match this pattern (also flaky)"
+        default: ""
+        required: false
+  workflow_dispatch:
+    inputs:
+      test_pattern:
+        type: string
+        description: "Run tests which names match this pattern (also flaky)"
+        default: ""
+        required: false
+
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: substrate-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.run_id }}
   cancel-in-progress: true
 
+permissions: read-all
+
 env:
-  RUN_IN_CONTAINER: 1
   FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
-  LOCAL_DIR: "./substrate/zombienet"
   GHA_CLUSTER_SERVER_ADDR: "https://kubernetes.default:443"
+  # use spot by default
+  X_INFRA_INSTANCE: "spot"
+  # don't retry sdk tests
+  NEXTEST_RETRIES: 0
+  KUBECONFIG: "/data/config"
+  ZOMBIE_CLEANER_DISABLED: 1
 
   # DB generated from commit: https://github.com/paritytech/polkadot-sdk/commit/868788a5bff3ef94869bd36432726703fe3b4e96
   # TODO: As a workaround for https://github.com/paritytech/polkadot-sdk/issues/2568 the DB was generated in archive mode.
@@ -24,115 +47,76 @@ env:
   DB_BLOCK_HEIGHT: 56687
 
 jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
+    needs: isdraft
     uses: ./.github/workflows/zombienet-reusable-preflight.yml
+    with:
+      tests_yaml: .github/zombienet-tests/zombienet_substrate_tests.yml
+      test_pattern: ${{ inputs.test_pattern }}
+      build_run_id: ${{ inputs.build_run_id }}
+      ref_slug: ${{ inputs.ref_slug }}
 
-  zombienet-substrate-0000-block-building:
+  zombienet-substrate-tests:
+    name: ${{ matrix.test.job-name }}
+    runs-on: ${{ matrix.test.runner-type == 'large' && (matrix.test.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER) || (matrix.test.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER || needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER) }}
+    timeout-minutes: 70 # 60 for test + 10 for send logs
     needs: [preflight]
-    # only run if we have changes in ./substrate directory and the build workflow already finish with success status.
-    if: ${{ needs.preflight.outputs.changes_substrate || github.event_name == 'workflow_dispatch' }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
-    timeout-minutes: 60
+    if: ${{ github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch' || github.event_name == 'merge_group' || (needs.preflight.outputs.changes_substrate == 'true' || needs.preflight.outputs.changes_polkadot == 'true' || needs.preflight.outputs.changes_zombienet == 'true') }}
     container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      image: ${{ matrix.test.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_IMAGE || needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      options: -v /tmp/zombienet:/tmp/zombienet
     env:
-      ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/substrate:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      DEBUG: ${{ needs.preflight.outputs.DEBUG }}
+      ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        test: ${{ fromJson(needs.preflight.outputs.TEST_MATRIX) }}
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - name: script
-        run: |
-          echo "Img: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
-          export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh --local-dir="$(pwd)/$LOCAL_DIR/0000-block-building" --test="block-building.zndsl"
+      - name: Additional setup
+        if: ${{ matrix.test.additional-setup }}
+        shell: bash
+        run: ${{ matrix.test.additional-setup }}
 
-      - name: upload logs
-        uses: actions/upload-artifact@v4
+      - name: zombienet_test (v1)
+        timeout-minutes: 60
+        uses: ./.github/actions/zombienet
         with:
-          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
-          path: |
-            /tmp/zombie*/logs/*
+          test-definition: ${{ matrix.test.test-definition }}
+          job-name: ${{ matrix.test.job-name }}
+          local-dir: ${{ matrix.test.local-dir }}
+          concurrency: ${{ matrix.test.concurrency || 1 }}
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
-  zombienet-substrate-0001-basic-warp-sync:
-    needs: [preflight]
-    # only run if we have changes in ./substrate directory and the build workflow already finish with success status.
-    if: ${{ needs.preflight.outputs.changes_substrate || github.event_name == 'workflow_dispatch' }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
-    timeout-minutes: 60
-    container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
-    env:
-      ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/substrate:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: script
+      - name: process_logs
+        if: ${{ always() }}
+        shell: bash
         run: |
-          echo "Img: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
-          export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh --local-dir="$(pwd)/$LOCAL_DIR/0001-basic-warp-sync" --test="test-warp-sync.zndsl"
+          echo "Processing log files"
+          echo "::group::Logs"
+          # do not fail the whole run if this step fails
+          if ! ./.github/scripts/process-logs-zombienet.sh ; then
+            echo "::endgroup::"
+            echo "::warning ::WARNING: Failed to process logs"
+          else
+            echo "::endgroup::"
+          fi
 
-      - name: upload logs
-        uses: actions/upload-artifact@v4
+
+      - name: upload_logs
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        if: ${{ always() }}
         with:
-          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
-          path: |
-            /tmp/zombie*/logs/*
-
-  zombienet-substrate-0002-validators-warp-sync:
-    needs: [preflight]
-    # only run if we have changes in ./substrate directory and the build workflow already finish with success status.
-    if: ${{ needs.preflight.outputs.changes_substrate || github.event_name == 'workflow_dispatch' }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
-    timeout-minutes: 60
-    container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
-    env:
-      ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/substrate:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: script
-        run: |
-          echo "Img: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
-          cp --remove-destination ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0002-validators-warp-sync
-          export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh --local-dir="$(pwd)/$LOCAL_DIR/0002-validators-warp-sync" --test="test-validators-warp-sync.zndsl"
-
-      - name: upload logs
-        uses: actions/upload-artifact@v4
-        with:
-          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
-          path: |
-            /tmp/zombie*/logs/*
-
-  zombienet-substrate-0003-block-building-warp-sync:
-    needs: [preflight]
-    # only run if we have changes in ./substrate directory and the build workflow already finish with success status.
-    if: ${{ needs.preflight.outputs.changes_substrate || github.event_name == 'workflow_dispatch' }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
-    timeout-minutes: 60
-    container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
-    env:
-      ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/substrate:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: script
-        run: |
-          echo "Img: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
-          cp --remove-destination ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0003-block-building-warp-sync
-          export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh --local-dir="$(pwd)/$LOCAL_DIR/0003-block-building-warp-sync" --test="test-block-building-warp-sync.zndsl"
-
-      - name: upload logs
-        uses: actions/upload-artifact@v4
-        with:
-          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
+          name: zombienet-logs-${{ matrix.test.job-name }}-${{ github.sha }}
           path: |
             /tmp/zombie*/logs/*

@@ -47,8 +47,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util as util;
 use polkadot_primitives::{
-	vstaging::{CandidateEvent, CandidateReceiptV2 as CandidateReceipt},
-	BlockNumber, CandidateHash, ChunkIndex, CoreIndex, Hash, Header, NodeFeatures, ValidatorIndex,
+	BlockNumber, CandidateEvent, CandidateHash, CandidateReceiptV2 as CandidateReceipt, ChunkIndex,
+	CoreIndex, Hash, Header, NodeFeatures, ValidatorIndex,
 };
 use util::availability_chunks::availability_chunk_indices;
 
@@ -1329,7 +1329,7 @@ fn store_available_data(
 		})
 		.collect();
 
-	let chunk_indices = availability_chunk_indices(Some(&node_features), n_validators, core_index)?;
+	let chunk_indices = availability_chunk_indices(&node_features, n_validators, core_index)?;
 	for (validator_index, chunk_index) in chunk_indices.into_iter().enumerate() {
 		write_chunk(
 			&mut tx,

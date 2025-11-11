@@ -22,6 +22,7 @@
 
 use polkadot_sdk::{
 	sc_consensus_beefy as beefy, sc_consensus_grandpa as grandpa,
+	sp_consensus_babe::inherents::BabeCreateInherentDataProviders,
 	sp_consensus_beefy as beefy_primitives, *,
 };
 
@@ -122,6 +123,7 @@ pub fn create_extrinsic(
 	let tip = 0;
 	let tx_ext: kitchensink_runtime::TxExtension =
 		(
+			frame_system::AuthorizeCall::<kitchensink_runtime::Runtime>::new(),
 			frame_system::CheckNonZeroSender::<kitchensink_runtime::Runtime>::new(),
 			frame_system::CheckSpecVersion::<kitchensink_runtime::Runtime>::new(),
 			frame_system::CheckTxVersion::<kitchensink_runtime::Runtime>::new(),
@@ -138,6 +140,7 @@ pub fn create_extrinsic(
 				>::from(tip, None),
 			),
 			frame_metadata_hash_extension::CheckMetadataHash::new(false),
+			pallet_revive::evm::tx_extension::SetOrigin::<kitchensink_runtime::Runtime>::default(),
 			frame_system::WeightReclaim::<kitchensink_runtime::Runtime>::new(),
 		);
 
@@ -145,6 +148,7 @@ pub fn create_extrinsic(
 		function.clone(),
 		tx_ext.clone(),
 		(
+			(),
 			(),
 			kitchensink_runtime::VERSION.spec_version,
 			kitchensink_runtime::VERSION.transaction_version,
@@ -154,6 +158,7 @@ pub fn create_extrinsic(
 			(),
 			(),
 			None,
+			(),
 			(),
 		),
 	);
@@ -188,6 +193,8 @@ pub fn new_partial(
 					Block,
 					FullClient,
 					FullBeefyBlockImport<FullGrandpaBlockImport>,
+					BabeCreateInherentDataProviders<Block>,
+					FullSelectChain,
 				>,
 				grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
 				sc_consensus_babe::BabeLink<Block>,
@@ -257,35 +264,35 @@ pub fn new_partial(
 			config.prometheus_registry().cloned(),
 		);
 
+	let babe_config = sc_consensus_babe::configuration(&*client)?;
+	let slot_duration = babe_config.slot_duration();
 	let (block_import, babe_link) = sc_consensus_babe::block_import(
-		sc_consensus_babe::configuration(&*client)?,
+		babe_config,
 		beefy_block_import,
 		client.clone(),
+		Arc::new(move |_, _| async move {
+			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+			let slot =
+			sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+				*timestamp,
+				slot_duration,
+			);
+			Ok((slot, timestamp))
+		}) as BabeCreateInherentDataProviders<Block>,
+		select_chain.clone(),
+		OffchainTransactionPoolFactory::new(transaction_pool.clone()),
 	)?;
 
-	let slot_duration = babe_link.config().slot_duration();
 	let (import_queue, babe_worker_handle) =
 		sc_consensus_babe::import_queue(sc_consensus_babe::ImportQueueParams {
 			link: babe_link.clone(),
 			block_import: block_import.clone(),
 			justification_import: Some(Box::new(justification_import)),
 			client: client.clone(),
-			select_chain: select_chain.clone(),
-			create_inherent_data_providers: move |_, ()| async move {
-				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-
-				let slot =
-				sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-					*timestamp,
-					slot_duration,
-				);
-
-				Ok((slot, timestamp))
-			},
+			slot_duration,
 			spawner: &task_manager.spawn_essential_handle(),
 			registry: config.prometheus_registry(),
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
-			offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
 		})?;
 
 	let import_setup = (block_import, grandpa_link, babe_link, beefy_voter_links);
@@ -406,6 +413,8 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 			Block,
 			FullClient,
 			FullBeefyBlockImport<FullGrandpaBlockImport>,
+			BabeCreateInherentDataProviders<Block>,
+			FullSelectChain,
 		>,
 		&sc_consensus_babe::BabeLink<Block>,
 	),
@@ -545,6 +554,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		task_manager.spawn_handle().spawn("mixnet", None, mixnet);
 	}
 
+	let net_config_path = config.network.net_config_path.clone();
 	let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 		config,
 		backend: backend.clone(),
@@ -558,6 +568,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		tx_handler_controller,
 		sync_service: sync_service.clone(),
 		telemetry: telemetry.as_mut(),
+		tracing_execute_block: None,
 	})?;
 
 	if let Some(hwbench) = hwbench {
@@ -657,6 +668,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 				sc_authority_discovery::WorkerConfig {
 					publish_non_global_ips: auth_disc_publish_non_global_ips,
 					public_addresses: auth_disc_public_addresses,
+					persisted_cache_directory: net_config_path,
 					..Default::default()
 				},
 				client.clone(),
@@ -664,6 +676,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 				Box::pin(dht_event_stream),
 				authority_discovery_role,
 				prometheus_registry.clone(),
+				task_manager.spawn_handle(),
 			);
 
 		task_manager.spawn_handle().spawn(
@@ -921,7 +934,7 @@ mod tests {
 						config,
 						None,
 						false,
-						|block_import: &sc_consensus_babe::BabeBlockImport<Block, _, _>,
+						|block_import: &sc_consensus_babe::BabeBlockImport<Block, _, _, _, _>,
 						 babe_link: &sc_consensus_babe::BabeLink<Block>| {
 							setup_handles = Some((block_import.clone(), babe_link.clone()));
 						},
@@ -1002,11 +1015,15 @@ mod tests {
 				digest.push(<DigestItem as CompatibleDigestItem>::babe_pre_digest(babe_pre_digest));
 
 				let new_block = futures::executor::block_on(async move {
-					let proposer = proposer_factory.init(&parent_header).await;
-					proposer
-						.unwrap()
-						.propose(inherent_data, digest, std::time::Duration::from_secs(1), None)
-						.await
+					let proposer = proposer_factory.init(&parent_header).await.unwrap();
+					Proposer::propose(
+						proposer,
+						inherent_data,
+						digest,
+						std::time::Duration::from_secs(1),
+						None,
+					)
+					.await
 				})
 				.expect("Error making test block")
 				.block;
@@ -1052,6 +1069,7 @@ mod tests {
 					value: amount,
 				});
 
+				let authorize_call = frame_system::AuthorizeCall::new();
 				let check_non_zero_sender = frame_system::CheckNonZeroSender::new();
 				let check_spec_version = frame_system::CheckSpecVersion::new();
 				let check_tx_version = frame_system::CheckTxVersion::new();
@@ -1062,9 +1080,11 @@ mod tests {
 				let tx_payment = pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
 				);
+				let set_eth_origin = pallet_revive::evm::tx_extension::SetOrigin::default();
 				let weight_reclaim = frame_system::WeightReclaim::new();
 				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
 				let tx_ext: TxExtension = (
+					authorize_call,
 					check_non_zero_sender,
 					check_spec_version,
 					check_tx_version,
@@ -1074,12 +1094,14 @@ mod tests {
 					check_weight,
 					tx_payment,
 					metadata_hash,
+					set_eth_origin,
 					weight_reclaim,
 				);
 				let raw_payload = SignedPayload::from_raw(
 					function,
 					tx_ext,
 					(
+						(),
 						(),
 						spec_version,
 						transaction_version,
@@ -1089,6 +1111,7 @@ mod tests {
 						(),
 						(),
 						None,
+						(),
 						(),
 					),
 				);

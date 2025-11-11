@@ -84,19 +84,20 @@ pub use pallet::*;
 
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
 use frame_support::{
+	ensure,
 	traits::{
 		fungibles::{Inspect, Mutate},
 		schedule::DispatchTime,
 		tokens::Balance,
+		Consideration, RewardsPool,
 	},
 	PalletId,
 };
-use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{
-	traits::{MaybeDisplay, Zero},
-	DispatchError,
+	traits::{BadOrigin, BlockNumberProvider, EnsureAdd, MaybeDisplay, Zero},
+	DispatchError, DispatchResult,
 };
 use sp_std::boxed::Box;
 
@@ -123,6 +124,13 @@ pub type PoolInfoFor<T> = PoolInfo<
 	<T as Config>::Balance,
 	BlockNumberFor<T>,
 >;
+
+/// The block number type for the pallet.
+///
+/// This type is derived from the `BlockNumberProvider` associated type in the `Config` trait.
+/// It represents the block number type that the pallet uses for scheduling and expiration.
+pub type BlockNumberFor<T> =
+	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// The state of a staker in a pool.
 #[derive(Debug, Default, Clone, Decode, Encode, MaxEncodedLen, TypeInfo)]
@@ -176,10 +184,12 @@ pub mod pallet {
 		traits::{
 			fungibles::MutateFreeze,
 			tokens::{AssetId, Fortitude, Preservation},
-			Consideration, Footprint,
+			Consideration, Footprint, RewardsPool,
 		},
 	};
-	use frame_system::pallet_prelude::*;
+	use frame_system::pallet_prelude::{
+		ensure_signed, BlockNumberFor as SystemBlockNumberFor, OriginFor,
+	};
 	use sp_runtime::{
 		traits::{
 			AccountIdConversion, BadOrigin, EnsureAdd, EnsureAddAssign, EnsureDiv, EnsureMul,
@@ -210,6 +220,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// Overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The pallet's unique identifier, used to derive the pool's account ID.
@@ -254,6 +265,19 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Provider for the current block number.
+		///
+		/// This provider is used to determine the current block number for the pallet.
+		/// It must return monotonically increasing values when called from consecutive blocks.
+		///
+		/// It can be configured to use the local block number (via `frame_system::Pallet`) or a
+		/// remote block number (e.g., from a relay chain). However, note that using a remote
+		/// block number might have implications for the behavior of the pallet, especially if the
+		/// remote block number advances faster than the local block number.
+		///
+		/// It is recommended to use the local block number for solo chains and relay chains.
+		type BlockNumberProvider: BlockNumberProvider;
 
 		/// Helper for benchmarking.
 		#[cfg(feature = "runtime-benchmarks")]
@@ -393,7 +417,7 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+	impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
 			// The AccountId is at least 16 bytes to contain the unique PalletId.
 			let pool_id: PoolId = 1;
@@ -430,63 +454,15 @@ pub mod pallet {
 			expiry: DispatchTime<BlockNumberFor<T>>,
 			admin: Option<T::AccountId>,
 		) -> DispatchResult {
-			// Check the origin.
 			let creator = T::CreatePoolOrigin::ensure_origin(origin)?;
-
-			// Ensure the assets exist.
-			ensure!(
-				T::Assets::asset_exists(*staked_asset_id.clone()),
-				Error::<T>::NonExistentAsset
-			);
-			ensure!(
-				T::Assets::asset_exists(*reward_asset_id.clone()),
-				Error::<T>::NonExistentAsset
-			);
-
-			// Check the expiry block.
-			let expiry_block = expiry.evaluate(frame_system::Pallet::<T>::block_number());
-			ensure!(
-				expiry_block > frame_system::Pallet::<T>::block_number(),
-				Error::<T>::ExpiryBlockMustBeInTheFuture
-			);
-
-			let pool_id = NextPoolId::<T>::get();
-
-			let footprint = Self::pool_creation_footprint();
-			let cost = T::Consideration::new(&creator, footprint)?;
-			PoolCost::<T>::insert(pool_id, (creator.clone(), cost));
-
-			let admin = admin.unwrap_or(creator.clone());
-
-			// Create the pool.
-			let pool = PoolInfoFor::<T> {
-				staked_asset_id: *staked_asset_id.clone(),
-				reward_asset_id: *reward_asset_id.clone(),
+			<Self as RewardsPool<_>>::create_pool(
+				&creator,
+				*staked_asset_id,
+				*reward_asset_id,
 				reward_rate_per_block,
-				total_tokens_staked: 0u32.into(),
-				reward_per_token_stored: 0u32.into(),
-				last_update_block: 0u32.into(),
-				expiry_block,
-				admin: admin.clone(),
-				account: Self::pool_account_id(&pool_id),
-			};
-
-			// Insert it into storage.
-			Pools::<T>::insert(pool_id, pool);
-
-			NextPoolId::<T>::put(pool_id.ensure_add(1)?);
-
-			// Emit created event.
-			Self::deposit_event(Event::PoolCreated {
-				creator,
-				pool_id,
-				staked_asset_id: *staked_asset_id,
-				reward_asset_id: *reward_asset_id,
-				reward_rate_per_block,
-				expiry_block,
-				admin,
-			});
-
+				expiry,
+				&admin.unwrap_or_else(|| creator.clone()),
+			)?;
 			Ok(())
 		}
 
@@ -546,7 +522,7 @@ pub mod pallet {
 
 			// Always start by updating the pool rewards.
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(now > pool_info.expiry_block || caller == staker, BadOrigin);
 
 			let staker_info = PoolStakers::<T>::get(pool_id, &staker).unwrap_or_default();
@@ -600,7 +576,7 @@ pub mod pallet {
 
 			// Always start by updating the pool and staker rewards.
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(now > pool_info.expiry_block || caller == staker, BadOrigin);
 
 			let staker_info =
@@ -651,27 +627,11 @@ pub mod pallet {
 		) -> DispatchResult {
 			let caller = T::CreatePoolOrigin::ensure_origin(origin.clone())
 				.or_else(|_| ensure_signed(origin))?;
-
-			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			ensure!(pool_info.admin == caller, BadOrigin);
-			ensure!(
-				new_reward_rate_per_block > pool_info.reward_rate_per_block,
-				Error::<T>::RewardRateCut
-			);
-
-			// Always start by updating the pool rewards.
-			let rewards_per_token = Self::reward_per_token(&pool_info)?;
-			let mut pool_info = Self::update_pool_rewards(&pool_info, rewards_per_token)?;
-
-			pool_info.reward_rate_per_block = new_reward_rate_per_block;
-			Pools::<T>::insert(pool_id, pool_info);
-
-			Self::deposit_event(Event::PoolRewardRateModified {
+			<Self as RewardsPool<_>>::set_pool_reward_rate_per_block(
+				&caller,
 				pool_id,
 				new_reward_rate_per_block,
-			});
-
-			Ok(())
+			)
 		}
 
 		/// Modify a pool admin.
@@ -685,16 +645,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let caller = T::CreatePoolOrigin::ensure_origin(origin.clone())
 				.or_else(|_| ensure_signed(origin))?;
-
-			let mut pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			ensure!(pool_info.admin == caller, BadOrigin);
-
-			pool_info.admin = new_admin.clone();
-			Pools::<T>::insert(pool_id, pool_info);
-
-			Self::deposit_event(Event::PoolAdminModified { pool_id, new_admin });
-
-			Ok(())
+			<Self as RewardsPool<_>>::set_pool_admin(&caller, pool_id, new_admin)
 		}
 
 		/// Set when the pool should expire.
@@ -710,30 +661,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let caller = T::CreatePoolOrigin::ensure_origin(origin.clone())
 				.or_else(|_| ensure_signed(origin))?;
-
-			let new_expiry = new_expiry.evaluate(frame_system::Pallet::<T>::block_number());
-			ensure!(
-				new_expiry > frame_system::Pallet::<T>::block_number(),
-				Error::<T>::ExpiryBlockMustBeInTheFuture
-			);
-
-			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			ensure!(pool_info.admin == caller, BadOrigin);
-			ensure!(new_expiry > pool_info.expiry_block, Error::<T>::ExpiryCut);
-
-			// Always start by updating the pool rewards.
-			let reward_per_token = Self::reward_per_token(&pool_info)?;
-			let mut pool_info = Self::update_pool_rewards(&pool_info, reward_per_token)?;
-
-			pool_info.expiry_block = new_expiry;
-			Pools::<T>::insert(pool_id, pool_info);
-
-			Self::deposit_event(Event::PoolExpiryBlockModified {
-				pool_id,
-				new_expiry_block: new_expiry,
-			});
-
-			Ok(())
+			<Self as RewardsPool<_>>::set_pool_expiry_block(&caller, pool_id, new_expiry)
 		}
 
 		/// Convenience method to deposit reward tokens into a pool.
@@ -849,14 +777,16 @@ pub mod pallet {
 			reward_per_token: T::Balance,
 		) -> Result<PoolInfoFor<T>, DispatchError> {
 			let mut new_pool_info = pool_info.clone();
-			new_pool_info.last_update_block = frame_system::Pallet::<T>::block_number();
+			new_pool_info.last_update_block = T::BlockNumberProvider::current_block_number();
 			new_pool_info.reward_per_token_stored = reward_per_token;
 
 			Ok(new_pool_info)
 		}
 
 		/// Derives the current reward per token for this pool.
-		fn reward_per_token(pool_info: &PoolInfoFor<T>) -> Result<T::Balance, DispatchError> {
+		pub(super) fn reward_per_token(
+			pool_info: &PoolInfoFor<T>,
+		) -> Result<T::Balance, DispatchError> {
 			if pool_info.total_tokens_staked.is_zero() {
 				return Ok(pool_info.reward_per_token_stored)
 			}
@@ -894,12 +824,141 @@ pub mod pallet {
 		}
 
 		fn last_block_reward_applicable(pool_expiry_block: BlockNumberFor<T>) -> BlockNumberFor<T> {
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			if now < pool_expiry_block {
 				now
 			} else {
 				pool_expiry_block
 			}
 		}
+	}
+}
+
+impl<T: Config> RewardsPool<T::AccountId> for Pallet<T> {
+	type AssetId = T::AssetId;
+	type BlockNumber = BlockNumberFor<T>;
+	type PoolId = PoolId;
+	type Balance = T::Balance;
+
+	fn create_pool(
+		creator: &T::AccountId,
+		staked_asset_id: T::AssetId,
+		reward_asset_id: T::AssetId,
+		reward_rate_per_block: T::Balance,
+		expiry: DispatchTime<BlockNumberFor<T>>,
+		admin: &T::AccountId,
+	) -> Result<PoolId, DispatchError> {
+		// Ensure the assets exist.
+		ensure!(T::Assets::asset_exists(staked_asset_id.clone()), Error::<T>::NonExistentAsset);
+		ensure!(T::Assets::asset_exists(reward_asset_id.clone()), Error::<T>::NonExistentAsset);
+
+		// Check the expiry block.
+		let now = T::BlockNumberProvider::current_block_number();
+		let expiry_block = expiry.evaluate(now);
+		ensure!(expiry_block > now, Error::<T>::ExpiryBlockMustBeInTheFuture);
+
+		let pool_id = NextPoolId::<T>::try_mutate(|id| -> Result<PoolId, DispatchError> {
+			let current_id = *id;
+			*id = id.ensure_add(1)?;
+			Ok(current_id)
+		})?;
+
+		let footprint = Self::pool_creation_footprint();
+		let cost = T::Consideration::new(creator, footprint)?;
+		PoolCost::<T>::insert(pool_id, (creator.clone(), cost));
+
+		// Create the pool.
+		let pool = PoolInfoFor::<T> {
+			staked_asset_id: staked_asset_id.clone(),
+			reward_asset_id: reward_asset_id.clone(),
+			reward_rate_per_block,
+			total_tokens_staked: 0u32.into(),
+			reward_per_token_stored: 0u32.into(),
+			last_update_block: 0u32.into(),
+			expiry_block,
+			admin: admin.clone(),
+			account: Self::pool_account_id(&pool_id),
+		};
+
+		// Insert it into storage.
+		Pools::<T>::insert(pool_id, pool);
+
+		// Emit created event.
+		Self::deposit_event(Event::PoolCreated {
+			creator: creator.clone(),
+			pool_id,
+			staked_asset_id,
+			reward_asset_id,
+			reward_rate_per_block,
+			expiry_block,
+			admin: admin.clone(),
+		});
+
+		Ok(pool_id)
+	}
+
+	fn set_pool_reward_rate_per_block(
+		admin: &T::AccountId,
+		pool_id: PoolId,
+		new_reward_rate_per_block: T::Balance,
+	) -> DispatchResult {
+		let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
+		ensure!(pool_info.admin == *admin, BadOrigin);
+		ensure!(
+			new_reward_rate_per_block > pool_info.reward_rate_per_block,
+			Error::<T>::RewardRateCut
+		);
+
+		// Always start by updating the pool rewards.
+		let rewards_per_token = Self::reward_per_token(&pool_info)?;
+		let mut pool_info = Self::update_pool_rewards(&pool_info, rewards_per_token)?;
+
+		pool_info.reward_rate_per_block = new_reward_rate_per_block;
+		Pools::<T>::insert(pool_id, pool_info);
+
+		Self::deposit_event(Event::PoolRewardRateModified { pool_id, new_reward_rate_per_block });
+
+		Ok(())
+	}
+
+	fn set_pool_admin(
+		admin: &T::AccountId,
+		pool_id: PoolId,
+		new_admin: T::AccountId,
+	) -> DispatchResult {
+		let mut pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
+		ensure!(pool_info.admin == *admin, BadOrigin);
+
+		pool_info.admin = new_admin.clone();
+		Pools::<T>::insert(pool_id, pool_info);
+
+		Self::deposit_event(Event::PoolAdminModified { pool_id, new_admin });
+
+		Ok(())
+	}
+
+	fn set_pool_expiry_block(
+		admin: &T::AccountId,
+		pool_id: PoolId,
+		new_expiry: DispatchTime<BlockNumberFor<T>>,
+	) -> DispatchResult {
+		let now = T::BlockNumberProvider::current_block_number();
+		let new_expiry_block = new_expiry.evaluate(now);
+		ensure!(new_expiry_block > now, Error::<T>::ExpiryBlockMustBeInTheFuture);
+
+		let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
+		ensure!(pool_info.admin == *admin, BadOrigin);
+		ensure!(new_expiry_block > pool_info.expiry_block, Error::<T>::ExpiryCut);
+
+		// Always start by updating the pool rewards.
+		let reward_per_token = Self::reward_per_token(&pool_info)?;
+		let mut pool_info = Self::update_pool_rewards(&pool_info, reward_per_token)?;
+
+		pool_info.expiry_block = new_expiry_block;
+		Pools::<T>::insert(pool_id, pool_info);
+
+		Self::deposit_event(Event::PoolExpiryBlockModified { pool_id, new_expiry_block });
+
+		Ok(())
 	}
 }

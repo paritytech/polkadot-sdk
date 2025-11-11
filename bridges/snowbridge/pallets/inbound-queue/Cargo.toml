@@ -14,13 +14,15 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
 [dependencies]
 alloy-core = { workspace = true, features = ["sol-types"] }
 codec = { features = ["derive"], workspace = true }
-hex-literal = { optional = true, workspace = true, default-features = true }
-log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true, default-features = true }
+tracing = { workspace = true }
 
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
@@ -36,8 +38,8 @@ xcm-executor = { workspace = true }
 
 snowbridge-beacon-primitives = { workspace = true }
 snowbridge-core = { workspace = true }
+snowbridge-inbound-queue-primitives = { workspace = true }
 snowbridge-pallet-inbound-queue-fixtures = { optional = true, workspace = true }
-snowbridge-router-primitives = { workspace = true }
 
 [dev-dependencies]
 frame-benchmarking = { workspace = true, default-features = true }
@@ -53,18 +55,18 @@ std = [
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-balances/std",
 	"scale-info/std",
 	"serde",
 	"snowbridge-beacon-primitives/std",
 	"snowbridge-core/std",
+	"snowbridge-inbound-queue-primitives/std",
 	"snowbridge-pallet-inbound-queue-fixtures?/std",
-	"snowbridge-router-primitives/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"tracing/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]
@@ -73,12 +75,11 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"hex-literal",
 	"pallet-balances/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
+	"snowbridge-inbound-queue-primitives/runtime-benchmarks",
 	"snowbridge-pallet-ethereum-client/runtime-benchmarks",
 	"snowbridge-pallet-inbound-queue-fixtures/runtime-benchmarks",
-	"snowbridge-router-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
@@ -87,6 +88,7 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
+	"snowbridge-inbound-queue-primitives/try-runtime",
 	"snowbridge-pallet-ethereum-client/try-runtime",
 	"sp-runtime/try-runtime",
 ]

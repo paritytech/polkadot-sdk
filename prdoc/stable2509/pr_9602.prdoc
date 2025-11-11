@@ -1,0 +1,7 @@
+title: Fix `check_hrmp_message_metadata()`
+doc:
+- audience: Runtime Dev
+  description: We need to update `maybe_prev_msg_metadata` inside `check_hrmp_message_metadata()`
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: patch

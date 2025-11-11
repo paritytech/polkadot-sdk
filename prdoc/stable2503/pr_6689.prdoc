@@ -1,0 +1,18 @@
+title: '[pallet-revive] Update gas encoding'
+doc:
+- audience: Runtime Dev
+  description: |
+    Update the current approach to attach the `ref_time`, `pov` and `deposit` parameters to an Ethereum transaction.
+    Previously, these three parameters were passed along with the signed payload, and the fees resulting from gas × gas_price were checked to ensure they matched the actual fees paid by the user for the extrinsic
+    This approach unfortunately can be attacked. A malicious actor could force such a transaction to fail by injecting low values for some of these extra parameters as they are not part of the signed payload.
+    The new approach encodes these 3 extra parameters in the lower digits of the transaction gas, using the log2 of the actual values to  encode each components on 2 digits
+
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor
+- name: pallet-revive
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: pallet-revive-mock-network
+  bump: minor

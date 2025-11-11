@@ -17,8 +17,11 @@
 
 //! Helper methods for npos-elections.
 
-use crate::{Assignment, Error, IdentifierT, PerThing128, StakedAssignment, VoteWeight};
-use alloc::vec::Vec;
+use crate::{
+	Assignment, Error, ExtendedBalance, IdentifierT, PerThing128, StakedAssignment, Supports,
+	VoteWeight,
+};
+use alloc::{collections::BTreeMap, vec::Vec};
 use sp_arithmetic::PerThing;
 
 /// Converts a vector of ratio assignments into ones with absolute budget value.
@@ -50,7 +53,7 @@ where
 {
 	let mut staked = assignment_ratio_to_staked(ratio, &stake_of);
 	staked.iter_mut().try_for_each(|a| {
-		a.try_normalize(stake_of(&a.who).into()).map_err(Error::ArithmeticError)
+		a.try_normalize(stake_of(&a.who).into()).map_err(|_| Error::ArithmeticError)
 	})?;
 	Ok(staked)
 }
@@ -70,9 +73,26 @@ pub fn assignment_staked_to_ratio_normalized<A: IdentifierT, P: PerThing128>(
 ) -> Result<Vec<Assignment<A, P>>, Error> {
 	let mut ratio = staked.into_iter().map(|a| a.into_assignment()).collect::<Vec<_>>();
 	for assignment in ratio.iter_mut() {
-		assignment.try_normalize().map_err(Error::ArithmeticError)?;
+		assignment.try_normalize().map_err(|_| Error::ArithmeticError)?;
 	}
 	Ok(ratio)
+}
+
+/// Convert some [`Supports`]s into vector of [`StakedAssignment`]
+pub fn supports_to_staked_assignment<A: IdentifierT>(
+	supports: Supports<A>,
+) -> Vec<StakedAssignment<A>> {
+	let mut staked: BTreeMap<A, Vec<(A, ExtendedBalance)>> = BTreeMap::new();
+	for (target, support) in supports {
+		for (voter, amount) in support.voters {
+			staked.entry(voter).or_default().push((target.clone(), amount))
+		}
+	}
+
+	staked
+		.into_iter()
+		.map(|(who, distribution)| StakedAssignment { who, distribution })
+		.collect::<Vec<_>>()
 }
 
 #[cfg(test)]

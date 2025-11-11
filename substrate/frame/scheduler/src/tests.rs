@@ -1264,8 +1264,8 @@ fn cancel_named_periodic_scheduling_works() {
 
 #[test]
 fn scheduler_respects_weight_limits() {
-	let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 	new_test_ext().execute_with(|| {
+		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight / 3 * 2 });
 		assert_ok!(Scheduler::do_schedule(
 			DispatchTime::At(4),
@@ -1292,8 +1292,8 @@ fn scheduler_respects_weight_limits() {
 
 #[test]
 fn retry_respects_weight_limits() {
-	let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 	new_test_ext().execute_with(|| {
+		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 		// schedule 42
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight / 3 * 2 });
 		assert_ok!(Scheduler::do_schedule(
@@ -1344,8 +1344,8 @@ fn retry_respects_weight_limits() {
 
 #[test]
 fn try_schedule_retry_respects_weight_limits() {
-	let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 	new_test_ext().execute_with(|| {
+		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 		let service_agendas_weight = <Test as Config>::WeightInfo::service_agendas_base();
 		let service_agenda_weight = <Test as Config>::WeightInfo::service_agenda_base(
 			<Test as Config>::MaxScheduledPerBlock::get(),
@@ -1404,8 +1404,8 @@ fn try_schedule_retry_respects_weight_limits() {
 /// Permanently overweight calls are not deleted but also not executed.
 #[test]
 fn scheduler_does_not_delete_permanently_overweight_call() {
-	let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 	new_test_ext().execute_with(|| {
+		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight });
 		assert_ok!(Scheduler::do_schedule(
 			DispatchTime::At(4),
@@ -1430,10 +1430,10 @@ fn scheduler_does_not_delete_permanently_overweight_call() {
 
 #[test]
 fn scheduler_handles_periodic_failure() {
-	let max_weight: Weight = <Test as Config>::MaximumWeight::get();
-	let max_per_block = <Test as Config>::MaxScheduledPerBlock::get();
-
 	new_test_ext().execute_with(|| {
+		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
+		let max_per_block = <Test as Config>::MaxScheduledPerBlock::get();
+
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: (max_weight / 3) * 2 });
 		let bound = Preimage::bound(call).unwrap();
 
@@ -1472,9 +1472,9 @@ fn scheduler_handles_periodic_failure() {
 
 #[test]
 fn scheduler_handles_periodic_unavailable_preimage() {
-	let max_weight: Weight = <Test as Config>::MaximumWeight::get();
-
 	new_test_ext().execute_with(|| {
+		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
+
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: (max_weight / 3) * 2 });
 		let hash = <Test as frame_system::Config>::Hashing::hash_of(&call);
 		let len = call.using_encoded(|x| x.len()) as u32;
@@ -1518,8 +1518,8 @@ fn scheduler_handles_periodic_unavailable_preimage() {
 
 #[test]
 fn scheduler_respects_priority_ordering() {
-	let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 	new_test_ext().execute_with(|| {
+		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight / 3 });
 		assert_ok!(Scheduler::do_schedule(
 			DispatchTime::At(4),
@@ -1636,22 +1636,24 @@ fn on_initialize_weight_is_correct() {
 		));
 
 		// Will include the named periodic only
-		<Test as Config>::BlockNumberProvider::set_block_number(1);
+		let now = 1;
+		<Test as Config>::BlockNumberProvider::set_block_number(now);
 		assert_eq!(
-			Scheduler::on_initialize(42), // BN unused
+			Scheduler::on_initialize(42), // block number unused
 			TestWeightInfo::service_agendas_base() +
 				TestWeightInfo::service_agenda_base(1) +
 				<TestWeightInfo as MarginalWeightInfo>::service_task(None, true, true) +
 				TestWeightInfo::execute_dispatch_unsigned() +
 				call_weight + Weight::from_parts(4, 0)
 		);
-		assert_eq!(IncompleteSince::<Test>::get(), None);
+		assert_eq!(IncompleteSince::<Test>::get(), Some(now + 1));
 		assert_eq!(logger::log(), vec![(root(), 2600u32)]);
 
 		// Will include anon and anon periodic
-		<Test as Config>::BlockNumberProvider::set_block_number(2);
+		let now = 2;
+		<Test as Config>::BlockNumberProvider::set_block_number(now);
 		assert_eq!(
-			Scheduler::on_initialize(123), // BN unused
+			Scheduler::on_initialize(123), // block number unused
 			TestWeightInfo::service_agendas_base() +
 				TestWeightInfo::service_agenda_base(2) +
 				<TestWeightInfo as MarginalWeightInfo>::service_task(None, false, true) +
@@ -1661,32 +1663,43 @@ fn on_initialize_weight_is_correct() {
 				TestWeightInfo::execute_dispatch_unsigned() +
 				call_weight + Weight::from_parts(2, 0)
 		);
-		assert_eq!(IncompleteSince::<Test>::get(), None);
+		assert_eq!(IncompleteSince::<Test>::get(), Some(now + 1));
 		assert_eq!(logger::log(), vec![(root(), 2600u32), (root(), 69u32), (root(), 42u32)]);
 
 		// Will include named only
-		<Test as Config>::BlockNumberProvider::set_block_number(3);
+		let now = 3;
+		<Test as Config>::BlockNumberProvider::set_block_number(now);
 		assert_eq!(
-			Scheduler::on_initialize(555), // BN unused
+			Scheduler::on_initialize(555), // block number unused
 			TestWeightInfo::service_agendas_base() +
 				TestWeightInfo::service_agenda_base(1) +
 				<TestWeightInfo as MarginalWeightInfo>::service_task(None, true, false) +
 				TestWeightInfo::execute_dispatch_unsigned() +
 				call_weight + Weight::from_parts(1, 0)
 		);
-		assert_eq!(IncompleteSince::<Test>::get(), None);
+		assert_eq!(IncompleteSince::<Test>::get(), Some(now + 1));
 		assert_eq!(
 			logger::log(),
 			vec![(root(), 2600u32), (root(), 69u32), (root(), 42u32), (root(), 3u32)]
 		);
 
 		// Will contain none
-		<Test as Config>::BlockNumberProvider::set_block_number(4);
-		let actual_weight = Scheduler::on_initialize(444); // BN unused
+		let now = 4;
+		<Test as Config>::BlockNumberProvider::set_block_number(now);
+		let actual_weight = Scheduler::on_initialize(444); // block number unused
 		assert_eq!(
 			actual_weight,
 			TestWeightInfo::service_agendas_base() + TestWeightInfo::service_agenda_base(0)
 		);
+		assert_eq!(IncompleteSince::<Test>::get(), Some(now + 1));
+
+		frame_system::Pallet::<Test>::register_extra_weight_unchecked(
+			BlockWeights::get().max_block,
+			frame_support::dispatch::DispatchClass::Mandatory,
+		);
+
+		let actual_weight = Scheduler::on_initialize(444); // block number unused
+		assert!(actual_weight.is_zero());
 	});
 }
 
@@ -3037,5 +3050,155 @@ fn unavailable_call_is_detected() {
 		);
 		// It should not be requested anymore.
 		assert!(!Preimage::is_requested(&hash));
+	});
+}
+
+#[test]
+fn postponed_task_is_still_available() {
+	new_test_ext().execute_with(|| {
+		let service_agendas_weight = <Test as Config>::WeightInfo::service_agendas_base();
+		let service_agenda_weight = <Test as Config>::WeightInfo::service_agenda_base(
+			<Test as Config>::MaxScheduledPerBlock::get(),
+		);
+
+		assert_ok!(Scheduler::schedule(
+			RuntimeOrigin::root(),
+			4,
+			None,
+			128,
+			Box::new(RuntimeCall::from(frame_system::Call::remark {
+				remark: vec![0u8; 3 * 1024 * 1024],
+			}))
+		));
+		System::run_to_block::<AllPalletsWithSystem>(3);
+		// Scheduled calls are in the agenda.
+		assert_eq!(Agenda::<Test>::get(4).len(), 1);
+
+		let old_weight = MaximumSchedulerWeight::get();
+		MaximumSchedulerWeight::set(&service_agenda_weight.saturating_add(service_agendas_weight));
+
+		System::run_to_block::<AllPalletsWithSystem>(4);
+
+		// The task should still be there.
+		assert_eq!(Agenda::<Test>::get(4).iter().filter(|a| a.is_some()).count(), 1);
+		System::assert_last_event(crate::Event::AgendaIncomplete { when: 4 }.into());
+
+		// Now it should get executed
+		MaximumSchedulerWeight::set(&old_weight);
+		System::run_to_block::<AllPalletsWithSystem>(5);
+		assert!(Agenda::<Test>::get(4).is_empty());
+	});
+}
+
+/// Scheduler does not iterate over some blocks that have agendas (for example when block number
+/// provider is not local), but the tasks from those skipped agendas still processed later.
+#[test]
+fn on_initialize_misses_blocks() {
+	new_test_ext().execute_with(|| {
+		let now = 1;
+		System::run_to_block::<AllPalletsWithSystem>(now);
+
+		let schedule_at = now + 1;
+		assert_ok!(Scheduler::schedule(
+			RuntimeOrigin::root(),
+			schedule_at,
+			None,
+			128,
+			Box::new(RuntimeCall::from(frame_system::Call::remark {
+				remark: vec![0u8; 3 * 1024 * 1024],
+			}))
+		));
+		assert_eq!(Agenda::<Test>::get(schedule_at).len(), 1);
+
+		// scheduler `on_initialize` was not triggered at blocks `[now, 5)`.
+		let next_scheduler_run_at = schedule_at + 5;
+		// it runs at `next_scheduler_run_at` but processes all skipped blocks.
+		System::set_block_number(next_scheduler_run_at - 1);
+		System::run_to_block::<AllPalletsWithSystem>(next_scheduler_run_at);
+
+		// task processed.
+		assert_eq!(Agenda::<Test>::get(schedule_at).len(), 0);
+		System::assert_last_event(
+			crate::Event::Dispatched { task: (schedule_at, 0), id: None, result: Ok(()) }.into(),
+		);
+	});
+}
+
+/// Scheduler runs `on_initialize` twice for the same block.
+#[test]
+fn on_initialize_runs_twice_for_the_same_block() {
+	new_test_ext().execute_with(|| {
+		let now = 1;
+		System::run_to_block::<AllPalletsWithSystem>(now);
+		assert_eq!(IncompleteSince::<Test>::get(), Some(now + 1));
+
+		let now = 2;
+
+		assert_ok!(Scheduler::schedule(
+			RuntimeOrigin::root(),
+			now,
+			None,
+			128,
+			Box::new(RuntimeCall::from(frame_system::Call::remark {
+				remark: vec![0u8; 3 * 1024 * 1024],
+			}))
+		));
+		assert_eq!(Agenda::<Test>::get(now).len(), 1);
+
+		System::run_to_block::<AllPalletsWithSystem>(now);
+		assert_eq!(Agenda::<Test>::get(now).len(), 0);
+		assert_eq!(IncompleteSince::<Test>::get(), Some(now + 1));
+
+		// Run `on_initialize` again at the same block.
+		System::run_to_block::<AllPalletsWithSystem>(now);
+		// IncompleteSince is not updated.
+		assert_eq!(IncompleteSince::<Test>::get(), Some(now + 1));
+	});
+}
+
+/// The task is not considered overweight if the scheduler processes not the first agenda within one
+/// `on_initialize` even if no more tasks were processed since processing empty agenda has a base
+/// weight.
+#[test]
+fn not_permanently_overweight_when_task_from_not_first_agenda() {
+	new_test_ext().execute_with(|| {
+		let now = 1;
+		System::run_to_block::<AllPalletsWithSystem>(now);
+
+		let schedule_at = now + 5;
+		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
+		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight });
+		assert_ok!(Scheduler::do_schedule(
+			DispatchTime::At(schedule_at),
+			None,
+			127,
+			root(),
+			Preimage::bound(call).unwrap(),
+		));
+
+		// scheduler `on_initialize` was not triggered at blocks `[now, schedule_at + 5)`.
+		let next_scheduler_run_at = schedule_at + 5;
+		// it runs at `next_scheduler_run_at - 1` starting from `now + 1` and tries to process
+		// the task after processing agendas `[now + 1, schedule_at)`.
+		System::set_block_number(next_scheduler_run_at - 1);
+		System::run_to_block::<AllPalletsWithSystem>(next_scheduler_run_at);
+
+		// The task remains in the agenda because it was overweight when processed at `schedule_at`,
+		// causing the agenda to be marked as incomplete. This is not considered permanently
+		// overweight yet.
+		assert_eq!(Agenda::<Test>::get(schedule_at).len(), 1);
+		System::assert_last_event(crate::Event::AgendaIncomplete { when: schedule_at }.into());
+
+		// Run to the next block and start from `schedule_at`.
+		System::run_to_block::<AllPalletsWithSystem>(next_scheduler_run_at + 1);
+
+		// Now its permanently overweight.
+		assert_eq!(
+			System::events().last().unwrap().event,
+			crate::Event::PermanentlyOverweight { task: (schedule_at, 0), id: None }.into(),
+		);
+		// permanently overweight tasks are not removed from the agenda.
+		assert_eq!(Agenda::<Test>::get(schedule_at).len(), 1);
+		assert_eq!(IncompleteSince::<Test>::get(), Some(System::block_number() + 1));
 	});
 }

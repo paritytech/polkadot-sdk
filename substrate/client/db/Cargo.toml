@@ -15,10 +15,15 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[[bench]]
+name = "state_access"
+harness = false
+
+[lib]
+bench = false
+
 [dependencies]
-codec = { features = [
-	"derive",
-], workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true, default-features = true }
 hash-db = { workspace = true, default-features = true }
 kvdb = { workspace = true }
 kvdb-memorydb = { workspace = true }
@@ -27,6 +32,7 @@ linked-hash-map = { workspace = true }
 log = { workspace = true, default-features = true }
 parity-db = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-state-db = { workspace = true, default-features = true }
 schnellru = { workspace = true }
@@ -37,6 +43,7 @@ sp-database = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
+sysinfo = { workspace = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
@@ -56,10 +63,3 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 ]
 rocksdb = ["kvdb-rocksdb"]
-
-[[bench]]
-name = "state_access"
-harness = false
-
-[lib]
-bench = false

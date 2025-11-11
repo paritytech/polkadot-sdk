@@ -204,7 +204,17 @@ pub enum MemberRole {
 }
 
 /// The type of item that may be deemed unscrupulous.
-#[derive(Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum UnscrupulousItem<AccountId, Url> {
 	AccountId(AccountId),
 	Website(Url),
@@ -226,6 +236,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -405,6 +416,14 @@ pub mod pallet {
 		pub allies: Vec<T::AccountId>,
 		#[serde(skip)]
 		pub phantom: PhantomData<(T, I)>,
+	}
+
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
 	}
 
 	#[pallet::genesis_build]
@@ -1110,5 +1129,115 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			length_bound,
 		)?;
 		Ok(info.into())
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_members_are_disjoint()?;
+		Self::try_state_members_are_sorted()?;
+		Self::try_state_retiring_members_are_consistent()?;
+		Self::try_state_deposit_of_is_consistent()?;
+		Self::try_state_unscrupulous_items_are_sorted()?;
+		Self::try_state_announcements_are_sorted()?;
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * The sets of `Fellows`, and `Allies` members must be mutually exclusive. An account cannot
+	///   hold more than one role at a time.
+	fn try_state_members_are_disjoint() -> Result<(), sp_runtime::TryRuntimeError> {
+		let fellows = Members::<T, I>::get(MemberRole::Fellow);
+		let allies = Members::<T, I>::get(MemberRole::Ally);
+
+		for fellow in fellows.iter() {
+			ensure!(allies.binary_search(fellow).is_err(), "Member is both Fellow and Ally");
+		}
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * The list of members for each role (`Fellow`, `Ally`, `Retiring`) must be sorted by
+	///   `AccountId`. This is crucial for efficient lookups using binary search.
+	fn try_state_members_are_sorted() -> Result<(), sp_runtime::TryRuntimeError> {
+		let roles = [MemberRole::Fellow, MemberRole::Ally, MemberRole::Retiring];
+		for role in roles.iter() {
+			let members = Members::<T, I>::get(role);
+			let mut sorted_members = members.clone();
+			sorted_members.sort();
+			ensure!(members == sorted_members, "Members of a role are not sorted");
+		}
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * The set of accounts in `RetiringMembers` storage must be identical to the set of members
+	///   with the `Retiring` role.
+	fn try_state_retiring_members_are_consistent() -> Result<(), sp_runtime::TryRuntimeError> {
+		let retiring_in_members = Members::<T, I>::get(MemberRole::Retiring);
+		let retiring_keys_count = RetiringMembers::<T, I>::iter_keys().count();
+
+		ensure!(
+			retiring_in_members.len() == retiring_keys_count,
+			"Count mismatch between Members<Retiring> and RetiringMembers map"
+		);
+
+		for member in retiring_in_members.iter() {
+			ensure!(
+				RetiringMembers::<T, I>::contains_key(member),
+				"Retiring member not found in RetiringMembers map"
+			);
+		}
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * Every account that has a deposit stored in `DepositOf` must be a member of the alliance
+	///   (either a `Fellow`, `Ally`, or `Retiring`).
+	fn try_state_deposit_of_is_consistent() -> Result<(), sp_runtime::TryRuntimeError> {
+		for (who, _) in DepositOf::<T, I>::iter() {
+			ensure!(Self::is_member(&who), "Account with deposit is not an alliance member");
+		}
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * The lists of `UnscrupulousAccounts` and `UnscrupulousWebsites` must be sorted. This allows
+	///   for efficient binary search lookups.
+	fn try_state_unscrupulous_items_are_sorted() -> Result<(), sp_runtime::TryRuntimeError> {
+		let accounts = UnscrupulousAccounts::<T, I>::get();
+		let mut sorted_accounts = accounts.clone();
+		sorted_accounts.sort();
+		ensure!(accounts == sorted_accounts, "UnscrupulousAccounts is not sorted");
+
+		let websites = UnscrupulousWebsites::<T, I>::get();
+		let mut sorted_websites = websites.clone();
+		sorted_websites.sort();
+		ensure!(websites == sorted_websites, "UnscrupulousWebsites is not sorted");
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * The list of `Announcements` must be sorted. This is necessary because
+	///   `remove_announcement` uses binary search.
+	fn try_state_announcements_are_sorted() -> Result<(), sp_runtime::TryRuntimeError> {
+		let announcements = Announcements::<T, I>::get();
+		let mut sorted_announcements = announcements.clone();
+		sorted_announcements.sort();
+		ensure!(announcements == sorted_announcements, "Announcements is not sorted");
+		Ok(())
 	}
 }

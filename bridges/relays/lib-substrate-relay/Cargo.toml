@@ -14,15 +14,15 @@ workspace = true
 anyhow = { workspace = true }
 async-std = { workspace = true }
 async-trait = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
 codec = { workspace = true, default-features = true }
 futures = { workspace = true }
 hex = { workspace = true, default-features = true }
-log = { workspace = true }
 num-traits = { workspace = true, default-features = true }
 rbtag = { workspace = true }
-structopt = { workspace = true }
 strum = { features = ["derive"], workspace = true, default-features = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
 
 # Bridge dependencies
 bp-header-chain = { workspace = true, default-features = true }
@@ -55,6 +55,5 @@ sp-runtime = { workspace = true, default-features = true }
 sp-trie = { workspace = true }
 
 [dev-dependencies]
-pallet-transaction-payment = { workspace = true, default-features = true }
 relay-substrate-client = { features = ["test-helpers"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }

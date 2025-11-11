@@ -17,6 +17,7 @@
 
 //! Traits for working with tokens and their associated datastructures.
 
+pub mod asset_ops;
 pub mod currency;
 pub mod fungible;
 pub mod fungibles;
@@ -28,10 +29,11 @@ pub mod nonfungibles;
 pub mod nonfungibles_v2;
 pub use imbalance::Imbalance;
 pub mod pay;
+pub mod transfer;
 pub use misc::{
 	AssetId, Balance, BalanceStatus, ConversionFromAssetBalance, ConversionToAssetBalance,
 	ConvertRank, DepositConsequence, ExistenceRequirement, Fortitude, GetSalary, IdAmount, Locker,
-	Precision, Preservation, Provenance, Restriction, UnityAssetBalanceConversion,
-	UnityOrOuterConversion, WithdrawConsequence, WithdrawReasons,
+	Precision, Preservation, Provenance, ProvideAssetReserves, Restriction,
+	UnityAssetBalanceConversion, UnityOrOuterConversion, WithdrawConsequence, WithdrawReasons,
 };
-pub use pay::{Pay, PayFromAccount, PaymentStatus};
+pub use pay::{Pay, PayFromAccount, PayWithFungibles, PayWithSource, PaymentStatus};

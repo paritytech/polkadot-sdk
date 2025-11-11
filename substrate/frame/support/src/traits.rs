@@ -59,11 +59,11 @@ pub use misc::{
 	defensive_prelude::{self, *},
 	AccountTouch, Backing, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstInt,
 	ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, ConstUint, DefensiveMax, DefensiveMin,
-	DefensiveSaturating, DefensiveTruncateFrom, EnsureInherentsAreFirst, EqualPrivilegeOnly,
-	EstimateCallFee, ExecuteBlock, ExtrinsicCall, Get, GetBacking, GetDefault, HandleLifetime,
-	InherentBuilder, IsInherent, IsSubType, IsType, Len, OffchainWorker, OnKilledAccount,
-	OnNewAccount, PrivilegeCmp, SameOrOther, SignedTransactionBuilder, Time, TryCollect, TryDrop,
-	TypedGet, UnixTime, VariantCount, VariantCountOf, WrapperKeepOpaque, WrapperOpaque,
+	DefensiveSaturating, DefensiveTruncateFrom, DefensiveTruncateInto, EqualPrivilegeOnly,
+	EstimateCallFee, ExecuteBlock, Get, GetBacking, GetDefault, HandleLifetime, InherentBuilder,
+	IsInherent, IsSubType, IsType, Len, OffchainWorker, OnKilledAccount, OnNewAccount,
+	PrivilegeCmp, RewardsReporter, SameOrOther, SignedTransactionBuilder, Time, TryCollect,
+	TryDrop, TypedGet, UnixTime, VariantCount, VariantCountOf, WrapperKeepOpaque, WrapperOpaque,
 };
 #[allow(deprecated)]
 pub use misc::{PreimageProvider, PreimageRecipient};
@@ -74,6 +74,7 @@ mod stored_map;
 pub use stored_map::{StorageMapShim, StoredMap};
 mod randomness;
 pub use randomness::Randomness;
+pub mod reality;
 
 mod metadata;
 pub use metadata::{
@@ -96,16 +97,16 @@ mod storage;
 #[cfg(feature = "experimental")]
 pub use storage::MaybeConsideration;
 pub use storage::{
-	Consideration, ConstantStoragePrice, Footprint, Incrementable, Instance, LinearStoragePrice,
-	PartialStorageInfoTrait, StorageInfo, StorageInfoTrait, StorageInstance, TrackedStorageKey,
-	WhitelistedStorageKeys,
+	Consideration, ConstantStoragePrice, Disabled, Footprint, Incrementable, Instance,
+	LinearStoragePrice, NoDrop, PartialStorageInfoTrait, StorageInfo, StorageInfoTrait,
+	StorageInstance, SuppressedDrop, TrackedStorageKey, WhitelistedStorageKeys,
 };
 
 mod dispatch;
 #[allow(deprecated)]
 pub use dispatch::EnsureOneOf;
 pub use dispatch::{
-	AsEnsureOriginWithArg, CallerTrait, EitherOf, EitherOfDiverse, EnsureOrigin,
+	AsEnsureOriginWithArg, Authorize, CallerTrait, EitherOf, EitherOfDiverse, EnsureOrigin,
 	EnsureOriginEqualOrHigherPrivilege, EnsureOriginWithArg, MapSuccess, NeverEnsureOrigin,
 	OriginTrait, TryMapSuccess, TryWithMorphedArg, UnfilteredDispatchable,
 };
@@ -118,9 +119,9 @@ pub use preimages::{Bounded, BoundedInline, FetchResult, QueryPreimage, StorePre
 
 mod messages;
 pub use messages::{
-	EnqueueMessage, EnqueueWithOrigin, ExecuteOverweightError, HandleMessage, NoopServiceQueues,
-	ProcessMessage, ProcessMessageError, QueueFootprint, QueuePausedQuery, ServiceQueues,
-	TransformOrigin,
+	BatchFootprint, BatchesFootprints, EnqueueMessage, EnqueueWithOrigin, ExecuteOverweightError,
+	HandleMessage, NoopServiceQueues, ProcessMessage, ProcessMessageError, QueueFootprint,
+	QueueFootprintQuery, QueuePausedQuery, ServiceQueues, TransformOrigin,
 };
 
 mod safe_mode;
@@ -136,6 +137,9 @@ pub use tasks::Task;
 
 mod proving;
 pub use proving::*;
+
+mod rewards;
+pub use rewards::RewardsPool;
 
 #[cfg(feature = "try-runtime")]
 mod try_runtime;

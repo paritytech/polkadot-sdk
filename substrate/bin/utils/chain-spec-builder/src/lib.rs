@@ -71,7 +71,7 @@ pub struct CreateCmd {
 	#[arg(long, value_enum, short = 'p', requires = "relay_chain")]
 	pub para_id: Option<u32>,
 	/// The relay chain you wish to connect to.
-	#[arg(long, value_enum, short = 'c', requires = "para_id")]
+	#[arg(long, value_enum, short = 'c')]
 	pub relay_chain: Option<String>,
 	/// The path to runtime wasm blob.
 	#[arg(long, short, alias = "runtime-wasm-path")]
@@ -83,6 +83,18 @@ pub struct CreateCmd {
 	/// errors will be reported.
 	#[arg(long, short = 'v')]
 	verify: bool,
+	/// Chain properties in `KEY=VALUE` format.
+	///
+	/// Multiple `KEY=VALUE` entries can be specified and separated by a comma.
+	///
+	/// Example: `--properties tokenSymbol=UNIT,tokenDecimals=12,ss58Format=42,isEthereum=false`
+	/// Or: `--properties tokenSymbol=UNIT --properties tokenDecimals=12 --properties ss58Format=42
+	/// --properties=isEthereum=false`
+	///
+	/// The first uses comma as separation and the second passes the argument multiple times. Both
+	/// styles can also be mixed.
+	#[arg(long, default_value = "tokenSymbol=UNIT,tokenDecimals=12")]
+	pub properties: Vec<String>,
 	#[command(subcommand)]
 	action: GenesisBuildAction,
 
@@ -205,17 +217,17 @@ pub struct ParachainExtension {
 	/// The relay chain of the Parachain.
 	pub relay_chain: String,
 	/// The id of the Parachain.
-	pub para_id: u32,
+	pub para_id: Option<u32>,
 }
 
 type ChainSpec = GenericChainSpec<()>;
 
 impl ChainSpecBuilder {
 	/// Executes the internal command.
-	pub fn run(self) -> Result<(), String> {
+	pub fn run(&self) -> Result<(), String> {
 		let chain_spec_path = self.chain_spec_path.to_path_buf();
 
-		match self.command {
+		match &self.command {
 			ChainSpecBuilderCmd::Create(cmd) => {
 				let chain_spec_json = generate_chain_spec_for_runtime(&cmd)?;
 				fs::write(chain_spec_path, chain_spec_json).map_err(|err| err.to_string())?;
@@ -247,7 +259,7 @@ impl ChainSpecBuilder {
 					&mut chain_spec_json,
 					&fs::read(runtime.as_path())
 						.map_err(|e| format!("Wasm blob file could not be read: {e}"))?[..],
-					block_height,
+					*block_height,
 				);
 				let chain_spec_json = serde_json::to_string_pretty(&chain_spec_json)
 					.map_err(|e| format!("to pretty failed: {e}"))?;
@@ -282,7 +294,7 @@ impl ChainSpecBuilder {
 			},
 			ChainSpecBuilderCmd::Verify(VerifyCmd { ref input_chain_spec }) => {
 				let chain_spec = ChainSpec::from_json_file(input_chain_spec.clone())?;
-				let _ = serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(true)?)
+				serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(true)?)
 					.map_err(|e| format!("Conversion to json failed: {e}"))?;
 			},
 			ChainSpecBuilderCmd::ListPresets(ListPresetsCmd { runtime }) => {
@@ -385,15 +397,44 @@ impl CreateCmd {
 	}
 }
 
-/// Processes `CreateCmd` and returns string represenataion of JSON version of `ChainSpec`.
+/// Parses chain properties passed as a comma-separated KEY=VALUE pairs.
+fn parse_properties(raw: &String, props: &mut sc_chain_spec::Properties) -> Result<(), String> {
+	for pair in raw.split(',') {
+		let mut iter = pair.splitn(2, '=');
+		let key = iter
+			.next()
+			.ok_or_else(|| format!("Invalid chain property key: {pair}"))?
+			.trim()
+			.to_owned();
+		let value_str = iter
+			.next()
+			.ok_or_else(|| format!("Invalid chain property value for key: {key}"))?
+			.trim();
+
+		// Try to parse as bool, number, or fallback to String
+		let value = match value_str.parse::<bool>() {
+			Ok(b) => Value::Bool(b),
+			Err(_) => match value_str.parse::<u32>() {
+				Ok(i) => Value::Number(i.into()),
+				Err(_) => Value::String(value_str.to_string()),
+			},
+		};
+
+		props.insert(key, value);
+	}
+	Ok(())
+}
+
+/// Processes `CreateCmd` and returns string representation of JSON version of `ChainSpec`.
 pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String> {
 	let code = cmd.get_runtime_code()?;
 
 	let chain_type = &cmd.chain_type;
 
 	let mut properties = sc_chain_spec::Properties::new();
-	properties.insert("tokenSymbol".into(), "UNIT".into());
-	properties.insert("tokenDecimals".into(), 12.into());
+	for raw in &cmd.properties {
+		parse_properties(raw, &mut properties)?;
+	}
 
 	let builder = ChainSpec::builder(&code[..], Default::default())
 		.with_name(&cmd.chain_name[..])
@@ -402,20 +443,30 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 		.with_chain_type(chain_type.clone());
 
 	let chain_spec_json_string = process_action(&cmd, &code[..], builder)?;
+	let parachain_properties = cmd.relay_chain.as_ref().map(|rc| {
+		cmd.para_id
+			.map(|para_id| {
+				serde_json::json!({
+					"relay_chain": rc,
+					"para_id": para_id,
+				})
+			})
+			.unwrap_or(serde_json::json!({
+				"relay_chain": rc,
+			}))
+	});
 
-	if let (Some(para_id), Some(ref relay_chain)) = (cmd.para_id, &cmd.relay_chain) {
-		let parachain_properties = serde_json::json!({
-			"relay_chain": relay_chain,
-			"para_id": para_id,
-		});
-		let mut chain_spec_json_blob = serde_json::from_str(chain_spec_json_string.as_str())
-			.map_err(|e| format!("deserialization a json failed {e}"))?;
-		json_patch::merge(&mut chain_spec_json_blob, parachain_properties);
-		Ok(serde_json::to_string_pretty(&chain_spec_json_blob)
-			.map_err(|e| format!("to pretty failed: {e}"))?)
-	} else {
-		Ok(chain_spec_json_string)
-	}
+	let chain_spec = parachain_properties
+		.map(|props| {
+			let chain_spec_json_blob = serde_json::from_str(chain_spec_json_string.as_str())
+				.map_err(|e| format!("deserialization a json failed {e}"));
+			chain_spec_json_blob.and_then(|mut cs| {
+				json_patch::merge(&mut cs, props);
+				serde_json::to_string_pretty(&cs).map_err(|e| format!("to pretty failed: {e}"))
+			})
+		})
+		.unwrap_or(Ok(chain_spec_json_string));
+	chain_spec
 }
 
 /// Extract any chain spec and convert it to JSON

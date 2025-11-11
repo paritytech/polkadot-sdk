@@ -267,17 +267,31 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Worst case when curator is inactive and any sender un-assigns the curator.
+	// Worst case when curator is inactive and any sender un-assigns the curator,
+	// or if `BountyUpdatePeriod` is large enough and `RejectOrigin` executes the call.
 	#[benchmark]
 	fn unassign_curator() -> Result<(), BenchmarkError> {
 		setup_pot_account::<T>();
 		let bounty_setup = activate_child_bounty::<T>(0, T::MaximumReasonLength::get())?;
 		Treasury::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
-		set_block_number::<T>(T::SpendPeriod::get() + T::BountyUpdatePeriod::get() + 1u32.into());
-		let caller = whitelisted_caller();
+		let bounty_update_period = T::BountyUpdatePeriod::get();
+		let inactivity_timeout = T::SpendPeriod::get().saturating_add(bounty_update_period);
+		set_block_number::<T>(inactivity_timeout.saturating_add(1u32.into()));
+
+		// If `BountyUpdatePeriod` overflows the inactivity timeout the benchmark still
+		// executes the slash
+		let origin: T::RuntimeOrigin = if Pallet::<T>::treasury_block_number() <= inactivity_timeout
+		{
+			let child_curator = bounty_setup.child_curator;
+			T::RejectOrigin::try_successful_origin()
+				.unwrap_or_else(|_| RawOrigin::Signed(child_curator).into())
+		} else {
+			let caller = whitelisted_caller();
+			RawOrigin::Signed(caller).into()
+		};
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), bounty_setup.bounty_id, bounty_setup.child_bounty_id);
+		_(origin as T::RuntimeOrigin, bounty_setup.bounty_id, bounty_setup.child_bounty_id);
 
 		Ok(())
 	}

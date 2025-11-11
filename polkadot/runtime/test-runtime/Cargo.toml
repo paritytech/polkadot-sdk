@@ -63,24 +63,17 @@ xcm = { workspace = true }
 xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
 
-[dev-dependencies]
-hex-literal = { workspace = true, default-features = true }
-serde_json = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
-sp-trie = { workspace = true, default-features = true }
-
 [build-dependencies]
 substrate-wasm-builder = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
 no_std = []
-only-staking = []
+
 runtime-metrics = [
 	"polkadot-runtime-parachains/runtime-metrics",
 	"sp-io/with-tracing",
 ]
-
 std = [
 	"codec/std",
 	"frame-election-provider-support/std",
@@ -130,7 +123,6 @@ std = [
 	"xcm-executor/std",
 	"xcm/std",
 ]
-
 runtime-benchmarks = [
 	"frame-election-provider-support/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
@@ -140,6 +132,7 @@ runtime-benchmarks = [
 	"pallet-grandpa/runtime-benchmarks",
 	"pallet-indices/runtime-benchmarks",
 	"pallet-offences/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",

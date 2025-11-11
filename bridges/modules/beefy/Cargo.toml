@@ -13,17 +13,15 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true }
-log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true }
+tracing = { workspace = true }
 
 # Bridge Dependencies
-
 bp-beefy = { workspace = true }
 bp-runtime = { workspace = true }
 
 # Substrate Dependencies
-
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-core = { workspace = true }
@@ -32,7 +30,7 @@ sp-std = { workspace = true }
 
 [dev-dependencies]
 bp-test-utils = { workspace = true, default-features = true }
-mmr-lib = { workspace = true }
+mmr-lib = { workspace = true, default-features = true }
 pallet-beefy-mmr = { workspace = true, default-features = true }
 pallet-mmr = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
@@ -47,12 +45,12 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"tracing/std",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

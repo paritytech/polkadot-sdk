@@ -98,6 +98,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -218,10 +219,10 @@ pub mod pallet {
 			ensure!(init_allowed, <Error<T, I>>::AlreadyInitialized);
 			initialize_bridge::<T, I>(init_data.clone())?;
 
-			log::info!(
+			tracing::info!(
 				target: LOG_TARGET,
-				"Pallet has been initialized with the following parameters: {:?}",
-				init_data
+				parameters=?init_data,
+				"Pallet has been initialized"
 			);
 
 			Ok(().into())
@@ -291,10 +292,10 @@ pub mod pallet {
 			ensure_signed(origin)?;
 
 			let (hash, number) = (finality_target.hash(), *finality_target.number());
-			log::trace!(
+			tracing::trace!(
 				target: LOG_TARGET,
-				"Going to try and finalize header {:?}",
-				finality_target
+				header=?finality_target,
+				"Going to try and finalize header"
 			);
 
 			// it checks whether the `number` is better than the current best block number
@@ -331,11 +332,11 @@ pub mod pallet {
 			// to pay for the transaction.
 			let pays_fee = if may_refund_call_fee { Pays::No } else { Pays::Yes };
 
-			log::info!(
+			tracing::info!(
 				target: LOG_TARGET,
-				"Successfully imported finalized header with hash {:?}! Free: {}",
-				hash,
-				if may_refund_call_fee { "Yes" } else { "No" },
+				?hash,
+				?pays_fee,
+				"Successfully imported finalized header!"
 			);
 
 			// the proof size component of the call weight assumes that there are
@@ -418,7 +419,6 @@ pub mod pallet {
 
 	/// Hash of the best finalized header.
 	#[pallet::storage]
-	#[pallet::getter(fn best_finalized)]
 	pub type BestFinalized<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BridgedBlockId<T, I>, OptionQuery>;
 
@@ -656,12 +656,12 @@ pub mod pallet {
 
 		<CurrentAuthoritySet<T, I>>::put(&next_authorities);
 
-		log::info!(
+		tracing::info!(
 			target: LOG_TARGET,
-			"Transitioned from authority set {} to {}! New authorities are: {:?}",
-			old_current_set_id,
-			new_current_set_id,
-			next_authorities,
+			%old_current_set_id,
+			%new_current_set_id,
+			?next_authorities,
+			"Transitioned from authority set!"
 		);
 
 		Ok(Some(next_authorities.into()))
@@ -687,11 +687,11 @@ pub mod pallet {
 			justification,
 		)
 		.map_err(|e| {
-			log::error!(
+			tracing::error!(
 				target: LOG_TARGET,
-				"Received invalid justification for {:?}: {:?}",
-				hash,
-				e,
+				error=?e,
+				?hash,
+				"Received invalid justification"
 			);
 			<Error<T, I>>::InvalidJustification
 		})?)
@@ -714,7 +714,7 @@ pub mod pallet {
 		// Update ring buffer pointer and remove old header.
 		<ImportedHashesPointer<T, I>>::put((index + 1) % T::HeadersToKeep::get());
 		if let Ok(hash) = pruning {
-			log::debug!(target: LOG_TARGET, "Pruning old header: {:?}.", hash);
+			tracing::debug!(target: LOG_TARGET, ?hash, "Pruning old header.");
 			<ImportedHeaders<T, I>>::remove(hash);
 		}
 	}
@@ -729,11 +729,11 @@ pub mod pallet {
 		let authority_set_length = authority_list.len();
 		let authority_set = StoredAuthoritySet::<T, I>::try_new(authority_list, set_id)
 			.inspect_err(|_| {
-				log::error!(
+				tracing::error!(
 					target: LOG_TARGET,
-					"Failed to initialize bridge. Number of authorities in the set {} is larger than the configured value {}",
-					authority_set_length,
-					T::BridgedChain::MAX_AUTHORITIES_COUNT,
+					%authority_set_length,
+					max_count=%T::BridgedChain::MAX_AUTHORITIES_COUNT,
+					"Failed to initialize bridge. Number of authorities in the set is larger than the configured value"
 				);
 			})?;
 		let initial_hash = header.hash();
@@ -789,12 +789,9 @@ where
 	pub fn synced_headers_grandpa_info() -> Vec<StoredHeaderGrandpaInfo<BridgedHeader<T, I>>> {
 		frame_system::Pallet::<T>::read_events_no_consensus()
 			.filter_map(|event| {
-				if let Event::<T, I>::UpdatedBestFinalizedHeader { grandpa_info, .. } =
-					event.event.try_into().ok()?
-				{
-					return Some(grandpa_info)
-				}
-				None
+				let Event::<T, I>::UpdatedBestFinalizedHeader { grandpa_info, .. } =
+					event.event.try_into().ok()?;
+				Some(grandpa_info)
 			})
 			.collect()
 	}
@@ -822,6 +819,13 @@ pub fn initialize_for_benchmarks<T: Config<I>, I: 'static>(header: BridgedHeader
 		operating_mode: bp_runtime::BasicOperatingMode::Normal,
 	})
 	.expect("only used from benchmarks; benchmarks are correct; qed");
+}
+
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Returns the hash of the best finalized header.
+	pub fn best_finalized() -> Option<BridgedBlockId<T, I>> {
+		BestFinalized::<T, I>::get()
+	}
 }
 
 #[cfg(test)]

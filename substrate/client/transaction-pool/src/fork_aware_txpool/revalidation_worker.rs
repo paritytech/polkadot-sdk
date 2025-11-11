@@ -30,7 +30,7 @@ use sp_runtime::traits::Block as BlockT;
 
 use super::{tx_mem_pool::TxMemPool, view_store::ViewStore};
 use futures::prelude::*;
-use tracing::{trace, warn};
+use tracing::{debug, warn};
 
 use super::view::{FinishRevalidationWorkerChannels, View};
 
@@ -135,7 +135,7 @@ where
 		view: Arc<View<Api>>,
 		finish_revalidation_worker_channels: FinishRevalidationWorkerChannels<Api>,
 	) {
-		trace!(
+		debug!(
 			target: LOG_TARGET,
 			view_at_hash = ?view.at.hash,
 			"revalidation_queue::revalidate_view: Sending view to revalidation queue"
@@ -170,7 +170,7 @@ where
 		view_store: Arc<ViewStore<Api, Block>>,
 		finalized_hash: HashAndNumber<Block>,
 	) {
-		trace!(
+		debug!(
 			target: LOG_TARGET,
 			?finalized_hash,
 			"Sent mempool to revalidation queue"
@@ -201,7 +201,7 @@ mod tests {
 	use crate::{
 		common::tests::{uxt, TestApi},
 		fork_aware_txpool::view::FinishRevalidationLocalChannels,
-		TimedTransactionSource,
+		TimedTransactionSource, ValidateTransactionPriority,
 	};
 	use futures::executor::block_on;
 	use substrate_test_runtime::{AccountId, Transfer, H256};
@@ -211,13 +211,9 @@ mod tests {
 		let api = Arc::new(TestApi::default());
 		let block0 = api.expect_hash_and_number(0);
 
-		let view = Arc::new(View::new(
-			api.clone(),
-			block0,
-			Default::default(),
-			Default::default(),
-			false.into(),
-		));
+		let view = Arc::new(
+			View::new(api.clone(), block0, Default::default(), Default::default(), false.into()).0,
+		);
 		let queue = Arc::new(RevalidationQueue::new());
 
 		let uxt = uxt(Transfer {
@@ -227,10 +223,10 @@ mod tests {
 			nonce: 0,
 		});
 
-		let _ = block_on(view.submit_many(std::iter::once((
-			TimedTransactionSource::new_external(false),
-			uxt.clone().into(),
-		))));
+		let _ = block_on(view.submit_many(
+			std::iter::once((TimedTransactionSource::new_external(false), uxt.clone().into())),
+			ValidateTransactionPriority::Submitted,
+		));
 		assert_eq!(api.validation_requests().len(), 1);
 
 		let (finish_revalidation_request_tx, finish_revalidation_request_rx) =

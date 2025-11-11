@@ -47,6 +47,7 @@ fn prepare_rococo_runtime(c: &mut Criterion) {
 			ExecutorParams::default(),
 			Duration::from_secs(360),
 			PrepareJobKind::Compilation,
+			64 * 1024 * 1024,
 		),
 		Err(e) => {
 			panic!("Cannot decompress blob: {:?}", e);

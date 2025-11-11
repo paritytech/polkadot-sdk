@@ -14,8 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::path::PathBuf;
-
+use clap::ValueEnum;
 use cumulus_client_cli::{ExportGenesisHeadCommand, ExportGenesisWasmCommand};
 use polkadot_service::{ChainSpec, ParaId, PrometheusConfig};
 use sc_cli::{
@@ -23,6 +22,10 @@ use sc_cli::{
 	Result as CliResult, RpcEndpoint, SharedParams, SubstrateCli,
 };
 use sc_service::BasePath;
+use std::{
+	fmt::{Display, Formatter},
+	path::PathBuf,
+};
 
 #[derive(Debug, clap::Parser)]
 #[command(
@@ -43,25 +46,48 @@ pub struct TestCollatorCli {
 	pub relaychain_args: Vec<String>,
 
 	#[arg(long)]
-	pub use_null_consensus: bool,
-
-	#[arg(long)]
 	pub disable_block_announcements: bool,
 
 	#[arg(long)]
 	pub fail_pov_recovery: bool,
 
-	/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling.
-	///
-	/// Use with care, this flag is unstable and subject to change.
-	#[arg(long)]
-	pub experimental_use_slot_based: bool,
+	/// Authoring style to use.
+	#[arg(long, default_value_t = AuthoringPolicy::Lookahead)]
+	pub authoring: AuthoringPolicy,
+}
+
+/// Collator implementation to use.
+#[derive(PartialEq, Debug, ValueEnum, Clone, Copy)]
+pub enum AuthoringPolicy {
+	/// Use the lookahead collator. Builds blocks once per relay chain block,
+	/// builds on relay chain forks.
+	Lookahead,
+	/// Use the slot-based collator which can handle elastic-scaling. Builds blocks based on time
+	/// and can utilize multiple cores, always builds on the best relay chain block available.
+	SlotBased,
+}
+
+impl Display for AuthoringPolicy {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		match self {
+			AuthoringPolicy::Lookahead => write!(f, "lookahead"),
+			AuthoringPolicy::SlotBased => write!(f, "slot-based"),
+		}
+	}
 }
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommand {
 	/// Build a chain specification.
+	/// DEPRECATED: `build-spec` command will be removed after 1/04/2026. Use `export-chain-spec`
+	/// command instead.
+	#[deprecated(
+		note = "build-spec command will be removed after 1/04/2026. Use export-chain-spec command instead"
+	)]
 	BuildSpec(sc_cli::BuildSpecCmd),
+
+	/// Export the chain specification.
+	ExportChainSpec(sc_cli::ExportChainSpecCmd),
 
 	/// Export the genesis state of the parachain.
 	#[command(alias = "export-genesis-state")]
@@ -280,9 +306,30 @@ impl SubstrateCli for TestCollatorCli {
 					ParaId::from(2300),
 				))) as Box<_>
 			},
+			"elastic-scaling-multi-block-slot" => {
+				tracing::info!("Using elastic-scaling multi-block-slot chain spec.");
+				Box::new(cumulus_test_service::get_elastic_scaling_multi_block_slot_chain_spec(
+					Some(ParaId::from(2400)),
+				)) as Box<_>
+			},
+			"sync-backing" => {
+				tracing::info!("Using sync backing chain spec.");
+				Box::new(cumulus_test_service::get_sync_backing_chain_spec(Some(ParaId::from(
+					2500,
+				)))) as Box<_>
+			},
+			"async-backing" => {
+				tracing::info!("Using async backing chain spec.");
+				Box::new(cumulus_test_service::get_async_backing_chain_spec(Some(ParaId::from(
+					2500,
+				)))) as Box<_>
+			},
+			"relay-parent-offset" => Box::new(
+				cumulus_test_service::get_relay_parent_offset_chain_spec(Some(ParaId::from(2600))),
+			) as Box<_>,
 			path => {
-				let chain_spec =
-					cumulus_test_service::chain_spec::ChainSpec::from_json_file(path.into())?;
+				let chain_spec: sc_chain_spec::GenericChainSpec =
+					sc_chain_spec::GenericChainSpec::from_json_file(path.into())?;
 				Box::new(chain_spec)
 			},
 		})

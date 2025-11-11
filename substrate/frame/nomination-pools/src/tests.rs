@@ -7568,3 +7568,73 @@ mod chill {
 		})
 	}
 }
+
+mod filter {
+	use super::*;
+
+	#[test]
+	fn restricted_accounts_cannot_join() {
+		ExtBuilder::default().build_and_execute(|| {
+			// GIVEN
+			let alice = 301;
+			Currency::set_balance(&alice, 20_000);
+
+			// WHEN alice is restricted from participating in pools
+			add_to_restrict_list(&alice);
+
+			// THEN alice cannot join any pool
+			assert_noop!(
+				Pools::join(RuntimeOrigin::signed(alice), 10, 1),
+				Error::<Runtime>::Restricted
+			);
+			// neither she can create a new pool
+			assert_noop!(
+				Pools::create(RuntimeOrigin::signed(alice), 1000, alice, alice, alice),
+				Error::<Runtime>::Restricted
+			);
+
+			// WHEN alice is removed from restricted accounts.
+			remove_from_restrict_list(&alice);
+
+			// THEN alice can join a pool
+			assert_ok!(Pools::join(RuntimeOrigin::signed(alice), 10, 1));
+
+			// WHEN alice is restricted while being in a pool
+			add_to_restrict_list(&alice);
+
+			// THEN she cannot bond extra funds to the pool
+			assert_noop!(
+				Pools::bond_extra(RuntimeOrigin::signed(alice), BondExtra::FreeBalance(10)),
+				Error::<Runtime>::Restricted
+			);
+			assert_noop!(
+				Pools::bond_extra(RuntimeOrigin::signed(alice), BondExtra::Rewards),
+				Error::<Runtime>::Restricted
+			);
+			// nor anyone else can bond her rewards on her behalf
+			assert_noop!(
+				Pools::bond_extra_other(RuntimeOrigin::signed(20), alice, BondExtra::Rewards),
+				Error::<Runtime>::Restricted
+			);
+
+			// but she can claim rewards
+			deposit_rewards(10);
+			assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(alice)));
+			// someone else can claim rewards on her behalf
+			deposit_rewards(10);
+			assert_ok!(Pools::claim_payout_other(RuntimeOrigin::signed(20), alice));
+			// can unbond
+			assert_ok!(Pools::unbond(RuntimeOrigin::signed(alice), alice, 5));
+			// and withdraw
+			CurrentEra::set(3);
+			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(alice), alice, 0));
+
+			// WHEN alice is removed from restrict list
+			remove_from_restrict_list(&alice);
+
+			// THEN she can bond extra funds to the pool
+			assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(alice), BondExtra::FreeBalance(10)));
+			assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(alice), BondExtra::Rewards));
+		});
+	}
+}

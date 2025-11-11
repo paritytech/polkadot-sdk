@@ -127,16 +127,26 @@ type BlockNumberFor<T, I = ()> =
 	<<T as pallet_treasury::Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// A bounty proposal.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct Bounty<AccountId, Balance, BlockNumber> {
 	/// The account proposing it.
-	proposer: AccountId,
+	pub proposer: AccountId,
 	/// The (total) amount that should be paid if the bounty is rewarded.
-	value: Balance,
+	pub value: Balance,
 	/// The curator fee. Included in value.
-	fee: Balance,
+	pub fee: Balance,
 	/// The deposit of curator.
-	curator_deposit: Balance,
+	pub curator_deposit: Balance,
 	/// The amount held on deposit (reserved) for making this proposal.
 	bond: Balance,
 	/// The status of this bounty.
@@ -153,7 +163,17 @@ impl<AccountId: PartialEq + Clone + Ord, Balance, BlockNumber: Clone>
 }
 
 /// The status of a bounty proposal.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum BountyStatus<AccountId, BlockNumber> {
 	/// The bounty is proposed and waiting for approval.
 	Proposed,
@@ -221,7 +241,12 @@ pub mod pallet {
 		#[pallet::constant]
 		type BountyDepositPayoutDelay: Get<BlockNumberFor<Self, I>>;
 
-		/// Bounty duration in blocks.
+		/// The time limit for a curator to act before a bounty expires.
+		///
+		/// The period that starts when a curator is approved, during which they must execute or
+		/// update the bounty via `extend_bounty_expiry`. If missed, the bounty expires, and the
+		/// curator may be slashed. If `BlockNumberFor::MAX`, bounties stay active indefinitely,
+		/// removing the need for `extend_bounty_expiry`.
 		#[pallet::constant]
 		type BountyUpdatePeriod: Get<BlockNumberFor<Self, I>>;
 
@@ -249,6 +274,7 @@ pub mod pallet {
 		type DataDepositPerByte: Get<BalanceOf<Self, I>>;
 
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -293,6 +319,8 @@ pub mod pallet {
 		HasActiveChildBounty,
 		/// Too many approvals are already queued.
 		TooManyQueued,
+		/// User is not the proposer of the bounty.
+		NotProposer,
 	}
 
 	#[pallet::event]
@@ -320,6 +348,13 @@ pub mod pallet {
 		CuratorUnassigned { bounty_id: BountyIndex },
 		/// A bounty curator is accepted.
 		CuratorAccepted { bounty_id: BountyIndex, curator: T::AccountId },
+		/// A bounty deposit has been poked.
+		DepositPoked {
+			bounty_id: BountyIndex,
+			proposer: T::AccountId,
+			old_deposit: BalanceOf<T, I>,
+			new_deposit: BalanceOf<T, I>,
+		},
 	}
 
 	/// Number of bounty proposals that have been made.
@@ -578,8 +613,8 @@ pub mod pallet {
 						T::Currency::reserve(curator, deposit)?;
 						bounty.curator_deposit = deposit;
 
-						let update_due =
-							Self::treasury_block_number() + T::BountyUpdatePeriod::get();
+						let update_due = Self::treasury_block_number()
+							.saturating_add(T::BountyUpdatePeriod::get());
 						bounty.status =
 							BountyStatus::Active { curator: curator.clone(), update_due };
 
@@ -657,7 +692,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
 		) -> DispatchResult {
-			let _ = ensure_signed(origin)?; // anyone can trigger claim
+			ensure_signed(origin)?; // anyone can trigger claim
 
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.take().ok_or(Error::<T, I>::InvalidIndex)?;
@@ -820,9 +855,9 @@ pub mod pallet {
 				match bounty.status {
 					BountyStatus::Active { ref curator, ref mut update_due } => {
 						ensure!(*curator == signer, Error::<T, I>::RequireCurator);
-						*update_due = (Self::treasury_block_number() +
-							T::BountyUpdatePeriod::get())
-						.max(*update_due);
+						*update_due = Self::treasury_block_number()
+							.saturating_add(T::BountyUpdatePeriod::get())
+							.max(*update_due);
 					},
 					_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
 				}
@@ -878,6 +913,34 @@ pub mod pallet {
 			Self::deposit_event(Event::<T, I>::CuratorProposed { bounty_id, curator });
 
 			Ok(())
+		}
+
+		/// Poke the deposit reserved for creating a bounty proposal.
+		///
+		/// This can be used by accounts to update their reserved amount.
+		///
+		/// The dispatch origin for this call must be _Signed_.
+		///
+		/// Parameters:
+		/// - `bounty_id`: The bounty id for which to adjust the deposit.
+		///
+		/// If the deposit is updated, the difference will be reserved/unreserved from the
+		/// proposer's account.
+		///
+		/// The transaction is made free if the deposit is updated and paid otherwise.
+		///
+		/// Emits `DepositPoked` if the deposit is updated.
+		#[pallet::call_index(10)]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::poke_deposit())]
+		pub fn poke_deposit(
+			origin: OriginFor<T>,
+			#[pallet::compact] bounty_id: BountyIndex,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+
+			let deposit_updated = Self::poke_bounty_deposit(bounty_id)?;
+
+			Ok(if deposit_updated { Pays::No } else { Pays::Yes }.into())
 		}
 	}
 
@@ -980,8 +1043,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let index = BountyCount::<T, I>::get();
 
 		// reserve deposit for new bounty
-		let bond = T::BountyDepositBase::get() +
-			T::DataDepositPerByte::get() * (bounded_description.len() as u32).into();
+		let bond = Self::calculate_bounty_deposit(&bounded_description);
 		T::Currency::reserve(&proposer, bond)
 			.map_err(|_| Error::<T, I>::InsufficientProposersBalance)?;
 
@@ -1002,6 +1064,56 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Self::deposit_event(Event::<T, I>::BountyProposed { index });
 
 		Ok(())
+	}
+
+	/// Helper function to calculate the bounty storage deposit.
+	fn calculate_bounty_deposit(
+		description: &BoundedVec<u8, T::MaximumReasonLength>,
+	) -> BalanceOf<T, I> {
+		T::BountyDepositBase::get().saturating_add(
+			T::DataDepositPerByte::get().saturating_mul((description.len() as u32).into()),
+		)
+	}
+
+	/// Helper function to poke the deposit reserved for proposing a bounty.
+	///
+	/// Returns true if the deposit was updated and false otherwise.
+	fn poke_bounty_deposit(bounty_id: BountyIndex) -> Result<bool, DispatchError> {
+		let mut bounty = Bounties::<T, I>::get(bounty_id).ok_or(Error::<T, I>::InvalidIndex)?;
+		let bounty_description =
+			BountyDescriptions::<T, I>::get(bounty_id).ok_or(Error::<T, I>::InvalidIndex)?;
+		// ensure that the bounty status is proposed.
+		ensure!(bounty.status == BountyStatus::Proposed, Error::<T, I>::UnexpectedStatus);
+
+		let new_bond = Self::calculate_bounty_deposit(&bounty_description);
+		let old_bond = bounty.bond;
+		if new_bond == old_bond {
+			return Ok(false);
+		}
+		if new_bond > old_bond {
+			let extra = new_bond.saturating_sub(old_bond);
+			T::Currency::reserve(&bounty.proposer, extra)?;
+		} else {
+			let excess = old_bond.saturating_sub(new_bond);
+			let remaining_unreserved = T::Currency::unreserve(&bounty.proposer, excess);
+			if !remaining_unreserved.is_zero() {
+				defensive!(
+					"Failed to unreserve full amount. (Requested, Actual)",
+					(excess, excess.saturating_sub(remaining_unreserved))
+				);
+			}
+		}
+		bounty.bond = new_bond;
+		Bounties::<T, I>::insert(bounty_id, &bounty);
+
+		Self::deposit_event(Event::<T, I>::DepositPoked {
+			bounty_id,
+			proposer: bounty.proposer,
+			old_deposit: old_bond,
+			new_deposit: new_bond,
+		});
+
+		Ok(true)
 	}
 }
 

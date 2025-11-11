@@ -18,7 +18,7 @@
 
 use super::{traits::Reanchorable, Junction, Junctions};
 use crate::{v3::MultiLocation as OldLocation, v5::Location as NewLocation, VersionedLocation};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::result;
 use scale_info::TypeInfo;
 
@@ -51,6 +51,7 @@ use scale_info::TypeInfo;
 #[derive(
 	Clone,
 	Decode,
+	DecodeWithMemTracking,
 	Encode,
 	Eq,
 	PartialEq,

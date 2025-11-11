@@ -50,6 +50,8 @@
 //!
 //! ## Docs structure
 #![doc = simple_mermaid::mermaid!("../mermaid/structure.mmd")]
+// Frame macros reference features which this crate does not have
+#![allow(unexpected_cfgs)]
 
 /// Fundamentals of the XCM language. The virtual machine, instructions, locations and assets.
 pub mod fundamentals;

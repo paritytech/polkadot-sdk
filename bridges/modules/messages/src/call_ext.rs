@@ -189,10 +189,10 @@ impl<
 		let is_pallet_halted = Pallet::<T, I>::ensure_not_halted().is_err();
 		match self.call_info() {
 			Some(proof_info) if is_pallet_halted => {
-				log::trace!(
+				tracing::trace!(
 					target: LOG_TARGET,
-					"Rejecting messages transaction on halted pallet: {:?}",
-					proof_info
+					?proof_info,
+					"Rejecting messages transaction on halted pallet"
 				);
 
 				return sp_runtime::transaction_validity::InvalidTransaction::Call.into()
@@ -201,10 +201,10 @@ impl<
 				if proof_info
 					.is_obsolete(T::MessageDispatch::is_active(proof_info.base.lane_id)) =>
 			{
-				log::trace!(
+				tracing::trace!(
 					target: LOG_TARGET,
-					"Rejecting obsolete messages delivery transaction: {:?}",
-					proof_info
+					?proof_info,
+					"Rejecting obsolete messages delivery transaction"
 				);
 
 				return sp_runtime::transaction_validity::InvalidTransaction::Stale.into()
@@ -212,10 +212,10 @@ impl<
 			Some(MessagesCallInfo::ReceiveMessagesDeliveryProof(proof_info))
 				if proof_info.is_obsolete() =>
 			{
-				log::trace!(
+				tracing::trace!(
 					target: LOG_TARGET,
-					"Rejecting obsolete messages confirmation transaction: {:?}",
-					proof_info,
+					?proof_info,
+					"Rejecting obsolete messages confirmation transaction"
 				);
 
 				return sp_runtime::transaction_validity::InvalidTransaction::Stale.into()

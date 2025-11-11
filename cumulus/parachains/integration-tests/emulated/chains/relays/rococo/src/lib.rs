@@ -25,7 +25,7 @@ use emulated_integration_tests_common::{
 
 // Rococo declaration
 decl_test_relay_chains! {
-	#[api_version(12)]
+	#[api_version(15)]
 	pub struct Rococo {
 		genesis = genesis::genesis(),
 		on_init = (),

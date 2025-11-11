@@ -17,9 +17,9 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::{u256_bytes, u64_output};
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{u256_bytes, u64_output, HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -29,7 +29,24 @@ pub extern "C" fn deploy() {}
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	let balance = u64_output!(api::balance,);
-	let minimum_balance = u64_output!(api::minimum_balance,);
+
+	let mut output_buf = [0u8; 32];
+	let output = &mut &mut output_buf[..];
+	let _ = api::call(
+		uapi::CallFlags::READ_ONLY,
+		&uapi::SYSTEM_PRECOMPILE_ADDR,
+		u64::MAX,       // How much ref_time to devote for the execution. u64::MAX = use all.
+		u64::MAX,       // How much proof_size to devote for the execution. u64::MAX = use all.
+		&[u8::MAX; 32], // No deposit limit.
+		&[0u8; 32],     // Value transferred to the contract.
+		&uapi::solidity_selector("minimumBalance()"),
+		Some(output),
+	).unwrap();
+	assert_ne!(output_buf, [0u8; 32]);
+
+	let mut u64_buf = [0u8; 8];
+	u64_buf[..8].copy_from_slice(&output_buf[24..32]);
+	let minimum_balance = u64::from_be_bytes(u64_buf);
 
 	// Make the transferred value exceed the balance by adding the minimum balance.
 	let balance = balance + minimum_balance;

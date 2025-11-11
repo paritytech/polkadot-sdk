@@ -21,16 +21,13 @@
 
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use polkadot_primitives::{
-	runtime_api, slashing,
-	vstaging::{
-		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
-		ScrapedOnChainVotes,
-	},
-	AccountId, AuthorityDiscoveryId, Balance, Block, BlockNumber, CandidateCommitments,
-	CandidateHash, DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id as ParaId,
-	InboundDownwardMessage, InboundHrmpMessage, Nonce, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, SessionIndex, SessionInfo, ValidationCode,
-	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	runtime_api, slashing, AccountId, AuthorityDiscoveryId, Balance, Block, BlockNumber,
+	CandidateCommitments, CandidateEvent, CandidateHash,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, DisputeState,
+	ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
+	InboundHrmpMessage, Nonce, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
+	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use sp_consensus_beefy::ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature};
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
@@ -44,7 +41,9 @@ use sp_runtime::{
 use sp_version::RuntimeVersion;
 use sp_weights::Weight;
 use std::collections::BTreeMap;
-use xcm::{VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm};
+use xcm::{
+	Version as XcmVersion, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
+};
 sp_api::decl_runtime_apis! {
 	/// This runtime API is only implemented for the test runtime!
 	pub trait GetLastTimestamp {
@@ -62,7 +61,7 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn execute_block(_: Block) {
+		fn execute_block(_: <Block as BlockT>::LazyBlock) {
 			unimplemented!()
 		}
 
@@ -99,7 +98,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn check_inherents(
-			_: Block,
+			_: <Block as BlockT>::LazyBlock,
 			_: sp_inherents::InherentData,
 		) -> sp_inherents::CheckInherentsResult {
 			unimplemented!()
@@ -219,7 +218,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn unapplied_slashes(
-		) -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)> {
+		) -> Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)> {
 			unimplemented!()
 		}
 
@@ -281,13 +280,6 @@ sp_api::impl_runtime_apis! {
 		) -> Option<sp_consensus_beefy::OpaqueKeyOwnershipProof> {
 			unimplemented!()
 		}
-
-		fn generate_ancestry_proof(
-			_: BlockNumber,
-			_: Option<BlockNumber>,
-		) -> Option<sp_runtime::OpaqueValue> {
-			unimplemented!()
-		}
 	}
 
 	impl sp_mmr_primitives::MmrApi<Block, Hash, BlockNumber> for Runtime {
@@ -303,6 +295,13 @@ sp_api::impl_runtime_apis! {
 			_: Vec<BlockNumber>,
 			_: Option<BlockNumber>,
 		) -> Result<(Vec<sp_mmr_primitives::EncodableOpaqueLeaf>, sp_mmr_primitives::LeafProof<Hash>), sp_mmr_primitives::Error> {
+			unimplemented!()
+		}
+
+		fn generate_ancestry_proof(
+			_: BlockNumber,
+			_: Option<BlockNumber>,
+		) -> Result<sp_mmr_primitives::AncestryProof<Hash>, sp_mmr_primitives::Error> {
 			unimplemented!()
 		}
 
@@ -441,13 +440,13 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn query_delivery_fees(_: VersionedLocation, _: VersionedXcm<()>) -> Result<VersionedAssets, xcm_runtime_apis::fees::Error> {
+		fn query_delivery_fees(_: VersionedLocation, _: VersionedXcm<()>, _: VersionedAssetId) -> Result<VersionedAssets, xcm_runtime_apis::fees::Error> {
 			unimplemented!()
 		}
 	}
 
 	impl xcm_runtime_apis::dry_run::DryRunApi<Block, (), (), ()> for Runtime {
-		fn dry_run_call(_: (), _: ()) -> Result<xcm_runtime_apis::dry_run::CallDryRunEffects<()>, xcm_runtime_apis::dry_run::Error> {
+		fn dry_run_call(_: (), _: (), _: XcmVersion) -> Result<xcm_runtime_apis::dry_run::CallDryRunEffects<()>, xcm_runtime_apis::dry_run::Error> {
 			unimplemented!()
 		}
 

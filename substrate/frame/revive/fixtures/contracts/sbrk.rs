@@ -19,8 +19,7 @@
 
 #![no_std]
 #![no_main]
-
-extern crate common;
+include!("../panic_handler.rs");
 
 // Export that is never called. We can put code here that should be in the binary
 // but is never supposed to be run.

@@ -76,12 +76,18 @@ where
 		let proof: Vec<u8> = vec![];
 
 		whitelist_account!(controller);
+		pallet_session::Pallet::<T>::ensure_can_pay_key_deposit(&controller).unwrap();
 		pallet_session::Pallet::<T>::set_keys(RawOrigin::Signed(controller).into(), keys, proof)
 			.expect("session::set_keys should work");
 	}
 
 	pallet_session::Pallet::<T>::on_initialize(BlockNumberFor::<T>::one());
 	initializer::Pallet::<T>::on_initialize(BlockNumberFor::<T>::one());
+
+	// signal to `pallet-staking`'s `ElectionProvider` to be ready asap.
+	use frame_election_provider_support::ElectionProvider;
+	<<T as pallet_staking::Config>::ElectionProvider as ElectionProvider>::asap();
+
 	// skip sessions until the new validator set is enacted
 	while pallet_session::Pallet::<T>::validators().len() < n as usize {
 		pallet_session::Pallet::<T>::rotate_session();
@@ -137,7 +143,7 @@ fn dispute_proof(
 	validator_id: ValidatorId,
 	validator_index: ValidatorIndex,
 ) -> DisputeProof {
-	let kind = SlashingOffenceKind::ForInvalid;
+	let kind = DisputeOffenceKind::ForInvalidBacked;
 	let time_slot = DisputesTimeSlot::new(session_index, CANDIDATE_HASH);
 
 	DisputeProof { time_slot, kind, validator_index, validator_id }

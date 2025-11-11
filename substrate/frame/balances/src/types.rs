@@ -18,14 +18,25 @@
 //! Types used in the pallet.
 
 use crate::{Config, CreditOf, Event, Pallet};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::ops::BitOr;
 use frame_support::traits::{Imbalance, LockIdentifier, OnUnbalanced, WithdrawReasons};
 use scale_info::TypeInfo;
 use sp_runtime::{RuntimeDebug, Saturating};
 
 /// Simplified reasons for withdrawing balance.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+)]
 pub enum Reasons {
 	/// Paying system transaction fees.
 	Fee = 0,
@@ -59,7 +70,17 @@ impl BitOr for Reasons {
 
 /// A single lock on a balance. There can be many of these on an account and they "overlap", so the
 /// same balance is frozen by multiple locks.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+)]
 pub struct BalanceLock<Balance> {
 	/// An identifier for this lock. Only one lock may be in existence for each identifier.
 	pub id: LockIdentifier,
@@ -70,7 +91,17 @@ pub struct BalanceLock<Balance> {
 }
 
 /// Store named reserved balance.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+)]
 pub struct ReserveData<ReserveIdentifier, Balance> {
 	/// The identifier for the named reserve.
 	pub id: ReserveIdentifier,
@@ -79,7 +110,18 @@ pub struct ReserveData<ReserveIdentifier, Balance> {
 }
 
 /// All balance information for an account.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	Default,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+)]
 pub struct AccountData<Balance> {
 	/// Non-reserved part of the balance which the account holder may be able to control.
 	///
@@ -101,7 +143,17 @@ pub struct AccountData<Balance> {
 
 const IS_NEW_LOGIC: u128 = 0x80000000_00000000_00000000_00000000u128;
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+)]
 pub struct ExtraFlags(pub(crate) u128);
 impl Default for ExtraFlags {
 	fn default() -> Self {
@@ -145,7 +197,17 @@ impl<T: Config<I>, I: 'static> Drop for DustCleaner<T, I> {
 }
 
 /// Whether something should be interpreted as an increase or a decrease.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+)]
 pub enum AdjustmentDirection {
 	/// Increase the amount.
 	Increase,

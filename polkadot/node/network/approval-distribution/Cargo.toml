@@ -21,7 +21,6 @@ polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
 
-bitvec = { features = ["alloc"], workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 gum = { workspace = true, default-features = true }
@@ -36,9 +35,8 @@ polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
 
 assert_matches = { workspace = true }
+rand_chacha = { workspace = true, default-features = true }
 schnorrkel = { workspace = true }
 # rand_core should match schnorrkel
-log = { workspace = true, default-features = true }
-rand_chacha = { workspace = true, default-features = true }
 rand_core = { workspace = true }
 sp-tracing = { workspace = true }

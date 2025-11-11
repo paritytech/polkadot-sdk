@@ -93,6 +93,17 @@ std = [
 	"substrate-wasm-builder",
 ]
 increment-spec-version = []
+# A runtime which expects to build behind the relay chain tip.
+relay-parent-offset = []
+# A runtime with elastic-scaling configuration.
 elastic-scaling = []
+# A runtime with low slot duration of 500ms for low-latency testing with 12 cores.
 elastic-scaling-500ms = []
-experimental-ump-signals = ["cumulus-pallet-parachain-system/experimental-ump-signals"]
+# A runtime with a slot duration of 6s but parameters that allow multiple blocks per slot.
+elastic-scaling-multi-block-slot = []
+# A runtime with 12s slot duration which only authors one block per slot.
+sync-backing = []
+# A runtime with 6s slot duration which only authors one block per slot.
+async-backing = []
+# An elastic scaling runtime with 12s slots.
+elastic-scaling-12s-slot = []

@@ -14,12 +14,23 @@
 // limitations under the License.
 
 use crate::imports::*;
+use emulated_integration_tests_common::snowbridge::{SEPOLIA_ID, WETH};
 
+mod aliases;
 mod asset_transfers;
 mod claim_assets;
 mod register_bridged_assets;
 mod send_xcm;
 mod snowbridge;
+mod snowbridge_common;
+// mod snowbridge_v2_inbound;
+mod snowbridge_edge_case;
+mod snowbridge_v2_inbound;
+mod snowbridge_v2_inbound_to_rococo;
+mod snowbridge_v2_outbound;
+mod snowbridge_v2_outbound_edge_case;
+mod snowbridge_v2_outbound_from_rococo;
+mod snowbridge_v2_rewards;
 mod teleport;
 mod transact;
 
@@ -29,6 +40,16 @@ pub(crate) fn asset_hub_rococo_location() -> Location {
 		[
 			GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
 			Parachain(AssetHubRococo::para_id().into()),
+		],
+	)
+}
+
+pub(crate) fn asset_hub_westend_global_location() -> Location {
+	Location::new(
+		2,
+		[
+			GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+			Parachain(AssetHubWestend::para_id().into()),
 		],
 	)
 }
@@ -77,25 +98,44 @@ pub(crate) fn weth_at_asset_hubs() -> Location {
 	Location::new(
 		2,
 		[
-			GlobalConsensus(Ethereum { chain_id: snowbridge::CHAIN_ID }),
-			AccountKey20 { network: None, key: snowbridge::WETH },
+			GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID }),
+			AccountKey20 { network: None, key: WETH },
 		],
 	)
 }
 
-pub(crate) fn create_foreign_on_ah_rococo(id: v5::Location, sufficient: bool) {
+pub(crate) fn create_foreign_on_ah_rococo(
+	id: v5::Location,
+	sufficient: bool,
+	reserves: Vec<ForeignAssetReserveData>,
+) {
 	let owner = AssetHubRococo::account_id_of(ALICE);
-	AssetHubRococo::force_create_foreign_asset(id, owner, sufficient, ASSET_MIN_BALANCE, vec![]);
+	AssetHubRococo::force_create_foreign_asset(
+		id.clone(),
+		owner.clone(),
+		sufficient,
+		ASSET_MIN_BALANCE,
+		vec![],
+	);
+	AssetHubRococo::set_foreign_asset_reserves(id, owner, reserves);
 }
 
 pub(crate) fn create_foreign_on_ah_westend(
 	id: v5::Location,
 	sufficient: bool,
+	reserves: Vec<ForeignAssetReserveData>,
 	prefund_accounts: Vec<(AccountId, u128)>,
 ) {
 	let owner = AssetHubWestend::account_id_of(ALICE);
 	let min = ASSET_MIN_BALANCE;
-	AssetHubWestend::force_create_foreign_asset(id, owner, sufficient, min, prefund_accounts);
+	AssetHubWestend::force_create_foreign_asset(
+		id.clone(),
+		owner.clone(),
+		sufficient,
+		min,
+		prefund_accounts,
+	);
+	AssetHubWestend::set_foreign_asset_reserves(id, owner, reserves);
 }
 
 pub(crate) fn foreign_balance_on_ah_rococo(id: v5::Location, who: &AccountId) -> u128 {
@@ -111,89 +151,40 @@ pub(crate) fn foreign_balance_on_ah_westend(id: v5::Location, who: &AccountId) -
 	})
 }
 
-/// note: $asset needs to be prefunded outside this function
-#[macro_export]
-macro_rules! create_pool_with_native_on {
-	( $chain:ident, $asset:expr, $is_foreign:expr, $asset_owner:expr ) => {
-		emulated_integration_tests_common::impls::paste::paste! {
-			<$chain>::execute_with(|| {
-				type RuntimeEvent = <$chain as Chain>::RuntimeEvent;
-				let owner = $asset_owner;
-				let signed_owner = <$chain as Chain>::RuntimeOrigin::signed(owner.clone());
-				let native_asset: Location = Parent.into();
-
-				if $is_foreign {
-					assert_ok!(<$chain as [<$chain Pallet>]>::ForeignAssets::mint(
-						signed_owner.clone(),
-						$asset.clone().into(),
-						owner.clone().into(),
-						10_000_000_000_000, // For it to have more than enough.
-					));
-				} else {
-					let asset_id = match $asset.interior.last() {
-						Some(GeneralIndex(id)) => *id as u32,
-						_ => unreachable!(),
-					};
-					assert_ok!(<$chain as [<$chain Pallet>]>::Assets::mint(
-						signed_owner.clone(),
-						asset_id.into(),
-						owner.clone().into(),
-						10_000_000_000_000, // For it to have more than enough.
-					));
-				}
-
-				assert_ok!(<$chain as [<$chain Pallet>]>::AssetConversion::create_pool(
-					signed_owner.clone(),
-					Box::new(native_asset.clone()),
-					Box::new($asset.clone()),
-				));
-
-				assert_expected_events!(
-					$chain,
-					vec![
-						RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
-					]
-				);
-
-				assert_ok!(<$chain as [<$chain Pallet>]>::AssetConversion::add_liquidity(
-					signed_owner,
-					Box::new(native_asset),
-					Box::new($asset),
-					1_000_000_000_000,
-					2_000_000_000_000, // $asset is worth half of native_asset
-					0,
-					0,
-					owner.into()
-				));
-
-				assert_expected_events!(
-					$chain,
-					vec![
-						RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded { .. }) => {},
-					]
-				);
-			});
-		}
-	};
-}
-
 pub(crate) fn send_assets_from_asset_hub_westend(
 	destination: Location,
 	assets: Assets,
 	fee_idx: u32,
+	// For knowing what reserve to pick.
+	// We only allow using the same transfer type for assets and fees right now.
+	// And only `LocalReserve` or `DestinationReserve`.
+	transfer_type: TransferType,
 ) -> DispatchResult {
 	let signed_origin =
 		<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get().into());
 	let beneficiary: Location =
 		AccountId32Junction { network: None, id: AssetHubRococoReceiver::get().into() }.into();
 
+	type Runtime = <AssetHubWestend as Chain>::Runtime;
+	let remote_fee_id: AssetId = assets
+		.clone()
+		.into_inner()
+		.get(fee_idx as usize)
+		.ok_or(pallet_xcm::Error::<Runtime>::Empty)?
+		.clone()
+		.id;
+
 	AssetHubWestend::execute_with(|| {
-		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::limited_reserve_transfer_assets(
+		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 			signed_origin,
 			bx!(destination.into()),
-			bx!(beneficiary.into()),
 			bx!(assets.into()),
-			fee_idx,
+			bx!(transfer_type.clone()),
+			bx!(remote_fee_id.into()),
+			bx!(transfer_type),
+			bx!(VersionedXcm::from(
+				Xcm::<()>::builder_unsafe().deposit_asset(AllCounted(1), beneficiary).build()
+			)),
 			WeightLimit::Unlimited,
 		)
 	})
@@ -230,7 +221,7 @@ pub(crate) fn assert_bridge_hub_westend_message_accepted(expected_processed: boo
 				]
 			);
 		}
-	});
+	})
 }
 
 pub(crate) fn assert_bridge_hub_rococo_message_received() {

@@ -16,20 +16,20 @@
 // limitations under the License.
 //! The Ethereum JSON-RPC server.
 use crate::{
-	client::{connect, native_to_eth_ratio, Client, SubscriptionType, SubstrateBlockNumber},
-	BlockInfoProvider, BlockInfoProviderImpl, CacheReceiptProvider, DBReceiptProvider,
+	client::{connect, Client, SubscriptionType, SubstrateBlockNumber},
 	DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, ReceiptExtractor,
-	ReceiptProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl, LOG_TARGET,
+	ReceiptProvider, SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
+	LOG_TARGET,
 };
 use clap::Parser;
-use futures::{pin_mut, FutureExt};
+use futures::{future::BoxFuture, pin_mut, FutureExt};
 use jsonrpsee::server::RpcModule;
 use sc_cli::{PrometheusParams, RpcParams, SharedParams, Signals};
 use sc_service::{
 	config::{PrometheusConfig, RpcConfiguration},
 	start_rpc_servers, TaskManager,
 };
-use std::sync::Arc;
+use sqlx::sqlite::SqlitePoolOptions;
 
 // Default port if --prometheus-port is not specified
 const DEFAULT_PROMETHEUS_PORT: u16 = 9616;
@@ -51,15 +51,19 @@ pub struct CliCommand {
 	#[clap(long, default_value = "256")]
 	pub cache_size: usize,
 
+	/// Earliest block number to consider when searching for transaction receipts.
+	#[clap(long)]
+	pub earliest_receipt_block: Option<SubstrateBlockNumber>,
+
 	/// The database used to store Ethereum transaction hashes.
 	/// This is only useful if the node needs to act as an archive node and respond to Ethereum RPC
 	/// queries for transactions that are not in the in memory cache.
 	#[clap(long, env = "DATABASE_URL", default_value = IN_MEMORY_DB)]
 	pub database_url: String,
 
-	/// If not provided, only new blocks will be indexed
+	/// If provided, index the last n blocks
 	#[clap(long)]
-	pub index_until_block: Option<SubstrateBlockNumber>,
+	pub index_last_n_blocks: Option<SubstrateBlockNumber>,
 
 	#[allow(missing_docs)]
 	#[clap(flatten)]
@@ -98,35 +102,44 @@ fn init_logger(params: &SharedParams) -> anyhow::Result<()> {
 fn build_client(
 	tokio_handle: &tokio::runtime::Handle,
 	cache_size: usize,
+	earliest_receipt_block: Option<SubstrateBlockNumber>,
 	node_rpc_url: &str,
 	database_url: &str,
 	abort_signal: Signals,
 ) -> anyhow::Result<Client> {
 	let fut = async {
 		let (api, rpc_client, rpc) = connect(node_rpc_url).await?;
-		let block_provider: Arc<dyn BlockInfoProvider> =
-			Arc::new(BlockInfoProviderImpl::new(cache_size, api.clone(), rpc.clone()));
+		let block_provider = SubxtBlockInfoProvider::new( api.clone(), rpc.clone()).await?;
 
-		let prune_old_blocks = database_url == IN_MEMORY_DB;
-		if prune_old_blocks {
-			log::info!( target: LOG_TARGET, "Using in-memory database, keeping only {cache_size} blocks in memory");
-		}
+		let (pool, keep_latest_n_blocks) = if database_url == IN_MEMORY_DB {
+			log::warn!( target: LOG_TARGET, "💾 Using in-memory database, keeping only {cache_size} blocks in memory");
+			// see sqlite in-memory issue: https://github.com/launchbadge/sqlx/issues/2510
+			let pool = SqlitePoolOptions::new()
+					.max_connections(1)
+					.idle_timeout(None)
+					.max_lifetime(None)
+					.connect(database_url).await?;
 
-		let receipt_extractor = ReceiptExtractor::new(native_to_eth_ratio(&api).await?);
-		let receipt_provider: Arc<dyn ReceiptProvider> = Arc::new((
-			CacheReceiptProvider::default(),
-			DBReceiptProvider::new(
-				database_url,
+			(pool, Some(cache_size))
+		} else {
+			(SqlitePoolOptions::new().connect(database_url).await?, None)
+		};
+
+		let receipt_extractor = ReceiptExtractor::new(
+			api.clone(),
+			earliest_receipt_block,
+		).await?;
+
+		let receipt_provider = ReceiptProvider::new(
+				pool,
 				block_provider.clone(),
 				receipt_extractor.clone(),
-				prune_old_blocks,
+				keep_latest_n_blocks,
 			)
-			.await?,
-		));
+			.await?;
 
 		let client =
-			Client::new(api, rpc_client, rpc, block_provider, receipt_provider, receipt_extractor)
-				.await?;
+			Client::new(api, rpc_client, rpc, block_provider, receipt_provider).await?;
 
 		Ok(client)
 	}
@@ -148,7 +161,8 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		node_rpc_url,
 		cache_size,
 		database_url,
-		index_until_block,
+		earliest_receipt_block,
+		index_last_n_blocks,
 		shared_params,
 		..
 	} = cmd;
@@ -175,6 +189,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		rate_limit: rpc_params.rpc_rate_limit,
 		rate_limit_whitelisted_ips: rpc_params.rpc_rate_limit_whitelisted_ips,
 		rate_limit_trust_proxy_headers: rpc_params.rpc_rate_limit_trust_proxy_headers,
+		request_logger_limit: if is_dev { 1024 * 1024 } else { 1024 },
 	};
 
 	let prometheus_config =
@@ -188,6 +203,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	let client = build_client(
 		tokio_handle,
 		cache_size,
+		earliest_receipt_block,
 		&node_rpc_url,
 		&database_url,
 		tokio_runtime.block_on(async { Signals::capture() })?,
@@ -213,12 +229,17 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	task_manager
 		.spawn_essential_handle()
 		.spawn("block-subscription", None, async move {
-			let fut1 = client.subscribe_and_cache_new_blocks(SubscriptionType::BestBlocks);
-			if let Some(index_until_block) = index_until_block {
-				let fut2 = client.cache_old_blocks(index_until_block);
-				tokio::join!(fut1, fut2);
-			} else {
-				fut1.await;
+			let mut futures: Vec<BoxFuture<'_, Result<(), _>>> = vec![
+				Box::pin(client.subscribe_and_cache_new_blocks(SubscriptionType::BestBlocks)),
+				Box::pin(client.subscribe_and_cache_new_blocks(SubscriptionType::FinalizedBlocks)),
+			];
+
+			if let Some(index_last_n_blocks) = index_last_n_blocks {
+				futures.push(Box::pin(client.subscribe_and_cache_blocks(index_last_n_blocks)));
+			}
+
+			if let Err(err) = futures::future::try_join_all(futures).await {
+				panic!("Block subscription task failed: {err:?}",)
 			}
 		});
 
@@ -231,7 +252,17 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 /// Create the JSON-RPC module.
 fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service::Error> {
 	let eth_api = EthRpcServerImpl::new(client.clone())
-		.with_accounts(if is_dev { vec![crate::Account::default()] } else { vec![] })
+		.with_accounts(if is_dev {
+			vec![
+				crate::Account::from(subxt_signer::eth::dev::alith()),
+				crate::Account::from(subxt_signer::eth::dev::baltathar()),
+				crate::Account::from(subxt_signer::eth::dev::charleth()),
+				crate::Account::from(subxt_signer::eth::dev::dorothy()),
+				crate::Account::from(subxt_signer::eth::dev::ethan()),
+			]
+		} else {
+			vec![]
+		})
 		.into_rpc();
 
 	let health_api = SystemHealthRpcServerImpl::new(client.clone()).into_rpc();

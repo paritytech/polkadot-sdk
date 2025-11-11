@@ -17,7 +17,7 @@
 //! Mock types and XcmConfig for all executor unit tests.
 
 use alloc::collections::btree_map::BTreeMap;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::cell::RefCell;
 use frame_support::{
 	dispatch::{DispatchInfo, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
@@ -29,8 +29,11 @@ use sp_runtime::traits::Dispatchable;
 use xcm::prelude::*;
 
 use crate::{
-	traits::{DropAssets, Properties, ShouldExecute, TransactAsset, WeightBounds, WeightTrader},
-	AssetsInHolding, Config, XcmExecutor,
+	traits::{
+		DropAssets, FeeManager, ProcessTransaction, Properties, ShouldExecute, TransactAsset,
+		WeightBounds, WeightTrader,
+	},
+	AssetsInHolding, Config, FeeReason, XcmExecutor,
 };
 
 /// We create an XCVM instance instead of calling `XcmExecutor::<_>::prepare_and_execute` so we
@@ -41,7 +44,9 @@ pub fn instantiate_executor(
 ) -> (XcmExecutor<XcmConfig>, Weight) {
 	let mut vm =
 		XcmExecutor::<XcmConfig>::new(origin, message.using_encoded(sp_io::hashing::blake2_256));
-	let weight = XcmExecutor::<XcmConfig>::prepare(message.clone()).unwrap().weight_of();
+	let weight = XcmExecutor::<XcmConfig>::prepare(message.clone(), Weight::MAX)
+		.unwrap()
+		.weight_of();
 	vm.message_weight = weight;
 	(vm, weight)
 }
@@ -51,6 +56,8 @@ parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1, 1);
 	pub const MaxInstructions: u32 = 10;
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)].into();
+	/// Simulate the chain’s existential deposit.
+	pub const ExistentialDeposit: u128 = 2;
 }
 
 /// Test origin.
@@ -61,7 +68,9 @@ pub struct TestOrigin;
 ///
 /// Doesn't dispatch anything, has an empty implementation of [`Dispatchable`] that
 /// just returns `Ok` with an empty [`PostDispatchInfo`].
-#[derive(Debug, Encode, Decode, Eq, PartialEq, Clone, Copy, scale_info::TypeInfo)]
+#[derive(
+	Debug, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Clone, Copy, scale_info::TypeInfo,
+)]
 pub struct TestCall;
 impl Dispatchable for TestCall {
 	type RuntimeOrigin = TestOrigin;
@@ -82,11 +91,11 @@ impl GetDispatchInfo for TestCall {
 /// Test weigher that just returns a fixed weight for every program.
 pub struct TestWeigher;
 impl<C> WeightBounds<C> for TestWeigher {
-	fn weight(_message: &mut Xcm<C>) -> Result<Weight, ()> {
+	fn weight(_message: &mut Xcm<C>, _weight_limit: Weight) -> Result<Weight, InstructionError> {
 		Ok(Weight::from_parts(2, 2))
 	}
 
-	fn instr_weight(_instruction: &mut Instruction<C>) -> Result<Weight, ()> {
+	fn instr_weight(_instruction: &mut Instruction<C>) -> Result<Weight, XcmError> {
 		Ok(Weight::from_parts(2, 2))
 	}
 }
@@ -125,6 +134,14 @@ impl TransactAsset for TestAssetTransactor {
 		who: &Location,
 		_context: Option<&XcmContext>,
 	) -> Result<(), XcmError> {
+		if let Fungibility::Fungible(amount) = what.fun {
+			// fail if below the configured existential deposit
+			if amount < ExistentialDeposit::get() {
+				return Err(XcmError::FailedToTransactAsset(
+					sp_runtime::TokenError::BelowMinimum.into(),
+				));
+			}
+		}
 		add_asset(who.clone(), what.clone());
 		Ok(())
 	}
@@ -244,11 +261,46 @@ pub fn sent_xcm() -> Vec<(Location, Xcm<()>)> {
 	SENT_XCM.with(|q| (*q.borrow()).clone())
 }
 
+/// A mock contract address that doesn't need to pay for fees.
+pub const WAIVED_CONTRACT_ADDRESS: [u8; 20] = [128; 20];
+
+/// Test fee manager that will waive the fee for some origins.
+///
+/// Doesn't do anything with the fee, which effectively burns it.
+pub struct TestFeeManager;
+impl FeeManager for TestFeeManager {
+	fn is_waived(origin: Option<&Location>, _: FeeReason) -> bool {
+		let Some(origin) = origin else { return false };
+		// Match the root origin and a particular smart contract account.
+		matches!(
+			origin.unpack(),
+			(0, []) | (0, [AccountKey20 { network: None, key: WAIVED_CONTRACT_ADDRESS }])
+		)
+	}
+
+	fn handle_fee(_: Assets, _: Option<&XcmContext>, _: FeeReason) {}
+}
+
+/// Dummy transactional processor that doesn't rollback storage changes, just
+/// aims to rollback executor state.
+pub struct TestTransactionalProcessor;
+impl ProcessTransaction for TestTransactionalProcessor {
+	const IS_TRANSACTIONAL: bool = true;
+
+	fn process<F>(f: F) -> Result<(), XcmError>
+	where
+		F: FnOnce() -> Result<(), XcmError>,
+	{
+		f()
+	}
+}
+
 /// Test XcmConfig that uses all the test implementations in this file.
 pub struct XcmConfig;
 impl Config for XcmConfig {
 	type RuntimeCall = TestCall;
 	type XcmSender = TestSender;
+	type XcmEventEmitter = ();
 	type AssetTransactor = TestAssetTransactor;
 	type OriginConverter = ();
 	type IsReserve = ();
@@ -265,13 +317,13 @@ impl Config for XcmConfig {
 	type SubscriptionService = ();
 	type PalletInstancesInfo = ();
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	type FeeManager = ();
+	type FeeManager = TestFeeManager;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
 	type CallDispatcher = Self::RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
-	type TransactionalProcessor = ();
+	type TransactionalProcessor = TestTransactionalProcessor;
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();

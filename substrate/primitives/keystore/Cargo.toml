@@ -21,10 +21,6 @@ parking_lot = { optional = true, workspace = true }
 sp-core = { workspace = true }
 sp-externalities = { workspace = true }
 
-[dev-dependencies]
-rand = { workspace = true, default-features = true }
-rand_chacha = { workspace = true, default-features = true }
-
 [features]
 default = ["std"]
 std = ["codec/std", "dep:parking_lot", "sp-core/std", "sp-externalities/std"]

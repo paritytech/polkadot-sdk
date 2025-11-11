@@ -206,7 +206,7 @@ where
 			let start = Instant::now();
 
 			runtime_api
-				.execute_block(genesis, block)
+				.execute_block(genesis, block.into())
 				.map_err(|e| Error::Client(RuntimeApiError(e)))?;
 
 			Ok(start.elapsed().as_nanos())
@@ -214,7 +214,7 @@ where
 
 		info!("Running {} warmups...", self.params.warmup);
 		for _ in 0..self.params.warmup {
-			let _ = measure_block()?;
+			measure_block()?;
 		}
 
 		info!("Executing block {} times", self.params.repeat);

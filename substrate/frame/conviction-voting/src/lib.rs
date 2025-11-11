@@ -43,6 +43,7 @@ use sp_runtime::{
 };
 
 mod conviction;
+mod traits;
 mod types;
 mod vote;
 pub mod weights;
@@ -50,6 +51,7 @@ pub mod weights;
 pub use self::{
 	conviction::Conviction,
 	pallet::*,
+	traits::{Status, VotingHooks},
 	types::{Delegations, Tally, UnvoteScope},
 	vote::{AccountVote, Casting, Delegating, Vote, Voting},
 	weights::WeightInfo,
@@ -68,9 +70,9 @@ pub type BlockNumberFor<T, I> =
 	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
-type BalanceOf<T, I = ()> =
+pub type BalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type VotingOf<T, I = ()> = Voting<
+pub type VotingOf<T, I = ()> = Voting<
 	BalanceOf<T, I>,
 	<T as frame_system::Config>::AccountId,
 	BlockNumberFor<T, I>,
@@ -82,10 +84,10 @@ type DelegatingOf<T, I = ()> =
 	Delegating<BalanceOf<T, I>, <T as frame_system::Config>::AccountId, BlockNumberFor<T, I>>;
 pub type TallyOf<T, I = ()> = Tally<BalanceOf<T, I>, <T as Config<I>>::MaxTurnout>;
 pub type VotesOf<T, I = ()> = BalanceOf<T, I>;
-type PollIndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
+pub type PollIndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
 #[cfg(feature = "runtime-benchmarks")]
-type IndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
-type ClassOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Class;
+pub type IndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
+pub type ClassOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Class;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -106,6 +108,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config + Sized {
 		// System level stuff.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Weight information for extrinsics in this pallet.
@@ -142,6 +145,18 @@ pub mod pallet {
 		type VoteLockingPeriod: Get<BlockNumberFor<Self, I>>;
 		/// Provider for the block number. Normally this is the `frame_system` pallet.
 		type BlockNumberProvider: BlockNumberProvider;
+		/// Hooks are called when a new vote is registered or an existing vote is removed.
+		///
+		/// The trait does not expose weight information.
+		/// The weight of each hook is assumed to be benchmarked as part of the function that calls
+		/// it. Hooks should never recursively call into functions that called,
+		/// directly or indirectly, the function that called them.
+		/// This could lead to infinite recursion and stack overflow.
+		/// Note that this also means to not call into other generic functionality like batch or
+		/// similar. Also, anything that a hook did will be subject to the transactional semantics
+		/// of the calling function. This means that if the calling function fails, the hook will
+		/// be rolled back without further notice.
+		type VotingHooks: VotingHooks<Self::AccountId, PollIndexOf<Self, I>, BalanceOf<Self, I>>;
 	}
 
 	/// All voting for a particular voter in a particular voting class. We store the balance for the
@@ -173,13 +188,21 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
 		/// An account has delegated their vote to another account. \[who, target\]
-		Delegated(T::AccountId, T::AccountId),
+		Delegated(T::AccountId, T::AccountId, ClassOf<T, I>),
 		/// An \[account\] has cancelled a previous delegation operation.
-		Undelegated(T::AccountId),
+		Undelegated(T::AccountId, ClassOf<T, I>),
 		/// An account has voted
-		Voted { who: T::AccountId, vote: AccountVote<BalanceOf<T, I>> },
+		Voted {
+			who: T::AccountId,
+			vote: AccountVote<BalanceOf<T, I>>,
+			poll_index: PollIndexOf<T, I>,
+		},
 		/// A vote has been removed
-		VoteRemoved { who: T::AccountId, vote: AccountVote<BalanceOf<T, I>> },
+		VoteRemoved {
+			who: T::AccountId,
+			vote: AccountVote<BalanceOf<T, I>>,
+			poll_index: PollIndexOf<T, I>,
+		},
 		/// The lockup period of a conviction vote expired, and the funds have been unlocked.
 		VoteUnlocked { who: T::AccountId, class: ClassOf<T, I> },
 	}
@@ -410,6 +433,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			vote.balance() <= T::Currency::total_balance(who),
 			Error::<T, I>::InsufficientFunds
 		);
+		// Call on_vote hook
+		T::VotingHooks::on_before_vote(who, poll_index, vote)?;
+
 		T::Polls::try_access_poll(poll_index, |poll_status| {
 			let (tally, class) = poll_status.ensure_ongoing().ok_or(Error::<T, I>::NotOngoing)?;
 			VotingFor::<T, I>::try_mutate(who, &class, |voting| {
@@ -435,12 +461,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						tally.increase(approve, *delegations);
 					}
 				} else {
-					return Err(Error::<T, I>::AlreadyDelegating.into())
+					return Err(Error::<T, I>::AlreadyDelegating.into());
 				}
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
 				Self::extend_lock(who, &class, vote.balance());
-				Self::deposit_event(Event::Voted { who: who.clone(), vote });
+				Self::deposit_event(Event::Voted { who: who.clone(), vote, poll_index });
 				Ok(())
 			})
 		})
@@ -476,11 +502,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						if let Some(approve) = v.1.as_standard() {
 							tally.reduce(approve, *delegations);
 						}
-						Self::deposit_event(Event::VoteRemoved { who: who.clone(), vote: v.1 });
+						Self::deposit_event(Event::VoteRemoved {
+							who: who.clone(),
+							vote: v.1,
+							poll_index,
+						});
+						T::VotingHooks::on_remove_vote(who, poll_index, Status::Ongoing);
 						Ok(())
 					},
 					PollStatus::Completed(end, approved) => {
-						if let Some((lock_periods, balance)) = v.1.locked_if(approved) {
+						if let Some((lock_periods, balance)) =
+							v.1.locked_if(vote::LockedIf::Status(approved))
+						{
 							let unlock_at = end.saturating_add(
 								T::VoteLockingPeriod::get().saturating_mul(lock_periods.into()),
 							);
@@ -492,10 +525,37 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 								);
 								prior.accumulate(unlock_at, balance)
 							}
+						} else if v.1.as_standard().is_some_and(|vote| vote != approved) {
+							// Unsuccessful vote, use special hook to lock the funds too in case of
+							// conviction.
+							if let Some(to_lock) =
+								T::VotingHooks::lock_balance_on_unsuccessful_vote(who, poll_index)
+							{
+								if let AccountVote::Standard { vote, .. } = v.1 {
+									let unlock_at = end.saturating_add(
+										T::VoteLockingPeriod::get()
+											.saturating_mul(vote.conviction.lock_periods().into()),
+									);
+									let now = T::BlockNumberProvider::current_block_number();
+									if now < unlock_at {
+										ensure!(
+											matches!(scope, UnvoteScope::Any),
+											Error::<T, I>::NoPermissionYet
+										);
+										prior.accumulate(unlock_at, to_lock)
+									}
+								}
+							}
 						}
+						// Call on_remove_vote hook
+						T::VotingHooks::on_remove_vote(who, poll_index, Status::Completed);
 						Ok(())
 					},
-					PollStatus::None => Ok(()), // Poll was cancelled.
+					PollStatus::None => {
+						// Poll was cancelled.
+						T::VotingHooks::on_remove_vote(who, poll_index, Status::None);
+						Ok(())
+					},
 				})
 			} else {
 				Ok(())
@@ -601,7 +661,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Self::extend_lock(&who, &class, balance);
 				Ok(votes)
 			})?;
-		Self::deposit_event(Event::<T, I>::Delegated(who, target));
+		Self::deposit_event(Event::<T, I>::Delegated(who, target, class));
 		Ok(votes)
 	}
 
@@ -640,7 +700,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					Voting::Casting(_) => Err(Error::<T, I>::NotDelegating.into()),
 				}
 			})?;
-		Self::deposit_event(Event::<T, I>::Undelegated(who));
+		Self::deposit_event(Event::<T, I>::Undelegated(who, class));
 		Ok(votes)
 	}
 

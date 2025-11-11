@@ -36,7 +36,7 @@ where
 
 	let all_stakers = Ledger::<T>::iter().map(|(ctrl, l)| (ctrl, l.stash)).collect::<BTreeSet<_>>();
 	let mut all_exposed = BTreeSet::new();
-	ErasStakers::<T>::iter().for_each(|(_, val, expo)| {
+	ErasStakersPaged::<T>::iter().for_each(|((_era, val, _page), expo)| {
 		all_exposed.insert(val);
 		all_exposed.extend(expo.others.iter().map(|ie| ie.who.clone()))
 	});

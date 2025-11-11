@@ -15,13 +15,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 use sp_arithmetic::traits::{Bounded, CheckedAdd, CheckedSub, Zero};
 
 use super::*;
 
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Eq, PartialEq, Copy, Clone, Debug, Default)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Eq,
+	PartialEq,
+	Copy,
+	Clone,
+	Debug,
+	Default,
+)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct Weight {
@@ -288,6 +300,26 @@ impl Weight {
 	/// Is only overflow safe when evaluated at compile-time.
 	pub const fn sub_proof_size(self, scalar: u64) -> Self {
 		Self { ref_time: self.ref_time, proof_size: self.proof_size - scalar }
+	}
+
+	/// Saturating version of Add for `ref_time` component with u64.
+	pub const fn saturating_add_ref_time(self, scalar: u64) -> Self {
+		Self { ref_time: self.ref_time.saturating_add(scalar), proof_size: self.proof_size }
+	}
+
+	/// Saturating version of Add for `proof_size` component with u64.
+	pub const fn saturating_add_proof_size(self, scalar: u64) -> Self {
+		Self { ref_time: self.ref_time, proof_size: self.proof_size.saturating_add(scalar) }
+	}
+
+	/// Saturating version of Sub for `ref_time` component with u64.
+	pub const fn saturating_sub_ref_time(self, scalar: u64) -> Self {
+		Self { ref_time: self.ref_time.saturating_sub(scalar), proof_size: self.proof_size }
+	}
+
+	/// Saturating version of Sub for `proof_size` component with u64.
+	pub const fn saturating_sub_proof_size(self, scalar: u64) -> Self {
+		Self { ref_time: self.ref_time, proof_size: self.proof_size.saturating_sub(scalar) }
 	}
 
 	/// Constant version of Div with u64.
@@ -640,5 +672,105 @@ mod tests {
 			Weight::from_parts(0, 0).checked_div_per_component(&Weight::from_parts(0, 0)),
 			None,
 		);
+	}
+
+	#[test]
+	fn saturating_add_ref_time_works() {
+		// Normal addition
+		let weight = Weight::from_parts(10, 20);
+		assert_eq!(weight.saturating_add_ref_time(5), Weight::from_parts(15, 20));
+
+		// Saturation at MAX
+		let weight = Weight::from_parts(u64::MAX - 5, 20);
+		assert_eq!(weight.saturating_add_ref_time(10), Weight::from_parts(u64::MAX, 20));
+
+		// Already at MAX
+		let weight = Weight::from_parts(u64::MAX, 20);
+		assert_eq!(weight.saturating_add_ref_time(1), Weight::from_parts(u64::MAX, 20));
+
+		// Adding zero
+		let weight = Weight::from_parts(10, 20);
+		assert_eq!(weight.saturating_add_ref_time(0), Weight::from_parts(10, 20));
+
+		// Proof size remains unchanged
+		let weight = Weight::from_parts(10, 42);
+		assert_eq!(weight.saturating_add_ref_time(5).proof_size(), 42);
+	}
+
+	#[test]
+	fn saturating_add_proof_size_works() {
+		// Normal addition
+		let weight = Weight::from_parts(10, 20);
+		assert_eq!(weight.saturating_add_proof_size(5), Weight::from_parts(10, 25));
+
+		// Saturation at MAX
+		let weight = Weight::from_parts(10, u64::MAX - 5);
+		assert_eq!(weight.saturating_add_proof_size(10), Weight::from_parts(10, u64::MAX));
+
+		// Already at MAX
+		let weight = Weight::from_parts(10, u64::MAX);
+		assert_eq!(weight.saturating_add_proof_size(1), Weight::from_parts(10, u64::MAX));
+
+		// Adding zero
+		let weight = Weight::from_parts(10, 20);
+		assert_eq!(weight.saturating_add_proof_size(0), Weight::from_parts(10, 20));
+
+		// Ref time remains unchanged
+		let weight = Weight::from_parts(42, 20);
+		assert_eq!(weight.saturating_add_proof_size(5).ref_time(), 42);
+	}
+
+	#[test]
+	fn saturating_sub_ref_time_works() {
+		// Normal subtraction
+		let weight = Weight::from_parts(10, 20);
+		assert_eq!(weight.saturating_sub_ref_time(5), Weight::from_parts(5, 20));
+
+		// Saturation at zero (underflow)
+		let weight = Weight::from_parts(5, 20);
+		assert_eq!(weight.saturating_sub_ref_time(10), Weight::from_parts(0, 20));
+
+		// Already at zero
+		let weight = Weight::from_parts(0, 20);
+		assert_eq!(weight.saturating_sub_ref_time(1), Weight::from_parts(0, 20));
+
+		// Subtracting zero
+		let weight = Weight::from_parts(10, 20);
+		assert_eq!(weight.saturating_sub_ref_time(0), Weight::from_parts(10, 20));
+
+		// Exact subtraction to zero
+		let weight = Weight::from_parts(10, 20);
+		assert_eq!(weight.saturating_sub_ref_time(10), Weight::from_parts(0, 20));
+
+		// Proof size remains unchanged
+		let weight = Weight::from_parts(10, 42);
+		assert_eq!(weight.saturating_sub_ref_time(5).proof_size(), 42);
+	}
+
+	#[test]
+	fn saturating_sub_proof_size_works() {
+		// Normal subtraction
+		let weight = Weight::from_parts(10, 20);
+		assert_eq!(weight.saturating_sub_proof_size(5), Weight::from_parts(10, 15));
+
+		// Saturation at zero (underflow)
+		let weight = Weight::from_parts(10, 5);
+		assert_eq!(weight.saturating_sub_proof_size(10), Weight::from_parts(10, 0));
+
+		// Already at zero
+		let weight = Weight::from_parts(10, 0);
+		assert_eq!(weight.saturating_sub_proof_size(1), Weight::from_parts(10, 0));
+
+		// Subtracting zero
+		let weight = Weight::from_parts(10, 20);
+		assert_eq!(weight.saturating_sub_proof_size(0), Weight::from_parts(10, 20));
+
+		// Exact subtraction to zero
+		let weight = Weight::from_parts(10, 20);
+		assert_eq!(weight.saturating_sub_proof_size(20), Weight::from_parts(10, 0));
+
+		// Ref time remains unchanged
+		let weight = Weight::from_parts(42, 20);
+		assert_eq!(weight.saturating_sub_proof_size(5).ref_time(), 42);
 	}
 }

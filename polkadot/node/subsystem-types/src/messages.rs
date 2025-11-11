@@ -42,18 +42,18 @@ use polkadot_node_primitives::{
 	ValidationResult,
 };
 use polkadot_primitives::{
-	async_backing, slashing,
-	vstaging::{
-		self, async_backing::Constraints, BackedCandidate, CandidateReceiptV2 as CandidateReceipt,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
-	},
-	ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateHash,
-	CandidateIndex, CoreIndex, DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
-	HeadData, Header as BlockHeader, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
-	MultiDisputeStatementSet, NodeFeatures, OccupiedCoreAssumption, PersistedValidationData,
-	PvfCheckStatement, PvfExecKind as RuntimePvfExecKind, SessionIndex, SessionInfo,
-	SignedAvailabilityBitfield, SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	self,
+	async_backing::{self, Constraints},
+	slashing, ApprovalVotingParams, AuthorityDiscoveryId, BackedCandidate, BlockNumber,
+	CandidateCommitments, CandidateEvent, CandidateHash, CandidateIndex,
+	CandidateReceiptV2 as CandidateReceipt,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
+	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData, Header as BlockHeader,
+	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
+	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
+	PvfExecKind as RuntimePvfExecKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
+	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use std::{
@@ -262,6 +262,12 @@ pub enum CollatorProtocolMessage {
 	///
 	/// The hash is the relay parent.
 	Seconded(Hash, SignedFullStatement),
+	/// A message sent by Cumulus consensus engine to the collator protocol to
+	/// pre-connect to backing groups at all allowed relay parents.
+	ConnectToBackingGroups,
+	/// A message sent by Cumulus consensus engine to the collator protocol to
+	/// disconnect from backing groups.
+	DisconnectFromBackingGroups,
 }
 
 impl Default for CollatorProtocolMessage {
@@ -318,10 +324,10 @@ pub enum DisputeCoordinatorMessage {
 	/// Fetch a list of all recent disputes the coordinator is aware of.
 	/// These are disputes which have occurred any time in recent sessions,
 	/// and which may have already concluded.
-	RecentDisputes(oneshot::Sender<Vec<(SessionIndex, CandidateHash, DisputeStatus)>>),
+	RecentDisputes(oneshot::Sender<BTreeMap<(SessionIndex, CandidateHash), DisputeStatus>>),
 	/// Fetch a list of all active disputes that the coordinator is aware of.
 	/// These disputes are either not yet concluded or recently concluded.
-	ActiveDisputes(oneshot::Sender<Vec<(SessionIndex, CandidateHash, DisputeStatus)>>),
+	ActiveDisputes(oneshot::Sender<BTreeMap<(SessionIndex, CandidateHash), DisputeStatus>>),
 	/// Get candidate votes for a candidate.
 	QueryCandidateVotes(
 		Vec<(SessionIndex, CandidateHash)>,
@@ -409,8 +415,8 @@ pub enum NetworkBridgeTxMessage {
 	/// Report a peer for their actions.
 	ReportPeer(ReportPeerMessage),
 
-	/// Disconnect a peer from the given peer-set without affecting their reputation.
-	DisconnectPeer(PeerId, PeerSet),
+	/// Disconnect peers from the given peer-set without affecting their reputation.
+	DisconnectPeers(Vec<PeerId>, PeerSet),
 
 	/// Send a message to one or more peers on the validation peer-set.
 	SendValidationMessage(Vec<PeerId>, net_protocol::VersionedValidationProtocol),
@@ -705,7 +711,7 @@ pub enum RuntimeApiRequest {
 	CandidatePendingAvailability(ParaId, RuntimeApiSender<Option<CommittedCandidateReceipt>>),
 	/// Get all events concerning candidates (backing, inclusion, time-out) in the parent of
 	/// the block in whose state this request is executed.
-	CandidateEvents(RuntimeApiSender<Vec<vstaging::CandidateEvent>>),
+	CandidateEvents(RuntimeApiSender<Vec<CandidateEvent>>),
 	/// Get the execution environment parameter set by session index
 	SessionExecutorParams(SessionIndex, RuntimeApiSender<Option<ExecutorParams>>),
 	/// Get the session info for the given session, if stored.
@@ -721,7 +727,7 @@ pub enum RuntimeApiRequest {
 	/// Get information about the BABE epoch the block was included in.
 	CurrentBabeEpoch(RuntimeApiSender<BabeEpoch>),
 	/// Get all disputes in relation to a relay parent.
-	FetchOnChainVotes(RuntimeApiSender<Option<polkadot_primitives::vstaging::ScrapedOnChainVotes>>),
+	FetchOnChainVotes(RuntimeApiSender<Option<polkadot_primitives::ScrapedOnChainVotes>>),
 	/// Submits a PVF pre-checking statement into the transaction pool.
 	SubmitPvfCheckStatement(PvfCheckStatement, ValidatorSignature, RuntimeApiSender<()>),
 	/// Returns code hashes of PVFs that require pre-checking by validators in the active set.
@@ -739,7 +745,7 @@ pub enum RuntimeApiRequest {
 	/// Returns a list of validators that lost a past session dispute and need to be slashed.
 	/// `V5`
 	UnappliedSlashes(
-		RuntimeApiSender<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>,
+		RuntimeApiSender<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>>,
 	),
 	/// Returns a merkle proof of a validator session key.
 	/// `V5`
@@ -756,7 +762,7 @@ pub enum RuntimeApiRequest {
 	/// Returns all disabled validators at a given block height.
 	DisabledValidators(RuntimeApiSender<Vec<ValidatorIndex>>),
 	/// Get the backing state of the given para.
-	ParaBackingState(ParaId, RuntimeApiSender<Option<vstaging::async_backing::BackingState>>),
+	ParaBackingState(ParaId, RuntimeApiSender<Option<async_backing::BackingState>>),
 	/// Get candidate's acceptance limitations for asynchronous backing for a relay parent.
 	///
 	/// If it's not supported by the Runtime, the async backing is said to be disabled.
@@ -778,6 +784,17 @@ pub enum RuntimeApiRequest {
 	/// Get the lookahead from the scheduler params.
 	/// `V12`
 	SchedulingLookahead(SessionIndex, RuntimeApiSender<u32>),
+	/// Get the maximum uncompressed code size.
+	/// `V12`
+	ValidationCodeBombLimit(SessionIndex, RuntimeApiSender<u32>),
+	/// Get the paraids at the relay parent.
+	/// `V14`
+	ParaIds(SessionIndex, RuntimeApiSender<Vec<ParaId>>),
+	/// Returns a list of validators that lost a past session dispute and need to be slashed (v2).
+	/// `V15`
+	UnappliedSlashesV2(
+		RuntimeApiSender<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>,
+	),
 }
 
 impl RuntimeApiRequest {
@@ -819,11 +836,20 @@ impl RuntimeApiRequest {
 	/// `candidates_pending_availability`
 	pub const CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT: u32 = 11;
 
+	/// `ValidationCodeBombLimit`
+	pub const VALIDATION_CODE_BOMB_LIMIT_RUNTIME_REQUIREMENT: u32 = 12;
+
 	/// `backing_constraints`
-	pub const CONSTRAINTS_RUNTIME_REQUIREMENT: u32 = 12;
+	pub const CONSTRAINTS_RUNTIME_REQUIREMENT: u32 = 13;
 
 	/// `SchedulingLookahead`
-	pub const SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT: u32 = 12;
+	pub const SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT: u32 = 13;
+
+	/// `ParaIds`
+	pub const PARAIDS_RUNTIME_REQUIREMENT: u32 = 14;
+
+	/// `UnappliedSlashesV2`
+	pub const UNAPPLIED_SLASHES_V2_RUNTIME_REQUIREMENT: u32 = 15;
 }
 
 /// A message to the Runtime API subsystem.

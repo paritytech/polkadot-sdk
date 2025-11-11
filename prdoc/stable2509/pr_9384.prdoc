@@ -1,0 +1,32 @@
+title: '[AHM] Make stuff public and derive'
+doc:
+- audience: Runtime Dev
+  description: |
+    Preparation for Asset hub migration by making fields public and doing some tweaks.  
+    Also hide one silently truncating constructor from `ParaId``.
+
+crates:
+- name: pallet-delegated-staking
+  bump: minor
+- name: pallet-staking-async
+  bump: minor
+- name: polkadot-runtime-parachains
+  bump: minor
+- name: pallet-referenda
+  bump: minor
+- name: pallet-bounties
+  bump: major
+- name: polkadot-runtime-common
+  bump: major
+- name: polkadot-parachain-primitives
+  bump: major
+- name: pallet-bags-list
+  bump: minor
+- name: pallet-multisig
+  bump: minor
+- name: pallet-nomination-pools
+  bump: minor
+- name: pallet-preimage
+  bump: minor
+- name: pallet-scheduler
+  bump: major

@@ -14,7 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+// We do not declare all features used by `construct_runtime`
+#[allow(unexpected_cfgs)]
 mod parachain;
+
+// We do not declare all features used by `construct_runtime`
+#[allow(unexpected_cfgs)]
 mod relay_chain;
 
 #[cfg(test)]

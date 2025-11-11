@@ -1,7 +1,7 @@
 %define debug_package %{nil}
 
 Name: polkadot
-Summary: Implementation of a https://polkadot.network node in Rust based on the Substrate framework.
+Summary: Implementation of a https://polkadot.com node in Rust based on the Substrate framework.
 Version: @@VERSION@@
 Release: @@RELEASE@@%{?dist}
 License: GPLv3

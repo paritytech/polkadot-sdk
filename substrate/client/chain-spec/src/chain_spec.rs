@@ -19,7 +19,7 @@
 //! Substrate chain configurations.
 #![warn(missing_docs)]
 use crate::{
-	extension::GetExtension, genesis_config_builder::HostFunctions, ChainType,
+	extension::GetExtension, genesis_config_builder::HostFunctions, json_merge, ChainType,
 	GenesisConfigBuilderRuntimeCaller as RuntimeCaller, Properties,
 };
 use sc_network::config::MultiaddrWithPeerId;
@@ -42,9 +42,22 @@ use std::{
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 enum GenesisBuildAction<EHF> {
+	/// Gets the default config (aka PresetId=None) and patches it.
 	Patch(json::Value),
+	/// Assumes that the full `RuntimeGenesisConfig` is supplied.
 	Full(json::Value),
-	NamedPreset(String, PhantomData<EHF>),
+	/// Gets the named preset and applies an optional patch.
+	NamedPreset(String, json::Value, PhantomData<EHF>),
+}
+
+impl<EHF> GenesisBuildAction<EHF> {
+	pub fn merge_patch(&mut self, patch: json::Value) {
+		match self {
+			GenesisBuildAction::Patch(value) |
+			GenesisBuildAction::Full(value) |
+			GenesisBuildAction::NamedPreset(_, value, _) => json_merge(value, patch),
+		}
+	}
 }
 
 impl<EHF> Clone for GenesisBuildAction<EHF> {
@@ -52,7 +65,8 @@ impl<EHF> Clone for GenesisBuildAction<EHF> {
 		match self {
 			Self::Patch(ref p) => Self::Patch(p.clone()),
 			Self::Full(ref f) => Self::Full(f.clone()),
-			Self::NamedPreset(ref p, _) => Self::NamedPreset(p.clone(), Default::default()),
+			Self::NamedPreset(ref p, patch, _) =>
+				Self::NamedPreset(p.clone(), patch.clone(), Default::default()),
 		}
 	}
 }
@@ -120,10 +134,12 @@ impl<EHF: HostFunctions> GenesisSource<EHF> {
 					json_blob: RuntimeGenesisConfigJson::Patch(patch.clone()),
 					code: code.clone(),
 				})),
-			Self::GenesisBuilderApi(GenesisBuildAction::NamedPreset(name, _), code) => {
-				let patch = RuntimeCaller::<EHF>::new(&code[..]).get_named_preset(Some(name))?;
+			Self::GenesisBuilderApi(GenesisBuildAction::NamedPreset(name, patch, _), code) => {
+				let mut preset =
+					RuntimeCaller::<EHF>::new(&code[..]).get_named_preset(Some(name))?;
+				json_merge(&mut preset, patch.clone());
 				Ok(Genesis::RuntimeGenesis(RuntimeGenesisInner {
-					json_blob: RuntimeGenesisConfigJson::Patch(patch),
+					json_blob: RuntimeGenesisConfigJson::Patch(preset),
 					code: code.clone(),
 				}))
 			},
@@ -394,16 +410,16 @@ impl<E, EHF> ChainSpecBuilder<E, EHF> {
 		self
 	}
 
-	/// Sets the JSON patch for runtime's GenesisConfig.
+	/// Applies a patch to whatever genesis build action is set.
 	pub fn with_genesis_config_patch(mut self, patch: json::Value) -> Self {
-		self.genesis_build_action = GenesisBuildAction::Patch(patch);
+		self.genesis_build_action.merge_patch(patch);
 		self
 	}
 
 	/// Sets the name of runtime-provided JSON patch for runtime's GenesisConfig.
 	pub fn with_genesis_config_preset_name(mut self, name: &str) -> Self {
 		self.genesis_build_action =
-			GenesisBuildAction::NamedPreset(name.to_string(), Default::default());
+			GenesisBuildAction::NamedPreset(name.to_string(), json::json!({}), Default::default());
 		self
 	}
 
@@ -779,6 +795,7 @@ pub fn set_code_substitute_in_json_chain_spec(
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use pretty_assertions::assert_eq;
 	use serde_json::{from_str, json, Value};
 	use sp_application_crypto::Ss58Codec;
 	use sp_core::storage::well_known_keys;
@@ -1002,7 +1019,7 @@ mod tests {
 		let actual_raw = zeroize_code_key_in_json(true, actual_raw.as_str());
 
 		assert_eq!(actual, expected);
-		assert_eq!(actual_raw, expected_raw);
+		assert_eq!(expected_raw, actual_raw);
 	}
 
 	#[test]
@@ -1033,7 +1050,7 @@ mod tests {
 		let actual_raw = zeroize_code_key_in_json(true, actual_raw.as_str());
 
 		assert_eq!(actual, expected);
-		assert_eq!(actual_raw, expected_raw);
+		assert_eq!(expected_raw, actual_raw);
 	}
 
 	#[test]

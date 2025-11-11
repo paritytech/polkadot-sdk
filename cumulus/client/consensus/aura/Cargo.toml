@@ -27,6 +27,7 @@ sc-consensus = { workspace = true, default-features = true }
 sc-consensus-aura = { workspace = true, default-features = true }
 sc-consensus-babe = { workspace = true, default-features = true }
 sc-consensus-slots = { workspace = true, default-features = true }
+sc-network-types = { workspace = true, default-features = true }
 sc-telemetry = { workspace = true, default-features = true }
 sc-utils = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
@@ -62,8 +63,7 @@ polkadot-primitives = { workspace = true, default-features = true }
 [dev-dependencies]
 cumulus-test-client = { workspace = true }
 cumulus-test-relay-sproof-builder = { workspace = true }
+rstest = { workspace = true }
 sp-keyring = { workspace = true }
-
-[features]
-# Allows collator to use full PoV size for block building
-full-pov-size = []
+sp-tracing = { workspace = true }
+sp-version = { workspace = true }

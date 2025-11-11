@@ -3,11 +3,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::traits::tokens::Balance as BalanceT;
-use snowbridge_core::{
-	outbound::{Command, Fee},
-	PricingParameters,
-};
-use snowbridge_outbound_queue_merkle_tree::MerkleProof;
+use snowbridge_core::PricingParameters;
+use snowbridge_merkle_tree::MerkleProof;
+use snowbridge_outbound_queue_primitives::v1::{Command, Fee};
 
 sp_api::decl_runtime_apis! {
 	pub trait OutboundQueueApi<Balance> where Balance: BalanceT

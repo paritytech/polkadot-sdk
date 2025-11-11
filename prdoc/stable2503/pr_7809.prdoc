@@ -1,0 +1,19 @@
+title: "[XCM] Add generic location to account converter that also works with external ecosystems for bridge hubs"
+
+doc:
+- audience: Runtime Dev
+  description: |
+    Adds a new `ExternalConsensusLocationsConverterFor` struct to handle external global
+    consensus locations and their child locations for Bridge Hubs.
+    This struct extends the functionality of existing converters (`GlobalConsensusParachainConvertsFor`
+    and `EthereumLocationsConverterFor`) while maintaining backward compatibility.
+
+crates:
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: bridge-hub-rococo-runtime
+    bump: minor
+  - name: bridge-hub-westend-runtime
+    bump: minor

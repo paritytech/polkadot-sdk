@@ -41,19 +41,15 @@ use codec::Encode;
 use futures::channel::{mpsc, oneshot};
 
 use polkadot_primitives::{
-	slashing,
-	vstaging::{
-		async_backing::{BackingState, Constraints},
-		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
-		ScrapedOnChainVotes,
-	},
-	AsyncBackingParams, AuthorityDiscoveryId, CandidateHash, CoreIndex, EncodeAs, ExecutorParams,
-	GroupIndex, GroupRotationInfo, Hash, Id as ParaId, OccupiedCoreAssumption,
-	PersistedValidationData, SessionIndex, SessionInfo, Signed, SigningContext, ValidationCode,
-	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	async_backing::{BackingState, Constraints},
+	slashing, AsyncBackingParams, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, EncodeAs,
+	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, NodeFeatures,
+	OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes, SessionIndex,
+	SessionInfo, Signed, SigningContext, ValidationCode, ValidationCodeHash, ValidatorId,
+	ValidatorIndex, ValidatorSignature,
 };
 pub use rand;
-use runtime::get_disabled_validators_with_fallback;
 use sp_application_crypto::AppCrypto;
 use sp_core::ByteArray;
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
@@ -99,6 +95,9 @@ pub mod nesting_sender;
 pub mod reputation;
 
 mod determine_new_blocks;
+
+mod controlled_validator_indices;
+pub use controlled_validator_indices::ControlledValidatorIndices;
 
 #[cfg(test)]
 mod tests;
@@ -307,7 +306,8 @@ specialize_requests! {
 		-> Option<ValidationCodeHash>; ValidationCodeHash;
 	fn request_on_chain_votes() -> Option<ScrapedOnChainVotes>; FetchOnChainVotes;
 	fn request_session_executor_params(session_index: SessionIndex) -> Option<ExecutorParams>;SessionExecutorParams;
-	fn request_unapplied_slashes() -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>; UnappliedSlashes;
+	fn request_unapplied_slashes() -> Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>; UnappliedSlashes;
+	fn request_unapplied_slashes_v2() -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>; UnappliedSlashesV2;
 	fn request_key_ownership_proof(validator_id: ValidatorId) -> Option<slashing::OpaqueKeyOwnershipProof>; KeyOwnershipProof;
 	fn request_submit_report_dispute_lost(dp: slashing::DisputeProof, okop: slashing::OpaqueKeyOwnershipProof) -> Option<()>; SubmitReportDisputeLost;
 	fn request_disabled_validators() -> Vec<ValidatorIndex>; DisabledValidators;
@@ -315,6 +315,9 @@ specialize_requests! {
 	fn request_claim_queue() -> BTreeMap<CoreIndex, VecDeque<ParaId>>; ClaimQueue;
 	fn request_para_backing_state(para_id: ParaId) -> Option<BackingState>; ParaBackingState;
 	fn request_backing_constraints(para_id: ParaId) -> Option<Constraints>; BackingConstraints;
+	fn request_min_backing_votes(session_index: SessionIndex) -> u32; MinimumBackingVotes;
+	fn request_node_features(session_index: SessionIndex) -> NodeFeatures; NodeFeatures;
+	fn request_para_ids(session_index: SessionIndex) -> Vec<ParaId>; ParaIds;
 
 }
 
@@ -476,11 +479,12 @@ impl Validator {
 	where
 		S: SubsystemSender<RuntimeApiMessage>,
 	{
-		// Note: request_validators and request_session_index_for_child do not and cannot
-		// run concurrently: they both have a mutable handle to the same sender.
+		// Note: request_validators, request_disabled_validators and request_session_index_for_child
+		// do not and cannot run concurrently: they both have a mutable handle to the same sender.
 		// However, each of them returns a oneshot::Receiver, and those are resolved concurrently.
-		let (validators, session_index) = futures::try_join!(
+		let (validators, disabled_validators, session_index) = futures::try_join!(
 			request_validators(parent, sender).await,
+			request_disabled_validators(parent, sender).await,
 			request_session_index_for_child(parent, sender).await,
 		)?;
 
@@ -488,12 +492,7 @@ impl Validator {
 
 		let validators = validators?;
 
-		// TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
-		// When `DisabledValidators` is released remove this and add a
-		// `request_disabled_validators` call here
-		let disabled_validators = get_disabled_validators_with_fallback(sender, parent)
-			.await
-			.map_err(|e| Error::try_from(e).expect("the conversion is infallible; qed"))?;
+		let disabled_validators = disabled_validators?;
 
 		Self::construct(&validators, &disabled_validators, signing_context, keystore)
 	}

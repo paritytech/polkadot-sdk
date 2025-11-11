@@ -228,6 +228,24 @@ mod imbalances {
 			}
 		}
 	}
+
+	impl<T: Config<I>, I: 'static> fungible::HandleImbalanceDrop<T::Balance>
+		for NegativeImbalance<T, I>
+	{
+		fn handle(amount: T::Balance) {
+			<super::TotalIssuance<T, I>>::mutate(|v| *v = v.saturating_sub(amount));
+			Pallet::<T, I>::deposit_event(Event::<T, I>::BurnedDebt { amount });
+		}
+	}
+
+	impl<T: Config<I>, I: 'static> fungible::HandleImbalanceDrop<T::Balance>
+		for PositiveImbalance<T, I>
+	{
+		fn handle(amount: T::Balance) {
+			<super::TotalIssuance<T, I>>::mutate(|v| *v = v.saturating_add(amount));
+			Pallet::<T, I>::deposit_event(Event::<T, I>::MintedCredit { amount });
+		}
+	}
 }
 
 impl<T: Config<I>, I: 'static> Currency<T::AccountId> for Pallet<T, I>
@@ -363,6 +381,7 @@ where
 
 		let result = match Self::try_mutate_account_handling_dust(
 			who,
+			false,
 			|account, _is_new| -> Result<(Self::NegativeImbalance, Self::Balance), DispatchError> {
 				// Best value is the most amount we can slash following liveness rules.
 				let ed = T::ExistentialDeposit::get();
@@ -400,6 +419,7 @@ where
 
 		Self::try_mutate_account_handling_dust(
 			who,
+			false,
 			|account, is_new| -> Result<Self::PositiveImbalance, DispatchError> {
 				ensure!(!is_new, Error::<T, I>::DeadAccount);
 				account.free = account.free.checked_add(&value).ok_or(ArithmeticError::Overflow)?;
@@ -425,6 +445,7 @@ where
 
 		Self::try_mutate_account_handling_dust(
 			who,
+			false,
 			|account, is_new| -> Result<Self::PositiveImbalance, DispatchError> {
 				let ed = T::ExistentialDeposit::get();
 				ensure!(value >= ed || !is_new, Error::<T, I>::ExistentialDeposit);
@@ -458,6 +479,7 @@ where
 
 		Self::try_mutate_account_handling_dust(
 			who,
+			false,
 			|account, _| -> Result<Self::NegativeImbalance, DispatchError> {
 				let new_free_account =
 					account.free.checked_sub(&value).ok_or(Error::<T, I>::InsufficientBalance)?;
@@ -485,6 +507,7 @@ where
 	) -> SignedImbalance<Self::Balance, Self::PositiveImbalance> {
 		Self::try_mutate_account_handling_dust(
 			who,
+			false,
 			|account,
 			 is_new|
 			 -> Result<SignedImbalance<Self::Balance, Self::PositiveImbalance>, DispatchError> {
@@ -512,6 +535,29 @@ where
 	}
 }
 
+/// Validates whether an account can create a reserve without violating
+/// liquidity constraints.
+///
+/// This method performs liquidity checks without modifying the account state.
+fn ensure_can_reserve<T: Config<I>, I: 'static>(
+	who: &T::AccountId,
+	value: T::Balance,
+	check_existential_deposit: bool,
+) -> DispatchResult {
+	let AccountData { free, .. } = Pallet::<T, I>::account(who);
+
+	// Early validation: Check sufficient free balance
+	let new_free_balance = free.checked_sub(&value).ok_or(Error::<T, I>::InsufficientBalance)?;
+
+	// Conditionally validate existential deposit preservation
+	if check_existential_deposit {
+		let existential_deposit = T::ExistentialDeposit::get();
+		ensure!(new_free_balance >= existential_deposit, Error::<T, I>::Expendability);
+	}
+
+	Ok(())
+}
+
 impl<T: Config<I>, I: 'static> ReservableCurrency<T::AccountId> for Pallet<T, I>
 where
 	T::Balance: MaybeSerializeDeserialize + Debug,
@@ -523,11 +569,7 @@ where
 		if value.is_zero() {
 			return true
 		}
-		Self::account(who).free.checked_sub(&value).map_or(false, |new_balance| {
-			new_balance >= T::ExistentialDeposit::get() &&
-				Self::ensure_can_withdraw(who, value, WithdrawReasons::RESERVE, new_balance)
-					.is_ok()
-		})
+		ensure_can_reserve::<T, I>(who, value, true).is_ok()
 	}
 
 	fn reserved_balance(who: &T::AccountId) -> Self::Balance {
@@ -542,12 +584,14 @@ where
 			return Ok(())
 		}
 
-		Self::try_mutate_account_handling_dust(who, |account, _| -> DispatchResult {
+		Self::try_mutate_account_handling_dust(who, false, |account, _| -> DispatchResult {
 			account.free =
 				account.free.checked_sub(&value).ok_or(Error::<T, I>::InsufficientBalance)?;
 			account.reserved =
 				account.reserved.checked_add(&value).ok_or(ArithmeticError::Overflow)?;
-			Self::ensure_can_withdraw(&who, value, WithdrawReasons::RESERVE, account.free)
+
+			// Check if it is possible to reserve before trying to mutate the account
+			ensure_can_reserve::<T, I>(who, value, false)
 		})?;
 
 		Self::deposit_event(Event::Reserved { who: who.clone(), amount: value });
@@ -567,7 +611,7 @@ where
 			return value
 		}
 
-		let actual = match Self::mutate_account_handling_dust(who, |account| {
+		let actual = match Self::mutate_account_handling_dust(who, false, |account| {
 			let actual = cmp::min(account.reserved, value);
 			account.reserved -= actual;
 			// defensive only: this can never fail since total issuance which is at least
@@ -606,7 +650,7 @@ where
 		// NOTE: `mutate_account` may fail if it attempts to reduce the balance to the point that an
 		//   account is attempted to be illegally destroyed.
 
-		match Self::mutate_account_handling_dust(who, |account| {
+		match Self::mutate_account_handling_dust(who, false, |account| {
 			let actual = value.min(account.reserved);
 			account.reserved.saturating_reduce(actual);
 

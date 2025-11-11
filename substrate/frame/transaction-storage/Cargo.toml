@@ -31,19 +31,10 @@ sp-runtime = { workspace = true }
 sp-transaction-storage-proof = { workspace = true }
 
 [dev-dependencies]
-sp-core = { workspace = true }
 sp-transaction-storage-proof = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]
-runtime-benchmarks = [
-	"array-bytes",
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",
@@ -53,11 +44,17 @@ std = [
 	"pallet-balances/std",
 	"scale-info/std",
 	"serde",
-	"sp-core/std",
 	"sp-inherents/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-transaction-storage-proof/std",
+]
+runtime-benchmarks = [
+	"array-bytes",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

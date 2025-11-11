@@ -28,6 +28,7 @@ hex = { workspace = true, default-features = true }
 itertools = { workspace = true }
 log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }

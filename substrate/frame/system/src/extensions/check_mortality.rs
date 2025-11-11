@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{pallet_prelude::BlockNumberFor, BlockHash, Config, Pallet};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::pallet_prelude::TransactionSource;
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -34,7 +34,7 @@ use sp_runtime::{
 /// # Transaction Validity
 ///
 /// The extension affects `longevity` of the transaction according to the [`Era`] definition.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckMortality<T: Config + Send + Sync>(pub Era, core::marker::PhantomData<T>);
 

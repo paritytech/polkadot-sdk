@@ -16,7 +16,7 @@
 // limitations under the License.
 
 #[frame_support::pallet(dev_mode)]
-mod pallet {
+pub mod pallet {
 	use frame_support::{ensure, pallet_prelude::DispatchResult};
 
 	#[pallet::config]
@@ -40,7 +40,7 @@ mod pallet {
 }
 
 #[frame_support::pallet(dev_mode)]
-mod pallet_with_instance {
+pub mod pallet_with_instance {
 	use frame_support::pallet_prelude::{ValueQuery, StorageValue};
 
 	#[pallet::config]

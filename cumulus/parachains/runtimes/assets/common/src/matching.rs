@@ -13,13 +13,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::local_and_foreign_assets::ForeignAssetReserveData;
+use core::fmt::Debug;
 use cumulus_primitives_core::ParaId;
 use frame_support::{
 	pallet_prelude::Get,
-	traits::{Contains, ContainsPair},
+	traits::{tokens::ProvideAssetReserves, Contains, ContainsPair},
 };
 use xcm::prelude::*;
-
 use xcm_builder::ensure_is_remote;
 
 frame_support::parameter_types! {
@@ -33,8 +34,9 @@ impl<IsForeign: ContainsPair<Location, Location>> ContainsPair<Asset, Location>
 	for IsForeignConcreteAsset<IsForeign>
 {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
-		log::trace!(target: "xcm::contains", "IsForeignConcreteAsset asset: {:?}, origin: {:?}", asset, origin);
-		matches!(asset.id, AssetId(ref id) if IsForeign::contains(id, origin))
+		let result = matches!(asset.id, AssetId(ref id) if IsForeign::contains(id, origin));
+		tracing::trace!(target: "xcm::contains", ?asset, ?origin, ?result, "IsForeignConcreteAsset");
+		result
 	}
 }
 
@@ -43,10 +45,11 @@ impl<IsForeign: ContainsPair<Location, Location>> ContainsPair<Asset, Location>
 pub struct FromSiblingParachain<SelfParaId, L = Location>(
 	core::marker::PhantomData<(SelfParaId, L)>,
 );
-impl<SelfParaId: Get<ParaId>, L: TryFrom<Location> + TryInto<Location> + Clone> ContainsPair<L, L>
-	for FromSiblingParachain<SelfParaId, L>
+impl<SelfParaId: Get<ParaId>, L: TryFrom<Location> + TryInto<Location> + Clone + Debug>
+	ContainsPair<L, L> for FromSiblingParachain<SelfParaId, L>
 {
 	fn contains(a: &L, b: &L) -> bool {
+		tracing::trace!(target: "xcm:contains", ?a, ?b, "FromSiblingParachain");
 		// We convert locations to latest
 		let a = match ((*a).clone().try_into(), (*b).clone().try_into()) {
 			(Ok(a), Ok(b)) if a.starts_with(&b) => a, // `a` needs to be from `b` at least
@@ -62,6 +65,59 @@ impl<SelfParaId: Get<ParaId>, L: TryFrom<Location> + TryInto<Location> + Clone> 
 	}
 }
 
+/// Checks if asset `a` is coming from a trusted Reserve location `b`, then checks whether the local
+/// chain is also a reserve of `a`. Assets can be teleported between their reserve locations.
+pub struct TeleportableAssetWithTrustedReserve<SelfParaId, ReserveProvider, L = Location>(
+	core::marker::PhantomData<(SelfParaId, ReserveProvider, L)>,
+);
+impl<
+		SelfParaId: Get<ParaId>,
+		L: TryFrom<Location> + TryInto<Location> + Clone + Debug,
+		ReserveProvider: ProvideAssetReserves<Location, ForeignAssetReserveData>,
+	> ContainsPair<L, L> for TeleportableAssetWithTrustedReserve<SelfParaId, ReserveProvider, L>
+{
+	fn contains(a: &L, b: &L) -> bool {
+		tracing::trace!(target: "xcm::contains", ?a, ?b, "TeleportableAssetWithTrustedReserve");
+		// We convert locations to latest
+		let (a, b) = match ((*a).clone().try_into(), (*b).clone().try_into()) {
+			(Ok(a), Ok(b)) => (a, b),
+			_ => return false,
+		};
+		let reserves = ReserveProvider::reserves(&a);
+		tracing::trace!(target: "xcm::contains", ?reserves, "TeleportableAssetWithTrustedReserve");
+		// check if `b` is reserve for `a` and teleportable flag is set
+		let filter = (b, true).into();
+		reserves.contains(&filter)
+	}
+}
+
+/// Checks if asset `a` is coming from a trusted Reserve location `b`.
+/// Then checks that the local chain is NOT itself also reserve of `a`, otherwise a teleport is in
+/// order.
+pub struct NonTeleportableAssetFromTrustedReserve<SelfParaId, ReserveProvider, L = Location>(
+	core::marker::PhantomData<(SelfParaId, ReserveProvider, L)>,
+);
+impl<
+		SelfParaId: Get<ParaId>,
+		L: TryFrom<Location> + TryInto<Location> + Clone + Debug,
+		ReserveProvider: ProvideAssetReserves<Location, ForeignAssetReserveData>,
+	> ContainsPair<L, L> for NonTeleportableAssetFromTrustedReserve<SelfParaId, ReserveProvider, L>
+{
+	fn contains(a: &L, b: &L) -> bool {
+		tracing::trace!(target: "xcm::contains", ?a, ?b, "NonTeleportableAssetFromTrustedReserve");
+		// We convert locations to latest
+		let (a, b) = match ((*a).clone().try_into(), (*b).clone().try_into()) {
+			(Ok(a), Ok(b)) => (a, b),
+			_ => return false,
+		};
+		let reserves = ReserveProvider::reserves(&a);
+		tracing::trace!(target: "xcm::contains", ?reserves, "NonTeleportableAssetFromTrustedReserve");
+		// check if `b` is reserve for `a` and teleportable flag is NOT set
+		let filter = (b, false).into();
+		reserves.contains(&filter)
+	}
+}
+
 /// Checks if `a` is from the expected global consensus network. Checks that `Location-a`
 /// starts with `Location-b`, and that network is a foreign consensus system.
 pub struct FromNetwork<UniversalLocation, ExpectedNetworkId, L = Location>(
@@ -70,10 +126,11 @@ pub struct FromNetwork<UniversalLocation, ExpectedNetworkId, L = Location>(
 impl<
 		UniversalLocation: Get<InteriorLocation>,
 		ExpectedNetworkId: Get<NetworkId>,
-		L: TryFrom<Location> + TryInto<Location> + Clone,
+		L: TryFrom<Location> + TryInto<Location> + Clone + Debug,
 	> ContainsPair<L, L> for FromNetwork<UniversalLocation, ExpectedNetworkId, L>
 {
 	fn contains(a: &L, b: &L) -> bool {
+		tracing::trace!(target: "xcm:contains", ?a, ?b, "FromNetwork");
 		// We convert locations to latest
 		let a = match ((*a).clone().try_into(), (*b).clone().try_into()) {
 			(Ok(a), Ok(b)) if a.starts_with(&b) => a, // `a` needs to be from `b` at least
@@ -86,11 +143,7 @@ impl<
 		match ensure_is_remote(universal_source.clone(), a.clone()) {
 			Ok((network_id, _)) => network_id == ExpectedNetworkId::get(),
 			Err(e) => {
-				log::trace!(
-					target: "xcm::contains",
-					"FromNetwork origin: {:?} is not remote to the universal_source: {:?} {:?}",
-					a, universal_source, e
-				);
+				tracing::debug!(target: "xcm::contains", origin = ?a, ?universal_source, error = ?e, "FromNetwork origin is not remote to the universal_source");
 				false
 			},
 		}
@@ -118,15 +171,20 @@ impl<
 		let expected_origin = OriginLocation::get();
 		// ensure `origin` is expected `OriginLocation`
 		if !expected_origin.eq(&origin) {
-			log::trace!(
+			tracing::trace!(
 				target: "xcm::contains",
-				"RemoteAssetFromLocation asset: {asset:?}, origin: {origin:?} is not from expected {expected_origin:?}"
+				?asset,
+				?origin,
+				?expected_origin,
+				"RemoteAssetFromLocation: Asset is not from expected origin"
 			);
 			return false;
 		} else {
-			log::trace!(
+			tracing::trace!(
 				target: "xcm::contains",
-				"RemoteAssetFromLocation asset: {asset:?}, origin: {origin:?}",
+				?asset,
+				?origin,
+				"RemoteAssetFromLocation",
 			);
 		}
 
@@ -138,6 +196,7 @@ impl<AssetsAllowedNetworks: Contains<Location>, OriginLocation: Get<Location>>
 	ContainsPair<Asset, Location> for RemoteAssetFromLocation<AssetsAllowedNetworks, OriginLocation>
 {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
+		tracing::trace!(target: "xcm:contains", ?asset, ?origin, "RemoteAssetFromLocation");
 		<Self as ContainsPair<Location, Location>>::contains(&asset.id.0, origin)
 	}
 }

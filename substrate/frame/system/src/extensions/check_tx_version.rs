@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{Config, Pallet};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default, traits::TransactionExtension,
@@ -29,7 +29,7 @@ use sp_runtime::{
 ///
 /// The transaction with incorrect `transaction_version` are considered invalid. The validity
 /// is not affected in any other way.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckTxVersion<T: Config + Send + Sync>(core::marker::PhantomData<T>);
 

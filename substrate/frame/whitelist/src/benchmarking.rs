@@ -20,11 +20,9 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use frame_benchmarking::v2::*;
-use frame_support::traits::EnsureOrigin;
-
 #[cfg(test)]
 use crate::Pallet as Whitelist;
+use frame::benchmarking::prelude::*;
 
 #[benchmarks]
 mod benchmarks {

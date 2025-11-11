@@ -1,0 +1,38 @@
+title: 'pallet-revive: Raise contract size limit to one megabyte and raise call depth
+  to 25'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR changes the contract code limit from roughly 100KiB to exactly 1MiB. It also raises the call stack depth from 5 to 25.
+
+    Those limits were in place because of memory constraints within the runtime. We work around them in those ways:
+    1) Removing the 4x safety margin for allocations which is no longer needed due to the new allocator.
+    2) Limiting the size of the compilation cache to a fixed size.
+    3) Resetting the compilation cache and flat map every time we call into a new contract.
+    4) Limiting the size of calldata and return data to 128KiB (only capped by tx size and RAM before). While this is a breaking change nobody will be affected since Geth effectively limits the call data to 128KiB.
+
+    ## 1MiB contracts
+
+    This is large enough so that all known contracts won't fail for size issues anymore.
+
+    The new limit is also much simpler to understand since it does not depend on the number of instructions. Just those two constraints:
+    ```
+    PVM_BLOB.len() < 1 MiB
+    PVM_BLOB.len() + (rw/ro/stack) < 1MiB + 512KiB
+    ```
+
+    This means:
+    1) A contract is guaranteed to have at least 512KiB of memory available.
+    2) A contract that is smaller in code can use more memory.
+    3) Limit is exactly 1MiB unless a user manually increase the memory usage of a contract to be larger than 512KiB.
+
+    ## Call stack depth `5 -> 25`
+
+    The limit of `5` was problematic because there are use cases which require deeper stacks. With the raise to `25` there should be no benign use cases anymore that won't work.
+
+    Please note that even with the low limit of `25` contracts are not vulnerable to stack depth exhaustion attacks: We do trap the caller's context when the depth limit is reached. This is different from Eth where this error can be handled and failure to do so leaves the contract vulnerable.
+crates:
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive
+  bump: patch

@@ -26,7 +26,7 @@ use xcm::latest::{Asset, AssetFilter, AssetId, Location, WildAsset};
 pub struct NativeAsset;
 impl ContainsPair<Asset, Location> for NativeAsset {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
-		log::trace!(target: "xcm::contains", "NativeAsset asset: {:?}, origin: {:?}", asset, origin);
+		tracing::trace!(target: "xcm::contains", ?asset, ?origin, "NativeAsset");
 		matches!(asset.id, AssetId(ref id) if id == origin)
 	}
 }
@@ -35,7 +35,7 @@ impl ContainsPair<Asset, Location> for NativeAsset {
 pub struct Case<T>(PhantomData<T>);
 impl<T: Get<(AssetFilter, Location)>> ContainsPair<Asset, Location> for Case<T> {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
-		log::trace!(target: "xcm::contains", "Case asset: {:?}, origin: {:?}", asset, origin);
+		tracing::trace!(target: "xcm::contains", ?asset, ?origin, "Case asset");
 		let (a, o) = T::get();
 		a.matches(asset) && &o == origin
 	}
@@ -51,7 +51,7 @@ impl<LocationFilter: Contains<Location>, AssetFilters: Get<Vec<AssetFilter>>>
 	Contains<(Location, Vec<Asset>)> for LocationWithAssetFilters<LocationFilter, AssetFilters>
 {
 	fn contains((location, assets): &(Location, Vec<Asset>)) -> bool {
-		log::trace!(target: "xcm::contains", "LocationWithAssetFilters location: {:?}, assets: {:?}", location, assets);
+		tracing::trace!(target: "xcm::contains", ?location, ?assets, "LocationWithAssetFilters");
 
 		// `location` must match the `Location` filter.
 		if !LocationFilter::contains(location) {

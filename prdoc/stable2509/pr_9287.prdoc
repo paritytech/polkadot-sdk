@@ -1,0 +1,23 @@
+title: 'network: Upgrade litep2p to v0.10.0'
+doc:
+- audience: Node Dev
+  description: |-
+    ## litep2p v0.10.0
+
+    This release adds the ability to use system DNS resolver and change Kademlia DNS memory store capacity. It also fixes the Bitswap protocol implementation and correctly handles the dropped notification substreams by unregistering them from the protocol list.
+
+    ### Added
+
+    - kad: Expose memory store configuration ([#407](https://github.com/paritytech/litep2p/pull/407))
+    - transport: Allow changing DNS resolver config ([#384](https://github.com/paritytech/litep2p/pull/384))
+
+    ### Fixed
+
+    - notification: Unregister dropped protocols ([#391](https://github.com/paritytech/litep2p/pull/391))
+    - bitswap: Fix protocol implementation ([#402](https://github.com/paritytech/litep2p/pull/402))
+    - transport-manager: stricter supported multiaddress check ([#403](https://github.com/paritytech/litep2p/pull/403))
+crates:
+- name: sc-network
+  bump: major
+- name: sc-network-types
+  bump: major

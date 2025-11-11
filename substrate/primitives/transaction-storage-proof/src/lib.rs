@@ -25,7 +25,7 @@ extern crate alloc;
 use core::result::Result;
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use sp_inherents::{InherentData, InherentIdentifier, IsFatalError};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
@@ -37,6 +37,9 @@ pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"tx_proof";
 pub const DEFAULT_STORAGE_PERIOD: u32 = 100800;
 /// Proof trie value size.
 pub const CHUNK_SIZE: usize = 256;
+
+/// Type used for counting/tracking chunks.
+pub type ChunkIndex = u32;
 
 /// Errors that can occur while checking the storage proof.
 #[derive(Encode, sp_runtime::RuntimeDebug)]
@@ -54,7 +57,7 @@ impl IsFatalError for InherentError {
 
 /// Holds a chunk of data retrieved from storage along with
 /// a proof that the data was stored at that location in the trie.
-#[derive(Encode, Decode, Clone, PartialEq, Debug, scale_info::TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Debug, scale_info::TypeInfo)]
 pub struct TransactionStorageProof {
 	/// Data chunk that is proved to exist.
 	pub chunk: Vec<u8>,
@@ -104,7 +107,7 @@ impl sp_inherents::InherentDataProvider for InherentDataProvider {
 		mut error: &[u8],
 	) -> Option<Result<(), Error>> {
 		if *identifier != INHERENT_IDENTIFIER {
-			return None
+			return None;
 		}
 
 		let error = InherentError::decode(&mut error).ok()?;
@@ -114,16 +117,29 @@ impl sp_inherents::InherentDataProvider for InherentDataProvider {
 }
 
 /// A utility function to extract a chunk index from the source of randomness.
-pub fn random_chunk(random_hash: &[u8], total_chunks: u32) -> u32 {
+///
+/// # Panics
+///
+/// This function panics if `total_chunks` is `0`.
+pub fn random_chunk(random_hash: &[u8], total_chunks: ChunkIndex) -> ChunkIndex {
 	let mut buf = [0u8; 8];
 	buf.copy_from_slice(&random_hash[0..8]);
 	let random_u64 = u64::from_be_bytes(buf);
 	(random_u64 % total_chunks as u64) as u32
 }
 
-/// A utility function to encode transaction index as trie key.
-pub fn encode_index(input: u32) -> Vec<u8> {
-	codec::Encode::encode(&codec::Compact(input))
+/// A utility function to calculate the number of chunks.
+///
+/// * `bytes` - number of bytes
+pub fn num_chunks(bytes: u32) -> ChunkIndex {
+	(bytes as u64).div_ceil(CHUNK_SIZE as u64) as u32
+}
+
+/// A utility function to encode the transaction index as a trie key.
+///
+/// * `index` - chunk index.
+pub fn encode_index(index: ChunkIndex) -> Vec<u8> {
+	codec::Encode::encode(&codec::Compact(index))
 }
 
 /// An interface to request indexed data from the client.
@@ -135,7 +151,7 @@ pub trait IndexedBody<B: BlockT> {
 	/// that are indexed by the runtime with `storage_index_transaction`.
 	fn block_indexed_body(&self, number: NumberFor<B>) -> Result<Option<Vec<Vec<u8>>>, Error>;
 
-	/// Get block number for a block hash.
+	/// Get a block number for a block hash.
 	fn number(&self, hash: B::Hash) -> Result<Option<NumberFor<B>>, Error>;
 }
 
@@ -163,13 +179,12 @@ pub mod registration {
 			.saturating_sub(DEFAULT_STORAGE_PERIOD.into());
 		if number.is_zero() {
 			// Too early to collect proofs.
-			return Ok(InherentDataProvider::new(None))
+			return Ok(InherentDataProvider::new(None));
 		}
 
 		let proof = match client.block_indexed_body(number)? {
-			Some(transactions) if !transactions.is_empty() =>
-				Some(build_proof(parent.as_ref(), transactions)?),
-			Some(_) | None => {
+			Some(transactions) => build_proof(parent.as_ref(), transactions)?,
+			None => {
 				// Nothing was indexed in that block.
 				None
 			},
@@ -181,25 +196,20 @@ pub mod registration {
 	pub fn build_proof(
 		random_hash: &[u8],
 		transactions: Vec<Vec<u8>>,
-	) -> Result<TransactionStorageProof, Error> {
-		let mut db = sp_trie::MemoryDB::<Hasher>::default();
+	) -> Result<Option<TransactionStorageProof>, Error> {
+		// Get total chunks, we will need it to generate a random chunk index.
+		let total_chunks: ChunkIndex =
+			transactions.iter().map(|t| num_chunks(t.len() as u32)).sum();
+		if total_chunks.is_zero() {
+			return Ok(None);
+		}
+		let selected_chunk_index = random_chunk(random_hash, total_chunks);
 
-		let mut target_chunk = None;
-		let mut target_root = Default::default();
-		let mut target_chunk_key = Default::default();
-		let mut chunk_proof = Default::default();
-
-		let total_chunks: u64 = transactions
-			.iter()
-			.map(|t| ((t.len() + CHUNK_SIZE - 1) / CHUNK_SIZE) as u64)
-			.sum();
-		let mut buf = [0u8; 8];
-		buf.copy_from_slice(&random_hash[0..8]);
-		let random_u64 = u64::from_be_bytes(buf);
-		let target_chunk_index = random_u64 % total_chunks;
 		// Generate tries for each transaction.
 		let mut chunk_index = 0;
 		for transaction in transactions {
+			let mut selected_chunk_and_key = None;
+			let mut db = sp_trie::MemoryDB::<Hasher>::default();
 			let mut transaction_root = sp_trie::empty_trie_root::<TrieLayout>();
 			{
 				let mut trie =
@@ -209,33 +219,38 @@ pub mod registration {
 				for (index, chunk) in chunks.enumerate() {
 					let index = encode_index(index as u32);
 					trie.insert(&index, &chunk).map_err(|e| Error::Application(Box::new(e)))?;
-					if chunk_index == target_chunk_index {
-						target_chunk = Some(chunk);
-						target_chunk_key = index;
+					if chunk_index == selected_chunk_index {
+						selected_chunk_and_key = Some((chunk, index));
 					}
 					chunk_index += 1;
 				}
 				trie.commit();
 			}
-			if target_chunk.is_some() && target_root == Default::default() {
-				target_root = transaction_root;
-				chunk_proof = sp_trie::generate_trie_proof::<TrieLayout, _, _, _>(
+			if let Some((target_chunk, target_chunk_key)) = selected_chunk_and_key {
+				let chunk_proof = sp_trie::generate_trie_proof::<TrieLayout, _, _, _>(
 					&db,
 					transaction_root,
-					&[target_chunk_key.clone()],
+					&[target_chunk_key],
 				)
 				.map_err(|e| Error::Application(Box::new(e)))?;
+
+				// We found the chunk and computed the proof root for the entire transaction,
+				// so there is no need to waste time calculating the subsequent transactions.
+				return Ok(Some(TransactionStorageProof {
+					proof: chunk_proof,
+					chunk: target_chunk,
+				}));
 			}
 		}
 
-		Ok(TransactionStorageProof { proof: chunk_proof, chunk: target_chunk.unwrap() })
+		Err(Error::Application(Box::from(format!("No chunk (total_chunks: {total_chunks}) matched the selected_chunk_index: {selected_chunk_index}; logic error!"))))
 	}
 
 	#[test]
 	fn build_proof_check() {
 		use std::str::FromStr;
 		let random = [0u8; 32];
-		let proof = build_proof(&random, vec![vec![42]]).unwrap();
+		let proof = build_proof(&random, vec![vec![42]]).unwrap().unwrap();
 		let root = sp_core::H256::from_str(
 			"0xff8611a4d212fc161dae19dd57f0f1ba9309f45d6207da13f2d3eab4c6839e91",
 		)
@@ -246,5 +261,9 @@ pub mod registration {
 			&[(encode_index(0), Some(proof.chunk))],
 		)
 		.unwrap();
+
+		// Fail for empty transactions/chunks.
+		assert!(build_proof(&random, vec![]).unwrap().is_none());
+		assert!(build_proof(&random, vec![vec![]]).unwrap().is_none());
 	}
 }

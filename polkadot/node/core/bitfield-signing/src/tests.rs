@@ -17,7 +17,7 @@
 use super::*;
 use futures::{executor::block_on, pin_mut, StreamExt};
 use polkadot_node_subsystem::messages::{AllMessages, RuntimeApiMessage, RuntimeApiRequest};
-use polkadot_primitives::{vstaging::OccupiedCore, CandidateHash};
+use polkadot_primitives::{CandidateHash, OccupiedCore};
 use polkadot_primitives_test_helpers::dummy_candidate_descriptor_v2;
 
 fn occupied_core(para_id: u32, candidate_hash: CandidateHash) -> CoreState {

@@ -36,6 +36,10 @@ def exclude(crate):
 		# Note: this is a bit hacky. We should use custom crate metadata instead.
 		return name != "sp-runtime" and name != "bp-runtime" and name != "frame-try-runtime"
 
+	# Exclude snowbridge crates.
+	if name.startswith("snowbridge-"):
+		return True
+
 	return False
 
 def main(path, version):
@@ -77,7 +81,7 @@ def main(path, version):
 		with open(lib_path, "r") as f:
 			nostd_crate = False
 			for line in f:
-				line = line.strip() 
+				line = line.strip()
 				if line == "#![no_std]" or line == '#![cfg_attr(not(feature = "std"), no_std)]':
 					nostd_crate = True
 					break
@@ -179,16 +183,17 @@ def main(path, version):
 Delete the umbrella folder and remove the umbrella crate from the workspace.
 """
 def delete_umbrella(path):
-	umbrella_dir = os.path.join(path, "umbrella")
 	# remove the umbrella crate from the workspace
 	manifest = os.path.join(path, "Cargo.toml")
 	manifest = open(manifest, "r").read()
 	manifest = re.sub(r'\s+"umbrella",\n', "", manifest)
 	with open(os.path.join(path, "Cargo.toml"), "w") as f:
 		f.write(manifest)
+	umbrella_dir = os.path.join(path, "umbrella")
 	if os.path.exists(umbrella_dir):
 		print(f"Deleting {umbrella_dir}")
-		shutil.rmtree(umbrella_dir)
+		os.remove(os.path.join(umbrella_dir, "Cargo.toml"))
+		shutil.rmtree(os.path.join(umbrella_dir, "src"))
 
 """
 Create the umbrella crate and add it to the workspace.

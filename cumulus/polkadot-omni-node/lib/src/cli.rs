@@ -16,6 +16,9 @@
 
 //! CLI options of the omni-node. See [`Command`].
 
+/// Default block time for dev mode when using `--dev` flag.
+const DEFAULT_DEV_BLOCK_TIME_MS: u64 = 3000;
+
 use crate::{
 	chain_spec::DiskChainSpecLoader,
 	common::{
@@ -23,15 +26,20 @@ use crate::{
 		NodeExtraArgs,
 	},
 };
-use clap::{Command, CommandFactory, FromArgMatches};
+use chain_spec_builder::ChainSpecBuilder;
+use clap::{Command, CommandFactory, FromArgMatches, ValueEnum};
 use sc_chain_spec::ChainSpec;
 use sc_cli::{
 	CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams,
 	RpcEndpoint, SharedParams, SubstrateCli,
 };
 use sc_service::{config::PrometheusConfig, BasePath};
-use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
-
+use sc_storage_monitor::StorageMonitorParams;
+use std::{
+	fmt::{Debug, Display, Formatter},
+	marker::PhantomData,
+	path::PathBuf,
+};
 /// Trait that can be used to customize some of the customer-facing info related to the node binary
 /// that is being built using this library.
 ///
@@ -72,6 +80,19 @@ pub enum Subcommand {
 	Key(sc_cli::KeySubcommand),
 
 	/// Build a chain specification.
+	///
+	/// The `build-spec` command relies on the chain specification built (hard-coded) into the node
+	/// binary, and may utilize the genesis presets of the runtimes  also embedded in the nodes
+	/// that support  this command. Since `polkadot-omni-node` does not contain any embedded
+	/// runtime, and requires a `chain-spec` path to be passed to its `--chain` flag, the command
+	/// isn't bringing significant value as it does for other node binaries (e.g. the
+	///  `polkadot` binary).
+	///
+	/// For a more versatile `chain-spec` manipulation experience please check out the
+	/// `polkadot-omni-node chain-spec-builder` subcommand.
+	#[deprecated(
+		note = "build-spec will be removed after 1/06/2025. Use chain-spec-builder instead"
+	)]
 	BuildSpec(sc_cli::BuildSpecCmd),
 
 	/// Validate blocks.
@@ -89,9 +110,21 @@ pub enum Subcommand {
 	/// Revert the chain to a previous state.
 	Revert(sc_cli::RevertCmd),
 
+	/// Subcommand for generating and managing chain specifications.
+	///
+	/// A `chain-spec-builder` subcommand corresponds to the existing `chain-spec-builder` tool
+	/// (<https://crates.io/crates/staging-chain-spec-builder>), which can be used already standalone.
+	/// It provides the same functionality as the tool but bundled with `polkadot-omni-node` to
+	/// enable easier access to chain-spec generation, patching, converting to raw or validation,
+	/// from a single binary, which can be used as a parachain node tool
+	/// For a detailed usage guide please check out the standalone tool's crates.io or docs.rs
+	/// pages:
+	/// - <https://crates.io/crates/staging-chain-spec-builder>
+	/// - <https://docs.rs/staging-chain-spec-builder/latest/staging_chain_spec_builder/>
+	ChainSpecBuilder(ChainSpecBuilder),
+
 	/// Remove the whole chain.
 	PurgeChain(cumulus_client_cli::PurgeChainCmd),
-
 	/// Export the genesis state of the parachain.
 	#[command(alias = "export-genesis-state")]
 	ExportGenesisHead(cumulus_client_cli::ExportGenesisHeadCommand),
@@ -124,6 +157,10 @@ pub struct Cli<Config: CliConfig> {
 	#[command(flatten)]
 	pub run: cumulus_client_cli::RunCmd,
 
+	/// Parameters for storage monitoring.
+	#[command(flatten)]
+	pub storage_monitor: StorageMonitorParams,
+
 	/// Start a dev node that produces a block each `dev_block_time` ms.
 	///
 	/// This is a dev option. It enables a manual sealing, meaning blocks are produced manually
@@ -134,14 +171,29 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// The `--dev` flag sets the `dev_block_time` to a default value of 3000ms unless explicitly
 	/// provided.
-	#[arg(long)]
+	#[arg(long, conflicts_with = "instant_seal")]
 	pub dev_block_time: Option<u64>,
 
-	/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling.
+	/// Start a dev node with instant seal.
 	///
+	/// This is a dev option that enables instant sealing, meaning blocks are produced
+	/// immediately when transactions are received, rather than at fixed intervals.
+	/// Using this option won't result in starting or connecting to a parachain network.
+	/// The resulting node will work on its own, running the wasm blob and producing blocks
+	/// instantly upon receiving transactions.
+	#[arg(long, conflicts_with = "dev_block_time")]
+	pub instant_seal: bool,
+
+	/// DEPRECATED: This feature has been stabilized, pLease use `--authoring slot-based` instead.
+	///
+	/// Use slot-based collator which can handle elastic scaling.
 	/// Use with care, this flag is unstable and subject to change.
-	#[arg(long)]
+	#[arg(long, conflicts_with = "authoring")]
 	pub experimental_use_slot_based: bool,
+
+	/// Authoring style to use.
+	#[arg(long, default_value_t = AuthoringPolicy::Lookahead)]
+	pub authoring: AuthoringPolicy,
 
 	/// Disable automatic hardware benchmarks.
 	///
@@ -164,15 +216,72 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(raw = true)]
 	pub relay_chain_args: Vec<String>,
 
+	/// Enable the statement store.
+	///
+	/// The statement store is a store for statements validated using the runtime API
+	/// `validate_statement`. It should be enabled for chains that provide this runtime API.
+	#[arg(long)]
+	pub enable_statement_store: bool,
+
 	#[arg(skip)]
 	pub(crate) _phantom: PhantomData<Config>,
+}
+
+/// Development sealing mode.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum DevSealMode {
+	/// Produces blocks immediately upon receiving transactions.
+	InstantSeal,
+	/// Produces blocks at fixed time intervals.
+	/// The u64 parameter represents the block time in milliseconds.
+	ManualSeal(u64),
+}
+
+/// Collator implementation to use.
+#[derive(PartialEq, Debug, ValueEnum, Clone, Copy)]
+pub enum AuthoringPolicy {
+	/// Use the lookahead collator. Builds a block once per imported relay chain block and
+	/// on relay chain forks. Default for asynchronous backing chains.
+	Lookahead,
+	/// Use the slot-based collator. Builds a block based on time. Can utilize multiple cores,
+	/// always builds on the best relay chain block available. Should be used with elastic-scaling
+	/// chains.
+	SlotBased,
+}
+
+impl Display for AuthoringPolicy {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		match self {
+			AuthoringPolicy::Lookahead => write!(f, "lookahead"),
+			AuthoringPolicy::SlotBased => write!(f, "slot-based"),
+		}
+	}
 }
 
 impl<Config: CliConfig> Cli<Config> {
 	pub(crate) fn node_extra_args(&self) -> NodeExtraArgs {
 		NodeExtraArgs {
-			use_slot_based_consensus: self.experimental_use_slot_based,
+			authoring_policy: self
+				.experimental_use_slot_based
+				.then(|| AuthoringPolicy::SlotBased)
+				.unwrap_or(self.authoring),
 			export_pov: self.export_pov_to_path.clone(),
+			max_pov_percentage: self.run.experimental_max_pov_percentage,
+			enable_statement_store: self.enable_statement_store,
+			storage_monitor: self.storage_monitor.clone(),
+		}
+	}
+
+	/// Returns the dev seal mode if the node is in dev mode.
+	pub(crate) fn dev_mode(&self) -> Option<DevSealMode> {
+		if self.instant_seal {
+			Some(DevSealMode::InstantSeal)
+		} else if let Some(dev_block_time) = self.dev_block_time {
+			Some(DevSealMode::ManualSeal(dev_block_time))
+		} else if self.run.base.is_dev().unwrap_or(false) {
+			Some(DevSealMode::ManualSeal(DEFAULT_DEV_BLOCK_TIME_MS))
+		} else {
+			None
 		}
 	}
 }
@@ -249,7 +358,7 @@ impl<Config: CliConfig> RelayChainCli<Config> {
 		let base = FromArgMatches::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
 
 		let extension = Extensions::try_get(&*para_config.chain_spec);
-		let chain_id = extension.map(|e| e.relay_chain.clone());
+		let chain_id = extension.map(|e| e.relay_chain());
 
 		let base_path = para_config.base_path.path().join("polkadot");
 		Self { base, chain_id, base_path: Some(base_path), _phantom: Default::default() }

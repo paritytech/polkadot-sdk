@@ -17,17 +17,16 @@
 //! Mock runtime for tests.
 //! Implements both runtime APIs for fee estimation and getting the messages for transfers.
 
-use codec::Encode;
 use core::{cell::RefCell, marker::PhantomData};
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types, sp_runtime,
 	sp_runtime::{
-		traits::{Dispatchable, Get, IdentityLookup, MaybeEquivalence, TryConvert},
+		traits::{Get, IdentityLookup, MaybeEquivalence, TryConvert},
 		BuildStorage, SaturatedConversion,
 	},
 	traits::{
-		AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, ContainsPair, Everything, Nothing,
-		OriginTrait,
+		AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, ContainsPair, Disabled, Everything,
+		Nothing, OriginTrait,
 	},
 	weights::WeightToFee as WeightToFeeT,
 };
@@ -36,8 +35,8 @@ use pallet_xcm::TestWeightInfo;
 use xcm::{prelude::*, Version as XcmVersion};
 use xcm_builder::{
 	AllowTopLevelPaidExecutionFrom, ConvertedConcreteId, EnsureXcmOrigin, FixedRateOfFungible,
-	FixedWeightBounds, FungibleAdapter, FungiblesAdapter, IsConcrete, MintLocation, NoChecking,
-	TakeWeightCredit,
+	FixedWeightBounds, FungibleAdapter, FungiblesAdapter, InspectMessageQueues, IsConcrete,
+	MintLocation, NoChecking, TakeWeightCredit,
 };
 use xcm_executor::{
 	traits::{ConvertLocation, JustTry},
@@ -50,6 +49,7 @@ use xcm_runtime_apis::{
 	fees::{Error as XcmPaymentApiError, XcmPaymentApi},
 	trusted_query::{Error as TrustedQueryApiError, TrustedQueryApi},
 };
+use xcm_simulator::helpers::derive_topic_id;
 
 construct_runtime! {
 	pub enum TestRuntime {
@@ -90,6 +90,7 @@ impl pallet_balances::Config for TestRuntime {
 	type ExistentialDeposit = ExistentialDeposit;
 }
 
+// Assets instance
 #[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
 impl pallet_assets::Config for TestRuntime {
 	type AssetId = AssetIdForAssetsPallet;
@@ -97,6 +98,7 @@ impl pallet_assets::Config for TestRuntime {
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
+	type Holder = ();
 	type Freezer = ();
 	type AssetDeposit = ConstU128<1>;
 	type AssetAccountDeposit = ConstU128<10>;
@@ -111,10 +113,6 @@ thread_local! {
 	pub static SENT_XCM: RefCell<Vec<(Location, Xcm<()>)>> = const { RefCell::new(Vec::new()) };
 }
 
-pub(crate) fn sent_xcm() -> Vec<(Location, Xcm<()>)> {
-	SENT_XCM.with(|q| (*q.borrow()).clone())
-}
-
 pub struct TestXcmSender;
 impl SendXcm for TestXcmSender {
 	type Ticket = (Location, Xcm<()>);
@@ -127,22 +125,38 @@ impl SendXcm for TestXcmSender {
 		Ok((ticket, fees))
 	}
 	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
-		let hash = fake_message_hash(&ticket.1);
+		let hash = derive_topic_id(&ticket.1);
 		SENT_XCM.with(|q| q.borrow_mut().push(ticket));
 		Ok(hash)
 	}
 }
+impl InspectMessageQueues for TestXcmSender {
+	fn clear_messages() {
+		SENT_XCM.with(|q| q.borrow_mut().clear());
+	}
 
-pub(crate) fn fake_message_hash<Call>(message: &Xcm<Call>) -> XcmHash {
-	message.using_encoded(sp_io::hashing::blake2_256)
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		SENT_XCM.with(|q| {
+			(*q.borrow())
+				.clone()
+				.iter()
+				.map(|(location, message)| {
+					(
+						VersionedLocation::from(location.clone()),
+						vec![VersionedXcm::from(message.clone())],
+					)
+				})
+				.collect()
+		})
+	}
 }
 
 pub type XcmRouter = TestXcmSender;
 
 parameter_types! {
-	pub const DeliveryFees: u128 = 20; // Random value.
-	pub const ExistentialDeposit: u128 = 1; // Random value.
-	pub const BaseXcmWeight: Weight = Weight::from_parts(100, 10); // Random value.
+	pub const DeliveryFees: u128 = 20; // Arbitrary value.
+	pub const ExistentialDeposit: u128 = 1; // Arbitrary value.
+	pub const BaseXcmWeight: Weight = Weight::from_parts(100, 10); // Arbitrary value.
 	pub const MaxInstructions: u32 = 100;
 	pub const NativeTokenPerSecondPerByte: (AssetId, u128, u128) = (AssetId(HereLocation::get()), 1, 1);
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(NetworkId::ByGenesis([0; 32])), Parachain(2000)].into();
@@ -172,17 +186,29 @@ type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
 pub struct NativeTokenToAssetHub;
 impl ContainsPair<Asset, Location> for NativeTokenToAssetHub {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
-		matches!(asset.id.0.unpack(), (0, [])) && matches!(origin.unpack(), (1, [Parachain(1000)]))
+		matches!(asset.id.0.unpack(), (0, [])) &&
+			matches!(origin.unpack(), (1, [Parachain(ASSET_HUB_PARA_ID)]))
 	}
 }
 
-/// Matches the pair (RelayToken, AssetHub).
+/// Parachain id of Asset Hub.
+pub const ASSET_HUB_PARA_ID: u32 = 1000;
+/// The instance index of the trust-backed assets pallet in Asset Hub.
+pub const ASSET_HUB_ASSETS_PALLET_INSTANCE: u8 = 50;
+/// Id of USDT in Asset Hub.
+pub const USDT_ID: u32 = 1984;
+
+/// Matches the pairs (RelayToken, AssetHub) and (UsdtToken, AssetHub).
 /// This is used in the `IsReserve` configuration item, meaning we accept the relay token
 /// coming from AssetHub as a reserve asset transfer.
-pub struct RelayTokenToAssetHub;
-impl ContainsPair<Asset, Location> for RelayTokenToAssetHub {
+pub struct RelayTokenAndUsdtToAssetHub;
+impl ContainsPair<Asset, Location> for RelayTokenAndUsdtToAssetHub {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
-		matches!(asset.id.0.unpack(), (1, [])) && matches!(origin.unpack(), (1, [Parachain(1000)]))
+		let is_asset_hub = matches!(origin.unpack(), (1, [Parachain(ASSET_HUB_PARA_ID)]));
+		let is_relay_token = matches!(asset.id.0.unpack(), (1, []));
+		let is_usdt = matches!(asset.id.0.unpack(), (1, [Parachain(ASSET_HUB_PARA_ID), PalletInstance(ASSET_HUB_ASSETS_PALLET_INSTANCE), GeneralIndex(asset_id)]) if *asset_id == USDT_ID.into());
+
+		is_asset_hub && (is_relay_token || is_usdt)
 	}
 }
 
@@ -230,11 +256,16 @@ pub type NativeTokenTransactor = FungibleAdapter<
 	LocalCheckAccount,
 >;
 
+/// Converter from Location to local asset id and viceversa.
 pub struct LocationToAssetIdForAssetsPallet;
 impl MaybeEquivalence<Location, AssetIdForAssetsPallet> for LocationToAssetIdForAssetsPallet {
 	fn convert(location: &Location) -> Option<AssetIdForAssetsPallet> {
 		match location.unpack() {
 			(1, []) => Some(1 as AssetIdForAssetsPallet),
+			(
+				1,
+				[Parachain(ASSET_HUB_PARA_ID), PalletInstance(ASSET_HUB_ASSETS_PALLET_INSTANCE), GeneralIndex(asset_id)],
+			) if *asset_id == USDT_ID.into() => Some(USDT_ID as AssetIdForAssetsPallet),
 			_ => None,
 		}
 	}
@@ -242,13 +273,21 @@ impl MaybeEquivalence<Location, AssetIdForAssetsPallet> for LocationToAssetIdFor
 	fn convert_back(id: &AssetIdForAssetsPallet) -> Option<Location> {
 		match id {
 			1 => Some(Location::new(1, [])),
+			asset_id if *asset_id == USDT_ID => Some(Location::new(
+				1,
+				[
+					Parachain(ASSET_HUB_PARA_ID),
+					PalletInstance(ASSET_HUB_ASSETS_PALLET_INSTANCE),
+					GeneralIndex(USDT_ID.into()),
+				],
+			)),
 			_ => None,
 		}
 	}
 }
 
-/// AssetTransactor for handling the relay chain token.
-pub type RelayTokenTransactor = FungiblesAdapter<
+/// AssetTransactor for handling assets other than the native one.
+pub type AssetsTransactor = FungiblesAdapter<
 	// We use pallet-assets for handling the relay token.
 	AssetsPallet,
 	// Matches the relay token.
@@ -262,7 +301,7 @@ pub type RelayTokenTransactor = FungiblesAdapter<
 	(),
 >;
 
-pub type AssetTransactors = (NativeTokenTransactor, RelayTokenTransactor);
+pub type AssetTransactors = (NativeTokenTransactor, AssetsTransactor);
 
 pub struct HereAndInnerLocations;
 impl Contains<Location> for HereAndInnerLocations {
@@ -283,9 +322,10 @@ pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
+	type XcmEventEmitter = XcmPallet;
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = ();
-	type IsReserve = RelayTokenToAssetHub;
+	type IsReserve = RelayTokenAndUsdtToAssetHub;
 	type IsTeleporter = NativeTokenToAssetHub;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
@@ -294,7 +334,7 @@ impl xcm_executor::Config for XcmConfig {
 	type ResponseHandler = ();
 	type AssetTrap = ();
 	type AssetLocker = ();
-	type AssetExchanger = ();
+	type AssetExchanger = MockAssetExchanger;
 	type AssetClaims = ();
 	type SubscriptionService = ();
 	type PalletInstancesInfo = AllPalletsWithSystem;
@@ -310,6 +350,69 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
 	type XcmRecorder = XcmPallet;
+}
+
+/// Mock AssetExchanger that recognizes USDT and provides a 1:2 exchange rate
+/// (1 native token = 2 USDT tokens)
+pub struct MockAssetExchanger;
+impl xcm_executor::traits::AssetExchange for MockAssetExchanger {
+	fn exchange_asset(
+		_origin: Option<&Location>,
+		give: xcm_executor::AssetsInHolding,
+		want: &Assets,
+		_maximal: bool,
+	) -> Result<xcm_executor::AssetsInHolding, xcm_executor::AssetsInHolding> {
+		let usdt_location = Location::new(
+			1,
+			[
+				Parachain(ASSET_HUB_PARA_ID),
+				PalletInstance(ASSET_HUB_ASSETS_PALLET_INSTANCE),
+				GeneralIndex(USDT_ID.into()),
+			],
+		);
+
+		// Check if we're trying to exchange native asset for USDT
+		if let Some(give_asset) = give.fungible.get(&AssetId(HereLocation::get())) {
+			if let Some(want_asset) = want.get(0) {
+				if want_asset.id.0 == usdt_location {
+					// Convert native asset to USDT at 1:2 rate
+					let usdt_amount = give_asset.saturating_mul(2);
+					let mut result = xcm_executor::AssetsInHolding::new();
+					result.subsume((AssetId(usdt_location), usdt_amount).into());
+					return Ok(result);
+				}
+			}
+		}
+
+		// If we can't handle the exchange, return the original assets
+		Err(give)
+	}
+
+	fn quote_exchange_price(give: &Assets, want: &Assets, _maximal: bool) -> Option<Assets> {
+		let usdt_location = Location::new(
+			1,
+			[
+				Parachain(ASSET_HUB_PARA_ID),
+				PalletInstance(ASSET_HUB_ASSETS_PALLET_INSTANCE),
+				GeneralIndex(USDT_ID.into()),
+			],
+		);
+
+		// Check if we're trying to quote native asset for USDT
+		if let Some(give_asset) = give.get(0) {
+			if let Some(want_asset) = want.get(0) {
+				if give_asset.id.0 == HereLocation::get() && want_asset.id.0 == usdt_location {
+					if let Fungible(amount) = give_asset.fun {
+						// Return the USDT amount we'd get at 1:2 rate
+						let usdt_amount = amount.saturating_mul(2);
+						return Some((AssetId(usdt_location), usdt_amount).into());
+					}
+				}
+			}
+		}
+
+		None
+	}
 }
 
 /// Converts a signed origin of a u64 account into a location with only the `AccountIndex64`
@@ -333,6 +436,8 @@ where
 	}
 }
 
+/// Converts a local signed origin into an XCM location. Forms the basis for local origins
+/// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountIndex64<RuntimeOrigin, AccountId>;
 
 impl pallet_xcm::Config for TestRuntime {
@@ -359,6 +464,7 @@ impl pallet_xcm::Config for TestRuntime {
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = TestWeightInfo;
+	type AuthorizedAliasConsideration = Disabled;
 }
 
 #[allow(dead_code)]
@@ -391,13 +497,16 @@ pub fn new_test_ext_with_balances_and_assets(
 			// We don't actually need this to be sufficient, since we use the native assets in
 			// tests for the existential deposit.
 			(1, 0, true, 1),
+			(1984, 0, true, 1),
 		],
 		metadata: vec![
 			// id, name, symbol, decimals.
 			(1, "Relay Token".into(), "RLY".into(), 12),
+			(1984, "Tether".into(), "USDT".into(), 6),
 		],
 		accounts: assets,
 		next_asset_id: None,
+		reserves: vec![],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
@@ -416,7 +525,7 @@ pub(crate) struct RuntimeApi {
 
 impl sp_api::ProvideRuntimeApi<Block> for TestClient {
 	type Api = RuntimeApi;
-	fn runtime_api(&self) -> sp_api::ApiRef<Self::Api> {
+	fn runtime_api(&self) -> sp_api::ApiRef<'_, Self::Api> {
 		RuntimeApi { _inner: self.clone() }.into()
 	}
 }
@@ -460,86 +569,47 @@ sp_api::mock_impl_runtime_apis! {
 					Ok(WeightToFee::weight_to_fee(&weight))
 				},
 				Ok(asset_id) => {
-					log::trace!(
+					tracing::trace!(
 						target: "xcm::XcmPaymentApi::query_weight_to_asset_fee",
-						"query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!"
+						?asset_id,
+						"query_weight_to_asset_fee - unhandled!"
 					);
 					Err(XcmPaymentApiError::AssetNotFound)
 				},
 				Err(_) => {
-					log::trace!(
+					tracing::trace!(
 						target: "xcm::XcmPaymentApi::query_weight_to_asset_fee",
-						"query_weight_to_asset_fee - failed to convert asset: {asset:?}!"
+						?asset,
+						"query_weight_to_asset_fee - failed to convert!"
 					);
 					Err(XcmPaymentApiError::VersionedConversionFailed)
 				}
 			}
 		}
 
-		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, XcmPaymentApiError> {
-			XcmPallet::query_delivery_fees(destination, message)
+		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>, asset_id: VersionedAssetId) -> Result<VersionedAssets, XcmPaymentApiError> {
+			XcmPallet::query_delivery_fees::<<XcmConfig as xcm_executor::Config>::AssetExchanger>(destination, message, asset_id)
 		}
 	}
 
 	impl DryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for RuntimeApi {
-		fn dry_run_call(origin: OriginCaller, call: RuntimeCall) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			use xcm_executor::RecordXcm;
-			pallet_xcm::Pallet::<TestRuntime>::set_record_xcm(true);
-			let result = call.dispatch(origin.into());
-			pallet_xcm::Pallet::<TestRuntime>::set_record_xcm(false);
-			let local_xcm = pallet_xcm::Pallet::<TestRuntime>::recorded_xcm();
-			let forwarded_xcms = sent_xcm()
-							   .into_iter()
-							   .map(|(location, message)| (
-									   VersionedLocation::from(location),
-									   vec![VersionedXcm::from(message)],
-							   )).collect();
-			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
-			Ok(CallDryRunEffects {
-				local_xcm: local_xcm.map(VersionedXcm::<()>::from),
-				forwarded_xcms,
-				emitted_events: events,
-				execution_result: result,
-			})
+		fn dry_run_call(
+			origin: OriginCaller,
+			call: RuntimeCall,
+			result_xcms_version: XcmVersion,
+		) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			pallet_xcm::Pallet::<TestRuntime>::dry_run_call::<TestRuntime, XcmRouter, OriginCaller, RuntimeCall>(origin, call, result_xcms_version)
+		}
+
+		fn dry_run_call_before_version_2(
+			origin: OriginCaller,
+			call: RuntimeCall,
+		) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			pallet_xcm::Pallet::<TestRuntime>::dry_run_call::<TestRuntime, XcmRouter, OriginCaller, RuntimeCall>(origin, call, xcm::latest::VERSION)
 		}
 
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			let origin_location: Location = origin_location.try_into().map_err(|error| {
-				log::error!(
-					target: "xcm::DryRunApi::dry_run_xcm",
-					"Location version conversion failed with error: {:?}",
-					error,
-				);
-				XcmDryRunApiError::VersionedConversionFailed
-			})?;
-			let xcm: Xcm<RuntimeCall> = xcm.try_into().map_err(|error| {
-				log::error!(
-					target: "xcm::DryRunApi::dry_run_xcm",
-					"Xcm version conversion failed with error {:?}",
-					error,
-				);
-				XcmDryRunApiError::VersionedConversionFailed
-			})?;
-			let mut hash = fake_message_hash(&xcm);
-			let result = XcmExecutor::<XcmConfig>::prepare_and_execute(
-				origin_location,
-				xcm,
-				&mut hash,
-				Weight::MAX, // Max limit available for execution.
-				Weight::zero(),
-			);
-			let forwarded_xcms = sent_xcm()
-				.into_iter()
-				.map(|(location, message)| (
-					VersionedLocation::from(location),
-					vec![VersionedXcm::from(message)],
-				)).collect();
-			let events: Vec<RuntimeEvent> = System::events().iter().map(|record| record.event.clone()).collect();
-			Ok(XcmDryRunEffects {
-				forwarded_xcms,
-				emitted_events: events,
-				execution_result: result,
-			})
+			pallet_xcm::Pallet::<TestRuntime>::dry_run_xcm::<XcmRouter>(origin_location, xcm)
 		}
 	}
 }

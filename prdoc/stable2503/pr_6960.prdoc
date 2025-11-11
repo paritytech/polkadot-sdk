@@ -1,0 +1,9 @@
+title: Add sudo pallet to coretime-westend
+doc:
+- audience: Runtime Dev
+  description: Add the sudo pallet to coretime-westend, allowing use in development/testing.
+    Previously the coretime-rococo runtime was used in situations like this, but since
+    Rococo is now gone this can be used instead.
+crates:
+- name: coretime-westend-runtime
+  bump: major

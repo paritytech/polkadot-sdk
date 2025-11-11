@@ -509,7 +509,7 @@ where
 	MaxValues: Get<Option<u32>>,
 {
 	fn build_metadata(
-		deprecation_status: sp_metadata_ir::DeprecationStatusIR,
+		deprecation_status: sp_metadata_ir::ItemDeprecationInfoIR,
 		docs: Vec<&'static str>,
 		entries: &mut Vec<StorageEntryMetadataIR>,
 	) {
@@ -1198,7 +1198,11 @@ mod test {
 	fn test_metadata() {
 		type A = CountedStorageMap<Prefix, Twox64Concat, u16, u32, ValueQuery, ADefault>;
 		let mut entries = vec![];
-		A::build_metadata(sp_metadata_ir::DeprecationStatusIR::NotDeprecated, vec![], &mut entries);
+		A::build_metadata(
+			sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
+			vec![],
+			&mut entries,
+		);
 		assert_eq!(
 			entries,
 			vec![
@@ -1212,7 +1216,7 @@ mod test {
 					},
 					default: 97u32.encode(),
 					docs: vec![],
-					deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
+					deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 				},
 				StorageEntryMetadataIR {
 					name: "counter_for_foo",
@@ -1224,7 +1228,7 @@ mod test {
 					} else {
 						vec!["Counter for the related counted storage map"]
 					},
-					deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
+					deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 				},
 			]
 		);

@@ -20,7 +20,7 @@
 use alloc::vec::Vec;
 
 use bounded_collections::{BoundedVec, ConstU32};
-use codec::{CompactAs, Decode, Encode, MaxEncodedLen};
+use codec::{CompactAs, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_core::{bytes, RuntimeDebug, TypeId};
@@ -41,7 +41,7 @@ pub use polkadot_core_primitives::BlockNumber as RelayChainBlockNumber;
 	Ord,
 	Encode,
 	Decode,
-	RuntimeDebug,
+	DecodeWithMemTracking,
 	derive_more::From,
 	TypeInfo,
 	Serialize,
@@ -49,6 +49,12 @@ pub use polkadot_core_primitives::BlockNumber as RelayChainBlockNumber;
 )]
 #[cfg_attr(feature = "std", derive(Hash, Default))]
 pub struct HeadData(#[serde(with = "bytes")] pub Vec<u8>);
+
+impl core::fmt::Debug for HeadData {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		write!(f, "HeadData({})", array_bytes::bytes2hex("0x", &self.0))
+	}
+}
 
 impl HeadData {
 	/// Returns the hash of this head data.
@@ -66,7 +72,7 @@ impl codec::EncodeLike<HeadData> for alloc::vec::Vec<u8> {}
 	Clone,
 	Encode,
 	Decode,
-	RuntimeDebug,
+	DecodeWithMemTracking,
 	derive_more::From,
 	TypeInfo,
 	Serialize,
@@ -74,6 +80,12 @@ impl codec::EncodeLike<HeadData> for alloc::vec::Vec<u8> {}
 )]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct ValidationCode(#[serde(with = "bytes")] pub Vec<u8>);
+
+impl core::fmt::Debug for ValidationCode {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		write!(f, "ValidationCode({})", array_bytes::bytes2hex("0x", &self.0))
+	}
+}
 
 impl ValidationCode {
 	/// Get the blake2-256 hash of the validation code bytes.
@@ -88,7 +100,19 @@ impl ValidationCode {
 /// This type is produced by [`ValidationCode::hash`].
 ///
 /// This type makes it easy to enforce that a hash is a validation code hash on the type level.
-#[derive(Clone, Copy, Encode, Decode, Hash, Eq, PartialEq, PartialOrd, Ord, TypeInfo)]
+#[derive(
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Hash,
+	Eq,
+	PartialEq,
+	PartialOrd,
+	Ord,
+	TypeInfo,
+)]
 pub struct ValidationCodeHash(Hash);
 
 impl core::fmt::Display for ValidationCodeHash {
@@ -140,6 +164,7 @@ pub struct BlockData(#[cfg_attr(feature = "std", serde(with = "bytes"))] pub Vec
 	CompactAs,
 	Copy,
 	Decode,
+	DecodeWithMemTracking,
 	Default,
 	Encode,
 	Eq,
@@ -148,13 +173,18 @@ pub struct BlockData(#[cfg_attr(feature = "std", serde(with = "bytes"))] pub Vec
 	Ord,
 	PartialEq,
 	PartialOrd,
-	RuntimeDebug,
 	serde::Serialize,
 	serde::Deserialize,
 	TypeInfo,
 )]
 #[cfg_attr(feature = "std", derive(derive_more::Display))]
 pub struct Id(u32);
+
+impl core::fmt::Debug for Id {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		self.0.fmt(f)
+	}
+}
 
 impl codec::EncodeLike<u32> for Id {}
 impl codec::EncodeLike<Id> for u32 {}
@@ -175,6 +205,7 @@ impl From<u32> for Id {
 	}
 }
 
+#[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
 impl From<usize> for Id {
 	fn from(x: usize) -> Self {
 		// can't panic, so need to truncate
@@ -298,7 +329,18 @@ impl IsSystem for Sibling {
 /// Only one channel is allowed between two participants in one direction, i.e. there cannot be 2
 /// different channels identified by `(A, B)`. A channel with the same para id in sender and
 /// recipient is invalid. That is, however, not enforced.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(
+	Clone,
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	TypeInfo,
+)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct HrmpChannelId {
 	/// The para that acts as the sender in this channel.
@@ -359,6 +401,8 @@ pub enum XcmpMessageFormat {
 	/// One or more channel control signals; these should be interpreted immediately upon receipt
 	/// from the relay-chain.
 	Signals,
+	/// Double encoded `VersionedXcm` messages, all concatenated.
+	ConcatenatedOpaqueVersionedXcm,
 }
 
 /// Something that should be called for each batch of messages received over XCMP.
@@ -433,4 +477,15 @@ pub struct ValidationResult {
 	/// The mark which specifies the block number up to which all inbound HRMP messages are
 	/// processed.
 	pub hrmp_watermark: RelayChainBlockNumber,
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn para_id_debug() {
+		let id = Id::new(42);
+		assert_eq!(format!("{:?}", id), "42");
+	}
 }

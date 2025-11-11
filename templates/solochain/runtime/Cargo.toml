@@ -12,14 +12,12 @@ publish = false
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[lints]
+workspace = true
+
 [dependencies]
-codec = { features = [
-	"derive",
-], workspace = true }
-scale-info = { features = [
-	"derive",
-	"serde",
-], workspace = true }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive", "serde"], workspace = true }
 serde_json = { workspace = true, default-features = false, features = ["alloc"] }
 
 # frame
@@ -40,28 +38,18 @@ pallet-transaction-payment = { workspace = true }
 # primitives
 sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
-sp-consensus-aura = { features = [
-	"serde",
-], workspace = true }
-sp-consensus-grandpa = { features = [
-	"serde",
-], workspace = true }
-sp-core = { features = [
-	"serde",
-], workspace = true }
+sp-consensus-aura = { features = ["serde"], workspace = true }
+sp-consensus-grandpa = { features = ["serde"], workspace = true }
+sp-core = { features = ["serde"], workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
 sp-keyring = { workspace = true }
 sp-offchain = { workspace = true }
-sp-runtime = { features = [
-	"serde",
-], workspace = true }
+sp-runtime = { features = ["serde"], workspace = true }
 sp-session = { workspace = true }
 sp-storage = { workspace = true }
 sp-transaction-pool = { workspace = true }
-sp-version = { features = [
-	"serde",
-], workspace = true }
+sp-version = { features = ["serde"], workspace = true }
 
 # RPC related
 frame-system-rpc-runtime-api = { workspace = true }
@@ -115,7 +103,6 @@ std = [
 	"sp-version/std",
 	"substrate-wasm-builder",
 ]
-
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
@@ -129,7 +116,6 @@ runtime-benchmarks = [
 	"pallet-transaction-payment/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
-
 try-runtime = [
 	"frame-executive/try-runtime",
 	"frame-support/try-runtime",

@@ -15,12 +15,13 @@
 
 use super::*;
 use crate as xcmp_queue;
+use alloc::collections::BTreeMap;
 use core::marker::PhantomData;
 use cumulus_pallet_parachain_system::AnyRelayNumber;
 use cumulus_primitives_core::{ChannelInfo, IsSystem, ParaId};
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU32, Everything, OriginTrait},
+	traits::{BatchesFootprints, ConstU32, Everything, OriginTrait},
 	BoundedSlice,
 };
 use frame_system::EnsureRoot;
@@ -104,7 +105,7 @@ impl cumulus_pallet_parachain_system::Config for Test {
 	type ReservedXcmpWeight = ();
 	type CheckAssociatedRelayNumber = AnyRelayNumber;
 	type ConsensusHook = cumulus_pallet_parachain_system::consensus_hook::ExpectParentIncluded;
-	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Test>;
+	type RelayParentOffset = ConstU32<0>;
 }
 
 parameter_types! {
@@ -138,13 +139,14 @@ impl<RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin>
 
 parameter_types! {
 	pub static EnqueuedMessages: Vec<(ParaId, Vec<u8>)> = Default::default();
+	pub static FirstPagePos: BTreeMap<ParaId, usize> = Default::default();
 }
 
 /// An `EnqueueMessage` implementation that puts all messages in thread-local storage.
 pub struct EnqueueToLocalStorage<T>(PhantomData<T>);
 
 impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage<T> {
-	type MaxMessageLen = sp_core::ConstU32<65_536>;
+	type MaxMessageLen = sp_core::ConstU32<256>;
 
 	fn enqueue_message(message: BoundedSlice<u8, Self::MaxMessageLen>, origin: ParaId) {
 		let mut msgs = EnqueuedMessages::get();
@@ -169,6 +171,10 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 		EnqueuedMessages::set(msgs);
 		T::on_queue_changed(origin, Self::footprint(origin));
 	}
+}
+
+impl<T: OnQueueChanged<ParaId>> QueueFootprintQuery<ParaId> for EnqueueToLocalStorage<T> {
+	type MaxMessageLen = sp_core::ConstU32<256>;
 
 	fn footprint(origin: ParaId) -> QueueFootprint {
 		let msgs = EnqueuedMessages::get();
@@ -179,9 +185,31 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 				footprint.storage.size += m.len() as u64;
 			}
 		}
-		footprint.pages = footprint.storage.size as u32 / 16; // Number does not matter
+		// Let's consider that we add one message per page
+		footprint.pages = footprint.storage.count as u32;
 		footprint.ready_pages = footprint.pages;
 		footprint
+	}
+
+	fn get_batches_footprints<'a>(
+		origin: ParaId,
+		msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
+		total_pages_limit: u32,
+	) -> BatchesFootprints {
+		// Let's consider that we add one message per page
+		let footprint = Self::footprint(origin);
+		let mut batches_footprints = BatchesFootprints {
+			first_page_pos: *FirstPagePos::get().entry(origin).or_default(),
+			footprints: vec![],
+		};
+		for (idx, msg) in msgs.enumerate() {
+			if footprint.pages + idx as u32 + 1 > total_pages_limit {
+				break;
+			}
+
+			batches_footprints.push(msg.into(), true);
+		}
+		batches_footprints
 	}
 }
 
@@ -228,7 +256,7 @@ pub struct MockedChannelInfo;
 impl GetChannelInfo for MockedChannelInfo {
 	fn get_channel_status(id: ParaId) -> ChannelStatus {
 		if id == HRMP_PARA_ID.into() {
-			return ChannelStatus::Ready(usize::MAX, usize::MAX)
+			return ChannelStatus::Ready(usize::MAX, usize::MAX);
 		}
 
 		ParachainSystem::get_channel_status(id)
@@ -242,7 +270,7 @@ impl GetChannelInfo for MockedChannelInfo {
 				max_message_size: u32::MAX,
 				msg_count: 0,
 				total_size: 0,
-			})
+			});
 		}
 
 		ParachainSystem::get_channel_info(id)
@@ -260,8 +288,6 @@ pub(crate) fn mk_page() -> Vec<u8> {
 			0 => versioned_xcm(older_xcm_version).encode(),
 			1 => versioned_xcm(newer_xcm_version).encode(),
 			// We cannot push an undecodable XCM here since it would break the decode stream.
-			// This is expected and the whole reason to introduce `MaybeDoubleEncodedVersionedXcm`
-			// instead.
 			_ => unreachable!(),
 		});
 	}

@@ -18,11 +18,11 @@
 //! Testing utilities.
 
 use crate::{
-	codec::{Codec, Decode, Encode, MaxEncodedLen},
-	generic::{self, UncheckedExtrinsic},
+	codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen},
+	generic::{self, LazyBlock, UncheckedExtrinsic},
 	scale_info::TypeInfo,
-	traits::{self, BlakeTwo256, Dispatchable, OpaqueKeys},
-	DispatchResultWithInfo, KeyTypeId,
+	traits::{self, BlakeTwo256, Dispatchable, LazyExtrinsic, OpaqueKeys},
+	DispatchResultWithInfo, KeyTypeId, OpaqueExtrinsic,
 };
 use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize};
 use sp_core::crypto::{key_types, ByteArray, CryptoType, Dummy};
@@ -42,6 +42,7 @@ use std::{cell::RefCell, fmt::Debug};
 	Clone,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Debug,
 	Hash,
 	Serialize,
@@ -105,6 +106,7 @@ impl sp_application_crypto::RuntimeAppPublic for UintAuthorityId {
 	const ID: KeyTypeId = key_types::DUMMY;
 
 	type Signature = TestSignature;
+	type ProofOfPossession = TestSignature;
 
 	fn all() -> Vec<Self> {
 		ALL_KEYS.with(|l| l.borrow().clone())
@@ -121,6 +123,14 @@ impl sp_application_crypto::RuntimeAppPublic for UintAuthorityId {
 
 	fn verify<M: AsRef<[u8]>>(&self, msg: &M, signature: &Self::Signature) -> bool {
 		traits::Verify::verify(signature, msg.as_ref(), &self.0)
+	}
+
+	fn generate_proof_of_possession(&mut self, _owner: &[u8]) -> Option<Self::Signature> {
+		None
+	}
+
+	fn verify_proof_of_possession(&self, _owner: &[u8], _pop: &Self::Signature) -> bool {
+		false
 	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {
@@ -165,7 +175,19 @@ impl traits::Verify for UintAuthorityId {
 }
 
 /// A dummy signature type, to match `UintAuthorityId`.
-#[derive(Eq, PartialEq, Clone, Debug, Hash, Serialize, Deserialize, Encode, Decode, TypeInfo)]
+#[derive(
+	Eq,
+	PartialEq,
+	Clone,
+	Debug,
+	Hash,
+	Serialize,
+	Deserialize,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+)]
 pub struct TestSignature(pub u64, pub Vec<u8>);
 
 impl traits::Verify for TestSignature {
@@ -199,7 +221,9 @@ impl Header {
 }
 
 /// Testing block
-#[derive(PartialEq, Eq, Clone, Serialize, Debug, Encode, Decode, TypeInfo)]
+#[derive(
+	PartialEq, Eq, Clone, Serialize, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo,
+)]
 pub struct Block<Xt> {
 	/// Block header
 	pub header: Header,
@@ -211,9 +235,30 @@ impl<Xt> traits::HeaderProvider for Block<Xt> {
 	type HeaderT = Header;
 }
 
+impl<Xt: Into<OpaqueExtrinsic>> From<Block<Xt>> for LazyBlock<Header, Xt> {
+	fn from(block: Block<Xt>) -> Self {
+		LazyBlock::new(block.header, block.extrinsics)
+	}
+}
+
+impl<Xt> EncodeLike<LazyBlock<Header, Xt>> for Block<Xt>
+where
+	Block<Xt>: Encode,
+	LazyBlock<Header, Xt>: Encode,
+{
+}
+
+impl<Xt> EncodeLike<Block<Xt>> for LazyBlock<Header, Xt>
+where
+	Block<Xt>: Encode,
+	LazyBlock<Header, Xt>: Encode,
+{
+}
+
 impl<
 		Xt: 'static
 			+ Codec
+			+ DecodeWithMemTracking
 			+ Sized
 			+ Send
 			+ Sync
@@ -221,12 +266,15 @@ impl<
 			+ Clone
 			+ Eq
 			+ Debug
-			+ traits::ExtrinsicLike,
+			+ traits::ExtrinsicLike
+			+ Into<OpaqueExtrinsic>
+			+ LazyExtrinsic,
 	> traits::Block for Block<Xt>
 {
 	type Extrinsic = Xt;
 	type Header = Header;
 	type Hash = <Header as traits::Header>::Hash;
+	type LazyBlock = LazyBlock<Header, Xt>;
 
 	fn header(&self) -> &Self::Header {
 		&self.header
@@ -239,9 +287,6 @@ impl<
 	}
 	fn new(header: Self::Header, extrinsics: Vec<Self::Extrinsic>) -> Self {
 		Block { header, extrinsics }
-	}
-	fn encode_from(header: &Self::Header, extrinsics: &[Self::Extrinsic]) -> Vec<u8> {
-		(header, extrinsics).encode()
 	}
 }
 
@@ -260,7 +305,7 @@ where
 pub type TestXt<Call, Extra> = UncheckedExtrinsic<u64, Call, (), Extra>;
 
 /// Wrapper over a `u64` that can be used as a `RuntimeCall`.
-#[derive(PartialEq, Eq, Debug, Clone, Encode, Decode, TypeInfo)]
+#[derive(PartialEq, Eq, Debug, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct MockCallU64(pub u64);
 
 impl Dispatchable for MockCallU64 {

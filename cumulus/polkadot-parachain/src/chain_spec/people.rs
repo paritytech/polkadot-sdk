@@ -14,10 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use cumulus_primitives_core::ParaId;
-use parachains_common::Balance as PeopleBalance;
 use polkadot_omni_node_lib::chain_spec::GenericChainSpec;
-use sc_chain_spec::ChainSpec;
+use sc_chain_spec::{ChainSpec, ChainType};
 use std::str::FromStr;
 
 /// Collects all supported People configurations.
@@ -73,13 +71,13 @@ impl PeopleRuntimeType {
 				rococo::PEOPLE_ROCOCO_LOCAL,
 				"Rococo People Local",
 				"rococo-local",
-				ParaId::new(1004),
+				ChainType::Local,
 			))),
 			PeopleRuntimeType::RococoDevelopment => Ok(Box::new(rococo::local_config(
 				rococo::PEOPLE_ROCOCO_DEVELOPMENT,
 				"Rococo People Development",
 				"rococo-development",
-				ParaId::new(1004),
+				ChainType::Development,
 			))),
 			PeopleRuntimeType::Westend => Ok(Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/people-westend.json")[..],
@@ -88,13 +86,13 @@ impl PeopleRuntimeType {
 				westend::PEOPLE_WESTEND_LOCAL,
 				"Westend People Local",
 				"westend-local",
-				ParaId::new(1004),
+				ChainType::Local,
 			))),
 			PeopleRuntimeType::WestendDevelopment => Ok(Box::new(westend::local_config(
 				westend::PEOPLE_WESTEND_DEVELOPMENT,
 				"Westend People Development",
 				"westend-development",
-				ParaId::new(1004),
+				ChainType::Development,
 			))),
 			other => Err(std::format!(
 				"No default config present for {:?}, you should provide a chain-spec as json file!",
@@ -119,23 +117,18 @@ fn ensure_id(id: &str) -> Result<&str, String> {
 
 /// Sub-module for Rococo setup.
 pub mod rococo {
-	use super::{ParaId, PeopleBalance};
-	use crate::chain_spec::SAFE_XCM_VERSION;
-	use parachains_common::{AccountId, AuraId};
 	use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
-	use sp_keyring::Sr25519Keyring;
 
 	pub(crate) const PEOPLE_ROCOCO: &str = "people-rococo";
 	pub(crate) const PEOPLE_ROCOCO_LOCAL: &str = "people-rococo-local";
 	pub(crate) const PEOPLE_ROCOCO_DEVELOPMENT: &str = "people-rococo-dev";
-	const PEOPLE_ROCOCO_ED: PeopleBalance = people_rococo_runtime::ExistentialDeposit::get();
 
 	pub fn local_config(
-		id: &str,
+		spec_id: &str,
 		chain_name: &str,
 		relay_chain: &str,
-		para_id: ParaId,
+		chain_type: ChainType,
 	) -> GenericChainSpec {
 		let mut properties = sc_chain_spec::Properties::new();
 		properties.insert("ss58Format".into(), 42.into());
@@ -145,86 +138,35 @@ pub mod rococo {
 		GenericChainSpec::builder(
 			people_rococo_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
-			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
+			Extensions::new_with_relay_chain(relay_chain.to_string()),
 		)
 		.with_name(chain_name)
-		.with_id(super::ensure_id(id).expect("invalid id"))
-		.with_chain_type(ChainType::Local)
-		.with_genesis_config_patch(genesis(
-			// initial collators.
-			vec![
-				(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
-				(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
-			],
-			Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
-			para_id,
-		))
+		.with_id(super::ensure_id(spec_id).expect("invalid id"))
+		.with_chain_type(chain_type.clone())
+		.with_genesis_config_preset_name(match chain_type {
+			ChainType::Development => sp_genesis_builder::DEV_RUNTIME_PRESET,
+			ChainType::Local => sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET,
+			_ => panic!("chain_type: {chain_type:?} not supported here!"),
+		})
 		.with_properties(properties)
 		.build()
-	}
-
-	fn genesis(
-		invulnerables: Vec<(AccountId, AuraId)>,
-		endowed_accounts: Vec<AccountId>,
-		id: ParaId,
-	) -> serde_json::Value {
-		serde_json::json!({
-			"balances": {
-				"balances": endowed_accounts
-					.iter()
-					.cloned()
-					.map(|k| (k, PEOPLE_ROCOCO_ED * 524_288))
-					.collect::<Vec<_>>(),
-			},
-			"parachainInfo": {
-				"parachainId": id,
-			},
-			"collatorSelection": {
-				"invulnerables": invulnerables
-					.iter()
-					.cloned()
-					.map(|(acc, _)| acc)
-					.collect::<Vec<_>>(),
-				"candidacyBond": PEOPLE_ROCOCO_ED * 16,
-			},
-			"session": {
-				"keys": invulnerables
-					.into_iter()
-					.map(|(acc, aura)| {
-						(
-							acc.clone(),                                 // account id
-							acc,                                         // validator id
-							people_rococo_runtime::SessionKeys { aura }, // session keys
-						)
-					})
-					.collect::<Vec<_>>(),
-			},
-			"polkadotXcm": {
-				"safeXcmVersion": Some(SAFE_XCM_VERSION),
-			}
-		})
 	}
 }
 
 /// Sub-module for Westend setup.
 pub mod westend {
-	use super::{ParaId, PeopleBalance};
-	use crate::chain_spec::SAFE_XCM_VERSION;
-	use parachains_common::{AccountId, AuraId};
 	use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
-	use sp_keyring::Sr25519Keyring;
 
 	pub(crate) const PEOPLE_WESTEND: &str = "people-westend";
 	pub(crate) const PEOPLE_WESTEND_LOCAL: &str = "people-westend-local";
 	pub(crate) const PEOPLE_WESTEND_DEVELOPMENT: &str = "people-westend-dev";
-	const PEOPLE_WESTEND_ED: PeopleBalance = people_westend_runtime::ExistentialDeposit::get();
 
 	pub fn local_config(
-		id: &str,
+		spec_id: &str,
 		chain_name: &str,
 		relay_chain: &str,
-		para_id: ParaId,
+		chain_type: ChainType,
 	) -> GenericChainSpec {
 		let mut properties = sc_chain_spec::Properties::new();
 		properties.insert("ss58Format".into(), 42.into());
@@ -234,64 +176,18 @@ pub mod westend {
 		GenericChainSpec::builder(
 			people_westend_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
-			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
+			Extensions::new_with_relay_chain(relay_chain.to_string()),
 		)
 		.with_name(chain_name)
-		.with_id(super::ensure_id(id).expect("invalid id"))
-		.with_chain_type(ChainType::Local)
-		.with_genesis_config_patch(genesis(
-			// initial collators.
-			vec![
-				(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
-				(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
-			],
-			Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
-			para_id,
-		))
+		.with_id(super::ensure_id(spec_id).expect("invalid id"))
+		.with_chain_type(chain_type.clone())
+		.with_genesis_config_preset_name(match chain_type {
+			ChainType::Development => sp_genesis_builder::DEV_RUNTIME_PRESET,
+			ChainType::Local => sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET,
+			_ => panic!("chain_type: {chain_type:?} not supported here!"),
+		})
 		.with_properties(properties)
 		.build()
-	}
-
-	fn genesis(
-		invulnerables: Vec<(AccountId, AuraId)>,
-		endowed_accounts: Vec<AccountId>,
-		id: ParaId,
-	) -> serde_json::Value {
-		serde_json::json!({
-			"balances": {
-				"balances": endowed_accounts
-					.iter()
-					.cloned()
-					.map(|k| (k, PEOPLE_WESTEND_ED * 524_288))
-					.collect::<Vec<_>>(),
-			},
-			"parachainInfo": {
-				"parachainId": id,
-			},
-			"collatorSelection": {
-				"invulnerables": invulnerables
-					.iter()
-					.cloned()
-					.map(|(acc, _)| acc)
-					.collect::<Vec<_>>(),
-				"candidacyBond": PEOPLE_WESTEND_ED * 16,
-			},
-			"session": {
-				"keys": invulnerables
-					.into_iter()
-					.map(|(acc, aura)| {
-						(
-							acc.clone(),                                  // account id
-							acc,                                          // validator id
-							people_westend_runtime::SessionKeys { aura }, // session keys
-						)
-					})
-					.collect::<Vec<_>>(),
-			},
-			"polkadotXcm": {
-				"safeXcmVersion": Some(SAFE_XCM_VERSION),
-			}
-		})
 	}
 }
 

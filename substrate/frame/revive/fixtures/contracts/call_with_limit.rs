@@ -19,9 +19,9 @@
 //! It returns the result of the call as output data.
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::input;
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{input, HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -43,8 +43,8 @@ pub extern "C" fn call() {
 		callee_addr,
 		ref_time,
 		proof_size,
-		&[u8::MAX; 32],   // No deposit limit.
-		&[0u8; 32],       // value transferred to the contract.
+		&[u8::MAX; 32], // No deposit limit.
+		&[0u8; 32],     // value transferred to the contract.
 		forwarded_input,
 		None,
 	)

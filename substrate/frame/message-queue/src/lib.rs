@@ -206,15 +206,15 @@ pub mod weights;
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
-use codec::{Codec, Decode, Encode, MaxEncodedLen};
+use codec::{Codec, ConstEncodedLen, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, ops::Deref};
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
 	traits::{
-		Defensive, DefensiveSaturating, DefensiveTruncateFrom, EnqueueMessage,
+		BatchesFootprints, Defensive, DefensiveSaturating, DefensiveTruncateFrom, EnqueueMessage,
 		ExecuteOverweightError, Footprint, ProcessMessage, ProcessMessageError, QueueFootprint,
-		QueuePausedQuery, ServiceQueues,
+		QueueFootprintQuery, QueuePausedQuery, ServiceQueues,
 	},
 	BoundedSlice, CloneNoBound, DefaultNoBound,
 };
@@ -243,6 +243,8 @@ pub struct ItemHeader<Size> {
 	is_processed: bool,
 }
 
+impl<Size: ConstEncodedLen> ConstEncodedLen for ItemHeader<Size> {} // marker
+
 /// A page of messages. Pages always contain at least one item.
 #[derive(
 	CloneNoBound, Encode, Decode, RuntimeDebugNoBound, DefaultNoBound, TypeInfo, MaxEncodedLen,
@@ -264,7 +266,7 @@ pub struct Page<Size: Into<u32> + Debug + Clone + Default, HeapSize: Get<Size>> 
 	first: Size,
 	/// The heap-offset of the header of the last message item in this page.
 	last: Size,
-	/// The heap. If `self.offset == self.heap.len()` then the page is empty and should be deleted.
+	/// The heap.
 	heap: BoundedVec<u8, IntoU32<HeapSize, Size>>,
 }
 
@@ -272,6 +274,8 @@ impl<
 		Size: BaseArithmetic + Unsigned + Copy + Into<u32> + Codec + MaxEncodedLen + Debug + Default,
 		HeapSize: Get<Size>,
 	> Page<Size, HeapSize>
+where
+	ItemHeader<Size>: ConstEncodedLen,
 {
 	/// Create a [`Page`] from one unprocessed message.
 	fn from_message<T: Config>(message: BoundedSlice<u8, MaxMessageLenOf<T>>) -> Self {
@@ -294,21 +298,38 @@ impl<
 		}
 	}
 
+	/// The heap position where a new message can be appended to the current page.
+	fn heap_pos(&self) -> usize {
+		// The heap is actually a `Vec`, so the place where we can append data
+		// is the end of the `Vec`.
+		self.heap.len()
+	}
+
+	/// Check if a message can be appended to the current page at the provided heap position.
+	///
+	/// On success, returns the resulting position in the page where a new payload can be
+	/// appended.
+	fn can_append_message_at(pos: usize, message_len: usize) -> Result<usize, ()> {
+		let header_size = ItemHeader::<Size>::max_encoded_len();
+		let data_len = header_size.saturating_add(message_len);
+		let heap_size = HeapSize::get().into() as usize;
+		let new_pos = pos.saturating_add(data_len);
+		if new_pos <= heap_size {
+			Ok(new_pos)
+		} else {
+			Err(())
+		}
+	}
+
 	/// Try to append one message to a page.
 	fn try_append_message<T: Config>(
 		&mut self,
 		message: BoundedSlice<u8, MaxMessageLenOf<T>>,
 	) -> Result<(), ()> {
-		let pos = self.heap.len();
-		let payload_len = message.len();
-		let data_len = ItemHeader::<Size>::max_encoded_len().saturating_add(payload_len);
-		let payload_len = payload_len.saturated_into();
+		let pos = self.heap_pos();
+		Self::can_append_message_at(pos, message.len())?;
+		let payload_len = message.len().saturated_into();
 		let header = ItemHeader::<Size> { payload_len, is_processed: false };
-		let heap_size: u32 = HeapSize::get().into();
-		if (heap_size as usize).saturating_sub(self.heap.len()) < data_len {
-			// Can't fit.
-			return Err(())
-		}
 
 		let mut heap = core::mem::take(&mut self.heap).into_inner();
 		header.using_encoded(|h| heap.extend_from_slice(h));
@@ -323,7 +344,7 @@ impl<
 	/// Returns the first message in the page without removing it.
 	///
 	/// SAFETY: Does not panic even on corrupted storage.
-	fn peek_first(&self) -> Option<BoundedSlice<u8, IntoU32<HeapSize, Size>>> {
+	fn peek_first(&self) -> Option<BoundedSlice<'_, u8, IntoU32<HeapSize, Size>>> {
 		if self.first > self.last {
 			return None
 		}
@@ -484,6 +505,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Weight information for extrinsics in this pallet.
@@ -510,6 +532,7 @@ pub mod pallet {
 			+ Encode
 			+ Decode
 			+ MaxEncodedLen
+			+ ConstEncodedLen
 			+ TypeInfo
 			+ Default;
 
@@ -700,7 +723,7 @@ pub mod pallet {
 			message_origin: MessageOriginOf<T>,
 			page_index: PageIndex,
 		) -> DispatchResult {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			Self::do_reap_page(&message_origin, page_index)
 		}
 
@@ -729,7 +752,7 @@ pub mod pallet {
 			index: T::Size,
 			weight_limit: Weight,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			let actual_weight =
 				Self::do_execute_overweight(message_origin, page, index, weight_limit)?;
 			Ok(Some(actual_weight).into())
@@ -975,39 +998,57 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	fn do_enqueue_message(
+	fn do_enqueue_messages<'a>(
 		origin: &MessageOriginOf<T>,
-		message: BoundedSlice<u8, MaxMessageLenOf<T>>,
+		messages: impl Iterator<Item = BoundedSlice<'a, u8, MaxMessageLenOf<T>>>,
 	) {
 		let mut book_state = BookStateFor::<T>::get(origin);
-		book_state.message_count.saturating_inc();
-		book_state
-			.size
-			// This should be payload size, but here the payload *is* the message.
-			.saturating_accrue(message.len() as u64);
 
+		let mut maybe_page = None;
+		// Check if we already have a page in progress.
 		if book_state.end > book_state.begin {
 			debug_assert!(book_state.ready_neighbours.is_some(), "Must be in ready ring if ready");
-			// Already have a page in progress - attempt to append.
-			let last = book_state.end - 1;
-			let mut page = match Pages::<T>::get(origin, last) {
-				Some(p) => p,
-				None => {
-					defensive!("Corruption: referenced page doesn't exist.");
-					return
-				},
-			};
-			if page.try_append_message::<T>(message).is_ok() {
-				Pages::<T>::insert(origin, last, &page);
-				BookStateFor::<T>::insert(origin, book_state);
-				return
+			maybe_page = Pages::<T>::get(origin, book_state.end - 1).or_else(|| {
+				defensive!("Corruption: referenced page doesn't exist.");
+				None
+			});
+		}
+
+		for message in messages {
+			// Try to append the message to the current page if possible.
+			if let Some(mut page) = maybe_page {
+				maybe_page = match page.try_append_message::<T>(message) {
+					Ok(_) => Some(page),
+					Err(_) => {
+						// Not enough space on the current page.
+						// Let's save it, since we'll move to a new one.
+						Pages::<T>::insert(origin, book_state.end - 1, page);
+						None
+					},
+				}
 			}
-		} else {
-			debug_assert!(
-				book_state.ready_neighbours.is_none(),
-				"Must not be in ready ring if not ready"
-			);
-			// insert into ready queue.
+			// If not, add it to a new page.
+			if maybe_page.is_none() {
+				book_state.end.saturating_inc();
+				book_state.count.saturating_inc();
+				maybe_page = Some(Page::from_message::<T>(message));
+			}
+
+			// Account for the message that we just added.
+			book_state.message_count.saturating_inc();
+			book_state
+				.size
+				// This should be payload size, but here the payload *is* the message.
+				.saturating_accrue(message.len() as u64);
+		}
+
+		// Save the last page that we created.
+		if let Some(page) = maybe_page {
+			Pages::<T>::insert(origin, book_state.end - 1, page);
+		}
+
+		// Insert book state for current origin into the ready queue.
+		if book_state.ready_neighbours.is_none() {
 			match Self::ready_ring_knit(origin) {
 				Ok(neighbours) => book_state.ready_neighbours = Some(neighbours),
 				Err(()) => {
@@ -1015,11 +1056,7 @@ impl<T: Config> Pallet<T> {
 				},
 			}
 		}
-		// No room on the page or no page - link in a new page.
-		book_state.end.saturating_inc();
-		book_state.count.saturating_inc();
-		let page = Page::from_message::<T>(message);
-		Pages::<T>::insert(origin, book_state.end - 1, page);
+
 		// NOTE: `T::QueueChangeHandler` is called by the caller.
 		BookStateFor::<T>::insert(origin, book_state);
 	}
@@ -1758,7 +1795,7 @@ impl<T: Config> EnqueueMessage<MessageOriginOf<T>> for Pallet<T> {
 		message: BoundedSlice<u8, Self::MaxMessageLen>,
 		origin: <T::MessageProcessor as ProcessMessage>::Origin,
 	) {
-		Self::do_enqueue_message(&origin, message);
+		Self::do_enqueue_messages(&origin, [message].into_iter());
 		let book_state = BookStateFor::<T>::get(&origin);
 		T::QueueChangeHandler::on_queue_changed(origin, book_state.into());
 	}
@@ -1767,9 +1804,7 @@ impl<T: Config> EnqueueMessage<MessageOriginOf<T>> for Pallet<T> {
 		messages: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
 		origin: <T::MessageProcessor as ProcessMessage>::Origin,
 	) {
-		for message in messages {
-			Self::do_enqueue_message(&origin, message);
-		}
+		Self::do_enqueue_messages(&origin, messages);
 		let book_state = BookStateFor::<T>::get(&origin);
 		T::QueueChangeHandler::on_queue_changed(origin, book_state.into());
 	}
@@ -1784,6 +1819,57 @@ impl<T: Config> EnqueueMessage<MessageOriginOf<T>> for Pallet<T> {
 			Self::ready_ring_unknit(&origin, neighbours);
 		}
 		BookStateFor::<T>::insert(&origin, &book_state);
+	}
+}
+
+impl<T: Config> QueueFootprintQuery<MessageOriginOf<T>> for Pallet<T> {
+	type MaxMessageLen =
+		MaxMessageLen<<T::MessageProcessor as ProcessMessage>::Origin, T::Size, T::HeapSize>;
+
+	fn get_batches_footprints<'a>(
+		origin: MessageOriginOf<T>,
+		msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
+		total_pages_limit: u32,
+	) -> BatchesFootprints {
+		let mut batches_footprints = BatchesFootprints::default();
+
+		let mut new_page = false;
+		let mut total_pages_count = 0;
+		let mut current_page_pos: usize = T::HeapSize::get().into() as usize;
+
+		let book = BookStateFor::<T>::get(&origin);
+		if book.end > book.begin {
+			total_pages_count = book.end - book.begin;
+			if let Some(page) = Pages::<T>::get(origin, book.end - 1) {
+				current_page_pos = page.heap_pos();
+				batches_footprints.first_page_pos = current_page_pos;
+			}
+		}
+
+		let mut msgs = msgs.peekable();
+		while let Some(msg) = msgs.peek() {
+			if total_pages_count > total_pages_limit {
+				return batches_footprints;
+			}
+
+			match Page::<T::Size, T::HeapSize>::can_append_message_at(current_page_pos, msg.len()) {
+				Ok(new_pos) => {
+					current_page_pos = new_pos;
+					batches_footprints.push(msg, new_page);
+					new_page = false;
+					msgs.next();
+				},
+				Err(_) => {
+					// Would not fit into the current page.
+					// We start a new one and try again in the next iteration.
+					new_page = true;
+					total_pages_count += 1;
+					current_page_pos = 0;
+				},
+			}
+		}
+
+		batches_footprints
 	}
 
 	fn footprint(origin: MessageOriginOf<T>) -> QueueFootprint {

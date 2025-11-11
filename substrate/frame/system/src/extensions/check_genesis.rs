@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{pallet_prelude::BlockNumberFor, Config, Pallet};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
@@ -30,7 +30,7 @@ use sp_runtime::{
 ///
 /// Note that while a transaction with invalid `genesis_hash` will fail to be decoded,
 /// the extension does not affect any other fields of `TransactionValidity` directly.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckGenesis<T: Config + Send + Sync>(core::marker::PhantomData<T>);
 

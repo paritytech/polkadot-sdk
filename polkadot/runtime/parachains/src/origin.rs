@@ -58,7 +58,8 @@ pub mod pallet {
 		Clone,
 		Encode,
 		Decode,
-		sp_core::RuntimeDebug,
+		DecodeWithMemTracking,
+		Debug,
 		scale_info::TypeInfo,
 		MaxEncodedLen,
 	)]

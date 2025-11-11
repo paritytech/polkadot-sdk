@@ -17,9 +17,7 @@
 //! Example utilities
 use crate::{EthRpcClient, ReceiptInfo};
 use anyhow::Context;
-use pallet_revive::evm::{
-	Account, BlockTag, Bytes, GenericTransaction, TransactionLegacyUnsigned, H160, H256, U256,
-};
+use pallet_revive::evm::*;
 use std::sync::Arc;
 
 /// Transaction builder.
@@ -29,6 +27,7 @@ pub struct TransactionBuilder<Client: EthRpcClient + Sync + Send> {
 	value: U256,
 	input: Bytes,
 	to: Option<H160>,
+	nonce: Option<U256>,
 	mutate: Box<dyn FnOnce(&mut TransactionLegacyUnsigned)>,
 }
 
@@ -50,6 +49,10 @@ impl<Client: EthRpcClient + Sync + Send> SubmittedTransaction<Client> {
 		self.tx.gas.unwrap()
 	}
 
+	pub fn generic_transaction(&self) -> GenericTransaction {
+		self.tx.clone()
+	}
+
 	/// Wait for the receipt of the transaction.
 	pub async fn wait_for_receipt(&self) -> anyhow::Result<ReceiptInfo> {
 		let hash = self.hash();
@@ -64,7 +67,7 @@ impl<Client: EthRpcClient + Sync + Send> SubmittedTransaction<Client> {
 					);
 					return Ok(receipt)
 				} else {
-					anyhow::bail!("Transaction failed")
+					anyhow::bail!("Transaction failed receipt: {receipt:?}")
 				}
 			}
 		}
@@ -81,6 +84,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 			value: U256::zero(),
 			input: Bytes::default(),
 			to: None,
+			nonce: None,
 			mutate: Box::new(|_| {}),
 		}
 	}
@@ -108,6 +112,12 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 		self
 	}
 
+	/// Set the nonce.
+	pub fn nonce(mut self, nonce: U256) -> Self {
+		self.nonce = Some(nonce);
+		self
+	}
+
 	/// Set a mutation function, that mutates the transaction before sending.
 	pub fn mutate(mut self, mutate: impl FnOnce(&mut TransactionLegacyUnsigned) + 'static) -> Self {
 		self.mutate = Box::new(mutate);
@@ -123,7 +133,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 			.call(
 				GenericTransaction {
 					from: Some(from),
-					input: Some(input.clone()),
+					input: input.into(),
 					value: Some(value),
 					to,
 					..Default::default()
@@ -137,21 +147,25 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 
 	/// Send the transaction.
 	pub async fn send(self) -> anyhow::Result<SubmittedTransaction<Client>> {
-		let TransactionBuilder { client, signer, value, input, to, mutate } = self;
+		let TransactionBuilder { client, signer, value, input, to, nonce, mutate } = self;
 
 		let from = signer.address();
 		let chain_id = Some(client.chain_id().await?);
 		let gas_price = client.gas_price().await?;
-		let nonce = client
-			.get_transaction_count(from, BlockTag::Latest.into())
-			.await
-			.with_context(|| "Failed to fetch account nonce")?;
+		let nonce = if let Some(nonce) = nonce {
+			nonce
+		} else {
+			client
+				.get_transaction_count(from, BlockTag::Latest.into())
+				.await
+				.with_context(|| "Failed to fetch account nonce")?
+		};
 
 		let gas = client
 			.estimate_gas(
 				GenericTransaction {
 					from: Some(from),
-					input: Some(input.clone()),
+					input: input.clone().into(),
 					value: Some(value),
 					gas_price: Some(gas_price),
 					to,
@@ -182,12 +196,26 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 		let hash = client
 			.send_raw_transaction(bytes.into())
 			.await
-			.with_context(|| "transaction failed")?;
+			.with_context(|| "send_raw_transaction failed")?;
 
 		Ok(SubmittedTransaction {
-			tx: GenericTransaction::from_signed(signed_tx, Some(from)),
+			tx: GenericTransaction::from_signed(signed_tx, gas_price, Some(from)),
 			hash,
 			client,
 		})
 	}
+}
+
+#[test]
+fn test_dummy_payload_has_correct_len() {
+	let signer = Account::from(subxt_signer::eth::dev::ethan());
+	let unsigned_tx: TransactionUnsigned =
+		TransactionLegacyUnsigned { input: vec![42u8; 100].into(), ..Default::default() }.into();
+
+	let signed_tx = signer.sign_transaction(unsigned_tx.clone());
+	let signed_payload = signed_tx.signed_payload();
+	let unsigned_tx = signed_tx.unsigned();
+
+	let dummy_payload = unsigned_tx.dummy_signed_payload();
+	assert_eq!(dummy_payload.len(), signed_payload.len());
 }

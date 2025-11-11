@@ -16,6 +16,7 @@
 
 //! Convenient interface to runtime information.
 
+use polkadot_node_primitives::MAX_FINALITY_LAG;
 use schnellru::{ByLength, LruMap};
 
 use codec::Encode;
@@ -30,23 +31,22 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
-	node_features::FeatureIndex,
-	slashing,
-	vstaging::{CandidateEvent, CoreState, OccupiedCore, ScrapedOnChainVotes},
-	CandidateHash, CoreIndex, EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
-	Id as ParaId, IndexedVec, NodeFeatures, SessionIndex, SessionInfo, Signed, SigningContext,
-	UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	DEFAULT_SCHEDULING_LOOKAHEAD, LEGACY_MIN_BACKING_VOTES,
+	node_features::FeatureIndex, slashing, CandidateEvent, CandidateHash, CoreIndex, CoreState,
+	EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, IndexedVec,
+	NodeFeatures, OccupiedCore, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed,
+	SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId,
+	ValidatorIndex, DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 
 use std::collections::{BTreeMap, VecDeque};
 
 use crate::{
-	has_required_runtime, request_availability_cores, request_candidate_events,
-	request_claim_queue, request_disabled_validators, request_from_runtime,
-	request_key_ownership_proof, request_on_chain_votes, request_session_executor_params,
+	request_availability_cores, request_candidate_events, request_claim_queue,
+	request_disabled_validators, request_from_runtime, request_key_ownership_proof,
+	request_node_features, request_on_chain_votes, request_session_executor_params,
 	request_session_index_for_child, request_session_info, request_submit_report_dispute_lost,
-	request_unapplied_slashes, request_validation_code_by_hash, request_validator_groups,
+	request_unapplied_slashes, request_unapplied_slashes_v2, request_validation_code_by_hash,
+	request_validator_groups,
 };
 
 /// Errors that can happen on runtime fetches.
@@ -135,7 +135,12 @@ impl RuntimeInfo {
 	/// Create with more elaborate configuration options.
 	pub fn new_with_config(cfg: Config) -> Self {
 		Self {
-			session_index_cache: LruMap::new(ByLength::new(cfg.session_cache_lru_size.max(10))),
+			// Usually messages are processed for blocks pointing to hashes from last finalized
+			// block to to best, so make this cache large enough to hold at least this amount of
+			// hashes, so that we get the benefit of caching even when finality lag is large.
+			session_index_cache: LruMap::new(ByLength::new(
+				cfg.session_cache_lru_size.max(2 * MAX_FINALITY_LAG),
+			)),
 			session_info_cache: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
 			disabled_validators_cache: LruMap::new(ByLength::new(100)),
 			pinned_blocks: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
@@ -202,7 +207,7 @@ impl RuntimeInfo {
 			Some(result) => Ok(result),
 			None => {
 				let disabled_validators =
-					get_disabled_validators_with_fallback(sender, relay_parent).await?;
+					request_disabled_validators(relay_parent, sender).await.await??;
 				self.disabled_validators_cache.insert(relay_parent, disabled_validators.clone());
 				Ok(disabled_validators)
 			},
@@ -235,9 +240,8 @@ impl RuntimeInfo {
 
 			let validator_info = self.get_validator_info(&session_info)?;
 
-			let node_features = request_node_features(parent, session_index, sender)
-				.await?
-				.unwrap_or(NodeFeatures::EMPTY);
+			let node_features =
+				request_node_features(parent, session_index, sender).await.await??;
 			let last_set_index = node_features.iter_ones().last().unwrap_or_default();
 			if last_set_index >= FeatureIndex::FirstUnassigned as usize {
 				gum::warn!(target: LOG_TARGET, "Runtime requires feature bit {} that node doesn't support, please upgrade node version", last_set_index);
@@ -421,6 +425,8 @@ where
 }
 
 /// Fetch a list of `PendingSlashes` from the runtime.
+/// Will fallback to `unapplied_slashes` if the runtime does not
+/// support `unapplied_slashes_v2`.
 pub async fn get_unapplied_slashes<Sender>(
 	sender: &mut Sender,
 	relay_parent: Hash,
@@ -428,7 +434,29 @@ pub async fn get_unapplied_slashes<Sender>(
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	recv_runtime(request_unapplied_slashes(relay_parent, sender).await).await
+	match recv_runtime(request_unapplied_slashes_v2(relay_parent, sender).await).await {
+		Ok(v2) => Ok(v2),
+		Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) => {
+			// Fallback to legacy unapplied_slashes
+			let legacy =
+				recv_runtime(request_unapplied_slashes(relay_parent, sender).await).await?;
+			// Convert legacy slashes to PendingSlashes
+			Ok(legacy
+				.into_iter()
+				.map(|(session, candidate_hash, legacy_slash)| {
+					(
+						session,
+						candidate_hash,
+						slashing::PendingSlashes {
+							keys: legacy_slash.keys,
+							kind: legacy_slash.kind.into(),
+						},
+					)
+				})
+				.collect())
+		},
+		Err(e) => Err(e),
+	}
 }
 
 /// Generate validator key ownership proof.
@@ -468,66 +496,8 @@ where
 	.await
 }
 
-/// Request the min backing votes value.
-/// Prior to runtime API version 6, just return a hardcoded constant.
-pub async fn request_min_backing_votes(
-	parent: Hash,
-	session_index: SessionIndex,
-	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
-) -> Result<u32> {
-	let min_backing_votes_res = recv_runtime(
-		request_from_runtime(parent, sender, |tx| {
-			RuntimeApiRequest::MinimumBackingVotes(session_index, tx)
-		})
-		.await,
-	)
-	.await;
-
-	if let Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) = min_backing_votes_res
-	{
-		gum::trace!(
-			target: LOG_TARGET,
-			?parent,
-			"Querying the backing threshold from the runtime is not supported by the current Runtime API",
-		);
-
-		Ok(LEGACY_MIN_BACKING_VOTES)
-	} else {
-		min_backing_votes_res
-	}
-}
-
-/// Request the node features enabled in the runtime.
-/// Pass in the session index for caching purposes, as it should only change on session boundaries.
-/// Prior to runtime API version 9, just return `None`.
-pub async fn request_node_features(
-	parent: Hash,
-	session_index: SessionIndex,
-	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
-) -> Result<Option<NodeFeatures>> {
-	let res = recv_runtime(
-		request_from_runtime(parent, sender, |tx| {
-			RuntimeApiRequest::NodeFeatures(session_index, tx)
-		})
-		.await,
-	)
-	.await;
-
-	if let Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) = res {
-		gum::trace!(
-			target: LOG_TARGET,
-			?parent,
-			"Querying the node features from the runtime is not supported by the current Runtime API",
-		);
-
-		Ok(None)
-	} else {
-		res.map(Some)
-	}
-}
-
 /// A snapshot of the runtime claim queue at an arbitrary relay chain block.
-#[derive(Default)]
+#[derive(Default, Clone, Debug)]
 pub struct ClaimQueueSnapshot(pub BTreeMap<CoreIndex, VecDeque<ParaId>>);
 
 impl From<BTreeMap<CoreIndex, VecDeque<ParaId>>> for ClaimQueueSnapshot {
@@ -566,34 +536,17 @@ impl ClaimQueueSnapshot {
 	pub fn iter_all_claims(&self) -> impl Iterator<Item = (&CoreIndex, &VecDeque<ParaId>)> + '_ {
 		self.0.iter()
 	}
-}
 
-// TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
-/// Returns disabled validators list if the runtime supports it. Otherwise logs a debug messages and
-/// returns an empty vec.
-/// Once runtime ver `DISABLED_VALIDATORS_RUNTIME_REQUIREMENT` is released remove this function and
-/// replace all usages with `request_disabled_validators`
-pub async fn get_disabled_validators_with_fallback<Sender: SubsystemSender<RuntimeApiMessage>>(
-	sender: &mut Sender,
-	relay_parent: Hash,
-) -> Result<Vec<ValidatorIndex>> {
-	let disabled_validators = if has_required_runtime(
-		sender,
-		relay_parent,
-		RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT,
-	)
-	.await
-	{
-		request_disabled_validators(relay_parent, sender)
-			.await
-			.await
-			.map_err(Error::RuntimeRequestCanceled)??
-	} else {
-		gum::debug!(target: LOG_TARGET, "Runtime doesn't support `DisabledValidators` - continuing with an empty disabled validators set");
-		vec![]
-	};
-
-	Ok(disabled_validators)
+	/// Get all claimed cores for the given `para_id` at the specified depth.
+	pub fn iter_claims_at_depth_for_para(
+		&self,
+		depth: usize,
+		para_id: ParaId,
+	) -> impl Iterator<Item = CoreIndex> + '_ {
+		self.0.iter().filter_map(move |(core_index, ids)| {
+			ids.get(depth).filter(|id| **id == para_id).map(|_| *core_index)
+		})
+	}
 }
 
 /// Fetch the claim queue and wrap it into a helpful `ClaimQueueSnapshot`
@@ -609,8 +562,8 @@ pub async fn fetch_claim_queue(
 	Ok(cq.into())
 }
 
-/// Checks if the runtime supports `request_claim_queue` and attempts to fetch the claim queue.
-/// Returns `ClaimQueueSnapshot` or `None` if claim queue API is not supported by runtime.
+/// Returns the lookahead from the scheduler params if the runtime supports it,
+/// or default value if scheduling lookahead API is not supported by runtime.
 pub async fn fetch_scheduling_lookahead(
 	parent: Hash,
 	session_index: SessionIndex,
@@ -635,5 +588,126 @@ pub async fn fetch_scheduling_lookahead(
 		Ok(DEFAULT_SCHEDULING_LOOKAHEAD)
 	} else {
 		res
+	}
+}
+
+/// Fetch the validation code bomb limit from the runtime.
+pub async fn fetch_validation_code_bomb_limit(
+	parent: Hash,
+	session_index: SessionIndex,
+	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+) -> Result<u32> {
+	let res = recv_runtime(
+		request_from_runtime(parent, sender, |tx| {
+			RuntimeApiRequest::ValidationCodeBombLimit(session_index, tx)
+		})
+		.await,
+	)
+	.await;
+
+	if let Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) = res {
+		gum::trace!(
+			target: LOG_TARGET,
+			?parent,
+			"Querying the validation code bomb limit from the runtime is not supported by the current Runtime API",
+		);
+
+		// TODO: Remove this once runtime API version 12 is released.
+		#[allow(deprecated)]
+		Ok(polkadot_node_primitives::VALIDATION_CODE_BOMB_LIMIT as u32)
+	} else {
+		res
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[test]
+	fn iter_claims_at_depth_for_para_works() {
+		let claim_queue = ClaimQueueSnapshot(BTreeMap::from_iter(
+			[
+				(
+					CoreIndex(0),
+					VecDeque::from_iter([ParaId::from(1), ParaId::from(2), ParaId::from(1)]),
+				),
+				(
+					CoreIndex(1),
+					VecDeque::from_iter([ParaId::from(1), ParaId::from(1), ParaId::from(2)]),
+				),
+				(
+					CoreIndex(2),
+					VecDeque::from_iter([ParaId::from(1), ParaId::from(2), ParaId::from(3)]),
+				),
+				(
+					CoreIndex(3),
+					VecDeque::from_iter([ParaId::from(2), ParaId::from(1), ParaId::from(3)]),
+				),
+			]
+			.into_iter(),
+		));
+
+		// Test getting claims for para_id 1 at depth 0: cores 0, 1, 2
+		let depth_0_cores =
+			claim_queue.iter_claims_at_depth_for_para(0, 1u32.into()).collect::<Vec<_>>();
+		assert_eq!(depth_0_cores.len(), 3);
+		assert_eq!(depth_0_cores, vec![CoreIndex(0), CoreIndex(1), CoreIndex(2)]);
+
+		// Test getting claims for para_id 1 at depth 1: cores 1, 3
+		let depth_1_cores =
+			claim_queue.iter_claims_at_depth_for_para(1, 1u32.into()).collect::<Vec<_>>();
+		assert_eq!(depth_1_cores.len(), 2);
+		assert_eq!(depth_1_cores, vec![CoreIndex(1), CoreIndex(3)]);
+
+		// Test getting claims for para_id 1 at depth 2: core 0
+		let depth_2_cores =
+			claim_queue.iter_claims_at_depth_for_para(2, 1u32.into()).collect::<Vec<_>>();
+		assert_eq!(depth_2_cores.len(), 1);
+		assert_eq!(depth_2_cores, vec![CoreIndex(0)]);
+
+		// Test getting claims for para_id 1 at depth 3: no claims
+		let depth_3_cores =
+			claim_queue.iter_claims_at_depth_for_para(3, 1u32.into()).collect::<Vec<_>>();
+		assert!(depth_3_cores.is_empty());
+
+		// Test getting claims for para_id 2 at depth 0: core 3
+		let depth_0_cores =
+			claim_queue.iter_claims_at_depth_for_para(0, 2u32.into()).collect::<Vec<_>>();
+		assert_eq!(depth_0_cores.len(), 1);
+		assert_eq!(depth_0_cores, vec![CoreIndex(3)]);
+
+		// Test getting claims for para_id 2 at depth 1: cores 0, 2
+		let depth_1_cores =
+			claim_queue.iter_claims_at_depth_for_para(1, 2u32.into()).collect::<Vec<_>>();
+		assert_eq!(depth_1_cores.len(), 2);
+		assert_eq!(depth_1_cores, vec![CoreIndex(0), CoreIndex(2)]);
+
+		// Test getting claims for para_id 2 at depth 2: core 1
+		let depth_2_cores =
+			claim_queue.iter_claims_at_depth_for_para(2, 2u32.into()).collect::<Vec<_>>();
+		assert_eq!(depth_2_cores.len(), 1);
+		assert_eq!(depth_2_cores, vec![CoreIndex(1)]);
+
+		// Test getting claims for para_id 3 at depth 0: no claims
+		let depth_0_cores =
+			claim_queue.iter_claims_at_depth_for_para(0, 3u32.into()).collect::<Vec<_>>();
+		assert!(depth_0_cores.is_empty());
+
+		// Test getting claims for para_id 3 at depth 1: no claims
+		let depth_1_cores =
+			claim_queue.iter_claims_at_depth_for_para(1, 3u32.into()).collect::<Vec<_>>();
+		assert!(depth_1_cores.is_empty());
+
+		// Test getting claims for para_id 3 at depth 2: cores 2, 3
+		let depth_2_cores =
+			claim_queue.iter_claims_at_depth_for_para(2, 3u32.into()).collect::<Vec<_>>();
+		assert_eq!(depth_2_cores.len(), 2);
+		assert_eq!(depth_2_cores, vec![CoreIndex(2), CoreIndex(3)]);
+
+		// Test getting claims for non-existent para_id at depth 0: no claims
+		let depth_0_cores =
+			claim_queue.iter_claims_at_depth_for_para(0, 99u32.into()).collect::<Vec<_>>();
+		assert!(depth_0_cores.is_empty());
 	}
 }

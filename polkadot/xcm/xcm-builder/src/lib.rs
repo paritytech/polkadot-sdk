@@ -21,6 +21,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
+extern crate core;
 
 #[cfg(test)]
 mod tests;
@@ -32,7 +33,8 @@ mod asset_conversion;
 #[allow(deprecated)]
 pub use asset_conversion::ConvertedConcreteAssetId;
 pub use asset_conversion::{
-	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchedConvertedConcreteId,
+	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchClasslessInstances, MatchInClassInstances,
+	MatchedConvertedConcreteId,
 };
 
 mod asset_exchange;
@@ -42,9 +44,9 @@ mod barriers;
 pub use barriers::{
 	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	AllowUnpaidExecutionFrom, DenyReserveTransferToRelayChain, DenyThenTry, IsChildSystemParachain,
-	IsParentsOnly, IsSiblingSystemParachain, RespectSuspension, TakeWeightCredit,
-	TrailingSetTopicAsId, WithComputedOrigin,
+	AllowUnpaidExecutionFrom, DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry,
+	IsChildSystemParachain, IsParentsOnly, IsSiblingSystemParachain, RespectSuspension,
+	TakeWeightCredit, TrailingSetTopicAsId, WithComputedOrigin,
 };
 
 mod controller;
@@ -82,8 +84,9 @@ pub use location_conversion::{
 	ChildParachainConvertsVia, DescribeAccountId32Terminal, DescribeAccountIdTerminal,
 	DescribeAccountKey20Terminal, DescribeAllTerminal, DescribeBodyTerminal, DescribeFamily,
 	DescribeLocation, DescribePalletTerminal, DescribeTerminus, DescribeTreasuryVoiceTerminal,
-	GlobalConsensusConvertsFor, GlobalConsensusParachainConvertsFor, HashedDescription,
-	LocalTreasuryVoiceConvertsVia, ParentIsPreset, SiblingParachainConvertsVia,
+	ExternalConsensusLocationsConverterFor, GlobalConsensusConvertsFor,
+	GlobalConsensusParachainConvertsFor, HashedDescription, LocalTreasuryVoiceConvertsVia,
+	ParentIsPreset, SiblingParachainConvertsVia,
 };
 
 mod matches_location;
@@ -96,6 +99,8 @@ pub use matches_token::IsConcrete;
 
 mod matcher;
 pub use matcher::{CreateMatcher, MatchXcm, Matcher};
+
+pub mod unique_instances;
 
 mod nonfungibles_adapter;
 pub use nonfungibles_adapter::{
@@ -113,13 +118,15 @@ pub use origin_aliases::*;
 mod origin_conversion;
 pub use origin_conversion::{
 	BackingToPlurality, ChildParachainAsNative, ChildSystemParachainAsSuperuser, EnsureXcmOrigin,
-	OriginToPluralityVoice, ParentAsSuperuser, RelayChainAsNative, SiblingParachainAsNative,
-	SiblingSystemParachainAsSuperuser, SignedAccountId32AsNative, SignedAccountKey20AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation,
+	LocationAsSuperuser, OriginToPluralityVoice, ParentAsSuperuser, RelayChainAsNative,
+	SiblingParachainAsNative, SiblingSystemParachainAsSuperuser, SignedAccountId32AsNative,
+	SignedAccountKey20AsNative, SignedToAccountId32, SovereignSignedViaLocation,
 };
 
 mod pay;
-pub use pay::{FixedLocation, LocatableAssetId, PayAccountId32OnChainOverXcm, PayOverXcm};
+pub use pay::{
+	FixedLocation, LocatableAssetId, PayAccountId32OnChainOverXcm, PayOverXcm, PayOverXcmWithHelper,
+};
 
 mod process_xcm_message;
 pub use process_xcm_message::ProcessXcmMessage;
@@ -134,6 +141,10 @@ pub use transactional::FrameTransactionalProcessor;
 
 #[allow(deprecated)]
 pub use universal_exports::UnpaidLocalExporter;
+
+mod transfer;
+pub use transfer::{Transfer, TransferOverXcm, TransferOverXcmHelper, TransferStatus};
+
 mod universal_exports;
 pub use universal_exports::{
 	ensure_is_remote, BridgeBlobDispatcher, BridgeMessage, DispatchBlob, DispatchBlobError,

@@ -74,7 +74,7 @@ macro_rules! log {
 	};
 }
 
-type BalanceOf<T> =
+pub type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub type BlockNumberFor<T> =
@@ -84,30 +84,51 @@ pub type BlockNumberFor<T> =
 /// block's height. This allows a transaction in which a multisig operation of a particular
 /// composite was created to be uniquely identified.
 #[derive(
-	Copy, Clone, Eq, PartialEq, Encode, Decode, Default, RuntimeDebug, TypeInfo, MaxEncodedLen,
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Default,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 pub struct Timepoint<BlockNumber> {
 	/// The height of the chain at the point in time.
-	height: BlockNumber,
+	pub height: BlockNumber,
 	/// The index of the extrinsic at the point in time.
-	index: u32,
+	pub index: u32,
 }
 
 /// An open multisig operation.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Default, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Encode,
+	Decode,
+	Default,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+	DecodeWithMemTracking,
+)]
 #[scale_info(skip_type_params(MaxApprovals))]
 pub struct Multisig<BlockNumber, Balance, AccountId, MaxApprovals>
 where
 	MaxApprovals: Get<u32>,
 {
 	/// The extrinsic when the multisig operation was opened.
-	when: Timepoint<BlockNumber>,
+	pub when: Timepoint<BlockNumber>,
 	/// The amount held in reserve of the `depositor`, to be returned once the operation ends.
-	deposit: Balance,
+	pub deposit: Balance,
 	/// The account who opened it (i.e. the first to approve it).
-	depositor: AccountId,
+	pub depositor: AccountId,
 	/// The approvals achieved so far, including the depositor. Always sorted.
-	approvals: BoundedVec<AccountId, MaxApprovals>,
+	pub approvals: BoundedVec<AccountId, MaxApprovals>,
 }
 
 type CallHash = [u8; 32];
@@ -124,6 +145,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The overarching call type.
@@ -157,7 +179,28 @@ pub mod pallet {
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: weights::WeightInfo;
 
-		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		/// Query the current block number.
+		///
+		/// Must return monotonically increasing values when called from consecutive blocks.
+		/// Can be configured to return either:
+		/// - the local block number of the runtime via `frame_system::Pallet`
+		/// - a remote block number, eg from the relay chain through `RelaychainDataProvider`
+		/// - an arbitrary value through a custom implementation of the trait
+		///
+		/// There is currently no migration provided to "hot-swap" block number providers and it may
+		/// result in undefined behavior when doing so. Parachains are therefore best off setting
+		/// this to their local block number provider if they have the pallet already deployed.
+		///
+		/// Suggested values:
+		/// - Solo- and Relay-chains: `frame_system::Pallet`
+		/// - Parachains that may produce blocks sparingly or only when needed (on-demand):
+		///   - already have the pallet deployed: `frame_system::Pallet`
+		///   - are freshly deploying this pallet: `RelaychainDataProvider`
+		/// - Parachains with a reliably block production rate (PLO or bulk-coretime):
+		///   - already have the pallet deployed: `frame_system::Pallet`
+		///   - are freshly deploying this pallet: no strong recommendation. Both local and remote
+		///     providers can be used. Relay provider can be a bit better in cases where the
+		///     parachain is lagging its block production to avoid clock skew.
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 
@@ -195,9 +238,10 @@ pub mod pallet {
 		SignatoriesOutOfOrder,
 		/// The sender was contained in the other signatories; it shouldn't be.
 		SenderInSignatories,
-		/// Multisig operation not found when attempting to cancel.
+		/// Multisig operation not found in storage.
 		NotFound,
-		/// Only the account that originally created the multisig is able to cancel it.
+		/// Only the account that originally created the multisig is able to cancel it or update
+		/// its deposits.
 		NotOwner,
 		/// No timepoint was given, yet the multisig operation is already underway.
 		NoTimepoint,
@@ -237,6 +281,13 @@ pub mod pallet {
 			timepoint: Timepoint<BlockNumberFor<T>>,
 			multisig: T::AccountId,
 			call_hash: CallHash,
+		},
+		/// The deposit for a multisig operation has been updated/poked.
+		DepositPoked {
+			who: T::AccountId,
+			call_hash: CallHash,
+			old_deposit: BalanceOf<T>,
+			new_deposit: BalanceOf<T>,
 		},
 	}
 
@@ -278,12 +329,20 @@ pub mod pallet {
 			ensure!(!other_signatories.is_empty(), Error::<T>::TooFewSignatories);
 			let other_signatories_len = other_signatories.len();
 			ensure!(other_signatories_len < max_sigs, Error::<T>::TooManySignatories);
-			let signatories = Self::ensure_sorted_and_insert(other_signatories, who)?;
+			let signatories = Self::ensure_sorted_and_insert(other_signatories, who.clone())?;
 
 			let id = Self::multi_account_id(&signatories, 1);
 
-			let call_len = call.using_encoded(|c| c.len());
-			let result = call.dispatch(RawOrigin::Signed(id).into());
+			let (call_len, call_hash) = call.using_encoded(|c| (c.len(), blake2_256(&c)));
+			let result = call.dispatch(RawOrigin::Signed(id.clone()).into());
+
+			Self::deposit_event(Event::MultisigExecuted {
+				approving: who,
+				timepoint: Self::timepoint(),
+				multisig: id,
+				call_hash,
+				result: result.map(|_| ()).map_err(|e| e.error),
+			});
 
 			result
 				.map(|post_dispatch_info| {
@@ -486,6 +545,84 @@ pub mod pallet {
 			});
 			Ok(())
 		}
+
+		/// Poke the deposit reserved for an existing multisig operation.
+		///
+		/// The dispatch origin for this call must be _Signed_ and must be the original depositor of
+		/// the multisig operation.
+		///
+		/// The transaction fee is waived if the deposit amount has changed.
+		///
+		/// - `threshold`: The total number of approvals needed for this multisig.
+		/// - `other_signatories`: The accounts (other than the sender) who are part of the
+		///   multisig.
+		/// - `call_hash`: The hash of the call this deposit is reserved for.
+		///
+		/// Emits `DepositPoked` if successful.
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::WeightInfo::poke_deposit(other_signatories.len() as u32))]
+		pub fn poke_deposit(
+			origin: OriginFor<T>,
+			threshold: u16,
+			other_signatories: Vec<T::AccountId>,
+			call_hash: [u8; 32],
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			ensure!(threshold >= 2, Error::<T>::MinimumThreshold);
+			let max_sigs = T::MaxSignatories::get() as usize;
+			ensure!(!other_signatories.is_empty(), Error::<T>::TooFewSignatories);
+			ensure!(other_signatories.len() < max_sigs, Error::<T>::TooManySignatories);
+			// Get the multisig account ID
+			let signatories = Self::ensure_sorted_and_insert(other_signatories, who.clone())?;
+			let id = Self::multi_account_id(&signatories, threshold);
+
+			Multisigs::<T>::try_mutate(
+				&id,
+				call_hash,
+				|maybe_multisig| -> DispatchResultWithPostInfo {
+					let mut multisig = maybe_multisig.take().ok_or(Error::<T>::NotFound)?;
+					ensure!(multisig.depositor == who, Error::<T>::NotOwner);
+
+					// Calculate the new deposit
+					let new_deposit = Self::deposit(threshold);
+					let old_deposit = multisig.deposit;
+
+					if new_deposit == old_deposit {
+						*maybe_multisig = Some(multisig);
+						return Ok(Pays::Yes.into());
+					}
+
+					// Update the reserved amount
+					if new_deposit > old_deposit {
+						let extra = new_deposit.saturating_sub(old_deposit);
+						T::Currency::reserve(&who, extra)?;
+					} else {
+						let excess = old_deposit.saturating_sub(new_deposit);
+						let remaining_unreserved = T::Currency::unreserve(&who, excess);
+						if !remaining_unreserved.is_zero() {
+							defensive!(
+								"Failed to unreserve for full amount for multisig. (Call Hash, Requested, Actual): ",
+								(call_hash, excess, excess.saturating_sub(remaining_unreserved))
+							);
+						}
+					}
+
+					// Update storage
+					multisig.deposit = new_deposit;
+					*maybe_multisig = Some(multisig);
+
+					// Emit event
+					Self::deposit_event(Event::DepositPoked {
+						who: who.clone(),
+						call_hash,
+						old_deposit,
+						new_deposit,
+					});
+
+					Ok(Pays::No.into())
+				},
+			)
+		}
 	}
 }
 
@@ -603,7 +740,7 @@ impl<T: Config> Pallet<T> {
 			ensure!(maybe_timepoint.is_none(), Error::<T>::UnexpectedTimepoint);
 
 			// Just start the operation by recording it in storage.
-			let deposit = T::DepositBase::get() + T::DepositFactor::get() * threshold.into();
+			let deposit = Self::deposit(threshold);
 
 			T::Currency::reserve(&who, deposit)?;
 
@@ -657,6 +794,13 @@ impl<T: Config> Pallet<T> {
 		}
 		signatories.insert(index, who);
 		Ok(signatories)
+	}
+
+	/// Calculate the deposit for a multisig operation.
+	///
+	/// The deposit is calculated as `DepositBase + DepositFactor * threshold`.
+	pub fn deposit(threshold: u16) -> BalanceOf<T> {
+		T::DepositBase::get() + T::DepositFactor::get() * threshold.into()
 	}
 }
 

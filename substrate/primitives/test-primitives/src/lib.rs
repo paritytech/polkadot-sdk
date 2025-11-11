@@ -21,20 +21,37 @@
 
 extern crate alloc;
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 
 pub use sp_application_crypto;
 use sp_application_crypto::sr25519;
 
 use alloc::vec::Vec;
 pub use sp_core::{hash::H256, RuntimeDebug};
-use sp_runtime::traits::{BlakeTwo256, ExtrinsicLike, Verify};
+use sp_runtime::{
+	traits::{BlakeTwo256, ExtrinsicLike, LazyExtrinsic, Verify},
+	OpaqueExtrinsic,
+};
 
 /// Extrinsic for test-runtime.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, scale_info::TypeInfo)]
+#[derive(
+	Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, scale_info::TypeInfo,
+)]
 pub enum Extrinsic {
 	IncludeData(Vec<u8>),
 	StorageChange(Vec<u8>, Option<Vec<u8>>),
+}
+
+impl From<Extrinsic> for OpaqueExtrinsic {
+	fn from(xt: Extrinsic) -> Self {
+		OpaqueExtrinsic::from_blob(xt.encode())
+	}
+}
+
+impl LazyExtrinsic for Extrinsic {
+	fn decode_unprefixed(data: &[u8]) -> Result<Self, codec::Error> {
+		Self::decode(&mut &data[..])
+	}
 }
 
 #[cfg(feature = "serde")]

@@ -1,0 +1,10 @@
+title: "XCM: treat BelowMinimum deposit errors as non-fatal and burn non-depositable dust"
+doc:
+- audience: Runtime User
+  description:
+    Treat `TokenError::BelowMinimum` error as non-fatal in xcm-executor,
+    ignore failures to deposit dust. Any dust that cannot be deposited,
+    shall be dropped (effectively burned).
+crates:
+- name: staging-xcm-executor
+  bump: patch

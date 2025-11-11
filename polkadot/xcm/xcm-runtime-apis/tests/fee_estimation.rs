@@ -20,14 +20,18 @@ use frame_support::sp_runtime::testing::H256;
 use frame_system::RawOrigin;
 use sp_api::ProvideRuntimeApi;
 use xcm::prelude::*;
-use xcm_runtime_apis::{dry_run::DryRunApi, fees::XcmPaymentApi};
+use xcm_runtime_apis::{
+	dry_run::{CallDryRunEffects, DryRunApi},
+	fees::XcmPaymentApi,
+};
 
 mod mock;
 use mock::{
-	fake_message_hash, new_test_ext_with_balances, new_test_ext_with_balances_and_assets,
-	DeliveryFees, ExistentialDeposit, HereLocation, OriginCaller, RuntimeCall, RuntimeEvent,
-	TestClient,
+	new_test_ext_with_balances, new_test_ext_with_balances_and_assets, DeliveryFees,
+	ExistentialDeposit, HereLocation, OriginCaller, RuntimeCall, RuntimeEvent, TestClient,
+	ASSET_HUB_ASSETS_PALLET_INSTANCE, ASSET_HUB_PARA_ID, USDT_ID,
 };
+use xcm_simulator::fake_message_hash;
 
 // Scenario: User `1` in the local chain (id 2000) wants to transfer assets to account `[0u8; 32]`
 // on "AssetHub". He wants to make sure he has enough for fees, so before he calls the
@@ -62,8 +66,10 @@ fn fee_estimation_for_teleport() {
 			weight_limit: Unlimited,
 		});
 		let origin = OriginCaller::system(RawOrigin::Signed(who));
-		let dry_run_effects =
-			runtime_api.dry_run_call(H256::zero(), origin, call).unwrap().unwrap();
+		let dry_run_effects = runtime_api
+			.dry_run_call(H256::zero(), origin, call, XCM_VERSION)
+			.unwrap()
+			.unwrap();
 
 		assert_eq!(
 			dry_run_effects.local_xcm,
@@ -138,13 +144,10 @@ fn fee_estimation_for_teleport() {
 		// results.
 		let weight =
 			runtime_api.query_xcm_weight(H256::zero(), local_xcm.clone()).unwrap().unwrap();
+		let asset_id = VersionedAssetId::from(AssetId(HereLocation::get()));
 		assert_eq!(weight, Weight::from_parts(400, 40));
 		let execution_fees = runtime_api
-			.query_weight_to_asset_fee(
-				H256::zero(),
-				weight,
-				VersionedAssetId::from(AssetId(HereLocation::get())),
-			)
+			.query_weight_to_asset_fee(H256::zero(), weight, asset_id.clone())
 			.unwrap()
 			.unwrap();
 		assert_eq!(execution_fees, 440);
@@ -155,7 +158,12 @@ fn fee_estimation_for_teleport() {
 		let remote_message = &remote_messages[0];
 
 		let delivery_fees = runtime_api
-			.query_delivery_fees(H256::zero(), destination.clone(), remote_message.clone())
+			.query_delivery_fees(
+				H256::zero(),
+				destination.clone(),
+				remote_message.clone(),
+				asset_id,
+			)
 			.unwrap()
 			.unwrap();
 		assert_eq!(delivery_fees, VersionedAssets::from((Here, 20u128)));
@@ -193,8 +201,11 @@ fn fee_estimation_for_teleport() {
 //                 Reserve Asset Transfer Relay Token
 //                 Reserve Asset Transfer Relay Token for fees
 // Parachain(2000) -------------------------------------------> Parachain(1000)
-#[test]
-fn dry_run_reserve_asset_transfer() {
+fn dry_run_reserve_asset_transfer_common(
+	input_xcm_version: XcmVersion,
+	expected_result_xcms_version: XcmVersion,
+	dry_run_call: impl FnOnce(&TestClient, OriginCaller, RuntimeCall) -> CallDryRunEffects<RuntimeEvent>,
+) {
 	sp_tracing::init_for_tests();
 	let who = 1; // AccountId = u64.
 			  // Native token used for fees.
@@ -202,30 +213,40 @@ fn dry_run_reserve_asset_transfer() {
 	// Relay token is the one we want to transfer.
 	let assets = vec![(1, who, 100)]; // id, account_id, balance.
 	new_test_ext_with_balances_and_assets(balances, assets).execute_with(|| {
-		let client = TestClient;
-		let runtime_api = client.runtime_api();
 		let call = RuntimeCall::XcmPallet(pallet_xcm::Call::transfer_assets {
-			dest: Box::new(VersionedLocation::from((Parent, Parachain(1000)))),
-			beneficiary: Box::new(VersionedLocation::from(AccountId32 {
-				id: [0u8; 32],
-				network: None,
-			})),
-			assets: Box::new(VersionedAssets::from((Parent, 100u128))),
+			dest: Box::new(
+				VersionedLocation::from((Parent, Parachain(1000)))
+					.into_version(input_xcm_version)
+					.unwrap(),
+			),
+			beneficiary: Box::new(
+				VersionedLocation::from(AccountId32 { id: [0u8; 32], network: None })
+					.into_version(input_xcm_version)
+					.unwrap(),
+			),
+			assets: Box::new(
+				VersionedAssets::from((Parent, 100u128))
+					.into_version(input_xcm_version)
+					.unwrap(),
+			),
 			fee_asset_item: 0,
 			weight_limit: Unlimited,
 		});
 		let origin = OriginCaller::system(RawOrigin::Signed(who));
-		let dry_run_effects =
-			runtime_api.dry_run_call(H256::zero(), origin, call).unwrap().unwrap();
+		let dry_run_effects = dry_run_call(&TestClient, origin, call);
 
 		assert_eq!(
 			dry_run_effects.local_xcm,
-			Some(VersionedXcm::from(
-				Xcm::builder_unsafe()
-					.withdraw_asset((Parent, 100u128))
-					.burn_asset((Parent, 100u128))
-					.build()
-			)),
+			Some(
+				VersionedXcm::from(
+					Xcm::builder_unsafe()
+						.withdraw_asset((Parent, 100u128))
+						.burn_asset((Parent, 100u128))
+						.build()
+				)
+				.into_version(expected_result_xcms_version)
+				.unwrap()
+			),
 		);
 
 		// In this case, the transfer type is `DestinationReserve`, so the remote xcm just withdraws
@@ -240,8 +261,12 @@ fn dry_run_reserve_asset_transfer() {
 		assert_eq!(
 			dry_run_effects.forwarded_xcms,
 			vec![(
-				VersionedLocation::from(send_destination.clone()),
-				vec![VersionedXcm::from(send_message.clone())],
+				VersionedLocation::from(send_destination.clone())
+					.into_version(expected_result_xcms_version)
+					.unwrap(),
+				vec![VersionedXcm::from(send_message.clone())
+					.into_version(expected_result_xcms_version)
+					.unwrap()],
 			),],
 		);
 
@@ -273,7 +298,49 @@ fn dry_run_reserve_asset_transfer() {
 }
 
 #[test]
-fn dry_run_xcm() {
+fn dry_run_reserve_asset_transfer_xcm_versions() {
+	let tested_versions = MIN_XCM_VERSION..=XCM_VERSION;
+
+	for version in tested_versions {
+		let input_version = version;
+		let expected_result_xcms_version = version;
+		dry_run_reserve_asset_transfer_common(
+			input_version,
+			expected_result_xcms_version,
+			|client, origin, call| {
+				client
+					.runtime_api()
+					.dry_run_call(H256::zero(), origin, call, expected_result_xcms_version)
+					.unwrap()
+					.unwrap()
+			},
+		);
+	}
+}
+
+#[test]
+fn dry_run_before_api_v2_reserve_asset_transfer() {
+	let tested_versions = MIN_XCM_VERSION..=XCM_VERSION;
+
+	for version in tested_versions {
+		let input_version = version;
+		let expected_result_xcms_version = XCM_VERSION;
+		dry_run_reserve_asset_transfer_common(
+			input_version,
+			expected_result_xcms_version,
+			|client, origin, call| {
+				#[allow(deprecated)]
+				client
+					.runtime_api()
+					.dry_run_call_before_version_2(H256::zero(), origin, call)
+					.unwrap()
+					.unwrap()
+			},
+		);
+	}
+}
+
+fn dry_run_xcm_common(xcm_version: XcmVersion) {
 	sp_tracing::init_for_tests();
 	let who = 1; // AccountId = u64.
 	let transfer_amount = 100u128;
@@ -291,14 +358,19 @@ fn dry_run_xcm() {
 	let client = TestClient;
 	let runtime_api = client.runtime_api();
 	let xcm_weight = runtime_api
-		.query_xcm_weight(H256::zero(), VersionedXcm::from(xcm_to_weigh.clone().into()))
+		.query_xcm_weight(
+			H256::zero(),
+			VersionedXcm::from(xcm_to_weigh.clone().into())
+				.into_version(xcm_version)
+				.unwrap(),
+		)
 		.unwrap()
 		.unwrap();
 	let execution_fees = runtime_api
 		.query_weight_to_asset_fee(
 			H256::zero(),
 			xcm_weight,
-			VersionedAssetId::from(AssetId(Here.into())),
+			VersionedAssetId::from(AssetId(Here.into())).into_version(xcm_version).unwrap(),
 		)
 		.unwrap()
 		.unwrap();
@@ -308,6 +380,7 @@ fn dry_run_xcm() {
 		.buy_execution((Here, execution_fees), Unlimited)
 		.deposit_reserve_asset(AllCounted(1), (Parent, Parachain(2100)), inner_xcm.clone())
 		.build();
+	let expected_msg_id = fake_message_hash(&xcm);
 	let balances = vec![(
 		who,
 		transfer_amount + execution_fees + DeliveryFees::get() + ExistentialDeposit::get(),
@@ -316,26 +389,30 @@ fn dry_run_xcm() {
 		let dry_run_effects = runtime_api
 			.dry_run_xcm(
 				H256::zero(),
-				VersionedLocation::from([AccountIndex64 { index: 1, network: None }]),
-				VersionedXcm::from(xcm),
+				VersionedLocation::from([AccountIndex64 { index: 1, network: None }])
+					.into_version(xcm_version)
+					.unwrap(),
+				VersionedXcm::from(xcm).into_version(xcm_version).unwrap(),
 			)
 			.unwrap()
 			.unwrap();
+		let expected_xcms = Xcm::<()>::builder_unsafe()
+			.reserve_asset_deposited((
+				(Parent, Parachain(2000)),
+				transfer_amount + execution_fees - DeliveryFees::get(),
+			))
+			.clear_origin()
+			.buy_execution((Here, 1u128), Unlimited)
+			.deposit_asset(AllCounted(1), [0u8; 32])
+			.set_topic(expected_msg_id)
+			.build();
 		assert_eq!(
 			dry_run_effects.forwarded_xcms,
 			vec![(
-				VersionedLocation::from((Parent, Parachain(2100))),
-				vec![VersionedXcm::from(
-					Xcm::<()>::builder_unsafe()
-						.reserve_asset_deposited((
-							(Parent, Parachain(2000)),
-							transfer_amount + execution_fees - DeliveryFees::get()
-						))
-						.clear_origin()
-						.buy_execution((Here, 1u128), Unlimited)
-						.deposit_asset(AllCounted(1), [0u8; 32])
-						.build()
-				)],
+				VersionedLocation::from((Parent, Parachain(2100)))
+					.into_version(xcm_version)
+					.unwrap(),
+				vec![VersionedXcm::from(expected_xcms).into_version(xcm_version).unwrap()],
 			),]
 		);
 
@@ -349,9 +426,24 @@ fn dry_run_xcm() {
 					free_balance: 520
 				}),
 				RuntimeEvent::Balances(pallet_balances::Event::Minted { who: 2100, amount: 520 }),
+				RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent {
+					origin: (who,).into(),
+					destination: (Parent, Parachain(2100)).into(),
+					message: Xcm::default(),
+					message_id: expected_msg_id,
+				})
 			]
 		);
 	});
+}
+
+#[test]
+fn dry_run_xcm_versions() {
+	let tested_versions = [XCM_VERSION, 5, 4, 3];
+
+	for version in tested_versions {
+		dry_run_xcm_common(version);
+	}
 }
 
 #[test]
@@ -375,4 +467,105 @@ fn calling_payment_api_with_a_lower_version_works() {
 		.query_weight_to_asset_fee(H256::zero(), xcm_weight.unwrap(), lower_version_native_token)
 		.unwrap();
 	assert!(execution_fees.is_ok());
+}
+
+// Test fee estimation for USDT reserve transfer with delivery fees in USDT.
+// In this scenario, we're sending USDT from parachain 2000 to parachain 1000 (AssetHub).
+// Since USDT is native to AssetHub, this will be a destination reserve transfer.
+// We request the delivery fees to be quoted in USDT using the asset_id parameter in
+// `query_delivery_fees`.
+//
+//                 Reserve Asset Transfer USDT
+//                 Delivery fees in USDT
+// Parachain(2000) -------------------------------------------> Parachain(1000)
+#[test]
+fn fee_estimation_for_usdt_reserve_transfer_in_usdt() {
+	sp_tracing::init_for_tests();
+	let who = 1; // AccountId = u64.
+	let balances = vec![(who, DeliveryFees::get() + ExistentialDeposit::get())]; // Just enough for fees
+	let assets = vec![
+		(1984, who, 1000), // USDT (asset ID 1984) - amount to transfer plus fees
+	];
+	new_test_ext_with_balances_and_assets(balances, assets).execute_with(|| {
+		let client = TestClient;
+		let runtime_api = client.runtime_api();
+
+		// USDT location from our parachain (2000) perspective
+		let usdt_location = Location::new(
+			1,
+			[
+				Parachain(ASSET_HUB_PARA_ID),
+				PalletInstance(ASSET_HUB_ASSETS_PALLET_INSTANCE),
+				GeneralIndex(USDT_ID.into()),
+			],
+		);
+		// USDT location from Asset Hub's perspective
+		let usdt_location_ah_pov = Location::new(
+			0,
+			[PalletInstance(ASSET_HUB_ASSETS_PALLET_INSTANCE), GeneralIndex(USDT_ID.into())],
+		);
+
+		let call = RuntimeCall::XcmPallet(pallet_xcm::Call::transfer_assets {
+			dest: Box::new(VersionedLocation::from((Parent, Parachain(1000)))),
+			beneficiary: Box::new(VersionedLocation::from(AccountId32 {
+				id: [0u8; 32],
+				network: None,
+			})),
+			assets: Box::new(VersionedAssets::from(vec![
+				(usdt_location.clone(), 100u128).into(), // Send 100 USDT
+			])),
+			fee_asset_item: 0, // Fees are paid with USDT (the only asset)
+			weight_limit: Unlimited,
+		});
+		let origin = OriginCaller::system(RawOrigin::Signed(who));
+		let dry_run_effects = runtime_api
+			.dry_run_call(H256::zero(), origin, call, XCM_VERSION)
+			.unwrap()
+			.unwrap();
+
+		// For destination reserve transfer, we burn the assets locally
+		assert_eq!(
+			dry_run_effects.local_xcm,
+			Some(VersionedXcm::from(
+				Xcm::builder_unsafe()
+					.withdraw_asset((usdt_location.clone(), 100u128))
+					.burn_asset((usdt_location.clone(), 100u128))
+					.build()
+			)),
+		);
+
+		let send_destination = Location::new(1, [Parachain(1000)]);
+		// For destination reserve, the remote message withdraws the assets from the sovereign
+		// account
+		let send_message = Xcm::<()>::builder_unsafe()
+			.withdraw_asset((usdt_location_ah_pov.clone(), 100u128))
+			.clear_origin()
+			.buy_execution((usdt_location_ah_pov.clone(), 100u128), Unlimited)
+			.deposit_asset(AllCounted(1), [0u8; 32])
+			.build();
+		assert_eq!(
+			dry_run_effects.forwarded_xcms,
+			vec![(
+				VersionedLocation::from(send_destination.clone()),
+				vec![VersionedXcm::from(send_message.clone())],
+			),],
+		);
+
+		let mut forwarded_xcms_iter = dry_run_effects.forwarded_xcms.into_iter();
+		let (destination, remote_messages) = forwarded_xcms_iter.next().unwrap();
+		let remote_message = &remote_messages[0];
+
+		// Query delivery fees in USDT asset using the `asset_id` parameter.
+		let usdt_asset_id = VersionedAssetId::from(AssetId(usdt_location.clone()));
+
+		let delivery_fees_usdt = runtime_api
+			.query_delivery_fees(H256::zero(), destination, remote_message.clone(), usdt_asset_id)
+			.unwrap()
+			.unwrap();
+
+		// With our MockAssetExchanger, we expect fees in USDT at a 1:2 conversion rate.
+		// Native delivery fee is `DeliveryFees::get()`, so USDT fee should be twice that.
+		let expected_usdt_fees = VersionedAssets::from((usdt_location, DeliveryFees::get() * 2));
+		assert_eq!(delivery_fees_usdt, expected_usdt_fees);
+	});
 }

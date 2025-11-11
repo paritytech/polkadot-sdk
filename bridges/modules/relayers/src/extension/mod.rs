@@ -30,7 +30,8 @@ use bp_relayers::{
 	RewardsAccountOwner, RewardsAccountParams,
 };
 use bp_runtime::{Chain, RangeInclusiveExt, StaticStrProvider};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
 	pallet_prelude::TransactionSource,
@@ -53,7 +54,6 @@ use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransactionBuilder},
 	DispatchResult, RuntimeDebug,
 };
-use sp_std::{fmt::Debug, marker::PhantomData};
 
 pub use grandpa_adapter::WithGrandpaChainExtensionConfig;
 pub use messages_adapter::WithMessagesExtensionConfig;
@@ -97,11 +97,11 @@ impl<AccountId, RemoteGrandpaChainBlockNumber: Debug, LaneId: Clone + Copy + Deb
 
 /// The actions on relayer account that need to be performed because of his actions.
 #[derive(RuntimeDebug, PartialEq)]
-pub enum RelayerAccountAction<AccountId, Reward, LaneId> {
+pub enum RelayerAccountAction<AccountId, RewardBalance, LaneId> {
 	/// Do nothing with relayer account.
 	None,
 	/// Reward the relayer.
-	Reward(AccountId, RewardsAccountParams<LaneId>, Reward),
+	Reward(AccountId, RewardsAccountParams<LaneId>, RewardBalance),
 	/// Slash the relayer.
 	Slash(AccountId, RewardsAccountParams<LaneId>),
 }
@@ -111,10 +111,13 @@ pub enum RelayerAccountAction<AccountId, Reward, LaneId> {
 /// It may be incorporated into runtime to refund relayers for submitting correct
 /// message delivery and confirmation transactions, optionally batched with required
 /// finality proofs.
+///
+/// (Works only with `pallet-bridge-messages` and `RewardsAccountParams` as the `Reward`)
 #[derive(
 	DefaultNoBound,
 	CloneNoBound,
 	Decode,
+	DecodeWithMemTracking,
 	Encode,
 	EqNoBound,
 	PartialEqNoBound,
@@ -122,22 +125,24 @@ pub enum RelayerAccountAction<AccountId, Reward, LaneId> {
 	TypeInfo,
 )]
 #[scale_info(skip_type_params(Runtime, Config, LaneId))]
-pub struct BridgeRelayersTransactionExtension<Runtime, Config, LaneId>(
-	PhantomData<(Runtime, Config, LaneId)>,
-);
+pub struct BridgeRelayersTransactionExtension<Runtime, Config>(PhantomData<(Runtime, Config)>);
 
-impl<R, C, LaneId> BridgeRelayersTransactionExtension<R, C, LaneId>
+impl<R, C> BridgeRelayersTransactionExtension<R, C>
 where
 	Self: 'static + Send + Sync,
-	R: RelayersConfig<C::BridgeRelayersPalletInstance, LaneId = LaneId>
-		+ BridgeMessagesConfig<C::BridgeMessagesPalletInstance, LaneId = LaneId>
+	R: RelayersConfig<C::BridgeRelayersPalletInstance>
+		+ BridgeMessagesConfig<C::BridgeMessagesPalletInstance>
 		+ TransactionPaymentConfig,
-	C: ExtensionConfig<Runtime = R, LaneId = LaneId>,
+	C: ExtensionConfig<Runtime = R>,
 	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	<R::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
-	<R as TransactionPaymentConfig>::OnChargeTransaction:
-		OnChargeTransaction<R, Balance = R::Reward>,
-	LaneId: Clone + Copy + Decode + Encode + Debug + TypeInfo,
+	<R as TransactionPaymentConfig>::OnChargeTransaction: OnChargeTransaction<R>,
+	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::Reward:
+		From<RewardsAccountParams<C::LaneId>>,
+	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::RewardBalance: From<
+		<<R as TransactionPaymentConfig>::OnChargeTransaction as OnChargeTransaction<R>>::Balance,
+	>,
+	C::LaneId: From<LaneIdOf<R, C::BridgeMessagesPalletInstance>>,
 {
 	/// Returns number of bundled messages `Some(_)`, if the given call info is a:
 	///
@@ -149,7 +154,7 @@ where
 	/// virtually boosted. The relayer registration (we only boost priority for registered
 	/// relayer transactions) must be checked outside.
 	fn bundled_messages_for_priority_boost(
-		parsed_call: &ExtensionCallInfo<C::RemoteGrandpaChainBlockNumber, LaneId>,
+		parsed_call: &ExtensionCallInfo<C::RemoteGrandpaChainBlockNumber, C::LaneId>,
 	) -> Option<MessageNonce> {
 		// we only boost priority of message delivery transactions
 		if !parsed_call.is_receive_messages_proof_call() {
@@ -172,12 +177,12 @@ where
 	/// Given post-dispatch information, analyze the outcome of relayer call and return
 	/// actions that need to be performed on relayer account.
 	fn analyze_call_result(
-		pre: Option<PreDispatchData<R::AccountId, C::RemoteGrandpaChainBlockNumber, LaneId>>,
+		pre: Option<PreDispatchData<R::AccountId, C::RemoteGrandpaChainBlockNumber, C::LaneId>>,
 		info: &DispatchInfo,
 		post_info: &PostDispatchInfo,
 		len: usize,
 		result: &DispatchResult,
-	) -> RelayerAccountAction<R::AccountId, R::Reward, LaneId> {
+	) -> RelayerAccountAction<R::AccountId, R::RewardBalance, C::LaneId> {
 		// We don't refund anything for transactions that we don't support.
 		let (relayer, call_info) = match pre {
 			Some(pre) => (pre.relayer, pre.call_info),
@@ -216,13 +221,13 @@ where
 
 		// We don't refund anything if the transaction has failed.
 		if let Err(e) = result {
-			log::trace!(
+			tracing::trace!(
 				target: LOG_TARGET,
-				"{}.{:?}: relayer {:?} has submitted invalid messages transaction: {:?}",
-				Self::IDENTIFIER,
-				lane_id,
-				relayer,
-				e,
+				error=?e,
+				id_provider=%Self::IDENTIFIER,
+				?lane_id,
+				?relayer,
+				"Relayer has submitted invalid messages transaction",
 			);
 			return slash_relayer_if_delivery_result
 		}
@@ -260,7 +265,7 @@ where
 		let refund = Self::compute_refund(info, &post_info, post_info_len, tip);
 
 		// we can finally reward relayer
-		RelayerAccountAction::Reward(relayer, reward_account_params, refund)
+		RelayerAccountAction::Reward(relayer, reward_account_params, refund.into())
 	}
 
 	/// Compute refund for the successful relayer transaction
@@ -268,29 +273,33 @@ where
 		info: &DispatchInfo,
 		post_info: &PostDispatchInfo,
 		len: usize,
-		tip: R::Reward,
-	) -> R::Reward {
+		tip: <<R as TransactionPaymentConfig>::OnChargeTransaction as OnChargeTransaction<R>>::Balance,
+	) -> <<R as TransactionPaymentConfig>::OnChargeTransaction as OnChargeTransaction<R>>::Balance
+	{
 		TransactionPaymentPallet::<R>::compute_actual_fee(len as _, info, post_info, tip)
 	}
 }
 
-impl<R, C, LaneId> TransactionExtension<R::RuntimeCall>
-	for BridgeRelayersTransactionExtension<R, C, LaneId>
+impl<R, C> TransactionExtension<R::RuntimeCall> for BridgeRelayersTransactionExtension<R, C>
 where
 	Self: 'static + Send + Sync,
-	R: RelayersConfig<C::BridgeRelayersPalletInstance, LaneId = LaneId>
-		+ BridgeMessagesConfig<C::BridgeMessagesPalletInstance, LaneId = LaneId>
+	R: RelayersConfig<C::BridgeRelayersPalletInstance>
+		+ BridgeMessagesConfig<C::BridgeMessagesPalletInstance>
 		+ TransactionPaymentConfig,
-	C: ExtensionConfig<Runtime = R, LaneId = LaneId>,
+	C: ExtensionConfig<Runtime = R>,
 	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	<R::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
-	<R as TransactionPaymentConfig>::OnChargeTransaction:
-		OnChargeTransaction<R, Balance = R::Reward>,
-	LaneId: Clone + Copy + Decode + Encode + Debug + TypeInfo,
+	<R as TransactionPaymentConfig>::OnChargeTransaction: OnChargeTransaction<R>,
+	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::Reward:
+		From<RewardsAccountParams<C::LaneId>>,
+	<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::RewardBalance: From<
+		<<R as TransactionPaymentConfig>::OnChargeTransaction as OnChargeTransaction<R>>::Balance,
+	>,
+	C::LaneId: From<LaneIdOf<R, C::BridgeMessagesPalletInstance>>,
 {
 	const IDENTIFIER: &'static str = C::IdProvider::STR;
 	type Implicit = ();
-	type Pre = Option<PreDispatchData<R::AccountId, C::RemoteGrandpaChainBlockNumber, LaneId>>;
+	type Pre = Option<PreDispatchData<R::AccountId, C::RemoteGrandpaChainBlockNumber, C::LaneId>>;
 	type Val = Self::Pre;
 
 	fn weight(&self, _call: &R::RuntimeCall) -> Weight {
@@ -337,15 +346,14 @@ where
 			priority::compute_priority_boost::<C::PriorityBoostPerMessage>(bundled_messages);
 		let valid_transaction = ValidTransactionBuilder::default().priority(priority_boost);
 
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
-			"{}.{:?}: has boosted priority of message delivery transaction \
-			of relayer {:?}: {} messages -> {} priority",
-			Self::IDENTIFIER,
-			data.call_info.messages_call_info().lane_id(),
-			data.relayer,
-			bundled_messages,
-			priority_boost,
+			id_provider=%Self::IDENTIFIER,
+			lane_id=?data.call_info.messages_call_info().lane_id(),
+			relayer=?data.relayer,
+			%bundled_messages,
+			%priority_boost,
+			"Has boosted priority of message delivery transaction of relayer"
 		);
 
 		let validity = valid_transaction.build()?;
@@ -361,12 +369,12 @@ where
 		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		Ok(val.inspect(|data| {
-			log::trace!(
+			tracing::trace!(
 				target: LOG_TARGET,
-				"{}.{:?}: parsed bridge transaction in prepare: {:?}",
-				Self::IDENTIFIER,
-				data.call_info.messages_call_info().lane_id(),
-				data.call_info,
+				id_provider=%Self::IDENTIFIER,
+				lane_id=?data.call_info.messages_call_info().lane_id(),
+				call_info=?data.call_info,
+				"Parsed bridge transaction in prepare"
 			);
 		}))
 	}
@@ -385,18 +393,18 @@ where
 			RelayerAccountAction::None => (),
 			RelayerAccountAction::Reward(relayer, reward_account, reward) => {
 				RelayersPallet::<R, C::BridgeRelayersPalletInstance>::register_relayer_reward(
-					reward_account,
+					reward_account.into(),
 					&relayer,
 					reward,
 				);
 
-				log::trace!(
+				tracing::trace!(
 					target: LOG_TARGET,
-					"{}.{:?}: has registered reward: {:?} for {:?}",
-					Self::IDENTIFIER,
-					lane_id,
-					reward,
-					relayer,
+					id_provider=%Self::IDENTIFIER,
+					?lane_id,
+					?relayer,
+					?reward,
+					"Has registered reward"
 				);
 			},
 			RelayerAccountAction::Slash(relayer, slash_account) =>
@@ -428,12 +436,12 @@ where
 	if !MessagesCallHelper::<C::Runtime, C::BridgeMessagesPalletInstance>::was_successful(
 		messages_call,
 	) {
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
-			"{}.{:?}: relayer {:?} has submitted invalid messages call",
-			C::IdProvider::STR,
-			call_info.messages_call_info().lane_id(),
-			relayer,
+			id_provider=%C::IdProvider::STR,
+			lane_id=?call_info.messages_call_info().lane_id(),
+			?relayer,
+			"Relayer has submitted invalid messages call"
 		);
 		return false
 	}
@@ -505,7 +513,7 @@ mod tests {
 		ConstU64<1>,
 	>;
 	type TestGrandpaExtension =
-		BridgeRelayersTransactionExtension<TestRuntime, TestGrandpaExtensionConfig, TestLaneIdType>;
+		BridgeRelayersTransactionExtension<TestRuntime, TestGrandpaExtensionConfig>;
 	type TestExtensionConfig = parachain_adapter::WithParachainExtensionConfig<
 		StrTestExtension,
 		TestRuntime,
@@ -515,8 +523,7 @@ mod tests {
 		(),
 		ConstU64<1>,
 	>;
-	type TestExtension =
-		BridgeRelayersTransactionExtension<TestRuntime, TestExtensionConfig, TestLaneIdType>;
+	type TestExtension = BridgeRelayersTransactionExtension<TestRuntime, TestExtensionConfig>;
 	type TestMessagesExtensionConfig = messages_adapter::WithMessagesExtensionConfig<
 		StrTestMessagesExtension,
 		TestRuntime,
@@ -524,11 +531,8 @@ mod tests {
 		(),
 		ConstU64<1>,
 	>;
-	type TestMessagesExtension = BridgeRelayersTransactionExtension<
-		TestRuntime,
-		TestMessagesExtensionConfig,
-		TestLaneIdType,
-	>;
+	type TestMessagesExtension =
+		BridgeRelayersTransactionExtension<TestRuntime, TestMessagesExtensionConfig>;
 
 	fn initial_balance_of_relayer_account_at_this_chain() -> ThisChainBalance {
 		let test_stake: ThisChainBalance = Stake::get();
@@ -1214,7 +1218,7 @@ mod tests {
 		assert_eq!(post_dispatch_result, Ok(Weight::zero()));
 	}
 
-	fn expected_delivery_reward() -> ThisChainBalance {
+	fn expected_delivery_reward() -> RewardBalance {
 		let mut post_dispatch_info = post_dispatch_info();
 		let extra_weight = <TestRuntime as RelayersConfig>::WeightInfo::extra_weight_of_successful_receive_messages_proof_call();
 		post_dispatch_info.actual_weight =
@@ -1227,7 +1231,7 @@ mod tests {
 		)
 	}
 
-	fn expected_confirmation_reward() -> ThisChainBalance {
+	fn expected_confirmation_reward() -> RewardBalance {
 		pallet_transaction_payment::Pallet::<TestRuntime>::compute_actual_fee(
 			1024,
 			&dispatch_info(),
@@ -1980,7 +1984,7 @@ mod tests {
 			TestLaneIdType,
 		>,
 		dispatch_result: DispatchResult,
-	) -> RelayerAccountAction<ThisChainAccountId, ThisChainBalance, TestLaneIdType> {
+	) -> RelayerAccountAction<ThisChainAccountId, RewardBalance, TestLaneIdType> {
 		TestExtension::analyze_call_result(
 			Some(pre_dispatch_data),
 			&dispatch_info(),

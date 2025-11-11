@@ -1,12 +1,12 @@
-# Substrate Documentation Guidelines
+# Documentation Guidelines
 
-This document is focused on documenting parts of Substrate that relate to its external API. The list of such crates can
-be found in [CODEOWNERS](/.github/CODEOWNERS). Search for the crates auto-assigned to the `docs-audit` team.
+This document is focused on documenting parts of the Polkadot SDK that relate to its external API. The list of such
+crates can be found in [CODEOWNERS](/.github/CODEOWNERS). Search for the crates auto-assigned to the `docs-audit` team.
 
 These crates are used by external developers and need thorough documentation. They are the most concerned with FRAME
 development.
 
-- [Substrate Documentation Guidelines](#substrate-documentation-guidelines)
+- [Documentation Guidelines](#documentation-guidelines)
   - [General/Non-Pallet Crates](#generalnon-pallet-crates)
     - [What to Document?](#what-to-document)
       - [Rust Docs vs. Code Comments](#rust-docs-vs-code-comments)
@@ -194,7 +194,7 @@ Especially for traits and types that you can foresee will be seen and used a lot
 version.
 
 Similarly, make sure your comments are wrapped at 100 characters line-width (as defined by our
-[`rustfmt.toml`](../rustfmt.toml)), no **more and no less**! The more is fixed by `rustfmt` and our CI, but if you (for
+[`rustfmt.toml`](../../.rustfmt.toml)), no **more and no less**! The more is fixed by `rustfmt` and our CI, but if you (for
 some unknown reason) wrap your lines at 59 characters, it will pass the CI, and it will not look good 🫣. Consider using
 a plugin like [rewrap](https://marketplace.visualstudio.com/items?itemName=stkb.rewrap) (for Visual Studio Code) to
 properly do this.
@@ -209,7 +209,7 @@ The guidelines so far have been general in nature, and are applicable to crates 
 pallets.
 
 The following is relevant to how to document parts of a crate that is a pallet. See
-[`pallet-fast-unstake`](../substrate/frame/fast-unstake/src/lib.rs) as one example of adhering these guidelines.
+[`pallet-fast-unstake`](../../substrate/frame/fast-unstake/src/lib.rs) as one example of adhering these guidelines.
 
 ---
 
@@ -291,7 +291,7 @@ Optionally, in order to demonstrate the relation between the two, you can start 
 //! > Made with *Substrate*, for *Polkadot*.
 //!
 //! [![github]](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/fast-unstake) -
-//! [![polkadot]](https://polkadot.network)
+//! [![polkadot]](https://polkadot.com)
 //!
 //! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
 //! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github

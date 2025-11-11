@@ -76,9 +76,17 @@ const CURRENT_VERSION: u32 = 1;
 
 const LOG_TARGET: &str = "statement-store";
 
-const DEFAULT_PURGE_AFTER_SEC: u64 = 2 * 24 * 60 * 60; //48h
-const DEFAULT_MAX_TOTAL_STATEMENTS: usize = 8192;
-const DEFAULT_MAX_TOTAL_SIZE: usize = 64 * 1024 * 1024;
+/// The amount of time an expired statement is kept before it is removed from the store entirely.
+pub const DEFAULT_PURGE_AFTER_SEC: u64 = 2 * 24 * 60 * 60; //48h
+/// The maximum number of statements the statement store can hold.
+pub const DEFAULT_MAX_TOTAL_STATEMENTS: usize = 4 * 1024 * 1024; // ~4 million
+/// The maximum amount of data the statement store can hold, regardless of the number of
+/// statements from which the data originates.
+pub const DEFAULT_MAX_TOTAL_SIZE: usize = 2 * 1024 * 1024 * 1024; // 2GiB
+/// The maximum size of a single statement in bytes.
+/// Accounts for the 1-byte vector length prefix when statements are gossiped as `Vec<Statement>`.
+pub const MAX_STATEMENT_SIZE: usize =
+	sc_network_statement::config::MAX_STATEMENT_NOTIFICATION_SIZE as usize - 1;
 
 const MAINTENANCE_PERIOD: std::time::Duration = std::time::Duration::from_secs(30);
 
@@ -151,6 +159,7 @@ impl Default for Options {
 
 #[derive(Default)]
 struct Index {
+	recent: HashSet<Hash>,
 	by_topic: HashMap<Topic, HashSet<Hash>>,
 	by_dec_key: HashMap<Option<DecryptionKey>, HashSet<Hash>>,
 	topics_and_keys: HashMap<Hash, ([Option<Topic>; MAX_TOPICS], Option<DecryptionKey>)>,
@@ -239,6 +248,7 @@ impl Index {
 		}
 		let priority = Priority(statement.priority().unwrap_or(0));
 		self.entries.insert(hash, (account, priority, statement.data_len()));
+		self.recent.insert(hash);
 		self.total_size += statement.data_len();
 		let account_info = self.accounts.entry(account).or_default();
 		account_info.data_size += statement.data_len();
@@ -320,6 +330,10 @@ impl Index {
 		purged
 	}
 
+	fn take_recent(&mut self) -> HashSet<Hash> {
+		std::mem::take(&mut self.recent)
+	}
+
 	fn make_expired(&mut self, hash: &Hash, current_time: u64) -> bool {
 		if let Some((account, priority, len)) = self.entries.remove(hash) {
 			self.total_size -= len;
@@ -343,6 +357,7 @@ impl Index {
 					}
 				}
 			}
+			let _ = self.recent.remove(hash);
 			self.expired.insert(*hash, current_time);
 			if let std::collections::hash_map::Entry::Occupied(mut account_rec) =
 				self.accounts.entry(account)
@@ -488,12 +503,7 @@ impl Store {
 	where
 		Block: BlockT,
 		Block::Hash: From<BlockHash>,
-		Client: ProvideRuntimeApi<Block>
-			+ HeaderBackend<Block>
-			+ sc_client_api::ExecutorProvider<Block>
-			+ Send
-			+ Sync
-			+ 'static,
+		Client: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
 		Client::Api: ValidateStatement<Block>,
 	{
 		let store = Arc::new(Self::new(path, options, client, keystore, prometheus)?);
@@ -517,7 +527,8 @@ impl Store {
 
 	/// Create a new instance.
 	/// `path` will be used to open a statement database or create a new one if it does not exist.
-	fn new<Block, Client>(
+	#[doc(hidden)]
+	pub fn new<Block, Client>(
 		path: &std::path::Path,
 		options: Options,
 		client: Arc<Client>,
@@ -671,21 +682,25 @@ impl Store {
 	/// Perform periodic store maintenance
 	pub fn maintain(&self) {
 		log::trace!(target: LOG_TARGET, "Started store maintenance");
-		let deleted = self.index.write().maintain(self.timestamp());
+		let (deleted, active_count, expired_count): (Vec<_>, usize, usize) = {
+			let mut index = self.index.write();
+			let deleted = index.maintain(self.timestamp());
+			(deleted, index.entries.len(), index.expired.len())
+		};
 		let deleted: Vec<_> =
 			deleted.into_iter().map(|hash| (col::EXPIRED, hash.to_vec(), None)).collect();
-		let count = deleted.len() as u64;
+		let deleted_count = deleted.len() as u64;
 		if let Err(e) = self.db.commit(deleted) {
 			log::warn!(target: LOG_TARGET, "Error writing to the statement database: {:?}", e);
 		} else {
-			self.metrics.report(|metrics| metrics.statements_pruned.inc_by(count));
+			self.metrics.report(|metrics| metrics.statements_pruned.inc_by(deleted_count));
 		}
 		log::trace!(
 			target: LOG_TARGET,
 			"Completed store maintenance. Purged: {}, Active: {}, Expired: {}",
-			count,
-			self.index.read().entries.len(),
-			self.index.read().expired.len()
+			deleted_count,
+			active_count,
+			expired_count
 		);
 	}
 
@@ -707,6 +722,56 @@ impl Store {
 	pub fn as_statement_store_ext(self: Arc<Self>) -> StatementStoreExt {
 		StatementStoreExt::new(self)
 	}
+
+	/// Return information of all known statements whose decryption key is identified as
+	/// `dest`. The key must be available to the client.
+	fn posted_clear_inner<R>(
+		&self,
+		match_all_topics: &[Topic],
+		dest: [u8; 32],
+		// Map the statement and the decrypted data to the desired result.
+		mut map_f: impl FnMut(Statement, Vec<u8>) -> R,
+	) -> Result<Vec<R>> {
+		self.collect_statements(Some(dest), match_all_topics, |statement| {
+			if let (Some(key), Some(_)) = (statement.decryption_key(), statement.data()) {
+				let public: sp_core::ed25519::Public = UncheckedFrom::unchecked_from(key);
+				let public: sp_statement_store::ed25519::Public = public.into();
+				match self.keystore.key_pair::<sp_statement_store::ed25519::Pair>(&public) {
+					Err(e) => {
+						log::debug!(
+							target: LOG_TARGET,
+							"Keystore error: {:?}, for statement {:?}",
+							e,
+							HexDisplay::from(&statement.hash())
+						);
+						None
+					},
+					Ok(None) => {
+						log::debug!(
+							target: LOG_TARGET,
+							"Keystore is missing key for statement {:?}",
+							HexDisplay::from(&statement.hash())
+						);
+						None
+					},
+					Ok(Some(pair)) => match statement.decrypt_private(&pair.into_inner()) {
+						Ok(r) => r.map(|data| map_f(statement, data)),
+						Err(e) => {
+							log::debug!(
+								target: LOG_TARGET,
+								"Decryption error: {:?}, for statement {:?}",
+								e,
+								HexDisplay::from(&statement.hash())
+							);
+							None
+						},
+					},
+				}
+			} else {
+				None
+			}
+		})
+	}
 }
 
 impl StatementStore for Store {
@@ -714,13 +779,31 @@ impl StatementStore for Store {
 	fn statements(&self) -> Result<Vec<(Hash, Statement)>> {
 		let index = self.index.read();
 		let mut result = Vec::with_capacity(index.entries.len());
-		for h in self.index.read().entries.keys() {
-			let encoded = self.db.get(col::STATEMENTS, h).map_err(|e| Error::Db(e.to_string()))?;
-			if let Some(encoded) = encoded {
-				if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
-					let hash = statement.hash();
-					result.push((hash, statement));
-				}
+		for hash in index.entries.keys().cloned() {
+			let Some(encoded) =
+				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?
+			else {
+				continue
+			};
+			if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
+				result.push((hash, statement));
+			}
+		}
+		Ok(result)
+	}
+
+	fn take_recent_statements(&self) -> Result<Vec<(Hash, Statement)>> {
+		let mut index = self.index.write();
+		let recent = index.take_recent();
+		let mut result = Vec::with_capacity(recent.len());
+		for hash in recent {
+			let Some(encoded) =
+				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?
+			else {
+				continue
+			};
+			if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
+				result.push((hash, statement));
 			}
 		}
 		Ok(result)
@@ -757,6 +840,10 @@ impl StatementStore for Store {
 		)
 	}
 
+	fn has_statement(&self, hash: &Hash) -> bool {
+		self.index.read().entries.contains_key(hash)
+	}
+
 	/// Return the data of all known statements which include all topics and have no `DecryptionKey`
 	/// field.
 	fn broadcasts(&self, match_all_topics: &[Topic]) -> Result<Vec<Vec<u8>>> {
@@ -773,50 +860,52 @@ impl StatementStore for Store {
 	/// Return the decrypted data of all known statements whose decryption key is identified as
 	/// `dest`. The key must be available to the client.
 	fn posted_clear(&self, match_all_topics: &[Topic], dest: [u8; 32]) -> Result<Vec<Vec<u8>>> {
-		self.collect_statements(Some(dest), match_all_topics, |statement| {
-			if let (Some(key), Some(_)) = (statement.decryption_key(), statement.data()) {
-				let public: sp_core::ed25519::Public = UncheckedFrom::unchecked_from(key);
-				let public: sp_statement_store::ed25519::Public = public.into();
-				match self.keystore.key_pair::<sp_statement_store::ed25519::Pair>(&public) {
-					Err(e) => {
-						log::debug!(
-							target: LOG_TARGET,
-							"Keystore error: {:?}, for statement {:?}",
-							e,
-							HexDisplay::from(&statement.hash())
-						);
-						None
-					},
-					Ok(None) => {
-						log::debug!(
-							target: LOG_TARGET,
-							"Keystore is missing key for statement {:?}",
-							HexDisplay::from(&statement.hash())
-						);
-						None
-					},
-					Ok(Some(pair)) => match statement.decrypt_private(&pair.into_inner()) {
-						Ok(r) => r,
-						Err(e) => {
-							log::debug!(
-								target: LOG_TARGET,
-								"Decryption error: {:?}, for statement {:?}",
-								e,
-								HexDisplay::from(&statement.hash())
-							);
-							None
-						},
-					},
-				}
-			} else {
-				None
-			}
+		self.posted_clear_inner(match_all_topics, dest, |_statement, data| data)
+	}
+
+	/// Return all known statements which include all topics and have no `DecryptionKey`
+	/// field.
+	fn broadcasts_stmt(&self, match_all_topics: &[Topic]) -> Result<Vec<Vec<u8>>> {
+		self.collect_statements(None, match_all_topics, |statement| Some(statement.encode()))
+	}
+
+	/// Return all known statements whose decryption key is identified as `dest` (this
+	/// will generally be the public key or a hash thereof for symmetric ciphers, or a hash of the
+	/// private key for symmetric ciphers).
+	fn posted_stmt(&self, match_all_topics: &[Topic], dest: [u8; 32]) -> Result<Vec<Vec<u8>>> {
+		self.collect_statements(Some(dest), match_all_topics, |statement| Some(statement.encode()))
+	}
+
+	/// Return the statement and the decrypted data of all known statements whose decryption key is
+	/// identified as `dest`. The key must be available to the client.
+	fn posted_clear_stmt(
+		&self,
+		match_all_topics: &[Topic],
+		dest: [u8; 32],
+	) -> Result<Vec<Vec<u8>>> {
+		self.posted_clear_inner(match_all_topics, dest, |statement, data| {
+			let mut res = Vec::with_capacity(statement.size_hint() + data.len());
+			statement.encode_to(&mut res);
+			res.extend_from_slice(&data);
+			res
 		})
 	}
 
 	/// Submit a statement to the store. Validates the statement and returns validation result.
 	fn submit(&self, statement: Statement, source: StatementSource) -> SubmitResult {
 		let hash = statement.hash();
+		let encoded_size = statement.encoded_size();
+		if encoded_size > MAX_STATEMENT_SIZE {
+			log::debug!(
+				target: LOG_TARGET,
+				"Statement is too big for propogation: {:?} ({}/{} bytes)",
+				HexDisplay::from(&hash),
+				statement.encoded_size(),
+				MAX_STATEMENT_SIZE
+			);
+			return SubmitResult::Ignored
+		}
+
 		match self.index.read().query(&hash) {
 			IndexQuery::Expired =>
 				if !source.can_be_resubmitted() {
@@ -925,13 +1014,40 @@ impl StatementStore for Store {
 		}
 		Ok(())
 	}
+
+	/// Remove all statements by an account.
+	fn remove_by(&self, who: [u8; 32]) -> Result<()> {
+		let mut index = self.index.write();
+		let mut evicted = Vec::new();
+		if let Some(account_rec) = index.accounts.get(&who) {
+			evicted.extend(account_rec.by_priority.keys().map(|k| k.hash));
+		}
+
+		let current_time = self.timestamp();
+		let mut commit = Vec::new();
+		for hash in evicted {
+			index.make_expired(&hash, current_time);
+			commit.push((col::STATEMENTS, hash.to_vec(), None));
+			commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
+		}
+		self.db.commit(commit).map_err(|e| {
+			log::debug!(
+				target: LOG_TARGET,
+				"Error removing statement: database error {}, remove by {:?}",
+				e,
+				HexDisplay::from(&who),
+			);
+
+			Error::Db(e.to_string())
+		})
+	}
 }
 
 #[cfg(test)]
 mod tests {
 	use crate::Store;
 	use sc_keystore::Keystore;
-	use sp_core::Pair;
+	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
 		runtime_api::{InvalidStatement, ValidStatement, ValidateStatement},
 		AccountId, Channel, DecryptionKey, NetworkPriority, Proof, SignatureVerificationResult,
@@ -956,7 +1072,7 @@ mod tests {
 
 	impl sp_api::ProvideRuntimeApi<Block> for TestClient {
 		type Api = RuntimeApi;
-		fn runtime_api(&self) -> sp_api::ApiRef<Self::Api> {
+		fn runtime_api(&self) -> sp_api::ApiRef<'_, Self::Api> {
 			RuntimeApi { _inner: self.clone() }.into()
 		}
 	}
@@ -979,6 +1095,7 @@ mod tests {
 									Some(a) if a == account(2) => (2, 1000),
 									Some(a) if a == account(3) => (3, 1000),
 									Some(a) if a == account(4) => (4, 1000),
+									Some(a) if a == account(42) => (42, 42 * crate::MAX_STATEMENT_SIZE as u32),
 									_ => (2, 2000),
 								};
 								Ok(ValidStatement{ max_count, max_size })
@@ -1145,6 +1262,40 @@ mod tests {
 	}
 
 	#[test]
+	fn take_recent_statements_clears_index() {
+		let (store, _temp) = test_store();
+		let statement0 = signed_statement(0);
+		let statement1 = signed_statement(1);
+		let statement2 = signed_statement(2);
+		let statement3 = signed_statement(3);
+
+		let _ = store.submit(statement0.clone(), StatementSource::Local);
+		let _ = store.submit(statement1.clone(), StatementSource::Local);
+		let _ = store.submit(statement2.clone(), StatementSource::Local);
+
+		let recent1 = store.take_recent_statements().unwrap();
+		let (recent1_hashes, recent1_statements): (Vec<_>, Vec<_>) = recent1.into_iter().unzip();
+		let expected1 = vec![statement0, statement1, statement2];
+		assert!(expected1.iter().all(|s| recent1_hashes.contains(&s.hash())));
+		assert!(expected1.iter().all(|s| recent1_statements.contains(s)));
+
+		// Recent statements are cleared.
+		let recent2 = store.take_recent_statements().unwrap();
+		assert_eq!(recent2.len(), 0);
+
+		store.submit(statement3.clone(), StatementSource::Network);
+
+		let recent3 = store.take_recent_statements().unwrap();
+		let (recent3_hashes, recent3_statements): (Vec<_>, Vec<_>) = recent3.into_iter().unzip();
+		let expected3 = vec![statement3];
+		assert!(expected3.iter().all(|s| recent3_hashes.contains(&s.hash())));
+		assert!(expected3.iter().all(|s| recent3_statements.contains(s)));
+
+		// Recent statements are cleared, but statements remain in the store.
+		assert_eq!(store.statements().unwrap().len(), 4);
+	}
+
+	#[test]
 	fn search_by_topic_and_key() {
 		let (store, _temp) = test_store();
 		let statement0 = signed_statement(0);
@@ -1252,6 +1403,28 @@ mod tests {
 	}
 
 	#[test]
+	fn max_statement_size_for_gossiping() {
+		let (store, _temp) = test_store();
+		store.index.write().options.max_total_size = 42 * crate::MAX_STATEMENT_SIZE;
+
+		assert_eq!(
+			store.submit(
+				statement(42, 1, Some(1), crate::MAX_STATEMENT_SIZE - 500),
+				StatementSource::Local
+			),
+			SubmitResult::New(NetworkPriority::High)
+		);
+
+		assert_eq!(
+			store.submit(
+				statement(42, 2, Some(1), 2 * crate::MAX_STATEMENT_SIZE),
+				StatementSource::Local
+			),
+			SubmitResult::Ignored
+		);
+	}
+
+	#[test]
 	fn expired_statements_are_purged() {
 		use super::DEFAULT_PURGE_AFTER_SEC;
 		let (mut store, temp) = test_store();
@@ -1292,5 +1465,289 @@ mod tests {
 		store.submit(statement2, StatementSource::Network);
 		let posted_clear = store.posted_clear(&[], public.into()).unwrap();
 		assert_eq!(posted_clear, vec![plain]);
+	}
+
+	#[test]
+	fn broadcasts_stmt_returns_encoded_statements() {
+		let (store, _tmp) = test_store();
+
+		// no key, no topic
+		let s0 = signed_statement_with_topics(0, &[], None);
+		// same, but with a topic = 42
+		let s1 = signed_statement_with_topics(1, &[topic(42)], None);
+		// has a decryption key -> must NOT be returned by broadcasts_stmt
+		let s2 = signed_statement_with_topics(2, &[topic(42)], Some(dec_key(99)));
+
+		for s in [&s0, &s1, &s2] {
+			store.submit(s.clone(), StatementSource::Network);
+		}
+
+		// no topic filter
+		let mut hashes: Vec<_> = store
+			.broadcasts_stmt(&[])
+			.unwrap()
+			.into_iter()
+			.map(|bytes| Statement::decode(&mut &bytes[..]).unwrap().hash())
+			.collect();
+		hashes.sort();
+		let expected_hashes = {
+			let mut e = vec![s0.hash(), s1.hash()];
+			e.sort();
+			e
+		};
+		assert_eq!(hashes, expected_hashes);
+
+		// filter on topic 42
+		let got = store.broadcasts_stmt(&[topic(42)]).unwrap();
+		assert_eq!(got.len(), 1);
+		let st = Statement::decode(&mut &got[0][..]).unwrap();
+		assert_eq!(st.hash(), s1.hash());
+	}
+
+	#[test]
+	fn posted_stmt_returns_encoded_statements_for_dest() {
+		let (store, _tmp) = test_store();
+
+		let public1 = store
+			.keystore
+			.ed25519_generate_new(sp_core::crypto::key_types::STATEMENT, None)
+			.unwrap();
+		let dest: [u8; 32] = public1.into();
+
+		let public2 = store
+			.keystore
+			.ed25519_generate_new(sp_core::crypto::key_types::STATEMENT, None)
+			.unwrap();
+
+		// A statement that does have dec_key = dest
+		let mut s_with_key = statement(1, 1, None, 0);
+		let plain1 = b"The most valuable secret".to_vec();
+		s_with_key.encrypt(&plain1, &public1).unwrap();
+
+		// A statement with a different dec_key
+		let mut s_other_key = statement(2, 2, None, 0);
+		let plain2 = b"The second most valuable secret".to_vec();
+		s_other_key.encrypt(&plain2, &public2).unwrap();
+
+		// Submit them all
+		for s in [&s_with_key, &s_other_key] {
+			store.submit(s.clone(), StatementSource::Network);
+		}
+
+		// posted_stmt should only return the one with dec_key = dest
+		let retrieved = store.posted_stmt(&[], dest).unwrap();
+		assert_eq!(retrieved.len(), 1, "Only one statement has dec_key=dest");
+
+		// Re-decode that returned statement to confirm it is correct
+		let returned_stmt = Statement::decode(&mut &retrieved[0][..]).unwrap();
+		assert_eq!(
+			returned_stmt.hash(),
+			s_with_key.hash(),
+			"Returned statement must match s_with_key"
+		);
+	}
+
+	#[test]
+	fn posted_clear_stmt_returns_statement_followed_by_plain_data() {
+		let (store, _tmp) = test_store();
+
+		let public1 = store
+			.keystore
+			.ed25519_generate_new(sp_core::crypto::key_types::STATEMENT, None)
+			.unwrap();
+		let dest: [u8; 32] = public1.into();
+
+		let public2 = store
+			.keystore
+			.ed25519_generate_new(sp_core::crypto::key_types::STATEMENT, None)
+			.unwrap();
+
+		// A statement that does have dec_key = dest
+		let mut s_with_key = statement(1, 1, None, 0);
+		let plain1 = b"The most valuable secret".to_vec();
+		s_with_key.encrypt(&plain1, &public1).unwrap();
+
+		// A statement with a different dec_key
+		let mut s_other_key = statement(2, 2, None, 0);
+		let plain2 = b"The second most valuable secret".to_vec();
+		s_other_key.encrypt(&plain2, &public2).unwrap();
+
+		// Submit them all
+		for s in [&s_with_key, &s_other_key] {
+			store.submit(s.clone(), StatementSource::Network);
+		}
+
+		// posted_stmt should only return the one with dec_key = dest
+		let retrieved = store.posted_clear_stmt(&[], dest).unwrap();
+		assert_eq!(retrieved.len(), 1, "Only one statement has dec_key=dest");
+
+		// We expect: [ encoded Statement ] + [ the decrypted bytes ]
+		let encoded_stmt = s_with_key.encode();
+		let stmt_len = encoded_stmt.len();
+
+		// 1) statement is first
+		assert_eq!(&retrieved[0][..stmt_len], &encoded_stmt[..]);
+
+		// 2) followed by the decrypted payload
+		let trailing = &retrieved[0][stmt_len..];
+		assert_eq!(trailing, &plain1[..]);
+	}
+
+	#[test]
+	fn posted_clear_returns_plain_data_for_dest_and_topics() {
+		let (store, _tmp) = test_store();
+
+		// prepare two key-pairs
+		let public_dest = store
+			.keystore
+			.ed25519_generate_new(sp_core::crypto::key_types::STATEMENT, None)
+			.unwrap();
+		let dest: [u8; 32] = public_dest.into();
+
+		let public_other = store
+			.keystore
+			.ed25519_generate_new(sp_core::crypto::key_types::STATEMENT, None)
+			.unwrap();
+
+		// statement that SHOULD be returned (matches dest & topic 42)
+		let mut s_good = statement(1, 1, None, 0);
+		let plaintext_good = b"The most valuable secret".to_vec();
+		s_good.encrypt(&plaintext_good, &public_dest).unwrap();
+		s_good.set_topic(0, topic(42));
+
+		// statement that should NOT be returned (same dest but different topic)
+		let mut s_wrong_topic = statement(2, 2, None, 0);
+		s_wrong_topic.encrypt(b"Wrong topic", &public_dest).unwrap();
+		s_wrong_topic.set_topic(0, topic(99));
+
+		// statement that should NOT be returned (different dest)
+		let mut s_other_dest = statement(3, 3, None, 0);
+		s_other_dest.encrypt(b"Other dest", &public_other).unwrap();
+		s_other_dest.set_topic(0, topic(42));
+
+		// submit all
+		for s in [&s_good, &s_wrong_topic, &s_other_dest] {
+			store.submit(s.clone(), StatementSource::Network);
+		}
+
+		// call posted_clear with the topic filter and dest
+		let retrieved = store.posted_clear(&[topic(42)], dest).unwrap();
+
+		// exactly one element, equal to the expected plaintext
+		assert_eq!(retrieved, vec![plaintext_good]);
+	}
+
+	#[test]
+	fn remove_by_covers_various_situations() {
+		use sp_statement_store::{StatementSource, StatementStore, SubmitResult};
+
+		// Use a fresh store and fixed time so we can control purging.
+		let (mut store, _temp) = test_store();
+		store.set_time(0);
+
+		// Reuse helpers from this module.
+		let t42 = topic(42);
+		let k7 = dec_key(7);
+
+		// Account A = 4 (has per-account limits (4, 1000) in the mock runtime)
+		// - Mix of topic, decryption-key and channel to exercise every index.
+		let mut s_a1 = statement(4, 10, Some(100), 100);
+		s_a1.set_topic(0, t42);
+		let h_a1 = s_a1.hash();
+
+		let mut s_a2 = statement(4, 20, Some(200), 150);
+		s_a2.set_decryption_key(k7);
+		let h_a2 = s_a2.hash();
+
+		let s_a3 = statement(4, 30, None, 50);
+		let h_a3 = s_a3.hash();
+
+		// Account B = 3 (control group that must remain untouched).
+		let s_b1 = statement(3, 10, None, 100);
+		let h_b1 = s_b1.hash();
+
+		let mut s_b2 = statement(3, 15, Some(300), 100);
+		s_b2.set_topic(0, t42);
+		s_b2.set_decryption_key(k7);
+		let h_b2 = s_b2.hash();
+
+		// Submit all statements.
+		for s in [&s_a1, &s_a2, &s_a3, &s_b1, &s_b2] {
+			assert!(matches!(
+				store.submit(s.clone(), StatementSource::Network),
+				SubmitResult::New(_)
+			));
+		}
+
+		// --- Pre-conditions: everything is indexed as expected.
+		{
+			let idx = store.index.read();
+			assert_eq!(idx.entries.len(), 5, "all 5 should be present");
+			assert!(idx.accounts.contains_key(&account(4)));
+			assert!(idx.accounts.contains_key(&account(3)));
+			assert_eq!(idx.total_size, 100 + 150 + 50 + 100 + 100);
+
+			// Topic and key sets contain both A & B entries.
+			let set_t = idx.by_topic.get(&t42).expect("topic set exists");
+			assert!(set_t.contains(&h_a1) && set_t.contains(&h_b2));
+
+			let set_k = idx.by_dec_key.get(&Some(k7)).expect("key set exists");
+			assert!(set_k.contains(&h_a2) && set_k.contains(&h_b2));
+		}
+
+		// --- Action: remove all statements by Account A.
+		store.remove_by(account(4)).expect("remove_by should succeed");
+
+		// --- Post-conditions: A's statements are gone and marked expired; B's remain.
+		{
+			// A's statements removed from DB view.
+			for h in [h_a1, h_a2, h_a3] {
+				assert!(store.statement(&h).unwrap().is_none(), "A's statement should be removed");
+			}
+
+			// B's statements still present.
+			for h in [h_b1, h_b2] {
+				assert!(store.statement(&h).unwrap().is_some(), "B's statement should remain");
+			}
+
+			let idx = store.index.read();
+
+			// Account map updated.
+			assert!(!idx.accounts.contains_key(&account(4)), "Account A must be gone");
+			assert!(idx.accounts.contains_key(&account(3)), "Account B must remain");
+
+			// Removed statements are marked expired.
+			assert!(idx.expired.contains_key(&h_a1));
+			assert!(idx.expired.contains_key(&h_a2));
+			assert!(idx.expired.contains_key(&h_a3));
+			assert_eq!(idx.expired.len(), 3);
+
+			// Entry count & total_size reflect only B's data.
+			assert_eq!(idx.entries.len(), 2);
+			assert_eq!(idx.total_size, 100 + 100);
+
+			// Topic index: only B2 remains for topic 42.
+			let set_t = idx.by_topic.get(&t42).expect("topic set exists");
+			assert!(set_t.contains(&h_b2));
+			assert!(!set_t.contains(&h_a1));
+
+			// Decryption-key index: only B2 remains for key 7.
+			let set_k = idx.by_dec_key.get(&Some(k7)).expect("key set exists");
+			assert!(set_k.contains(&h_b2));
+			assert!(!set_k.contains(&h_a2));
+		}
+
+		// --- Idempotency: removing again is a no-op and should not error.
+		store.remove_by(account(4)).expect("second remove_by should be a no-op");
+
+		// --- Purge: advance time beyond TTL and run maintenance; expired entries disappear.
+		let purge_after = store.index.read().options.purge_after_sec;
+		store.set_time(purge_after + 1);
+		store.maintain();
+		assert_eq!(store.index.read().expired.len(), 0, "expired entries should be purged");
+
+		// --- Reuse: Account A can submit again after purge.
+		let s_new = statement(4, 40, None, 10);
+		assert!(matches!(store.submit(s_new, StatementSource::Network), SubmitResult::New(_)));
 	}
 }

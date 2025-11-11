@@ -21,6 +21,7 @@ use std::fs::File;
 use clap::Parser;
 
 use cmd_lib::spawn_with_output;
+use pretty_assertions::assert_eq;
 use sc_chain_spec::update_code_in_json_chain_spec;
 use serde_json::{from_reader, from_str, Value};
 use staging_chain_spec_builder::ChainSpecBuilder;
@@ -163,8 +164,6 @@ fn test_create_parachain() {
 			"100",
 			"-t",
 			"live",
-			"--para-id",
-			"10101",
 			"--relay-chain",
 			"rococo-local",
 			"default",
@@ -232,6 +231,29 @@ fn test_add_code_substitute() {
 	);
 	builder.run().unwrap();
 	assert_output_eq_expected(true, SUFFIX, "tests/expected/add_code_substitute.json");
+}
+
+#[test]
+fn test_create_with_properties() {
+	const SUFFIX: &str = "11";
+	let mut builder = get_builder(
+		SUFFIX,
+		vec![
+			"create",
+			"-r",
+			DUMMY_PATH,
+			"--properties",
+			"tokenSymbol=TEST,tokenDecimals=6",
+			"--properties",
+			"isEthereum=false",
+			"--properties",
+			"ss58Prefix=42",
+			"default",
+		],
+	);
+	builder.set_create_cmd_runtime_code(substrate_test_runtime::WASM_BINARY.unwrap().into());
+	builder.run().unwrap();
+	assert_output_eq_expected(true, SUFFIX, "tests/expected/create_with_properties.json");
 }
 
 #[docify::export_content]
@@ -309,7 +331,7 @@ fn list_presets() {
 #[docify::export_content]
 fn cmd_create_with_named_preset(runtime_path: &str) -> String {
 	bash!(
-		chain-spec-builder -c "/dev/stdout" create --relay-chain "dev" --para-id 1000 -r $runtime_path named-preset "staging"
+		chain-spec-builder -c "/dev/stdout" create --relay-chain "dev" -r $runtime_path named-preset "staging"
 	)
 }
 

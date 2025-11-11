@@ -16,8 +16,6 @@
 
 //! The definition of a [`FixedVelocityConsensusHook`] for consensus logic to manage
 //! block velocity.
-//!
-//! The velocity `V` refers to the rate of block processing by the relay chain.
 use super::{pallet, Aura};
 use core::{marker::PhantomData, num::NonZeroU32};
 use cumulus_pallet_parachain_system::{
@@ -28,9 +26,25 @@ use cumulus_pallet_parachain_system::{
 use frame_support::pallet_prelude::*;
 use sp_consensus_aura::{Slot, SlotDuration};
 
-/// A consensus hook for a fixed block processing velocity and unincluded segment capacity.
+/// A consensus hook that enforces fixed block production velocity and unincluded segment capacity.
 ///
-/// Relay chain slot duration must be provided in milliseconds.
+/// It keeps track of relay chain slot information and parachain blocks authored per relay chain
+/// slot.
+///
+/// # Type Parameters
+/// - `T` - The runtime configuration trait
+/// - `RELAY_CHAIN_SLOT_DURATION_MILLIS` - Duration of relay chain slots in milliseconds
+/// - `V` - Maximum number of blocks that can be authored per relay chain parent (velocity)
+/// - `C` - Maximum capacity of unincluded segment
+///
+/// # Example Configuration
+/// ```ignore
+/// type ConsensusHook = FixedVelocityConsensusHook<Runtime, 6000, 2, 8>;
+/// ```
+/// This configures:
+/// - 6 second relay chain slots
+/// - Maximum 2 blocks per slot
+/// - Maximum 8 blocks in unincluded segment
 pub struct FixedVelocityConsensusHook<
 	T,
 	const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32,
@@ -47,7 +61,15 @@ impl<
 where
 	<T as pallet_timestamp::Config>::Moment: Into<u64>,
 {
-	// Validates the number of authored blocks within the slot with respect to the `V + 1` limit.
+	/// Consensus hook that performs validations on the provided relay chain state
+	/// proof:
+	/// - Ensures blocks are not produced faster than the specified velocity `V`
+	/// - Verifies parachain slot alignment with relay chain slot
+	///
+	/// # Panics
+	/// - When the relay chain slot from the state is smaller than the slot from the proof
+	/// - When the number of authored blocks exceeds velocity limit
+	/// - When parachain slot is ahead of the calculated slot from relay chain
 	fn on_state_proof(state_proof: &RelayChainStateProof) -> (Weight, UnincludedSegmentCapacity) {
 		// Ensure velocity is non-zero.
 		let velocity = V.max(1);
@@ -79,11 +101,9 @@ where
 		let para_slot_from_relay =
 			Slot::from_timestamp(relay_chain_timestamp.into(), para_slot_duration);
 
-		// Check that we are not too far in the future. Since we expect `V` parachain blocks
-		// during the relay chain slot, we can allow for `V` parachain slots into the future.
-		if *para_slot > *para_slot_from_relay + u64::from(velocity) {
+		if *para_slot != *para_slot_from_relay {
 			panic!(
-				"Parachain slot is too far in the future: parachain_slot={:?}, derived_from_relay_slot={:?} velocity={:?}, relay_chain_slot={:?}",
+				"Parachain slot must match relay-derived slot: parachain_slot={:?}, derived_from_relay_slot={:?} velocity={:?}, relay_chain_slot={:?}",
 				para_slot,
 				para_slot_from_relay,
 				velocity,

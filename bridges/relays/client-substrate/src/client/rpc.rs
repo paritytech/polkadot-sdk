@@ -119,12 +119,12 @@ impl<C: Chain> RpcClient<C> {
 		loop {
 			match Self::try_connect(params.clone()).await {
 				Ok(client) => return client,
-				Err(error) => log::error!(
+				Err(error) => tracing::error!(
 					target: "bridge",
-					"Failed to connect to {} node: {:?}. Going to retry in {}s",
-					C::NAME,
-					error,
-					RECONNECT_DELAY.as_secs(),
+					?error,
+					node=%C::NAME,
+					retry_as_secs=%RECONNECT_DELAY.as_secs(),
+					"Failed to connect. Going to retry"
 				),
 			}
 
@@ -177,11 +177,13 @@ impl<C: Chain> RpcClient<C> {
 				Err(Error::WaitingForRuntimeUpgrade { chain: C::NAME.into(), expected, actual }),
 			Ordering::Equal => Ok(()),
 			Ordering::Greater => {
-				log::error!(
+				tracing::error!(
 					target: "bridge",
-					"The {} client is configured to use runtime version {expected:?} and actual \
-					version is {actual:?}. Aborting",
-					C::NAME,
+					node=%C::NAME,
+					?expected,
+					?actual,
+					"The client is configured to use runtime version, which is different from the \
+					actual version. Aborting",
 				);
 				env.abort().await;
 				Err(Error::Custom("Aborted".into()))
@@ -194,22 +196,8 @@ impl<C: Chain> RpcClient<C> {
 		params: &ConnectionParams,
 	) -> Result<(Arc<tokio::runtime::Runtime>, Arc<WsClient>)> {
 		let tokio = tokio::runtime::Runtime::new()?;
-		let uri = match params.uri {
-			Some(ref uri) => uri.clone(),
-			None => {
-				format!(
-					"{}://{}:{}{}",
-					if params.secure { "wss" } else { "ws" },
-					params.host,
-					params.port,
-					match params.path {
-						Some(ref path) => format!("/{}", path),
-						None => String::new(),
-					},
-				)
-			},
-		};
-		log::info!(target: "bridge", "Connecting to {} node at {}", C::NAME, uri);
+		let uri = params.uri.clone();
+		tracing::info!(target: "bridge", node=%C::NAME, %uri, "Connecting");
 
 		let client = tokio
 			.spawn(async move {
@@ -496,10 +484,10 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 			let tx_hash = SubstrateAuthorClient::<C>::submit_extrinsic(&*client, transaction)
 				.await
 				.map_err(|e| {
-					log::error!(target: "bridge", "Failed to send transaction to {} node: {:?}", C::NAME, e);
+					tracing::error!(target: "bridge", error=?e, node=%C::NAME, "Failed to send transaction");
 					e
 				})?;
-			log::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
+			tracing::trace!(target: "bridge", node=%C::NAME, ?tx_hash, "Sent transaction");
 			Ok(tx_hash)
 		})
 		.await
@@ -576,10 +564,10 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 				)
 				.await
 				.map_err(|e| {
-					log::error!(target: "bridge", "Failed to send transaction to {} node: {:?}", C::NAME, e);
+					tracing::error!(target: "bridge", error=?e, node=%C::NAME, "Failed to send transaction");
 					e
 				})?;
-			log::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
+			tracing::trace!(target: "bridge", node=%C::NAME, ?tx_hash, "Sent transaction");
 			Ok(TransactionTracker::new(
 				self_clone,
 				stall_timeout,

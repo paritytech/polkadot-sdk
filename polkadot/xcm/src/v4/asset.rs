@@ -41,7 +41,7 @@ use crate::{
 };
 use alloc::{vec, vec::Vec};
 use bounded_collections::{BoundedVec, ConstU32};
-use codec::{self as codec, Decode, Encode, MaxEncodedLen};
+use codec::{self as codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::cmp::Ordering;
 use scale_info::TypeInfo;
 
@@ -55,6 +55,7 @@ use scale_info::TypeInfo;
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Debug,
 	TypeInfo,
 	MaxEncodedLen,
@@ -287,6 +288,7 @@ impl TryFrom<NewFungibility> for Fungibility {
 	PartialOrd,
 	Debug,
 	Encode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -367,6 +369,7 @@ impl TryFrom<OldFungibility> for Fungibility {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -411,6 +414,7 @@ impl TryFrom<NewWildFungibility> for WildFungibility {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -488,6 +492,7 @@ impl Reanchorable for AssetId {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -599,6 +604,7 @@ impl TryFrom<NewAsset> for Asset {
 	PartialOrd,
 	Debug,
 	Encode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	Default,
 	serde::Serialize,
@@ -606,8 +612,8 @@ impl TryFrom<NewAsset> for Asset {
 )]
 pub struct Assets(Vec<Asset>);
 
-/// Maximum number of items we expect in a single `Assets` value. Note this is not (yet)
-/// enforced, and just serves to provide a sensible `max_encoded_len` for `Assets`.
+/// Maximum number of items we expect in a single `Assets` value.
+/// This is enforced when decoding and provides a sensible `max_encoded_len` for `Assets`.
 pub const MAX_ITEMS_IN_ASSETS: usize = 20;
 
 impl MaxEncodedLen for Assets {
@@ -618,10 +624,13 @@ impl MaxEncodedLen for Assets {
 
 impl Decode for Assets {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
-		let bounded_instructions =
+		let mut bounded_instructions =
 			BoundedVec::<Asset, ConstU32<{ MAX_ITEMS_IN_ASSETS as u32 }>>::decode(input)?;
+
+		bounded_instructions.sort();
+
 		Self::from_sorted_and_deduplicated(bounded_instructions.into_inner())
-			.map_err(|()| "Out of order".into())
+			.map_err(|()| "Duplicate items".into())
 	}
 }
 
@@ -828,6 +837,7 @@ impl Reanchorable for Assets {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -952,6 +962,7 @@ impl<A: Into<AssetId>, B: Into<WildFungibility>> From<(A, B)> for WildAsset {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,

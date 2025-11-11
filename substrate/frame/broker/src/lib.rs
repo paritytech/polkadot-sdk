@@ -75,6 +75,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Weight information for all calls of this pallet.
@@ -279,6 +280,11 @@ pub mod pallet {
 			/// The task to which the Region was assigned.
 			task: TaskId,
 		},
+		/// An assignment has been removed from the workplan.
+		AssignmentRemoved {
+			/// The Region which was removed from the workplan.
+			region_id: RegionId,
+		},
 		/// A Region has been added to the Instantaneous Coretime Pool.
 		Pooled {
 			/// The Region which was added to the Instantaneous Coretime Pool.
@@ -340,6 +346,11 @@ pub mod pallet {
 			/// longer apply).
 			until: Timeslice,
 		},
+		/// A lease has been removed.
+		LeaseRemoved {
+			/// The task to which a core was assigned.
+			task: TaskId,
+		},
 		/// A lease is about to end.
 		LeaseEnding {
 			/// The task to which a core was assigned.
@@ -397,6 +408,14 @@ pub mod pallet {
 		ContributionDropped {
 			/// The Region whose contribution is no longer exists.
 			region_id: RegionId,
+		},
+		/// A region has been force-removed from the pool. This is usually due to a provisionally
+		/// pooled region being redeployed.
+		RegionUnpooled {
+			/// The Region which has been force-removed from the pool.
+			region_id: RegionId,
+			/// The timeslice at which the region was force-removed.
+			when: Timeslice,
 		},
 		/// Some historical Instantaneous Core Pool payment record has been initialized.
 		HistoryInitialized {
@@ -519,6 +538,8 @@ pub mod pallet {
 		TooManyReservations,
 		/// The maximum amount of leases has already been reached.
 		TooManyLeases,
+		/// The lease does not exist.
+		LeaseNotFound,
 		/// The revenue for the Instantaneous Core Sales of this period is not (yet) known and thus
 		/// this operation cannot proceed.
 		UnknownRevenue,
@@ -551,6 +572,8 @@ pub mod pallet {
 		SovereignAccountNotFound,
 		/// Attempted to disable auto-renewal for a core that didn't have it enabled.
 		AutoRenewalNotEnabled,
+		/// Attempted to force remove an assignment that doesn't exist.
+		AssignmentNotFound,
 		/// Needed to prevent spam attacks.The amount of credits the user attempted to purchase is
 		/// below `T::MinimumCreditPurchase`.
 		CreditPurchaseTooSmall,
@@ -796,7 +819,7 @@ pub mod pallet {
 			region_id: RegionId,
 			max_timeslices: Timeslice,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			Self::do_claim_revenue(region_id, max_timeslices)?;
 			Ok(Pays::No.into())
 		}
@@ -977,6 +1000,26 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_force_reserve(workload, core)?;
 			Ok(Pays::No.into())
+		}
+
+		/// Remove a lease.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `task`: The task id of the lease which should be removed.
+		#[pallet::call_index(24)]
+		pub fn remove_lease(origin: OriginFor<T>, task: TaskId) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_remove_lease(task)
+		}
+
+		/// Remove an assignment from the Workplan.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `region_id`: The Region to be removed from the workplan.
+		#[pallet::call_index(26)]
+		pub fn remove_assignment(origin: OriginFor<T>, region_id: RegionId) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_remove_assignment(region_id)
 		}
 
 		#[pallet::call_index(99)]

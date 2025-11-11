@@ -17,6 +17,7 @@
 
 use collator_overseer::NewMinimalNode;
 
+use cumulus_client_bootnodes::bootnode_request_response_config;
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
 use cumulus_relay_chain_rpc_interface::{RelayChainRpcClient, RelayChainRpcInterface, Url};
 use network::build_collator_network;
@@ -35,8 +36,8 @@ use polkadot_service::{overseer::OverseerGenArgs, IsParachainNode};
 
 use sc_authority_discovery::Service as AuthorityDiscoveryService;
 use sc_network::{
-	config::FullNetworkConfiguration, service::traits::NetworkService, Event, NetworkBackend,
-	NetworkEventStream,
+	config::FullNetworkConfiguration, request_responses::IncomingRequest as GenericIncomingRequest,
+	service::traits::NetworkService, Event, NetworkBackend, NetworkEventStream,
 };
 use sc_service::{config::PrometheusConfig, Configuration, TaskManager};
 use sp_runtime::{app_crypto::Pair, traits::Block as BlockT};
@@ -68,12 +69,14 @@ fn build_authority_discovery_service<Block: BlockT>(
 			_ => None,
 		}
 	});
+	let net_config_path = config.network.net_config_path.clone();
 	let (worker, service) = sc_authority_discovery::new_worker_and_service_with_config(
 		sc_authority_discovery::WorkerConfig {
 			publish_non_global_ips: auth_disc_publish_non_global_ips,
 			public_addresses: auth_disc_public_addresses,
 			// Require that authority discovery records are signed.
 			strict_record_validation: true,
+			persisted_cache_directory: net_config_path,
 			..Default::default()
 		},
 		client,
@@ -81,6 +84,7 @@ fn build_authority_discovery_service<Block: BlockT>(
 		Box::pin(dht_event_stream),
 		authority_discovery_role,
 		prometheus_registry,
+		task_manager.spawn_handle(),
 	);
 
 	task_manager.spawn_handle().spawn(
@@ -95,7 +99,12 @@ async fn build_interface(
 	polkadot_config: Configuration,
 	task_manager: &mut TaskManager,
 	client: RelayChainRpcClient,
-) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
+) -> RelayChainResult<(
+	Arc<dyn RelayChainInterface + 'static>,
+	Option<CollatorPair>,
+	Arc<dyn NetworkService>,
+	async_channel::Receiver<GenericIncomingRequest>,
+)> {
 	let collator_pair = CollatorPair::generate().0;
 	let blockchain_rpc_client = Arc::new(BlockChainRpcClient::new(client.clone()));
 	let collator_node = match polkadot_config.network.network_backend {
@@ -118,6 +127,8 @@ async fn build_interface(
 	Ok((
 		Arc::new(RelayChainRpcInterface::new(client, collator_node.overseer_handle)),
 		Some(collator_pair),
+		collator_node.network_service,
+		collator_node.paranode_rx,
 	))
 }
 
@@ -126,7 +137,12 @@ pub async fn build_minimal_relay_chain_node_with_rpc(
 	parachain_prometheus_registry: Option<&Registry>,
 	task_manager: &mut TaskManager,
 	relay_chain_url: Vec<Url>,
-) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
+) -> RelayChainResult<(
+	Arc<dyn RelayChainInterface + 'static>,
+	Option<CollatorPair>,
+	Arc<dyn NetworkService>,
+	async_channel::Receiver<GenericIncomingRequest>,
+)> {
 	let client = cumulus_relay_chain_rpc_interface::create_client_and_start_worker(
 		relay_chain_url,
 		task_manager,
@@ -135,31 +151,6 @@ pub async fn build_minimal_relay_chain_node_with_rpc(
 	.await?;
 
 	build_interface(relay_chain_config, task_manager, client).await
-}
-
-pub async fn build_minimal_relay_chain_node_light_client(
-	polkadot_config: Configuration,
-	task_manager: &mut TaskManager,
-) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
-	tracing::info!(
-		target: LOG_TARGET,
-		chain_name = polkadot_config.chain_spec.name(),
-		chain_id = polkadot_config.chain_spec.id(),
-		"Initializing embedded light client with chain spec."
-	);
-
-	let spec = polkadot_config
-		.chain_spec
-		.as_json(false)
-		.map_err(RelayChainError::GenericError)?;
-
-	let client = cumulus_relay_chain_rpc_interface::create_client_and_start_light_client_worker(
-		spec,
-		task_manager,
-	)
-	.await?;
-
-	build_interface(polkadot_config, task_manager, client).await
 }
 
 /// Builds a minimal relay chain node. Chain data is fetched
@@ -221,6 +212,12 @@ async fn new_minimal_relay_chain<Block: BlockT, Network: NetworkBackend<RelayBlo
 	let (collation_req_v1_receiver, collation_req_v2_receiver, available_data_req_receiver) =
 		build_request_response_protocol_receivers(&request_protocol_names, &mut net_config);
 
+	let (cfg, paranode_rx) = bootnode_request_response_config::<_, _, Network>(
+		genesis_hash,
+		config.chain_spec.fork_id(),
+	);
+	net_config.add_request_response_protocol(cfg);
+
 	let best_header = relay_chain_rpc_client
 		.chain_get_header(None)
 		.await?
@@ -233,7 +230,7 @@ async fn new_minimal_relay_chain<Block: BlockT, Network: NetworkBackend<RelayBlo
 		best_header,
 		metrics,
 	)
-	.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?;
+	.map_err(|e| RelayChainError::Application(Box::new(e)))?;
 
 	let authority_discovery_service = build_authority_discovery_service::<Block>(
 		&task_manager,
@@ -245,7 +242,7 @@ async fn new_minimal_relay_chain<Block: BlockT, Network: NetworkBackend<RelayBlo
 
 	let overseer_args = OverseerGenArgs {
 		runtime_client: relay_chain_rpc_client.clone(),
-		network_service: network,
+		network_service: network.clone(),
 		sync_service,
 		authority_discovery_service,
 		collation_req_v1_receiver,
@@ -263,7 +260,7 @@ async fn new_minimal_relay_chain<Block: BlockT, Network: NetworkBackend<RelayBlo
 	let overseer_handle =
 		collator_overseer::spawn_overseer(overseer_args, &task_manager, relay_chain_rpc_client)?;
 
-	Ok(NewMinimalNode { task_manager, overseer_handle })
+	Ok(NewMinimalNode { task_manager, overseer_handle, network_service: network, paranode_rx })
 }
 
 fn build_request_response_protocol_receivers<

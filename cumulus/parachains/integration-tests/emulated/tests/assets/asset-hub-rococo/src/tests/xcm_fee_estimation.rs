@@ -19,8 +19,8 @@ use crate::imports::*;
 use emulated_integration_tests_common::test_can_estimate_and_pay_exact_fees;
 use frame_support::dispatch::RawOrigin;
 use xcm_runtime_apis::{
-	dry_run::runtime_decl_for_dry_run_api::DryRunApiV1,
-	fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
+	dry_run::runtime_decl_for_dry_run_api::DryRunApiV2,
+	fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV2,
 };
 
 fn sender_assertions(test: ParaToParaThroughAHTest) {
@@ -51,7 +51,7 @@ fn hop_assertions(test: ParaToParaThroughAHTest) {
 			RuntimeEvent::Balances(
 				pallet_balances::Event::Burned { amount, .. }
 			) => {
-				amount: *amount == test.args.amount,
+				amount: *amount > test.args.amount * 90/100,
 			},
 		]
 	);
@@ -146,7 +146,7 @@ fn multi_hop_works() {
 
 		let call = transfer_assets_para_to_para_through_ah_call(test.clone());
 		let origin = OriginCaller::system(RawOrigin::Signed(sender.clone()));
-		let result = Runtime::dry_run_call(origin, call).unwrap();
+		let result = Runtime::dry_run_call(origin, call, xcm::prelude::XCM_VERSION).unwrap();
 		// We filter the result to get only the messages we are interested in.
 		let (destination_to_query, messages_to_query) = &result
 			.forwarded_xcms
@@ -157,9 +157,13 @@ fn multi_hop_works() {
 			.unwrap();
 		assert_eq!(messages_to_query.len(), 1);
 		remote_message = messages_to_query[0].clone();
-		let delivery_fees =
-			Runtime::query_delivery_fees(destination_to_query.clone(), remote_message.clone())
-				.unwrap();
+		let asset_id_for_delivery_fees = VersionedAssetId::from(Location::parent());
+		let delivery_fees = Runtime::query_delivery_fees(
+			destination_to_query.clone(),
+			remote_message.clone(),
+			asset_id_for_delivery_fees,
+		)
+		.unwrap();
 		delivery_fees_amount = get_amount_from_versioned_assets(delivery_fees);
 	});
 
@@ -200,9 +204,11 @@ fn multi_hop_works() {
 		// We could've gotten the message from the queue without having to dry-run, but
 		// offchain applications would have to dry-run, so we do it here as well.
 		intermediate_remote_message = messages_to_query[0].clone();
+		let asset_id_for_delivery_fees = VersionedAssetId::from(Location::parent());
 		let delivery_fees = Runtime::query_delivery_fees(
 			destination_to_query.clone(),
 			intermediate_remote_message.clone(),
+			asset_id_for_delivery_fees,
 		)
 		.unwrap();
 		intermediate_delivery_fees_amount = get_amount_from_versioned_assets(delivery_fees);

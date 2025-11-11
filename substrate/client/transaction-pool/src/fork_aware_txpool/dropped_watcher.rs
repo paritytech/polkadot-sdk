@@ -81,7 +81,8 @@ pub enum DroppedReason<Hash> {
 }
 
 /// Dropped-logic related event from the single view.
-pub type ViewStreamEvent<C> = crate::graph::TransactionStatusEvent<ExtrinsicHash<C>, BlockHash<C>>;
+pub type ViewStreamEvent<C> =
+	crate::fork_aware_txpool::view::TransactionStatusEvent<ExtrinsicHash<C>, BlockHash<C>>;
 
 /// Dropped-logic stream of events coming from the single view.
 type ViewStream<C> = Pin<Box<dyn futures::Stream<Item = ViewStreamEvent<C>> + Send>>;
@@ -112,8 +113,8 @@ where
 	RemoveView(BlockHash<ChainApi>),
 	/// Removes referencing views for given extrinsic hashes.
 	///
-	/// Intended to ba called on finalization.
-	RemoveFinalizedTxs(Vec<ExtrinsicHash<ChainApi>>),
+	/// Intended to ba called when transactions were finalized or their finality timed out.
+	RemoveTransactions(Vec<ExtrinsicHash<ChainApi>>),
 }
 
 impl<ChainApi> Debug for Command<ChainApi>
@@ -124,7 +125,7 @@ where
 		match self {
 			Command::AddView(..) => write!(f, "AddView"),
 			Command::RemoveView(..) => write!(f, "RemoveView"),
-			Command::RemoveFinalizedTxs(..) => write!(f, "RemoveFinalizedTxs"),
+			Command::RemoveTransactions(..) => write!(f, "RemoveTransactions"),
 		}
 	}
 }
@@ -174,7 +175,7 @@ where
 	fn transaction_views(
 		&mut self,
 		tx_hash: ExtrinsicHash<C>,
-	) -> Option<OccupiedEntry<ExtrinsicHash<C>, HashSet<BlockHash<C>>>> {
+	) -> Option<OccupiedEntry<'_, ExtrinsicHash<C>, HashSet<BlockHash<C>>>> {
 		if let Entry::Occupied(views_keeping_tx_valid) = self.ready_transaction_views.entry(tx_hash)
 		{
 			return Some(views_keeping_tx_valid)
@@ -228,7 +229,7 @@ where
 					}
 				});
 			},
-			Command::RemoveFinalizedTxs(xts) => {
+			Command::RemoveTransactions(xts) => {
 				log_xt_trace!(
 					target: LOG_TARGET,
 					xts.clone(),
@@ -421,16 +422,16 @@ where
 		});
 	}
 
-	/// Removes status info for finalized transactions.
-	pub fn remove_finalized_txs(
+	/// Removes status info for transactions.
+	pub fn remove_transactions(
 		&self,
 		xts: impl IntoIterator<Item = ExtrinsicHash<ChainApi>> + Clone,
 	) {
 		let _ = self
 			.controller
-			.unbounded_send(Command::RemoveFinalizedTxs(xts.into_iter().collect()))
+			.unbounded_send(Command::RemoveTransactions(xts.into_iter().collect()))
 			.map_err(|e| {
-				trace!(target: LOG_TARGET, "dropped_watcher: remove_finalized_txs send message failed: {e}");
+				trace!(target: LOG_TARGET, "dropped_watcher: remove_transactions send message failed: {e}");
 			});
 	}
 }

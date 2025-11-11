@@ -34,7 +34,7 @@ use crate::v4::{
 };
 use alloc::{vec, vec::Vec};
 use bounded_collections::{BoundedVec, ConstU32};
-use codec::{self as codec, Decode, Encode, MaxEncodedLen};
+use codec::{self as codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::cmp::Ordering;
 use scale_info::TypeInfo;
 
@@ -48,6 +48,7 @@ use scale_info::TypeInfo;
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Debug,
 	TypeInfo,
 	MaxEncodedLen,
@@ -256,6 +257,7 @@ impl TryFrom<AssetInstance> for u128 {
 	PartialOrd,
 	Debug,
 	Encode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -338,6 +340,7 @@ impl TryFrom<NewFungibility> for Fungibility {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -374,6 +377,7 @@ impl TryFrom<NewWildFungibility> for WildFungibility {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -451,6 +455,7 @@ impl AssetId {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -561,6 +566,7 @@ impl TryFrom<NewMultiAsset> for MultiAsset {
 	PartialOrd,
 	Debug,
 	Encode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	Default,
 	serde::Serialize,
@@ -581,10 +587,13 @@ impl MaxEncodedLen for MultiAssets {
 
 impl Decode for MultiAssets {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
-		let bounded_instructions =
+		let mut bounded_instructions =
 			BoundedVec::<MultiAsset, ConstU32<{ MAX_ITEMS_IN_MULTIASSETS as u32 }>>::decode(input)?;
+
+		bounded_instructions.sort();
+
 		Self::from_sorted_and_deduplicated(bounded_instructions.into_inner())
-			.map_err(|()| "Out of order".into())
+			.map_err(|()| "Duplicate items".into())
 	}
 }
 
@@ -676,6 +685,7 @@ impl MultiAssets {
 	pub fn from_sorted_and_deduplicated_skip_checks(r: Vec<MultiAsset>) -> Self {
 		Self::from_sorted_and_deduplicated(r).expect("Invalid input r is not sorted/deduped")
 	}
+
 	/// Create a new instance of `MultiAssets` from a `Vec<MultiAsset>` whose contents are sorted
 	/// and which contain no duplicates.
 	///
@@ -776,6 +786,7 @@ impl MultiAssets {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -892,6 +903,7 @@ impl<A: Into<AssetId>, B: Into<WildFungibility>> From<(A, B)> for WildMultiAsset
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,

@@ -24,7 +24,7 @@ use bridge_hub_rococo_runtime::{
 	TxExtension, UncheckedExtrinsic,
 };
 use codec::{Decode, Encode};
-use cumulus_primitives_core::XcmError::{FailedToTransactAsset, NotHoldingFees};
+use cumulus_primitives_core::XcmError::FailedToTransactAsset;
 use frame_support::parameter_types;
 use parachains_common::{AccountId, AuraId, Balance};
 use snowbridge_pallet_ethereum_client::WeightInfo;
@@ -36,7 +36,7 @@ use sp_runtime::{
 };
 
 parameter_types! {
-		pub const DefaultBridgeHubEthereumBaseFee: Balance = 2_750_872_500_000;
+		pub const DefaultBridgeHubEthereumBaseFee: Balance = 3_833_568_200_000;
 }
 
 fn collator_session_keys() -> bridge_hub_test_utils::CollatorSessionKeys<Runtime> {
@@ -67,7 +67,7 @@ pub fn transfer_token_to_ethereum_works() {
 }
 
 #[test]
-pub fn unpaid_transfer_token_to_ethereum_fails_with_barrier() {
+pub fn unpaid_transfer_token_to_ethereum_should_work() {
 	snowbridge_runtime_test_common::send_unpaid_transfer_token_message::<Runtime, XcmConfig>(
 		11155111,
 		collator_session_keys(),
@@ -75,22 +75,6 @@ pub fn unpaid_transfer_token_to_ethereum_fails_with_barrier() {
 		1000,
 		H160::random(),
 		H160::random(),
-	)
-}
-
-#[test]
-pub fn transfer_token_to_ethereum_fee_not_enough() {
-	snowbridge_runtime_test_common::send_transfer_token_message_failure::<Runtime, XcmConfig>(
-		11155111,
-		collator_session_keys(),
-		1013,
-		1000,
-		DefaultBridgeHubEthereumBaseFee::get() + 1_000_000_000,
-		H160::random(),
-		H160::random(),
-		// fee not enough
-		1_000_000_000,
-		NotHoldingFees,
 	)
 }
 
@@ -171,15 +155,18 @@ fn construct_extrinsic(
 ) -> UncheckedExtrinsic {
 	let account_id = AccountId32::from(sender.public());
 	let tx_ext: TxExtension = (
-		frame_system::CheckNonZeroSender::<Runtime>::new(),
-		frame_system::CheckSpecVersion::<Runtime>::new(),
-		frame_system::CheckTxVersion::<Runtime>::new(),
-		frame_system::CheckGenesis::<Runtime>::new(),
-		frame_system::CheckEra::<Runtime>::from(Era::immortal()),
-		frame_system::CheckNonce::<Runtime>::from(
-			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
+		(
+			frame_system::AuthorizeCall::<Runtime>::new(),
+			frame_system::CheckNonZeroSender::<Runtime>::new(),
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckEra::<Runtime>::from(Era::immortal()),
+			frame_system::CheckNonce::<Runtime>::from(
+				frame_system::Pallet::<Runtime>::account(&account_id).nonce,
+			),
+			frame_system::CheckWeight::<Runtime>::new(),
 		),
-		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		BridgeRejectObsoleteHeadersAndMessages::default(),
 		(OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),),

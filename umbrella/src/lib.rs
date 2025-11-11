@@ -35,10 +35,6 @@ pub use bp_messages;
 #[cfg(feature = "bp-parachains")]
 pub use bp_parachains;
 
-/// Primitives of Polkadot runtime.
-#[cfg(feature = "bp-polkadot")]
-pub use bp_polkadot;
-
 /// Primitives of Polkadot-like runtime.
 #[cfg(feature = "bp-polkadot-core")]
 pub use bp_polkadot_core;
@@ -75,6 +71,10 @@ pub use bridge_hub_test_utils;
 /// chains.
 #[cfg(feature = "bridge-runtime-common")]
 pub use bridge_runtime_common;
+
+/// Parachain bootnodes registration and discovery.
+#[cfg(feature = "cumulus-client-bootnodes")]
+pub use cumulus_client_bootnodes;
 
 /// Parachain node CLI utilities.
 #[cfg(feature = "cumulus-client-cli")]
@@ -202,6 +202,10 @@ pub use cumulus_relay_chain_minimal_node;
 #[cfg(feature = "cumulus-relay-chain-rpc-interface")]
 pub use cumulus_relay_chain_rpc_interface;
 
+/// Cumulus client common relay chain streams.
+#[cfg(feature = "cumulus-relay-chain-streams")]
+pub use cumulus_relay_chain_streams;
+
 /// Mocked relay state proof builder for testing Cumulus.
 #[cfg(feature = "cumulus-test-relay-sproof-builder")]
 pub use cumulus_test_relay_sproof_builder;
@@ -209,6 +213,10 @@ pub use cumulus_test_relay_sproof_builder;
 /// Common resources for integration testing with xcm-emulator.
 #[cfg(feature = "emulated-integration-tests-common")]
 pub use emulated_integration_tests_common;
+
+/// Interfaces for Ethereum standards.
+#[cfg(feature = "ethereum-standards")]
+pub use ethereum_standards;
 
 /// Utility library for managing tree-like ordered data with logic for pruning the tree while
 /// finalizing nodes.
@@ -328,6 +336,14 @@ pub use pallet_assets;
 #[cfg(feature = "pallet-assets-freezer")]
 pub use pallet_assets_freezer;
 
+/// Provides holding features to `pallet-assets`.
+#[cfg(feature = "pallet-assets-holder")]
+pub use pallet_assets_holder;
+
+/// Provides precompiles for `pallet-assets`.
+#[cfg(feature = "pallet-assets-precompiles")]
+pub use pallet_assets_precompiles;
+
 /// FRAME atomic swap pallet.
 #[cfg(feature = "pallet-atomic-swap")]
 pub use pallet_atomic_swap;
@@ -439,9 +455,21 @@ pub use pallet_delegated_staking;
 #[cfg(feature = "pallet-democracy")]
 pub use pallet_democracy;
 
+/// FRAME derivatives pallet.
+#[cfg(feature = "pallet-derivatives")]
+pub use pallet_derivatives;
+
 /// FRAME example pallet.
 #[cfg(feature = "pallet-dev-mode")]
 pub use pallet_dev_mode;
+
+/// Dummy DIM Pallet.
+#[cfg(feature = "pallet-dummy-dim")]
+pub use pallet_dummy_dim;
+
+/// PALLET multi phase+block election providers.
+#[cfg(feature = "pallet-election-provider-multi-block")]
+pub use pallet_election_provider_multi_block;
 
 /// PALLET two phase election providers.
 #[cfg(feature = "pallet-election-provider-multi-phase")]
@@ -495,6 +523,10 @@ pub use pallet_membership;
 #[cfg(feature = "pallet-message-queue")]
 pub use pallet_message_queue;
 
+/// FRAME pallet enabling meta transactions.
+#[cfg(feature = "pallet-meta-tx")]
+pub use pallet_meta_tx;
+
 /// FRAME pallet to execute multi-block migrations.
 #[cfg(feature = "pallet-migrations")]
 pub use pallet_migrations;
@@ -506,6 +538,10 @@ pub use pallet_mixnet;
 /// FRAME Merkle Mountain Range pallet.
 #[cfg(feature = "pallet-mmr")]
 pub use pallet_mmr;
+
+/// FRAME pallet to manage multi-asset and cross-chain bounties.
+#[cfg(feature = "pallet-multi-asset-bounties")]
+pub use pallet_multi_asset_bounties;
 
 /// FRAME multi-signature dispatch pallet.
 #[cfg(feature = "pallet-multisig")]
@@ -551,6 +587,18 @@ pub use pallet_offences;
 #[cfg(feature = "pallet-offences-benchmarking")]
 pub use pallet_offences_benchmarking;
 
+/// FRAME oracle pallet for off-chain data.
+#[cfg(feature = "pallet-oracle")]
+pub use pallet_oracle;
+
+/// Runtime API for the oracle pallet.
+#[cfg(feature = "pallet-oracle-runtime-api")]
+pub use pallet_oracle_runtime_api;
+
+/// Pallet to give some execution allowance for some origins.
+#[cfg(feature = "pallet-origin-restriction")]
+pub use pallet_origin_restriction;
+
 /// FRAME pallet that provides a paged list data structure.
 #[cfg(feature = "pallet-paged-list")]
 pub use pallet_paged_list;
@@ -558,6 +606,10 @@ pub use pallet_paged_list;
 /// Pallet to store and configure parameters.
 #[cfg(feature = "pallet-parameters")]
 pub use pallet_parameters;
+
+/// Personhood-tracking pallet.
+#[cfg(feature = "pallet-people")]
+pub use pallet_people;
 
 /// FRAME pallet for storing preimages of hashes.
 #[cfg(feature = "pallet-preimage")]
@@ -587,14 +639,6 @@ pub use pallet_remark;
 /// FRAME pallet for PolkaVM contracts.
 #[cfg(feature = "pallet-revive")]
 pub use pallet_revive;
-
-/// An Ethereum JSON-RPC server for pallet-revive.
-#[cfg(feature = "pallet-revive-eth-rpc")]
-pub use pallet_revive_eth_rpc;
-
-/// A mock network for testing pallet-revive.
-#[cfg(feature = "pallet-revive-mock-network")]
-pub use pallet_revive_mock_network;
 
 /// Procedural macros used in pallet_revive.
 #[cfg(feature = "pallet-revive-proc-macro")]
@@ -648,6 +692,28 @@ pub use pallet_society;
 /// FRAME pallet staking.
 #[cfg(feature = "pallet-staking")]
 pub use pallet_staking;
+
+/// FRAME pallet staking async.
+#[cfg(feature = "pallet-staking-async")]
+pub use pallet_staking_async;
+
+/// Pallet handling the communication with staking-rc-client. It's role is to glue the staking
+/// pallet (on AssetHub chain) and session pallet (on Relay Chain) in a transparent way.
+#[cfg(feature = "pallet-staking-async-ah-client")]
+pub use pallet_staking_async_ah_client;
+
+/// Pallet handling the communication with staking-ah-client. It's role is to glue the staking
+/// pallet (on AssetHub chain) and session pallet (on Relay Chain) in a transparent way.
+#[cfg(feature = "pallet-staking-async-rc-client")]
+pub use pallet_staking_async_rc_client;
+
+/// Reward function for FRAME staking pallet.
+#[cfg(feature = "pallet-staking-async-reward-fn")]
+pub use pallet_staking_async_reward_fn;
+
+/// RPC runtime API for transaction payment FRAME pallet.
+#[cfg(feature = "pallet-staking-async-runtime-api")]
+pub use pallet_staking_async_runtime_api;
 
 /// Reward Curve for FRAME staking pallet.
 #[cfg(feature = "pallet-staking-reward-curve")]
@@ -740,6 +806,10 @@ pub use pallet_xcm_bridge_hub;
 /// Bridge hub interface for sibling/parent chains with dynamic fees support.
 #[cfg(feature = "pallet-xcm-bridge-hub-router")]
 pub use pallet_xcm_bridge_hub_router;
+
+/// Provides precompiles for `pallet-xcm`.
+#[cfg(feature = "pallet-xcm-precompiles")]
+pub use pallet_xcm_precompiles;
 
 /// Logic which is common to all parachain runtimes.
 #[cfg(feature = "parachains-common")]
@@ -926,6 +996,10 @@ pub use polkadot_parachain_primitives;
 #[cfg(feature = "polkadot-primitives")]
 pub use polkadot_primitives;
 
+/// Test helpers for Polkadot runtime primitives.
+#[cfg(feature = "polkadot-primitives-test-helpers")]
+pub use polkadot_primitives_test_helpers;
+
 /// Polkadot specific RPC functionality.
 #[cfg(feature = "polkadot-rpc")]
 pub use polkadot_rpc;
@@ -942,8 +1016,7 @@ pub use polkadot_runtime_metrics;
 #[cfg(feature = "polkadot-runtime-parachains")]
 pub use polkadot_runtime_parachains;
 
-/// Experimental: The single package to get you started with building frame pallets and
-/// runtimes.
+/// The single package to get you started with building frame pallets and runtimes.
 #[cfg(feature = "polkadot-sdk-frame")]
 pub use polkadot_sdk_frame;
 
@@ -1183,66 +1256,6 @@ pub use sc_utils;
 /// Helper crate for generating slot ranges for the Polkadot runtime.
 #[cfg(feature = "slot-range-helper")]
 pub use slot_range_helper;
-
-/// Snowbridge Beacon Primitives.
-#[cfg(feature = "snowbridge-beacon-primitives")]
-pub use snowbridge_beacon_primitives;
-
-/// Snowbridge Core.
-#[cfg(feature = "snowbridge-core")]
-pub use snowbridge_core;
-
-/// Snowbridge Ethereum.
-#[cfg(feature = "snowbridge-ethereum")]
-pub use snowbridge_ethereum;
-
-/// Snowbridge Outbound Queue Merkle Tree.
-#[cfg(feature = "snowbridge-outbound-queue-merkle-tree")]
-pub use snowbridge_outbound_queue_merkle_tree;
-
-/// Snowbridge Outbound Queue Runtime API.
-#[cfg(feature = "snowbridge-outbound-queue-runtime-api")]
-pub use snowbridge_outbound_queue_runtime_api;
-
-/// Snowbridge Ethereum Client Pallet.
-#[cfg(feature = "snowbridge-pallet-ethereum-client")]
-pub use snowbridge_pallet_ethereum_client;
-
-/// Snowbridge Ethereum Client Test Fixtures.
-#[cfg(feature = "snowbridge-pallet-ethereum-client-fixtures")]
-pub use snowbridge_pallet_ethereum_client_fixtures;
-
-/// Snowbridge Inbound Queue Pallet.
-#[cfg(feature = "snowbridge-pallet-inbound-queue")]
-pub use snowbridge_pallet_inbound_queue;
-
-/// Snowbridge Inbound Queue Test Fixtures.
-#[cfg(feature = "snowbridge-pallet-inbound-queue-fixtures")]
-pub use snowbridge_pallet_inbound_queue_fixtures;
-
-/// Snowbridge Outbound Queue Pallet.
-#[cfg(feature = "snowbridge-pallet-outbound-queue")]
-pub use snowbridge_pallet_outbound_queue;
-
-/// Snowbridge System Pallet.
-#[cfg(feature = "snowbridge-pallet-system")]
-pub use snowbridge_pallet_system;
-
-/// Snowbridge Router Primitives.
-#[cfg(feature = "snowbridge-router-primitives")]
-pub use snowbridge_router_primitives;
-
-/// Snowbridge Runtime Common.
-#[cfg(feature = "snowbridge-runtime-common")]
-pub use snowbridge_runtime_common;
-
-/// Snowbridge Runtime Tests.
-#[cfg(feature = "snowbridge-runtime-test-common")]
-pub use snowbridge_runtime_test_common;
-
-/// Snowbridge System Runtime API.
-#[cfg(feature = "snowbridge-system-runtime-api")]
-pub use snowbridge_system_runtime_api;
 
 /// Substrate runtime api primitives.
 #[cfg(feature = "sp-api")]

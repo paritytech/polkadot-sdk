@@ -65,28 +65,28 @@ macro_rules! declare_parachain_to_parachain_bridge_schema {
 	($left_parachain:ident, $left_chain:ident, $right_parachain:ident, $right_chain:ident) => {
 		bp_runtime::paste::item! {
 			#[doc = $left_parachain ", " $left_chain ", " $right_parachain " and " $right_chain " headers+parachains+messages relay params."]
-			#[derive(Debug, PartialEq, StructOpt)]
+			#[derive(Debug, PartialEq, Parser)]
 			pub struct [<$left_parachain $right_parachain HeadersAndMessages>] {
 				// shared parameters
-				#[structopt(flatten)]
+				#[command(flatten)]
 				shared: HeadersAndMessagesSharedParams,
 
-				#[structopt(flatten)]
+				#[command(flatten)]
 				left: [<$left_parachain ConnectionParams>],
 				// default signer, which is always used to sign messages relay transactions on the left chain
-				#[structopt(flatten)]
+				#[command(flatten)]
 				left_sign: [<$left_parachain SigningParams>],
 
-				#[structopt(flatten)]
+				#[command(flatten)]
 				left_relay: [<$left_chain ConnectionParams>],
 
-				#[structopt(flatten)]
+				#[command(flatten)]
 				right: [<$right_parachain ConnectionParams>],
 				// default signer, which is always used to sign messages relay transactions on the right chain
-				#[structopt(flatten)]
+				#[command(flatten)]
 				right_sign: [<$right_parachain SigningParams>],
 
-				#[structopt(flatten)]
+				#[command(flatten)]
 				right_relay: [<$right_chain ConnectionParams>],
 			}
 

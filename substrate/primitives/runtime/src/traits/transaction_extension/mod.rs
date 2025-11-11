@@ -25,7 +25,7 @@ use crate::{
 	DispatchResult,
 };
 use alloc::vec::Vec;
-use codec::{Codec, Decode, Encode};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode};
 use core::fmt::Debug;
 #[doc(hidden)]
 pub use core::marker::PhantomData;
@@ -228,7 +228,7 @@ pub type ValidateResult<Val, Call> =
 /// correct amount of weight used during the call. This is because one cannot know the actual weight
 /// of an extension after post dispatch without running the post dispatch ahead of time.
 pub trait TransactionExtension<Call: Dispatchable>:
-	Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
+	Codec + DecodeWithMemTracking + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
 {
 	/// Unique identifier of this signed extension.
 	///
@@ -713,7 +713,7 @@ mod test {
 		use scale_info::TypeInfo;
 		use std::cell::RefCell;
 
-		#[derive(Clone, Debug, Eq, PartialEq, Encode, Decode, TypeInfo)]
+		#[derive(Clone, Debug, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 		struct MockExtension {
 			also_implicit: u8,
 			explicit: u8,

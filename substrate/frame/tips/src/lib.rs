@@ -135,6 +135,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config + pallet_treasury::Config<I> {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -526,7 +527,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Err(pos) => tip.tips.insert(pos, (tipper, tip_value)),
 		}
 		Self::retain_active_tips(&mut tip.tips);
-		let threshold = (T::Tippers::count() + 1) / 2;
+		let threshold = T::Tippers::count().div_ceil(2);
 		if tip.tips.len() >= threshold && tip.closes.is_none() {
 			tip.closes = Some(frame_system::Pallet::<T>::block_number() + T::TipCountdown::get());
 			true

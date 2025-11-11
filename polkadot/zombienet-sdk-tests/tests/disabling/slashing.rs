@@ -6,14 +6,19 @@
 //! making some of the honest nodes go offline.
 
 use anyhow::anyhow;
-
-use crate::helpers::{assert_blocks_are_being_finalized, assert_para_throughput};
+use codec::Decode;
+use cumulus_zombienet_sdk_helpers::{
+	assert_blocks_are_being_finalized, assert_para_throughput, wait_for_first_session_change,
+};
 use polkadot_primitives::{BlockNumber, CandidateHash, DisputeState, Id as ParaId, SessionIndex};
 use serde_json::json;
-use subxt::{OnlineClient, PolkadotConfig};
 use tokio::time::Duration;
 use tokio_util::time::FutureExt;
-use zombienet_sdk::NetworkConfigBuilder;
+use zombienet_orchestrator::network::node::LogLineCountOptions;
+use zombienet_sdk::{
+	subxt::{OnlineClient, PolkadotConfig},
+	NetworkConfigBuilder,
+};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
@@ -102,33 +107,23 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 	while let Some(block) = best_blocks.next().await {
 		// NOTE: we can't use `at_latest` here, because it will utilize latest *finalized* block
 		// and finality is stalled...
-		let disputes = relay_client
-			.runtime_api()
-			.at(block?.hash())
-			.call_raw::<Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>>(
-				"ParachainHost_disputes",
-				None,
-			)
-			.await?;
+		let disputes = Vec::<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>::decode(
+			&mut &relay_client
+				.runtime_api()
+				.at(block?.hash())
+				.call_raw("ParachainHost_disputes", None)
+				.await?[..],
+		)?;
 		if let Some((session, _, _)) = disputes.first() {
 			dispute_session = *session;
-			break
+			break;
 		}
 	}
 
 	assert_ne!(dispute_session, u32::MAX, "dispute should be initiated");
 	log::info!("Dispute initiated, now waiting for a new session");
 
-	while let Some(block) = best_blocks.next().await {
-		let current_session = relay_client
-			.runtime_api()
-			.at(block?.hash())
-			.call_raw::<SessionIndex>("ParachainHost_session_index_for_child", None)
-			.await?;
-		if current_session > dispute_session {
-			break
-		}
-	}
+	wait_for_first_session_change(&mut best_blocks).await?;
 
 	// We don't need malus anymore
 	malus.pause().await?;
@@ -151,14 +146,15 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 		.await?;
 	log::info!("A dispute has concluded");
 
-	honest
+	let result = honest
 		.wait_log_line_count_with_timeout(
 			"*Successfully reported pending slash*",
 			true,
-			1,
-			timeout_secs,
+			LogLineCountOptions::new(|n| n == 1, Duration::from_secs(timeout_secs), false),
 		)
 		.await?;
+
+	assert!(result.success());
 
 	assert_blocks_are_being_finalized(&relay_client)
 		.timeout(Duration::from_secs(400)) // enough for the aggression to kick in

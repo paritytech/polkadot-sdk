@@ -444,6 +444,7 @@ where
 		metrics,
 		id_provider: rpc_id_provider,
 		tokio_handle: tokio_handle.clone(),
+		request_logger_limit: rpc_configuration.request_logger_limit,
 	};
 
 	// TODO: https://github.com/paritytech/substrate/issues/13773
@@ -519,7 +520,7 @@ where
 		let uxt = match Decode::decode(&mut &encoded[..]) {
 			Ok(uxt) => uxt,
 			Err(e) => {
-				debug!("Transaction invalid: {:?}", e);
+				debug!(target: sc_transaction_pool::LOG_TARGET, "Transaction invalid: {:?}", e);
 				return Box::pin(futures::future::ready(TransactionImport::Bad))
 			},
 		};

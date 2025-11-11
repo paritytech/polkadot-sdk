@@ -194,6 +194,7 @@ pub mod pallet {
 		BridgeMessagesConfig<Self::BridgeMessagesPalletInstance>
 	{
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -304,9 +305,9 @@ pub mod pallet {
 			let locations =
 				Self::bridge_locations_from_origin(origin, bridge_destination_universal_location)?;
 			let lane_id = locations.calculate_lane_id(xcm_version).map_err(|e| {
-				log::trace!(
-					target: LOG_TARGET,
-					"calculate_lane_id error: {e:?}",
+				tracing::trace!(
+					target: LOG_TARGET, error=?e,
+					"calculate_lane_id error"
 				);
 				Error::<T, I>::BridgeLocations(e)
 			})?;
@@ -383,14 +384,14 @@ pub mod pallet {
 
 				// write something to log
 				let enqueued_messages = outbound_lane.queued_messages().saturating_len();
-				log::trace!(
+				tracing::trace!(
 					target: LOG_TARGET,
-					"Bridge {:?} between {:?} and {:?} is closing lane_id: {:?}. {} messages remaining",
-					locations.bridge_id(),
-					locations.bridge_origin_universal_location(),
-					locations.bridge_destination_universal_location(),
-					bridge.lane_id,
-					enqueued_messages,
+					bridge_id=?locations.bridge_id(),
+					bridge_origin=?locations.bridge_origin_universal_location(),
+					bridge_destination=?locations.bridge_destination_universal_location(),
+					lane_id=?bridge.lane_id,
+					messages_remaining=%enqueued_messages,
+					"Bridge is closing."
 				);
 
 				// deposit the `ClosingBridge` event
@@ -420,23 +421,25 @@ pub mod pallet {
 			.inspect_err(|e| {
 				// we can't do anything here - looks like funds have been (partially) unreserved
 				// before by someone else. Let's not fail, though - it'll be worse for the caller
-				log::error!(
+				tracing::error!(
 					target: LOG_TARGET,
-					"Failed to unreserve during the bridge {:?} closure with error: {e:?}",
-					locations.bridge_id(),
+					error=?e,
+					bridge_id=?locations.bridge_id(),
+					"Failed to unreserve during the bridge closure"
 				);
 			})
 			.ok()
 			.unwrap_or(BalanceOf::<ThisChainOf<T, I>>::zero());
 
 			// write something to log
-			log::trace!(
+			tracing::trace!(
 				target: LOG_TARGET,
-				"Bridge {:?} between {:?} and {:?} has closed lane_id: {:?}, the bridge deposit {released_deposit:?} was returned",
-				locations.bridge_id(),
-				bridge.lane_id,
-				locations.bridge_origin_universal_location(),
-				locations.bridge_destination_universal_location(),
+				bridge_id=?locations.bridge_id(),
+				bridge_origin=?locations.bridge_origin_universal_location(),
+				bridge_destination=?locations.bridge_destination_universal_location(),
+				lane_id=?bridge.lane_id,
+				bridge_deposit=?released_deposit,
+				"Bridge has closed, the bridge deposit was returned"
 			);
 
 			// deposit the `BridgePruned` event
@@ -475,12 +478,13 @@ pub mod pallet {
 					deposit,
 				)
 				.map_err(|e| {
-					log::error!(
+					tracing::error!(
 						target: LOG_TARGET,
-						"Failed to hold bridge deposit: {deposit:?} \
-						from bridge_owner_account: {bridge_owner_account:?} derived from \
-						bridge_origin_relative_location: {:?} with error: {e:?}",
-						locations.bridge_origin_relative_location(),
+						error=?e,
+						?deposit,
+						?bridge_owner_account,
+						bridge_origin_relative_location=?locations.bridge_origin_relative_location(),
+						"Failed to hold bridge deposit"
 					);
 					Error::<T, I>::FailedToReserveBridgeDeposit
 				})?;
@@ -530,12 +534,13 @@ pub mod pallet {
 			}
 
 			// write something to log
-			log::trace!(
+			tracing::trace!(
 				target: LOG_TARGET,
-				"Bridge {:?} between {:?} and {:?} has been opened using lane_id: {lane_id:?}",
-				locations.bridge_id(),
-				locations.bridge_origin_universal_location(),
-				locations.bridge_destination_universal_location(),
+				bridge_id=?locations.bridge_id(),
+				bridge_origin=?locations.bridge_origin_universal_location(),
+				bridge_destination=?locations.bridge_destination_universal_location(),
+				lane_id=?lane_id,
+				"Bridge has been opened"
 			);
 
 			// deposit `BridgeOpened` event
@@ -581,9 +586,9 @@ pub mod pallet {
 				Self::bridged_network_id()?,
 			)
 			.map_err(|e| {
-				log::trace!(
-					target: LOG_TARGET,
-					"bridge_locations error: {e:?}",
+				tracing::trace!(
+					target: LOG_TARGET, error=?e,
+					"bridge_locations error"
 				);
 				Error::<T, I>::BridgeLocations(e).into()
 			})
@@ -644,7 +649,7 @@ pub mod pallet {
 			bridge_id: BridgeId,
 			bridge: BridgeOf<T, I>,
 		) -> Result<T::LaneId, sp_runtime::TryRuntimeError> {
-			log::info!(target: LOG_TARGET, "Checking `do_try_state_for_bridge` for bridge_id: {bridge_id:?} and bridge: {bridge:?}");
+			tracing::info!(target: LOG_TARGET, ?bridge_id, ?bridge, "Checking `do_try_state_for_bridge`");
 
 			// check `BridgeId` points to the same `LaneId` and vice versa.
 			ensure!(
@@ -664,15 +669,11 @@ pub mod pallet {
 			);
 
 			// check that `locations` are convertible to the `latest` XCM.
-			let bridge_origin_relative_location_as_latest: &Location =
-				bridge.bridge_origin_relative_location.try_as().map_err(|_| {
-					"`bridge.bridge_origin_relative_location` cannot be converted to the `latest` XCM, needs migration!"
-				})?;
-			let bridge_origin_universal_location_as_latest: &InteriorLocation = bridge.bridge_origin_universal_location
-				.try_as()
+			let bridge_origin_relative_location_as_latest: &Location = &(*bridge.bridge_origin_relative_location).try_into()
+				.map_err(|_| "`bridge.bridge_origin_relative_location` cannot be converted to the `latest` XCM, needs migration!")?;
+			let bridge_origin_universal_location_as_latest: &InteriorLocation = &(*bridge.bridge_origin_universal_location).try_into()
 				.map_err(|_| "`bridge.bridge_origin_universal_location` cannot be converted to the `latest` XCM, needs migration!")?;
-			let bridge_destination_universal_location_as_latest: &InteriorLocation = bridge.bridge_destination_universal_location
-				.try_as()
+			let bridge_destination_universal_location_as_latest: &InteriorLocation = &(*bridge.bridge_destination_universal_location).try_into()
 				.map_err(|_| "`bridge.bridge_destination_universal_location` cannot be converted to the `latest` XCM, needs migration!")?;
 
 			// check `BridgeId` does not change
@@ -694,7 +695,7 @@ pub mod pallet {
 		pub fn do_try_state_for_messages() -> Result<(), sp_runtime::TryRuntimeError> {
 			// check that all `InboundLanes` laneIds have mapping to some bridge.
 			for lane_id in pallet_bridge_messages::InboundLanes::<T, T::BridgeMessagesPalletInstance>::iter_keys() {
-				log::info!(target: LOG_TARGET, "Checking `do_try_state_for_messages` for `InboundLanes`'s lane_id: {lane_id:?}...");
+				tracing::info!(target: LOG_TARGET, ?lane_id, "Checking `do_try_state_for_messages` for `InboundLanes`...");
 				ensure!(
 					LaneToBridge::<T, I>::get(lane_id).is_some(),
 					"Found `LaneToBridge` inconsistency for `InboundLanes`'s lane_id - missing mapping!"
@@ -703,7 +704,7 @@ pub mod pallet {
 
 			// check that all `OutboundLanes` laneIds have mapping to some bridge.
 			for lane_id in pallet_bridge_messages::OutboundLanes::<T, T::BridgeMessagesPalletInstance>::iter_keys() {
-				log::info!(target: LOG_TARGET, "Checking `do_try_state_for_messages` for `OutboundLanes`'s lane_id: {lane_id:?}...");
+				tracing::info!(target: LOG_TARGET, ?lane_id, "Checking `do_try_state_for_messages` for `OutboundLanes`");
 				ensure!(
 					LaneToBridge::<T, I>::get(lane_id).is_some(),
 					"Found `LaneToBridge` inconsistency for `OutboundLanes`'s lane_id - missing mapping!"
@@ -1647,6 +1648,38 @@ mod tests {
 				Some(TryRuntimeError::Other("Outbound lane not found!")),
 			);
 			cleanup(bridge_id, vec![lane_id, lane_id_mismatch]);
+
+			// ok state with old XCM version
+			test_bridge_state(
+				bridge_id,
+				Bridge {
+					bridge_origin_relative_location: Box::new(
+						VersionedLocation::from(bridge_origin_relative_location.clone())
+							.into_version(XCM_VERSION - 1)
+							.unwrap(),
+					),
+					bridge_origin_universal_location: Box::new(
+						VersionedInteriorLocation::from(bridge_origin_universal_location.clone())
+							.into_version(XCM_VERSION - 1)
+							.unwrap(),
+					),
+					bridge_destination_universal_location: Box::new(
+						VersionedInteriorLocation::from(
+							bridge_destination_universal_location.clone(),
+						)
+						.into_version(XCM_VERSION - 1)
+						.unwrap(),
+					),
+					state: BridgeState::Opened,
+					bridge_owner_account: bridge_owner_account.clone(),
+					deposit: Zero::zero(),
+					lane_id,
+				},
+				(lane_id, bridge_id),
+				(lane_id, lane_id),
+				None,
+			);
+			cleanup(bridge_id, vec![lane_id]);
 
 			// missing bridge for inbound lane
 			let lanes_manager = LanesManagerOf::<TestRuntime, ()>::new();

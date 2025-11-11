@@ -21,11 +21,13 @@ pub mod genesis;
 use frame_support::traits::OnInitialize;
 
 // Cumulus
+use asset_hub_rococo_runtime::ForeignAssetReserveData;
 use emulated_integration_tests_common::{
 	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
 	impl_assets_helpers_for_parachain, impl_assets_helpers_for_system_parachain,
 	impl_bridge_helpers_for_chain, impl_foreign_assets_helpers_for_parachain,
 	impl_xcm_helpers_for_parachain, impls::Parachain, xcm_emulator::decl_test_parachains,
+	AuraDigestProvider,
 };
 use rococo_emulated_chain::Rococo;
 
@@ -42,6 +44,8 @@ decl_test_parachains! {
 			LocationToAccountId: asset_hub_rococo_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: asset_hub_rococo_runtime::ParachainInfo,
 			MessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,
+			DigestProvider: AuraDigestProvider,
+			AdditionalInherentCode: (),
 		},
 		pallets = {
 			PolkadotXcm: asset_hub_rococo_runtime::PolkadotXcm,
@@ -59,7 +63,11 @@ impl_accounts_helpers_for_parachain!(AssetHubRococo);
 impl_assert_events_helpers_for_parachain!(AssetHubRococo);
 impl_assets_helpers_for_system_parachain!(AssetHubRococo, Rococo);
 impl_assets_helpers_for_parachain!(AssetHubRococo);
-impl_foreign_assets_helpers_for_parachain!(AssetHubRococo, xcm::v5::Location);
+impl_foreign_assets_helpers_for_parachain!(
+	AssetHubRococo,
+	xcm::v5::Location,
+	ForeignAssetReserveData
+);
 impl_xcm_helpers_for_parachain!(AssetHubRococo);
 impl_bridge_helpers_for_chain!(
 	AssetHubRococo,

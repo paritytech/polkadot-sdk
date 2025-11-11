@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::imports::*;
+use crate::{create_pool_with_wnd_on, imports::*};
 
 /// Relay Chain should be able to execute `Transact` instructions in System Parachain
 /// when `OriginKind::Superuser`.
@@ -24,21 +24,13 @@ fn send_transact_as_superuser_from_relay_to_asset_hub_works() {
 		ASSET_MIN_BALANCE,
 		true,
 		AssetHubWestendSender::get().into(),
-		Some(Weight::from_parts(144_759_000, 3675)),
+		Some(Weight::from_parts(78_628_000, 3675)),
 	)
 }
 
-/// We tests two things here:
-/// - Parachain should be able to send XCM paying its fee at Asset Hub using system asset
-/// - Parachain should be able to create a new Foreign Asset at Asset Hub
-#[test]
-fn send_xcm_from_para_to_asset_hub_paying_fee_with_system_asset() {
-	let para_sovereign_account = AssetHubWestend::sovereign_account_id_of(
+pub fn penpal_register_foreign_asset_on_asset_hub(asset_location_on_penpal: Location) {
+	let penpal_sovereign_account = AssetHubWestend::sovereign_account_id_of(
 		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
-	);
-	let asset_location_on_penpal = Location::new(
-		0,
-		[Junction::PalletInstance(ASSETS_PALLET_ID), Junction::GeneralIndex(ASSET_ID.into())],
 	);
 	let foreign_asset_at_asset_hub =
 		Location::new(1, [Junction::Parachain(PenpalA::para_id().into())])
@@ -49,7 +41,7 @@ fn send_xcm_from_para_to_asset_hub_paying_fee_with_system_asset() {
 	let call = AssetHubWestend::create_foreign_asset_call(
 		foreign_asset_at_asset_hub.clone(),
 		ASSET_MIN_BALANCE,
-		para_sovereign_account.clone(),
+		penpal_sovereign_account.clone(),
 	);
 
 	let origin_kind = OriginKind::Xcm;
@@ -62,12 +54,12 @@ fn send_xcm_from_para_to_asset_hub_paying_fee_with_system_asset() {
 		call,
 		origin_kind,
 		system_asset,
-		para_sovereign_account.clone(),
+		penpal_sovereign_account.clone(),
 	);
 
 	// SA-of-Penpal-on-AHR needs to have balance to pay for fees and asset creation deposit
 	AssetHubWestend::fund_accounts(vec![(
-		para_sovereign_account.clone().into(),
+		penpal_sovereign_account.clone().into(),
 		ASSET_HUB_WESTEND_ED * 10000000000,
 	)]);
 
@@ -89,14 +81,14 @@ fn send_xcm_from_para_to_asset_hub_paying_fee_with_system_asset() {
 			vec![
 				// Burned the fee
 				RuntimeEvent::Balances(pallet_balances::Event::Burned { who, amount }) => {
-					who: *who == para_sovereign_account,
+					who: *who == penpal_sovereign_account,
 					amount: *amount == fee_amount,
 				},
 				// Foreign Asset created
 				RuntimeEvent::ForeignAssets(pallet_assets::Event::Created { asset_id, creator, owner }) => {
 					asset_id: *asset_id == foreign_asset_at_asset_hub,
-					creator: *creator == para_sovereign_account.clone(),
-					owner: *owner == para_sovereign_account,
+					creator: *creator == penpal_sovereign_account.clone(),
+					owner: *owner == penpal_sovereign_account,
 				},
 			]
 		);
@@ -104,6 +96,18 @@ fn send_xcm_from_para_to_asset_hub_paying_fee_with_system_asset() {
 		type ForeignAssets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
 		assert!(ForeignAssets::asset_exists(foreign_asset_at_asset_hub));
 	});
+}
+
+/// We tests two things here:
+/// - Parachain should be able to send XCM paying its fee at Asset Hub using system asset
+/// - Parachain should be able to create a new Foreign Asset at Asset Hub
+#[test]
+fn send_xcm_from_para_to_asset_hub_paying_fee_with_system_asset() {
+	let asset_location_on_penpal = Location::new(
+		0,
+		[Junction::PalletInstance(ASSETS_PALLET_ID), Junction::GeneralIndex(ASSET_ID.into())],
+	);
+	penpal_register_foreign_asset_on_asset_hub(asset_location_on_penpal);
 }
 
 /// We tests two things here:
@@ -121,7 +125,7 @@ fn send_xcm_from_para_to_asset_hub_paying_fee_with_sufficient_asset() {
 		ASSET_MIN_BALANCE,
 		true,
 		para_sovereign_account.clone(),
-		Some(Weight::from_parts(144_759_000, 3675)),
+		Some(Weight::from_parts(78_628_000, 3675)),
 		ASSET_MIN_BALANCE * 1000000000,
 	);
 
@@ -139,6 +143,8 @@ fn send_xcm_from_para_to_asset_hub_paying_fee_with_sufficient_asset() {
 	let fee_amount = ASSET_MIN_BALANCE * 1000000;
 	let asset =
 		([PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())], fee_amount).into();
+	let asset_location =
+		Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())]);
 
 	let root_origin = <PenpalA as Chain>::RuntimeOrigin::root();
 	let system_para_destination = PenpalA::sibling_location_of(AssetHubWestend::para_id()).into();
@@ -149,6 +155,15 @@ fn send_xcm_from_para_to_asset_hub_paying_fee_with_sufficient_asset() {
 		para_sovereign_account.clone().into(),
 		ASSET_HUB_WESTEND_ED * 10000000000,
 	)]);
+
+	create_pool_with_wnd_on!(
+		AssetHubWestend,
+		asset_location,
+		false,
+		para_sovereign_account.clone(),
+		9_000_000_000_000_000,
+		9_000_000_000_000
+	);
 
 	PenpalA::execute_with(|| {
 		assert_ok!(<PenpalA as PenpalAPallet>::PolkadotXcm::send(

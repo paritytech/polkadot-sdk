@@ -15,7 +15,6 @@ workspace = true
 bitflags = { workspace = true }
 bitvec = { features = ["alloc"], workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
-derive_more = { workspace = true, default-features = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
@@ -48,6 +47,9 @@ pallet-session = { workspace = true }
 pallet-staking = { workspace = true }
 pallet-timestamp = { workspace = true }
 
+# only used in benchmarking
+frame-election-provider-support = { workspace = true, optional = true }
+
 polkadot-primitives = { workspace = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
@@ -60,13 +62,12 @@ rand_chacha = { workspace = true }
 static_assertions = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
-polkadot-primitives = { workspace = true, features = ["test"] }
-
 assert_matches = { workspace = true }
 frame-support-test = { workspace = true }
-futures = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, features = ["test"] }
 polkadot-primitives-test-helpers = { workspace = true }
+pretty_assertions = { workspace = true }
 rstest = { workspace = true }
 sc-keystore = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
@@ -82,6 +83,7 @@ std = [
 	"bitvec/std",
 	"codec/std",
 	"frame-benchmarking?/std",
+	"frame-election-provider-support?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
@@ -120,6 +122,8 @@ std = [
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
+	"frame-election-provider-support/runtime-benchmarks",
+	"frame-support-test/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
@@ -127,6 +131,7 @@ runtime-benchmarks = [
 	"pallet-broker/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
@@ -140,6 +145,7 @@ runtime-benchmarks = [
 	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
+	"frame-election-provider-support?/try-runtime",
 	"frame-support-test/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",

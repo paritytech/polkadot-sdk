@@ -23,7 +23,8 @@ use frame_support::{
 		fungible::{self, NativeFromLeft, NativeOrWithId},
 		fungibles::Mutate,
 		tokens::imbalance::ResolveAssetTo,
-		AsEnsureOriginWithArg, Equals, Everything, Nothing, OriginTrait, PalletInfoAccess,
+		AsEnsureOriginWithArg, Disabled, Equals, Everything, Nothing, OriginTrait,
+		PalletInfoAccess,
 	},
 	PalletId,
 };
@@ -82,6 +83,7 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type Freezer = ();
+	type Holder = ();
 	type CallbackHandle = ();
 }
 
@@ -97,6 +99,7 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type Freezer = ();
+	type Holder = ();
 	type CallbackHandle = ();
 }
 
@@ -218,6 +221,7 @@ pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = ();
+	type XcmEventEmitter = ();
 	type AssetTransactor = FungibleTransactor;
 	type OriginConverter = ();
 	type IsReserve = ();
@@ -290,6 +294,8 @@ parameter_types! {
 	pub const NoNetwork: Option<NetworkId> = None;
 }
 
+/// Converts a local signed origin into an XCM location. Forms the basis for local origins
+/// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountIndex64<RuntimeOrigin, AccountId, NoNetwork>;
 
 impl pallet_xcm::Config for Runtime {
@@ -330,6 +336,8 @@ impl pallet_xcm::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
+	// Aliasing is disabled: xcm_executor::Config::Aliasers is set to `Nothing`.
+	type AuthorizedAliasConsideration = Disabled;
 }
 
 pub const INITIAL_BALANCE: Balance = 1_000_000_000;
