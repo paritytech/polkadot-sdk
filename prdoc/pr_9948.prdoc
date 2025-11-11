@@ -90,9 +90,11 @@ crates:
 - name: emulated-integration-tests-common
   bump: minor
 - name: pallet-xcm-precompiles
-  bump: minor
-- name: snowbridge-pallet-inbound-queue
   bump: patch
+- name: snowbridge-pallet-inbound-queue
+  bump: minor
+- name: polkadot-sdk
+  bump: minor  
 - name: snowbridge-inbound-queue-primitives
   bump: major
 - name: snowbridge-pallet-inbound-queue-v2
