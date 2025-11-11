@@ -147,6 +147,8 @@ pub struct ExtendedOverseerGenArgs {
 	pub invulnerable_ah_collators: HashSet<polkadot_node_network_protocol::PeerId>,
 	/// Override for `HOLD_OFF_DURATION` constant .
 	pub collator_protocol_hold_off: Option<Duration>,
+	/// Use experimental collator protocol
+	pub experimental_collator_protocol: bool,
 }
 
 /// Obtain a prepared validator `Overseer`, that is initialized with all default values.
@@ -183,6 +185,7 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		fetch_chunks_threshold,
 		invulnerable_ah_collators,
 		collator_protocol_hold_off,
+		experimental_collator_protocol,
 	}: ExtendedOverseerGenArgs,
 ) -> Result<
 	InitializedOverseerBuilder<
@@ -299,12 +302,21 @@ where
 					return Err(Error::Overseer(SubsystemError::Context(
 						"build validator overseer for parachain node".to_owned(),
 					))),
-				IsParachainNode::No => ProtocolSide::ValidatorExperimental {
-					keystore: keystore.clone(),
-					metrics: Metrics::register(registry)?,
-					invulnerables: invulnerable_ah_collators,
-					collator_protocol_hold_off,
-				},
+				IsParachainNode::No =>
+					if experimental_collator_protocol {
+						ProtocolSide::ValidatorExperimental {
+							keystore: keystore.clone(),
+							metrics: Metrics::register(registry)?,
+						}
+					} else {
+						ProtocolSide::Validator {
+							keystore: keystore.clone(),
+							eviction_policy: Default::default(),
+							metrics: Metrics::register(registry)?,
+							invulnerables: invulnerable_ah_collators,
+							collator_protocol_hold_off,
+						}
+					},
 			};
 			CollatorProtocolSubsystem::new(side)
 		})
