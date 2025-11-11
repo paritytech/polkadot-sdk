@@ -113,7 +113,7 @@ def main() -> None:
     )
     print("## Specified Tests", file=markdown_document)
     for test_specifier in test_specifiers:
-        print(f"* `{test_specifier}`", file=markdown_document)
+        print(f"* ``{test_specifier}``", file=markdown_document)
 
     # Counting the total number of test cases, successes, failures, and ignored tests
     total_number_of_cases: int = 0
@@ -243,7 +243,7 @@ def main() -> None:
                     f"{metadata_file_path}::{case_idx_string}::{mode_string}"
                 )
                 print(
-                    f"| `{test_specifier}` | `{failure_reason}` | {note} |",
+                    f"| ``{test_specifier}`` | ``{failure_reason}`` | {note} |",
                     file=markdown_document,
                 )
     print("\n\n</details>", file=markdown_document)
