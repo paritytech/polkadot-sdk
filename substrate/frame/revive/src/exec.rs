@@ -1741,16 +1741,12 @@ where
 	fn terminate_if_same_tx(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
 		if_tracing(|tracer| {
 			use crate::frame_support::traits::tokens::{Fortitude::Polite, Preservation};
+			let addr = T::AddressMapper::to_address(self.account_id());
 			tracer.terminate(
-				T::AddressMapper::to_address(self.account_id()),
+				addr,
 				beneficiary.clone(),
 				self.top_frame().nested_gas.gas_left(),
-				crate::Pallet::<T>::convert_native_to_evm(T::Currency::reducible_balance(
-					&self.account_id(),
-					Preservation::Expendable,
-					Polite,
-				))
-				.into(),
+				crate::Pallet::<T>::evm_balance(&addr),
 			);
 		});
 		let (account_id, contract_address, contract_info) = {
