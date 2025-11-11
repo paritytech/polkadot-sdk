@@ -34,7 +34,12 @@ use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},
 	BoundedVec,
 };
+<<<<<<< HEAD
 use sp_core::storage::{ChildInfo, StateVersion};
+=======
+use polkadot_parachain_primitives::primitives::{HeadData, ValidationResult};
+use sp_core::storage::{well_known_keys, ChildInfo, StateVersion};
+>>>>>>> 4e1d963 (Accept only one block in `validate_block` when upgrading a runtime (#10280))
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::{hashing::blake2_128, KillStorageResult};
 use sp_runtime::traits::{
@@ -266,6 +271,10 @@ where
 				E::execute_block(block);
 			},
 		);
+
+		if overlay.storage(well_known_keys::CODE).is_some() && num_blocks > 1 {
+			panic!("When applying a runtime upgrade, only one block per PoV is allowed. Received {num_blocks}.")
+		}
 
 		run_with_externalities_and_recorder::<B, _, _>(
 			&backend,
