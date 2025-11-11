@@ -6,3 +6,15 @@ doc:
 crates:
 - name: frame-system
   bump: patch
+- name: polkadot-runtime-parachains
+  bump: patch
+- name: pallet-revive
+  bump: patch
+- name: pallet-babe
+  bump: none
+- name: pallet-aura
+  bump: none
+- name: cumulus-pallet-parachain-system
+  bump: none
+- name: frame-executive
+  bump: none
