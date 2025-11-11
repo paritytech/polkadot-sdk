@@ -600,28 +600,28 @@ fn prune_unfinalized_forks() {
 		(
 			ValidatorIndex(0),
 			PerValidatorTally {
-				noshows: 1,
+				no_shows: 1,
 				approvals: 1,
 			},
 		),
 		(
 			ValidatorIndex(1),
 			PerValidatorTally {
-				noshows: 1,
+				no_shows: 1,
 				approvals: 1,
 			},
 		),
 		(
 			ValidatorIndex(2),
 			PerValidatorTally {
-				noshows: 0,
+				no_shows: 0,
 				approvals: 2,
 			},
 		),
 		(
 			ValidatorIndex(3),
 			PerValidatorTally {
-				noshows: 0,
+				no_shows: 0,
 				approvals: 1,
 			},
 		),
@@ -709,7 +709,7 @@ fn prune_unfinalized_forks() {
 		(
 			ValidatorIndex(0),
 			PerValidatorTally {
-				noshows: 1,
+				no_shows: 1,
 				// validator 0 approvals increased from 1 to 2
 				// as block D with more collected approvals
 				// was finalized
@@ -719,21 +719,21 @@ fn prune_unfinalized_forks() {
 		(
 			ValidatorIndex(1),
 			PerValidatorTally {
-				noshows: 1,
+				no_shows: 1,
 				approvals: 2,
 			},
 		),
 		(
 			ValidatorIndex(2),
 			PerValidatorTally {
-				noshows: 0,
+				no_shows: 0,
 				approvals: 2,
 			},
 		),
 		(
 			ValidatorIndex(3),
 			PerValidatorTally {
-				noshows: 0,
+				no_shows: 0,
 				approvals: 1,
 			},
 		),
@@ -745,28 +745,28 @@ fn prune_unfinalized_forks() {
 		(
 			ValidatorIndex(0),
 			PerValidatorTally {
-				noshows: 0,
+				no_shows: 0,
 				approvals: 1,
 			},
 		),
 		(
 			ValidatorIndex(1),
 			PerValidatorTally {
-				noshows: 0,
+				no_shows: 0,
 				approvals: 1,
 			},
 		),
 		(
 			ValidatorIndex(2),
 			PerValidatorTally {
-				noshows: 1,
+				no_shows: 1,
 				approvals: 0,
 			},
 		),
 		(
 			ValidatorIndex(3),
 			PerValidatorTally {
-				noshows: 0,
+				no_shows: 0,
 				approvals: 1,
 			},
 		),

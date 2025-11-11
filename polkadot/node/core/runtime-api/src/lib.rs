@@ -33,6 +33,7 @@ use polkadot_primitives::Hash;
 use cache::{RequestResult, RequestResultCache};
 use futures::{channel::oneshot, prelude::*, select, stream::FuturesUnordered};
 use std::sync::Arc;
+use polkadot_node_subsystem_types::messages::RuntimeApiRequest::SubmitApprovalStatistics;
 
 mod cache;
 
@@ -156,6 +157,7 @@ where
 			PvfsRequirePrecheck(relay_parent, pvfs) =>
 				self.requests_cache.cache_pvfs_require_precheck(relay_parent, pvfs),
 			SubmitPvfCheckStatement(()) => {},
+			SubmitApprovalStatistics(()) => {},
 			ValidationCodeHash(relay_parent, para_id, assumption, hash) => self
 				.requests_cache
 				.cache_validation_code_hash((relay_parent, para_id, assumption), hash),
@@ -306,6 +308,10 @@ where
 			Request::PvfsRequirePrecheck(sender) => query!(pvfs_require_precheck(), sender)
 				.map(|sender| Request::PvfsRequirePrecheck(sender)),
 			request @ Request::SubmitPvfCheckStatement(_, _, _) => {
+				// This request is side-effecting and thus cannot be cached.
+				Some(request)
+			},
+			request @ Request::SubmitApprovalStatistics(_, _, _) => {
 				// This request is side-effecting and thus cannot be cached.
 				Some(request)
 			},
@@ -619,6 +625,15 @@ where
 				result = ()
 			)
 		},
+		Request::SubmitApprovalStatistics(payload, sig, sender) => {
+			query!(
+				SubmitApprovalStatistics,
+				submit_approval_statistics(payload, sig),
+				ver = 2,
+				sender,
+				result = ()
+			)
+		}
 		Request::PvfsRequirePrecheck(sender) => {
 			query!(PvfsRequirePrecheck, pvfs_require_precheck(), ver = 2, sender)
 		},

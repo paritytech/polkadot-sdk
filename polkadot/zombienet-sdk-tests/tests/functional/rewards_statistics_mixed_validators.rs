@@ -34,9 +34,10 @@ async fn rewards_statistics_mixed_validators_test() -> Result<(), anyhow::Error>
                 .with_genesis_overrides(json!({
 					"configuration": {
 						"config": {
-                            "relay_vrf_modulo_samples": 1,
+                            "relay_vrf_modulo_samples": 2,
 							"scheduler_params": {
-								"group_rotation_frequency": 4
+								"group_rotation_frequency": 4,
+                                "max_validators_per_core": 6,
 							}
 						}
 					}

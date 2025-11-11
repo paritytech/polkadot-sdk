@@ -26,14 +26,22 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::collections::hash_map::Entry;
 use futures::{channel::oneshot, prelude::*};
 use gum::CandidateHash;
+use sp_keystore::KeystorePtr;
 use polkadot_node_subsystem::{
-    overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
+    errors::RuntimeApiError as RuntimeApiSubsystemError,
+    messages::{ChainApiMessage, ConsensusStatisticsCollectorMessage, RuntimeApiMessage, RuntimeApiRequest},
+    overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemSender
 };
-use polkadot_node_subsystem::messages::{ChainApiMessage, ConsensusStatisticsCollectorMessage};
-use polkadot_primitives::{AuthorityDiscoveryId, BlockNumber, Hash, Header, SessionIndex, ValidatorIndex};
-use polkadot_node_primitives::approval::time::Tick;
-use polkadot_node_primitives::approval::v1::DelayTranche;
-use polkadot_primitives::well_known_keys::relay_dispatch_queue_remaining_capacity;
+use polkadot_primitives::{
+    AuthorityDiscoveryId, BlockNumber, Hash, Header, SessionIndex, ValidatorId, ValidatorIndex,
+    well_known_keys::relay_dispatch_queue_remaining_capacity
+};
+use polkadot_node_primitives::{
+    approval::{
+        time::Tick,
+        v1::DelayTranche
+    }
+};
 use crate::{
     error::{FatalError, FatalResult, JfyiError, JfyiErrorResult, Result},
 };
@@ -46,7 +54,9 @@ mod availability_distribution_metrics;
 pub mod metrics;
 
 use approval_voting_metrics::ApprovalsStats;
+use polkadot_node_subsystem::RuntimeApiError::{Execution, NotSupported};
 use polkadot_node_subsystem_util::{request_candidate_events, request_session_index_for_child, request_session_info};
+use polkadot_primitives::vstaging::{ApprovalStatisticsTallyLine, ApprovalStatistics};
 use crate::approval_voting_metrics::{handle_candidate_approved, handle_observed_no_shows};
 use crate::availability_distribution_metrics::{handle_chunk_uploaded, handle_chunks_downloaded, AvailabilityChunks};
 use self::metrics::Metrics;
@@ -83,13 +93,13 @@ impl PerRelayView {
 
 #[derive(Debug, Eq, PartialEq, Clone, Default)]
 struct PerValidatorTally {
-    noshows: u32,
+    no_shows: u32,
     approvals: u32,
 }
 
 impl PerValidatorTally {
     fn increment_noshow(&mut self) {
-        self.noshows += 1;
+        self.no_shows += 1;
     }
 
     fn increment_approval(&mut self) {
@@ -109,12 +119,22 @@ impl PerSessionView {
     }
 }
 
+/// A struct that holds the credentials required to sign the PVF check statements. These credentials
+/// are implicitly to pinned to a session where our node acts as a validator.
+struct SigningCredentials {
+    /// The validator public key.
+    validator_key: ValidatorId,
+    /// The validator index in the current session.
+    validator_index: ValidatorIndex,
+}
+
 struct View {
     roots: HashSet<Hash>,
     per_relay: HashMap<Hash, PerRelayView>,
     per_session: HashMap<SessionIndex, PerSessionView>,
     availability_chunks: HashMap<SessionIndex, AvailabilityChunks>,
     current_session: Option<SessionIndex>,
+    credentials: Option<SigningCredentials>,
 }
 
 impl View {
@@ -125,6 +145,7 @@ impl View {
             per_session: HashMap::new(),
             availability_chunks: HashMap::new(),
             current_session: None,
+            credentials: None,
         };
     }
 }
@@ -444,7 +465,7 @@ fn log_session_view_general_stats(view: &View) {
         let session_tally = session_view
             .validators_tallies
             .values()
-            .map(|tally| (tally.approvals, tally.noshows))
+            .map(|tally| (tally.approvals, tally.no_shows))
             .fold((0, 0), |acc, (approvals, noshows)| (acc.0 + approvals, acc.1 + noshows));
 
         gum::debug!(
@@ -455,4 +476,129 @@ fn log_session_view_general_stats(view: &View) {
             "session collected statistics"
         );
     }
+}
+
+async fn sign_and_submit_approvals_tallies(
+    sender: &mut impl SubsystemSender<RuntimeApiMessage>,
+    relay_parent: Hash,
+    session_index: SessionIndex,
+    keystore: &KeystorePtr,
+    credentials: &SigningCredentials,
+    metrics: &Metrics,
+    tallies: HashMap<ValidatorIndex, PerValidatorTally>,
+) {
+    gum::debug!(
+		target: LOG_TARGET,
+        ?relay_parent,
+		"submitting {} approvals tallies for session {}",
+        tallies.len(),
+        session_index,
+	);
+
+    metrics.submit_approvals_tallies(tallies.len());
+
+    let mut validators_indexes = tallies.keys().collect::<Vec<_>>();
+    validators_indexes.sort();
+
+    let mut approvals_tallies: Vec<ApprovalStatisticsTallyLine> = Vec::with_capacity(tallies.len());
+    for validator_index in validators_indexes {
+        let current_tally = tallies.get(validator_index).unwrap();
+        approvals_tallies.push(ApprovalStatisticsTallyLine {
+            validator_index: validator_index.clone(),
+            approvals_usage: current_tally.approvals,
+            no_shows: current_tally.no_shows,
+        });
+    }
+
+    let payload = ApprovalStatistics(session_index, approvals_tallies);
+
+    let signature = match polkadot_node_subsystem_util::sign(
+        keystore,
+        &credentials.validator_key,
+        &payload.signing_payload(),
+    ) {
+        Ok(Some(signature)) => signature,
+        Ok(None) => {
+            gum::warn!(
+				target: LOG_TARGET,
+                ?relay_parent,
+				validator_index = ?credentials.validator_index,
+				"private key for signing is not available",
+			);
+            return
+        },
+        Err(e) => {
+            gum::warn!(
+				target: LOG_TARGET,
+                ?relay_parent,
+				validator_index = ?credentials.validator_index,
+				"error signing the statement: {:?}",
+				e,
+			);
+            return
+        },
+    };
+
+    let (tx, rx) = oneshot::channel();
+    let runtime_req = runtime_api_request(
+        sender,
+        relay_parent,
+        RuntimeApiRequest::SubmitApprovalStatistics(payload, signature, tx),
+        rx,
+    );
+
+    match runtime_req.await {
+        Ok(()) => {
+            metrics.on_vote_submitted();
+        },
+        Err(e) => {
+            gum::warn!(
+				target: LOG_TARGET,
+				"error occurred during submitting a approvals rewards tallies: {:?}",
+				e,
+			);
+        },
+    }
+}
+
+#[derive(Debug)]
+pub(crate) enum RuntimeRequestError {
+    NotSupported,
+    ApiError,
+    CommunicationError,
+}
+
+pub(crate) async fn runtime_api_request<T>(
+    sender: &mut impl SubsystemSender<RuntimeApiMessage>,
+    relay_parent: Hash,
+    request: RuntimeApiRequest,
+    receiver: oneshot::Receiver<std::result::Result<T, RuntimeApiSubsystemError>>,
+) -> std::result::Result<T, RuntimeRequestError> {
+    sender
+        .send_message(RuntimeApiMessage::Request(relay_parent, request).into())
+        .await;
+
+    receiver
+        .await
+        .map_err(|_| {
+            gum::debug!(target: LOG_TARGET, ?relay_parent, "Runtime API request dropped");
+            RuntimeRequestError::CommunicationError
+        })
+        .and_then(|res| {
+            res.map_err(|e| {
+                use RuntimeApiSubsystemError::*;
+                match e {
+                    Execution { .. } => {
+                        gum::debug!(
+							target: LOG_TARGET,
+							?relay_parent,
+							err = ?e,
+							"Runtime API request internal error"
+						);
+                        RuntimeRequestError::ApiError
+                    },
+                    NotSupported { .. } => RuntimeRequestError::NotSupported,
+                }
+            })
+        })
 }
