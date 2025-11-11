@@ -1,6 +1,6 @@
 [package]
 name = "sc-tracing"
-version = "40.0.0"
+version = "40.0.1"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors.workspace = true
 edition.workspace = true
@@ -34,7 +34,8 @@ sc-client-api.workspace = true
 sc-tracing-proc-macro.default-features = true
 sc-tracing-proc-macro.workspace = true
 serde = { workspace = true, default-features = true }
-sp-api = { workspace = true, default-features = true }
+sp-api.default-features = true
+sp-api.workspace = true
 sp-blockchain.default-features = true
 sp-blockchain.workspace = true
 sp-core.default-features = true
@@ -45,7 +46,8 @@ sp-runtime.default-features = true
 sp-runtime.workspace = true
 sp-tracing.default-features = true
 sp-tracing.workspace = true
-sp-trie = { workspace = true, default-features = true }
+sp-trie.default-features = true
+sp-trie.workspace = true
 thiserror = { workspace = true }
 tracing = { workspace = true, default-features = true }
 tracing-log = { workspace = true }
