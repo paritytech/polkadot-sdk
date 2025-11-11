@@ -440,8 +440,11 @@ async fn runtime_api_dry_run_addr_works() -> anyhow::Result<()> {
 		None,
 	);
 
-	let _nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
-	let contract_address = create1(&account.address(), 0u64);
+	// runtime_api.at_latest() uses the latest finalized block, query nonce accordingly
+	let nonce = client
+		.get_transaction_count(account.address(), BlockTag::Finalized.into())
+		.await?;
+	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
 
 	let c = OnlineClient::<SrcChainConfig>::from_url("ws://localhost:45789").await?;
 	let res = c.runtime_api().at_latest().await?.call(payload).await?.result.unwrap();
