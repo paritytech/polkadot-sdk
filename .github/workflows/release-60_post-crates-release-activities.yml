@@ -104,9 +104,49 @@ jobs:
 
           echo "Successfully bumped NODE_VERSION from $current_version to $new_version"
 
-      - name: Check spec_version for runtimes
+      - name: Bump spec_version for runtimes
+        shell: bash
         run: |
-          echo "ACTION REQUIRED: Please check if spec_version needs to be bumped for runtimes"
+          . ./.github/scripts/release/release_lib.sh
+
+          echo "Bumping spec_version for runtimes..."
+
+          # Extract the NODE_VERSION that was just bumped
+          FILE="polkadot/node/primitives/src/lib.rs"
+          NODE_VERSION=$(grep 'pub const NODE_VERSION' "$FILE" | grep -oE '"[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"')
+          echo "Current NODE_VERSION: $NODE_VERSION"
+
+          # Calculate the spec_version based on NODE_VERSION
+          patch=$(echo "$NODE_VERSION" | awk -F. '{print $3}')
+          export SUFFIX=$(printf "%03d" "$patch")
+          SPEC_VERSION=$(get_spec_version $NODE_VERSION)
+
+          echo "Calculated SPEC_VERSION: $SPEC_VERSION (with SUFFIX: $SUFFIX)"
+
+          # Get the list of runtimes
+          runtimes_list=$(get_filtered_runtimes_list)
+
+          if [ -z "$runtimes_list" ]; then
+            echo "No runtimes found, skipping spec_version bump"
+            exit 0
+          fi
+
+          echo "Found runtimes to process:"
+          echo "$runtimes_list"
+          echo ""
+
+          # Set the same spec_version for all runtimes
+          printf "📋 Setting spec_version to $SPEC_VERSION for all runtimes\n"
+
+          for f in ${runtimes_list[@]}; do
+            printf " 🔄  processing $f\n"
+            sed -ri "s/spec_version: [0-9]+_[0-9]+_[0-9]+,/spec_version: $SPEC_VERSION,/" $f
+          done
+
+          # Commit the changes
+          commit_with_message "Bump spec_version to $SPEC_VERSION"
+
+          echo "✅ Successfully bumped spec_version to $SPEC_VERSION for all runtimes"
 
       - name: Move prdocs to release folder
         shell: bash
