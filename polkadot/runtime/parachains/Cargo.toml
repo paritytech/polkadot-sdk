@@ -56,12 +56,12 @@ xcm.workspace = true
 xcm-executor.workspace = true
 
 [dev-dependencies]
-polkadot-primitives = { features = ["test"], workspace = true, default-features = false }
-
 assert_matches = { workspace = true }
 frame-support-test = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, features = ["test"] }
 polkadot-primitives-test-helpers = { workspace = true }
+pretty_assertions = { workspace = true }
 rstest = { workspace = true }
 sc-keystore = { default-features = true, workspace = true }
 serde_json = { workspace = true, default-features = true }
