@@ -34,12 +34,14 @@ sc-cli = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
 sc-rpc-api = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
+serde = { workspace = true, default-features = true, features = ["alloc", "derive"] }
 serde_json = { workspace = true }
 sp-arithmetic = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true }
 sp-rpc = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+sp-timestamp = { workspace = true }
 sp-weights = { workspace = true, default-features = true }
 sqlx = { workspace = true, features = ["macros", "runtime-tokio", "sqlite"] }
 subxt = { workspace = true, default-features = true, features = ["reconnecting-rpc-client"] }
@@ -51,6 +53,7 @@ tokio = { workspace = true, features = ["full"] }
 env_logger = { workspace = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
 pretty_assertions = { workspace = true }
+sp-io = { workspace = true, default-features = true }
 static_init = { workspace = true }
 substrate-cli-test-utils = { workspace = true }
 

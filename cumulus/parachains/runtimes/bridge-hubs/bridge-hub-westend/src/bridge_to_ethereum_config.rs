@@ -23,6 +23,7 @@ use crate::{
 	Runtime, RuntimeEvent, TransactionByteFee,
 };
 use bp_asset_hub_westend::CreateForeignAssetDeposit;
+use bridge_hub_common::AggregateMessageOrigin;
 use frame_support::{parameter_types, traits::Contains, weights::ConstantMultiplier};
 use frame_system::EnsureRootWithSuccess;
 use hex_literal::hex;
@@ -192,7 +193,7 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = SnowbridgeReward;
 	type RewardPayment = BridgeRelayers;
-	// No consumers of this notifier on Bridge Hub.
+	type AggregateMessageOrigin = AggregateMessageOrigin;
 	type OnNewCommitment = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
@@ -223,7 +224,11 @@ parameter_types! {
 		},
 		electra: Fork {
 			version: hex!("90000074"),
-			epoch: 222464, // https://github.com/ethereum/EIPs/pull/9322/files
+			epoch: 222464,
+		},
+		fulu: Fork {
+			version: hex!("90000075"),
+			epoch: 272640, // https://notes.ethereum.org/@bbusa/fusaka-bpo-timeline
 		},
 	};
 }
@@ -255,6 +260,10 @@ parameter_types! {
 			version: hex!("05000000"),
 			epoch: 0,
 		},
+		fulu: Fork {
+			version: hex!("06000000"),
+			epoch: 5000000,
+		}
 	};
 }
 

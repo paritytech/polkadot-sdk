@@ -21,6 +21,9 @@ on:
       is_org_member:
         description: "Is the user an org member"
         required: true
+      is_pr_author:
+        description: "Is the user the PR author"
+        required: true
       repo:
         description: "Repository to use"
         required: true
@@ -72,7 +75,7 @@ jobs:
 
       - name: Comment PR (Start)
         # No need to comment on prdoc start or if --quiet
-        if: ${{ github.event.inputs.is_quiet == 'false' && !startsWith(github.event.inputs.cmd, 'prdoc') && !startsWith(github.event.inputs.cmd, 'fmt')}}
+        if: ${{ github.event.inputs.is_quiet == 'false' && !startsWith(github.event.inputs.cmd, 'prdoc') && !startsWith(github.event.inputs.cmd, 'fmt') && !startsWith(github.event.inputs.cmd, 'label')}}
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -151,6 +154,7 @@ jobs:
         env:
           PR_ARG: ${{ steps.pr-arg.outputs.arg }}
           IS_ORG_MEMBER: ${{ github.event.inputs.is_org_member }}
+          IS_PR_AUTHOR: ${{ github.event.inputs.is_pr_author }}
           RUNNER: ${{ github.event.inputs.runner }}
           IMAGE: ${{ github.event.inputs.image }}
         run: |
@@ -196,25 +200,25 @@ jobs:
 
       - name: Upload command output
         if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: command-output
           path: /tmp/cmd/command_output.log
 
       - name: Upload command diff
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: command-diff
           path: /tmp/cmd/command_diff.patch
 
       - name: Upload git status
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: git-status
           path: /tmp/cmd/git_status.log
 
       - name: Upload git diff
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: git-diff
           path: /tmp/cmd/git_diff.log
@@ -259,7 +263,7 @@ jobs:
           } >> $GITHUB_OUTPUT
 
       - name: Upload Subweight
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         if: startsWith(github.event.inputs.cmd, 'bench')
         with:
           name: subweight
@@ -289,12 +293,89 @@ jobs:
           ref: ${{ env.PR_BRANCH }}
 
       - name: Download all artifacts
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: command-diff
           path: command-diff
 
+      - name: Apply labels for label command
+        if: startsWith(github.event.inputs.cmd, 'label')
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          github-token: ${{ steps.generate_token.outputs.token }}
+          script: |
+            // Read the command output to get validated labels
+            const fs = require('fs');
+            let labels = [];
+
+            try {
+              const output = fs.readFileSync('/tmp/cmd/command_output.log', 'utf8');
+
+              // Parse JSON labels from output - look for "LABELS_JSON: {...}"
+              const jsonMatch = output.match(/LABELS_JSON: (.+)/);
+              if (jsonMatch) {
+                const labelsData = JSON.parse(jsonMatch[1]);
+                labels = labelsData.labels || [];
+              }
+            } catch (error) {
+              console.error(`Error reading command output: ${error.message}`);
+              throw new Error('Label validation failed. Check the command output for details.');
+            }
+
+            if (labels.length > 0) {
+              try {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: ${{ env.PR_NUM }},
+                  labels: labels
+                });
+              } catch (error) {
+                console.error(`Error adding labels: ${error.message}`);
+                throw error;
+              }
+            }
+
+      - name: Comment PR (Label Error)
+        if: ${{ failure() && startsWith(github.event.inputs.cmd, 'label') }}
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          CMD_OUTPUT: "${{ needs.cmd.outputs.cmd_output }}"
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            let runUrl = ${{ needs.before-cmd.outputs.run_url }};
+            let cmdOutput = process.env.CMD_OUTPUT || '';
+
+            // Try to parse JSON error for better formatting
+            let errorMessage = 'Label validation failed. Please check the error details below and try again.';
+            let errorDetails = '';
+
+            try {
+              const errorMatch = cmdOutput.match(/ERROR_JSON: (.+)/);
+              if (errorMatch) {
+                const errorData = JSON.parse(errorMatch[1]);
+                errorMessage = errorData.message || errorMessage;
+                errorDetails = errorData.details || '';
+              }
+            } catch (e) {
+              // Fallback to raw output
+              errorDetails = cmdOutput;
+            }
+
+            let cmdOutputCollapsed = errorDetails.trim() !== ''
+              ? `<details>\n\n<summary>Error details:</summary>\n\n${errorDetails}\n\n</details>`
+              : '';
+
+            github.rest.issues.createComment({
+              issue_number: ${{ env.PR_NUM }},
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `❌ ${errorMessage}\n\n${cmdOutputCollapsed}\n\n[See full logs here](${runUrl})`
+            })
+
       - name: Apply & Commit changes
+        if: ${{ !startsWith(github.event.inputs.cmd, 'label') }}
         run: |
           ls -lsa .
 
@@ -333,10 +414,11 @@ jobs:
             echo "Nothing to commit";
           fi
 
+
       - name: Comment PR (End)
         # No need to comment on prdoc success or --quiet
         #TODO: return "&& !contains(github.event.comment.body, '--quiet')"
-        if: ${{ github.event.inputs.is_quiet == 'false' && needs.cmd.result == 'success' && !startsWith(github.event.inputs.cmd, 'prdoc') && !startsWith(github.event.inputs.cmd, 'fmt') }}
+        if: ${{ github.event.inputs.is_quiet == 'false' && needs.cmd.result == 'success' && !startsWith(github.event.inputs.cmd, 'prdoc') && !startsWith(github.event.inputs.cmd, 'fmt') && !startsWith(github.event.inputs.cmd, 'label') }}
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           SUBWEIGHT: "${{ needs.cmd.outputs.subweight }}"
@@ -365,6 +447,7 @@ jobs:
               repo: context.repo.repo,
               body: `Command "${cmd}" has finished ✅ [See logs here](${runUrl})${subweightCollapsed}${cmdOutputCollapsed}`
             })
+
 
   finish:
     needs: [before-cmd, cmd, after-cmd]
