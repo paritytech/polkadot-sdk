@@ -231,6 +231,7 @@ runtime-metrics = [
 	"westend-runtime?/runtime-metrics",
 ]
 x-shadow = [
+	"kvdb-rocksdb?/x-shadow",
 	"polkadot-node-core-pvf/x-shadow",
 	"polkadot-overseer/x-shadow",
 ]

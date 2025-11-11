@@ -9283,8 +9283,7 @@ dependencies = [
 [[package]]
 name = "kvdb"
 version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7d770dcb02bf6835887c3a979b5107a04ff4bbde97a5f0928d27404a155add9"
+source = "git+https://github.com/xDimon/parity-common?branch=xDimon/shadow_simulation_support#99959ae2081169a0c487da464266f98ff78e15a8"
 dependencies = [
  "smallvec",
 ]
@@ -9301,9 +9300,8 @@ dependencies = [
 
 [[package]]
 name = "kvdb-rocksdb"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8beb5ce840610e5a945f0306f6e7a2d5b3e68ea3e64e9a4f081fa4ee5aa6525"
+version = "0.20.1"
+source = "git+https://github.com/xDimon/parity-common?branch=xDimon/shadow_simulation_support#99959ae2081169a0c487da464266f98ff78e15a8"
 dependencies = [
  "kvdb",
  "num_cpus",
@@ -9853,7 +9851,6 @@ dependencies = [
  "cc",
  "libc",
  "libz-sys",
- "tikv-jemalloc-sys",
 ]
 
 [[package]]
