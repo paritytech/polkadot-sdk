@@ -35,13 +35,6 @@ apt install polkadot
 
 ```
 
-Installation from Debian or RPM repository will create a `systemd` service that can be used to run a
-Polkadot node. This is disabled by default, and can be started by running `systemctl start polkadot`
-on demand (use `systemctl enable polkadot` to make it auto-start after reboot). By default, it will
-run as the `polkadot` user.  Command-line flags passed to the binary can be customized by editing
-`/etc/default/polkadot`. This file will not be overwritten on updating Polkadot. You may also just
-run the node directly from the command-line.
-
 ### RPM-based
 Currently supports Rocky Linux 10 and Alma Linux 10, and derivatives.
 
@@ -56,6 +49,13 @@ dnf config-manager --set-enabled polkadot
 dnf install polkadot
 
 ```
+
+Installation from Debian or RPM repository will create a `systemd` service that can be used to run a
+Polkadot node. This is disabled by default, and can be started by running `systemctl start polkadot`
+on demand (use `systemctl enable polkadot` to make it auto-start after reboot). By default, it will
+run as the `polkadot` user.  Command-line flags passed to the binary can be customized by editing
+`/etc/default/polkadot`. This file will not be overwritten on updating Polkadot. You may also just
+run the node directly from the command-line.
 
 ## Building
 
