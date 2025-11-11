@@ -384,6 +384,13 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
+pub fn build_and_execute(test: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		test();
+		Alliance::do_try_state().expect("All invariants must hold after a test");
+	})
+}
+
 #[cfg(feature = "runtime-benchmarks")]
 pub fn new_bench_ext() -> sp_io::TestExternalities {
 	RuntimeGenesisConfig::default().build_storage().unwrap().into()

@@ -19,7 +19,10 @@ use crate::{
 	tracing::Tracing,
 	AccountInfo, Code, Config, ExecReturnValue, Key, Pallet, PristineCode, Weight,
 };
-use alloc::{collections::BTreeMap, vec::Vec};
+use alloc::{
+	collections::{BTreeMap, BTreeSet},
+	vec::Vec,
+};
 use sp_core::{H160, U256};
 
 /// A tracer that traces the prestate.
@@ -28,11 +31,14 @@ pub struct PrestateTracer<T> {
 	/// The tracer configuration.
 	config: PrestateTracerConfig,
 
-	/// The current address of the contract's which storage is being accessed.
-	current_addr: H160,
+	/// Stack of calls.
+	calls: Vec<H160>,
 
-	/// Whether the current call is a contract creation.
-	is_create: Option<Code>,
+	/// The code used by create transaction
+	create_code: Option<Code>,
+
+	/// List of created contracts addresses.
+	created_addrs: BTreeSet<H160>,
 
 	// pre / post state
 	trace: (BTreeMap<H160, PrestateTraceInfo>, BTreeMap<H160, PrestateTraceInfo>),
@@ -47,6 +53,10 @@ where
 	/// Create a new [`PrestateTracer`] instance.
 	pub fn new(config: PrestateTracerConfig) -> Self {
 		Self { config, ..Default::default() }
+	}
+
+	fn current_addr(&self) -> H160 {
+		self.calls.last().copied().unwrap_or_default()
 	}
 
 	/// Returns an empty trace.
@@ -71,6 +81,14 @@ where
 		};
 
 		if self.config.diff_mode {
+			if include_code {
+				for addr in &self.created_addrs {
+					if let Some(info) = post.get_mut(addr) {
+						info.code = Self::bytecode(addr);
+					}
+				}
+			}
+
 			// clean up the storage that are in pre but not in post these are just read
 			pre.iter_mut().for_each(|(addr, info)| {
 				if let Some(post_info) = post.get(addr) {
@@ -154,6 +172,22 @@ where
 		info.nonce = if nonce > 0 { Some(nonce) } else { None };
 		info
 	}
+
+	/// Record a read
+	fn read_account_prestate(&mut self, addr: H160) {
+		if self.created_addrs.contains(&addr) {
+			return
+		}
+
+		let include_code = !self.config.disable_code;
+		self.trace.0.entry(addr).or_insert_with_key(|addr| {
+			Self::prestate_info(
+				addr,
+				Pallet::<T>::evm_balance(addr),
+				include_code.then(|| Self::bytecode(addr)).flatten(),
+			)
+		});
+	}
 }
 
 impl<T: Config> Tracing for PrestateTracer<T>
@@ -172,7 +206,7 @@ where
 	}
 
 	fn instantiate_code(&mut self, code: &crate::Code, _salt: Option<&[u8; 32]>) {
-		self.is_create = Some(code.clone());
+		self.create_code = Some(code.clone());
 	}
 
 	fn enter_child_span(
@@ -185,66 +219,49 @@ where
 		_input: &[u8],
 		_gas: Weight,
 	) {
-		let include_code = !self.config.disable_code;
-		self.trace.0.entry(from).or_insert_with_key(|addr| {
-			Self::prestate_info(
-				addr,
-				Pallet::<T>::evm_balance(addr),
-				include_code.then(|| Self::bytecode(addr)).flatten(),
-			)
-		});
-
-		if self.is_create.is_none() {
-			self.trace.0.entry(to).or_insert_with_key(|addr| {
-				Self::prestate_info(
-					addr,
-					Pallet::<T>::evm_balance(addr),
-					include_code.then(|| Self::bytecode(addr)).flatten(),
-				)
-			});
+		if is_delegate_call {
+			self.calls.push(self.current_addr());
+		} else {
+			self.calls.push(to);
 		}
 
-		if !is_delegate_call {
-			self.current_addr = to;
+		if self.create_code.take().is_some() {
+			self.created_addrs.insert(to);
 		}
+		self.read_account_prestate(from);
+		self.read_account_prestate(to);
 	}
 
 	fn exit_child_span_with_error(&mut self, _error: crate::DispatchError, _gas_used: Weight) {
-		self.is_create = None;
+		self.calls.pop();
 	}
 
 	fn exit_child_span(&mut self, output: &ExecReturnValue, _gas_used: Weight) {
-		let create_code = self.is_create.take();
+		let current_addr = self.calls.pop().unwrap_or_default();
 		if output.did_revert() {
 			return
 		}
 
-		let code = if self.config.disable_code {
-			None
-		} else if let Some(code) = create_code {
-			match code {
-				Code::Upload(code) => Some(code.into()),
-				Code::Existing(code_hash) =>
-					PristineCode::<T>::get(&code_hash).map(|code| Bytes::from(code.to_vec())),
-			}
-		} else {
-			Self::bytecode(&self.current_addr)
-		};
+		let code = if self.config.disable_code { None } else { Self::bytecode(&current_addr) };
 
 		Self::update_prestate_info(
-			self.trace.1.entry(self.current_addr).or_default(),
-			&self.current_addr,
+			self.trace.1.entry(current_addr).or_default(),
+			&current_addr,
 			code,
 		);
 	}
 
 	fn storage_write(&mut self, key: &Key, old_value: Option<Vec<u8>>, new_value: Option<&[u8]>) {
+		let current_addr = self.current_addr();
+		if self.created_addrs.contains(&current_addr) {
+			return
+		}
 		let key = Bytes::from(key.unhashed().to_vec());
 
 		let old_value = self
 			.trace
 			.0
-			.entry(self.current_addr)
+			.entry(current_addr)
 			.or_default()
 			.storage
 			.entry(key.clone())
@@ -257,19 +274,24 @@ where
 		if old_value.as_ref().map(|v| v.0.as_ref()) != new_value {
 			self.trace
 				.1
-				.entry(self.current_addr)
+				.entry(current_addr)
 				.or_default()
 				.storage
 				.insert(key, new_value.map(|v| v.to_vec().into()));
 		} else {
-			self.trace.1.entry(self.current_addr).or_default().storage.remove(&key);
+			self.trace.1.entry(self.current_addr()).or_default().storage.remove(&key);
 		}
 	}
 
 	fn storage_read(&mut self, key: &Key, value: Option<&[u8]>) {
+		let current_addr = self.current_addr();
+		if self.created_addrs.contains(&current_addr) {
+			return
+		}
+
 		self.trace
 			.0
-			.entry(self.current_addr)
+			.entry(current_addr)
 			.or_default()
 			.storage
 			.entry(key.unhashed().to_vec().into())
@@ -277,6 +299,10 @@ where
 	}
 
 	fn balance_read(&mut self, addr: &H160, value: U256) {
+		if self.created_addrs.contains(&addr) {
+			return
+		}
+
 		let include_code = !self.config.disable_code;
 		self.trace.0.entry(*addr).or_insert_with_key(|addr| {
 			Self::prestate_info(addr, value, include_code.then(|| Self::bytecode(addr)).flatten())

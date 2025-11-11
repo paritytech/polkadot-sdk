@@ -666,7 +666,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	/// charged for swapping to `asset_needed_for_fees`.
 	///
 	/// The calculation is done by `Config::AssetExchanger`.
-	/// If neither `PayFees` or `BuyExecution` were not used, or no swap is required,
+	/// If neither `PayFees` or `BuyExecution` were used, or no swap is required,
 	/// it will just return `asset_needed_for_fees`.
 	fn calculate_asset_for_delivery_fees(&self, asset_needed_for_fees: Asset) -> Asset {
 		let Some(asset_wanted_for_fees) =
@@ -1034,7 +1034,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			},
 			// `fallback_max_weight` is not used in the executor, it's only for conversions.
 			Transact { origin_kind, mut call, .. } => {
-				// We assume that the Relay-chain is allowed to use transact on this parachain.
 				let origin = self.cloned_origin().ok_or_else(|| {
 					tracing::trace!(
 						target: "xcm::process_instruction::transact",
@@ -1044,7 +1043,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					XcmError::BadOrigin
 				})?;
 
-				// TODO: #2841 #TRANSACTFILTER allow the trait to issue filters for the relay-chain
 				let message_call = call.take_decoded().map_err(|_| {
 					tracing::trace!(
 						target: "xcm::process_instruction::transact",

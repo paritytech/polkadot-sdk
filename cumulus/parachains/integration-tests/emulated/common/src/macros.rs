@@ -55,7 +55,7 @@ pub use frame_support::{
 };
 pub use xcm_runtime_apis::{
 	dry_run::runtime_decl_for_dry_run_api::DryRunApiV2,
-	fees::{runtime_decl_for_xcm_payment_api::XcmPaymentApiV1, Error as XcmPaymentApiError},
+	fees::{runtime_decl_for_xcm_payment_api::XcmPaymentApiV2, Error as XcmPaymentApiError},
 };
 
 pub use frame_support::traits::{fungible::Mutate, fungibles::Inspect, Currency};
@@ -124,9 +124,15 @@ macro_rules! test_parachain_is_trusted_teleporter {
 							.unwrap();
 						assert_eq!(messages_to_query.len(), 1);
 						remote_message = messages_to_query[0].clone();
+						// The native asset of every system chain.
+						// We want to get the delivery fees in this asset.
+						let asset_id_for_delivery_fees = VersionedAssetId::from(Location::new(1, []));
 						let delivery_fees =
-							<Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_delivery_fees(destination_to_query.clone(),
-							remote_message.clone()).unwrap();
+							<Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_delivery_fees(
+								destination_to_query.clone(),
+								remote_message.clone(),
+								asset_id_for_delivery_fees
+							).unwrap();
 						let latest_delivery_fees: $crate::macros::Assets = delivery_fees.clone().try_into().unwrap();
 						let $crate::macros::Fungible(inner_delivery_fees_amount) = latest_delivery_fees.inner()[0].fun else {
 							unreachable!("asset is non-fungible");
@@ -261,9 +267,15 @@ macro_rules! test_relay_is_trusted_teleporter {
 							.unwrap();
 						assert_eq!(messages_to_query.len(), 1);
 						remote_message = messages_to_query[0].clone();
+						// The native asset of every system chain.
+						// We want to get the delivery fees in this asset.
+						let asset_id_for_delivery_fees = VersionedAssetId::from(Location::new(0, []));
 						let delivery_fees =
-							<Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_delivery_fees(destination_to_query.clone(),
-								remote_message.clone()).unwrap();
+							<Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_delivery_fees(
+								destination_to_query.clone(),
+								remote_message.clone(),
+								asset_id_for_delivery_fees
+							).unwrap();
 						let latest_delivery_fees: $crate::macros::Assets = delivery_fees.clone().try_into().unwrap();
 						let $crate::macros::Fungible(inner_delivery_fees_amount) = latest_delivery_fees.inner()[0].fun else {
 							unreachable!("asset is non-fungible");
@@ -406,9 +418,15 @@ macro_rules! test_parachain_is_trusted_teleporter_for_relay {
 					.unwrap();
 				assert_eq!(messages_to_query.len(), 1);
 				remote_message = messages_to_query[0].clone();
+				// The native asset of every system chain.
+				// We want to get the delivery fees in this asset.
+				let asset_id_for_delivery_fees = VersionedAssetId::from(Location::parent());
 				let delivery_fees =
-					<Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_delivery_fees(destination_to_query.clone(),
-					remote_message.clone()).unwrap();
+					<Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_delivery_fees(
+						destination_to_query.clone(),
+						remote_message.clone(),
+						asset_id_for_delivery_fees
+					).unwrap();
 				let latest_delivery_fees: $crate::macros::Assets = delivery_fees.clone().try_into().unwrap();
 				delivery_fees_amount = if let Some(first_asset) = latest_delivery_fees.inner().first() {
 					let $crate::macros::Fungible(inner_delivery_fees_amount) = first_asset.fun else {
@@ -689,8 +707,8 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 				let result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
 					$crate::macros::XCM_VERSION).unwrap();
 				let local_xcm = result.local_xcm.unwrap().clone();
-				let local_xcm_weight = <Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_xcm_weight(local_xcm).unwrap();
-				local_execution_fees = <Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_weight_to_asset_fee(
+				let local_xcm_weight = <Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_xcm_weight(local_xcm).unwrap();
+				local_execution_fees = <Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_weight_to_asset_fee(
 					local_xcm_weight,
 					$crate::macros::VersionedAssetId::from($crate::macros::AssetId($crate::macros::Location::parent())),
 				)
@@ -706,9 +724,13 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 					.unwrap();
 				assert_eq!(messages_to_query.len(), 1);
 				remote_message = messages_to_query[0].clone();
+				let asset_id_for_delivery_fees = VersionedAssetId::from(Location::parent());
 				let delivery_fees =
-					<Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_delivery_fees(destination_to_query.clone(),
-						remote_message.clone()).unwrap();
+					<Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_delivery_fees(
+						destination_to_query.clone(),
+						remote_message.clone(),
+						asset_id_for_delivery_fees
+					).unwrap();
 				local_delivery_fees = $crate::xcm_helpers::get_amount_from_versioned_assets(delivery_fees);
 			});
 
@@ -721,8 +743,8 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 				type RuntimeCall = <$asset_hub as $crate::macros::Chain>::RuntimeCall;
 
 				// First we get the execution fees.
-				let weight = <Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_xcm_weight(remote_message.clone()).unwrap();
-				intermediate_execution_fees = <Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_weight_to_asset_fee(
+				let weight = <Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_xcm_weight(remote_message.clone()).unwrap();
+				intermediate_execution_fees = <Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_weight_to_asset_fee(
 					weight,
 					$crate::macros::VersionedAssetId::from($crate::macros::AssetId($crate::macros::Location::new(1, []))),
 				)
@@ -750,9 +772,11 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 				// We could've gotten the message from the queue without having to dry-run, but
 				// offchain applications would have to dry-run, so we do it here as well.
 				intermediate_remote_message = messages_to_query[0].clone();
-				let delivery_fees = <Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_delivery_fees(
+				let asset_id_for_delivery_fees = VersionedAssetId::from(Location::parent());
+				let delivery_fees = <Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_delivery_fees(
 					destination_to_query.clone(),
 					intermediate_remote_message.clone(),
+					asset_id_for_delivery_fees,
 				)
 				.unwrap();
 				intermediate_delivery_fees = $crate::xcm_helpers::get_amount_from_versioned_assets(delivery_fees);
@@ -763,10 +787,10 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 			<$receiver_para as $crate::macros::TestExt>::execute_with(|| {
 				type Runtime = <$sender_para as $crate::macros::Chain>::Runtime;
 
-				let weight = <Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_xcm_weight(
+				let weight = <Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_xcm_weight(
 					intermediate_remote_message.clone()).unwrap();
 				final_execution_fees =
-					<Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_weight_to_asset_fee(weight,
+					<Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_weight_to_asset_fee(weight,
 						$crate::macros::VersionedAssetId::from($crate::macros::AssetId($crate::macros::Location::parent())))
 						.unwrap();
 			});
@@ -903,7 +927,7 @@ macro_rules! test_xcm_fee_querying_apis_work_for_asset_hub {
 				));
 
 				type Runtime = <$asset_hub as $crate::macros::Chain>::Runtime;
-				let acceptable_payment_assets = <Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_acceptable_payment_assets(
+				let acceptable_payment_assets = <Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_acceptable_payment_assets(
 					$crate::macros::XCM_VERSION).unwrap();
 				assert_eq!(acceptable_payment_assets, vec![
 					$crate::macros::VersionedAssetId::from($crate::macros::AssetId(wnd.clone())),
@@ -915,12 +939,12 @@ macro_rules! test_xcm_fee_querying_apis_work_for_asset_hub {
 					.buy_execution(($crate::macros::Parent, 10u128), $crate::macros::Unlimited)
 					.deposit_asset($crate::macros::All, [0u8; 32])
 					.build();
-				let weight = <Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_xcm_weight(
+				let weight = <Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_xcm_weight(
 					$crate::macros::VersionedXcm::from(program)).unwrap();
-				let fee_in_wnd = <Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_weight_to_asset_fee(weight,
+				let fee_in_wnd = <Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_weight_to_asset_fee(weight,
 					$crate::macros::VersionedAssetId::from($crate::macros::AssetId(wnd.clone()))).unwrap();
 				// Assets not in a pool don't work.
-				assert!(<Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_weight_to_asset_fee(weight,
+				assert!(<Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_weight_to_asset_fee(weight,
 					$crate::macros::VersionedAssetId::from(
 						$crate::macros::AssetId($crate::macros::Location::new(0,
 							[$crate::macros::PalletInstance($crate::macros::ASSETS_PALLET_ID),
@@ -929,7 +953,7 @@ macro_rules! test_xcm_fee_querying_apis_work_for_asset_hub {
 						)
 					)
 				).is_err());
-				let fee_in_usdt_fail = <Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_weight_to_asset_fee(weight,
+				let fee_in_usdt_fail = <Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_weight_to_asset_fee(weight,
 					$crate::macros::VersionedAssetId::from($crate::macros::AssetId(usdt.clone())));
 				// Weight to asset fee fails because there's not enough asset in the pool.
 				// We just created it, there's none.
@@ -953,7 +977,7 @@ macro_rules! test_xcm_fee_querying_apis_work_for_asset_hub {
 					sender.into()
 				));
 				// Now it works.
-				let fee_in_usdt = <Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_weight_to_asset_fee(weight,
+				let fee_in_usdt = <Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_weight_to_asset_fee(weight,
 					$crate::macros::VersionedAssetId::from($crate::macros::AssetId(usdt))
 				);
 				$crate::macros::assert_ok!(fee_in_usdt);

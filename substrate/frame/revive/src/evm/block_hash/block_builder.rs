@@ -31,7 +31,7 @@ use crate::{
 use alloc::{vec, vec::Vec};
 
 use codec::{Decode, Encode};
-use frame_support::{weights::Weight, DefaultNoBound};
+use frame_support::DefaultNoBound;
 use scale_info::TypeInfo;
 use sp_core::{keccak_256, H160, H256, U256};
 
@@ -97,7 +97,7 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 		&mut self,
 		transaction_encoded: Vec<u8>,
 		success: bool,
-		gas_used: Weight,
+		receipt_gas_info: ReceiptGasInfo,
 		encoded_logs: Vec<u8>,
 		receipt_bloom: LogsBloom,
 	) {
@@ -108,7 +108,7 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 		let transaction_type = Self::extract_transaction_type(transaction_encoded.as_slice());
 
 		// Update gas and logs bloom.
-		self.gas_used = self.gas_used.saturating_add(gas_used.ref_time().into());
+		self.gas_used = self.gas_used.saturating_add(receipt_gas_info.gas_used);
 		self.logs_bloom.accrue_bloom(&receipt_bloom);
 
 		// Update the receipt trie.
@@ -120,19 +120,19 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 			transaction_type,
 		);
 
-		self.gas_info.push(ReceiptGasInfo { gas_used: gas_used.ref_time().into() });
+		self.gas_info.push(receipt_gas_info);
 
 		// The first transaction and receipt are returned to be stored in the pallet storage.
 		// The index of the incremental hash builders already expects the next items.
 		if self.tx_hashes.len() == 1 {
-			log::debug!(target: LOG_TARGET, "Storing first transaction and receipt in pallet storage");
+			log::trace!(target: LOG_TARGET, "Storing first transaction and receipt in pallet storage");
 			self.pallet_put_first_values((transaction_encoded, encoded_receipt));
 			return;
 		}
 
 		if self.transaction_root_builder.needs_first_value(BuilderPhase::ProcessingValue) {
 			if let Some((first_tx, first_receipt)) = self.pallet_take_first_values() {
-				log::debug!(target: LOG_TARGET, "Loaded first transaction and receipt from pallet storage");
+				log::trace!(target: LOG_TARGET, "Loaded first transaction and receipt from pallet storage");
 				self.transaction_root_builder.set_first_value(first_tx);
 				self.receipts_root_builder.set_first_value(first_receipt);
 			} else {
@@ -159,7 +159,7 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 				self.transaction_root_builder.set_first_value(first_tx);
 				self.receipts_root_builder.set_first_value(first_receipt);
 			} else {
-				log::debug!(target: LOG_TARGET, "Building an empty block");
+				log::trace!(target: LOG_TARGET, "Building an empty block");
 			}
 		}
 
@@ -168,6 +168,9 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 
 		let tx_hashes = core::mem::replace(&mut self.tx_hashes, Vec::new());
 		let gas_info = core::mem::replace(&mut self.gas_info, Vec::new());
+
+		let difficulty = U256::from(crate::vm::evm::DIFFICULTY);
+		let mix_hash = H256(difficulty.to_big_endian());
 
 		let mut block = Block {
 			number: block_number,
@@ -185,6 +188,8 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 
 			logs_bloom: self.logs_bloom.bloom.into(),
 			transactions: HashesOrTransactionInfos::Hashes(tx_hashes),
+
+			mix_hash,
 
 			..Default::default()
 		};
@@ -389,7 +394,10 @@ mod test {
 					tx_info.transaction_signed.signed_payload(),
 					logs,
 					receipt_info.status.unwrap_or_default() == 1.into(),
-					receipt_info.gas_used.as_u64(),
+					ReceiptGasInfo {
+						gas_used: receipt_info.gas_used,
+						effective_gas_price: receipt_info.effective_gas_price,
+					},
 				)
 			})
 			.collect();
@@ -397,7 +405,7 @@ mod test {
 		ExtBuilder::default().build().execute_with(|| {
 			// Build the ethereum block incrementally.
 			let mut incremental_block = EthereumBlockBuilder::<Test>::default();
-			for (signed, logs, success, gas_used) in transaction_details {
+			for (signed, logs, success, receipt_gas_info) in transaction_details {
 				let mut log_size = 0;
 
 				let mut accumulate_receipt = AccumulateReceipt::new();
@@ -410,7 +418,7 @@ mod test {
 				incremental_block.process_transaction(
 					signed,
 					success,
-					gas_used.into(),
+					receipt_gas_info,
 					accumulate_receipt.encoding,
 					accumulate_receipt.bloom,
 				);

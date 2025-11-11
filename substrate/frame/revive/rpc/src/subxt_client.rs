@@ -48,6 +48,10 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive::evm::GenericTransaction>"
 	),
 	substitute_type(
+		path = "pallet_revive::evm::api::rpc_types::DryRunConfig<M>",
+		with = "::subxt::utils::Static<::pallet_revive::evm::DryRunConfig<M>>"
+	),
+	substitute_type(
 		path = "pallet_revive::primitives::EthTransactInfo<B>",
 		with = "::subxt::utils::Static<::pallet_revive::EthTransactInfo<B>>"
 	),
@@ -70,7 +74,8 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 	substitute_type(
 		path = "pallet_revive::evm::block_hash::ReceiptGasInfo",
 		with = "::subxt::utils::Static<::pallet_revive::evm::ReceiptGasInfo>"
-	)
+	),
+	derive_for_all_types = "codec::Encode, codec::Decode"
 )]
 mod src_chain {}
 pub use src_chain::*;

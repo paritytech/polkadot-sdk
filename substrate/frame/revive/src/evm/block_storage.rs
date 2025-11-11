@@ -14,20 +14,29 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 use crate::{
-	evm::block_hash::{AccumulateReceipt, EthereumBlockBuilder, LogsBloom},
+	dispatch_result,
+	evm::{
+		block_hash::{AccumulateReceipt, EthereumBlockBuilder, LogsBloom},
+		burn_with_dust,
+		fees::InfoT,
+	},
 	limits,
 	sp_runtime::traits::One,
-	BlockHash, Config, EthBlockBuilderIR, EthereumBlock, ReceiptInfoData, UniqueSaturatedInto,
-	H160, H256,
+	weights::WeightInfo,
+	AccountIdOf, BalanceOf, BalanceWithDust, BlockHash, Config, ContractResult, Error,
+	EthBlockBuilderIR, EthereumBlock, Event, ExecReturnValue, Pallet, ReceiptGasInfo,
+	ReceiptInfoData, StorageDeposit, UniqueSaturatedInto, Weight, H160, H256, LOG_TARGET,
 };
-
-use frame_support::weights::Weight;
-pub use sp_core::U256;
-
 use alloc::vec::Vec;
 use environmental::environmental;
+use frame_support::{
+	dispatch::DispatchInfo,
+	pallet_prelude::{DispatchError, DispatchResultWithPostInfo},
+	storage::with_transaction,
+};
+use sp_core::U256;
+use sp_runtime::{Saturating, TransactionOutcome};
 
 /// The maximum number of block hashes to keep in the history.
 ///
@@ -37,6 +46,76 @@ pub const BLOCK_HASH_COUNT: u32 = 256;
 // Accumulates the receipt's events (logs) for the current transaction
 // that are needed to construct the final transaction receipt.
 environmental!(receipt: AccumulateReceipt);
+
+/// Result of an Ethereum context call execution.
+pub(crate) struct EthereumCallResult {
+	/// Receipt gas information.
+	pub receipt_gas_info: ReceiptGasInfo,
+	/// The dispatch result with post-dispatch information.
+	pub result: DispatchResultWithPostInfo,
+}
+
+impl EthereumCallResult {
+	/// Create a new `EthereumCallResult` from contract execution details.
+	///
+	/// # Parameters
+	///
+	/// - `signer`: The signer of the transaction
+	/// - `output`: The execution result
+	/// - `gas_consumed`: The weight consumed during execution
+	/// - `base_call_weight`: The base call weight
+	/// - `encoded_len`: The length of the encoded transaction in bytes
+	/// - `info`: Dispatch information used for fee computation
+	/// - `effective_gas_price`: The EVM gas price
+	pub(crate) fn new<T: Config>(
+		signer: AccountIdOf<T>,
+		mut output: ContractResult<ExecReturnValue, BalanceOf<T>>,
+		base_call_weight: Weight,
+		encoded_len: u32,
+		info: &DispatchInfo,
+		effective_gas_price: U256,
+	) -> Self {
+		let effective_gas_price = effective_gas_price.max(Pallet::<T>::evm_base_fee());
+
+		if let Ok(retval) = &output.result {
+			if retval.did_revert() {
+				output.result = Err(<Error<T>>::ContractReverted.into());
+			}
+		}
+
+		// Refund pre-charged revert event weight if the call succeeds.
+		if output.result.is_ok() {
+			output
+				.gas_consumed
+				.saturating_reduce(T::WeightInfo::deposit_eth_extrinsic_revert_event())
+		}
+
+		let result = dispatch_result(output.result, output.gas_consumed, base_call_weight);
+		let native_fee = T::FeeInfo::compute_actual_fee(encoded_len, &info, &result);
+		let result = T::FeeInfo::ensure_not_overdrawn(native_fee, result);
+
+		let fee = Pallet::<T>::convert_native_to_evm(match output.storage_deposit {
+			StorageDeposit::Refund(refund) => native_fee.saturating_sub(refund),
+			StorageDeposit::Charge(amount) => native_fee.saturating_add(amount),
+		});
+
+		let (mut gas_used, rest) = fee.div_mod(effective_gas_price);
+		if !rest.is_zero() {
+			gas_used = gas_used.saturating_add(1_u32.into());
+		}
+
+		let tx_cost = gas_used.saturating_mul(effective_gas_price);
+		if tx_cost > fee {
+			let round_up_fee = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(tx_cost - fee)
+				.expect("value fits into BalanceOf<T>; qed");
+			log::debug!(target: LOG_TARGET, "Collecting round_up fee from {signer:?}: {round_up_fee:?}");
+			let _ = burn_with_dust::<T>(&signer, round_up_fee)
+					.inspect_err(|e| log::debug!(target: LOG_TARGET, "Failed to collect round up fee {round_up_fee:?} from {signer:?}: {e:?}"));
+		}
+
+		Self { receipt_gas_info: ReceiptGasInfo { gas_used, effective_gas_price }, result }
+	}
+}
 
 /// Capture the Ethereum log for the current transaction.
 ///
@@ -60,10 +139,60 @@ pub fn get_receipt_details() -> Option<(Vec<u8>, LogsBloom)> {
 }
 
 /// Capture the receipt events emitted from the current ethereum
-/// transaction. The transaction must be signed by an eth-compatible
-/// wallet.
-pub fn with_ethereum_context<R>(f: impl FnOnce() -> R) -> R {
+#[cfg(feature = "runtime-benchmarks")]
+pub fn bench_with_ethereum_context<R>(f: impl FnOnce() -> R) -> R {
 	receipt::using(&mut AccumulateReceipt::new(), f)
+}
+
+/// Execute the Ethereum call, and write the block storage transaction details.
+///
+/// # Parameters
+/// - transaction_encoded: The RLP encoded transaction bytes.
+/// - call: A closure that executes the transaction logic and returns an `EthereumCallResult`.
+pub fn with_ethereum_context<T: Config>(
+	transaction_encoded: Vec<u8>,
+	call: impl FnOnce() -> EthereumCallResult,
+) -> DispatchResultWithPostInfo {
+	receipt::using(&mut AccumulateReceipt::new(), || {
+		let (err, receipt_gas_info, post_info) =
+			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
+				let EthereumCallResult { receipt_gas_info, result } = call();
+				match result {
+					Ok(post_info) =>
+						TransactionOutcome::Commit(Ok((None, receipt_gas_info, post_info))),
+					Err(err) => TransactionOutcome::Rollback(Ok((
+						Some(err.error),
+						receipt_gas_info,
+						err.post_info,
+					))),
+				}
+			})?;
+
+		if let Some(dispatch_error) = err {
+			deposit_eth_extrinsic_revert_event::<T>(dispatch_error);
+			crate::block_storage::process_transaction::<T>(
+				transaction_encoded,
+				false,
+				receipt_gas_info,
+			);
+			Ok(post_info)
+		} else {
+			// deposit a dummy event in benchmark mode
+			#[cfg(feature = "runtime-benchmarks")]
+			deposit_eth_extrinsic_revert_event::<T>(crate::Error::<T>::BenchmarkingError.into());
+
+			crate::block_storage::process_transaction::<T>(
+				transaction_encoded,
+				true,
+				receipt_gas_info,
+			);
+			Ok(post_info)
+		}
+	})
+}
+
+fn deposit_eth_extrinsic_revert_event<T: Config>(dispatch_error: DispatchError) {
+	Pallet::<T>::deposit_event(Event::<T>::EthExtrinsicRevert { dispatch_error });
 }
 
 /// Clear the storage used to capture the block hash related data.
@@ -124,7 +253,7 @@ pub fn on_finalize_build_eth_block<T: Config>(
 pub fn process_transaction<T: Config>(
 	transaction_encoded: Vec<u8>,
 	success: bool,
-	gas_used: Weight,
+	receipt_gas_info: ReceiptGasInfo,
 ) {
 	// Method returns `None` only when called from outside of the ethereum context.
 	// This is not the case here, since this is called from within the
@@ -134,7 +263,13 @@ pub fn process_transaction<T: Config>(
 	let block_builder_ir = EthBlockBuilderIR::<T>::get();
 	let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
 
-	block_builder.process_transaction(transaction_encoded, success, gas_used, encoded_logs, bloom);
+	block_builder.process_transaction(
+		transaction_encoded,
+		success,
+		receipt_gas_info,
+		encoded_logs,
+		bloom,
+	);
 
 	EthBlockBuilderIR::<T>::put(block_builder.to_ir());
 }

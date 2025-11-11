@@ -23,7 +23,7 @@ on:
         description: "Run tests which names match this pattern (also flaky)"
         default: ""
         required: false
-  merge_group:
+
 concurrency:
   group: cumulus-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.run_id }}
   cancel-in-progress: true
@@ -61,7 +61,7 @@ jobs:
     timeout-minutes: 70 # 60 for test + 10 for send logs
     needs: [preflight]
     # Run if: called from build workflow OR merge_group OR (changes detected)
-    if: ${{ github.event_name == 'workflow_call' || github.event_name == 'merge_group' || (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) }}
+    if: ${{ github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch' || github.event_name == 'merge_group' || (needs.preflight.outputs.changes_substrate == 'true' || needs.preflight.outputs.changes_cumulus == 'true' || needs.preflight.outputs.changes_polkadot == 'true' || needs.preflight.outputs.changes_zombienet == 'true') }}
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
       options: -v /tmp/zombienet:/tmp/zombienet
@@ -80,7 +80,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         if: ${{ matrix.test.needs-wasm-binary }}
         with:
           name: build-test-parachain-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
@@ -125,7 +125,7 @@ jobs:
 
 
       - name: upload_logs
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         if: ${{ always() }}
         with:
           name: zombienet-logs-${{ matrix.test.job-name }}-${{ github.sha }}
