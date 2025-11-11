@@ -1718,8 +1718,8 @@ impl WeightInfo for () {
 		Weight::from_parts(20_317_546, 3823)
 			// Standard Error: 12
 			.saturating_add(Weight::from_parts(6_369, 0).saturating_mul(c.into()))
-			.saturating_add(T::DbWeight::get().reads(3_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:0)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
