@@ -68,21 +68,41 @@ jobs:
 
       - name: Bump NODE_VERSION for polkadot
         run: |
-          echo "Checking current NODE_VERSION in polkadot..."
-          grep -n "NODE_VERSION" polkadot/node/primitives/src/lib.rs || echo "NODE_VERSION not found"
-          echo ""
-          echo "ACTION REQUIRED: Please bump NODE_VERSION manually in polkadot/node/primitives/src/lib.rs"
-          echo "Current version:"
-          grep "NODE_VERSION" polkadot/node/primitives/src/lib.rs || true
+          echo "Bumping NODE_VERSION in polkadot..."
+          FILE="polkadot/node/primitives/src/lib.rs"
+
+          # Extract current NODE_VERSION
+          current_version=$(grep 'pub const NODE_VERSION' "$FILE" | grep -oE '"[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"')
+          echo "Current version: $current_version"
+
+          # Bump patch version
+          new_version=$(echo "$current_version" | awk -F. '{print $1"."$2"."$3+1}')
+          echo "New version: $new_version"
+
+          # Update the file
+          sed -i.bak "s/NODE_VERSION: &'static str = \"$current_version\"/NODE_VERSION: \&'static str = \"$new_version\"/" "$FILE"
+          rm -f "$FILE.bak"
+
+          echo "Successfully bumped NODE_VERSION from $current_version to $new_version"
 
       - name: Bump NODE_VERSION for polkadot-parachain and polkadot-omni-node
         run: |
-          echo "Checking current NODE_VERSION in cumulus..."
-          grep -n "NODE_VERSION" cumulus/polkadot-omni-node/lib/src/nodes/mod.rs || echo "NODE_VERSION not found"
-          echo ""
-          echo "ACTION REQUIRED: Please bump NODE_VERSION manually in cumulus/polkadot-omni-node/lib/src/nodes/mod.rs"
-          echo "Current version:"
-          grep "NODE_VERSION" cumulus/polkadot-omni-node/lib/src/nodes/mod.rs || true
+          echo "Bumping NODE_VERSION in cumulus..."
+          FILE="cumulus/polkadot-omni-node/lib/src/nodes/mod.rs"
+
+          # Extract current NODE_VERSION
+          current_version=$(grep 'pub const NODE_VERSION' "$FILE" | grep -oE '"[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"')
+          echo "Current version: $current_version"
+
+          # Bump patch version
+          new_version=$(echo "$current_version" | awk -F. '{print $1"."$2"."$3+1}')
+          echo "New version: $new_version"
+
+          # Update the file
+          sed -i.bak "s/NODE_VERSION: &'static str = \"$current_version\"/NODE_VERSION: \&'static str = \"$new_version\"/" "$FILE"
+          rm -f "$FILE.bak"
+
+          echo "Successfully bumped NODE_VERSION from $current_version to $new_version"
 
       - name: Check spec_version for runtimes
         run: |
@@ -134,10 +154,8 @@ jobs:
           # Show git diff to see what changed
           git diff --stat
 
-      - name: Install and run Zepter - check issues
+      - name: Run Zepter - check issues
         run: |
-          echo "Installing zepter..."
-          cargo install zepter --version 0.17.0 --locked || echo "zepter installation failed or already installed"
           echo "Running zepter run check to identify issues..."
           zepter run check || echo "Zepter found issues that need to be fixed"
 
@@ -152,11 +170,6 @@ jobs:
         run: |
           echo "Running zepter run check again to verify fixes..."
           zepter run check || echo "There are still issues to fix manually"
-
-      - name: Install taplo
-        run: |
-          echo "Installing taplo 0.8.1..."
-          cargo install taplo-cli --version 0.8.1 --locked || echo "taplo installation failed or already installed"
 
       - name: Run taplo - check formatting
         run: |
