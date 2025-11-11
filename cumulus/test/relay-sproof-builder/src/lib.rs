@@ -49,6 +49,7 @@ pub struct RelayStateSproofBuilder {
 	pub randomness: relay_chain::Hash,
 	pub additional_key_values: Vec<(Vec<u8>, Vec<u8>)>,
 	pub included_para_head: Option<relay_chain::HeadData>,
+	pub published_data_roots: Option<Vec<(ParaId, Vec<u8>)>>,
 }
 
 impl Default for RelayStateSproofBuilder {
@@ -81,6 +82,7 @@ impl Default for RelayStateSproofBuilder {
 			randomness: relay_chain::Hash::default(),
 			additional_key_values: vec![],
 			included_para_head: None,
+			published_data_roots: None,
 		}
 	}
 }
@@ -202,6 +204,13 @@ impl RelayStateSproofBuilder {
 				self.randomness.encode(),
 			);
 			insert(relay_chain::well_known_keys::CURRENT_SLOT.to_vec(), self.current_slot.encode());
+
+			if let Some(published_data_roots) = self.published_data_roots {
+				insert(
+					relay_chain::well_known_keys::BROADCASTER_PUBLISHED_DATA_ROOTS.to_vec(),
+					published_data_roots.encode(),
+				);
+			}
 
 			for (key, value) in self.additional_key_values {
 				insert(key, value);

@@ -64,9 +64,9 @@ pub use weight::{WeightBounds, WeightTrader};
 
 pub mod prelude {
 	pub use super::{
-		export_xcm, validate_export, AssetExchange, AssetLock, ClaimAssets, ConvertOrigin,
-		DropAssets, Enact, Error, EventEmitter, ExportXcm, FeeManager, FeeReason, LockError,
-		MatchesFungible, MatchesFungibles, MatchesInstance, MatchesNonFungible,
+		export_xcm, validate_export, AssetExchange, AssetLock, BroadcastHandler, ClaimAssets,
+		ConvertOrigin, DropAssets, Enact, Error, EventEmitter, ExportXcm, FeeManager, FeeReason,
+		LockError, MatchesFungible, MatchesFungibles, MatchesInstance, MatchesNonFungible,
 		MatchesNonFungibles, OnResponse, ProcessTransaction, ShouldExecute, TransactAsset,
 		VersionChangeNotifier, WeightBounds, WeightTrader, WithOriginFilter,
 	};

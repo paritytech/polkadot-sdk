@@ -1615,6 +1615,243 @@ fn deposits_relay_parent_storage_root() {
 }
 
 #[test]
+fn published_data_root_changes() {
+	BlockTests::new()
+		.with_relay_sproof_builder(|_, relay_block_num, sproof| match relay_block_num {
+			1 => {
+				sproof.published_data_roots = Some(vec![
+					(ParaId::from(1000), vec![0xAA; 32]),
+				]);
+			},
+			2 => {
+				// 1000 - root unchanged
+				sproof.published_data_roots = Some(vec![
+					(ParaId::from(1000), vec![0xAA; 32]),
+				]);
+			},
+			3 => {
+				// 1000 - root changed
+				sproof.published_data_roots = Some(vec![
+					(ParaId::from(1000), vec![0xBB; 32]),
+				]);
+			},
+			_ => unreachable!(),
+		})
+		.with_inherent_data(|_, relay_block_num, data| match relay_block_num {
+			1 => {
+				data.published_data.insert(
+					ParaId::from(1000),
+					vec![(b"key1".to_vec(), b"value1".to_vec())],
+				);
+			},
+			2 => {
+				// same root, data ignored
+				data.published_data.insert(
+					ParaId::from(1000),
+					vec![(b"key1".to_vec(), b"ignored".to_vec())],
+				);
+			},
+			3 => {
+				data.published_data.insert(
+					ParaId::from(1000),
+					vec![(b"key1".to_vec(), b"value2".to_vec())],
+				);
+			},
+			_ => unreachable!(),
+		})
+		.add_with_post_test(
+			1,
+			|| {},
+			|| {
+				assert_eq!(
+					PublishedData::<Test>::get(ParaId::from(1000), b"key1".to_vec()),
+					Some(b"value1".to_vec())
+				);
+			},
+		)
+		.add_with_post_test(
+			2,
+			|| {},
+			|| {
+				assert_eq!(
+					PublishedData::<Test>::get(ParaId::from(1000), b"key1".to_vec()),
+					Some(b"value1".to_vec())
+				);
+			},
+		)
+		.add_with_post_test(
+			3,
+			|| {},
+			|| {
+				assert_eq!(
+					PublishedData::<Test>::get(ParaId::from(1000), b"key1".to_vec()),
+					Some(b"value2".to_vec())
+				);
+				let roots = PreviousPublishedDataRoots::<Test>::get();
+				assert_eq!(roots.get(&ParaId::from(1000)), Some(&vec![0xBB; 32]));
+			},
+		);
+}
+
+#[test]
+fn published_data_removed_clears_storage() {
+	BlockTests::new()
+		.with_relay_sproof_builder(|_, relay_block_num, sproof| {
+			if relay_block_num == 1 {
+				sproof.published_data_roots = Some(vec![
+					(ParaId::from(1000), vec![0xAA; 32]),
+				]);
+			} else {
+				// 1000 - removed
+				sproof.published_data_roots = Some(vec![]);
+			}
+		})
+		.with_inherent_data(|_, relay_block_num, data| {
+			if relay_block_num == 1 {
+				data.published_data.insert(
+					ParaId::from(1000),
+					vec![
+						(b"key1".to_vec(), b"value1".to_vec()),
+						(b"key2".to_vec(), b"value2".to_vec()),
+						(b"key3".to_vec(), b"value3".to_vec()),
+					],
+				);
+			}
+		})
+		.add_with_post_test(
+			1,
+			|| {},
+			|| {
+				assert_eq!(
+					PublishedData::<Test>::get(ParaId::from(1000), b"key1".to_vec()),
+					Some(b"value1".to_vec())
+				);
+				assert_eq!(
+					PublishedData::<Test>::get(ParaId::from(1000), b"key2".to_vec()),
+					Some(b"value2".to_vec())
+				);
+				assert_eq!(
+					PublishedData::<Test>::get(ParaId::from(1000), b"key3".to_vec()),
+					Some(b"value3".to_vec())
+				);
+			},
+		)
+		.add_with_post_test(
+			2,
+			|| {},
+			|| {
+				assert_eq!(
+					PublishedData::<Test>::get(ParaId::from(1000), b"key1".to_vec()),
+					None
+				);
+				assert_eq!(
+					PublishedData::<Test>::get(ParaId::from(1000), b"key2".to_vec()),
+					None
+				);
+				assert_eq!(
+					PublishedData::<Test>::get(ParaId::from(1000), b"key3".to_vec()),
+					None
+				);
+				let roots = PreviousPublishedDataRoots::<Test>::get();
+				assert!(!roots.contains_key(&ParaId::from(1000)));
+			},
+		);
+}
+
+#[test]
+fn published_data_multiple_publishers() {
+	BlockTests::new()
+		.with_relay_sproof_builder(|_, relay_block_num, sproof| match relay_block_num {
+			1 => {
+				sproof.published_data_roots = Some(vec![]);
+			},
+			2 => {
+				// 1000, 2000 - appear
+				sproof.published_data_roots = Some(vec![
+					(ParaId::from(1000), vec![0xAA; 32]),
+					(ParaId::from(2000), vec![0xBB; 32]),
+				]);
+			},
+			3 => {
+				// 1000 - removed, 2000 - remains
+				sproof.published_data_roots = Some(vec![
+					(ParaId::from(2000), vec![0xBB; 32]),
+				]);
+			},
+			_ => unreachable!(),
+		})
+		.with_inherent_data(|_, relay_block_num, data| match relay_block_num {
+			1 => {},
+			2 => {
+				data.published_data.insert(
+					ParaId::from(1000),
+					vec![(b"key1".to_vec(), b"value1".to_vec())],
+				);
+				data.published_data.insert(
+					ParaId::from(2000),
+					vec![(b"key2".to_vec(), b"value2".to_vec())],
+				);
+			},
+			3 => {
+				data.published_data.insert(
+					ParaId::from(2000),
+					vec![(b"key2".to_vec(), b"value2".to_vec())],
+				);
+			},
+			_ => unreachable!(),
+		})
+		.add_with_post_test(
+			1,
+			|| {},
+			|| {
+				let roots = PreviousPublishedDataRoots::<Test>::get();
+				assert!(roots.is_empty());
+			},
+		)
+		.add_with_post_test(
+			2,
+			|| {},
+			|| {
+				assert_eq!(
+					PublishedData::<Test>::get(ParaId::from(1000), b"key1".to_vec()),
+					Some(b"value1".to_vec())
+				);
+				assert_eq!(
+					PublishedData::<Test>::get(ParaId::from(2000), b"key2".to_vec()),
+					Some(b"value2".to_vec())
+				);
+
+				let roots = PreviousPublishedDataRoots::<Test>::get();
+				assert_eq!(roots.len(), 2);
+				assert_eq!(roots.get(&ParaId::from(1000)), Some(&vec![0xAA; 32]));
+				assert_eq!(roots.get(&ParaId::from(2000)), Some(&vec![0xBB; 32]));
+			},
+		)
+		.add_with_post_test(
+			3,
+			|| {},
+			|| {
+				// 1000 - cleared
+				assert_eq!(
+					PublishedData::<Test>::get(ParaId::from(1000), b"key1".to_vec()),
+					None
+				);
+				// 2000 - intact
+				assert_eq!(
+					PublishedData::<Test>::get(ParaId::from(2000), b"key2".to_vec()),
+					Some(b"value2".to_vec())
+				);
+
+				let roots = PreviousPublishedDataRoots::<Test>::get();
+				assert_eq!(roots.len(), 1);
+				assert!(!roots.contains_key(&ParaId::from(1000)));
+				assert_eq!(roots.get(&ParaId::from(2000)), Some(&vec![0xBB; 32]));
+			},
+		);
+}
+
+
+#[test]
 fn ump_fee_factor_increases_and_decreases() {
 	BlockTests::new()
 		.with_relay_sproof_builder(|_, _, sproof| {

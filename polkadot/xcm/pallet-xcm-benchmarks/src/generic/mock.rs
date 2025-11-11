@@ -112,6 +112,7 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
 	type XcmRecorder = ();
+	type BroadcastHandler = ();
 }
 
 parameter_types! {
@@ -192,6 +193,14 @@ impl generic::Config for Test {
 		let origin: Location = (Parachain(1), AccountId32 { network: None, id: [0; 32] }).into();
 		let target: Location = AccountId32 { network: None, id: [0; 32] }.into();
 		Ok((origin, target))
+	}
+
+	fn publish_origin() -> Result<Location, BenchmarkError> {
+		Ok(Parachain(1000).into())
+	}
+
+	fn valid_publisher() -> Result<u32, BenchmarkError> {
+		Ok(2000)
 	}
 }
 

@@ -305,13 +305,11 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for RococoXcmWeight<RuntimeCall> {
 	fn execute_with_origin(_: &Option<InteriorLocation>, _: &Xcm<RuntimeCall>) -> Weight {
 		XcmGeneric::<Runtime>::execute_with_origin()
 	}
-	fn publish(_: &PublishData) -> Weight {
-		// TODO: Benchmark
-		Weight::from_parts(10_000_000, 0)
+	fn publish(data: &PublishData) -> Weight {
+		XcmGeneric::<Runtime>::publish(data.len() as u32)
 	}
 	fn subscribe(_: &u32) -> Weight {
-		// TODO: Benchmark
-		Weight::from_parts(10_000_000, 0)
+		XcmGeneric::<Runtime>::subscribe()
 	}
 }
 
