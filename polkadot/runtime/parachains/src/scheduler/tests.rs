@@ -176,7 +176,7 @@ fn assignments_stay_stable_when_pushed_back() {
 	config.scheduler_params.num_cores = 2;
 	let genesis_config = genesis_config(&config);
 
-	let paras = (3..9).map(ParaIs the build finished already?Id::from);
+	let paras = (3..9).map(Id::from);
 
 	new_test_ext(genesis_config).execute_with(|| {
 		// Register paras
