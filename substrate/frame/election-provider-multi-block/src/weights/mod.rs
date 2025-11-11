@@ -164,6 +164,7 @@ pub mod traits {
 	}
 }
 
+/// Kusama-esque weights only be used in testing runtimes.
 pub mod kusama {
 	pub use super::{
 		pallet_election_provider_multi_block_ksm_size::WeightInfo as MultiBlockWeightInfo,
@@ -173,6 +174,7 @@ pub mod kusama {
 	};
 }
 
+/// Polkadot-esque weights only be used in testing runtimes.
 pub mod polkadot {
 	pub use super::{
 		pallet_election_provider_multi_block_dot_size::WeightInfo as MultiBlockWeightInfo,
@@ -180,7 +182,4 @@ pub mod polkadot {
 		pallet_election_provider_multi_block_unsigned_dot_size::WeightInfo as MultiBlockUnsignedWeightInfo,
 		pallet_election_provider_multi_block_verifier_dot_size::WeightInfo as MultiBlockVerifierWeightInfo,
 	};
-}
-pub mod westend {
-	pub use super::polkadot::*;
 }
