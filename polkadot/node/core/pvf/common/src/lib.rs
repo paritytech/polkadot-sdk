@@ -107,29 +107,30 @@ mod tests {
 	#[test]
 	fn default_secure_status() {
 		let status = SecurityStatus::default();
+
 		assert!(
 			!status.secure_validator_mode,
-			"secure_validator_mode is false for default security status"
+			"`secure_validator_mode` MUST be `false` for default security status"
 		);
 		assert!(
 			!status.can_enable_landlock_fs,
-			"can_enable_landlock_fs is false for default security status"
+			"`can_enable_landlock_fs` MUST be `false` for default security status"
 		);
 		assert!(
 			!status.can_enable_landlock_net,
-			"can_enable_landlock_net is false for default security status"
+			"`can_enable_landlock_net` MUST be `false` for default security status"
 		);
 		assert!(
 			!status.can_enable_seccomp,
-			"can_enable_seccomp is false for default security status"
+			"`can_enable_seccomp` MUST be `false` for default security status"
 		);
 		assert!(
 			!status.can_unshare_user_namespace_and_change_root,
-			"can_unshare_user_namespace_and_change_root is false for default security status"
+			"`can_unshare_user_namespace_and_change_root` MUST be `false` for default security status"
 		);
 		assert!(
 			!status.can_do_secure_clone,
-			"can_do_secure_clone is false for default security status"
+			"`can_do_secure_clone` MUST be `false` for default security status"
 		);
 	}
 }

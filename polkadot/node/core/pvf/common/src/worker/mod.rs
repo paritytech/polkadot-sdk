@@ -401,13 +401,16 @@ pub fn run_worker<F>(
 	worker_shutdown(&worker_info, &err.to_string());
 }
 
-/// Provide a consistent message on unexpected worker shutdown.
+/// Provide a consistent message on worker shutdown. Workers may shut down either unexpectedly or,
+/// if running in Secure Validator Mode, because some required security features could not be
+/// enabled.
 fn worker_shutdown(worker_info: &WorkerInfo, err: &str) -> ! {
 	gum::warn!(target: LOG_TARGET, ?worker_info, "quitting pvf worker ({}): {}", worker_info.kind, err);
 	std::process::exit(1);
 }
 
-/// Provide a consistent error on unexpected worker shutdown.
+/// Provide a consistent error on worker shutdown. Workers may shut down either unexpectedly or, if
+/// running in Secure Validator Mode, because some required security features could not be enabled.
 fn worker_shutdown_error(worker_info: &WorkerInfo, err: &str) -> ! {
 	gum::error!(target: LOG_TARGET, ?worker_info, "quitting pvf worker ({}): {}", worker_info.kind, err);
 	std::process::exit(1);
@@ -417,8 +420,8 @@ fn worker_shutdown_error(worker_info: &WorkerInfo, err: &str) -> ! {
 fn sandbox_worker(worker_info: &mut WorkerInfo, security_status: &SecurityStatus) {
 	gum::trace!(target: LOG_TARGET, ?security_status, "Enabling security features");
 
-	// First, make sure env vars were cleared, to match the environment we perform the checks
-	// within. (In theory, running checks with different env vars could result in different
+	// First, make sure env vars were cleared, to match the environment in which we perform the
+	// checks. (In theory, running checks with different env vars could result in different
 	// outcomes of the checks.)
 	if !security::check_env_vars_were_cleared(worker_info) {
 		let err = "not all env vars were cleared when spawning the process";

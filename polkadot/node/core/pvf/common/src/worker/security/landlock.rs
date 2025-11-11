@@ -348,7 +348,7 @@ mod tests {
 	#[test]
 	fn restricted_thread_cannot_use_tcp_sockets() {
 		// TODO: This would be nice: <https://github.com/rust-lang/rust/issues/68007>.
-		if check_can_fully_enable(LANDLOCK_ABI_FS).is_err() {
+		if check_can_fully_enable(LANDLOCK_ABI_NET).is_err() {
 			return
 		}
 

@@ -151,10 +151,13 @@ impl SecureModeError {
 			// Landlock is present on relatively recent Linuxes. This is optional if the seccomp
 			// capability is present, providing network sandboxing a different way.
 			CannotEnableLandlockNet { .. } => security_status.can_enable_seccomp,
-			// seccomp should be present on all modern Linuxes unless it's been disabled.
+			// seccomp is used only for network sandboxing right now. seccomp should be present on
+			// all modern Linuxes unless it's been disabled. If not present, allow this error if
+			// we are able to enforce network sandboxing through Landlock.
 			CannotEnableSeccomp(_) => security_status.can_enable_landlock_net,
-			// Should always be present on modern Linuxes. If not, Landlock also provides FS
-			// sandboxing, so don't enforce this.
+			// This is used for FS sandboxing. Should always be present on modern Linuxes. If not
+			// present, allow this error if we are able to enforce FS sandboxing through
+			// Landlock.
 			CannotUnshareUserNamespaceAndChangeRoot(_) => security_status.can_enable_landlock_fs,
 			// We have not determined the kernel requirements for this capability, and it's also not
 			// necessary for FS or networking restrictions.
