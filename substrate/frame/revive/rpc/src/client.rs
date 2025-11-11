@@ -365,7 +365,7 @@ impl Client {
 				.into_iter()
 				.unzip();
 
-			self.block_provider.update_latest(Arc::clone(&block), subscription_type).await;
+			self.block_provider.update_latest(Arc::new(block), subscription_type).await;
 			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
 
 			// Only broadcast for best blocks to avoid duplicate notifications.
