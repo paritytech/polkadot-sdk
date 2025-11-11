@@ -1,6 +1,6 @@
 title: add fresh weights for westend asset hub
 doc:
-- audience: Todo
+- audience: Runtime Dev
   description: |-
     - And deprecate `FastUnstake` as it is unsafe
     - And use the faster solver for benchmarks to speed things up
