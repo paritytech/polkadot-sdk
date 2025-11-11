@@ -20,9 +20,9 @@ exclude-from-umbrella = true
 [dependencies]
 alloy-core = { workspace = true, features = ["sol-types"] }
 codec = { features = ["derive"], workspace = true }
-log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true, default-features = true }
+tracing = { workspace = true }
 
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
@@ -55,7 +55,6 @@ std = [
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-balances/std",
 	"scale-info/std",
 	"serde",
@@ -67,6 +66,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"tracing/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]
