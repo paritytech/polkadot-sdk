@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use std::collections::HashSet;
+
 use super::*;
 
 use alloc::collections::btree_map::BTreeMap;
@@ -161,6 +163,143 @@ fn session_change_shuffles_validators() {
 		for i in 2..5 {
 			assert_eq!(groups[i].len(), 1);
 		}
+	});
+}
+
+#[test]
+fn assignments_stay_stable_when_pushed_back() {
+	// This test verifies that when assignments are blocked and pushed back to on-demand,
+	// the existing assignments in the claim queue remain stable (unchanged).
+	// Only new assignments should appear at the end of the queue.
+	let mut config = default_config();
+	config.scheduler_params.lookahead = 3;
+	config.scheduler_params.num_cores = 2;
+	let genesis_config = genesis_config(&config);
+
+	let paras = (3..9).map(ParaIs the build finished already?Id::from);
+
+	new_test_ext(genesis_config).execute_with(|| {
+		// Register paras
+		for para in paras.clone() {
+    		register_para(para);
+		}
+
+		// Start a new session
+		run_to_block(1, |number| match number {
+			1 => Some(SessionChangeNotification {
+				new_config: config.clone(),
+				validators: vec![
+					ValidatorId::from(Sr25519Keyring::Alice.public()),
+					ValidatorId::from(Sr25519Keyring::Bob.public()),
+					ValidatorId::from(Sr25519Keyring::Charlie.public()),
+				],
+				..Default::default()
+			}),
+			_ => None,
+		});
+
+		// Assign both cores to Pool (on-demand)
+		Pallet::<Test>::assign_core(
+			CoreIndex(0),
+			0,
+			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
+		Pallet::<Test>::assign_core(
+			CoreIndex(1),
+			0,
+			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
+
+		// Add plenty of orders to fill the claim queue
+		for para in paras.clone() {
+    		on_demand::Pallet::<Test>::push_back_order(para);
+		}
+
+		run_to_block(2, |_| None);
+
+		let mut remaining_assignments: HashSet<_> = paras.clone().collect();
+
+		// Take a snapshot of the initial claim queue
+		let claim_queue_initial = scheduler::Pallet::<Test>::claim_queue();
+		let core_0_initial = claim_queue_initial.get(&CoreIndex(0)).cloned().unwrap();
+		let core_1_initial = claim_queue_initial.get(&CoreIndex(1)).cloned().unwrap();
+
+		assert!(!core_0_initial.is_empty(), "Core 0 should have assignments in the claim queue");
+		assert!(!core_1_initial.is_empty(), "Core 1 should have assignments in the claim queue");
+
+		// Record the assignments for verification
+		let core_0_rest: Vec<_> = core_0_initial.iter().skip(1).copied().collect();
+		let core_1_rest: Vec<_> = core_1_initial.iter().skip(1).copied().collect();
+
+		// Set block number for the next advance
+		System::set_block_number(3);
+
+		// Now advance with core 0 blocked - this should push back para to on-demand
+		let popped = scheduler::Pallet::<Test>::advance_claim_queue(|core_idx| {
+			core_idx == CoreIndex(0) // Block core 0
+		});
+
+		for p in popped.values() {
+    		remaining_assignments.remove(p);
+		}
+
+		// Core 0 should not have been popped (it was blocked)
+		assert_eq!(
+			popped.get(&CoreIndex(0)),
+			None,
+			"Core 0 was blocked, so nothing should be popped"
+		);
+
+		// Core 1 should have been popped normally
+		assert!(popped.get(&CoreIndex(1)).is_some(), "Core 1 should have been popped");
+
+		// Now check the claim queue after the advance with blocking
+		let claim_queue_after_block = scheduler::Pallet::<Test>::claim_queue();
+		let core_0_after_block = claim_queue_after_block.get(&CoreIndex(0)).cloned().unwrap();
+		let core_1_after_block = claim_queue_after_block.get(&CoreIndex(1)).cloned().unwrap();
+
+		// The claim queue advanced for ALL cores (including blocked ones)
+		// Core 0's first assignment was popped and pushed back to on-demand
+		// So what was at position 1 should now be at position 0
+		let core_0_after_vec: Vec<_> = core_0_after_block.iter().copied().collect();
+		assert_eq!(
+			&core_0_after_vec[..core_0_rest.len()],
+			&core_0_rest[..],
+			"Core 0: After advancing, assignments should match the original queue shifted by 1 (what was at positions [1..] is now at [0..])"
+		);
+
+		// Core 1 should have advanced normally: first element removed, rest shifted up
+		let core_1_after_prefix: Vec<_> =
+			core_1_after_block.iter().take(core_1_rest.len()).copied().collect();
+		assert_eq!(
+			core_1_after_prefix, core_1_rest,
+			"Core 1: Should have advanced normally with assignments shifted"
+		);
+
+		// Get a snapshot of what the claim queue looks like now (before we start advancing)
+		let mut claim_queue_snapshot = scheduler::Pallet::<Test>::claim_queue();
+
+		// Advance several times and verify each popped assignment matches what we expected
+		loop {
+			System::set_block_number(System::block_number() + 1);
+			let popped = scheduler::Pallet::<Test>::advance_claim_queue(|_| false);
+
+			if popped.is_empty() {
+    			break
+			}
+
+			for (core_idx, para) in popped.into_iter() {
+          		remaining_assignments.remove(&para);
+                if let Some(queue) = claim_queue_snapshot.get_mut(&core_idx) {
+                    assert_eq!(queue.pop_front(), Some(para), "Advance assignments is meant to match claim queue prediction.");
+                }
+            }
+		}
+		assert!(remaining_assignments.is_empty(), "All items should have been served still.")
 	});
 }
 
