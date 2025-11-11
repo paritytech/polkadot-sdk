@@ -267,7 +267,7 @@ mod benchmarks {
 		// set phase to emergency
 		CurrentPhase::<T>::set(Phase::Emergency);
 		let origin = T::ManagerOrigin::try_successful_origin()
-			.map_err(|_| -> BenchmarkError { "cannot create admin origin".into() })?;
+			.map_err(|_| -> BenchmarkError { "cannot create manager origin".into() })?;
 		#[block]
 		{
 			// fallback might decide to fail, that's okay..
