@@ -16,6 +16,9 @@
 
 //! Prepare worker.
 
+#[cfg(not(feature = "x-shadow"))]
+compile_error!(r#"Feature "x-shadow" must be enabled here (prepare-worker)"#);
+
 polkadot_node_core_pvf_common::decl_worker_main!(
 	"prepare-worker",
 	polkadot_node_core_pvf_prepare_worker::worker_entrypoint,

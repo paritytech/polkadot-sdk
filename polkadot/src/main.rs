@@ -22,6 +22,8 @@ use color_eyre::eyre;
 
 /// Global allocator. Changing it to another allocator will require changing
 /// `memory_stats::MemoryAllocationTracker`.
+#[cfg(not(feature = "x-shadow"))]
+const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 #[cfg(all(any(target_os = "linux", feature = "jemalloc-allocator"), not(feature = "x-shadow")))]
 #[global_allocator]
 static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;

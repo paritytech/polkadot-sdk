@@ -31,6 +31,8 @@
 /// usage at an interval.
 ///
 /// NOTE: Requires jemalloc enabled.
+#[cfg(not(feature = "x-shadow"))]
+const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 #[cfg(all(any(target_os = "linux", feature = "jemalloc-allocator"), not(feature = "x-shadow")))]
 pub mod memory_tracker {
 	use crate::LOG_TARGET;
@@ -153,6 +155,8 @@ pub mod memory_tracker {
 /// NOTE: `getrusage` with the `RUSAGE_THREAD` parameter is only supported on Linux. `RUSAGE_SELF`
 /// works on MacOS, but we need to get the max rss only for the preparation thread. Getting it for
 /// the current process would conflate the stats of previous jobs run by the process.
+#[cfg(not(feature = "x-shadow"))]
+const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 #[cfg(all(target_os = "linux", not(feature = "x-shadow")))]
 pub mod max_rss_stat {
 	use crate::LOG_TARGET;

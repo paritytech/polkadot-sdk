@@ -51,6 +51,9 @@ pub struct PrepareStats {
 	pub observed_wasm_code_len: u32,
 }
 
+#[cfg(not(feature = "x-shadow"))]
+const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
+
 /// Helper struct to contain all the memory stats, including `MemoryAllocationStats` and, if
 /// supported by the OS, `ru_maxrss`.
 #[derive(Clone, Debug, Default, Encode, Decode)]
@@ -69,6 +72,8 @@ pub struct MemoryStats {
 }
 
 /// Statistics of collected memory metrics.
+#[cfg(not(feature = "x-shadow"))]
+const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 #[cfg(all(any(target_os = "linux", feature = "jemalloc-allocator"), not(feature = "x-shadow")))]
 #[derive(Clone, Debug, Default, Encode, Decode)]
 pub struct MemoryAllocationStats {

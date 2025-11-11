@@ -76,8 +76,12 @@ pub fn framed_send_blocking(w: &mut (impl Write + Unpin), buf: &[u8]) -> io::Res
 	w.write_all(&len_buf)?;
 
 	#[cfg(not(feature = "x-shadow"))]
+	const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
+	#[cfg(not(feature = "x-shadow"))]
 	w.write_all(buf)?;
 
+	#[cfg(not(feature = "x-shadow"))]
+	const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 	#[cfg(feature = "x-shadow")]
 	{
 		// Under Shadow simulation, writes are performed in chunks because

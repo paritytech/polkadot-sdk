@@ -114,6 +114,8 @@ pub use orchestra::{
 	TrySendError,
 };
 
+#[cfg(not(feature = "x-shadow"))]
+const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 #[cfg(all(any(target_os = "linux", feature = "jemalloc-allocator"), not(feature = "x-shadow")))]
 mod memory_stats;
 #[cfg(test)]
@@ -695,6 +697,8 @@ where
 	}
 	let subsystem_meters = overseer.map_subsystems(ExtractNameAndMeters);
 
+	#[cfg(not(feature = "x-shadow"))]
+	const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 	#[cfg(all(any(
 		target_os = "linux",
 		feature = "jemalloc-allocator"
@@ -724,6 +728,8 @@ where
 			}
 		};
 
+	#[cfg(not(feature = "x-shadow"))]
+	const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 	#[cfg(not(all(
 		any(target_os = "linux",
 			feature = "jemalloc-allocator"

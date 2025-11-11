@@ -37,18 +37,28 @@ use tokio::{
 };
 
 // Host-стрим. Листенер берём из общих алиасов: HostListener.
+#[cfg(not(feature = "x-shadow"))]
+const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 #[cfg(feature = "x-shadow")]
 use tokio::net::TcpStream as Stream;
+#[cfg(not(feature = "x-shadow"))]
+const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 #[cfg(not(feature = "x-shadow"))]
 use tokio::net::UnixStream as Stream;
 
 // Endpoint type: path for UDS, socket address for TCP.
 #[cfg(not(feature = "x-shadow"))]
+const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
+#[cfg(not(feature = "x-shadow"))]
 type Endpoint = std::path::PathBuf;
+#[cfg(not(feature = "x-shadow"))]
+const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 #[cfg(feature = "x-shadow")]
 type Endpoint = std::net::SocketAddr;
 
 // Socket address for TCP listener in x-shadow; use std::net here.
+#[cfg(not(feature = "x-shadow"))]
+const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 #[cfg(feature = "x-shadow")]
 use std::net::SocketAddr;
 
@@ -92,6 +102,8 @@ pub async fn spawn_with_program_path(
 
 	// --- Default path: Unix domain sockets ---------------------------------
 	#[cfg(not(feature = "x-shadow"))]
+	const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
+	#[cfg(not(feature = "x-shadow"))]
 	let res = with_transient_socket_path(debug_id, |socket_path| {
 		let socket_path = socket_path.to_owned();
 		async move {
@@ -119,6 +131,8 @@ pub async fn spawn_with_program_path(
 	})
 	.await;
 	// --- Shadow path: TCP sockets ------------------------------------------
+	#[cfg(not(feature = "x-shadow"))]
+	const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 	#[cfg(feature = "x-shadow")]
 	let res = async move {
 		let listning_addr = Endpoint::from_str("127.0.0.1:0").unwrap();
@@ -164,6 +178,8 @@ pub async fn spawn_with_program_path(
 /// A temporary, random, free path that is necessary only to establish socket communications. If a
 /// directory exists at the path at the end of this function, it is removed then.
 // Only for Unix domain sockets (no x-shadow feature)
+#[cfg(not(feature = "x-shadow"))]
+const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 #[cfg(not(feature = "x-shadow"))]
 async fn with_transient_socket_path<T, F, Fut>(debug_id: &'static str, f: F) -> Result<T, SpawnErr>
 where
@@ -276,6 +292,8 @@ pub struct WorkerHandle {
 impl WorkerHandle {
 	// UDS variant (default build)
 	#[cfg(not(feature = "x-shadow"))]
+	const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
+	#[cfg(not(feature = "x-shadow"))]
 	fn spawn(
 		program: impl AsRef<Path>,
 		extra_args: &[String],
@@ -325,6 +343,8 @@ impl WorkerHandle {
 	}
 
 	// TCP variant (build with feature "x-shadow")
+	#[cfg(not(feature = "x-shadow"))]
+	const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 	#[cfg(feature = "x-shadow")]
 	fn spawn(
 		program: impl AsRef<Path>,
@@ -422,8 +442,12 @@ pub async fn framed_send(w: &mut (impl AsyncWrite + Unpin), buf: &[u8]) -> io::R
 	w.write_all(&len_buf).await?;
 
 	#[cfg(not(feature = "x-shadow"))]
+	const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
+	#[cfg(not(feature = "x-shadow"))]
 	w.write_all(buf).await?;
 
+	#[cfg(not(feature = "x-shadow"))]
+	const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 	#[cfg(feature = "x-shadow")]
 	{
 		// Under Shadow simulation, writes are performed in chunks because

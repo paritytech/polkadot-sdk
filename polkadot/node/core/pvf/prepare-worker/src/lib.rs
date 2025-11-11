@@ -22,8 +22,12 @@ mod memory_stats;
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-prepare-worker=trace`.
 const LOG_TARGET: &str = "parachain::pvf-prepare-worker";
 
+#[cfg(not(feature = "x-shadow"))]
+const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 #[cfg(all(target_os = "linux", not(feature = "x-shadow")))]
 use crate::memory_stats::max_rss_stat::{extract_max_rss_stat, get_max_rss_thread};
+#[cfg(not(feature = "x-shadow"))]
+const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 #[cfg(all(
 	any(target_os = "linux",
 		feature = "jemalloc-allocator"
@@ -70,11 +74,15 @@ use std::{
 };
 use tracking_allocator::TrackingAllocator;
 
+#[cfg(not(feature = "x-shadow"))]
+const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 #[cfg(all(any(target_os = "linux", feature = "jemalloc-allocator"), not(feature = "x-shadow")))]
 #[global_allocator]
 static ALLOC: TrackingAllocator<tikv_jemallocator::Jemalloc> =
 	TrackingAllocator(tikv_jemallocator::Jemalloc);
 
+#[cfg(not(feature = "x-shadow"))]
+const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 #[cfg(not(all(
 	any(target_os = "linux",
 		feature = "jemalloc-allocator"
@@ -233,6 +241,8 @@ pub fn worker_entrypoint(
 
 				let (pipe_read_fd, pipe_write_fd) = pipe2_cloexec()?;
 
+				#[cfg(not(feature = "x-shadow"))]
+				const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
                 #[cfg(not(feature = "x-shadow"))]
                 let usage_before = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
                     Ok(usage) => usage,
@@ -244,6 +254,8 @@ pub fn worker_entrypoint(
                     },
                 };
 
+				#[cfg(not(feature = "x-shadow"))]
+				const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
                 #[cfg(feature = "x-shadow")]
                 // The getrusage system call is not supported under Shadow simulation.
                 // As a workaround, we return a zeroed structure. This is safe, but
@@ -491,11 +503,15 @@ fn handle_child_process(
 	let condvar = thread::get_condvar();
 
 	// Run the memory tracker in a regular, non-worker thread.
+	#[cfg(not(feature = "x-shadow"))]
+	const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 	#[cfg(all(any(
 		target_os = "linux",
 		feature = "jemalloc-allocator"
 	), not(feature = "x-shadow")))]
 	let condvar_memory = Arc::clone(&condvar);
+	#[cfg(not(feature = "x-shadow"))]
+	const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 	#[cfg(all(any(
 		target_os = "linux",
 		feature = "jemalloc-allocator"
@@ -538,6 +554,8 @@ fn handle_child_process(
 			let mut result = prepare_artifact(pvf).map(|o| (o,));
 
 			// Get the `ru_maxrss` stat. If supported, call getrusage for the thread.
+			#[cfg(not(feature = "x-shadow"))]
+			const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 			#[cfg(all(target_os = "linux", not(feature = "x-shadow")))]
 			let mut result = result.map(|outcome| (outcome.0, get_max_rss_thread()));
 
@@ -598,6 +616,8 @@ fn handle_child_process(
 					}
 
 					// Stop the memory stats worker and get its observed memory stats.
+					#[cfg(not(feature = "x-shadow"))]
+					const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 					#[cfg(all(
 						any(target_os = "linux",
 							feature = "jemalloc-allocator"
@@ -605,6 +625,8 @@ fn handle_child_process(
 					let memory_tracker_stats = get_memory_tracker_loop_stats(memory_tracker_thread, process::id());
 
 					let memory_stats = MemoryStats {
+						#[cfg(not(feature = "x-shadow"))]
+						__x_shadow_feature_is_required__: ::core::marker::PhantomData::<::__x_shadow__missing_feature__>,
 						#[cfg(all(
 							any(target_os = "linux",
 								feature = "jemalloc-allocator"
@@ -685,9 +707,13 @@ fn handle_parent_process(
 	);
 
 	#[cfg(not(feature = "x-shadow"))]
+	const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
+	#[cfg(not(feature = "x-shadow"))]
 	let usage_after = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)
 		.map_err(|errno| error_from_errno("getrusage after", errno))?;
 
+	#[cfg(not(feature = "x-shadow"))]
+	const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 	#[cfg(feature = "x-shadow")]
     // The getrusage system call is not supported under Shadow simulation.
     // As a workaround, we return a zeroed structure. This is safe, but
