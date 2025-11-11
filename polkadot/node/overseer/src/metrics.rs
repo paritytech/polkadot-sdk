@@ -22,9 +22,6 @@ pub use polkadot_node_metrics::metrics::{self, prometheus, Metrics as MetricsTra
 /// Overseer Prometheus metrics.
 #[derive(Clone)]
 struct MetricsInner {
-	#[cfg(not(feature = "x-shadow"))]
-	__x_shadow_feature_is_required__: ::core::marker::PhantomData::<::__x_shadow__missing_feature__>,
-
 	activated_heads_total: prometheus::Counter<prometheus::U64>,
 	deactivated_heads_total: prometheus::Counter<prometheus::U64>,
 	messages_relayed_total: prometheus::Counter<prometheus::U64>,
@@ -75,9 +72,6 @@ impl Metrics {
 			metrics.messages_relayed_total.inc();
 		}
 	}
-
-	#[cfg(not(feature = "x-shadow"))]
-	const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 	#[cfg(all(any(
 		target_os = "linux",
 		feature = "jemalloc-allocator"
@@ -153,8 +147,6 @@ impl Metrics {
 impl MetricsTrait for Metrics {
 	fn try_register(registry: &prometheus::Registry) -> Result<Self, prometheus::PrometheusError> {
 		let metrics = MetricsInner {
-			# [cfg(not(feature = "x-shadow"))]
-			__x_shadow_feature_is_required__: ::core::marker::PhantomData::<::__x_shadow__missing_feature__>,
 			activated_heads_total: prometheus::register(
 				prometheus::Counter::new(
 					"polkadot_parachain_activated_heads_total",

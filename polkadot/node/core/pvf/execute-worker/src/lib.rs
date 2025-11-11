@@ -206,9 +206,6 @@ pub fn worker_entrypoint(
 						worker_info
 					)
 				})?;
-
-				#[cfg(not(feature = "x-shadow"))]
-				const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 				#[cfg(not(feature = "x-shadow"))]
 				let usage_before =
 					nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN).map_err(|errno| {
@@ -220,8 +217,6 @@ pub fn worker_entrypoint(
 							worker_info
 						)
 					})?;
-				#[cfg(not(feature = "x-shadow"))]
-				const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 				#[cfg(feature = "x-shadow")]
 				// The getrusage system call is not supported under Shadow simulation.
 				// As a workaround, we return a zeroed structure. This is safe, but
@@ -608,17 +603,11 @@ fn handle_parent_process(
 		"execute worker received wait status from job: {:?}",
 		status,
 	);
-
-	#[cfg(not(feature = "x-shadow"))]
-	const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 	#[cfg(not(feature = "x-shadow"))]
 	let usage_after = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
 		Ok(usage) => usage,
 		Err(errno) => return Ok(Err(internal_error_from_errno("getrusage after", errno))),
 	};
-
-	#[cfg(not(feature = "x-shadow"))]
-	const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 	#[cfg(feature = "x-shadow")]
 	// The getrusage system call is not supported under Shadow simulation.
 	// As a workaround, we return a zeroed structure. This is safe, but

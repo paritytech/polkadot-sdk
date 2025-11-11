@@ -39,40 +39,23 @@ use std::{
 // ===== Unified endpoint & transport aliases =====
 // Address used to bind/connect host<->worker
 #[cfg(not(feature = "x-shadow"))]
-const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
-#[cfg(not(feature = "x-shadow"))]
 pub type Endpoint = std::path::PathBuf;
-#[cfg(not(feature = "x-shadow"))]
-const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 #[cfg(feature = "x-shadow")]
 pub type Endpoint = std::net::SocketAddr;
 
 // Async transport (host side, tokio)
-#[cfg(not(feature = "x-shadow"))]
-const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 #[cfg(feature = "x-shadow")]
 pub use tokio::net::TcpStream as HostStream;
 #[cfg(not(feature = "x-shadow"))]
-const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
-#[cfg(not(feature = "x-shadow"))]
 pub use tokio::net::UnixStream as HostStream;
-
-#[cfg(not(feature = "x-shadow"))]
-const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 #[cfg(feature = "x-shadow")]
 pub use tokio::net::TcpListener as HostListener;
-#[cfg(not(feature = "x-shadow"))]
-const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 #[cfg(not(feature = "x-shadow"))]
 pub use tokio::net::UnixListener as HostListener;
 
 // Blocking transport (worker side, std)
 #[cfg(not(feature = "x-shadow"))]
-const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
-#[cfg(not(feature = "x-shadow"))]
 pub type WorkerStream = std::os::unix::net::UnixStream;
-#[cfg(not(feature = "x-shadow"))]
-const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 #[cfg(feature = "x-shadow")]
 pub type WorkerStream = std::net::TcpStream;
 
@@ -416,15 +399,11 @@ pub fn run_worker<F>(
 	// UDS: connect to path and remove the socket file afterwards (best-effort).
 	// TCP: connect to addr.
 	#[cfg(not(feature = "x-shadow"))]
-	const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
-	#[cfg(not(feature = "x-shadow"))]
 	let stream = || -> io::Result<WorkerStream> {
 		let stream = WorkerStream::connect(&endpoint)?;
 		let _ = std::fs::remove_file(&endpoint);
 		Ok(stream)
 	}();
-	#[cfg(not(feature = "x-shadow"))]
-	const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 	#[cfg(feature = "x-shadow")]
 	let stream = || -> io::Result<WorkerStream> { WorkerStream::connect(endpoint) }();
 	let mut stream = match stream {
@@ -444,8 +423,6 @@ pub fn run_worker<F>(
 		// First, make sure env vars were cleared, to match the environment we perform the checks
 		// within. (In theory, running checks with different env vars could result in different
 		// outcomes of the checks.)
-		#[cfg(not(feature = "x-shadow"))]
-		const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 		#[cfg(not(feature = "x-shadow"))]
 		if !security::check_env_vars_were_cleared(&worker_info) {
 			let err = "not all env vars were cleared when spawning the process";
@@ -799,9 +776,6 @@ pub mod thread {
 		let guard = cvar.wait_while(lock.lock().unwrap(), |flag| flag.is_pending()).unwrap();
 		*guard
 	}
-
-	#[cfg(not(feature = "x-shadow"))]
-	const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 
 	/// Block the thread while it waits on the condvar or on a timeout. If the timeout is hit,
 	/// returns `None`.

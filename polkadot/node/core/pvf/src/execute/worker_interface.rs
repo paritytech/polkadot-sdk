@@ -38,12 +38,8 @@ use std::{path::Path, sync::Arc, time::Duration};
 use tokio::io;
 
 // Host side must use ASYNC transport (tokio). UDS on normal run, TCP under x-shadow.
-#[cfg(not(feature = "x-shadow"))]
-const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 #[cfg(feature = "x-shadow")]
 use tokio::net::TcpStream as Stream;
-#[cfg(not(feature = "x-shadow"))]
-const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 #[cfg(not(feature = "x-shadow"))]
 use tokio::net::UnixStream as Stream;
 

@@ -85,15 +85,10 @@ impl Metrics {
 	#[allow(unused_variables)]
 	pub(crate) fn observe_preparation_memory_metrics(&self, memory_stats: MemoryStats) {
 		if let Some(metrics) = &self.0 {
-			#[cfg(not(feature = "x-shadow"))]
-			const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 			#[cfg(all(target_os = "linux", not(feature = "x-shadow")))]
 			if let Some(max_rss) = memory_stats.max_rss {
 				metrics.preparation_max_rss.observe(max_rss as f64);
 			}
-
-			#[cfg(not(feature = "x-shadow"))]
-			const _: () = { compile_error!(r#"Feature "x-shadow" must be enabled here"#); };
 			#[cfg(all(
 				any(target_os = "linux",
 					feature = "jemalloc-allocator"
@@ -139,8 +134,6 @@ impl Metrics {
 
 #[derive(Clone)]
 struct MetricsInner {
-	#[cfg(not(feature = "x-shadow"))]
-	__x_shadow_feature_is_required__: ::core::marker::PhantomData::<::__x_shadow__missing_feature__>,
 	worker_spawning: prometheus::CounterVec<prometheus::U64>,
 	worker_spawned: prometheus::CounterVec<prometheus::U64>,
 	worker_retired: prometheus::CounterVec<prometheus::U64>,
@@ -175,8 +168,6 @@ struct MetricsInner {
 impl metrics::Metrics for Metrics {
 	fn try_register(registry: &prometheus::Registry) -> Result<Self, prometheus::PrometheusError> {
 		let inner = MetricsInner {
-			# [cfg(not(feature = "x-shadow"))]
-			__x_shadow_feature_is_required__: ::core::marker::PhantomData::<::__x_shadow__missing_feature__>,
 			worker_spawning: prometheus::register(
 				prometheus::CounterVec::new(
 					prometheus::Opts::new(
