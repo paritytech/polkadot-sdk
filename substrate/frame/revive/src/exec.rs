@@ -1837,7 +1837,11 @@ where
 					ensure!(input_data.is_empty(), <Error<T>>::EvmConstructorNonEmptyData);
 					E::from_evm_init_code(bytecode.clone(), sender.clone())?
 				},
-				Code::Existing(hash) => E::from_storage(*hash, self.gas_meter_mut())?,
+				Code::Existing(hash) => {
+					let executable = E::from_storage(*hash, self.gas_meter_mut())?;
+					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
+					executable
+				},
 			};
 			self.push_frame(
 				FrameArgs::Instantiate {
