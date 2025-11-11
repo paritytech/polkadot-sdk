@@ -207,13 +207,6 @@ impl ClaimQueueState {
 		para_id: &ParaId,
 		maybe_candidate_hash: Option<CandidateHash>,
 	) -> bool {
-		gum::trace!(
-			target: LOG_TARGET,
-			?para_id,
-			?relay_parent,
-			"claim_at"
-		);
-
 		self.find_a_free_claim(
 			relay_parent,
 			para_id,
@@ -225,13 +218,6 @@ impl ClaimQueueState {
 	/// Claims the first available slot for `para_id` at `relay_parent` as pending. Returns `true`
 	/// if the claim was successful. For a v1 advertisement.
 	pub(crate) fn claim_pending_at_v1(&mut self, relay_parent: &Hash, para_id: &ParaId) -> bool {
-		gum::trace!(
-			target: LOG_TARGET,
-			?para_id,
-			?relay_parent,
-			"claim_at_v1"
-		);
-
 		self.find_a_free_claim_v1(relay_parent, para_id, ClaimState::Pending(None))
 	}
 
@@ -288,14 +274,6 @@ impl ClaimQueueState {
 		para_id: &ParaId,
 		candidate_hash: CandidateHash,
 	) -> bool {
-		gum::trace!(
-			target: LOG_TARGET,
-			?para_id,
-			?relay_parent,
-			?candidate_hash,
-			"second_at"
-		);
-
 		if self.candidates.get(relay_parent).map_or(false, |c| c.contains(&candidate_hash)) {
 			let window = self.get_window_mut(relay_parent);
 

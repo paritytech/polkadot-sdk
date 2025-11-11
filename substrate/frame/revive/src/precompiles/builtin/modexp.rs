@@ -164,7 +164,7 @@ fn calculate_gas_cost(
 	fn calculate_multiplication_complexity(base_length: u64, mod_length: u64) -> u64 {
 		let max_length = max(base_length, mod_length);
 		let mut words = max_length / 8;
-		if max_length % 8 > 0 {
+		if !max_length.is_multiple_of(8) {
 			words += 1;
 		}
 

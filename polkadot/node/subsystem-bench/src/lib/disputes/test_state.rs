@@ -30,10 +30,9 @@ use polkadot_node_primitives::{
 use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
 use polkadot_overseer::BlockInfo;
 use polkadot_primitives::{
-	vstaging::{CandidateEvent, CandidateReceiptV2},
-	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateHash, CoreIndex, GroupIndex,
-	Hash, HeadData, Header, InvalidDisputeStatementKind, SessionIndex, ValidDisputeStatementKind,
-	ValidatorId, ValidatorIndex,
+	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+	CandidateReceiptV2, CoreIndex, GroupIndex, Hash, HeadData, Header, InvalidDisputeStatementKind,
+	SessionIndex, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt_v2_bad_sig, dummy_hash};
 use sp_keystore::KeystorePtr;

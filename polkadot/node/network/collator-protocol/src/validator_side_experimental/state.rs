@@ -38,7 +38,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{request_session_index_for_child, runtime::recv_runtime};
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, Hash, Id as ParaId,
+	BlockNumber, CandidateReceiptV2 as CandidateReceipt, Hash, Id as ParaId,
 };
 
 /// All state relevant for the validator side of the protocol lives here.

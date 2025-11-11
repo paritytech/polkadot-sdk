@@ -23,7 +23,7 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::PoV;
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, Hash, Id as ParaId,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash, Id as ParaId,
 	PersistedValidationData,
 };
 

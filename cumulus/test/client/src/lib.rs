@@ -202,7 +202,7 @@ pub fn validate_block(
 	let mut ext = TestExternalities::default();
 	let mut ext_ext = ext.ext();
 
-	let heap_pages = HeapAllocStrategy::Static { extra_pages: 1024 };
+	let heap_pages = HeapAllocStrategy::Static { extra_pages: 2048 };
 	let executor = WasmExecutor::<(
 		sp_io::SubstrateHostFunctions,
 		cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions,
@@ -259,16 +259,4 @@ pub fn seal_block(mut block: Block, client: &Client) -> Block {
 	block.header.digest_mut().push(seal_digest);
 
 	block
-}
-
-/// Seals all the blocks in the given [`ParachainBlockData`] with an AURA seal.
-///
-/// Assumes that the authorities of the test runtime are present in the keyring.
-pub fn seal_parachain_block_data(block: ParachainBlockData, client: &Client) -> ParachainBlockData {
-	let (blocks, proof) = block.into_inner();
-
-	ParachainBlockData::new(
-		blocks.into_iter().map(|block| seal_block(block, &client)).collect::<Vec<_>>(),
-		proof,
-	)
 }

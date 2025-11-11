@@ -46,15 +46,12 @@ use polkadot_node_subsystem::messages::{
 use polkadot_node_subsystem_test_helpers::{mock::new_leaf, sender_receiver, TestSubsystemSender};
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	node_features::FeatureIndex,
-	vstaging::{
-		ApprovedPeerId, CandidateReceiptV2 as CandidateReceipt,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, MutateDescriptorV2, UMPSignal,
-		UMP_SEPARATOR,
-	},
-	BlockNumber, CoreIndex, GroupRotationInfo, Hash, HeadData, Header, Id as ParaId, NodeFeatures,
-	OccupiedCoreAssumption, PersistedValidationData, SessionIndex, SigningContext, ValidatorId,
-	ValidatorIndex,
+	node_features::FeatureIndex, ApprovedPeerId, BlockNumber,
+	CandidateReceiptV2 as CandidateReceipt,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, GroupRotationInfo, Hash,
+	HeadData, Header, Id as ParaId, MutateDescriptorV2, NodeFeatures, OccupiedCoreAssumption,
+	PersistedValidationData, SessionIndex, SigningContext, UMPSignal, ValidatorId, ValidatorIndex,
+	UMP_SEPARATOR,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_commitments, dummy_committed_candidate_receipt,
@@ -516,7 +513,7 @@ impl TestState {
 						.unwrap_or_default()
 						.iter()
 						.map(|ccr| {
-							polkadot_primitives::vstaging::CandidateEvent::CandidateIncluded(
+							polkadot_primitives::CandidateEvent::CandidateIncluded(
 								ccr.to_plain(),
 								Default::default(),
 								Default::default(),

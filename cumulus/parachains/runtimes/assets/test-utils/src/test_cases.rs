@@ -38,10 +38,13 @@ use sp_runtime::{
 	traits::{Block as BlockT, MaybeEquivalence, StaticLookup, Zero},
 	DispatchError, SaturatedConversion, Saturating,
 };
-use xcm::{latest::prelude::*, VersionedAssets};
-use xcm_executor::{traits::ConvertLocation, XcmExecutor};
+use xcm::{latest::prelude::*, VersionedAssetId, VersionedAssets, VersionedXcm};
+use xcm_executor::{
+	traits::{ConvertLocation, TransferType},
+	XcmExecutor,
+};
 use xcm_runtime_apis::fees::{
-	runtime_decl_for_xcm_payment_api::XcmPaymentApiV1, Error as XcmPaymentApiError,
+	runtime_decl_for_xcm_payment_api::XcmPaymentApiV2, Error as XcmPaymentApiError,
 };
 
 type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
@@ -1551,12 +1554,18 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 				Asset { fun: Fungible(balance_to_transfer.into()), id: AssetId(native_asset) };
 
 			// pallet_xcm call reserve transfer
-			assert_ok!(<pallet_xcm::Pallet<Runtime>>::limited_reserve_transfer_assets(
+			assert_ok!(<pallet_xcm::Pallet<Runtime>>::transfer_assets_using_type_and_then(
 				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(alice_account.clone()),
 				Box::new(dest.clone().into_versioned()),
-				Box::new(dest_beneficiary.clone().into_versioned()),
 				Box::new(VersionedAssets::from(Assets::from(asset_to_transfer))),
-				0,
+				Box::new(TransferType::LocalReserve),
+				Box::new(VersionedAssetId::from(AssetId(Location::parent()))),
+				Box::new(TransferType::LocalReserve),
+				Box::new(VersionedXcm::from(
+					Xcm::<()>::builder_unsafe()
+						.deposit_asset(AllCounted(1), dest_beneficiary.clone())
+						.build()
+				)),
 				weight_limit,
 			));
 
@@ -1625,7 +1634,7 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 
 pub fn xcm_payment_api_with_pools_works<Runtime, RuntimeCall, RuntimeOrigin, Block, WeightToFee>()
 where
-	Runtime: XcmPaymentApiV1<Block>
+	Runtime: XcmPaymentApiV2<Block>
 		+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>
 		+ pallet_balances::Config<Balance = u128>
 		+ pallet_session::Config
@@ -1812,7 +1821,7 @@ pub fn xcm_payment_api_foreign_asset_pool_works<
 	existential_deposit: Balance,
 	another_network_genesis_hash: [u8; 32],
 ) where
-	Runtime: XcmPaymentApiV1<Block>
+	Runtime: XcmPaymentApiV2<Block>
 		+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>
 		+ pallet_balances::Config<Balance = u128>
 		+ pallet_session::Config

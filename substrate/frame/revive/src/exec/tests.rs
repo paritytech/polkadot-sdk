@@ -148,6 +148,13 @@ impl Executable<Test> for MockExecutable {
 		})
 	}
 
+	fn from_evm_init_code(
+		_code: Vec<u8>,
+		_owner: AccountIdOf<Test>,
+	) -> Result<Self, DispatchError> {
+		unimplemented!()
+	}
+
 	fn execute<E: Ext<T = Test>>(
 		self,
 		ext: &mut E,
@@ -218,7 +225,7 @@ fn it_works() {
 				&mut storage_meter,
 				value.into(),
 				vec![],
-				false,
+				&ExecConfig::new_substrate_tx(),
 			),
 			Ok(_)
 		);
@@ -245,6 +252,7 @@ fn transfer_works() {
 			&BOB,
 			Pallet::<Test>::convert_native_to_evm(value),
 			&mut storage_meter,
+			&ExecConfig::new_substrate_tx(),
 		)
 		.unwrap();
 
@@ -253,7 +261,9 @@ fn transfer_works() {
 		assert_eq!(get_balance(&ALICE), 100 - value - min_balance);
 		assert_eq!(get_balance(&BOB), min_balance + value);
 		assert_eq!(
-			storage_meter.try_into_deposit(&Origin::from_account_id(ALICE), false).unwrap(),
+			storage_meter
+				.try_into_deposit(&Origin::from_account_id(ALICE), &ExecConfig::new_substrate_tx())
+				.unwrap(),
 			StorageDeposit::Charge(min_balance)
 		);
 	});
@@ -280,6 +290,7 @@ fn transfer_to_nonexistent_account_works() {
 			&CHARLIE,
 			evm_value,
 			&mut storage_meter,
+			&ExecConfig::new_substrate_tx(),
 		));
 		assert_eq!(get_balance(&ALICE), ed);
 		assert_eq!(get_balance(&BOB), ed);
@@ -294,7 +305,8 @@ fn transfer_to_nonexistent_account_works() {
 				&BOB,
 				&DJANGO,
 				evm_value,
-				&mut storage_meter
+				&mut storage_meter,
+				&ExecConfig::new_substrate_tx(),
 			),
 			<Error<Test>>::StorageDepositNotEnoughFunds,
 		);
@@ -308,7 +320,8 @@ fn transfer_to_nonexistent_account_works() {
 				&BOB,
 				&EVE,
 				evm_value,
-				&mut storage_meter
+				&mut storage_meter,
+				&ExecConfig::new_substrate_tx(),
 			),
 			<Error<Test>>::TransferFailed
 		);
@@ -341,7 +354,7 @@ fn correct_transfer_on_call() {
 			&mut storage_meter,
 			evm_value.as_u64().into(),
 			vec![],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		)
 		.unwrap();
 
@@ -381,7 +394,7 @@ fn correct_transfer_on_delegate_call() {
 			&mut storage_meter,
 			evm_value.as_u64().into(),
 			vec![],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		));
 
 		assert_eq!(get_balance(&ALICE), 100 - value);
@@ -415,7 +428,7 @@ fn delegate_call_missing_contract() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		));
 
 		// add missing contract code
@@ -427,7 +440,7 @@ fn delegate_call_missing_contract() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		));
 	});
 }
@@ -455,7 +468,7 @@ fn changes_are_reverted_on_failing_call() {
 			&mut storage_meter,
 			55u64.into(),
 			vec![],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		)
 		.unwrap();
 
@@ -484,6 +497,7 @@ fn balance_too_low() {
 			&dest,
 			Pallet::<Test>::convert_native_to_evm(100u64).as_u64().into(),
 			&mut storage_meter,
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		assert_eq!(result, Err(Error::<Test>::TransferFailed.into()));
@@ -513,7 +527,7 @@ fn output_is_returned_on_success() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		let output = result.unwrap();
@@ -542,7 +556,7 @@ fn output_is_returned_on_failure() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		let output = result.unwrap();
@@ -571,7 +585,7 @@ fn input_data_to_call() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![1, 2, 3, 4],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -603,8 +617,7 @@ fn input_data_to_instantiate() {
 				min_balance.into(),
 				vec![1, 2, 3, 4],
 				Some(&[0; 32]),
-				false,
-				BumpNonce::Yes,
+				&ExecConfig::new_substrate_tx(),
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -658,7 +671,7 @@ fn max_depth() {
 			&mut storage_meter,
 			value.into(),
 			vec![],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		assert_matches!(result, Ok(_));
@@ -720,7 +733,7 @@ fn caller_returns_proper_values() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		assert_matches!(result, Ok(_));
@@ -783,7 +796,7 @@ fn origin_returns_proper_values() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		assert_matches!(result, Ok(_));
@@ -821,7 +834,7 @@ fn to_account_id_returns_proper_values() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -858,7 +871,7 @@ fn code_hash_returns_proper_values() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -884,7 +897,7 @@ fn own_code_hash_returns_proper_values() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -894,13 +907,13 @@ fn own_code_hash_returns_proper_values() {
 fn caller_is_origin_returns_proper_values() {
 	let code_charlie = MockLoader::insert(Call, |ctx, _| {
 		// BOB is not the origin of the stack call
-		assert!(!ctx.ext.caller_is_origin());
+		assert!(!ctx.ext.caller_is_origin(false));
 		exec_success()
 	});
 
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		// ALICE is the origin of the call stack
-		assert!(ctx.ext.caller_is_origin());
+		assert!(ctx.ext.caller_is_origin(false));
 		// BOB calls CHARLIE
 		ctx.ext
 			.call(Weight::zero(), U256::zero(), &CHARLIE_ADDR, U256::zero(), vec![], true, false)
@@ -920,7 +933,7 @@ fn caller_is_origin_returns_proper_values() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -930,7 +943,7 @@ fn caller_is_origin_returns_proper_values() {
 fn root_caller_succeeds() {
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		// root is the origin of the call stack.
-		assert!(ctx.ext.caller_is_root());
+		assert!(ctx.ext.caller_is_root(false));
 		exec_success()
 	});
 
@@ -946,7 +959,7 @@ fn root_caller_succeeds() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -956,7 +969,7 @@ fn root_caller_succeeds() {
 fn root_caller_does_not_succeed_when_value_not_zero() {
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		// root is the origin of the call stack.
-		assert!(ctx.ext.caller_is_root());
+		assert!(ctx.ext.caller_is_root(false));
 		exec_success()
 	});
 
@@ -972,7 +985,7 @@ fn root_caller_does_not_succeed_when_value_not_zero() {
 			&mut storage_meter,
 			1u64.into(),
 			vec![0],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		);
 		assert_matches!(result, Err(_));
 	});
@@ -982,13 +995,13 @@ fn root_caller_does_not_succeed_when_value_not_zero() {
 fn root_caller_succeeds_with_consecutive_calls() {
 	let code_charlie = MockLoader::insert(Call, |ctx, _| {
 		// BOB is not root, even though the origin is root.
-		assert!(!ctx.ext.caller_is_root());
+		assert!(!ctx.ext.caller_is_root(false));
 		exec_success()
 	});
 
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		// root is the origin of the call stack.
-		assert!(ctx.ext.caller_is_root());
+		assert!(ctx.ext.caller_is_root(false));
 		// BOB calls CHARLIE.
 		ctx.ext
 			.call(Weight::zero(), U256::zero(), &CHARLIE_ADDR, U256::zero(), vec![], true, false)
@@ -1008,7 +1021,7 @@ fn root_caller_succeeds_with_consecutive_calls() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -1053,7 +1066,7 @@ fn address_returns_proper_values() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		assert_matches!(result, Ok(_));
@@ -1078,8 +1091,7 @@ fn refuse_instantiate_with_value_below_existential_deposit() {
 				U256::zero(), // <- zero value
 				vec![],
 				Some(&[0; 32]),
-				false,
-				BumpNonce::Yes,
+				&ExecConfig::new_substrate_tx(),
 			),
 			Err(_)
 		);
@@ -1112,8 +1124,7 @@ fn instantiation_work_with_success_output() {
 					Pallet::<Test>::convert_native_to_evm(min_balance),
 					vec![],
 					Some(&[0 ;32]),
-					false,
-					BumpNonce::Yes,
+					&ExecConfig::new_substrate_tx(),
 				),
 				Ok((address, ref output)) if output.data == vec![80, 65, 83, 83] => address
 			);
@@ -1164,8 +1175,7 @@ fn instantiation_fails_with_failing_output() {
 					Pallet::<Test>::convert_native_to_evm(min_balance),
 					vec![],
 					Some(&[0; 32]),
-					false,
-					BumpNonce::Yes,
+					&ExecConfig::new_substrate_tx(),
 				),
 				Ok((address, ref output)) if output.data == vec![70, 65, 73, 76] => address
 			);
@@ -1195,7 +1205,7 @@ fn instantiation_from_contract() {
 				.instantiate(
 					Weight::MAX,
 					U256::MAX,
-					dummy_ch,
+					Code::Existing(dummy_ch),
 					Pallet::<Test>::convert_native_to_evm(min_balance),
 					vec![],
 					Some(&[48; 32]),
@@ -1227,7 +1237,7 @@ fn instantiation_from_contract() {
 					&mut storage_meter,
 					Pallet::<Test>::convert_native_to_evm(min_balance * 10),
 					vec![],
-					false,
+					&ExecConfig::new_substrate_tx(),
 				),
 				Ok(_)
 			);
@@ -1262,7 +1272,7 @@ fn instantiation_traps() {
 				ctx.ext.instantiate(
 					Weight::zero(),
 					U256::zero(),
-					dummy_ch,
+					Code::Existing(dummy_ch),
 					value,
 					vec![],
 					Some(&[0; 32]),
@@ -1296,7 +1306,7 @@ fn instantiation_traps() {
 					&mut storage_meter,
 					U256::zero(),
 					vec![],
-					false,
+					&ExecConfig::new_substrate_tx(),
 				),
 				Ok(_)
 			);
@@ -1306,7 +1316,7 @@ fn instantiation_traps() {
 #[test]
 fn termination_from_instantiate_fails() {
 	let terminate_ch = MockLoader::insert(Constructor, |ctx, _| {
-		ctx.ext.terminate(&ALICE_ADDR)?;
+		let _ = ctx.ext.terminate_if_same_tx(&ALICE_ADDR)?;
 		exec_success()
 	});
 
@@ -1329,8 +1339,7 @@ fn termination_from_instantiate_fails() {
 					Pallet::<Test>::convert_native_to_evm(100u64),
 					vec![],
 					Some(&[0; 32]),
-					false,
-					BumpNonce::Yes,
+					&ExecConfig::new_substrate_tx(),
 				),
 				Err(ExecError {
 					error: Error::<Test>::TerminatedInConstructor.into(),
@@ -1397,7 +1406,7 @@ fn in_memory_changes_not_discarded() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -1456,8 +1465,7 @@ fn recursive_call_during_constructor_is_balance_transfer() {
 				10u64.into(),
 				vec![],
 				Some(&[0; 32]),
-				false,
-				BumpNonce::Yes,
+				&ExecConfig::new_substrate_tx(),
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -1503,7 +1511,7 @@ fn cannot_send_more_balance_than_available_to_self() {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				false,
+				&ExecConfig::new_substrate_tx(),
 			)
 			.unwrap();
 		});
@@ -1535,7 +1543,7 @@ fn call_reentry_direct_recursion() {
 			&mut storage_meter,
 			U256::zero(),
 			CHARLIE_ADDR.as_bytes().to_vec(),
-			false,
+			&ExecConfig::new_substrate_tx(),
 		));
 
 		// Calling into oneself fails
@@ -1547,7 +1555,7 @@ fn call_reentry_direct_recursion() {
 				&mut storage_meter,
 				U256::zero(),
 				BOB_ADDR.as_bytes().to_vec(),
-				false,
+				&ExecConfig::new_substrate_tx(),
 			)
 			.map_err(|e| e.error),
 			<Error<Test>>::ReentranceDenied,
@@ -1597,12 +1605,47 @@ fn call_deny_reentry() {
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],
-				false,
+				&ExecConfig::new_substrate_tx(),
 			)
 			.map_err(|e| e.error),
 			<Error<Test>>::ReentranceDenied,
 		);
 	});
+}
+
+#[test]
+fn minimum_balance_must_return_converted_balance() {
+	let min_balance: BalanceOf<Test> = <Test as Config>::Currency::minimum_balance();
+	let min_balance_evm_value: U256 = Pallet::<Test>::convert_native_to_evm(min_balance);
+
+	let succ_fail_code = MockLoader::insert(Constructor, move |ctx, _| {
+		// The value returned by `Ext::minimum_balance` is `U256`, it must
+		// have been converted from the native balance type to `U256`.
+		assert_eq!(ctx.ext.minimum_balance(), min_balance_evm_value);
+		exec_success()
+	});
+
+	ExtBuilder::default()
+		.with_code_hashes(MockLoader::code_hashes())
+		.build()
+		.execute_with(|| {
+			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
+			let succ_fail_executable =
+				MockExecutable::from_storage(succ_fail_code, &mut gas_meter).unwrap();
+			let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
+			set_balance(&ALICE, min_balance * 10_000);
+
+			assert_ok!(MockStack::run_instantiate(
+				ALICE,
+				succ_fail_executable,
+				&mut gas_meter,
+				&mut storage_meter,
+				min_balance_evm_value,
+				vec![],
+				Some(&[0; 32]),
+				&ExecConfig::new_substrate_tx(),
+			));
+		});
 }
 
 #[test]
@@ -1614,7 +1657,7 @@ fn nonce() {
 			.instantiate(
 				Weight::MAX,
 				U256::MAX,
-				fail_code,
+				Code::Existing(fail_code),
 				ctx.ext.minimum_balance() * 100,
 				vec![],
 				Some(&[0; 32]),
@@ -1631,8 +1674,8 @@ fn nonce() {
 			.instantiate(
 				Weight::MAX,
 				U256::MAX,
-				success_code,
-				ctx.ext.minimum_balance() * 100,
+				Code::Existing(success_code),
+				ctx.ext.minimum_balance(),
 				vec![],
 				Some(&[0; 32]),
 			)
@@ -1662,6 +1705,8 @@ fn nonce() {
 		.build()
 		.execute_with(|| {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
+			let min_balance_evm_value: U256 = Pallet::<Test>::convert_native_to_evm(min_balance);
+
 			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 			let fail_executable = MockExecutable::from_storage(fail_code, &mut gas_meter).unwrap();
 			let success_executable =
@@ -1680,11 +1725,10 @@ fn nonce() {
 				fail_executable,
 				&mut gas_meter,
 				&mut storage_meter,
-				(min_balance * 100).into(),
+				min_balance_evm_value * 100,
 				vec![],
 				Some(&[0; 32]),
-				false,
-				BumpNonce::Yes,
+				&ExecConfig::new_substrate_tx(),
 			)
 			.ok();
 			assert_eq!(System::account_nonce(&ALICE), 0);
@@ -1694,11 +1738,10 @@ fn nonce() {
 				success_executable,
 				&mut gas_meter,
 				&mut storage_meter,
-				(min_balance * 100).into(),
+				min_balance_evm_value * 100,
 				vec![],
 				Some(&[0; 32]),
-				false,
-				BumpNonce::Yes,
+				&ExecConfig::new_substrate_tx(),
 			));
 			assert_eq!(System::account_nonce(&ALICE), 1);
 
@@ -1707,11 +1750,10 @@ fn nonce() {
 				succ_fail_executable,
 				&mut gas_meter,
 				&mut storage_meter,
-				(min_balance * 200).into(),
+				min_balance_evm_value * 200,
 				vec![],
 				Some(&[0; 32]),
-				false,
-				BumpNonce::Yes,
+				&ExecConfig::new_substrate_tx(),
 			));
 			assert_eq!(System::account_nonce(&ALICE), 2);
 
@@ -1720,11 +1762,10 @@ fn nonce() {
 				succ_succ_executable,
 				&mut gas_meter,
 				&mut storage_meter,
-				(min_balance * 200).into(),
+				min_balance_evm_value * 200,
 				vec![],
 				Some(&[0; 32]),
-				false,
-				BumpNonce::Yes,
+				&ExecConfig::new_substrate_tx(),
 			));
 			assert_eq!(System::account_nonce(&ALICE), 3);
 		});
@@ -1791,7 +1832,7 @@ fn set_storage_works() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		));
 	});
 }
@@ -1889,7 +1930,7 @@ fn set_storage_varsized_key_works() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		));
 	});
 }
@@ -1927,7 +1968,7 @@ fn get_storage_works() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		));
 	});
 }
@@ -1965,7 +2006,7 @@ fn get_storage_size_works() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		));
 	});
 }
@@ -2014,7 +2055,7 @@ fn get_storage_varsized_key_works() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		));
 	});
 }
@@ -2063,7 +2104,7 @@ fn get_storage_size_varsized_key_works() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		));
 	});
 }
@@ -2137,7 +2178,7 @@ fn set_transient_storage_works() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		));
 	});
 }
@@ -2207,7 +2248,7 @@ fn get_transient_storage_works() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -2245,7 +2286,7 @@ fn get_transient_storage_size_works() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		));
 	});
 }
@@ -2307,7 +2348,7 @@ fn rollback_transient_storage_works() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -2338,7 +2379,7 @@ fn ecdsa_to_eth_address_returns_proper_value() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -2359,8 +2400,10 @@ fn last_frame_output_works_on_instantiate() {
 			let value = Pallet::<Test>::convert_native_to_evm(min_balance);
 
 			// Successful instantiation should set the output
-			let address =
-				ctx.ext.instantiate(Weight::MAX, U256::MAX, ok_ch, value, vec![], None).unwrap();
+			let address = ctx
+				.ext
+				.instantiate(Weight::MAX, U256::MAX, Code::Existing(ok_ch), value, vec![], None)
+				.unwrap();
 			assert_eq!(
 				ctx.ext.last_frame_output(),
 				&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] }
@@ -2382,7 +2425,14 @@ fn last_frame_output_works_on_instantiate() {
 
 			// Reverted instantiation should set the output
 			ctx.ext
-				.instantiate(Weight::zero(), U256::zero(), revert_ch, value, vec![], None)
+				.instantiate(
+					Weight::zero(),
+					U256::zero(),
+					Code::Existing(revert_ch),
+					value,
+					vec![],
+					None,
+				)
 				.unwrap();
 			assert_eq!(
 				ctx.ext.last_frame_output(),
@@ -2391,7 +2441,14 @@ fn last_frame_output_works_on_instantiate() {
 
 			// Trapped instantiation should clear the output
 			ctx.ext
-				.instantiate(Weight::zero(), U256::zero(), trap_ch, value, vec![], None)
+				.instantiate(
+					Weight::zero(),
+					U256::zero(),
+					Code::Existing(trap_ch),
+					value,
+					vec![],
+					None,
+				)
 				.unwrap_err();
 			assert_eq!(
 				ctx.ext.last_frame_output(),
@@ -2420,7 +2477,7 @@ fn last_frame_output_works_on_instantiate() {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				false,
+				&ExecConfig::new_substrate_tx(),
 			)
 			.unwrap()
 		});
@@ -2488,7 +2545,7 @@ fn last_frame_output_works_on_nested_call() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -2532,7 +2589,7 @@ fn last_frame_output_is_always_reset() {
 			ctx.ext.instantiate(
 				Weight::zero(),
 				U256::zero(),
-				invalid_code_hash,
+				Code::Existing(invalid_code_hash),
 				U256::zero(),
 				vec![],
 				None,
@@ -2556,7 +2613,7 @@ fn last_frame_output_is_always_reset() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			false,
+			&ExecConfig::new_substrate_tx(),
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -2581,7 +2638,7 @@ fn immutable_data_access_checks_work() {
 
 			// Constructors can not access the immutable data
 			ctx.ext
-				.instantiate(Weight::MAX, U256::MAX, dummy_ch, value, vec![], None)
+				.instantiate(Weight::MAX, U256::MAX, Code::Existing(dummy_ch), value, vec![], None)
 				.unwrap();
 
 			exec_success()
@@ -2605,7 +2662,7 @@ fn immutable_data_access_checks_work() {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				false,
+				&ExecConfig::new_substrate_tx(),
 			)
 			.unwrap()
 		});
@@ -2674,7 +2731,7 @@ fn correct_immutable_data_in_delegate_call() {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				false,
+				&ExecConfig::new_substrate_tx(),
 			)
 			.unwrap()
 		});
@@ -2713,8 +2770,7 @@ fn immutable_data_set_overrides() {
 				U256::zero(),
 				vec![],
 				None,
-				false,
-				BumpNonce::Yes,
+				&ExecConfig::new_substrate_tx(),
 			)
 			.unwrap()
 			.0;
@@ -2726,7 +2782,7 @@ fn immutable_data_set_overrides() {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				false,
+				&ExecConfig::new_substrate_tx(),
 			)
 			.unwrap()
 		});
@@ -2748,7 +2804,7 @@ fn immutable_data_set_errors_with_empty_data() {
 			let value = Pallet::<Test>::convert_native_to_evm(min_balance);
 
 			ctx.ext
-				.instantiate(Weight::MAX, U256::MAX, dummy_ch, value, vec![], None)
+				.instantiate(Weight::MAX, U256::MAX, Code::Existing(dummy_ch), value, vec![], None)
 				.unwrap();
 
 			exec_success()
@@ -2772,7 +2828,7 @@ fn immutable_data_set_errors_with_empty_data() {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				false,
+				&ExecConfig::new_substrate_tx(),
 			)
 			.unwrap()
 		});
@@ -2783,7 +2839,7 @@ fn block_hash_returns_proper_values() {
 	let bob_code_hash = MockLoader::insert(Call, |ctx, _| {
 		ctx.ext.block_number = 1u32.into();
 		assert_eq!(ctx.ext.block_hash(U256::from(1)), None);
-		assert_eq!(ctx.ext.block_hash(U256::from(0)), Some(H256::from([1; 32])));
+		assert!(ctx.ext.block_hash(U256::from(0)).is_some());
 
 		ctx.ext.block_number = 300u32.into();
 		assert_eq!(ctx.ext.block_hash(U256::from(300)), None);
@@ -2827,7 +2883,7 @@ fn block_hash_returns_proper_values() {
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],
-				false,
+				&ExecConfig::new_substrate_tx(),
 			),
 			Ok(_)
 		);

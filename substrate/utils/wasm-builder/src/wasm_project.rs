@@ -258,6 +258,7 @@ fn maybe_compact_and_compress_wasm(
 			// We at least want to lower the `sign-ext` code to `mvp`.
 			wasm_opt::OptimizationOptions::new_opt_level_0()
 				.add_pass(wasm_opt::Pass::SignextLowering)
+				.debug_info(true)
 				.run(bloaty_blob_binary.bloaty_path(), bloaty_blob_binary.bloaty_path())
 				.expect("Failed to lower sign-ext in WASM binary.");
 
@@ -1057,7 +1058,9 @@ fn try_compress_blob(compact_blob_path: &Path, out_name: &str) -> Option<WasmBin
 
 	let start = std::time::Instant::now();
 	let data = fs::read(compact_blob_path).expect("Failed to read WASM binary");
-	if let Some(compressed) = sp_maybe_compressed_blob::compress(&data, CODE_BLOB_BOMB_LIMIT) {
+	if let Some(compressed) =
+		sp_maybe_compressed_blob::compress_strongly(&data, CODE_BLOB_BOMB_LIMIT)
+	{
 		fs::write(&compact_compressed_blob_path, &compressed[..])
 			.expect("Failed to write WASM binary");
 

@@ -43,8 +43,8 @@ use polkadot_node_subsystem_util::{
 	runtime::{self, recv_runtime},
 };
 use polkadot_primitives::{
-	vstaging::{CandidateDescriptorVersion, CandidateEvent},
-	BlockNumber, CandidateHash, Hash, Id as ParaId, SessionIndex,
+	BlockNumber, CandidateDescriptorVersion, CandidateEvent, CandidateHash, Hash, Id as ParaId,
+	SessionIndex,
 };
 
 #[derive(Debug, PartialEq, Clone)]

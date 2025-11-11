@@ -46,9 +46,8 @@ use polkadot_node_subsystem_util::{
 	runtime::recv_runtime,
 };
 use polkadot_primitives::{
-	node_features, vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, CoreIndex,
-	GroupIndex, GroupRotationInfo, Hash, HeadData, Id as ParaId, PersistedValidationData,
-	SessionIndex,
+	node_features, CandidateHash, CandidateReceiptV2 as CandidateReceipt, CoreIndex, GroupIndex,
+	GroupRotationInfo, Hash, HeadData, Id as ParaId, PersistedValidationData, SessionIndex,
 };
 use requests::PendingRequests;
 use schnellru::{ByLength, LruMap};

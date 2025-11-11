@@ -205,6 +205,18 @@ async fn process_msg<Context>(
 		Invalid(_parent, candidate_receipt) => {
 			state.handle_invalid_collation(candidate_receipt).await;
 		},
+		ConnectToBackingGroups => {
+			gum::warn!(
+				target: LOG_TARGET,
+				"ConnectToBackingGroups message is not expected on the validator side of the protocol",
+			);
+		},
+		DisconnectFromBackingGroups => {
+			gum::warn!(
+				target: LOG_TARGET,
+				"DisconnectFromBackingGroups message is not expected on the validator side of the protocol",
+			);
+		},
 	}
 }
 

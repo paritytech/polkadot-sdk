@@ -534,7 +534,7 @@ pub mod pallet {
 		/// This is useful for out-of-band promotions, hence it has its own `FastPromoteOrigin` to
 		/// be (possibly) more restrictive than `PromoteOrigin`. Note that the member must already
 		/// be inducted.
-		#[pallet::weight(T::WeightInfo::promote_fast(*to_rank))]
+		#[pallet::weight(T::WeightInfo::promote_fast(*to_rank as u32))]
 		#[pallet::call_index(10)]
 		pub fn promote_fast(
 			origin: OriginFor<T>,
