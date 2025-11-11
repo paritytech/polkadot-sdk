@@ -376,7 +376,6 @@ impl Client {
 				},
 				_ => {},
 			}
-
 			Ok(())
 		})
 		.await
