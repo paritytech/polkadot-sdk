@@ -794,7 +794,9 @@ pub trait NposSolver {
 /// Then it iterates over the voters and assigns them to the winners.
 ///
 /// It is only meant to be used in benchmarking.
+#[cfg(feature = "runtime-benchmarks")]
 pub struct QuickDirtySolver<AccountId, Accuracy>(core::marker::PhantomData<(AccountId, Accuracy)>);
+#[cfg(feature = "runtime-benchmarks")]
 impl<AccountId: IdentifierT, Accuracy: PerThing128> NposSolver
 	for QuickDirtySolver<AccountId, Accuracy>
 {
@@ -823,11 +825,13 @@ impl<AccountId: IdentifierT, Accuracy: PerThing128> NposSolver
 		let mut final_winners = BTreeMap::<Self::AccountId, u128>::new();
 
 		for (voter, weight, votes) in voters {
+			// any of the `n` winners that we have voted for..
 			let our_winners = winners
 				.iter()
 				.filter(|w| votes.clone().into_iter().any(|v| v == **w))
 				.collect::<Vec<_>>();
 			let our_winners_len = our_winners.len();
+			// will get `1/n` of our stake/weight.
 			let distribution = our_winners
 				.into_iter()
 				.map(|w| {

@@ -12280,6 +12280,7 @@ dependencies = [
  "frame-election-provider-support",
  "frame-support",
  "frame-system",
+ "hex-literal",
  "log",
  "pallet-balances",
  "parity-scale-codec",

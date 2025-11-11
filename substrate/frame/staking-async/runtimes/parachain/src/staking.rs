@@ -361,6 +361,9 @@ impl multi_block::unsigned::miner::MinerConfig for Runtime {
 	type MaxVotesPerVoter =
 		<<Self as multi_block::Config>::DataProvider as ElectionDataProvider>::MaxVotesPerVoter;
 	type MaxLength = MinerMaxLength;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Solver = frame_election_provider_support::QuickDirtySolver<AccountId, Perbill>;
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Solver = <Runtime as multi_block::unsigned::Config>::OffchainSolver;
 	type Pages = Pages;
 	type Solution = NposCompactSolution16;
