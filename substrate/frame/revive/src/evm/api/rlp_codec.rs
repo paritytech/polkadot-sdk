@@ -115,12 +115,8 @@ impl TransactionSigned {
 				_ => Err(rlp::DecoderError::Custom("Unknown transaction type")),
 			}
 		}
-		// Legacy transactions: first byte in [0xc0, 0xff]
-		else if first_byte >= 0xc0 {
-			rlp::decode::<TransactionLegacySigned>(data).map(Into::into)
-		} else {
-			Err(rlp::DecoderError::Custom("Invalid transaction encoding"))
-		}
+
+		rlp::decode::<TransactionLegacySigned>(data).map(Into::into)
 	}
 }
 
