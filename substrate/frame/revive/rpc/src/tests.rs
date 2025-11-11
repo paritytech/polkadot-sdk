@@ -302,8 +302,49 @@ async fn verify_transactions_in_blocks<Client: EthRpcClient + Sync>(
 }
 
 #[tokio::test]
-async fn transfer() -> anyhow::Result<()> {
+async fn run_all_eth_rpc_tests() -> anyhow::Result<()> {
 	let _lock = SHARED_RESOURCES.write();
+
+	type TestFn = fn() -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<()>>>>;
+	// Define test functions with their names
+	let tests: Vec<(&str, TestFn)> = vec![
+		("transfer", || Box::pin(test_transfer())),
+		("deploy_and_call", || Box::pin(test_deploy_and_call())),
+		("runtime_api_dry_run_addr_works", || Box::pin(test_runtime_api_dry_run_addr_works())),
+		("invalid_transaction", || Box::pin(test_invalid_transaction())),
+		("evm_blocks_should_match", || Box::pin(test_evm_blocks_should_match())),
+		("evm_blocks_hydrated_should_match", || Box::pin(test_evm_blocks_hydrated_should_match())),
+		("block_hash_for_tag_with_proper_ethereum_block_hash_works", || {
+			Box::pin(test_block_hash_for_tag_with_proper_ethereum_block_hash_works())
+		}),
+		("block_hash_for_tag_with_invalid_ethereum_block_hash_fails", || {
+			Box::pin(test_block_hash_for_tag_with_invalid_ethereum_block_hash_fails())
+		}),
+		("block_hash_for_tag_with_block_number_works", || {
+			Box::pin(test_block_hash_for_tag_with_block_number_works())
+		}),
+		("block_hash_for_tag_with_block_tags_works", || {
+			Box::pin(test_block_hash_for_tag_with_block_tags_works())
+		}),
+		("multiple_transactions_in_block", || Box::pin(test_multiple_transactions_in_block())),
+		("mixed_evm_substrate_transactions", || Box::pin(test_mixed_evm_substrate_transactions())),
+		("runtime_pallets_address_upload_code", || {
+			Box::pin(test_runtime_pallets_address_upload_code())
+		}),
+	];
+
+	// Run each test
+	for (name, test_fn) in tests {
+		log::info!(target: LOG_TARGET, "Running test: {name}");
+		test_fn().await?;
+		log::info!(target: LOG_TARGET, "Test passed: {name}");
+	}
+
+	log::info!(target: LOG_TARGET, "All tests completed successfully!");
+	Ok(())
+}
+
+async fn test_transfer() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
@@ -329,9 +370,7 @@ async fn transfer() -> anyhow::Result<()> {
 	Ok(())
 }
 
-#[tokio::test]
-async fn deploy_and_call() -> anyhow::Result<()> {
-	let _lock = SHARED_RESOURCES.write();
+async fn test_deploy_and_call() -> anyhow::Result<()> {
 	let client = std::sync::Arc::new(SharedResources::client().await);
 	let account = Account::default();
 
@@ -419,9 +458,7 @@ async fn deploy_and_call() -> anyhow::Result<()> {
 	Ok(())
 }
 
-#[tokio::test]
-async fn runtime_api_dry_run_addr_works() -> anyhow::Result<()> {
-	let _lock = SHARED_RESOURCES.write();
+async fn test_runtime_api_dry_run_addr_works() -> anyhow::Result<()> {
 	let client = std::sync::Arc::new(SharedResources::client().await);
 
 	let account = Account::default();
@@ -453,9 +490,7 @@ async fn runtime_api_dry_run_addr_works() -> anyhow::Result<()> {
 	Ok(())
 }
 
-#[tokio::test]
-async fn invalid_transaction() -> anyhow::Result<()> {
-	let _lock = SHARED_RESOURCES.write();
+async fn test_invalid_transaction() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
 
@@ -490,9 +525,7 @@ async fn get_evm_block_from_storage(
 	Ok(block.0)
 }
 
-#[tokio::test]
-async fn evm_blocks_should_match() -> anyhow::Result<()> {
-	let _lock = SHARED_RESOURCES.write();
+async fn test_evm_blocks_should_match() -> anyhow::Result<()> {
 	let client = std::sync::Arc::new(SharedResources::client().await);
 
 	let (node_client, node_rpc_client, _) =
@@ -539,9 +572,7 @@ async fn evm_blocks_should_match() -> anyhow::Result<()> {
 	Ok(())
 }
 
-#[tokio::test]
-async fn evm_blocks_hydrated_should_match() -> anyhow::Result<()> {
-	let _lock = SHARED_RESOURCES.write();
+async fn test_evm_blocks_hydrated_should_match() -> anyhow::Result<()> {
 	let client = std::sync::Arc::new(SharedResources::client().await);
 
 	// Deploy a contract to have some transactions in the block
@@ -596,9 +627,7 @@ async fn evm_blocks_hydrated_should_match() -> anyhow::Result<()> {
 	Ok(())
 }
 
-#[tokio::test]
-async fn block_hash_for_tag_with_proper_ethereum_block_hash_works() -> anyhow::Result<()> {
-	let _lock = SHARED_RESOURCES.write();
+async fn test_block_hash_for_tag_with_proper_ethereum_block_hash_works() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 
 	// Deploy a transaction to create a block with transactions
@@ -629,9 +658,7 @@ async fn block_hash_for_tag_with_proper_ethereum_block_hash_works() -> anyhow::R
 	Ok(())
 }
 
-#[tokio::test]
-async fn block_hash_for_tag_with_invalid_ethereum_block_hash_fails() -> anyhow::Result<()> {
-	let _lock = SHARED_RESOURCES.write();
+async fn test_block_hash_for_tag_with_invalid_ethereum_block_hash_fails() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 
 	let fake_eth_hash = H256::from([0x42u8; 32]);
@@ -646,9 +673,7 @@ async fn block_hash_for_tag_with_invalid_ethereum_block_hash_fails() -> anyhow::
 	Ok(())
 }
 
-#[tokio::test]
-async fn block_hash_for_tag_with_block_number_works() -> anyhow::Result<()> {
-	let _lock = SHARED_RESOURCES.write();
+async fn test_block_hash_for_tag_with_block_number_works() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 
 	let block_number = client.block_number().await?;
@@ -664,9 +689,7 @@ async fn block_hash_for_tag_with_block_number_works() -> anyhow::Result<()> {
 	Ok(())
 }
 
-#[tokio::test]
-async fn block_hash_for_tag_with_block_tags_works() -> anyhow::Result<()> {
-	let _lock = SHARED_RESOURCES.write();
+async fn test_block_hash_for_tag_with_block_tags_works() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 	let account = Account::default();
 
@@ -687,9 +710,7 @@ async fn block_hash_for_tag_with_block_tags_works() -> anyhow::Result<()> {
 	Ok(())
 }
 
-#[tokio::test]
 async fn test_multiple_transactions_in_block() -> anyhow::Result<()> {
-	let _lock = SHARED_RESOURCES.write();
 	let client = Arc::new(SharedResources::client().await);
 
 	let num_transactions = 20;
@@ -739,9 +760,7 @@ async fn test_multiple_transactions_in_block() -> anyhow::Result<()> {
 	Ok(())
 }
 
-#[tokio::test]
 async fn test_mixed_evm_substrate_transactions() -> anyhow::Result<()> {
-	let _lock = SHARED_RESOURCES.write();
 	let client = Arc::new(SharedResources::client().await);
 
 	let num_evm_txs = 10;
@@ -816,9 +835,7 @@ async fn test_mixed_evm_substrate_transactions() -> anyhow::Result<()> {
 	Ok(())
 }
 
-#[tokio::test]
 async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
-	let _lock = SHARED_RESOURCES.write();
 	let client = Arc::new(SharedResources::client().await);
 	let (node_client, node_rpc_client, _) =
 		client::connect(SharedResources::node_rpc_url()).await?;
