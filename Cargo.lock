@@ -4622,6 +4622,7 @@ dependencies = [
 name = "cumulus-pallet-parachain-system"
 version = "0.23.0"
 dependencies = [
+ "array-bytes 6.2.2",
  "assert_matches",
  "bytes",
  "cumulus-pallet-parachain-system-proc-macro",
