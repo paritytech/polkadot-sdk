@@ -2965,7 +2965,10 @@ fn block_hash_works() {
 
 		// Store block hash in pallet-revive BlockHash mapping
 		let block_hash = H256::from([1; 32]);
-		crate::BlockHash::<Test>::insert(U256::from(0u32), H256::from(block_hash));
+		crate::BlockHash::<Test>::insert(
+			crate::BlockNumberFor::<Test>::from(0u32),
+			H256::from(block_hash),
+		);
 
 		assert_ok!(builder::call(addr)
 			.data((U256::zero(), H256::from(block_hash)).encode())

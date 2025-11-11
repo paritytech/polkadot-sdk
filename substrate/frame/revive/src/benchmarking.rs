@@ -1098,7 +1098,7 @@ mod benchmarks {
 		let block_hash = H256::from([1; 32]);
 
 		// Store block hash in pallet-revive BlockHash mapping
-		crate::BlockHash::<T>::insert(U256::from(0u32), block_hash);
+		crate::BlockHash::<T>::insert(crate::BlockNumberFor::<T>::from(0u32), block_hash);
 
 		let result;
 		#[block]
