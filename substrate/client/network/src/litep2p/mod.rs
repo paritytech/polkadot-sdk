@@ -325,11 +325,15 @@ impl Litep2pNetworkBackend {
 				listen_addresses: websocket.into_iter().flatten().map(Into::into).collect(),
 				yamux_config: litep2p::yamux::Config::default(),
 				nodelay: true,
+				#[cfg(feature = "x-shadow")]
+				reuse_port: false,
 				..Default::default()
 			})
 			.with_tcp(TcpTransportConfig {
 				listen_addresses: tcp.into_iter().flatten().map(Into::into).collect(),
 				yamux_config: litep2p::yamux::Config::default(),
+				#[cfg(feature = "x-shadow")]
+				reuse_port: false,
 				nodelay: true,
 				..Default::default()
 			})
