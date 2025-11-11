@@ -365,7 +365,6 @@ impl Client {
 				.into_iter()
 				.unzip();
 
-			let block = Arc::new(block);
 			self.block_provider.update_latest(Arc::clone(&block), subscription_type).await;
 			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
 
