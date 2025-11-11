@@ -13358,7 +13358,6 @@ dependencies = [
  "sp-timestamp",
  "sp-weights",
  "sqlx",
- "static_init",
  "substrate-prometheus-endpoint",
  "subxt 0.43.0",
  "subxt-signer 0.43.0",

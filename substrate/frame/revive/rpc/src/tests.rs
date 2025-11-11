@@ -37,7 +37,6 @@ use pallet_revive::{
 		HashesOrTransactionInfos, TransactionInfo, H256, U256,
 	},
 };
-use static_init::dynamic;
 use std::{collections::BTreeMap, sync::Arc, thread};
 use subxt::{
 	backend::rpc::RpcClient,
@@ -109,9 +108,6 @@ impl SharedResources {
 	}
 }
 
-#[dynamic(lazy)]
-static mut SHARED_RESOURCES: SharedResources = SharedResources::start();
-
 macro_rules! unwrap_call_err(
 	($err:expr) => {
 		match $err.downcast_ref::<jsonrpsee::core::client::Error>().unwrap() {
@@ -120,6 +116,21 @@ macro_rules! unwrap_call_err(
 		}
 	}
 );
+
+macro_rules! run_tests {
+	 ($client:expr, $($test:ident),+ $(,)?) => {
+		$(
+			{
+				let test_name = stringify!($test);
+				log::debug!(target: LOG_TARGET, "Running test: {}", test_name);
+				match $test($client.clone()).await {
+					Ok(()) => log::debug!(target: LOG_TARGET, "Test passed: {}", test_name),
+					Err(err) => panic!("Test {} failed: {err:?}", test_name),
+				}
+			}
+		)+
+	};
+}
 
 // Helper functions
 /// Prepare multiple EVM transfer transactions with sequential nonces
@@ -303,48 +314,32 @@ async fn verify_transactions_in_blocks<Client: EthRpcClient + Sync>(
 
 #[tokio::test]
 async fn run_all_eth_rpc_tests() -> anyhow::Result<()> {
-	let _lock = SHARED_RESOURCES.write();
+	// start node and rpc server
+	let _shared = SharedResources::start();
+	let client = Arc::new(SharedResources::client().await);
 
-	type TestFn = fn() -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<()>>>>;
-	let tests: Vec<(&str, TestFn)> = vec![
-		("transfer", || Box::pin(test_transfer())),
-		("deploy_and_call", || Box::pin(test_deploy_and_call())),
-		("runtime_api_dry_run_addr_works", || Box::pin(test_runtime_api_dry_run_addr_works())),
-		("invalid_transaction", || Box::pin(test_invalid_transaction())),
-		("evm_blocks_should_match", || Box::pin(test_evm_blocks_should_match())),
-		("evm_blocks_hydrated_should_match", || Box::pin(test_evm_blocks_hydrated_should_match())),
-		("block_hash_for_tag_with_proper_ethereum_block_hash_works", || {
-			Box::pin(test_block_hash_for_tag_with_proper_ethereum_block_hash_works())
-		}),
-		("block_hash_for_tag_with_invalid_ethereum_block_hash_fails", || {
-			Box::pin(test_block_hash_for_tag_with_invalid_ethereum_block_hash_fails())
-		}),
-		("block_hash_for_tag_with_block_number_works", || {
-			Box::pin(test_block_hash_for_tag_with_block_number_works())
-		}),
-		("block_hash_for_tag_with_block_tags_works", || {
-			Box::pin(test_block_hash_for_tag_with_block_tags_works())
-		}),
-		("multiple_transactions_in_block", || Box::pin(test_multiple_transactions_in_block())),
-		("mixed_evm_substrate_transactions", || Box::pin(test_mixed_evm_substrate_transactions())),
-		("runtime_pallets_address_upload_code", || {
-			Box::pin(test_runtime_pallets_address_upload_code())
-		}),
-	];
-
-	for (name, test_fn) in tests {
-		log::info!(target: LOG_TARGET, "Running test: {name}");
-		test_fn().await?;
-		log::info!(target: LOG_TARGET, "Test passed: {name}");
-	}
+	run_tests!(
+		client,
+		test_transfer,
+		test_deploy_and_call,
+		test_runtime_api_dry_run_addr_works,
+		test_invalid_transaction,
+		test_evm_blocks_should_match,
+		test_evm_blocks_hydrated_should_match,
+		test_block_hash_for_tag_with_proper_ethereum_block_hash_works,
+		test_block_hash_for_tag_with_invalid_ethereum_block_hash_fails,
+		test_block_hash_for_tag_with_block_number_works,
+		test_block_hash_for_tag_with_block_tags_works,
+		test_multiple_transactions_in_block,
+		test_mixed_evm_substrate_transactions,
+		test_runtime_pallets_address_upload_code,
+	);
 
 	log::info!(target: LOG_TARGET, "All tests completed successfully!");
 	Ok(())
 }
 
-async fn test_transfer() -> anyhow::Result<()> {
-	let client = Arc::new(SharedResources::client().await);
-
+async fn test_transfer(client: Arc<WsClient>) -> anyhow::Result<()> {
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
 	let initial_balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
 
@@ -368,8 +363,7 @@ async fn test_transfer() -> anyhow::Result<()> {
 	Ok(())
 }
 
-async fn test_deploy_and_call() -> anyhow::Result<()> {
-	let client = std::sync::Arc::new(SharedResources::client().await);
+async fn test_deploy_and_call(client: Arc<WsClient>) -> anyhow::Result<()> {
 	let account = Account::default();
 
 	// Balance transfer
@@ -456,9 +450,7 @@ async fn test_deploy_and_call() -> anyhow::Result<()> {
 	Ok(())
 }
 
-async fn test_runtime_api_dry_run_addr_works() -> anyhow::Result<()> {
-	let client = std::sync::Arc::new(SharedResources::client().await);
-
+async fn test_runtime_api_dry_run_addr_works(client: Arc<WsClient>) -> anyhow::Result<()> {
 	let account = Account::default();
 	let origin: [u8; 32] = account.substrate_account().into();
 	let data = b"hello world".to_vec();
@@ -488,8 +480,7 @@ async fn test_runtime_api_dry_run_addr_works() -> anyhow::Result<()> {
 	Ok(())
 }
 
-async fn test_invalid_transaction() -> anyhow::Result<()> {
-	let client = Arc::new(SharedResources::client().await);
+async fn test_invalid_transaction(client: Arc<WsClient>) -> anyhow::Result<()> {
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
 
 	let err = TransactionBuilder::new(&client)
@@ -523,9 +514,7 @@ async fn get_evm_block_from_storage(
 	Ok(block.0)
 }
 
-async fn test_evm_blocks_should_match() -> anyhow::Result<()> {
-	let client = std::sync::Arc::new(SharedResources::client().await);
-
+async fn test_evm_blocks_should_match(client: Arc<WsClient>) -> anyhow::Result<()> {
 	let (node_client, node_rpc_client, _) =
 		client::connect(SharedResources::node_rpc_url()).await.unwrap();
 
@@ -570,9 +559,7 @@ async fn test_evm_blocks_should_match() -> anyhow::Result<()> {
 	Ok(())
 }
 
-async fn test_evm_blocks_hydrated_should_match() -> anyhow::Result<()> {
-	let client = std::sync::Arc::new(SharedResources::client().await);
-
+async fn test_evm_blocks_hydrated_should_match(client: Arc<WsClient>) -> anyhow::Result<()> {
 	// Deploy a contract to have some transactions in the block
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
 	let value = U256::from(5_000_000_000_000u128);
@@ -625,9 +612,9 @@ async fn test_evm_blocks_hydrated_should_match() -> anyhow::Result<()> {
 	Ok(())
 }
 
-async fn test_block_hash_for_tag_with_proper_ethereum_block_hash_works() -> anyhow::Result<()> {
-	let client = Arc::new(SharedResources::client().await);
-
+async fn test_block_hash_for_tag_with_proper_ethereum_block_hash_works(
+	client: Arc<WsClient>,
+) -> anyhow::Result<()> {
 	// Deploy a transaction to create a block with transactions
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
 	let value = U256::from(5_000_000_000_000u128);
@@ -656,9 +643,9 @@ async fn test_block_hash_for_tag_with_proper_ethereum_block_hash_works() -> anyh
 	Ok(())
 }
 
-async fn test_block_hash_for_tag_with_invalid_ethereum_block_hash_fails() -> anyhow::Result<()> {
-	let client = Arc::new(SharedResources::client().await);
-
+async fn test_block_hash_for_tag_with_invalid_ethereum_block_hash_fails(
+	client: Arc<WsClient>,
+) -> anyhow::Result<()> {
 	let fake_eth_hash = H256::from([0x42u8; 32]);
 
 	log::trace!(target: LOG_TARGET, "Testing with fake Ethereum hash: {fake_eth_hash:?}");
@@ -671,9 +658,9 @@ async fn test_block_hash_for_tag_with_invalid_ethereum_block_hash_fails() -> any
 	Ok(())
 }
 
-async fn test_block_hash_for_tag_with_block_number_works() -> anyhow::Result<()> {
-	let client = Arc::new(SharedResources::client().await);
-
+async fn test_block_hash_for_tag_with_block_number_works(
+	client: Arc<WsClient>,
+) -> anyhow::Result<()> {
 	let block_number = client.block_number().await?;
 
 	log::trace!(target: LOG_TARGET, "Testing with block number: {block_number}");
@@ -687,8 +674,9 @@ async fn test_block_hash_for_tag_with_block_number_works() -> anyhow::Result<()>
 	Ok(())
 }
 
-async fn test_block_hash_for_tag_with_block_tags_works() -> anyhow::Result<()> {
-	let client = Arc::new(SharedResources::client().await);
+async fn test_block_hash_for_tag_with_block_tags_works(
+	client: Arc<WsClient>,
+) -> anyhow::Result<()> {
 	let account = Account::default();
 
 	let tags = vec![
@@ -708,9 +696,7 @@ async fn test_block_hash_for_tag_with_block_tags_works() -> anyhow::Result<()> {
 	Ok(())
 }
 
-async fn test_multiple_transactions_in_block() -> anyhow::Result<()> {
-	let client = Arc::new(SharedResources::client().await);
-
+async fn test_multiple_transactions_in_block(client: Arc<WsClient>) -> anyhow::Result<()> {
 	let num_transactions = 20;
 	let alith = Account::default();
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
@@ -758,9 +744,7 @@ async fn test_multiple_transactions_in_block() -> anyhow::Result<()> {
 	Ok(())
 }
 
-async fn test_mixed_evm_substrate_transactions() -> anyhow::Result<()> {
-	let client = Arc::new(SharedResources::client().await);
-
+async fn test_mixed_evm_substrate_transactions(client: Arc<WsClient>) -> anyhow::Result<()> {
 	let num_evm_txs = 10;
 	let num_substrate_txs = 7;
 
@@ -833,8 +817,7 @@ async fn test_mixed_evm_substrate_transactions() -> anyhow::Result<()> {
 	Ok(())
 }
 
-async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
-	let client = Arc::new(SharedResources::client().await);
+async fn test_runtime_pallets_address_upload_code(client: Arc<WsClient>) -> anyhow::Result<()> {
 	let (node_client, node_rpc_client, _) =
 		client::connect(SharedResources::node_rpc_url()).await?;
 
