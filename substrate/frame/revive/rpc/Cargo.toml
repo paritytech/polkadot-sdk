@@ -53,6 +53,7 @@ tokio = { workspace = true, features = ["full"] }
 env_logger = { workspace = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
 pretty_assertions = { workspace = true }
+sp-io = { workspace = true, default-features = true }
 static_init = { workspace = true }
 substrate-cli-test-utils = { workspace = true }
 
