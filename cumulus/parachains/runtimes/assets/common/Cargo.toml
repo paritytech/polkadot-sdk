@@ -18,9 +18,22 @@ ethereum-standards.workspace = true
 frame-support.workspace = true
 frame-system.workspace = true
 impl-trait-for-tuples = { workspace = true }
+<<<<<<< HEAD
 pallet-asset-conversion.workspace = true
 pallet-assets.workspace = true
 pallet-revive.workspace = true
+=======
+scale-info = { features = ["derive"], workspace = true }
+serde = { workspace = true }
+tracing = { workspace = true }
+
+# Substrate
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-asset-conversion = { workspace = true }
+pallet-assets = { workspace = true }
+pallet-revive = { workspace = true }
+>>>>>>> c235685d (pallet-assets: add reserves info to support non-teleportable Foreign Assets on Asset Hub (#9948))
 pallet-revive-uapi = { workspace = true, features = ["scale"] }
 pallet-xcm.workspace = true
 parachains-common.workspace = true
@@ -46,6 +59,7 @@ std = [
 	"pallet-xcm/std",
 	"parachains-common/std",
 	"scale-info/std",
+	"serde/std",
 	"sp-api/std",
 	"sp-core/std",
 	"sp-runtime/std",

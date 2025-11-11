@@ -15,6 +15,7 @@ assert_matches = { workspace = true }
 asset-test-utils.default-features = true
 asset-test-utils.workspace = true
 codec = { workspace = true }
+<<<<<<< HEAD
 cumulus-pallet-parachain-system.workspace = true
 emulated-integration-tests-common.workspace = true
 frame-support.workspace = true
@@ -39,3 +40,33 @@ xcm.workspace = true
 xcm-executor.workspace = true
 xcm-runtime-apis.default-features = true
 xcm-runtime-apis.workspace = true
+=======
+
+# Substrate
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-asset-conversion = { workspace = true }
+pallet-asset-rewards = { workspace = true }
+pallet-assets = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-message-queue = { workspace = true }
+pallet-treasury = { workspace = true }
+pallet-utility = { workspace = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
+
+# Polkadot
+pallet-xcm = { workspace = true }
+polkadot-runtime-common = { workspace = true, default-features = true }
+rococo-runtime-constants = { workspace = true, default-features = true }
+xcm = { workspace = true }
+xcm-executor = { workspace = true }
+xcm-runtime-apis = { workspace = true, default-features = true }
+
+# Cumulus
+asset-test-utils = { workspace = true, default-features = true }
+cumulus-pallet-parachain-system = { workspace = true }
+emulated-integration-tests-common = { workspace = true }
+parachains-common = { workspace = true, default-features = true }
+rococo-system-emulated-network = { workspace = true }
+>>>>>>> c235685d (pallet-assets: add reserves info to support non-teleportable Foreign Assets on Asset Hub (#9948))

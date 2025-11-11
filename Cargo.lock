@@ -1051,6 +1051,7 @@ dependencies = [
  "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
  "frame-support",
+ "frame-system",
  "pallet-asset-conversion",
  "pallet-asset-rewards",
  "pallet-assets",
@@ -1331,6 +1332,7 @@ dependencies = [
 name = "asset-test-utils"
 version = "26.0.1"
 dependencies = [
+ "assets-common",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
@@ -1373,9 +1375,16 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "scale-info",
+<<<<<<< HEAD
  "sp-api 38.0.0",
  "sp-core 38.0.0",
  "sp-runtime 43.0.0",
+=======
+ "serde",
+ "sp-api",
+ "sp-core 28.0.0",
+ "sp-runtime",
+>>>>>>> c235685d (pallet-assets: add reserves info to support non-teleportable Foreign Assets on Asset Hub (#9948))
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
@@ -22078,6 +22087,7 @@ name = "snowbridge-inbound-queue-primitives"
 version = "0.4.0"
 dependencies = [
  "alloy-core",
+ "assets-common",
  "frame-support",
  "frame-system",
  "hex-literal",

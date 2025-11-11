@@ -18,6 +18,7 @@
 //! Miscellaneous types.
 
 use crate::{traits::Contains, TypeInfo};
+use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, FullCodec, HasCompact, MaxEncodedLen};
 use core::fmt::Debug;
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
@@ -352,6 +353,16 @@ where
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(asset_id: AssetId) {
 		O::ensure_successful(asset_id)
+	}
+}
+
+/// Provides asset trusted-reserves identifiers for an asset.
+pub trait ProvideAssetReserves<A, R> {
+	fn reserves(id: &A) -> Vec<R>;
+}
+impl<A, R> ProvideAssetReserves<A, R> for () {
+	fn reserves(_id: &A) -> Vec<R> {
+		vec![]
 	}
 }
 

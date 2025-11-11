@@ -32,6 +32,8 @@ xcm.workspace = true
 xcm-builder.workspace = true
 xcm-executor.workspace = true
 
+assets-common = { workspace = true }
+
 hex-literal = { workspace = true, default-features = true }
 
 [dev-dependencies]
@@ -41,6 +43,7 @@ snowbridge-test-utils = { workspace = true }
 default = ["std"]
 std = [
 	"alloy-core/std",
+	"assets-common/std",
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
@@ -58,6 +61,7 @@ std = [
 	"xcm/std",
 ]
 runtime-benchmarks = [
+	"assets-common/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
@@ -66,4 +70,10 @@ runtime-benchmarks = [
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
+]
+try-runtime = [
+	"assets-common/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
 ]

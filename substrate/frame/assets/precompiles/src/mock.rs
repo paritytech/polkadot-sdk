@@ -17,16 +17,10 @@
 
 //! Tests mock for `pallet-assets-freezer`.
 
-use crate as pallet_assets_holder;
-pub use crate::*;
-use codec::{Decode, Encode, MaxEncodedLen};
+pub use super::*;
 use frame_support::{derive_impl, traits::AsEnsureOriginWithArg};
-use scale_info::TypeInfo;
 use sp_runtime::BuildStorage;
 
-pub type AccountId = <Test as frame_system::Config>::AccountId;
-pub type Balance = <Test as pallet_balances::Config>::Balance;
-pub type AssetId = <Test as pallet_assets::Config>::AssetId;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 #[frame_support::runtime]
@@ -50,7 +44,7 @@ mod runtime {
 	#[runtime::pallet_index(20)]
 	pub type Assets = pallet_assets;
 	#[runtime::pallet_index(21)]
-	pub type AssetsHolder = pallet_assets_holder;
+	pub type Revive = pallet_revive;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -66,44 +60,20 @@ impl pallet_balances::Config for Test {
 
 #[derive_impl(pallet_assets::config_preludes::TestDefaultConfig as pallet_assets::DefaultConfig)]
 impl pallet_assets::Config for Test {
-	// type AssetAccountDeposit = ConstU64<1>;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type Currency = Balances;
-	type Holder = AssetsHolder;
 }
 
-#[derive(
-	Decode,
-	DecodeWithMemTracking,
-	Encode,
-	MaxEncodedLen,
-	PartialEq,
-	Eq,
-	Ord,
-	PartialOrd,
-	TypeInfo,
-	Debug,
-	Clone,
-	Copy,
-)]
-pub enum DummyHoldReason {
-	Governance,
-	Staking,
-	Other,
+#[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
+impl pallet_revive::Config for Test {
+	type AddressMapper = pallet_revive::TestAccountMapper<Self>;
+	type Balance = u64;
+	type Currency = Balances;
+	type Precompiles = (ERC20<Self, InlineIdConfig<0x0120>>,);
 }
 
-impl VariantCount for DummyHoldReason {
-	// Intentionally set below the actual count of variants, to allow testing for `can_freeze`
-	const VARIANT_COUNT: u32 = 3;
-}
-
-impl Config for Test {
-	type RuntimeHoldReason = DummyHoldReason;
-	type RuntimeEvent = RuntimeEvent;
-}
-
-pub fn new_test_ext(execute: impl FnOnce()) -> sp_io::TestExternalities {
+pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = RuntimeGenesisConfig {
 		assets: pallet_assets::GenesisConfig {
 			assets: vec![(1, 0, true, 1)],
@@ -114,14 +84,13 @@ pub fn new_test_ext(execute: impl FnOnce()) -> sp_io::TestExternalities {
 		},
 		system: Default::default(),
 		balances: Default::default(),
+		revive: Default::default(),
 	}
 	.build_storage()
 	.unwrap();
 	let mut ext: sp_io::TestExternalities = t.into();
 	ext.execute_with(|| {
 		System::set_block_number(1);
-		execute();
-		frame_support::assert_ok!(AssetsHolder::do_try_state());
 	});
 
 	ext

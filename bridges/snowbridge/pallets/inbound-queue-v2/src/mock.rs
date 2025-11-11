@@ -99,8 +99,22 @@ parameter_types! {
 	pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),Parachain(1000)]);
 	pub AssetHubUniversalLocation: InteriorLocation = [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1000)].into();
 	pub SnowbridgeReward: BridgeReward = BridgeReward::Snowbridge;
+<<<<<<< HEAD
 	pub const CreateAssetCall: [u8;2] = [53, 0];
 	pub const CreateAssetDeposit: u128 = 10_000_000_000u128;
+=======
+	pub const CreateAssetCallIndex: [u8;2] = [53, 0];
+	pub const SetReservesCallIndex: [u8;2] = [53, 33];
+	pub const CreateAssetDeposit: u128 = 10_000_000_000u128;
+	pub const LocalNetwork: NetworkId = ByGenesis(WESTEND_GENESIS_HASH);
+	pub CreateAssetCall: CreateAssetCallInfo = CreateAssetCallInfo {
+		create_call: CreateAssetCallIndex::get(),
+		deposit: CreateAssetDeposit::get(),
+		min_balance: 1,
+		set_reserves_call: SetReservesCallIndex::get(),
+	};
+	pub AssetHubParaId: ParaId = ParaId::from(1000);
+>>>>>>> c235685d (pallet-assets: add reserves info to support non-teleportable Foreign Assets on Asset Hub (#9948))
 }
 
 impl inbound_queue_v2::Config for Test {

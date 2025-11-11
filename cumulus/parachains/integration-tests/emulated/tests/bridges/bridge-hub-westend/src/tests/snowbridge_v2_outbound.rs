@@ -714,7 +714,8 @@ fn register_token_from_penpal() {
 			},
 		],
 	);
-	let asset_location_on_penpal = PenpalLocalTeleportableToAssetHub::get();
+	let asset_location_on_penpal =
+		PenpalB::execute_with(|| PenpalLocalTeleportableToAssetHub::get());
 	let foreign_asset_at_asset_hub =
 		Location::new(1, [Junction::Parachain(PenpalB::para_id().into())])
 			.appended_with(asset_location_on_penpal)

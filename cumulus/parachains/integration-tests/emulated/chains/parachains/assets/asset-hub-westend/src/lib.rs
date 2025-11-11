@@ -21,6 +21,7 @@ pub mod genesis;
 use frame_support::traits::OnInitialize;
 
 // Cumulus
+use asset_hub_westend_runtime::ForeignAssetReserveData;
 use emulated_integration_tests_common::{
 	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
 	impl_assets_helpers_for_parachain, impl_assets_helpers_for_system_parachain,
@@ -63,7 +64,11 @@ impl_accounts_helpers_for_parachain!(AssetHubWestend);
 impl_assert_events_helpers_for_parachain!(AssetHubWestend);
 impl_assets_helpers_for_system_parachain!(AssetHubWestend, Westend);
 impl_assets_helpers_for_parachain!(AssetHubWestend);
-impl_foreign_assets_helpers_for_parachain!(AssetHubWestend, xcm::v5::Location);
+impl_foreign_assets_helpers_for_parachain!(
+	AssetHubWestend,
+	xcm::v5::Location,
+	ForeignAssetReserveData
+);
 impl_xcm_helpers_for_parachain!(AssetHubWestend);
 impl_bridge_helpers_for_chain!(
 	AssetHubWestend,
