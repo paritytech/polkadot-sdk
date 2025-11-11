@@ -42,6 +42,7 @@ use core::{fmt::Debug, marker::PhantomData, mem, ops::ControlFlow};
 use frame_support::{
 	crypto::ecdsa::ECDSAExt,
 	dispatch::DispatchResult,
+	ensure,
 	storage::{with_transaction, TransactionOutcome},
 	traits::{
 		fungible::{Inspect, Mutate},
@@ -1833,6 +1834,7 @@ where
 					if !T::AllowEVMBytecode::get() {
 						return Err(<Error<T>>::CodeRejected.into());
 					}
+					ensure!(input_data.is_empty(), <Error<T>>::EvmConstructorNonEmptyData);
 					E::from_evm_init_code(bytecode.clone(), sender.clone())?
 				},
 				Code::Existing(hash) => E::from_storage(*hash, self.gas_meter_mut())?,
