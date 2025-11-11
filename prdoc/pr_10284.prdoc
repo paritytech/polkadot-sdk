@@ -9,6 +9,6 @@ doc:
     A step to reduce the diff size in https://github.com/paritytech/polkadot-sdk/pull/9925
 crates:
 - name: asset-hub-westend-runtime
-  bump: patch
+  bump: major
 - name: pallet-election-provider-multi-block
   bump: patch
