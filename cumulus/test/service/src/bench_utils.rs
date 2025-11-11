@@ -107,11 +107,15 @@ pub fn extrinsic_set_validation_data(
 		horizontal_messages: Default::default(),
 	};
 
+	use cumulus_pallet_parachain_system::parachain_inherent::InboundPublishedData;
+	let published_data = InboundPublishedData::new(Default::default());
+
 	cumulus_test_runtime::UncheckedExtrinsic::new_bare(
 		cumulus_test_runtime::RuntimeCall::ParachainSystem(
 			cumulus_pallet_parachain_system::Call::set_validation_data {
 				data,
 				inbound_messages_data,
+				published_data,
 			},
 		),
 	)

@@ -486,6 +486,14 @@ impl RelayChainInterface for TestRelayClient {
 		unimplemented!("Not needed for test")
 	}
 
+	async fn retrieve_subscribed_published_data(
+		&self,
+		_: ParaId,
+		_: RelayHash,
+	) -> RelayChainResult<BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>> {
+		unimplemented!("Not needed for test")
+	}
+
 	async fn persisted_validation_data(
 		&self,
 		_: RelayHash,
