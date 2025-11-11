@@ -72,11 +72,29 @@ pub struct WorkerHandshake {
 /// Write some data prefixed by its length into `w`. Sync version of `framed_send` to avoid
 /// dependency on tokio.
 pub fn framed_send_blocking(w: &mut (impl Write + Unpin), buf: &[u8]) -> io::Result<()> {
-	let len_buf = buf.len().to_le_bytes();
-	w.write_all(&len_buf)?;
+	let file = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/comm.txt").unwrap();
+    use std::os::fd::AsRawFd;
 
-	#[cfg(not(feature = "x-shadow"))]
-	w.write_all(buf)?;
+	let len_buf = buf.len().to_le_bytes();
+
+	let line = format!("{}[{}]: framed_send_blocking: before write len = {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), buf.len());
+    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
+	w.write_all(&len_buf).map_err(|err| {
+        let line = format!("{}[{}]: framed_send_blocking: writing of len failed: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), err.to_string());
+        let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+        err
+    })?;
+
+	let line = format!("{}[{}]: framed_send_blocking: after write len, before write payload\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+	let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
+    #[cfg(not(feature = "x-shadow"))]
+    w.write_all(buf).map_err(|err| {
+        let line = format!("{}[{}]: framed_send_blocking: writing of payload failed: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), err.to_string());
+        let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+        err
+    })?;
 
 	#[cfg(feature = "x-shadow")]
 	{
@@ -85,9 +103,16 @@ pub fn framed_send_blocking(w: &mut (impl Write + Unpin), buf: &[u8]) -> io::Res
 		// between the sender and the receiver.
 		const CHUNK_SIZE: usize = 1 << 15;
 		for chunk in buf.chunks(CHUNK_SIZE) {
-			w.write_all(chunk)?;
+			w.write_all(chunk).map_err(|err| {
+				let line = format!("{}[{}]: framed_send_blocking: writing of chunk failed: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), err.to_string());
+				let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+				err
+			})?;
 		}
 	}
+
+	let line = format!("{}[{}]: framed_send_blocking: after write {} bytes of payload\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), buf.len());
+	let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
 
 	Ok(())
 }
@@ -95,12 +120,36 @@ pub fn framed_send_blocking(w: &mut (impl Write + Unpin), buf: &[u8]) -> io::Res
 /// Read some data prefixed by its length from `r`. Sync version of `framed_recv` to avoid
 /// dependency on tokio.
 pub fn framed_recv_blocking(r: &mut (impl Read + Unpin)) -> io::Result<Vec<u8>> {
+	let file = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/comm.txt").unwrap();
+    use std::os::fd::AsRawFd;
+
 	let mut len_buf = [0u8; mem::size_of::<usize>()];
-	r.read_exact(&mut len_buf)?;
+
+	let line = format!("{}[{}]: framed_recv_blocking: before read len ({} bytes)\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), len_buf.len());
+    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
+	r.read_exact(&mut len_buf).map_err(|err| {
+        let line = format!("{}[{}]: framed_recv_blocking: reading of length failed: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), err.to_string());
+        let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+        err
+    })?;
+
 	let len = usize::from_le_bytes(len_buf);
+
+    let line = format!("{}[{}]: framed_recv_blocking: after read len = {}, before read payload\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), len);
+    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 	let mut buf = vec![0; len];
-	r.read_exact(&mut buf)?;
-	Ok(buf)
+	r.read_exact(&mut buf).map_err(|err| {
+        let line = format!("{}[{}]: framed_recv_blocking: reading of payload failed: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), err.to_string());
+        let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+        err
+    })?;
+
+	let line = format!("{}[{}]: framed_recv_blocking: after read {} bytes of payload\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), len);
+    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
+    Ok(buf)
 }
 
 #[derive(Debug, Default, Clone, Copy, Encode, Decode, PartialEq, Eq)]

@@ -87,22 +87,44 @@ macro_rules! decl_worker_main {
 				return
 			}
 
+            let file = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/comm.txt").unwrap();
+            use std::os::fd::AsRawFd;
+
+            let line = format!("{}[{}]: main ({})\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), args[0].as_str());
+            let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 			match args[1].as_ref() {
 				"--help" | "-h" => {
+
+                    let line = format!("{}[{}]: --help\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+                    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 					print_help($expected_command);
 					return
 				},
 				"--version" | "-v" => {
+                    let line = format!("{}[{}]: --version\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+                    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 					println!("{}", $worker_version);
+
+                    let line = format!("{}[{}]: main returns '{}'\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), $worker_version);
+                    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
 					return
 				},
 				// Useful for debugging. --version is used for version checks.
 				"--full-version" => {
+                    let line = format!("{}[{}]: --full-version\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+                    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 					println!("{}", get_full_version());
 					return
 				},
 
 				"--check-can-enable-landlock" => {
+                    let line = format!("{}[{}]: --check-can-enable-landlock\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+                    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 					#[cfg(target_os = "linux")]
 					let status = if let Err(err) = security::landlock::check_can_fully_enable() {
 						// Write the error to stderr, log it on the host-side.
@@ -116,6 +138,9 @@ macro_rules! decl_worker_main {
 					std::process::exit(status)
 				},
 				"--check-can-enable-seccomp" => {
+                    let line = format!("{}[{}]: --check-can-enable-seccomp\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+                    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 					#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 					let status = if let Err(err) = security::seccomp::check_can_fully_enable() {
 						// Write the error to stderr, log it on the host-side.
@@ -129,6 +154,9 @@ macro_rules! decl_worker_main {
 					std::process::exit(status)
 				},
 				"--check-can-unshare-user-namespace-and-change-root" => {
+                    let line = format!("{}[{}]: --check-can-unshare-user-namespace-and-change-root\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+                    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 					#[cfg(target_os = "linux")]
 					let cache_path_tempdir = std::path::Path::new(&args[2]);
 					#[cfg(target_os = "linux")]
@@ -146,6 +174,9 @@ macro_rules! decl_worker_main {
 					std::process::exit(status)
 				},
 				"--check-can-do-secure-clone" => {
+                    let line = format!("{}[{}]: --check-can-do-secure-clone\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+                    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 					#[cfg(target_os = "linux")]
 					// SAFETY: new process is spawned within a single threaded process. This
 					// invariant is enforced by tests.
@@ -193,18 +224,31 @@ macro_rules! decl_worker_main {
 					// TCP (x-shadow build)
 					#[cfg(feature = "x-shadow")]
 					"--socket-addr" => {
+                        let line = format!("{}[{}]: --socket-addr={:?}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), Some(args[i + 1].as_str()));
+                        let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 						endpoint = Some(args[i + 1].as_str());
 						i += 1
 					},
 					"--worker-dir-path" => {
+                        let line = format!("{}[{}]: --worker-dir-path={:?}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), Some(args[i + 1].as_str()));
+                        let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 						worker_dir_path = Some(args[i + 1].as_str());
 						i += 1
 					},
 					"--node-impl-version" => {
+                        let line = format!("{}[{}]: --node-impl-version={:?}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), Some(args[i + 1].as_str()));
+                        let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 						node_version = Some(args[i + 1].as_str());
 						i += 1
 					},
-					arg => panic!("Unexpected argument found: {}", arg),
+					arg => {
+                        let line = format!("{}[{}]: Unexpected argument found: {:?}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), args[i].as_str());
+                        let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+                        panic!("Unexpected argument found: {}", arg)
+                    },
 				}
 				i += 1;
 			}
@@ -223,6 +267,9 @@ macro_rules! decl_worker_main {
 			let endpoint: std::net::SocketAddr =
 				endpoint.parse().expect("invalid --socket-addr, expected IP:PORT");
 			let worker_dir_path = std::path::Path::new(worker_dir_path).to_owned();
+
+            let line = format!("{}[{}]: entrypoint\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+            let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
 
 			$entrypoint(endpoint, worker_dir_path, node_version, Some($worker_version));
 		}
@@ -354,6 +401,12 @@ pub fn run_worker<F>(
 ) where
 	F: FnMut(WorkerStream, &WorkerInfo, SecurityStatus) -> io::Result<Never>,
 {
+    let file = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/comm.txt").unwrap();
+    use std::os::fd::AsRawFd;
+
+    let line = format!("{}[{}]: run\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 	#[cfg_attr(not(target_os = "linux"), allow(unused_mut))]
 	let mut worker_info = WorkerInfo {
 		pid: std::process::id(),
@@ -372,6 +425,10 @@ pub fn run_worker<F>(
 	// Check for a mismatch between the node and worker versions.
 	if let (Some(node_version), Some(worker_version)) = (node_version, &worker_info.version) {
 		if node_version != worker_version {
+
+            let line = format!("{}[{}]: shutdown: Version mismatch\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+            let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 			gum::error!(
 				target: LOG_TARGET,
 				?worker_info,
@@ -391,6 +448,10 @@ pub fn run_worker<F>(
 			gum::trace!(target: LOG_TARGET, ?worker_info, "content of worker dir: {:?}", entries),
 		Err(err) => {
 			let err = format!("Could not read worker dir: {}", err.to_string());
+
+            let line = format!("{}[{}]: shutdown: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), &err.to_string());
+            let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 			worker_shutdown_error(worker_info, &err);
 		},
 	}
@@ -408,12 +469,24 @@ pub fn run_worker<F>(
 	let stream = || -> io::Result<WorkerStream> { WorkerStream::connect(endpoint) }();
 	let mut stream = match stream {
 		Ok(ok) => ok,
-		Err(err) => worker_shutdown_error(worker_info, &err.to_string()),
+		Err(err) => {
+
+            let line = format!("{}[{}]: shutdown: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), &err.to_string());
+            let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
+			worker_shutdown_error(worker_info, &err.to_string())
+		}
 	};
 
 	let WorkerHandshake { security_status } = match recv_worker_handshake(&mut stream) {
 		Ok(ok) => ok,
-		Err(err) => worker_shutdown_error(worker_info, &err.to_string()),
+		Err(err) => {
+
+            let line = format!("{}[{}]: shutdown: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), &err.to_string());
+            let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
+			worker_shutdown_error(worker_info, &err.to_string())
+		}
 	};
 
 	// Enable some security features.
@@ -433,6 +506,10 @@ pub fn run_worker<F>(
 				err
 			);
 			if security_status.secure_validator_mode {
+
+                let line = format!("{}[{}]: shutdown: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), &err.to_string());
+                let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 				worker_shutdown(worker_info, err);
 			}
 		}
@@ -448,6 +525,10 @@ pub fn run_worker<F>(
 			if let Err(err) = security::change_root::enable_for_worker(&worker_info) {
 				// The filesystem may be in an inconsistent state, always bail out.
 				let err = format!("Could not change root to be the worker cache path: {}", err);
+
+                let line = format!("{}[{}]: shutdown: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), &err.to_string());
+                let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 				worker_shutdown_error(worker_info, &err);
 			}
 			worker_info.worker_dir_path = std::path::Path::new("/").to_owned();
@@ -466,6 +547,10 @@ pub fn run_worker<F>(
 					err
 				);
 				if security_status.secure_validator_mode {
+
+                    let line = format!("{}[{}]: shutdown: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), &err.to_string());
+                    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 					worker_shutdown(worker_info, &err);
 				}
 			}
@@ -486,6 +571,10 @@ pub fn run_worker<F>(
 					err
 				);
 				if security_status.secure_validator_mode {
+
+                    let line = format!("{}[{}]: shutdown: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), &err.to_string());
+                    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 					worker_shutdown(worker_info, &err);
 				}
 			}
@@ -496,6 +585,9 @@ pub fn run_worker<F>(
 	let err = event_loop(stream, &worker_info, security_status)
 		// It's never `Ok` because it's `Ok(Never)`.
 		.unwrap_err();
+
+    let line = format!("{}[{}]: shutdown: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), &err.to_string());
+    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
 
 	worker_shutdown(worker_info, &err.to_string());
 }
@@ -582,7 +674,17 @@ fn kill_parent_node_in_emergency() {
 
 /// Receives a handshake with information for the worker.
 fn recv_worker_handshake(stream: &mut WorkerStream) -> io::Result<WorkerHandshake> {
+	let file = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/comm.txt").unwrap();
+ use std::os::fd::AsRawFd;
+
+	let line = format!("{}[{}]: before framed_send_blocking (handshake)\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 	let worker_handshake = framed_recv_blocking(stream)?;
+
+	let line = format!("{}[{}]: after framed_send_blocking (handshake)\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 	let worker_handshake = WorkerHandshake::decode(&mut &worker_handshake[..]).map_err(|e| {
 		io::Error::new(
 			io::ErrorKind::Other,
@@ -618,7 +720,17 @@ pub fn recv_child_response<T>(
 where
 	T: Decode,
 {
+	let file = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/comm.txt").unwrap();
+ use std::os::fd::AsRawFd;
+
+	let line = format!("{}[{}]: before framed_recv_blocking (response)\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 	let response_bytes = framed_recv_blocking(received_data)?;
+
+	let line = format!("{}[{}]: after framed_recv_blocking (response)\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 	T::decode(&mut response_bytes.as_slice()).map_err(|e| {
 		io::Error::new(
 			io::ErrorKind::Other,
@@ -652,7 +764,13 @@ where
 		result
 	);
 
-	framed_send_blocking(stream, &result.encode()).map_err(|err| {
+	let file = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/comm.txt").unwrap();
+    use std::os::fd::AsRawFd;
+
+	let line = format!("{}[{}]: before framed_send_blocking (send_result)\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
+	let res = framed_send_blocking(stream, &result.encode()).map_err(|err| {
 		gum::warn!(
 			target: LOG_TARGET,
 			?worker_info,
@@ -660,7 +778,12 @@ where
 			err
 		);
 		err
-	})
+	});
+
+	let line = format!("{}[{}]: after framed_send_blocking (send_result)\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
+	res
 }
 
 pub fn stringify_errno(context: &'static str, errno: Errno) -> String {

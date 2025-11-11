@@ -443,6 +443,12 @@ async fn handle_job_finish(
 	artifact_id: ArtifactId,
 	result_tx: ResultSender,
 ) {
+    let file = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/comm.txt").unwrap();
+    use std::os::fd::AsRawFd;
+
+    let line = format!("{}[{}]: handle_job_finish: enter\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 	let (idle_worker, result, duration, sync_channel, pov_size) = match worker_result {
 		Ok(WorkerInterfaceResponse {
 			worker_response:
@@ -556,7 +562,18 @@ async fn handle_job_finish(
 		),
 	};
 
-	queue.metrics.execute_finished();
+    match &result {
+        Ok(_) => {
+            let line = format!("{}[{}]: handle_job_finish: result is Ok\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+            let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+        },
+        Err(ref err) => {
+            let line = format!("{}[{}]: handle_job_finish: result is Err: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), err.to_string());
+            let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+        },
+    }
+
+    queue.metrics.execute_finished();
 	if let Some(pov_size) = pov_size {
 		queue.metrics.observe_pov_size(pov_size as usize, false)
 	}

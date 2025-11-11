@@ -135,6 +135,12 @@ pub async fn start_work(
 ) -> Result<Response, Error> {
 	let IdleWorker { mut stream, pid, worker_dir } = worker;
 
+	let file = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/comm.txt").unwrap();
+	use std::os::fd::AsRawFd;
+
+	let line = format!("{}[{}]ew: start_work enter\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+	let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 	gum::debug!(
 		target: LOG_TARGET,
 		worker_pid = %pid,
@@ -145,9 +151,15 @@ pub async fn start_work(
 	);
 
 	with_worker_dir_setup(worker_dir, pid, &artifact.path, |worker_dir| async move {
+        let line = format!("{}[{}]ew: start_work: before send_request\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+        let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 		send_request(&mut stream, pvd, pov, execution_timeout, artifact.checksum)
 			.await
 			.map_err(|error| {
+                let line = format!("{}[{}]ew: start_work: send_request failed: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), error.to_string());
+                let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 				gum::warn!(
 					target: LOG_TARGET,
 					worker_pid = %pid,
@@ -158,6 +170,9 @@ pub async fn start_work(
 				Error::InternalError(InternalValidationError::HostCommunication(error.to_string()))
 			})?;
 
+        let line = format!("{}[{}]ew: start_work: after send_request; before recv_result\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+        let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 		// We use a generous timeout here. This is in addition to the one in the child process, in
 		// case the child stalls. We have a wall clock timeout here in the host, but a CPU timeout
 		// in the child. We want to use CPU time because it varies less than wall clock time under
@@ -167,14 +182,21 @@ pub async fn start_work(
 		let worker_result = futures::select! {
 			worker_result = recv_result(&mut stream).fuse() => {
 				match worker_result {
-					Ok(result) =>
-						handle_result(
-							result,
-							pid,
-							execution_timeout,
-						)
-							.await,
+					Ok(result) => {
+                        let line = format!("{}[{}]ew: start_work: after recv_result; before handle_result\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+                        let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
+                        handle_result(
+                            result,
+                            pid,
+                            execution_timeout,
+                        ).await
+                    },
 					Err(error) => {
+
+                        let line = format!("{}[{}]ew: start_work: recv_result failed: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), error.to_string());
+                        let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 						gum::warn!(
 							target: LOG_TARGET,
 							worker_pid = %pid,
@@ -194,16 +216,30 @@ pub async fn start_work(
 					validation_code_hash = ?artifact.id.code_hash,
 					"execution worker exceeded lenient timeout for execution, child worker likely stalled",
 				);
+
+                let line = format!("{}[{}]ew: start_work: after recv_result; execution worker exceeded lenient timeout for execution, child worker likely stalled\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+                let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 				return Err(Error::HardTimeout)
 			},
 		};
 
 		match worker_result {
-			Ok(worker_response) => Ok(Response {
-				worker_response,
-				idle_worker: IdleWorker { stream, pid, worker_dir },
-			}),
-			Err(worker_error) => Err(worker_error.into()),
+			Ok(worker_response) => {
+				let line = format!("{}[{}]ew: start_work: response received\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+				let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
+				Ok(Response {
+                    worker_response,
+                    idle_worker: IdleWorker { stream, pid, worker_dir },
+				})
+			}
+			Err(worker_error) => {
+				let line = format!("{}[{}]ew: start_work: worker_error failed: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), worker_error.to_string());
+				let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
+				Err(worker_error.into())
+			}
 		}
 	})
 	.await
@@ -218,6 +254,12 @@ async fn handle_result(
 	worker_pid: u32,
 	execution_timeout: Duration,
 ) -> Result<WorkerResponse, WorkerError> {
+	let file = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/comm.txt").unwrap();
+	use std::os::fd::AsRawFd;
+
+	let line = format!("{}[{}]ew: handle_result: enter\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+	let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 	if let Ok(WorkerResponse { duration, .. }) = worker_result {
 		if duration > execution_timeout {
 			// The job didn't complete within the timeout.
@@ -229,10 +271,16 @@ async fn handle_result(
 				execution_timeout.as_millis(),
 			);
 
+			let line = format!("{}[{}]ew: handle_result: exceeded execution timeout\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+			let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 			// Return a timeout error.
 			return Err(WorkerError::JobTimedOut)
 		}
 	}
+
+	let line = format!("{}[{}]ew: handle_result: looks good\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+	let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
 
 	worker_result
 }
@@ -307,15 +355,49 @@ async fn send_request(
 		execution_timeout,
 		artifact_checksum,
 	};
-	framed_send(stream, &request.encode()).await
+
+    let file = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/comm.txt").unwrap();
+    use std::os::fd::AsRawFd;
+
+    let line = format!("{}[{}]ew: Sending request...\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
+	let result = framed_send(stream, &request.encode()).await;
+
+	let line = format!("{}[{}]ew: Request is sent\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+	let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
+	result
 }
 
 async fn recv_result(stream: &mut Stream) -> io::Result<Result<WorkerResponse, WorkerError>> {
+	let file = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/comm.txt").unwrap();
+	use std::os::fd::AsRawFd;
+
+	let line = format!("{}[{}]ew: Waiting response...\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+	let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
+	let line = format!("{}[{}]ew: before framed_recv (recv_response)\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+	let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
 	let result_bytes = framed_recv(stream).await?;
-	Result::<WorkerResponse, WorkerError>::decode(&mut result_bytes.as_slice()).map_err(|e| {
-		io::Error::new(
-			io::ErrorKind::Other,
-			format!("execute pvf recv_result: decode error: {:?}", e),
-		)
-	})
+
+	let line = format!("{}[{}]ew: after framed_recv (recv_response)\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+	let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
+	let result = Result::<WorkerResponse, WorkerError>::decode(&mut result_bytes.as_slice())
+		.map_err(|e| {
+			let line = format!("{}[{}]ew: received invalid result from the worker (recv_response)\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+			let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
+			io::Error::new(
+				io::ErrorKind::Other,
+				format!("execute pvf recv_result: decode error: {:?}", e),
+			)
+		})?;
+
+	let line = format!("{}[{}]ew: received valid result from the worker (recv_response)\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
+	let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+
+	Ok(result)
 }
