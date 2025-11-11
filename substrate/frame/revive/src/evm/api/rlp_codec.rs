@@ -97,15 +97,13 @@ impl TransactionSigned {
 	}
 
 	/// Decode the Ethereum transaction from bytes.
-	/// According to EIP-2718, legacy transactions start with a byte in [0xc0, 0xff] (RLP list),
-	/// while typed transactions use type identifiers in [0x00, 0x7f].
 	pub fn decode(data: &[u8]) -> Result<Self, rlp::DecoderError> {
 		if data.is_empty() {
 			return Err(rlp::DecoderError::RlpIsTooShort);
 		}
 		let first_byte = data[0];
 
-		// Typed transactions: first byte in [0x00, 0x7f]
+		// EIP-2718: Typed transactions use type identifiers in [0x00, 0x7f].
 		if first_byte <= 0x7f {
 			match first_byte {
 				TYPE_EIP2930 => rlp::decode::<Transaction2930Signed>(&data[1..]).map(Into::into),
