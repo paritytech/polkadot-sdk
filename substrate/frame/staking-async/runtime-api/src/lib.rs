@@ -40,7 +40,7 @@ sp_api::decl_runtime_apis! {
 		fn pending_rewards(era: sp_staking::EraIndex, account: AccountId) -> bool;
 
 		/// Returns a list of (era, amount) that indices at which era unbonded funds will be unlocked.
-		fn unbonding_duration(account: AccountId) -> Vec<(sp_staking::EraIndex, Balance)>;
+		fn unbonding_schedule(account: AccountId) -> Vec<(sp_staking::EraIndex, Balance)>;
 
 		/// Returns the estimated number of eras for unbonding a given amount.
 		fn estimate_unbonding_duration(amount: Balance) -> sp_staking::EraIndex;

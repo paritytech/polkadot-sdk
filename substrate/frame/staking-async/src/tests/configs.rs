@@ -33,7 +33,8 @@ fn set_staking_configs_works() {
 			ConfigOp::Set(UnbondingQueueConfig {
 				min_slashable_share: Perbill::from_percent(50),
 				lowest_ratio: Perbill::from_percent(34),
-				unbond_period_lower_bound: 2,
+				min_time: 2,
+				max_time: 3,
 			})
 		));
 		assert_eq!(MinNominatorBond::<Test>::get(), 1_500);
@@ -45,11 +46,12 @@ fn set_staking_configs_works() {
 		assert_eq!(MaxStakedRewards::<Test>::get(), Some(Percent::from_percent(0)));
 		assert_eq!(
 			UnbondingQueueParams::<Test>::get(),
-			Some(UnbondingQueueConfig {
+			UnbondingQueueConfig {
 				min_slashable_share: Perbill::from_percent(50),
 				lowest_ratio: Perbill::from_percent(34),
-				unbond_period_lower_bound: 2,
-			})
+				min_time: 2,
+				max_time: 3,
+			}
 		);
 
 		// noop does nothing
@@ -84,5 +86,6 @@ fn set_staking_configs_works() {
 		assert_eq!(ChillThreshold::<Test>::get(), None);
 		assert_eq!(MinCommission::<Test>::get(), Perbill::from_percent(0));
 		assert_eq!(MaxStakedRewards::<Test>::get(), None);
+		asssert_eq!(UnbondingQueueParams::<Test>::get(), DefaultUnbondingConfig::get());
 	});
 }

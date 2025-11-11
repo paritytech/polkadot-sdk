@@ -1790,8 +1790,8 @@ impl_runtime_apis! {
 			Staking::api_pending_rewards(era, account)
 		}
 
-		fn unbonding_duration(account: AccountId) -> Vec<(sp_staking::EraIndex, Balance)> {
-			Staking::unbonding_duration(account)
+		fn unbonding_schedule(account: AccountId) -> Vec<(sp_staking::EraIndex, Balance)> {
+			Staking::unbonding_schedule(account)
 		}
 
 		fn estimate_unbonding_duration(amount: Balance) -> sp_staking::EraIndex {

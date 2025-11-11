@@ -398,27 +398,25 @@ impl<T: Config> Eras<T> {
 		ErasLowestRatioTotalStake::<T>::set(era, Some(total_stake));
 	}
 
-	pub(crate) fn get_lowest_stake(era: EraIndex) -> BalanceOf<T> {
-		ErasLowestRatioTotalStake::<T>::get(era).unwrap_or(Zero::zero())
+	pub(crate) fn get_lowest_stake(era: EraIndex) -> Option<BalanceOf<T>> {
+		ErasLowestRatioTotalStake::<T>::get(era)
 	}
 
 	pub(crate) fn clean_up_lowest_stake(era: EraIndex) {
+		// TODO: move to pruning logic.
 		ErasLowestRatioTotalStake::<T>::remove(era);
 	}
 
-	pub(crate) fn get_total_unbond_for_era(era: EraIndex) -> BalanceOf<T> {
+	pub(crate) fn get_total_unbond(era: EraIndex) -> Option<BalanceOf<T>> {
 		ErasTotalUnbond::<T>::get(era)
 	}
 
-	pub(crate) fn set_total_unbond_for_era(era: EraIndex, value: BalanceOf<T>) {
-		if value.is_zero() {
-			Self::remove_total_unbond_for_era(era);
-		} else {
-			ErasTotalUnbond::<T>::insert(era, value);
-		}
+	pub(crate) fn set_total_unbond(era: EraIndex, new: BalanceOf<T>) {
+		ErasTotalStake::<T>::insert(era, new)
 	}
 
-	pub(crate) fn remove_total_unbond_for_era(era: EraIndex) {
+	pub(crate) fn remove_total_unbond(era: EraIndex) {
+		// TODO: move to pruning logic.
 		ErasTotalUnbond::<T>::remove(era);
 	}
 }
@@ -575,7 +573,8 @@ impl<T: Config> Rotator<T> {
 				// [active - bonding_duration .. active_era]
 				ensure!(
 					bonded.into_iter().map(|(era, _sess)| era).collect::<Vec<_>>() ==
-						(active.index.saturating_sub(T::MaxUnbondingDuration::get())..=active.index)
+						(active.index.saturating_sub(UnbondingQueueParams::<T>::get().max_time)..=
+							active.index)
 							.collect::<Vec<_>>(),
 					"BondedEras range incorrect"
 				);
@@ -741,7 +740,8 @@ impl<T: Config> Rotator<T> {
 		if let Some(old_era) = starting_era.checked_sub(T::HistoryDepth::get() + 1) {
 			log!(debug, "Marking era {:?} for lazy pruning", old_era);
 			// TODO: era pruning state should also clean the new two eras items
-			// TODO: sanity check that the values are never read for old eras in case pruning doesn't work.
+			// TODO: sanity check that the values are never read for old eras in case pruning
+			// doesn't work.
 			EraPruningState::<T>::insert(old_era, PruningStep::ErasStakersPaged);
 		}
 	}
@@ -775,7 +775,7 @@ impl<T: Config> Rotator<T> {
 	}
 
 	fn start_era_update_bonded_eras(starting_era: EraIndex, start_session: SessionIndex) {
-		let bonding_duration = T::MaxUnbondingDuration::get();
+		let bonding_duration = UnbondingQueueParams::<T>::get().max_time;
 
 		BondedEras::<T>::mutate(|bonded| {
 			if bonded.is_full() {

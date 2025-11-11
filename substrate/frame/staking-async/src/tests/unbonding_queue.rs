@@ -21,10 +21,35 @@ use frame_support::traits::fungible::Inspect;
 use sp_runtime::Perbill;
 use std::collections::BTreeMap;
 
+/*
+- Election tests:
+	- (always) ElectableStashes is recording total stake as well
+	- (this file) ErasLowestStake Ratio is set at the end of each era correctly + retroactive update
+- Unbond
+	- (always) ErasTotalUnbond is set
+	- (always) Check in try-states of the pallet as well.
+	- (this file) Others unbound more in our era: our schedule is delayed
+	- (this file) Other rebond at later eras: our schedule is shortened.
+- Params
+	- Runtime APIs + view functions are correct.
+
+Open questions:
+	- Migration strategy:
+		* We need an MBM to migrate all ledgers to the new value.
+		* New params can already be set.. but since `ErasTotalUnbond` is not set, unbonding will always be at max time.
+		* Then, we need at least 28 days for the previous data to be back-filled ()
+	- Check the migration overall
+	- Talk to UIs already
+*/
+
+
 #[test]
-fn setting_invalid_min_unbond_period_fails() {
+fn set_unbonding_queue_config_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert_eq!(<Test as Config>::MaxUnbondingDuration::get(), 3);
+		assert_eq!(UnbondingQueueParams::<T>::get(), UnbondingQueueConfig::fixed(3));
+
+		// invalid
 		assert_noop!(
 			Staking::set_staking_configs(
 				RuntimeOrigin::root(),
@@ -38,24 +63,16 @@ fn setting_invalid_min_unbond_period_fails() {
 				ConfigOp::Set(UnbondingQueueConfig {
 					min_slashable_share: Perbill::from_percent(50),
 					lowest_ratio: Perbill::from_percent(34),
-					unbond_period_lower_bound: 4,
+					min_time: 4,
+					max_time: 2,
 				})
 			),
 			Error::<Test>::BoundNotMet
 		);
-	});
-}
 
-#[test]
-fn get_min_lowest_stake_works() {
-	ExtBuilder::default()
-		.set_stake(11, 10_000)
-		.set_stake(21, 11_000)
-		.set_stake(31, 400)
-		.validator_count(3)
-		.nominate(false)
-		.build_and_execute(|| {
-			assert_ok!(Staking::set_staking_configs(
+		// invalid
+		assert_noop!(
+			Staking::set_staking_configs(
 				RuntimeOrigin::root(),
 				ConfigOp::Noop,
 				ConfigOp::Noop,
@@ -67,9 +84,123 @@ fn get_min_lowest_stake_works() {
 				ConfigOp::Set(UnbondingQueueConfig {
 					min_slashable_share: Perbill::from_percent(50),
 					lowest_ratio: Perbill::from_percent(34),
-					unbond_period_lower_bound: 2,
+					min_time: 2,
+					max_time: 4,
 				})
-			));
+			),
+			Error::<Test>::BoundNotMet
+		);
+
+		// valid
+		assert_ok!(Staking::set_staking_configs(
+			RuntimeOrigin::root(),
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Set(UnbondingQueueConfig {
+				min_slashable_share: Perbill::from_percent(50),
+				lowest_ratio: Perbill::from_percent(34),
+				min_time: 2,
+				max_time: 3,
+			})
+		));
+
+		assert_eq!(
+			UnbondingQueueParams::<T>::get(),
+			UnbondingQueueConfig {
+				min_slashable_share: Perbill::from_percent(50),
+				lowest_ratio: Perbill::from_percent(34),
+				min_time: 2,
+				max_time: 3,
+			}
+		);
+
+		// then remove it
+		assert_ok!(Staking::set_staking_configs(
+			RuntimeOrigin::root(),
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Remove,
+		));
+
+		// goes back to default
+		assert_eq!(UnbondingQueueParams::<T>::get(), UnbondingQueueConfig::fixed(3));
+
+	});
+}
+
+#[test]
+fn stores_min_lowest_stake() {
+	todo!();
+}
+
+#[test]
+fn update_to_min_lowest_stake_ratio() {
+	// a transaction should allow us to adjust the previous values, if someone claims they are wrong.
+	todo!();
+}
+
+#[test]
+fn tracks_eras_total_unbond() {
+	// Also in try-state
+	todo!();
+}
+
+#[test]
+fn unbonding_time_before_min() {
+	todo!();
+}
+
+#[test]
+fn unbonding_time_between_min_and_max() {
+	todo!();
+}
+
+#[test]
+fn unbonding_time_after_max() {
+	todo!();
+}
+
+#[test]
+fn self_rebonding() {
+	todo!();
+}
+
+#[test]
+fn self_more_unbonding() {
+	todo!();
+}
+
+#[test]
+fn others_more_unbonding() {
+	todo!();
+}
+
+#[test]
+fn others_rebonding() {
+	todo!();
+}
+
+
+#[test]
+fn get_min_lowest_stake_works() {
+	ExtBuilder::default()
+		.set_stake(11, 10_000)
+		.set_stake(21, 11_000)
+		.set_stake(31, 400)
+		.validator_count(3)
+		.nominate(false)
+		.unbonding_queue()
+		.build_and_execute(|| {
 
 			// Initial conditions.
 			assert_eq!(Staking::current_era(), 1);
@@ -125,7 +256,7 @@ fn calculate_lowest_total_stake_works() {
 	ExtBuilder::default()
 		.has_stakers(false)
 		.validator_count(4)
-		.has_unbonding_queue_config(true)
+		.unbonding_queue()
 		.build_and_execute(|| {
 			Session::roll_until_active_era(4);
 			assert_eq!(current_era(), 4);
@@ -182,7 +313,7 @@ fn calculate_lowest_total_stake_works() {
 fn correct_unbond_era_is_being_calculated_without_config_set() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Start at era 1 with known minimum lowest stake
-		assert_eq!(UnbondingQueueParams::<Test>::get(), None);
+		assert_eq!(UnbondingQueueParams::<Test>::get(), DefaultUnbondingConfig::get());
 		let current_era = Staking::current_era();
 		assert_eq!(current_era, 1);
 
@@ -194,7 +325,7 @@ fn correct_unbond_era_is_being_calculated_without_config_set() {
 				.into_inner(),
 			vec![]
 		);
-		assert_eq!(Staking::unbonding_duration(11), vec![]);
+		assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![]);
 
 		// First unbond
 		assert_eq!(Staking::estimate_unbonding_duration(10), 3);
@@ -206,8 +337,8 @@ fn correct_unbond_era_is_being_calculated_without_config_set() {
 				.into_inner(),
 			vec![UnlockChunk { value: 10, era: 1, previous_unbonded_stake: 0 }]
 		);
-		assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 10)]);
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(1), 10);
+		assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![(1 + 3, 10)]);
+		assert_eq!(Eras::<T>::get_total_unbond(1), 10);
 
 		// Second unbond
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 10));
@@ -219,14 +350,14 @@ fn correct_unbond_era_is_being_calculated_without_config_set() {
 				.into_inner(),
 			vec![UnlockChunk { value: 20, era: 1, previous_unbonded_stake: 10 }]
 		);
-		assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 20)]);
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(1), 20);
+		assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![(1 + 3, 20)]);
+		assert_eq!(Eras::<T>::get_total_unbond(1), 20);
 	});
 }
 
 #[test]
 fn rebonding_after_one_era_and_unbonding_should_place_the_new_unbond_era_in_the_queue() {
-	ExtBuilder::default().has_unbonding_queue_config(true).build_and_execute(|| {
+	ExtBuilder::default().unbonding_queue().build_and_execute(|| {
 		// Start at era 10 with known minimum lowest stake
 		Session::roll_until_active_era(10);
 		let current_era = Staking::current_era();
@@ -240,8 +371,8 @@ fn rebonding_after_one_era_and_unbonding_should_place_the_new_unbond_era_in_the_
 				.into_inner(),
 			vec![]
 		);
-		assert_eq!(Staking::unbonding_duration(11), vec![]);
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(2), 0);
+		assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![]);
+		assert_eq!(Eras::<T>::get_total_unbond(2), 0);
 
 		assert_eq!(Staking::estimate_unbonding_duration(10), 2);
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 10));
@@ -252,8 +383,8 @@ fn rebonding_after_one_era_and_unbonding_should_place_the_new_unbond_era_in_the_
 				.into_inner(),
 			vec![UnlockChunk { value: 10, era: 10, previous_unbonded_stake: 0 }]
 		);
-		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 2, 10)]);
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(10), 10);
+		assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![(10 + 2, 10)]);
+		assert_eq!(Eras::<T>::get_total_unbond(10), 10);
 
 		// Second unbond
 		Session::roll_until_active_era(11);
@@ -269,9 +400,9 @@ fn rebonding_after_one_era_and_unbonding_should_place_the_new_unbond_era_in_the_
 				UnlockChunk { value: 500, era: 11, previous_unbonded_stake: 0 }
 			]
 		);
-		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 2, 10), (11 + 2, 500)]);
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(10), 10);
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(11), 500);
+		assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![(10 + 2, 10), (11 + 2, 500)]);
+		assert_eq!(Eras::<T>::get_total_unbond(10), 10);
+		assert_eq!(Eras::<T>::get_total_unbond(11), 500);
 
 		assert_ok!(Staking::rebond(RuntimeOrigin::signed(11), 490));
 		assert_eq!(
@@ -284,9 +415,9 @@ fn rebonding_after_one_era_and_unbonding_should_place_the_new_unbond_era_in_the_
 				UnlockChunk { value: 10, era: 11, previous_unbonded_stake: 0 }
 			]
 		);
-		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 2, 10), (11 + 2, 10)]);
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(10), 10);
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(11), 10);
+		assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![(10 + 2, 10), (11 + 2, 10)]);
+		assert_eq!(Eras::<T>::get_total_unbond(10), 10);
+		assert_eq!(Eras::<T>::get_total_unbond(11), 10);
 
 		// Rebond so that the last chunk gets removed and part of the previous one gets subtracted.
 		assert_ok!(Staking::rebond(RuntimeOrigin::signed(11), 15));
@@ -297,15 +428,15 @@ fn rebonding_after_one_era_and_unbonding_should_place_the_new_unbond_era_in_the_
 				.into_inner(),
 			vec![UnlockChunk { value: 5, era: 10, previous_unbonded_stake: 0 }]
 		);
-		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 2, 5)]);
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(10), 5);
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(11), 0);
+		assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![(10 + 2, 5)]);
+		assert_eq!(Eras::<T>::get_total_unbond(10), 5);
+		assert_eq!(Eras::<T>::get_total_unbond(11), 0);
 	});
 }
 
 #[test]
 fn test_withdrawing_with_favorable_global_stake_threshold_should_work() {
-	ExtBuilder::default().has_unbonding_queue_config(true).build_and_execute(|| {
+	ExtBuilder::default().unbonding_queue().build_and_execute(|| {
 		Session::roll_until_active_era(10);
 		assert_eq!(Staking::current_era(), 10);
 
@@ -327,8 +458,8 @@ fn test_withdrawing_with_favorable_global_stake_threshold_should_work() {
 		);
 
 		// Should be able to withdraw after one era.
-		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 2, 10)]);
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(10), 10);
+		assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![(10 + 2, 10)]);
+		assert_eq!(Eras::<T>::get_total_unbond(10), 10);
 
 		// Should not have withdrawn any funds yet.
 		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 10));
@@ -350,12 +481,12 @@ fn test_withdrawing_with_favorable_global_stake_threshold_should_work() {
 				.into_inner(),
 			vec![UnlockChunk { value: 10, era: 10, previous_unbonded_stake: 0 }]
 		);
-		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 2, 10)]);
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(10), 10);
+		assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![(10 + 2, 10)]);
+		assert_eq!(Eras::<T>::get_total_unbond(10), 10);
 
 		// After two eras the user can withdraw.
 		Session::roll_until_active_era(12);
-		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 2, 10)]);
+		assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![(10 + 2, 10)]);
 		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 10));
 		assert_eq!(
 			StakingLedger::<Test>::get(StakingAccount::Stash(11))
@@ -364,15 +495,15 @@ fn test_withdrawing_with_favorable_global_stake_threshold_should_work() {
 				.into_inner(),
 			vec![]
 		);
-		assert_eq!(Staking::unbonding_duration(11), vec![]);
+		assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![]);
 		// This must not change. It includes the stake to be withdrawn and one already withdrawn.
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(10), 10);
+		assert_eq!(Eras::<T>::get_total_unbond(10), 10);
 	});
 }
 
 #[test]
 fn test_withdrawing_over_global_stake_threshold_should_not_work() {
-	ExtBuilder::default().has_unbonding_queue_config(true).build_and_execute(|| {
+	ExtBuilder::default().unbonding_queue().build_and_execute(|| {
 		Session::roll_until_active_era(10);
 		assert_eq!(Staking::current_era(), 10);
 		// Assume there was no previous stake in any era.
@@ -394,8 +525,8 @@ fn test_withdrawing_over_global_stake_threshold_should_not_work() {
 				.into_inner(),
 			vec![UnlockChunk { value: 10, era: 10, previous_unbonded_stake: 0 }]
 		);
-		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 3, 10)]);
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(10), 10);
+		assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![(10 + 3, 10)]);
+		assert_eq!(Eras::<T>::get_total_unbond(10), 10);
 
 		// Should not have withdrawn any funds yet.
 		Session::roll_until_active_era(11);
@@ -407,12 +538,12 @@ fn test_withdrawing_over_global_stake_threshold_should_not_work() {
 				.into_inner(),
 			vec![UnlockChunk { value: 10, era: 10, previous_unbonded_stake: 0 }]
 		);
-		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 3, 10)]);
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(10), 10);
+		assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![(10 + 3, 10)]);
+		assert_eq!(Eras::<T>::get_total_unbond(10), 10);
 
 		// With the lowest stake set the user should be able to withdraw.
 		Session::roll_until_active_era(12);
-		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 3, 10)]);
+		assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![(10 + 3, 10)]);
 		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 10));
 		assert_eq!(
 			StakingLedger::<Test>::get(StakingAccount::Stash(11))
@@ -421,8 +552,8 @@ fn test_withdrawing_over_global_stake_threshold_should_not_work() {
 				.into_inner(),
 			vec![UnlockChunk { value: 10, era: 10, previous_unbonded_stake: 0 }]
 		);
-		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 3, 10)]);
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(10), 10);
+		assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![(10 + 3, 10)]);
+		assert_eq!(Eras::<T>::get_total_unbond(10), 10);
 
 		// After three eras the user is finally able to withdraw.
 		Session::roll_until_active_era(13);
@@ -434,14 +565,14 @@ fn test_withdrawing_over_global_stake_threshold_should_not_work() {
 				.into_inner(),
 			vec![]
 		);
-		assert_eq!(Staking::unbonding_duration(11), vec![]);
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(10), 0);
+		assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![]);
+		assert_eq!(Eras::<T>::get_total_unbond(10), 0);
 	});
 }
 
 #[test]
 fn old_unbonding_chunks_should_be_withdrawable_in_current_era() {
-	ExtBuilder::default().has_unbonding_queue_config(true).build_and_execute(|| {
+	ExtBuilder::default().unbonding_queue().build_and_execute(|| {
 		Session::roll_until_active_era(10);
 		assert_eq!(Staking::current_era(), 10);
 
@@ -452,8 +583,8 @@ fn old_unbonding_chunks_should_be_withdrawable_in_current_era() {
 				.into_inner(),
 			vec![]
 		);
-		assert_eq!(Staking::unbonding_duration(11), vec![]);
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(10), 0);
+		assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![]);
+		assert_eq!(Eras::<T>::get_total_unbond(10), 0);
 
 		assert_eq!(Staking::estimate_unbonding_duration(10), 2);
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 10));
@@ -464,8 +595,8 @@ fn old_unbonding_chunks_should_be_withdrawable_in_current_era() {
 				.into_inner(),
 			vec![UnlockChunk { value: 10, era: 10, previous_unbonded_stake: 0 }]
 		);
-		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 2, 10)]);
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(10), 10);
+		assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![(10 + 2, 10)]);
+		assert_eq!(Eras::<T>::get_total_unbond(10), 10);
 
 		Session::roll_until_active_era(11);
 		assert_eq!(Staking::estimate_unbonding_duration(10), 2);
@@ -480,20 +611,20 @@ fn old_unbonding_chunks_should_be_withdrawable_in_current_era() {
 				UnlockChunk { value: 10, era: 11, previous_unbonded_stake: 0 }
 			]
 		);
-		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 2, 10), (11 + 2, 10)]);
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(10), 10);
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(11), 10);
+		assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![(10 + 2, 10), (11 + 2, 10)]);
+		assert_eq!(Eras::<T>::get_total_unbond(10), 10);
+		assert_eq!(Eras::<T>::get_total_unbond(11), 10);
 
 		Session::roll_until_active_era(12);
-		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 2, 10), (11 + 2, 10)]);
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(10), 10);
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(11), 10);
+		assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![(10 + 2, 10), (11 + 2, 10)]);
+		assert_eq!(Eras::<T>::get_total_unbond(10), 10);
+		assert_eq!(Eras::<T>::get_total_unbond(11), 10);
 
 		// Now both unbonds get collapsed in a single entry.
 		Session::roll_until_active_era(13);
-		assert_eq!(Staking::unbonding_duration(11), vec![(13, 20)]);
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(10), 0);
-		assert_eq!(Eras::<T>::get_total_unbond_for_era(11), 10);
+		assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![(13, 20)]);
+		assert_eq!(Eras::<T>::get_total_unbond(10), 0);
+		assert_eq!(Eras::<T>::get_total_unbond(11), 10);
 	});
 }
 
@@ -501,7 +632,7 @@ fn old_unbonding_chunks_should_be_withdrawable_in_current_era() {
 fn increasing_unbond_amount_should_delay_expected_withdrawal() {
 	ExtBuilder::default()
 		.has_stakers(false)
-		.has_unbonding_queue_config(true)
+		.unbonding_queue()
 		.build_and_execute(|| {
 			let ed = Balances::minimum_balance();
 
@@ -519,8 +650,8 @@ fn increasing_unbond_amount_should_delay_expected_withdrawal() {
 					.into_inner(),
 				vec![]
 			);
-			assert_eq!(Staking::unbonding_duration(11), vec![]);
-			assert_eq!(Eras::<T>::get_total_unbond_for_era(10), 0);
+			assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![]);
+			assert_eq!(Eras::<T>::get_total_unbond(10), 0);
 
 			assert_eq!(Staking::estimate_unbonding_duration(10), 2);
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 10));
@@ -531,8 +662,8 @@ fn increasing_unbond_amount_should_delay_expected_withdrawal() {
 					.into_inner(),
 				vec![UnlockChunk { value: 10, era: 10, previous_unbonded_stake: 0 }]
 			);
-			assert_eq!(Staking::unbonding_duration(11), vec![(10 + 2, 10)]);
-			assert_eq!(Eras::<T>::get_total_unbond_for_era(10), 10);
+			assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![(10 + 2, 10)]);
+			assert_eq!(Eras::<T>::get_total_unbond(10), 10);
 
 			// Unbond a huge amount of stake.
 			assert_eq!(Staking::estimate_unbonding_duration(10), 2);
@@ -547,7 +678,7 @@ fn increasing_unbond_amount_should_delay_expected_withdrawal() {
 			);
 
 			// The expected release has been increased.
-			assert_eq!(Staking::unbonding_duration(11), vec![(10 + 3, 8000)]);
-			assert_eq!(Eras::<T>::get_total_unbond_for_era(10), 8000);
+			assert_eq!(Staking::unbonding_schedule(11).unwrap(), vec![(10 + 3, 8000)]);
+			assert_eq!(Eras::<T>::get_total_unbond(10), 8000);
 		});
 }

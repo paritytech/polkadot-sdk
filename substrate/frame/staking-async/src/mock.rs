@@ -84,6 +84,7 @@ parameter_types! {
 	pub static ExistentialDeposit: Balance = 1;
 	pub static SlashDeferDuration: EraIndex = 0;
 	pub static MaxControllersInDeprecationBatch: u32 = 5900;
+	pub static DefaultUnbondingConfig: UnbondingQueueConfig = UnbondingQueueConfig::fixed(3);
 	pub static MaxUnbondingDuration: EraIndex = 3;
 	pub static HistoryDepth: u32 = 80;
 	pub static MaxExposurePageSize: u32 = 64;
@@ -445,6 +446,7 @@ impl crate::pallet::pallet::Config for Test {
 	type NominationsQuota = WeightedNominationsQuota<16>;
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type HistoryDepth = HistoryDepth;
+	type DefaultUnbondingConfig = DefaultUnbondingConfig;
 	type MaxUnbondingDuration = MaxUnbondingDuration;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
@@ -510,7 +512,6 @@ pub struct ExtBuilder {
 	stakes: BTreeMap<AccountId, Balance>,
 	stakers: Vec<(AccountId, Balance, StakerStatus<AccountId>)>,
 	flush_events: bool,
-	unbonding_queue_config: Option<UnbondingQueueConfig>,
 }
 
 impl Default for ExtBuilder {
@@ -527,7 +528,6 @@ impl Default for ExtBuilder {
 			stakes: Default::default(),
 			stakers: Default::default(),
 			flush_events: true,
-			unbonding_queue_config: None,
 		}
 	}
 }
@@ -540,10 +540,6 @@ impl ExtBuilder {
 	}
 	pub(crate) fn max_unlock_chunks(self, max: u32) -> Self {
 		MaxUnlockingChunks::set(max);
-		self
-	}
-	pub(crate) fn bonding_duration(self, bonding_duration: EraIndex) -> Self {
-		MaxUnbondingDuration::set(bonding_duration);
 		self
 	}
 	pub(crate) fn planning_era_offset(self, offset: SessionIndex) -> Self {
@@ -648,16 +644,17 @@ impl ExtBuilder {
 		SkipTryStateCheck::set(!enable);
 		self
 	}
-	pub(crate) fn has_unbonding_queue_config(mut self, has: bool) -> Self {
-		self.unbonding_queue_config = if has {
-			Some(UnbondingQueueConfig {
-				min_slashable_share: Perbill::from_percent(50),
-				lowest_ratio: Perbill::from_percent(34),
-				unbond_period_lower_bound: 2,
-			})
-		} else {
-			None
-		};
+	pub(crate) fn bonding_duration(self, bonding_duration: EraIndex) -> Self {
+		DefaultUnbondingConfig::set(UnbondingQueueConfig::fixed(bonding_duration));
+		self
+	}
+	pub(crate) fn unbonding_queue(mut self) -> Self {
+		DefaultUnbondingConfig::set(UnbondingQueueConfig {
+			min_slashable_share: Perbill::from_percent(50),
+			lowest_ratio: Perbill::from_percent(34),
+			min_time: 2,
+			max_time: 3,
+		});
 		self
 	}
 	fn build(self) -> sp_io::TestExternalities {
@@ -730,7 +727,6 @@ impl ExtBuilder {
 			slash_reward_fraction: Perbill::from_percent(10),
 			min_nominator_bond: self.min_nominator_bond,
 			min_validator_bond: self.min_validator_bond,
-			unbonding_queue_config: self.unbonding_queue_config,
 			..Default::default()
 		}
 		.assimilate_storage(&mut storage);

@@ -21,7 +21,7 @@ use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
 use frame_support::traits::{ConstU128, EitherOf};
 use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
-use pallet_staking_async::UseValidatorsMap;
+use pallet_staking_async::{UnbondingQueueConfig, UseValidatorsMap};
 use pallet_staking_async_rc_client as rc_client;
 use polkadot_runtime_common::{prod_or_fast, BalanceToU256, U256ToBalance};
 use sp_core::Get;
@@ -412,6 +412,7 @@ parameter_types! {
 	/// Duration of a relay session in our blocks. Needs to be hardcoded per-runtime.
 	pub const RelaySessionDuration: BlockNumber = 10;
 	// 2 eras for unbonding (12 hours).
+	pub DefaultUnbondingConfig: UnbondingQueueConfig = UnbondingQueueConfig::fixed(2);
 	pub const MaxUnbondingDuration: sp_staking::EraIndex = 2;
 	// 1 era in which slashes can be cancelled (6 hours).
 	pub const SlashDeferDuration: sp_staking::EraIndex = 1;
@@ -439,6 +440,7 @@ impl pallet_staking_async::Config for Runtime {
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
 	type MaxUnbondingDuration = MaxUnbondingDuration;
+	type DefaultUnbondingConfig = DefaultUnbondingConfig;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type EraPayout = EraPayout;

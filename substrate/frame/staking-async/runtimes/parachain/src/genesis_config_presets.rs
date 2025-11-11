@@ -90,11 +90,6 @@ fn staking_async_parachain_genesis(params: GenesisParams, preset: String) -> ser
 				.into_iter()
 				.map(|acc| (acc, endowment / 2, StakerStatus::Validator))
 				.collect(),
-			unbonding_queue_config: Some(pallet_staking_async::UnbondingQueueConfig {
-				min_slashable_share: Perbill::from_percent(50),
-				lowest_ratio: Perbill::from_percent(34),
-				unbond_period_lower_bound: 0,
-			}),
 			..Default::default()
 		}
 	})

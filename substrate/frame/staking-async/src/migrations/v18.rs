@@ -18,8 +18,7 @@
 //! Staking Async Pallet migration from v17 to v18.
 
 use crate::{
-	migrations::PALLET_MIGRATIONS_ID, pallet::pallet::ElectableStashes, weights::WeightInfo,
-	BalanceOf, Config, Ledger, Pallet, StakingLedger, UnlockChunk,
+	BalanceOf, Config, Ledger, Pallet, StakingLedger, UnbondingQueueParams, UnlockChunk, migrations::PALLET_MIGRATIONS_ID, pallet::pallet::ElectableStashes, weights::WeightInfo
 };
 use alloc::{collections::BTreeMap, vec::Vec};
 use codec::{Decode, Encode};
@@ -121,7 +120,7 @@ impl<T: Config + Debug> LazyMigrationV17ToV18<T> {
 			v17::Ledger::<T>::iter()
 		};
 
-		let max_bonding_duration = <T as Config>::MaxUnbondingDuration::get();
+		let max_bonding_duration = UnbondingQueueParams::<T>::get().max_time;
 		while meter.can_consume(required) {
 			if let Some((acc, old_ledger)) = iter.next() {
 				meter.consume(<T as Config>::WeightInfo::migration_from_v17_to_v18_migrate_staking_ledger_step(old_ledger.unlocking.len() as u32));
@@ -306,7 +305,7 @@ impl<T: Config + Debug> SteppedMigration for LazyMigrationV17ToV18<T> {
 						chunk.era ==
 							old_chunk
 								.era
-								.saturating_sub(<T as Config>::MaxUnbondingDuration::get()),
+								.saturating_sub(UnbondingQueueParams::<T>::get().max_time),
 						"Migration failed: mismatch in chunk's era"
 					);
 					ensure!(
@@ -338,7 +337,7 @@ mod tests {
 	fn migration_of_many_elements_should_work() {
 		ExtBuilder::default().try_state(false).has_stakers(false).build_and_execute(|| {
 			let users = 1000;
-			assert_eq!(<T as Config>::MaxUnbondingDuration::get(), 3);
+			assert_eq!(UnbondingQueueParams::<Test>::get().max_time, 3);
 
 			StorageVersion::new(17).put::<Pallet<Test>>();
 			assert_eq!(Pallet::<Test>::on_chain_storage_version(), 17);

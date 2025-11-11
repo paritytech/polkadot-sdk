@@ -140,7 +140,8 @@ pub fn prepare_unbonding_scenario<T: Config>() {
 		ConfigOp::Set(UnbondingQueueConfig {
 			min_slashable_share: Perbill::from_percent(50),
 			lowest_ratio: Perbill::from_percent(34),
-			unbond_period_lower_bound: 2,
+			min_time: 2,
+			max_time: 3,
 		}),
 	)
 	.expect("failed to set staking configs");
@@ -865,7 +866,8 @@ mod benchmarks {
 			ConfigOp::Set(UnbondingQueueConfig {
 				min_slashable_share: Perbill::from_percent(50),
 				lowest_ratio: Perbill::from_percent(34),
-				unbond_period_lower_bound: 2,
+				min_time: 2,
+				max_time: 3
 			}),
 		);
 
@@ -1478,7 +1480,7 @@ mod benchmarks {
 		clear_validators_and_nominators::<T>();
 		let mut meter = frame_support::weights::WeightMeter::new();
 		let stash = create_funded_user::<T>("stash", USER_SEED, 100);
-		let max_bonding_duration = <T as Config>::MaxUnbondingDuration::get();
+		let max_bonding_duration = UnbondingQueueParams::<T>::get().max_time;
 		let mut unlocking = vec![];
 		for era in 0..c {
 			unlocking.push(crate::migrations::v18::v17::UnlockChunk {
@@ -1515,7 +1517,7 @@ mod benchmarks {
 					.into_iter()
 					.map(|u| UnlockChunk {
 						value: u.value,
-						era: u.era.saturating_sub(T::MaxUnbondingDuration::get()),
+						era: u.era.saturating_sub(max_bonding_duration),
 						previous_unbonded_stake: u32::MAX.into()
 					})
 					.collect::<Vec<_>>()

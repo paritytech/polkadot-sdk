@@ -33,7 +33,8 @@
 
 use crate::{
 	asset, log, session_rotation::Eras, BalanceOf, Bonded, Config, DecodeWithMemTracking, Error,
-	Ledger, Pallet, Payee, RewardDestination, Vec, VirtualStakers,
+	Ledger, Pallet, Payee, RewardDestination, UnbondingQueueConfig, UnbondingQueueParams, Vec,
+	VirtualStakers,
 };
 use alloc::{collections::BTreeMap, fmt::Debug};
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
@@ -43,7 +44,10 @@ use frame_support::{
 	BoundedVec, CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
 };
 use scale_info::TypeInfo;
-use sp_runtime::{traits::Zero, DispatchResult, Perquintill, Rounding, Saturating};
+use sp_runtime::{
+	traits::{Bounded, Zero},
+	DispatchResult, Perbill, Perquintill, Rounding, Saturating,
+};
 use sp_staking::{EraIndex, OnStakingUpdate, StakingAccount, StakingInterface};
 
 /// Just a Balance/BlockNumber tuple to encode when a chunk of funds will be unlocked.
@@ -349,24 +353,107 @@ impl<T: Config> StakingLedger<T> {
 		assert!(!VirtualStakers::<T>::contains_key(&stash));
 	}
 
-	/// Remove entries from `unlocking` that are sufficiently old and reduce the
-	/// total by the sum of their balances.
-	pub(crate) fn consolidate_unlocked(self, last_offence_era: EraIndex) -> Self {
-		let ((_, free), chunks) =
-			Pallet::<T>::curate_unlocking_chunks(self.stash.clone(), last_offence_era);
-		let unlocking: Vec<_> = chunks.into_values().collect();
+	/// Remove entries from `unlocking` that are sufficiently old and reduce the total by the sum of
+	/// their balances.
+	pub(crate) fn consolidate_unlocked(self, active_era: EraIndex) -> Self {
+		let mut remaining = Vec::<UnlockChunk<BalanceOf<T>>>::with_capacity(self.unlocking.len());
+		let mut released = BalanceOf::<T>::zero();
+		self.unlocking.into_iter().for_each(|c| {
+			if Self::can_release(&c, active_era) {
+				released = released.saturating_add(c.value);
+			} else {
+				remaining.push(c);
+			}
+		});
 		Self {
 			stash: self.stash,
-			total: self.total.defensive_saturating_sub(free),
+			total: self.total.defensive_saturating_sub(released),
 			active: self.active,
-			unlocking: unlocking
-				.into_iter()
-				.flatten()
-				.collect::<Vec<_>>()
-				.try_into()
-				.expect("unlocking chunk size cannot grow; qed"),
+			unlocking: remaining.try_into().expect("unlocking chunk size cannot grow; qed"),
 			controller: self.controller,
 		}
+	}
+
+	/// A near 1-1 mapping of https://hackmd.io/@vKfUEAWlRR2Ogaq8nYYknw/SyfioMGWgl#Withdrawing.
+	pub(crate) fn can_release(chunk: &UnlockChunk<BalanceOf<T>>, active_era: EraIndex) -> bool {
+		let config = UnbondingQueueParams::<T>::get();
+		let max_time = config.max_time;
+		let min_time = config.min_time;
+		let unbond_started = chunk.era;
+		let eras_passed = active_era.saturating_sub(unbond_started);
+		let can_release = if eras_passed < min_time {
+			// less then minimum has passed -- no can do anything.
+			false
+		} else if eras_passed < max_time {
+			// walk back from the era where they unbonded all the way to the maximum era that we
+			// care about, and calculate the total that is unbonded.
+			let mut total_unbonded_in_eras = BalanceOf::<T>::zero();
+			for check_era in (active_era.saturating_sub(max_time)..=unbond_started).rev() {
+				// first, if `ErasTotalUnbond` or `ErasLowestRatioTotalStake` are not present, we
+				// don't unlock you. You shall be unlocked in the last `else` branch, essentially
+				// after `max_time` has passed. This means we don't have enough historical data to
+				// potentially unbond you faster.
+				let Some((mut total_unbonded_in_check_era, lowest_ratio_total_stake_in_era)) =
+					Eras::<T>::get_total_unbond(check_era)
+						.zip(Eras::<T>::get_lowest_stake(check_era))
+				else {
+					return false
+				};
+				// then, we calculate the acceptable threshold for this unlocking a chunk in this
+				// era.
+				let allowed_unbonded_threshold = Perbill::one()
+					.saturating_sub(config.min_slashable_share) *
+					lowest_ratio_total_stake_in_era;
+				// then we calculate how much has actually been unbonded, up to this era.
+				if check_era == unbond_started {
+					total_unbonded_in_check_era =
+						total_unbonded_in_check_era.min(chunk.previous_unbonded_stake + chunk.value)
+				}
+				total_unbonded_in_eras += total_unbonded_in_check_era;
+				if total_unbonded_in_eras >= allowed_unbonded_threshold {
+					// too much unbonded up to this era -- can't unlock yet.
+					return false
+				}
+			}
+
+			// if we iterate all relevant passed eras, and in none `allowed_unbonded_threshold` was
+			// reached, then:
+			true
+		} else {
+			// more than maximum has passed -- can always do.
+			true
+		};
+		log!(
+			trace,
+			"checked can_release for chunk {:?} at active_era {:?} = {:?}",
+			chunk,
+			active_era,
+			can_release
+		);
+
+		can_release
+	}
+
+	/// A thin wrapper around `can_release` that returns the first era at which this unlock chunk
+	/// can be released.
+	///
+	/// Note that this is based on "current" state of the system, and the results may change in the
+	/// future.
+	// Implementation Note: this is rather inefficient, but is optimized for readability and
+	// correctness.
+	pub(crate) fn release_time_for(
+		chunk: &UnlockChunk<BalanceOf<T>>,
+		active_era: EraIndex,
+	) -> EraIndex {
+		let max_time = UnbondingQueueParams::<T>::get().max_time;
+		for check_era in active_era..=active_era.saturating_add(max_time + 1) {
+			if Self::can_release(chunk, check_era) {
+				return check_era
+			}
+		}
+
+		defensive!("can_release will at most return `true` in `active_era + max_time + 1`");
+		active_era.saturating_add(max_time)
 	}
 
 	/// Re-bond funds that were scheduled for unlocking.
@@ -377,9 +464,10 @@ impl<T: Config> StakingLedger<T> {
 
 		while let Some(last) = self.unlocking.last_mut() {
 			if unlocking_balance.defensive_saturating_add(last.value) <= value {
-				let unbond =
-					Eras::<T>::get_total_unbond_for_era(last.era).saturating_sub(last.value);
-				Eras::<T>::set_total_unbond_for_era(last.era, unbond);
+				if let Some(prev_total_unbonded) = Eras::<T>::get_total_unbond(last.era) {
+					let new = prev_total_unbonded.saturating_sub(last.value);
+					Eras::<T>::set_total_unbond(last.era, new);
+				}
 				unlocking_balance += last.value;
 				self.active += last.value;
 				self.unlocking.pop();
@@ -389,8 +477,10 @@ impl<T: Config> StakingLedger<T> {
 				unlocking_balance += diff;
 				self.active += diff;
 				last.value -= diff;
-				let unbond = Eras::<T>::get_total_unbond_for_era(last.era).saturating_sub(diff);
-				Eras::<T>::set_total_unbond_for_era(last.era, unbond);
+				if let Some(prev_total_unbonded) = Eras::<T>::get_total_unbond(last.era) {
+					let new = prev_total_unbonded.saturating_sub(diff);
+					Eras::<T>::set_total_unbond(last.era, new);
+				}
 			}
 
 			if unlocking_balance >= value {
@@ -440,7 +530,8 @@ impl<T: Config> StakingLedger<T> {
 
 		// for a `slash_era = x`, any chunk that is scheduled to be unlocked at era `x + 28`
 		// (assuming 28 is the bonding duration) onwards should be slashed.
-		let slashable_chunks_start = slash_era.saturating_add(T::MaxUnbondingDuration::get());
+		let slashable_chunks_start =
+			slash_era.saturating_add(UnbondingQueueParams::<T>::get().max_time);
 
 		// `Some(ratio)` if this is proportional, with `ratio`, `None` otherwise. In both cases, we
 		// slash first the active chunk, and then `slash_chunks_priority`.

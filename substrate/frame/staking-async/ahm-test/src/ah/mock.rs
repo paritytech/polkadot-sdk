@@ -23,7 +23,7 @@ use frame_election_provider_support::{
 };
 use frame_support::sp_runtime::testing::TestXt;
 use pallet_election_provider_multi_block as multi_block;
-use pallet_staking_async::Forcing;
+use pallet_staking_async::{Forcing, UnbondingQueueConfig, UnbondingQueueParams};
 use pallet_staking_async_rc_client::{SessionReport, ValidatorSetReport};
 use sp_staking::SessionIndex;
 
@@ -125,7 +125,7 @@ pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<Account
 							leftover: false,
 							// arbitrary, feel free to change if test setup updates
 							new_validator_set: vec![3, 5, 6, 8],
-							prune_up_to: active_era.checked_sub(MaxUnbondingDuration::get()),
+							prune_up_to: active_era.checked_sub(UnbondingQueueParams::<T>::get().max_time),
 						})
 					)
 				);
@@ -316,6 +316,7 @@ impl multi_block::signed::Config for Runtime {
 }
 
 parameter_types! {
+	pub DefaultUnbondingConfig: UnbondingQueueConfig = UnbondingQueueConfig::fixed(3);
 	pub static MaxUnbondingDuration: u32 = 3;
 	pub static SlashDeferredDuration: u32 = 2;
 	pub static SessionsPerEra: u32 = 6;
@@ -328,6 +329,7 @@ impl pallet_staking_async::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type DefaultUnbondingConfig = DefaultUnbondingConfig;
 	type MaxUnbondingDuration = MaxUnbondingDuration;
 	type SessionsPerEra = SessionsPerEra;
 	type PlanningEraOffset = PlanningEraOffset;
@@ -517,11 +519,6 @@ impl ExtBuilder {
 			validator_count: 4,
 			active_era: (0, 0, 0),
 			force_era: if self.pre_migration { Forcing::ForceNone } else { Forcing::default() },
-			unbonding_queue_config: Some(pallet_staking_async::UnbondingQueueConfig {
-				min_slashable_share: Perbill::from_percent(50),
-				lowest_ratio: Perbill::from_percent(34),
-				unbond_period_lower_bound: 2,
-			}),
 			..Default::default()
 		}
 		.assimilate_storage(&mut t)

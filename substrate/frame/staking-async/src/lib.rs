@@ -285,6 +285,8 @@ pub struct ActiveEraInfo {
 }
 
 /// Parameters of the unbonding queue mechanism.
+///
+/// research note: <https://hackmd.io/@vKfUEAWlRR2Ogaq8nYYknw/SyfioMGWgl>
 #[derive(
 	PartialEq,
 	Eq,
@@ -293,22 +295,43 @@ pub struct ActiveEraInfo {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
-	Default,
 	serde::Serialize,
 	serde::Deserialize,
 )]
 pub struct UnbondingQueueConfig {
-	/// The share of stake backing the lowest portion of validators that is slashable at any point
-	/// in time. It should offer a trade-off between security and unbonding time. 50% is considered
-	/// a reasonable value.
+	/// The share of stake backing the lowest [`UnbondingQueueConfig::lowest_ratio`] of validators
+	/// that is slashable at any point in time. It should offer a trade-off between security and
+	/// unbonding time.
+	///
+	/// 50% is considered a reasonable value.
 	pub min_slashable_share: Perbill,
-	/// Minimum truncate stake ratio. 1/3 is considered a reasonable value.
+	/// Minimum truncate stake ratio.
+	///
+	/// 1/3 is considered a reasonable value.
 	pub lowest_ratio: Perbill,
 	/// The minimum unbonding time, in eras, for an active stake.
-	pub unbond_period_lower_bound: EraIndex,
+	///
+	/// Should always be set to a value less than [`crate::Config::MaxUnbondingDuration`], and be
+	/// less than or equal to [`UnbondingQueueConfig::max_time`].
+	pub min_time: EraIndex,
+	/// The maximum unbonding time, in eras, for an active stake.
+	///
+	/// Should always be set to a value less than [`crate::Config::MaxUnbondingDuration`].
+	pub max_time: EraIndex,
+}
+
+impl UnbondingQueueConfig {
+	pub fn fixed(max_time: EraIndex) -> Self {
+		Self {
+			min_slashable_share: Perbill::from_percent(100),
+			lowest_ratio: Perbill::from_percent(100),
+			min_time: max_time,
+			max_time,
+		}
+	}
 }
 
 /// Reward points of an era. Used to split era total payout between validators.
