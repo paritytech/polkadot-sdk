@@ -175,6 +175,12 @@ where
 		self.is_create = Some(code.clone());
 	}
 
+	fn terminate(&mut self, _from: H160, to: H160, _gas_left: Weight, _value: U256) {
+		self.trace.0.entry(to).or_insert_with_key(|addr| {
+			Self::prestate_info(addr, Pallet::<T>::evm_balance(addr), None)
+		});
+	}
+
 	fn enter_child_span(
 		&mut self,
 		from: H160,
@@ -194,7 +200,7 @@ where
 			)
 		});
 
-		if self.is_create.is_none() {
+		if self.is_create.is_none() && self.config.diff_mode {
 			self.trace.0.entry(to).or_insert_with_key(|addr| {
 				Self::prestate_info(
 					addr,

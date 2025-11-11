@@ -882,18 +882,6 @@ where
 		)?
 		.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&stack.top_frame().account_id);
-
-		// {
-		// 	match &executable {
-		// 		ExecutableOrPrecompile::Executable(exec) => {
-		// 			let code = Code::Existing(*exec.code_hash());
-		// 			if_tracing(|t| t.instantiate_code(&code, salt));
-		// 		},
-		// 		ExecutableOrPrecompile::Precompile { .. } => {
-		// 			// Not tracing precompile instantiation
-		// 		}
-		// 	};
-		// }
 		let result = stack
 			.run(executable, input_data)
 			.map(|_| (address, stack.first_frame.last_frame_output));
@@ -1740,7 +1728,6 @@ where
 
 	fn terminate_if_same_tx(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
 		if_tracing(|tracer| {
-			use crate::frame_support::traits::tokens::{Fortitude::Polite, Preservation};
 			let addr = T::AddressMapper::to_address(self.account_id());
 			tracer.terminate(
 				addr,
