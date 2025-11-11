@@ -85,14 +85,12 @@ impl<T: Config> Pallet<T> {
 			.max(asset::existential_deposit::<T>())
 	}
 
-	/// Returns the minimum required bond for validators, defaulting to `MinNominatorBond` if not
-	/// set or less than `MinNominatorBond`.
+	/// Returns the minimum required bond for participation in staking as a validator account.
 	pub(crate) fn min_validator_bond() -> BalanceOf<T> {
-		MinValidatorBond::<T>::get().max(Self::min_nominator_bond())
+		MinValidatorBond::<T>::get().max(asset::existential_deposit::<T>())
 	}
 
-	/// Returns the minimum required bond for nominators, considering the chain’s existential
-	/// deposit.
+	/// Returns the minimum required bond for participation in staking as a nominator account.
 	pub(crate) fn min_nominator_bond() -> BalanceOf<T> {
 		MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>())
 	}
@@ -178,6 +176,18 @@ impl<T: Config> Pallet<T> {
 	pub fn weight_of(who: &T::AccountId) -> VoteWeight {
 		let issuance = asset::total_issuance::<T>();
 		Self::slashable_balance_of_vote_weight(who, issuance)
+	}
+
+	/// Checks if a slash has been cancelled for the given era and slash parameters.
+	pub(crate) fn check_slash_cancelled(
+		era: EraIndex,
+		validator: &T::AccountId,
+		slash_fraction: Perbill,
+	) -> bool {
+		let cancelled_slashes = CancelledSlashes::<T>::get(&era);
+		cancelled_slashes.iter().any(|(cancelled_validator, cancel_fraction)| {
+			*cancelled_validator == *validator && *cancel_fraction >= slash_fraction
+		})
 	}
 
 	pub(super) fn do_bond_extra(stash: &T::AccountId, additional: BalanceOf<T>) -> DispatchResult {
@@ -739,11 +749,6 @@ impl<T: Config> Pallet<T> {
 				.defensive_unwrap_or_default();
 		}
 		Nominators::<T>::insert(who, nominations);
-
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
 	}
 
 	/// This function will remove a nominator from the `Nominators` storage map,
@@ -763,11 +768,6 @@ impl<T: Config> Pallet<T> {
 			false
 		};
 
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
-
 		outcome
 	}
 
@@ -784,11 +784,6 @@ impl<T: Config> Pallet<T> {
 			let _ = T::VoterList::on_insert(who.clone(), Self::weight_of(who));
 		}
 		Validators::<T>::insert(who, prefs);
-
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
 	}
 
 	/// This function will remove a validator from the `Validators` storage map.
@@ -806,11 +801,6 @@ impl<T: Config> Pallet<T> {
 		} else {
 			false
 		};
-
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
 
 		outcome
 	}
@@ -979,11 +969,13 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 
 		log!(
 			debug,
-			"[page {}, (next) status {:?}, bounds {:?}] generated {} npos voters",
+			"[page {}, (next) status {:?}, bounds {:?}] generated {} npos voters [first: {:?}, last: {:?}]",
 			page,
 			status,
 			bounds,
 			voters.len(),
+			voters.first().map(|(x, y, _)| (x, y)),
+			voters.last().map(|(x, y, _)| (x, y)),
 		);
 
 		match status {
@@ -1014,8 +1006,6 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		}
 
 		let targets = Self::get_npos_targets(bounds);
-		// We can't handle this case yet -- return an error. WIP to improve handling this case in
-		// <https://github.com/paritytech/substrate/pull/13195>.
 		if bounds.exhausted(None, CountBound(targets.len() as u32).into()) {
 			return Err("Target snapshot too big")
 		}
@@ -1124,9 +1114,8 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	/// 3. Activate Next Era: When we receive an activation timestamp in the session report, it
 	/// implies a new validator set has been applied, and we must increment the active era to keep
 	/// the systems in sync.
-	fn on_relay_session_report(report: rc_client::SessionReport<Self::AccountId>) {
+	fn on_relay_session_report(report: rc_client::SessionReport<Self::AccountId>) -> Weight {
 		log!(debug, "Received session report: {}", report,);
-		let consumed_weight = T::WeightInfo::rc_on_session_report();
 
 		let rc_client::SessionReport {
 			end_index,
@@ -1136,13 +1125,16 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		} = report;
 		debug_assert!(!leftover);
 
+		// note: weight for `reward_active_era` is taken care of inside `end_session`
 		Eras::<T>::reward_active_era(validator_points.into_iter());
-		session_rotation::Rotator::<T>::end_session(end_index, activation_timestamp);
-		// NOTE: we might want to either return these weights so that they are registered in the
-		// rc-client pallet, or directly benchmarked there, such that we can use them in the
-		// "pre-dispatch" fashion. That said, since these are all `Mandatory` weights, it doesn't
-		// make that big of a difference.
-		Self::register_weight(consumed_weight);
+		session_rotation::Rotator::<T>::end_session(end_index, activation_timestamp)
+	}
+
+	fn weigh_on_relay_session_report(
+		_report: &rc_client::SessionReport<Self::AccountId>,
+	) -> Weight {
+		// worst case weight of this is always
+		T::WeightInfo::rc_on_session_report()
 	}
 
 	/// Accepts offences only if they are from era `active_era - (SlashDeferDuration - 1)` or newer.
@@ -1158,14 +1150,14 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	fn on_new_offences(
 		slash_session: SessionIndex,
 		offences: Vec<rc_client::Offence<T::AccountId>>,
-	) {
+	) -> Weight {
 		log!(debug, "🦹 on_new_offences: {:?}", offences);
-		let consumed_weight = T::WeightInfo::rc_on_offence(offences.len() as u32);
+		let weight = T::WeightInfo::rc_on_offence(offences.len() as u32);
 
 		// Find the era to which offence belongs.
 		let Some(active_era) = ActiveEra::<T>::get() else {
 			log!(warn, "🦹 on_new_offences: no active era; ignoring offence");
-			return
+			return T::WeightInfo::rc_on_offence(0);
 		};
 
 		let active_era_start_session = Rotator::<T>::active_era_start_session_index();
@@ -1186,7 +1178,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 					// defensive: this implies offence is for a discarded era, and should already be
 					// filtered out.
 					log!(warn, "🦹 on_offence: no era found for slash_session; ignoring offence");
-					return
+					return T::WeightInfo::rc_on_offence(0);
 				},
 			}
 		};
@@ -1338,7 +1330,11 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 			}
 		}
 
-		Self::register_weight(consumed_weight);
+		weight
+	}
+
+	fn weigh_on_new_offences(offence_count: u32) -> Weight {
+		T::WeightInfo::rc_on_offence(offence_count)
 	}
 }
 
@@ -1347,12 +1343,20 @@ impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 
 	fn score(who: &T::AccountId) -> Option<Self::Score> {
 		Self::ledger(Stash(who.clone()))
-			.map(|l| l.active)
+			.ok()
+			.and_then(|l| {
+				if Nominators::<T>::contains_key(&l.stash) ||
+					Validators::<T>::contains_key(&l.stash)
+				{
+					Some(l.active)
+				} else {
+					None
+				}
+			})
 			.map(|a| {
 				let issuance = asset::total_issuance::<T>();
 				T::CurrencyToVote::to_vote(a, issuance)
 			})
-			.ok()
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1368,6 +1372,9 @@ impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 
 		<Ledger<T>>::insert(who, ledger);
 		<Bonded<T>>::insert(who, who);
+		// we also need to appoint this staker to be validator or nominator, such that their score
+		// is actually there. Note that `fn score` above checks the role.
+		<Validators<T>>::insert(who, ValidatorPrefs::default());
 
 		// also, we play a trick to make sure that a issuance based-`CurrencyToVote` behaves well:
 		// This will make sure that total issuance is zero, thus the currency to vote will be a 1-1
@@ -1756,6 +1763,12 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 #[cfg(any(test, feature = "try-runtime"))]
 impl<T: Config> Pallet<T> {
 	pub(crate) fn do_try_state(_now: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+		// If the pallet is not initialized (both ActiveEra and CurrentEra are None),
+		// there's nothing to check, so return early.
+		if ActiveEra::<T>::get().is_none() && CurrentEra::<T>::get().is_none() {
+			return Ok(());
+		}
+
 		session_rotation::Rotator::<T>::do_try_state()?;
 		session_rotation::Eras::<T>::do_try_state()?;
 
@@ -1936,71 +1949,62 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Invariants:
-	/// * For each paged era exposed validator, check if the exposure total is sane (exposure.total
-	/// = exposure.own + exposure.own).
-	/// * Paged exposures metadata (`ErasStakersOverview`) matches the paged exposures state.
+	/// Nothing to do if ActiveEra is not set.
+	/// For each page in `ErasStakersPaged`, `page_total` must be set.
+	/// For each metadata:
+	/// 	* page_count is correct
+	/// 	* nominator_count is correct
+	/// 	* total is own + sum of pages
+	/// `ErasTotalStake`` must be correct
 	fn check_paged_exposures() -> Result<(), TryRuntimeError> {
-		use alloc::collections::btree_map::BTreeMap;
-		use sp_staking::PagedExposureMetadata;
-
-		// Sanity check for the paged exposure of the active era.
-		let mut exposures: BTreeMap<T::AccountId, PagedExposureMetadata<BalanceOf<T>>> =
-			BTreeMap::new();
-		let era = ActiveEra::<T>::get().unwrap().index;
-		let accumulator_default = PagedExposureMetadata {
-			total: Zero::zero(),
-			own: Zero::zero(),
-			nominator_count: 0,
-			page_count: 0,
-		};
-
-		ErasStakersPaged::<T>::iter_prefix((era,))
-			.map(|((validator, _page), expo)| {
-				ensure!(
-					expo.page_total ==
-						expo.others.iter().map(|e| e.value).fold(Zero::zero(), |acc, x| acc + x),
-					"wrong total exposure for the page.",
-				);
-
-				let metadata = exposures.get(&validator).unwrap_or(&accumulator_default);
-				exposures.insert(
-					validator,
-					PagedExposureMetadata {
-						total: metadata.total + expo.page_total,
-						own: metadata.own,
-						nominator_count: metadata.nominator_count + expo.others.len() as u32,
-						page_count: metadata.page_count + 1,
-					},
-				);
-
-				Ok(())
-			})
-			.collect::<Result<(), TryRuntimeError>>()?;
-
-		exposures
-			.iter()
+		let Some(era) = ActiveEra::<T>::get().map(|a| a.index) else { return Ok(()) };
+		let overview_and_pages = ErasStakersOverview::<T>::iter_prefix(era)
 			.map(|(validator, metadata)| {
-				let actual_overview = ErasStakersOverview::<T>::get(era, validator);
-
-				ensure!(actual_overview.is_some(), "No overview found for a paged exposure");
-				let actual_overview = actual_overview.unwrap();
-
-				ensure!(
-					actual_overview.total == metadata.total + actual_overview.own,
-					"Exposure metadata does not have correct total exposed stake."
-				);
-				ensure!(
-					actual_overview.nominator_count == metadata.nominator_count,
-					"Exposure metadata does not have correct count of nominators."
-				);
-				ensure!(
-					actual_overview.page_count == metadata.page_count,
-					"Exposure metadata does not have correct count of pages."
-				);
-
-				Ok(())
+				let pages = ErasStakersPaged::<T>::iter_prefix((era, validator))
+					.map(|(_idx, page)| page)
+					.collect::<Vec<_>>();
+				(metadata, pages)
 			})
-			.collect::<Result<(), TryRuntimeError>>()
+			.collect::<Vec<_>>();
+
+		ensure!(
+			overview_and_pages.iter().flat_map(|(_m, pages)| pages).all(|page| {
+				let expected = page
+					.others
+					.iter()
+					.map(|e| e.value)
+					.fold(BalanceOf::<T>::zero(), |acc, x| acc + x);
+				page.page_total == expected
+			}),
+			"found wrong page_total"
+		);
+
+		ensure!(
+			overview_and_pages.iter().all(|(metadata, pages)| {
+				let page_count_good = metadata.page_count == pages.len() as u32;
+				let nominator_count_good = metadata.nominator_count ==
+					pages.iter().map(|p| p.others.len() as u32).fold(0u32, |acc, x| acc + x);
+				let total_good = metadata.total ==
+					metadata.own +
+						pages
+							.iter()
+							.fold(BalanceOf::<T>::zero(), |acc, page| acc + page.page_total);
+
+				page_count_good && nominator_count_good && total_good
+			}),
+			"found bad metadata"
+		);
+
+		ensure!(
+			overview_and_pages
+				.iter()
+				.map(|(metadata, _pages)| metadata.total)
+				.fold(BalanceOf::<T>::zero(), |acc, x| acc + x) ==
+				ErasTotalStake::<T>::get(era),
+			"found bad eras total stake"
+		);
+
+		Ok(())
 	}
 
 	/// Ensures offence pipeline and slashing is in a healthy state.
@@ -2059,6 +2063,11 @@ impl<T: Config> Pallet<T> {
 			Self::ensure_era_slashes_applied(era)?;
 		}
 
+		// (5) Ensure no canceled slashes exist in the past eras.
+		for (era, _) in CancelledSlashes::<T>::iter() {
+			ensure!(era >= active_era, "Found cancelled slashes for era before active era");
+		}
+
 		Ok(())
 	}
 
@@ -2071,21 +2080,40 @@ impl<T: Config> Pallet<T> {
 
 		match (is_nominator, is_validator) {
 			(false, false) => {
-				if ledger.active < Self::min_chilled_bond() {
-					log!(warn, "Chilled stash {:?} has less than minimum bond", stash);
+				if ledger.active < Self::min_chilled_bond() && !ledger.active.is_zero() {
+					// chilled accounts allow to go to zero and fully unbond ^^^^^^^^^
+					log!(
+						warn,
+						"Chilled stash {:?} has less stake ({:?}) than minimum role bond ({:?})",
+						stash,
+						ledger.active,
+						Self::min_chilled_bond()
+					);
 				}
 				// is chilled
 			},
 			(true, false) => {
 				// Nominators must have a minimum bond.
 				if ledger.active < Self::min_nominator_bond() {
-					log!(warn, "Nominator {:?} has less than minimum bond", stash);
+					log!(
+						warn,
+						"Nominator {:?} has less stake ({:?}) than minimum role bond ({:?})",
+						stash,
+						ledger.active,
+						Self::min_nominator_bond()
+					);
 				}
 			},
 			(false, true) => {
 				// Validators must have a minimum bond.
 				if ledger.active < Self::min_validator_bond() {
-					log!(warn, "Validator {:?} has less than minimum bond", stash);
+					log!(
+						warn,
+						"Validator {:?} has less stake ({:?}) than minimum role bond ({:?})",
+						stash,
+						ledger.active,
+						Self::min_validator_bond()
+					);
 				}
 			},
 			(true, true) => {

@@ -157,20 +157,33 @@ where
 		self.last_reported_core_num = Some(num_cores_next_block);
 	}
 
-	/// Returns a future that resolves when the next block production should be attempted.
-	pub async fn wait_until_next_slot(&mut self) -> Result<(), ()> {
+	/// Returns the next slot and how much time left until then.
+	pub fn time_until_next_slot(&mut self) -> Result<(Duration, Slot), ()> {
 		let Ok(slot_duration) = crate::slot_duration(&*self.client) else {
 			tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
 			return Err(())
 		};
 
-		let (time_until_next_attempt, mut next_aura_slot) = compute_next_wake_up_time(
+		Ok(compute_next_wake_up_time(
 			slot_duration,
 			self.relay_slot_duration,
 			self.last_reported_core_num,
 			duration_now(),
 			self.time_offset,
-		);
+		))
+	}
+
+	/// Returns a future that resolves when the next block production should be attempted.
+	pub async fn wait_until_next_slot(&mut self) -> Result<(), ()> {
+		let slot_duration = match crate::slot_duration(&*self.client) {
+			Ok(d) => d,
+			Err(error) => {
+				tracing::error!(target: LOG_TARGET, %error, "Failed to fetch slot duration from runtime.");
+				return Err(())
+			},
+		};
+
+		let (time_until_next_attempt, mut next_aura_slot) = self.time_until_next_slot()?;
 
 		match self.last_reported_slot {
 			// If we already reported a slot, we don't want to skip a slot. But we also don't want

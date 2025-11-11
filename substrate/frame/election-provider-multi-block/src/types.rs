@@ -303,7 +303,6 @@ impl<T: crate::Config> Phase<T> {
 
 	fn are_we_done() -> Self {
 		let query = T::AreWeDone::get();
-		log!(debug, "Are we done? {:?}", query);
 		query
 	}
 
@@ -359,7 +358,7 @@ impl<T: crate::Config> Phase<T> {
 			Self::Unsigned(non_zero_left) =>
 				Self::Unsigned(non_zero_left.defensive_saturating_sub(One::one())),
 
-			// Done
+			// Done. Wait for export to start.
 			Self::Done => Self::Done,
 
 			// Export

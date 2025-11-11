@@ -40,7 +40,7 @@ use sp_runtime::{
 	impl_opaque_keys,
 	testing::{Digest, DigestItem, Header, TestXt},
 	traits::{Header as _, OpaqueKeys},
-	BuildStorage, Perbill,
+	BuildStorage, DispatchError, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
 use sp_state_machine::BasicExternalities;
@@ -377,16 +377,24 @@ pub fn generate_equivocation_proof(
 	let current_slot = CurrentSlot::<Test>::get();
 
 	let make_header = || {
-		let parent_hash = System::parent_hash();
-		let pre_digest = make_secondary_plain_pre_digest(offender_authority_index, slot);
-		System::reset_events();
-		System::initialize(&current_block, &parent_hash, &pre_digest);
-		System::set_block_number(current_block);
-		Timestamp::set_timestamp(*current_slot * Babe::slot_duration());
-		System::finalize()
+		// We don't want to change any state, so we build the headers in a transaction and revert it
+		// afterward.
+		frame_support::storage::with_transaction(|| {
+			let parent_hash = System::parent_hash();
+			let pre_digest = make_secondary_plain_pre_digest(offender_authority_index, slot);
+			System::reset_events();
+			System::set_block_number(System::block_number() - 1);
+			System::initialize(&current_block, &parent_hash, &pre_digest);
+			System::set_block_number(current_block);
+			Timestamp::set_timestamp(*current_slot * Babe::slot_duration());
+			let header = System::finalize();
+
+			sp_runtime::TransactionOutcome::Rollback(Ok::<_, DispatchError>(header))
+		})
+		.unwrap()
 	};
 
-	// sign the header prehash and sign it, adding it to the block as the seal
+	// Sign the header prehash and sign it, adding it to the block as the seal
 	// digest item
 	let seal_header = |header: &mut Header| {
 		let prehash = header.hash();
@@ -396,15 +404,12 @@ pub fn generate_equivocation_proof(
 		header.digest_mut().push(seal);
 	};
 
-	// generate two headers at the current block
+	// Generate two headers at the current block
 	let mut h1 = make_header();
 	let mut h2 = make_header();
 
 	seal_header(&mut h1);
 	seal_header(&mut h2);
-
-	// restore previous runtime state
-	go_to_block(current_block, *current_slot);
 
 	sp_consensus_babe::EquivocationProof {
 		slot,
