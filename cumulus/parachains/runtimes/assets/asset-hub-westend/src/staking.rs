@@ -27,7 +27,6 @@ use sp_runtime::{
 };
 use xcm::latest::prelude::*;
 
-
 parameter_types! {
 	/// Number of election pages that we operate upon. 32 * 6s block = 192s = 3.2min snapshots
 	pub Pages: u32 = 32;
