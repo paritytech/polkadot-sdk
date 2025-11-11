@@ -20,20 +20,27 @@
 
 use crate::{self as pallet_example_tasks};
 use frame_support::derive_impl;
-use sp_runtime::testing::TestXt;
+use sp_runtime::testing::UintAuthorityId;
 
 pub type AccountId = u32;
 pub type Balance = u32;
 
-type Block = frame_system::mocking::MockBlock<Runtime>;
+pub type TransactionExtension = (frame_system::AuthorizeCall<Runtime>,);
+pub type Header = sp_runtime::generic::Header<u64, sp_runtime::traits::BlakeTwo256>;
+pub type Block = sp_runtime::generic::Block<Header, Extrinsic>;
+pub type Extrinsic = sp_runtime::generic::UncheckedExtrinsic<
+	u64,
+	RuntimeCall,
+	UintAuthorityId,
+	TransactionExtension,
+>;
+
 frame_support::construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
 		TasksExample: pallet_example_tasks,
 	}
 );
-
-pub type Extrinsic = TestXt<RuntimeCall, ()>;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
@@ -46,6 +53,26 @@ where
 {
 	type RuntimeCall = RuntimeCall;
 	type Extrinsic = Extrinsic;
+}
+
+impl<LocalCall> frame_system::offchain::CreateTransaction<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	type Extension = TransactionExtension;
+
+	fn create_transaction(call: RuntimeCall, extension: Self::Extension) -> Self::Extrinsic {
+		Extrinsic::new_transaction(call, extension)
+	}
+}
+
+impl<LocalCall> frame_system::offchain::CreateAuthorizedTransaction<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_extension() -> Self::Extension {
+		(frame_system::AuthorizeCall::<Runtime>::new(),)
+	}
 }
 
 impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Runtime

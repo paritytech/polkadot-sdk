@@ -20,7 +20,12 @@
 use alloc::{vec, vec::Vec};
 use codec::Encode;
 use frame_benchmarking::v2::*;
-use frame_support::{dispatch::DispatchClass, storage, traits::Get};
+use frame_support::{
+	dispatch::DispatchClass,
+	pallet_prelude::{Authorize, TransactionSource},
+	storage,
+	traits::Get,
+};
 use frame_system::{Call, Pallet as System, RawOrigin};
 use sp_core::storage::well_known_keys;
 use sp_runtime::traits::Hash;
@@ -223,6 +228,26 @@ mod benchmarks {
 		// Can't check for `CodeUpdated` in parachain upgrades. Just check that the authorization is
 		// gone.
 		assert!(System::<T>::authorized_upgrade().is_none());
+		Ok(())
+	}
+
+	// The benchmark for the authorize function for the call `apply_authorized_upgrade`.
+	#[benchmark]
+	fn validate_apply_authorized_upgrade() -> Result<(), BenchmarkError> {
+		let runtime_blob = T::prepare_set_code_data();
+		T::setup_set_code_requirements(&runtime_blob)?;
+		let hash = T::Hashing::hash(&runtime_blob);
+		// Will be heavier when it needs to do verification (i.e. don't use `...without_checks`).
+		System::<T>::authorize_upgrade(RawOrigin::Root.into(), hash)?;
+
+		let call = Call::<T>::apply_authorized_upgrade { code: runtime_blob };
+
+		#[block]
+		{
+			call.authorize(TransactionSource::External)
+				.ok_or("Call must give some authorization")??;
+		}
+
 		Ok(())
 	}
 

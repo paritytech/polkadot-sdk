@@ -19,12 +19,13 @@ use crate::*;
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::{Pays, PostDispatchInfo, WithPostDispatchInfo},
-	traits::{OnRuntimeUpgrade, WhitelistedStorageKeys},
+	traits::{OnRuntimeUpgrade, UnfilteredDispatchable, WhitelistedStorageKeys},
 };
 use mock::{RuntimeOrigin, *};
 use sp_core::{hexdisplay::HexDisplay, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, Header},
+	transaction_validity::{TransactionSource, TransactionValidityError},
 	DispatchError, DispatchErrorWithPostInfo,
 };
 use std::collections::BTreeSet;
@@ -962,6 +963,51 @@ fn reclaim_works() {
 
 		System::note_applied_extrinsic(&Ok(().into()), Default::default());
 		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::zero());
+	});
+}
+
+#[test]
+fn set_code_via_authorization_and_general_transaction() {
+	let executor = substrate_test_runtime_client::WasmExecutor::default();
+	let mut ext = new_test_ext();
+	ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(executor));
+	ext.execute_with(|| {
+		System::set_block_number(1);
+		assert!(System::authorized_upgrade().is_none());
+
+		let runtime = substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec();
+		let hash = <mock::Test as pallet::Config>::Hashing::hash(&runtime);
+
+		let apply_call = Call::<Test>::apply_authorized_upgrade { code: runtime };
+
+		// Can't apply before authorization
+		assert_noop!(
+			apply_call.authorize(TransactionSource::External).unwrap(),
+			TransactionValidityError::Invalid(InvalidTransaction::Call.into()),
+		);
+
+		// Can authorize
+		assert_ok!(System::authorize_upgrade(RawOrigin::Root.into(), hash));
+		System::assert_has_event(
+			SysEvent::UpgradeAuthorized { code_hash: hash, check_version: true }.into(),
+		);
+		assert!(System::authorized_upgrade().is_some());
+
+		// Can't be sneaky
+		let mut bad_runtime = substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec();
+		bad_runtime.extend(b"sneaky");
+		assert_noop!(
+			Call::<Test>::apply_authorized_upgrade { code: bad_runtime }
+				.authorize(TransactionSource::External)
+				.unwrap(),
+			TransactionValidityError::Invalid(InvalidTransaction::Call.into()),
+		);
+
+		// Can apply correct runtime
+		assert_ok!(apply_call.authorize(TransactionSource::External).unwrap());
+		assert_ok!(apply_call.dispatch_bypass_filter(RawOrigin::Authorized.into()));
+		System::assert_has_event(SysEvent::CodeUpdated.into());
+		assert!(System::authorized_upgrade().is_none());
 	});
 }
 

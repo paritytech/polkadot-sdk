@@ -163,6 +163,9 @@ impl frame_system::WeightInfo for MockWeightInfo {
 	fn apply_authorized_upgrade() -> Weight {
 		Weight::zero()
 	}
+	fn validate_apply_authorized_upgrade() -> Weight {
+		Weight::zero()
+	}
 }
 
 impl crate::WeightInfo for MockWeightInfo {

@@ -818,9 +818,17 @@ pub mod pallet {
 		#[cfg(feature = "experimental")]
 		#[pallet::call_index(8)]
 		#[pallet::weight(task.weight())]
-		pub fn do_task(_origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
-			if !task.is_valid() {
-				return Err(Error::<T>::InvalidTask.into())
+		#[pallet::authorize(|_source, task| Pallet::<T>::validate_do_task(task).map(|v| (v, Weight::zero())))]
+		// Weight of task validation is already part of the task weight.
+		#[pallet::weight_of_authorize(Weight::zero())]
+		pub fn do_task(origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
+			// Authorize function checks the validity of the task.
+			let skip_validity = origin.as_system_ref() == Some(&RawOrigin::Authorized);
+
+			if !skip_validity {
+				if !task.is_valid() {
+					return Err(Error::<T>::InvalidTask.into())
+				}
 			}
 
 			Self::deposit_event(Event::TaskStarted { task: task.clone() });
@@ -877,7 +885,17 @@ pub mod pallet {
 		///
 		/// All origins are allowed.
 		#[pallet::call_index(11)]
-		#[pallet::weight((T::SystemWeightInfo::apply_authorized_upgrade(), DispatchClass::Operational))]
+		#[pallet::weight((
+			T::SystemWeightInfo::apply_authorized_upgrade()
+				.saturating_add(T::SystemWeightInfo::validate_apply_authorized_upgrade()),
+			DispatchClass::Operational,
+		))]
+		#[pallet::authorize(|_source, code| Pallet::<T>::validate_apply_authorized_upgrade(code).map(|v| (v, Weight::zero())))]
+		// Because the weight of both "validate unsigned" and "authorize" logic needs to be added
+		// to the weight of the extrinsic, and because "validate unsigned" weight must be included
+		// in the call weight, the "authorize weight is also included in the call weight.
+		// Thus we set it to zero here.
+		#[pallet::weight_of_authorize(Weight::zero())]
 		pub fn apply_authorized_upgrade(
 			_: OriginFor<T>,
 			code: Vec<u8>,
@@ -1137,34 +1155,13 @@ pub mod pallet {
 	impl<T: Config> sp_runtime::traits::ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			if let Call::apply_authorized_upgrade { ref code } = call {
-				if let Ok(res) = Self::validate_code_is_authorized(&code[..]) {
-					if Self::can_set_code(&code, false).is_ok() {
-						return Ok(ValidTransaction {
-							priority: u64::max_value(),
-							requires: Vec::new(),
-							provides: vec![res.code_hash.encode()],
-							longevity: TransactionLongevity::max_value(),
-							propagate: true,
-						})
-					}
-				}
+			match call {
+				Call::apply_authorized_upgrade { ref code } =>
+					Self::validate_apply_authorized_upgrade(code),
+				#[cfg(feature = "experimental")]
+				Call::do_task { ref task } => Self::validate_do_task(task),
+				_ => Err(InvalidTransaction::Call.into()),
 			}
-
-			#[cfg(feature = "experimental")]
-			if let Call::do_task { ref task } = call {
-				if task.is_valid() {
-					return Ok(ValidTransaction {
-						priority: u64::max_value(),
-						requires: Vec::new(),
-						provides: vec![T::Hashing::hash_of(&task.encode()).as_ref().to_vec()],
-						longevity: TransactionLongevity::max_value(),
-						propagate: true,
-					})
-				}
-			}
-
-			Err(InvalidTransaction::Call.into())
 		}
 	}
 }
@@ -2401,6 +2398,41 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Ok(())
+	}
+
+	/// Validate the call to `apply_authorized_upgrade` and return the validity of the transaction.
+	fn validate_apply_authorized_upgrade(code: &Vec<u8>) -> TransactionValidity {
+		if let Ok(res) = Self::validate_code_is_authorized(&code[..]) {
+			if Self::can_set_code(&code, false).is_ok() {
+				return Ok(ValidTransaction {
+					priority: u64::max_value(),
+					requires: Vec::new(),
+					provides: vec![res.code_hash.encode()],
+					longevity: TransactionLongevity::max_value(),
+					propagate: true,
+				})
+			}
+		}
+
+		Err(InvalidTransaction::Call.into())
+	}
+
+	/// Validate the call to `do_task` and return the validity of the transaction.
+	#[cfg(feature = "experimental")]
+	fn validate_do_task(task: &T::RuntimeTask) -> TransactionValidity {
+		use frame_support::traits::Task;
+
+		if task.is_valid() {
+			Ok(ValidTransaction {
+				priority: u64::max_value(),
+				requires: Vec::new(),
+				provides: vec![T::Hashing::hash_of(&task.encode()).as_ref().to_vec()],
+				longevity: TransactionLongevity::max_value(),
+				propagate: true,
+			})
+		} else {
+			Err(InvalidTransaction::Call.into())
+		}
 	}
 
 	/// Returns the remaining weight of the block.
