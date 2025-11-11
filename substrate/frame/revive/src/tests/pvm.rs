@@ -4240,19 +4240,31 @@ fn prestate_tracing_works() {
 		// redact balance so that tests are resilient to weight changes
 		let alice_redacted_balance = Some(U256::from(1));
 
-		let test_cases: Vec<(Box<dyn FnOnce()>, _, _)> = vec![
-			(
-				Box::new(|| {
-					builder::bare_call(addr)
-						.data((3u32, addr_callee).encode())
-						.build_and_unwrap_result();
+		struct TestCase {
+			description: &'static str,
+			exec_call: Box<dyn FnOnce()>,
+			config: PrestateTracerConfig,
+			expected_trace: PrestateTrace,
+		}
+
+		let test_cases: Vec<TestCase> = vec![
+			TestCase {
+				description: "prestate mode with cross-contract call",
+				exec_call: Box::new({
+					let addr = addr;
+					let addr_callee = addr_callee;
+					move || {
+						builder::bare_call(addr)
+							.data((3u32, addr_callee).encode())
+							.build_and_unwrap_result();
+					}
 				}),
-				PrestateTracerConfig {
+				config: PrestateTracerConfig {
 					diff_mode: false,
 					disable_storage: false,
 					disable_code: false,
 				},
-				PrestateTrace::Prestate(BTreeMap::from([
+				expected_trace: PrestateTrace::Prestate(BTreeMap::from([
 					(
 						ALICE_ADDR,
 						PrestateTraceInfo {
@@ -4284,19 +4296,24 @@ fn prestate_tracing_works() {
 						},
 					),
 				])),
-			),
-			(
-				Box::new(|| {
-					builder::bare_call(addr)
-						.data((3u32, addr_callee).encode())
-						.build_and_unwrap_result();
+			},
+			TestCase {
+				description: "diff mode with cross-contract call",
+				exec_call: Box::new({
+					let addr = addr;
+					let addr_callee = addr_callee;
+					move || {
+						builder::bare_call(addr)
+							.data((3u32, addr_callee).encode())
+							.build_and_unwrap_result();
+					}
 				}),
-				PrestateTracerConfig {
+				config: PrestateTracerConfig {
 					diff_mode: true,
 					disable_storage: false,
 					disable_code: false,
 				},
-				PrestateTrace::DiffMode {
+				expected_trace: PrestateTrace::DiffMode {
 					pre: BTreeMap::from([
 						(
 							BOB_ADDR,
@@ -4332,19 +4349,23 @@ fn prestate_tracing_works() {
 						),
 					]),
 				},
-			),
-			(
-				Box::new(|| {
-					builder::bare_instantiate(Code::Upload(dummy_code.clone()))
-						.salt(None)
-						.build_and_unwrap_result();
+			},
+			TestCase {
+				description: "diff mode with contract instantiation",
+				exec_call: Box::new({
+					let dummy_code = dummy_code.clone();
+					move || {
+						builder::bare_instantiate(Code::Upload(dummy_code))
+							.salt(None)
+							.build_and_unwrap_result();
+					}
 				}),
-				PrestateTracerConfig {
+				config: PrestateTracerConfig {
 					diff_mode: true,
 					disable_storage: false,
 					disable_code: false,
 				},
-				PrestateTrace::DiffMode {
+				expected_trace: PrestateTrace::DiffMode {
 					pre: BTreeMap::from([(
 						ALICE_ADDR,
 						PrestateTraceInfo {
@@ -4373,10 +4394,10 @@ fn prestate_tracing_works() {
 						),
 					]),
 				},
-			),
+			},
 		];
 
-		for (exec_call, config, expected_trace) in test_cases.into_iter() {
+		for TestCase { description, exec_call, config, expected_trace } in test_cases.into_iter() {
 			let mut tracer = PrestateTracer::<Test>::new(config);
 			trace(&mut tracer, || {
 				exec_call();
@@ -4401,7 +4422,7 @@ fn prestate_tracing_works() {
 				},
 			}
 
-			assert_eq!(trace, expected_trace);
+			assert_eq!(trace, expected_trace, "Trace mismatch for: {description}");
 		}
 	});
 }
@@ -5131,5 +5152,37 @@ fn consume_all_gas_works() {
 			GAS_LIMIT,
 			"callvalue == 1 should not consume all gas"
 		);
+	});
+}
+
+#[test]
+fn existential_deposit_shall_not_charged_twice() {
+	let (code, _) = compile_module("dummy").unwrap();
+
+	let salt = [0u8; 32];
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
+		let callee_addr = create2(
+			&ALICE_ADDR,
+			&code,
+			&[0u8; 0], // empty input
+			&salt,
+		);
+		let callee_account = <Test as Config>::AddressMapper::to_account_id(&callee_addr);
+
+		// first send funds to callee_addr
+		let _ = <Test as Config>::Currency::set_balance(&callee_account, Contracts::min_balance());
+		assert_eq!(get_balance(&callee_account), Contracts::min_balance());
+
+		// then deploy contract to callee_addr using create2
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
+			.salt(Some(salt))
+			.build_and_unwrap_contract();
+
+		assert_eq!(callee_addr, addr);
+
+		// check we charged ed only 1 time
+		assert_eq!(get_balance(&callee_account), Contracts::min_balance());
 	});
 }
