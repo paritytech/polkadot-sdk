@@ -24,7 +24,7 @@ mod mem;
 pub use kvdb::as_database;
 #[cfg(any(feature = "rocksdb", test))]
 pub use kvdb::as_database_with_seekable_iter;
-pub use mem::MemDb;
+pub use mem::{MemDb, GenericKey};
 
 /// An identifier for a column.
 pub type ColumnId = u32;
@@ -80,10 +80,15 @@ impl<H> Transaction<H> {
 }
 
 pub trait SeekableIterator {
+	/// Seeks to the specified key or the first key that lexicographically follows it.
 	fn seek(&mut self, key: &[u8]);
+
+	/// Seeks to the specified key, or the first key that lexicographically precedes it.
 	fn seek_prev(&mut self, key: &[u8]);
+
 	fn prev(&mut self);
 	fn next(&mut self);
+
 	fn get(&self) -> Option<(&[u8], Vec<u8>)>;
 }
 

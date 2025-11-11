@@ -215,8 +215,11 @@ where
 			let db_path = path
 				.to_str()
 				.ok_or_else(|| super::other_io_error("Invalid database path".into()))?;
-			let db_cfg =
-				kvdb_rocksdb::DatabaseConfig::with_columns(super::columns::v3::NUM_COLUMNS);
+			let db_cfg = kvdb_rocksdb::DatabaseConfig::with_columns(
+				(0..super::columns::v3::NUM_COLUMNS)
+					.map(|_| kvdb_rocksdb::ColumnConfig::default())
+					.collect(),
+			);
 			let db = RocksDbAdapter::new(
 				kvdb_rocksdb::Database::open(&db_cfg, db_path)?,
 				&super::columns::v3::ORDERED_COL,
@@ -246,12 +249,14 @@ fn migrate_from_version_2_to_3(path: &Path, db_kind: DatabaseKind) -> Result<Ver
 /// Migration from version 0 to version 1:
 /// * the number of columns has changed from 3 to 5;
 fn rocksdb_migrate_from_version_0_to_1(path: &Path) -> Result<Version, Error> {
-	use kvdb_rocksdb::{Database, DatabaseConfig};
+	use kvdb_rocksdb::{ColumnConfig, Database, DatabaseConfig};
 
 	let db_path = path
 		.to_str()
 		.ok_or_else(|| super::other_io_error("Invalid database path".into()))?;
-	let db_cfg = DatabaseConfig::with_columns(super::columns::v0::NUM_COLUMNS);
+	let db_cfg = DatabaseConfig::with_columns(
+		(0..super::columns::v0::NUM_COLUMNS).map(|_| ColumnConfig::default()).collect(),
+	);
 	let mut db = Database::open(&db_cfg, db_path)?;
 
 	db.add_column()?;
@@ -263,12 +268,14 @@ fn rocksdb_migrate_from_version_0_to_1(path: &Path) -> Result<Version, Error> {
 /// Migration from version 1 to version 2:
 /// * the number of columns has changed from 5 to 6;
 fn rocksdb_migrate_from_version_1_to_2(path: &Path) -> Result<Version, Error> {
-	use kvdb_rocksdb::{Database, DatabaseConfig};
+	use kvdb_rocksdb::{ColumnConfig, Database, DatabaseConfig};
 
 	let db_path = path
 		.to_str()
 		.ok_or_else(|| super::other_io_error("Invalid database path".into()))?;
-	let db_cfg = DatabaseConfig::with_columns(super::columns::v1::NUM_COLUMNS);
+	let db_cfg = DatabaseConfig::with_columns(
+		(0..super::columns::v1::NUM_COLUMNS).map(|_| ColumnConfig::default()).collect(),
+	);
 	let mut db = Database::open(&db_cfg, db_path)?;
 
 	db.add_column()?;
@@ -277,12 +284,14 @@ fn rocksdb_migrate_from_version_1_to_2(path: &Path) -> Result<Version, Error> {
 }
 
 fn rocksdb_migrate_from_version_2_to_3(path: &Path) -> Result<Version, Error> {
-	use kvdb_rocksdb::{Database, DatabaseConfig};
+	use kvdb_rocksdb::{ColumnConfig, Database, DatabaseConfig};
 
 	let db_path = path
 		.to_str()
 		.ok_or_else(|| super::other_io_error("Invalid database path".into()))?;
-	let db_cfg = DatabaseConfig::with_columns(super::columns::v2::NUM_COLUMNS);
+	let db_cfg = DatabaseConfig::with_columns(
+		(0..super::columns::v2::NUM_COLUMNS).map(|_| ColumnConfig::default()).collect(),
+	);
 	let mut db = Database::open(&db_cfg, db_path)?;
 
 	db.remove_last_column()?;

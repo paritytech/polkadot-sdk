@@ -48,14 +48,11 @@ use log::{debug, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use prometheus_endpoint::Registry;
 use std::{
-	collections::{HashMap, HashSet},
-	io,
-	path::{Path, PathBuf},
-	sync::Arc,
+	borrow::Borrow, collections::{HashMap, HashSet}, io, path::{Path, PathBuf}, sync::Arc
 };
 
 use crate::{
-	archive_db::{make_full_key, ArchiveDb},
+	archive_db::{FullStorageKey, ArchiveDb},
 	pinned_blocks_cache::PinnedBlocksCache,
 	record_stats_state::RecordStatsState,
 	stats::StateUsageStats,
@@ -1643,18 +1640,10 @@ impl<Block: BlockT> Backend<Block> {
 								s.data.iter().map(|(k, v)| (s.child_info.storage_key(), k, v))
 							}),
 						) {
-						let full_key = make_full_key(&key, pending_block.header.number());
-						println!(
-							"{}-{:?}: {} {} -> {:?} (new storage)",
-							pending_block.header.number(),
-							pending_block.header.hash(),
-							prefix.hex("0x"),
-							key.hex("0x"),
-							value
-						);
-						bytes += full_key.len() as u64 + value.len() as u64;
+						let full_key = FullStorageKey::new(&key, *pending_block.header.number());
+						bytes += full_key.as_ref().len() as u64 + value.len() as u64;
 						ops += 1;
-						transaction.set_from_vec(columns::ARCHIVE, &full_key, Some(value).encode());
+						transaction.set_from_vec(columns::ARCHIVE, full_key.as_ref(), Some(value).encode());
 					}
 				}
 				self.state_usage.tally_writes(ops, bytes);
@@ -1674,15 +1663,9 @@ impl<Block: BlockT> Backend<Block> {
 					}
 					let mut prefixed_key = prefix.to_owned();
 					prefixed_key.extend_from_slice(&key);
-					let full_key = make_full_key(&prefixed_key, pending_block.header.number());
-					println!(
-						"{}-{:?}: key {} -> {:?} (storage update)",
-						pending_block.header.number(),
-						pending_block.header.hash(),
-						prefixed_key.hex("0x"),
-						value
-					);
-					transaction.set_from_vec(columns::ARCHIVE, &full_key, value.encode());
+					let full_key = FullStorageKey::new(&prefixed_key, *pending_block.header.number());
+					
+					transaction.set_from_vec(columns::ARCHIVE, full_key.as_ref(), value.encode());
 				}
 				operation.storage_updates.clear();
 				operation.child_storage_updates.clear();

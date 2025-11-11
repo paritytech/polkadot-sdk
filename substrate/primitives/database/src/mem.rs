@@ -23,13 +23,26 @@ use crate::{
 use parking_lot::RwLock;
 use std::collections::{btree_map::Entry, BTreeMap, HashMap};
 
-type ColumnSpace = BTreeMap<Vec<u8>, (u32, Vec<u8>)>;
+type ColumnSpace<Key> = BTreeMap<Key, (u32, Vec<u8>)>;
 
-#[derive(Default)]
+pub trait GenericKey: Ord + Clone + From<Vec<u8>> + Send + Sync + AsRef<[u8]> {
+	type Key<'a>: Ord + Clone + From<Vec<u8>> + Send + Sync + AsRef<[u8]> + From<&'a [u8]>;
+}
+
+impl GenericKey for Vec<u8> {
+	type Key<'a> = Vec<u8>;
+}
+
 /// This implements `Database` as an in-memory hash map. `commit` is not atomic.
-pub struct MemDb(RwLock<HashMap<ColumnId, ColumnSpace>>);
+pub struct MemDb<K: GenericKey = Vec<u8>>(RwLock<HashMap<ColumnId, ColumnSpace<K::Key<'static>>>>);
 
-impl<H> Database<H> for MemDb
+impl<K: GenericKey> Default for MemDb<K> {
+	fn default() -> Self {
+		Self(Default::default())
+	}
+}
+
+impl<H, K: GenericKey> Database<H> for MemDb<K>
 where
 	H: Clone + AsRef<[u8]>,
 {
@@ -38,28 +51,28 @@ where
 		for change in transaction.0.into_iter() {
 			match change {
 				Change::Set(col, key, value) => {
-					s.entry(col).or_default().insert(key, (1, value));
+					s.entry(col).or_default().insert(key.into(), (1, value));
 				},
 				Change::Remove(col, key) => {
-					s.entry(col).or_default().remove(&key);
+					s.entry(col).or_default().remove(&key.into());
 				},
 				Change::Store(col, hash, value) => {
 					s.entry(col)
 						.or_default()
-						.entry(hash.as_ref().to_vec())
+						.entry(hash.as_ref().to_vec().into())
 						.and_modify(|(c, _)| *c += 1)
 						.or_insert_with(|| (1, value));
 				},
 				Change::Reference(col, hash) => {
 					if let Entry::Occupied(mut entry) =
-						s.entry(col).or_default().entry(hash.as_ref().to_vec())
+						s.entry(col).or_default().entry(hash.as_ref().to_vec().into())
 					{
 						entry.get_mut().0 += 1;
 					}
 				},
 				Change::Release(col, hash) => {
 					if let Entry::Occupied(mut entry) =
-						s.entry(col).or_default().entry(hash.as_ref().to_vec())
+						s.entry(col).or_default().entry(hash.as_ref().to_vec().into())
 					{
 						entry.get_mut().0 -= 1;
 						if entry.get().0 == 0 {
@@ -73,25 +86,31 @@ where
 		Ok(())
 	}
 
-	fn get(&self, col: ColumnId, key: &[u8]) -> Option<Vec<u8>> {
+	fn get<'a>(&self, col: ColumnId, key: &'a [u8]) -> Option<Vec<u8>> {
+		let key: <K as GenericKey>::Key<'_> = K::Key::from(key);
+		// since Key in BTreeMap in self is Key<'static>, things breaks when we pass
+		// Key<'a>, although no memory safety violations are happening here.
+		let key: K::Key<'static> = unsafe { std::mem::transmute(key) };
 		let s = self.0.read();
-		s.get(&col).and_then(|c| c.get(key).map(|(_, v)| v.clone()))
+		let col = s.get(&col)?;
+		let (_, val) = col.get(&key)?;
+		Some(val.clone())
 	}
 }
 
-enum IterState {
-	Valid { current_key: Vec<u8> },
+enum IterState<Key> {
+	Valid { current_key: Key },
 	Invalid,
 }
 
-struct MemDbSeekableIter<'db> {
-	db: &'db MemDb,
+struct MemDbSeekableIter<'db, K: GenericKey> {
+	db: &'db MemDb<K>,
 	column: ColumnId,
-	state: IterState,
+	state: IterState<K::Key<'static>>,
 }
 
-impl<'db> MemDbSeekableIter<'db> {
-	fn lock_col_space<T>(&self, callback: impl FnOnce(&ColumnSpace) -> T) -> T {
+impl<'db, K: GenericKey> MemDbSeekableIter<'db, K> {
+	fn lock_col_space<T>(&self, callback: impl FnOnce(&ColumnSpace<K::Key<'static>>) -> T) -> T {
 		let lock = self.db.0.read();
 		let column_space = lock
 			.get(&self.column)
@@ -100,27 +119,41 @@ impl<'db> MemDbSeekableIter<'db> {
 	}
 }
 
-impl<'db> SeekableIterator for MemDbSeekableIter<'db> {
+impl<'db, K: GenericKey> SeekableIterator for MemDbSeekableIter<'db, K> {
 	fn seek(&mut self, key: &[u8]) {
+		let key: <K as GenericKey>::Key<'_> = K::Key::from(key);
+		// since Key in BTreeMap in self is Key<'static>, things breaks when we pass
+		// Key<'a>, although no memory safety violations are happening here.
+		let key: K::Key<'static> = unsafe { std::mem::transmute(key) };
+
 		let next_kv = self.lock_col_space(|col_space| {
-			let mut range = col_space
-				.range::<[u8], _>((std::ops::Bound::Included(key), std::ops::Bound::Unbounded));
+			let mut range = col_space.range::<K::Key<'static>, _>((
+				std::ops::Bound::Included(K::Key::from(key)),
+				std::ops::Bound::Unbounded,
+			));
 			range.next().map(|(k, _)| k.to_owned())
 		});
 		self.state = match next_kv {
-			Some(key) => IterState::Valid { current_key: key },
+			Some(key) => IterState::Valid { current_key: key.clone() },
 			None => IterState::Invalid,
 		};
 	}
 
 	fn seek_prev(&mut self, key: &[u8]) {
+		let key: <K as GenericKey>::Key<'_> = K::Key::from(key);
+		// since Key in BTreeMap in self is Key<'static>, things breaks when we pass
+		// Key<'a>, although no memory safety violations are happening here.
+		let key: K::Key<'static> = unsafe { std::mem::transmute(key) };
+
 		let prev_kv = self.lock_col_space(|col_space| {
-			let mut range = col_space
-				.range::<[u8], _>((std::ops::Bound::Unbounded, std::ops::Bound::Included(key)));
+			let mut range = col_space.range::<K::Key<'static>, _>((
+				std::ops::Bound::Unbounded,
+				std::ops::Bound::Included(K::Key::from(key)),
+			));
 			range.next_back().map(|(k, _)| k.to_owned())
 		});
 		self.state = match prev_kv {
-			Some(key) => IterState::Valid { current_key: key },
+			Some(key) => IterState::Valid { current_key: key.clone() },
 			None => IterState::Invalid,
 		};
 	}
@@ -128,7 +161,7 @@ impl<'db> SeekableIterator for MemDbSeekableIter<'db> {
 	fn prev(&mut self) {
 		let prev_kv = match self.state {
 			IterState::Valid { ref current_key } => self.lock_col_space(|col_space| {
-				let mut range = col_space.range::<Vec<u8>, _>((
+				let mut range = col_space.range::<K::Key<'static>, _>((
 					std::ops::Bound::Unbounded,
 					std::ops::Bound::Excluded(current_key),
 				));
@@ -137,7 +170,7 @@ impl<'db> SeekableIterator for MemDbSeekableIter<'db> {
 			IterState::Invalid => None,
 		};
 		self.state = match prev_kv {
-			Some(key) => IterState::Valid { current_key: key },
+			Some(key) => IterState::Valid { current_key: key.clone() },
 			None => IterState::Invalid,
 		};
 	}
@@ -145,7 +178,7 @@ impl<'db> SeekableIterator for MemDbSeekableIter<'db> {
 	fn next(&mut self) {
 		let next_kv = match &self.state {
 			IterState::Valid { current_key } => self.lock_col_space(|col_space| {
-				let mut range = col_space.range::<Vec<u8>, _>((
+				let mut range = col_space.range::<K::Key<'static>, _>((
 					std::ops::Bound::Excluded(current_key),
 					std::ops::Bound::Unbounded,
 				));
@@ -154,7 +187,7 @@ impl<'db> SeekableIterator for MemDbSeekableIter<'db> {
 			IterState::Invalid => None,
 		};
 		self.state = match next_kv {
-			Some(key) => IterState::Valid { current_key: key },
+			Some(key) => IterState::Valid { current_key: key.clone() },
 			None => IterState::Invalid,
 		};
 	}
@@ -162,7 +195,7 @@ impl<'db> SeekableIterator for MemDbSeekableIter<'db> {
 	fn get(&self) -> Option<(&[u8], Vec<u8>)> {
 		match self.state {
 			IterState::Valid { ref current_key } => Some((
-				&current_key,
+				current_key.as_ref(),
 				self.lock_col_space(|col_space| {
 					col_space
 						.get(current_key)
@@ -176,7 +209,7 @@ impl<'db> SeekableIterator for MemDbSeekableIter<'db> {
 	}
 }
 
-impl<H> DatabaseWithSeekableIterator<H> for MemDb
+impl<H, Key: GenericKey> DatabaseWithSeekableIterator<H> for MemDb<Key>
 where
 	H: Clone + AsRef<[u8]>,
 {
@@ -189,7 +222,7 @@ where
 	}
 }
 
-impl MemDb {
+impl<K: GenericKey> MemDb<K> {
 	/// Create a new instance
 	pub fn new() -> Self {
 		MemDb::default()

@@ -320,10 +320,11 @@ fn open_kvdb_rocksdb<Block: BlockT>(
 	}
 
 	// and now open database assuming that it has the latest version
-	let mut db_config = kvdb_rocksdb::DatabaseConfig::with_columns(NUM_COLUMNS);
+	let mut db_config = kvdb_rocksdb::DatabaseConfig::with_columns(
+		(0..NUM_COLUMNS).map(|_| kvdb_rocksdb::ColumnConfig::default()).collect(),
+	);
 	db_config.create_if_missing = create;
 
-	let mut memory_budget = std::collections::HashMap::new();
 	match db_type {
 		DatabaseType::Full => {
 			let state_col_budget = (cache_size as f64 * 0.9) as usize;
@@ -331,9 +332,9 @@ fn open_kvdb_rocksdb<Block: BlockT>(
 
 			for i in 0..NUM_COLUMNS {
 				if i == crate::columns::STATE {
-					memory_budget.insert(i, state_col_budget);
+					db_config.columns[i as usize].memory_budget = Some(state_col_budget);
 				} else {
-					memory_budget.insert(i, other_col_budget);
+					db_config.columns[i as usize].memory_budget = Some(other_col_budget);
 				}
 			}
 			log::trace!(
@@ -346,7 +347,16 @@ fn open_kvdb_rocksdb<Block: BlockT>(
 			);
 		},
 	}
-	db_config.memory_budget = memory_budget;
+	db_config.columns[crate::columns::ARCHIVE as usize].comparator =
+		Some(Box::new(|key1, key2| {
+			use crate::archive_db::FullStorageKey;
+			let key1 = FullStorageKey::<<Block::HeaderT as HeaderT>::Number>::from(key1);
+			let key2 = FullStorageKey::<<Block::HeaderT as HeaderT>::Number>::from(key2);
+			match key1.key().cmp(key2.key()) {
+				ord @ (std::cmp::Ordering::Less | std::cmp::Ordering::Greater) => ord,
+				std::cmp::Ordering::Equal => key1.number().cmp(&key2.number()),
+			}
+		}));
 
 	let db = kvdb_rocksdb::Database::open(&db_config, path)?;
 	// write database version only after the database is successfully opened

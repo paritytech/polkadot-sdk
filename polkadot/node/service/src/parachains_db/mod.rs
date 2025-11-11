@@ -119,21 +119,20 @@ pub fn open_creating_rocksdb(
 	root: PathBuf,
 	cache_sizes: CacheSizes,
 ) -> io::Result<Arc<dyn Database>> {
-	use kvdb_rocksdb::{Database, DatabaseConfig};
+	use kvdb_rocksdb::{Database, DatabaseConfig, ColumnConfig};
 
 	let path = root.join("parachains").join("db");
 
-	let mut db_config = DatabaseConfig::with_columns(columns::v4::NUM_COLUMNS);
+	let mut db_config = DatabaseConfig::with_columns(
+		(0..columns::v4::NUM_COLUMNS).map(|_| ColumnConfig::default()).collect(),
+	);
 
-	let _ = db_config
-		.memory_budget
-		.insert(columns::v4::COL_AVAILABILITY_DATA, cache_sizes.availability_data);
-	let _ = db_config
-		.memory_budget
-		.insert(columns::v4::COL_AVAILABILITY_META, cache_sizes.availability_meta);
-	let _ = db_config
-		.memory_budget
-		.insert(columns::v4::COL_APPROVAL_DATA, cache_sizes.approval_data);
+	db_config.columns[columns::v4::COL_AVAILABILITY_DATA as usize].memory_budget =
+		Some(cache_sizes.availability_data);
+	db_config.columns[columns::v4::COL_AVAILABILITY_META as usize].memory_budget =
+		Some(cache_sizes.availability_meta);
+	db_config.columns[columns::v4::COL_APPROVAL_DATA as usize].memory_budget =
+		Some(cache_sizes.approval_data);
 
 	let path_str = path
 		.to_str()

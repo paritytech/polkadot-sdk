@@ -89,7 +89,7 @@ mod tests {
 	#[test]
 	fn children_write_read_remove() {
 		const PREFIX: &[u8] = b"children";
-		let db = Arc::new(sp_database::MemDb::default());
+		let db = Arc::new(sp_database::MemDb::<Vec<u8>>::default());
 
 		let mut tx = Transaction::new();
 
