@@ -1,3 +1,5 @@
+# Cargo configuration for polkadot-sdk
+
 [build]
 rustdocflags = [
 	"-Dwarnings",
@@ -10,6 +12,11 @@ CC_x86_64_unknown_linux_musl = { value = ".cargo/musl-gcc", force = true, relati
 CXX_x86_64_unknown_linux_musl = { value = ".cargo/musl-g++", force = true, relative = true }
 CARGO_WORKSPACE_ROOT_DIR = { value = "", relative = true }
 SQLX_OFFLINE = "true"
+
+# Fix for C++ compilation on macOS (for cxx and librocksdb-sys)
+SDKROOT = { value = "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk", force = true }
+CXXFLAGS = { value = "-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1", force = true }
+CFLAGS = { value = "-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk", force = true }
 
 [net]
 retry = 5

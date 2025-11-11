@@ -481,10 +481,10 @@ impl cumulus_tic_tac_toe::Config for Runtime {
 }
 
 impl cumulus_chess::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type UnixTime = Timestamp;
+	type MinimumStake = sp_core::ConstU128<1_000_000_000_000>;
 }
 
 #[frame_support::runtime]

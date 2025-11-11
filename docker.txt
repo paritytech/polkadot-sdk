@@ -1,0 +1,2 @@
+docker build -f docker/polkadot-runtime.Dockerfile -t local/polkadot .
+

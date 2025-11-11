@@ -1,0 +1,39 @@
+[relaychain]
+default_command = "/Users/willparity/polkadot-sdk/target/release/polkadot"
+default_args = ["-lparachain=debug"]
+chain = "rococo-local"
+
+[[relaychain.nodes]]
+name = "alice"
+validator = true
+rpc_port = 9944
+ws_port = 9944
+
+[[relaychain.nodes]]
+name = "bob"
+validator = true
+rpc_port = 9945
+ws_port = 9945
+
+[[parachains]]
+id = 1000
+# IMPORTANT: Use "local" not "dev" for chain type
+chain = "yap-rococo-local-1000"
+default_command = "/Users/willparity/polkadot-sdk/target/release/polkadot-parachain"
+
+[[parachains.collators]]
+name = "yap-collator"
+command = "/Users/willparity/polkadot-sdk/target/release/polkadot-parachain"
+# CRITICAL: Use --authoring=slot-based, NOT --dev-block-time
+# Based on working test in substrate/client/transaction-pool/tests/zombienet/yap_test.rs
+args = [
+    "--authoring=slot-based",
+    "--rpc-max-subscriptions-per-connection=256000",
+    "--rpc-max-connections=128000",
+    "--pool-limit=2500000",
+    "--pool-kbytes=4048000",
+    "--pool-type=fork-aware",
+    "-lparachain=debug,aura=debug,txpool=debug,runtime=debug,chess=debug"
+]
+rpc_port = 9988
+ws_port = 9988
