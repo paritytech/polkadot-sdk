@@ -42,7 +42,7 @@ const LOG_TARGET: &str = "trie-recorder";
 /// A list of ignored nodes for [`Recorder`].
 ///
 /// These nodes when passed to a recorder will be ignored and not recorded by the recorder.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct IgnoredNodes<H> {
 	nodes: HashSet<H>,
 }

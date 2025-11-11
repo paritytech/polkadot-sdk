@@ -135,7 +135,7 @@ pub struct TestExtBuilder {
 #[cfg(test)]
 impl Default for TestExtBuilder {
 	fn default() -> Self {
-		sp_tracing::init_for_tests();
+		sp_tracing::try_init_simple();
 
 		Self { num_cores: None, bundle_index: None, bundle_maybe_last: false }
 	}

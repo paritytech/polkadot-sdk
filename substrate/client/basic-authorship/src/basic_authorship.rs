@@ -291,8 +291,6 @@ where
 		// leave some time for evaluation and block finalization (10%)
 		let deadline = (self.now)() + max_duration - max_duration / 10;
 		let block_timer = time::Instant::now();
-		// Determine if proof recording was requested
-		let proof_recording_enabled = storage_proof_recorder.is_some();
 
 		let mut block_builder = BlockBuilderBuilder::new(&*self.client)
 			.on_parent_block(self.parent_hash)

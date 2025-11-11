@@ -24,7 +24,9 @@ use polkadot_primitives::{BlockNumber as PBlockNumber, Hash as PHash};
 use sc_block_builder::BlockBuilderBuilder;
 use sp_api::{ProofRecorder, ProofRecorderIgnoredNodes, ProvideRuntimeApi};
 use sp_consensus_aura::{AuraApi, Slot};
+use sp_externalities::Extensions;
 use sp_runtime::{traits::Header as HeaderT, Digest, DigestItem};
+use sp_trie::proof_size_extension::ProofSizeExt;
 
 /// A struct containing a block builder and support data required to build test scenarios.
 pub struct BlockBuilderAndSupportData<'a> {
@@ -148,12 +150,16 @@ fn init_block_builder(
 	let proof_recorder =
 		ProofRecorder::<Block>::with_ignored_nodes(ignored_nodes.unwrap_or_default());
 
+	let mut extra_extensions = Extensions::default();
+	extra_extensions.register(ProofSizeExt::new(proof_recorder.clone()));
+
 	let mut block_builder = BlockBuilderBuilder::new(client)
 		.on_parent_block(at)
 		.fetch_parent_block_number(client)
 		.unwrap()
 		.with_proof_recorder(Some(proof_recorder.clone()))
 		.with_inherent_digests(pre_digests)
+		.with_extra_extensions(extra_extensions)
 		.build()
 		.expect("Creates new block builder for test runtime");
 

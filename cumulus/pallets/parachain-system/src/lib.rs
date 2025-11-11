@@ -1544,6 +1544,7 @@ impl<T: Config> Pallet<T> {
 	fn send_ump_signals() {
 		let mut ump_signals = PendingUpwardSignals::<T>::take();
 		if !ump_signals.is_empty() {
+			UpwardMessages::<T>::append(UMP_SEPARATOR);
 			UpwardMessages::<T>::mutate(|up| {
 				up.append(&mut ump_signals);
 			});
