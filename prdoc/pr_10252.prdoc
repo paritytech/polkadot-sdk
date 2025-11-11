@@ -1,4 +1,4 @@
-title: '[pallet-revive] set finalize = best when automine is on'
+title: '[pallet-revive] use run_instant_seal_and_finalize in dev-node'
 doc:
 - audience: Runtime Dev
   description: Fix finalized block in revive-dev-node with instant-seal
