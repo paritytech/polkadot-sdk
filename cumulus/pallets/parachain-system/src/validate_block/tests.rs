@@ -735,11 +735,9 @@ fn rejects_multiple_blocks_per_pov_when_applying_runtime_upgrade() {
 			.output()
 			.expect("Runs the test");
 
-		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
-			.contains("only one block per PoV is allowed"));
 		assert!(output.status.success());
 
-		// assert!(dbg!(String::from_utf8(output.stderr).unwrap())
-		// 	.contains("only one block per PoV is allowed"));
+		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
+			.contains("only one block per PoV is allowed"));
 	}
 }
