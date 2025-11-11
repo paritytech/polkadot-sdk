@@ -21,7 +21,7 @@ use crate::{
 	codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen},
 	generic::{self, LazyBlock, UncheckedExtrinsic},
 	scale_info::TypeInfo,
-	traits::{self, BlakeTwo256, Dispatchable, LazyExtrinsic, OpaqueKeys},
+	traits::{self, BlakeTwo256, Dispatchable, LazyExtrinsic, Lookup, OpaqueKeys, StaticLookup},
 	DispatchResultWithInfo, KeyTypeId, OpaqueExtrinsic,
 };
 use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize};
@@ -53,6 +53,12 @@ use std::{cell::RefCell, fmt::Debug};
 	TypeInfo,
 )]
 pub struct UintAuthorityId(pub u64);
+
+impl core::fmt::Display for UintAuthorityId {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		core::fmt::Display::fmt(&self.0, f)
+	}
+}
 
 impl From<u64> for UintAuthorityId {
 	fn from(id: u64) -> Self {
@@ -159,6 +165,28 @@ impl traits::IdentifyAccount for UintAuthorityId {
 
 	fn into_account(self) -> Self::AccountId {
 		self.0
+	}
+}
+
+impl StaticLookup for UintAuthorityId {
+	type Source = Self;
+	type Target = u64;
+
+	fn lookup(s: Self::Source) -> Result<Self::Target, traits::LookupError> {
+		Ok(s.0)
+	}
+
+	fn unlookup(t: Self::Target) -> Self::Source {
+		Self(t)
+	}
+}
+
+impl Lookup for UintAuthorityId {
+	type Source = Self;
+	type Target = u64;
+
+	fn lookup(&self, s: Self::Source) -> Result<Self::Target, traits::LookupError> {
+		Ok(s.0)
 	}
 }
 

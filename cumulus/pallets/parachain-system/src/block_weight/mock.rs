@@ -33,7 +33,11 @@ use frame_support::{
 use frame_system::limits::BlockWeights;
 use sp_core::ConstU32;
 use sp_io;
-use sp_runtime::{BuildStorage, Perbill};
+use sp_runtime::{
+	generic::{self, UncheckedExtrinsic},
+	testing::UintAuthorityId,
+	BuildStorage, Perbill,
+};
 
 const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(1);
 
@@ -41,7 +45,15 @@ const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(1);
 pub const CALL: &RuntimeCall =
 	&RuntimeCall::System(frame_system::Call::set_heap_pages { pages: 0u64 });
 
-type Block = frame_system::mocking::MockBlock<Runtime>;
+pub type Extrinsic = UncheckedExtrinsic<
+	UintAuthorityId,
+	RuntimeCall,
+	UintAuthorityId,
+	DynamicMaxBlockWeight<Runtime, (), ConstU32<TARGET_BLOCK_RATE>>,
+>;
+
+pub type Block =
+	generic::Block<generic::Header<u64, <Runtime as frame_system::Config>::Hashing>, Extrinsic>;
 
 pub const TARGET_BLOCK_RATE: u32 = 12;
 
@@ -99,6 +111,8 @@ impl frame_system::Config for Runtime {
 	// Just required to make it compile, but not that important for this example here.
 	type Block = Block;
 	type OnSetCode = crate::ParachainSetCode<Runtime>;
+	type AccountId = u64;
+	type Lookup = UintAuthorityId;
 	// Rest of the types are omitted here.
 }
 
@@ -117,12 +131,49 @@ impl crate::Config for Runtime {
 	type RelayParentOffset = ();
 }
 
+// Include test_pallet module inline
+#[frame_support::pallet(dev_mode)]
+pub mod test_pallet {
+	use frame_support::{
+		dispatch::DispatchClass, pallet_prelude::*, weights::constants::WEIGHT_REF_TIME_PER_SECOND,
+	};
+	use frame_system::pallet_prelude::*;
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
+
+	#[pallet::config]
+	pub trait Config: frame_system::Config + crate::Config {}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		/// A heavy call with Normal dispatch class that consumes significant weight.
+		#[pallet::weight((Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND, 1024 * 1024), DispatchClass::Normal))]
+		pub fn heavy_call_normal(_: OriginFor<T>) -> DispatchResult {
+			Ok(())
+		}
+
+		/// A heavy call with Operational dispatch class that consumes significant weight.
+		#[pallet::weight((Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND, 1024 * 1024), DispatchClass::Operational))]
+		pub fn heavy_call_operational(_: OriginFor<T>) -> DispatchResult {
+			Ok(())
+		}
+	}
+}
+
+impl test_pallet::Config for Runtime {}
+
 construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
 		ParachainSystem: parachain_system,
+		TestPallet: test_pallet,
 	}
 );
+
+/// Executive: handles dispatch to the various modules.
+pub type Executive =
+	frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, ()>;
 
 /// Builder for test externalities
 #[cfg(test)]

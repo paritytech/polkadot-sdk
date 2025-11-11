@@ -23,7 +23,7 @@ use cumulus_primitives_core::{
 use frame_support::{
 	assert_ok,
 	dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo},
-	pallet_prelude::InvalidTransaction,
+	pallet_prelude::{InvalidTransaction, TransactionSource},
 	traits::PreInherents,
 	weights::constants::WEIGHT_REF_TIME_PER_SECOND,
 };
@@ -694,5 +694,17 @@ fn ref_time_and_pov_size_cap() {
 		// together is in max `6s`
 		assert_eq!(max_weight.ref_time(), 6 * WEIGHT_REF_TIME_PER_SECOND / 4);
 		assert_eq!(max_weight.proof_size(), MAX_POV_SIZE as u64);
+	});
+}
+
+#[test]
+fn executive_validate_block_accepts_normal_above_target() {
+	TestExtBuilder::new().build().execute_with(|| {
+		let call = RuntimeCall::TestPallet(test_pallet::Call::heavy_call_normal {});
+
+		let xt = Extrinsic::new_signed(call, 1u64.into(), 1u64.into(), ().into());
+
+		let result =
+			Executive::validate_transaction(TransactionSource::External, xt, Default::default());
 	});
 }
