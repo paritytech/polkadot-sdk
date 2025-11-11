@@ -306,7 +306,6 @@ async fn run_all_eth_rpc_tests() -> anyhow::Result<()> {
 	let _lock = SHARED_RESOURCES.write();
 
 	type TestFn = fn() -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<()>>>>;
-	// Define test functions with their names
 	let tests: Vec<(&str, TestFn)> = vec![
 		("transfer", || Box::pin(test_transfer())),
 		("deploy_and_call", || Box::pin(test_deploy_and_call())),
@@ -333,7 +332,6 @@ async fn run_all_eth_rpc_tests() -> anyhow::Result<()> {
 		}),
 	];
 
-	// Run each test
 	for (name, test_fn) in tests {
 		log::info!(target: LOG_TARGET, "Running test: {name}");
 		test_fn().await?;
