@@ -68,6 +68,7 @@ mod enter {
 		},
 		AvailabilityBitfield, CandidateDescriptor, UncheckedSigned,
 	};
+	use pretty_assertions::assert_eq;
 	use sp_runtime::Perbill;
 
 	struct TestConfig {
