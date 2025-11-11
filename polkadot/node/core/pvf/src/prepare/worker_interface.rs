@@ -212,13 +212,6 @@ async fn handle_response(
 	cache_path: &Path,
 	preparation_timeout: Duration,
 ) -> Outcome {
-	gum::debug!(
-		target: LOG_TARGET,
-		%worker_pid,
-		"handle_response enter (artifact {})",
-		tmp_file.display()
-	);
-
 	// TODO: Add `checksum` to `ArtifactPathId`. See:
 	//       https://github.com/paritytech/polkadot-sdk/issues/2399
 	let PrepareWorkerSuccess {
@@ -227,44 +220,10 @@ async fn handle_response(
 	} = match result.clone() {
 		Ok(result) => result,
 		// Timed out on the child. This should already be logged by the child.
-		Err(PrepareError::TimedOut) => {
-			gum::debug!(
-				target: LOG_TARGET,
-				%worker_pid,
-				"handle_response result TimedOut (artifact {})",
-				tmp_file.display()
-			);
-
-			return Outcome::TimedOut
-		},
-		Err(PrepareError::JobDied { err, job_pid }) => {
-			gum::debug!(
-				target: LOG_TARGET,
-				%worker_pid,
-				"handle_response result JobDied (artifact {})",
-				tmp_file.display()
-			);
-			return Outcome::JobDied { err, job_pid }
-		},
-		Err(PrepareError::OutOfMemory) => {
-			gum::debug!(
-				target: LOG_TARGET,
-				%worker_pid,
-				"handle_response result OutOfMemory (artifact {})",
-				tmp_file.display()
-			);
-			return Outcome::OutOfMemory
-		},
-		Err(err) => {
-			gum::debug!(
-				target: LOG_TARGET,
-				%worker_pid,
-				"handle_response result Concluded (artifact {}): {}",
-				tmp_file.display(),
-				err
-			);
-			return Outcome::Concluded { worker, result: Err(err) }
-		},
+		Err(PrepareError::TimedOut) => return Outcome::TimedOut,
+		Err(PrepareError::JobDied { err, job_pid }) => return Outcome::JobDied { err, job_pid },
+		Err(PrepareError::OutOfMemory) => return Outcome::OutOfMemory,
+		Err(err) => return Outcome::Concluded { worker, result: Err(err) },
 	};
 
 	metrics.observe_code_size(observed_wasm_code_len as usize);
@@ -399,53 +358,13 @@ where
 }
 
 async fn send_request(stream: &mut Stream, pvf: &PvfPrepData) -> io::Result<()> {
-    let file = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/comm.txt").unwrap();
-    use std::os::fd::AsRawFd;
-
-    let line = format!("{}[{}]pw: Sending request...\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
-    let line = format!("{}[{}]pw: before framed_send (send_request)\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-	let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
 	framed_send(stream, &pvf.encode()).await?;
-
-    let line = format!("{}[{}]pw: after framed_send (send_request)\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-	let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
-    let line = format!("{}[{}]pw: Request is sent\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-	let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
-	gum::trace!(
-		target: LOG_TARGET,
-		"PVF worker: Request is sent"
-	);
-
 	Ok(())
 }
 
 async fn recv_response(stream: &mut Stream, pid: u32) -> io::Result<PrepareWorkerResult> {
-    let file = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/comm.txt").unwrap();
-    use std::os::fd::AsRawFd;
-
-    let line = format!("{}[{}]pw: Waiting response...\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
-    let line = format!("{}[{}]pw: before framed_recv (recv_response)\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-	let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
 	let result = framed_recv(stream).await?;
-
-    let line = format!("{}[{}]pw: after framed_recv (recv_response)\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-	let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
-    let line = format!("{}[{}]pw: Response received\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-	let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
 	let result = PrepareWorkerResult::decode(&mut &result[..]).map_err(|e| {
-        let line = format!("{}[{}]pw: received invalid result from the worker (recv_response)\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-		let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
 		// We received invalid bytes from the worker.
 		let bound_bytes = &result[..result.len().min(4)];
 		gum::warn!(
@@ -459,9 +378,5 @@ async fn recv_response(stream: &mut Stream, pid: u32) -> io::Result<PrepareWorke
 			format!("prepare pvf recv_response: failed to decode result: {:?}", e),
 		)
 	})?;
-
-    let line = format!("{}[{}]pw: received valid result from the worker (recv_response)\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-	let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
 	Ok(result)
 }

@@ -95,26 +95,14 @@ fn recv_execute_handshake(stream: &mut Stream) -> io::Result<Handshake> {
 fn recv_request(
 	stream: &mut Stream,
 ) -> io::Result<(PersistedValidationData, PoV, Duration, ArtifactChecksum)> {
-    let file = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/comm.txt").unwrap();
-    use std::os::fd::AsRawFd;
-
-    let line = format!("{}[{}]: recv_request: enter\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
     let request_bytes = framed_recv_blocking(stream)?;
 	let request = ExecuteRequest::decode(&mut &request_bytes[..]).map_err(|_| {
-        let line = format!("{}[{}]: recv_request: decoding failed to decode pvd\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-        let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
 		io::Error::new(
 			io::ErrorKind::Other,
 			"execute pvf recv_request: failed to decode ExecuteRequest".to_string(),
 		)
 	})?;
-
-    let line = format!("{}[{}]: recv_request: success\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
-    Ok((request.pvd, request.pov, request.execution_timeout, request.artifact_checksum))
+	Ok((request.pvd, request.pov, request.execution_timeout, request.artifact_checksum))
 }
 
 /// Sends an error to the host and returns the original error wrapped in `io::Error`.
@@ -141,28 +129,19 @@ macro_rules! map_and_send_err {
 ///
 /// - `worker_version`: see above
 pub fn worker_entrypoint(
-    endpoint: WorkerEndpoint,
+	endpoint: WorkerEndpoint,
 	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
 ) {
-    let file = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/comm.txt").unwrap();
-    use std::os::fd::AsRawFd;
-
-    let line = format!("{}[{}]: worker_endpoint\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
-    run_worker(
+	run_worker(
 		WorkerKind::Execute,
-        endpoint,
+		endpoint,
 		worker_dir_path,
 		node_version,
 		worker_version,
 		|mut stream, worker_info, security_status| {
-            let line = format!("{}[{}]: before recv_execute_handshake\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-            let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
-            let artifact_path = worker_dir::execute_artifact(&worker_info.worker_dir_path);
+			let artifact_path = worker_dir::execute_artifact(&worker_info.worker_dir_path);
 
 			let Handshake { executor_params } =
 				recv_execute_handshake(&mut stream).map_err(|e| {
@@ -174,21 +153,12 @@ pub fn worker_entrypoint(
 					)
 				})?;
 
-            let line = format!("{}[{}]: before loop\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-            let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
 			let executor_params: Arc<ExecutorParams> = Arc::new(executor_params);
 			let execute_thread_stack_size = max_stack_size(&executor_params);
 
 			loop {
-                let line = format!("{}[{}]: before recv_request\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-                let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
 				let (pvd, pov, execution_timeout, artifact_checksum) = recv_request(&mut stream)
 					.map_err(|e| {
-                        let line = format!("{}[{}]: framed_recv failed: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), e.to_string());
-                        let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
 						map_and_send_err!(
 							e,
 							InternalValidationError::HostCommunication,
@@ -197,10 +167,7 @@ pub fn worker_entrypoint(
 						)
 					})?;
 
-                let line = format!("{}[{}]: after recv_request\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-                let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
-                gum::debug!(
+				gum::debug!(
 					target: LOG_TARGET,
 					?worker_info,
 					?security_status,
@@ -210,9 +177,6 @@ pub fn worker_entrypoint(
 
 				// Get the artifact bytes.
 				let compiled_artifact_blob = std::fs::read(&artifact_path).map_err(|e| {
-                    let line = format!("{}[{}]: Get the artifact bytes failed: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), e.to_string());
-                    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
 					map_and_send_err!(
 						e,
 						InternalValidationError::CouldNotOpenFile,
@@ -222,9 +186,6 @@ pub fn worker_entrypoint(
 				})?;
 
 				if artifact_checksum != compute_checksum(&compiled_artifact_blob) {
-                    let line = format!("{}[{}]: unmatch artifact_checksum\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-                    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
 					send_result::<WorkerResponse, WorkerError>(
 						&mut stream,
 						Ok(WorkerResponse {
@@ -238,9 +199,6 @@ pub fn worker_entrypoint(
 				}
 
 				let (pipe_read_fd, pipe_write_fd) = pipe2_cloexec().map_err(|e| {
-                    let line = format!("{}[{}]: pipe2_cloexec failed: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), e.to_string());
-                    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
 					map_and_send_err!(
 						e,
 						InternalValidationError::CouldNotCreatePipe,
@@ -353,19 +311,10 @@ pub fn worker_entrypoint(
 					result
 				);
 
-                let line = format!("{}[{}]: before send_result\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-                let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
-                send_result(&mut stream, result, worker_info)?;
-
-                let line = format!("{}[{}]: after send_result\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-                let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
+				send_result(&mut stream, result, worker_info)?;
 			}
 		},
 	);
-
-    let line = format!("{}[{}]: exit\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
 }
 
 fn validate_using_artifact(
@@ -414,13 +363,7 @@ fn handle_clone(
 ) -> io::Result<Result<WorkerResponse, WorkerError>> {
 	use polkadot_node_core_pvf_common::worker::security;
 
-    let file = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/comm.txt").unwrap();
-    use std::os::fd::AsRawFd;
-
-    let line = format!("{}[{}]:  handle_clone enter\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
-    // SAFETY: new process is spawned within a single threaded process. This invariant
+	// SAFETY: new process is spawned within a single threaded process. This invariant
 	// is enforced by tests. Stack size being specified to ensure child doesn't overflow
 	match unsafe {
 		security::clone::clone_on_worker(
@@ -440,26 +383,17 @@ fn handle_clone(
 			}),
 		)
 	} {
-		Ok(child) => {
-            let line = format!("{}[{}]:  handle_clone Ok\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-            let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
-            handle_parent_process(
-                pipe_read_fd,
-                pipe_write_fd,
-                worker_info,
-                child,
-                usage_before,
-                pov_size,
-                execution_timeout,
-            )
-        },
-		Err(security::clone::Error::Clone(errno)) => {
-            let line = format!("{}[{}]:  handle_clone Err: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), errno);
-            let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
-            Ok(Err(internal_error_from_errno("clone", errno)))
-        },
+		Ok(child) => handle_parent_process(
+			pipe_read_fd,
+			pipe_write_fd,
+			worker_info,
+			child,
+			usage_before,
+			pov_size,
+			execution_timeout,
+		),
+		Err(security::clone::Error::Clone(errno)) =>
+			Ok(Err(internal_error_from_errno("clone", errno))),
 	}
 }
 
@@ -476,71 +410,29 @@ fn handle_fork(
 	usage_before: Usage,
 	pov_size: u32,
 ) -> io::Result<Result<WorkerResponse, WorkerError>> {
-    let file = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/comm.txt").unwrap();
-    use std::os::fd::AsRawFd;
-
-    let line = format!("{}[{}]:  handle_fork enter\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
-    // --- [NEW] подготовка SHADOW_TAG перед fork ---------------------------
-    let shadow_tag_prev = std::env::var("SHADOW_TAG").ok();
-    let mut shadow_tag_new = shadow_tag_prev.clone().unwrap_or_default();
-    shadow_tag_new.push_str(":fork");
-    std::env::set_var("SHADOW_TAG", &shadow_tag_new);
-    // ----------------------------------------------------------------------
-
-    // SAFETY: new process is spawned within a single threaded process. This invariant
+	// SAFETY: new process is spawned within a single threaded process. This invariant
 	// is enforced by tests.
 	match unsafe { nix::unistd::fork() } {
-		Ok(ForkResult::Child) => {
-            let line = format!("{}[{}]:  handle_fork Ok(Child)\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-            let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
-            handle_child_process(
-                pipe_write_fd,
-                pipe_read_fd,
-                stream_fd,
-                Arc::clone(compiled_artifact_blob),
-                Arc::clone(executor_params),
-                Arc::clone(params),
-                execution_timeout,
-                execute_worker_stack_size,
-            )
-        },
-		Ok(ForkResult::Parent { child }) => {
-            // --- [NEW] восстановить SHADOW_TAG в родителе -------------------
-            match shadow_tag_prev {
-                Some(v) => std::env::set_var("SHADOW_TAG", v),
-                None => std::env::remove_var("SHADOW_TAG"),
-            }
-            // -----------------------------------------------------------------
-
-            let line = format!("{}[{}]:  handle_fork Ok(Parent)\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-            let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
-            handle_parent_process(
-                pipe_read_fd,
-                pipe_write_fd,
-                worker_info,
-                child,
-                usage_before,
-                pov_size,
-                execution_timeout,
-            )
-        },
-		Err(errno) => {
-            // --- [NEW] восстановить SHADOW_TAG в родителе -------------------
-            match shadow_tag_prev {
-                Some(v) => std::env::set_var("SHADOW_TAG", v),
-                None => std::env::remove_var("SHADOW_TAG"),
-            }
-            // -----------------------------------------------------------------
-
-            let line = format!("{}[{}]:  handle_fork Err: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), errno);
-            let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
-            Ok(Err(internal_error_from_errno("fork", errno)))
-        },
+		Ok(ForkResult::Child) => handle_child_process(
+			pipe_write_fd,
+			pipe_read_fd,
+			stream_fd,
+			Arc::clone(compiled_artifact_blob),
+			Arc::clone(executor_params),
+			Arc::clone(params),
+			execution_timeout,
+			execute_worker_stack_size,
+		),
+		Ok(ForkResult::Parent { child }) => handle_parent_process(
+			pipe_read_fd,
+			pipe_write_fd,
+			worker_info,
+			child,
+			usage_before,
+			pov_size,
+			execution_timeout,
+		),
+		Err(errno) => Ok(Err(internal_error_from_errno("fork", errno))),
 	}
 }
 

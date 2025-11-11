@@ -15100,7 +15100,6 @@ version = "6.0.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
- "libc",
  "nix 0.29.0",
  "polkadot-cli",
  "polkadot-core-primitives",

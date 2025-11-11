@@ -120,31 +120,31 @@ pub async fn spawn_with_program_path(
 	// --- Shadow path: TCP sockets ------------------------------------------
 	#[cfg(feature = "x-shadow")]
 	let res = async move {
-        let listning_addr = Endpoint::from_str("127.0.0.1:0").unwrap();
-        let listener = HostListener::bind(listning_addr)
-            .await
-            .map_err(|e| SpawnErr::Bind { endpoint: listning_addr, err: e.to_string() })?;
-        let local_addr: SocketAddr = listener
-            .local_addr()
-            .map_err(|e| SpawnErr::Bind { endpoint: listning_addr, err: e.to_string() })?;
-        let handle =
-            WorkerHandle::spawn(&program_path, &extra_args, local_addr, &worker_dir.path())
-                .map_err(|err| SpawnErr::ProcessSpawn {
-                    program_path: program_path.clone(),
-                    err: err.to_string(),
-                })?;
-        futures::select! {
-            accept_result = listener.accept().fuse() => {
-                let (mut stream, _) = accept_result
-                .map_err(|err| SpawnErr::Accept { endpoint: local_addr, err: err.to_string() })?;
-                send_worker_handshake(&mut stream, WorkerHandshake { security_status })
-                .await
-            .map_err(|err| SpawnErr::Handshake { err: err.to_string() })?;
-                Ok((IdleWorker { stream, pid: handle.id(), worker_dir }, handle))
-            }
-            _ = Delay::new(spawn_timeout).fuse() => Err(SpawnErr::AcceptTimeout{spawn_timeout}),
-        }
-    }
+		let listning_addr = Endpoint::from_str("127.0.0.1:0").unwrap();
+		let listener = HostListener::bind(listning_addr)
+			.await
+			.map_err(|e| SpawnErr::Bind { endpoint: listning_addr, err: e.to_string() })?;
+		let local_addr: SocketAddr = listener
+			.local_addr()
+			.map_err(|e| SpawnErr::Bind { endpoint: listning_addr, err: e.to_string() })?;
+		let handle =
+			WorkerHandle::spawn(&program_path, &extra_args, local_addr, &worker_dir.path())
+				.map_err(|err| SpawnErr::ProcessSpawn {
+					program_path: program_path.clone(),
+					err: err.to_string(),
+				})?;
+		futures::select! {
+			accept_result = listener.accept().fuse() => {
+				let (mut stream, _) = accept_result
+				.map_err(|err| SpawnErr::Accept { endpoint: local_addr, err: err.to_string() })?;
+				send_worker_handshake(&mut stream, WorkerHandshake { security_status })
+				.await
+				.map_err(|err| SpawnErr::Handshake { err: err.to_string() })?;
+				Ok((IdleWorker { stream, pid: handle.id(), worker_dir }, handle))
+			}
+			_ = Delay::new(spawn_timeout).fuse() => Err(SpawnErr::AcceptTimeout{spawn_timeout}),
+		}
+	}
 	.await;
 	res.map_err(|err| {
 		gum::warn!(
@@ -281,27 +281,10 @@ impl WorkerHandle {
 		socket_path: impl AsRef<Path>,
 		worker_dir_path: impl AsRef<Path>,
 	) -> io::Result<Self> {
-		let program_str = program.as_ref().display().to_string();
-		let args_str: Vec<String> = extra_args.iter().map(|a| a.to_string()).collect();
-		let socket_str = socket_path.as_ref().display().to_string();
-		let worker_dir_str = worker_dir_path.as_ref().display().to_string();
-
-		gum::info!(
-			target: LOG_TARGET,
-			"spawning PVF worker program={} args={:?} socket={} worker_dir={}",
-			program_str,
-			args_str,
-			socket_str,
-			worker_dir_str,
-		);
-
 		// Clear all env vars from the spawned process.
 		let mut command = process::Command::new(program.as_ref());
 		command.env_clear();
 
-        if let Ok(value) = std::env::var("SHADOW_TAG") {
-            command.env("SHADOW_TAG", value);
-        }
 		command.env("RUST_LOG", sc_tracing::logging::get_directives().join(","));
 
 		let mut child = command
@@ -313,16 +296,6 @@ impl WorkerHandle {
 			.stdout(std::process::Stdio::piped())
 			.kill_on_drop(true)
 			.spawn()?;
-
-		gum::info!(
-			target: LOG_TARGET,
-			"PVF worker spawned (pid={:?}) program={} args={:?} socket={} worker_dir={}",
-			child.id(),
-			program_str,
-			args_str,
-			socket_str,
-			worker_dir_str,
-		);
 
 		let child_id = child
 			.id()
@@ -358,33 +331,11 @@ impl WorkerHandle {
 		socket_addr: SocketAddr,
 		worker_dir_path: impl AsRef<Path>,
 	) -> io::Result<Self> {
-		let program_str = program.as_ref().display().to_string();
-		let args_str: Vec<String> = extra_args.iter().map(|a| a.to_string()).collect();
-		let socket_str = socket_addr.to_string();
-		let worker_dir_str = worker_dir_path.as_ref().display().to_string();
-
-		gum::info!(
-			target: LOG_TARGET,
-			"spawning PVF worker program={} args={:?} socket={} worker_dir={}",
-			program_str,
-			args_str,
-			socket_str,
-			worker_dir_str,
-		);
-
 		// Clear all env vars from the spawned process.
 		let mut command = process::Command::new(program.as_ref());
 		command.env_clear();
 
-        if let Ok(mut value) = std::env::var("SHADOW_TAG") {
-            if program_str.contains("prepare") {
-                value.push_str(":pw");
-            } else if program_str.contains("execute") {
-                value.push_str(":ew");
-            }
-            command.env("SHADOW_TAG", value);
-        }
-        command.env("RUST_LOG", sc_tracing::logging::get_directives().join(","));
+		command.env("RUST_LOG", sc_tracing::logging::get_directives().join(","));
 
 		let mut child = command
 			.args(extra_args)
@@ -395,16 +346,6 @@ impl WorkerHandle {
 			.stdout(std::process::Stdio::piped())
 			.kill_on_drop(true)
 			.spawn()?;
-
-		gum::info!(
-			target: LOG_TARGET,
-			"PVF worker spawned (pid={:?}) program={} args={:?} socket={} worker_dir={}",
-			child.id(),
-			program_str,
-			args_str,
-			socket_str,
-			worker_dir_str,
-		);
 
 		let child_id = child
 			.id()
@@ -476,29 +417,11 @@ impl fmt::Debug for WorkerHandle {
 
 /// Write some data prefixed by its length into `w`.
 pub async fn framed_send(w: &mut (impl AsyncWrite + Unpin), buf: &[u8]) -> io::Result<()> {
-    let file = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/comm.txt").unwrap();
-    use std::os::fd::AsRawFd;
-
-    let line = format!("{}[{}]: framed_send: before write len = {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), buf.len());
-    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
 	let len_buf = buf.len().to_le_bytes();
+	w.write_all(&len_buf).await?;
 
-	w.write_all(&len_buf).await.map_err(|err| {
-        let line = format!("{}[{}]: framed_send: writing of len failed: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), err.to_string());
-        let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-        err
-    })?;
-
-    let line = format!("{}[{}]: framed_send: after write len, before write payload\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id());
-    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
-    #[cfg(not(feature = "x-shadow"))]
-    w.write_all(buf).await.map_err(|err| {
-        let line = format!("{}[{}]: framed_send: writing of payload failed: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), err.to_string());
-        let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-        err
-    })?;
+	#[cfg(not(feature = "x-shadow"))]
+	w.write_all(buf).await?;
 
 	#[cfg(feature = "x-shadow")]
 	{
@@ -507,51 +430,20 @@ pub async fn framed_send(w: &mut (impl AsyncWrite + Unpin), buf: &[u8]) -> io::R
 		// between the sender and the receiver.
 		const CHUNK_SIZE: usize = 1 << 15;
 		for chunk in buf.chunks(CHUNK_SIZE) {
-			w.write_all(chunk).await.map_err(|err| {
-				let line = format!("{}[{}]: framed_send: writing of chunk failed: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), err.to_string());
-				let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-				err
-			})?;
+			w.write_all(chunk).await?;
 		}
 	}
-
-    let line = format!("{}[{}]: framed_send: after write {} bytes of payload\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), buf.len());
-    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
 
 	Ok(())
 }
 
 /// Read some data prefixed by its length from `r`.
 pub async fn framed_recv(r: &mut (impl AsyncRead + Unpin)) -> io::Result<Vec<u8>> {
-    let file = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/comm.txt").unwrap();
-    use std::os::fd::AsRawFd;
-
 	let mut len_buf = [0u8; mem::size_of::<usize>()];
-
-    let line = format!("{}[{}]: framed_recv: before read len ({} bytes)\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), len_buf.len());
-    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
-    r.read_exact(&mut len_buf).await.map_err(|err| {
-        let line = format!("{}[{}]: framed_recv: reading of length failed: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), err.to_string());
-        let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-        err
-    })?;
-
+	r.read_exact(&mut len_buf).await?;
 	let len = usize::from_le_bytes(len_buf);
-
-    let line = format!("{}[{}]: framed_recv: after read len = {}, before read payload\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), len);
-    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
 	let mut buf = vec![0; len];
-	r.read_exact(&mut buf).await.map_err(|err| {
-        let line = format!("{}[{}]: framed_recv: reading of payload failed: {}\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), err.to_string());
-        let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-        err
-    })?;
-
-    let line = format!("{}[{}]: framed_recv: after read {} bytes of payload\n", std::env::var("SHADOW_TAG").unwrap_or_else(|_| "***".to_string()), std::process::id(), len);
-    let _ = unsafe { libc::write(file.as_raw_fd(), line.as_ptr() as *const libc::c_void, line.len()) };
-
+	r.read_exact(&mut buf).await?;
 	Ok(buf)
 }
 
