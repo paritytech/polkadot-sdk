@@ -2965,7 +2965,10 @@ fn block_hash_works() {
 
 		// Store block hash in pallet-revive BlockHash mapping
 		let block_hash = H256::from([1; 32]);
-		crate::BlockHash::<Test>::insert(U256::from(0u32), H256::from(block_hash));
+		crate::BlockHash::<Test>::insert(
+			crate::BlockNumberFor::<Test>::from(0u32),
+			H256::from(block_hash),
+		);
 
 		assert_ok!(builder::call(addr)
 			.data((U256::zero(), H256::from(block_hash)).encode())
@@ -4240,19 +4243,31 @@ fn prestate_tracing_works() {
 		// redact balance so that tests are resilient to weight changes
 		let alice_redacted_balance = Some(U256::from(1));
 
-		let test_cases: Vec<(Box<dyn FnOnce()>, _, _)> = vec![
-			(
-				Box::new(|| {
-					builder::bare_call(addr)
-						.data((3u32, addr_callee).encode())
-						.build_and_unwrap_result();
+		struct TestCase {
+			description: &'static str,
+			exec_call: Box<dyn FnOnce()>,
+			config: PrestateTracerConfig,
+			expected_trace: PrestateTrace,
+		}
+
+		let test_cases: Vec<TestCase> = vec![
+			TestCase {
+				description: "prestate mode with cross-contract call",
+				exec_call: Box::new({
+					let addr = addr;
+					let addr_callee = addr_callee;
+					move || {
+						builder::bare_call(addr)
+							.data((3u32, addr_callee).encode())
+							.build_and_unwrap_result();
+					}
 				}),
-				PrestateTracerConfig {
+				config: PrestateTracerConfig {
 					diff_mode: false,
 					disable_storage: false,
 					disable_code: false,
 				},
-				PrestateTrace::Prestate(BTreeMap::from([
+				expected_trace: PrestateTrace::Prestate(BTreeMap::from([
 					(
 						ALICE_ADDR,
 						PrestateTraceInfo {
@@ -4284,19 +4299,24 @@ fn prestate_tracing_works() {
 						},
 					),
 				])),
-			),
-			(
-				Box::new(|| {
-					builder::bare_call(addr)
-						.data((3u32, addr_callee).encode())
-						.build_and_unwrap_result();
+			},
+			TestCase {
+				description: "diff mode with cross-contract call",
+				exec_call: Box::new({
+					let addr = addr;
+					let addr_callee = addr_callee;
+					move || {
+						builder::bare_call(addr)
+							.data((3u32, addr_callee).encode())
+							.build_and_unwrap_result();
+					}
 				}),
-				PrestateTracerConfig {
+				config: PrestateTracerConfig {
 					diff_mode: true,
 					disable_storage: false,
 					disable_code: false,
 				},
-				PrestateTrace::DiffMode {
+				expected_trace: PrestateTrace::DiffMode {
 					pre: BTreeMap::from([
 						(
 							BOB_ADDR,
@@ -4332,19 +4352,23 @@ fn prestate_tracing_works() {
 						),
 					]),
 				},
-			),
-			(
-				Box::new(|| {
-					builder::bare_instantiate(Code::Upload(dummy_code.clone()))
-						.salt(None)
-						.build_and_unwrap_result();
+			},
+			TestCase {
+				description: "diff mode with contract instantiation",
+				exec_call: Box::new({
+					let dummy_code = dummy_code.clone();
+					move || {
+						builder::bare_instantiate(Code::Upload(dummy_code))
+							.salt(None)
+							.build_and_unwrap_result();
+					}
 				}),
-				PrestateTracerConfig {
+				config: PrestateTracerConfig {
 					diff_mode: true,
 					disable_storage: false,
 					disable_code: false,
 				},
-				PrestateTrace::DiffMode {
+				expected_trace: PrestateTrace::DiffMode {
 					pre: BTreeMap::from([(
 						ALICE_ADDR,
 						PrestateTraceInfo {
@@ -4373,10 +4397,10 @@ fn prestate_tracing_works() {
 						),
 					]),
 				},
-			),
+			},
 		];
 
-		for (exec_call, config, expected_trace) in test_cases.into_iter() {
+		for TestCase { description, exec_call, config, expected_trace } in test_cases.into_iter() {
 			let mut tracer = PrestateTracer::<Test>::new(config);
 			trace(&mut tracer, || {
 				exec_call();
@@ -4401,7 +4425,7 @@ fn prestate_tracing_works() {
 				},
 			}
 
-			assert_eq!(trace, expected_trace);
+			assert_eq!(trace, expected_trace, "Trace mismatch for: {description}");
 		}
 	});
 }

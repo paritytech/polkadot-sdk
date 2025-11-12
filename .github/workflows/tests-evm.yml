@@ -18,7 +18,7 @@ jobs:
     needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
 
-  differential-tests-revive-dev-node-revm:
+  differential-tests:
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     if: ${{ needs.preflight.outputs.changes_rust }}
@@ -50,7 +50,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: paritytech/revive-differential-tests
-          ref: f9a63a5641216f1af1962307741f0829e180dc9b
+          ref: 347dcb4488ac188ef7bddf6e4b4c44b389f881c4
           path: revive-differential-tests
           submodules: recursive
       - name: Installing Retester
