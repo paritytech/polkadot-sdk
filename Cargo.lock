@@ -7446,7 +7446,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "num-format",
- "pallet-staking",
+ "pallet-staking-async",
  "sp-staking",
 ]
 

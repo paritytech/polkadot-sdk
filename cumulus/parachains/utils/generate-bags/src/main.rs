@@ -23,12 +23,12 @@
 use clap::{Parser, ValueEnum};
 use generate_bags::generate_thresholds;
 use std::path::{Path, PathBuf};
-use westend_runtime::Runtime as WestendRuntime;
+use westend_runtime::Runtime as WAHRuntime;
 
 #[derive(Clone, Debug, ValueEnum)]
 #[value(rename_all = "PascalCase")]
 enum Runtime {
-	Westend,
+	WestendAssetHub,
 }
 
 impl Runtime {
@@ -36,7 +36,7 @@ impl Runtime {
 		&self,
 	) -> Box<dyn FnOnce(usize, &Path, u128, u128) -> Result<(), std::io::Error>> {
 		match self {
-			Runtime::Westend => Box::new(generate_thresholds::<WestendRuntime>),
+			Runtime::WestendAssetHub => Box::new(generate_thresholds::<WAHRuntime>),
 		}
 	}
 }

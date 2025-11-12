@@ -24,8 +24,6 @@ use sp_core::{crypto::Ss58Codec, hexdisplay::HexDisplay};
 use sp_keyring::Sr25519Keyring::Alice;
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
-const MILLISECONDS_PER_HOUR: u64 = 60 * 60 * 1000;
-
 #[test]
 fn remove_keys_weight_is_sensible() {
 	use polkadot_runtime_common::crowdloan::WeightInfo;
