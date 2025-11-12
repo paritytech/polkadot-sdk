@@ -311,6 +311,12 @@ impl<T: Config> ContractInfo<T> {
 		storage_meter: Option<&mut meter::NestedMeter<T>>,
 		take: bool,
 	) -> Result<WriteOutcome, DispatchError> {
+		// If new_value is Some(all zero bytes), treat it as None (deletion)
+		if let Some(value) = new_value {
+			if value.is_empty() || value.iter().all(|&b| b == 0) {
+				return self.write_raw(key, None, storage_meter, take);
+			}
+		}
 		let child_trie_info = &self.child_trie_info();
 		let (old_len, old_value) = if take {
 			let val = child::get_raw(child_trie_info, key);
