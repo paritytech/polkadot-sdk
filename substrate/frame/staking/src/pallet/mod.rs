@@ -1007,6 +1007,7 @@ pub mod pallet {
 		fn try_state(n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			// Don't run the try state checks on this pallet since Post-AHM, this pallet only
 			// remains on RC with no data.
+			Ok(())
 		}
 	}
 
