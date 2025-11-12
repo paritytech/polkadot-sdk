@@ -1256,7 +1256,7 @@ pub trait RewardsReporter<ValidatorId> {
 }
 
 impl RewardsReporter<sp_runtime::AccountId32> for () {
-	fn reward_by_ids(_validators_points: impl IntoIterator<Item=(sp_runtime::AccountId32, u32)>) {
+	fn reward_by_ids(_validators_points: impl IntoIterator<Item = (sp_runtime::AccountId32, u32)>) {
 		// do nothing
 	}
 }

@@ -61,8 +61,7 @@ use polkadot_primitives::{
 	PARACHAIN_KEY_TYPE_ID,
 };
 use polkadot_runtime_common::{
-	assigned_slots, auctions, crowdloan,
-	identity_migrator, impl_runtime_weights,
+	assigned_slots, auctions, crowdloan, identity_migrator, impl_runtime_weights,
 	impls::{
 		ContainsParts, LocatableAssetConverter, ToAuthor, VersionedLocatableAsset,
 		VersionedLocationConverter,
@@ -545,7 +544,6 @@ parameter_types! {
 	// of nominators.
 	pub const MaxNominators: u32 = 64;
 }
-
 
 #[derive(Encode, Decode)]
 enum AssetHubRuntimePallets<AccountId> {
@@ -1074,12 +1072,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				RuntimeCall::Slots(..) |
 				RuntimeCall::Auctions(..) // Specifically omitting the entire XCM Pallet
 			),
-			ProxyType::Staking => {
-				false
-			},
-			ProxyType::NominationPools => {
-				false
-			},
+			ProxyType::Staking => false,
+			ProxyType::NominationPools => false,
 			ProxyType::SudoBalances => match c {
 				RuntimeCall::Sudo(pallet_sudo::Call::sudo { call: ref x }) => {
 					matches!(x.as_ref(), &RuntimeCall::Balances(..))
