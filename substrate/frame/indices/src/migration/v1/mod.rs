@@ -183,9 +183,10 @@ where
 }
 
 #[cfg(any(test, feature = "try-runtime"))]
-impl<T: Config, OldCurrency> MigrateCurrencyToFungibles<T, OldCurrency> 
+impl<T: Config, OldCurrency> MigrateCurrencyToFungibles<T, OldCurrency>
 where
-	OldCurrency: Currency<T::AccountId, Balance = BalanceOf<T>> + ReservableCurrency<T::AccountId>,{
+	OldCurrency: Currency<T::AccountId, Balance = BalanceOf<T>> + ReservableCurrency<T::AccountId>,
+{
 	fn do_pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 		use codec::Encode;
 		Ok(Accounts::<T>::iter().collect::<BTreeMap<_, _>>().encode())
@@ -200,13 +201,17 @@ where
 			Decode::decode(&mut &state[..]).expect("Failed to decode the previous storage state");
 
 		// Verify all accounts were migrated
-		for (index, (account, old_deposit, frozen)) in prev_map {
+		for (index, (old_account, old_deposit, old_frozen)) in prev_map {
 			let current = Accounts::<T>::get(index);
 			match current {
 				Some((current_account, current_deposit, current_frozen)) => {
-					assert_eq!(current_account, account, "Account mismatch for index {:?}", index);
 					assert_eq!(
-						current_frozen, frozen,
+						current_account, old_account,
+						"Account mismatch for index {:?}",
+						index
+					);
+					assert_eq!(
+						current_frozen, old_frozen,
 						"Frozen status mismatch for index {:?}",
 						index
 					);
@@ -217,7 +222,7 @@ where
 					if !old_deposit.is_zero() {
 						let held = T::NativeBalance::balance_on_hold(
 							&HoldReason::DepositForIndex.into(),
-							&account,
+							&old_account,
 						);
 						if current_deposit.is_zero() {
 							// Should have zero deposit but funds released to free balance
@@ -244,32 +249,37 @@ where
 		Ok(())
 	}
 
-	fn migrate_account(account: T::AccountId, index: T::AccountIndex, frozen: bool, old_deposit: BalanceOf<T>){
+	fn migrate_account(
+		account: T::AccountId,
+		index: T::AccountIndex,
+		frozen: bool,
+		old_deposit: BalanceOf<T>,
+	) {
 		let old_reserved = OldCurrency::reserved_balance(&account);
 		let reserved_balance: BalanceOf<T> = old_reserved.into();
 		let reserve_to_migrate = old_deposit.min(reserved_balance);
 
 		// If there are some reserves to migrate, perform the migration
 		if !reserve_to_migrate.is_zero() {
-				OldCurrency::unreserve(&account, reserve_to_migrate);
+			OldCurrency::unreserve(&account, reserve_to_migrate);
 
-				// Try to hold in new fungibles system
-				match T::NativeBalance::hold(
-					&HoldReason::DepositForIndex.into(),
-					&account,
-					reserve_to_migrate,
-				) {
-					Ok(_) => {
-						// Success: migrate to new storage with hold
-						Accounts::<T>::insert(index, (account, reserve_to_migrate, frozen));
-					},
-					Err(e) => {
-						// Failed: preserve index with zero deposit
-						// Funds stay in account's free balance (from unreserve)
-						Accounts::<T>::insert(index, (account, BalanceOf::<T>::zero(), frozen));
-					},
-				}
-		}	
+			// Try to hold in new fungibles system
+			match T::NativeBalance::hold(
+				&HoldReason::DepositForIndex.into(),
+				&account,
+				reserve_to_migrate,
+			) {
+				Ok(_) => {
+					// Success: migrate to new storage with hold
+					Accounts::<T>::insert(index, (account, reserve_to_migrate, frozen));
+				},
+				Err(e) => {
+					// Failed: preserve index with zero deposit
+					// Funds stay in account's free balance (from unreserve)
+					Accounts::<T>::insert(index, (account, BalanceOf::<T>::zero(), frozen));
+				},
+			}
+		}
 		// Otherwise, preserve the index with zero deposit and zero hold
 		else {
 			Accounts::<T>::insert(index, (account, BalanceOf::<T>::zero(), frozen));
