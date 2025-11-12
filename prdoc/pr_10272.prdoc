@@ -1,7 +1,7 @@
 title: 'pallet-revive: add hook for mocking origin'
 doc:
 - audience: Runtime Dev
-  description: 'While runing some balancer v3 tests: https://github.com/paritytech/foundry-polkadot/issues/287#issuecomment-3502668161,
+  description: 'While runing some balancer v3 tests https://github.com/paritytech/foundry-polkadot/issues/287#issuecomment-3502668161,
     discovered we need a way to mock up the origin as well, so add hook.'
 crates:
 - name: pallet-revive
