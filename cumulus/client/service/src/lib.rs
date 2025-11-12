@@ -142,17 +142,27 @@ where
 {
 	let (recovery_chan_tx, recovery_chan_rx) = mpsc::channel(RECOVERY_CHAN_SIZE);
 
+	let (tx, rx) = futures::channel::mpsc::unbounded();
+	let worker = cumulus_client_consensus_common::finalized_head_stream_worker(
+		tx,
+		para_id,
+		relay_chain_interface.clone(),
+	);
 	let consensus = cumulus_client_consensus_common::run_parachain_consensus(
 		para_id,
 		client.clone(),
 		relay_chain_interface.clone(),
 		announce_block.clone(),
+		Box::new(rx),
 		Some(recovery_chan_tx),
 	);
 
 	task_manager
 		.spawn_essential_handle()
 		.spawn_blocking("cumulus-consensus", None, consensus);
+	task_manager
+		.spawn_essential_handle()
+		.spawn_blocking("finality-stream-worker", None, worker);
 
 	let da_recovery_profile = match da_recovery_profile {
 		DARecoveryProfile::Collator => {

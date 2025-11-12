@@ -31,8 +31,9 @@ use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_primitives::Id as ParaId;
 
 use codec::Decode;
-use futures::{channel::mpsc::Sender, pin_mut, select, FutureExt, StreamExt};
+use futures::{channel::mpsc::Sender, pin_mut, select, FutureExt, SinkExt, Stream, StreamExt};
 
+use futures::channel::mpsc::UnboundedSender;
 use sp_core::U256;
 use sp_runtime::Saturating;
 use std::sync::Arc;
@@ -132,36 +133,31 @@ async fn handle_new_finalized_head<P, Block, B, R>(
 ///
 /// For every finalized block of the relay chain, it will get the included parachain header
 /// corresponding to `para_id` and will finalize it in the parachain.
-async fn follow_finalized_head<P, Block, B, R>(para_id: ParaId, parachain: Arc<P>, relay_chain: R)
-where
+async fn follow_finalized_head<P, Block, B, R>(
+	para_id: ParaId,
+	parachain: Arc<P>,
+	relay_chain: R,
+	mut finalized_head_stream: Box<impl Stream<Item = Vec<u8>>>,
+) where
 	Block: BlockT,
 	P: Finalizer<Block, B> + UsageProvider<Block> + BlockchainEvents<Block>,
 	R: RelayChainInterface + Clone,
 	B: Backend<Block>,
 {
-	let finalized_heads = match finalized_heads(relay_chain.clone(), para_id).await {
-		Ok(finalized_heads_stream) => finalized_heads_stream.fuse(),
-		Err(err) => {
-			tracing::error!(target: LOG_TARGET, error = ?err, "Unable to retrieve finalized heads stream.");
-			return
-		},
-	};
-
 	let mut imported_blocks = parachain.import_notification_stream().fuse();
-
-	pin_mut!(finalized_heads);
 
 	// We use this cache to finalize blocks that are imported late.
 	// For example, a block that has been recovered via PoV-Recovery
 	// on a full node can have several minutes delay. With this cache
 	// we have some "memory" of recently finalized blocks.
 	let mut last_seen_finalized_hashes = LruMap::new(ByLength::new(FINALIZATION_CACHE_SIZE));
-
+	pin_mut!(finalized_head_stream);
+	// let mut finalized_head_stream = finalized_heads;
 	loop {
 		select! {
-			fin = finalized_heads.next() => {
+			fin = finalized_head_stream.next() => {
 				match fin {
-					Some((finalized_head, _)) =>
+					Some(finalized_head) =>
 						handle_new_finalized_head(&parachain, finalized_head, &mut last_seen_finalized_hashes, relay_chain.clone()).await,
 					None => {
 						tracing::debug!(target: LOG_TARGET, "Stopping following finalized head.");
@@ -210,6 +206,28 @@ where
 	}
 }
 
+/// Does something
+pub async fn finalized_head_stream_worker<R: RelayChainInterface + Clone>(
+	mut tx: UnboundedSender<Vec<u8>>,
+	para_id: ParaId,
+	relay_chain: R,
+) {
+	let finalized_heads = match finalized_heads(relay_chain.clone(), para_id).await {
+		Ok(finalized_heads_stream) => finalized_heads_stream.fuse(),
+		Err(err) => {
+			tracing::error!(target: LOG_TARGET, error = ?err, "Unable to retrieve finalized heads stream.");
+			return
+		},
+	};
+	pin_mut!(finalized_heads);
+	loop {
+		if let Some((head_data, _)) = finalized_heads.next().await {
+			tracing::info!(target: LOG_TARGET, "finalized-stream-worker: Sending head_data.");
+			tx.send(head_data).await.unwrap();
+		}
+	}
+}
+
 /// Run the parachain consensus.
 ///
 /// This will follow the given `relay_chain` to act as consensus for the parachain that corresponds
@@ -225,6 +243,7 @@ pub async fn run_parachain_consensus<P, R, Block, B>(
 	parachain: Arc<P>,
 	relay_chain: R,
 	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
+	finalized_head_stream: Box<impl Stream<Item = Vec<u8>>>,
 	recovery_chan_tx: Option<Sender<RecoveryRequest<Block>>>,
 ) where
 	Block: BlockT,
@@ -245,7 +264,8 @@ pub async fn run_parachain_consensus<P, R, Block, B>(
 		announce_block,
 		recovery_chan_tx,
 	);
-	let follow_finalized_head = follow_finalized_head(para_id, parachain, relay_chain);
+	let follow_finalized_head =
+		follow_finalized_head(para_id, parachain, relay_chain, finalized_head_stream);
 	select! {
 		_ = follow_new_best.fuse() => {},
 		_ = follow_finalized_head.fuse() => {},
