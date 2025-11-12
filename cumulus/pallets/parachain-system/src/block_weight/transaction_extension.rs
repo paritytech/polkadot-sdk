@@ -162,7 +162,7 @@ where
 							CumulusDigestItem::UseFullCore.to_digest_item(),
 						);
 
-						if !is_first_block_in_core_with_digest(&digest) {
+						if !is_first_block_in_core_with_digest(&digest).unwrap_or(false) {
 							// We are already above the allowed maximum and do not want to accept any more
 							// extrinsics.
 							frame_system::Pallet::<Config>::register_extra_weight_unchecked(
@@ -182,11 +182,17 @@ where
 						.saturating_add(Weight::from_parts(0, len as u64))
 						.any_gt(target_weight)
 					{
-						// When `ALLOW_NORMAL` is `true`, we want to allow all classes of transactions.
-						let class_allowed = if ALLOW_NORMAL { true } else { info.class == DispatchClass::Operational };
+						// When `ALLOW_NORMAL` is `true`, we want to allow all classes of transactions. Inherents are always allowed.
+						let class_allowed = if ALLOW_NORMAL { true } else { info.class == DispatchClass::Operational }
+							|| info.class == DispatchClass::Mandatory;
+
+						// If the `BundleInfo` digest is not set (function returns `None`), it means we are in some offchain
+						// call like `validate_block`. In this case we assume this is the first block, otherwise these big
+						// transactions will never be able to enter the tx pool.
+						let is_first_block = is_first_block_in_core_with_digest(&digest).unwrap_or(true);
 
 						if transaction_index.unwrap_or_default().saturating_sub(first_transaction_index.unwrap_or_default()) < MAX_TRANSACTION_TO_CONSIDER
-							&& is_first_block_in_core_with_digest(&digest) && class_allowed {
+							&& is_first_block && class_allowed {
 							log::trace!(
 								target: LOG_TARGET,
 								"Enabling `PotentialFullCore` mode for extrinsic",
@@ -264,7 +270,7 @@ where
 						// If this isn't the first block in a core, we register the full core weight
 						// to ensure that we don't include any other transactions. Because we don't
 						// know how many weight of the core was already used by the blocks before.
-						if !is_first_block_in_core_with_digest(&digest) {
+						if !is_first_block_in_core_with_digest(&digest).unwrap_or(false) {
 							log::error!(
 								target: LOG_TARGET,
 								"Registering `FULL_CORE_WEIGHT` to ensure no other transaction is included \

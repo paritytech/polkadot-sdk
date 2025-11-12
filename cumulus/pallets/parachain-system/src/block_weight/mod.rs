@@ -46,7 +46,7 @@
 //! Registering of the `PreInherents` hook:
 #![doc = docify::embed!("src/block_weight/mock.rs", pre_inherents_setup)]
 
-use crate::Config;
+use crate::{Config, PreviousCoreCount};
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use cumulus_primitives_core::CumulusDigestItem;
@@ -117,13 +117,12 @@ impl<Config: crate::Config, TargetBlockRate: Get<u32>>
 
 	/// Same as [`Self::target_block_weight`], but takes the `digests` directly.
 	fn target_block_weight_with_digest(digest: &Digest) -> Weight {
-		let Some(core_info) = CumulusDigestItem::find_core_info(&digest) else {
-			return Self::FULL_CORE_WEIGHT;
-		};
+		let number_of_cores = CumulusDigestItem::find_core_info(&digest).map_or_else(
+			|| PreviousCoreCount::<Config>::get().map_or(1, |pc| pc.0),
+			|ci| ci.number_of_cores.0,
+		) as u32;
 
 		let target_blocks = TargetBlockRate::get();
-
-		let number_of_cores = core_info.number_of_cores.0 as u32;
 
 		// Ensure we have at least one core and valid target blocks
 		if number_of_cores == 0 || target_blocks == 0 {
@@ -156,7 +155,8 @@ impl<Config: crate::Config, TargetBlockRate: Get<u32>> Get<Weight>
 		let digest = frame_system::Pallet::<Config>::digest();
 		let target_block_weight = Self::target_block_weight_with_digest(&digest);
 
-		let maybe_full_core_weight = if is_first_block_in_core_with_digest(&digest) {
+		let maybe_full_core_weight = if is_first_block_in_core_with_digest(&digest).unwrap_or(false)
+		{
 			Self::FULL_CORE_WEIGHT
 		} else {
 			target_block_weight
@@ -182,17 +182,21 @@ impl<Config: crate::Config, TargetBlockRate: Get<u32>> Get<Weight>
 }
 
 /// Is this the first block in a core?
-fn is_first_block_in_core<T: Config>() -> bool {
+fn is_first_block_in_core<T: Config>() -> Option<bool> {
 	let digest = frame_system::Pallet::<T>::digest();
 	is_first_block_in_core_with_digest(&digest)
 }
 
 /// Is this the first block in a core? (takes digest as parameter)
-fn is_first_block_in_core_with_digest(digest: &Digest) -> bool {
-	CumulusDigestItem::find_bundle_info(digest).map_or(false, |bi| bi.index == 0)
+///
+/// Returns `None` if the [`CumulusDigestItem::BundleInfo`] digest is not set.
+fn is_first_block_in_core_with_digest(digest: &Digest) -> Option<bool> {
+	CumulusDigestItem::find_bundle_info(digest).map(|bi| bi.index == 0)
 }
 
 /// Is the `BlockWeight` already above the target block weight?
+///
+/// Returns `None` if the [`CumulusDigestItem::BundleInfo`] digest is not set.
 fn block_weight_over_target_block_weight<T: Config, TargetBlockRate: Get<u32>>() -> bool {
 	let target_block_weight = MaxParachainBlockWeight::<T, TargetBlockRate>::target_block_weight();
 

@@ -31,7 +31,7 @@ use frame_system::{CheckWeight, RawOrigin as SystemOrigin};
 use polkadot_primitives::MAX_POV_SIZE;
 use sp_core::ConstU32;
 use sp_runtime::{
-	traits::{DispatchTransaction, TransactionExtension},
+	traits::{DispatchTransaction, Header, TransactionExtension},
 	Digest,
 };
 
@@ -89,9 +89,9 @@ fn test_no_core_info() {
 	TestExtBuilder::new().build().execute_with(|| {
 		let weight = MaxParachainBlockWeight::<Runtime, ConstU32<4>>::get();
 
-		// Without core info, should return conservative default
-		assert_eq!(weight.ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND);
-		assert_eq!(weight.proof_size(), MAX_POV_SIZE as u64);
+		// Without core info, it takes the `PreviousCoreCount` into account.
+		assert_eq!(weight.ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND / 4);
+		assert_eq!(weight.proof_size(), MAX_POV_SIZE as u64 / 4);
 	});
 }
 
@@ -142,42 +142,46 @@ fn test_max_ref_time_per_core_cap() {
 
 #[test]
 fn test_target_block_weight_with_digest_edge_cases() {
-	// Test with empty digest
-	let empty_digest = Digest::default();
-	let weight = MaxParachainBlockWeight::<Runtime, ConstU32<4>>::target_block_weight_with_digest(
-		&empty_digest,
-	);
-	assert_eq!(weight, MaxParachainBlockWeight::<Runtime, ConstU32<4>>::FULL_CORE_WEIGHT);
+	TestExtBuilder::new().build().execute_with(|| {
+		// Test with empty digest
+		let empty_digest = Digest::default();
+		let weight =
+			MaxParachainBlockWeight::<Runtime, ConstU32<4>>::target_block_weight_with_digest(
+				&empty_digest,
+			);
+		assert_eq!(weight, MaxParachainBlockWeight::<Runtime, ConstU32<4>>::FULL_CORE_WEIGHT / 4);
 
-	// Test with digest containing core info
-	let core_info = CoreInfo {
-		selector: CoreSelector(0),
-		claim_queue_offset: ClaimQueueOffset(0),
-		number_of_cores: Compact(2u16),
-	};
+		// Test with digest containing core info
+		let core_info = CoreInfo {
+			selector: CoreSelector(0),
+			claim_queue_offset: ClaimQueueOffset(0),
+			number_of_cores: Compact(2u16),
+		};
 
-	let digest = Digest { logs: vec![CumulusDigestItem::CoreInfo(core_info).to_digest_item()] };
+		let digest = Digest { logs: vec![CumulusDigestItem::CoreInfo(core_info).to_digest_item()] };
 
-	// With 2 cores and 4 target blocks: (2 cores * 2s) / 4 blocks = 1s
-	let weight =
-		MaxParachainBlockWeight::<Runtime, ConstU32<4>>::target_block_weight_with_digest(&digest);
-	assert_eq!(weight.ref_time(), 2 * 2 * WEIGHT_REF_TIME_PER_SECOND / 4);
-	assert_eq!(weight.proof_size(), (2 * MAX_POV_SIZE as u64) / 4);
+		// With 2 cores and 4 target blocks: (2 cores * 2s) / 4 blocks = 1s
+		let weight =
+			MaxParachainBlockWeight::<Runtime, ConstU32<4>>::target_block_weight_with_digest(
+				&digest,
+			);
+		assert_eq!(weight.ref_time(), 2 * 2 * WEIGHT_REF_TIME_PER_SECOND / 4);
+		assert_eq!(weight.proof_size(), (2 * MAX_POV_SIZE as u64) / 4);
+	});
 }
 
 #[test]
 fn test_is_first_block_in_core_functions() {
 	TestExtBuilder::new().number_of_cores(1).build().execute_with(|| {
-		// Test without bundle info - should return false
 		let empty_digest = Digest::default();
-		assert!(!super::is_first_block_in_core_with_digest(&empty_digest));
+		assert!(super::is_first_block_in_core_with_digest(&empty_digest).is_none());
 
 		// Test with bundle info index = 0 - should return true
 		let bundle_info_first = BundleInfo { index: 0, maybe_last: false };
 		let digest_item_first = CumulusDigestItem::BundleInfo(bundle_info_first).to_digest_item();
 		let mut digest_first = Digest::default();
 		digest_first.push(digest_item_first);
-		assert!(super::is_first_block_in_core_with_digest(&digest_first));
+		assert!(super::is_first_block_in_core_with_digest(&digest_first).unwrap());
 
 		// Test with bundle info index > 0 - should return false
 		let bundle_info_not_first = BundleInfo { index: 5, maybe_last: true };
@@ -185,7 +189,7 @@ fn test_is_first_block_in_core_functions() {
 			CumulusDigestItem::BundleInfo(bundle_info_not_first).to_digest_item();
 		let mut digest_not_first = Digest::default();
 		digest_not_first.push(digest_item_not_first);
-		assert!(!super::is_first_block_in_core_with_digest(&digest_not_first));
+		assert!(!super::is_first_block_in_core_with_digest(&digest_not_first).unwrap());
 	});
 }
 
@@ -698,13 +702,87 @@ fn ref_time_and_pov_size_cap() {
 }
 
 #[test]
-fn executive_validate_block_accepts_normal_above_target() {
-	TestExtBuilder::new().build().execute_with(|| {
+fn executive_validate_block_handles_normal_transactions() {
+	TestExtBuilder::new().previous_core_count(3).build().execute_with(|| {
 		let call = RuntimeCall::TestPallet(test_pallet::Call::heavy_call_normal {});
 
 		let xt = Extrinsic::new_signed(call, 1u64.into(), 1u64.into(), ().into());
 
-		let result =
-			Executive::validate_transaction(TransactionSource::External, xt, Default::default());
+		assert!(Executive::validate_transaction(
+			TransactionSource::External,
+			xt.clone(),
+			Default::default()
+		)
+		.is_ok());
 	});
+
+	TestExtBuilder::new().previous_core_count(3).build().execute_with(|| {
+		let call = RuntimeCallOnlyOperational::TestPallet(test_pallet::Call::heavy_call_normal {});
+
+		let xt = ExtrinsicOnlyOperational::new_signed(call, 1u64.into(), 1u64.into(), ().into());
+
+		assert_eq!(
+			ExecutiveOnlyOperational::validate_transaction(
+				TransactionSource::External,
+				xt,
+				Default::default()
+			)
+			.unwrap_err(),
+			InvalidTransaction::ExhaustsResources.into()
+		);
+	});
+}
+
+#[test]
+fn executive_validate_block_handles_operational_transactions() {
+	TestExtBuilder::new().previous_core_count(3).build().execute_with(|| {
+		let call = RuntimeCall::TestPallet(test_pallet::Call::heavy_call_operational {});
+
+		let xt = Extrinsic::new_signed(call, 1u64.into(), 1u64.into(), ().into());
+
+		assert!(Executive::validate_transaction(
+			TransactionSource::External,
+			xt.clone(),
+			Default::default()
+		)
+		.is_ok());
+	});
+
+	TestExtBuilder::new().previous_core_count(3).build().execute_with(|| {
+		let call =
+			RuntimeCallOnlyOperational::TestPallet(test_pallet::Call::heavy_call_operational {});
+
+		let xt = ExtrinsicOnlyOperational::new_signed(call, 1u64.into(), 1u64.into(), ().into());
+
+		assert!(ExecutiveOnlyOperational::validate_transaction(
+			TransactionSource::External,
+			xt,
+			Default::default()
+		)
+		.is_ok());
+	});
+}
+
+#[test]
+fn executive_with_operational_only_applies_big_inherent() {
+	TestExtBuilder::new()
+		.number_of_cores(1)
+		.first_block_in_core(true)
+		.build()
+		.execute_with(|| {
+			Executive::initialize_block(&Header::new(
+				1,
+				Default::default(),
+				Default::default(),
+				Default::default(),
+				Default::default(),
+			));
+
+			let call =
+				RuntimeCallOnlyOperational::TestPallet(test_pallet::Call::heavy_call_mandatory {});
+
+			let xt = ExtrinsicOnlyOperational::new_bare(call);
+
+			ExecutiveOnlyOperational::apply_extrinsic(xt).unwrap().unwrap();
+		});
 }

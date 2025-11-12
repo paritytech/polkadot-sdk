@@ -186,6 +186,7 @@ pub mod ump_constants {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use codec::Compact;
 	use cumulus_primitives_core::CoreInfoExistsAtMaxOnce;
 	use frame_support::pallet_prelude::{ValueQuery, *};
 	use frame_system::pallet_prelude::*;
@@ -369,6 +370,11 @@ pub mod pallet {
 								.encode(),
 						);
 					});
+
+					PreviousCoreCount::<T>::put(core_info.number_of_cores);
+				} else {
+					// Without the digest, we assume that it is `1`.
+					PreviousCoreCount::<T>::put(Compact(1u16));
 				}
 
 				// Send the pending UMP signals.
@@ -778,10 +784,21 @@ pub mod pallet {
 		NotScheduled,
 	}
 
+	/// The current block weight mode.
+	///
+	/// This is used to determine what is the maximum allowed block weight, for more information see
+	/// [`block_weight`].
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
 	pub type BlockWeightMode<T: Config> =
 		StorageValue<_, block_weight::BlockWeightMode, OptionQuery>;
+
+	/// The core count available to the parachain in the previous block.
+	///
+	/// This is mainly used for offchain functionality to calculate the correct target block weight.
+	#[pallet::storage]
+	#[pallet::whitelist_storage]
+	pub type PreviousCoreCount<T: Config> = StorageValue<_, Compact<u16>, OptionQuery>;
 
 	/// Latest included block descendants the runtime accepted. In other words, these are
 	/// ancestors of the currently executing block which have not been included in the observed
@@ -1481,7 +1498,7 @@ impl<T: Config> Pallet<T> {
 		// Ensure that `ValidationData` exists. We do not care about the validation data per se,
 		// but we do care about the [`UpgradeRestrictionSignal`] which arrives with the same
 		// inherent.
-		ensure!(<ValidationData<T>>::exists(), Error::<T>::ValidationDataNotAvailable,);
+		ensure!(<ValidationData<T>>::exists(), Error::<T>::ValidationDataNotAvailable);
 		ensure!(<UpgradeRestrictionSignal<T>>::get().is_none(), Error::<T>::ProhibitedByPolkadot);
 
 		ensure!(!<PendingValidationCode<T>>::exists(), Error::<T>::OverlappingUpgrades);

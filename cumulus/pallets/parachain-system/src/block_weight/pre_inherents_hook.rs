@@ -46,7 +46,7 @@ where
 			return
 		}
 
-		let is_first_block_in_core = is_first_block_in_core::<Config>();
+		let is_first_block_in_core = is_first_block_in_core::<Config>().unwrap_or(false);
 
 		if !is_first_block_in_core {
 			log::error!(
