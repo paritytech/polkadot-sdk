@@ -146,8 +146,9 @@ fn store_helper<'ext, E: Ext>(
 	let charged_amount = interpreter.ext.charge_or_halt(cost_before)?;
 	let key = Key::Fix(index.to_big_endian());
 	let take_old = false;
+	let value_to_store = if value.is_zero() { None } else { Some(value.to_big_endian().to_vec()) };
 	let Ok(write_outcome) =
-		set_function(interpreter.ext, &key, Some(value.to_big_endian().to_vec()), take_old)
+		set_function(interpreter.ext, &key, value_to_store.clone(), take_old)
 	else {
 		return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 	};
@@ -155,7 +156,7 @@ fn store_helper<'ext, E: Ext>(
 	interpreter
 		.ext
 		.gas_meter_mut()
-		.adjust_gas(charged_amount, adjust_cost(32, write_outcome.old_len()));
+		.adjust_gas(charged_amount, adjust_cost(if value_to_store.is_some() { 32 } else { 0 }, write_outcome.old_len()));
 
 	ControlFlow::Continue(())
 }
