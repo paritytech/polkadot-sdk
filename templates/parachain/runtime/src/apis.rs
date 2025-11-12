@@ -237,7 +237,7 @@ impl_runtime_apis! {
 		fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {
 			use super::configs::RuntimeBlockWeights;
 
-			let weight = Executive::try_runtime_upgrade(checks, frame_try_runtime::TryStateSelect::All).unwrap();
+			let weight = Executive::try_runtime_upgrade(checks).unwrap();
 			(weight, RuntimeBlockWeights::get().max_block)
 		}
 

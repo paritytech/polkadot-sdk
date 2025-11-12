@@ -1349,11 +1349,7 @@ fn try_runtime_upgrade_works() {
 		// Make sure the test storages are un-set
 		assert!(&sp_io::storage::get(TEST_KEY_2).is_none());
 
-		ExecutiveWithoutMigrations::try_runtime_upgrade(
-			UpgradeCheckSelect::All,
-			TryStateSelect::All,
-		)
-		.unwrap();
+		ExecutiveWithoutMigrations::try_runtime_upgrade(UpgradeCheckSelect::All).unwrap();
 
 		// Make sure the test storages were set
 		assert_eq!(&sp_io::storage::get(TEST_KEY_2).unwrap()[..], *b"try_runtime_upgrade_works");

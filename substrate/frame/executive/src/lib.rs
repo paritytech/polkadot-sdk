@@ -159,6 +159,30 @@ pub type CheckedOf<E, C> = <E as Checkable<C>>::Checked;
 pub type CallOf<E, C> = <CheckedOf<E, C> as Applyable>::Call;
 pub type OriginOf<E, C> = <CallOf<E, C> as Dispatchable>::RuntimeOrigin;
 
+/// Configuration for try-runtime upgrade checks.
+#[cfg(feature = "try-runtime")]
+#[derive(Debug, Clone)]
+pub struct TryRuntimeUpgradeConfig {
+	/// Whether to execute `pre/post_upgrade` and `try_state` hooks.
+	pub checks: UpgradeCheckSelect,
+	/// Which pallets' try_state hooks to execute.
+	pub try_state_select: TryStateSelect,
+}
+
+#[cfg(feature = "try-runtime")]
+impl TryRuntimeUpgradeConfig {
+	/// Create a new config with default settings (run all checks for all pallets).
+	pub fn new(checks: UpgradeCheckSelect) -> Self {
+		Self { checks, try_state_select: TryStateSelect::All }
+	}
+
+	/// Set which pallets' try_state hooks to execute.
+	pub fn with_try_state_select(mut self, try_state_select: TryStateSelect) -> Self {
+		self.try_state_select = try_state_select;
+		self
+	}
+}
+
 #[derive(PartialEq)]
 pub enum ExecutiveError {
 	UnableToDecodeExtrinsic,
@@ -395,15 +419,32 @@ where
 	/// Execute all Migrations of this runtime.
 	///
 	/// The `checks` param determines whether to execute `pre/post_upgrade` and `try_state` hooks.
-	/// The `try_state_select` param determines which pallets' try_state hooks to execute.
 	///
 	/// [`frame_system::LastRuntimeUpgrade`] is set to the current runtime version after
 	/// migrations execute. This is important for idempotency checks, because some migrations use
 	/// this value to determine whether or not they should execute.
-	pub fn try_runtime_upgrade(
-		checks: UpgradeCheckSelect,
-		try_state_select: TryStateSelect,
+	///
+	/// This function runs `try_state` hooks for all pallets. Use
+	/// [`Self::try_runtime_upgrade_with_config`] if you need more control over which pallets'
+	/// `try_state` hooks to execute.
+	pub fn try_runtime_upgrade(checks: UpgradeCheckSelect) -> Result<Weight, TryRuntimeError> {
+		Self::try_runtime_upgrade_with_config(TryRuntimeUpgradeConfig::new(checks))
+	}
+
+	/// Execute all Migrations of this runtime with custom configuration.
+	///
+	/// This function provides more granular control over runtime upgrade testing compared to
+	/// [`Self::try_runtime_upgrade`]. Use [`TryRuntimeUpgradeConfig`] to specify which checks
+	/// to run and which pallets' try_state hooks to execute.
+	///
+	/// [`frame_system::LastRuntimeUpgrade`] is set to the current runtime version after
+	/// migrations execute. This is important for idempotency checks, because some migrations use
+	/// this value to determine whether or not they should execute.
+	pub fn try_runtime_upgrade_with_config(
+		config: TryRuntimeUpgradeConfig,
 	) -> Result<Weight, TryRuntimeError> {
+		let checks = config.checks;
+		let try_state_select = config.try_state_select;
 		let before_all_weight =
 			<AllPalletsWithSystem as BeforeAllRuntimeMigrations>::before_all_runtime_migrations();
 
