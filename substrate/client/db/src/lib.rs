@@ -48,11 +48,15 @@ use log::{debug, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use prometheus_endpoint::Registry;
 use std::{
-	borrow::Borrow, collections::{HashMap, HashSet}, io, path::{Path, PathBuf}, sync::Arc
+	borrow::Borrow,
+	collections::{HashMap, HashSet},
+	io,
+	path::{Path, PathBuf},
+	sync::Arc,
 };
 
 use crate::{
-	archive_db::{FullStorageKey, ArchiveDb},
+	archive_db::{ArchiveDb, FullStorageKey},
 	pinned_blocks_cache::PinnedBlocksCache,
 	record_stats_state::RecordStatsState,
 	stats::StateUsageStats,
@@ -1640,10 +1644,18 @@ impl<Block: BlockT> Backend<Block> {
 								s.data.iter().map(|(k, v)| (s.child_info.storage_key(), k, v))
 							}),
 						) {
-						let full_key = FullStorageKey::new(&key, *pending_block.header.number());
+						let mut prefixed_key = prefix.to_owned();
+						prefixed_key.extend_from_slice(&key);
+						let full_key =
+							FullStorageKey::new(&prefixed_key, *pending_block.header.number());
 						bytes += full_key.as_ref().len() as u64 + value.len() as u64;
 						ops += 1;
-						transaction.set_from_vec(columns::ARCHIVE, full_key.as_ref(), Some(value).encode());
+						println!("New storage: key {}, value: {:?}", prefixed_key.hex("0x"), value);
+						transaction.set_from_vec(
+							columns::ARCHIVE,
+							full_key.as_ref(),
+							Some(value).encode(),
+						);
 					}
 				}
 				self.state_usage.tally_writes(ops, bytes);
@@ -1663,8 +1675,10 @@ impl<Block: BlockT> Backend<Block> {
 					}
 					let mut prefixed_key = prefix.to_owned();
 					prefixed_key.extend_from_slice(&key);
-					let full_key = FullStorageKey::new(&prefixed_key, *pending_block.header.number());
-					
+					let full_key =
+						FullStorageKey::new(&prefixed_key, *pending_block.header.number());
+					println!("Storage update: key {}, value: {:?}", prefixed_key.hex("0x"), value);
+
 					transaction.set_from_vec(columns::ARCHIVE, full_key.as_ref(), value.encode());
 				}
 				operation.storage_updates.clear();
@@ -2217,15 +2231,14 @@ impl<Block: BlockT> StorageIterator<HashingFor<Block>> for TrieOrArchiveStateIte
 		backend: &Self::Backend,
 	) -> Option<core::result::Result<StorageKey, Self::Error>> {
 		match self {
-			TrieOrArchiveStateIter::TrieIter(iter) => {
+			TrieOrArchiveStateIter::TrieIter(iter) =>
 				if let Some(trie_state) = &backend.trie_state {
 					iter.next_key(trie_state)
 				} else {
 					Some(Err(
 						"Trie iterator is used, but trie data does not exist for this state".into()
 					))
-				}
-			},
+				},
 			TrieOrArchiveStateIter::ArchiveIter(iter) => {
 				if let Some(archive_state) = &backend.archive_state {
 					iter.next_key(archive_state)
@@ -2243,11 +2256,33 @@ impl<Block: BlockT> StorageIterator<HashingFor<Block>> for TrieOrArchiveStateIte
 		&mut self,
 		backend: &Self::Backend,
 	) -> Option<core::result::Result<(StorageKey, StorageValue), Self::Error>> {
-		todo!()
+		match self {
+			TrieOrArchiveStateIter::TrieIter(iter) =>
+				if let Some(trie_state) = &backend.trie_state {
+					iter.next_pair(trie_state)
+				} else {
+					Some(Err(
+						"Trie iterator is used, but trie data does not exist for this state".into()
+					))
+				},
+			TrieOrArchiveStateIter::ArchiveIter(iter) => {
+				if let Some(archive_state) = &backend.archive_state {
+					iter.next_pair(archive_state)
+				} else {
+					Some(Err(
+						"Archive iterator is used, but archive data does not exist for this state"
+							.into(),
+					))
+				}
+			},
+		}
 	}
 
 	fn was_complete(&self) -> bool {
-		todo!()
+		match self {
+			TrieOrArchiveStateIter::TrieIter(iter) => iter.was_complete(),
+			TrieOrArchiveStateIter::ArchiveIter(iter) => iter.was_complete(),
+		}
 	}
 }
 

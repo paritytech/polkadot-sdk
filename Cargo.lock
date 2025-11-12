@@ -1977,7 +1977,7 @@ dependencies = [
  "bitflags 2.9.4",
  "cexpr",
  "clang-sys",
- "itertools 0.10.5",
+ "itertools 0.11.0",
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "regex",
@@ -9243,7 +9243,7 @@ dependencies = [
 [[package]]
 name = "kvdb"
 version = "0.13.0"
-source = "git+https://github.com/Harrm/parity-common.git#ace6d0d5e214cc19af3428dcc7f307f47ccee1ec"
+source = "git+https://github.com/Harrm/parity-common.git#813dfa7626aff42f7349c7d7e7671230fc896e23"
 dependencies = [
  "smallvec",
 ]
@@ -9251,7 +9251,7 @@ dependencies = [
 [[package]]
 name = "kvdb-memorydb"
 version = "0.13.0"
-source = "git+https://github.com/Harrm/parity-common.git#ace6d0d5e214cc19af3428dcc7f307f47ccee1ec"
+source = "git+https://github.com/Harrm/parity-common.git#813dfa7626aff42f7349c7d7e7671230fc896e23"
 dependencies = [
  "kvdb",
  "parking_lot 0.12.3",
@@ -9260,7 +9260,7 @@ dependencies = [
 [[package]]
 name = "kvdb-rocksdb"
 version = "0.20.0"
-source = "git+https://github.com/Harrm/parity-common.git#ace6d0d5e214cc19af3428dcc7f307f47ccee1ec"
+source = "git+https://github.com/Harrm/parity-common.git#813dfa7626aff42f7349c7d7e7671230fc896e23"
 dependencies = [
  "kvdb",
  "num_cpus",
@@ -9272,7 +9272,7 @@ dependencies = [
 [[package]]
 name = "kvdb-shared-tests"
 version = "0.11.0"
-source = "git+https://github.com/Harrm/parity-common.git#ace6d0d5e214cc19af3428dcc7f307f47ccee1ec"
+source = "git+https://github.com/Harrm/parity-common.git#813dfa7626aff42f7349c7d7e7671230fc896e23"
 dependencies = [
  "kvdb",
 ]
@@ -17941,7 +17941,7 @@ checksum = "f8650aabb6c35b860610e9cff5dc1af886c9e25073b7b1712a68972af4281302"
 dependencies = [
  "bytes",
  "heck 0.5.0",
- "itertools 0.10.5",
+ "itertools 0.11.0",
  "log",
  "multimap",
  "once_cell",

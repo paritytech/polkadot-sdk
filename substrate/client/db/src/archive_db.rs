@@ -183,11 +183,22 @@ impl<Block: BlockT> ArchiveDb<Block> {
 		child_info: &ChildInfo,
 		key: &[u8],
 	) -> Result<Option<StorageKey>, DefaultError> {
-		todo!()
+		let mut prefixed_key = child_info.storage_key().to_owned();
+		prefixed_key.extend_from_slice(key);
+		let next_key = self.next_storage_key(&prefixed_key)?;
+		let next_key = match next_key {
+			Some(key) => key,
+			None => return Ok(None),
+		};
+		if next_key.starts_with(child_info.storage_key()) {
+			Ok(Some(next_key))
+		} else {
+			Ok(None)
+		}
 	}
 
 	pub(crate) fn raw_iter(&self, args: IterArgs) -> Result<RawIter<Block>, DefaultError> {
-		todo!()
+		Ok(RawIter::new(args))
 	}
 
 	pub(crate) fn register_overlay_stats(&self, _stats: &crate::StateMachineStats) {
@@ -225,16 +236,39 @@ impl<Block: BlockT> ArchiveDb<Block> {
 	}
 }
 
-pub struct RawIter<Block: BlockT> {
+enum RawIterState<K> {
+	New,
+	Iter(K),
+	Complete,
+}
+
+pub(crate) struct RawIter<Block: BlockT> {
+	state: RawIterState<FullStorageKey<'static, <Block::Header as Header>::Number>>,
 	_phantom: std::marker::PhantomData<Block>,
 }
 
-impl<Block: BlockT> RawIter<Block> {
+impl<'a, Block: BlockT> RawIter<Block> {
+	pub(crate) fn new(args: IterArgs) -> RawIter<Block> {
+		RawIter {
+			state: RawIterState::New,
+			_phantom: Default::default(),
+		}
+	}
+
 	pub(crate) fn next_key(
 		&mut self,
 		backend: &ArchiveDb<Block>,
 	) -> Option<Result<StorageKey, DefaultError>> {
-		unimplemented!()
+		// match self.state {
+		// 	RawIterState::New => {
+		// 		if let Some(key) = RawIterState::Iter(backend.next_storage_key(&[])?) {
+					
+		// 		}
+		// 	},
+		// 	RawIterState::Iter(_) => todo!(),
+		// 	RawIterState::Complete => todo!(),
+		// }
+		None
 	}
 
 	pub(crate) fn next_pair(

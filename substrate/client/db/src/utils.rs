@@ -347,8 +347,9 @@ fn open_kvdb_rocksdb<Block: BlockT>(
 			);
 		},
 	}
+
 	db_config.columns[crate::columns::ARCHIVE as usize].comparator =
-		Some(Box::new(|key1, key2| {
+		Some(std::sync::Arc::new(kvdb_rocksdb::ComparatorWrapper::new(|key1: &_, key2: &_| {
 			use crate::archive_db::FullStorageKey;
 			let key1 = FullStorageKey::<<Block::HeaderT as HeaderT>::Number>::from(key1);
 			let key2 = FullStorageKey::<<Block::HeaderT as HeaderT>::Number>::from(key2);
@@ -356,7 +357,7 @@ fn open_kvdb_rocksdb<Block: BlockT>(
 				ord @ (std::cmp::Ordering::Less | std::cmp::Ordering::Greater) => ord,
 				std::cmp::Ordering::Equal => key1.number().cmp(&key2.number()),
 			}
-		}));
+		})));
 
 	let db = kvdb_rocksdb::Database::open(&db_config, path)?;
 	// write database version only after the database is successfully opened
