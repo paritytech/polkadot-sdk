@@ -40,6 +40,10 @@ pub enum Select {
 	///
 	/// Pallet names are obtained from [`super::PalletInfoAccess`].
 	Only(Vec<Vec<u8>>),
+	/// Run all pallets except those whose names match the given list.
+	///
+	/// Pallet names are obtained from [`super::PalletInfoAccess`].
+	AllExcept(Vec<Vec<u8>>),
 }
 
 impl Select {
@@ -66,6 +70,13 @@ impl core::fmt::Debug for Select {
 					.map(|x| alloc::str::from_utf8(x).unwrap_or("<invalid?>"))
 					.collect::<Vec<_>>(),
 			),
+			Select::AllExcept(x) => write!(
+				f,
+				"AllExcept({:?})",
+				x.iter()
+					.map(|x| alloc::str::from_utf8(x).unwrap_or("<invalid?>"))
+					.collect::<Vec<_>>(),
+			),
 			Select::All => write!(f, "All"),
 			Select::None => write!(f, "None"),
 		}
@@ -86,6 +97,14 @@ impl std::str::FromStr for Select {
 						.and_then(|(_, count)| count.parse::<u32>().ok())
 						.ok_or("failed to parse count")?;
 					Ok(Select::RoundRobin(count))
+				} else if s.starts_with("all-except-") {
+					let pallets = s
+						.strip_prefix("all-except-")
+						.ok_or("failed to parse all-except prefix")?
+						.split(',')
+						.map(|x| x.as_bytes().to_vec())
+						.collect::<Vec<_>>();
+					Ok(Select::AllExcept(pallets))
 				} else {
 					let pallets = s.split(',').map(|x| x.as_bytes().to_vec()).collect::<Vec<_>>();
 					Ok(Select::Only(pallets))
@@ -225,6 +244,59 @@ impl<BlockNumber: Clone + core::fmt::Debug + AtLeast32BitUnsigned> TryState<Bloc
 				});
 
 				result
+			},
+			Select::AllExcept(ref excluded_pallet_names) => {
+				let try_state_fns: &[(
+					&'static str,
+					fn(BlockNumber, Select) -> Result<(), TryRuntimeError>,
+				)] = &[for_tuples!(
+					#( (<Tuple as crate::traits::PalletInfoAccess>::name(), Tuple::try_state) ),*
+				)];
+
+				excluded_pallet_names.iter().for_each(|excluded_name| {
+					if !try_state_fns.iter().any(|(name, _)| name.as_bytes() == excluded_name) {
+						log::warn!(
+							"Pallet {:?} not found",
+							alloc::str::from_utf8(excluded_name).unwrap_or_default()
+						);
+					}
+				});
+
+				let mut errors = Vec::<TryRuntimeError>::new();
+
+				try_state_fns.iter().for_each(|(name, try_state_fn)| {
+					if !excluded_pallet_names
+						.iter()
+						.any(|excluded_name| name.as_bytes() == excluded_name)
+					{
+						if let Err(err) = try_state_fn(n.clone(), targets.clone()) {
+							errors.push(err);
+						}
+					}
+				});
+
+				if !errors.is_empty() {
+					log::error!(
+						target: "try-runtime",
+						"Detected errors while executing `try_state`:",
+					);
+
+					errors.iter().for_each(|err| {
+						log::error!(
+							target: "try-runtime",
+							"{:?}",
+							err
+						);
+					});
+
+					return Err(
+						"Detected errors while executing `try_state` checks. See logs for more \
+						info."
+							.into(),
+					)
+				}
+
+				Ok(())
 			},
 		}
 	}
