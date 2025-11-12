@@ -18,7 +18,7 @@ use crate::*;
 use codec::{Decode, DecodeAll, Encode};
 use cumulus_primitives_core::{relay_chain, ParachainBlockData, PersistedValidationData};
 use cumulus_test_client::{
-	generate_extrinsic,
+	generate_extrinsic, generate_extrinsic_with_pair,
 	runtime::{
 		self as test_runtime, Block, Hash, Header, SudoCall, SystemCall, TestPalletCall,
 		UncheckedExtrinsic, WASM_BINARY,
@@ -547,7 +547,6 @@ fn rejects_multiple_blocks_per_pov_when_applying_runtime_upgrade() {
 			)],
 			genesis_head.clone(),
 			proof_builder,
-			Vec::new(),
 		);
 
 		let initial_block = initial_block_data.blocks()[0].clone();
@@ -576,7 +575,6 @@ fn rejects_multiple_blocks_per_pov_when_applying_runtime_upgrade() {
 				initial_block_header.clone(), // Start building PoV from the initial block's header
 				proof_builder,
 				4,
-				|_| Vec::new(),
 			);
 
 		// 3. Validate the PoV.
