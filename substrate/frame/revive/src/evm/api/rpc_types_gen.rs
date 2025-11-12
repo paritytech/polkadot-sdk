@@ -386,9 +386,7 @@ impl Default for SyncingStatus {
 }
 
 /// Transaction information
-#[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
-)]
+#[derive(Debug, Default, Clone, Serialize, Eq, PartialEq, TypeInfo, Encode, Decode)]
 #[serde(rename_all = "camelCase")]
 pub struct TransactionInfo {
 	/// block hash
@@ -403,6 +401,50 @@ pub struct TransactionInfo {
 	pub transaction_index: U256,
 	#[serde(flatten)]
 	pub transaction_signed: TransactionSigned,
+}
+
+// Custom deserializer to work around serde's limitation with flatten + untagged enums from Value
+// See: https://github.com/serde-rs/serde/issues/1183
+impl<'de> Deserialize<'de> for TransactionInfo {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		use alloc::{collections::BTreeMap, string::String};
+		use serde::de::Error;
+
+		// First try deserializing to a map
+		let mut map = <BTreeMap<String, serde_json::Value>>::deserialize(deserializer)?;
+
+		// Extract the TransactionInfo-specific fields
+		let block_hash =
+			map.remove("blockHash").ok_or_else(|| D::Error::missing_field("blockHash"))?;
+		let block_number = map
+			.remove("blockNumber")
+			.ok_or_else(|| D::Error::missing_field("blockNumber"))?;
+		let from = map.remove("from").ok_or_else(|| D::Error::missing_field("from"))?;
+		let hash = map.remove("hash").ok_or_else(|| D::Error::missing_field("hash"))?;
+		let transaction_index = map
+			.remove("transactionIndex")
+			.ok_or_else(|| D::Error::missing_field("transactionIndex"))?;
+
+		// The remaining fields should be for TransactionSigned
+		// Convert back to JSON and deserialize
+		let remaining = serde_json::Value::Object(map.into_iter().collect());
+		let json_str = serde_json::to_string(&remaining).map_err(D::Error::custom)?;
+		let transaction_signed: TransactionSigned =
+			serde_json::from_str(&json_str).map_err(D::Error::custom)?;
+
+		Ok(Self {
+			block_hash: serde_json::from_value(block_hash).map_err(D::Error::custom)?,
+			block_number: serde_json::from_value(block_number).map_err(D::Error::custom)?,
+			from: serde_json::from_value(from).map_err(D::Error::custom)?,
+			hash: serde_json::from_value(hash).map_err(D::Error::custom)?,
+			transaction_index: serde_json::from_value(transaction_index)
+				.map_err(D::Error::custom)?,
+			transaction_signed,
+		})
+	}
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
@@ -497,6 +539,14 @@ impl HashesOrTransactionInfos {
 
 	pub fn is_empty(&self) -> bool {
 		self.len() == 0
+	}
+
+	pub fn contains_tx(&self, hash: H256) -> bool {
+		match self {
+			HashesOrTransactionInfos::Hashes(hashes) => hashes.iter().any(|h256| *h256 == hash),
+			HashesOrTransactionInfos::TransactionInfos(transaction_infos) =>
+				transaction_infos.iter().any(|ti| ti.hash == hash),
+		}
 	}
 }
 
@@ -1017,6 +1067,7 @@ pub struct Transaction4844Signed {
 	Decode,
 	DecodeWithMemTracking,
 )]
+#[serde(rename_all = "camelCase")]
 pub struct TransactionLegacySigned {
 	#[serde(flatten)]
 	pub transaction_legacy_unsigned: TransactionLegacyUnsigned,
@@ -1057,6 +1108,73 @@ pub struct FeeHistoryResult {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn test_transaction_info_deserialize_from_value() {
+		// This tests the custom deserializer for TransactionInfo
+		// which works around serde's limitation with flatten + untagged enums from Value
+		let tx_info_expected = serde_json::json!({
+			"blockHash": "0xfb8c980d1da1a75e68c2ea4d55cb88d62dedbbb5eaf69df8fe337e9f6922b73a",
+			"blockNumber": "0x161bd0f",
+			"from": "0x4838b106fce9647bdf1e7877bf73ce8b0bad5f97",
+			"hash": "0x2c522d01183e9ed70caaf75c940ba9908d573cfc9996b3e7adc90313798279c8",
+			"transactionIndex": "0x7a",
+			"chainId": "0x1",
+			"gas": "0x565f",
+			"gasPrice": "0x23cf3fd4",
+			"input": "0x",
+			"nonce": "0x2c5ce1",
+			"r": "0x4a5703e4d8daf045f021cb32897a25b17d61b9ab629a59f0731ef4cce63f93d6",
+			"s": "0x711812237c1fed6aaf08e9f47fc47e547fdaceba9ab7507e62af29a945354fb6",
+			"to": "0x388c818ca8b9251b393131c08a736a67ccb19297",
+			"type": "0x0",
+			"v": "0x1",
+			"value": "0x12bf92aae0c2e70"
+		});
+
+		// Test deserializing from Value (this was failing before the custom deserializer) with
+		// below error:
+		// ```
+		// Failed to deserialize from Value: Some(Error("data did not match any variant of untagged enum TransactionSigned", line: 0, column: 0))
+		// ```
+		let tx_info_from_value: Result<TransactionInfo, serde_json::Error> =
+			serde_json::from_value(tx_info_expected.clone());
+		assert!(
+			tx_info_from_value.is_ok(),
+			"Failed to deserialize from Value: {:?}",
+			tx_info_from_value.err()
+		);
+
+		// Test deserializing from string (this was always working)
+		let json_str = serde_json::to_string(&tx_info_expected).unwrap();
+		let tx_info_from_str: Result<TransactionInfo, serde_json::Error> =
+			serde_json::from_str(&json_str);
+		assert!(
+			tx_info_from_str.is_ok(),
+			"Failed to deserialize from string: {:?}",
+			tx_info_from_str.err()
+		);
+
+		// Verify both methods produce the same result
+		let tx_info_from_value = tx_info_from_value.unwrap();
+		let tx_info_from_str = tx_info_from_str.unwrap();
+		assert_eq!(
+			tx_info_from_value, tx_info_from_str,
+			"Value and string deserialization should match"
+		);
+
+		// Serialize it back to JSON
+		let tx_info_serialized = serde_json::to_value(&tx_info_from_value);
+		assert!(
+			tx_info_serialized.is_ok(),
+			"Failed to serialize to value: {:?}",
+			tx_info_serialized.err()
+		);
+		let tx_info_serialized = tx_info_serialized.unwrap();
+
+		// Verify that deserializing and serializing leads to the same result
+		assert_eq!(tx_info_serialized, tx_info_expected);
+	}
 
 	#[test]
 	fn test_block_serialization_roundtrip() {

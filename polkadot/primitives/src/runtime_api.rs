@@ -232,8 +232,9 @@ sp_api::decl_runtime_apis! {
 		fn session_executor_params(session_index: SessionIndex) -> Option<ExecutorParams>;
 
 		/// Returns a list of validators that lost a past session dispute and need to be slashed.
-		/// NOTE: This function is only available since parachain host version 5.
-		fn unapplied_slashes() -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>;
+		///
+		/// Deprecated. Use `unapplied_slashes_v2` instead.
+		fn unapplied_slashes() -> Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>;
 
 		/// Returns a merkle proof of a validator session key.
 		/// NOTE: This function is only available since parachain host version 5.
@@ -316,5 +317,9 @@ sp_api::decl_runtime_apis! {
 		#[api_version(14)]
 		fn para_ids() -> Vec<ppp::Id>;
 
+		/***** Added in v15 *****/
+		/// Returns a list of validators that lost a past session dispute and need to be slashed.
+		#[api_version(15)]
+		fn unapplied_slashes_v2() -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>;
 	}
 }

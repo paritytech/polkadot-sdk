@@ -313,9 +313,9 @@ pub trait EthExtra {
 			InvalidTransaction::Call
 		})?;
 
-		log::debug!(target: LOG_TARGET, "Decoded Ethereum transaction with signer: {signer_addr:?} nonce: {nonce:?}");
+		log::trace!(target: LOG_TARGET, "Decoded Ethereum transaction with signer: {signer_addr:?} nonce: {nonce:?}");
 		let call_info =
-			create_call::<Self::Config>(tx, Some((encoded_len as u32, payload.to_vec())))?;
+			create_call::<Self::Config>(tx, Some((encoded_len as u32, payload.to_vec())), true)?;
 		let storage_credit = <Self::Config as Config>::Currency::withdraw(
 					&signer,
 					call_info.storage_deposit,
@@ -335,12 +335,18 @@ pub trait EthExtra {
 
 		log::debug!(target: LOG_TARGET, "\
 			Created checked Ethereum transaction with: \
+			from={signer_addr:?} \
+			eth_gas={} \
+			encoded_len={encoded_len} \
+			tx_fee={:?} \
+			storage_deposit={:?} \
 			weight_limit={} \
-			additional_storage_deposit_held={:?} \
-			nonce={nonce:?}
+			nonce={nonce:?}\
 			",
-			call_info.weight_limit,
+			call_info.gas,
+			call_info.tx_fee,
 			call_info.storage_deposit,
+			call_info.weight_limit,
 		);
 
 		// We can't calculate a tip because it needs to be based on the actual gas used which we
@@ -368,7 +374,7 @@ mod test {
 	};
 	use frame_support::{error::LookupError, traits::fungible::Mutate};
 	use pallet_revive_fixtures::compile_module;
-	use sp_runtime::traits::{self, Checkable, DispatchTransaction, Get};
+	use sp_runtime::traits::{self, Checkable, DispatchTransaction};
 
 	type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
@@ -423,7 +429,8 @@ mod test {
 			let account = Account::default();
 			Self::fund_account(&account);
 
-			let dry_run = crate::Pallet::<Test>::dry_run_eth_transact(self.tx.clone());
+			let dry_run =
+				crate::Pallet::<Test>::dry_run_eth_transact(self.tx.clone(), Default::default());
 			self.tx.gas_price = Some(<Pallet<Test>>::evm_base_fee());
 
 			match dry_run {
@@ -523,7 +530,8 @@ mod test {
 		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
 		let (expected_encoded_len, call, _, tx, gas_required, signed_transaction) =
 			builder.check().unwrap();
-		let expected_effective_gas_price: u32 = <Test as Config>::NativeToEthRatio::get();
+		let expected_effective_gas_price =
+			ExtBuilder::default().build().execute_with(|| Pallet::<Test>::evm_base_fee());
 
 		match call {
 			RuntimeCall::Contracts(crate::Call::eth_call::<Test> {
@@ -538,7 +546,7 @@ mod test {
 				value == tx.value.unwrap_or_default().as_u64().into() &&
 				data == tx.input.to_vec() &&
 				transaction_encoded == signed_transaction.signed_payload() &&
-				effective_gas_price == expected_effective_gas_price.into() =>
+				effective_gas_price == expected_effective_gas_price =>
 			{
 				assert_eq!(encoded_len, expected_encoded_len);
 				assert!(
@@ -560,7 +568,8 @@ mod test {
 		);
 		let (expected_encoded_len, call, _, tx, gas_required, signed_transaction) =
 			builder.check().unwrap();
-		let expected_effective_gas_price: u32 = <Test as Config>::NativeToEthRatio::get();
+		let expected_effective_gas_price =
+			ExtBuilder::default().build().execute_with(|| Pallet::<Test>::evm_base_fee());
 		let expected_value = tx.value.unwrap_or_default().as_u64().into();
 
 		match call {
@@ -576,7 +585,7 @@ mod test {
 				code == expected_code &&
 				data == expected_data &&
 				transaction_encoded == signed_transaction.signed_payload() &&
-				effective_gas_price == expected_effective_gas_price.into() =>
+				effective_gas_price == expected_effective_gas_price =>
 			{
 				assert_eq!(encoded_len, expected_encoded_len);
 				assert!(
@@ -687,6 +696,13 @@ mod test {
 			UncheckedExtrinsicBuilder::call_with(RUNTIME_PALLETS_ADDR).data(remark.encode());
 		let (_, call, _, _, _, _) = builder.check().unwrap();
 
-		assert_eq!(call, remark);
+		match call {
+			RuntimeCall::Contracts(crate::Call::eth_substrate_call {
+				call: inner_call, ..
+			}) => {
+				assert_eq!(*inner_call, remark);
+			},
+			_ => panic!("Expected the RuntimeCall::Contracts variant, got: {:?}", call),
+		}
 	}
 }

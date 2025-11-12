@@ -246,7 +246,7 @@ pub trait RuntimeApiSubsystemClient {
 	async fn unapplied_slashes(
 		&self,
 		at: Hash,
-	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, ApiError>;
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>, ApiError>;
 
 	/// Returns a merkle proof of a validator session key in a past session.
 	async fn key_ownership_proof(
@@ -357,6 +357,13 @@ pub trait RuntimeApiSubsystemClient {
 	// == v14 ==
 	/// Fetch the list of all parachain IDs registered in the relay chain.
 	async fn para_ids(&self, at: Hash) -> Result<Vec<Id>, ApiError>;
+
+	// == v15 ==
+	/// Returns a list of validators that lost a past session dispute and need to be slashed (v2).
+	async fn unapplied_slashes_v2(
+		&self,
+		at: Hash,
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -564,8 +571,15 @@ where
 	async fn unapplied_slashes(
 		&self,
 		at: Hash,
-	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, ApiError> {
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>, ApiError> {
 		self.client.runtime_api().unapplied_slashes(at)
+	}
+
+	async fn unapplied_slashes_v2(
+		&self,
+		at: Hash,
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, ApiError> {
+		self.client.runtime_api().unapplied_slashes_v2(at)
 	}
 
 	async fn key_ownership_proof(
