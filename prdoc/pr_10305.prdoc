@@ -1,9 +1,10 @@
-title: 'Cumulus: fix pre-connect to backers for lonely collators'
+title: 'Cumulus: fix pre-connect to backers for single collator parachains'
 doc:
 - audience: Node Dev
   description: |-
-    When running a single collator (most commonly on testnets), the block builder task is always able to claim a slot, so we're never triggering the pre-connect mechanism which happens for slots owned by other authors.
-    Additionally I fixed some tests.
+    When running a single collator (most commonly on testnets), the block builder task is always 
+    able to claim a slot, so we're never triggering the pre-connect mechanism which happens for 
+    slots owned by other authors.
 crates:
 - name: cumulus-client-consensus-aura
   bump: patch
