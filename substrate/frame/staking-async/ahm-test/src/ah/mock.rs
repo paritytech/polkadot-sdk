@@ -62,12 +62,11 @@ pub fn roll_next() {
 	// are using a realistic weight meter here.
 	frame_system::BlockWeight::<T>::kill();
 
-	Staking::on_initialize(next);
-	RcClient::on_initialize(next);
-	MultiBlock::on_initialize(next);
-	MultiBlockVerifier::on_initialize(next);
-	MultiBlockSigned::on_initialize(next);
-	MultiBlockUnsigned::on_initialize(next);
+	System::register_extra_weight_unchecked(Staking::on_initialize(next), DispatchClass::Mandatory);
+	System::register_extra_weight_unchecked(
+		RcClient::on_initialize(next),
+		DispatchClass::Mandatory,
+	);
 
 	let mut meter = NextPollWeight::take()
 		.map(WeightMeter::with_limit)
@@ -180,6 +179,7 @@ pub type AccountId = <Runtime as frame_system::Config>::AccountId;
 pub type Balance = <Runtime as pallet_balances::Config>::Balance;
 pub type Hash = <Runtime as frame_system::Config>::Hash;
 pub type BlockNumber = BlockNumberFor<Runtime>;
+pub type BlockWeights = <Runtime as frame_system::Config>::BlockWeights;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
@@ -377,7 +377,7 @@ impl pallet_staking_async::Config for Runtime {
 
 	type RcClientInterface = RcClient;
 
-	type WeightInfo = ();
+	type WeightInfo = super::weights::StakingAsyncWeightInfo;
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {

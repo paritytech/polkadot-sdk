@@ -1432,6 +1432,12 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_poll(_now: BlockNumberFor<T>, weight_meter: &mut WeightMeter) {
 			let (weight, exec) = EraElectionPlanner::<T>::maybe_fetch_election_results();
+			crate::log!(
+				trace,
+				"weight of fetching next election page is {:?}, have {:?}",
+				weight,
+				weight_meter.remaining()
+			);
 			if weight_meter.can_consume(weight) {
 				let adjusted_weight = exec();
 				weight_meter.consume(adjusted_weight.unwrap_or(weight));

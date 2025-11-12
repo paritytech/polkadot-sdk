@@ -1030,6 +1030,7 @@ fn on_offence_previous_era_instant_apply() {
 
 mod poll_operations {
 	use super::*;
+	use pallet_election_provider_multi_block::verifier::Verifier;
 
 	#[test]
 	fn full_election_cycle_with_occasional_out_of_weight_completes() {
@@ -1281,6 +1282,137 @@ mod poll_operations {
 
 	#[test]
 	fn slashing_processing_while_election() {
-		// This is merely a more realistic example of the above. As staking is ready to receive the election result, an ongoing slash will cause too much weight to be consumed on-initialize, causing not enough weight in the on-poll to process. Everything works as expected, but we get a bit slow.
+		// This is merely a more realistic example of the above. As staking is ready to receive the
+		// election result, an ongoing slash will cause too much weight to be consumed
+		// on-initialize, causing not enough weight in the on-poll to process. Everything works as
+		// expected, but we get a bit slow.
+		//
+		// The only other meaningful difference is here that we see in action that first on-init
+		// runs, and then the leftover weight is given to on-poll. This is done through the mock
+		// setup of this test.
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// first, we roll 1 era so have some validators to slash
+			let active_validators = roll_until_next_active(0);
+			let _ = staking_events_since_last_call();
+
+			// given initial state of AH
+			assert_eq!(System::block_number(), 27);
+			assert_eq!(CurrentEra::<T>::get(), Some(1));
+			assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 5);
+			assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 1, start: Some(1000) }));
+			assert!(pallet_staking_async_rc_client::OutgoingValidatorSet::<T>::get().is_none());
+
+			// receive first 3 session reports that don't trigger election
+			for i in 5..8 {
+				assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+					RuntimeOrigin::root(),
+					rc_client::SessionReport {
+						end_index: i,
+						validator_points: vec![(1, 10)],
+						activation_timestamp: None,
+						leftover: false,
+					}
+				));
+
+				assert_eq!(
+					staking_events_since_last_call(),
+					vec![StakingEvent::SessionRotated {
+						starting_session: i + 1,
+						active_era: 1,
+						planned_era: 1
+					}]
+				);
+			}
+
+			// receive session 4 which causes election to start
+			assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+				RuntimeOrigin::root(),
+				rc_client::SessionReport {
+					end_index: 8,
+					validator_points: vec![(1, 10)],
+					activation_timestamp: None,
+					leftover: false,
+				}
+			));
+
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![StakingEvent::SessionRotated {
+					starting_session: 9,
+					active_era: 1,
+					// planned era 1 indicates election start signal is sent.
+					planned_era: 2
+				}]
+			);
+
+			// roll until signed and submit a solution.
+			roll_until_matches(|| MultiBlock::current_phase().is_signed(), false);
+			let solution = OffchainWorkerMiner::<T>::mine_solution(3, true).unwrap();
+			assert_ok!(MultiBlockSigned::register(RuntimeOrigin::signed(1), solution.score));
+			for (index, page) in solution.solution_pages.into_iter().enumerate() {
+				assert_ok!(MultiBlockSigned::submit_page(
+					RuntimeOrigin::signed(1),
+					index as u32,
+					Some(Box::new(page))
+				));
+			}
+
+			// then roll to done, waiting for staking to start processing it. Indeed, something is
+			// queued for export now.
+			roll_until_matches(|| MultiBlock::current_phase().is_done(), false);
+			assert!(MultiBlockVerifier::queued_score().is_some());
+
+			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
+				RuntimeOrigin::root(),
+				vec![(
+					// index of the last received session report
+					8,
+					rc_client::Offence {
+						offender: active_validators[0].clone(),
+						reporters: vec![],
+						slash_fraction: Perbill::from_percent(10),
+					}
+				)]
+			));
+
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![StakingEvent::OffenceReported {
+					offence_era: 1,
+					validator: active_validators[0].clone(),
+					fraction: Perbill::from_percent(10)
+				}]
+			);
+
+			assert!(pallet_staking_async::NextElectionPage::<T>::get().is_none());
+
+			// now as we roll-next, because weight of `process_offence_queue` is max block...
+			roll_next();
+			// staking has not moved forward in terms of fetching election pages
+			assert!(pallet_staking_async::NextElectionPage::<T>::get().is_none());
+			// same with our EPMB
+			assert!(MultiBlock::current_phase().is_done());
+			// and for tracking we have
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					// slash processing happened..
+					StakingEvent::SlashComputed {
+						offence_era: 1,
+						slash_era: 3,
+						offender: active_validators[0],
+						page: 0
+					},
+					// but not this.
+					StakingEvent::Unexpected(
+						pallet_staking_async::UnexpectedKind::PagedElectionOutOfWeight {
+							page: 2,
+							required: Weight::from_parts(100, 0),
+							had: Weight::from_parts(0, 0)
+						}
+					)
+				]
+			);
+		});
 	}
 }

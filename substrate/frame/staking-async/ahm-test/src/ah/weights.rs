@@ -19,11 +19,15 @@
 //!
 //! Note: we put as many things as possible as `unreachable!()` to limit the scope.
 
+use frame::deps::frame_system;
 use frame_election_provider_support::Weight;
+use frame_support::traits::Get;
 use pallet_election_provider_multi_block::weights::traits::{
 	pallet_election_provider_multi_block_signed, pallet_election_provider_multi_block_unsigned,
 	pallet_election_provider_multi_block_verifier,
 };
+
+use crate::ah;
 
 pub const SMALL: Weight = Weight::from_parts(10, 0);
 pub const MEDIUM: Weight = Weight::from_parts(100, 0);
@@ -104,6 +108,133 @@ impl pallet_election_provider_multi_block_unsigned::WeightInfo for MultiBlockEle
 		Default::default()
 	}
 	fn validate_unsigned() -> Weight {
+		unreachable!()
+	}
+}
+
+pub struct StakingAsyncWeightInfo;
+impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
+	fn bond() -> Weight {
+		unreachable!()
+	}
+	fn bond_extra() -> Weight {
+		unreachable!()
+	}
+	fn unbond() -> Weight {
+		unreachable!()
+	}
+	fn withdraw_unbonded_update() -> Weight {
+		unreachable!()
+	}
+	fn withdraw_unbonded_kill() -> Weight {
+		unreachable!()
+	}
+	fn validate() -> Weight {
+		unreachable!()
+	}
+	fn kick(_: u32) -> Weight {
+		unreachable!()
+	}
+	fn nominate(_: u32) -> Weight {
+		unreachable!()
+	}
+	fn chill() -> Weight {
+		unreachable!()
+	}
+	fn set_payee() -> Weight {
+		unreachable!()
+	}
+	fn update_payee() -> Weight {
+		unreachable!()
+	}
+	fn set_controller() -> Weight {
+		unreachable!()
+	}
+	fn set_validator_count() -> Weight {
+		unreachable!()
+	}
+	fn force_no_eras() -> Weight {
+		unreachable!()
+	}
+	fn force_new_era() -> Weight {
+		unreachable!()
+	}
+	fn force_new_era_always() -> Weight {
+		unreachable!()
+	}
+	fn set_invulnerables(_: u32) -> Weight {
+		unreachable!()
+	}
+	fn deprecate_controller_batch(_: u32) -> Weight {
+		unreachable!()
+	}
+	fn force_unstake() -> Weight {
+		unreachable!()
+	}
+	fn cancel_deferred_slash(_: u32) -> Weight {
+		unreachable!()
+	}
+	fn payout_stakers_alive_staked(_: u32) -> Weight {
+		unreachable!()
+	}
+	fn rebond(_: u32) -> Weight {
+		unreachable!()
+	}
+	fn reap_stash() -> Weight {
+		unreachable!()
+	}
+	fn set_staking_configs_all_set() -> Weight {
+		unreachable!()
+	}
+	fn set_staking_configs_all_remove() -> Weight {
+		unreachable!()
+	}
+	fn chill_other() -> Weight {
+		unreachable!()
+	}
+	fn force_apply_min_commission() -> Weight {
+		unreachable!()
+	}
+	fn set_min_commission() -> Weight {
+		unreachable!()
+	}
+	fn restore_ledger() -> Weight {
+		unreachable!()
+	}
+	fn migrate_currency() -> Weight {
+		unreachable!()
+	}
+	fn apply_slash() -> Weight {
+		unreachable!()
+	}
+	fn process_offence_queue() -> Weight {
+		<ah::mock::BlockWeights as Get<frame_system::limits::BlockWeights>>::get().max_block
+	}
+	fn rc_on_offence(_: u32) -> Weight {
+		Default::default()
+	}
+	fn rc_on_session_report() -> Weight {
+		Default::default()
+	}
+	fn prune_era_stakers_paged(_: u32) -> Weight {
+		unreachable!()
+	}
+	fn prune_era_stakers_overview(_: u32) -> Weight {
+		unreachable!()
+	}
+	fn prune_era_validator_prefs(_: u32) -> Weight {
+		unreachable!()
+	}
+	fn prune_era_claimed_rewards(_: u32) -> Weight {
+		unreachable!()
+	}
+	fn prune_era_validator_reward() -> Weight {
+		unreachable!()
+	}
+	fn prune_era_reward_points() -> Weight {
+		unreachable!()
+	}
+	fn prune_era_total_stake() -> Weight {
 		unreachable!()
 	}
 }
