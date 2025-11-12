@@ -13320,6 +13320,7 @@ dependencies = [
  "sp-io",
  "sp-keystore",
  "sp-runtime",
+ "sp-state-machine",
  "sp-tracing 16.0.0",
  "sp-version",
  "substrate-bn",
