@@ -17380,9 +17380,9 @@ dependencies = [
 name = "polkadot-voter-bags"
 version = "7.0.0"
 dependencies = [
+ "asset-hub-westend-runtime",
  "clap",
  "generate-bags",
- "westend-runtime",
 ]
 
 [[package]]
