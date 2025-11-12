@@ -27,7 +27,6 @@ use frame_support::{
 	derive_impl, parameter_types,
 	traits::{ConstU128, ConstU32, ConstU64, OnGenesis, OnInitialize},
 };
-use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_session::historical as pallet_session_historical;
 use sp_consensus_babe::{AuthorityId, AuthorityPair, Randomness, Slot, VrfSignature};
 use sp_core::{
