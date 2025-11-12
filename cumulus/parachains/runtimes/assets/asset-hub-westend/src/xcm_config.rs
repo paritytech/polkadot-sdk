@@ -22,7 +22,10 @@ use super::{
 };
 use alloc::{collections::BTreeSet, vec, vec::Vec};
 use assets_common::{
-	matching::{FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
+	matching::{
+		IsForeignConcreteAsset, NonTeleportableAssetFromTrustedReserve, ParentLocation,
+		TeleportableAssetWithTrustedReserve,
+	},
 	TrustBackedAssetsAsLocation,
 };
 use frame_support::{
@@ -357,13 +360,24 @@ pub type WaivedLocations = (
 	SecretaryEntities,
 );
 
+// Asset Hub accepts incoming reserve transfers only for "Foreign Assets" and only from locations
+// explicitly set by the asset's owner.
+pub type TrustedReserves = (
+	IsForeignConcreteAsset<
+		NonTeleportableAssetFromTrustedReserve<AssetHubParaId, crate::ForeignAssets>,
+	>,
+);
+
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 ///
 /// - WND with the parent Relay Chain and sibling system parachains; and
-/// - Sibling parachains' assets from where they originate (as `ForeignCreators`).
+/// - Sibling parachains' assets according to their configured trusted reserves (teleportable when
+///   `Here` and `origin` are both trusted reserve locations).
 pub type TrustedTeleporters = (
 	ConcreteAssetFromSystem<WestendLocation>,
-	IsForeignConcreteAsset<FromSiblingParachain<AssetHubParaId>>,
+	IsForeignConcreteAsset<
+		TeleportableAssetWithTrustedReserve<AssetHubParaId, crate::ForeignAssets>,
+	>,
 );
 
 /// Defines origin aliasing rules for this chain.
@@ -401,14 +415,7 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmEventEmitter = PolkadotXcm;
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
-	// Asset Hub trusts only particular, pre-configured bridged locations from a different consensus
-	// as reserve locations (we trust the Bridge Hub to relay the message that a reserve is being
-	// held). On Westend Asset Hub, we allow Rococo Asset Hub to act as reserve for any asset native
-	// to the Rococo or Ethereum ecosystems.
-	type IsReserve = (
-		bridging::to_rococo::RococoAssetFromAssetHubRococo,
-		bridging::to_ethereum::EthereumAssetFromEthereum,
-	);
+	type IsReserve = TrustedReserves;
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
@@ -586,15 +593,6 @@ impl pallet_xcm::Config for Runtime {
 impl cumulus_pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
-}
-
-/// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
-pub struct XcmBenchmarkHelper;
-#[cfg(feature = "runtime-benchmarks")]
-impl pallet_assets::BenchmarkHelper<xcm::v5::Location> for XcmBenchmarkHelper {
-	fn create_asset_id_parameter(id: u32) -> xcm::v5::Location {
-		xcm::v5::Location::new(1, [xcm::v5::Junction::Parachain(id)])
-	}
 }
 
 /// All configuration related to bridging
