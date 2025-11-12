@@ -11,6 +11,8 @@ crates:
   bump: patch
 - name: bridge-hub-westend-runtime
   bump: patch
+- name: bridge-hub-westend-integration-tests
+  bump: none
 - name: collectives-westend-runtime
   bump: patch
 - name: coretime-rococo-runtime
