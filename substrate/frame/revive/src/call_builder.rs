@@ -56,7 +56,7 @@ pub struct CallSetup<T: Config> {
 	value: BalanceOf<T>,
 	data: Vec<u8>,
 	transient_storage_size: u32,
-	exec_config: ExecConfig,
+	exec_config: ExecConfig<T>,
 }
 
 impl<T> Default for CallSetup<T>
@@ -319,7 +319,7 @@ where
 			return Err("Key size too small to create the specified trie");
 		}
 
-		let value = vec![16u8; limits::PAYLOAD_BYTES as usize];
+		let value = vec![16u8; limits::STORAGE_BYTES as usize];
 		let contract = Contract::<T>::new(code, vec![])?;
 		let info = contract.info()?;
 		let child_trie_info = info.child_trie_info();

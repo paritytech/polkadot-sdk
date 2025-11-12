@@ -1,0 +1,9 @@
+title: Fix for `promote_fast` benchmark
+doc:
+- audience: Runtime Dev
+  description: Fixed benchmark generation/compilation for `promote_fast` `MaxRank` change from `u32` to `u16`.
+crates:
+- name: collectives-westend-runtime
+  bump: patch
+- name: pallet-core-fellowship
+  bump: patch

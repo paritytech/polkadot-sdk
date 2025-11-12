@@ -42,12 +42,13 @@ impl<P: EquivocationDetectionPipeline> ReadSyncedHeaders<P> {
 			Ok(synced_headers) =>
 				Ok(ReadContext { target_block_num: self.target_block_num, synced_headers }),
 			Err(e) => {
-				log::error!(
+				tracing::error!(
 					target: "bridge",
-					"Could not get {} headers synced to {} at block {}: {e:?}",
-					P::SOURCE_NAME,
-					P::TARGET_NAME,
-					self.target_block_num
+					error=?e,
+					source=%P::SOURCE_NAME,
+					target=%P::TARGET_NAME,
+					block=%self.target_block_num,
+					"Could not get headers synced at block"
 				);
 
 				// Reconnect target client in case of a connection error.
@@ -86,12 +87,13 @@ impl<P: EquivocationDetectionPipeline> ReadContext<P> {
 			})),
 			Ok(None) => Ok(None),
 			Err(e) => {
-				log::error!(
+				tracing::error!(
 					target: "bridge",
-					"Could not read {} `EquivocationReportingContext` from {} at block {}: {e:?}",
-					P::SOURCE_NAME,
-					P::TARGET_NAME,
-					self.target_block_num.saturating_sub(1.into()),
+					error=?e,
+					source=%P::SOURCE_NAME,
+					target=%P::TARGET_NAME,
+					block=%self.target_block_num.saturating_sub(1.into()),
+					"Could not read `EquivocationReportingContext` at block",
 				);
 
 				// Reconnect target client in case of a connection error.
@@ -133,12 +135,13 @@ impl<P: EquivocationDetectionPipeline> FindEquivocations<P> {
 						})
 					},
 				Err(e) => {
-					log::error!(
+					tracing::error!(
 						target: "bridge",
+						error=?e,
+						source_header=?synced_header.finality_proof.target_header_hash(),
+						block=%self.target_block_num,
 						"Could not search for equivocations in the finality proof \
-						for source header {:?} synced at target block {}: {e:?}",
-						synced_header.finality_proof.target_header_hash(),
-						self.target_block_num
+						for source header synced at target block"
 					);
 				},
 			};
@@ -174,10 +177,12 @@ impl<P: EquivocationDetectionPipeline> ReportEquivocations<P> {
 			{
 				Ok(_) => {},
 				Err(e) => {
-					log::error!(
+					tracing::error!(
 						target: "bridge",
-						"Could not submit equivocation report to {} for {equivocation:?}: {e:?}",
-						P::SOURCE_NAME,
+						error=?e,
+						source=%P::SOURCE_NAME,
+						?equivocation,
+						"Could not submit equivocation report"
 					);
 
 					// Mark the equivocation as unprocessed
