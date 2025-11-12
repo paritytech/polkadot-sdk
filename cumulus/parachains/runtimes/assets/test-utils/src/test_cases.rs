@@ -17,6 +17,7 @@
 
 use super::xcm_helpers;
 use crate::{assert_matches_reserve_asset_deposited_instructions, get_fungible_delivery_fees};
+use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
 use codec::Encode;
 use core::ops::Mul;
 use cumulus_primitives_core::{UpwardMessageSender, XcmpMessageSource};
@@ -382,7 +383,7 @@ pub fn teleports_for_foreign_assets_works<
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
 		+ cumulus_pallet_xcmp_queue::Config
-		+ pallet_assets::Config<ForeignAssetsPalletInstance>
+		+ pallet_assets::Config<ForeignAssetsPalletInstance, ReserveData = ForeignAssetReserveData>
 		+ pallet_timestamp::Config,
 	AllPalletsWithoutSystem:
 		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
@@ -419,6 +420,13 @@ pub fn teleports_for_foreign_assets_works<
 			xcm::v5::Junction::GeneralIndex(1234567),
 		]
 		.into(),
+	};
+	let foreign_asset_reserve_data = ForeignAssetReserveData {
+		reserve: xcm::v5::Location {
+			parents: 1,
+			interior: [xcm::v5::Junction::Parachain(foreign_para_id)].into(),
+		},
+		teleportable: true,
 	};
 
 	// foreign creator, which can be sibling parachain to match ForeignCreators
@@ -493,7 +501,7 @@ pub fn teleports_for_foreign_assets_works<
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::force_create(
 					RuntimeHelper::<Runtime>::root_origin(),
 					foreign_asset_id_location.clone().into(),
-					asset_owner.into(),
+					asset_owner.clone().into(),
 					false,
 					asset_minimum_asset_balance.into()
 				)
@@ -503,6 +511,14 @@ pub fn teleports_for_foreign_assets_works<
 				AccountIdOf<Runtime>,
 			>(foreign_asset_id_location.clone(), 0, 0);
 			assert!(teleported_foreign_asset_amount > asset_minimum_asset_balance);
+			// mark the foreign asset as teleportable
+			assert_ok!(
+				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::set_reserves(
+					RuntimeHelper::<Runtime>::origin_of(asset_owner.into()),
+					foreign_asset_id_location.clone().into(),
+					vec![foreign_asset_reserve_data],
+				)
+			);
 
 			// 1. process received teleported assets from sibling parachain (foreign_para_id)
 			let xcm = Xcm(vec![
