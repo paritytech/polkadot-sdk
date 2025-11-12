@@ -20,7 +20,7 @@ use sp_core::{H160, H256};
 use std::str::FromStr;
 use zombienet_sdk::{
 	subxt::{
-		self, config::polkadot::PolkadotExtrinsicParamsBuilder, tx::SubmittableExtrinsic,
+		self, config::polkadot::PolkadotExtrinsicParamsBuilder, tx::SubmittableTransaction,
 		OnlineClient, PolkadotConfig,
 	},
 	subxt_signer::{
@@ -225,33 +225,31 @@ async fn setup_accounts(
 	let caller_account_id = caller.public_key().to_account_id();
 	let mut caller_nonce = client.tx().account_nonce(&caller_account_id).await?;
 	for chunk in keys.chunks(CHUNK_SIZE) {
-		let transfers = chunk
-			.iter()
-			.map(|key| {
-				let key = key.public_key().into();
-				let call = &ahw::tx().balances().transfer_keep_alive(key, 1000000000000);
-				let params = tx_params(caller_nonce);
-				caller_nonce += 1;
-				client.tx().create_signed_offline(call, caller, params)
-			})
-			.collect::<Result<Vec<_>, _>>()?;
+		let mut transfers = vec![];
+		for key in chunk.iter() {
+			let key_account = key.public_key().into();
+			let call = &ahw::tx().balances().transfer_keep_alive(key_account, 1000000000000);
+			let params = tx_params(caller_nonce);
+			caller_nonce += 1;
+			let signed_tx = client.tx().create_signed(call, caller, params).await?;
+			transfers.push(signed_tx);
+		}
 		submit_txs(transfers).await?;
 	}
 
 	let map_call = &ahw::tx().revive().map_account();
 	let mut is_caller_mapped = false;
 	for chunk in keys.chunks(CHUNK_SIZE) {
-		let mappings = chunk
-			.iter()
-			.map(|key| (key, nonce))
-			.chain(if is_caller_mapped {
-				None
-			} else {
-				is_caller_mapped = true;
-				Some((caller, caller_nonce))
-			})
-			.map(|(k, n)| client.tx().create_signed_offline(map_call, k, tx_params(n)))
-			.collect::<Result<Vec<_>, _>>()?;
+		let mut mappings = vec![];
+		for key in chunk.iter() {
+			let signed_tx = client.tx().create_signed(map_call, key, tx_params(nonce)).await?;
+			mappings.push(signed_tx);
+		}
+		if !is_caller_mapped {
+			is_caller_mapped = true;
+			let signed_tx = client.tx().create_signed(map_call, caller, tx_params(caller_nonce)).await?;
+			mappings.push(signed_tx);
+		}
 		submit_txs(mappings).await?;
 	}
 
@@ -343,17 +341,13 @@ async fn call_contract(
 	let mut txs = vec![];
 	for (i_chunk, chunk) in keys.chunks(CALL_CHUNK_SIZE).enumerate() {
 		let para_client = call_clients.pop().unwrap();
-		let txs_chunk = chunk
-			.iter()
-			.enumerate()
-			.map(|(i, key)| {
-				let weight = Weight { ref_time, proof_size };
-				let payload = payload[i_chunk * CALL_CHUNK_SIZE + i].clone();
-				let call = &ahw::tx().revive().call(contract, 0, weight, deposit, payload);
-				para_client.tx().create_signed_offline(call, key, tx_params(nonce))
-			})
-			.collect::<Result<Vec<_>, _>>()?;
-		txs.extend(txs_chunk);
+		for (i, key) in chunk.iter().enumerate() {
+			let weight = Weight { ref_time, proof_size };
+			let payload = payload[i_chunk * CALL_CHUNK_SIZE + i].clone();
+			let call = &ahw::tx().revive().call(contract, 0, weight, deposit, payload);
+			let signed_tx = para_client.tx().create_signed(call, key, tx_params(nonce)).await?;
+			txs.push(signed_tx);
+		}
 	}
 	let finalized_blocks = submit_txs(txs).await?;
 	for block in finalized_blocks {
@@ -369,7 +363,7 @@ async fn call_contract(
 }
 
 async fn submit_txs(
-	txs: Vec<SubmittableExtrinsic<PolkadotConfig, OnlineClient<PolkadotConfig>>>,
+	txs: Vec<SubmittableTransaction<PolkadotConfig, OnlineClient<PolkadotConfig>>>,
 ) -> Result<std::collections::HashSet<H256>, anyhow::Error> {
 	let futs = txs.iter().map(|tx| tx.submit_and_watch()).collect::<FuturesUnordered<_>>();
 	let res = futs.collect::<Vec<_>>().await;
@@ -381,8 +375,7 @@ async fn submit_txs(
 		match a {
 			Ok(st) => match st {
 				subxt::tx::TxStatus::Validated => log::trace!("VALIDATED"),
-				subxt::tx::TxStatus::Broadcasted { num_peers } =>
-					log::trace!("BROADCASTED TO {num_peers}"),
+				subxt::tx::TxStatus::Broadcasted => log::trace!("BROADCASTED"),
 				subxt::tx::TxStatus::NoLongerInBestBlock => log::warn!("NO LONGER IN BEST BLOCK"),
 				subxt::tx::TxStatus::InBestBlock(_) => log::trace!("IN BEST BLOCK"),
 				subxt::tx::TxStatus::InFinalizedBlock(block) => {
