@@ -92,10 +92,14 @@ impl BackingGroupConnectionHelper {
 				.is_some();
 
 		if next_slot_is_ours {
-			// Next slot is ours, send connect message.
-			tracing::debug!(target: crate::LOG_TARGET, "Our slot {} is next, connecting to backing groups", next_slot);
-			self.send_subsystem_message(CollatorProtocolMessage::ConnectToBackingGroups)
-				.await;
+			// Only send message if we were not connected. This avoids sending duplicate messages
+			// when running with a single collator.
+			if self.our_slot.is_none() {
+				// Next slot is ours, send connect message.
+				tracing::debug!(target: crate::LOG_TARGET, "Our slot {} is next, connecting to backing groups", next_slot);
+				self.send_subsystem_message(CollatorProtocolMessage::ConnectToBackingGroups)
+					.await;
+			}
 			self.our_slot = Some(next_slot);
 		} else if self.our_slot.take().is_some() {
 			// Next slot is not ours, send disconnect only if we had a slot before.

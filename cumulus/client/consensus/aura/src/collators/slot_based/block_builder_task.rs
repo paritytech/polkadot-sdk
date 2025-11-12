@@ -188,6 +188,8 @@ where
 			keystore.clone(),
 			relay_client
 				.overseer_handle()
+				// Should never fail. If it fails, then providing collations to relay chain
+				// doesn't work either. So it is fine to panic here.
 				.expect("Relay chain interface must provide overseer handle."),
 		);
 
@@ -338,7 +340,7 @@ where
 				},
 			};
 
-			// So the `connection_helper.update` call will never be happen when there is only one
+			// The `connection_helper.update` call will never happen when there is only one
 			// collator. We need to call it here in that case, so the single collator can
 			// preconnect to the backing group.
 			if authorities.len() == 1 {
