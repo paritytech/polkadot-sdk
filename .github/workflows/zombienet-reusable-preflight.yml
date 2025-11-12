@@ -328,11 +328,7 @@ jobs:
           echo "Modified: ${{ steps.set_changes.outputs.modified_keys }}"
           echo "CI_IMAGE: ${{ steps.set_vars.outputs.IMAGE }}"
           echo "ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}"
-          echo "ZOMBIENET_DEFAULT_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_DEFAULT_RUNNER }}"
-          echo "ZOMBIENET_LARGE_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_LARGE_RUNNER }}"
           echo "ZOMBIENET_SDK_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_IMAGE }}"
-          echo "ZOMBIENET_SDK_DEFAULT_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}"
-          echo "ZOMBIENET_SDK_LARGE_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}"
 
       - name: Generate test matrix
         id: generate_test_matrix
