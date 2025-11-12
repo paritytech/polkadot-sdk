@@ -2614,7 +2614,10 @@ mod phase_rotation {
 mod election_provider {
 	use super::*;
 	use crate::{
-		Phase, mock::*, unsigned::miner::OffchainWorkerMiner, verifier::{AsynchronousVerifier, Status, Verifier}
+		mock::*,
+		unsigned::miner::OffchainWorkerMiner,
+		verifier::{AsynchronousVerifier, Status, Verifier},
+		Phase,
 	};
 	use frame_election_provider_support::{BoundedSupport, BoundedSupports, ElectionProvider};
 	use frame_support::{
@@ -2963,7 +2966,13 @@ mod election_provider {
 				MultiBlock::elect(2).unwrap(),
 				BoundedSupports(bounded_vec![
 					(10, BoundedSupport { total: 15, voters: bounded_vec![(1, 10), (4, 5)] }),
-					(40, BoundedSupport { total: 25, voters: bounded_vec![(2, 10), (3, 10), (4, 5)] })
+					(
+						40,
+						BoundedSupport {
+							total: 25,
+							voters: bounded_vec![(2, 10), (3, 10), (4, 5)]
+						}
+					)
 				])
 			);
 			// page 1 of voters
@@ -2971,7 +2980,13 @@ mod election_provider {
 				MultiBlock::elect(1).unwrap(),
 				BoundedSupports(bounded_vec![
 					(10, BoundedSupport { total: 15, voters: bounded_vec![(5, 5), (8, 10)] }),
-					(30, BoundedSupport { total: 25, voters: bounded_vec![(5, 5), (6, 10), (7, 10)] })
+					(
+						30,
+						BoundedSupport {
+							total: 25,
+							voters: bounded_vec![(5, 5), (6, 10), (7, 10)]
+						}
+					)
 				])
 			);
 			// self votes
@@ -2986,7 +3001,10 @@ mod election_provider {
 			assert_eq!(
 				multi_block_events(),
 				vec![
-					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(Pages::get()) },
+					Event::PhaseTransitioned {
+						from: Phase::Off,
+						to: Phase::Snapshot(Pages::get())
+					},
 					Event::PhaseTransitioned {
 						from: Phase::Snapshot(0),
 						to: Phase::Signed(SignedPhase::get() - 1)
@@ -3016,7 +3034,10 @@ mod election_provider {
 			assert_eq!(
 				multi_block_events(),
 				vec![
-					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(Pages::get()) },
+					Event::PhaseTransitioned {
+						from: Phase::Off,
+						to: Phase::Snapshot(Pages::get())
+					},
 					Event::PhaseTransitioned {
 						from: Phase::Snapshot(0),
 						to: Phase::Signed(SignedPhase::get() - 1)
@@ -3047,7 +3068,6 @@ mod election_provider {
 		});
 	}
 }
-
 
 #[cfg(test)]
 mod manage_ops {
