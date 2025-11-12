@@ -28,7 +28,7 @@ use crate::{
 		self as unsigned_pallet,
 		miner::{MinerConfig, OffchainMinerError, OffchainWorkerMiner},
 	},
-	verifier::{self as verifier_pallet, AsynchronousVerifier, Status},
+	verifier::{self as verifier_pallet, AsynchronousVerifier, Status, StatusStorage},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{
@@ -685,10 +685,17 @@ pub fn roll_to_signed_open() {
 
 /// proceed block number to whenever the signed validation phase is open
 /// (`Phase::SignedValidation(_)`).
-pub fn roll_to_signed_validation_open() {
+///
+/// Also ensure that the start signal is already sent.
+pub fn roll_to_signed_validation_open_started() {
 	while !matches!(MultiBlock::current_phase(), Phase::SignedValidation(_)) {
 		roll_next()
 	}
+	assert_eq!(StatusStorage::<T>::get(), Status::Ongoing(Pages::get() - 1));
+	assert_eq!(
+		MultiBlock::current_phase(),
+		Phase::<T>::SignedValidation(SignedValidationPhase::get())
+	);
 }
 
 /// proceed block number until we reach the done phase (`Phase::Done`).
@@ -699,9 +706,34 @@ pub fn roll_to_done() {
 }
 
 /// Proceed one block.
-pub fn roll_next() {
+///
+/// This is intentionally made private and should not be exposed to tests. They should use other
+/// helper functions that impose some checks.
+fn roll_next() {
 	let now = System::block_number();
 	roll_to(now + 1);
+}
+
+/// Proceed one block and ensure the new phase is `expect`.
+pub fn roll_next_and_phase(expect: Phase<T>) {
+	let now = System::block_number();
+	roll_to(now + 1);
+	assert_eq!(MultiBlock::current_phase(), expect);
+}
+
+/// Proceed one block and ensure the new phase is `expect`, and signed validation is in `status`.
+pub fn roll_next_and_phase_verifier(expect: Phase<T>, status: Status) {
+	let now = System::block_number();
+	roll_to(now + 1);
+	assert_eq!(MultiBlock::current_phase(), expect);
+	assert_eq!(VerifierPallet::status(), status);
+}
+
+/// Proceed one block and ensure the new signed validation is in `status`.
+pub fn roll_next_and_verifier(status: Status) {
+	let now = System::block_number();
+	roll_to(now + 1);
+	assert_eq!(VerifierPallet::status(), status);
 }
 
 /// Proceed one block, and execute offchain workers as well.

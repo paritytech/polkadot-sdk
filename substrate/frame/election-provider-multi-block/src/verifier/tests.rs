@@ -296,10 +296,9 @@ mod async_verification {
 			load_mock_signed_and_start(solution.clone());
 
 			// now let it verify
-			roll_next();
+			roll_next_and_verifier(Status::Nothing);
 
 			// It done after just one block.
-			assert_eq!(VerifierPallet::status(), Status::Nothing);
 			assert_eq!(
 				verifier_events(),
 				vec![
@@ -325,18 +324,13 @@ mod async_verification {
 			assert_eq!(QueuedSolution::<Runtime>::valid_iter().count(), 0);
 
 			// now let it verify
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(1));
-			assert_eq!(verifier_events(), vec![Event::<Runtime>::Verified(2, 2)]);
+			roll_next_and_verifier(Status::Ongoing(1));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(2, 2)]);
 			// 1 page verified, stored as invalid.
 			assert_eq!(QueuedSolution::<Runtime>::invalid_iter().count(), 1);
 
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
-			assert_eq!(
-				verifier_events(),
-				vec![Event::<Runtime>::Verified(2, 2), Event::<Runtime>::Verified(1, 2)]
-			);
+			roll_next_and_verifier(Status::Ongoing(0));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(1, 2)]);
 			// 2 pages verified, stored as invalid.
 			assert_eq!(QueuedSolution::<Runtime>::invalid_iter().count(), 2);
 
@@ -346,13 +340,10 @@ mod async_verification {
 			assert!(QueuedSolution::<Runtime>::queued_score().is_none());
 
 			// last block.
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Nothing);
+			roll_next_and_verifier(Status::Nothing);
 			assert_eq!(
-				verifier_events(),
+				verifier_events_since_last_call(),
 				vec![
-					Event::<Runtime>::Verified(2, 2),
-					Event::<Runtime>::Verified(1, 2),
 					Event::<Runtime>::Verified(0, 2),
 					Event::<Runtime>::Queued(solution.score, None),
 				]
@@ -380,18 +371,13 @@ mod async_verification {
 			assert_eq!(QueuedSolution::<Runtime>::valid_iter().count(), 0);
 
 			// now let it verify
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(1));
-			assert_eq!(verifier_events(), vec![Event::<Runtime>::Verified(2, 2)]);
+			roll_next_and_verifier(Status::Ongoing(1));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(2, 2)]);
 			// 1 page verified, stored as invalid.
 			assert_eq!(QueuedSolution::<Runtime>::invalid_iter().count(), 1);
 
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
-			assert_eq!(
-				verifier_events(),
-				vec![Event::<Runtime>::Verified(2, 2), Event::<Runtime>::Verified(1, 2),]
-			);
+			roll_next_and_verifier(Status::Ongoing(0));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(1, 2)]);
 			// 2 page verified, stored as invalid.
 			assert_eq!(QueuedSolution::<Runtime>::invalid_iter().count(), 2);
 
@@ -400,15 +386,11 @@ mod async_verification {
 			assert_eq!(QueuedSolution::<Runtime>::valid_iter().count(), 0);
 			assert!(QueuedSolution::<Runtime>::queued_score().is_none());
 
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Nothing);
+			roll_next_and_verifier(Status::Nothing);
 
 			assert_eq!(
-				verifier_events(),
+				verifier_events_since_last_call(),
 				vec![
-					Event::<Runtime>::Verified(2, 2),
-					Event::<Runtime>::Verified(1, 2),
-					// this is a partial solution, no one in this page (lsp).
 					Event::<Runtime>::Verified(0, 0),
 					Event::<Runtime>::Queued(solution.score, None),
 				]
@@ -441,27 +423,28 @@ mod async_verification {
 			assert_ok!(<VerifierPallet as AsynchronousVerifier>::start());
 			assert_eq!(VerifierPallet::status(), Status::Ongoing(2));
 
-			roll_next();
+			roll_next_and_verifier(Status::Ongoing(1));
 
 			// After first roll, only page 2 is processed (as empty page), status is still
 			// Ongoing(1).
-			assert_eq!(verifier_events(), vec![Event::<Runtime>::Verified(2, 0)]);
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(1));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(2, 0)]);
 
 			// Process the next page (page 1).
-			roll_next();
-			assert_eq!(
-				verifier_events(),
-				vec![Event::<Runtime>::Verified(2, 0), Event::<Runtime>::Verified(1, 0)]
-			);
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
+			roll_next_and_verifier(Status::Ongoing(0));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(1, 0)]);
 
 			// Process the final page (page 0).
-			roll_next();
+			roll_next_and_verifier(Status::Nothing);
 			// Missing score data returns default score which fails quality checks and gets
 			// rejected.
-			assert_eq!(VerifierPallet::status(), Status::Nothing);
 			assert_eq!(MockSignedResults::get(), vec![VerificationResult::Rejected]);
+			assert_eq!(
+				verifier_events_since_last_call(),
+				vec![
+					Event::Verified(0, 0),
+					Event::VerificationFailed(0, FeasibilityError::InvalidScore)
+				]
+			);
 		});
 	}
 
@@ -476,9 +459,8 @@ mod async_verification {
 			assert_eq!(VerifierPallet::status(), Status::Ongoing(2));
 
 			// now let it verify. first one goes fine.
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(1));
-			assert_eq!(verifier_events(), vec![Event::<Runtime>::Verified(2, 2)]);
+			roll_next_and_verifier(Status::Ongoing(1));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(2, 2)]);
 			assert_eq!(MockSignedResults::get(), vec![]);
 
 			// 1 page verified, stored as invalid.
@@ -491,20 +473,13 @@ mod async_verification {
 			MockSignedNextSolution::set(None);
 
 			// Roll through the remaining pages, which will be treated as empty.
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
-			assert_eq!(
-				verifier_events(),
-				vec![Event::<Runtime>::Verified(2, 2), Event::<Runtime>::Verified(1, 0)]
-			);
+			roll_next_and_verifier(Status::Ongoing(0));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(1, 0)]);
 
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Nothing);
+			roll_next_and_verifier(Status::Nothing);
 			assert_eq!(
-				verifier_events(),
+				verifier_events_since_last_call(),
 				vec![
-					Event::<Runtime>::Verified(2, 2),
-					Event::<Runtime>::Verified(1, 0),
 					Event::<Runtime>::Verified(0, 0),
 					Event::<Runtime>::VerificationFailed(0, FeasibilityError::InvalidScore),
 				]
@@ -531,9 +506,8 @@ mod async_verification {
 			assert_eq!(VerifierPallet::status(), Status::Ongoing(2));
 
 			// First page is fine.
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(1));
-			assert_eq!(verifier_events(), vec![Event::<Runtime>::Verified(2, 2)]);
+			roll_next_and_verifier(Status::Ongoing(1));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(2, 2)]);
 			assert_eq!(MockSignedResults::get(), vec![]);
 
 			// Now clear both the solution and the score to simulate missing score at the end.
@@ -541,17 +515,19 @@ mod async_verification {
 			MockSignedNextScore::set(Default::default());
 
 			// Roll through remaining pages.
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
+			roll_next_and_verifier(Status::Ongoing(0));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(1, 0)]);
+			roll_next_and_verifier(Status::Nothing);
 			assert_eq!(
-				verifier_events(),
-				vec![Event::<Runtime>::Verified(2, 2), Event::<Runtime>::Verified(1, 0)]
+				verifier_events_since_last_call(),
+				vec![
+					Event::<Runtime>::Verified(0, 0),
+					Event::<Runtime>::VerificationFailed(0, FeasibilityError::InvalidScore),
+				]
 			);
-			roll_next();
 
 			// Missing score data returns default score which fails quality checks and gets
 			// rejected.
-			assert_eq!(VerifierPallet::status(), Status::Nothing);
 			assert_eq!(MockSignedResults::get(), vec![VerificationResult::Rejected]);
 		});
 	}
@@ -563,16 +539,14 @@ mod async_verification {
 
 			let solution = mine_full_solution().unwrap();
 			load_mock_signed_and_start(solution.clone());
-
 			assert_eq!(VerifierPallet::status(), Status::Ongoing(2));
 
 			// nada
 			assert_noop!(<VerifierPallet as AsynchronousVerifier>::start(), "verification ongoing");
 
 			// now let it verify. first one goes fine.
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(1));
-			assert_eq!(verifier_events(), vec![Event::<Runtime>::Verified(2, 2)]);
+			roll_next_and_verifier(Status::Ongoing(1));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(2, 2)]);
 			assert_eq!(MockSignedResults::get(), vec![]);
 
 			// retry, still nada.
@@ -587,25 +561,25 @@ mod async_verification {
 
 			let mut solution = mine_full_solution().unwrap();
 			// Make the solution invalid by corrupting the first page
-			solution.solution_pages[0].votes1[0] = (0, 1000); // Invalid vote weight
+			solution.solution_pages[0].corrupt();
 			load_mock_signed_and_start(solution.clone());
-
 			assert_eq!(VerifierPallet::status(), Status::Ongoing(2));
 
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(1));
-			assert_eq!(verifier_events(), vec![Event::<Runtime>::Verified(2, 2)]);
+			roll_next_and_verifier(Status::Ongoing(1));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(2, 2)]);
 
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
-			assert_eq!(
-				verifier_events(),
-				vec![Event::<Runtime>::Verified(2, 2), Event::<Runtime>::Verified(1, 2)]
-			);
+			roll_next_and_verifier(Status::Ongoing(0));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(1, 2)]);
 
 			// Verification fails on the last page due to invalid solution
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Nothing);
+			roll_next_and_verifier(Status::Nothing);
+			assert_eq!(
+				verifier_events_since_last_call(),
+				vec![Event::<Runtime>::VerificationFailed(
+					0,
+					FeasibilityError::NposElection(sp_npos_elections::Error::SolutionInvalidIndex)
+				),]
+			);
 
 			// everything is cleared when verification fails.
 			assert_eq!(QueuedSolution::<Runtime>::invalid_iter().count(), 0);

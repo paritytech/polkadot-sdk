@@ -1845,6 +1845,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 		let has_queued = QueuedSolution::<T>::exists();
 		let phase = CurrentPhase::<T>::get();
 		match (phase, has_queued) {
+			// This pallet is not advanced enough to report any weight, ergo `Default::default()`.
 			(Phase::Unsigned(_), true) => Ok(Some(Default::default())),
 			(Phase::Off, _) => Err(()),
 			_ => Ok(None),

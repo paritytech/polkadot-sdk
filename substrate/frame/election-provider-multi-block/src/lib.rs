@@ -43,8 +43,7 @@
 //!
 //! This pallet will only function in a sensible way if it is peered with its companion pallets.
 //!
-//! - The [`verifier`] pallet provides a standard implementation of the [`verifier::Verifier`]. This
-//!   pallet is mandatory.
+//! - The [`verifier`] pallet provides a standard implementation of the [`verifier::Verifier`].
 //! - The [`unsigned`] module provides the implementation of unsigned submission by validators. If
 //!   this pallet is included, then [`Config::UnsignedPhase`] will determine its duration.
 //! - The [`signed`] module provides the implementation of the signed submission by any account. If
@@ -207,6 +206,7 @@ use frame_election_provider_support::{
 	InstantElectionProvider,
 };
 use frame_support::{
+	defensive_assert,
 	dispatch::PostDispatchInfo,
 	pallet_prelude::*,
 	traits::{Defensive, EnsureOrigin},
@@ -737,10 +737,15 @@ pub mod pallet {
 					let corrected_verifier_weight = verifier_exc();
 					// for each, if they have returned an updated weight, use that, else the
 					// pre-exec weight, and re-sum them up.
-					let final_weight = corrected_self_weight
-						.unwrap_or(self_weight)
-						.saturating_add(corrected_verifier_weight.unwrap_or(verifier_weight));
+					let final_self_weight = corrected_self_weight.unwrap_or(self_weight);
+					let final_verifier_weight =
+						corrected_verifier_weight.unwrap_or(verifier_weight);
+					let final_weight = final_self_weight.saturating_add(final_verifier_weight);
 					if final_weight != self_weight.saturating_add(verifier_weight) {
+						defensive_assert!(
+							final_weight.all_lte(self_weight.saturating_add(verifier_weight)),
+							"final weight must only be reduced, not increased"
+						);
 						Some(final_weight)
 					} else {
 						None
@@ -1294,9 +1299,9 @@ impl<T: Config> Pallet<T> {
 	/// What it does not do:
 	///
 	/// * Instruct the verifier to move forward. This happens through
-	///   [`verifier::Verifier::per_block_exec`]. On each block [`T::Verifier`] is given a chance to
-	///   do something. (Under the hood, if the `Status` is set, it will do something, regardless of
-	///   which phase we are in.)
+	///   [`verifier::Verifier::per_block_exec`]. On each block, [`T::Verifier`] is given a chance
+	///   to do something. Under the hood, if the `Status` is set, it will do something, regardless
+	///   of which phase we are in.
 	/// * Move us forward if we are in either of `Phase::Done` or `Phase::Export`. These are
 	///   controlled by the caller of our `ElectionProvider` implementation, i.e. staking.
 	///
@@ -1585,7 +1590,7 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Helper function to check the weights of all signifcant operations of this this pallet
+	/// Helper function to check the weights of all significant operations of this this pallet
 	/// against a runtime.
 	///
 	/// Will check the weights for:
@@ -2497,18 +2502,14 @@ mod phase_rotation {
 					]
 				);
 
-				roll_next();
 				// we are back to signed phase
-				assert_eq!(MultiBlock::current_phase(), Phase::Signed(SignedPhase::get() - 1));
+				roll_next_and_phase(Phase::Signed(SignedPhase::get() - 1));
 				// round is still the same
 				assert_eq!(MultiBlock::round(), 0);
 
 				// we proceed to normally again:
-				roll_next();
-				assert_eq!(MultiBlock::current_phase(), Phase::Signed(SignedPhase::get() - 2));
-
-				roll_next();
-				assert_eq!(MultiBlock::current_phase(), Phase::Signed(SignedPhase::get() - 3));
+				roll_next_and_phase(Phase::Signed(SignedPhase::get() - 2));
+				roll_next_and_phase(Phase::Signed(SignedPhase::get() - 3));
 			});
 	}
 
@@ -2524,36 +2525,21 @@ mod phase_rotation {
 				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 
 				// Test that on_initialize does NOT advance the phase when in Done
-				roll_next();
-				assert_eq!(
-					MultiBlock::current_phase(),
-					Phase::Done,
-					"Done phase should not auto-transition"
-				);
+				roll_next_and_phase(Phase::Done);
 
 				// Start export by calling elect(max_page)
 				assert_ok!(MultiBlock::elect(2)); // max_page = 2 for 3 pages
 				assert_eq!(MultiBlock::current_phase(), Phase::Export(1));
 
 				// Test that on_initialize does NOT advance the phase when in Export
-				roll_next();
-				assert_eq!(
-					MultiBlock::current_phase(),
-					Phase::Export(1),
-					"Export phase should not auto-transition"
-				);
+				roll_next_and_phase(Phase::Export(1));
 
 				// Only elect() should advance the Export phase
 				assert_ok!(MultiBlock::elect(1));
 				assert_eq!(MultiBlock::current_phase(), Phase::Export(0));
 
 				// Test Export(0) also blocks on_initialize transitions
-				roll_next();
-				assert_eq!(
-					MultiBlock::current_phase(),
-					Phase::Export(0),
-					"Export(0) should not auto-transition"
-				);
+				roll_next_and_phase(Phase::Export(0));
 
 				// Complete the export manually
 				assert_ok!(MultiBlock::elect(0));
@@ -2628,10 +2614,7 @@ mod phase_rotation {
 mod election_provider {
 	use super::*;
 	use crate::{
-		mock::*,
-		unsigned::miner::OffchainWorkerMiner,
-		verifier::{AsynchronousVerifier, Verifier},
-		Phase,
+		Phase, mock::*, unsigned::miner::OffchainWorkerMiner, verifier::{AsynchronousVerifier, Status, Verifier}
 	};
 	use frame_election_provider_support::{BoundedSupport, BoundedSupports, ElectionProvider};
 	use frame_support::{
@@ -2655,12 +2638,15 @@ mod election_provider {
 			load_signed_for_verification(99, paged);
 
 			// now the solution should start being verified.
-			roll_to_signed_validation_open();
+			roll_to_signed_validation_open_started();
 
 			assert_eq!(
 				multi_block_events(),
 				vec![
-					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
+					Event::PhaseTransitioned {
+						from: Phase::Off,
+						to: Phase::Snapshot(Pages::get())
+					},
 					Event::PhaseTransitioned {
 						from: Phase::Snapshot(0),
 						to: Phase::Signed(SignedPhase::get() - 1)
@@ -2671,7 +2657,7 @@ mod election_provider {
 					}
 				]
 			);
-			assert_eq!(verifier_events(), vec![]);
+			assert_eq!(verifier_events_since_last_call(), vec![]);
 
 			// there is no queued solution prior to the last page of the solution getting verified
 			assert_eq!(<Runtime as crate::Config>::Verifier::queued_score(), None);
@@ -2681,29 +2667,16 @@ mod election_provider {
 			);
 
 			// next block, signed will start the verifier, although nothing is verified yet.
-			roll_next();
-			assert_eq!(
-				<Runtime as crate::Config>::Verifier::status(),
-				verifier::Status::Ongoing(1)
-			);
-			assert_eq!(verifier_events(), vec![verifier::Event::Verified(2, 2)]);
+			roll_next_and_phase_verifier(Phase::SignedValidation(5), Status::Ongoing(1));
+			assert_eq!(verifier_events_since_last_call(), vec![verifier::Event::Verified(2, 2)]);
 
-			roll_next();
+			roll_next_and_phase_verifier(Phase::SignedValidation(4), Status::Ongoing(0));
+			assert_eq!(verifier_events_since_last_call(), vec![verifier::Event::Verified(1, 2)]);
 
+			roll_next_and_phase_verifier(Phase::SignedValidation(3), Status::Nothing);
 			assert_eq!(
-				verifier_events(),
-				vec![verifier::Event::Verified(2, 2), verifier::Event::Verified(1, 2)]
-			);
-
-			roll_next();
-			assert_eq!(
-				verifier_events(),
-				vec![
-					verifier::Event::Verified(2, 2),
-					verifier::Event::Verified(1, 2),
-					verifier::Event::Verified(0, 2),
-					verifier::Event::Queued(score, None),
-				]
+				verifier_events_since_last_call(),
+				vec![verifier::Event::Verified(0, 2), verifier::Event::Queued(score, None)]
 			);
 
 			// there is now a queued solution.
@@ -2726,7 +2699,7 @@ mod election_provider {
 					if page == 0 {
 						assert!(MultiBlock::current_phase().is_off())
 					} else {
-						assert!(MultiBlock::current_phase().is_export())
+						assert_eq!(MultiBlock::current_phase(), Phase::Export(page - 1))
 					}
 				})
 				.collect::<Vec<_>>();
@@ -2740,8 +2713,8 @@ mod election_provider {
 			// and the snapshot is cleared,
 			assert_storage_noop!(Snapshot::<Runtime>::kill());
 			// signed pallet is clean.
-			// NOTE: in the future, if and when we add lazy cleanup to the signed pallet, this
-			// assertion might break.
+			// NOTE: signed pallet lazily deletes all other solutions, except the winner, which is
+			// actually deleted.
 			assert_ok!(signed::Submissions::<Runtime>::ensure_killed(0));
 		});
 	}
@@ -2761,14 +2734,13 @@ mod election_provider {
 			// there is no queued solution prior to the last page of the solution getting verified
 			assert_eq!(<Runtime as crate::Config>::Verifier::queued_score(), None);
 
-			// roll to the block it is finalized. 1 block to start the verifier, and 3 to verify
-			roll_next();
-			roll_next();
-			roll_next();
-			roll_next();
+			// roll to the block it is finalized.
+			roll_next_and_phase_verifier(Phase::SignedValidation(5), Status::Ongoing(1));
+			roll_next_and_phase_verifier(Phase::SignedValidation(4), Status::Ongoing(0));
+			roll_next_and_phase_verifier(Phase::SignedValidation(3), Status::Nothing);
 
 			assert_eq!(
-				verifier_events(),
+				verifier_events_since_last_call(),
 				vec![
 					verifier::Event::Verified(2, 2),
 					verifier::Event::Verified(1, 2),
@@ -2789,7 +2761,7 @@ mod election_provider {
 			assert_full_snapshot();
 
 			// there are 3 pages (indexes 2..=0), but we short circuit by just calling 0.
-			let _solution = crate::Pallet::<Runtime>::elect(0).unwrap();
+			let _supports = crate::Pallet::<Runtime>::elect(0).unwrap();
 
 			// round is incremented.
 			assert_eq!(MultiBlock::round(), round + 1);
@@ -2821,13 +2793,12 @@ mod election_provider {
 			assert_eq!(<Runtime as crate::Config>::Verifier::queued_score(), None);
 
 			// roll to the block it is finalized. 1 block to start the verifier, and 3 to verify.
-			roll_next();
-			roll_next();
-			roll_next();
-			roll_next();
+			roll_next_and_phase_verifier(Phase::SignedValidation(5), Status::Ongoing(1));
+			roll_next_and_phase_verifier(Phase::SignedValidation(4), Status::Ongoing(0));
+			roll_next_and_phase_verifier(Phase::SignedValidation(3), Status::Nothing);
 
 			assert_eq!(
-				verifier_events(),
+				verifier_events_since_last_call(),
 				vec![
 					verifier::Event::Verified(2, 2),
 					verifier::Event::Verified(1, 2),
@@ -2865,7 +2836,7 @@ mod election_provider {
 	}
 
 	#[test]
-	fn elect_advances_phase_even_on_error() {
+	fn continue_fallback_works() {
 		// Use Continue fallback to avoid emergency phase when both primary and fallback fail.
 		ExtBuilder::full().fallback_mode(FallbackModes::Continue).build_and_execute(|| {
 			// Move to unsigned phase
@@ -2945,7 +2916,7 @@ mod election_provider {
 			// the phase is off,
 			assert_eq!(MultiBlock::current_phase(), Phase::Off);
 			// the snapshot is cleared,
-			assert_storage_noop!(Snapshot::<Runtime>::kill());
+			assert_none_snapshot();
 			// and signed pallet is clean.
 			assert_ok!(signed::Submissions::<Runtime>::ensure_killed(round));
 		});
@@ -2992,13 +2963,7 @@ mod election_provider {
 				MultiBlock::elect(2).unwrap(),
 				BoundedSupports(bounded_vec![
 					(10, BoundedSupport { total: 15, voters: bounded_vec![(1, 10), (4, 5)] }),
-					(
-						40,
-						BoundedSupport {
-							total: 25,
-							voters: bounded_vec![(2, 10), (3, 10), (4, 5)]
-						}
-					)
+					(40, BoundedSupport { total: 25, voters: bounded_vec![(2, 10), (3, 10), (4, 5)] })
 				])
 			);
 			// page 1 of voters
@@ -3006,13 +2971,7 @@ mod election_provider {
 				MultiBlock::elect(1).unwrap(),
 				BoundedSupports(bounded_vec![
 					(10, BoundedSupport { total: 15, voters: bounded_vec![(5, 5), (8, 10)] }),
-					(
-						30,
-						BoundedSupport {
-							total: 25,
-							voters: bounded_vec![(5, 5), (6, 10), (7, 10)]
-						}
-					)
+					(30, BoundedSupport { total: 25, voters: bounded_vec![(5, 5), (6, 10), (7, 10)] })
 				])
 			);
 			// self votes
@@ -3027,10 +2986,7 @@ mod election_provider {
 			assert_eq!(
 				multi_block_events(),
 				vec![
-					Event::PhaseTransitioned {
-						from: Phase::Off,
-						to: Phase::Snapshot(Pages::get())
-					},
+					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(Pages::get()) },
 					Event::PhaseTransitioned {
 						from: Phase::Snapshot(0),
 						to: Phase::Signed(SignedPhase::get() - 1)
@@ -3060,10 +3016,7 @@ mod election_provider {
 			assert_eq!(
 				multi_block_events(),
 				vec![
-					Event::PhaseTransitioned {
-						from: Phase::Off,
-						to: Phase::Snapshot(Pages::get())
-					},
+					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(Pages::get()) },
 					Event::PhaseTransitioned {
 						from: Phase::Snapshot(0),
 						to: Phase::Signed(SignedPhase::get() - 1)
@@ -3081,18 +3034,6 @@ mod election_provider {
 	}
 
 	#[test]
-	#[should_panic]
-	fn continue_fallback_works() {
-		todo!()
-	}
-
-	#[test]
-	#[should_panic]
-	fn emergency_fallback_works() {
-		todo!();
-	}
-
-	#[test]
 	fn elect_call_when_not_ongoing() {
 		ExtBuilder::full().fallback_mode(FallbackModes::Onchain).build_and_execute(|| {
 			roll_to_snapshot_created();
@@ -3106,6 +3047,7 @@ mod election_provider {
 		});
 	}
 }
+
 
 #[cfg(test)]
 mod manage_ops {

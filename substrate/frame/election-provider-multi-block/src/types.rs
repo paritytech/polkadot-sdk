@@ -419,6 +419,9 @@ impl<T: crate::Config> Phase<T> {
 }
 
 /// Slim interface for the parent pallet to be able to inspect the state of the signed pallet.
+///
+/// Intentionally left different from [`crate::verifier::SolutionDataProvider`], as that is
+/// specialized for communication between `verifier <> signed`.
 pub trait SignedInterface {
 	/// Returns `true` if there is a candidate solution to be verified.
 	fn has_leader(round: u32) -> bool;
