@@ -514,7 +514,7 @@ fn fee_estimation_for_usdt_reserve_transfer_in_usdt() {
 			assets: Box::new(VersionedAssets::from(vec![
 				(usdt_location.clone(), 100u128).into(), // Send 100 USDT
 			])),
-			fee_asset_item: 0, // Fees are paid with USDT (the only asset)
+			fee_asset_id: Box::new(VersionedAssetId::from(AssetId(usdt_location.clone()))),
 			weight_limit: Unlimited,
 		});
 		let origin = OriginCaller::system(RawOrigin::Signed(who));
