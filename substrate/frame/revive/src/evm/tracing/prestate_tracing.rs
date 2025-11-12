@@ -175,8 +175,14 @@ where
 		self.is_create = Some(code.clone());
 	}
 
-	fn terminate(&mut self, _from: H160, to: H160, _gas_left: Weight, _value: U256) {
-		self.trace.0.entry(to).or_insert_with_key(|addr| {
+	fn terminate(
+		&mut self,
+		_contract_address: H160,
+		beneficiary_address: H160,
+		_gas_left: Weight,
+		_value: U256,
+	) {
+		self.trace.0.entry(beneficiary_address).or_insert_with_key(|addr| {
 			Self::prestate_info(addr, Pallet::<T>::evm_balance(addr), None)
 		});
 	}
@@ -200,7 +206,7 @@ where
 			)
 		});
 
-		if self.is_create.is_none() && self.config.diff_mode {
+		if self.is_create.is_none() {
 			self.trace.0.entry(to).or_insert_with_key(|addr| {
 				Self::prestate_info(
 					addr,

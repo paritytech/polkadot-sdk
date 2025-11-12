@@ -59,7 +59,14 @@ pub trait Tracing {
 	}
 
 	/// Called when a contract calls terminates (selfdestructs)
-	fn terminate(&mut self, _from: H160, _to: H160, _gas_left: Weight, _value: U256) {}
+	fn terminate(
+		&mut self,
+		_contract_address: H160,
+		_beneficiary_address: H160,
+		_gas_left: Weight,
+		_value: U256,
+	) {
+	}
 
 	/// Record the next code and salt to be instantiated.
 	fn instantiate_code(&mut self, _code: &Code, _salt: Option<&[u8; 32]>) {}

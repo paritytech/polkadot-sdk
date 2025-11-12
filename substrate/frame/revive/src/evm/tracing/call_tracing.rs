@@ -61,10 +61,16 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 		self.code_with_salt = Some((code.clone(), salt.is_some()));
 	}
 
-	fn terminate(&mut self, from: H160, to: H160, gas_left: Weight, value: U256) {
+	fn terminate(
+		&mut self,
+		contract_address: H160,
+		beneficiary_address: H160,
+		gas_left: Weight,
+		value: U256,
+	) {
 		self.traces.last_mut().unwrap().calls.push(CallTrace {
-			from,
-			to,
+			from: contract_address,
+			to: beneficiary_address,
 			call_type: CallType::Selfdestruct,
 			gas: (self.gas_mapper)(gas_left),
 			value: Some(value),
