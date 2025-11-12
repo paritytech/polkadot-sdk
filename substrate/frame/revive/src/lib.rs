@@ -830,7 +830,9 @@ pub mod pallet {
 
 			// Build genesis block
 			block_storage::on_finalize_build_eth_block::<T>(
-				frame_system::Pallet::<T>::block_number().into(),
+				// Make sure to use the block number from storage instead of the hardcoded 0.
+				// This enables testing tools like anvil to customise the genesis block number.
+				frame_system::Pallet::<T>::block_number(),
 			);
 
 			// Set debug settings.
