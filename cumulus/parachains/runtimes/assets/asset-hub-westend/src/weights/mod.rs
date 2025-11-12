@@ -38,7 +38,6 @@ pub mod pallet_election_provider_multi_block;
 pub mod pallet_election_provider_multi_block_signed;
 pub mod pallet_election_provider_multi_block_unsigned;
 pub mod pallet_election_provider_multi_block_verifier;
-pub mod pallet_fast_unstake;
 pub mod pallet_indices;
 pub mod pallet_message_queue;
 pub mod pallet_migrations;

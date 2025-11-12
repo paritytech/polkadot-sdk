@@ -214,12 +214,50 @@ impl<T: frame_system::Config> pallet_election_provider_multi_block::WeightInfo f
 			.saturating_add(T::DbWeight::get().reads(104))
 			.saturating_add(T::DbWeight::get().writes(106))
 	}
-	fn manage() -> Weight {
+	/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:0)
+	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+	/// Storage: `MultiBlockElection::Round` (r:1 w:0)
+	/// Proof: `MultiBlockElection::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `MultiBlockElection::PagedVoterSnapshot` (r:1 w:0)
+	/// Proof: `MultiBlockElection::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(388785), added: 391260, mode: `Measured`)
+	/// Storage: `MultiBlockElection::PagedTargetSnapshot` (r:1 w:0)
+	/// Proof: `MultiBlockElection::PagedTargetSnapshot` (`max_values`: None, `max_size`: Some(32026), added: 34501, mode: `Measured`)
+	/// Storage: `MultiBlockElection::DesiredTargets` (r:1 w:0)
+	/// Proof: `MultiBlockElection::DesiredTargets` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionScore` (r:1 w:1)
+	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionScore` (`max_values`: None, `max_size`: Some(60), added: 2535, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedValidVariant` (r:1 w:0)
+	/// Proof: `MultiBlockElectionVerifier::QueuedValidVariant` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionY` (r:0 w:1)
+	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionY` (`max_values`: None, `max_size`: Some(33794026), added: 33796501, mode: `Measured`)
+	fn manage_fallback() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 195_000 picoseconds.
-		Weight::from_parts(229_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
+		//  Measured:  `372173`
+		//  Estimated: `375638`
+		// Minimum execution time: 3_130_891_000 picoseconds.
+		Weight::from_parts(3_242_891_000, 0)
+			.saturating_add(Weight::from_parts(0, 375638))
+			.saturating_add(T::DbWeight::get().reads(7))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
+	/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:0)
+	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+	/// Storage: `MultiBlockElection::Round` (r:1 w:0)
+	/// Proof: `MultiBlockElection::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionScore` (r:1 w:1)
+	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionScore` (`max_values`: None, `max_size`: Some(60), added: 2535, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedValidVariant` (r:1 w:0)
+	/// Proof: `MultiBlockElectionVerifier::QueuedValidVariant` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionY` (r:0 w:1)
+	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionY` (`max_values`: None, `max_size`: Some(33794026), added: 33796501, mode: `Measured`)
+	fn admin_set() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `308`
+		//  Estimated: `3773`
+		// Minimum execution time: 58_785_000 picoseconds.
+		Weight::from_parts(72_105_000, 0)
+			.saturating_add(Weight::from_parts(0, 3773))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 }

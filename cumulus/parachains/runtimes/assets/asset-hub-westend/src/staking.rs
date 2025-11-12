@@ -17,7 +17,7 @@
 use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
-use frame_support::traits::{ConstU128, EitherOf};
+use frame_support::traits::EitherOf;
 use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
 use pallet_staking_async::UseValidatorsMap;
 use pallet_staking_async_rc_client as rc_client;
@@ -226,10 +226,10 @@ type VoterBagsListInstance = pallet_bags_list::Instance1;
 impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ScoreProvider = Staking;
-	type WeightInfo = weights::pallet_bags_list::WeightInfo<Runtime>;
 	type BagThresholds = BagThresholds;
 	type Score = sp_npos_elections::VoteWeight;
 	type MaxAutoRebagPerBlock = AutoRebagNumber;
+	type WeightInfo = weights::pallet_bags_list::WeightInfo<Runtime>;
 }
 
 pub struct EraPayout;
@@ -299,13 +299,13 @@ impl pallet_staking_async::Config for Runtime {
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = (NominationPools, DelegatedStaking);
-	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
 	type PlanningEraOffset =
 		pallet_staking_async::PlanningEraOffsetOf<Runtime, RelaySessionDuration, ConstU32<5>>;
 	type RcClientInterface = StakingRcClient;
 	type MaxEraDuration = MaxEraDuration;
 	type MaxPruningItems = MaxPruningItems;
+	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {
@@ -369,17 +369,6 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 	}
 }
 
-impl pallet_fast_unstake::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type BatchSize = ConstU32<64>;
-	type Deposit = ConstU128<{ UNITS }>;
-	type ControlOrigin = EnsureRoot<AccountId>;
-	type Staking = Staking;
-	type MaxErasToCheckPerBlock = ConstU32<1>;
-	type WeightInfo = weights::pallet_fast_unstake::WeightInfo<Runtime>;
-}
-
 parameter_types! {
 	pub const PoolsPalletId: PalletId = PalletId(*b"py/nopls");
 	pub const MaxPointsToBalance: u8 = 10;
@@ -387,7 +376,6 @@ parameter_types! {
 
 impl pallet_nomination_pools::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_nomination_pools::WeightInfo<Self>;
 	type Currency = Balances;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RewardCounter = FixedU128;
@@ -404,6 +392,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	type Filter = Nothing;
+	type WeightInfo = weights::pallet_nomination_pools::WeightInfo<Self>;
 }
 
 parameter_types! {

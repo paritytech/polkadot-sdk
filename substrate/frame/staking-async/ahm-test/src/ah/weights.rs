@@ -31,7 +31,10 @@ pub const LARGE: Weight = Weight::from_parts(1_000, 0);
 
 pub struct MultiBlockElectionWeightInfo;
 impl pallet_election_provider_multi_block::WeightInfo for MultiBlockElectionWeightInfo {
-	fn manage() -> Weight {
+	fn admin_set() -> Weight {
+		unreachable!()
+	}
+	fn manage_fallback() -> Weight {
 		unreachable!()
 	}
 	fn export_non_terminal() -> Weight {
