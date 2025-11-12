@@ -395,11 +395,15 @@ where
 	/// Execute all Migrations of this runtime.
 	///
 	/// The `checks` param determines whether to execute `pre/post_upgrade` and `try_state` hooks.
+	/// The `try_state_select` param determines which pallets' try_state hooks to execute.
 	///
 	/// [`frame_system::LastRuntimeUpgrade`] is set to the current runtime version after
 	/// migrations execute. This is important for idempotency checks, because some migrations use
 	/// this value to determine whether or not they should execute.
-	pub fn try_runtime_upgrade(checks: UpgradeCheckSelect) -> Result<Weight, TryRuntimeError> {
+	pub fn try_runtime_upgrade(
+		checks: UpgradeCheckSelect,
+		try_state_select: TryStateSelect,
+	) -> Result<Weight, TryRuntimeError> {
 		let before_all_weight =
 			<AllPalletsWithSystem as BeforeAllRuntimeMigrations>::before_all_runtime_migrations();
 
@@ -431,7 +435,7 @@ where
 		if checks.try_state() {
 			AllPalletsWithSystem::try_state(
 				frame_system::Pallet::<System>::block_number(),
-				TryStateSelect::All,
+				try_state_select,
 			)?;
 		}
 

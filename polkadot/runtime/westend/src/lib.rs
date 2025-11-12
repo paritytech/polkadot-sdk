@@ -2825,7 +2825,18 @@ sp_api::impl_runtime_apis! {
 	impl frame_try_runtime::TryRuntime<Block> for Runtime {
 		fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {
 			log::info!("try-runtime::on_runtime_upgrade westend.");
-			let weight = Executive::try_runtime_upgrade(checks).unwrap();
+			// Exclude staking-related pallets that were removed from Westend
+			let excluded_pallets = vec![
+				b"Staking".to_vec(),
+				b"NominationPools".to_vec(),
+				b"FastUnstake".to_vec(),
+				b"DelegatedStaking".to_vec(),
+			];
+			let weight = Executive::try_runtime_upgrade(
+				checks,
+				frame_try_runtime::TryStateSelect::AllExcept(excluded_pallets),
+			)
+			.unwrap();
 			(weight, BlockWeights::get().max_block)
 		}
 

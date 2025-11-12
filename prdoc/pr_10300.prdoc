@@ -3,8 +3,42 @@ title: Allow running try-runtime checks for all pallets except those in the excl
 doc:
 - audience: Runtime Dev
   description: |-
-    - Added `AllExceptVariant` in `Select` enum to exclude try-runtime checks for a given list of pallets
-    - Updated CI workflow to exclude staking pallets from Westend check-migration since they have now moved to AH
+    - Added `AllExcept` variant in `Select` enum to exclude try-runtime checks for a given list of pallets
+    - Modified `Executive::try_runtime_upgrade` to accept a `TryStateSelect` parameter to control which pallets' try_state hooks should execute
+    - Updated Westend runtime to exclude staking-related pallets (Staking, NominationPools, FastUnstake, DelegatedStaking) that have been removed
+    - Updated all other runtimes to explicitly pass `TryStateSelect::All` to maintain current behavior
 crates:
 - name: frame-support
+  bump: patch
+- name: frame-executive
+  bump: major
+- name: westend-runtime
+  bump: patch
+- name: rococo-runtime
+  bump: patch
+- name: kitchensink-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: coretime-rococo-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
+- name: people-rococo-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: penpal-runtime
+  bump: patch
+- name: solochain-template-runtime
+  bump: patch
+- name: parachain-template-runtime
   bump: patch
