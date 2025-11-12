@@ -32,7 +32,7 @@ use frame_support::{
 	BoundedVec,
 };
 use polkadot_parachain_primitives::primitives::{HeadData, RelayChainBlockNumber, ValidationResult};
-use sp_core::storage::{well_known_keys, ChildInfo, StateVersion}
+use sp_core::storage::{well_known_keys, ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::{hashing::blake2_128, KillStorageResult};
 use sp_runtime::traits::{
