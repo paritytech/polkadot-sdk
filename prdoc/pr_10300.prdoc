@@ -5,7 +5,7 @@ doc:
   description: |-
     - Added `AllExcept` variant in `Select` enum to exclude try-runtime checks for a given list of pallets
     - Modified `Executive::try_runtime_upgrade` to accept a `TryStateSelect` parameter to control which pallets' try_state hooks should execute
-    - Updated Westend runtime to exclude staking-related pallets (Staking, NominationPools, FastUnstake, DelegatedStaking) that have been removed
+    - Updated Westend try_runtime_upgrade to exclude staking-related pallets (Staking, NominationPools, FastUnstake, DelegatedStaking)
     - Updated all other runtimes to explicitly pass `TryStateSelect::All` to maintain current behavior
 crates:
 - name: frame-support
