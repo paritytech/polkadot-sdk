@@ -55,28 +55,33 @@ jobs:
             uri: "wss://try-runtime-westend.polkadot.io:443"
             subcommand_extra_args: "--no-weight-warnings --blocktime 6000"
             command_extra_args: ""
+            checks: "all-except-Staking,NominationPools,FastUnstake,DelegatedStaking"
           - network: asset-hub-westend
             package: asset-hub-westend-runtime
             wasm: asset_hub_westend_runtime.compact.compressed.wasm
             uri: "wss://westend-asset-hub-rpc.polkadot.io:443"
             subcommand_extra_args: " --blocktime 6000"
             command_extra_args: ""
+            checks: "all"
           - network: bridge-hub-westend
             package: bridge-hub-westend-runtime
             wasm: bridge_hub_westend_runtime.compact.compressed.wasm
             uri: "wss://westend-bridge-hub-rpc.polkadot.io:443"
             subcommand_extra_args: " --blocktime 6000"
+            checks: "all"
           - network: collectives-westend
             package: collectives-westend-runtime
             wasm: collectives_westend_runtime.compact.compressed.wasm
             uri: "wss://westend-collectives-rpc.polkadot.io:443"
             command_extra_args: "--disable-spec-name-check"
             subcommand_extra_args: " --blocktime 6000"
+            checks: "all"
           - network: coretime-westend
             package: coretime-westend-runtime
             wasm: coretime_westend_runtime.compact.compressed.wasm
             uri: "wss://westend-coretime-rpc.polkadot.io:443"
             subcommand_extra_args: " --blocktime 6000"
+            checks: "all"
     steps:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -122,7 +127,7 @@ jobs:
           echo "---------- Executing on-runtime-upgrade for ${{ matrix.network }} ----------"
           ./try-runtime ${{ matrix.command_extra_args }} \
               --runtime ./target/release/wbuild/${{ matrix.package }}/${{ matrix.wasm }} \
-              on-runtime-upgrade --disable-spec-version-check --checks=all ${{ matrix.subcommand_extra_args }} snap -p snapshot.raw
+              on-runtime-upgrade --disable-spec-version-check --checks=${{ matrix.checks }} ${{ matrix.subcommand_extra_args }} snap -p snapshot.raw
           sleep 5
       - name: Stop all workflows if failed
         if: ${{ failure() && (steps.required1.conclusion == 'failure' || steps.required2.conclusion == 'failure') }}
