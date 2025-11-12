@@ -162,57 +162,7 @@ where
 
 		// If there is a next item in the iterator, perform the migration.
 		if let Some((index, (account, old_deposit, frozen))) = iter.next() {
-			println!(
-				"Migrating account {:?} with deposit {:?}, frozen: {:?}",
-				account, old_deposit, frozen
-			);
-			// Convert old balance to new balance type
-			let old_deposit: BalanceOf<T> = old_deposit.into();
-			println!("Converted old deposit: {:?}", old_deposit);
-
-			// Get current reserved balance from old currency system
-			let old_reserved = OldCurrency::reserved_balance(&account);
-			let reserved_balance: BalanceOf<T> = old_reserved.into();
-			println!("Current reserved balance: {:?}", reserved_balance);
-
-			// Migrate what was actually deposited, bounded by actual reserves
-			let to_migrate = old_deposit.min(reserved_balance);
-			println!("Amount to migrate: {:?}", to_migrate);
-
-			// If there is something to migrate, perform the migration
-			if !to_migrate.is_zero() {
-				println!("Performing migration for amount: {:?}", to_migrate);
-				// Unreserve from old currency system
-				let old_to_migrate: <OldCurrency as Currency<
-					<T as frame_system::Config>::AccountId,
-				>>::Balance = to_migrate.into();
-				let _unreserved = OldCurrency::unreserve(&account, old_to_migrate);
-				println!("Unreserved amount: {:?}", _unreserved);
-
-				// Try to hold in new fungibles system
-				match T::NativeBalance::hold(
-					&HoldReason::DepositForIndex.into(),
-					&account,
-					to_migrate,
-				) {
-					Ok(_) => {
-						// Success: migrate to new storage with hold
-						println!("Successfully created hold for account {:?}", account);
-						Accounts::<T>::insert(index, (account, to_migrate, frozen));
-					},
-					Err(e) => {
-						// Failed: preserve index with zero deposit
-						// Funds stay in account's free balance (from unreserve)
-						println!("Failed to create hold for account {:?}: {:?}", account, e);
-						Accounts::<T>::insert(index, (account, BalanceOf::<T>::zero(), frozen));
-					},
-				}
-			} else {
-				// No funds to migrate, just preserve the index
-				println!("No funds to migrate, preserving index with zero deposit");
-				Accounts::<T>::insert(index, (account, BalanceOf::<T>::zero(), frozen));
-			}
-
+			Self::migrate_account(account, index, frozen, old_deposit);
 			Ok(Some(Some(index)))
 		} else {
 			// Migration complete
@@ -233,7 +183,9 @@ where
 }
 
 #[cfg(any(test, feature = "try-runtime"))]
-impl<T: Config, C> MigrateCurrencyToFungibles<T, C> {
+impl<T: Config, OldCurrency> MigrateCurrencyToFungibles<T, OldCurrency> 
+where
+	OldCurrency: Currency<T::AccountId, Balance = BalanceOf<T>> + ReservableCurrency<T::AccountId>,{
 	fn do_pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 		use codec::Encode;
 		Ok(Accounts::<T>::iter().collect::<BTreeMap<_, _>>().encode())
@@ -290,6 +242,38 @@ impl<T: Config, C> MigrateCurrencyToFungibles<T, C> {
 		println!("Post-upgrade check completed");
 
 		Ok(())
+	}
+
+	fn migrate_account(account: T::AccountId, index: T::AccountIndex, frozen: bool, old_deposit: BalanceOf<T>){
+		let old_reserved = OldCurrency::reserved_balance(&account);
+		let reserved_balance: BalanceOf<T> = old_reserved.into();
+		let reserve_to_migrate = old_deposit.min(reserved_balance);
+
+		// If there are some reserves to migrate, perform the migration
+		if !reserve_to_migrate.is_zero() {
+				OldCurrency::unreserve(&account, reserve_to_migrate);
+
+				// Try to hold in new fungibles system
+				match T::NativeBalance::hold(
+					&HoldReason::DepositForIndex.into(),
+					&account,
+					reserve_to_migrate,
+				) {
+					Ok(_) => {
+						// Success: migrate to new storage with hold
+						Accounts::<T>::insert(index, (account, reserve_to_migrate, frozen));
+					},
+					Err(e) => {
+						// Failed: preserve index with zero deposit
+						// Funds stay in account's free balance (from unreserve)
+						Accounts::<T>::insert(index, (account, BalanceOf::<T>::zero(), frozen));
+					},
+				}
+		}	
+		// Otherwise, preserve the index with zero deposit and zero hold
+		else {
+			Accounts::<T>::insert(index, (account, BalanceOf::<T>::zero(), frozen));
+		}
 	}
 }
 
