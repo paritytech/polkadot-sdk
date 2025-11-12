@@ -36,8 +36,8 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	/// Timeout in relaychain blocks (10 blocks = ~60 seconds at 6s per block)
-	pub const MOVE_TIMEOUT_BLOCKS: u32 = 10;
+	/// Timeout in relaychain blocks (5 blocks = ~30 seconds at 6s per block)
+	pub const MOVE_TIMEOUT_BLOCKS: u32 = 5;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
