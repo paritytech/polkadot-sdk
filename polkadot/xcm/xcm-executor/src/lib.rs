@@ -1084,7 +1084,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				tracing::trace!(
 					target: "xcm::process_instruction::transact",
 					origin = ?dispatch_origin,
-					"Dispatching with origin",
+					call = ?message_call,
+					"Dispatching call with origin",
 				);
 
 				let weight = message_call.get_dispatch_info().call_weight;

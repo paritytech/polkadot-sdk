@@ -1191,6 +1191,7 @@ dependencies = [
  "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
  "frame-support",
+ "frame-system",
  "pallet-asset-conversion",
  "pallet-asset-rewards",
  "pallet-assets",
@@ -1473,6 +1474,7 @@ dependencies = [
 name = "asset-test-utils"
 version = "7.0.0"
 dependencies = [
+ "assets-common",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
@@ -1515,6 +1517,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "scale-info",
+ "serde",
  "sp-api",
  "sp-core 28.0.0",
  "sp-runtime",
@@ -22321,6 +22324,7 @@ name = "snowbridge-inbound-queue-primitives"
 version = "0.9.0"
 dependencies = [
  "alloy-core",
+ "assets-common",
  "frame-support",
  "frame-system",
  "hex-literal",
