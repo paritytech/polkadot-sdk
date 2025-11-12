@@ -606,3 +606,89 @@ fn logs_denied_for_static_call(caller_type: FixtureType, callee_type: FixtureTyp
 		assert_eq!(decoded_result.success, false);
 	});
 }
+
+#[test]
+fn shared_storage_item() {
+	use pallet_revive_fixtures::Caller;
+	use pallet_revive_fixtures::Host;
+	let (caller_code, _) = compile_module_with_type("Caller", FixtureType::Solc).unwrap();
+	let (host_code_resolc, _) = compile_module_with_type("Host", FixtureType::Resolc).unwrap();
+	let (host_code_solc, _) = compile_module_with_type("Host", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		// Deploy Host contracts
+		let Contract { addr: host_addr_solc, .. } =
+			builder::bare_instantiate(Code::Upload(host_code_solc)).build_and_unwrap_contract();
+		let Contract { addr: host_addr_resolc, .. } =
+			builder::bare_instantiate(Code::Upload(host_code_resolc)).build_and_unwrap_contract();
+
+		// Deploy Caller contract
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+		
+
+		let index = 13u64;
+		let key = Key::Fix(U256::from(index).to_big_endian());
+		let expected_value = 17u64;
+
+		// write storage item using resolc
+		// let result = builder::bare_call(caller_addr)
+		// 	.data(
+		// 		Caller::delegateCall {
+		// 			_callee: host_addr_resolc.0.into(),
+		// 			_data: Host::sstoreOpCall {
+		// 						slot: index,
+		// 						value: expected_value,
+		// 					}.abi_encode().into(),
+		// 			_gas: u64::MAX,
+		// 		}
+		// 		.abi_encode(),
+		// 	)
+		// 	.build_and_unwrap_result();
+		
+		// // read storage item using solc
+		// let result = builder::bare_call(caller_addr)
+		// 	.data(
+		// 		Caller::delegateCall {
+		// 			_callee: host_addr_solc.0.into(),
+		// 			_data: Host::sloadOpCall { slot: index }.abi_encode().into(),
+		// 			_gas: u64::MAX,
+		// 		}
+		// 		.abi_encode(),
+		// 	)
+		// 	.build_and_unwrap_result();
+		// println!("result data: {:?}", result.data);
+
+
+		// // write storage item to all zero using solc
+		// let result = builder::bare_call(caller_addr)
+		// 	.data(
+		// 		Caller::delegateCall {
+		// 			_callee: host_addr_solc.0.into(),
+		// 			_data: Host::sstoreOpCall {
+		// 						slot: index,
+		// 						value: 0u64,
+		// 					}.abi_encode().into(),
+		// 			_gas: u64::MAX,
+		// 		}
+		// 		.abi_encode(),
+		// 	)
+		// 	.build_and_unwrap_result();
+		
+		// read storage item using resolc
+		let result = builder::bare_call(caller_addr)
+			.data(
+				Caller::delegateCall {
+					_callee: host_addr_resolc.0.into(),
+					_data: Host::sloadOpCall { slot: index }.abi_encode().into(),
+					_gas: u64::MAX,
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		println!("result data: {:?}", result.data);
+		// TODO: parse result.data 
+	});
+}
