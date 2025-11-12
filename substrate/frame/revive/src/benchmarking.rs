@@ -71,10 +71,7 @@ use sp_consensus_babe::{
 	BABE_ENGINE_ID,
 };
 use sp_consensus_slots::Slot;
-use sp_runtime::{
-	generic::{Digest, DigestItem},
-	traits::Zero,
-};
+use sp_runtime::{generic::DigestItem, traits::Zero};
 
 /// How many runs we do per API benchmark.
 ///
@@ -471,6 +468,18 @@ mod benchmarks {
 		// contract should still exist
 		instance.info()?;
 
+		Ok(())
+	}
+
+	// `c`: Size of the RLP encoded Ethereum transaction in bytes.
+	#[benchmark(pov_mode = Measured)]
+	fn eth_substrate_call(c: Linear<0, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
+		let caller = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		let origin = Origin::EthTransaction(caller);
+		let dispatchable = frame_system::Call::remark { remark: vec![] }.into();
+		#[extrinsic_call]
+		_(origin, Box::new(dispatchable), vec![42u8; c as usize]);
 		Ok(())
 	}
 
@@ -1024,16 +1033,20 @@ mod benchmarks {
 	fn seal_block_author() {
 		build_runtime!(runtime, memory: [[123u8; 20], ]);
 
-		let mut digest = Digest::default();
-
 		// The pre-runtime digest log is unbounded; usually around 3 items but it can vary.
 		// To get safe benchmark results despite that, populate it with a bunch of random logs to
 		// ensure iteration over many items (we just overestimate the cost of the API).
 		for i in 0..16 {
-			digest.push(DigestItem::PreRuntime([i, i, i, i], vec![i; 128]));
-			digest.push(DigestItem::Consensus([i, i, i, i], vec![i; 128]));
-			digest.push(DigestItem::Seal([i, i, i, i], vec![i; 128]));
-			digest.push(DigestItem::Other(vec![i; 128]));
+			frame_system::Pallet::<T>::deposit_log(DigestItem::PreRuntime(
+				[i, i, i, i],
+				vec![i; 128],
+			));
+			frame_system::Pallet::<T>::deposit_log(DigestItem::Consensus(
+				[i, i, i, i],
+				vec![i; 128],
+			));
+			frame_system::Pallet::<T>::deposit_log(DigestItem::Seal([i, i, i, i], vec![i; 128]));
+			frame_system::Pallet::<T>::deposit_log(DigestItem::Other(vec![i; 128]));
 		}
 
 		// The content of the pre-runtime digest log depends on the configured consensus.
@@ -1044,19 +1057,22 @@ mod benchmarks {
 		let primary_pre_digest = vec![0; <PrimaryPreDigest as MaxEncodedLen>::max_encoded_len()];
 		let pre_digest =
 			PreDigest::Primary(PrimaryPreDigest::decode(&mut &primary_pre_digest[..]).unwrap());
-		digest.push(DigestItem::PreRuntime(BABE_ENGINE_ID, pre_digest.encode()));
-		digest.push(DigestItem::Seal(BABE_ENGINE_ID, pre_digest.encode()));
+		frame_system::Pallet::<T>::deposit_log(DigestItem::PreRuntime(
+			BABE_ENGINE_ID,
+			pre_digest.encode(),
+		));
+		frame_system::Pallet::<T>::deposit_log(DigestItem::Seal(
+			BABE_ENGINE_ID,
+			pre_digest.encode(),
+		));
 
 		// Construct a `Digest` log fixture returning some value in AURA
 		let slot = Slot::default();
-		digest.push(DigestItem::PreRuntime(AURA_ENGINE_ID, slot.encode()));
-		digest.push(DigestItem::Seal(AURA_ENGINE_ID, slot.encode()));
-
-		frame_system::Pallet::<T>::initialize(
-			&BlockNumberFor::<T>::from(1u32),
-			&Default::default(),
-			&digest,
-		);
+		frame_system::Pallet::<T>::deposit_log(DigestItem::PreRuntime(
+			AURA_ENGINE_ID,
+			slot.encode(),
+		));
+		frame_system::Pallet::<T>::deposit_log(DigestItem::Seal(AURA_ENGINE_ID, slot.encode()));
 
 		let result;
 		#[block]
@@ -1082,7 +1098,7 @@ mod benchmarks {
 		let block_hash = H256::from([1; 32]);
 
 		// Store block hash in pallet-revive BlockHash mapping
-		crate::BlockHash::<T>::insert(U256::from(0u32), block_hash);
+		crate::BlockHash::<T>::insert(crate::BlockNumberFor::<T>::from(0u32), block_hash);
 
 		let result;
 		#[block]
@@ -2253,6 +2269,28 @@ mod benchmarks {
 		{
 			result =
 				run_builtin_precompile(&mut ext, H160::from_low_u64_be(1).as_fixed_bytes(), input);
+		}
+
+		assert_eq!(result.unwrap().data, expected);
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn p256_verify() {
+		use hex_literal::hex;
+		let input = hex!("4cee90eb86eaa050036147a12d49004b6b9c72bd725d39d4785011fe190f0b4da73bd4903f0ce3b639bbbf6e8e80d16931ff4bcf5993d58468e8fb19086e8cac36dbcd03009df8c59286b162af3bd7fcc0450c9aa81be5d10d312af6c66b1d604aebd3099c618202fcfe16ae7770b0c49ab5eadf74b754204a3bb6060e44eff37618b065f9832de4ca6ca971a7a1adc826d0f7c00181a5fb2ddf79ae00b4e10e").to_vec();
+		let expected = U256::one().to_big_endian();
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+
+		let result;
+
+		#[block]
+		{
+			result = run_builtin_precompile(
+				&mut ext,
+				H160::from_low_u64_be(100).as_fixed_bytes(),
+				input,
+			);
 		}
 
 		assert_eq!(result.unwrap().data, expected);
