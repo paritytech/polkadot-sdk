@@ -98,15 +98,22 @@ impl TransactionSigned {
 
 	/// Decode the Ethereum transaction from bytes.
 	pub fn decode(data: &[u8]) -> Result<Self, rlp::DecoderError> {
-		if data.len() < 1 {
+		if data.is_empty() {
 			return Err(rlp::DecoderError::RlpIsTooShort);
 		}
-		match data[0] {
-			TYPE_EIP2930 => rlp::decode::<Transaction2930Signed>(&data[1..]).map(Into::into),
-			TYPE_EIP1559 => rlp::decode::<Transaction1559Signed>(&data[1..]).map(Into::into),
-			TYPE_EIP4844 => rlp::decode::<Transaction4844Signed>(&data[1..]).map(Into::into),
-			TYPE_EIP7702 => rlp::decode::<Transaction7702Signed>(&data[1..]).map(Into::into),
-			_ => rlp::decode::<TransactionLegacySigned>(data).map(Into::into),
+		let first_byte = data[0];
+
+		// EIP-2718: Typed transactions use type identifiers in [0x00, 0x7f].
+		if first_byte <= 0x7f {
+			match first_byte {
+				TYPE_EIP2930 => rlp::decode::<Transaction2930Signed>(&data[1..]).map(Into::into),
+				TYPE_EIP1559 => rlp::decode::<Transaction1559Signed>(&data[1..]).map(Into::into),
+				TYPE_EIP4844 => rlp::decode::<Transaction4844Signed>(&data[1..]).map(Into::into),
+				TYPE_EIP7702 => rlp::decode::<Transaction7702Signed>(&data[1..]).map(Into::into),
+				_ => Err(rlp::DecoderError::Custom("Unknown transaction type")),
+			}
+		} else {
+			rlp::decode::<TransactionLegacySigned>(data).map(Into::into)
 		}
 	}
 }
