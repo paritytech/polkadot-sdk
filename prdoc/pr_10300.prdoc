@@ -1,0 +1,10 @@
+title: Allow running try-runtime checks for all pallets except those in the exclusion
+  list
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Added `AllExceptVariant` in `Select` enum to exclude try-runtime checks for a given list of pallets
+    - Updated CI workflow to exclude staking pallets from Westend check-migration since they have now moved to AH
+crates:
+- name: frame-support
+  bump: patch
