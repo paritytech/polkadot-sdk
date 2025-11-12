@@ -1225,24 +1225,6 @@ impl parachains_slashing::Config for Runtime {
 }
 
 parameter_types! {
-	pub const MaxPublishItems: u32 = 16;
-	pub const MaxKeyLength: u32 = 256;
-	pub const MaxValueLength: u32 = 1024;
-	pub const MaxStoredKeys: u32 = 100;
-	pub const MaxSubscriptions: u32 = 100;
-	pub const MaxPublishers: u32 = 1000;
-}
-
-impl polkadot_runtime_parachains::broadcaster::Config for Runtime {
-	type MaxPublishItems = MaxPublishItems;
-	type MaxKeyLength = MaxKeyLength;
-	type MaxValueLength = MaxValueLength;
-	type MaxStoredKeys = MaxStoredKeys;
-	type MaxSubscriptions = MaxSubscriptions;
-	type MaxPublishers = MaxPublishers;
-}
-
-parameter_types! {
 	pub const ParaDeposit: Balance = 40 * UNITS;
 }
 
@@ -1616,7 +1598,6 @@ construct_runtime! {
 		Auctions: auctions = 72,
 		Crowdloan: crowdloan = 73,
 		Coretime: coretime = 74,
-		Broadcaster: polkadot_runtime_parachains::broadcaster = 75,
 
 		// Migrations pallet
 		MultiBlockMigrations: pallet_migrations = 98,
@@ -2029,7 +2010,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(16)]
+	#[api_version(15)]
 	impl polkadot_primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			parachains_runtime_api_impl::validators::<Runtime>()
@@ -2215,10 +2196,6 @@ sp_api::impl_runtime_apis! {
 
 		fn para_ids() -> Vec<ParaId> {
 			parachains_staging_runtime_api_impl::para_ids::<Runtime>()
-		}
-
-		fn get_subscribed_data(subscriber_para_id: ParaId) -> BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>> {
-			Broadcaster::get_subscribed_data(subscriber_para_id)
 		}
 	}
 
@@ -2705,15 +2682,6 @@ sp_api::impl_runtime_apis! {
 				fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
 					// The XCM executor of Rococo doesn't have a configured `Aliasers`
 					Err(BenchmarkError::Skip)
-				}
-
-				fn publish_origin() -> Result<Location, BenchmarkError> {
-					Ok(AssetHub::get())
-				}
-
-				fn valid_publisher() -> Result<u32, BenchmarkError> {
-					// Use Asset Hub's parachain ID as the publisher
-					Ok(rococo_runtime_constants::system_parachain::ASSET_HUB_ID)
 				}
 			}
 

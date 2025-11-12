@@ -17,9 +17,9 @@
 //! XCM configuration for Rococo.
 
 use super::{
-	parachains_origin, AccountId, AllPalletsWithSystem, Balances, Broadcaster, Dmp, Fellows,
-	ParaId, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, TransactionByteFee, Treasurer,
-	Treasury, WeightToFee, XcmPallet,
+	parachains_origin, AccountId, AllPalletsWithSystem, Balances, Dmp, Fellows, ParaId, Runtime,
+	RuntimeCall, RuntimeEvent, RuntimeOrigin, TransactionByteFee, Treasurer, Treasury,
+	WeightToFee, XcmPallet,
 };
 
 use crate::governance::StakingAdmin;
@@ -42,10 +42,10 @@ use xcm_builder::{
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
 	ChildParachainConvertsVia, DescribeAllTerminal, DescribeFamily, FixedWeightBounds,
 	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsChildSystemParachain,
-	IsConcrete, MintLocation, OriginToPluralityVoice, ParachainBroadcastAdapter,
-	SendXcmFeeToAccount, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
+	IsConcrete, MintLocation, OriginToPluralityVoice, SendXcmFeeToAccount,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
 
@@ -227,7 +227,7 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
 	type XcmRecorder = XcmPallet;
-	type BroadcastHandler = ParachainBroadcastAdapter<OnlyParachains, Broadcaster>;
+	type BroadcastHandler = ();
 }
 
 parameter_types! {

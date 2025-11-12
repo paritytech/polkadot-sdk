@@ -349,41 +349,12 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Minimum execution time: 766_000 picoseconds.
 		Weight::from_parts(807_000, 0)
 	}
-	/// Storage: `Broadcaster::PublisherExists` (r:1 w:1)
-	/// Proof: `Broadcaster::PublisherExists` (`max_values`: None, `max_size`: Some(5), added: 2480, mode: `MaxEncodedLen`)
-	/// Storage: `Broadcaster::PublishedKeys` (r:1 w:1)
-	/// Proof: `Broadcaster::PublishedKeys` (`max_values`: None, `max_size`: Some(3205), added: 5680, mode: `MaxEncodedLen`)
-	/// Storage: `Broadcaster::PublishedDataRoots` (r:1 w:1)
-	/// Proof: `Broadcaster::PublishedDataRoots` (`max_values`: Some(1), `max_size`: Some(32027), added: 32522, mode: `MaxEncodedLen`)
-	/// Storage: UNKNOWN KEY `0x0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e` (r:0 w:1)
-	/// Proof: UNKNOWN KEY `0x0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e` (r:0 w:1)
-	/// Storage: UNKNOWN KEY `0x0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f` (r:0 w:1)
-	/// Proof: UNKNOWN KEY `0x0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f` (r:0 w:1)
-	/// The range of component `n` is `[1, 16]`.
-	pub fn publish(n: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `222`
-		//  Estimated: `38487 + n * (14 ±0)`
-		// Minimum execution time: 18_000_000 picoseconds.
-		Weight::from_parts(15_154_813, 0)
-			.saturating_add(Weight::from_parts(0, 38487))
-			// Standard Error: 6_584
-			.saturating_add(Weight::from_parts(4_663_489, 0).saturating_mul(n.into()))
-			.saturating_add(T::DbWeight::get().reads(3))
-			.saturating_add(T::DbWeight::get().writes(4))
-			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
-			.saturating_add(Weight::from_parts(0, 14).saturating_mul(n.into()))
+	pub fn publish(_n: u32, ) -> Weight {
+		// Template weights, not benchmarked
+		Weight::from_parts(100_000_000, 0)
 	}
-	/// Storage: `Broadcaster::Subscriptions` (r:1 w:1)
-	/// Proof: `Broadcaster::Subscriptions` (`max_values`: None, `max_size`: Some(422), added: 2897, mode: `MaxEncodedLen`)
 	pub fn subscribe() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `217`
-		//  Estimated: `3887`
-		// Minimum execution time: 7_000_000 picoseconds.
-		Weight::from_parts(7_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 3887))
-			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(1))
+		// Template weights, not benchmarked
+		Weight::from_parts(100_000_000, 0)
 	}
 }
