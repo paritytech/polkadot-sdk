@@ -53,6 +53,7 @@ async fn handle_new_finalized_head<P, Block, B, R>(
 	B: Backend<Block>,
 	P: Finalizer<Block, B> + UsageProvider<Block> + BlockchainEvents<Block>,
 {
+	tracing::info!(target: LOG_TARGET, "Moin.");
 	let header = match Block::Header::decode(&mut &finalized_head[..]) {
 		Ok(header) => header,
 		Err(err) => {
@@ -75,9 +76,10 @@ async fn handle_new_finalized_head<P, Block, B, R>(
 	let finality_gap: U256 =
 		chain_info.best_number.saturating_sub(chain_info.finalized_number).into();
 	let finality_gap: u32 = finality_gap.try_into().expect("U256 is always less than u32");
+
 	if finality_gap > SYNC_FINALITY_GAP_THRESHOLD && relay_chain.is_major_syncing().await.unwrap() {
 		tracing::debug!(target: LOG_TARGET, block_hash = ?hash, %finalized_number, best_number = %chain_info.best_number, %finality_gap, "Large gab between best and finalized block, finalizing best block.");
-		if let Err(e) = parachain.finalize_block(chain_info.best_hash, None, true) {
+		if let Err(e) = parachain.finalize_block(chain_info.best_hash, None, false) {
 			tracing::warn!(
 				target: LOG_TARGET,
 				error = ?e,
@@ -94,7 +96,7 @@ async fn handle_new_finalized_head<P, Block, B, R>(
 		relay_chain_para_chain_delta.try_into().expect("U256 is always less than u32");
 	if relay_chain_para_chain_delta > SYNC_FINALITY_GAP_THRESHOLD {
 		tracing::debug!(target: LOG_TARGET, block_hash = ?hash, %finalized_number, best_number = %chain_info.best_number, %relay_chain_para_chain_delta, "Relay chain is far ahead, finalizing best block.");
-		if let Err(e) = parachain.finalize_block(chain_info.best_hash, None, true) {
+		if let Err(e) = parachain.finalize_block(chain_info.best_hash, None, false) {
 			tracing::warn!(
 				target: LOG_TARGET,
 				error = ?e,
@@ -134,10 +136,10 @@ async fn handle_new_finalized_head<P, Block, B, R>(
 /// For every finalized block of the relay chain, it will get the included parachain header
 /// corresponding to `para_id` and will finalize it in the parachain.
 async fn follow_finalized_head<P, Block, B, R>(
-	para_id: ParaId,
+	_para_id: ParaId,
 	parachain: Arc<P>,
 	relay_chain: R,
-	mut finalized_head_stream: Box<impl Stream<Item = Vec<u8>>>,
+	finalized_head_stream: Box<impl Stream<Item = Vec<u8>> + Unpin + Send>,
 ) where
 	Block: BlockT,
 	P: Finalizer<Block, B> + UsageProvider<Block> + BlockchainEvents<Block>,
@@ -151,8 +153,7 @@ async fn follow_finalized_head<P, Block, B, R>(
 	// on a full node can have several minutes delay. With this cache
 	// we have some "memory" of recently finalized blocks.
 	let mut last_seen_finalized_hashes = LruMap::new(ByLength::new(FINALIZATION_CACHE_SIZE));
-	pin_mut!(finalized_head_stream);
-	// let mut finalized_head_stream = finalized_heads;
+	let mut finalized_head_stream = finalized_head_stream.fuse();
 	loop {
 		select! {
 			fin = finalized_head_stream.next() => {
@@ -212,6 +213,7 @@ pub async fn finalized_head_stream_worker<R: RelayChainInterface + Clone>(
 	para_id: ParaId,
 	relay_chain: R,
 ) {
+	tracing::info!("Initializing worker");
 	let finalized_heads = match finalized_heads(relay_chain.clone(), para_id).await {
 		Ok(finalized_heads_stream) => finalized_heads_stream.fuse(),
 		Err(err) => {
@@ -243,7 +245,7 @@ pub async fn run_parachain_consensus<P, R, Block, B>(
 	parachain: Arc<P>,
 	relay_chain: R,
 	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
-	finalized_head_stream: Box<impl Stream<Item = Vec<u8>>>,
+	finalized_head_stream: Box<impl Stream<Item = Vec<u8>> + Unpin + Send>,
 	recovery_chan_tx: Option<Sender<RecoveryRequest<Block>>>,
 ) where
 	Block: BlockT,
@@ -257,6 +259,7 @@ pub async fn run_parachain_consensus<P, R, Block, B>(
 	R: RelayChainInterface + Clone,
 	B: Backend<Block>,
 {
+	tracing::info!("Hello World initializing");
 	let follow_new_best = follow_new_best(
 		para_id,
 		parachain.clone(),

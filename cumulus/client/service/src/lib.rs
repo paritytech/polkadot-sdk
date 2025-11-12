@@ -142,6 +142,7 @@ where
 {
 	let (recovery_chan_tx, recovery_chan_rx) = mpsc::channel(RECOVERY_CHAN_SIZE);
 
+	log::info!("What what ");
 	let (tx, rx) = futures::channel::mpsc::unbounded();
 	let worker = cumulus_client_consensus_common::finalized_head_stream_worker(
 		tx,
