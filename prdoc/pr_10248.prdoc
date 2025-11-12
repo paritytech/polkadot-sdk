@@ -8,6 +8,6 @@ doc:
     - update the corresponding weights
 crates:
 - name: asset-hub-westend-runtime
-  bump: major
+  bump: minor
 - name: pallet-election-provider-multi-block
-  bump: major
+  bump: minor
