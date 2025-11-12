@@ -127,7 +127,8 @@ pub mod traits {
 			fn per_block_start_signed_validation() -> Weight;
 			fn export_non_terminal() -> Weight;
 			fn export_terminal() -> Weight;
-			fn manage() -> Weight;
+			fn admin_set() -> Weight;
+			fn manage_fallback() -> Weight;
 		}
 
 		impl WeightInfo for () {
@@ -149,7 +150,10 @@ pub mod traits {
 			fn export_terminal() -> Weight {
 				Default::default()
 			}
-			fn manage() -> Weight {
+			fn admin_set() -> Weight {
+				Default::default()
+			}
+			fn manage_fallback() -> Weight {
 				Default::default()
 			}
 		}

@@ -1,0 +1,12 @@
+title: 'offchain-worker: Do not intialize the entire `System` again'
+doc:
+- audience: Runtime Dev
+  description: |-
+    When calling `offchain-worker` we were initializing the entire `System` again with the same block we are running on top of. However, with [the change to require strictly increasing block numbers](https://github.com/paritytech/polkadot-sdk/pull/10180) the offchain-worker was failing. This is now solved by just registering the missing digests. The rest of the changes done by `initialize` are not important for offchain workers.
+
+    The pull request ensures that we are actually testing this behavior of the offchain worker now.
+crates:
+- name: frame-executive
+  bump: patch
+- name: frame-system
+  bump: patch

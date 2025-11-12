@@ -217,7 +217,11 @@ pub(crate) mod pallet {
 		fn mutate_checked<R>(mutate: impl FnOnce() -> R) -> R {
 			let r = mutate();
 			#[cfg(debug_assertions)]
-			assert!(Self::sanity_check().is_ok());
+			assert!(Self::sanity_check()
+				.inspect_err(|e| {
+					sublog!(error, "verifier", "sanity check failed: {:?}", e);
+				})
+				.is_ok());
 			r
 		}
 
@@ -319,8 +323,6 @@ pub(crate) mod pallet {
 					ValidSolution::X => QueuedSolutionX::<T>::insert(Self::round(), page, supports),
 					ValidSolution::Y => QueuedSolutionY::<T>::insert(Self::round(), page, supports),
 				}
-
-				// write the score.
 				QueuedSolutionScore::<T>::insert(Self::round(), score);
 			})
 		}

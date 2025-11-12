@@ -201,12 +201,14 @@
 #[cfg(any(feature = "runtime-benchmarks", test))]
 use crate::signed::{CalculateBaseDeposit, CalculatePageDeposit};
 use crate::verifier::AsynchronousVerifier;
+use crate::verifier::Verifier;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{
 	onchain, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
 	InstantElectionProvider,
 };
 use frame_support::{
+	dispatch::PostDispatchInfo,
 	pallet_prelude::*,
 	traits::{Defensive, EnsureOrigin},
 	weights::WeightMeter,
@@ -218,13 +220,12 @@ use sp_arithmetic::{
 	traits::{CheckedAdd, Zero},
 	PerThing, UpperOf,
 };
-use sp_npos_elections::VoteWeight;
+use sp_npos_elections::{EvaluateSupport, VoteWeight};
 use sp_runtime::{
 	traits::{Hash, Saturating},
 	SaturatedConversion,
 };
 use sp_std::{borrow::ToOwned, boxed::Box, prelude::*};
-use verifier::Verifier;
 
 #[cfg(test)]
 mod mock;
@@ -450,7 +451,7 @@ impl<T: Config> From<verifier::FeasibilityError> for ElectionError<T> {
 	}
 }
 
-/// Different operations that the [`Config::AdminOrigin`] can perform on the pallet.
+/// Different operations that only the [`Config::AdminOrigin`] can perform on the pallet.
 #[derive(
 	Encode,
 	Decode,
@@ -465,27 +466,45 @@ impl<T: Config> From<verifier::FeasibilityError> for ElectionError<T> {
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
 pub enum AdminOperation<T: Config> {
-	/// Forcefully go to the next round, starting from the Off Phase.
-	ForceRotateRound,
-	/// Force-set the phase to the given phase.
-	///
-	/// This can have many many combinations, use only with care and sufficient testing.
-	ForceSetPhase(Phase<T>),
 	/// Set the given (single page) emergency solution.
 	///
 	/// Can only be called in emergency phase.
 	EmergencySetSolution(Box<BoundedSupportsOf<Pallet<T>>>, ElectionScore),
-	/// Trigger the (single page) fallback in `instant` mode, with the given parameters, and
-	/// queue it if correct.
-	///
-	/// Can only be called in emergency phase.
-	EmergencyFallback,
 	/// Set the minimum untrusted score. This is directly communicated to the verifier component to
 	/// be taken into account.
 	///
 	/// This is useful in preventing any serious issue where due to a bug we accept a very bad
 	/// solution.
 	SetMinUntrustedScore(ElectionScore),
+}
+
+/// Different operations that the [`Config::ManagerOrigin`] (or [`Config::AdminOrigin`]) can perform
+/// on the pallet.
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	DebugNoBound,
+	CloneNoBound,
+	PartialEqNoBound,
+	EqNoBound,
+)]
+#[codec(mel_bound(T: Config))]
+#[scale_info(skip_type_params(T))]
+pub enum ManagerOperation<T: Config> {
+	/// Forcefully go to the next round, starting from the Off Phase.
+	ForceRotateRound,
+	/// Force-set the phase to the given phase.
+	///
+	/// This can have many many combinations, use only with care and sufficient testing.
+	ForceSetPhase(Phase<T>),
+	/// Trigger the (single page) fallback in `instant` mode, with the given parameters, and
+	/// queue it if correct.
+	///
+	/// Can only be called in emergency phase.
+	EmergencyFallback,
 }
 
 /// Trait to notify other sub-systems that a round has ended.
@@ -591,7 +610,14 @@ pub mod pallet {
 		type Signed: SignedInterface;
 
 		/// The origin that can perform administration operations on this pallet.
+		///
+		/// This is the highest privilege origin of this pallet, and should be configured
+		/// restrictively.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// A less privileged origin than [`Config::AdminOrigin`], that can manage some election
+		/// aspects, without critical power.
+		type ManagerOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// An indicator of whether we should move to do the [`crate::types::Phase::Done`] or not?
 		/// This is called at the end of the election process.
@@ -611,18 +637,18 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Manage this pallet.
 		///
-		/// The origin of this call must be [`Config::AdminOrigin`].
+		/// The origin of this call must be [`Config::ManagerOrigin`].
 		///
-		/// See [`AdminOperation`] for various operations that are possible.
-		#[pallet::weight(T::WeightInfo::manage())]
+		/// See [`ManagerOperation`] for various operations that are possible.
+		#[pallet::weight(T::WeightInfo::manage_fallback().max(T::WeightInfo::export_terminal()))]
 		#[pallet::call_index(0)]
-		pub fn manage(origin: OriginFor<T>, op: AdminOperation<T>) -> DispatchResultWithPostInfo {
-			use crate::verifier::Verifier;
-			use sp_npos_elections::EvaluateSupport;
-
-			let _ = T::AdminOrigin::ensure_origin(origin);
+		pub fn manage(origin: OriginFor<T>, op: ManagerOperation<T>) -> DispatchResultWithPostInfo {
+			T::ManagerOrigin::ensure_origin(origin.clone()).map(|_| ()).or_else(|_| {
+				// try admin origin as well as admin is a superset.
+				T::AdminOrigin::ensure_origin(origin).map(|_| ())
+			})?;
 			match op {
-				AdminOperation::EmergencyFallback => {
+				ManagerOperation::EmergencyFallback => {
 					ensure!(Self::current_phase() == Phase::Emergency, Error::<T>::UnexpectedPhase);
 					// note: for now we run this on the msp, but we can make it configurable if need
 					// be.
@@ -641,25 +667,47 @@ pub mod pallet {
 					})?;
 					let score = fallback.evaluate();
 					T::Verifier::force_set_single_page_valid(fallback, 0, score);
-					Ok(().into())
+					Ok(PostDispatchInfo {
+						actual_weight: Some(T::WeightInfo::manage_fallback()),
+						pays_fee: Pays::No,
+					})
 				},
+				ManagerOperation::ForceSetPhase(phase) => {
+					Self::phase_transition(phase);
+					Ok(PostDispatchInfo {
+						actual_weight: Some(T::DbWeight::get().reads_writes(1, 1)),
+						pays_fee: Pays::No,
+					})
+				},
+				ManagerOperation::ForceRotateRound => {
+					Self::rotate_round();
+					Ok(PostDispatchInfo {
+						actual_weight: Some(T::WeightInfo::export_terminal()),
+						pays_fee: Pays::No,
+					})
+				},
+			}
+		}
+
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::WeightInfo::admin_set())]
+		pub fn admin(origin: OriginFor<T>, op: AdminOperation<T>) -> DispatchResultWithPostInfo {
+			T::AdminOrigin::ensure_origin(origin)?;
+			match op {
 				AdminOperation::EmergencySetSolution(supports, score) => {
 					ensure!(Self::current_phase() == Phase::Emergency, Error::<T>::UnexpectedPhase);
-					// TODO: hardcoding zero here doesn't make a lot of sense
 					T::Verifier::force_set_single_page_valid(*supports, 0, score);
-					Ok(().into())
-				},
-				AdminOperation::ForceSetPhase(phase) => {
-					Self::phase_transition(phase);
-					Ok(().into())
-				},
-				AdminOperation::ForceRotateRound => {
-					Self::rotate_round();
-					Ok(().into())
+					Ok(PostDispatchInfo {
+						actual_weight: Some(T::WeightInfo::admin_set()),
+						pays_fee: Pays::No,
+					})
 				},
 				AdminOperation::SetMinUntrustedScore(score) => {
 					T::Verifier::set_minimum_score(score);
-					Ok(().into())
+					Ok(PostDispatchInfo {
+						actual_weight: Some(T::DbWeight::get().reads_writes(1, 1)),
+						pays_fee: Pays::No,
+					})
 				},
 			}
 		}
@@ -1707,11 +1755,17 @@ where
 
 	pub(crate) fn roll_to_signed_and_mine_full_solution() -> PagedRawSolution<T::MinerConfig> {
 		use unsigned::miner::OffchainWorkerMiner;
+		Self::roll_to_signed_and_mine_solution(T::Pages::get())
+	}
+
+	pub(crate) fn roll_to_signed_and_mine_solution(
+		pages: PageIndex,
+	) -> PagedRawSolution<T::MinerConfig> {
+		use unsigned::miner::OffchainWorkerMiner;
 		Self::roll_until_matches(|| Self::current_phase().is_signed());
 		// ensure snapshot is full.
 		crate::Snapshot::<T>::ensure_full_snapshot().expect("Snapshot is not full");
-		OffchainWorkerMiner::<T>::mine_solution(T::Pages::get(), false)
-			.expect("mine_solution failed")
+		OffchainWorkerMiner::<T>::mine_solution(pages, false).expect("mine_solution failed")
 	}
 
 	pub(crate) fn submit_full_solution(
@@ -1918,6 +1972,7 @@ mod phase_rotation {
 	use super::{Event, *};
 	use crate::{mock::*, Phase};
 	use frame_election_provider_support::ElectionProvider;
+	use frame_support::assert_ok;
 
 	#[test]
 	fn single_page() {
@@ -3054,15 +3109,183 @@ mod election_provider {
 }
 
 #[cfg(test)]
+mod manage_ops {
+	use super::*;
+	use crate::mock::*;
+
+	#[test]
+	fn trigger_fallback_works() {
+		ExtBuilder::full()
+			.fallback_mode(FallbackModes::Emergency)
+			.build_and_execute(|| {
+				roll_to_signed_open();
+
+				// bad origin cannot call
+				assert_noop!(
+					MultiBlock::manage(
+						RuntimeOrigin::signed(Manager::get() + 1),
+						ManagerOperation::EmergencyFallback
+					),
+					DispatchError::BadOrigin
+				);
+
+				// we get a call to elect(0). this will cause emergency, since no fallback is
+				// allowed.
+				assert_eq!(
+					MultiBlock::elect(0),
+					Err(ElectionError::Fallback("Emergency phase started.".to_string()))
+				);
+				assert_eq!(MultiBlock::current_phase(), Phase::Emergency);
+
+				// we can now set the solution to emergency, assuming fallback is set to onchain
+				FallbackMode::set(FallbackModes::Onchain);
+				assert_ok!(MultiBlock::manage(
+					RuntimeOrigin::signed(Manager::get()),
+					ManagerOperation::EmergencyFallback
+				));
+
+				assert_eq!(MultiBlock::current_phase(), Phase::Emergency);
+				assert_ok!(MultiBlock::elect(0));
+				assert_eq!(MultiBlock::current_phase(), Phase::Off);
+
+				assert_eq!(
+					multi_block_events(),
+					vec![
+						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
+						Event::PhaseTransitioned {
+							from: Phase::Snapshot(0),
+							to: Phase::Signed(SignedPhase::get() - 1)
+						},
+						Event::PhaseTransitioned {
+							from: Phase::Signed(SignedPhase::get() - 1),
+							to: Phase::Emergency
+						},
+						Event::PhaseTransitioned { from: Phase::Emergency, to: Phase::Off }
+					]
+				);
+				assert_eq!(
+					verifier_events(),
+					vec![verifier::Event::Queued(
+						ElectionScore { minimal_stake: 15, sum_stake: 40, sum_stake_squared: 850 },
+						None
+					)]
+				);
+			})
+	}
+
+	// This scenario have multiple outcomes:
+	// 1. rotate in off => almost a noop
+	// 2. rotate mid signed, validation, unsigned, done, but NOT export => clear all data, move to
+	//    next round and be off. Note: all of the data in this pallet is indexed by the round index,
+	//    so moving to the next round will implicitly make the old data unavaioable, even if not
+	//    cleared out. This secnario needs further testing.
+	// 3. rotate mid export: same as above, except staking will be out of sync and will also need
+	//    governance intervention.
+	//
+	// This test is primarily checking the origin limits of this call, and will use scenario 2.
+	#[test]
+	fn force_rotate_round() {
+		ExtBuilder::full().build_and_execute(|| {
+			roll_to_signed_open();
+			let round = MultiBlock::round();
+			let paged =
+				unsigned::miner::OffchainWorkerMiner::<Runtime>::mine_solution(Pages::get(), false)
+					.unwrap();
+			load_signed_for_verification_and_start_and_roll_to_verified(99, paged, 0);
+
+			// we have snapshot data now for this round.
+			assert_full_snapshot();
+			// there is some data in the verifier pallet
+			assert!(verifier::QueuedSolution::<T>::queued_score().is_some());
+			// phase is
+			assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(2));
+
+			// force new round
+
+			// bad origin cannot submit
+			assert_noop!(
+				MultiBlock::manage(
+					RuntimeOrigin::signed(Manager::get() + 1),
+					ManagerOperation::ForceRotateRound
+				),
+				DispatchError::BadOrigin
+			);
+			// manager can submit
+			assert_ok!(MultiBlock::manage(
+				RuntimeOrigin::signed(Manager::get()),
+				ManagerOperation::ForceRotateRound
+			));
+
+			// phase is off again
+			assert_eq!(MultiBlock::current_phase(), Phase::Off);
+			// round is bumped
+			assert_eq!(MultiBlock::round(), round + 1);
+			// snapshot is wiped
+			assert_none_snapshot();
+			// verifier is in clean state
+			verifier::QueuedSolution::<T>::assert_killed();
+		});
+	}
+
+	#[test]
+	fn force_set_phase() {
+		ExtBuilder::full().build_and_execute(|| {
+			roll_to_signed_open();
+			assert_eq!(MultiBlock::current_phase(), Phase::Signed(SignedPhase::get() - 1));
+
+			// bad origin cannot submit
+			assert_noop!(
+				MultiBlock::manage(
+					RuntimeOrigin::signed(Manager::get() + 1),
+					ManagerOperation::ForceSetPhase(Phase::Done)
+				),
+				DispatchError::BadOrigin
+			);
+
+			// manager can submit. They skip the signed phases.
+			assert_ok!(MultiBlock::manage(
+				RuntimeOrigin::signed(Manager::get()),
+				ManagerOperation::ForceSetPhase(Phase::Unsigned(UnsignedPhase::get() - 1))
+			));
+
+			assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(UnsignedPhase::get() - 1));
+
+			// admin can also submit
+			assert_ok!(MultiBlock::manage(
+				RuntimeOrigin::root(),
+				ManagerOperation::ForceSetPhase(Phase::Unsigned(UnsignedPhase::get() - 2))
+			));
+			assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(UnsignedPhase::get() - 2));
+		});
+	}
+}
+#[cfg(test)]
 mod admin_ops {
 	use super::*;
 	use crate::mock::*;
-	use frame_support::assert_ok;
 
 	#[test]
 	fn set_solution_emergency_works() {
 		ExtBuilder::full().build_and_execute(|| {
 			roll_to_signed_open();
+
+			// bad origin cannot call
+			assert_noop!(
+				MultiBlock::admin(
+					RuntimeOrigin::signed(Manager::get() + 1),
+					AdminOperation::EmergencySetSolution(Default::default(), Default::default())
+				),
+				DispatchError::BadOrigin
+			);
+
+			// manager (non-root) cannot call
+			assert_noop!(
+				MultiBlock::admin(
+					RuntimeOrigin::signed(Manager::get()),
+					AdminOperation::EmergencySetSolution(Default::default(), Default::default())
+				),
+				DispatchError::BadOrigin
+			);
 
 			// we get a call to elect(0). this will cause emergency, since no fallback is allowed.
 			assert_eq!(
@@ -3073,7 +3296,7 @@ mod admin_ops {
 
 			// we can now set the solution to emergency.
 			let (emergency, score) = emergency_solution();
-			assert_ok!(MultiBlock::manage(
+			assert_ok!(MultiBlock::admin(
 				RuntimeOrigin::root(),
 				AdminOperation::EmergencySetSolution(Box::new(emergency), score)
 			));
@@ -3108,69 +3331,34 @@ mod admin_ops {
 	}
 
 	#[test]
-	fn trigger_fallback_works() {
-		ExtBuilder::full()
-			.fallback_mode(FallbackModes::Emergency)
-			.build_and_execute(|| {
-				roll_to_signed_open();
-
-				// we get a call to elect(0). this will cause emergency, since no fallback is
-				// allowed.
-				assert_eq!(
-					MultiBlock::elect(0),
-					Err(ElectionError::Fallback("Emergency phase started.".to_string()))
-				);
-				assert_eq!(MultiBlock::current_phase(), Phase::Emergency);
-
-				// we can now set the solution to emergency, assuming fallback is set to onchain
-				FallbackMode::set(FallbackModes::Onchain);
-				assert_ok!(MultiBlock::manage(
-					RuntimeOrigin::root(),
-					AdminOperation::EmergencyFallback
-				));
-
-				assert_eq!(MultiBlock::current_phase(), Phase::Emergency);
-				assert_ok!(MultiBlock::elect(0));
-				assert_eq!(MultiBlock::current_phase(), Phase::Off);
-
-				assert_eq!(
-					multi_block_events(),
-					vec![
-						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
-						Event::PhaseTransitioned {
-							from: Phase::Snapshot(0),
-							to: Phase::Signed(SignedPhase::get() - 1)
-						},
-						Event::PhaseTransitioned {
-							from: Phase::Signed(SignedPhase::get() - 1),
-							to: Phase::Emergency
-						},
-						Event::PhaseTransitioned { from: Phase::Emergency, to: Phase::Off }
-					]
-				);
-				assert_eq!(
-					verifier_events(),
-					vec![verifier::Event::Queued(
-						ElectionScore { minimal_stake: 15, sum_stake: 40, sum_stake_squared: 850 },
-						None
-					)]
-				);
-			})
-	}
-
-	#[test]
-	#[should_panic]
-	fn force_rotate_round() {
-		// clears the snapshot and verifier data.
-		// leaves the signed data as is since we bump the round.
-		todo!();
-	}
-
-	#[test]
 	fn set_minimum_solution_score() {
 		ExtBuilder::full().build_and_execute(|| {
+			// bad origin cannot call
+			assert_noop!(
+				MultiBlock::admin(
+					RuntimeOrigin::signed(Manager::get() + 1),
+					AdminOperation::SetMinUntrustedScore(ElectionScore {
+						minimal_stake: 100,
+						..Default::default()
+					})
+				),
+				DispatchError::BadOrigin
+			);
+
+			// manager cannot call, only admin.
+			assert_noop!(
+				MultiBlock::admin(
+					RuntimeOrigin::signed(Manager::get()),
+					AdminOperation::SetMinUntrustedScore(ElectionScore {
+						minimal_stake: 100,
+						..Default::default()
+					})
+				),
+				DispatchError::BadOrigin
+			);
+
 			assert_eq!(VerifierPallet::minimum_score(), None);
-			assert_ok!(MultiBlock::manage(
+			assert_ok!(MultiBlock::admin(
 				RuntimeOrigin::root(),
 				AdminOperation::SetMinUntrustedScore(ElectionScore {
 					minimal_stake: 100,

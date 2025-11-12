@@ -16,7 +16,6 @@
 // limitations under the License.
 
 #![cfg(test)]
-
 use crate::{
 	exec::{AccountIdOf, ExecError, Ext, Key, Origin, PrecompileExt, PrecompileWithInfoExt},
 	gas::GasMeter,
@@ -140,7 +139,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::block_hash")
 	}
 
-	fn block_author(&self) -> Option<H160> {
+	fn block_author(&self) -> H160 {
 		panic!("MockExt::block_author")
 	}
 
@@ -150,10 +149,6 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 
 	fn chain_id(&self) -> u64 {
 		panic!("MockExt::chain_id")
-	}
-
-	fn max_value_size(&self) -> u32 {
-		panic!("MockExt::max_value_size")
 	}
 
 	fn gas_meter(&self) -> &GasMeter<Self::T> {
@@ -194,6 +189,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::is_read_only")
 	}
 
+	fn is_delegate_call(&self) -> bool {
+		panic!("MockExt::is_delegate_call")
+	}
+
 	fn last_frame_output(&self) -> &ExecReturnValue {
 		panic!("MockExt::last_frame_output")
 	}
@@ -206,6 +205,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::copy_code_slice")
 	}
 
+	fn terminate_caller(&mut self, _beneficiary: &H160) -> Result<(), DispatchError> {
+		panic!("MockExt::terminate_caller")
+	}
+
 	fn to_account_id(&self, _address: &H160) -> AccountIdOf<Self::T> {
 		panic!("MockExt::to_account_id")
 	}
@@ -213,9 +216,11 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 	fn effective_gas_price(&self) -> U256 {
 		panic!("MockExt::effective_gas_price")
 	}
-}
 
-impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
+	fn gas_left(&self) -> u64 {
+		panic!("MockExt::gas_left")
+	}
+
 	fn get_storage(&mut self, _key: &Key) -> Option<Vec<u8>> {
 		panic!("MockExt::get_storage")
 	}
@@ -234,7 +239,9 @@ impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
 	}
 
 	fn charge_storage(&mut self, _diff: &Diff) {}
+}
 
+impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
 	fn instantiate(
 		&mut self,
 		_gas_limit: Weight,
@@ -259,8 +266,8 @@ impl<T: Config> Ext for MockExt<T> {
 		panic!("MockExt::delegate_call")
 	}
 
-	fn terminate(&mut self, _beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
-		panic!("MockExt::terminate")
+	fn terminate_if_same_tx(&mut self, _beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
+		panic!("MockExt::terminate_if_same_tx")
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {

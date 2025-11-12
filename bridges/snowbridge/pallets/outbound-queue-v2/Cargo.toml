@@ -35,7 +35,6 @@ sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 
 bp-relayers = { workspace = true }
-bridge-hub-common = { workspace = true }
 
 snowbridge-beacon-primitives = { workspace = true }
 snowbridge-core = { workspace = true }
@@ -56,7 +55,6 @@ default = ["std"]
 std = [
 	"alloy-core/std",
 	"bp-relayers/std",
-	"bridge-hub-common/std",
 	"codec/std",
 	"ethabi/std",
 	"frame-benchmarking/std",
@@ -80,7 +78,6 @@ std = [
 	"xcm/std",
 ]
 runtime-benchmarks = [
-	"bridge-hub-common/runtime-benchmarks",
 	"frame-benchmarking",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
