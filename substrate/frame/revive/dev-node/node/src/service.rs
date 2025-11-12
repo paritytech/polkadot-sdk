@@ -109,7 +109,7 @@ fn create_timestamp_provider(
 			}
 
 			// Priority 3: Fall back to auto-increment logic
-			let default_delta = 1000; // Default to 6 second
+			let default_delta = 1000; // Default to 1 second
 			let next_timestamp =
 				NEXT_TIMESTAMP.fetch_add(default_delta, Ordering::SeqCst) + default_delta;
 			Ok(sp_timestamp::InherentDataProvider::new(next_timestamp.into()))
