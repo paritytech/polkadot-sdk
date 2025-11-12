@@ -335,7 +335,7 @@ async fn run_all_eth_rpc_tests() -> anyhow::Result<()> {
 		test_runtime_pallets_address_upload_code,
 	);
 
-	log::info!(target: LOG_TARGET, "All tests completed successfully!");
+	log::debug!(target: LOG_TARGET, "All tests completed successfully!");
 	Ok(())
 }
 
