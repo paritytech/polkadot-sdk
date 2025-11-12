@@ -37,7 +37,7 @@ use pallet_revive::{
 		HashesOrTransactionInfos, TransactionInfo, H256, U256,
 	},
 };
-use std::{collections::BTreeMap, sync::Arc, thread};
+use std::{sync::Arc, thread};
 use subxt::{
 	backend::rpc::RpcClient,
 	ext::subxt_rpcs::rpc_params,
