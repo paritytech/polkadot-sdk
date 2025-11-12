@@ -1481,7 +1481,7 @@ pub mod pallet {
 			})?;
 			let fee_asset_id: AssetId = (*fee_asset_id).try_into().map_err(|()| {
 				tracing::debug!(
-					target: "xcm::pallet_xcm::do_teleport_assets",
+					target: "xcm::pallet_xcm::transfer_assets",
 					"Failed to convert VersionedAssetId",
 				);
 				Error::<T>::BadVersion
@@ -2063,7 +2063,7 @@ impl<T: Config> Pallet<T> {
 		})?;
 		let fee_asset_id: AssetId = (*fee_asset_id).try_into().map_err(|()| {
 			tracing::debug!(
-				target: "xcm::pallet_xcm::do_teleport_assets",
+				target: "xcm::pallet_xcm::do_reserve_transfer_assets",
 				"Failed to convert VersionedAssetId",
 			);
 			Error::<T>::BadVersion
