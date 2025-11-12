@@ -1278,4 +1278,9 @@ mod poll_operations {
 			assert!(pallet_staking_async_rc_client::OutgoingValidatorSet::<T>::get().is_some());
 		})
 	}
+
+	#[test]
+	fn slashing_processing_while_election() {
+		// This is merely a more realistic example of the above. As staking is ready to receive the election result, an ongoing slash will cause too much weight to be consumed on-initialize, causing not enough weight in the on-poll to process. Everything works as expected, but we get a bit slow.
+	}
 }

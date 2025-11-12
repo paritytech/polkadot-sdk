@@ -273,14 +273,12 @@ pub mod session_mock {
 		pub fn roll_next() {
 			let now = System::block_number();
 			Timestamp::mutate(|ts| *ts += BLOCK_TIME);
-
 			System::set_block_number(now + 1);
 			<AllPalletsWithSystem as OnInitialize<BlockNumber>>::on_initialize(now + 1);
 			<AllPalletsWithSystem as OnPoll<BlockNumber>>::on_poll(
 				now + 1,
 				&mut WeightMeter::new(),
 			);
-			// System::run_to_block::<AllPalletsWithSystem>(now + 1);
 			Self::maybe_rotate_session_now();
 		}
 

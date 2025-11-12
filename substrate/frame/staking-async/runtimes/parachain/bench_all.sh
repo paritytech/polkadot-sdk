@@ -1,8 +1,8 @@
 # run this, then copy all files to `substrate/frame/election-provider-multi-block/src/weights/`
 source ~/.zshrc
 
-STEPS=20
-REPEAT=20
+STEPS=2
+REPEAT=22
 
 # if any of the command line arguments are equal to `--log=X`, set X to the below log levels
 LOG="runtime::multiblock-election=info,runtime::staking-async=info,frame::benchmark=info"
@@ -41,14 +41,14 @@ run_benchmark() {
     --output "$output_file"
 }
 
-# run_benchmark "pallet_staking_async" "fake-dot"
+run_benchmark "pallet_staking_async" "fake-dot"
 run_benchmark "pallet_election_provider_multi_block" "fake-dot"
-# run_benchmark "pallet_election_provider_multi_block_signed" "fake-dot"
-# run_benchmark "pallet_election_provider_multi_block_unsigned" "fake-dot"
-# run_benchmark "pallet_election_provider_multi_block_verifier" "fake-dot"
+run_benchmark "pallet_election_provider_multi_block_signed" "fake-dot"
+run_benchmark "pallet_election_provider_multi_block_unsigned" "fake-dot"
+run_benchmark "pallet_election_provider_multi_block_verifier" "fake-dot"
 
-# run_benchmark "pallet_staking_async" "fake-ksm"
-# run_benchmark "pallet_election_provider_multi_block" "fake-ksm"
-# run_benchmark "pallet_election_provider_multi_block_signed" "fake-ksm"
-# run_benchmark "pallet_election_provider_multi_block_unsigned" "fake-ksm"
-# run_benchmark "pallet_election_provider_multi_block_verifier" "fake-ksm"
+run_benchmark "pallet_staking_async" "fake-ksm"
+run_benchmark "pallet_election_provider_multi_block" "fake-ksm"
+run_benchmark "pallet_election_provider_multi_block_signed" "fake-ksm"
+run_benchmark "pallet_election_provider_multi_block_unsigned" "fake-ksm"
+run_benchmark "pallet_election_provider_multi_block_verifier" "fake-ksm"

@@ -2706,8 +2706,11 @@ fn ensure_epmb_weights_sane() {
 	sp_tracing::try_init_simple();
 	TestExternalities::default().execute_with(|| {
 		pallet_election_provider_multi_block::Pallet::<Runtime>::check_all_weights(
+			// of the max block weights..
 			<Runtime as frame_system::Config>::BlockWeights::get().max_block,
+			// more than 75% is a hard stop..
 			Some(Percent::from_percent(75)),
+			// and more than 50% a warning.
 			Some(Percent::from_percent(50)),
 		)
 	});
