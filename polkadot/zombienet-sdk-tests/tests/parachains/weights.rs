@@ -247,7 +247,8 @@ async fn setup_accounts(
 		}
 		if !is_caller_mapped {
 			is_caller_mapped = true;
-			let signed_tx = client.tx().create_signed(map_call, caller, tx_params(caller_nonce)).await?;
+			let signed_tx =
+				client.tx().create_signed(map_call, caller, tx_params(caller_nonce)).await?;
 			mappings.push(signed_tx);
 		}
 		submit_txs(mappings).await?;
