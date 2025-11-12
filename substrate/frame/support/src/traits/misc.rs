@@ -1255,6 +1255,11 @@ pub trait RewardsReporter<ValidatorId> {
 	fn reward_by_ids(validators_points: impl IntoIterator<Item = (ValidatorId, u32)>);
 }
 
+impl RewardsReporter<sp_runtime::AccountId32> for () {
+	fn reward_by_ids(_validators_points: impl IntoIterator<Item=(sp_runtime::AccountId32, u32)>) {
+		// do nothing
+	}
+}
 #[cfg(test)]
 mod test {
 	use super::*;
