@@ -322,7 +322,7 @@ fn report_equivocation_current_set_works() {
 	let authorities = test_authorities();
 
 	new_test_ext_raw_authorities(authorities).execute_with(|| {
-		assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(0));
+		assert_eq!(pallet_staking::ActiveEra::<Test>::get().unwrap().index, 0);
 		assert_eq!(Session::current_index(), 0);
 
 		start_era(1);
@@ -374,7 +374,7 @@ fn report_equivocation_current_set_works() {
 		assert_eq!(Balances::total_balance(&equivocation_validator_id), 10_000_000 - 10_000);
 		assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
 		assert_eq!(
-			Staking::eras_stakers(2, &equivocation_validator_id),
+			Staking::eras_stakers(3, &equivocation_validator_id),
 			pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
 		);
 
@@ -453,7 +453,7 @@ fn report_equivocation_old_set_works() {
 		assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
 
 		assert_eq!(
-			Staking::eras_stakers(3, &equivocation_validator_id),
+			Staking::eras_stakers(4, &equivocation_validator_id),
 			pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
 		);
 
