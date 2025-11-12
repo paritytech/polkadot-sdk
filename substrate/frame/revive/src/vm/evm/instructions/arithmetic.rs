@@ -122,7 +122,7 @@ pub fn exp<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 		return ControlFlow::Break(Error::<E::T>::OutOfGas.into());
 	};
 	interpreter.ext.charge_or_halt(EVMGas(gas_cost))?;
-	*op2 = op1.pow(*op2);
+	*op2 = op1.overflowing_pow(*op2).0;
 	ControlFlow::Continue(())
 }
 

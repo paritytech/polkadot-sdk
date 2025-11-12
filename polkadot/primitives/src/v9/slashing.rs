@@ -72,6 +72,21 @@ pub struct DisputeProof {
 
 /// Slashes that are waiting to be applied once we have validator key
 /// identification.
+///
+/// Legacy version. We need to keep this around for backwards compatibility.
+/// Once old nodes are no longer supported, we can remove it along with the
+/// `UnappliedSlashes` runtime API.
+#[derive(Encode, Decode, TypeInfo, Debug, Clone)]
+pub struct LegacyPendingSlashes {
+	/// Indices and keys of the validators who lost a dispute and are pending
+	/// slashes.
+	pub keys: BTreeMap<ValidatorIndex, ValidatorId>,
+	/// The dispute outcome.
+	pub kind: SlashingOffenceKind,
+}
+
+/// Slashes that are waiting to be applied once we have validator key
+/// identification.
 #[derive(Encode, Decode, TypeInfo, Debug, Clone)]
 pub struct PendingSlashes {
 	/// Indices and keys of the validators who lost a dispute and are pending
