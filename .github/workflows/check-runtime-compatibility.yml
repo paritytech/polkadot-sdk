@@ -24,7 +24,7 @@ jobs:
 
   check-runtime-compatibility:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    # if: ${{ needs.preflight.outputs.changes_rust }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     timeout-minutes: 30
     needs: [preflight]
     container:
