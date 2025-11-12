@@ -43,7 +43,10 @@ use sc_network::ProtocolName;
 use crate::{
 	error::{FatalError, Result},
 	metrics::{Metrics, FAILED, SUCCEEDED},
-	requester::session_cache::{BadValidators, SessionInfo},
+	requester::{
+		session_cache::{BadValidators, SessionInfo},
+		CoreInfo,
+	},
 	LOG_TARGET,
 };
 
@@ -145,7 +148,7 @@ impl FetchTaskConfig {
 	/// The result of this function can be passed into [`FetchTask::start`].
 	pub fn new(
 		leaf: Hash,
-		core: &OccupiedCore,
+		core: &CoreInfo,
 		sender: mpsc::Sender<FromFetchTask>,
 		metrics: Metrics,
 		session_info: &SessionInfo,
@@ -170,8 +173,8 @@ impl FetchTaskConfig {
 				candidate_hash: core.candidate_hash,
 				index: session_info.our_index,
 			},
-			erasure_root: core.candidate_descriptor.erasure_root(),
-			relay_parent: core.candidate_descriptor.relay_parent(),
+			erasure_root: core.erasure_root,
+			relay_parent: core.relay_parent,
 			metrics,
 			sender,
 			chunk_index,
@@ -310,15 +313,48 @@ impl RunningTask {
 				},
 			};
 
+			gum::info!(
+				target: LOG_TARGET,
+				validator = ?validator,
+				relay_parent = ?self.relay_parent,
+				group_index = ?self.group_index,
+				session_index = ?self.session_index,
+				chunk_index = ?self.request.index,
+				candidate_hash = ?self.request.candidate_hash,
+				"Received erasure chunk from validator",
+			);
+
 			// Data genuine?
 			if !self.validate_chunk(&validator, &chunk, self.chunk_index) {
 				bad_validators.push(validator);
 				continue
 			}
 
+			gum::info!(
+				target: LOG_TARGET,
+				validator = ?validator,
+				relay_parent = ?self.relay_parent,
+				group_index = ?self.group_index,
+				session_index = ?self.session_index,
+				chunk_index = ?self.request.index,
+				candidate_hash = ?self.request.candidate_hash,
+				"Erasure chunk validated successfully",
+			);
+
 			// Ok, let's store it and be happy:
 			self.store_chunk(chunk).await;
 			succeeded = true;
+
+			gum::info!(
+				target: LOG_TARGET,
+				validator = ?validator,
+				relay_parent = ?self.relay_parent,
+				group_index = ?self.group_index,
+				session_index = ?self.session_index,
+				chunk_index = ?self.request.index,
+				candidate_hash = ?self.request.candidate_hash,
+				"Erasure chunk stored successfully",
+			);
 			break
 		}
 		if succeeded {

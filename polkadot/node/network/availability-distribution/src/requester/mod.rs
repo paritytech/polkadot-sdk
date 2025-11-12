@@ -31,16 +31,20 @@ use futures::{
 
 use polkadot_node_network_protocol::request_response::{v1, v2, IsRequest, ReqProtocolNames};
 use polkadot_node_subsystem::{
-	messages::{ChainApiMessage, RuntimeApiMessage},
+	messages::{ChainApiMessage, RuntimeApiMessage, CandidateBackingMessage},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate,
+	SubsystemSender,
 };
 use polkadot_node_subsystem_util::{
 	availability_chunks::availability_chunk_index,
 	runtime::{get_occupied_cores, RuntimeInfo},
+	request_availability_cores,
+	request_backable_candidates,
+	request_validator_groups,
 };
-use polkadot_primitives::{CandidateHash, CoreIndex, Hash, OccupiedCore, SessionIndex};
+use polkadot_primitives::{BackedCandidate, CandidateHash, CoreIndex, GroupIndex, Hash, OccupiedCore, SessionIndex};
 
-use super::{FatalError, Metrics, Result, LOG_TARGET};
+use super::{FatalError, Metrics, Result, LOG_TARGET, error::Error};
 
 #[cfg(test)]
 mod tests;
@@ -52,6 +56,22 @@ use session_cache::SessionCache;
 /// A task fetching a particular chunk.
 mod fetch_task;
 use fetch_task::{FetchTask, FetchTaskConfig, FromFetchTask};
+
+/// A compact representation of a parachain candidate core's essential information,
+/// used to streamline chunk-fetching tasks. This structure normalizes data from both
+/// occupied and scheduled cores into a unified format containing only the fields
+/// necessary for chunk fetching and validation.
+#[derive(Debug, Clone)]
+struct CoreInfo {
+	/// The candidate hash.
+	candidate_hash: CandidateHash,
+	/// The relay parent of the candidate.
+	relay_parent: Hash,
+	/// The root hash of the erasure coded chunks for the candidate.
+	erasure_root: Hash,
+	/// The group index of the group responsible for the candidate.
+	group_responsible: GroupIndex,
+}
 
 /// Requester takes care of requesting erasure chunks from backing groups and stores them in the
 /// av store.
@@ -144,14 +164,134 @@ impl Requester {
 		)
 		.await?;
 
+		let mut scheduled_cores = Vec::new(); 
 		// Also spawn or bump tasks for candidates in ancestry in the same session.
 		for hash in std::iter::once(leaf).chain(ancestors_in_session) {
+			if hash == leaf {
+				let sender = &mut ctx.sender().clone();
+
+				// 	let bitfields = select_availability
+				let availability_cores = request_availability_cores(leaf, sender)
+					.await
+					.await;
+
+				if availability_cores.is_err() {
+					return Err(Error::NoSuchPoV)
+				}
+
+				let cores = availability_cores.unwrap().unwrap();
+
+				// let bitfields = select_availability_bitfields(&availability_cores, bitfields, &leaf.hash);
+				let backable_candidates = request_backable_candidates(&cores, None, &new_head, sender).await;
+
+				if backable_candidates.is_err() {
+					return Err(Error::NoSuchPoV)
+				}
+
+				let backable = backable_candidates.unwrap();
+				
+				gum::info!(
+					target: LOG_TARGET,
+					backable = ?backable,
+					"Backable candidates"
+				);
+
+				let sender = &mut ctx.sender().clone();
+				// now get the backed candidates corresponding to these candidate receipts
+				let (tx, rx) = oneshot::channel();
+				sender.send_message(CandidateBackingMessage::GetBackableCandidates(
+					backable.clone(),
+					tx,
+				)).await;
+
+				let candidates = rx.await;
+				if candidates.is_err() {
+					return Err(Error::NoSuchPoV)
+				}
+
+				let unwrapped = candidates.unwrap();
+				gum::info!(
+					target: LOG_TARGET,
+					leaf_hash=?leaf,
+					candidates=?unwrapped,
+					"Got {} backed candidates", unwrapped.len()
+				);
+
+				// Process candidates and collect cores
+				// let mut scheduled_cores = Vec::new();
+				for (para_id, candidates) in unwrapped.iter() {
+					for candidate in candidates {
+						let (_, core_index) = candidate.validator_indices_and_core_index();
+						let Some(core_index) = core_index else { continue };
+
+						let receipt = candidate.candidate();
+
+						gum::info!(
+							target: LOG_TARGET,
+							para_id = ?para_id,
+							candidate_hash = ?receipt.hash(),
+							core_index = ?core_index,
+							"Scheduling candidate for core"
+						);
+
+						let group_responsible = get_group_index_for_backed_candidate(candidate, leaf, sender).await?;
+
+						let core = (
+							core_index,
+							CoreInfo {
+								candidate_hash: receipt.hash(),
+								relay_parent: receipt.descriptor.relay_parent(),
+								erasure_root: receipt.descriptor.erasure_root(),
+								group_responsible: group_responsible,
+							},
+						);
+						gum::info!(
+							target: LOG_TARGET,
+							?core,
+							"Scheduled core info"
+						);
+						scheduled_cores.push(core);
+					}
+				}
+			}
+			
 			let cores = get_occupied_cores(sender, hash).await?;
 			gum::trace!(
 				target: LOG_TARGET,
 				occupied_cores = ?cores,
 				"Query occupied core"
 			);
+
+			let cores = cores
+				.into_iter()
+				.map(|(index, occ)| {
+					gum::info!(
+						target: LOG_TARGET,
+						index = ?index,
+						candidate_hash = ?occ.candidate_hash,
+						next_up_on_available = ?occ.next_up_on_available,
+						leaf = ?leaf,
+						"Scheduled parachain candidate"
+					);
+
+					let core = (
+						index,
+						CoreInfo {
+							candidate_hash: occ.candidate_hash,
+							relay_parent: occ.candidate_descriptor.relay_parent(),
+							erasure_root: occ.candidate_descriptor.erasure_root(),
+							group_responsible: occ.group_responsible,
+						},
+					);
+					gum::info!(
+						target: LOG_TARGET,
+						?core,
+						"Occupied core info"
+					);
+					core
+				})
+				.collect::<Vec<_>>();
+
 			// Important:
 			// We mark the whole ancestry as live in the **leaf** hash, so we don't need to track
 			// any tasks separately.
@@ -161,6 +301,14 @@ impl Requester {
 			// leaf being deactivated.
 			self.add_cores(ctx, runtime, leaf, leaf_session_index, cores).await?;
 		}
+		if scheduled_cores.len() > 0 {
+			gum::info!(
+				target: LOG_TARGET,
+				?scheduled_cores,
+				"Adding scheduled cores"
+			);
+			self.add_cores(ctx, runtime, leaf, leaf_session_index, scheduled_cores).await?;
+		}
 
 		Ok(())
 	}
@@ -168,9 +316,17 @@ impl Requester {
 	/// Stop requesting chunks for obsolete heads.
 	fn stop_requesting_chunks(&mut self, obsolete_leaves: impl Iterator<Item = Hash>) {
 		let obsolete_leaves: HashSet<_> = obsolete_leaves.collect();
-		self.fetches.retain(|_, task| {
+		self.fetches.retain(|candidate_hash, task| {
 			task.remove_leaves(&obsolete_leaves);
-			task.is_live()
+			let is_live = task.is_live();
+			if !is_live {
+				gum::info!(
+					target: LOG_TARGET,
+					?candidate_hash,
+					"Removing fetch task as no longer live"
+				);
+			}
+			is_live
 		})
 	}
 
@@ -187,7 +343,7 @@ impl Requester {
 		runtime: &mut RuntimeInfo,
 		leaf: Hash,
 		leaf_session_index: SessionIndex,
-		cores: impl IntoIterator<Item = (CoreIndex, OccupiedCore)>,
+		cores: impl IntoIterator<Item = (CoreIndex, CoreInfo)>,
 	) -> Result<()> {
 		for (core_index, core) in cores {
 			if let Some(e) = self.fetches.get_mut(&core.candidate_hash) {
@@ -266,6 +422,11 @@ impl Stream for Requester {
 				Poll::Ready(Some(FromFetchTask::Concluded(None))) => continue,
 				Poll::Ready(Some(FromFetchTask::Failed(candidate_hash))) => {
 					// Make sure we retry on next block still pending availability.
+					gum::info!(
+						target: LOG_TARGET,
+						?candidate_hash,
+						"Fetch task failed, removing from active fetches to allow retrying"
+					);
 					self.fetches.remove(&candidate_hash);
 				},
 				Poll::Ready(None) => return Poll::Ready(None),
@@ -346,4 +507,63 @@ where
 		.map_err(FatalError::ChainApiSenderDropped)?
 		.map_err(FatalError::ChainApi)?;
 	Ok(ancestors)
+}
+
+// Assuming you have the backed_candidate and relay_parent
+async fn get_group_index_for_backed_candidate<Sender>(
+    backed_candidate: &BackedCandidate,
+    relay_parent: Hash,
+    sender: &mut Sender,
+) -> Result<GroupIndex>
+where
+    Sender: overseer::SubsystemSender<RuntimeApiMessage> + overseer::SubsystemSender<ChainApiMessage>,
+{
+    let para_id = backed_candidate.receipt().descriptor.para_id();
+    
+    let (validator_groups, mut rotation_info) = request_validator_groups(relay_parent, sender)
+		.await
+		.await
+		.map_err(|e| {
+			gum::error!(
+				target: LOG_TARGET,
+				?para_id,
+				error = ?e,
+				"Error retrieving validator groups",
+			);
+			Error::NoSuchPoV
+		})?
+		.map_err(|e| {
+			gum::error!(
+				target: LOG_TARGET,
+				?para_id,
+				error = ?e,
+				"Error retrieving validator groups",
+			);
+			Error::NoSuchPoV
+		})?;
+
+	// Get the block number for the relay_parent to update rotation_info.now
+	let (tx, rx) = oneshot::channel();
+	sender.send_message(ChainApiMessage::BlockHeader(relay_parent, tx)).await;
+	let header = rx.await.map_err(|_| Error::NoSuchPoV)?.map_err(|_| Error::NoSuchPoV)?;
+	let block_number = header.map(|h| h.number).unwrap_or(0); // Default to 0 if not found, but should be found
+
+	rotation_info.now = block_number.into(); // Update now to the relay_parent's block number
+
+	let (_, core_index)= backed_candidate.validator_indices_and_core_index();
+	let core_index = match core_index {
+		Some(index) => index,
+		None => {
+			gum::error!(
+				target: LOG_TARGET,
+				?para_id,
+				"No core index found for backed candidate",
+			);
+			return Err(Error::NoSuchPoV)
+		}
+	};
+
+	let cores = validator_groups.len();
+    
+	Ok(rotation_info.group_for_core(core_index, cores))
 }
