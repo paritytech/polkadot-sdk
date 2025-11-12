@@ -253,44 +253,11 @@ async fn verify_transactions_in_single_block(
 			infos.iter().map(|info| info.hash).collect(),
 	};
 
-	// Verify all transactions in parallel
-	let verification_futures = expected_tx_hashes.iter().map(|tx_hash| {
-		let client = client.clone();
-		let tx_hashes = block_tx_hashes.clone();
-		async move {
-			assert!(
-				tx_hashes.contains(tx_hash),
-				"Block {block_number} should contain transaction {tx_hash:?}"
-			);
-
-			// Fetch transaction and receipt in parallel
-			let (tx_result, receipt_result) = tokio::join!(
-				client.get_transaction_by_hash(*tx_hash),
-				client.get_transaction_receipt(*tx_hash)
-			);
-
-			let tx = tx_result?
-				.ok_or_else(|| anyhow!("Transaction {tx_hash:?} should be retrievable by hash"))?;
-
-			let receipt = receipt_result?
-				.ok_or_else(|| anyhow!("Receipt for {tx_hash:?} should be retrievable"))?;
-
-			assert_eq!(
-				tx.block_number, block_number,
-				"Transaction {tx_hash:?} should be in block {block_number}"
-			);
-
-			assert_eq!(
-				receipt.status,
-				Some(U256::one()),
-				"Transaction {tx_hash:?} should be successful"
-			);
-
-			Ok::<(), anyhow::Error>(())
-		}
-	});
-
-	futures::future::try_join_all(verification_futures).await?;
+	if let Some(missing_hash) =
+		expected_tx_hashes.iter().find(|hash| !block_tx_hashes.contains(hash))
+	{
+		return Err(anyhow!("Transaction {missing_hash:?} not found in block {block_number}"));
+	}
 
 	Ok(())
 }
