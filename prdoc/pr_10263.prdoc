@@ -1,0 +1,10 @@
+title: 'slot-based collator: Spawn internal futures as essential tasks'
+doc:
+- audience: Node Operator
+  description: |-
+    It is required launch them as an initial task to bring down the node if one of them stopped.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major

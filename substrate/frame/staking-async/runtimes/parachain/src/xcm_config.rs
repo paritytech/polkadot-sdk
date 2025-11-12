@@ -604,15 +604,6 @@ impl cumulus_pallet_xcm::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 }
 
-/// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
-pub struct XcmBenchmarkHelper;
-#[cfg(feature = "runtime-benchmarks")]
-impl pallet_assets::BenchmarkHelper<xcm::v5::Location> for XcmBenchmarkHelper {
-	fn create_asset_id_parameter(id: u32) -> xcm::v5::Location {
-		xcm::v5::Location::new(1, [xcm::v5::Junction::Parachain(id)])
-	}
-}
-
 /// All configuration related to bridging
 pub mod bridging {
 	use super::*;
