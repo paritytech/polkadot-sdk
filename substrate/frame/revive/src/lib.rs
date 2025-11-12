@@ -829,7 +829,9 @@ pub mod pallet {
 			}
 
 			// Build genesis block
-			block_storage::on_finalize_build_eth_block::<T>(0u32.into());
+			block_storage::on_finalize_build_eth_block::<T>(
+				frame_system::Pallet::<T>::block_number().into(),
+			);
 
 			// Set debug settings.
 			if let Some(settings) = self.debug_settings.as_ref() {
