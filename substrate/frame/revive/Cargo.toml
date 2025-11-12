@@ -83,6 +83,7 @@ pallet-utility = { workspace = true, default-features = true }
 proptest = { workspace = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true }
 
 [features]
 default = ["std"]
