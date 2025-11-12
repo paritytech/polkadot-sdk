@@ -184,20 +184,6 @@ fn assignments_stay_stable_when_pushed_back() {
     		register_para(para);
 		}
 
-		// Start a new session
-		run_to_block(1, |number| match number {
-			1 => Some(SessionChangeNotification {
-				new_config: config.clone(),
-				validators: vec![
-					ValidatorId::from(Sr25519Keyring::Alice.public()),
-					ValidatorId::from(Sr25519Keyring::Bob.public()),
-					ValidatorId::from(Sr25519Keyring::Charlie.public()),
-				],
-				..Default::default()
-			}),
-			_ => None,
-		});
-
 		// Assign both cores to Pool (on-demand)
 		Pallet::<Test>::assign_core(
 			CoreIndex(0),
@@ -213,6 +199,20 @@ fn assignments_stay_stable_when_pushed_back() {
 			None,
 		)
 		.unwrap();
+
+		// Start a new session
+		run_to_block(1, |number| match number {
+			1 => Some(SessionChangeNotification {
+				new_config: config.clone(),
+				validators: vec![
+					ValidatorId::from(Sr25519Keyring::Alice.public()),
+					ValidatorId::from(Sr25519Keyring::Bob.public()),
+					ValidatorId::from(Sr25519Keyring::Charlie.public()),
+				],
+				..Default::default()
+			}),
+			_ => None,
+		});
 
 		// Add plenty of orders to fill the claim queue
 		for para in paras.clone() {
@@ -363,19 +363,6 @@ fn advance_claim_queue_doubles_assignment_only_if_empty() {
 		register_para(para_b);
 		register_para(para_c);
 
-		// start a new session to activate, 2 validators for 2 cores.
-		run_to_block(1, |number| match number {
-			1 => Some(SessionChangeNotification {
-				new_config: config.clone(),
-				validators: vec![
-					ValidatorId::from(Sr25519Keyring::Alice.public()),
-					ValidatorId::from(Sr25519Keyring::Bob.public()),
-				],
-				..Default::default()
-			}),
-			_ => None,
-		});
-
 		// add some para assignments.
 		Pallet::<Test>::assign_core(
 			CoreIndex(0),
@@ -391,6 +378,19 @@ fn advance_claim_queue_doubles_assignment_only_if_empty() {
 			None,
 		)
 		.unwrap();
+
+		// start a new session to activate, 2 validators for 2 cores.
+		run_to_block(1, |number| match number {
+			1 => Some(SessionChangeNotification {
+				new_config: config.clone(),
+				validators: vec![
+					ValidatorId::from(Sr25519Keyring::Alice.public()),
+					ValidatorId::from(Sr25519Keyring::Bob.public()),
+				],
+				..Default::default()
+			}),
+			_ => None,
+		});
 
 		// This will call advance_claim_queue
 		run_to_block(2, |_| None);
@@ -430,19 +430,6 @@ fn advance_claim_queue_no_entry_if_empty() {
 		// Add 1 para
 		register_para(para_a);
 
-		// start a new session to activate, 2 validators for 2 cores.
-		run_to_block(1, |number| match number {
-			1 => Some(SessionChangeNotification {
-				new_config: config.clone(),
-				validators: vec![
-					ValidatorId::from(Sr25519Keyring::Alice.public()),
-					ValidatorId::from(Sr25519Keyring::Bob.public()),
-				],
-				..Default::default()
-			}),
-			_ => None,
-		});
-
 		Pallet::<Test>::assign_core(
 			CoreIndex(0),
 			0,
@@ -457,6 +444,19 @@ fn advance_claim_queue_no_entry_if_empty() {
 			None,
 		)
 		.unwrap();
+
+		// start a new session to activate, 2 validators for 2 cores.
+		run_to_block(1, |number| match number {
+			1 => Some(SessionChangeNotification {
+				new_config: config.clone(),
+				validators: vec![
+					ValidatorId::from(Sr25519Keyring::Alice.public()),
+					ValidatorId::from(Sr25519Keyring::Bob.public()),
+				],
+				..Default::default()
+			}),
+			_ => None,
+		});
 		on_demand::Pallet::<Test>::push_back_order(para_a);
 
 		// This will call advance_claim_queue. With duplication, a single order gets consumed
@@ -686,24 +686,13 @@ fn session_change_increasing_number_of_cores() {
 
 	let para_a = ParaId::from(3_u32);
 	let para_b = ParaId::from(4_u32);
+	let para_c = ParaId::from(5_u32);
 
 	new_test_ext(genesis_config).execute_with(|| {
 		// Add 2 paras
 		register_para(para_a);
 		register_para(para_b);
-
-		// start a new session to activate, 2 validators for 2 cores.
-		run_to_block(1, |number| match number {
-			1 => Some(SessionChangeNotification {
-				new_config: config.clone(),
-				validators: vec![
-					ValidatorId::from(Sr25519Keyring::Alice.public()),
-					ValidatorId::from(Sr25519Keyring::Bob.public()),
-				],
-				..Default::default()
-			}),
-			_ => None,
-		});
+		register_para(para_c);
 
 		Pallet::<Test>::assign_core(
 			CoreIndex(0),
@@ -720,12 +709,41 @@ fn session_change_increasing_number_of_cores() {
 		)
 		.unwrap();
 
+		Pallet::<Test>::assign_core(
+			CoreIndex(2),
+			3,
+			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
+		Pallet::<Test>::assign_core(
+			CoreIndex(3),
+			4,
+			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
+
+		// start a new session to activate, 2 validators for 2 cores.
+		run_to_block(1, |number| match number {
+			1 => Some(SessionChangeNotification {
+				new_config: config.clone(),
+				validators: vec![
+					ValidatorId::from(Sr25519Keyring::Alice.public()),
+					ValidatorId::from(Sr25519Keyring::Bob.public()),
+				],
+				..Default::default()
+			}),
+			_ => None,
+		});
+
 		// This will call advance_claim_queue
 		run_to_block(2, |_| None);
 
 		{
 			on_demand::Pallet::<Test>::push_back_order(para_a);
 			on_demand::Pallet::<Test>::push_back_order(para_b);
+			on_demand::Pallet::<Test>::push_back_order(para_c);
 			assert_eq!(Scheduler::claim_queue_len(), 4);
 			let mut claim_queue = Scheduler::claim_queue();
 
@@ -747,21 +765,6 @@ fn session_change_increasing_number_of_cores() {
 		// add another assignment for para b.
 		on_demand::Pallet::<Test>::push_back_order(para_b);
 
-		Pallet::<Test>::assign_core(
-			CoreIndex(2),
-			0,
-			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
-			None,
-		)
-		.unwrap();
-		Pallet::<Test>::assign_core(
-			CoreIndex(3),
-			0,
-			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
-			None,
-		)
-		.unwrap();
-
 		run_to_block(3, |number| match number {
 			3 => Some(SessionChangeNotification {
 				new_config: new_config.clone(),
@@ -779,7 +782,7 @@ fn session_change_increasing_number_of_cores() {
 
 		{
 			let mut claim_queue = Scheduler::claim_queue();
-			assert_eq!(Scheduler::claim_queue_len(), 3);
+			assert_eq!(Scheduler::claim_queue_len(), 4);
 
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(0)).unwrap(),
@@ -788,6 +791,10 @@ fn session_change_increasing_number_of_cores() {
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(1)).unwrap(),
 				[para_b].into_iter().collect::<VecDeque<_>>()
+			);
+			assert_eq!(
+				claim_queue.remove(&CoreIndex(2)).unwrap(),
+				[para_c].into_iter().collect::<VecDeque<_>>()
 			);
 		}
 	});
@@ -807,19 +814,6 @@ fn session_change_decreasing_number_of_cores() {
 		register_para(para_a);
 		register_para(para_b);
 
-		// start a new session to activate, 2 validators for 2 cores.
-		run_to_block(1, |number| match number {
-			1 => Some(SessionChangeNotification {
-				new_config: config.clone(),
-				validators: vec![
-					ValidatorId::from(Sr25519Keyring::Alice.public()),
-					ValidatorId::from(Sr25519Keyring::Bob.public()),
-				],
-				..Default::default()
-			}),
-			_ => None,
-		});
-
 		Pallet::<Test>::assign_core(
 			CoreIndex(0),
 			0,
@@ -835,6 +829,19 @@ fn session_change_decreasing_number_of_cores() {
 			None,
 		)
 		.unwrap();
+
+		// start a new session to activate, 2 validators for 2 cores.
+		run_to_block(1, |number| match number {
+			1 => Some(SessionChangeNotification {
+				new_config: config.clone(),
+				validators: vec![
+					ValidatorId::from(Sr25519Keyring::Alice.public()),
+					ValidatorId::from(Sr25519Keyring::Bob.public()),
+				],
+				..Default::default()
+			}),
+			_ => None,
+		});
 		on_demand::Pallet::<Test>::push_back_order(para_a);
 		on_demand::Pallet::<Test>::push_back_order(para_b);
 		on_demand::Pallet::<Test>::push_back_order(para_a);
@@ -907,6 +914,16 @@ fn session_change_increasing_lookahead() {
 		register_para(para_a);
 		register_para(para_b);
 
+		for core in 0..2 {
+			Pallet::<Test>::assign_core(
+				CoreIndex(core),
+				0,
+				vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+				None,
+			)
+			.unwrap();
+		}
+
 		// start a new session to activate, 2 validators for 2 cores.
 		run_to_block(1, |number| match number {
 			1 => Some(SessionChangeNotification {
@@ -919,16 +936,6 @@ fn session_change_increasing_lookahead() {
 			}),
 			_ => None,
 		});
-
-		for core in 0..2 {
-			Pallet::<Test>::assign_core(
-				CoreIndex(core),
-				0,
-				vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
-				None,
-			)
-			.unwrap();
-		}
 		on_demand::Pallet::<Test>::push_back_order(para_a);
 		on_demand::Pallet::<Test>::push_back_order(para_a);
 		on_demand::Pallet::<Test>::push_back_order(para_a);
@@ -1008,19 +1015,6 @@ fn peek_claim_queue_predicts_scheduling() {
 		register_para(para_b);
 		register_para(para_c);
 
-		// Start a new session
-		run_to_block(1, |number| match number {
-			1 => Some(SessionChangeNotification {
-				new_config: config.clone(),
-				validators: vec![
-					ValidatorId::from(Sr25519Keyring::Alice.public()),
-					ValidatorId::from(Sr25519Keyring::Bob.public()),
-				],
-				..Default::default()
-			}),
-			_ => None,
-		});
-
 		// Assign cores
 		Pallet::<Test>::assign_core(
 			CoreIndex(0),
@@ -1036,6 +1030,19 @@ fn peek_claim_queue_predicts_scheduling() {
 			None,
 		)
 		.unwrap();
+
+		// Start a new session
+		run_to_block(1, |number| match number {
+			1 => Some(SessionChangeNotification {
+				new_config: config.clone(),
+				validators: vec![
+					ValidatorId::from(Sr25519Keyring::Alice.public()),
+					ValidatorId::from(Sr25519Keyring::Bob.public()),
+				],
+				..Default::default()
+			}),
+			_ => None,
+		});
 
 		// Add plenty of orders to fill the claim queue
 		on_demand::Pallet::<Test>::push_back_order(para_a);
@@ -1115,19 +1122,6 @@ fn on_demand_order_on_empty_core_appears_in_next_two_blocks() {
 		register_para(para_a);
 		register_para(para_b);
 
-		// Start a new session
-		run_to_block(1, |number| match number {
-			1 => Some(SessionChangeNotification {
-				new_config: config.clone(),
-				validators: vec![
-					ValidatorId::from(Sr25519Keyring::Alice.public()),
-					ValidatorId::from(Sr25519Keyring::Bob.public()),
-				],
-				..Default::default()
-			}),
-			_ => None,
-		});
-
 		// Assign both cores to Pool (on-demand)
 		Pallet::<Test>::assign_core(
 			CoreIndex(0),
@@ -1143,6 +1137,19 @@ fn on_demand_order_on_empty_core_appears_in_next_two_blocks() {
 			None,
 		)
 		.unwrap();
+
+		// Start a new session
+		run_to_block(1, |number| match number {
+			1 => Some(SessionChangeNotification {
+				new_config: config.clone(),
+				validators: vec![
+					ValidatorId::from(Sr25519Keyring::Alice.public()),
+					ValidatorId::from(Sr25519Keyring::Bob.public()),
+				],
+				..Default::default()
+			}),
+			_ => None,
+		});
 
 		run_to_block(2, |_| None);
 

@@ -437,12 +437,28 @@ pub(super) fn advance_assignments<T: Config, F: Fn(CoreIndex) -> bool>(
 // least in theory).
 pub(super) fn assign_core<T: Config>(
 	core_idx: CoreIndex,
-	begin: BlockNumberFor<T>,
+	mut begin: BlockNumberFor<T>,
 	mut assignments: Vec<(CoreAssignment, PartsOf57600)>,
 	end_hint: Option<BlockNumberFor<T>>,
 ) -> Result<(), Error> {
 	// There should be at least one assignment.
 	ensure!(!assignments.is_empty(), Error::AssignmentsEmpty);
+
+	let config = configuration::ActiveConfig::<T>::get();
+	let now = frame_system::Pallet::<T>::block_number();
+	let lookahead = config.scheduler_params.lookahead.into();
+	let claim_queue_end = now.saturating_add(lookahead);
+	let too_soon = begin <= claim_queue_end && now != 0u32.into();
+	if too_soon {
+		log::warn!(
+			target: "runtime::parachains::assigner-coretime",
+			"Claim queue needs to be stable, schedule change within claim queue length is not supported. Adjusting begin from {:?} to {:?}",
+			begin,
+			claim_queue_end.saturating_plus_one()
+		);
+		//  Adjust begin to the first allowed block:
+		begin = claim_queue_end.saturating_plus_one();
+	}
 
 	super::CoreDescriptors::<T>::mutate(|core_descriptors| {
 		let core_descriptor = core_descriptors.entry(core_idx).or_default();
