@@ -18,7 +18,6 @@
 
 use alloc::vec::Vec;
 
-use codec::Decode;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 use pallet_session::*;

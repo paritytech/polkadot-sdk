@@ -22,7 +22,6 @@ use super::*;
 #[allow(unused)]
 use crate::Pallet as CollatorSelection;
 use alloc::vec::Vec;
-use codec::Decode;
 use core::cmp;
 use cumulus_pallet_session_benchmarking as session_benchmarking;
 use frame_benchmarking::{account, v2::*, whitelisted_caller, BenchmarkError};

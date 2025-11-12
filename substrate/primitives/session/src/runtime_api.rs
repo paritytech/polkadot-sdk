@@ -21,7 +21,7 @@ pub use sp_core::crypto::KeyTypeId;
 use sp_runtime::traits::GeneratedSessionKeys;
 
 /// Opaque [`GeneratedSessionKeys`](sp_runtime::traits::GeneratedSessionKeys).
-#[derive(Debug, Decode, Encode, scale_info::TypeInfo)]
+#[derive(Debug, Default, Decode, Encode, scale_info::TypeInfo)]
 pub struct OpaqueGeneratedSessionKeys {
 	/// The public session keys.
 	pub keys: Vec<u8>,
