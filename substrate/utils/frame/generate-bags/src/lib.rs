@@ -213,11 +213,7 @@ pub fn generate_thresholds<T: frame_system::Config>(
 	writeln!(buf, "//! Total issuance: {}", &total_issuance)?;
 	writeln!(buf, "//! Minimum balance: {}", &minimum_balance)?;
 
-	writeln!(
-		buf,
-		"//! for the {} runtime.",
-		T::Version::get().spec_name,
-	)?;
+	writeln!(buf, "//! for the {} runtime.", T::Version::get().spec_name,)?;
 
 	let existential_weight = existential_weight::<T>(total_issuance, minimum_balance);
 	num_buf.write_formatted(&existential_weight, &format);

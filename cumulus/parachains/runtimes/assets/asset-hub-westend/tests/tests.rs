@@ -22,7 +22,7 @@ use alloy_core::{
 	sol_types::{sol_data, SolType},
 };
 use asset_hub_westend_runtime::{
-	governance, xcm_config,
+	governance, staking, xcm_config,
 	xcm_config::{
 		bridging, CheckingAccount, LocationToAccountId, StakingPot,
 		TrustBackedAssetsPalletLocation, UniquesConvertedConcreteId, UniquesPalletLocation,
@@ -61,16 +61,19 @@ use pallet_revive::{
 	Code,
 };
 use pallet_revive_fixtures::compile_module;
+use pallet_staking_async::EraPayout;
 use pallet_uniques::{asset_ops::Item, asset_strategies::Attribute};
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::{traits::MaybeEquivalence, Either, MultiAddress};
 use std::convert::Into;
-use testnet_parachains_constants::westend::{consensus::*, currency::{UNITS, CENTS}};
-use asset_hub_westend_runtime::staking;
-use pallet_staking_async::EraPayout;
+use testnet_parachains_constants::westend::{
+	consensus::*,
+	currency::{CENTS, UNITS},
+};
 
+use approx::assert_relative_eq;
 use xcm::{
 	latest::{
 		prelude::{Assets as XcmAssets, *},
@@ -84,7 +87,6 @@ use xcm_builder::{
 };
 use xcm_executor::traits::{ConvertLocation, JustTry, TransactAsset, WeightTrader};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
-use approx::assert_relative_eq;
 
 const ALICE: [u8; 32] = [1u8; 32];
 const BOB: [u8; 32] = [2u8; 32];
