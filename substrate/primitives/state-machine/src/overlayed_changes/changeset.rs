@@ -681,7 +681,15 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
 			return Err(NoOpenTransaction)
 		}
 
-		for key in self.dirty_keys.pop().ok_or(NoOpenTransaction)? {
+		let dirty_keys = self.dirty_keys.pop().ok_or(NoOpenTransaction)?;
+
+		if rollback {
+			self.storage_root_dirty_keys.rollback_transaction();
+		} else {
+			self.storage_root_dirty_keys.commit_transaction();
+		}
+
+		for key in dirty_keys {
 			let overlayed = self.changes.get_mut(&key).expect(
 				"\
 				A write to an OverlayedValue is recorded in the dirty key set. Before an
@@ -776,7 +784,15 @@ impl OverlayedChangeSet {
 			return Err(NoOpenTransaction)
 		}
 
-		for key in self.dirty_keys.pop().ok_or(NoOpenTransaction)? {
+		let dirty_keys = self.dirty_keys.pop().ok_or(NoOpenTransaction)?;
+
+		if rollback {
+			self.storage_root_dirty_keys.rollback_transaction();
+		} else {
+			self.storage_root_dirty_keys.commit_transaction();
+		}
+
+		for key in dirty_keys {
 			let overlayed = self.changes.get_mut(&key).expect(
 				"\
 				A write to an OverlayedValue is recorded in the dirty key set. Before an
@@ -786,7 +802,6 @@ impl OverlayedChangeSet {
 			);
 
 			if rollback {
-				self.storage_root_dirty_keys.rollback_transaction();
 				match overlayed.pop_transaction().value {
 					StorageEntry::Append {
 						data,
@@ -811,7 +826,6 @@ impl OverlayedChangeSet {
 					self.changes.remove(&key);
 				}
 			} else {
-				self.storage_root_dirty_keys.commit_transaction();
 				let has_predecessor = if let Some(dirty_keys) = self.dirty_keys.last_mut() {
 					// Not the last tx: Did the previous tx write to this key?
 					!dirty_keys.insert(key)
