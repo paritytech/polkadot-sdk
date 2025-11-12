@@ -36,20 +36,57 @@ use futures::{channel::mpsc::Sender, pin_mut, select, FutureExt, SinkExt, Stream
 use futures::channel::mpsc::UnboundedSender;
 use sp_core::U256;
 use sp_runtime::Saturating;
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
+use tokio::time::{interval, MissedTickBehavior};
 
 const LOG_TARGET: &str = "cumulus-consensus";
 const FINALIZATION_CACHE_SIZE: u32 = 40;
 const SYNC_FINALITY_GAP_THRESHOLD: u32 = 1000;
+const FINALITY_GAP_CHECK_INTERVAL_SECS: u64 = 30;
 
-async fn handle_new_finalized_head<P, Block, B, R>(
+/// Periodically check for large finality gaps and finalize the best block if needed.
+async fn check_finality_gap<P, Block, B, R>(parachain: &Arc<P>, relay_chain: &R)
+where
+	Block: BlockT,
+	R: RelayChainInterface,
+	B: Backend<Block>,
+	P: Finalizer<Block, B> + UsageProvider<Block>,
+{
+	let chain_info = parachain.usage_info().chain;
+	let finalized_number = chain_info.finalized_number;
+
+	// Finalize if the best block of the parachain is way ahead of the finalized block.
+	let finality_gap: U256 =
+		chain_info.best_number.saturating_sub(chain_info.finalized_number).into();
+	let finality_gap: u32 = finality_gap.try_into().expect("U256 is always less than u32");
+
+	if finality_gap > SYNC_FINALITY_GAP_THRESHOLD &&
+		relay_chain.is_major_syncing().await.unwrap_or(false)
+	{
+		tracing::debug!(
+			target: LOG_TARGET,
+			%finalized_number,
+			best_number = %chain_info.best_number,
+			%finality_gap,
+			"Large gap between best and finalized block during sync, finalizing best block."
+		);
+		if let Err(e) = parachain.finalize_block(chain_info.best_hash, None, false) {
+			tracing::warn!(
+				target: LOG_TARGET,
+				error = ?e,
+				block_hash = ?chain_info.best_hash,
+				"Failed to finalize best block",
+			);
+		}
+	}
+}
+
+async fn handle_new_finalized_head<P, Block, B>(
 	parachain: &Arc<P>,
 	finalized_head: Vec<u8>,
 	last_seen_finalized_hashes: &mut LruMap<Block::Hash, ()>,
-	relay_chain: R,
 ) where
 	Block: BlockT,
-	R: RelayChainInterface,
 	B: Backend<Block>,
 	P: Finalizer<Block, B> + UsageProvider<Block> + BlockchainEvents<Block>,
 {
@@ -71,24 +108,6 @@ async fn handle_new_finalized_head<P, Block, B, R>(
 	last_seen_finalized_hashes.insert(hash, ());
 	let chain_info = parachain.usage_info().chain;
 	let finalized_number = chain_info.finalized_number;
-
-	// Finalize if the best block of the parachain is way ahead of the finalized block.
-	let finality_gap: U256 =
-		chain_info.best_number.saturating_sub(chain_info.finalized_number).into();
-	let finality_gap: u32 = finality_gap.try_into().expect("U256 is always less than u32");
-
-	if finality_gap > SYNC_FINALITY_GAP_THRESHOLD && relay_chain.is_major_syncing().await.unwrap() {
-		tracing::debug!(target: LOG_TARGET, block_hash = ?hash, %finalized_number, best_number = %chain_info.best_number, %finality_gap, "Large gab between best and finalized block, finalizing best block.");
-		if let Err(e) = parachain.finalize_block(chain_info.best_hash, None, false) {
-			tracing::warn!(
-				target: LOG_TARGET,
-				error = ?e,
-				block_hash = ?hash,
-				"Failed to finalize best block",
-			);
-		}
-		return
-	}
 
 	let relay_chain_para_chain_delta: U256 =
 		header.number().saturating_sub(chain_info.best_number).into();
@@ -154,12 +173,24 @@ async fn follow_finalized_head<P, Block, B, R>(
 	// we have some "memory" of recently finalized blocks.
 	let mut last_seen_finalized_hashes = LruMap::new(ByLength::new(FINALIZATION_CACHE_SIZE));
 	let mut finalized_head_stream = finalized_head_stream.fuse();
+
+	// Create an interval for periodic finality gap checks
+	let mut finality_gap_check_interval =
+		interval(Duration::from_secs(FINALITY_GAP_CHECK_INTERVAL_SECS));
+	finality_gap_check_interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
+	// Skip the first tick which fires immediately
+	finality_gap_check_interval.tick().await;
+
 	loop {
+		tracing::debug!(target: LOG_TARGET, "New round in consensus loop.");
 		select! {
+			_ = finality_gap_check_interval.tick().fuse() => {
+				check_finality_gap::<P, Block, B, R>(&parachain, &relay_chain).await;
+			},
 			fin = finalized_head_stream.next() => {
 				match fin {
 					Some(finalized_head) =>
-						handle_new_finalized_head(&parachain, finalized_head, &mut last_seen_finalized_hashes, relay_chain.clone()).await,
+						handle_new_finalized_head(&parachain, finalized_head, &mut last_seen_finalized_hashes).await,
 					None => {
 						tracing::debug!(target: LOG_TARGET, "Stopping following finalized head.");
 						return

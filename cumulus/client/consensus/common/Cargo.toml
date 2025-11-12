@@ -33,6 +33,7 @@ sp-runtime = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
+tokio = { workspace = true, default-features = true }
 
 # Polkadot
 polkadot-primitives = { workspace = true, default-features = true }

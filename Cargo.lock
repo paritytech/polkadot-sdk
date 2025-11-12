@@ -4489,6 +4489,7 @@ dependencies = [
  "sp-trie",
  "sp-version",
  "substrate-prometheus-endpoint",
+ "tokio",
  "tracing",
 ]
 
