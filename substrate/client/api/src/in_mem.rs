@@ -31,6 +31,7 @@ use sp_runtime::{
 use sp_state_machine::{
 	Backend as StateBackend, BackendTransaction, ChildStorageCollection, InMemoryBackend,
 	IndexOperation, StorageCollection,
+	TrieBackendBuilder,
 };
 use sp_trie::PrefixedMemoryDB;
 use std::{
@@ -549,7 +550,7 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 	}
 
 	fn commit_complete_partial_state(&mut self) {
-		todo!()
+		// Don't need to do anything.
 	}
 
 	fn insert_aux<I>(&mut self, ops: I) -> sp_blockchain::Result<()>
@@ -598,7 +599,7 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 /// > **Warning**: Doesn't support all the features necessary for a proper database. Only use this
 /// > struct for testing purposes. Do **NOT** use in production.
 pub struct Backend<Block: BlockT> {
-	states: RwLock<HashMap<Block::Hash, InMemoryBackend<HashingFor<Block>>>>,
+	state_db: RwLock<PrefixedMemoryDB<HashingFor<Block>>>,
 	blockchain: Blockchain<Block>,
 	import_lock: RwLock<()>,
 	pinned_blocks: RwLock<HashMap<Block::Hash, i64>>,
@@ -612,7 +613,7 @@ impl<Block: BlockT> Backend<Block> {
 	/// For testing purposes only!
 	pub fn new() -> Self {
 		Backend {
-			states: RwLock::new(HashMap::new()),
+			state_db: RwLock::new(Default::default()),
 			blockchain: Blockchain::new(),
 			import_lock: Default::default(),
 			pinned_blocks: Default::default(),
@@ -685,17 +686,13 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		}
 
 		if let Some(pending_block) = operation.pending_block {
-			let old_state = &operation.old_state;
 			let (header, body, justification) = pending_block.block.into_inner();
 
 			let hash = header.hash();
 
-			let new_state = match operation.new_state {
-				Some(state) => old_state.update_backend(*header.state_root(), state),
-				None => old_state.clone(),
-			};
-
-			self.states.write().insert(hash, new_state);
+			if let Some(new_state) = operation.new_state {
+				self.state_db.write().consolidate(new_state);
+			}
 
 			self.blockchain.insert(hash, header, justification, body, pending_block.state)?;
 		}
@@ -748,11 +745,10 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 			return Ok(Self::State::default())
 		}
 
-		self.states
-			.read()
-			.get(&hash)
-			.cloned()
-			.ok_or_else(|| sp_blockchain::Error::UnknownBlock(format!("{}", hash)))
+		let header = self.blockchain.header(hash)?
+			.ok_or_else(|| sp_blockchain::Error::UnknownBlock(format!("{}", hash)))?;
+
+		Ok(TrieBackendBuilder::new(self.state_db.read().clone(), *header.state_root()).build())
 	}
 
 	fn revert(
@@ -775,8 +771,9 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		false
 	}
 
-	fn import_partial_state(&self, _partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> sp_blockchain::Result<()> {
-		todo!()
+	fn import_partial_state(&self, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> sp_blockchain::Result<()> {
+		self.state_db.write().consolidate(partial_state);
+		Ok(())
 	}
 
 	fn pin_block(&self, hash: <Block as BlockT>::Hash) -> blockchain::Result<()> {
