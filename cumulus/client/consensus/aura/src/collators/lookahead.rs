@@ -223,12 +223,10 @@ where
 			collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
 		};
 
-		let mut connection_helper: BackingGroupConnectionHelper<Client> =
-			BackingGroupConnectionHelper::new(
-				params.para_client.clone(),
-				params.keystore.clone(),
-				params.overseer_handle.clone(),
-			);
+		let mut connection_helper = BackingGroupConnectionHelper::new(
+			params.keystore.clone(),
+			params.overseer_handle.clone(),
+		);
 
 		while let Some(relay_parent_header) = import_notifications.next().await {
 			let relay_parent = relay_parent_header.hash();
@@ -333,13 +331,18 @@ where
 			// This needs to change to support elastic scaling, but for continuously
 			// scheduled chains this ensures that the backlog will grow steadily.
 			for n_built in 0..2 {
-				let slot_claim = match can_build_upon(parent_hash) {
+				let (slot_claim, _authorities) = match can_build_upon(parent_hash) {
 					Some((current_slot, fut)) => match fut.await {
 						None => {
-							connection_helper.update::<Block, P>(current_slot, parent_hash).await;
+							// Fetch authorities for the update call when we can't build
+							if let Ok(authorities) =
+								para_client.runtime_api().authorities(parent_hash)
+							{
+								connection_helper.update::<P>(current_slot, &authorities).await;
+							}
 							break
 						},
-						Some(c) => c,
+						Some((claim, auths)) => (claim, auths),
 					},
 					None => break,
 				};
