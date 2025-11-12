@@ -33,17 +33,22 @@ use polkadot_primitives::Id as ParaId;
 use codec::Decode;
 use futures::{channel::mpsc::Sender, pin_mut, select, FutureExt, StreamExt};
 
+use sp_core::U256;
+use sp_runtime::Saturating;
 use std::sync::Arc;
 
 const LOG_TARGET: &str = "cumulus-consensus";
 const FINALIZATION_CACHE_SIZE: u32 = 40;
+const SYNC_FINALITY_GAP_THRESHOLD: u32 = 1000;
 
-fn handle_new_finalized_head<P, Block, B>(
+async fn handle_new_finalized_head<P, Block, B, R>(
 	parachain: &Arc<P>,
 	finalized_head: Vec<u8>,
 	last_seen_finalized_hashes: &mut LruMap<Block::Hash, ()>,
+	relay_chain: R,
 ) where
 	Block: BlockT,
+	R: RelayChainInterface,
 	B: Backend<Block>,
 	P: Finalizer<Block, B> + UsageProvider<Block> + BlockchainEvents<Block>,
 {
@@ -62,8 +67,43 @@ fn handle_new_finalized_head<P, Block, B>(
 	let hash = header.hash();
 
 	last_seen_finalized_hashes.insert(hash, ());
+	let chain_info = parachain.usage_info().chain;
+	let finalized_number = chain_info.finalized_number;
 
-	// Only finalize if we are below the incoming finalized parachain head
+	// Finalize if the best block of the parachain is way ahead of the finalized block.
+	let finality_gap: U256 =
+		chain_info.best_number.saturating_sub(chain_info.finalized_number).into();
+	let finality_gap: u32 = finality_gap.try_into().expect("U256 is always less than u32");
+	if finality_gap > SYNC_FINALITY_GAP_THRESHOLD && relay_chain.is_major_syncing().await.unwrap() {
+		tracing::debug!(target: LOG_TARGET, block_hash = ?hash, %finalized_number, best_number = %chain_info.best_number, %finality_gap, "Large gab between best and finalized block, finalizing best block.");
+		if let Err(e) = parachain.finalize_block(chain_info.best_hash, None, true) {
+			tracing::warn!(
+				target: LOG_TARGET,
+				error = ?e,
+				block_hash = ?hash,
+				"Failed to finalize best block",
+			);
+		}
+		return
+	}
+
+	let relay_chain_para_chain_delta: U256 =
+		header.number().saturating_sub(chain_info.best_number).into();
+	let relay_chain_para_chain_delta: u32 =
+		relay_chain_para_chain_delta.try_into().expect("U256 is always less than u32");
+	if relay_chain_para_chain_delta > SYNC_FINALITY_GAP_THRESHOLD {
+		tracing::debug!(target: LOG_TARGET, block_hash = ?hash, %finalized_number, best_number = %chain_info.best_number, %relay_chain_para_chain_delta, "Relay chain is far ahead, finalizing best block.");
+		if let Err(e) = parachain.finalize_block(chain_info.best_hash, None, true) {
+			tracing::warn!(
+				target: LOG_TARGET,
+				error = ?e,
+				block_hash = ?hash,
+				"Failed to finalize best block",
+			);
+		}
+		return
+	}
+
 	if parachain.usage_info().chain.finalized_number < *header.number() {
 		tracing::debug!(
 			target: LOG_TARGET,
@@ -99,7 +139,7 @@ where
 	R: RelayChainInterface + Clone,
 	B: Backend<Block>,
 {
-	let finalized_heads = match finalized_heads(relay_chain, para_id).await {
+	let finalized_heads = match finalized_heads(relay_chain.clone(), para_id).await {
 		Ok(finalized_heads_stream) => finalized_heads_stream.fuse(),
 		Err(err) => {
 			tracing::error!(target: LOG_TARGET, error = ?err, "Unable to retrieve finalized heads stream.");
@@ -122,7 +162,7 @@ where
 			fin = finalized_heads.next() => {
 				match fin {
 					Some((finalized_head, _)) =>
-						handle_new_finalized_head(&parachain, finalized_head, &mut last_seen_finalized_hashes),
+						handle_new_finalized_head(&parachain, finalized_head, &mut last_seen_finalized_hashes, relay_chain.clone()).await,
 					None => {
 						tracing::debug!(target: LOG_TARGET, "Stopping following finalized head.");
 						return
