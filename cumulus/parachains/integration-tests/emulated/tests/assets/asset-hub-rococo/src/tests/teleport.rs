@@ -49,8 +49,7 @@ fn penpal_to_ah_foreign_assets_sender_assertions(t: ParaToSystemParaTest) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 	let system_para_native_asset_location = RelayLocation::get();
 	let expected_asset_id = t.args.asset_id.unwrap();
-	let (_, expected_asset_amount) =
-		non_fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
+	let (_, expected_asset_amount) = non_fee_asset(&t.args.assets, &t.args.fee_asset_id).unwrap();
 
 	PenpalA::assert_xcm_pallet_attempted_complete(None);
 	assert_expected_events!(
@@ -77,8 +76,8 @@ fn penpal_to_ah_foreign_assets_receiver_assertions(t: ParaToSystemParaTest) {
 		AssetHubRococo::sibling_location_of(PenpalA::para_id()),
 	);
 	let (_, expected_foreign_asset_amount) =
-		non_fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
-	let (_, fee_asset_amount) = fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
+		non_fee_asset(&t.args.assets, &t.args.fee_asset_id).unwrap();
+	let (_, fee_asset_amount) = fee_asset(&t.args.assets, &t.args.fee_asset_id).unwrap();
 
 	AssetHubRococo::assert_xcmp_queue_success(None);
 
@@ -109,8 +108,8 @@ fn ah_to_penpal_foreign_assets_sender_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 	AssetHubRococo::assert_xcm_pallet_attempted_complete(None);
 	let (expected_foreign_asset_id, expected_foreign_asset_amount) =
-		non_fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
-	let (_, fee_asset_amount) = fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
+		non_fee_asset(&t.args.assets, &t.args.fee_asset_id).unwrap();
+	let (_, fee_asset_amount) = fee_asset(&t.args.assets, &t.args.fee_asset_id).unwrap();
 	assert_expected_events!(
 		AssetHubRococo,
 		vec![
@@ -137,8 +136,7 @@ fn ah_to_penpal_foreign_assets_sender_assertions(t: SystemParaToParaTest) {
 fn ah_to_penpal_foreign_assets_receiver_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 	let expected_asset_id = t.args.asset_id.unwrap();
-	let (_, expected_asset_amount) =
-		non_fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
+	let (_, expected_asset_amount) = non_fee_asset(&t.args.assets, &t.args.fee_asset_id).unwrap();
 	let checking_account = <PenpalA as PenpalAPallet>::PolkadotXcm::check_account();
 	let system_para_native_asset_location = RelayLocation::get();
 
@@ -174,29 +172,18 @@ fn system_para_limited_teleport_assets(t: SystemParaToRelayTest) -> DispatchResu
 		bx!(t.args.dest.into()),
 		bx!(t.args.beneficiary.into()),
 		bx!(t.args.assets.into()),
-		t.args.fee_asset_item,
+		bx!(t.args.fee_asset_id.into()),
 		t.args.weight_limit,
 	)
 }
 
 fn para_to_system_para_transfer_assets(t: ParaToSystemParaTest) -> DispatchResult {
-	type Runtime = <PenpalA as Chain>::Runtime;
-	let remote_fee_id: AssetId = t
-		.args
-		.assets
-		.clone()
-		.into_inner()
-		.get(t.args.fee_asset_item as usize)
-		.ok_or(pallet_xcm::Error::<Runtime>::Empty)?
-		.clone()
-		.id;
-
 	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
 		bx!(t.args.assets.into()),
 		bx!(TransferType::Teleport),
-		bx!(remote_fee_id.into()),
+		bx!(t.args.fee_asset_id.into()),
 		bx!(TransferType::DestinationReserve),
 		bx!(VersionedXcm::from(
 			Xcm::<()>::builder_unsafe()
@@ -208,23 +195,12 @@ fn para_to_system_para_transfer_assets(t: ParaToSystemParaTest) -> DispatchResul
 }
 
 fn system_para_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
-	type Runtime = <AssetHubRococo as Chain>::Runtime;
-	let remote_fee_id: AssetId = t
-		.args
-		.assets
-		.clone()
-		.into_inner()
-		.get(t.args.fee_asset_item as usize)
-		.ok_or(pallet_xcm::Error::<Runtime>::Empty)?
-		.clone()
-		.id;
-
 	<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
 		bx!(t.args.assets.into()),
 		bx!(TransferType::Teleport),
-		bx!(remote_fee_id.into()),
+		bx!(t.args.fee_asset_id.into()),
 		bx!(TransferType::LocalReserve),
 		bx!(VersionedXcm::from(
 			Xcm::<()>::builder_unsafe()
@@ -239,11 +215,13 @@ fn system_para_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResul
 fn teleport_via_limited_teleport_assets_to_other_system_parachains_works() {
 	let amount = ASSET_HUB_ROCOCO_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
+	let fee_asset_id: AssetId = Parent.into();
 
 	test_parachain_is_trusted_teleporter!(
 		AssetHubRococo,        // Origin
 		vec![BridgeHubRococo], // Destinations
 		(native_asset, amount),
+		fee_asset_id,
 		limited_teleport_assets
 	);
 }
@@ -252,11 +230,13 @@ fn teleport_via_limited_teleport_assets_to_other_system_parachains_works() {
 fn teleport_via_transfer_assets_to_other_system_parachains_works() {
 	let amount = ASSET_HUB_ROCOCO_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
+	let fee_asset_id: AssetId = Parent.into();
 
 	test_parachain_is_trusted_teleporter!(
 		AssetHubRococo,        // Origin
 		vec![BridgeHubRococo], // Destinations
 		(native_asset, amount),
+		fee_asset_id,
 		transfer_assets
 	);
 }
@@ -264,12 +244,11 @@ fn teleport_via_transfer_assets_to_other_system_parachains_works() {
 #[test]
 fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 	let amount = ROCOCO_ED * 100;
-	let native_asset: Assets = (Here, amount).into();
 
 	test_relay_is_trusted_teleporter!(
 		Rococo,
 		vec![AssetHubRococo],
-		(native_asset, amount),
+		amount,
 		limited_teleport_assets
 	);
 
@@ -284,14 +263,8 @@ fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 #[test]
 fn teleport_via_transfer_assets_from_and_to_relay() {
 	let amount = ROCOCO_ED * 100;
-	let native_asset: Assets = (Here, amount).into();
 
-	test_relay_is_trusted_teleporter!(
-		Rococo,
-		vec![AssetHubRococo],
-		(native_asset, amount),
-		transfer_assets
-	);
+	test_relay_is_trusted_teleporter!(Rococo, vec![AssetHubRococo], amount, transfer_assets);
 
 	test_parachain_is_trusted_teleporter_for_relay!(
 		AssetHubRococo,
@@ -310,11 +283,19 @@ fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 	let destination = AssetHubRococo::parent_location().into();
 	let beneficiary_id = RococoReceiver::get().into();
 	let assets = (Parent, amount_to_send).into();
+	let fee_asset_id: AssetId = Parent.into();
 
 	let test_args = TestContext {
 		sender: AssetHubRococoSender::get(),
 		receiver: RococoReceiver::get(),
-		args: TestArgs::new_para(destination, beneficiary_id, amount_to_send, assets, None, 0),
+		args: TestArgs::new_para(
+			destination,
+			beneficiary_id,
+			amount_to_send,
+			assets,
+			None,
+			fee_asset_id.clone(),
+		),
 	};
 
 	let mut test = SystemParaToRelayTest::new(test_args);
@@ -334,7 +315,11 @@ fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 		xcm_helpers::teleport_assets_delivery_fees::<
 			<AssetHubRococoXcmConfig as xcm_executor::Config>::XcmSender,
 		>(
-			test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest
+			test.args.assets.clone(),
+			fee_asset_id,
+			test.args.weight_limit,
+			test.args.beneficiary,
+			test.args.dest,
 		)
 	});
 
@@ -370,11 +355,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 		(asset_location_on_penpal.clone(), asset_amount_to_send).into(),
 	]
 	.into();
-	let fee_asset_index = penpal_assets
-		.inner()
-		.iter()
-		.position(|r| r == &(Parent, fee_amount_to_send).into())
-		.unwrap() as u32;
+	let fee_asset_id: AssetId = Parent.into();
 
 	// fund Parachain's sender account
 	PenpalA::mint_foreign_asset(
@@ -418,7 +399,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 			asset_amount_to_send,
 			penpal_assets,
 			Some(asset_id_on_penpal),
-			fee_asset_index,
+			fee_asset_id,
 		),
 	};
 	let mut penpal_to_ah = ParaToSystemParaTest::new(penpal_to_ah_test_args);
@@ -507,11 +488,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 		(foreign_asset_at_asset_hub_rococo.clone(), asset_amount_to_send).into(),
 	]
 	.into();
-	let fee_asset_index = ah_assets
-		.inner()
-		.iter()
-		.position(|r| r == &(Parent, fee_amount_to_send).into())
-		.unwrap() as u32;
+	let fee_asset_id: AssetId = Parent.into();
 
 	// AH to Penpal test args
 	let ah_to_penpal_test_args = TestContext {
@@ -523,7 +500,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 			asset_amount_to_send,
 			ah_assets,
 			Some(asset_id_on_penpal),
-			fee_asset_index,
+			fee_asset_id,
 		),
 	};
 
