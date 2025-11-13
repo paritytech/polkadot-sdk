@@ -5214,8 +5214,16 @@ fn self_destruct_by_syscall_tracing_works() {
 			trace,
 			Some(CallTrace {
 				from: ALICE_ADDR,
-				to: H160::zero(),
-				call_type: CallType::Selfdestruct,
+				to: addr,
+				call_type: CallType::Call,
+				value: Some(U256::zero()),
+				calls: vec![CallTrace {
+					from: addr,
+					to: DJANGO_ADDR,
+					call_type: CallType::Selfdestruct,
+					value: Some(Pallet::<Test>::convert_native_to_evm(100_000u64)),
+					..Default::default()
+				},],
 				..Default::default()
 			})
 		);

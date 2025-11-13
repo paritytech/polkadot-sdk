@@ -1732,7 +1732,7 @@ where
 			let addr = T::AddressMapper::to_address(self.account_id());
 			tracer.terminate(
 				addr,
-				beneficiary.clone(),
+				*beneficiary,
 				self.top_frame().nested_gas.gas_left(),
 				crate::Pallet::<T>::evm_balance(&addr),
 			);
