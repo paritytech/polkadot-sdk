@@ -23,7 +23,7 @@ on:
         description: "Run tests which names match this pattern (also flaky)"
         default: ""
         required: false
-  merge_group:
+
 concurrency:
   group: substrate-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.run_id }}
   cancel-in-progress: true
@@ -114,7 +114,7 @@ jobs:
 
 
       - name: upload_logs
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         if: ${{ always() }}
         with:
           name: zombienet-logs-${{ matrix.test.job-name }}-${{ github.sha }}

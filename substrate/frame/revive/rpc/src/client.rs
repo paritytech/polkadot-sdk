@@ -52,6 +52,7 @@ use subxt::{
 	Config, OnlineClient,
 };
 use thiserror::Error;
+use tokio::sync::Mutex;
 
 /// The substrate block type.
 pub type SubstrateBlock = subxt::blocks::Block<SrcChainConfig, OnlineClient<SrcChainConfig>>;
@@ -95,7 +96,7 @@ pub enum ClientError {
 	#[error(transparent)]
 	CodecError(#[from] codec::Error),
 	/// Transcact call failed.
-	#[error("contract reverted")]
+	#[error("contract reverted: {0:?}")]
 	TransactError(EthTransactError),
 	/// A decimal conversion failed.
 	#[error("conversion failed")]
@@ -133,6 +134,8 @@ pub enum ClientError {
 const LOG_TARGET: &str = "eth-rpc::client";
 
 const REVERT_CODE: i32 = 3;
+
+const NOTIFIER_CAPACITY: usize = 16;
 impl From<ClientError> for ErrorObjectOwned {
 	fn from(err: ClientError) -> Self {
 		match err {
@@ -171,9 +174,10 @@ pub struct Client {
 	max_block_weight: Weight,
 	/// Whether the node has automine enabled.
 	automine: bool,
-	/// A notifier, that informs subscribers of new transaction hashes that are included in a
-	/// block, when automine is enabled.
-	tx_notifier: Option<tokio::sync::broadcast::Sender<H256>>,
+	/// A notifier, that informs subscribers of new best blocks.
+	block_notifier: Option<tokio::sync::broadcast::Sender<H256>>,
+	/// A lock to ensure only one subscription can perform write operations at a time.
+	subscription_lock: Arc<Mutex<()>>,
 }
 
 /// Fetch the chain ID from the substrate chain.
@@ -244,10 +248,17 @@ impl Client {
 			chain_id,
 			max_block_weight,
 			automine,
-			tx_notifier: automine.then(|| tokio::sync::broadcast::channel::<H256>(10).0),
+			block_notifier: automine
+				.then(|| tokio::sync::broadcast::channel::<H256>(NOTIFIER_CAPACITY).0),
+			subscription_lock: Arc::new(Mutex::new(())),
 		};
 
 		Ok(client)
+	}
+
+	/// Creates a block notifier instance.
+	pub fn create_block_notifier(&mut self) {
+		self.block_notifier = Some(tokio::sync::broadcast::channel::<H256>(NOTIFIER_CAPACITY).0);
 	}
 
 	/// Subscribe to past blocks executing the callback for each block in `range`.
@@ -322,6 +333,9 @@ impl Client {
 				},
 			};
 
+			// Acquire lock to ensure only one subscription can perform write operations at a time
+			let _guard = self.subscription_lock.lock().await;
+
 			let block_number = block.number();
 			log::trace!(target: "eth-rpc::subscription", "⏳ Processing {subscription_type:?} block: {block_number}");
 			if let Err(err) = callback(block).await {
@@ -342,7 +356,8 @@ impl Client {
 	) -> Result<(), ClientError> {
 		log::info!(target: LOG_TARGET, "🔌 Subscribing to new blocks ({subscription_type:?})");
 		self.subscribe_new_blocks(subscription_type, |block| async {
-			let evm_block = self.runtime_api(block.hash()).eth_block().await?;
+			let hash = block.hash();
+			let evm_block = self.runtime_api(hash).eth_block().await?;
 			let (_, receipts): (Vec<_>, Vec<_>) = self
 				.receipt_provider
 				.insert_block_receipts(&block, &evm_block.hash)
@@ -350,16 +365,14 @@ impl Client {
 				.into_iter()
 				.unzip();
 
-			self.block_provider.update_latest(block, subscription_type).await;
-
+			self.block_provider.update_latest(Arc::new(block), subscription_type).await;
 			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
 
 			// Only broadcast for best blocks to avoid duplicate notifications.
-			match (subscription_type, &self.tx_notifier) {
-				(SubscriptionType::BestBlocks, Some(sender)) if sender.receiver_count() > 0 =>
-					for receipt in &receipts {
-						let _ = sender.send(receipt.transaction_hash);
-					},
+			match (subscription_type, &self.block_notifier) {
+				(SubscriptionType::BestBlocks, Some(sender)) if sender.receiver_count() > 0 => {
+					let _ = sender.send(hash);
+				},
 				_ => {},
 			}
 			Ok(())
@@ -736,9 +749,9 @@ impl Client {
 		self.max_block_weight
 	}
 
-	/// Get the block notifier, if automine is enabled.
-	pub fn tx_notifier(&self) -> Option<tokio::sync::broadcast::Sender<H256>> {
-		self.tx_notifier.clone()
+	/// Get the block notifier, if automine is enabled or Self::create_block_notifier was called.
+	pub fn block_notifier(&self) -> Option<tokio::sync::broadcast::Sender<H256>> {
+		self.block_notifier.clone()
 	}
 
 	/// Get the logs matching the given filter.

@@ -21,6 +21,8 @@ mod precompiles;
 mod pvm;
 mod sol;
 
+use std::collections::HashMap;
+
 use crate::{
 	self as pallet_revive,
 	evm::{
@@ -28,25 +30,27 @@ use crate::{
 		runtime::{EthExtra, SetWeightLimit},
 	},
 	genesis::{Account, ContractData},
+	mock::MockHandler,
 	test_utils::*,
 	AccountId32Mapper, AddressMapper, BalanceOf, BalanceWithDust, Call, CodeInfoOf, Config,
-	ExecOrigin as Origin, GenesisConfig, OriginFor, Pallet, PristineCode,
+	DelegateInfo, ExecOrigin as Origin, ExecReturnValue, GenesisConfig, OriginFor, Pallet,
+	PristineCode,
 };
 use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::EnsureOrigin,
 	parameter_types,
-	traits::{ConstU32, ConstU64, FindAuthor, StorageVersion},
+	traits::{ConstU32, ConstU64, FindAuthor, OriginTrait, StorageVersion},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, Weight},
 };
 use pallet_revive_fixtures::compile_module;
 use pallet_transaction_payment::{ChargeTransactionPayment, ConstFeeMultiplier, Multiplier};
-use sp_core::U256;
+use sp_core::{H160, U256};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
 	generic::Header,
 	traits::{BlakeTwo256, Convert, IdentityLookup, One},
-	AccountId32, BuildStorage, MultiAddress, MultiSignature, Perbill,
+	AccountId32, BuildStorage, MultiAddress, MultiSignature, Perbill, Storage,
 };
 
 pub type Address = MultiAddress<AccountId32, u32>;
@@ -435,6 +439,7 @@ pub struct ExtBuilder {
 	storage_version: Option<StorageVersion>,
 	code_hashes: Vec<sp_core::H256>,
 	genesis_config: Option<crate::GenesisConfig<Test>>,
+	genesis_state_overrides: Option<Storage>,
 }
 
 impl Default for ExtBuilder {
@@ -444,6 +449,7 @@ impl Default for ExtBuilder {
 			storage_version: None,
 			code_hashes: vec![],
 			genesis_config: Some(crate::GenesisConfig::<Test>::default()),
+			genesis_state_overrides: None,
 		}
 	}
 }
@@ -465,10 +471,19 @@ impl ExtBuilder {
 	pub fn set_associated_consts(&self) {
 		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = self.existential_deposit);
 	}
+	pub fn with_genesis_state_overrides(mut self, storage: Storage) -> Self {
+		self.genesis_state_overrides = Some(storage);
+		self
+	}
 	pub fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
 		self.set_associated_consts();
-		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+		let mut t = self.genesis_state_overrides.unwrap_or_default();
+
+		frame_system::GenesisConfig::<Test>::default()
+			.assimilate_storage(&mut t)
+			.unwrap();
+
 		let checking_account = Pallet::<Test>::checking_account();
 
 		pallet_balances::GenesisConfig::<Test> {
@@ -512,6 +527,37 @@ fn initialize_block(number: u64) {
 impl Default for Origin<Test> {
 	fn default() -> Self {
 		Self::Signed(ALICE)
+	}
+}
+
+/// A mock handler implementation for testing purposes.
+pub struct MockHandlerImpl<T: crate::pallet::Config> {
+	// Always return this caller if set.
+	mock_caller: Option<H160>,
+	// Map of callee address to mocked call return value.
+	mock_call: HashMap<H160, ExecReturnValue>,
+	// Map of input data to mocked delegated caller info.
+	mock_delegate_caller: HashMap<Vec<u8>, DelegateInfo<T>>,
+}
+
+impl<T: crate::pallet::Config> MockHandler<T> for MockHandlerImpl<T> {
+	fn mock_caller(&self, _frames_len: usize) -> Option<OriginFor<T>> {
+		self.mock_caller.as_ref().map(|mock_caller| {
+			OriginFor::<T>::signed(T::AddressMapper::to_fallback_account_id(mock_caller))
+		})
+	}
+
+	fn mock_call(
+		&self,
+		_callee: H160,
+		_call_data: &[u8],
+		_value_transferred: U256,
+	) -> Option<ExecReturnValue> {
+		self.mock_call.get(&_callee).cloned()
+	}
+
+	fn mock_delegated_caller(&self, _dest: H160, input_data: &[u8]) -> Option<DelegateInfo<T>> {
+		self.mock_delegate_caller.get(&input_data.to_vec()).cloned()
 	}
 }
 
