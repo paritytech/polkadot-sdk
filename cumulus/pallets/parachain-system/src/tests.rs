@@ -1422,6 +1422,106 @@ fn receive_hrmp() {
 		.add(3, || {});
 }
 
+// A channel that was force removed from RC state will clean up any remaining state.
+#[test]
+fn receive_hrmp_channel_suddenly_removed_from_relay_state() {
+	BlockTests::new()
+		.with_relay_sproof_builder(|_, relay_block_num, sproof| match relay_block_num {
+			1 => {
+				// 300 - one new message
+				sproof.upsert_inbound_channel(ParaId::from(300)).mqc_head =
+					Some(MessageQueueChain::default().extend_hrmp(&mk_hrmp(1, 1)).head());
+			},
+			2 => {
+				// 300 - is gone, this should trigger the cleanup
+			},
+			_ => unreachable!(),
+		})
+		.with_inherent_data(|_, relay_block_num, data| match relay_block_num {
+			1 => {
+				data.horizontal_messages.insert(ParaId::from(300), vec![mk_hrmp(1, 1)]);
+			},
+			2 => {},
+			_ => unreachable!(),
+		})
+		.add(1, || {
+			HANDLED_XCMP_MESSAGES.with(|m| {
+				let mut m = m.borrow_mut();
+				assert_eq!(&*m, &[(ParaId::from(300), 1, vec![1])], "Received on channel 300");
+				m.clear();
+			});
+			assert!(
+				LastHrmpMqcHeads::<Test>::get().contains_key(&ParaId::from(300)),
+				"Channel 300 should be present"
+			);
+		})
+		.add(2, || {
+			assert_eq!(
+				LastHrmpMqcHeads::<Test>::get()
+					.into_iter()
+					.map(|(para, _)| para)
+					.collect::<Vec<_>>(),
+				vec![],
+				"Channel 300 should be removed"
+			);
+		});
+}
+
+// Same as above but other code path since another channel contains a message.
+#[test]
+fn receive_hrmp_channel_suddenly_removed_from_relay_state2() {
+	BlockTests::new()
+		.with_relay_sproof_builder(|_, relay_block_num, sproof| match relay_block_num {
+			1 => {
+				// 200 - one new message
+				sproof.upsert_inbound_channel(ParaId::from(200)).mqc_head =
+					Some(MessageQueueChain::default().extend_hrmp(&mk_hrmp(1, 1)).head());
+				// 300 - one new message
+				sproof.upsert_inbound_channel(ParaId::from(300)).mqc_head =
+					Some(MessageQueueChain::default().extend_hrmp(&mk_hrmp(1, 1)).head());
+			},
+			2 => {
+				// 200 - no new messages, mqc stayed the same.
+				sproof.upsert_inbound_channel(ParaId::from(200)).mqc_head =
+					Some(MessageQueueChain::default().extend_hrmp(&mk_hrmp(1, 1)).head());
+				// 300 - is gone, this should trigger the cleanup
+			},
+			_ => unreachable!(),
+		})
+		.with_inherent_data(|_, relay_block_num, data| match relay_block_num {
+			1 => {
+				data.horizontal_messages.insert(ParaId::from(200), vec![mk_hrmp(1, 1)]);
+				data.horizontal_messages.insert(ParaId::from(300), vec![mk_hrmp(1, 1)]);
+			},
+			2 => {},
+			_ => unreachable!(),
+		})
+		.add(1, || {
+			HANDLED_XCMP_MESSAGES.with(|m| {
+				let mut m = m.borrow_mut();
+				assert_eq!(
+					&*m,
+					&[(ParaId::from(200), 1, vec![1]), (ParaId::from(300), 1, vec![1])]
+				);
+				m.clear();
+			});
+			assert!(
+				LastHrmpMqcHeads::<Test>::get().contains_key(&ParaId::from(300)),
+				"Channel 300 should be present"
+			);
+		})
+		.add(2, || {
+			assert_eq!(
+				LastHrmpMqcHeads::<Test>::get()
+					.into_iter()
+					.map(|(para, _)| para)
+					.collect::<Vec<_>>(),
+				vec![ParaId::from(200)],
+				"Channel 300 should be removed but 200 should be present"
+			);
+		});
+}
+
 #[test]
 fn receive_hrmp_empty_channel() {
 	BlockTests::new()
