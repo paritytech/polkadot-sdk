@@ -60,7 +60,7 @@ impl Default for RelayStateSproofBuilder {
 				max_head_data_size: 1024 * 1024,
 				max_upward_queue_count: 8,
 				max_upward_queue_size: 1024,
-				max_upward_message_size: 256,
+				max_upward_message_size: 1024 * 1024,
 				max_upward_message_num_per_candidate: 5,
 				hrmp_max_message_num_per_candidate: 5,
 				validation_upgrade_cooldown: 6,
