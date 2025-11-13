@@ -38,8 +38,8 @@ use frame_election_provider_support::{
 pub use frame_support::{assert_noop, assert_ok};
 use frame_support::{
 	derive_impl, ord_parameter_types, parameter_types,
-	traits::{Hooks, fungible::InspectHold},
-	weights::{RuntimeDbWeight, Weight, constants},
+	traits::{fungible::InspectHold, Hooks},
+	weights::{constants, RuntimeDbWeight, Weight},
 };
 use frame_system::EnsureRoot;
 use parking_lot::RwLock;

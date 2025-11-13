@@ -1302,7 +1302,9 @@ impl<T: Config> Pallet<T> {
 	///   do.
 	/// * The `Box<dyn Fn(&mut WeightMeter)>` is the function that represents that the work that
 	///   will at most consume the said amount of weight. While executing, it will alter the given
-	///   weight meter to consume the actual weight used. Indeed, the weight that is registered in the `WeightMeter` must never be more than the `Weight` returned as the first item of the tuple.
+	///   weight meter to consume the actual weight used. Indeed, the weight that is registered in
+	///   the `WeightMeter` must never be more than the `Weight` returned as the first item of the
+	///   tuple.
 	///
 	/// In essence, the caller must:
 	///
@@ -1980,7 +1982,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 #[cfg(test)]
 mod phase_rotation {
 	use super::{Event, *};
-	use crate::{Phase, mock::*, verifier::Status};
+	use crate::{mock::*, verifier::Status, Phase};
 	use frame_election_provider_support::ElectionProvider;
 	use frame_support::assert_ok;
 
@@ -2349,13 +2351,22 @@ mod phase_rotation {
 			roll_to_signed_validation_open();
 			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(2, 3));
 
-			roll_next_and_phase_verifier(Phase::SignedValidation(SignedValidationPhase::get() - 1), Status::Ongoing(1));
+			roll_next_and_phase_verifier(
+				Phase::SignedValidation(SignedValidationPhase::get() - 1),
+				Status::Ongoing(1),
+			);
 			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(1, 7));
 
-			roll_next_and_phase_verifier(Phase::SignedValidation(SignedValidationPhase::get() - 2), Status::Ongoing(0));
+			roll_next_and_phase_verifier(
+				Phase::SignedValidation(SignedValidationPhase::get() - 2),
+				Status::Ongoing(0),
+			);
 			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(1, 7));
 
-			roll_next_and_phase_verifier(Phase::SignedValidation(SignedValidationPhase::get() - 3), Status::Nothing);
+			roll_next_and_phase_verifier(
+				Phase::SignedValidation(SignedValidationPhase::get() - 3),
+				Status::Nothing,
+			);
 			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(1, 7));
 
 			// we also don't do anything during unsigned phase.
@@ -2366,7 +2377,8 @@ mod phase_rotation {
 			roll_next_and_phase(Phase::Unsigned(UnsignedPhase::get() - 2));
 			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(2, 0));
 
-			// Export weight is computed by us, but registered by whoever calls `elect`, not our business to check.
+			// Export weight is computed by us, but registered by whoever calls `elect`, not our
+			// business to check.
 		});
 	}
 
