@@ -20,7 +20,7 @@
 use crate::{
 	exec::{CallResources, ErrorOrigin, ExecError},
 	precompiles::{AddressMatcher, Error, Ext, ExtWithInfo, Precompile, Token},
-	Config, DispatchError, ExecOrigin as Origin, Weight, U256,
+	Config, DispatchError, ExecOrigin as Origin, ReentrancyProtection, Weight, U256,
 };
 use alloc::vec::Vec;
 use alloy_core::{
@@ -113,7 +113,7 @@ impl<T: Config> Precompile for NoInfo<T> {
 					&env.address(),
 					0.into(),
 					vec![42; *inputLen as usize],
-					true,
+					ReentrancyProtection::AllowReentry,
 					false,
 				)?;
 				Ok(Vec::new())

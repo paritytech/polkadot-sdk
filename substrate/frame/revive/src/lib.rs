@@ -52,7 +52,7 @@ use crate::{
 		runtime::SetWeightLimit, CallTracer, GenericTransaction, PrestateTracer, Trace, Tracer,
 		TracerType, TYPE_EIP1559,
 	},
-	exec::{AccountIdOf, ExecError, Stack as ExecStack},
+	exec::{AccountIdOf, ExecError, ReentrancyProtection, Stack as ExecStack},
 	storage::{AccountType, DeletionQueueManager},
 	tracing::if_tracing,
 	vm::{pvm::extract_code_and_data, CodeInfo, RuntimeCosts},

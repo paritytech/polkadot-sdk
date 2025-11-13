@@ -25,7 +25,7 @@ use crate::{
 	precompiles::Diff,
 	storage::{ContractInfo, WriteOutcome},
 	transient_storage::TransientStorage,
-	BalanceOf, Code, CodeRemoved, Config, ExecReturnValue, ImmutableData,
+	BalanceOf, Code, CodeRemoved, Config, ExecReturnValue, ImmutableData, ReentrancyProtection,
 };
 use alloc::vec::Vec;
 use core::marker::PhantomData;
@@ -61,7 +61,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		_to: &H160,
 		_value: U256,
 		_input_data: Vec<u8>,
-		_allows_reentry: bool,
+		_reentrancy: ReentrancyProtection,
 		_read_only: bool,
 	) -> Result<(), ExecError> {
 		panic!("MockExt::call")

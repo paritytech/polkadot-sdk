@@ -24,7 +24,7 @@ use crate::{
 		evm::{interpreter::Halt, util::as_usize_or_halt, Interpreter},
 		Ext, RuntimeCosts,
 	},
-	Code, Error, Pallet, H160, LOG_TARGET, U256,
+	Code, Error, Pallet, ReentrancyProtection, H160, LOG_TARGET, U256,
 };
 use alloc::{vec, vec::Vec};
 pub use call_helpers::{charge_call_gas, get_memory_in_and_out_ranges};
@@ -188,17 +188,29 @@ fn run_call<'a, E: Ext>(
 	value: U256,
 	return_memory_range: Range<usize>,
 ) -> ControlFlow<Halt> {
+	// We use SOLIDITY_CALL_STIPEND to detect the typical gas limit solc defines as a call stipend
+	// This is just a heuristic
+	let add_stipend = !value.is_zero() ||
+		gas_limit
+			.try_into()
+			.is_ok_and(|limit: u32| limit == crate::limits::SOLIDITY_CALL_STIPEND);
+
 	let call_result = match scheme {
 		CallScheme::Call | CallScheme::StaticCall => interpreter.ext.call(
-			&CallResources::from_ethereum_gas(gas_limit),
+			&CallResources::from_ethereum_gas(gas_limit, add_stipend),
 			&callee,
 			value,
 			input,
-			true,
+			// protect against re-entrancy when we grant the stipend
+			if add_stipend {
+				ReentrancyProtection::AllowNext
+			} else {
+				ReentrancyProtection::AllowReentry
+			},
 			scheme.is_static_call(),
 		),
 		CallScheme::DelegateCall => interpreter.ext.delegate_call(
-			&CallResources::from_ethereum_gas(gas_limit),
+			&CallResources::from_ethereum_gas(gas_limit, add_stipend),
 			callee,
 			input,
 		),

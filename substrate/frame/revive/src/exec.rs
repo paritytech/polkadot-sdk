@@ -119,6 +119,22 @@ impl Key {
 	}
 }
 
+/// Level of reentrancy protection.
+/// This needs to be specifed when a contract makes a message call. This way the calling contract
+/// can specify the level of re-entrancy protection while the callee (and it's recursive callees) is
+/// executing.
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum ReentrancyProtection {
+	/// Don't activate reentrancy protection
+	AllowReentry,
+	// Activate strict reentrancy protection. The direct callee and none of its own recursive
+	// callees must be the calling contract.
+	Strict,
+	// Activate reentrancy protection where the direct callee can be the same contract as the
+	// caller but none of the recursive callees of the callee must be the caller
+	AllowNext,
+}
+
 /// Origin of the error.
 ///
 /// Call or instantiate both called into other contracts and pass through errors happening
@@ -202,7 +218,7 @@ pub enum CallResources<T: Config> {
 	/// Resources encoded using their actual values.
 	WeightDeposit { weight: Weight, deposit_limit: BalanceOf<T> },
 	/// Resources encoded as unified ethereum gas.
-	Ethereum(BalanceOf<T>),
+	Ethereum { gas: BalanceOf<T>, add_stipend: bool },
 }
 
 impl<T: Config> CallResources<T> {
@@ -215,8 +231,8 @@ impl<T: Config> CallResources<T> {
 	}
 
 	/// Creates a new `CallResources` from Ethereum gas limits.
-	pub fn from_ethereum_gas(gas: U256) -> Self {
-		Self::Ethereum(gas.saturated_into::<BalanceOf<T>>())
+	pub fn from_ethereum_gas(gas: U256, add_stipend: bool) -> Self {
+		Self::Ethereum { gas: gas.saturated_into::<BalanceOf<T>>(), add_stipend }
 	}
 }
 
@@ -322,7 +338,7 @@ pub trait PrecompileExt: sealing::Sealed {
 		to: &H160,
 		value: U256,
 		input_data: Vec<u8>,
-		allows_reentry: bool,
+		reentrancy: ReentrancyProtection,
 		read_only: bool,
 	) -> Result<(), ExecError>;
 
@@ -1918,13 +1934,16 @@ where
 		dest_addr: &H160,
 		value: U256,
 		input_data: Vec<u8>,
-		allows_reentry: bool,
+		allows_reentry: ReentrancyProtection,
 		read_only: bool,
 	) -> Result<(), ExecError> {
 		// Before pushing the new frame: Protect the caller contract against reentrancy attacks.
 		// It is important to do this before calling `allows_reentry` so that a direct recursion
 		// is caught by it.
-		self.top_frame_mut().allows_reentry = allows_reentry;
+
+		if allows_reentry == ReentrancyProtection::Strict {
+			self.top_frame_mut().allows_reentry = false;
+		}
 
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
 		// This is for example the case for balance transfers or when creating the frame fails.
@@ -1943,6 +1962,10 @@ where
 
 			if !self.allows_reentry(&dest) {
 				return Err(<Error<T>>::ReentranceDenied.into());
+			}
+
+			if allows_reentry == ReentrancyProtection::AllowNext {
+				self.top_frame_mut().allows_reentry = false;
 			}
 
 			// We ignore instantiate frames in our search for a cached contract.

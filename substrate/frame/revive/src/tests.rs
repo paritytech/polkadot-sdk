@@ -20,6 +20,7 @@ mod pallet_dummy;
 mod precompiles;
 mod pvm;
 mod sol;
+mod stipends;
 
 use std::collections::HashMap;
 

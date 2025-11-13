@@ -20,9 +20,17 @@ use super::{
 	FrameMeter, InfoT, ResourceMeter, RootStorageMeter, SaturatedConversion, Saturating, SignedGas,
 	State, StorageDeposit, TransactionLimits, TransactionMeter, Weight, WeightMeter, Zero,
 };
+use crate::{limits::SOLIDITY_CALL_STIPEND, metering::weight::Token, vm::evm::EVMGas};
 use core::marker::PhantomData;
 
+fn determine_call_stipend<T: Config>() -> Weight {
+	let gas = EVMGas(SOLIDITY_CALL_STIPEND.into());
+	<EVMGas as Token<T>>::weight(&gas)
+}
+
 pub mod substrate_execution {
+	use num_traits::One;
+
 	use super::*;
 
 	/// Create a transaction-level (root) meter for Substrate-style execution.
@@ -37,7 +45,7 @@ pub mod substrate_execution {
 		deposit_limit: BalanceOf<T>,
 	) -> Result<TransactionMeter<T>, DispatchError> {
 		Ok(TransactionMeter {
-			weight: WeightMeter::new(Some(weight_limit)),
+			weight: WeightMeter::new(Some(weight_limit), None),
 			deposit: RootStorageMeter::new(Some(deposit_limit)),
 			// ignore max total gas for Substrate executions
 			max_total_gas: Default::default(),
@@ -72,26 +80,26 @@ pub mod substrate_execution {
 		let total_consumed_deposit =
 			meter.total_consumed_deposit_before.saturating_add(&self_consumed_deposit);
 
-		let (nested_weight_limit, nested_deposit_limit) = {
-			let weight_left = meter
-				.weight
-				.weight_limit
-				.expect("Weight limits all always defined for WeightAndDeposit; qed")
-				.checked_sub(&self_consumed_weight)
-				.ok_or(<Error<T>>::OutOfGas)?;
+		let weight_left = meter
+			.weight
+			.weight_limit
+			.expect("Weight limits all always defined for WeightAndDeposit; qed")
+			.checked_sub(&self_consumed_weight)
+			.ok_or(<Error<T>>::OutOfGas)?;
 
-			let deposit_limit = meter
-				.deposit
-				.limit
-				.expect("Deposit limits all always defined for WeightAndDeposit; qed");
-			let deposit_left = self_consumed_deposit
-				.available(&deposit_limit)
-				.ok_or(<Error<T>>::StorageDepositLimitExhausted)?;
+		let deposit_limit = meter
+			.deposit
+			.limit
+			.expect("Deposit limits all always defined for WeightAndDeposit; qed");
+		let deposit_left = self_consumed_deposit
+			.available(&deposit_limit)
+			.ok_or(<Error<T>>::StorageDepositLimitExhausted)?;
 
+		let (nested_weight_limit, nested_deposit_limit, stipend) = {
 			match limit {
-				CallResources::NoLimits => (weight_left, deposit_left),
+				CallResources::NoLimits => (weight_left, deposit_left, None),
 
-				CallResources::Ethereum(gas) => {
+				CallResources::Ethereum { gas, add_stipend } => {
 					// Convert leftover weight and deposit to an ethereum-gas equivalent,
 					// then cap that gas by the requested `gas`. Distribute the capped gas
 					// back into weight and deposit portions using the same ratio so that
@@ -102,33 +110,46 @@ pub mod substrate_execution {
 					let gas_left = weight_gas.saturating_add(deposit_gas);
 					let gas_limit = gas_left.min(*gas);
 
-					if (gas_left).is_zero() {
-						(weight_left, deposit_left)
+					let ratio = if gas_left.is_zero() {
+						FixedU128::one()
 					} else {
-						let ratio = FixedU128::from_rational(
+						FixedU128::from_rational(
 							gas_limit.saturated_into(),
 							gas_left.saturated_into(),
-						);
+						)
+					};
 
-						let weight_limit = Weight::from_parts(
-							ratio.saturating_mul_int(weight_left.ref_time()),
-							ratio.saturating_mul_int(weight_left.proof_size()),
-						);
-						let deposit_limit = ratio.saturating_mul_int(deposit_left);
+					let mut weight_limit = Weight::from_parts(
+						ratio.saturating_mul_int(weight_left.ref_time()),
+						ratio.saturating_mul_int(weight_left.proof_size()),
+					);
+					let deposit_limit = ratio.saturating_mul_int(deposit_left);
 
-						(weight_limit, deposit_limit)
-					}
+					let stipend = if *add_stipend {
+						let weight_stipend = determine_call_stipend::<T>();
+						if weight_left.any_lt(weight_stipend) {
+							Err(<Error<T>>::OutOfGas)?
+						}
+
+						weight_limit.saturating_accrue(weight_stipend);
+
+						Some(weight_stipend)
+					} else {
+						None
+					};
+
+					(weight_left.min(weight_limit), deposit_left.min(deposit_limit), stipend)
 				},
 
 				CallResources::WeightDeposit { weight, deposit_limit } =>
 				// when explicit weight+deposit requested, take the minimum of parent's left
 				// and the requested per-call limits.
-					(weight_left.min(*weight), deposit_left.min(*deposit_limit)),
+					(weight_left.min(*weight), deposit_left.min(*deposit_limit), None),
 			}
 		};
 
 		Ok(FrameMeter::<T> {
-			weight: WeightMeter::new(Some(nested_weight_limit)),
+			weight: WeightMeter::new(Some(nested_weight_limit), stipend),
 			deposit: meter.deposit.nested(Some(nested_deposit_limit)),
 			max_total_gas: Default::default(),
 			total_consumed_weight_before: total_consumed_weight,
@@ -248,7 +269,7 @@ pub mod ethereum_execution {
 		eth_tx_info: EthTxInfo<T>,
 	) -> Result<TransactionMeter<T>, DispatchError> {
 		let meter = TransactionMeter {
-			weight: WeightMeter::new(maybe_weight_limit),
+			weight: WeightMeter::new(maybe_weight_limit, None),
 			deposit: RootStorageMeter::new(None),
 			max_total_gas: SignedGas::Positive(eth_gas_limit),
 			total_consumed_weight_before: Default::default(),
@@ -301,80 +322,91 @@ pub mod ethereum_execution {
 			return Err(<Error<T>>::OutOfGas.into());
 		};
 
-		let (nested_gas_limit, nested_weight_limit, nested_deposit_limit) = {
-			// In the simple case the parent has no explicit weight and storage deposit limits and
-			// the requested CallResources are gas-only; then nested frames only need a gas cap.
-			let is_simple = meter.weight.weight_limit.is_none() &&
-				matches!(limit, CallResources::NoLimits | CallResources::Ethereum(..));
+		let weight_left = {
+			let unbounded_weight_left = eth_tx_info
+				.weight_remaining(
+					&meter.max_total_gas,
+					&total_consumed_weight,
+					&total_consumed_deposit,
+				)
+				.ok_or(<Error<T>>::OutOfGas)?;
 
-			if is_simple {
-				let nested_gas_limit = if let CallResources::Ethereum(gas) = limit {
-					gas_left.min(*gas)
-				} else {
-					gas_left
-				};
-				(nested_gas_limit, None, None)
-			} else {
-				// More complex path: derive a concrete weight_left and deposit_left.
-				let weight_left = {
-					let unbounded_weight_left = eth_tx_info
-						.weight_remaining(
-							&meter.max_total_gas,
-							&total_consumed_weight,
-							&total_consumed_deposit,
-						)
-						.ok_or(<Error<T>>::OutOfGas)?;
+			match meter.weight.weight_limit {
+				Some(weight_limit) => unbounded_weight_left.min(
+					weight_limit.checked_sub(&self_consumed_weight).ok_or(<Error<T>>::OutOfGas)?,
+				),
+				None => unbounded_weight_left,
+			}
+		};
 
-					match meter.weight.weight_limit {
-						Some(weight_limit) => unbounded_weight_left.min(
-							weight_limit
-								.checked_sub(&self_consumed_weight)
-								.ok_or(<Error<T>>::OutOfGas)?,
-						),
-						None => unbounded_weight_left,
-					}
-				};
+		let deposit_left = {
+			let unbounded_deposit_left: BalanceOf<T> =
+				T::FeeInfo::next_fee_multiplier().saturating_mul_int(gas_left);
+			match meter.deposit.limit {
+				Some(deposit_limit) => unbounded_deposit_left.min(
+					self_consumed_deposit
+						.available(&deposit_limit)
+						.ok_or(<Error<T>>::StorageDepositLimitExhausted)?,
+				),
+				None => unbounded_deposit_left,
+			}
+		};
 
-				let deposit_left = {
-					let unbounded_deposit_left: BalanceOf<T> =
-						T::FeeInfo::next_fee_multiplier().saturating_mul_int(gas_left);
-					match meter.deposit.limit {
-						Some(deposit_limit) => unbounded_deposit_left.min(
-							self_consumed_deposit
-								.available(&deposit_limit)
-								.ok_or(<Error<T>>::StorageDepositLimitExhausted)?,
-						),
-						None => unbounded_deposit_left,
-					}
-				};
+		let (nested_gas_limit, nested_weight_limit, nested_deposit_limit, stipend) = {
+			match limit {
+				CallResources::NoLimits => (
+					gas_left,
+					if meter.weight.weight_limit.is_none() { None } else { Some(weight_left) },
+					if meter.deposit.limit.is_none() { None } else { Some(deposit_left) },
+					None,
+				),
 
-				match limit {
-					CallResources::NoLimits => (gas_left, Some(weight_left), Some(deposit_left)),
-					CallResources::Ethereum(gas) =>
-						(gas_left.min(*gas), Some(weight_left), Some(deposit_left)),
-					CallResources::WeightDeposit { weight, deposit_limit } => {
-						let nested_weight_limit = weight_left.min(*weight);
-						let nested_deposit_limit = deposit_left.min(*deposit_limit);
-
-						let new_max_total_gas = eth_tx_info.gas_consumption(
-							&total_consumed_weight.saturating_add(nested_weight_limit),
-							&total_consumed_deposit
-								.saturating_add(&StorageDeposit::Charge(nested_deposit_limit)),
-						);
-
-						let Some(gas_limit) =
-							new_max_total_gas.saturating_sub(&total_gas_consumption).as_positive()
-						else {
-							return Err(<Error<T>>::OutOfGas.into());
-						};
+				CallResources::Ethereum { gas, add_stipend } => {
+					let (gas_limit, stipend) = if *add_stipend {
+						let weight_stipend = determine_call_stipend::<T>();
+						if weight_left.any_lt(weight_stipend) {
+							Err(<Error<T>>::OutOfGas)?
+						}
 
 						(
-							gas_left.min(gas_limit),
-							Some(nested_weight_limit),
-							Some(nested_deposit_limit),
+							gas.saturating_add(T::FeeInfo::weight_to_fee(&weight_stipend)),
+							Some(weight_stipend),
 						)
-					},
-				}
+					} else {
+						(*gas, None)
+					};
+
+					(
+						gas_left.min(gas_limit),
+						if meter.weight.weight_limit.is_none() { None } else { Some(weight_left) },
+						if meter.deposit.limit.is_none() { None } else { Some(deposit_left) },
+						stipend,
+					)
+				},
+
+				CallResources::WeightDeposit { weight, deposit_limit } => {
+					let nested_weight_limit = weight_left.min(*weight);
+					let nested_deposit_limit = deposit_left.min(*deposit_limit);
+
+					let new_max_total_gas = eth_tx_info.gas_consumption(
+						&total_consumed_weight.saturating_add(nested_weight_limit),
+						&total_consumed_deposit
+							.saturating_add(&StorageDeposit::Charge(nested_deposit_limit)),
+					);
+
+					let Some(gas_limit) =
+						new_max_total_gas.saturating_sub(&total_gas_consumption).as_positive()
+					else {
+						return Err(<Error<T>>::OutOfGas.into());
+					};
+
+					(
+						gas_left.min(gas_limit),
+						Some(nested_weight_limit),
+						Some(nested_deposit_limit),
+						None,
+					)
+				},
 			}
 		};
 
@@ -382,7 +414,7 @@ pub mod ethereum_execution {
 			total_gas_consumption.saturating_add(&SignedGas::Positive(nested_gas_limit));
 
 		Ok(FrameMeter::<T> {
-			weight: WeightMeter::new(nested_weight_limit),
+			weight: WeightMeter::new(nested_weight_limit, stipend),
 			deposit: meter.deposit.nested(nested_deposit_limit),
 			max_total_gas: nested_max_total_gas,
 			total_consumed_weight_before: total_consumed_weight,

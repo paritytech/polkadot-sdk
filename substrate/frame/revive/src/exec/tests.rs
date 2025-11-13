@@ -30,7 +30,7 @@ use crate::{
 		test_utils::{get_balance, place_contract, set_balance},
 		ExtBuilder, RuntimeEvent as MetaEvent, Test,
 	},
-	AddressMapper, Error, Pallet,
+	AddressMapper, Error, Pallet, ReentrancyProtection,
 };
 use assert_matches::assert_matches;
 use frame_support::{assert_err, assert_ok, parameter_types};
@@ -631,7 +631,14 @@ fn max_depth() {
 	let value = 0;
 	let recurse_ch = MockLoader::insert(Call, |ctx, _| {
 		// Try to call into yourself.
-		let r = ctx.ext.call(&Default::default(), &BOB_ADDR, U256::zero(), vec![], true, false);
+		let r = ctx.ext.call(
+			&Default::default(),
+			&BOB_ADDR,
+			U256::zero(),
+			vec![],
+			ReentrancyProtection::AllowReentry,
+			false,
+		);
 
 		ReachedBottom::mutate(|reached_bottom| {
 			if !*reached_bottom {
@@ -685,8 +692,14 @@ fn caller_returns_proper_values() {
 
 		// Call into CHARLIE contract.
 		assert_matches!(
-			ctx.ext
-				.call(&Default::default(), &CHARLIE_ADDR, U256::zero(), vec![], true, false),
+			ctx.ext.call(
+				&Default::default(),
+				&CHARLIE_ADDR,
+				U256::zero(),
+				vec![],
+				ReentrancyProtection::AllowReentry,
+				false
+			),
 			Ok(_)
 		);
 		exec_success()
@@ -741,8 +754,14 @@ fn origin_returns_proper_values() {
 
 		// Call into CHARLIE contract.
 		assert_matches!(
-			ctx.ext
-				.call(&Default::default(), &CHARLIE_ADDR, U256::zero(), vec![], true, false),
+			ctx.ext.call(
+				&Default::default(),
+				&CHARLIE_ADDR,
+				U256::zero(),
+				vec![],
+				ReentrancyProtection::AllowReentry,
+				false
+			),
 			Ok(_)
 		);
 		exec_success()
@@ -886,7 +905,14 @@ fn caller_is_origin_returns_proper_values() {
 		assert!(ctx.ext.caller_is_origin(false));
 		// BOB calls CHARLIE
 		ctx.ext
-			.call(&Default::default(), &CHARLIE_ADDR, U256::zero(), vec![], true, false)
+			.call(
+				&Default::default(),
+				&CHARLIE_ADDR,
+				U256::zero(),
+				vec![],
+				ReentrancyProtection::AllowReentry,
+				false,
+			)
 			.map(|_| ctx.ext.last_frame_output().clone())
 	});
 
@@ -971,7 +997,14 @@ fn root_caller_succeeds_with_consecutive_calls() {
 		assert!(ctx.ext.caller_is_root(false));
 		// BOB calls CHARLIE.
 		ctx.ext
-			.call(&Default::default(), &CHARLIE_ADDR, U256::zero(), vec![], true, false)
+			.call(
+				&Default::default(),
+				&CHARLIE_ADDR,
+				U256::zero(),
+				vec![],
+				ReentrancyProtection::AllowReentry,
+				false,
+			)
 			.map(|_| ctx.ext.last_frame_output().clone())
 	});
 
@@ -1001,8 +1034,14 @@ fn address_returns_proper_values() {
 
 		// Call into charlie contract.
 		assert_matches!(
-			ctx.ext
-				.call(&Default::default(), &CHARLIE_ADDR, U256::zero(), vec![], true, false),
+			ctx.ext.call(
+				&Default::default(),
+				&CHARLIE_ADDR,
+				U256::zero(),
+				vec![],
+				ReentrancyProtection::AllowReentry,
+				false
+			),
 			Ok(_)
 		);
 		exec_success()
@@ -1319,7 +1358,14 @@ fn in_memory_changes_not_discarded() {
 			info.storage_byte_deposit = 42;
 			assert_eq!(
 				ctx.ext
-					.call(&Default::default(), &CHARLIE_ADDR, U256::zero(), vec![], true, false)
+					.call(
+						&Default::default(),
+						&CHARLIE_ADDR,
+						U256::zero(),
+						vec![],
+						ReentrancyProtection::AllowReentry,
+						false
+					)
 					.map(|_| ctx.ext.last_frame_output().clone()),
 				exec_trapped()
 			);
@@ -1330,7 +1376,14 @@ fn in_memory_changes_not_discarded() {
 	let code_charlie = MockLoader::insert(Call, |ctx, _| {
 		assert!(ctx
 			.ext
-			.call(&Default::default(), &BOB_ADDR, U256::zero(), vec![99], true, false)
+			.call(
+				&Default::default(),
+				&BOB_ADDR,
+				U256::zero(),
+				vec![99],
+				ReentrancyProtection::AllowReentry,
+				false
+			)
 			.is_ok());
 		exec_trapped()
 	});
@@ -1369,7 +1422,7 @@ fn recursive_call_during_constructor_is_balance_transfer() {
 			&addr,
 			(balance - 1).into(),
 			vec![],
-			true,
+			ReentrancyProtection::AllowReentry,
 			false
 		));
 
@@ -1380,7 +1433,7 @@ fn recursive_call_during_constructor_is_balance_transfer() {
 			&addr,
 			1u32.into(),
 			vec![1, 2, 3, 4],
-			true,
+			ReentrancyProtection::AllowReentry,
 			false
 		));
 		exec_success()
@@ -1420,8 +1473,14 @@ fn cannot_send_more_balance_than_available_to_self() {
 		let balance = ctx.ext.balance();
 
 		assert_err!(
-			ctx.ext
-				.call(&Default::default(), &addr, (balance + 1).into(), vec![], true, false),
+			ctx.ext.call(
+				&Default::default(),
+				&addr,
+				(balance + 1).into(),
+				vec![],
+				ReentrancyProtection::AllowReentry,
+				false
+			),
 			<Error<Test>>::TransferFailed,
 		);
 		exec_success()
@@ -1454,7 +1513,14 @@ fn call_reentry_direct_recursion() {
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		let dest = H160::from_slice(ctx.input_data.as_ref());
 		ctx.ext
-			.call(&Default::default(), &dest, U256::zero(), vec![], false, false)
+			.call(
+				&Default::default(),
+				&dest,
+				U256::zero(),
+				vec![],
+				ReentrancyProtection::Strict,
+				false,
+			)
 			.map(|_| ctx.ext.last_frame_output().clone())
 	});
 
@@ -1497,7 +1563,14 @@ fn call_deny_reentry() {
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		if ctx.input_data[0] == 0 {
 			ctx.ext
-				.call(&Default::default(), &CHARLIE_ADDR, U256::zero(), vec![], false, false)
+				.call(
+					&Default::default(),
+					&CHARLIE_ADDR,
+					U256::zero(),
+					vec![],
+					ReentrancyProtection::Strict,
+					false,
+				)
 				.map(|_| ctx.ext.last_frame_output().clone())
 		} else {
 			exec_success()
@@ -1507,7 +1580,14 @@ fn call_deny_reentry() {
 	// call BOB with input set to '1'
 	let code_charlie = MockLoader::insert(Call, |ctx, _| {
 		ctx.ext
-			.call(&Default::default(), &BOB_ADDR, U256::zero(), vec![1], true, false)
+			.call(
+				&Default::default(),
+				&BOB_ADDR,
+				U256::zero(),
+				vec![1],
+				ReentrancyProtection::AllowReentry,
+				false,
+			)
 			.map(|_| ctx.ext.last_frame_output().clone())
 	});
 
@@ -1608,7 +1688,14 @@ fn nonce() {
 
 		// a plain call should not influence the account counter
 		ctx.ext
-			.call(&Default::default(), &addr, U256::zero(), vec![], false, false)
+			.call(
+				&Default::default(),
+				&addr,
+				U256::zero(),
+				vec![],
+				ReentrancyProtection::Strict,
+				false,
+			)
 			.unwrap();
 
 		assert_eq!(System::account_nonce(ALICE), alice_nonce);
@@ -2114,7 +2201,14 @@ fn get_transient_storage_works() {
 			);
 			assert_eq!(
 				ctx.ext
-					.call(&Default::default(), &CHARLIE_ADDR, U256::zero(), vec![], true, false,)
+					.call(
+						&Default::default(),
+						&CHARLIE_ADDR,
+						U256::zero(),
+						vec![],
+						ReentrancyProtection::AllowReentry,
+						false,
+					)
 					.map(|_| ctx.ext.last_frame_output().clone()),
 				exec_success()
 			);
@@ -2136,7 +2230,14 @@ fn get_transient_storage_works() {
 	let code_charlie = MockLoader::insert(Call, |ctx, _| {
 		assert!(ctx
 			.ext
-			.call(&Default::default(), &BOB_ADDR, U256::zero(), vec![99], true, false)
+			.call(
+				&Default::default(),
+				&BOB_ADDR,
+				U256::zero(),
+				vec![99],
+				ReentrancyProtection::AllowReentry,
+				false
+			)
 			.is_ok());
 		// CHARLIE can not read BOB`s storage.
 		assert_eq!(ctx.ext.get_transient_storage(storage_key_1), None);
@@ -2210,7 +2311,14 @@ fn rollback_transient_storage_works() {
 			);
 			assert_eq!(
 				ctx.ext
-					.call(&Default::default(), &CHARLIE_ADDR, U256::zero(), vec![], true, false)
+					.call(
+						&Default::default(),
+						&CHARLIE_ADDR,
+						U256::zero(),
+						vec![],
+						ReentrancyProtection::AllowReentry,
+						false
+					)
 					.map(|_| ctx.ext.last_frame_output().clone()),
 				exec_trapped()
 			);
@@ -2228,7 +2336,14 @@ fn rollback_transient_storage_works() {
 	let code_charlie = MockLoader::insert(Call, |ctx, _| {
 		assert!(ctx
 			.ext
-			.call(&Default::default(), &BOB_ADDR, U256::zero(), vec![99], true, false)
+			.call(
+				&Default::default(),
+				&BOB_ADDR,
+				U256::zero(),
+				vec![99],
+				ReentrancyProtection::AllowReentry,
+				false
+			)
 			.is_ok());
 		exec_trapped()
 	});
@@ -2313,7 +2428,7 @@ fn last_frame_output_works_on_instantiate() {
 					&address,
 					Pallet::<Test>::convert_native_to_evm(1),
 					vec![],
-					true,
+					ReentrancyProtection::AllowReentry,
 					false,
 				)
 				.unwrap();
@@ -2376,7 +2491,14 @@ fn last_frame_output_works_on_nested_call() {
 			);
 
 			ctx.ext
-				.call(&Default::default(), &CHARLIE_ADDR, U256::zero(), vec![], true, false)
+				.call(
+					&Default::default(),
+					&CHARLIE_ADDR,
+					U256::zero(),
+					vec![],
+					ReentrancyProtection::AllowReentry,
+					false,
+				)
 				.unwrap();
 			assert_eq!(
 				ctx.ext.last_frame_output(),
@@ -2395,7 +2517,14 @@ fn last_frame_output_works_on_nested_call() {
 
 		assert!(ctx
 			.ext
-			.call(&Default::default(), &BOB_ADDR, U256::zero(), vec![99], true, false)
+			.call(
+				&Default::default(),
+				&BOB_ADDR,
+				U256::zero(),
+				vec![99],
+				ReentrancyProtection::AllowReentry,
+				false
+			)
 			.is_ok());
 		assert_eq!(
 			ctx.ext.last_frame_output(),
@@ -2437,7 +2566,7 @@ fn last_frame_output_is_always_reset() {
 				&H160::zero(),
 				U256::max_value(),
 				vec![],
-				true,
+				ReentrancyProtection::AllowReentry,
 				false,
 			),
 			Err(Error::<Test>::BalanceConversionFailed.into())
@@ -2553,7 +2682,14 @@ fn correct_immutable_data_in_delegate_call() {
 		// In a regular call, we should witness the callee immutable data
 		assert_eq!(
 			ctx.ext
-				.call(&Default::default(), &CHARLIE_ADDR, U256::zero(), vec![], true, false,)
+				.call(
+					&Default::default(),
+					&CHARLIE_ADDR,
+					U256::zero(),
+					vec![],
+					ReentrancyProtection::AllowReentry,
+					false,
+				)
 				.map(|_| ctx.ext.last_frame_output().data.clone()),
 			Ok(vec![2]),
 		);

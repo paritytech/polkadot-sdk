@@ -140,11 +140,11 @@ pub struct WeightMeter<T: Config> {
 }
 
 impl<T: Config> WeightMeter<T> {
-	pub fn new(weight_limit: Option<Weight>) -> Self {
+	pub fn new(weight_limit: Option<Weight>, stipend: Option<Weight>) -> Self {
 		WeightMeter {
 			weight_limit,
 			weight_consumed: Default::default(),
-			weight_consumed_highest: Default::default(),
+			weight_consumed_highest: stipend.unwrap_or_default(),
 			engine_meter: EngineMeter::new(),
 			_phantom: PhantomData,
 			#[cfg(test)]
@@ -281,7 +281,7 @@ impl<T: Config> WeightMeter<T> {
 
 	#[cfg(test)]
 	pub fn nested(&mut self, amount: Weight) -> Self {
-		Self::new(Some(self.weight_left().min(amount)))
+		Self::new(Some(self.weight_left().min(amount)), None)
 	}
 }
 
@@ -338,13 +338,13 @@ mod tests {
 
 	#[test]
 	fn it_works() {
-		let weight_meter = WeightMeter::<Test>::new(Some(Weight::from_parts(50000, 0)));
+		let weight_meter = WeightMeter::<Test>::new(Some(Weight::from_parts(50000, 0)), None);
 		assert_eq!(weight_meter.weight_left(), Weight::from_parts(50000, 0));
 	}
 
 	#[test]
 	fn tracing() {
-		let mut weight_meter = WeightMeter::<Test>::new(Some(Weight::from_parts(50000, 0)));
+		let mut weight_meter = WeightMeter::<Test>::new(Some(Weight::from_parts(50000, 0)), None);
 		assert!(!weight_meter.charge(SimpleToken(1), weight_meter.weight_left()).is_err());
 
 		let mut tokens = weight_meter.tokens().iter();
@@ -354,7 +354,7 @@ mod tests {
 	// This test makes sure that nothing can be executed if there is no weight.
 	#[test]
 	fn refuse_to_execute_anything_if_zero() {
-		let mut weight_meter = WeightMeter::<Test>::new(Some(Weight::zero()));
+		let mut weight_meter = WeightMeter::<Test>::new(Some(Weight::zero()), None);
 		assert!(weight_meter.charge(SimpleToken(1), weight_meter.weight_left()).is_err());
 	}
 
@@ -365,7 +365,7 @@ mod tests {
 	#[test]
 	fn nested_zero_weight_requested() {
 		let test_weight = 50000.into();
-		let mut weight_meter = WeightMeter::<Test>::new(Some(test_weight));
+		let mut weight_meter = WeightMeter::<Test>::new(Some(test_weight), None);
 		let weight_for_nested_call = weight_meter.nested(0.into());
 
 		assert_eq!(weight_meter.weight_left(), 50000.into());
@@ -375,7 +375,7 @@ mod tests {
 	#[test]
 	fn nested_some_weight_requested() {
 		let test_weight = 50000.into();
-		let mut weight_meter = WeightMeter::<Test>::new(Some(test_weight));
+		let mut weight_meter = WeightMeter::<Test>::new(Some(test_weight), None);
 		let weight_for_nested_call = weight_meter.nested(10000.into());
 
 		assert_eq!(weight_meter.weight_consumed(), 0.into());
@@ -385,7 +385,7 @@ mod tests {
 	#[test]
 	fn nested_all_weight_requested() {
 		let test_weight = Weight::from_parts(50000, 50000);
-		let mut weight_meter = WeightMeter::<Test>::new(Some(test_weight));
+		let mut weight_meter = WeightMeter::<Test>::new(Some(test_weight), None);
 		let weight_for_nested_call = weight_meter.nested(test_weight);
 
 		assert_eq!(weight_meter.weight_consumed(), Weight::from_parts(0, 0));
@@ -395,7 +395,7 @@ mod tests {
 	#[test]
 	fn nested_excess_weight_requested() {
 		let test_weight = Weight::from_parts(50000, 50000);
-		let mut weight_meter = WeightMeter::<Test>::new(Some(test_weight));
+		let mut weight_meter = WeightMeter::<Test>::new(Some(test_weight), None);
 		let weight_for_nested_call = weight_meter.nested(test_weight + 10000.into());
 
 		assert_eq!(weight_meter.weight_consumed(), Weight::from_parts(0, 0));
@@ -405,7 +405,7 @@ mod tests {
 	// Make sure that the weight meter does not charge in case of overcharge
 	#[test]
 	fn overcharge_does_not_charge() {
-		let mut weight_meter = WeightMeter::<Test>::new(Some(Weight::from_parts(200, 0)));
+		let mut weight_meter = WeightMeter::<Test>::new(Some(Weight::from_parts(200, 0)), None);
 
 		// The first charge is should lead to OOG.
 		assert!(weight_meter.charge(SimpleToken(300), weight_meter.weight_left()).is_err());
@@ -418,7 +418,7 @@ mod tests {
 	// possible.
 	#[test]
 	fn charge_exact_amount() {
-		let mut weight_meter = WeightMeter::<Test>::new(Some(Weight::from_parts(25, 0)));
+		let mut weight_meter = WeightMeter::<Test>::new(Some(Weight::from_parts(25, 0)), None);
 		assert!(!weight_meter.charge(SimpleToken(25), weight_meter.weight_left()).is_err());
 	}
 }

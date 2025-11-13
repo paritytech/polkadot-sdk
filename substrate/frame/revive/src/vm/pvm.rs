@@ -28,7 +28,7 @@ use crate::{
 	metering::weight::ChargedAmount,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
-	Code, Config, Error, Pallet, RuntimeCosts, LOG_TARGET, SENTINEL,
+	Code, Config, Error, Pallet, ReentrancyProtection, RuntimeCosts, LOG_TARGET, SENTINEL,
 };
 use alloc::{vec, vec::Vec};
 use codec::Encode;
@@ -686,12 +686,19 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 						dust_transfer: Pallet::<E::T>::has_dust(value),
 					})?;
 				}
+
+				let reentrancy = if flags.contains(CallFlags::ALLOW_REENTRY) {
+					ReentrancyProtection::AllowReentry
+				} else {
+					ReentrancyProtection::Strict
+				};
+
 				self.ext.call(
 					&CallResources::from_weight_and_deposit(weight, deposit_limit),
 					&callee,
 					value,
 					input_data,
-					flags.contains(CallFlags::ALLOW_REENTRY),
+					reentrancy,
 					read_only,
 				)
 			},

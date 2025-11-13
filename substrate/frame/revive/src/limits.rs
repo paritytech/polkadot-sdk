@@ -96,6 +96,9 @@ pub const EVM_MEMORY_BYTES: u32 = 1024 * 1024;
 /// EVM interpreter stack limit.
 pub const EVM_STACK_LIMIT: u32 = 1024;
 
+/// The call stipend gas amount defined in the EVM
+pub const SOLIDITY_CALL_STIPEND: u32 = 2300;
+
 /// Limits that are only enforced on code upload.
 ///
 /// # Note
