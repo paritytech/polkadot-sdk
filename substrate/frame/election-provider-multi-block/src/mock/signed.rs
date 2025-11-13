@@ -186,7 +186,7 @@ pub fn load_signed_for_verification_and_start(
 	load_signed_for_verification(who, paged);
 
 	// now the solution should start being verified.
-	roll_to_signed_validation_open_started();
+	roll_to_signed_validation_open();
 	assert_eq!(
 		multi_block_events(),
 		vec![
@@ -216,7 +216,7 @@ pub fn load_signed_for_verification_and_start_and_roll_to_verified(
 	load_signed_for_verification(who, paged.clone());
 
 	// now the solution should start being verified.
-	roll_to_signed_validation_open_started();
+	roll_to_signed_validation_open();
 	assert_eq!(
 		multi_block_events(),
 		vec![

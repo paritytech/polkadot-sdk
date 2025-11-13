@@ -38,8 +38,8 @@ use frame_election_provider_support::{
 pub use frame_support::{assert_noop, assert_ok};
 use frame_support::{
 	derive_impl, ord_parameter_types, parameter_types,
-	traits::{fungible::InspectHold, Hooks},
-	weights::{constants, Weight},
+	traits::{Hooks, fungible::InspectHold},
+	weights::{RuntimeDbWeight, Weight, constants},
 };
 use frame_system::EnsureRoot;
 use parking_lot::RwLock;
@@ -88,6 +88,10 @@ frame_election_provider_support::generate_solution_type!(
 	>(16)
 );
 
+parameter_types! {
+	pub DbWeight: RuntimeDbWeight = RuntimeDbWeight { read: 1, write: 1};
+}
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Hashing = BlakeTwo256;
@@ -97,6 +101,7 @@ impl frame_system::Config for Runtime {
 	type BlockWeights = BlockWeights;
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type Block = frame_system::mocking::MockBlock<Self>;
+	type DbWeight = DbWeight;
 }
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
@@ -228,7 +233,6 @@ impl crate::Config for Runtime {
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 	type MinerConfig = Self;
-	type WeightInfo = ();
 	type Verifier = VerifierPallet;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type ManagerOrigin = frame_system::EnsureSignedBy<Manager, AccountId>;
@@ -236,6 +240,7 @@ impl crate::Config for Runtime {
 	type AreWeDone = AreWeDone;
 	type Signed = SignedPallet;
 	type OnRoundRotation = CleanRound<Self>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -687,7 +692,7 @@ pub fn roll_to_signed_open() {
 /// (`Phase::SignedValidation(_)`).
 ///
 /// Also ensure that the start signal is already sent.
-pub fn roll_to_signed_validation_open_started() {
+pub fn roll_to_signed_validation_open() {
 	while !matches!(MultiBlock::current_phase(), Phase::SignedValidation(_)) {
 		roll_next()
 	}

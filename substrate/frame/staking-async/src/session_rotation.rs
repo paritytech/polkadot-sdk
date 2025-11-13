@@ -82,6 +82,7 @@ use frame_election_provider_support::{BoundedSupportsOf, ElectionProvider, PageI
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Defensive, DefensiveMax, DefensiveSaturating, OnUnbalanced, TryCollect},
+	weights::WeightMeter,
 };
 use pallet_staking_async_rc_client::RcClientInterface;
 use sp_runtime::{Perbill, Percent, Saturating};
@@ -903,12 +904,13 @@ impl<T: Config> EraElectionPlanner<T> {
 			.inspect_err(|e| log!(warn, "Election provider failed to start: {:?}", e))
 	}
 
-	pub(crate) fn maybe_fetch_election_results() -> (Weight, Box<dyn Fn() -> Option<Weight>>) {
+	pub(crate) fn maybe_fetch_election_results() -> (Weight, Box<dyn Fn(&mut WeightMeter)>) {
 		let Ok(Some(required_weight)) = T::ElectionProvider::status() else {
 			// no election ongoing
-			return (Default::default(), Box::new(|| None))
+			let weight = T::DbWeight::get().reads(1);
+			return (weight, Box::new(move |meter: &mut WeightMeter| meter.consume(weight)))
 		};
-		let exec = Box::new(|| {
+		let exec = Box::new(move |meter: &mut WeightMeter| {
 			crate::log!(
 				debug,
 				"Election provider is ready, our status is {:?}",
@@ -944,7 +946,8 @@ impl<T: Config> EraElectionPlanner<T> {
 				T::RcClientInterface::validator_set(rc_validators, id, prune_up_to);
 			}
 
-			None
+			// consume the reported worst case weight.
+			meter.consume(required_weight)
 		});
 		(required_weight, exec)
 	}

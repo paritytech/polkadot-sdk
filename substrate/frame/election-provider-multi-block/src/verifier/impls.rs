@@ -622,9 +622,10 @@ pub(crate) mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	fn do_per_block_exec() -> (Weight, Box<dyn Fn() -> Option<Weight>>) {
+	fn do_per_block_exec() -> (Weight, Box<dyn Fn(&mut WeightMeter)>) {
 		let Status::Ongoing(current_page) = Self::status_storage() else {
-			return (T::DbWeight::get().reads(1), Box::new(|| None))
+			let weight = T::DbWeight::get().reads(1);
+			return (weight, Box::new(move |meter: &mut WeightMeter| meter.consume(weight)))
 		};
 
 		// before executing, we don't know which weight we will consume; return the max.
@@ -633,7 +634,7 @@ impl<T: Config> Pallet<T> {
 			.max(VerifierWeightsOf::<T>::verification_invalid_non_terminal(T::Pages::get()))
 			.max(VerifierWeightsOf::<T>::verification_invalid_terminal());
 
-		let execute = Box::new(move || {
+		let execute = Box::new(move |meter: &mut WeightMeter| {
 			let page_solution =
 				<T::SolutionDataProvider as SolutionDataProvider>::get_page(current_page);
 			let maybe_supports = Self::feasibility_check_page_inner(page_solution, current_page);
@@ -645,7 +646,7 @@ impl<T: Config> Pallet<T> {
 				current_page,
 				maybe_supports.as_ref().map(|s| s.len())
 			);
-			let actual_weight = match maybe_supports {
+			match maybe_supports {
 				Ok(supports) => {
 					Self::deposit_event(Event::<T>::Verified(current_page, supports.len() as u32));
 					QueuedSolution::<T>::set_invalid_page(current_page, supports);
@@ -655,7 +656,7 @@ impl<T: Config> Pallet<T> {
 						StatusStorage::<T>::put(Status::Ongoing(
 							current_page.defensive_saturating_sub(1),
 						));
-						VerifierWeightsOf::<T>::verification_valid_non_terminal()
+						meter.consume(VerifierWeightsOf::<T>::verification_valid_non_terminal())
 					} else {
 						// last page, finalize everything. Get the claimed score.
 						let claimed_score = T::SolutionDataProvider::get_score();
@@ -667,7 +668,7 @@ impl<T: Config> Pallet<T> {
 						match Self::finalize_async_verification(claimed_score) {
 							Ok(_) => {
 								T::SolutionDataProvider::report_result(VerificationResult::Queued);
-								VerifierWeightsOf::<T>::verification_valid_terminal()
+								meter.consume(VerifierWeightsOf::<T>::verification_valid_terminal())
 							},
 							Err(_) => {
 								T::SolutionDataProvider::report_result(
@@ -675,7 +676,8 @@ impl<T: Config> Pallet<T> {
 								);
 								// In case of any of the errors, kill the solution.
 								QueuedSolution::<T>::clear_invalid_and_backings();
-								VerifierWeightsOf::<T>::verification_invalid_terminal()
+								meter
+									.consume(VerifierWeightsOf::<T>::verification_invalid_terminal())
 							},
 						}
 					}
@@ -697,11 +699,11 @@ impl<T: Config> Pallet<T> {
 						T::SolutionDataProvider::report_result(VerificationResult::Rejected);
 					}
 					let wasted_pages = T::Pages::get().saturating_sub(current_page);
-					VerifierWeightsOf::<T>::verification_invalid_non_terminal(wasted_pages)
+					meter.consume(VerifierWeightsOf::<T>::verification_invalid_non_terminal(
+						wasted_pages,
+					))
 				},
-			};
-
-			Some(actual_weight)
+			}
 		});
 
 		(worst_case_weight, execute)
@@ -1002,7 +1004,7 @@ impl<T: Config> Verifier for Pallet<T> {
 		QueuedSolution::<T>::force_set_single_page_valid(page, partial_supports, score);
 	}
 
-	fn per_block_exec() -> (Weight, Box<dyn Fn() -> Option<Weight>>) {
+	fn per_block_exec() -> (Weight, Box<dyn Fn(&mut WeightMeter)>) {
 		Self::do_per_block_exec()
 	}
 }

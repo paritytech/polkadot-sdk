@@ -558,7 +558,7 @@ mod e2e {
 				]
 			);
 
-			roll_to_signed_validation_open_started();
+			roll_to_signed_validation_open();
 
 			// 92 is slashed in 3 blocks, 999 becomes rewarded in 3 blocks, and 99 is discarded.
 			roll_next_and_phase_verifier(Phase::<T>::SignedValidation(5), Status::Ongoing(1));
@@ -668,7 +668,7 @@ mod e2e {
 			let current_round = SignedPallet::current_round();
 			assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 1);
 
-			roll_to_signed_validation_open_started();
+			roll_to_signed_validation_open();
 			roll_to_full_verification();
 
 			// Check that rejection events were properly generated
@@ -752,7 +752,7 @@ mod e2e {
 			assert_eq!(page_2, Default::default(), "Missing page 2 should return empty solution");
 
 			// Start verification process
-			roll_to_signed_validation_open_started();
+			roll_to_signed_validation_open();
 
 			// The verification should proceed and treat the missing pages as empty
 			roll_next_and_phase_verifier(Phase::<T>::SignedValidation(5), Status::Ongoing(1));
@@ -831,7 +831,7 @@ mod e2e {
 				let current_round = SignedPallet::current_round();
 				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 2);
 
-				roll_to_signed_validation_open_started();
+				roll_to_signed_validation_open();
 				assert_eq!(verifier_events_since_last_call(), vec![]);
 
 				roll_next_and_phase_verifier(Phase::SignedValidation(2), Status::Ongoing(1));
@@ -910,7 +910,7 @@ mod e2e {
 				// skip registration events
 				let _ = signed_events_since_last_call();
 
-				roll_to_signed_validation_open_started();
+				roll_to_signed_validation_open();
 
 				// henceforth we proceed block-by-block for better visibility of what is happening.
 
@@ -943,7 +943,7 @@ mod e2e {
 				roll_next_and_phase(Phase::Signed(4));
 
 				// no one submits again, and we go to verification again
-				roll_to_signed_validation_open_started();
+				roll_to_signed_validation_open();
 
 				// 4 block to verify: 1 to set status, and 3 to verify
 				roll_next_and_phase_verifier(Phase::SignedValidation(2), Status::Ongoing(1));
@@ -1028,7 +1028,7 @@ mod e2e {
 				assert!(Submissions::<Runtime>::has_leader(current_round));
 
 				// Move to verification phase
-				roll_to_signed_validation_open_started();
+				roll_to_signed_validation_open();
 
 				roll_next_and_phase_verifier(Phase::SignedValidation(8), Status::Ongoing(1));
 				roll_next_and_phase_verifier(Phase::SignedValidation(7), Status::Ongoing(0));
@@ -1368,7 +1368,7 @@ mod invulnerables {
 			load_signed_for_verification(98, paged.clone());
 			let _ = signed_events_since_last_call();
 
-			roll_to_signed_validation_open_started();
+			roll_to_signed_validation_open();
 			roll_to_full_verification();
 
 			assert_eq!(
@@ -1451,7 +1451,7 @@ mod invulnerables {
 			let invalid_score = score_from(777);
 			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), invalid_score));
 
-			roll_to_signed_validation_open_started();
+			roll_to_signed_validation_open();
 			roll_to_full_verification();
 
 			// Check that rejection events were properly generated
@@ -1514,7 +1514,7 @@ mod defensive_tests {
 			);
 
 			// verify 2 of the pages.
-			roll_to_signed_validation_open_started();
+			roll_to_signed_validation_open();
 			roll_next_and_phase_verifier(Phase::SignedValidation(5), Status::Ongoing(1));
 			roll_next_and_phase_verifier(Phase::SignedValidation(4), Status::Ongoing(0));
 

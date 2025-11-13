@@ -206,7 +206,6 @@ use frame_election_provider_support::{
 	InstantElectionProvider,
 };
 use frame_support::{
-	defensive_assert,
 	dispatch::PostDispatchInfo,
 	pallet_prelude::*,
 	traits::{Defensive, EnsureOrigin},
@@ -715,10 +714,18 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_poll(_now: BlockNumberFor<T>, weight_meter: &mut WeightMeter) {
-			// read the current phase in any case -- one storage read is the minimum we do in all
-			// cases.
+			// first check we can at least read one storage.
+			if !weight_meter.can_consume(T::DbWeight::get().reads(1)) {
+				Self::deposit_event(Event::UnexpectedPhaseTransitionHalt {
+					required: T::DbWeight::get().reads(1),
+					had: weight_meter.remaining(),
+				});
+			}
+
+			// if so, consume and prepare the next phase.
 			let current_phase = Self::current_phase();
 			let next_phase = current_phase.next();
+			weight_meter.consume(T::DbWeight::get().reads(1));
 
 			let (self_weight, self_exec) = Self::per_block_exec(current_phase);
 			let (verifier_weight, verifier_exc) = T::Verifier::per_block_exec();
@@ -730,43 +737,23 @@ pub mod pallet {
 				// pre-exec weight is simply addition.
 				self_weight.saturating_add(verifier_weight),
 				// our new exec is..
-				Box::new(move || {
-					// execute both this..
-					let corrected_self_weight = self_exec();
-					// .. and that.
-					let corrected_verifier_weight = verifier_exc();
-					// for each, if they have returned an updated weight, use that, else the
-					// pre-exec weight, and re-sum them up.
-					let final_self_weight = corrected_self_weight.unwrap_or(self_weight);
-					let final_verifier_weight =
-						corrected_verifier_weight.unwrap_or(verifier_weight);
-					let final_weight = final_self_weight.saturating_add(final_verifier_weight);
-					if final_weight != self_weight.saturating_add(verifier_weight) {
-						defensive_assert!(
-							final_weight.all_lte(self_weight.saturating_add(verifier_weight)),
-							"final weight must only be reduced, not increased"
-						);
-						Some(final_weight)
-					} else {
-						None
-					}
+				Box::new(move |meter: &mut WeightMeter| {
+					self_exec(meter);
+					verifier_exc(meter);
 				}),
 			);
 
 			log!(
 				trace,
-				"required weight for transition from {:?} to {:?} is {:?}, has {:?}",
+				"worst-case required weight for transition from {:?} to {:?} is {:?}, has {:?}",
 				current_phase,
 				next_phase,
 				combined_weight,
 				weight_meter.remaining()
 			);
 			if weight_meter.can_consume(combined_weight) {
-				let final_combined_weight = combined_exec();
-				// Note: we _always_ transition into the next phase, but note that `.next` in
-				// `Export` is a noop, so we don't transition.
+				combined_exec(weight_meter);
 				Self::phase_transition(next_phase);
-				weight_meter.consume(final_combined_weight.unwrap_or(combined_weight))
 			} else {
 				Self::deposit_event(Event::UnexpectedPhaseTransitionOutOfWeight {
 					from: current_phase,
@@ -867,17 +854,19 @@ pub mod pallet {
 			/// The target phase
 			to: Phase<T>,
 		},
-		/// Target snapshot creation failed
+		/// Target snapshot creation failed.
 		UnexpectedTargetSnapshotFailed,
-		/// Voter snapshot creation failed
+		/// Voter snapshot creation failed.
 		UnexpectedVoterSnapshotFailed,
-		/// Phase transition could not proceed due to being out of weight
+		/// Phase transition could not proceed due to being out of weight.
 		UnexpectedPhaseTransitionOutOfWeight {
 			from: Phase<T>,
 			to: Phase<T>,
 			required: Weight,
 			had: Weight,
 		},
+		/// Phase transition could not even begin becaseu of being out of weight.
+		UnexpectedPhaseTransitionHalt { required: Weight, had: Weight },
 	}
 
 	/// Error of the pallet that can be returned in response to dispatches.
@@ -1307,47 +1296,55 @@ impl<T: Config> Pallet<T> {
 	///
 	/// ### Type
 	///
-	/// The commonly used `(Weight, Box<dyn Fn() -> Option<Weight>>)` should be interpreted as such:
+	/// The commonly used `(Weight, Box<dyn Fn(&mut WeightMeter)>)` should be interpreted as such:
 	///
 	/// * The `Weight` is the pre-computed worst case weight of the operation that we are going to
 	///   do.
-	/// * The `Box<dyn Fn() -> Option<Weight>>` is the function that represents that the work that
-	///   will at most consume the said amount of weight.
-	///   * Optionally, it can return an updated weight that is more "accurate", based on the
-	///     execution.
-	fn per_block_exec(current_phase: Phase<T>) -> (Weight, Box<dyn Fn() -> Option<Weight>>) {
-		type ExecuteFn = Box<dyn Fn() -> Option<Weight>>;
-		let noop: (Weight, ExecuteFn) = (T::WeightInfo::per_block_nothing(), Box::new(|| None));
+	/// * The `Box<dyn Fn(&mut WeightMeter)>` is the function that represents that the work that
+	///   will at most consume the said amount of weight. While executing, it will alter the given
+	///   weight meter to consume the actual weight used. Indeed, the weight that is registered in the `WeightMeter` must never be more than the `Weight` returned as the first item of the tuple.
+	///
+	/// In essence, the caller must:
+	///
+	/// 1. given an existing `meter`, receive `(worst_weight, exec)`
+	/// 2. ensure `meter` can consume up to `worst_weight`.
+	/// 3. if so, call `exec(meter)`, knowing `meter` will accumulate at most `worst_weight` extra.
+	fn per_block_exec(current_phase: Phase<T>) -> (Weight, Box<dyn Fn(&mut WeightMeter)>) {
+		type ExecuteFn = Box<dyn Fn(&mut WeightMeter)>;
+		let noop: (Weight, ExecuteFn) = (T::WeightInfo::per_block_nothing(), Box::new(|_| {}));
 
 		match current_phase {
 			Phase::Snapshot(x) if x == T::Pages::get() => {
 				// first snapshot
-				let exec: ExecuteFn = Box::new(|| {
+				let weight = T::WeightInfo::per_block_snapshot_msp();
+				let exec: ExecuteFn = Box::new(move |meter: &mut WeightMeter| {
 					Self::create_targets_snapshot();
-					None
+					meter.consume(weight)
 				});
-				(T::WeightInfo::per_block_snapshot_msp(), exec)
+				(weight, exec)
 			},
 
 			Phase::Snapshot(x) => {
 				// rest of the snapshot, incl last one.
-				let exec: ExecuteFn = Box::new(move || {
+				let weight = T::WeightInfo::per_block_snapshot_rest();
+				let exec: ExecuteFn = Box::new(move |meter: &mut WeightMeter| {
 					Self::create_voters_snapshot_paged(x);
-					None
+					meter.consume(weight)
 				});
-				(T::WeightInfo::per_block_snapshot_rest(), exec)
+				(weight, exec)
 			},
 			Phase::Signed(x) => {
 				// Signed pallet should prep the best winner, and send the start signal, if some
 				// exists.
 				if x.is_zero() && T::Signed::has_leader(Self::round()) {
-					let exec: ExecuteFn = Box::new(|| {
+					let weight = T::WeightInfo::per_block_start_signed_validation();
+					let exec: ExecuteFn = Box::new(move |meter: &mut WeightMeter| {
 						// defensive: signed phase has just began, verifier should be in a clear
 						// state and ready to accept a solution.
 						let _ = T::Verifier::start().defensive();
-						None
+						meter.consume(weight)
 					});
-					(T::WeightInfo::per_block_start_signed_validation(), exec)
+					(weight, exec)
 				} else {
 					noop
 				}
@@ -1842,9 +1839,18 @@ where
 		let one: BlockNumberFor<T> = 1u32.into();
 		let mut i = now + one;
 		while i <= n {
-			frame_system::Pallet::<T>::set_block_number(i);
+			// remove previous weight usage in system.
+			frame_system::BlockWeight::<T>::kill();
 
-			Pallet::<T>::on_poll(i, &mut WeightMeter::new());
+			frame_system::Pallet::<T>::set_block_number(i);
+			let mut meter = frame_system::Pallet::<T>::remaining_block_weight();
+			Pallet::<T>::on_poll(i, &mut meter);
+
+			// register the new weight in system
+			frame_system::Pallet::<T>::register_extra_weight_unchecked(
+				meter.consumed(),
+				DispatchClass::Mandatory,
+			);
 
 			// invariants must hold at the end of each block.
 			if try_state {
@@ -1974,7 +1980,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 #[cfg(test)]
 mod phase_rotation {
 	use super::{Event, *};
-	use crate::{mock::*, Phase};
+	use crate::{Phase, mock::*, verifier::Status};
 	use frame_election_provider_support::ElectionProvider;
 	use frame_support::assert_ok;
 
@@ -2296,6 +2302,72 @@ mod phase_rotation {
 				assert_none_snapshot();
 				assert_eq!(MultiBlock::round(), 1);
 			})
+	}
+
+	#[test]
+	fn weights_registered() {
+		// ensure we never forget to call `meter.consume` or similar in poll and alike.
+		// Our mock setup is:
+		//
+		// * each db read or write is 1 ref time.
+		// * each epmb op weight are:
+		//   * snapshots: 5
+		//   * validation: 3 to start, rest 7
+		ExtBuilder::full().build_and_execute(|| {
+			roll_to(10);
+			assert!(MultiBlock::current_phase().is_off());
+			// note: 2 becuase 1 read registered by the parent pallet, 1 by verifier.
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(2, 0));
+
+			// roll to this phase, no weight meter is consumed yet other than 1 read + 1 write.
+			roll_next_and_phase(Phase::Snapshot(3));
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(2, 0));
+
+			roll_next_and_phase(Phase::Snapshot(2));
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(2, 5));
+
+			roll_next_and_phase(Phase::Snapshot(1));
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(2, 5));
+
+			roll_next_and_phase(Phase::Snapshot(0));
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(2, 5));
+
+			roll_next_and_phase(Phase::Signed(SignedPhase::get() - 1));
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(2, 5));
+
+			// Now snapshot is done, and during signed phase we do a noop.
+			roll_next_and_phase(Phase::Signed(SignedPhase::get() - 2));
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(2, 0));
+
+			// but let's submit a signed solution to be verified while we're here
+			{
+				let paged = mine_full_solution().unwrap();
+				load_signed_for_verification(999, paged.clone());
+			}
+
+			// let's go forward to start of signed validation
+			roll_to_signed_validation_open();
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(2, 3));
+
+			roll_next_and_phase_verifier(Phase::SignedValidation(SignedValidationPhase::get() - 1), Status::Ongoing(1));
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(1, 7));
+
+			roll_next_and_phase_verifier(Phase::SignedValidation(SignedValidationPhase::get() - 2), Status::Ongoing(0));
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(1, 7));
+
+			roll_next_and_phase_verifier(Phase::SignedValidation(SignedValidationPhase::get() - 3), Status::Nothing);
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(1, 7));
+
+			// we also don't do anything during unsigned phase.
+			roll_to_unsigned_open();
+			assert!(MultiBlock::current_phase().is_unsigned());
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(2, 0));
+
+			roll_next_and_phase(Phase::Unsigned(UnsignedPhase::get() - 2));
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(2, 0));
+
+			// Export weight is computed by us, but registered by whoever calls `elect`, not our business to check.
+		});
 	}
 
 	#[test]
@@ -2641,7 +2713,7 @@ mod election_provider {
 			load_signed_for_verification(99, paged);
 
 			// now the solution should start being verified.
-			roll_to_signed_validation_open_started();
+			roll_to_signed_validation_open();
 
 			assert_eq!(
 				multi_block_events(),

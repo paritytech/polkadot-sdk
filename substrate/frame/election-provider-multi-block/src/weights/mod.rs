@@ -44,6 +44,7 @@ pub mod traits {
 			fn clear_old_round_data(p: u32) -> Weight;
 		}
 
+		#[cfg(feature = "std")]
 		impl WeightInfo for () {
 			fn bail() -> Weight {
 				Default::default()
@@ -79,6 +80,7 @@ pub mod traits {
 			}
 		}
 
+		#[cfg(feature = "std")]
 		impl WeightInfo for () {
 			fn validate_unsigned() -> Weight {
 				Default::default()
@@ -100,18 +102,19 @@ pub mod traits {
 			fn verification_invalid_non_terminal(v: u32) -> Weight;
 		}
 
+		#[cfg(feature = "std")]
 		impl WeightInfo for () {
 			fn verification_valid_non_terminal() -> Weight {
-				Default::default()
+				Weight::from_parts(0, 7)
 			}
 			fn verification_valid_terminal() -> Weight {
-				Default::default()
+				Weight::from_parts(0, 7)
 			}
 			fn verification_invalid_terminal() -> Weight {
-				Default::default()
+				Weight::from_parts(0, 7)
 			}
 			fn verification_invalid_non_terminal(_v: u32) -> Weight {
-				Default::default()
+				Weight::from_parts(0, 7)
 			}
 		}
 	}
@@ -131,18 +134,19 @@ pub mod traits {
 			fn manage_fallback() -> Weight;
 		}
 
+		#[cfg(feature = "std")]
 		impl WeightInfo for () {
 			fn per_block_nothing() -> Weight {
 				Default::default()
 			}
 			fn per_block_snapshot_msp() -> Weight {
-				Default::default()
+				Weight::from_parts(0, 5)
 			}
 			fn per_block_snapshot_rest() -> Weight {
-				Default::default()
+				Weight::from_parts(0, 5)
 			}
 			fn per_block_start_signed_validation() -> Weight {
-				Default::default()
+				Weight::from_parts(0, 3)
 			}
 			fn export_non_terminal() -> Weight {
 				Default::default()
