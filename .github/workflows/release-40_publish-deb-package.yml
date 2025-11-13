@@ -1,6 +1,5 @@
 name: Release - Publish polkadot deb package
 
-# This workflow publishes the polkadot Debian package by calling a reusable workflow.
 on:
   workflow_dispatch:
     inputs:
@@ -9,6 +8,7 @@ on:
         default: polkadot-stable2412
         required: true
         type: string
+
       distribution:
         description: Distribution where to publish deb package (release, staging, stable2407, etc)
         default: staging
@@ -16,7 +16,6 @@ on:
         type: string
 
 jobs:
-<<<<<<< HEAD
   check-synchronization:
     uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
     secrets:
@@ -153,14 +152,3 @@ jobs:
 
           # Invalidate caches to make sure latest files are served
           aws cloudfront create-invalidation --distribution-id E36FKEYWDXAZYJ --paths '/deb/*'
-=======
-  call-publish-workflow:
-    uses: ./.github/workflows/release-reusable-publish-packages.yml
-    with:
-      tag: ${{ inputs.tag }}
-      distribution: ${{ inputs.distribution }}
-      package_type: 'deb'
-      aws_repo_base_path: "s3://releases-package-repos"
-      cloudfront_distribution_id: "E36FKEYWDXAZYJ"
-    secrets: inherit
->>>>>>> dadd3f5f ([Release|CI/CD] build and publish binary for RPM distribution (#10206))
