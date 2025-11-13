@@ -173,13 +173,20 @@ pub(super) struct CoreDescriptor<N> {
 	current_work: Option<WorkState<N>>,
 }
 
-impl<N> CoreDescriptor<N> {
+impl<N: PartialOrd> CoreDescriptor<N> {
 	/// Creates a new CoreDescriptor (for migration).
 	pub(super) fn new(
 		queue: Option<QueueDescriptor<N>>,
 		current_work: Option<WorkState<N>>,
 	) -> Self {
 		Self { queue, current_work }
+	}
+
+	/// Any work currently on that core?
+	///
+	/// Params: until - until (exclusive) which block number we are interested.
+	fn has_assignments_until(&self, until: N) -> bool {
+		self.current_work.is_some() || self.queue.as_ref().map_or(false, |q| q.first < until)
 	}
 
 	/// Test-only accessor for queue.
@@ -429,8 +436,13 @@ pub(super) fn advance_assignments<T: Config, F: Fn(CoreIndex) -> bool>(
 /// forming the total assignment.
 ///
 /// Inserting arbitrarily causes a `DispatchError::DisallowedInsert` error.
-// With this restriction this function allows for O(1) complexity. It could easily be lifted, if
-// need be and in fact an implementation is available
+///
+/// Inserting too early (changing assignments within the lookahead depth), will
+/// get the begin auto-adjusted to maintain the stable claim queue invariant, if
+/// there existed assignments before.
+// With the restriction of only allowing for appends this function allows for
+// O(1) complexity. It could easily be lifted, if need be and in fact an
+// implementation is available
 // [here](https://github.com/paritytech/polkadot-sdk/pull/1694/commits/c0c23b01fd2830910cde92c11960dad12cdff398#diff-0c85a46e448de79a5452395829986ee8747e17a857c27ab624304987d2dde8baR386).
 // The problem is that insertion complexity then depends on the size of the existing queue,
 // which makes determining weights hard and could lead to issues like overweight blocks (at
@@ -444,24 +456,27 @@ pub(super) fn assign_core<T: Config>(
 	// There should be at least one assignment.
 	ensure!(!assignments.is_empty(), Error::AssignmentsEmpty);
 
-	let config = configuration::ActiveConfig::<T>::get();
-	let now = frame_system::Pallet::<T>::block_number();
-	let lookahead = config.scheduler_params.lookahead.into();
-	let claim_queue_end = now.saturating_add(lookahead);
-	let too_soon = begin <= claim_queue_end && now != 0u32.into();
-	if too_soon {
-		log::warn!(
-			target: "runtime::parachains::assigner-coretime",
-			"Claim queue needs to be stable, schedule change within claim queue length is not supported. Adjusting begin from {:?} to {:?}",
-			begin,
-			claim_queue_end.saturating_plus_one()
-		);
-		//  Adjust begin to the first allowed block:
-		begin = claim_queue_end.saturating_plus_one();
-	}
-
 	super::CoreDescriptors::<T>::mutate(|core_descriptors| {
 		let core_descriptor = core_descriptors.entry(core_idx).or_default();
+
+		let config = configuration::ActiveConfig::<T>::get();
+		let now = frame_system::Pallet::<T>::block_number();
+		let lookahead = config.scheduler_params.lookahead.into();
+		let claim_queue_end = now.saturating_add(lookahead);
+		let valid_begin = claim_queue_end.saturating_plus_one();
+		let assignments_exist = core_descriptor.has_assignments_until(valid_begin);
+		// Maintain invariant of stable claim queue (existing visible assignments not getting
+		// replaced):
+		if assignments_exist && begin <= claim_queue_end {
+			log::debug!(
+				target: "runtime::parachains::assigner-coretime",
+				"Claim queue needs to be stable, schedule change within claim queue length is not supported. Adjusting begin from {:?} to {:?}",
+				begin,
+				valid_begin
+			);
+			begin = valid_begin;
+		}
+
 		let new_queue = match core_descriptor.queue {
 			Some(queue) => {
 				ensure!(begin >= queue.last, Error::DisallowedInsert);
