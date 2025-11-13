@@ -233,7 +233,7 @@ async fn can_build_upon<Block: BlockT, Client, P>(
 	included_block: Block::Hash,
 	client: &Client,
 	keystore: &KeystorePtr,
-) -> Option<(SlotClaim<P::Public>, Vec<P::Public>)>
+) -> Option<SlotClaim<P::Public>>
 where
 	Client: ProvideRuntimeApi<Block>,
 	Client::Api: AuraApi<Block, P::Public> + AuraUnincludedSegmentApi<Block> + ApiExt<Block>,
@@ -251,7 +251,7 @@ where
 	// should have length 0 and we can build. Since the hash is not available to the runtime
 	// however, we need this extra check here.
 	if parent_hash == included_block {
-		return Some((SlotClaim::unchecked::<P>(author_pub, para_slot, timestamp), authorities));
+		return Some(SlotClaim::unchecked::<P>(author_pub, para_slot, timestamp));
 	}
 
 	let api_version = runtime_api
@@ -264,7 +264,7 @@ where
 	runtime_api
 		.can_build_upon(parent_hash, included_block, slot)
 		.ok()?
-		.then(|| (SlotClaim::unchecked::<P>(author_pub, para_slot, timestamp), authorities))
+		.then(|| SlotClaim::unchecked::<P>(author_pub, para_slot, timestamp))
 }
 
 /// Use [`cumulus_client_consensus_common::find_potential_parents`] to find parachain blocks that

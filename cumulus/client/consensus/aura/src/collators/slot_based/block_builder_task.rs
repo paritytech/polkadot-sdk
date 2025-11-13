@@ -308,7 +308,11 @@ where
 
 			let included_header_hash = included_header.hash();
 
-			let (slot_claim, authorities) = match crate::collators::can_build_upon::<_, _, P>(
+			if let Ok(authorities) = para_client.runtime_api().authorities(parent_hash) {
+				connection_helper.update::<P>(para_slot.slot, &authorities).await;
+			}
+
+			let slot_claim = match crate::collators::can_build_upon::<_, _, P>(
 				para_slot.slot,
 				relay_slot,
 				para_slot.timestamp,
@@ -319,7 +323,7 @@ where
 			)
 			.await
 			{
-				Some((slot, authorities)) => (slot, authorities),
+				Some(slot) => slot,
 				None => {
 					tracing::debug!(
 						target: crate::LOG_TARGET,
@@ -332,20 +336,9 @@ where
 						slot = ?para_slot.slot,
 						"Not building block."
 					);
-
-					if let Ok(authorities) = para_client.runtime_api().authorities(parent_hash) {
-						connection_helper.update::<P>(para_slot.slot, &authorities).await;
-					}
 					continue
 				},
 			};
-
-			// The `connection_helper.update` call will never happen when there is only one
-			// collator. We need to call it here in that case, so the single collator can
-			// preconnect to the backing group.
-			if authorities.len() == 1 {
-				connection_helper.update::<P>(para_slot.slot, &authorities).await;
-			}
 
 			tracing::debug!(
 				target: crate::LOG_TARGET,
