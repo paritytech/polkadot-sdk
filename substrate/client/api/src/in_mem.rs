@@ -813,6 +813,16 @@ mod tests {
 	use sp_blockchain::Backend;
 	use sp_runtime::{traits::Header as HeaderT, ConsensusEngineId, Justifications};
 	use substrate_test_runtime::{Block, Header, H256};
+	use sp_trie::PrefixedMemoryDB;
+	use crate::in_mem::BlockT;
+	use sp_trie::TrieDBMutBuilder;
+	use sp_trie::LayoutV0;
+	use sp_runtime::traits::HashingFor;
+	use crate::TrieCacheContext;
+	use sp_trie::TrieMut;
+	use crate::backend::Backend as ScClientApiBackend;
+	use crate::backend::BlockImportOperation;
+	use sp_state_machine::Backend as SpStateMachineBackend;
 
 	pub const ID1: ConsensusEngineId = *b"TST1";
 	pub const ID2: ConsensusEngineId = *b"TST2";
@@ -876,5 +886,43 @@ mod tests {
 			blockchain.append_justification(last_finalized, (ID2, vec![1])),
 			Err(sp_blockchain::Error::BadJustification(_)),
 		));
+	}
+
+	#[test]
+	fn import_partial_state() {
+		let expected_key_values = vec![
+			(vec![0u8; 40], vec![0u8; 1]),
+			(vec![1u8; 40], vec![1u8; 1]),
+		];
+
+		let mut partial_state = PrefixedMemoryDB::default();
+		let mut state_root: <Block as BlockT>::Hash = Default::default();
+		let mut trie = TrieDBMutBuilder::<LayoutV0<HashingFor<Block>>>::new(&mut partial_state, &mut state_root).build();
+		for (k, v) in &expected_key_values {
+			trie.insert(k, v).unwrap();
+		}
+		trie.commit();
+		drop(trie);
+
+		let backend = super::Backend::<Block>::new();
+		backend.import_partial_state(partial_state).unwrap();
+
+		let mut op = backend.begin_operation().unwrap();
+		let header = Header {
+			number: 1,
+			parent_hash: Default::default(),
+			state_root,
+			digest: Default::default(),
+			extrinsics_root: Default::default(),
+		};
+		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal).unwrap();
+		op.commit_complete_partial_state();
+		backend.commit_operation(op).unwrap();
+
+		let key_values: Vec<_> = backend.state_at(header.hash(), TrieCacheContext::Untrusted).unwrap()
+			.pairs(Default::default()).unwrap()
+			.map(Result::unwrap)
+			.collect();
+		assert_eq!(key_values, expected_key_values);
 	}
 }
