@@ -681,7 +681,11 @@ fn storage_item_zero_shall_refund_deposit(caller_type: FixtureType, callee_type:
 		assert!(result.success, "delegateCall did not succeed");
 
 		// 32 for key, 32 for value, 2 for item
-		assert_eq!(get_contract(&caller_addr).total_deposit(), base_deposit + 32 + 32 + 2, "Unexpected deposit sum charged for non-zero storage item");
+		assert_eq!(
+			get_contract(&caller_addr).total_deposit(),
+			base_deposit + 32 + 32 + 2,
+			"Unexpected deposit sum charged for non-zero storage item"
+		);
 
 		// write storage item to all zeros
 		let result = builder::bare_call(caller_addr)
@@ -700,10 +704,18 @@ fn storage_item_zero_shall_refund_deposit(caller_type: FixtureType, callee_type:
 
 		if callee_type == FixtureType::Resolc {
 			// Resolc will not refund
-			assert_eq!(get_contract(&caller_addr).total_deposit(), base_deposit + 32 + 32 + 2, "PVM contract does not refund deposit on zeroing storage item");
+			assert_eq!(
+				get_contract(&caller_addr).total_deposit(),
+				base_deposit + 32 + 32 + 2,
+				"PVM contract does not refund deposit on zeroing storage item"
+			);
 		} else {
 			// solc will refund
-			assert_eq!(get_contract(&caller_addr).total_deposit(), base_deposit, "EVM contract should refund deposit on zeroing storage item");
+			assert_eq!(
+				get_contract(&caller_addr).total_deposit(),
+				base_deposit,
+				"EVM contract should refund deposit on zeroing storage item"
+			);
 		}
 	});
 }
