@@ -35,22 +35,7 @@ apt install polkadot
 
 ```
 
-### RPM-based
-Currently supports Rocky Linux 10 and Alma Linux 10, and derivatives.
-
-```bash
-# Install dnf-plugins-core (This might already be installed)
-dnf install dnf-plugins-core
-# Add the repository and enable it
-dnf config-manager --add-repo https://releases.parity.io/rpm/polkadot.repo
-dnf config-manager --set-enabled polkadot
-# Install polkadot (You may have to confirm the import of the GPG key, which
-# should have the following fingerprint: 90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE)
-dnf install polkadot
-
-```
-
-Installation from Debian or RPM repository will create a `systemd` service that can be used to run a
+Installation from the Debian repository will create a `systemd` service that can be used to run a
 Polkadot node. This is disabled by default, and can be started by running `systemctl start polkadot`
 on demand (use `systemctl enable polkadot` to make it auto-start after reboot). By default, it will
 run as the `polkadot` user.  Command-line flags passed to the binary can be customized by editing
