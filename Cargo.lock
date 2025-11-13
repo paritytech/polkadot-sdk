@@ -1301,7 +1301,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.36.0"
+version = "0.36.1"
 dependencies = [
  "alloy-core",
  "asset-test-utils",
@@ -4541,7 +4541,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-service"
-version = "0.28.0"
+version = "0.28.1"
 dependencies = [
  "async-channel 1.9.0",
  "cumulus-client-cli",
@@ -4620,7 +4620,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-parachain-system"
-version = "0.23.0"
+version = "0.23.1"
 dependencies = [
  "array-bytes 6.2.2",
  "assert_matches",
@@ -6751,7 +6751,7 @@ dependencies = [
 
 [[package]]
 name = "frame-executive"
-version = "43.0.0"
+version = "43.0.1"
 dependencies = [
  "aquamarine",
  "array-bytes 6.2.2",
@@ -7040,7 +7040,7 @@ dependencies = [
 
 [[package]]
 name = "frame-system"
-version = "43.0.0"
+version = "43.0.1"
 dependencies = [
  "cfg-if",
  "criterion",
@@ -11514,7 +11514,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-bags-list"
-version = "42.0.0"
+version = "42.1.0"
 dependencies = [
  "aquamarine",
  "docify",
@@ -12131,7 +12131,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-election-provider-multi-block"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -12948,7 +12948,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-proxy"
-version = "43.0.0"
+version = "43.1.0"
 dependencies = [
  "pallet-balances",
  "pallet-utility",
@@ -13022,7 +13022,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "alloy-core",
  "array-bytes 6.2.2",
@@ -15028,7 +15028,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-collator-protocol"
-version = "26.0.0"
+version = "26.0.1"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -16112,7 +16112,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-runtime-parachains"
-version = "22.0.0"
+version = "22.0.1"
 dependencies = [
  "assert_matches",
  "bitflags 1.3.2",
@@ -20290,7 +20290,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-statement"
-version = "0.35.1"
+version = "0.35.2"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
@@ -20736,7 +20736,7 @@ dependencies = [
 
 [[package]]
 name = "sc-statement-store"
-version = "24.1.0"
+version = "24.2.0"
 dependencies = [
  "log",
  "parity-db",
@@ -20825,7 +20825,7 @@ dependencies = [
 
 [[package]]
 name = "sc-tracing"
-version = "42.0.0"
+version = "42.0.1"
 dependencies = [
  "chrono",
  "console",
