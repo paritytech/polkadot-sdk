@@ -37,13 +37,32 @@ use futures::channel::mpsc::UnboundedSender;
 use sp_runtime::Saturating;
 use std::{sync::Arc, time::Duration};
 use tokio::time::{interval, MissedTickBehavior};
+use sp_core::traits::SpawnEssentialNamed;
 
 const LOG_TARGET: &str = "cumulus-consensus";
 const FINALIZATION_CACHE_SIZE: u32 = 40;
 const SYNC_FINALITY_GAP_THRESHOLD: u64 = 1000;
 const FINALITY_GAP_CHECK_INTERVAL_SECS: Duration = Duration::from_secs(30);
 
-/// Periodically check for large finality gaps and finalize the best block if needed.
+/// Periodically checks if conditions are met to finalize the parachain. In contrast to the relay
+/// chain, we don't have finality proofs here. We trust that we are syncing the correct chain.
+/// Once the chain gets close to the tip, no shortcuts are taken and we finalize based on relay
+/// chain notifications again.
+///
+/// # Why?
+/// On finalization we remove many data structures from memory that are otherwise kept around.
+/// When there are thousands or even millions of blocks between best and finalized, this can lead
+/// to memory exhaustion.
+///
+/// # Conditions
+/// 1. The relay chain is syncing and we have a large gap between finalized and best block. In
+///    this case we finalize the best block and trust that we are syncing the correct chain. Once
+///    we get close to the tip we stop this sync-mode finalization and listen to finalized block
+///    notifications from the relay chain again.
+/// 2. The relay chain is up-to-date but the parachain is syncing. This can happen when, for
+///    example, a DB snapshot is used for the relay chain but not the parachain, or if an external
+///    RPC is used. In that case we receive finality notifications for blocks we have not imported
+///    yet.
 async fn check_finality_gap<P, Block, B, R>(
 	parachain: &Arc<P>,
 	relay_chain: &R,
@@ -57,7 +76,7 @@ async fn check_finality_gap<P, Block, B, R>(
 	let chain_info = parachain.usage_info().chain;
 
 	// Finalize if the best block of the parachain is way ahead of the finalized block.
-	let finality_gap =
+	let finality_gap: u64 =
 		chain_info.best_number.saturating_sub(chain_info.finalized_number).saturated_into();
 
 	if finality_gap > SYNC_FINALITY_GAP_THRESHOLD &&
@@ -83,7 +102,7 @@ async fn check_finality_gap<P, Block, B, R>(
 
 	// Check if relay chain finalized head is far ahead of parachain best block
 	if let Some((parachain_hash, parachain_finalized_number)) = last_seen_finalized_hashes.peek_newest() {
-		let relay_chain_para_chain_delta =
+		let relay_chain_para_chain_delta: u64 =
 			(*parachain_finalized_number).saturating_sub(chain_info.best_number).saturated_into();
 
 		if relay_chain_para_chain_delta > SYNC_FINALITY_GAP_THRESHOLD {
@@ -108,28 +127,16 @@ async fn check_finality_gap<P, Block, B, R>(
 	}
 }
 
+/// Finalize parachain blocks that are included in finalized relay chain blocks.
 async fn handle_new_finalized_head<P, Block, B>(
 	parachain: &Arc<P>,
-	finalized_head: Vec<u8>,
+	header: Block::Header,
 	last_seen_finalized_hashes: &mut LruMap<Block::Hash, NumberFor<Block>>,
 ) where
 	Block: BlockT,
 	B: Backend<Block>,
 	P: Finalizer<Block, B> + UsageProvider<Block> + BlockchainEvents<Block>,
 {
-	tracing::info!(target: LOG_TARGET, "Moin.");
-	let header = match Block::Header::decode(&mut &finalized_head[..]) {
-		Ok(header) => header,
-		Err(err) => {
-			tracing::debug!(
-				target: LOG_TARGET,
-				error = ?err,
-				"Could not decode parachain header while following finalized heads.",
-			);
-			return
-		},
-	};
-
 	let hash = header.hash();
 
 	last_seen_finalized_hashes.insert(hash, *header.number());
@@ -161,12 +168,13 @@ async fn handle_new_finalized_head<P, Block, B>(
 /// Follow the finalized head of the given parachain.
 ///
 /// For every finalized block of the relay chain, it will get the included parachain header
-/// corresponding to `para_id` and will finalize it in the parachain.
+/// corresponding to `para_id` and will finalize it on the parachain.
+///
+/// During sync, it will finalize in regular intervals to reduce resource usage.
 async fn follow_finalized_head<P, Block, B, R>(
-	_para_id: ParaId,
 	parachain: Arc<P>,
 	relay_chain: R,
-	finalized_head_stream: Box<impl Stream<Item = Vec<u8>> + Unpin + Send>,
+	finalized_head_stream: Box<impl Stream<Item = Block::Header> + Unpin + Send>,
 ) where
 	Block: BlockT,
 	P: Finalizer<Block, B> + UsageProvider<Block> + BlockchainEvents<Block>,
@@ -189,7 +197,6 @@ async fn follow_finalized_head<P, Block, B, R>(
 	finality_gap_check_interval.tick().await;
 
 	loop {
-		tracing::debug!(target: LOG_TARGET, "New round in consensus loop.");
 		select! {
 			_ = finality_gap_check_interval.tick().fuse() => {
 				check_finality_gap::<P, Block, B, R>(&parachain, &relay_chain, &last_seen_finalized_hashes).await;
@@ -245,13 +252,20 @@ async fn follow_finalized_head<P, Block, B, R>(
 	}
 }
 
-/// Does something
-pub async fn finalized_head_stream_worker<R: RelayChainInterface + Clone>(
-	mut tx: UnboundedSender<Vec<u8>>,
+/// Streams finalized parachain heads from the relay chain.
+///
+/// This worker continuously monitors the relay chain for finalized blocks and extracts
+/// the corresponding parachain head data for the given `para_id`. The extracted head
+/// data is sent through the provided channel for consumption by the consensus system.
+///
+/// This is necessary because finalization of blocks in [`follow_finalized_head`] can take a long time.
+/// During this blocking operation, we should not keep references to finality notifications, because
+/// that prevents the corresponding blocks from getting pruned.
+pub async fn finalized_head_stream_worker<R: RelayChainInterface + Clone, Block: BlockT>(
+	mut tx: UnboundedSender<Block::Header>,
 	para_id: ParaId,
 	relay_chain: R,
 ) {
-	tracing::info!("Initializing worker");
 	let finalized_heads = match finalized_heads(relay_chain.clone(), para_id).await {
 		Ok(finalized_heads_stream) => finalized_heads_stream.fuse(),
 		Err(err) => {
@@ -259,13 +273,73 @@ pub async fn finalized_head_stream_worker<R: RelayChainInterface + Clone>(
 			return
 		},
 	};
+
 	pin_mut!(finalized_heads);
 	loop {
 		if let Some((head_data, _)) = finalized_heads.next().await {
-			tracing::info!(target: LOG_TARGET, "finalized-stream-worker: Sending head_data.");
-			tx.send(head_data).await.unwrap();
+			let header = match Block::Header::decode(&mut &head_data[..]) {
+				Ok(header) => header,
+				Err(err) => {
+					tracing::debug!(
+				target: LOG_TARGET,
+				error = ?err,
+				"Could not decode parachain header while following finalized heads.",
+			);
+				 continue
+				},
+			};
+			if let Err(e) =tx.send(header).await {
+				tracing::error!(target: LOG_TARGET, ?e, "Error while sending finalized head.");
+				return;
+			};
 		}
 	}
+}
+
+/// Spawns the essential finalization tasks for parachain consensus.
+///
+/// This function creates and spawns two critical background tasks:
+/// 1. A finalized head stream worker that monitors relay chain finality and extracts included headers
+/// 2. The main parachain consensus task that handles finalization and best block updates
+pub fn spawn_finalization_tasks<P, R, Block, B, S>(
+	para_id: ParaId,
+	parachain: Arc<P>,
+	relay_chain: R,
+	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
+	recovery_chan_tx: Option<Sender<RecoveryRequest<Block>>>,
+	spawn_handle: S
+) where
+	Block: BlockT,
+	P: Finalizer<Block, B>
+	+ UsageProvider<Block>
+	+ Send
+	+ Sync
+	+ BlockBackend<Block>
+	+ BlockchainEvents<Block>
+	+ 'static,
+	for<'a> &'a P: BlockImport<Block>,
+	R: RelayChainInterface + Clone + 'static,
+	S: SpawnEssentialNamed + 'static,
+	B: Backend<Block> + 'static {
+	let (tx, rx) = futures::channel::mpsc::unbounded();
+	let worker = crate::finalized_head_stream_worker::<_, Block>(
+		tx,
+		para_id,
+		relay_chain.clone(),
+	);
+	let consensus = crate::run_parachain_consensus(
+		para_id,
+		parachain,
+		relay_chain,
+		announce_block,
+		Box::new(rx),
+		recovery_chan_tx,
+	);
+
+	spawn_handle
+		.spawn_essential_blocking("cumulus-consensus", None, Box::pin(consensus));
+	spawn_handle
+		.spawn_essential_blocking("finality-stream-worker", None, Box::pin(worker));
 }
 
 /// Run the parachain consensus.
@@ -283,7 +357,7 @@ pub async fn run_parachain_consensus<P, R, Block, B>(
 	parachain: Arc<P>,
 	relay_chain: R,
 	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
-	finalized_head_stream: Box<impl Stream<Item = Vec<u8>> + Unpin + Send>,
+	finalized_head_stream: Box<impl Stream<Item = Block::Header> + Unpin + Send>,
 	recovery_chan_tx: Option<Sender<RecoveryRequest<Block>>>,
 ) where
 	Block: BlockT,
@@ -306,7 +380,7 @@ pub async fn run_parachain_consensus<P, R, Block, B>(
 		recovery_chan_tx,
 	);
 	let follow_finalized_head =
-		follow_finalized_head(para_id, parachain, relay_chain, finalized_head_stream);
+		follow_finalized_head(parachain, relay_chain, finalized_head_stream);
 	select! {
 		_ = follow_new_best.fuse() => {},
 		_ = follow_finalized_head.fuse() => {},
