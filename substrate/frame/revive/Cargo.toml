@@ -82,6 +82,7 @@ pallet-timestamp = { workspace = true, default-features = true }
 pallet-utility = { workspace = true, default-features = true }
 proptest = { workspace = true }
 sp-keystore = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
 
 [features]
@@ -127,6 +128,7 @@ std = [
 	"sp-io/std",
 	"sp-keystore/std",
 	"sp-runtime/std",
+	"sp-state-machine/std",
 	"sp-version/std",
 	"subxt-signer",
 ]
