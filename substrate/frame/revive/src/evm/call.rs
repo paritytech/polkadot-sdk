@@ -20,9 +20,9 @@
 use crate::{
 	evm::{fees::InfoT, runtime::SetWeightLimit},
 	extract_code_and_data, BalanceOf, CallOf, Config, GenericTransaction, Pallet, Weight, Zero,
-	LOG_TARGET, RUNTIME_PALLETS_ADDR,
+	LOG_TARGET, RUNTIME_PALLETS_ADDR, U256,
 };
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 use codec::DecodeLimit;
 use frame_support::MAX_EXTRINSIC_DEPTH;
 use sp_core::Get;
@@ -42,12 +42,15 @@ pub struct CallInfo<T: Config> {
 	pub tx_fee: BalanceOf<T>,
 	/// The additional storage deposit to be deposited into the txhold.
 	pub storage_deposit: BalanceOf<T>,
+	/// The gas limit as supplied in the transaction.
+	pub gas: U256,
 }
 
 /// Decode `tx` into a dispatchable call.
 pub fn create_call<T>(
 	tx: GenericTransaction,
 	signed_transaction: Option<(u32, Vec<u8>)>,
+	apply_weight_cap: bool,
 ) -> Result<CallInfo<T>, InvalidTransaction>
 where
 	T: Config,
@@ -112,7 +115,8 @@ where
 				return Err(InvalidTransaction::Call)
 			}
 
-			call
+			crate::Call::eth_substrate_call::<T> { call: Box::new(call), transaction_encoded }
+				.into()
 		} else {
 			let call = crate::Call::eth_call::<T> {
 				dest,
@@ -167,16 +171,17 @@ where
 				.saturating_mul_int(<BalanceOf<T>>::saturated_from(adjusted));
 			unadjusted
 		};
-
-		let weight_limit = <T as Config>::FeeInfo::fee_to_weight(remaining_fee)
+		let remaining_fee_weight = <T as Config>::FeeInfo::fee_to_weight(remaining_fee);
+		let weight_limit = remaining_fee_weight
 						.checked_sub(&info.total_weight()).ok_or_else(|| {
-							log::debug!(target: LOG_TARGET, "Not enough gas supplied to cover the weight of the extrinsic.");
+							log::debug!(target: LOG_TARGET, "Not enough gas supplied to cover the weight ({:?}) of the extrinsic. remaining_fee_weight: {remaining_fee_weight:?}", info.total_weight(),);
 							InvalidTransaction::Payment
 						})?;
 
 		call.set_weight_limit(weight_limit);
 		let info = <T as Config>::FeeInfo::dispatch_info(&call);
-		let max_weight = <Pallet<T>>::evm_max_extrinsic_weight();
+		let max_weight =
+			if apply_weight_cap { <Pallet<T>>::evm_max_extrinsic_weight() } else { Weight::MAX };
 		let overweight_by = info.total_weight().saturating_sub(max_weight);
 		let capped_weight = weight_limit.saturating_sub(overweight_by);
 		call.set_weight_limit(capped_weight);
@@ -192,5 +197,5 @@ where
 		InvalidTransaction::Payment
 	})?.saturated_into();
 
-	Ok(CallInfo { call, weight_limit, encoded_len, tx_fee, storage_deposit })
+	Ok(CallInfo { call, weight_limit, encoded_len, tx_fee, storage_deposit, gas })
 }

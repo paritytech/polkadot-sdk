@@ -232,7 +232,7 @@ pub async fn build_relay_chain_interface(
 	collator_options: CollatorOptions,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> RelayChainResult<(
-	Arc<(dyn RelayChainInterface + 'static)>,
+	Arc<dyn RelayChainInterface + 'static>,
 	Option<CollatorPair>,
 	Arc<dyn NetworkService>,
 	async_channel::Receiver<IncomingRequest>,
@@ -628,7 +628,7 @@ where
 		runtime_api.record_proof_with_recorder(storage_proof_recorder);
 
 		runtime_api
-			.execute_block(*block.header().parent_hash(), block)
+			.execute_block(*block.header().parent_hash(), block.into())
 			.map_err(Into::into)
 	}
 }

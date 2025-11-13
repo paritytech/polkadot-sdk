@@ -134,15 +134,19 @@ builder!(
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
-		exec_config: ExecConfig,
+		exec_config: ExecConfig<T>,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>>;
 
-	pub fn concat_evm_data(mut self, more_data: &[u8]) -> Self {
-		let Code::Upload(code) = &mut self.code else {
-			panic!("concat_evm_data should only be used with Code::Upload");
-		};
-		code.extend_from_slice(more_data);
-		self
+	pub fn constructor_data(mut self, data: Vec<u8>) -> Self {
+		match self.code {
+			Code::Upload(ref mut code) if !code.starts_with(&polkavm_common::program::BLOB_MAGIC) => {
+				code.extend_from_slice(&data);
+				self
+			},
+			_ => {
+				self.data(data)
+			}
+		}
 	}
 
 	/// Set the call's evm_value using a native_value amount.
@@ -212,7 +216,7 @@ builder!(
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
 		data: Vec<u8>,
-		exec_config: ExecConfig,
+		exec_config: ExecConfig<T>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>>;
 
 	/// Set the call's evm_value using a native_value amount.

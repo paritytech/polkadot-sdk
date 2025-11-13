@@ -1,0 +1,35 @@
+title: Use `Config::XcmExecutor` inside `dry_run_xcm`.
+doc:
+- audience: Runtime Dev
+  description: |
+      Refactors the `dry_run_xcm` implementation in `pallet-xcm` to use the runtime's configured `Config::XcmExecutor` type. 
+      Enabling consistent behaviour for runtimes which use custom XCM executors.
+crates:
+- name: pallet-xcm
+  bump: major
+- name: xcm-runtime-apis
+  bump: patch
+- name: westend-runtime
+  bump: patch
+- name: rococo-runtime 
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-rococo-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: people-rococo-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
+- name: penpal-runtime
+  bump: patch
