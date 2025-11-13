@@ -31,6 +31,7 @@ sp-io = { workspace = true }
 sp-npos-elections = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
+cumulus-primitives-storage-weight-reclaim = { workspace = true }
 
 # Optional imports for benchmarking
 frame-benchmarking = { optional = true, workspace = true }
@@ -71,6 +72,7 @@ std = [
 	"sp-runtime/std",
 	"sp-staking/std",
 	"sp-tracing/std",
+	"cumulus-primitives-storage-weight-reclaim/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

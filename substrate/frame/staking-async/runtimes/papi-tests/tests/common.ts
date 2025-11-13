@@ -26,6 +26,8 @@ export function commonUnsignedSteps(
 					});
 				}
 			}),
+		Observe.on(Chain.Parachain, "MultiBlockElection", "PhaseTransitioned").withDataCheck((x) => x.to.type === "Snapshot"),
+		Observe.on(Chain.Parachain, "MultiBlockElection", "PhaseTransitioned").withDataCheck((x) => x.to.type === "SignedValidation"),
 		// eventually we will verify all pages
 		...Array.from({ length: minerPages }, (_, __) => {
 			return Observe.on(Chain.Parachain, "MultiBlockElectionVerifier", "Verified");

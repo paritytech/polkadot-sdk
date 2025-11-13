@@ -1310,6 +1310,7 @@ impl<T: Config> Pallet<T> {
 	/// 2. ensure `meter` can consume up to `worst_weight`.
 	/// 3. if so, call `exec(meter)`, knowing `meter` will accumulate at most `worst_weight` extra.
 	fn per_block_exec(current_phase: Phase<T>) -> (Weight, Box<dyn Fn(&mut WeightMeter)>) {
+		use cumulus_primitives_storage_weight_reclaim::StorageWeightReclaimer;
 		type ExecuteFn = Box<dyn Fn(&mut WeightMeter)>;
 		let noop: (Weight, ExecuteFn) = (T::WeightInfo::per_block_nothing(), Box::new(|_| {}));
 
@@ -1318,8 +1319,9 @@ impl<T: Config> Pallet<T> {
 				// first snapshot
 				let weight = T::WeightInfo::per_block_snapshot_msp();
 				let exec: ExecuteFn = Box::new(move |meter: &mut WeightMeter| {
+					let mut reclaimer = StorageWeightReclaimer::new(meter);
 					Self::create_targets_snapshot();
-					meter.consume(weight)
+					let _reclaimed = reclaimer.reclaim_with_meter(meter);
 				});
 				(weight, exec)
 			},
@@ -1328,8 +1330,9 @@ impl<T: Config> Pallet<T> {
 				// rest of the snapshot, incl last one.
 				let weight = T::WeightInfo::per_block_snapshot_rest();
 				let exec: ExecuteFn = Box::new(move |meter: &mut WeightMeter| {
+					let mut reclaimer = StorageWeightReclaimer::new(meter);
 					Self::create_voters_snapshot_paged(x);
-					meter.consume(weight)
+					let _reclaimed = reclaimer.reclaim_with_meter(meter);
 				});
 				(weight, exec)
 			},

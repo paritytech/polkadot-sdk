@@ -623,6 +623,7 @@ pub(crate) mod pallet {
 
 impl<T: Config> Pallet<T> {
 	fn do_per_block_exec() -> (Weight, Box<dyn Fn(&mut WeightMeter)>) {
+		use cumulus_primitives_storage_weight_reclaim::StorageWeightReclaimer;
 		let Status::Ongoing(current_page) = Self::status_storage() else {
 			let weight = T::DbWeight::get().reads(1);
 			return (weight, Box::new(move |meter: &mut WeightMeter| meter.consume(weight)))
@@ -635,6 +636,7 @@ impl<T: Config> Pallet<T> {
 			.max(VerifierWeightsOf::<T>::verification_invalid_terminal());
 
 		let execute = Box::new(move |meter: &mut WeightMeter| {
+			let mut reclaimer = StorageWeightReclaimer::new(meter);
 			let page_solution =
 				<T::SolutionDataProvider as SolutionDataProvider>::get_page(current_page);
 			let maybe_supports = Self::feasibility_check_page_inner(page_solution, current_page);
@@ -656,7 +658,6 @@ impl<T: Config> Pallet<T> {
 						StatusStorage::<T>::put(Status::Ongoing(
 							current_page.defensive_saturating_sub(1),
 						));
-						meter.consume(VerifierWeightsOf::<T>::verification_valid_non_terminal())
 					} else {
 						// last page, finalize everything. Get the claimed score.
 						let claimed_score = T::SolutionDataProvider::get_score();
@@ -676,8 +677,6 @@ impl<T: Config> Pallet<T> {
 								);
 								// In case of any of the errors, kill the solution.
 								QueuedSolution::<T>::clear_invalid_and_backings();
-								meter
-									.consume(VerifierWeightsOf::<T>::verification_invalid_terminal())
 							},
 						}
 					}
@@ -699,11 +698,9 @@ impl<T: Config> Pallet<T> {
 						T::SolutionDataProvider::report_result(VerificationResult::Rejected);
 					}
 					let wasted_pages = T::Pages::get().saturating_sub(current_page);
-					meter.consume(VerifierWeightsOf::<T>::verification_invalid_non_terminal(
-						wasted_pages,
-					))
 				},
 			}
+			let _reclaimed = reclaimer.reclaim_with_meter(meter);
 		});
 
 		(worst_case_weight, execute)

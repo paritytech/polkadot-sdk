@@ -905,12 +905,14 @@ impl<T: Config> EraElectionPlanner<T> {
 	}
 
 	pub(crate) fn maybe_fetch_election_results() -> (Weight, Box<dyn Fn(&mut WeightMeter)>) {
+		use cumulus_primitives_storage_weight_reclaim::StorageWeightReclaimer;
 		let Ok(Some(required_weight)) = T::ElectionProvider::status() else {
 			// no election ongoing
 			let weight = T::DbWeight::get().reads(1);
 			return (weight, Box::new(move |meter: &mut WeightMeter| meter.consume(weight)))
 		};
 		let exec = Box::new(move |meter: &mut WeightMeter| {
+			let mut reclaimer = StorageWeightReclaimer::new(meter);
 			crate::log!(
 				debug,
 				"Election provider is ready, our status is {:?}",
@@ -946,8 +948,7 @@ impl<T: Config> EraElectionPlanner<T> {
 				T::RcClientInterface::validator_set(rc_validators, id, prune_up_to);
 			}
 
-			// consume the reported worst case weight.
-			meter.consume(required_weight)
+			let _reclaimed = reclaimer.reclaim_with_meter(meter);
 		});
 		(required_weight, exec)
 	}

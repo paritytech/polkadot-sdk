@@ -12332,6 +12332,7 @@ dependencies = [
 name = "pallet-election-provider-multi-block"
 version = "0.9.0"
 dependencies = [
+ "cumulus-primitives-storage-weight-reclaim",
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-support",
@@ -13622,6 +13623,7 @@ name = "pallet-staking-async"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cumulus-primitives-storage-weight-reclaim",
  "env_logger 0.11.3",
  "frame-benchmarking",
  "frame-election-provider-support",
