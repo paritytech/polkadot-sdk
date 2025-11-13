@@ -1,4 +1,4 @@
-name: check-runtime-migration
+name: check-runtime-compatibility
 
 on:
   push:
@@ -6,9 +6,6 @@ on:
       - master
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-  # Take a snapshot at 5am when most SDK devs are not working.
-  schedule:
-    - cron: "0 5 * * *"
   merge_group:
   workflow_dispatch:
 
@@ -25,13 +22,10 @@ jobs:
     needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
 
-  # More info can be found here: https://github.com/paritytech/polkadot/pull/5865
-  check-runtime-migration:
+  check-runtime-compatibility:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     if: ${{ needs.preflight.outputs.changes_rust }}
-    # We need to set this to rather long to allow the snapshot to be created, but the average time
-    # should be much lower.
-    timeout-minutes: 60
+    timeout-minutes: 30
     needs: [preflight]
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
@@ -51,80 +45,46 @@ jobs:
             package: westend-runtime
             wasm: westend_runtime.compact.compressed.wasm
             uri: "wss://try-runtime-westend.polkadot.io:443"
-            subcommand_extra_args: "--no-weight-warnings --blocktime 6000"
-            command_extra_args: ""
           - network: asset-hub-westend
             package: asset-hub-westend-runtime
             wasm: asset_hub_westend_runtime.compact.compressed.wasm
             uri: "wss://westend-asset-hub-rpc.polkadot.io:443"
-            subcommand_extra_args: " --blocktime 6000"
-            command_extra_args: ""
           - network: bridge-hub-westend
             package: bridge-hub-westend-runtime
             wasm: bridge_hub_westend_runtime.compact.compressed.wasm
             uri: "wss://westend-bridge-hub-rpc.polkadot.io:443"
-            subcommand_extra_args: " --blocktime 6000"
           - network: collectives-westend
             package: collectives-westend-runtime
             wasm: collectives_westend_runtime.compact.compressed.wasm
             uri: "wss://westend-collectives-rpc.polkadot.io:443"
-            command_extra_args: "--disable-spec-name-check"
-            subcommand_extra_args: " --blocktime 6000"
           - network: coretime-westend
             package: coretime-westend-runtime
             wasm: coretime_westend_runtime.compact.compressed.wasm
             uri: "wss://westend-coretime-rpc.polkadot.io:443"
-            subcommand_extra_args: " --blocktime 6000"
     steps:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - name: Download CLI
-        run: |
-          curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.8.0/try-runtime-x86_64-unknown-linux-musl -o try-runtime
-          chmod +x ./try-runtime
-          echo "Using try-runtime-cli version:"
-          ./try-runtime --version
-
-      - name: Get Date
-        id: get-date
-        run: |
-          echo "today=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
-        shell: bash
-
-      - name: Download Snapshot
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: snapshot.raw
-          key: try-runtime-snapshot-${{ matrix.network }}-${{ steps.get-date.outputs.today }}
-          save-always: true
-
-      - name: Create Snapshot If Stale
-        if: ${{ hashFiles('snapshot.raw') == '' }}
-        run: |
-          echo "Creating new snapshot for today (${{ steps.get-date.outputs.today }})"
-          ./try-runtime create-snapshot --uri ${{ matrix.uri }} snapshot.raw
-
       - name: Build Runtime
-        id: required1
+        id: build-runtime
         run: |
-          echo "---------- Building ${{ matrix.package }} runtime ----------"
-          forklift cargo build --release --locked -p ${{ matrix.package }} --features try-runtime -q
+          echo "---------- Building ${{ matrix.package }} runtime with on-chain-release-build ----------"
+          forklift cargo build --release --locked -p ${{ matrix.package }} --features on-chain-release-build -q
 
-      - name: Run Check
-        id: required2
+      - name: Setup Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "24.x"
+          registry-url: "https://npm.pkg.github.com"
+
+      - name: Check Runtime Compatibility
+        id: check-compatibility
         run: |
-          echo "Running ${{ matrix.network }} runtime migration check"
-          export RUST_LOG=remote-ext=debug,runtime=debug
-
-          echo "---------- Executing on-runtime-upgrade for ${{ matrix.network }} ----------"
-          ./try-runtime ${{ matrix.command_extra_args }} \
-              --runtime ./target/release/wbuild/${{ matrix.package }}/${{ matrix.wasm }} \
-              on-runtime-upgrade --disable-spec-version-check --checks=all ${{ matrix.subcommand_extra_args }} snap -p snapshot.raw
-          sleep 5
+          echo "---------- Checking runtime compatibility for ${{ matrix.network }} ----------"
+          npx @polkadot-api/check-runtime@latest problems ${{ matrix.uri }} --wasm ./target/release/wbuild/${{ matrix.package }}/${{ matrix.wasm }}
 
       - name: Stop all workflows if failed
-        if: ${{ failure() && (steps.required1.conclusion == 'failure' || steps.required2.conclusion == 'failure') }}
+        if: ${{ failure() && (steps.build-runtime.conclusion == 'failure' || steps.check-compatibility.conclusion == 'failure') }}
         uses: ./.github/actions/workflow-stopper
         with:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
@@ -132,11 +92,10 @@ jobs:
 
   # name of this job must be unique across all workflows
   # otherwise GitHub will mark all these jobs as required
-  confirm-required-checks-passed:
+  confirm-runtime-compatibility-checks-passed:
     runs-on: ubuntu-latest
-    name: All runtime migrations passed
-    # If any new job gets added, be sure to add it to this array
-    needs: [check-runtime-migration]
+    name: All runtime compatibility checks passed
+    needs: [check-runtime-compatibility]
     if: always() && !cancelled()
     steps:
       - run: |
