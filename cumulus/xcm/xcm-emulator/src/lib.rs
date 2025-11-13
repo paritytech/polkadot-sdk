@@ -1489,7 +1489,8 @@ where
 	}
 }
 
-pub type MessageOriginFor<T> = <<<T as Chain>::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin;
+pub type MessageOriginFor<T> =
+	<<<T as Chain>::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin;
 
 pub struct DefaultRelayMessageProcessor<T>(PhantomData<T>);
 // Process UMP messages on the relay
@@ -1497,8 +1498,7 @@ impl<T> ProcessMessage for DefaultRelayMessageProcessor<T>
 where
 	T: RelayChain,
 	T::Runtime: MessageQueueConfig,
-	MessageOriginFor<T>:
-		From<AggregateMessageOrigin>,
+	MessageOriginFor<T>: From<AggregateMessageOrigin>,
 	MessageQueuePallet<T::Runtime>: EnqueueMessage<MessageOriginFor<T>> + ServiceQueues,
 {
 	type Origin = ParaId;
@@ -1523,8 +1523,7 @@ impl<T> ServiceQueues for DefaultRelayMessageProcessor<T>
 where
 	T: RelayChain,
 	T::Runtime: MessageQueueConfig,
-	MessageOriginFor<T>:
-		From<AggregateMessageOrigin>,
+	MessageOriginFor<T>: From<AggregateMessageOrigin>,
 	MessageQueuePallet<T::Runtime>: EnqueueMessage<MessageOriginFor<T>> + ServiceQueues,
 {
 	type OverweightMessageAddress = ();
