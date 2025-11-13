@@ -579,7 +579,15 @@ pub mod pallet {
 		///
 		/// This happens if the passed `gas` inside the ethereum transaction is too low.
 		TxFeeOverdraw = 0x35,
-
+		/// When calling an EVM constructor `data` has to be empty.
+		///
+		/// EVM constructors do not accept data. Their input data is part of the code blob itself.
+		EvmConstructorNonEmptyData = 0x36,
+		/// Tried to construct an EVM contract via code hash.
+		///
+		/// EVM contracts can only be instantiated via code upload as no initcode is
+		/// stored on-chain.
+		EvmConstructedFromHash = 0x37,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,
@@ -670,7 +678,8 @@ pub mod pallet {
 	///
 	/// The maximum number of elements stored is capped by the block hash count `BLOCK_HASH_COUNT`.
 	#[pallet::storage]
-	pub(crate) type BlockHash<T: Config> = StorageMap<_, Identity, U256, H256, ValueQuery>;
+	pub(crate) type BlockHash<T: Config> =
+		StorageMap<_, Identity, BlockNumberFor<T>, H256, ValueQuery>;
 
 	/// The details needed to reconstruct the receipt info offchain.
 	///
@@ -686,7 +695,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::unbounded]
 	pub(crate) type EthBlockBuilderIR<T: Config> =
-		StorageValue<_, EthereumBlockBuilderIR, ValueQuery>;
+		StorageValue<_, EthereumBlockBuilderIR<T>, ValueQuery>;
 
 	/// The first transaction and receipt of the ethereum block.
 	///
@@ -833,12 +842,9 @@ pub mod pallet {
 
 			// Build genesis block
 			block_storage::on_finalize_build_eth_block::<T>(
-				H160::zero(),
-				frame_system::Pallet::<T>::block_number().into(),
-				Pallet::<T>::evm_base_fee(),
-				Pallet::<T>::evm_block_gas_limit(),
-				// Eth uses timestamps in seconds
-				(T::Time::now() / 1000u32.into()).into(),
+				// Make sure to use the block number from storage instead of the hardcoded 0.
+				// This enables testing tools like anvil to customise the genesis block number.
+				frame_system::Pallet::<T>::block_number(),
 			);
 
 			// Set debug settings.
@@ -868,14 +874,7 @@ pub mod pallet {
 
 		fn on_finalize(block_number: BlockNumberFor<T>) {
 			// Build the ethereum block and place it in storage.
-			block_storage::on_finalize_build_eth_block::<T>(
-				Self::block_author(),
-				block_number.into(),
-				Self::evm_base_fee(),
-				Self::evm_block_gas_limit(),
-				// Eth uses timestamps in seconds
-				(T::Time::now() / 1000u32.into()).into(),
-			);
+			block_storage::on_finalize_build_eth_block::<T>(block_number);
 		}
 
 		fn integrity_test() {
@@ -1373,6 +1372,54 @@ pub mod pallet {
 			})
 		}
 
+		/// Executes a Substrate runtime call from an Ethereum transaction.
+		///
+		/// This dispatchable is intended to be called **only** through the EVM compatibility
+		/// layer. The provided call will be dispatched using `RawOrigin::Signed`.
+		///
+		/// # Parameters
+		///
+		/// * `origin`: Must be an [`Origin::EthTransaction`] origin.
+		/// * `call`: The Substrate runtime call to execute.
+		/// * `transaction_encoded`: The RLP encoding of the Ethereum transaction,
+		#[pallet::call_index(12)]
+		#[pallet::weight(T::WeightInfo::eth_substrate_call(transaction_encoded.len() as u32).saturating_add(call.get_dispatch_info().call_weight))]
+		pub fn eth_substrate_call(
+			origin: OriginFor<T>,
+			call: Box<<T as Config>::RuntimeCall>,
+			transaction_encoded: Vec<u8>,
+		) -> DispatchResultWithPostInfo {
+			// Note that the inner dispatch uses `RawOrigin::Signed`, which cannot
+			// re-enter `eth_substrate_call` (which requires `Origin::EthTransaction`).
+			let signer = Self::ensure_eth_signed(origin)?;
+			let weight_overhead =
+				T::WeightInfo::eth_substrate_call(transaction_encoded.len() as u32);
+
+			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
+				let call_weight = call.get_dispatch_info().call_weight;
+				let mut call_result = call.dispatch(RawOrigin::Signed(signer).into());
+
+				// Add extrinsic_overhead to the actual weight in PostDispatchInfo
+				match &mut call_result {
+					Ok(post_info) | Err(DispatchErrorWithPostInfo { post_info, .. }) => {
+						post_info.actual_weight = Some(
+							post_info
+								.actual_weight
+								.unwrap_or_else(|| call_weight)
+								.saturating_add(weight_overhead),
+						);
+					},
+				}
+
+				// Return zero EVM gas (Substrate dispatch, not EVM contract call).
+				// Actual weight is in `post_info.actual_weight`.
+				block_storage::EthereumCallResult {
+					receipt_gas_info: ReceiptGasInfo::default(),
+					result: call_result,
+				}
+			})
+		}
+
 		/// Upload new `code` without instantiating a contract from it.
 		///
 		/// If the code does not already exist a deposit is reserved from the caller
@@ -1611,14 +1658,18 @@ impl<T: Config> Pallet<T> {
 				},
 				Code::Upload(code) =>
 					if T::AllowEVMBytecode::get() {
+						ensure!(data.is_empty(), <Error<T>>::EvmConstructorNonEmptyData);
 						let origin = T::UploadOrigin::ensure_origin(origin)?;
 						let executable = ContractBlob::from_evm_init_code(code, origin)?;
 						executable
 					} else {
 						return Err(<Error<T>>::CodeRejected.into())
 					},
-				Code::Existing(code_hash) =>
-					ContractBlob::from_storage(code_hash, &mut transaction_meter)?,
+				Code::Existing(code_hash) => {
+					let executable = ContractBlob::from_storage(code_hash, &mut transaction_meter)?;
+					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
+					executable
+				},
 			};
 			let instantiate_origin = ExecOrigin::from_account_id(instantiate_account.clone());
 			let result = ExecStack::<T, ContractBlob<T>>::run_instantiate(
@@ -1928,6 +1979,7 @@ impl<T: Config> Pallet<T> {
 	/// The Ethereum block number is identical to the Substrate block number.
 	/// If the provided block number is outside of the pruning None is returned.
 	pub fn eth_block_hash_from_number(number: U256) -> Option<H256> {
+		let number = BlockNumberFor::<T>::try_from(number).ok()?;
 		let hash = <BlockHash<T>>::get(number);
 		if hash == H256::zero() {
 			None

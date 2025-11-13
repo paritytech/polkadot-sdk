@@ -3009,7 +3009,10 @@ fn block_hash_works() {
 
 		// Store block hash in pallet-revive BlockHash mapping
 		let block_hash = H256::from([1; 32]);
-		crate::BlockHash::<Test>::insert(U256::from(0u32), H256::from(block_hash));
+		crate::BlockHash::<Test>::insert(
+			crate::BlockNumberFor::<Test>::from(0u32),
+			H256::from(block_hash),
+		);
 
 		assert_ok!(builder::call(addr)
 			.data((U256::zero(), H256::from(block_hash)).encode())
@@ -4039,6 +4042,16 @@ fn tracing_works_for_transfers() {
 	});
 }
 
+fn replace_actual_gas(expected: &mut CallTrace, actual: &CallTrace) {
+	expected.gas = actual.gas;
+	expected.gas_used = actual.gas_used;
+	expected
+		.calls
+		.iter_mut()
+		.zip(actual.calls.iter())
+		.for_each(|(e, a)| replace_actual_gas(e, a));
+}
+
 #[test]
 fn call_tracing_works() {
 	use crate::evm::*;
@@ -4073,8 +4086,6 @@ fn call_tracing_works() {
 		assert_eq!(&trace.gas_used, &gas_used);
 		*/
 
-		// Discarding gas usage, check that traces reported are correct
-		let mut ed_required: u64 = 200;
 
 		for config in tracer_configs {
 			let logs = if config.with_logs {
@@ -4111,8 +4122,8 @@ fn call_tracing_works() {
 							error: Some("execution reverted".to_string()),
 							call_type: Call,
 							value: Some(U256::from(0)),
-							gas: 1248904700460u64.into(),
-							gas_used: 11967774.into(),
+							gas: 0.into(),
+							gas_used: 0.into(),
 							..Default::default()
 						},
 						CallTrace {
@@ -4122,8 +4133,8 @@ fn call_tracing_works() {
 							call_type: Call,
 							logs: logs.clone(),
 							value: Some(U256::from(0)),
-							gas: 1247950604625u64.into(),
-							gas_used: (4332765740u64 + ed_required).into(),
+							gas: 0.into(),
+							gas_used: 0.into(),
 							calls: vec![
 								CallTrace {
 									from: addr,
@@ -4133,8 +4144,8 @@ fn call_tracing_works() {
 									error: Some("ContractTrapped".to_string()),
 									call_type: Call,
 									value: Some(U256::from(0)),
-									gas: 1247105006008u64.into(),
-									gas_used: 1100894.into(),
+									gas: 0.into(),
+									gas_used: 0.into(),
 									..Default::default()
 								},
 								CallTrace {
@@ -4144,8 +4155,8 @@ fn call_tracing_works() {
 									call_type: Call,
 									logs: logs.clone(),
 									value: Some(U256::from(0)),
-									gas: 1246161777053u64.into(),
-									gas_used: (2543578433u64 + ed_required).into(),
+									gas: 0.into(),
+									gas_used: 0.into(),
 									calls: vec![
 										CallTrace {
 											from: addr,
@@ -4154,8 +4165,8 @@ fn call_tracing_works() {
 											output: 0u32.to_le_bytes().to_vec().into(),
 											call_type: Call,
 											value: Some(U256::from(0)),
-											gas: 1245316178436u64.into(),
-											gas_used: 1705726.into(),
+											gas: 0.into(),
+											gas_used: 0.into(),
 											..Default::default()
 										},
 										CallTrace {
@@ -4164,8 +4175,8 @@ fn call_tracing_works() {
 											input: (0u32, addr_callee).encode().into(),
 											call_type: Call,
 											value: Some(U256::from(0)),
-											gas: 1244372344649u64.into(),
-											gas_used: (753786293 + ed_required).into(),
+											gas: 0.into(),
+											gas_used: 0.into(),
 											calls: vec![
 												CallTrace {
 													from: addr,
@@ -4195,7 +4206,7 @@ fn call_tracing_works() {
 			});
 
 			let trace = tracer.collect_trace();
-			let expected_trace = CallTrace {
+			let mut expected_trace = CallTrace {
 					from: ALICE_ADDR,
 					to: addr,
 					input: (3u32, addr_callee).encode().into(),
@@ -4204,18 +4215,20 @@ fn call_tracing_works() {
 					value: Some(U256::from(0)),
 					calls: calls,
 					child_call_count: 2,
-					gas: 1249750299077u64.into(),
-					gas_used: (6132819927u64 + ed_required).into(), // 6132819927u64 or 6132820127u64
+					gas: 0.into(),
+					gas_used: 0.into(),
 					..Default::default()
 				};
+
+			// No need to manually adjust expected gas every time the weights change
+			if let Some(actual) = &trace {
+				replace_actual_gas(&mut expected_trace, actual);
+			}
 
 			assert_eq!(
 				trace,
 				expected_trace.into(),
 			);
-
-			// the innermost call transfers a value of 100 to BOB, this requires an extra 200 storage deposit for the ed on the first iteration
-			ed_required = 0;
 		}
 	});
 }
@@ -4245,8 +4258,8 @@ fn create_call_tracing_works() {
 				value: Some(100.into()),
 				input: Bytes(code.clone()),
 				call_type: CallType::Create,
-				gas: 1250009998433u64.into(),
-				gas_used: 36747.into(),
+				gas: call_trace.gas,
+				gas_used: call_trace.gas_used,
 				..Default::default()
 			}
 		);
@@ -4268,16 +4281,16 @@ fn create_call_tracing_works() {
 				to: addr,
 				value: Some(0.into()),
 				input: input.clone().into(),
-				gas: 1249861529896u64.into(),
-				gas_used: 983784141.into(),
+				gas: call_trace.gas,
+				gas_used: call_trace.gas_used,
 				calls: vec![CallTrace {
 					from: addr,
 					input: input.clone().into(),
 					to: child_addr,
 					value: Some(0.into()),
 					call_type: CallType::Create2,
-					gas: 1248878034317u64.into(),
-					gas_used: 36748.into(),
+					gas: call_trace.calls[0].gas,
+					gas_used: call_trace.calls[0].gas_used,
 					..Default::default()
 				},],
 				child_call_count: 1,
@@ -4309,19 +4322,31 @@ fn prestate_tracing_works() {
 		// redact balance so that tests are resilient to weight changes
 		let alice_redacted_balance = Some(U256::from(1));
 
-		let test_cases: Vec<(Box<dyn FnOnce()>, _, _)> = vec![
-			(
-				Box::new(|| {
-					builder::bare_call(addr)
-						.data((3u32, addr_callee).encode())
-						.build_and_unwrap_result();
+		struct TestCase {
+			description: &'static str,
+			exec_call: Box<dyn FnOnce()>,
+			config: PrestateTracerConfig,
+			expected_trace: PrestateTrace,
+		}
+
+		let test_cases: Vec<TestCase> = vec![
+			TestCase {
+				description: "prestate mode with cross-contract call",
+				exec_call: Box::new({
+					let addr = addr;
+					let addr_callee = addr_callee;
+					move || {
+						builder::bare_call(addr)
+							.data((3u32, addr_callee).encode())
+							.build_and_unwrap_result();
+					}
 				}),
-				PrestateTracerConfig {
+				config: PrestateTracerConfig {
 					diff_mode: false,
 					disable_storage: false,
 					disable_code: false,
 				},
-				PrestateTrace::Prestate(BTreeMap::from([
+				expected_trace: PrestateTrace::Prestate(BTreeMap::from([
 					(
 						ALICE_ADDR,
 						PrestateTraceInfo {
@@ -4353,19 +4378,24 @@ fn prestate_tracing_works() {
 						},
 					),
 				])),
-			),
-			(
-				Box::new(|| {
-					builder::bare_call(addr)
-						.data((3u32, addr_callee).encode())
-						.build_and_unwrap_result();
+			},
+			TestCase {
+				description: "diff mode with cross-contract call",
+				exec_call: Box::new({
+					let addr = addr;
+					let addr_callee = addr_callee;
+					move || {
+						builder::bare_call(addr)
+							.data((3u32, addr_callee).encode())
+							.build_and_unwrap_result();
+					}
 				}),
-				PrestateTracerConfig {
+				config: PrestateTracerConfig {
 					diff_mode: true,
 					disable_storage: false,
 					disable_code: false,
 				},
-				PrestateTrace::DiffMode {
+				expected_trace: PrestateTrace::DiffMode {
 					pre: BTreeMap::from([
 						(
 							BOB_ADDR,
@@ -4401,19 +4431,23 @@ fn prestate_tracing_works() {
 						),
 					]),
 				},
-			),
-			(
-				Box::new(|| {
-					builder::bare_instantiate(Code::Upload(dummy_code.clone()))
-						.salt(None)
-						.build_and_unwrap_result();
+			},
+			TestCase {
+				description: "diff mode with contract instantiation",
+				exec_call: Box::new({
+					let dummy_code = dummy_code.clone();
+					move || {
+						builder::bare_instantiate(Code::Upload(dummy_code))
+							.salt(None)
+							.build_and_unwrap_result();
+					}
 				}),
-				PrestateTracerConfig {
+				config: PrestateTracerConfig {
 					diff_mode: true,
 					disable_storage: false,
 					disable_code: false,
 				},
-				PrestateTrace::DiffMode {
+				expected_trace: PrestateTrace::DiffMode {
 					pre: BTreeMap::from([(
 						ALICE_ADDR,
 						PrestateTraceInfo {
@@ -4442,10 +4476,10 @@ fn prestate_tracing_works() {
 						),
 					]),
 				},
-			),
+			},
 		];
 
-		for (exec_call, config, expected_trace) in test_cases.into_iter() {
+		for TestCase { description, exec_call, config, expected_trace } in test_cases.into_iter() {
 			let mut tracer = PrestateTracer::<Test>::new(config);
 			trace(&mut tracer, || {
 				exec_call();
@@ -4470,7 +4504,7 @@ fn prestate_tracing_works() {
 				},
 			}
 
-			assert_eq!(trace, expected_trace);
+			assert_eq!(trace, expected_trace, "Trace mismatch for: {description}");
 		}
 	});
 }

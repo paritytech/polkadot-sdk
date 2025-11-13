@@ -617,7 +617,10 @@ pub mod run {
 		E: ExtWithInfo,
 	{
 		let precompile = <Builtin<E::T>>::get(address)
-			.ok_or(DispatchError::from("No pre-compile at address"))?;
+			.ok_or(DispatchError::from("No pre-compile at address"))
+			.inspect_err(|_| {
+				log::debug!(target: crate::LOG_TARGET, "No pre-compile at address {address:?}");
+			})?;
 		precompile.call(input, ext)
 	}
 }
