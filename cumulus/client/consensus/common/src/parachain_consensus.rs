@@ -23,7 +23,7 @@ use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use schnellru::{ByLength, LruMap};
 use sp_blockchain::Error as ClientError;
 use sp_consensus::{BlockOrigin, BlockStatus};
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+use sp_runtime::{SaturatedConversion, traits::{Block as BlockT, Header as HeaderT, NumberFor}};
 
 use cumulus_client_pov_recovery::{RecoveryKind, RecoveryRequest};
 use cumulus_relay_chain_interface::RelayChainInterface;
@@ -34,38 +34,38 @@ use codec::Decode;
 use futures::{channel::mpsc::Sender, pin_mut, select, FutureExt, SinkExt, Stream, StreamExt};
 
 use futures::channel::mpsc::UnboundedSender;
-use sp_core::U256;
 use sp_runtime::Saturating;
 use std::{sync::Arc, time::Duration};
 use tokio::time::{interval, MissedTickBehavior};
 
 const LOG_TARGET: &str = "cumulus-consensus";
 const FINALIZATION_CACHE_SIZE: u32 = 40;
-const SYNC_FINALITY_GAP_THRESHOLD: u32 = 1000;
-const FINALITY_GAP_CHECK_INTERVAL_SECS: u64 = 30;
+const SYNC_FINALITY_GAP_THRESHOLD: u64 = 1000;
+const FINALITY_GAP_CHECK_INTERVAL_SECS: Duration = Duration::from_secs(30);
 
 /// Periodically check for large finality gaps and finalize the best block if needed.
-async fn check_finality_gap<P, Block, B, R>(parachain: &Arc<P>, relay_chain: &R)
-where
+async fn check_finality_gap<P, Block, B, R>(
+	parachain: &Arc<P>,
+	relay_chain: &R,
+	last_seen_finalized_hashes: &LruMap<Block::Hash, NumberFor<Block>>,
+) where
 	Block: BlockT,
 	R: RelayChainInterface,
 	B: Backend<Block>,
 	P: Finalizer<Block, B> + UsageProvider<Block>,
 {
 	let chain_info = parachain.usage_info().chain;
-	let finalized_number = chain_info.finalized_number;
 
 	// Finalize if the best block of the parachain is way ahead of the finalized block.
-	let finality_gap: U256 =
-		chain_info.best_number.saturating_sub(chain_info.finalized_number).into();
-	let finality_gap: u32 = finality_gap.try_into().expect("U256 is always less than u32");
+	let finality_gap =
+		chain_info.best_number.saturating_sub(chain_info.finalized_number).saturated_into();
 
 	if finality_gap > SYNC_FINALITY_GAP_THRESHOLD &&
-		relay_chain.is_major_syncing().await.unwrap_or(false)
+		relay_chain.is_major_syncing().await.unwrap_or_default()
 	{
 		tracing::debug!(
 			target: LOG_TARGET,
-			%finalized_number,
+			finalized_number = %chain_info.finalized_number,
 			best_number = %chain_info.best_number,
 			%finality_gap,
 			"Large gap between best and finalized block during sync, finalizing best block."
@@ -78,13 +78,40 @@ where
 				"Failed to finalize best block",
 			);
 		}
+		return;
+	}
+
+	// Check if relay chain finalized head is far ahead of parachain best block
+	if let Some((parachain_hash, parachain_finalized_number)) = last_seen_finalized_hashes.peek_newest() {
+		let relay_chain_para_chain_delta =
+			(*parachain_finalized_number).saturating_sub(chain_info.best_number).saturated_into();
+
+		if relay_chain_para_chain_delta > SYNC_FINALITY_GAP_THRESHOLD {
+			tracing::debug!(
+				target: LOG_TARGET,
+				parachain_finalized_hash = ?parachain_hash,
+				parachain_finalized_number = ?parachain_finalized_number,
+				finalized_number = %chain_info.finalized_number,
+				best_number = %chain_info.best_number,
+				%relay_chain_para_chain_delta,
+				"Relay chain is far ahead, finalizing best block."
+			);
+			if let Err(e) = parachain.finalize_block(chain_info.best_hash, None, false) {
+				tracing::warn!(
+					target: LOG_TARGET,
+					error = ?e,
+					block_hash = ?chain_info.best_hash,
+					"Failed to finalize best block",
+				);
+			}
+		}
 	}
 }
 
 async fn handle_new_finalized_head<P, Block, B>(
 	parachain: &Arc<P>,
 	finalized_head: Vec<u8>,
-	last_seen_finalized_hashes: &mut LruMap<Block::Hash, ()>,
+	last_seen_finalized_hashes: &mut LruMap<Block::Hash, NumberFor<Block>>,
 ) where
 	Block: BlockT,
 	B: Backend<Block>,
@@ -105,26 +132,7 @@ async fn handle_new_finalized_head<P, Block, B>(
 
 	let hash = header.hash();
 
-	last_seen_finalized_hashes.insert(hash, ());
-	let chain_info = parachain.usage_info().chain;
-	let finalized_number = chain_info.finalized_number;
-
-	let relay_chain_para_chain_delta: U256 =
-		header.number().saturating_sub(chain_info.best_number).into();
-	let relay_chain_para_chain_delta: u32 =
-		relay_chain_para_chain_delta.try_into().expect("U256 is always less than u32");
-	if relay_chain_para_chain_delta > SYNC_FINALITY_GAP_THRESHOLD {
-		tracing::debug!(target: LOG_TARGET, block_hash = ?hash, %finalized_number, best_number = %chain_info.best_number, %relay_chain_para_chain_delta, "Relay chain is far ahead, finalizing best block.");
-		if let Err(e) = parachain.finalize_block(chain_info.best_hash, None, false) {
-			tracing::warn!(
-				target: LOG_TARGET,
-				error = ?e,
-				block_hash = ?hash,
-				"Failed to finalize best block",
-			);
-		}
-		return
-	}
+	last_seen_finalized_hashes.insert(hash, *header.number());
 
 	if parachain.usage_info().chain.finalized_number < *header.number() {
 		tracing::debug!(
@@ -175,8 +183,7 @@ async fn follow_finalized_head<P, Block, B, R>(
 	let mut finalized_head_stream = finalized_head_stream.fuse();
 
 	// Create an interval for periodic finality gap checks
-	let mut finality_gap_check_interval =
-		interval(Duration::from_secs(FINALITY_GAP_CHECK_INTERVAL_SECS));
+	let mut finality_gap_check_interval = interval(FINALITY_GAP_CHECK_INTERVAL_SECS);
 	finality_gap_check_interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
 	// Skip the first tick which fires immediately
 	finality_gap_check_interval.tick().await;
@@ -185,7 +192,7 @@ async fn follow_finalized_head<P, Block, B, R>(
 		tracing::debug!(target: LOG_TARGET, "New round in consensus loop.");
 		select! {
 			_ = finality_gap_check_interval.tick().fuse() => {
-				check_finality_gap::<P, Block, B, R>(&parachain, &relay_chain).await;
+				check_finality_gap::<P, Block, B, R>(&parachain, &relay_chain, &last_seen_finalized_hashes).await;
 			},
 			fin = finalized_head_stream.next() => {
 				match fin {
