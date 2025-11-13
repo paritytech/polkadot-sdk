@@ -78,7 +78,7 @@ fn spend_roc_on_asset_hub() {
 					id: native_asset.clone().into(),
 					fun: treasury_balance.into()
 				}))),
-				fee_asset_item: 0,
+				fee_asset_id: bx!(native_asset.into()),
 			})),
 		});
 
