@@ -74,7 +74,7 @@ use frame_support::{
 	traits::{
 		fungible::{Balanced, Inspect, Mutate, MutateHold},
 		tokens::Balance,
-		ConstU32, ConstU64, EnsureOrigin, Get, IsSubType, IsType, OriginTrait, Time,
+		ConstU32, ConstU64, EnsureOrigin, Get, IsSubType, IsType, OriginTrait,
 	},
 	weights::WeightMeter,
 	BoundedVec, RuntimeDebugNoBound,
@@ -95,14 +95,17 @@ pub use crate::{
 		create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper, TestAccountMapper,
 	},
 	debug::DebugSettings,
-	evm::{block_hash::ReceiptGasInfo, Address as EthAddress, Block as EthBlock, ReceiptInfo},
+	evm::{
+		block_hash::ReceiptGasInfo, Address as EthAddress, Block as EthBlock, DryRunConfig,
+		ReceiptInfo,
+	},
 	exec::{DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
 	pallet::{genesis, *},
 	storage::{AccountInfo, ContractInfo, EvmNonce},
-	vm::ContractBlob,
+	vm::{BytecodeType, ContractBlob},
 };
 pub use codec;
-pub use frame_support::{self, dispatch::DispatchInfo, weights::Weight};
+pub use frame_support::{self, dispatch::DispatchInfo, traits::Time, weights::Weight};
 pub use frame_system::{self, limits::BlockWeights};
 pub use primitives::*;
 pub use sp_core::{keccak_256, H160, H256, U256};
@@ -564,8 +567,17 @@ pub mod pallet {
 		///
 		/// This happens if the passed `gas` inside the ethereum transaction is too low.
 		TxFeeOverdraw = 0x35,
-		NonceTooLow = 0x36,
+		/// When calling an EVM constructor `data` has to be empty.
+		///
+		/// EVM constructors do not accept data. Their input data is part of the code blob itself.
+		EvmConstructorNonEmptyData = 0x36,
+		/// Tried to construct an EVM contract via code hash.
+		///
+		/// EVM contracts can only be instantiated via code upload as no initcode is
+		/// stored on-chain.
+		EvmConstructedFromHash = 0x37,
 
+		NonceTooLow = 0x38,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,
@@ -679,7 +691,8 @@ pub mod pallet {
 	///
 	/// The maximum number of elements stored is capped by the block hash count `BLOCK_HASH_COUNT`.
 	#[pallet::storage]
-	pub(crate) type BlockHash<T: Config> = StorageMap<_, Identity, U256, H256, ValueQuery>;
+	pub(crate) type BlockHash<T: Config> =
+		StorageMap<_, Identity, BlockNumberFor<T>, H256, ValueQuery>;
 
 	/// The details needed to reconstruct the receipt info offchain.
 	///
@@ -695,7 +708,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::unbounded]
 	pub(crate) type EthBlockBuilderIR<T: Config> =
-		StorageValue<_, EthereumBlockBuilderIR, ValueQuery>;
+		StorageValue<_, EthereumBlockBuilderIR<T>, ValueQuery>;
 
 	/// The first transaction and receipt of the ethereum block.
 	///
@@ -842,11 +855,9 @@ pub mod pallet {
 
 			// Build genesis block
 			block_storage::on_finalize_build_eth_block::<T>(
-				H160::zero(),
-				U256::zero(),
-				Pallet::<T>::evm_base_fee(),
-				Pallet::<T>::evm_block_gas_limit(),
-				U256::zero(),
+				// Make sure to use the block number from storage instead of the hardcoded 0.
+				// This enables testing tools like anvil to customise the genesis block number.
+				frame_system::Pallet::<T>::block_number(),
 			);
 
 			// Set debug settings.
@@ -876,14 +887,7 @@ pub mod pallet {
 
 		fn on_finalize(block_number: BlockNumberFor<T>) {
 			// Build the ethereum block and place it in storage.
-			block_storage::on_finalize_build_eth_block::<T>(
-				Self::block_author(),
-				block_number.into(),
-				Self::evm_base_fee(),
-				Self::evm_block_gas_limit(),
-				// Eth uses timestamps in seconds
-				(T::Time::now() / 1000u32.into()).into(),
-			);
+			block_storage::on_finalize_build_eth_block::<T>(block_number);
 		}
 
 		fn integrity_test() {
@@ -1248,7 +1252,8 @@ pub mod pallet {
 			effective_gas_price: U256,
 			encoded_len: u32,
 		) -> DispatchResultWithPostInfo {
-			let origin = Self::ensure_eth_origin(origin)?;
+			let signer = Self::ensure_eth_signed(origin)?;
+			let origin = OriginFor::<T>::signed(signer.clone());
 			Self::ensure_non_contract_if_signed(&origin)?;
 			let mut call = Call::<T>::eth_instantiate_with_code {
 				value,
@@ -1265,7 +1270,7 @@ pub mod pallet {
 			drop(call);
 
 			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
-				let mut output = Self::bare_instantiate(
+				let output = Self::bare_instantiate(
 					origin,
 					value,
 					gas_limit,
@@ -1280,19 +1285,14 @@ pub mod pallet {
 					),
 				);
 
-				if let Ok(retval) = &output.result {
-					if retval.result.did_revert() {
-						output.result = Err(<Error<T>>::ContractReverted.into());
-					}
-				}
-
-				let result = dispatch_result(
-					output.result.map(|result| result.result),
-					output.gas_consumed,
+				block_storage::EthereumCallResult::new::<T>(
+					signer,
+					output.map_result(|r| r.result),
 					base_info.call_weight,
-				);
-				let result = T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result);
-				(output.gas_consumed, result)
+					encoded_len,
+					&info,
+					effective_gas_price,
+				)
 			})
 		}
 
@@ -1314,7 +1314,9 @@ pub mod pallet {
 			effective_gas_price: U256,
 			encoded_len: u32,
 		) -> DispatchResultWithPostInfo {
-			let origin = Self::ensure_eth_origin(origin)?;
+			let signer = Self::ensure_eth_signed(origin)?;
+			let origin = OriginFor::<T>::signed(signer.clone());
+
 			Self::ensure_non_contract_if_signed(&origin)?;
 			let mut call = Call::<T>::eth_call {
 				dest,
@@ -1331,7 +1333,7 @@ pub mod pallet {
 			drop(call);
 
 			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
-				let mut output = Self::bare_call(
+				let output = Self::bare_call(
 					origin,
 					dest,
 					value,
@@ -1345,16 +1347,62 @@ pub mod pallet {
 					),
 				);
 
-				if let Ok(return_value) = &output.result {
-					if return_value.did_revert() {
-						output.result = Err(<Error<T>>::ContractReverted.into());
-					}
+				block_storage::EthereumCallResult::new::<T>(
+					signer,
+					output,
+					base_info.call_weight,
+					encoded_len,
+					&info,
+					effective_gas_price,
+				)
+			})
+		}
+
+		/// Executes a Substrate runtime call from an Ethereum transaction.
+		///
+		/// This dispatchable is intended to be called **only** through the EVM compatibility
+		/// layer. The provided call will be dispatched using `RawOrigin::Signed`.
+		///
+		/// # Parameters
+		///
+		/// * `origin`: Must be an [`Origin::EthTransaction`] origin.
+		/// * `call`: The Substrate runtime call to execute.
+		/// * `transaction_encoded`: The RLP encoding of the Ethereum transaction,
+		#[pallet::call_index(12)]
+		#[pallet::weight(T::WeightInfo::eth_substrate_call(transaction_encoded.len() as u32).saturating_add(call.get_dispatch_info().call_weight))]
+		pub fn eth_substrate_call(
+			origin: OriginFor<T>,
+			call: Box<<T as Config>::RuntimeCall>,
+			transaction_encoded: Vec<u8>,
+		) -> DispatchResultWithPostInfo {
+			// Note that the inner dispatch uses `RawOrigin::Signed`, which cannot
+			// re-enter `eth_substrate_call` (which requires `Origin::EthTransaction`).
+			let signer = Self::ensure_eth_signed(origin)?;
+			let weight_overhead =
+				T::WeightInfo::eth_substrate_call(transaction_encoded.len() as u32);
+
+			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
+				let call_weight = call.get_dispatch_info().call_weight;
+				let mut call_result = call.dispatch(RawOrigin::Signed(signer).into());
+
+				// Add extrinsic_overhead to the actual weight in PostDispatchInfo
+				match &mut call_result {
+					Ok(post_info) | Err(DispatchErrorWithPostInfo { post_info, .. }) => {
+						post_info.actual_weight = Some(
+							post_info
+								.actual_weight
+								.unwrap_or_else(|| call_weight)
+								.saturating_add(weight_overhead),
+						);
+					},
 				}
 
-				let result =
-					dispatch_result(output.result, output.gas_consumed, base_info.call_weight);
-				let result = T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result);
-				(output.gas_consumed, result)
+				// Return zero EVM gas (Substrate dispatch, not EVM contract call).
+				// Actual weight is in `post_info.actual_weight`.
+				block_storage::EthereumCallResult {
+					receipt_gas_info: ReceiptGasInfo::default(),
+					result: call_result,
+				}
 			})
 		}
 
@@ -1481,7 +1529,7 @@ pub mod pallet {
 			call.dispatch(RawOrigin::Signed(unmapped_account).into())
 		}
 
-		#[pallet::call_index(12)]
+		#[pallet::call_index(13)]
 		#[pallet::weight(T::WeightInfo::upload_code(nonce.as_u32()))]
 		pub fn set_evm_nonce_call(
 			origin: OriginFor<T>,
@@ -1493,7 +1541,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(13)]
+		#[pallet::call_index(14)]
 		#[pallet::weight(10_000)]
 		pub fn set_gas_price(origin: OriginFor<T>, new_price: u64) -> DispatchResult {
 			ensure_root(origin)?;
@@ -1501,7 +1549,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(14)]
+		#[pallet::call_index(15)]
 		#[pallet::weight(10_000)]
 		pub fn set_storage_at(
 			origin: OriginFor<T>,
@@ -1529,7 +1577,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(15)]
+		#[pallet::call_index(16)]
 		#[pallet::weight(10_000)]
 		pub fn set_next_coinbase(origin: OriginFor<T>, coinbase: H160) -> DispatchResult {
 			ensure_root(origin)?;
@@ -1537,7 +1585,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(16)]
+		#[pallet::call_index(17)]
 		#[pallet::weight(10_000)]
 		pub fn set_next_prev_randao(
 			origin: OriginFor<T>,
@@ -1550,7 +1598,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(17)]
+		#[pallet::call_index(18)]
 		#[pallet::weight(10_000)]
 		pub fn set_block_gas_limit(origin: OriginFor<T>, block_gas_limit: u64) -> DispatchResult {
 			ensure_root(origin)?;
@@ -1558,7 +1606,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(18)]
+		#[pallet::call_index(19)]
 		#[pallet::weight(10_000)]
 		pub fn impersonate_account(origin: OriginFor<T>, account: H160) -> DispatchResult {
 			ensure_root(origin)?;
@@ -1566,14 +1614,14 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(19)]
+		#[pallet::call_index(20)]
 		#[pallet::weight(10_000)]
 		pub fn stop_impersonate_account(origin: OriginFor<T>, account: H160) -> DispatchResult {
 			ensure_root(origin)?;
 			ImpersonatedAccounts::<T>::remove(account);
 			Ok(())
 		}
-		#[pallet::call_index(20)]
+		#[pallet::call_index(21)]
 		#[pallet::weight(T::WeightInfo::set_code())]
 		pub fn set_bytecode(
 			origin: OriginFor<T>,
@@ -1590,7 +1638,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(21)]
+		#[pallet::call_index(22)]
 		#[pallet::weight(T::WeightInfo::set_code())]
 		pub fn set_balance(origin: OriginFor<T>, dest: H160, value: U256) -> DispatchResult {
 			ensure_root(origin)?;
@@ -1720,9 +1768,10 @@ impl<T: Config> Pallet<T> {
 			let (executable, upload_deposit) = match code {
 				Code::Upload(code) if code.starts_with(&polkavm_common::program::BLOB_MAGIC) => {
 					let upload_account = T::UploadOrigin::ensure_origin(origin)?;
-					let (executable, upload_deposit) = Self::try_upload_pvm_code(
+					let (executable, upload_deposit) = Self::try_upload_code(
 						upload_account,
 						code,
+						BytecodeType::Pvm,
 						storage_deposit_limit,
 						&exec_config,
 					)?;
@@ -1731,15 +1780,18 @@ impl<T: Config> Pallet<T> {
 				},
 				Code::Upload(code) => {
 					if T::AllowEVMBytecode::get() {
+						ensure!(data.is_empty(), <Error<T>>::EvmConstructorNonEmptyData);
 						let origin = T::UploadOrigin::ensure_origin(origin)?;
 						let executable = ContractBlob::from_evm_init_code(code, origin)?;
 						(executable, Default::default())
 					} else {
-						return Err(<Error<T>>::CodeRejected.into());
+						return Err(<Error<T>>::CodeRejected.into())
 					}
 				},
 				Code::Existing(code_hash) => {
-					(ContractBlob::from_storage(code_hash, &mut gas_meter)?, Default::default())
+					let executable = ContractBlob::from_storage(code_hash, &mut gas_meter)?;
+					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
+					(executable, Default::default())
 				},
 			};
 			let instantiate_origin = ExecOrigin::from_account_id(instantiate_account.clone());
@@ -1777,6 +1829,7 @@ impl<T: Config> Pallet<T> {
 	/// - `tx`: The Ethereum transaction to simulate.
 	pub fn dry_run_eth_transact(
 		mut tx: GenericTransaction,
+		dry_run_config: DryRunConfig<<<T as Config>::Time as Time>::Moment>,
 	) -> Result<EthTransactInfo<BalanceOf<T>>, EthTransactError>
 	where
 		T::Nonce: Into<U256>,
@@ -1841,7 +1894,7 @@ impl<T: Config> Pallet<T> {
 				call_info.encoded_len,
 				base_info.total_weight(),
 			)
-			.with_dry_run()
+			.with_dry_run(dry_run_config)
 		};
 
 		// emulate transaction behavior
@@ -1857,7 +1910,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// the deposit is done when the transaction is transformed from an `eth_transact`
-		// we emulate this behavior for the dry-run her
+		// we emulate this behavior for the dry-run here
 		T::FeeInfo::deposit_txfee(T::Currency::issue(fees));
 
 		let extract_error = |err| {
@@ -2025,7 +2078,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns the spendable balance excluding the existential deposit.
 	pub fn evm_balance(address: &H160) -> U256 {
-		let balance = AccountInfo::<T>::balance((*address).into());
+		let balance = AccountInfo::<T>::balance_of((*address).into());
 		Self::convert_native_to_evm(balance)
 	}
 
@@ -2041,6 +2094,7 @@ impl<T: Config> Pallet<T> {
 	/// The Ethereum block number is identical to the Substrate block number.
 	/// If the provided block number is outside of the pruning None is returned.
 	pub fn eth_block_hash_from_number(number: U256) -> Option<H256> {
+		let number = BlockNumberFor::<T>::try_from(number).ok()?;
 		let hash = <BlockHash<T>>::get(number);
 		if hash == H256::zero() {
 			None
@@ -2204,9 +2258,20 @@ impl<T: Config> Pallet<T> {
 		storage_deposit_limit: BalanceOf<T>,
 	) -> CodeUploadResult<BalanceOf<T>> {
 		let origin = T::UploadOrigin::ensure_origin(origin)?;
-		let (module, deposit) = Self::try_upload_pvm_code(
+
+		let bytecode_type = if code.starts_with(&polkavm_common::program::BLOB_MAGIC) {
+			BytecodeType::Pvm
+		} else {
+			if !T::AllowEVMBytecode::get() {
+				return Err(<Error<T>>::CodeRejected.into())
+			}
+			BytecodeType::Evm
+		};
+
+		let (module, deposit) = Self::try_upload_code(
 			origin,
 			code,
+			bytecode_type,
 			storage_deposit_limit,
 			&ExecConfig::new_substrate_tx(),
 		)?;
@@ -2321,13 +2386,17 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
-	pub fn try_upload_pvm_code(
+	pub fn try_upload_code(
 		origin: T::AccountId,
 		code: Vec<u8>,
+		code_type: BytecodeType,
 		storage_deposit_limit: BalanceOf<T>,
 		exec_config: &ExecConfig<T>,
 	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
-		let mut module = ContractBlob::from_pvm_code(code, origin)?;
+		let mut module = match code_type {
+			BytecodeType::Pvm => ContractBlob::from_pvm_code(code, origin)?,
+			BytecodeType::Evm => ContractBlob::from_evm_runtime_code(code, origin)?,
+		};
 		let deposit = module.store_code(exec_config, None)?;
 		ensure!(storage_deposit_limit >= deposit, <Error<T>>::StorageDepositLimitExhausted);
 		Ok((module, deposit))
@@ -2502,10 +2571,10 @@ impl<T: Config> Pallet<T> {
 		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
 	}
 
-	/// Tranform a [`Origin::EthTransaction`] into a signed origin.
-	fn ensure_eth_origin(origin: OriginFor<T>) -> Result<OriginFor<T>, DispatchError> {
+	// Returns Ok with the account that signed the eth transaction.
+	fn ensure_eth_signed(origin: OriginFor<T>) -> Result<AccountIdOf<T>, DispatchError> {
 		match <T as Config>::RuntimeOrigin::from(origin).into() {
-			Ok(Origin::EthTransaction(signer)) => Ok(OriginFor::<T>::signed(signer)),
+			Ok(Origin::EthTransaction(signer)) => Ok(signer),
 			_ => Err(BadOrigin.into()),
 		}
 	}
@@ -2548,11 +2617,12 @@ environmental!(executing_contract: bool);
 sp_api::decl_runtime_apis! {
 	/// The API used to dry-run contract interactions.
 	#[api_version(1)]
-	pub trait ReviveApi<AccountId, Balance, Nonce, BlockNumber> where
+	pub trait ReviveApi<AccountId, Balance, Nonce, BlockNumber, Moment> where
 		AccountId: Codec,
 		Balance: Codec,
 		Nonce: Codec,
 		BlockNumber: Codec,
+		Moment: Codec,
 	{
 		/// Returns the current ETH block.
 		///
@@ -2612,8 +2682,17 @@ sp_api::decl_runtime_apis! {
 
 		/// Perform an Ethereum call.
 		///
+		/// Deprecated use `v2` version instead.
 		/// See [`crate::Pallet::dry_run_eth_transact`]
 		fn eth_transact(tx: GenericTransaction) -> Result<EthTransactInfo<Balance>, EthTransactError>;
+
+		/// Perform an Ethereum call.
+		///
+		/// See [`crate::Pallet::dry_run_eth_transact`]
+		fn eth_transact_with_config(
+			tx: GenericTransaction,
+			config: DryRunConfig<Moment>,
+		) -> Result<EthTransactInfo<Balance>, EthTransactError>;
 
 		/// Upload new code without instantiating a contract from it.
 		///
@@ -2709,6 +2788,8 @@ sp_api::decl_runtime_apis! {
 macro_rules! impl_runtime_apis_plus_revive_traits {
 	($Runtime: ty, $Revive: ident, $Executive: ty, $EthExtra: ty, $($rest:tt)*) => {
 
+		type __ReviveMacroMoment = <<$Runtime as $crate::Config>::Time as $crate::Time>::Moment;
+
 		impl $crate::evm::runtime::SetWeightLimit for RuntimeCall {
 			fn set_weight_limit(&mut self, weight_limit: Weight) -> Weight {
 				use $crate::pallet::Call as ReviveCall;
@@ -2729,7 +2810,9 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 		impl_runtime_apis! {
 			$($rest)*
 
-			impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber> for $Runtime {
+
+			impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber, __ReviveMacroMoment> for $Runtime
+			{
 				fn eth_block() -> $crate::EthBlock {
 					$crate::Pallet::<Self>::eth_block()
 				}
@@ -2780,7 +2863,19 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						sp_runtime::traits::TransactionExtension,
 						sp_runtime::traits::Block as BlockT
 					};
-					$crate::Pallet::<Self>::dry_run_eth_transact(tx)
+					$crate::Pallet::<Self>::dry_run_eth_transact(tx, Default::default())
+				}
+
+				fn eth_transact_with_config(
+					tx: $crate::evm::GenericTransaction,
+					config: $crate::DryRunConfig<__ReviveMacroMoment>,
+				) -> Result<$crate::EthTransactInfo<Balance>, $crate::EthTransactError> {
+					use $crate::{
+						codec::Encode, evm::runtime::EthExtra, frame_support::traits::Get,
+						sp_runtime::traits::TransactionExtension,
+						sp_runtime::traits::Block as BlockT
+					};
+					$crate::Pallet::<Self>::dry_run_eth_transact(tx, config)
 				}
 
 				fn call(
@@ -2803,7 +2898,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						gas_limit.unwrap_or(blockweights.max_block),
 						storage_deposit_limit.unwrap_or(u128::MAX),
 						input_data,
-						$crate::ExecConfig::new_substrate_tx().with_dry_run(),
+						$crate::ExecConfig::new_substrate_tx().with_dry_run(Default::default()),
 					)
 				}
 
@@ -2829,7 +2924,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						code,
 						data,
 						salt,
-						$crate::ExecConfig::new_substrate_tx().with_dry_run(),
+						$crate::ExecConfig::new_substrate_tx().with_dry_run(Default::default()),
 					)
 				}
 

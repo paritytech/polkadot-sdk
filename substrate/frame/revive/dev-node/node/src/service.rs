@@ -17,14 +17,10 @@
 
 use crate::cli::Consensus;
 use crate::service::parachains_common::Hash;
-use futures::{FutureExt, SinkExt};
 use polkadot_sdk::{
-	sc_client_api::backend::Backend,
-	sc_consensus_manual_seal::{seal_block, SealBlockParams},
 	sc_executor::WasmExecutor,
 	sc_service::{error::Error as ServiceError, Configuration, TaskManager},
 	sc_telemetry::{Telemetry, TelemetryWorker},
-	sc_transaction_pool_api::OffchainTransactionPoolFactory,
 	sp_runtime::traits::Block as BlockT,
 	*,
 };
@@ -210,28 +206,7 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 			block_relay: None,
 			metrics,
 		})?;
-
-	if config.offchain_worker.enabled {
-		let offchain_workers =
-			sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
-				runtime_api_provider: client.clone(),
-				is_validator: config.role.is_authority(),
-				keystore: Some(keystore_container.keystore()),
-				offchain_db: backend.offchain_storage(),
-				transaction_pool: Some(OffchainTransactionPoolFactory::new(
-					transaction_pool.clone(),
-				)),
-				network_provider: Arc::new(network.clone()),
-				enable_http_requests: true,
-				custom_extensions: |_| vec![],
-			})?;
-		task_manager.spawn_handle().spawn(
-			"offchain-workers-runner",
-			"offchain-worker",
-			offchain_workers.run(client.clone(), task_manager.spawn_handle()).boxed(),
-		);
-	}
-
+		
 	let proposer = sc_basic_authorship::ProposerFactory::new(
 		task_manager.spawn_handle(),
 		client.clone(),
@@ -253,6 +228,7 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 
 	match consensus {
 		Consensus::InstantSeal => {
+
 			consensus_type = Consensus::InstantSeal;
 
 			let create_inherent_data_providers =
@@ -269,7 +245,7 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 				manual_trigger_stream,
 			};
 
-			let authorship_future = sc_consensus_manual_seal::run_instant_seal(params);
+			let authorship_future = sc_consensus_manual_seal::run_instant_seal_and_finalize(params);
 
 			task_manager.spawn_essential_handle().spawn_blocking(
 				"instant-seal",
@@ -282,6 +258,7 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 
 			let mut new_sink = sink.clone();
 
+			// let (mut sink, commands_stream) = futures::channel::mpsc::channel(1024);
 			task_manager.spawn_handle().spawn("block_authoring", None, async move {
 				loop {
 					futures_timer::Delay::new(std::time::Duration::from_millis(rate)).await;
@@ -308,11 +285,12 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 					next_timestamp.clone(),
 				),
 			};
+			let authorship_future = sc_consensus_manual_seal::run_manual_seal(params);
 
 			task_manager.spawn_essential_handle().spawn_blocking(
 				"manual-seal",
 				None,
-				sc_consensus_manual_seal::run_manual_seal(params),
+				authorship_future,
 			);
 		},
 		Consensus::ManualSeal(None) => {
@@ -341,7 +319,7 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		_ => {},
 	}
 
-	// Set up RPC
+
 	let rpc_extensions_builder = {
 		let client = client.clone();
 		let backend = backend.clone();

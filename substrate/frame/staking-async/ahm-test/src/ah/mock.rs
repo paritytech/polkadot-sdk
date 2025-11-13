@@ -260,6 +260,7 @@ impl frame_election_provider_support::onchain::Config for OnChainConfig {
 
 impl multi_block::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type ManagerOrigin = EnsureRoot<AccountId>;
 	type DataProvider = Staking;
 	type Fallback = frame_election_provider_support::onchain::OnChainExecution<OnChainConfig>;
 	type MinerConfig = Self;

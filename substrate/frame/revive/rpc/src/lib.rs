@@ -265,9 +265,10 @@ impl EthRpcServer for EthRpcServerImpl {
 		block: Option<BlockNumberOrTag>,
 	) -> RpcResult<U256> {
 		log::trace!(target: LOG_TARGET, "estimate_gas transaction={transaction:?} block={block:?}");
-		let hash = self.client.block_hash_for_tag(block.unwrap_or_default().into()).await?;
+		let block = block.unwrap_or_default();
+		let hash = self.client.block_hash_for_tag(block.clone().into()).await?;
 		let runtime_api = self.client.runtime_api(hash);
-		let dry_run = runtime_api.dry_run(transaction).await?;
+		let dry_run = runtime_api.dry_run(transaction, block.into()).await?;
 		log::trace!(target: LOG_TARGET, "estimate_gas result={dry_run:?}");
 		Ok(dry_run.eth_gas)
 	}
@@ -277,9 +278,10 @@ impl EthRpcServer for EthRpcServerImpl {
 		transaction: GenericTransaction,
 		block: Option<BlockNumberOrTagOrHash>,
 	) -> RpcResult<Bytes> {
-		let hash = self.client.block_hash_for_tag(block.unwrap_or_default()).await?;
+		let block = block.unwrap_or_default();
+		let hash = self.client.block_hash_for_tag(block.clone()).await?;
 		let runtime_api = self.client.runtime_api(hash);
-		let dry_run = runtime_api.dry_run(transaction).await?;
+		let dry_run = runtime_api.dry_run(transaction, block).await?;
 		Ok(dry_run.data.into())
 	}
 
@@ -289,7 +291,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		let call = subxt_client::tx().revive().eth_transact(transaction.0);
 
 		// Subscribe to new block only when automine is enabled.
-		let receiver = self.client.tx_notifier().map(|sender| sender.subscribe());
+		let receiver = self.client.block_notifier().map(|sender| sender.subscribe());
 
 		// Submit the transaction
 		let substrate_hash = self.client.submit(call).await.map_err(|err| {
@@ -303,8 +305,16 @@ impl EthRpcServer for EthRpcServerImpl {
 		if let Some(mut receiver) = receiver {
 			if let Err(err) = tokio::time::timeout(Duration::from_millis(500), async {
 				loop {
-					if let Ok(mined_hash) = receiver.recv().await {
-						if mined_hash == hash {
+					if let Ok(block_hash) = receiver.recv().await {
+						let Ok(Some(block)) = self.client.block_by_hash(&block_hash).await else {
+							log::debug!(target: LOG_TARGET, "Could not find the block with the received hash: {hash:?}.");
+							continue
+						};
+						let Some(evm_block) = self.client.evm_block(block, false).await else {
+							log::debug!(target: LOG_TARGET, "Failed to get the EVM block for substrate block with hash: {hash:?}");
+							continue
+						};
+						if evm_block.transactions.contains_tx(hash) {
 							log::debug!(target: LOG_TARGET, "{hash:} was included in a block");
 							break;
 						}
