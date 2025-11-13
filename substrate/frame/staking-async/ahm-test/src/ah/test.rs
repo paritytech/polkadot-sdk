@@ -1030,7 +1030,7 @@ fn on_offence_previous_era_instant_apply() {
 
 mod poll_operations {
 	use super::*;
-	use pallet_election_provider_multi_block::verifier::Verifier;
+	use pallet_election_provider_multi_block::verifier::{Status, Verifier};
 
 	#[test]
 	fn full_election_cycle_with_occasional_out_of_weight_completes() {
@@ -1163,6 +1163,7 @@ mod poll_operations {
 
 			// go to signed validation
 			roll_until_matches(|| CurrentPhase::<T>::get() == Phase::SignedValidation(6), false);
+			assert_eq!(MultiBlockVerifier::status_storage(), Status::Ongoing(2));
 			assert_eq!(
 				election_events_since_last_call(),
 				vec![ElectionEvent::PhaseTransitioned {
@@ -1176,6 +1177,7 @@ mod poll_operations {
 			assert_eq!(verifier_events_since_last_call(), vec![VerifierEvent::Verified(2, 4)]);
 			assert_eq!(election_events_since_last_call(), vec![]);
 			assert_eq!(CurrentPhase::<T>::get(), Phase::SignedValidation(5));
+			assert_eq!(MultiBlockVerifier::status_storage(), Status::Ongoing(1));
 
 			// next block has not enough weight left for verification (verification of non-terminal
 			// pages requires MEDIUM)
@@ -1192,6 +1194,7 @@ mod poll_operations {
 				}]
 			);
 			assert_eq!(CurrentPhase::<T>::get(), Phase::SignedValidation(5));
+			assert_eq!(MultiBlockVerifier::status_storage(), Status::Ongoing(1));
 
 			// rest go by fine, roll until done
 			roll_until_matches(|| CurrentPhase::<T>::get() == Phase::Done, false);
@@ -1368,7 +1371,7 @@ mod poll_operations {
 					// index of the last received session report
 					8,
 					rc_client::Offence {
-						offender: active_validators[0].clone(),
+						offender: active_validators[0],
 						reporters: vec![],
 						slash_fraction: Perbill::from_percent(10),
 					}
@@ -1379,7 +1382,7 @@ mod poll_operations {
 				staking_events_since_last_call(),
 				vec![StakingEvent::OffenceReported {
 					offence_era: 1,
-					validator: active_validators[0].clone(),
+					validator: active_validators[0],
 					fraction: Perbill::from_percent(10)
 				}]
 			);

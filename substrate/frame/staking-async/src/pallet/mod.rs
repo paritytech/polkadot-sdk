@@ -1439,8 +1439,12 @@ pub mod pallet {
 				weight_meter.remaining()
 			);
 			if weight_meter.can_consume(weight) {
-				let adjusted_weight = exec();
-				weight_meter.consume(adjusted_weight.unwrap_or(weight));
+				let maybe_adjusted_weight = exec();
+				defensive_assert!(
+					maybe_adjusted_weight.map_or(true, |w| w.all_lte(weight)),
+					"post exec weight must be less"
+				);
+				weight_meter.consume(maybe_adjusted_weight.unwrap_or(weight));
 			} else {
 				Self::deposit_event(Event::<T>::Unexpected(
 					UnexpectedKind::PagedElectionOutOfWeight {

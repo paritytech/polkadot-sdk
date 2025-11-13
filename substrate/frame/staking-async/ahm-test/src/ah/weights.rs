@@ -205,7 +205,7 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 		unreachable!()
 	}
 	fn apply_slash() -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn process_offence_queue() -> Weight {
 		<ah::mock::BlockWeights as Get<frame_system::limits::BlockWeights>>::get().max_block
