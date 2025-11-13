@@ -112,16 +112,16 @@ xcm-runtime-apis.workspace = true
 
 [dev-dependencies]
 approx = { workspace = true }
-remote-externalities = { default-features = true, workspace = true }
+remote-externalities = { default-features = true, path = "../../../../utils/frame/remote-externalities", package = "frame-remote-externalities" }
 serde_json = { workspace = true, default-features = true }
-sp-keyring = { default-features = true, workspace = true }
-sp-tracing = { workspace = true, default-features = false }
+sp-keyring = { default-features = true, path = "../../../../primitives/keyring" }
+sp-tracing = { default-features = false, path = "../../../../primitives/tracing" }
 tiny-keccak = { features = ["keccak"], workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 
 [build-dependencies]
-substrate-wasm-builder.default-features = true
 substrate-wasm-builder.workspace = true
+substrate-wasm-builder.default-features = true
 
 [features]
 default = ["std"]
@@ -213,7 +213,6 @@ std = [
 	"sp-session/std",
 	"sp-staking/std",
 	"sp-storage/std",
-	"sp-tracing/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"xcm-builder/std",

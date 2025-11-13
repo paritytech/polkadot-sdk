@@ -76,7 +76,7 @@ xcm-executor.workspace = true
 xcm-runtime-apis.workspace = true
 
 [dev-dependencies]
-parachains-runtimes-test-utils = { default-features = true, workspace = true }
+parachains-runtimes-test-utils = { default-features = true, path = "../../test-utils" }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }

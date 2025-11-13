@@ -30,8 +30,8 @@ sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
-pallet-balances = { workspace = true, default-features = false }
-pallet-session = { default-features = true, workspace = true }
+pallet-balances = { default-features = false, path = "../balances" }
+pallet-session = { default-features = true, path = "../session" }
 
 [features]
 default = ["std"]
@@ -42,7 +42,6 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-authorship/std",
-	"pallet-balances/std",
 	"scale-info/std",
 	"sp-application-crypto/std",
 	"sp-core/std",
@@ -54,8 +53,6 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-session/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]
@@ -63,7 +60,5 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-authorship/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-session/try-runtime",
 	"sp-runtime/try-runtime",
 ]

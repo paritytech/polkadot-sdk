@@ -15,30 +15,30 @@ workspace = true
 bitvec = { workspace = true, default-features = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum.default-features = true
 gum.workspace = true
+gum.default-features = true
 thiserror = { workspace = true }
 
 codec = { features = ["derive"], workspace = true, default-features = true }
-polkadot-erasure-coding.default-features = true
 polkadot-erasure-coding.workspace = true
-polkadot-node-primitives.default-features = true
+polkadot-erasure-coding.default-features = true
 polkadot-node-primitives.workspace = true
-polkadot-node-subsystem.default-features = true
+polkadot-node-primitives.default-features = true
 polkadot-node-subsystem.workspace = true
-polkadot-node-subsystem-util.default-features = true
+polkadot-node-subsystem.default-features = true
 polkadot-node-subsystem-util.workspace = true
-polkadot-primitives.default-features = true
+polkadot-node-subsystem-util.default-features = true
 polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
 sp-consensus.workspace = true
 
 [dev-dependencies]
 assert_matches = { workspace = true }
 kvdb-memorydb = { workspace = true }
-sp-tracing = { workspace = true, default-features = false }
+sp-tracing = { default-features = false, path = "../../../../substrate/primitives/tracing" }
 
 parking_lot = { workspace = true, default-features = true }
-polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-primitives-test-helpers = { workspace = true }
-sp-core = { default-features = true, workspace = true }
-sp-keyring = { default-features = true, workspace = true }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
+sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
+sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }

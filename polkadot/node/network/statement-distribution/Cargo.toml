@@ -23,38 +23,38 @@ codec = { features = ["derive"], workspace = true }
 fatality = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum.default-features = true
 gum.workspace = true
-polkadot-node-network-protocol.default-features = true
+gum.default-features = true
 polkadot-node-network-protocol.workspace = true
-polkadot-node-primitives.default-features = true
+polkadot-node-network-protocol.default-features = true
 polkadot-node-primitives.workspace = true
-polkadot-node-subsystem.default-features = true
+polkadot-node-primitives.default-features = true
 polkadot-node-subsystem.workspace = true
-polkadot-node-subsystem-util.default-features = true
+polkadot-node-subsystem.default-features = true
 polkadot-node-subsystem-util.workspace = true
-polkadot-primitives.default-features = true
+polkadot-node-subsystem-util.default-features = true
 polkadot-primitives.workspace = true
-sp-keystore.default-features = true
+polkadot-primitives.default-features = true
 sp-keystore.workspace = true
+sp-keystore.default-features = true
 thiserror = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
 async-channel = { workspace = true }
-polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-primitives = { features = ["test"], workspace = true, default-features = false }
-polkadot-primitives-test-helpers = { workspace = true }
-polkadot-subsystem-bench = { workspace = true }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+polkadot-primitives = { features = ["test"], default-features = false, path = "../../../primitives" }
+polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
+polkadot-subsystem-bench = { path = "../../subsystem-bench" }
 rand_chacha = { workspace = true, default-features = true }
 rstest = { workspace = true }
-sc-keystore = { default-features = true, workspace = true }
-sc-network = { default-features = true, workspace = true }
-sp-application-crypto = { default-features = true, workspace = true }
-sp-authority-discovery = { default-features = true, workspace = true }
-sp-core = { default-features = true, workspace = true }
-sp-keyring = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
+sc-keystore = { default-features = true, path = "../../../../substrate/client/keystore" }
+sc-network = { default-features = true, path = "../../../../substrate/client/network" }
+sp-application-crypto = { default-features = true, path = "../../../../substrate/primitives/application-crypto" }
+sp-authority-discovery = { default-features = true, path = "../../../../substrate/primitives/authority-discovery" }
+sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
+sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
+sp-tracing = { default-features = true, path = "../../../../substrate/primitives/tracing" }
 
 [features]
 subsystem-benchmarks = []

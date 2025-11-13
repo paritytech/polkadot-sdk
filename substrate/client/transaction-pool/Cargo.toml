@@ -28,29 +28,29 @@ indexmap = { workspace = true }
 itertools = { workspace = true }
 linked-hash-map = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
-prometheus-endpoint.default-features = true
 prometheus-endpoint.workspace = true
-sc-client-api.default-features = true
+prometheus-endpoint.default-features = true
 sc-client-api.workspace = true
-sc-transaction-pool-api.default-features = true
+sc-client-api.default-features = true
 sc-transaction-pool-api.workspace = true
-sc-utils.default-features = true
+sc-transaction-pool-api.default-features = true
 sc-utils.workspace = true
+sc-utils.default-features = true
 serde = { features = ["derive"], workspace = true, default-features = true }
-sp-api.default-features = true
 sp-api.workspace = true
-sp-blockchain.default-features = true
+sp-api.default-features = true
 sp-blockchain.workspace = true
-sp-core.default-features = true
+sp-blockchain.default-features = true
 sp-core.workspace = true
-sp-crypto-hashing.default-features = true
+sp-core.default-features = true
 sp-crypto-hashing.workspace = true
-sp-runtime.default-features = true
+sp-crypto-hashing.default-features = true
 sp-runtime.workspace = true
-sp-tracing.default-features = true
+sp-runtime.default-features = true
 sp-tracing.workspace = true
-sp-transaction-pool.default-features = true
+sp-tracing.default-features = true
 sp-transaction-pool.workspace = true
+sp-transaction-pool.default-features = true
 thiserror = { workspace = true }
 tokio = { workspace = true, default-features = true, features = ["macros", "time"] }
 tokio-stream = { workspace = true }
@@ -61,16 +61,16 @@ anyhow = { workspace = true }
 assert_matches = { workspace = true }
 chrono = { workspace = true }
 criterion = { workspace = true, default-features = true }
-cumulus-zombienet-sdk-helpers = { workspace = true, default-features = false }
+cumulus-zombienet-sdk-helpers = { default-features = false, path = "../../../cumulus/zombienet/zombienet-sdk-helpers" }
 env_logger = { workspace = true }
 rstest = { workspace = true }
-sc-block-builder = { default-features = true, workspace = true }
+sc-block-builder = { default-features = true, path = "../block-builder" }
 serde = { workspace = true }
 serde_json = { workspace = true }
-sp-consensus = { default-features = true, workspace = true }
-substrate-test-runtime = { workspace = true }
-substrate-test-runtime-client = { workspace = true }
-substrate-test-runtime-transaction-pool = { workspace = true }
+sp-consensus = { default-features = true, path = "../../primitives/consensus/common" }
+substrate-test-runtime = { path = "../../test-utils/runtime" }
+substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
+substrate-test-runtime-transaction-pool = { path = "../../test-utils/runtime/transaction-pool" }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing-subscriber = { workspace = true }
 txtesttool = { workspace = true }

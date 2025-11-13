@@ -17,51 +17,36 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dev-dependencies]
 codec = { features = ["derive"], workspace = true, default-features = true }
-frame = { default-features = true, workspace = true }
-frame-support = { default-features = true, workspace = true }
+frame = { default-features = true, path = "../..", package = "polkadot-sdk-frame" }
+frame-support = { default-features = true, path = "../../support" }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true, default-features = true }
-sp-core = { default-features = true, workspace = true }
-sp-session = { default-features = true, workspace = true }
-sp-staking = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
+sp-core = { default-features = true, path = "../../../primitives/core" }
+sp-session = { default-features = true, path = "../../../primitives/session" }
+sp-staking = { default-features = true, path = "../../../primitives/staking" }
+sp-tracing = { default-features = true, path = "../../../primitives/tracing" }
 
 # pallets we need in both
-pallet-balances = { default-features = true, workspace = true }
+pallet-balances = { default-features = true, path = "../../balances" }
 
 # pallets that we need in AH
-frame-election-provider-support = { default-features = true, workspace = true }
-pallet-election-provider-multi-block = { default-features = true, workspace = true }
-pallet-staking-async = { default-features = true, workspace = true }
-pallet-staking-async-rc-client = { default-features = true, workspace = true }
+frame-election-provider-support = { default-features = true, path = "../../election-provider-support" }
+pallet-election-provider-multi-block = { default-features = true, path = "../../election-provider-multi-block" }
+pallet-staking-async = { default-features = true, path = ".." }
+pallet-staking-async-rc-client = { default-features = true, path = "../rc-client" }
 
 # pallets we need in the RC
-pallet-authorship = { default-features = true, workspace = true }
-pallet-session = { default-features = true, workspace = true }
-pallet-staking-async-ah-client = { default-features = true, workspace = true }
-pallet-timestamp = { default-features = true, workspace = true }
+pallet-authorship = { default-features = true, path = "../../authorship" }
+pallet-session = { default-features = true, path = "../../session" }
+pallet-staking-async-ah-client = { default-features = true, path = "../ah-client" }
+pallet-timestamp = { default-features = true, path = "../../timestamp" }
 # staking classic which will be replaced by ah-client
-pallet-offences = { default-features = true, workspace = true }
-pallet-root-offences = { default-features = true, workspace = true }
-pallet-staking = { default-features = true, workspace = true }
+pallet-offences = { default-features = true, path = "../../offences" }
+pallet-root-offences = { default-features = true, path = "../../root-offences" }
+pallet-staking = { default-features = true, path = "../../staking" }
 
 [features]
 std = [
-	"log/std",
 ]
 try-runtime = [
-	"frame-election-provider-support/try-runtime",
-	"frame-support/try-runtime",
-	"frame/try-runtime",
-	"pallet-authorship/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-election-provider-multi-block/try-runtime",
-	"pallet-offences/try-runtime",
-	"pallet-root-offences/try-runtime",
-	"pallet-session/try-runtime",
-	"pallet-staking-async-ah-client/try-runtime",
-	"pallet-staking-async-rc-client/try-runtime",
-	"pallet-staking-async/try-runtime",
-	"pallet-staking/try-runtime",
-	"pallet-timestamp/try-runtime",
 ]

@@ -1,6 +1,6 @@
 [package]
 name = "asset-hub-westend-runtime"
-version = "0.36.0"
+version = "0.36.1"
 authors.workspace = true
 edition.workspace = true
 description = "Westend variant of Asset Hub parachain runtime"
@@ -90,8 +90,6 @@ sp-storage.workspace = true
 sp-transaction-pool.workspace = true
 sp-version.workspace = true
 tracing = { workspace = true }
-
-# num-traits feature needed for dex integer sq root:
 assets-common.workspace = true
 bp-asset-hub-rococo.workspace = true
 bp-asset-hub-westend.workspace = true
@@ -128,10 +126,10 @@ xcm-runtime-apis.workspace = true
 
 [dev-dependencies]
 alloy-core = { workspace = true, features = ["sol-types"] }
-asset-test-utils = { default-features = true, workspace = true }
-pallet-revive-fixtures = { default-features = true, workspace = true }
-parachains-runtimes-test-utils = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
+asset-test-utils = { default-features = true, path = "../test-utils" }
+pallet-revive-fixtures = { default-features = true, path = "../../../../../substrate/frame/revive/fixtures" }
+parachains-runtimes-test-utils = { default-features = true, path = "../../test-utils" }
+sp-tracing = { default-features = true, path = "../../../../../substrate/primitives/tracing" }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
@@ -273,7 +271,6 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 std = [
-	"alloy-core/std",
 	"assets-common/std",
 	"bp-asset-hub-rococo/std",
 	"bp-asset-hub-westend/std",

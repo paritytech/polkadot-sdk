@@ -85,8 +85,6 @@ sp-std.workspace = true
 sp-storage.workspace = true
 sp-transaction-pool.workspace = true
 sp-version.workspace = true
-
-# num-traits feature needed for dex integer sq root:
 assets-common.workspace = true
 bp-asset-hub-rococo.workspace = true
 bp-bridge-hub-rococo.workspace = true
@@ -122,13 +120,13 @@ xcm-executor.workspace = true
 xcm-runtime-apis.workspace = true
 
 [dev-dependencies]
-asset-test-utils = { default-features = true, workspace = true }
-frame-try-runtime = { default-features = true, workspace = true }
-pallet-bags-list-remote-tests = { default-features = true, workspace = true }
-parachains-runtimes-test-utils = { default-features = true, workspace = true }
-remote-externalities = { default-features = true, workspace = true }
-sp-io = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
+asset-test-utils = { default-features = true, path = "../../../../../cumulus/parachains/runtimes/assets/test-utils" }
+frame-try-runtime = { default-features = true, path = "../../../try-runtime" }
+pallet-bags-list-remote-tests = { default-features = true, path = "../../../bags-list/remote-tests" }
+parachains-runtimes-test-utils = { default-features = true, path = "../../../../../cumulus/parachains/runtimes/test-utils" }
+remote-externalities = { default-features = true, path = "../../../../utils/frame/remote-externalities", package = "frame-remote-externalities" }
+sp-io = { default-features = true, path = "../../../../primitives/io" }
+sp-tracing = { default-features = true, path = "../../../../primitives/tracing" }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 
 [build-dependencies]

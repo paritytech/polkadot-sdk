@@ -22,40 +22,27 @@ pallet-revive.workspace = true
 
 [dev-dependencies]
 codec = { workspace = true }
-frame-system = { workspace = true, default-features = false }
-pallet-balances = { workspace = true, default-features = false }
+frame-system = { default-features = false, path = "../../system" }
+pallet-balances = { default-features = false, path = "../../balances" }
 scale-info = { workspace = true }
-sp-core = { workspace = true, default-features = false }
-sp-io = { workspace = true, default-features = false }
-sp-runtime = { workspace = true, default-features = false }
+sp-core = { default-features = false, path = "../../../primitives/core" }
+sp-io = { default-features = false, path = "../../../primitives/io" }
+sp-runtime = { default-features = false, path = "../../../primitives/runtime" }
 
 [features]
 default = ["std"]
 std = [
-	"codec/std",
 	"frame-support/std",
-	"frame-system/std",
 	"pallet-assets/std",
-	"pallet-balances/std",
 	"pallet-revive/std",
-	"scale-info/std",
-	"sp-core/std",
-	"sp-io/std",
-	"sp-runtime/std",
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"pallet-revive/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
-	"frame-system/try-runtime",
 	"pallet-assets/try-runtime",
-	"pallet-balances/try-runtime",
 	"pallet-revive/try-runtime",
-	"sp-runtime/try-runtime",
 ]
