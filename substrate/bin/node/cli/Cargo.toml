@@ -74,16 +74,16 @@ pretty_assertions.workspace = true
 regex = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true, default-features = true }
 soketto = { workspace = true }
-sp-keyring = { default-features = false, path = "../../../primitives/keyring" }
+sp-keyring = { default-features = false, workspace = true }
 tempfile = { workspace = true }
 tokio = { features = ["macros", "parking_lot", "time"], workspace = true, default-features = true }
 tokio-util = { features = ["compat"], workspace = true }
 wat = { workspace = true }
 
 # These testing-only dependencies are not exported by the Polkadot-SDK crate:
-node-testing = { path = "../testing" }
-sc-service-test = { path = "../../../client/service/test" }
-substrate-cli-test-utils = { path = "../../../test-utils/cli" }
+node-testing = { workspace = true }
+sc-service-test = { workspace = true }
+substrate-cli-test-utils = { workspace = true }
 
 [build-dependencies]
 clap = { optional = true, workspace = true }

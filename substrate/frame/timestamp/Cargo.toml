@@ -31,7 +31,7 @@ sp-timestamp.workspace = true
 docify = { workspace = true }
 
 [dev-dependencies]
-sp-io = { default-features = true, path = "../../primitives/io" }
+sp-io = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

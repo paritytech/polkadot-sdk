@@ -33,6 +33,6 @@ sp-runtime.default-features = true
 thiserror = { workspace = true }
 
 [dev-dependencies]
-sc-rpc = { features = ["test-helpers"], default-features = true, path = "../../../rpc" }
-substrate-test-runtime-client = { path = "../../../../test-utils/runtime/client" }
+sc-rpc = { features = ["test-helpers"], default-features = true, workspace = true }
+substrate-test-runtime-client = { workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }

@@ -61,16 +61,16 @@ anyhow = { workspace = true }
 assert_matches = { workspace = true }
 chrono = { workspace = true }
 criterion = { workspace = true, default-features = true }
-cumulus-zombienet-sdk-helpers = { default-features = false, path = "../../../cumulus/zombienet/zombienet-sdk-helpers" }
+cumulus-zombienet-sdk-helpers = { default-features = false, workspace = true }
 env_logger = { workspace = true }
 rstest = { workspace = true }
-sc-block-builder = { default-features = true, path = "../block-builder" }
+sc-block-builder = { default-features = true, workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-sp-consensus = { default-features = true, path = "../../primitives/consensus/common" }
-substrate-test-runtime = { path = "../../test-utils/runtime" }
-substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
-substrate-test-runtime-transaction-pool = { path = "../../test-utils/runtime/transaction-pool" }
+sp-consensus = { default-features = true, workspace = true }
+substrate-test-runtime = { workspace = true }
+substrate-test-runtime-client = { workspace = true }
+substrate-test-runtime-transaction-pool = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing-subscriber = { workspace = true }
 txtesttool = { workspace = true }

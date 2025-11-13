@@ -35,11 +35,11 @@ sp-runtime.workspace = true
 sp-std.workspace = true
 
 [dev-dependencies]
-frame-benchmarking = { default-features = true, path = "../benchmarking" }
-pallet-balances = { default-features = true, path = "../balances" }
+frame-benchmarking = { default-features = true, workspace = true }
+pallet-balances = { default-features = true, workspace = true }
 parking_lot = { workspace = true, default-features = true }
-sp-io = { default-features = true, path = "../../primitives/io" }
-sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+sp-io = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

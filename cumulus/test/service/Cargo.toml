@@ -134,7 +134,7 @@ tracing = { workspace = true, default-features = true }
 url = { workspace = true }
 
 [dev-dependencies]
-cumulus-test-client = { path = "../client" }
+cumulus-test-client = { workspace = true }
 futures = { workspace = true }
 
 [features]

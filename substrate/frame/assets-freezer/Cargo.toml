@@ -22,7 +22,7 @@ pallet-assets.workspace = true
 scale-info = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
-pallet-balances = { default-features = false, path = "../balances" }
+pallet-balances = { default-features = false, workspace = true }
 
 [features]
 default = ["std"]

@@ -184,10 +184,10 @@ xcm-runtime-apis.default-features = true
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
-polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
-polkadot-test-client = { path = "../test/client" }
-sp-tracing = { default-features = false, path = "../../../substrate/primitives/tracing" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }
+polkadot-test-client = { workspace = true }
+sp-tracing = { default-features = false, workspace = true }
 tempfile = { workspace = true }
 
 [features]

@@ -20,16 +20,16 @@ xcm.workspace = true
 xcm-executor.workspace = true
 
 [dev-dependencies]
-frame-system = { default-features = false, path = "../../../substrate/frame/system" }
+frame-system = { default-features = false, workspace = true }
 hex-literal = { workspace = true }
-pallet-assets = { default-features = false, path = "../../../substrate/frame/assets" }
-pallet-balances = { default-features = false, path = "../../../substrate/frame/balances" }
-pallet-xcm = { default-features = false, path = "../pallet-xcm" }
-sp-io = { default-features = false, path = "../../../substrate/primitives/io" }
-sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
+pallet-assets = { default-features = false, workspace = true }
+pallet-balances = { default-features = false, workspace = true }
+pallet-xcm = { default-features = false, workspace = true }
+sp-io = { default-features = false, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
 tracing = { workspace = true }
-xcm-builder = { default-features = false, path = "../xcm-builder", package = "staging-xcm-builder" }
-xcm-simulator = { default-features = true, path = "../xcm-simulator" }
+xcm-builder = { default-features = false, workspace = true }
+xcm-simulator = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

@@ -29,10 +29,10 @@ sp-runtime.workspace = true
 sp-staking.workspace = true
 
 [dev-dependencies]
-pallet-balances = { default-features = true, path = "../balances" }
-sp-core = { default-features = true, path = "../../primitives/core" }
-sp-tracing = { default-features = true, path = "../../primitives/tracing" }
-substrate-test-utils = { path = "../../test-utils" }
+pallet-balances = { default-features = true, workspace = true }
+sp-core = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
+substrate-test-utils = { workspace = true }
 
 [features]
 default = ["std"]

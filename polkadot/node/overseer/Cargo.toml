@@ -42,8 +42,8 @@ assert_matches = { workspace = true }
 femme = { workspace = true }
 futures = { features = ["thread-pool"], workspace = true }
 metered = { features = ["futures_channel"], workspace = true }
-polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
-polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }
 
 [features]
 default = ["futures_channel"]

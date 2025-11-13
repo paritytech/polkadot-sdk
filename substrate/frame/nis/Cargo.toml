@@ -21,8 +21,8 @@ frame = { workspace = true, features = ["runtime"] }
 scale-info = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
-pallet-balances = { default-features = true, path = "../balances" }
-sp-io = { default-features = true, path = "../../primitives/io" }
+pallet-balances = { default-features = true, workspace = true }
+sp-io = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

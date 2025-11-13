@@ -52,8 +52,8 @@ sp-state-machine.default-features = true
 
 [dev-dependencies]
 # Substrate
-sp-keyring = { default-features = true, path = "../../../substrate/primitives/keyring" }
+sp-keyring = { default-features = true, workspace = true }
 
 # Polkadot
 metered = { features = ["futures_channel"], workspace = true }
-polkadot-test-client = { path = "../../../polkadot/node/test/client" }
+polkadot-test-client = { workspace = true }

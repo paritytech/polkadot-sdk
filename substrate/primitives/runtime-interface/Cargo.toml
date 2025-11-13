@@ -34,9 +34,9 @@ polkavm-derive = { workspace = true }
 
 [dev-dependencies]
 rustversion = { workspace = true }
-sp-io = { default-features = true, path = "../io" }
-sp-runtime-interface-test-wasm = { path = "test-wasm" }
-sp-state-machine = { default-features = true, path = "../state-machine" }
+sp-io = { default-features = true, workspace = true }
+sp-runtime-interface-test-wasm = { workspace = true }
+sp-state-machine = { default-features = true, workspace = true }
 trybuild = { workspace = true }
 
 [features]

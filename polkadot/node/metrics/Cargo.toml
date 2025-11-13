@@ -33,10 +33,10 @@ sc-tracing.default-features = true
 http-body-util = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { features = ["client-legacy", "tokio"], workspace = true }
-polkadot-test-service = { features = ["runtime-metrics"], path = "../test/service" }
+polkadot-test-service = { features = ["runtime-metrics"], workspace = true }
 prometheus-parse = { workspace = true }
-sc-service = { default-features = true, path = "../../../substrate/client/service" }
-sp-keyring = { default-features = true, path = "../../../substrate/primitives/keyring" }
+sc-service = { default-features = true, workspace = true }
+sp-keyring = { default-features = true, workspace = true }
 tokio = { workspace = true, default-features = true }
 
 [features]

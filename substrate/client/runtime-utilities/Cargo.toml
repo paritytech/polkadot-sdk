@@ -33,8 +33,8 @@ sp-wasm-interface.default-features = true
 thiserror = { workspace = true }
 
 [dev-dependencies]
-cumulus-primitives-proof-size-hostfunction = { default-features = true, path = "../../../cumulus/primitives/proof-size-hostfunction" }
-cumulus-test-runtime = { default-features = true, path = "../../../cumulus/test/runtime" }
-sp-io = { default-features = true, path = "../../primitives/io" }
-sp-version = { default-features = true, path = "../../primitives/version" }
+cumulus-primitives-proof-size-hostfunction = { default-features = true, workspace = true }
+cumulus-test-runtime = { default-features = true, workspace = true }
+sp-io = { default-features = true, workspace = true }
+sp-version = { default-features = true, workspace = true }
 subxt = { workspace = true, features = ["native"] }

@@ -36,10 +36,10 @@ xcm-executor.workspace = true
 [dev-dependencies]
 hex = { workspace = true, default-features = true }
 hex-literal = { workspace = true, default-features = true }
-pallet-balances = { default-features = true, path = "../../../../substrate/frame/balances" }
-pallet-message-queue = { default-features = true, path = "../../../../substrate/frame/message-queue" }
-polkadot-primitives = { default-features = true, path = "../../../../polkadot/primitives" }
-snowbridge-pallet-outbound-queue = { default-features = true, path = "../outbound-queue" }
+pallet-balances = { default-features = true, workspace = true }
+pallet-message-queue = { default-features = true, workspace = true }
+polkadot-primitives = { default-features = true, workspace = true }
+snowbridge-pallet-outbound-queue = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

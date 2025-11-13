@@ -25,7 +25,7 @@ sp-runtime = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
 cmd_lib = { workspace = true }
-sc-chain-spec = { default-features = true, path = "../../../../../substrate/client/chain-spec" }
+sc-chain-spec = { default-features = true, workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }

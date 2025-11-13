@@ -42,19 +42,19 @@ thiserror = { workspace = true }
 [dev-dependencies]
 assert_matches = { workspace = true }
 async-channel = { workspace = true }
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-polkadot-primitives = { features = ["test"], default-features = false, path = "../../../primitives" }
-polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
-polkadot-subsystem-bench = { path = "../../subsystem-bench" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives = { features = ["test"], default-features = false, workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }
+polkadot-subsystem-bench = { workspace = true }
 rand_chacha = { workspace = true, default-features = true }
 rstest = { workspace = true }
-sc-keystore = { default-features = true, path = "../../../../substrate/client/keystore" }
-sc-network = { default-features = true, path = "../../../../substrate/client/network" }
-sp-application-crypto = { default-features = true, path = "../../../../substrate/primitives/application-crypto" }
-sp-authority-discovery = { default-features = true, path = "../../../../substrate/primitives/authority-discovery" }
-sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
-sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
-sp-tracing = { default-features = true, path = "../../../../substrate/primitives/tracing" }
+sc-keystore = { default-features = true, workspace = true }
+sc-network = { default-features = true, workspace = true }
+sp-application-crypto = { default-features = true, workspace = true }
+sp-authority-discovery = { default-features = true, workspace = true }
+sp-core = { default-features = true, workspace = true }
+sp-keyring = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
 
 [features]
 subsystem-benchmarks = []

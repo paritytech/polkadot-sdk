@@ -43,10 +43,10 @@ polkadot-node-core-pvf.default-features = true
 [dev-dependencies]
 assert_matches = { workspace = true }
 futures = { features = ["thread-pool"], workspace = true }
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-polkadot-primitives = { features = ["test"], default-features = false, path = "../../../primitives" }
-polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives = { features = ["test"], default-features = false, workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }
 rstest = { workspace = true }
-sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
-sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
-sp-maybe-compressed-blob = { default-features = true, path = "../../../../substrate/primitives/maybe-compressed-blob" }
+sp-core = { default-features = true, workspace = true }
+sp-keyring = { default-features = true, workspace = true }
+sp-maybe-compressed-blob = { default-features = true, workspace = true }

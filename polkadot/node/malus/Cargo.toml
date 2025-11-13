@@ -63,7 +63,7 @@ sp-core.default-features = true
 
 [dev-dependencies]
 futures = { features = ["thread-pool"], workspace = true }
-polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
 
 [build-dependencies]
 substrate-build-script-utils.workspace = true

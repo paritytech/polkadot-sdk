@@ -52,21 +52,21 @@ xcm-builder.workspace = true
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
-pallet-contracts-fixtures = { default-features = false, path = "fixtures" }
+pallet-contracts-fixtures = { default-features = false, workspace = true }
 pretty_assertions = { workspace = true }
 wat = { workspace = true }
 
 # Polkadot Dependencies
-xcm-builder = { default-features = true, path = "../../../polkadot/xcm/xcm-builder", package = "staging-xcm-builder" }
+xcm-builder = { default-features = true, workspace = true }
 
 # Substrate Dependencies
-pallet-balances = { default-features = true, path = "../balances" }
-pallet-insecure-randomness-collective-flip = { default-features = true, path = "../insecure-randomness-collective-flip" }
-pallet-proxy = { default-features = true, path = "../proxy" }
-pallet-timestamp = { default-features = true, path = "../timestamp" }
-pallet-utility = { default-features = true, path = "../utility" }
-sp-keystore = { default-features = true, path = "../../primitives/keystore" }
-sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+pallet-balances = { default-features = true, workspace = true }
+pallet-insecure-randomness-collective-flip = { default-features = true, workspace = true }
+pallet-proxy = { default-features = true, workspace = true }
+pallet-timestamp = { default-features = true, workspace = true }
+pallet-utility = { default-features = true, workspace = true }
+sp-keystore = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

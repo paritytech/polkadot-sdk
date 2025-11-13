@@ -33,5 +33,5 @@ sp-trie.workspace = true
 sp-trie.default-features = true
 
 [dev-dependencies]
-sp-state-machine = { default-features = true, path = "../../primitives/state-machine" }
-substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
+sp-state-machine = { default-features = true, workspace = true }
+substrate-test-runtime-client = { workspace = true }

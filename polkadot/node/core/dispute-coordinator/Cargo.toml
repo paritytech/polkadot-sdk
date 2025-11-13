@@ -40,16 +40,16 @@ thiserror = { workspace = true }
 assert_matches = { workspace = true }
 futures-timer = { workspace = true }
 kvdb-memorydb = { workspace = true }
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-polkadot-primitives = { features = ["test"], default-features = false, path = "../../../primitives" }
-polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
-sp-application-crypto = { default-features = true, path = "../../../../substrate/primitives/application-crypto" }
-sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
-sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
-sp-keystore = { default-features = true, path = "../../../../substrate/primitives/keystore" }
-sp-tracing = { default-features = true, path = "../../../../substrate/primitives/tracing" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives = { features = ["test"], default-features = false, workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }
+sp-application-crypto = { default-features = true, workspace = true }
+sp-core = { default-features = true, workspace = true }
+sp-keyring = { default-features = true, workspace = true }
+sp-keystore = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
 
-polkadot-subsystem-bench = { path = "../../subsystem-bench" }
+polkadot-subsystem-bench = { workspace = true }
 
 [features]
 # If not enabled, the dispute coordinator will do nothing.

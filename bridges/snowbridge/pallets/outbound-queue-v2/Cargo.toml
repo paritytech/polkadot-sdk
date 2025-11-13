@@ -44,8 +44,8 @@ xcm-builder.workspace = true
 xcm-executor.workspace = true
 
 [dev-dependencies]
-pallet-message-queue = { default-features = false, path = "../../../../substrate/frame/message-queue" }
-snowbridge-test-utils = { path = "../../test-utils" }
+pallet-message-queue = { default-features = false, workspace = true }
+snowbridge-test-utils = { workspace = true }
 
 [features]
 default = ["std"]

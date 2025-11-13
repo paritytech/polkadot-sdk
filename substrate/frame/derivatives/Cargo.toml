@@ -31,7 +31,7 @@ xcm-builder.workspace = true
 xcm-executor.workspace = true
 
 [dev-dependencies]
-pallet-balances = { default-features = true, path = "../balances" }
+pallet-balances = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

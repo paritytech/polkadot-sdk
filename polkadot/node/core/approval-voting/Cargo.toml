@@ -56,16 +56,16 @@ sp-runtime.workspace = true
 assert_matches = { workspace = true }
 kvdb-memorydb = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-polkadot-primitives = { features = ["test"], default-features = false, path = "../../../primitives" }
-polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
-sp-consensus-babe = { default-features = true, path = "../../../../substrate/primitives/consensus/babe" }
-sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
-sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
-sp-keystore = { default-features = true, path = "../../../../substrate/primitives/keystore" }
-sp-tracing = { default-features = false, path = "../../../../substrate/primitives/tracing" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives = { features = ["test"], default-features = false, workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }
+sp-consensus-babe = { default-features = true, workspace = true }
+sp-core = { default-features = true, workspace = true }
+sp-keyring = { default-features = true, workspace = true }
+sp-keystore = { default-features = true, workspace = true }
+sp-tracing = { default-features = false, workspace = true }
 
-polkadot-subsystem-bench = { path = "../../subsystem-bench" }
+polkadot-subsystem-bench = { workspace = true }
 
 [features]
 subsystem-benchmarks = []

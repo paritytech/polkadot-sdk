@@ -25,13 +25,13 @@ sp-std.workspace = true
 tracing = { workspace = true }
 
 [dev-dependencies]
-bp-test-utils = { default-features = true, path = "../../primitives/test-utils" }
+bp-test-utils = { default-features = true, workspace = true }
 mmr-lib = { workspace = true, default-features = true }
-pallet-beefy-mmr = { default-features = true, path = "../../../substrate/frame/beefy-mmr" }
-pallet-mmr = { default-features = true, path = "../../../substrate/frame/merkle-mountain-range" }
+pallet-beefy-mmr = { default-features = true, workspace = true }
+pallet-mmr = { default-features = true, workspace = true }
 rand = { workspace = true, default-features = true }
-sp-consensus-beefy = { default-features = true, path = "../../../substrate/primitives/consensus/beefy" }
-sp-io = { default-features = true, path = "../../../substrate/primitives/io" }
+sp-consensus-beefy = { default-features = true, workspace = true }
+sp-io = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

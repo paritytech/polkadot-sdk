@@ -34,11 +34,11 @@ sp-runtime.workspace = true
 sp-staking.workspace = true
 
 [dev-dependencies]
-pallet-staking-reward-curve = { default-features = true, path = "../../staking/reward-curve" }
-pallet-timestamp = { default-features = true, path = "../../timestamp" }
-sp-core = { default-features = true, path = "../../../primitives/core" }
-sp-io = { default-features = true, path = "../../../primitives/io" }
-sp-tracing = { default-features = true, path = "../../../primitives/tracing" }
+pallet-staking-reward-curve = { default-features = true, workspace = true }
+pallet-timestamp = { default-features = true, workspace = true }
+sp-core = { default-features = true, workspace = true }
+sp-io = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

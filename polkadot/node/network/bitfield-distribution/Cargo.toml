@@ -30,11 +30,11 @@ rand = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
 bitvec = { features = ["alloc"], workspace = true }
 maplit = { workspace = true }
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
 rand_chacha = { workspace = true, default-features = true }
-sp-application-crypto = { default-features = true, path = "../../../../substrate/primitives/application-crypto" }
-sp-authority-discovery = { default-features = true, path = "../../../../substrate/primitives/authority-discovery" }
-sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
-sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
-sp-keystore = { default-features = true, path = "../../../../substrate/primitives/keystore" }
-sp-tracing = { default-features = false, path = "../../../../substrate/primitives/tracing" }
+sp-application-crypto = { default-features = true, workspace = true }
+sp-authority-discovery = { default-features = true, workspace = true }
+sp-core = { default-features = true, workspace = true }
+sp-keyring = { default-features = true, workspace = true }
+sp-keystore = { default-features = true, workspace = true }
+sp-tracing = { default-features = false, workspace = true }

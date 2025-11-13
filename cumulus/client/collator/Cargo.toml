@@ -45,14 +45,14 @@ tracing = { workspace = true, default-features = true }
 async-trait = { workspace = true }
 
 # Substrate
-sp-maybe-compressed-blob = { default-features = true, path = "../../../substrate/primitives/maybe-compressed-blob" }
-sp-state-machine = { default-features = true, path = "../../../substrate/primitives/state-machine" }
-sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
+sp-maybe-compressed-blob = { default-features = true, workspace = true }
+sp-state-machine = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
 
 # Polkadot
-polkadot-node-subsystem-test-helpers = { path = "../../../polkadot/node/subsystem-test-helpers" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
 
 # Cumulus
-cumulus-test-client = { path = "../../test/client" }
-cumulus-test-relay-sproof-builder = { default-features = true, path = "../../test/relay-sproof-builder" }
-cumulus-test-runtime = { path = "../../test/runtime" }
+cumulus-test-client = { workspace = true }
+cumulus-test-relay-sproof-builder = { default-features = true, workspace = true }
+cumulus-test-runtime = { workspace = true }
