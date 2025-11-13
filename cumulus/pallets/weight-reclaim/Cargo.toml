@@ -46,6 +46,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-trie/std",
+	"cumulus-primitives-proof-size-hostfunction/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

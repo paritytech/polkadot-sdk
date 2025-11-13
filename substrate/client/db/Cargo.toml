@@ -70,5 +70,6 @@ default = []
 test-helpers = []
 runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
+	"kitchensink-runtime/runtime-benchmarks"
 ]
 rocksdb = ["kvdb-rocksdb"]

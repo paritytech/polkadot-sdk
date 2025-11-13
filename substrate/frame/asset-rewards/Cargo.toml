@@ -47,15 +47,25 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"pallet-assets/std",
+	"pallet-assets-freezer/std",
+	"pallet-balances/std",
+	"primitive-types/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-assets-freezer/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-assets/try-runtime",
+	"pallet-assets-freezer/try-runtime",
+	"pallet-balances/try-runtime"
 ]

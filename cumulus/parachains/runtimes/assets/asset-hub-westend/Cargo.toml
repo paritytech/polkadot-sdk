@@ -382,6 +382,7 @@ std = [
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
+	"alloy-core/std"
 ]
 
 fast-runtime = []

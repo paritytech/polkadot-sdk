@@ -228,6 +228,7 @@ std = [
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
+	"sp-tracing/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

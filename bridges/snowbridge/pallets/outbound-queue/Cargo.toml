@@ -58,6 +58,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"pallet-message-queue/std"
 ]
 runtime-benchmarks = [
 	"bridge-hub-common/runtime-benchmarks",
@@ -67,9 +68,11 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-message-queue/try-runtime"
 ]

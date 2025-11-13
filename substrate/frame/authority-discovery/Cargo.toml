@@ -41,10 +41,12 @@ std = [
 	"sp-application-crypto/std",
 	"sp-authority-discovery/std",
 	"sp-runtime/std",
+	"pallet-balances/std"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-session/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-balances/try-runtime"
 ]

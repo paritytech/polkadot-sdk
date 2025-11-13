@@ -57,6 +57,7 @@ std = [
 	"tracing/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"sp-keyring/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -67,10 +68,13 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"snowbridge-test-utils/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-asset-conversion/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-balances/try-runtime"
 ]
