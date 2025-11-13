@@ -371,7 +371,6 @@ pub async fn run_parachain_consensus<P, R, Block, B>(
 	R: RelayChainInterface + Clone,
 	B: Backend<Block>,
 {
-	tracing::info!("Hello World initializing");
 	let follow_new_best = follow_new_best(
 		para_id,
 		parachain.clone(),
