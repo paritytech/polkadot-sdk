@@ -40,6 +40,9 @@ pub struct PrestateTracer<T> {
 	/// List of created contracts addresses.
 	created_addrs: BTreeSet<H160>,
 
+	/// List of destructed contracts addresses.
+	destructed_addrs: BTreeSet<H160>,
+
 	// pre / post state
 	trace: (BTreeMap<H160, PrestateTraceInfo>, BTreeMap<H160, PrestateTraceInfo>),
 
@@ -113,7 +116,8 @@ where
 
 				if post_info == pre_info {
 					post.remove(addr);
-					return false
+					// If the address was destructed, we still want to keep it in the prestate.
+					return self.destructed_addrs.contains(addr)
 				}
 
 				if post_info.code == pre_info.code {
@@ -186,6 +190,7 @@ where
 		info.code = code;
 		let nonce = Pallet::<T>::evm_nonce(addr);
 		info.nonce = if nonce > 0 { Some(nonce) } else { None };
+		log::error!("RVE: prestate_info for {:?}: {:?}", addr, info);
 		info
 	}
 
@@ -223,11 +228,12 @@ where
 
 	fn terminate(
 		&mut self,
-		_contract_address: H160,
+		contract_address: H160,
 		beneficiary_address: H160,
 		_gas_left: Weight,
 		_value: U256,
 	) {
+		self.destructed_addrs.insert(contract_address);
 		self.trace.0.entry(beneficiary_address).or_insert_with_key(|addr| {
 			Self::prestate_info(addr, Pallet::<T>::evm_balance(addr), None)
 		});
