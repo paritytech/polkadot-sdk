@@ -5159,7 +5159,7 @@ fn consume_all_gas_works() {
 }
 
 #[test]
-fn existential_deposit_shall_not_charged_twice() {
+fn existential_deposit_shall_not_be_charged_twice() {
 	let (code, _) = compile_module("dummy").unwrap();
 
 	let salt = [0u8; 32];
