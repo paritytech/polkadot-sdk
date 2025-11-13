@@ -48,18 +48,18 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks",
-	"polkadot-parachain-primitives/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-	"xcm-executor/runtime-benchmarks",
-	"xcm/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-salary/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
-	"polkadot-test-runtime/runtime-benchmarks"
+	"polkadot-test-runtime/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 std = [
 	"codec/std",
@@ -69,6 +69,7 @@ std = [
 	"pallet-asset-conversion/std",
 	"pallet-transaction-payment/std",
 	"polkadot-parachain-primitives/std",
+	"primitive-types/std",
 	"scale-info/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
@@ -78,5 +79,4 @@ std = [
 	"tracing/std",
 	"xcm-executor/std",
 	"xcm/std",
-	"primitive-types/std"
 ]

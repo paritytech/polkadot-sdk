@@ -17,42 +17,42 @@ name = "xcm-fuzzer"
 [dependencies]
 arbitrary = { workspace = true }
 codec = { workspace = true, default-features = true }
-frame-executive.workspace = true
 frame-executive.default-features = true
-frame-support.workspace = true
+frame-executive.workspace = true
 frame-support.default-features = true
-frame-system.workspace = true
+frame-support.workspace = true
 frame-system.default-features = true
-frame-try-runtime.workspace = true
+frame-system.workspace = true
 frame-try-runtime.default-features = true
+frame-try-runtime.workspace = true
 honggfuzz = { workspace = true }
-pallet-balances.workspace = true
 pallet-balances.default-features = true
-pallet-message-queue.workspace = true
+pallet-balances.workspace = true
 pallet-message-queue.default-features = true
-pallet-xcm.workspace = true
+pallet-message-queue.workspace = true
 pallet-xcm.default-features = true
-polkadot-core-primitives.workspace = true
+pallet-xcm.workspace = true
 polkadot-core-primitives.default-features = true
-polkadot-parachain-primitives.workspace = true
+polkadot-core-primitives.workspace = true
 polkadot-parachain-primitives.default-features = true
-polkadot-runtime-parachains.workspace = true
+polkadot-parachain-primitives.workspace = true
 polkadot-runtime-parachains.default-features = true
+polkadot-runtime-parachains.workspace = true
 scale-info = { features = ["derive"], workspace = true, default-features = true }
-sp-core.workspace = true
 sp-core.default-features = true
-sp-io.workspace = true
+sp-core.workspace = true
 sp-io.default-features = true
-sp-runtime.workspace = true
+sp-io.workspace = true
 sp-runtime.default-features = true
-xcm.workspace = true
+sp-runtime.workspace = true
 xcm.default-features = true
-xcm-builder.workspace = true
+xcm.workspace = true
 xcm-builder.default-features = true
-xcm-executor.workspace = true
+xcm-builder.workspace = true
 xcm-executor.default-features = true
-xcm-simulator.workspace = true
+xcm-executor.workspace = true
 xcm-simulator.default-features = true
+xcm-simulator.workspace = true
 
 [features]
 try-runtime = [

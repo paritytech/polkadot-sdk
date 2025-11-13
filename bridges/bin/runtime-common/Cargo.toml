@@ -52,6 +52,7 @@ std = [
 	"bp-polkadot-core/std",
 	"bp-relayers/std",
 	"bp-runtime/std",
+	"bp-test-utils/std",
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
@@ -70,12 +71,12 @@ std = [
 	"tracing/std",
 	"tuplex/std",
 	"xcm/std",
-	"bp-test-utils/std"
 ]
 runtime-benchmarks = [
 	"bp-runtime/test-helpers",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
 	"pallet-bridge-grandpa/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
 	"pallet-bridge-messages/test-helpers",
@@ -86,7 +87,6 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"sp-trie",
 	"xcm/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks"
 ]
 integrity-test = ["static_assertions"]
 test-helpers = ["bp-runtime/test-helpers", "sp-trie"]

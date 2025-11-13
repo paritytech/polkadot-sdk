@@ -17,117 +17,117 @@ async-trait = { workspace = true }
 clap = { features = ["derive"], workspace = true }
 codec = { workspace = true, default-features = true }
 criterion = { features = ["async_tokio"], workspace = true, default-features = true }
-cumulus-client-cli.workspace = true
 cumulus-client-cli.default-features = true
-cumulus-client-collator.workspace = true
+cumulus-client-cli.workspace = true
 cumulus-client-collator.default-features = true
-cumulus-client-consensus-aura.workspace = true
+cumulus-client-collator.workspace = true
 cumulus-client-consensus-aura.default-features = true
-cumulus-client-consensus-common.workspace = true
+cumulus-client-consensus-aura.workspace = true
 cumulus-client-consensus-common.default-features = true
-cumulus-client-consensus-proposer.workspace = true
+cumulus-client-consensus-common.workspace = true
 cumulus-client-consensus-proposer.default-features = true
-cumulus-client-parachain-inherent.workspace = true
+cumulus-client-consensus-proposer.workspace = true
 cumulus-client-parachain-inherent.default-features = true
-cumulus-client-pov-recovery.workspace = true
+cumulus-client-parachain-inherent.workspace = true
 cumulus-client-pov-recovery.default-features = true
-cumulus-client-service.workspace = true
+cumulus-client-pov-recovery.workspace = true
 cumulus-client-service.default-features = true
+cumulus-client-service.workspace = true
 cumulus-pallet-parachain-system.workspace = true
-cumulus-pallet-weight-reclaim.workspace = true
 cumulus-pallet-weight-reclaim.default-features = true
-cumulus-primitives-core.workspace = true
+cumulus-pallet-weight-reclaim.workspace = true
 cumulus-primitives-core.default-features = true
-cumulus-relay-chain-inprocess-interface.workspace = true
+cumulus-primitives-core.workspace = true
 cumulus-relay-chain-inprocess-interface.default-features = true
-cumulus-relay-chain-interface.workspace = true
+cumulus-relay-chain-inprocess-interface.workspace = true
 cumulus-relay-chain-interface.default-features = true
-cumulus-relay-chain-minimal-node.workspace = true
+cumulus-relay-chain-interface.workspace = true
 cumulus-relay-chain-minimal-node.default-features = true
-cumulus-test-relay-sproof-builder.workspace = true
+cumulus-relay-chain-minimal-node.workspace = true
 cumulus-test-relay-sproof-builder.default-features = true
+cumulus-test-relay-sproof-builder.workspace = true
 cumulus-test-runtime.workspace = true
-frame-system.workspace = true
 frame-system.default-features = true
-frame-system-rpc-runtime-api.workspace = true
+frame-system.workspace = true
 frame-system-rpc-runtime-api.default-features = true
+frame-system-rpc-runtime-api.workspace = true
 jsonrpsee = { features = ["server"], workspace = true }
-pallet-timestamp.workspace = true
 pallet-timestamp.default-features = true
-pallet-transaction-payment.workspace = true
+pallet-timestamp.workspace = true
 pallet-transaction-payment.default-features = true
-polkadot-cli.workspace = true
+pallet-transaction-payment.workspace = true
 polkadot-cli.default-features = true
-polkadot-node-subsystem.workspace = true
+polkadot-cli.workspace = true
 polkadot-node-subsystem.default-features = true
-polkadot-overseer.workspace = true
+polkadot-node-subsystem.workspace = true
 polkadot-overseer.default-features = true
-polkadot-primitives.workspace = true
+polkadot-overseer.workspace = true
 polkadot-primitives.default-features = true
-polkadot-service.workspace = true
+polkadot-primitives.workspace = true
 polkadot-service.default-features = true
+polkadot-service.workspace = true
 polkadot-test-service.workspace = true
 prometheus = { workspace = true }
 rand = { workspace = true, default-features = true }
-sc-basic-authorship.workspace = true
 sc-basic-authorship.default-features = true
-sc-block-builder.workspace = true
+sc-basic-authorship.workspace = true
 sc-block-builder.default-features = true
-sc-chain-spec.workspace = true
+sc-block-builder.workspace = true
 sc-chain-spec.default-features = true
-sc-cli.workspace = true
+sc-chain-spec.workspace = true
 sc-cli.default-features = true
-sc-client-api.workspace = true
+sc-cli.workspace = true
 sc-client-api.default-features = true
-sc-consensus.workspace = true
+sc-client-api.workspace = true
 sc-consensus.default-features = true
-sc-consensus-aura.workspace = true
+sc-consensus.workspace = true
 sc-consensus-aura.default-features = true
-sc-executor.workspace = true
+sc-consensus-aura.workspace = true
 sc-executor.default-features = true
-sc-executor-common.workspace = true
+sc-executor.workspace = true
 sc-executor-common.default-features = true
-sc-executor-wasmtime.workspace = true
+sc-executor-common.workspace = true
 sc-executor-wasmtime.default-features = true
-sc-network.workspace = true
+sc-executor-wasmtime.workspace = true
 sc-network.default-features = true
-sc-service.workspace = true
+sc-network.workspace = true
 sc-service.default-features = true
-sc-telemetry.workspace = true
+sc-service.workspace = true
 sc-telemetry.default-features = true
-sc-tracing.workspace = true
+sc-telemetry.workspace = true
 sc-tracing.default-features = true
-sc-transaction-pool.workspace = true
+sc-tracing.workspace = true
 sc-transaction-pool.default-features = true
-sc-transaction-pool-api.workspace = true
+sc-transaction-pool.workspace = true
 sc-transaction-pool-api.default-features = true
+sc-transaction-pool-api.workspace = true
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-sp-api.workspace = true
 sp-api.default-features = true
-sp-arithmetic.workspace = true
+sp-api.workspace = true
 sp-arithmetic.default-features = true
-sp-blockchain.workspace = true
+sp-arithmetic.workspace = true
 sp-blockchain.default-features = true
-sp-consensus.workspace = true
+sp-blockchain.workspace = true
 sp-consensus.default-features = true
-sp-consensus-aura.workspace = true
+sp-consensus.workspace = true
 sp-consensus-aura.default-features = true
-sp-core.workspace = true
+sp-consensus-aura.workspace = true
 sp-core.default-features = true
-sp-genesis-builder.workspace = true
+sp-core.workspace = true
 sp-genesis-builder.default-features = true
-sp-io.workspace = true
+sp-genesis-builder.workspace = true
 sp-io.default-features = true
-sp-keyring.workspace = true
+sp-io.workspace = true
 sp-keyring.default-features = true
+sp-keyring.workspace = true
 sp-runtime.workspace = true
-sp-state-machine.workspace = true
 sp-state-machine.default-features = true
-sp-timestamp.workspace = true
+sp-state-machine.workspace = true
 sp-timestamp.default-features = true
-sp-tracing.workspace = true
+sp-timestamp.workspace = true
 sp-tracing.default-features = true
+sp-tracing.workspace = true
 substrate-test-client.workspace = true
 tokio = { features = ["macros"], workspace = true, default-features = true }
 tracing = { workspace = true, default-features = true }
@@ -142,6 +142,7 @@ runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-weight-reclaim/runtime-benchmarks",
 	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-test-client/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
@@ -151,7 +152,6 @@ runtime-benchmarks = [
 	"polkadot-test-service/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"cumulus-test-client/runtime-benchmarks"
 ]
 
 [[bench]]

@@ -15,19 +15,19 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sc-executor.workspace = true
 sc-executor.default-features = true
-sc-executor-common.workspace = true
+sc-executor.workspace = true
 sc-executor-common.default-features = true
-sp-io.workspace = true
+sc-executor-common.workspace = true
 sp-io.default-features = true
-sp-runtime.workspace = true
+sp-io.workspace = true
 sp-runtime.default-features = true
-sp-runtime-interface.workspace = true
+sp-runtime.workspace = true
 sp-runtime-interface.default-features = true
+sp-runtime-interface.workspace = true
 sp-runtime-interface-test-wasm.workspace = true
 sp-runtime-interface-test-wasm-deprecated.workspace = true
-sp-state-machine.workspace = true
 sp-state-machine.default-features = true
+sp-state-machine.workspace = true
 tracing = { workspace = true, default-features = true }
 tracing-core = { workspace = true, default-features = true }

@@ -21,18 +21,18 @@ required-features = ["subsystem-benchmarks"]
 codec = { workspace = true, default-features = true }
 fatality = { workspace = true }
 futures = { workspace = true }
-gum.workspace = true
 gum.default-features = true
-polkadot-node-primitives.workspace = true
+gum.workspace = true
 polkadot-node-primitives.default-features = true
-polkadot-node-subsystem.workspace = true
+polkadot-node-primitives.workspace = true
 polkadot-node-subsystem.default-features = true
-polkadot-node-subsystem-util.workspace = true
+polkadot-node-subsystem.workspace = true
 polkadot-node-subsystem-util.default-features = true
-polkadot-primitives.workspace = true
+polkadot-node-subsystem-util.workspace = true
 polkadot-primitives.default-features = true
-sc-keystore.workspace = true
+polkadot-primitives.workspace = true
 sc-keystore.default-features = true
+sc-keystore.workspace = true
 schnellru = { workspace = true }
 thiserror = { workspace = true }
 

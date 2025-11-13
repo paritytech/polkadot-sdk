@@ -21,33 +21,33 @@ clap = { features = ["derive"], optional = true, workspace = true }
 codec = { features = ["derive"], workspace = true }
 docify = { workspace = true }
 memmap2 = { workspace = true }
-sc-chain-spec-derive.workspace = true
 sc-chain-spec-derive.default-features = true
-sc-client-api.workspace = true
+sc-chain-spec-derive.workspace = true
 sc-client-api.default-features = true
-sc-executor.workspace = true
+sc-client-api.workspace = true
 sc-executor.default-features = true
-sc-network.workspace = true
+sc-executor.workspace = true
 sc-network.default-features = true
-sc-telemetry.workspace = true
+sc-network.workspace = true
 sc-telemetry.default-features = true
+sc-telemetry.workspace = true
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-sp-blockchain.workspace = true
 sp-blockchain.default-features = true
-sp-core.workspace = true
+sp-blockchain.workspace = true
 sp-core.default-features = true
-sp-crypto-hashing.workspace = true
+sp-core.workspace = true
 sp-crypto-hashing.default-features = true
-sp-genesis-builder.workspace = true
+sp-crypto-hashing.workspace = true
 sp-genesis-builder.default-features = true
+sp-genesis-builder.workspace = true
 sp-io.workspace = true
-sp-runtime.workspace = true
 sp-runtime.default-features = true
-sp-state-machine.workspace = true
+sp-runtime.workspace = true
 sp-state-machine.default-features = true
-sp-tracing.workspace = true
+sp-state-machine.workspace = true
 sp-tracing.default-features = true
+sp-tracing.workspace = true
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }

@@ -43,6 +43,6 @@ std = [
 	"frame-system/std",
 	"scale-info/std",
 	"sp-core/std",
+	"sp-io/std",
 	"sp-runtime/std",
-	"sp-io/std"
 ]

@@ -28,29 +28,29 @@ indexmap = { workspace = true }
 itertools = { workspace = true }
 linked-hash-map = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
-prometheus-endpoint.workspace = true
 prometheus-endpoint.default-features = true
-sc-client-api.workspace = true
+prometheus-endpoint.workspace = true
 sc-client-api.default-features = true
-sc-transaction-pool-api.workspace = true
+sc-client-api.workspace = true
 sc-transaction-pool-api.default-features = true
-sc-utils.workspace = true
+sc-transaction-pool-api.workspace = true
 sc-utils.default-features = true
+sc-utils.workspace = true
 serde = { features = ["derive"], workspace = true, default-features = true }
-sp-api.workspace = true
 sp-api.default-features = true
-sp-blockchain.workspace = true
+sp-api.workspace = true
 sp-blockchain.default-features = true
-sp-core.workspace = true
+sp-blockchain.workspace = true
 sp-core.default-features = true
-sp-crypto-hashing.workspace = true
+sp-core.workspace = true
 sp-crypto-hashing.default-features = true
-sp-runtime.workspace = true
+sp-crypto-hashing.workspace = true
 sp-runtime.default-features = true
-sp-tracing.workspace = true
+sp-runtime.workspace = true
 sp-tracing.default-features = true
-sp-transaction-pool.workspace = true
+sp-tracing.workspace = true
 sp-transaction-pool.default-features = true
+sp-transaction-pool.workspace = true
 thiserror = { workspace = true }
 tokio = { workspace = true, default-features = true, features = ["macros", "time"] }
 tokio-stream = { workspace = true }

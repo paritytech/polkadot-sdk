@@ -36,26 +36,26 @@ default = ["std"]
 std = [
 	"codec/std",
 	"frame-support/std",
-	"scale-info/std",
-	"sp-api/std",
-	"sp-weights/std",
-	"xcm-executor/std",
-	"xcm/std",
 	"frame-system/std",
 	"pallet-assets/std",
 	"pallet-balances/std",
 	"pallet-xcm/std",
+	"scale-info/std",
+	"sp-api/std",
 	"sp-io/std",
+	"sp-weights/std",
+	"tracing/std",
 	"xcm-builder/std",
-	"tracing/std"
+	"xcm-executor/std",
+	"xcm/std",
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
-	"xcm-executor/runtime-benchmarks",
-	"xcm/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
-	"xcm-builder/runtime-benchmarks"
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]

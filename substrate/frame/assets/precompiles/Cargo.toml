@@ -32,30 +32,30 @@ sp-runtime = { default-features = false, workspace = true }
 [features]
 default = ["std"]
 std = [
-	"frame-support/std",
-	"pallet-assets/std",
-	"pallet-revive/std",
-	"frame-system/std",
-	"pallet-balances/std",
 	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-assets/std",
+	"pallet-balances/std",
+	"pallet-revive/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",
-	"sp-runtime/std"
+	"sp-runtime/std",
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
-	"pallet-revive/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks"
+	"pallet-revive/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
-	"pallet-assets/try-runtime",
-	"pallet-revive/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
-	"sp-runtime/try-runtime"
+	"pallet-revive/try-runtime",
+	"sp-runtime/try-runtime",
 ]

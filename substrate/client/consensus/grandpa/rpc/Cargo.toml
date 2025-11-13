@@ -18,19 +18,19 @@ finality-grandpa = { features = ["derive-codec"], workspace = true, default-feat
 futures = { workspace = true }
 jsonrpsee = { features = ["client-core", "macros", "server-core"], workspace = true }
 log = { workspace = true, default-features = true }
-sc-client-api.workspace = true
 sc-client-api.default-features = true
-sc-consensus-grandpa.workspace = true
+sc-client-api.workspace = true
 sc-consensus-grandpa.default-features = true
-sc-rpc.workspace = true
+sc-consensus-grandpa.workspace = true
 sc-rpc.default-features = true
+sc-rpc.workspace = true
 serde = { features = ["derive"], workspace = true, default-features = true }
-sp-blockchain.workspace = true
 sp-blockchain.default-features = true
-sp-core.workspace = true
+sp-blockchain.workspace = true
 sp-core.default-features = true
-sp-runtime.workspace = true
+sp-core.workspace = true
 sp-runtime.default-features = true
+sp-runtime.workspace = true
 thiserror = { workspace = true }
 
 [dev-dependencies]

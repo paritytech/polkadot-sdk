@@ -26,8 +26,8 @@ serde = { features = ["alloc", "derive", "rc"], workspace = true }
 sp-runtime.workspace = true
 sp-weights = { features = ["serde"], workspace = true }
 tracing = { workspace = true }
-xcm-procedural.workspace = true
 xcm-procedural.default-features = true
+xcm-procedural.workspace = true
 
 [dev-dependencies]
 sp-io = { default-features = true, workspace = true }

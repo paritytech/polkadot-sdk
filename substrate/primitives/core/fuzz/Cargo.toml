@@ -19,5 +19,5 @@ doc = false
 [dependencies]
 libfuzzer-sys = { workspace = true }
 regex = { workspace = true }
-sp-core.workspace = true
 sp-core.default-features = true
+sp-core.workspace = true

@@ -123,8 +123,8 @@ sp-tracing = { default-features = false, workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 
 [build-dependencies]
-substrate-wasm-builder.workspace = true
 substrate-wasm-builder.default-features = true
+substrate-wasm-builder.workspace = true
 
 [features]
 default = ["std"]
@@ -221,6 +221,7 @@ std = [
 	"sp-session/std",
 	"sp-staking/std",
 	"sp-storage/std",
+	"sp-tracing/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"westend-runtime-constants/std",
@@ -228,7 +229,6 @@ std = [
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
-	"sp-tracing/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
