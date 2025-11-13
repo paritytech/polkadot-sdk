@@ -322,6 +322,7 @@ parameter_types! {
 	pub static SessionsPerEra: u32 = 6;
 	pub static PlanningEraOffset: u32 = 2;
 	pub MaxPruningItems: u32 = 100;
+	pub const ValidatorSetExportSession: SessionIndex = 5;
 }
 
 impl pallet_staking_async::Config for Runtime {
@@ -371,6 +372,7 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type SendToRelayChain = DeliverToRelay;
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type MaxValidatorSetRetries = ConstU32<3>;
+	type ValidatorSetExportSession = ValidatorSetExportSession;
 }
 
 parameter_types! {

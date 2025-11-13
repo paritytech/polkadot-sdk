@@ -618,6 +618,23 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type LastSessionReportEndingIndex<T: Config> = StorageValue<_, SessionIndex, OptionQuery>;
 
+	/// Session index (end_index) at which the last era activation was received.
+	///
+	/// Updated when a session report contains `activation_timestamp`.
+	/// Used to calculate the current session offset within the active era.
+	///
+	/// The session offset is calculated as:
+	/// `current_session - era_activation_session`
+	///
+	/// Where `current_session = LastSessionReportEndingIndex + 1`
+	///
+	/// Example:
+	/// - Era N activates at session 5 end → `LastEraActivationSessionReportEndingIndex = 5`
+	/// - Later at session 10: offset = (10 - 5) = 5
+	#[pallet::storage]
+	pub type LastEraActivationSessionReportEndingIndex<T: Config> =
+		StorageValue<_, SessionIndex, ValueQuery>;
+
 	/// A validator set that is outgoing, and should be sent.
 	///
 	/// This will be attempted to be sent, possibly on every `on_initialize` call, until it is sent,
@@ -637,26 +654,45 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			if let Some((report, retries_left)) = OutgoingValidatorSet::<T>::take() {
-				match T::SendToRelayChain::validator_set(report.clone()) {
-					Ok(()) => {
-						// report was sent, all good, it is already deleted.
-					},
-					Err(()) => {
-						log!(error, "Failed to send validator set report to relay chain");
-						Self::deposit_event(Event::<T>::Unexpected(
-							UnexpectedKind::ValidatorSetSendFailed,
-						));
-						if let Some(new_retries_left) = retries_left.checked_sub(One::one()) {
-							OutgoingValidatorSet::<T>::put((report, new_retries_left))
-						} else {
+				// Calculate current session offset within era
+				let last_session_end = LastSessionReportEndingIndex::<T>::get().unwrap_or(0);
+				let era_activation_end = LastEraActivationSessionReportEndingIndex::<T>::get();
+				let current_session = last_session_end.saturating_add(1);
+				let session_offset = current_session.saturating_sub(era_activation_end);
+
+				// Check if we've reached the export session
+				if session_offset >= T::ValidatorSetExportSession::get() {
+					// Export the validator set
+					match T::SendToRelayChain::validator_set(report.clone()) {
+						Ok(()) => {
+							// report was sent, all good, it is already deleted.
+							log::debug!(
+								target: LOG_TARGET,
+								"Exported validator set at session offset {} (session {})",
+								session_offset,
+								current_session
+							);
+						},
+						Err(()) => {
+							log!(error, "Failed to send validator set report to relay chain");
 							Self::deposit_event(Event::<T>::Unexpected(
-								UnexpectedKind::ValidatorSetDropped,
+								UnexpectedKind::ValidatorSetSendFailed,
 							));
-						}
-					},
+							if let Some(new_retries_left) = retries_left.checked_sub(One::one()) {
+								OutgoingValidatorSet::<T>::put((report, new_retries_left))
+							} else {
+								Self::deposit_event(Event::<T>::Unexpected(
+									UnexpectedKind::ValidatorSetDropped,
+								));
+							}
+						},
+					}
+				} else {
+					// Not yet time to export, put it back
+					OutgoingValidatorSet::<T>::put((report, retries_left));
 				}
 			}
-			T::DbWeight::get().reads_writes(1, 1)
+			T::DbWeight::get().reads_writes(3, 1)
 		}
 	}
 
@@ -677,6 +713,28 @@ pub mod pallet {
 		/// sending still fails, we emit an [`UnexpectedKind::ValidatorSetDropped`] event and drop
 		/// it.
 		type MaxValidatorSetRetries: Get<u32>;
+
+		/// The session within an era at which to export validator sets to RC.
+		///
+		/// This is a 1-indexed session number relative to the era start:
+		/// - 0 = export immediately when received from staking pallet
+		/// - 1 = export at first session of era (right after era activates)
+		/// - 5 = export at 5th session of era (for 6-session eras)
+		///
+		/// The validator set is placed in `OutgoingValidatorSet` when election completes
+		/// in `pallet-staking-async`. The XCM message is sent when BOTH conditions met:
+		/// 1. Current session offset >= `ValidatorSetExportSession`
+		/// 2. `OutgoingValidatorSet` exists (validator set buffered)
+		///
+		/// Setting to 0 bypasses the session check and exports immediately.
+		///
+		/// Example: With `SessionsPerEra=6` and `ValidatorSetExportSession=5`:
+		/// - Session 0: Election completes → validator set buffered in `OutgoingValidatorSet`
+		/// - Sessions 1-4: Buffered (session offset < 5)
+		/// - Session 5: Export triggered (offset >= 5), XCM sent
+		///
+		/// Must be <= SessionsPerEra.
+		type ValidatorSetExportSession: Get<SessionIndex>;
 	}
 
 	#[pallet::event]
@@ -811,6 +869,17 @@ pub mod pallet {
 			} else {
 				// this is final, report it.
 				LastSessionReportEndingIndex::<T>::put(new_session_report.end_index);
+
+				// Track era activation for session offset calculation
+				if new_session_report.activation_timestamp.is_some() {
+					LastEraActivationSessionReportEndingIndex::<T>::put(new_session_report.end_index);
+					log::debug!(
+						target: LOG_TARGET,
+						"Era activated at session report end_index: {}",
+						new_session_report.end_index
+					);
+				}
+
 				let weight = T::AHStakingInterface::on_relay_session_report(new_session_report);
 				Ok((Some(local_weight + weight)).into())
 			}
