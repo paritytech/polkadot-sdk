@@ -319,9 +319,10 @@ where
 	let mut removed = 0;
 	{
 		let mut trie = TrieDBMutBuilder::<L>::from_existing(db, &mut root)
+			.without_commit_on_drop()
 			.with_optional_cache(cache)
 			.with_optional_recorder(recorder)
-			.build_base();
+			.build();
 
 		//todo: change not required here
 		for (key, _) in delta {
