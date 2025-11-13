@@ -841,7 +841,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						RuntimeCall::Session(..) |
 						RuntimeCall::Utility(..) |
 						RuntimeCall::NominationPools(..) |
-						RuntimeCall::FastUnstake(..) |
 						RuntimeCall::VoterList(..)
 				)
 			},
@@ -1219,6 +1218,7 @@ impl pallet_revive::Config for Runtime {
 
 parameter_types! {
 	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
+	pub FastUnstakeName: &'static str = "FastUnstake";
 }
 
 impl pallet_migrations::Config for Runtime {
@@ -1377,7 +1377,8 @@ construct_runtime!(
 		// Staking.
 		Staking: pallet_staking_async = 80,
 		NominationPools: pallet_nomination_pools = 81,
-		FastUnstake: pallet_fast_unstake = 82,
+		// decommissioned in AHs.
+		// FastUnstake: pallet_fast_unstake = 82,
 		VoterList: pallet_bags_list::<Instance1> = 83,
 		DelegatedStaking: pallet_delegated_staking = 84,
 		StakingRcClient: pallet_staking_async_rc_client = 89,
@@ -1484,6 +1485,10 @@ pub type Migrations = (
 	pallet_session::migrations::v1::MigrateV0ToV1<
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
+	>,
+	frame_support::migrations::RemovePallet<
+		FastUnstakeName,
+		<Runtime as frame_system::Config>::DbWeight,
 	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
@@ -1687,12 +1692,10 @@ mod benches {
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
 		[pallet_conviction_voting, ConvictionVoting]
-		// Temporarily disabled due to https://github.com/paritytech/polkadot-sdk/issues/7714
-		// [pallet_election_provider_multi_block, MultiBlockElection]
-		// [pallet_election_provider_multi_block_verifier, MultiBlockElectionVerifier]
-		[pallet_election_provider_multi_block_unsigned, MultiBlockElectionUnsigned]
-		[pallet_election_provider_multi_block_signed, MultiBlockElectionSigned]
-		[pallet_fast_unstake, FastUnstake]
+		[pallet_election_provider_multi_block, MultiBlockElection]
+		[pallet_election_provider_multi_block::verifier, MultiBlockElectionVerifier]
+		[pallet_election_provider_multi_block::unsigned, MultiBlockElectionUnsigned]
+		[pallet_election_provider_multi_block::signed, MultiBlockElectionSigned]
 		[pallet_message_queue, MessageQueue]
 		[pallet_migrations, MultiBlockMigrations]
 		[pallet_multisig, Multisig]
@@ -2294,7 +2297,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 				}
 
 				fn set_up_complex_asset_transfer(
-				) -> Option<(XcmAssets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
+				) -> Option<(XcmAssets, AssetId, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					// Transfer to Relay some local AH asset (local-reserve-transfer) while paying
 					// fees using teleported native token.
 					// (We don't care that Relay doesn't accept incoming unknown AH local asset)
@@ -2326,7 +2329,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 					let transfer_asset: Asset = (asset_location, asset_amount).into();
 
 					let assets: XcmAssets = vec![fee_asset.clone(), transfer_asset].into();
-					let fee_index = if assets.get(0).unwrap().eq(&fee_asset) { 0 } else { 1 };
+					let fee_asset_id = fee_asset.id;
 
 					// verify transferred successfully
 					let verify = alloc::boxed::Box::new(move || {
@@ -2339,7 +2342,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 							initial_asset_amount - asset_amount,
 						);
 					});
-					Some((assets, fee_index as u32, dest, verify))
+					Some((assets, fee_asset_id, dest, verify))
 				}
 
 				fn get_asset() -> Asset {
