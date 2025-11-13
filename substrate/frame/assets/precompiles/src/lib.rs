@@ -33,8 +33,7 @@ use pallet_revive::precompiles::{
 		primitives::IntoLogData,
 		sol_types::{Revert, SolCall},
 	},
-	AddressMapper, AddressMatcher, Error, Ext, Precompile, RuntimeCosts, TransactionLimits, H160,
-	H256,
+	AddressMapper, AddressMatcher, Error, Ext, Precompile, RuntimeCosts, H160, H256,
 };
 
 #[cfg(test)]
