@@ -62,7 +62,7 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 	};
 
 	setup_accounts(&para_client, &alice, &keys, nonce()).await?;
-	assert_block_proposing_time_no_greater_than_1s(&collator).await;
+	assert_block_proposing_time_no_greater_than_1s(collator).await;
 	log::info!("Accounts ready");
 
 	let contract_address = instantiate_contract(&para_client, &alice).await?;
@@ -84,7 +84,7 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 		mint_100_payload,
 	)
 	.await?;
-	assert_block_proposing_time_no_greater_than_1s(&collator).await;
+	assert_block_proposing_time_no_greater_than_1s(collator).await;
 
 	log::info!("Minting finished, preparing transfers");
 	let mut transfer_50_payload = keys
@@ -126,7 +126,7 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 		transfer_50_payload,
 	)
 	.await?;
-	assert_block_proposing_time_no_greater_than_1s(&collator).await;
+	assert_block_proposing_time_no_greater_than_1s(collator).await;
 
 	Ok(())
 }
@@ -204,7 +204,7 @@ fn create_keys(n: usize) -> Vec<Keypair> {
 	let seed: u32 = rng.gen();
 	(0..n)
 		.map(|i| {
-			let uri = SecretUri::from_str(&format!("//key{}_test{}", seed, i)).unwrap();
+			let uri = SecretUri::from_str(&format!("//key{seed}_test{i}")).unwrap();
 			Keypair::from_uri(&uri).unwrap()
 		})
 		.collect()
@@ -388,7 +388,7 @@ async fn submit_txs(
 				subxt::tx::TxStatus::Dropped { message } => log::trace!("DROPPED: {message}"),
 			},
 			Err(e) => {
-				println!("Error status {:?}", e);
+				println!("Error status {e:?}");
 			},
 		}
 	}
