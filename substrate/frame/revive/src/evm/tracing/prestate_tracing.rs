@@ -100,9 +100,21 @@ where
 					info.storage.clear();
 				}
 			});
+			post.retain(|addr, _| {
+				if self.created_addrs.contains(addr) && self.destructed_addrs.contains(addr) {
+					// If the address was created and destructed we do not trace it
+					return false
+				}
+				true
+			});
 
 			pre.retain(|addr, pre_info| {
 				if is_empty(&pre_info) {
+					return false
+				}
+				if self.created_addrs.contains(addr) && self.destructed_addrs.contains(addr) {
+					// If the address was created and destructed we do not trace it
+					post.remove(addr);
 					return false
 				}
 
@@ -190,7 +202,6 @@ where
 		info.code = code;
 		let nonce = Pallet::<T>::evm_nonce(addr);
 		info.nonce = if nonce > 0 { Some(nonce) } else { None };
-		log::error!("RVE: prestate_info for {:?}: {:?}", addr, info);
 		info
 	}
 
