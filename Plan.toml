@@ -886,9 +886,9 @@ reason = "changed"
 [[crate]]
 # substrate/frame/system
 name = "frame-system"
-from = "42.0.0"
-to = "43.0.0"
-bump = "major"
+from = "43.0.0"
+to = "43.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -1054,9 +1054,9 @@ reason = "changed"
 [[crate]]
 # substrate/frame/executive
 name = "frame-executive"
-from = "42.0.1"
-to = "43.0.0"
-bump = "major"
+from = "43.0.0"
+to = "43.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -1218,19 +1218,11 @@ bump = "major"
 reason = "changed"
 
 [[crate]]
-# substrate/client/statement-store
-name = "sc-statement-store"
-from = "24.0.0"
-to = "24.1.0"
-bump = "minor"
-reason = "changed"
-
-[[crate]]
 # substrate/client/tracing
 name = "sc-tracing"
-from = "41.0.0"
-to = "42.0.0"
-bump = "major"
+from = "42.0.0"
+to = "42.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -1448,9 +1440,9 @@ reason = "changed"
 [[crate]]
 # substrate/frame/election-provider-multi-block
 name = "pallet-election-provider-multi-block"
-from = "0.3.2"
-to = "0.4.0"
-bump = "major"
+from = "0.4.0"
+to = "0.4.1"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -1936,9 +1928,9 @@ reason = "changed"
 [[crate]]
 # substrate/frame/bags-list
 name = "pallet-bags-list"
-from = "41.0.0"
-to = "42.0.0"
-bump = "major"
+from = "42.0.0"
+to = "42.1.0"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -1994,9 +1986,9 @@ reason = "changed"
 [[crate]]
 # substrate/frame/revive
 name = "pallet-revive"
-from = "0.9.0"
-to = "0.10.0"
-bump = "major"
+from = "0.10.0"
+to = "0.10.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -2080,8 +2072,8 @@ reason = "changed"
 [[crate]]
 # substrate/client/network/statement
 name = "sc-network-statement"
-from = "0.35.0"
-to = "0.35.1"
+from = "0.35.1"
+to = "0.35.2"
 bump = "minor"
 reason = "changed"
 
@@ -2376,9 +2368,9 @@ to = "0.1.0"
 [[crate]]
 # substrate/frame/proxy
 name = "pallet-proxy"
-from = "42.0.0"
-to = "43.0.0"
-bump = "major"
+from = "43.0.0"
+to = "43.1.0"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -2513,6 +2505,14 @@ name = "sc-rpc-server"
 from = "24.0.0"
 to = "25.0.0"
 bump = "major"
+reason = "changed"
+
+[[crate]]
+# substrate/client/statement-store
+name = "sc-statement-store"
+from = "24.1.0"
+to = "24.2.0"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -2686,9 +2686,9 @@ reason = "changed"
 [[crate]]
 # polkadot/runtime/parachains
 name = "polkadot-runtime-parachains"
-from = "21.0.1"
-to = "22.0.0"
-bump = "major"
+from = "22.0.0"
+to = "22.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -2774,9 +2774,9 @@ reason = "changed"
 [[crate]]
 # cumulus/pallets/parachain-system
 name = "cumulus-pallet-parachain-system"
-from = "0.22.1"
-to = "0.23.0"
-bump = "major"
+from = "0.23.0"
+to = "0.23.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -3504,9 +3504,9 @@ reason = "changed"
 [[crate]]
 # cumulus/parachains/runtimes/assets/asset-hub-westend
 name = "asset-hub-westend-runtime"
-from = "0.35.0"
-to = "0.36.0"
-bump = "major"
+from = "0.36.0"
+to = "0.36.1"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -3734,9 +3734,9 @@ reason = "changed"
 [[crate]]
 # polkadot/node/network/collator-protocol
 name = "polkadot-collator-protocol"
-from = "25.0.0"
-to = "26.0.0"
-bump = "major"
+from = "26.0.0"
+to = "26.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -4092,9 +4092,9 @@ to = "1.0.0"
 [[crate]]
 # cumulus/client/service
 name = "cumulus-client-service"
-from = "0.27.0"
-to = "0.28.0"
-bump = "major"
+from = "0.28.0"
+to = "0.28.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
