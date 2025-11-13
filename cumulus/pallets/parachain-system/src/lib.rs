@@ -364,12 +364,10 @@ pub mod pallet {
 				if let Some(core_info) =
 					CumulusDigestItem::find_core_info(&frame_system::Pallet::<T>::digest())
 				{
-					PendingUpwardSignals::<T>::mutate(|signals| {
-						signals.push(
-							UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset)
-								.encode(),
-						);
-					});
+					PendingUpwardSignals::<T>::append(
+						UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset)
+							.encode(),
+					);
 
 					PreviousCoreCount::<T>::put(core_info.number_of_cores);
 				} else {
@@ -593,7 +591,7 @@ pub mod pallet {
 			// TODO: This is more than zero, but will need benchmarking to figure out what.
 			let mut total_weight = Weight::zero();
 
-			// NOTE: the inherent data is expected to be unique, even if this block is built
+			// NOTE: the inherent data is expected to be unique, even if this block is build
 			// in the context of the same relay parent as the previous one. In particular,
 			// the inherent shouldn't contain messages that were already processed by any of the
 			// ancestors.
@@ -651,7 +649,7 @@ pub mod pallet {
 				),
 			);
 
-			// initialization logic: we know that this runs exactly once every block,
+			// Initialization logic: we know that this runs exactly once every block,
 			// which means we can put the initialization logic here to remove the
 			// sequencing problem.
 			let upgrade_go_ahead_signal = relay_state_proof
@@ -710,6 +708,12 @@ pub mod pallet {
 			<HostConfiguration<T>>::put(host_config);
 
 			<T::OnSystemEvent as OnSystemEvent>::on_validation_data(&vfp);
+
+			if let Some(collator_peer_id) = collator_peer_id {
+				PendingUpwardSignals::<T>::append(
+					UMPSignal::ApprovedPeer(collator_peer_id).encode(),
+				);
+			}
 
 			if let Some(collator_peer_id) = collator_peer_id {
 				PendingUpwardSignals::<T>::mutate(|signals| {
@@ -1559,12 +1563,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Send the pending ump signals
 	fn send_ump_signals() {
-		let mut ump_signals = PendingUpwardSignals::<T>::take();
+		let ump_signals = PendingUpwardSignals::<T>::take();
 		if !ump_signals.is_empty() {
 			UpwardMessages::<T>::append(UMP_SEPARATOR);
-			UpwardMessages::<T>::mutate(|up| {
-				up.append(&mut ump_signals);
-			});
+			ump_signals.into_iter().for_each(|s| UpwardMessages::<T>::append(s));
 		}
 	}
 

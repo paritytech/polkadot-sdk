@@ -111,11 +111,11 @@ impl<C: Chain, E: Environment<C>> TransactionTracker<C, E> {
 
 		match futures::future::select(wait_for_stall_timeout, wait_for_invalidation).await {
 			Either::Left((_, _)) => {
-				log::trace!(
+				tracing::trace!(
 					target: "bridge",
-					"{} transaction {:?} is considered lost after timeout (no status response from the node)",
-					C::NAME,
-					self.transaction_hash,
+					node=%C::NAME,
+					transaction=?self.transaction_hash,
+					"Transaction is considered lost after timeout (no status response from the node)"
 				);
 
 				(TrackedTransactionStatus::Lost, None)
@@ -131,11 +131,11 @@ impl<C: Chain, E: Environment<C>> TransactionTracker<C, E> {
 					wait_for_stall_timeout_rest.await;
 					// if someone is still watching for our transaction, then we're reporting
 					// an error here (which is treated as "transaction lost")
-					log::trace!(
+					tracing::trace!(
 						target: "bridge",
-						"{} transaction {:?} is considered lost after timeout",
-						C::NAME,
-						self.transaction_hash,
+						node=%C::NAME,
+						transaction=?self.transaction_hash,
+						"Transaction is considered lost after timeout"
 					);
 
 					(TrackedTransactionStatus::Lost, Some(invalidation_status))
@@ -188,24 +188,24 @@ async fn watch_transaction_status<
 			Some(TransactionStatusOf::<C>::Finalized((block_hash, _))) => {
 				// the only "successful" outcome of this method is when the block with transaction
 				// has been finalized
-				log::trace!(
+				tracing::trace!(
 					target: "bridge",
-					"{} transaction {:?} has been finalized at block: {:?}",
-					C::NAME,
-					transaction_hash,
-					block_hash,
+					node=%C::NAME,
+					transaction=?transaction_hash,
+					block=?block_hash,
+					"Transaction has been finalized"
 				);
 
 				let header_id = match environment.header_id_by_hash(block_hash).await {
 					Ok(header_id) => header_id,
 					Err(e) => {
-						log::error!(
+						tracing::error!(
 							target: "bridge",
-							"Failed to read header {:?} when watching for {} transaction {:?}: {:?}",
-							block_hash,
-							C::NAME,
-							transaction_hash,
-							e,
+							error=?e,
+							node=%C::NAME,
+							transaction=?transaction_hash,
+							block=?block_hash,
+							"Failed to read header when watching for transaction",
 						);
 						// that's the best option we have here
 						return InvalidationStatus::Lost
@@ -220,11 +220,11 @@ async fn watch_transaction_status<
 				// valid again on other fork. But let's assume that the chances of this event
 				// are almost zero - there's a lot of things that must happen for this to be the
 				// case.
-				log::trace!(
+				tracing::trace!(
 					target: "bridge",
-					"{} transaction {:?} has been invalidated",
-					C::NAME,
-					transaction_hash,
+					node=%C::NAME,
+					transaction=?transaction_hash,
+					"Transaction has been invalidated"
 				);
 				return InvalidationStatus::Invalid
 			},
@@ -237,31 +237,31 @@ async fn watch_transaction_status<
 				// TODO: read matching system event (ExtrinsicSuccess or ExtrinsicFailed), log it
 				// here and use it later (on finality) for reporting invalid transaction
 				// https://github.com/paritytech/parity-bridges-common/issues/1464
-				log::trace!(
+				tracing::trace!(
 					target: "bridge",
-					"{} transaction {:?} has been included in block: {:?}",
-					C::NAME,
-					transaction_hash,
-					block_hash,
+					node=%C::NAME,
+					transaction=?transaction_hash,
+					block=?block_hash,
+					"Transaction has been included"
 				);
 			},
 			Some(TransactionStatusOf::<C>::Retracted(block_hash)) => {
-				log::trace!(
+				tracing::trace!(
 					target: "bridge",
-					"{} transaction {:?} at block {:?} has been retracted",
-					C::NAME,
-					transaction_hash,
-					block_hash,
+					node=%C::NAME,
+					transaction=?transaction_hash,
+					block=?block_hash,
+					"Transaction has been retracted"
 				);
 			},
 			Some(TransactionStatusOf::<C>::FinalityTimeout(block_hash)) => {
 				// finality is lagging? let's wait a bit more and report a stall
-				log::trace!(
+				tracing::trace!(
 					target: "bridge",
-					"{} transaction {:?} block {:?} has not been finalized for too long",
-					C::NAME,
-					transaction_hash,
-					block_hash,
+					node=%C::NAME,
+					transaction=?transaction_hash,
+					block=?block_hash,
+					"Transaction has not been finalized for too long"
 				);
 				return InvalidationStatus::Lost
 			},
@@ -269,23 +269,23 @@ async fn watch_transaction_status<
 				// this may be result of our transaction resubmitter work or some manual
 				// intervention. In both cases - let's start stall timeout, because the meaning
 				// of transaction may have changed
-				log::trace!(
+				tracing::trace!(
 					target: "bridge",
-					"{} transaction {:?} has been usurped by new transaction: {:?}",
-					C::NAME,
-					transaction_hash,
-					new_transaction_hash,
+					node=%C::NAME,
+					transaction=?transaction_hash,
+					new_transaction=?new_transaction_hash,
+					"Transaction has been usurped"
 				);
 				return InvalidationStatus::Lost
 			},
 			Some(TransactionStatusOf::<C>::Dropped) => {
 				// the transaction has been removed from the pool because of its limits. Let's wait
 				// a bit and report a stall
-				log::trace!(
+				tracing::trace!(
 					target: "bridge",
-					"{} transaction {:?} has been dropped from the pool",
-					C::NAME,
-					transaction_hash,
+					node=%C::NAME,
+					transaction=?transaction_hash,
+					"Transaction has been dropped from the pool"
 				);
 				return InvalidationStatus::Lost
 			},
