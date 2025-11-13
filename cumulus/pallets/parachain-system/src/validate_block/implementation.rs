@@ -83,6 +83,8 @@ where
 	B::Extrinsic: ExtrinsicCall,
 	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
 {
+	// sp_runtime::runtime_logger::RuntimeLogger::init();
+
 	let _guard = (
 		// Replace storage calls with our own implementations
 		sp_io::storage::host_read.replace_implementation(host_storage_read),
@@ -335,6 +337,7 @@ where
 		upward_messages
 			.try_push(UMP_SEPARATOR)
 			.expect("UMPSignals does not fit in UMPMessages");
+
 		upward_messages
 			.try_extend(upward_message_signals.into_iter())
 			.expect("UMPSignals does not fit in UMPMessages");

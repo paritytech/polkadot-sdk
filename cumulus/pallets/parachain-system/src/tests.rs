@@ -19,8 +19,12 @@
 use super::*;
 use crate::mock::*;
 
+use alloc::collections::BTreeMap;
 use core::num::NonZeroU32;
-use cumulus_primitives_core::{AbridgedHrmpChannel, InboundDownwardMessage, InboundHrmpMessage};
+use cumulus_primitives_core::{
+	relay_chain::ApprovedPeerId, AbridgedHrmpChannel, ClaimQueueOffset, CoreInfo, CoreSelector,
+	InboundDownwardMessage, InboundHrmpMessage, CUMULUS_CONSENSUS_ID,
+};
 use cumulus_primitives_parachain_inherent::{
 	v0, INHERENT_IDENTIFIER, PARACHAIN_INHERENT_IDENTIFIER_V0,
 };
@@ -31,6 +35,7 @@ use rand::Rng;
 use relay_chain::HrmpChannelId;
 use sp_core::H256;
 use sp_inherents::InherentDataProvider;
+use sp_runtime::DigestItem;
 use sp_trie::StorageProof;
 
 #[test]
@@ -180,7 +185,7 @@ fn unincluded_segment_works() {
 }
 
 #[test]
-#[should_panic = "no space left for the block in the unincluded segment"]
+#[should_panic = "No space left for the block in the unincluded segment: new_len(1) < capacity(1)"]
 fn unincluded_segment_is_limited() {
 	CONSENSUS_HOOK.with(|c| {
 		*c.borrow_mut() = Box::new(|_| (Weight::zero(), NonZeroU32::new(1).unwrap().into()))
@@ -1654,4 +1659,75 @@ fn ump_fee_factor_increases_and_decreases() {
 				assert_eq!(UpwardDeliveryFeeFactor::<Test>::get(), FixedU128::from_u32(1));
 			},
 		);
+}
+
+#[test]
+fn ump_signals_are_sent_correctly() {
+	let core_info = CoreInfo {
+		selector: CoreSelector(1),
+		claim_queue_offset: ClaimQueueOffset(1),
+		number_of_cores: codec::Compact(1),
+	};
+
+	// Test cases list with the following format:
+	// `((expect_approved_peer, expect_select_core), expected_upward_messages)`
+	let test_cases = BTreeMap::from([
+		((false, false), vec![b"Test".to_vec()]),
+		(
+			(true, false),
+			vec![
+				b"Test".to_vec(),
+				UMP_SEPARATOR,
+				UMPSignal::ApprovedPeer(ApprovedPeerId::try_from(b"12345".to_vec()).unwrap())
+					.encode(),
+			],
+		),
+		(
+			(false, true),
+			vec![
+				b"Test".to_vec(),
+				UMP_SEPARATOR,
+				UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset).encode(),
+			],
+		),
+		(
+			(true, true),
+			vec![
+				b"Test".to_vec(),
+				UMP_SEPARATOR,
+				UMPSignal::ApprovedPeer(ApprovedPeerId::try_from(b"12345".to_vec()).unwrap())
+					.encode(),
+				UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset).encode(),
+			],
+		),
+	]);
+
+	for ((expect_approved_peer, expect_select_core), expected_upward_messages) in test_cases {
+		let core_info_digest = CumulusDigestItem::CoreInfo(core_info.clone()).encode();
+
+		BlockTests::new()
+			.with_inherent_data(move |_, _, data| {
+				if expect_approved_peer {
+					data.collator_peer_id =
+						Some(ApprovedPeerId::try_from(b"12345".to_vec()).unwrap());
+				}
+			})
+			.add_with_post_test(
+				1,
+				move || {
+					ParachainSystem::send_upward_message(b"Test".to_vec()).unwrap();
+
+					if expect_select_core {
+						System::deposit_log(DigestItem::PreRuntime(
+							CUMULUS_CONSENSUS_ID,
+							core_info_digest.clone(),
+						));
+					}
+				},
+				move || {
+					assert_eq!(PendingUpwardSignals::<Test>::get(), Vec::<Vec<u8>>::new());
+					assert_eq!(UpwardMessages::<Test>::get(), expected_upward_messages);
+				},
+			);
+	}
 }

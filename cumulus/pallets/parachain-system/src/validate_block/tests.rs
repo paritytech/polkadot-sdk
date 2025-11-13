@@ -30,14 +30,14 @@ use cumulus_test_client::{
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
-use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi};
-use sp_consensus_slots::SlotDuration;
+use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi, StorageProof};
+use sp_consensus_babe::SlotDuration;
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, Block as BlockT, Header as HeaderT},
 	DigestItem,
 };
-use sp_trie::{proof_size_extension::ProofSizeExt, recorder::IgnoredNodes, StorageProof};
+use sp_trie::{proof_size_extension::ProofSizeExt, recorder::IgnoredNodes};
 use std::{env, process::Command};
 
 fn call_validate_block_validation_result(
@@ -147,6 +147,7 @@ fn build_block_with_witness(
 	let cumulus_test_client::BlockBuilderAndSupportData {
 		mut block_builder,
 		persisted_validation_data,
+		..
 	} = client.init_block_builder_with_pre_digests(Some(validation_data), sproof_builder, pre_digests);
 
 	extra_extrinsics.into_iter().for_each(|e| block_builder.push(e).unwrap());
@@ -241,11 +242,10 @@ fn build_multiple_blocks_with_witness(
 		})
 		.unwrap();
 
-		ignored_nodes.extend(IgnoredNodes::from_storage_proof::<BlakeTwo256>(
-			&built_block.proof.clone().unwrap(),
-		));
+		let proof_new = built_block.proof.unwrap();
+		ignored_nodes.extend(IgnoredNodes::from_storage_proof::<BlakeTwo256>(&proof_new));
 		ignored_nodes.extend(IgnoredNodes::from_memory_db(built_block.storage_changes.transaction));
-		proof = StorageProof::merge([proof, built_block.proof.unwrap()]);
+		proof = StorageProof::merge([proof, proof_new]);
 
 		parent_head = built_block.block.header.clone();
 
@@ -518,7 +518,6 @@ fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 	sp_tracing::try_init_simple();
 
 	let blocks_per_pov = 12;
-	// disable the core selection logic
 	let (client, genesis_head) = create_elastic_scaling_test_client();
 
 	// 1. Build the initial block that stores values in the map.
@@ -583,7 +582,6 @@ fn validate_block_handles_ump_signal() {
 		relay_chain::{UMPSignal, UMP_SEPARATOR},
 		ClaimQueueOffset, CoreInfo, CoreSelector,
 	};
-
 	sp_tracing::try_init_simple();
 
 	let (client, parent_head) = create_elastic_scaling_test_client();

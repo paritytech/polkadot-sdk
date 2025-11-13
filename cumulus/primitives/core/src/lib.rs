@@ -231,6 +231,43 @@ pub struct CoreInfo {
 	pub number_of_cores: Compact<u16>,
 }
 
+impl core::hash::Hash for CoreInfo {
+	fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+		state.write_u8(self.selector.0);
+		state.write_u8(self.claim_queue_offset.0);
+		state.write_u16(self.number_of_cores.0);
+	}
+}
+
+impl CoreInfo {
+	/// Puts this into a [`CumulusDigestItem::CoreInfo`] and then encodes it as a Substrate
+	/// [`DigestItem`].
+	pub fn to_digest_item(&self) -> DigestItem {
+		CumulusDigestItem::CoreInfo(self.clone()).to_digest_item()
+	}
+}
+
+/// Information about a block that is part of a PoV bundle.
+#[derive(Clone, Debug, Decode, Encode, PartialEq)]
+pub struct BundleInfo {
+	/// The index of the block in the bundle.
+	pub index: u8,
+	/// Is this the last block in the bundle from the point of view of the node?
+	///
+	/// It is possible that at `index` zero the runtime outputs the
+	/// [`CumulusDigestItem::UseFullCore`] that informs the node to use an entire for one block
+	/// only.
+	pub maybe_last: bool,
+}
+
+impl BundleInfo {
+	/// Puts this into a [`CumulusDigestItem::BundleInfo`] and then encodes it as a Substrate
+	/// [`DigestItem`].
+	pub fn to_digest_item(&self) -> DigestItem {
+		CumulusDigestItem::BundleInfo(self.clone()).to_digest_item()
+	}
+}
+
 /// Return value of [`CumulusDigestItem::core_info_exists_at_max_once`]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CoreInfoExistsAtMaxOnce {
@@ -261,14 +298,25 @@ pub enum CumulusDigestItem {
 	/// block.
 	#[codec(index = 1)]
 	CoreInfo(CoreInfo),
+	/// A digest item providing information about the position of the block in the bundle.
+	#[codec(index = 2)]
+	BundleInfo(BundleInfo),
+	/// A digest item informing the node that this block should be put alone onto a core.
+	///
+	/// In other words, the core should not be shared with other blocks.
+	#[codec(index = 3)]
+	UseFullCore,
 }
 
 impl CumulusDigestItem {
 	/// Encode this as a Substrate [`DigestItem`].
 	pub fn to_digest_item(&self) -> DigestItem {
+		let encoded = self.encode();
+
 		match self {
-			Self::RelayParent(_) => DigestItem::Consensus(CUMULUS_CONSENSUS_ID, self.encode()),
-			Self::CoreInfo(_) => DigestItem::PreRuntime(CUMULUS_CONSENSUS_ID, self.encode()),
+			Self::RelayParent(_) | Self::UseFullCore =>
+				DigestItem::Consensus(CUMULUS_CONSENSUS_ID, encoded),
+			_ => DigestItem::PreRuntime(CUMULUS_CONSENSUS_ID, encoded),
 		}
 	}
 
@@ -346,6 +394,40 @@ impl CumulusDigestItem {
 			},
 			_ => None,
 		})
+	}
+
+	/// Returns the [`BundleInfo`] from the given `digest`.
+	pub fn find_bundle_info(digest: &Digest) -> Option<BundleInfo> {
+		digest.convert_first(|d| match d {
+			DigestItem::PreRuntime(id, val) if id == &CUMULUS_CONSENSUS_ID => {
+				let Ok(CumulusDigestItem::BundleInfo(bundle_info)) =
+					CumulusDigestItem::decode_all(&mut &val[..])
+				else {
+					return None
+				};
+
+				Some(bundle_info)
+			},
+			_ => None,
+		})
+	}
+
+	/// Returns `true` if the given `digest` contains the [`Self::UseFullCore`] item.
+	pub fn contains_use_full_core(digest: &Digest) -> bool {
+		digest
+			.convert_first(|d| match d {
+				DigestItem::Consensus(id, val) if id == &CUMULUS_CONSENSUS_ID => {
+					let Ok(CumulusDigestItem::UseFullCore) =
+						CumulusDigestItem::decode_all(&mut &val[..])
+					else {
+						return None
+					};
+
+					Some(true)
+				},
+				_ => None,
+			})
+			.unwrap_or_default()
 	}
 }
 

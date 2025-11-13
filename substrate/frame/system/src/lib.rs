@@ -2147,7 +2147,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Sets the index of extrinsic that is currently executing.
-	#[cfg(any(feature = "std", test))]
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 	pub fn set_extrinsic_index(extrinsic_index: u32) {
 		storage::unhashed::put(well_known_keys::EXTRINSIC_INDEX, &extrinsic_index)
 	}
