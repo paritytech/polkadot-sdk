@@ -256,22 +256,26 @@ impl<BlockNumber: Clone + core::fmt::Debug + AtLeast32BitUnsigned> TryState<Bloc
 				excluded_pallet_names.iter().for_each(|excluded_name| {
 					if !try_state_fns.iter().any(|(name, _)| name.as_bytes() == excluded_name) {
 						log::warn!(
-							"Pallet {:?} not found",
+							"Pallet {:?} not found while trying to filter it out in Select::AllExcept",
 							alloc::str::from_utf8(excluded_name).unwrap_or_default()
 						);
 					}
 				});
 
+				let try_state_fns: Vec<_> = try_state_fns
+					.iter()
+					.filter(|(name, _)| {
+						!excluded_pallet_names
+							.iter()
+							.any(|excluded_name| name.as_bytes() == excluded_name)
+					})
+					.collect();
+
 				let mut errors = Vec::<TryRuntimeError>::new();
 
 				try_state_fns.iter().for_each(|(name, try_state_fn)| {
-					if !excluded_pallet_names
-						.iter()
-						.any(|excluded_name| name.as_bytes() == excluded_name)
-					{
-						if let Err(err) = try_state_fn(n.clone(), targets.clone()) {
-							errors.push(err);
-						}
+					if let Err(err) = try_state_fn(n.clone(), targets.clone()) {
+						errors.push(err);
 					}
 				});
 
