@@ -28,12 +28,12 @@ xcm-builder.workspace = true
 xcm-executor.workspace = true
 
 [dev-dependencies]
-bp-header-chain = { workspace = true, default-features = false }
-bp-xcm-bridge-hub-router = { workspace = true, default-features = false }
-pallet-balances = { workspace = true, default-features = false }
-pallet-xcm-bridge-hub-router = { workspace = true, default-features = false }
-polkadot-parachain-primitives = { workspace = true, default-features = false }
-sp-io = { workspace = true, default-features = false }
+bp-header-chain = { default-features = false, workspace = true }
+bp-xcm-bridge-hub-router = { default-features = false, workspace = true }
+pallet-balances = { default-features = false, workspace = true }
+pallet-xcm-bridge-hub-router = { default-features = false, workspace = true }
+polkadot-parachain-primitives = { default-features = false, workspace = true }
+sp-io = { default-features = false, workspace = true }
 
 [features]
 default = ["std"]

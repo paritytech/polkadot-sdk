@@ -49,7 +49,7 @@ xcm-simulator.default-features = true
 xcm-simulator.workspace = true
 
 [dev-dependencies]
-sp-tracing = { workspace = true, default-features = false }
+sp-tracing = { default-features = false, workspace = true }
 
 [features]
 default = []

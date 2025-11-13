@@ -38,9 +38,9 @@ tuplex = { workspace = true }
 xcm.workspace = true
 
 [dev-dependencies]
-bp-test-utils = { workspace = true, default-features = false }
+bp-test-utils = { default-features = false, workspace = true }
 pallet-balances = { default-features = true, workspace = true }
-pallet-bridge-messages = { features = ["std", "test-helpers"], workspace = true, default-features = false }
+pallet-bridge-messages = { features = ["std", "test-helpers"], default-features = false, workspace = true }
 sp-core = { default-features = true, workspace = true }
 
 [features]

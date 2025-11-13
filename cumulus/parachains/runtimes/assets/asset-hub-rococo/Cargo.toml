@@ -12,7 +12,21 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+assets-common.workspace = true
+bp-asset-hub-rococo.workspace = true
+bp-asset-hub-westend.workspace = true
+bp-bridge-hub-rococo.workspace = true
+bp-bridge-hub-westend.workspace = true
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
+cumulus-pallet-aura-ext.workspace = true
+cumulus-pallet-parachain-system.workspace = true
+cumulus-pallet-session-benchmarking.workspace = true
+cumulus-pallet-weight-reclaim.workspace = true
+cumulus-pallet-xcm.workspace = true
+cumulus-pallet-xcmp-queue = { features = ["bridging"], workspace = true }
+cumulus-primitives-aura.workspace = true
+cumulus-primitives-core.workspace = true
+cumulus-primitives-utility.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
 frame-executive.workspace = true
 frame-metadata-hash-extension.workspace = true
@@ -31,6 +45,7 @@ pallet-assets-freezer.workspace = true
 pallet-aura.workspace = true
 pallet-authorship.workspace = true
 pallet-balances.workspace = true
+pallet-collator-selection.workspace = true
 pallet-message-queue.workspace = true
 pallet-multisig.workspace = true
 pallet-nft-fractionalization.workspace = true
@@ -42,6 +57,15 @@ pallet-transaction-payment.workspace = true
 pallet-transaction-payment-rpc-runtime-api.workspace = true
 pallet-uniques.workspace = true
 pallet-utility.workspace = true
+pallet-xcm.workspace = true
+pallet-xcm-benchmarks = { optional = true, workspace = true }
+pallet-xcm-bridge-hub-router.workspace = true
+parachain-info.workspace = true
+parachains-common.workspace = true
+polkadot-parachain-primitives.workspace = true
+polkadot-runtime-common.workspace = true
+primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
+rococo-runtime-constants.workspace = true
 scale-info = { features = ["derive"], workspace = true }
 serde_json = { features = ["alloc"], workspace = true }
 sp-api.workspace = true
@@ -58,34 +82,8 @@ sp-storage.workspace = true
 sp-transaction-pool.workspace = true
 sp-version.workspace = true
 sp-weights.workspace = true
-tracing = { workspace = true }
-
-# num-traits feature needed for dex integer sq root:
-assets-common.workspace = true
-bp-asset-hub-rococo.workspace = true
-bp-asset-hub-westend.workspace = true
-bp-bridge-hub-rococo.workspace = true
-bp-bridge-hub-westend.workspace = true
-cumulus-pallet-aura-ext.workspace = true
-cumulus-pallet-parachain-system.workspace = true
-cumulus-pallet-session-benchmarking.workspace = true
-cumulus-pallet-weight-reclaim.workspace = true
-cumulus-pallet-xcm.workspace = true
-cumulus-pallet-xcmp-queue = { features = ["bridging"], workspace = true }
-cumulus-primitives-aura.workspace = true
-cumulus-primitives-core.workspace = true
-cumulus-primitives-utility.workspace = true
-pallet-collator-selection.workspace = true
-pallet-xcm.workspace = true
-pallet-xcm-benchmarks = { optional = true, workspace = true }
-pallet-xcm-bridge-hub-router.workspace = true
-parachain-info.workspace = true
-parachains-common.workspace = true
-polkadot-parachain-primitives.workspace = true
-polkadot-runtime-common.workspace = true
-primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
-rococo-runtime-constants.workspace = true
 testnet-parachains-constants = { features = ["rococo"], workspace = true }
+tracing = { workspace = true }
 xcm.workspace = true
 xcm-builder.workspace = true
 xcm-executor.workspace = true

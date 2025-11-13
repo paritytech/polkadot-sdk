@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-collator-protocol"
-version = "26.0.0"
+version = "26.0.1"
 description = "Polkadot Collator Protocol subsystem. Allows collators and validators to talk to each other."
 authors.workspace = true
 edition.workspace = true
@@ -47,7 +47,7 @@ tokio = { features = ["macros"], workspace = true, default-features = true, opti
 [dev-dependencies]
 assert_matches = { workspace = true }
 rstest = { workspace = true }
-sp-tracing = { workspace = true, default-features = false }
+sp-tracing = { default-features = false, workspace = true }
 
 codec = { features = ["std"], workspace = true, default-features = true }
 sc-keystore = { default-features = true, workspace = true }

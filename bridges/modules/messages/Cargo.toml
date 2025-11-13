@@ -25,12 +25,12 @@ sp-trie = { optional = true, workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
-bp-runtime = { features = ["test-helpers"], workspace = true, default-features = false }
-bp-test-utils = { workspace = true, default-features = false }
-pallet-balances = { workspace = true, default-features = false }
-pallet-bridge-grandpa = { workspace = true, default-features = false }
-sp-core = { workspace = true, default-features = false }
-sp-io = { workspace = true, default-features = false }
+bp-runtime = { features = ["test-helpers"], default-features = false, workspace = true }
+bp-test-utils = { default-features = false, workspace = true }
+pallet-balances = { default-features = false, workspace = true }
+pallet-bridge-grandpa = { default-features = false, workspace = true }
+sp-core = { default-features = false, workspace = true }
+sp-io = { default-features = false, workspace = true }
 
 [features]
 default = ["std"]

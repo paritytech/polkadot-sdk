@@ -33,7 +33,7 @@ sp-state-machine.workspace = true
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = false }
+pallet-balances = { default-features = false, workspace = true }
 sp-staking = { default-features = true, workspace = true }
 
 [features]

@@ -25,7 +25,7 @@ sp-runtime.workspace = true
 
 [dev-dependencies]
 pallet-balances = { default-features = true, workspace = true }
-sp-core = { workspace = true, default-features = false }
+sp-core = { default-features = false, workspace = true }
 sp-io = { default-features = true, workspace = true }
 
 [features]

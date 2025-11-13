@@ -33,7 +33,7 @@ pallet-balances = { default-features = true, workspace = true }
 pallet-staking = { default-features = true, workspace = true }
 pallet-staking-reward-curve = { default-features = true, workspace = true }
 pallet-timestamp = { default-features = true, workspace = true }
-sp-core = { workspace = true, default-features = false }
+sp-core = { default-features = false, workspace = true }
 sp-tracing = { default-features = true, workspace = true }
 
 [features]
