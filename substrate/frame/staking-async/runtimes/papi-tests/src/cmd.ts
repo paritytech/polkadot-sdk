@@ -57,6 +57,7 @@ export async function runPresetUntilLaunched(
 				// Extract log path from the last log command
 				const lastCmd = logCmds[logCmds.length - 1];
 				const paraLog = lastCmd ? lastCmd.match(/tail -f\s+(.+\.log)/)?.[1] || null : null;
+				logger.verbose(`Parachain log file: ${paraLog}`);
 
 				resolve({
 					killZn: () => {
@@ -123,8 +124,8 @@ function prepPreset(paraPreset: Presets): void {
 		`staging-chain-spec-builder`,
 	]);
 
-	cmd("rm", ["./parachain.json"]);
-	cmd("rm", ["./rc.json"]);
+	cmd("rm", ["-f", "./parachain.json"]);
+	cmd("rm", ["-f", "./rc.json"]);
 
 	cmd(join(targetDir, "/release/chain-spec-builder"), [
 		"create",
