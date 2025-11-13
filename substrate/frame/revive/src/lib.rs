@@ -567,7 +567,15 @@ pub mod pallet {
 		///
 		/// This happens if the passed `gas` inside the ethereum transaction is too low.
 		TxFeeOverdraw = 0x35,
-
+		/// When calling an EVM constructor `data` has to be empty.
+		///
+		/// EVM constructors do not accept data. Their input data is part of the code blob itself.
+		EvmConstructorNonEmptyData = 0x36,
+		/// Tried to construct an EVM contract via code hash.
+		///
+		/// EVM contracts can only be instantiated via code upload as no initcode is
+		/// stored on-chain.
+		EvmConstructedFromHash = 0x37,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,
@@ -821,7 +829,11 @@ pub mod pallet {
 			}
 
 			// Build genesis block
-			block_storage::on_finalize_build_eth_block::<T>(0u32.into());
+			block_storage::on_finalize_build_eth_block::<T>(
+				// Make sure to use the block number from storage instead of the hardcoded 0.
+				// This enables testing tools like anvil to customise the genesis block number.
+				frame_system::Pallet::<T>::block_number(),
+			);
 
 			// Set debug settings.
 			if let Some(settings) = self.debug_settings.as_ref() {
@@ -1603,14 +1615,18 @@ impl<T: Config> Pallet<T> {
 				},
 				Code::Upload(code) =>
 					if T::AllowEVMBytecode::get() {
+						ensure!(data.is_empty(), <Error<T>>::EvmConstructorNonEmptyData);
 						let origin = T::UploadOrigin::ensure_origin(origin)?;
 						let executable = ContractBlob::from_evm_init_code(code, origin)?;
 						(executable, Default::default())
 					} else {
 						return Err(<Error<T>>::CodeRejected.into())
 					},
-				Code::Existing(code_hash) =>
-					(ContractBlob::from_storage(code_hash, &mut gas_meter)?, Default::default()),
+				Code::Existing(code_hash) => {
+					let executable = ContractBlob::from_storage(code_hash, &mut gas_meter)?;
+					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
+					(executable, Default::default())
+				},
 			};
 			let instantiate_origin = ExecOrigin::from_account_id(instantiate_account.clone());
 			let mut storage_meter = StorageMeter::new(storage_deposit_limit);
