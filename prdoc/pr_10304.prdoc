@@ -7,4 +7,4 @@ doc:
     See https://github.com/paritytech/polkadot-sdk/issues/8760#issuecomment-3522183237
 crates:
 - name: sc-tracing
-  bump: patch
+  bump: minor
