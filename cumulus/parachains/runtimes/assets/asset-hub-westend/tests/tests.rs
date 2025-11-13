@@ -58,7 +58,7 @@ use frame_support::{
 use hex_literal::hex;
 use pallet_revive::{
 	test_utils::builder::{BareInstantiateBuilder, Contract},
-	Code,TransactionLimits
+	Code, TransactionLimits,
 };
 use pallet_revive_fixtures::compile_module;
 use pallet_uniques::{asset_ops::Item, asset_strategies::Attribute};
