@@ -8,7 +8,5 @@ doc:
 
     I suggest increasing it to `1024 * 1024` so that we can have a good range for testing.
 crates:
-- name: cumulus-test-relay-sproof-builder
-  bump: patch
 - name: xcm-emulator
   bump: patch
