@@ -1,0 +1,10 @@
+title: 'pallet-revive: eth-rpc improve submit'
+doc:
+- audience: Runtime Dev
+  description: |-
+    "eth_sendRawTransaction" should only return a tx hash if the transaction is valid.
+    With these udpates, we now listen to the tx event stream and only return when the Ready or Future
+    is emitted.
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
