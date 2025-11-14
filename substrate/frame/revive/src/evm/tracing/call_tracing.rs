@@ -18,14 +18,17 @@ use crate::{
 	evm::{decode_revert_reason, CallLog, CallTrace, CallTracerConfig, CallType},
 	primitives::ExecReturnValue,
 	tracing::Tracing,
-	Code, DispatchError, Weight,
+	Code, Config, DispatchError, PristineCode, Weight,
 };
 use alloc::{format, string::ToString, vec::Vec};
 use sp_core::{H160, H256, U256};
 
 /// A Tracer that reports logs and nested call traces transactions.
 #[derive(Default, Debug, Clone, PartialEq)]
-pub struct CallTracer<Gas, GasMapper> {
+pub struct CallTracer<T, Gas, GasMapper>
+where
+	Gas: core::fmt::Debug,
+{
 	/// Map Weight to Gas equivalent.
 	gas_mapper: GasMapper,
 	/// Store all in-progress CallTrace instances.
@@ -36,9 +39,11 @@ pub struct CallTracer<Gas, GasMapper> {
 	code_with_salt: Option<(Code, bool)>,
 	/// The tracer configuration.
 	config: CallTracerConfig,
+
+	_phantom: core::marker::PhantomData<T>,
 }
 
-impl<Gas, GasMapper> CallTracer<Gas, GasMapper> {
+impl<T: Config, Gas: core::fmt::Debug, GasMapper> CallTracer<T, Gas, GasMapper> {
 	/// Create a new [`CallTracer`] instance.
 	pub fn new(config: CallTracerConfig, gas_mapper: GasMapper) -> Self {
 		Self {
@@ -47,6 +52,7 @@ impl<Gas, GasMapper> CallTracer<Gas, GasMapper> {
 			code_with_salt: None,
 			current_stack: Vec::new(),
 			config,
+			_phantom: core::marker::PhantomData,
 		}
 	}
 
@@ -56,7 +62,9 @@ impl<Gas, GasMapper> CallTracer<Gas, GasMapper> {
 	}
 }
 
-impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, GasMapper> {
+impl<T: Config, Gas: Default + core::fmt::Debug, GasMapper: Fn(Weight) -> Gas> Tracing
+	for CallTracer<T, Gas, GasMapper>
+{
 	fn instantiate_code(&mut self, code: &Code, salt: Option<&[u8; 32]>) {
 		self.code_with_salt = Some((code.clone(), salt.is_some()));
 	}
@@ -101,9 +109,10 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 					if salt { CallType::Create2 } else { CallType::Create },
 					v.into_iter().chain(input.to_vec().into_iter()).collect::<Vec<_>>(),
 				),
-				Some((Code::Existing(v), salt)) => (
+				Some((Code::Existing(code_hash), salt)) => (
 					if salt { CallType::Create2 } else { CallType::Create },
-					v.to_fixed_bytes()
+					<PristineCode<T>>::get(&code_hash)
+						.unwrap_or_default()
 						.into_iter()
 						.chain(input.to_vec().into_iter())
 						.collect::<Vec<_>>(),
@@ -165,7 +174,11 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 		let current_index = self.current_stack.pop().unwrap();
 
 		if let Some(trace) = self.traces.get_mut(current_index) {
-			trace.output = output.data.clone().into();
+			if trace.input.0.starts_with(&polkavm_common::program::BLOB_MAGIC) {
+				trace.output = trace.input.clone();
+			} else {
+				trace.output = output.data.clone().into();
+			}
 			trace.gas_used = (self.gas_mapper)(gas_used);
 
 			if output.did_revert() {
