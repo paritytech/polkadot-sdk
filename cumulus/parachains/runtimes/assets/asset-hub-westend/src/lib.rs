@@ -32,12 +32,16 @@ pub mod xcm_config;
 // Configurations for next functionality.
 mod bag_thresholds;
 pub mod governance;
+#[cfg(not(feature = "runtime-benchmarks"))]
+mod migrations;
 mod staking;
+
 use governance::{pallet_custom_origins, FellowshipAdmin, GeneralAdmin, StakingAdmin, Treasurer};
 
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
+pub use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
 use assets_common::{
 	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
 	AssetIdForPoolAssets, AssetIdForPoolAssetsConvert, AssetIdForTrustBackedAssetsConvert,
@@ -96,7 +100,7 @@ use westend_runtime_constants::time::DAYS as RC_DAYS;
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, LocationToAccountId, PoolAssetsConvertedConcreteId,
 	PoolAssetsPalletLocation, TrustBackedAssetsConvertedConcreteId,
-	TrustBackedAssetsPalletLocation, WestendLocation, XcmOriginToTransactDispatchOrigin,
+	TrustBackedAssetsPalletLocation, WestendLocation, XcmConfig, XcmOriginToTransactDispatchOrigin,
 };
 
 #[cfg(any(feature = "std", test))]
@@ -115,6 +119,10 @@ use xcm::{
 		XcmVersion,
 	},
 };
+use xcm_runtime_apis::{
+	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
+	fees::Error as XcmPaymentApiError,
+};
 
 #[cfg(feature = "runtime-benchmarks")]
 use frame_support::traits::PalletInfoAccess;
@@ -123,11 +131,6 @@ use frame_support::traits::PalletInfoAccess;
 use xcm::latest::prelude::{
 	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
 	NetworkId, NonFungible, ParentThen, Response, WeightLimit, XCM_VERSION,
-};
-
-use xcm_runtime_apis::{
-	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
-	fees::Error as XcmPaymentApiError,
 };
 
 impl_opaque_keys! {
@@ -144,7 +147,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_020_001,
+	spec_version: 1_020_004,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -295,6 +298,7 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type Balance = Balance;
 	type AssetId = AssetIdForTrustBackedAssets;
 	type AssetIdParameter = codec::Compact<AssetIdForTrustBackedAssets>;
+	type ReserveData = ();
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type ForceOrigin = AssetsForceOrigin;
@@ -338,6 +342,7 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type RemoveItemsLimit = ConstU32<1000>;
 	type AssetId = u32;
 	type AssetIdParameter = u32;
+	type ReserveData = ();
 	type Currency = Balances;
 	type CreateOrigin =
 		AsEnsureOriginWithArg<EnsureSignedBy<AssetConversionOrigin, sp_runtime::AccountId32>>;
@@ -574,6 +579,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type Balance = Balance;
 	type AssetId = xcm::v5::Location;
 	type AssetIdParameter = xcm::v5::Location;
+	type ReserveData = ForeignAssetReserveData;
 	type Currency = Balances;
 	type CreateOrigin = ForeignCreators<
 		(
@@ -599,7 +605,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type AssetAccountDeposit = ForeignAssetsAssetAccountDeposit;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = xcm_config::XcmBenchmarkHelper;
+	type BenchmarkHelper = assets_common::benchmarks::LocationAssetsBenchmarkHelper;
 }
 
 // Allow Freezes for the `ForeignAssets` pallet
@@ -835,7 +841,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						RuntimeCall::Session(..) |
 						RuntimeCall::Utility(..) |
 						RuntimeCall::NominationPools(..) |
-						RuntimeCall::FastUnstake(..) |
 						RuntimeCall::VoterList(..)
 				)
 			},
@@ -1175,7 +1180,7 @@ parameter_types! {
 	pub const DepositPerChildTrieItem: Balance = deposit(1, 0) / 100;
 	pub const DepositPerByte: Balance = deposit(0, 1);
 	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
-	pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(1,2);
+	pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(9, 10);
 }
 
 impl pallet_revive::Config for Runtime {
@@ -1213,15 +1218,18 @@ impl pallet_revive::Config for Runtime {
 
 parameter_types! {
 	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
+	pub FastUnstakeName: &'static str = "FastUnstake";
 }
 
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = (
-		pallet_revive::migrations::v1::Migration<Runtime>,
-		pallet_revive::migrations::v2::Migration<Runtime>,
-	);
+	type Migrations =
+		assets_common::migrations::foreign_assets_reserves::ForeignAssetsReservesMigration<
+			Runtime,
+			ForeignAssetsInstance,
+			migrations::AssetHubWestendForeignAssetsReservesProvider,
+		>;
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
@@ -1369,7 +1377,8 @@ construct_runtime!(
 		// Staking.
 		Staking: pallet_staking_async = 80,
 		NominationPools: pallet_nomination_pools = 81,
-		FastUnstake: pallet_fast_unstake = 82,
+		// decommissioned in AHs.
+		// FastUnstake: pallet_fast_unstake = 82,
 		VoterList: pallet_bags_list::<Instance1> = 83,
 		DelegatedStaking: pallet_delegated_staking = 84,
 		StakingRcClient: pallet_staking_async_rc_client = 89,
@@ -1476,6 +1485,10 @@ pub type Migrations = (
 	pallet_session::migrations::v1::MigrateV0ToV1<
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
+	>,
+	frame_support::migrations::RemovePallet<
+		FastUnstakeName,
+		<Runtime as frame_system::Config>::DbWeight,
 	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
@@ -1679,12 +1692,10 @@ mod benches {
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
 		[pallet_conviction_voting, ConvictionVoting]
-		// Temporarily disabled due to https://github.com/paritytech/polkadot-sdk/issues/7714
-		// [pallet_election_provider_multi_block, MultiBlockElection]
-		// [pallet_election_provider_multi_block_verifier, MultiBlockElectionVerifier]
-		[pallet_election_provider_multi_block_unsigned, MultiBlockElectionUnsigned]
-		[pallet_election_provider_multi_block_signed, MultiBlockElectionSigned]
-		[pallet_fast_unstake, FastUnstake]
+		[pallet_election_provider_multi_block, MultiBlockElection]
+		[pallet_election_provider_multi_block::verifier, MultiBlockElectionVerifier]
+		[pallet_election_provider_multi_block::unsigned, MultiBlockElectionUnsigned]
+		[pallet_election_provider_multi_block::signed, MultiBlockElectionSigned]
 		[pallet_message_queue, MessageQueue]
 		[pallet_migrations, MultiBlockMigrations]
 		[pallet_multisig, Multisig]
@@ -1764,7 +1775,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			VERSION
 		}
 
-		fn execute_block(block: Block) {
+		fn execute_block(block: <Block as BlockT>::LazyBlock) {
 			Executive::execute_block(block)
 		}
 
@@ -1801,7 +1812,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		}
 
 		fn check_inherents(
-			block: Block,
+			block: <Block as BlockT>::LazyBlock,
 			data: sp_inherents::InherentData,
 		) -> sp_inherents::CheckInherentsResult {
 			data.check_extrinsics(&block)
@@ -1940,10 +1951,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
-			use crate::xcm_config::XcmConfig;
-
 			type Trader = <XcmConfig as xcm_executor::Config>::Trader;
-
 			PolkadotXcm::query_weight_to_asset_fee::<Trader>(weight, asset)
 		}
 
@@ -1951,8 +1959,9 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			PolkadotXcm::query_xcm_weight(message)
 		}
 
-		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, XcmPaymentApiError> {
-			PolkadotXcm::query_delivery_fees(destination, message)
+		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>, asset_id: VersionedAssetId) -> Result<VersionedAssets, XcmPaymentApiError> {
+			type AssetExchanger = <XcmConfig as xcm_executor::Config>::AssetExchanger;
+			PolkadotXcm::query_delivery_fees::<AssetExchanger>(destination, message, asset_id)
 		}
 	}
 
@@ -1962,7 +1971,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		}
 
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			PolkadotXcm::dry_run_xcm::<Runtime, xcm_config::XcmRouter, RuntimeCall, xcm_config::XcmConfig>(origin_location, xcm)
+			PolkadotXcm::dry_run_xcm::<xcm_config::XcmRouter>(origin_location, xcm)
 		}
 	}
 
@@ -2085,7 +2094,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		}
 
 		fn execute_block(
-			block: Block,
+			block: <Block as BlockT>::LazyBlock,
 			state_root_check: bool,
 			signature_check: bool,
 			select: frame_try_runtime::TryStateSelect,
@@ -2288,7 +2297,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 				}
 
 				fn set_up_complex_asset_transfer(
-				) -> Option<(XcmAssets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
+				) -> Option<(XcmAssets, AssetId, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					// Transfer to Relay some local AH asset (local-reserve-transfer) while paying
 					// fees using teleported native token.
 					// (We don't care that Relay doesn't accept incoming unknown AH local asset)
@@ -2320,7 +2329,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 					let transfer_asset: Asset = (asset_location, asset_amount).into();
 
 					let assets: XcmAssets = vec![fee_asset.clone(), transfer_asset].into();
-					let fee_index = if assets.get(0).unwrap().eq(&fee_asset) { 0 } else { 1 };
+					let fee_asset_id = fee_asset.id;
 
 					// verify transferred successfully
 					let verify = alloc::boxed::Box::new(move || {
@@ -2333,7 +2342,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 							initial_asset_amount - asset_amount,
 						);
 					});
-					Some((assets, fee_index as u32, dest, verify))
+					Some((assets, fee_asset_id, dest, verify))
 				}
 
 				fn get_asset() -> Asset {
@@ -2440,13 +2449,33 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 					PeopleLocation::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(WestendLocation::get()) },
 				));
-				// AssetHubWestend trusts AssetHubRococo as reserve for ROCs
-				pub TrustedReserve: Option<(Location, Asset)> = Some(
-					(
-						xcm_config::bridging::to_rococo::AssetHubRococo::get(),
-						Asset::from((xcm_config::bridging::to_rococo::RocLocation::get(), 1000000000000 as u128))
-					)
-				);
+				pub TrustedReserve: Option<(Location, Asset)> = Some({
+					use frame_support::traits::tokens::fungible::{Inspect, Mutate};
+					let roc_id = xcm_config::bridging::to_rococo::RocLocation::get();
+					let roc = Asset::from((roc_id.clone(), 1000000000000 as u128));
+					let reserve = xcm_config::bridging::to_rococo::AssetHubRococo::get();
+					let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
+					assert_ok!(<Balances as Mutate<_>>::mint_into(
+						&account,
+						<Balances as Inspect<_>>::minimum_balance(),
+					));
+					// register foreign ROCs
+					assert_ok!(ForeignAssets::force_create(
+						RuntimeOrigin::root(),
+						roc_id.clone().into(),
+						account.clone().into(),
+						true,
+						1u128,
+					));
+					let reserves = ForeignAssetReserveData { reserve, teleportable: false };
+					// set trusted reserve
+					assert_ok!(ForeignAssets::set_reserves(
+						RuntimeOrigin::signed(account),
+						roc_id.clone().into(),
+						vec![reserves.clone()],
+					));
+					(reserves.reserve, roc)
+				});
 			}
 
 			impl pallet_xcm_benchmarks::fungible::Config for Runtime {
