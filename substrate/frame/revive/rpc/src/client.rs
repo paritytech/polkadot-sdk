@@ -514,7 +514,7 @@ impl Client {
 		})?;
 
 		tokio::time::timeout(Duration::from_millis(1000), async {
-			while let Some(status) = progress.next().await {
+			if let Some(status) = progress.next().await {
 				match status {
 					Ok(
 						tx @ (TransactionStatus::Future |
