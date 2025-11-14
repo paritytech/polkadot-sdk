@@ -29,14 +29,10 @@ use crate::proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVe
 use alloc::vec::Vec;
 
 /// ECDSA and BLS12-377 paired crypto scheme
-#[cfg(feature = "bls-experimental")]
 pub mod ecdsa_bls377 {
-	use crate::{bls377, crypto::CryptoTypeId, ecdsa};
 	#[cfg(feature = "full_crypto")]
-	use crate::{
-		crypto::{Pair as PairT, UncheckedFrom},
-		Hasher,
-	};
+	use crate::crypto::UncheckedFrom;
+	use crate::{bls377, crypto::CryptoTypeId, ecdsa, Hasher, Pair as PairT};
 
 	/// An identifier used to match public keys against BLS12-377 keys
 	pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"ecb7");
@@ -89,13 +85,13 @@ pub mod ecdsa_bls377 {
 		type Pair = Pair;
 	}
 
-	#[cfg(feature = "full_crypto")]
 	impl Pair {
 		/// Hashes the `message` with the specified [`Hasher`] before signing with the ECDSA secret
 		/// component.
 		///
 		/// The hasher does not affect the BLS12-377 component. This generates BLS12-377 Signature
 		/// according to IETF standard.
+		#[cfg(feature = "full_crypto")]
 		pub fn sign_with_hasher<H>(&self, message: &[u8]) -> Signature
 		where
 			H: Hasher,
@@ -145,14 +141,10 @@ pub mod ecdsa_bls377 {
 }
 
 /// ECDSA and BLS12-381 paired crypto scheme
-#[cfg(feature = "bls-experimental")]
 pub mod ecdsa_bls381 {
-	use crate::{bls381, crypto::CryptoTypeId, ecdsa};
 	#[cfg(feature = "full_crypto")]
-	use crate::{
-		crypto::{Pair as PairT, UncheckedFrom},
-		Hasher,
-	};
+	use crate::crypto::UncheckedFrom;
+	use crate::{bls381, crypto::CryptoTypeId, ecdsa, Hasher, Pair as PairT};
 
 	/// An identifier used to match public keys against BLS12-381 keys
 	pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"ecb8");
@@ -210,13 +202,13 @@ pub mod ecdsa_bls381 {
 		type Pair = Pair;
 	}
 
-	#[cfg(feature = "full_crypto")]
 	impl Pair {
 		/// Hashes the `message` with the specified [`Hasher`] before signing with the ECDSA secret
 		/// component.
 		///
 		/// The hasher does not affect the BLS12-381 component. This generates BLS12-381 Signature
 		/// according to IETF standard.
+		#[cfg(feature = "full_crypto")]
 		pub fn sign_with_hasher<H>(&self, message: &[u8]) -> Signature
 		where
 			H: Hasher,
@@ -522,7 +514,7 @@ where
 }
 
 // Test set exercising the (ECDSA,BLS12-377) implementation
-#[cfg(all(test, feature = "bls-experimental"))]
+#[cfg(test)]
 mod tests {
 	use super::*;
 	#[cfg(feature = "serde")]

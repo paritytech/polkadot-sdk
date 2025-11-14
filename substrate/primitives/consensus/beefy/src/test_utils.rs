@@ -15,11 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(feature = "bls-experimental")]
-use crate::ecdsa_bls_crypto;
 use crate::{
-	ecdsa_crypto, AuthorityIdBound, BeefySignatureHasher, Commitment, DoubleVotingProof,
-	ForkVotingProof, FutureBlockVotingProof, Payload, ValidatorSetId, VoteMessage,
+	ecdsa_bls_crypto, ecdsa_crypto, AuthorityIdBound, BeefySignatureHasher, Commitment,
+	DoubleVotingProof, ForkVotingProof, FutureBlockVotingProof, Payload, ValidatorSetId,
+	VoteMessage,
 };
 use sp_application_crypto::{AppCrypto, AppPair, RuntimeAppPublic, Wraps};
 use sp_core::{ecdsa, Pair};
@@ -63,7 +62,6 @@ where
 	}
 }
 
-#[cfg(feature = "bls-experimental")]
 impl<MsgHash> BeefySignerAuthority<MsgHash> for <ecdsa_bls_crypto::AuthorityId as AppCrypto>::Pair
 where
 	MsgHash: Hash,

@@ -26,11 +26,10 @@ pub mod testing;
 
 #[cfg(feature = "bandersnatch-experimental")]
 use sp_core::bandersnatch;
-#[cfg(feature = "bls-experimental")]
-use sp_core::{bls381, ecdsa_bls381};
 use sp_core::{
+	bls381,
 	crypto::{ByteArray, CryptoTypeId, KeyTypeId},
-	ecdsa, ed25519, sr25519,
+	ecdsa, ecdsa_bls381, ed25519, sr25519,
 };
 
 use alloc::{string::String, sync::Arc, vec::Vec};
@@ -277,18 +276,15 @@ pub trait Keystore: Send + Sync {
 	) -> Result<Option<bandersnatch::ring_vrf::RingVrfSignature>, Error>;
 
 	/// Returns all bls12-381 public keys for the given key type.
-	#[cfg(feature = "bls-experimental")]
 	fn bls381_public_keys(&self, id: KeyTypeId) -> Vec<bls381::Public>;
 
 	/// Returns all (ecdsa,bls12-381) paired public keys for the given key type.
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_public_keys(&self, id: KeyTypeId) -> Vec<ecdsa_bls381::Public>;
 
 	/// Generate a new bls381 key pair for the given key type and an optional seed.
 	///
 	/// Returns an `bls381::Public` key of the generated key pair or an `Err` if
 	/// something failed during key generation.
-	#[cfg(feature = "bls-experimental")]
 	fn bls381_generate_new(
 		&self,
 		key_type: KeyTypeId,
@@ -299,7 +295,6 @@ pub trait Keystore: Send + Sync {
 	///
 	/// Returns an `ecdsa_bls381::Public` key of the generated key pair or an `Err` if
 	/// something failed during key generation.
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_generate_new(
 		&self,
 		key_type: KeyTypeId,
@@ -314,7 +309,6 @@ pub trait Keystore: Send + Sync {
 	/// Returns an [`bls381::Signature`] or `None` in case the given `key_type`
 	/// and `public` combination doesn't exist in the keystore.
 	/// An `Err` will be returned if generating the signature itself failed.
-	#[cfg(feature = "bls-experimental")]
 	fn bls381_sign(
 		&self,
 		key_type: KeyTypeId,
@@ -330,7 +324,6 @@ pub trait Keystore: Send + Sync {
 	/// Returns an ['bls381::Signature'] or 'None' in case the given 'key_type'
 	/// and 'public' combination doesn't exist in the keystore.
 	/// An 'Err' will be returned if generating the proof of possession itself failed.
-	#[cfg(feature = "bls-experimental")]
 	fn bls381_generate_proof_of_possession(
 		&self,
 		key_type: KeyTypeId,
@@ -346,7 +339,6 @@ pub trait Keystore: Send + Sync {
 	/// Returns an [`ecdsa_bls381::Signature`] or `None` in case the given `key_type`
 	/// and `public` combination doesn't exist in the keystore.
 	/// An `Err` will be returned if generating the signature itself failed.
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_sign(
 		&self,
 		key_type: KeyTypeId,
@@ -364,7 +356,6 @@ pub trait Keystore: Send + Sync {
 	/// Returns an [`ecdsa_bls381::Signature`] or `None` in case the given `key_type`
 	/// and `public` combination doesn't exist in the keystore.
 	/// An `Err` will be returned if generating the signature itself failed.
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_sign_with_keccak256(
 		&self,
 		key_type: KeyTypeId,
@@ -434,13 +425,11 @@ pub trait Keystore: Send + Sync {
 					.map_err(|_| Error::ValidationError("Invalid public key format".into()))?;
 				self.bandersnatch_sign(id, &public, msg)?.map(|s| s.encode())
 			},
-			#[cfg(feature = "bls-experimental")]
 			bls381::CRYPTO_ID => {
 				let public = bls381::Public::from_slice(public)
 					.map_err(|_| Error::ValidationError("Invalid public key format".into()))?;
 				self.bls381_sign(id, &public, msg)?.map(|s| s.encode())
 			},
-			#[cfg(feature = "bls-experimental")]
 			ecdsa_bls381::CRYPTO_ID => {
 				let public = ecdsa_bls381::Public::from_slice(public)
 					.map_err(|_| Error::ValidationError("Invalid public key format".into()))?;
@@ -598,17 +587,14 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 		(**self).bandersnatch_ring_vrf_sign(key_type, public, input, prover)
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn bls381_public_keys(&self, id: KeyTypeId) -> Vec<bls381::Public> {
 		(**self).bls381_public_keys(id)
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_public_keys(&self, id: KeyTypeId) -> Vec<ecdsa_bls381::Public> {
 		(**self).ecdsa_bls381_public_keys(id)
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn bls381_generate_new(
 		&self,
 		key_type: KeyTypeId,
@@ -617,7 +603,6 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 		(**self).bls381_generate_new(key_type, seed)
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_generate_new(
 		&self,
 		key_type: KeyTypeId,
@@ -626,7 +611,6 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 		(**self).ecdsa_bls381_generate_new(key_type, seed)
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn bls381_sign(
 		&self,
 		key_type: KeyTypeId,
@@ -636,7 +620,6 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 		(**self).bls381_sign(key_type, public, msg)
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn bls381_generate_proof_of_possession(
 		&self,
 		key_type: KeyTypeId,
@@ -646,7 +629,6 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 		(**self).bls381_generate_proof_of_possession(key_type, public, owner)
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_sign(
 		&self,
 		key_type: KeyTypeId,
@@ -656,7 +638,6 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 		(**self).ecdsa_bls381_sign(key_type, public, msg)
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_sign_with_keccak256(
 		&self,
 		key_type: KeyTypeId,
@@ -704,11 +685,5 @@ impl KeystoreExt {
 sp_core::generate_feature_enabled_macro!(
 	bandersnatch_experimental_enabled,
 	feature = "bandersnatch-experimental",
-	$
-);
-
-sp_core::generate_feature_enabled_macro!(
-	bls_experimental_enabled,
-	feature = "bls-experimental",
 	$
 );
