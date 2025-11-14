@@ -501,7 +501,6 @@ impl Client {
 			.await?;
 
 		let sub = sub.map_err(|e| e.into());
-
 		Ok(StreamOf::new(Box::pin(sub)))
 	}
 
