@@ -149,7 +149,7 @@ fn test_target_block_weight_with_digest_edge_cases() {
 			MaxParachainBlockWeight::<Runtime, ConstU32<4>>::target_block_weight_with_digest(
 				&empty_digest,
 			);
-		assert_eq!(weight, MaxParachainBlockWeight::<Runtime, ConstU32<4>>::FULL_CORE_WEIGHT / 4);
+		assert_eq!(weight, FULL_CORE_WEIGHT / 4);
 
 		// Test with digest containing core info
 		let core_info = CoreInfo {
@@ -575,9 +575,7 @@ fn tx_extension_large_weight_before_first_tx() {
 				if !first_block_in_core {
 					// Should have registered FULL_CORE_WEIGHT to prevent more transactions
 					let final_remaining = frame_system::Pallet::<Runtime>::remaining_block_weight();
-					assert!(final_remaining
-						.consumed()
-						.all_gte(MaximumBlockWeight::FULL_CORE_WEIGHT));
+					assert!(final_remaining.consumed().all_gte(FULL_CORE_WEIGHT));
 				}
 			});
 	}
@@ -636,7 +634,7 @@ fn pre_inherents_hook_non_first_block_over_limit() {
 
 			// Should have registered FULL_CORE_WEIGHT to prevent more transactions
 			let final_remaining = frame_system::Pallet::<Runtime>::remaining_block_weight();
-			assert!(final_remaining.consumed().all_gte(MaximumBlockWeight::FULL_CORE_WEIGHT));
+			assert!(final_remaining.consumed().all_gte(FULL_CORE_WEIGHT));
 		});
 }
 
@@ -821,7 +819,7 @@ fn block_weight_mode_from_previous_block_is_ignored_in_validate_block() {
 				Default::default(),
 			);
 
-			Executive::initialize_block(&Header::new(
+			ExecutiveOnlyOperational::initialize_block(&Header::new(
 				1,
 				Default::default(),
 				Default::default(),
@@ -829,9 +827,9 @@ fn block_weight_mode_from_previous_block_is_ignored_in_validate_block() {
 				Default::default(),
 			));
 
-			assert!(ExecutiveOnlyOperational::apply_extrinsic(xt,).is_ok());
+			assert!(ExecutiveOnlyOperational::apply_extrinsic(xt).is_ok());
 
-			Executive::finalize_block();
+			ExecutiveOnlyOperational::finalize_block();
 
 			assert_eq!(
 				crate::BlockWeightMode::<RuntimeOnlyOperational>::get().unwrap(),
@@ -857,5 +855,33 @@ fn block_weight_mode_from_previous_block_is_ignored_in_validate_block() {
 				.unwrap_err(),
 				InvalidTransaction::ExhaustsResources.into()
 			);
+		});
+}
+
+#[test]
+fn ongoin_mbm_requests_full_core() {
+	TestExtBuilder::new()
+		.number_of_cores(2)
+		.first_block_in_core(true)
+		.build()
+		.execute_with(|| {
+			MbmOngoing::set(true);
+			ExecutiveOnlyOperational::initialize_block(&Header::new(
+				1,
+				Default::default(),
+				Default::default(),
+				Default::default(),
+				Default::default(),
+			));
+
+			assert_eq!(
+				FULL_CORE_WEIGHT,
+				<RuntimeOnlyOperational as frame_system::Config>::BlockWeights::get().max_block
+			);
+
+			ExecutiveOnlyOperational::finalize_block();
+
+			assert!(has_use_full_core_digest());
+			MbmOngoing::set(false);
 		});
 }

@@ -17,9 +17,9 @@
 use super::{
 	block_weight_over_target_block_weight, is_first_block_in_core, BlockWeightMode, LOG_TARGET,
 };
-use crate::block_weight::MaxParachainBlockWeight;
+use crate::block_weight::FULL_CORE_WEIGHT;
 use cumulus_primitives_core::CumulusDigestItem;
-use frame_support::traits::PreInherents;
+use frame_support::{migrations::MultiStepMigrator, traits::PreInherents};
 use sp_core::Get;
 
 /// A pre-inherent hook that may increases max block weight after `on_initialize`.
@@ -39,10 +39,24 @@ where
 {
 	fn pre_inherents() {
 		if !block_weight_over_target_block_weight::<Config, TargetBlockRate>() {
-			// We still initialize the `BlockWeightMode`.
-			crate::BlockWeightMode::<Config>::put(BlockWeightMode::<Config>::fraction_of_core(
-				None,
-			));
+			let new_mode = if Config::MultiBlockMigrator::ongoing() {
+				log::debug!(
+					target: LOG_TARGET,
+					"Multi block migrations are still ongoing, allowing the full core.",
+				);
+
+				// Inform the node that this block uses the full core.
+				frame_system::Pallet::<Config>::deposit_log(
+					CumulusDigestItem::UseFullCore.to_digest_item(),
+				);
+
+				BlockWeightMode::<Config>::full_core()
+			} else {
+				BlockWeightMode::<Config>::fraction_of_core(None)
+			};
+
+			crate::BlockWeightMode::<Config>::put(new_mode);
+
 			return
 		}
 
@@ -57,7 +71,7 @@ where
 			// We are already above the allowed maximum and do not want to accept any more
 			// extrinsics.
 			frame_system::Pallet::<Config>::register_extra_weight_unchecked(
-				MaxParachainBlockWeight::<Config, TargetBlockRate>::FULL_CORE_WEIGHT,
+				FULL_CORE_WEIGHT,
 				frame_support::dispatch::DispatchClass::Mandatory,
 			);
 		} else {

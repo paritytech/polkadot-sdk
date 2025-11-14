@@ -16,7 +16,7 @@
 
 use super::{
 	block_weight_over_target_block_weight, is_first_block_in_core_with_digest, BlockWeightMode,
-	MaxParachainBlockWeight, LOG_TARGET,
+	MaxParachainBlockWeight, LOG_TARGET, FULL_CORE_WEIGHT
 };
 use crate::WeightInfo;
 use alloc::vec::Vec;
@@ -172,7 +172,7 @@ where
 							// We are already above the allowed maximum and do not want to accept any more
 							// extrinsics.
 							frame_system::Pallet::<Config>::register_extra_weight_unchecked(
-								MaxParachainBlockWeight::<Config, TargetBlockRate>::FULL_CORE_WEIGHT,
+								FULL_CORE_WEIGHT,
 								DispatchClass::Mandatory,
 							);
 						}
@@ -284,7 +284,7 @@ where
 							);
 
 							frame_system::Pallet::<Config>::register_extra_weight_unchecked(
-								MaxParachainBlockWeight::<Config, TargetBlockRate>::FULL_CORE_WEIGHT,
+								FULL_CORE_WEIGHT,
 								DispatchClass::Mandatory,
 							);
 						}

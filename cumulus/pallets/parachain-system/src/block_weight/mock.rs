@@ -23,6 +23,7 @@ use cumulus_primitives_core::{
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
+	migrations::MultiStepMigrator,
 	parameter_types,
 	traits::PreInherents,
 	weights::{
@@ -208,27 +209,39 @@ construct_runtime!(
 	}
 );
 
+parameter_types! {
+	pub static MbmOngoing: bool = false;
+}
+
+pub struct Migrator;
+
+impl MultiStepMigrator for Migrator {
+	fn ongoing() -> bool {
+		MbmOngoing::get()
+	}
+
+	fn step() -> Weight {
+		Weight::zero()
+	}
+}
+
 pub mod only_operational_runtime {
+	use super::{BlockOnlyOperational, Migrator};
+	use crate::block_weight::DynamicMaxBlockWeightHooks;
 	use frame_support::{construct_runtime, derive_impl};
 	use sp_core::ConstU32;
 	use sp_runtime::testing::UintAuthorityId;
 
-	use crate::block_weight::{mock::BlockOnlyOperational, DynamicMaxBlockWeightHooks};
-
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for RuntimeOnlyOperational {
-		// Setup the block weight.
 		type BlockWeights = super::max_block_weight_setup::RuntimeBlockWeights;
-		// Set the `PreInherents` hook.
 		type PreInherents =
 			DynamicMaxBlockWeightHooks<Self, ConstU32<{ super::TARGET_BLOCK_RATE }>>;
-
-		// Just required to make it compile, but not that important for this example here.
 		type Block = BlockOnlyOperational;
 		type OnSetCode = crate::ParachainSetCode<Self>;
 		type AccountId = u64;
 		type Lookup = UintAuthorityId;
-		// Rest of the types are omitted here.
+		type MultiBlockMigrator = Migrator;
 	}
 
 	impl crate::Config for RuntimeOnlyOperational {
