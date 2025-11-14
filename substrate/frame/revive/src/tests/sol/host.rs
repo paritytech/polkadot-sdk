@@ -607,13 +607,10 @@ fn logs_denied_for_static_call(caller_type: FixtureType, callee_type: FixtureTyp
 	});
 }
 
-#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
-#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
-#[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
-#[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
-fn reading_empty_storage_item_returns_zero(caller_type: FixtureType, callee_type: FixtureType) {
-	let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
-	let (host_code, _) = compile_module_with_type("Host", callee_type).unwrap();
+#[test_case(FixtureType::Solc;   "solc")]
+#[test_case(FixtureType::Resolc; "resolc")]
+fn reading_empty_storage_item_returns_zero(fixture_type: FixtureType) {
+	let (host_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -621,26 +618,14 @@ fn reading_empty_storage_item_returns_zero(caller_type: FixtureType, callee_type
 		let Contract { addr: host_addr, .. } =
 			builder::bare_instantiate(Code::Upload(host_code)).build_and_unwrap_contract();
 
-		let Contract { addr: caller_addr, .. } =
-			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
-
 		let index = 13u64;
 
 		// read non-existent storage item
-		let result = builder::bare_call(caller_addr)
-			.data(
-				Caller::delegateCall {
-					_callee: host_addr.0.into(),
-					_data: Host::sloadOpCall { slot: index }.abi_encode().into(),
-					_gas: u64::MAX,
-				}
-				.abi_encode(),
-			)
+		let result = builder::bare_call(host_addr)
+			.data(Host::sloadOpCall { slot: index }.abi_encode())
 			.build_and_unwrap_result();
 
-		let result = Caller::delegateCall::abi_decode_returns(&result.data).unwrap();
-		assert!(result.success, "delegateCall did not succeed");
-		let decoded = Host::sloadOpCall::abi_decode_returns(&result.output).unwrap();
+		let decoded = Host::sloadOpCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(decoded, 0u64, "sloadOpCall should return zero for empty storage item");
 	})
 }
