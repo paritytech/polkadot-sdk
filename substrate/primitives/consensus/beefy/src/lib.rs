@@ -169,7 +169,6 @@ pub mod ecdsa_crypto {
 /// Your code should use the above types as concrete types for all crypto related
 /// functionality.
 
-#[cfg(feature = "bls-experimental")]
 pub mod bls_crypto {
 	#[cfg(feature = "std")]
 	use super::Vec;
@@ -229,7 +228,6 @@ pub mod bls_crypto {
 ///
 /// Your code should use the above types as concrete types for all crypto related
 /// functionality.
-#[cfg(feature = "bls-experimental")]
 pub mod ecdsa_bls_crypto {
 	#[cfg(feature = "std")]
 	use super::Vec;
@@ -650,7 +648,6 @@ mod tests {
 	}
 
 	#[test]
-	#[cfg(feature = "bls-experimental")]
 	fn bls_beefy_verify_works() {
 		let msg = &b"test-message"[..];
 		let (pair, _) = bls_crypto::Pair::generate();
@@ -666,7 +663,6 @@ mod tests {
 	}
 
 	#[test]
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls_beefy_verify_works() {
 		let msg = &b"test-message"[..];
 		let (pair, _) = ecdsa_bls_crypto::Pair::generate();

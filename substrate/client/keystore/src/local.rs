@@ -37,9 +37,9 @@ sp_keystore::bandersnatch_experimental_enabled! {
 use sp_core::bandersnatch;
 }
 
-sp_keystore::bls_experimental_enabled! {
-use sp_core::{bls381, ecdsa_bls381, KeccakHasher, proof_of_possession::ProofOfPossessionGenerator};
-}
+use sp_core::{
+	bls381, ecdsa_bls381, proof_of_possession::ProofOfPossessionGenerator, KeccakHasher,
+};
 
 use crate::{Error, Result};
 
@@ -142,20 +142,18 @@ impl LocalKeystore {
 		Ok(pre_output)
 	}
 
-	sp_keystore::bls_experimental_enabled! {
-		fn generate_proof_of_possession<T: CorePair + ProofOfPossessionGenerator>(
-			&self,
-			key_type: KeyTypeId,
-			public: &T::Public,
-			owner: &[u8],
-		) -> std::result::Result<Option<T::ProofOfPossession>, TraitError> {
-			let proof_of_possession = self
-				.0
-				.read()
-				.key_pair_by_type::<T>(public, key_type)?
-				.map(|mut pair| pair.generate_proof_of_possession(owner));
-			Ok(proof_of_possession)
-		}
+	fn generate_proof_of_possession<T: CorePair + ProofOfPossessionGenerator>(
+		&self,
+		key_type: KeyTypeId,
+		public: &T::Public,
+		owner: &[u8],
+	) -> std::result::Result<Option<T::ProofOfPossession>, TraitError> {
+		let proof_of_possession = self
+			.0
+			.read()
+			.key_pair_by_type::<T>(public, key_type)?
+			.map(|mut pair| pair.generate_proof_of_possession(owner));
+		Ok(proof_of_possession)
 	}
 }
 
@@ -349,92 +347,93 @@ impl Keystore for LocalKeystore {
 		}
 	}
 
-	sp_keystore::bls_experimental_enabled! {
-		fn bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<bls381::Public> {
-			self.public_keys::<bls381::Pair>(key_type)
-		}
+	fn bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<bls381::Public> {
+		self.public_keys::<bls381::Pair>(key_type)
+	}
 
-		/// Generate a new pair compatible with the 'bls381' signature scheme.
-		///
-		/// If `[seed]` is `Some` then the key will be ephemeral and stored in memory.
-		fn bls381_generate_new(
-			&self,
-			key_type: KeyTypeId,
-			seed: Option<&str>,
-		) -> std::result::Result<bls381::Public, TraitError> {
-			self.generate_new::<bls381::Pair>(key_type, seed)
-		}
+	/// Generate a new pair compatible with the 'bls381' signature scheme.
+	///
+	/// If `[seed]` is `Some` then the key will be ephemeral and stored in memory.
+	fn bls381_generate_new(
+		&self,
+		key_type: KeyTypeId,
+		seed: Option<&str>,
+	) -> std::result::Result<bls381::Public, TraitError> {
+		self.generate_new::<bls381::Pair>(key_type, seed)
+	}
 
-		fn bls381_sign(
-			&self,
-			key_type: KeyTypeId,
-			public: &bls381::Public,
-			msg: &[u8],
-		) -> std::result::Result<Option<bls381::Signature>, TraitError> {
-			self.sign::<bls381::Pair>(key_type, public, msg)
-		}
+	fn bls381_sign(
+		&self,
+		key_type: KeyTypeId,
+		public: &bls381::Public,
+		msg: &[u8],
+	) -> std::result::Result<Option<bls381::Signature>, TraitError> {
+		self.sign::<bls381::Pair>(key_type, public, msg)
+	}
 
-		fn bls381_generate_proof_of_possession(
-			&self,
-			key_type: KeyTypeId,
-			public: &bls381::Public,
-			owner: &[u8],
-		) -> std::result::Result<Option<bls381::ProofOfPossession>, TraitError> {
-			self.generate_proof_of_possession::<bls381::Pair>(key_type, public, owner)
-		}
+	fn bls381_generate_proof_of_possession(
+		&self,
+		key_type: KeyTypeId,
+		public: &bls381::Public,
+		owner: &[u8],
+	) -> std::result::Result<Option<bls381::ProofOfPossession>, TraitError> {
+		self.generate_proof_of_possession::<bls381::Pair>(key_type, public, owner)
+	}
 
-		fn ecdsa_bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<ecdsa_bls381::Public> {
-			self.public_keys::<ecdsa_bls381::Pair>(key_type)
-		}
+	fn ecdsa_bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<ecdsa_bls381::Public> {
+		self.public_keys::<ecdsa_bls381::Pair>(key_type)
+	}
 
-		/// Generate a new pair of paired-keys compatible with the '(ecdsa,bls381)' signature scheme.
-		///
-		/// If `[seed]` is `Some` then the key will be ephemeral and stored in memory.
-		fn ecdsa_bls381_generate_new(
-			&self,
-			key_type: KeyTypeId,
-			seed: Option<&str>,
-		) -> std::result::Result<ecdsa_bls381::Public, TraitError> {
-			let pubkey = self.generate_new::<ecdsa_bls381::Pair>(key_type, seed)?;
+	/// Generate a new pair of paired-keys compatible with the '(ecdsa,bls381)' signature scheme.
+	///
+	/// If `[seed]` is `Some` then the key will be ephemeral and stored in memory.
+	fn ecdsa_bls381_generate_new(
+		&self,
+		key_type: KeyTypeId,
+		seed: Option<&str>,
+	) -> std::result::Result<ecdsa_bls381::Public, TraitError> {
+		let pubkey = self.generate_new::<ecdsa_bls381::Pair>(key_type, seed)?;
 
-			let s = self
-				.0
-				.read()
-				.additional
-				.get(&(key_type, pubkey.to_vec()))
-				.map(|s| s.to_string())
-				.expect("Can retrieve seed");
+		let s = self
+			.0
+			.read()
+			.additional
+			.get(&(key_type, pubkey.to_vec()))
+			.map(|s| s.to_string())
+			.expect("Can retrieve seed");
 
-			// This is done to give the keystore access to individual keys, this is necessary to avoid
-			// unnecessary host functions for paired keys and re-use host functions implemented for each
-			// element of the pair.
-			self.generate_new::<ecdsa::Pair>(key_type, Some(&*s)).expect("seed slice is valid");
-			self.generate_new::<bls381::Pair>(key_type, Some(&*s)).expect("seed slice is valid");
+		// This is done to give the keystore access to individual keys, this is necessary to avoid
+		// unnecessary host functions for paired keys and re-use host functions implemented for each
+		// element of the pair.
+		self.generate_new::<ecdsa::Pair>(key_type, Some(&*s))
+			.expect("seed slice is valid");
+		self.generate_new::<bls381::Pair>(key_type, Some(&*s))
+			.expect("seed slice is valid");
 
-			Ok(pubkey)
-		}
+		Ok(pubkey)
+	}
 
-		fn ecdsa_bls381_sign(
-			&self,
-			key_type: KeyTypeId,
-			public: &ecdsa_bls381::Public,
-			msg: &[u8],
-		) -> std::result::Result<Option<ecdsa_bls381::Signature>, TraitError> {
-			self.sign::<ecdsa_bls381::Pair>(key_type, public, msg)
-		}
+	fn ecdsa_bls381_sign(
+		&self,
+		key_type: KeyTypeId,
+		public: &ecdsa_bls381::Public,
+		msg: &[u8],
+	) -> std::result::Result<Option<ecdsa_bls381::Signature>, TraitError> {
+		self.sign::<ecdsa_bls381::Pair>(key_type, public, msg)
+	}
 
-		fn ecdsa_bls381_sign_with_keccak256(
-			&self,
-			key_type: KeyTypeId,
-			public: &ecdsa_bls381::Public,
-			msg: &[u8],
-		) -> std::result::Result<Option<ecdsa_bls381::Signature>, TraitError> {
-			 let sig = self.0
+	fn ecdsa_bls381_sign_with_keccak256(
+		&self,
+		key_type: KeyTypeId,
+		public: &ecdsa_bls381::Public,
+		msg: &[u8],
+	) -> std::result::Result<Option<ecdsa_bls381::Signature>, TraitError> {
+		let sig = self
+			.0
 			.read()
 			.key_pair_by_type::<ecdsa_bls381::Pair>(public, key_type)?
 			.map(|pair| pair.sign_with_hasher::<KeccakHasher>(msg));
-			Ok(sig)
-		}
+		Ok(sig)
 	}
 }
 
@@ -861,7 +860,6 @@ mod tests {
 	}
 
 	#[test]
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_generate_with_none_works() {
 		use sp_core::testing::ECDSA_BLS381;
 
@@ -889,7 +887,6 @@ mod tests {
 	}
 
 	#[test]
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_generate_with_seed_works() {
 		use sp_core::testing::ECDSA_BLS381;
 

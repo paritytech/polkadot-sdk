@@ -49,7 +49,6 @@ use scale_info::TypeInfo;
 use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic, Ss58Codec};
 use sp_keyring::Sr25519Keyring;
 
-#[cfg(feature = "bls-experimental")]
 use sp_application_crypto::{bls381, ecdsa_bls381};
 
 use sp_core::OpaqueMetadata;
@@ -187,20 +186,12 @@ pub type Header = sp_runtime::generic::Header<BlockNumber, Hashing>;
 /// Balance of an account.
 pub type Balance = u64;
 
-#[cfg(feature = "bls-experimental")]
 mod bls {
 	use sp_application_crypto::{bls381, ecdsa_bls381};
 	pub type Bls381Public = bls381::AppPublic;
 	pub type Bls381Pop = bls381::AppProofOfPossession;
 	pub type EcdsaBls381Public = ecdsa_bls381::AppPublic;
 	pub type EcdsaBls381Pop = ecdsa_bls381::AppProofOfPossession;
-}
-#[cfg(not(feature = "bls-experimental"))]
-mod bls {
-	pub type Bls381Public = ();
-	pub type Bls381Pop = ();
-	pub type EcdsaBls381Public = ();
-	pub type EcdsaBls381Pop = ();
 }
 pub use bls::*;
 
@@ -627,24 +618,12 @@ impl_runtime_apis! {
 			test_ecdsa_crypto()
 		}
 
-		#[cfg(feature = "bls-experimental")]
 		fn test_bls381_crypto() -> (Bls381Pop, Bls381Public) {
 			test_bls381_crypto()
 		}
 
-		#[cfg(feature = "bls-experimental")]
 		fn test_ecdsa_bls381_crypto() -> (EcdsaBls381Pop, EcdsaBls381Public) {
 			test_ecdsa_bls381_crypto()
-		}
-
-		#[cfg(not(feature = "bls-experimental"))]
-		fn test_bls381_crypto() -> (Bls381Pop, Bls381Public) {
-			((),())
-		}
-
-		#[cfg(not(feature = "bls-experimental"))]
-		fn test_ecdsa_bls381_crypto() -> (EcdsaBls381Pop, EcdsaBls381Public) {
-			((), ())
 		}
 
 		fn test_storage() {
@@ -890,7 +869,6 @@ fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic, ecdsa::AppProo
 	(signature, public0, proof_of_possession)
 }
 
-#[cfg(feature = "bls-experimental")]
 fn test_bls381_crypto() -> (Bls381Pop, Bls381Public) {
 	let mut public0 = bls381::AppPublic::generate_pair(None);
 
@@ -902,7 +880,6 @@ fn test_bls381_crypto() -> (Bls381Pop, Bls381Public) {
 	(proof_of_possession, public0)
 }
 
-#[cfg(feature = "bls-experimental")]
 fn test_ecdsa_bls381_crypto() -> (EcdsaBls381Pop, EcdsaBls381Public) {
 	let mut public0 = ecdsa_bls381::AppPublic::generate_pair(None);
 

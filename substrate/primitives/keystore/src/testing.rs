@@ -21,13 +21,12 @@ use crate::{Error, Keystore, KeystorePtr};
 
 #[cfg(feature = "bandersnatch-experimental")]
 use sp_core::bandersnatch;
-#[cfg(feature = "bls-experimental")]
 use sp_core::{
-	bls381, ecdsa_bls381, proof_of_possession::ProofOfPossessionGenerator, KeccakHasher,
-};
-use sp_core::{
+	bls381,
 	crypto::{ByteArray, KeyTypeId, Pair, VrfSecret},
-	ecdsa, ed25519, sr25519,
+	ecdsa, ecdsa_bls381, ed25519,
+	proof_of_possession::ProofOfPossessionGenerator,
+	sr25519, KeccakHasher,
 };
 
 use parking_lot::RwLock;
@@ -128,7 +127,6 @@ impl MemoryKeystore {
 		Ok(pre_output)
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn generate_proof_of_possession<T: Pair + ProofOfPossessionGenerator>(
 		&self,
 		key_type: KeyTypeId,
@@ -292,12 +290,10 @@ impl Keystore for MemoryKeystore {
 		self.vrf_pre_output::<bandersnatch::Pair>(key_type, public, input)
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<bls381::Public> {
 		self.public_keys::<bls381::Pair>(key_type)
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn bls381_generate_new(
 		&self,
 		key_type: KeyTypeId,
@@ -306,7 +302,6 @@ impl Keystore for MemoryKeystore {
 		self.generate_new::<bls381::Pair>(key_type, seed)
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn bls381_sign(
 		&self,
 		key_type: KeyTypeId,
@@ -316,7 +311,6 @@ impl Keystore for MemoryKeystore {
 		self.sign::<bls381::Pair>(key_type, public, msg)
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn bls381_generate_proof_of_possession(
 		&self,
 		key_type: KeyTypeId,
@@ -326,12 +320,10 @@ impl Keystore for MemoryKeystore {
 		self.generate_proof_of_possession::<bls381::Pair>(key_type, public, owner)
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<ecdsa_bls381::Public> {
 		self.public_keys::<ecdsa_bls381::Pair>(key_type)
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_generate_new(
 		&self,
 		key_type: KeyTypeId,
@@ -357,7 +349,6 @@ impl Keystore for MemoryKeystore {
 		Ok(pubkey)
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_sign(
 		&self,
 		key_type: KeyTypeId,
@@ -367,7 +358,6 @@ impl Keystore for MemoryKeystore {
 		self.sign::<ecdsa_bls381::Pair>(key_type, public, msg)
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_sign_with_keccak256(
 		&self,
 		key_type: KeyTypeId,
@@ -528,7 +518,6 @@ mod tests {
 	}
 
 	#[test]
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_sign_with_keccak_works() {
 		use sp_core::testing::ECDSA_BLS377;
 
@@ -560,7 +549,6 @@ mod tests {
 	}
 
 	#[test]
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_generate_with_none_works() {
 		use sp_core::testing::ECDSA_BLS381;
 
@@ -588,7 +576,6 @@ mod tests {
 	}
 
 	#[test]
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_generate_with_seed_works() {
 		use sp_core::testing::ECDSA_BLS381;
 

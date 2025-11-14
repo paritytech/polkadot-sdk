@@ -338,7 +338,6 @@ mod tests {
 	use sp_core::Pair;
 	use sp_crypto_hashing::keccak_256;
 
-	#[cfg(feature = "bls-experimental")]
 	use crate::bls_crypto::Signature as BlsSignature;
 
 	type TestCommitment = Commitment<u128>;
@@ -349,11 +348,9 @@ mod tests {
 	type TestEcdsaSignedCommitment = SignedCommitment<u128, EcdsaSignature>;
 	type TestVersionedFinalityProof = VersionedFinalityProof<u128, EcdsaSignature>;
 
-	#[cfg(feature = "bls-experimental")]
 	#[derive(Clone, Debug, PartialEq, codec::Encode, codec::Decode)]
 	struct EcdsaBlsSignaturePair(EcdsaSignature, BlsSignature);
 
-	#[cfg(feature = "bls-experimental")]
 	type TestBlsSignedCommitment = SignedCommitment<u128, EcdsaBlsSignaturePair>;
 
 	// Generates mock aggregatable ecdsa signature for generating test commitment
@@ -372,7 +369,6 @@ mod tests {
 
 	// Generates mock aggregatable bls signature for generating test commitment
 	// BLS signatures
-	#[cfg(feature = "bls-experimental")]
 	fn mock_bls_signatures() -> (BlsSignature, BlsSignature) {
 		let alice = sp_core::bls::Pair::from_string("//Alice", None).unwrap();
 
@@ -443,7 +439,6 @@ mod tests {
 	}
 
 	#[test]
-	#[cfg(feature = "bls-experimental")]
 	fn signed_commitment_encode_decode_ecdsa_n_bls() {
 		// given
 		let payload =
