@@ -353,7 +353,7 @@ where
 			}
 
 			// Trigger pre-conect to backing groups if necessary.
-			match (
+			if let (Some((slot_now, _relay_slot, _timestamp)), Ok(authorities)) = (
 				get_parachain_slot::<_, _, P::Public>(
 					para_client,
 					parent_hash,
@@ -362,10 +362,7 @@ where
 				),
 				para_client.runtime_api().authorities(parent_hash),
 			) {
-				(Some((slot_now, _relay_slot, _timestamp)), Ok(authorities)) => {
-					connection_helper.update::<P>(slot_now, &authorities).await;
-				},
-				_ => {},
+				connection_helper.update::<P>(slot_now, &authorities).await;
 			}
 
 			// This needs to change to support elastic scaling, but for continuously
