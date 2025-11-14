@@ -212,6 +212,8 @@ mod benchmarks {
 	fn block_weight_tx_extension_full_core() -> Result<(), BenchmarkError> {
 		let caller = account("caller", 0, 0);
 
+		frame_system::Pallet::<T>::set_block_number(1u32.into());
+
 		frame_system::Pallet::<T>::note_inherents_applied();
 
 		frame_system::Pallet::<T>::set_extrinsic_index(1);
