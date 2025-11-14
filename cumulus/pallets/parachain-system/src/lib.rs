@@ -789,7 +789,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
 	pub type BlockWeightMode<T: Config> =
-		StorageValue<_, block_weight::BlockWeightMode, OptionQuery>;
+		StorageValue<_, block_weight::BlockWeightMode<T>, OptionQuery>;
 
 	/// The core count available to the parachain in the previous block.
 	///

@@ -40,9 +40,9 @@ where
 	fn pre_inherents() {
 		if !block_weight_over_target_block_weight::<Config, TargetBlockRate>() {
 			// We still initialize the `BlockWeightMode`.
-			crate::BlockWeightMode::<Config>::put(BlockWeightMode::FractionOfCore {
-				first_transaction_index: None,
-			});
+			crate::BlockWeightMode::<Config>::put(BlockWeightMode::<Config>::fraction_of_core(
+				None,
+			));
 			return
 		}
 
@@ -67,7 +67,7 @@ where
 			);
 		}
 
-		crate::BlockWeightMode::<Config>::put(BlockWeightMode::FullCore);
+		crate::BlockWeightMode::<Config>::put(BlockWeightMode::<Config>::full_core());
 
 		// Inform the node that this block uses the full core.
 		frame_system::Pallet::<Config>::deposit_log(

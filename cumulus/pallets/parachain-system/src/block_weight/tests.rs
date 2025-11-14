@@ -224,7 +224,7 @@ fn tx_extension_sets_fraction_of_core_mode() {
 
 			assert_eq!(
 				crate::BlockWeightMode::<Runtime>::get(),
-				Some(BlockWeightMode::FractionOfCore { first_transaction_index: Some(0) })
+				Some(BlockWeightMode::fraction_of_core(Some(0)))
 			);
 		});
 }
@@ -268,7 +268,10 @@ fn tx_extension_large_tx_enables_full_core_usage() {
 
 			assert_ok!(TxExtension::post_dispatch((), &info, &mut post_info, 0, &Ok(())));
 
-			assert_eq!(crate::BlockWeightMode::<Runtime>::get(), Some(BlockWeightMode::FullCore));
+			assert_eq!(
+				crate::BlockWeightMode::<Runtime>::get(),
+				Some(BlockWeightMode::full_core())
+			);
 			assert!(has_use_full_core_digest());
 			assert_eq!(MaximumBlockWeight::get().ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND);
 		});
@@ -310,7 +313,7 @@ fn tx_extension_only_allows_large_operational_tx_to_enable_full_core_usage() {
 
 			assert_matches!(
 				crate::BlockWeightMode::<Runtime>::get(),
-				Some(BlockWeightMode::FractionOfCore { first_transaction_index: None })
+				Some(BlockWeightMode::FractionOfCore { first_transaction_index: None, .. })
 			);
 
 			info.class = DispatchClass::Operational;
@@ -335,7 +338,10 @@ fn tx_extension_only_allows_large_operational_tx_to_enable_full_core_usage() {
 
 			assert_ok!(TxExtension::post_dispatch((), &info, &mut post_info, 0, &Ok(())));
 
-			assert_eq!(crate::BlockWeightMode::<Runtime>::get(), Some(BlockWeightMode::FullCore));
+			assert_eq!(
+				crate::BlockWeightMode::<Runtime>::get(),
+				Some(BlockWeightMode::full_core())
+			);
 			assert!(has_use_full_core_digest());
 			assert_eq!(MaximumBlockWeight::get().ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND);
 		});
@@ -427,7 +433,7 @@ fn tx_extension_large_tx_is_rejected_on_non_first_block() {
 			// Should stay in FractionOfCore mode (not PotentialFullCore) since not first block
 			assert_eq!(
 				crate::BlockWeightMode::<Runtime>::get(),
-				Some(BlockWeightMode::FractionOfCore { first_transaction_index: None })
+				Some(BlockWeightMode::fraction_of_core(None))
 			);
 			assert!(!has_use_full_core_digest());
 			assert_eq!(MaximumBlockWeight::get(), target_weight);
@@ -461,7 +467,7 @@ fn tx_extension_post_dispatch_to_full_core_because_of_manual_weight() {
 
 			assert_matches!(
 				crate::BlockWeightMode::<Runtime>::get(),
-				Some(BlockWeightMode::FractionOfCore { first_transaction_index: Some(0) })
+				Some(BlockWeightMode::FractionOfCore { first_transaction_index: Some(0), .. })
 			);
 
 			// But actually uses much more weight (bug in weight annotation)
@@ -476,7 +482,7 @@ fn tx_extension_post_dispatch_to_full_core_because_of_manual_weight() {
 			// Should transition to FullCore due to exceeding limit
 			assert_matches!(
 				crate::BlockWeightMode::<Runtime>::get(),
-				Some(BlockWeightMode::FullCore)
+				Some(BlockWeightMode::FullCore { .. })
 			);
 
 			assert!(has_use_full_core_digest());
@@ -517,7 +523,7 @@ fn tx_extension_large_tx_after_limit_is_rejected() {
 
 			assert_eq!(
 				crate::BlockWeightMode::<Runtime>::get(),
-				Some(BlockWeightMode::FractionOfCore { first_transaction_index: None })
+				Some(BlockWeightMode::fraction_of_core(None))
 			);
 			assert!(!has_use_full_core_digest());
 			assert_eq!(MaximumBlockWeight::get(), target_weight);
@@ -560,7 +566,7 @@ fn tx_extension_large_weight_before_first_tx() {
 
 				assert_matches!(
 					crate::BlockWeightMode::<Runtime>::get(),
-					Some(BlockWeightMode::FullCore)
+					Some(BlockWeightMode::FullCore { .. })
 				);
 
 				assert!(has_use_full_core_digest());
@@ -596,7 +602,7 @@ fn pre_inherents_hook_first_block_over_limit() {
 
 			assert_matches!(
 				crate::BlockWeightMode::<Runtime>::get(),
-				Some(BlockWeightMode::FullCore)
+				Some(BlockWeightMode::FullCore { .. })
 			);
 
 			// Should have UseFullCore digest
@@ -623,7 +629,7 @@ fn pre_inherents_hook_non_first_block_over_limit() {
 
 			assert_matches!(
 				crate::BlockWeightMode::<Runtime>::get(),
-				Some(BlockWeightMode::FullCore)
+				Some(BlockWeightMode::FullCore { .. })
 			);
 
 			assert!(has_use_full_core_digest());
@@ -653,7 +659,7 @@ fn pre_inherents_hook_under_limit_no_change() {
 
 			assert_matches!(
 				crate::BlockWeightMode::<Runtime>::get(),
-				Some(BlockWeightMode::FractionOfCore { first_transaction_index: None })
+				Some(BlockWeightMode::FractionOfCore { first_transaction_index: None, .. })
 			);
 
 			// Should NOT have UseFullCore digest
@@ -719,7 +725,12 @@ fn executive_validate_block_handles_normal_transactions() {
 	TestExtBuilder::new().previous_core_count(3).build().execute_with(|| {
 		let call = RuntimeCallOnlyOperational::TestPallet(test_pallet::Call::heavy_call_normal {});
 
-		let xt = ExtrinsicOnlyOperational::new_signed(call, 1u64.into(), 1u64.into(), Default::default());
+		let xt = ExtrinsicOnlyOperational::new_signed(
+			call,
+			1u64.into(),
+			1u64.into(),
+			Default::default(),
+		);
 
 		assert_eq!(
 			ExecutiveOnlyOperational::validate_transaction(
@@ -824,7 +835,7 @@ fn block_weight_mode_from_previous_block_is_ignored_in_validate_block() {
 
 			assert_eq!(
 				crate::BlockWeightMode::<RuntimeOnlyOperational>::get().unwrap(),
-				BlockWeightMode::FullCore
+				BlockWeightMode::full_core()
 			);
 
 			let call =

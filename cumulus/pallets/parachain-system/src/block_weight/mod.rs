@@ -50,7 +50,11 @@ use crate::{Config, PreviousCoreCount};
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use cumulus_primitives_core::CumulusDigestItem;
-use frame_support::weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight};
+use frame_support::{
+	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
+	CloneNoBound, DebugNoBound,
+};
+use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::MAX_POV_SIZE;
 use scale_info::TypeInfo;
 use sp_core::Get;
@@ -71,12 +75,20 @@ const LOG_TARGET: &str = "runtime::parachain-system::block-weight";
 /// The current block weight mode.
 ///
 /// Based on this mode [`MaxParachainBlockWeight`] determines the current allowed block weight.
-#[derive(Debug, Encode, Decode, Clone, Copy, TypeInfo, PartialEq)]
-pub enum BlockWeightMode {
+#[derive(DebugNoBound, Encode, Decode, CloneNoBound, TypeInfo, PartialEq)]
+#[scale_info(skip_type_params(T))]
+pub enum BlockWeightMode<T: Config> {
 	/// The block is allowed to use the weight of a full core.
-	FullCore,
+	FullCore {
+		/// The block in which this mode was set. Is used to determine if this is maybe stale mode
+		/// setting, e.g. when running `validate_block`.
+		context: BlockNumberFor<T>,
+	},
 	/// The current active transaction is allowed to use the weight of a full core.
 	PotentialFullCore {
+		/// The block in which this mode was set. Is used to determine if this is maybe stale mode
+		/// setting, e.g. when running `validate_block`.
+		context: BlockNumberFor<T>,
 		/// The index of the first transaction.
 		first_transaction_index: Option<u32>,
 		/// The target weight that was used to determine that the extrinsic is above this limit.
@@ -87,9 +99,52 @@ pub enum BlockWeightMode {
 	/// How much each block is allowed to consume, depends on the target number of blocks and the
 	/// available cores on the relay chain.
 	FractionOfCore {
+		/// The block in which this mode was set. Is used to determine if this is maybe stale mode
+		/// setting, e.g. when running `validate_block`.
+		context: BlockNumberFor<T>,
 		/// The index of the first transaction.
 		first_transaction_index: Option<u32>,
 	},
+}
+
+impl<T: Config> BlockWeightMode<T> {
+	/// Check if this mode is stale, aka was set in a previous block.
+	fn is_stale(&self) -> bool {
+		let context = self.context();
+
+		context < frame_system::Pallet::<T>::block_number()
+	}
+
+	/// Returns the context (block) in which this mode was set.
+	fn context(&self) -> BlockNumberFor<T> {
+		match self {
+			Self::FullCore { context } |
+			Self::PotentialFullCore { context, .. } |
+			Self::FractionOfCore { context, .. } => *context,
+		}
+	}
+
+	/// Create a new instance of `Self::FullCore`.
+	fn full_core() -> Self {
+		Self::FullCore { context: frame_system::Pallet::<T>::block_number() }
+	}
+
+	/// Create new instance of `Self::FractionOfCore`.
+	fn fraction_of_core(first_transaction_index: Option<u32>) -> Self {
+		Self::FractionOfCore {
+			context: frame_system::Pallet::<T>::block_number(),
+			first_transaction_index,
+		}
+	}
+
+	/// Create new instance of `Self::PotentialFullCore`.
+	fn potential_full_core(first_transaction_index: Option<u32>, target_weight: Weight) -> Self {
+		Self::PotentialFullCore {
+			context: frame_system::Pallet::<T>::block_number(),
+			first_transaction_index,
+			target_weight,
+		}
+	}
 }
 
 /// Calculates the maximum block weight for a parachain.
@@ -164,10 +219,12 @@ impl<Config: crate::Config, TargetBlockRate: Get<u32>> Get<Weight>
 
 		match crate::BlockWeightMode::<Config>::get() {
 			// We allow the full core.
-			Some(BlockWeightMode::FullCore | BlockWeightMode::PotentialFullCore { .. }) =>
-				Self::FULL_CORE_WEIGHT,
+			Some(
+				BlockWeightMode::<Config>::FullCore { .. } |
+				BlockWeightMode::<Config>::PotentialFullCore { .. },
+			) => Self::FULL_CORE_WEIGHT,
 			// Let's calculate below how much weight we can use.
-			Some(BlockWeightMode::FractionOfCore { .. }) => target_block_weight,
+			Some(BlockWeightMode::<Config>::FractionOfCore { .. }) => target_block_weight,
 			// If we are in `on_initialize` or at applying the inherents, we allow the maximum block
 			// weight as allowed by the current context.
 			None => maybe_full_core_weight,
