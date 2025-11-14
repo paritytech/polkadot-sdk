@@ -199,6 +199,7 @@ pub struct Client {
 	/// A lock to ensure only one subscription can perform write operations at a time.
 	subscription_lock: Arc<Mutex<()>>,
 	block_offset: Arc<RwLock<u64>>,
+	tx_lock: Arc<Mutex<()>>,
 }
 
 /// Fetch the chain ID from the substrate chain.
@@ -295,6 +296,7 @@ impl Client {
 				.then(|| tokio::sync::broadcast::channel::<H256>(NOTIFIER_CAPACITY).0),
 			subscription_lock: Arc::new(Mutex::new(())),
 			block_offset,
+			tx_lock: Arc::new(Mutex::new(())),
 		};
 
 		Ok(client)
@@ -1033,6 +1035,8 @@ impl Client {
 		account: H160,
 		nonce: U256,
 	) -> Result<Option<U256>, ClientError> {
+		let _guard = self.tx_lock.lock().await;
+
 		let alice = dev::alice();
 		let call = RuntimeCall::Revive(ReviveCall::set_evm_nonce_call {
 			address: account,
@@ -1040,6 +1044,7 @@ impl Client {
 		});
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
+
 		let tx = self
 			.api
 			.tx()
@@ -1058,6 +1063,8 @@ impl Client {
 		who: H160,
 		new_free: U256,
 	) -> Result<Option<U256>, ClientError> {
+		let _guard = self.tx_lock.lock().await;
+
 		let alice = dev::alice();
 		let ed_query = subxt_client::constants().balances().existential_deposit();
 		let ed: u128 = self.api.constants().at(&ed_query)?;
@@ -1103,12 +1110,6 @@ impl Client {
 			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
 			.await?;
 
-		// if !self.get_automine().await {
-		// 	let _ = self.mine(Some(U256::from(2)), None).await?;
-		// } else {
-		// 	let _ = self.mine(Some(U256::from(1)), None).await?;
-		// }
-
 		Ok(Some(new_free))
 	}
 
@@ -1116,6 +1117,8 @@ impl Client {
 		&self,
 		base_fee_per_gas: U128,
 	) -> Result<Option<U128>, ClientError> {
+		let _guard = self.tx_lock.lock().await;
+
 		let alice = dev::alice();
 
 		let call =
@@ -1141,6 +1144,7 @@ impl Client {
 		storage_slot: U256,
 		value: U256,
 	) -> Result<Option<U256>, ClientError> {
+		let _guard = self.tx_lock.lock().await;
 		let alice = dev::alice();
 
 		let call = RuntimeCall::Revive(ReviveCall::set_storage_at {
@@ -1164,6 +1168,7 @@ impl Client {
 	}
 
 	pub async fn set_code(&self, dest: H160, code: Bytes) -> Result<Option<H256>, ClientError> {
+		let _guard = self.tx_lock.lock().await;
 		let alice = dev::alice();
 		let code_hash = H256(keccak_256(&code.0));
 
@@ -1199,6 +1204,8 @@ impl Client {
 	}
 
 	pub async fn set_coinbase(&self, coinbase: H160) -> Result<Option<H160>, ClientError> {
+		let _guard = self.tx_lock.lock().await;
+
 		let block_hash = self
 			.block_hash_for_tag(BlockNumberOrTagOrHash::BlockTag(BlockTag::Latest))
 			.await?;
@@ -1223,6 +1230,8 @@ impl Client {
 	}
 
 	pub async fn set_prev_randao(&self, prev_randao: H256) -> Result<Option<H256>, ClientError> {
+		let _guard = self.tx_lock.lock().await;
+
 		let block_hash = self
 			.block_hash_for_tag(BlockNumberOrTagOrHash::BlockTag(BlockTag::Latest))
 			.await?;
@@ -1250,6 +1259,8 @@ impl Client {
 	}
 
 	pub async fn set_next_block_timestamp(&self, next_timestamp: U256) -> Result<(), ClientError> {
+		let _guard = self.tx_lock.lock().await;
+
 		if next_timestamp.is_zero() {
 			return Err(ClientError::ConversionFailed);
 		}
@@ -1294,6 +1305,8 @@ impl Client {
 		&self,
 		block_gas_limit: U128,
 	) -> Result<Option<U128>, ClientError> {
+		let _guard = self.tx_lock.lock().await;
+
 		let alice = dev::alice();
 
 		let call = RuntimeCall::Revive(ReviveCall::set_block_gas_limit {
@@ -1467,7 +1480,10 @@ impl Client {
 		let result: bool = self.rpc_client.request("evm_revert", params).await.unwrap();
 
 		let block = self.api.blocks().at_latest().await?;
-		let _ = self.block_provider.update_latest(Arc::new(block), SubscriptionType::BestBlocks).await;
+		let _ = self
+			.block_provider
+			.update_latest(Arc::new(block), SubscriptionType::BestBlocks)
+			.await;
 
 		Ok(Some(result))
 	}
@@ -1477,7 +1493,10 @@ impl Client {
 			self.rpc_client.request("hardhat_reset", Default::default()).await.unwrap();
 
 		let block = self.api.blocks().at_latest().await?;
-		let _ = self.block_provider.update_latest(Arc::new(block), SubscriptionType::BestBlocks).await;
+		let _ = self
+			.block_provider
+			.update_latest(Arc::new(block), SubscriptionType::BestBlocks)
+			.await;
 
 		Ok(Some(result))
 	}
