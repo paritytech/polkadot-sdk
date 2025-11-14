@@ -118,7 +118,7 @@ fn time_until_next_attempt(
 	block_production_interval: Duration,
 	offset: Duration,
 ) -> (Duration, Timestamp) {
-	let now = now.as_millis().saturating_add(offset.as_millis());
+	let now = now.as_millis().saturating_sub(offset.as_millis());
 
 	let next_slot_time = ((now + block_production_interval.as_millis()) /
 		block_production_interval.as_millis()) *
