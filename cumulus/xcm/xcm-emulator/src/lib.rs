@@ -1199,6 +1199,7 @@ macro_rules! decl_test_networks {
 					let mut sproof = $crate::RelayStateSproofBuilder::default();
 					sproof.para_id = para_id.into();
 					sproof.current_slot = $crate::polkadot_primitives::Slot::from(relay_parent_number as u64);
+					sproof.host_config.max_upward_message_size = 1024 * 1024;
 
 					// egress channel
 					let e_index = sproof.hrmp_egress_channel_index.get_or_insert_with(Vec::new);
