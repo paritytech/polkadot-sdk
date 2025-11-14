@@ -30,7 +30,7 @@ use frame_support::{
 		Weight,
 	},
 };
-use frame_system::limits::BlockWeights;
+use frame_system::{limits::BlockWeights, CheckWeight};
 use sp_core::ConstU32;
 use sp_io;
 use sp_runtime::{
@@ -49,14 +49,20 @@ pub type ExtrinsicOnlyOperational = UncheckedExtrinsic<
 	UintAuthorityId,
 	only_operational_runtime::RuntimeCall,
 	UintAuthorityId,
-	DynamicMaxBlockWeight<RuntimeOnlyOperational, (), ConstU32<TARGET_BLOCK_RATE>, 10, false>,
+	DynamicMaxBlockWeight<
+		RuntimeOnlyOperational,
+		CheckWeight<RuntimeOnlyOperational>,
+		ConstU32<TARGET_BLOCK_RATE>,
+		10,
+		false,
+	>,
 >;
 
 pub type Extrinsic = UncheckedExtrinsic<
 	UintAuthorityId,
 	RuntimeCall,
 	UintAuthorityId,
-	DynamicMaxBlockWeight<Runtime, (), ConstU32<TARGET_BLOCK_RATE>>,
+	DynamicMaxBlockWeight<Runtime, CheckWeight<Runtime>, ConstU32<TARGET_BLOCK_RATE>>,
 >;
 
 pub type Block =

@@ -715,12 +715,6 @@ pub mod pallet {
 				);
 			}
 
-			if let Some(collator_peer_id) = collator_peer_id {
-				PendingUpwardSignals::<T>::mutate(|signals| {
-					signals.push(UMPSignal::ApprovedPeer(collator_peer_id).encode());
-				});
-			}
-
 			total_weight.saturating_accrue(Self::enqueue_inbound_downward_messages(
 				relevant_messaging_state.dmq_mqc_head,
 				inbound_messages_data.downward_messages,

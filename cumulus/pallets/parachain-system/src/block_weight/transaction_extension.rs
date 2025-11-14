@@ -412,7 +412,8 @@ where
 	}
 
 	fn weight(&self, call: &Config::RuntimeCall) -> Weight {
-		Config::WeightInfo::block_weight_tx_extension_max_weight().saturating_add(self.0.weight(call))
+		Config::WeightInfo::block_weight_tx_extension_max_weight()
+			.saturating_add(self.0.weight(call))
 	}
 
 	fn validate(

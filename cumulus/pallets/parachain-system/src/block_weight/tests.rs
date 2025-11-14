@@ -706,7 +706,7 @@ fn executive_validate_block_handles_normal_transactions() {
 	TestExtBuilder::new().previous_core_count(3).build().execute_with(|| {
 		let call = RuntimeCall::TestPallet(test_pallet::Call::heavy_call_normal {});
 
-		let xt = Extrinsic::new_signed(call, 1u64.into(), 1u64.into(), ().into());
+		let xt = Extrinsic::new_signed(call, 1u64.into(), 1u64.into(), Default::default());
 
 		assert!(Executive::validate_transaction(
 			TransactionSource::External,
@@ -719,7 +719,7 @@ fn executive_validate_block_handles_normal_transactions() {
 	TestExtBuilder::new().previous_core_count(3).build().execute_with(|| {
 		let call = RuntimeCallOnlyOperational::TestPallet(test_pallet::Call::heavy_call_normal {});
 
-		let xt = ExtrinsicOnlyOperational::new_signed(call, 1u64.into(), 1u64.into(), ().into());
+		let xt = ExtrinsicOnlyOperational::new_signed(call, 1u64.into(), 1u64.into(), Default::default());
 
 		assert_eq!(
 			ExecutiveOnlyOperational::validate_transaction(
@@ -738,7 +738,7 @@ fn executive_validate_block_handles_operational_transactions() {
 	TestExtBuilder::new().previous_core_count(3).build().execute_with(|| {
 		let call = RuntimeCall::TestPallet(test_pallet::Call::heavy_call_operational {});
 
-		let xt = Extrinsic::new_signed(call, 1u64.into(), 1u64.into(), ().into());
+		let xt = Extrinsic::new_signed(call, 1u64.into(), 1u64.into(), Default::default());
 
 		assert!(Executive::validate_transaction(
 			TransactionSource::External,
@@ -752,7 +752,12 @@ fn executive_validate_block_handles_operational_transactions() {
 		let call =
 			RuntimeCallOnlyOperational::TestPallet(test_pallet::Call::heavy_call_operational {});
 
-		let xt = ExtrinsicOnlyOperational::new_signed(call, 1u64.into(), 1u64.into(), ().into());
+		let xt = ExtrinsicOnlyOperational::new_signed(
+			call,
+			1u64.into(),
+			1u64.into(),
+			Default::default(),
+		);
 
 		assert!(ExecutiveOnlyOperational::validate_transaction(
 			TransactionSource::External,
@@ -784,5 +789,62 @@ fn executive_with_operational_only_applies_big_inherent() {
 			let xt = ExtrinsicOnlyOperational::new_bare(call);
 
 			ExecutiveOnlyOperational::apply_extrinsic(xt).unwrap().unwrap();
+		});
+}
+
+#[test]
+fn block_weight_mode_from_previous_block_is_ignored_in_validate_block() {
+	TestExtBuilder::new()
+		.number_of_cores(4)
+		.first_block_in_core(true)
+		.build()
+		.execute_with(|| {
+			let call = RuntimeCallOnlyOperational::TestPallet(
+				test_pallet::Call::heavy_call_operational {},
+			);
+
+			let xt = ExtrinsicOnlyOperational::new_signed(
+				call,
+				1u64.into(),
+				1u64.into(),
+				Default::default(),
+			);
+
+			Executive::initialize_block(&Header::new(
+				1,
+				Default::default(),
+				Default::default(),
+				Default::default(),
+				Default::default(),
+			));
+
+			assert!(ExecutiveOnlyOperational::apply_extrinsic(xt,).is_ok());
+
+			Executive::finalize_block();
+
+			assert_eq!(
+				crate::BlockWeightMode::<RuntimeOnlyOperational>::get().unwrap(),
+				BlockWeightMode::FullCore
+			);
+
+			let call =
+				RuntimeCallOnlyOperational::TestPallet(test_pallet::Call::heavy_call_normal {});
+
+			let xt = ExtrinsicOnlyOperational::new_signed(
+				call,
+				1u64.into(),
+				1u64.into(),
+				Default::default(),
+			);
+
+			assert_eq!(
+				ExecutiveOnlyOperational::validate_transaction(
+					TransactionSource::External,
+					xt,
+					Default::default()
+				)
+				.unwrap_err(),
+				InvalidTransaction::ExhaustsResources.into()
+			);
 		});
 }

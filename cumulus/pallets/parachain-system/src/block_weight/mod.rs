@@ -162,20 +162,14 @@ impl<Config: crate::Config, TargetBlockRate: Get<u32>> Get<Weight>
 			target_block_weight
 		};
 
-		// If we are in `on_initialize` or at applying the inherents, we allow the maximum block
-		// weight as allowed by the current context.
-		if !frame_system::Pallet::<Config>::inherents_applied() {
-			return maybe_full_core_weight
-		}
-
 		match crate::BlockWeightMode::<Config>::get() {
 			// We allow the full core.
 			Some(BlockWeightMode::FullCore | BlockWeightMode::PotentialFullCore { .. }) =>
 				Self::FULL_CORE_WEIGHT,
 			// Let's calculate below how much weight we can use.
 			Some(BlockWeightMode::FractionOfCore { .. }) => target_block_weight,
-			// Either the runtime is not using the `DynamicMaxBlockWeight` extension or there is a
-			// bug. The value should be set before applying the first extrinsic.
+			// If we are in `on_initialize` or at applying the inherents, we allow the maximum block
+			// weight as allowed by the current context.
 			None => maybe_full_core_weight,
 		}
 	}
