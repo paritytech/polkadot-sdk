@@ -16,7 +16,7 @@
 
 use super::{
 	block_weight_over_target_block_weight, is_first_block_in_core_with_digest, BlockWeightMode,
-	MaxParachainBlockWeight, LOG_TARGET, FULL_CORE_WEIGHT
+	MaxParachainBlockWeight, FULL_CORE_WEIGHT, LOG_TARGET,
 };
 use crate::WeightInfo;
 use alloc::vec::Vec;

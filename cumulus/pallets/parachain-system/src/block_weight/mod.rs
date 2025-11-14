@@ -143,7 +143,10 @@ impl<T: Config> BlockWeightMode<T> {
 	}
 
 	/// Create new instance of `Self::PotentialFullCore`.
-	pub(crate) fn potential_full_core(first_transaction_index: Option<u32>, target_weight: Weight) -> Self {
+	pub(crate) fn potential_full_core(
+		first_transaction_index: Option<u32>,
+		target_weight: Weight,
+	) -> Self {
 		Self::PotentialFullCore {
 			context: frame_system::Pallet::<T>::block_number(),
 			first_transaction_index,
