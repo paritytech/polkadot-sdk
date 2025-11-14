@@ -106,6 +106,7 @@ jobs:
 
       - name: Check semver
         if: ${{ github.ref != 'refs/heads/master' }}
+        shell: bash
         env:
           PRDOC_EXTRA_ARGS: ${{ env.PRDOC_EXTRA_ARGS }}
           PR: ${{ env.PR_NUMBER }}
