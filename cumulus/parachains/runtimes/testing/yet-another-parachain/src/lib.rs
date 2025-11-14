@@ -98,7 +98,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: Cow::Borrowed("yet-another-parachain"),
 	impl_name: Cow::Borrowed("yet-another-parachain"),
 	authoring_version: 1,
-	spec_version: 1_003_000,
+	spec_version: 1_003_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -139,14 +139,15 @@ const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 
 /// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
 /// into the relay chain.
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 10;
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = (2 + RELAY_PARENT_OFFSET) * BLOCK_PROCESSING_VELOCITY + 1;
 
 /// Build with an offset of 1 behind the relay chain.
 const RELAY_PARENT_OFFSET: u32 = 1;
 
 /// How many parachain blocks are processed by the relay chain per parent. Limits the
 /// number of blocks authored per slot.
-const BLOCK_PROCESSING_VELOCITY: u32 = 3;
+const BLOCK_PROCESSING_VELOCITY: u32 = 12;
+
 /// Relay chain slot duration, in milliseconds.
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 
