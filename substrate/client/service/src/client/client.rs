@@ -848,7 +848,7 @@ where
 
 				runtime_api.execute_block(
 					*parent_hash,
-					Block::new(import_block.header.clone(), body.clone()),
+					Block::new(import_block.header.clone(), body.clone()).into(),
 				)?;
 
 				let state = self.backend.state_at(*parent_hash, call_context.into())?;

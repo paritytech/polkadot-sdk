@@ -31,6 +31,7 @@ use sp_runtime::{
 use sp_state_machine::{
 	Backend as StateBackend, BackendTransaction, ChildStorageCollection, InMemoryBackend,
 	IndexOperation, StorageCollection,
+	TrieBackendBuilder,
 };
 use sp_trie::PrefixedMemoryDB;
 use hash_db::Prefix;
@@ -550,7 +551,7 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 	}
 
 	fn commit_complete_partial_state(&mut self) {
-		todo!()
+		// Don't need to do anything.
 	}
 
 	fn insert_aux<I>(&mut self, ops: I) -> sp_blockchain::Result<()>
@@ -599,7 +600,7 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 /// > **Warning**: Doesn't support all the features necessary for a proper database. Only use this
 /// > struct for testing purposes. Do **NOT** use in production.
 pub struct Backend<Block: BlockT> {
-	states: RwLock<HashMap<Block::Hash, InMemoryBackend<HashingFor<Block>>>>,
+	state_db: RwLock<PrefixedMemoryDB<HashingFor<Block>>>,
 	blockchain: Blockchain<Block>,
 	import_lock: RwLock<()>,
 	pinned_blocks: RwLock<HashMap<Block::Hash, i64>>,
@@ -613,7 +614,7 @@ impl<Block: BlockT> Backend<Block> {
 	/// For testing purposes only!
 	pub fn new() -> Self {
 		Backend {
-			states: RwLock::new(HashMap::new()),
+			state_db: RwLock::new(Default::default()),
 			blockchain: Blockchain::new(),
 			import_lock: Default::default(),
 			pinned_blocks: Default::default(),
@@ -686,17 +687,13 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		}
 
 		if let Some(pending_block) = operation.pending_block {
-			let old_state = &operation.old_state;
 			let (header, body, justification) = pending_block.block.into_inner();
 
 			let hash = header.hash();
 
-			let new_state = match operation.new_state {
-				Some(state) => old_state.update_backend(*header.state_root(), state),
-				None => old_state.clone(),
-			};
-
-			self.states.write().insert(hash, new_state);
+			if let Some(new_state) = operation.new_state {
+				self.state_db.write().consolidate(new_state);
+			}
 
 			self.blockchain.insert(hash, header, justification, body, pending_block.state)?;
 		}
@@ -749,11 +746,10 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 			return Ok(Self::State::default())
 		}
 
-		self.states
-			.read()
-			.get(&hash)
-			.cloned()
-			.ok_or_else(|| sp_blockchain::Error::UnknownBlock(format!("{}", hash)))
+		let header = self.blockchain.header(hash)?
+			.ok_or_else(|| sp_blockchain::Error::UnknownBlock(format!("{}", hash)))?;
+
+		Ok(TrieBackendBuilder::new(self.state_db.read().clone(), *header.state_root()).build())
 	}
 
 	fn revert(
@@ -776,8 +772,9 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		false
 	}
 
-	fn import_partial_state(&self, _partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> sp_blockchain::Result<()> {
-		todo!()
+	fn import_partial_state(&self, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> sp_blockchain::Result<()> {
+		self.state_db.write().consolidate(partial_state);
+		Ok(())
 	}
 
 	fn get_trie_node(&self, _prefix: Prefix, _hash: &Block::Hash) -> sp_blockchain::Result<Option<Vec<u8>>> {
@@ -821,6 +818,16 @@ mod tests {
 	use sp_blockchain::Backend;
 	use sp_runtime::{traits::Header as HeaderT, ConsensusEngineId, Justifications};
 	use substrate_test_runtime::{Block, Header, H256};
+	use sp_trie::PrefixedMemoryDB;
+	use crate::in_mem::BlockT;
+	use sp_trie::TrieDBMutBuilder;
+	use sp_trie::LayoutV0;
+	use sp_runtime::traits::HashingFor;
+	use crate::TrieCacheContext;
+	use sp_trie::TrieMut;
+	use crate::backend::Backend as ScClientApiBackend;
+	use crate::backend::BlockImportOperation;
+	use sp_state_machine::Backend as SpStateMachineBackend;
 
 	pub const ID1: ConsensusEngineId = *b"TST1";
 	pub const ID2: ConsensusEngineId = *b"TST2";
@@ -884,5 +891,43 @@ mod tests {
 			blockchain.append_justification(last_finalized, (ID2, vec![1])),
 			Err(sp_blockchain::Error::BadJustification(_)),
 		));
+	}
+
+	#[test]
+	fn import_partial_state() {
+		let expected_key_values = vec![
+			(vec![0u8; 40], vec![0u8; 1]),
+			(vec![1u8; 40], vec![1u8; 1]),
+		];
+
+		let mut partial_state = PrefixedMemoryDB::default();
+		let mut state_root: <Block as BlockT>::Hash = Default::default();
+		let mut trie = TrieDBMutBuilder::<LayoutV0<HashingFor<Block>>>::new(&mut partial_state, &mut state_root).build();
+		for (k, v) in &expected_key_values {
+			trie.insert(k, v).unwrap();
+		}
+		trie.commit();
+		drop(trie);
+
+		let backend = super::Backend::<Block>::new();
+		backend.import_partial_state(partial_state).unwrap();
+
+		let mut op = backend.begin_operation().unwrap();
+		let header = Header {
+			number: 1,
+			parent_hash: Default::default(),
+			state_root,
+			digest: Default::default(),
+			extrinsics_root: Default::default(),
+		};
+		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal).unwrap();
+		op.commit_complete_partial_state();
+		backend.commit_operation(op).unwrap();
+
+		let key_values: Vec<_> = backend.state_at(header.hash(), TrieCacheContext::Untrusted).unwrap()
+			.pairs(Default::default()).unwrap()
+			.map(Result::unwrap)
+			.collect();
+		assert_eq!(key_values, expected_key_values);
 	}
 }
