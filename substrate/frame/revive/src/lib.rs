@@ -2057,9 +2057,9 @@ impl<T: Config> Pallet<T> {
 	/// practice. It is used to determine the block gas limit
 	pub fn max_storage_deposit() -> BalanceOf<T> {
 		// Assume that transactions in that block deploy new contracts and upload contract code up
-		// to the POV limits of the block
+		// to the maximum extrinsic length of the block.
 		T::DepositPerItem::get()
-			.saturating_mul(T::BlockWeights::get().max_block.proof_size().saturated_into())
+			.saturating_mul((*T::BlockLength::get().max.get(DispatchClass::Normal)).into())
 	}
 
 	/// The maximum weight an `eth_transact` is allowed to consume.
