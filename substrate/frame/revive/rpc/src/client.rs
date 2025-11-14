@@ -82,6 +82,29 @@ pub enum SubscriptionType {
 	FinalizedBlocks,
 }
 
+/// Submit Error reason.
+#[derive(Debug)]
+pub struct SubmitError(pub &'static str);
+
+impl std::fmt::Display for SubmitError {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{}", self.0)
+	}
+}
+
+impl From<TransactionStatus<SubstrateBlockHash>> for SubmitError {
+	fn from(status: TransactionStatus<SubstrateBlockHash>) -> Self {
+		match status {
+			TransactionStatus::Usurped(_) =>
+				SubmitError("Transaction was usurped by another with the same nonce"),
+			TransactionStatus::Dropped => SubmitError("Transaction was dropped"),
+			TransactionStatus::Invalid =>
+				SubmitError("Transaction is invalid (eg because of a bad nonce, signature etc)"),
+			_ => SubmitError("Unknown transaction status"),
+		}
+	}
+}
+
 /// The error type for the client.
 #[derive(Error, Debug)]
 pub enum ClientError {
@@ -100,8 +123,8 @@ pub enum ClientError {
 	#[error(transparent)]
 	CodecError(#[from] codec::Error),
 	/// author_submitExtrinsic failed.
-	#[error("Invalid transaction: {0:?}")]
-	SubmitError(Option<TransactionStatus<SubstrateBlockHash>>),
+	#[error("Invalid transaction: {0}")]
+	SubmitError(SubmitError),
 	/// Transcact call failed.
 	#[error("contract reverted: {0:?}")]
 	TransactError(EthTransactError),
@@ -512,7 +535,7 @@ impl Client {
 						TransactionStatus::Dropped |
 						TransactionStatus::Invalid),
 					) => {
-						return Err(ClientError::SubmitError(Some(tx)));
+						return Err(ClientError::SubmitError(tx.into()));
 					},
 					Err(err) => {
 						log::debug!(target: LOG_TARGET, "Transaction submission failed: {err:?}");
@@ -520,7 +543,9 @@ impl Client {
 					},
 				}
 			}
-			return Err(ClientError::SubmitError(None))
+			return Err(ClientError::SubmitError(SubmitError(
+				"Transaction stream ended without status",
+			)))
 		})
 		.await
 		.map_err(|_| ClientError::Timeout)?
