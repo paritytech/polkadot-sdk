@@ -28,6 +28,7 @@ use crate::{
 	},
 	tracing::trace,
 	Code, Config, Error, EthBlockBuilderFirstValues, GenesisConfig, Origin, Pallet, PristineCode,
+	Weight, U256,
 };
 use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::{
@@ -113,7 +114,10 @@ fn basic_evm_flow_tracing_works() {
 	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
-		let mut tracer = CallTracer::new(Default::default(), |_| crate::U256::zero());
+		let mut tracer =
+			CallTracer::<Test, U256, fn(Weight) -> U256>::new(Default::default(), |_| {
+				crate::U256::zero()
+			});
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
 		let Contract { addr, .. } = trace(&mut tracer, || {
@@ -138,7 +142,10 @@ fn basic_evm_flow_tracing_works() {
 			}
 		);
 
-		let mut call_tracer = CallTracer::new(Default::default(), |_| crate::U256::zero());
+		let mut call_tracer =
+			CallTracer::<Test, U256, fn(Weight) -> U256>::new(Default::default(), |_| {
+				crate::U256::zero()
+			});
 		let result = trace(&mut call_tracer, || {
 			builder::bare_call(addr)
 				.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 10u64 }).abi_encode())

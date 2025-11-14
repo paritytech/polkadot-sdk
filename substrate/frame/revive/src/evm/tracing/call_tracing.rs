@@ -104,19 +104,23 @@ impl<T: Config, Gas: Default + core::fmt::Debug, GasMapper: Fn(Weight) -> Gas> T
 		}
 
 		if self.traces.is_empty() || !self.config.only_top_call {
-			let (call_type, input) = match self.code_with_salt.take() {
-				Some((Code::Upload(v), salt)) => (
+			let (call_type, input, output) = match self.code_with_salt.take() {
+				Some((Code::Upload(code), salt)) => (
 					if salt { CallType::Create2 } else { CallType::Create },
-					v.into_iter().chain(input.to_vec().into_iter()).collect::<Vec<_>>(),
+					code.clone().into_iter().chain(input.to_vec().into_iter()).collect::<Vec<_>>(),
+					code,
 				),
-				Some((Code::Existing(code_hash), salt)) => (
-					if salt { CallType::Create2 } else { CallType::Create },
-					<PristineCode<T>>::get(&code_hash)
-						.unwrap_or_default()
-						.into_iter()
-						.chain(input.to_vec().into_iter())
-						.collect::<Vec<_>>(),
-				),
+				Some((Code::Existing(code_hash), salt)) => {
+					let code = PristineCode::<T>::get(&code_hash).unwrap_or_default();
+					(
+						if salt { CallType::Create2 } else { CallType::Create },
+						code.clone()
+							.into_iter()
+							.chain(input.to_vec().into_iter())
+							.collect::<Vec<_>>(),
+						code,
+					)
+				},
 				None => {
 					let call_type = if is_read_only {
 						CallType::StaticCall
@@ -125,7 +129,7 @@ impl<T: Config, Gas: Default + core::fmt::Debug, GasMapper: Fn(Weight) -> Gas> T
 					} else {
 						CallType::Call
 					};
-					(call_type, input.to_vec())
+					(call_type, input.to_vec(), Vec::new())
 				},
 			};
 
@@ -135,6 +139,7 @@ impl<T: Config, Gas: Default + core::fmt::Debug, GasMapper: Fn(Weight) -> Gas> T
 				value: if is_read_only { None } else { Some(value) },
 				call_type,
 				input: input.into(),
+				output: output.into(),
 				gas: (self.gas_mapper)(gas_left),
 				..Default::default()
 			});
