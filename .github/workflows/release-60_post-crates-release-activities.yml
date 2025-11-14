@@ -258,10 +258,8 @@ jobs:
 
             if [[ "$FULL_RELEASE" =~ ^(.+)-[^-]+$ ]]; then
               BASE_RELEASE="${BASH_REMATCH[1]}"
-              echo "Detected format with suffix: $FULL_RELEASE -> $BASE_RELEASE"
             else
               BASE_RELEASE="$FULL_RELEASE"
-              echo "Detected format without suffix: $BASE_RELEASE"
             fi
 
             echo "Creating PR from $BRANCH_NAME to $BASE_RELEASE..."
@@ -276,8 +274,7 @@ jobs:
               --base "$BASE_RELEASE" \
               --head "$BRANCH_NAME" || echo "PR may already exist or there was an error creating it"
           else
-            echo "ERROR: Could not extract base release branch from: $BRANCH_NAME"
-            echo "Expected format: post-crates-release-<release-name> or post-crates-release-<release-name>-<suffix>"
+            echo "ERROR: Could not extract base release branch from: $BRANCH_NAME, probably wrong format"
             exit 1
           fi
 
