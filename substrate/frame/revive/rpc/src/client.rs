@@ -101,7 +101,7 @@ pub enum ClientError {
 	CodecError(#[from] codec::Error),
 	/// author_submitExtrinsic failed.
 	#[error("Invalid transaction: {0:?}")]
-	SubmitError(TransactionStatus<SubstrateBlockHash>),
+	SubmitError(Option<TransactionStatus<SubstrateBlockHash>>),
 	/// Transcact call failed.
 	#[error("contract reverted: {0:?}")]
 	TransactError(EthTransactError),
@@ -137,6 +137,9 @@ pub enum ClientError {
 	/// Receipt data length mismatch.
 	#[error("Receipt data length mismatch")]
 	ReceiptDataLengthMismatch,
+	/// Transaction submission timeout.
+	#[error("Transaction submission timeout")]
+	Timeout,
 }
 const LOG_TARGET: &str = "eth-rpc::client";
 
@@ -483,47 +486,44 @@ impl Client {
 	pub async fn submit(
 		&self,
 		call: subxt::tx::DefaultPayload<EthTransact>,
-	) -> Result<(), ClientError> {
+	) -> Result<TransactionStatus<SubstrateBlockHash>, ClientError> {
 		let mut progress = self.submit_transaction(call).await.inspect_err(|err| {
-			log::debug!(target: LOG_TARGET, "Err: {err:?}");
+			log::debug!(target: LOG_TARGET, "Failed to submit transaction: {err:?}");
 		})?;
 
-		if let Err(err) = tokio::time::timeout(Duration::from_millis(500), async {
+		tokio::time::timeout(Duration::from_millis(1000), async {
 			while let Some(status) = progress.next().await {
 				match status {
-					Ok(TransactionStatus::Future | TransactionStatus::Ready) => {
-						return Ok(());
+					Ok(
+						tx @ (TransactionStatus::Future |
+						TransactionStatus::Ready |
+						// Add other events that follow Ready here for completeness,
+						// but they can be ignored.
+						TransactionStatus::Broadcast(_) |
+						TransactionStatus::InBlock(_) |
+						TransactionStatus::FinalityTimeout(_) |
+						TransactionStatus::Retracted(_) |
+						TransactionStatus::Finalized(_)),
+					) => {
+						return Ok(tx);
 					},
 					Ok(
 						tx @ (TransactionStatus::Usurped(_) |
 						TransactionStatus::Dropped |
 						TransactionStatus::Invalid),
 					) => {
-						return Err(ClientError::SubmitError(tx));
+						return Err(ClientError::SubmitError(Some(tx)));
 					},
-					// Ignore other statuses
-					Ok(
-						TransactionStatus::FinalityTimeout(_) |
-						TransactionStatus::Broadcast(_) |
-						TransactionStatus::InBlock(_) |
-						TransactionStatus::Retracted(_) |
-						TransactionStatus::Finalized(_),
-					) => {},
 					Err(err) => {
-						log::error!(target: LOG_TARGET, "Transaction submission error: {err:?}");
+						log::debug!(target: LOG_TARGET, "Transaction submission failed: {err:?}");
 						return Err(ClientError::from(err));
 					},
 				}
 			}
-			Ok(())
+			return Err(ClientError::SubmitError(None))
 		})
 		.await
-		{
-			log::warn!(target: LOG_TARGET, "timeout waiting for transaction status: {err:?}");
-			return Ok(());
-		}
-
-		Ok(())
+		.map_err(|_| ClientError::Timeout)?
 	}
 
 	/// Get an EVM transaction receipt by hash.
