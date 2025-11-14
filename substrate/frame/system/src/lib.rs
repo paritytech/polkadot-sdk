@@ -2341,7 +2341,7 @@ impl<T: Config> Pallet<T> {
 			};
 
 			cfg_if::cfg_if! {
-				if #[cfg(all(feature = "runtime-benchmarks", not(test)))] {
+				if #[cfg(all(feature = "runtime-benchmarks", not(test), not(feature = "std")))] {
 					// Let's ensure the compiler doesn't optimize our fetching of the runtime version away.
 					core::hint::black_box((new_version, current_version));
 				} else {
