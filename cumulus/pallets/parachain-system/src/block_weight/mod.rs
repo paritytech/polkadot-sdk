@@ -130,12 +130,12 @@ impl<T: Config> BlockWeightMode<T> {
 	}
 
 	/// Create a new instance of `Self::FullCore`.
-	fn full_core() -> Self {
+	pub(crate) fn full_core() -> Self {
 		Self::FullCore { context: frame_system::Pallet::<T>::block_number() }
 	}
 
 	/// Create new instance of `Self::FractionOfCore`.
-	fn fraction_of_core(first_transaction_index: Option<u32>) -> Self {
+	pub(crate) fn fraction_of_core(first_transaction_index: Option<u32>) -> Self {
 		Self::FractionOfCore {
 			context: frame_system::Pallet::<T>::block_number(),
 			first_transaction_index,
@@ -143,7 +143,7 @@ impl<T: Config> BlockWeightMode<T> {
 	}
 
 	/// Create new instance of `Self::PotentialFullCore`.
-	fn potential_full_core(first_transaction_index: Option<u32>, target_weight: Weight) -> Self {
+	pub(crate) fn potential_full_core(first_transaction_index: Option<u32>, target_weight: Weight) -> Self {
 		Self::PotentialFullCore {
 			context: frame_system::Pallet::<T>::block_number(),
 			first_transaction_index,
