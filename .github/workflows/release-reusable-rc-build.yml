@@ -76,7 +76,7 @@ jobs:
           which pgpkms
 
       - name: Checkout sources
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ inputs.release_tag }}
           fetch-depth: 0
@@ -121,7 +121,7 @@ jobs:
           check_gpg  ${{ matrix.binaries }}
 
       - name: Upload ${{ matrix.binaries }} artifacts
-        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: ${{ matrix.binaries }}_${{ inputs.target }}
           path: /artifacts/${{ matrix.binaries }}
@@ -187,6 +187,19 @@ jobs:
            mkdir -p ~/.gnupg/
            touch ~/.gnupg/dirmngr.conf
            echo "standard-resolver" >  ~/.gnupg/dirmngr.conf
+
+       - name: Install solc
+         run: brew install solidity
+
+       - name: Install resolc
+         run: |
+            VERSION="0.3.0"
+            ASSET_URL="https://github.com/paritytech/revive/releases/download/v$VERSION/resolc-universal-apple-darwin"
+            echo "Downloading resolc v$VERSION from $ASSET_URL"
+            curl -Lsf --show-error -o $HOME/.cargo/bin/resolc "$ASSET_URL"
+            chmod +x $HOME/.cargo/bin/resolc
+            xattr -c $HOME/.cargo/bin/resolc
+            resolc --version
 
        - name: Install llvm
          run: |
@@ -320,7 +333,7 @@ jobs:
           target/production/*.rpm
 
     - name: Upload ${{inputs.package }} artifacts
-      uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
       with:
         name: ${{ inputs.package }}_${{ inputs.target }}
         path: target/production
