@@ -59,7 +59,7 @@ use sp_runtime::{
 /// Before dispatching an extrinsic the extension will check the requirements and set the
 /// appropriate [`BlockWeightMode`]. After the extrinsic has finished, the checks from before
 /// dispatching the extrinsic are repeated with the post dispatch weights. The [`BlockWeightMode`]
-/// may is changed properly.
+/// is changed properly.
 ///
 /// # Note
 ///
