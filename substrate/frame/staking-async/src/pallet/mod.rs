@@ -1433,14 +1433,28 @@ pub mod pallet {
 		fn on_poll(_now: BlockNumberFor<T>, weight_meter: &mut WeightMeter) {
 			let (weight, exec) = EraElectionPlanner::<T>::maybe_fetch_election_results();
 			crate::log!(
-				trace,
+				debug,
 				"weight of fetching next election page is {:?}, have {:?}",
 				weight,
 				weight_meter.remaining()
 			);
 
-			if weight_meter.can_consume(weight) {
-				exec(weight_meter);
+			use cumulus_primitives_storage_weight_reclaim::StorageWeightReclaimer;
+			let mut reclaimer = StorageWeightReclaimer::new(weight_meter);
+			if weight_meter.try_consume(weight).is_ok() {
+				crate::log!(
+					debug,
+					"weight usage post consume: {:?}",
+					weight_meter.remaining().proof_size()
+				);
+				exec();
+				let _reclaimed = reclaimer.reclaim_with_meter(weight_meter).defensive();
+				crate::log!(
+					debug,
+					" weight usage post refund: {:?}, reclaimed: {:?}",
+					weight_meter.remaining().proof_size(),
+					_reclaimed
+				);
 			} else {
 				Self::deposit_event(Event::<T>::Unexpected(
 					UnexpectedKind::PagedElectionOutOfWeight {

@@ -77,7 +77,6 @@ mod tests;
 pub use crate::weights::traits::pallet_election_provider_multi_block_verifier::*;
 
 use frame_election_provider_support::PageIndex;
-use frame_support::weights::WeightMeter;
 use impls::SupportsOfVerifier;
 pub use impls::{feasibility_check_page_inner_with_snapshot, pallet::*, Status};
 use sp_core::Get;
@@ -220,7 +219,7 @@ pub trait Verifier {
 	/// `on_init` independent).
 	///
 	/// Returns a `(Weight, ExecFn)` tuple in-line with `per_block_exec` of the parent block.
-	fn per_block_exec() -> (Weight, Box<dyn Fn(&mut WeightMeter)>);
+	fn per_block_exec() -> (Weight, Box<dyn Fn()>);
 }
 
 /// Simple enum to encapsulate the result of the verification of a candidate solution.

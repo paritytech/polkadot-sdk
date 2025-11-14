@@ -622,11 +622,10 @@ pub(crate) mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	fn do_per_block_exec() -> (Weight, Box<dyn Fn(&mut WeightMeter)>) {
-		use cumulus_primitives_storage_weight_reclaim::StorageWeightReclaimer;
+	fn do_per_block_exec() -> (Weight, Box<dyn Fn() -> ()>) {
 		let Status::Ongoing(current_page) = Self::status_storage() else {
 			let weight = T::DbWeight::get().reads(1);
-			return (weight, Box::new(move |meter: &mut WeightMeter| meter.consume(weight)))
+			return (weight, Box::new(move || {}))
 		};
 
 		// before executing, we don't know which weight we will consume; return the max.
@@ -635,8 +634,7 @@ impl<T: Config> Pallet<T> {
 			.max(VerifierWeightsOf::<T>::verification_invalid_non_terminal(T::Pages::get()))
 			.max(VerifierWeightsOf::<T>::verification_invalid_terminal());
 
-		let execute = Box::new(move |meter: &mut WeightMeter| {
-			let mut reclaimer = StorageWeightReclaimer::new(meter);
+		let execute = Box::new(move || {
 			let page_solution =
 				<T::SolutionDataProvider as SolutionDataProvider>::get_page(current_page);
 			let maybe_supports = Self::feasibility_check_page_inner(page_solution, current_page);
@@ -669,7 +667,6 @@ impl<T: Config> Pallet<T> {
 						match Self::finalize_async_verification(claimed_score) {
 							Ok(_) => {
 								T::SolutionDataProvider::report_result(VerificationResult::Queued);
-								meter.consume(VerifierWeightsOf::<T>::verification_valid_terminal())
 							},
 							Err(_) => {
 								T::SolutionDataProvider::report_result(
@@ -697,10 +694,9 @@ impl<T: Config> Pallet<T> {
 					if was_ongoing {
 						T::SolutionDataProvider::report_result(VerificationResult::Rejected);
 					}
-					let wasted_pages = T::Pages::get().saturating_sub(current_page);
+					let _wasted_pages = T::Pages::get().saturating_sub(current_page);
 				},
 			}
-			let _reclaimed = reclaimer.reclaim_with_meter(meter);
 		});
 
 		(worst_case_weight, execute)
@@ -1001,7 +997,7 @@ impl<T: Config> Verifier for Pallet<T> {
 		QueuedSolution::<T>::force_set_single_page_valid(page, partial_supports, score);
 	}
 
-	fn per_block_exec() -> (Weight, Box<dyn Fn(&mut WeightMeter)>) {
+	fn per_block_exec() -> (Weight, Box<dyn Fn()>) {
 		Self::do_per_block_exec()
 	}
 }

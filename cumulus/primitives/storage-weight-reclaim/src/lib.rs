@@ -44,7 +44,7 @@ const LOG_TARGET: &'static str = "runtime::storage_reclaim";
 /// `StorageWeightReclaimer` is a mechanism for manually reclaiming storage weight.
 ///
 /// It internally keeps track of the proof size and storage weight at initialization time. At
-/// reclaim  it computes the real consumed storage weight and refunds excess weight.
+/// reclaim it computes the real consumed storage weight and refunds excess weight.
 ///
 /// # Example
 #[doc = docify::embed!("src/tests.rs", simple_reclaimer_example)]

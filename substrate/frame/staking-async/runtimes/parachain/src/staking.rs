@@ -87,7 +87,7 @@ parameter_types! {
 	/// (MaxSubmissions * Pages) for both, enough to verify all solutions.
 	///
 	/// Reasoning: Less security needed in Kusama, to compensate for the shorter session duration.
-	pub storage SignedValidationPhase: u32 = Pages::get() * 2;
+	pub storage SignedValidationPhase: u32 = Pages::get();
 
 	/// * Polkadot: 200 blocks, 20m.
 	/// * Kusama: 100 blocks, 10m.
@@ -102,7 +102,7 @@ parameter_types! {
 	///   blocks is more than enough.
 	///
 	/// See `signed_weight_ratios` test below for more info.
-	pub storage SignedPhase: u32 = 4 * MINUTES;
+	pub storage SignedPhase: u32 = 2 * MINUTES;
 
 	/// * Polkadot: 4
 	/// * Kusama: 4

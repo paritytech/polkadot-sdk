@@ -737,9 +737,9 @@ pub mod pallet {
 				// pre-exec weight is simply addition.
 				self_weight.saturating_add(verifier_weight),
 				// our new exec is..
-				Box::new(move |meter: &mut WeightMeter| {
-					self_exec(meter);
-					verifier_exc(meter);
+				Box::new(|| {
+					self_exec();
+					verifier_exc();
 				}),
 			);
 
@@ -751,9 +751,19 @@ pub mod pallet {
 				combined_weight,
 				weight_meter.remaining()
 			);
-			if weight_meter.can_consume(combined_weight) {
-				combined_exec(weight_meter);
+			use cumulus_primitives_storage_weight_reclaim::StorageWeightReclaimer;
+			let mut reclaimer = StorageWeightReclaimer::new(weight_meter);
+			if weight_meter.try_consume(combined_weight).is_ok() {
+				log!(debug, "weight left post consume: {:?}", weight_meter.remaining().proof_size());
+				combined_exec();
 				Self::phase_transition(next_phase);
+				let _reclaimed = reclaimer.reclaim_with_meter(weight_meter).defensive();
+				crate::log!(
+					debug,
+					" weight left post refund: {:?}, reclaimed: {:?}",
+					weight_meter.remaining().proof_size(),
+					_reclaimed
+				);
 			} else {
 				Self::deposit_event(Event::UnexpectedPhaseTransitionOutOfWeight {
 					from: current_phase,
@@ -1300,28 +1310,24 @@ impl<T: Config> Pallet<T> {
 	///
 	/// * The `Weight` is the pre-computed worst case weight of the operation that we are going to
 	///   do.
-	/// * The `Box<dyn Fn(&mut WeightMeter)>` is the function that represents that the work that
-	///   will at most consume the said amount of weight. While executing, it will alter the given
-	///   weight meter to consume the actual weight used. Indeed, the weight that is registered in the `WeightMeter` must never be more than the `Weight` returned as the first item of the tuple.
+	/// * The `Box<dyn Fn()>` is the function that represents that the work that
+	///   will at most consume the said amount of weight. The is the resposibility of the caller to alter the weight meter after calling it.
 	///
 	/// In essence, the caller must:
 	///
 	/// 1. given an existing `meter`, receive `(worst_weight, exec)`
 	/// 2. ensure `meter` can consume up to `worst_weight`.
 	/// 3. if so, call `exec(meter)`, knowing `meter` will accumulate at most `worst_weight` extra.
-	fn per_block_exec(current_phase: Phase<T>) -> (Weight, Box<dyn Fn(&mut WeightMeter)>) {
-		use cumulus_primitives_storage_weight_reclaim::StorageWeightReclaimer;
-		type ExecuteFn = Box<dyn Fn(&mut WeightMeter)>;
-		let noop: (Weight, ExecuteFn) = (T::WeightInfo::per_block_nothing(), Box::new(|_| {}));
+	fn per_block_exec(current_phase: Phase<T>) -> (Weight, Box<dyn Fn()>) {
+		type ExecuteFn = Box<dyn Fn()>;
+		let noop: (Weight, ExecuteFn) = (T::WeightInfo::per_block_nothing(), Box::new(|| {}));
 
 		match current_phase {
 			Phase::Snapshot(x) if x == T::Pages::get() => {
 				// first snapshot
 				let weight = T::WeightInfo::per_block_snapshot_msp();
-				let exec: ExecuteFn = Box::new(move |meter: &mut WeightMeter| {
-					let mut reclaimer = StorageWeightReclaimer::new(meter);
+				let exec: ExecuteFn = Box::new(|| {
 					Self::create_targets_snapshot();
-					let _reclaimed = reclaimer.reclaim_with_meter(meter);
 				});
 				(weight, exec)
 			},
@@ -1329,10 +1335,8 @@ impl<T: Config> Pallet<T> {
 			Phase::Snapshot(x) => {
 				// rest of the snapshot, incl last one.
 				let weight = T::WeightInfo::per_block_snapshot_rest();
-				let exec: ExecuteFn = Box::new(move |meter: &mut WeightMeter| {
-					let mut reclaimer = StorageWeightReclaimer::new(meter);
+				let exec: ExecuteFn = Box::new(move || {
 					Self::create_voters_snapshot_paged(x);
-					let _reclaimed = reclaimer.reclaim_with_meter(meter);
 				});
 				(weight, exec)
 			},
@@ -1341,11 +1345,10 @@ impl<T: Config> Pallet<T> {
 				// exists.
 				if x.is_zero() && T::Signed::has_leader(Self::round()) {
 					let weight = T::WeightInfo::per_block_start_signed_validation();
-					let exec: ExecuteFn = Box::new(move |meter: &mut WeightMeter| {
+					let exec: ExecuteFn = Box::new(|| {
 						// defensive: signed phase has just began, verifier should be in a clear
 						// state and ready to accept a solution.
 						let _ = T::Verifier::start().defensive();
-						meter.consume(weight)
 					});
 					(weight, exec)
 				} else {
@@ -1983,7 +1986,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 #[cfg(test)]
 mod phase_rotation {
 	use super::{Event, *};
-	use crate::{Phase, mock::*, verifier::Status};
+	use crate::{mock::*, verifier::Status, Phase};
 	use frame_election_provider_support::ElectionProvider;
 	use frame_support::assert_ok;
 
@@ -2352,13 +2355,22 @@ mod phase_rotation {
 			roll_to_signed_validation_open();
 			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(2, 3));
 
-			roll_next_and_phase_verifier(Phase::SignedValidation(SignedValidationPhase::get() - 1), Status::Ongoing(1));
+			roll_next_and_phase_verifier(
+				Phase::SignedValidation(SignedValidationPhase::get() - 1),
+				Status::Ongoing(1),
+			);
 			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(1, 7));
 
-			roll_next_and_phase_verifier(Phase::SignedValidation(SignedValidationPhase::get() - 2), Status::Ongoing(0));
+			roll_next_and_phase_verifier(
+				Phase::SignedValidation(SignedValidationPhase::get() - 2),
+				Status::Ongoing(0),
+			);
 			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(1, 7));
 
-			roll_next_and_phase_verifier(Phase::SignedValidation(SignedValidationPhase::get() - 3), Status::Nothing);
+			roll_next_and_phase_verifier(
+				Phase::SignedValidation(SignedValidationPhase::get() - 3),
+				Status::Nothing,
+			);
 			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(1, 7));
 
 			// we also don't do anything during unsigned phase.
@@ -2369,7 +2381,8 @@ mod phase_rotation {
 			roll_next_and_phase(Phase::Unsigned(UnsignedPhase::get() - 2));
 			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(2, 0));
 
-			// Export weight is computed by us, but registered by whoever calls `elect`, not our business to check.
+			// Export weight is computed by us, but registered by whoever calls `elect`, not our
+			// business to check.
 		});
 	}
 
