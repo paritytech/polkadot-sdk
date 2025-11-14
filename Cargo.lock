@@ -79,6 +79,17 @@ dependencies = [
 
 [[package]]
 name = "ahash"
+version = "0.7.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "891477e0c6a8957309ee5c45a6368af3ae14bb510732d2684ffa19af310920f9"
+dependencies = [
+ "getrandom 0.2.10",
+ "once_cell",
+ "version_check",
+]
+
+[[package]]
+name = "ahash"
 version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e89da841a80418a9b391ebaea17f5c112ffaaa96f621d2c285b5174da76b9011"
@@ -636,7 +647,7 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43d68f2d516162846c1238e755a7c4d131b892b70cc70c471a8e3ca3ed818fce"
 dependencies = [
- "ahash",
+ "ahash 0.8.11",
  "ark-ff 0.5.0",
  "ark-poly 0.5.0",
  "ark-serialize 0.5.0",
@@ -861,7 +872,7 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "579305839da207f02b89cd1679e50e67b4331e2f9294a57693e5051b7703fe27"
 dependencies = [
- "ahash",
+ "ahash 0.8.11",
  "ark-ff 0.5.0",
  "ark-serialize 0.5.0",
  "ark-std 0.5.0",
@@ -1191,6 +1202,7 @@ dependencies = [
  "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
  "frame-support",
+ "frame-system",
  "pallet-asset-conversion",
  "pallet-asset-rewards",
  "pallet-assets",
@@ -1473,6 +1485,7 @@ dependencies = [
 name = "asset-test-utils"
 version = "7.0.0"
 dependencies = [
+ "assets-common",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
@@ -1515,6 +1528,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "scale-info",
+ "serde",
  "sp-api",
  "sp-core 28.0.0",
  "sp-runtime",
@@ -3466,6 +3480,7 @@ dependencies = [
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
+ "frame-metadata-hash-extension",
  "frame-support",
  "frame-system",
  "frame-system-benchmarking",
@@ -4428,6 +4443,7 @@ dependencies = [
  "sc-consensus-aura",
  "sc-consensus-babe",
  "sc-consensus-slots",
+ "sc-network-types",
  "sc-telemetry",
  "sc-utils",
  "schnellru",
@@ -4575,6 +4591,7 @@ dependencies = [
  "parity-scale-codec",
  "sc-client-api",
  "sc-consensus-babe",
+ "sc-network-types",
  "sp-crypto-hashing 0.1.0",
  "sp-inherents",
  "sp-runtime",
@@ -5292,8 +5309,10 @@ dependencies = [
  "env_logger 0.11.3",
  "futures",
  "log",
+ "parity-scale-codec",
  "polkadot-primitives",
  "rstest",
+ "sc-statement-store",
  "serde",
  "serde_json",
  "sp-core 28.0.0",
@@ -6210,9 +6229,9 @@ dependencies = [
  "bp-header-chain",
  "finality-relay",
  "futures",
- "log",
  "num-traits",
  "relay-utils",
+ "tracing",
 ]
 
 [[package]]
@@ -6543,10 +6562,10 @@ dependencies = [
  "backoff",
  "bp-header-chain",
  "futures",
- "log",
  "num-traits",
  "parking_lot 0.12.3",
  "relay-utils",
+ "tracing",
 ]
 
 [[package]]
@@ -7799,6 +7818,9 @@ name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
+dependencies = [
+ "ahash 0.7.8",
+]
 
 [[package]]
 name = "hashbrown"
@@ -7806,7 +7828,7 @@ version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43a3c133739dddd0d2990f9a4bdf8eb4b21ef50e4851ca85ab661199821d510e"
 dependencies = [
- "ahash",
+ "ahash 0.8.11",
 ]
 
 [[package]]
@@ -7815,7 +7837,7 @@ version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5274423e17b7c9fc20b6e7e208532f9b19825d82dfd615708b70edd83df41f1"
 dependencies = [
- "ahash",
+ "ahash 0.8.11",
  "allocator-api2",
  "serde",
 ]
@@ -9257,7 +9279,7 @@ version = "0.87.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2d8893eb18fbf6bb6c80ef6ee7dd11ec32b1dc3c034c988ac1b3a84d46a230ae"
 dependencies = [
- "ahash",
+ "ahash 0.8.11",
  "async-trait",
  "backoff",
  "derivative",
@@ -9307,9 +9329,9 @@ dependencies = [
 
 [[package]]
 name = "kvdb-rocksdb"
-version = "0.20.0"
+version = "0.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8beb5ce840610e5a945f0306f6e7a2d5b3e68ea3e64e9a4f081fa4ee5aa6525"
+checksum = "3b089b6062662d720a836f055931434439fcd3a90f0059db0b831a99da6db460"
 dependencies = [
  "kvdb",
  "num_cpus",
@@ -9541,7 +9563,7 @@ dependencies = [
  "libp2p-core",
  "libp2p-identity",
  "libp2p-swarm",
- "lru",
+ "lru 0.12.3",
  "quick-protobuf",
  "quick-protobuf-codec",
  "smallvec",
@@ -9737,7 +9759,7 @@ dependencies = [
  "libp2p-core",
  "libp2p-identity",
  "libp2p-swarm-derive",
- "lru",
+ "lru 0.12.3",
  "multistream-select",
  "once_cell",
  "rand 0.8.5",
@@ -10103,6 +10125,15 @@ dependencies = [
 
 [[package]]
 name = "lru"
+version = "0.7.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e999beba7b6e8345721bd280141ed958096a2e4abdf74f67ff4ce49b4b54e47a"
+dependencies = [
+ "hashbrown 0.12.3",
+]
+
+[[package]]
+name = "lru"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3262e75e648fce39813cb56ac41f3c3e3f65217ebf3844d818d1f9398cfb0dc"
@@ -10337,12 +10368,12 @@ dependencies = [
  "finality-relay",
  "futures",
  "hex",
- "log",
  "num-traits",
  "parking_lot 0.12.3",
  "relay-utils",
  "sp-arithmetic",
  "sp-core 28.0.0",
+ "tracing",
 ]
 
 [[package]]
@@ -13313,6 +13344,7 @@ dependencies = [
  "sp-io",
  "sp-keystore",
  "sp-runtime",
+ "sp-state-machine",
  "sp-tracing 16.0.0",
  "sp-version",
  "substrate-bn",
@@ -13336,6 +13368,7 @@ dependencies = [
  "pallet-revive-fixtures",
  "parity-scale-codec",
  "pretty_assertions",
+ "revive-dev-node",
  "revive-dev-runtime",
  "rlp 0.6.1",
  "sc-cli",
@@ -13350,10 +13383,9 @@ dependencies = [
  "sp-io",
  "sp-rpc",
  "sp-runtime",
+ "sp-timestamp",
  "sp-weights",
  "sqlx",
- "static_init",
- "substrate-cli-test-utils",
  "substrate-prometheus-endpoint",
  "subxt 0.43.0",
  "subxt-signer 0.43.0",
@@ -14433,10 +14465,10 @@ dependencies = [
  "async-trait",
  "bp-polkadot-core",
  "futures",
- "log",
  "relay-substrate-client",
  "relay-utils",
  "sp-core 28.0.0",
+ "tracing",
 ]
 
 [[package]]
@@ -15846,6 +15878,7 @@ dependencies = [
  "tempfile",
  "thiserror 1.0.65",
  "tracing-gum",
+ "wat",
 ]
 
 [[package]]
@@ -17378,15 +17411,21 @@ name = "polkadot-zombienet-sdk-tests"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "asset-hub-westend-runtime",
  "cumulus-zombienet-sdk-helpers",
  "env_logger 0.11.3",
+ "ethabi-decode",
+ "futures",
  "log",
+ "pallet-revive",
  "parity-scale-codec",
  "polkadot-primitives",
+ "rand 0.8.5",
  "sc-executor",
  "sc-runtime-utilities",
  "serde",
  "serde_json",
+ "sp-core 28.0.0",
  "sp-io",
  "substrate-build-script-utils",
  "subxt 0.43.0",
@@ -18048,7 +18087,7 @@ checksum = "f8650aabb6c35b860610e9cff5dc1af886c9e25073b7b1712a68972af4281302"
 dependencies = [
  "bytes",
  "heck 0.5.0",
- "itertools 0.13.0",
+ "itertools 0.10.5",
  "log",
  "multimap",
  "once_cell",
@@ -18212,7 +18251,7 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5253a3a0d56548d5b0be25414171dc780cc6870727746d05bd2bde352eee96c5"
 dependencies = [
- "ahash",
+ "ahash 0.8.11",
  "hashbrown 0.13.2",
  "parking_lot 0.12.3",
 ]
@@ -18627,7 +18666,6 @@ dependencies = [
  "frame-support",
  "futures",
  "jsonrpsee",
- "log",
  "num-traits",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
@@ -18651,6 +18689,7 @@ dependencies = [
  "staging-xcm",
  "thiserror 1.0.65",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -18665,7 +18704,6 @@ dependencies = [
  "futures",
  "isahc",
  "jsonpath_lib",
- "log",
  "num-traits",
  "parking_lot 0.12.3",
  "serde_json",
@@ -18676,6 +18714,7 @@ dependencies = [
  "thiserror 1.0.65",
  "time",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -20150,7 +20189,7 @@ dependencies = [
 name = "sc-consensus-grandpa"
 version = "0.19.0"
 dependencies = [
- "ahash",
+ "ahash 0.8.11",
  "array-bytes 6.2.2",
  "assert_matches",
  "async-trait",
@@ -20515,7 +20554,7 @@ dependencies = [
 name = "sc-network-gossip"
 version = "0.34.0"
 dependencies = [
- "ahash",
+ "ahash 0.8.11",
  "async-trait",
  "futures",
  "futures-timer",
@@ -21381,7 +21420,7 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c9a8ef13a93c54d20580de1e5c413e624e53121d42fc7e2c11d10ef7f8b02367"
 dependencies = [
- "ahash",
+ "ahash 0.8.11",
  "cfg-if",
  "hashbrown 0.13.2",
 ]
@@ -22158,7 +22197,7 @@ dependencies = [
  "hex",
  "itertools 0.13.0",
  "log",
- "lru",
+ "lru 0.12.3",
  "parking_lot 0.12.3",
  "pin-project",
  "rand 0.8.5",
@@ -22194,7 +22233,7 @@ dependencies = [
  "hex",
  "itertools 0.14.0",
  "log",
- "lru",
+ "lru 0.12.3",
  "parking_lot 0.12.3",
  "pin-project",
  "rand 0.8.5",
@@ -22271,7 +22310,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "log",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "scale-info",
@@ -22284,6 +22322,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -22314,10 +22353,10 @@ name = "snowbridge-inbound-queue-primitives"
 version = "0.9.0"
 dependencies = [
  "alloy-core",
+ "assets-common",
  "frame-support",
  "frame-system",
  "hex-literal",
- "log",
  "parity-scale-codec",
  "scale-info",
  "snowbridge-beacon-primitives",
@@ -22331,6 +22370,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -22372,7 +22412,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "log",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "scale-info",
@@ -22386,6 +22425,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -22421,7 +22461,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "log",
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
@@ -22437,6 +22476,7 @@ dependencies = [
  "sp-runtime",
  "sp-std 14.0.0",
  "static_assertions",
+ "tracing",
 ]
 
 [[package]]
@@ -22459,7 +22499,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "log",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
@@ -22476,6 +22515,7 @@ dependencies = [
  "sp-std 14.0.0",
  "staging-xcm",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -22500,7 +22540,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "log",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
@@ -22596,7 +22635,6 @@ dependencies = [
  "frame-system",
  "hex",
  "hex-literal",
- "log",
  "pallet-balances",
  "pallet-message-queue",
  "parity-scale-codec",
@@ -22611,6 +22649,7 @@ dependencies = [
  "sp-std 14.0.0",
  "staging-xcm",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -22620,7 +22659,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "log",
  "pallet-asset-conversion",
  "pallet-balances",
  "parity-scale-codec",
@@ -22645,7 +22683,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "log",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
@@ -22669,7 +22706,6 @@ version = "0.2.0"
 dependencies = [
  "frame-support",
  "frame-system",
- "log",
  "pallet-xcm",
  "parity-scale-codec",
  "sp-arithmetic",
@@ -22677,6 +22713,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -22739,7 +22776,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "log",
  "pallet-asset-conversion",
  "parity-scale-codec",
  "scale-info",
@@ -23849,7 +23885,7 @@ dependencies = [
 name = "sp-trie"
 version = "29.0.0"
 dependencies = [
- "ahash",
+ "ahash 0.8.11",
  "array-bytes 6.2.2",
  "criterion",
  "foldhash",
@@ -24630,7 +24666,6 @@ dependencies = [
  "frame-system",
  "futures",
  "hex",
- "log",
  "messages-relay",
  "num-traits",
  "pallet-balances",
@@ -24650,6 +24685,7 @@ dependencies = [
  "sp-trie",
  "strum 0.26.3",
  "thiserror 1.0.65",
+ "tracing",
 ]
 
 [[package]]
@@ -26286,7 +26322,9 @@ version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee855f1f400bd0e5c02d150ae5de3840039a3f54b025156404e34c23c03f47c3"
 dependencies = [
+ "ahash 0.7.8",
  "log",
+ "lru 0.7.8",
  "once_cell",
  "tracing-core",
 ]
@@ -27070,7 +27108,7 @@ version = "0.32.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c128c039340ffd50d4195c3f8ce31aac357f06804cfc494c8b9508d4b30dca4"
 dependencies = [
- "ahash",
+ "ahash 0.8.11",
  "hashbrown 0.14.5",
  "string-interner",
 ]
