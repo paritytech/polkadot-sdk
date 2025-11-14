@@ -428,6 +428,19 @@ pub mod pallet {
 	pub type BalanceOf<T> =
 		<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
+	/// Session key authorization data
+	#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	pub struct SessionKeyAuth<AccountId: MaxEncodedLen> {
+		/// Player who authorized this session key
+		pub player: AccountId,
+		/// Game this key is valid for
+		pub game_id: GameId,
+		/// Timestamp when this authorization expires
+		pub expires_at: u64,
+		/// Timestamp when authorization was granted
+		pub authorized_at: u64,
+	}
+
 	/// Storage: All games indexed by game ID
 	#[pallet::storage]
 	pub type Games<T: Config> = StorageMap<_, Blake2_128Concat, GameId, Game<T>>;
@@ -470,6 +483,16 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type PositionHistory<T: Config> =
 		StorageMap<_, Blake2_128Concat, GameId, BoundedVec<[u8; 32], ConstU32<MAX_MOVES>>, ValueQuery>;
+
+	/// Storage: Session key authorizations (game_id + session_key -> authorization)
+	#[pallet::storage]
+	pub type SessionKeys<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat, GameId,           // game_id
+		Blake2_128Concat, T::AccountId,     // session_key address
+		SessionKeyAuth<T::AccountId>,       // authorization data
+		OptionQuery,
+	>;
 
 	/// Events emitted by this pallet
 	#[pallet::event]
@@ -518,6 +541,21 @@ pub mod pallet {
 		FiftyMoveRule { game_id: GameId },
 		/// Player rating changed
 		RatingChanged { player: T::AccountId, old_rating: u16, new_rating: u16 },
+		/// Session key authorized for a game
+		SessionKeyAuthorized {
+			game_id: GameId,
+			player: T::AccountId,
+			session_key: T::AccountId,
+			expires_at: u64,
+		},
+		/// Move submitted via session key (unsigned transaction)
+		SignedMoveSubmitted {
+			game_id: GameId,
+			player: T::AccountId,
+			session_key: T::AccountId,
+			from_square: u8,
+			to_square: u8,
+		},
 	}
 
 	/// Errors that can occur
@@ -571,6 +609,10 @@ pub mod pallet {
 		StakeTooLow,
 		/// Invalid signature for unsigned move
 		InvalidSignature,
+		/// Session key not authorized for this game
+		SessionKeyNotAuthorized,
+		/// Session key has expired
+		SessionKeyExpired,
 	}
 
 	/// A signed move payload that allows submitting a move via an unsigned extrinsic.
@@ -765,7 +807,16 @@ pub mod pallet {
 			to_square: u8,
 			promotion_piece: Option<u8>,
 		) -> DispatchResult {
-			let player = ensure_signed(origin)?;
+			let signer = ensure_signed(origin)?;
+
+			// Check if signer is a session wallet - if so, use the authorized player
+			let player = if let Some(auth) = SessionKeys::<T>::get(game_id, &signer) {
+				// Signer is a session wallet - use the authorized player
+				auth.player
+			} else {
+				// Signer is the actual player
+				signer
+			};
 
 			// Convert promotion if provided
 			let promotion = promotion_piece
@@ -1040,6 +1091,131 @@ pub mod pallet {
 			// No fee for unsigned transactions
 			Ok(Pays::No.into())
 		}
+
+		/// Authorize a session key to play moves in a specific game
+		///
+		/// This allows creating an ephemeral keypair that can sign moves without
+		/// requiring wallet approval for each move. Session keys expire after 24 hours.
+		///
+		/// Parameters:
+		/// - `game_id`: The game to authorize the session key for
+		/// - `session_key`: The public key of the session key
+		/// - `expires_at`: Unix timestamp when authorization expires (milliseconds)
+		#[pallet::call_index(10)]
+		#[pallet::weight(Weight::from_parts(10_000, 0))]
+		pub fn authorize_session_key(
+			origin: OriginFor<T>,
+			game_id: GameId,
+			session_key: T::AccountId,
+			expires_at: u64,
+		) -> DispatchResult {
+			let player = ensure_signed(origin)?;
+
+			// Verify player is in this game
+			let game = Games::<T>::get(game_id).ok_or(Error::<T>::GameNotFound)?;
+			ensure!(
+				game.player1 == player || game.player2 == Some(player.clone()),
+				Error::<T>::NotPlayerInGame
+			);
+
+			// Get current timestamp
+			let now = T::UnixTime::now().as_millis().saturated_into::<u64>();
+
+			// Store authorization
+			SessionKeys::<T>::insert(
+				game_id,
+				&session_key,
+				SessionKeyAuth {
+					player: player.clone(),
+					game_id,
+					expires_at,
+					authorized_at: now,
+				},
+			);
+
+			Self::deposit_event(Event::SessionKeyAuthorized {
+				game_id,
+				player,
+				session_key,
+				expires_at,
+			});
+
+			Ok(())
+		}
+
+		/// Submit a move signed by a session key (unsigned transaction)
+		///
+		/// This allows submitting moves without wallet approval. The move must be signed
+		/// by a session key that was previously authorized via `authorize_session_key`.
+		///
+		/// Parameters:
+		/// - `game_id`: The game ID
+		/// - `from_square`: Starting square (0-63)
+		/// - `to_square`: Ending square (0-63)
+		/// - `promotion`: Optional promotion piece (0=Queen, 1=Rook, 2=Bishop, 3=Knight)
+		/// - `session_key`: The session key that signed this move
+		/// - `signature`: sr25519 signature from the session key
+		#[pallet::call_index(11)]
+		#[pallet::weight(Weight::from_parts(50_000, 0))]
+		pub fn submit_session_move(
+			origin: OriginFor<T>,
+			game_id: GameId,
+			from_square: u8,
+			to_square: u8,
+			promotion: Option<u8>,
+			session_key: T::AccountId,
+			signature: BoundedVec<u8, ConstU32<64>>,
+		) -> DispatchResultWithPostInfo {
+			// Allow only unsigned origin
+			ensure_none(origin)?;
+
+			// Get session key authorization
+			let auth = SessionKeys::<T>::get(game_id, &session_key)
+				.ok_or(Error::<T>::SessionKeyNotAuthorized)?;
+
+			// Check not expired
+			let now = T::UnixTime::now().as_millis().saturated_into::<u64>();
+			ensure!(now < auth.expires_at, Error::<T>::SessionKeyExpired);
+
+			// Verify signature from session key
+			ensure!(
+				Self::verify_move_signature(
+					&session_key,
+					&game_id,
+					from_square,
+					to_square,
+					promotion,
+					&signature,
+				),
+				Error::<T>::InvalidSignature
+			);
+
+			// Convert promotion piece
+			let promotion_piece = promotion
+				.map(|p| PieceType::from_u8(p).ok_or(Error::<T>::InvalidSquare))
+				.transpose()?;
+
+			// Execute the move using authorized player (not session key)
+			Self::execute_move_internal(
+				game_id,
+				&auth.player,  // Use the player who authorized this session key
+				from_square,
+				to_square,
+				promotion_piece,
+			)?;
+
+			// Emit event
+			Self::deposit_event(Event::SignedMoveSubmitted {
+				game_id,
+				player: auth.player,
+				session_key,
+				from_square,
+				to_square,
+			});
+
+			// No fee for unsigned transactions
+			Ok(Pays::No.into())
+		}
 	}
 
 	#[pallet::validate_unsigned]
@@ -1099,6 +1275,68 @@ pub mod pallet {
 						.propagate(true)
 						.build()
 				},
+				Call::submit_session_move { game_id, from_square, to_square, promotion, session_key, signature } => {
+					// Check session key is authorized
+					let auth = match SessionKeys::<T>::get(game_id, session_key) {
+						Some(a) => a,
+						None => return InvalidTransaction::BadProof.into(), // Session key not authorized
+					};
+
+					// Check not expired
+					let now = T::UnixTime::now().as_millis().saturated_into::<u64>();
+					if now >= auth.expires_at {
+						return InvalidTransaction::Stale.into(); // Session key expired
+					}
+
+					// Verify signature from session key
+					if !Self::verify_move_signature(
+						session_key,
+						game_id,
+						*from_square,
+						*to_square,
+						*promotion,
+						signature,
+					) {
+						return InvalidTransaction::BadProof.into();
+					}
+
+					// Check game exists and is active
+					let game = match Games::<T>::get(game_id) {
+						Some(g) => g,
+						None => return InvalidTransaction::Custom(1).into(), // Game not found
+					};
+
+					if game.status != GameStatus::Active {
+						return InvalidTransaction::Custom(2).into(); // Game not active
+					}
+
+					// Check it's the authorized player's turn
+					match Self::is_player_turn(&game, &auth.player) {
+						Ok(true) => {},
+						_ => return InvalidTransaction::Custom(3).into(), // Not player's turn
+					}
+
+					// Provide unique transaction identifier to prevent duplicates
+					// Use (game_id, move_count) as the unique tag
+					let provides = alloc::vec![
+						(*game_id, game.move_count).encode()
+					];
+
+					// Require previous move (if any) to maintain ordering
+					let requires = if game.move_count > 0 {
+						alloc::vec![(*game_id, game.move_count.saturating_sub(1)).encode()]
+					} else {
+						alloc::vec![]
+					};
+
+					ValidTransaction::with_tag_prefix("ChessSessionMove")
+						.priority(100)
+						.and_requires(requires)
+						.and_provides(provides)
+						.longevity(TransactionLongevity::from(64u64))
+						.propagate(true)
+						.build()
+				},
 				_ => InvalidTransaction::Call.into(),
 			}
 		}
@@ -1119,26 +1357,39 @@ pub mod pallet {
 			let encoded_player = player.encode();
 			// If not a 32-byte account, skip verification (test environment).
 			if encoded_player.len() != 32 {
+				log::debug!("Skipping signature verification - not 32-byte account");
 				return true;
 			}
 			// Expect sr25519 signature (64 bytes)
 			if signature.len() != 64 {
+				log::warn!("Invalid signature length: {} bytes (expected 64)", signature.len());
 				return false;
 			}
 			let payload = (game_id, from_square, to_square, promotion, &encoded_player).encode();
-			
+
+			log::debug!("Verifying signature for move:");
+			log::debug!("  game_id: {:?}", game_id);
+			log::debug!("  from_square: {}", from_square);
+			log::debug!("  to_square: {}", to_square);
+			log::debug!("  promotion: {:?}", promotion);
+			log::debug!("  player pubkey: {:?}", encoded_player);
+			log::debug!("  payload length: {} bytes", payload.len());
+			log::debug!("  payload hex: {:?}", sp_core::hexdisplay::HexDisplay::from(&payload));
+
 			use sp_core::sr25519;
 			use sp_io::crypto::sr25519_verify;
-			
+
 			let mut sig_bytes = [0u8; 64];
 			sig_bytes.copy_from_slice(signature);
 			let sig = sr25519::Signature::from_raw(sig_bytes);
-			
+
 			let mut pk_bytes = [0u8; 32];
 			pk_bytes.copy_from_slice(&encoded_player);
 			let pk = sr25519::Public::from_raw(pk_bytes);
-			
-			sr25519_verify(&sig, &payload, &pk)
+
+			let result = sr25519_verify(&sig, &payload, &pk);
+			log::debug!("Signature verification result: {}", result);
+			result
 		}
 
 		/// Internal helper that executes a chess move after validation.
