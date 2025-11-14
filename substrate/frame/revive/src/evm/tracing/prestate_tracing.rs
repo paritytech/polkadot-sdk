@@ -112,11 +112,6 @@ where
 				if is_empty(&pre_info) {
 					return false
 				}
-				if self.created_addrs.contains(addr) && self.destructed_addrs.contains(addr) {
-					// If the address was created and destructed we do not trace it
-					post.remove(addr);
-					return false
-				}
 
 				let post_info = post.entry(*addr).or_insert_with_key(|addr| {
 					Self::prestate_info(
