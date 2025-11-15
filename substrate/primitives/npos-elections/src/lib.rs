@@ -119,6 +119,7 @@ pub use traits::{IdentifierT, PerThing128};
 	codec::DecodeWithMemTracking,
 	scale_info::TypeInfo,
 )]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Error {
 	/// While going from solution indices to ratio, the weight of all the edges has gone above the
 	/// total.
