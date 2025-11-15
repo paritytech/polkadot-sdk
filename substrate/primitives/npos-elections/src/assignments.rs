@@ -28,7 +28,10 @@ use sp_arithmetic::{
 
 /// A voter's stake assignment among a set of targets, represented as ratios.
 #[derive(Debug, Clone, Default)]
-#[cfg_attr(feature = "serde", derive(PartialEq, Eq, Encode, Decode))]
+#[cfg_attr(
+	feature = "serde",
+	derive(PartialEq, Eq, Encode, Decode, crate::Serialize, crate::Deserialize)
+)]
 pub struct Assignment<AccountId, P: PerThing> {
 	/// Voter's identifier.
 	pub who: AccountId,
