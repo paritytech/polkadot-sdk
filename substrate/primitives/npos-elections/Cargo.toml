@@ -20,11 +20,10 @@ codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
 sp-arithmetic = { workspace = true }
-sp-core = { workspace = true }
-sp-runtime = { workspace = true }
 
 [dev-dependencies]
 substrate-test-utils = { workspace = true }
+sp-runtime = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -34,8 +33,6 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"sp-arithmetic/std",
-	"sp-core/std",
-	"sp-runtime/std",
 ]
 
 # Serde support without relying on std features.
@@ -43,6 +40,4 @@ serde = [
 	"dep:serde",
 	"scale-info/serde",
 	"sp-arithmetic/serde",
-	"sp-core/serde",
-	"sp-runtime/serde",
 ]

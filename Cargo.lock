@@ -23525,7 +23525,6 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-arithmetic",
- "sp-core 28.0.0",
  "sp-runtime",
  "substrate-test-utils",
 ]

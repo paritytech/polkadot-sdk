@@ -25,10 +25,9 @@ use sp_arithmetic::{
 	traits::{Bounded, Zero},
 	Normalizable, PerThing,
 };
-use sp_core::RuntimeDebug;
 
 /// A voter's stake assignment among a set of targets, represented as ratios.
-#[derive(RuntimeDebug, Clone, Default)]
+#[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "serde", derive(PartialEq, Eq, Encode, Decode))]
 pub struct Assignment<AccountId, P: PerThing> {
 	/// Voter's identifier.
@@ -96,7 +95,7 @@ impl<AccountId: IdentifierT, P: PerThing128> Assignment<AccountId, P> {
 
 /// A voter's stake assignment among a set of targets, represented as absolute values in the scale
 /// of [`ExtendedBalance`].
-#[derive(RuntimeDebug, Clone, Default)]
+#[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "serde", derive(PartialEq, Eq, Encode, Decode))]
 pub struct StakedAssignment<AccountId> {
 	/// Voter's identifier

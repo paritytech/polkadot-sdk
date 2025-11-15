@@ -492,7 +492,6 @@ fn reduce_all<A: IdentifierT>(assignments: &mut Vec<StakedAssignment<A>>) -> u32
 							Some(min_direction),
 						) => (min_value, min_target, min_voter, min_index, min_direction),
 						_ => {
-							sp_runtime::print("UNREACHABLE code reached in `reduce` algorithm. This must be a bug.");
 							break
 						},
 					};
