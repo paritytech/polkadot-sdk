@@ -4215,13 +4215,13 @@ fn create_call_tracing_works() {
 					input: code
 						.clone()
 						.into_iter()
-						.chain(data.into_iter())
+						.chain(data.iter().cloned())
 						.collect::<Vec<_>>()
 						.into(),
 					output: code
 						.clone()
 						.into_iter()
-						.chain(data.into_iter())
+						.chain(data.iter().cloned())
 						.collect::<Vec<_>>()
 						.into(),
 					to: child_addr,
