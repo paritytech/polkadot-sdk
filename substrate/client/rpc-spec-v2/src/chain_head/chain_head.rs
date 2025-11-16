@@ -400,11 +400,7 @@ where
 			.into_iter()
 			.map(|query| {
 				let key = StorageKey(parse_hex_param(query.key)?);
-				Ok(StorageQuery {
-					key,
-					query_type: query.query_type,
-					pagination_start_key: None,
-				})
+				Ok(StorageQuery { key, query_type: query.query_type, pagination_start_key: None })
 			})
 			.collect::<Result<Vec<_>, ChainHeadRpcError>>()
 		{

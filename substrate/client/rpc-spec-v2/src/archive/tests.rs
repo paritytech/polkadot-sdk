@@ -360,10 +360,26 @@ async fn archive_storage_hashes_values() {
 	let key = hex_string(&KEY);
 
 	let items: Vec<StorageQuery<String>> = vec![
-		StorageQuery { key: key.clone(), query_type: StorageQueryType::DescendantsHashes, pagination_start_key: None },
-		StorageQuery { key: key.clone(), query_type: StorageQueryType::DescendantsValues, pagination_start_key: None },
-		StorageQuery { key: key.clone(), query_type: StorageQueryType::Hash, pagination_start_key: None },
-		StorageQuery { key: key.clone(), query_type: StorageQueryType::Value, pagination_start_key: None },
+		StorageQuery {
+			key: key.clone(),
+			query_type: StorageQueryType::DescendantsHashes,
+			pagination_start_key: None,
+		},
+		StorageQuery {
+			key: key.clone(),
+			query_type: StorageQueryType::DescendantsValues,
+			pagination_start_key: None,
+		},
+		StorageQuery {
+			key: key.clone(),
+			query_type: StorageQueryType::Hash,
+			pagination_start_key: None,
+		},
+		StorageQuery {
+			key: key.clone(),
+			query_type: StorageQueryType::Value,
+			pagination_start_key: None,
+		},
 	];
 
 	let mut sub = api
@@ -450,8 +466,16 @@ async fn archive_storage_hashes_values_child_trie() {
 	let expected_value = hex_string(&CHILD_VALUE);
 
 	let items: Vec<StorageQuery<String>> = vec![
-		StorageQuery { key: key.clone(), query_type: StorageQueryType::DescendantsHashes, pagination_start_key: None },
-		StorageQuery { key: key.clone(), query_type: StorageQueryType::DescendantsValues, pagination_start_key: None },
+		StorageQuery {
+			key: key.clone(),
+			query_type: StorageQueryType::DescendantsHashes,
+			pagination_start_key: None,
+		},
+		StorageQuery {
+			key: key.clone(),
+			query_type: StorageQueryType::DescendantsValues,
+			pagination_start_key: None,
+		},
 	];
 	let mut sub = api
 		.subscribe_unbounded("archive_v1_storage", rpc_params![&genesis_hash, items, &child_info])
@@ -763,10 +787,18 @@ async fn archive_storage_pagination_descendant_values() {
 		.with_parent_block_number(0)
 		.build()
 		.unwrap();
-	builder.push_storage_change(b":prefix:aa".to_vec(), Some(b"value_a".to_vec())).unwrap();
-	builder.push_storage_change(b":prefix:bb".to_vec(), Some(b"value_b".to_vec())).unwrap();
-	builder.push_storage_change(b":prefix:cc".to_vec(), Some(b"value_c".to_vec())).unwrap();
-	builder.push_storage_change(b":prefix:dd".to_vec(), Some(b"value_d".to_vec())).unwrap();
+	builder
+		.push_storage_change(b":prefix:aa".to_vec(), Some(b"value_a".to_vec()))
+		.unwrap();
+	builder
+		.push_storage_change(b":prefix:bb".to_vec(), Some(b"value_b".to_vec()))
+		.unwrap();
+	builder
+		.push_storage_change(b":prefix:cc".to_vec(), Some(b"value_c".to_vec()))
+		.unwrap();
+	builder
+		.push_storage_change(b":prefix:dd".to_vec(), Some(b"value_d".to_vec()))
+		.unwrap();
 	let block = builder.build().unwrap().block;
 	let block_hash = format!("{:?}", block.header.hash());
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
@@ -878,9 +910,15 @@ async fn archive_storage_pagination_descendant_hashes() {
 		.with_parent_block_number(0)
 		.build()
 		.unwrap();
-	builder.push_storage_change(b":test:1".to_vec(), Some(b"val1".to_vec())).unwrap();
-	builder.push_storage_change(b":test:2".to_vec(), Some(b"val2".to_vec())).unwrap();
-	builder.push_storage_change(b":test:3".to_vec(), Some(b"val3".to_vec())).unwrap();
+	builder
+		.push_storage_change(b":test:1".to_vec(), Some(b"val1".to_vec()))
+		.unwrap();
+	builder
+		.push_storage_change(b":test:2".to_vec(), Some(b"val2".to_vec()))
+		.unwrap();
+	builder
+		.push_storage_change(b":test:3".to_vec(), Some(b"val3".to_vec()))
+		.unwrap();
 	let block = builder.build().unwrap().block;
 	let block_hash = format!("{:?}", block.header.hash());
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
@@ -1027,7 +1065,7 @@ async fn archive_storage_pagination_invalid_hex() {
 
 	assert_matches!(
 		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
-		ArchiveStorageEvent::StorageError(err) if err.error.contains("Invalid parameter") 
+		ArchiveStorageEvent::StorageError(err) if err.error.contains("Invalid parameter")
 			&& err.error.contains("0xINVALID_HEX")
 	);
 

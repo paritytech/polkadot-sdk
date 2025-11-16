@@ -250,22 +250,22 @@ where
 					Ok(StorageQuery { key, query_type: query.query_type, pagination_start_key })
 				})
 				.collect::<Result<Vec<_>, ArchiveError>>()
-		{
-			Ok(items) => items,
-			Err(error) => {
-				let _ = sink.send(&ArchiveStorageEvent::err(error.to_string())).await;
-				return
-			},
-		};
+			{
+				Ok(items) => items,
+				Err(error) => {
+					let _ = sink.send(&ArchiveStorageEvent::err(error.to_string())).await;
+					return
+				},
+			};
 
-		let child_trie = child_trie.map(|child_trie| parse_hex_param(child_trie)).transpose();
-		let child_trie = match child_trie {
-			Ok(child_trie) => child_trie.map(ChildInfo::new_default_from_vec),
-			Err(error) => {
-				let _ = sink.send(&ArchiveStorageEvent::err(error.to_string())).await;
-				return
-			},
-		};
+			let child_trie = child_trie.map(|child_trie| parse_hex_param(child_trie)).transpose();
+			let child_trie = match child_trie {
+				Ok(child_trie) => child_trie.map(ChildInfo::new_default_from_vec),
+				Err(error) => {
+					let _ = sink.send(&ArchiveStorageEvent::err(error.to_string())).await;
+					return
+				},
+			};
 
 			let (tx, mut rx) = tokio::sync::mpsc::channel(STORAGE_QUERY_BUF);
 			let storage_fut = storage_client.generate_events(hash, items, child_trie, tx);

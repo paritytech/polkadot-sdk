@@ -699,7 +699,11 @@ async fn get_storage_hash() {
 			rpc_params![
 				"invalid_sub_id",
 				&invalid_hash,
-				vec![StorageQuery { key: key.clone(), query_type: StorageQueryType::Hash, pagination_start_key: None }]
+				vec![StorageQuery {
+					key: key.clone(),
+					query_type: StorageQueryType::Hash,
+					pagination_start_key: None
+				}]
 			],
 		)
 		.await
@@ -713,7 +717,11 @@ async fn get_storage_hash() {
 			rpc_params![
 				&sub_id,
 				&invalid_hash,
-				vec![StorageQuery { key: key.clone(), query_type: StorageQueryType::Hash, pagination_start_key: None }]
+				vec![StorageQuery {
+					key: key.clone(),
+					query_type: StorageQueryType::Hash,
+					pagination_start_key: None
+				}]
 			],
 		)
 		.await
@@ -729,7 +737,11 @@ async fn get_storage_hash() {
 			rpc_params![
 				&sub_id,
 				&block_hash,
-				vec![StorageQuery { key: key.clone(), query_type: StorageQueryType::Hash, pagination_start_key: None }]
+				vec![StorageQuery {
+					key: key.clone(),
+					query_type: StorageQueryType::Hash,
+					pagination_start_key: None
+				}]
 			],
 		)
 		.await
@@ -772,7 +784,11 @@ async fn get_storage_hash() {
 			rpc_params![
 				&sub_id,
 				&block_hash,
-				vec![StorageQuery { key: key.clone(), query_type: StorageQueryType::Hash, pagination_start_key: None }]
+				vec![StorageQuery {
+					key: key.clone(),
+					query_type: StorageQueryType::Hash,
+					pagination_start_key: None
+				}]
 			],
 		)
 		.await
@@ -805,7 +821,11 @@ async fn get_storage_hash() {
 			rpc_params![
 				&sub_id,
 				&genesis_hash,
-				vec![StorageQuery { key: key.clone(), query_type: StorageQueryType::Hash, pagination_start_key: None }],
+				vec![StorageQuery {
+					key: key.clone(),
+					query_type: StorageQueryType::Hash,
+					pagination_start_key: None
+				}],
 				&child_info
 			],
 		)
@@ -971,7 +991,11 @@ async fn get_storage_value() {
 			rpc_params![
 				"invalid_sub_id",
 				&invalid_hash,
-				vec![StorageQuery { key: key.clone(), query_type: StorageQueryType::Value, pagination_start_key: None }]
+				vec![StorageQuery {
+					key: key.clone(),
+					query_type: StorageQueryType::Value,
+					pagination_start_key: None
+				}]
 			],
 		)
 		.await
@@ -985,7 +1009,11 @@ async fn get_storage_value() {
 			rpc_params![
 				&sub_id,
 				&invalid_hash,
-				vec![StorageQuery { key: key.clone(), query_type: StorageQueryType::Value, pagination_start_key: None }]
+				vec![StorageQuery {
+					key: key.clone(),
+					query_type: StorageQueryType::Value,
+					pagination_start_key: None
+				}]
 			],
 		)
 		.await
@@ -1001,7 +1029,11 @@ async fn get_storage_value() {
 			rpc_params![
 				&sub_id,
 				&block_hash,
-				vec![StorageQuery { key: key.clone(), query_type: StorageQueryType::Value, pagination_start_key: None }]
+				vec![StorageQuery {
+					key: key.clone(),
+					query_type: StorageQueryType::Value,
+					pagination_start_key: None
+				}]
 			],
 		)
 		.await
@@ -1044,7 +1076,11 @@ async fn get_storage_value() {
 			rpc_params![
 				&sub_id,
 				&block_hash,
-				vec![StorageQuery { key: key.clone(), query_type: StorageQueryType::Value, pagination_start_key: None }]
+				vec![StorageQuery {
+					key: key.clone(),
+					query_type: StorageQueryType::Value,
+					pagination_start_key: None
+				}]
 			],
 		)
 		.await
@@ -1076,7 +1112,11 @@ async fn get_storage_value() {
 			rpc_params![
 				&sub_id,
 				&genesis_hash,
-				vec![StorageQuery { key: key.clone(), query_type: StorageQueryType::Value, pagination_start_key: None }],
+				vec![StorageQuery {
+					key: key.clone(),
+					query_type: StorageQueryType::Value,
+					pagination_start_key: None
+				}],
 				&child_info
 			],
 		)
@@ -1118,7 +1158,11 @@ async fn get_storage_non_queryable_key() {
 			rpc_params![
 				&sub_id,
 				&block_hash,
-				vec![StorageQuery { key: prefixed_key, query_type: StorageQueryType::Value, pagination_start_key: None }]
+				vec![StorageQuery {
+					key: prefixed_key,
+					query_type: StorageQueryType::Value,
+					pagination_start_key: None
+				}]
 			],
 		)
 		.await
@@ -1143,7 +1187,11 @@ async fn get_storage_non_queryable_key() {
 			rpc_params![
 				&sub_id,
 				&block_hash,
-				vec![StorageQuery { key: prefixed_key, query_type: StorageQueryType::Value, pagination_start_key: None }]
+				vec![StorageQuery {
+					key: prefixed_key,
+					query_type: StorageQueryType::Value,
+					pagination_start_key: None
+				}]
 			],
 		)
 		.await
@@ -1168,7 +1216,11 @@ async fn get_storage_non_queryable_key() {
 			rpc_params![
 				&sub_id,
 				&block_hash,
-				vec![StorageQuery { key: key.clone(), query_type: StorageQueryType::Value, pagination_start_key: None }],
+				vec![StorageQuery {
+					key: key.clone(),
+					query_type: StorageQueryType::Value,
+					pagination_start_key: None
+				}],
 				&prefixed_key
 			],
 		)
@@ -1194,7 +1246,11 @@ async fn get_storage_non_queryable_key() {
 			rpc_params![
 				&sub_id,
 				&block_hash,
-				vec![StorageQuery { key, query_type: StorageQueryType::Value, pagination_start_key: None }],
+				vec![StorageQuery {
+					key,
+					query_type: StorageQueryType::Value,
+					pagination_start_key: None
+				}],
 				&prefixed_key
 			],
 		)
@@ -1242,7 +1298,11 @@ async fn unique_operation_ids() {
 				rpc_params![
 					&sub_id,
 					&block_hash,
-					vec![StorageQuery { key: key.clone(), query_type: StorageQueryType::Value, pagination_start_key: None }]
+					vec![StorageQuery {
+						key: key.clone(),
+						query_type: StorageQueryType::Value,
+						pagination_start_key: None
+					}]
 				],
 			)
 			.await
@@ -2868,10 +2928,26 @@ async fn ensure_operation_limits_works() {
 	let key = hex_string(&KEY);
 
 	let items = vec![
-		StorageQuery { key: key.clone(), query_type: StorageQueryType::DescendantsHashes, pagination_start_key: None },
-		StorageQuery { key: key.clone(), query_type: StorageQueryType::DescendantsHashes, pagination_start_key: None },
-		StorageQuery { key: key.clone(), query_type: StorageQueryType::DescendantsValues, pagination_start_key: None },
-		StorageQuery { key: key.clone(), query_type: StorageQueryType::DescendantsValues, pagination_start_key: None },
+		StorageQuery {
+			key: key.clone(),
+			query_type: StorageQueryType::DescendantsHashes,
+			pagination_start_key: None,
+		},
+		StorageQuery {
+			key: key.clone(),
+			query_type: StorageQueryType::DescendantsHashes,
+			pagination_start_key: None,
+		},
+		StorageQuery {
+			key: key.clone(),
+			query_type: StorageQueryType::DescendantsValues,
+			pagination_start_key: None,
+		},
+		StorageQuery {
+			key: key.clone(),
+			query_type: StorageQueryType::DescendantsValues,
+			pagination_start_key: None,
+		},
 	];
 
 	let response: MethodResponse = api
@@ -3539,7 +3615,11 @@ async fn chain_head_single_connection_context() {
 		&client,
 		first_sub_id.clone(),
 		finalized_hash.clone(),
-		vec![StorageQuery { key: key.clone(), query_type: StorageQueryType::Hash, pagination_start_key: None }],
+		vec![StorageQuery {
+			key: key.clone(),
+			query_type: StorageQueryType::Hash,
+			pagination_start_key: None,
+		}],
 		None,
 	)
 	.await
@@ -3550,7 +3630,11 @@ async fn chain_head_single_connection_context() {
 		&second_client,
 		first_sub_id.clone(),
 		finalized_hash.clone(),
-		vec![StorageQuery { key: key.clone(), query_type: StorageQueryType::Hash, pagination_start_key: None }],
+		vec![StorageQuery {
+			key: key.clone(),
+			query_type: StorageQueryType::Hash,
+			pagination_start_key: None,
+		}],
 		None,
 	)
 	.await
