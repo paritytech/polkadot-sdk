@@ -65,31 +65,31 @@ pub async fn initialize<
 	match result {
 		Ok(Some(tx_status)) => match tx_status {
 			TrackedTransactionStatus::Lost => {
-				log::error!(
+				tracing::error!(
 					target: "bridge",
-					"Failed to execute {}-headers bridge initialization transaction on {}: {:?}.",
-					SourceChain::NAME,
-					TargetChain::NAME,
-					tx_status
+					source=%SourceChain::NAME,
+					target=%TargetChain::NAME,
+					?tx_status,
+					"Failed to execute headers bridge initialization transaction."
 				)
 			},
 			TrackedTransactionStatus::Finalized(_) => {
-				log::info!(
+				tracing::info!(
 					target: "bridge",
-					"Successfully executed {}-headers bridge initialization transaction on {}: {:?}.",
-					SourceChain::NAME,
-					TargetChain::NAME,
-					tx_status
+					source=%SourceChain::NAME,
+					target=%TargetChain::NAME,
+					?tx_status,
+					"Successfully executed headers bridge initialization transaction."
 				)
 			},
 		},
 		Ok(None) => (),
-		Err(err) => log::error!(
+		Err(err) => tracing::error!(
 			target: "bridge",
-			"Failed to submit {}-headers bridge initialization transaction to {}: {:?}",
-			SourceChain::NAME,
-			TargetChain::NAME,
-			err,
+			error=?err,
+			source=%SourceChain::NAME,
+			target=%TargetChain::NAME,
+			"Failed to submit headers bridge initialization transaction"
 		),
 	}
 }
@@ -123,11 +123,11 @@ where
 		.await
 		.map_err(|e| Error::IsInitializedRetrieve(SourceChain::NAME, TargetChain::NAME, e))?;
 	if is_initialized {
-		log::info!(
+		tracing::info!(
 			target: "bridge",
-			"{}-headers bridge at {} is already initialized. Skipping",
-			SourceChain::NAME,
-			TargetChain::NAME,
+			source=%SourceChain::NAME,
+			target=%TargetChain::NAME,
+			"Headers bridge is already initialized. Skipping"
 		);
 		if !dry_run {
 			return Ok(None)
@@ -135,12 +135,12 @@ where
 	}
 
 	let initialization_data = E::prepare_initialization_data(source_client).await?;
-	log::info!(
+	tracing::info!(
 		target: "bridge",
-		"Prepared initialization data for {}-headers bridge at {}: {:?}",
-		SourceChain::NAME,
-		TargetChain::NAME,
-		initialization_data,
+		source=%SourceChain::NAME,
+		target=%TargetChain::NAME,
+		?initialization_data,
+		"Prepared initialization data for headers bridge"
 	);
 
 	let tx_status = target_client
