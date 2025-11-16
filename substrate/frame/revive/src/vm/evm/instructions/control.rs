@@ -26,7 +26,7 @@ use crate::{
 	},
 	Error, U256,
 };
-use alloc::vec::Vec;
+use alloc::{format, string::String, vec::Vec};
 use core::ops::ControlFlow;
 use revm::interpreter::gas::{BASE, HIGH, JUMPDEST, MID};
 
@@ -102,7 +102,62 @@ fn return_inner<E: Ext>(
 	if len != 0 {
 		let offset = as_usize_or_halt::<E::T>(offset)?;
 		interpreter.memory.resize(offset, len)?;
-		output = interpreter.memory.slice_len(offset, len).to_vec()
+		output = interpreter.memory.slice_len(offset, len).to_vec();
+		
+		// Debug: Log 64-byte returns to investigate incomplete struct tuple encoding
+		if output.len() == 64 {
+			let memory_size = interpreter.memory.size();
+			log::warn!(
+				target: "runtime::revive",
+				"[RETURN DEBUG] 64-byte return: offset={}, len={}, memory_size={}, output_len={}",
+				offset,
+				len,
+				memory_size,
+				output.len()
+			);
+			if memory_size > offset + len {
+				let extra_bytes = memory_size - (offset + len);
+				log::warn!(
+					target: "runtime::revive",
+					"[RETURN DEBUG] Extra memory data available: {} bytes beyond return range",
+					extra_bytes
+				);
+				// Log a preview of the extra memory data to see if it contains the full ABI encoding
+				if extra_bytes >= 32 {
+					log::warn!(
+						target: "runtime::revive",
+						"[RETURN DEBUG] Attempting to read extra memory: extra_bytes={}, offset={}, len={}",
+						extra_bytes, offset, len
+					);
+					let extra_data_start = offset + len;
+					let extra_preview = interpreter.memory.slice_len(extra_data_start, 32.min(extra_bytes));
+					// Log first few bytes as hex to see if it contains ABI offsets
+					// Format hex manually since we're in no_std
+					let mut hex_chars = alloc::vec::Vec::<u8>::with_capacity(64);
+					for byte in extra_preview.iter() {
+						let high = (byte >> 4) as u8;
+						let low = (byte & 0x0f) as u8;
+						hex_chars.push(if high < 10 { b'0' + high } else { b'a' + high - 10 });
+						hex_chars.push(if low < 10 { b'0' + low } else { b'a' + low - 10 });
+					}
+					match core::str::from_utf8(&hex_chars) {
+						Ok(hex_str) => {
+							log::warn!(
+								target: "runtime::revive",
+								"[RETURN DEBUG] First 32 bytes of extra memory (might be offset to struct): 0x{}",
+								hex_str
+							);
+						}
+						Err(_) => {
+							log::warn!(
+								target: "runtime::revive",
+								"[RETURN DEBUG] Failed to format hex string for extra memory"
+							);
+						}
+					}
+				}
+			}
+		}
 	}
 
 	ControlFlow::Break(halt(output))
