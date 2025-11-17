@@ -456,7 +456,13 @@ impl ClaimQueueState {
 			"claim_at_v1"
 		);
 
-		self.find_claim(relay_parent, para_id, &[ClaimState::Free], false).is_some()
+		self.find_and_replace_claim(
+			relay_parent,
+			para_id,
+			&[ClaimState::Free],
+			false,
+			ClaimState::Pending(None),
+		)
 	}
 
 	/// Sets the candidate hash for a pending claim. If no such claim is found - returns false.
