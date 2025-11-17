@@ -36,6 +36,7 @@ use std::{
 	collections::{BTreeMap, VecDeque},
 	sync::Arc,
 };
+use polkadot_primitives::vstaging::ApprovalStatistics;
 
 /// Offers header utilities.
 ///
@@ -215,6 +216,14 @@ pub trait RuntimeApiSubsystemClient {
 		&self,
 		at: Hash,
 		stmt: PvfCheckStatement,
+		signature: ValidatorSignature,
+	) -> Result<(), ApiError>;
+
+	/// Submits the collected approval statistics collected for the session
+	async fn submit_approval_statistics(
+		&self,
+		at: Hash,
+		payload: ApprovalStatistics,
 		signature: ValidatorSignature,
 	) -> Result<(), ApiError>;
 
@@ -531,6 +540,20 @@ where
 		);
 
 		runtime_api.submit_pvf_check_statement(at, stmt, signature)
+	}
+
+	async fn submit_approval_statistics(
+		&self,
+		at: Hash,
+		payload: ApprovalStatistics,
+		signature: ValidatorSignature,
+	) -> Result<(), ApiError> {
+		let mut runtime_api = self.client.runtime_api();
+		runtime_api.register_extension(
+			self.offchain_transaction_pool_factory.offchain_transaction_pool(at),
+		);
+
+		runtime_api.submit_approval_statistics(at, payload, signature)
 	}
 
 	async fn pvfs_require_precheck(&self, at: Hash) -> Result<Vec<ValidationCodeHash>, ApiError> {

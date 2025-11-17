@@ -62,6 +62,7 @@ use polkadot_primitives::{
 	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionInfo, Signature,
 	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 	PARACHAIN_KEY_TYPE_ID,
+	vstaging::ApprovalStatistics,
 };
 use polkadot_runtime_common::{
 	assigned_slots, auctions, crowdloan,
@@ -2348,6 +2349,13 @@ sp_api::impl_runtime_apis! {
 			signature: ValidatorSignature,
 		) {
 			parachains_runtime_api_impl::submit_pvf_check_statement::<Runtime>(stmt, signature)
+		}
+
+		fn submit_approval_statistics(
+			payload: ApprovalStatistics,
+			signature: ValidatorSignature,
+		) {
+			parachains_runtime_api_impl::submit_approval_statistics::<Runtime>(payload, signature)
 		}
 
 		fn pvfs_require_precheck() -> Vec<ValidationCodeHash> {

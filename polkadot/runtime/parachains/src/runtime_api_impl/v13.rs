@@ -40,6 +40,7 @@ use polkadot_primitives::{
 	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
 	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
+use polkadot_primitives::vstaging::ApprovalStatistics;
 use sp_runtime::traits::One;
 
 /// Implementation for the `validators` function of the runtime API.
@@ -341,6 +342,14 @@ pub fn submit_pvf_check_statement<T: paras::Config>(
 	signature: ValidatorSignature,
 ) {
 	paras::Pallet::<T>::submit_pvf_check_statement(stmt, signature)
+}
+
+/// Submits the collected approval statistics for a given session.
+pub fn submit_approval_statistics<T: paras::Config>(
+	payload: ApprovalStatistics,
+	signature: ValidatorSignature,
+) {
+	paras::Pallet::<T>::submit_approval_statistics(payload, signature)
 }
 
 /// Returns the list of all PVF code hashes that require pre-checking.
