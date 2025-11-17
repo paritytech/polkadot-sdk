@@ -21,6 +21,7 @@
 //! with consistent field-based bounding strategy. It extracts field types and applies
 //! bounds to those fields (like codec does), ensuring consistent behavior across all traits.
 
+use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{
@@ -63,6 +64,16 @@ pub fn stored(
 fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 	let _args: StoredArgs = syn::parse2(attr)?;
 	let input: syn::DeriveInput = syn::parse2(item)?;
+
+	// Get the frame_support crate path to use __private re-exports
+	let frame_support = match generate_access_from_frame_or_crate("frame-support") {
+		Ok(path) => path,
+		Err(e) =>
+			return Err(Error::new(
+				proc_macro2::Span::call_site(),
+				format!("Failed to find `frame-support` in dependencies: {}", e),
+			)),
+	};
 
 	let field_types = match &input.data {
 		syn::Data::Struct(data_struct) => match &data_struct.fields {
@@ -145,11 +156,11 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 	Ok(quote! {
 		#derive_where_attr
 		#[derive(
-			::scale_info::TypeInfo,
-			::codec::Encode,
-			::codec::Decode,
-			::codec::DecodeWithMemTracking,
-			::codec::MaxEncodedLen,
+			#frame_support::__private::scale_info::TypeInfo,
+			#frame_support::__private::codec::Encode,
+			#frame_support::__private::codec::Decode,
+			#frame_support::__private::codec::DecodeWithMemTracking,
+			#frame_support::__private::codec::MaxEncodedLen,
 		)]
 		#scale_info_attr
 		#(#attrs)*
