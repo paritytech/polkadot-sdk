@@ -73,6 +73,16 @@ pub type ClassOf<T> = <<T as pallet_conviction_voting::Config>::Polls as Polling
 	>,
 >>::Class;
 
+/// Voting information tuple for a specific referendum.
+/// 
+/// Fields:
+/// - `bool` ("exists"): Whether a vote exists for this referendum.
+/// - `IConvictionVoting::VotingType` ("votingType"): The type of vote (Standard/Split/SplitAbstain).
+/// - `bool` ("aye"): For standard votes: true if aye, false if nay. Always false for split votes.
+/// - `BalanceOf<T>` ("ayeAmount"): Tokens voting aye (pre-conviction). 0 for standard nay votes.
+/// - `BalanceOf<T>` ("nayAmount"): Tokens voting nay (pre-conviction). 0 for standard aye votes.
+/// - `BalanceOf<T>` ("abstainAmount"): Tokens voting abstain. 0 for standard and split votes.
+/// - `IConvictionVoting::Conviction` ("conviction"): Conviction multiplier. Only applies to standard votes.
 pub type VotingOf<T> = (
 	bool,
 	IConvictionVoting::VotingType,
@@ -327,8 +337,9 @@ where
 		.map_err(|error| revert(&error, "ConvictionVoting: vote failed"))
 	}
 
+	/// Represents the vote not found state. Is the solidity default value for a tuple of type `VotingOf`.
 	fn get_voting_default(
-	) -> (bool, IConvictionVoting::VotingType, bool, u128, u128, u128, IConvictionVoting::Conviction)
+	) -> VotingOf<T>
 	{
 		(
 			false,
