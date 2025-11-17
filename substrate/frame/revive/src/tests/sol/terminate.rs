@@ -18,8 +18,12 @@
 use crate::{
 	address::AddressMapper,
 	test_utils::{builder::Contract, ALICE, DJANGO, DJANGO_ADDR},
-	tests::{builder, test_utils::get_balance, Contracts, ExtBuilder, Test},
-	Code, Config,
+	tests::{
+		builder,
+		test_utils::{get_balance, get_contract_checked},
+		Contracts, ExtBuilder, Test,
+	},
+	Code, Config, PristineCode,
 };
 use alloy_core::sol_types::{SolCall, SolConstructor, SolValue};
 use frame_support::traits::fungible::Mutate;
@@ -133,12 +137,13 @@ fn precompile_fails_for_indirect_delegate(fixture_type: FixtureType) {
 
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
-fn sent_funds_after_terminate_shall_be_credited_to_beneficiary(fixture_type: FixtureType) {
-	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
+fn terminate_shall_rollback_if_subsequent_frame_fails(fixture_type: FixtureType) {
+	let (code, code_hash) = compile_module_with_type("Terminate", fixture_type).unwrap();
 	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
 			.constructor_data(
 				Terminate::constructorCall { skip: true, beneficiary: DJANGO_ADDR.0.into() }
@@ -147,6 +152,64 @@ fn sent_funds_after_terminate_shall_be_credited_to_beneficiary(fixture_type: Fix
 			.build_and_unwrap_contract();
 		let account = <Test as Config>::AddressMapper::to_account_id(&addr);
 
+		assert!(get_contract_checked(&addr).is_some(), "contract does not exist after create");
+		assert_eq!(get_balance(&account), min_balance, "unexpected contract balance after create");
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code))
+				.native_value(125)
+				.build_and_unwrap_contract();
+		let caller_account = <Test as Config>::AddressMapper::to_account_id(&caller_addr);
+
+		let result = builder::bare_call(caller_addr)
+			.data(
+				TerminateCaller::revertAfterTerminateCall {
+					terminate_addr: addr.0.into(),
+					beneficiary: DJANGO_ADDR.0.into(),
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+
+		assert!(result.did_revert(), "revertAfterTerminateCall did not revert");
+		assert!(
+			get_contract_checked(&addr).is_some(),
+			"contract does not exist after reverted terminate"
+		);
+		assert_eq!(
+			get_balance(&account),
+			min_balance,
+			"unexpected contract balance after reverted terminate"
+		);
+
+		assert_eq!(get_balance(&DJANGO), 0, "unexpected DJANGO balance after reverted terminate");
+
+		assert_eq!(
+			get_balance(&caller_account),
+			125 + min_balance,
+			"unexpected caller balance after reverted terminate"
+		);
+	});
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn sent_funds_after_terminate_shall_be_credited_to_beneficiary(fixture_type: FixtureType) {
+	let (code, code_hash) = compile_module_with_type("Terminate", fixture_type).unwrap();
+	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let min_balance = Contracts::min_balance();
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.constructor_data(
+				Terminate::constructorCall { skip: true, beneficiary: DJANGO_ADDR.0.into() }
+					.abi_encode(),
+			)
+			.build_and_unwrap_contract();
+		let account = <Test as Config>::AddressMapper::to_account_id(&addr);
+
+		assert!(get_contract_checked(&addr).is_some(), "contract does not exist after create");
 		assert_eq!(get_balance(&account), min_balance, "unexpected contract balance after create");
 
 		let Contract { addr: caller_addr, .. } =
@@ -183,10 +246,12 @@ fn sent_funds_after_terminate_shall_be_credited_to_beneficiary(fixture_type: Fix
 			"sendFundsAfterTerminateCall returned unexpected data: {:?}",
 			result.data
 		);
+		assert!(get_contract_checked(&addr).is_none(), "contract still exists after terminate");
 		assert_eq!(
 			get_balance(&DJANGO),
 			123 + min_balance,
 			"unexpected DJANGO balance after terminate"
 		);
+		assert_eq!(get_balance(&account), 0, "ucontract has balance after terminate");
 	});
 }

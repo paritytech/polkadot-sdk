@@ -13,4 +13,13 @@ contract TerminateCaller {
         (bool success, ) = terminate_addr.call{value: value}("");
         require(success, "terminate reverted");
     }
+
+    function revertAfterTerminate(address terminate_addr, address beneficiary) external {
+        terminate_addr.call(abi.encodeWithSelector(Terminate.terminate.selector, beneficiary));
+        _revert();
+    }
+
+    function _revert() private {
+        revert("Deliberate revert");
+    }
 }
