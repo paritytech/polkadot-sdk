@@ -1625,6 +1625,12 @@ where
 			// we added this consumer manually when instantiating
 			System::<T>::dec_consumers(&contract_account);
 
+			log::error!(
+				"RVE exec.rs do_terminate origin: {:?}, ed: {:?}",
+				origin,
+				T::Currency::minimum_balance()
+			);
+
 			// ed needs to be send to the origin
 			Self::transfer(
 				origin,
