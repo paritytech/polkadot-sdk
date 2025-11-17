@@ -923,9 +923,8 @@ async fn archive_storage_pagination_descendant_hashes() {
 	let block_hash = format!("{:?}", block.header.hash());
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
 
-	// let expected_hash_1 = format!("{:?}", Blake2Hasher::hash(b"val1"));
-	let expected_hash_2 = format!("{:?}", Blake2Hasher::hash(b"val2"));
-	let expected_hash_3 = format!("{:?}", Blake2Hasher::hash(b"val3"));
+	let expected_hash_1 = format!("{:?}", Blake2Hasher::hash(b"val2"));
+	let expected_hash_2 = format!("{:?}", Blake2Hasher::hash(b"val3"));
 
 	// Request with pagination starting from `:test:1` - should skip keys 1 and get 2 and 3.
 	let mut sub = api
@@ -947,7 +946,7 @@ async fn archive_storage_pagination_descendant_hashes() {
 		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
 		ArchiveStorageEvent::Storage(StorageResult {
 			key: hex_string(b":test:2"),
-			result: StorageResultType::Hash(expected_hash_2),
+			result: StorageResultType::Hash(expected_hash_1),
 			child_trie_key: None,
 		})
 	);
@@ -956,7 +955,7 @@ async fn archive_storage_pagination_descendant_hashes() {
 		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
 		ArchiveStorageEvent::Storage(StorageResult {
 			key: hex_string(b":test:3"),
-			result: StorageResultType::Hash(expected_hash_3),
+			result: StorageResultType::Hash(expected_hash_2),
 			child_trie_key: None,
 		})
 	);
