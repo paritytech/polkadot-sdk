@@ -460,21 +460,21 @@ pub(super) fn assign_core<T: Config>(
 		let core_descriptor = core_descriptors.entry(core_idx).or_default();
 
 		let config = configuration::ActiveConfig::<T>::get();
-		let now = frame_system::Pallet::<T>::block_number();
+		// Plus 1 because claim queue is always 1 block ahead:
+		let now = frame_system::Pallet::<T>::block_number().saturating_plus_one();
 		let lookahead = config.scheduler_params.lookahead.into();
 		let claim_queue_end = now.saturating_add(lookahead);
-		let valid_begin = claim_queue_end.saturating_plus_one();
-		let assignments_exist = core_descriptor.has_assignments_until(valid_begin);
+		let assignments_exist = core_descriptor.has_assignments_until(claim_queue_end);
 		// Maintain invariant of stable claim queue (existing visible assignments not getting
 		// replaced):
-		if assignments_exist && begin <= claim_queue_end {
+		if assignments_exist && begin < claim_queue_end {
 			log::debug!(
 				target: "runtime::parachains::assigner-coretime",
 				"Claim queue needs to be stable, schedule change within claim queue length is not supported. Adjusting begin from {:?} to {:?}",
 				begin,
-				valid_begin
+				claim_queue_end
 			);
-			begin = valid_begin;
+			begin = claim_queue_end;
 		}
 
 		let new_queue = match core_descriptor.queue {

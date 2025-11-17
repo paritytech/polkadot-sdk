@@ -181,7 +181,7 @@ fn assignments_stay_stable_when_pushed_back() {
 	new_test_ext(genesis_config).execute_with(|| {
 		// Register paras
 		for para in paras.clone() {
-    		register_para(para);
+			register_para(para);
 		}
 
 		// Assign both cores to Pool (on-demand)
@@ -192,6 +192,7 @@ fn assignments_stay_stable_when_pushed_back() {
 			None,
 		)
 		.unwrap();
+
 		Pallet::<Test>::assign_core(
 			CoreIndex(1),
 			0,
@@ -216,7 +217,7 @@ fn assignments_stay_stable_when_pushed_back() {
 
 		// Add plenty of orders to fill the claim queue
 		for para in paras.clone() {
-    		on_demand::Pallet::<Test>::push_back_order(para);
+			on_demand::Pallet::<Test>::push_back_order(para);
 		}
 
 		run_to_block(2, |_| None);
@@ -244,7 +245,7 @@ fn assignments_stay_stable_when_pushed_back() {
 		});
 
 		for p in popped.values() {
-    		remaining_assignments.remove(p);
+			remaining_assignments.remove(p);
 		}
 
 		// Core 0 should not have been popped (it was blocked)
@@ -289,15 +290,15 @@ fn assignments_stay_stable_when_pushed_back() {
 			let popped = scheduler::Pallet::<Test>::advance_claim_queue(|_| false);
 
 			if popped.is_empty() {
-    			break
+				break
 			}
 
 			for (core_idx, para) in popped.into_iter() {
-          		remaining_assignments.remove(&para);
-                if let Some(queue) = claim_queue_snapshot.get_mut(&core_idx) {
-                    assert_eq!(queue.pop_front(), Some(para), "Advance assignments is meant to match claim queue prediction.");
-                }
-            }
+				remaining_assignments.remove(&para);
+				if let Some(queue) = claim_queue_snapshot.get_mut(&core_idx) {
+					assert_eq!(queue.pop_front(), Some(para), "Advance assignments is meant to match claim queue prediction.");
+				}
+			}
 		}
 		assert!(remaining_assignments.is_empty(), "All items should have been served still.")
 	});
@@ -1223,5 +1224,171 @@ fn on_demand_order_on_empty_core_appears_in_next_two_blocks() {
 			1,
 			"Para_b should not be duplicated since core wasn't empty"
 		);
+	});
+}
+
+#[test]
+fn assign_core_within_claim_queue_maintains_stable_claim_queue() {
+	// This test verifies that when assign_core is called with a begin time that falls
+	// within the claim queue (lookahead window), the begin time is automatically adjusted
+	// to maintain the stable claim queue invariant.
+	//
+	// At block N with lookahead L:
+	// - Claim queue contains: [N+1, ..., N+L] (L blocks)
+	// - claim_queue_end = N + L + 1
+	// - Any assignment with begin < claim_queue_end gets adjusted to claim_queue_end
+	let mut config = default_config();
+	config.scheduler_params.lookahead = 3;
+	config.scheduler_params.num_cores = 3;
+	let genesis_config = genesis_config(&config);
+
+	let para_3 = ParaId::from(3_u32);
+	let para_4 = ParaId::from(4_u32);
+	let para_5 = ParaId::from(5_u32);
+	let para_6 = ParaId::from(6_u32);
+	let para_7 = ParaId::from(7_u32);
+
+	new_test_ext(genesis_config).execute_with(|| {
+		register_para(para_3);
+		register_para(para_4);
+		register_para(para_5);
+		register_para(para_6);
+		register_para(para_7);
+
+		// Core 0: Assign para_a starting at block 1
+		Pallet::<Test>::assign_core(
+			CoreIndex(0),
+			0,
+			vec![(CoreAssignment::Task(para_3.into()), PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
+
+		// Core 1: Assign para_b starting at block 2 (future assignment within lookahead)
+		Pallet::<Test>::assign_core(
+			CoreIndex(1),
+			3,
+			vec![(CoreAssignment::Task(para_4.into()), PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
+
+		// Core 2: No initial assignment (empty core)
+
+		// Start a session with validators
+		// Claim queue at block 1 contains: [2, 3, 4]
+		// claim_queue_end = 2 + 3 = 5
+		// Assignments with begin < 5 will be adjusted to 5
+		run_to_block(1, |number| match number {
+			1 => Some(SessionChangeNotification {
+				new_config: config.clone(),
+				validators: vec![
+					ValidatorId::from(Sr25519Keyring::Alice.public()),
+					ValidatorId::from(Sr25519Keyring::Bob.public()),
+					ValidatorId::from(Sr25519Keyring::Charlie.public()),
+				],
+				..Default::default()
+			}),
+			_ => None,
+		});
+
+		let claim_queue_before = scheduler::Pallet::<Test>::claim_queue();
+
+		// Test 1: Assign para_c to core 0 at block 2 (within claim queue)
+		// Should be auto-adjusted to block 5, claim queue should remain unchanged
+		Pallet::<Test>::assign_core(
+			CoreIndex(0),
+			2,
+			vec![(CoreAssignment::Task(para_5.into()), PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
+
+		let claim_queue_after_test1 = scheduler::Pallet::<Test>::claim_queue();
+		assert_eq!(
+			claim_queue_before, claim_queue_after_test1,
+			"Test 1: Claim queue should remain stable because assignment gets adjusted"
+		);
+
+		// Test 2: Assign para_d to core 1 at block 4 (within claim queue)
+		// Should be auto-adjusted to block 5, claim queue should remain unchanged
+		Pallet::<Test>::assign_core(
+			CoreIndex(1),
+			4,
+			vec![(CoreAssignment::Task(para_6.into()), PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
+
+		let claim_queue_after_test2 = scheduler::Pallet::<Test>::claim_queue();
+		assert_eq!(
+			claim_queue_before, claim_queue_after_test2,
+			"Test 2: Claim queue should remain stable when assignment is adjusted"
+		);
+
+		// Test 3 Assign para_c to core 2 at block 3 - within claim queue, should not get adjusted as core is free.
+		// Note: We need to pick block 3 to actually fill the claim queue as
+		// this still leads to assignment duplication, any later block
+		// assignment would not yet show up.
+		Pallet::<Test>::assign_core(
+			CoreIndex(2),
+			3,
+			vec![(CoreAssignment::Task(para_5.into()), PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
+
+		let mut claim_queue_after_test3 = scheduler::Pallet::<Test>::claim_queue();
+		let core_2_assignments = claim_queue_after_test3.remove(&CoreIndex(2));
+		// Core 2 should have para_c assignments:
+		assert_eq!(
+			core_2_assignments.unwrap(),
+			[para_5, para_5, para_5].into_iter().collect::<VecDeque<_>>()
+		);
+		// Claim queue for other cores should not have changed:
+		assert_eq!(
+			claim_queue_before, claim_queue_after_test3,
+			"Test 3: Claim queue should remain stable on all other cores"
+		);
+
+		// Claim queue no actually changed:
+		let claim_queue_before_test4 = scheduler::Pallet::<Test>::claim_queue();
+
+		// Test 4: Boundary check - this assignment should not get adjusted:
+		Pallet::<Test>::assign_core(
+			CoreIndex(2),
+			5,
+			vec![(CoreAssignment::Task(para_7.into()), PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
+
+		let claim_queue_after_test4 = scheduler::Pallet::<Test>::claim_queue();
+		// Outside of claim queue - so should also be stable:
+		assert_eq!(
+			claim_queue_before_test4, claim_queue_after_test4,
+			"Test 4: Assignment directly after claim queue end should also not have any effect on the current claim queue"
+		);
+
+		run_to_block(4, |_| None);
+
+		let claim_queue_block_4 = scheduler::Pallet::<Test>::claim_queue();
+
+		// We should see the para e assignment on core 2:
+		assert_eq!(
+			claim_queue_block_4.get(&CoreIndex(2)).unwrap().front().cloned().unwrap(),
+			para_7
+		);
+		// We should see the para d assignment on core 1 now:
+		assert_eq!(
+			claim_queue_block_4.get(&CoreIndex(1)).unwrap().front().cloned().unwrap(),
+								para_6
+		);
+		// We should see the para c assignment on core 0 now:
+		assert_eq!(
+			claim_queue_block_4.get(&CoreIndex(0)).unwrap().front().cloned().unwrap(),
+			para_5
+		);
+
 	});
 }
