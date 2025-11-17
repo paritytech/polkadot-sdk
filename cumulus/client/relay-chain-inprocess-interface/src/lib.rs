@@ -442,7 +442,7 @@ pub fn build_inprocess_relay_chain(
 	task_manager: &mut TaskManager,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> RelayChainResult<(
-	Arc<(dyn RelayChainInterface + 'static)>,
+	Arc<dyn RelayChainInterface + 'static>,
 	Option<CollatorPair>,
 	Arc<dyn NetworkService>,
 	async_channel::Receiver<IncomingRequest>,
