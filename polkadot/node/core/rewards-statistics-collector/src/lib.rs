@@ -29,7 +29,7 @@ use gum::CandidateHash;
 use sp_keystore::KeystorePtr;
 use polkadot_node_subsystem::{
     errors::RuntimeApiError as RuntimeApiSubsystemError,
-    messages::{ChainApiMessage, ConsensusStatisticsCollectorMessage, RuntimeApiMessage, RuntimeApiRequest},
+    messages::{ChainApiMessage, RewardsStatisticsCollectorMessage, RuntimeApiMessage, RuntimeApiRequest},
     overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemSender
 };
 use polkadot_primitives::{
@@ -66,7 +66,7 @@ const LOG_TARGET: &str = "parachain::rewards-statistics-collector";
 
 #[derive(Default)]
 pub struct Config {
-    pub publish_per_validator_approval_metrics: bool
+    pub verbose_approval_metrics: bool
 }
 
 struct PerRelayView {
@@ -174,7 +174,7 @@ where
 {
     fn start(self, ctx: Context) -> SpawnedSubsystem {
         SpawnedSubsystem {
-            future: run(ctx, (self.metrics, self.config.publish_per_validator_approval_metrics))
+            future: run(ctx, (self.metrics, self.config.verbose_approval_metrics))
                 .map_err(|e| SubsystemError::with_origin("statistics-parachains", e))
                 .boxed(),
             name: "rewards-statistics-collector-subsystem",
@@ -309,7 +309,7 @@ pub(crate) async fn run_iteration<Context>(
             }
             FromOrchestra::Communication { msg } => {
                 match msg {
-                    ConsensusStatisticsCollectorMessage::ChunksDownloaded(
+                    RewardsStatisticsCollectorMessage::ChunksDownloaded(
                         session_index,
                         candidate_hash,
                         downloads,
@@ -321,7 +321,7 @@ pub(crate) async fn run_iteration<Context>(
                             downloads,
                         )
                     },
-                    ConsensusStatisticsCollectorMessage::ChunkUploaded(
+                    RewardsStatisticsCollectorMessage::ChunkUploaded(
                         candidate_hash,
                         authority_ids,
                     ) => {
@@ -331,7 +331,7 @@ pub(crate) async fn run_iteration<Context>(
                             authority_ids,
                         )
                     },
-                    ConsensusStatisticsCollectorMessage::CandidateApproved(
+                    RewardsStatisticsCollectorMessage::CandidateApproved(
                         candidate_hash,
                         block_hash,
                         approvals,
@@ -343,7 +343,7 @@ pub(crate) async fn run_iteration<Context>(
                             approvals,
                         );
                     }
-                    ConsensusStatisticsCollectorMessage::NoShows(
+                    RewardsStatisticsCollectorMessage::NoShows(
                         candidate_hash,
                         block_hash,
                         no_show_validators,

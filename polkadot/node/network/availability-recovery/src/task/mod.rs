@@ -38,7 +38,7 @@ use sc_network::ProtocolName;
 
 use futures::channel::{mpsc, oneshot};
 use std::collections::VecDeque;
-use polkadot_node_subsystem::messages::ConsensusStatisticsCollectorMessage;
+use polkadot_node_subsystem::messages::RewardsStatisticsCollectorMessage;
 
 /// Recovery parameters common to all strategies in a `RecoveryTask`.
 #[derive(Clone)]
@@ -101,7 +101,7 @@ pub struct RecoveryTask<Sender: overseer::AvailabilityRecoverySenderTrait> {
 impl<Sender> RecoveryTask<Sender>
 where
 	Sender: overseer::AvailabilityRecoverySenderTrait
-		+ SubsystemSender<ConsensusStatisticsCollectorMessage>,
+		+ SubsystemSender<RewardsStatisticsCollectorMessage>,
 {
 	/// Instantiate a new recovery task.
 	pub fn new(
@@ -185,7 +185,7 @@ where
 				Ok(data) => {
 					self.params.metrics.on_recovery_succeeded(strategy_type, data.encoded_size());
 					_ = self.sender.try_send_message(
-						ConsensusStatisticsCollectorMessage::ChunksDownloaded(
+						RewardsStatisticsCollectorMessage::ChunksDownloaded(
 							self.params.session_index,
 							self.params.candidate_hash,
 							self.state.get_download_chunks_metrics()));

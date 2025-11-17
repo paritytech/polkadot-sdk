@@ -1480,7 +1480,7 @@ pub enum ProspectiveParachainsMessage {
 
 /// Messages sent to the Statistics Collector subsystem.
 #[derive(Debug)]
-pub enum ConsensusStatisticsCollectorMessage {
+pub enum RewardsStatisticsCollectorMessage {
 	ChunksDownloaded(SessionIndex, CandidateHash, HashMap<ValidatorIndex, u64>),
 	ChunkUploaded(CandidateHash, HashSet<AuthorityDiscoveryId>),
 

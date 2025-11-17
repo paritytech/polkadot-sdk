@@ -19,10 +19,10 @@ use super::*;
 use assert_matches::assert_matches;
 use overseer::FromOrchestra;
 use polkadot_primitives::{AssignmentId, GroupIndex, SessionIndex, SessionInfo};
-use polkadot_node_subsystem::messages::{AllMessages, ChainApiResponseChannel, ConsensusStatisticsCollectorMessage, RuntimeApiMessage, RuntimeApiRequest};
+use polkadot_node_subsystem::messages::{AllMessages, ChainApiResponseChannel, RewardsStatisticsCollectorMessage, RuntimeApiMessage, RuntimeApiRequest};
 
 type VirtualOverseer =
-	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ConsensusStatisticsCollectorMessage>;
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<RewardsStatisticsCollectorMessage>;
 use polkadot_node_subsystem::{ActivatedLeaf};
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{Hash, Header};
@@ -93,7 +93,7 @@ async fn candidate_approved(
 	approvals: Vec<ValidatorIndex>,
 ) {
 	let msg = FromOrchestra::Communication {
-		msg: ConsensusStatisticsCollectorMessage::CandidateApproved(
+		msg: RewardsStatisticsCollectorMessage::CandidateApproved(
 			candidate_hash.clone(),
 			rb_hash.clone(),
 			approvals,
@@ -109,7 +109,7 @@ async fn no_shows(
 	no_shows: Vec<ValidatorIndex>,
 ) {
 	let msg = FromOrchestra::Communication {
-		msg: ConsensusStatisticsCollectorMessage::NoShows(
+		msg: RewardsStatisticsCollectorMessage::NoShows(
 			candidate_hash.clone(),
 			rb_hash.clone(),
 			no_shows,
@@ -335,7 +335,7 @@ fn note_chunks_downloaded() {
 	let mut view = View::new();
 	test_harness(&mut view, |mut virtual_overseer| async move {
 		virtual_overseer.send(FromOrchestra::Communication {
-			msg: ConsensusStatisticsCollectorMessage::ChunksDownloaded(
+			msg: RewardsStatisticsCollectorMessage::ChunksDownloaded(
 				session_idx, candidate_hash.clone(), HashMap::from_iter(chunk_downloads.clone().into_iter()),
 			),
 		}).await;
@@ -345,7 +345,7 @@ fn note_chunks_downloaded() {
 			(ValidatorIndex(0), 5u64)
 		];
 		virtual_overseer.send(FromOrchestra::Communication {
-			msg: ConsensusStatisticsCollectorMessage::ChunksDownloaded(
+			msg: RewardsStatisticsCollectorMessage::ChunksDownloaded(
 				session_idx, candidate_hash.clone(), HashMap::from_iter(second_round_of_downloads.into_iter()),
 			),
 		}).await;
@@ -435,7 +435,7 @@ fn note_chunks_uploaded_to_active_validator() {
 		).await;
 
 		virtual_overseer.send(FromOrchestra::Communication {
-			msg: ConsensusStatisticsCollectorMessage::ChunkUploaded(
+			msg: RewardsStatisticsCollectorMessage::ChunkUploaded(
 				candidate_hash.clone(), HashSet::from_iter(vec![validator_idx_auth_id.clone()]),
 			),
 		}).await;

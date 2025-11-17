@@ -157,7 +157,6 @@ where
 			PvfsRequirePrecheck(relay_parent, pvfs) =>
 				self.requests_cache.cache_pvfs_require_precheck(relay_parent, pvfs),
 			SubmitPvfCheckStatement(()) => {},
-			SubmitApprovalStatistics(()) => {},
 			ValidationCodeHash(relay_parent, para_id, assumption, hash) => self
 				.requests_cache
 				.cache_validation_code_hash((relay_parent, para_id, assumption), hash),

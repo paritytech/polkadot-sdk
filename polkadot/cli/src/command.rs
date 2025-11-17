@@ -278,9 +278,9 @@ where
 				telemetry_worker_handle: None,
 				node_version,
 				secure_validator_mode,
-				publish_per_validator_approval_metrics: cli
+				verbose_approval_metrics: cli
 					.run
-					.publish_per_validator_approval_metrics
+					.verbose_approval_metrics
 					.unwrap_or(false),
 				workers_path: cli.run.workers_path,
 				workers_names: None,
