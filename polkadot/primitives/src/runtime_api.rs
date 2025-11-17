@@ -128,6 +128,7 @@ use alloc::{
 };
 use polkadot_core_primitives as pcp;
 use polkadot_parachain_primitives::primitives as ppp;
+use crate::vstaging::ApprovalStatistics;
 
 sp_api::decl_runtime_apis! {
 	/// The API for querying the state of parachains on-chain.
@@ -213,6 +214,10 @@ sp_api::decl_runtime_apis! {
 		///
 		/// NOTE: This function is only available since parachain host version 2.
 		fn submit_pvf_check_statement(stmt: PvfCheckStatement, signature: ValidatorSignature);
+
+
+		/// Submits the session collected proof statistics into the transaction pool.
+		fn submit_approval_statistics(payload: ApprovalStatistics, signature: ValidatorSignature);
 
 		/// Returns code hashes of PVFs that require pre-checking by validators in the active set.
 		///

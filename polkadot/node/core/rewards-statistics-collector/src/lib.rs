@@ -24,6 +24,7 @@
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::collections::hash_map::Entry;
+use std::task::Context;
 use futures::{channel::oneshot, prelude::*};
 use gum::CandidateHash;
 use sp_keystore::KeystorePtr;
@@ -32,10 +33,7 @@ use polkadot_node_subsystem::{
     messages::{ChainApiMessage, ConsensusStatisticsCollectorMessage, RuntimeApiMessage, RuntimeApiRequest},
     overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemSender
 };
-use polkadot_primitives::{
-    AuthorityDiscoveryId, BlockNumber, Hash, Header, SessionIndex, ValidatorId, ValidatorIndex,
-    well_known_keys::relay_dispatch_queue_remaining_capacity
-};
+use polkadot_primitives::{AuthorityDiscoveryId, BlockNumber, Hash, Header, SessionIndex, ValidatorId, ValidatorIndex, well_known_keys::relay_dispatch_queue_remaining_capacity, SessionInfo};
 use polkadot_node_primitives::{
     approval::{
         time::Tick,
@@ -109,18 +107,27 @@ impl PerValidatorTally {
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct PerSessionView {
+    credentials: Option<SigningCredentials>,
     authorities_lookup: HashMap<AuthorityDiscoveryId, ValidatorIndex>,
     validators_tallies: HashMap<ValidatorIndex, PerValidatorTally>,
 }
 
 impl PerSessionView {
-    fn new(authorities_lookup: HashMap<AuthorityDiscoveryId, ValidatorIndex>) -> Self {
-        Self { authorities_lookup, validators_tallies: HashMap::new() }
+    fn new(
+        authorities_lookup: HashMap<AuthorityDiscoveryId, ValidatorIndex>,
+        credentials: Option<SigningCredentials>,
+    ) -> Self {
+        Self {
+            authorities_lookup,
+            credentials,
+            validators_tallies: HashMap::new(),
+        }
     }
 }
 
 /// A struct that holds the credentials required to sign the PVF check statements. These credentials
 /// are implicitly to pinned to a session where our node acts as a validator.
+#[derive(Debug, Eq, PartialEq, Clone)]
 struct SigningCredentials {
     /// The validator public key.
     validator_key: ValidatorId,
@@ -133,8 +140,8 @@ struct View {
     per_relay: HashMap<Hash, PerRelayView>,
     per_session: HashMap<SessionIndex, PerSessionView>,
     availability_chunks: HashMap<SessionIndex, AvailabilityChunks>,
-    current_session: Option<SessionIndex>,
-    credentials: Option<SigningCredentials>,
+    latest_finalized_session: Option<SessionIndex>,
+    recent_block: Option<(BlockNumber, Hash)>,
 }
 
 impl View {
@@ -144,25 +151,58 @@ impl View {
             per_relay: HashMap::new(),
             per_session: HashMap::new(),
             availability_chunks: HashMap::new(),
-            current_session: None,
-            credentials: None,
+            latest_finalized_session: None,
+            recent_block: None,
         };
+    }
+
+    // add_node includes a new activated block
+    // in the unfinalized blocks mapping, it also
+    // links the including block with its parent
+    // if its parent is present in the mapping
+    // otherwise the including block will be added
+    // in the roots set.
+    fn add_node(
+        &mut self,
+        activated_hash: Hash,
+        activated_header: Option<Header>,
+        session_index: SessionIndex,
+    ) {
+        if let Some(h) = activated_header {
+            let parent_hash = h.parent_hash;
+            let parent_hash = match self.per_relay.get_mut(&parent_hash) {
+                Some(per_relay_view) => {
+                    per_relay_view.link_child(activated_hash);
+                    Some(parent_hash)
+                },
+                None => {
+                    _ = self.roots.insert(activated_hash);
+                    None
+                },
+            };
+
+            self.per_relay.insert(activated_hash, PerRelayView::new(parent_hash, session_index));
+        } else {
+            self.roots.insert(activated_hash);
+            self.per_relay.insert(activated_hash, PerRelayView::new(None, session_index));
+        }
     }
 }
 
 /// The statistics collector subsystem.
-#[derive(Default)]
 pub struct RewardsStatisticsCollector {
+    keystore: KeystorePtr,
     metrics: Metrics,
     config: Config
 }
 
 impl RewardsStatisticsCollector {
     /// Create a new instance of the `ConsensusStatisticsCollector`.
-    pub fn new(metrics: Metrics, config: Config) -> Self {
+    pub fn new(keystore: KeystorePtr, metrics: Metrics, config: Config) -> Self {
         Self {
             metrics,
             config,
+            keystore,
         }
     }
 }
@@ -174,7 +214,7 @@ where
 {
     fn start(self, ctx: Context) -> SpawnedSubsystem {
         SpawnedSubsystem {
-            future: run(ctx, (self.metrics, self.config.publish_per_validator_approval_metrics))
+            future: run(ctx, self.keystore, (self.metrics, self.config.publish_per_validator_approval_metrics))
                 .map_err(|e| SubsystemError::with_origin("statistics-parachains", e))
                 .boxed(),
             name: "rewards-statistics-collector-subsystem",
@@ -183,11 +223,11 @@ where
 }
 
 #[overseer::contextbounds(ConsensusStatisticsCollector, prefix = self::overseer)]
-async fn run<Context>(mut ctx: Context, metrics: (Metrics, bool)) -> FatalResult<()> {
+async fn run<Context>(mut ctx: Context, keystore: KeystorePtr, metrics: (Metrics, bool)) -> FatalResult<()> {
     let mut view = View::new();
     loop {
-        crate::error::log_error(
-            run_iteration(&mut ctx, &mut view, (&metrics.0, metrics.1)).await,
+        error::log_error(
+            run_iteration(&mut ctx, &mut view, &keystore, (&metrics.0, metrics.1)).await,
             "Encountered issue during run iteration",
         )?;
     }
@@ -197,65 +237,44 @@ async fn run<Context>(mut ctx: Context, metrics: (Metrics, bool)) -> FatalResult
 pub(crate) async fn run_iteration<Context>(
     ctx: &mut Context,
     view: &mut View,
+    keystore: &KeystorePtr,
     metrics: (&Metrics, bool),
 ) -> Result<()> {
-    let mut sender = ctx.sender().clone();
     let per_validator_metrics = metrics.1;
     loop {
         match ctx.recv().await.map_err(FatalError::SubsystemReceive)? {
             FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
             FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) => {
                 if let Some(activated) = update.activated {
+                    let ActivationInfo {
+                        activated_header,
+                        session_index,
+                        new_session_info,
+                        recent_block,
+                    } = extract_activated_leaf_info(
+                        ctx.sender(),
+                        view,
+                        keystore,
+                        activated.hash,
+                        activated.number,
+                    ).await?;
+
                     let relay_hash = activated.hash;
+                    view.recent_block = Some(recent_block);
 
-                    let (tx, rx) = oneshot::channel();
+                    view.add_node(
+                        relay_hash,
+                        activated_header,
+                        session_index,
+                    );
 
-                    ctx.send_message(ChainApiMessage::BlockHeader(relay_hash, tx)).await;
-                    let header = rx
-                        .map_err(JfyiError::OverseerCommunication)
-                        .await?
-                        .map_err(JfyiError::ChainApiCallError)?;
-
-                    let session_idx = request_session_index_for_child(relay_hash, ctx.sender())
-                        .await
-                        .await
-                        .map_err(JfyiError::OverseerCommunication)?
-                        .map_err(JfyiError::RuntimeApiCallError)?;
-
-                    if let Some(ref h) = header {
-                        let parent_hash = h.parent_hash;
-                        let parent_hash = match view.per_relay.get_mut(&parent_hash) {
-                            Some(per_relay_view) => {
-                                per_relay_view.link_child(relay_hash);
-                                Some(parent_hash)
-                            },
-                            None => {
-                                _ = view.roots.insert(relay_hash);
-                                None
-                            },
-                        };
-
-                        view.per_relay.insert(relay_hash, PerRelayView::new(parent_hash, session_idx));
-                    } else {
-                        view.roots.insert(relay_hash);
-                        view.per_relay.insert(relay_hash, PerRelayView::new(None, session_idx));
-                    }
-
-                    if !view.per_session.contains_key(&session_idx) {
-                        let session_info = request_session_info(relay_hash, session_idx, ctx.sender())
-                            .await
-                            .await
-                            .map_err(JfyiError::OverseerCommunication)?
-                            .map_err(JfyiError::RuntimeApiCallError)?;
-
-                        if let Some(session_info) = session_info {
-                            let mut authority_lookup = HashMap::new();
-                            for (i, ad) in session_info.discovery_keys.iter().cloned().enumerate() {
-                                authority_lookup.insert(ad, ValidatorIndex(i as _));
-                            }
-
-                            view.per_session.insert(session_idx, PerSessionView::new(authority_lookup));
+                    if let Some((session_info, credentials)) = new_session_info {
+                        let mut authority_lookup = HashMap::new();
+                        for (i, ad) in session_info.discovery_keys.iter().cloned().enumerate() {
+                            authority_lookup.insert(ad, ValidatorIndex(i as _));
                         }
+
+                        view.per_session.insert(session_index, PerSessionView::new(authority_lookup, credentials));
                     }
                 }
             },
@@ -305,7 +324,13 @@ pub(crate) async fn run_iteration<Context>(
                 }
 
                 log_session_view_general_stats(view);
-                prune_old_session_views(ctx, view, fin_block_hash).await?;
+                submit_finalized_session_stats(
+                    ctx.sender(),
+                    keystore,
+                    view,
+                    fin_block_hash,
+                    metrics.0,
+                ).await?;
             }
             FromOrchestra::Communication { msg } => {
                 match msg {
@@ -359,6 +384,82 @@ pub(crate) async fn run_iteration<Context>(
             },
         }
     }
+}
+
+struct ActivationInfo {
+    activated_header: Option<Header>,
+    recent_block: (BlockNumber, Hash),
+    session_index: SessionIndex,
+    new_session_info: Option<(SessionInfo, Option<SigningCredentials>)>,
+}
+
+async fn extract_activated_leaf_info<
+    Sender: SubsystemSender<ChainApiMessage>
+        + SubsystemSender<RuntimeApiMessage>
+>(
+    mut sender: Sender,
+    view: &mut View,
+    keystore: &KeystorePtr,
+    relay_hash: Hash,
+    relay_number: BlockNumber,
+) -> Result<ActivationInfo> {
+    let recent_block = match view.recent_block {
+        Some((recent_block_num, recent_block_hash)) if relay_number < recent_block_num => {
+            // the existing recent block is not worse than the new activation, so leave it.
+            (recent_block_num, recent_block_hash)
+        },
+        _ => (relay_number, relay_hash),
+    };
+
+    let (tx, rx) = oneshot::channel();
+    sender.send_message(ChainApiMessage::BlockHeader(relay_hash, tx)).await;
+    let header = rx
+        .map_err(JfyiError::OverseerCommunication)
+        .await?
+        .map_err(JfyiError::ChainApiCallError)?;
+
+    let session_idx = request_session_index_for_child(relay_hash, &mut sender)
+        .await
+        .await
+        .map_err(JfyiError::OverseerCommunication)?
+        .map_err(JfyiError::RuntimeApiCallError)?;
+
+    let new_session_info = if !view.per_session.contains_key(&session_idx) {
+        let session_info = request_session_info(relay_hash, session_idx, &mut sender)
+            .await
+            .await
+            .map_err(JfyiError::OverseerCommunication)?
+            .map_err(JfyiError::RuntimeApiCallError)?;
+
+        let (tx, rx) = oneshot::channel();
+        let validators = runtime_api_request(
+            &mut sender,
+            relay_hash,
+            RuntimeApiRequest::Validators(tx),
+            rx,
+        )
+            .await
+            .map_err(JfyiError::RuntimeApiCallError)?;
+
+        let signing_credentials = polkadot_node_subsystem_util::signing_key_and_index(&validators, keystore)
+            .map(|(validator_key, validator_index)|
+                SigningCredentials { validator_key, validator_index });
+
+        if let Some(session_info) = session_info {
+            Some((session_info, signing_credentials))
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    Ok(ActivationInfo {
+        activated_header: header,
+        recent_block,
+        session_index: session_idx,
+        new_session_info,
+    })
 }
 
 // prune_unfinalised_forks will remove all the relay chain blocks
@@ -431,29 +532,61 @@ fn prune_unfinalised_forks(view: &mut View, fin_block_hash: Hash) -> Vec<Hash> {
     retain_relay_hashes
 }
 
-// prune_old_session_views avoid the per_session mapping to grow
-// indefinitely by removing sessions stored for more than MAX_SESSIONS_TO_KEEP (2)
-// finalized sessions.
-#[overseer::contextbounds(ConsensusStatisticsCollector, prefix = self::overseer)]
-async fn prune_old_session_views<Context>(
-    ctx: &mut Context,
+// submit_finalized_session_stats works after a whole session is finalized
+// getting all the collected data and submitting to the runtime, after the
+// submition the data is cleaned from mapping
+async fn submit_finalized_session_stats<
+    Sender: SubsystemSender<RuntimeApiMessage>,
+>(
+    mut sender: Sender,
+    keystore: &KeystorePtr,
     view: &mut View,
     finalized_hash: Hash,
+    metrics: &Metrics,
 ) -> Result<()> {
-    let session_idx = request_session_index_for_child(finalized_hash, ctx.sender())
+    let recent_block_hash = match view.recent_block {
+        Some((_, block_hash)) => block_hash,
+        None => {
+            gum::debug!(
+                target: LOG_TARGET,
+                ?finalized_hash,
+                "recent block does not exist or got erased, cannot submit finalized session statistics"
+            );
+            return Ok(());
+        },
+    };
+
+    let current_fin_session = request_session_index_for_child(finalized_hash, &mut sender)
         .await
         .await
         .map_err(JfyiError::OverseerCommunication)?
         .map_err(JfyiError::RuntimeApiCallError)?;
 
-    match view.current_session {
-        Some(current_session) if current_session < session_idx => {
-            if let Some(wipe_before) = session_idx.checked_sub(MAX_SESSIONS_TO_KEEP) {
-                view.per_session.retain(|stored_session_index, _| *stored_session_index > wipe_before);
+    match view.latest_finalized_session {
+        Some(latest_fin_session) if latest_fin_session < current_fin_session => {
+            // the previous session was finalized
+            for (session_idx, session_view) in view
+                .per_session
+                .iter()
+                .filter(|stored_session_idx| stored_session_idx.0 < &current_fin_session) {
+
+                if let Some(ref credentials) = session_view.credentials {
+                    sign_and_submit_approvals_tallies(
+                        &mut sender,
+                        recent_block_hash,
+                        session_idx,
+                        keystore,
+                        credentials,
+                        metrics,
+                        session_view.validators_tallies.clone(),
+                    ).await;
+                }
             }
-            view.current_session = Some(session_idx)
+
+            view.per_session.retain(|session_index, _| *session_index >= current_fin_session);
+            view.latest_finalized_session = Some(current_fin_session);
         }
-        None => view.current_session = Some(session_idx),
+        None => view.latest_finalized_session = Some(current_fin_session),
         _ => {}
     };
 
@@ -478,10 +611,12 @@ fn log_session_view_general_stats(view: &View) {
     }
 }
 
-async fn sign_and_submit_approvals_tallies(
-    sender: &mut impl SubsystemSender<RuntimeApiMessage>,
+async fn sign_and_submit_approvals_tallies<
+    Sender: SubsystemSender<RuntimeApiMessage>,
+>(
+    mut sender: Sender,
     relay_parent: Hash,
-    session_index: SessionIndex,
+    session_index: &SessionIndex,
     keystore: &KeystorePtr,
     credentials: &SigningCredentials,
     metrics: &Metrics,
@@ -494,8 +629,6 @@ async fn sign_and_submit_approvals_tallies(
         tallies.len(),
         session_index,
 	);
-
-    metrics.submit_approvals_tallies(tallies.len());
 
     let mut validators_indexes = tallies.keys().collect::<Vec<_>>();
     validators_indexes.sort();
@@ -510,7 +643,7 @@ async fn sign_and_submit_approvals_tallies(
         });
     }
 
-    let payload = ApprovalStatistics(session_index, approvals_tallies);
+    let payload = ApprovalStatistics(session_index.clone(), approvals_tallies);
 
     let signature = match polkadot_node_subsystem_util::sign(
         keystore,
@@ -541,15 +674,15 @@ async fn sign_and_submit_approvals_tallies(
 
     let (tx, rx) = oneshot::channel();
     let runtime_req = runtime_api_request(
-        sender,
+        &mut sender,
         relay_parent,
         RuntimeApiRequest::SubmitApprovalStatistics(payload, signature, tx),
         rx,
-    );
+    ).await;
 
-    match runtime_req.await {
+    match runtime_req {
         Ok(()) => {
-            metrics.on_vote_submitted();
+            metrics.on_approvals_submitted();
         },
         Err(e) => {
             gum::warn!(
@@ -568,8 +701,11 @@ pub(crate) enum RuntimeRequestError {
     CommunicationError,
 }
 
-pub(crate) async fn runtime_api_request<T>(
-    sender: &mut impl SubsystemSender<RuntimeApiMessage>,
+async fn runtime_api_request<
+    T,
+    Sender: SubsystemSender<RuntimeApiMessage>,
+>(
+    mut sender: Sender,
     relay_parent: Hash,
     request: RuntimeApiRequest,
     receiver: oneshot::Receiver<std::result::Result<T, RuntimeApiSubsystemError>>,

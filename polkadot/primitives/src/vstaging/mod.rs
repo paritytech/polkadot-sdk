@@ -22,21 +22,29 @@ use sp_application_crypto::RuntimeDebug;
 use sp_core::DecodeWithMemTracking;
 use sp_staking::SessionIndex;
 use crate::ValidatorIndex;
+use alloc::vec::Vec;
 
 /// A reward tally line represent the collected statistics about
 /// approvals voting for a given validator, how much successful approvals
 /// was collected and how many times the given validator no-showed
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Copy, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct ApprovalStatisticsTallyLine {
+    ///  represents the validator to which the statistics belongs to
     pub validator_index: ValidatorIndex,
+
+    /// how many times the validator had sent useful approval votes
+    /// that contribute the successful approval of a candidate
     pub approvals_usage: u32,
+
+    /// how many times the validator was supposed to send a vote but
+    /// no showed
     pub no_shows: u32,
 }
 
 /// ApprovalRewards is the set of tallies where each tally represents
 /// a given validator and its approval voting statistics
 #[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-pub struct ApprovalStatistics(SessionIndex, Vec<ApprovalStatisticsTallyLine>);
+pub struct ApprovalStatistics(pub SessionIndex, pub Vec<ApprovalStatisticsTallyLine>);
 
 impl ApprovalStatistics {
     pub fn signing_payload(&self) -> Vec<u8> {

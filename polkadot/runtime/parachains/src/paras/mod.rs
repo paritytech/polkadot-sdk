@@ -145,6 +145,7 @@ pub mod benchmarking;
 pub(crate) mod tests;
 
 pub use pallet::*;
+use polkadot_primitives::vstaging::ApprovalStatistics;
 
 const LOG_TARGET: &str = "runtime::paras";
 
@@ -2446,6 +2447,13 @@ impl<T: Config> Pallet<T> {
 		if let Err(e) = SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
 			log::error!(target: LOG_TARGET, "Error submitting pvf check statement: {:?}", e,);
 		}
+	}
+
+	pub(crate) fn submit_approval_statistics(
+		payload: ApprovalStatistics,
+		signature: ValidatorSignature,
+	) {
+		// TODO: to be implemented
 	}
 
 	/// Returns the current lifecycle state of the para.

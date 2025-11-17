@@ -32,7 +32,7 @@ pub(crate) struct MetricsInner {
 	approvals_per_session_per_validator: prometheus::CounterVec<U64>,
 	no_shows_per_session_per_validator: prometheus::CounterVec<U64>,
 
-	submittion_started: prometheus::Counter<U64>,
+	approvals_stats_submittion_total: prometheus::Counter<U64>,
 }
 
 
@@ -70,9 +70,9 @@ impl Metrics {
 		});
 	}
 
-	pub fn submit_approvals_tallies(&self, tallies: usize) {
+	pub fn on_approvals_submitted(&self) {
 		self.0.as_ref().map(|metrics| {
-			metrics.submittion_started.inc_by(tallies as u64);
+			metrics.approvals_stats_submittion_total.inc();
 		});
 	}
 }
@@ -120,7 +120,7 @@ impl metrics::Metrics for Metrics {
 				)?,
 				registry,
 			)?,
-			submittion_started: prometheus::register(
+			approvals_stats_submittion_total: prometheus::register(
 				prometheus::Counter::new(
 					"polkadot_parachain_rewards_statistics_collector_submittion_started",
 					"The number of rewards tallies submitted"
