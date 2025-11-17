@@ -938,6 +938,7 @@ impl PerRelayParent {
 		let peer_advertisements =
 			self.peer_advertisements.entry(advertisement.peer_id).or_default();
 
+		// we count all advertisements, check [`PeerAdvertisements::total`]
 		peer_advertisements.total += 1;
 
 		if peer_advertisements.total > max_assignments {
