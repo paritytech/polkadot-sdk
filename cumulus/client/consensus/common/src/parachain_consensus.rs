@@ -86,7 +86,7 @@ fn handle_new_finalized_head<P, Block, B>(
 /// the corresponding parachain head data for the given `para_id`. The extracted head
 /// data is sent through the provided channel for consumption by the consensus system.
 ///
-/// This is necessary because finalization of blocks in [`follow_finalized_head`] can take a long
+/// This is necessary because finalization of blocks can take a long
 /// time. During this blocking operation, we should not keep references to finality notifications,
 /// because that prevents the corresponding blocks from getting pruned.
 pub async fn finalized_head_stream_worker<R: RelayChainInterface + Clone, Block: BlockT>(
