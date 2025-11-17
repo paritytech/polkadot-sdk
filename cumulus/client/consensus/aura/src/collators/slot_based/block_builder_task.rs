@@ -184,16 +184,14 @@ where
 		};
 
 		let mut relay_chain_data_cache = RelayChainDataCache::new(relay_client.clone(), para_id);
-
-		let mut maybe_connection_helper = relay_client
-			.overseer_handle()
-			.ok()
-			.map(|h| BackingGroupConnectionHelper::new(para_client.clone(), keystore.clone(), h.clone()))
-			.or_else(|| {
-				tracing::warn!(target: LOG_TARGET,
-					"Relay chain interface does not provide overseer handle. Backing group pre-connect is disabled.");
-				None
-			});
+		let mut connection_helper = BackingGroupConnectionHelper::new(
+			keystore.clone(),
+			relay_client
+				.overseer_handle()
+				// Should never fail. If it fails, then providing collations to relay chain
+				// doesn't work either. So it is fine to panic here.
+				.expect("Relay chain interface must provide overseer handle."),
+		);
 
 		loop {
 			// We wait here until the next slot arrives.
@@ -310,6 +308,10 @@ where
 
 			let included_header_hash = included_header.hash();
 
+			if let Ok(authorities) = para_client.runtime_api().authorities(parent_hash) {
+				connection_helper.update::<P>(para_slot.slot, &authorities).await;
+			}
+
 			let slot_claim = match crate::collators::can_build_upon::<_, _, P>(
 				para_slot.slot,
 				relay_slot,
@@ -334,9 +336,6 @@ where
 						slot = ?para_slot.slot,
 						"Not building block."
 					);
-					if let Some(ref mut connection_helper) = maybe_connection_helper {
-						connection_helper.update::<Block, P>(para_slot.slot, parent_hash).await;
-					}
 					continue
 				},
 			};
