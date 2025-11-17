@@ -58,12 +58,16 @@ impl ProofSizeExt {
 /// Proof size estimations as recorded by [`RecordingProofSizeProvider`].
 ///
 /// Each item is the estimated proof size as observed when calling
-/// [`ProofSizeProvider::estimate_encoded_size`]. The items are ordered by t
+/// [`ProofSizeProvider::estimate_encoded_size`]. The items are ordered by their observation and
+/// need to be replayed in the exact same order.
 pub struct RecordedProofSizeEstimations(pub VecDeque<usize>);
 
 /// Inner structure of [`RecordingProofSizeProvider`].
 struct RecordingProofSizeProviderInner {
 	inner: Box<dyn ProofSizeProvider + Send + Sync>,
+	/// Stores the observed proof estimations (in order of observation) per transaction.
+	///
+	/// Last element of the outer vector is the active transaction.
 	proof_size_estimations: Vec<Vec<usize>>,
 }
 
@@ -114,6 +118,17 @@ impl ProofSizeProvider for RecordingProofSizeProvider {
 	fn start_transaction(&mut self, is_host: bool) {
 		// We don't care about runtime transactions, because they are part of the consensus critical
 		// path, that will always deterministically call this code.
+		//
+		// For example a runtime execution is creating 10 runtime transaction and calling in every
+		// transaction the proof size estimation host function and 8 of these transactions are
+		// rolled back. We need to keep all the 10 estimations. When the runtime execution is
+		// replayed (by e.g. importing a block), we will deterministically again create 10 runtime
+		// executions and roll back 8. However, in between we require all 10 estimations as
+		// otherwise the execution would not be deterministically anymore.
+		//
+		// A host transaction is only rolled back while for example building a block and an
+		// extrinsic failed in the early checks in the runtime. In this case, the extrinsic will
+		// also never appear in a block and thus, will not need to be replayed later on.
 		if is_host {
 			self.inner.lock().proof_size_estimations.push(Default::default());
 		}
