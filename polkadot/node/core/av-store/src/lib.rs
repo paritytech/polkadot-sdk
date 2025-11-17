@@ -1232,6 +1232,24 @@ fn process_message(
 				},
 			}
 		},
+		AvailabilityStoreMessage::NoteBackableCandidate{ candidate_hash, tx } => {
+			let res = note_backable_candidate(
+				&subsystem.db,
+				&subsystem.config,
+				candidate_hash,
+				subsystem,
+			);
+
+			match res {
+				Ok(_) => {
+					let _ = tx.send(Ok(()));
+				},
+				Err(e) => {
+					let _ = tx.send(Err(()));
+					return Err(e)
+				},
+			}
+		},
 	}
 
 	Ok(())
@@ -1425,6 +1443,32 @@ fn prune_all(db: &Arc<dyn Database>, config: &Config, now: Duration) -> Result<(
 				}
 			}
 		}
+	}
+
+	db.write(tx)?;
+	Ok(())
+}
+
+fn note_backable_candidate(
+	db: &Arc<dyn Database>,
+	config: &Config,
+	candidate_hash: CandidateHash,
+	subsystem: &AvailabilityStoreSubsystem,
+) -> Result<(), Error> {
+	let mut tx = DBTransaction::new();
+
+	if load_meta(db, config, &candidate_hash)?.is_none() {
+		let now = subsystem.clock.now()?;
+		let meta = CandidateMeta {
+			state: State::Unavailable(now.into()),
+			data_available: false,
+			chunks_stored: bitvec::bitvec![u8, BitOrderLsb0; 0; 12],
+		};
+
+		let prune_at = now + KEEP_UNAVAILABLE_FOR;
+
+		write_pruning_key(&mut tx, config, prune_at, &candidate_hash);
+		write_meta(&mut tx, config, &candidate_hash, &meta);
 	}
 
 	db.write(tx)?;

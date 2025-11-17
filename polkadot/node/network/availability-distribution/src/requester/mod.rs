@@ -31,7 +31,7 @@ use futures::{
 
 use polkadot_node_network_protocol::request_response::{v1, v2, IsRequest, ReqProtocolNames};
 use polkadot_node_subsystem::{
-	messages::{ChainApiMessage, RuntimeApiMessage, CandidateBackingMessage},
+	messages::{ChainApiMessage, RuntimeApiMessage, CandidateBackingMessage, AvailabilityStoreMessage},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate,
 	SubsystemSender,
 };
@@ -181,7 +181,6 @@ impl Requester {
 
 				let cores = availability_cores.unwrap().unwrap();
 
-				// let bitfields = select_availability_bitfields(&availability_cores, bitfields, &leaf.hash);
 				let backable_candidates = request_backable_candidates(&cores, None, &new_head, sender).await;
 
 				if backable_candidates.is_err() {
@@ -307,6 +306,19 @@ impl Requester {
 				?scheduled_cores,
 				"Adding scheduled cores"
 			);
+			let sender = &mut ctx.sender().clone();
+			for (_, core_info) in &scheduled_cores {
+				let (tx, rx) = oneshot::channel();
+				sender
+					.send_message(
+						AvailabilityStoreMessage::NoteBackableCandidate{ candidate_hash: core_info.candidate_hash, tx },
+					)
+					.await;
+				if let Err(err) = rx.await {
+					gum::error!(target: LOG_TARGET, "Sending NoteBackableCandidate message failed: {:?}", err);
+				}
+				
+			}
 			self.add_cores(ctx, runtime, leaf, leaf_session_index, scheduled_cores).await?;
 		}
 
