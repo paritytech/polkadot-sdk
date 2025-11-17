@@ -1,0 +1,20 @@
+title: 'parachain-consensus: Do not pin blocks on the relay chain during syncing'
+doc:
+- audience: Node Operator
+  description: |-
+    We had reports in the past about `polkadot-parachain` consuming a lot of memory during syncing. I spend some time investigating this again.
+
+    This graph shows memory consumption during sync process:
+    <img width="1256" height="302" alt="image" src="https://github.com/user-attachments/assets/eec1b510-1aa8-446e-8088-5ff0daab6252" />
+
+     We see a rise up to 50gb and then release of a lot of memory and node stabilizes at around 20gb. While I still find that relatively high, I found that the large reduction in memory towards the end was caused by finality notifications. I tracked down the culprit to be `parachain-consensus`. It is doing long-blocking finalization operations and keeps finality notifications around while doing so.
+
+    In this PR I introduce a new task that fetches the included block and then immediately releases the finality notifications of the relay chain.
+
+    Memory is now more bounded at around ~12gb:
+    <img width="1248" height="308" alt="image" src="https://github.com/user-attachments/assets/5a8be3bb-02a2-400f-9d0d-87ec298ce09f" />
+crates:
+- name: cumulus-client-consensus-common
+  bump: major
+- name: cumulus-client-service
+  bump: major
