@@ -314,21 +314,22 @@ pub trait Benchmarking {
 
 	// Add a new item to the DB whitelist.
 	fn add_to_whitelist(&mut self, add: PassFatPointerAndDecode<TrackedStorageKey>) {
-		let mut whitelist = self.get_whitelist();
-		match whitelist.iter_mut().find(|x| x.key == add.key) {
-			// If we already have this key in the whitelist, update to be the most constrained
-			// value.
-			Some(item) => {
-				item.reads += add.reads;
-				item.writes += add.writes;
-				item.whitelisted = item.whitelisted || add.whitelisted;
-			},
-			// If the key does not exist, add it.
-			None => {
-				whitelist.push(add);
-			},
-		}
-		self.set_whitelist(whitelist);
+        let mut whitelist = self.get_whitelist();
+
+        whitelist.retain(|existing| !add.key.starts_with(&existing.key));
+
+        if let Some(existing_prefix) = whitelist.iter_mut().find(|existing| add.key.starts_with(&existing.key)) {
+            // If our new key is already covered by an existing prefix,
+            // update the existing prefix with the new constraints
+            existing_prefix.reads += add.reads;
+            existing_prefix.writes += add.writes;
+            existing_prefix.whitelisted = existing_prefix.whitelisted || add.whitelisted;
+        } else {
+            // No existing prefix covers our new key, so add it
+            whitelist.push(add);
+        }
+
+        self.set_whitelist(whitelist);
 	}
 
 	// Remove an item from the DB whitelist.
