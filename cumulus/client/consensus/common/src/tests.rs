@@ -47,6 +47,7 @@ use std::{
 	sync::{Arc, Mutex},
 	time::Duration,
 };
+use crate::parachain_consensus::run_parachain_consensus;
 
 fn relay_block_num_from_hash(hash: &PHash) -> BlockNumber {
 	hash.to_low_u64_be() as u32
