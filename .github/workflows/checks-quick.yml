@@ -48,7 +48,7 @@ jobs:
         run: |
           cd substrate/
           ../.gitlab/ensure-deps.sh
-  check-rust-feature-propagation:
+  check-zepter:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: [preflight]
@@ -62,7 +62,7 @@ jobs:
           time cargo metadata --format-version=1 --locked > /dev/null
       - name: Install newer Zepter
         run: |
-          cargo install zepter@1.78.2 --locked -q
+          cargo install zepter@1.82.1 --locked -q
       - name: run zepter
         run: |
           zepter --version
@@ -115,7 +115,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4.1.7
       - name: Setup Node.js
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
         with:
           node-version: "18.x"
           registry-url: "https://npm.pkg.github.com"
@@ -143,7 +143,7 @@ jobs:
         run: pip3 install "cargo-workspace>=1.2.4" toml
       - name: Install newer Zepter
         run: |
-          cargo install zepter@1.78.2 --locked -q && zepter --version
+          cargo install zepter@1.82.1 --locked -q && zepter --version
       - name: check umbrella correctness
         run: |
           # Fixes "detected dubious ownership" error in the ci
@@ -226,7 +226,7 @@ jobs:
           echo "RUST_VERSION=${RUST_VERSION}" >> $GITHUB_ENV
 
       - name: Install Rust
-        uses: actions-rust-lang/setup-rust-toolchain@2fcdc490d667999e01ddbbf0f2823181beef6b39 # v1.15.0
+        uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
         with:
           cache: false
           toolchain: ${{ env.RUST_VERSION }}
@@ -242,7 +242,7 @@ jobs:
     needs:
       - fmt
       - check-dependency-rules
-      - check-rust-feature-propagation
+      - check-zepter
       - test-rust-features
       - check-toml-format
       - check-workspace

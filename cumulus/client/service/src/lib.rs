@@ -20,7 +20,6 @@
 //! Provides functions for starting a collator node or a normal full node.
 
 use cumulus_client_cli::CollatorOptions;
-use cumulus_client_consensus_common::ParachainConsensus;
 use cumulus_client_network::{AssumeSybilResistance, RequireSecondedInBlockAnnounce};
 use cumulus_client_pov_recovery::{PoVRecovery, RecoveryDelayRange, RecoveryHandle};
 use cumulus_primitives_core::{CollectCollationInfo, ParaId};
@@ -46,14 +45,16 @@ use sc_network_sync::SyncingService;
 use sc_network_transactions::TransactionsHandlerController;
 use sc_service::{Configuration, SpawnTaskHandle, TaskManager, WarpSyncConfig};
 use sc_telemetry::{log, TelemetryWorkerHandle};
+use sc_tracing::block::TracingExecuteBlock;
 use sc_utils::mpsc::TracingUnboundedSender;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi};
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_core::Decode;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockIdTo, Header},
 	SaturatedConversion, Saturating,
 };
+use sp_trie::proof_size_extension::ProofSizeExt;
 use std::{
 	sync::Arc,
 	time::{Duration, Instant},
@@ -84,23 +85,6 @@ pub enum DARecoveryProfile {
 	FullNode,
 	/// Provide an explicit recovery profile.
 	Other(RecoveryDelayRange),
-}
-
-pub struct StartCollatorParams<'a, Block: BlockT, BS, Client, RCInterface, Spawner> {
-	pub block_status: Arc<BS>,
-	pub client: Arc<Client>,
-	pub announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
-	pub spawner: Spawner,
-	pub para_id: ParaId,
-	pub relay_chain_interface: RCInterface,
-	pub task_manager: &'a mut TaskManager,
-	pub parachain_consensus: Box<dyn ParachainConsensus<Block>>,
-	pub import_queue: Box<dyn ImportQueueService<Block>>,
-	pub collator_key: CollatorPair,
-	pub relay_chain_slot_duration: Duration,
-	pub recovery_handle: Box<dyn RecoveryHandle>,
-	pub sync_service: Arc<SyncingService<Block>>,
-	pub prometheus_registry: Option<&'a Registry>,
 }
 
 /// Parameters given to [`start_relay_chain_tasks`].
@@ -248,7 +232,7 @@ pub async fn build_relay_chain_interface(
 	collator_options: CollatorOptions,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> RelayChainResult<(
-	Arc<(dyn RelayChainInterface + 'static)>,
+	Arc<dyn RelayChainInterface + 'static>,
 	Option<CollatorPair>,
 	Arc<dyn NetworkService>,
 	async_channel::Receiver<IncomingRequest>,
@@ -613,5 +597,38 @@ impl ParachainInformantMetrics {
 			parachain_block_backed_duration: parachain_block_authorship_duration,
 			unincluded_segment_size,
 		})
+	}
+}
+
+/// Implementation of [`TracingExecuteBlock`] for parachains.
+///
+/// Ensures that all the required extensions required by parachain runtimes are registered and
+/// available.
+pub struct ParachainTracingExecuteBlock<Client> {
+	client: Arc<Client>,
+}
+
+impl<Client> ParachainTracingExecuteBlock<Client> {
+	/// Creates a new instance of `self`.
+	pub fn new(client: Arc<Client>) -> Self {
+		Self { client }
+	}
+}
+
+impl<Block, Client> TracingExecuteBlock<Block> for ParachainTracingExecuteBlock<Client>
+where
+	Block: BlockT,
+	Client: ProvideRuntimeApi<Block> + Send + Sync,
+	Client::Api: Core<Block>,
+{
+	fn execute_block(&self, _: Block::Hash, block: Block) -> sp_blockchain::Result<()> {
+		let mut runtime_api = self.client.runtime_api();
+		let storage_proof_recorder = ProofRecorder::<Block>::default();
+		runtime_api.register_extension(ProofSizeExt::new(storage_proof_recorder.clone()));
+		runtime_api.record_proof_with_recorder(storage_proof_recorder);
+
+		runtime_api
+			.execute_block(*block.header().parent_hash(), block.into())
+			.map_err(Into::into)
 	}
 }

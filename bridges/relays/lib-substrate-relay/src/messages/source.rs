@@ -294,15 +294,15 @@ where
 			for ((_, out_msg_details), in_msg_details) in
 				msgs_to_refine_batch.iter_mut().zip(in_msgs_details)
 			{
-				log::trace!(
+				tracing::trace!(
 					target: "bridge",
-					"Refined weight of {}->{} message {:?}/{}: at-source: {}, at-target: {}",
-					P::SourceChain::NAME,
-					P::TargetChain::NAME,
-					self.lane_id,
-					out_msg_details.nonce,
-					out_msg_details.dispatch_weight,
-					in_msg_details.dispatch_weight,
+					source=%P::SourceChain::NAME,
+					target=%P::TargetChain::NAME,
+					lane_id=?self.lane_id,
+					nonce=%out_msg_details.nonce,
+					at_source=%out_msg_details.dispatch_weight,
+					at_target=%in_msg_details.dispatch_weight,
+					"Refined weight of source->target message"
 				);
 				out_msg_details.dispatch_weight = in_msg_details.dispatch_weight;
 			}
@@ -546,11 +546,11 @@ fn validate_out_msgs_details<C: Chain>(
 	// some messages were already pruned from the source node. This is not a critical error
 	// and will be auto-resolved by messages lane (and target node).
 	if nonces_iter.peek().is_some() {
-		log::info!(
+		tracing::info!(
 			target: "bridge",
-			"Some messages are missing from the {} node: {:?}. Target node may be out of sync?",
-			C::NAME,
-			nonces_iter.rev().collect::<Vec<_>>(),
+			node=%C::NAME,
+			missing=?nonces_iter.rev().collect::<Vec<_>>(),
+			"Some messages are missing. Target node may be out of sync?"
 		);
 	}
 

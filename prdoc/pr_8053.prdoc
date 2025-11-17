@@ -1,0 +1,10 @@
+title: Add `OnNewCommitment` hook to outbound-queue pallet
+doc:
+- audience: Runtime Dev
+  description: |-
+    Add a simple hook to outbound-queue-v2 pallet which allows to perform actions whenever there is a new commitment.
+crates: 
+- name: snowbridge-pallet-outbound-queue-v2
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major

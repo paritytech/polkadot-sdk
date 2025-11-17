@@ -363,6 +363,7 @@ pub struct LeafProof<Hash> {
 }
 
 /// An MMR ancestry proof for a prior mmr root.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Encode, Decode, DecodeWithMemTracking, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
 pub struct AncestryProof<Hash> {
 	/// Peaks of the ancestor's mmr
@@ -439,7 +440,7 @@ impl Error {
 
 sp_api::decl_runtime_apis! {
 	/// API to interact with MMR pallet.
-	#[api_version(2)]
+	#[api_version(3)]
 	pub trait MmrApi<Hash: codec::Codec, BlockNumber: codec::Codec> {
 		/// Return the on-chain MMR root hash.
 		fn mmr_root() -> Result<Hash, Error>;
@@ -453,6 +454,13 @@ sp_api::decl_runtime_apis! {
 			block_numbers: Vec<BlockNumber>,
 			best_known_block_number: Option<BlockNumber>
 		) -> Result<(Vec<EncodableOpaqueLeaf>, LeafProof<Hash>), Error>;
+
+		/// Generates a proof that the `prev_block_number` is part of the canonical chain at
+		/// `best_known_block_number`.
+		fn generate_ancestry_proof(
+			prev_block_number: BlockNumber,
+			best_known_block_number: Option<BlockNumber>,
+		) -> Result<AncestryProof<Hash>, Error>;
 
 		/// Verify MMR proof against on-chain MMR for a batch of leaves.
 		///

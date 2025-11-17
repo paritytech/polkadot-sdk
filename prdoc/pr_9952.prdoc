@@ -1,0 +1,9 @@
+title: 'Snowbridge: Fix log equal check'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This fix addresses an issue introduced in PR#9204, where individual event log topics were not fully verified.
+crates:
+- name: snowbridge-pallet-ethereum-client
+  bump: patch
+

@@ -23,9 +23,9 @@ use emulated_integration_tests_common::{
 	accounts, build_genesis_storage, collators,
 	snowbridge::{ETHER_MIN_BALANCE, WETH},
 	xcm_emulator::ConvertLocation,
-	PenpalASiblingSovereignAccount, PenpalATeleportableAssetLocation,
-	PenpalBSiblingSovereignAccount, PenpalBTeleportableAssetLocation, RESERVABLE_ASSET_ID,
-	SAFE_XCM_VERSION, USDT_ID,
+	PenpalALocation, PenpalASiblingSovereignAccount, PenpalATeleportableAssetLocation,
+	PenpalBLocation, PenpalBSiblingSovereignAccount, PenpalBTeleportableAssetLocation,
+	RESERVABLE_ASSET_ID, SAFE_XCM_VERSION, USDT_ID,
 };
 use parachains_common::{AccountId, Balance};
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
@@ -40,14 +40,11 @@ parameter_types! {
 	pub AssetHubWestendAssetOwner: AccountId = Keyring::Alice.to_account_id();
 	pub WestendGlobalConsensusNetwork: NetworkId = NetworkId::ByGenesis(WESTEND_GENESIS_HASH);
 	pub AssetHubWestendUniversalLocation: InteriorLocation = [GlobalConsensus(WestendGlobalConsensusNetwork::get()), Parachain(PARA_ID)].into();
+	pub EthereumLocation: Location = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
 	pub EthereumSovereignAccount: AccountId = ExternalConsensusLocationsConverterFor::<
 			AssetHubWestendUniversalLocation,
 			AccountId,
-		>::convert_location(&Location::new(
-			2,
-			[Junction::GlobalConsensus(EthereumNetwork::get())],
-		))
-		.unwrap();
+		>::convert_location(&EthereumLocation::get()).unwrap();
 }
 
 pub fn genesis() -> Storage {
@@ -118,14 +115,14 @@ pub fn genesis() -> Storage {
 				),
 				// Ether
 				(
-					xcm::v5::Location::new(2, [GlobalConsensus(EthereumNetwork::get())]),
+					Location::new(2, [GlobalConsensus(EthereumNetwork::get())]),
 					EthereumSovereignAccount::get(),
 					true,
 					ETHER_MIN_BALANCE,
 				),
 				// Weth
 				(
-					xcm::v5::Location::new(
+					Location::new(
 						2,
 						[
 							GlobalConsensus(EthereumNetwork::get()),
@@ -135,6 +132,27 @@ pub fn genesis() -> Storage {
 					EthereumSovereignAccount::get(),
 					true,
 					ETHER_MIN_BALANCE,
+				),
+			],
+			reserves: vec![
+				(
+					PenpalATeleportableAssetLocation::get(),
+					vec![(PenpalALocation::get(), true).into()],
+				),
+				(
+					PenpalBTeleportableAssetLocation::get(),
+					vec![(PenpalBLocation::get(), true).into()],
+				),
+				(EthereumLocation::get(), vec![(EthereumLocation::get(), false).into()]),
+				(
+					Location::new(
+						2,
+						[
+							GlobalConsensus(EthereumNetwork::get()),
+							AccountKey20 { network: None, key: WETH.into() },
+						],
+					),
+					vec![(EthereumLocation::get(), false).into()],
 				),
 			],
 			..Default::default()
