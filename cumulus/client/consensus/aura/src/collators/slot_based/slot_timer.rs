@@ -119,8 +119,17 @@ impl SlotTimer {
 
 	/// Returns a future that resolves when the next block production should be attempted.
 	pub async fn wait_until_next_slot(&mut self) -> Result<SlotTime, ()> {
-		let (time_until_next_attempt, timestamp) =
-			time_until_next_slot(duration_now(), self.relay_slot_duration, self.time_offset);
+		let (time_until_next_attempt, timestamp) = match time_until_next_slot(
+			duration_now(),
+			self.relay_slot_duration,
+			self.time_offset,
+		) {
+			Ok(d) => d,
+			Err(error) => {
+				tracing::error!(target: LOG_TARGET, %error, "Failed to fetch slot duration from runtime.");
+				return Err(())
+			},
+		};
 
 		// Calculate the current slot using the relay chain slot duration
 		let relay_slot_duration_for_slot = SlotDuration::from(self.relay_slot_duration);

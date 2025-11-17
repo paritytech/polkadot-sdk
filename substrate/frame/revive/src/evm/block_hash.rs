@@ -38,7 +38,7 @@ use sp_core::{H256, U256};
 
 /// Details needed to reconstruct the receipt info in the RPC
 /// layer without losing accuracy.
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
 pub struct ReceiptGasInfo {
 	/// The amount of gas used for this specific transaction alone.
 	pub gas_used: U256,

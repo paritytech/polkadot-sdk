@@ -42,6 +42,7 @@ use core::{cmp, fmt::Debug, marker::PhantomData, mem, ops::ControlFlow};
 use frame_support::{
 	crypto::ecdsa::ECDSAExt,
 	dispatch::DispatchResult,
+	ensure,
 	storage::{with_transaction, TransactionOutcome},
 	traits::{
 		fungible::{Inspect, Mutate},
@@ -1844,9 +1845,14 @@ where
 					if !T::AllowEVMBytecode::get() {
 						return Err(<Error<T>>::CodeRejected.into());
 					}
+					ensure!(input_data.is_empty(), <Error<T>>::EvmConstructorNonEmptyData);
 					E::from_evm_init_code(bytecode.clone(), sender.clone())?
 				},
-				Code::Existing(hash) => E::from_storage(*hash, self.gas_meter_mut())?,
+				Code::Existing(hash) => {
+					let executable = E::from_storage(*hash, self.gas_meter_mut())?;
+					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
+					executable
+				},
 			};
 			self.push_frame(
 				FrameArgs::Instantiate {
@@ -2046,6 +2052,15 @@ where
 	}
 
 	fn origin(&self) -> &Origin<T> {
+		if let Some(mock_origin) = self
+			.exec_config
+			.mock_handler
+			.as_ref()
+			.and_then(|mock_handler| mock_handler.mock_origin())
+		{
+			return mock_origin;
+		}
+
 		&self.origin
 	}
 
