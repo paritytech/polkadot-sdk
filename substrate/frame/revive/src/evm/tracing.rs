@@ -31,7 +31,7 @@ pub use prestate_tracing::*;
 #[derive(derive_more::From, Debug)]
 pub enum Tracer<T> {
 	/// A tracer that traces calls.
-	CallTracer(CallTracer<T, U256, fn(Weight) -> U256>),
+	CallTracer(CallTracer<U256, fn(Weight) -> U256>),
 	/// A tracer that traces the prestate.
 	PrestateTracer(PrestateTracer<T>),
 }

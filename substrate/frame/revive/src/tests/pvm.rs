@@ -3980,7 +3980,7 @@ fn tracing_works_for_transfers() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
 		let mut tracer =
-			CallTracer::<Test, U256, fn(Weight) -> U256>::new(Default::default(), |_| U256::zero());
+			CallTracer::<U256, fn(Weight) -> U256>::new(Default::default(), |_| U256::zero());
 		trace(&mut tracer, || {
 			builder::bare_call(BOB_ADDR).evm_value(10.into()).build_and_unwrap_result();
 		});
@@ -4025,7 +4025,7 @@ fn call_tracing_works() {
 		// Verify that the first trace report the same weight reported by bare_call
 		// TODO: fix tracing ( https://github.com/paritytech/polkadot-sdk/issues/8362 )
 		/*
-		let mut tracer = CallTracer::<Test, U256, fn(Weight) -> U256>::new(false, |w| w);
+		let mut tracer = CallTracer::<U256, fn(Weight) -> U256>::new(false, |w| w);
 		let gas_used = trace(&mut tracer, || {
 			builder::bare_call(addr).data((3u32, addr_callee).encode()).build().gas_consumed
 		});
@@ -4135,7 +4135,7 @@ fn call_tracing_works() {
 					]
 			};
 
-			let mut tracer = CallTracer::<Test, U256, fn(Weight) -> U256>::new(config, |_| U256::zero());
+			let mut tracer = CallTracer::<U256, fn(Weight) -> U256>::new(config, |_| U256::zero());
 			trace(&mut tracer, || {
 				builder::bare_call(addr).data((3u32, addr_callee).encode()).build()
 			});
@@ -4169,7 +4169,7 @@ fn create_call_tracing_works() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
 
 		let mut tracer =
-			CallTracer::<Test, U256, fn(Weight) -> U256>::new(Default::default(), |_| U256::zero());
+			CallTracer::<U256, fn(Weight) -> U256>::new(Default::default(), |_| U256::zero());
 
 		let Contract { addr, .. } = trace(&mut tracer, || {
 			builder::bare_instantiate(Code::Upload(code.clone()))
@@ -4193,7 +4193,7 @@ fn create_call_tracing_works() {
 		);
 
 		let mut tracer =
-			CallTracer::<Test, U256, fn(Weight) -> U256>::new(Default::default(), |_| U256::zero());
+			CallTracer::<U256, fn(Weight) -> U256>::new(Default::default(), |_| U256::zero());
 		let data = b"garbage";
 		let input = (code_hash, data).encode();
 		trace(&mut tracer, || {
@@ -4212,18 +4212,7 @@ fn create_call_tracing_works() {
 				input: input.clone().into(),
 				calls: vec![CallTrace {
 					from: addr,
-					input: code
-						.clone()
-						.into_iter()
-						.chain(data.iter().cloned())
-						.collect::<Vec<_>>()
-						.into(),
-					output: code
-						.clone()
-						.into_iter()
-						.chain(data.iter().cloned())
-						.collect::<Vec<_>>()
-						.into(),
+					input: input.clone().into(),
 					to: child_addr,
 					value: Some(0.into()),
 					call_type: CallType::Create2,
@@ -5211,7 +5200,7 @@ fn self_destruct_by_syscall_tracing_works() {
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let mut tracer =
-			CallTracer::<Test, U256, fn(Weight) -> U256>::new(Default::default(), |_| U256::zero());
+			CallTracer::<U256, fn(Weight) -> U256>::new(Default::default(), |_| U256::zero());
 
 		// Instantiate the BOB contract.
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))

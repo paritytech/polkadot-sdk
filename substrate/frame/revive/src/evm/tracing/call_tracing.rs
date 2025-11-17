@@ -18,14 +18,14 @@ use crate::{
 	evm::{decode_revert_reason, CallLog, CallTrace, CallTracerConfig, CallType},
 	primitives::ExecReturnValue,
 	tracing::Tracing,
-	Code, Config, DispatchError, PristineCode, Weight,
+	Code, DispatchError, Weight,
 };
 use alloc::{format, string::ToString, vec::Vec};
 use sp_core::{H160, H256, U256};
 
 /// A Tracer that reports logs and nested call traces transactions.
 #[derive(Default, Debug, Clone, PartialEq)]
-pub struct CallTracer<T, Gas, GasMapper>
+pub struct CallTracer<Gas, GasMapper>
 where
 	Gas: core::fmt::Debug,
 {
@@ -39,11 +39,9 @@ where
 	code_with_salt: Option<(Code, bool)>,
 	/// The tracer configuration.
 	config: CallTracerConfig,
-
-	_phantom: core::marker::PhantomData<T>,
 }
 
-impl<T: Config, Gas: core::fmt::Debug, GasMapper> CallTracer<T, Gas, GasMapper> {
+impl<Gas: core::fmt::Debug, GasMapper> CallTracer<Gas, GasMapper> {
 	/// Create a new [`CallTracer`] instance.
 	pub fn new(config: CallTracerConfig, gas_mapper: GasMapper) -> Self {
 		Self {
@@ -52,7 +50,6 @@ impl<T: Config, Gas: core::fmt::Debug, GasMapper> CallTracer<T, Gas, GasMapper> 
 			code_with_salt: None,
 			current_stack: Vec::new(),
 			config,
-			_phantom: core::marker::PhantomData,
 		}
 	}
 
@@ -62,8 +59,8 @@ impl<T: Config, Gas: core::fmt::Debug, GasMapper> CallTracer<T, Gas, GasMapper> 
 	}
 }
 
-impl<T: Config, Gas: Default + core::fmt::Debug, GasMapper: Fn(Weight) -> Gas> Tracing
-	for CallTracer<T, Gas, GasMapper>
+impl<Gas: Default + core::fmt::Debug, GasMapper: Fn(Weight) -> Gas> Tracing
+	for CallTracer<Gas, GasMapper>
 {
 	fn instantiate_code(&mut self, code: &Code, salt: Option<&[u8; 32]>) {
 		self.code_with_salt = Some((code.clone(), salt.is_some()));
@@ -110,17 +107,15 @@ impl<T: Config, Gas: Default + core::fmt::Debug, GasMapper: Fn(Weight) -> Gas> T
 					code.clone().into_iter().chain(input.to_vec().into_iter()).collect::<Vec<_>>(),
 					code,
 				),
-				Some((Code::Existing(code_hash), salt)) => {
-					let code = PristineCode::<T>::get(&code_hash).unwrap_or_default();
-					(
-						if salt { CallType::Create2 } else { CallType::Create },
-						code.clone()
-							.into_iter()
-							.chain(input.to_vec().into_iter())
-							.collect::<Vec<_>>(),
-						code,
-					)
-				},
+				Some((Code::Existing(code_hash), salt)) => (
+					if salt { CallType::Create2 } else { CallType::Create },
+					code_hash
+						.to_fixed_bytes()
+						.into_iter()
+						.chain(input.to_vec().into_iter())
+						.collect::<Vec<_>>(),
+					code_hash.to_fixed_bytes().into(),
+				),
 				None => {
 					let call_type = if is_read_only {
 						CallType::StaticCall
