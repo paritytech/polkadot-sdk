@@ -1,6 +1,6 @@
 title: 'fix: support `paginationStartKey` parameter for `archive_v1_storage`'
 doc:
-- audience: runtime_user, node_dev
+- audience: node-dev
   description: |-
     Fixes #10185
 
