@@ -36,8 +36,7 @@ use polkadot_node_primitives::{
 use codec::Encode;
 use futures::channel::oneshot;
 use parking_lot::Mutex;
-use std::{collections::HashSet, sync::Arc};
-
+use std::sync::Arc;
 /// The logging target.
 const LOG_TARGET: &str = "cumulus-collator";
 
@@ -244,7 +243,7 @@ where
 
 		let mut api_version = 0;
 		let mut upward_messages = Vec::new();
-		let mut upward_message_signals = HashSet::<Vec<u8>>::with_capacity(4);
+		let mut upward_message_signals = Vec::<Vec<u8>>::with_capacity(4);
 		let mut horizontal_messages = Vec::new();
 		let mut new_validation_code = None;
 		let mut processed_downward_messages = 0;
@@ -270,7 +269,7 @@ where
 			// We are always using the `api_version` of the parent block. The `api_version` can only
 			// change with a runtime upgrade and this is when we want to observe the old
 			// `api_version`. Because this old `api_version` is the one used to validate this
-			// block. Otherwise we already assume the `api_version` is higher than what the relay
+			// block. Otherwise, we already assume the `api_version` is higher than what the relay
 			// chain will use and this will lead to validation errors.
 			api_version = self
 				.runtime_api
@@ -279,18 +278,22 @@ where
 				.ok()
 				.flatten()?;
 
-			collation_info
-				.upward_messages
-				.iter()
-				.rev()
-				.take_while(|m| **m != UMP_SEPARATOR)
-				.for_each(|s| {
-					upward_message_signals.insert(s.clone());
-				});
-
-			upward_messages.extend(
-				collation_info.upward_messages.into_iter().take_while(|m| *m != UMP_SEPARATOR),
-			);
+			let mut found_separator = false;
+			upward_messages.extend(collation_info.upward_messages.into_iter().filter_map(|m| {
+				// Filter out the `UMP_SEPARATOR` and the `UMPSignals`.
+				if m == UMP_SEPARATOR {
+					found_separator = true;
+					None
+				} else if found_separator {
+					if upward_message_signals.iter().all(|s| *s != m) {
+						upward_message_signals.push(m);
+					}
+					None
+				} else {
+					// No signal or separator
+					Some(m)
+				}
+			}));
 			horizontal_messages.extend(collation_info.horizontal_messages);
 			new_validation_code = new_validation_code.take().or(collation_info.new_validation_code);
 			processed_downward_messages += collation_info.processed_downward_messages;

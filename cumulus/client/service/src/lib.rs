@@ -60,7 +60,6 @@ use sp_trie::proof_size_extension::{
 	ProofSizeExt, RecordedProofSizeEstimations, ReplayProofSizeProvider,
 };
 use std::{
-	collections::VecDeque,
 	sync::Arc,
 	time::{Duration, Instant},
 };

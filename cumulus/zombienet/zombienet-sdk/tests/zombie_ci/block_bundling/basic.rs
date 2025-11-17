@@ -60,7 +60,7 @@ async fn block_bundling_basic() -> Result<(), anyhow::Error> {
 		&relay_client,
 		6,
 		[(ParaId::from(PARA_ID), 4..7)],
-		[(ParaId::from(PARA_ID), (para_client.clone(), 48..73))],
+		[(ParaId::from(PARA_ID), (para_client.clone(), 44..73))],
 	)
 	.await?;
 	// 6 relay chain blocks
@@ -152,7 +152,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_args(vec![
 					("--authoring").into(),
 					("slot-based").into(),
-					("-lparachain=debug,aura=trace").into(),
+					("-lparachain=trace,aura=trace").into(),
 				])
 				.with_collator(|n| n.with_name("collator-0"))
 				.with_collator(|n| n.with_name("collator-1"))

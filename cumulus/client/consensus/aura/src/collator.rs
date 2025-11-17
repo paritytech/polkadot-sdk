@@ -167,7 +167,7 @@ where
 	}
 
 	/// Explicitly creates the inherent data for parachain block authoring and overrides
-	/// the timestamp inherent data with the one provided, if any. Additionally allows to specify
+	/// the timestamp inherent data with the one provided, if any. Additionally, allows to specify
 	/// relay parent descendants that can be used to prevent authoring at the tip of the relay
 	/// chain.
 	pub async fn create_inherent_data_with_rp_offset(
