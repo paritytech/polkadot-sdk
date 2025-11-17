@@ -16,11 +16,14 @@
 
 //! A mock runtime for XCM benchmarking.
 
+use std::marker::PhantomData;
 use crate::{generic, mock::*, *};
 use codec::Decode;
 use frame_support::{
-	derive_impl, parameter_types,
-	traits::{Contains, Everything, OriginTrait, ProcessMessageError},
+	derive_impl,
+	pallet_prelude::ConstU32,
+	parameter_types,
+	traits::{Contains, Equals, Everything, OriginTrait, ProcessMessageError},
 };
 use sp_runtime::traits::TrailingZeroInput;
 use xcm_builder::{
@@ -28,8 +31,11 @@ use xcm_builder::{
 		AssetsInHolding, TestAssetExchanger, TestAssetLocker, TestAssetTrap,
 		TestSubscriptionService, TestUniversalAliases,
 	},
-	AliasForeignAccountId32, AllowUnpaidExecutionFrom, DenyRecursively, DenyThenTry,
-	EnsureDecodableXcm, FrameTransactionalProcessor,
+	AliasForeignAccountId32, AllowExplicitUnpaidExecutionFrom,
+	AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom,
+	AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, DenyRecursively,
+	DenyReserveTransferToRelayChain, DenyThenTry, EnsureDecodableXcm, FrameTransactionalProcessor,
+	TakeWeightCredit, TrailingSetTopicAsId, WithComputedOrigin,
 };
 use xcm_executor::traits::{ConvertOrigin, DenyExecution, Properties};
 
@@ -71,10 +77,43 @@ parameter_types! {
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
 
+pub struct AmbassadorEntities;
+impl Contains<Location> for AmbassadorEntities {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (1, [Parachain(COLLECTIVES_ID), PalletInstance(74)]))
+	}
+}
+
+pub struct FellowshipEntities;
+impl Contains<Location> for FellowshipEntities {
+	fn contains(location: &Location) -> bool {
+		matches!(
+			location.unpack(),
+			(1, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }]) |
+				(1, [Parachain(COLLECTIVES_ID), PalletInstance(64)]) |
+				(1, [Parachain(COLLECTIVES_ID), PalletInstance(65)])
+		)
+	}
+}
+
+pub struct ParentOrParentsPlurality;
+impl Contains<Location> for ParentOrParentsPlurality {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (1, []) | (1, [Plurality { .. }]))
+	}
+}
+
 pub struct OnlyParachains;
 impl Contains<Location> for OnlyParachains {
 	fn contains(location: &Location) -> bool {
 		matches!(location.unpack(), (0, [Parachain(_)]))
+	}
+}
+
+pub struct SecretaryEntities;
+impl Contains<Location> for SecretaryEntities {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (1, [Parachain(COLLECTIVES_ID), PalletInstance(91)]))
 	}
 }
 
@@ -101,7 +140,39 @@ impl xcm_executor::Config for XcmConfig {
 	type IsReserve = AllAssetLocationsPass;
 	type IsTeleporter = ();
 	type UniversalLocation = UniversalLocation;
-	type Barrier = DenyThenTry<DenyRecursively<DenyNothing>, AllowUnpaidExecutionFrom<Everything>>;
+	type Barrier = TrailingSetTopicAsId<
+		DenyThenTry<
+			(DenyNothing, DenyRecursively<DenyReserveTransferToRelayChain>),
+			(
+				TakeWeightCredit,
+				// Expected responses are OK.
+				AllowKnownQueryResponses<DevNull>,
+				// Allow XCMs with some computed origins to pass through.
+				WithComputedOrigin<
+					(
+						// If the message is one that immediately attempts to pay for execution, then
+						// allow it.
+						AllowTopLevelPaidExecutionFrom<Everything>,
+						// Parent, its pluralities (i.e. governance bodies), relay treasury pallet and
+						// sibling parachains get free execution.
+						AllowExplicitUnpaidExecutionFrom<(
+							ParentOrParentsPlurality,
+							Equals<RelayTreasuryLocation>,
+							FellowshipEntities,
+							AmbassadorEntities,
+							SecretaryEntities,
+						)>,
+						// Subscriptions for version tracking are OK.
+						AllowSubscriptionsFrom<Everything>,
+						// HRMP notifications from the relay chain are OK.
+						AllowHrmpNotificationsFromRelayChain,
+					),
+					UniversalLocation,
+					ConstU32<8>,
+				>,
+			),
+		>,
+	>;
 	type Weigher = xcm_builder::FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
 	type Trader = xcm_builder::FixedRateOfFungible<WeightPrice, ()>;
 	type ResponseHandler = DevNull;
@@ -128,6 +199,7 @@ impl xcm_executor::Config for XcmConfig {
 
 parameter_types! {
 	pub const ExistentialDeposit: u64 = 7;
+	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(37)).into();
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
