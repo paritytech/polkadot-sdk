@@ -148,7 +148,6 @@ impl core::Benchmark for ConstructionBenchmark {
 			proposer,
 			ProposeArgs {
 				inherent_data,
-
 				inherent_digests: Default::default(),
 				max_duration: std::time::Duration::from_secs(20),
 				block_size_limit: None,
