@@ -32,9 +32,9 @@ use xcm_builder::{
 	},
 	AliasForeignAccountId32, AllowExplicitUnpaidExecutionFrom,
 	AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom,
-	AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, DenyRecursively,
-	DenyReserveTransferToRelayChain, DenyThenTry, EnsureDecodableXcm, FrameTransactionalProcessor,
-	TakeWeightCredit, TrailingSetTopicAsId, WithComputedOrigin,
+	AllowTopLevelPaidExecutionFrom, DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry,
+	EnsureDecodableXcm, FrameTransactionalProcessor, TakeWeightCredit, TrailingSetTopicAsId,
+	WithComputedOrigin,
 };
 use xcm_executor::traits::{ConvertOrigin, DenyExecution, Properties};
 
@@ -75,6 +75,9 @@ parameter_types! {
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
+
+pub const COLLECTIVES_ID: u32 = 1001;
+pub const TREASURY_PALLET_ID: u8 = 37;
 
 pub struct AmbassadorEntities;
 impl Contains<Location> for AmbassadorEntities {
@@ -198,7 +201,7 @@ impl xcm_executor::Config for XcmConfig {
 
 parameter_types! {
 	pub const ExistentialDeposit: u64 = 7;
-	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(37)).into();
+	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(TREASURY_PALLET_ID)).into();
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
