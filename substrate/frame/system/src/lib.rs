@@ -2346,7 +2346,7 @@ impl<T: Config> Pallet<T> {
 					core::hint::black_box((new_version, current_version));
 				} else {
 					if new_version.spec_name != current_version.spec_name {
-						return CanSetCodeResult::InvalidVersion( Error::<T>::InvalidSpecName)
+						return CanSetCodeResult::InvalidVersion(Error::<T>::InvalidSpecName)
 					}
 
 					if new_version.spec_version <= current_version.spec_version {
