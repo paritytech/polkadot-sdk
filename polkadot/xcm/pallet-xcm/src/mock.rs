@@ -47,8 +47,7 @@ use xcm_executor::{
 };
 use xcm_simulator::helpers::derive_topic_id;
 
-use crate::{self as pallet_xcm, precompiles::XcmPrecompile, TestWeightInfo};
-use pallet_timestamp;
+use crate::{self as pallet_xcm, TestWeightInfo};
 
 pub type AccountId = AccountId32;
 pub type Balance = u128;
@@ -140,17 +139,6 @@ pub mod pallet_test_notifier {
 	}
 }
 
-parameter_types! {
-	pub const MinimumPeriod: u64 = 1;
-}
-
-impl pallet_timestamp::Config for Test {
-	type Moment = u64;
-	type OnTimestampSet = ();
-	type MinimumPeriod = MinimumPeriod;
-	type WeightInfo = ();
-}
-
 construct_runtime!(
 	pub enum Test
 	{
@@ -160,8 +148,6 @@ construct_runtime!(
 		ParasOrigin: origin,
 		XcmPallet: pallet_xcm,
 		TestNotifier: pallet_test_notifier,
-		Revive: pallet_revive,
-		Timestamp: pallet_timestamp,
 	}
 );
 
@@ -304,10 +290,11 @@ impl pallet_balances::Config for Test {
 /// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
 pub struct XcmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_assets::BenchmarkHelper<Location> for XcmBenchmarkHelper {
+impl pallet_assets::BenchmarkHelper<Location, ()> for XcmBenchmarkHelper {
 	fn create_asset_id_parameter(id: u32) -> Location {
 		Location::new(1, [Parachain(id)])
 	}
+	fn create_reserve_id_parameter(_: u32) {}
 }
 
 impl pallet_assets::Config for Test {
@@ -315,6 +302,7 @@ impl pallet_assets::Config for Test {
 	type Balance = Balance;
 	type AssetId = Location;
 	type AssetIdParameter = Location;
+	type ReserveData = ();
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = EnsureRoot<AccountId>;
@@ -332,17 +320,6 @@ impl pallet_assets::Config for Test {
 	type RemoveItemsLimit = ConstU32<5>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = XcmBenchmarkHelper;
-}
-
-#[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
-impl pallet_revive::Config for Test {
-	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
-	type Balance = Balance;
-	type Currency = Balances;
-	type Precompiles = (XcmPrecompile<Self>,);
-	type Time = Timestamp;
-	type UploadOrigin = frame_system::EnsureSigned<AccountId>;
-	type InstantiateOrigin = frame_system::EnsureSigned<AccountId>;
 }
 
 // This child parachain is a system parachain trusted to teleport native token.
@@ -657,7 +634,7 @@ impl super::benchmarking::Config for Test {
 		))
 	}
 
-	fn set_up_complex_asset_transfer() -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
+	fn set_up_complex_asset_transfer() -> Option<(Assets, AssetId, Location, Box<dyn FnOnce()>)> {
 		use crate::tests::assets_transfer::{into_assets_checked, set_up_foreign_asset};
 		// Transfer native asset (local reserve) to `USDT_PARA_ID`. Using teleport-trusted USDT for
 		// fees.
@@ -685,7 +662,7 @@ impl super::benchmarking::Config for Test {
 
 		// native assets transfer destination is USDT chain (teleport trust only for USDT)
 		let dest = usdt_chain;
-		let (assets, fee_index, _, _) = into_assets_checked(
+		let (assets, fee_asset, _) = into_assets_checked(
 			// USDT for fees (is sufficient on local chain too) - teleported
 			(usdt_id_location.clone(), fee_amount).into(),
 			// native asset to transfer (not used for fees) - local reserve
@@ -707,7 +684,7 @@ impl super::benchmarking::Config for Test {
 				usdt_initial_local_amount - fee_amount
 			);
 		});
-		Some((assets, fee_index as u32, dest, verify))
+		Some((assets, fee_asset.id, dest, verify))
 	}
 
 	fn get_asset() -> Asset {
@@ -742,8 +719,6 @@ pub(crate) fn buy_limited_execution<C>(
 	BuyExecution { fees: fees.into(), weight_limit }
 }
 
-pub const ALICE: AccountId32 = AccountId::new([0u8; 32]);
-
 pub(crate) fn new_test_ext_with_balances(
 	balances: Vec<(AccountId, Balance)>,
 ) -> sp_io::TestExternalities {
@@ -767,10 +742,6 @@ pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 		.unwrap();
 
 	pallet_xcm::GenesisConfig::<Test> { safe_xcm_version, supported_version, ..Default::default() }
-		.assimilate_storage(&mut t)
-		.unwrap();
-
-	pallet_revive::GenesisConfig::<Test> { mapped_accounts: vec![ALICE], ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 

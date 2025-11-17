@@ -18,14 +18,17 @@
 //! Contains the fee types that need to be configured for `pallet-transaction-payment`.
 
 use crate::{
-	evm::{runtime::EthExtra, OnChargeTransactionBalanceOf},
+	evm::{
+		runtime::{EthExtra, SetWeightLimit},
+		OnChargeTransactionBalanceOf,
+	},
 	BalanceOf, CallOf, Config, DispatchErrorWithPostInfo, DispatchResultWithPostInfo, Error,
 	PostDispatchInfo, LOG_TARGET,
 };
 use codec::Encode;
 use core::marker::PhantomData;
 use frame_support::{
-	dispatch::{DispatchInfo, GetDispatchInfo},
+	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo},
 	pallet_prelude::Weight,
 	traits::{fungible::Credit, Get, SuppressedDrop},
 	weights::WeightToFee,
@@ -37,7 +40,9 @@ use pallet_transaction_payment::{
 };
 use sp_runtime::{
 	generic::UncheckedExtrinsic,
-	traits::{Block as BlockT, Dispatchable, TransactionExtension},
+	traits::{
+		Block as BlockT, Dispatchable, ExtensionPostDispatchWeightHandler, TransactionExtension,
+	},
 	FixedPointNumber, FixedU128, SaturatedConversion, Saturating,
 };
 
@@ -61,24 +66,6 @@ pub struct BlockRatioFee<const P: u128, const Q: u128, T: Config>(PhantomData<T>
 /// The reason for this type is to avoid coupling the rest of pallet_revive to
 /// pallet_transaction_payment. This way we bundle all the trait bounds in once place.
 pub struct Info<Address, Signature, Extra>(PhantomData<(Address, Signature, Extra)>);
-
-/// A trait that signals that [`BlockRatioFee`] is used by the runtime.
-///
-/// This trait is sealed. Use [`BlockRatioFee`].
-pub trait BlockRatioWeightToFee: seal::Sealed {
-	/// The runtime.
-	type T: Config;
-	/// The ref_time to fee coefficient.
-	const REF_TIME_TO_FEE: FixedU128;
-
-	/// The proof_size to fee coefficient.
-	fn proof_size_to_fee() -> FixedU128 {
-		let max_weight = <Self::T as frame_system::Config>::BlockWeights::get().max_block;
-		let ratio =
-			FixedU128::from_rational(max_weight.ref_time().into(), max_weight.proof_size().into());
-		Self::REF_TIME_TO_FEE.saturating_mul(ratio)
-	}
-}
 
 /// A trait that exposes all the transaction payment details to `pallet_revive`.
 ///
@@ -110,10 +97,19 @@ pub trait InfoT<T: Config>: seal::Sealed {
 		Zero::zero()
 	}
 
+	/// Calculate the fee using the weight instead of a dispatch info.
+	fn tx_fee_from_weight(_encoded_len: u32, _weight: &Weight) -> BalanceOf<T> {
+		Zero::zero()
+	}
+
+	/// The base extrinsic and len fee.
+	fn fixed_fee(_encoded_len: u32) -> BalanceOf<T> {
+		Zero::zero()
+	}
+
 	/// Makes sure that not too much storage deposit was withdrawn.
 	fn ensure_not_overdrawn(
-		_encoded_len: u32,
-		_info: &DispatchInfo,
+		_fee: BalanceOf<T>,
 		result: DispatchResultWithPostInfo,
 	) -> DispatchResultWithPostInfo {
 		result
@@ -124,13 +120,18 @@ pub trait InfoT<T: Config>: seal::Sealed {
 		Default::default()
 	}
 
+	/// The dispatch info with the weight argument set to `0`.
+	fn base_dispatch_info(_call: &mut CallOf<T>) -> DispatchInfo {
+		Default::default()
+	}
+
 	/// Calculate the encoded length of a call.
 	fn encoded_len(_eth_transact_call: CallOf<T>) -> u32 {
 		0
 	}
 
 	/// Convert a weight to an unadjusted fee.
-	fn weight_to_fee(_weight: Weight) -> BalanceOf<T> {
+	fn weight_to_fee(_weight: &Weight, _combinator: Combinator) -> BalanceOf<T> {
 		Zero::zero()
 	}
 
@@ -156,36 +157,71 @@ pub trait InfoT<T: Config>: seal::Sealed {
 	fn remaining_txfee() -> BalanceOf<T> {
 		Default::default()
 	}
+
+	/// Compute the actual post_dispatch fee
+	fn compute_actual_fee(
+		_encoded_len: u32,
+		_info: &DispatchInfo,
+		_result: &DispatchResultWithPostInfo,
+	) -> BalanceOf<T> {
+		Default::default()
+	}
 }
 
-impl<const P: u128, const Q: u128, T: Config> BlockRatioWeightToFee for BlockRatioFee<P, Q, T> {
-	type T = T;
+/// Which function to use in order to combine `ref_time` and `proof_size` to a fee.
+pub enum Combinator {
+	/// Minimum function.
+	Min,
+	/// Maximum function.
+	Max,
+}
+
+impl<const P: u128, const Q: u128, T: Config> BlockRatioFee<P, Q, T> {
 	const REF_TIME_TO_FEE: FixedU128 = {
 		assert!(P > 0 && Q > 0);
 		FixedU128::from_rational(P, Q)
 	};
+
+	/// The proof_size to fee coefficient.
+	fn proof_size_to_fee() -> FixedU128 {
+		let max_weight = <T as frame_system::Config>::BlockWeights::get().max_block;
+		let ratio =
+			FixedU128::from_rational(max_weight.ref_time().into(), max_weight.proof_size().into());
+		Self::REF_TIME_TO_FEE.saturating_mul(ratio)
+	}
+
+	/// Calculate the fee for a weight.
+	fn weight_to_fee(weight: &Weight, combinator: Combinator) -> BalanceOf<T> {
+		let ref_time_fee = Self::REF_TIME_TO_FEE
+			.saturating_mul_int(BalanceOf::<T>::saturated_from(weight.ref_time()));
+		let proof_size_fee = Self::proof_size_to_fee()
+			.saturating_mul_int(BalanceOf::<T>::saturated_from(weight.proof_size()));
+
+		match combinator {
+			Combinator::Max => ref_time_fee.max(proof_size_fee),
+			Combinator::Min => ref_time_fee.min(proof_size_fee),
+		}
+	}
 }
 
 impl<const P: u128, const Q: u128, T: Config> WeightToFee for BlockRatioFee<P, Q, T> {
 	type Balance = BalanceOf<T>;
 
 	fn weight_to_fee(weight: &Weight) -> Self::Balance {
-		let ref_time_fee = Self::REF_TIME_TO_FEE
-			.saturating_mul_int(Self::Balance::saturated_from(weight.ref_time()));
-		let proof_size_fee = Self::proof_size_to_fee()
-			.saturating_mul_int(Self::Balance::saturated_from(weight.proof_size()));
-		ref_time_fee.max(proof_size_fee)
+		Self::weight_to_fee(weight, Combinator::Max)
 	}
 }
 
-impl<Address, Signature, E: EthExtra> InfoT<E::Config> for Info<Address, Signature, E>
+impl<const P: u128, const Q: u128, Address, Signature, E: EthExtra> InfoT<E::Config>
+	for Info<Address, Signature, E>
 where
+	E::Config: TxConfig<WeightToFee = BlockRatioFee<P, Q, E::Config>>,
 	BalanceOf<E::Config>: From<OnChargeTransactionBalanceOf<E::Config>>,
 	<E::Config as frame_system::Config>::RuntimeCall:
 		Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+	CallOf<E::Config>: SetWeightLimit,
 	<<E::Config as SysConfig>::Block as BlockT>::Extrinsic:
 		From<UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>>,
-	<E::Config as TxConfig>::WeightToFee: BlockRatioWeightToFee<T = E::Config>,
 	<<E::Config as TxConfig>::OnChargeTransaction as TxCreditHold<E::Config>>::Credit:
 		SuppressedDrop<Inner = CreditOf<E::Config>>,
 {
@@ -215,9 +251,26 @@ where
 		TxPallet::<E::Config>::compute_fee(len, &dispatch_info, 0u32.into()).into()
 	}
 
+	/// Calculate the fee using the weight instead of a dispatch info.
+	fn tx_fee_from_weight(encoded_len: u32, weight: &Weight) -> BalanceOf<E::Config> {
+		let fixed_fee = Self::fixed_fee(encoded_len);
+		let weight_fee = Self::next_fee_multiplier()
+			.saturating_mul_int(Self::weight_to_fee(weight, Combinator::Max));
+		fixed_fee.saturating_add(weight_fee)
+	}
+
+	fn fixed_fee(encoded_len: u32) -> BalanceOf<E::Config> {
+		Self::weight_to_fee(
+			&<E::Config as frame_system::Config>::BlockWeights::get()
+				.get(DispatchClass::Normal)
+				.base_extrinsic,
+			Combinator::Max,
+		)
+		.saturating_add(Self::length_to_fee(encoded_len))
+	}
+
 	fn ensure_not_overdrawn(
-		encoded_len: u32,
-		info: &DispatchInfo,
+		fee: BalanceOf<E::Config>,
 		result: DispatchResultWithPostInfo,
 	) -> DispatchResultWithPostInfo {
 		// if tx is already failing we can ignore
@@ -226,9 +279,6 @@ where
 			return result;
 		};
 
-		let fee: BalanceOf<E::Config> =
-			<TxPallet<E::Config>>::compute_actual_fee(encoded_len, info, &post_info, Zero::zero())
-				.into();
 		let available = Self::remaining_txfee();
 		if fee > available {
 			log::debug!(target: LOG_TARGET, "Drew too much from the txhold. \
@@ -259,14 +309,21 @@ where
 		dispatch_info
 	}
 
+	fn base_dispatch_info(call: &mut CallOf<E::Config>) -> DispatchInfo {
+		let pre_weight = call.set_weight_limit(Zero::zero());
+		let info = Self::dispatch_info(call);
+		call.set_weight_limit(pre_weight);
+		info
+	}
+
 	fn encoded_len(eth_transact_call: CallOf<E::Config>) -> u32 {
 		let uxt: <<E::Config as SysConfig>::Block as BlockT>::Extrinsic =
 			UncheckedExtrinsic::new_bare(eth_transact_call).into();
 		uxt.encoded_size() as u32
 	}
 
-	fn weight_to_fee(weight: Weight) -> BalanceOf<E::Config> {
-		TxPallet::<E::Config>::weight_to_fee(weight).into()
+	fn weight_to_fee(weight: &Weight, combinator: Combinator) -> BalanceOf<E::Config> {
+		<E::Config as TxConfig>::WeightToFee::weight_to_fee(&weight, combinator)
 	}
 
 	/// Convert an unadjusted fee back to a weight.
@@ -297,13 +354,27 @@ where
 	fn remaining_txfee() -> BalanceOf<E::Config> {
 		TxPallet::<E::Config>::remaining_txfee()
 	}
+
+	fn compute_actual_fee(
+		encoded_len: u32,
+		info: &DispatchInfo,
+		result: &DispatchResultWithPostInfo,
+	) -> BalanceOf<E::Config> {
+		let mut post_info = *match result {
+			Ok(post_info) => post_info,
+			Err(err) => &err.post_info,
+		};
+
+		post_info.set_extension_weight(info);
+		<TxPallet<E::Config>>::compute_actual_fee(encoded_len, info, &post_info, Zero::zero())
+			.into()
+	}
 }
 
 impl<T: Config> InfoT<T> for () {}
 
 mod seal {
 	pub trait Sealed {}
-	impl<const P: u128, const Q: u128, T: super::Config> Sealed for super::BlockRatioFee<P, Q, T> {}
 	impl<Address, Signature, E: super::EthExtra> Sealed for super::Info<Address, Signature, E> {}
 	impl Sealed for () {}
 }

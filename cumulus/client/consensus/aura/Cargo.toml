@@ -27,6 +27,7 @@ sc-consensus = { workspace = true, default-features = true }
 sc-consensus-aura = { workspace = true, default-features = true }
 sc-consensus-babe = { workspace = true, default-features = true }
 sc-consensus-slots = { workspace = true, default-features = true }
+sc-network-types = { workspace = true, default-features = true }
 sc-telemetry = { workspace = true, default-features = true }
 sc-utils = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
