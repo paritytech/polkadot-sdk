@@ -16,7 +16,7 @@
 
 use super::{
 	block_weight_over_target_block_weight, is_first_block_in_core_with_digest, BlockWeightMode,
-	MaxParachainBlockWeight, LOG_TARGET,
+	MaxParachainBlockWeight, FULL_CORE_WEIGHT, LOG_TARGET,
 };
 use crate::WeightInfo;
 use alloc::vec::Vec;
@@ -59,7 +59,7 @@ use sp_runtime::{
 /// Before dispatching an extrinsic the extension will check the requirements and set the
 /// appropriate [`BlockWeightMode`]. After the extrinsic has finished, the checks from before
 /// dispatching the extrinsic are repeated with the post dispatch weights. The [`BlockWeightMode`]
-/// may is changed properly.
+/// is changed properly.
 ///
 /// # Note
 ///
@@ -123,22 +123,28 @@ where
 		let transaction_index = is_not_inherent.then(|| extrinsic_index);
 
 		crate::BlockWeightMode::<Config>::mutate(|mode| {
-			let current_mode = *mode.get_or_insert_with(|| BlockWeightMode::FractionOfCore {
-				first_transaction_index: transaction_index,
-			});
+			let current_mode = mode.get_or_insert_with(|| BlockWeightMode::<Config>::fraction_of_core(transaction_index));
+
+			// If the mode is stale (from previous block), we reset it.
+			//
+			// This happens for example when running in an offchain context.
+			if current_mode.is_stale() {
+				*current_mode = BlockWeightMode::fraction_of_core(transaction_index);
+			}
 
 			log::trace!(
 				target: LOG_TARGET,
 				"About to pre-validate an extrinsic. current_mode={current_mode:?}, transaction_index={transaction_index:?}"
 			);
 
+			let is_potential =
+				matches!(current_mode, &mut BlockWeightMode::PotentialFullCore { .. });
+
 			match current_mode {
 				// We are already allowing the full core, not that much more to do here.
-				BlockWeightMode::FullCore => {},
-				BlockWeightMode::PotentialFullCore { first_transaction_index, .. } |
-				BlockWeightMode::FractionOfCore { first_transaction_index } => {
-					let is_potential =
-						matches!(current_mode, BlockWeightMode::PotentialFullCore { .. });
+				BlockWeightMode::<Config>::FullCore { ..} => {},
+				BlockWeightMode::<Config>::PotentialFullCore { first_transaction_index, .. } |
+				BlockWeightMode::<Config>::FractionOfCore { first_transaction_index, .. } => {
 					debug_assert!(
 						!is_potential,
 						"`PotentialFullCore` should resolve to `FullCore` or `FractionOfCore` after applying a transaction.",
@@ -155,7 +161,7 @@ where
 
 					// Protection against a misconfiguration as this should be detected by the pre-inherent hook.
 					if block_weight_over_limit {
-						*mode = Some(BlockWeightMode::FullCore);
+						*mode = Some(BlockWeightMode::<Config>::full_core());
 
 						// Inform the node that this block uses the full core.
 						frame_system::Pallet::<Config>::deposit_log(
@@ -166,7 +172,7 @@ where
 							// We are already above the allowed maximum and do not want to accept any more
 							// extrinsics.
 							frame_system::Pallet::<Config>::register_extra_weight_unchecked(
-								MaxParachainBlockWeight::<Config, TargetBlockRate>::FULL_CORE_WEIGHT,
+								FULL_CORE_WEIGHT,
 								DispatchClass::Mandatory,
 							);
 						}
@@ -198,12 +204,12 @@ where
 								"Enabling `PotentialFullCore` mode for extrinsic",
 							);
 
-							*mode = Some(BlockWeightMode::PotentialFullCore {
-								target_weight,
+							*mode = Some(BlockWeightMode::<Config>::potential_full_core (
 								// While applying inherents `extrinsic_index` and `first_transaction_index` will be `None`.
 								// When the first transaction is applied, we want to store the index.
-								first_transaction_index: first_transaction_index.or(transaction_index),
-							});
+								first_transaction_index.or(transaction_index),
+								target_weight,
+							));
 						} else {
 							log::trace!(
 								target: LOG_TARGET,
@@ -218,7 +224,7 @@ where
 							"Resetting back to `FractionOfCore`"
 						);
 						*mode =
-							Some(BlockWeightMode::FractionOfCore { first_transaction_index: first_transaction_index.or(transaction_index) });
+							Some(BlockWeightMode::<Config>::fraction_of_core(first_transaction_index.or(transaction_index)));
 					} else {
 						log::trace!(
 							target: LOG_TARGET,
@@ -226,7 +232,7 @@ where
 						);
 
 						*mode =
-							Some(BlockWeightMode::FractionOfCore { first_transaction_index: first_transaction_index.or(transaction_index) });
+							Some(BlockWeightMode::<Config>::fraction_of_core(first_transaction_index.or(transaction_index)));
 					}
 				},
 			};
@@ -241,14 +247,14 @@ where
 	/// Returns the weight to refund. Aka the weight that wasn't used by this extension.
 	fn post_dispatch_extrinsic(info: &DispatchInfo) -> Weight {
 		crate::BlockWeightMode::<Config>::mutate(|weight_mode| {
-			let Some(mode) = *weight_mode else { return Weight::zero() };
+			let Some(mode) = weight_mode else { return Weight::zero() };
 
 			match mode {
 				// If the previous mode was already `FullCore`, we are fine.
-				BlockWeightMode::FullCore =>
+				BlockWeightMode::<Config>::FullCore { .. } =>
 					Config::WeightInfo::block_weight_tx_extension_max_weight()
 						.saturating_sub(Config::WeightInfo::block_weight_tx_extension_full_core()),
-				BlockWeightMode::FractionOfCore { .. } => {
+				BlockWeightMode::<Config>::FractionOfCore { .. } => {
 					let digest = frame_system::Pallet::<Config>::digest();
 					let target_block_weight =
 						MaxParachainBlockWeight::<Config, TargetBlockRate>::target_block_weight_with_digest(&digest);
@@ -278,12 +284,12 @@ where
 							);
 
 							frame_system::Pallet::<Config>::register_extra_weight_unchecked(
-								MaxParachainBlockWeight::<Config, TargetBlockRate>::FULL_CORE_WEIGHT,
+								FULL_CORE_WEIGHT,
 								DispatchClass::Mandatory,
 							);
 						}
 
-						*weight_mode = Some(BlockWeightMode::FullCore);
+						*weight_mode = Some(BlockWeightMode::<Config>::full_core());
 
 						// Inform the node that this block uses the full core.
 						frame_system::Pallet::<Config>::deposit_log(
@@ -297,17 +303,21 @@ where
 				},
 				// Now we need to check if the transaction required more weight than a fraction of a
 				// core block.
-				BlockWeightMode::PotentialFullCore { first_transaction_index, target_weight } => {
+				BlockWeightMode::<Config>::PotentialFullCore {
+					first_transaction_index,
+					target_weight,
+					..
+				} => {
 					let block_weight = frame_system::BlockWeight::<Config>::get();
 					let extrinsic_class_weight = block_weight.get(info.class);
 
-					if extrinsic_class_weight.any_gt(target_weight) {
+					if extrinsic_class_weight.any_gt(*target_weight) {
 						log::trace!(
 							target: LOG_TARGET,
 							"Extrinsic class weight {extrinsic_class_weight:?} above target weight {target_weight:?}, enabling `FullCore` mode."
 						);
 
-						*weight_mode = Some(BlockWeightMode::FullCore);
+						*weight_mode = Some(BlockWeightMode::<Config>::full_core());
 
 						// Inform the node that this block uses the full core.
 						frame_system::Pallet::<Config>::deposit_log(
@@ -320,8 +330,9 @@ where
 							weight {target_weight:?}, going back to `FractionOfCore` mode."
 						);
 
-						*weight_mode =
-							Some(BlockWeightMode::FractionOfCore { first_transaction_index });
+						*weight_mode = Some(BlockWeightMode::<Config>::fraction_of_core(
+							*first_transaction_index,
+						));
 					}
 
 					// We run into the worst case, so no refund :)
@@ -411,8 +422,9 @@ where
 		inner
 	}
 
-	fn weight(&self, _: &Config::RuntimeCall) -> Weight {
+	fn weight(&self, call: &Config::RuntimeCall) -> Weight {
 		Config::WeightInfo::block_weight_tx_extension_max_weight()
+			.saturating_add(self.0.weight(call))
 	}
 
 	fn validate(

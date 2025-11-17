@@ -49,7 +49,7 @@ use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_client_service::CollatorSybilResistance;
 use cumulus_primitives_core::{
-	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId, SlotSchedule,
+	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId, TargetBlockRate,
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::{prelude::*, FutureExt};
@@ -68,8 +68,8 @@ use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
-use sp_consensus::{Environment, SpawnEssentialNamed};
-use sp_core::{traits::SpawnNamed, Pair};
+use sp_consensus::Environment;
+use sp_core::{traits::SpawnEssentialNamed, Pair};
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
@@ -461,7 +461,7 @@ where
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
-		+ SlotSchedule<Block>
+		+ TargetBlockRate<Block>
 		+ GetParachainInfo<Block>,
 	AuraId: AuraIdT + Sync + Debug + Send,
 	<AuraId as AppCrypto>::Pair: Send + Sync,
@@ -494,7 +494,7 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 	StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId> + SlotSchedule<Block>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId> + TargetBlockRate<Block>,
 	AuraId: AuraIdT + Sync + Debug + Send,
 	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
@@ -551,7 +551,7 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 	> for StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId> + SlotSchedule<Block>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId> + TargetBlockRate<Block>,
 	AuraId: AuraIdT + Sync + Debug + Send,
 	<AuraId as AppCrypto>::Pair: Send + Sync,
 {

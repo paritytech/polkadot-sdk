@@ -21,7 +21,9 @@
 
 use super::*;
 use crate::{
-	block_weight::{BlockWeightMode, DynamicMaxBlockWeight, MaxParachainBlockWeight},
+	block_weight::{
+		BlockWeightMode, DynamicMaxBlockWeight, MaxParachainBlockWeight, FULL_CORE_WEIGHT,
+	},
 	parachain_inherent::InboundDownwardMessages,
 };
 use cumulus_primitives_core::{
@@ -120,9 +122,7 @@ mod benchmarks {
 		let post_info = PostDispatchInfo { actual_weight: None, pays_fee: Default::default() };
 		let len = 0_usize;
 
-		crate::BlockWeightMode::<T>::put(BlockWeightMode::FractionOfCore {
-			first_transaction_index: None,
-		});
+		crate::BlockWeightMode::<T>::put(BlockWeightMode::fraction_of_core(None));
 
 		let ext = DynamicMaxBlockWeight::<T, (), ConstU32<4>>::new(());
 
@@ -140,12 +140,9 @@ mod benchmarks {
 			.unwrap();
 		}
 
-		assert_eq!(crate::BlockWeightMode::<T>::get().unwrap(), BlockWeightMode::FullCore);
+		assert_eq!(crate::BlockWeightMode::<T>::get().unwrap(), BlockWeightMode::full_core());
 		assert!(has_use_full_core_digest::<T>());
-		assert_eq!(
-			MaxParachainBlockWeight::<T, ConstU32<4>>::get(),
-			MaxParachainBlockWeight::<T, ConstU32<4>>::FULL_CORE_WEIGHT
-		);
+		assert_eq!(MaxParachainBlockWeight::<T, ConstU32<4>>::get(), FULL_CORE_WEIGHT);
 
 		Ok(())
 	}
@@ -182,9 +179,7 @@ mod benchmarks {
 		let post_info = PostDispatchInfo { actual_weight: None, pays_fee: Default::default() };
 		let len = 0_usize;
 
-		crate::BlockWeightMode::<T>::put(BlockWeightMode::FractionOfCore {
-			first_transaction_index: None,
-		});
+		crate::BlockWeightMode::<T>::put(BlockWeightMode::fraction_of_core(None));
 
 		let ext = DynamicMaxBlockWeight::<T, (), ConstU32<4>>::new(());
 
@@ -204,7 +199,7 @@ mod benchmarks {
 
 		assert_eq!(
 			crate::BlockWeightMode::<T>::get().unwrap(),
-			BlockWeightMode::FractionOfCore { first_transaction_index: Some(1) }
+			BlockWeightMode::fraction_of_core(Some(1))
 		);
 		assert!(!has_use_full_core_digest::<T>());
 		assert_eq!(MaxParachainBlockWeight::<T, ConstU32<4>>::get(), target_weight);
@@ -216,6 +211,8 @@ mod benchmarks {
 	#[benchmark]
 	fn block_weight_tx_extension_full_core() -> Result<(), BenchmarkError> {
 		let caller = account("caller", 0, 0);
+
+		frame_system::Pallet::<T>::set_block_number(1u32.into());
 
 		frame_system::Pallet::<T>::note_inherents_applied();
 
@@ -243,7 +240,7 @@ mod benchmarks {
 		let post_info = PostDispatchInfo { actual_weight: None, pays_fee: Default::default() };
 		let len = 0_usize;
 
-		crate::BlockWeightMode::<T>::put(BlockWeightMode::FullCore);
+		crate::BlockWeightMode::<T>::put(BlockWeightMode::full_core());
 
 		let ext = DynamicMaxBlockWeight::<T, (), ConstU32<4>>::new(());
 
@@ -261,7 +258,7 @@ mod benchmarks {
 			.unwrap();
 		}
 
-		assert_eq!(crate::BlockWeightMode::<T>::get().unwrap(), BlockWeightMode::FullCore);
+		assert_eq!(crate::BlockWeightMode::<T>::get().unwrap(), BlockWeightMode::full_core());
 
 		Ok(())
 	}

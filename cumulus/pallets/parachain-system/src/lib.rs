@@ -786,10 +786,12 @@ pub mod pallet {
 	///
 	/// This is used to determine what is the maximum allowed block weight, for more information see
 	/// [`block_weight`].
+	///
+	/// Killed in [`Self::on_initialize`] and set by the [`block_weight`] logic.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
 	pub type BlockWeightMode<T: Config> =
-		StorageValue<_, block_weight::BlockWeightMode, OptionQuery>;
+		StorageValue<_, block_weight::BlockWeightMode<T>, OptionQuery>;
 
 	/// The core count available to the parachain in the previous block.
 	///

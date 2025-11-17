@@ -149,7 +149,7 @@ fn test_target_block_weight_with_digest_edge_cases() {
 			MaxParachainBlockWeight::<Runtime, ConstU32<4>>::target_block_weight_with_digest(
 				&empty_digest,
 			);
-		assert_eq!(weight, MaxParachainBlockWeight::<Runtime, ConstU32<4>>::FULL_CORE_WEIGHT / 4);
+		assert_eq!(weight, FULL_CORE_WEIGHT / 4);
 
 		// Test with digest containing core info
 		let core_info = CoreInfo {
@@ -224,7 +224,7 @@ fn tx_extension_sets_fraction_of_core_mode() {
 
 			assert_eq!(
 				crate::BlockWeightMode::<Runtime>::get(),
-				Some(BlockWeightMode::FractionOfCore { first_transaction_index: Some(0) })
+				Some(BlockWeightMode::fraction_of_core(Some(0)))
 			);
 		});
 }
@@ -268,7 +268,10 @@ fn tx_extension_large_tx_enables_full_core_usage() {
 
 			assert_ok!(TxExtension::post_dispatch((), &info, &mut post_info, 0, &Ok(())));
 
-			assert_eq!(crate::BlockWeightMode::<Runtime>::get(), Some(BlockWeightMode::FullCore));
+			assert_eq!(
+				crate::BlockWeightMode::<Runtime>::get(),
+				Some(BlockWeightMode::full_core())
+			);
 			assert!(has_use_full_core_digest());
 			assert_eq!(MaximumBlockWeight::get().ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND);
 		});
@@ -310,7 +313,7 @@ fn tx_extension_only_allows_large_operational_tx_to_enable_full_core_usage() {
 
 			assert_matches!(
 				crate::BlockWeightMode::<Runtime>::get(),
-				Some(BlockWeightMode::FractionOfCore { first_transaction_index: None })
+				Some(BlockWeightMode::FractionOfCore { first_transaction_index: None, .. })
 			);
 
 			info.class = DispatchClass::Operational;
@@ -335,7 +338,10 @@ fn tx_extension_only_allows_large_operational_tx_to_enable_full_core_usage() {
 
 			assert_ok!(TxExtension::post_dispatch((), &info, &mut post_info, 0, &Ok(())));
 
-			assert_eq!(crate::BlockWeightMode::<Runtime>::get(), Some(BlockWeightMode::FullCore));
+			assert_eq!(
+				crate::BlockWeightMode::<Runtime>::get(),
+				Some(BlockWeightMode::full_core())
+			);
 			assert!(has_use_full_core_digest());
 			assert_eq!(MaximumBlockWeight::get().ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND);
 		});
@@ -427,7 +433,7 @@ fn tx_extension_large_tx_is_rejected_on_non_first_block() {
 			// Should stay in FractionOfCore mode (not PotentialFullCore) since not first block
 			assert_eq!(
 				crate::BlockWeightMode::<Runtime>::get(),
-				Some(BlockWeightMode::FractionOfCore { first_transaction_index: None })
+				Some(BlockWeightMode::fraction_of_core(None))
 			);
 			assert!(!has_use_full_core_digest());
 			assert_eq!(MaximumBlockWeight::get(), target_weight);
@@ -461,7 +467,7 @@ fn tx_extension_post_dispatch_to_full_core_because_of_manual_weight() {
 
 			assert_matches!(
 				crate::BlockWeightMode::<Runtime>::get(),
-				Some(BlockWeightMode::FractionOfCore { first_transaction_index: Some(0) })
+				Some(BlockWeightMode::FractionOfCore { first_transaction_index: Some(0), .. })
 			);
 
 			// But actually uses much more weight (bug in weight annotation)
@@ -476,7 +482,7 @@ fn tx_extension_post_dispatch_to_full_core_because_of_manual_weight() {
 			// Should transition to FullCore due to exceeding limit
 			assert_matches!(
 				crate::BlockWeightMode::<Runtime>::get(),
-				Some(BlockWeightMode::FullCore)
+				Some(BlockWeightMode::FullCore { .. })
 			);
 
 			assert!(has_use_full_core_digest());
@@ -517,7 +523,7 @@ fn tx_extension_large_tx_after_limit_is_rejected() {
 
 			assert_eq!(
 				crate::BlockWeightMode::<Runtime>::get(),
-				Some(BlockWeightMode::FractionOfCore { first_transaction_index: None })
+				Some(BlockWeightMode::fraction_of_core(None))
 			);
 			assert!(!has_use_full_core_digest());
 			assert_eq!(MaximumBlockWeight::get(), target_weight);
@@ -560,7 +566,7 @@ fn tx_extension_large_weight_before_first_tx() {
 
 				assert_matches!(
 					crate::BlockWeightMode::<Runtime>::get(),
-					Some(BlockWeightMode::FullCore)
+					Some(BlockWeightMode::FullCore { .. })
 				);
 
 				assert!(has_use_full_core_digest());
@@ -569,9 +575,7 @@ fn tx_extension_large_weight_before_first_tx() {
 				if !first_block_in_core {
 					// Should have registered FULL_CORE_WEIGHT to prevent more transactions
 					let final_remaining = frame_system::Pallet::<Runtime>::remaining_block_weight();
-					assert!(final_remaining
-						.consumed()
-						.all_gte(MaximumBlockWeight::FULL_CORE_WEIGHT));
+					assert!(final_remaining.consumed().all_gte(FULL_CORE_WEIGHT));
 				}
 			});
 	}
@@ -596,7 +600,7 @@ fn pre_inherents_hook_first_block_over_limit() {
 
 			assert_matches!(
 				crate::BlockWeightMode::<Runtime>::get(),
-				Some(BlockWeightMode::FullCore)
+				Some(BlockWeightMode::FullCore { .. })
 			);
 
 			// Should have UseFullCore digest
@@ -623,14 +627,14 @@ fn pre_inherents_hook_non_first_block_over_limit() {
 
 			assert_matches!(
 				crate::BlockWeightMode::<Runtime>::get(),
-				Some(BlockWeightMode::FullCore)
+				Some(BlockWeightMode::FullCore { .. })
 			);
 
 			assert!(has_use_full_core_digest());
 
 			// Should have registered FULL_CORE_WEIGHT to prevent more transactions
 			let final_remaining = frame_system::Pallet::<Runtime>::remaining_block_weight();
-			assert!(final_remaining.consumed().all_gte(MaximumBlockWeight::FULL_CORE_WEIGHT));
+			assert!(final_remaining.consumed().all_gte(FULL_CORE_WEIGHT));
 		});
 }
 
@@ -653,7 +657,7 @@ fn pre_inherents_hook_under_limit_no_change() {
 
 			assert_matches!(
 				crate::BlockWeightMode::<Runtime>::get(),
-				Some(BlockWeightMode::FractionOfCore { first_transaction_index: None })
+				Some(BlockWeightMode::FractionOfCore { first_transaction_index: None, .. })
 			);
 
 			// Should NOT have UseFullCore digest
@@ -706,7 +710,7 @@ fn executive_validate_block_handles_normal_transactions() {
 	TestExtBuilder::new().previous_core_count(3).build().execute_with(|| {
 		let call = RuntimeCall::TestPallet(test_pallet::Call::heavy_call_normal {});
 
-		let xt = Extrinsic::new_signed(call, 1u64.into(), 1u64.into(), ().into());
+		let xt = Extrinsic::new_signed(call, 1u64.into(), 1u64.into(), Default::default());
 
 		assert!(Executive::validate_transaction(
 			TransactionSource::External,
@@ -719,7 +723,12 @@ fn executive_validate_block_handles_normal_transactions() {
 	TestExtBuilder::new().previous_core_count(3).build().execute_with(|| {
 		let call = RuntimeCallOnlyOperational::TestPallet(test_pallet::Call::heavy_call_normal {});
 
-		let xt = ExtrinsicOnlyOperational::new_signed(call, 1u64.into(), 1u64.into(), ().into());
+		let xt = ExtrinsicOnlyOperational::new_signed(
+			call,
+			1u64.into(),
+			1u64.into(),
+			Default::default(),
+		);
 
 		assert_eq!(
 			ExecutiveOnlyOperational::validate_transaction(
@@ -738,7 +747,7 @@ fn executive_validate_block_handles_operational_transactions() {
 	TestExtBuilder::new().previous_core_count(3).build().execute_with(|| {
 		let call = RuntimeCall::TestPallet(test_pallet::Call::heavy_call_operational {});
 
-		let xt = Extrinsic::new_signed(call, 1u64.into(), 1u64.into(), ().into());
+		let xt = Extrinsic::new_signed(call, 1u64.into(), 1u64.into(), Default::default());
 
 		assert!(Executive::validate_transaction(
 			TransactionSource::External,
@@ -752,7 +761,12 @@ fn executive_validate_block_handles_operational_transactions() {
 		let call =
 			RuntimeCallOnlyOperational::TestPallet(test_pallet::Call::heavy_call_operational {});
 
-		let xt = ExtrinsicOnlyOperational::new_signed(call, 1u64.into(), 1u64.into(), ().into());
+		let xt = ExtrinsicOnlyOperational::new_signed(
+			call,
+			1u64.into(),
+			1u64.into(),
+			Default::default(),
+		);
 
 		assert!(ExecutiveOnlyOperational::validate_transaction(
 			TransactionSource::External,
@@ -784,5 +798,90 @@ fn executive_with_operational_only_applies_big_inherent() {
 			let xt = ExtrinsicOnlyOperational::new_bare(call);
 
 			ExecutiveOnlyOperational::apply_extrinsic(xt).unwrap().unwrap();
+		});
+}
+
+#[test]
+fn block_weight_mode_from_previous_block_is_ignored_in_validate_block() {
+	TestExtBuilder::new()
+		.number_of_cores(4)
+		.first_block_in_core(true)
+		.build()
+		.execute_with(|| {
+			let call = RuntimeCallOnlyOperational::TestPallet(
+				test_pallet::Call::heavy_call_operational {},
+			);
+
+			let xt = ExtrinsicOnlyOperational::new_signed(
+				call,
+				1u64.into(),
+				1u64.into(),
+				Default::default(),
+			);
+
+			ExecutiveOnlyOperational::initialize_block(&Header::new(
+				1,
+				Default::default(),
+				Default::default(),
+				Default::default(),
+				Default::default(),
+			));
+
+			assert!(ExecutiveOnlyOperational::apply_extrinsic(xt).is_ok());
+
+			ExecutiveOnlyOperational::finalize_block();
+
+			assert_eq!(
+				crate::BlockWeightMode::<RuntimeOnlyOperational>::get().unwrap(),
+				BlockWeightMode::full_core()
+			);
+
+			let call =
+				RuntimeCallOnlyOperational::TestPallet(test_pallet::Call::heavy_call_normal {});
+
+			let xt = ExtrinsicOnlyOperational::new_signed(
+				call,
+				1u64.into(),
+				1u64.into(),
+				Default::default(),
+			);
+
+			assert_eq!(
+				ExecutiveOnlyOperational::validate_transaction(
+					TransactionSource::External,
+					xt,
+					Default::default()
+				)
+				.unwrap_err(),
+				InvalidTransaction::ExhaustsResources.into()
+			);
+		});
+}
+
+#[test]
+fn ongoin_mbm_requests_full_core() {
+	TestExtBuilder::new()
+		.number_of_cores(2)
+		.first_block_in_core(true)
+		.build()
+		.execute_with(|| {
+			MbmOngoing::set(true);
+			ExecutiveOnlyOperational::initialize_block(&Header::new(
+				1,
+				Default::default(),
+				Default::default(),
+				Default::default(),
+				Default::default(),
+			));
+
+			assert_eq!(
+				FULL_CORE_WEIGHT,
+				<RuntimeOnlyOperational as frame_system::Config>::BlockWeights::get().max_block
+			);
+
+			ExecutiveOnlyOperational::finalize_block();
+
+			assert!(has_use_full_core_digest());
+			MbmOngoing::set(false);
 		});
 }

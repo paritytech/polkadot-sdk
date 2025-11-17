@@ -244,7 +244,13 @@ fn build_multiple_blocks_with_witness(
 		})
 		.unwrap();
 
+<<<<<<< HEAD
 		let proof_new = proof_recorder.drain_storage_proof();
+||||||| cc820273ae9
+=======
+		let proof_new = built_block.proof.unwrap();
+>>>>>>> origin/bkchr-parachain-block-weight
+
 		ignored_nodes.extend(IgnoredNodes::from_storage_proof::<BlakeTwo256>(&proof_new));
 		ignored_nodes.extend(IgnoredNodes::from_memory_db(built_block.storage_changes.transaction));
 		proof = StorageProof::merge([proof, proof_new]);

@@ -35,7 +35,7 @@ use cumulus_client_proof_size_recording::prepare_proof_size_recording_transactio
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	extract_relay_parent, rpsr_digest, BundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector,
-	CumulusDigestItem, PersistedValidationData, RelayParentOffsetApi, SlotSchedule,
+	CumulusDigestItem, PersistedValidationData, RelayParentOffsetApi, TargetBlockRate,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
@@ -138,7 +138,7 @@ where
 	Client::Api: AuraApi<Block, P::Public>
 		+ RelayParentOffsetApi<Block>
 		+ AuraUnincludedSegmentApi<Block>
-		+ SlotSchedule<Block>
+		+ TargetBlockRate<Block>
 		+ BlockBuilder<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RelayClient: RelayChainInterface + Clone + 'static,
@@ -285,7 +285,7 @@ where
 
 			let included_header_hash = included_header.hash();
 
-			if let Ok(authorities) = para_client.runtime_api().authorities(parent_hash) {
+			if let Ok(authorities) = para_client.runtime_api().authorities(initial_parent.hash) {
 				connection_helper.update::<P>(slot_info.slot, &authorities).await;
 			}
 
@@ -355,26 +355,21 @@ where
 				},
 			};
 
-			let block_interval = match para_client
-				.runtime_api()
-				.next_slot_schedule(initial_parent.hash, cores.total_cores())
-			{
-				Ok(interval) => interval,
-				Err(error) => {
-					tracing::debug!(
-						target: crate::LOG_TARGET,
-						block = ?initial_parent.hash,
-						?error,
-						"Failed to fetch `slot_schedule`, assuming one block with 2s"
-					);
-					cumulus_primitives_core::NextSlotSchedule {
-						number_of_blocks: 1,
-						block_time: Duration::from_secs(2),
-					}
-				},
-			};
+			let number_of_blocks =
+				match para_client.runtime_api().target_block_rate(initial_parent.hash) {
+					Ok(interval) => interval,
+					Err(error) => {
+						tracing::debug!(
+							target: crate::LOG_TARGET,
+							block = ?initial_parent.hash,
+							?error,
+							"Failed to fetch `slot_schedule`, assuming one block with 2s"
+						);
+						1
+					},
+				};
 
-			let blocks_per_core = (block_interval.number_of_blocks / cores.total_cores()).max(1);
+			let blocks_per_core = (number_of_blocks / cores.total_cores()).max(1);
 
 			tracing::debug!(
 				target: crate::LOG_TARGET,
@@ -385,6 +380,7 @@ where
 
 			let mut pov_parent_header = initial_parent.header;
 			let mut pov_parent_hash = initial_parent.hash;
+			let block_time = Duration::from_secs(6) / number_of_blocks;
 
 			loop {
 				let time_for_core = slot_time.time_left() / cores.cores_left();
@@ -404,7 +400,7 @@ where
 					allowed_pov_size,
 					cores.core_info(),
 					cores.core_index(),
-					block_interval.block_time,
+					block_time,
 					blocks_per_core,
 					time_for_core,
 					cores.is_last_core() &&
