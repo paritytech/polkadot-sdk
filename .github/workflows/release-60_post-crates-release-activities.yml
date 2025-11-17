@@ -263,7 +263,7 @@ jobs:
 
             echo "Creating PR from $BRANCH_NAME to $BASE_RELEASE..."
             gh pr create \
-              --title "[$BASE_RELEASE] Post crates release changes" \
+              --title "Post crates release activities for $BASE_RELEASE" \
               --body "Automated PR containing post-crates-release activities:
             - NODE_VERSION bumps
             - Path dependencies replacement
