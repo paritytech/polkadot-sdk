@@ -4,7 +4,8 @@ pragma solidity ^0.8.30;
 import "@revive/ISystem.sol";
 
 contract Terminate {
-	constructor(bool skip, address beneficiary) {
+    receive() external payable {}
+	constructor(bool skip, address beneficiary) payable {
 		if (skip) {
 			return;
 		}

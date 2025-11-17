@@ -27,6 +27,10 @@ use pallet_revive_fixtures::{compile_module_with_type, FixtureType, Terminate};
 use pretty_assertions::assert_eq;
 use test_case::test_case;
 use crate::test_utils::DJANGO_ADDR;
+use crate::tests::test_utils::get_balance;
+use crate::address::AddressMapper;
+use crate::test_utils::DJANGO;
+use pallet_revive_fixtures::TerminateCaller;
 
 /// Decode a contract return value into an error string.
 fn decode_error(output: &[u8]) -> String {
@@ -116,18 +120,39 @@ fn precompile_fails_for_indirect_delegate(fixture_type: FixtureType) {
 
 #[test]
 fn sent_funds_after_terminate_shall_be_credited_to_beneficiary() {
-	let (code, _) = compile_module_with_type("Terminate", FixtureType::Solc).unwrap();
+	let (code, _) = compile_module_with_type("Terminate", FixtureType::Resolc).unwrap();
+	let (caller_code, _) = compile_module_with_type("TerminateCaller", FixtureType::Resolc).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			// .evm_value(5_000_000_000u64.into())
 			.constructor_data(Terminate::constructorCall { skip: true, beneficiary: DJANGO_ADDR.0.into() }.abi_encode())
 			.build_and_unwrap_contract();
+		let account = <Test as Config>::AddressMapper::to_account_id(&addr);
 
-        let result = builder::bare_call(addr)
-            .data(Terminate::terminateCall { beneficiary: DJANGO_ADDR.0.into() }.abi_encode())       // Call terminate function
-            .build_and_unwrap_result();
+		let Contract { addr: caller_addr, .. } = builder::bare_instantiate(Code::Upload(caller_code))
+			.native_value(100_000_000_000_000)
+			.build_and_unwrap_contract();
+		let caller_account = <Test as Config>::AddressMapper::to_account_id(&caller_addr);
+		// let _ = <Test as Config>::Currency::set_balance(&caller_account, 100_000_000_000_000);
 		
 
+		println!("ALICE balance: {}", get_balance(&ALICE));
+		println!("Caller balance: {}", get_balance(&caller_account));
+
+        let result = builder::bare_call(caller_addr)
+            .data(TerminateCaller::sendFundsAfterTerminateCall { terminate_addr: addr.0.into(), value: alloy_core::primitives::U256::from(123_000_000u64), beneficiary: DJANGO_ADDR.0.into() }.abi_encode())
+            .build_and_unwrap_result();
+
+		assert!(!result.did_revert());
 		assert_eq!(result.data, Vec::<u8>::new());
+
+		
+		let caller_balance = get_balance(&caller_account);
+		println!("Caller balance after terminate: {}", caller_balance);
+		let contract_balance = get_balance(&account);
+		println!("Contract balance after terminate: {}", contract_balance);
+		let django_balance = get_balance(&DJANGO);
+		println!("Django balance after terminate: {}", django_balance);
 	});
 }
