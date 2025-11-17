@@ -59,16 +59,26 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 		// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
 		let maybe_allow_attrs = extract_or_return_allow_attrs(&const_.attrs);
 
+		let default_byte_impl = if let Some(path) = &const_.value_path {
+			quote::quote!(
+             #(#maybe_allow_attrs)*
+             let value = <T as Config #trait_use_gen>::#ident #path;
+             #frame_support::__private::codec::Encode::encode(&value)
+          )
+		} else {
+			quote::quote!(
+             #(#maybe_allow_attrs)*
+             let value = <<T as Config #trait_use_gen>::#ident as
+                #frame_support::traits::Get<#const_type>>::get();
+             #frame_support::__private::codec::Encode::encode(&value)
+          )
+		};
+
 		config_consts.push(ConstDef {
 			ident: const_.ident.clone(),
 			type_: const_.type_.clone(),
 			doc: const_.doc.clone(),
-			default_byte_impl: quote::quote!(
-				#(#maybe_allow_attrs)*
-				let value = <<T as Config #trait_use_gen>::#ident as
-					#frame_support::traits::Get<#const_type>>::get();
-				#frame_support::__private::codec::Encode::encode(&value)
-			),
+			default_byte_impl,
 			metadata_name: None,
 			deprecation_info,
 		})

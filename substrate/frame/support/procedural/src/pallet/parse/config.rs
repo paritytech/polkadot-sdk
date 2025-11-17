@@ -19,7 +19,7 @@ use super::helper;
 use frame_support_procedural_tools::{get_cfg_attributes, get_doc_literals, is_using_frame_crate};
 use proc_macro_warning::Warning;
 use quote::ToTokens;
-use syn::{parse_quote, spanned::Spanned, token, Token, TraitItemType};
+use syn::{parse_quote, spanned::Spanned, token, Token, TraitItemType, parenthesized, Path};
 
 /// List of additional token to be used for parsing.
 mod keyword {
@@ -38,6 +38,32 @@ mod keyword {
 	syn::custom_keyword!(no_default_bounds);
 	syn::custom_keyword!(constant);
 	syn::custom_keyword!(include_metadata);
+}
+
+#[derive(PartialEq, Eq)]
+pub struct ConstantAttr {
+	pub keyword: keyword::constant,
+	pub value_path: Option<Path>,
+}
+
+impl syn::parse::Parse for ConstantAttr {
+	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+		let keyword = input.parse::<keyword::constant>()?;
+		let value_path = if input.peek(token::Paren) {
+			let content;
+			parenthesized!(content in input);
+			let path = content.parse::<Path>()?;
+
+			if path.leading_colon.is_none() {
+				let msg = "expected a path starting with `::`, e.g., `(::IDENTIFIER)`";
+				return Err(syn::Error::new(path.span(), msg));
+			}
+			Some(path)
+		} else {
+			None
+		};
+		Ok(Self { keyword, value_path })
+	}
 }
 
 #[derive(Default)]
@@ -101,6 +127,9 @@ pub struct ConstMetadataDef {
 	pub doc: Vec<syn::Expr>,
 	/// attributes
 	pub attrs: Vec<syn::Attribute>,
+	/// The path to the constant value, e.g. `::IDENTIFIER`.
+	/// If `None`, the macro will default to `::get()`.
+	pub value_path: Option<Path>,
 }
 
 impl TryFrom<&syn::TraitItemType> for ConstMetadataDef {
@@ -138,7 +167,7 @@ impl TryFrom<&syn::TraitItemType> for ConstMetadataDef {
 		let type_ = syn::parse2::<syn::Type>(replace_self_by_t(type_arg.to_token_stream()))
 			.expect("Internal error: replacing `Self` by `T` should result in valid type");
 
-		Ok(Self { ident, type_, doc, attrs: trait_ty.attrs.clone() })
+		Ok(Self { ident, type_, doc, attrs: trait_ty.attrs.clone(), value_path: None })
 	}
 }
 
@@ -166,7 +195,7 @@ pub enum PalletAttrType {
 	#[peek(keyword::no_default_bounds, name = "no_default_bounds")]
 	NoBounds(keyword::no_default_bounds),
 	#[peek(keyword::constant, name = "constant")]
-	Constant(keyword::constant),
+	Constant(ConstantAttr),
 	#[peek(keyword::include_metadata, name = "include_metadata")]
 	IncludeMetadata(keyword::include_metadata),
 }
@@ -445,15 +474,34 @@ impl ConfigDef {
 				helper::take_first_item_pallet_attr::<PalletAttr>(trait_item)
 			{
 				match (pallet_attr.typ, &trait_item) {
-					(PalletAttrType::Constant(_), syn::TraitItem::Type(ref typ)) => {
+					(PalletAttrType::Constant(constant_attr), syn::TraitItem::Type(ref typ)) => {
 						if already_constant {
 							return Err(syn::Error::new(
-								pallet_attr._bracket.span.join(),
+								constant_attr.keyword.span(),
 								"Duplicate #[pallet::constant] attribute not allowed.",
 							));
 						}
 						already_constant = true;
-						consts_metadata.push(ConstMetadataDef::try_from(typ)?);
+
+						match ConstMetadataDef::try_from(typ) {
+							Ok(mut const_def) => {
+								const_def.value_path = constant_attr.value_path;
+								consts_metadata.push(const_def);
+							},
+							Err(e) => {
+								if constant_attr.value_path.is_some() {
+									let msg = format!(
+										"Invalid `#[pallet::constant(::PATH)]`: This syntax still requires a \
+                        `Get<T>` bound to determine the constant's type for metadata. \
+                        e.g., `type MyConst: Get<&'static str> + MyTrait;`. \
+                        Compiler error: {}", e
+									);
+									return Err(syn::Error::new(typ.span(), msg));
+								} else {
+									return Err(e);
+								}
+							}
+						}
 					},
 					(PalletAttrType::Constant(_), _) =>
 						return Err(syn::Error::new(
