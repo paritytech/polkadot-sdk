@@ -39,9 +39,7 @@ mod tests;
 pub use parent_search::*;
 
 pub use cumulus_relay_chain_streams::finalized_heads;
-pub use parachain_consensus::{
-	finalized_head_stream_worker, run_parachain_consensus, spawn_parachain_consensus_tasks,
-};
+pub use parachain_consensus::spawn_parachain_consensus_tasks;
 
 use level_monitor::LevelMonitor;
 pub use level_monitor::{LevelLimit, MAX_LEAVES_PER_LEVEL_SENSIBLE_DEFAULT};
