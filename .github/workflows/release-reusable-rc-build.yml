@@ -55,7 +55,7 @@ jobs:
         run: |
           cat .github/env >> $GITHUB_OUTPUT
           RUNNER=""
-          if [[ "${BINARY}" ~= "polkadot-parachain" ]]; then
+          if [[ "${BINARY}" =~ "polkadot-parachain" ]]; then
             RUNNER="ubuntu-latest-m"
             echo "Using ubuntu-latest-m runner"
           else
