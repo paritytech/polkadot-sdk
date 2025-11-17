@@ -61,17 +61,17 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 
 		let default_byte_impl = if let Some(path) = &const_.value_path {
 			quote::quote!(
-             #(#maybe_allow_attrs)*
-             let value = <T as Config #trait_use_gen>::#ident #path;
-             #frame_support::__private::codec::Encode::encode(&value)
-          )
+			   #(#maybe_allow_attrs)*
+			   let value = <T as Config #trait_use_gen>::#ident #path;
+			   #frame_support::__private::codec::Encode::encode(&value)
+			)
 		} else {
 			quote::quote!(
-             #(#maybe_allow_attrs)*
-             let value = <<T as Config #trait_use_gen>::#ident as
-                #frame_support::traits::Get<#const_type>>::get();
-             #frame_support::__private::codec::Encode::encode(&value)
-          )
+			   #(#maybe_allow_attrs)*
+			   let value = <<T as Config #trait_use_gen>::#ident as
+				  #frame_support::traits::Get<#const_type>>::get();
+			   #frame_support::__private::codec::Encode::encode(&value)
+			)
 		};
 
 		config_consts.push(ConstDef {

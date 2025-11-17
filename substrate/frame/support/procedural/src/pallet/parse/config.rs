@@ -19,7 +19,7 @@ use super::helper;
 use frame_support_procedural_tools::{get_cfg_attributes, get_doc_literals, is_using_frame_crate};
 use proc_macro_warning::Warning;
 use quote::ToTokens;
-use syn::{parse_quote, spanned::Spanned, token, Token, TraitItemType, parenthesized, Path};
+use syn::{parenthesized, parse_quote, spanned::Spanned, token, Path, Token, TraitItemType};
 
 /// List of additional token to be used for parsing.
 mod keyword {
