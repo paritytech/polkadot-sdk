@@ -1294,7 +1294,7 @@ fn ensure_seconding_limit_is_respected(
 			}
 		}
 
-		if cq_state.can_claim_at(relay_parent, &para_id, None) {
+		if cq_state.has_or_can_claim_at(relay_parent, &para_id, None) {
 			has_claim_at_some_path = true;
 			break
 		}

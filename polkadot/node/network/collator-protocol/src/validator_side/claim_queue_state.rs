@@ -36,6 +36,14 @@ enum ClaimState {
 }
 
 impl ClaimState {
+	fn candidate_hash(&self) -> Option<&CandidateHash> {
+		match self {
+			ClaimState::Pending(Some(candidate)) | ClaimState::Seconded(candidate) =>
+				Some(candidate),
+			_ => None,
+		}
+	}
+
 	fn clone_or_default(&self, known_candidates: &HashSet<CandidateHash>) -> Self {
 		match self {
 			ClaimState::Pending(Some(candidate)) | ClaimState::Seconded(candidate)
@@ -244,11 +252,34 @@ impl ClaimQueueState {
 		self.block_state.push_back(claim_info);
 	}
 
-	fn contains_candidate(&self, relay_parent: &Hash, candidate_hash: &CandidateHash) -> bool {
+	fn has_claim(&self, relay_parent: &Hash, candidate_hash: &CandidateHash) -> bool {
 		self.candidates.get(relay_parent).map_or(false, |c| c.contains(candidate_hash))
 	}
 
-	fn insert_candidate(&mut self, relay_parent: Hash, candidate_hash: CandidateHash) {
+	fn trace_has_claim(
+		&self,
+		relay_parent: &Hash,
+		para_id: &ParaId,
+		maybe_candidate_hash: Option<&CandidateHash>,
+	) -> bool {
+		if let Some(candidate_hash) = maybe_candidate_hash {
+			if self.has_claim(relay_parent, candidate_hash) {
+				// there is already a claim for this candidate - return now
+				gum::trace!(
+					target: LOG_TARGET,
+					?para_id,
+					?relay_parent,
+					?candidate_hash,
+					"Claim already exists"
+				);
+				return true
+			}
+		}
+
+		false
+	}
+
+	fn cache_claim(&mut self, relay_parent: Hash, candidate_hash: CandidateHash) {
 		self.candidates.entry(relay_parent).or_default().insert(candidate_hash);
 	}
 
@@ -267,17 +298,21 @@ impl ClaimQueueState {
 			"claim_at"
 		);
 
-		self.find_a_free_claim(
+		if self.trace_has_claim(relay_parent, para_id, maybe_candidate_hash.as_ref()) {
+			return true;
+		}
+		self.find_and_replace_claim(
 			relay_parent,
 			para_id,
-			maybe_candidate_hash,
+			&[ClaimState::Free],
+			true,
 			ClaimState::Pending(maybe_candidate_hash),
 		)
 	}
 
 	/// Claims the first available slot for `para_id` at `relay_parent` as pending. Returns `true`
 	/// if the claim was successful. For a v1 advertisement.
-	pub(crate) fn claim_pending_at_v1(&mut self, relay_parent: &Hash, para_id: &ParaId) -> bool {
+	fn claim_pending_at_v1(&mut self, relay_parent: &Hash, para_id: &ParaId) -> bool {
 		gum::trace!(
 			target: LOG_TARGET,
 			?para_id,
@@ -285,7 +320,7 @@ impl ClaimQueueState {
 			"claim_at_v1"
 		);
 
-		self.find_a_free_claim_v1(relay_parent, para_id, ClaimState::Pending(None))
+		self.find_claim(relay_parent, para_id, &[ClaimState::Free], false).is_some()
 	}
 
 	/// Sets the candidate hash for a pending claim. If no such claim is found - returns false.
@@ -297,37 +332,17 @@ impl ClaimQueueState {
 		para_id: &ParaId,
 		candidate_hash: CandidateHash,
 	) -> bool {
-		if self.contains_candidate(relay_parent, &candidate_hash) {
-			// there is already a claim for this candidate - return now
-			gum::trace!(
-				target: LOG_TARGET,
-				?para_id,
-				?relay_parent,
-				?candidate_hash,
-				"Claim already exists"
-			);
+		if self.trace_has_claim(relay_parent, para_id, Some(&candidate_hash)) {
 			return true
 		}
 
-		let mut claim_found = false;
-		for info in self.block_state.iter_mut() {
-			if info.hash == Some(*relay_parent) &&
-				info.claim == Some(*para_id) &&
-				info.claimed == ClaimState::Pending(None)
-			{
-				info.claimed = ClaimState::Pending(Some(candidate_hash));
-
-				claim_found = true;
-				break
-			}
-		}
-
-		// Save the candidate hash
-		if claim_found {
-			self.insert_candidate(*relay_parent, candidate_hash);
-		}
-
-		claim_found
+		self.find_and_replace_claim(
+			relay_parent,
+			para_id,
+			&[ClaimState::Pending(None)],
+			false,
+			ClaimState::Pending(Some(candidate_hash)),
+		)
 	}
 
 	/// If there is a pending claim for the candidate at `relay_parent` it is upgraded to seconded.
@@ -346,16 +361,16 @@ impl ClaimQueueState {
 			"second_at"
 		);
 
-		if self.contains_candidate(relay_parent, &candidate_hash) {
-			let window = self.get_window_mut(relay_parent);
-
-			for w in window {
-				if w.claimed == ClaimState::Pending(Some(candidate_hash)) ||
-					w.claimed == ClaimState::Seconded(candidate_hash)
-				{
-					w.claimed = ClaimState::Seconded(candidate_hash);
-					return true;
-				}
+		if self.has_claim(relay_parent, &candidate_hash) {
+			let claimed = self.find_and_replace_claim(
+				relay_parent,
+				para_id,
+				&[ClaimState::Pending(Some(candidate_hash)), ClaimState::Seconded(candidate_hash)],
+				true,
+				ClaimState::Seconded(candidate_hash),
+			);
+			if claimed {
+				return true;
 			}
 
 			gum::warn!(
@@ -365,22 +380,23 @@ impl ClaimQueueState {
 				?candidate_hash,
 				"Hash found in candidates but can't find a claim for it. This should never happen"
 			);
-
-			return false
-		} else {
-			// this is a new claim
-			self.find_a_free_claim(
-				relay_parent,
-				para_id,
-				Some(candidate_hash),
-				ClaimState::Seconded(candidate_hash),
-			)
+			return false;
 		}
+
+		// this is a new claim
+		self.find_and_replace_claim(
+			relay_parent,
+			para_id,
+			&[ClaimState::Free],
+			true,
+			ClaimState::Seconded(candidate_hash),
+		)
 	}
 
 	/// Returns `true` if there is a free spot in claim queue (free claim) for `para_id` at
-	/// `relay_parent`. The function only performs a check. No actual claim is made.
-	pub(crate) fn can_claim_at(
+	/// `relay_parent` or if there is an existing claim for the provided candidate at
+	/// `relay_parent`.
+	pub(crate) fn has_or_can_claim_at(
 		&mut self,
 		relay_parent: &Hash,
 		para_id: &ParaId,
@@ -390,10 +406,13 @@ impl ClaimQueueState {
 			target: LOG_TARGET,
 			?para_id,
 			?relay_parent,
-			"can_claim_at"
+			"has_or_can_claim_at"
 		);
 
-		self.find_a_free_claim(relay_parent, para_id, maybe_candidate_hash, ClaimState::Free)
+		if self.trace_has_claim(relay_parent, para_id, maybe_candidate_hash.as_ref()) {
+			return true
+		}
+		self.find_claim(relay_parent, para_id, &[ClaimState::Free], true).is_some()
 	}
 
 	/// Returns a `Vec` of `ParaId`s with all free claims at `relay_parent`.
@@ -540,99 +559,63 @@ impl ClaimQueueState {
 		)
 	}
 
-	// Returns `true` if there is a free claim within `relay_parent`'s view of the claim queue for
-	// `para_id`. If a claim is found its state is set to `new_state`. To just report the
-	// availability of the slot call the function with `new_state = ClaimState::Free`. This way the
-	// free slot will be set again to free and the function won't have any side effects.
-	fn find_a_free_claim(
-		&mut self,
-		relay_parent: &Hash,
+	/// Searches for any of the types provided within `relay_parent`'s view of the claim queue for
+	/// `para_id` and returns the first one that is found.
+	fn find_claim<'a>(
+		&'a mut self,
+		relay_parent: &'a Hash,
 		para_id: &ParaId,
-		maybe_candidate_hash: Option<CandidateHash>,
-		new_state: ClaimState,
-	) -> bool {
-		if let Some(candidate_hash) = maybe_candidate_hash {
-			if self.contains_candidate(relay_parent, &candidate_hash) {
-				// there is already a claim for this candidate - return now
-				gum::trace!(
-					target: LOG_TARGET,
-					?para_id,
-					?relay_parent,
-					?candidate_hash,
-					"Claim already exists"
-				);
-				return true
-			}
-		}
-
+		lookup: &[ClaimState],
+		search_in_future_blocks: bool,
+	) -> Option<&'a mut ClaimInfo> {
 		let window = self.get_window_mut(relay_parent);
-		let make_a_claim = new_state != ClaimState::Free;
+		let window: Box<dyn Iterator<Item = &mut ClaimInfo>> = match search_in_future_blocks {
+			true => Box::new(window),
+			false => Box::new(window.take(1)),
+		};
 
-		let mut claim_found = false;
-		for w in window {
+		for info in window {
 			gum::trace!(
 				target: LOG_TARGET,
 				?para_id,
 				?relay_parent,
-				claim_info=?w,
-				?new_state,
+				claim_info=?info,
 				"Checking claim"
 			);
 
-			if w.claimed == ClaimState::Free && w.claim == Some(*para_id) {
-				if make_a_claim {
-					w.claimed = new_state;
-				}
-
-				claim_found = true;
-				break
+			if info.claim == Some(*para_id) && lookup.contains(&info.claimed) {
+				return Some(info)
 			}
 		}
 
-		// Save the candidate hash
-		if let Some(candidate_hash) = maybe_candidate_hash {
-			if claim_found && make_a_claim {
-				self.insert_candidate(*relay_parent, candidate_hash);
-			}
-		}
-
-		claim_found
+		None
 	}
 
-	// Alternative of [`find_a_free_claim`] for V1 candidates. Check its documentation for usage
-	// guidelines.
-	fn find_a_free_claim_v1(
+	/// Searches for any of the types provided within `relay_parent`'s view of the claim queue for
+	/// `para_id` and replaces the state of the first one that is found with `new_state`.
+	///
+	/// Returns whether a claim was found, no matter if it had to be replaced or not.
+	fn find_and_replace_claim(
 		&mut self,
 		relay_parent: &Hash,
 		para_id: &ParaId,
+		lookup: &[ClaimState],
+		search_in_future_blocks: bool,
 		new_state: ClaimState,
 	) -> bool {
-		let mut window = self.get_window_mut(relay_parent);
-		let make_a_claim = new_state != ClaimState::Free;
+		let info = match self.find_claim(relay_parent, para_id, lookup, search_in_future_blocks) {
+			Some(info) => {
+				info.claimed = new_state;
+				info
+			},
+			None => return false,
+		};
 
-		// Only check the first relay parent, since for v1 advertisement we can't claim a future
-		// slot.
-
-		if let Some(w) = window.next() {
-			gum::trace!(
-				target: LOG_TARGET,
-				?para_id,
-				?relay_parent,
-				claim_info=?w,
-				?new_state,
-				"Checking claim"
-			);
-
-			if w.claimed == ClaimState::Free && w.claim == Some(*para_id) {
-				if make_a_claim {
-					w.claimed = new_state;
-				}
-
-				return true
-			}
+		if let Some(candidate_hash) = info.claimed.candidate_hash().cloned() {
+			self.cache_claim(*relay_parent, candidate_hash);
 		}
 
-		false
+		true
 	}
 
 	/// Returns a `Vec` of `ParaId`s with all pending claims at `relay_parent`.
@@ -945,7 +928,7 @@ impl PerLeafClaimQueueState {
 		candidate_hash: &CandidateHash,
 	) -> bool {
 		self.leaves.get_mut(leaf).map_or(false, |p: &mut ClaimQueueState| {
-			p.can_claim_at(relay_parent, para_id, Some(*candidate_hash))
+			p.has_or_can_claim_at(relay_parent, para_id, Some(*candidate_hash))
 		})
 	}
 }
@@ -964,7 +947,7 @@ mod test {
 			let para_id = ParaId::new(1);
 			let candidate = CandidateHash(Hash::from_low_u64_be(101));
 
-			assert!(!state.can_claim_at(&relay_parent, &para_id, Some(candidate)));
+			assert!(!state.has_or_can_claim_at(&relay_parent, &para_id, Some(candidate)));
 			assert!(!state.claim_pending_at(&relay_parent, &para_id, Some(candidate)));
 			assert!(state.get_pending_at(&relay_parent).is_empty());
 			assert!(state.is_empty());
@@ -978,7 +961,7 @@ mod test {
 			let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
 
 			state.add_leaf(&relay_parent_a, &claim_queue);
-			assert!(state.can_claim_at(&relay_parent_a, &para_id, None));
+			assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id, None));
 			assert!(state.get_pending_at(&relay_parent_a).is_empty());
 
 			assert_eq!(
@@ -1053,7 +1036,7 @@ mod test {
 				])
 			);
 			assert!(state.candidates.is_empty());
-			assert!(state.can_claim_at(&relay_parent_b, &para_id, None));
+			assert!(state.has_or_can_claim_at(&relay_parent_b, &para_id, None));
 			assert!(state.get_pending_at(&relay_parent_b).is_empty());
 		}
 
@@ -1068,17 +1051,17 @@ mod test {
 
 			let candidate_a = CandidateHash(Hash::from_low_u64_be(101));
 			let candidate_b = CandidateHash(Hash::from_low_u64_be(102));
-			assert!(state.can_claim_at(&relay_parent_a, &para_id, Some(candidate_a)));
+			assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id, Some(candidate_a)));
 			assert!(state.claim_pending_at(&relay_parent_a, &para_id, Some(candidate_a)));
 			// Claiming the same slot again should return true
-			assert!(state.can_claim_at(&relay_parent_a, &para_id, Some(candidate_a)));
+			assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id, Some(candidate_a)));
 			assert!(state.claim_pending_at(&relay_parent_a, &para_id, Some(candidate_a)));
 
-			assert!(state.can_claim_at(&relay_parent_a, &para_id, Some(candidate_b)));
+			assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id, Some(candidate_b)));
 			assert!(state.claim_seconded_at(&relay_parent_a, &para_id, candidate_b));
 			// Claiming the same slot again should return true
 			assert!(state.claim_seconded_at(&relay_parent_a, &para_id, candidate_b));
-			assert!(state.can_claim_at(&relay_parent_a, &para_id, Some(candidate_b)));
+			assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id, Some(candidate_b)));
 		}
 
 		#[test]
@@ -1094,12 +1077,12 @@ mod test {
 
 			// add one claim for a
 			let candidate_a = CandidateHash(Hash::from_low_u64_be(101));
-			assert!(state.can_claim_at(&relay_parent_a, &para_id, Some(candidate_a)));
+			assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id, Some(candidate_a)));
 			assert!(state.claim_pending_at(&relay_parent_a, &para_id, Some(candidate_a)));
 
 			// and one for b
 			let candidate_b = CandidateHash(Hash::from_low_u64_be(200));
-			assert!(state.can_claim_at(&relay_parent_b, &para_id, Some(candidate_b)));
+			assert!(state.has_or_can_claim_at(&relay_parent_b, &para_id, Some(candidate_b)));
 			assert!(state.claim_pending_at(&relay_parent_b, &para_id, Some(candidate_b)));
 
 			assert_eq!(
@@ -1236,7 +1219,7 @@ mod test {
 			// no more claims
 			let candidate_a4 = CandidateHash(Hash::from_low_u64_be(104));
 
-			assert!(!state.can_claim_at(&relay_parent_a, &para_id, Some(candidate_a4)));
+			assert!(!state.has_or_can_claim_at(&relay_parent_a, &para_id, Some(candidate_a4)));
 		}
 
 		#[test]
@@ -1293,7 +1276,7 @@ mod test {
 
 			// no more claims
 			let new_candidate = CandidateHash(Hash::from_low_u64_be(101 + candidates.len() as u64));
-			assert!(!state.can_claim_at(&relay_parent_a, &para_id, Some(new_candidate)));
+			assert!(!state.has_or_can_claim_at(&relay_parent_a, &para_id, Some(new_candidate)));
 
 			// new leaf
 			let relay_parent_b = Hash::from_low_u64_be(2);
@@ -1335,7 +1318,7 @@ mod test {
 			);
 
 			// still no claims for a
-			assert!(!state.can_claim_at(&relay_parent_a, &para_id, Some(new_candidate)));
+			assert!(!state.has_or_can_claim_at(&relay_parent_a, &para_id, Some(new_candidate)));
 
 			// but can accept for b
 			assert!(state.claim_pending_at(&relay_parent_b, &para_id, Some(new_candidate)));
@@ -1394,8 +1377,8 @@ mod test {
 			state.add_leaf(&relay_parent_a, &claim_queue);
 			let candidate_a1 = CandidateHash(Hash::from_low_u64_be(101));
 			let candidate_b1 = CandidateHash(Hash::from_low_u64_be(201));
-			assert!(state.can_claim_at(&relay_parent_a, &para_id_a, Some(candidate_a1)));
-			assert!(state.can_claim_at(&relay_parent_a, &para_id_b, Some(candidate_b1)));
+			assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id_a, Some(candidate_a1)));
+			assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id_b, Some(candidate_b1)));
 
 			assert_eq!(
 				state.block_state,
@@ -1430,8 +1413,8 @@ mod test {
 
 			// we should still be able to claim candidates for both paras
 			let candidate_a2 = CandidateHash(Hash::from_low_u64_be(102));
-			assert!(state.can_claim_at(&relay_parent_a, &para_id_a, Some(candidate_a2)));
-			assert!(state.can_claim_at(&relay_parent_a, &para_id_b, Some(candidate_b1)));
+			assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id_a, Some(candidate_a2)));
+			assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id_b, Some(candidate_b1)));
 
 			assert_eq!(
 				state.block_state,
@@ -1469,8 +1452,8 @@ mod test {
 
 			// no more claims for a, but should be able to claim for b
 			let candidate_a3 = CandidateHash(Hash::from_low_u64_be(103));
-			assert!(!state.can_claim_at(&relay_parent_a, &para_id_a, Some(candidate_a3)));
-			assert!(state.can_claim_at(&relay_parent_a, &para_id_b, Some(candidate_b1)));
+			assert!(!state.has_or_can_claim_at(&relay_parent_a, &para_id_a, Some(candidate_a3)));
+			assert!(state.has_or_can_claim_at(&relay_parent_a, &para_id_b, Some(candidate_b1)));
 
 			assert_eq!(
 				state.block_state,
@@ -1511,8 +1494,8 @@ mod test {
 
 			// no more claims neither for a nor for b
 			let candidate_b2 = CandidateHash(Hash::from_low_u64_be(202));
-			assert!(!state.can_claim_at(&relay_parent_a, &para_id_a, Some(candidate_a3)));
-			assert!(!state.can_claim_at(&relay_parent_a, &para_id_b, Some(candidate_b2)));
+			assert!(!state.has_or_can_claim_at(&relay_parent_a, &para_id_a, Some(candidate_a3)));
+			assert!(!state.has_or_can_claim_at(&relay_parent_a, &para_id_b, Some(candidate_b2)));
 
 			assert_eq!(
 				state.block_state,
@@ -1853,7 +1836,7 @@ mod test {
 			// no claim queue so we know nothing about future blocks
 			assert!(state.future_blocks.is_empty());
 
-			assert!(!state.can_claim_at(&relay_parent_a, &para_id_a, Some(candidate_a1)));
+			assert!(!state.has_or_can_claim_at(&relay_parent_a, &para_id_a, Some(candidate_a1)));
 			assert!(!state.claim_pending_at(&relay_parent_a, &para_id_a, Some(candidate_a1)));
 
 			let relay_parent_b = Hash::from_low_u64_be(2);
@@ -1881,10 +1864,10 @@ mod test {
 			assert!(state.future_blocks.is_empty());
 
 			let candidate_a2 = CandidateHash(Hash::from_low_u64_be(102));
-			assert!(!state.can_claim_at(&relay_parent_a, &para_id_a, Some(candidate_a2)));
+			assert!(!state.has_or_can_claim_at(&relay_parent_a, &para_id_a, Some(candidate_a2)));
 			assert!(!state.claim_pending_at(&relay_parent_a, &para_id_a, Some(candidate_a2)));
 
-			assert!(state.can_claim_at(&relay_parent_b, &para_id_a, Some(candidate_a2)));
+			assert!(state.has_or_can_claim_at(&relay_parent_b, &para_id_a, Some(candidate_a2)));
 			assert!(state.claim_pending_at(&relay_parent_b, &para_id_a, Some(candidate_a2)));
 
 			let relay_parent_c = Hash::from_low_u64_be(3);
@@ -1927,14 +1910,14 @@ mod test {
 
 			let candidate_a3 = CandidateHash(Hash::from_low_u64_be(103));
 
-			assert!(!state.can_claim_at(&relay_parent_a, &para_id_a, Some(candidate_a3)));
+			assert!(!state.has_or_can_claim_at(&relay_parent_a, &para_id_a, Some(candidate_a3)));
 			assert!(!state.claim_pending_at(&relay_parent_a, &para_id_a, Some(candidate_a3)));
 
 			// already claimed
-			assert!(!state.can_claim_at(&relay_parent_b, &para_id_a, Some(candidate_a3)));
+			assert!(!state.has_or_can_claim_at(&relay_parent_b, &para_id_a, Some(candidate_a3)));
 			assert!(!state.claim_pending_at(&relay_parent_b, &para_id_a, Some(candidate_a3)));
 
-			assert!(state.can_claim_at(&relay_parent_c, &para_id_a, Some(candidate_a3)));
+			assert!(state.has_or_can_claim_at(&relay_parent_c, &para_id_a, Some(candidate_a3)));
 		}
 
 		#[test]
