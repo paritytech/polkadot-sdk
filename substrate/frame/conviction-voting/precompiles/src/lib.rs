@@ -193,7 +193,7 @@ where
 				let charged_amount = env
 					.charge(weight_to_charge)?;
 
-				let target_account_id = T::AddressMapper::to_account_id(&H160::from(to.0 .0));
+				let target_account_id = T::AddressMapper::to_account_id(to.into_array().into());
 				let target_source = T::Lookup::unlookup(target_account_id);
 
 				let runtime_conviction = Self::to_conviction(conviction)?;
