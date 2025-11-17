@@ -182,6 +182,56 @@ impl ClaimQueueState {
 		}
 	}
 
+	fn fork(&self, target_relay_parent: &Hash) -> Option<Self> {
+		if self.block_state.back().and_then(|state| state.hash) == Some(*target_relay_parent) {
+			// don't fork from the last block!
+			return None
+		}
+
+		// Find the index of the target relay parent in the old state
+		let target_index = self
+			.block_state
+			.iter()
+			.position(|claim_info| claim_info.hash == Some(*target_relay_parent))?;
+
+		let block_state =
+			self.block_state.iter().cloned().take(target_index + 1).collect::<VecDeque<_>>();
+
+		let rp_in_view = block_state.iter().filter_map(|c| c.hash).collect::<HashSet<_>>();
+
+		let candidates = self
+			.candidates
+			.iter()
+			.filter(|(rp, _)| rp_in_view.contains(rp))
+			.map(|(rp, c)| (*rp, c.clone()))
+			.collect::<HashMap<_, _>>();
+
+		let candidates_in_view = candidates.iter().fold(HashSet::new(), |mut acc, (_, c)| {
+			acc.extend(c.iter().cloned());
+			acc
+		});
+
+		// Transfer any claims from the target relay parent's ancestors onto the new path.
+		// Example:
+		// old_state: [A B C D]; target_relay_parent = B;
+		// Any claims on C and D should also be transferred to the new fork. Because when we claim a
+		// slot at relay parent X we claim it at all possible forks.
+		// Also note that only claims for candidates which fall within new fork's view are
+		// transferred.
+		let future_blocks = self
+			.get_window(target_relay_parent)
+			.skip(1)
+			.map(|c| ClaimInfo {
+				hash: None,
+				claim: c.claim,
+				claim_queue_len: 1,
+				claimed: c.claimed.clone_or_default(&candidates_in_view),
+			})
+			.collect::<VecDeque<_>>();
+
+		Some(ClaimQueueState { block_state, future_blocks, candidates })
+	}
+
 	/// Appends a new leaf with its corresponding claim queue to the state.
 	pub(crate) fn add_leaf(&mut self, hash: &Hash, claim_queue: &VecDeque<ParaId>) {
 		if self.block_state.iter().any(|s| s.hash == Some(*hash)) {
@@ -630,62 +680,6 @@ impl ClaimQueueState {
 	}
 }
 
-fn fork_from_state(
-	old_state: &ClaimQueueState,
-	target_relay_parent: &Hash,
-) -> Option<ClaimQueueState> {
-	if old_state.block_state.back().and_then(|state| state.hash) == Some(*target_relay_parent) {
-		// don't fork from the last block!
-		return None
-	}
-
-	// Find the index of the target relay parent in the old state
-	let target_index = old_state
-		.block_state
-		.iter()
-		.position(|claim_info| claim_info.hash == Some(*target_relay_parent))?;
-
-	let block_state = old_state
-		.block_state
-		.iter()
-		.cloned()
-		.take(target_index + 1)
-		.collect::<VecDeque<_>>();
-
-	let rp_in_view = block_state.iter().filter_map(|c| c.hash).collect::<HashSet<_>>();
-
-	let candidates = old_state
-		.candidates
-		.iter()
-		.filter(|(rp, _)| rp_in_view.contains(rp))
-		.map(|(rp, c)| (*rp, c.clone()))
-		.collect::<HashMap<_, _>>();
-
-	let candidates_in_view = candidates.iter().fold(HashSet::new(), |mut acc, (_, c)| {
-		acc.extend(c.iter().cloned());
-		acc
-	});
-
-	// Transfer any claims from the target relay parent's ancestors onto the new path.
-	// Example:
-	// old_state: [A B C D]; target_relay_parent = B;
-	// Any claims on C and D should also be transferred to the new fork. Because when we claim a
-	// slot at relay parent X we claim it at all possible forks.
-	// Also note that only claims for candidates which fall within new fork's view are transferred.
-	let future_blocks = old_state
-		.get_window(target_relay_parent)
-		.skip(1)
-		.map(|c| ClaimInfo {
-			hash: None,
-			claim: c.claim,
-			claim_queue_len: 1,
-			claimed: c.claimed.clone_or_default(&candidates_in_view),
-		})
-		.collect::<VecDeque<_>>();
-
-	Some(ClaimQueueState { block_state, future_blocks, candidates })
-}
-
 /// Keeps a per leaf state of the claim queue for multiple forks.
 #[derive(Default)]
 pub struct PerLeafClaimQueueState {
@@ -728,7 +722,7 @@ impl PerLeafClaimQueueState {
 
 			// The new leaf could be a fork from a previous non-leaf block
 			for state in self.leaves.values() {
-				if let Some(mut new_fork) = fork_from_state(state, parent) {
+				if let Some(mut new_fork) = state.fork(parent) {
 					new_fork.add_leaf(leaf, claim_queue);
 					self.leaves.insert(*leaf, new_fork);
 					gum::trace!(
@@ -2287,7 +2281,7 @@ mod test {
 				])
 			);
 
-			let fork = fork_from_state(&mut state, &relay_parent_a).unwrap();
+			let fork = state.fork(&relay_parent_a).unwrap();
 
 			assert_eq!(
 				fork.block_state,
@@ -2390,7 +2384,7 @@ mod test {
 				])
 			);
 
-			let fork = fork_from_state(&mut state, &relay_parent_a).unwrap();
+			let fork = state.fork(&relay_parent_a).unwrap();
 
 			assert_eq!(
 				fork.block_state,
@@ -2488,7 +2482,7 @@ mod test {
 				),])
 			);
 
-			let fork = fork_from_state(&mut state, &relay_parent_a).unwrap();
+			let fork = state.fork(&relay_parent_a).unwrap();
 
 			assert_eq!(
 				fork.block_state,
@@ -2536,7 +2530,7 @@ mod test {
 			state.add_leaf(&relay_parent_a, &claim_queue);
 			state.add_leaf(&relay_parent_b, &claim_queue);
 
-			assert!(fork_from_state(&mut state, &relay_parent_b).is_none());
+			assert!(state.fork(&relay_parent_b).is_none());
 		}
 	}
 
