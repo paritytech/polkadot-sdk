@@ -283,6 +283,92 @@ impl ClaimQueueState {
 		self.candidates.entry(relay_parent).or_default().insert(candidate_hash);
 	}
 
+	fn do_get_window<T: ClaimInfoRef, I: Iterator<Item = T>>(
+		block_state: I,
+		future_blocks: I,
+		relay_parent: &Hash,
+	) -> impl Iterator<Item = T> + use<'_, T, I> {
+		let mut window = block_state.skip_while(|info| !info.hash_equals(relay_parent)).peekable();
+		let len = window.peek().map_or(0, |info| info.claim_queue_len());
+		window.chain(future_blocks).take(len)
+	}
+
+	/// Returns an iterator over the claim queue of `relay_parent`
+	fn get_window<'a>(&'a self, relay_parent: &'a Hash) -> impl Iterator<Item = &'a ClaimInfo> {
+		Self::do_get_window(self.block_state.iter(), self.future_blocks.iter(), relay_parent)
+	}
+
+	/// Returns a mutating iterator over the claim queue of `relay_parent`
+	fn get_window_mut<'a>(
+		&'a mut self,
+		relay_parent: &'a Hash,
+	) -> impl Iterator<Item = &'a mut ClaimInfo> {
+		Self::do_get_window(
+			self.block_state.iter_mut(),
+			self.future_blocks.iter_mut(),
+			relay_parent,
+		)
+	}
+
+	/// Searches for any of the types provided within `relay_parent`'s view of the claim queue for
+	/// `para_id` and returns the first one that is found.
+	fn find_claim<'a>(
+		&'a mut self,
+		relay_parent: &'a Hash,
+		para_id: &ParaId,
+		lookup: &[ClaimState],
+		search_in_future_blocks: bool,
+	) -> Option<&'a mut ClaimInfo> {
+		let window = self.get_window_mut(relay_parent);
+		let window: Box<dyn Iterator<Item = &mut ClaimInfo>> = match search_in_future_blocks {
+			true => Box::new(window),
+			false => Box::new(window.take(1)),
+		};
+
+		for info in window {
+			gum::trace!(
+				target: LOG_TARGET,
+				?para_id,
+				?relay_parent,
+				claim_info=?info,
+				"Checking claim"
+			);
+
+			if info.claim == Some(*para_id) && lookup.contains(&info.claimed) {
+				return Some(info)
+			}
+		}
+
+		None
+	}
+
+	/// Searches for any of the types provided within `relay_parent`'s view of the claim queue for
+	/// `para_id` and replaces the state of the first one that is found with `new_state`.
+	///
+	/// Returns whether a claim was found, no matter if it had to be replaced or not.
+	fn find_and_replace_claim(
+		&mut self,
+		relay_parent: &Hash,
+		para_id: &ParaId,
+		lookup: &[ClaimState],
+		search_in_future_blocks: bool,
+		new_state: ClaimState,
+	) -> bool {
+		let info = match self.find_claim(relay_parent, para_id, lookup, search_in_future_blocks) {
+			Some(info) => {
+				info.claimed = new_state;
+				info
+			},
+			None => return false,
+		};
+
+		if let Some(candidate_hash) = info.claimed.candidate_hash().cloned() {
+			self.cache_claim(*relay_parent, candidate_hash);
+		}
+
+		true
+	}
+
 	/// Claims the first available slot for `para_id` at `relay_parent` as pending. Returns `true`
 	/// if the claim was successful.
 	pub(crate) fn claim_pending_at(
@@ -530,92 +616,6 @@ impl ClaimQueueState {
 				None
 			})
 			.collect()
-	}
-
-	fn do_get_window<T: ClaimInfoRef, I: Iterator<Item = T>>(
-		block_state: I,
-		future_blocks: I,
-		relay_parent: &Hash,
-	) -> impl Iterator<Item = T> + use<'_, T, I> {
-		let mut window = block_state.skip_while(|info| !info.hash_equals(relay_parent)).peekable();
-		let len = window.peek().map_or(0, |info| info.claim_queue_len());
-		window.chain(future_blocks).take(len)
-	}
-
-	/// Returns an iterator over the claim queue of `relay_parent`
-	fn get_window<'a>(&'a self, relay_parent: &'a Hash) -> impl Iterator<Item = &'a ClaimInfo> {
-		Self::do_get_window(self.block_state.iter(), self.future_blocks.iter(), relay_parent)
-	}
-
-	/// Returns a mutating iterator over the claim queue of `relay_parent`
-	fn get_window_mut<'a>(
-		&'a mut self,
-		relay_parent: &'a Hash,
-	) -> impl Iterator<Item = &'a mut ClaimInfo> {
-		Self::do_get_window(
-			self.block_state.iter_mut(),
-			self.future_blocks.iter_mut(),
-			relay_parent,
-		)
-	}
-
-	/// Searches for any of the types provided within `relay_parent`'s view of the claim queue for
-	/// `para_id` and returns the first one that is found.
-	fn find_claim<'a>(
-		&'a mut self,
-		relay_parent: &'a Hash,
-		para_id: &ParaId,
-		lookup: &[ClaimState],
-		search_in_future_blocks: bool,
-	) -> Option<&'a mut ClaimInfo> {
-		let window = self.get_window_mut(relay_parent);
-		let window: Box<dyn Iterator<Item = &mut ClaimInfo>> = match search_in_future_blocks {
-			true => Box::new(window),
-			false => Box::new(window.take(1)),
-		};
-
-		for info in window {
-			gum::trace!(
-				target: LOG_TARGET,
-				?para_id,
-				?relay_parent,
-				claim_info=?info,
-				"Checking claim"
-			);
-
-			if info.claim == Some(*para_id) && lookup.contains(&info.claimed) {
-				return Some(info)
-			}
-		}
-
-		None
-	}
-
-	/// Searches for any of the types provided within `relay_parent`'s view of the claim queue for
-	/// `para_id` and replaces the state of the first one that is found with `new_state`.
-	///
-	/// Returns whether a claim was found, no matter if it had to be replaced or not.
-	fn find_and_replace_claim(
-		&mut self,
-		relay_parent: &Hash,
-		para_id: &ParaId,
-		lookup: &[ClaimState],
-		search_in_future_blocks: bool,
-		new_state: ClaimState,
-	) -> bool {
-		let info = match self.find_claim(relay_parent, para_id, lookup, search_in_future_blocks) {
-			Some(info) => {
-				info.claimed = new_state;
-				info
-			},
-			None => return false,
-		};
-
-		if let Some(candidate_hash) = info.claimed.candidate_hash().cloned() {
-			self.cache_claim(*relay_parent, candidate_hash);
-		}
-
-		true
 	}
 
 	/// Returns a `Vec` of `ParaId`s with all pending claims at `relay_parent`.
