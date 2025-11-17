@@ -26,6 +26,7 @@ use hex_literal::hex;
 use pallet_revive_fixtures::{compile_module_with_type, FixtureType, Terminate};
 use pretty_assertions::assert_eq;
 use test_case::test_case;
+use crate::test_utils::DJANGO_ADDR;
 
 /// Decode a contract return value into an error string.
 fn decode_error(output: &[u8]) -> String {
@@ -40,11 +41,11 @@ fn base_case(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.constructor_data(Terminate::constructorCall { skip: true }.abi_encode())
+			.constructor_data(Terminate::constructorCall { skip: true, beneficiary: DJANGO_ADDR.0.into() }.abi_encode())
 			.build_and_unwrap_contract();
 
 		let result = builder::bare_call(addr)
-			.data(Terminate::terminateCall {}.abi_encode())
+			.data(Terminate::terminateCall { beneficiary: DJANGO_ADDR.0.into() }.abi_encode())
 			.build_and_unwrap_result();
 
 		assert_eq!(result.data, Vec::<u8>::new());
@@ -58,7 +59,7 @@ fn precompile_fails_in_constructor(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let result = builder::bare_instantiate(Code::Upload(code))
-			.constructor_data(Terminate::constructorCall { skip: false }.abi_encode())
+			.constructor_data(Terminate::constructorCall { skip: false, beneficiary: DJANGO_ADDR.0.into() }.abi_encode())
 			.build_and_unwrap_result();
 
 		assert!(result.result.did_revert());
@@ -76,11 +77,11 @@ fn precompile_fails_for_direct_delegate(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.constructor_data(Terminate::constructorCall { skip: true }.abi_encode())
+			.constructor_data(Terminate::constructorCall { skip: true, beneficiary: DJANGO_ADDR.0.into() }.abi_encode())
 			.build_and_unwrap_contract();
 
 		let result = builder::bare_call(addr)
-			.data(Terminate::delegateTerminateCall {}.abi_encode())
+			.data(Terminate::delegateTerminateCall { beneficiary: DJANGO_ADDR.0.into() }.abi_encode())
 			.build_and_unwrap_result();
 
 		assert!(result.did_revert());
@@ -98,11 +99,11 @@ fn precompile_fails_for_indirect_delegate(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.constructor_data(Terminate::constructorCall { skip: true }.abi_encode())
+			.constructor_data(Terminate::constructorCall { skip: true, beneficiary: DJANGO_ADDR.0.into() }.abi_encode())
 			.build_and_unwrap_contract();
 
 		let result = builder::bare_call(addr)
-			.data(Terminate::indirectDelegateTerminateCall {}.abi_encode())
+			.data(Terminate::indirectDelegateTerminateCall { beneficiary: DJANGO_ADDR.0.into() }.abi_encode())
 			.build_and_unwrap_result();
 
 		assert!(result.did_revert());
@@ -110,5 +111,23 @@ fn precompile_fails_for_indirect_delegate(fixture_type: FixtureType) {
 			decode_error(result.data.as_ref()),
 			"illegal to call this pre-compile via delegate call",
 		);
+	});
+}
+
+#[test]
+fn sent_funds_after_terminate_shall_be_credited_to_beneficiary() {
+	let (code, _) = compile_module_with_type("Terminate", FixtureType::Solc).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.constructor_data(Terminate::constructorCall { skip: true, beneficiary: DJANGO_ADDR.0.into() }.abi_encode())
+			.build_and_unwrap_contract();
+
+        let result = builder::bare_call(addr)
+            .data(Terminate::terminateCall { beneficiary: DJANGO_ADDR.0.into() }.abi_encode())       // Call terminate function
+            .build_and_unwrap_result();
+		
+
+		assert_eq!(result.data, Vec::<u8>::new());
 	});
 }

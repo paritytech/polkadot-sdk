@@ -4,23 +4,23 @@ pragma solidity ^0.8.30;
 import "@revive/ISystem.sol";
 
 contract Terminate {
-	constructor(bool skip) {
+	constructor(bool skip, address beneficiary) {
 		if (skip) {
 			return;
 		}
-		_terminate(false);
+		_terminate(false, beneficiary);
 	}
 
-	function terminate() external {
-		_terminate(false);
+	function terminate(address beneficiary) external {
+		_terminate(false, beneficiary);
 	}
 
-	function delegateTerminate() external {
-		_terminate(true);
+	function delegateTerminate(address beneficiary) external {
+		_terminate(true, beneficiary);
 	}
 
-	function indirectDelegateTerminate() external {
-		bytes memory data = abi.encodeWithSelector(this.terminate.selector);
+	function indirectDelegateTerminate(address beneficiary) external {
+		bytes memory data = abi.encodeWithSelector(this.terminate.selector, beneficiary);
 		(bool success, bytes memory returnData) = address(this).delegatecall(data);
 		if (!success) {
 			assembly {
@@ -30,8 +30,8 @@ contract Terminate {
 	}
 
 	// Call terminate and forward any revert
-	function _terminate(bool delegate) private {
-		bytes memory data = abi.encodeWithSelector(ISystem.terminate.selector, address(0));
+	function _terminate(bool delegate, address beneficiary) private {
+		bytes memory data = abi.encodeWithSelector(ISystem.terminate.selector, beneficiary);
 		(bool success, bytes memory returnData) = (false, "");
 
 		if (delegate) {
