@@ -147,7 +147,7 @@ pub fn byte<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 
-	let o1 = op1.as_usize();
+	let o1 = as_usize_saturated(op1);
 	*op2 = if o1 < 32 {
 		// `31 - o1` because `byte` returns LE, while we want BE
 		U256::from(op2.byte(31 - o1))

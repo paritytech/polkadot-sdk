@@ -229,9 +229,9 @@ impl Subscription {
 					closed = c;
 					next_item = stream.try_next();
 				},
-				// Error occured while processing the stream.
+				// Error occurred while processing the stream.
 				//
-				// terminate the stream.
+				// Terminate the stream.
 				Either::Right((Either::Right((Err(e), _)), _)) => return Err(e),
 				// Stream "finished".
 				//
