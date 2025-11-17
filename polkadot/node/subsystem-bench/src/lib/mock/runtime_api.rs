@@ -365,6 +365,7 @@ pub fn default_node_features() -> NodeFeatures {
 	node_features.set(node_features::FeatureIndex::AvailabilityChunkMapping as u8 as usize, true);
 	node_features.set(node_features::FeatureIndex::ElasticScalingMVP as u8 as usize, true);
 	node_features.set(node_features::FeatureIndex::CandidateReceiptV2 as u8 as usize, true);
+	node_features.set(node_features::FeatureIndex::FastErasureCoding as u8 as usize, true);
 
 	node_features
 }
