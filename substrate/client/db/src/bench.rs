@@ -264,26 +264,32 @@ impl KeyTracker {
 
 		let should_log = match key_tracker.get_mut(key) {
 			None => {
-				let mut has_been_read = TrackedStorageKey::new(key.to_vec());
+                let mut tracker = TrackedStorageKey::new(key.to_vec());
+
+                // ⚠️  Always count the operation internally
+                tracker.add_read();
                 
                 if is_whitelisted {
                     // Mark as whitelisted so it's excluded from weight calculation
-                    has_been_read.whitelist();
-                } else {
-                    // Not whitelisted, count the read
-                    has_been_read.add_read();
+                    tracker.whitelist();
                 }
-				key_tracker.insert(key.to_vec(), has_been_read);
-				// Log only if not whitelisted
+
+				key_tracker.insert(key.to_vec(), tracker);
+
+                // Log only if not whitelisted (first time we see this key)
                 !is_whitelisted
 			},
 			Some(tracker) => {
-				let should_log = !tracker.has_been_read() && !is_whitelisted;
-                // Only count reads for non-whitelisted keys
-                if !tracker.whitelisted && !is_whitelisted {
-                    tracker.add_read();
+                // ⚠️  Always count the operation internally
+                tracker.add_read();
+
+                // Update whitelist status if needed
+                if is_whitelisted && !tracker.whitelisted {
+                    tracker.whitelist();
                 }
-                should_log
+
+                // Log only if this is the first read AND not whitelisted
+                !tracker.has_been_read() && !tracker.whitelisted
 			},
 		};
 
@@ -320,25 +326,29 @@ impl KeyTracker {
 		// If we have written to the key, we also consider that we have read from it.
 		let should_log = match key_tracker.get_mut(key) {
 			None => {
-				let mut has_been_written = TrackedStorageKey::new(key.to_vec());
+				let mut tracker = TrackedStorageKey::new(key.to_vec());
+                
+                // ⚠️  Always count the operation internally
+                tracker.add_write();
+
                 if is_whitelisted {
-                    // Mark as whitelisted so it's excluded from weight calculation
-                    has_been_written.whitelist();
-                } else {
-                    // Not whitelisted, count the write (and implicit read)
-                    has_been_written.add_write();
+                    tracker.whitelist();
                 }
-                key_tracker.insert(key.to_vec(), has_been_written);
-                // Log only if not whitelisted
+
+                key_tracker.insert(key.to_vec(), tracker);
+
                 !is_whitelisted
 			},
 			Some(tracker) => {
-				let should_log = !tracker.has_been_written() && !is_whitelisted;
-                // Only count writes for non-whitelisted keys
-                if !tracker.whitelisted && !is_whitelisted {
-                    tracker.add_write();
+                // ⚠️ ALWAYS count the operation internally
+                tracker.add_write();
+
+                if is_whitelisted && !tracker.whitelisted {
+                    tracker.whitelist();
                 }
-                should_log
+
+                // Log only if this is the first write AND not whitelisted
+                !tracker.has_been_written() && !tracker.whitelisted
 			},
 		};
 
@@ -768,29 +778,6 @@ mod test {
 	}
 
     #[test]
-    fn test_key_tracker_prefix_handling() {
-        let mut tracker = KeyTracker::new(true);
-
-        // Set up whitelisted prefixes
-        let whitelist = vec![
-            TrackedStorageKey::new(b"whitelist_".to_vec()),
-        ];
-        tracker.add_whitelist(&whitelist);
-
-        // Test various key scenarios
-        tracker.add_read_key(None, b"whitelist_key1"); // Should be whitelisted
-        tracker.add_read_key(None, b"other_key");      // Should not be whitelisted
-        tracker.add_read_key(None, b"whitelist_key2"); // Should be whitelisted
-
-        let all_trackers = tracker.all_trackers();
-        let whitelisted: Vec<_> = all_trackers.iter().filter(|t| t.whitelisted).collect();
-        let non_whitelisted: Vec<_> = all_trackers.iter().filter(|t| !t.whitelisted).collect();
-
-        assert_eq!(whitelisted.len(), 2);
-        assert_eq!(non_whitelisted.len(), 1);
-    }
-
-    #[test]
     fn test_storage_operations_with_whitelist() {
         let state = BenchmarkingState::<BlakeTwo256>::new(
             Default::default(),
@@ -817,5 +804,118 @@ mod test {
         // Only non-whitelisted keys should count toward reads
         assert_eq!(reads, 1); // balances_account
         assert_eq!(repeat_reads, 0);
+    }
+
+    #[test]
+    fn test_whitelisted_prefix_matching() {
+        let mut tracker = KeyTracker::new(true);
+
+        // Set up whitelisted prefixes
+        let whitelist = vec![
+            TrackedStorageKey::new(b"system".to_vec()),
+            TrackedStorageKey::new(b"balances".to_vec()),
+        ];
+        tracker.add_whitelist(&whitelist);
+
+        // Test various key scenarios
+        tracker.add_read_key(None, b"system_account");    // Should be whitelisted
+        tracker.add_read_key(None, b"balances_total");    // Should be whitelisted
+        tracker.add_read_key(None, b"timestamp_now");     // Should NOT be whitelisted
+        tracker.add_read_key(None, b"vesting_account");     // Should NOT be whitelisted
+
+        let all_trackers = tracker.all_trackers();
+        let whitelisted: Vec<_> = all_trackers.iter().filter(|t| t.whitelisted).collect();
+        let non_whitelisted: Vec<_> = all_trackers.iter().filter(|t| !t.whitelisted).collect();
+
+        assert_eq!(whitelisted.len(), 2);
+        assert_eq!(non_whitelisted.len(), 2);
+    }
+
+    #[test]
+    fn test_read_write_counting_with_whitelist() {
+        let mut tracker = KeyTracker::new(true);
+
+        let whitelist = vec![
+            TrackedStorageKey::new(b"system".to_vec()),
+        ];
+        tracker.add_whitelist(&whitelist);
+
+        // Add multiple reads/writes to same keys
+        tracker.add_read_key(None, b"system_account");
+        tracker.add_read_key(None, b"system_account");
+        tracker.add_read_key(None, b"system_balance");
+        tracker.add_write_key(None, b"uniques_account");
+        tracker.add_write_key(None, b"uniques_account");
+
+        let trackers = tracker.all_trackers();
+
+        let system_account_tracker = trackers.iter().find(|t| t.key == b"system_account".to_vec()).unwrap();
+        let system_balance_tracker = trackers.iter().find(|t| t.key == b"system_balance".to_vec()).unwrap();
+        let uniques_account_tracker = trackers.iter().find(|t| t.key == b"uniques_account".to_vec()).unwrap();
+
+        // Whitelisted key should have reads/writes but marked as whitelisted
+        assert!(system_account_tracker.whitelisted);
+        assert_eq!(system_account_tracker.reads, 2);
+        assert_eq!(system_account_tracker.writes, 0);
+
+        // Normal key should have reads/writes and NOT be whitelisted
+        assert!(!uniques_account_tracker.whitelisted);
+        assert_eq!(uniques_account_tracker.reads, 0);
+        assert_eq!(uniques_account_tracker.writes, 2);
+    }
+
+    #[test]
+    fn test_child_trie_tracking_with_whitelist() {
+        let mut tracker = KeyTracker::new(true);
+
+        let whitelist = vec![
+            TrackedStorageKey::new(b"child_whitelist".to_vec()),
+        ];
+        tracker.add_whitelist(&whitelist);
+
+        let child_info = b"child_trie_1";
+
+        // Whitelisted child trie key
+        tracker.add_read_key(Some(child_info), b"child_whitelist_key");
+        tracker.add_write_key(Some(child_info), b"child_whitelist_key");
+
+        // Normal child trie key
+        tracker.add_read_key(Some(child_info), b"child_normal_key");
+        tracker.add_write_key(Some(child_info), b"child_normal_key");
+
+        let all_trackers = tracker.all_trackers();
+
+        let whitelisted_child = all_trackers.iter()
+            .find(|t| t.key == b"child_whitelist_key".to_vec())
+            .unwrap();
+        let normal_child = all_trackers.iter()
+            .find(|t| t.key == b"child_normal_key".to_vec())
+            .unwrap();
+
+        assert!(whitelisted_child.whitelisted);
+        assert!(!normal_child.whitelisted);
+    }
+
+    #[test]
+    fn test_prefix_based_whitelisting() {
+        let mut tracker = KeyTracker::new(true);
+
+        // Test with various prefix lengths
+        let whitelist = vec![
+            TrackedStorageKey::new(b"sys".to_vec()),      // 3 byte prefix
+            TrackedStorageKey::new(b"balance".to_vec()),  // 7 byte prefix
+            TrackedStorageKey::new(b"timestamp_".to_vec()), // 10 byte prefix
+        ];
+        tracker.add_whitelist(&whitelist);
+
+        // Test keys that should match prefixes
+        assert!(tracker.is_whitelisted(b"system_account"));
+        assert!(tracker.is_whitelisted(b"balances_total"));
+        assert!(tracker.is_whitelisted(b"timestamp_now"));
+
+        // Test keys that should NOT match
+        assert!(!tracker.is_whitelisted(b"account_info"));
+        assert!(!tracker.is_whitelisted(b"total_balance"));
+        assert!(!tracker.is_whitelisted(b"now_timestamp"));
     }
 }
