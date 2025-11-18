@@ -9,15 +9,15 @@ contract Terminate {
 		if (skip) {
 			return;
 		}
-		_terminate(false, beneficiary);
+		_terminate(TerminateMethod.CALL, beneficiary);
 	}
 
 	function terminate(address beneficiary) external {
-		_terminate(false, beneficiary);
+		_terminate(TerminateMethod.CALL, beneficiary);
 	}
 
 	function delegateTerminate(address beneficiary) external {
-		_terminate(true, beneficiary);
+		_terminate(TerminateMethod.DELEGATE_CALL, beneficiary);
 	}
 
 	function indirectDelegateTerminate(address beneficiary) external {
@@ -29,16 +29,26 @@ contract Terminate {
 			}
 		}
 	}
-
+    enum TerminateMethod {
+        CALL,           // 0
+        DELEGATE_CALL,  // 1
+        SYSCALL         // 2
+    }
 	// Call terminate and forward any revert
-	function _terminate(bool delegate, address beneficiary) private {
+	function _terminate(TerminateMethod method, address beneficiary) private {
 		bytes memory data = abi.encodeWithSelector(ISystem.terminate.selector, beneficiary);
 		(bool success, bytes memory returnData) = (false, "");
 
-		if (delegate) {
+		if (method == TerminateMethod.DELEGATE_CALL) {
 			(success, returnData) = SYSTEM_ADDR.delegatecall(data);
-		} else {
+		} else if (method == TerminateMethod.CALL) {
 			(success, returnData) = SYSTEM_ADDR.call(data);
+		} else if (method == TerminateMethod.SYSCALL) {
+			assembly {
+				selfdestruct(beneficiary)
+			}
+		} else {
+			revert("Invalid TerminateMethod");
 		}
 
 		if (!success) {

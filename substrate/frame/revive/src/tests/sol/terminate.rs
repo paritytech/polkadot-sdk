@@ -135,11 +135,16 @@ fn precompile_fails_for_indirect_delegate(fixture_type: FixtureType) {
 	});
 }
 
-#[test_case(FixtureType::Solc)]
-#[test_case(FixtureType::Resolc)]
-fn terminate_shall_rollback_if_subsequent_frame_fails(fixture_type: FixtureType) {
-	let (code, code_hash) = compile_module_with_type("Terminate", fixture_type).unwrap();
-	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
+#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
+#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
+#[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
+#[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
+fn terminate_shall_rollback_if_subsequent_frame_fails(
+	caller_type: FixtureType,
+	callee_type: FixtureType,
+) {
+	let (code, _) = compile_module_with_type("Terminate", callee_type).unwrap();
+	let (caller_code, _) = compile_module_with_type("TerminateCaller", caller_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -192,11 +197,16 @@ fn terminate_shall_rollback_if_subsequent_frame_fails(fixture_type: FixtureType)
 	});
 }
 
-#[test_case(FixtureType::Solc)]
-#[test_case(FixtureType::Resolc)]
-fn sent_funds_after_terminate_shall_be_credited_to_beneficiary(fixture_type: FixtureType) {
-	let (code, code_hash) = compile_module_with_type("Terminate", fixture_type).unwrap();
-	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
+#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
+#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
+#[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
+#[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
+fn sent_funds_after_terminate_shall_be_credited_to_beneficiary(
+	caller_type: FixtureType,
+	callee_type: FixtureType,
+) {
+	let (code, _) = compile_module_with_type("Terminate", callee_type).unwrap();
+	let (caller_code, _) = compile_module_with_type("TerminateCaller", caller_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
