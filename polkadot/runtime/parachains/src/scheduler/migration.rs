@@ -251,7 +251,7 @@ impl<T: Config + old::pallet::Config> UncheckedOnRuntimeUpgrade for UncheckedMig
 			}
 		}
 
-		let claim_queue = ClaimQueue::<T>::get();
+		let claim_queue = v3::ClaimQueue::<T>::get();
 		let mut total_assignments = 0u32;
 		let mut pool_assignments = 0u32;
 
@@ -290,7 +290,7 @@ impl<T: Config + old::pallet::Config> UncheckedOnRuntimeUpgrade for UncheckedMig
 			Decode::decode(&mut &state[..]).map_err(|_| "Failed to decode pre_upgrade state")?;
 
 		// Verify old storage is cleaned up
-		ensure!(!ClaimQueue::<T>::exists(), "ClaimQueue storage should have been removed");
+		ensure!(!v3::ClaimQueue::<T>::exists(), "ClaimQueue storage should have been removed");
 
 		// Check old CoreSchedules and CoreDescriptors are empty by enumerating cores
 		let num_cores = configuration::ActiveConfig::<T>::get().scheduler_params.num_cores;
