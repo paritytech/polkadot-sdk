@@ -78,6 +78,7 @@ where
 				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into())),
 			IPreimageCalls::notePreimage(IPreimage::notePreimageCall { preImage }) => {
 				let preimage = preImage.to_vec();
+				
 				let weight_to_charge =
 					<T as Config>::WeightInfo::note_preimage(preimage.len() as u32);
 				let charged_amount = env.charge(weight_to_charge)?;
@@ -94,6 +95,8 @@ where
 					.map_err(|error| revert(&error.error, "Preimage: notePreimage failed"))
 			},
 			IPreimageCalls::unnotePreimage(IPreimage::unnotePreimageCall { hash }) => {
+				let _ = env.charge(<T as Config>::WeightInfo::unnote_preimage());
+
 				let runtime_hash = T::Hash::decode(&mut &hash[..])
 					.map_err(|error| revert(&error, "Preimage: invalid hash format"))?;
 
