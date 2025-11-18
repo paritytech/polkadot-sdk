@@ -660,7 +660,7 @@ fn session_report_burst() {
 fn on_offence_current_era() {
 	ExtBuilder::default().local_queue().build().execute_with(|| {
 		let active_validators = roll_until_next_active(0);
-		assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 5);
+		assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 7);
 		assert_eq!(active_validators, vec![3, 5, 6, 8]);
 
 		// flush the events.
@@ -670,7 +670,7 @@ fn on_offence_current_era() {
 			RuntimeOrigin::root(),
 			vec![
 				(
-					5,
+					7,
 					rc_client::Offence {
 						offender: 5,
 						reporters: vec![],
@@ -678,7 +678,7 @@ fn on_offence_current_era() {
 					}
 				),
 				(
-					5,
+					7,
 					rc_client::Offence {
 						offender: 3,
 						reporters: vec![],
@@ -728,8 +728,8 @@ fn on_offence_current_era() {
 
 		// skip two eras
 		assert_eq!(SlashDeferredDuration::get(), 2);
-		roll_until_next_active(5);
-		roll_until_next_active(10);
+		roll_until_next_active(7);
+		roll_until_next_active(13);
 		let _ = staking_events_since_last_call();
 
 		// 2 blocks to apply the slashes
@@ -757,7 +757,7 @@ fn on_offence_current_era_instant_apply() {
 		.build()
 		.execute_with(|| {
 			let active_validators = roll_until_next_active(0);
-			assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(5));
+			assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(7));
 			assert_eq!(active_validators, vec![3, 5, 6, 8]);
 
 			// flush the events.
@@ -767,7 +767,7 @@ fn on_offence_current_era_instant_apply() {
 				RuntimeOrigin::root(),
 				vec![
 					(
-						5,
+						7,
 						rc_client::Offence {
 							offender: 5,
 							reporters: vec![],
@@ -775,7 +775,7 @@ fn on_offence_current_era_instant_apply() {
 						}
 					),
 					(
-						5,
+						7,
 						rc_client::Offence {
 							offender: 3,
 							reporters: vec![],
@@ -840,7 +840,7 @@ fn on_offence_non_validator() {
 		.build()
 		.execute_with(|| {
 			let active_validators = roll_until_next_active(0);
-			assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(5));
+			assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(7));
 			assert_eq!(active_validators, vec![3, 5, 6, 8]);
 
 			// flush the events.
@@ -849,7 +849,7 @@ fn on_offence_non_validator() {
 			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
 				RuntimeOrigin::root(),
 				vec![(
-					5,
+					7,
 					rc_client::Offence {
 						// this offender is unknown to the staking pallet.
 						offender: 666,
@@ -868,8 +868,8 @@ fn on_offence_non_validator() {
 fn on_offence_previous_era() {
 	ExtBuilder::default().local_queue().build().execute_with(|| {
 		let _ = roll_until_next_active(0);
-		let _ = roll_until_next_active(5);
-		let active_validators = roll_until_next_active(10);
+		let _ = roll_until_next_active(7);
+		let active_validators = roll_until_next_active(13);
 
 		assert_eq!(active_validators, vec![3, 5, 6, 8]);
 		assert_eq!(Rotator::<Runtime>::active_era(), 3);
@@ -879,7 +879,7 @@ fn on_offence_previous_era() {
 
 		// GIVEN slash defer duration of 2 eras, active era = 3.
 		assert_eq!(SlashDeferredDuration::get(), 2);
-		assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(5));
+		assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(7));
 		// 1 era is reserved for the application of slashes.
 		let oldest_reportable_era =
 			Rotator::<Runtime>::active_era() - (SlashDeferredDuration::get() - 1);
@@ -890,7 +890,7 @@ fn on_offence_previous_era() {
 			RuntimeOrigin::root(),
 			// offence is in era 1
 			vec![(
-				5,
+				7,
 				rc_client::Offence {
 					offender: 3,
 					reporters: vec![],
@@ -910,12 +910,12 @@ fn on_offence_previous_era() {
 		);
 
 		// WHEN: report an offence for the session belonging to the previous era
-		assert_eq!(Rotator::<Runtime>::era_start_session_index(2), Some(10));
+		assert_eq!(Rotator::<Runtime>::era_start_session_index(2), Some(13));
 		assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
 			RuntimeOrigin::root(),
 			// offence is in era 2
 			vec![(
-				10,
+				13,
 				rc_client::Offence {
 					offender: 3,
 					reporters: vec![],
@@ -947,7 +947,7 @@ fn on_offence_previous_era() {
 		);
 
 		// roll to the next era.
-		roll_until_next_active(15);
+		roll_until_next_active(19);
 		// ensure we are in era 4.
 		assert_eq!(Rotator::<Runtime>::active_era(), 4);
 		// clear staking events.
@@ -984,13 +984,13 @@ fn on_offence_previous_era_instant_apply() {
 			let _ = staking_events_since_last_call();
 
 			// report an offence for the session belonging to the previous era
-			assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(5));
+			assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(7));
 
 			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
 				RuntimeOrigin::root(),
 				// offence is in era 1
 				vec![(
-					5,
+					7,
 					rc_client::Offence {
 						offender: 3,
 						reporters: vec![],
