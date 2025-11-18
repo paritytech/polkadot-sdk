@@ -2281,7 +2281,7 @@ mod benchmarks {
 		{
 			result = run_builtin_precompile(
 				&mut ext,
-				H160::from_low_u64_be(100).as_fixed_bytes(),
+				H160::from_low_u64_be(0x100).as_fixed_bytes(),
 				input,
 			);
 		}
