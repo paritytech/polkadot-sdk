@@ -1,29 +1,7 @@
 title: Add Preimage precompile
 doc:
-- audience: Todo
-  description: "# Description\nCloses https://github.com/paritytech/polkadot-sdk/issues/10156\n\
-    Implements precompiles for `pallet-preimage`.\nIn views of the development of\
-    \ the Governance Precompile, a Preimages precompile might turn out to be useful\
-    \ in order to keep the whole flow of submitting referenda on the smart-contract\
-    \ side.\n\n## Integration\n\nIt does not pose any breaking changes. It publishes\
-    \ the `pallet-preimage-precompiles` crate. Runtimes may or may not include it.\n\
-    \n## Review Notes\n\nIt exposes the following solidity interface:\n```solidity\n\
-    interface IPreimage {\n\t/// @dev Register a preimage on-chain.\n\t/// @param\
-    \ preImage The preimage to be registered on-chain\n\t/// @return hash The hash\
-    \ of the preimage\n\tfunction notePreimage(bytes memory preImage) external returns\
-    \ (bytes32 hash);\n\n\t/// @dev Clear an unrequested preimage from storage.\n\t\
-    /// @param hash The preimage to be cleared from storage\n\tfunction unnotePreimage(bytes32\
-    \ hash) external;\n}\n```\nI took the approach of charging deposits to the contracts\
-    \ account, as it main use case would be DAO smart contracts that use this precompile\
-    \ before interacting with governance.\nThe interface may be updated in a future\
-    \ to allow for functions that charge the `origin`.\n\n# Checklist\n\n* [X] My\
-    \ PR includes a detailed description as outlined in the \"Description\" and its\
-    \ two subsections above.\n* [ ] My PR follows the [labeling requirements](\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n\
-    ) of this project (at minimum one label for `T` required)\n    * External contributors:\
-    \ Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add\
-    \ labels manually\n* [X] I have made corresponding changes to the documentation\
-    \ (if applicable)\n* [X] I have added tests that prove my fix is effective or\
-    \ that my feature works (if applicable)"
+- audience: Runtime Dev
+  description: Implements precompiles for `pallet-preimage`.
 crates:
 - name: pallet-preimage-precompiles
   bump: major
