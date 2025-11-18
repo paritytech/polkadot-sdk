@@ -507,9 +507,9 @@ fn receives_session_report_in_future() {
 		assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 0);
 		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
 		assert_eq!(rc_client::LastSessionReportEndingIndex::<T>::get(), None);
+		assert_eq!(rc_client::LastEraActivationSessionReportEndingIndex::<T>::get(), None);
 
 		// Receive report for end of 1, start of 1 and plan 2.
-
 		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
 			RuntimeOrigin::root(),
 			rc_client::SessionReport {
@@ -520,8 +520,12 @@ fn receives_session_report_in_future() {
 			},
 		));
 
-		// then
+		// THEN:
+		// last session index is updated
 		assert_eq!(rc_client::LastSessionReportEndingIndex::<T>::get(), Some(0));
+		// no activation time yet so last era session still none
+		assert_eq!(rc_client::LastEraActivationSessionReportEndingIndex::<T>::get(), None);
+
 		assert_eq!(
 			rc_client_events_since_last_call(),
 			vec![rc_client::Event::SessionReportReceived {
@@ -531,12 +535,14 @@ fn receives_session_report_in_future() {
 				leftover: false
 			}]
 		);
+
+		// Election starts now asap
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![staking_async::Event::SessionRotated {
 				starting_session: 1,
 				active_era: 0,
-				planned_era: 0
+				planned_era: 1
 			}]
 		);
 
@@ -574,7 +580,7 @@ fn receives_session_report_in_future() {
 			vec![staking_async::Event::SessionRotated {
 				starting_session: 3,
 				active_era: 0,
-				planned_era: 0
+				planned_era: 1
 			}]
 		);
 
