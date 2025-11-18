@@ -488,7 +488,7 @@ fn receives_old_session_report() {
 			vec![staking_async::Event::SessionRotated {
 				starting_session: 1,
 				active_era: 0,
-				planned_era: 0
+				planned_era: 1
 			}]
 		);
 

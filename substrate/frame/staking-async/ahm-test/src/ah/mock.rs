@@ -24,7 +24,7 @@ use frame_election_provider_support::{
 use frame_support::sp_runtime::testing::TestXt;
 use pallet_election_provider_multi_block as multi_block;
 use pallet_staking_async::Forcing;
-use pallet_staking_async_rc_client::{SessionReport, ValidatorSetReport};
+use pallet_staking_async_rc_client::{SessionReport, ValidatorSetReport, LastEraActivationSessionReportEndingIndex};
 use sp_staking::SessionIndex;
 
 construct_runtime! {
@@ -110,20 +110,9 @@ pub fn roll_until_matches(criteria: impl Fn() -> bool, with_rc: bool) {
 
 /// Use the given `end_index` as the first session report, and increment as per needed.
 pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<AccountId> {
-	// receive enough session reports, such that we plan a new era
-	let planned_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::planned_era();
-	let active_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::active_era();
-
-	let mut planning_iterations = 0;
-	while pallet_staking_async::session_rotation::Rotator::<Runtime>::planned_era() == planned_era {
-		planning_iterations += 1;
-		if planning_iterations > 100 {
-			panic!(
-				"roll_until_next_active: planning loop exceeded 100 iterations. planned_era: {:?}, end_index: {}",
-				planned_era, end_index
-			);
-		}
-
+	ensure_last_era_session_index_initialised();
+	LocalQueue::flush();
+	let roll_session = |end_index| {
 		let report = SessionReport {
 			end_index,
 			activation_timestamp: None,
@@ -134,16 +123,35 @@ pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<Account
 			RuntimeOrigin::root(),
 			report
 		));
+
+		// roll some blocks in the session
 		roll_next();
+	};
+
+	// receive enough session reports, such that we plan a new era
+	let planned_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::planned_era();
+	let active_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::active_era();
+
+	let mut session_iterations = 0;
+	while pallet_staking_async::session_rotation::Rotator::<Runtime>::planned_era() == planned_era {
+		session_iterations += 1;
+		if session_iterations > SessionsPerEra::get() {
+			panic!(
+				"roll_until_next_active: planning loop exceeded {} iterations. planned_era: {:?}, end_index: {}",
+				SessionsPerEra::get(), planned_era, end_index
+			);
+		}
+
+		roll_session(end_index);
 		end_index += 1;
 	}
 
-	// now we have planned a new session. Roll until we have an outgoing message ready, meaning the
-	// election is done
-	LocalQueue::flush();
+	// election is started at this point. Roll until elections are done.
 	let mut election_iterations = 0;
-	loop {
+	while !pallet_staking_async_rc_client::OutgoingValidatorSet::<T>::exists() {
 		election_iterations += 1;
+		roll_next();
+
 		if election_iterations > 500 {
 			panic!(
 				"roll_until_next_active: election loop exceeded 500 iterations. Block: {}, end_index: {}, messages in queue: {}",
@@ -161,11 +169,30 @@ pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<Account
 				end_index
 			);
 		}
+	}
 
+	// active era is still 0
+	assert_eq!(
+		pallet_staking_async::session_rotation::Rotator::<Runtime>::active_era(),
+		active_era
+	);
+
+	// roll sessions until validator set is exported
+	let mut session_iterations = 0;
+	loop {
 		let messages = LocalQueue::get_since_last_call();
+		session_iterations += 1;
+		if session_iterations > SessionsPerEra::get() {
+			panic!(
+				"roll_until_next_active: session loop exceeded {} iterations. messages: {:?}, end_index: {:?}",
+				session_iterations, messages.len(), end_index
+			);
+		}
+
 		match messages.len() {
 			0 => {
-				roll_next();
+				roll_session(end_index);
+				end_index += 1;
 				continue;
 			},
 			1 => {
@@ -188,11 +215,6 @@ pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<Account
 		}
 	}
 
-	// active era is still 0
-	assert_eq!(
-		pallet_staking_async::session_rotation::Rotator::<Runtime>::active_era(),
-		active_era
-	);
 
 	// rc will not tell us that it has instantly activated a validator set.
 	let report = SessionReport {
@@ -627,4 +649,14 @@ pub(crate) fn election_events_since_last_call() -> Vec<multi_block::Event<T>> {
 	let seen = ElectionEventsIndex::get();
 	ElectionEventsIndex::set(all.len());
 	all.into_iter().skip(seen).collect()
+}
+
+pub(crate) fn ensure_last_era_session_index_initialised() {
+	if !LastEraActivationSessionReportEndingIndex::<T>::exists() {
+		// get active era
+		let active_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::active_era();
+		let active_start_index = pallet_staking_async::BondedEras::<T>::get().iter().find(|&(era, _)| *era == active_era).map(|(_, b)| b).cloned().unwrap_or(0);
+		let last_era_end_index = active_start_index.saturating_sub(1);
+		LastEraActivationSessionReportEndingIndex::<T>::put(last_era_end_index);
+	}
 }
