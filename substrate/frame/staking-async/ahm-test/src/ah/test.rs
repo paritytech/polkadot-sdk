@@ -397,6 +397,8 @@ fn roll_many_eras() {
 	// - assert outgoing messages, including id and prune_up_to.
 	ExtBuilder::default().local_queue().build().execute_with(|| {
 		let mut session_counter: u32 = 0;
+		// we do this to ensure rc client does not export validator set immediately.
+		ensure_last_era_session_index_initialised();
 
 		let mut roll_session = |activate: bool| {
 			let activation_timestamp = if activate {
@@ -423,36 +425,81 @@ fn roll_many_eras() {
 			roll_many(60);
 		};
 
-		for era in 0..50 {
-			// --- first 3 idle session
+		// ERA 0 -> 1
+		let mut active_era = ActiveEra::<T>::get().unwrap().index;
+		let mut current_era = CurrentEra::<T>::get().unwrap();
+		assert_eq!(active_era, 0);
+		assert_eq!(current_era, 0);
+
+		// Note: Due to a technicality on how we buffer validator set in rc client, the first era is
+		// 7 sessions long.
+		// -- first session will start the election
+		roll_session(false);
+		// active era not incremented
+		assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
+		// current era incremented indicating election started.
+		current_era += 1;
+		assert_eq!(CurrentEra::<T>::get().unwrap(), current_era);
+
+		// -- next 3 sessions are idle
+		for _ in 0..3 {
+			roll_session(false);
+			assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
+			assert_eq!(CurrentEra::<T>::get().unwrap(), current_era);
+		}
+
+		// ensure validator set not sent yet to RC.
+		assert_eq!(LocalQueue::get().unwrap().len() as u32, 0);
+
+		// start of 5th (end of 4th) will trigger validator export
+		roll_session(false);
+		assert_eq!(LocalQueue::get().unwrap().len() as u32, 1);
+
+		// next session is idle
+		roll_session(false);
+
+		// end of 6th we get activation stamp
+		roll_session(true);
+		active_era += 1;
+		assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
+		// election for next already starts
+		current_era += 1;
+		assert_eq!(CurrentEra::<T>::get().unwrap(), current_era);
+
+		// run next 49 eras
+		for active_era in 1..50 {
+			// election has already started
+			assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
+			assert_eq!(CurrentEra::<T>::get().unwrap(), active_era + 1);
+
+			// --- Before end of session 4: validator set is ready
 			for _ in 0..3 {
 				roll_session(false);
-				assert_eq!(ActiveEra::<T>::get().unwrap().index, era);
-				assert_eq!(CurrentEra::<T>::get().unwrap(), era);
+				assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
+				assert_eq!(CurrentEra::<T>::get().unwrap(), active_era + 1);
 			}
 
+			assert!(OutgoingValidatorSet::<T>::exists());
 			// ensure validator set not sent yet to RC.
 			// queue size same as in last iteration.
-			assert_eq!(LocalQueue::get().unwrap().len() as u32, era);
+			assert_eq!(LocalQueue::get().unwrap().len() as u32, active_era);
 
-			// --- plan era session
+			// --- validator set is exported in the 5th session.
 			roll_session(false);
-			assert_eq!(ActiveEra::<T>::get().unwrap().index, era);
-			assert_eq!(CurrentEra::<T>::get().unwrap(), era + 1);
+			assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
+			assert_eq!(CurrentEra::<T>::get().unwrap(), active_era + 1);
+			assert_eq!(LocalQueue::get().unwrap().len() as u32, active_era + 1);
 
-			// ensure new validator set sent to RC.
-			// length increases by 1.
-			assert_eq!(LocalQueue::get().unwrap().len() as u32, era + 1);
-
-			// --- 5th starting session, idle
+			// --- end session 5 (activation will be next session)
 			roll_session(false);
-			assert_eq!(ActiveEra::<T>::get().unwrap().index, era);
-			assert_eq!(CurrentEra::<T>::get().unwrap(), era + 1);
+			assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
+			assert_eq!(CurrentEra::<T>::get().unwrap(), active_era + 1);
 
 			// --- 6th the era rotation session
 			roll_session(true);
-			assert_eq!(ActiveEra::<T>::get().unwrap().index, era + 1);
-			assert_eq!(CurrentEra::<T>::get().unwrap(), era + 1);
+			assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era + 1);
+			// next election starts
+			assert_eq!(CurrentEra::<T>::get().unwrap(), active_era + 2);
 		}
 	});
 }
