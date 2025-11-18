@@ -142,7 +142,7 @@ where
 
 			match current_mode {
 				// We are already allowing the full core, not that much more to do here.
-				BlockWeightMode::<Config>::FullCore { ..} => {},
+				BlockWeightMode::<Config>::FullCore { .. } => {},
 				BlockWeightMode::<Config>::PotentialFullCore { first_transaction_index, .. } |
 				BlockWeightMode::<Config>::FractionOfCore { first_transaction_index, .. } => {
 					debug_assert!(
@@ -155,9 +155,8 @@ where
 						&& block_weight_over_target_block_weight::<Config, TargetBlockRate>();
 
 					let block_weights = Config::BlockWeights::get();
-					let target_weight = block_weights.get(info.class).max_total.unwrap_or_else(
-						|| MaxParachainBlockWeight::<Config, TargetBlockRate>::target_block_weight_with_digest(&digest).saturating_sub(block_weights.base_block)
-					);
+					let target_weight = MaxParachainBlockWeight::<Config, TargetBlockRate>::target_block_weight_with_digest(&digest)
+						.saturating_sub(block_weights.base_block);
 
 					// Protection against a misconfiguration as this should be detected by the pre-inherent hook.
 					if block_weight_over_limit {

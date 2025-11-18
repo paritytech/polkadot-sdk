@@ -220,17 +220,19 @@ impl<Config: crate::Config, TargetBlockRate: Get<u32>> Get<Weight>
 			target_block_weight
 		};
 
-		match crate::BlockWeightMode::<Config>::get() {
+		match crate::BlockWeightMode::<Config>::get().filter(|m| !m.is_stale()) {
 			// We allow the full core.
 			Some(
 				BlockWeightMode::<Config>::FullCore { .. } |
 				BlockWeightMode::<Config>::PotentialFullCore { .. },
 			) => FULL_CORE_WEIGHT,
 			// Let's calculate below how much weight we can use.
-			Some(BlockWeightMode::<Config>::FractionOfCore { .. }) => target_block_weight,
+			Some(BlockWeightMode::<Config>::FractionOfCore { first_transaction_index, .. })
+				if first_transaction_index.is_some() =>
+				target_block_weight,
 			// If we are in `on_initialize` or at applying the inherents, we allow the maximum block
 			// weight as allowed by the current context.
-			None => maybe_full_core_weight,
+			Some(BlockWeightMode::<Config>::FractionOfCore { .. }) | None => maybe_full_core_weight,
 		}
 	}
 }
