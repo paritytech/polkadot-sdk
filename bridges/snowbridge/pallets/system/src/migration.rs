@@ -86,7 +86,7 @@ pub mod v1 {
 	#[cfg(feature = "try-runtime")]
 	use sp_core::U256;
 
-	/// Descreases the fee per gas.
+	/// Decreases the fee per gas.
 	pub struct FeePerGasMigration<T>(PhantomData<T>);
 
 	#[cfg(feature = "try-runtime")]
