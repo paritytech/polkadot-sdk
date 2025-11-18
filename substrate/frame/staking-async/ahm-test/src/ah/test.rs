@@ -135,8 +135,8 @@ fn on_receive_session_report() {
 			]
 		);
 
-		// roll two more sessions...
-		for i in 1..3 {
+		// roll three more sessions...
+		for i in 1..=3 {
 			// roll some random number of blocks.
 			roll_many(10);
 
@@ -172,7 +172,7 @@ fn on_receive_session_report() {
 		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
 			RuntimeOrigin::root(),
 			rc_client::SessionReport {
-				end_index: 3,
+				end_index: 4,
 				validator_points: vec![(1, 10)],
 				activation_timestamp: None,
 				leftover: false,
@@ -182,7 +182,7 @@ fn on_receive_session_report() {
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![StakingEvent::SessionRotated {
-				starting_session: 4,
+				starting_session: 5,
 				active_era: 0,
 				planned_era: 1
 			}]
@@ -199,7 +199,7 @@ fn on_receive_session_report() {
 			LocalQueue::get().unwrap(),
 			vec![(
 				// this is the block number at which the message was sent.
-				44,
+				System::block_number(),
 				OutgoingMessages::ValidatorSet(ValidatorSetReport {
 					new_validator_set: vec![3, 5, 6, 8],
 					id: 1,
