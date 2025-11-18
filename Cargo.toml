@@ -419,6 +419,7 @@ members = [
 	"substrate/frame/parameters",
 	"substrate/frame/people",
 	"substrate/frame/preimage",
+	"substrate/frame/preimage/precompiles",
 	"substrate/frame/proxy",
 	"substrate/frame/ranked-collective",
 	"substrate/frame/recovery",
@@ -1038,6 +1039,7 @@ pallet-parachain-template = { path = "templates/parachain/pallets/template", def
 pallet-parameters = { path = "substrate/frame/parameters", default-features = false }
 pallet-people = { path = "substrate/frame/people", default-features = false }
 pallet-preimage = { path = "substrate/frame/preimage", default-features = false }
+pallet-preimage-precompiles = { path = "substrate/frame/preimage/precompiles", default-features = false }
 pallet-proxy = { path = "substrate/frame/proxy", default-features = false }
 pallet-ranked-collective = { path = "substrate/frame/ranked-collective", default-features = false }
 pallet-recovery = { path = "substrate/frame/recovery", default-features = false }

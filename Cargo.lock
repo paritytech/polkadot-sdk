@@ -13215,6 +13215,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-preimage-precompiles"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-preimage",
+ "pallet-revive",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+ "sp-runtime",
+ "tracing",
+]
+
+[[package]]
 name = "pallet-proxy"
 version = "28.0.0"
 dependencies = [

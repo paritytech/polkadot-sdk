@@ -23,18 +23,18 @@ use alloc::vec::Vec;
 use core::{fmt, marker::PhantomData, num::NonZero};
 use frame_support::{
 	dispatch::RawOrigin,
-	sp_runtime::traits::StaticLookup,
-	traits::{Currency, Get, Polling},
-	dispatch::DispatchInfo,
+	pallet_prelude::{Decode, Encode},
+	sp_runtime::traits::Hash,
 };
+use pallet_preimage::{Config, WeightInfo};
 use pallet_revive::{
-	frame_system,
 	precompiles::{
-		alloy::{self, sol_types::SolValue},
+		alloy::{self},
 		AddressMatcher, Error, Ext, Precompile,
 	},
-	AddressMapper, ExecOrigin as Origin, H160, Weight
+	ExecOrigin as Origin, Weight,
 };
+
 use tracing::error;
 
 alloy::sol!("src/interface/IPreimage.sol");
@@ -68,17 +68,38 @@ where
 		};
 
 		match input {
-			IPreimageCalls::notePreimage(_) | IPreimageCalls::unnotePreimage(_) if env.is_read_only() =>
+			IPreimageCalls::notePreimage(_) | IPreimageCalls::unnotePreimage(_)
+				if env.is_read_only() =>
 				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into())),
-			IPreimageCalls::notePreimage(IPreimage::notePreimageCall {
-				preImage
-			}) => {
+			IPreimageCalls::notePreimage(IPreimage::notePreimageCall { preImage }) => {
+				let preimage = preImage.to_vec();
+				let weight_to_charge =
+					<T as Config>::WeightInfo::note_preimage(preimage.len() as u32);
+				let charged_amount = env.charge(weight_to_charge)?;
 
+				let hash = T::Hashing::hash(&preimage).encode();
+
+				let result = pallet_preimage::Pallet::<T>::note_preimage(frame_origin, preimage);
+
+				match result {
+					Ok(post_info) =>
+						if post_info.pays_fee == frame_support::dispatch::Pays::No {
+							let actual_weight = Weight::zero();
+							env.adjust_gas(charged_amount, actual_weight);
+						},
+					Err(error) => {
+						revert(&error.error, "Preimage: note_preimage failed");
+					},
+				}
+
+				Ok(hash)
 			},
-			IPreimageCalls::unnotePreimage(IPreimage::unnotePreimageCall {
-				hash
-			}) => {
-				
+			IPreimageCalls::unnotePreimage(IPreimage::unnotePreimageCall { hash }) => {
+				let runtime_hash = T::Hash::decode(&mut &hash[..])
+					.map_err(|error| revert(&error, "Preimage: invalid hash format"))?;
+				pallet_preimage::Pallet::<T>::unnote_preimage(frame_origin, runtime_hash)
+					.map(|_| Vec::new())
+					.map_err(|error| revert(&error, "Preimage: unnote preimage failed"))
 			},
 		}
 	}
