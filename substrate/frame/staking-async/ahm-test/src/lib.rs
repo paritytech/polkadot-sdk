@@ -28,7 +28,10 @@ pub mod shared;
 mod tests {
 	use super::*;
 	use crate::{
-		ah::{rc_client_events_since_last_call, staking_events_since_last_call},
+		ah::{
+			ensure_last_era_session_index_initialised, rc_client_events_since_last_call,
+			staking_events_since_last_call,
+		},
 		rc::RootOffences,
 	};
 	use ah_client::OperatingMode;
@@ -39,7 +42,6 @@ mod tests {
 	use pallet_staking_async::{ActiveEra, ActiveEraInfo, Forcing};
 	use pallet_staking_async_ah_client::{self as ah_client, OffenceSendQueue};
 	use pallet_staking_async_rc_client as rc_client;
-	use crate::ah::{ensure_last_era_session_index_initialised};
 
 	#[test]
 	fn rc_session_change_reported_to_ah() {
@@ -102,10 +104,7 @@ mod tests {
 			assert_eq!(frame_system::Pallet::<ah::Runtime>::block_number(), 120);
 
 			// Election is done
-			assert_eq!(
-				multi_block::CurrentPhase::<ah::Runtime>::get(),
-				multi_block::Phase::Off
-			);
+			assert_eq!(multi_block::CurrentPhase::<ah::Runtime>::get(), multi_block::Phase::Off);
 
 			// Validator set is queued
 			assert!(rc_client::OutgoingValidatorSet::<ah::Runtime>::exists());

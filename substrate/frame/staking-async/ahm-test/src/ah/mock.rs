@@ -24,7 +24,9 @@ use frame_election_provider_support::{
 use frame_support::sp_runtime::testing::TestXt;
 use pallet_election_provider_multi_block as multi_block;
 use pallet_staking_async::Forcing;
-use pallet_staking_async_rc_client::{SessionReport, ValidatorSetReport, LastEraActivationSessionReportEndingIndex};
+use pallet_staking_async_rc_client::{
+	LastEraActivationSessionReportEndingIndex, SessionReport, ValidatorSetReport,
+};
 use sp_staking::SessionIndex;
 pub const LOG_TARGET: &str = "ahm-test";
 
@@ -667,7 +669,12 @@ pub(crate) fn ensure_last_era_session_index_initialised() {
 	if !LastEraActivationSessionReportEndingIndex::<T>::exists() {
 		// get active era
 		let active_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::active_era();
-		let active_start_index = pallet_staking_async::BondedEras::<T>::get().iter().find(|&(era, _)| *era == active_era).map(|(_, b)| b).cloned().unwrap_or(0);
+		let active_start_index = pallet_staking_async::BondedEras::<T>::get()
+			.iter()
+			.find(|&(era, _)| *era == active_era)
+			.map(|(_, b)| b)
+			.cloned()
+			.unwrap_or(0);
 		let last_era_end_index = active_start_index.saturating_sub(1);
 		// NOTE: For the first era (0 -> 1), it takes 7 session to rotate era since technically
 		// last_era_end_index should be 1 less than the start index of active era, but we cannot set

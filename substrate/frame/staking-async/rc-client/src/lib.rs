@@ -624,7 +624,8 @@ pub mod pallet {
 	/// Used to calculate the current session offset within the active era.
 	///
 	/// When `None`, validator sets are exported immediately (used during genesis/before first era).
-	/// In production, this should be set during migration to the session when the current era started.
+	/// In production, this should be set during migration to the session when the current era
+	/// started.
 	///
 	/// The session offset is calculated as:
 	/// `current_session - era_activation_session`
@@ -665,19 +666,20 @@ pub mod pallet {
 					None => {
 						// No era activation tracked yet, export immediately
 						true
-					}
+					},
 					Some(era_activation_end) => {
 						if T::ValidatorSetExportSession::get() == 0 {
 							// Immediate export mode
 							true
 						} else {
 							// Check if we've reached the target session offset
-							let last_session_end = LastSessionReportEndingIndex::<T>::get().unwrap_or(0);
+							let last_session_end =
+								LastSessionReportEndingIndex::<T>::get().unwrap_or(0);
 							let current_session = last_session_end.saturating_add(1);
 							let session_offset = current_session.saturating_sub(era_activation_end);
 							session_offset >= T::ValidatorSetExportSession::get()
 						}
-					}
+					},
 				};
 
 				// Check if we've reached the export session
@@ -893,7 +895,9 @@ pub mod pallet {
 
 				// Track era activation for session offset calculation
 				if new_session_report.activation_timestamp.is_some() {
-					LastEraActivationSessionReportEndingIndex::<T>::put(new_session_report.end_index);
+					LastEraActivationSessionReportEndingIndex::<T>::put(
+						new_session_report.end_index,
+					);
 					log::debug!(
 						target: LOG_TARGET,
 						"Era activated at session report end_index: {}",

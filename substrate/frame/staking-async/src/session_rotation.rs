@@ -837,8 +837,8 @@ impl<T: Config> Rotator<T> {
 	}
 
 	/// Returns whether we are at the session where we should plan the new era.
-	// TODO(#10142): This should either hardcode to start election for era n+1 as soon as era n starts.
-	// or keep the current configuration and this won't change at all.
+	// TODO(#10142): This should either hardcode to start election for era n+1 as soon as era n
+	// starts. or keep the current configuration and this won't change at all.
 	fn is_plan_era_deadline(start_session: SessionIndex) -> bool {
 		let planning_era_offset = T::PlanningEraOffset::get().min(T::SessionsPerEra::get());
 		// session at which we should plan the new era.
@@ -943,7 +943,8 @@ impl<T: Config> EraElectionPlanner<T> {
 					prune_up_to
 				);
 
-				// TODO(#10142): cache the validator set in RC Client until its time to send it to RC.
+				// TODO(#10142): cache the validator set in RC Client until its time to send it to
+				// RC.
 				T::RcClientInterface::validator_set(rc_validators, id, prune_up_to);
 			}
 		}

@@ -24,7 +24,8 @@ use pallet_staking_async::{
 	Event as StakingEvent,
 };
 use pallet_staking_async_rc_client::{
-	self as rc_client, OutgoingValidatorSet, UnexpectedKind, ValidatorSetReport, LastEraActivationSessionReportEndingIndex,
+	self as rc_client, LastEraActivationSessionReportEndingIndex, OutgoingValidatorSet,
+	UnexpectedKind, ValidatorSetReport,
 };
 
 // Tests that are specific to Asset Hub.
