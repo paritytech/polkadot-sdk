@@ -71,7 +71,31 @@ pub fn roll_many(blocks: BlockNumber) {
 }
 
 pub fn roll_until_matches(criteria: impl Fn() -> bool, with_rc: bool) {
+	let mut iterations = 0;
+	const MAX_ITERATIONS: u32 = 1000;
+
 	while !criteria() {
+		iterations += 1;
+		if iterations > MAX_ITERATIONS {
+			panic!(
+				"roll_until_matches: exceeded {} iterations without matching criteria. Current block: {}, Current era: {:?}, Active era: {:?}",
+				MAX_ITERATIONS,
+				frame_system::Pallet::<Runtime>::block_number(),
+				pallet_staking_async::CurrentEra::<Runtime>::get(),
+				pallet_staking_async::ActiveEra::<Runtime>::get()
+			);
+		}
+
+		if iterations % 50 == 0 {
+			log::debug!(
+				"roll_until_matches: iteration {}, block: {}, current_era: {:?}, active_era: {:?}",
+				iterations,
+				frame_system::Pallet::<Runtime>::block_number(),
+				pallet_staking_async::CurrentEra::<Runtime>::get(),
+				pallet_staking_async::ActiveEra::<Runtime>::get()
+			);
+		}
+
 		roll_next();
 		if with_rc {
 			if LocalQueue::get().is_some() {
@@ -90,7 +114,16 @@ pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<Account
 	let planned_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::planned_era();
 	let active_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::active_era();
 
+	let mut planning_iterations = 0;
 	while pallet_staking_async::session_rotation::Rotator::<Runtime>::planned_era() == planned_era {
+		planning_iterations += 1;
+		if planning_iterations > 100 {
+			panic!(
+				"roll_until_next_active: planning loop exceeded 100 iterations. planned_era: {:?}, end_index: {}",
+				planned_era, end_index
+			);
+		}
+
 		let report = SessionReport {
 			end_index,
 			activation_timestamp: None,
@@ -108,7 +141,27 @@ pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<Account
 	// now we have planned a new session. Roll until we have an outgoing message ready, meaning the
 	// election is done
 	LocalQueue::flush();
+	let mut election_iterations = 0;
 	loop {
+		election_iterations += 1;
+		if election_iterations > 500 {
+			panic!(
+				"roll_until_next_active: election loop exceeded 500 iterations. Block: {}, end_index: {}, messages in queue: {}",
+				System::block_number(),
+				end_index,
+				LocalQueue::get_since_last_call().len()
+			);
+		}
+
+		if election_iterations % 50 == 0 {
+			log::debug!(
+				"roll_until_next_active: waiting for validator set message, iteration: {}, block: {}, end_index: {}",
+				election_iterations,
+				System::block_number(),
+				end_index
+			);
+		}
+
 		let messages = LocalQueue::get_since_last_call();
 		match messages.len() {
 			0 => {
@@ -320,7 +373,7 @@ parameter_types! {
 	pub static BondingDuration: u32 = 3;
 	pub static SlashDeferredDuration: u32 = 2;
 	pub static SessionsPerEra: u32 = 6;
-	pub static PlanningEraOffset: u32 = 2;
+	pub static PlanningEraOffset: u32 = 6;
 	pub MaxPruningItems: u32 = 100;
 	pub const ValidatorSetExportSession: SessionIndex = 5;
 }

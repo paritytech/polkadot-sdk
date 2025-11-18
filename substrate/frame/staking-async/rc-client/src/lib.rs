@@ -623,17 +623,20 @@ pub mod pallet {
 	/// Updated when a session report contains `activation_timestamp`.
 	/// Used to calculate the current session offset within the active era.
 	///
+	/// When `None`, validator sets are exported immediately (used during genesis/before first era).
+	/// In production, this should be set during migration to the session when the current era started.
+	///
 	/// The session offset is calculated as:
 	/// `current_session - era_activation_session`
 	///
 	/// Where `current_session = LastSessionReportEndingIndex + 1`
 	///
 	/// Example:
-	/// - Era N activates at session 5 end → `LastEraActivationSessionReportEndingIndex = 5`
+	/// - Era N activates at session 5 end → `LastEraActivationSessionReportEndingIndex = Some(5)`
 	/// - Later at session 10: offset = (10 - 5) = 5
 	#[pallet::storage]
 	pub type LastEraActivationSessionReportEndingIndex<T: Config> =
-		StorageValue<_, SessionIndex, ValueQuery>;
+		StorageValue<_, SessionIndex, OptionQuery>;
 
 	/// A validator set that is outgoing, and should be sent.
 	///
@@ -654,23 +657,39 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			if let Some((report, retries_left)) = OutgoingValidatorSet::<T>::take() {
-				// Calculate current session offset within era
-				let last_session_end = LastSessionReportEndingIndex::<T>::get().unwrap_or(0);
-				let era_activation_end = LastEraActivationSessionReportEndingIndex::<T>::get();
-				let current_session = last_session_end.saturating_add(1);
-				let session_offset = current_session.saturating_sub(era_activation_end);
+				// Determine if we should export the validator set.
+				// Export immediately if:
+				// 1. ValidatorSetExportSession is 0 (immediate export mode)
+				// 2. No era activation has been tracked yet (None = genesis/before first era)
+				let should_export = match LastEraActivationSessionReportEndingIndex::<T>::get() {
+					None => {
+						// No era activation tracked yet, export immediately
+						true
+					}
+					Some(era_activation_end) => {
+						if T::ValidatorSetExportSession::get() == 0 {
+							// Immediate export mode
+							true
+						} else {
+							// Check if we've reached the target session offset
+							let last_session_end = LastSessionReportEndingIndex::<T>::get().unwrap_or(0);
+							let current_session = last_session_end.saturating_add(1);
+							let session_offset = current_session.saturating_sub(era_activation_end);
+							session_offset >= T::ValidatorSetExportSession::get()
+						}
+					}
+				};
 
 				// Check if we've reached the export session
-				if session_offset >= T::ValidatorSetExportSession::get() {
+				if should_export {
 					// Export the validator set
 					match T::SendToRelayChain::validator_set(report.clone()) {
 						Ok(()) => {
 							// report was sent, all good, it is already deleted.
 							log::debug!(
 								target: LOG_TARGET,
-								"Exported validator set at session offset {} (session {})",
-								session_offset,
-								current_session
+								"Exported validator set to RC for Era: {}",
+								report.id,
 							);
 						},
 						Err(()) => {
