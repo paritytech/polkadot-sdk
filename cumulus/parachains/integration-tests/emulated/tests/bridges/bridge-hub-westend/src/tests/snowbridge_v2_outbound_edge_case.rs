@@ -336,8 +336,10 @@ fn transfer_from_penpal_to_ethereum_trapped_on_ah_and_then_claim_can_work() {
 				event
 			{
 				if let VersionedAssets::V5(trapped) = assets {
-					if let Some(Fungible(amount)) = trapped.get(0).map(|a| a.fun) {
-						trapped_amount += amount;
+					if let Some(asset) = trapped.get(0) {
+						if let Fungible(amount) = asset.fun {
+							trapped_amount += amount;
+						}
 					}
 				}
 			}
