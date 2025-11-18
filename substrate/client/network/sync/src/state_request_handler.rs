@@ -47,6 +47,9 @@ use std::{
 	time::Duration,
 };
 
+const MAX_REQUEST_BYTES_OVERHEAD: usize = 4 + (1 + 1 + 32) + (1 + 4); // Block hash, protobuf and framing.
+const MAX_REQUEST_BYTES: usize = 1024 * 1024;
+pub const STATE_SYNC_REQUEST_SIZE_LIMIT: usize = MAX_REQUEST_BYTES.saturating_sub(MAX_REQUEST_BYTES_OVERHEAD);
 const MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024; // Actual reponse may be bigger.
 const MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER: usize = 2;
 
@@ -114,7 +117,7 @@ pub fn generate_protocol_config<
 	let config_v2 = N::request_response_config(
 		protocol_names.v2.clone(),
 		vec![generate_legacy_protocol_name(protocol_id).into()],
-		1024 * 1024,
+		MAX_REQUEST_BYTES as u64,
 		MAX_RESPONSE_SIZE,
 		Duration::from_secs(40),
 		Some(inbound_queue.clone()),
@@ -122,7 +125,7 @@ pub fn generate_protocol_config<
 	let config_v3 = N::request_response_config(
 		protocol_names.v3.clone(),
 		vec![],
-		1024 * 1024,
+		MAX_REQUEST_BYTES as u64,
 		MAX_RESPONSE_SIZE,
 		Duration::from_secs(40),
 		Some(inbound_queue),

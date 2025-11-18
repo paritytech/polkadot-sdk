@@ -22,6 +22,7 @@ use crate::{
 	schema::v1::{KeyValueStateEntry, StateEntry, StateRequest, StateResponse},
 	LOG_TARGET,
 };
+use crate::state_request_handler::STATE_SYNC_REQUEST_SIZE_LIMIT;
 use codec::{Decode, Encode};
 use log::debug;
 use sc_client_api::{CompactProof, KeyValueStates, ProofProvider};
@@ -224,15 +225,24 @@ impl<B: BlockT> Tree<B> {
 		last_key
 	}
 
-	fn request(&self) -> ClientProof<B::Hash> {
-		ClientProof {
+	fn request(&self, size_limit: usize) -> (ClientProof<B::Hash>, usize) {
+		let mut proof = ClientProof {
 			hash: *self.node_hash(),
-			children: if let Self::Known { children, .. } = self {
-				children.iter().map(|child| child.request()).collect()
-			} else {
-				vec![]
-			},
+			children: vec![],
+		};
+		let item_size = proof.hash.as_ref().len() + 1;
+		let mut size = item_size;
+		if let Self::Known { children, .. } = self {
+			for child in children {
+				if size + item_size > size_limit {
+					break;
+				}
+				let (child_proof, child_size) = child.request(size_limit - size);
+				proof.children.push(child_proof);
+				size += child_size;
+			}
 		}
+		(proof, size)
 	}
 }
 
@@ -481,7 +491,7 @@ where
 			return request_v2;
 		}
 		StateRequest {
-			client_proof: self.tree.request().encode(),
+			client_proof: self.tree.request(STATE_SYNC_REQUEST_SIZE_LIMIT).0.encode(),
 			..request_v2
 		}
 	}
