@@ -159,7 +159,8 @@ impl NetworkSpawner {
 
 	/// Waits for blocks production/import to kick-off on given node.
 	///
-	/// It waits for best/finalized blocks to be produced/imported on given node.
+	/// It subscribes to best/finalized blocks on the given node to determine whether
+	/// the blocks were considered as best/finalized.
 	pub async fn wait_for_block(
 		&self,
 		node_name: &str,

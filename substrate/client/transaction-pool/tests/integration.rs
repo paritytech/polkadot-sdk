@@ -42,9 +42,7 @@ async fn send_future_and_ready_from_many_accounts_to_parachain() {
 		.unwrap();
 
 	// Wait for the parachain collator to start block production.
-	net.wait_for_block_production("charlie", BlockSubscriptionType::Best)
-		.await
-		.unwrap();
+	net.wait_for_block("charlie", BlockSubscriptionType::Best).await.unwrap();
 
 	// Create future & ready txs executors.
 	let ws = net.node_rpc_uri("charlie").unwrap();
@@ -96,9 +94,7 @@ async fn send_future_and_ready_from_many_accounts_to_relaychain() {
 
 	// Wait for the paracha validator to start block production & have its genesis block
 	// finalized.
-	net.wait_for_block_production("alice", BlockSubscriptionType::Best)
-		.await
-		.unwrap();
+	net.wait_for_block("alice", BlockSubscriptionType::Best).await.unwrap();
 
 	// Create future & ready txs executors.
 	let ws = net.node_rpc_uri("alice").unwrap();
@@ -155,9 +151,7 @@ async fn send_future_mortal_txs() {
 		.unwrap();
 
 	// Wait for the parachain collator to start block production.
-	net.wait_for_block_production("alice", BlockSubscriptionType::Finalized)
-		.await
-		.unwrap();
+	net.wait_for_block("alice", BlockSubscriptionType::Finalized).await.unwrap();
 
 	// Create txs executors.
 	let ws = net.node_rpc_uri("alice").unwrap();
@@ -231,9 +225,7 @@ async fn send_lower_priority_mortal_txs() {
 		.unwrap();
 
 	// Wait for the parachain collator to start block production.
-	net.wait_for_block_production("alice", BlockSubscriptionType::Finalized)
-		.await
-		.unwrap();
+	net.wait_for_block("alice", BlockSubscriptionType::Finalized).await.unwrap();
 
 	// Create txs executors.
 	let ws = net.node_rpc_uri("alice").unwrap();
@@ -318,9 +310,7 @@ async fn send_5m_from_many_accounts_to_parachain() {
 		.unwrap();
 
 	// Wait for the parachain collator to start block production.
-	net.wait_for_block_production("charlie", BlockSubscriptionType::Best)
-		.await
-		.unwrap();
+	net.wait_for_block("charlie", BlockSubscriptionType::Best).await.unwrap();
 
 	// Create txs executor.
 	let ws = net.node_rpc_uri("charlie").unwrap();
@@ -350,9 +340,7 @@ async fn send_5m_from_many_accounts_to_relaychain() {
 		.unwrap();
 
 	// Wait for the parachain collator to start block production.
-	net.wait_for_block_production("alice", BlockSubscriptionType::Best)
-		.await
-		.unwrap();
+	net.wait_for_block("alice", BlockSubscriptionType::Best).await.unwrap();
 
 	// Create txs executor.
 	let ws = net.node_rpc_uri("alice").unwrap();
@@ -384,7 +372,7 @@ async fn gossiping() {
 		.unwrap();
 
 	// Wait for the parachain collator to start block production.
-	net.wait_for_block_production("a00", BlockSubscriptionType::Best).await.unwrap();
+	net.wait_for_block("a00", BlockSubscriptionType::Best).await.unwrap();
 
 	// Create the txs executor.
 	let ws = net.node_rpc_uri("a00").unwrap();
@@ -471,9 +459,7 @@ async fn test_limits_increasing_prio_parachain() {
 		.await
 		.unwrap();
 
-	net.wait_for_block_production("charlie", BlockSubscriptionType::Best)
-		.await
-		.unwrap();
+	net.wait_for_block("charlie", BlockSubscriptionType::Best).await.unwrap();
 
 	let mut executors = vec![];
 	let senders_count = 25;
@@ -505,9 +491,7 @@ async fn test_limits_increasing_prio_relaychain() {
 		.await
 		.unwrap();
 
-	net.wait_for_block_production("alice", BlockSubscriptionType::Best)
-		.await
-		.unwrap();
+	net.wait_for_block("alice", BlockSubscriptionType::Best).await.unwrap();
 
 	let mut executors = vec![];
 	//this looks like current limit of what we can handle. A bit choky but almost no empty blocks.
@@ -540,9 +524,7 @@ async fn test_limits_same_prio_relaychain() {
 		.await
 		.unwrap();
 
-	net.wait_for_block_production("alice", BlockSubscriptionType::Best)
-		.await
-		.unwrap();
+	net.wait_for_block("alice", BlockSubscriptionType::Best).await.unwrap();
 
 	let mut executors = vec![];
 	let senders_count = 50;
