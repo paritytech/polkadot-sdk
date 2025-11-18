@@ -558,6 +558,15 @@ mod v4_tests {
 
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
+			// Verify claim_queue() returns the old ClaimQueue before migration
+			let claim_queue_before = scheduler::Pallet::<Test>::claim_queue();
+			assert_eq!(claim_queue_before.len(), 1, "Should have 1 core in claim queue");
+			let core_queue = claim_queue_before.get(&core).expect("Core should be in claim queue");
+			assert_eq!(core_queue.len(), 3, "Core should have 3 assignments");
+			assert_eq!(core_queue[0], pool_para_1);
+			assert_eq!(core_queue[1], bulk_para);
+			assert_eq!(core_queue[2], pool_para_2);
+
 			// Run migration
 			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
 
