@@ -55,7 +55,7 @@ impl pallet_multi_asset_bounties::FromLocalAccount<sp_runtime::AccountId32>
 	///
 	/// # Warning
 	/// This conversion fills in default values (location = "here", network = None) which may
-	/// be incorrect if the account is from another chain or network. 
+	/// be incorrect if the account is from another chain or network.
 	fn from_local_account(account_id: sp_runtime::AccountId32) -> Self {
 		VersionedLocatableAccount::V5 {
 			location: Location::here(),
@@ -155,7 +155,7 @@ where
 	}
 }
 
-// Implement PayWithSource for LocalPay 
+// Implement PayWithSource for LocalPay
 impl<A, F, C> PayWithSource for LocalPay<F, A, C>
 where
 	A: Eq + Clone,
