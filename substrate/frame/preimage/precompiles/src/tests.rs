@@ -188,3 +188,25 @@ fn manager_unnote_user_preimage_works() {
 		assert_eq!(Preimage::get_preimage(&hash), None);
 	});
 }
+
+
+#[test]
+fn requested_then_user_noted_preimage_is_free() {
+	new_test_ext().execute_with(|| {
+		let preimage = vec![1u8];
+		let hash = hashed(&preimage);
+
+		let prev_balance = Balances::free_balance(ALICE);
+
+		assert_ok!(Preimage::request_preimage(RuntimeOrigin::signed(BOB), hash));
+
+		let encoded_call = encode_note_preimage_call(preimage.clone());
+		assert!(call_and_check_success(ALICE, encoded_call.clone()));
+
+		assert_eq!(Balances::reserved_balance(ALICE), 0);
+		assert_eq!(Balances::free_balance(ALICE), prev_balance);
+
+		assert!(Preimage::have_preimage(&hash));
+		assert_eq!(Preimage::get_preimage(&hash), Some(preimage));
+	});
+}
