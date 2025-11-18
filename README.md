@@ -97,3 +97,4 @@ This repository is the amalgamation of 3 separate repositories that used to make
 namely Substrate, Polkadot and Cumulus. Read more about the merge and its history
 [here](https://polkadot-public.notion.site/Polkadot-SDK-FAQ-fbc4cecc2c46443fb37b9eeec2f0d85f).
 This documentation has been slightly updated to improve clarity.
+<!-- Minor documentation fix -->
