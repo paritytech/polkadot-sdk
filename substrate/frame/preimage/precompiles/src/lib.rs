@@ -97,6 +97,7 @@ where
 			IPreimageCalls::unnotePreimage(IPreimage::unnotePreimageCall { hash }) => {
 				let runtime_hash = T::Hash::decode(&mut &hash[..])
 					.map_err(|error| revert(&error, "Preimage: invalid hash format"))?;
+					
 				pallet_preimage::Pallet::<T>::unnote_preimage(frame_origin, runtime_hash)
 					.map(|_| Vec::new())
 					.map_err(|error| revert(&error, "Preimage: unnotePreimage failed"))
