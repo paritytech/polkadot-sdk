@@ -153,7 +153,7 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV2<T> {
 		let mut weight: Weight = Weight::zero();
 
 		let now = frame_system::Pallet::<T>::block_number();
-		let old_queue_status = v1::QueueStatus::<T>::take().unwrap_or_else(|| OldQueueStatus {
+		let old_queue_status = v1::QueueStatus::<T>::take().unwrap_or_else(|| v1::OldQueueStatus {
 			traffic: T::TrafficDefaultValue::get(),
 			..Default::default()
 		});
@@ -303,7 +303,7 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV2<T> {
 pub type MigrateV1ToV2<T> = VersionedMigration<
 	1,
 	2,
-	v2::UncheckedMigrateToV2<T>,
+	UncheckedMigrateToV2<T>,
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;

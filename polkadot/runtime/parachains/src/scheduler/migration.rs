@@ -17,7 +17,6 @@
 //! A module that is responsible for migration of storage.
 
 use super::*;
-use alloc::vec::Vec;
 use frame_support::{
 	migrations::VersionedMigration, pallet_prelude::ValueQuery, storage_alias,
 	traits::UncheckedOnRuntimeUpgrade, weights::Weight,
@@ -40,8 +39,8 @@ pub(crate) enum Assignment {
 impl Assignment {
 	pub fn para_id(&self) -> ParaId {
 		match self {
-			Self::Pool { para_id, ...} => para_id,
-			Self::Bulk(para_id) => para_id,
+			Self::Pool { para_id, ..} => *para_id,
+			Self::Bulk(para_id) => *para_id,
 		}
 	}
 }
@@ -79,6 +78,7 @@ pub(super) mod v3 {
 /// removed once all networks have upgraded.
 pub struct UncheckedMigrateToV4<T>(core::marker::PhantomData<T>);
 
+#[allow(deprecated)]
 impl<T: Config + old::pallet::Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV4<T> {
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight: Weight = Weight::zero();
@@ -339,7 +339,7 @@ impl<T: Config + old::pallet::Config> UncheckedOnRuntimeUpgrade for UncheckedMig
 pub type MigrateV3ToV4<T> = VersionedMigration<
 	3,
 	4,
-	v4::UncheckedMigrateToV4<T>,
+	UncheckedMigrateToV4<T>,
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;

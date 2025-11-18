@@ -64,8 +64,6 @@ mod assigner_coretime;
 /// Storage migrations for the scheduler pallet.
 pub mod migration;
 
-use migration::v3;
-
 #[frame_support::pallet]
 pub mod pallet {
 
