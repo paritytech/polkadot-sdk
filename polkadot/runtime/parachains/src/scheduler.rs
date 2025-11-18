@@ -64,6 +64,8 @@ mod assigner_coretime;
 /// Storage migrations for the scheduler pallet.
 pub mod migration;
 
+use migration::v3;
+
 #[frame_support::pallet]
 pub mod pallet {
 
@@ -216,6 +218,16 @@ impl<T: Config> Pallet<T> {
 	///
 	/// To be called from runtime APIs.
 	pub(crate) fn claim_queue() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
+		// Since this is being called from a runtime API, we need to workaround for #64.
+		if Self::on_chain_storage_version() == StorageVersion::new(3) {
+			return migration::v3::ClaimQueue::<T>::get()
+				.into_iter()
+				.map(|(core_index, paras)| {
+					(core_index, paras.into_iter().map(|e| e.para_id()).collect())
+				})
+				.collect()
+		}
+
 		let config = configuration::ActiveConfig::<T>::get();
 		let lookahead = config.scheduler_params.lookahead;
 		let mut queue = assigner_coretime::peek_next_block::<T>(lookahead);
