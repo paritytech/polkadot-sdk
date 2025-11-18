@@ -1473,14 +1473,15 @@ where
 		let num_peer_hint = net_config.network_config.default_peers_set_num_full as usize +
 			net_config.network_config.default_peers_set.reserved_nodes.len();
 		// Allow both outgoing and incoming requests.
-		let (handler, protocol_config) =
+		let (handler, protocol_config, protocol_names) =
 			StateRequestHandler::new::<Net>(&protocol_id, fork_id, client.clone(), num_peer_hint);
-		let config_name = protocol_config.protocol_name().clone();
 
 		spawn_handle.spawn("state-request-handler", Some("networking"), handler.run());
-		(protocol_config, config_name)
+		(protocol_config, protocol_names)
 	};
-	net_config.add_request_response_protocol(state_request_protocol_config);
+	for protocol_config in state_request_protocol_config {
+		net_config.add_request_response_protocol(protocol_config);
+	}
 
 	let (warp_sync_protocol_config, warp_sync_protocol_name) = match warp_sync_config.as_ref() {
 		Some(WarpSyncConfig::WithProvider(warp_with_provider)) => {

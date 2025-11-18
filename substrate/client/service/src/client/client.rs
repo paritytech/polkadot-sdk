@@ -84,12 +84,9 @@ use std::{
 	path::PathBuf,
 	sync::Arc,
 };
-use sp_trie::get_trie_node_children;
 use sp_trie::ClientProof;
 use sp_trie::HashDBT;
 use sp_trie::TrieNodeChild;
-use sp_trie::TrieNodeChildKind;
-use codec::Encode;
 
 use super::call_executor::LocalCallExecutor;
 use sp_core::traits::CodeExecutor;
@@ -1394,34 +1391,22 @@ where
 		&self,
 		client_proof: &ClientProof<Block::Hash>,
 		size_limit: usize,
-	) -> sp_blockchain::Result<CompactProof> {
+	) -> sp_blockchain::Result<Vec<CompactProof>> {
 		let load = |node: &TrieNodeChild<Block::Hash>| {
-			let encoded = match self.backend.get_trie_node(node.prefix.as_prefix(), &node.hash) {
-				Err(e) => {
-					return Err(sp_blockchain::Error::Proposal(e.to_string()));
-				},
-				Ok(None) => {
+			let encoded = match self.backend.get_trie_node(node.prefix.as_prefix(), &node.hash).map_err(|e| sp_blockchain::Error::Proposal(e.to_string()))? {
+				None => {
 					return Ok(None);
 				},
-				Ok(Some(encoded)) => encoded,
+				Some(encoded) => encoded,
 			};
-			let child_nodes = if !node.has_children() {
-				None
-			} else {
-				match get_trie_node_children::<HashingFor<Block>>(&node.prefix, &encoded) {
-					Err(e) => {
-						return Err(sp_blockchain::Error::Proposal(format!("{e:?}")));
-					},
-					Ok(child_nodes) => Some(child_nodes),
-				}
-			};
+			let child_nodes = node.get_children::<HashingFor<Block>>(&encoded).map_err(|e| sp_blockchain::Error::Proposal(format!("{e:?}")))?;
 			Ok(Some((encoded, child_nodes)))
 		};
 
-		let mut results = CompactProof { encoded_nodes: vec![] };
+		let mut results = vec![];
 		let mut size = 0;
 		let mut leaf_iter = std::iter::from_fn({
-			let mut stack = vec![(client_proof, TrieNodeChild::root(client_proof.hash))];
+			let mut stack = vec![(client_proof, TrieNodeChild::root(client_proof.hash, true))];
 			move || {
 				while let Some((proof, node)) = stack.pop() {
 					if proof.is_leaf() {
@@ -1437,7 +1422,7 @@ where
 						Ok(Some((_, child_nodes))) => child_nodes,
 					};
 					for child_proof in proof.children.iter().rev() {
-						if let Some(child_node) = child_nodes.iter().flatten().find(|node| node.hash == child_proof.hash) {
+						if let Some(child_node) = child_nodes.iter().find(|node| node.hash == child_proof.hash) {
 							stack.push((child_proof, child_node.clone()));
 						} else {
 							return Some(Err(sp_blockchain::Error::Proposal("ClientProof: unexpected child".to_string())));
@@ -1455,14 +1440,14 @@ where
 					size += encoded.len();
 					db.emplace(node.hash, node.prefix.as_prefix(), encoded.clone());
 					// `encode_compact_raw` expects hashed value to be present
-					let has_hashed_value = child_nodes.iter().flatten().any(|child_node| child_node.kind == TrieNodeChildKind::Value);
+					let has_hashed_value = child_nodes.iter().any(|child_node| child_node.is_value());
 					if size >= size_limit && !has_hashed_value {
 						break;
 					}
-					stack.extend(child_nodes.into_iter().flatten().rev());
+					stack.extend(child_nodes.into_iter().rev());
 				}
 			}
-			results.encoded_nodes.push(sp_trie::encode_compact_raw::<sp_trie::LayoutV1<HashingFor<Block>>, _>(&db, &node.hash).map_err(|e| sp_blockchain::Error::Proposal(e.to_string()))?.encode());
+			results.push(sp_trie::encode_compact_raw::<sp_trie::LayoutV1<HashingFor<Block>>, _>(&db, &node.hash, node.is_value()).map_err(|e| sp_blockchain::Error::Proposal(e.to_string()))?);
 			if size >= size_limit {
 				break;
 			}

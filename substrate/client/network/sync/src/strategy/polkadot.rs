@@ -32,6 +32,7 @@ use crate::{
 	types::SyncStatus,
 	LOG_TARGET,
 };
+use crate::state_request_handler::StateSyncProtocolNames;
 use log::{debug, error, info, warn};
 use prometheus_endpoint::Registry;
 use sc_client_api::{BlockBackend, ProofProvider};
@@ -70,7 +71,7 @@ where
 	/// Prometheus metrics registry.
 	pub metrics_registry: Option<Registry>,
 	/// Protocol name used to send out state requests
-	pub state_request_protocol_name: ProtocolName,
+	pub state_request_protocol_name: StateSyncProtocolNames,
 	/// Block downloader
 	pub block_downloader: Arc<dyn BlockDownloader<Block>>,
 }

@@ -97,5 +97,5 @@ pub trait ProofProvider<Block: BlockT> {
 		&self,
 		client_proof: &ClientProof<Block::Hash>,
 		size_limit: usize,
-	) -> sp_blockchain::Result<CompactProof>;
+	) -> sp_blockchain::Result<Vec<CompactProof>>;
 }

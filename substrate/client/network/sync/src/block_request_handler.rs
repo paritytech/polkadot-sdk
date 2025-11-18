@@ -605,6 +605,7 @@ impl<B: BlockT> BlockDownloader<B> for FullBlockDownloader {
 			who,
 			self.protocol_name.clone(),
 			bytes,
+			None,
 			tx,
 			IfDisconnected::ImmediateError,
 		);

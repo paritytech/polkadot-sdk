@@ -37,9 +37,7 @@ mod trie_codec;
 mod trie_stream;
 
 mod proposal;
-pub use proposal::CLIENT_PROOF;
 pub use proposal::ClientProof;
-pub use proposal::get_trie_node_children;
 pub use proposal::TrieNodeChild;
 pub use proposal::TrieNodeChildKind;
 

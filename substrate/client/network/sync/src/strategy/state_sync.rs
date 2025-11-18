@@ -35,11 +35,12 @@ use sp_runtime::{
 use sp_trie::PrefixedMemoryDB;
 use sp_trie::MemoryDB;
 use sp_trie::ClientProof;
-use sp_trie::CLIENT_PROOF;
 use sp_trie::TrieNodeChild;
-use sp_trie::get_trie_node_children;
+use trie_db::NibbleVec;
 use hash_db::HashDB;
 use std::{collections::HashMap, fmt, sync::Arc};
+
+type LastKey = SmallVec<[Vec<u8>; 2]>;
 
 /// Generic state sync provider. Used for mocking in tests.
 pub trait StateSyncProvider<B: BlockT>: Send + Sync {
@@ -115,7 +116,7 @@ impl<B: BlockT> ImportResult<B> {
 }
 
 struct StateSyncMetadata<B: BlockT> {
-	last_key: SmallVec<[Vec<u8>; 2]>,
+	last_key: LastKey,
 	target_header: B::Header,
 	target_body: Option<Vec<B::Extrinsic>>,
 	target_justifications: Option<Justifications>,
@@ -143,6 +144,7 @@ impl<B: BlockT> StateSyncMetadata<B> {
 			block: self.target_hash().encode(),
 			start: self.last_key.clone().into_vec(),
 			no_proof: self.skip_proof,
+			client_proof: vec![],
 		}
 	}
 
@@ -161,10 +163,21 @@ impl<B: BlockT> StateSyncMetadata<B> {
 	}
 }
 
+fn pad_prefix(prefix: &NibbleVec) -> Vec<u8> {
+	let (prefix, last) = prefix.as_prefix();
+	let mut prefix = prefix.to_vec();
+	if let Some(last) = last {
+		assert_eq!(last & 0xf, 0);
+		prefix.push(last);
+	}
+	prefix
+}
+
 enum Tree<B: BlockT> {
 	Known {
 		hash: B::Hash,
 		children: Vec<Tree<B>>,
+		child_trie_key: Option<Vec<u8>>,
 	},
 	Unknown(TrieNodeChild<B::Hash>),
 }
@@ -182,6 +195,35 @@ impl<B: BlockT> Tree<B> {
 		}
 	}
 
+	fn fallback_request(&self) -> LastKey {
+		let mut last_key = LastKey::default();
+		let mut node = self;
+		loop {
+			match node {
+				Tree::Known { children, child_trie_key, .. } => {
+					if let Some(key) = child_trie_key {
+						last_key.push(key.clone());
+					}
+					if let Some(child) = children.first() {
+						node = child;
+					} else {
+						break;
+					}
+				},
+				Tree::Unknown(node) => {
+					if let Some(key) = &node.child_trie_key {
+						last_key.push(key.clone());
+						last_key.push(vec![]);
+					} else {
+						last_key.push(pad_prefix(&node.prefix));
+					}
+					break;
+				},
+			}
+		}
+		last_key
+	}
+
 	fn request(&self) -> ClientProof<B::Hash> {
 		ClientProof {
 			hash: *self.node_hash(),
@@ -194,54 +236,31 @@ impl<B: BlockT> Tree<B> {
 	}
 }
 
-type Paths<B> = HashMap<<B as BlockT>::Hash, Vec<Vec<<B as BlockT>::Hash>>>;
-
 fn fill<B: BlockT>(
 	tree: &mut Tree<B>,
-	paths: &mut Paths<B>,
 	db_out: &mut PrefixedMemoryDB::<HashingFor<B>>,
 	db_in: &MemoryDB::<HashingFor<B>>,
-	path: &mut Vec<B::Hash>,
-	depth: usize,
-) {
-	match tree {
-		Tree::Known { children, .. } => {
-			let child_hash = path.get(depth).unwrap();
-			let child_index = children.iter().position(|child_tree| child_tree.node_hash() == child_hash).unwrap();
-			let child_tree = children.get_mut(child_index).unwrap();
-			fill(child_tree, paths, db_out, db_in, path, depth + 1);
-			if child_tree.complete() {
-				children.remove(child_index);
-			}
-		},
-		Tree::Unknown(node) => {
-			if let Some(encoded) = db_in.get(&node.hash, node.prefix.as_prefix()) {
-				let children = if !node.has_children() {
-					vec![]
-				} else {
-					get_trie_node_children::<HashingFor<B>>(&node.prefix, &encoded)
-						.unwrap()
-						.into_iter()
-						.filter_map(|child_node| {
-							let mut child_tree = Tree::Unknown(child_node);
-							path.push(*child_tree.node_hash());
-							fill(&mut child_tree, paths, db_out, db_in, path, depth + 1);
-							path.pop();
-							if child_tree.complete() {
-								None
-							} else {
-								Some(child_tree)
-							}
-						})
-						.collect()
-				};
-				db_out.emplace(node.hash, node.prefix.as_prefix(), encoded);
-				*tree = Tree::Known { hash: node.hash, children };
-			} else {
-				paths.entry(node.hash).or_default().push(path.clone());
-			}
+) -> usize {
+	let mut new_nodes = 0;
+	if let Tree::Unknown(node) = tree {
+		if let Some(encoded) = db_in.get(&node.hash, node.prefix.as_prefix()) {
+			let children = node.get_children::<HashingFor<B>>(&encoded)
+				.unwrap()
+				.into_iter()
+				.map(Tree::Unknown)
+				.collect();
+			db_out.emplace(node.hash, node.prefix.as_prefix(), encoded);
+			new_nodes += 1;
+			*tree = Tree::Known { hash: node.hash, children, child_trie_key: node.child_trie_key.take() };
 		}
 	}
+	if let Tree::Known { children, .. } = tree {
+		children.retain_mut(|child| {
+			new_nodes += fill(child, db_out, db_in);
+			!child.complete()
+		});
+	}
+	new_nodes
 }
 
 /// State sync state machine.
@@ -252,7 +271,6 @@ pub struct StateSync<B: BlockT, Client> {
 	state: HashMap<Vec<u8>, (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>)>,
 	client: Arc<Client>,
 	tree: Tree<B>,
-	paths: Paths<B>,
 }
 
 impl<B, Client> StateSync<B, Client>
@@ -272,7 +290,7 @@ where
 		Self {
 			client,
 			metadata: StateSyncMetadata {
-				last_key: SmallVec::default(),
+				last_key: LastKey::default(),
 				target_header,
 				target_body,
 				target_justifications,
@@ -281,8 +299,7 @@ where
 				skip_proof,
 			},
 			state: HashMap::default(),
-			tree: Tree::Unknown(TrieNodeChild::root(state_root)),
-			paths: Paths::<B>::from_iter([(state_root, vec![vec![]])]),
+			tree: Tree::Unknown(TrieNodeChild::root(state_root, true)),
 		}
 	}
 
@@ -368,54 +385,68 @@ where
 {
 	///  Validate and import a state response.
 	fn import(&mut self, response: StateResponse) -> ImportResult<B> {
-		if response.entries.is_empty() && response.proof.is_empty() {
+		if response.entries.is_empty() && response.proof.is_empty() && response.raw_proofs.is_empty() {
 			debug!(target: LOG_TARGET, "Bad state response");
 			return ImportResult::BadResponse
 		}
-		if !self.metadata.skip_proof && response.proof.is_empty() {
+		if !self.metadata.skip_proof && response.proof.is_empty() && response.raw_proofs.is_empty() {
 			debug!(target: LOG_TARGET, "Missing proof");
 			return ImportResult::BadResponse
 		}
 		let (complete, partial_state) = if !self.metadata.skip_proof {
-			debug!(target: LOG_TARGET, "Importing state from {} trie nodes", response.proof.len());
-			let proof_size = response.proof.len() as u64;
-			let proof = match CompactProof::decode(&mut response.proof.as_ref()) {
-				Ok(proof) => proof,
-				Err(e) => {
-					debug!(target: LOG_TARGET, "Error decoding proof: {:?}", e);
-					return ImportResult::BadResponse
-				},
-			};
-
-			let mut partial_state = PrefixedMemoryDB::<HashingFor<B>>::default();
-			for proof in &proof.encoded_nodes {
-				let proof = match CompactProof::decode(&mut &proof[..]) {
+			let mut db = MemoryDB::<HashingFor<B>>::default();
+			type Layout<B> = sp_state_machine::LayoutV1<HashingFor<B>>;
+			let mut trie_nodes = 0;
+			let mut proof_size = 0;
+			if !response.proof.is_empty() {
+				proof_size += response.proof.len();
+				let proof = match CompactProof::decode(&mut response.proof.as_ref()) {
 					Ok(proof) => proof,
 					Err(e) => {
 						debug!(target: LOG_TARGET, "Error decoding proof: {:?}", e);
 						return ImportResult::BadResponse;
 					},
 				};
-				let mut db = MemoryDB::<HashingFor<B>>::default();
-				let root = match sp_trie::decode_compact_raw::<sp_trie::LayoutV0<HashingFor<B>>, _, _>(
+				trie_nodes += proof.encoded_nodes.len();
+				if let Err(e) = sp_trie::decode_compact::<Layout<B>, _, _>(
 					&mut db,
 					proof.iter_compact_encoded_nodes(),
+					Some(&self.metadata.target_root()),
 				) {
-					Ok(root) => root,
-					Err(e) => {
+					debug!(target: LOG_TARGET, "Error decoding proof: {:?}", e);
+					return ImportResult::BadResponse;
+				}
+			} else {
+				for proof in &response.raw_proofs {
+					proof_size += proof.len();
+					let proof = match CompactProof::decode(&mut proof.as_ref()) {
+						Ok(proof) => proof,
+						Err(e) => {
+							debug!(target: LOG_TARGET, "Error decoding proof: {:?}", e);
+							return ImportResult::BadResponse;
+						},
+					};
+					trie_nodes += proof.encoded_nodes.len();
+					if let Err(e) = sp_trie::decode_compact_raw::<Layout<B>, _>(
+						&mut db,
+						&proof,
+					) {
 						debug!(target: LOG_TARGET, "Error decoding proof: {:?}", e);
 						return ImportResult::BadResponse;
-					},
-				};
-				if let Some(paths) = self.paths.remove(&root) {
-					for mut path in paths {
-						fill(&mut self.tree, &mut self.paths, &mut partial_state, &db, &mut path, 0);
 					}
 				}
 			}
-			debug!(target: LOG_TARGET, "Imported with ??? nodes");
+			debug!(target: LOG_TARGET, "Importing state from {} trie nodes", trie_nodes);
+			let mut partial_state = PrefixedMemoryDB::<HashingFor<B>>::default();
+			let new_nodes = fill(&mut self.tree, &mut partial_state, &db);
+			if new_nodes == 0 {
+				debug!(target: LOG_TARGET, "No new nodes received");
+				return ImportResult::BadResponse;
+			}
+			debug!(target: LOG_TARGET, "Imported with {} nodes", new_nodes);
 
-			self.metadata.imported_bytes += proof_size;
+			self.metadata.imported_bytes += proof_size as u64;
+			self.metadata.last_key = self.tree.fallback_request();
 			(self.tree.complete(), Some(partial_state))
 		} else {
 			(self.process_state_unverified(response), None)
@@ -445,10 +476,13 @@ where
 
 	/// Produce next state request.
 	fn next_request(&self) -> StateRequest {
+		let request_v2 = self.metadata.next_request();
+		if request_v2.no_proof {
+			return request_v2;
+		}
 		StateRequest {
-			block: self.target_hash().encode(),
-			start: vec![CLIENT_PROOF.to_vec(), self.tree.request().encode()],
-			no_proof: false,
+			client_proof: self.tree.request().encode(),
+			..request_v2
 		}
 	}
 

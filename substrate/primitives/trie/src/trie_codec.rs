@@ -23,6 +23,7 @@
 use crate::{CompactProof, HashDBT, KeySpacedDBMut, TrieConfiguration, TrieHash, EMPTY_PREFIX};
 use alloc::{boxed::Box, vec::Vec};
 use trie_db::{CError, Trie};
+use alloc::vec;
 
 /// Error for trie node decoding.
 #[derive(Debug)]
@@ -141,16 +142,18 @@ where
 	Ok(top_root)
 }
 
-pub fn decode_compact_raw<'a, L, DB, I>(
+pub fn decode_compact_raw<'a, L, DB>(
 	db: &mut DB,
-	encoded: I,
+	proof: &CompactProof,
 ) -> Result<TrieHash<L>, Error<TrieHash<L>, CError<L>>>
 where
 	L: TrieConfiguration,
 	DB: HashDBT<L::Hash, trie_db::DBValue> + hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
-	I: IntoIterator<Item = &'a [u8]>,
 {
-	let mut nodes_iter = encoded.into_iter();
+	if proof.encoded_nodes.len() == 2 && proof.encoded_nodes[0].is_empty() {
+		return Ok(db.insert(EMPTY_PREFIX, &proof.encoded_nodes[1]));
+	}
+	let mut nodes_iter = proof.iter_compact_encoded_nodes().into_iter();
 	let (top_root, _nb_used) = trie_db::decode_compact_from_iter::<L, _, _>(db, &mut nodes_iter)?;
 	Ok(top_root)
 }
@@ -222,11 +225,15 @@ where
 pub fn encode_compact_raw<L, DB>(
 	partial_db: &DB,
 	root: &TrieHash<L>,
+	root_is_value: bool,
 ) -> Result<CompactProof, Error<TrieHash<L>, CError<L>>>
 where
 	L: TrieConfiguration,
 	DB: HashDBT<L::Hash, trie_db::DBValue> + hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
 {
+	if root_is_value {
+		return Ok(CompactProof { encoded_nodes: vec![vec![], HashDBT::get(partial_db, root, EMPTY_PREFIX).ok_or(Error::IncompleteProof)?] });
+	}
 	let trie = crate::TrieDBBuilder::<L>::new(partial_db, root).build();
 	let compact_proof = trie_db::encode_compact::<L>(&trie)?;
 	Ok(CompactProof { encoded_nodes: compact_proof })

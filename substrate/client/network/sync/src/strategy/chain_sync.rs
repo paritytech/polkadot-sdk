@@ -43,6 +43,7 @@ use crate::{
 	types::{BadPeer, SyncState, SyncStatus},
 	LOG_TARGET,
 };
+use crate::state_request_handler::StateSyncProtocolNames;
 
 use futures::{channel::oneshot, FutureExt};
 use log::{debug, error, info, trace, warn};
@@ -327,7 +328,7 @@ pub struct ChainSync<B: BlockT, Client> {
 	/// Maximum blocks per request.
 	max_blocks_per_request: u32,
 	/// Protocol name used to send out state requests
-	state_request_protocol_name: ProtocolName,
+	state_request_protocol_name: StateSyncProtocolNames,
 	/// Total number of downloaded blocks.
 	downloaded_blocks: usize,
 	/// State sync in progress, if any.
@@ -589,7 +590,7 @@ where
 			return;
 		}
 
-		if protocol_name == self.state_request_protocol_name {
+		if protocol_name == self.state_request_protocol_name.v2 || protocol_name == self.state_request_protocol_name.v3 {
 			let Ok(response) = response.downcast::<Vec<u8>>() else {
 				warn!(target: LOG_TARGET, "Failed to downcast state response");
 				debug_assert!(false);
@@ -894,10 +895,12 @@ where
 
 			let (tx, rx) = oneshot::channel();
 
+			let (protocol, request, fallback_request) = self.state_request_protocol_name.encode_request(&request);
 			network_service.start_request(
 				peer_id,
-				self.state_request_protocol_name.clone(),
-				request.encode_to_vec(),
+				protocol,
+				request,
+				fallback_request,
 				tx,
 				IfDisconnected::ImmediateError,
 			);
@@ -940,7 +943,7 @@ where
 		client: Arc<Client>,
 		max_parallel_downloads: u32,
 		max_blocks_per_request: u32,
-		state_request_protocol_name: ProtocolName,
+		state_request_protocol_name: StateSyncProtocolNames,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
 		metrics_registry: Option<&Registry>,
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,

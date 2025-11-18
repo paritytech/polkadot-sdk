@@ -46,6 +46,7 @@ sp-trie = { workspace = true }
 thiserror = { workspace = true }
 tokio = { features = ["macros", "time"], workspace = true, default-features = true }
 tokio-stream = { workspace = true }
+trie-db = { workspace = true }
 
 [dev-dependencies]
 quickcheck = { workspace = true }

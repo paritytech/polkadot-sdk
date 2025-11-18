@@ -35,6 +35,7 @@ use sp_state_machine::{
 };
 use sp_trie::PrefixedMemoryDB;
 use hash_db::Prefix;
+use hash_db::HashDBRef;
 use std::{
 	collections::{HashMap, HashSet},
 	ptr,
@@ -777,8 +778,8 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		Ok(())
 	}
 
-	fn get_trie_node(&self, _prefix: Prefix, _hash: &Block::Hash) -> sp_blockchain::Result<Option<Vec<u8>>> {
-		todo!();
+	fn get_trie_node(&self, prefix: Prefix, hash: &Block::Hash) -> sp_blockchain::Result<Option<Vec<u8>>> {
+		Ok(self.state_db.read().get(hash, prefix))
 	}
 
 	fn pin_block(&self, hash: <Block as BlockT>::Hash) -> blockchain::Result<()> {
