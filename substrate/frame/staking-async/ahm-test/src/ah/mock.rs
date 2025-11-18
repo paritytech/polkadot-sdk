@@ -133,7 +133,8 @@ pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<Account
 	let active_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::active_era();
 
 	let mut session_iterations = 0;
-	while pallet_staking_async::session_rotation::Rotator::<Runtime>::planned_era() == planned_era {
+	// iterate until election starts
+	while pallet_staking_async::session_rotation::Rotator::<Runtime>::planned_era() == active_era {
 		session_iterations += 1;
 		if session_iterations > SessionsPerEra::get() {
 			panic!(
@@ -201,7 +202,7 @@ pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<Account
 					(
 						System::block_number(),
 						OutgoingMessages::ValidatorSet(ValidatorSetReport {
-							id: planned_era + 1,
+							id: active_era + 1,
 							leftover: false,
 							// arbitrary, feel free to change if test setup updates
 							new_validator_set: vec![3, 5, 6, 8],
@@ -219,7 +220,7 @@ pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<Account
 	// rc will not tell us that it has instantly activated a validator set.
 	let report = SessionReport {
 		end_index,
-		activation_timestamp: Some((1000, planned_era + 1)),
+		activation_timestamp: Some((1000, active_era + 1)),
 		leftover: false,
 		validator_points: Default::default(),
 	};
