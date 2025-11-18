@@ -92,6 +92,36 @@ struct FetchedCollation {
 	pub peer_id: PeerId,
 }
 
+impl FetchedCollation {
+	/// Performs a sanity check between advertised and fetched collations.
+	fn ensure_matches_advertisement(
+		&self,
+		advertised: &Advertisement,
+	) -> std::result::Result<(), SecondingError> {
+		let candidate_receipt = &self.candidate_receipt;
+
+		match advertised.prospective_candidate {
+			// This implies a check on the declared para if this was a v2 advertisement
+			Some(ProspectiveCandidate { candidate_hash, .. }) => {
+				if candidate_hash != candidate_receipt.hash() {
+					return Err(SecondingError::CandidateHashMismatch)
+				}
+			},
+			// Otherwise, do the explicit check for the para_id.
+			None =>
+				if advertised.para_id != candidate_receipt.descriptor.para_id() {
+					return Err(SecondingError::ParaIdMismatch)
+				},
+		}
+
+		if advertised.relay_parent != candidate_receipt.descriptor.relay_parent() {
+			return Err(SecondingError::RelayParentMismatch)
+		}
+
+		Ok(())
+	}
+}
+
 pub struct CollationManager {
 	// The backing implicit view, which is used to track the active leaves and their implicit
 	// ancestors.
@@ -462,9 +492,7 @@ impl CollationManager {
 			return CanSecond::No(None, reject_info)
 		};
 
-		let res = process_collation_fetch_result(res);
-
-		match res {
+		match process_collation_fetch_result(res) {
 			Ok(fetched_collation) => {
 				// It can't be a duplicate, because we check before initiating fetch. For the old
 				// protocol version, we anyway only fetch one per relay parent.
@@ -476,10 +504,7 @@ impl CollationManager {
 					Some(fetched_collation.candidate_receipt.descriptor.para_head());
 
 				// Some initial sanity checks on the fetched collation, based on the advertisement.
-				if let Err(err) = compare_fetched_collation_with_advertisement(
-					&advertisement,
-					&fetched_collation.candidate_receipt,
-				) {
+				if let Err(err) = fetched_collation.ensure_matches_advertisement(&advertisement) {
 					gum::warn!(
 						target: LOG_TARGET,
 						?advertisement,
@@ -999,28 +1024,6 @@ where
 
 		false
 	})
-}
-
-/// Performs a sanity check between advertised and fetched collations.
-fn compare_fetched_collation_with_advertisement(
-	advertised: &Advertisement,
-	fetched: &CandidateReceipt,
-) -> std::result::Result<(), SecondingError> {
-	// This implies a check on the declared para if this was a v2 advertisement
-	if let Some(ProspectiveCandidate { candidate_hash, .. }) = advertised.prospective_candidate {
-		if candidate_hash != fetched.hash() {
-			return Err(SecondingError::CandidateHashMismatch)
-		}
-	// Otherwise, do the explicit check for the paraid.
-	} else if advertised.para_id != fetched.descriptor.para_id() {
-		return Err(SecondingError::ParaIdMismatch)
-	}
-
-	if advertised.relay_parent != fetched.descriptor.relay_parent() {
-		return Err(SecondingError::RelayParentMismatch)
-	}
-
-	Ok(())
 }
 
 async fn fetch_pvd<Sender: CollatorProtocolSenderTrait>(
