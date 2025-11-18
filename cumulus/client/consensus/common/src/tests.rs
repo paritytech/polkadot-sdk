@@ -17,6 +17,7 @@
 
 use crate::*;
 
+use crate::parachain_consensus::run_parachain_consensus;
 use async_trait::async_trait;
 use codec::Encode;
 use cumulus_client_pov_recovery::RecoveryKind;
@@ -47,7 +48,6 @@ use std::{
 	sync::{Arc, Mutex},
 	time::Duration,
 };
-use crate::parachain_consensus::run_parachain_consensus;
 
 fn relay_block_num_from_hash(hash: &PHash) -> BlockNumber {
 	hash.to_low_u64_be() as u32
