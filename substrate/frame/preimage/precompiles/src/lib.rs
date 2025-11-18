@@ -84,20 +84,14 @@ where
 
 				let hash = T::Hashing::hash(&preimage).encode();
 
-				let result = pallet_preimage::Pallet::<T>::note_preimage(frame_origin, preimage);
-
-				match result {
-					Ok(post_info) =>
+				pallet_preimage::Pallet::<T>::note_preimage(frame_origin, preimage)
+					.inspect(|post_info| {
 						if post_info.pays_fee == frame_support::dispatch::Pays::No {
-							let actual_weight = Weight::zero();
-							env.adjust_gas(charged_amount, actual_weight);
-						},
-					Err(error) => {
-						revert(&error.error, "Preimage: notePreimage failed");
-					},
-				}
-
-				Ok(hash)
+							env.adjust_gas(charged_amount, Weight::zero());
+						}
+					})
+					.map(|_| hash)
+					.map_err(|error| revert(&error.error, "Preimage: notePreimage failed"))
 			},
 			IPreimageCalls::unnotePreimage(IPreimage::unnotePreimageCall { hash }) => {
 				let runtime_hash = T::Hash::decode(&mut &hash[..])
