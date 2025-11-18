@@ -914,6 +914,11 @@ pub fn find_pre_digest<B: BlockT>(header: &B::Header) -> Result<PreDigest, Error
 	pre_digest.ok_or_else(|| babe_err(Error::NoPreRuntimeDigest))
 }
 
+/// Check whether the given header contains a BABE epoch change digest.
+pub fn contains_epoch_change<B: BlockT>(header: &B::Header) -> bool {
+	find_next_epoch_digest::<B>(header).ok().flatten().is_some()
+}
+
 /// Extract the BABE epoch change digest from the given header, if it exists.
 pub fn find_next_epoch_digest<B: BlockT>(
 	header: &B::Header,
