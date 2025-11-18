@@ -696,7 +696,7 @@ fn session_report_burst() {
 				staking_async::Event::SessionRotated {
 					starting_session: 2,
 					active_era: 0,
-					planned_era: 0
+					planned_era: 1
 				},
 				..,
 				staking_async::Event::SessionRotated {
