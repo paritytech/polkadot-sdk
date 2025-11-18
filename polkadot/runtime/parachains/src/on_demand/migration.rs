@@ -20,11 +20,11 @@ use frame_support::{
 	migrations::VersionedMigration, storage_alias, traits::UncheckedOnRuntimeUpgrade,
 	weights::Weight,
 };
+use crate::on_demand::LOG_TARGET;
 
-/// Migration to V2 - Remove affinity system and simplify to single queue.
-mod v2 {
+// v1 storage definitions
+mod v1 {
 	use super::*;
-	use crate::on_demand::LOG_TARGET;
 	use alloc::collections::BinaryHeap;
 	use core::cmp::Ordering;
 	use polkadot_primitives::CoreIndex;
@@ -143,159 +143,159 @@ mod v2 {
 		BinaryHeap<OldEnqueuedOrder>,
 		OptionQuery,
 	>;
+}
 
-	/// Migration to V2
-	pub struct UncheckedMigrateToV2<T>(core::marker::PhantomData<T>);
+/// Migration to V2 - Remove affinity system and simplify to single queue.
+pub struct UncheckedMigrateToV2<T>(core::marker::PhantomData<T>);
 
-	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV2<T> {
-		fn on_runtime_upgrade() -> Weight {
-			let mut weight: Weight = Weight::zero();
+impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV2<T> {
+	fn on_runtime_upgrade() -> Weight {
+		let mut weight: Weight = Weight::zero();
 
-			let now = frame_system::Pallet::<T>::block_number();
-			let old_queue_status = v2::QueueStatus::<T>::take().unwrap_or_else(|| OldQueueStatus {
-				traffic: T::TrafficDefaultValue::get(),
-				..Default::default()
-			});
-			weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+		let now = frame_system::Pallet::<T>::block_number();
+		let old_queue_status = v1::QueueStatus::<T>::take().unwrap_or_else(|| OldQueueStatus {
+			traffic: T::TrafficDefaultValue::get(),
+			..Default::default()
+		});
+		weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
-			// Collect all orders from both free and affinity queues
-			let mut all_orders = alloc::vec::Vec::new();
+		// Collect all orders from both free and affinity queues
+		let mut all_orders = alloc::vec::Vec::new();
 
-			// Collect from free entries
-			let free_entries = v2::FreeEntries::<T>::take().unwrap_or_default();
-			weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-			for order in free_entries.into_iter() {
+		// Collect from free entries
+		let free_entries = v1::FreeEntries::<T>::take().unwrap_or_default();
+		weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+		for order in free_entries.into_iter() {
+			all_orders.push(order);
+		}
+
+		// Collect from all affinity entries using drain for efficiency (reads + removes in one
+		// op)
+		let mut affinity_count = 0u64;
+		for (_core_idx, affinity_heap) in v1::AffinityEntries::<T>::drain() {
+			affinity_count += 1;
+			for order in affinity_heap.into_iter() {
 				all_orders.push(order);
 			}
-
-			// Collect from all affinity entries using drain for efficiency (reads + removes in one
-			// op)
-			let mut affinity_count = 0u64;
-			for (_core_idx, affinity_heap) in v2::AffinityEntries::<T>::drain() {
-				affinity_count += 1;
-				for order in affinity_heap.into_iter() {
-					all_orders.push(order);
-				}
-			}
-			// drain() performs reads + writes in one operation
-			weight
-				.saturating_accrue(T::DbWeight::get().reads_writes(affinity_count, affinity_count));
-
-			// Sort by QueueIndex to preserve order (ascending)
-			all_orders.sort_by_key(|o| o.idx);
-
-			// Drop ParaIdAffinity storage
-			let affinity_count = v2::ParaIdAffinity::<T>::iter().count();
-			let _ = v2::ParaIdAffinity::<T>::clear(u32::MAX, None);
-			weight.saturating_accrue(
-				T::DbWeight::get().reads_writes(affinity_count as u64, affinity_count as u64),
-			);
-
-			// Build new OrderStatus
-			super::pallet::OrderStatus::<T>::mutate(|order_status| {
-				// Preserve the traffic value
-				order_status.traffic = old_queue_status.traffic;
-
-				// Add all orders to the new queue
-				for old_order in all_orders.iter() {
-					if let Err(para_id) = order_status.queue.try_push(now, old_order.para_id) {
-						log::warn!(
-							target: LOG_TARGET,
-							"Failed to migrate order for para_id {:?} - queue full",
-							para_id
-						);
-					}
-				}
-			});
-			weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-
-			log::info!(
-				target: LOG_TARGET,
-				"Migrated on demand assigner storage to v2: {} orders migrated, {} affinity entries removed",
-				all_orders.len(),
-				affinity_count
-			);
-
-			weight
 		}
+		// drain() performs reads + writes in one operation
+		weight
+			.saturating_accrue(T::DbWeight::get().reads_writes(affinity_count, affinity_count));
 
-		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
-			let old_queue_status = v2::QueueStatus::<T>::get();
-			let free_entries = v2::FreeEntries::<T>::get().unwrap_or_default();
-			let affinity_keys: alloc::vec::Vec<_> = v2::AffinityEntries::<T>::iter_keys().collect();
+		// Sort by QueueIndex to preserve order (ascending)
+		all_orders.sort_by_key(|o| o.idx);
 
-			let mut total_orders = free_entries.len();
-			for core_idx in affinity_keys.iter() {
-				total_orders += v2::AffinityEntries::<T>::get(core_idx).unwrap_or_default().len();
-			}
+		// Drop ParaIdAffinity storage
+		let affinity_count = v1::ParaIdAffinity::<T>::iter().count();
+		let _ = v1::ParaIdAffinity::<T>::clear(u32::MAX, None);
+		weight.saturating_accrue(
+			T::DbWeight::get().reads_writes(affinity_count as u64, affinity_count as u64),
+		);
 
-			let affinity_count = v2::ParaIdAffinity::<T>::iter().count();
+		// Build new OrderStatus
+		super::pallet::OrderStatus::<T>::mutate(|order_status| {
+			// Preserve the traffic value
+			order_status.traffic = old_queue_status.traffic;
 
-			log::info!(
-				target: LOG_TARGET,
-				"Before migration: {} total orders ({} free, {} in affinity queues), {} affinity mappings, traffic: {:?}",
-				total_orders,
-				free_entries.len(),
-				total_orders - free_entries.len(),
-				affinity_count,
-				old_queue_status.as_ref().map(|s| s.traffic)
-			);
-
-			Ok((total_orders as u32, affinity_count as u32, old_queue_status.map(|s| s.traffic))
-				.encode())
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-			log::info!(target: LOG_TARGET, "Running post_upgrade() for v2");
-
-			let (expected_orders, expected_affinity_count, expected_traffic): (
-				u32,
-				u32,
-				Option<FixedU128>,
-			) = Decode::decode(&mut &state[..]).map_err(|_| "Failed to decode pre_upgrade state")?;
-
-			// Verify old storage is cleaned up
-			ensure!(!v2::QueueStatus::<T>::exists(), "Old QueueStatus should be removed");
-			ensure!(!v2::FreeEntries::<T>::exists(), "FreeEntries should be removed");
-			ensure!(
-				v2::AffinityEntries::<T>::iter().count() == 0,
-				"AffinityEntries should be empty"
-			);
-			ensure!(v2::ParaIdAffinity::<T>::iter().count() == 0, "ParaIdAffinity should be empty");
-
-			// Verify new storage
-			let new_order_status = super::pallet::OrderStatus::<T>::get();
-
-			// Compare traffic values, handling the Option case
-			match expected_traffic {
-				Some(expected) => ensure!(
-					new_order_status.traffic == expected,
-					"Traffic value should be preserved"
-				),
-				None => {
-					// If there was no old QueueStatus, traffic should be the default
-					let default_traffic = T::TrafficDefaultValue::get();
-					ensure!(
-						new_order_status.traffic == default_traffic,
-						"Traffic value should be set to default when no old QueueStatus existed"
+			// Add all orders to the new queue
+			for old_order in all_orders.iter() {
+				if let Err(para_id) = order_status.queue.try_push(now, old_order.para_id) {
+					log::warn!(
+						target: LOG_TARGET,
+						"Failed to migrate order for para_id {:?} - queue full",
+						para_id
 					);
-				},
+				}
 			}
+		});
+		weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
-			let migrated_orders = new_order_status.queue.len() as u32;
-			log::info!(
-				target: LOG_TARGET,
-				"Successfully migrated {} orders (expected {}), removed {} affinity mappings, traffic preserved: {:?}",
-				migrated_orders,
-				expected_orders,
-				expected_affinity_count,
-				new_order_status.traffic
-			);
+		log::info!(
+			target: LOG_TARGET,
+			"Migrated on demand assigner storage to v2: {} orders migrated, {} affinity entries removed",
+			all_orders.len(),
+			affinity_count
+		);
 
-			Ok(())
+		weight
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+		let old_queue_status = v1::QueueStatus::<T>::get();
+		let free_entries = v1::FreeEntries::<T>::get().unwrap_or_default();
+		let affinity_keys: alloc::vec::Vec<_> = v1::AffinityEntries::<T>::iter_keys().collect();
+
+		let mut total_orders = free_entries.len();
+		for core_idx in affinity_keys.iter() {
+			total_orders += v1::AffinityEntries::<T>::get(core_idx).unwrap_or_default().len();
 		}
+
+		let affinity_count = v1::ParaIdAffinity::<T>::iter().count();
+
+		log::info!(
+			target: LOG_TARGET,
+			"Before migration: {} total orders ({} free, {} in affinity queues), {} affinity mappings, traffic: {:?}",
+			total_orders,
+			free_entries.len(),
+			total_orders - free_entries.len(),
+			affinity_count,
+			old_queue_status.as_ref().map(|s| s.traffic)
+		);
+
+		Ok((total_orders as u32, affinity_count as u32, old_queue_status.map(|s| s.traffic))
+			.encode())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		log::info!(target: LOG_TARGET, "Running post_upgrade() for v2");
+
+		let (expected_orders, expected_affinity_count, expected_traffic): (
+			u32,
+			u32,
+			Option<FixedU128>,
+		) = Decode::decode(&mut &state[..]).map_err(|_| "Failed to decode pre_upgrade state")?;
+
+		// Verify old storage is cleaned up
+		ensure!(!v1::QueueStatus::<T>::exists(), "Old QueueStatus should be removed");
+		ensure!(!v1::FreeEntries::<T>::exists(), "FreeEntries should be removed");
+		ensure!(
+			v1::AffinityEntries::<T>::iter().count() == 0,
+			"AffinityEntries should be empty"
+		);
+		ensure!(v1::ParaIdAffinity::<T>::iter().count() == 0, "ParaIdAffinity should be empty");
+
+		// Verify new storage
+		let new_order_status = super::pallet::OrderStatus::<T>::get();
+
+		// Compare traffic values, handling the Option case
+		match expected_traffic {
+			Some(expected) => ensure!(
+				new_order_status.traffic == expected,
+				"Traffic value should be preserved"
+			),
+			None => {
+				// If there was no old QueueStatus, traffic should be the default
+				let default_traffic = T::TrafficDefaultValue::get();
+				ensure!(
+					new_order_status.traffic == default_traffic,
+					"Traffic value should be set to default when no old QueueStatus existed"
+				);
+			},
+		}
+
+		let migrated_orders = new_order_status.queue.len() as u32;
+		log::info!(
+			target: LOG_TARGET,
+			"Successfully migrated {} orders (expected {}), removed {} affinity mappings, traffic preserved: {:?}",
+			migrated_orders,
+			expected_orders,
+			expected_affinity_count,
+			new_order_status.traffic
+		);
+
+		Ok(())
 	}
 }
 
