@@ -16646,6 +16646,7 @@ dependencies = [
  "pallet-parameters",
  "pallet-people",
  "pallet-preimage",
+ "pallet-preimage-precompiles",
  "pallet-proxy",
  "pallet-ranked-collective",
  "pallet-recovery",

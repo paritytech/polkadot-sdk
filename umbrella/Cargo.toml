@@ -127,6 +127,7 @@ std = [
 	"pallet-parameters?/std",
 	"pallet-people?/std",
 	"pallet-preimage?/std",
+	"pallet-preimage-precompiles?/std",
 	"pallet-proxy?/std",
 	"pallet-ranked-collective?/std",
 	"pallet-recovery?/std",
@@ -458,6 +459,7 @@ try-runtime = [
 	"pallet-parameters?/try-runtime",
 	"pallet-people?/try-runtime",
 	"pallet-preimage?/try-runtime",
+	"pallet-preimage-precompiles?/try-runtime",
 	"pallet-proxy?/try-runtime",
 	"pallet-ranked-collective?/try-runtime",
 	"pallet-recovery?/try-runtime",
@@ -677,6 +679,7 @@ runtime-full = [
 	"pallet-parameters",
 	"pallet-people",
 	"pallet-preimage",
+	"pallet-preimage-precompiles",
 	"pallet-proxy",
 	"pallet-ranked-collective",
 	"pallet-recovery",
@@ -1625,6 +1628,11 @@ path = "../substrate/frame/people"
 default-features = false
 optional = true
 path = "../substrate/frame/preimage"
+
+[dependencies.pallet-preimage-precompiles]
+default-features = false
+optional = true
+path = "../substrate/frame/preimage/precompiles"
 
 [dependencies.pallet-proxy]
 default-features = false
