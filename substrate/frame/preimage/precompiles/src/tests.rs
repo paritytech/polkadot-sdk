@@ -119,3 +119,72 @@ fn manager_note_preimage_works() {
 		assert!(call_and_check_success(BOB, encoded_call));
 	});
 }
+
+
+#[test]
+fn user_unnote_preimage_works() {
+	new_test_ext().execute_with(|| {
+		let preimage = vec![1u8];
+		let hash = hashed(&preimage);
+
+		let encoded_note_call = encode_note_preimage_call(preimage.clone());
+		assert!(call_and_check_success(ALICE, encoded_note_call.clone()));
+
+		let encoded_call = encode_unnote_preimage_call(hash.into());
+
+		// Not authorized error
+		assert!(call_and_expect_revert(CHARLIE, encoded_call.clone()));
+
+		// Unnoted error
+		let unnoted_hash : [u8;32] = hashed([2u8]).into();
+		let invalid_encoded_unnote_call = encode_unnote_preimage_call(unnoted_hash);
+		assert!(call_and_expect_revert(ALICE, invalid_encoded_unnote_call));
+
+
+		assert!(call_and_check_success(ALICE, encoded_call.clone()));
+
+		// Unnoted error
+		assert!(call_and_expect_revert(ALICE, encoded_call));
+
+
+		assert!(!Preimage::have_preimage(&hash));
+		assert_eq!(Preimage::get_preimage(&hash), None);
+	});
+}
+
+#[test]
+fn manager_unnote_preimage_works() {
+	new_test_ext().execute_with(|| {
+		let preimage = vec![1u8];
+		let hash = hashed(&preimage);
+
+		let encoded_note_call = encode_note_preimage_call(preimage.clone());
+		assert!(call_and_check_success(BOB, encoded_note_call.clone()));
+
+		let encoded_call = encode_unnote_preimage_call(hash.into());
+		assert!(call_and_check_success(BOB, encoded_call.clone()));
+
+		// Unnoted error
+		assert!(call_and_expect_revert(BOB, encoded_call));
+
+		assert!(!Preimage::have_preimage(&hash));
+		assert_eq!(Preimage::get_preimage(&hash), None);
+	});
+}
+
+#[test]
+fn manager_unnote_user_preimage_works() {
+	new_test_ext().execute_with(|| {
+		let preimage = vec![1u8];
+		let hash = hashed(&preimage);
+
+		let encoded_note_call = encode_note_preimage_call(preimage.clone());
+		assert!(call_and_check_success(ALICE, encoded_note_call.clone()));
+
+		let encoded_call = encode_unnote_preimage_call(hash.into());
+		assert!(call_and_check_success(BOB, encoded_call.clone()));
+
+		assert!(!Preimage::have_preimage(&hash));
+		assert_eq!(Preimage::get_preimage(&hash), None);
+	});
+}
