@@ -1824,6 +1824,20 @@ where
 	}
 }
 
+/// Trait for converting a local `AccountId` into a `Beneficiary`.
+///
+/// This trait is used instead of `From<AccountId>` to allow explicit handling of local account
+/// conversions, particularly for types like `VersionedLocatableAccount` where the conversion
+/// makes assumptions about the account being local.
+pub trait FromLocalAccount<AccountId> {
+	/// Convert a local account ID into a beneficiary.
+	///
+	/// # Warning
+	/// This assumes the account is on the local chain. Only use when you're certain the account
+	/// is local.
+	fn from_local_account(account_id: AccountId) -> Self;
+}
+
 /// Derives the funding `AccountId` from the `PalletId` and converts it into the
 /// bounty `Beneficiary`, used as the source of bounty funds.
 ///
@@ -1833,11 +1847,11 @@ impl<Id, T, I> TryConvert<T::AssetKind, T::Beneficiary> for PalletIdAsFundingSou
 where
 	Id: Get<PalletId>,
 	T: crate::Config<I>,
-	T::Beneficiary: From<T::AccountId>,
+	T::Beneficiary: FromLocalAccount<T::AccountId>,
 {
 	fn try_convert(_asset_kind: T::AssetKind) -> Result<T::Beneficiary, T::AssetKind> {
 		let account: T::AccountId = Id::get().into_account_truncating();
-		Ok(account.into())
+		Ok(T::Beneficiary::from_local_account(account))
 	}
 }
 
@@ -1851,13 +1865,13 @@ impl<Id, T, I> TryConvert<(BountyIndex, T::AssetKind), T::Beneficiary>
 where
 	Id: Get<PalletId>,
 	T: crate::Config<I>,
-	T::Beneficiary: From<T::AccountId>,
+	T::Beneficiary: FromLocalAccount<T::AccountId>,
 {
 	fn try_convert(
 		(parent_bounty_id, _asset_kind): (BountyIndex, T::AssetKind),
 	) -> Result<T::Beneficiary, (BountyIndex, T::AssetKind)> {
 		let account: T::AccountId = Id::get().into_sub_account_truncating(("bt", parent_bounty_id));
-		Ok(account.into())
+		Ok(T::Beneficiary::from_local_account(account))
 	}
 }
 
@@ -1871,7 +1885,7 @@ impl<Id, T, I> TryConvert<(BountyIndex, BountyIndex, T::AssetKind), T::Beneficia
 where
 	Id: Get<PalletId>,
 	T: crate::Config<I>,
-	T::Beneficiary: From<T::AccountId>,
+	T::Beneficiary: FromLocalAccount<T::AccountId>,
 {
 	fn try_convert(
 		(parent_bounty_id, child_bounty_id, _asset_kind): (BountyIndex, BountyIndex, T::AssetKind),
@@ -1880,6 +1894,6 @@ where
 		// parent and child is same.
 		let account: T::AccountId =
 			Id::get().into_sub_account_truncating(("cb", parent_bounty_id, child_bounty_id));
-		Ok(account.into())
+		Ok(T::Beneficiary::from_local_account(account))
 	}
 }

@@ -44,8 +44,19 @@ pub enum VersionedLocatableAccount {
 	V5 { location: xcm::v5::Location, account_id: xcm::v5::Location },
 }
 
-impl From<sp_runtime::AccountId32> for VersionedLocatableAccount {
-	fn from(account_id: sp_runtime::AccountId32) -> Self {
+// Implement FromLocalAccount trait for use with pallet_multi_asset_bounties
+impl pallet_multi_asset_bounties::FromLocalAccount<sp_runtime::AccountId32>
+	for VersionedLocatableAccount
+{
+	/// Create a `VersionedLocatableAccount` for a local account.
+	///
+	/// This assumes the account is on the local chain (`Location::here()`) and has no network
+	/// specification (`network: None`). Only use this when you're certain the account is local.
+	///
+	/// # Warning
+	/// This conversion fills in default values (location = "here", network = None) which may
+	/// be incorrect if the account is from another chain or network. 
+	fn from_local_account(account_id: sp_runtime::AccountId32) -> Self {
 		VersionedLocatableAccount::V5 {
 			location: Location::here(),
 			account_id: Location::new(
@@ -58,10 +69,6 @@ impl From<sp_runtime::AccountId32> for VersionedLocatableAccount {
 
 /// Pay on the local chain with `fungibles` implementation if the beneficiary and the asset are both
 /// local.
-///
-/// This type implements both [`Pay`] and [`PayWithSource`] traits:
-/// - [`Pay`]: Requires `A: TypedGet` and uses `A::get()` as the source account
-/// - [`PayWithSource`]: Works with any `A: Eq + Clone` and accepts the source as a parameter
 pub struct LocalPay<F, A, C>(core::marker::PhantomData<(F, A, C)>);
 impl<A, F, C> frame_support::traits::tokens::Pay for LocalPay<F, A, C>
 where
@@ -148,8 +155,7 @@ where
 	}
 }
 
-// Implement PayWithSource for LocalPay to avoid code duplication
-// Note: PayWithSource doesn't require A: TypedGet because the source is provided as a parameter
+// Implement PayWithSource for LocalPay 
 impl<A, F, C> PayWithSource for LocalPay<F, A, C>
 where
 	A: Eq + Clone,
