@@ -66,6 +66,12 @@ impl StorageCmd {
 		{
 			return Err(format!("Batch size is too large. This may cause problems with runtime memory allocation. Better set `--batch-size {}` or less.", MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION).into())
 		}
+		if self.params.estimation_batch_size > self.params.batch_size {
+			return Err(format!(
+				"estimation_batch_size ({}) must be 0 or <= batch_size ({})",
+				self.params.estimation_batch_size, self.params.batch_size
+			).into())
+		}
 
 		// Store the time that it took to write each value.
 		let mut record = BenchRecord::default();
@@ -276,6 +282,34 @@ impl StorageCmd {
 			self.create_trie_backend::<Block, H>(original_root, storage, shared_trie_cache);
 
 		let start = Instant::now();
+
+		// Call trigger_storage_root_size_estimation if enabled
+		if self.params.estimation_batch_size > 0 {
+			let triggers_per_batch = self.params.estimation_batch_size;
+			let trigger_interval = batch_size / triggers_per_batch;
+
+			for i in 0..triggers_per_batch {
+				let start_idx = i * trigger_interval;
+				let end_idx = if i == triggers_per_batch - 1 {
+					batch_size
+				} else {
+					(i + 1) * trigger_interval
+				};
+
+				let trigger_changes = &changes[start_idx..end_idx];
+				let trigger_delta = trigger_changes.iter().map(|(key, new_v)| (key.as_ref(), Some(new_v.as_ref())));
+
+				match child_info {
+					Some(info) => {
+						let _ = trie.trigger_child_storage_root_size_estimation(info, trigger_delta, version);
+					},
+					None => {
+						let _ = trie.trigger_storage_root_size_estimation(trigger_delta, version);
+					},
+				}
+			}
+		}
+
 		// Create a TX that will modify the Trie in the DB and
 		// calculate the root hash of the Trie after the modification.
 		let replace = changes
@@ -335,6 +369,7 @@ impl StorageCmd {
 			*root,
 			storage_proof,
 			(changes, maybe_child_info.cloned()),
+			self.params.estimation_batch_size as u32,
 		);
 
 		let mut durations_in_nanos = Vec::new();
