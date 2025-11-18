@@ -53,4 +53,5 @@ tempfile = { workspace = true }
 # This feature is used to export test code to other crates without putting it in the production build.
 test-utils = []
 jemalloc-allocator = []
+linux-jemalloc-auto = []
 x-shadow = ["sc-executor-wasmtime/x-shadow"]

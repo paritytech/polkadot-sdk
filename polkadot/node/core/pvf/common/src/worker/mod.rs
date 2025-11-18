@@ -780,10 +780,10 @@ pub mod thread {
 	/// Block the thread while it waits on the condvar or on a timeout. If the timeout is hit,
 	/// returns `None`.
 	#[cfg_attr(
-		not(all(
-			any(target_os = "linux",
-				feature = "jemalloc-allocator"
-			), not(feature = "x-shadow"))),
+		not(any(
+			feature = "jemalloc-allocator",
+			all(target_os = "linux", feature = "linux-jemalloc-auto", not(feature = "x-shadow")),
+		)),
 		allow(dead_code)
 	)]
 	pub fn wait_for_threads_with_timeout(cond: &Cond, dur: Duration) -> Option<WaitOutcome> {

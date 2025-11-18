@@ -23,10 +23,10 @@ mod memory_stats;
 const LOG_TARGET: &str = "parachain::pvf-prepare-worker";
 #[cfg(all(target_os = "linux", not(feature = "x-shadow")))]
 use crate::memory_stats::max_rss_stat::{extract_max_rss_stat, get_max_rss_thread};
-#[cfg(all(
-	any(target_os = "linux",
-		feature = "jemalloc-allocator"
-	), not(feature = "x-shadow")))]
+#[cfg(any(
+	feature = "jemalloc-allocator",
+	all(target_os = "linux", feature = "linux-jemalloc-auto", not(feature = "x-shadow")),
+))]
 use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_tracker_loop};
 use codec::{Decode, Encode};
 use nix::{
@@ -68,14 +68,17 @@ use std::{
 	time::Duration,
 };
 use tracking_allocator::TrackingAllocator;
-#[cfg(all(any(target_os = "linux", feature = "jemalloc-allocator"), not(feature = "x-shadow")))]
+#[cfg(any(
+	feature = "jemalloc-allocator",
+	all(target_os = "linux", feature = "linux-jemalloc-auto", not(feature = "x-shadow")),
+))]
 #[global_allocator]
 static ALLOC: TrackingAllocator<tikv_jemallocator::Jemalloc> =
 	TrackingAllocator(tikv_jemallocator::Jemalloc);
-#[cfg(not(all(
-	any(target_os = "linux",
-		feature = "jemalloc-allocator"
-	), not(feature = "x-shadow"))))]
+#[cfg(not(any(
+	feature = "jemalloc-allocator",
+	all(target_os = "linux", feature = "linux-jemalloc-auto", not(feature = "x-shadow")),
+)))]
 #[global_allocator]
 static ALLOC: TrackingAllocator<std::alloc::System> = TrackingAllocator(std::alloc::System);
 
@@ -230,22 +233,22 @@ pub fn worker_entrypoint(
 
 				let (pipe_read_fd, pipe_write_fd) = pipe2_cloexec()?;
 
-                #[cfg(not(feature = "x-shadow"))]
-                let usage_before = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
-                    Ok(usage) => usage,
-                    Err(errno) => {
-                        let result: PrepareWorkerResult =
-                            Err(error_from_errno("getrusage before", errno));
-                        send_result(&mut stream, result, worker_info)?;
-                        continue
-                    },
-                };
+				#[cfg(not(feature = "x-shadow"))]
+				let usage_before = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
+					Ok(usage) => usage,
+					Err(errno) => {
+						let result: PrepareWorkerResult =
+							Err(error_from_errno("getrusage before", errno));
+						send_result(&mut stream, result, worker_info)?;
+						continue;
+					}
+				};
 
-                #[cfg(feature = "x-shadow")]
-                // The getrusage system call is not supported under Shadow simulation.
-                // As a workaround, we return a zeroed structure. This is safe, but
-                // it makes CPU usage calculations meaningless.
-                let usage_before = unsafe { std::mem::zeroed() };
+				#[cfg(feature = "x-shadow")]
+				// The getrusage system call is not supported under Shadow simulation.
+				// As a workaround, we return a zeroed structure. This is safe, but
+				// it makes CPU usage calculations meaningless.
+				let usage_before = unsafe { std::mem::zeroed() };
 
 				let stream_fd = stream.as_raw_fd();
 
@@ -314,7 +317,7 @@ fn prepare_artifact(pvf: PvfPrepData) -> Result<PrepareOutcome, PrepareError> {
 		&maybe_compressed_code,
 		pvf.validation_code_bomb_limit() as usize,
 	)
-	.map_err(|e| PrepareError::CouldNotDecompressCodeBlob(e.to_string()))?;
+		.map_err(|e| PrepareError::CouldNotDecompressCodeBlob(e.to_string()))?;
 	let observed_wasm_code_len = raw_validation_code.len() as u32;
 
 	let blob = match prevalidate(&raw_validation_code) {
@@ -488,15 +491,15 @@ fn handle_child_process(
 	let condvar = thread::get_condvar();
 
 	// Run the memory tracker in a regular, non-worker thread.
-	#[cfg(all(any(
-		target_os = "linux",
-		feature = "jemalloc-allocator"
-	), not(feature = "x-shadow")))]
+	#[cfg(any(
+		feature = "jemalloc-allocator",
+		all(target_os = "linux", feature = "linux-jemalloc-auto", not(feature = "x-shadow")),
+	))]
 	let condvar_memory = Arc::clone(&condvar);
-	#[cfg(all(any(
-		target_os = "linux",
-		feature = "jemalloc-allocator"
-	), not(feature = "x-shadow")))]
+	#[cfg(any(
+		feature = "jemalloc-allocator",
+		all(target_os = "linux", feature = "linux-jemalloc-auto", not(feature = "x-shadow")),
+	))]
 	let memory_tracker_thread = std::thread::spawn(|| memory_tracker_loop(condvar_memory));
 
 	start_memory_tracking(
@@ -524,9 +527,9 @@ fn handle_child_process(
 		Arc::clone(&condvar),
 		WaitOutcome::TimedOut,
 	)
-	.unwrap_or_else(|err| {
-		send_child_response(&mut pipe_write, Err(PrepareError::IoErr(err.to_string())))
-	});
+		.unwrap_or_else(|err| {
+			send_child_response(&mut pipe_write, Err(PrepareError::IoErr(err.to_string())))
+		});
 
 	let prepare_thread = spawn_worker_thread(
 		"prepare worker",
@@ -557,9 +560,9 @@ fn handle_child_process(
 		Arc::clone(&condvar),
 		WaitOutcome::Finished,
 	)
-	.unwrap_or_else(|err| {
-		send_child_response(&mut pipe_write, Err(PrepareError::IoErr(err.to_string())))
-	});
+		.unwrap_or_else(|err| {
+			send_child_response(&mut pipe_write, Err(PrepareError::IoErr(err.to_string())))
+		});
 
 	let outcome = thread::wait_for_threads(condvar);
 
@@ -595,17 +598,21 @@ fn handle_child_process(
 					}
 
 					// Stop the memory stats worker and get its observed memory stats.
-					#[cfg(all(
-						any(target_os = "linux",
-							feature = "jemalloc-allocator"
-						), not(feature = "x-shadow")))]
+					#[cfg(any(
+						feature = "jemalloc-allocator",
+						all(target_os = "linux", feature = "linux-jemalloc-auto", not(
+							feature = "x-shadow"
+						)),
+					))]
 					let memory_tracker_stats = get_memory_tracker_loop_stats(memory_tracker_thread, process::id());
 
 					let memory_stats = MemoryStats {
-						#[cfg(all(
-							any(target_os = "linux",
-								feature = "jemalloc-allocator"
-							), not(feature = "x-shadow")))]
+						#[cfg(any(
+							feature = "jemalloc-allocator",
+							all(target_os = "linux", feature = "linux-jemalloc-auto", not(
+								feature = "x-shadow"
+							)),
+						))]
 						memory_tracker_stats,
 						#[cfg(all(target_os = "linux", not(feature = "x-shadow")))]
 						max_rss: extract_max_rss_stat(max_rss, process::id()),
@@ -620,9 +627,9 @@ fn handle_child_process(
 						observed_wasm_code_len,
 						memory_stats,
 					})
-				},
+				}
 			}
-		},
+		}
 
 		// If the CPU thread is not selected, we signal it to end, the join handle is
 		// dropped and the thread will finish in the background.
@@ -684,9 +691,9 @@ fn handle_parent_process(
 	let usage_after = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)
 		.map_err(|errno| error_from_errno("getrusage after", errno))?;
 	#[cfg(feature = "x-shadow")]
-    // The getrusage system call is not supported under Shadow simulation.
-    // As a workaround, we return a zeroed structure. This is safe, but
-    // it makes CPU usage calculations meaningless.
+	// The getrusage system call is not supported under Shadow simulation.
+	// As a workaround, we return a zeroed structure. This is safe, but
+	// it makes CPU usage calculations meaningless.
 	let usage_after = unsafe { std::mem::zeroed() };
 
 	// Using `getrusage` is needed to check whether child has timedout since we cannot rely on
@@ -704,7 +711,7 @@ fn handle_parent_process(
 			cpu_tv.as_millis(),
 			timeout.as_millis(),
 		);
-		return Err(PrepareError::TimedOut)
+		return Err(PrepareError::TimedOut);
 	}
 
 	match status {
@@ -721,7 +728,7 @@ fn handle_parent_process(
 						return Err(PrepareError::JobError(format!(
 							"unexpected exit status: {}",
 							exit_status
-						)))
+						)));
 					}
 
 					// Write the serialized artifact into a temp file.
@@ -740,7 +747,7 @@ fn handle_parent_process(
 					);
 					// Write to the temp file created by the host.
 					if let Err(err) = fs::write(temp_artifact_dest, &artifact) {
-						return Err(PrepareError::IoErr(err.to_string()))
+						return Err(PrepareError::IoErr(err.to_string()));
 					};
 
 					let checksum = compute_checksum(&artifact.as_ref());
@@ -752,9 +759,9 @@ fn handle_parent_process(
 							observed_wasm_code_len,
 						},
 					})
-				},
+				}
 			}
-		},
+		}
 		// The job was killed by the given signal.
 		//
 		// The job gets SIGSYS on seccomp violations, but this signal may have been sent for some

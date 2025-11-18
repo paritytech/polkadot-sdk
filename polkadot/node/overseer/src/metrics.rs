@@ -38,15 +38,15 @@ struct MetricsInner {
 	signals_sent: prometheus::GaugeVec<prometheus::U64>,
 	signals_received: prometheus::GaugeVec<prometheus::U64>,
 
-	#[cfg(all(any(
-		target_os = "linux",
-		feature = "jemalloc-allocator"
-	), not(feature = "x-shadow")))]
+	#[cfg(any(
+		feature = "jemalloc-allocator",
+		all(target_os = "linux", feature = "linux-jemalloc-auto", not(feature = "x-shadow")),
+	))]
 	memory_stats_resident: prometheus::Gauge<prometheus::U64>,
-	#[cfg(all(any(
-		target_os = "linux",
-		feature = "jemalloc-allocator"
-	), not(feature = "x-shadow")))]
+	#[cfg(any(
+		feature = "jemalloc-allocator",
+		all(target_os = "linux", feature = "linux-jemalloc-auto", not(feature = "x-shadow")),
+	))]
 	memory_stats_allocated: prometheus::Gauge<prometheus::U64>,
 }
 
@@ -72,10 +72,10 @@ impl Metrics {
 			metrics.messages_relayed_total.inc();
 		}
 	}
-	#[cfg(all(any(
-		target_os = "linux",
-		feature = "jemalloc-allocator"
-	), not(feature = "x-shadow")))]
+	#[cfg(any(
+		feature = "jemalloc-allocator",
+		all(target_os = "linux", feature = "linux-jemalloc-auto", not(feature = "x-shadow")),
+	))]
 	pub(crate) fn memory_stats_snapshot(
 		&self,
 		memory_stats: memory_stats::MemoryAllocationSnapshot,
@@ -266,10 +266,14 @@ impl MetricsTrait for Metrics {
 				)?,
 				registry,
 			)?,
-			#[cfg(all(
-				any(target_os = "linux",
-					feature = "jemalloc-allocator"
-				), not(feature = "x-shadow")))]
+			#[cfg(any(
+				feature = "jemalloc-allocator",
+				all(
+					target_os = "linux",
+					feature = "linux-jemalloc-auto",
+					not(feature = "x-shadow")
+				),
+			))]
 			memory_stats_allocated: prometheus::register(
 				prometheus::Gauge::<prometheus::U64>::new(
 					"polkadot_memory_allocated",
@@ -277,10 +281,14 @@ impl MetricsTrait for Metrics {
 				)?,
 				registry,
 			)?,
-			#[cfg(all(
-				any(target_os = "linux",
-					feature = "jemalloc-allocator"
-				), not(feature = "x-shadow")))]
+			#[cfg(any(
+				feature = "jemalloc-allocator",
+				all(
+					target_os = "linux",
+					feature = "linux-jemalloc-auto",
+					not(feature = "x-shadow")
+				),
+			))]
 			memory_stats_resident: prometheus::register(
 				prometheus::Gauge::<prometheus::U64>::new(
 					"polkadot_memory_resident",

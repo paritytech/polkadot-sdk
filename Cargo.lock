@@ -9283,7 +9283,7 @@ dependencies = [
 [[package]]
 name = "kvdb"
 version = "0.13.0"
-source = "git+https://github.com/xDimon/parity-common?branch=xDimon/shadow_simulation_support#99959ae2081169a0c487da464266f98ff78e15a8"
+source = "git+https://github.com/paritytech/parity-common#b9343bc15b0c2ef74971f342be0be1329c050c00"
 dependencies = [
  "smallvec",
 ]
@@ -9300,8 +9300,8 @@ dependencies = [
 
 [[package]]
 name = "kvdb-rocksdb"
-version = "0.20.1"
-source = "git+https://github.com/xDimon/parity-common?branch=xDimon/shadow_simulation_support#99959ae2081169a0c487da464266f98ff78e15a8"
+version = "0.20.2"
+source = "git+https://github.com/paritytech/parity-common#b9343bc15b0c2ef74971f342be0be1329c050c00"
 dependencies = [
  "kvdb",
  "num_cpus",
@@ -9851,6 +9851,7 @@ dependencies = [
  "cc",
  "libc",
  "libz-sys",
+ "tikv-jemalloc-sys",
 ]
 
 [[package]]

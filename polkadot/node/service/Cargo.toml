@@ -148,90 +148,92 @@ tempfile = { workspace = true }
 default = ["db", "full-node"]
 db = ["sc-service/rocksdb"]
 full-node = [
-	"kvdb-rocksdb",
-	"parity-db",
-	"polkadot-approval-distribution",
-	"polkadot-availability-bitfield-distribution",
-	"polkadot-availability-distribution",
-	"polkadot-availability-recovery",
-	"polkadot-collator-protocol",
-	"polkadot-dispute-distribution",
-	"polkadot-gossip-support",
-	"polkadot-network-bridge",
-	"polkadot-node-collation-generation",
-	"polkadot-node-core-approval-voting",
-	"polkadot-node-core-approval-voting-parallel",
-	"polkadot-node-core-av-store",
-	"polkadot-node-core-backing",
-	"polkadot-node-core-bitfield-signing",
-	"polkadot-node-core-candidate-validation",
-	"polkadot-node-core-chain-api",
-	"polkadot-node-core-chain-selection",
-	"polkadot-node-core-dispute-coordinator",
-	"polkadot-node-core-prospective-parachains",
-	"polkadot-node-core-provisioner",
-	"polkadot-node-core-pvf",
-	"polkadot-node-core-pvf-checker",
-	"polkadot-node-core-runtime-api",
-	"polkadot-statement-distribution",
+    "kvdb-rocksdb",
+    "parity-db",
+    "polkadot-approval-distribution",
+    "polkadot-availability-bitfield-distribution",
+    "polkadot-availability-distribution",
+    "polkadot-availability-recovery",
+    "polkadot-collator-protocol",
+    "polkadot-dispute-distribution",
+    "polkadot-gossip-support",
+    "polkadot-network-bridge",
+    "polkadot-node-collation-generation",
+    "polkadot-node-core-approval-voting",
+    "polkadot-node-core-approval-voting-parallel",
+    "polkadot-node-core-av-store",
+    "polkadot-node-core-backing",
+    "polkadot-node-core-bitfield-signing",
+    "polkadot-node-core-candidate-validation",
+    "polkadot-node-core-chain-api",
+    "polkadot-node-core-chain-selection",
+    "polkadot-node-core-dispute-coordinator",
+    "polkadot-node-core-prospective-parachains",
+    "polkadot-node-core-provisioner",
+    "polkadot-node-core-pvf",
+    "polkadot-node-core-pvf-checker",
+    "polkadot-node-core-runtime-api",
+    "polkadot-statement-distribution",
 ]
 
 # Configure the native runtimes to use.
 westend-native = [
-	"frame-metadata-hash-extension",
-	"westend-runtime",
-	"westend-runtime-constants",
+    "frame-metadata-hash-extension",
+    "westend-runtime",
+    "westend-runtime-constants",
 ]
 rococo-native = [
-	"frame-metadata-hash-extension",
-	"rococo-runtime",
-	"rococo-runtime-constants",
+    "frame-metadata-hash-extension",
+    "rococo-runtime",
+    "rococo-runtime-constants",
 ]
 
 # Generate the metadata hash needed for CheckMetadataHash
 # in the test runtimes.
 metadata-hash = [
-	"rococo-runtime?/metadata-hash",
-	"westend-runtime?/metadata-hash",
+    "rococo-runtime?/metadata-hash",
+    "westend-runtime?/metadata-hash",
 ]
 
 runtime-benchmarks = [
-	"frame-benchmarking-cli/runtime-benchmarks",
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks",
-	"polkadot-primitives/runtime-benchmarks",
-	"polkadot-runtime-parachains/runtime-benchmarks",
-	"polkadot-test-client/runtime-benchmarks",
-	"rococo-runtime?/runtime-benchmarks",
-	"sc-service/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-	"westend-runtime-constants?/runtime-benchmarks",
-	"westend-runtime?/runtime-benchmarks",
-	"xcm-runtime-apis/runtime-benchmarks",
-	"xcm/runtime-benchmarks",
+    "frame-benchmarking-cli/runtime-benchmarks",
+    "frame-benchmarking/runtime-benchmarks",
+    "frame-system/runtime-benchmarks",
+    "pallet-transaction-payment/runtime-benchmarks",
+    "polkadot-primitives/runtime-benchmarks",
+    "polkadot-runtime-parachains/runtime-benchmarks",
+    "polkadot-test-client/runtime-benchmarks",
+    "rococo-runtime?/runtime-benchmarks",
+    "sc-service/runtime-benchmarks",
+    "sp-runtime/runtime-benchmarks",
+    "westend-runtime-constants?/runtime-benchmarks",
+    "westend-runtime?/runtime-benchmarks",
+    "xcm-runtime-apis/runtime-benchmarks",
+    "xcm/runtime-benchmarks",
 ]
 try-runtime = [
-	"frame-system/try-runtime",
-	"pallet-transaction-payment/try-runtime",
-	"polkadot-runtime-parachains/try-runtime",
-	"rococo-runtime?/try-runtime",
-	"sp-runtime/try-runtime",
-	"westend-runtime?/try-runtime",
+    "frame-system/try-runtime",
+    "pallet-transaction-payment/try-runtime",
+    "polkadot-runtime-parachains/try-runtime",
+    "rococo-runtime?/try-runtime",
+    "sp-runtime/try-runtime",
+    "westend-runtime?/try-runtime",
 ]
 fast-runtime = [
-	"rococo-runtime?/fast-runtime",
-	"westend-runtime?/fast-runtime",
+    "rococo-runtime?/fast-runtime",
+    "westend-runtime?/fast-runtime",
 ]
 
 malus = ["full-node"]
 runtime-metrics = [
-	"polkadot-runtime-parachains/runtime-metrics",
-	"rococo-runtime?/runtime-metrics",
-	"westend-runtime?/runtime-metrics",
+    "polkadot-runtime-parachains/runtime-metrics",
+    "rococo-runtime?/runtime-metrics",
+    "westend-runtime?/runtime-metrics",
+]
+jemalloc-allocator = [
+    "kvdb-rocksdb/jemalloc",
 ]
 x-shadow = [
-	"kvdb-rocksdb?/x-shadow",
-	"polkadot-node-core-pvf/x-shadow",
-	"polkadot-overseer/x-shadow",
+    "polkadot-node-core-pvf/x-shadow",
+    "polkadot-overseer/x-shadow",
 ]

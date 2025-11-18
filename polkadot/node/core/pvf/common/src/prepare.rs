@@ -56,10 +56,10 @@ pub struct PrepareStats {
 #[derive(Clone, Debug, Default, Encode, Decode)]
 pub struct MemoryStats {
 	/// Memory stats from `tikv_jemalloc_ctl`, polling-based and not very precise.
-	#[cfg(all(any(
-		target_os = "linux",
-		feature = "jemalloc-allocator"
-	), not(feature = "x-shadow")))]
+	#[cfg(any(
+		feature = "jemalloc-allocator",
+		all(target_os = "linux", feature = "linux-jemalloc-auto", not(feature = "x-shadow")),
+	))]
 	pub memory_tracker_stats: Option<MemoryAllocationStats>,
 	/// `ru_maxrss` from `getrusage`. `None` if an error occurred.
 	#[cfg(all(target_os = "linux", not(feature = "x-shadow")))]
@@ -69,7 +69,10 @@ pub struct MemoryStats {
 }
 
 /// Statistics of collected memory metrics.
-#[cfg(all(any(target_os = "linux", feature = "jemalloc-allocator"), not(feature = "x-shadow")))]
+#[cfg(any(
+	feature = "jemalloc-allocator",
+	all(target_os = "linux", feature = "linux-jemalloc-auto", not(feature = "x-shadow")),
+))]
 #[derive(Clone, Debug, Default, Encode, Decode)]
 pub struct MemoryAllocationStats {
 	/// Total resident memory, in bytes.

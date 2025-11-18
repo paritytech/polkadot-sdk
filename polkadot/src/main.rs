@@ -20,9 +20,15 @@
 
 use color_eyre::eyre;
 
+#[cfg(all(feature = "jemalloc-allocator", feature = "x-shadow"))]
+compile_error!("The `jemalloc-allocator` and `x-shadow` features are mutually exclusive");
+
 /// Global allocator. Changing it to another allocator will require changing
 /// `memory_stats::MemoryAllocationTracker`.
-#[cfg(all(any(target_os = "linux", feature = "jemalloc-allocator"), not(feature = "x-shadow")))]
+#[cfg(any(
+	feature = "jemalloc-allocator",
+	all(target_os = "linux", feature = "linux-jemalloc-auto", not(feature = "x-shadow")),
+))]
 #[global_allocator]
 static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 

@@ -31,7 +31,10 @@
 /// usage at an interval.
 ///
 /// NOTE: Requires jemalloc enabled.
-#[cfg(all(any(target_os = "linux", feature = "jemalloc-allocator"), not(feature = "x-shadow")))]
+#[cfg(any(
+	feature = "jemalloc-allocator",
+	all(target_os = "linux", feature = "linux-jemalloc-auto", not(feature = "x-shadow")),
+))]
 pub mod memory_tracker {
 	use crate::LOG_TARGET;
 	use polkadot_node_core_pvf_common::{
