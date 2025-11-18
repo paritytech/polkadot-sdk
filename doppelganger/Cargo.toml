@@ -24,7 +24,7 @@ people-rococo-runtime = { workspace = true }
 people-westend-runtime = { workspace = true }
 polkadot-omni-node-lib = { features = ["rococo-native", "westend-native"], workspace = true }
 rococo-parachain-runtime = { workspace = true }
-yet-another-parachain-runtime = { workspace = true }
+#yet-another-parachain-runtime = { workspace = true }
 
 # Substrate
 sc-chain-spec = { workspace = true, default-features = true }
