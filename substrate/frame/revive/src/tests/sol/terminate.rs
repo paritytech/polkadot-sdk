@@ -23,7 +23,7 @@ use crate::{
 		test_utils::{get_balance, get_contract_checked},
 		Contracts, ExtBuilder, Test,
 	},
-	Code, Config, PristineCode,
+	Code, Config, PristineCode, H160,
 };
 use alloy_core::sol_types::{SolCall, SolConstructor, SolValue};
 use frame_support::traits::fungible::Mutate;
@@ -38,21 +38,33 @@ fn decode_error(output: &[u8]) -> String {
 	String::abi_decode(&output[4..]).unwrap()
 }
 
-#[test_case(FixtureType::Solc)]
-#[test_case(FixtureType::Resolc)]
-fn base_case(fixture_type: FixtureType) {
+const METHOD_PRECOMPILE: u8 = 0;
+const METHOD_DELEGATE_CALL: u8 = 1;
+const METHOD_SYSCALL: u8 = 2;
+
+#[test_case(FixtureType::Solc, METHOD_PRECOMPILE)]
+#[test_case(FixtureType::Solc, METHOD_SYSCALL)]
+#[test_case(FixtureType::Resolc, METHOD_PRECOMPILE)]
+#[test_case(FixtureType::Resolc, METHOD_SYSCALL)]
+fn base_case(fixture_type: FixtureType, method: u8) {
 	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
 			.constructor_data(
-				Terminate::constructorCall { skip: true, beneficiary: DJANGO_ADDR.0.into() }
-					.abi_encode(),
+				Terminate::constructorCall {
+					skip: true,
+					method,
+					beneficiary: DJANGO_ADDR.0.into(),
+				}
+				.abi_encode(),
 			)
 			.build_and_unwrap_contract();
 
 		let result = builder::bare_call(addr)
-			.data(Terminate::terminateCall { beneficiary: DJANGO_ADDR.0.into() }.abi_encode())
+			.data(
+				Terminate::terminateCall { method, beneficiary: DJANGO_ADDR.0.into() }.abi_encode(),
+			)
 			.build_and_unwrap_result();
 
 		assert_eq!(result.data, Vec::<u8>::new());
@@ -67,8 +79,12 @@ fn precompile_fails_in_constructor(fixture_type: FixtureType) {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let result = builder::bare_instantiate(Code::Upload(code))
 			.constructor_data(
-				Terminate::constructorCall { skip: false, beneficiary: DJANGO_ADDR.0.into() }
-					.abi_encode(),
+				Terminate::constructorCall {
+					skip: false,
+					method: METHOD_PRECOMPILE,
+					beneficiary: DJANGO_ADDR.0.into(),
+				}
+				.abi_encode(),
 			)
 			.build_and_unwrap_result();
 
@@ -82,20 +98,50 @@ fn precompile_fails_in_constructor(fixture_type: FixtureType) {
 
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
+fn syscall_passes_in_constructor(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let result = builder::bare_instantiate(Code::Upload(code))
+			.constructor_data(
+				Terminate::constructorCall {
+					skip: false,
+					method: METHOD_SYSCALL,
+					beneficiary: DJANGO_ADDR.0.into(),
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+
+		assert!(!result.result.did_revert());
+		assert_eq!(result.result.data, Vec::<u8>::new());
+	});
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
 fn precompile_fails_for_direct_delegate(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
 			.constructor_data(
-				Terminate::constructorCall { skip: true, beneficiary: DJANGO_ADDR.0.into() }
-					.abi_encode(),
+				Terminate::constructorCall {
+					skip: true,
+					method: METHOD_PRECOMPILE,
+					beneficiary: DJANGO_ADDR.0.into(),
+				}
+				.abi_encode(),
 			)
 			.build_and_unwrap_contract();
 
 		let result = builder::bare_call(addr)
 			.data(
-				Terminate::delegateTerminateCall { beneficiary: DJANGO_ADDR.0.into() }.abi_encode(),
+				Terminate::terminateCall {
+					method: METHOD_DELEGATE_CALL,
+					beneficiary: DJANGO_ADDR.0.into(),
+				}
+				.abi_encode(),
 			)
 			.build_and_unwrap_result();
 
@@ -115,8 +161,12 @@ fn precompile_fails_for_indirect_delegate(fixture_type: FixtureType) {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
 			.constructor_data(
-				Terminate::constructorCall { skip: true, beneficiary: DJANGO_ADDR.0.into() }
-					.abi_encode(),
+				Terminate::constructorCall {
+					skip: true,
+					method: METHOD_PRECOMPILE,
+					beneficiary: DJANGO_ADDR.0.into(),
+				}
+				.abi_encode(),
 			)
 			.build_and_unwrap_contract();
 
@@ -135,10 +185,10 @@ fn precompile_fails_for_indirect_delegate(fixture_type: FixtureType) {
 	});
 }
 
-#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
-#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
-#[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
-#[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
+#[test_case(FixtureType::Solc, FixtureType::Solc)]
+#[test_case(FixtureType::Solc, FixtureType::Resolc)]
+#[test_case(FixtureType::Resolc, FixtureType::Solc)]
+#[test_case(FixtureType::Resolc, FixtureType::Resolc)]
 fn terminate_shall_rollback_if_subsequent_frame_fails(
 	caller_type: FixtureType,
 	callee_type: FixtureType,
@@ -151,8 +201,12 @@ fn terminate_shall_rollback_if_subsequent_frame_fails(
 
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
 			.constructor_data(
-				Terminate::constructorCall { skip: true, beneficiary: DJANGO_ADDR.0.into() }
-					.abi_encode(),
+				Terminate::constructorCall {
+					skip: true,
+					method: METHOD_PRECOMPILE,
+					beneficiary: DJANGO_ADDR.0.into(),
+				}
+				.abi_encode(),
 			)
 			.build_and_unwrap_contract();
 		let account = <Test as Config>::AddressMapper::to_account_id(&addr);
@@ -170,6 +224,7 @@ fn terminate_shall_rollback_if_subsequent_frame_fails(
 			.data(
 				TerminateCaller::revertAfterTerminateCall {
 					terminate_addr: addr.0.into(),
+					method: METHOD_PRECOMPILE.into(),
 					beneficiary: DJANGO_ADDR.0.into(),
 				}
 				.abi_encode(),
@@ -197,11 +252,87 @@ fn terminate_shall_rollback_if_subsequent_frame_fails(
 	});
 }
 
-#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
-#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
-#[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
-#[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
+/// This test does the following in the same transaction:
+/// 1. deploy Terminate contract
+/// 2. terminate the Terminate contract
+/// 3. send funds to the Terminate contract
+/// The funds that were sent after termination shall be credited to the beneficiary.
+/// Deploying an EVM contract from a PVM contract (or vice versa) is not supported.
+#[test_case(FixtureType::Solc, METHOD_PRECOMPILE)]
+#[test_case(FixtureType::Solc, METHOD_SYSCALL)]
+#[test_case(FixtureType::Resolc, METHOD_PRECOMPILE)]
+#[test_case(FixtureType::Resolc, METHOD_SYSCALL)]
 fn sent_funds_after_terminate_shall_be_credited_to_beneficiary(
+	fixture_type: FixtureType,
+	method: u8,
+) {
+	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
+	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let min_balance = Contracts::min_balance();
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		if fixture_type == FixtureType::Resolc {
+			// Need to pre-upload code for PVM
+			let _ = builder::bare_instantiate(Code::Upload(code.clone()))
+				.constructor_data(
+					Terminate::constructorCall {
+						skip: true,
+						method: METHOD_SYSCALL,
+						beneficiary: DJANGO_ADDR.0.into(),
+					}
+					.abi_encode(),
+				)
+				.build_and_unwrap_contract();
+		}
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code))
+				.native_value(125)
+				.build_and_unwrap_contract();
+		let caller_account = <Test as Config>::AddressMapper::to_account_id(&caller_addr);
+
+		assert_eq!(
+			get_balance(&caller_account),
+			125 + min_balance,
+			"unexpected caller balance before terminate"
+		);
+
+		let result = builder::bare_call(caller_addr)
+			.data(
+				TerminateCaller::sendFundsAfterTerminateAndCreateCall {
+					value: alloy_core::primitives::U256::from(123_000_000u64),
+					method,
+					beneficiary: DJANGO_ADDR.0.into(),
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+
+		assert!(
+			!result.did_revert(),
+			"sendFundsAfterTerminateAndCreateCall reverted: {}",
+			decode_error(&result.data)
+		);
+		let addr = H160::from_slice(&result.data[12..]);
+		assert!(get_contract_checked(&addr).is_none(), "contract still exists after terminate");
+		assert_eq!(
+			get_balance(&DJANGO),
+			123 + min_balance,
+			"unexpected DJANGO balance after terminate"
+		);
+		let account = <Test as Config>::AddressMapper::to_account_id(&addr);
+		assert_eq!(get_balance(&account), 0, "ucontract has balance after terminate");
+	});
+}
+
+/// This test does *not* create and terminate the Terminate contract in the same transaction.
+/// Therefore, the SYSCALL terminate method does not work here.
+/// I.e. funds sent after terminate via SYSCALL will not be transferred to beneficiary.
+#[test_case(FixtureType::Solc, FixtureType::Solc)]
+#[test_case(FixtureType::Solc, FixtureType::Resolc)]
+#[test_case(FixtureType::Resolc, FixtureType::Solc)]
+#[test_case(FixtureType::Resolc, FixtureType::Resolc)]
+fn sent_funds_after_terminate_shall_be_credited_to_beneficiary_precompile(
 	caller_type: FixtureType,
 	callee_type: FixtureType,
 ) {
@@ -213,8 +344,12 @@ fn sent_funds_after_terminate_shall_be_credited_to_beneficiary(
 
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
 			.constructor_data(
-				Terminate::constructorCall { skip: true, beneficiary: DJANGO_ADDR.0.into() }
-					.abi_encode(),
+				Terminate::constructorCall {
+					skip: true,
+					method: METHOD_PRECOMPILE,
+					beneficiary: DJANGO_ADDR.0.into(),
+				}
+				.abi_encode(),
 			)
 			.build_and_unwrap_contract();
 		let account = <Test as Config>::AddressMapper::to_account_id(&addr);
@@ -239,6 +374,7 @@ fn sent_funds_after_terminate_shall_be_credited_to_beneficiary(
 				TerminateCaller::sendFundsAfterTerminateCall {
 					terminate_addr: addr.0.into(),
 					value: alloy_core::primitives::U256::from(123_000_000u64),
+					method: METHOD_PRECOMPILE,
 					beneficiary: DJANGO_ADDR.0.into(),
 				}
 				.abi_encode(),

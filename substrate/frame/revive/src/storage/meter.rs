@@ -412,7 +412,6 @@ where
 	/// This will signal to the meter to discard all charged and refunds incured by this
 	/// contract.
 	pub fn terminate(&mut self, contract: T::AccountId, refunded: BalanceOf<T>) {
-		log::error!("RVE: meter.rs terminate called for contract: {:?}", contract);
 		self.total_deposit = self.total_deposit.saturating_add(&Deposit::Refund(refunded));
 		self.charges.push(Charge { contract, state: ContractState::Terminated });
 	}

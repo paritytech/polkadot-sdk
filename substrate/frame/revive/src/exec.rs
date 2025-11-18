@@ -1604,8 +1604,6 @@ where
 	) -> Result<(), DispatchError> {
 		use frame_support::traits::fungible::InspectHold;
 
-		log::error!(target: LOG_TARGET, "RVE exec.rs do_terminate Terminating contract at account: {:?}, beneficiary: {:?}", contract_account, args.beneficiary);
-
 		let contract_address = T::AddressMapper::to_address(contract_account);
 
 		let mut delete_contract = |trie_id: &TrieId, code_hash: &H256| {
@@ -1625,12 +1623,6 @@ where
 			// we added this consumer manually when instantiating
 			System::<T>::dec_consumers(&contract_account);
 
-			log::error!(
-				"RVE exec.rs do_terminate origin: {:?}, ed: {:?}",
-				origin,
-				T::Currency::minimum_balance()
-			);
-
 			// ed needs to be send to the origin
 			Self::transfer(
 				origin,
@@ -1648,7 +1640,6 @@ where
 			let balance = <Contracts<T>>::convert_native_to_evm(<AccountInfo<T>>::total_balance(
 				contract_address.into(),
 			));
-			log::error!("RVE exec.rs do_terminate, balance: {:?}", balance);
 			Self::transfer(
 				origin,
 				contract_account,
@@ -1816,7 +1807,6 @@ where
 	}
 
 	fn terminate_if_same_tx(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
-		log::error!("RVE: terminate_if_same_tx called, beneficiary: {:?}", beneficiary);
 		let frame = top_frame_mut!(self);
 		let info = frame.contract_info();
 		let trie_id = info.trie_id.clone();
@@ -2317,7 +2307,6 @@ where
 	}
 
 	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError> {
-		log::error!("RVE: terminate_caller called, beneficiary: {:?}", beneficiary);
 		ensure!(self.top_frame().delegate.is_none(), Error::<T>::PrecompileDelegateDenied);
 		let parent = core::iter::once(&mut self.first_frame)
 			.chain(&mut self.frames)
@@ -2332,8 +2321,6 @@ where
 		let code_hash = info.code_hash;
 		let contract_address = T::AddressMapper::to_address(&parent.account_id);
 		let beneficiary = T::AddressMapper::to_account_id(beneficiary);
-
-		log::error!("RVE exec.rs terminate_caller, contract_address: {:?}, beneficiary: {:?}, transferred: {:?}", contract_address, beneficiary, <Contracts<T>>::evm_balance(&contract_address));
 
 		// balance transfer is immediate
 		Self::transfer(
