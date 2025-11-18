@@ -249,6 +249,8 @@ fn tx_extension_large_tx_enables_full_core_usage() {
 				..Default::default()
 			};
 
+			System::set_extrinsic_index(1);
+
 			assert_ok!(TxExtension::validate_and_prepare(
 				TxExtension::new(Default::default()),
 				SystemOrigin::Signed(0).into(),
@@ -260,7 +262,7 @@ fn tx_extension_large_tx_enables_full_core_usage() {
 
 			assert_matches!(
 				crate::BlockWeightMode::<Runtime>::get(),
-				Some(BlockWeightMode::PotentialFullCore { first_transaction_index: Some(0), .. })
+				Some(BlockWeightMode::PotentialFullCore { first_transaction_index: Some(1), .. })
 			);
 
 			let mut post_info =
@@ -356,6 +358,8 @@ fn tx_extension_large_tx_with_refund_goes_back_to_fractional() {
 		.execute_with(|| {
 			initialize_block_finished();
 
+			System::set_extrinsic_index(1);
+
 			// Create a transaction larger than target weight
 			let target_weight = MaximumBlockWeight::target_block_weight();
 			let large_weight = target_weight
@@ -378,7 +382,7 @@ fn tx_extension_large_tx_with_refund_goes_back_to_fractional() {
 
 			assert_matches!(
 				crate::BlockWeightMode::<Runtime>::get(),
-				Some(BlockWeightMode::PotentialFullCore { first_transaction_index: Some(0), .. })
+				Some(BlockWeightMode::PotentialFullCore { first_transaction_index: Some(1), .. })
 			);
 
 			let mut post_info = PostDispatchInfo {
@@ -526,7 +530,6 @@ fn tx_extension_large_tx_after_limit_is_rejected() {
 				Some(BlockWeightMode::fraction_of_core(None))
 			);
 			assert!(!has_use_full_core_digest());
-			assert_eq!(MaximumBlockWeight::get(), target_weight);
 		});
 }
 
@@ -789,7 +792,7 @@ fn executive_with_operational_only_applies_big_inherent() {
 				Default::default(),
 				Default::default(),
 				Default::default(),
-				Default::default(),
+				System::digest(),
 			));
 
 			let call =
@@ -824,10 +827,10 @@ fn block_weight_mode_from_previous_block_is_ignored_in_validate_block() {
 				Default::default(),
 				Default::default(),
 				Default::default(),
-				Default::default(),
+				System::digest(),
 			));
 
-			assert!(ExecutiveOnlyOperational::apply_extrinsic(xt).is_ok());
+			assert_ok!(ExecutiveOnlyOperational::apply_extrinsic(xt));
 
 			ExecutiveOnlyOperational::finalize_block();
 
@@ -871,7 +874,7 @@ fn ongoin_mbm_requests_full_core() {
 				Default::default(),
 				Default::default(),
 				Default::default(),
-				Default::default(),
+				System::digest(),
 			));
 
 			assert_eq!(
@@ -883,5 +886,44 @@ fn ongoin_mbm_requests_full_core() {
 
 			assert!(has_use_full_core_digest());
 			MbmOngoing::set(false);
+		});
+}
+
+#[test]
+fn ignores_previous_block_weight_in_on_initialize() {
+	TestExtBuilder::new()
+		.number_of_cores(2)
+		.first_block_in_core(true)
+		.build()
+		.execute_with(|| {
+			crate::BlockWeightMode::<RuntimeOnlyOperational>::put(
+				BlockWeightMode::fraction_of_core(None),
+			);
+
+			// Start a new block
+			System::set_block_number(1);
+
+			assert_eq!(MaximumBlockWeight::get(), FULL_CORE_WEIGHT);
+		});
+}
+
+#[test]
+fn full_core_weight_in_inherent_context() {
+	TestExtBuilder::new()
+		.number_of_cores(2)
+		.first_block_in_core(true)
+		.build()
+		.execute_with(|| {
+			Executive::initialize_block(&Header::new(
+				1,
+				Default::default(),
+				Default::default(),
+				Default::default(),
+				System::digest(),
+			));
+
+			assert!(!frame_system::Pallet::<RuntimeOnlyOperational>::inherents_applied());
+
+			assert_eq!(MaximumBlockWeight::get(), FULL_CORE_WEIGHT);
 		});
 }
