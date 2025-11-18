@@ -194,11 +194,11 @@ impl NetworkSpawner {
 			};
 
 			if let Some(block) = block.ok().filter(|block| block.number() == 1) {
-				tracing::info!(finalized, "[{node_name}] found first block: {:#?}", block.hash());
+				tracing::info!("[{node_name}] found first block: {:#?}", block.hash());
 				break;
 			}
 
-			tracing::info!(finalized, "[{node_name}] waiting for first block");
+			tracing::info!("[{node_name}] waiting for first block");
 		}
 		Ok(())
 	}
