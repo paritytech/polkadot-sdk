@@ -1248,10 +1248,10 @@ where
 		}
 
 		self.transient_storage.start_transaction();
+		let is_first_frame = self.frames.len() == 0;
 
 		let do_transaction = || -> ExecResult {
 			let caller = self.caller();
-			let is_first_frame = self.frames.len() == 0;
 			let bump_nonce = self.exec_config.bump_nonce;
 			let frame = top_frame_mut!(self);
 			let account_id = &frame.account_id.clone();
@@ -1435,12 +1435,13 @@ where
 			// `with_transactional` executed successfully, and we have the expected output.
 			Ok((success, output)) => {
 				if_tracing(|tracer| {
-					let gas_consumed = top_frame!(self)
-						.frame_meter
-						.eth_gas_consumed()
-						.as_positive()
-						.unwrap_or_default()
-						.into();
+					let frame_meter = &top_frame!(self).frame_meter;
+					let gas_consumed = if is_first_frame {
+						frame_meter.total_consumed_gas().into()
+					} else {
+						frame_meter.eth_gas_consumed().as_positive().unwrap_or_default().into()
+					};
+
 					match &output {
 						Ok(output) => tracer.exit_child_span(&output, gas_consumed),
 						Err(e) => tracer.exit_child_span_with_error(e.error.into(), gas_consumed),
@@ -1453,12 +1454,13 @@ where
 			// has changed.
 			Err(error) => {
 				if_tracing(|tracer| {
-					let gas_consumed = top_frame!(self)
-						.frame_meter
-						.eth_gas_consumed()
-						.as_positive()
-						.unwrap_or_default()
-						.into();
+					let frame_meter = &top_frame!(self).frame_meter;
+					let gas_consumed = if is_first_frame {
+						frame_meter.total_consumed_gas().into()
+					} else {
+						frame_meter.eth_gas_consumed().as_positive().unwrap_or_default().into()
+					};
+
 					tracer.exit_child_span_with_error(error.into(), gas_consumed);
 				});
 

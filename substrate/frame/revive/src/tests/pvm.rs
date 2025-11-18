@@ -4076,17 +4076,14 @@ fn call_tracing_works() {
 		];
 
 		// Verify that the first trace report the same weight reported by bare_call
-		// TODO: fix tracing ( https://github.com/paritytech/polkadot-sdk/issues/8362 )
-		/*
-		let mut tracer = CallTracer::new(false, |w| w);
+		let mut tracer = CallTracer::new(CallTracerConfig {with_logs: true, only_top_call: false});
 		let gas_used = trace(&mut tracer, || {
-			builder::bare_call(addr).data((3u32, addr_callee).encode()).build().weight_consumed
+			let a = builder::bare_call(addr).data((3u32, addr_callee).encode()).build();
+			a.gas_consumed
 		});
-		let trace = tracer.collect_trace().unwrap();
-		assert_eq!(&trace.gas_used, &gas_used);
-		*/
-
-
+		let gas_trace = tracer.collect_trace().unwrap();
+		assert_eq!(&gas_trace.gas_used, &gas_used.into());
+	
 		for config in tracer_configs {
 			let logs = if config.with_logs {
 				vec![

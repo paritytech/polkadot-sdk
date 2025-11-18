@@ -68,6 +68,8 @@ pub struct ContractResult<R, Balance> {
 	/// This can be higher than the final storage_deposit due to refunds
 	/// This is always a StorageDeposit::Charge(..)
 	pub max_storage_deposit: StorageDeposit<Balance>,
+	/// The amount of Ethereum gas that has been consumed during execution.
+	pub gas_consumed: Balance,
 	/// The execution result of the vm binary code.
 	pub result: Result<R, DispatchError>,
 }
@@ -79,6 +81,7 @@ impl<R: Default, B: Balance> Default for ContractResult<R, B> {
 			weight_required: Default::default(),
 			storage_deposit: Default::default(),
 			max_storage_deposit: Default::default(),
+			gas_consumed: Default::default(),
 			result: Ok(Default::default()),
 		}
 	}
@@ -263,6 +266,7 @@ impl<T, Balance> ContractResult<T, Balance> {
 			weight_required: self.weight_required,
 			storage_deposit: self.storage_deposit,
 			max_storage_deposit: self.max_storage_deposit,
+			gas_consumed: self.gas_consumed,
 			result: self.result.map(map_fn),
 		}
 	}

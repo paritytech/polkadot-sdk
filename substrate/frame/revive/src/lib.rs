@@ -1606,6 +1606,7 @@ impl<T: Config> Pallet<T> {
 			weight_consumed: transaction_meter.weight_consumed(),
 			weight_required: transaction_meter.weight_required(),
 			storage_deposit: transaction_meter.deposit_consumed(),
+			gas_consumed: transaction_meter.total_consumed_gas(),
 			max_storage_deposit: transaction_meter.deposit_required(),
 		}
 	}
@@ -1692,6 +1693,7 @@ impl<T: Config> Pallet<T> {
 			weight_consumed: transaction_meter.weight_consumed(),
 			weight_required: transaction_meter.weight_required(),
 			storage_deposit: transaction_meter.deposit_consumed(),
+			gas_consumed: transaction_meter.total_consumed_gas(),
 			max_storage_deposit: transaction_meter.deposit_required(),
 		}
 	}
