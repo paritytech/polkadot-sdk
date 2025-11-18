@@ -13,6 +13,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 use frame_support::{
 	derive_impl, ord_parameter_types, parameter_types,
 	traits::{fungible::HoldConsideration, Contains, Footprint},
@@ -22,6 +23,8 @@ use sp_runtime::{
 	traits::{Convert, IdentityLookup},
 	AccountId32, BuildStorage,
 };
+ use frame_support::sp_runtime::traits::Hash;
+use pallet_revive::H256;
 
 pub type AccountId = AccountId32;
 pub type Balance = u128;
@@ -29,6 +32,7 @@ type Block = frame_system::mocking::MockBlock<Test>;
 
 pub const ALICE: AccountId = AccountId::new([0u8; 32]);
 pub const BOB: AccountId = AccountId::new([1u8; 32]);
+pub const CHARLIE: AccountId = AccountId::new([2u8; 32]);
 
 use crate::PreimagePrecompile;
 
@@ -100,6 +104,10 @@ impl pallet_preimage::Config for Test {
 	type Currency = Balances;
 	type ManagerOrigin = EnsureSignedBy<Manager, AccountId>;
 	type Consideration = HoldConsideration<AccountId, Balances, PreimageHoldReason, ConvertDeposit>;
+}
+
+pub fn hashed(data: impl AsRef<[u8]>) -> H256 {
+	<Test as frame_system::Config>::Hashing::hash(data.as_ref())
 }
 
 /// Declares a new test externality, funds ALICE and BOB accounts.
