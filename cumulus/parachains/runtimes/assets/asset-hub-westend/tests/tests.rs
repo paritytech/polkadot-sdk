@@ -38,6 +38,7 @@ use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
 	ExtBuilder, GovernanceOrigin, SlotDurations,
 };
+use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
 use codec::{Decode, Encode};
 use frame_support::{
 	assert_err, assert_noop, assert_ok, parameter_types,
@@ -1071,14 +1072,22 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_pool_s
 	let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
 	let staking_pot = StakingPot::get();
 
-	let foreign_asset_id_location = xcm::v5::Location::new(
-		2,
-		[xcm::v5::Junction::GlobalConsensus(xcm::v5::NetworkId::ByGenesis(ROCOCO_GENESIS_HASH))],
-	);
+	let foreign_asset_id_location =
+		Location::new(2, [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH))]);
+	let reserve_location =
+		Location::new(2, [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)), Parachain(1000)]);
+	let foreign_asset_reserve_data =
+		ForeignAssetReserveData { reserve: reserve_location, teleportable: false };
 	let foreign_asset_id_minimum_balance = 1_000_000_000;
 	// sovereign account as foreign asset owner (can be whoever for this scenario)
 	let foreign_asset_owner = LocationToAccountId::convert_location(&Location::parent()).unwrap();
-	let foreign_asset_create_params =
+	let foreign_asset_create_params = (
+		foreign_asset_owner.clone(),
+		foreign_asset_id_location.clone(),
+		foreign_asset_reserve_data,
+		foreign_asset_id_minimum_balance,
+	);
+	let pool_params =
 		(foreign_asset_owner, foreign_asset_id_location.clone(), foreign_asset_id_minimum_balance);
 
 	asset_test_utils::test_cases_over_bridge::receive_reserve_asset_deposited_from_different_consensus_works::<
@@ -1092,11 +1101,11 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_pool_s
 			AccountId::from([73; 32]),
 			block_author_account.clone(),
 			// receiving ROCs
-			foreign_asset_create_params.clone(),
+			foreign_asset_create_params,
 			1000000000000,
 			|| {
 				// setup pool for paying fees to touch `SwapFirstAssetTrader`
-				asset_test_utils::test_cases::setup_pool_for_paying_fees_with_foreign_assets::<Runtime, RuntimeOrigin>(ExistentialDeposit::get(), foreign_asset_create_params);
+				asset_test_utils::test_cases::setup_pool_for_paying_fees_with_foreign_assets::<Runtime, RuntimeOrigin>(ExistentialDeposit::get(), pool_params);
 				// staking pot account for collecting local native fees from `BuyExecution`
 				let _ = Balances::force_set_balance(RuntimeOrigin::root(), StakingPot::get().into(), ExistentialDeposit::get());
 				// prepare bridge configuration
@@ -1142,14 +1151,22 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_suffic
 	let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
 	let staking_pot = StakingPot::get();
 
-	let foreign_asset_id_location = xcm::v5::Location::new(
-		2,
-		[xcm::v5::Junction::GlobalConsensus(xcm::v5::NetworkId::ByGenesis(ROCOCO_GENESIS_HASH))],
-	);
+	let foreign_asset_id_location =
+		Location::new(2, [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH))]);
+	let reserve_location =
+		Location::new(2, [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)), Parachain(1000)]);
+	let foreign_asset_reserve_data =
+		ForeignAssetReserveData { reserve: reserve_location, teleportable: false };
 	let foreign_asset_id_minimum_balance = 1_000_000_000;
 	// sovereign account as foreign asset owner (can be whoever for this scenario)
 	let foreign_asset_owner = LocationToAccountId::convert_location(&Location::parent()).unwrap();
-	let foreign_asset_create_params =
+	let foreign_asset_create_params = (
+		foreign_asset_owner.clone(),
+		foreign_asset_id_location.clone(),
+		foreign_asset_reserve_data,
+		foreign_asset_id_minimum_balance,
+	);
+	let pool_params =
 		(foreign_asset_owner, foreign_asset_id_location.clone(), foreign_asset_id_minimum_balance);
 
 	asset_test_utils::test_cases_over_bridge::receive_reserve_asset_deposited_from_different_consensus_works::<
@@ -1163,10 +1180,10 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_suffic
 		AccountId::from([73; 32]),
 		block_author_account.clone(),
 		// receiving ROCs
-		foreign_asset_create_params.clone(),
+		foreign_asset_create_params,
 		1000000000000,
 		|| {
-			asset_test_utils::test_cases::setup_pool_for_paying_fees_with_foreign_assets::<Runtime, RuntimeOrigin>(ExistentialDeposit::get(), foreign_asset_create_params);
+			asset_test_utils::test_cases::setup_pool_for_paying_fees_with_foreign_assets::<Runtime, RuntimeOrigin>(ExistentialDeposit::get(), pool_params);
 			bridging_to_asset_hub_rococo()
 		},
 		(

@@ -567,7 +567,15 @@ pub mod pallet {
 		///
 		/// This happens if the passed `gas` inside the ethereum transaction is too low.
 		TxFeeOverdraw = 0x35,
-
+		/// When calling an EVM constructor `data` has to be empty.
+		///
+		/// EVM constructors do not accept data. Their input data is part of the code blob itself.
+		EvmConstructorNonEmptyData = 0x36,
+		/// Tried to construct an EVM contract via code hash.
+		///
+		/// EVM contracts can only be instantiated via code upload as no initcode is
+		/// stored on-chain.
+		EvmConstructedFromHash = 0x37,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,
@@ -658,7 +666,8 @@ pub mod pallet {
 	///
 	/// The maximum number of elements stored is capped by the block hash count `BLOCK_HASH_COUNT`.
 	#[pallet::storage]
-	pub(crate) type BlockHash<T: Config> = StorageMap<_, Identity, U256, H256, ValueQuery>;
+	pub(crate) type BlockHash<T: Config> =
+		StorageMap<_, Identity, BlockNumberFor<T>, H256, ValueQuery>;
 
 	/// The details needed to reconstruct the receipt info offchain.
 	///
@@ -674,7 +683,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::unbounded]
 	pub(crate) type EthBlockBuilderIR<T: Config> =
-		StorageValue<_, EthereumBlockBuilderIR, ValueQuery>;
+		StorageValue<_, EthereumBlockBuilderIR<T>, ValueQuery>;
 
 	/// The first transaction and receipt of the ethereum block.
 	///
@@ -821,12 +830,9 @@ pub mod pallet {
 
 			// Build genesis block
 			block_storage::on_finalize_build_eth_block::<T>(
-				H160::zero(),
-				frame_system::Pallet::<T>::block_number().into(),
-				Pallet::<T>::evm_base_fee(),
-				Pallet::<T>::evm_block_gas_limit(),
-				// Eth uses timestamps in seconds
-				(T::Time::now() / 1000u32.into()).into(),
+				// Make sure to use the block number from storage instead of the hardcoded 0.
+				// This enables testing tools like anvil to customise the genesis block number.
+				frame_system::Pallet::<T>::block_number(),
 			);
 
 			// Set debug settings.
@@ -856,14 +862,7 @@ pub mod pallet {
 
 		fn on_finalize(block_number: BlockNumberFor<T>) {
 			// Build the ethereum block and place it in storage.
-			block_storage::on_finalize_build_eth_block::<T>(
-				Self::block_author(),
-				block_number.into(),
-				Self::evm_base_fee(),
-				Self::evm_block_gas_limit(),
-				// Eth uses timestamps in seconds
-				(T::Time::now() / 1000u32.into()).into(),
-			);
+			block_storage::on_finalize_build_eth_block::<T>(block_number);
 		}
 
 		fn integrity_test() {
@@ -1616,14 +1615,18 @@ impl<T: Config> Pallet<T> {
 				},
 				Code::Upload(code) =>
 					if T::AllowEVMBytecode::get() {
+						ensure!(data.is_empty(), <Error<T>>::EvmConstructorNonEmptyData);
 						let origin = T::UploadOrigin::ensure_origin(origin)?;
 						let executable = ContractBlob::from_evm_init_code(code, origin)?;
 						(executable, Default::default())
 					} else {
 						return Err(<Error<T>>::CodeRejected.into())
 					},
-				Code::Existing(code_hash) =>
-					(ContractBlob::from_storage(code_hash, &mut gas_meter)?, Default::default()),
+				Code::Existing(code_hash) => {
+					let executable = ContractBlob::from_storage(code_hash, &mut gas_meter)?;
+					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
+					(executable, Default::default())
+				},
 			};
 			let instantiate_origin = ExecOrigin::from_account_id(instantiate_account.clone());
 			let mut storage_meter = StorageMeter::new(storage_deposit_limit);
@@ -1925,6 +1928,7 @@ impl<T: Config> Pallet<T> {
 	/// The Ethereum block number is identical to the Substrate block number.
 	/// If the provided block number is outside of the pruning None is returned.
 	pub fn eth_block_hash_from_number(number: U256) -> Option<H256> {
+		let number = BlockNumberFor::<T>::try_from(number).ok()?;
 		let hash = <BlockHash<T>>::get(number);
 		if hash == H256::zero() {
 			None

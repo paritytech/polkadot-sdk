@@ -2828,7 +2828,18 @@ sp_api::impl_runtime_apis! {
 	impl frame_try_runtime::TryRuntime<Block> for Runtime {
 		fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {
 			log::info!("try-runtime::on_runtime_upgrade westend.");
-			let weight = Executive::try_runtime_upgrade(checks).unwrap();
+		  // TODO:: remove once https://github.com/paritytech/polkadot-sdk/issues/9442 is resolved.
+			let excluded_pallets = vec![
+				b"Staking".to_vec(),          // replaced by staking-async
+				b"NominationPools".to_vec(),  // moved to AH
+				b"FastUnstake".to_vec(),      // deprecated
+				b"DelegatedStaking".to_vec(), // moved to AH
+			];
+			let config = frame_executive::TryRuntimeUpgradeConfig::new(checks)
+				.with_try_state_select(frame_try_runtime::TryStateSelect::AllExcept(
+					excluded_pallets,
+				));
+			let weight = Executive::try_runtime_upgrade_with_config(config).unwrap();
 			(weight, BlockWeights::get().max_block)
 		}
 
@@ -2943,7 +2954,7 @@ sp_api::impl_runtime_apis! {
 				}
 
 				fn set_up_complex_asset_transfer(
-				) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
+				) -> Option<(Assets, AssetId, Location, Box<dyn FnOnce()>)> {
 					// Relay supports only native token, either reserve transfer it to non-system parachains,
 					// or teleport it to system parachain. Use the teleport case for benchmarking as it's
 					// slightly heavier.
