@@ -21,7 +21,7 @@
 // and patched as in:
 // https://github.com/paritytech/polkadot-sdk/pull/7220#issuecomment-2808830472
 
-use crate::zombienet::{NetworkSpawner, ScenarioBuilderSharedParams};
+use crate::zombienet::{BlockSubscriptionType, NetworkSpawner, ScenarioBuilderSharedParams};
 use cumulus_zombienet_sdk_helpers::create_assign_core_call;
 use serde_json::json;
 use txtesttool::{execution_log::ExecutionLog, scenario::ScenarioBuilder};
@@ -111,7 +111,10 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 	tracing::info!("2 more cores assigned to the parachain");
 
 	// Wait for the parachain collator to start block production.
-	spawner.wait_for_block_production("dave", false).await.unwrap();
+	spawner
+		.wait_for_block_production("dave", BlockSubscriptionType::Best)
+		.await
+		.unwrap();
 
 	// Create txs executor.
 	let ws = spawner.node_rpc_uri("dave").unwrap();
