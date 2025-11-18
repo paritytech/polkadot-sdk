@@ -219,6 +219,10 @@ fn validator_set_send_fail_retries() {
 		assert_eq!(CurrentEra::<T>::get(), Some(0));
 		assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 0);
 		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
+		// flush old events.
+		let _ = staking_events_since_last_call();
+		// we do this to ensure rc client does not export validator set immediately.
+		ensure_last_era_session_index_initialised();
 
 		// first session comes in.
 		let session_report = rc_client::SessionReport {
@@ -233,54 +237,10 @@ fn validator_set_send_fail_retries() {
 			session_report.clone(),
 		));
 
-		// flush some events.
-		let _ = staking_events_since_last_call();
-
-		// roll two more sessions...
-		for i in 1..3 {
-			// roll some random number of blocks.
-			roll_many(10);
-
-			// send the session report.
-			assert_ok!(rc_client::Pallet::<T>::relay_session_report(
-				RuntimeOrigin::root(),
-				rc_client::SessionReport {
-					end_index: i,
-					validator_points: vec![(1, 10)],
-					activation_timestamp: None,
-					leftover: false,
-				}
-			));
-
-			let era_points = staking_async::ErasRewardPoints::<T>::get(&0);
-			assert_eq!(era_points.total, 360 + i * 10);
-			assert_eq!(era_points.individual.get(&1), Some(&(10 + i * 10)));
-
-			assert_eq!(
-				staking_events_since_last_call(),
-				vec![StakingEvent::SessionRotated {
-					starting_session: i + 1,
-					active_era: 0,
-					planned_era: 0
-				}]
-			);
-		}
-
-		// Next session we will begin election.
-		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
-			RuntimeOrigin::root(),
-			rc_client::SessionReport {
-				end_index: 3,
-				validator_points: vec![(1, 10)],
-				activation_timestamp: None,
-				leftover: false,
-			}
-		));
-
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![StakingEvent::SessionRotated {
-				starting_session: 4,
+				starting_session: 1,
 				active_era: 0,
 				// planned era 1 indicates election start signal is sent.
 				planned_era: 1
@@ -323,13 +283,6 @@ fn validator_set_send_fail_retries() {
 
 		// no staking event while election ongoing.
 		assert_eq!(staking_events_since_last_call(), vec![]);
-		// no xcm message sent yet.
-		assert_eq!(LocalQueue::get().unwrap(), vec![]);
-
-		// bad condition -- validator set cannot be sent.
-		// assume the next validator set cannot be sent.
-		NextRelayDeliveryFails::set(true);
-		let _ = rc_client_events_since_last_call();
 
 		roll_many(3);
 		assert_eq!(
@@ -349,10 +302,63 @@ fn validator_set_send_fail_retries() {
 			]
 		);
 
-		// but..
+		// assert validator set queued in rc client pallet
+		assert!(OutgoingValidatorSet::<T>::exists());
+
+		// roll until session 3
+		for i in 1..=3 {
+			// roll some random number of blocks.
+			roll_many(10);
+
+			// send the session report.
+			assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+				RuntimeOrigin::root(),
+				rc_client::SessionReport {
+					end_index: i,
+					validator_points: vec![(1, 10)],
+					activation_timestamp: None,
+					leftover: false,
+				}
+			));
+
+			let era_points = staking_async::ErasRewardPoints::<T>::get(&0);
+			assert_eq!(era_points.total, 360 + i * 10);
+			assert_eq!(era_points.individual.get(&1), Some(&(10 + i * 10)));
+
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![StakingEvent::SessionRotated {
+					starting_session: i + 1,
+					active_era: 0,
+					planned_era: 1
+				}]
+			);
+		}
+
+		// no xcm message sent yet.
+		assert_eq!(LocalQueue::get().unwrap(), vec![]);
+
+		// Next session we will try to export the validator set, but we test the bad condition.
+		// -- assume the next validator set cannot be sent.
+		NextRelayDeliveryFails::set(true);
+		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+			RuntimeOrigin::root(),
+			rc_client::SessionReport {
+				end_index: 4,
+				validator_points: vec![(1, 10)],
+				activation_timestamp: None,
+				leftover: false,
+			}
+		));
 
 		// nothing is queued
 		assert!(LocalQueue::get().unwrap().is_empty());
+
+		// clear rc client events
+		let _ = rc_client_events_since_last_call();
+
+		// next block should try to export validator set but fail
+		roll_next();
 
 		// rc-client has an event
 		assert_eq!(
@@ -369,7 +375,7 @@ fn validator_set_send_fail_retries() {
 			LocalQueue::get().unwrap(),
 			vec![(
 				// this is the block number at which the message was sent.
-				44,
+				System::block_number(),
 				OutgoingMessages::ValidatorSet(ValidatorSetReport {
 					new_validator_set: vec![3, 5, 6, 8],
 					id: 1,
