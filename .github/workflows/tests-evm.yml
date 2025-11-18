@@ -7,6 +7,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
+  workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -84,7 +85,9 @@ jobs:
       # certain cases where the report is too long to post as a Github comment.
       # This happens if the all of the tests are failing and therefore the
       # report exceeds the maximum allowed length of github comments
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+      - name: Post the Report as a Comment
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        if: ${{ github.event_name == 'pull_request' }}
         with:
           name: report-${{ matrix.platform }}.md
           path: report.md
