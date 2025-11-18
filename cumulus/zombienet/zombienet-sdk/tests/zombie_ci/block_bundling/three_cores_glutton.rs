@@ -17,9 +17,7 @@
 
 use anyhow::anyhow;
 
-use cumulus_zombienet_sdk_helpers::{
-	assert_finality_lag, assert_para_throughput, create_assign_core_call,
-};
+use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput, assign_cores};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_sdk::{
@@ -56,16 +54,7 @@ async fn block_bundling_three_cores_glutton() -> Result<(), anyhow::Error> {
 	let alice = dev::alice();
 
 	// Assign cores 0 and 1 to start with 3 cores total (core 2 is assigned by Zombienet)
-	let assign_cores_call = create_assign_core_call(&[(0, PARA_ID), (1, PARA_ID)]);
-
-	relay_client
-		.tx()
-		.sign_and_submit_then_watch_default(&assign_cores_call, &alice)
-		.await
-		.inspect(|_| log::info!("Tx send, waiting for finalization"))?
-		.wait_for_finalized_success()
-		.await?;
-	log::info!("3 cores total assigned to the parachain");
+	assign_cores(&relay_node, PARA_ID, vec![0, 1]).await;
 
 	// Wait for the parachain to produce 72 blocks with 3 cores and glutton active
 	// With 3 cores, we expect roughly 3x throughput compared to single core
@@ -100,7 +89,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					"configuration": {
 						"config": {
 							"scheduler_params": {
-								"num_cores": 3,
+								"num_cores": 2,
 								"max_validators_per_core": 1
 							}
 						}
@@ -117,11 +106,11 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_args(vec![
 					("--authoring").into(),
 					("slot-based").into(),
-					("-lparachain=debug,aura=trace").into(),
+					("-lparachain=debug,aura=trace,runtime=trace").into(),
 				])
 				.with_genesis_overrides(json!({
 					"glutton": {
-						"compute": "800000000", // 80% ref time consumption
+						"compute": "200000000", // 20% ref time consumption
 						"storage": "0", // No storage consumption
 						"trashDataCount": 5000, // Initialize with some trash data
 						"blockLength": "0" // No block length consumption
