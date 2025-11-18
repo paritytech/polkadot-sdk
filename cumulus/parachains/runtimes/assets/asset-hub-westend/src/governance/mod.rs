@@ -123,6 +123,15 @@ parameter_types! {
 }
 
 pub type TreasurySpender = EitherOf<EnsureRootWithSuccess<AccountId, MaxBalance>, Spender>;
+pub type TreasuryBalanceConverter = UnityOrOuterConversion<
+	ContainsParts<
+		FromContains<
+			xcm_builder::IsChildSystemParachain<ParaId>,
+			xcm_builder::IsParentsOnly<ConstU8<1>>,
+		>,
+	>,
+	AssetRate,
+>;
 
 impl pallet_treasury::Config for Runtime {
 	type PalletId = TreasuryPalletId;
@@ -140,15 +149,7 @@ impl pallet_treasury::Config for Runtime {
 	type Beneficiary = VersionedLocatableAccount;
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
 	type Paymaster = LocalPay<NativeAndAllAssets, TreasuryAccount, xcm_config::LocationToAccountId>;
-	type BalanceConverter = UnityOrOuterConversion<
-		ContainsParts<
-			FromContains<
-				xcm_builder::IsChildSystemParachain<ParaId>,
-				xcm_builder::IsParentsOnly<ConstU8<1>>,
-			>,
-		>,
-		AssetRate,
-	>;
+	type BalanceConverter = TreasuryBalanceConverter;
 	type PayoutPeriod = PayoutSpendPeriod;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -198,16 +199,8 @@ impl pallet_multi_asset_bounties::Config for Runtime {
 	type ChildBountySource =
 		pallet_multi_asset_bounties::ChildBountySourceFromPalletId<TreasuryPalletId, Runtime>;
 	type Paymaster =
-		LocalPayWithSource<NativeAndAllAssets, AccountId, xcm_config::LocationToAccountId>;
-	type BalanceConverter = UnityOrOuterConversion<
-		ContainsParts<
-			FromContains<
-				xcm_builder::IsChildSystemParachain<ParaId>,
-				xcm_builder::IsParentsOnly<ConstU8<1>>,
-			>,
-		>,
-		AssetRate,
-	>;
+		LocalPay<NativeAndAllAssets, AccountId, xcm_config::LocationToAccountId>;
+	type BalanceConverter = TreasuryBalanceConverter;
 	type Preimages = Preimage;
 	type Consideration = HoldConsideration<
 		AccountId,
