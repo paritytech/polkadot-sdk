@@ -843,6 +843,33 @@ pub async fn runtime_upgrade(
 		.await
 }
 
+/// Assigns the given `cores` to the given `para_id`.
+///
+/// Zombienet by default adds extra core for each registered parachain additionally to the one
+/// requested by `num_cores`. It then assigns the parachains to the extra cores allocated at the
+/// end. So, the passed core indices should be counted from zero.
+///
+/// # Example
+///
+/// Genesis patch:
+/// ```json
+/// "configuration": {
+/// 		"config": {
+/// 			"scheduler_params": {
+/// 				"num_cores": 2,
+/// 			}
+/// 		}
+/// 	}
+/// ```
+///
+/// Runs the relay chain with `2` cores and we also add two parachains.
+/// To assign these extra `2` cores, the call would look like this:
+///
+/// ```rust
+/// assign_core(&node, PARA_ID, vec![0, 1])
+/// ```
+///
+/// The cores `2` and `3` are assigned to the parachains by Zombienet.
 pub async fn assign_cores(
 	node: &NetworkNode,
 	para_id: u32,

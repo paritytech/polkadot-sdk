@@ -36,7 +36,7 @@ use zombienet_sdk::{
 
 const PARA_ID: u32 = 2400;
 
-/// A test that ensures that PoV bundling works.
+/// A test that ensures that `PoV` bundling works.
 ///
 /// Initially, one core is assigned. We expect the parachain to produce 12 block per relay core.
 /// As we increase the number of cores via `assign_core`, we expect the blocks to spread over the
@@ -66,44 +66,24 @@ async fn block_bundling_basic() -> Result<(), anyhow::Error> {
 	// 6 relay chain blocks
 	assert_finality_lag(&para_client, 72).await?;
 
-	let assign_cores_call = create_assign_core_call(&[(0, PARA_ID), (1, PARA_ID)]);
-
-	relay_client
-		.tx()
-		.sign_and_submit_then_watch_default(&assign_cores_call, &dev::alice())
-		.await
-		.inspect(|_| log::info!("Tx send, waiting for finalization"))?
-		.wait_for_finalized_success()
-		.await?;
-	log::info!("2 more cores assigned to the parachain");
-
-	let res = submit_extrinsic_and_wait_for_finalization_success_with_timeout(
-		&relay_client,
-		&assign_cores_call,
-		&dev::alice(),
-		60u64,
-	)
-	.await;
-	assert!(res.is_ok(), "Extrinsic failed to finalize: {:?}", res.unwrap_err());
-	log::info!("2 more cores assigned to each parachain");
-	assign_cores(relay_node, PARA_ID, vec![2, 3]).await?;
+	assign_cores(relay_node, PARA_ID, vec![0, 1]).await?;
 
 	assert_para_throughput(
 		&relay_client,
 		6,
 		[(ParaId::from(PARA_ID), 12..19)],
-		[(ParaId::from(PARA_ID), (para_client.clone(), 48..73))],
+		[(ParaId::from(PARA_ID), (para_client.clone(), 44..73))],
 	)
 	.await?;
 	assert_finality_lag(&para_client, 72).await?;
 
-	assign_cores(relay_node, PARA_ID, vec![4, 5, 6]).await?;
+	assign_cores(relay_node, PARA_ID, vec![2, 3, 4]).await?;
 
 	assert_para_throughput(
 		&relay_client,
 		6,
 		[(ParaId::from(PARA_ID), 24..37)],
-		[(ParaId::from(PARA_ID), (para_client.clone(), 48..73))],
+		[(ParaId::from(PARA_ID), (para_client.clone(), 44..73))],
 	)
 	.await?;
 
