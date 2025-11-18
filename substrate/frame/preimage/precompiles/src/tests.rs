@@ -19,14 +19,12 @@ use crate::{
 	mock::*,
 	IPreimage::{self},
 };
- use frame_support::{assert_ok, assert_noop};
-  use frame_support::traits::PreimageProvider;
-  use frame_support::traits::fungible::InspectHold;
+use frame_support::{
+	assert_noop, assert_ok,
+	traits::{fungible::InspectHold, PreimageProvider},
+};
 use pallet_revive::{
-	precompiles::alloy::{
-		hex,
-		sol_types::SolInterface,
-	},
+	precompiles::alloy::{hex, sol_types::SolInterface},
 	ExecConfig, ExecReturnValue, Weight, H160, U256,
 };
 
@@ -52,31 +50,29 @@ fn call_precompile(
 }
 
 fn call_and_check_success(from: AccountId, encoded_call: Vec<u8>) -> bool {
-    let return_value = match call_precompile(from, encoded_call) {
-        Ok(value) => value,
-        Err(err) => panic!("PreimagePrecompile call failed with error: {err:?}"),
-    };
-    !return_value.did_revert()
+	let return_value = match call_precompile(from, encoded_call) {
+		Ok(value) => value,
+		Err(err) => panic!("PreimagePrecompile call failed with error: {err:?}"),
+	};
+	!return_value.did_revert()
 }
 
 fn call_and_expect_revert(from: AccountId, encoded_call: Vec<u8>) -> bool {
-    let result = call_precompile(from, encoded_call);
-    match result {
-        Ok(value) => value.did_revert(),
-        Err(_) => true,
-    }
+	let result = call_precompile(from, encoded_call);
+	match result {
+		Ok(value) => value.did_revert(),
+		Err(_) => true,
+	}
 }
 
 fn encode_note_preimage_call(preimage: Vec<u8>) -> Vec<u8> {
-	let call_params = IPreimage::notePreimageCall {
-		preImage: preimage.into(),
-	};
+	let call_params = IPreimage::notePreimageCall { preImage: preimage.into() };
 	let call = IPreimage::IPreimageCalls::notePreimage(call_params);
 	call.abi_encode()
 }
 
-fn encode_unnote_preimage_call(hash: [u8;32]) -> Vec<u8> {
-	let call_params = IPreimage::unnotePreimageCall { hash : hash.into() };
+fn encode_unnote_preimage_call(hash: [u8; 32]) -> Vec<u8> {
+	let call_params = IPreimage::unnotePreimageCall { hash: hash.into() };
 	let call = IPreimage::IPreimageCalls::unnotePreimage(call_params);
 	call.abi_encode()
 }
@@ -120,7 +116,6 @@ fn manager_note_preimage_works() {
 	});
 }
 
-
 #[test]
 fn user_unnote_preimage_works() {
 	new_test_ext().execute_with(|| {
@@ -135,17 +130,15 @@ fn user_unnote_preimage_works() {
 		// Not authorized error
 		assert!(call_and_expect_revert(CHARLIE, encoded_call.clone()));
 
-		// Unnoted error
-		let unnoted_hash : [u8;32] = hashed([2u8]).into();
-		let invalid_encoded_unnote_call = encode_unnote_preimage_call(unnoted_hash);
+		// Not noted error
+		let Not noted_hash: [u8; 32] = hashed([2u8]).into();
+		let invalid_encoded_unnote_call = encode_unnote_preimage_call(Not noted_hash);
 		assert!(call_and_expect_revert(ALICE, invalid_encoded_unnote_call));
-
 
 		assert!(call_and_check_success(ALICE, encoded_call.clone()));
 
-		// Unnoted error
+		// Not noted error
 		assert!(call_and_expect_revert(ALICE, encoded_call));
-
 
 		assert!(!Preimage::have_preimage(&hash));
 		assert_eq!(Preimage::get_preimage(&hash), None);
@@ -164,7 +157,7 @@ fn manager_unnote_preimage_works() {
 		let encoded_call = encode_unnote_preimage_call(hash.into());
 		assert!(call_and_check_success(BOB, encoded_call.clone()));
 
-		// Unnoted error
+		// Not noted error
 		assert!(call_and_expect_revert(BOB, encoded_call));
 
 		assert!(!Preimage::have_preimage(&hash));
@@ -188,7 +181,6 @@ fn manager_unnote_user_preimage_works() {
 		assert_eq!(Preimage::get_preimage(&hash), None);
 	});
 }
-
 
 #[test]
 fn requested_then_user_noted_preimage_is_free() {

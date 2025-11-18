@@ -16,15 +16,15 @@
 
 use frame_support::{
 	derive_impl, ord_parameter_types, parameter_types,
+	sp_runtime::traits::Hash,
 	traits::{fungible::HoldConsideration, Contains, Footprint},
 };
 use frame_system::EnsureSignedBy;
+use pallet_revive::H256;
 use sp_runtime::{
 	traits::{Convert, IdentityLookup},
 	AccountId32, BuildStorage,
 };
- use frame_support::sp_runtime::traits::Hash;
-use pallet_revive::H256;
 
 pub type AccountId = AccountId32;
 pub type Balance = u128;
