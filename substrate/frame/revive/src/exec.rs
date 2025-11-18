@@ -1443,6 +1443,8 @@ where
 		// A `None` means that we are returning from the `first_frame`.
 		let frame = self.frames.pop();
 
+		log::info!("RVE - exec.rs - pop_frame self.first_frame.contracts_created: {:?}", self.first_frame.contracts_created);
+
 		// Both branches do essentially the same with the exception. The difference is that
 		// the else branch does consume the hardcoded `first_frame`.
 		if let Some(mut frame) = frame {
@@ -1465,6 +1467,7 @@ where
 			prev.nested_storage.absorb(frame.nested_storage, account_id, contract.as_mut());
 
 			// only on success inherit the created and to be destroyed contracts
+			log::info!("RVE exec.rs - pop_frame - extending contracts_created {:?} with: {:?}", prev.contracts_created, frame.contracts_created);
 			prev.contracts_created.extend(frame.contracts_created);
 			prev.contracts_to_be_destroyed.extend(frame.contracts_to_be_destroyed);
 
@@ -1514,6 +1517,7 @@ where
 			let contracts_to_destroy = mem::take(&mut self.first_frame.contracts_to_be_destroyed);
 			for (contract_account, args) in contracts_to_destroy {
 				if args.only_if_same_tx && !contracts_created.contains(&contract_account) {
+					log::info!("RVE exec.rs - pop_frame - skipping termination of contract_account: {:?} as it was not created in the same tx", contract_account);
 					continue;
 				}
 				Self::do_terminate(
@@ -1605,6 +1609,8 @@ where
 		use frame_support::traits::fungible::InspectHold;
 
 		let contract_address = T::AddressMapper::to_address(contract_account);
+
+		log::info!("RVE exec.rs - do_terminate - contract_address: {:?}", contract_address);
 
 		let mut delete_contract = |trie_id: &TrieId, code_hash: &H256| {
 			// deposit needs to be removed as it adds a consumer
@@ -1813,6 +1819,8 @@ where
 		let code_hash = info.code_hash;
 		let contract_address = T::AddressMapper::to_address(&frame.account_id);
 		let beneficiary = T::AddressMapper::to_account_id(beneficiary);
+
+		log::info!("RVE exec.rs - terminate_if_same_tx - frame.account_id: {:?}, beneficiary: {:?}", frame.account_id, beneficiary);
 
 		// balance transfer is immediate
 		Self::transfer(
