@@ -28,7 +28,9 @@ use crate::{
 use alloy_core::sol_types::{SolCall, SolConstructor, SolValue};
 use frame_support::traits::fungible::Mutate;
 use hex_literal::hex;
-use pallet_revive_fixtures::{compile_module_with_type, FixtureType, Terminate, TerminateCaller, TerminateDelegator};
+use pallet_revive_fixtures::{
+	compile_module_with_type, FixtureType, Terminate, TerminateCaller, TerminateDelegator,
+};
 use pretty_assertions::assert_eq;
 use test_case::test_case;
 
@@ -194,7 +196,7 @@ fn syscall_passes_for_indirect_delegate(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-		
+
 		if fixture_type == FixtureType::Resolc {
 			// Need to pre-upload code for PVM
 			let _ = builder::bare_instantiate(Code::Upload(code.clone()))
@@ -208,10 +210,7 @@ fn syscall_passes_for_indirect_delegate(fixture_type: FixtureType) {
 				)
 				.build_and_unwrap_contract();
 			let _ = builder::bare_instantiate(Code::Upload(delegator_code.clone()))
-				.constructor_data(
-					TerminateDelegator::constructorCall {}
-					.abi_encode(),
-				)
+				.constructor_data(TerminateDelegator::constructorCall {}.abi_encode())
 				.build_and_unwrap_contract();
 		}
 
@@ -219,7 +218,7 @@ fn syscall_passes_for_indirect_delegate(fixture_type: FixtureType) {
 			builder::bare_instantiate(Code::Upload(caller_code))
 				.native_value(125)
 				.build_and_unwrap_contract();
-				
+
 		let result = builder::bare_call(caller_addr)
 			.data(
 				TerminateCaller::delegateCallTerminateCall {
@@ -232,11 +231,23 @@ fn syscall_passes_for_indirect_delegate(fixture_type: FixtureType) {
 			.build_and_unwrap_result();
 		assert!(!result.did_revert());
 
-		println!("caller_addr: {:?}, balance: {:?}", caller_addr, get_balance(&<Test as Config>::AddressMapper::to_account_id(&caller_addr)));
+		println!(
+			"caller_addr: {:?}, balance: {:?}",
+			caller_addr,
+			get_balance(&<Test as Config>::AddressMapper::to_account_id(&caller_addr))
+		);
 		let addr_inner = H160::from_slice(&result.data[12..32]);
-		println!("addr_inner: {:?}, balance: {:?}", addr_inner, get_balance(&<Test as Config>::AddressMapper::to_account_id(&addr_inner)));
-		let addr = H160::from_slice(&result.data[32+12..]);
-		println!("addr: {:?}, balance: {:?}", addr, get_balance(&<Test as Config>::AddressMapper::to_account_id(&addr)));
+		println!(
+			"addr_inner: {:?}, balance: {:?}",
+			addr_inner,
+			get_balance(&<Test as Config>::AddressMapper::to_account_id(&addr_inner))
+		);
+		let addr = H160::from_slice(&result.data[32 + 12..]);
+		println!(
+			"addr: {:?}, balance: {:?}",
+			addr,
+			get_balance(&<Test as Config>::AddressMapper::to_account_id(&addr))
+		);
 
 		println!("django balance: {}", get_balance(&DJANGO));
 
@@ -246,8 +257,14 @@ fn syscall_passes_for_indirect_delegate(fixture_type: FixtureType) {
 			"unexpected django balance after reverted terminate"
 		);
 
-		println!("contract balance: {}", get_balance(&<Test as Config>::AddressMapper::to_account_id(&addr)));
-		assert!(get_contract_checked(&addr_inner).is_none(), "contract still exists after terminate");
+		println!(
+			"contract balance: {}",
+			get_balance(&<Test as Config>::AddressMapper::to_account_id(&addr))
+		);
+		assert!(
+			get_contract_checked(&addr_inner).is_none(),
+			"contract still exists after terminate"
+		);
 	});
 }
 

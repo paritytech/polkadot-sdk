@@ -1443,7 +1443,10 @@ where
 		// A `None` means that we are returning from the `first_frame`.
 		let frame = self.frames.pop();
 
-		log::info!("RVE - exec.rs - pop_frame self.first_frame.contracts_created: {:?}", self.first_frame.contracts_created);
+		log::info!(
+			"RVE - exec.rs - pop_frame self.first_frame.contracts_created: {:?}",
+			self.first_frame.contracts_created
+		);
 
 		// Both branches do essentially the same with the exception. The difference is that
 		// the else branch does consume the hardcoded `first_frame`.
@@ -1467,7 +1470,11 @@ where
 			prev.nested_storage.absorb(frame.nested_storage, account_id, contract.as_mut());
 
 			// only on success inherit the created and to be destroyed contracts
-			log::info!("RVE exec.rs - pop_frame - extending contracts_created {:?} with: {:?}", prev.contracts_created, frame.contracts_created);
+			log::info!(
+				"RVE exec.rs - pop_frame - extending contracts_created {:?} with: {:?}",
+				prev.contracts_created,
+				frame.contracts_created
+			);
 			prev.contracts_created.extend(frame.contracts_created);
 			prev.contracts_to_be_destroyed.extend(frame.contracts_to_be_destroyed);
 
@@ -1820,7 +1827,11 @@ where
 		let contract_address = T::AddressMapper::to_address(&frame.account_id);
 		let beneficiary = T::AddressMapper::to_account_id(beneficiary);
 
-		log::info!("RVE exec.rs - terminate_if_same_tx - frame.account_id: {:?}, beneficiary: {:?}", frame.account_id, beneficiary);
+		log::info!(
+			"RVE exec.rs - terminate_if_same_tx - frame.account_id: {:?}, beneficiary: {:?}",
+			frame.account_id,
+			beneficiary
+		);
 
 		// balance transfer is immediate
 		Self::transfer(
