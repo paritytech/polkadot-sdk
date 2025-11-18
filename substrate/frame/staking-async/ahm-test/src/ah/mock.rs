@@ -375,7 +375,7 @@ parameter_types! {
 	pub static SessionsPerEra: u32 = 6;
 	pub static PlanningEraOffset: u32 = 6;
 	pub MaxPruningItems: u32 = 100;
-	pub const ValidatorSetExportSession: SessionIndex = 5;
+	pub const ValidatorSetExportSession: SessionIndex = 4;
 }
 
 impl pallet_staking_async::Config for Runtime {

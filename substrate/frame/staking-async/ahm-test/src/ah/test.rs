@@ -24,7 +24,7 @@ use pallet_staking_async::{
 	Event as StakingEvent,
 };
 use pallet_staking_async_rc_client::{
-	self as rc_client, OutgoingValidatorSet, UnexpectedKind, ValidatorSetReport,
+	self as rc_client, OutgoingValidatorSet, UnexpectedKind, ValidatorSetReport, LastEraActivationSessionReportEndingIndex,
 };
 
 // Tests that are specific to Asset Hub.
@@ -36,6 +36,8 @@ fn on_receive_session_report() {
 		assert_eq!(CurrentEra::<T>::get(), Some(0));
 		assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 0);
 		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
+		// Ensure last era session index is set
+		LastEraActivationSessionReportEndingIndex::<T>::put(0);
 
 		// WHEN session ends on RC and session report is received by AH.
 		let session_report = rc_client::SessionReport {
@@ -60,67 +62,15 @@ fn on_receive_session_report() {
 		assert_eq!(era_points.individual.get(&9), None);
 
 		// assert no era changed yet.
-		assert_eq!(CurrentEra::<T>::get(), Some(0));
 		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
 
+		// election starts in the 1st session.
+		assert_eq!(CurrentEra::<T>::get(), Some(1));
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![StakingEvent::SessionRotated {
 				starting_session: 1,
 				active_era: 0,
-				planned_era: 0
-			}]
-		);
-
-		assert_eq!(election_events_since_last_call(), vec![]);
-
-		// roll two more sessions...
-		for i in 1..3 {
-			// roll some random number of blocks.
-			roll_many(10);
-
-			// send the session report.
-			assert_ok!(rc_client::Pallet::<T>::relay_session_report(
-				RuntimeOrigin::root(),
-				rc_client::SessionReport {
-					end_index: i,
-					validator_points: vec![(1, 10)],
-					activation_timestamp: None,
-					leftover: false,
-				}
-			));
-
-			let era_points = staking_async::ErasRewardPoints::<T>::get(&0);
-			assert_eq!(era_points.total, 360 + i * 10);
-			assert_eq!(era_points.individual.get(&1), Some(&(10 + i * 10)));
-
-			assert_eq!(
-				staking_events_since_last_call(),
-				vec![StakingEvent::SessionRotated {
-					starting_session: i + 1,
-					active_era: 0,
-					planned_era: 0
-				}]
-			);
-		}
-
-		// Next session we will begin election.
-		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
-			RuntimeOrigin::root(),
-			rc_client::SessionReport {
-				end_index: 3,
-				validator_points: vec![(1, 10)],
-				activation_timestamp: None,
-				leftover: false,
-			}
-		));
-
-		assert_eq!(
-			staking_events_since_last_call(),
-			vec![StakingEvent::SessionRotated {
-				starting_session: 4,
-				active_era: 0,
-				// planned era 1 indicates election start signal is sent.
 				planned_era: 1
 			}]
 		);
@@ -185,12 +135,71 @@ fn on_receive_session_report() {
 			]
 		);
 
+		// roll two more sessions...
+		for i in 1..3 {
+			// roll some random number of blocks.
+			roll_many(10);
+
+			// send the session report.
+			assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+				RuntimeOrigin::root(),
+				rc_client::SessionReport {
+					end_index: i,
+					validator_points: vec![(1, 10)],
+					activation_timestamp: None,
+					leftover: false,
+				}
+			));
+
+			let era_points = staking_async::ErasRewardPoints::<T>::get(&0);
+			assert_eq!(era_points.total, 360 + i * 10);
+			assert_eq!(era_points.individual.get(&1), Some(&(10 + i * 10)));
+
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![StakingEvent::SessionRotated {
+					starting_session: i + 1,
+					active_era: 0,
+					planned_era: 1
+				}]
+			);
+		}
+
+		// no election events emitted anymore
+		assert_eq!(election_events_since_last_call(), vec![]);
+
+		// Next session should export the validator set
+		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+			RuntimeOrigin::root(),
+			rc_client::SessionReport {
+				end_index: 3,
+				validator_points: vec![(1, 10)],
+				activation_timestamp: None,
+				leftover: false,
+			}
+		));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::SessionRotated {
+				starting_session: 4,
+				active_era: 0,
+				planned_era: 1
+			}]
+		);
+
+		// no xcm message sent yet.
+		assert_eq!(LocalQueue::get().unwrap(), vec![]);
+
+		// next block triggers to export
+		roll_next();
+
 		// New validator set xcm message is sent to RC.
 		assert_eq!(
 			LocalQueue::get().unwrap(),
 			vec![(
 				// this is the block number at which the message was sent.
-				43,
+				44,
 				OutgoingMessages::ValidatorSet(ValidatorSetReport {
 					new_validator_set: vec![3, 5, 6, 8],
 					id: 1,
@@ -509,7 +518,7 @@ fn receives_session_report_in_future() {
 		assert_eq!(rc_client::LastSessionReportEndingIndex::<T>::get(), None);
 		assert_eq!(rc_client::LastEraActivationSessionReportEndingIndex::<T>::get(), None);
 
-		// Receive report for end of 1, start of 1 and plan 2.
+		// Receive report for end of 0, start of 1 and plan 2.
 		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
 			RuntimeOrigin::root(),
 			rc_client::SessionReport {
