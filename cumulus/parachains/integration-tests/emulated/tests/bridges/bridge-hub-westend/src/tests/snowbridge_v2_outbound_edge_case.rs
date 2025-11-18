@@ -323,12 +323,27 @@ fn transfer_from_penpal_to_ethereum_trapped_on_ah_and_then_claim_can_work() {
 		));
 	});
 
+	let mut trapped_amount = 0;
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 		assert_expected_events!(
 			AssetHubWestend,
 			vec![RuntimeEvent::PolkadotXcm(pallet_xcm::Event::ProcessXcmError { .. }) => {},]
 		);
+
+		for event in AssetHubWestend::events() {
+			if let RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { assets, .. }) =
+				event
+			{
+				if let VersionedAssets::V5(trapped) = assets {
+					if let Some(asset) = trapped.get(0) {
+						if let Fungible(amount) = asset.fun {
+							trapped_amount += amount;
+						}
+					}
+				}
+			}
+		}
 	});
 
 	// Claim the trapped asset and deposit on AH.
@@ -356,7 +371,7 @@ fn transfer_from_penpal_to_ethereum_trapped_on_ah_and_then_claim_can_work() {
 				remote_xcm: Xcm(vec![
 					ClaimAsset {
 						assets: vec![
-							Asset { id: AssetId(ethereum()), fun: Fungible(600914044958) },
+							Asset { id: AssetId(ethereum()), fun: Fungible(trapped_amount) },
 							Asset { id: AssetId(weth_location()), fun: Fungible(TOKEN_AMOUNT) },
 						]
 						.into(),
