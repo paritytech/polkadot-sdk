@@ -102,7 +102,7 @@ pub struct CollationManager {
 	claim_queue_state: PerLeafClaimQueueState,
 
 	// Collations which we haven't been able to second due to their parent not being known by
-	// prospective-parachains. Mapped from the paraid and parent_head_hash to the fetched
+	// prospective-parachains. Mapped from the para_id and parent_head_hash to the fetched
 	// collation data. Only needed for async backing. For elastic scaling, the fetched collation
 	// must contain the full parent head data.
 	blocked_from_seconding: HashMap<BlockedCollationId, Vec<FetchedCollation>>,
@@ -136,12 +136,12 @@ impl CollationManager {
 			keystore,
 		};
 
-		instance.view_update(sender, OurView::new([active_leaf.hash], 0)).await?;
+		instance.update_view(sender, OurView::new([active_leaf.hash], 0)).await?;
 
 		Ok(instance)
 	}
 
-	pub async fn view_update<Sender: CollatorProtocolSenderTrait>(
+	pub async fn update_view<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
 		new_view: OurView,
@@ -236,7 +236,7 @@ impl CollationManager {
 			let Some(allowed_ancestry) = self
 				.implicit_view
 				.known_allowed_relay_parents_under(leaf, None)
-				.map(|v| v.into_iter().copied().collect::<Vec<_>>())
+				.map(|v| v.to_vec())
 			else {
 				continue
 			};
@@ -272,9 +272,8 @@ impl CollationManager {
 					.insert(*ancestor, PerRelayParent::new(session_index, core));
 
 				if ancestor == leaf {
-					let maybe_parent = allowed_ancestry.get(1).copied();
-
-					self.claim_queue_state.add_leaf(leaf, &assignments, maybe_parent.as_ref());
+					let maybe_parent = allowed_ancestry.get(1);
+					self.claim_queue_state.add_leaf(leaf, &assignments, maybe_parent);
 				}
 			}
 		}
@@ -335,7 +334,6 @@ impl CollationManager {
 		per_rp.can_keep_advertisement(advertisement, max_assignments)?;
 
 		let can_second = backing_allows_seconding(sender, &advertisement).await;
-
 		if !can_second {
 			return Err(AdvertisementError::BlockedByBacking)
 		}
@@ -413,10 +411,6 @@ impl CollationManager {
 	}
 
 	pub fn remove_peers(&mut self, peers_to_remove: HashSet<PeerId>) {
-		if peers_to_remove.is_empty() {
-			return
-		}
-
 		// Remove advertisements from these peers.
 		for peer in peers_to_remove {
 			for per_rp in self.per_relay_parent.values_mut() {
@@ -573,40 +567,33 @@ impl CollationManager {
 		para_id: &ParaId,
 		output_head_hash: Hash,
 	) -> (Option<PeerId>, Vec<CanSecond>) {
-		let peer_id = self
-			.per_relay_parent
-			.get(relay_parent)
-			.and_then(|per_rp| per_rp.fetched_collations.get(candidate_hash))
-			.copied();
+		let peer_id = self.get_peer_id_of_fetched_collation(relay_parent, candidate_hash);
 
 		self.claim_queue_state
 			.claim_seconded_slot(candidate_hash, relay_parent, para_id);
 
 		// See if we've unblocked other collations here too.
-		let unblocked_can_second = if let Some(unblocked) =
-			self.blocked_from_seconding.remove(&BlockedCollationId {
-				para_id: *para_id,
-				parent_head_data_hash: output_head_hash,
-			}) {
-			let mut unblocked_can_second = Vec::with_capacity(unblocked.len());
-			for fetched_collation in unblocked {
-				let reject_info = SecondingRejectionInfo {
-					relay_parent: fetched_collation.candidate_receipt.descriptor.relay_parent(),
-					peer_id: fetched_collation.peer_id,
-					para_id: fetched_collation.candidate_receipt.descriptor.para_id(),
-					maybe_output_head_hash: Some(
-						fetched_collation.candidate_receipt.descriptor.para_head(),
-					),
-					maybe_candidate_hash: Some(fetched_collation.candidate_receipt.hash()),
-				};
-				let can_second =
-					self.can_begin_seconding(sender, fetched_collation, false, reject_info).await;
-				unblocked_can_second.push(can_second)
-			}
-			unblocked_can_second
-		} else {
-			vec![]
-		};
+		let maybe_unblocked = self.blocked_from_seconding.remove(&BlockedCollationId {
+			para_id: *para_id,
+			parent_head_data_hash: output_head_hash,
+		});
+		let Some(unblocked) = maybe_unblocked else { return (peer_id, vec![]) };
+
+		let mut unblocked_can_second = Vec::with_capacity(unblocked.len());
+		for fetched_collation in unblocked {
+			let reject_info = SecondingRejectionInfo {
+				relay_parent: fetched_collation.candidate_receipt.descriptor.relay_parent(),
+				peer_id: fetched_collation.peer_id,
+				para_id: fetched_collation.candidate_receipt.descriptor.para_id(),
+				maybe_output_head_hash: Some(
+					fetched_collation.candidate_receipt.descriptor.para_head(),
+				),
+				maybe_candidate_hash: Some(fetched_collation.candidate_receipt.hash()),
+			};
+			let can_second =
+				self.can_begin_seconding(sender, fetched_collation, false, reject_info).await;
+			unblocked_can_second.push(can_second)
+		}
 
 		(peer_id, unblocked_can_second)
 	}

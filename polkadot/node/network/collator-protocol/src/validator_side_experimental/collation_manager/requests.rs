@@ -70,14 +70,12 @@ impl PendingRequests {
 			},
 		};
 
-		let cancellation_token_copy = cancellation_token.clone();
+		self.cancellation_tokens.insert(*advertisement, cancellation_token.clone());
 		self.futures.push(CollationFetchRequest {
 			advertisement: *advertisement,
 			from_collator: response_recv,
 			cancellation_future: cancellation_token.cancelled_owned().boxed(),
 		});
-
-		self.cancellation_tokens.insert(*advertisement, cancellation_token_copy);
 
 		req
 	}
@@ -115,7 +113,6 @@ impl Future for CollationFetchRequest {
 	fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
 		// First check if this fetch request was cancelled.
 		let cancelled = self.cancellation_future.poll_unpin(cx).is_ready();
-
 		if cancelled {
 			return Poll::Ready((self.advertisement, Err(CollationFetchError::Cancelled)))
 		}

@@ -139,7 +139,7 @@ impl<B: Backend> State<B> {
 		);
 		let old_assignments = self.collation_manager.assignments();
 
-		self.collation_manager.view_update(sender, new_view).await?;
+		self.collation_manager.update_view(sender, new_view).await?;
 
 		let new_assignments = self.collation_manager.assignments();
 		gum::trace!(
