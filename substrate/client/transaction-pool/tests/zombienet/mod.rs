@@ -174,18 +174,17 @@ impl NetworkSpawner {
 			.wait_client::<SubstrateConfig>()
 			.await
 			.map_err(|_| Error::FailedToGetOnlineClinet)?;
-		let mut stream = if finalized {
-			client
+		let mut stream = match subscription_type {
+			BlockSubscriptionType::Best => client
 				.blocks()
 				.subscribe_finalized()
 				.await
-				.map_err(|_| Error::FailedToGetBlocksStream)?
-		} else {
-			client
+				.map_err(|_| Error::FailedToGetBlocksStream)?,
+			BlockSubscriptionType::Finalized => client
 				.blocks()
 				.subscribe_best()
 				.await
-				.map_err(|_| Error::FailedToGetBlocksStream)?
+				.map_err(|_| Error::FailedToGetBlocksStream)?,
 		};
 
 		// It should take at most two iterations to return with the best block, if any.
