@@ -395,7 +395,7 @@ mod v4_tests {
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
 			// Run migration
-			let _weight = v4::UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
+			let _weight = UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
 
 			// Verify new storage
 			let new_schedule = super::CoreSchedules::<Test>::get((block_number, core))
@@ -450,7 +450,7 @@ mod v4_tests {
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
 			// Run migration
-			v4::UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
 
 			// Verify all cores migrated
 			let new_descriptors = super::CoreDescriptors::<Test>::get();
@@ -519,7 +519,7 @@ mod v4_tests {
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
 			// Run migration
-			v4::UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
 
 			// Verify all three schedules migrated
 			assert!(super::CoreSchedules::<Test>::get((10u32, core)).is_some());
@@ -554,15 +554,15 @@ mod v4_tests {
 			assignments.push_back(Assignment::Pool { para_id: pool_para_2, core_index: core });
 			claim_queue.insert(core, assignments);
 
-			v4::ClaimQueue::<Test>::put(claim_queue);
+			v3::ClaimQueue::<Test>::put(claim_queue);
 
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
 			// Run migration
-			v4::UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
 
 			// Verify ClaimQueue is removed
-			assert!(!v4::ClaimQueue::<Test>::exists());
+			assert!(!v3::ClaimQueue::<Test>::exists());
 
 			// Verify pool assignments went to on-demand
 			// The migration calls `on_demand::Pallet::<T>::push_back_order` for each pool
@@ -627,15 +627,15 @@ mod v4_tests {
 			assignments.push_back(Assignment::Bulk(claimqueue_para_2));
 			claim_queue.insert(core, assignments);
 
-			v4::ClaimQueue::<Test>::put(claim_queue);
+			v3::ClaimQueue::<Test>::put(claim_queue);
 
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
 			// Run migration
-			v4::UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
 
 			// Verify ClaimQueue is removed
-			assert!(!v4::ClaimQueue::<Test>::exists());
+			assert!(!v3::ClaimQueue::<Test>::exists());
 
 			// Peek at the next block to see what will be scheduled
 			// Should see assignments from descriptor (3000, 3001), NOT from ClaimQueue (2000, 2001)
@@ -665,7 +665,7 @@ mod v4_tests {
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
 			// Run migration on empty storage - should complete without panicking
-			let _weight = v4::UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
+			let _weight = UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
 
 			// Verify new storage is empty
 			let new_descriptors = super::CoreDescriptors::<Test>::get();
@@ -716,7 +716,7 @@ mod v4_tests {
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
 			// Run migration
-			v4::UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
 
 			// Verify assignments and their parts converted correctly
 			let new_schedule = super::CoreSchedules::<Test>::get((block_number, core))
@@ -762,7 +762,7 @@ mod v4_tests {
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
 			// Run migration
-			v4::UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
 
 			// Verify current_work migrated
 			let new_descriptors = super::CoreDescriptors::<Test>::get();

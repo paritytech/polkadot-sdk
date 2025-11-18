@@ -330,31 +330,31 @@ mod tests {
 			// Setup old storage with affinity queues
 			let mut affinity_queue_core_0 = BinaryHeap::new();
 			affinity_queue_core_0
-				.push(v2::OldEnqueuedOrder { para_id: para_1, idx: v2::QueueIndex(1) });
+				.push(v1::OldEnqueuedOrder { para_id: para_1, idx: v1::QueueIndex(1) });
 			affinity_queue_core_0
-				.push(v2::OldEnqueuedOrder { para_id: para_2, idx: v2::QueueIndex(3) });
+				.push(v1::OldEnqueuedOrder { para_id: para_2, idx: v1::QueueIndex(3) });
 
 			let mut affinity_queue_core_1 = BinaryHeap::new();
 			affinity_queue_core_1
-				.push(v2::OldEnqueuedOrder { para_id: para_3, idx: v2::QueueIndex(2) });
+				.push(v1::OldEnqueuedOrder { para_id: para_3, idx: v1::QueueIndex(2) });
 
-			v2::AffinityEntries::<Test>::insert(CoreIndex(0), affinity_queue_core_0);
-			v2::AffinityEntries::<Test>::insert(CoreIndex(1), affinity_queue_core_1);
+			v1::AffinityEntries::<Test>::insert(CoreIndex(0), affinity_queue_core_0);
+			v1::AffinityEntries::<Test>::insert(CoreIndex(1), affinity_queue_core_1);
 
 			// Setup old QueueStatus
-			let old_status = v2::OldQueueStatus {
+			let old_status = v1::OldQueueStatus {
 				traffic: FixedU128::from_rational(5, 10),
-				next_index: v2::QueueIndex(4),
-				smallest_index: v2::QueueIndex(1),
+				next_index: v1::QueueIndex(4),
+				smallest_index: v1::QueueIndex(1),
 				freed_indices: BinaryHeap::new(),
 			};
-			v2::QueueStatus::<Test>::put(old_status);
+			v1::QueueStatus::<Test>::put(old_status);
 
 			// Set storage version to 1
 			StorageVersion::new(1).put::<on_demand::Pallet<Test>>();
 
 			// Run migration
-			let _weight = v2::UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
+			let _weight = UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
 
 			// Verify new storage
 			let new_status = on_demand::pallet::OrderStatus::<Test>::get();
@@ -364,8 +364,8 @@ mod tests {
 			assert_eq!(new_status.queue.len(), 3);
 
 			// Verify old storage is cleaned up
-			assert!(!v2::QueueStatus::<Test>::exists());
-			assert_eq!(v2::AffinityEntries::<Test>::iter_keys().count(), 0);
+			assert!(!v1::QueueStatus::<Test>::exists());
+			assert_eq!(v1::AffinityEntries::<Test>::iter_keys().count(), 0);
 		});
 	}
 
@@ -379,31 +379,31 @@ mod tests {
 
 			// Setup free entries (no core affinity)
 			let mut free_queue = BinaryHeap::new();
-			free_queue.push(v2::OldEnqueuedOrder { para_id: para_1, idx: v2::QueueIndex(1) });
-			free_queue.push(v2::OldEnqueuedOrder { para_id: para_2, idx: v2::QueueIndex(5) });
-			v2::FreeEntries::<Test>::put(free_queue);
+			free_queue.push(v1::OldEnqueuedOrder { para_id: para_1, idx: v1::QueueIndex(1) });
+			free_queue.push(v1::OldEnqueuedOrder { para_id: para_2, idx: v1::QueueIndex(5) });
+			v1::FreeEntries::<Test>::put(free_queue);
 
 			// Setup affinity entries
 			let mut affinity_queue = BinaryHeap::new();
-			affinity_queue.push(v2::OldEnqueuedOrder { para_id: para_3, idx: v2::QueueIndex(3) });
-			affinity_queue.push(v2::OldEnqueuedOrder { para_id: para_4, idx: v2::QueueIndex(7) });
-			v2::AffinityEntries::<Test>::insert(CoreIndex(0), affinity_queue);
+			affinity_queue.push(v1::OldEnqueuedOrder { para_id: para_3, idx: v1::QueueIndex(3) });
+			affinity_queue.push(v1::OldEnqueuedOrder { para_id: para_4, idx: v1::QueueIndex(7) });
+			v1::AffinityEntries::<Test>::insert(CoreIndex(0), affinity_queue);
 
-			let old_status = v2::OldQueueStatus::default();
-			v2::QueueStatus::<Test>::put(old_status);
+			let old_status = v1::OldQueueStatus::default();
+			v1::QueueStatus::<Test>::put(old_status);
 
 			StorageVersion::new(1).put::<on_demand::Pallet<Test>>();
 
 			// Run migration
-			v2::UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
 
 			// Verify all 4 orders merged into single queue
 			let new_status = on_demand::pallet::OrderStatus::<Test>::get();
 			assert_eq!(new_status.queue.len(), 4);
 
 			// Verify old storage cleaned up
-			assert!(!v2::FreeEntries::<Test>::exists());
-			assert_eq!(v2::AffinityEntries::<Test>::iter_keys().count(), 0);
+			assert!(!v1::FreeEntries::<Test>::exists());
+			assert_eq!(v1::AffinityEntries::<Test>::iter_keys().count(), 0);
 		});
 	}
 
@@ -416,18 +416,18 @@ mod tests {
 
 			// Create orders with non-sequential queue indices
 			let mut free_queue = BinaryHeap::new();
-			free_queue.push(v2::OldEnqueuedOrder { para_id: para_2, idx: v2::QueueIndex(5) });
-			free_queue.push(v2::OldEnqueuedOrder { para_id: para_1, idx: v2::QueueIndex(2) });
-			free_queue.push(v2::OldEnqueuedOrder { para_id: para_3, idx: v2::QueueIndex(10) });
-			v2::FreeEntries::<Test>::put(free_queue);
+			free_queue.push(v1::OldEnqueuedOrder { para_id: para_2, idx: v1::QueueIndex(5) });
+			free_queue.push(v1::OldEnqueuedOrder { para_id: para_1, idx: v1::QueueIndex(2) });
+			free_queue.push(v1::OldEnqueuedOrder { para_id: para_3, idx: v1::QueueIndex(10) });
+			v1::FreeEntries::<Test>::put(free_queue);
 
-			let old_status = v2::OldQueueStatus::default();
-			v2::QueueStatus::<Test>::put(old_status);
+			let old_status = v1::OldQueueStatus::default();
+			v1::QueueStatus::<Test>::put(old_status);
 
 			StorageVersion::new(1).put::<on_demand::Pallet<Test>>();
 
 			// Run migration
-			v2::UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
 
 			// Verify orders are in queue
 			// Order should be preserved based on QueueIndex (2, 5, 10)
@@ -446,18 +446,18 @@ mod tests {
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 			let traffic_value = FixedU128::from_rational(75, 100);
 
-			let old_status = v2::OldQueueStatus {
+			let old_status = v1::OldQueueStatus {
 				traffic: traffic_value,
-				next_index: v2::QueueIndex(1),
-				smallest_index: v2::QueueIndex(1),
+				next_index: v1::QueueIndex(1),
+				smallest_index: v1::QueueIndex(1),
 				freed_indices: BinaryHeap::new(),
 			};
-			v2::QueueStatus::<Test>::put(old_status);
+			v1::QueueStatus::<Test>::put(old_status);
 
 			StorageVersion::new(1).put::<on_demand::Pallet<Test>>();
 
 			// Run migration
-			v2::UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
 
 			// Verify traffic preserved
 			let new_status = on_demand::pallet::OrderStatus::<Test>::get();
@@ -472,25 +472,25 @@ mod tests {
 			let para_2 = ParaId::from(1001);
 
 			// Setup ParaIdAffinity storage
-			v2::ParaIdAffinity::<Test>::insert(
+			v1::ParaIdAffinity::<Test>::insert(
 				para_1,
-				v2::CoreAffinityCount { core_index: CoreIndex(0), count: 5 },
+				v1::CoreAffinityCount { core_index: CoreIndex(0), count: 5 },
 			);
-			v2::ParaIdAffinity::<Test>::insert(
+			v1::ParaIdAffinity::<Test>::insert(
 				para_2,
-				v2::CoreAffinityCount { core_index: CoreIndex(1), count: 3 },
+				v1::CoreAffinityCount { core_index: CoreIndex(1), count: 3 },
 			);
 
-			let old_status = v2::OldQueueStatus::default();
-			v2::QueueStatus::<Test>::put(old_status);
+			let old_status = v1::OldQueueStatus::default();
+			v1::QueueStatus::<Test>::put(old_status);
 
 			StorageVersion::new(1).put::<on_demand::Pallet<Test>>();
 
 			// Run migration
-			v2::UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
 
 			// Verify ParaIdAffinity completely removed
-			assert_eq!(v2::ParaIdAffinity::<Test>::iter().count(), 0);
+			assert_eq!(v1::ParaIdAffinity::<Test>::iter().count(), 0);
 		});
 	}
 
@@ -498,20 +498,20 @@ mod tests {
 	fn empty_storage_migration() {
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 			// Only set default QueueStatus
-			let old_status = v2::OldQueueStatus::default();
-			v2::QueueStatus::<Test>::put(old_status);
+			let old_status = v1::OldQueueStatus::default();
+			v1::QueueStatus::<Test>::put(old_status);
 
 			StorageVersion::new(1).put::<on_demand::Pallet<Test>>();
 
 			// Run migration with no orders
-			let _weight = v2::UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
+			let _weight = UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
 
 			// Verify new storage has empty queue
 			let new_status = on_demand::pallet::OrderStatus::<Test>::get();
 			assert_eq!(new_status.queue.len(), 0);
 
 			// Verify old storage cleaned up
-			assert!(!v2::QueueStatus::<Test>::exists());
+			assert!(!v1::QueueStatus::<Test>::exists());
 		});
 	}
 
@@ -521,27 +521,27 @@ mod tests {
 			// Setup affinity entries for 5 different cores
 			for core_idx in 0..5 {
 				let mut affinity_queue = BinaryHeap::new();
-				affinity_queue.push(v2::OldEnqueuedOrder {
+				affinity_queue.push(v1::OldEnqueuedOrder {
 					para_id: ParaId::from(1000 + core_idx),
-					idx: v2::QueueIndex(core_idx),
+					idx: v1::QueueIndex(core_idx),
 				});
-				v2::AffinityEntries::<Test>::insert(CoreIndex(core_idx), affinity_queue);
+				v1::AffinityEntries::<Test>::insert(CoreIndex(core_idx), affinity_queue);
 			}
 
-			let old_status = v2::OldQueueStatus::default();
-			v2::QueueStatus::<Test>::put(old_status);
+			let old_status = v1::OldQueueStatus::default();
+			v1::QueueStatus::<Test>::put(old_status);
 
 			StorageVersion::new(1).put::<on_demand::Pallet<Test>>();
 
 			// Run migration
-			v2::UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
 
 			// Verify all 5 orders merged into single queue
 			let new_status = on_demand::pallet::OrderStatus::<Test>::get();
 			assert_eq!(new_status.queue.len(), 5);
 
 			// Verify all affinity entries removed
-			assert_eq!(v2::AffinityEntries::<Test>::iter_keys().count(), 0);
+			assert_eq!(v1::AffinityEntries::<Test>::iter_keys().count(), 0);
 		});
 	}
 
@@ -555,21 +555,21 @@ mod tests {
 
 			// Add many orders (queue might have a limit)
 			for i in 0..1000 {
-				free_queue.push(v2::OldEnqueuedOrder {
+				free_queue.push(v1::OldEnqueuedOrder {
 					para_id: ParaId::from(i),
-					idx: v2::QueueIndex(i),
+					idx: v1::QueueIndex(i),
 				});
 			}
 
-			v2::FreeEntries::<Test>::put(free_queue);
+			v1::FreeEntries::<Test>::put(free_queue);
 
-			let old_status = v2::OldQueueStatus::default();
-			v2::QueueStatus::<Test>::put(old_status);
+			let old_status = v1::OldQueueStatus::default();
+			v1::QueueStatus::<Test>::put(old_status);
 
 			StorageVersion::new(1).put::<on_demand::Pallet<Test>>();
 
 			// Run migration - should not panic even if queue is full
-			let _weight = v2::UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
+			let _weight = UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
 
 			// Verify migration completed (some orders may be dropped if queue is full)
 			let new_status = on_demand::pallet::OrderStatus::<Test>::get();
