@@ -1283,14 +1283,14 @@ impl Client {
 	}
 
 	pub async fn increase_time(&self, increase_by_seconds: U256) -> Result<U256, ClientError> {
-		if increase_by_seconds.is_zero() {
-			return Err(ClientError::ConversionFailed);
-		}
-
 		let increase_by = increase_by_seconds.as_u64();
 
 		let current_block = self.latest_block().await;
 		let current_timestamp = extract_block_timestamp(&current_block).await;
+
+		if increase_by == 0 {
+			return Ok(U256::from(current_timestamp));
+		}
 
 		let new_timestamp = current_timestamp.saturating_add(increase_by);
 
