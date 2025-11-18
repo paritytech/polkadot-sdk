@@ -121,6 +121,32 @@ impl<T: Config> Default for TransactionLimits<T> {
 }
 
 impl<T: Config, S: State> ResourceMeter<T, S> {
+	/// Create a new nested meter with derived resource limits.
+	pub fn new_nested(&self, limit: &CallResources<T>) -> Result<FrameMeter<T>, DispatchError> {
+		match &self.transaction_limits {
+			TransactionLimits::EthereumGas { eth_tx_info, .. } =>
+				math::ethereum_execution::new_nested_meter(self, limit, eth_tx_info),
+			TransactionLimits::WeightAndDeposit { .. } =>
+				math::substrate_execution::new_nested_meter(self, limit),
+		}
+	}
+
+	/// Absorb only the weight consumption from a nested frame meter.
+	pub fn absorb_weight_meter_only(&mut self, other: FrameMeter<T>) {
+		self.weight.absorb_nested(other.weight);
+	}
+
+	/// Absorb all resource consumption from a nested frame meter.
+	pub fn absorb_all_meters(
+		&mut self,
+		other: FrameMeter<T>,
+		contract: &T::AccountId,
+		info: Option<&mut ContractInfo<T>>,
+	) {
+		self.weight.absorb_nested(other.weight);
+		self.deposit.absorb(other.deposit, contract, info);
+	}
+
 	/// Charge a weight token against this meter's remaining weight limit.
 	///
 	/// Returns `Err(Error::OutOfGas)` if the weight limit would be exceeded.
@@ -197,32 +223,6 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		}
 
 		Ok(())
-	}
-
-	/// Absorb only the weight consumption from a nested frame meter.
-	pub fn absorb_weight_meter_only(&mut self, other: FrameMeter<T>) {
-		self.weight.absorb_nested(other.weight);
-	}
-
-	/// Absorb all resource consumption from a nested frame meter.
-	pub fn absorb_all_meters(
-		&mut self,
-		other: FrameMeter<T>,
-		contract: &T::AccountId,
-		info: Option<&mut ContractInfo<T>>,
-	) {
-		self.weight.absorb_nested(other.weight);
-		self.deposit.absorb(other.deposit, contract, info);
-	}
-
-	/// Create a new nested meter with derived resource limits.
-	pub fn new_nested(&self, limit: &CallResources<T>) -> Result<FrameMeter<T>, DispatchError> {
-		match &self.transaction_limits {
-			TransactionLimits::EthereumGas { eth_tx_info, .. } =>
-				math::ethereum_execution::new_nested_meter(self, limit, eth_tx_info),
-			TransactionLimits::WeightAndDeposit { .. } =>
-				math::substrate_execution::new_nested_meter(self, limit),
-		}
 	}
 
 	/// Get remaining ethereum gas equivalent.

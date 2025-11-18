@@ -99,7 +99,7 @@ pub use crate::{
 		block_hash::ReceiptGasInfo, Address as EthAddress, Block as EthBlock, DryRunConfig,
 		ReceiptInfo,
 	},
-	exec::{DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
+	exec::{CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
 	metering::{
 		weight::Token as WeightToken, EthTxInfo, FrameMeter, ResourceMeter, TransactionLimits,
 		TransactionMeter,

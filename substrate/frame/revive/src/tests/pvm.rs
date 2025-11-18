@@ -74,7 +74,7 @@ fn eth_call_transfer_with_dust_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
 
-		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(5_000_000_000));
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(10_000_000_000));
 
 		let balance =
 			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));

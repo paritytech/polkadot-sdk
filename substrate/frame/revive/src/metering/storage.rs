@@ -338,7 +338,7 @@ where
 	/// This will not perform a charge. It just records it to reflect it in the
 	/// total amount of storage required for a transaction.
 	pub fn record_charge(&mut self, amount: &DepositOf<T>) {
-		let total_deposit = self.total_deposit.saturating_add(&amount);
+		let total_deposit = self.total_deposit.saturating_add(amount);
 		self.total_deposit = total_deposit;
 		self.recalulculate_max_charged();
 	}
