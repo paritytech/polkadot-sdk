@@ -24,7 +24,7 @@ use frame_support::{
 };
 use frame_system::EnsureRootWithSuccess;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-use parachains_common::pay::{LocalPay, LocalPayWithSource, VersionedLocatableAccount};
+use parachains_common::pay::{LocalPay, VersionedLocatableAccount};
 use polkadot_runtime_common::{
 	impls::{ContainsParts, VersionedLocatableAsset},
 	prod_or_fast,

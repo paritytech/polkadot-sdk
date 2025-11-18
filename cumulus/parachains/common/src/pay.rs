@@ -58,6 +58,10 @@ impl From<sp_runtime::AccountId32> for VersionedLocatableAccount {
 
 /// Pay on the local chain with `fungibles` implementation if the beneficiary and the asset are both
 /// local.
+///
+/// This type implements both [`Pay`] and [`PayWithSource`] traits:
+/// - [`Pay`]: Requires `A: TypedGet` and uses `A::get()` as the source account
+/// - [`PayWithSource`]: Works with any `A: Eq + Clone` and accepts the source as a parameter
 pub struct LocalPay<F, A, C>(core::marker::PhantomData<(F, A, C)>);
 impl<A, F, C> frame_support::traits::tokens::Pay for LocalPay<F, A, C>
 where
@@ -103,6 +107,33 @@ where
 	fn ensure_concluded(_: Self::Id) {}
 }
 
+// Shared helper functions for LocalPay
+fn match_location_helper<A, C>(who: &VersionedLocatableAccount) -> Result<A, ()>
+where
+	A: Eq + Clone,
+	C: ConvertLocation<A>,
+{
+	// only applicable for the local accounts
+	let account_id = match who {
+		VersionedLocatableAccount::V4 { location, account_id } if location.is_here() =>
+			&account_id.clone().try_into().map_err(|_| ())?,
+		VersionedLocatableAccount::V5 { location, account_id } if location.is_here() =>
+			account_id,
+		_ => return Err(()),
+	};
+	C::convert_location(account_id).ok_or(())
+}
+
+fn match_asset_helper(asset: &VersionedLocatableAsset) -> Result<xcm::v5::Location, ()> {
+	match asset {
+		VersionedLocatableAsset::V4 { location, asset_id } if location.is_here() =>
+			asset_id.clone().try_into().map(|a: xcm::v5::AssetId| a.0).map_err(|_| ()),
+		VersionedLocatableAsset::V5 { location, asset_id } if location.is_here() =>
+			Ok(asset_id.clone().0),
+		_ => Err(()),
+	}
+}
+
 impl<A, F, C> LocalPay<F, A, C>
 where
 	A: TypedGet,
@@ -111,31 +142,16 @@ where
 	A::Type: Eq + Clone,
 {
 	fn match_location(who: &VersionedLocatableAccount) -> Result<A::Type, ()> {
-		// only applicable for the local accounts
-		let account_id = match who {
-			VersionedLocatableAccount::V4 { location, account_id } if location.is_here() =>
-				&account_id.clone().try_into().map_err(|_| ())?,
-			VersionedLocatableAccount::V5 { location, account_id } if location.is_here() =>
-				account_id,
-			_ => return Err(()),
-		};
-		C::convert_location(account_id).ok_or(())
+		match_location_helper::<A::Type, C>(who)
 	}
 	fn match_asset(asset: &VersionedLocatableAsset) -> Result<xcm::v5::Location, ()> {
-		match asset {
-			VersionedLocatableAsset::V4 { location, asset_id } if location.is_here() =>
-				asset_id.clone().try_into().map(|a: xcm::v5::AssetId| a.0).map_err(|_| ()),
-			VersionedLocatableAsset::V5 { location, asset_id } if location.is_here() =>
-				Ok(asset_id.clone().0),
-			_ => Err(()),
-		}
+		match_asset_helper(asset)
 	}
 }
 
-/// Pay on the local chain with `fungibles` implementation if the beneficiary and source are both
-/// local. This variant accepts the source as a `VersionedLocatableAccount`.
-pub struct LocalPayWithSource<F, A, C>(core::marker::PhantomData<(F, A, C)>);
-impl<F, A, C> PayWithSource for LocalPayWithSource<F, A, C>
+// Implement PayWithSource for LocalPay to avoid code duplication
+// Note: PayWithSource doesn't require A: TypedGet because the source is provided as a parameter
+impl<A, F, C> PayWithSource for LocalPay<F, A, C>
 where
 	A: Eq + Clone,
 	F: fungibles::Mutate<A, AssetId = xcm::v5::Location> + fungibles::Create<A>,
@@ -153,9 +169,10 @@ where
 		asset: Self::AssetKind,
 		amount: Self::Balance,
 	) -> Result<Self::Id, Self::Error> {
-		let source = Self::match_location(source).map_err(|_| DispatchError::Unavailable)?;
-		let who = Self::match_location(who).map_err(|_| DispatchError::Unavailable)?;
-		let asset = Self::match_asset(&asset).map_err(|_| DispatchError::Unavailable)?;
+		let source = match_location_helper::<A, C>(source)
+			.map_err(|_| DispatchError::Unavailable)?;
+		let who = match_location_helper::<A, C>(who).map_err(|_| DispatchError::Unavailable)?;
+		let asset = match_asset_helper(&asset).map_err(|_| DispatchError::Unavailable)?;
 		<F as fungibles::Mutate<_>>::transfer(
 			asset,
 			&source,
@@ -180,8 +197,8 @@ where
 	) {
 		use sp_runtime::traits::Zero;
 
-		let source = Self::match_location(source).expect("invalid source");
-		let asset = Self::match_asset(&asset).expect("invalid asset");
+		let source = match_location_helper::<A, C>(source).expect("invalid source");
+		let asset = match_asset_helper(&asset).expect("invalid asset");
 		if F::total_issuance(asset.clone()).is_zero() {
 			<F as fungibles::Create<_>>::create(asset.clone(), source.clone(), true, 1u32.into())
 				.unwrap();
@@ -190,34 +207,6 @@ where
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(_: Self::Id) {}
-}
-
-impl<F, A, C> LocalPayWithSource<F, A, C>
-where
-	A: Eq + Clone,
-	F: fungibles::Mutate<A> + fungibles::Create<A>,
-	C: ConvertLocation<A>,
-{
-	fn match_location(who: &VersionedLocatableAccount) -> Result<A, ()> {
-		// only applicable for the local accounts
-		let account_id = match who {
-			VersionedLocatableAccount::V4 { location, account_id } if location.is_here() =>
-				&account_id.clone().try_into().map_err(|_| ())?,
-			VersionedLocatableAccount::V5 { location, account_id } if location.is_here() =>
-				account_id,
-			_ => return Err(()),
-		};
-		C::convert_location(account_id).ok_or(())
-	}
-	fn match_asset(asset: &VersionedLocatableAsset) -> Result<xcm::v5::Location, ()> {
-		match asset {
-			VersionedLocatableAsset::V4 { location, asset_id } if location.is_here() =>
-				asset_id.clone().try_into().map(|a: xcm::v5::AssetId| a.0).map_err(|_| ()),
-			VersionedLocatableAsset::V5 { location, asset_id } if location.is_here() =>
-				Ok(asset_id.clone().0),
-			_ => Err(()),
-		}
-	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -258,7 +247,7 @@ pub mod benchmarks {
 	}
 
 	/// Provides factory methods for the `AssetKind`, `Source`, and `Beneficiary` that are
-	/// applicable for the payout made by [`LocalPayWithSource`].
+	/// applicable for the payout made by [`LocalPay`] when used with `PayWithSource`.
 	///
 	/// ### Parameters:
 	/// - `PalletId`: The ID of the assets registry pallet.
