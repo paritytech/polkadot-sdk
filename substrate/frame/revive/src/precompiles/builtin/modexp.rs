@@ -49,7 +49,7 @@ pub struct Modexp<T>(PhantomData<T>);
 
 impl<T: Config> PrimitivePrecompile for Modexp<T> {
 	type T = T;
-	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(5).unwrap());
+	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(0x5).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(
@@ -164,7 +164,7 @@ fn calculate_gas_cost(
 	fn calculate_multiplication_complexity(base_length: u64, mod_length: u64) -> u64 {
 		let max_length = max(base_length, mod_length);
 		let mut words = max_length / 8;
-		if max_length % 8 > 0 {
+		if !max_length.is_multiple_of(8) {
 			words += 1;
 		}
 

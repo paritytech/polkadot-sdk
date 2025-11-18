@@ -33,6 +33,7 @@ frame-benchmarking-cli = { optional = true, workspace = true, default-features =
 polkadot-node-metrics = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 sc-cli = { optional = true, workspace = true, default-features = true }
+sc-network-types = { workspace = true, default-features = true }
 sc-service = { optional = true, workspace = true, default-features = true }
 sc-storage-monitor = { workspace = true, default-features = true }
 sc-sysinfo = { workspace = true, default-features = true }

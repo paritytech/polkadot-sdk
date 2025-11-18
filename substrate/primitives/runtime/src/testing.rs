@@ -18,11 +18,11 @@
 //! Testing utilities.
 
 use crate::{
-	codec::{Codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen},
-	generic::{self, UncheckedExtrinsic},
+	codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen},
+	generic::{self, LazyBlock, UncheckedExtrinsic},
 	scale_info::TypeInfo,
-	traits::{self, BlakeTwo256, Dispatchable, OpaqueKeys},
-	DispatchResultWithInfo, KeyTypeId,
+	traits::{self, BlakeTwo256, Dispatchable, LazyExtrinsic, OpaqueKeys},
+	DispatchResultWithInfo, KeyTypeId, OpaqueExtrinsic,
 };
 use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize};
 use sp_core::crypto::{key_types, ByteArray, CryptoType, Dummy};
@@ -239,6 +239,26 @@ impl<Xt> traits::HeaderProvider for Block<Xt> {
 	type HeaderT = Header;
 }
 
+impl<Xt: Into<OpaqueExtrinsic>> From<Block<Xt>> for LazyBlock<Header, Xt> {
+	fn from(block: Block<Xt>) -> Self {
+		LazyBlock::new(block.header, block.extrinsics)
+	}
+}
+
+impl<Xt> EncodeLike<LazyBlock<Header, Xt>> for Block<Xt>
+where
+	Block<Xt>: Encode,
+	LazyBlock<Header, Xt>: Encode,
+{
+}
+
+impl<Xt> EncodeLike<Block<Xt>> for LazyBlock<Header, Xt>
+where
+	Block<Xt>: Encode,
+	LazyBlock<Header, Xt>: Encode,
+{
+}
+
 impl<
 		Xt: 'static
 			+ Codec
@@ -250,12 +270,15 @@ impl<
 			+ Clone
 			+ Eq
 			+ Debug
-			+ traits::ExtrinsicLike,
+			+ traits::ExtrinsicLike
+			+ Into<OpaqueExtrinsic>
+			+ LazyExtrinsic,
 	> traits::Block for Block<Xt>
 {
 	type Extrinsic = Xt;
 	type Header = Header;
 	type Hash = <Header as traits::Header>::Hash;
+	type LazyBlock = LazyBlock<Header, Xt>;
 
 	fn header(&self) -> &Self::Header {
 		&self.header
@@ -268,9 +291,6 @@ impl<
 	}
 	fn new(header: Self::Header, extrinsics: Vec<Self::Extrinsic>) -> Self {
 		Block { header, extrinsics }
-	}
-	fn encode_from(header: &Self::Header, extrinsics: &[Self::Extrinsic]) -> Vec<u8> {
-		(header, extrinsics).encode()
 	}
 }
 

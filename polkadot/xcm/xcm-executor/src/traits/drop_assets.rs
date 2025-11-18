@@ -32,6 +32,7 @@ impl DropAssets for () {
 
 /// Morph a given `DropAssets` implementation into one which can filter based on assets. This can
 /// be used to ensure that `AssetsInHolding` values which hold no value are ignored.
+#[allow(dead_code)]
 pub struct FilterAssets<D, A>(PhantomData<(D, A)>);
 
 impl<D: DropAssets, A: Contains<AssetsInHolding>> DropAssets for FilterAssets<D, A> {
@@ -47,6 +48,7 @@ impl<D: DropAssets, A: Contains<AssetsInHolding>> DropAssets for FilterAssets<D,
 /// Morph a given `DropAssets` implementation into one which can filter based on origin. This can
 /// be used to ban origins which don't have proper protections/policies against misuse of the
 /// asset trap facility don't get to use it.
+#[allow(dead_code)]
 pub struct FilterOrigin<D, O>(PhantomData<(D, O)>);
 
 impl<D: DropAssets, O: Contains<Location>> DropAssets for FilterOrigin<D, O> {

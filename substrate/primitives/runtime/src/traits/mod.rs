@@ -24,7 +24,7 @@ use crate::{
 		TransactionSource, TransactionValidity, TransactionValidityError, UnknownTransaction,
 		ValidTransaction,
 	},
-	DispatchResult, KeyTypeId,
+	DispatchResult, KeyTypeId, OpaqueExtrinsic,
 };
 use alloc::vec::Vec;
 use codec::{
@@ -1320,12 +1320,45 @@ pub trait HeaderProvider {
 	type HeaderT: Header;
 }
 
+/// An extrinsic that can be lazily decoded.
+pub trait LazyExtrinsic: Sized {
+	/// Try to decode the lazy extrinsic.
+	///
+	/// Usually an encoded extrinsic is composed of 2 parts:
+	/// - a `Compact<u32>` prefix (`len)`
+	/// - a blob of size `len`
+	/// This method expects to receive just the blob as a byte slice.
+	/// The size of the blob is the `len`.
+	fn decode_unprefixed(data: &[u8]) -> Result<Self, codec::Error>;
+}
+
+/// A Substrate block that allows us to lazily decode its extrinsics.
+pub trait LazyBlock: Debug + Encode + Decode + Sized {
+	/// Type for the decoded extrinsics.
+	type Extrinsic: LazyExtrinsic;
+	/// Header type.
+	type Header: Header;
+
+	/// Returns a reference to the header.
+	fn header(&self) -> &Self::Header;
+
+	/// Returns a mut reference to the header.
+	fn header_mut(&mut self) -> &mut Self::Header;
+
+	/// Returns an iterator over all extrinsics.
+	///
+	/// The extrinsics are lazily decoded (if possible) as they are pulled by the iterator.
+	fn extrinsics(&self) -> impl Iterator<Item = Result<Self::Extrinsic, codec::Error>>;
+}
+
 /// Something which fulfills the abstract idea of a Substrate block. It has types for
 /// `Extrinsic` pieces of information as well as a `Header`.
 ///
 /// You can get an iterator over each of the `extrinsics` and retrieve the `header`.
 pub trait Block:
-	HeaderProvider<HeaderT = <Self as Block>::Header>
+	HeaderProvider<HeaderT = Self::Header>
+	+ Into<Self::LazyBlock>
+	+ EncodeLike<Self::LazyBlock>
 	+ Clone
 	+ Send
 	+ Sync
@@ -1337,11 +1370,15 @@ pub trait Block:
 	+ 'static
 {
 	/// Type for extrinsics.
-	type Extrinsic: Member + Codec + ExtrinsicLike + MaybeSerialize;
+	type Extrinsic: Member + Codec + ExtrinsicLike + MaybeSerialize + Into<OpaqueExtrinsic>;
 	/// Header type.
 	type Header: Header<Hash = Self::Hash> + MaybeSerializeDeserialize;
 	/// Block hash type.
 	type Hash: HashOutput;
+
+	/// A shadow structure which allows us to lazily decode the extrinsics.
+	/// The `LazyBlock` must have the same encoded representation as the `Block`.
+	type LazyBlock: LazyBlock<Extrinsic = Self::Extrinsic, Header = Self::Header> + EncodeLike<Self>;
 
 	/// Returns a reference to the header.
 	fn header(&self) -> &Self::Header;
@@ -1355,9 +1392,6 @@ pub trait Block:
 	fn hash(&self) -> Self::Hash {
 		<<Self::Header as Header>::Hashing as Hash>::hash_of(self.header())
 	}
-	/// Creates an encoded block from the given `header` and `extrinsics` without requiring the
-	/// creation of an instance.
-	fn encode_from(header: &Self::Header, extrinsics: &[Self::Extrinsic]) -> Vec<u8>;
 }
 
 /// Something that acts like an `Extrinsic`.
@@ -1427,8 +1461,11 @@ pub trait ExtrinsicCall: ExtrinsicLike {
 	/// The type of the call.
 	type Call;
 
-	/// Get the call of the extrinsic.
+	/// Get a reference to the call of the extrinsic.
 	fn call(&self) -> &Self::Call;
+
+	/// Convert the extrinsic into its call.
+	fn into_call(self) -> Self::Call;
 }
 
 /// Something that acts like a [`SignaturePayload`](Extrinsic::SignaturePayload) of an

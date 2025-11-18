@@ -51,7 +51,7 @@ impl<T> Spinlock<T> {
 	}
 
 	#[inline]
-	pub fn lock(&self) -> SpinlockGuard<T> {
+	pub fn lock(&self) -> SpinlockGuard<'_, T> {
 		loop {
 			// Try to acquire the lock.
 			if self

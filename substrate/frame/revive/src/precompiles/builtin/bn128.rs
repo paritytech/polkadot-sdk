@@ -30,7 +30,7 @@ pub struct Bn128Add<T>(PhantomData<T>);
 
 impl<T: Config> PrimitivePrecompile for Bn128Add<T> {
 	type T = T;
-	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(6).unwrap());
+	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(0x6).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(
@@ -58,7 +58,7 @@ pub struct Bn128Mul<T>(PhantomData<T>);
 
 impl<T: Config> PrimitivePrecompile for Bn128Mul<T> {
 	type T = T;
-	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(7).unwrap());
+	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(0x7).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(
@@ -86,7 +86,7 @@ pub struct Bn128Pairing<T>(PhantomData<T>);
 
 impl<T: Config> PrimitivePrecompile for Bn128Pairing<T> {
 	type T = T;
-	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(8).unwrap());
+	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(0x8).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(
@@ -94,7 +94,7 @@ impl<T: Config> PrimitivePrecompile for Bn128Pairing<T> {
 		input: Vec<u8>,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		if input.len() % 192 != 0 {
+		if !input.len().is_multiple_of(192) {
 			Err(DispatchError::from("invalid input length"))?;
 		}
 

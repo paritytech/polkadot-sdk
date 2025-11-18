@@ -20,7 +20,10 @@ use super::{
 	TransactionByteFee, Uniques, WeightToFee, XcmpQueue,
 };
 use assets_common::{
-	matching::{FromNetwork, FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
+	matching::{
+		FromNetwork, IsForeignConcreteAsset, NonTeleportableAssetFromTrustedReserve,
+		ParentLocation, TeleportableAssetWithTrustedReserve,
+	},
 	TrustBackedAssetsAsLocation,
 };
 use frame_support::{
@@ -42,6 +45,7 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
+use rococo_runtime_constants::system_parachain::ASSET_HUB_ID;
 use sp_runtime::traits::{AccountIdConversion, TryConvertInto};
 use testnet_parachains_constants::rococo::snowbridge::{
 	EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX,
@@ -68,6 +72,7 @@ parameter_types! {
 	pub const RootLocation: Location = Location::here();
 	pub const TokenLocation: Location = Location::parent();
 	pub const RelayNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
+	pub const AssetHubParaId: crate::ParaId = crate::ParaId::new(ASSET_HUB_ID);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into())].into();
@@ -294,13 +299,28 @@ pub type WaivedLocations = (
 	Equals<RelayTreasuryLocation>,
 );
 
+// Asset Hub trusts only particular, pre-configured bridged locations from a different consensus
+// as reserve locations (we trust the Bridge Hub to relay the message that a reserve is being
+// held). On Rococo Asset Hub, we allow Westend Asset Hub to act as reserve for any asset native
+// to the Westend ecosystem. We also allow Ethereum contracts to act as reserves for the foreign
+// assets identified by the same respective contracts locations.
+pub type TrustedReserves = (
+	bridging::to_westend::WestendOrEthereumAssetFromAssetHubWestend,
+	bridging::to_ethereum::EthereumAssetFromEthereum,
+	IsForeignConcreteAsset<
+		NonTeleportableAssetFromTrustedReserve<AssetHubParaId, crate::ForeignAssets>,
+	>,
+);
+
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 ///
 /// - ROC with the parent Relay Chain and sibling system parachains; and
 /// - Sibling parachains' assets from where they originate (as `ForeignCreators`).
 pub type TrustedTeleporters = (
 	ConcreteAssetFromSystem<TokenLocation>,
-	IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>,
+	IsForeignConcreteAsset<
+		TeleportableAssetWithTrustedReserve<AssetHubParaId, crate::ForeignAssets>,
+	>,
 );
 
 /// Defines origin aliasing rules for this chain.
@@ -338,15 +358,7 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmEventEmitter = PolkadotXcm;
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
-	// Asset Hub trusts only particular, pre-configured bridged locations from a different consensus
-	// as reserve locations (we trust the Bridge Hub to relay the message that a reserve is being
-	// held). On Rococo Asset Hub, we allow Westend Asset Hub to act as reserve for any asset native
-	// to the Westend ecosystem. We also allow Ethereum contracts to act as reserves for the foreign
-	// assets identified by the same respective contracts locations.
-	type IsReserve = (
-		bridging::to_westend::WestendOrEthereumAssetFromAssetHubWestend,
-		bridging::to_ethereum::EthereumAssetFromEthereum,
-	);
+	type IsReserve = TrustedReserves;
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
@@ -481,15 +493,6 @@ impl pallet_xcm::Config for Runtime {
 impl cumulus_pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
-}
-
-/// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
-pub struct XcmBenchmarkHelper;
-#[cfg(feature = "runtime-benchmarks")]
-impl pallet_assets::BenchmarkHelper<xcm::v5::Location> for XcmBenchmarkHelper {
-	fn create_asset_id_parameter(id: u32) -> xcm::v5::Location {
-		xcm::v5::Location::new(1, [xcm::v5::Junction::Parachain(id)])
-	}
 }
 
 /// All configuration related to bridging
