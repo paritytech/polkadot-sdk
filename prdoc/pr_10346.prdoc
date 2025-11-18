@@ -1,0 +1,9 @@
+title: '[WIP] [pallet-revive] Rve/fix deposits'
+doc:
+- audience: Runtime Dev
+  description: Adding tests
+crates:
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive
+  bump: patch
