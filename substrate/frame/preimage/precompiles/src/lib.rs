@@ -88,7 +88,7 @@ where
 							env.adjust_gas(charged_amount, actual_weight);
 						},
 					Err(error) => {
-						revert(&error.error, "Preimage: note_preimage failed");
+						revert(&error.error, "Preimage: notePreimage failed");
 					},
 				}
 
@@ -99,7 +99,7 @@ where
 					.map_err(|error| revert(&error, "Preimage: invalid hash format"))?;
 				pallet_preimage::Pallet::<T>::unnote_preimage(frame_origin, runtime_hash)
 					.map(|_| Vec::new())
-					.map_err(|error| revert(&error, "Preimage: unnote preimage failed"))
+					.map_err(|error| revert(&error, "Preimage: unnotePreimage failed"))
 			},
 		}
 	}
