@@ -7,8 +7,7 @@ on:
 
 jobs:
   create-old-release-tag:
-    # runs-on: parity-default
-    runs-on: ubuntu-latest
+    runs-on: parity-default
     environment: release
     env:
       PGP_KMS_KEY: ${{ secrets.PGP_KMS_SIGN_COMMITS_KEY }}
@@ -29,7 +28,7 @@ jobs:
         with:
             app-id: ${{ vars.RELEASE_AUTOMATION_APP_ID }}
             private-key: ${{ secrets.RELEASE_AUTOMATION_APP_PRIVATE_KEY }}
-            owner: EgorPopelyaev
+            owner: paritytech
 
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
