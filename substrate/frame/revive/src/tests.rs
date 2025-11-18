@@ -15,10 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod block_hash;
 mod pallet_dummy;
 mod precompiles;
 mod pvm;
 mod sol;
+
+use std::collections::HashMap;
 
 use crate::{
 	self as pallet_revive,
@@ -27,25 +30,27 @@ use crate::{
 		runtime::{EthExtra, SetWeightLimit},
 	},
 	genesis::{Account, ContractData},
+	mock::MockHandler,
 	test_utils::*,
 	AccountId32Mapper, AddressMapper, BalanceOf, BalanceWithDust, Call, CodeInfoOf, Config,
-	ExecOrigin as Origin, GenesisConfig, OriginFor, Pallet, PristineCode,
+	DelegateInfo, ExecOrigin as Origin, ExecReturnValue, GenesisConfig, OriginFor, Pallet,
+	PristineCode,
 };
 use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::EnsureOrigin,
 	parameter_types,
-	traits::{ConstU32, ConstU64, FindAuthor, StorageVersion},
+	traits::{ConstU32, ConstU64, FindAuthor, OriginTrait, StorageVersion},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, Weight},
 };
 use pallet_revive_fixtures::compile_module;
 use pallet_transaction_payment::{ChargeTransactionPayment, ConstFeeMultiplier, Multiplier};
-use sp_core::U256;
+use sp_core::{H160, U256};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
 	generic::Header,
 	traits::{BlakeTwo256, Convert, IdentityLookup, One},
-	AccountId32, BuildStorage, MultiAddress, MultiSignature, Perbill,
+	AccountId32, BuildStorage, MultiAddress, MultiSignature, Perbill, Storage,
 };
 
 pub type Address = MultiAddress<AccountId32, u32>;
@@ -240,7 +245,14 @@ pub(crate) mod builder {
 	}
 
 	pub fn eth_call(dest: H160) -> EthCallBuilder<Test> {
-		EthCallBuilder::<Test>::eth_call(RuntimeOrigin::signed(ALICE), dest)
+		EthCallBuilder::<Test>::eth_call(crate::Origin::<Test>::EthTransaction(ALICE).into(), dest)
+	}
+
+	pub fn eth_instantiate_with_code(code: Vec<u8>) -> EthInstantiateWithCodeBuilder<Test> {
+		EthInstantiateWithCodeBuilder::<Test>::eth_instantiate_with_code(
+			crate::Origin::<Test>::EthTransaction(ALICE).into(),
+			code,
+		)
 	}
 }
 
@@ -427,6 +439,7 @@ pub struct ExtBuilder {
 	storage_version: Option<StorageVersion>,
 	code_hashes: Vec<sp_core::H256>,
 	genesis_config: Option<crate::GenesisConfig<Test>>,
+	genesis_state_overrides: Option<Storage>,
 }
 
 impl Default for ExtBuilder {
@@ -436,6 +449,7 @@ impl Default for ExtBuilder {
 			storage_version: None,
 			code_hashes: vec![],
 			genesis_config: Some(crate::GenesisConfig::<Test>::default()),
+			genesis_state_overrides: None,
 		}
 	}
 }
@@ -457,10 +471,19 @@ impl ExtBuilder {
 	pub fn set_associated_consts(&self) {
 		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = self.existential_deposit);
 	}
+	pub fn with_genesis_state_overrides(mut self, storage: Storage) -> Self {
+		self.genesis_state_overrides = Some(storage);
+		self
+	}
 	pub fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
 		self.set_associated_consts();
-		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+		let mut t = self.genesis_state_overrides.unwrap_or_default();
+
+		frame_system::GenesisConfig::<Test>::default()
+			.assimilate_storage(&mut t)
+			.unwrap();
+
 		let checking_account = Pallet::<Test>::checking_account();
 
 		pallet_balances::GenesisConfig::<Test> {
@@ -507,10 +530,41 @@ impl Default for Origin<Test> {
 	}
 }
 
+/// A mock handler implementation for testing purposes.
+pub struct MockHandlerImpl<T: crate::pallet::Config> {
+	// Always return this caller if set.
+	mock_caller: Option<H160>,
+	// Map of callee address to mocked call return value.
+	mock_call: HashMap<H160, ExecReturnValue>,
+	// Map of input data to mocked delegated caller info.
+	mock_delegate_caller: HashMap<Vec<u8>, DelegateInfo<T>>,
+}
+
+impl<T: crate::pallet::Config> MockHandler<T> for MockHandlerImpl<T> {
+	fn mock_caller(&self, _frames_len: usize) -> Option<OriginFor<T>> {
+		self.mock_caller.as_ref().map(|mock_caller| {
+			OriginFor::<T>::signed(T::AddressMapper::to_fallback_account_id(mock_caller))
+		})
+	}
+
+	fn mock_call(
+		&self,
+		_callee: H160,
+		_call_data: &[u8],
+		_value_transferred: U256,
+	) -> Option<ExecReturnValue> {
+		self.mock_call.get(&_callee).cloned()
+	}
+
+	fn mock_delegated_caller(&self, _dest: H160, input_data: &[u8]) -> Option<DelegateInfo<T>> {
+		self.mock_delegate_caller.get(&input_data.to_vec()).cloned()
+	}
+}
+
 #[test]
 fn ext_builder_with_genesis_config_works() {
 	let pvm_contract = Account {
-		address: BOB_ADDR,
+		address: crate::H160::repeat_byte(0x42),
 		balance: U256::from(100_000_100),
 		nonce: 42,
 		contract_data: Some(ContractData {
@@ -520,11 +574,17 @@ fn ext_builder_with_genesis_config_works() {
 	};
 
 	let evm_contract = Account {
-		address: CHARLIE_ADDR,
+		address: crate::H160::repeat_byte(0x43),
 		balance: U256::from(1_000_00_100),
 		nonce: 43,
 		contract_data: Some(ContractData {
-			code: vec![revm::bytecode::opcode::RETURN],
+			code: vec![
+				revm::bytecode::opcode::PUSH1,
+				0x00,
+				revm::bytecode::opcode::PUSH1,
+				0x00,
+				revm::bytecode::opcode::RETURN,
+			],
 			storage: [([3u8; 32].into(), [4u8; 32].into())].into_iter().collect(),
 		}),
 	};
@@ -553,6 +613,11 @@ fn ext_builder_with_genesis_config_works() {
 		for contract in [pvm_contract, evm_contract] {
 			let contract_data = contract.contract_data.unwrap();
 			let contract_info = test_utils::get_contract(&contract.address);
+
+			assert!(System::account_exists(&<Test as Config>::AddressMapper::to_account_id(
+				&contract.address
+			)));
+
 			assert_eq!(
 				PristineCode::<Test>::get(&contract_info.code_hash).unwrap(),
 				contract_data.code
@@ -566,6 +631,10 @@ fn ext_builder_with_genesis_config_works() {
 					Ok(Some(value.0.to_vec()))
 				);
 			}
+
+			// Check that we can call contract created at genesis
+			let result = builder::bare_call(contract.address).build_and_unwrap_result();
+			assert!(!result.did_revert());
 		}
 	});
 }
