@@ -101,7 +101,7 @@ async fn block_bundling_full_core_usage_scenarios() -> Result<(), anyhow::Error>
 	let third_call = create_schedule_weight_registration_call();
 	let sudo_third_call = create_sudo_call(third_call);
 
-	log::info!("Testing scenario 3: Enabling an inherent that will use 1s ref time");
+	log::info!("Testing scenario 5: Enabling `on_initialize` to use 1s ref time");
 	let block_hash =
 		submit_extrinsic_and_wait_for_finalization_success(&para_client, &sudo_third_call, &alice)
 			.await?;
@@ -112,7 +112,7 @@ async fn block_bundling_full_core_usage_scenarios() -> Result<(), anyhow::Error>
 	let inherent_weight_call = create_set_inherent_weight_consume_call(ref_time_1s, 0);
 	let sudo_inherent_weight_call = create_sudo_call(inherent_weight_call);
 
-	log::info!("Testing scenario 4: Enabling `on_initialize` to use 1s ref time");
+	log::info!("Testing scenario 4: Enabling an inherent that will use 1s ref time");
 	let block_hash = submit_extrinsic_and_wait_for_finalization_success(
 		&para_client,
 		&sudo_inherent_weight_call,

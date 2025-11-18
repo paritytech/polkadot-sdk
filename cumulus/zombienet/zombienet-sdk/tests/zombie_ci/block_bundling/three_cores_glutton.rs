@@ -54,7 +54,7 @@ async fn block_bundling_three_cores_glutton() -> Result<(), anyhow::Error> {
 	let alice = dev::alice();
 
 	// Assign cores 0 and 1 to start with 3 cores total (core 2 is assigned by Zombienet)
-	assign_cores(&relay_node, PARA_ID, vec![0, 1]).await;
+	assign_cores(&relay_node, PARA_ID, vec![0, 1]).await?;
 
 	// Wait for the parachain to produce 72 blocks with 3 cores and glutton active
 	// With 3 cores, we expect roughly 3x throughput compared to single core
