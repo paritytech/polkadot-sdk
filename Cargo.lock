@@ -4500,6 +4500,7 @@ dependencies = [
  "sp-trie",
  "sp-version",
  "substrate-prometheus-endpoint",
+ "tokio",
  "tracing",
 ]
 
@@ -22966,6 +22967,7 @@ dependencies = [
  "sp-api",
  "sp-consensus",
  "sp-core 28.0.0",
+ "sp-externalities 0.25.0",
  "sp-metadata-ir",
  "sp-runtime",
  "sp-state-machine",

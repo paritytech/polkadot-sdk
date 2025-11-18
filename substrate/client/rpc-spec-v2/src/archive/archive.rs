@@ -231,13 +231,29 @@ where
 				.into_iter()
 				.map(|query| {
 					let key = StorageKey(parse_hex_param(query.key)?);
-					Ok(StorageQuery { key, query_type: query.query_type })
+
+					// Validate that paginationStartKey is only used with descendant queries
+					if query.pagination_start_key.is_some() &&
+						!query.query_type.is_descendant_query()
+					{
+						return Err(ArchiveError::InvalidParam(
+							"paginationStartKey is only valid for descendantsValues and descendantsHashes query types"
+								.to_string(),
+						));
+					}
+
+					let pagination_start_key = query
+						.pagination_start_key
+						.map(|key| parse_hex_param(key).map(StorageKey))
+						.transpose()?;
+
+					Ok(StorageQuery { key, query_type: query.query_type, pagination_start_key })
 				})
 				.collect::<Result<Vec<_>, ArchiveError>>()
 			{
 				Ok(items) => items,
 				Err(error) => {
-					let _ = sink.send(&ArchiveStorageEvent::err(error.to_string()));
+					let _ = sink.send(&ArchiveStorageEvent::err(error.to_string())).await;
 					return
 				},
 			};
@@ -246,7 +262,7 @@ where
 			let child_trie = match child_trie {
 				Ok(child_trie) => child_trie.map(ChildInfo::new_default_from_vec),
 				Err(error) => {
-					let _ = sink.send(&ArchiveStorageEvent::err(error.to_string()));
+					let _ = sink.send(&ArchiveStorageEvent::err(error.to_string())).await;
 					return
 				},
 			};
