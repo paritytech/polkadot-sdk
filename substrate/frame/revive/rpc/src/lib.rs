@@ -134,7 +134,8 @@ impl HardhatRpcServer for HardhatRpcServerImpl {
 		Ok(self.client.mine(number_of_blocks, interval).await?)
 	}
 
-	async fn evm_mine(&self, timestamp: Option<U256>) -> RpcResult<CreatedBlock<H256>> {
+	async fn evm_mine(&self, timestamp: Option<u64>) -> RpcResult<CreatedBlock<H256>> {
+		let timestamp = timestamp.map(U256::from);
 		Ok(self.client.evm_mine(timestamp).await?)
 	}
 
@@ -178,19 +179,20 @@ impl HardhatRpcServer for HardhatRpcServerImpl {
 		Ok(self.client.set_coinbase(coinbase).await?)
 	}
 
-	async fn set_next_block_timestamp(&self, next_timestamp: U256) -> RpcResult<()> {
-		Ok(self.client.set_next_block_timestamp(next_timestamp).await?)
+	async fn set_next_block_timestamp(&self, next_timestamp: u64) -> RpcResult<()> {
+		Ok(self.client.set_next_block_timestamp(U256::from(next_timestamp)).await?)
 	}
-	async fn increase_time(&self, increase_by_seconds: U256) -> RpcResult<U256> {
-		Ok(self.client.increase_time(increase_by_seconds).await?)
+
+	async fn increase_time(&self, increase_by_seconds: u64) -> RpcResult<U256> {
+		Ok(self.client.increase_time(U256::from(increase_by_seconds)).await?)
 	}
 
 	async fn set_prev_randao(&self, prev_randao: H256) -> RpcResult<Option<H256>> {
 		Ok(self.client.set_prev_randao(prev_randao).await?)
 	}
 
-	async fn set_block_gas_limit(&self, block_gas_limit: U128) -> RpcResult<Option<U128>> {
-		Ok(self.client.set_block_gas_limit(block_gas_limit).await?)
+	async fn set_block_gas_limit(&self, block_gas_limit: u64) -> RpcResult<Option<U128>> {
+		Ok(self.client.set_block_gas_limit(U128::from(block_gas_limit)).await?)
 	}
 
 	async fn impersonate_account(&self, account: H160) -> RpcResult<Option<H160>> {
