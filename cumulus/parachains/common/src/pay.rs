@@ -117,8 +117,7 @@ where
 	let account_id = match who {
 		VersionedLocatableAccount::V4 { location, account_id } if location.is_here() =>
 			&account_id.clone().try_into().map_err(|_| ())?,
-		VersionedLocatableAccount::V5 { location, account_id } if location.is_here() =>
-			account_id,
+		VersionedLocatableAccount::V5 { location, account_id } if location.is_here() => account_id,
 		_ => return Err(()),
 	};
 	C::convert_location(account_id).ok_or(())
@@ -169,8 +168,8 @@ where
 		asset: Self::AssetKind,
 		amount: Self::Balance,
 	) -> Result<Self::Id, Self::Error> {
-		let source = match_location_helper::<A, C>(source)
-			.map_err(|_| DispatchError::Unavailable)?;
+		let source =
+			match_location_helper::<A, C>(source).map_err(|_| DispatchError::Unavailable)?;
 		let who = match_location_helper::<A, C>(who).map_err(|_| DispatchError::Unavailable)?;
 		let asset = match_asset_helper(&asset).map_err(|_| DispatchError::Unavailable)?;
 		<F as fungibles::Mutate<_>>::transfer(
