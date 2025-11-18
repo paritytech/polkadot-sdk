@@ -1,7 +1,7 @@
-title: '[WIP] [pallet-revive] Rve/fix deposits'
+title: '[pallet-revive] fix termination testing'
 doc:
 - audience: Runtime Dev
-  description: Adding tests
+  description: Adding tests for contract termination logic
 crates:
 - name: pallet-revive-fixtures
   bump: patch
