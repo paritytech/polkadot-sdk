@@ -17,15 +17,15 @@
 //! A module that is responsible for migration of storage.
 
 use super::*;
+#[allow(deprecated)]
+use crate::{assigner_coretime as old, on_demand};
+use assigner_coretime::{
+	AssignmentState, CoreDescriptor, PartsOf57600, QueueDescriptor, Schedule, WorkState,
+};
 use frame_support::{
 	migrations::VersionedMigration, pallet_prelude::ValueQuery, storage_alias,
 	traits::UncheckedOnRuntimeUpgrade, weights::Weight,
 };
-use  assigner_coretime::{
-	AssignmentState, CoreDescriptor, PartsOf57600, QueueDescriptor, Schedule, WorkState,
-};
-#[allow(deprecated)]
-use crate::{assigner_coretime as old, on_demand};
 
 /// Assignment type used in V2 and V3 storage (before migration to V4).
 #[derive(Encode, Decode, TypeInfo, RuntimeDebug, Clone, PartialEq)]
@@ -39,7 +39,7 @@ pub(crate) enum Assignment {
 impl Assignment {
 	pub fn para_id(&self) -> ParaId {
 		match self {
-			Self::Pool { para_id, ..} => *para_id,
+			Self::Pool { para_id, .. } => *para_id,
 			Self::Bulk(para_id) => *para_id,
 		}
 	}
@@ -286,8 +286,8 @@ impl<T: Config + old::pallet::Config> UncheckedOnRuntimeUpgrade for UncheckedMig
 			expected_descriptor_count,
 			total_assignments,
 			expected_pool_assignments,
-		): (u32, u32, u32, u32) = Decode::decode(&mut &state[..])
-			.map_err(|_| "Failed to decode pre_upgrade state")?;
+		): (u32, u32, u32, u32) =
+			Decode::decode(&mut &state[..]).map_err(|_| "Failed to decode pre_upgrade state")?;
 
 		// Verify old storage is cleaned up
 		ensure!(!ClaimQueue::<T>::exists(), "ClaimQueue storage should have been removed");

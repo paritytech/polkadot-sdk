@@ -16,11 +16,11 @@
 
 //! A module that is responsible for migration of storage.
 use super::*;
+use crate::on_demand::LOG_TARGET;
 use frame_support::{
 	migrations::VersionedMigration, storage_alias, traits::UncheckedOnRuntimeUpgrade,
 	weights::Weight,
 };
-use crate::on_demand::LOG_TARGET;
 
 // v1 storage definitions
 mod v1 {
@@ -179,8 +179,7 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV2<T> {
 			}
 		}
 		// drain() performs reads + writes in one operation
-		weight
-			.saturating_accrue(T::DbWeight::get().reads_writes(affinity_count, affinity_count));
+		weight.saturating_accrue(T::DbWeight::get().reads_writes(affinity_count, affinity_count));
 
 		// Sort by QueueIndex to preserve order (ascending)
 		all_orders.sort_by_key(|o| o.idx);
@@ -260,10 +259,7 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV2<T> {
 		// Verify old storage is cleaned up
 		ensure!(!v1::QueueStatus::<T>::exists(), "Old QueueStatus should be removed");
 		ensure!(!v1::FreeEntries::<T>::exists(), "FreeEntries should be removed");
-		ensure!(
-			v1::AffinityEntries::<T>::iter().count() == 0,
-			"AffinityEntries should be empty"
-		);
+		ensure!(v1::AffinityEntries::<T>::iter().count() == 0, "AffinityEntries should be empty");
 		ensure!(v1::ParaIdAffinity::<T>::iter().count() == 0, "ParaIdAffinity should be empty");
 
 		// Verify new storage
@@ -271,10 +267,8 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV2<T> {
 
 		// Compare traffic values, handling the Option case
 		match expected_traffic {
-			Some(expected) => ensure!(
-				new_order_status.traffic == expected,
-				"Traffic value should be preserved"
-			),
+			Some(expected) =>
+				ensure!(new_order_status.traffic == expected, "Traffic value should be preserved"),
 			None => {
 				// If there was no old QueueStatus, traffic should be the default
 				let default_traffic = T::TrafficDefaultValue::get();
