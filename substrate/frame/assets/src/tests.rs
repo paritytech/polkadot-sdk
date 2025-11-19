@@ -1004,12 +1004,14 @@ fn touching_and_freezing_account_with_zero_asset_balance_should_work() {
 	});
 }
 
+// In the past only admin and freezer could call `touch_other`.
+// Test that this behavior is still supported.
 #[test]
-fn touch_other_works() {
+fn touch_other_works_legacy() {
 	new_test_ext().execute_with(|| {
 		// 1 will be admin
 		// 2 will be freezer
-		// 4 will be an account attempting to execute `touch_other`
+		// 4 will be an account successfully attempting to execute `touch_other`
 		Balances::make_free_balance_be(&1, 100);
 		Balances::make_free_balance_be(&2, 100);
 		Balances::make_free_balance_be(&4, 100);
@@ -1019,11 +1021,8 @@ fn touch_other_works() {
 		assert_eq!(Assets::balance(0, 1), 100);
 		// account `3` does not exist
 		assert!(!Account::<Test>::contains_key(0, &3));
-		// creation of asset account `3` by account `4` fails
-		assert_noop!(
-			Assets::touch_other(RuntimeOrigin::signed(4), 0, 3),
-			Error::<Test>::NoPermission
-		);
+		// creation of asset account `30` by account `4` works
+		assert_ok!(Assets::touch_other(RuntimeOrigin::signed(4), 0, 30));
 		// creation of asset account `3` by admin `1` works
 		assert!(!Account::<Test>::contains_key(0, &3));
 		assert_ok!(Assets::touch_other(RuntimeOrigin::signed(1), 0, 3));
@@ -1031,7 +1030,33 @@ fn touch_other_works() {
 		// creation of asset account `4` by freezer `2` works
 		assert!(!Account::<Test>::contains_key(0, &4));
 		assert_ok!(Assets::touch_other(RuntimeOrigin::signed(2), 0, 4));
+	});
+}
+
+#[test]
+fn touch_other_works() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&3, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 3, 100));
+		assert_eq!(Assets::balance(0, 3), 100);
+
+		// account `4` does not exist
+		assert!(!Account::<Test>::contains_key(0, &4));
+
+		// creation of asset account `4` by funded account `3` works
+		assert_ok!(Assets::touch_other(RuntimeOrigin::signed(3), 0, 4));
 		assert!(Account::<Test>::contains_key(0, &4));
+
+		// account `6` does not exist
+		assert!(!Account::<Test>::contains_key(0, &6));
+
+		// creation of asset account `6` by not funded account `5` fails
+		assert_noop!(
+			Assets::touch_other(RuntimeOrigin::signed(5), 0, 6),
+			BalancesError::<Test>::InsufficientBalance,
+		);
+		assert!(!Account::<Test>::contains_key(0, &6));
 	});
 }
 

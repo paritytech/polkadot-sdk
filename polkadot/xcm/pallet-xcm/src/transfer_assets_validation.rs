@@ -46,15 +46,14 @@ impl<T: Config> Pallet<T> {
 	/// `execute` instead, which allows explicit reserve specification.
 	pub(crate) fn ensure_network_asset_reserve_transfer_allowed(
 		assets: &Vec<Asset>,
-		fee_asset_index: usize,
+		fee_asset_id: &AssetId,
 		assets_transfer_type: &TransferType,
 		fees_transfer_type: &TransferType,
 	) -> Result<(), Error<T>> {
 		// Extract fee asset and check both assets and fees separately.
 		let mut remaining_assets = assets.clone();
-		if fee_asset_index >= remaining_assets.len() {
-			return Err(Error::<T>::Empty);
-		}
+		let fee_asset_index =
+			assets.iter().position(|a| a.id == *fee_asset_id).ok_or(Error::<T>::Empty)?;
 		let fee_asset = remaining_assets.remove(fee_asset_index);
 
 		// Check remaining assets with their transfer type.
