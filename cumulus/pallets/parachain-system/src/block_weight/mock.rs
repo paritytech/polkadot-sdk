@@ -166,6 +166,20 @@ pub mod test_pallet {
 			matches!(call, Call::heavy_call_mandatory {})
 		}
 	}
+
+	#[pallet::validate_unsigned]
+	impl<T: Config> sp_runtime::traits::ValidateUnsigned for Pallet<T> {
+		type Call = Call<T>;
+		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			Ok(ValidTransaction {
+				priority: u64::max_value(),
+				requires: Vec::new(),
+				provides: vec![call.encode()],
+				longevity: TransactionLongevity::max_value(),
+				propagate: true,
+			})
+		}
+	}
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
