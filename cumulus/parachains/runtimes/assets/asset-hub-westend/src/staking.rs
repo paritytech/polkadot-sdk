@@ -499,3 +499,20 @@ where
 		UncheckedExtrinsic::new_bare(call)
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn all_epmb_weights_sane() {
+		sp_tracing::try_init_simple();
+		sp_io::TestExternalities::default().execute_with(|| {
+			pallet_election_provider_multi_block::Pallet::<Runtime>::check_all_weights(
+				<Runtime as frame_system::Config>::BlockWeights::get().max_block,
+				Some(sp_runtime::Percent::from_percent(75)),
+				Some(sp_runtime::Percent::from_percent(50)),
+			);
+		})
+	}
+}
