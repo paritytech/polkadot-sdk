@@ -15,8 +15,8 @@
 // limitations under the License.
 
 use super::{
-	block_weight_over_target_block_weight, is_first_block_in_core_with_digest, BlockWeightMode,
-	MaxParachainBlockWeight, FULL_CORE_WEIGHT, LOG_TARGET,
+	block_weight_over_target_block_weight, inside_pre_validate, is_first_block_in_core_with_digest,
+	BlockWeightMode, MaxParachainBlockWeight, FULL_CORE_WEIGHT, LOG_TARGET,
 };
 use crate::WeightInfo;
 use alloc::vec::Vec;
@@ -154,9 +154,20 @@ where
 					let block_weight_over_limit = extrinsic_index == 0
 						&& block_weight_over_target_block_weight::<Config, TargetBlockRate>();
 
-					let block_weights = Config::BlockWeights::get();
-					let target_weight = MaxParachainBlockWeight::<Config, TargetBlockRate>::target_block_weight_with_digest(&digest)
-						.saturating_sub(block_weights.base_block);
+					// If `BlockWeights` is configured correctly, it will internally call `MaxParachainBlockWeight::get()`
+					// and by setting this variable to `true`, we tell it the context. This is important as we want to get
+					// the `target_block_weight` and not the full core weight. Otherwise, we will here get a too huge weight
+					// and do not set the `PotentialFullCore` weight, leading to `CheckWeight` rejecting the extrinsic.
+					//
+					// All of this is only important for extrinsics that will enable the `PotentialFullCore` mode.
+					let block_weights = inside_pre_validate::using(&mut true, || Config::BlockWeights::get());
+					let target_weight = block_weights
+						.get(info.class)
+						.max_total
+						.unwrap_or_else(||
+							MaxParachainBlockWeight::<Config, TargetBlockRate>::target_block_weight_with_digest(&digest)
+								.saturating_sub(block_weights.base_block)
+						);
 
 					// Protection against a misconfiguration as this should be detected by the pre-inherent hook.
 					if block_weight_over_limit {

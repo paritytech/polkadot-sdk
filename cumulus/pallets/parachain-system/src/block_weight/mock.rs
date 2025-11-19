@@ -75,6 +75,7 @@ pub type BlockOnlyOperational = generic::Block<
 >;
 
 pub const TARGET_BLOCK_RATE: u32 = 12;
+pub const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
 #[docify::export(tx_extension_setup)]
 pub type TxExtension = DynamicMaxBlockWeight<
@@ -108,7 +109,7 @@ mod max_block_weight_setup {
 				weights.base_extrinsic = ExtrinsicBaseWeight::get();
 			})
 			.for_class(DispatchClass::Normal, |weights| {
-				weights.max_total = Some(MaximumBlockWeight::get());
+				weights.max_total = Some(MaximumBlockWeight::get() * NORMAL_DISPATCH_RATIO);
 			})
 			.for_class(DispatchClass::Operational, |weights| {
 				weights.max_total = Some(MaximumBlockWeight::get());
@@ -148,6 +149,11 @@ pub mod test_pallet {
 		/// A heavy call with Operational dispatch class that consumes significant weight.
 		#[pallet::weight((Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND, 1024 * 1024), DispatchClass::Mandatory))]
 		pub fn heavy_call_mandatory(_: OriginFor<T>) -> DispatchResult {
+			Ok(())
+		}
+
+		#[pallet::weight((_weight.clone(), DispatchClass::Normal))]
+		pub fn use_weight(_: OriginFor<T>, _weight: Weight) -> DispatchResult {
 			Ok(())
 		}
 	}
