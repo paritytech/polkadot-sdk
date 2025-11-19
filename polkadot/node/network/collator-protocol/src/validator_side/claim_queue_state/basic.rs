@@ -499,33 +499,43 @@ impl ClaimQueueState {
 	/// Example: if a path is [A, B, C, D] and `targets` contains [A, B] then both A and B will be
 	/// removed. But if `targets` contains [B, C] then nothing will be removed.
 	pub(super) fn remove_pruned_ancestors(&mut self, targets: &HashSet<Hash>) {
-		// First remove all entries from candidates for each removed relay parent. Any Seconded
-		// entries for it can't be undone anymore, but the claimed ones may need to be freed.
-		let mut removed_candidates = HashSet::with_capacity(targets.len());
-		for target in targets {
-			if let Some(candidates) = self.candidates.remove(target) {
-				removed_candidates.extend(candidates.into_iter());
-			}
-		}
-
-		// All the blocks that should be pruned are in the front of `block_state`. Since `targets`
-		// is not ordered - keep popping until the first element is not found in `targets`.
+		// All the blocks that should be pruned are in the front of `block_state`. Since
+		// `block_state` is not ordered, keep popping until the first element is not found in
+		// `targets`.
+		let mut removed_candidates = HashSet::new();
+		let mut removable_candidates = HashSet::new();
 		loop {
 			match self.block_state.front().and_then(|claim_info| claim_info.hash) {
 				Some(hash) if targets.contains(&hash) => {
-					self.block_state.pop_front();
+					let Some(claim_info) = self.block_state.pop_front() else { break };
+
+					if let Some(candidate_hash) = claim_info.claimed.candidate_hash() {
+						removed_candidates.insert(*candidate_hash);
+					}
+
+					if let Some(candidates) = self.candidates.get(&hash) {
+						removable_candidates.extend(candidates.iter().cloned());
+					}
 				},
 				_ => break,
 			}
 		}
 
+		// Remove all entries from candidates for each removed relay parent. Any Seconded
+		// entries for it can't be undone anymore, but the claimed ones may need to be freed.
 		for claim_info in self.block_state.iter_mut() {
-			if let ClaimState::Pending(Some(candidate_hash)) = claim_info.claimed {
-				if removed_candidates.contains(&candidate_hash) {
-					claim_info.claimed = ClaimState::Free;
-				}
+			let ClaimState::Pending(Some(candidate_hash)) = claim_info.claimed else { continue };
+
+			if removable_candidates.contains(&candidate_hash) {
+				claim_info.claimed = ClaimState::Free;
+				removed_candidates.insert(candidate_hash);
 			}
 		}
+
+		self.candidates.retain(|_relay_parent, candidates| {
+			candidates.retain(|candidate| !removed_candidates.contains(candidate));
+			!candidates.is_empty()
+		});
 	}
 
 	/// Returns true if the path is empty
@@ -564,10 +574,17 @@ impl ClaimQueueState {
 	/// Explicitly clears a claim at a specific relay parent.
 	pub(super) fn release_claim_for_relay_parent(&mut self, relay_parent: &Hash) -> bool {
 		for claim in self.block_state.iter_mut() {
-			if claim.hash.as_ref() == Some(relay_parent) {
-				claim.claimed = ClaimState::Free;
-				return true
+			if claim.hash.as_ref() != Some(relay_parent) {
+				continue;
 			}
+
+			if let Some(candidate_hash) = claim.claimed.candidate_hash() {
+				if let Some(candidates) = self.candidates.get_mut(relay_parent) {
+					candidates.remove(&candidate_hash);
+				}
+			}
+			claim.claimed = ClaimState::Free;
+			return true
 		}
 
 		false
