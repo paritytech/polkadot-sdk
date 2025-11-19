@@ -1877,7 +1877,11 @@ mod remote_tests_local {
 		sp_tracing::try_init_simple();
 		let mode = Mode::OfflineOrElseOnline(
 			OfflineConfig { state_snapshot: snap.clone() },
-			OnlineConfig { transport: ws_api, state_snapshot: Some(snap), ..Default::default() },
+			OnlineConfig {
+				transports: vec![ws_api],
+				state_snapshot: Some(snap),
+				..Default::default()
+			},
 		);
 
 		// item being the bottleneck
