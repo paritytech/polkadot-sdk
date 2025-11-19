@@ -1171,4 +1171,15 @@ mod tests {
 		assert_eq!(meter.consumed(), Deposit::Refund(3));
 		assert_eq!(meter.max_charged(), Deposit::Charge(47));
 	}
+
+	#[test]
+	fn max_deposits_work_for_reverts() {
+		clear_ext();
+		let mut meter = TestMeter::new(None);
+		let mut nested1 = meter.nested(None);
+		nested1.record_charge(&Deposit::Charge(10));
+
+		meter.absorb_only_max_charged(nested1);
+		assert_eq!(meter.max_charged(), Deposit::Charge(10));
+	}
 }

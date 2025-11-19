@@ -4083,7 +4083,7 @@ fn call_tracing_works() {
 		});
 		let gas_trace = tracer.collect_trace().unwrap();
 		assert_eq!(&gas_trace.gas_used, &gas_used.into());
-	
+
 		for config in tracer_configs {
 			let logs = if config.with_logs {
 				vec![
