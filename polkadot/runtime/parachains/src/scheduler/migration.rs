@@ -17,40 +17,69 @@
 //! A module that is responsible for migration of storage.
 
 use super::*;
-#[allow(deprecated)]
-use crate::{assigner_coretime as old, on_demand};
-use assigner_coretime::{
-	AssignmentState, CoreDescriptor, PartsOf57600, QueueDescriptor, Schedule, WorkState,
-};
+use crate::on_demand;
 use frame_support::{
 	migrations::VersionedMigration, pallet_prelude::ValueQuery, storage_alias,
 	traits::UncheckedOnRuntimeUpgrade, weights::Weight,
 };
 
-/// Assignment type used in V2 and V3 storage (before migration to V4).
-#[derive(Encode, Decode, TypeInfo, RuntimeDebug, Clone, PartialEq)]
-pub(crate) enum Assignment {
-	/// A pool assignment (on-demand).
-	Pool { para_id: ParaId, core_index: CoreIndex },
-	/// A bulk assignment (from broker chain).
-	Bulk(ParaId),
-}
+// Import V4 types - these will be used directly for decoding V3 storage since they're binary-compatible
+use super::assigner_coretime::{CoreDescriptor, Schedule};
 
-impl Assignment {
-	pub fn para_id(&self) -> ParaId {
-		match self {
-			Self::Pool { para_id, .. } => *para_id,
-			Self::Bulk(para_id) => *para_id,
-		}
-	}
-}
-
+/// V3 storage format - types and storage items before migration to V4.
 pub(super) mod v3 {
 	use super::*;
+	use frame_support::pallet_prelude::{OptionQuery, Twox256};
+
+	/// Assignment type used in V2 and V3 storage (before migration to V4).
+	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, Clone, PartialEq)]
+	pub(crate) enum Assignment {
+		/// A pool assignment (on-demand).
+		Pool { para_id: ParaId, core_index: CoreIndex },
+		/// A bulk assignment (from broker chain).
+		Bulk(ParaId),
+	}
+
+	impl Assignment {
+		pub fn para_id(&self) -> ParaId {
+			match self {
+				Self::Pool { para_id, .. } => *para_id,
+				Self::Bulk(para_id) => *para_id,
+			}
+		}
+	}
 
 	#[storage_alias]
 	pub(crate) type ClaimQueue<T: Config> =
 		StorageValue<Pallet<T>, BTreeMap<CoreIndex, VecDeque<Assignment>>, ValueQuery>;
+
+	/// Storage alias for the old CoreSchedules storage in the AssignerCoretime pallet.
+	///
+	/// NOTE: The pallet name must match the name used in the runtime's `construct_runtime!` macro.
+	/// This is typically "AssignerCoretime" for Polkadot/Kusama/Rococo/Westend runtimes.
+	///
+	/// We can decode directly into V4 types (Schedule, PartsOf57600, etc.) because they're
+	/// binary-compatible with the V3 types - field visibility doesn't affect encoding.
+	#[storage_alias]
+	pub(crate) type CoreSchedules<T: Config> = StorageMap<
+		AssignerCoretime,
+		Twox256,
+		(BlockNumberFor<T>, CoreIndex),
+		Schedule<BlockNumberFor<T>>,
+		OptionQuery,
+	>;
+
+	/// Storage alias for the old CoreDescriptors storage in the AssignerCoretime pallet.
+	///
+	/// NOTE: The pallet name must match the name used in the runtime's `construct_runtime!` macro.
+	#[storage_alias]
+	pub(crate) type CoreDescriptors<T: Config> = StorageMap<
+		AssignerCoretime,
+		Twox256,
+		CoreIndex,
+		CoreDescriptor<BlockNumberFor<T>>,
+		ValueQuery,
+	>;
 }
 
 /// Migration for consolidating coretime assignment scheduling into the Scheduler pallet.
@@ -78,8 +107,7 @@ pub(super) mod v3 {
 /// removed once all networks have upgraded.
 pub struct UncheckedMigrateToV4<T>(core::marker::PhantomData<T>);
 
-#[allow(deprecated)]
-impl<T: Config + old::pallet::Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV4<T> {
+impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV4<T> {
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight: Weight = Weight::zero();
 
@@ -97,43 +125,32 @@ impl<T: Config + old::pallet::Config> UncheckedOnRuntimeUpgrade for UncheckedMig
 			let core_index = CoreIndex(core_idx);
 
 			// Get the descriptor for this core
-			let old_descriptor = old::pallet::CoreDescriptors::<T>::get(core_index);
+			let old_descriptor = v3::CoreDescriptors::<T>::get(core_index);
 			weight.saturating_accrue(T::DbWeight::get().reads(1));
 
 			// Check if this core has a non-default descriptor
-			if old_descriptor.queue.is_none() && old_descriptor.current_work.is_none() {
+			if old_descriptor.queue().is_none() && old_descriptor.current_work().is_none() {
 				continue; // Skip empty/default descriptors
 			}
 
 			descriptor_count += 1;
 
 			// Migrate schedules for this core by following the queue linked list
-			if let Some(queue) = &old_descriptor.queue {
+			if let Some(queue) = old_descriptor.queue() {
 				let mut current_block = Some(queue.first);
 
 				while let Some(block_number) = current_block {
 					let key = (block_number, core_index);
 
-					if let Some(old_schedule) = old::pallet::CoreSchedules::<T>::take(key) {
+					if let Some(schedule) = v3::CoreSchedules::<T>::take(key) {
 						schedule_count += 1;
 						weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
-						// Save next_schedule before moving old_schedule
-						let next = old_schedule.next_schedule;
+						// Save next_schedule before moving schedule
+						let next = schedule.next_schedule();
 
-						// Convert and insert into new storage
-						let new_schedule = Schedule::new(
-							old_schedule
-								.assignments
-								.into_iter()
-								.map(|(assignment, parts)| {
-									(assignment, PartsOf57600::new_saturating(parts.0))
-								})
-								.collect(),
-							old_schedule.end_hint,
-							old_schedule.next_schedule,
-						);
-						super::CoreSchedules::<T>::insert(key, new_schedule);
+						// Insert into new storage with new hasher (Twox64Concat)
+						super::CoreSchedules::<T>::insert(key, schedule);
 						weight.saturating_accrue(T::DbWeight::get().writes(1));
 
 						// Move to next schedule in queue
@@ -151,29 +168,8 @@ impl<T: Config + old::pallet::Config> UncheckedOnRuntimeUpgrade for UncheckedMig
 				}
 			}
 
-			// Convert descriptor from old type to new type
-			let new_desc = CoreDescriptor::new(
-				old_descriptor.queue.map(|q| QueueDescriptor { first: q.first, last: q.last }),
-				old_descriptor.current_work.map(|w| WorkState {
-					assignments: w
-						.assignments
-						.into_iter()
-						.map(|(assignment, state)| {
-							(
-								assignment,
-								AssignmentState {
-									ratio: PartsOf57600::new_saturating(state.ratio.0),
-									remaining: PartsOf57600::new_saturating(state.remaining.0),
-								},
-							)
-						})
-						.collect(),
-					end_hint: w.end_hint,
-					pos: w.pos,
-					step: PartsOf57600::new_saturating(w.step.0),
-				}),
-			);
-			new_descriptors.insert(core_index, new_desc);
+			// Descriptor can be used as-is since types are binary-compatible
+			new_descriptors.insert(core_index, old_descriptor);
 		}
 
 		// Write all descriptors at once
@@ -192,7 +188,7 @@ impl<T: Config + old::pallet::Config> UncheckedOnRuntimeUpgrade for UncheckedMig
 		for (_core_idx, assignments) in old_claim_queue.iter() {
 			for assignment in assignments {
 				total_assignments = total_assignments.saturating_add(1);
-				if let Assignment::Pool { para_id, .. } = assignment {
+				if let v3::Assignment::Pool { para_id, .. } = assignment {
 					// Push the on-demand order back to the on-demand pallet.
 					// This ensures user-paid orders are not lost.
 					on_demand::Pallet::<T>::push_back_order(*para_id);
@@ -230,19 +226,19 @@ impl<T: Config + old::pallet::Config> UncheckedOnRuntimeUpgrade for UncheckedMig
 
 		for core_idx in 0..num_cores {
 			let core_index = CoreIndex(core_idx);
-			let descriptor = old::pallet::CoreDescriptors::<T>::get(core_index);
+			let descriptor = v3::CoreDescriptors::<T>::get(core_index);
 
-			if descriptor.queue.is_some() || descriptor.current_work.is_some() {
+			if descriptor.queue().is_some() || descriptor.current_work().is_some() {
 				descriptor_count += 1;
 
 				// Count schedules by following the queue
-				if let Some(queue) = descriptor.queue {
+				if let Some(queue) = descriptor.queue() {
 					let mut current_block = Some(queue.first);
 					while let Some(block_number) = current_block {
 						let key = (block_number, core_index);
-						if let Some(schedule) = old::pallet::CoreSchedules::<T>::get(key) {
+						if let Some(schedule) = v3::CoreSchedules::<T>::get(key) {
 							schedule_count += 1;
-							current_block = schedule.next_schedule;
+							current_block = schedule.next_schedule();
 						} else {
 							break;
 						}
@@ -258,7 +254,7 @@ impl<T: Config + old::pallet::Config> UncheckedOnRuntimeUpgrade for UncheckedMig
 		for (_core_idx, assignments) in claim_queue.iter() {
 			for assignment in assignments {
 				total_assignments = total_assignments.saturating_add(1);
-				if matches!(assignment, Assignment::Pool { .. }) {
+				if matches!(assignment, v3::Assignment::Pool { .. }) {
 					pool_assignments = pool_assignments.saturating_add(1);
 				}
 			}
@@ -298,9 +294,9 @@ impl<T: Config + old::pallet::Config> UncheckedOnRuntimeUpgrade for UncheckedMig
 			let core_index = CoreIndex(core_idx);
 
 			// Check descriptor is default/empty
-			let old_descriptor = old::pallet::CoreDescriptors::<T>::get(core_index);
+			let old_descriptor = v3::CoreDescriptors::<T>::get(core_index);
 			ensure!(
-				old_descriptor.queue.is_none() && old_descriptor.current_work.is_none(),
+				old_descriptor.queue().is_none() && old_descriptor.current_work().is_none(),
 				"Old CoreDescriptors should be empty"
 			);
 
@@ -345,11 +341,10 @@ pub type MigrateV3ToV4<T> = VersionedMigration<
 >;
 
 #[cfg(test)]
-#[allow(deprecated)]
 mod v4_tests {
 	use super::*;
 	use crate::{
-		assigner_coretime as old, configuration,
+		configuration,
 		mock::{new_test_ext, MockGenesisConfig, System, Test},
 		on_demand, scheduler,
 	};
@@ -357,6 +352,10 @@ mod v4_tests {
 	use frame_support::traits::StorageVersion;
 	use pallet_broker::CoreAssignment as BrokerCoreAssignment;
 	use polkadot_primitives::{CoreIndex, Id as ParaId};
+
+	use super::assigner_coretime::{
+		AssignmentState, CoreDescriptor, PartsOf57600, QueueDescriptor, Schedule, WorkState,
+	};
 
 	#[test]
 	fn basic_migration_works() {
@@ -372,24 +371,24 @@ mod v4_tests {
 			let para_id = ParaId::from(1000);
 
 			// Create old schedule
-			let old_schedule = old::Schedule {
-				assignments: vec![(
+			let old_schedule = Schedule::new(
+				vec![(
 					BrokerCoreAssignment::Task(para_id.into()),
-					old::PartsOf57600(28800),
+					PartsOf57600::new_saturating(28800),
 				)],
-				end_hint: Some(100u32),
-				next_schedule: None,
-			};
+				Some(100u32),
+				None,
+			);
 
 			// Create old descriptor with queue pointing to this schedule
-			let old_descriptor = old::CoreDescriptor {
-				queue: Some(old::QueueDescriptor { first: block_number, last: block_number }),
-				current_work: None,
-			};
+			let old_descriptor = CoreDescriptor::new(
+				Some(QueueDescriptor { first: block_number, last: block_number }),
+				None,
+			);
 
-			// Write to old storage
-			old::pallet::CoreSchedules::<Test>::insert((block_number, core), old_schedule);
-			old::pallet::CoreDescriptors::<Test>::insert(core, old_descriptor);
+			// Write to old storage using storage aliases
+			v3::CoreSchedules::<Test>::insert((block_number, core), old_schedule);
+			v3::CoreDescriptors::<Test>::insert(core, old_descriptor);
 
 			// Set storage version to 3
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
@@ -410,7 +409,7 @@ mod v4_tests {
 			assert!(new_descriptor.current_work().is_none());
 
 			// Verify old storage is empty
-			assert!(old::pallet::CoreSchedules::<Test>::get((block_number, core)).is_none());
+			assert!(v3::CoreSchedules::<Test>::get((block_number, core)).is_none());
 		});
 	}
 
@@ -429,22 +428,22 @@ mod v4_tests {
 				let core = CoreIndex(core_idx);
 				let para_id = ParaId::from(1000 + core_idx);
 
-				let old_schedule = old::Schedule {
-					assignments: vec![(
+				let old_schedule = Schedule::new(
+					vec![(
 						BrokerCoreAssignment::Task(para_id.into()),
-						old::PartsOf57600(57600),
+						PartsOf57600::new_saturating(57600),
 					)],
-					end_hint: None,
-					next_schedule: None,
-				};
+					None,
+					None,
+				);
 
-				let old_descriptor = old::CoreDescriptor {
-					queue: Some(old::QueueDescriptor { first: block_number, last: block_number }),
-					current_work: None,
-				};
+				let old_descriptor = CoreDescriptor::new(
+					Some(QueueDescriptor { first: block_number, last: block_number }),
+					None,
+				);
 
-				old::pallet::CoreSchedules::<Test>::insert((block_number, core), old_schedule);
-				old::pallet::CoreDescriptors::<Test>::insert(core, old_descriptor);
+				v3::CoreSchedules::<Test>::insert((block_number, core), old_schedule);
+				v3::CoreDescriptors::<Test>::insert(core, old_descriptor);
 			}
 
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
@@ -476,45 +475,45 @@ mod v4_tests {
 			let para_id = ParaId::from(1000);
 
 			// Create a linked list: block 10 -> 20 -> 30
-			let schedule_30 = old::Schedule {
-				assignments: vec![(
+			let schedule_30 = Schedule::new(
+				vec![(
 					BrokerCoreAssignment::Task(para_id.into()),
-					old::PartsOf57600(57600),
+					PartsOf57600::new_saturating(57600),
 				)],
-				end_hint: None,
-				next_schedule: None,
-			};
+				None,
+				None,
+			);
 
-			let schedule_20 = old::Schedule {
-				assignments: vec![(
+			let schedule_20 = Schedule::new(
+				vec![(
 					BrokerCoreAssignment::Task(para_id.into()),
-					old::PartsOf57600(57600),
+					PartsOf57600::new_saturating(57600),
 				)],
-				end_hint: None,
-				next_schedule: Some(30u32),
-			};
+				None,
+				Some(30u32),
+			);
 
-			let schedule_10 = old::Schedule {
-				assignments: vec![(
+			let schedule_10 = Schedule::new(
+				vec![(
 					BrokerCoreAssignment::Task(para_id.into()),
-					old::PartsOf57600(57600),
+					PartsOf57600::new_saturating(57600),
 				)],
-				end_hint: None,
-				next_schedule: Some(20u32),
-			};
+				None,
+				Some(20u32),
+			);
 
 			// Write schedules
-			old::pallet::CoreSchedules::<Test>::insert((10u32, core), schedule_10);
-			old::pallet::CoreSchedules::<Test>::insert((20u32, core), schedule_20);
-			old::pallet::CoreSchedules::<Test>::insert((30u32, core), schedule_30);
+			v3::CoreSchedules::<Test>::insert((10u32, core), schedule_10);
+			v3::CoreSchedules::<Test>::insert((20u32, core), schedule_20);
+			v3::CoreSchedules::<Test>::insert((30u32, core), schedule_30);
 
 			// Descriptor points to first schedule
-			let old_descriptor = old::CoreDescriptor {
-				queue: Some(old::QueueDescriptor { first: 10u32, last: 30u32 }),
-				current_work: None,
-			};
+			let old_descriptor = CoreDescriptor::new(
+				Some(QueueDescriptor { first: 10u32, last: 30u32 }),
+				None,
+			);
 
-			old::pallet::CoreDescriptors::<Test>::insert(core, old_descriptor);
+			v3::CoreDescriptors::<Test>::insert(core, old_descriptor);
 
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
@@ -549,9 +548,9 @@ mod v4_tests {
 			// Create ClaimQueue with mixed assignments
 			let mut claim_queue = BTreeMap::new();
 			let mut assignments = VecDeque::new();
-			assignments.push_back(Assignment::Pool { para_id: pool_para_1, core_index: core });
-			assignments.push_back(Assignment::Bulk(bulk_para));
-			assignments.push_back(Assignment::Pool { para_id: pool_para_2, core_index: core });
+			assignments.push_back(v3::Assignment::Pool { para_id: pool_para_1, core_index: core });
+			assignments.push_back(v3::Assignment::Bulk(bulk_para));
+			assignments.push_back(v3::Assignment::Pool { para_id: pool_para_2, core_index: core });
 			claim_queue.insert(core, assignments);
 
 			v3::ClaimQueue::<Test>::put(claim_queue);
@@ -559,7 +558,7 @@ mod v4_tests {
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
 			// Verify claim_queue() returns the old ClaimQueue before migration
-			let claim_queue_before = scheduler::Pallet::<Test>::claim_queue();
+			let claim_queue_before = super::Pallet::<Test>::claim_queue();
 			assert_eq!(claim_queue_before.len(), 1, "Should have 1 core in claim queue");
 			let core_queue = claim_queue_before.get(&core).expect("Core should be in claim queue");
 			assert_eq!(core_queue.len(), 3, "Core should have 3 assignments");
@@ -603,28 +602,28 @@ mod v4_tests {
 			let descriptor_para_1 = ParaId::from(3000);
 			let descriptor_para_2 = ParaId::from(3001);
 
-			let descriptor_schedule = old::Schedule {
-				assignments: vec![
+			let descriptor_schedule = Schedule::new(
+				vec![
 					(
 						BrokerCoreAssignment::Task(descriptor_para_1.into()),
-						old::PartsOf57600(28800),
+						PartsOf57600::new_saturating(28800),
 					),
 					(
 						BrokerCoreAssignment::Task(descriptor_para_2.into()),
-						old::PartsOf57600(28800),
+						PartsOf57600::new_saturating(28800),
 					),
 				],
-				end_hint: None,
-				next_schedule: None,
-			};
+				None,
+				None,
+			);
 
-			let descriptor = old::CoreDescriptor {
-				queue: Some(old::QueueDescriptor { first: block_number, last: block_number }),
-				current_work: None,
-			};
+			let descriptor = CoreDescriptor::new(
+				Some(QueueDescriptor { first: block_number, last: block_number }),
+				None,
+			);
 
-			old::pallet::CoreSchedules::<Test>::insert((block_number, core), descriptor_schedule);
-			old::pallet::CoreDescriptors::<Test>::insert(core, descriptor);
+			v3::CoreSchedules::<Test>::insert((block_number, core), descriptor_schedule);
+			v3::CoreDescriptors::<Test>::insert(core, descriptor);
 
 			// Create ClaimQueue with different bulk assignments (these should be dropped)
 			let claimqueue_para_1 = ParaId::from(2000);
@@ -632,8 +631,8 @@ mod v4_tests {
 
 			let mut claim_queue = BTreeMap::new();
 			let mut assignments = VecDeque::new();
-			assignments.push_back(Assignment::Bulk(claimqueue_para_1));
-			assignments.push_back(Assignment::Bulk(claimqueue_para_2));
+			assignments.push_back(v3::Assignment::Bulk(claimqueue_para_1));
+			assignments.push_back(v3::Assignment::Bulk(claimqueue_para_2));
 			claim_queue.insert(core, assignments);
 
 			v3::ClaimQueue::<Test>::put(claim_queue);
@@ -695,32 +694,32 @@ mod v4_tests {
 			let para_id = ParaId::from(1000);
 
 			// Create schedule with various PartsOf57600 values
-			let old_schedule = old::Schedule {
-				assignments: vec![
+			let old_schedule = Schedule::new(
+				vec![
 					(
 						BrokerCoreAssignment::Task(para_id.into()),
-						old::PartsOf57600(14400), // 1/4
+						PartsOf57600::new_saturating(14400), // 1/4
 					),
 					(
 						BrokerCoreAssignment::Task(ParaId::from(1001).into()),
-						old::PartsOf57600(28800), // 1/2
+						PartsOf57600::new_saturating(28800), // 1/2
 					),
 					(
 						BrokerCoreAssignment::Task(ParaId::from(1002).into()),
-						old::PartsOf57600(14400), // 1/4
+						PartsOf57600::new_saturating(14400), // 1/4
 					),
 				],
-				end_hint: None,
-				next_schedule: None,
-			};
+				None,
+				None,
+			);
 
-			let old_descriptor = old::CoreDescriptor {
-				queue: Some(old::QueueDescriptor { first: block_number, last: block_number }),
-				current_work: None,
-			};
+			let old_descriptor = CoreDescriptor::new(
+				Some(QueueDescriptor { first: block_number, last: block_number }),
+				None,
+			);
 
-			old::pallet::CoreSchedules::<Test>::insert((block_number, core), old_schedule);
-			old::pallet::CoreDescriptors::<Test>::insert(core, old_descriptor);
+			v3::CoreSchedules::<Test>::insert((block_number, core), old_schedule);
+			v3::CoreDescriptors::<Test>::insert(core, old_descriptor);
 
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
@@ -750,23 +749,23 @@ mod v4_tests {
 			let para_id = ParaId::from(1000);
 
 			// Create descriptor with current_work
-			let old_descriptor = old::CoreDescriptor {
-				queue: None,
-				current_work: Some(old::WorkState {
+			let old_descriptor = CoreDescriptor::new(
+				None,
+				Some(WorkState {
 					assignments: vec![(
 						BrokerCoreAssignment::Task(para_id.into()),
-						old::AssignmentState {
-							ratio: old::PartsOf57600(57600),
-							remaining: old::PartsOf57600(28800),
+						AssignmentState {
+							ratio: PartsOf57600::new_saturating(57600),
+							remaining: PartsOf57600::new_saturating(28800),
 						},
 					)],
 					end_hint: Some(100u32),
 					pos: 0,
-					step: old::PartsOf57600(1),
+					step: PartsOf57600::new_saturating(1),
 				}),
-			};
+			);
 
-			old::pallet::CoreDescriptors::<Test>::insert(core, old_descriptor);
+			v3::CoreDescriptors::<Test>::insert(core, old_descriptor);
 
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 

@@ -126,7 +126,8 @@ pub(super) struct Schedule<N> {
 }
 
 impl<N> Schedule<N> {
-	/// Creates a new Schedule (for migration).
+	/// Creates a new Schedule (for tests).
+	#[cfg(test)]
 	pub(super) fn new(
 		assignments: Vec<(CoreAssignment, PartsOf57600)>,
 		end_hint: Option<N>,
@@ -135,14 +136,14 @@ impl<N> Schedule<N> {
 		Self { assignments, end_hint, next_schedule }
 	}
 
-	/// Test-only accessor for assignments.
-	#[cfg(test)]
+	/// Accessor for assignments (needed by tests and try-runtime).
+	#[cfg(any(test, feature = "try-runtime"))]
 	pub(super) fn assignments(&self) -> &[(CoreAssignment, PartsOf57600)] {
 		&self.assignments
 	}
 
-	/// Test-only accessor for end_hint.
-	#[cfg(test)]
+	/// Accessor for end_hint (needed by tests and try-runtime).
+	#[cfg(any(test, feature = "try-runtime"))]
 	pub(super) fn end_hint(&self) -> Option<N>
 	where
 		N: Copy,
@@ -150,8 +151,7 @@ impl<N> Schedule<N> {
 		self.end_hint
 	}
 
-	/// Test-only accessor for next_schedule.
-	#[cfg(test)]
+	/// Accessor for next_schedule (needed by migrations, tests, and try-runtime).
 	pub(super) fn next_schedule(&self) -> Option<N>
 	where
 		N: Copy,
@@ -174,7 +174,8 @@ pub(super) struct CoreDescriptor<N> {
 }
 
 impl<N: PartialOrd> CoreDescriptor<N> {
-	/// Creates a new CoreDescriptor (for migration).
+	/// Creates a new CoreDescriptor (for tests).
+	#[cfg(test)]
 	pub(super) fn new(
 		queue: Option<QueueDescriptor<N>>,
 		current_work: Option<WorkState<N>>,
@@ -189,14 +190,12 @@ impl<N: PartialOrd> CoreDescriptor<N> {
 		self.current_work.is_some() || self.queue.as_ref().map_or(false, |q| q.first < until)
 	}
 
-	/// Test-only accessor for queue.
-	#[cfg(test)]
+	/// Accessor for queue (needed by migrations, tests, and try-runtime).
 	pub(super) fn queue(&self) -> Option<&QueueDescriptor<N>> {
 		self.queue.as_ref()
 	}
 
-	/// Test-only accessor for current_work.
-	#[cfg(test)]
+	/// Accessor for current_work (needed by migrations, tests, and try-runtime).
 	pub(super) fn current_work(&self) -> Option<&WorkState<N>> {
 		self.current_work.as_ref()
 	}

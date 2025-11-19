@@ -16,10 +16,8 @@
 
 //! Mocks for all the traits.
 
-#![allow(deprecated)]
-
 use crate::{
-	assigner_coretime, configuration, coretime, disputes, dmp, hrmp,
+	configuration, coretime, disputes, dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, on_demand, origin, paras,
 	paras::ParaKind,
@@ -76,7 +74,6 @@ frame_support::construct_runtime!(
 		ParaInclusion: inclusion,
 		ParaInherent: paras_inherent,
 		Scheduler: scheduler,
-		CoretimeAssignmentProvider: assigner_coretime,
 		OnDemand: on_demand,
 		Coretime: coretime,
 		Initializer: initializer,
@@ -346,9 +343,6 @@ impl crate::disputes::SlashingHandler<BlockNumber> for Test {
 }
 
 impl crate::scheduler::Config for Test {}
-
-#[allow(deprecated)]
-impl crate::assigner_coretime::Config for Test {}
 
 pub struct TestMessageQueueWeight;
 impl pallet_message_queue::WeightInfo for TestMessageQueueWeight {

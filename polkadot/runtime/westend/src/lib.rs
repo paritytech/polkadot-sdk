@@ -19,8 +19,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 // `#[frame_support::runtime]!` does a lot of recursion and requires us to increase the limit.
 #![recursion_limit = "512"]
-// Allow deprecated assigner_coretime pallet (exists only for migration)
-#![allow(deprecated)]
 
 extern crate alloc;
 
@@ -78,7 +76,7 @@ use polkadot_runtime_common::{
 	BalanceToU256, BlockHashCount, BlockLength, SlowAdjustingFeeUpdate, U256ToBalance,
 };
 use polkadot_runtime_parachains::{
-	assigner_coretime as parachains_assigner_coretime, configuration as parachains_configuration,
+	configuration as parachains_configuration,
 	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio,
 	coretime, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
@@ -1521,9 +1519,6 @@ impl parachains_paras_inherent::Config for Runtime {
 
 impl parachains_scheduler::Config for Runtime {}
 
-#[allow(deprecated)]
-impl parachains_assigner_coretime::Config for Runtime {}
-
 parameter_types! {
 	pub const BrokerId: u32 = BROKER_ID;
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
@@ -1975,10 +1970,6 @@ mod runtime {
 	pub type ParasSlashing = parachains_slashing;
 	#[runtime::pallet_index(56)]
 	pub type OnDemandAssignmentProvider = parachains_on_demand;
-	// DEPRECATED: Stub pallet for storage migration only. Remove after v4 migration completes.
-	#[allow(deprecated)]
-	#[runtime::pallet_index(57)]
-	pub type CoretimeAssignmentProvider = parachains_assigner_coretime;
 
 	// Parachain Onboarding Pallets. Start indices at 60 to leave room.
 	#[runtime::pallet_index(60)]
