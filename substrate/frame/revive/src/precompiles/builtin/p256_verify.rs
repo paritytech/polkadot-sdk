@@ -35,7 +35,8 @@ pub struct P256Verify<T>(PhantomData<T>);
 
 impl<T: Config> PrimitivePrecompile for P256Verify<T> {
 	type T = T;
-	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(100).unwrap());
+	const MATCHER: BuiltinAddressMatcher =
+		BuiltinAddressMatcher::Fixed(NonZero::new(0x100).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
 	/// [RIP-7212](https://github.com/ethereum/RIPs/blob/master/RIPS/rip-7212.md#specification) secp256r1 precompile.
@@ -69,5 +70,13 @@ mod tests {
 	fn test_p256_verify() {
 		// https://github.com/ethereum/go-ethereum/blob/master/core/vm/testdata/precompiles/p256Verify.json
 		run_test_vectors::<P256Verify<Test>>(include_str!("./testdata/256-p256_verify.json"));
+	}
+
+	#[test]
+	fn test_p256_verify_address_match() {
+		assert_eq!(
+			<P256Verify<Test> as PrimitivePrecompile>::MATCHER.base_address(),
+			hex_literal::hex!("0000000000000000000000000000000000000100")
+		);
 	}
 }
