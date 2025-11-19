@@ -225,7 +225,7 @@ jobs:
             --repo EgorPopelyaev/polkadot-sdk "$VERSIONED_ASSET"
 
   publish-release-artifacts:
-    if: ${{ inputs.crates_only }} == false
+    if: ${{ inputs.crates_only == false }}
     needs: [ validate-inputs, publish-release-draft ]
     environment: release
     continue-on-error: true
