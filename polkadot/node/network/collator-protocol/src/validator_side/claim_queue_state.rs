@@ -279,7 +279,7 @@ impl ClaimQueueState {
 		let claim_info = match self.future_blocks.pop_front() {
 			Some(new_leaf) => ClaimInfo {
 				hash: Some(*hash),
-				claim: new_leaf.claim,
+				claim: claim_queue.front().copied(),
 				claim_queue_len: claim_queue.len(),
 				claimed: new_leaf.claimed,
 			},
