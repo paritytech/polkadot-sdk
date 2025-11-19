@@ -44,7 +44,6 @@ on:
         type: string
       runtimes:
         description: Runtimes to be published
-        required: true
         type: string
       no_runtimes:
         description: If true, release draft will be published without runtimes
@@ -56,6 +55,7 @@ on:
         required: true
         type: boolean
         default: false
+
 jobs:
   check-synchronization:
     uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
