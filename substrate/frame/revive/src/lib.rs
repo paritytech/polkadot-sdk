@@ -1735,10 +1735,7 @@ impl<T: Config> Pallet<T> {
 
 		// create_call expects tx.gas_price to be the effective gas price
 		tx.gas_price = Some(effective_gas_price);
-
-		if tx.max_priority_fee_per_gas.is_none() {
-			tx.max_priority_fee_per_gas = Some(0.into());
-		}
+		tx.max_priority_fee_per_gas = Some(0.into());
 		if tx.max_fee_per_gas.is_none() {
 			tx.max_fee_per_gas = Some(effective_gas_price);
 		}
@@ -2044,28 +2041,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Get the block gas limit.
 	pub fn evm_block_gas_limit() -> U256 {
-		let max_block_weight = T::BlockWeights::get()
-			.get(DispatchClass::Normal)
-			.max_total
-			.unwrap_or_else(|| T::BlockWeights::get().max_block);
-
-		let max_storage_deposit = Self::max_storage_deposit();
-		let max_length_fee =
-			T::FeeInfo::length_to_fee(*T::BlockLength::get().max.get(DispatchClass::Normal));
-
-		let variable_fee = T::FeeInfo::next_fee_multiplier_reciprocal()
-			.saturating_mul_int(max_storage_deposit.saturating_add(max_length_fee));
-
-		Self::evm_gas_from_weight(max_block_weight).saturating_add(variable_fee.into())
-	}
-
-	/// This is not an enforced limit but an estimate of the maximum storage deposit occurring in
-	/// practice. It is used to determine the block gas limit
-	pub fn max_storage_deposit() -> BalanceOf<T> {
-		// Assume that transactions in that block deploy new contracts and upload contract code up
-		// to the maximum extrinsic length of the block.
-		T::DepositPerItem::get()
-			.saturating_mul((*T::BlockLength::get().max.get(DispatchClass::Normal)).into())
+		u64::MAX.into()
 	}
 
 	/// The maximum weight an `eth_transact` is allowed to consume.
@@ -2299,11 +2275,6 @@ impl<T: Config> Pallet<T> {
 				.map(|_| f())
 				.and_then(|r| r)
 		})
-	}
-
-	/// Convert a weight to a gas value.
-	fn evm_gas_from_weight(weight: Weight) -> U256 {
-		T::FeeInfo::weight_to_fee(&weight).into()
 	}
 
 	/// Transfer a deposit from some account to another.
