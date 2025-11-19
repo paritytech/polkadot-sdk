@@ -107,6 +107,120 @@ pub(super) mod v3 {
 /// removed once all networks have upgraded.
 pub struct UncheckedMigrateToV4<T>(core::marker::PhantomData<T>);
 
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> UncheckedMigrateToV4<T> {
+	pub fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
+		// Count schedules and descriptors by enumerating cores
+		let num_cores = configuration::ActiveConfig::<T>::get().scheduler_params.num_cores;
+		let mut schedule_count = 0u32;
+		let mut descriptor_count = 0u32;
+
+		for core_idx in 0..num_cores {
+			let core_index = CoreIndex(core_idx);
+			let descriptor = v3::CoreDescriptors::<T>::get(core_index);
+
+			if descriptor.queue().is_some() || descriptor.current_work().is_some() {
+				descriptor_count += 1;
+
+				// Count schedules by following the queue
+				if let Some(queue) = descriptor.queue() {
+					let mut current_block = Some(queue.first);
+					while let Some(block_number) = current_block {
+						let key = (block_number, core_index);
+						if let Some(schedule) = v3::CoreSchedules::<T>::get(key) {
+							schedule_count += 1;
+							current_block = schedule.next_schedule();
+						} else {
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		let claim_queue = v3::ClaimQueue::<T>::get();
+		let mut total_assignments = 0u32;
+		let mut pool_assignments = 0u32;
+
+		for (_core_idx, assignments) in claim_queue.iter() {
+			for assignment in assignments {
+				total_assignments = total_assignments.saturating_add(1);
+				if matches!(assignment, v3::Assignment::Pool { .. }) {
+					pool_assignments = pool_assignments.saturating_add(1);
+				}
+			}
+		}
+
+		log::info!(
+			target: super::LOG_TARGET,
+			"Before migration v4: {} CoreSchedules, {} CoreDescriptors, {} ClaimQueue assignments ({} pool, {} bulk)",
+			schedule_count,
+			descriptor_count,
+			total_assignments,
+			pool_assignments,
+			total_assignments.saturating_sub(pool_assignments)
+		);
+
+		Ok((schedule_count, descriptor_count, total_assignments, pool_assignments).encode())
+	}
+
+	pub fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
+		log::info!(target: super::LOG_TARGET, "Running post_upgrade() for v4");
+
+		let (
+			expected_schedule_count,
+			expected_descriptor_count,
+			total_assignments,
+			expected_pool_assignments,
+		): (u32, u32, u32, u32) =
+			Decode::decode(&mut &state[..]).map_err(|_| "Failed to decode pre_upgrade state")?;
+
+		// Verify old storage is cleaned up
+		ensure!(!v3::ClaimQueue::<T>::exists(), "ClaimQueue storage should have been removed");
+
+		// Check old CoreSchedules and CoreDescriptors are empty by enumerating cores
+		let num_cores = configuration::ActiveConfig::<T>::get().scheduler_params.num_cores;
+		for core_idx in 0..num_cores {
+			let core_index = CoreIndex(core_idx);
+
+			// Check descriptor is default/empty
+			let old_descriptor = v3::CoreDescriptors::<T>::get(core_index);
+			ensure!(
+				old_descriptor.queue().is_none() && old_descriptor.current_work().is_none(),
+				"Old CoreDescriptors should be empty"
+			);
+
+			// Check no schedules remain (by checking a few potential block numbers)
+			// We can't fully verify without iterating all possible block numbers,
+			// but checking the descriptor is empty should be sufficient
+		}
+
+		// Verify new storage (Twox64Concat allows iteration)
+		let new_schedule_count = super::CoreSchedules::<T>::iter().count() as u32;
+		ensure!(
+			new_schedule_count == expected_schedule_count,
+			"CoreSchedules count mismatch after migration"
+		);
+
+		let new_descriptor_count = super::CoreDescriptors::<T>::get().len() as u32;
+		ensure!(
+			new_descriptor_count == expected_descriptor_count,
+			"CoreDescriptors count mismatch after migration"
+		);
+
+		log::info!(
+			target: super::LOG_TARGET,
+			"Successfully migrated v4: {} CoreSchedules, {} CoreDescriptors from AssignerCoretime to Scheduler; {} ClaimQueue assignments ({} pool pushed to on-demand)",
+			new_schedule_count,
+			new_descriptor_count,
+			total_assignments,
+			expected_pool_assignments
+		);
+
+		Ok(())
+	}
+}
+
 impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV4<T> {
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight: Weight = Weight::zero();
@@ -124,9 +238,9 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV4<T> {
 		for core_idx in 0..num_cores {
 			let core_index = CoreIndex(core_idx);
 
-			// Get the descriptor for this core
-			let old_descriptor = v3::CoreDescriptors::<T>::get(core_index);
-			weight.saturating_accrue(T::DbWeight::get().reads(1));
+			// Take the descriptor for this core (read and remove in one operation)
+			let old_descriptor = v3::CoreDescriptors::<T>::take(core_index);
+			weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
 			// Check if this core has a non-default descriptor
 			if old_descriptor.queue().is_none() && old_descriptor.current_work().is_none() {
@@ -219,115 +333,12 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV4<T> {
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
-		// Count schedules and descriptors by enumerating cores
-		let num_cores = configuration::ActiveConfig::<T>::get().scheduler_params.num_cores;
-		let mut schedule_count = 0u32;
-		let mut descriptor_count = 0u32;
-
-		for core_idx in 0..num_cores {
-			let core_index = CoreIndex(core_idx);
-			let descriptor = v3::CoreDescriptors::<T>::get(core_index);
-
-			if descriptor.queue().is_some() || descriptor.current_work().is_some() {
-				descriptor_count += 1;
-
-				// Count schedules by following the queue
-				if let Some(queue) = descriptor.queue() {
-					let mut current_block = Some(queue.first);
-					while let Some(block_number) = current_block {
-						let key = (block_number, core_index);
-						if let Some(schedule) = v3::CoreSchedules::<T>::get(key) {
-							schedule_count += 1;
-							current_block = schedule.next_schedule();
-						} else {
-							break;
-						}
-					}
-				}
-			}
-		}
-
-		let claim_queue = v3::ClaimQueue::<T>::get();
-		let mut total_assignments = 0u32;
-		let mut pool_assignments = 0u32;
-
-		for (_core_idx, assignments) in claim_queue.iter() {
-			for assignment in assignments {
-				total_assignments = total_assignments.saturating_add(1);
-				if matches!(assignment, v3::Assignment::Pool { .. }) {
-					pool_assignments = pool_assignments.saturating_add(1);
-				}
-			}
-		}
-
-		log::info!(
-			target: super::LOG_TARGET,
-			"Before migration v4: {} CoreSchedules, {} CoreDescriptors, {} ClaimQueue assignments ({} pool, {} bulk)",
-			schedule_count,
-			descriptor_count,
-			total_assignments,
-			pool_assignments,
-			total_assignments.saturating_sub(pool_assignments)
-		);
-
-		Ok((schedule_count, descriptor_count, total_assignments, pool_assignments).encode())
+		Self::pre_upgrade()
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
-		log::info!(target: super::LOG_TARGET, "Running post_upgrade() for v4");
-
-		let (
-			expected_schedule_count,
-			expected_descriptor_count,
-			total_assignments,
-			expected_pool_assignments,
-		): (u32, u32, u32, u32) =
-			Decode::decode(&mut &state[..]).map_err(|_| "Failed to decode pre_upgrade state")?;
-
-		// Verify old storage is cleaned up
-		ensure!(!v3::ClaimQueue::<T>::exists(), "ClaimQueue storage should have been removed");
-
-		// Check old CoreSchedules and CoreDescriptors are empty by enumerating cores
-		let num_cores = configuration::ActiveConfig::<T>::get().scheduler_params.num_cores;
-		for core_idx in 0..num_cores {
-			let core_index = CoreIndex(core_idx);
-
-			// Check descriptor is default/empty
-			let old_descriptor = v3::CoreDescriptors::<T>::get(core_index);
-			ensure!(
-				old_descriptor.queue().is_none() && old_descriptor.current_work().is_none(),
-				"Old CoreDescriptors should be empty"
-			);
-
-			// Check no schedules remain (by checking a few potential block numbers)
-			// We can't fully verify without iterating all possible block numbers,
-			// but checking the descriptor is empty should be sufficient
-		}
-
-		// Verify new storage (Twox64Concat allows iteration)
-		let new_schedule_count = super::CoreSchedules::<T>::iter().count() as u32;
-		ensure!(
-			new_schedule_count == expected_schedule_count,
-			"CoreSchedules count mismatch after migration"
-		);
-
-		let new_descriptor_count = super::CoreDescriptors::<T>::get().len() as u32;
-		ensure!(
-			new_descriptor_count == expected_descriptor_count,
-			"CoreDescriptors count mismatch after migration"
-		);
-
-		log::info!(
-			target: super::LOG_TARGET,
-			"Successfully migrated v4: {} CoreSchedules, {} CoreDescriptors from AssignerCoretime to Scheduler; {} ClaimQueue assignments ({} pool pushed to on-demand)",
-			new_schedule_count,
-			new_descriptor_count,
-			total_assignments,
-			expected_pool_assignments
-		);
-
-		Ok(())
+		Self::post_upgrade(state)
 	}
 }
 
@@ -393,8 +404,10 @@ mod v4_tests {
 			// Set storage version to 3
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
-			// Run migration
+			// Run migration with pre and post upgrade checks
+			let state = UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			let _weight = UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
 			// Verify new storage
 			let new_schedule = super::CoreSchedules::<Test>::get((block_number, core))
@@ -408,8 +421,15 @@ mod v4_tests {
 			assert!(new_descriptor.queue().is_some());
 			assert!(new_descriptor.current_work().is_none());
 
-			// Verify old storage is empty
-			assert!(v3::CoreSchedules::<Test>::get((block_number, core)).is_none());
+			// Verify old storage is cleared
+			assert!(v3::CoreSchedules::<Test>::get((block_number, core)).is_none(), "Old CoreSchedules should be cleared");
+
+			// Verify old CoreDescriptor is cleared (should be default/empty after migration)
+			let old_descriptor = v3::CoreDescriptors::<Test>::get(core);
+			assert!(
+				old_descriptor.queue().is_none() && old_descriptor.current_work().is_none(),
+				"Old CoreDescriptor should be cleared after migration"
+			);
 		});
 	}
 
@@ -448,8 +468,10 @@ mod v4_tests {
 
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
-			// Run migration
+			// Run migration with pre and post upgrade checks
+			let state = UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
 			// Verify all cores migrated
 			let new_descriptors = super::CoreDescriptors::<Test>::get();
@@ -517,8 +539,10 @@ mod v4_tests {
 
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
-			// Run migration
+			// Run migration with pre and post upgrade checks
+			let state = UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
 			// Verify all three schedules migrated
 			assert!(super::CoreSchedules::<Test>::get((10u32, core)).is_some());
@@ -566,8 +590,10 @@ mod v4_tests {
 			assert_eq!(core_queue[1], bulk_para);
 			assert_eq!(core_queue[2], pool_para_2);
 
-			// Run migration
+			// Run migration with pre and post upgrade checks
+			let state = UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
 			// Verify ClaimQueue is removed
 			assert!(!v3::ClaimQueue::<Test>::exists());
@@ -639,8 +665,10 @@ mod v4_tests {
 
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
-			// Run migration
+			// Run migration with pre and post upgrade checks
+			let state = UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
 			// Verify ClaimQueue is removed
 			assert!(!v3::ClaimQueue::<Test>::exists());
@@ -673,7 +701,9 @@ mod v4_tests {
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
 			// Run migration on empty storage - should complete without panicking
+			let state = UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			let _weight = UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
 			// Verify new storage is empty
 			let new_descriptors = super::CoreDescriptors::<Test>::get();
@@ -723,8 +753,10 @@ mod v4_tests {
 
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
-			// Run migration
+			// Run migration with pre and post upgrade checks
+			let state = UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
 			// Verify assignments and their parts converted correctly
 			let new_schedule = super::CoreSchedules::<Test>::get((block_number, core))
@@ -769,8 +801,10 @@ mod v4_tests {
 
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
-			// Run migration
+			// Run migration with pre and post upgrade checks
+			let state = UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
 			// Verify current_work migrated
 			let new_descriptors = super::CoreDescriptors::<Test>::get();
