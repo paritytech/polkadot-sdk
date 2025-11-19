@@ -56,7 +56,6 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::MAX_POV_SIZE;
-use polkadot_runtime_parachains::inclusion::migration::v0::PendingAvailabilityCommitments_Storage_Instance;
 use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::Digest;
@@ -99,6 +98,8 @@ pub enum BlockWeightMode<T: Config> {
 		/// setting, e.g. when running `validate_block`.
 		context: BlockNumberFor<T>,
 		/// The index of the first transaction.
+		///
+		/// Stays `None` for all inherents until there is the first transaction.
 		first_transaction_index: Option<u32>,
 		/// The target weight that was used to determine that the extrinsic is above this limit.
 		target_weight: Weight,
@@ -112,6 +113,8 @@ pub enum BlockWeightMode<T: Config> {
 		/// setting, e.g. when running `validate_block`.
 		context: BlockNumberFor<T>,
 		/// The index of the first transaction.
+		///
+		/// Stays `None` for all inherents until there is the first transaction.
 		first_transaction_index: Option<u32>,
 	},
 }
@@ -237,15 +240,26 @@ impl<Config: crate::Config, TargetBlockRate: Get<u32>> Get<Weight>
 				BlockWeightMode::<Config>::FullCore { .. } |
 				BlockWeightMode::<Config>::PotentialFullCore { .. },
 			) => FULL_CORE_WEIGHT,
-			// Let's calculate below how much weight we can use.
-			Some(BlockWeightMode::<Config>::FractionOfCore { first_transaction_index, .. })
-				if first_transaction_index.is_some() && !in_pre_validate =>
-				target_block_weight,
-			// If we are in `on_initialize`, at applying the inherents or before applying the first
-			// transaction, we allow the maximum block weight as allowed by the current context.
-			Some(BlockWeightMode::<Config>::FractionOfCore { .. }) | None if !in_pre_validate =>
-				maybe_full_core_weight,
-			_ => target_block_weight,
+			// We are in `pre_validate`.
+			_ if in_pre_validate => target_block_weight,
+			// Only use the fraction of a core.
+			Some(BlockWeightMode::<Config>::FractionOfCore { first_transaction_index, .. }) => {
+				let is_phase_finalization = frame_system::Pallet::<Config>::execution_phase()
+					.map_or(false, |p| matches!(p, frame_system::Phase::Finalization));
+
+				if first_transaction_index.is_none() && !is_phase_finalization {
+					// We are running in the context of inherents or `on_poll`, here we allow the
+					// full core weight.
+					maybe_full_core_weight
+				} else {
+					// If we are finalizing the block (e.g. `on_idle` is running and
+					// `finalize_block`) or nothing required more than the target block weight, we
+					// only allow the target block weight.
+					target_block_weight
+				}
+			},
+			// We are in `on_initialize` or in an offchain context.
+			None => maybe_full_core_weight,
 		}
 	}
 }
