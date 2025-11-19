@@ -17,9 +17,10 @@
 use crate::{
 	client::{runtime_api::RuntimeApi, SubstrateBlock, SubstrateBlockNumber},
 	subxt_client::{
-		self,
-		revive::{calls::types::EthTransact, events::ContractEmitted},
-		system::events::ExtrinsicSuccess,
+		revive::{
+			calls::types::EthTransact,
+			events::{ContractEmitted, EthExtrinsicRevert},
+		},
 		SrcChainConfig,
 	},
 	ClientError, H160, LOG_TARGET,
@@ -33,10 +34,6 @@ use pallet_revive::{
 use sp_core::keccak_256;
 use std::{future::Future, pin::Pin, sync::Arc};
 use subxt::{blocks::ExtrinsicDetails, OnlineClient};
-
-type FetchGasPriceFn = Arc<
-	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Result<U256, ClientError>> + Send>> + Send + Sync,
->;
 
 type FetchReceiptDataFn = Arc<
 	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Option<Vec<ReceiptGasInfo>>> + Send>> + Send + Sync,
@@ -55,9 +52,6 @@ pub struct ReceiptExtractor {
 
 	/// Fetch ethereum block hash.
 	fetch_eth_block_hash: FetchEthBlockHashFn,
-
-	/// Fetch the gas price from the chain.
-	fetch_gas_price: FetchGasPriceFn,
 
 	/// Earliest block number to consider when searching for transaction receipts.
 	earliest_receipt_block: Option<SubstrateBlockNumber>,
@@ -108,20 +102,6 @@ impl ReceiptExtractor {
 		});
 
 		let api_inner = api.clone();
-		let fetch_gas_price = Arc::new(move |block_hash| {
-			let api_inner = api_inner.clone();
-
-			let fut = async move {
-				let runtime_api = api_inner.runtime_api().at(block_hash);
-				let payload = subxt_client::apis().revive_api().gas_price();
-				let base_gas_price = runtime_api.call(payload).await?;
-				Ok(*base_gas_price)
-			};
-
-			Box::pin(fut) as Pin<Box<_>>
-		});
-
-		let api_inner = api.clone();
 		let fetch_receipt_data = Arc::new(move |block_hash| {
 			let api_inner = api_inner.clone();
 
@@ -136,7 +116,6 @@ impl ReceiptExtractor {
 		Ok(Self {
 			fetch_receipt_data,
 			fetch_eth_block_hash,
-			fetch_gas_price,
 			earliest_receipt_block,
 			recover_eth_address: recover_eth_address_fn,
 		})
@@ -152,13 +131,10 @@ impl ReceiptExtractor {
 			let eth_block_hash = H256::from(keccak_256(&bytes));
 			Box::pin(std::future::ready(Some(eth_block_hash))) as Pin<Box<_>>
 		});
-		let fetch_gas_price =
-			Arc::new(|_| Box::pin(std::future::ready(Ok(U256::from(1000)))) as Pin<Box<_>>);
 
 		Self {
 			fetch_receipt_data,
 			fetch_eth_block_hash,
-			fetch_gas_price,
 			earliest_receipt_block: None,
 			recover_eth_address: Arc::new(|signed_tx: &TransactionSigned| {
 				signed_tx.recover_eth_address()
@@ -179,10 +155,10 @@ impl ReceiptExtractor {
 		let events = ext.events().await?;
 		let block_number: U256 = substrate_block.number().into();
 
-		let success = events.has::<ExtrinsicSuccess>().inspect_err(|err| {
+		let success = !events.has::<EthExtrinsicRevert>().inspect_err(|err| {
 			log::debug!(
 				target: LOG_TARGET,
-				"Failed to lookup for ExtrinsicSuccess event in block {block_number}: {err:?}"
+				"Failed to lookup for EthExtrinsicRevert event in block {block_number}: {err:?}"
 			);
 		})?;
 
@@ -195,11 +171,11 @@ impl ReceiptExtractor {
 			ClientError::RecoverEthAddressFailed
 		})?;
 
-		let base_gas_price = (self.fetch_gas_price)(substrate_block.hash()).await?;
-		let tx_info =
-			GenericTransaction::from_signed(signed_tx.clone(), base_gas_price, Some(from));
-
-		let gas_price = tx_info.gas_price.unwrap_or_default();
+		let tx_info = GenericTransaction::from_signed(
+			signed_tx.clone(),
+			receipt_gas_info.effective_gas_price,
+			Some(from),
+		);
 
 		// get logs from ContractEmitted event
 		let logs = events
@@ -242,7 +218,7 @@ impl ReceiptExtractor {
 			from,
 			logs,
 			tx_info.to,
-			gas_price,
+			receipt_gas_info.effective_gas_price,
 			U256::from(receipt_gas_info.gas_used),
 			success,
 			transaction_hash,

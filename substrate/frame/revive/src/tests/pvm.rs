@@ -60,129 +60,11 @@ use frame_system::{EventRecord, Phase};
 use pallet_revive_fixtures::compile_module;
 use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 use pretty_assertions::{assert_eq, assert_ne};
-use sp_core::{Get, U256};
+use sp_core::U256;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-	testing::H256, traits::Zero, AccountId32, BoundedVec, DispatchError, SaturatedConversion,
-	TokenError,
+	testing::H256, AccountId32, BoundedVec, DispatchError, SaturatedConversion, TokenError,
 };
-
-#[test]
-fn transfer_with_dust_works() {
-	struct TestCase {
-		description: &'static str,
-		from_balance: BalanceWithDust<u64>,
-		to_balance: BalanceWithDust<u64>,
-		amount: BalanceWithDust<u64>,
-		expected_from_balance: BalanceWithDust<u64>,
-		expected_to_balance: BalanceWithDust<u64>,
-		total_issuance_diff: i64,
-	}
-
-	let plank: u32 = <Test as Config>::NativeToEthRatio::get();
-
-	let test_cases = vec![
-		TestCase {
-			description: "without dust",
-			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 0),
-			to_balance: BalanceWithDust::new_unchecked::<Test>(0, 0),
-			amount: BalanceWithDust::new_unchecked::<Test>(1, 0),
-			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(99, 0),
-			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(1, 0),
-			total_issuance_diff: 0,
-		},
-		TestCase {
-			description: "with dust",
-			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 0),
-			to_balance: BalanceWithDust::new_unchecked::<Test>(0, 0),
-			amount: BalanceWithDust::new_unchecked::<Test>(1, 10),
-			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(98, plank - 10),
-			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(1, 10),
-			total_issuance_diff: 1,
-		},
-		TestCase {
-			description: "just dust",
-			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 0),
-			to_balance: BalanceWithDust::new_unchecked::<Test>(0, 0),
-			amount: BalanceWithDust::new_unchecked::<Test>(0, 10),
-			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(99, plank - 10),
-			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
-			total_issuance_diff: 1,
-		},
-		TestCase {
-			description: "with existing dust",
-			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 5),
-			to_balance: BalanceWithDust::new_unchecked::<Test>(0, plank - 5),
-			amount: BalanceWithDust::new_unchecked::<Test>(1, 10),
-			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(98, plank - 5),
-			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(2, 5),
-			total_issuance_diff: 0,
-		},
-		TestCase {
-			description: "with enough existing dust",
-			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 10),
-			to_balance: BalanceWithDust::new_unchecked::<Test>(0, plank - 10),
-			amount: BalanceWithDust::new_unchecked::<Test>(1, 10),
-			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(99, 0),
-			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(2, 0),
-			total_issuance_diff: -1,
-		},
-		TestCase {
-			description: "receiver dust less than 1 plank",
-			from_balance: BalanceWithDust::new_unchecked::<Test>(100, plank / 10),
-			to_balance: BalanceWithDust::new_unchecked::<Test>(0, plank / 2),
-			amount: BalanceWithDust::new_unchecked::<Test>(1, plank / 10 * 3),
-			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(98, plank / 10 * 8),
-			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(1, plank / 10 * 8),
-			total_issuance_diff: 1,
-		},
-	];
-
-	for TestCase {
-		description,
-		from_balance,
-		to_balance,
-		amount,
-		expected_from_balance,
-		expected_to_balance,
-		total_issuance_diff,
-	} in test_cases.into_iter()
-	{
-		ExtBuilder::default().build().execute_with(|| {
-			set_balance_with_dust(&ALICE_ADDR, from_balance);
-			set_balance_with_dust(&BOB_ADDR, to_balance);
-
-			let total_issuance = <Test as Config>::Currency::total_issuance();
-			let evm_value = Pallet::<Test>::convert_native_to_evm(amount);
-
-			let (value, dust) = amount.deconstruct();
-			assert_eq!(Pallet::<Test>::has_dust(evm_value), !dust.is_zero());
-			assert_eq!(Pallet::<Test>::has_balance(evm_value), !value.is_zero());
-
-			let result =
-				builder::bare_call(BOB_ADDR).evm_value(evm_value).build_and_unwrap_result();
-			assert_eq!(result, Default::default(), "{description} tx failed");
-
-			assert_eq!(
-				Pallet::<Test>::evm_balance(&ALICE_ADDR),
-				Pallet::<Test>::convert_native_to_evm(expected_from_balance),
-				"{description}: invalid from balance"
-			);
-
-			assert_eq!(
-				Pallet::<Test>::evm_balance(&BOB_ADDR),
-				Pallet::<Test>::convert_native_to_evm(expected_to_balance),
-				"{description}: invalid to balance"
-			);
-
-			assert_eq!(
-				total_issuance as i64 - total_issuance_diff,
-				<Test as Config>::Currency::total_issuance() as i64,
-				"{description}: total issuance should match"
-			);
-		});
-	}
-}
 
 #[test]
 fn eth_call_transfer_with_dust_works() {
@@ -3083,7 +2965,10 @@ fn block_hash_works() {
 
 		// Store block hash in pallet-revive BlockHash mapping
 		let block_hash = H256::from([1; 32]);
-		crate::BlockHash::<Test>::insert(U256::from(0u32), H256::from(block_hash));
+		crate::BlockHash::<Test>::insert(
+			crate::BlockNumberFor::<Test>::from(0u32),
+			H256::from(block_hash),
+		);
 
 		assert_ok!(builder::call(addr)
 			.data((U256::zero(), H256::from(block_hash)).encode())
@@ -4358,19 +4243,31 @@ fn prestate_tracing_works() {
 		// redact balance so that tests are resilient to weight changes
 		let alice_redacted_balance = Some(U256::from(1));
 
-		let test_cases: Vec<(Box<dyn FnOnce()>, _, _)> = vec![
-			(
-				Box::new(|| {
-					builder::bare_call(addr)
-						.data((3u32, addr_callee).encode())
-						.build_and_unwrap_result();
+		struct TestCase {
+			description: &'static str,
+			exec_call: Box<dyn FnOnce()>,
+			config: PrestateTracerConfig,
+			expected_trace: PrestateTrace,
+		}
+
+		let test_cases: Vec<TestCase> = vec![
+			TestCase {
+				description: "prestate mode with cross-contract call",
+				exec_call: Box::new({
+					let addr = addr;
+					let addr_callee = addr_callee;
+					move || {
+						builder::bare_call(addr)
+							.data((3u32, addr_callee).encode())
+							.build_and_unwrap_result();
+					}
 				}),
-				PrestateTracerConfig {
+				config: PrestateTracerConfig {
 					diff_mode: false,
 					disable_storage: false,
 					disable_code: false,
 				},
-				PrestateTrace::Prestate(BTreeMap::from([
+				expected_trace: PrestateTrace::Prestate(BTreeMap::from([
 					(
 						ALICE_ADDR,
 						PrestateTraceInfo {
@@ -4402,19 +4299,24 @@ fn prestate_tracing_works() {
 						},
 					),
 				])),
-			),
-			(
-				Box::new(|| {
-					builder::bare_call(addr)
-						.data((3u32, addr_callee).encode())
-						.build_and_unwrap_result();
+			},
+			TestCase {
+				description: "diff mode with cross-contract call",
+				exec_call: Box::new({
+					let addr = addr;
+					let addr_callee = addr_callee;
+					move || {
+						builder::bare_call(addr)
+							.data((3u32, addr_callee).encode())
+							.build_and_unwrap_result();
+					}
 				}),
-				PrestateTracerConfig {
+				config: PrestateTracerConfig {
 					diff_mode: true,
 					disable_storage: false,
 					disable_code: false,
 				},
-				PrestateTrace::DiffMode {
+				expected_trace: PrestateTrace::DiffMode {
 					pre: BTreeMap::from([
 						(
 							BOB_ADDR,
@@ -4450,19 +4352,23 @@ fn prestate_tracing_works() {
 						),
 					]),
 				},
-			),
-			(
-				Box::new(|| {
-					builder::bare_instantiate(Code::Upload(dummy_code.clone()))
-						.salt(None)
-						.build_and_unwrap_result();
+			},
+			TestCase {
+				description: "diff mode with contract instantiation",
+				exec_call: Box::new({
+					let dummy_code = dummy_code.clone();
+					move || {
+						builder::bare_instantiate(Code::Upload(dummy_code))
+							.salt(None)
+							.build_and_unwrap_result();
+					}
 				}),
-				PrestateTracerConfig {
+				config: PrestateTracerConfig {
 					diff_mode: true,
 					disable_storage: false,
 					disable_code: false,
 				},
-				PrestateTrace::DiffMode {
+				expected_trace: PrestateTrace::DiffMode {
 					pre: BTreeMap::from([(
 						ALICE_ADDR,
 						PrestateTraceInfo {
@@ -4491,10 +4397,10 @@ fn prestate_tracing_works() {
 						),
 					]),
 				},
-			),
+			},
 		];
 
-		for (exec_call, config, expected_trace) in test_cases.into_iter() {
+		for TestCase { description, exec_call, config, expected_trace } in test_cases.into_iter() {
 			let mut tracer = PrestateTracer::<Test>::new(config);
 			trace(&mut tracer, || {
 				exec_call();
@@ -4519,7 +4425,7 @@ fn prestate_tracing_works() {
 				},
 			}
 
-			assert_eq!(trace, expected_trace);
+			assert_eq!(trace, expected_trace, "Trace mismatch for: {description}");
 		}
 	});
 }
@@ -4797,8 +4703,7 @@ fn bump_nonce_once_works() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		frame_system::Account::<Test>::mutate(&ALICE, |account| account.nonce = 1);
 
-		let mut do_not_bump = ExecConfig::new_substrate_tx();
-		do_not_bump.bump_nonce = false;
+		let do_not_bump = ExecConfig::new_substrate_tx_without_bump();
 
 		let _ = <Test as Config>::Currency::set_balance(&BOB, 1_000_000);
 		frame_system::Account::<Test>::mutate(&BOB, |account| account.nonce = 1);
@@ -4819,7 +4724,7 @@ fn bump_nonce_once_works() {
 
 		builder::bare_instantiate(Code::Upload(code.clone()))
 			.origin(RuntimeOrigin::signed(BOB))
-			.exec_config(do_not_bump.clone())
+			.exec_config(ExecConfig::new_substrate_tx_without_bump())
 			.salt(None)
 			.build_and_unwrap_result();
 		assert_eq!(System::account_nonce(&BOB), 1);
@@ -5039,74 +4944,70 @@ fn storage_deposit_from_hold_works() {
 	});
 }
 
-/// EIP-3607
-/// Test that a top-level signed transaction that uses a contract address as the signer is rejected.
 #[test]
-fn reject_signed_tx_from_contract_address() {
+fn eip3607_reject_tx_from_contract_or_precompile() {
 	let (binary, _code_hash) = compile_module("dummy").unwrap();
 
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		let Contract { addr: contract_addr, account_id: contract_account_id, .. } =
+		// the origins from which we try to call a dispatchable
+		let Contract { addr: contract_addr, .. } =
 			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
+		assert!(<AccountInfo<Test>>::is_contract(&contract_addr));
+		let blake2_addr = H160::from_low_u64_be(9);
+		let system_addr = H160::from_low_u64_be(0x900);
+		let addresses = [contract_addr, blake2_addr, system_addr];
 
-		assert!(AccountInfoOf::<Test>::contains_key(&contract_addr));
+		// used to test `dispatch_as_fallback_account`
+		let call = Box::new(RuntimeCall::Balances(pallet_balances::Call::transfer_all {
+			dest: EVE,
+			keep_alive: false,
+		}));
 
-		let call_result = builder::bare_call(BOB_ADDR)
-			.native_value(1)
-			.origin(RuntimeOrigin::signed(contract_account_id.clone()))
-			.build();
-		assert_err!(call_result.result, DispatchError::BadOrigin);
+		for address in addresses.iter() {
+			let origin = <Test as Config>::AddressMapper::to_fallback_account_id(address);
 
-		let instantiate_result = builder::bare_instantiate(Code::Upload(Vec::new()))
-			.origin(RuntimeOrigin::signed(contract_account_id))
-			.build();
-		assert_err!(instantiate_result.result, DispatchError::BadOrigin);
-	});
-}
+			let result =
+				builder::call(BOB_ADDR).origin(RuntimeOrigin::signed(origin.clone())).build();
+			assert_err!(result, DispatchError::BadOrigin);
 
-#[test]
-fn reject_signed_tx_from_primitive_precompile_address() {
-	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		// blake2f precompile address
-		let precompile_addr = H160::from_low_u64_be(9);
-		let fake_account = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let _ = <Test as Config>::Currency::set_balance(&fake_account, 1_000_000);
+			let result = builder::eth_call(BOB_ADDR)
+				.origin(RuntimeOrigin::signed(origin.clone()))
+				.build();
+			assert_err!(result, DispatchError::BadOrigin);
 
-		let call_result = builder::bare_call(BOB_ADDR)
-			.native_value(1)
-			.origin(RuntimeOrigin::signed(fake_account.clone()))
-			.build();
-		assert_err!(call_result.result, DispatchError::BadOrigin);
+			let result = builder::instantiate(Default::default())
+				.origin(RuntimeOrigin::signed(origin.clone()))
+				.build();
+			assert_err!(result, DispatchError::BadOrigin);
 
-		let instantiate_result = builder::bare_instantiate(Code::Upload(Vec::new()))
-			.origin(RuntimeOrigin::signed(fake_account))
-			.build();
-		assert_err!(instantiate_result.result, DispatchError::BadOrigin);
-	});
-}
+			let result = builder::eth_instantiate_with_code(Default::default())
+				.origin(RuntimeOrigin::signed(origin.clone()))
+				.build();
+			assert_err!(result, DispatchError::BadOrigin);
 
-#[test]
-fn reject_signed_tx_from_builtin_precompile_address() {
-	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		// system precompile address
-		let precompile_addr = H160::from_low_u64_be(0x900);
-		let fake_account = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let _ = <Test as Config>::Currency::set_balance(&fake_account, 1_000_000);
+			let result = builder::instantiate_with_code(Default::default())
+				.origin(RuntimeOrigin::signed(origin.clone()))
+				.build();
+			assert_err!(result, DispatchError::BadOrigin);
 
-		let call_result = builder::bare_call(BOB_ADDR)
-			.native_value(1)
-			.origin(RuntimeOrigin::signed(fake_account.clone()))
-			.build();
-		assert_err!(call_result.result, DispatchError::BadOrigin);
+			let result = <Pallet<Test>>::upload_code(
+				RuntimeOrigin::signed(origin.clone()),
+				Default::default(),
+				<BalanceOf<Test>>::MAX,
+			);
+			assert_err!(result, DispatchError::BadOrigin);
 
-		let instantiate_result = builder::bare_instantiate(Code::Upload(Vec::new()))
-			.origin(RuntimeOrigin::signed(fake_account))
-			.build();
-		assert_err!(instantiate_result.result, DispatchError::BadOrigin);
+			let result = <Pallet<Test>>::map_account(RuntimeOrigin::signed(origin.clone()));
+			assert_err!(result, DispatchError::BadOrigin);
+
+			let result = <Pallet<Test>>::dispatch_as_fallback_account(
+				RuntimeOrigin::signed(origin.clone()),
+				call.clone(),
+			);
+			assert_err!(result, DispatchError::BadOrigin);
+		}
 	});
 }
 
@@ -5254,5 +5155,37 @@ fn consume_all_gas_works() {
 			GAS_LIMIT,
 			"callvalue == 1 should not consume all gas"
 		);
+	});
+}
+
+#[test]
+fn existential_deposit_shall_not_charged_twice() {
+	let (code, _) = compile_module("dummy").unwrap();
+
+	let salt = [0u8; 32];
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
+		let callee_addr = create2(
+			&ALICE_ADDR,
+			&code,
+			&[0u8; 0], // empty input
+			&salt,
+		);
+		let callee_account = <Test as Config>::AddressMapper::to_account_id(&callee_addr);
+
+		// first send funds to callee_addr
+		let _ = <Test as Config>::Currency::set_balance(&callee_account, Contracts::min_balance());
+		assert_eq!(get_balance(&callee_account), Contracts::min_balance());
+
+		// then deploy contract to callee_addr using create2
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
+			.salt(Some(salt))
+			.build_and_unwrap_contract();
+
+		assert_eq!(callee_addr, addr);
+
+		// check we charged ed only 1 time
+		assert_eq!(get_balance(&callee_account), Contracts::min_balance());
 	});
 }

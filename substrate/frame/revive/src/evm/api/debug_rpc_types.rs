@@ -21,13 +21,13 @@ use codec::{Decode, Encode};
 use derive_more::From;
 use scale_info::TypeInfo;
 use serde::{
+	de::{Error, MapAccess, Visitor},
 	ser::{SerializeMap, Serializer},
 	Deserialize, Serialize,
 };
 use sp_core::{H160, H256, U256};
 
 /// The type of tracer to use.
-/// Only "callTracer" is supported for now.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "tracer", content = "tracerConfig", rename_all = "camelCase")]
 pub enum TracerType {
@@ -166,7 +166,7 @@ pub enum CallType {
 }
 
 /// A Trace
-#[derive(TypeInfo, From, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[derive(TypeInfo, Deserialize, Serialize, From, Encode, Decode, Clone, Debug, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum Trace {
 	/// A call trace.
@@ -176,7 +176,7 @@ pub enum Trace {
 }
 
 /// A prestate Trace
-#[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[derive(TypeInfo, Encode, Serialize, Decode, Clone, Debug, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum PrestateTrace {
 	/// The Prestate mode returns the accounts necessary to execute a given transaction
@@ -194,6 +194,68 @@ pub enum PrestateTrace {
 		/// It only contains the specific fields that were actually modified during the transaction
 		post: BTreeMap<H160, PrestateTraceInfo>,
 	},
+}
+
+impl<'de> Deserialize<'de> for PrestateTrace {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		struct PrestateTraceVisitor;
+
+		impl<'de> Visitor<'de> for PrestateTraceVisitor {
+			type Value = PrestateTrace;
+
+			fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
+				formatter.write_str("a map representing either Prestate or DiffMode")
+			}
+
+			fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+			where
+				A: MapAccess<'de>,
+			{
+				let mut pre_map = None;
+				let mut post_map = None;
+				let mut account_map = BTreeMap::new();
+
+				while let Some(key) = map.next_key::<String>()? {
+					match key.as_str() {
+						"pre" => {
+							if pre_map.is_some() {
+								return Err(Error::duplicate_field("pre"));
+							}
+							pre_map = Some(map.next_value::<BTreeMap<H160, PrestateTraceInfo>>()?);
+						},
+						"post" => {
+							if post_map.is_some() {
+								return Err(Error::duplicate_field("post"));
+							}
+							post_map = Some(map.next_value::<BTreeMap<H160, PrestateTraceInfo>>()?);
+						},
+						_ => {
+							let addr: H160 =
+								key.parse().map_err(|_| Error::custom("Invalid address"))?;
+							let info = map.next_value::<PrestateTraceInfo>()?;
+							account_map.insert(addr, info);
+						},
+					}
+				}
+
+				match (pre_map, post_map) {
+					(Some(pre), Some(post)) => {
+						if !account_map.is_empty() {
+							return Err(Error::custom("Mixed diff and prestate mode"));
+						}
+						Ok(PrestateTrace::DiffMode { pre, post })
+					},
+					(None, None) => Ok(PrestateTrace::Prestate(account_map)),
+					_ => Err(Error::custom("diff mode: must have both 'pre' and 'post'")),
+				}
+			}
+		}
+
+		deserializer.deserialize_map(PrestateTraceVisitor)
+	}
 }
 
 impl PrestateTrace {
@@ -223,7 +285,7 @@ pub struct PrestateTraceInfo {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub code: Option<Bytes>,
 	/// The storage of the contract account.
-	#[serde(skip_serializing_if = "is_empty", serialize_with = "serialize_map_skip_none")]
+	#[serde(default, skip_serializing_if = "is_empty", serialize_with = "serialize_map_skip_none")]
 	pub storage: BTreeMap<Bytes, Option<Bytes>>,
 }
 

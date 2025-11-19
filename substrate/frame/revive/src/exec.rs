@@ -20,6 +20,7 @@ use crate::{
 	evm::{
 		block_storage,
 		fees::{Combinator, InfoT},
+		transfer_with_dust,
 	},
 	gas::GasMeter,
 	limits,
@@ -29,22 +30,22 @@ use crate::{
 	storage::{self, meter::Diff, AccountIdOrAddress, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
-	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
-	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf,
-	Pallet as Contracts, RuntimeCosts, LOG_TARGET,
+	AccountInfo, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf, CodeRemoved, Config,
+	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
+	LOG_TARGET,
 };
 use alloc::{
 	collections::{BTreeMap, BTreeSet},
 	vec::Vec,
 };
-use core::{fmt::Debug, marker::PhantomData, mem, ops::ControlFlow};
+use core::{cmp, fmt::Debug, marker::PhantomData, mem, ops::ControlFlow};
 use frame_support::{
 	crypto::ecdsa::ECDSAExt,
 	dispatch::DispatchResult,
+	ensure,
 	storage::{with_transaction, TransactionOutcome},
 	traits::{
 		fungible::{Inspect, Mutate},
-		tokens::{Fortitude, Precision, Preservation},
 		Time,
 	},
 	weights::Weight,
@@ -61,7 +62,7 @@ use sp_core::{
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
-	traits::{BadOrigin, Bounded, Saturating, TrailingZeroInput, Zero},
+	traits::{BadOrigin, Bounded, Saturating, TrailingZeroInput},
 	DispatchError, SaturatedConversion,
 };
 
@@ -562,7 +563,7 @@ pub struct Stack<'a, T: Config, E> {
 	/// Transient storage used to store data, which is kept for the duration of a transaction.
 	transient_storage: TransientStorage<T>,
 	/// Global behavior determined by the creater of this stack.
-	exec_config: &'a ExecConfig,
+	exec_config: &'a ExecConfig<T>,
 	/// The set of contracts that were created during this call stack.
 	contracts_created: BTreeSet<T::AccountId>,
 	/// The set of contracts that are registered for destruction at the end of this call stack.
@@ -602,7 +603,8 @@ struct Frame<T: Config> {
 
 /// This structure is used to represent the arguments in a delegate call frame in order to
 /// distinguish who delegated the call and where it was delegated to.
-struct DelegateInfo<T: Config> {
+#[derive(Clone)]
+pub struct DelegateInfo<T: Config> {
 	/// The caller of the contract.
 	pub caller: Origin<T>,
 	/// The address of the contract the call was delegated to.
@@ -796,7 +798,7 @@ where
 		storage_meter: &mut storage::meter::Meter<T>,
 		value: U256,
 		input_data: Vec<u8>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> ExecResult {
 		let dest = T::AddressMapper::to_account_id(&dest);
 		if let Some((mut stack, executable)) = Stack::<'_, T, E>::new(
@@ -806,6 +808,7 @@ where
 			storage_meter,
 			value,
 			exec_config,
+			&input_data,
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
@@ -821,14 +824,21 @@ where
 				);
 			});
 
-			let result = Self::transfer_from_origin(
-				&origin,
-				&origin,
-				&dest,
-				value,
-				storage_meter,
-				exec_config,
-			);
+			let result = if let Some(mock_answer) =
+				exec_config.mock_handler.as_ref().and_then(|handler| {
+					handler.mock_call(T::AddressMapper::to_address(&dest), &input_data, value)
+				}) {
+				Ok(mock_answer)
+			} else {
+				Self::transfer_from_origin(
+					&origin,
+					&origin,
+					&dest,
+					value,
+					storage_meter,
+					exec_config,
+				)
+			};
 
 			if_tracing(|t| match result {
 				Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
@@ -854,7 +864,7 @@ where
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let deployer = T::AddressMapper::to_address(&origin);
 		let (mut stack, executable) = Stack::<'_, T, E>::new(
@@ -869,6 +879,7 @@ where
 			storage_meter,
 			value,
 			exec_config,
+			&input_data,
 		)?
 		.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&stack.top_frame().account_id);
@@ -891,7 +902,7 @@ where
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: BalanceOf<T>,
-		exec_config: &'a ExecConfig,
+		exec_config: &'a ExecConfig<T>,
 	) -> (Self, E) {
 		let call = Self::new(
 			FrameArgs::Call {
@@ -904,6 +915,7 @@ where
 			storage_meter,
 			value.into(),
 			exec_config,
+			&Default::default(),
 		)
 		.unwrap()
 		.unwrap();
@@ -920,7 +932,8 @@ where
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: U256,
-		exec_config: &'a ExecConfig,
+		exec_config: &'a ExecConfig<T>,
+		input_data: &Vec<u8>,
 	) -> Result<Option<(Self, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		origin.ensure_mapped()?;
 		let Some((first_frame, executable)) = Self::new_frame(
@@ -932,17 +945,31 @@ where
 			BalanceOf::<T>::max_value(),
 			false,
 			true,
+			input_data,
+			exec_config,
 		)?
 		else {
 			return Ok(None);
 		};
 
+		let mut timestamp = T::Time::now();
+		let mut block_number = <frame_system::Pallet<T>>::block_number();
+		// if dry run with timestamp override is provided we simulate the run in a `pending` block
+		if let Some(timestamp_override) =
+			exec_config.is_dry_run.as_ref().and_then(|cfg| cfg.timestamp_override)
+		{
+			block_number = block_number.saturating_add(1u32.into());
+			// Delta is in milliseconds; increment timestamp by one second
+			let delta = 1000u32.into();
+			timestamp = cmp::max(timestamp.saturating_add(delta), timestamp_override);
+		}
+
 		let stack = Self {
 			origin,
 			gas_meter,
 			storage_meter,
-			timestamp: T::Time::now(),
-			block_number: <frame_system::Pallet<T>>::block_number(),
+			timestamp,
+			block_number,
 			first_frame,
 			frames: Default::default(),
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
@@ -951,7 +978,6 @@ where
 			contracts_to_be_destroyed: BTreeMap::new(),
 			_phantom: Default::default(),
 		};
-
 		Ok(Some((stack, executable)))
 	}
 
@@ -968,6 +994,8 @@ where
 		deposit_limit: BalanceOf<T>,
 		read_only: bool,
 		origin_is_caller: bool,
+		input_data: &[u8],
+		exec_config: &ExecConfig<T>,
 	) -> Result<Option<(Frame<T>, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		let (account_id, contract_info, executable, delegate, entry_point) = match frame_args {
 			FrameArgs::Call { dest, cached_info, delegated_call } => {
@@ -985,7 +1013,7 @@ where
 							return Ok(None);
 						},
 					(None, Some(precompile)) if precompile.has_contract_info() => {
-						log::trace!(target: crate::LOG_TARGET, "found precompile for address {address:?}");
+						log::trace!(target: LOG_TARGET, "found precompile for address {address:?}");
 						if let Some(info) = AccountInfo::<T>::load_contract(&address) {
 							CachedContract::Cached(info)
 						} else {
@@ -996,6 +1024,11 @@ where
 					(None, Some(_)) => CachedContract::None,
 				};
 
+				let delegated_call = delegated_call.or_else(|| {
+					exec_config.mock_handler.as_ref().and_then(|mock_handler| {
+						mock_handler.mock_delegated_caller(address, input_data)
+					})
+				});
 				// in case of delegate the executable is not the one at `address`
 				let executable = if let Some(delegated_call) = &delegated_call {
 					if let Some(precompile) =
@@ -1090,6 +1123,7 @@ where
 		gas_limit: Weight,
 		deposit_limit: BalanceOf<T>,
 		read_only: bool,
+		input_data: &[u8],
 	) -> Result<Option<ExecutableOrPrecompile<T, E, Self>>, ExecError> {
 		if self.frames.len() as u32 == limits::CALL_STACK_DEPTH {
 			return Err(Error::<T>::MaxCallDepthReached.into());
@@ -1121,6 +1155,8 @@ where
 			deposit_limit,
 			read_only,
 			false,
+			input_data,
+			self.exec_config,
 		)? {
 			self.frames.try_push(frame).map_err(|_| Error::<T>::MaxCallDepthReached)?;
 			Ok(Some(executable))
@@ -1152,7 +1188,17 @@ where
 				frame.nested_gas.gas_left(),
 			);
 		});
-
+		let mock_answer = self.exec_config.mock_handler.as_ref().and_then(|handler| {
+			handler.mock_call(
+				frame
+					.delegate
+					.as_ref()
+					.map(|delegate| delegate.callee)
+					.unwrap_or(T::AddressMapper::to_address(&frame.account_id)),
+				&input_data,
+				frame.value_transferred,
+			)
+		});
 		// The output of the caller frame will be replaced by the output of this run.
 		// It is also not accessible from nested frames.
 		// Hence we drop it early to save the memory.
@@ -1188,11 +1234,12 @@ where
 				// if we reached this point the origin has an associated account.
 				let origin = &self.origin.account_id()?;
 
-				let ed = <Contracts<T>>::min_balance();
-				frame.nested_storage.record_charge(&StorageDeposit::Charge(ed))?;
-				<Contracts<T>>::charge_deposit(None, origin, account_id, ed, self.exec_config)
-					.map_err(|_| <Error<T>>::StorageDepositNotEnoughFunds)?;
-
+				if !frame_system::Pallet::<T>::account_exists(&account_id) {
+					let ed = <Contracts<T>>::min_balance();
+					frame.nested_storage.record_charge(&StorageDeposit::Charge(ed))?;
+					<Contracts<T>>::charge_deposit(None, origin, account_id, ed, self.exec_config)
+						.map_err(|_| <Error<T>>::StorageDepositNotEnoughFunds)?;
+				}
 				// A consumer is added at account creation and removed it on termination, otherwise
 				// the runtime could remove the account. As long as a contract exists its
 				// account must exist. With the consumer, a correct runtime cannot remove the
@@ -1290,7 +1337,7 @@ where
 					// When a dry-run simulates contract deployment, keep the execution result's
 					// data.
 					let data = if crate::tracing::if_tracing(|_| {}).is_none() &&
-						!self.exec_config.is_dry_run
+						self.exec_config.is_dry_run.is_none()
 					{
 						core::mem::replace(&mut output.data, Default::default())
 					} else {
@@ -1335,7 +1382,11 @@ where
 		// transactional storage depth.
 		let transaction_outcome =
 			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
-				let output = do_transaction();
+				let output = if let Some(mock_answer) = mock_answer {
+					Ok(mock_answer)
+				} else {
+					do_transaction()
+				};
 				match &output {
 					Ok(result) if !result.did_revert() =>
 						TransactionOutcome::Commit(Ok((true, output))),
@@ -1373,7 +1424,6 @@ where
 		} else {
 			self.transient_storage.rollback_transaction();
 		}
-
 		log::trace!(target: LOG_TARGET, "frame finished with: {output:?}");
 
 		self.pop_frame(success);
@@ -1481,82 +1531,8 @@ where
 		to: &T::AccountId,
 		value: U256,
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> DispatchResult {
-		fn transfer_with_dust<T: Config>(
-			from: &AccountIdOf<T>,
-			to: &AccountIdOf<T>,
-			value: BalanceWithDust<BalanceOf<T>>,
-		) -> DispatchResult {
-			let (value, dust) = value.deconstruct();
-
-			fn transfer_balance<T: Config>(
-				from: &AccountIdOf<T>,
-				to: &AccountIdOf<T>,
-				value: BalanceOf<T>,
-			) -> DispatchResult {
-				T::Currency::transfer(from, to, value, Preservation::Preserve)
-				.map_err(|err| {
-					log::debug!(target: crate::LOG_TARGET, "Transfer failed: from {from:?} to {to:?} (value: ${value:?}). Err: {err:?}");
-					Error::<T>::TransferFailed
-				})?;
-				Ok(())
-			}
-
-			fn transfer_dust<T: Config>(
-				from: &mut AccountInfo<T>,
-				to: &mut AccountInfo<T>,
-				dust: u32,
-			) -> DispatchResult {
-				from.dust =
-					from.dust.checked_sub(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
-				to.dust = to.dust.checked_add(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
-				Ok(())
-			}
-
-			if dust.is_zero() {
-				return transfer_balance::<T>(from, to, value)
-			}
-
-			let from_addr = <T::AddressMapper as AddressMapper<T>>::to_address(from);
-			let mut from_info = AccountInfoOf::<T>::get(&from_addr).unwrap_or_default();
-
-			let to_addr = <T::AddressMapper as AddressMapper<T>>::to_address(to);
-			let mut to_info = AccountInfoOf::<T>::get(&to_addr).unwrap_or_default();
-
-			let plank = T::NativeToEthRatio::get();
-
-			if from_info.dust < dust {
-				T::Currency::burn_from(
-					from,
-					1u32.into(),
-					Preservation::Preserve,
-					Precision::Exact,
-					Fortitude::Polite,
-				)
-				.map_err(|err| {
-					log::debug!(target: crate::LOG_TARGET, "Burning 1 plank from {from:?} failed. Err: {err:?}");
-					Error::<T>::TransferFailed
-				})?;
-
-				from_info.dust =
-					from_info.dust.checked_add(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
-			}
-
-			transfer_balance::<T>(from, to, value)?;
-			transfer_dust::<T>(&mut from_info, &mut to_info, dust)?;
-
-			if to_info.dust >= plank {
-				T::Currency::mint_into(to, 1u32.into())?;
-				to_info.dust =
-					to_info.dust.checked_sub(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
-			}
-
-			AccountInfoOf::<T>::set(&from_addr, Some(from_info));
-			AccountInfoOf::<T>::set(&to_addr, Some(to_info));
-
-			Ok(())
-		}
 		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)
 			.map_err(|_| Error::<T>::BalanceConversionFailed)?;
 		if value.is_zero() {
@@ -1592,7 +1568,7 @@ where
 		to: &T::AccountId,
 		value: U256,
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> ExecResult {
 		// If the from address is root there is no account to transfer from, and therefore we can't
 		// take any `value` other than 0.
@@ -1635,7 +1611,7 @@ where
 
 	/// Returns the *free* balance of the supplied AccountId.
 	fn account_balance(&self, who: &T::AccountId) -> U256 {
-		let balance = AccountInfo::<T>::balance(AccountIdOrAddress::AccountId(who.clone()));
+		let balance = AccountInfo::<T>::balance_of(AccountIdOrAddress::AccountId(who.clone()));
 		crate::Pallet::<T>::convert_native_to_evm(balance)
 	}
 
@@ -1694,7 +1670,7 @@ where
 			delete_code,
 		);
 
-		log::debug!(target: crate::LOG_TARGET, "Contract at {contract_address:?} registered termination. Beneficiary: {beneficiary_address:?}, delete_code: {delete_code}");
+		log::debug!(target: LOG_TARGET, "Contract at {contract_address:?} registered termination. Beneficiary: {beneficiary_address:?}, delete_code: {delete_code}");
 	}
 
 	/// Returns true if the current context has contract info.
@@ -1742,6 +1718,7 @@ where
 			gas_limit,
 			deposit_limit.saturated_into::<BalanceOf<T>>(),
 			self.is_read_only(),
+			&input_data,
 		)? {
 			self.run(executable, input_data)
 		} else {
@@ -1868,9 +1845,14 @@ where
 					if !T::AllowEVMBytecode::get() {
 						return Err(<Error<T>>::CodeRejected.into());
 					}
+					ensure!(input_data.is_empty(), <Error<T>>::EvmConstructorNonEmptyData);
 					E::from_evm_init_code(bytecode.clone(), sender.clone())?
 				},
-				Code::Existing(hash) => E::from_storage(*hash, self.gas_meter_mut())?,
+				Code::Existing(hash) => {
+					let executable = E::from_storage(*hash, self.gas_meter_mut())?;
+					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
+					executable
+				},
 			};
 			self.push_frame(
 				FrameArgs::Instantiate {
@@ -1883,6 +1865,7 @@ where
 				gas_limit,
 				deposit_limit.saturated_into::<BalanceOf<T>>(),
 				self.is_read_only(),
+				&input_data,
 			)?
 		};
 		let executable = executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
@@ -1954,6 +1937,7 @@ where
 				gas_limit,
 				deposit_limit.saturated_into::<BalanceOf<T>>(),
 				is_read_only,
+				&input_data,
 			)? {
 				self.run(executable, input_data)
 			} else {
@@ -1968,8 +1952,13 @@ where
 						Weight::zero(),
 					);
 				});
-
-				let result = if is_read_only && value.is_zero() {
+				let result = if let Some(mock_answer) =
+					self.exec_config.mock_handler.as_ref().and_then(|handler| {
+						handler.mock_call(T::AddressMapper::to_address(&dest), &input_data, value)
+					}) {
+					*self.last_frame_output_mut() = mock_answer.clone();
+					Ok(mock_answer)
+				} else if is_read_only && value.is_zero() {
 					Ok(Default::default())
 				} else if is_read_only {
 					Err(Error::<T>::StateChangeDenied.into())
@@ -2029,6 +2018,16 @@ where
 	}
 
 	fn caller(&self) -> Origin<T> {
+		if let Some(Ok(mock_caller)) = self
+			.exec_config
+			.mock_handler
+			.as_ref()
+			.and_then(|mock_handler| mock_handler.mock_caller(self.frames.len()))
+			.map(|mock_caller| Origin::<T>::from_runtime_origin(mock_caller))
+		{
+			return mock_caller;
+		}
+
 		if let Some(DelegateInfo { caller, .. }) = &self.top_frame().delegate {
 			caller.clone()
 		} else {
@@ -2053,6 +2052,15 @@ where
 	}
 
 	fn origin(&self) -> &Origin<T> {
+		if let Some(mock_origin) = self
+			.exec_config
+			.mock_handler
+			.as_ref()
+			.and_then(|mock_handler| mock_handler.mock_origin())
+		{
+			return mock_origin;
+		}
+
 		&self.origin
 	}
 
