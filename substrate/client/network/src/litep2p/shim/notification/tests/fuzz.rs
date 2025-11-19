@@ -127,7 +127,7 @@ async fn test_once() {
 			match WeightedIndex::new(&action_weights).unwrap().sample(&mut rng) {
 				0 => match peerset.next().now_or_never() {
 					// open substreams to `peers`
-					Some(Some(PeersetNotificationCommand::OpenSubstream { peers })) =>
+					Some(Some(PeersetNotificationCommand::open_substream(peers))) =>
 						for peer in peers {
 							opening.insert(peer, Direction::Outbound);
 							closed.remove(&peer);
@@ -136,7 +136,7 @@ async fn test_once() {
 							assert!(!open.contains_key(&peer));
 						},
 					// close substreams to `peers`
-					Some(Some(PeersetNotificationCommand::CloseSubstream { peers })) =>
+					Some(Some(PeersetNotificationCommand::close_substream(peers))) =>
 						for peer in peers {
 							assert!(closing.insert(peer));
 							assert!(open.remove(&peer).is_some());
