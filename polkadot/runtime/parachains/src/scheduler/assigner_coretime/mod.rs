@@ -136,14 +136,14 @@ impl<N> Schedule<N> {
 		Self { assignments, end_hint, next_schedule }
 	}
 
-	/// Accessor for assignments (needed by tests and try-runtime).
-	#[cfg(any(test, feature = "try-runtime"))]
+	/// Accessor for assignments (needed by tests).
+	#[cfg(test)]
 	pub(super) fn assignments(&self) -> &[(CoreAssignment, PartsOf57600)] {
 		&self.assignments
 	}
 
-	/// Accessor for end_hint (needed by tests and try-runtime).
-	#[cfg(any(test, feature = "try-runtime"))]
+	/// Accessor for end_hint (needed by tests).
+	#[cfg(test)]
 	pub(super) fn end_hint(&self) -> Option<N>
 	where
 		N: Copy,
