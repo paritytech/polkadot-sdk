@@ -239,7 +239,7 @@ fn syscall_passes_for_direct_delegate_same_tx(fixture_type: FixtureType) {
 		assert_eq!(
 			get_balance(&DJANGO),
 			123 + min_balance,
-			"unexpected django balance after reverted terminate"
+			"unexpected django balance after terminate"
 		);
 		assert!(
 			get_contract_checked(&addr).is_some(),
@@ -295,12 +295,12 @@ fn syscall_passes_for_direct_delegate(fixture_type: FixtureType) {
 		assert_eq!(
 			get_balance(&DJANGO),
 			123 + min_balance,
-			"unexpected django balance after reverted terminate"
+			"unexpected django balance after terminate"
 		);
 		assert_eq!(
 			get_balance(&account_delegator),
 			min_balance,
-			"unexpected delegator balance after reverted terminate"
+			"unexpected delegator balance after terminate"
 		);
 		assert!(
 			get_contract_checked(&addr).is_some(),
