@@ -205,6 +205,18 @@ pub struct PeersetNotificationCommand {
 	pub close_peers: Vec<PeerId>,
 }
 
+impl PeersetNotificationCommand {
+	/// Open substream to peers.
+	pub fn open_substream(peers: Vec<PeerId>) -> Self {
+		Self { open_peers: peers, close_peers: vec![] }
+	}
+
+	/// Close substream to peers.
+	pub fn close_substream(peers: Vec<PeerId>) -> Self {
+		Self { open_peers: vec![], close_peers: peers }
+	}
+}
+
 /// Peer state.
 ///
 /// Peer can be in 6 different state:
@@ -978,9 +990,9 @@ impl Stream for Peerset {
 							);
 
 							self.peers.insert(peer, PeerState::Closing { direction });
-							return Poll::Ready(Some(PeersetNotificationCommand::CloseSubstream {
-								peers: vec![peer],
-							}))
+							return Poll::Ready(Some(PeersetNotificationCommand::close_substream(
+								vec![peer],
+							)));
 						},
 						Some(PeerState::Backoff) => {
 							log::trace!(
@@ -1152,9 +1164,9 @@ impl Stream for Peerset {
 						self.protocol,
 					);
 
-					return Poll::Ready(Some(PeersetNotificationCommand::CloseSubstream {
-						peers: peers_to_remove,
-					}))
+					return Poll::Ready(Some(PeersetNotificationCommand::close_substream(
+						peers_to_remove,
+					)));
 				},
 				PeersetCommand::AddReservedPeers { peers } => {
 					log::debug!(target: LOG_TARGET, "{}: add reserved peers {peers:?}", self.protocol);
@@ -1199,7 +1211,7 @@ impl Stream for Peerset {
 
 					log::debug!(target: LOG_TARGET, "{}: start connecting to {peers:?}", self.protocol);
 
-					return Poll::Ready(Some(PeersetNotificationCommand::OpenSubstream { peers }))
+					return Poll::Ready(Some(PeersetNotificationCommand::open_substream(peers)));
 				},
 				PeersetCommand::RemoveReservedPeers { peers } => {
 					log::debug!(target: LOG_TARGET, "{}: remove reserved peers {peers:?}", self.protocol);
@@ -1374,9 +1386,9 @@ impl Stream for Peerset {
 						self.protocol,
 					);
 
-					return Poll::Ready(Some(PeersetNotificationCommand::CloseSubstream {
-						peers: peers_to_remove,
-					}))
+					return Poll::Ready(Some(PeersetNotificationCommand::close_substream(
+						peers_to_remove,
+					)));
 				},
 				PeersetCommand::SetReservedOnly { reserved_only } => {
 					log::debug!(target: LOG_TARGET, "{}: set reserved only mode to {reserved_only}", self.protocol);
@@ -1412,9 +1424,9 @@ impl Stream for Peerset {
 							_ => {},
 						});
 
-						return Poll::Ready(Some(PeersetNotificationCommand::CloseSubstream {
-							peers: peers_to_remove,
-						}))
+						return Poll::Ready(Some(PeersetNotificationCommand::close_substream(
+							peers_to_remove,
+						)));
 					}
 				},
 				PeersetCommand::GetReservedPeers { tx } => {
@@ -1490,9 +1502,7 @@ impl Stream for Peerset {
 					self.protocol,
 				);
 
-				return Poll::Ready(Some(PeersetNotificationCommand::OpenSubstream {
-					peers: connect_to,
-				}))
+				return Poll::Ready(Some(PeersetNotificationCommand::open_substream(connect_to)));
 			}
 		}
 
