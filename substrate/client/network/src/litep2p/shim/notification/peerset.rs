@@ -197,18 +197,12 @@ pub enum PeersetCommand {
 
 /// Commands emitted by [`Peerset`] to the notification protocol.
 #[derive(Debug)]
-pub enum PeersetNotificationCommand {
+pub struct PeersetNotificationCommand {
 	/// Open substreams to one or more peers.
-	OpenSubstream {
-		/// Peer IDs.
-		peers: Vec<PeerId>,
-	},
+	pub open_peers: Vec<PeerId>,
 
 	/// Close substream to one or more peers.
-	CloseSubstream {
-		/// Peer IDs.
-		peers: Vec<PeerId>,
-	},
+	pub close_peers: Vec<PeerId>,
 }
 
 /// Peer state.
