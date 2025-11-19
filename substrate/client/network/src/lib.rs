@@ -244,6 +244,7 @@
 
 mod behaviour;
 mod bitswap;
+mod ipfs;
 mod litep2p;
 mod protocol;
 
@@ -266,6 +267,9 @@ pub mod utils;
 
 pub use crate::litep2p::Litep2pNetworkBackend;
 pub use event::{DhtEvent, Event};
+pub use ipfs::{
+	BlockProvider as IpfsBlockProvider, IndexedTransactions as IpfsIndexedTransactions,
+};
 #[doc(inline)]
 pub use request_responses::{Config, IfDisconnected, RequestFailure};
 pub use sc_network_common::{
