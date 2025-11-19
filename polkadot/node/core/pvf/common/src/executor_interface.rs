@@ -208,6 +208,8 @@ type HostFunctions = (
 	sp_io::allocator::HostFunctions,
 	sp_io::logging::HostFunctions,
 	sp_io::trie::HostFunctions,
+	// Needed when the parachain runtime uses [`sp_io::TransactionIndex`] feature.
+	sp_io::transaction_index::HostFunctions,
 );
 
 /// The validation externalities that will panic on any storage related access. (PVFs should not
