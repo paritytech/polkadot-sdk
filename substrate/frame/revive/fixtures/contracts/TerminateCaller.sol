@@ -11,6 +11,13 @@ contract TerminateCaller {
     
     constructor() payable {}
 
+    function createAndTerminateTwice(uint value, uint8 method1, uint8 method2, address beneficiary) external returns (address) {
+        inner = new Terminate{value: value}(true, method1, beneficiary);
+        inner.terminate(method1, beneficiary);
+        inner.terminate(method2, beneficiary);
+        return address(inner);
+    }
+
     function sendFundsAfterTerminateAndCreate(uint value, uint8 method, address beneficiary) external returns (address) {
         inner = new Terminate(true, method, beneficiary);
         inner.terminate(method, beneficiary);

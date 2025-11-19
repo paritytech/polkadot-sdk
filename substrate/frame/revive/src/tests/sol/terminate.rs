@@ -23,7 +23,7 @@ use crate::{
 		test_utils::{get_balance, get_contract_checked},
 		Contracts, ExtBuilder, Test,
 	},
-	Code, Config, PristineCode, H160,
+	Code, Config, H160,
 };
 use alloy_core::sol_types::{SolCall, SolConstructor, SolValue};
 use frame_support::traits::fungible::Mutate;
@@ -187,9 +187,12 @@ fn precompile_fails_for_indirect_delegate(fixture_type: FixtureType) {
 	});
 }
 
+/// In this test TerminateDelegator terminates itself by making a delegatecall to Terminate.
+/// The SYSCALL terminate method shall work in this case because TerminateDelegator is created and
+/// terminated in the same tx.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
-fn syscall_passes_for_indirect_delegate(fixture_type: FixtureType) {
+fn syscall_passes_for_direct_delegate_same_tx(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
 	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
 	let (delegator_code, _) = compile_module_with_type("TerminateDelegator", fixture_type).unwrap();
@@ -210,7 +213,6 @@ fn syscall_passes_for_indirect_delegate(fixture_type: FixtureType) {
 				)
 				.build_and_unwrap_contract();
 			let _ = builder::bare_instantiate(Code::Upload(delegator_code.clone()))
-				.constructor_data(TerminateDelegator::constructorCall {}.abi_encode())
 				.build_and_unwrap_contract();
 		}
 
@@ -223,7 +225,7 @@ fn syscall_passes_for_indirect_delegate(fixture_type: FixtureType) {
 			.data(
 				TerminateCaller::delegateCallTerminateCall {
 					value: alloy_core::primitives::U256::from(123_000_000u64),
-					method: METHOD_SYSCALL.into(),
+					method: METHOD_SYSCALL,
 					beneficiary: DJANGO_ADDR.0.into(),
 				}
 				.abi_encode(),
@@ -231,39 +233,82 @@ fn syscall_passes_for_indirect_delegate(fixture_type: FixtureType) {
 			.build_and_unwrap_result();
 		assert!(!result.did_revert());
 
-		println!(
-			"caller_addr: {:?}, balance: {:?}",
-			caller_addr,
-			get_balance(&<Test as Config>::AddressMapper::to_account_id(&caller_addr))
-		);
-		let addr_inner = H160::from_slice(&result.data[12..32]);
-		println!(
-			"addr_inner: {:?}, balance: {:?}",
-			addr_inner,
-			get_balance(&<Test as Config>::AddressMapper::to_account_id(&addr_inner))
-		);
 		let addr = H160::from_slice(&result.data[32 + 12..]);
-		println!(
-			"addr: {:?}, balance: {:?}",
-			addr,
-			get_balance(&<Test as Config>::AddressMapper::to_account_id(&addr))
-		);
-
-		println!("django balance: {}", get_balance(&DJANGO));
+		let delegator_addr = H160::from_slice(&result.data[12..32]);
 
 		assert_eq!(
 			get_balance(&DJANGO),
 			123 + min_balance,
 			"unexpected django balance after reverted terminate"
 		);
-
-		println!(
-			"contract balance: {}",
-			get_balance(&<Test as Config>::AddressMapper::to_account_id(&addr))
+		assert!(
+			get_contract_checked(&addr).is_some(),
+			"Terminate contract should still exist after terminate"
 		);
 		assert!(
-			get_contract_checked(&addr_inner).is_none(),
-			"contract still exists after terminate"
+			get_contract_checked(&delegator_addr).is_none(),
+			"TerminateDelegator contract should not exist after terminate"
+		);
+	});
+}
+
+/// In this test TerminateDelegator terminates itself by making a delegatecall to Terminate.
+/// The SYSCALL shall send funds from TerminateDelegator to the beneficiary but TerminateDelegator
+/// shall not be truly terminated.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn syscall_passes_for_direct_delegate(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
+	let (delegator_code, _) = compile_module_with_type("TerminateDelegator", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let min_balance = Contracts::min_balance();
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
+			.constructor_data(
+				Terminate::constructorCall {
+					skip: true,
+					method: METHOD_SYSCALL,
+					beneficiary: DJANGO_ADDR.0.into(),
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_contract();
+		let Contract { addr: delegator_addr, .. } =
+			builder::bare_instantiate(Code::Upload(delegator_code.clone()))
+				.native_value(123)
+				.build_and_unwrap_contract();
+		let account_delegator = <Test as Config>::AddressMapper::to_account_id(&delegator_addr);
+
+		let result = builder::bare_call(delegator_addr)
+			.data(
+				TerminateDelegator::delegateCallTerminateCall {
+					terminate_addr: addr.0.into(),
+					method: METHOD_SYSCALL,
+					beneficiary: DJANGO_ADDR.0.into(),
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		assert!(!result.did_revert());
+
+		assert_eq!(
+			get_balance(&DJANGO),
+			123 + min_balance,
+			"unexpected django balance after reverted terminate"
+		);
+		assert_eq!(
+			get_balance(&account_delegator),
+			min_balance,
+			"unexpected delegator balance after reverted terminate"
+		);
+		assert!(
+			get_contract_checked(&addr).is_some(),
+			"Terminate contract should still exist after terminate"
+		);
+		assert!(
+			get_contract_checked(&delegator_addr).is_some(),
+			"TerminateDelegator contract should still exist after terminate"
 		);
 	});
 }
@@ -307,7 +352,7 @@ fn terminate_shall_rollback_if_subsequent_frame_fails(
 			.data(
 				TerminateCaller::revertAfterTerminateCall {
 					terminate_addr: addr.0.into(),
-					method: METHOD_PRECOMPILE.into(),
+					method: METHOD_PRECOMPILE,
 					beneficiary: DJANGO_ADDR.0.into(),
 				}
 				.abi_encode(),
@@ -482,5 +527,66 @@ fn sent_funds_after_terminate_shall_be_credited_to_beneficiary_precompile(
 			"unexpected DJANGO balance after terminate"
 		);
 		assert_eq!(get_balance(&account), 0, "ucontract has balance after terminate");
+	});
+}
+
+#[test_case(FixtureType::Solc, METHOD_SYSCALL, METHOD_SYSCALL)]
+#[test_case(FixtureType::Solc, METHOD_SYSCALL, METHOD_PRECOMPILE)]
+#[test_case(FixtureType::Solc, METHOD_PRECOMPILE, METHOD_SYSCALL)]
+#[test_case(FixtureType::Solc, METHOD_PRECOMPILE, METHOD_PRECOMPILE)]
+#[test_case(FixtureType::Resolc, METHOD_SYSCALL, METHOD_SYSCALL)]
+#[test_case(FixtureType::Resolc, METHOD_SYSCALL, METHOD_PRECOMPILE)]
+#[test_case(FixtureType::Resolc, METHOD_PRECOMPILE, METHOD_SYSCALL)]
+#[test_case(FixtureType::Resolc, METHOD_PRECOMPILE, METHOD_PRECOMPILE)]
+fn terminate_twice(fixture_type: FixtureType, method1: u8, method2: u8) {
+	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
+	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let min_balance = Contracts::min_balance();
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		if fixture_type == FixtureType::Resolc {
+			// Need to pre-upload code for PVM
+			let _ = builder::bare_instantiate(Code::Upload(code.clone()))
+				.constructor_data(
+					Terminate::constructorCall {
+						skip: true,
+						method: METHOD_SYSCALL,
+						beneficiary: DJANGO_ADDR.0.into(),
+					}
+					.abi_encode(),
+				)
+				.build_and_unwrap_contract();
+		}
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code))
+				.native_value(125)
+				.build_and_unwrap_contract();
+		let result = builder::bare_call(caller_addr)
+			.data(
+				TerminateCaller::createAndTerminateTwiceCall {
+					value: alloy_core::primitives::U256::from(123_000_000u64),
+					method1,
+					method2,
+					beneficiary: DJANGO_ADDR.0.into(),
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		assert!(
+			!result.did_revert(),
+			"createAndTerminateTwiceCall reverted: {}",
+			decode_error(&result.data)
+		);
+
+		let addr = H160::from_slice(&result.data[12..]);
+		let account = <Test as Config>::AddressMapper::to_account_id(&addr);
+		assert!(get_contract_checked(&addr).is_none(), "contract still exists after terminate");
+		assert_eq!(get_balance(&account), 0, "unexpected contract balance after terminate");
+		assert_eq!(
+			get_balance(&DJANGO),
+			123 + min_balance,
+			"unexpected DJANGO balance after terminate"
+		);
 	});
 }
