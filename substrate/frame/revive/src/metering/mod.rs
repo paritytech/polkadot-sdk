@@ -134,6 +134,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	/// Absorb only the weight consumption from a nested frame meter.
 	pub fn absorb_weight_meter_only(&mut self, other: FrameMeter<T>) {
 		self.weight.absorb_nested(other.weight);
+		self.deposit.absorb_only_max_charged(other.deposit);
 	}
 
 	/// Absorb all resource consumption from a nested frame meter.

@@ -320,6 +320,21 @@ where
 		}
 	}
 
+	/// Absorb only the maximum charge of the child meter.
+	///
+	/// This should be called whenever a sub call ends and reverts.
+	///
+	/// # Parameters
+	///
+	/// - `absorbed`: The child storage meter
+	pub fn absorb_only_max_charged(&mut self, absorbed: RawMeter<T, E, Nested>) {
+		// No need to recalculate max_charged for `absorbed` here. With `info` we can now calculate
+		// the correct `own_contribution` of `absorbed` but that can only be less
+		self.max_charged = self
+			.max_charged
+			.max(self.consumed().saturating_add(&absorbed.max_charged()).charge_or_zero());
+	}
+
 	pub fn terminate_absorb(
 		&mut self,
 		contract_account: T::AccountId,
