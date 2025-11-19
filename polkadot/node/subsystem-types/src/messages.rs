@@ -65,9 +65,6 @@ use bitvec::{order::Lsb0 as BitOrderLsb0, slice::BitSlice};
 /// Network events as transmitted to other subsystems, wrapped in their message types.
 pub mod network_bridge_event;
 pub use network_bridge_event::NetworkBridgeEvent;
-use polkadot_node_primitives::approval::time::Tick;
-use polkadot_node_primitives::approval::v2::Bitfield;
-use polkadot_primitives::vstaging::ApprovalStatistics;
 
 /// A request to the candidate backing subsystem to check whether
 /// we can second this candidate.
