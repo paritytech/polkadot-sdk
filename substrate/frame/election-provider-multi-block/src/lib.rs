@@ -720,6 +720,7 @@ pub mod pallet {
 					required: T::DbWeight::get().reads(1),
 					had: weight_meter.remaining(),
 				});
+				return;
 			}
 
 			// if so, consume and prepare the next phase.
