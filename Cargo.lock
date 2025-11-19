@@ -4500,6 +4500,7 @@ dependencies = [
  "sp-trie",
  "sp-version",
  "substrate-prometheus-endpoint",
+ "tokio",
  "tracing",
 ]
 
@@ -24844,9 +24845,9 @@ version = "4.0.0-dev"
 
 [[package]]
 name = "substrate-txtesttool"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8e742db3b239740f3ec7d4cfa5cdbc06a9820ed2dd48b073aa3b5de99bb7aed"
+checksum = "fda461f1ab3a919493e83cb54ed0de6220377c08df59fb60ba6a91de56e2005d"
 dependencies = [
  "async-trait",
  "average",
