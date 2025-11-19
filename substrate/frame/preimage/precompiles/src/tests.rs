@@ -20,7 +20,7 @@ use crate::{
 	IPreimage::{self},
 };
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_ok,
 	traits::{fungible::InspectHold, PreimageProvider},
 };
 use pallet_revive::{
@@ -131,8 +131,8 @@ fn user_unnote_preimage_works() {
 		assert!(call_and_expect_revert(CHARLIE, encoded_call.clone()));
 
 		// Not noted error
-		let Not noted_hash: [u8; 32] = hashed([2u8]).into();
-		let invalid_encoded_unnote_call = encode_unnote_preimage_call(Not noted_hash);
+		let noted_hash: [u8; 32] = hashed([2u8]).into();
+		let invalid_encoded_unnote_call = encode_unnote_preimage_call(noted_hash);
 		assert!(call_and_expect_revert(ALICE, invalid_encoded_unnote_call));
 
 		assert!(call_and_check_success(ALICE, encoded_call.clone()));
