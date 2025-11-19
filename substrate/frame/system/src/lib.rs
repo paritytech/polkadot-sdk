@@ -1884,6 +1884,11 @@ impl<T: Config> Pallet<T> {
 		AllExtrinsicsLen::<T>::get().unwrap_or_default()
 	}
 
+	/// Returns the current active execution phase.
+	pub fn execution_phase() -> Option<Phase> {
+		ExecutionPhase::<T>::get()
+	}
+
 	/// Inform the system pallet of some additional weight that should be accounted for, in the
 	/// current block.
 	///

@@ -852,6 +852,8 @@ fn block_weight_mode_from_previous_block_is_ignored_in_validate_block() {
 
 			assert_ok!(ExecutiveOnlyOperational::apply_extrinsic(xt));
 
+			fake_set_validation_data();
+
 			ExecutiveOnlyOperational::finalize_block();
 
 			assert_eq!(
@@ -882,7 +884,7 @@ fn block_weight_mode_from_previous_block_is_ignored_in_validate_block() {
 }
 
 #[test]
-fn ongoin_mbm_requests_full_core() {
+fn ongoing_mbm_requests_full_core() {
 	TestExtBuilder::new()
 		.number_of_cores(2)
 		.first_block_in_core(true)
@@ -901,6 +903,8 @@ fn ongoin_mbm_requests_full_core() {
 				FULL_CORE_WEIGHT,
 				<RuntimeOnlyOperational as frame_system::Config>::BlockWeights::get().max_block
 			);
+
+			fake_set_validation_data();
 
 			ExecutiveOnlyOperational::finalize_block();
 
@@ -1007,4 +1011,27 @@ fn executive_validate_transaction_respects_dispatch_class_max_block_size() {
 			);
 		});
 	}
+}
+
+#[test]
+fn on_idle_uses_correct_weight() {
+	TestExtBuilder::new()
+		.number_of_cores(2)
+		.first_block_in_core(true)
+		.build()
+		.execute_with(|| {
+			Executive::initialize_block(&Header::new(
+				1,
+				Default::default(),
+				Default::default(),
+				Default::default(),
+				System::digest(),
+			));
+
+			fake_set_validation_data();
+
+			OnIdleMaxLeftWeight::set(Some(MaximumBlockWeight::target_block_weight()));
+
+			Executive::finalize_block();
+		});
 }

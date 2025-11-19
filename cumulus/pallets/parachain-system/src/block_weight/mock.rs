@@ -15,7 +15,7 @@
 // limitations under the License.
 
 use super::{transaction_extension::DynamicMaxBlockWeight, *};
-use crate::{self as parachain_system, PreviousCoreCount};
+use crate::{self as parachain_system, MessagingStateSnapshot, PreviousCoreCount};
 use codec::Compact;
 use cumulus_primitives_core::{
 	BundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
@@ -32,6 +32,7 @@ use frame_support::{
 	},
 };
 use frame_system::{limits::BlockWeights, CheckWeight};
+use polkadot_primitives::PersistedValidationData;
 use sp_core::ConstU32;
 use sp_io;
 use sp_runtime::{
@@ -121,6 +122,7 @@ mod max_block_weight_setup {
 
 #[frame_support::pallet(dev_mode)]
 pub mod test_pallet {
+	use super::*;
 	use frame_support::{
 		dispatch::DispatchClass, pallet_prelude::*, weights::constants::WEIGHT_REF_TIME_PER_SECOND,
 	};
@@ -170,6 +172,17 @@ pub mod test_pallet {
 
 		fn is_inherent(call: &Self::Call) -> bool {
 			matches!(call, Call::heavy_call_mandatory {})
+		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
+			if let Some(max) = OnIdleMaxLeftWeight::get() {
+				assert!(limit.all_lte(max));
+			}
+
+			Weight::zero()
 		}
 	}
 
@@ -231,6 +244,7 @@ construct_runtime!(
 
 parameter_types! {
 	pub static MbmOngoing: bool = false;
+	pub static OnIdleMaxLeftWeight: Option<Weight> = None;
 }
 
 pub struct Migrator;
@@ -295,8 +309,13 @@ pub use only_operational_runtime::{
 };
 
 /// Executive: handles dispatch to the various modules.
-pub type Executive =
-	frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, ()>;
+pub type Executive = frame_executive::Executive<
+	Runtime,
+	Block,
+	frame_system::ChainContext<Runtime>,
+	Runtime,
+	AllPalletsWithSystem,
+>;
 
 /// Executive configured to only accept operational transaction to go over the limit.
 pub type ExecutiveOnlyOperational = frame_executive::Executive<
@@ -304,7 +323,7 @@ pub type ExecutiveOnlyOperational = frame_executive::Executive<
 	BlockOnlyOperational,
 	frame_system::ChainContext<RuntimeOnlyOperational>,
 	RuntimeOnlyOperational,
-	(),
+	only_operational_runtime::AllPalletsWithSystem,
 >;
 
 /// Builder for test externalities
@@ -408,4 +427,30 @@ pub fn initialize_block_finished() {
 	System::note_finished_initialize();
 	<Runtime as frame_system::Config>::PreInherents::pre_inherents();
 	System::note_inherents_applied();
+}
+
+/// Fakes the call to `set_validation_data`.
+pub fn fake_set_validation_data() {
+	crate::ValidationData::<Runtime>::put(PersistedValidationData::default());
+	crate::HostConfiguration::<Runtime>::put(cumulus_primitives_core::AbridgedHostConfiguration {
+		max_code_size: 2 * 1024 * 1024,
+		max_head_data_size: 1024 * 1024,
+		max_upward_queue_count: 8,
+		max_upward_queue_size: 1024,
+		max_upward_message_size: 256,
+		max_upward_message_num_per_candidate: 5,
+		hrmp_max_message_num_per_candidate: 5,
+		validation_upgrade_cooldown: 6,
+		validation_upgrade_delay: 6,
+		async_backing_params: cumulus_primitives_core::relay_chain::AsyncBackingParams {
+			allowed_ancestry_len: 0,
+			max_candidate_depth: 0,
+		},
+	});
+	crate::RelevantMessagingState::<Runtime>::put(MessagingStateSnapshot {
+		dmq_mqc_head: Default::default(),
+		relay_dispatch_queue_remaining_capacity: Default::default(),
+		ingress_channels: Vec::new(),
+		egress_channels: Vec::new(),
+	});
 }
