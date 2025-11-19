@@ -20,7 +20,7 @@
 use crate::{
 	evm::{block_hash::EthereumBlockBuilder, fees::InfoT, Block, TransactionSigned},
 	test_utils::{builder::Contract, deposit_limit, ALICE},
-	tests::{assert_ok, builder, Contracts, ExtBuilder, RuntimeOrigin, Test},
+	tests::{assert_ok, builder, Contracts, ExtBuilder, RuntimeOrigin, System, Test, Timestamp},
 	BalanceWithDust, Code, Config, EthBlock, EthBlockBuilderFirstValues, EthBlockBuilderIR,
 	EthereumBlock, Pallet, ReceiptGasInfo, ReceiptInfoData,
 };
@@ -31,11 +31,13 @@ use frame_support::traits::{
 	Hooks,
 };
 use pallet_revive_fixtures::compile_module;
+use sp_state_machine::BasicExternalities;
 
 #[test]
 fn on_initialize_clears_storage() {
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let receipt_data = vec![ReceiptGasInfo { gas_used: 1.into() }];
+		let receipt_data =
+			vec![ReceiptGasInfo { gas_used: 1.into(), effective_gas_price: 1.into() }];
 		ReceiptInfoData::<Test>::put(receipt_data.clone());
 		assert_eq!(ReceiptInfoData::<Test>::get(), receipt_data);
 
@@ -49,6 +51,26 @@ fn on_initialize_clears_storage() {
 		assert_eq!(ReceiptInfoData::<Test>::get(), vec![]);
 		assert_eq!(EthereumBlock::<Test>::get(), Default::default());
 	});
+}
+
+#[test]
+fn genesis_block_number_and_timestamp_fetched_from_storage() {
+	let mut ext = BasicExternalities::new_empty();
+	ext.execute_with(|| {
+		System::set_block_number(10);
+		Timestamp::set_timestamp(10000000);
+	});
+	let storage = ext.into_storages();
+
+	ExtBuilder::default()
+		.with_genesis_state_overrides(storage)
+		.build()
+		.execute_with(|| {
+			let block = EthereumBlock::<Test>::get();
+			// The timestamp is divided by 1000 (converted to seconds)
+			assert_eq!(block.timestamp, 10000.into());
+			assert_eq!(block.number, 10.into());
+		});
 }
 
 #[test]

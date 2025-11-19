@@ -350,9 +350,12 @@ where
 
 	/// Returns a future that resolves when the next block production should be attempted.
 	pub async fn wait_until_next_slot(&mut self) -> Result<(), ()> {
-		let Ok(slot_duration) = crate::slot_duration(&*self.client) else {
-			tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
-			return Err(())
+		let slot_duration = match crate::slot_duration(&*self.client) {
+			Ok(d) => d,
+			Err(error) => {
+				tracing::error!(target: LOG_TARGET, %error, "Failed to fetch slot duration from runtime.");
+				return Err(())
+			},
 		};
 
 		let (time_until_next_attempt, mut next_aura_slot) =

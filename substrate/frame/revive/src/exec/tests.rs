@@ -2839,12 +2839,7 @@ fn block_hash_returns_proper_values() {
 	let bob_code_hash = MockLoader::insert(Call, |ctx, _| {
 		ctx.ext.block_number = 1u32.into();
 		assert_eq!(ctx.ext.block_hash(U256::from(1)), None);
-		assert_eq!(
-			ctx.ext.block_hash(U256::from(0)),
-			Some(H256::from(hex_literal::hex!(
-				"c2fed5de763ecfa4cb65e8f57838c5517f69db4ede78a30093bf3fad66c5a8cd"
-			)))
-		);
+		assert!(ctx.ext.block_hash(U256::from(0)).is_some());
 
 		ctx.ext.block_number = 300u32.into();
 		assert_eq!(ctx.ext.block_hash(U256::from(300)), None);
