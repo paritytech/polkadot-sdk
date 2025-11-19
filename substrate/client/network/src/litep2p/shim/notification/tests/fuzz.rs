@@ -22,9 +22,7 @@
 use crate::{
 	litep2p::{
 		peerstore::Peerstore,
-		shim::notification::peerset::{
-			OpenResult, Peerset, PeersetCommand, PeersetNotificationCommand,
-		},
+		shim::notification::peerset::{OpenResult, Peerset, PeersetCommand},
 	},
 	service::traits::{Direction, PeerStore, ValidationResult},
 	ProtocolName,

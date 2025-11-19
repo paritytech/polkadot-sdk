@@ -1186,15 +1186,22 @@ impl Stream for Peerset {
 						})
 						.collect();
 
+					// Open substreams to the new reserved peers that are disconnected.
+					// This ensures we are not relying on the slot allocation timer to connect to
+					// the new reserved peers. Therefore, we start connecting to them immediately.
+					let connect_to = self.connect_reserved_peers();
+					let command = PeersetNotificationCommand {
+						open_peers: connect_to,
+						close_peers: peers_to_remove,
+					};
+
 					log::trace!(
 						target: LOG_TARGET,
-						"{}: close substreams to {peers_to_remove:?}",
+						"{}: SetReservedPeers result {command:?}",
 						self.protocol,
 					);
 
-					return Poll::Ready(Some(PeersetNotificationCommand::close_substream(
-						peers_to_remove,
-					)));
+					return Poll::Ready(Some(command));
 				},
 				PeersetCommand::AddReservedPeers { peers } => {
 					log::debug!(target: LOG_TARGET, "{}: add reserved peers {peers:?}", self.protocol);
