@@ -143,17 +143,15 @@ jobs:
         run: |
           echo "Running replace-all-path-deps.sh..."
           bash scripts/release/replace-all-path-deps.sh
+          
           # Show git diff to see what changed
           git diff --stat
 
       - name: Remove versions where path deps are present
         run: |
           echo "Running delete-versions-if-path-is-present.sh..."
-          if [ -f "scripts/release/delete-versions-if-path-is-present.sh" ]; then
-            bash scripts/release/delete-versions-if-path-is-present.sh
-          else
-            echo "WARNING: delete-versions-if-path-is-present.sh not found"
-          fi
+          bash scripts/release/delete-versions-if-path-is-present.sh
+          
           # Show git diff to see what changed
           git diff --stat
 
@@ -161,6 +159,7 @@ jobs:
         run: |
           echo "Running delete-version-from-umbrella.sh..."
           bash scripts/release/delete-version-from-umbrella.sh
+          
           # Show git diff to see what changed
           git diff --stat
 
