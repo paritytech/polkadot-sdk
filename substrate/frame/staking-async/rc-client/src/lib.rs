@@ -682,9 +682,6 @@ pub mod pallet {
 					},
 				};
 
-				// Check if we've reached the export session
-				log::debug!(target: LOG_TARGET, "Validator Set exists. Should export yet?: {}", should_export);
-
 				if should_export {
 					// Export the validator set
 					match T::SendToRelayChain::validator_set(report.clone()) {

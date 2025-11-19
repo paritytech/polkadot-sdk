@@ -217,9 +217,6 @@ pub mod pallet {
 		///   beginning of session `6 - 1 = 5`.
 		/// - If `PlanningEraOffset = 6`, the election starts at the beginning of session `6 - 6 =
 		///   0`, meaning it starts at the very beginning of the era.
-		// TODO(#10142): something like this will move to rc client pallet to send the results out.
-		// Maybe keep this anyways to be configurable, but test it with value 6 -> start as soon as
-		// new era starts.
 		#[pallet::constant]
 		type PlanningEraOffset: Get<SessionIndex>;
 

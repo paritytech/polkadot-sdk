@@ -1083,3 +1083,82 @@ fn on_offence_previous_era_instant_apply() {
 			assert_eq!(staking_events_since_last_call(), vec![]);
 		});
 }
+
+#[test]
+fn era_lifecycle_test() {
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		// this is the v1 mode.
+		let immediate_export_mode = || {
+			// election kicks off at the start of (6-2) 4th session.
+			PlanningEraOffset::set(2);
+			// export validator set as soon as its received.
+			ValidatorSetExportSession::set(0);
+		};
+		// this is v2 mode we are transitioning to.
+		let buffered_export_mode = || {
+			// election kicks at the start of 1st session of the era.
+			PlanningEraOffset::set(5);
+			// export validator set in the 5th session.
+			ValidatorSetExportSession::set(5);
+		};
+
+		// lets start with immediate export mode
+		immediate_export_mode();
+
+		assert_eq!(ActiveEra::<T>::get().unwrap().index, 0);
+
+		// -- Era transition 0 -> 1
+		// there are 3 idle sessions but session 0 is already ended, so we end two more.
+		roll_and_assert_idle_sessions(2, false);
+		// this will end session 3, and assert session 4 is election session.
+		roll_and_assert_election_session(true);
+		roll_and_assert_idle_sessions(1, false);
+		roll_and_assert_era_end_session();
+
+		assert_eq!(ActiveEra::<T>::get().unwrap().index, 1);
+
+		// -- Era transition 1 -> 5
+		for era in 1..5 {
+			// 3 idle sessions
+			roll_and_assert_idle_sessions(3, false);
+			// this will end session 3, and assert session 4 is election session.
+			roll_and_assert_election_session(true);
+			roll_and_assert_idle_sessions(1, false);
+			roll_and_assert_era_end_session();
+
+			assert_eq!(ActiveEra::<T>::get().unwrap().index, era + 1);
+		}
+
+		// we are currently at era 5
+		assert_eq!(ActiveEra::<T>::get().unwrap().index, 5);
+		// lets switch to buffered export mode and earlier election
+		buffered_export_mode();
+		// next session should kick off the election without exporting
+		roll_and_assert_election_session(false);
+		// roll 2 idle sessions. Validator set should still be not exported yet.
+		roll_and_assert_idle_sessions(2, false);
+		// end of this session (start of next) will export the validator set.
+		roll_and_assert_idle_sessions(1, true);
+		// fifth session should be idle with no export
+		roll_and_assert_idle_sessions(1, false);
+		// and finally era activation
+		roll_and_assert_era_end_session();
+
+		// roll few more eras
+
+		for era in 6..10 {
+			assert_eq!(ActiveEra::<T>::get().unwrap().index, era);
+			// next session should kick off the election without exporting
+			roll_and_assert_election_session(false);
+			// roll 2 idle sessions. Validator set should still be not exported yet.
+			roll_and_assert_idle_sessions(2, false);
+			// end of this session (start of next) will export the validator set.
+			roll_and_assert_idle_sessions(1, true);
+			// fifth session should be idle with no export
+			roll_and_assert_idle_sessions(1, false);
+			// and finally era activation
+			roll_and_assert_era_end_session();
+			assert_eq!(ActiveEra::<T>::get().unwrap().index, era + 1);
+		}
+	});
+}
