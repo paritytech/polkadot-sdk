@@ -148,6 +148,80 @@ mod v1 {
 /// Migration to V2 - Remove affinity system and simplify to single queue.
 pub struct UncheckedMigrateToV2<T>(core::marker::PhantomData<T>);
 
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> UncheckedMigrateToV2<T> {
+	pub fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+		let old_queue_status = v1::QueueStatus::<T>::get();
+		let free_entries = v1::FreeEntries::<T>::get().unwrap_or_default();
+		let affinity_keys: alloc::vec::Vec<_> = v1::AffinityEntries::<T>::iter_keys().collect();
+
+		let mut total_orders = free_entries.len();
+		for core_idx in affinity_keys.iter() {
+			total_orders += v1::AffinityEntries::<T>::get(core_idx).unwrap_or_default().len();
+		}
+
+		let affinity_count = v1::ParaIdAffinity::<T>::iter().count();
+
+		log::info!(
+			target: LOG_TARGET,
+			"Before migration: {} total orders ({} free, {} in affinity queues), {} affinity mappings, traffic: {:?}",
+			total_orders,
+			free_entries.len(),
+			total_orders - free_entries.len(),
+			affinity_count,
+			old_queue_status.as_ref().map(|s| s.traffic)
+		);
+
+		Ok((total_orders as u32, affinity_count as u32, old_queue_status.map(|s| s.traffic))
+			.encode())
+	}
+
+	pub fn post_upgrade(state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		log::info!(target: LOG_TARGET, "Running post_upgrade() for v2");
+
+		let (expected_orders, expected_affinity_count, expected_traffic): (
+			u32,
+			u32,
+			Option<FixedU128>,
+		) = Decode::decode(&mut &state[..]).map_err(|_| "Failed to decode pre_upgrade state")?;
+
+		// Verify old storage is cleaned up
+		ensure!(!v1::QueueStatus::<T>::exists(), "Old QueueStatus should be removed");
+		ensure!(!v1::FreeEntries::<T>::exists(), "FreeEntries should be removed");
+		ensure!(v1::AffinityEntries::<T>::iter().count() == 0, "AffinityEntries should be empty");
+		ensure!(v1::ParaIdAffinity::<T>::iter().count() == 0, "ParaIdAffinity should be empty");
+
+		// Verify new storage
+		let new_order_status = super::pallet::OrderStatus::<T>::get();
+
+		// Compare traffic values, handling the Option case
+		match expected_traffic {
+			Some(expected) =>
+				ensure!(new_order_status.traffic == expected, "Traffic value should be preserved"),
+			None => {
+				// If there was no old QueueStatus, traffic should be the default
+				let default_traffic = T::TrafficDefaultValue::get();
+				ensure!(
+					new_order_status.traffic == default_traffic,
+					"Traffic value should be set to default when no old QueueStatus existed"
+				);
+			},
+		}
+
+		let migrated_orders = new_order_status.queue.len() as u32;
+		log::info!(
+			target: LOG_TARGET,
+			"Successfully migrated {} orders (expected {}), removed {} affinity mappings, traffic preserved: {:?}",
+			migrated_orders,
+			expected_orders,
+			expected_affinity_count,
+			new_order_status.traffic
+		);
+
+		Ok(())
+	}
+}
+
 impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV2<T> {
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight: Weight = Weight::zero();
@@ -221,75 +295,12 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV2<T> {
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
-		let old_queue_status = v1::QueueStatus::<T>::get();
-		let free_entries = v1::FreeEntries::<T>::get().unwrap_or_default();
-		let affinity_keys: alloc::vec::Vec<_> = v1::AffinityEntries::<T>::iter_keys().collect();
-
-		let mut total_orders = free_entries.len();
-		for core_idx in affinity_keys.iter() {
-			total_orders += v1::AffinityEntries::<T>::get(core_idx).unwrap_or_default().len();
-		}
-
-		let affinity_count = v1::ParaIdAffinity::<T>::iter().count();
-
-		log::info!(
-			target: LOG_TARGET,
-			"Before migration: {} total orders ({} free, {} in affinity queues), {} affinity mappings, traffic: {:?}",
-			total_orders,
-			free_entries.len(),
-			total_orders - free_entries.len(),
-			affinity_count,
-			old_queue_status.as_ref().map(|s| s.traffic)
-		);
-
-		Ok((total_orders as u32, affinity_count as u32, old_queue_status.map(|s| s.traffic))
-			.encode())
+		Self::pre_upgrade()
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		log::info!(target: LOG_TARGET, "Running post_upgrade() for v2");
-
-		let (expected_orders, expected_affinity_count, expected_traffic): (
-			u32,
-			u32,
-			Option<FixedU128>,
-		) = Decode::decode(&mut &state[..]).map_err(|_| "Failed to decode pre_upgrade state")?;
-
-		// Verify old storage is cleaned up
-		ensure!(!v1::QueueStatus::<T>::exists(), "Old QueueStatus should be removed");
-		ensure!(!v1::FreeEntries::<T>::exists(), "FreeEntries should be removed");
-		ensure!(v1::AffinityEntries::<T>::iter().count() == 0, "AffinityEntries should be empty");
-		ensure!(v1::ParaIdAffinity::<T>::iter().count() == 0, "ParaIdAffinity should be empty");
-
-		// Verify new storage
-		let new_order_status = super::pallet::OrderStatus::<T>::get();
-
-		// Compare traffic values, handling the Option case
-		match expected_traffic {
-			Some(expected) =>
-				ensure!(new_order_status.traffic == expected, "Traffic value should be preserved"),
-			None => {
-				// If there was no old QueueStatus, traffic should be the default
-				let default_traffic = T::TrafficDefaultValue::get();
-				ensure!(
-					new_order_status.traffic == default_traffic,
-					"Traffic value should be set to default when no old QueueStatus existed"
-				);
-			},
-		}
-
-		let migrated_orders = new_order_status.queue.len() as u32;
-		log::info!(
-			target: LOG_TARGET,
-			"Successfully migrated {} orders (expected {}), removed {} affinity mappings, traffic preserved: {:?}",
-			migrated_orders,
-			expected_orders,
-			expected_affinity_count,
-			new_order_status.traffic
-		);
-
-		Ok(())
+		Self::post_upgrade(state)
 	}
 }
 
@@ -347,8 +358,10 @@ mod tests {
 			// Set storage version to 1
 			StorageVersion::new(1).put::<on_demand::Pallet<Test>>();
 
-			// Run migration
+			// Run migration with pre and post upgrade checks
+			let state = UncheckedMigrateToV2::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			let _weight = UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV2::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
 			// Verify new storage
 			let new_status = on_demand::pallet::OrderStatus::<Test>::get();
@@ -388,8 +401,10 @@ mod tests {
 
 			StorageVersion::new(1).put::<on_demand::Pallet<Test>>();
 
-			// Run migration
+			// Run migration with pre and post upgrade checks
+			let state = UncheckedMigrateToV2::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV2::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
 			// Verify all 4 orders merged into single queue
 			let new_status = on_demand::pallet::OrderStatus::<Test>::get();
@@ -420,8 +435,10 @@ mod tests {
 
 			StorageVersion::new(1).put::<on_demand::Pallet<Test>>();
 
-			// Run migration
+			// Run migration with pre and post upgrade checks
+			let state = UncheckedMigrateToV2::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV2::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
 			// Verify orders are in queue
 			// Order should be preserved based on QueueIndex (2, 5, 10)
@@ -450,8 +467,10 @@ mod tests {
 
 			StorageVersion::new(1).put::<on_demand::Pallet<Test>>();
 
-			// Run migration
+			// Run migration with pre and post upgrade checks
+			let state = UncheckedMigrateToV2::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV2::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
 			// Verify traffic preserved
 			let new_status = on_demand::pallet::OrderStatus::<Test>::get();
@@ -480,8 +499,10 @@ mod tests {
 
 			StorageVersion::new(1).put::<on_demand::Pallet<Test>>();
 
-			// Run migration
+			// Run migration with pre and post upgrade checks
+			let state = UncheckedMigrateToV2::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV2::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
 			// Verify ParaIdAffinity completely removed
 			assert_eq!(v1::ParaIdAffinity::<Test>::iter().count(), 0);
@@ -498,7 +519,9 @@ mod tests {
 			StorageVersion::new(1).put::<on_demand::Pallet<Test>>();
 
 			// Run migration with no orders
+			let state = UncheckedMigrateToV2::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			let _weight = UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV2::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
 			// Verify new storage has empty queue
 			let new_status = on_demand::pallet::OrderStatus::<Test>::get();
@@ -527,8 +550,10 @@ mod tests {
 
 			StorageVersion::new(1).put::<on_demand::Pallet<Test>>();
 
-			// Run migration
+			// Run migration with pre and post upgrade checks
+			let state = UncheckedMigrateToV2::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV2::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
 			// Verify all 5 orders merged into single queue
 			let new_status = on_demand::pallet::OrderStatus::<Test>::get();
@@ -563,7 +588,9 @@ mod tests {
 			StorageVersion::new(1).put::<on_demand::Pallet<Test>>();
 
 			// Run migration - should not panic even if queue is full
+			let state = UncheckedMigrateToV2::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			let _weight = UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV2::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
 			// Verify migration completed (some orders may be dropped if queue is full)
 			let new_status = on_demand::pallet::OrderStatus::<Test>::get();
