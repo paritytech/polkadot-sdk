@@ -20,8 +20,7 @@ use crate::{
 	litep2p::{
 		peerstore::peerstore_handle_test,
 		shim::notification::peerset::{
-			Direction, OpenResult, PeerState, Peerset, PeersetCommand, PeersetNotificationCommand,
-			Reserved,
+			Direction, OpenResult, PeerState, Peerset, PeersetCommand, Reserved,
 		},
 	},
 	service::traits::{self, ValidationResult},
@@ -335,10 +334,17 @@ async fn set_reserved_peers() {
 
 	match peerset.next().await {
 		Some(command) => {
-			assert!(command.open_peers.is_empty());
+			assert_eq!(command.open_peers.len(), 3);
+			for peer in command.open_peers {
+				assert!(new_reserved_peers.contains(&peer));
+				assert!(peerset.reserved_peers().contains(&peer));
+				assert_eq!(
+					peerset.peers().get(&peer),
+					Some(&PeerState::Opening { direction: Direction::Outbound(Reserved::Yes) }),
+				);
+			}
 
 			let out_peers = command.close_peers;
-			assert!(!out_peers.is_empty());
 			assert_eq!(out_peers.len(), 3);
 
 			for peer in &out_peers {
@@ -347,28 +353,6 @@ async fn set_reserved_peers() {
 				assert_eq!(
 					peerset.peers().get(peer),
 					Some(&PeerState::Closing { direction: Direction::Outbound(Reserved::Yes) }),
-				);
-			}
-
-			for peer in &new_reserved_peers {
-				assert!(peerset.reserved_peers().contains(peer));
-			}
-		},
-		event => panic!("invalid event: {event:?}"),
-	}
-
-	match peerset.next().await {
-		Some(command) => {
-			assert!(command.close_peers.is_empty());
-			let out_peers = command.open_peers;
-			assert!(!out_peers.is_empty());
-			assert_eq!(out_peers.len(), 3);
-
-			for peer in &new_reserved_peers {
-				assert!(peerset.reserved_peers().contains(peer));
-				assert_eq!(
-					peerset.peers().get(peer),
-					Some(&PeerState::Opening { direction: Direction::Outbound(Reserved::Yes) }),
 				);
 			}
 		},
@@ -433,8 +417,15 @@ async fn set_reserved_peers_one_peer_already_in_the_set() {
 
 	match peerset.next().await {
 		Some(command) => {
-			assert!(command.open_peers.is_empty());
-
+			assert_eq!(command.open_peers.len(), 2);
+			for peer in command.open_peers {
+				assert!(new_reserved_peers.contains(&peer));
+				assert!(peerset.reserved_peers().contains(&peer));
+				assert_eq!(
+					peerset.peers().get(&peer),
+					Some(&PeerState::Opening { direction: Direction::Outbound(Reserved::Yes) }),
+				);
+			}
 			let out_peers = command.close_peers;
 			assert_eq!(out_peers.len(), 2);
 
@@ -464,27 +455,6 @@ async fn set_reserved_peers_one_peer_already_in_the_set() {
 		peerset.peers().get(&common_peer),
 		Some(&PeerState::Connected { direction: Direction::Outbound(Reserved::Yes) })
 	);
-
-	match peerset.next().await {
-		Some(command) => {
-			assert!(command.close_peers.is_empty());
-			let out_peers = command.open_peers;
-			assert!(!out_peers.is_empty());
-			assert_eq!(out_peers.len(), 2);
-
-			for peer in &new_reserved_peers {
-				assert!(peerset.reserved_peers().contains(peer));
-
-				if peer != &common_peer {
-					assert_eq!(
-						peerset.peers().get(peer),
-						Some(&PeerState::Opening { direction: Direction::Outbound(Reserved::Yes) }),
-					);
-				}
-			}
-		},
-		event => panic!("invalid event: {event:?}"),
-	}
 }
 
 #[tokio::test]
@@ -896,25 +866,19 @@ async fn set_reserved_peers_but_available_slots() {
 		Some(command) => {
 			// This ensures we don't disconnect peers when receiving `SetReservedPeers`.
 			assert!(command.close_peers.is_empty());
-			assert!(command.open_peers.is_empty());
-		},
-		event => panic!("invalid event: {event:?}"),
-	}
 
-	// verify that `Peerset` is aware of five peers, with two of them as outbound.
-	assert_eq!(peerset.peers().len(), 5);
-	assert_eq!(peerset.num_in(), 0usize);
-	assert_eq!(peerset.num_out(), 2usize);
-	assert_eq!(peerset.reserved_peers().len(), 3usize);
+			// verify that `Peerset` is aware of five peers, with two of them as outbound.
+			assert_eq!(peerset.peers().len(), 5);
+			assert_eq!(peerset.num_in(), 0usize);
+			assert_eq!(peerset.num_out(), 2usize);
+			assert_eq!(peerset.reserved_peers().len(), 3usize);
 
-	match peerset.next().await {
-		Some(command) => {
-			assert!(command.close_peers.is_empty());
+			// Expect two outbound requests for the new reserved peers (excluding the common peer).
 			let peers = command.open_peers;
+			assert_eq!(peers.len(), 2);
 
 			assert_eq!(peers.len(), 2);
 			assert!(!peers.contains(&common_peer));
-
 			for peer in &peers {
 				assert!(reserved_peers.contains(peer));
 				assert!(peerset.reserved_peers().contains(peer));
@@ -926,11 +890,6 @@ async fn set_reserved_peers_but_available_slots() {
 		},
 		event => panic!("invalid event: {event:?}"),
 	}
-
-	assert_eq!(peerset.peers().len(), 5);
-	assert_eq!(peerset.num_in(), 0usize);
-	assert_eq!(peerset.num_out(), 2usize);
-	assert_eq!(peerset.reserved_peers().len(), 3usize);
 }
 
 #[tokio::test]
@@ -1008,14 +967,12 @@ async fn set_reserved_peers_move_previously_reserved() {
 	// The command `SetReservedPeers` might evict currently reserved peers if
 	// we don't have enough slot capacity to move them to regular nodes.
 	// In this case, we have enough capacity.
-	match peerset.next().await {
-		Some(command) => {
-			// This ensures we don't disconnect peers when receiving `SetReservedPeers`.
-			assert!(command.close_peers.is_empty());
-			assert!(command.open_peers.is_empty());
-		},
-		event => panic!("invalid event: {event:?}"),
-	}
+	let Some(command) = peerset.next().await else {
+		panic!("expected command");
+	};
+
+	// This ensures we don't disconnect peers when receiving `SetReservedPeers`.
+	assert!(command.close_peers.is_empty());
 
 	// verify that `Peerset` is aware of five peers.
 	// 2 of the previously reserved peers are moved as outbound regular peers and
@@ -1037,8 +994,13 @@ async fn set_reserved_peers_move_previously_reserved() {
 		}
 
 		// Part of the new reserved nodes.
+		// Reserved peers are moved to the `Opening` state directly
+		// without waiting for the slot timer to allocate them.
 		if reserved_peers.contains(peer) {
-			assert_eq!(state, &PeerState::Disconnected);
+			assert_eq!(
+				peerset.peers().get(peer),
+				Some(&PeerState::Opening { direction: Direction::Outbound(Reserved::Yes) }),
+			);
 			continue
 		}
 
@@ -1054,31 +1016,18 @@ async fn set_reserved_peers_move_previously_reserved() {
 		panic!("Invalid state peer={peer:?} state={state:?}");
 	}
 
-	match peerset.next().await {
-		Some(command) => {
-			assert!(command.close_peers.is_empty());
-			let peers = command.open_peers;
-
-			// Open desires with newly reserved.
-			assert_eq!(peers.len(), 2);
-			assert!(!peers.contains(&common_peer));
-
-			for peer in &peers {
-				assert!(reserved_peers.contains(peer));
-				assert!(peerset.reserved_peers().contains(peer));
-				assert_eq!(
-					peerset.peers().get(peer),
-					Some(&PeerState::Opening { direction: Direction::Outbound(Reserved::Yes) }),
-				);
-			}
-		},
-		event => panic!("invalid event: {event:?}"),
+	// Open desires with newly reserved.
+	let peers = command.open_peers;
+	assert_eq!(peers.len(), 2);
+	assert!(!peers.contains(&common_peer));
+	for peer in &peers {
+		assert!(reserved_peers.contains(peer));
+		assert!(peerset.reserved_peers().contains(peer));
+		assert_eq!(
+			peerset.peers().get(peer),
+			Some(&PeerState::Opening { direction: Direction::Outbound(Reserved::Yes) }),
+		);
 	}
-
-	assert_eq!(peerset.peers().len(), 5);
-	assert_eq!(peerset.num_in(), 0usize);
-	assert_eq!(peerset.num_out(), 2usize);
-	assert_eq!(peerset.reserved_peers().len(), 3usize);
 }
 
 #[tokio::test]
@@ -1159,7 +1108,16 @@ async fn set_reserved_peers_cannot_move_previously_reserved() {
 	// In this case, we don't have enough capacity.
 	match peerset.next().await {
 		Some(command) => {
-			assert!(command.open_peers.is_empty());
+			// One of the new reserved peers is already connected.
+			assert_eq!(command.open_peers.len(), 2);
+			for peer in &command.open_peers {
+				assert!(reserved_peers.contains(peer));
+				assert!(peerset.reserved_peers().contains(peer));
+				assert_eq!(
+					peerset.peers().get(peer),
+					Some(&PeerState::Opening { direction: Direction::Outbound(Reserved::Yes) }),
+				);
+			}
 
 			let peers = command.close_peers;
 			// This ensures we don't disconnect peers when receiving `SetReservedPeers`.
