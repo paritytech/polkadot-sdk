@@ -949,6 +949,17 @@ impl<T: Config> EraElectionPlanner<T> {
 			// consume the reported worst case weight.
 			meter.consume(required_weight)
 		});
+
+		// Add a few things to the required weights that are not captured in `do_elect_paged`, which
+		// is benchmarked via `fetch_page`.
+		// * 1 extra read and write for `NextElectionPage`
+		// * 1 extra write for `RcClientInterface::validator_set` (implementation leak -- we assume
+		//   that we know this writes one storage item under the hood)
+		// * 1 extra read for `CurrentEra`
+		// * 1 extra read for `BondedEras` in `get_prune_up_to`
+		// ElectableStashes already read in `do_elect_paged`
+		required_weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 2));
+
 		(required_weight, exec)
 	}
 
