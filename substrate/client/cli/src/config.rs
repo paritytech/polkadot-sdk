@@ -272,6 +272,16 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			.unwrap_or_else(|| Ok(Default::default()))
 	}
 
+	/// Get the archive diffs mode.
+	///
+	/// By default this is retrieved from `archive_diffs` if it is available. Otherwise its
+	/// `false`.
+	fn archive_diffs(&self) -> Result<bool> {
+		self.pruning_params()
+			.map(|x| x.archive_diffs())
+			.unwrap_or_else(|| Ok(false))
+	}
+
 	/// Get the block pruning mode.
 	///
 	/// By default this is retrieved from `block_pruning` if it is available. Otherwise its
@@ -540,6 +550,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			trie_cache_maximum_size: self.trie_cache_maximum_size()?,
 			warm_up_trie_cache: self.warm_up_trie_cache()?,
 			state_pruning: self.state_pruning()?,
+			archive_diffs: self.archive_diffs()?,
 			blocks_pruning: self.blocks_pruning()?,
 			executor: ExecutorConfiguration {
 				wasm_method: self.wasm_method()?,

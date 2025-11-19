@@ -16,21 +16,31 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::{borrow::Borrow, marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, sync::Arc};
 
 use array_bytes::Hex;
 use codec::{Decode, Encode};
 use sc_client_api::ChildInfo;
 use sp_core::Hasher;
-use sp_database::{Database, DatabaseWithSeekableIterator};
-use sp_runtime::traits::{BlakeTwo256, BlockNumber, HashingFor, Header};
-use sp_state_machine::{
-	BackendTransaction, ChildStorageCollection, DefaultError, IterArgs, StorageCollection,
-	StorageKey, StorageValue, UsageInfo,
+use sp_database::{DatabaseWithSeekableIterator, Transaction};
+use sp_runtime::{
+	traits::{HashingFor, Header},
+	Storage,
 };
-use sp_trie::MerkleValue;
+use sp_state_machine::{
+	ChildStorageCollection, DefaultError, IterArgs, StorageCollection, StorageKey, StorageValue,
+};
 
-use crate::{columns, BlockT, DbHash, StateBackend, StateMachineStats, StorageDb};
+use crate::{columns, BlockT, DbHash};
+
+pub(crate) fn compare_keys<B: sp_runtime::traits::BlockNumber>(
+	key1: &[u8],
+	key2: &[u8],
+) -> std::cmp::Ordering {
+	let key1 = FullStorageKey::<B>::from(key1);
+	let key2 = FullStorageKey::<B>::from(key2);
+	key1.cmp(&key2)
+}
 
 pub(crate) struct ArchiveDb<Block: BlockT> {
 	db: Arc<dyn DatabaseWithSeekableIterator<DbHash>>,
@@ -44,6 +54,23 @@ impl<B: BlockT> std::fmt::Debug for ArchiveDb<B> {
 	}
 }
 
+// Simply concatenets child storage key with key
+// This could be troublesome if a child storage key could be a prefix of another child storage key,
+// but ChildInfo's documentation mentions it should not happen
+fn make_child_storage_key(info: &ChildInfo, key: &[u8]) -> Vec<u8> {
+	let mut prefixed_key = Vec::with_capacity(info.storage_key().len() + key.len());
+	prefixed_key.extend_from_slice(info.storage_key());
+	prefixed_key.extend_from_slice(key);
+	prefixed_key
+}
+
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum StorageType {
+	Main = 0,
+	Child = 1,
+}
+
 impl<Block: BlockT> ArchiveDb<Block> {
 	pub(crate) fn new(
 		db: Arc<dyn DatabaseWithSeekableIterator<DbHash>>,
@@ -53,33 +80,50 @@ impl<Block: BlockT> ArchiveDb<Block> {
 		Self { db, parent_hash, block_number }
 	}
 
-	pub(crate) fn storage(&self, key: &[u8]) -> Result<Option<StorageValue>, DefaultError> {
-		let full_key = FullStorageKey::new(key, self.block_number);
+	fn storage(
+		&self,
+		storage_type: StorageType,
+		key: &[u8],
+	) -> Result<Option<StorageValue>, DefaultError> {
+		println!("Archive storage query: {}", key.hex("0x"));
+		let full_key = FullStorageKey::new(key, storage_type, self.block_number);
 		let mut iter = self
 			.db
 			.seekable_iter(columns::ARCHIVE)
 			.expect("Archive column space must exist if ArchiveDb exists");
 		iter.seek_prev(full_key.as_ref());
 
-		if let Some((found_key, value)) = iter.get() {
-			let found_key = FullStorageKey::<<Block::Header as Header>::Number>::from(found_key);
-			if found_key.key() == key {
-				let value = match Option::<Vec<u8>>::decode(&mut value.as_slice()) {
-					Ok(value) => value,
-					Err(e) => return Err(format!("Archive value decode error: {:?}", e)),
-				};
-				return Ok(value);
+		let res = {
+			if let Some((found_key, value)) = iter.get() {
+				let found_key =
+					FullStorageKey::<<Block::Header as Header>::Number>::from(found_key);
+				if found_key.key() == key {
+					let value = match Option::<Vec<u8>>::decode(&mut value.as_slice()) {
+						Ok(value) => value,
+						Err(e) => return Err(format!("Archive value decode error: {:?}", e)),
+					};
+					Ok(value)
+				} else {
+					Ok(None)
+				}
+			} else {
+				Ok(None)
 			}
-		}
-		Ok(None)
+		};
+		println!("Archive storage query: {} is {:?}", key.hex("0x"), res);
+		res
 	}
 
 	pub(crate) fn storage_hash(
 		&self,
 		key: &[u8],
 	) -> Result<Option<<HashingFor<Block> as hash_db::Hasher>::Out>, DefaultError> {
-		let result = self.storage(key)?;
+		let result = self.storage(StorageType::Main, key)?;
 		Ok(result.map(|res| HashingFor::<Block>::hash(&res)))
+	}
+
+	pub(crate) fn main_storage(&self, key: &[u8]) -> Result<Option<StorageValue>, DefaultError> {
+		self.storage(StorageType::Main, key)
 	}
 
 	pub(crate) fn child_storage(
@@ -87,9 +131,7 @@ impl<Block: BlockT> ArchiveDb<Block> {
 		child_info: &ChildInfo,
 		key: &[u8],
 	) -> Result<Option<StorageValue>, DefaultError> {
-		let mut prefix_key = child_info.storage_key().to_owned();
-		prefix_key.extend_from_slice(key);
-		self.storage(&prefix_key)
+		self.storage(StorageType::Child, &make_child_storage_key(child_info, key))
 	}
 
 	pub(crate) fn child_storage_hash(
@@ -97,23 +139,59 @@ impl<Block: BlockT> ArchiveDb<Block> {
 		child_info: &ChildInfo,
 		key: &[u8],
 	) -> Result<Option<<HashingFor<Block> as hash_db::Hasher>::Out>, DefaultError> {
-		let mut prefix_key = child_info.storage_key().to_owned();
-		prefix_key.extend_from_slice(key);
-		self.storage_hash(&prefix_key)
+		self.storage_hash(&make_child_storage_key(child_info, key))
 	}
 
-	pub(crate) fn exists_storage(&self, key: &[u8]) -> Result<bool, DefaultError> {
-		Ok(self.storage(key)?.is_some())
+	pub(crate) fn add_new_storage(
+		transaction: &mut Transaction<DbHash>,
+		storage: Storage,
+		block_number: <Block::Header as Header>::Number,
+	) {
+		for (key, value) in storage.top {
+			let full_key = FullStorageKey::new(&key, StorageType::Main, block_number);
+			transaction.set_from_vec(columns::ARCHIVE, full_key.as_ref(), Some(value).encode());
+		}
+
+		for (child_key, child_storage) in storage.children_default {
+			let info = ChildInfo::new_default_from_vec(child_key);
+			for (key, value) in child_storage.data {
+				let full_key = FullStorageKey::new(
+					&make_child_storage_key(&info, &key),
+					StorageType::Child,
+					block_number,
+				);
+				transaction.set_from_vec(columns::ARCHIVE, full_key.as_ref(), Some(value).encode());
+			}
+		}
 	}
 
-	pub(crate) fn exists_child_storage(
-		&self,
-		child_info: &ChildInfo,
-		key: &[u8],
-	) -> Result<bool, DefaultError> {
-		let mut prefix_key = child_info.storage_key().to_owned();
-		prefix_key.extend_from_slice(key);
-		Ok(self.exists_storage(&prefix_key)?)
+	pub(crate) fn update_storage(
+		transaction: &mut Transaction<DbHash>,
+		storage: StorageCollection,
+		block_number: <Block::Header as Header>::Number,
+	) {
+		for (key, value) in storage {
+			let full_key = FullStorageKey::new(&key, StorageType::Main, block_number);
+			transaction.set_from_vec(columns::ARCHIVE, full_key.as_ref(), value.encode());
+		}
+	}
+
+	pub(crate) fn update_child_storage(
+		transaction: &mut Transaction<DbHash>,
+		storage: ChildStorageCollection,
+		block_number: <Block::Header as Header>::Number,
+	) {
+		for (child_key, storage) in storage {
+			let info = ChildInfo::new_default_from_vec(child_key);
+			for (key, value) in storage {
+				let full_key = FullStorageKey::new(
+					&make_child_storage_key(&info, &key),
+					StorageType::Child,
+					block_number,
+				);
+				transaction.set_from_vec(columns::ARCHIVE, full_key.as_ref(), value.encode());
+			}
+		}
 	}
 
 	fn make_next_lexicographic_key(key: &[u8]) -> Vec<u8> {
@@ -122,11 +200,15 @@ impl<Block: BlockT> ArchiveDb<Block> {
 		next_key
 	}
 
-	pub(crate) fn next_storage_key(&self, key: &[u8]) -> Result<Option<StorageKey>, DefaultError> {
+	fn next_storage_key(
+		&self,
+		storage_type: StorageType,
+		key: &[u8],
+	) -> Result<Option<StorageKey>, DefaultError> {
 		let mut key = key.to_owned();
 		loop {
 			let next_key = Self::make_next_lexicographic_key(&key);
-			let next_key = FullStorageKey::new(&next_key, self.block_number);
+			let next_key = FullStorageKey::new(&next_key, storage_type, self.block_number);
 			let mut iter = self
 				.db
 				.seekable_iter(columns::ARCHIVE)
@@ -137,12 +219,20 @@ impl<Block: BlockT> ArchiveDb<Block> {
 			if let Some((next_key, _)) = iter.get() {
 				let next_key = FullStorageKey::<<Block::Header as Header>::Number>::from(next_key);
 				println!("Found next key: {}, {}", next_key.key().hex("0x"), next_key.number());
+				// since child storage keys are ordered after main storage keys, if we iterated to a
+				// child storage key, we passed all main storage keys
+				if next_key.storage_type() != storage_type {
+					return Ok(None);
+				}
 				if next_key.number() != self.block_number {
 					// this key points at a state older or newer than the current state,
 					// we need the state either equal to or exactly preceding the current state
 					println!("The found key is located at a non-current state, check if it's present in the current state");
 					println!("Seek prev: {}, {}", next_key.key().hex("0x"), next_key.number());
-					iter.seek_prev(FullStorageKey::new(next_key.key(), self.block_number).as_ref());
+					iter.seek_prev(
+						FullStorageKey::new(next_key.key(), storage_type, self.block_number)
+							.as_ref(),
+					);
 				}
 				if let Some((next_key, encoded_value)) = iter.get() {
 					let next_key =
@@ -178,79 +268,77 @@ impl<Block: BlockT> ArchiveDb<Block> {
 		}
 	}
 
+	pub(crate) fn next_main_storage_key(
+		&self,
+		key: &[u8],
+	) -> Result<Option<StorageKey>, DefaultError> {
+		self.next_storage_key(StorageType::Main, key)
+	}
+
 	pub(crate) fn next_child_storage_key(
 		&self,
 		child_info: &ChildInfo,
 		key: &[u8],
 	) -> Result<Option<StorageKey>, DefaultError> {
-		let mut prefixed_key = child_info.storage_key().to_owned();
-		prefixed_key.extend_from_slice(key);
-		let next_key = self.next_storage_key(&prefixed_key)?;
-		let next_key = match next_key {
-			Some(key) => key,
-			None => return Ok(None),
-		};
-		if next_key.starts_with(child_info.storage_key()) {
-			Ok(Some(next_key))
-		} else {
-			Ok(None)
-		}
+		self.next_storage_key(StorageType::Child, &make_child_storage_key(child_info, key))
 	}
 
 	pub(crate) fn raw_iter(&self, args: IterArgs) -> Result<RawIter<Block>, DefaultError> {
 		Ok(RawIter::new(args))
 	}
-
-	pub(crate) fn register_overlay_stats(&self, _stats: &crate::StateMachineStats) {
-		todo!()
-	}
-
-	pub(crate) fn usage_info(&self) -> UsageInfo {
-		todo!()
-	}
-
-	pub(crate) fn wipe(&self) -> Result<(), DefaultError> {
-		unimplemented!()
-	}
-
-	pub(crate) fn commit(
-		&self,
-		_: <HashingFor<Block> as Hasher>::Out,
-		_: BackendTransaction<HashingFor<Block>>,
-		_: StorageCollection,
-		_: ChildStorageCollection,
-	) -> Result<(), DefaultError> {
-		unimplemented!()
-	}
-
-	pub(crate) fn read_write_count(&self) -> (u32, u32, u32, u32) {
-		unimplemented!()
-	}
-
-	pub(crate) fn reset_read_write_count(&self) {
-		unimplemented!()
-	}
-
-	pub(crate) fn get_read_and_written_keys(&self) -> Vec<(Vec<u8>, u32, u32, bool)> {
-		unimplemented!()
-	}
 }
 
-enum RawIterState<K> {
-	New,
-	Iter(K),
+enum RawIterState {
+	New { start_at: Option<Vec<u8>>, start_at_exclusive: bool },
+	Iter(Vec<u8>),
 	Complete,
 }
 
 pub(crate) struct RawIter<Block: BlockT> {
-	state: RawIterState<FullStorageKey<'static, <Block::Header as Header>::Number>>,
+	storage_type: StorageType,
+	prefix: Vec<u8>,
+	state: RawIterState,
 	_phantom: std::marker::PhantomData<Block>,
 }
 
-impl<'a, Block: BlockT> RawIter<Block> {
+impl<Block: BlockT> RawIter<Block> {
 	pub(crate) fn new(args: IterArgs) -> RawIter<Block> {
+		let start = args.start_at.map(|v| v.to_owned());
+		let child_prefix = args.child_info.as_ref().map(|info| info.storage_key()).unwrap_or(&[]);
+		let mut full_prefix =
+			Vec::with_capacity(child_prefix.len() + args.prefix.map(|p| p.len()).unwrap_or(0));
+		if let Some(info) = &args.child_info {
+			full_prefix.extend_from_slice(info.storage_key());
+		}
+		if let Some(prefix) = args.prefix {
+			full_prefix.extend_from_slice(&prefix);
+		}
+
+		let start = if let Some(start) = start {
+			if let Some(info) = &args.child_info {
+				Some(make_child_storage_key(info, &start))
+			} else {
+				Some(start)
+			}
+		} else {
+			None
+		};
+		println!(
+			"Raw iter prefix {}, start {}, child info {:?}",
+			full_prefix.as_slice().hex("0x"),
+			start.as_ref().unwrap_or(&vec![]).hex("0x"),
+			args.child_info
+		);
 		RawIter {
-			state: RawIterState::New,
+			prefix: full_prefix,
+			state: RawIterState::New {
+				start_at: start,
+				start_at_exclusive: args.start_at_exclusive,
+			},
+			storage_type: match args.child_info {
+				Some(_) => StorageType::Child,
+				None => StorageType::Main,
+			},
 			_phantom: Default::default(),
 		}
 	}
@@ -259,32 +347,120 @@ impl<'a, Block: BlockT> RawIter<Block> {
 		&mut self,
 		backend: &ArchiveDb<Block>,
 	) -> Option<Result<StorageKey, DefaultError>> {
-		// match self.state {
-		// 	RawIterState::New => {
-		// 		if let Some(key) = RawIterState::Iter(backend.next_storage_key(&[])?) {
-					
-		// 		}
-		// 	},
-		// 	RawIterState::Iter(_) => todo!(),
-		// 	RawIterState::Complete => todo!(),
-		// }
-		None
+		self.state = match self.next_state(backend) {
+			Ok(s) => s,
+			Err(e) => return Some(Err(e)),
+		};
+		match &self.state {
+			RawIterState::New { .. } => unreachable!(), // because we just got the next state
+			RawIterState::Iter(key) => Some(Ok(key.clone())),
+			RawIterState::Complete => None,
+		}
 	}
 
 	pub(crate) fn next_pair(
 		&mut self,
 		backend: &ArchiveDb<Block>,
 	) -> Option<Result<(StorageKey, StorageValue), DefaultError>> {
-		unimplemented!()
+		match self.next_key(backend)? {
+			Ok(key) => match backend.storage(self.storage_type, &key) {
+				Ok(Some(value)) => Some(Ok((key, value))),
+				Ok(None) => unreachable!(), // because why would next key return it
+				Err(e) => Some(Err(e)),
+			},
+			Err(e) => Some(Err(e)),
+		}
 	}
 
-	pub(crate) fn was_complete(&self) -> bool {
-		unimplemented!()
+	fn check_for_completion(&self, key: Option<Vec<u8>>) -> RawIterState {
+		if let Some(key) = key {
+			if key.starts_with(&self.prefix) {
+				println!(
+					"Key {} exists and matches prefix {}",
+					key.as_slice().hex("0x"),
+					self.prefix.as_slice().hex("0x")
+				);
+				RawIterState::Iter(key.into())
+			} else {
+				println!(
+					"Key {} exists but doesn't match prefix {}",
+					key.as_slice().hex("0x"),
+					self.prefix.as_slice().hex("0x")
+				);
+				RawIterState::Complete
+			}
+		} else {
+			println!("Key doesn't exist");
+
+			RawIterState::Complete
+		}
+	}
+
+	fn next_state(&self, backend: &ArchiveDb<Block>) -> Result<RawIterState, DefaultError> {
+		Ok(match &self.state {
+			RawIterState::New { start_at, start_at_exclusive } =>
+				if let Some(start_at) = start_at {
+					if !*start_at_exclusive {
+						if backend.storage(self.storage_type, &start_at)?.is_some() {
+							println!("New -> start inclusive -> start exists");
+							RawIterState::Iter(start_at.clone().into())
+						} else {
+							println!("New -> start inclusive -> start doesn't exist");
+							let next_key =
+								backend.next_storage_key(self.storage_type, &start_at)?;
+							println!(
+								"Next key {:?}",
+								next_key.as_ref().map(|v| v.as_slice().hex("0x"))
+							);
+
+							self.check_for_completion(next_key)
+						}
+					} else {
+						println!("New -> start exclusive");
+						let next_key = backend.next_storage_key(self.storage_type, &start_at)?;
+						backend.next_storage_key(self.storage_type, &start_at)?;
+						println!(
+							"Next key {:?}",
+							next_key.as_ref().map(|v| v.as_slice().hex("0x"))
+						);
+						self.check_for_completion(next_key)
+					}
+				} else {
+					if backend.storage(self.storage_type, &self.prefix)?.is_some() {
+						println!("New -> no start -> key equal to prefix exists");
+						RawIterState::Iter(self.prefix.clone().into())
+					} else {
+						println!("New -> no start -> key equal to prefix doesn't exist");
+
+						let next_key = backend.next_storage_key(self.storage_type, &self.prefix)?;
+						println!(
+							"Next key {:?}",
+							next_key.as_ref().map(|v| v.as_slice().hex("0x"))
+						);
+
+						self.check_for_completion(next_key)
+					}
+				},
+			RawIterState::Iter(current_key) => {
+				let next_key = backend.next_storage_key(self.storage_type, current_key.as_ref())?;
+				println!("Next key {:?}", next_key.as_ref().map(|v| v.as_slice().hex("0x")));
+
+				self.check_for_completion(next_key)
+			},
+			RawIterState::Complete => RawIterState::Complete,
+		})
+	}
+
+	pub fn was_complete(&self) -> bool {
+		match self.state {
+			RawIterState::Complete => true,
+			_ => false,
+		}
 	}
 }
 
 #[derive(Clone)]
-pub enum FullStorageKey<'a, BlockNumber> {
+enum FullStorageKey<'a, BlockNumber> {
 	Owned(Vec<u8>, PhantomData<BlockNumber>),
 	Ref(&'a [u8], PhantomData<BlockNumber>),
 }
@@ -320,30 +496,45 @@ impl<'a, BlockNumber> Into<Vec<u8>> for FullStorageKey<'a, BlockNumber> {
 }
 
 impl<'a, BlockNumber: Encode + Decode> FullStorageKey<'a, BlockNumber> {
-	pub fn new(key: &[u8], number: BlockNumber) -> FullStorageKey<'static, BlockNumber> {
-		let mut full_key = Vec::with_capacity(key.len() + number.encoded_size());
+	pub fn new(
+		key: &[u8],
+		storage_type: StorageType,
+		number: BlockNumber,
+	) -> FullStorageKey<'static, BlockNumber> {
+		let mut full_key = Vec::with_capacity(key.len() + 1 + number.encoded_size());
+		full_key.push(storage_type as u8);
 		full_key.extend_from_slice(&key[..]);
 		number.encode_to(&mut &mut full_key);
 		FullStorageKey::Owned(full_key, PhantomData::default())
 	}
 
 	pub fn key(&self) -> &[u8] {
-		let key_len = self.as_ref().len() -
-			BlockNumber::encoded_fixed_size()
-				.expect("Variable length block numbers can't be used for archive storage");
-		&self.as_ref()[..key_len]
+		let key_end = self.as_ref().len() - self.number_size();
+		&self.as_ref()[1..key_end]
 	}
 
 	pub fn number(&self) -> BlockNumber {
-		let key_len = self.as_ref().len() -
-			BlockNumber::encoded_fixed_size()
-				.expect("Variable length block numbers can't be used for archive storage");
-		BlockNumber::decode(&mut &self.as_ref()[key_len..])
+		let type_and_key_len = self.as_ref().len() - self.number_size();
+		BlockNumber::decode(&mut &self.as_ref()[type_and_key_len..])
 			.expect("BlockNumber must be encoded correctly")
 	}
 
-	pub fn key_and_number(&self) -> (&[u8], BlockNumber) {
-		(self.key(), self.number())
+	pub fn storage_type(&self) -> StorageType {
+		let slice = self.as_ref();
+		match slice[0] {
+			0 => StorageType::Main,
+			1 => StorageType::Child,
+			_ => panic!("Broken archive storage key"),
+		}
+	}
+
+	pub fn as_tuple(&self) -> (StorageType, &[u8], BlockNumber) {
+		(self.storage_type(), self.key(), self.number())
+	}
+
+	fn number_size(&self) -> usize {
+		BlockNumber::encoded_fixed_size()
+			.expect("Variable length block numbers can't be used for archive storage")
 	}
 }
 
@@ -359,15 +550,7 @@ impl<'a, BlockNumber: std::fmt::Display + Encode + Decode + PartialOrd> PartialO
 	for FullStorageKey<'a, BlockNumber>
 {
 	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-		println!(
-			"Cmp {}|{} with {}|{}: {:?}",
-			self.key().hex("0x"),
-			self.number(),
-			other.key().hex("0x"),
-			other.number(),
-			self.key_and_number().partial_cmp(&other.key_and_number())
-		);
-		self.key_and_number().partial_cmp(&other.key_and_number())
+		self.as_tuple().partial_cmp(&other.as_tuple())
 	}
 }
 
@@ -375,15 +558,7 @@ impl<'a, BlockNumber: std::fmt::Display + Encode + Decode + Ord> Ord
 	for FullStorageKey<'a, BlockNumber>
 {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-		println!(
-			"Cmp {}|{} with {}|{}: {:?}",
-			self.key().hex("0x"),
-			self.number(),
-			other.key().hex("0x"),
-			other.number(),
-			self.key_and_number().cmp(&other.key_and_number())
-		);
-		self.key_and_number().cmp(&other.key_and_number())
+		self.as_tuple().cmp(&other.as_tuple())
 	}
 }
 
@@ -399,96 +574,149 @@ mod tests {
 
 	use crate::columns::ARCHIVE;
 
-	use sp_database::{Change, MemDb, Transaction};
+	use sp_database::{Change, Database, MemDb, Transaction};
 	use sp_runtime::testing::{Block, MockCallU64, TestXt};
 
 	type TestBlock = Block<TestXt<MockCallU64, ()>>;
 
 	#[test]
+	fn full_key_encoded_correctly() {
+		let key = FullStorageKey::new(&[2, 3, 4], StorageType::Child, 5);
+		assert_eq!(key.as_tuple(), (StorageType::Child, [2u8, 3u8, 4u8].as_slice(), 5));
+		assert_eq!(key.as_ref(), &[1, 2, 3, 4, 5, 0, 0, 0]);
+	}
+
+	fn create_db<H: Clone + AsRef<[u8]>>(
+		changes: Vec<(StorageType, &[u8], u64, Option<&[u8]>)>,
+	) -> Arc<MemDb<FullStorageKey<'static, u64>>> {
+		let db = Arc::new(MemDb::<FullStorageKey<u64>>::new());
+		db.commit(Transaction(
+			changes
+				.into_iter()
+				.map(|(storage_type, key, block, value)| {
+					Change::<H>::Set(
+						ARCHIVE,
+						FullStorageKey::new(key, storage_type, block).into(),
+						value.encode(),
+					)
+				})
+				.collect(),
+		))
+		.unwrap();
+		db
+	}
+
+	#[test]
 	fn set_get() {
-		let mut mem_db = Arc::new(MemDb::<FullStorageKey<u64>>::new());
-		mem_db.commit(Transaction(vec![
-			Change::<sp_core::H256>::Set(
-				ARCHIVE,
-				FullStorageKey::new(&[1, 2, 3], 4u64).into(),
-				Some(vec![4, 2]).encode(),
-			),
-			Change::<sp_core::H256>::Set(
-				ARCHIVE,
-				FullStorageKey::new(&[1, 2, 3], 6u64).into(),
-				Some(vec![5, 2]).encode(),
-			),
-		]));
+		let mem_db = create_db::<sp_core::H256>(vec![
+			(StorageType::Main, &[1, 2, 3], 4u64, Some(&[4, 2])),
+			(StorageType::Main, &[1, 2, 3], 6u64, Some(&[5, 2])),
+		]);
+
 		let archive_db =
 			ArchiveDb::<TestBlock>::new(mem_db.clone(), Some(sp_core::H256::default()), 5);
-		assert_eq!(archive_db.storage(&[1, 2, 3]), Ok(Some(vec![4u8, 2u8])));
+		assert_eq!(archive_db.main_storage(&[1, 2, 3]), Ok(Some(vec![4u8, 2u8])));
 
 		let archive_db = ArchiveDb::<TestBlock>::new(mem_db, Some(sp_core::H256::default()), 7);
-		assert_eq!(archive_db.storage(&[1, 2, 3]), Ok(Some(vec![5u8, 2u8])));
+		assert_eq!(archive_db.main_storage(&[1, 2, 3]), Ok(Some(vec![5u8, 2u8])));
 	}
 
 	#[test]
 	fn next_storage_key() {
-		let mut mem_db = Arc::new(MemDb::<FullStorageKey<'static, u64>>::new());
-		mem_db.commit(Transaction(vec![
-			Change::<sp_core::H256>::Set(
-				ARCHIVE,
-				FullStorageKey::new(&[1, 2, 3], 5u64).into(),
-				Some(vec![1u8]).encode(),
-			),
-			Change::<sp_core::H256>::Set(
-				ARCHIVE,
-				FullStorageKey::new(&[1, 2, 4], 2u64).into(),
-				Some(vec![2u8]).encode(),
-			),
-			Change::<sp_core::H256>::Set(
-				ARCHIVE,
-				FullStorageKey::new(&[1, 2, 4], 3u64).into(),
-				None::<Vec<u8>>.encode(),
-			),
-			Change::<sp_core::H256>::Set(
-				ARCHIVE,
-				FullStorageKey::new(&[1, 2, 4], 6u64).into(),
-				Some(vec![3u8]).encode(),
-			),
-			Change::<sp_core::H256>::Set(
-				ARCHIVE,
-				FullStorageKey::new(&[1, 2, 5], 1u64).into(),
-				Some(vec![4u8]).encode(),
-			),
-			Change::<sp_core::H256>::Set(
-				ARCHIVE,
-				FullStorageKey::new(&[1, 2, 5], 5u64).into(),
-				None::<Vec<u8>>.encode(),
-			),
-			Change::<sp_core::H256>::Set(
-				ARCHIVE,
-				FullStorageKey::new(&[1, 2, 5], 6u64).into(),
-				Some(vec![5u8]).encode(),
-			),
-			Change::<sp_core::H256>::Set(
-				ARCHIVE,
-				FullStorageKey::new(&[1, 2, 6], 1u64).into(),
-				Some(vec![6u8]).encode(),
-			),
-			Change::<sp_core::H256>::Set(
-				ARCHIVE,
-				FullStorageKey::new(&[1, 2, 6], 4u64).into(),
-				Some(vec![7u8]).encode(),
-			),
-			Change::<sp_core::H256>::Set(
-				ARCHIVE,
-				FullStorageKey::new(&[1, 2, 6], 5u64).into(),
-				Some(vec![8u8]).encode(),
-			),
-			Change::<sp_core::H256>::Set(
-				ARCHIVE,
-				FullStorageKey::new(&[1, 2, 6], 6u64).into(),
-				None::<Vec<u8>>.encode(),
-			),
-		]));
+		let mem_db = create_db::<sp_core::H256>(vec![
+			(StorageType::Main, &[1, 2, 3], 5u64, Some(&[1])),
+			(StorageType::Main, &[1, 2, 4], 2u64, Some(&[2])),
+			(StorageType::Main, &[1, 2, 4], 3u64, None),
+			(StorageType::Main, &[1, 2, 4], 6u64, Some(&[3])),
+			(StorageType::Main, &[1, 2, 5], 1u64, Some(&[4])),
+			(StorageType::Main, &[1, 2, 5], 5u64, None),
+			(StorageType::Main, &[1, 2, 5], 6u64, Some(&[5])),
+			(StorageType::Main, &[1, 2, 6], 1u64, Some(&[6])),
+			(StorageType::Main, &[1, 2, 6], 4u64, Some(&[7])),
+			(StorageType::Main, &[1, 2, 6], 5u64, Some(&[8])),
+			(StorageType::Main, &[1, 2, 6], 6u64, None),
+		]);
 		let archive_db =
 			ArchiveDb::<TestBlock>::new(mem_db.clone(), Some(sp_core::H256::default()), 5);
-		assert_eq!(archive_db.next_storage_key(&[1, 2, 3]), Ok(Some(vec![1, 2, 6])));
+		assert_eq!(archive_db.next_main_storage_key(&[1, 2, 3]), Ok(Some(vec![1, 2, 6])));
+	}
+
+	#[test]
+	fn raw_iter_next_key() {
+		let mem_db = create_db::<sp_core::H256>(vec![
+			(StorageType::Main, &[1, 2, 3], 5u64, Some(&[1])),
+			(StorageType::Main, &[1, 2, 4], 2u64, Some(&[2])),
+			(StorageType::Main, &[1, 2, 4], 3u64, None),
+			(StorageType::Main, &[1, 2, 4], 6u64, Some(&[3])),
+			(StorageType::Main, &[1, 2, 5], 1u64, Some(&[4])),
+			(StorageType::Main, &[1, 2, 5], 5u64, None),
+			(StorageType::Main, &[1, 2, 5], 6u64, Some(&[5])),
+			(StorageType::Main, &[1, 2, 6], 1u64, Some(&[6])),
+			(StorageType::Main, &[1, 2, 6], 4u64, Some(&[7])),
+			(StorageType::Main, &[1, 2, 6], 5u64, Some(&[8])),
+			(StorageType::Main, &[1, 2, 6], 6u64, None),
+		]);
+		let archive_db =
+			ArchiveDb::<TestBlock>::new(mem_db.clone(), Some(sp_core::H256::default()), 5);
+
+		let mut args = IterArgs::default();
+		args.start_at = Some(&[1, 2, 3]);
+		args.start_at_exclusive = true;
+		let mut iter = archive_db.raw_iter(args).unwrap();
+		assert_eq!(iter.next_key(&archive_db), Some(Ok(vec![1, 2, 6])));
+
+		let mut args = IterArgs::default();
+		args.start_at = Some(&[1, 2, 3]);
+		args.start_at_exclusive = false;
+		let mut iter = archive_db.raw_iter(args).unwrap();
+		assert_eq!(iter.next_key(&archive_db), Some(Ok(vec![1, 2, 3])));
+	}
+
+	#[test]
+	fn raw_iter_prefix() {
+		let mem_db = create_db::<sp_core::H256>(vec![
+			(StorageType::Main, &[1, 2, 3], 1u64, Some(&[1])),
+			(StorageType::Main, &[1, 3, 1], 1u64, Some(&[2])),
+			(StorageType::Main, &[1, 3, 2], 1u64, Some(&[3])),
+			(StorageType::Main, &[1, 4, 1], 1u64, Some(&[4])),
+			(StorageType::Main, &[1, 3, 1], 2u64, None),
+			(StorageType::Main, &[1, 3, 3], 2u64, Some(&[5])),
+			(StorageType::Child, &[1, 3, 2], 3u64, Some(&[6])),
+			(StorageType::Child, &[1, 3, 4], 3u64, Some(&[6])),
+		]);
+		let archive_db =
+			ArchiveDb::<TestBlock>::new(mem_db.clone(), Some(sp_core::H256::default()), 3);
+
+		let mut args = IterArgs::default();
+		args.prefix = Some(&[1, 3]);
+		let mut iter = archive_db.raw_iter(args).unwrap();
+
+		assert_eq!(iter.next_key(&archive_db), Some(Ok(vec![1, 3, 2])));
+		assert_eq!(iter.next_key(&archive_db), Some(Ok(vec![1, 3, 3])));
+		assert_eq!(iter.next_key(&archive_db), None);
+	}
+
+	#[test]
+	fn raw_iter_child_storage() {
+		let mem_db = create_db::<sp_core::H256>(vec![
+			(StorageType::Child, &[1, 2, 3], 1u64, Some(&[1])),
+			(StorageType::Main, &[1, 3], 1u64, Some(&[2])),
+			(StorageType::Child, &[1, 3, 1], 1u64, Some(&[3])),
+			(StorageType::Child, &[1, 3, 2], 1u64, Some(&[4])),
+			(StorageType::Child, &[1, 4, 1], 1u64, Some(&[5])),
+			(StorageType::Main, &[1, 3], 3u64, Some(&[6])),
+			(StorageType::Child, &[1, 3, 1], 2u64, None),
+			(StorageType::Child, &[1, 3, 3], 2u64, Some(&[7])),
+		]);
+		let archive_db =
+			ArchiveDb::<TestBlock>::new(mem_db.clone(), Some(sp_core::H256::default()), 3);
+
+		let mut args = IterArgs::default();
+		args.child_info = Some(ChildInfo::new_default_from_vec(vec![1, 3]));
+		let mut iter = archive_db.raw_iter(args).unwrap();
+
+		assert_eq!(iter.next_key(&archive_db), Some(Ok(vec![1, 3, 2])));
+		assert_eq!(iter.next_key(&archive_db), Some(Ok(vec![1, 3, 3])));
+		assert_eq!(iter.next_key(&archive_db), None);
 	}
 }

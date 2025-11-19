@@ -64,6 +64,10 @@ pub struct PruningParams {
 		default_value = "archive-canonical"
 	)]
 	pub blocks_pruning: DatabasePruningMode,
+
+	/// Specify whether to keep state diffs for archive blocks
+	#[arg(alias = "archive-diffs", long, default_value = "false")]
+	pub archive_diffs: bool,
 }
 
 impl PruningParams {
@@ -75,6 +79,11 @@ impl PruningParams {
 	/// Get the block pruning value from the parameters
 	pub fn blocks_pruning(&self) -> error::Result<BlocksPruning> {
 		Ok(self.blocks_pruning.into())
+	}
+
+	/// Get the archive diffs value from the parameters
+	pub fn archive_diffs(&self) -> error::Result<bool> {
+		Ok(self.archive_diffs)
 	}
 }
 
