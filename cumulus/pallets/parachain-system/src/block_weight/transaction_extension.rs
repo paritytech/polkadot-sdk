@@ -472,6 +472,8 @@ where
 		info: &DispatchInfoOf<Config::RuntimeCall>,
 		len: usize,
 	) -> frame_support::pallet_prelude::TransactionValidity {
+		Self::pre_validate_extrinsic(info, len)?;
+
 		Inner::bare_validate(call, info, len)
 	}
 

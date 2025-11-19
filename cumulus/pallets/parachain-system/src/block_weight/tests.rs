@@ -710,74 +710,94 @@ fn ref_time_and_pov_size_cap() {
 
 #[test]
 fn executive_validate_block_handles_normal_transactions() {
-	TestExtBuilder::new().previous_core_count(3).build().execute_with(|| {
-		let call = RuntimeCall::TestPallet(test_pallet::Call::heavy_call_normal {});
+	for signed in [true, false] {
+		TestExtBuilder::new().previous_core_count(3).build().execute_with(|| {
+			let call = RuntimeCall::TestPallet(test_pallet::Call::heavy_call_normal {});
 
-		let xt = Extrinsic::new_signed(call, 1u64.into(), 1u64.into(), Default::default());
+			let xt = if signed {
+				Extrinsic::new_signed(call, 1u64.into(), 1u64.into(), Default::default())
+			} else {
+				Extrinsic::new_bare(call)
+			};
 
-		assert!(Executive::validate_transaction(
-			TransactionSource::External,
-			xt.clone(),
-			Default::default()
-		)
-		.is_ok());
-	});
-
-	TestExtBuilder::new().previous_core_count(3).build().execute_with(|| {
-		let call = RuntimeCallOnlyOperational::TestPallet(test_pallet::Call::heavy_call_normal {});
-
-		let xt = ExtrinsicOnlyOperational::new_signed(
-			call,
-			1u64.into(),
-			1u64.into(),
-			Default::default(),
-		);
-
-		assert_eq!(
-			ExecutiveOnlyOperational::validate_transaction(
+			assert_ok!(Executive::validate_transaction(
 				TransactionSource::External,
-				xt,
+				xt.clone(),
 				Default::default()
-			)
-			.unwrap_err(),
-			InvalidTransaction::ExhaustsResources.into()
-		);
-	});
+			));
+		});
+
+		TestExtBuilder::new().previous_core_count(3).build().execute_with(|| {
+			let call =
+				RuntimeCallOnlyOperational::TestPallet(test_pallet::Call::heavy_call_normal {});
+
+			let xt = if signed {
+				ExtrinsicOnlyOperational::new_signed(
+					call,
+					1u64.into(),
+					1u64.into(),
+					Default::default(),
+				)
+			} else {
+				ExtrinsicOnlyOperational::new_bare(call)
+			};
+
+			assert_eq!(
+				ExecutiveOnlyOperational::validate_transaction(
+					TransactionSource::External,
+					xt,
+					Default::default()
+				)
+				.unwrap_err(),
+				InvalidTransaction::ExhaustsResources.into()
+			);
+		});
+	}
 }
 
 #[test]
 fn executive_validate_block_handles_operational_transactions() {
-	TestExtBuilder::new().previous_core_count(3).build().execute_with(|| {
-		let call = RuntimeCall::TestPallet(test_pallet::Call::heavy_call_operational {});
+	for signed in [true, false] {
+		TestExtBuilder::new().previous_core_count(3).build().execute_with(|| {
+			let call = RuntimeCall::TestPallet(test_pallet::Call::heavy_call_operational {});
 
-		let xt = Extrinsic::new_signed(call, 1u64.into(), 1u64.into(), Default::default());
+			let xt = if signed {
+				Extrinsic::new_signed(call, 1u64.into(), 1u64.into(), Default::default())
+			} else {
+				Extrinsic::new_bare(call)
+			};
 
-		assert!(Executive::validate_transaction(
-			TransactionSource::External,
-			xt.clone(),
-			Default::default()
-		)
-		.is_ok());
-	});
+			assert_ok!(Executive::validate_transaction(
+				TransactionSource::External,
+				xt.clone(),
+				Default::default()
+			));
+		});
 
-	TestExtBuilder::new().previous_core_count(3).build().execute_with(|| {
-		let call =
-			RuntimeCallOnlyOperational::TestPallet(test_pallet::Call::heavy_call_operational {});
+		TestExtBuilder::new().previous_core_count(3).build().execute_with(|| {
+			let call = RuntimeCallOnlyOperational::TestPallet(
+				test_pallet::Call::heavy_call_operational {},
+			);
 
-		let xt = ExtrinsicOnlyOperational::new_signed(
-			call,
-			1u64.into(),
-			1u64.into(),
-			Default::default(),
-		);
+			let xt = if signed {
+				ExtrinsicOnlyOperational::new_signed(
+					call,
+					1u64.into(),
+					1u64.into(),
+					Default::default(),
+				)
+			} else {
+				ExtrinsicOnlyOperational::new_bare(call)
+			};
 
-		assert!(ExecutiveOnlyOperational::validate_transaction(
-			TransactionSource::External,
-			xt,
-			Default::default()
-		)
-		.is_ok());
-	});
+			assert!(ExecutiveOnlyOperational::validate_transaction(
+				TransactionSource::External,
+				xt,
+				Default::default()
+			)
+			.is_ok());
+		});
+	}
 }
 
 #[test]
