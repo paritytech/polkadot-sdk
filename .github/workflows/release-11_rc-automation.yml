@@ -13,14 +13,6 @@ on:
     inputs:
       version:
         description: Current release/rc version in format polkadot-stableYYMM
-<<<<<<< HEAD
-=======
-  workflow_call:
-    inputs:
-      version:
-        description: Current release/rc version in format polkadot-stableYYMM
-        type: string
->>>>>>> 80ab459c ([Release|CI/CD] Add flow to create a release tag in format polkadot-vX.XX.X (#10351))
 
 jobs:
   tag_rc:

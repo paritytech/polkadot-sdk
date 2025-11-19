@@ -111,25 +111,3 @@ jobs:
           gh auth setup-git
 
           git push origin "$STABLE_BRANCH_NAME"
-<<<<<<< HEAD
-=======
-
-      - name: Tag RC after branch off
-        if: ${{ inputs.tag_rc }}
-        env:
-          GH_TOKEN: ${{ steps.generate_write_token.outputs.token }} # or use a PAT with workflow scope
-        run: |
-          stable_tag_base=polkadot-${{ needs.validate-inputs.outputs.stable_version }}
-          gh workflow run release-11_rc-automation.yml \
-            --repo ${{ github.repository }} \
-            --ref ${{ needs.validate-inputs.outputs.stable_version }} \
-            --field version=${stable_tag_base}
-
-  tag-rc-without-branchoff:
-    if: ${{ !inputs.is_new_stable && inputs.tag_rc }}
-    needs: [ validate-inputs ]
-    uses: ./.github/workflows/release-11_rc-automation.yml
-    with:
-      version: polkadot-${{ needs.validate-inputs.outputs.stable_version }}
-    secrets: inherit
->>>>>>> 80ab459c ([Release|CI/CD] Add flow to create a release tag in format polkadot-vX.XX.X (#10351))
