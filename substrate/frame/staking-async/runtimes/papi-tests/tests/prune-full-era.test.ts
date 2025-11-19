@@ -7,7 +7,7 @@ import { commonSignedSteps } from "./common";
 
 const PRESET: Presets = Presets.FakeDot;
 
-test.skip(
+test(
 	`pruning era with signed (full solution) on ${PRESET}`,
 	async () => {
 		const { killZn, paraLog } = await runPresetUntilLaunched(PRESET);
