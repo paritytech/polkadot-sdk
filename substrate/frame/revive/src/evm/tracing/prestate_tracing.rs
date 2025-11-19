@@ -92,6 +92,11 @@ where
 				}
 			}
 
+			// collect destructed contracts info in post state
+			for addr in &self.destructed_addrs {
+				Self::update_prestate_info(post.entry(*addr).or_default(), addr, None);
+			}
+
 			// clean up the storage that are in pre but not in post these are just read
 			pre.iter_mut().for_each(|(addr, info)| {
 				if let Some(post_info) = post.get(addr) {
@@ -100,9 +105,10 @@ where
 					info.storage.clear();
 				}
 			});
+
+			// If the address was created and destructed we do not trace it
 			post.retain(|addr, _| {
 				if self.created_addrs.contains(addr) && self.destructed_addrs.contains(addr) {
-					// If the address was created and destructed we do not trace it
 					return false
 				}
 				true
@@ -123,8 +129,7 @@ where
 
 				if post_info == pre_info {
 					post.remove(addr);
-					// If the address was destructed, we still want to keep it in the prestate.
-					return self.destructed_addrs.contains(addr)
+					return false
 				}
 
 				if post_info.code == pre_info.code {
