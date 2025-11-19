@@ -483,7 +483,7 @@ pub enum NetworkBridgeTxMessage {
 }
 
 /// Availability Distribution Message.
-#[derive(Debug, derive_more::From)]
+#[derive(Debug)]
 pub enum AvailabilityDistributionMessage {
 	/// Instruct availability distribution to fetch a remote PoV.
 	///
@@ -734,8 +734,6 @@ pub enum RuntimeApiRequest {
 	FetchOnChainVotes(RuntimeApiSender<Option<polkadot_primitives::ScrapedOnChainVotes>>),
 	/// Submits a PVF pre-checking statement into the transaction pool.
 	SubmitPvfCheckStatement(PvfCheckStatement, ValidatorSignature, RuntimeApiSender<()>),
-	/// Submits the collected approvals statistics for a given session into the transaction pool.
-	SubmitApprovalStatistics(ApprovalStatistics,  ValidatorSignature, RuntimeApiSender<()>),
 	/// Returns code hashes of PVFs that require pre-checking by validators in the active set.
 	PvfsRequirePrecheck(RuntimeApiSender<Vec<ValidationCodeHash>>),
 	/// Get the validation code used by the specified para, taking the given

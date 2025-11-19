@@ -56,7 +56,6 @@ pub mod metrics;
 use approval_voting_metrics::ApprovalsStats;
 use polkadot_node_subsystem::RuntimeApiError::{Execution, NotSupported};
 use polkadot_node_subsystem_util::{request_candidate_events, request_session_index_for_child, request_session_info};
-use polkadot_primitives::vstaging::{ApprovalStatisticsTallyLine, ApprovalStatistics};
 use crate::approval_voting_metrics::{handle_candidate_approved, handle_observed_no_shows};
 use crate::availability_distribution_metrics::{handle_chunk_uploaded, handle_chunks_downloaded, AvailabilityChunks};
 use self::metrics::Metrics;
@@ -475,89 +474,6 @@ fn log_session_view_general_stats(view: &View) {
             noshows = ?session_tally.1,
             "session collected statistics"
         );
-    }
-}
-
-async fn sign_and_submit_approvals_tallies(
-    sender: &mut impl SubsystemSender<RuntimeApiMessage>,
-    relay_parent: Hash,
-    session_index: SessionIndex,
-    keystore: &KeystorePtr,
-    credentials: &SigningCredentials,
-    metrics: &Metrics,
-    tallies: HashMap<ValidatorIndex, PerValidatorTally>,
-) {
-    gum::debug!(
-		target: LOG_TARGET,
-        ?relay_parent,
-		"submitting {} approvals tallies for session {}",
-        tallies.len(),
-        session_index,
-	);
-
-    metrics.submit_approvals_tallies(tallies.len());
-
-    let mut validators_indexes = tallies.keys().collect::<Vec<_>>();
-    validators_indexes.sort();
-
-    let mut approvals_tallies: Vec<ApprovalStatisticsTallyLine> = Vec::with_capacity(tallies.len());
-    for validator_index in validators_indexes {
-        let current_tally = tallies.get(validator_index).unwrap();
-        approvals_tallies.push(ApprovalStatisticsTallyLine {
-            validator_index: validator_index.clone(),
-            approvals_usage: current_tally.approvals,
-            no_shows: current_tally.no_shows,
-        });
-    }
-
-    let payload = ApprovalStatistics(session_index, approvals_tallies);
-
-    let signature = match polkadot_node_subsystem_util::sign(
-        keystore,
-        &credentials.validator_key,
-        &payload.signing_payload(),
-    ) {
-        Ok(Some(signature)) => signature,
-        Ok(None) => {
-            gum::warn!(
-				target: LOG_TARGET,
-                ?relay_parent,
-				validator_index = ?credentials.validator_index,
-				"private key for signing is not available",
-			);
-            return
-        },
-        Err(e) => {
-            gum::warn!(
-				target: LOG_TARGET,
-                ?relay_parent,
-				validator_index = ?credentials.validator_index,
-				"error signing the statement: {:?}",
-				e,
-			);
-            return
-        },
-    };
-
-    let (tx, rx) = oneshot::channel();
-    let runtime_req = runtime_api_request(
-        sender,
-        relay_parent,
-        RuntimeApiRequest::SubmitApprovalStatistics(payload, signature, tx),
-        rx,
-    );
-
-    match runtime_req.await {
-        Ok(()) => {
-            metrics.on_vote_submitted();
-        },
-        Err(e) => {
-            gum::warn!(
-				target: LOG_TARGET,
-				"error occurred during submitting a approvals rewards tallies: {:?}",
-				e,
-			);
-        },
     }
 }
 
