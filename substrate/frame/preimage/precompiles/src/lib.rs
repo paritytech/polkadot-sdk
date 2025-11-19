@@ -97,7 +97,7 @@ where
 			IPreimageCalls::unnotePreimage(IPreimage::unnotePreimageCall { hash }) => {
 				let _ = env.charge(<T as Config>::WeightInfo::unnote_preimage());
 
-				let runtime_hash = T::Hash::decode(&mut &hash[..])
+				let runtime_hash = T::Hash::decode_all(&mut &hash[..])
 					.map_err(|error| revert(&error, "Preimage: invalid hash format"))?;
 
 				pallet_preimage::Pallet::<T>::unnote_preimage(frame_origin, runtime_hash)
