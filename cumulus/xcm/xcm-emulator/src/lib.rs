@@ -86,7 +86,7 @@ pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueu
 pub use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use sp_core::{crypto::AccountId32, H256};
 pub use xcm::latest::prelude::{
-	AccountId32 as AccountId32Junction, Ancestor, Assets, Here, Location,
+	AccountId32 as AccountId32Junction, Ancestor, AssetId, Assets, Here, Location,
 	Parachain as ParachainJunction, Parent, WeightLimit, XcmHash,
 };
 pub use xcm_executor::traits::ConvertLocation;
@@ -302,7 +302,7 @@ pub trait Parachain: Chain {
 	}
 
 	fn parent_location() -> Location {
-		(Parent).into()
+		Parent.into()
 	}
 
 	fn sibling_location_of(para_id: ParaId) -> Location {
@@ -1196,17 +1196,10 @@ macro_rules! decl_test_networks {
 					relay_parent_number: u32,
 					parent_head_data: $crate::HeadData,
 				) -> $crate::ParachainInherentData {
-					const NUM_DESCENDANTS: u64 = 2;
-					let authorities = $crate::helpers::generate_authority_pairs(NUM_DESCENDANTS);
-					let auth_pair = $crate::helpers::convert_to_authority_weight_pair(&authorities);
-
-					let mut sproof = $crate::helpers::build_relay_chain_storage_proof(
-						Some(auth_pair.clone()),
-						Some(auth_pair),
-					);
-
+					let mut sproof = $crate::RelayStateSproofBuilder::default();
 					sproof.para_id = para_id.into();
 					sproof.current_slot = $crate::polkadot_primitives::Slot::from(relay_parent_number as u64);
+					sproof.host_config.max_upward_message_size = 1024 * 1024;
 
 					// egress channel
 					let e_index = sproof.hrmp_egress_channel_index.get_or_insert_with(Vec::new);
@@ -1234,26 +1227,19 @@ macro_rules! decl_test_networks {
 							});
 					}
 
-					let (relay_parent_storage_root, proof) = sproof.into_state_root_and_proof();
-					// Ensure appropriate descendants are built to pass the check
-					// `verify_relay_parent_descendants` in cumulus_pallet_parachain_system.
-					let relay_parent_descendants = $crate::helpers::build_relay_parent_descendants(
-						NUM_DESCENDANTS,
-						relay_parent_storage_root,
-						authorities,
-					);
+					let (relay_storage_root, proof) = sproof.into_state_root_and_proof();
 
 					$crate::ParachainInherentData {
 						validation_data: $crate::PersistedValidationData {
 							parent_head: parent_head_data.clone(),
 							relay_parent_number,
-							relay_parent_storage_root,
+							relay_parent_storage_root: relay_storage_root,
 							max_pov_size: Default::default(),
 						},
 						relay_chain_state: proof,
 						downward_messages: Default::default(),
 						horizontal_messages: Default::default(),
-						relay_parent_descendants,
+						relay_parent_descendants: Default::default(),
 						collator_peer_id: None,
 					}
 				}
@@ -1504,15 +1490,17 @@ where
 	}
 }
 
+pub type MessageOriginFor<T> =
+	<<<T as Chain>::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin;
+
 pub struct DefaultRelayMessageProcessor<T>(PhantomData<T>);
 // Process UMP messages on the relay
 impl<T> ProcessMessage for DefaultRelayMessageProcessor<T>
 where
 	T: RelayChain,
 	T::Runtime: MessageQueueConfig,
-	<<T::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin:
-		PartialEq<AggregateMessageOrigin>,
-	MessageQueuePallet<T::Runtime>: EnqueueMessage<AggregateMessageOrigin> + ServiceQueues,
+	MessageOriginFor<T>: From<AggregateMessageOrigin>,
+	MessageQueuePallet<T::Runtime>: EnqueueMessage<MessageOriginFor<T>> + ServiceQueues,
 {
 	type Origin = ParaId;
 
@@ -1524,7 +1512,7 @@ where
 	) -> Result<bool, ProcessMessageError> {
 		MessageQueuePallet::<T::Runtime>::enqueue_message(
 			msg.try_into().expect("Message too long"),
-			AggregateMessageOrigin::Ump(UmpQueueId::Para(para)),
+			AggregateMessageOrigin::Ump(UmpQueueId::Para(para)).into(),
 		);
 		MessageQueuePallet::<T::Runtime>::service_queues(Weight::MAX);
 
@@ -1536,9 +1524,8 @@ impl<T> ServiceQueues for DefaultRelayMessageProcessor<T>
 where
 	T: RelayChain,
 	T::Runtime: MessageQueueConfig,
-	<<T::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin:
-		PartialEq<AggregateMessageOrigin>,
-	MessageQueuePallet<T::Runtime>: EnqueueMessage<AggregateMessageOrigin> + ServiceQueues,
+	MessageOriginFor<T>: From<AggregateMessageOrigin>,
+	MessageQueuePallet<T::Runtime>: EnqueueMessage<MessageOriginFor<T>> + ServiceQueues,
 {
 	type OverweightMessageAddress = ();
 
@@ -1569,7 +1556,7 @@ pub struct TestArgs {
 	pub amount: Balance,
 	pub assets: Assets,
 	pub asset_id: Option<u32>,
-	pub fee_asset_item: u32,
+	pub fee_asset_id: AssetId,
 	pub weight_limit: WeightLimit,
 }
 
@@ -1582,7 +1569,7 @@ impl TestArgs {
 			amount,
 			assets: (Here, amount).into(),
 			asset_id: None,
-			fee_asset_item: 0,
+			fee_asset_id: Here.into(),
 			weight_limit: WeightLimit::Unlimited,
 		}
 	}
@@ -1594,7 +1581,7 @@ impl TestArgs {
 		amount: Balance,
 		assets: Assets,
 		asset_id: Option<u32>,
-		fee_asset_item: u32,
+		fee_asset_id: AssetId,
 	) -> Self {
 		Self {
 			dest,
@@ -1602,7 +1589,7 @@ impl TestArgs {
 			amount,
 			assets,
 			asset_id,
-			fee_asset_item,
+			fee_asset_id,
 			weight_limit: WeightLimit::Unlimited,
 		}
 	}
@@ -1724,18 +1711,6 @@ where
 
 pub mod helpers {
 	use super::*;
-	use crate::{Decode, Encode, HeaderT, RelayStateSproofBuilder};
-
-	use cumulus_primitives_core::relay_chain::well_known_keys;
-	use sp_consensus_babe::{
-		digests::{CompatibleDigestItem, PreDigest, PrimaryPreDigest},
-		AuthorityId, AuthorityPair, BabeAuthorityWeight,
-	};
-	use sp_core::{
-		sr25519::vrf::{VrfPreOutput, VrfProof, VrfSignature},
-		Pair, H256,
-	};
-	use sp_runtime::{generic, traits::BlakeTwo256, DigestItem};
 
 	pub fn within_threshold(threshold: u64, expected_value: u64, current_value: u64) -> bool {
 		let margin = (current_value * threshold) / 100;
@@ -1756,101 +1731,5 @@ pub mod helpers {
 			within_threshold(threshold_size, expected_weight.proof_size(), weight.proof_size());
 
 		ref_time_within && proof_size_within
-	}
-
-	/// Block Header
-	pub type TestHeader = generic::Header<u32, BlakeTwo256>;
-
-	/// Generate a vector of AuthorityPairs.
-	pub fn generate_authority_pairs(num_authorities: u64) -> Vec<AuthorityPair> {
-		(0..num_authorities).map(|i| AuthorityPair::from_seed(&[i as u8; 32])).collect()
-	}
-
-	/// Convert AuthorityPair to (AuthorityId, BabeAuthorityWeight)
-	pub fn convert_to_authority_weight_pair(
-		authorities: &[AuthorityPair],
-	) -> Vec<(AuthorityId, BabeAuthorityWeight)> {
-		authorities
-			.iter()
-			.map(|auth| (auth.public().into(), Default::default()))
-			.collect()
-	}
-
-	/// Add a BABE pre-digest to the header.
-	fn add_pre_digest(header: &mut TestHeader, authority_index: u32, block_number: u64) {
-		/// This method generates some vrf data, but only to make the compiler happy.
-		fn generate_testing_vrf() -> VrfSignature {
-			let vrf_proof_bytes = [0u8; 64];
-			let proof: VrfProof = VrfProof::decode(&mut vrf_proof_bytes.as_slice()).unwrap();
-			let vrf_pre_out_bytes = [0u8; 32];
-			let pre_output: VrfPreOutput =
-				VrfPreOutput::decode(&mut vrf_pre_out_bytes.as_slice()).unwrap();
-			VrfSignature { pre_output, proof }
-		}
-
-		let pre_digest = PrimaryPreDigest {
-			authority_index,
-			slot: block_number.into(),
-			vrf_signature: generate_testing_vrf(),
-		};
-
-		header
-			.digest_mut()
-			.push(DigestItem::babe_pre_digest(PreDigest::Primary(pre_digest)));
-	}
-
-	/// Create a mock chain of relay headers as descendants of the relay parent.
-	pub fn build_relay_parent_descendants(
-		num_headers: u64,
-		state_root: H256,
-		authorities: Vec<AuthorityPair>,
-	) -> Vec<TestHeader> {
-		let mut headers = Vec::with_capacity(num_headers as usize);
-
-		let mut previous_hash = None;
-
-		for block_number in 0..=num_headers as u32 - 1 {
-			let mut header = TestHeader {
-				number: block_number,
-				parent_hash: previous_hash.unwrap_or_default(),
-				state_root,
-				extrinsics_root: H256::default(),
-				digest: Digest::default(),
-			};
-			let authority_index = block_number % (authorities.len() as u32);
-
-			// Add pre-digest
-			add_pre_digest(&mut header, authority_index, block_number as u64);
-
-			// Sign and seal the header.
-			let signature = authorities[authority_index as usize].sign(header.hash().as_bytes());
-			header.digest_mut().push(DigestItem::babe_seal(signature.into()));
-
-			previous_hash = Some(header.hash());
-			headers.push(header);
-		}
-
-		headers
-	}
-
-	/// Helper function to create a mock `RelayStateSproofBuilder`.
-	pub fn build_relay_chain_storage_proof(
-		authorities: Option<Vec<(AuthorityId, BabeAuthorityWeight)>>,
-		next_authorities: Option<Vec<(AuthorityId, BabeAuthorityWeight)>>,
-	) -> RelayStateSproofBuilder {
-		// Create a mock implementation or structure, adjust this to match the proof's definition
-		let mut proof_builder = RelayStateSproofBuilder::default();
-		if let Some(authorities) = authorities {
-			proof_builder
-				.additional_key_values
-				.push((well_known_keys::AUTHORITIES.to_vec(), authorities.encode()));
-		}
-
-		if let Some(next_authorities) = next_authorities {
-			proof_builder
-				.additional_key_values
-				.push((well_known_keys::NEXT_AUTHORITIES.to_vec(), next_authorities.encode()));
-		}
-		proof_builder
 	}
 }
