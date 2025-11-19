@@ -169,6 +169,18 @@ impl<T: Config> UncheckedMigrateToV4<T> {
 			total_assignments.saturating_sub(pool_assignments)
 		);
 
+		// Sanity check: On production networks, we expect to find data to migrate
+		// If we find nothing, the storage alias pallet name is likely wrong
+		if descriptor_count == 0 && schedule_count == 0 {
+			log::error!(
+				target: super::LOG_TARGET,
+				"Migration found no data to migrate! This likely means the storage alias pallet name \
+				(CoretimeAssignmentProvider) doesn't match the actual pallet name in construct_runtime. \
+				Check the runtime's construct_runtime macro for the correct pallet name."
+			);
+			return Err("No data found to migrate - wrong pallet name in storage alias?".into());
+		}
+
 		Ok((schedule_count, descriptor_count, total_assignments, pool_assignments).encode())
 	}
 
@@ -578,10 +590,34 @@ mod v4_tests {
 	#[test]
 	fn claim_queue_pool_assignments_preserved() {
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			// Setup configuration with 1 core
+			configuration::ActiveConfig::<Test>::mutate(|c| {
+				c.scheduler_params.num_cores = 1;
+			});
+
 			let core = CoreIndex(0);
 			let pool_para_1 = ParaId::from(1000);
 			let pool_para_2 = ParaId::from(1001);
 			let bulk_para = ParaId::from(2000);
+			let block_number = 10u32;
+
+			// Create a minimal CoreDescriptor and Schedule to pass sanity check
+			// (production networks will have these)
+			let descriptor = CoreDescriptor::new(
+				Some(QueueDescriptor { first: block_number, last: block_number }),
+				None,
+			);
+			v3::CoreDescriptors::<Test>::insert(core, descriptor);
+
+			let schedule = Schedule::new(
+				vec![(
+					BrokerCoreAssignment::Task(pool_para_1.into()),
+					PartsOf57600::new_saturating(57600),
+				)],
+				None,
+				None,
+			);
+			v3::CoreSchedules::<Test>::insert((block_number, core), schedule);
 
 			// Create ClaimQueue with mixed assignments
 			let mut claim_queue = BTreeMap::new();
@@ -714,14 +750,19 @@ mod v4_tests {
 			// No old storage created
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
-			// Run migration on empty storage - should complete without panicking
-			let state = UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
+			// pre_upgrade should fail if no data is found (sanity check for wrong pallet name)
+			assert!(UncheckedMigrateToV4::<Test>::pre_upgrade().is_err());
+
+			// But on_runtime_upgrade should still work (idempotent, safe to run)
 			let _weight = UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
-			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
 			// Verify new storage is empty
 			let new_descriptors = super::CoreDescriptors::<Test>::get();
 			assert!(new_descriptors.is_empty());
+
+			// Manually construct the expected state: (schedule_count, descriptor_count, total_assignments, pool_assignments)
+			let state = (0u32, 0u32, 0u32, 0u32).encode();
+			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed with empty state");
 		});
 	}
 
