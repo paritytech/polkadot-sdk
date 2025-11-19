@@ -22,6 +22,16 @@ on:
       runtimes:
         description: Runtimes to be published
         required: true
+      no_runtimes:
+        description: If true, release draft will contain only release notes and no artifacts will be published (needed for stable releases that are not latest)
+        required: true
+        type: boolean
+        default: false
+      crates_only:
+        description: If true, release draft will contain only release notes and no artifacts will be published (needed for stable releases that are not latest)
+        required: true
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       release_tag:
@@ -63,7 +73,8 @@ jobs:
           echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
 
 
-  publish-release-draft:
+  publish-release-draft-with-artifacts:
+    if: ${{ inputs.crates_only }} == false
     runs-on: ubuntu-latest
     environment: release
     needs: [ validate-inputs ]
@@ -151,7 +162,8 @@ jobs:
             --notes-file ${{ github.workspace}}/scripts/release/RELEASE_DRAFT.md
 
   publish-runtimes:
-    needs: [ validate-inputs, publish-release-draft ]
+    if: ${{ inputs.crates_only }} == false
+    needs: [ validate-inputs, publish-release-draft-with-artifacts ]
     environment: release
     continue-on-error: true
     runs-on: ubuntu-latest
@@ -202,7 +214,8 @@ jobs:
             --repo paritytech/polkadot-sdk "$VERSIONED_ASSET"
 
   publish-release-artifacts:
-    needs: [ validate-inputs, publish-release-draft ]
+    if: ${{ inputs.crates_only }} == false
+    needs: [ validate-inputs, publish-release-draft-with-artifacts ]
     environment: release
     continue-on-error: true
     runs-on: ubuntu-latest
@@ -264,7 +277,7 @@ jobs:
 
   post_to_matrix:
     runs-on: ubuntu-latest
-    needs: [ validate-inputs, publish-release-draft, publish-runtimes, publish-release-artifacts ]
+    needs: [ validate-inputs, publish-release-draft-with-artifacts, publish-runtimes, publish-release-artifacts ]
     environment: release
     strategy:
       matrix:
