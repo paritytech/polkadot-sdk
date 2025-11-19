@@ -20,11 +20,9 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
+use codec::{DecodeAll, Encode};
 use core::{fmt, marker::PhantomData, num::NonZero};
-use frame_support::{
-	dispatch::RawOrigin,
-	sp_runtime::traits::Hash,
-};
+use frame_support::{dispatch::RawOrigin, sp_runtime::traits::Hash};
 use pallet_preimage::{Config, WeightInfo};
 use pallet_revive::{
 	precompiles::{
@@ -33,7 +31,6 @@ use pallet_revive::{
 	},
 	ExecOrigin as Origin, Weight,
 };
-use codec::{DecodeAll, Encode};
 use tracing::error;
 
 #[cfg(test)]
@@ -76,7 +73,7 @@ where
 				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into())),
 			IPreimageCalls::notePreimage(IPreimage::notePreimageCall { preImage }) => {
 				let preimage = preImage.to_vec();
-				
+
 				let weight_to_charge =
 					<T as Config>::WeightInfo::note_preimage(preimage.len() as u32);
 				let charged_amount = env.charge(weight_to_charge)?;
