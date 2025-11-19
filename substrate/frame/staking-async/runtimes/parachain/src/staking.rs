@@ -467,6 +467,7 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = StakingXcmToRelayChain;
 	type MaxValidatorSetRetries = ConstU32<5>;
+	type ValidatorSetExportSession = ConstU32<5>;
 }
 
 parameter_types! {
