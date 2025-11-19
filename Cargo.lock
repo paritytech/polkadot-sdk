@@ -4636,6 +4636,7 @@ dependencies = [
  "sp-api",
  "sp-blockchain",
  "sp-consensus",
+ "sp-core 28.0.0",
  "sp-maybe-compressed-blob",
  "sp-runtime",
  "sp-tracing 16.0.0",

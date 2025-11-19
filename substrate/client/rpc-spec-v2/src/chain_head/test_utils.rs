@@ -284,11 +284,11 @@ impl<Block: BlockT, Client: BlockBackend<Block>> BlockBackend<Block>
 		self.client.block_hash(number)
 	}
 
-	fn indexed_transaction(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<Vec<u8>>> {
+	fn indexed_transaction(&self, hash: sp_core::H256) -> sp_blockchain::Result<Option<Vec<u8>>> {
 		self.client.indexed_transaction(hash)
 	}
 
-	fn has_indexed_transaction(&self, hash: Block::Hash) -> sp_blockchain::Result<bool> {
+	fn has_indexed_transaction(&self, hash: sp_core::H256) -> sp_blockchain::Result<bool> {
 		self.client.has_indexed_transaction(hash)
 	}
 

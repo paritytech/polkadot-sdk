@@ -37,6 +37,7 @@ use schema::bitswap::{
 	message::{wantlist::WantType, Block as MessageBlock, BlockPresence, BlockPresenceType},
 	Message as BitswapMessage,
 };
+use sp_core::H256;
 use sp_runtime::traits::Block as BlockT;
 use std::{io, sync::Arc, time::Duration};
 use unsigned_varint::encode as varint_encode;
@@ -205,7 +206,7 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 				continue
 			}
 
-			let mut hash = B::Hash::default();
+			let mut hash = H256::default();
 			hash.as_mut().copy_from_slice(&cid.hash().digest()[0..32]);
 			let transaction = match self.client.indexed_transaction(hash) {
 				Ok(ex) => ex,

@@ -42,6 +42,7 @@ use sc_consensus::import_queue::RuntimeOrigin;
 use sc_utils::mpsc::{TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_api::RuntimeApiInfo;
 use sp_blockchain::Info;
+use sp_core::H256;
 use sp_runtime::{generic::SignedBlock, Justifications};
 use sp_version::RuntimeVersion;
 use std::{
@@ -198,11 +199,11 @@ impl<Block: BlockT> BlockBackend<Block> for ParachainClient<Block> {
 		unimplemented!()
 	}
 
-	fn indexed_transaction(&self, _: Block::Hash) -> sp_blockchain::Result<Option<Vec<u8>>> {
+	fn indexed_transaction(&self, _: H256) -> sp_blockchain::Result<Option<Vec<u8>>> {
 		unimplemented!()
 	}
 
-	fn has_indexed_transaction(&self, _: Block::Hash) -> sp_blockchain::Result<bool> {
+	fn has_indexed_transaction(&self, _: H256) -> sp_blockchain::Result<bool> {
 		unimplemented!()
 	}
 

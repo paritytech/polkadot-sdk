@@ -19,6 +19,7 @@
 
 use codec::{Decode, Encode};
 use parking_lot::RwLock;
+use sp_core::H256;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, Header as HeaderT, NumberFor, Zero},
@@ -237,12 +238,13 @@ pub trait Backend<Block: BlockT>:
 		Ok(None)
 	}
 
-	/// Get single indexed transaction by content hash. Note that this will only fetch transactions
-	/// that are indexed by the runtime with `storage_index_transaction`.
-	fn indexed_transaction(&self, hash: Block::Hash) -> Result<Option<Vec<u8>>>;
+	/// Get single indexed transaction by content hash (BLAKE2b-256).
+	/// Note that this will only fetch transactions that are indexed
+	/// by the runtime with `storage_index_transaction`.
+	fn indexed_transaction(&self, hash: H256) -> Result<Option<Vec<u8>>>;
 
-	/// Check if indexed transaction exists.
-	fn has_indexed_transaction(&self, hash: Block::Hash) -> Result<bool> {
+	/// Check if indexed transaction exists given its BLAKE2b-256 hash.
+	fn has_indexed_transaction(&self, hash: H256) -> Result<bool> {
 		Ok(self.indexed_transaction(hash)?.is_some())
 	}
 

@@ -24,6 +24,7 @@ use litep2p::protocol::libp2p::bitswap::{
 };
 
 use sc_client_api::BlockBackend;
+use sp_core::H256;
 use sp_runtime::traits::Block as BlockT;
 
 use std::{future::Future, pin::Pin, sync::Arc};
@@ -61,7 +62,7 @@ impl<Block: BlockT> BitswapServer<Block> {
 					let response: Vec<ResponseType> = cids
 						.into_iter()
 						.map(|(cid, want_type)| {
-							let mut hash = Block::Hash::default();
+							let mut hash = H256::default();
 							hash.as_mut().copy_from_slice(&cid.hash().digest()[0..32]);
 							let transaction = match self.client.indexed_transaction(hash) {
 								Ok(ex) => ex,
