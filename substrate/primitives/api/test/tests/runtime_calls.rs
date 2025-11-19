@@ -15,10 +15,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::panic::UnwindSafe;
+use std::{
+	panic::UnwindSafe,
+	sync::{
+		atomic::{AtomicUsize, Ordering},
+		Arc,
+	},
+};
 
 use sc_block_builder::BlockBuilderBuilder;
 use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi};
+use sp_externalities::{decl_extension, TransactionType};
 use sp_runtime::{
 	traits::{HashingFor, Header as HeaderT},
 	TransactionOutcome,
@@ -184,14 +191,44 @@ fn disable_logging_works() {
 // Ensure that the type is not unwind safe!
 static_assertions::assert_not_impl_any!(<TestClient as ProvideRuntimeApi<_>>::Api: UnwindSafe);
 
+#[derive(Default)]
+struct TransactionTesterInner {
+	started: AtomicUsize,
+	committed: AtomicUsize,
+	rolled_back: AtomicUsize,
+}
+
+decl_extension! {
+	struct TransactionTester(Arc<TransactionTesterInner>);
+
+	impl TransactionTester {
+		fn start_transaction(&mut self, ty: TransactionType) {
+			assert_eq!(ty, TransactionType::Host);
+			self.0.started.fetch_add(1, Ordering::Relaxed);
+		}
+
+		fn commit_transaction(&mut self, ty: TransactionType) {
+			assert_eq!(ty, TransactionType::Host);
+			self.0.committed.fetch_add(1, Ordering::Relaxed);
+		}
+
+		fn rollback_transaction(&mut self, ty: TransactionType) {
+			assert_eq!(ty, TransactionType::Host);
+			self.0.rolled_back.fetch_add(1, Ordering::Relaxed);
+		}
+	}
+}
+
 #[test]
 fn ensure_transactional_works() {
 	const KEY: &[u8] = b"test";
 
 	let client = TestClientBuilder::new().build();
 	let best_hash = client.chain_info().best_hash;
+	let transaction_tester = Arc::new(TransactionTesterInner::default());
 
-	let runtime_api = client.runtime_api();
+	let mut runtime_api = client.runtime_api();
+	runtime_api.register_extension(TransactionTester(transaction_tester.clone()));
 	runtime_api.execute_in_transaction(|api| {
 		api.write_key_value(best_hash, KEY.to_vec(), vec![1, 2, 3], false).unwrap();
 
@@ -209,7 +246,8 @@ fn ensure_transactional_works() {
 		.unwrap();
 	assert_eq!(changes.main_storage_changes[0].1, Some(vec![1, 2, 3, 4]));
 
-	let runtime_api = client.runtime_api();
+	let mut runtime_api = client.runtime_api();
+	runtime_api.register_extension(TransactionTester(transaction_tester.clone()));
 	runtime_api.execute_in_transaction(|api| {
 		assert!(api.write_key_value(best_hash, KEY.to_vec(), vec![1, 2, 3], true).is_err());
 
@@ -220,4 +258,21 @@ fn ensure_transactional_works() {
 		.into_storage_changes(&client.state_at(best_hash).unwrap(), best_hash)
 		.unwrap();
 	assert_eq!(changes.main_storage_changes[0].1, Some(vec![1, 2, 3]));
+
+	let mut runtime_api = client.runtime_api();
+	runtime_api.register_extension(TransactionTester(transaction_tester.clone()));
+	runtime_api.execute_in_transaction(|api| {
+		assert!(api.write_key_value(best_hash, KEY.to_vec(), vec![1, 2], true).is_err());
+
+		TransactionOutcome::Rollback(())
+	});
+
+	let changes = runtime_api
+		.into_storage_changes(&client.state_at(best_hash).unwrap(), best_hash)
+		.unwrap();
+	assert!(changes.main_storage_changes.is_empty());
+
+	assert_eq!(transaction_tester.started.load(Ordering::Relaxed), 4);
+	assert_eq!(transaction_tester.committed.load(Ordering::Relaxed), 3);
+	assert_eq!(transaction_tester.rolled_back.load(Ordering::Relaxed), 1);
 }
