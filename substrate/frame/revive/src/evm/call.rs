@@ -19,8 +19,10 @@
 
 use crate::{
 	evm::{fees::InfoT, runtime::SetWeightLimit},
-	extract_code_and_data, BalanceOf, CallOf, Config, GenericTransaction, Pallet, Weight, Zero,
-	LOG_TARGET, RUNTIME_PALLETS_ADDR,
+	extract_code_and_data,
+	limits::ENCODING_LENGTH_SAFETY_MARGIN,
+	BalanceOf, CallOf, Config, GenericTransaction, Pallet, Weight, Zero, LOG_TARGET,
+	RUNTIME_PALLETS_ADDR,
 };
 use alloc::{boxed::Box, vec::Vec};
 use codec::DecodeLimit;
@@ -47,6 +49,10 @@ pub struct CallInfo<T: Config> {
 }
 
 /// Decode `tx` into a dispatchable call.
+///
+/// signed_transaction is Some(..) for extrinsic execution (when called from
+/// `try_into_checked_extrinsic`) and it is `None` for dry running (when called from
+/// `dry_run_eth_transact`)
 pub fn create_call<T>(
 	tx: GenericTransaction,
 	signed_transaction: Option<(u32, Vec<u8>)>,
@@ -56,6 +62,7 @@ where
 	T: Config,
 	CallOf<T>: SetWeightLimit,
 {
+	let is_dry_run = signed_transaction.is_none();
 	let base_fee = <Pallet<T>>::evm_base_fee();
 
 	let Some(gas) = tx.gas else {
@@ -198,8 +205,15 @@ where
 		}
 	};
 
+	// Add some buffer for dry running
+	let encoding_len_with_margin = if is_dry_run {
+		encoded_len.saturating_add(ENCODING_LENGTH_SAFETY_MARGIN)
+	} else {
+		encoded_len
+	};
+
 	// the overall fee of the extrinsic including the gas limit
-	let tx_fee = <T as Config>::FeeInfo::tx_fee(encoded_len, &call);
+	let tx_fee = <T as Config>::FeeInfo::tx_fee(encoding_len_with_margin, &call);
 
 	// the leftover we make available to the deposit collection system
 	let storage_deposit = eth_fee.checked_sub(tx_fee.into()).ok_or_else(|| {

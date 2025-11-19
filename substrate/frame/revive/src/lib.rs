@@ -53,6 +53,7 @@ use crate::{
 		TracerType, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, ReentrancyProtection, Stack as ExecStack},
+	limits::ENCODING_LENGTH_SAFETY_MARGIN,
 	storage::{AccountType, DeletionQueueManager},
 	tracing::if_tracing,
 	vm::{pvm::extract_code_and_data, CodeInfo, RuntimeCosts},
@@ -1736,7 +1737,7 @@ impl<T: Config> Pallet<T> {
 		tx.gas_price = Some(effective_gas_price);
 
 		if tx.max_priority_fee_per_gas.is_none() {
-			tx.max_priority_fee_per_gas = Some(effective_gas_price);
+			tx.max_priority_fee_per_gas = Some(0.into());
 		}
 		if tx.max_fee_per_gas.is_none() {
 			tx.max_fee_per_gas = Some(effective_gas_price);
@@ -1922,7 +1923,10 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// not enough gas supplied to pay for both the tx fees and the storage deposit
-		let transaction_fee = T::FeeInfo::tx_fee(call_info.encoded_len, &call_info.call);
+		let transaction_fee = T::FeeInfo::tx_fee(
+			call_info.encoded_len.saturating_add(ENCODING_LENGTH_SAFETY_MARGIN),
+			&call_info.call,
+		);
 		let available_fee = T::FeeInfo::remaining_txfee();
 		if transaction_fee > available_fee {
 			Err(EthTransactError::Message(format!(
