@@ -23,7 +23,8 @@ use frame_support::{
 	traits::UncheckedOnRuntimeUpgrade, weights::Weight,
 };
 
-// Import V4 types - these will be used directly for decoding V3 storage since they're binary-compatible
+// Import V4 types - these will be used directly for decoding V3 storage since they're
+// binary-compatible
 use super::assigner_coretime::{CoreDescriptor, Schedule};
 
 /// V3 storage format - types and storage items before migration to V4.
@@ -432,7 +433,8 @@ mod v4_tests {
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
 			// Run migration with pre and post upgrade checks
-			let state = UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
+			let state =
+				UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			let _weight = UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
 			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
@@ -449,7 +451,10 @@ mod v4_tests {
 			assert!(new_descriptor.current_work().is_none());
 
 			// Verify old storage is cleared
-			assert!(v3::CoreSchedules::<Test>::get((block_number, core)).is_none(), "Old CoreSchedules should be cleared");
+			assert!(
+				v3::CoreSchedules::<Test>::get((block_number, core)).is_none(),
+				"Old CoreSchedules should be cleared"
+			);
 
 			// Verify old CoreDescriptor is cleared (should be default/empty after migration)
 			let old_descriptor = v3::CoreDescriptors::<Test>::get(core);
@@ -496,7 +501,8 @@ mod v4_tests {
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
 			// Run migration with pre and post upgrade checks
-			let state = UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
+			let state =
+				UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
 			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
@@ -557,17 +563,16 @@ mod v4_tests {
 			v3::CoreSchedules::<Test>::insert((30u32, core), schedule_30);
 
 			// Descriptor points to first schedule
-			let old_descriptor = CoreDescriptor::new(
-				Some(QueueDescriptor { first: 10u32, last: 30u32 }),
-				None,
-			);
+			let old_descriptor =
+				CoreDescriptor::new(Some(QueueDescriptor { first: 10u32, last: 30u32 }), None);
 
 			v3::CoreDescriptors::<Test>::insert(core, old_descriptor);
 
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
 			// Run migration with pre and post upgrade checks
-			let state = UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
+			let state =
+				UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
 			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
@@ -642,7 +647,8 @@ mod v4_tests {
 			assert_eq!(core_queue[2], pool_para_2);
 
 			// Run migration with pre and post upgrade checks
-			let state = UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
+			let state =
+				UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
 			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
@@ -717,7 +723,8 @@ mod v4_tests {
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
 			// Run migration with pre and post upgrade checks
-			let state = UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
+			let state =
+				UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
 			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
@@ -761,9 +768,11 @@ mod v4_tests {
 			let new_descriptors = super::CoreDescriptors::<Test>::get();
 			assert!(new_descriptors.is_empty());
 
-			// Manually construct the expected state: (schedule_count, descriptor_count, total_assignments, pool_assignments)
+			// Manually construct the expected state: (schedule_count, descriptor_count,
+			// total_assignments, pool_assignments)
 			let state = (0u32, 0u32, 0u32, 0u32).encode();
-			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed with empty state");
+			UncheckedMigrateToV4::<Test>::post_upgrade(state)
+				.expect("post_upgrade should succeed with empty state");
 		});
 	}
 
@@ -810,7 +819,8 @@ mod v4_tests {
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
 			// Run migration with pre and post upgrade checks
-			let state = UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
+			let state =
+				UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
 			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
@@ -858,7 +868,8 @@ mod v4_tests {
 			StorageVersion::new(3).put::<super::Pallet<Test>>();
 
 			// Run migration with pre and post upgrade checks
-			let state = UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
+			let state =
+				UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
 			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 

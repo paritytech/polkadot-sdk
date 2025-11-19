@@ -370,7 +370,8 @@ mod tests {
 			StorageVersion::new(1).put::<on_demand::Pallet<Test>>();
 
 			// Run migration with pre and post upgrade checks
-			let state = UncheckedMigrateToV2::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
+			let state =
+				UncheckedMigrateToV2::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			let _weight = UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
 			UncheckedMigrateToV2::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
@@ -413,7 +414,8 @@ mod tests {
 			StorageVersion::new(1).put::<on_demand::Pallet<Test>>();
 
 			// Run migration with pre and post upgrade checks
-			let state = UncheckedMigrateToV2::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
+			let state =
+				UncheckedMigrateToV2::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
 			UncheckedMigrateToV2::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
@@ -447,7 +449,8 @@ mod tests {
 			StorageVersion::new(1).put::<on_demand::Pallet<Test>>();
 
 			// Run migration with pre and post upgrade checks
-			let state = UncheckedMigrateToV2::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
+			let state =
+				UncheckedMigrateToV2::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
 			UncheckedMigrateToV2::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
@@ -479,7 +482,8 @@ mod tests {
 			StorageVersion::new(1).put::<on_demand::Pallet<Test>>();
 
 			// Run migration with pre and post upgrade checks
-			let state = UncheckedMigrateToV2::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
+			let state =
+				UncheckedMigrateToV2::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
 			UncheckedMigrateToV2::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
@@ -511,7 +515,8 @@ mod tests {
 			StorageVersion::new(1).put::<on_demand::Pallet<Test>>();
 
 			// Run migration with pre and post upgrade checks
-			let state = UncheckedMigrateToV2::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
+			let state =
+				UncheckedMigrateToV2::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
 			UncheckedMigrateToV2::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
@@ -530,7 +535,8 @@ mod tests {
 			StorageVersion::new(1).put::<on_demand::Pallet<Test>>();
 
 			// Run migration with no orders
-			let state = UncheckedMigrateToV2::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
+			let state =
+				UncheckedMigrateToV2::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			let _weight = UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
 			UncheckedMigrateToV2::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
@@ -562,7 +568,8 @@ mod tests {
 			StorageVersion::new(1).put::<on_demand::Pallet<Test>>();
 
 			// Run migration with pre and post upgrade checks
-			let state = UncheckedMigrateToV2::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
+			let state =
+				UncheckedMigrateToV2::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
 			UncheckedMigrateToV2::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
@@ -599,7 +606,8 @@ mod tests {
 			StorageVersion::new(1).put::<on_demand::Pallet<Test>>();
 
 			// Run migration - should not panic even if queue is full
-			let state = UncheckedMigrateToV2::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
+			let state =
+				UncheckedMigrateToV2::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
 			let _weight = UncheckedMigrateToV2::<Test>::on_runtime_upgrade();
 			UncheckedMigrateToV2::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
 
