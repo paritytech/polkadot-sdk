@@ -36,10 +36,10 @@ pub mod origin;
 pub mod paras;
 pub mod paras_inherent;
 pub mod reward_points;
+pub mod runtime_api_impl;
 pub mod scheduler;
 pub mod session_info;
 pub mod shared;
-pub mod runtime_api_impl;
 
 mod util;
 
