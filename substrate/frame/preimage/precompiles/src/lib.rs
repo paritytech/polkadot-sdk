@@ -23,7 +23,6 @@ use alloc::vec::Vec;
 use core::{fmt, marker::PhantomData, num::NonZero};
 use frame_support::{
 	dispatch::RawOrigin,
-	pallet_prelude::{Decode, Encode},
 	sp_runtime::traits::Hash,
 };
 use pallet_preimage::{Config, WeightInfo};
@@ -34,7 +33,7 @@ use pallet_revive::{
 	},
 	ExecOrigin as Origin, Weight,
 };
-
+use codec::{DecodeAll, Encode};
 use tracing::error;
 
 #[cfg(test)]
