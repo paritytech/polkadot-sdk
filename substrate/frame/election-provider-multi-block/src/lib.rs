@@ -768,7 +768,9 @@ pub mod pallet {
 			#[cfg(test)]
 			{
 				if _now > 200u32.into() {
-					panic!("looping to death");
+					panic!("Looping to death: in case of errors in election start time in tests, we might loop \
+					infinitely. This panic is preventing you from that. Double check `mock::ElectionStart` or increase \
+					the 200 limit");
 				}
 				let test_election_start: BlockNumberFor<T> =
 					(crate::mock::ElectionStart::get() as u32).into();
