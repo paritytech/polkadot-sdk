@@ -46,6 +46,7 @@ schnellru = { workspace = true }
 
 [dev-dependencies]
 futures-timer = { workspace = true }
+tokio = { features = ["macros"], workspace = true }
 
 # Substrate
 sp-tracing = { workspace = true, default-features = true }

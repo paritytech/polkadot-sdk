@@ -973,7 +973,7 @@ impl_runtime_apis! {
 					None
 				}
 
-				fn set_up_complex_asset_transfer() -> Option<(Assets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
+				fn set_up_complex_asset_transfer() -> Option<(Assets, AssetId, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					let native_location = Parent.into();
 					let dest = AssetHubLocation::get();
 
@@ -1136,9 +1136,9 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl cumulus_primitives_core::SlotSchedule<Block> for Runtime {
-		fn next_slot_schedule(_num_cores: u32) -> cumulus_primitives_core::NextSlotSchedule {
-			cumulus_primitives_core::NextSlotSchedule::one_block_using_one_core()
+	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
+		fn target_block_rate() -> u32 {
+			1
 		}
 	}
 

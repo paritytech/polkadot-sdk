@@ -1465,7 +1465,7 @@ trybuild = { version = "1.0.103" }
 tt-call = { version = "1.0.8" }
 tuplex = { version = "0.1", default-features = false }
 twox-hash = { version = "1.6.3", default-features = false }
-txtesttool = { version = "0.6.0", package = "substrate-txtesttool" }
+txtesttool = { version = "0.7.0", package = "substrate-txtesttool" }
 unsigned-varint = { version = "0.7.2" }
 url = { version = "2.5.4" }
 verifiable = { version = "0.1", default-features = false }
