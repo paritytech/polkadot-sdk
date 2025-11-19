@@ -930,6 +930,34 @@ impl Peerset {
 		}
 	}
 
+	/// Connect to all reserved peers under the following conditions:
+	/// 1. The peer must be present to the current set of peers.
+	/// 2. The peer must be disconnected.
+	/// 3. The peer must not be banned.
+	///
+	/// All reserved peers returned are transitioned to the `PeerState::Opening` state.
+	fn connect_reserved_peers(&mut self) -> Vec<PeerId> {
+		let connect_to = self
+			.peers
+			.iter()
+			.filter_map(|(peer, state)| {
+				(self.reserved_peers.contains(peer) &&
+					std::matches!(state, PeerState::Disconnected) &&
+					!self.peerstore_handle.is_banned(peer))
+				.then_some(*peer)
+			})
+			.collect::<Vec<_>>();
+
+		connect_to.iter().for_each(|peer| {
+			self.peers.insert(
+				*peer,
+				PeerState::Opening { direction: Direction::Outbound(Reserved::Yes) },
+			);
+		});
+
+		return connect_to;
+	}
+
 	/// Get the number of inbound peers.
 	#[cfg(test)]
 	pub fn num_in(&self) -> usize {
@@ -1441,23 +1469,7 @@ impl Stream for Peerset {
 		// also check if there are free outbound slots and if so, fetch peers with highest
 		// reputations from `Peerstore` and start opening substreams to these peers
 		if let Poll::Ready(()) = Pin::new(&mut self.next_slot_allocation).poll(cx) {
-			let mut connect_to = self
-				.peers
-				.iter()
-				.filter_map(|(peer, state)| {
-					(self.reserved_peers.contains(peer) &&
-						std::matches!(state, PeerState::Disconnected) &&
-						!self.peerstore_handle.is_banned(peer))
-					.then_some(*peer)
-				})
-				.collect::<Vec<_>>();
-
-			connect_to.iter().for_each(|peer| {
-				self.peers.insert(
-					*peer,
-					PeerState::Opening { direction: Direction::Outbound(Reserved::Yes) },
-				);
-			});
+			let mut connect_to = self.connect_reserved_peers();
 
 			// if the number of outbound peers is lower than the desired amount of outbound peers,
 			// query `PeerStore` and try to get a new outbound candidated.
