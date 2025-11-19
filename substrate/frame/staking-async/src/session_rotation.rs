@@ -905,7 +905,7 @@ impl<T: Config> EraElectionPlanner<T> {
 	}
 
 	pub(crate) fn maybe_fetch_election_results() -> (Weight, Box<dyn Fn(&mut WeightMeter)>) {
-		let Ok(Some(required_weight)) = T::ElectionProvider::status() else {
+		let Ok(Some(mut required_weight)) = T::ElectionProvider::status() else {
 			// no election ongoing
 			let weight = T::DbWeight::get().reads(1);
 			return (weight, Box::new(move |meter: &mut WeightMeter| meter.consume(weight)))
