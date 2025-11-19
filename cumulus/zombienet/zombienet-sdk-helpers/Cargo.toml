@@ -12,6 +12,7 @@ anyhow = { workspace = true, default-features = true }
 codec = { workspace = true, features = ["derive"] }
 log = { workspace = true }
 polkadot-primitives = { workspace = true, default-features = true }
+sp-consensus-babe = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 zombienet-sdk = { workspace = true }

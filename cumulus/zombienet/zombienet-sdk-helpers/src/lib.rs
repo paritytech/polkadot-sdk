@@ -6,7 +6,12 @@ use codec::{Compact, Decode};
 use cumulus_primitives_core::{relay_chain, rpsr_digest::RPSR_CONSENSUS_ID};
 use futures::stream::StreamExt;
 use polkadot_primitives::{CandidateReceiptV2, Id as ParaId};
-use std::{cmp::max, collections::HashMap, ops::Range};
+use sp_consensus_babe::{ConsensusLog, BABE_ENGINE_ID};
+use std::{
+	cmp::max,
+	collections::{HashMap, HashSet},
+	ops::Range,
+};
 use tokio::{
 	join,
 	time::{sleep, Duration},
@@ -33,6 +38,25 @@ use zombienet_configuration::types::AssetLocation;
 // Maximum number of blocks to wait for a session change.
 // If it does not arrive for whatever reason, we should not wait forever.
 const WAIT_MAX_BLOCKS_FOR_SESSION: u32 = 50;
+
+/// Returns true if block announces a new session.
+pub fn does_rc_block_contain_session_change(
+	relay_block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+) -> bool {
+	for log in relay_block.header().digest.logs.iter() {
+		match log {
+			DigestItem::Consensus(id, val) if id == &BABE_ENGINE_ID => {
+				let consensus_log = ConsensusLog::decode(&mut &val[..]);
+				match consensus_log {
+					Ok(ConsensusLog::NextEpochData(_)) => return true,
+					_ => continue,
+				}
+			},
+			_ => continue,
+		}
+	}
+	return false
+}
 
 /// Create a batch call to assign cores to a parachain.
 pub fn create_assign_core_call(core_and_para: &[(u32, u32)]) -> DynamicPayload {
@@ -260,6 +284,8 @@ pub async fn assert_relay_parent_offset(
 	let mut para_block_stream = para_client.blocks().subscribe_all().await?.skip(1);
 	let mut highest_relay_block_seen = 0;
 	let mut num_para_blocks_seen = 0;
+	let mut forbidden_parents = HashMap::new();
+	// let mut seen_parents = HashSet::new();
 	loop {
 		tokio::select! {
 			Some(Ok(relay_block)) = relay_block_stream.next() => {
@@ -267,15 +293,25 @@ pub async fn assert_relay_parent_offset(
 				if highest_relay_block_seen > 15 && num_para_blocks_seen == 0 {
 					return Err(anyhow!("No parachain blocks produced!"))
 				}
+				if does_rc_block_contain_session_change(&relay_block) {
+					log::debug!("RC block #{} contains session change, no parachain blocks shall be build on its parent {}.", relay_block.number(), relay_block.header().parent_hash);
+					let parent = relay_client.blocks().at(relay_block.header().parent_hash).await.map_err(|_| anyhow!("Unable to fetch RC header."))?;
+					forbidden_parents.insert(parent.header().state_root, parent.header().clone());
+				}
 			},
 			Some(Ok(para_block)) = para_block_stream.next() => {
 				let logs = &para_block.header().digest.logs;
 
-				let Some((_, relay_parent_number)): Option<(H256, u32)> = logs.iter().find_map(extract_relay_parent_storage_root) else {
+				let Some((relay_parent_state_root, relay_parent_number)): Option<(H256, u32)> = logs.iter().find_map(extract_relay_parent_storage_root) else {
 					return Err(anyhow!("No RPSR digest found in header #{}", para_block.number()));
 				};
+				// seen_parents.insert(relay_parent_state_root);
 				log::debug!("Parachain block #{} was built on relay parent #{relay_parent_number}, highest seen was {highest_relay_block_seen}", para_block.number());
 				assert!(highest_relay_block_seen < offset || relay_parent_number <= highest_relay_block_seen.saturating_sub(offset), "Relay parent is not at the correct offset! relay_parent: #{relay_parent_number} highest_seen_relay_block: #{highest_relay_block_seen}");
+				// let build_on_forbidden = forbidden_parents.intersection(&seen_parents).collect();
+				if let Some(illegal_header) = forbidden_parents.get(&relay_parent_state_root) {
+					return Err(anyhow!("Parachain blocks where build on forbidden parents! parachain_block: #{} ({}), relay parent: #{}", para_block.header().number, para_block.hash(), illegal_header.number));
+				}
 				num_para_blocks_seen += 1;
 				if num_para_blocks_seen >= block_limit {
 					log::info!("Successfully verified relay parent offset of {offset} for {num_para_blocks_seen} parachain blocks.");
