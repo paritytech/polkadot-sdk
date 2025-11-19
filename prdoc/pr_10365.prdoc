@@ -1,0 +1,26 @@
+title: 'frame-executive: Remove unused deprecated tag'
+doc:
+- audience:
+  - Runtime Dev
+  - Runtime User
+  description: |-
+    Recent compiler versions complain about this deprecated annotation being useless:
+    ```
+      error: `#[deprecated]` attribute cannot be used on function params
+         --> /home/sebastian/work/repos/polkadot-sdk/substrate/frame/executive/src/lib.rs:208:2
+          |
+      208 | /     #[deprecated(
+      209 | |         note = "`OnRuntimeUpgrade` parameter in Executive is deprecated, will be removed after September 2026. \
+      210 | |         Use type `SingleBlockMigrations` in frame_system::Config instead."
+      211 | |     )] OnRuntimeUpgrade = (),
+          | |______^
+          |
+          = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
+          = help: `#[deprecated]` can be applied to functions, data types, modules, unions, constants, statics, macro defs, type aliases, use statements, foreign statics, struct fields, traits, associated types, associated consts, enum variants, inherent impl blocks, and crates
+          = note: `#[deny(useless_deprecated)]` on by default
+    ```
+
+    So lets remove it. The deprecated warning is also present in the doc comment above.
+crates:
+- name: frame-executive
+  bump: patch
