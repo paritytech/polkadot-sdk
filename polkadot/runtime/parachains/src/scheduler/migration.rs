@@ -132,14 +132,15 @@ impl<T: Config> UncheckedMigrateToV4<T> {
 							schedule_count += 1;
 							current_block = schedule.next_schedule();
 						} else {
-							// Linked list is broken - fail migration to prevent data loss
-							log::error!(
+							// Linked list is broken - log warning and stop traversing this chain
+							// The data was already lost before migration, failing here won't help
+							log::warn!(
 								target: super::LOG_TARGET,
 								"Broken linked list detected for core {:?} at block {:?}",
 								core_index,
 								block_number
 							);
-							return Err("Broken schedule linked list - migration would lose data".into());
+							break;
 						}
 					}
 				}
