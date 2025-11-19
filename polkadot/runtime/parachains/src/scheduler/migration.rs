@@ -56,13 +56,13 @@ pub(super) mod v3 {
 	/// Storage alias for the old CoreSchedules storage in the AssignerCoretime pallet.
 	///
 	/// NOTE: The pallet name must match the name used in the runtime's `construct_runtime!` macro.
-	/// This is typically "AssignerCoretime" for Polkadot/Kusama/Rococo/Westend runtimes.
+	/// In production runtimes (Polkadot/Kusama), this is named "CoretimeAssignmentProvider".
 	///
 	/// We can decode directly into V4 types (Schedule, PartsOf57600, etc.) because they're
 	/// binary-compatible with the V3 types - field visibility doesn't affect encoding.
 	#[storage_alias]
 	pub(crate) type CoreSchedules<T: Config> = StorageMap<
-		AssignerCoretime,
+		CoretimeAssignmentProvider,
 		Twox256,
 		(BlockNumberFor<T>, CoreIndex),
 		Schedule<BlockNumberFor<T>>,
@@ -72,9 +72,10 @@ pub(super) mod v3 {
 	/// Storage alias for the old CoreDescriptors storage in the AssignerCoretime pallet.
 	///
 	/// NOTE: The pallet name must match the name used in the runtime's `construct_runtime!` macro.
+	/// In production runtimes (Polkadot/Kusama), this is named "CoretimeAssignmentProvider".
 	#[storage_alias]
 	pub(crate) type CoreDescriptors<T: Config> = StorageMap<
-		AssignerCoretime,
+		CoretimeAssignmentProvider,
 		Twox256,
 		CoreIndex,
 		CoreDescriptor<BlockNumberFor<T>>,
@@ -122,7 +123,7 @@ impl<T: Config> UncheckedMigrateToV4<T> {
 			if descriptor.queue().is_some() || descriptor.current_work().is_some() {
 				descriptor_count += 1;
 
-				// Count schedules by following the queue
+				// Count schedules by following the queue and validate linked list integrity
 				if let Some(queue) = descriptor.queue() {
 					let mut current_block = Some(queue.first);
 					while let Some(block_number) = current_block {
@@ -131,7 +132,14 @@ impl<T: Config> UncheckedMigrateToV4<T> {
 							schedule_count += 1;
 							current_block = schedule.next_schedule();
 						} else {
-							break;
+							// Linked list is broken - fail migration to prevent data loss
+							log::error!(
+								target: super::LOG_TARGET,
+								"Broken linked list detected for core {:?} at block {:?}",
+								core_index,
+								block_number
+							);
+							return Err("Broken schedule linked list - migration would lose data".into());
 						}
 					}
 				}
@@ -289,6 +297,12 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV4<T> {
 		// Write all descriptors at once
 		super::CoreDescriptors::<T>::put(new_descriptors);
 		weight.saturating_accrue(T::DbWeight::get().writes(1));
+
+		// Clear all old v3 storage completely to handle any orphaned entries
+		// (e.g., from previous higher num_cores or broken linked lists)
+		let _ = v3::CoreDescriptors::<T>::clear(u32::MAX, None);
+		let _ = v3::CoreSchedules::<T>::clear(u32::MAX, None);
+		weight.saturating_accrue(T::DbWeight::get().writes(2));
 
 		// Step 3: Migrate ClaimQueue - preserve pool assignments
 		let old_claim_queue = v3::ClaimQueue::<T>::take();

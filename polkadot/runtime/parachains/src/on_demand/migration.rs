@@ -172,6 +172,17 @@ impl<T: Config> UncheckedMigrateToV2<T> {
 			old_queue_status.as_ref().map(|s| s.traffic)
 		);
 
+		// Check that queue won't overflow during migration
+		if total_orders > polkadot_primitives::ON_DEMAND_MAX_QUEUE_MAX_SIZE as usize {
+			log::error!(
+				target: LOG_TARGET,
+				"Migration would lose orders: {} total orders exceeds V2 capacity of {}",
+				total_orders,
+				polkadot_primitives::ON_DEMAND_MAX_QUEUE_MAX_SIZE
+			);
+			return Err("Too many orders to migrate - queue capacity exceeded".into());
+		}
+
 		Ok((total_orders as u32, affinity_count as u32, old_queue_status.map(|s| s.traffic))
 			.encode())
 	}
