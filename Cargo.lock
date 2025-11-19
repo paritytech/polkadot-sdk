@@ -20942,6 +20942,7 @@ dependencies = [
 name = "sc-service"
 version = "0.35.0"
 dependencies = [
+ "async-channel 1.9.0",
  "async-trait",
  "directories",
  "exit-future",
@@ -20952,12 +20953,14 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "pin-project",
+ "prost 0.12.6",
  "rand 0.8.5",
  "sc-chain-spec",
  "sc-client-api",
  "sc-client-db",
  "sc-consensus",
  "sc-executor",
+ "sc-executor-common",
  "sc-informant",
  "sc-keystore",
  "sc-network",

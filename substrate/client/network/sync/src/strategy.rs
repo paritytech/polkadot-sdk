@@ -226,6 +226,7 @@ impl<B: BlockT> SyncingAction<B> {
 			Self::DropPeer(_) => "DropPeer",
 			Self::ImportBlocks { .. } => "ImportBlocks",
 			Self::ImportJustifications { .. } => "ImportJustifications",
+			Self::ImportPartialState { .. } => "ImportPartialState",
 			Self::Finished => "Finished",
 		}
 	}

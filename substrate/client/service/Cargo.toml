@@ -76,6 +76,9 @@ tracing-futures = { workspace = true }
 trie-db = { workspace = true }
 
 [dev-dependencies]
+async-channel = { workspace = true }
+sc-executor-common = { workspace = true, default-features = true }
+prost = { workspace = true }
 substrate-test-runtime = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
 

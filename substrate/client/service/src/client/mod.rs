@@ -57,3 +57,6 @@ pub use client::{Client, ClientConfig};
 pub(crate) use code_provider::CodeProvider;
 
 pub use self::client::new_with_backend;
+
+#[cfg(test)]
+mod state_sync_test;
