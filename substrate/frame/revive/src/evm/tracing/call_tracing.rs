@@ -101,11 +101,10 @@ impl<Gas: Default + core::fmt::Debug, GasMapper: Fn(Weight) -> Gas> Tracing
 		}
 
 		if self.traces.is_empty() || !self.config.only_top_call {
-			let (call_type, input, output) = match self.code_with_salt.take() {
+			let (call_type, input) = match self.code_with_salt.take() {
 				Some((Code::Upload(code), salt)) => (
 					if salt { CallType::Create2 } else { CallType::Create },
 					code.clone().into_iter().chain(input.to_vec().into_iter()).collect::<Vec<_>>(),
-					code,
 				),
 				Some((Code::Existing(code_hash), salt)) => (
 					if salt { CallType::Create2 } else { CallType::Create },
@@ -114,7 +113,6 @@ impl<Gas: Default + core::fmt::Debug, GasMapper: Fn(Weight) -> Gas> Tracing
 						.into_iter()
 						.chain(input.to_vec().into_iter())
 						.collect::<Vec<_>>(),
-					code_hash.to_fixed_bytes().into(),
 				),
 				None => {
 					let call_type = if is_read_only {
@@ -124,7 +122,7 @@ impl<Gas: Default + core::fmt::Debug, GasMapper: Fn(Weight) -> Gas> Tracing
 					} else {
 						CallType::Call
 					};
-					(call_type, input.to_vec(), Vec::new())
+					(call_type, input.to_vec())
 				},
 			};
 
@@ -134,7 +132,6 @@ impl<Gas: Default + core::fmt::Debug, GasMapper: Fn(Weight) -> Gas> Tracing
 				value: if is_read_only { None } else { Some(value) },
 				call_type,
 				input: input.into(),
-				output: output.into(),
 				gas: (self.gas_mapper)(gas_left),
 				..Default::default()
 			});
@@ -174,11 +171,7 @@ impl<Gas: Default + core::fmt::Debug, GasMapper: Fn(Weight) -> Gas> Tracing
 		let current_index = self.current_stack.pop().unwrap();
 
 		if let Some(trace) = self.traces.get_mut(current_index) {
-			if trace.input.0.starts_with(&polkavm_common::program::BLOB_MAGIC) {
-				trace.output = trace.input.clone();
-			} else {
-				trace.output = output.data.clone().into();
-			}
+			trace.output = output.data.clone().into();
 			trace.gas_used = (self.gas_mapper)(gas_used);
 
 			if output.did_revert() {
