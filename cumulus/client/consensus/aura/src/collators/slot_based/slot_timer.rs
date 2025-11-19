@@ -177,7 +177,7 @@ fn adjust_authoring_duration(
 	// regardless of authoring duration.
 	if duration_until_deadline == Duration::ZERO {
 		if different_authors {
-			tracing::debug!(
+			tracing::warn!(
 				target: LOG_TARGET,
 				?duration_until_next_slot,
 				?next_slot,
