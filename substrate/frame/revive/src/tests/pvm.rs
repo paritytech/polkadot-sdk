@@ -4184,7 +4184,6 @@ fn create_call_tracing_works() {
 				to: addr,
 				value: Some(100.into()),
 				input: Bytes(code.clone()),
-				// output: Bytes(code.clone()),
 				call_type: CallType::Create,
 				..Default::default()
 			}
