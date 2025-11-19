@@ -6,7 +6,8 @@ export ENGINE=${ENGINE:-podman}
 export REF1=${REF1:-'HEAD'}
 export REF2=${REF2}
 export RUSTC_STABLE=${RUSTC_STABLE:-'1.0'}
-export NO_RUNTIMES=${NO_RUNTIMES:-'true'}
+export NO_RUNTIMES=${NO_RUNTIMES:-'false'}
+export CRATES_ONLY=${CRATES_ONLY:-'false'}
 
 PROJECT_ROOT=`git rev-parse --show-toplevel`
 echo $PROJECT_ROOT
@@ -67,7 +68,7 @@ echo "Changelog ready in $OUTPUT/relnote_commits.md"
 # Show the files
 tree -s -h -c $OUTPUT/
 
-if [ "$NO_RUNTIMES" = true ]; then
+if [[ "$NO_RUNTIMES" == "false" && "$CRATES_ONLY" == "false" ]]; then
   ASSET_HUB_WESTEND_DIGEST=${ASSET_HUB_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/asset-hub-westend-srtool-digest.json"}
   BRIDGE_HUB_WESTEND_DIGEST=${BRIDGE_HUB_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/bridge-hub-westend-srtool-digest.json"}
   COLLECTIVES_WESTEND_DIGEST=${COLLECTIVES_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/collectives-westend-srtool-digest.json"}

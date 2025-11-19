@@ -47,6 +47,16 @@ on:
         description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcY or polkadot-stableYYMM(-X)
         type: string
         required: true
+      no_runtimes:
+        description: If true, nor runtime build will be triggered and release draft will be published without runtimes (needed for the patch releases of the laetst stable)
+        required: true
+        type: boolean
+        default: false
+      crates_only:
+        description: If true, no binaries or runtimes build will be triggered and release draft will contain only a changelog (needed for stable patch releases that are crates only)
+        required: true
+        type: boolean
+        default: false
 
 jobs:
   check-synchronization:
@@ -73,6 +83,7 @@ jobs:
           echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
 
   build-runtimes-flow:
+    if: ${{ inputs.no_runtimes == false && inputs.crates_only == false }}
     needs: [validate-inputs]
     uses: "./.github/workflows/release-21_build-runtimes.yml"
     with:
@@ -86,6 +97,7 @@ jobs:
       contents: read
 
   build-rc-flow:
+    if: ${{ inputs.crates_only == false }}
     needs: [validate-inputs]
     uses: "./.github/workflows/release-20_build-rc.yml"
     with:
@@ -104,4 +116,6 @@ jobs:
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       build_run_id: ${{ github.run_id }}
       runtimes: '${{ needs.build-runtimes-flow.outputs.published_runtimes }}'
+      no_runtimes: ${{ inputs.no_runtimes }}
+      crates_only: ${{ inputs.crates_only }}
     secrets: inherit
