@@ -23,10 +23,13 @@ use frame_election_provider_support::{
 };
 use frame_support::sp_runtime::testing::TestXt;
 use pallet_election_provider_multi_block as multi_block;
-use pallet_staking_async::{CurrentEra, ActiveEra, Forcing};
-use pallet_staking_async_rc_client::{LastEraActivationSessionReportEndingIndex, OutgoingValidatorSet, SessionReport, ValidatorSetReport};
-use sp_staking::SessionIndex;
 use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
+use pallet_staking_async::{ActiveEra, CurrentEra, Forcing};
+use pallet_staking_async_rc_client::{
+	LastEraActivationSessionReportEndingIndex, OutgoingValidatorSet, SessionReport,
+	ValidatorSetReport,
+};
+use sp_staking::SessionIndex;
 pub const LOG_TARGET: &str = "ahm-test";
 
 construct_runtime! {
@@ -684,22 +687,24 @@ pub(crate) fn ensure_last_era_session_index_initialised() {
 }
 
 pub(crate) fn roll_and_assert_idle_sessions(count: usize, expect_export: bool) {
-	let last_session_end_index = pallet_staking_async_rc_client::LastSessionReportEndingIndex::<T>::get().unwrap_or_default();
+	let last_session_end_index =
+		pallet_staking_async_rc_client::LastSessionReportEndingIndex::<T>::get()
+			.unwrap_or_default();
 	let active_era = ActiveEra::<T>::get().unwrap().index;
 	let planning_era = CurrentEra::<T>::get().unwrap();
-	let pre_validator_set_export_count =  LocalQueue::get().unwrap().len();
+	let pre_validator_set_export_count = LocalQueue::get().unwrap().len();
 
 	for s in 1..=count {
 		// end the session..
 		assert_ok!(pallet_staking_async_rc_client::Pallet::<T>::relay_session_report(
-					RuntimeOrigin::root(),
-					SessionReport {
-						end_index: last_session_end_index + s as u32,
-						validator_points: vec![(1, 10)],
-						activation_timestamp: None,
-						leftover: false,
-					}
-				));
+			RuntimeOrigin::root(),
+			SessionReport {
+				end_index: last_session_end_index + s as u32,
+				validator_points: vec![(1, 10)],
+				activation_timestamp: None,
+				leftover: false,
+			}
+		));
 
 		// run session blocks.
 		roll_many(60);
@@ -714,7 +719,6 @@ pub(crate) fn roll_and_assert_idle_sessions(count: usize, expect_export: bool) {
 			// no new messages in the queue
 			assert_eq!(LocalQueue::get().unwrap().len(), pre_validator_set_export_count);
 		}
-
 	}
 }
 
@@ -722,29 +726,34 @@ pub(crate) fn roll_and_assert_election_session(expect_export: bool) {
 	// clear election events
 	election_events_since_last_call();
 
-	let last_session_end_index = pallet_staking_async_rc_client::LastSessionReportEndingIndex::<T>::get().unwrap_or_default();
+	let last_session_end_index =
+		pallet_staking_async_rc_client::LastSessionReportEndingIndex::<T>::get()
+			.unwrap_or_default();
 	let active_era = ActiveEra::<T>::get().unwrap().index;
 	let planning_era = CurrentEra::<T>::get().unwrap();
-	let pre_validator_set_export_count =  LocalQueue::get().unwrap().len();
+	let pre_validator_set_export_count = LocalQueue::get().unwrap().len();
 	// election should not have already started.
 	assert_eq!(active_era, planning_era);
 	assert_eq!(multi_block::CurrentPhase::<T>::get(), Phase::Off);
 
 	assert_ok!(pallet_staking_async_rc_client::Pallet::<T>::relay_session_report(
-					RuntimeOrigin::root(),
-					SessionReport {
-						end_index: last_session_end_index + 1,
-						validator_points: vec![(1, 10)],
-						activation_timestamp: None,
-						leftover: false,
-					}
-				));
+		RuntimeOrigin::root(),
+		SessionReport {
+			end_index: last_session_end_index + 1,
+			validator_points: vec![(1, 10)],
+			activation_timestamp: None,
+			leftover: false,
+		}
+	));
 
 	// assert no change in active era
 	assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
 	// planning era is incremented indicating start of election
 	assert_eq!(CurrentEra::<T>::get().unwrap(), planning_era + 1);
-	assert_eq!(election_events_since_last_call(), [ElectionEvent::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(Pages::get()) }]);
+	assert_eq!(
+		election_events_since_last_call(),
+		[ElectionEvent::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(Pages::get()) }]
+	);
 
 	roll_many(60);
 	// ensure phase is off again.
@@ -762,10 +771,12 @@ pub(crate) fn roll_and_assert_election_session(expect_export: bool) {
 }
 
 pub(crate) fn roll_and_assert_era_end_session() {
-	let last_session_end_index = pallet_staking_async_rc_client::LastSessionReportEndingIndex::<T>::get().unwrap_or_default();
+	let last_session_end_index =
+		pallet_staking_async_rc_client::LastSessionReportEndingIndex::<T>::get()
+			.unwrap_or_default();
 	let active_era = ActiveEra::<T>::get().unwrap().index;
 	let planning_era = CurrentEra::<T>::get().unwrap();
-	let pre_validator_set_export_count =  LocalQueue::get().unwrap().len();
+	let pre_validator_set_export_count = LocalQueue::get().unwrap().len();
 	// ensure planning era is ahead of active era.
 	assert_eq!(active_era + 1, planning_era);
 	// and election is already over.
@@ -773,14 +784,14 @@ pub(crate) fn roll_and_assert_era_end_session() {
 
 	// let's end the session with activation timestamp
 	assert_ok!(pallet_staking_async_rc_client::Pallet::<T>::relay_session_report(
-					RuntimeOrigin::root(),
-					SessionReport {
-						end_index: last_session_end_index + 1,
-						validator_points: vec![(1, 10)],
-						activation_timestamp: Some((planning_era as u64 * 1000, planning_era as u32)),
-						leftover: false,
-					}
-				));
+		RuntimeOrigin::root(),
+		SessionReport {
+			end_index: last_session_end_index + 1,
+			validator_points: vec![(1, 10)],
+			activation_timestamp: Some((planning_era as u64 * 1000, planning_era as u32)),
+			leftover: false,
+		}
+	));
 
 	// ensure active era is incremented
 	assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era + 1);
