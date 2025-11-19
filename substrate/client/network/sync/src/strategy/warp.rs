@@ -452,10 +452,26 @@ where
 					header.number(),
 				);
 				self.total_proof_bytes += response.0.len() as u64;
-				self.phase = Phase::TargetBlock(header);
+				self.phase = Phase::TargetBlock(header.clone());
+				let incoming_blocks = proofs
+					.into_iter()
+					.map(proof_to_incoming_block)
+					.filter(|i| {
+						if header.number() != i.header.as_ref().unwrap().number() {
+							true
+						} else {
+							log::trace!(
+								"Filtered out target block: {} ({})",
+								header.hash(),
+								header.number()
+							);
+							false
+						}
+					})
+					.collect();
 				self.actions.push(SyncingAction::ImportBlocks {
 					origin: BlockOrigin::ConsensusBroadcast,
-					blocks: proofs.into_iter().map(proof_to_incoming_block).collect(),
+					blocks: incoming_blocks,
 				});
 			},
 		}
