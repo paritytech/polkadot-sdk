@@ -71,7 +71,10 @@ async fn inbound_substream_for_outbound_peer() {
 	assert_eq!(peerset.num_out(), 0usize);
 
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::OpenSubstream { peers: out_peers }) => {
+		Some(command) => {
+			assert!(command.close_peers.is_empty());
+			let out_peers = command.open_peers;
+
 			assert_eq!(out_peers.len(), 3usize);
 			assert_eq!(peerset.num_in(), 0usize);
 			assert_eq!(peerset.num_out(), 3usize);
@@ -117,7 +120,9 @@ async fn canceled_peer_gets_banned() {
 	assert_eq!(peerset.num_out(), 0usize);
 
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::OpenSubstream { peers: out_peers }) => {
+		Some(command) => {
+			assert!(command.close_peers.is_empty());
+			let out_peers = command.open_peers;
 			assert_eq!(peerset.num_in(), 0usize);
 			assert_eq!(peerset.num_out(), 0usize);
 
@@ -138,8 +143,9 @@ async fn canceled_peer_gets_banned() {
 		.unwrap();
 
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::CloseSubstream { peers: out_peers }) => {
-			assert!(out_peers.is_empty());
+		Some(command) => {
+			assert!(command.open_peers.is_empty());
+			assert!(command.close_peers.is_empty());
 		},
 		event => panic!("invalid event: {event:?}"),
 	}
@@ -174,7 +180,9 @@ async fn peer_added_and_removed_from_peerset() {
 		.unwrap();
 
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::OpenSubstream { peers: out_peers }) => {
+		Some(command) => {
+			assert!(command.close_peers.is_empty());
+			let out_peers = command.open_peers;
 			assert_eq!(peerset.num_in(), 0usize);
 			assert_eq!(peerset.num_out(), 0usize);
 
@@ -208,7 +216,10 @@ async fn peer_added_and_removed_from_peerset() {
 		.unwrap();
 
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::CloseSubstream { peers: out_peers }) => {
+		Some(command) => {
+			assert!(command.open_peers.is_empty());
+
+			let out_peers = command.close_peers;
 			assert!(!out_peers.is_empty());
 
 			for peer in &out_peers {
@@ -229,7 +240,9 @@ async fn peer_added_and_removed_from_peerset() {
 		.unwrap();
 
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::OpenSubstream { peers: out_peers }) => {
+		Some(command) => {
+			assert!(command.close_peers.is_empty());
+			let out_peers = command.open_peers;
 			assert!(out_peers.is_empty());
 
 			for peer in &peers {
@@ -249,8 +262,9 @@ async fn peer_added_and_removed_from_peerset() {
 		.unwrap();
 
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::CloseSubstream { peers: out_peers }) => {
-			assert!(out_peers.is_empty());
+		Some(command) => {
+			assert!(command.open_peers.is_empty());
+			assert!(command.close_peers.is_empty());
 
 			for peer in &peers {
 				assert!(!peerset.reserved_peers().contains(peer));
@@ -282,7 +296,9 @@ async fn set_reserved_peers() {
 	assert_eq!(peerset.num_out(), 0usize);
 
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::OpenSubstream { peers: out_peers }) => {
+		Some(command) => {
+			assert!(command.close_peers.is_empty());
+			let out_peers = command.open_peers;
 			assert_eq!(peerset.num_in(), 0usize);
 			assert_eq!(peerset.num_out(), 0usize);
 
@@ -318,7 +334,10 @@ async fn set_reserved_peers() {
 		.unwrap();
 
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::CloseSubstream { peers: out_peers }) => {
+		Some(command) => {
+			assert!(command.open_peers.is_empty());
+
+			let out_peers = command.close_peers;
 			assert!(!out_peers.is_empty());
 			assert_eq!(out_peers.len(), 3);
 
@@ -339,7 +358,9 @@ async fn set_reserved_peers() {
 	}
 
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::OpenSubstream { peers: out_peers }) => {
+		Some(command) => {
+			assert!(command.close_peers.is_empty());
+			let out_peers = command.open_peers;
 			assert!(!out_peers.is_empty());
 			assert_eq!(out_peers.len(), 3);
 
@@ -374,7 +395,9 @@ async fn set_reserved_peers_one_peer_already_in_the_set() {
 	assert_eq!(peerset.num_out(), 0usize);
 
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::OpenSubstream { peers: out_peers }) => {
+		Some(command) => {
+			assert!(command.close_peers.is_empty());
+			let out_peers = command.open_peers;
 			assert_eq!(peerset.num_in(), 0usize);
 			assert_eq!(peerset.num_out(), 0usize);
 
@@ -409,7 +432,10 @@ async fn set_reserved_peers_one_peer_already_in_the_set() {
 		.unwrap();
 
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::CloseSubstream { peers: out_peers }) => {
+		Some(command) => {
+			assert!(command.open_peers.is_empty());
+
+			let out_peers = command.close_peers;
 			assert_eq!(out_peers.len(), 2);
 
 			for peer in &out_peers {
@@ -440,7 +466,9 @@ async fn set_reserved_peers_one_peer_already_in_the_set() {
 	);
 
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::OpenSubstream { peers: out_peers }) => {
+		Some(command) => {
+			assert!(command.close_peers.is_empty());
+			let out_peers = command.open_peers;
 			assert!(!out_peers.is_empty());
 			assert_eq!(out_peers.len(), 2);
 
@@ -485,7 +513,9 @@ async fn add_reserved_peers_one_peer_already_in_the_set() {
 	assert_eq!(peerset.num_out(), 0usize);
 
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::OpenSubstream { peers: out_peers }) => {
+		Some(command) => {
+			assert!(command.close_peers.is_empty());
+			let out_peers = command.open_peers;
 			assert_eq!(peerset.num_in(), 0usize);
 			assert_eq!(peerset.num_out(), 0usize);
 			assert_eq!(out_peers.len(), 3);
@@ -521,7 +551,9 @@ async fn add_reserved_peers_one_peer_already_in_the_set() {
 		.unwrap();
 
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::OpenSubstream { peers: out_peers }) => {
+		Some(command) => {
+			assert!(command.close_peers.is_empty());
+			let out_peers = command.open_peers;
 			assert_eq!(out_peers.len(), 2);
 			assert!(!out_peers.iter().any(|peer| peer == &common_peer));
 
@@ -573,7 +605,9 @@ async fn opening_peer_gets_canceled_and_disconnected() {
 	assert_eq!(peerset.num_out(), 0);
 
 	let peer = match peerset.next().await {
-		Some(PeersetNotificationCommand::OpenSubstream { peers: out_peers }) => {
+		Some(command) => {
+			assert!(command.close_peers.is_empty());
+			let out_peers = command.open_peers;
 			assert_eq!(peerset.num_in(), 0);
 			assert_eq!(peerset.num_out(), 1);
 			assert_eq!(out_peers.len(), 1);
@@ -650,7 +684,9 @@ async fn open_failure_for_canceled_peer() {
 	assert_eq!(peerset.num_out(), 0usize);
 
 	let peer = match peerset.next().await {
-		Some(PeersetNotificationCommand::OpenSubstream { peers: out_peers }) => {
+		Some(command) => {
+			assert!(command.close_peers.is_empty());
+			let out_peers = command.open_peers;
 			assert_eq!(peerset.num_in(), 0usize);
 			assert_eq!(peerset.num_out(), 1usize);
 			assert_eq!(out_peers.len(), 1);
@@ -744,7 +780,9 @@ async fn removed_reserved_peer_kept_due_to_free_slots() {
 	assert_eq!(peerset.num_out(), 0usize);
 
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::OpenSubstream { peers: out_peers }) => {
+		Some(command) => {
+			assert!(command.close_peers.is_empty());
+			let out_peers = command.open_peers;
 			assert_eq!(peerset.num_in(), 0usize);
 			assert_eq!(peerset.num_out(), 0usize);
 
@@ -765,8 +803,9 @@ async fn removed_reserved_peer_kept_due_to_free_slots() {
 		.unwrap();
 
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::CloseSubstream { peers: out_peers }) => {
-			assert!(out_peers.is_empty());
+		Some(command) => {
+			assert!(command.open_peers.is_empty());
+			assert!(command.close_peers.is_empty());
 		},
 		event => panic!("invalid event: {event:?}"),
 	}
@@ -813,7 +852,9 @@ async fn set_reserved_peers_but_available_slots() {
 	// We have less than 25 outbound peers connected. At the next slot allocation we
 	// query the `peerstore_handle` for more peers to connect to.
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::OpenSubstream { peers: out_peers }) => {
+		Some(command) => {
+			assert!(command.close_peers.is_empty());
+			let out_peers = command.open_peers;
 			assert_eq!(out_peers.len(), 3);
 
 			for peer in &out_peers {
@@ -852,9 +893,10 @@ async fn set_reserved_peers_but_available_slots() {
 	// we don't have enough slot capacity to move them to regular nodes.
 	// In this case, we did not have previously any reserved peers.
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::CloseSubstream { peers }) => {
+		Some(command) => {
 			// This ensures we don't disconnect peers when receiving `SetReservedPeers`.
-			assert_eq!(peers.len(), 0);
+			assert!(command.close_peers.is_empty());
+			assert!(command.open_peers.is_empty());
 		},
 		event => panic!("invalid event: {event:?}"),
 	}
@@ -866,7 +908,10 @@ async fn set_reserved_peers_but_available_slots() {
 	assert_eq!(peerset.reserved_peers().len(), 3usize);
 
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::OpenSubstream { peers }) => {
+		Some(command) => {
+			assert!(command.close_peers.is_empty());
+			let peers = command.open_peers;
+
 			assert_eq!(peers.len(), 2);
 			assert!(!peers.contains(&common_peer));
 
@@ -921,7 +966,9 @@ async fn set_reserved_peers_move_previously_reserved() {
 
 	// We are not connected to the reserved peers.
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::OpenSubstream { peers: out_peers }) => {
+		Some(command) => {
+			assert!(command.close_peers.is_empty());
+			let out_peers = command.open_peers;
 			assert_eq!(out_peers.len(), 3);
 
 			for peer in &out_peers {
@@ -962,9 +1009,10 @@ async fn set_reserved_peers_move_previously_reserved() {
 	// we don't have enough slot capacity to move them to regular nodes.
 	// In this case, we have enough capacity.
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::CloseSubstream { peers }) => {
+		Some(command) => {
 			// This ensures we don't disconnect peers when receiving `SetReservedPeers`.
-			assert_eq!(peers.len(), 0);
+			assert!(command.close_peers.is_empty());
+			assert!(command.open_peers.is_empty());
 		},
 		event => panic!("invalid event: {event:?}"),
 	}
@@ -1007,7 +1055,10 @@ async fn set_reserved_peers_move_previously_reserved() {
 	}
 
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::OpenSubstream { peers }) => {
+		Some(command) => {
+			assert!(command.close_peers.is_empty());
+			let peers = command.open_peers;
+
 			// Open desires with newly reserved.
 			assert_eq!(peers.len(), 2);
 			assert!(!peers.contains(&common_peer));
@@ -1064,7 +1115,9 @@ async fn set_reserved_peers_cannot_move_previously_reserved() {
 
 	// We are not connected to the reserved peers.
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::OpenSubstream { peers: out_peers }) => {
+		Some(command) => {
+			assert!(command.close_peers.is_empty());
+			let out_peers = command.open_peers;
 			assert_eq!(out_peers.len(), 3);
 
 			for peer in &out_peers {
@@ -1105,7 +1158,10 @@ async fn set_reserved_peers_cannot_move_previously_reserved() {
 	// we don't have enough slot capacity to move them to regular nodes.
 	// In this case, we don't have enough capacity.
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::CloseSubstream { peers }) => {
+		Some(command) => {
+			assert!(command.open_peers.is_empty());
+
+			let peers = command.close_peers;
 			// This ensures we don't disconnect peers when receiving `SetReservedPeers`.
 			assert_eq!(peers.len(), 2);
 
@@ -1150,7 +1206,9 @@ async fn reserved_only_rejects_non_reserved_peers() {
 	// Step 1. Connect reserved peers.
 	{
 		match peerset.next().await {
-			Some(PeersetNotificationCommand::OpenSubstream { peers: out_peers }) => {
+			Some(command) => {
+				assert!(command.close_peers.is_empty());
+				let out_peers = command.open_peers;
 				assert_eq!(peerset.num_in(), 0usize);
 				assert_eq!(peerset.num_out(), 0usize);
 
@@ -1243,7 +1301,10 @@ async fn reserved_only_rejects_non_reserved_peers() {
 		// This will activate the non-reserved peers and give us the best outgoing
 		// candidates to connect to.
 		match peerset.next().await {
-			Some(PeersetNotificationCommand::OpenSubstream { peers }) => {
+			Some(command) => {
+				assert!(command.close_peers.is_empty());
+				let peers = command.open_peers;
+
 				// These are the non-reserved peers we informed the peerset above.
 				assert_eq!(peers.len(), 3);
 				for peer in &peers {
