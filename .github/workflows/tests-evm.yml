@@ -120,7 +120,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: paritytech/evm-test-suite
-          ref: f3036c5ec4d06f2c295be32583158d430552d71d
+          ref: ccd7f347033439b665eaa89a763b31ead8a83a1c
           path: evm-test-suite
 
       - uses: denoland/setup-deno@v2
