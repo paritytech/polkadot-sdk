@@ -947,3 +947,64 @@ fn full_core_weight_in_inherent_context() {
 			assert_eq!(MaximumBlockWeight::get(), FULL_CORE_WEIGHT);
 		});
 }
+
+#[test]
+fn executive_validate_transaction_respects_dispatch_class_max_block_size() {
+	// Create some weight which is slightly above the allowed dispatch class max size.
+	let call_weight = TestExtBuilder::new().previous_core_count(4).build().execute_with(|| {
+		MaximumBlockWeight::target_block_weight() * NORMAL_DISPATCH_RATIO + Weight::from_parts(1, 1)
+	});
+
+	for signed in [true, false] {
+		TestExtBuilder::new().previous_core_count(4).build().execute_with(|| {
+			assert!(<RuntimeOnlyOperational as frame_system::Config>::BlockWeights::get()
+				.get(DispatchClass::Normal)
+				.max_total
+				.unwrap()
+				.all_lt(call_weight));
+			assert!(MaximumBlockWeight::target_block_weight().all_gt(call_weight));
+
+			let call =
+				RuntimeCall::TestPallet(test_pallet::Call::use_weight { weight: call_weight });
+
+			let xt = if signed {
+				Extrinsic::new_signed(call, 1u64.into(), 1u64.into(), Default::default())
+			} else {
+				Extrinsic::new_bare(call)
+			};
+
+			assert_ok!(Executive::validate_transaction(
+				TransactionSource::External,
+				xt.clone(),
+				Default::default()
+			));
+		});
+
+		TestExtBuilder::new().previous_core_count(4).build().execute_with(|| {
+			let call = RuntimeCallOnlyOperational::TestPallet(test_pallet::Call::use_weight {
+				weight: call_weight,
+			});
+
+			let xt = if signed {
+				ExtrinsicOnlyOperational::new_signed(
+					call,
+					1u64.into(),
+					1u64.into(),
+					Default::default(),
+				)
+			} else {
+				ExtrinsicOnlyOperational::new_bare(call)
+			};
+
+			assert_eq!(
+				ExecutiveOnlyOperational::validate_transaction(
+					TransactionSource::External,
+					xt,
+					Default::default()
+				)
+				.unwrap_err(),
+				InvalidTransaction::ExhaustsResources.into()
+			);
+		});
+	}
+}

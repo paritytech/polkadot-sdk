@@ -56,6 +56,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::MAX_POV_SIZE;
+use polkadot_runtime_parachains::inclusion::migration::v0::PendingAvailabilityCommitments_Storage_Instance;
 use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::Digest;
@@ -76,6 +77,9 @@ const MAX_REF_TIME_PER_CORE_NS: u64 = 2 * WEIGHT_REF_TIME_PER_SECOND;
 /// The available weight per core on the relay chain.
 pub(crate) const FULL_CORE_WEIGHT: Weight =
 	Weight::from_parts(MAX_REF_TIME_PER_CORE_NS, MAX_POV_SIZE as u64);
+
+// Is set to `true` when we are currently inside of `pre_validate_extrinsic`.
+environmental::environmental!(inside_pre_validate: bool);
 
 /// The current block weight mode.
 ///
@@ -189,7 +193,7 @@ impl<Config: crate::Config, TargetBlockRate: Get<u32>>
 
 		// At maximum we want to allow `6s` of ref time, because we don't want to overload nodes
 		// that are running with standard hardware. These nodes need to be able to import all the
-		// blocks in 6s.
+		// blocks in `6s`.
 		let total_ref_time = (number_of_cores as u64)
 			.saturating_mul(MAX_REF_TIME_PER_CORE_NS)
 			.min(WEIGHT_REF_TIME_PER_SECOND * 6);
@@ -220,6 +224,13 @@ impl<Config: crate::Config, TargetBlockRate: Get<u32>> Get<Weight>
 			target_block_weight
 		};
 
+		// Check if we are inside `pre_validate_extrinsic` of the transaction extension.
+		//
+		// When `pre_validate_extrinsic` calls this code, it is interested to know the
+		// `target_block_weight` which is then used to calculate the weight for each dispatch class.
+		// If `FullCore` mode is already enabled, the target weight is not important anymore.
+		let in_pre_validate = inside_pre_validate::with(|v| *v).unwrap_or(false);
+
 		match crate::BlockWeightMode::<Config>::get().filter(|m| !m.is_stale()) {
 			// We allow the full core.
 			Some(
@@ -228,11 +239,13 @@ impl<Config: crate::Config, TargetBlockRate: Get<u32>> Get<Weight>
 			) => FULL_CORE_WEIGHT,
 			// Let's calculate below how much weight we can use.
 			Some(BlockWeightMode::<Config>::FractionOfCore { first_transaction_index, .. })
-				if first_transaction_index.is_some() =>
+				if first_transaction_index.is_some() && !in_pre_validate =>
 				target_block_weight,
-			// If we are in `on_initialize` or at applying the inherents, we allow the maximum block
-			// weight as allowed by the current context.
-			Some(BlockWeightMode::<Config>::FractionOfCore { .. }) | None => maybe_full_core_weight,
+			// If we are in `on_initialize`, at applying the inherents or before applying the first
+			// transaction, we allow the maximum block weight as allowed by the current context.
+			Some(BlockWeightMode::<Config>::FractionOfCore { .. }) | None if !in_pre_validate =>
+				maybe_full_core_weight,
+			_ => target_block_weight,
 		}
 	}
 }
