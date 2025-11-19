@@ -610,6 +610,8 @@ pub async fn submit_unsigned_extrinsic_and_wait_for_finalization_success(
 async fn submit_tx_and_wait_for_finalization(
 	tx: SubmittableTransaction<PolkadotConfig, OnlineClient<PolkadotConfig>>,
 ) -> Result<H256, anyhow::Error> {
+	log::info!("Submitting transaction: {:?}", tx.hash());
+
 	let mut tx = tx.submit_and_watch().await?;
 
 	// Below we use the low level API to replicate the `wait_for_in_block` behavior

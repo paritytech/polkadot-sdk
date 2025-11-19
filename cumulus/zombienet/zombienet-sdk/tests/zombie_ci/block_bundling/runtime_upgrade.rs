@@ -19,9 +19,8 @@ use anyhow::anyhow;
 use cumulus_primitives_core::relay_chain::MAX_POV_SIZE;
 use cumulus_test_runtime::wasm_spec_version_incremented::WASM_BINARY_BLOATY as WASM_RUNTIME_UPGRADE;
 use cumulus_zombienet_sdk_helpers::{
-	assert_finality_lag, assert_para_throughput, create_assign_core_call,
-	ensure_is_only_block_in_core, find_core_info,
-	submit_extrinsic_and_wait_for_finalization_success,
+	assert_finality_lag, assert_para_throughput, assign_cores, ensure_is_only_block_in_core,
+	find_core_info, submit_extrinsic_and_wait_for_finalization_success,
 	submit_unsigned_extrinsic_and_wait_for_finalization_success, BlockToCheck,
 };
 use polkadot_primitives::Id as ParaId;
@@ -85,15 +84,8 @@ async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 	let alice = dev::alice();
 
 	// Assign cores 0 and 1 to start with 3 cores total (core 2 is assigned by Zombienet)
-	let assign_cores_call = create_assign_core_call(&[(0, PARA_ID), (1, PARA_ID)]);
+	assign_cores(&relay_node, PARA_ID, vec![0, 1]).await;
 
-	relay_client
-		.tx()
-		.sign_and_submit_then_watch_default(&assign_cores_call, &alice)
-		.await
-		.inspect(|_| log::info!("Tx send, waiting for finalization"))?
-		.wait_for_finalized_success()
-		.await?;
 	log::info!("3 cores total assigned to the parachain");
 
 	// Step 1: Authorize the runtime upgrade
@@ -183,7 +175,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_args(vec![
 					("--authoring").into(),
 					("slot-based").into(),
-					("-lparachain=debug,aura=trace,basic-authorship=trace,runtime=trace").into(),
+					("-lparachain=debug,aura=trace,basic-authorship=trace,runtime=trace,txpool=trace").into(),
 				])
 				.with_collator(|n| n.with_name("collator-0"))
 				.with_collator(|n| n.with_name("collator-1"))
