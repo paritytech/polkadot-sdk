@@ -53,6 +53,7 @@ use crate::{
 use futures::prelude::*;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
+use sc_network_types::PeerId;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
@@ -61,6 +62,7 @@ use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
+use sp_timestamp::Timestamp;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
 /// Parameters for [`run`].
@@ -83,6 +85,8 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	pub keystore: KeystorePtr,
 	/// The collator key used to sign collations before submitting to validators.
 	pub collator_key: CollatorPair,
+	/// The collator network peer id.
+	pub collator_peer_id: PeerId,
 	/// The para's ID.
 	pub para_id: ParaId,
 	/// A handle to the relay-chain client's "Overseer" or task orchestrator.
@@ -100,6 +104,50 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	/// The maximum percentage of the maximum PoV size that the collator can use.
 	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
 	pub max_pov_percentage: Option<u32>,
+}
+
+/// Get the current parachain slot from a given block hash.
+///
+/// Returns the parachain slot, relay chain slot, and timestamp.
+fn get_parachain_slot<Block, Client, P>(
+	para_client: &Client,
+	block_hash: Block::Hash,
+	relay_parent_header: &polkadot_primitives::Header,
+	relay_chain_slot_duration: Duration,
+) -> Option<(Slot, Slot, Timestamp)>
+where
+	Block: BlockT,
+	Client: ProvideRuntimeApi<Block>,
+	Client::Api: AuraApi<Block, P>,
+	P: Codec,
+{
+	let slot_duration =
+		match sc_consensus_aura::standalone::slot_duration_at(para_client, block_hash) {
+			Ok(sd) => sd,
+			Err(err) => {
+				tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to acquire parachain slot duration");
+				return None
+			},
+		};
+
+	tracing::debug!(target: crate::LOG_TARGET, ?slot_duration, ?block_hash, "Parachain slot duration acquired");
+
+	let (relay_slot, timestamp) =
+		consensus_common::relay_slot_and_timestamp(relay_parent_header, relay_chain_slot_duration)?;
+
+	let slot_now = Slot::from_timestamp(timestamp, slot_duration);
+
+	tracing::debug!(
+		target: crate::LOG_TARGET,
+		?relay_slot,
+		para_slot = ?slot_now,
+		?timestamp,
+		?slot_duration,
+		?relay_chain_slot_duration,
+		"Adjusted relay-chain slot to parachain slot"
+	);
+
+	Some((slot_now, relay_slot, timestamp))
 }
 
 /// Run async-backing-friendly Aura.
@@ -211,6 +259,7 @@ where
 				block_import: params.block_import,
 				relay_client: params.relay_client.clone(),
 				keystore: params.keystore.clone(),
+				collator_peer_id: params.collator_peer_id,
 				para_id: params.para_id,
 				proposer: params.proposer,
 				collator_service: params.collator_service,
@@ -219,12 +268,10 @@ where
 			collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
 		};
 
-		let mut connection_helper: BackingGroupConnectionHelper<Client> =
-			BackingGroupConnectionHelper::new(
-				params.para_client.clone(),
-				params.keystore.clone(),
-				params.overseer_handle.clone(),
-			);
+		let mut connection_helper = BackingGroupConnectionHelper::new(
+			params.keystore.clone(),
+			params.overseer_handle.clone(),
+		);
 
 		while let Some(relay_parent_header) = import_notifications.next().await {
 			let relay_parent = relay_parent_header.hash();
@@ -276,42 +323,21 @@ where
 			let para_client = &*params.para_client;
 			let keystore = &params.keystore;
 			let can_build_upon = |block_hash| {
-				let slot_duration = match sc_consensus_aura::standalone::slot_duration_at(
-					&*params.para_client,
+				let (slot_now, relay_slot, timestamp) = get_parachain_slot::<_, _, P::Public>(
+					para_client,
 					block_hash,
-				) {
-					Ok(sd) => sd,
-					Err(err) => {
-						tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to acquire parachain slot duration");
-						return None
-					},
-				};
-				tracing::debug!(target: crate::LOG_TARGET, ?slot_duration, ?block_hash, "Parachain slot duration acquired");
-				let (relay_slot, timestamp) = consensus_common::relay_slot_and_timestamp(
 					&relay_parent_header,
 					params.relay_chain_slot_duration,
 				)?;
-				let slot_now = Slot::from_timestamp(timestamp, slot_duration);
-				tracing::debug!(
-					target: crate::LOG_TARGET,
-					?relay_slot,
-					para_slot = ?slot_now,
-					?timestamp,
-					?slot_duration,
-					relay_chain_slot_duration = ?params.relay_chain_slot_duration,
-					"Adjusted relay-chain slot to parachain slot"
-				);
-				Some((
+
+				Some(super::can_build_upon::<_, _, P>(
 					slot_now,
-					super::can_build_upon::<_, _, P>(
-						slot_now,
-						relay_slot,
-						timestamp,
-						block_hash,
-						included_block.hash(),
-						para_client,
-						&keystore,
-					),
+					relay_slot,
+					timestamp,
+					block_hash,
+					included_block.hash(),
+					para_client,
+					&keystore,
 				))
 			};
 
@@ -326,15 +352,25 @@ where
 				continue
 			}
 
+			// Trigger pre-conect to backing groups if necessary.
+			if let (Some((slot_now, _relay_slot, _timestamp)), Ok(authorities)) = (
+				get_parachain_slot::<_, _, P::Public>(
+					para_client,
+					parent_hash,
+					&relay_parent_header,
+					params.relay_chain_slot_duration,
+				),
+				para_client.runtime_api().authorities(parent_hash),
+			) {
+				connection_helper.update::<P>(slot_now, &authorities).await;
+			}
+
 			// This needs to change to support elastic scaling, but for continuously
 			// scheduled chains this ensures that the backlog will grow steadily.
 			for n_built in 0..2 {
 				let slot_claim = match can_build_upon(parent_hash) {
-					Some((current_slot, fut)) => match fut.await {
-						None => {
-							connection_helper.update::<Block, P>(current_slot, parent_hash).await;
-							break
-						},
+					Some(fut) => match fut.await {
+						None => break,
 						Some(c) => c,
 					},
 					None => break,
@@ -362,6 +398,7 @@ where
 						&validation_data,
 						parent_hash,
 						slot_claim.timestamp(),
+						params.collator_peer_id,
 					)
 					.await
 				{
