@@ -65,7 +65,7 @@ pub mod error;
 mod metrics;
 
 use claim_queue_state::ClaimQueueState;
-pub use claim_queue_state::PerLeafClaimQueueState;
+pub(crate) use claim_queue_state::PerLeafClaimQueueState;
 pub use collation::BlockedCollationId;
 use collation::{
 	fetched_collation_sanity_check, CollationEvent, CollationFetchError, CollationFetchRequest,
