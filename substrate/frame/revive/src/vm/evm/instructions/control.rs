@@ -135,6 +135,7 @@ pub fn invalid<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 /// Returns a runtime code that fills the maximum allowed code size.
 #[cfg(feature = "runtime-benchmarks")]
 pub fn bench_init_code() -> ControlFlow<Halt> {
-	let runtime_code = vec![revm::bytecode::opcode::STOP; revm::primitives::eip170::MAX_CODE_SIZE];
+	let runtime_code =
+		alloc::vec![revm::bytecode::opcode::STOP; revm::primitives::eip170::MAX_CODE_SIZE];
 	ControlFlow::Break(Halt::Return(runtime_code))
 }
