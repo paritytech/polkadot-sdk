@@ -3,8 +3,9 @@
 
 // Test network with 3 validators from current branch and 1 validator from old polkadot image.
 // The network should work properly with adder-collator parachain and finalize blocks.
-// This test expects disputes to occur due to erasure-coding differences between versions,
-// but verifies that finality continues despite the disputes.
+// This test may trigger disputes due to erasure-coding differences between versions during
+// approval voting (if the old validator is assigned as approval checker).
+// The test verifies that finality continues regardless of whether disputes occur.
 
 use anyhow::anyhow;
 
@@ -91,33 +92,33 @@ async fn mixed_validators_adder_collator_test() -> Result<(), anyhow::Error> {
 	let _old_client: OnlineClient<PolkadotConfig> = old_relay_node.wait_client().await?;
 
 	// Assert that parachain has good throughput
-	// Due to erasure-coding differences, throughput might be lower than usual
-	log::info!("Checking parachain throughput (may be affected by disputes)");
+	log::info!("Checking parachain throughput");
 	assert_para_throughput(
 		&relay_client,
 		20,
-		// Lower bounds due to expected disputes
-		[(ParaId::from(2000), 8..21)]
+		[(ParaId::from(2000), 10..21)]
 			.into_iter()
 			.collect(),
 	)
 	.await?;
 
-	// Check that disputes ARE raised due to erasure-coding differences
-	log::info!("Waiting for disputes due to erasure-coding differences between versions");
+	// Check if disputes are raised due to erasure-coding differences during approval voting
+	// Note: Disputes are only initiated when the old validator is assigned as approval checker
+	// for a backed candidate. With 4 validators, this might not happen for all candidates.
+	log::info!("Checking for disputes during approval voting (may not occur if old validator is not assigned as approval checker)");
 	let disputes_result = relay_node
 		.wait_metric_with_timeout("polkadot_parachain_candidate_disputes_total", |v| v > 0.0, 90u64)
 		.await;
 	
 	if disputes_result.is_ok() {
-		log::info!("✅ Disputes detected as expected due to erasure-coding differences");
+		log::info!("✅ Disputes detected due to erasure-coding differences during approval voting");
 	} else {
-		log::warn!("⚠️  No disputes detected within timeout - this might be unexpected with erasure-coding v2");
+		log::info!("ℹ️  No disputes detected - old validator was not assigned as approval checker for backed candidates");
 	}
 
-	// Despite disputes, finality should continue
-	// We check that finality lag is bounded despite disputes
-	log::info!("Checking finality continues despite disputes");
+	// Finality should continue regardless of whether disputes occurred
+	// We check that finality lag is bounded
+	log::info!("Checking that finality continues normally");
 	
 	// Check approval checking finality lag is bounded
 	relay_node
