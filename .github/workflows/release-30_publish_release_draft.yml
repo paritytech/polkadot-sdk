@@ -20,8 +20,7 @@ on:
         required: true
         type: string
       runtimes:
-        description: Runtimes to be published
-        required: true
+        description: Runtimes to be published (⚠️ this needs to be provided in case of the complete release, for the crates only release or a patch release without runtimes it is not needed)
       no_runtimes:
         description: If true, release draft will be published without runtimes
         required: true
