@@ -1,0 +1,16 @@
+title: '[NEVER MERGE] ZN test for asserting building Parablocks on RC with session
+  change'
+doc:
+- audience: Node Dev
+  description: |-
+    > [!CAUTION]
+    > Do not merge, the assert here should be negated and then added as a commit to #9990
+
+    @skunert I'm asking you to review this as a proper way of asserting that we ARE building parablocks where RC or Parent of RC contains session change.
+
+    If this code indeed is correct (but probably can be cleaned up), I will then **invert** the asserts, and commit it on top of #9990
+crates:
+- name: sc-cli
+  bump: minor
+- name: frame-executive
+  bump: minor
