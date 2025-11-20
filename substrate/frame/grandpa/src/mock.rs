@@ -276,7 +276,8 @@ pub fn new_test_ext_raw_authorities(authorities: AuthorityList) -> sp_io::TestEx
 
 	BasicExternalities::execute_with_storage(&mut t, || {
 		<pallet_session::Pallet<Test> as OnGenesis>::on_genesis();
-		// Set QueuedChanged to true so that the first session rotation increments the GRANDPA set ID
+		// Set QueuedChanged to true so that the first session rotation increments the GRANDPA set
+		// ID
 		pallet_session::QueuedChanged::<Test>::put(true);
 	});
 
