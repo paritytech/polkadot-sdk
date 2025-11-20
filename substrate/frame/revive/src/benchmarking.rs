@@ -2100,9 +2100,7 @@ mod benchmarks {
 		i: Linear<1024, { 10 * 1024 }>,
 	) -> Result<(), BenchmarkError> {
 		use crate::vm::evm::instructions::BENCH_INIT_CODE;
-		let module = VmBinaryModule::dummy();
-		let mut setup = CallSetup::<T>::new(module);
-
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::dummy());
 		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 		setup.set_balance(caller_funding::<T>());
 
@@ -2121,7 +2119,7 @@ mod benchmarks {
 
 		// Setup stack for create instruction [value, offset, size]
 		let _ = interpreter.stack.push(U256::from(init_code.len()));
-		let _ = interpreter.stack.push(U256::from(0u32));
+		let _ = interpreter.stack.push(U256::zero());
 		let _ = interpreter.stack.push(value);
 
 		let result;
