@@ -2100,7 +2100,7 @@ mod benchmarks {
 		i: Linear<{ 10 * 1024 }, { 48 * 1024 }>,
 	) -> Result<(), BenchmarkError> {
 		use crate::vm::evm::instructions::BENCH_INIT_CODE;
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::dummy());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_sized(0));
 		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 		setup.set_balance(caller_funding::<T>());
 
