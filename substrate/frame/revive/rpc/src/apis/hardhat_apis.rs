@@ -20,7 +20,7 @@
 
 use crate::*;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
-use pallet_revive::evm::{TransactionInfo};
+use pallet_revive::evm::TransactionInfo;
 use sc_consensus_manual_seal::rpc::CreatedBlock;
 use serde::{Deserialize, Serialize};
 
@@ -56,7 +56,7 @@ pub trait HardhatRpc {
 	) -> RpcResult<CreatedBlock<H256>>;
 
 	#[method(name = "evm_mine")]
-	async fn evm_mine(&self, timestamp: Option<U256>) -> RpcResult<CreatedBlock<H256>>;
+	async fn evm_mine(&self, timestamp: Option<u64>) -> RpcResult<CreatedBlock<H256>>;
 
 	#[method(name = "hardhat_getAutomine")]
 	async fn get_automine(&self) -> RpcResult<bool>;
@@ -94,13 +94,13 @@ pub trait HardhatRpc {
 	async fn set_prev_randao(&self, prev_randao: H256) -> RpcResult<Option<H256>>;
 
 	#[method(name = "evm_setNextBlockTimestamp")]
-	async fn set_next_block_timestamp(&self, next_timestamp: U256) -> RpcResult<()>;
+	async fn set_next_block_timestamp(&self, next_timestamp: u64) -> RpcResult<()>;
 
 	#[method(name = "evm_increaseTime")]
-	async fn increase_time(&self, increase_by_seconds: U256) -> RpcResult<U256>;
+	async fn increase_time(&self, increase_by_seconds: u64) -> RpcResult<U256>;
 
 	#[method(name = "evm_setBlockGasLimit")]
-	async fn set_block_gas_limit(&self, block_gas_limit: U128) -> RpcResult<Option<U128>>;
+	async fn set_block_gas_limit(&self, block_gas_limit: u64) -> RpcResult<Option<U128>>;
 
 	#[method(name = "hardhat_impersonateAccount")]
 	async fn impersonate_account(&self, account: H160) -> RpcResult<Option<H160>>;
