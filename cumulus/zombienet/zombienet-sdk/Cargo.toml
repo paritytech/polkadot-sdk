@@ -20,17 +20,12 @@ futures = { workspace = true }
 zombienet-sdk = { workspace = true }
 zombienet-orchestrator = { workspace = true }
 zombienet-configuration = { workspace = true }
-cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-zombienet-sdk-helpers = { workspace = true }
 sp-statement-store = { workspace = true, default-features = true }
 sc-statement-store = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
-sp-runtime = { workspace = true }
 sp-core = { workspace = true, default-features = true }
-sc-consensus-babe = { workspace = true }
-sp-consensus-babe = { workspace = true }
 rstest = { workspace = true }
-subxt = { workspace = true }
 
 [features]
 zombie-ci = []

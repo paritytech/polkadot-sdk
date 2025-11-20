@@ -327,7 +327,7 @@ pub async fn assert_relay_parent_offset(
 				for forbidden in &forbidden_parents {
 					if let Some(para_block) = seen_parents.get(forbidden) {
 						panic!(
-							"Parachain block {} was built on forbidden relay parent (state_root: {})",
+							"Parachain block {} was built on forbidden relay parent with session change descendants (state_root: {})",
 							para_block.hash(),
 							forbidden
 						);
