@@ -131,6 +131,10 @@ pub fn invalid<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	ControlFlow::Break(Error::<E::T>::InvalidInstruction.into())
 }
 
+/// bench_init opcode. Return with a runtime code that fills the maximum allowed code size.
+///
+/// This is used to benchmark the CREATE opcode. We create a runtime code, that returns a runtime
+/// code of the maximum allowed size.
 #[cfg(feature = "runtime-benchmarks")]
 pub fn bench_init_code() -> ControlFlow<Halt> {
 	let runtime_code = vec![revm::bytecode::opcode::STOP; revm::primitives::eip170::MAX_CODE_SIZE];
