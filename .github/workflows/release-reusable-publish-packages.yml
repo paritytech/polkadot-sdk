@@ -86,7 +86,7 @@ jobs:
       - name: Upload artifacts for later jobs
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
-          name: release-artifacts
+          name: release-artifacts-${{ inputs.package_type }}
           path: release-artifacts/polkadot/*.${{ inputs.package_type }}
 
   publish-package:
@@ -120,7 +120,7 @@ jobs:
       - name: Download artifacts from previous job
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
-          name: release-artifacts
+          name: release-artifacts-${{ inputs.package_type }}
           path: release-artifacts
 
       - name: Setup local deb repo config
