@@ -499,43 +499,35 @@ impl ClaimQueueState {
 	/// Example: if a path is [A, B, C, D] and `targets` contains [A, B] then both A and B will be
 	/// removed. But if `targets` contains [B, C] then nothing will be removed.
 	pub(super) fn remove_pruned_ancestors(&mut self, targets: &HashSet<Hash>) {
-		// All the blocks that should be pruned are in the front of `block_state`. Since
-		// `block_state` is not ordered, keep popping until the first element is not found in
-		// `targets`.
-		let mut removed_candidates = HashSet::new();
-		let mut removable_candidates = HashSet::new();
+		// All the blocks that should be pruned are in the front of `block_state`. Since `targets`
+		// is not ordered - keep popping until the first element is not found in `targets`.
+		let mut actual_targets = HashSet::new();
 		loop {
 			match self.block_state.front().and_then(|claim_info| claim_info.hash) {
 				Some(hash) if targets.contains(&hash) => {
-					let Some(claim_info) = self.block_state.pop_front() else { break };
-
-					if let Some(candidate_hash) = claim_info.claimed.candidate_hash() {
-						removed_candidates.insert(*candidate_hash);
-					}
-
-					if let Some(candidates) = self.candidates.get(&hash) {
-						removable_candidates.extend(candidates.iter().cloned());
-					}
+					self.block_state.pop_front();
+					actual_targets.insert(hash);
 				},
 				_ => break,
 			}
 		}
 
-		// Remove all entries from candidates for each removed relay parent. Any Seconded
+		// First remove all entries from candidates for each removed relay parent. Any Seconded
 		// entries for it can't be undone anymore, but the claimed ones may need to be freed.
-		for claim_info in self.block_state.iter_mut() {
-			let ClaimState::Pending(Some(candidate_hash)) = claim_info.claimed else { continue };
-
-			if removable_candidates.contains(&candidate_hash) {
-				claim_info.claimed = ClaimState::Free;
-				removed_candidates.insert(candidate_hash);
+		let mut removed_candidates = HashSet::with_capacity(actual_targets.len());
+		for target in actual_targets {
+			if let Some(candidates) = self.candidates.remove(&target) {
+				removed_candidates.extend(candidates.into_iter());
 			}
 		}
 
-		self.candidates.retain(|_relay_parent, candidates| {
-			candidates.retain(|candidate| !removed_candidates.contains(candidate));
-			!candidates.is_empty()
-		});
+		for claim_info in self.block_state.iter_mut() {
+			if let ClaimState::Pending(Some(candidate_hash)) = claim_info.claimed {
+				if removed_candidates.contains(&candidate_hash) {
+					claim_info.claimed = ClaimState::Free;
+				}
+			}
+		}
 	}
 
 	/// Returns true if the path is empty
@@ -1459,11 +1451,24 @@ mod test {
 		state.add_leaf(&relay_parent_a, &claim_queue);
 		state.add_leaf(&relay_parent_b, &claim_queue);
 
+		// add one claim per leaf
+		let candidate_a1 = CandidateHash(Hash::from_low_u64_be(101));
+		let candidate_a2 = CandidateHash(Hash::from_low_u64_be(102));
+		assert!(state.claim_pending_at(&relay_parent_a, &para_id, Some(candidate_a1)));
+		assert!(state.claim_pending_at(&relay_parent_b, &para_id, Some(candidate_a2)));
+
 		let removed = vec![relay_parent_b];
 		state.remove_pruned_ancestors(&HashSet::from_iter(removed.iter().cloned()));
 
 		assert_eq!(state.block_state.len(), 2);
 		assert_eq!(state.future_blocks.len(), 2);
+		assert_eq!(
+			state.candidates,
+			HashMap::from_iter([
+				(relay_parent_a, HashSet::from_iter(vec![candidate_a1])),
+				(relay_parent_b, HashSet::from_iter(vec![candidate_a2]))
+			])
+		);
 	}
 
 	#[test]
