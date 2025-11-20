@@ -1035,3 +1035,26 @@ fn on_idle_uses_correct_weight() {
 			Executive::finalize_block();
 		});
 }
+
+#[test]
+fn on_poll_uses_correct_weight() {
+	TestExtBuilder::new()
+		.number_of_cores(2)
+		.first_block_in_core(true)
+		.build()
+		.execute_with(|| {
+			Executive::initialize_block(&Header::new(
+				1,
+				Default::default(),
+				Default::default(),
+				Default::default(),
+				System::digest(),
+			));
+
+			fake_set_validation_data();
+
+			OnPollMaxLeftWeight::set(Some(MaximumBlockWeight::target_block_weight()));
+
+			Executive::finalize_block();
+		});
+}

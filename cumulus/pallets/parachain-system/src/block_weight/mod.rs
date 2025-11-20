@@ -246,15 +246,17 @@ impl<Config: crate::Config, TargetBlockRate: Get<u32>> Get<Weight>
 			Some(BlockWeightMode::<Config>::FractionOfCore { first_transaction_index, .. }) => {
 				let is_phase_finalization = frame_system::Pallet::<Config>::execution_phase()
 					.map_or(false, |p| matches!(p, frame_system::Phase::Finalization));
+				let inherents_applied = frame_system::Pallet::<Config>::inherents_applied();
 
-				if first_transaction_index.is_none() && !is_phase_finalization {
-					// We are running in the context of inherents or `on_poll`, here we allow the
+				if first_transaction_index.is_none() && !is_phase_finalization && !inherents_applied
+				{
+					// We are running in the context of inherents, here we allow the
 					// full core weight.
 					maybe_full_core_weight
 				} else {
 					// If we are finalizing the block (e.g. `on_idle` is running and
-					// `finalize_block`) or nothing required more than the target block weight, we
-					// only allow the target block weight.
+					// `finalize_block`), running `on_poll` or nothing required more than the target
+					// block weight, we only allow the target block weight.
 					target_block_weight
 				}
 			},
