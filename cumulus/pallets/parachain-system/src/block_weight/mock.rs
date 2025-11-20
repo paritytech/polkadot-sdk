@@ -124,7 +124,9 @@ mod max_block_weight_setup {
 pub mod test_pallet {
 	use super::*;
 	use frame_support::{
-		dispatch::DispatchClass, pallet_prelude::*, weights::constants::WEIGHT_REF_TIME_PER_SECOND,
+		dispatch::DispatchClass,
+		pallet_prelude::*,
+		weights::{constants::WEIGHT_REF_TIME_PER_SECOND, WeightMeter},
 	};
 	use frame_system::pallet_prelude::*;
 
@@ -183,6 +185,12 @@ pub mod test_pallet {
 			}
 
 			Weight::zero()
+		}
+
+		fn on_poll(_n: BlockNumberFor<T>, weight: &mut WeightMeter) {
+			if let Some(max) = OnPollMaxLeftWeight::get() {
+				assert!(weight.remaining().all_lte(max));
+			}
 		}
 	}
 
@@ -245,6 +253,7 @@ construct_runtime!(
 parameter_types! {
 	pub static MbmOngoing: bool = false;
 	pub static OnIdleMaxLeftWeight: Option<Weight> = None;
+	pub static OnPollMaxLeftWeight: Option<Weight> = None;
 }
 
 pub struct Migrator;
