@@ -499,8 +499,9 @@ impl ClaimQueueState {
 	/// Example: if a path is [A, B, C, D] and `targets` contains [A, B] then both A and B will be
 	/// removed. But if `targets` contains [B, C] then nothing will be removed.
 	pub(super) fn remove_pruned_ancestors(&mut self, targets: &HashSet<Hash>) {
-		// All the blocks that should be pruned are in the front of `block_state`. Since `targets`
-		// is not ordered - keep popping until the first element is not found in `targets`.
+		// All the blocks that should be pruned are in the front of `block_state`. Since
+		// `block_state` is not ordered - keep popping until the first element is not found in
+		// `targets`.
 		let mut actual_targets = HashSet::new();
 		loop {
 			match self.block_state.front().and_then(|claim_info| claim_info.hash) {
