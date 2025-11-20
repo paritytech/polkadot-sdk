@@ -930,7 +930,9 @@ impl Peerset {
 		}
 	}
 
-	/// Connect to all reserved peers under the following conditions:
+	/// Connect to all reserved peers.
+	///
+	/// Under the following conditions:
 	/// 1. The peer must be present to the current set of peers.
 	/// 2. The peer must be disconnected.
 	/// 3. The peer must not be banned.
