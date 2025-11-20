@@ -25,7 +25,10 @@ use sp_core::{H160, H256, U256};
 
 /// A Tracer that reports logs and nested call traces transactions.
 #[derive(Default, Debug, Clone, PartialEq)]
-pub struct CallTracer<Gas, GasMapper> {
+pub struct CallTracer<Gas, GasMapper>
+where
+	Gas: core::fmt::Debug,
+{
 	/// Map Weight to Gas equivalent.
 	gas_mapper: GasMapper,
 	/// Store all in-progress CallTrace instances.
@@ -38,7 +41,7 @@ pub struct CallTracer<Gas, GasMapper> {
 	config: CallTracerConfig,
 }
 
-impl<Gas, GasMapper> CallTracer<Gas, GasMapper> {
+impl<Gas: core::fmt::Debug, GasMapper> CallTracer<Gas, GasMapper> {
 	/// Create a new [`CallTracer`] instance.
 	pub fn new(config: CallTracerConfig, gas_mapper: GasMapper) -> Self {
 		Self {
@@ -56,9 +59,28 @@ impl<Gas, GasMapper> CallTracer<Gas, GasMapper> {
 	}
 }
 
-impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, GasMapper> {
+impl<Gas: Default + core::fmt::Debug, GasMapper: Fn(Weight) -> Gas> Tracing
+	for CallTracer<Gas, GasMapper>
+{
 	fn instantiate_code(&mut self, code: &Code, salt: Option<&[u8; 32]>) {
 		self.code_with_salt = Some((code.clone(), salt.is_some()));
+	}
+
+	fn terminate(
+		&mut self,
+		contract_address: H160,
+		beneficiary_address: H160,
+		gas_left: Weight,
+		value: U256,
+	) {
+		self.traces.last_mut().unwrap().calls.push(CallTrace {
+			from: contract_address,
+			to: beneficiary_address,
+			call_type: CallType::Selfdestruct,
+			gas: (self.gas_mapper)(gas_left),
+			value: Some(value),
+			..Default::default()
+		});
 	}
 
 	fn enter_child_span(
@@ -80,13 +102,14 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 
 		if self.traces.is_empty() || !self.config.only_top_call {
 			let (call_type, input) = match self.code_with_salt.take() {
-				Some((Code::Upload(v), salt)) => (
+				Some((Code::Upload(code), salt)) => (
 					if salt { CallType::Create2 } else { CallType::Create },
-					v.into_iter().chain(input.to_vec().into_iter()).collect::<Vec<_>>(),
+					code.into_iter().chain(input.to_vec().into_iter()).collect::<Vec<_>>(),
 				),
-				Some((Code::Existing(v), salt)) => (
+				Some((Code::Existing(code_hash), salt)) => (
 					if salt { CallType::Create2 } else { CallType::Create },
-					v.to_fixed_bytes()
+					code_hash
+						.to_fixed_bytes()
 						.into_iter()
 						.chain(input.to_vec().into_iter())
 						.collect::<Vec<_>>(),
