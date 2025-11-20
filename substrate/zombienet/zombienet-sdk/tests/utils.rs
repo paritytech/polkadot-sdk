@@ -4,6 +4,8 @@
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfig};
 
 pub const BEST_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
+pub const FINALIZED_BLOCK_METRIC: &str = "substrate_block_height{status=\"finalized\"}";
+pub const BEEFY_BEST_BLOCK_METRIC: &str = "substrate_beefy_best_block";
 pub const DEFAULT_SUBSTRATE_IMAGE: &str = "docker.io/paritypr/substrate:latest";
 
 pub const DEFAULT_DB_SNAPSHOT_URL: &str =

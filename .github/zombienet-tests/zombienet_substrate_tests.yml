@@ -4,27 +4,17 @@
   use-zombienet-sdk: true
 
 - job-name: "zombienet-substrate-0001-basic-warp-sync"
-  test-definition: "test-warp-sync.zndsl"
-  local-dir: "./substrate/zombienet/0001-basic-warp-sync"
+  test-filter: "zombie_ci::basic_warp_sync::basic_warp_sync"
   runner-type: "default"
-  concurrency: 4
-  use-zombienet-sdk: false
+  use-zombienet-sdk: true
 
 # TODO: Disabled, fails 1 in 50 runs
 - job-name: "zombienet-substrate-0002-validators-warp-sync"
-  test-definition: "test-validators-warp-sync.zndsl"
-  local-dir: "./substrate/zombienet/0002-validators-warp-sync"
+  test-filter: "zombie_ci::validators_warp_sync::validators_warp_sync"
   runner-type: "default"
-  concurrency: 4
-  use-zombienet-sdk: false
-  additional-setup: |
-    cp --remove-destination ./substrate/zombienet/0001-basic-warp-sync/chain-spec.json ./substrate/zombienet/0002-validators-warp-sync
+  use-zombienet-sdk: true
 
 - job-name: "zombienet-substrate-0003-block-building-warp-sync"
-  test-definition: "test-block-building-warp-sync.zndsl"
-  local-dir: "./substrate/zombienet/0003-block-building-warp-sync"
+  test-filter: "zombie_ci::block_building_warp_sync::block_building_warp_sync"
   runner-type: "default"
-  concurrency: 4
-  use-zombienet-sdk: false
-  additional-setup: |
-    cp --remove-destination ./substrate/zombienet/0001-basic-warp-sync/chain-spec.json ./substrate/zombienet/0003-block-building-warp-sync
+  use-zombienet-sdk: true

@@ -3,7 +3,9 @@
 
 use std::time::Duration;
 
-use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
+use crate::utils::{
+	initialize_network, BEST_BLOCK_METRIC, DEFAULT_CHAIN_SPEC, DEFAULT_DB_SNAPSHOT_URL,
+};
 use anyhow::{anyhow, Result};
 use env_logger::Env;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
@@ -29,10 +31,6 @@ const DB_SNAPSHOT_ENV: &str = "DB_SNAPSHOT";
 const CHAIN_SPEC_ENV: &str = "WARP_CHAIN_SPEC_PATH";
 const DB_BLOCK_HEIGHT_ENV: &str = "DB_BLOCK_HEIGHT";
 const DEFAULT_SUBSTRATE_IMAGE: &str = "docker.io/paritypr/substrate:latest";
-const DEFAULT_DB_SNAPSHOT_URL: &str =
-	"https://storage.googleapis.com/zombienet-db-snaps/substrate/0001-basic-warp-sync/chains-0bb3f0be2ce41b5615b224215bcc8363aa0416a6.tgz";
-const DEFAULT_CHAIN_SPEC: &str =
-	"https://raw.githubusercontent.com/paritytech/polkadot-sdk/refs/heads/master/substrate/zombienet/0001-basic-warp-sync/chain-spec.json";
 
 #[tokio::test(flavor = "multi_thread")]
 async fn basic_warp_sync() -> Result<()> {
@@ -88,6 +86,9 @@ async fn basic_warp_sync() -> Result<()> {
 }
 
 fn ensure_env_defaults() {
+	if std::env::var(INTEGRATION_IMAGE_ENV).is_err() {
+		std::env::set_var(INTEGRATION_IMAGE_ENV, DEFAULT_SUBSTRATE_IMAGE);
+	}
 	if std::env::var(DB_SNAPSHOT_ENV).is_err() {
 		std::env::set_var(DB_SNAPSHOT_ENV, DEFAULT_DB_SNAPSHOT_URL);
 	}
@@ -115,6 +116,8 @@ async fn resolve_db_snapshot_height(
 }
 
 fn build_network_config() -> Result<NetworkConfig> {
+	let integration_image = std::env::var(INTEGRATION_IMAGE_ENV)
+		.unwrap_or_else(|_| DEFAULT_SUBSTRATE_IMAGE.to_string());
 	let db_snapshot =
 		std::env::var(DB_SNAPSHOT_ENV).map_err(|_| anyhow!("db snapshot env var not set"))?;
 	let chain_spec =
@@ -125,7 +128,7 @@ fn build_network_config() -> Result<NetworkConfig> {
 			relaychain
 				.with_chain("local")
 				.with_default_command("substrate")
-				.with_default_image(DEFAULT_SUBSTRATE_IMAGE)
+				.with_default_image(integration_image.as_str())
 				.with_chain_spec_path(chain_spec.as_str())
 				.with_node(|node| {
 					node.with_name("alice").validator(false).with_db_snapshot(db_snapshot.as_str())

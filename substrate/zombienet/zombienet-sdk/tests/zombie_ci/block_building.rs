@@ -3,14 +3,12 @@
 
 use std::time::Duration;
 
-use crate::utils::initialize_network;
+use crate::utils::{initialize_network, DEFAULT_CHAIN_SPEC, DEFAULT_SUBSTRATE_IMAGE};
 use anyhow::{anyhow, Result};
 use subxt::{config::substrate::SubstrateConfig, dynamic::tx, OnlineClient};
 use subxt_signer::sr25519::dev;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
-use zombienet_sdk::{environment::get_spawn_fn, NetworkConfig, NetworkConfigBuilder, NetworkNode};
-
-const DEFAULT_SUBSTRATE_IMAGE: &str = "docker.io/paritypr/substrate:latest";
+use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder, NetworkNode};
 
 const NODE_NAMES: [&str; 2] = ["alice", "bob"];
 
@@ -28,12 +26,16 @@ const LOG_TIMEOUT_SECS: u64 = 2;
 const SCRIPT_TIMEOUT_SECS: u64 = 30;
 
 const REMARK_PAYLOAD: &[u8] = b"block-building-test";
+const INTEGRATION_IMAGE_ENV: &str = "ZOMBIENET_INTEGRATION_TEST_IMAGE";
+const CHAIN_SPEC_ENV: &str = "WARP_CHAIN_SPEC_PATH";
 
 #[tokio::test(flavor = "multi_thread")]
 async fn block_building_test() -> Result<()> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
+
+	ensure_env_defaults();
 
 	log::info!("Spawning network");
 	let config = build_network_config()?;
@@ -54,13 +56,28 @@ async fn block_building_test() -> Result<()> {
 	Ok(())
 }
 
+fn ensure_env_defaults() {
+	if std::env::var(INTEGRATION_IMAGE_ENV).is_err() {
+		std::env::set_var(INTEGRATION_IMAGE_ENV, DEFAULT_SUBSTRATE_IMAGE);
+	}
+	if std::env::var(CHAIN_SPEC_ENV).is_err() {
+		std::env::set_var(CHAIN_SPEC_ENV, DEFAULT_CHAIN_SPEC);
+	}
+}
+
 fn build_network_config() -> Result<NetworkConfig> {
+	let integration_image = std::env::var(INTEGRATION_IMAGE_ENV)
+		.unwrap_or_else(|_| DEFAULT_SUBSTRATE_IMAGE.to_string());
+	let chain_spec =
+		std::env::var(CHAIN_SPEC_ENV).unwrap_or_else(|_| DEFAULT_CHAIN_SPEC.to_string());
+
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|relaychain| {
 			relaychain
 				.with_chain("local")
 				.with_default_command("substrate")
-				.with_default_image(DEFAULT_SUBSTRATE_IMAGE)
+				.with_default_image(integration_image.as_str())
+				.with_chain_spec_path(chain_spec.as_str())
 				.with_default_args(vec!["-lparachain=debug".into()])
 				.with_node(|node| node.with_name("alice"))
 				.with_node(|node| node.with_name("bob"))
