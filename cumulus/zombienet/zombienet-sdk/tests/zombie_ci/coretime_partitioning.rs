@@ -10,8 +10,8 @@
 //! even after crossing the boundary. With peek functionality, the scheduler can look ahead and
 //! properly handle assignment transitions.
 //!
-//! The claim queue has a lookahead depth L. At block N, it contains assignments for [N+1, ..., N+L].
-//! With lookahead=5 and boundary at block 21 (A assigned for 0-20, B assigned for 21+):
+//! The claim queue has a lookahead depth L. At block N, it contains assignments for [N+1, ...,
+//! N+L]. With lookahead=5 and boundary at block 21 (A assigned for 0-20, B assigned for 21+):
 //! - Block 15: claim queue = [16, 17, 18, 19, 20] = [A, A, A, A, A]
 //! - Block 16: claim queue = [17, 18, 19, 20, 21] = [A, A, A, A, B] ← First B appears!
 //! - Block 17: claim queue = [18, 19, 20, 21, 22] = [A, A, A, B, B]
@@ -55,7 +55,9 @@ async fn coretime_assignment_boundary_test() -> Result<(), anyhow::Error> {
 	network.register_parachain(PARA_A).await?;
 	network.register_parachain(PARA_B).await?;
 
-	log::info!("Both parachains registered (not yet onboarded - will be activated via core assignment)");
+	log::info!(
+		"Both parachains registered (not yet onboarded - will be activated via core assignment)"
+	);
 
 	// Assign core 0 to para A from block 0 to 20
 	log::info!("Assigning core 0 to para {} for blocks 0-20", PARA_A);
@@ -95,15 +97,89 @@ async fn coretime_assignment_boundary_test() -> Result<(), anyhow::Error> {
 	// Expected claim queue transitions:
 	// At block N, claim queue = [N+1, N+2, N+3, N+4, N+5] (for lookahead=5)
 	let expected_transitions: HashMap<u32, Vec<ParaId>> = [
-		(15, vec![ParaId::from(PARA_A), ParaId::from(PARA_A), ParaId::from(PARA_A), ParaId::from(PARA_A), ParaId::from(PARA_A)]), // [16,17,18,19,20]
-		(16, vec![ParaId::from(PARA_A), ParaId::from(PARA_A), ParaId::from(PARA_A), ParaId::from(PARA_A), ParaId::from(PARA_B)]), // [17,18,19,20,21] ← B appears!
-		(17, vec![ParaId::from(PARA_A), ParaId::from(PARA_A), ParaId::from(PARA_A), ParaId::from(PARA_B), ParaId::from(PARA_B)]), // [18,19,20,21,22]
-		(18, vec![ParaId::from(PARA_A), ParaId::from(PARA_A), ParaId::from(PARA_B), ParaId::from(PARA_B), ParaId::from(PARA_B)]), // [19,20,21,22,23]
-		(19, vec![ParaId::from(PARA_A), ParaId::from(PARA_B), ParaId::from(PARA_B), ParaId::from(PARA_B), ParaId::from(PARA_B)]), // [20,21,22,23,24]
-		(20, vec![ParaId::from(PARA_B), ParaId::from(PARA_B), ParaId::from(PARA_B), ParaId::from(PARA_B), ParaId::from(PARA_B)]), // [21,22,23,24,25]
-		(21, vec![ParaId::from(PARA_B), ParaId::from(PARA_B), ParaId::from(PARA_B), ParaId::from(PARA_B), ParaId::from(PARA_B)]), // [22,23,24,25,26]
-		(25, vec![ParaId::from(PARA_B), ParaId::from(PARA_B), ParaId::from(PARA_B), ParaId::from(PARA_B), ParaId::from(PARA_B)]), // [26,27,28,29,30]
-	].into_iter().collect();
+		(
+			15,
+			vec![
+				ParaId::from(PARA_A),
+				ParaId::from(PARA_A),
+				ParaId::from(PARA_A),
+				ParaId::from(PARA_A),
+				ParaId::from(PARA_A),
+			],
+		), // [16,17,18,19,20]
+		(
+			16,
+			vec![
+				ParaId::from(PARA_A),
+				ParaId::from(PARA_A),
+				ParaId::from(PARA_A),
+				ParaId::from(PARA_A),
+				ParaId::from(PARA_B),
+			],
+		), // [17,18,19,20,21] ← B appears!
+		(
+			17,
+			vec![
+				ParaId::from(PARA_A),
+				ParaId::from(PARA_A),
+				ParaId::from(PARA_A),
+				ParaId::from(PARA_B),
+				ParaId::from(PARA_B),
+			],
+		), // [18,19,20,21,22]
+		(
+			18,
+			vec![
+				ParaId::from(PARA_A),
+				ParaId::from(PARA_A),
+				ParaId::from(PARA_B),
+				ParaId::from(PARA_B),
+				ParaId::from(PARA_B),
+			],
+		), // [19,20,21,22,23]
+		(
+			19,
+			vec![
+				ParaId::from(PARA_A),
+				ParaId::from(PARA_B),
+				ParaId::from(PARA_B),
+				ParaId::from(PARA_B),
+				ParaId::from(PARA_B),
+			],
+		), // [20,21,22,23,24]
+		(
+			20,
+			vec![
+				ParaId::from(PARA_B),
+				ParaId::from(PARA_B),
+				ParaId::from(PARA_B),
+				ParaId::from(PARA_B),
+				ParaId::from(PARA_B),
+			],
+		), // [21,22,23,24,25]
+		(
+			21,
+			vec![
+				ParaId::from(PARA_B),
+				ParaId::from(PARA_B),
+				ParaId::from(PARA_B),
+				ParaId::from(PARA_B),
+				ParaId::from(PARA_B),
+			],
+		), // [22,23,24,25,26]
+		(
+			25,
+			vec![
+				ParaId::from(PARA_B),
+				ParaId::from(PARA_B),
+				ParaId::from(PARA_B),
+				ParaId::from(PARA_B),
+				ParaId::from(PARA_B),
+			],
+		), // [26,27,28,29,30]
+	]
+	.into_iter()
+	.collect();
 
 	log::info!("Monitoring claim queue transitions around boundary...");
 
@@ -137,7 +213,11 @@ async fn coretime_assignment_boundary_test() -> Result<(), anyhow::Error> {
 			// Check if this block is one we want to verify
 			if let Some(expected_queue) = expected_transitions.get(&block_number) {
 				if &queue_vec == expected_queue {
-					log::info!("  ✓ Block {}: Claim queue matches expected {:?}", block_number, expected_queue);
+					log::info!(
+						"  ✓ Block {}: Claim queue matches expected {:?}",
+						block_number,
+						expected_queue
+					);
 					verified_blocks.insert(block_number);
 				} else {
 					return Err(anyhow!(
@@ -168,7 +248,8 @@ async fn coretime_assignment_boundary_test() -> Result<(), anyhow::Error> {
 				"Failed to verify all expected claim queue transitions. Missing blocks: {:?}\n\
 				Verified: {:?}\n\
 				This suggests the test didn't observe all required blocks.",
-				missing, verified_blocks
+				missing,
+				verified_blocks
 			));
 		}
 	}
