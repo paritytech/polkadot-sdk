@@ -1,7 +1,7 @@
 [package]
 name = "pallet-staking-async-rc-runtime"
 build = "build.rs"
-version = "0.4.0"
+version = "0.5.0"
 description = "Staking Async testnet Relay Chain runtime."
 authors.workspace = true
 edition.workspace = true
