@@ -200,7 +200,7 @@ async fn process_msg<Context>(
 				);
 			},
 		Seconded(_parent, stmt) => {
-			state.handle_collation_seconded(ctx.sender(), stmt).await;
+			state.handle_seconded_collation(ctx.sender(), stmt).await;
 		},
 		Invalid(_parent, candidate_receipt) => {
 			state.handle_invalid_collation(candidate_receipt).await;

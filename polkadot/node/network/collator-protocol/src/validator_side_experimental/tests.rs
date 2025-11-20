@@ -860,7 +860,7 @@ impl TestState {
 		ccr: CommittedCandidateReceipt,
 	) {
 		let statement = make_seconded_statement(&self.keystore, ccr);
-		state.handle_collation_seconded(&mut self.sender, statement.clone()).await;
+		state.handle_seconded_collation(&mut self.sender, statement.clone()).await;
 		self.assert_collation_seconded_notification(peer_id, version, statement.into())
 			.await;
 	}
@@ -1393,7 +1393,7 @@ async fn test_peer_disconnects_after_fetch() {
 
 	let statement = make_seconded_statement(&test_state.keystore, third_ccr);
 
-	state.handle_collation_seconded(&mut sender, statement).await;
+	state.handle_seconded_collation(&mut sender, statement).await;
 	test_state.assert_no_messages().await;
 
 	assert_eq!(state.advertisements(), [first_adv, second_adv].into());
@@ -2713,7 +2713,7 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 
 		futures::join!(
 			async {
-				state.handle_collation_seconded(&mut sender, statement.clone()).await;
+				state.handle_seconded_collation(&mut sender, statement.clone()).await;
 			},
 			test_state.assert_pvd_request(second_adv, Some(second_pvd.clone()))
 		);
@@ -2963,7 +2963,7 @@ async fn test_outdated_blocked_collations_are_pruned() {
 	// second collation, it's already been dropped.
 	let statement = make_seconded_statement(&test_state.keystore, first_ccr);
 
-	state.handle_collation_seconded(&mut sender, statement).await;
+	state.handle_seconded_collation(&mut sender, statement).await;
 
 	test_state.assert_no_messages().await;
 }

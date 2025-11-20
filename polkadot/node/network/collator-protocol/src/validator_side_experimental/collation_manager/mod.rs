@@ -584,12 +584,12 @@ impl CollationManager {
 			.copied()
 	}
 
-	pub async fn seconded<Sender: CollatorProtocolSenderTrait>(
+	pub async fn note_seconded<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
 		relay_parent: &Hash,
-		candidate_hash: &CandidateHash,
 		para_id: &ParaId,
+		candidate_hash: &CandidateHash,
 		output_head_hash: Hash,
 	) -> (Option<PeerId>, Vec<CanSecond>) {
 		let peer_id = self.get_peer_id_of_fetched_collation(relay_parent, candidate_hash);

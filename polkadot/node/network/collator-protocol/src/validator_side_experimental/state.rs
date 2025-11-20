@@ -384,7 +384,7 @@ impl<B: Backend> State<B> {
 			.await;
 	}
 
-	pub async fn handle_collation_seconded<Sender: CollatorProtocolSenderTrait>(
+	pub async fn handle_seconded_collation<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
 		statement: SignedFullStatement,
@@ -415,11 +415,11 @@ impl<B: Backend> State<B> {
 
 		let (peer_id, unblocked_collations) = self
 			.collation_manager
-			.seconded(
+			.note_seconded(
 				sender,
 				&relay_parent,
-				&candidate_hash,
 				&para_id,
+				&candidate_hash,
 				receipt.descriptor.para_head(),
 			)
 			.await;
