@@ -957,7 +957,7 @@ impl Peerset {
 			);
 		});
 
-		return connect_to;
+		connect_to
 	}
 
 	/// Get the number of inbound peers.
