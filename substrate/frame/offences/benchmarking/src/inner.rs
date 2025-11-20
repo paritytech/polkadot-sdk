@@ -229,7 +229,7 @@ mod benchmarks {
 		// and offenders is always 1
 		let reporter = account::<T::AccountId>("reporter", 1, SEED);
 
-		// make sure reporter actually get rewarded
+		// make sure reporter actually gets rewarded
 		Staking::<T>::set_slash_reward_fraction(Perbill::one());
 
 		let mut offenders = make_offenders::<T>(1, n)?;
