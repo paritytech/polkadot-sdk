@@ -95,13 +95,14 @@ fn recv_execute_handshake(stream: &mut Stream) -> io::Result<Handshake> {
 fn recv_request(
 	stream: &mut Stream,
 ) -> io::Result<(PersistedValidationData, PoV, Duration, ArtifactChecksum)> {
-    let request_bytes = framed_recv_blocking(stream)?;
+	let request_bytes = framed_recv_blocking(stream)?;
 	let request = ExecuteRequest::decode(&mut &request_bytes[..]).map_err(|_| {
 		io::Error::new(
 			io::ErrorKind::Other,
 			"execute pvf recv_request: failed to decode ExecuteRequest".to_string(),
 		)
 	})?;
+
 	Ok((request.pvd, request.pov, request.execution_timeout, request.artifact_checksum))
 }
 
@@ -166,7 +167,6 @@ pub fn worker_entrypoint(
 							worker_info
 						)
 					})?;
-
 				gum::debug!(
 					target: LOG_TARGET,
 					?worker_info,
@@ -207,8 +207,8 @@ pub fn worker_entrypoint(
 					)
 				})?;
 				#[cfg(not(feature = "x-shadow"))]
-				let usage_before =
-					nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN).map_err(|errno| {
+				let usage_before = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)
+					.map_err(|errno| {
 						let e = stringify_errno("getrusage before", errno);
 						map_and_send_err!(
 							e,
@@ -223,7 +223,7 @@ pub fn worker_entrypoint(
 				// it makes CPU usage calculations meaningless.
 				let usage_before = unsafe { std::mem::zeroed() };
 
-                let stream_fd = stream.as_raw_fd();
+				let stream_fd = stream.as_raw_fd();
 
 				let compiled_artifact_blob = Arc::new(compiled_artifact_blob);
 
@@ -310,7 +310,6 @@ pub fn worker_entrypoint(
 					"worker: sending result to host: {:?}",
 					result
 				);
-
 				send_result(&mut stream, result, worker_info)?;
 			}
 		},

@@ -117,8 +117,8 @@ pub mod memory_tracker {
 			match thread::wait_for_threads_with_timeout(&condvar, POLL_INTERVAL) {
 				Some(_outcome) => {
 					update_stats()?;
-					return Ok(max_stats);
-				}
+					return Ok(max_stats)
+				},
 				None => continue,
 			}
 		}
@@ -138,7 +138,7 @@ pub mod memory_tracker {
 					"worker: error occurred in the memory tracker thread: {}", err
 				);
 				None
-			}
+			},
 			Err(err) => {
 				gum::warn!(
 					target: LOG_TARGET,
@@ -146,7 +146,7 @@ pub mod memory_tracker {
 					"worker: error joining on memory tracker thread: {}", stringify_panic_payload(err)
 				);
 				None
-			}
+			},
 		}
 	}
 }
@@ -169,7 +169,7 @@ pub mod max_rss_stat {
 
 		// SAFETY: `result` is a valid pointer, so calling this is safe.
 		if unsafe { getrusage(RUSAGE_THREAD, result.as_mut_ptr()) } == -1 {
-			return Err(io::Error::last_os_error());
+			return Err(io::Error::last_os_error())
 		}
 
 		// SAFETY: `result` was successfully initialized by `getrusage`.

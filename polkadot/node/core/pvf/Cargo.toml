@@ -71,8 +71,8 @@ linux-jemalloc-auto = ["polkadot-node-core-pvf-common/linux-jemalloc-auto"]
 x-shadow = ["polkadot-node-core-pvf-common/x-shadow"]
 # This feature is used to export test code to other crates without putting it in the production build.
 test-utils = [
-    "dep:is_executable",
-    "dep:polkadot-node-core-pvf-execute-worker",
-    "dep:polkadot-node-core-pvf-prepare-worker",
-    "dep:sp-maybe-compressed-blob",
+	"dep:is_executable",
+	"dep:polkadot-node-core-pvf-execute-worker",
+	"dep:polkadot-node-core-pvf-prepare-worker",
+	"dep:sp-maybe-compressed-blob",
 ]

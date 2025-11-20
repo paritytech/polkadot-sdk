@@ -72,6 +72,7 @@ impl Metrics {
 			metrics.messages_relayed_total.inc();
 		}
 	}
+
 	#[cfg(any(
 		feature = "jemalloc-allocator",
 		all(target_os = "linux", feature = "linux-jemalloc-auto", not(feature = "x-shadow")),
@@ -88,7 +89,7 @@ impl Metrics {
 
 	pub(crate) fn channel_metrics_snapshot(
 		&self,
-		collection: impl IntoIterator<Item=(&'static str, SubsystemMeterReadouts)>,
+		collection: impl IntoIterator<Item = (&'static str, SubsystemMeterReadouts)>,
 	) {
 		if let Some(metrics) = &self.0 {
 			collection
@@ -174,10 +175,10 @@ impl MetricsTrait for Metrics {
 						"polkadot_parachain_subsystem_bounded_tof",
 						"Duration spent in a particular channel from entrance to removal",
 					)
-						.buckets(vec![
-							0.0001, 0.0004, 0.0016, 0.0064, 0.0256, 0.1024, 0.4096, 1.6384, 3.2768,
-							4.9152, 6.5536,
-						]),
+					.buckets(vec![
+						0.0001, 0.0004, 0.0016, 0.0064, 0.0256, 0.1024, 0.4096, 1.6384, 3.2768,
+						4.9152, 6.5536,
+					]),
 					&["subsystem_name"],
 				)?,
 				registry,
@@ -218,10 +219,10 @@ impl MetricsTrait for Metrics {
 						"polkadot_parachain_subsystem_unbounded_tof",
 						"Duration spent in a particular channel from entrance to removal",
 					)
-						.buckets(vec![
-							0.0001, 0.0004, 0.0016, 0.0064, 0.0256, 0.1024, 0.4096, 1.6384, 3.2768,
-							4.9152, 6.5536,
-						]),
+					.buckets(vec![
+						0.0001, 0.0004, 0.0016, 0.0064, 0.0256, 0.1024, 0.4096, 1.6384, 3.2768,
+						4.9152, 6.5536,
+					]),
 					&["subsystem_name"],
 				)?,
 				registry,

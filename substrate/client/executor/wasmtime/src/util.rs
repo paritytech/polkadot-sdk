@@ -125,24 +125,24 @@ pub(crate) fn replace_strategy_if_broken(strategy: &mut InstantiationStrategy) {
 
 	let is_ok = IS_OK.get_or_init(|| {
 		cfg_if::cfg_if! {
-            if #[cfg(not(feature = "x-shadow"))] {
-                let is_ok = match is_madvise_working() {
-                    Ok(is_ok) => is_ok,
-                    Err(error) => {
-                        // This should never happen.
-                        log::warn!("Failed to check whether `madvise(MADV_DONTNEED)` works: {}", error);
-                        false
-                    }
-                };
+			if #[cfg(not(feature = "x-shadow"))] {
+				let is_ok = match is_madvise_working() {
+					Ok(is_ok) => is_ok,
+					 Err(error) => {
+							// This should never happen.
+							log::warn!("Failed to check whether `madvise(MADV_DONTNEED)` works: {}", error);
+							false
+						}
+				};
 
-                if !is_ok {
-                    log::warn!("You're running on a system with a broken `madvise(MADV_DONTNEED)` implementation. This will result in lower performance.");
-                }
+				if !is_ok {
+					log::warn!("You're running on a system with a broken `madvise(MADV_DONTNEED)` implementation. This will result in lower performance.");
+				}
 
-                is_ok
-            } else {
-                false
-            }
+				is_ok
+			} else {
+				false
+			}
         }
 	});
 

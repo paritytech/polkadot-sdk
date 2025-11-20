@@ -93,6 +93,7 @@ pub async fn spawn_with_program_path(
 	#[cfg(not(feature = "x-shadow"))]
 	let res = with_transient_socket_path(debug_id, |socket_path| {
 		let socket_path = socket_path.to_owned();
+
 		async move {
 			let listener = match HostListener::bind(&socket_path) {
 				Ok(ok) => ok,
@@ -103,13 +104,14 @@ pub async fn spawn_with_program_path(
 			let handle =
 				WorkerHandle::spawn(&program_path, &extra_args, &socket_path, &worker_dir.path())
 					.map_err(|err| SpawnErr::ProcessSpawn { program_path, err: err.to_string() })?;
+
 			futures::select! {
 				accept_result = listener.accept().fuse() => {
 					let (mut stream, _) = accept_result
-					.map_err(|err| SpawnErr::Accept { endpoint: socket_path, err: err.to_string() })?;
+						.map_err(|err| SpawnErr::Accept { endpoint: socket_path, err: err.to_string() })?;
 					send_worker_handshake(&mut stream, WorkerHandshake { security_status })
-					.await
-					.map_err(|err| SpawnErr::Handshake { err: err.to_string() })?;
+						.await
+						.map_err(|err| SpawnErr::Handshake { err: err.to_string() })?;
 					Ok((IdleWorker { stream, pid: handle.id(), worker_dir }, handle))
 				}
 				_ = Delay::new(spawn_timeout).fuse() => Err(SpawnErr::AcceptTimeout{spawn_timeout}),
@@ -448,7 +450,10 @@ pub async fn framed_recv(r: &mut (impl AsyncRead + Unpin)) -> io::Result<Vec<u8>
 }
 
 /// Sends a handshake with information for the worker.
-async fn send_worker_handshake(stream: &mut Stream, handshake: WorkerHandshake) -> io::Result<()> {
+async fn send_worker_handshake(
+	stream: &mut Stream,
+	handshake: WorkerHandshake,
+) -> io::Result<()> {
 	framed_send(stream, &handshake.encode()).await
 }
 

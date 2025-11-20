@@ -71,7 +71,6 @@ runtime-benchmarks = [
 	"parachains-common/runtime-benchmarks",
 	"polkadot-omni-node-lib/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
-
 	"asset-hub-rococo-runtime/runtime-benchmarks",
 	"asset-hub-westend-runtime/runtime-benchmarks",
 	"bridge-hub-rococo-runtime/runtime-benchmarks",
@@ -89,7 +88,6 @@ runtime-benchmarks = [
 ]
 try-runtime = [
 	"polkadot-omni-node-lib/try-runtime",
-
 	"asset-hub-rococo-runtime/try-runtime",
 	"asset-hub-westend-runtime/try-runtime",
 	"bridge-hub-rococo-runtime/try-runtime",

@@ -84,10 +84,10 @@ default = ["rocksdb"]
 # a path to a database, an error will be produced at runtime.
 rocksdb = ["sc-client-db/rocksdb"]
 runtime-benchmarks = [
-    "sc-client-db/runtime-benchmarks",
-    "sp-runtime/runtime-benchmarks",
+	"sc-client-db/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 x-shadow = [
-    "sc-executor/x-shadow",
-    "sc-network/x-shadow",
+	"sc-executor/x-shadow",
+	"sc-network/x-shadow",
 ]

@@ -205,28 +205,28 @@ impl metrics::Metrics for Metrics {
 			prepare_enqueued: prometheus::register(
 				prometheus::Counter::new(
 					"polkadot_pvf_prepare_enqueued",
-					"The total number of jobs enqueued into the preparation pipeline",
+					"The total number of jobs enqueued into the preparation pipeline"
 				)?,
 				registry,
 			)?,
 			prepare_concluded: prometheus::register(
 				prometheus::Counter::new(
 					"polkadot_pvf_prepare_concluded",
-					"The total number of jobs concluded in the preparation pipeline",
+					"The total number of jobs concluded in the preparation pipeline"
 				)?,
 				registry,
 			)?,
 			execute_enqueued: prometheus::register(
 				prometheus::Counter::new(
 					"polkadot_pvf_execute_enqueued",
-					"The total number of jobs enqueued into the execution pipeline",
+					"The total number of jobs enqueued into the execution pipeline"
 				)?,
 				registry,
 			)?,
 			execute_finished: prometheus::register(
 				prometheus::Counter::new(
 					"polkadot_pvf_execute_finished",
-					"The total number of jobs done in the execution pipeline",
+					"The total number of jobs done in the execution pipeline"
 				)?,
 				registry,
 			)?,
@@ -236,24 +236,24 @@ impl metrics::Metrics for Metrics {
 						"polkadot_pvf_preparation_time",
 						"Time spent in preparing PVF artifacts in seconds",
 					)
-						.buckets(vec![
-							// This is synchronized with the `DEFAULT_PRECHECK_PREPARATION_TIMEOUT=60s`
-							// and `DEFAULT_LENIENT_PREPARATION_TIMEOUT=360s` constants found in
-							// node/core/candidate-validation/src/lib.rs
-							0.1,
-							0.5,
-							1.0,
-							2.0,
-							3.0,
-							10.0,
-							20.0,
-							30.0,
-							60.0,
-							120.0,
-							240.0,
-							360.0,
-							480.0,
-						]),
+					.buckets(vec![
+						// This is synchronized with the `DEFAULT_PRECHECK_PREPARATION_TIMEOUT=60s`
+						// and `DEFAULT_LENIENT_PREPARATION_TIMEOUT=360s` constants found in
+						// node/core/candidate-validation/src/lib.rs
+						0.1,
+						0.5,
+						1.0,
+						2.0,
+						3.0,
+						10.0,
+						20.0,
+						30.0,
+						60.0,
+						120.0,
+						240.0,
+						360.0,
+						480.0,
+					]),
 				)?,
 				registry,
 			)?,
@@ -383,10 +383,10 @@ impl metrics::Metrics for Metrics {
 						"polkadot_parachain_candidate_validation_pov_size",
 						"The compressed and decompressed size of the proof of validity of a candidate",
 					)
-						.buckets(
-							prometheus::exponential_buckets(16384.0, 2.0, 10)
-								.expect("arguments are always valid; qed"),
-						),
+					.buckets(
+						prometheus::exponential_buckets(16384.0, 2.0, 10)
+							.expect("arguments are always valid; qed"),
+					),
 					&["compressed"],
 				)?,
 				registry,
@@ -397,10 +397,10 @@ impl metrics::Metrics for Metrics {
 						"polkadot_parachain_candidate_validation_code_size",
 						"The size of the decompressed WASM validation blob used for checking a candidate",
 					)
-						.buckets(
-							prometheus::exponential_buckets(16384.0, 2.0, 10)
-								.expect("arguments are always valid; qed"),
-						),
+					.buckets(
+						prometheus::exponential_buckets(16384.0, 2.0, 10)
+							.expect("arguments are always valid; qed"),
+					),
 				)?,
 				registry,
 			)?,

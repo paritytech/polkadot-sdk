@@ -21,6 +21,7 @@ mod memory_stats;
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-prepare-worker=trace`.
 const LOG_TARGET: &str = "parachain::pvf-prepare-worker";
+
 #[cfg(all(target_os = "linux", not(feature = "x-shadow")))]
 use crate::memory_stats::max_rss_stat::{extract_max_rss_stat, get_max_rss_thread};
 #[cfg(any(
@@ -560,9 +561,9 @@ fn handle_child_process(
 		Arc::clone(&condvar),
 		WaitOutcome::Finished,
 	)
-		.unwrap_or_else(|err| {
-			send_child_response(&mut pipe_write, Err(PrepareError::IoErr(err.to_string())))
-		});
+	.unwrap_or_else(|err| {
+		send_child_response(&mut pipe_write, Err(PrepareError::IoErr(err.to_string())))
+	});
 
 	let outcome = thread::wait_for_threads(condvar);
 
@@ -627,9 +628,9 @@ fn handle_child_process(
 						observed_wasm_code_len,
 						memory_stats,
 					})
-				}
+				},
 			}
-		}
+		},
 
 		// If the CPU thread is not selected, we signal it to end, the join handle is
 		// dropped and the thread will finish in the background.
@@ -687,6 +688,7 @@ fn handle_parent_process(
 		"prepare worker received wait status from job: {:?}",
 		status,
 	);
+
 	#[cfg(not(feature = "x-shadow"))]
 	let usage_after = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)
 		.map_err(|errno| error_from_errno("getrusage after", errno))?;
@@ -711,7 +713,7 @@ fn handle_parent_process(
 			cpu_tv.as_millis(),
 			timeout.as_millis(),
 		);
-		return Err(PrepareError::TimedOut);
+		return Err(PrepareError::TimedOut)
 	}
 
 	match status {
@@ -728,7 +730,7 @@ fn handle_parent_process(
 						return Err(PrepareError::JobError(format!(
 							"unexpected exit status: {}",
 							exit_status
-						)));
+						)))
 					}
 
 					// Write the serialized artifact into a temp file.
@@ -747,7 +749,7 @@ fn handle_parent_process(
 					);
 					// Write to the temp file created by the host.
 					if let Err(err) = fs::write(temp_artifact_dest, &artifact) {
-						return Err(PrepareError::IoErr(err.to_string()));
+						return Err(PrepareError::IoErr(err.to_string()))
 					};
 
 					let checksum = compute_checksum(&artifact.as_ref());
@@ -759,9 +761,9 @@ fn handle_parent_process(
 							observed_wasm_code_len,
 						},
 					})
-				}
+				},
 			}
-		}
+		},
 		// The job was killed by the given signal.
 		//
 		// The job gets SIGSYS on seccomp violations, but this signal may have been sent for some
