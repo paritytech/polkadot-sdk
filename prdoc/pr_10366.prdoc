@@ -1,7 +1,15 @@
 title: '[pallet-revive] update evm create benchmark'
 doc:
 - audience: Runtime Dev
-  description: Add a benchmark for evm CREATE instruction
+  description: |
+    Add a benchmark for the EVM CREATE instruction.
+
+    We are currently reusing the `seal_instantiate` benchmark from PVM instantiation, which is incorrect because instantiating an EVM contract takes different arguments and  follows a different code path than creating a PVM contract.
+
+    This benchmark performs the following steps:
+
+    - Generates init bytecode of size i, optionally including a balance with dust.
+    - Executes the init code that triggers a single benchmark opcode returning a runtime code of the maximum allowed size (qrevm::primitives::eip170::MAX_CODE_SIZE`).
 crates:
 - name: pallet-revive
   bump: patch
