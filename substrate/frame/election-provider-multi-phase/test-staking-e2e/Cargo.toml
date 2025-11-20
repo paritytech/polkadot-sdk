@@ -27,6 +27,7 @@ sp-npos-elections = { workspace = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-staking = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
 
 frame-election-provider-support = { workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
