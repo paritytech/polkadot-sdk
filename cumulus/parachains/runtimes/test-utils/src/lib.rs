@@ -28,7 +28,7 @@ use frame_support::{
 	dispatch::{DispatchResult, GetDispatchInfo, RawOrigin},
 	inherent::{InherentData, ProvideInherent},
 	pallet_prelude::Get,
-	traits::{OnFinalize, OnInitialize, OriginTrait, UnfilteredDispatchable},
+	traits::{OnFinalize, OnGenesis, OnInitialize, OriginTrait, UnfilteredDispatchable},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
@@ -41,6 +41,7 @@ use sp_runtime::{
 	traits::{Dispatchable, Header},
 	BuildStorage, Digest, DigestItem, DispatchError, Either, SaturatedConversion,
 };
+use sp_state_machine::BasicExternalities;
 use xcm::{
 	latest::{Asset, Location, XcmContext, XcmHash},
 	prelude::*,
@@ -253,6 +254,9 @@ impl<Runtime: BasicParachainRuntime> ExtBuilder<Runtime> {
 			.assimilate_storage(&mut t)
 			.unwrap();
 
+		BasicExternalities::execute_with_storage(&mut t, || {
+			<pallet_session::Pallet<Runtime> as OnGenesis>::on_genesis();
+		});
 		let mut ext = sp_io::TestExternalities::new(t);
 
 		ext.execute_with(|| {

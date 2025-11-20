@@ -1283,6 +1283,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-storage 19.0.0",
+ "sp-tracing 16.0.0",
  "sp-transaction-pool",
  "sp-version",
  "sp-weights",
@@ -13424,6 +13425,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-staking",
+ "sp-state-machine",
 ]
 
 [[package]]
@@ -14468,6 +14470,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io",
  "sp-runtime",
+ "sp-state-machine",
  "sp-tracing 16.0.0",
  "staging-parachain-info",
  "staging-xcm",
