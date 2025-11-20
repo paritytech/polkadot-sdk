@@ -343,7 +343,7 @@ impl CollationManager {
 
 		let max_assignments = self
 			.claim_queue_state
-			.get_all_slots_for_para_at(&advertisement.relay_parent, &advertisement.para_id);
+			.count_all_slots_for_para_at(&advertisement.relay_parent, &advertisement.para_id);
 
 		if max_assignments == 0 {
 			return Err(AdvertisementError::InvalidAssignment)
@@ -419,9 +419,9 @@ impl CollationManager {
 
 				// This here may also claim a slot of another leaf if eligible.
 				if self.claim_queue_state.claim_pending_slot(
-					advertisement.prospective_candidate.map(|p| p.candidate_hash),
 					&advertisement.relay_parent,
 					&para_id,
+					advertisement.candidate_hash(),
 				) {
 					let req = self.fetching.launch(&advertisement);
 					requests.push(req);
@@ -465,7 +465,7 @@ impl CollationManager {
 			peer_id: advertisement.peer_id,
 			para_id: advertisement.para_id,
 			maybe_output_head_hash: None,
-			maybe_candidate_hash: advertisement.prospective_candidate.map(|p| p.candidate_hash),
+			maybe_candidate_hash: advertisement.candidate_hash(),
 		};
 
 		let Some(per_rp) = self.per_relay_parent.get_mut(&advertisement.relay_parent) else {
@@ -595,7 +595,7 @@ impl CollationManager {
 		let peer_id = self.get_peer_id_of_fetched_collation(relay_parent, candidate_hash);
 
 		self.claim_queue_state
-			.claim_seconded_slot(candidate_hash, relay_parent, para_id);
+			.claim_seconded_slot(relay_parent, para_id, candidate_hash);
 
 		// See if we've unblocked other collations here too.
 		let maybe_unblocked = self.blocked_from_seconding.remove(&BlockedCollationId {
@@ -785,9 +785,9 @@ impl CollationManager {
 					// protocol v2 but in case of v1, the claim was made on the relay parent but
 					// without a candidate hash.
 					self.claim_queue_state.mark_pending_slot_with_candidate(
-						&candidate_hash,
 						&relay_parent,
 						&para_id,
+						&candidate_hash,
 					);
 
 					CanSecond::BlockedOnParent(parent, reject_info)
@@ -820,9 +820,9 @@ impl CollationManager {
 				// protocol v2 but in case of v1, the claim was made on the relay parent but
 				// without a candidate hash.
 				self.claim_queue_state.mark_pending_slot_with_candidate(
-					&candidate_hash,
 					&relay_parent,
 					&para_id,
+					&candidate_hash,
 				);
 				CanSecond::Yes(fetched_collation.candidate_receipt, fetched_collation.pov, pvd)
 			},

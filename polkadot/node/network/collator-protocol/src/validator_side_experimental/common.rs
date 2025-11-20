@@ -180,6 +180,12 @@ pub struct Advertisement {
 	pub prospective_candidate: Option<ProspectiveCandidate>,
 }
 
+impl Advertisement {
+	pub fn candidate_hash(&self) -> Option<CandidateHash> {
+		self.prospective_candidate.map(|candidate| candidate.candidate_hash)
+	}
+}
+
 /// Output of a `CollationFetchRequest`, which includes the advertisement identifier.
 pub type CollationFetchResponse = (
 	Advertisement,

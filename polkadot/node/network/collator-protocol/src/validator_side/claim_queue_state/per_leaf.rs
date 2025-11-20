@@ -129,9 +129,9 @@ impl PerLeafClaimQueueState {
 	/// Returns `true` if the claim was successful.
 	pub fn claim_pending_slot(
 		&mut self,
-		candidate_hash: Option<CandidateHash>,
 		relay_parent: &Hash,
 		para_id: &ParaId,
+		candidate_hash: Option<CandidateHash>,
 	) -> bool {
 		let mut result = false;
 		for (leaf, state) in &mut self.leaves {
@@ -164,9 +164,9 @@ impl PerLeafClaimQueueState {
 	/// each leaf. Tracking the exact candidate order is not required here.
 	pub fn mark_pending_slot_with_candidate(
 		&mut self,
-		candidate_hash: &CandidateHash,
 		relay_parent: &Hash,
 		para_id: &ParaId,
+		candidate_hash: &CandidateHash,
 	) -> bool {
 		let mut result = false;
 		for (leaf, state) in &mut self.leaves {
@@ -191,9 +191,9 @@ impl PerLeafClaimQueueState {
 	/// Otherwise a new claim is made.
 	pub fn claim_seconded_slot(
 		&mut self,
-		candidate_hash: &CandidateHash,
 		relay_parent: &Hash,
 		para_id: &ParaId,
+		candidate_hash: &CandidateHash,
 	) -> bool {
 		let mut result = false;
 		for (leaf, state) in &mut self.leaves {
@@ -215,7 +215,7 @@ impl PerLeafClaimQueueState {
 
 	/// Returns the number of claims for a specific para id at a specific relay parent for all
 	/// leaves.
-	pub fn get_all_slots_for_para_at(&mut self, relay_parent: &Hash, para_id: &ParaId) -> usize {
+	pub fn count_all_slots_for_para_at(&mut self, relay_parent: &Hash, para_id: &ParaId) -> usize {
 		self.leaves
 			.values()
 			.map(|s| s.count_all_for_para_at(relay_parent, para_id))
@@ -326,8 +326,8 @@ mod test {
 		let candidate_b = CandidateHash(Hash::from_low_u64_be(102));
 		let candidate_c = CandidateHash(Hash::from_low_u64_be(103));
 
-		assert!(state.claim_pending_slot(Some(candidate_a), &relay_parent_a, &para_id));
-		assert!(state.claim_pending_slot(Some(candidate_b), &relay_parent_b, &para_id));
+		assert!(state.claim_pending_slot(&relay_parent_a, &para_id, Some(candidate_a)));
+		assert!(state.claim_pending_slot(&relay_parent_b, &para_id, Some(candidate_b)));
 		assert!(!state.has_free_slot_at_leaf_for(
 			&relay_parent_b,
 			&relay_parent_a,
@@ -360,7 +360,7 @@ mod test {
 		let relay_parent_a = Hash::from_low_u64_be(1);
 		let candidate_a = CandidateHash(Hash::from_low_u64_be(101));
 
-		assert!(state.claim_pending_slot(Some(candidate_a), &relay_parent_a, &para_id));
+		assert!(state.claim_pending_slot(&relay_parent_a, &para_id, Some(candidate_a)));
 
 		// CQ is of size 1. We have claimed one slot at A, so there should be one free slot at
 		// each leaf.
@@ -368,13 +368,13 @@ mod test {
 		assert_eq!(state.free_slots(&relay_parent_b), vec![para_id]);
 		assert_eq!(state.free_slots(&relay_parent_c), vec![para_id]);
 		// and the same slots should remain available after seconding candidate_a
-		assert!(state.claim_seconded_slot(&candidate_a, &relay_parent_a, &para_id));
+		assert!(state.claim_seconded_slot(&relay_parent_a, &para_id, &candidate_a));
 		assert_eq!(state.free_slots(&relay_parent_b), vec![para_id]);
 		assert_eq!(state.free_slots(&relay_parent_c), vec![para_id]);
 
 		// Now claim a seconded slot directly at relay parent b
 		let candidate_b = CandidateHash(Hash::from_low_u64_be(102));
-		assert!(state.claim_seconded_slot(&candidate_b, &relay_parent_b, &para_id));
+		assert!(state.claim_seconded_slot(&relay_parent_b, &para_id, &candidate_b));
 		// which means there are no more free slots at leaf b
 		assert_eq!(state.free_slots(&relay_parent_b), vec![]);
 		// but the free slot at leaf c stays
@@ -445,8 +445,8 @@ mod test {
 		));
 
 		// Claim a slot at the common ancestor (rpa) and rp b
-		assert!(state.claim_seconded_slot(&candidate_a, &relay_parent_a, &para_id));
-		assert!(state.claim_seconded_slot(&candidate_b, &relay_parent_b, &para_id));
+		assert!(state.claim_seconded_slot(&relay_parent_a, &para_id, &candidate_a));
+		assert!(state.claim_seconded_slot(&relay_parent_b, &para_id, &candidate_b));
 
 		// now try adding another candidate at the common ancestor at both leaves. It should
 		// fail for b and succeed for c
@@ -484,8 +484,8 @@ mod test {
 		let candidate_c = CandidateHash(Hash::from_low_u64_be(103));
 
 		// Claim a slot at the common ancestor (rpa) for two candidates
-		assert!(state.claim_seconded_slot(&candidate_a, &relay_parent_a, &para_id));
-		assert!(state.claim_seconded_slot(&candidate_b, &relay_parent_a, &para_id));
+		assert!(state.claim_seconded_slot(&relay_parent_a, &para_id, &candidate_a));
+		assert!(state.claim_seconded_slot(&relay_parent_a, &para_id, &candidate_b));
 
 		// now try adding another candidate at the common ancestor at both leaves. It should
 		// fail for both
