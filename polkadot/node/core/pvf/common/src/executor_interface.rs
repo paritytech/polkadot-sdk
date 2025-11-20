@@ -332,6 +332,22 @@ impl sp_externalities::Externalities for ValidationExternalities {
 	fn get_read_and_written_keys(&self) -> Vec<(Vec<u8>, u32, u32, bool)> {
 		panic!("get_read_and_written_keys: unsupported feature for parachain validation")
 	}
+
+	/// Parachain validation does not require maintaining a transaction index,
+	/// and indexing transactions does **not** contribute to the parachain state.
+	/// However, the host environment still expects this function to exist,
+	/// so we provide a no-op implementation.
+	fn storage_index_transaction(&mut self, _index: u32, _hash: &[u8], _size: u32) {
+		// No-op host function used during parachain validation.
+	}
+
+	/// Parachain validation does not require maintaining a transaction index,
+	/// and indexing transactions does **not** contribute to the parachain state.
+	/// However, the host environment still expects this function to exist,
+	/// so we provide a no-op implementation.
+	fn storage_renew_transaction_index(&mut self, _index: u32, _hash: &[u8]) {
+		// No-op host function used during parachain validation.
+	}
 }
 
 impl sp_externalities::ExtensionStore for ValidationExternalities {
