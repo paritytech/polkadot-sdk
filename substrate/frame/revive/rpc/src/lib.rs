@@ -557,8 +557,21 @@ impl EthRpcServer for EthRpcServerImpl {
 				.ok_or(EthRpcError::AccountNotFound(address))?,
 		};
 
-		let signature = account.sign(&message.0).to_vec().into();
-		Ok(Some(signature))
+		// Prepare the message by prefixing it with the header used by the `eth_sign`
+		let eth_message = [
+			format!("\x19Ethereum Signed Message:\n{}", message.0.len()).as_bytes(),
+			&message.0,
+		].concat();
+
+		let mut signature = account.sign(&eth_message);
+
+		// Adjust the V value to be compatible with Ethereum
+		let recovery_id_constant: u8 = 27;
+		if signature[64] < recovery_id_constant {
+			signature[64] += recovery_id_constant; // Adjust V value
+		}
+
+		Ok(Some(signature.to_vec().into()))
 	}
 }
 
