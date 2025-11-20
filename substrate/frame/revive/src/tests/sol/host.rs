@@ -607,9 +607,9 @@ fn logs_denied_for_static_call(caller_type: FixtureType, callee_type: FixtureTyp
 	});
 }
 
-#[test_case(FixtureType::Solc;   "solc")]
-#[test_case(FixtureType::Resolc; "resolc")]
-fn reading_empty_storage_item_returns_zero(fixture_type: FixtureType) {
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn reading_empty_storage_item_returns_zero_simple(fixture_type: FixtureType) {
 	let (host_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -626,6 +626,48 @@ fn reading_empty_storage_item_returns_zero(fixture_type: FixtureType) {
 			.build_and_unwrap_result();
 
 		let decoded = Host::sloadOpCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(decoded, 0u64, "sloadOpCall should return zero for empty storage item");
+	})
+}
+
+#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
+#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
+#[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
+#[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
+fn reading_empty_storage_item_returns_zero_delegatecall(
+	caller_type: FixtureType,
+	callee_type: FixtureType,
+) {
+	let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
+	let (host_code, _) = compile_module_with_type("Host", callee_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: host_addr, .. } =
+			builder::bare_instantiate(Code::Upload(host_code)).build_and_unwrap_contract();
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+
+		let index = 13u64;
+
+		// read non-existent storage item
+		let result = builder::bare_call(caller_addr)
+			.data(
+				Caller::delegateCall {
+					_callee: host_addr.0.into(),
+					_data: Host::sloadOpCall { slot: index }.abi_encode().into(),
+					_gas: u64::MAX,
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		assert!(!result.did_revert(), "delegateCall reverted");
+		let result = Caller::delegateCall::abi_decode_returns(&result.data).unwrap();
+
+		assert!(result.success, "sloadOpCall did not succeed");
+		let decoded = Host::sloadOpCall::abi_decode_returns(&result.output).unwrap();
 		assert_eq!(decoded, 0u64, "sloadOpCall should return zero for empty storage item");
 	})
 }
@@ -676,7 +718,10 @@ fn storage_item_zero_shall_refund_deposit_simple(fixture_type: FixtureType) {
 #[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
 #[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
 #[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
-fn storage_item_zero_shall_refund_deposit(caller_type: FixtureType, callee_type: FixtureType) {
+fn storage_item_zero_shall_refund_deposit_delegatecall(
+	caller_type: FixtureType,
+	callee_type: FixtureType,
+) {
 	let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
 	let (host_code, _) = compile_module_with_type("Host", callee_type).unwrap();
 
