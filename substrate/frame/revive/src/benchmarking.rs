@@ -2097,7 +2097,7 @@ mod benchmarks {
 	fn evm_instantiate(
 		t: Linear<0, 1>,
 		d: Linear<0, 1>,
-		i: Linear<1024, { 10 * 1024 }>,
+		i: Linear<{ 10 * 1024 }, { 48 * 1024 }>,
 	) -> Result<(), BenchmarkError> {
 		use crate::vm::evm::instructions::BENCH_INIT_CODE;
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::dummy());
