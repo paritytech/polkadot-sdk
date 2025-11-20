@@ -45,6 +45,24 @@
 //!
 //! Registering of the `PreInherents` hook:
 #![doc = docify::embed!("src/block_weight/mock.rs", pre_inherents_setup)]
+//! # Weight per context
+//!
+//! Depending on the context, [`MaxParachainBlockWeight`] may returns a different max weight. The
+//! max weight is only allowed to change in the first block of a core. Otherwise, all blocks need to
+//! follow the target block weight determined based on the number of cores and the target block
+//! rate. In the case of a first block, the following contexts may allow to access the full core
+//! weight:
+//!
+//! - `on_initialize`: All logic that runs in this context up to the execution of `inherents` will
+//!   get access to the full core weight.
+//! - `inherents`: Inherents also have access to the full core weight.
+//! - `on_poll`: Only gets access to the target block weight.
+//! - `transactions`: May get access to the full core weight, depends if they enable the access to
+//!   the full core weight based on the logic of [`DynamicMaxBlockWeight`].
+//! - `on_finalize`/`on_idle`: Only gets access to the target block weight.
+//!
+//! If any context that allows to use the full core weight, pushes the used block weight above the
+//! target block weight, all other contexts will get access to the full core weight.
 
 use crate::{Config, PreviousCoreCount};
 use codec::{Decode, Encode};
