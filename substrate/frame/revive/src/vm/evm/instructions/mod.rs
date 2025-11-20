@@ -27,14 +27,11 @@ mod bitwise;
 /// Block information instructions (COINBASE, TIMESTAMP, etc.).
 mod block_info;
 /// Contract operations (CALL, CREATE, DELEGATECALL, etc.).
-mod contract;
+pub mod contract;
 /// Control flow instructions (JUMP, JUMPI, REVERT, etc.).
 mod control;
 /// Host environment interactions (SLOAD, SSTORE, LOG, etc.).
-#[cfg(feature = "runtime-benchmarks")]
 pub mod host;
-#[cfg(not(feature = "runtime-benchmarks"))]
-mod host;
 /// Memory operations (MLOAD, MSTORE, MSIZE, etc.).
 mod memory;
 /// Stack operations (PUSH, POP, DUP, SWAP, etc.).
@@ -44,7 +41,10 @@ mod system;
 /// Transaction information instructions (ORIGIN, GASPRICE, etc.).
 mod tx_info;
 /// Utility functions and helpers for instruction implementation.
-mod utility;
+pub mod utility;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub const BENCH_INIT_CODE: u8 = 0xff; // Arbitrary unused opcode for benchmarking
 
 pub fn exec_instruction<E: Ext>(
 	interpreter: &mut Interpreter<E>,
@@ -211,6 +211,9 @@ pub fn exec_instruction<E: Ext>(
 		RETURN => control::ret(interpreter),
 		REVERT => control::revert(interpreter),
 		SELFDESTRUCT => host::selfdestruct(interpreter),
+
+		#[cfg(feature = "runtime-benchmarks")]
+		BENCH_INIT_CODE => control::bench_init_code(),
 
 		_ => control::invalid(interpreter),
 	}
