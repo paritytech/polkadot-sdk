@@ -104,7 +104,7 @@ jobs:
       contents: read
 
   trigger-release-draft-with-runtimes:
-    if: ${{ inputs.no_runtimes == false }}
+    if: ${{ inputs.no_runtimes == 'false' }}
     needs: [build-runtimes-flow, build-rc-flow, validate-inputs]
     uses: "./.github/workflows/release-30_publish_release_draft.yml"
     with:
@@ -112,16 +112,16 @@ jobs:
       build_run_id: ${{ github.run_id }}
       runtimes: '${{ needs.build-runtimes-flow.outputs.published_runtimes }}'
       no_runtimes: ${{ inputs.no_runtimes }}
-      crates_only: false
+      crates_only: 'false'
     secrets: inherit
 
   trigger-release-draft-without-runtimes:
-    if: ${{ inputs.no_runtimes == true }}
+    if: ${{ inputs.no_runtimes == 'true' }}
     needs: [build-runtimes-flow, build-rc-flow, validate-inputs]
     uses: "./.github/workflows/release-30_publish_release_draft.yml"
     with:
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       build_run_id: ${{ github.run_id }}
       no_runtimes: ${{ inputs.no_runtimes }}
-      crates_only: false
+      crates_only: 'false'
     secrets: inherit
