@@ -55,7 +55,7 @@ pub fn does_rc_block_contain_session_change(
 			_ => continue,
 		}
 	}
-	return false
+	false
 }
 
 /// Create a batch call to assign cores to a parachain.
