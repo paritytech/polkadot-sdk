@@ -251,6 +251,7 @@ members = [
 	"polkadot/xcm/xcm-simulator/example",
 	"polkadot/xcm/xcm-simulator/fuzzer",
 	"polkadot/zombienet-sdk-tests",
+	"substrate/zombienet/zombienet-sdk",
 	"substrate/bin/node/bench",
 	"substrate/bin/node/cli",
 	"substrate/bin/node/inspect",

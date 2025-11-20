@@ -24974,6 +24974,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "substrate-zombienet-sdk-tests"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "env_logger 0.11.3",
+ "log",
+ "subxt 0.43.0",
+ "subxt-signer 0.43.0",
+ "tokio",
+ "zombienet-configuration",
+ "zombienet-orchestrator",
+ "zombienet-sdk",
+]
+
+[[package]]
 name = "subtle"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
