@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod bootnodes;
+mod coretime_partitioning;
 mod elastic_scaling;
 mod full_node_catching_up;
 mod full_node_warp_sync;
