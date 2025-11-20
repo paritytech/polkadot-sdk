@@ -3,8 +3,6 @@ doc:
 - audience: Runtime Dev
   description: |-
     This PR introduces the try_state hook to pallet-assets to verify key storage invariants.
-
-    closes part of https://github.com/paritytech/polkadot-sdk/issues/239
 crates:
 - name: pallet-assets
   bump: patch
