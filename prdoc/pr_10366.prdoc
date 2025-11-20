@@ -1,0 +1,7 @@
+title: '[pallet-revive] update evm create benchmark'
+doc:
+- audience: Runtime Dev
+  description: Add a benchmark for evm CREATE instruction
+crates:
+- name: pallet-revive
+  bump: patch

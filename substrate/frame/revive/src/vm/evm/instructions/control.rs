@@ -130,3 +130,9 @@ pub fn invalid<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().consume_all();
 	ControlFlow::Break(Error::<E::T>::InvalidInstruction.into())
 }
+
+#[cfg(feature = "runtime-benchmarks")]
+pub fn bench_init_code() -> ControlFlow<Halt> {
+	let runtime_code = vec![revm::bytecode::opcode::STOP; revm::primitives::eip170::MAX_CODE_SIZE];
+	ControlFlow::Break(Halt::Return(runtime_code))
+}
