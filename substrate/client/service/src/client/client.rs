@@ -584,10 +584,14 @@ where
 		}
 
 		let info = self.backend.blockchain().info();
-		let gap_block =
-			info.block_gap.map_or(false, |gap| *import_headers.post().number() == gap.start);
-
 		debug!("execute_and_import_block Blockchain info : {info:?}");
+		let gap_block = info.block_gap.map_or(false, |gap| {
+			let number = *import_headers.post().number();
+			number == gap.start ||
+				// Parent block might have been already in chain (warp sync) and gap was not updated
+				(number == gap.start + One::one() && parent_exists)
+		});
+
 		debug!("execute_and_import_block gap_block: {gap_block:?} ",);
 		// the block is lower than our last finalized block so it must revert
 		// finality, refusing import.

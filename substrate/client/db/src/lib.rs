@@ -1735,7 +1735,7 @@ impl<Block: BlockT> Backend<Block> {
 
 				if let Some(mut gap) = block_gap {
 					match gap.gap_type {
-						BlockGapType::MissingHeaderAndBody =>
+						BlockGapType::MissingHeaderAndBody => {
 							if number == gap.start {
 								gap.start += One::one();
 								utils::insert_number_to_key_mapping(
@@ -1754,7 +1754,28 @@ impl<Block: BlockT> Backend<Block> {
 									debug!(target: "db", "Update block gap. {block_gap:?}");
 								}
 								block_gap_updated = true;
-							},
+							// Gap start possibly indicates block that was already imported
+							// during warp sync and start was not updated.
+							} else if number == gap.start + One::one() {
+								gap.start = number + One::one();
+								utils::insert_number_to_key_mapping(
+									&mut transaction,
+									columns::KEY_LOOKUP,
+									number,
+									hash,
+								)?;
+								if gap.start > gap.end {
+									transaction.remove(columns::META, meta_keys::BLOCK_GAP);
+									transaction.remove(columns::META, meta_keys::BLOCK_GAP_VERSION);
+									block_gap = None;
+									debug!(target: "db", "Removed block gap.");
+								} else {
+									insert_new_gap(&mut transaction, gap, &mut block_gap);
+									debug!(target: "db", "Update block gap. {block_gap:?}");
+								}
+								block_gap_updated = true;
+							}
+						},
 						BlockGapType::MissingBody => {
 							// Gap increased when syncing the header chain during fast sync.
 							if number == gap.end + One::one() && !existing_body {
