@@ -48,10 +48,14 @@ async fn mixed_validators_adder_collator_test() -> Result<(), anyhow::Error> {
 			let r = (1..7)
 				.fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))));
 
-			// Add validator 7 with colander:latest image
+			// Add validator 7 with old polkadot image
 			r.with_node(|node| {
 				node.with_name("old-validator-7")
-					.with_image("docker.io/paritypr/colander:latest")
+					.with_image(
+						std::env::var("OLD_POLKADOT_IMAGE")
+							.unwrap_or("docker.io/paritypr/polkadot:latest".to_string())
+							.as_str(),
+					)
 					.with_command("polkadot")
 			})
 		})
