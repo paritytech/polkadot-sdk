@@ -621,12 +621,21 @@ where
 		blocks.push(built_block.block);
 		proofs.push(built_block.proof);
 
-		if CumulusDigestItem::contains_use_full_core(parent_header.digest()) {
+		let full_core_digest = CumulusDigestItem::contains_use_full_core(parent_header.digest());
+		let runtime_upgrade_digest = parent_header
+			.digest()
+			.logs
+			.iter()
+			.any(|it| matches!(it, sp_runtime::DigestItem::RuntimeEnvironmentUpdated));
+
+		if full_core_digest || runtime_upgrade_digest {
 			tracing::trace!(
 				target: crate::LOG_TARGET,
 				block_hash = ?parent_hash,
 				time_used_by_block_in_secs = %block_start.elapsed().as_secs_f32(),
-				"Found `UseFullCore` digest, stopping block production for core",
+				%full_core_digest,
+				%runtime_upgrade_digest,
+				"Stopping block production for core",
 			);
 			break
 		}

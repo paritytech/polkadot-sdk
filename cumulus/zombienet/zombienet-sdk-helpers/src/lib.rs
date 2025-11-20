@@ -16,7 +16,7 @@ use zombienet_sdk::subxt::{
 	self,
 	backend::legacy::LegacyRpcMethods,
 	blocks::Block,
-	config::{polkadot::PolkadotExtrinsicParamsBuilder, Header},
+	config::{polkadot::PolkadotExtrinsicParamsBuilder, substrate::DigestItem, Header},
 	dynamic::Value,
 	events::Events,
 	ext::scale_value::value,
@@ -896,19 +896,30 @@ pub async fn assign_cores(
 	Ok(())
 }
 
-pub async fn wait_for_upgrade(
-	client: OnlineClient<PolkadotConfig>,
-	expected_version: u32,
-) -> Result<(), anyhow::Error> {
-	let updater = client.updater();
-	let mut update_stream = updater.runtime_updates().await?;
+/// Wait until a runtime upgrade has happened.
+///
+/// This checks all finalized blocks until it finds a block that sets the
+/// `RuntimeEnvironmentUpdated` digest.
+///
+/// Returns the hash of the block at which the runtime upgrade was applied.
+pub async fn wait_for_runtime_upgrade(
+	client: &OnlineClient<PolkadotConfig>,
+) -> Result<H256, anyhow::Error> {
+	let mut finalized_blocks = client.blocks().subscribe_finalized().await?;
 
-	while let Some(Ok(update)) = update_stream.next().await {
-		let version = update.runtime_version().spec_version;
-		log::info!("Update runtime spec version {version}");
-		if version == expected_version {
-			break;
+	while let Some(Ok(block)) = finalized_blocks.next().await {
+		if block
+			.header()
+			.digest
+			.logs
+			.iter()
+			.any(|d| matches!(d, DigestItem::RuntimeEnvironmentUpdated))
+		{
+			log::info!("Runtime upgraded in block {:?}", block.hash());
+
+			return Ok(block.hash())
 		}
 	}
-	Ok(())
+
+	Err(anyhow!("Did not find a runtime upgrade"))
 }

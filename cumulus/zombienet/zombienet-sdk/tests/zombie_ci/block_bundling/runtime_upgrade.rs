@@ -21,7 +21,8 @@ use cumulus_test_runtime::wasm_spec_version_incremented::WASM_BINARY_BLOATY as W
 use cumulus_zombienet_sdk_helpers::{
 	assert_finality_lag, assert_para_throughput, assign_cores, ensure_is_only_block_in_core,
 	find_core_info, submit_extrinsic_and_wait_for_finalization_success,
-	submit_unsigned_extrinsic_and_wait_for_finalization_success, BlockToCheck,
+	submit_unsigned_extrinsic_and_wait_for_finalization_success, wait_for_runtime_upgrade,
+	BlockToCheck,
 };
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
@@ -117,7 +118,9 @@ async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 
 	ensure_is_only_block_in_core(&para_client, BlockToCheck::Exact(block_hash)).await?;
 
-	//TODO: Verify that the runtime upgrade block is also using a full core.
+	let upgrade_block = wait_for_runtime_upgrade(&para_client).await?;
+
+	ensure_is_only_block_in_core(&para_client, BlockToCheck::Exact(upgrade_block)).await?;
 
 	Ok(())
 }

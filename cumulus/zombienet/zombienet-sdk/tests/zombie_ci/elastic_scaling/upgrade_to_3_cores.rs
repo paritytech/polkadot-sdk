@@ -8,7 +8,7 @@ use std::time::Duration;
 use crate::utils::initialize_network;
 
 use cumulus_zombienet_sdk_helpers::{
-	assert_para_throughput, assign_cores, runtime_upgrade, wait_for_upgrade,
+	assert_para_throughput, assign_cores, runtime_upgrade, wait_for_runtime_upgrade,
 };
 use polkadot_primitives::Id as ParaId;
 use rstest::rstest;
@@ -80,7 +80,7 @@ async fn elastic_scaling_upgrade_to_3_cores(
 	);
 	tokio::time::timeout(
 		Duration::from_secs(timeout_secs),
-		wait_for_upgrade(collator1_client, expected_spec_version),
+		wait_for_runtime_upgrade(&collator1_client),
 	)
 	.await
 	.expect("Timeout waiting for runtime upgrade")?;

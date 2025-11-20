@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use crate::utils::initialize_network;
 
-use cumulus_zombienet_sdk_helpers::{assert_para_throughput, wait_for_upgrade};
+use cumulus_zombienet_sdk_helpers::{assert_para_throughput, wait_for_runtime_upgrade};
 use polkadot_primitives::Id as ParaId;
 use zombienet_configuration::types::AssetLocation;
 use zombienet_sdk::{
@@ -63,12 +63,9 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 		"Waiting (up to {timeout_secs}s) for parachain runtime upgrade to version {}",
 		expected_spec_version
 	);
-	tokio::time::timeout(
-		Duration::from_secs(timeout_secs),
-		wait_for_upgrade(dave_client, expected_spec_version),
-	)
-	.await
-	.expect("Timeout waiting for runtime upgrade")?;
+	tokio::time::timeout(Duration::from_secs(timeout_secs), wait_for_runtime_upgrade(&dave_client))
+		.await
+		.expect("Timeout waiting for runtime upgrade")?;
 
 	let spec_version_from_charlie =
 		charlie_client.backend().current_runtime_version().await?.spec_version;
