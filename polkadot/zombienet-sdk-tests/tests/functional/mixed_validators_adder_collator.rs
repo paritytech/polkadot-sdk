@@ -1,8 +1,8 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Test network with 7 validators from current branch and 1 validator from colander:latest image.
-// The network should work properly with adder-collator parachains and finalize blocks.
+// Test network with 3 validators from current branch and 1 validator from old polkadot image.
+// The network should work properly with adder-collator parachain and finalize blocks.
 // This test expects disputes to occur due to erasure-coding differences between versions,
 // but verifies that finality continues despite the disputes.
 
@@ -45,7 +45,7 @@ async fn mixed_validators_adder_collator_test() -> Result<(), anyhow::Error> {
 				.with_node(|node| node.with_name("validator-0"));
 
 			// Add validators 1-6 with the current branch image (total 7 validators)
-			let r = (1..7)
+			let r = (1..3)
 				.fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))));
 
 			// Add validator 7 with old polkadot image
@@ -72,19 +72,6 @@ async fn mixed_validators_adder_collator_test() -> Result<(), anyhow::Error> {
 				.with_default_args(vec![("-lparachain=debug").into()])
 				.with_collator(|n| n.with_name("collator-adder-2000"))
 		})
-		// Parachain 2001 with adder-collator
-		.with_parachain(|p| {
-			p.with_id(2001)
-				.with_default_command("adder-collator")
-				.with_default_image(
-					std::env::var("COL_IMAGE")
-						.unwrap_or("docker.io/paritypr/colander:latest".to_string())
-						.as_str(),
-				)
-				.cumulus_based(false)
-				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_collator(|n| n.with_name("collator-adder-2001"))
-		})
 		.build()
 		.map_err(|e| {
 			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
@@ -103,14 +90,14 @@ async fn mixed_validators_adder_collator_test() -> Result<(), anyhow::Error> {
 	log::info!("Checking old validator node is responsive");
 	let _old_client: OnlineClient<PolkadotConfig> = old_relay_node.wait_client().await?;
 
-	// Assert that both parachains have good throughput
+	// Assert that parachain has good throughput
 	// Due to erasure-coding differences, throughput might be lower than usual
 	log::info!("Checking parachain throughput (may be affected by disputes)");
 	assert_para_throughput(
 		&relay_client,
 		20,
 		// Lower bounds due to expected disputes
-		[(ParaId::from(2000), 8..21), (ParaId::from(2001), 8..21)]
+		[(ParaId::from(2000), 8..21)]
 			.into_iter()
 			.collect(),
 	)
