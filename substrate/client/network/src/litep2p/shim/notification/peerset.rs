@@ -939,25 +939,36 @@ impl Peerset {
 	///
 	/// All reserved peers returned are transitioned to the `PeerState::Opening` state.
 	fn connect_reserved_peers(&mut self) -> Vec<PeerId> {
-		let connect_to = self
-			.peers
+		self.reserved_peers
 			.iter()
-			.filter_map(|(peer, state)| {
-				(self.reserved_peers.contains(peer) &&
-					std::matches!(state, PeerState::Disconnected) &&
-					!self.peerstore_handle.is_banned(peer))
-				.then_some(*peer)
+			.filter_map(|peer| {
+				if self.peerstore_handle.is_banned(peer) {
+					log::trace!(
+						target: LOG_TARGET,
+						"{}: Cannot connect to banned reserved {peer:?}",
+						self.protocol,
+					);
+					return None;
+				}
+
+				let peer_state = self.peers.get(peer);
+				if peer_state != Some(&PeerState::Disconnected) {
+					log::trace!(
+						target: LOG_TARGET,
+						"{}: Cannot connect to expected disconnected reserved {peer:?} state: {peer_state:?}",
+						self.protocol,
+					);
+					return None;
+				}
+
+				// Transition peer to the opening state.
+				self.peers.insert(
+					*peer,
+					PeerState::Opening { direction: Direction::Outbound(Reserved::Yes) },
+				);
+				Some(*peer)
 			})
-			.collect::<Vec<_>>();
-
-		connect_to.iter().for_each(|peer| {
-			self.peers.insert(
-				*peer,
-				PeerState::Opening { direction: Direction::Outbound(Reserved::Yes) },
-			);
-		});
-
-		connect_to
+			.collect::<Vec<_>>()
 	}
 
 	/// Get the number of inbound peers.
