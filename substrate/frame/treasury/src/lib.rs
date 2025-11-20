@@ -195,6 +195,11 @@ pub enum PaymentState<Id> {
 	Failed,
 }
 
+pub enum SpendAsset<AssetKind, Balance> {
+    Specific(AssetKind),
+    Category(BoundedVec<u8, ConstU32<32>>), // e.g., "USD*", "EUR*"
+}
+
 /// Info regarding an approved treasury spend.
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 #[derive(
@@ -209,8 +214,9 @@ pub enum PaymentState<Id> {
 	TypeInfo,
 )]
 pub struct SpendStatus<AssetKind, AssetBalance, Beneficiary, BlockNumber, PaymentId> {
-	// The kind of asset to be spent.
-	pub asset_kind: AssetKind,
+	pub asset: SpendAsset<AssetKind, AssetBalance>,
+    // The kind of asset to be spent.
+	//pub asset_kind: AssetKind,
 	/// The asset amount of the spend.
 	pub amount: AssetBalance,
 	/// The beneficiary of the spend.
@@ -221,6 +227,17 @@ pub struct SpendStatus<AssetKind, AssetBalance, Beneficiary, BlockNumber, Paymen
 	pub expire_at: BlockNumber,
 	/// The status of the payout/claim.
 	pub status: PaymentState<PaymentId>,
+}
+
+/// Trait for managing asset categories
+pub trait AssetCategoryManager {
+    type AssetKind;
+
+    /// Get all assets in a category
+    fn assets_in_category(category: &[u8]) -> Vec<Self::AssetKind>;
+
+    /// Optional: Check if an asset belongs to a category
+    fn is_asset_in_category(asset: &Self::AssetKind, category: &[u8]) -> bool;
 }
 
 /// Index of an approved treasury spend.
@@ -318,6 +335,8 @@ pub mod pallet {
 
 		/// Provider for the block number. Normally this is the `frame_system` pallet.
 		type BlockNumberProvider: BlockNumberProvider;
+
+        type AssetCategories: AssetCategoryManager<AssetKind = Self::AssetKind>;
 	}
 
 	#[pallet::extra_constants]
