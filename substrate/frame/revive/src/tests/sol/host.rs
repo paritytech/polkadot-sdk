@@ -774,20 +774,10 @@ fn storage_item_zero_shall_refund_deposit_delegatecall(
 		let result = Caller::delegateCall::abi_decode_returns(&result.data).unwrap();
 		assert!(result.success, "delegateCall did not succeed");
 
-		if callee_type == FixtureType::Resolc {
-			// Resolc will not refund
-			assert_eq!(
-				get_contract(&caller_addr).total_deposit(),
-				base_deposit + 32 + 32 + 2,
-				"PVM contract does not refund deposit on zeroing storage item"
-			);
-		} else {
-			// solc will refund
-			assert_eq!(
-				get_contract(&caller_addr).total_deposit(),
-				base_deposit,
-				"EVM contract should refund deposit on zeroing storage item"
-			);
-		}
+		assert_eq!(
+			get_contract(&caller_addr).total_deposit(),
+			base_deposit,
+			"contract should refund deposit on zeroing storage item"
+		);
 	});
 }
