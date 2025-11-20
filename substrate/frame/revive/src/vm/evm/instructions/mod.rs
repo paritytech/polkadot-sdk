@@ -44,7 +44,7 @@ mod tx_info;
 pub mod utility;
 
 #[cfg(feature = "runtime-benchmarks")]
-pub const BENCH_INIT_CODE: u8 = 0xEF; // Arbitrary unused opcode for benchmarking
+pub const BENCH_INIT_CODE: u8 = 0x1F; // Arbitrary unused opcode for benchmarking
 
 pub fn exec_instruction<E: Ext>(
 	interpreter: &mut Interpreter<E>,
