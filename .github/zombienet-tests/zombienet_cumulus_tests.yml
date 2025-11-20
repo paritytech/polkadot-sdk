@@ -86,3 +86,9 @@
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
   needs-wasm-binary: true
+
+- job-name: "zombienet-cumulus-0015-coretime_partitioning"
+  test-filter: "zombie_ci::coretime_partitioning::coretime_assignment_boundary_test"
+  runner-type: "default"
+  cumulus-image: "polkadot-parachain-debug"
+  use-zombienet-sdk: true
