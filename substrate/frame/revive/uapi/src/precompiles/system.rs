@@ -66,5 +66,8 @@ sol! {
 
 		/// Returns the amount of `Weight` left.
 		function weightLeft() external view returns (uint64 refTime, uint64 proofSize);
+
+		/// Terminate the calling contract of this function and send balance to `beneficiary`.
+		function terminate(address beneficiary) external;
 	}
 }

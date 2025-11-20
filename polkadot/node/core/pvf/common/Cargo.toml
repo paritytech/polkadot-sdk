@@ -45,6 +45,7 @@ seccompiler = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
+wat = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 tempfile = { workspace = true }

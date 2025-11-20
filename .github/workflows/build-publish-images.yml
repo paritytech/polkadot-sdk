@@ -77,7 +77,7 @@ jobs:
         run: tar -cvf artifacts.tar artifacts
 
       - name: upload artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
@@ -117,7 +117,7 @@ jobs:
         run: tar -cvf artifacts.tar artifacts
 
       - name: upload artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
@@ -161,7 +161,7 @@ jobs:
         run: tar -cvf artifacts.tar artifacts
 
       - name: upload artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
@@ -204,7 +204,7 @@ jobs:
         run: tar -cvf artifacts.tar artifacts
 
       - name: upload artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
@@ -246,7 +246,7 @@ jobs:
         run: tar -cvf artifacts.tar artifacts
 
       - name: upload artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
@@ -293,7 +293,7 @@ jobs:
         run: tar -cvf artifacts.tar artifacts
 
       - name: upload artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
@@ -336,7 +336,7 @@ jobs:
         run: tar -cvf artifacts.tar artifacts
 
       - name: upload artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
@@ -375,7 +375,7 @@ jobs:
         run: tar -cvf artifacts.tar artifacts
 
       - name: upload artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
@@ -405,7 +405,7 @@ jobs:
         run: tar -cvf artifacts.tar artifacts
 
       - name: upload artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
@@ -435,7 +435,7 @@ jobs:
         run: tar -cvf artifacts.tar artifacts
 
       - name: upload artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
@@ -462,7 +462,7 @@ jobs:
         run: tar -cvf artifacts.tar artifacts
 
       - name: upload artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
@@ -481,7 +481,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: build-test-parachain-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
@@ -507,7 +507,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: build-linux-stable-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
@@ -533,7 +533,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: build-test-collators-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
@@ -559,7 +559,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: build-malus-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
@@ -585,7 +585,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: build-linux-substrate-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
@@ -619,7 +619,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: build-linux-stable-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
       - name: tar
@@ -627,7 +627,7 @@ jobs:
           tar -xvf artifacts.tar
           rm artifacts.tar
 
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: build-linux-stable-cumulus-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
       - name: tar
@@ -635,7 +635,7 @@ jobs:
           tar -xvf artifacts.tar
           rm artifacts.tar
 
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: prepare-bridges-zombienet-artifacts-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
       - name: tar
@@ -662,7 +662,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: build-linux-stable-cumulus-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
@@ -690,13 +690,73 @@ jobs:
       - build-linux-substrate
       - build-templates-node
     if: always() && !cancelled()
+    outputs:
+      build_success: ${{ steps.check_success.outputs.build_success }}
     steps:
-      - run: |
+      - name: Check build success
+        id: check_success
+        run: |
           tee resultfile <<< '${{ toJSON(needs) }}'
           FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
           if [ $FAILURES -gt 0 ]; then
             echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
+            echo "build_success=false" >> $GITHUB_OUTPUT
             exit 1
           else
             echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
+            echo "build_success=true" >> $GITHUB_OUTPUT
+          fi
+
+  trigger-zombienet-polkadot:
+    needs: [preflight, confirm-required-build-jobs-passed]
+    if: ${{ needs.confirm-required-build-jobs-passed.outputs.build_success == 'true' }}
+    uses: ./.github/workflows/zombienet_polkadot.yml
+    with:
+      build_run_id: ${{ github.run_id }}
+      ref_slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+
+  trigger-zombienet-cumulus:
+    needs: [preflight, confirm-required-build-jobs-passed]
+    if: ${{ needs.confirm-required-build-jobs-passed.outputs.build_success == 'true' }}
+    uses: ./.github/workflows/zombienet_cumulus.yml
+    with:
+      build_run_id: ${{ github.run_id }}
+      ref_slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+
+  trigger-zombienet-substrate:
+    needs: [preflight, confirm-required-build-jobs-passed]
+    if: ${{ needs.confirm-required-build-jobs-passed.outputs.build_success == 'true' }}
+    uses: ./.github/workflows/zombienet_substrate.yml
+    with:
+      build_run_id: ${{ github.run_id }}
+      ref_slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+
+  trigger-zombienet-parachain-template:
+    needs: [preflight, confirm-required-build-jobs-passed]
+    if: ${{ needs.confirm-required-build-jobs-passed.outputs.build_success == 'true' }}
+    uses: ./.github/workflows/zombienet_parachain-template.yml
+    with:
+      build_run_id: ${{ github.run_id }}
+      ref_slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+
+  confirm-zombienet-tests-passed:
+    runs-on: ubuntu-latest
+    name: All zombienet tests passed
+    needs:
+      - trigger-zombienet-polkadot
+      - trigger-zombienet-cumulus
+      - trigger-zombienet-substrate
+      - trigger-zombienet-parachain-template
+    if: always() && !cancelled()
+    steps:
+      - name: Check zombienet success
+        id: check_success
+        run: |
+          tee resultfile <<< '${{ toJSON(needs) }}'
+          FAILURES=$(grep -c '"result": "failure"' resultfile || true)
+          if [ "$FAILURES" -gt 0 ]; then
+            echo "### At least one zombienet job failed ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo '### Good job! All zombienet jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
           fi
