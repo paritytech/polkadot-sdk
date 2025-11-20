@@ -42,8 +42,8 @@ use polkadot_node_subsystem_util::{
 	runtime::{get_availability_cores, get_occupied_cores, RuntimeInfo},
 };
 use polkadot_primitives::{
-	BackedCandidate, CandidateHash, CoreIndex, CoreState, GroupIndex,
-	GroupRotationInfo, Hash, Id as paraId, SessionIndex, ValidatorIndex,
+	BackedCandidate, CandidateHash, CoreIndex, CoreState, GroupIndex, GroupRotationInfo, Hash,
+	Id as paraId, SessionIndex, ValidatorIndex,
 };
 
 use super::{FatalError, Metrics, Result, LOG_TARGET};
@@ -57,9 +57,12 @@ use session_cache::SessionCache;
 
 /// A task fetching a particular chunk.
 mod fetch_task;
-use crate::{error::Error::{
-	CanceledValidatorGroups, FailedValidatorGroups, GetBackableCandidates, SubsystemUtil,
-}, requester::fetch_task::BackedOnChain};
+use crate::{
+	error::Error::{
+		CanceledValidatorGroups, FailedValidatorGroups, GetBackableCandidates, SubsystemUtil,
+	},
+	requester::fetch_task::BackedOnChain,
+};
 use fetch_task::{FetchTask, FetchTaskConfig, FromFetchTask};
 
 /// Requester takes care of requesting erasure chunks from backing groups and stores them in the
@@ -143,14 +146,26 @@ impl Requester {
 		update: ActiveLeavesUpdate,
 	) -> Result<()> {
 		gum::trace!(target: LOG_TARGET, ?update, "Update fetching heads");
+
+		// hash of backable candidates requested from prospective parachains subsystem
+		let mut backable_candidate_hashes: HashSet<CandidateHash> = HashSet::new();
+
 		let ActiveLeavesUpdate { activated, deactivated } = update;
 		if let Some(leaf) = activated {
 			// Order important! We need to handle activated, prior to deactivated, otherwise we
 			// might cancel still needed jobs.
-			self.start_requesting_chunks(ctx, runtime, leaf).await?;
+
+			let candidates_per_para = self.fetch_backable_candidate_hashes(ctx, &leaf).await?;
+
+			backable_candidate_hashes = candidates_per_para
+				.values()
+				.flat_map(|candidates| candidates.iter().map(|(hash, _)| *hash))
+				.collect();
+
+			self.start_requesting_chunks(ctx, runtime, leaf, candidates_per_para).await?;
 		}
 
-		self.stop_requesting_chunks(deactivated.into_iter());
+		self.stop_requesting_chunks(deactivated.into_iter(), backable_candidate_hashes);
 		Ok(())
 	}
 
@@ -163,6 +178,7 @@ impl Requester {
 		ctx: &mut Context,
 		runtime: &mut RuntimeInfo,
 		new_head: ActivatedLeaf,
+		backable_candidate_hashes: HashMap<paraId, Vec<(CandidateHash, Hash)>>,
 	) -> Result<()> {
 		let sender = &mut ctx.sender().clone();
 		let ActivatedLeaf { hash: leaf, .. } = new_head;
@@ -229,9 +245,14 @@ impl Requester {
 				.await?;
 		}
 
-
 		if let Err(err) = self
-			.early_request_chunks(ctx, runtime, new_head, leaf_session_index)
+			.early_request_chunks(
+				ctx,
+				runtime,
+				new_head,
+				leaf_session_index,
+				backable_candidate_hashes,
+			)
 			.await
 		{
 			gum::warn!(
@@ -249,23 +270,13 @@ impl Requester {
 		runtime: &mut RuntimeInfo,
 		activated_leaf: ActivatedLeaf,
 		leaf_session_index: SessionIndex,
+		backable_candidate_hashes: HashMap<paraId, Vec<(CandidateHash, Hash)>>,
 	) -> Result<()> {
 		let sender = &mut ctx.sender().clone();
 		let validator_groups = &get_validator_groups(sender, activated_leaf.hash).await?;
 
-		let availability_cores =
-			&get_availability_cores(sender, activated_leaf.hash).await.map_err(|err| {
-				gum::warn!(
-					target: LOG_TARGET,
-					error = ?err,
-					"Failed to get availability cores for activated leaf"
-				);
-				err
-			})?;
-
-		let backable_candidates = self
-			.fetch_backable_candidates(&activated_leaf, sender, availability_cores)
-			.await?;
+		let backable_candidates =
+			self.fetch_backable_candidates(sender, backable_candidate_hashes).await?;
 
 		let total_cores = validator_groups.0.len();
 
@@ -279,9 +290,8 @@ impl Requester {
 
 					let receipt = candidate.candidate();
 
-					let group_responsible = validator_groups
-						.1
-						.group_for_core(core_index, total_cores);
+					let group_responsible =
+						validator_groups.1.group_for_core(core_index, total_cores);
 
 					// TODO: remove
 					gum::info!(
@@ -318,18 +328,24 @@ impl Requester {
 		.await
 	}
 
-	/// Requests the hashes of backable candidates from prospective parachains subsystem,
-	/// and then requests the backable candidates from the candidate backing subsystem.
-	async fn fetch_backable_candidates<Sender>(
+	/// Requests backable candidates from prospective parachains subsystem to early start chunk fetching.
+	async fn fetch_backable_candidate_hashes<Context>(
 		&mut self,
+		ctx: &mut Context,
 		activated_leaf: &ActivatedLeaf,
-		sender: &mut Sender,
-		availability_cores: &Vec<CoreState>,
-	) -> Result<HashMap<paraId, Vec<BackedCandidate>>>
-	where
-		Sender: overseer::SubsystemSender<ProspectiveParachainsMessage>
-			+ overseer::SubsystemSender<CandidateBackingMessage>,
-	{
+	) -> Result<HashMap<paraId, Vec<(CandidateHash, Hash)>>> {
+		let sender = &mut ctx.sender().clone();
+
+		let availability_cores =
+			&get_availability_cores(sender, activated_leaf.hash).await.map_err(|err| {
+				gum::warn!(
+					target: LOG_TARGET,
+					error = ?err,
+					"Failed to get availability cores for activated leaf"
+				);
+				err
+			})?;
+
 		// provided `None` bitfields to assume cores are all available.
 		let backable_candidate_hashes =
 			request_backable_candidates(&availability_cores, None, &activated_leaf, sender)
@@ -342,7 +358,18 @@ impl Requester {
 					);
 					SubsystemUtil(err)
 				})?;
+		Ok(backable_candidate_hashes)
+	}
 
+	/// Requests backable candidates from candidate backing subsystem.
+	async fn fetch_backable_candidates<Sender>(
+		&mut self,
+		sender: &mut Sender,
+		backable_candidate_hashes: HashMap<paraId, Vec<(CandidateHash, Hash)>>,
+	) -> Result<HashMap<paraId, Vec<BackedCandidate>>>
+	where
+		Sender: overseer::SubsystemSender<CandidateBackingMessage>,
+	{
 		let (tx, rx) = oneshot::channel();
 
 		sender
@@ -363,11 +390,19 @@ impl Requester {
 	}
 
 	/// Stop requesting chunks for obsolete heads.
-	fn stop_requesting_chunks(&mut self, obsolete_leaves: impl Iterator<Item = Hash>) {
-		let obsolete_leaves: HashSet<_> = obsolete_leaves.collect();
-		self.fetches.retain(|_, task| {
+	fn stop_requesting_chunks(
+		&mut self,
+		obsolete_leaves: impl Iterator<Item = Hash>,
+		backable_candidates: HashSet<CandidateHash>,
+	) {
+		let obsolete_leaves: HashSet<Hash> = obsolete_leaves.collect();
+
+		// For each fetch task, remove obsolete leaves and retain the task only if:
+		// - The candidate is still backable, or
+		// - There are still relay parents referencing this candidate.
+		self.fetches.retain(|candidate, task| {
 			task.remove_leaves(&obsolete_leaves);
-			task.is_live()
+			backable_candidates.contains(candidate) || task.is_live()
 		});
 	}
 
@@ -394,11 +429,12 @@ impl Requester {
 
 				// Fetch task initiated on early path, when candidate was not backed on chain,
 				// and now it appears to fetch the chunk on Late path when candidate is backed on chain.
-				if matches!(e.backed_on_chain, BackedOnChain::No) && matches!(origin, FetchOrigin::Late)  {
+				if matches!(e.backed_on_chain, BackedOnChain::No)
+					&& matches!(origin, FetchOrigin::Late)
+				{
 					e.backed_on_chain = BackedOnChain::Yes;
 					self.metrics.on_early_candidate_backed_on_chain();
 				}
-
 			} else {
 				let tx = self.tx.clone();
 				let metrics = self.metrics.clone();
