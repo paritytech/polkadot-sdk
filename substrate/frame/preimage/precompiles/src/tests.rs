@@ -66,7 +66,7 @@ fn call_and_expect_revert(from: AccountId, encoded_call: Vec<u8>) -> bool {
 }
 
 fn encode_note_preimage_call(preimage: Vec<u8>) -> Vec<u8> {
-	let call_params = IPreimage::notePreimageCall { preImage: preimage.into() };
+	let call_params = IPreimage::notePreimageCall { preimage: preimage.into() };
 	let call = IPreimage::IPreimageCalls::notePreimage(call_params);
 	call.abi_encode()
 }

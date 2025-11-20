@@ -71,8 +71,8 @@ where
 			IPreimageCalls::notePreimage(_) | IPreimageCalls::unnotePreimage(_)
 				if env.is_read_only() =>
 				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into())),
-			IPreimageCalls::notePreimage(IPreimage::notePreimageCall { preImage }) => {
-				let preimage = preImage.to_vec();
+			IPreimageCalls::notePreimage(IPreimage::notePreimageCall { preimage }) => {
+				let preimage = preimage.to_vec();
 
 				let weight_to_charge =
 					<T as Config>::WeightInfo::note_preimage(preimage.len() as u32);
