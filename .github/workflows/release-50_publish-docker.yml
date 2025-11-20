@@ -155,7 +155,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
-          name: release-artifacts
+          name: release-artifacts-${{ env.BINARY }}
           path: release-artifacts/x86_64-unknown-linux-gnu/${{ env.BINARY }}/**/*
 
   build-container: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
@@ -170,6 +170,9 @@ jobs:
 
       - name: Download artifacts
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: release-artifacts-${{ env.BINARY }}
+          path: release-artifacts
 
       - name: Check sha256 ${{ env.BINARY }}
         # if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'polkadot' }}
