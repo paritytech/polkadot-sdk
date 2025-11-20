@@ -10,7 +10,6 @@ publish = false
 [dependencies]
 anyhow = { workspace = true }
 env_logger = { workspace = true }
-codec = { workspace = true }
 log = { workspace = true }
 polkadot-primitives = { workspace = true, default-features = true }
 serde = { workspace = true }
@@ -25,6 +24,7 @@ sp-statement-store = { workspace = true, default-features = true }
 sc-statement-store = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
+codec = { workspace = true }
 rstest = { workspace = true }
 
 [features]
