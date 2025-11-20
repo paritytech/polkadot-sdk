@@ -264,7 +264,8 @@ pub async fn assert_blocks_are_being_finalized(
 	Ok(())
 }
 
-/// Asserts that parachain blocks have the correct relay parent offset.
+/// Asserts that parachain blocks have the correct relay parent offset. This also checks that the
+/// relay chain descendants do not contain any session changes.
 ///
 /// # Arguments
 ///
@@ -277,15 +278,15 @@ pub async fn assert_relay_parent_offset(
 	para_client: &OnlineClient<PolkadotConfig>,
 	offset: u32,
 	block_limit: u32,
-) -> Result<u32, anyhow::Error> {
+) -> Result<(), anyhow::Error> {
 	let mut relay_block_stream = relay_client.blocks().subscribe_all().await?;
 
 	// First parachain header #0 does not contains RSPR digest item.
 	let mut para_block_stream = para_client.blocks().subscribe_all().await?.skip(1);
 	let mut highest_relay_block_seen = 0;
 	let mut num_para_blocks_seen = 0;
-	let mut forbidden_parents = HashMap::new();
-	// let mut seen_parents = HashSet::new();
+	let mut forbidden_parents = HashSet::new();
+	let mut seen_parents = HashMap::new();
 	loop {
 		tokio::select! {
 			Some(Ok(relay_block)) = relay_block_stream.next() => {
@@ -293,10 +294,22 @@ pub async fn assert_relay_parent_offset(
 				if highest_relay_block_seen > 15 && num_para_blocks_seen == 0 {
 					return Err(anyhow!("No parachain blocks produced!"))
 				}
+				// When a relay chain block contains a session change, parachains shall not build on
+				// any ancestor of that block, if the session change block is part of the descendants.
+				// Example:
+				// RC Chain: A -> B -> C -> D*
+				// "*" denotes session change
+				// In this scenario, parachains with an offset of 2 should never build on relay chain
+				// blocks B or C. Both of them would include the session change block D* in their
+				// descendants, and we know that the candidate would span a session boundary.
 				if does_rc_block_contain_session_change(&relay_block) {
-					log::debug!("RC block #{} contains session change, no parachain blocks shall be build on its parent {}.", relay_block.number(), relay_block.header().parent_hash);
-					let parent = relay_client.blocks().at(relay_block.header().parent_hash).await.map_err(|_| anyhow!("Unable to fetch RC header."))?;
-					forbidden_parents.insert(parent.header().state_root, parent.header().clone());
+					log::debug!("RC block #{} contains session change, adding {offset} parents to forbidden list.", relay_block.number());
+					let mut current_hash = relay_block.header().parent_hash;
+					for _ in 0..offset {
+						let block = relay_client.blocks().at(current_hash).await.map_err(|_| anyhow!("Unable to fetch RC header."))?;
+						forbidden_parents.insert(block.header().state_root);
+						current_hash = block.header().parent_hash;
+					}
 				}
 			},
 			Some(Ok(para_block)) = para_block_stream.next() => {
@@ -305,12 +318,20 @@ pub async fn assert_relay_parent_offset(
 				let Some((relay_parent_state_root, relay_parent_number)): Option<(H256, u32)> = logs.iter().find_map(extract_relay_parent_storage_root) else {
 					return Err(anyhow!("No RPSR digest found in header #{}", para_block.number()));
 				};
-				// seen_parents.insert(relay_parent_state_root);
-				log::debug!("Parachain block #{} was built on relay parent #{relay_parent_number}, highest seen was {highest_relay_block_seen}", para_block.number());
+				let para_block_number = para_block.number();
+				seen_parents.insert(relay_parent_state_root, para_block);
+				log::debug!("Parachain block #{} was built on relay parent #{relay_parent_number}, highest seen was {highest_relay_block_seen}", para_block_number);
 				assert!(highest_relay_block_seen < offset || relay_parent_number <= highest_relay_block_seen.saturating_sub(offset), "Relay parent is not at the correct offset! relay_parent: #{relay_parent_number} highest_seen_relay_block: #{highest_relay_block_seen}");
-				// let build_on_forbidden = forbidden_parents.intersection(&seen_parents).collect();
-				if let Some(illegal_header) = forbidden_parents.get(&relay_parent_state_root) {
-					return Err(anyhow!("Parachain blocks where build on forbidden parents! parachain_block: #{} ({}), relay parent: #{}", para_block.header().number, para_block.hash(), illegal_header.number));
+				// As per explanation above, we need to check that no parachain blocks are build
+				// on the forbidden parents.
+				for forbidden in &forbidden_parents {
+					if let Some(para_block) = seen_parents.get(forbidden) {
+						panic!(
+							"Parachain block {} was built on forbidden relay parent (state_root: {})",
+							para_block.hash(),
+							forbidden
+						);
+					}
 				}
 				num_para_blocks_seen += 1;
 				if num_para_blocks_seen >= block_limit {
@@ -320,7 +341,7 @@ pub async fn assert_relay_parent_offset(
 			}
 		}
 	}
-	Ok(highest_relay_block_seen)
+	Ok(())
 }
 
 /// Extract relay parent information from the digest logs.

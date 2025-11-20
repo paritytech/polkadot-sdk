@@ -5,152 +5,12 @@
 // elastic scaling with RFC103 can achieve full throughput of 3 candidates per block.
 
 use anyhow::anyhow;
-use codec::Decode;
-use cumulus_primitives_core::relay_chain;
-use cumulus_zombienet_sdk_helpers::{
-	assert_relay_parent_offset, assign_cores, extract_relay_parent_storage_root,
-};
-use futures::StreamExt;
+use cumulus_zombienet_sdk_helpers::{assert_relay_parent_offset, assign_cores};
 use serde_json::json;
-use sp_consensus_babe::{ConsensusLog, BABE_ENGINE_ID};
-use std::{
-	cmp::max,
-	collections::{HashMap, HashSet},
-};
-use subxt::config::substrate::Digest;
 use zombienet_sdk::{
-	subxt::{config::substrate::DigestItem, OnlineClient, PolkadotConfig},
+	subxt::{OnlineClient, PolkadotConfig},
 	NetworkConfigBuilder,
 };
-type Block = subxt::blocks::Block<PolkadotConfig, OnlineClient<PolkadotConfig>>;
-
-fn extract_relay_parent_state_root_from_digest(
-	digest: &Digest,
-) -> Result<relay_chain::Hash, anyhow::Error> {
-	for log in digest.logs.iter() {
-		if let Some((h, _)) = extract_relay_parent_storage_root(log) {
-			return Ok(h);
-		}
-	}
-	Err(anyhow!("No RPSR digest found"))
-}
-
-fn does_rc_block_contain_session_change(relay_block: &Block) -> bool {
-	for log in relay_block.header().digest.logs.iter() {
-		match log {
-			DigestItem::Consensus(id, val) if id == &BABE_ENGINE_ID => {
-				let consensus_log = ConsensusLog::decode(&mut &val[..]);
-				match consensus_log {
-					Ok(ConsensusLog::NextEpochData(_)) => return true,
-					_ => continue,
-				}
-			},
-			_ => continue,
-		}
-	}
-	return false
-}
-pub type BlockNumber = u32;
-
-pub struct ParentFinder {
-	rc_block_by_number: HashMap<BlockNumber, Block>,
-	rc_height_by_hash: HashMap<relay_chain::Hash, BlockNumber>,
-}
-impl ParentFinder {
-	pub fn new() -> Self {
-		Self {
-			rc_block_by_number: HashMap::<BlockNumber, Block>::new(),
-			rc_height_by_hash: HashMap::<relay_chain::Hash, BlockNumber>::new(),
-		}
-	}
-}
-
-pub async fn assert_parablocks_are_built_on_rc_or_parent_of_rc_which_contains_session_change(
-	relay_client: &OnlineClient<PolkadotConfig>,
-	para_client: &OnlineClient<PolkadotConfig>,
-	rc_offset_before_abort: u32,
-) -> Result<bool, anyhow::Error> {
-	let mut relay_block_stream = relay_client.blocks().subscribe_all().await?;
-
-	// First parachain header #0 does not contains RSPR digest item.
-	let mut para_block_stream = para_client.blocks().subscribe_all().await?.skip(1);
-
-	let mut relay_blocks_with_session_change = HashSet::new();
-
-	let mut highest_relay_block_seen = rc_offset_before_abort;
-	let mut num_para_blocks_seen = 0;
-	let rc_block_limit = 40;
-	let mut parent_finder = ParentFinder::new();
-	let para_block_limit = 100; // this must be larger than amount of parablocks in a session, such that we span across sessions
-
-	let is_built_on_parent_of_relay_chain_block_with_session_change =
-		|key: &relay_chain::Hash,
-		 relay_blocks_with_session_change: &HashSet<relay_chain::Hash>,
-		 parent_finder: &mut ParentFinder|
-		 -> Result<bool, anyhow::Error> {
-			let Some(height) = parent_finder.rc_height_by_hash.get(&key) else { return Ok(false) };
-			let height_of_parent = height - 1;
-			let Some(rc_parent_block) = parent_finder.rc_block_by_number.get(&height_of_parent)
-			else {
-				return Ok(false)
-			};
-			let parent_key = rc_parent_block.header().state_root;
-			let parent_contains_session_change =
-				relay_blocks_with_session_change.contains(&parent_key);
-			if parent_contains_session_change {
-				log::info!("Found session change in parent");
-				return Ok(true);
-			} else {
-				return Ok(false)
-			}
-		};
-
-	loop {
-		tokio::select! {
-			Some(Ok(rc_block)) = relay_block_stream.next() => {
-				highest_relay_block_seen = max(rc_block.number(), highest_relay_block_seen);
-				let has_progressed_passed_limit  = highest_relay_block_seen > (rc_offset_before_abort + rc_block_limit);
-				let has_not_seen_any_para_blocks = num_para_blocks_seen == 0;
-				if has_progressed_passed_limit && has_not_seen_any_para_blocks {
-					return Err(anyhow!("No parachain blocks produced!"))
-				}
-
-				let key = rc_block.header().state_root;
-
-				if does_rc_block_contain_session_change(&rc_block) {
-					log::info!("Relay chain block #{} contains session change, key: {:?}", rc_block.number(), key);
-					relay_blocks_with_session_change.insert(key);
-				}
-
-				log::trace!("Inserting relay block number {} key {:?}", rc_block.number(), key);
-				parent_finder.rc_height_by_hash.insert(key, rc_block.number());
-				log::trace!("Inserting rc block by number {}", rc_block.number());
-				parent_finder.rc_block_by_number.insert(rc_block.number(), rc_block);
-			},
-			Some(Ok(para_block)) = para_block_stream.next() => {
-
-				let key = extract_relay_parent_state_root_from_digest(&para_block.header().digest)?;
-
-				let is_built_on_parent_of_rc = is_built_on_parent_of_relay_chain_block_with_session_change(
-					&key,
-					&relay_blocks_with_session_change,
-					&mut parent_finder,
-				)?;
-
-				if is_built_on_parent_of_rc {
-					log::info!("Crosses session boundary");
-					break;
-				}
-
-				num_para_blocks_seen += 1;
-				if num_para_blocks_seen >= para_block_limit {
-					return Err(anyhow!("Did not build on relay chain block with session change after {para_block_limit} parachain blocks"));
-				}
-			}
-		}
-	}
-	Ok(true)
-}
 
 #[tokio::test(flavor = "multi_thread")]
 async fn elastic_scaling_slot_based_relay_parent_offset_test() -> Result<(), anyhow::Error> {
@@ -219,15 +79,7 @@ async fn elastic_scaling_slot_based_relay_parent_offset_test() -> Result<(), any
 
 	assign_cores(relay_node, 2400, vec![0, 1]).await?;
 
-	let highest_block_seen = assert_relay_parent_offset(&relay_client, &para_client, 2, 30).await?;
-
-	// // Count parablocks to ensure that we ARE building on old session relay parents
-	// assert_parablocks_are_built_on_rc_or_parent_of_rc_which_contains_session_change(
-	// 	&relay_client,
-	// 	&para_client,
-	// 	highest_block_seen,
-	// )
-	// .await?;
+	assert_relay_parent_offset(&relay_client, &para_client, 2, 30).await?;
 
 	log::info!("Test finished successfully");
 

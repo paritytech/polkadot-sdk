@@ -28,6 +28,7 @@ sp-keyring = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
 sp-core = { workspace = true, default-features = true }
 sc-consensus-babe = { workspace = true }
+sp-consensus-babe = { workspace = true }
 rstest = { workspace = true }
 subxt = { workspace = true }
 
