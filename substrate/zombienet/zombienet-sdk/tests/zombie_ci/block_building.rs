@@ -5,16 +5,11 @@ use std::time::Duration;
 
 use crate::utils::initialize_network;
 use anyhow::{anyhow, Result};
-use env_logger::Env;
 use subxt::{config::substrate::SubstrateConfig, dynamic::tx, OnlineClient};
 use subxt_signer::sr25519::dev;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
-use zombienet_sdk::{
-	environment::{get_images_from_env, get_spawn_fn},
-	NetworkConfig, NetworkConfigBuilder, NetworkNode,
-};
+use zombienet_sdk::{environment::get_spawn_fn, NetworkConfig, NetworkConfigBuilder, NetworkNode};
 
-const INTEGRATION_IMAGE_ENV: &str = "ZOMBIENET_INTEGRATION_TEST_IMAGE";
 const DEFAULT_SUBSTRATE_IMAGE: &str = "docker.io/paritypr/substrate:latest";
 
 const NODE_NAMES: [&str; 2] = ["alice", "bob"];
@@ -60,9 +55,6 @@ async fn block_building_test() -> Result<()> {
 }
 
 fn build_network_config() -> Result<NetworkConfig> {
-	let images = zombienet_sdk::environment::get_images_from_env();
-	log::info!("Using images: {images:?}");
-
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|relaychain| {
 			relaychain
