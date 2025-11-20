@@ -1,0 +1,37 @@
+title: '[Staking] Deterministic Era Rotation Post AHM'
+doc:
+- audience: Todo
+  description: "closes https://github.com/paritytech/polkadot-sdk/issues/10142\n\n\
+    ## Context\nEra rotation in `pallet-staking-async` coordinates validator set changes\
+    \ between Asset Hub and Relay Chain. Currently:\n\nHappy Era Lifecycle (On Polkadot):\n\
+    - Session 0-4: Idle\n- Start of Session 5: Election starts for era N+1\n- At some\
+    \ point in Session 5: Election completes \u2192 validators sent to RC\n- End of\
+    \ Session 5: AH Client on RC queues validators to session pallet\n- End of Session\
+    \ 6: Queued validator set gets activated. RC returns activation timestamp to AH,\
+    \ and AH rotates active era to N+1.\n\n## Issue with current approach\n\n1. **If\
+    \ election takes longer than a session**: Active Era will become longer than 6\
+    \ sessions.\n2. **If we allow two sessions for election, and election completes\
+    \ faster**: Active Era will be shorter than 6 sessions.\n\nThese issues are currently\
+    \ unlikely, but with elastic scaling (multiple cores in AH), they become more\
+    \ probable.\n\n## Solution\n1. Start the election as soon as Era N starts for\
+    \ Era N+1.\n2. Buffer elected validators in RC Client pallet and send them after\
+    \ the start of Session 5.\n\n## Result\nThis ensures we send elected validators\
+    \ for the next era always at the right time. It also has two good side effects:\n\
+    \n1. Election can run for longer and do less work per block than it is doing currently.\
+    \ We can split the work well across the whole lifecycle of the era instead of\
+    \ very compute heavy election session blocks.\n2. Validator/nominator snapshot\
+    \ for the era election has a much cleaner boundary.\n\n---\n\n## Open Questions\n\
+    - Get rid of PlanningEraOffset or let it still be there?\n- Break ahm test and\
+    \ ensure all events are configured with ValidatorSetExportSession set to 5 and\
+    \ planning era offset set to 6, or, write new set of tests to ensure election\
+    \ timing and export both can be configured correctly.\n\n---\n## TODO\n- Early\
+    \ exit signed validation\n- [x] Two equivalent test with different configurations\
+    \ of `PlanningEraOffset` and `ValidatorSetExportSession`, demonstrating same outcome\
+    \ except election timings."
+crates:
+- name: pallet-staking-async
+  bump: major
+- name: pallet-staking-async-rc-client
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
