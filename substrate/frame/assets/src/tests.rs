@@ -485,6 +485,9 @@ fn lifecycle_should_work() {
 		assert_eq!(Balances::reserved_balance(&1), 4);
 		assert!(Metadata::<Test>::contains_key(0));
 
+		assert_ok!(Assets::set_reserves(RuntimeOrigin::signed(1), 0, vec![1234]));
+		assert_eq!(Reserves::<Test>::get(0), vec![1234]);
+
 		Balances::make_free_balance_be(&10, 100);
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 10, 100));
 		Balances::make_free_balance_be(&20, 100);
@@ -501,6 +504,7 @@ fn lifecycle_should_work() {
 
 		assert!(!Asset::<Test>::contains_key(0));
 		assert!(!Metadata::<Test>::contains_key(0));
+		assert!(Reserves::<Test>::get(0).is_empty());
 		assert_eq!(Account::<Test>::iter_prefix(0).count(), 0);
 
 		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 0, 1, 1));
