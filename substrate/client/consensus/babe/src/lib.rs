@@ -1458,6 +1458,7 @@ where
 		mut block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		let hash = block.post_hash();
+		let parent_hash = *block.header.parent_hash();
 		let number = *block.header.number();
 		let info = self.client.info();
 
@@ -1474,11 +1475,18 @@ where
 		if info.block_gap.map_or(false, |gap| gap.start <= number && number <= gap.end) ||
 			block_status == BlockStatus::InChain
 		{
-			// When re-importing existing block strip away intermediates.
-			// In case of initial sync intermediates should not be present...
-			let _ = block.remove_intermediate::<BabeIntermediate<Block>>(INTERMEDIATE_KEY);
-			block.fork_choice = Some(ForkChoiceStrategy::Custom(false));
-			return self.inner.import_block(block).await.map_err(Into::into)
+			// Calculate the weight of the block in case it is missing.
+			let stored_weight = aux_schema::load_block_weight(&*self.client, hash)
+				.map_err(|e| ConsensusError::ClientImport(e.to_string()))?;
+			// If the stored weight is missing, it means it was skipped when the block was first
+			// imported. It needs to happen again, along with epoch change tracking.
+			if stored_weight.is_some() {
+				// When re-importing existing block strip away intermediates.
+				// In case of initial sync intermediates should not be present...
+				let _ = block.remove_intermediate::<BabeIntermediate<Block>>(INTERMEDIATE_KEY);
+				block.fork_choice = Some(ForkChoiceStrategy::Custom(false));
+				return self.inner.import_block(block).await.map_err(Into::into)
+			}
 		}
 
 		if block.with_state() {
@@ -1490,36 +1498,35 @@ where
 		);
 		let slot = pre_digest.slot();
 
-		let parent_hash = *block.header.parent_hash();
-		let parent_header = self
-			.client
-			.header(parent_hash)
-			.map_err(|e| ConsensusError::ChainLookup(e.to_string()))?
-			.ok_or_else(|| {
-				ConsensusError::ChainLookup(
-					babe_err(Error::<Block>::ParentUnavailable(parent_hash, hash)).into(),
-				)
-			})?;
-
-		let parent_slot = find_pre_digest::<Block>(&parent_header).map(|d| d.slot()).expect(
-			"parent is non-genesis; valid BABE headers contain a pre-digest; header has already \
-			 been verified; qed",
-		);
-
-		// make sure that slot number is strictly increasing
-		if slot <= parent_slot {
-			return Err(ConsensusError::ClientImport(
-				babe_err(Error::<Block>::SlotMustIncrease(parent_slot, slot)).into(),
-			))
-		}
-
-		// if there's a pending epoch we'll save the previous epoch changes here
-		// this way we can revert it if there's any error
+		// If there's a pending epoch we'll save the previous epoch changes here
+		// this way we can revert it if there's any error.
 		let mut old_epoch_changes = None;
 
-		// Use an extra scope to make the compiler happy, because otherwise it complains about the
-		// mutex, even if we dropped it...
-		let mut epoch_changes = {
+		let epoch_changes = if block.origin != BlockOrigin::ConsensusBroadcast {
+			let parent_header = self
+				.client
+				.header(parent_hash)
+				.map_err(|e| ConsensusError::ChainLookup(e.to_string()))?
+				.ok_or_else(|| {
+					ConsensusError::ChainLookup(
+						babe_err(Error::<Block>::ParentUnavailable(parent_hash, hash)).into(),
+					)
+				})?;
+
+			let parent_slot = find_pre_digest::<Block>(&parent_header).map(|d| d.slot()).expect(
+				"parent is non-genesis; valid BABE headers contain a pre-digest; header has already \
+				 been verified; qed",
+			);
+
+			// make sure that slot number is strictly increasing
+			if slot <= parent_slot {
+				return Err(ConsensusError::ClientImport(
+					babe_err(Error::<Block>::SlotMustIncrease(parent_slot, slot)).into(),
+				))
+			}
+
+			// Use an extra scope to make the compiler happy, because otherwise it complains about
+			// the mutex, even if we dropped it...
 			let mut epoch_changes = self.epoch_changes.shared_data_locked();
 
 			// check if there's any epoch change expected to happen at this slot.
@@ -1541,8 +1548,12 @@ where
 						})?
 				};
 
-				let intermediate =
-					block.remove_intermediate::<BabeIntermediate<Block>>(INTERMEDIATE_KEY)?;
+				let intermediate = block
+					.remove_intermediate::<BabeIntermediate<Block>>(INTERMEDIATE_KEY)
+					.map_err(|e| {
+						log::info!("XXX no intermediate for block {}", number);
+						e
+					})?;
 
 				let epoch_descriptor = intermediate.epoch_descriptor;
 				let first_in_epoch = parent_slot < epoch_descriptor.start_slot();
@@ -1601,13 +1612,14 @@ where
 					// re-use the same data for that epoch.
 					// Notice that we are only updating a local copy of the `Epoch`, this
 					// makes it so that when we insert the next epoch into `EpochChanges` below
-					// (after incrementing it), it will use the correct epoch index and start slot.
-					// We do not update the original epoch that will be re-used because there might
-					// be other forks (that we haven't imported) where the epoch isn't skipped, and
-					// to import those forks we want to keep the original epoch data. Not updating
-					// the original epoch works because when we search the tree for which epoch to
-					// use for a given slot, we will search in-depth with the predicate
-					// `epoch.start_slot <= slot` which will still match correctly without updating
+					// (after incrementing it), it will use the correct epoch index and start
+					// slot. We do not update the original epoch that will be re-used
+					// because there might be other forks (that we haven't imported) where
+					// the epoch isn't skipped, and to import those forks we want to keep
+					// the original epoch data. Not updating the original epoch works
+					// because when we search the tree for which epoch to use for a given
+					// slot, we will search in-depth with the predicate `epoch.start_slot
+					// <= slot` which will still match correctly without updating
 					// `start_slot` to the correct value as below.
 					let epoch = viable_epoch.as_mut();
 					let prev_index = epoch.epoch_index;
@@ -1715,7 +1727,10 @@ where
 			};
 
 			// Release the mutex, but it stays locked
-			epoch_changes.release_mutex()
+			Some(epoch_changes.release_mutex())
+		} else {
+			block.fork_choice = Some(ForkChoiceStrategy::Custom(false));
+			None
 		};
 
 		let import_result = self.inner.import_block(block).await;
@@ -1723,7 +1738,9 @@ where
 		// revert to the original epoch changes in case there's an error
 		// importing the block
 		if import_result.is_err() {
-			if let Some(old_epoch_changes) = old_epoch_changes {
+			if let (Some(mut epoch_changes), Some(old_epoch_changes)) =
+				(epoch_changes, old_epoch_changes)
+			{
 				*epoch_changes.upgrade() = old_epoch_changes;
 			}
 		}
