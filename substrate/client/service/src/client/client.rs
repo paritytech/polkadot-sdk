@@ -566,10 +566,16 @@ where
 		Self: ProvideRuntimeApi<Block>,
 		<Self as ProvideRuntimeApi<Block>>::Api: CoreApi<Block> + ApiExt<Block>,
 	{
+		debug!(
+			"execute_and_import_block hash: {hash} import_headers: hash: {} number: {} import_existing: {import_existing}",
+			import_headers.post().hash(),
+			import_headers.post().number()
+		);
 		let parent_hash = *import_headers.post().parent_hash();
 		let status = self.backend.blockchain().status(hash)?;
 		let parent_exists =
 			self.backend.blockchain().status(parent_hash)? == blockchain::BlockStatus::InChain;
+		debug!("execute_and_import_block status: {status:?} parent_hash: {parent_hash} parent_exists: {parent_exists:?}");
 		match (import_existing, status) {
 			(false, blockchain::BlockStatus::InChain) => return Ok(ImportResult::AlreadyInChain),
 			(false, blockchain::BlockStatus::Unknown) => {},
@@ -581,6 +587,8 @@ where
 		let gap_block =
 			info.block_gap.map_or(false, |gap| *import_headers.post().number() == gap.start);
 
+		debug!("execute_and_import_block Blockchain info : {info:?}");
+		debug!("execute_and_import_block gap_block: {gap_block:?} ",);
 		// the block is lower than our last finalized block so it must revert
 		// finality, refusing import.
 		if status == blockchain::BlockStatus::Unknown &&
@@ -1760,6 +1768,7 @@ where
 		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
+		debug!("check_block block: {block:?}");
 		let BlockCheckParams {
 			hash,
 			number,
@@ -1788,12 +1797,15 @@ where
 			BlockLookupResult::NotSpecial => {},
 		}
 
+		let block_status = self.block_status(hash).map_err(|e| {
+			debug!("check_block block_status error: {e:?}");
+			ConsensusError::ClientImport(e.to_string())
+		})?;
+		debug!("check_block block_status: {block_status:?}");
+
 		// Own status must be checked first. If the block and ancestry is pruned
 		// this function must return `AlreadyInChain` rather than `MissingState`
-		match self
-			.block_status(hash)
-			.map_err(|e| ConsensusError::ClientImport(e.to_string()))?
-		{
+		match block_status {
 			BlockStatus::InChainWithState | BlockStatus::Queued =>
 				return Ok(ImportResult::AlreadyInChain),
 			BlockStatus::InChainPruned if !import_existing =>
