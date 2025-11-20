@@ -942,20 +942,20 @@ impl Peerset {
 		self.reserved_peers
 			.iter()
 			.filter_map(|peer| {
-				if self.peerstore_handle.is_banned(peer) {
-					log::trace!(
-						target: LOG_TARGET,
-						"{}: Cannot connect to banned reserved {peer:?}",
-						self.protocol,
-					);
-					return None;
-				}
-
 				let peer_state = self.peers.get(peer);
 				if peer_state != Some(&PeerState::Disconnected) {
 					log::trace!(
 						target: LOG_TARGET,
 						"{}: Cannot connect to expected disconnected reserved {peer:?} state: {peer_state:?}",
+						self.protocol,
+					);
+					return None;
+				}
+
+				if self.peerstore_handle.is_banned(peer) {
+					log::trace!(
+						target: LOG_TARGET,
+						"{}: Cannot connect to banned reserved {peer:?}",
 						self.protocol,
 					);
 					return None;
