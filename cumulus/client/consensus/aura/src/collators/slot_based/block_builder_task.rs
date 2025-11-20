@@ -433,7 +433,7 @@ where
 					],
 					parachain_inherent_data,
 					extra_inherent_data: other_inherent_data,
-					proposal_duration: authoring_duration,
+					proposal_duration: adjusted_authoring_duration,
 					max_pov_size: allowed_pov_size,
 					storage_proof_recorder: None,
 					extra_extensions: Default::default(),
