@@ -112,7 +112,7 @@ jobs:
       build_run_id: ${{ github.run_id }}
       runtimes: '${{ needs.build-runtimes-flow.outputs.published_runtimes }}'
       no_runtimes: ${{ inputs.no_runtimes }}
-      crates_only: 'false'
+      crates_only: false
     secrets: inherit
 
   trigger-release-draft-without-runtimes:
@@ -123,5 +123,5 @@ jobs:
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       build_run_id: ${{ github.run_id }}
       no_runtimes: ${{ inputs.no_runtimes }}
-      crates_only: 'false'
+      crates_only: false
     secrets: inherit
