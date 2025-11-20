@@ -62,9 +62,9 @@ where
 		input: &Self::Interface,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		let frame_origin = match env.caller() {
-			Origin::Signed(account_id) => RawOrigin::Signed(account_id).into(),
-			_ => unreachable!("Precompiles are always called with Signed origin"),
+		let frame_origin = match origin {
+			Origin::Root => RawOrigin::Root.into(),
+			Origin::Signed(account_id) => RawOrigin::Signed(account_id.clone()).into(),
 		};
 
 		match input {
