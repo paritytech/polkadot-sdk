@@ -899,6 +899,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			ensure!(T::CallbackHandle::destroyed(&id).is_ok(), Error::<T, I>::CallbackFailed);
 
 			let metadata = Metadata::<T, I>::take(&id);
+			Reserves::<T, I>::remove(&id);
 			T::Currency::unreserve(
 				&details.owner,
 				details.deposit.saturating_add(metadata.deposit),
