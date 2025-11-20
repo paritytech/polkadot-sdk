@@ -4,6 +4,7 @@ import { runPresetUntilLaunched, spawnMiner } from "../src/cmd";
 import { EventOutcome, runTest, TestCase } from "../src/test-case";
 import { getApis, GlobalTimeout} from "../src/utils";
 import { commonSignedSteps } from "./common";
+import { exportWeightDiagram } from "../src/export-diagram";
 
 const PRESET: Presets = Presets.FakeDot;
 
@@ -13,9 +14,10 @@ test(
 		const { killZn, paraLog }  = await runPresetUntilLaunched(PRESET);
 		const apis = await getApis();
 		const killMiner = await spawnMiner();
+		const expectedValidatorSetCount = await apis.paraApi.query.Staking.ValidatorCount.getValue();
 
 		const testCase = new TestCase(
-			commonSignedSteps(32, 500, apis),
+			commonSignedSteps(32, expectedValidatorSetCount, apis),
 			true,
 			() => {
 				killMiner();
@@ -24,6 +26,7 @@ test(
 		);
 
 		const outcome = await runTest(testCase, apis, paraLog);
+		exportWeightDiagram(testCase.summary, `./signed-dot.html`);
 		expect(outcome).toEqual(EventOutcome.Done);
 	},
 	{ timeout: GlobalTimeout }
