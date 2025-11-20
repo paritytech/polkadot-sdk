@@ -30,7 +30,7 @@ use sp_runtime::{
 	Justification, Justifications, StateVersion, Storage,
 };
 use sp_state_machine::{
-	backend::AsTrieBackend, ChildStorageCollection, IndexOperation, IterArgs,
+	backend::MaybeAsTrieBackend, ChildStorageCollection, IndexOperation, IterArgs,
 	OffchainChangesCollection, StorageCollection, StorageIterator,
 };
 use sp_storage::{ChildInfo, StorageData, StorageKey};
@@ -551,7 +551,7 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 	/// Associated state backend type.
 	type State: StateBackend<HashingFor<Block>>
 		+ Send
-		+ AsTrieBackend<
+		+ MaybeAsTrieBackend<
 			HashingFor<Block>,
 			TrieBackendStorage = <Self::State as StateBackend<HashingFor<Block>>>::TrieBackendStorage,
 		>;

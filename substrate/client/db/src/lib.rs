@@ -90,7 +90,7 @@ use sp_runtime::{
 	Justification, Justifications, StateVersion, Storage,
 };
 use sp_state_machine::{
-	backend::{AsTrieBackend, Backend as StateBackend},
+	backend::{Backend as StateBackend, MaybeAsTrieBackend},
 	BackendTransaction, ChildStorageCollection, DBValue, DefaultError, IndexOperation, IterArgs,
 	OffchainChangesCollection, StateMachineStats, StorageCollection, StorageIterator, StorageKey,
 	StorageValue, UsageInfo as StateUsageInfo,
@@ -291,14 +291,14 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 	}
 }
 
-impl<B: BlockT> AsTrieBackend<HashingFor<B>> for RefTrackingState<B> {
+impl<B: BlockT> MaybeAsTrieBackend<HashingFor<B>> for RefTrackingState<B> {
 	type TrieBackendStorage =
 		<DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::TrieBackendStorage;
 
 	fn as_trie_backend(
 		&self,
-	) -> &sp_state_machine::TrieBackend<Self::TrieBackendStorage, HashingFor<B>> {
-		&self.state.as_trie_backend()
+	) -> Option<&sp_state_machine::TrieBackend<Self::TrieBackendStorage, HashingFor<B>>> {
+		self.state.as_trie_backend()
 	}
 }
 
@@ -2220,15 +2220,21 @@ where
 	}
 }
 
-//
+/// State at a specific block
+/// Either trie state or archive state, depending on which is stored in database
 #[derive(Debug)]
 pub struct TrieOrArchiveState<Block: BlockT> {
 	trie_state: Option<RefTrackingState<Block>>,
 	archive_state: Option<ArchiveDb<Block>>,
 }
 
+/// Iterator for a state at a specific block
+/// Either trie state or archive state, depending on which is stored in database
 pub enum TrieOrArchiveStateIter<Block: BlockT> {
+	/// Iterator over key-value pairs stored in trie backend
 	TrieIter(<RefTrackingState<Block> as StateBackend<HashingFor<Block>>>::RawIter),
+	/// Iterator over key-value pairs stored in archive diff backend
+	/// Iteration can be significantly slower in this mode
 	ArchiveIter(archive_db::RawIter<Block>),
 }
 
@@ -2301,7 +2307,7 @@ impl<Block: BlockT> StateBackend<HashingFor<Block>> for TrieOrArchiveState<Block
 	type Error = DefaultError;
 
 	type TrieBackendStorage =
-		<RefTrackingState<Block> as AsTrieBackend<HashingFor<Block>>>::TrieBackendStorage;
+		<RefTrackingState<Block> as MaybeAsTrieBackend<HashingFor<Block>>>::TrieBackendStorage;
 
 	type RawIter = TrieOrArchiveStateIter<Block>;
 
@@ -2335,7 +2341,7 @@ impl<Block: BlockT> StateBackend<HashingFor<Block>> for TrieOrArchiveState<Block
 		if let Some(trie_state) = &self.trie_state {
 			trie_state.closest_merkle_value(key)
 		} else if let Some(_) = &self.archive_state {
-			Err("Archive state doesn't support this operation".into())
+			Err("Archive state doesn't support 'closest_merkle_value' operation".into())
 		} else {
 			Ok(None)
 		}
@@ -2349,7 +2355,7 @@ impl<Block: BlockT> StateBackend<HashingFor<Block>> for TrieOrArchiveState<Block
 		if let Some(trie_state) = &self.trie_state {
 			trie_state.child_closest_merkle_value(child_info, key)
 		} else if let Some(_) = &self.archive_state {
-			Err("Archive state doesn't support this operation".into())
+			Err("Archive state doesn't support 'child_closest_merkle_value' operation".into())
 		} else {
 			Ok(None)
 		}
@@ -2418,7 +2424,8 @@ impl<Block: BlockT> StateBackend<HashingFor<Block>> for TrieOrArchiveState<Block
 		if let Some(trie_state) = &self.trie_state {
 			trie_state.storage_root(delta, state_version)
 		} else {
-			todo!()
+			log::warn!("Archive state doesn't support 'storage_root' operation");
+			(<HashingFor<Block> as hash_db::Hasher>::Out::default(), BackendTransaction::default())
 		}
 	}
 
@@ -2434,7 +2441,12 @@ impl<Block: BlockT> StateBackend<HashingFor<Block>> for TrieOrArchiveState<Block
 		if let Some(trie_state) = &self.trie_state {
 			trie_state.child_storage_root(child_info, delta, state_version)
 		} else {
-			todo!()
+			log::warn!("Archive state doesn't support 'child_storage_root' operation");
+			(
+				<HashingFor<Block> as hash_db::Hasher>::Out::default(),
+				false,
+				BackendTransaction::default(),
+			)
 		}
 	}
 
@@ -2468,18 +2480,23 @@ impl<Block: BlockT> StateBackend<HashingFor<Block>> for TrieOrArchiveState<Block
 	}
 }
 
-impl<Block: BlockT> AsTrieBackend<HashingFor<Block>> for TrieOrArchiveState<Block> {
+impl<Block: BlockT> MaybeAsTrieBackend<HashingFor<Block>> for TrieOrArchiveState<Block> {
 	type TrieBackendStorage =
-		<RefTrackingState<Block> as AsTrieBackend<HashingFor<Block>>>::TrieBackendStorage;
+		<RefTrackingState<Block> as MaybeAsTrieBackend<HashingFor<Block>>>::TrieBackendStorage;
 
 	fn as_trie_backend(
 		&self,
-	) -> &sp_state_machine::TrieBackend<
-		Self::TrieBackendStorage,
-		HashingFor<Block>,
-		sp_trie::cache::LocalTrieCache<HashingFor<Block>>,
-	> {
-		todo!()
+	) -> Option<
+		&sp_state_machine::TrieBackend<
+			Self::TrieBackendStorage,
+			HashingFor<Block>,
+			sp_trie::cache::LocalTrieCache<HashingFor<Block>>,
+		>> {
+		if let Some(trie) = &self.trie_state {
+			trie.as_trie_backend()
+		} else {
+			None
+		}
 	}
 }
 

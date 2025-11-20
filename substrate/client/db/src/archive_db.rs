@@ -42,7 +42,7 @@ pub(crate) fn compare_keys<B: sp_runtime::traits::BlockNumber>(
 	key1.cmp(&key2)
 }
 
-pub(crate) struct ArchiveDb<Block: BlockT> {
+pub struct ArchiveDb<Block: BlockT> {
 	db: Arc<dyn DatabaseWithSeekableIterator<DbHash>>,
 	parent_hash: Option<Block::Hash>,
 	block_number: <<Block as BlockT>::Header as Header>::Number,
@@ -80,12 +80,13 @@ impl<Block: BlockT> ArchiveDb<Block> {
 		Self { db, parent_hash, block_number }
 	}
 
+	/// Note that for StorageType::Child, child prefix should be appended to key
 	fn storage(
 		&self,
 		storage_type: StorageType,
 		key: &[u8],
 	) -> Result<Option<StorageValue>, DefaultError> {
-		println!("Archive storage query: {}", key.hex("0x"));
+		log::trace!("Archive storage query: {}", key.hex("0x"));
 		let full_key = FullStorageKey::new(key, storage_type, self.block_number);
 		let mut iter = self
 			.db
@@ -110,7 +111,7 @@ impl<Block: BlockT> ArchiveDb<Block> {
 				Ok(None)
 			}
 		};
-		println!("Archive storage query: {} is {:?}", key.hex("0x"), res);
+		log::trace!("Archive storage query result: {} is {:?}", key.hex("0x"), res);
 		res
 	}
 
@@ -194,12 +195,15 @@ impl<Block: BlockT> ArchiveDb<Block> {
 		}
 	}
 
+	/// Since a key is an arbitrary sequence of bytes, the closest key that is greater than the
+	/// given 'key' is 'key' + 0
 	fn make_next_lexicographic_key(key: &[u8]) -> Vec<u8> {
 		let mut next_key = key.to_owned();
 		next_key.push(0);
 		next_key
 	}
 
+	/// Note that for StorageType::Child, child prefix should be appended to key
 	fn next_storage_key(
 		&self,
 		storage_type: StorageType,
@@ -213,12 +217,10 @@ impl<Block: BlockT> ArchiveDb<Block> {
 				.db
 				.seekable_iter(columns::ARCHIVE)
 				.expect("Archive column space must exist if ArchiveDb exists");
-			println!("Seek: {}, {}", next_key.key().hex("0x"), next_key.number());
 			iter.seek(next_key.as_ref());
 
 			if let Some((next_key, _)) = iter.get() {
 				let next_key = FullStorageKey::<<Block::Header as Header>::Number>::from(next_key);
-				println!("Found next key: {}, {}", next_key.key().hex("0x"), next_key.number());
 				// since child storage keys are ordered after main storage keys, if we iterated to a
 				// child storage key, we passed all main storage keys
 				if next_key.storage_type() != storage_type {
@@ -227,8 +229,6 @@ impl<Block: BlockT> ArchiveDb<Block> {
 				if next_key.number() != self.block_number {
 					// this key points at a state older or newer than the current state,
 					// we need the state either equal to or exactly preceding the current state
-					println!("The found key is located at a non-current state, check if it's present in the current state");
-					println!("Seek prev: {}, {}", next_key.key().hex("0x"), next_key.number());
 					iter.seek_prev(
 						FullStorageKey::new(next_key.key(), storage_type, self.block_number)
 							.as_ref(),
@@ -237,11 +237,9 @@ impl<Block: BlockT> ArchiveDb<Block> {
 				if let Some((next_key, encoded_value)) = iter.get() {
 					let next_key =
 						FullStorageKey::<<Block::Header as Header>::Number>::from(next_key);
-					println!("Found next key: {}, {}", next_key.key().hex("0x"), next_key.number());
 					if next_key.key() == key {
 						// the found key does not appear at the current state, continue searching
 						key = next_key.key().to_owned();
-						println!("The found key is not present at the current state, continue");
 						continue;
 					} else {
 						let value = match Option::<Vec<u8>>::decode(&mut encoded_value.as_slice()) {
@@ -254,7 +252,6 @@ impl<Block: BlockT> ArchiveDb<Block> {
 							// the found key is deleted at the current state, continue
 							// searching
 							key = next_key.key().to_owned();
-							println!("The found key is deleted at the current state, continue");
 							continue;
 						}
 					}
@@ -294,7 +291,7 @@ enum RawIterState {
 	Complete,
 }
 
-pub(crate) struct RawIter<Block: BlockT> {
+pub struct RawIter<Block: BlockT> {
 	storage_type: StorageType,
 	prefix: Vec<u8>,
 	state: RawIterState,
@@ -323,12 +320,7 @@ impl<Block: BlockT> RawIter<Block> {
 		} else {
 			None
 		};
-		println!(
-			"Raw iter prefix {}, start {}, child info {:?}",
-			full_prefix.as_slice().hex("0x"),
-			start.as_ref().unwrap_or(&vec![]).hex("0x"),
-			args.child_info
-		);
+
 		RawIter {
 			prefix: full_prefix,
 			state: RawIterState::New {
@@ -343,7 +335,7 @@ impl<Block: BlockT> RawIter<Block> {
 		}
 	}
 
-	pub(crate) fn next_key(
+	pub fn next_key(
 		&mut self,
 		backend: &ArchiveDb<Block>,
 	) -> Option<Result<StorageKey, DefaultError>> {
@@ -358,7 +350,7 @@ impl<Block: BlockT> RawIter<Block> {
 		}
 	}
 
-	pub(crate) fn next_pair(
+	pub fn next_pair(
 		&mut self,
 		backend: &ArchiveDb<Block>,
 	) -> Option<Result<(StorageKey, StorageValue), DefaultError>> {
@@ -375,23 +367,11 @@ impl<Block: BlockT> RawIter<Block> {
 	fn check_for_completion(&self, key: Option<Vec<u8>>) -> RawIterState {
 		if let Some(key) = key {
 			if key.starts_with(&self.prefix) {
-				println!(
-					"Key {} exists and matches prefix {}",
-					key.as_slice().hex("0x"),
-					self.prefix.as_slice().hex("0x")
-				);
 				RawIterState::Iter(key.into())
 			} else {
-				println!(
-					"Key {} exists but doesn't match prefix {}",
-					key.as_slice().hex("0x"),
-					self.prefix.as_slice().hex("0x")
-				);
 				RawIterState::Complete
 			}
 		} else {
-			println!("Key doesn't exist");
-
 			RawIterState::Complete
 		}
 	}
@@ -402,49 +382,27 @@ impl<Block: BlockT> RawIter<Block> {
 				if let Some(start_at) = start_at {
 					if !*start_at_exclusive {
 						if backend.storage(self.storage_type, &start_at)?.is_some() {
-							println!("New -> start inclusive -> start exists");
 							RawIterState::Iter(start_at.clone().into())
 						} else {
-							println!("New -> start inclusive -> start doesn't exist");
 							let next_key =
 								backend.next_storage_key(self.storage_type, &start_at)?;
-							println!(
-								"Next key {:?}",
-								next_key.as_ref().map(|v| v.as_slice().hex("0x"))
-							);
-
 							self.check_for_completion(next_key)
 						}
 					} else {
-						println!("New -> start exclusive");
 						let next_key = backend.next_storage_key(self.storage_type, &start_at)?;
 						backend.next_storage_key(self.storage_type, &start_at)?;
-						println!(
-							"Next key {:?}",
-							next_key.as_ref().map(|v| v.as_slice().hex("0x"))
-						);
 						self.check_for_completion(next_key)
 					}
 				} else {
 					if backend.storage(self.storage_type, &self.prefix)?.is_some() {
-						println!("New -> no start -> key equal to prefix exists");
 						RawIterState::Iter(self.prefix.clone().into())
 					} else {
-						println!("New -> no start -> key equal to prefix doesn't exist");
-
 						let next_key = backend.next_storage_key(self.storage_type, &self.prefix)?;
-						println!(
-							"Next key {:?}",
-							next_key.as_ref().map(|v| v.as_slice().hex("0x"))
-						);
-
 						self.check_for_completion(next_key)
 					}
 				},
 			RawIterState::Iter(current_key) => {
 				let next_key = backend.next_storage_key(self.storage_type, current_key.as_ref())?;
-				println!("Next key {:?}", next_key.as_ref().map(|v| v.as_slice().hex("0x")));
-
 				self.check_for_completion(next_key)
 			},
 			RawIterState::Complete => RawIterState::Complete,
@@ -452,10 +410,7 @@ impl<Block: BlockT> RawIter<Block> {
 	}
 
 	pub fn was_complete(&self) -> bool {
-		match self.state {
-			RawIterState::Complete => true,
-			_ => false,
-		}
+		matches!(self.state, RawIterState::Complete)
 	}
 }
 
