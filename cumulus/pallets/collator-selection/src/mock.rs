@@ -17,8 +17,9 @@ use super::*;
 use crate as collator_selection;
 use frame_support::{
 	derive_impl, ord_parameter_types, parameter_types,
-	traits::{ConstBool, ConstU32, ConstU64, FindAuthor, ValidatorRegistration},
+	traits::{ConstBool, ConstU32, ConstU64, FindAuthor, OnGenesis, ValidatorRegistration},
 	PalletId,
+	__private::BasicExternalities,
 };
 use frame_system as system;
 use frame_system::EnsureSignedBy;
@@ -196,6 +197,10 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	// collator selection must be initialized before session.
 	collator_selection.assimilate_storage(&mut t).unwrap();
 	session.assimilate_storage(&mut t).unwrap();
+
+	BasicExternalities::execute_with_storage(&mut t, || {
+		<pallet_session::Pallet<Test> as OnGenesis>::on_genesis();
+	});
 
 	t.into()
 }
