@@ -104,7 +104,7 @@ jobs:
       contents: read
 
   trigger-release-draft-with-runtimes:
-    if: ${{ inputs.no_runtimes == 'false' }}
+    if: ${{ inputs.no_runtimes == false }}
     needs: [build-runtimes-flow, build-rc-flow, validate-inputs]
     uses: "./.github/workflows/release-30_publish_release_draft.yml"
     with:
@@ -116,8 +116,8 @@ jobs:
     secrets: inherit
 
   trigger-release-draft-without-runtimes:
-    if: ${{ inputs.no_runtimes == 'true' }}
-    needs: [build-runtimes-flow, build-rc-flow, validate-inputs]
+    if: ${{ inputs.no_runtimes == true }}
+    needs: [build-rc-flow, validate-inputs]
     uses: "./.github/workflows/release-30_publish_release_draft.yml"
     with:
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
