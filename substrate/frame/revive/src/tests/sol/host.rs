@@ -630,6 +630,48 @@ fn reading_empty_storage_item_returns_zero(fixture_type: FixtureType) {
 	})
 }
 
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn storage_item_zero_shall_refund_deposit_simple(fixture_type: FixtureType) {
+	let (host_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: host_addr, .. } =
+			builder::bare_instantiate(Code::Upload(host_code)).build_and_unwrap_contract();
+
+		let index = 13u64;
+
+		let base_deposit = get_contract(&host_addr).total_deposit();
+
+		// write storage item
+		let result = builder::bare_call(host_addr)
+			.data(Host::sstoreOpCall { slot: index, value: 17u64 }.abi_encode())
+			.build_and_unwrap_result();
+		assert!(!result.did_revert(), "sstoreOpCall reverted");
+
+		// 32 for key, 32 for value, 2 for item
+		assert_eq!(
+			get_contract(&host_addr).total_deposit(),
+			base_deposit + 32 + 32 + 2,
+			"Unexpected deposit sum charged for non-zero storage item"
+		);
+
+		// write storage item to all zeros
+		let result = builder::bare_call(host_addr)
+			.data(Host::sstoreOpCall { slot: index, value: 0u64 }.abi_encode())
+			.build_and_unwrap_result();
+		assert!(!result.did_revert(), "sstoreOpCall reverted");
+
+		assert_eq!(
+			get_contract(&host_addr).total_deposit(),
+			base_deposit,
+			"contract should refund deposit on zeroing storage item"
+		);
+	});
+}
+
 #[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
 #[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
 #[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
