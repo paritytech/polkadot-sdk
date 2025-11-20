@@ -60,9 +60,9 @@ use sp_consensus::{BlockOrigin, BlockStatus, Error as ConsensusError};
 
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 use sp_core::{
-	H256,
 	storage::{ChildInfo, ChildType, PrefixedStorageKey, StorageChild, StorageData, StorageKey},
 	traits::{CallContext, SpawnNamed},
+	H256,
 };
 use sp_runtime::{
 	generic::{BlockId, SignedBlock},
@@ -1970,6 +1970,10 @@ where
 
 	fn has_indexed_transaction(&self, hash: H256) -> sp_blockchain::Result<bool> {
 		self.backend.blockchain().has_indexed_transaction(hash)
+	}
+
+	fn block_indexed_hashes(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<Vec<H256>>> {
+		self.backend.blockchain().block_indexed_hashes(hash)
 	}
 
 	fn block_indexed_body(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<Vec<Vec<u8>>>> {

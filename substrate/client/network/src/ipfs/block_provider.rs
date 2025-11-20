@@ -201,10 +201,7 @@ where
 							this.fetched_to,
 						))
 					})?;
-					//this.client.block_indexed_hashes(hash)
-
-					// TODO: make sure to use `block_indexed_hashes` commented above.
-					Ok(None::<Vec<H256>>)
+					this.client.block_indexed_hashes(hash)
 				});
 				match hashes {
 					Ok(Some(hashes)) if !hashes.is_empty() => {

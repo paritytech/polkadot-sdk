@@ -296,6 +296,10 @@ impl<Block: BlockT, Client: BlockBackend<Block>> BlockBackend<Block>
 		self.client.block_indexed_body(hash)
 	}
 
+	fn block_indexed_hashes(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<Vec<H256>>> {
+		self.client.block_indexed_hashes(hash)
+	}
+
 	fn requires_full_sync(&self) -> bool {
 		self.client.requires_full_sync()
 	}

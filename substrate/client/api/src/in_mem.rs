@@ -427,6 +427,10 @@ impl<Block: BlockT> blockchain::Backend<Block> for Blockchain<Block> {
 		unimplemented!("Not supported by the in-mem backend.")
 	}
 
+	fn block_indexed_hashes(&self, _hash: Block::Hash) -> sp_blockchain::Result<Option<Vec<H256>>> {
+		unimplemented!("Not supported by the in-mem backend.")
+	}
+
 	fn block_indexed_body(
 		&self,
 		_hash: Block::Hash,

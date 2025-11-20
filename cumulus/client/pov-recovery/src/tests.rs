@@ -207,6 +207,10 @@ impl<Block: BlockT> BlockBackend<Block> for ParachainClient<Block> {
 		unimplemented!()
 	}
 
+	fn block_indexed_hashes(&self, _: Block::Hash) -> sp_blockchain::Result<Option<Vec<H256>>> {
+		unimplemented!()
+	}
+
 	fn block_indexed_body(&self, _: Block::Hash) -> sp_blockchain::Result<Option<Vec<Vec<u8>>>> {
 		unimplemented!()
 	}

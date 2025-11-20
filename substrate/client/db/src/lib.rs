@@ -665,6 +665,29 @@ impl<Block: BlockT> BlockchainDb<Block> {
 		}
 		Ok(None)
 	}
+
+	fn block_indexed_hashes_iter(
+		&self,
+		hash: Block::Hash,
+	) -> ClientResult<Option<impl Iterator<Item = DbHash>>> {
+		let body = match read_db(
+			&*self.db,
+			columns::KEY_LOOKUP,
+			columns::BODY_INDEX,
+			BlockId::<Block>::Hash(hash),
+		)? {
+			Some(body) => body,
+			None => return Ok(None),
+		};
+		match Vec::<DbExtrinsic<Block>>::decode(&mut &body[..]) {
+			Ok(index) => Ok(Some(index.into_iter().flat_map(|ex| match ex {
+				DbExtrinsic::Indexed { hash, .. } => Some(hash),
+				_ => None,
+			}))),
+			Err(err) =>
+				Err(sp_blockchain::Error::Backend(format!("Error decoding body list: {err}"))),
+		}
+	}
 }
 
 impl<Block: BlockT> sc_client_api::blockchain::HeaderBackend<Block> for BlockchainDb<Block> {
@@ -758,34 +781,24 @@ impl<Block: BlockT> sc_client_api::blockchain::Backend<Block> for BlockchainDb<B
 		Ok(self.db.contains(columns::TRANSACTION, hash.as_ref()))
 	}
 
+	fn block_indexed_hashes(&self, hash: Block::Hash) -> ClientResult<Option<Vec<DbHash>>> {
+		self.block_indexed_hashes_iter(hash).map(|hashes| hashes.map(Iterator::collect))
+	}
+
 	fn block_indexed_body(&self, hash: Block::Hash) -> ClientResult<Option<Vec<Vec<u8>>>> {
-		let body = match read_db(
-			&*self.db,
-			columns::KEY_LOOKUP,
-			columns::BODY_INDEX,
-			BlockId::<Block>::Hash(hash),
-		)? {
-			Some(body) => body,
-			None => return Ok(None),
-		};
-		match Vec::<DbExtrinsic<Block>>::decode(&mut &body[..]) {
-			Ok(index) => {
-				let mut transactions = Vec::new();
-				for ex in index.into_iter() {
-					if let DbExtrinsic::Indexed { hash, .. } = ex {
-						match self.db.get(columns::TRANSACTION, hash.as_ref()) {
-							Some(t) => transactions.push(t),
-							None =>
-								return Err(sp_blockchain::Error::Backend(format!(
-									"Missing indexed transaction {hash:?}",
-								))),
-						}
-					}
-				}
-				Ok(Some(transactions))
-			},
-			Err(err) =>
-				Err(sp_blockchain::Error::Backend(format!("Error decoding body list: {err}"))),
+		match self.block_indexed_hashes_iter(hash) {
+			Ok(Some(hashes)) => Ok(Some(
+				hashes
+					.map(|hash| match self.db.get(columns::TRANSACTION, hash.as_ref()) {
+						Some(t) => Ok(t),
+						None => Err(sp_blockchain::Error::Backend(format!(
+							"Missing indexed transaction {hash:?}",
+						))),
+					})
+					.collect::<Result<_, _>>()?,
+			)),
+			Ok(None) => Ok(None),
+			Err(err) => Err(err),
 		}
 	}
 }

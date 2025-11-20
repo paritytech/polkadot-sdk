@@ -132,12 +132,18 @@ pub trait BlockBackend<Block: BlockT> {
 		hash: Block::Hash,
 	) -> sp_blockchain::Result<Option<Vec<<Block as BlockT>::Extrinsic>>>;
 
-	/// Get all indexed transactions for a block,
-	/// including renewed transactions.
+	/// Get all indexed transactions for a block, including renewed transactions.
 	///
-	/// Note that this will only fetch transactions
-	/// that are indexed by the runtime with `storage_index_transaction`.
+	/// Note that this will only fetch transactions that are indexed by the runtime with
+	/// `storage_index_transaction`.
 	fn block_indexed_body(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<Vec<Vec<u8>>>>;
+
+	/// Get the BLAKE2b-256 hashes of all indexed transactions in a block, including renewed
+	/// transactions.
+	///
+	/// Note that this will only fetch transactions that are indexed by the runtime with
+	/// `storage_index_transaction`.
+	fn block_indexed_hashes(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<Vec<H256>>>;
 
 	/// Get full block by hash.
 	fn block(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<SignedBlock<Block>>>;
