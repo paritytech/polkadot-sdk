@@ -94,5 +94,6 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
+	"snowbridge-inbound-queue-primitives/try-runtime",
 	"sp-runtime/try-runtime",
 ]
