@@ -48,6 +48,16 @@ pub struct CallInfo<T: Config> {
 	pub eth_gas_limit: U256,
 }
 
+/// Mode for creating a call from an ethereum transaction.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum CreateCallMode {
+	/// Mode for extrinsic execution. Carries the encoding length of the extrinsic and the
+	/// RLP-encoded Ethereum transaction
+	ExtrinsicExecution(u32, Vec<u8>),
+	/// Mode for dry running
+	DryRun,
+}
+
 /// Decode `tx` into a dispatchable call.
 ///
 /// signed_transaction is Some(..) for extrinsic execution (when called from
@@ -55,14 +65,13 @@ pub struct CallInfo<T: Config> {
 /// `dry_run_eth_transact`)
 pub fn create_call<T>(
 	tx: GenericTransaction,
-	signed_transaction: Option<(u32, Vec<u8>)>,
-	apply_weight_cap: bool,
+	mode: CreateCallMode,
 ) -> Result<CallInfo<T>, InvalidTransaction>
 where
 	T: Config,
 	CallOf<T>: SetWeightLimit,
 {
-	let is_dry_run = signed_transaction.is_none();
+	let is_dry_run = matches!(mode, CreateCallMode::DryRun);
 	let base_fee = <Pallet<T>>::evm_base_fee();
 
 	let Some(gas) = tx.gas else {
@@ -94,7 +103,7 @@ where
 	}
 
 	let (encoded_len, transaction_encoded) =
-		if let Some((encoded_len, transaction_encoded)) = signed_transaction {
+		if let CreateCallMode::ExtrinsicExecution(encoded_len, transaction_encoded) = mode {
 			(encoded_len, transaction_encoded)
 		} else {
 			let unsigned_tx = tx.clone().try_into_unsigned().map_err(|_| {
@@ -193,7 +202,7 @@ where
 
 		call.set_weight_limit(weight_limit);
 
-		if apply_weight_cap {
+		if !is_dry_run {
 			let max_weight = <Pallet<T>>::evm_max_extrinsic_weight();
 			let info = <T as Config>::FeeInfo::dispatch_info(&call);
 			let overweight_by = info.total_weight().saturating_sub(max_weight);
@@ -205,7 +214,8 @@ where
 		}
 	};
 
-	// Add some buffer for dry running
+	// Add some buffer for dry running because the length of the RLP encoded Ethereum transaction
+	// for actual execution might differ slightly.
 	let encoding_len_with_margin = if is_dry_run {
 		encoded_len.saturating_add(ENCODING_LENGTH_SAFETY_MARGIN)
 	} else {

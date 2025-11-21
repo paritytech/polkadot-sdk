@@ -49,8 +49,8 @@ pub mod weights;
 use crate::{
 	evm::{
 		block_hash::EthereumBlockBuilderIR, block_storage, create_call, fees::InfoT as FeeInfo,
-		runtime::SetWeightLimit, CallTracer, GenericTransaction, PrestateTracer, Trace, Tracer,
-		TracerType, TYPE_EIP1559,
+		runtime::SetWeightLimit, CallTracer, CreateCallMode, GenericTransaction, PrestateTracer,
+		Trace, Tracer, TracerType, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, ReentrancyProtection, Stack as ExecStack},
 	limits::ENCODING_LENGTH_SAFETY_MARGIN,
@@ -1781,7 +1781,7 @@ impl<T: Config> Pallet<T> {
 
 		// we need to parse the weight from the transaction so that it is run
 		// using the exact weight limit passed by the eth wallet
-		let mut call_info = create_call::<T>(tx, None, false)
+		let mut call_info = create_call::<T>(tx, CreateCallMode::DryRun)
 			.map_err(|err| EthTransactError::Message(format!("Invalid call: {err:?}")))?;
 
 		// the dry-run might leave out certain fields
@@ -1933,6 +1933,11 @@ impl<T: Config> Pallet<T> {
 		let total_weight = T::FeeInfo::dispatch_info(&call_info.call).total_weight();
 		let max_weight = Self::evm_max_extrinsic_weight();
 		if total_weight.any_gt(max_weight) {
+			log::debug!(target: LOG_TARGET, "Transaction weight estimate exceeds extrinsic maximum: \
+				total_weight={total_weight:?} \
+				max_weight={max_weight:?}",
+			);
+
 			Err(EthTransactError::Message(format!(
 				"\
 				The transaction consumes more than the allowed weight. \
