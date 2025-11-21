@@ -34,7 +34,7 @@ contract TerminateCaller {
 
     function revertAfterTerminate(address terminate_addr, uint8 method, address beneficiary) external {
         terminate_addr.call(abi.encodeWithSelector(Terminate.terminate.selector, method, beneficiary));
-        _revert();
+        revert("Deliberate revert");
     }
 
     function delegateCallTerminate(uint value, uint8 method, address beneficiary) external returns (address, address) {
@@ -44,9 +44,5 @@ contract TerminateCaller {
         (bool success, ) = address(innerCaller).call(data);
         require(success, "delegatecall terminate reverted");
         return (address(innerCaller), address(inner));
-    }
-
-    function _revert() private {
-        revert("Deliberate revert");
     }
 }

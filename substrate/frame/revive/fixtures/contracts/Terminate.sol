@@ -28,7 +28,11 @@ contract Terminate {
 			}
 		}
 	}
-	// Call terminate and forward any revert
+	/// Call terminate and forward any revert.
+    /// Internal dispatcher: executes termination by
+    /// - delegatecall (METHOD_DELEGATE_CALL) to system precompile
+    /// - direct call (METHOD_PRECOMPILE) to system precompile
+    /// - selfdestruct (METHOD_SYSCALL) sending balance to beneficiary
 	function _terminate(uint8 method, address beneficiary) private {
 		bytes memory data = abi.encodeWithSelector(ISystem.terminate.selector, beneficiary);
 		(bool success, bytes memory returnData) = (false, "");
@@ -41,6 +45,8 @@ contract Terminate {
 			assembly {
 				selfdestruct(beneficiary)
 			}
+			// selfdestruct halts execution, so if we reach here, something went wrong.
+			revert("selfdestruct opcode returned");
 		} else {
 			revert("Invalid TerminateMethod");
 		}
