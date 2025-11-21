@@ -170,13 +170,14 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Download artifacts
+        if: ${{ inputs.binary == 'polkadot-omni-node' || inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: release-artifacts-${{ env.BINARY }}
           path: release-artifacts
 
       - name: Check sha256 ${{ env.BINARY }}
-        # if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'polkadot' }}
+        if: ${{ inputs.binary == 'polkadot-omni-node' || inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
         working-directory: release-artifacts
         run: |
           . ../.github/scripts/common/lib.sh
@@ -185,7 +186,7 @@ jobs:
           check_sha256 $BINARY && echo "OK" || echo "ERR"
 
       - name: Check GPG ${{ env.BINARY }}
-        # if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'polkadot' }}
+        if: ${{ inputs.binary == 'polkadot-omni-node' || inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
         working-directory: release-artifacts
         run: |
           . ../.github/scripts/common/lib.sh
