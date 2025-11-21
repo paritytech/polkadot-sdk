@@ -211,7 +211,7 @@ jobs:
         id: fetch_release_refs
         shell: bash
         run: |
-          . ../.github/scripts/common/lib.sh
+          . .github/scripts/common/lib.sh
 
           echo "tag=latest" >> $GITHUB_OUTPUT
           echo "release=$(echo ${{ needs.validate-inputs.outputs.version }})" >> $GITHUB_OUTPUT
