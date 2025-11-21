@@ -390,7 +390,7 @@ fn terminate_shall_rollback_if_subsequent_frame_fails(
 #[test_case(FixtureType::Solc, METHOD_SYSCALL)]
 #[test_case(FixtureType::Resolc, METHOD_PRECOMPILE)]
 #[test_case(FixtureType::Resolc, METHOD_SYSCALL)]
-fn sent_funds_after_terminate_shall_be_credited_to_beneficiary(
+fn sent_funds_after_terminate_shall_be_credited_to_beneficiary_base_case(
 	fixture_type: FixtureType,
 	method: u8,
 ) {
@@ -454,8 +454,7 @@ fn sent_funds_after_terminate_shall_be_credited_to_beneficiary(
 }
 
 /// This test does *not* create and terminate the Terminate contract in the same transaction.
-/// Therefore, the SYSCALL terminate method does not work here.
-/// I.e. funds sent after terminate via SYSCALL will not be transferred to beneficiary.
+/// Therefore, the SYSCALL terminate method does not be transferred to beneficiary.
 #[test_case(FixtureType::Solc, FixtureType::Solc)]
 #[test_case(FixtureType::Solc, FixtureType::Resolc)]
 #[test_case(FixtureType::Resolc, FixtureType::Solc)]
@@ -526,7 +525,83 @@ fn sent_funds_after_terminate_shall_be_credited_to_beneficiary_precompile(
 			123 + min_balance,
 			"unexpected DJANGO balance after terminate"
 		);
-		assert_eq!(get_balance(&account), 0, "ucontract has balance after terminate");
+		assert_eq!(get_balance(&account), 0, "contract has balance after terminate");
+	});
+}
+
+/// This test does *not* create and terminate the Terminate contract in the same transaction.
+/// Therefore, the SYSCALL terminate method does not be transferred to beneficiary.
+#[test_case(FixtureType::Solc, FixtureType::Solc)]
+#[test_case(FixtureType::Solc, FixtureType::Resolc)]
+#[test_case(FixtureType::Resolc, FixtureType::Solc)]
+#[test_case(FixtureType::Resolc, FixtureType::Resolc)]
+fn sent_funds_after_terminate_shall_not_be_credited_to_beneficiary_syscall(
+	caller_type: FixtureType,
+	callee_type: FixtureType,
+) {
+	let (code, _) = compile_module_with_type("Terminate", callee_type).unwrap();
+	let (caller_code, _) = compile_module_with_type("TerminateCaller", caller_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let min_balance = Contracts::min_balance();
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.constructor_data(
+				Terminate::constructorCall {
+					skip: true,
+					method: METHOD_PRECOMPILE,
+					beneficiary: DJANGO_ADDR.0.into(),
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_contract();
+		let account = <Test as Config>::AddressMapper::to_account_id(&addr);
+
+		assert!(get_contract_checked(&addr).is_some(), "contract does not exist after create");
+		assert_eq!(get_balance(&account), min_balance, "unexpected contract balance after create");
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code))
+				.native_value(125)
+				.build_and_unwrap_contract();
+		let caller_account = <Test as Config>::AddressMapper::to_account_id(&caller_addr);
+
+		assert_eq!(
+			get_balance(&caller_account),
+			125 + min_balance,
+			"unexpected caller balance before terminate"
+		);
+
+		let result = builder::bare_call(caller_addr)
+			.data(
+				TerminateCaller::sendFundsAfterTerminateCall {
+					terminate_addr: addr.0.into(),
+					value: alloy_core::primitives::U256::from(123_000_000u64),
+					method: METHOD_SYSCALL,
+					beneficiary: DJANGO_ADDR.0.into(),
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+
+		assert!(
+			!result.did_revert(),
+			"sendFundsAfterTerminateCall reverted: {}",
+			decode_error(&result.data)
+		);
+		assert_eq!(
+			result.data,
+			Vec::<u8>::new(),
+			"sendFundsAfterTerminateCall returned unexpected data: {:?}",
+			result.data
+		);
+		assert!(get_contract_checked(&addr).is_some(), "contract does not exist after terminate");
+		assert_eq!(get_balance(&DJANGO), 0, "unexpected DJANGO balance after terminate");
+		assert_eq!(
+			get_balance(&account),
+			123 + min_balance,
+			"unexpected contract balance after terminate"
+		);
 	});
 }
 
