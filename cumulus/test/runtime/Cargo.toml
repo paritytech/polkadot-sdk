@@ -47,6 +47,7 @@ sp-version = { workspace = true }
 cumulus-pallet-aura-ext = { workspace = true }
 cumulus-pallet-parachain-system = { workspace = true }
 cumulus-pallet-weight-reclaim = { workspace = true }
+cumulus-primitives-storage-weight-reclaim = { workspace = true }
 cumulus-primitives-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 parachain-info = { workspace = true }

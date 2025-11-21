@@ -15,23 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use anyhow::anyhow;
-
 use crate::utils::initialize_network;
-
-use cumulus_zombienet_sdk_helpers::{
-	assert_finality_lag, assert_para_throughput, assign_cores, create_assign_core_call,
-	submit_extrinsic_and_wait_for_finalization_success_with_timeout,
-};
+use anyhow::anyhow;
+use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput, assign_cores};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
+use tokio::{join, spawn, task::JoinHandle};
 use zombienet_sdk::{
-	subxt::{
-		backend::{legacy::LegacyRpcMethods, rpc::RpcClient},
-		OnlineClient, PolkadotConfig,
-	},
-	subxt_signer::sr25519::dev,
-	NetworkConfig, NetworkConfigBuilder,
+	subxt::{OnlineClient, PolkadotConfig},
+	NetworkConfig, NetworkConfigBuilder, NetworkNode,
 };
 
 const PARA_ID: u32 = 2400;
@@ -50,9 +42,11 @@ async fn block_bundling_basic() -> Result<(), anyhow::Error> {
 	log::info!("Spawning network");
 	let config = build_network_config().await?;
 	let network = initialize_network(config).await?;
-
 	let relay_node = network.get_node("validator-0")?;
 	let para_node = network.get_node("collator-1")?;
+	let para_full_node = network.get_node("para-full-node")?;
+
+	let handle = wait_for_block_and_restart_node(para_full_node.clone());
 
 	let para_client = para_node.wait_client().await?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
@@ -88,8 +82,51 @@ async fn block_bundling_basic() -> Result<(), anyhow::Error> {
 	.await?;
 
 	assert_finality_lag(&para_client, 72).await?;
+
+	// Ensure we restarted the node successfully
+	handle.await??;
+
+	let para_full_client: OnlineClient<PolkadotConfig> = para_full_node.wait_client().await?;
+	let mut full_best_blocks = para_full_client.blocks().subscribe_best().await?;
+	let mut collator_best_blocks = para_client.blocks().subscribe_best().await?;
+
+	let (Some(full_best), Some(best)) = join!(full_best_blocks.next(), collator_best_blocks.next())
+	else {
+		return Err(anyhow!("Failed to get a best block from the full node and the collator"))
+	};
+
+	let diff = full_best?.number().abs_diff(best?.number());
+	if diff > 12 {
+		return Err(anyhow!(
+			"Best block difference between full node and collator of {diff} is too big!"
+		))
+	}
+
 	log::info!("Test finished successfully");
+
 	Ok(())
+}
+
+/// Wait for block `13` and then restart the node.
+///
+/// We take block `13`, because it should be near the beginning of a block bundle and we want to
+/// test stopping the node while importing blocks in the middle of a bundle.
+fn wait_for_block_and_restart_node(node: NetworkNode) -> JoinHandle<Result<(), anyhow::Error>> {
+	spawn(async move {
+		let para_client: OnlineClient<PolkadotConfig> = node.wait_client().await?;
+		let mut best_blocks = para_client.blocks().subscribe_best().await?;
+
+		loop {
+			let Some(block) = best_blocks.next().await.transpose()? else {
+				return Err(anyhow!("Node stopped before reaching the block to restart"))
+			};
+
+			if block.number() >= 13 {
+				log::info!("Full node has imported block `13`, going to restart it");
+				return node.restart(None).await
+			}
+		}
+	})
 }
 
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
@@ -137,6 +174,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_collator(|n| n.with_name("collator-0"))
 				.with_collator(|n| n.with_name("collator-1"))
 				.with_collator(|n| n.with_name("collator-2"))
+				.with_collator(|n| n.with_name("para-full-node").validator(false))
 		})
 		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
 			Ok(val) => global_settings.with_base_dir(val),

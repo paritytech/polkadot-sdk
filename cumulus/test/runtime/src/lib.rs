@@ -67,7 +67,6 @@ pub mod test_pallet;
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
-use core::time::Duration;
 use frame_support::{derive_impl, traits::OnRuntimeUpgrade, PalletId};
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;

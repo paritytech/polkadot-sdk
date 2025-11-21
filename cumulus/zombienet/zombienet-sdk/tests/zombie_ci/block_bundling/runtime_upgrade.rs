@@ -19,15 +19,12 @@ use anyhow::anyhow;
 use cumulus_primitives_core::relay_chain::MAX_POV_SIZE;
 use cumulus_test_runtime::wasm_spec_version_incremented::WASM_BINARY_BLOATY as WASM_RUNTIME_UPGRADE;
 use cumulus_zombienet_sdk_helpers::{
-	assert_finality_lag, assert_para_throughput, assign_cores, ensure_is_only_block_in_core,
-	find_core_info, submit_extrinsic_and_wait_for_finalization_success,
+	assign_cores, ensure_is_only_block_in_core, submit_extrinsic_and_wait_for_finalization_success,
 	submit_unsigned_extrinsic_and_wait_for_finalization_success, wait_for_runtime_upgrade,
 	BlockToCheck,
 };
-use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use sp_core::blake2_256;
-use std::sync::Arc;
 use zombienet_sdk::{
 	subxt::{
 		ext::scale_value::{value, Value},
@@ -81,11 +78,10 @@ async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 	let para_node = network.get_node("collator-1")?;
 
 	let para_client: OnlineClient<PolkadotConfig> = para_node.wait_client().await?;
-	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 	let alice = dev::alice();
 
 	// Assign cores 0 and 1 to start with 3 cores total (core 2 is assigned by Zombienet)
-	assign_cores(&relay_node, PARA_ID, vec![0, 1]).await;
+	assign_cores(&relay_node, PARA_ID, vec![0, 1]).await?;
 
 	log::info!("3 cores total assigned to the parachain");
 
@@ -95,12 +91,8 @@ async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 	let sudo_authorize_call = create_sudo_call(authorize_call);
 
 	log::info!("Sending authorize_upgrade transaction");
-	let block_hash = submit_extrinsic_and_wait_for_finalization_success(
-		&para_client,
-		&sudo_authorize_call,
-		&alice,
-	)
-	.await?;
+	submit_extrinsic_and_wait_for_finalization_success(&para_client, &sudo_authorize_call, &alice)
+		.await?;
 	log::info!("Authorize upgrade transaction finalized");
 
 	// Step 2: Apply the authorized upgrade with the actual runtime code
