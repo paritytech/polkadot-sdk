@@ -25,7 +25,7 @@ use crate::{
 	},
 	BalanceOf, Code, Config, Pallet, H160,
 };
-use alloy_core::sol_types::{SolCall, SolConstructor, SolValue};
+use alloy_core::sol_types::{SolCall, SolConstructor};
 use frame_support::traits::fungible::Mutate;
 use hex_literal::hex;
 use pallet_revive_fixtures::{
@@ -36,8 +36,9 @@ use test_case::{test_case, test_matrix};
 
 /// Decode a contract return value into an error string.
 fn decode_error(output: &[u8]) -> String {
-	assert!(output.len() >= 4 && &output[..4] == &hex!("08c379a0"));
-	String::abi_decode(&output[4..]).unwrap()
+	use alloy_core::sol_types::SolError;
+	alloy_core::sol! { error Error(string); }
+	Error::abi_decode_validate(output).unwrap().0
 }
 
 const METHOD_PRECOMPILE: u8 = 0;
