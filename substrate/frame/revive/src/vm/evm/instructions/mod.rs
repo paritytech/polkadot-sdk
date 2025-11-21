@@ -215,6 +215,7 @@ pub fn exec_instruction<E: Ext>(
 		#[cfg(feature = "runtime-benchmarks")]
 		BENCH_INIT_CODE => control::bench_init_code(),
 
-		INVALID | _ => control::invalid(interpreter),
+		INVALID => control::invalid(interpreter),
+		_ => control::invalid(interpreter),
 	}
 }
