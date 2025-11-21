@@ -351,6 +351,71 @@ where
 	}
 }
 
+/// Pass a buffer into the host by a fat pointer. The host will write data into it.
+///
+/// This casts the value into a `&mut [u8]` and passes a pointer to that byte blob and its length
+/// to the host. Then the host allocates a temporary buffer of the same size and passes it
+/// as a mutable reference to the host function. After the host function finishes the data is
+/// written back into the guest memory.
+///
+/// Raw FFI type: `u64` (a fat pointer; upper 32 bits is the size, lower 32 bits is the pointer)
+pub struct PassFatPointerAndWrite<T>(PhantomData<T>);
+
+impl<T> RIType for PassFatPointerAndWrite<T> {
+	type FFIType = u64;
+	type Inner = T;
+}
+
+#[cfg(not(substrate_runtime))]
+impl<'a, T> FromFFIValue<'a> for PassFatPointerAndWrite<&'a mut [T]>
+where
+	T: ToByteSlice + Default,
+{
+	type Owned = Vec<T>;
+
+	fn from_ffi_value(
+		_context: &mut dyn FunctionContext,
+		arg: Self::FFIType,
+	) -> Result<Self::Owned> {
+		let (_, len) = unpack_ptr_and_len(arg);
+		let mut vec = Vec::with_capacity(len as usize);
+		vec.resize_with(len as usize, T::default);
+		Ok(vec)
+	}
+
+	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
+		&mut *owned
+	}
+
+	fn write_back_into_runtime(
+		value: Self::Owned,
+		context: &mut dyn FunctionContext,
+		arg: Self::FFIType,
+	) -> Result<()> {
+		let (ptr, len) = unpack_ptr_and_len(arg);
+		assert_eq!(len as usize, value.len() * core::mem::size_of::<T>());
+		context.write_memory(Pointer::new(ptr), value.as_byte_slice())
+	}
+}
+
+#[cfg(substrate_runtime)]
+impl<'a, T> IntoFFIValue for PassFatPointerAndWrite<&'a mut [T]>
+where
+	T: ToMutByteSlice,
+{
+	type Destructor = ();
+
+	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
+		(
+			pack_ptr_and_len(
+				value.as_mut_byte_slice().as_ptr() as u32,
+				value.len() as u32 * core::mem::size_of::<T>() as u32,
+			),
+			(),
+		)
+	}
+}
+
 /// Pass a buffer into the host by a fat pointer. The host will write input data into it.
 ///
 /// Handles a specific case of passing input data from the host to the runtime after the runtime

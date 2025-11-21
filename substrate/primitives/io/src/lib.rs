@@ -120,8 +120,9 @@ use sp_runtime_interface::{
 		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer,
 		ConvertAndPassAs, ConvertAndReturnAs, PassAs, PassFatPointerAndDecode,
 		PassFatPointerAndDecodeSlice, PassFatPointerAndRead, PassFatPointerAndReadWrite,
-		PassFatPointerAndWriteInputData, PassMaybeFatPointerAndRead, PassPointerAndRead,
-		PassPointerAndReadCopy, PassPointerAndWrite, PassPointerToPrimitiveAndWrite, ReturnAs,
+		PassFatPointerAndWrite, PassFatPointerAndWriteInputData, PassMaybeFatPointerAndRead,
+		PassPointerAndRead, PassPointerAndReadCopy, PassPointerAndWrite,
+		PassPointerToPrimitiveAndWrite, ReturnAs,
 	},
 	runtime_interface, Pointer,
 };
@@ -588,7 +589,7 @@ pub trait Storage {
 	fn read(
 		&mut self,
 		key: PassFatPointerAndRead<&[u8]>,
-		value_out: PassFatPointerAndReadWrite<&mut [u8]>,
+		value_out: PassFatPointerAndWrite<&mut [u8]>,
 		value_offset: u32,
 	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
 		self.storage(key).map(|value| {
@@ -695,7 +696,7 @@ pub trait Storage {
 		maybe_prefix: PassFatPointerAndRead<&[u8]>,
 		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
 		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
-		maybe_cursor_out: PassFatPointerAndReadWrite<&mut [u8]>,
+		maybe_cursor_out: PassFatPointerAndWrite<&mut [u8]>,
 		backend: PassPointerToPrimitiveAndWrite<&mut u32>,
 		unique: PassPointerToPrimitiveAndWrite<&mut u32>,
 		loops: PassPointerToPrimitiveAndWrite<&mut u32>,
@@ -756,7 +757,7 @@ pub trait Storage {
 	///
 	/// Fills provided output buffer with the SCALE encoded hash.
 	#[version(3, register_only)]
-	fn root(&mut self, out: PassFatPointerAndReadWrite<&mut [u8]>) -> u32 {
+	fn root(&mut self, out: PassFatPointerAndWrite<&mut [u8]>) -> u32 {
 		let root = self.storage_root(StateVersion::V0);
 		if out.len() >= root.len() {
 			out[..root.len()].copy_from_slice(&root[..]);
@@ -785,7 +786,7 @@ pub trait Storage {
 	fn next_key(
 		&mut self,
 		key_in: PassFatPointerAndRead<&[u8]>,
-		key_out: PassFatPointerAndReadWrite<&mut [u8]>,
+		key_out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> u32 {
 		let next_key = self.next_storage_key(key_in);
 		let next_key_len = next_key.as_ref().map(|k| k.len()).unwrap_or(0);
@@ -891,7 +892,7 @@ pub trait DefaultChildStorage {
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
 		key: PassFatPointerAndRead<&[u8]>,
-		value_out: PassFatPointerAndReadWrite<&mut [u8]>,
+		value_out: PassFatPointerAndWrite<&mut [u8]>,
 		value_offset: u32,
 	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
 		let child_info = ChildInfo::new_default(storage_key);
@@ -977,7 +978,7 @@ pub trait DefaultChildStorage {
 		storage_key: PassFatPointerAndRead<&[u8]>,
 		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
 		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
-		maybe_cursor_out: PassFatPointerAndReadWrite<&mut [u8]>,
+		maybe_cursor_out: PassFatPointerAndWrite<&mut [u8]>,
 		backend: PassPointerToPrimitiveAndWrite<&mut u32>,
 		unique: PassPointerToPrimitiveAndWrite<&mut u32>,
 		loops: PassPointerToPrimitiveAndWrite<&mut u32>,
@@ -1049,7 +1050,7 @@ pub trait DefaultChildStorage {
 		prefix: PassFatPointerAndRead<&[u8]>,
 		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
 		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
-		maybe_cursor_out: PassFatPointerAndReadWrite<&mut [u8]>,
+		maybe_cursor_out: PassFatPointerAndWrite<&mut [u8]>,
 		backend: PassPointerToPrimitiveAndWrite<&mut u32>,
 		unique: PassPointerToPrimitiveAndWrite<&mut u32>,
 		loops: PassPointerToPrimitiveAndWrite<&mut u32>,
@@ -1114,7 +1115,7 @@ pub trait DefaultChildStorage {
 	fn root(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
-		out: PassFatPointerAndReadWrite<&mut [u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> u32 {
 		let child_info = ChildInfo::new_default(storage_key);
 		let root = self.child_storage_root(&child_info, StateVersion::V0);
@@ -1145,7 +1146,7 @@ pub trait DefaultChildStorage {
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
 		key_in: PassFatPointerAndRead<&[u8]>,
-		key_out: PassFatPointerAndReadWrite<&mut [u8]>,
+		key_out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> u32 {
 		let child_info = ChildInfo::new_default(storage_key);
 		let next_key = self.next_child_storage_key(&child_info, key_in);
@@ -1464,7 +1465,7 @@ pub trait Misc {
 	fn runtime_version(
 		&mut self,
 		wasm: PassFatPointerAndRead<&[u8]>,
-		out: PassFatPointerAndReadWrite<&mut [u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
 		use sp_core::traits::ReadRuntimeVersionExt;
 
@@ -1499,7 +1500,7 @@ pub trait Misc {
 	#[version(1, register_only)]
 	fn last_cursor(
 		&mut self,
-		out: PassFatPointerAndReadWrite<&mut [u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
 		let cursor = self.take_last_cursor()?;
 
@@ -2726,7 +2727,7 @@ pub trait Offchain {
 		&mut self,
 		kind: PassAs<StorageKind, u32>,
 		key: PassFatPointerAndRead<&[u8]>,
-		value_out: PassFatPointerAndReadWrite<&mut [u8]>,
+		value_out: PassFatPointerAndWrite<&mut [u8]>,
 		offset: u32,
 	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
 		self.extension::<OffchainDbExt>()
@@ -2867,7 +2868,7 @@ pub trait Offchain {
 		&mut self,
 		ids: PassFatPointerAndDecodeSlice<&[HttpRequestId]>,
 		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
-		out: PassFatPointerAndReadWrite<&mut [u32]>,
+		out: PassFatPointerAndWrite<&mut [u32]>,
 	) {
 		assert_eq!(out.len(), ids.len());
 		let statuses = self
@@ -2903,7 +2904,7 @@ pub trait Offchain {
 		&mut self,
 		request_id: PassAs<HttpRequestId, u16>,
 		header_index: u32,
-		out: PassFatPointerAndReadWrite<&mut [u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
 		let headers = self
 			.extension::<OffchainWorkerExt>()
@@ -2927,7 +2928,7 @@ pub trait Offchain {
 		&mut self,
 		request_id: PassAs<HttpRequestId, u16>,
 		header_index: u32,
-		out: PassFatPointerAndReadWrite<&mut [u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
 		let headers = self
 			.extension::<OffchainWorkerExt>()
@@ -2972,7 +2973,7 @@ pub trait Offchain {
 	fn http_response_read_body(
 		&mut self,
 		request_id: PassAs<HttpRequestId, u16>,
-		buffer: PassFatPointerAndReadWrite<&mut [u8]>,
+		buffer: PassFatPointerAndWrite<&mut [u8]>,
 		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
 	) -> ConvertAndReturnAs<Result<u32, HttpError>, RIIntResult<u32, RIHttpError>, i64> {
 		self.extension::<OffchainWorkerExt>()
