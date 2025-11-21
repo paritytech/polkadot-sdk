@@ -1,0 +1,13 @@
+title: Disable polkavm logging in `pallet-revive`
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR disables logging in `polkavm` in `pallet-revive`.
+    This is to make sure massive `polkavm` logging don't impact the overall perfomance, which might be manifested with eg. long block proposal time.
+
+    details: https://github.com/paritytech/polkadot-sdk/issues/8760#issuecomment-3499548774
+
+    The fix requires bumping `polkavm` to `0.30.0` which includes a method that allows to disable logging.
+crates:
+- name: pallet-revive
+  bump: minor
