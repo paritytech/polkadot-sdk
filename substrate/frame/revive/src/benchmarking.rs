@@ -38,7 +38,7 @@ use crate::{
 	storage::WriteOutcome,
 	vm::{
 		evm,
-		evm::{instructions::host, Interpreter},
+		evm::{instructions, instructions::utility::IntoAddress, Interpreter},
 		pvm,
 	},
 	Pallet as Contracts, *,
@@ -2090,6 +2090,52 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// t: with or without some value to transfer
+	// d: with or without dust value to transfer
+	// i: size of the init code (max 49152 bytes per EIP-3860)
+	#[benchmark(pov_mode = Measured)]
+	fn evm_instantiate(
+		t: Linear<0, 1>,
+		d: Linear<0, 1>,
+		i: Linear<{ 10 * 1024 }, { 48 * 1024 }>,
+	) -> Result<(), BenchmarkError> {
+		use crate::vm::evm::instructions::BENCH_INIT_CODE;
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::dummy());
+		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
+		setup.set_balance(caller_funding::<T>());
+
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(Default::default(), Default::default(), &mut ext);
+
+		let value = {
+			let value: BalanceOf<T> = (1_000_000u32 * t).into();
+			let dust = 100u32 * d;
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust))
+		};
+
+		let init_code = vec![BENCH_INIT_CODE; i as usize];
+		let _ = interpreter.memory.resize(0, init_code.len());
+		interpreter.memory.set_data(0, 0, init_code.len(), &init_code);
+
+		// Setup stack for create instruction [value, offset, size]
+		let _ = interpreter.stack.push(U256::from(init_code.len()));
+		let _ = interpreter.stack.push(U256::zero());
+		let _ = interpreter.stack.push(value);
+
+		let result;
+		#[block]
+		{
+			result = instructions::contract::create::<false, _>(&mut interpreter);
+		}
+
+		assert!(result.is_continue());
+		let addr = interpreter.stack.top().unwrap().into_address();
+		assert!(AccountInfo::<T>::load_contract(&addr).is_some());
+		assert_eq!(Pallet::<T>::code(&addr).len(), revm::primitives::eip170::MAX_CODE_SIZE);
+		assert_eq!(Pallet::<T>::evm_balance(&addr), value, "balance should hold {value:?}");
+		Ok(())
+	}
+
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
 	fn sha2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
@@ -2288,7 +2334,7 @@ mod benchmarks {
 		{
 			result = run_builtin_precompile(
 				&mut ext,
-				H160::from_low_u64_be(100).as_fixed_bytes(),
+				H160::from_low_u64_be(0x100).as_fixed_bytes(),
 				input,
 			);
 		}
@@ -2578,7 +2624,7 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = host::extcodecopy(&mut interpreter);
+			result = instructions::host::extcodecopy(&mut interpreter);
 		}
 
 		assert!(result.is_continue());
