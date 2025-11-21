@@ -437,8 +437,9 @@ fn sent_funds_after_terminate_shall_be_credited_to_beneficiary_base_case(
 			decode_error(&result.data)
 		);
 		let decoded =
-			TerminateCaller::delegateCallTerminateCall::abi_decode_returns(&result.data).unwrap();
-		let addr = H160::from_slice(decoded._0.as_slice());
+			TerminateCaller::sendFundsAfterTerminateAndCreateCall::abi_decode_returns(&result.data)
+				.unwrap();
+		let addr = H160::from_slice(decoded.0.as_slice());
 		assert!(get_contract_checked(&addr).is_none(), "contract still exists after terminate");
 		assert_eq!(
 			get_balance(&DJANGO),
@@ -642,8 +643,8 @@ fn terminate_twice(fixture_type: FixtureType, method1: u8, method2: u8) {
 		);
 
 		let decoded =
-			TerminateCaller::delegateCallTerminateCall::abi_decode_returns(&result.data).unwrap();
-		let addr = H160::from_slice(decoded._1.as_slice());
+			TerminateCaller::createAndTerminateTwiceCall::abi_decode_returns(&result.data).unwrap();
+		let addr = H160::from_slice(decoded.0.as_slice());
 		let account = <Test as Config>::AddressMapper::to_account_id(&addr);
 		assert!(get_contract_checked(&addr).is_none(), "contract still exists after terminate");
 		assert_eq!(get_balance(&account), 0, "unexpected contract balance after terminate");
