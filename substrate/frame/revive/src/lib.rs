@@ -1602,6 +1602,18 @@ impl<T: Config> Pallet<T> {
 		};
 		let result = Self::run_guarded(try_call);
 
+		log::trace!(target: LOG_TARGET, "Bare call ends: weight_consumed={:?}\
+			weight_required={:?} \
+			storage_deposit={:?} \
+			gas_consumed={:?} \
+			max_storage_deposit={:?}",
+			transaction_meter.weight_consumed(),
+			transaction_meter.weight_required(),
+			transaction_meter.deposit_consumed(),
+			transaction_meter.total_consumed_gas(),
+			transaction_meter.deposit_required()
+		);
+
 		ContractResult {
 			result: result.map_err(|r| r.error),
 			weight_consumed: transaction_meter.weight_consumed(),
@@ -1687,6 +1699,19 @@ impl<T: Config> Pallet<T> {
 			result
 		};
 		let output = Self::run_guarded(try_instantiate);
+
+		log::trace!(target: LOG_TARGET, "Bare instantiate ends: weight_consumed={:?}\
+			weight_required={:?} \
+			storage_deposit={:?} \
+			gas_consumed={:?} \
+			max_storage_deposit={:?}",
+			transaction_meter.weight_consumed(),
+			transaction_meter.weight_required(),
+			transaction_meter.deposit_consumed(),
+			transaction_meter.total_consumed_gas(),
+			transaction_meter.deposit_required()
+		);
+
 		ContractResult {
 			result: output
 				.map(|(addr, result)| InstantiateReturnValue { result, addr })

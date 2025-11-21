@@ -24,7 +24,7 @@ mod tests;
 
 use crate::{
 	evm::fees::InfoT, exec::CallResources, storage::ContractInfo, vm::evm::Halt, BalanceOf, Config,
-	Error, ExecConfig, ExecOrigin as Origin, SignedGas, StorageDeposit,
+	Error, ExecConfig, ExecOrigin as Origin, SignedGas, StorageDeposit, LOG_TARGET,
 };
 use frame_support::{DebugNoBound, DefaultNoBound};
 use num_traits::Zero;
@@ -123,18 +123,80 @@ impl<T: Config> Default for TransactionLimits<T> {
 impl<T: Config, S: State> ResourceMeter<T, S> {
 	/// Create a new nested meter with derived resource limits.
 	pub fn new_nested(&self, limit: &CallResources<T>) -> Result<FrameMeter<T>, DispatchError> {
-		match &self.transaction_limits {
+		log::trace!(
+			target: LOG_TARGET,
+			"Creating nested meter from parent: \
+				weight_left={:?}, \
+				deposit_left={:?}, \
+				weight_consumed={:?}, \
+				deposit_consumed={:?}",
+			self.weight_left(),
+			self.deposit_left(),
+			self.weight_consumed(),
+			self.deposit_consumed(),
+		);
+
+		let new_meter = match &self.transaction_limits {
 			TransactionLimits::EthereumGas { eth_tx_info, .. } =>
 				math::ethereum_execution::new_nested_meter(self, limit, eth_tx_info),
 			TransactionLimits::WeightAndDeposit { .. } =>
 				math::substrate_execution::new_nested_meter(self, limit),
-		}
+		};
+
+		log::trace!(
+			target: LOG_TARGET,
+			"Creating nested meter done: \
+				weight_left={:?}, \
+				deposit_left={:?}, \
+				weight_consumed={:?}, \
+				deposit_consumed={:?}",
+			new_meter.as_ref().map(|s| s.weight_left()),
+			new_meter.as_ref().map(|s| s.deposit_left()),
+			new_meter.as_ref().map(|s| s.weight_consumed()),
+			new_meter.as_ref().map(|s| s.deposit_consumed()),
+		);
+
+		new_meter
 	}
 
 	/// Absorb only the weight consumption from a nested frame meter.
 	pub fn absorb_weight_meter_only(&mut self, other: FrameMeter<T>) {
+		log::trace!(
+			target: LOG_TARGET,
+			"Absorb weight meter only: \
+				parent_weight_left={:?}, \
+				parent_deposit_left={:?}, \
+				parent_weight_consumed={:?}, \
+				parent_deposit_consumed={:?}, \
+				child_weight_left={:?}, \
+				child_deposit_left={:?}, \
+				child_weight_consumed={:?}, \
+				child_deposit_consumed={:?}",
+			self.weight_left(),
+			self.deposit_left(),
+			self.weight_consumed(),
+			self.deposit_consumed(),
+			other.weight_left(),
+			other.deposit_left(),
+			other.weight_consumed(),
+			other.deposit_consumed(),
+		);
+
 		self.weight.absorb_nested(other.weight);
 		self.deposit.absorb_only_max_charged(other.deposit);
+
+		log::trace!(
+			target: LOG_TARGET,
+			"Absorb weight meter done: \
+				parent_weight_left={:?}, \
+				parent_deposit_left={:?}, \
+				parent_weight_consumed={:?}, \
+				parent_deposit_consumed={:?}",
+			self.weight_left(),
+			self.deposit_left(),
+			self.weight_consumed(),
+			self.deposit_consumed(),
+		);
 	}
 
 	/// Absorb all resource consumption from a nested frame meter.
@@ -144,8 +206,42 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		contract: &T::AccountId,
 		info: Option<&mut ContractInfo<T>>,
 	) {
+		log::trace!(
+			target: LOG_TARGET,
+			"Absorb all meters: \
+				parent_weight_left={:?}, \
+				parent_deposit_left={:?}, \
+				parent_weight_consumed={:?}, \
+				parent_deposit_consumed={:?}, \
+				child_weight_left={:?}, \
+				child_deposit_left={:?}, \
+				child_weight_consumed={:?}, \
+				child_deposit_consumed={:?}",
+			self.weight_left(),
+			self.deposit_left(),
+			self.weight_consumed(),
+			self.deposit_consumed(),
+			other.weight_left(),
+			other.deposit_left(),
+			other.weight_consumed(),
+			other.deposit_consumed(),
+		);
+
 		self.weight.absorb_nested(other.weight);
 		self.deposit.absorb(other.deposit, contract, info);
+
+		log::trace!(
+			target: LOG_TARGET,
+			"Absorb all meters done: \
+				parent_weight_left={:?}, \
+				parent_deposit_left={:?}, \
+				parent_weight_consumed={:?}, \
+				parent_deposit_consumed={:?}",
+			self.weight_left(),
+			self.deposit_left(),
+			self.weight_consumed(),
+			self.deposit_consumed(),
+		);
 	}
 
 	/// Charge a weight token against this meter's remaining weight limit.
@@ -334,6 +430,11 @@ impl<T: Config> TransactionMeter<T> {
 	/// - An ethereum-style gas-based meter or
 	/// - A substrate-style meter with explicit weight and deposit limits
 	pub fn new(transaction_limits: TransactionLimits<T>) -> Result<Self, DispatchError> {
+		log::debug!(
+			target: LOG_TARGET,
+			"Start new meter: transaction_limits={transaction_limits:?}",
+		);
+
 		match transaction_limits {
 			TransactionLimits::EthereumGas { eth_gas_limit, maybe_weight_limit, eth_tx_info } =>
 				math::ethereum_execution::new_root(eth_gas_limit, maybe_weight_limit, eth_tx_info),
@@ -358,6 +459,21 @@ impl<T: Config> TransactionMeter<T> {
 		origin: &Origin<T>,
 		exec_config: &ExecConfig<T>,
 	) -> Result<DepositOf<T>, DispatchError> {
+		log::debug!(
+			target: LOG_TARGET,
+			"Transaction meter finishes: \
+				weight_left={:?}, \
+				deposit_left={:?}, \
+				weight_consumed={:?}, \
+				deposit_consumed={:?}, \
+				eth_gas_consumed={:?}",
+			self.weight_left(),
+			self.deposit_left(),
+			self.weight_consumed(),
+			self.deposit_consumed(),
+			self.eth_gas_consumed(),
+		);
+
 		if self.deposit_left().is_none() {
 			// Deposit limit exceeded
 			return Err(<Error<T>>::StorageDepositNotEnoughFunds.into());
