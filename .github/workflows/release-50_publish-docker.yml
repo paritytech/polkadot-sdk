@@ -223,7 +223,6 @@ jobs:
           ARTIFACTS_FOLDER: release-artifacts
           IMAGE_NAME: ${{ env.BINARY }}
           OWNER: ${{ env.DOCKER_OWNER }}
-          BINARY: polkadot,polkadot-execute-worker,polkadot-prepare-worker
           TAGS: ${{ join(steps.fetch_rc_refs.outputs.*, ',') || join(steps.fetch_release_refs.outputs.*, ',') }}
         shell: bash
         run: |
@@ -234,10 +233,12 @@ jobs:
           if [[ ${{ inputs.image_type == 'rc' }} ]]; then
             echo "Building RC container for polkadot"
             DOCKERFILE="docker/dockerfiles/polkadot/polkadot_injected.Dockerfile"
+            BINARY="polkadot,polkadot-execute-worker,polkadot-prepare-worker"
             ./docker/scripts/build-injected.sh
           else
             echo "Building release container for polkadot"
             DOCKERFILE="docker/dockerfiles/polkadot/polkadot_injected_debian.Dockerfile"
+            BINARY="polkadot,polkadot-execute-worker,polkadot-prepare-worker"
             POLKADOT_DEB=true
             VERSION=${{ needs.validate-inputs.outputs.version }}
            ./docker/scripts/build-injected.sh
