@@ -9,6 +9,7 @@ repository.workspace = true
 edition.workspace = true
 
 [dependencies]
+sp-debug-derive = { workspace = true, features = ["force-debug"] }
 array-bytes = { workspace = true }
 codec = { workspace = true }
 polkadot-sdk = { workspace = true, features = [
