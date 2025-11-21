@@ -97,88 +97,17 @@ async fn coretime_assignment_boundary_test() -> Result<(), anyhow::Error> {
 	// Expected claim queue transitions:
 	// At block N, claim queue = [N+1, N+2, N+3, N+4, N+5] (for lookahead=5)
 	let expected_transitions: HashMap<u32, Vec<ParaId>> = [
-		(
-			15,
-			vec![
-				ParaId::from(PARA_A),
-				ParaId::from(PARA_A),
-				ParaId::from(PARA_A),
-				ParaId::from(PARA_A),
-				ParaId::from(PARA_A),
-			],
-		), // [16,17,18,19,20]
-		(
-			16,
-			vec![
-				ParaId::from(PARA_A),
-				ParaId::from(PARA_A),
-				ParaId::from(PARA_A),
-				ParaId::from(PARA_A),
-				ParaId::from(PARA_B),
-			],
-		), // [17,18,19,20,21] ← B appears!
-		(
-			17,
-			vec![
-				ParaId::from(PARA_A),
-				ParaId::from(PARA_A),
-				ParaId::from(PARA_A),
-				ParaId::from(PARA_B),
-				ParaId::from(PARA_B),
-			],
-		), // [18,19,20,21,22]
-		(
-			18,
-			vec![
-				ParaId::from(PARA_A),
-				ParaId::from(PARA_A),
-				ParaId::from(PARA_B),
-				ParaId::from(PARA_B),
-				ParaId::from(PARA_B),
-			],
-		), // [19,20,21,22,23]
-		(
-			19,
-			vec![
-				ParaId::from(PARA_A),
-				ParaId::from(PARA_B),
-				ParaId::from(PARA_B),
-				ParaId::from(PARA_B),
-				ParaId::from(PARA_B),
-			],
-		), // [20,21,22,23,24]
-		(
-			20,
-			vec![
-				ParaId::from(PARA_B),
-				ParaId::from(PARA_B),
-				ParaId::from(PARA_B),
-				ParaId::from(PARA_B),
-				ParaId::from(PARA_B),
-			],
-		), // [21,22,23,24,25]
-		(
-			21,
-			vec![
-				ParaId::from(PARA_B),
-				ParaId::from(PARA_B),
-				ParaId::from(PARA_B),
-				ParaId::from(PARA_B),
-				ParaId::from(PARA_B),
-			],
-		), // [22,23,24,25,26]
-		(
-			25,
-			vec![
-				ParaId::from(PARA_B),
-				ParaId::from(PARA_B),
-				ParaId::from(PARA_B),
-				ParaId::from(PARA_B),
-				ParaId::from(PARA_B),
-			],
-		), // [26,27,28,29,30]
+		(15, vec![PARA_A, PARA_A, PARA_A, PARA_A, PARA_A]), // [16,17,18,19,20]
+		(16, vec![PARA_A, PARA_A, PARA_A, PARA_A, PARA_B]), // [17,18,19,20,21] ← B appears!
+		(17, vec![PARA_A, PARA_A, PARA_A, PARA_B, PARA_B]), // [18,19,20,21,22]
+		(18, vec![PARA_A, PARA_A, PARA_B, PARA_B, PARA_B]), // [19,20,21,22,23]
+		(19, vec![PARA_A, PARA_B, PARA_B, PARA_B, PARA_B]), // [20,21,22,23,24]
+		(20, vec![PARA_B, PARA_B, PARA_B, PARA_B, PARA_B]), // [21,22,23,24,25]
+		(21, vec![PARA_B, PARA_B, PARA_B, PARA_B, PARA_B]), // [22,23,24,25,26]
+		(25, vec![PARA_B, PARA_B, PARA_B, PARA_B, PARA_B]), // [26,27,28,29,30]
 	]
 	.into_iter()
+	.map(|(block, assignments)| (block, assignments.into_iter().map(ParaId::from).collect()))
 	.collect();
 
 	log::info!("Monitoring claim queue transitions around boundary...");
@@ -264,8 +193,8 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	log::info!("Using images: {images:?}");
 
-	let chain_a = format!("glutton-westend-local-{}", PARA_A);
-	let chain_b = format!("glutton-westend-local-{}", PARA_B);
+	let chain_a = format!("glutton-westend-local-{PARA_A}");
+	let chain_b = format!("glutton-westend-local-{PARA_B}");
 
 	// Network setup:
 	// - Relay chain with 4 validators
