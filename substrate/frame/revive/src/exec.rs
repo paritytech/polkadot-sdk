@@ -20,6 +20,7 @@ use crate::{
 	evm::{
 		block_storage,
 		fees::{Combinator, InfoT},
+		transfer_with_dust,
 	},
 	gas::GasMeter,
 	limits,
@@ -29,22 +30,22 @@ use crate::{
 	storage::{self, meter::Diff, AccountIdOrAddress, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
-	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
-	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf,
-	Pallet as Contracts, RuntimeCosts, LOG_TARGET,
+	AccountInfo, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf, CodeRemoved, Config,
+	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
+	LOG_TARGET,
 };
 use alloc::{
 	collections::{BTreeMap, BTreeSet},
 	vec::Vec,
 };
-use core::{fmt::Debug, marker::PhantomData, mem, ops::ControlFlow};
+use core::{cmp, fmt::Debug, marker::PhantomData, mem, ops::ControlFlow};
 use frame_support::{
 	crypto::ecdsa::ECDSAExt,
 	dispatch::DispatchResult,
+	ensure,
 	storage::{with_transaction, TransactionOutcome},
 	traits::{
 		fungible::{Inspect, Mutate},
-		tokens::{Fortitude, Precision, Preservation},
 		Time,
 	},
 	weights::Weight,
@@ -61,7 +62,7 @@ use sp_core::{
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
-	traits::{BadOrigin, Bounded, Saturating, TrailingZeroInput, Zero},
+	traits::{BadOrigin, Bounded, Saturating, TrailingZeroInput},
 	DispatchError, SaturatedConversion,
 };
 
@@ -951,12 +952,24 @@ where
 			return Ok(None);
 		};
 
+		let mut timestamp = T::Time::now();
+		let mut block_number = <frame_system::Pallet<T>>::block_number();
+		// if dry run with timestamp override is provided we simulate the run in a `pending` block
+		if let Some(timestamp_override) =
+			exec_config.is_dry_run.as_ref().and_then(|cfg| cfg.timestamp_override)
+		{
+			block_number = block_number.saturating_add(1u32.into());
+			// Delta is in milliseconds; increment timestamp by one second
+			let delta = 1000u32.into();
+			timestamp = cmp::max(timestamp.saturating_add(delta), timestamp_override);
+		}
+
 		let stack = Self {
 			origin,
 			gas_meter,
 			storage_meter,
-			timestamp: T::Time::now(),
-			block_number: <frame_system::Pallet<T>>::block_number(),
+			timestamp,
+			block_number,
 			first_frame,
 			frames: Default::default(),
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
@@ -965,7 +978,6 @@ where
 			contracts_to_be_destroyed: BTreeMap::new(),
 			_phantom: Default::default(),
 		};
-
 		Ok(Some((stack, executable)))
 	}
 
@@ -1001,7 +1013,7 @@ where
 							return Ok(None);
 						},
 					(None, Some(precompile)) if precompile.has_contract_info() => {
-						log::trace!(target: crate::LOG_TARGET, "found precompile for address {address:?}");
+						log::trace!(target: LOG_TARGET, "found precompile for address {address:?}");
 						if let Some(info) = AccountInfo::<T>::load_contract(&address) {
 							CachedContract::Cached(info)
 						} else {
@@ -1222,11 +1234,12 @@ where
 				// if we reached this point the origin has an associated account.
 				let origin = &self.origin.account_id()?;
 
-				let ed = <Contracts<T>>::min_balance();
-				frame.nested_storage.record_charge(&StorageDeposit::Charge(ed))?;
-				<Contracts<T>>::charge_deposit(None, origin, account_id, ed, self.exec_config)
-					.map_err(|_| <Error<T>>::StorageDepositNotEnoughFunds)?;
-
+				if !frame_system::Pallet::<T>::account_exists(&account_id) {
+					let ed = <Contracts<T>>::min_balance();
+					frame.nested_storage.record_charge(&StorageDeposit::Charge(ed))?;
+					<Contracts<T>>::charge_deposit(None, origin, account_id, ed, self.exec_config)
+						.map_err(|_| <Error<T>>::StorageDepositNotEnoughFunds)?;
+				}
 				// A consumer is added at account creation and removed it on termination, otherwise
 				// the runtime could remove the account. As long as a contract exists its
 				// account must exist. With the consumer, a correct runtime cannot remove the
@@ -1324,7 +1337,7 @@ where
 					// When a dry-run simulates contract deployment, keep the execution result's
 					// data.
 					let data = if crate::tracing::if_tracing(|_| {}).is_none() &&
-						!self.exec_config.is_dry_run
+						self.exec_config.is_dry_run.is_none()
 					{
 						core::mem::replace(&mut output.data, Default::default())
 					} else {
@@ -1411,7 +1424,6 @@ where
 		} else {
 			self.transient_storage.rollback_transaction();
 		}
-
 		log::trace!(target: LOG_TARGET, "frame finished with: {output:?}");
 
 		self.pop_frame(success);
@@ -1521,80 +1533,6 @@ where
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 		exec_config: &ExecConfig<T>,
 	) -> DispatchResult {
-		fn transfer_with_dust<T: Config>(
-			from: &AccountIdOf<T>,
-			to: &AccountIdOf<T>,
-			value: BalanceWithDust<BalanceOf<T>>,
-		) -> DispatchResult {
-			let (value, dust) = value.deconstruct();
-
-			fn transfer_balance<T: Config>(
-				from: &AccountIdOf<T>,
-				to: &AccountIdOf<T>,
-				value: BalanceOf<T>,
-			) -> DispatchResult {
-				T::Currency::transfer(from, to, value, Preservation::Preserve)
-				.map_err(|err| {
-					log::debug!(target: crate::LOG_TARGET, "Transfer failed: from {from:?} to {to:?} (value: ${value:?}). Err: {err:?}");
-					Error::<T>::TransferFailed
-				})?;
-				Ok(())
-			}
-
-			fn transfer_dust<T: Config>(
-				from: &mut AccountInfo<T>,
-				to: &mut AccountInfo<T>,
-				dust: u32,
-			) -> DispatchResult {
-				from.dust =
-					from.dust.checked_sub(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
-				to.dust = to.dust.checked_add(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
-				Ok(())
-			}
-
-			if dust.is_zero() {
-				return transfer_balance::<T>(from, to, value)
-			}
-
-			let from_addr = <T::AddressMapper as AddressMapper<T>>::to_address(from);
-			let mut from_info = AccountInfoOf::<T>::get(&from_addr).unwrap_or_default();
-
-			let to_addr = <T::AddressMapper as AddressMapper<T>>::to_address(to);
-			let mut to_info = AccountInfoOf::<T>::get(&to_addr).unwrap_or_default();
-
-			let plank = T::NativeToEthRatio::get();
-
-			if from_info.dust < dust {
-				T::Currency::burn_from(
-					from,
-					1u32.into(),
-					Preservation::Preserve,
-					Precision::Exact,
-					Fortitude::Polite,
-				)
-				.map_err(|err| {
-					log::debug!(target: crate::LOG_TARGET, "Burning 1 plank from {from:?} failed. Err: {err:?}");
-					Error::<T>::TransferFailed
-				})?;
-
-				from_info.dust =
-					from_info.dust.checked_add(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
-			}
-
-			transfer_balance::<T>(from, to, value)?;
-			transfer_dust::<T>(&mut from_info, &mut to_info, dust)?;
-
-			if to_info.dust >= plank {
-				T::Currency::mint_into(to, 1u32.into())?;
-				to_info.dust =
-					to_info.dust.checked_sub(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
-			}
-
-			AccountInfoOf::<T>::set(&from_addr, Some(from_info));
-			AccountInfoOf::<T>::set(&to_addr, Some(to_info));
-
-			Ok(())
-		}
 		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)
 			.map_err(|_| Error::<T>::BalanceConversionFailed)?;
 		if value.is_zero() {
@@ -1673,7 +1611,7 @@ where
 
 	/// Returns the *free* balance of the supplied AccountId.
 	fn account_balance(&self, who: &T::AccountId) -> U256 {
-		let balance = AccountInfo::<T>::balance(AccountIdOrAddress::AccountId(who.clone()));
+		let balance = AccountInfo::<T>::balance_of(AccountIdOrAddress::AccountId(who.clone()));
 		crate::Pallet::<T>::convert_native_to_evm(balance)
 	}
 
@@ -1732,7 +1670,7 @@ where
 			delete_code,
 		);
 
-		log::debug!(target: crate::LOG_TARGET, "Contract at {contract_address:?} registered termination. Beneficiary: {beneficiary_address:?}, delete_code: {delete_code}");
+		log::debug!(target: LOG_TARGET, "Contract at {contract_address:?} registered termination. Beneficiary: {beneficiary_address:?}, delete_code: {delete_code}");
 	}
 
 	/// Returns true if the current context has contract info.
@@ -1790,6 +1728,15 @@ where
 	}
 
 	fn terminate_if_same_tx(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
+		if_tracing(|tracer| {
+			let addr = T::AddressMapper::to_address(self.account_id());
+			tracer.terminate(
+				addr,
+				*beneficiary,
+				self.top_frame().nested_gas.gas_left(),
+				crate::Pallet::<T>::evm_balance(&addr),
+			);
+		});
 		let (account_id, contract_address, contract_info) = {
 			let frame = self.top_frame_mut();
 			if frame.entry_point == ExportedFunction::Constructor {
@@ -1907,9 +1854,14 @@ where
 					if !T::AllowEVMBytecode::get() {
 						return Err(<Error<T>>::CodeRejected.into());
 					}
+					ensure!(input_data.is_empty(), <Error<T>>::EvmConstructorNonEmptyData);
 					E::from_evm_init_code(bytecode.clone(), sender.clone())?
 				},
-				Code::Existing(hash) => E::from_storage(*hash, self.gas_meter_mut())?,
+				Code::Existing(hash) => {
+					let executable = E::from_storage(*hash, self.gas_meter_mut())?;
+					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
+					executable
+				},
 			};
 			self.push_frame(
 				FrameArgs::Instantiate {
@@ -2109,6 +2061,15 @@ where
 	}
 
 	fn origin(&self) -> &Origin<T> {
+		if let Some(mock_origin) = self
+			.exec_config
+			.mock_handler
+			.as_ref()
+			.and_then(|mock_handler| mock_handler.mock_origin())
+		{
+			return mock_origin;
+		}
+
 		&self.origin
 	}
 

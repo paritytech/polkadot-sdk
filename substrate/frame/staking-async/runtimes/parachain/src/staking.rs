@@ -180,9 +180,6 @@ parameter_types! {
 	/// lightweight per-page.
 	// TODO: this is currently 512 in all networks, but 64 might yield better PoV, need to check logs.
 	pub const MaxExposurePageSize: u32 = 512;
-
-	/// Each solution is considered "better" if it is an epsilon better than the previous one.
-	pub SolutionImprovementThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
 }
 
 // Signed phase parameters.
@@ -287,6 +284,7 @@ impl multi_block::Config for Runtime {
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type ManagerOrigin = EnsureRoot<AccountId>;
 	type DataProvider = Staking;
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Fallback = multi_block::Continue<Self>;
@@ -303,7 +301,6 @@ impl multi_block::verifier::Config for Runtime {
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
 	type SolutionDataProvider = MultiBlockElectionSigned;
-	type SolutionImprovementThreshold = SolutionImprovementThreshold;
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockVerifierWeightInfo<Self>;
 }
 

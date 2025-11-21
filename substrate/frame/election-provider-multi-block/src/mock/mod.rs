@@ -37,7 +37,7 @@ use frame_election_provider_support::{
 };
 pub use frame_support::{assert_noop, assert_ok};
 use frame_support::{
-	derive_impl, parameter_types,
+	derive_impl, ord_parameter_types, parameter_types,
 	traits::{fungible::InspectHold, Hooks},
 	weights::{constants, Weight},
 };
@@ -149,7 +149,6 @@ parameter_types! {
 
 	pub static FallbackMode: FallbackModes = FallbackModes::Emergency;
 	pub static MinerTxPriority: u64 = 100;
-	pub static SolutionImprovementThreshold: Perbill = Perbill::zero();
 	pub static OffchainRepeat: BlockNumber = 5;
 	pub static OffchainStorage: bool = true;
 	pub static MinerMaxLength: u32 = 256;
@@ -173,6 +172,10 @@ parameter_types! {
 	pub static AreWeDone: AreWeDoneModes = AreWeDoneModes::Proceed;
 }
 
+ord_parameter_types! {
+	pub const Manager: AccountId = 7;
+}
+
 impl Get<Phase<Runtime>> for AreWeDone {
 	fn get() -> Phase<Runtime> {
 		match <Self as Get<AreWeDoneModes>>::get() {
@@ -183,7 +186,6 @@ impl Get<Phase<Runtime>> for AreWeDone {
 }
 
 impl crate::verifier::Config for Runtime {
-	type SolutionImprovementThreshold = SolutionImprovementThreshold;
 	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
@@ -227,6 +229,7 @@ impl crate::Config for Runtime {
 	type WeightInfo = ();
 	type Verifier = VerifierPallet;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type ManagerOrigin = frame_system::EnsureSignedBy<Manager, AccountId>;
 	type Pages = Pages;
 	type AreWeDone = AreWeDone;
 	type OnRoundRotation = CleanRound<Self>;
@@ -363,10 +366,6 @@ impl ExtBuilder {
 	}
 	pub(crate) fn miner_tx_priority(self, p: u64) -> Self {
 		MinerTxPriority::set(p);
-		self
-	}
-	pub(crate) fn solution_improvement_threshold(self, p: Perbill) -> Self {
-		SolutionImprovementThreshold::set(p);
 		self
 	}
 	pub(crate) fn election_start(self, at: BlockNumber) -> Self {
