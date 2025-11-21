@@ -1,5 +1,6 @@
+// This file is part of Substrate.
+
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Polkadot.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,10 +16,9 @@
 // limitations under the License.
 
 // Ensure we're `no_std` when compiling for Wasm.
-
-//! Precompiles for pallet-conviction-voting
 #![cfg_attr(not(feature = "std"), no_std)]
 
+//! Precompiles for pallet-conviction-voting
 extern crate alloc;
 
 use alloc::vec::Vec;
