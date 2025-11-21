@@ -89,6 +89,7 @@ thiserror = { workspace = true }
 # Polkadot
 polkadot-core-primitives = { workspace = true, default-features = true }
 polkadot-node-core-parachains-inherent = { workspace = true, default-features = true }
+polkadot-node-core-pvf-common = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }

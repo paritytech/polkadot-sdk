@@ -458,7 +458,7 @@ pub fn run_worker<F>(
 }
 
 /// Provide a consistent message on unexpected worker shutdown.
-fn worker_shutdown(worker_info: WorkerInfo, err: &str) -> ! {
+pub fn worker_shutdown(worker_info: WorkerInfo, err: &str) -> ! {
 	gum::warn!(target: LOG_TARGET, ?worker_info, "quitting pvf worker ({}): {}", worker_info.kind, err);
 	std::process::exit(1);
 }
