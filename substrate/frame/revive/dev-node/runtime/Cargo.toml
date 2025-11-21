@@ -9,7 +9,6 @@ repository.workspace = true
 edition.workspace = true
 
 [dependencies]
-sp-debug-derive = { workspace = true, features = ["force-debug"] }
 array-bytes = { workspace = true }
 codec = { workspace = true }
 polkadot-sdk = { workspace = true, features = [
@@ -26,6 +25,7 @@ polkadot-sdk = { workspace = true, features = [
 ] }
 scale-info = { workspace = true }
 serde_json = { workspace = true, default-features = false, features = ["alloc"] }
+sp-debug-derive = { workspace = true, features = ["force-debug"] }
 
 [build-dependencies]
 polkadot-sdk = { optional = true, workspace = true, features = ["substrate-wasm-builder"] }
