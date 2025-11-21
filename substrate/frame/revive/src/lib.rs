@@ -53,7 +53,6 @@ use crate::{
 		Trace, Tracer, TracerType, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, ReentrancyProtection, Stack as ExecStack},
-	limits::ENCODING_LENGTH_SAFETY_MARGIN,
 	storage::{AccountType, DeletionQueueManager},
 	tracing::if_tracing,
 	vm::{pvm::extract_code_and_data, CodeInfo, RuntimeCosts},
@@ -1602,10 +1601,11 @@ impl<T: Config> Pallet<T> {
 		};
 		let result = Self::run_guarded(try_call);
 
-		log::trace!(target: LOG_TARGET, "Bare call ends: weight_consumed={:?}\
-			weight_required={:?} \
-			storage_deposit={:?} \
-			gas_consumed={:?} \
+		log::trace!(target: LOG_TARGET, "Bare call ends: \
+			weight_consumed={:?}, \
+			weight_required={:?}, \
+			storage_deposit={:?}, \
+			gas_consumed={:?}, \
 			max_storage_deposit={:?}",
 			transaction_meter.weight_consumed(),
 			transaction_meter.weight_required(),
@@ -1950,15 +1950,12 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// not enough gas supplied to pay for both the tx fees and the storage deposit
-		let transaction_fee = T::FeeInfo::tx_fee(
-			call_info.encoded_len.saturating_add(ENCODING_LENGTH_SAFETY_MARGIN),
-			&call_info.call,
-		);
+		let transaction_fee = T::FeeInfo::tx_fee(call_info.encoded_len, &call_info.call);
 		let available_fee = T::FeeInfo::remaining_txfee();
 		if transaction_fee > available_fee {
 			Err(EthTransactError::Message(format!(
 				"Not enough gas supplied: Off by: {:?}",
-				call_info.tx_fee.saturating_sub(available_fee),
+				transaction_fee.saturating_sub(available_fee),
 			)))?;
 		}
 
@@ -1970,15 +1967,15 @@ impl<T: Config> Pallet<T> {
 			.into();
 
 		log::debug!(target: LOG_TARGET, "\
-			dry_run_eth_transact: \
-			weight_limit={} \
-			total_weight={total_weight} \
-			max_weight={max_weight} \
-			weight_left={} \
-			eth_gas={eth_gas}) \
-			encoded_len={} \
-			tx_fee={transaction_fee:?} \
-			storage_deposit={:?}\
+			dry_run_eth_transact finished: \
+			weight_limit={}, \
+			total_weight={total_weight}, \
+			max_weight={max_weight}, \
+			weight_left={}, \
+			eth_gas={eth_gas}, \
+			encoded_len={}, \
+			tx_fee={transaction_fee:?}, \
+			storage_deposit={:?}, \
 			max_storage_deposit={:?}\
 			",
 			dry_run.weight_required,

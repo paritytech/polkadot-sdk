@@ -16,14 +16,16 @@
 // limitations under the License.
 
 use crate::{
-	test_utils::{builder::Contract, ALICE},
+	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
 	tests::{builder, ExtBuilder, Test},
 	CallResources, Code, Config, EthTxInfo, StorageDeposit, TransactionLimits, TransactionMeter,
 	WeightToken,
 };
 use alloy_core::sol_types::SolCall;
 use frame_support::traits::fungible::Mutate;
-use pallet_revive_fixtures::{compile_module_with_type, Deposit, FixtureType};
+use pallet_revive_fixtures::{
+	compile_module_with_type, CatchConstructorTest, Deposit, FixtureType,
+};
 use sp_runtime::{FixedU128, Weight};
 use test_case::test_case;
 
@@ -620,4 +622,78 @@ fn substrate_nesting_charges_works() {
 				}
 			});
 	}
+}
+
+#[test]
+fn catch_constructor_test() {
+	use crate::{evm::*, tracing::trace};
+	use frame_support::assert_ok;
+
+	let (code, _) = compile_module_with_type("CatchConstructorTest", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
+
+		let Contract { addr: test_address, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let first_estimate = crate::Pallet::<Test>::dry_run_eth_transact(
+			GenericTransaction {
+				from: Some(ALICE_ADDR),
+				to: Some(test_address),
+				input: CatchConstructorTest::tryCatchNewContractCall { _owner: [0u8; 20].into() }
+					.abi_encode()
+					.into(),
+				..Default::default()
+			},
+			Default::default(),
+		);
+
+		assert_ok!(first_estimate.as_ref());
+
+		let second_estimate = crate::Pallet::<Test>::dry_run_eth_transact(
+			GenericTransaction {
+				from: Some(ALICE_ADDR),
+				to: Some(test_address),
+				gas: Some(first_estimate.unwrap().eth_gas.into()),
+				input: CatchConstructorTest::tryCatchNewContractCall { _owner: [0u8; 20].into() }
+					.abi_encode()
+					.into(),
+				..Default::default()
+			},
+			Default::default(),
+		);
+
+		assert_ok!(second_estimate);
+
+		let make_call = |eth_gas_limit: u64| {
+			builder::bare_call(test_address)
+				.data(
+					CatchConstructorTest::tryCatchNewContractCall { _owner: [0u8; 20].into() }
+						.abi_encode(),
+				)
+				.transaction_limits(crate::TransactionLimits::EthereumGas {
+					eth_gas_limit: eth_gas_limit.into(),
+					maybe_weight_limit: None,
+					eth_tx_info: crate::EthTxInfo::new(0, Default::default()),
+				})
+				.build()
+		};
+
+		let results = make_call(u64::MAX);
+
+		let mut tracer =
+			CallTracer::new(CallTracerConfig { with_logs: true, only_top_call: false });
+
+		trace(&mut tracer, || {
+			let results = make_call(
+				results
+					.gas_consumed
+					.saturating_add(<Test as pallet_balances::Config>::ExistentialDeposit::get()),
+			);
+			assert_ok!(results.result);
+		});
+		let gas_trace = tracer.collect_trace().unwrap();
+		assert_eq!("revert: invalid address", gas_trace.calls[0].revert_reason.as_ref().unwrap());
+	});
 }

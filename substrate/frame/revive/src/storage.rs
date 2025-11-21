@@ -340,7 +340,7 @@ impl<T: Config> ContractInfo<T> {
 				},
 				(None, None) => (),
 			}
-			frame_meter.record_contract_storage_changes(&diff);
+			frame_meter.record_contract_storage_changes(&diff)?;
 		}
 
 		match &new_value {

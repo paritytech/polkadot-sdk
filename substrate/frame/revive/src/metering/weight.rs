@@ -124,7 +124,12 @@ pub struct ErasedToken {
 
 #[derive(DefaultNoBound)]
 pub struct WeightMeter<T: Config> {
+	/// The overall weight limit of this weight meter. If it is None, then there is no restriction
 	pub weight_limit: Option<Weight>,
+	/// The current actual effective weight limit. Used to check whether the weight meter ran out
+	/// of resources. This weight limit needs to be adapted whenever the metering runs in ethereum
+	/// mode and there is a charge on the deposit meter.
+	effective_weight_limit: Weight,
 	/// Amount of weight already consumed. Must be < `weight_limit`.
 	weight_consumed: Weight,
 	/// Due to `adjust_weight` and `nested` the `weight_consumed` can temporarily peak above its
@@ -143,6 +148,7 @@ impl<T: Config> WeightMeter<T> {
 	pub fn new(weight_limit: Option<Weight>, stipend: Option<Weight>) -> Self {
 		WeightMeter {
 			weight_limit,
+			effective_weight_limit: weight_limit.unwrap_or_default(),
 			weight_consumed: Default::default(),
 			weight_consumed_highest: stipend.unwrap_or_default(),
 			engine_meter: EngineMeter::new(),
@@ -150,6 +156,10 @@ impl<T: Config> WeightMeter<T> {
 			#[cfg(test)]
 			tokens: Vec::new(),
 		}
+	}
+
+	pub fn set_effective_weight_limit(&mut self, limit: Weight) {
+		self.effective_weight_limit = limit;
 	}
 
 	/// Absorb the remaining weight of a nested meter after we are done using it.
@@ -171,11 +181,7 @@ impl<T: Config> WeightMeter<T> {
 	/// NOTE that amount isn't consumed if there is not enough weight. This is considered
 	/// safe because we always charge weight before performing any resource-spending action.
 	#[inline]
-	pub fn charge<Tok: Token<T>>(
-		&mut self,
-		token: Tok,
-		weight_left: Weight,
-	) -> Result<ChargedAmount, DispatchError> {
+	pub fn charge<Tok: Token<T>>(&mut self, token: Tok) -> Result<ChargedAmount, DispatchError> {
 		#[cfg(test)]
 		{
 			// Unconditionally add the token to the storage.
@@ -183,24 +189,26 @@ impl<T: Config> WeightMeter<T> {
 				ErasedToken { description: format!("{:?}", token), token: Box::new(token) };
 			self.tokens.push(erased_tok);
 		}
+
 		let amount = token.weight();
 		// It is OK to not charge anything on failure because we always charge _before_ we perform
 		// any action
-		if amount.any_gt(weight_left) {
+		let new_consumed = self.weight_consumed.saturating_add(amount);
+		if new_consumed.any_gt(self.effective_weight_limit) {
 			Err(<Error<T>>::OutOfGas)?;
 		}
 
-		self.weight_consumed = self.weight_consumed.saturating_add(amount);
+		self.weight_consumed = new_consumed;
 		Ok(ChargedAmount(amount))
 	}
 
 	/// Charge the specified token amount of weight or halt if not enough weight is left.
+	#[inline]
 	pub fn charge_or_halt<Tok: Token<T>>(
 		&mut self,
 		token: Tok,
-		weight_left: Weight,
 	) -> ControlFlow<Halt, ChargedAmount> {
-		self.charge(token, weight_left)
+		self.charge(token)
 			.map_or_else(|_| ControlFlow::Break(Error::<T>::OutOfGas.into()), ControlFlow::Continue)
 	}
 
@@ -221,18 +229,14 @@ impl<T: Config> WeightMeter<T> {
 	/// Needs to be called when entering a host function to update this meter with the
 	/// gas that was tracked by the executor. It tracks the latest seen total value
 	/// in order to compute the delta that needs to be charged.
-	pub fn sync_from_executor(
-		&mut self,
-		engine_fuel: polkavm::Gas,
-		weight_limit: Weight,
-	) -> Result<(), DispatchError> {
+	pub fn sync_from_executor(&mut self, engine_fuel: polkavm::Gas) -> Result<(), DispatchError> {
 		let weight_consumed = self
 			.engine_meter
 			.set_fuel(engine_fuel.try_into().map_err(|_| Error::<T>::OutOfGas)?);
 
 		self.weight_consumed.saturating_accrue(weight_consumed);
-		if self.weight_consumed.any_gt(weight_limit) {
-			self.weight_consumed = weight_limit;
+		if self.weight_consumed.any_gt(self.effective_weight_limit) {
+			self.weight_consumed = self.effective_weight_limit;
 			Err(<Error<T>>::OutOfGas)?;
 		}
 
@@ -247,8 +251,8 @@ impl<T: Config> WeightMeter<T> {
 	///
 	/// It is important that this does **not** actually sync with the executor. That has
 	/// to be done by the caller.
-	pub fn sync_to_executor(&mut self, weight_left: Weight) -> polkavm::Gas {
-		self.engine_meter.sync_remaining_ref_time(weight_left.ref_time())
+	pub fn sync_to_executor(&mut self) -> polkavm::Gas {
+		self.engine_meter.sync_remaining_ref_time(self.weight_left().ref_time())
 	}
 
 	/// Returns the amount of weight that is required to run the same call.
@@ -264,14 +268,13 @@ impl<T: Config> WeightMeter<T> {
 		self.weight_consumed
 	}
 
-	pub fn consume_all(&mut self, weight_limit: Weight) {
-		self.weight_consumed = weight_limit;
+	pub fn consume_all(&mut self) {
+		self.weight_consumed = self.effective_weight_limit;
 	}
 
 	/// Returns how much weight left from the initial budget.
-	#[cfg(test)]
 	pub fn weight_left(&self) -> Weight {
-		self.weight_limit.unwrap().saturating_sub(self.weight_consumed)
+		self.effective_weight_limit.saturating_sub(self.weight_consumed)
 	}
 
 	#[cfg(test)]
@@ -345,7 +348,7 @@ mod tests {
 	#[test]
 	fn tracing() {
 		let mut weight_meter = WeightMeter::<Test>::new(Some(Weight::from_parts(50000, 0)), None);
-		assert!(!weight_meter.charge(SimpleToken(1), weight_meter.weight_left()).is_err());
+		assert!(!weight_meter.charge(SimpleToken(1)).is_err());
 
 		let mut tokens = weight_meter.tokens().iter();
 		match_tokens!(tokens, SimpleToken(1),);
@@ -355,7 +358,7 @@ mod tests {
 	#[test]
 	fn refuse_to_execute_anything_if_zero() {
 		let mut weight_meter = WeightMeter::<Test>::new(Some(Weight::zero()), None);
-		assert!(weight_meter.charge(SimpleToken(1), weight_meter.weight_left()).is_err());
+		assert!(weight_meter.charge(SimpleToken(1)).is_err());
 	}
 
 	/// Previously, passing a `Weight` of 0 to `nested` would consume all of the meter's current
@@ -408,10 +411,10 @@ mod tests {
 		let mut weight_meter = WeightMeter::<Test>::new(Some(Weight::from_parts(200, 0)), None);
 
 		// The first charge is should lead to OOG.
-		assert!(weight_meter.charge(SimpleToken(300), weight_meter.weight_left()).is_err());
+		assert!(weight_meter.charge(SimpleToken(300)).is_err());
 
 		// The weight meter should still contain the full 200.
-		assert!(weight_meter.charge(SimpleToken(200), weight_meter.weight_left()).is_ok());
+		assert!(weight_meter.charge(SimpleToken(200)).is_ok());
 	}
 
 	// Charging the exact amount that the user paid for should be
@@ -419,6 +422,6 @@ mod tests {
 	#[test]
 	fn charge_exact_amount() {
 		let mut weight_meter = WeightMeter::<Test>::new(Some(Weight::from_parts(25, 0)), None);
-		assert!(!weight_meter.charge(SimpleToken(25), weight_meter.weight_left()).is_err());
+		assert!(!weight_meter.charge(SimpleToken(25)).is_err());
 	}
 }

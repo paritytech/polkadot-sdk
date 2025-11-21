@@ -26,7 +26,7 @@ use crate::{
 	test_utils::{builder::Contract, deposit_limit, ALICE, ALICE_ADDR, BOB_ADDR, WEIGHT_LIMIT},
 	tests::{builder, ExtBuilder, MockHandlerImpl, Test},
 	BalanceOf, Code, Config, DelegateInfo, DispatchError, Error, ExecConfig, ExecOrigin,
-	ExecReturnValue,
+	ExecReturnValue, Weight,
 };
 use alloy_core::{
 	primitives::{Bytes, FixedBytes},
@@ -752,7 +752,7 @@ fn subcall_effectively_limited_substrate_tx(caller_type: FixtureType, callee_typ
 				)
 				.exec_config(config.clone())
 				.transaction_limits(TransactionLimits::WeightAndDeposit {
-					weight_limit: WEIGHT_LIMIT,
+					weight_limit: Weight::from_parts(50_000_000_000, 10 * 1024 * 1024),
 					deposit_limit: case.deposit_limit,
 				})
 				.build();

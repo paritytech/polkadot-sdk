@@ -18,17 +18,18 @@
 //! Functionality to decode an eth transaction into an dispatchable call.
 
 use crate::{
-	evm::{fees::InfoT, runtime::SetWeightLimit},
-	extract_code_and_data,
-	limits::ENCODING_LENGTH_SAFETY_MARGIN,
-	BalanceOf, CallOf, Config, GenericTransaction, Pallet, Weight, Zero, LOG_TARGET,
-	RUNTIME_PALLETS_ADDR,
+	evm::{
+		fees::{compute_max_integer_quotient, InfoT},
+		runtime::SetWeightLimit,
+	},
+	extract_code_and_data, BalanceOf, CallOf, Config, GenericTransaction, Pallet, Weight, Zero,
+	LOG_TARGET, RUNTIME_PALLETS_ADDR,
 };
 use alloc::{boxed::Box, vec::Vec};
 use codec::DecodeLimit;
 use frame_support::MAX_EXTRINSIC_DEPTH;
 use sp_core::{Get, U256};
-use sp_runtime::{transaction_validity::InvalidTransaction, FixedPointNumber, SaturatedConversion};
+use sp_runtime::{transaction_validity::InvalidTransaction, SaturatedConversion};
 
 /// Result of decoding an eth transaction into a dispatchable call.
 pub struct CallInfo<T: Config> {
@@ -106,7 +107,14 @@ where
 		if let CreateCallMode::ExtrinsicExecution(encoded_len, transaction_encoded) = mode {
 			(encoded_len, transaction_encoded)
 		} else {
-			let unsigned_tx = tx.clone().try_into_unsigned().map_err(|_| {
+			// For dry runs, we need to ensure that the RLP encoding length is at least the length
+			// of the encoding of the actual transaction submitted later
+			let mut maximized_tx = tx.clone();
+			maximized_tx.gas = Some(U256::MAX);
+			maximized_tx.gas_price = Some(U256::MAX);
+			maximized_tx.max_priority_fee_per_gas = Some(U256::MAX);
+
+			let unsigned_tx = maximized_tx.try_into_unsigned().map_err(|_| {
 				log::debug!(target: LOG_TARGET, "Invalid transaction type.");
 				InvalidTransaction::Call
 			})?;
@@ -188,8 +196,11 @@ where
 				log::debug!(target: LOG_TARGET, "Not enough gas supplied to cover base and len fee. eth_fee={eth_fee:?} fixed_fee={fixed_fee:?}");
 				InvalidTransaction::Payment
 			})?;
-			let unadjusted = <T as Config>::FeeInfo::next_fee_multiplier_reciprocal()
-				.saturating_mul_int(<BalanceOf<T>>::saturated_from(adjusted));
+
+			let unadjusted = compute_max_integer_quotient(
+				<T as Config>::FeeInfo::next_fee_multiplier(),
+				<BalanceOf<T>>::saturated_from(adjusted),
+			);
 
 			unadjusted
 		};
@@ -214,16 +225,8 @@ where
 		}
 	};
 
-	// Add some buffer for dry running because the length of the RLP encoded Ethereum transaction
-	// for actual execution might differ slightly.
-	let encoding_len_with_margin = if is_dry_run {
-		encoded_len.saturating_add(ENCODING_LENGTH_SAFETY_MARGIN)
-	} else {
-		encoded_len
-	};
-
 	// the overall fee of the extrinsic including the gas limit
-	let tx_fee = <T as Config>::FeeInfo::tx_fee(encoding_len_with_margin, &call);
+	let tx_fee = <T as Config>::FeeInfo::tx_fee(encoded_len, &call);
 
 	// the leftover we make available to the deposit collection system
 	let storage_deposit = eth_fee.checked_sub(tx_fee.into()).ok_or_else(|| {

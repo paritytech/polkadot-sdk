@@ -25,7 +25,8 @@ use crate::{
 	precompiles::Diff,
 	storage::{ContractInfo, WriteOutcome},
 	transient_storage::TransientStorage,
-	BalanceOf, Code, CodeRemoved, Config, ExecReturnValue, ImmutableData, ReentrancyProtection,
+	BalanceOf, Code, CodeRemoved, Config, DispatchResult, ExecReturnValue, ImmutableData,
+	ReentrancyProtection,
 };
 use alloc::vec::Vec;
 use core::marker::PhantomData;
@@ -251,7 +252,9 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::set_storage")
 	}
 
-	fn charge_storage(&mut self, _diff: &Diff) {}
+	fn charge_storage(&mut self, _diff: &Diff) -> DispatchResult {
+		Ok(())
+	}
 }
 
 impl<T: Config> PrecompileWithInfoExt for MockExt<T> {

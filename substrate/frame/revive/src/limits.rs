@@ -99,11 +99,6 @@ pub const EVM_STACK_LIMIT: u32 = 1024;
 /// The call stipend gas amount defined in the EVM
 pub const SOLIDITY_CALL_STIPEND: u32 = 2300;
 
-/// The RLP encoding length of an Ethereum transaction can change when input values are changed
-/// slightly. We want to ensure that the encoding length during gas estimation is at least the
-/// encoding length of the actual transaction
-pub const ENCODING_LENGTH_SAFETY_MARGIN: u32 = 10;
-
 /// Limits that are only enforced on code upload.
 ///
 /// # Note

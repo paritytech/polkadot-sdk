@@ -34,10 +34,11 @@ use frame_support::{
 	weights::WeightToFee,
 };
 use frame_system::Config as SysConfig;
-use num_traits::Zero;
+use num_traits::{One, Zero};
 use pallet_transaction_payment::{
 	Config as TxConfig, MultiplierUpdate, NextFeeMultiplier, Pallet as TxPallet, TxCreditHold,
 };
+use sp_arithmetic::{FixedPointOperand, SignedRounding};
 use sp_runtime::{
 	generic::UncheckedExtrinsic,
 	traits::{
@@ -326,14 +327,12 @@ where
 
 	/// Convert an unadjusted fee back to a weight.
 	fn fee_to_weight(fee: BalanceOf<E::Config>) -> Weight {
-		let ref_time = <E::Config as TxConfig>::WeightToFee::REF_TIME_TO_FEE
-			.reciprocal()
-			.expect("This is not zero. Enforced in `integrity_test`; qed")
-			.saturating_mul_int(fee);
-		let proof_size = <E::Config as TxConfig>::WeightToFee::proof_size_to_fee()
-			.reciprocal()
-			.expect("This is not zero. Enforced in `integrity_test`; qed")
-			.saturating_mul_int(fee);
+		let ref_time_to_fee = <E::Config as TxConfig>::WeightToFee::REF_TIME_TO_FEE;
+		let proof_size_to_fee = <E::Config as TxConfig>::WeightToFee::proof_size_to_fee();
+
+		let (ref_time, proof_size) =
+			compute_max_integer_pair_quotient((ref_time_to_fee, proof_size_to_fee), fee);
+
 		Weight::from_parts(ref_time.saturated_into(), proof_size.saturated_into())
 	}
 
@@ -375,4 +374,80 @@ mod seal {
 	pub trait Sealed {}
 	impl<Address, Signature, E: super::EthExtra> Sealed for super::Info<Address, Signature, E> {}
 	impl Sealed for () {}
+}
+
+/// Determine the maximal integer `n` so that `multiplier.saturating_mul_int(n) <= product`
+///
+/// FixedU128 wraps a 128 bit unsigned integer `self.0` and it is interpreted to represent the real
+/// number self.0 / FixedU128::DIV, where FixedU128::DIV is 1_000_000_000_000_000_000.
+///
+/// Given an integer `n`, the operation `multiplier.saturating_mul_int(n)` is defined as
+///      `div_round_down(multiplier.0 * n, FixedU128::DIV)`
+/// where `div_round_down` is integer division where the result is rounded down.
+///
+/// To determine the maximal integer `n` so that `multiplier.saturating_mul_int(n) <= product` is
+/// therefore equivalent to determining the maximal `n` such that
+///      `div_round_down(multiplier.0 * n, FixedU128::DIV) <= product`
+/// This is equivalent to the condition
+///      `multiplier.0 * n <= product * FixedU128::DIV + FixedU128::DIV - 1`
+/// This is equivalent to
+///      `multiplier.0 * n < (product + 1) * FixedU128::DIV`
+/// This is equivalent to
+///      `n < div_round_up((product + 1) * FixedU128::DIV, multiplier.0)`
+/// where `div_round_up` is integer division where the result is rounded up.
+/// Since we look for a maximal `n` with this condition, the result is
+///      `n = div_round_up((product + 1) * FixedU128::DIV, multiplier.0) - 1`.
+///
+/// We can take advantage of the function `FixedU128::checked_rounding_div`, which, given two fixed
+/// point numbers `a` and `b`, just computes `a.0 * FixedU128::DIV / b.0`. It also allows to specify
+/// the rounding mode `SignedRounding::Major`, which means the that result of the division is
+/// rounded up.
+pub fn compute_max_integer_quotient<F: FixedPointOperand + One>(
+	multiplier: FixedU128,
+	product: F,
+) -> F {
+	let one = F::one();
+	let product_plus_one = FixedU128::from_inner(product.saturating_add(one).saturated_into());
+
+	product_plus_one
+		.checked_rounding_div(multiplier, SignedRounding::Major)
+		.map(|f| f.into_inner().saturated_into::<F>().saturating_sub(one))
+		.unwrap_or(F::max_value())
+}
+
+/// same as compute_max_integer_quotient but applied to a pair
+pub fn compute_max_integer_pair_quotient<F: FixedPointOperand + One>(
+	multiplier: (FixedU128, FixedU128),
+	product: F,
+) -> (F, F) {
+	let one = F::one();
+	let product_plus_one = FixedU128::from_inner(product.saturating_add(one).saturated_into());
+
+	let result1 = product_plus_one
+		.checked_rounding_div(multiplier.0, SignedRounding::Major)
+		.map(|f| f.into_inner().saturated_into::<F>().saturating_sub(one))
+		.unwrap_or(F::max_value());
+
+	let result2 = product_plus_one
+		.checked_rounding_div(multiplier.1, SignedRounding::Major)
+		.map(|f| f.into_inner().saturated_into::<F>().saturating_sub(one))
+		.unwrap_or(F::max_value());
+
+	(result1, result2)
+}
+
+#[test]
+fn compute_max_quotient_works() {
+	let product1 = 8625031518u64;
+	let product2 = 2597808837u64;
+
+	let multiplier = FixedU128::from_rational(4_000_000_000_000, 10 * 1024 * 1024);
+
+	assert_eq!(compute_max_integer_quotient(multiplier, product1), 22610);
+	assert_eq!(compute_max_integer_quotient(multiplier, product2), 6810);
+
+	// This shows that just dividing by the multiplier does not give the correct result, neither
+	// when rounding up, nor when rounding down
+	assert_eq!(multiplier.reciprocal().unwrap().saturating_mul_int(product1), 22610);
+	assert_eq!(multiplier.reciprocal().unwrap().saturating_mul_int(product2), 6809);
 }

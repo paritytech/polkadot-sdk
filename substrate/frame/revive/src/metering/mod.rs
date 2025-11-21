@@ -136,12 +136,14 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 			self.deposit_consumed(),
 		);
 
-		let new_meter = match &self.transaction_limits {
+		let mut new_meter = match &self.transaction_limits {
 			TransactionLimits::EthereumGas { eth_tx_info, .. } =>
 				math::ethereum_execution::new_nested_meter(self, limit, eth_tx_info),
 			TransactionLimits::WeightAndDeposit { .. } =>
 				math::substrate_execution::new_nested_meter(self, limit),
-		};
+		}?;
+
+		new_meter.adjust_effective_weight_limit()?;
 
 		log::trace!(
 			target: LOG_TARGET,
@@ -150,13 +152,13 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 				deposit_left={:?}, \
 				weight_consumed={:?}, \
 				deposit_consumed={:?}",
-			new_meter.as_ref().map(|s| s.weight_left()),
-			new_meter.as_ref().map(|s| s.deposit_left()),
-			new_meter.as_ref().map(|s| s.weight_consumed()),
-			new_meter.as_ref().map(|s| s.deposit_consumed()),
+			new_meter.weight_left(),
+			new_meter.deposit_left(),
+			new_meter.weight_consumed(),
+			new_meter.deposit_consumed(),
 		);
 
-		new_meter
+		Ok(new_meter)
 	}
 
 	/// Absorb only the weight consumption from a nested frame meter.
@@ -230,6 +232,9 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		self.weight.absorb_nested(other.weight);
 		self.deposit.absorb(other.deposit, contract, info);
 
+		let result = self.adjust_effective_weight_limit();
+		debug_assert!(result.is_ok(), "Absorbing nested meters should not exceed limits");
+
 		log::trace!(
 			target: LOG_TARGET,
 			"Absorb all meters done: \
@@ -247,25 +252,21 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	/// Charge a weight token against this meter's remaining weight limit.
 	///
 	/// Returns `Err(Error::OutOfGas)` if the weight limit would be exceeded.
+	#[inline]
 	pub fn charge_weight_token<Tok: Token<T>>(
 		&mut self,
 		token: Tok,
 	) -> Result<ChargedAmount, DispatchError> {
-		// TODO: optimize
-		let weight_left = self.weight_left().ok_or(<Error<T>>::OutOfGas)?;
-
-		self.weight.charge(token, weight_left)
+		self.weight.charge(token)
 	}
 
 	/// Try to charge a weight token or halt if not enough weight is left.
+	#[inline]
 	pub fn charge_or_halt<Tok: Token<T>>(
 		&mut self,
 		token: Tok,
 	) -> ControlFlow<Halt, ChargedAmount> {
-		// TODO: optimize
-		let weight_left = self.weight_left().unwrap_or_default();
-
-		self.weight.charge_or_halt(token, weight_left)
+		self.weight.charge_or_halt(token)
 	}
 
 	/// Adjust an earlier weight charge with the actual weight consumed.
@@ -279,12 +280,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	/// - Converts engine fuel units to weight units
 	/// - Updates meter state to match actual VM resource usage
 	pub fn sync_from_executor(&mut self, engine_fuel: polkavm::Gas) -> Result<(), DispatchError> {
-		// TODO: optimize
-		let weight_left = self.weight_left().ok_or(<Error<T>>::OutOfGas)?;
-		let weight_consumed = self.weight.weight_consumed();
-
-		self.weight
-			.sync_from_executor(engine_fuel, weight_left.saturating_add(weight_consumed))
+		self.weight.sync_from_executor(engine_fuel)
 	}
 
 	/// Convert meter state to PolkaVM executor fuel units.
@@ -293,28 +289,36 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	/// - Computing remaining available weight
 	/// - Converting weight units to VM fuel units and return
 	pub fn sync_to_executor(&mut self) -> polkavm::Gas {
-		// TODO: optimize
-		let weight_left = self.weight_left().unwrap_or_default();
-
-		self.weight.sync_to_executor(weight_left)
+		self.weight.sync_to_executor()
 	}
 
 	/// Consume all remaining weight in the meter.
 	pub fn consume_all_weight(&mut self) {
-		// TODO: optimize
-		let weight_left = self.weight_left().unwrap_or_default();
-		let weight_consumed = self.weight.weight_consumed();
-
-		self.weight.consume_all(weight_left.saturating_add(weight_consumed));
+		self.weight.consume_all();
 	}
 
 	/// Record a storage deposit charge against this meter.
 	pub fn charge_deposit(&mut self, deposit: &DepositOf<T>) -> DispatchResult {
+		log::trace!(
+			target: LOG_TARGET,
+			"Charge deposit: \
+				deposit={:?}, \
+				deposit_left={:?}, \
+				deposit_consumed={:?}, \
+				max_charged={:?}",
+			deposit,
+			self.deposit_left(),
+			self.deposit_consumed(),
+			self.deposit.max_charged(),
+		);
+
 		self.deposit.record_charge(deposit);
+		self.adjust_effective_weight_limit()?;
 
 		if self.deposit.is_root {
 			if self.deposit_left().is_none() {
 				self.deposit.reset();
+				self.adjust_effective_weight_limit()?;
 				return Err(<Error<T>>::StorageDepositLimitExhausted.into());
 			}
 		}
@@ -421,6 +425,22 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 				math::substrate_execution::eth_gas_consumed(self),
 		}
 	}
+
+	/// Determine and set the new effective weight limit of the weight meter.
+	/// This function needs to be called whenever there is a change in the deposit meter.
+	fn adjust_effective_weight_limit(&mut self) -> DispatchResult {
+		if matches!(self.transaction_limits, TransactionLimits::WeightAndDeposit { .. }) {
+			return Ok(())
+		}
+
+		if let Some(weight_left) = self.weight_left() {
+			let new_effective_limit = self.weight.weight_consumed().saturating_add(weight_left);
+			self.weight.set_effective_weight_limit(new_effective_limit);
+			Ok(())
+		} else {
+			Err(<Error<T>>::OutOfGas.into())
+		}
+	}
 }
 
 impl<T: Config> TransactionMeter<T> {
@@ -435,12 +455,29 @@ impl<T: Config> TransactionMeter<T> {
 			"Start new meter: transaction_limits={transaction_limits:?}",
 		);
 
-		match transaction_limits {
+		let mut transaction_meter = match transaction_limits {
 			TransactionLimits::EthereumGas { eth_gas_limit, maybe_weight_limit, eth_tx_info } =>
 				math::ethereum_execution::new_root(eth_gas_limit, maybe_weight_limit, eth_tx_info),
 			TransactionLimits::WeightAndDeposit { weight_limit, deposit_limit } =>
 				math::substrate_execution::new_root(weight_limit, deposit_limit),
-		}
+		}?;
+
+		transaction_meter.adjust_effective_weight_limit()?;
+
+		log::trace!(
+			target: LOG_TARGET,
+			"New meter done: \
+				weight_left={:?}, \
+				deposit_left={:?}, \
+				weight_consumed={:?}, \
+				deposit_consumed={:?}",
+			transaction_meter.weight_left(),
+			transaction_meter.deposit_left(),
+			transaction_meter.weight_consumed(),
+			transaction_meter.deposit_consumed(),
+		);
+
+		Ok(transaction_meter)
 	}
 
 	/// Convenience constructor for substrate-style weight+deposit limits.
@@ -492,6 +529,9 @@ impl<T: Config> TransactionMeter<T> {
 	) {
 		self.deposit
 			.terminate_absorb(contract_account, contract_info, beneficiary, delete_code);
+
+		let result = self.adjust_effective_weight_limit();
+		debug_assert!(result.is_ok(), "Absorbing terminated meters should not exceed limits");
 	}
 }
 
@@ -504,19 +544,47 @@ impl<T: Config> FrameMeter<T> {
 		&mut self,
 		contract: T::AccountId,
 		amount: DepositOf<T>,
-	) {
-		self.deposit.charge_deposit(contract, amount)
+	) -> DispatchResult {
+		log::trace!(
+			target: LOG_TARGET,
+			"Charge deposit and transfer: \
+				amount={:?}, \
+				deposit_left={:?}, \
+				deposit_consumed={:?}, \
+				max_charged={:?}",
+			amount,
+			self.deposit_left(),
+			self.deposit_consumed(),
+			self.deposit.max_charged(),
+		);
+
+		self.deposit.charge_deposit(contract, amount);
+		self.adjust_effective_weight_limit()
 	}
 
 	/// Record storage changes of a contract.
-	pub fn record_contract_storage_changes(&mut self, diff: &Diff) {
+	pub fn record_contract_storage_changes(&mut self, diff: &Diff) -> DispatchResult {
+		log::trace!(
+			target: LOG_TARGET,
+			"Charge contract storage: \
+				diff={:?}, \
+				deposit_left={:?}, \
+				deposit_consumed={:?}, \
+				max_charged={:?}",
+			diff,
+			self.deposit_left(),
+			self.deposit_consumed(),
+			self.deposit.max_charged(),
+		);
+
 		self.deposit.charge(diff);
+		self.adjust_effective_weight_limit()
 	}
 
 	/// [`Self::charge_contract_deposit_and_transfer`] and [`Self::record_contract_storage_changes`]
 	/// does not enforce the storage limit since we want to do this check as late as possible to
 	/// allow later refunds to offset earlier charges.
-	pub fn finalize(&mut self, info: Option<&mut ContractInfo<T>>) -> Result<(), DispatchError> {
+	pub fn finalize(&mut self, info: Option<&mut ContractInfo<T>>) -> DispatchResult {
 		self.deposit.finalize_own_contributions(info);
 
 		if self.deposit_left().is_none() {
@@ -561,6 +629,16 @@ impl<T: Config> EthTxInfo<T> {
 		let weight_fee = SignedGas::Positive(T::FeeInfo::weight_to_fee(
 			&consumed_weight.saturating_add(self.extra_weight),
 		));
+
+		log::trace!(target: LOG_TARGET, "Gas consumption calculation: \
+			consumed_weight={consumed_weight:?}, \
+			consumed_deposit={consumed_deposit:?}, \
+			deposit_gas={deposit_gas:?}, \
+			fixed_fee_gas={fixed_fee_gas:?}, \
+			scaled_gas={scaled_gas:?}, \
+			weight_fee={weight_fee:?}, \
+			extra_weight={:?}",
+			self.extra_weight,);
 
 		scaled_gas.saturating_add(&weight_fee)
 	}

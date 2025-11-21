@@ -524,7 +524,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	) -> Result<WriteOutcome, DispatchError>;
 
 	/// Charges `diff` from the meter.
-	fn charge_storage(&mut self, diff: &storage::Diff);
+	fn charge_storage(&mut self, diff: &storage::Diff) -> DispatchResult;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -1393,7 +1393,7 @@ where
 				frame.frame_meter.charge_contract_deposit_and_transfer(
 					frame.account_id.clone(),
 					StorageDeposit::Charge(deposit),
-				);
+				)?;
 				frame
 			} else {
 				self.top_frame_mut()
@@ -1844,7 +1844,7 @@ where
 
 		frame
 			.frame_meter
-			.charge_contract_deposit_and_transfer(frame.account_id.clone(), deposit);
+			.charge_contract_deposit_and_transfer(frame.account_id.clone(), deposit)?;
 
 		<CodeInfo<T>>::increment_refcount(hash)?;
 		let removed = <CodeInfo<T>>::decrement_refcount(prev_hash)?;
@@ -2354,7 +2354,7 @@ where
 		)
 	}
 
-	fn charge_storage(&mut self, diff: &storage::Diff) {
+	fn charge_storage(&mut self, diff: &storage::Diff) -> DispatchResult {
 		assert!(self.has_contract_info());
 		self.top_frame_mut().frame_meter.record_contract_storage_changes(diff)
 	}
