@@ -14,6 +14,14 @@ fi
 
 CONTEXT=$(mktemp -d)
 REGISTRY=${REGISTRY:-docker.io}
+
+echo "========================================"
+echo "DEBUG: build-injected.sh received:"
+echo "  BINARY (before default): ${BINARY:-NOT_SET}"
+echo "  DOCKERFILE (before default): ${DOCKERFILE:-NOT_SET}"
+echo "  POLKADOT_DEB (before default): ${POLKADOT_DEB:-NOT_SET}"
+echo "========================================"
+
 POLKADOT_DEB=${POLKADOT_DEB:-false}
 
 # The following line ensure we know the project root
