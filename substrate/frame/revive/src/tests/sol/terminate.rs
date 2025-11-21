@@ -27,7 +27,6 @@ use crate::{
 };
 use alloy_core::sol_types::{SolCall, SolConstructor};
 use frame_support::traits::fungible::Mutate;
-use hex_literal::hex;
 use pallet_revive_fixtures::{
 	compile_module_with_type, FixtureType, Terminate, TerminateCaller, TerminateDelegator,
 };
