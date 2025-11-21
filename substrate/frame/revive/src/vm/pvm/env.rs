@@ -47,6 +47,11 @@ impl<T: Config> ContractBlob<T> {
 		aux_data_size: u32,
 	) -> Result<PreparedCall<E>, ExecError> {
 		let mut config = polkavm::Config::default();
+		// Log filtering by level with log::enabled! returns always true,
+		// passing all logs through impacting performance \
+		// (more details: https://github.com/paritytech/polkadot-sdk/issues/8760#issuecomment-3499548774)
+		// Let's disable polkavm logging.
+		config.set_imperfect_logger_filtering_workaround(true);
 		config.set_backend(Some(polkavm::BackendKind::Interpreter));
 		config.set_cache_enabled(false);
 		#[cfg(feature = "std")]
