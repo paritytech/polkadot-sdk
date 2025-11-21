@@ -138,7 +138,7 @@ pub mod code {
 		pvm_blob: Vec<u8>,
 		available_syscalls: &[&[u8]],
 	) -> Result<Vec<u8>, DispatchError> {
-		use polkavm_common::program::EstimateInterpreterMemoryUsageArgs;
+		use polkavm_common::program::{EstimateInterpreterMemoryUsageArgs, ISA_Latest64 as ISA};
 
 		let len: u64 = pvm_blob.len() as u64;
 		if len > crate::limits::code::BLOB_BYTES.into() {
@@ -189,7 +189,7 @@ pub mod code {
 		let mut block_size: u32 = 0;
 		let mut basic_block_count: u32 = 0;
 		let mut instruction_count: u32 = 0;
-		for inst in program.instructions() {
+		for inst in program.instructions_with_isa(ISA) {
 			use polkavm::program::Instruction;
 			block_size += 1;
 			instruction_count += 1;
