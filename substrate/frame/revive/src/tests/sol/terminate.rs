@@ -231,8 +231,10 @@ fn syscall_passes_for_direct_delegate_same_tx(fixture_type: FixtureType) {
 			.build_and_unwrap_result();
 		assert!(!result.did_revert());
 
-		let addr = H160::from_slice(&result.data[32 + 12..]);
-		let delegator_addr = H160::from_slice(&result.data[12..32]);
+		let decoded =
+			TerminateCaller::delegateCallTerminateCall::abi_decode_returns(&result.data).unwrap();
+		let addr = H160::from_slice(decoded._1.as_slice());
+		let delegator_addr = H160::from_slice(decoded._0.as_slice());
 
 		assert_eq!(
 			get_balance(&DJANGO),
@@ -434,7 +436,9 @@ fn sent_funds_after_terminate_shall_be_credited_to_beneficiary_base_case(
 			"sendFundsAfterTerminateAndCreateCall reverted: {}",
 			decode_error(&result.data)
 		);
-		let addr = H160::from_slice(&result.data[12..]);
+		let decoded =
+			TerminateCaller::delegateCallTerminateCall::abi_decode_returns(&result.data).unwrap();
+		let addr = H160::from_slice(decoded._0.as_slice());
 		assert!(get_contract_checked(&addr).is_none(), "contract still exists after terminate");
 		assert_eq!(
 			get_balance(&DJANGO),
@@ -637,7 +641,9 @@ fn terminate_twice(fixture_type: FixtureType, method1: u8, method2: u8) {
 			decode_error(&result.data)
 		);
 
-		let addr = H160::from_slice(&result.data[12..]);
+		let decoded =
+			TerminateCaller::delegateCallTerminateCall::abi_decode_returns(&result.data).unwrap();
+		let addr = H160::from_slice(decoded._1.as_slice());
 		let account = <Test as Config>::AddressMapper::to_account_id(&addr);
 		assert!(get_contract_checked(&addr).is_none(), "contract still exists after terminate");
 		assert_eq!(get_balance(&account), 0, "unexpected contract balance after terminate");
