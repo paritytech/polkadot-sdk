@@ -20,17 +20,17 @@ use crate::{
 	tests::{builder, ExtBuilder, Test},
 	Code, Config,
 };
-use alloy_core::sol_types::{SolCall, SolConstructor, SolValue};
+use alloy_core::sol_types::{SolCall, SolConstructor};
 use frame_support::traits::fungible::Mutate;
-use hex_literal::hex;
 use pallet_revive_fixtures::{compile_module_with_type, FixtureType, Terminate};
 use pretty_assertions::assert_eq;
 use test_case::test_case;
 
 /// Decode a contract return value into an error string.
 fn decode_error(output: &[u8]) -> String {
-	assert!(output.len() >= 4 && &output[..4] == &hex!("08c379a0"));
-	String::abi_decode(&output[4..]).unwrap()
+	use alloy_core::sol_types::SolError;
+	alloy_core::sol! { error Error(string); }
+	Error::abi_decode_validate(output).unwrap().0
 }
 
 #[test_case(FixtureType::Solc)]
