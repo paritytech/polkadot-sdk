@@ -1499,6 +1499,7 @@ zombienet-configuration = { version = "0.3.13" }
 zombienet-orchestrator = { version = "0.3.13" }
 zombienet-sdk = { version = "0.3.13" }
 zstd = { version = "0.12.4", default-features = false }
+perun-channels = { package = "perun-polkadot-pallet", git = "https://github.com/ggwpez/perun-polkadot-pallet.git", branch = "master" }
 
 [profile.release]
 # Polkadot runtime requires unwinding.

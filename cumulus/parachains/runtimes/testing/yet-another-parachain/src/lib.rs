@@ -487,6 +487,12 @@ impl cumulus_chess::Config for Runtime {
 	type MinimumStake = sp_core::ConstU128<1_000_000_000_000>;
 }
 
+impl perun_channels::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type WeightInfo = ();
+}
+
 #[frame_support::runtime]
 mod runtime {
 	#[runtime::runtime]
@@ -520,6 +526,9 @@ mod runtime {
 
 	#[runtime::pallet_index(6)]
 	pub type Chess = cumulus_chess;
+
+	#[runtime::pallet_index(7)]
+	pub type PerunChannels = perun_channels;
 
 	#[runtime::pallet_index(20)]
 	pub type ParachainSystem = cumulus_pallet_parachain_system;
