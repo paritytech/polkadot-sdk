@@ -302,21 +302,10 @@ where
 					return Err(Error::Overseer(SubsystemError::Context(
 						"build validator overseer for parachain node".to_owned(),
 					))),
-				IsParachainNode::No =>
-					if experimental_collator_protocol {
-						ProtocolSide::ValidatorExperimental {
-							keystore: keystore.clone(),
-							metrics: Metrics::register(registry)?,
-						}
-					} else {
-						ProtocolSide::Validator {
-							keystore: keystore.clone(),
-							eviction_policy: Default::default(),
-							metrics: Metrics::register(registry)?,
-							invulnerables: invulnerable_ah_collators,
-							collator_protocol_hold_off,
-						}
-					},
+				IsParachainNode::No => ProtocolSide::ValidatorExperimental {
+					keystore: keystore.clone(),
+					metrics: Metrics::register(registry)?,
+				},
 			};
 			CollatorProtocolSubsystem::new(side)
 		})
