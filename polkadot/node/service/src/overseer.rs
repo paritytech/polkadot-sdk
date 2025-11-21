@@ -183,9 +183,9 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		dispute_coordinator_config,
 		chain_selection_config,
 		fetch_chunks_threshold,
-		invulnerable_ah_collators: _,
-		collator_protocol_hold_off: _,
-		experimental_collator_protocol: _,
+		invulnerable_ah_collators,
+		collator_protocol_hold_off,
+		experimental_collator_protocol,
 	}: ExtendedOverseerGenArgs,
 ) -> Result<
 	InitializedOverseerBuilder<
