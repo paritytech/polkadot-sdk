@@ -523,62 +523,6 @@ where
 		(value.as_ptr() as u32, ())
 	}
 }
-/// Pass a pointer to a primitive number into the host and write to it after the host call ends.
-///
-/// This casts a given value into `&mut [u8]` and passes a pointer to
-/// that byte slice into the host. The host *doesn't* read from this and instead creates
-/// a default instance of type `T` and passes it as a `&mut T` into the host function
-/// implementation. After the host function finishes this value is then cast into a `&[u8]` and
-/// written back into the guest memory.
-///
-/// Raw FFI type: `u32` (a pointer)
-pub struct PassPointerToPrimitiveAndWrite<T>(PhantomData<T>);
-
-impl<T> RIType for PassPointerToPrimitiveAndWrite<T> {
-	type FFIType = u32;
-	type Inner = T;
-}
-
-#[cfg(not(substrate_runtime))]
-impl<'a, T> FromFFIValue<'a> for PassPointerToPrimitiveAndWrite<&'a mut T>
-where
-	T: Primitive,
-{
-	type Owned = T;
-
-	fn from_ffi_value(
-		_context: &mut dyn FunctionContext,
-		_arg: Self::FFIType,
-	) -> Result<Self::Owned> {
-		Ok(T::default())
-	}
-
-	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
-		&mut *owned
-	}
-
-	fn write_back_into_runtime(
-		value: Self::Owned,
-		context: &mut dyn FunctionContext,
-		arg: Self::FFIType,
-	) -> Result<()> {
-		let value = value.to_bytes();
-		context.write_memory(Pointer::new(arg), &value)
-	}
-}
-
-#[cfg(substrate_runtime)]
-impl<'a, T> IntoFFIValue for PassPointerToPrimitiveAndWrite<&'a mut T>
-where
-	T: Primitive,
-{
-	type Destructor = ();
-
-	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
-		let value = value.to_bytes();
-		(value.as_ptr() as u32, ())
-	}
-}
 
 /// Pass a `T` into the host using the SCALE codec.
 ///
@@ -672,29 +616,16 @@ impl<'a, T: codec::Encode> IntoFFIValue for PassFatPointerAndDecodeSlice<&'a [T]
 }
 
 /// A trait signifying a primitive type.
-trait Primitive: Copy + Default {
-	fn to_bytes(&self) -> Vec<u8>;
-}
+trait Primitive: Copy + Default {}
 
-macro_rules! impl_primitive {
-	($ty:ty) => {
-		impl Primitive for $ty {
-			fn to_bytes(&self) -> Vec<u8> {
-				self.to_le_bytes().to_vec()
-			}
-		}
-	};
-}
-
-impl_primitive!(u8);
-impl_primitive!(u16);
-impl_primitive!(u32);
-impl_primitive!(u64);
-
-impl_primitive!(i8);
-impl_primitive!(i16);
-impl_primitive!(i32);
-impl_primitive!(i64);
+impl Primitive for u8 {}
+impl Primitive for u16 {}
+impl Primitive for u32 {}
+impl Primitive for u64 {}
+impl Primitive for i8 {}
+impl Primitive for i16 {}
+impl Primitive for i32 {}
+impl Primitive for i64 {}
 
 /// Pass `T` through the FFI boundary by first converting it to `U` in the runtime, and then
 /// converting it back to `T` on the host's side.
