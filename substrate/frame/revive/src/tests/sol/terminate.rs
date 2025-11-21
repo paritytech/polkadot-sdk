@@ -21,9 +21,9 @@ use crate::{
 	tests::{
 		builder,
 		test_utils::{get_balance, get_contract_checked},
-		Contracts, ExtBuilder, Test,
+		Contracts, ExtBuilder, RuntimeOrigin, Test,
 	},
-	Code, Config, H160,
+	BalanceOf, Code, Config, Pallet, H160,
 };
 use alloy_core::sol_types::{SolCall, SolConstructor, SolValue};
 use frame_support::traits::fungible::Mutate;
@@ -32,7 +32,7 @@ use pallet_revive_fixtures::{
 	compile_module_with_type, FixtureType, Terminate, TerminateCaller, TerminateDelegator,
 };
 use pretty_assertions::assert_eq;
-use test_case::test_case;
+use test_case::{test_case, test_matrix};
 
 /// Decode a contract return value into an error string.
 fn decode_error(output: &[u8]) -> String {
@@ -69,7 +69,7 @@ fn base_case(fixture_type: FixtureType, method: u8) {
 			)
 			.build_and_unwrap_result();
 
-		assert_eq!(result.data, Vec::<u8>::new());
+		assert!(result.data.is_empty());
 	});
 }
 
@@ -116,7 +116,7 @@ fn syscall_passes_in_constructor(fixture_type: FixtureType) {
 			.build_and_unwrap_result();
 
 		assert!(!result.result.did_revert());
-		assert_eq!(result.result.data, Vec::<u8>::new());
+		assert!(result.result.data.is_empty());
 	});
 }
 
@@ -202,18 +202,16 @@ fn syscall_passes_for_direct_delegate_same_tx(fixture_type: FixtureType) {
 
 		if fixture_type == FixtureType::Resolc {
 			// Need to pre-upload code for PVM
-			let _ = builder::bare_instantiate(Code::Upload(code.clone()))
-				.constructor_data(
-					Terminate::constructorCall {
-						skip: true,
-						method: METHOD_SYSCALL,
-						beneficiary: DJANGO_ADDR.0.into(),
-					}
-					.abi_encode(),
-				)
-				.build_and_unwrap_contract();
-			let _ = builder::bare_instantiate(Code::Upload(delegator_code.clone()))
-				.build_and_unwrap_contract();
+			let _ = <Pallet<Test>>::upload_code(
+				RuntimeOrigin::signed(ALICE.clone()),
+				code.clone(),
+				<BalanceOf<Test>>::MAX,
+			);
+			let _ = <Pallet<Test>>::upload_code(
+				RuntimeOrigin::signed(ALICE.clone()),
+				delegator_code.clone(),
+				<BalanceOf<Test>>::MAX,
+			);
 		}
 
 		let Contract { addr: caller_addr, .. } =
@@ -402,16 +400,11 @@ fn sent_funds_after_terminate_shall_be_credited_to_beneficiary_base_case(
 
 		if fixture_type == FixtureType::Resolc {
 			// Need to pre-upload code for PVM
-			let _ = builder::bare_instantiate(Code::Upload(code.clone()))
-				.constructor_data(
-					Terminate::constructorCall {
-						skip: true,
-						method: METHOD_SYSCALL,
-						beneficiary: DJANGO_ADDR.0.into(),
-					}
-					.abi_encode(),
-				)
-				.build_and_unwrap_contract();
+			let _ = <Pallet<Test>>::upload_code(
+				RuntimeOrigin::signed(ALICE.clone()),
+				code.clone(),
+				<BalanceOf<Test>>::MAX,
+			);
 		}
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code))
@@ -513,9 +506,8 @@ fn sent_funds_after_terminate_shall_be_credited_to_beneficiary_precompile(
 			"sendFundsAfterTerminateCall reverted: {}",
 			decode_error(&result.data)
 		);
-		assert_eq!(
-			result.data,
-			Vec::<u8>::new(),
+		assert!(
+			result.data.is_empty(),
 			"sendFundsAfterTerminateCall returned unexpected data: {:?}",
 			result.data
 		);
@@ -589,9 +581,8 @@ fn sent_funds_after_terminate_shall_not_be_credited_to_beneficiary_syscall(
 			"sendFundsAfterTerminateCall reverted: {}",
 			decode_error(&result.data)
 		);
-		assert_eq!(
-			result.data,
-			Vec::<u8>::new(),
+		assert!(
+			result.data.is_empty(),
 			"sendFundsAfterTerminateCall returned unexpected data: {:?}",
 			result.data
 		);
@@ -605,14 +596,11 @@ fn sent_funds_after_terminate_shall_not_be_credited_to_beneficiary_syscall(
 	});
 }
 
-#[test_case(FixtureType::Solc, METHOD_SYSCALL, METHOD_SYSCALL)]
-#[test_case(FixtureType::Solc, METHOD_SYSCALL, METHOD_PRECOMPILE)]
-#[test_case(FixtureType::Solc, METHOD_PRECOMPILE, METHOD_SYSCALL)]
-#[test_case(FixtureType::Solc, METHOD_PRECOMPILE, METHOD_PRECOMPILE)]
-#[test_case(FixtureType::Resolc, METHOD_SYSCALL, METHOD_SYSCALL)]
-#[test_case(FixtureType::Resolc, METHOD_SYSCALL, METHOD_PRECOMPILE)]
-#[test_case(FixtureType::Resolc, METHOD_PRECOMPILE, METHOD_SYSCALL)]
-#[test_case(FixtureType::Resolc, METHOD_PRECOMPILE, METHOD_PRECOMPILE)]
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	[METHOD_SYSCALL, METHOD_PRECOMPILE],
+	[METHOD_SYSCALL, METHOD_PRECOMPILE]
+)]
 fn terminate_twice(fixture_type: FixtureType, method1: u8, method2: u8) {
 	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
 	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
@@ -622,16 +610,11 @@ fn terminate_twice(fixture_type: FixtureType, method1: u8, method2: u8) {
 
 		if fixture_type == FixtureType::Resolc {
 			// Need to pre-upload code for PVM
-			let _ = builder::bare_instantiate(Code::Upload(code.clone()))
-				.constructor_data(
-					Terminate::constructorCall {
-						skip: true,
-						method: METHOD_SYSCALL,
-						beneficiary: DJANGO_ADDR.0.into(),
-					}
-					.abi_encode(),
-				)
-				.build_and_unwrap_contract();
+			let _ = <Pallet<Test>>::upload_code(
+				RuntimeOrigin::signed(ALICE.clone()),
+				code.clone(),
+				<BalanceOf<Test>>::MAX,
+			);
 		}
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code))
