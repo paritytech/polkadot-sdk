@@ -13662,6 +13662,7 @@ dependencies = [
  "sp-npos-elections",
  "sp-runtime",
  "sp-staking",
+ "sp-state-machine",
  "sp-tracing 16.0.0",
  "substrate-test-utils",
 ]

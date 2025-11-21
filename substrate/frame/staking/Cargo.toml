@@ -46,6 +46,7 @@ rand_chacha = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-npos-elections = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
 substrate-test-utils = { workspace = true }
 
 [features]

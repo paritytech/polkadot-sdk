@@ -38,6 +38,7 @@ use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
 	OnStakingUpdate, StakingAccount,
 };
+use sp_state_machine::BasicExternalities;
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
 pub const BLOCK_TIME: u64 = 1000;
@@ -570,11 +571,11 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut storage);
 
-		let mut ext = sp_io::TestExternalities::from(storage);
-
-		ext.execute_with(|| {
-			Session::on_genesis();
+		BasicExternalities::execute_with_storage(&mut storage, || {
+			<pallet_session::Pallet<Test> as OnGenesis>::on_genesis();
 		});
+
+		let mut ext = sp_io::TestExternalities::from(storage);
 
 		if self.initialize_first_session {
 			ext.execute_with(|| {
