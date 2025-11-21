@@ -87,19 +87,6 @@ jobs:
         shell: bash
         run: ${{ matrix.test.additional-setup }}
 
-      - name: zombienet_test (v1)
-        if: ${{ !matrix.test.use-zombienet-sdk }}
-        timeout-minutes: 60
-        uses: ./.github/actions/zombienet
-        with:
-          test-definition: ${{ matrix.test.test-definition }}
-          job-name: ${{ matrix.test.job-name }}
-          local-dir: ${{ matrix.test.local-dir }}
-          concurrency: ${{ matrix.test.concurrency || 1 }}
-          gh-token: ${{ secrets.GITHUB_TOKEN }}
-          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
-          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-
       - name: zombienet_test (sdk)
         if: ${{ matrix.test.use-zombienet-sdk }}
         uses: ./.github/actions/zombienet-sdk

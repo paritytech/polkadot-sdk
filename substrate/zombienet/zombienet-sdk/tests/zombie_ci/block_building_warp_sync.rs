@@ -21,7 +21,7 @@ const ROLE_TIMEOUT_SECS: u64 = 60;
 const PEER_TIMEOUT_SECS: u64 = 60;
 const BOOTSTRAP_TIMEOUT_SECS: u64 = 180;
 const METRIC_TIMEOUT_SECS: u64 = 60;
-const NEW_BLOCK_TIMEOUT_SECS: u64 = 75;
+const NEW_BLOCK_TIMEOUT_SECS: u64 = 120;
 const LOG_TIMEOUT_LONG_SECS: u64 = 60;
 const LOG_TIMEOUT_SHORT_SECS: u64 = 10;
 const LOG_ERROR_TIMEOUT_SECS: u64 = 10;
@@ -52,13 +52,13 @@ async fn block_building_warp_sync() -> Result<()> {
 	let db_snapshot_height = resolve_db_snapshot_height(&network).await?;
 
 	verify_bootstrap_height(&network, db_snapshot_height).await?;
-	// verify_new_blocks(&network, db_snapshot_height).await?;
+	verify_new_blocks(&network, db_snapshot_height).await?;
 
 	let dave = network.get_node("dave")?;
-	verify_dave_progress(&dave, db_snapshot_height).await?;
-	verify_dave_logs(&dave).await?;
-	verify_dave_beefy(&dave, db_snapshot_height).await?;
-	verify_dave_log_errors_absent(&dave).await?;
+	verify_dave_progress(dave, db_snapshot_height).await?;
+	verify_dave_logs(dave).await?;
+	verify_dave_beefy(dave, db_snapshot_height).await?;
+	verify_dave_log_errors_absent(dave).await?;
 
 	network.destroy().await?;
 

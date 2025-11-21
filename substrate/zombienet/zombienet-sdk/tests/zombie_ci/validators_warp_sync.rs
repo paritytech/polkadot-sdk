@@ -31,7 +31,7 @@ const BEEFY_PROGRESS_TIMEOUT_SECS: u64 = 180;
 
 const PEERS_THRESHOLD: f64 = 4.0;
 const VALIDATOR_ROLE_VALUE: f64 = 4.0;
-const FOLLOWER_ROLE_VALUE: f64 = 1.0;
+const FULLNODE_ROLE_VALUE: f64 = 1.0;
 const MIN_BOOTSTRAP_BLOCK: f64 = 1.0;
 const BEEFY_TARGET: f64 = 200.0 * 180.0 / 6.0;
 
@@ -65,7 +65,7 @@ async fn validators_warp_sync() -> Result<()> {
 		let node = network.get_node(follower)?;
 		node.wait_metric_with_timeout(
 			"node_roles",
-			|role| (role - FOLLOWER_ROLE_VALUE).abs() < f64::EPSILON,
+			|role| (role - FULLNODE_ROLE_VALUE).abs() < f64::EPSILON,
 			ROLE_TIMEOUT_SECS,
 		)
 		.await?;
