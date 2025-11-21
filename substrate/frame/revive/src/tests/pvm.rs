@@ -60,12 +60,12 @@ use frame_system::{EventRecord, Phase};
 use pallet_revive_fixtures::compile_module;
 use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 use pretty_assertions::{assert_eq, assert_ne};
-use rstest::rstest;
 use sp_core::U256;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
 	testing::H256, AccountId32, BoundedVec, DispatchError, SaturatedConversion, TokenError,
 };
+use test_case::test_case;
 
 #[test]
 fn eth_call_transfer_with_dust_works() {
@@ -4945,10 +4945,9 @@ fn storage_deposit_from_hold_works() {
 	});
 }
 
-#[rstest]
-#[case(true)]
-#[case(false)]
-fn eip3607_reject_tx_from_contract_or_precompile(#[case] bypass_eip3607_for_contracts: bool) {
+#[test_case(true)]
+#[test_case(false)]
+fn eip3607_reject_tx_from_contract_or_precompile(bypass_eip3607_for_contracts: bool) {
 	let (binary, _code_hash) = compile_module("dummy").unwrap();
 
 	let genesis_config = GenesisConfig::<Test> {
