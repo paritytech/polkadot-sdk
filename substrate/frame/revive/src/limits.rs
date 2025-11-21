@@ -138,7 +138,6 @@ pub mod code {
 		pvm_blob: Vec<u8>,
 		available_syscalls: &[&[u8]],
 	) -> Result<Vec<u8>, DispatchError> {
-		use polkavm::program::ISA64_V1 as ISA;
 		use polkavm_common::program::EstimateInterpreterMemoryUsageArgs;
 
 		let len: u64 = pvm_blob.len() as u64;
@@ -190,7 +189,7 @@ pub mod code {
 		let mut block_size: u32 = 0;
 		let mut basic_block_count: u32 = 0;
 		let mut instruction_count: u32 = 0;
-		for inst in program.instructions(ISA) {
+		for inst in program.instructions() {
 			use polkavm::program::Instruction;
 			block_size += 1;
 			instruction_count += 1;

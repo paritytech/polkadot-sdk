@@ -62,7 +62,6 @@ impl<T: Config> ContractBlob<T> {
 		let mut module_config = polkavm::ModuleConfig::new();
 		module_config.set_page_size(limits::PAGE_SIZE);
 		module_config.set_gas_metering(Some(polkavm::GasMeteringKind::Sync));
-		module_config.set_allow_sbrk(false);
 		module_config.set_aux_data_size(aux_data_size);
 		let module =
 			polkavm::Module::new(&engine, &module_config, self.code.into()).map_err(|err| {
