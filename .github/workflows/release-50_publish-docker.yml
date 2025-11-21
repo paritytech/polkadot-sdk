@@ -233,7 +233,9 @@ jobs:
             ./docker/scripts/polkadot/build-injected.sh $ARTIFACTS_FOLDER
           else
             echo "Building release container for polkadot"
-            ./docker/scripts/polkadot/build-injected-deb.sh ${{ needs.validate-inputs.outputs.version }}
+            export POLKADOT_DEB=true
+            export VERSION=${{ needs.validate-inputs.outputs.version }}
+            ./docker/scripts/polkadot/build-injected-deb.sh
           fi
 
       - name: Build Injected Container image for polkadot-omni-node/chain-spec-builder

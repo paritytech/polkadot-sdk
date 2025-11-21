@@ -9,7 +9,5 @@ PROJECT_ROOT=`git rev-parse --show-toplevel`
 
 export BINARY=polkadot,polkadot-execute-worker,polkadot-prepare-worker
 export DOCKERFILE="docker/dockerfiles/polkadot/polkadot_injected_debian.Dockerfile"
-export POLKADOT_DEB=true
-export VERSION=$1
 
 $PROJECT_ROOT/docker/scripts/build-injected.sh
