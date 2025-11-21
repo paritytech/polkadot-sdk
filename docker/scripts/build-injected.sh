@@ -14,6 +14,7 @@ fi
 
 CONTEXT=$(mktemp -d)
 REGISTRY=${REGISTRY:-docker.io}
+POLKADOT_DEB=${POLKADOT_DEB:-false}
 
 # The following line ensure we know the project root
 PROJECT_ROOT=${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}
@@ -44,24 +45,6 @@ echo "Building ${IMAGE}:latest container image for ${BINARY} ${VERSION} from ${A
 echo "ARTIFACTS_FOLDER=$ARTIFACTS_FOLDER"
 echo "CONTEXT=$CONTEXT"
 
-# We need all binaries and resources available in the Container build "CONTEXT"
-mkdir -p $CONTEXT/bin
-for bin in "${BINARIES[@]}"
-do
-  echo "Copying $ARTIFACTS_FOLDER/$bin to context: $CONTEXT/bin"
-  ls -al "$ARTIFACTS_FOLDER/$bin"
-  cp -r "$ARTIFACTS_FOLDER/$bin" "$CONTEXT/bin"
-done
-
-cp "$PROJECT_ROOT/docker/scripts/entrypoint.sh" "$CONTEXT"
-
-if [[ "$BINARY" == "polkadot-parachain" ]]; then
-  mkdir -p "$CONTEXT/specs"
-  echo "Copying parachains chain-specs from $ARTIFACTS_FOLDER/specs to context: $CONTEXT/specs"
-  ls -al "$ARTIFACTS_FOLDER/specs"
-  cp -r "$ARTIFACTS_FOLDER/specs" "$CONTEXT/specs"
-fi
-
 echo "Building image: ${IMAGE}"
 
 TAGS=${TAGS[@]:-latest}
@@ -75,18 +58,49 @@ done
 
 echo "$TAG_ARGS"
 
-# time \
-$ENGINE build \
-    ${PODMAN_FLAGS} \
-    --build-arg VCS_REF="${VCS_REF}" \
-    --build-arg BUILD_DATE=$(date -u '+%Y-%m-%dT%H:%M:%SZ') \
-    --build-arg IMAGE_NAME="${IMAGE}" \
-    --build-arg BINARY="${BINARY}" \
-    --build-arg ARTIFACTS_FOLDER="${ARTIFACTS_FOLDER}" \
-    --build-arg DESCRIPTION="${DESCRIPTION}" \
-    ${TAG_ARGS} \
-    -f "${PROJECT_ROOT}/${DOCKERFILE}" \
+if [[ "$POLKADOT_DEB" == "true" ]]; then
+  echo "Building polkadot release  image based on the Debian package"
+  $ENGINE build \
+      ${PODMAN_FLAGS} \
+      --build-arg VCS_REF="${VCS_REF}" \
+      --build-arg BUILD_DATE=$(date -u '+%Y-%m-%dT%H:%M:%SZ') \
+      --build-arg POLKADOT_VERSION=${VERSION} \
+      ${TAG_ARGS} \
+      -f "${PROJECT_ROOT}/${DOCKERFILE}" \
     ${CONTEXT}
+else
+  echo "Building standard image based on the binary ${BINARY[0]}"
+  # We need all binaries and resources available in the Container build "CONTEXT"
+  mkdir -p $CONTEXT/bin
+  for bin in "${BINARIES[@]}"
+  do
+    echo "Copying $ARTIFACTS_FOLDER/$bin to context: $CONTEXT/bin"
+    ls -al "$ARTIFACTS_FOLDER/$bin"
+    cp -r "$ARTIFACTS_FOLDER/$bin" "$CONTEXT/bin"
+  done
+
+  cp "$PROJECT_ROOT/docker/scripts/entrypoint.sh" "$CONTEXT"
+
+  if [[ "$BINARY" == "polkadot-parachain" ]]; then
+    mkdir -p "$CONTEXT/specs"
+    echo "Copying parachains chain-specs from $ARTIFACTS_FOLDER/specs to context: $CONTEXT/specs"
+    ls -al "$ARTIFACTS_FOLDER/specs"
+    cp -r "$ARTIFACTS_FOLDER/specs" "$CONTEXT/specs"
+  fi
+
+  # time \
+  $ENGINE build \
+      ${PODMAN_FLAGS} \
+      --build-arg VCS_REF="${VCS_REF}" \
+      --build-arg BUILD_DATE=$(date -u '+%Y-%m-%dT%H:%M:%SZ') \
+      --build-arg IMAGE_NAME="${IMAGE}" \
+      --build-arg BINARY="${BINARY}" \
+      --build-arg ARTIFACTS_FOLDER="${ARTIFACTS_FOLDER}" \
+      --build-arg DESCRIPTION="${DESCRIPTION}" \
+      ${TAG_ARGS} \
+      -f "${PROJECT_ROOT}/${DOCKERFILE}" \
+      ${CONTEXT}
+fi
 
 echo "Your Container image for ${IMAGE} is ready"
 $ENGINE images
