@@ -1869,7 +1869,14 @@ impl<H> CandidateDescriptorV2<H> {
 	/// The candidate is at version 2 if the reserved fields are zeroed out
 	/// and the internal `version` field is 0.
 	pub fn version(&self) -> CandidateDescriptorVersion {
-		if self.reserved2 != [0u8; 64] || self.reserved1 != [0u8; 25] {
+		// Version 1 is not properly versioned, so we are taking advantage of
+		// the fact that multiple bytes of zeros in a collator id are very
+		// unlikely. This check has two downsides:
+		// 1. It is a heuristic, not a proper version. In theory we might wrongly reject v1 candidates.
+		// 2. More problematic: This check prevents us using these reserved bits in any future version.
+		//
+		// Thus we should get rid of v1 support as soon as possible.
+		if self.reserved1 != [0u8; 25] {
 			return CandidateDescriptorVersion::V1
 		}
 
