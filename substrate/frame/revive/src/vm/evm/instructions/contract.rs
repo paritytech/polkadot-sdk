@@ -47,8 +47,8 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 	let [value, code_offset, len] = interpreter.stack.popn()?;
 	let len = as_usize_or_halt::<E::T>(len)?;
 
-	interpreter.ext.charge_or_halt(RuntimeCosts::Instantiate {
-		input_data_len: len as u32, // We charge for initcode execution
+	interpreter.ext.charge_or_halt(RuntimeCosts::Create {
+		init_code_len: len as u32,
 		balance_transfer: Pallet::<E::T>::has_balance(value),
 		dust_transfer: Pallet::<E::T>::has_dust(value),
 	})?;

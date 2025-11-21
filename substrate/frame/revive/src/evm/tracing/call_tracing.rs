@@ -53,6 +53,23 @@ impl Tracing for CallTracer<U256> {
 		self.code_with_salt = Some((code.clone(), salt.is_some()));
 	}
 
+	fn terminate(
+		&mut self,
+		contract_address: H160,
+		beneficiary_address: H160,
+		gas_left: U256,
+		value: U256,
+	) {
+		self.traces.last_mut().unwrap().calls.push(CallTrace {
+			from: contract_address,
+			to: beneficiary_address,
+			call_type: CallType::Selfdestruct,
+			gas: gas_left,
+			value: Some(value),
+			..Default::default()
+		});
+	}
+
 	fn enter_child_span(
 		&mut self,
 		from: H160,
@@ -72,13 +89,14 @@ impl Tracing for CallTracer<U256> {
 
 		if self.traces.is_empty() || !self.config.only_top_call {
 			let (call_type, input) = match self.code_with_salt.take() {
-				Some((Code::Upload(v), salt)) => (
+				Some((Code::Upload(code), salt)) => (
 					if salt { CallType::Create2 } else { CallType::Create },
-					v.into_iter().chain(input.to_vec().into_iter()).collect::<Vec<_>>(),
+					code.into_iter().chain(input.to_vec().into_iter()).collect::<Vec<_>>(),
 				),
-				Some((Code::Existing(v), salt)) => (
+				Some((Code::Existing(code_hash), salt)) => (
 					if salt { CallType::Create2 } else { CallType::Create },
-					v.to_fixed_bytes()
+					code_hash
+						.to_fixed_bytes()
 						.into_iter()
 						.chain(input.to_vec().into_iter())
 						.collect::<Vec<_>>(),
