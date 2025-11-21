@@ -44,10 +44,10 @@ const METHOD_PRECOMPILE: u8 = 0;
 const METHOD_DELEGATE_CALL: u8 = 1;
 const METHOD_SYSCALL: u8 = 2;
 
-#[test_case(FixtureType::Solc, METHOD_PRECOMPILE)]
-#[test_case(FixtureType::Solc, METHOD_SYSCALL)]
-#[test_case(FixtureType::Resolc, METHOD_PRECOMPILE)]
-#[test_case(FixtureType::Resolc, METHOD_SYSCALL)]
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	[METHOD_PRECOMPILE, METHOD_SYSCALL]
+)]
 fn base_case(fixture_type: FixtureType, method: u8) {
 	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
@@ -313,10 +313,10 @@ fn syscall_passes_for_direct_delegate(fixture_type: FixtureType) {
 	});
 }
 
-#[test_case(FixtureType::Solc, FixtureType::Solc)]
-#[test_case(FixtureType::Solc, FixtureType::Resolc)]
-#[test_case(FixtureType::Resolc, FixtureType::Solc)]
-#[test_case(FixtureType::Resolc, FixtureType::Resolc)]
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	[FixtureType::Solc, FixtureType::Resolc]
+)]
 fn terminate_shall_rollback_if_subsequent_frame_fails(
 	caller_type: FixtureType,
 	callee_type: FixtureType,
@@ -386,10 +386,10 @@ fn terminate_shall_rollback_if_subsequent_frame_fails(
 /// 3. send funds to the Terminate contract
 /// The funds that were sent after termination shall be credited to the beneficiary.
 /// Deploying an EVM contract from a PVM contract (or vice versa) is not supported.
-#[test_case(FixtureType::Solc, METHOD_PRECOMPILE)]
-#[test_case(FixtureType::Solc, METHOD_SYSCALL)]
-#[test_case(FixtureType::Resolc, METHOD_PRECOMPILE)]
-#[test_case(FixtureType::Resolc, METHOD_SYSCALL)]
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	[METHOD_PRECOMPILE, METHOD_SYSCALL]
+)]
 fn sent_funds_after_terminate_shall_be_credited_to_beneficiary_base_case(
 	fixture_type: FixtureType,
 	method: u8,
@@ -452,10 +452,10 @@ fn sent_funds_after_terminate_shall_be_credited_to_beneficiary_base_case(
 
 /// This test does *not* create and terminate the Terminate contract in the same transaction.
 /// Therefore, the SYSCALL terminate method does not be transferred to beneficiary.
-#[test_case(FixtureType::Solc, FixtureType::Solc)]
-#[test_case(FixtureType::Solc, FixtureType::Resolc)]
-#[test_case(FixtureType::Resolc, FixtureType::Solc)]
-#[test_case(FixtureType::Resolc, FixtureType::Resolc)]
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	[FixtureType::Solc, FixtureType::Resolc]
+)]
 fn sent_funds_after_terminate_shall_be_credited_to_beneficiary_precompile(
 	caller_type: FixtureType,
 	callee_type: FixtureType,
@@ -527,10 +527,10 @@ fn sent_funds_after_terminate_shall_be_credited_to_beneficiary_precompile(
 
 /// This test does *not* create and terminate the Terminate contract in the same transaction.
 /// Therefore, the SYSCALL terminate method does not be transferred to beneficiary.
-#[test_case(FixtureType::Solc, FixtureType::Solc)]
-#[test_case(FixtureType::Solc, FixtureType::Resolc)]
-#[test_case(FixtureType::Resolc, FixtureType::Solc)]
-#[test_case(FixtureType::Resolc, FixtureType::Resolc)]
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	[FixtureType::Solc, FixtureType::Resolc]
+)]
 fn sent_funds_after_terminate_shall_not_be_credited_to_beneficiary_syscall(
 	caller_type: FixtureType,
 	callee_type: FixtureType,
