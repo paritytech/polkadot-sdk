@@ -13307,6 +13307,7 @@ dependencies = [
  "revm",
  "ripemd",
  "rlp 0.6.1",
+ "rstest",
  "scale-info",
  "secp256k1 0.28.2",
  "serde",

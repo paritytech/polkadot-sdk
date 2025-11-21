@@ -41,8 +41,8 @@ use crate::{
 	tracing::trace,
 	weights::WeightInfo,
 	AccountInfo, AccountInfoOf, BalanceWithDust, Code, Combinator, Config, ContractInfo,
-	DeletionQueueCounter, Error, ExecConfig, HoldReason, Origin, Pallet, PristineCode,
-	StorageDeposit, H160,
+	DebugSettings, DeletionQueueCounter, Error, ExecConfig, HoldReason, Origin, Pallet,
+	PristineCode, StorageDeposit, H160,
 };
 use assert_matches::assert_matches;
 use codec::Encode;
@@ -60,6 +60,7 @@ use frame_system::{EventRecord, Phase};
 use pallet_revive_fixtures::compile_module;
 use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 use pretty_assertions::{assert_eq, assert_ne};
+use rstest::rstest;
 use sp_core::U256;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
@@ -4944,71 +4945,154 @@ fn storage_deposit_from_hold_works() {
 	});
 }
 
-#[test]
-fn eip3607_reject_tx_from_contract_or_precompile() {
+#[rstest]
+#[case(true)]
+#[case(false)]
+fn eip3607_reject_tx_from_contract_or_precompile(#[case] bypass_eip3607_for_contracts: bool) {
 	let (binary, _code_hash) = compile_module("dummy").unwrap();
 
-	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+	let genesis_config = GenesisConfig::<Test> {
+		debug_settings: Some(DebugSettings::new(false, bypass_eip3607_for_contracts)),
+		..Default::default()
+	};
 
-		// the origins from which we try to call a dispatchable
-		let Contract { addr: contract_addr, .. } =
-			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
-		assert!(<AccountInfo<Test>>::is_contract(&contract_addr));
-		let blake2_addr = H160::from_low_u64_be(9);
-		let system_addr = H160::from_low_u64_be(0x900);
-		let addresses = [contract_addr, blake2_addr, system_addr];
+	ExtBuilder::default()
+		.genesis_config(Some(genesis_config))
+		.existential_deposit(200)
+		.build()
+		.execute_with(|| {
+			DebugFlag::set(bypass_eip3607_for_contracts);
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		// used to test `dispatch_as_fallback_account`
-		let call = Box::new(RuntimeCall::Balances(pallet_balances::Call::transfer_all {
-			dest: EVE,
-			keep_alive: false,
-		}));
+			// the origins from which we try to call a dispatchable
+			let Contract { addr: contract_addr, .. } =
+				builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
+			assert!(<AccountInfo<Test>>::is_contract(&contract_addr));
+			let blake2_addr = H160::from_low_u64_be(9);
+			let system_addr = H160::from_low_u64_be(0x900);
+			let mut addresses = vec![blake2_addr, system_addr];
 
-		for address in addresses.iter() {
-			let origin = <Test as Config>::AddressMapper::to_fallback_account_id(address);
+			if !bypass_eip3607_for_contracts {
+				// If we are setting the bypass config to true, it will only take effect for
+				// contracts, not for precompiles. So if it's not true, we can also test for the
+				// contract.
+				addresses.push(contract_addr);
+			}
+
+			// used to test `dispatch_as_fallback_account`
+			let call = Box::new(RuntimeCall::Balances(pallet_balances::Call::transfer_all {
+				dest: EVE,
+				keep_alive: false,
+			}));
+
+			for address in addresses.iter() {
+				let origin = <Test as Config>::AddressMapper::to_fallback_account_id(address);
+
+				let result =
+					builder::call(BOB_ADDR).origin(RuntimeOrigin::signed(origin.clone())).build();
+				assert_err!(result, DispatchError::BadOrigin);
+
+				let result = builder::eth_call(BOB_ADDR)
+					.origin(Origin::EthTransaction(origin.clone()).into())
+					.build();
+				assert_err!(result, DispatchError::BadOrigin);
+
+				let result = builder::instantiate(Default::default())
+					.origin(RuntimeOrigin::signed(origin.clone()))
+					.build();
+				assert_err!(result, DispatchError::BadOrigin);
+
+				let result = builder::eth_instantiate_with_code(Default::default())
+					.origin(Origin::EthTransaction(origin.clone()).into())
+					.build();
+				assert_err!(result, DispatchError::BadOrigin);
+
+				let result = builder::instantiate_with_code(Default::default())
+					.origin(RuntimeOrigin::signed(origin.clone()))
+					.build();
+				assert_err!(result, DispatchError::BadOrigin);
+
+				let result = <Pallet<Test>>::upload_code(
+					RuntimeOrigin::signed(origin.clone()),
+					Default::default(),
+					<BalanceOf<Test>>::MAX,
+				);
+				assert_err!(result, DispatchError::BadOrigin);
+
+				let result = <Pallet<Test>>::map_account(RuntimeOrigin::signed(origin.clone()));
+				assert_err!(result, DispatchError::BadOrigin);
+
+				let result = <Pallet<Test>>::dispatch_as_fallback_account(
+					RuntimeOrigin::signed(origin.clone()),
+					call.clone(),
+				);
+				assert_err!(result, DispatchError::BadOrigin);
+			}
+		});
+}
+
+#[test]
+fn eip3607_allow_tx_from_contract_if_debug_setting_configured() {
+	let (binary, code_hash) = compile_module("dummy").unwrap();
+
+	let genesis_config = GenesisConfig::<Test> {
+		debug_settings: Some(DebugSettings::new(false, true)),
+		..Default::default()
+	};
+
+	ExtBuilder::default()
+		.genesis_config(Some(genesis_config))
+		.existential_deposit(200)
+		.build()
+		.execute_with(|| {
+			DebugFlag::set(true);
+
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			// the origins from which we try to call a dispatchable
+			let Contract { addr: address, account_id } =
+				builder::bare_instantiate(Code::Upload(binary.clone())).build_and_unwrap_contract();
+			let _ = <Test as Config>::Currency::set_balance(&account_id, 10_000_000_000_000);
+
+			assert!(<AccountInfo<Test>>::is_contract(&address));
+
+			let origin = <Test as Config>::AddressMapper::to_fallback_account_id(&address);
 
 			let result =
 				builder::call(BOB_ADDR).origin(RuntimeOrigin::signed(origin.clone())).build();
-			assert_err!(result, DispatchError::BadOrigin);
+			assert_ok!(result);
 
 			let result = builder::eth_call(BOB_ADDR)
+				.origin(Origin::EthTransaction(origin.clone()).into())
+				.build();
+			assert_ok!(result);
+
+			let result = builder::instantiate(code_hash)
 				.origin(RuntimeOrigin::signed(origin.clone()))
 				.build();
-			assert_err!(result, DispatchError::BadOrigin);
+			assert_ok!(result);
 
-			let result = builder::instantiate(Default::default())
-				.origin(RuntimeOrigin::signed(origin.clone()))
+			let result = builder::eth_instantiate_with_code(binary.clone())
+				.origin(Origin::EthTransaction(origin.clone()).into())
 				.build();
-			assert_err!(result, DispatchError::BadOrigin);
-
-			let result = builder::eth_instantiate_with_code(Default::default())
-				.origin(RuntimeOrigin::signed(origin.clone()))
-				.build();
-			assert_err!(result, DispatchError::BadOrigin);
-
-			let result = builder::instantiate_with_code(Default::default())
-				.origin(RuntimeOrigin::signed(origin.clone()))
-				.build();
-			assert_err!(result, DispatchError::BadOrigin);
-
-			let result = <Pallet<Test>>::upload_code(
-				RuntimeOrigin::signed(origin.clone()),
-				Default::default(),
-				<BalanceOf<Test>>::MAX,
-			);
-			assert_err!(result, DispatchError::BadOrigin);
-
-			let result = <Pallet<Test>>::map_account(RuntimeOrigin::signed(origin.clone()));
-			assert_err!(result, DispatchError::BadOrigin);
+			assert_ok!(result);
 
 			let result = <Pallet<Test>>::dispatch_as_fallback_account(
 				RuntimeOrigin::signed(origin.clone()),
-				call.clone(),
+				Box::new(RuntimeCall::Balances(pallet_balances::Call::transfer_all {
+					dest: EVE,
+					keep_alive: false,
+				})),
 			);
-			assert_err!(result, DispatchError::BadOrigin);
-		}
-	});
+			assert_ok!(result);
+
+			let result = <Pallet<Test>>::upload_code(
+				RuntimeOrigin::signed(origin.clone()),
+				binary,
+				<BalanceOf<Test>>::MAX,
+			);
+			assert_ok!(result);
+		});
 }
 
 #[test]

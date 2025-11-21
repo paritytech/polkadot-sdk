@@ -2376,7 +2376,7 @@ impl<T: Config> Pallet<T> {
 			return Ok(())
 		};
 		if exec::is_precompile::<T, ContractBlob<T>>(&address) ||
-			<AccountInfo<T>>::is_contract(&address)
+			(<AccountInfo<T>>::is_contract(&address) && !DebugSettings::bypass_eip_3607::<T>())
 		{
 			log::debug!(
 				target: crate::LOG_TARGET,
