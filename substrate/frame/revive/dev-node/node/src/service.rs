@@ -221,7 +221,7 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 				create_inherent_data_providers: timestamp_provider,
 			};
 
-			let authorship_future = sc_consensus_manual_seal::run_instant_seal(params);
+			let authorship_future = sc_consensus_manual_seal::run_instant_seal_and_finalize(params);
 
 			task_manager.spawn_essential_handle().spawn_blocking(
 				"instant-seal",

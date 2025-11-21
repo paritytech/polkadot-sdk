@@ -63,38 +63,38 @@ where
 		let universal_location = UniversalLocation::get();
 
 		if network != expected_network {
-			log::trace!(target: "xcm::ethereum_blob_exporter", "skipped due to unmatched bridge network {network:?}.");
+			tracing::trace!(target: "xcm::ethereum_blob_exporter", ?network, "skipped due to unmatched bridge network.");
 			return Err(SendError::NotApplicable)
 		}
 
 		// Cloning destination to avoid modifying the value so subsequent exporters can use it.
 		let dest = destination.clone().ok_or(SendError::MissingArgument)?;
 		if dest != Here {
-			log::trace!(target: "xcm::ethereum_blob_exporter", "skipped due to unmatched remote destination {dest:?}.");
+			tracing::trace!(target: "xcm::ethereum_blob_exporter", destination=?dest, "skipped due to unmatched remote destination.");
 			return Err(SendError::NotApplicable)
 		}
 
 		// Cloning universal_source to avoid modifying the value so subsequent exporters can use it.
 		let (local_net, local_sub) = universal_source.clone()
 			.ok_or_else(|| {
-				log::error!(target: "xcm::ethereum_blob_exporter", "universal source not provided.");
+				tracing::error!(target: "xcm::ethereum_blob_exporter", "universal source not provided.");
 				SendError::MissingArgument
 			})?
 			.split_global()
 			.map_err(|()| {
-				log::error!(target: "xcm::ethereum_blob_exporter", "could not get global consensus from universal source '{universal_source:?}'.");
+				tracing::error!(target: "xcm::ethereum_blob_exporter", ?universal_source, "could not get global consensus.");
 				SendError::NotApplicable
 			})?;
 
 		if Ok(local_net) != universal_location.global_consensus() {
-			log::trace!(target: "xcm::ethereum_blob_exporter", "skipped due to unmatched relay network {local_net:?}.");
+			tracing::trace!(target: "xcm::ethereum_blob_exporter", relay_network=?local_net, "skipped due to unmatched relay network.");
 			return Err(SendError::NotApplicable)
 		}
 
 		let para_id = match local_sub.as_slice() {
 			[Parachain(para_id)] => *para_id,
 			_ => {
-				log::error!(target: "xcm::ethereum_blob_exporter", "could not get parachain id from universal source '{local_sub:?}'.");
+				tracing::error!(target: "xcm::ethereum_blob_exporter", universal_source=?local_sub, "could not get parachain id.");
 				return Err(SendError::NotApplicable)
 			},
 		};
@@ -104,20 +104,20 @@ where
 		let agent_id = match AgentHashedDescription::convert_location(&source_location) {
 			Some(id) => id,
 			None => {
-				log::error!(target: "xcm::ethereum_blob_exporter", "unroutable due to not being able to create agent id. '{source_location:?}'");
+				tracing::error!(target: "xcm::ethereum_blob_exporter", ?source_location, "unroutable due to not being able to create agent id.");
 				return Err(SendError::NotApplicable)
 			},
 		};
 
 		let message = message.take().ok_or_else(|| {
-			log::error!(target: "xcm::ethereum_blob_exporter", "xcm message not provided.");
+			tracing::error!(target: "xcm::ethereum_blob_exporter", "xcm message not provided.");
 			SendError::MissingArgument
 		})?;
 
 		let mut converter =
 			XcmConverter::<ConvertAssetId, ()>::new(&message, expected_network, agent_id);
 		let (command, message_id) = converter.convert().map_err(|err|{
-			log::error!(target: "xcm::ethereum_blob_exporter", "unroutable due to pattern matching error '{err:?}'.");
+			tracing::error!(target: "xcm::ethereum_blob_exporter", error=?err, "unroutable due to pattern matching.");
 			SendError::Unroutable
 		})?;
 
@@ -127,7 +127,7 @@ where
 
 		// validate the message
 		let (ticket, fee) = OutboundQueue::validate(&outbound_message).map_err(|err| {
-			log::error!(target: "xcm::ethereum_blob_exporter", "OutboundQueue validation of message failed. {err:?}");
+			tracing::error!(target: "xcm::ethereum_blob_exporter", error=?err, "OutboundQueue validation of message failed.");
 			SendError::Unroutable
 		})?;
 
@@ -140,16 +140,16 @@ where
 	fn deliver(blob: (Vec<u8>, XcmHash)) -> Result<XcmHash, SendError> {
 		let ticket: OutboundQueue::Ticket = OutboundQueue::Ticket::decode(&mut blob.0.as_ref())
 			.map_err(|_| {
-				log::trace!(target: "xcm::ethereum_blob_exporter", "undeliverable due to decoding error");
+				tracing::trace!(target: "xcm::ethereum_blob_exporter", "undeliverable due to decoding error");
 				SendError::NotApplicable
 			})?;
 
 		let message_id = OutboundQueue::deliver(ticket).map_err(|_| {
-			log::error!(target: "xcm::ethereum_blob_exporter", "OutboundQueue submit of message failed");
+			tracing::error!(target: "xcm::ethereum_blob_exporter", "OutboundQueue submit of message failed");
 			SendError::Transport("other transport error")
 		})?;
 
-		log::info!(target: "xcm::ethereum_blob_exporter", "message delivered {message_id:#?}.");
+		tracing::info!(target: "xcm::ethereum_blob_exporter", "message delivered {message_id:#?}.");
 		Ok(message_id.into())
 	}
 }

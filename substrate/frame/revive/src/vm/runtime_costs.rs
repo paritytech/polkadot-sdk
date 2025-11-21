@@ -138,6 +138,8 @@ pub enum RuntimeCosts {
 	CallInputCloned(u32),
 	/// Weight of calling `seal_instantiate`.
 	Instantiate { input_data_len: u32, balance_transfer: bool, dust_transfer: bool },
+	/// Weight of calling `Create` opcode.
+	Create { init_code_len: u32, balance_transfer: bool, dust_transfer: bool },
 	/// Weight of calling `Ripemd160` precompile for the given input size.
 	Ripemd160(u32),
 	/// Weight of calling `Sha256` precompile for the given input size.
@@ -151,6 +153,8 @@ pub enum RuntimeCosts {
 	HashBlake128(u32),
 	/// Weight of calling `ECERecover` precompile.
 	EcdsaRecovery,
+	/// Weight of calling `P256Verify` precompile.
+	P256Verify,
 	/// Weight of calling `seal_sr25519_verify` for the given input size.
 	Sr25519Verify(u32),
 	/// Weight charged by a precompile.
@@ -306,9 +310,15 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			CallInputCloned(len) => cost_args!(seal_call, 0, 0, len),
 			Instantiate { input_data_len, balance_transfer, dust_transfer } =>
 				T::WeightInfo::seal_instantiate(
-					input_data_len,
 					balance_transfer.into(),
 					dust_transfer.into(),
+					input_data_len,
+				),
+			Create { init_code_len, balance_transfer, dust_transfer } =>
+				T::WeightInfo::evm_instantiate(
+					balance_transfer.into(),
+					dust_transfer.into(),
+					init_code_len,
 				),
 			HashSha256(len) => T::WeightInfo::sha2_256(len),
 			Ripemd160(len) => T::WeightInfo::ripemd_160(len),
@@ -316,6 +326,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			HashBlake256(len) => T::WeightInfo::hash_blake2_256(len),
 			HashBlake128(len) => T::WeightInfo::hash_blake2_128(len),
 			EcdsaRecovery => T::WeightInfo::ecdsa_recover(),
+			P256Verify => T::WeightInfo::p256_verify(),
 			Sr25519Verify(len) => T::WeightInfo::seal_sr25519_verify(len),
 			Precompile(weight) => weight,
 			SetCodeHash { old_code_removed } =>

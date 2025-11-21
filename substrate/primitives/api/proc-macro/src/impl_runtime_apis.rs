@@ -412,6 +412,11 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 							&mut std::cell::RefCell::borrow_mut(&self.changes)
 						);
 
+						#crate_::Extensions::commit_transaction(
+							&mut std::cell::RefCell::borrow_mut(&self.extensions),
+							#crate_::TransactionType::Host,
+						);
+
 						// Will panic on an `Err` below, however we should call commit
 						// on the recorder and the changes together.
 						std::result::Result::and(res, std::result::Result::map_err(res2, drop))
@@ -424,6 +429,11 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 
 						let res2 = #crate_::OverlayedChanges::rollback_transaction(
 							&mut std::cell::RefCell::borrow_mut(&self.changes)
+						);
+
+						#crate_::Extensions::rollback_transaction(
+							&mut std::cell::RefCell::borrow_mut(&self.extensions),
+							#crate_::TransactionType::Host,
 						);
 
 						// Will panic on an `Err` below, however we should call commit
@@ -441,6 +451,11 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 					if let Some(recorder) = &self.recorder {
 						#crate_::ProofRecorder::<Block>::start_transaction(&recorder);
 					}
+
+					#crate_::Extensions::start_transaction(
+						&mut std::cell::RefCell::borrow_mut(&self.extensions),
+						#crate_::TransactionType::Host,
+					);
 				}
 			}
 		}
