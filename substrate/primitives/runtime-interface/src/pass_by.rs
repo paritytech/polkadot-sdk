@@ -351,6 +351,71 @@ where
 	}
 }
 
+/// Pass a buffer into the host by a fat pointer. The host will write data into it.
+///
+/// This casts the value into a `&mut [u8]` and passes a pointer to that byte blob and its length
+/// to the host. Then the host allocates a temporary buffer of the same size and passes it
+/// as a mutable reference to the host function. After the host function finishes the data is
+/// written back into the guest memory.
+///
+/// Raw FFI type: `u64` (a fat pointer; upper 32 bits is the size, lower 32 bits is the pointer)
+pub struct PassFatPointerAndWrite<T>(PhantomData<T>);
+
+impl<T> RIType for PassFatPointerAndWrite<T> {
+	type FFIType = u64;
+	type Inner = T;
+}
+
+#[cfg(not(substrate_runtime))]
+impl<'a, T> FromFFIValue<'a> for PassFatPointerAndWrite<&'a mut [T]>
+where
+	T: ToByteSlice + Default,
+{
+	type Owned = Vec<T>;
+
+	fn from_ffi_value(
+		_context: &mut dyn FunctionContext,
+		arg: Self::FFIType,
+	) -> Result<Self::Owned> {
+		let (_, len) = unpack_ptr_and_len(arg);
+		let mut vec = Vec::with_capacity(len as usize);
+		vec.resize_with(len as usize, T::default);
+		Ok(vec)
+	}
+
+	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
+		&mut *owned
+	}
+
+	fn write_back_into_runtime(
+		value: Self::Owned,
+		context: &mut dyn FunctionContext,
+		arg: Self::FFIType,
+	) -> Result<()> {
+		let (ptr, len) = unpack_ptr_and_len(arg);
+		assert_eq!(len as usize, value.len() * core::mem::size_of::<T>());
+		context.write_memory(Pointer::new(ptr), value.as_byte_slice())
+	}
+}
+
+#[cfg(substrate_runtime)]
+impl<'a, T> IntoFFIValue for PassFatPointerAndWrite<&'a mut [T]>
+where
+	T: ToMutByteSlice,
+{
+	type Destructor = ();
+
+	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
+		(
+			pack_ptr_and_len(
+				value.as_mut_byte_slice().as_ptr() as u32,
+				value.len() as u32 * core::mem::size_of::<T>() as u32,
+			),
+			(),
+		)
+	}
+}
+
 /// Pass a buffer into the host by a fat pointer. The host will write input data into it.
 ///
 /// Handles a specific case of passing input data from the host to the runtime after the runtime
@@ -458,62 +523,6 @@ where
 		(value.as_ptr() as u32, ())
 	}
 }
-/// Pass a pointer to a primitive number into the host and write to it after the host call ends.
-///
-/// This casts a given value into `&mut [u8]` and passes a pointer to
-/// that byte slice into the host. The host *doesn't* read from this and instead creates
-/// a default instance of type `T` and passes it as a `&mut T` into the host function
-/// implementation. After the host function finishes this value is then cast into a `&[u8]` and
-/// written back into the guest memory.
-///
-/// Raw FFI type: `u32` (a pointer)
-pub struct PassPointerToPrimitiveAndWrite<T>(PhantomData<T>);
-
-impl<T> RIType for PassPointerToPrimitiveAndWrite<T> {
-	type FFIType = u32;
-	type Inner = T;
-}
-
-#[cfg(not(substrate_runtime))]
-impl<'a, T> FromFFIValue<'a> for PassPointerToPrimitiveAndWrite<&'a mut T>
-where
-	T: Primitive,
-{
-	type Owned = T;
-
-	fn from_ffi_value(
-		_context: &mut dyn FunctionContext,
-		_arg: Self::FFIType,
-	) -> Result<Self::Owned> {
-		Ok(T::default())
-	}
-
-	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
-		&mut *owned
-	}
-
-	fn write_back_into_runtime(
-		value: Self::Owned,
-		context: &mut dyn FunctionContext,
-		arg: Self::FFIType,
-	) -> Result<()> {
-		let value = value.to_bytes();
-		context.write_memory(Pointer::new(arg), &value)
-	}
-}
-
-#[cfg(substrate_runtime)]
-impl<'a, T> IntoFFIValue for PassPointerToPrimitiveAndWrite<&'a mut T>
-where
-	T: Primitive,
-{
-	type Destructor = ();
-
-	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
-		let value = value.to_bytes();
-		(value.as_ptr() as u32, ())
-	}
-}
 
 /// Pass a `T` into the host using the SCALE codec.
 ///
@@ -607,29 +616,16 @@ impl<'a, T: codec::Encode> IntoFFIValue for PassFatPointerAndDecodeSlice<&'a [T]
 }
 
 /// A trait signifying a primitive type.
-trait Primitive: Copy + Default {
-	fn to_bytes(&self) -> Vec<u8>;
-}
+trait Primitive: Copy + Default {}
 
-macro_rules! impl_primitive {
-	($ty:ty) => {
-		impl Primitive for $ty {
-			fn to_bytes(&self) -> Vec<u8> {
-				self.to_le_bytes().to_vec()
-			}
-		}
-	};
-}
-
-impl_primitive!(u8);
-impl_primitive!(u16);
-impl_primitive!(u32);
-impl_primitive!(u64);
-
-impl_primitive!(i8);
-impl_primitive!(i16);
-impl_primitive!(i32);
-impl_primitive!(i64);
+impl Primitive for u8 {}
+impl Primitive for u16 {}
+impl Primitive for u32 {}
+impl Primitive for u64 {}
+impl Primitive for i8 {}
+impl Primitive for i16 {}
+impl Primitive for i32 {}
+impl Primitive for i64 {}
 
 /// Pass `T` through the FFI boundary by first converting it to `U` in the runtime, and then
 /// converting it back to `T` on the host's side.

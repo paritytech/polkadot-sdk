@@ -120,8 +120,8 @@ use sp_runtime_interface::{
 		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer,
 		ConvertAndPassAs, ConvertAndReturnAs, PassAs, PassFatPointerAndDecode,
 		PassFatPointerAndDecodeSlice, PassFatPointerAndRead, PassFatPointerAndReadWrite,
-		PassFatPointerAndWriteInputData, PassMaybeFatPointerAndRead, PassPointerAndRead,
-		PassPointerAndReadCopy, PassPointerAndWrite, PassPointerToPrimitiveAndWrite, ReturnAs,
+		PassFatPointerAndWrite, PassFatPointerAndWriteInputData, PassMaybeFatPointerAndRead,
+		PassPointerAndRead, PassPointerAndReadCopy, PassPointerAndWrite, ReturnAs,
 	},
 	runtime_interface, Pointer,
 };
@@ -275,6 +275,55 @@ impl From<MultiRemovalResults> for KillStorageResult {
 		}
 	}
 }
+
+/// Storage iteration counters
+#[repr(C)]
+#[derive(Default)]
+pub struct StorageIterations {
+	/// The number of backend iterations.
+	pub backend: u32,
+	/// The number of unique iterations.
+	pub unique: u32,
+	/// The number of loops.
+	pub loops: u32,
+}
+
+impl AsRef<[u8]> for StorageIterations {
+	fn as_ref(&self) -> &[u8] {
+		#[cfg(target_endian = "big")]
+		compile_error!("StorageIterations only supports little-endian architectures");
+
+		// SAFETY: The layout of this type is the same as for [u32; 3] and all the possible byte
+		// sequences are valid for this type so casting it from and to a byte slice is safe.
+		// However, the data may become corrupted when copied if host and runtime have different
+		// endianness, so that is checked statically.
+		unsafe {
+			core::slice::from_raw_parts(
+				self as *const Self as *const u8,
+				core::mem::size_of::<Self>(),
+			)
+		}
+	}
+}
+
+impl AsMut<[u8]> for StorageIterations {
+	fn as_mut(&mut self) -> &mut [u8] {
+		#[cfg(target_endian = "big")]
+		compile_error!("StorageIterations only supports little-endian architectures");
+
+		// SAFETY: The layout of this type is the same as for [u32; 3] and all the possible byte
+		// sequences are valid for this type so casting it from and to a byte slice is safe.
+		// However, the data may become corrupted when copied if host and runtime have different
+		// endianness, so that is checked statically.
+		unsafe {
+			core::slice::from_raw_parts_mut(
+				self as *mut Self as *mut u8,
+				core::mem::size_of::<Self>(),
+			)
+		}
+	}
+}
+
 /// A workaround for 512-bit values (`[u8; 64]`) not implementing `Default`.
 pub struct Val512(pub [u8; 64]);
 
@@ -598,7 +647,7 @@ pub trait Storage {
 	fn read(
 		&mut self,
 		key: PassFatPointerAndRead<&[u8]>,
-		value_out: PassFatPointerAndReadWrite<&mut [u8]>,
+		value_out: PassFatPointerAndWrite<&mut [u8]>,
 		value_offset: u32,
 	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
 		self.storage(key).map(|value| {
@@ -720,10 +769,8 @@ pub trait Storage {
 		maybe_prefix: PassFatPointerAndRead<&[u8]>,
 		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
 		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
-		maybe_cursor_out: PassFatPointerAndReadWrite<&mut [u8]>,
-		backend: PassPointerToPrimitiveAndWrite<&mut u32>,
-		unique: PassPointerToPrimitiveAndWrite<&mut u32>,
-		loops: PassPointerToPrimitiveAndWrite<&mut u32>,
+		maybe_cursor_out: PassFatPointerAndWrite<&mut [u8]>,
+		counters: PassPointerAndWrite<&mut StorageIterations, 12>,
 	) -> u32 {
 		let removal_results = Externalities::clear_prefix(
 			*self,
@@ -738,9 +785,9 @@ pub trait Storage {
 				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
 			}
 		}
-		*backend = removal_results.backend;
-		*unique = removal_results.unique;
-		*loops = removal_results.loops;
+		counters.backend = removal_results.backend;
+		counters.unique = removal_results.unique;
+		counters.loops = removal_results.loops;
 		cursor_out_len as u32
 	}
 
@@ -754,15 +801,17 @@ pub trait Storage {
 	) -> MultiRemovalResults {
 		let mut result = MultiRemovalResults::default();
 		let mut maybe_cursor_out = vec![0u8; 1024];
+		let mut counters = StorageIterations::default();
 		let cursor_len = clear_prefix__wrapped(
 			maybe_prefix.as_ref(),
 			maybe_limit,
 			maybe_cursor_in,
 			&mut maybe_cursor_out,
-			&mut result.backend,
-			&mut result.unique,
-			&mut result.loops,
+			&mut counters,
 		) as usize;
+		result.backend = counters.backend;
+		result.unique = counters.unique;
+		result.loops = counters.loops;
 		if cursor_len > 0 {
 			if maybe_cursor_out.len() < cursor_len {
 				maybe_cursor_out.resize(cursor_len, 0);
@@ -814,7 +863,7 @@ pub trait Storage {
 	/// Fills provided output buffer with the SCALE encoded hash.
 	#[version(3)]
 	#[wrapped]
-	fn root(&mut self, out: PassFatPointerAndReadWrite<&mut [u8]>) -> u32 {
+	fn root(&mut self, out: PassFatPointerAndWrite<&mut [u8]>) -> u32 {
 		let root = self.storage_root(StateVersion::V0);
 		if out.len() >= root.len() {
 			out[..root.len()].copy_from_slice(&root[..]);
@@ -859,7 +908,7 @@ pub trait Storage {
 	fn next_key(
 		&mut self,
 		key_in: PassFatPointerAndRead<&[u8]>,
-		key_out: PassFatPointerAndReadWrite<&mut [u8]>,
+		key_out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> u32 {
 		let next_key = self.next_storage_key(key_in);
 		let next_key_len = next_key.as_ref().map(|k| k.len()).unwrap_or(0);
@@ -984,7 +1033,7 @@ pub trait DefaultChildStorage {
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
 		key: PassFatPointerAndRead<&[u8]>,
-		value_out: PassFatPointerAndReadWrite<&mut [u8]>,
+		value_out: PassFatPointerAndWrite<&mut [u8]>,
 		value_offset: u32,
 	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
 		let child_info = ChildInfo::new_default(storage_key);
@@ -1085,10 +1134,8 @@ pub trait DefaultChildStorage {
 		storage_key: PassFatPointerAndRead<&[u8]>,
 		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
 		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
-		maybe_cursor_out: PassFatPointerAndReadWrite<&mut [u8]>,
-		backend: PassPointerToPrimitiveAndWrite<&mut u32>,
-		unique: PassPointerToPrimitiveAndWrite<&mut u32>,
-		loops: PassPointerToPrimitiveAndWrite<&mut u32>,
+		maybe_cursor_out: PassFatPointerAndWrite<&mut [u8]>,
+		counters: PassPointerAndWrite<&mut StorageIterations, 12>,
 	) -> u32 {
 		let child_info = ChildInfo::new_default(storage_key);
 		let removal_results = self.kill_child_storage(
@@ -1103,9 +1150,9 @@ pub trait DefaultChildStorage {
 				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
 			}
 		}
-		*backend = removal_results.backend;
-		*unique = removal_results.unique;
-		*loops = removal_results.loops;
+		counters.backend = removal_results.backend;
+		counters.unique = removal_results.unique;
+		counters.loops = removal_results.loops;
 		cursor_out_len as u32
 	}
 
@@ -1119,15 +1166,17 @@ pub trait DefaultChildStorage {
 	) -> MultiRemovalResults {
 		let mut result = MultiRemovalResults::default();
 		let mut maybe_cursor_out = vec![0u8; 1024];
+		let mut counters = StorageIterations::default();
 		let cursor_len = storage_kill__wrapped(
 			storage_key.as_ref(),
 			maybe_limit,
 			maybe_cursor,
 			&mut maybe_cursor_out[..],
-			&mut result.backend,
-			&mut result.unique,
-			&mut result.loops,
+			&mut counters,
 		) as usize;
+		result.backend = counters.backend;
+		result.unique = counters.unique;
+		result.loops = counters.loops;
 		if cursor_len > 0 {
 			if maybe_cursor_out.len() < cursor_len {
 				maybe_cursor_out.resize(cursor_len, 0);
@@ -1191,10 +1240,8 @@ pub trait DefaultChildStorage {
 		prefix: PassFatPointerAndRead<&[u8]>,
 		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
 		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
-		maybe_cursor_out: PassFatPointerAndReadWrite<&mut [u8]>,
-		backend: PassPointerToPrimitiveAndWrite<&mut u32>,
-		unique: PassPointerToPrimitiveAndWrite<&mut u32>,
-		loops: PassPointerToPrimitiveAndWrite<&mut u32>,
+		maybe_cursor_out: PassFatPointerAndWrite<&mut [u8]>,
+		counters: PassPointerAndWrite<&mut StorageIterations, 12>,
 	) -> u32 {
 		let child_info = ChildInfo::new_default(storage_key);
 		let removal_results = self.clear_child_prefix(
@@ -1210,9 +1257,9 @@ pub trait DefaultChildStorage {
 				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
 			}
 		}
-		*backend = removal_results.backend;
-		*unique = removal_results.unique;
-		*loops = removal_results.loops;
+		counters.backend = removal_results.backend;
+		counters.unique = removal_results.unique;
+		counters.loops = removal_results.loops;
 		cursor_out_len as u32
 	}
 
@@ -1227,16 +1274,18 @@ pub trait DefaultChildStorage {
 	) -> MultiRemovalResults {
 		let mut result = MultiRemovalResults::default();
 		let mut maybe_cursor_out = vec![0u8; 1024];
+		let mut counters = StorageIterations::default();
 		let cursor_len = clear_prefix__wrapped(
 			storage_key.as_ref(),
 			maybe_prefix.as_ref(),
 			maybe_limit,
 			maybe_cursor_in,
 			&mut maybe_cursor_out,
-			&mut result.backend,
-			&mut result.unique,
-			&mut result.loops,
+			&mut counters,
 		) as usize;
+		result.backend = counters.backend;
+		result.unique = counters.unique;
+		result.loops = counters.loops;
 		if cursor_len > 0 {
 			if maybe_cursor_out.len() < cursor_len {
 				maybe_cursor_out.resize(cursor_len, 0);
@@ -1291,7 +1340,7 @@ pub trait DefaultChildStorage {
 	fn root(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
-		out: PassFatPointerAndReadWrite<&mut [u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> u32 {
 		let child_info = ChildInfo::new_default(storage_key);
 		let root = self.child_storage_root(&child_info, StateVersion::V0);
@@ -1337,7 +1386,7 @@ pub trait DefaultChildStorage {
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
 		key_in: PassFatPointerAndRead<&[u8]>,
-		key_out: PassFatPointerAndReadWrite<&mut [u8]>,
+		key_out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> u32 {
 		let child_info = ChildInfo::new_default(storage_key);
 		let next_key = self.next_child_storage_key(&child_info, key_in);
@@ -1714,7 +1763,7 @@ pub trait Misc {
 	fn runtime_version(
 		&mut self,
 		wasm: PassFatPointerAndRead<&[u8]>,
-		out: PassFatPointerAndReadWrite<&mut [u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
 		use sp_core::traits::ReadRuntimeVersionExt;
 
@@ -1760,7 +1809,7 @@ pub trait Misc {
 	/// Returns the length of the cursor or `None` if no cursor is stored.
 	fn last_cursor(
 		&mut self,
-		out: PassFatPointerAndReadWrite<&mut [u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
 		let cursor = self.take_last_cursor()?;
 
@@ -3220,7 +3269,7 @@ pub trait Offchain {
 		&mut self,
 		kind: PassAs<StorageKind, u32>,
 		key: PassFatPointerAndRead<&[u8]>,
-		value_out: PassFatPointerAndReadWrite<&mut [u8]>,
+		value_out: PassFatPointerAndWrite<&mut [u8]>,
 		offset: u32,
 	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
 		self.extension::<OffchainDbExt>()
@@ -3379,7 +3428,7 @@ pub trait Offchain {
 		&mut self,
 		ids: PassFatPointerAndDecodeSlice<&[HttpRequestId]>,
 		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
-		out: PassFatPointerAndReadWrite<&mut [u32]>,
+		out: PassFatPointerAndWrite<&mut [u32]>,
 	) {
 		assert_eq!(out.len(), ids.len());
 		let statuses = self
@@ -3430,7 +3479,7 @@ pub trait Offchain {
 		&mut self,
 		request_id: PassAs<HttpRequestId, u16>,
 		header_index: u32,
-		out: PassFatPointerAndReadWrite<&mut [u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
 		let headers = self
 			.extension::<OffchainWorkerExt>()
@@ -3453,7 +3502,7 @@ pub trait Offchain {
 		&mut self,
 		request_id: PassAs<HttpRequestId, u16>,
 		header_index: u32,
-		out: PassFatPointerAndReadWrite<&mut [u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
 		let headers = self
 			.extension::<OffchainWorkerExt>()
@@ -3528,7 +3577,7 @@ pub trait Offchain {
 	fn http_response_read_body(
 		&mut self,
 		request_id: PassAs<HttpRequestId, u16>,
-		buffer: PassFatPointerAndReadWrite<&mut [u8]>,
+		buffer: PassFatPointerAndWrite<&mut [u8]>,
 		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
 	) -> ConvertAndReturnAs<Result<u32, HttpError>, RIIntResult<u32, RIHttpError>, i64> {
 		self.extension::<OffchainWorkerExt>()

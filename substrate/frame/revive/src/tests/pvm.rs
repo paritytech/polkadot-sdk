@@ -2965,7 +2965,10 @@ fn block_hash_works() {
 
 		// Store block hash in pallet-revive BlockHash mapping
 		let block_hash = H256::from([1; 32]);
-		crate::BlockHash::<Test>::insert(U256::from(0u32), H256::from(block_hash));
+		crate::BlockHash::<Test>::insert(
+			crate::BlockNumberFor::<Test>::from(0u32),
+			H256::from(block_hash),
+		);
 
 		assert_ok!(builder::call(addr)
 			.data((U256::zero(), H256::from(block_hash)).encode())
@@ -4240,19 +4243,31 @@ fn prestate_tracing_works() {
 		// redact balance so that tests are resilient to weight changes
 		let alice_redacted_balance = Some(U256::from(1));
 
-		let test_cases: Vec<(Box<dyn FnOnce()>, _, _)> = vec![
-			(
-				Box::new(|| {
-					builder::bare_call(addr)
-						.data((3u32, addr_callee).encode())
-						.build_and_unwrap_result();
+		struct TestCase {
+			description: &'static str,
+			exec_call: Box<dyn FnOnce()>,
+			config: PrestateTracerConfig,
+			expected_trace: PrestateTrace,
+		}
+
+		let test_cases: Vec<TestCase> = vec![
+			TestCase {
+				description: "prestate mode with cross-contract call",
+				exec_call: Box::new({
+					let addr = addr;
+					let addr_callee = addr_callee;
+					move || {
+						builder::bare_call(addr)
+							.data((3u32, addr_callee).encode())
+							.build_and_unwrap_result();
+					}
 				}),
-				PrestateTracerConfig {
+				config: PrestateTracerConfig {
 					diff_mode: false,
 					disable_storage: false,
 					disable_code: false,
 				},
-				PrestateTrace::Prestate(BTreeMap::from([
+				expected_trace: PrestateTrace::Prestate(BTreeMap::from([
 					(
 						ALICE_ADDR,
 						PrestateTraceInfo {
@@ -4284,19 +4299,24 @@ fn prestate_tracing_works() {
 						},
 					),
 				])),
-			),
-			(
-				Box::new(|| {
-					builder::bare_call(addr)
-						.data((3u32, addr_callee).encode())
-						.build_and_unwrap_result();
+			},
+			TestCase {
+				description: "diff mode with cross-contract call",
+				exec_call: Box::new({
+					let addr = addr;
+					let addr_callee = addr_callee;
+					move || {
+						builder::bare_call(addr)
+							.data((3u32, addr_callee).encode())
+							.build_and_unwrap_result();
+					}
 				}),
-				PrestateTracerConfig {
+				config: PrestateTracerConfig {
 					diff_mode: true,
 					disable_storage: false,
 					disable_code: false,
 				},
-				PrestateTrace::DiffMode {
+				expected_trace: PrestateTrace::DiffMode {
 					pre: BTreeMap::from([
 						(
 							BOB_ADDR,
@@ -4332,19 +4352,23 @@ fn prestate_tracing_works() {
 						),
 					]),
 				},
-			),
-			(
-				Box::new(|| {
-					builder::bare_instantiate(Code::Upload(dummy_code.clone()))
-						.salt(None)
-						.build_and_unwrap_result();
+			},
+			TestCase {
+				description: "diff mode with contract instantiation",
+				exec_call: Box::new({
+					let dummy_code = dummy_code.clone();
+					move || {
+						builder::bare_instantiate(Code::Upload(dummy_code))
+							.salt(None)
+							.build_and_unwrap_result();
+					}
 				}),
-				PrestateTracerConfig {
+				config: PrestateTracerConfig {
 					diff_mode: true,
 					disable_storage: false,
 					disable_code: false,
 				},
-				PrestateTrace::DiffMode {
+				expected_trace: PrestateTrace::DiffMode {
 					pre: BTreeMap::from([(
 						ALICE_ADDR,
 						PrestateTraceInfo {
@@ -4373,10 +4397,10 @@ fn prestate_tracing_works() {
 						),
 					]),
 				},
-			),
+			},
 		];
 
-		for (exec_call, config, expected_trace) in test_cases.into_iter() {
+		for TestCase { description, exec_call, config, expected_trace } in test_cases.into_iter() {
 			let mut tracer = PrestateTracer::<Test>::new(config);
 			trace(&mut tracer, || {
 				exec_call();
@@ -4401,7 +4425,7 @@ fn prestate_tracing_works() {
 				},
 			}
 
-			assert_eq!(trace, expected_trace);
+			assert_eq!(trace, expected_trace, "Trace mismatch for: {description}");
 		}
 	});
 }
@@ -5164,4 +5188,165 @@ fn existential_deposit_shall_not_charged_twice() {
 		// check we charged ed only 1 time
 		assert_eq!(get_balance(&callee_account), Contracts::min_balance());
 	});
+}
+
+#[test]
+fn self_destruct_by_syscall_tracing_works() {
+	use crate::{
+		evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig, Tracer},
+		Trace,
+	};
+
+	let (binary, _code_hash) = compile_module("self_destruct_by_syscall").unwrap();
+
+	struct TestCase {
+		description: &'static str,
+		create_tracer: Box<dyn FnOnce() -> Tracer<Test>>,
+		expected_trace_fn: Box<dyn FnOnce(H160, Vec<u8>) -> Trace>,
+	}
+
+	let test_cases = vec![
+		TestCase {
+			description: "CallTracer",
+			create_tracer: Box::new(|| {
+				Tracer::CallTracer(CallTracer::new(Default::default(), |_| U256::zero()))
+			}),
+			expected_trace_fn: Box::new(|addr, _binary| {
+				Trace::Call(CallTrace {
+					from: ALICE_ADDR,
+					to: addr,
+					call_type: CallType::Call,
+					value: Some(U256::zero()),
+					calls: vec![CallTrace {
+						from: addr,
+						to: DJANGO_ADDR,
+						call_type: CallType::Selfdestruct,
+						value: Some(Pallet::<Test>::convert_native_to_evm(100_000u64)),
+						..Default::default()
+					}],
+					..Default::default()
+				})
+			}),
+		},
+		TestCase {
+			description: "PrestateTracer (diff mode)",
+			create_tracer: Box::new(|| {
+				Tracer::PrestateTracer(PrestateTracer::new(PrestateTracerConfig {
+					diff_mode: true,
+					disable_storage: false,
+					disable_code: false,
+				}))
+			}),
+			expected_trace_fn: Box::new(|addr, binary| {
+				use alloy_core::hex;
+
+				let json = r#"{
+					"pre": {
+						"{{DJANGO_ADDR}}": {
+							"balance": "{{DJANGO_BALANCE}}"
+						},
+						"{{CONTRACT_ADDR}}": {
+							"balance": "{{CONTRACT_BALANCE}}",
+							"nonce": 1,
+							"code": "{{CONTRACT_CODE}}"
+						}
+					},
+					"post": {
+						"{{DJANGO_ADDR}}": {
+							"balance": "{{DJANGO_BALANCE_POST}}"
+						},
+						"{{CONTRACT_ADDR}}": {
+							"balance": "0x0"
+						}
+					}
+				}"#;
+
+				let django_balance = Pallet::<Test>::evm_balance(&DJANGO_ADDR);
+				let contract_balance = Pallet::<Test>::evm_balance(&addr);
+				let django_balance_post = contract_balance - 50_000_000u64;
+
+				let json = json
+					.replace("{{DJANGO_ADDR}}", &format!("{:#x}", DJANGO_ADDR))
+					.replace("{{CONTRACT_ADDR}}", &format!("{:#x}", addr))
+					.replace("{{DJANGO_BALANCE}}", &format!("{:#x}", django_balance))
+					.replace("{{CONTRACT_BALANCE}}", &format!("{:#x}", contract_balance))
+					.replace("{{DJANGO_BALANCE_POST}}", &format!("{:#x}", django_balance_post))
+					.replace("{{CONTRACT_CODE}}", &format!("0x{}", hex::encode(&binary)));
+
+				let expected: PrestateTrace = serde_json::from_str(&json).unwrap();
+				Trace::Prestate(expected)
+			}),
+		},
+		TestCase {
+			description: "PrestateTracer (prestate mode)",
+			create_tracer: Box::new(|| {
+				Tracer::PrestateTracer(PrestateTracer::new(PrestateTracerConfig {
+					diff_mode: false,
+					disable_storage: false,
+					disable_code: false,
+				}))
+			}),
+			expected_trace_fn: Box::new(|addr, binary| {
+				use alloy_core::hex;
+
+				let json = r#"{
+					"{{ALICE_ADDR}}": {
+						"balance": "{{ALICE_BALANCE}}",
+						"nonce": 1
+					},
+					"{{CONTRACT_ADDR}}": {
+						"balance": "{{CONTRACT_BALANCE}}",
+						"nonce": 1,
+						"code": "{{CONTRACT_CODE}}"
+					},
+					"{{DJANGO_ADDR}}": {
+						"balance": "{{DJANGO_BALANCE}}"
+					}
+				}"#;
+
+				let alice_balance = Pallet::<Test>::evm_balance(&ALICE_ADDR);
+				let contract_balance = Pallet::<Test>::evm_balance(&addr);
+				let django_balance = Pallet::<Test>::evm_balance(&DJANGO_ADDR);
+
+				let json = json
+					.replace("{{ALICE_ADDR}}", &format!("{:#x}", ALICE_ADDR))
+					.replace("{{CONTRACT_ADDR}}", &format!("{:#x}", addr))
+					.replace("{{DJANGO_ADDR}}", &format!("{:#x}", DJANGO_ADDR))
+					.replace("{{ALICE_BALANCE}}", &format!("{:#x}", alice_balance))
+					.replace("{{CONTRACT_BALANCE}}", &format!("{:#x}", contract_balance))
+					.replace("{{DJANGO_BALANCE}}", &format!("{:#x}", django_balance))
+					.replace("{{CONTRACT_CODE}}", &format!("0x{}", hex::encode(&binary)));
+
+				let expected: PrestateTrace = serde_json::from_str(&json).unwrap();
+				Trace::Prestate(expected)
+			}),
+		},
+	];
+
+	for TestCase { description, create_tracer, expected_trace_fn } in test_cases {
+		ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary.clone()))
+				.native_value(100_000)
+				.build_and_unwrap_contract();
+
+			get_contract(&addr);
+
+			let expected_trace = expected_trace_fn(addr, binary.clone());
+			let mut tracer = create_tracer();
+			trace(tracer.as_tracing(), || {
+				builder::call(addr).build().unwrap();
+			});
+
+			let trace = tracer.collect_trace();
+
+			let trace_wrapped = trace.map(|t| match t {
+				crate::evm::Trace::Call(ct) => Trace::Call(ct),
+				crate::evm::Trace::Prestate(pt) => Trace::Prestate(pt),
+			});
+
+			assert_eq!(trace_wrapped, Some(expected_trace), "Trace mismatch for: {}", description);
+		});
+	}
 }
