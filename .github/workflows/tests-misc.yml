@@ -382,7 +382,7 @@ jobs:
       - name: Install resolc
         run: |
           source $HOME/.cargo/env
-          VERSION="0.3.0"
+          VERSION="0.5.0"
           ASSET_URL="https://github.com/paritytech/revive/releases/download/v$VERSION/resolc-universal-apple-darwin"
           echo "Downloading resolc v$VERSION from $ASSET_URL"
           curl -Lsf --show-error -o $HOME/.cargo/bin/resolc "$ASSET_URL"
