@@ -86,7 +86,6 @@ impl<Block: BlockT> ArchiveDb<Block> {
 		storage_type: StorageType,
 		key: &[u8],
 	) -> Result<Option<StorageValue>, DefaultError> {
-		log::trace!("Archive storage query: {}", key.hex("0x"));
 		let full_key = FullStorageKey::new(key, storage_type, self.block_number);
 		let mut iter = self
 			.db
@@ -150,6 +149,12 @@ impl<Block: BlockT> ArchiveDb<Block> {
 	) {
 		for (key, value) in storage.top {
 			let full_key = FullStorageKey::new(&key, StorageType::Main, block_number);
+			log::trace!(
+				"Archive storage new pair: {} is {:?}",
+				key.hex("0x"),
+				value.as_slice().hex("0x")
+			);
+
 			transaction.set_from_vec(columns::ARCHIVE, full_key.as_ref(), Some(value).encode());
 		}
 
@@ -161,6 +166,13 @@ impl<Block: BlockT> ArchiveDb<Block> {
 					StorageType::Child,
 					block_number,
 				);
+				log::trace!(
+					"Archive child storage {} new pair: {} is {:?}",
+					info.storage_key().hex("0x"),
+					key.hex("0x"),
+					value.as_slice().hex("0x")
+				);
+
 				transaction.set_from_vec(columns::ARCHIVE, full_key.as_ref(), Some(value).encode());
 			}
 		}
@@ -173,6 +185,11 @@ impl<Block: BlockT> ArchiveDb<Block> {
 	) {
 		for (key, value) in storage {
 			let full_key = FullStorageKey::new(&key, StorageType::Main, block_number);
+			log::trace!(
+				"Archive storage updated pair: {} is {:?}",
+				key.hex("0x"),
+				value.as_ref().map(|v| v.hex("0x"))
+			);
 			transaction.set_from_vec(columns::ARCHIVE, full_key.as_ref(), value.encode());
 		}
 	}
@@ -190,6 +207,13 @@ impl<Block: BlockT> ArchiveDb<Block> {
 					StorageType::Child,
 					block_number,
 				);
+				log::trace!(
+					"Archive child storage {} updated pair: {} is {:?}",
+					info.storage_key().hex("0x"),
+					key.hex("0x"),
+					value.as_ref().map(|v| v.hex("0x"))
+				);
+
 				transaction.set_from_vec(columns::ARCHIVE, full_key.as_ref(), value.encode());
 			}
 		}

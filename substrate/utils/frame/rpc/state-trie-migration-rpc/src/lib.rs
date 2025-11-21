@@ -82,7 +82,7 @@ where
 		Some(backend) => backend,
 		None =>
 			return Err(
-				"Current backend us is not a trie backend and thus doesn't support this operation"
+				"Current backend is not a trie backend and thus doesn't support this operation"
 					.to_string(),
 			),
 	};
