@@ -89,6 +89,8 @@ fn max_consumed_deposit_integration_refunds_subframes(fixture_type: FixtureType)
 
 #[test]
 fn substrate_metering_initialization_works() {
+	let gas_scale = <Test as Config>::GasScale::get();
+
 	let tests = vec![
 		(5_000_000_000, 1_000_000_000, 2_000, Some((2999999500, 1499999750, 11107, 599999900))),
 		(6_000_000_000, 1_000_000_000, 2_000, Some((3999999500, 1999999750, 13728, 799999900))),
@@ -110,14 +112,14 @@ fn substrate_metering_initialization_works() {
 					EthTxInfo::<Test>::new(100, Weight::from_parts(extra_ref_time, extra_proof));
 				let transaction_meter =
 					TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
-						eth_gas_limit,
+						eth_gas_limit: eth_gas_limit / gas_scale,
 						maybe_weight_limit: None,
 						eth_tx_info,
 					});
 
 				if let Some((gas_left, ref_time_left, proof_size_left, deposit_left)) = remaining {
 					let transaction_meter = transaction_meter.unwrap();
-					assert_eq!(gas_left, transaction_meter.eth_gas_left().unwrap());
+					assert_eq!(gas_left / gas_scale, transaction_meter.eth_gas_left().unwrap());
 					assert_eq!(
 						Weight::from_parts(ref_time_left, proof_size_left),
 						transaction_meter.weight_left().unwrap()
@@ -145,7 +147,7 @@ fn substrate_metering_initialization_works() {
 					EthTxInfo::<Test>::new(100, Weight::from_parts(1_000_000_000, 2_000));
 				let transaction_meter =
 					TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
-						eth_gas_limit: 5_000_000_000,
+						eth_gas_limit: 5_000_000_000 / gas_scale,
 						maybe_weight_limit: Some(Weight::from_parts(
 							ref_time_limit,
 							proof_size_limit,
@@ -166,6 +168,7 @@ fn substrate_metering_initialization_works() {
 fn substrate_metering_charges_works() {
 	use Charge::{D, W};
 
+	let gas_scale = <Test as Config>::GasScale::get();
 	let tests = vec![
 		(
 			(5_000_000_000, 1_000_000_000, 2_000),
@@ -236,7 +239,7 @@ fn substrate_metering_charges_works() {
 					EthTxInfo::<Test>::new(100, Weight::from_parts(extra_ref_time, extra_proof));
 				let mut transaction_meter =
 					TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
-						eth_gas_limit,
+						eth_gas_limit: eth_gas_limit / gas_scale,
 						maybe_weight_limit: None,
 						eth_tx_info,
 					})
@@ -267,13 +270,16 @@ fn substrate_metering_charges_works() {
 					)) = remaining
 					{
 						assert!(is_ok);
-						assert_eq!(gas_left, transaction_meter.eth_gas_left().unwrap());
+						assert_eq!(gas_left / gas_scale, transaction_meter.eth_gas_left().unwrap());
 						assert_eq!(
 							Weight::from_parts(ref_time_left, proof_size_left),
 							transaction_meter.weight_left().unwrap()
 						);
 						assert_eq!(deposit_left, transaction_meter.deposit_left().unwrap());
-						assert_eq!(gas_consumed, transaction_meter.total_consumed_gas());
+						assert_eq!(
+							gas_consumed / gas_scale,
+							transaction_meter.total_consumed_gas()
+						);
 					} else {
 						assert!(!is_ok);
 					}
@@ -286,6 +292,7 @@ fn substrate_metering_charges_works() {
 fn substrate_nesting_works() {
 	use CallResources::{Ethereum, NoLimits, WeightDeposit};
 
+	let gas_scale = <Test as Config>::GasScale::get();
 	let tests = vec![
 		(
 			((5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000i64), NoLimits),
@@ -374,9 +381,9 @@ fn substrate_nesting_works() {
 		(
 			(
 				(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
-				Ethereum { gas: 2999992499, add_stipend: false },
+				Ethereum { gas: 2999992490, add_stipend: false },
 			),
-			Some((2999992499, 1499996249, 10107, 599998499, 2000007500)),
+			Some((2999992490, 1499996245, 10107, 599998498, 2000007500)),
 		),
 		(
 			(
@@ -388,16 +395,9 @@ fn substrate_nesting_works() {
 		(
 			(
 				(5_000_000_000, 1_000_000_000, 3000, 2000, 100000, -7000000000),
-				Ethereum { gas: 708617664, add_stipend: false },
+				Ethereum { gas: 708617660, add_stipend: false },
 			),
-			Some((708617664, 18999997749, 1857, 141723532, 4291382335)),
-		),
-		(
-			(
-				(5_000_000_000, 1_000_000_000, 3000, 2000, 100000, -7000000000),
-				Ethereum { gas: 708617666, add_stipend: false },
-			),
-			Some((708617665, 18999997750, 1857, 141723533, 4291382335)),
+			Some((708617660, 18999997747, 1857, 141723532, 4291382335)),
 		),
 		(
 			(
@@ -409,37 +409,37 @@ fn substrate_nesting_works() {
 		(
 			(
 				(5_000_000_000, 1_000_000_000, 3000, 2000, 10106, 91452),
-				Ethereum { gas: 5, add_stipend: false },
+				Ethereum { gas: 500, add_stipend: false },
 			),
 			Some((4, 1499769120, 0, 0, 4999999996)),
 		),
 		(
 			(
 				(5_000_000_000, 1_000_000_000, 3000, 2000, 10106, 91452),
-				Ethereum { gas: 3, add_stipend: false },
+				Ethereum { gas: 300, add_stipend: false },
 			),
-			Some((3, 1499769119, 0, 0, 4999999996)),
+			Some((4, 1499769120, 0, 0, 4999999996)),
 		),
 		(
 			(
 				(5_000_000_000, 1_000_000_000, 3000, 2000, 1010, 91452),
-				Ethereum { gas: 3, add_stipend: false },
+				Ethereum { gas: 300, add_stipend: false },
 			),
-			Some((3, 1, 1232, 0, 2000461760)),
+			Some((300, 150, 1232, 60, 2000461760)),
 		),
 		(
 			(
 				(5_000_000_000, 1_000_000_000, 3000, 2000, 2242, 91452),
-				Ethereum { gas: 6, add_stipend: false },
+				Ethereum { gas: 600, add_stipend: false },
 			),
-			Some((6, 3, 0, 1, 2000461760)),
+			Some((600, 300, 0, 120, 2000461760)),
 		),
 		(
 			(
 				(5_000_000_000, 1_000_000_000, 3000, 2000, 2243, 91452),
-				Ethereum { gas: 6, add_stipend: false },
+				Ethereum { gas: 600, add_stipend: false },
 			),
-			Some((6, 20891, 0, 1, 2000503536)),
+			Some((600, 21188, 0, 120, 2000503536)),
 		),
 	];
 
@@ -463,9 +463,9 @@ fn substrate_nesting_works() {
 				let eth_tx_info = EthTxInfo::<Test>::new(100, Weight::from_parts(extra_ref_time, extra_proof));
 				let mut transaction_meter =
 					TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
-						eth_gas_limit,
+						eth_gas_limit: eth_gas_limit / gas_scale,
 						maybe_weight_limit: None,
-						eth_tx_info,
+						eth_tx_info: eth_tx_info.clone(),
 					})
 					.unwrap();
 
@@ -483,7 +483,11 @@ fn substrate_nesting_works() {
 					.charge_weight_token(TestToken(ref_time_charge, proof_size_charge))
 					.unwrap();
 
-				let nested = transaction_meter.new_nested(&call_resource);
+				let scaled_call_resource = match call_resource {
+					Ethereum { gas, add_stipend } => Ethereum { gas: gas / gas_scale, add_stipend },
+					_ => call_resource,
+				};
+				let nested = transaction_meter.new_nested(&scaled_call_resource);
 
 				if let Some((
 					gas_left,
@@ -494,13 +498,13 @@ fn substrate_nesting_works() {
 				)) = remaining
 				{
 					let nested = nested.unwrap();
-					assert_eq!(gas_left, nested.eth_gas_left().unwrap());
+					assert_eq!(gas_left / gas_scale, nested.eth_gas_left().unwrap());
 					assert_eq!(
 						Weight::from_parts(ref_time_left, proof_size_left),
 						nested.weight_left().unwrap()
 					);
 					assert_eq!(deposit_left, nested.deposit_left().unwrap());
-					assert_eq!(gas_consumed, nested.total_consumed_gas());
+					assert_eq!(gas_consumed / gas_scale, nested.total_consumed_gas());
 				} else {
 					assert!(nested.is_err());
 				}
@@ -512,6 +516,7 @@ fn substrate_nesting_works() {
 fn substrate_nesting_charges_works() {
 	use Charge::{D, W};
 
+	let gas_scale = <Test as Config>::GasScale::get();
 	let tests = vec![
 		(
 			(5_000_000_000, 1_000_000_000, 2_000, 1000, 100, 1000i64, 1000),
@@ -560,7 +565,7 @@ fn substrate_nesting_charges_works() {
 					EthTxInfo::<Test>::new(100, Weight::from_parts(extra_ref_time, extra_proof));
 				let mut transaction_meter =
 					TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
-						eth_gas_limit,
+						eth_gas_limit: eth_gas_limit / gas_scale,
 						maybe_weight_limit: None,
 						eth_tx_info,
 					})
@@ -581,7 +586,10 @@ fn substrate_nesting_charges_works() {
 					.unwrap();
 
 				let mut nested = transaction_meter
-					.new_nested(&CallResources::Ethereum { gas: gas_limit, add_stipend: false })
+					.new_nested(&CallResources::Ethereum {
+						gas: gas_limit / gas_scale,
+						add_stipend: false,
+					})
 					.unwrap();
 
 				for (charge, remaining) in charges {
@@ -609,13 +617,13 @@ fn substrate_nesting_charges_works() {
 					)) = remaining
 					{
 						assert!(is_ok);
-						assert_eq!(gas_left, nested.eth_gas_left().unwrap());
+						assert_eq!(gas_left / gas_scale, nested.eth_gas_left().unwrap());
 						assert_eq!(
 							Weight::from_parts(ref_time_left, proof_size_left),
 							nested.weight_left().unwrap()
 						);
 						assert_eq!(deposit_left, nested.deposit_left().unwrap());
-						assert_eq!(gas_consumed, nested.total_consumed_gas());
+						assert_eq!(gas_consumed / gas_scale, nested.total_consumed_gas());
 					} else {
 						assert!(!is_ok);
 					}

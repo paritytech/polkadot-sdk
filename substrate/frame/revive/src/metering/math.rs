@@ -17,10 +17,12 @@
 
 use super::{
 	BalanceOf, CallResources, Config, DispatchError, Error, EthTxInfo, FixedPointNumber, FixedU128,
-	FrameMeter, InfoT, ResourceMeter, RootStorageMeter, SaturatedConversion, Saturating, SignedGas,
-	State, StorageDeposit, TransactionLimits, TransactionMeter, Weight, WeightMeter, Zero,
+	FrameMeter, InfoT, ResourceMeter, RootStorageMeter, SaturatedConversion, State, StorageDeposit,
+	TransactionLimits, TransactionMeter, Weight, WeightMeter, Zero,
 };
-use crate::{limits::SOLIDITY_CALL_STIPEND, metering::weight::Token, vm::evm::EVMGas};
+use crate::{
+	limits::SOLIDITY_CALL_STIPEND, metering::weight::Token, vm::evm::EVMGas, InternalGas, SignedGas,
+};
 use core::marker::PhantomData;
 
 fn determine_call_stipend<T: Config>() -> Weight {
@@ -104,10 +106,15 @@ pub mod substrate_execution {
 					// then cap that gas by the requested `gas`. Distribute the capped gas
 					// back into weight and deposit portions using the same ratio so that
 					// the nested frame receives proportional limits.
-					let weight_gas = T::FeeInfo::weight_to_fee_average(&weight_left);
-					let deposit_gas = T::FeeInfo::next_fee_multiplier_reciprocal()
-						.saturating_mul_int(deposit_left);
-					let gas_left = weight_gas.saturating_add(deposit_gas);
+					let weight_gas = InternalGas::from_weight_fee(
+						T::FeeInfo::weight_to_fee_average(&weight_left),
+					);
+					let deposit_gas = InternalGas::from_weight_fee(
+						T::FeeInfo::next_fee_multiplier_reciprocal()
+							.saturating_mul_int(deposit_left),
+					);
+					let gas_left =
+						(weight_gas.saturating_add(&deposit_gas)).into_external_gas::<T>();
 					let gas_limit = gas_left.min(*gas);
 
 					let ratio = if gas_left.is_zero() {
@@ -163,14 +170,18 @@ pub mod substrate_execution {
 	///
 	/// Converts the remaining weight and deposit into their gas-equivalents (via `FeeInfo`) and
 	/// returns the sum. Returns `None` if either component there is not enough as left
-	pub fn eth_gas_left<T: Config, S: State>(meter: &ResourceMeter<T, S>) -> Option<BalanceOf<T>> {
-		match (meter.weight_left(), meter.deposit_left()) {
+	pub fn eth_gas_left<T: Config, S: State>(
+		meter: &ResourceMeter<T, S>,
+	) -> Option<InternalGas<BalanceOf<T>>> {
+		match (weight_left(meter), deposit_left(meter)) {
 			(Some(weight_left), Some(deposit_left)) => {
-				let weight_gas = T::FeeInfo::weight_to_fee_average(&weight_left);
-				let deposit_gas =
-					T::FeeInfo::next_fee_multiplier_reciprocal().saturating_mul_int(deposit_left);
+				let weight_gas =
+					InternalGas::from_weight_fee(T::FeeInfo::weight_to_fee_average(&weight_left));
+				let deposit_gas = InternalGas::from_weight_fee(
+					T::FeeInfo::next_fee_multiplier_reciprocal().saturating_mul_int(deposit_left),
+				);
 
-				Some(weight_gas.saturating_add(deposit_gas))
+				Some(weight_gas.saturating_add(&deposit_gas))
 			},
 			_ => None,
 		}
@@ -212,17 +223,10 @@ pub mod substrate_execution {
 		let total_consumed_deposit =
 			meter.total_consumed_deposit_before.saturating_add(&self_consumed_deposit);
 
-		let consumed_weight_gas = T::FeeInfo::weight_to_fee_average(&total_consumed_weight);
+		let consumed_weight_fee = T::FeeInfo::weight_to_fee_average(&total_consumed_weight);
+		let consumed_deposit_gas = SignedGas::from_adjusted_deposit_charge(&total_consumed_deposit);
 
-		let multiplier = T::FeeInfo::next_fee_multiplier_reciprocal();
-		let consumed_deposit_gas = match total_consumed_deposit {
-			StorageDeposit::Charge(amount) =>
-				SignedGas::Positive(multiplier.saturating_mul_int(amount)),
-			StorageDeposit::Refund(amount) =>
-				SignedGas::Negative(multiplier.saturating_mul_int(amount)),
-		};
-
-		consumed_deposit_gas.saturating_add(&SignedGas::Positive(consumed_weight_gas))
+		consumed_deposit_gas.saturating_add(&SignedGas::from_weight_fee(consumed_weight_fee))
 	}
 
 	/// Compute the gas (signed) during the lifetime of this meter for Substrate-style execution.
@@ -233,22 +237,17 @@ pub mod substrate_execution {
 		let total_consumed_weight =
 			meter.total_consumed_weight_before.saturating_add(self_consumed_weight);
 
-		let consumed_weight_gas_before = SignedGas::Positive(T::FeeInfo::weight_to_fee_average(
-			&meter.total_consumed_weight_before,
-		));
+		let consumed_weight_gas_before = SignedGas::from_weight_fee(
+			T::FeeInfo::weight_to_fee_average(&meter.total_consumed_weight_before),
+		);
 		let consumed_weight_gas =
-			SignedGas::Positive(T::FeeInfo::weight_to_fee_average(&total_consumed_weight));
+			SignedGas::from_weight_fee(T::FeeInfo::weight_to_fee_average(&total_consumed_weight));
 
 		let self_consumed_weight_gas =
 			consumed_weight_gas.saturating_sub(&consumed_weight_gas_before);
 
-		let multiplier = T::FeeInfo::next_fee_multiplier_reciprocal();
-		let self_consumed_deposit_gas = match self_consumed_deposit {
-			StorageDeposit::Charge(amount) =>
-				SignedGas::Positive(multiplier.saturating_mul_int(amount)),
-			StorageDeposit::Refund(amount) =>
-				SignedGas::Negative(multiplier.saturating_mul_int(amount)),
-		};
+		let self_consumed_deposit_gas =
+			SignedGas::from_adjusted_deposit_charge(&self_consumed_deposit);
 
 		self_consumed_deposit_gas.saturating_add(&self_consumed_weight_gas)
 	}
@@ -271,7 +270,7 @@ pub mod ethereum_execution {
 		let meter = TransactionMeter {
 			weight: WeightMeter::new(maybe_weight_limit, None),
 			deposit: RootStorageMeter::new(None),
-			max_total_gas: SignedGas::Positive(eth_gas_limit),
+			max_total_gas: SignedGas::from_external_gas(eth_gas_limit),
 			total_consumed_weight_before: Default::default(),
 			total_consumed_deposit_before: Default::default(),
 			transaction_limits: TransactionLimits::EthereumGas {
@@ -340,8 +339,8 @@ pub mod ethereum_execution {
 		};
 
 		let deposit_left = {
-			let unbounded_deposit_left: BalanceOf<T> =
-				T::FeeInfo::next_fee_multiplier().saturating_mul_int(gas_left);
+			let unbounded_deposit_left = gas_left.into_adjusted_deposit::<T>();
+
 			match meter.deposit.limit {
 				Some(deposit_limit) => unbounded_deposit_left.min(
 					self_consumed_deposit
@@ -362,6 +361,8 @@ pub mod ethereum_execution {
 				),
 
 				CallResources::Ethereum { gas, add_stipend } => {
+					let internal_gas_limit = InternalGas::from_external_gas::<T>(*gas);
+
 					let (gas_limit, stipend) = if *add_stipend {
 						let weight_stipend = determine_call_stipend::<T>();
 						if weight_left.any_lt(weight_stipend) {
@@ -369,11 +370,13 @@ pub mod ethereum_execution {
 						}
 
 						(
-							gas.saturating_add(T::FeeInfo::weight_to_fee(&weight_stipend)),
+							internal_gas_limit.saturating_add(&InternalGas::from_weight_fee(
+								T::FeeInfo::weight_to_fee(&weight_stipend),
+							)),
 							Some(weight_stipend),
 						)
 					} else {
-						(*gas, None)
+						(internal_gas_limit, None)
 					};
 
 					(
@@ -428,7 +431,7 @@ pub mod ethereum_execution {
 	pub fn eth_gas_left<T: Config, S: State>(
 		meter: &ResourceMeter<T, S>,
 		eth_tx_info: &EthTxInfo<T>,
-	) -> Option<BalanceOf<T>> {
+	) -> Option<InternalGas<BalanceOf<T>>> {
 		let self_consumed_weight = meter.weight.weight_consumed();
 		let self_consumed_deposit = meter.deposit.consumed();
 
@@ -473,8 +476,8 @@ pub mod ethereum_execution {
 		meter: &ResourceMeter<T, S>,
 		eth_tx_info: &EthTxInfo<T>,
 	) -> Option<BalanceOf<T>> {
-		let eth_gas_left = eth_gas_left(meter, eth_tx_info)?;
-		let deposit_left = T::FeeInfo::next_fee_multiplier().saturating_mul_int(eth_gas_left);
+		let gas_left = eth_gas_left(meter, eth_tx_info)?;
+		let deposit_left = gas_left.into_adjusted_deposit::<T>();
 
 		Some(match meter.deposit.limit {
 			Some(deposit_limit) => {

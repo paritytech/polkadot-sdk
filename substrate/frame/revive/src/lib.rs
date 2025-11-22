@@ -101,8 +101,9 @@ pub use crate::{
 	},
 	exec::{CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
 	metering::{
-		weight::Token as WeightToken, EthTxInfo, FrameMeter, ResourceMeter, TransactionLimits,
-		TransactionMeter,
+		gas::{InternalGas, SignedGas},
+		weight::Token as WeightToken,
+		EthTxInfo, FrameMeter, ResourceMeter, TransactionLimits, TransactionMeter,
 	},
 	pallet::{genesis, *},
 	storage::{AccountInfo, ContractInfo},
@@ -349,6 +350,10 @@ pub mod pallet {
 		/// Allows debug-mode configuration, such as enabling unlimited contract size.
 		#[pallet::constant]
 		type DebugEnabled: Get<bool>;
+
+		#[pallet::constant]
+		#[pallet::no_default_bounds]
+		type GasScale: Get<BalanceOf<Self>>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -377,6 +382,7 @@ pub mod pallet {
 			pub const DepositPerByte: Balance = deposit(0, 1);
 			pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
 			pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(9, 10);
+			pub const GasScale: Balance = 10 as Balance;
 		}
 
 		/// A type providing default configurations for this pallet in testing environment.
@@ -431,6 +437,7 @@ pub mod pallet {
 			type FeeInfo = ();
 			type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
 			type DebugEnabled = ConstBool<false>;
+			type GasScale = GasScale;
 		}
 	}
 
@@ -1959,12 +1966,12 @@ impl<T: Config> Pallet<T> {
 			)))?;
 		}
 
-		// We add `1` to account for the potential rounding error of the multiplication.
-		// Returning a larger value here just increases the the pre-dispatch weight.
-		let eth_gas: U256 = T::FeeInfo::next_fee_multiplier_reciprocal()
-			.saturating_mul_int(transaction_fee.saturating_add(dry_run.max_storage_deposit))
-			.saturating_add(1_u32.into())
-			.into();
+		let total_cost = transaction_fee.saturating_add(dry_run.max_storage_deposit);
+		let total_cost_wei = Pallet::<T>::convert_native_to_evm(total_cost);
+		let (mut eth_gas, rest) = total_cost_wei.div_mod(base_fee);
+		if !rest.is_zero() {
+			eth_gas = eth_gas.saturating_add(1_u32.into());
+		}
 
 		log::debug!(target: LOG_TARGET, "\
 			dry_run_eth_transact finished: \
@@ -2086,8 +2093,12 @@ impl<T: Config> Pallet<T> {
 
 	/// Get the base gas price.
 	pub fn evm_base_fee() -> U256 {
+		let gas_scale = <T as Config>::GasScale::get();
 		let multiplier = T::FeeInfo::next_fee_multiplier();
-		multiplier.saturating_mul_int::<u128>(T::NativeToEthRatio::get().into()).into()
+		multiplier
+			.saturating_mul_int::<u128>(T::NativeToEthRatio::get().into())
+			.saturating_mul(gas_scale.saturated_into())
+			.into()
 	}
 
 	/// Build an EVM tracer from the given tracer type.

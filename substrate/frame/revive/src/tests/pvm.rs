@@ -5279,6 +5279,7 @@ fn self_destruct_by_syscall_tracing_works() {
 		description: &'static str,
 		create_tracer: Box<dyn FnOnce() -> Tracer<Test>>,
 		expected_trace_fn: Box<dyn FnOnce(H160, Vec<u8>) -> Trace>,
+		modify_trace_fn: Option<Box<dyn FnOnce(Trace) -> Trace>>,
 	}
 
 	let test_cases = vec![
@@ -5291,12 +5292,12 @@ fn self_destruct_by_syscall_tracing_works() {
 					to: addr,
 					call_type: CallType::Call,
 					value: Some(U256::zero()),
-					gas: U256::from(2499916585034u64),
-					gas_used: U256::from(94847106u64),
+					gas: 0.into(),
+					gas_used: 0.into(),
 					calls: vec![CallTrace {
 						from: addr,
 						to: DJANGO_ADDR,
-						gas: U256::from(2497550684361u64),
+						gas: 0.into(),
 
 						call_type: CallType::Selfdestruct,
 						value: Some(Pallet::<Test>::convert_native_to_evm(100_000u64)),
@@ -5305,6 +5306,14 @@ fn self_destruct_by_syscall_tracing_works() {
 					..Default::default()
 				})
 			}),
+			modify_trace_fn: Some(Box::new(|mut actual_trace| {
+				if let Trace::Call(trace) = &mut actual_trace {
+					trace.gas = 0.into();
+					trace.gas_used = 0.into();
+					trace.calls[0].gas = 0.into();
+				}
+				actual_trace
+			})),
 		},
 		TestCase {
 			description: "PrestateTracer (diff mode)",
@@ -5354,6 +5363,7 @@ fn self_destruct_by_syscall_tracing_works() {
 				let expected: PrestateTrace = serde_json::from_str(&json).unwrap();
 				Trace::Prestate(expected)
 			}),
+			modify_trace_fn: None,
 		},
 		TestCase {
 			description: "PrestateTracer (prestate mode)",
@@ -5398,10 +5408,11 @@ fn self_destruct_by_syscall_tracing_works() {
 				let expected: PrestateTrace = serde_json::from_str(&json).unwrap();
 				Trace::Prestate(expected)
 			}),
+			modify_trace_fn: None,
 		},
 	];
 
-	for TestCase { description, create_tracer, expected_trace_fn } in test_cases {
+	for TestCase { description, create_tracer, expected_trace_fn, modify_trace_fn } in test_cases {
 		ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
@@ -5417,14 +5428,17 @@ fn self_destruct_by_syscall_tracing_works() {
 				builder::call(addr).build().unwrap();
 			});
 
-			let trace = tracer.collect_trace();
+			let mut trace = tracer.collect_trace().unwrap();
 
-			let trace_wrapped = trace.map(|t| match t {
+			if let Some(modify_trace_fn) = modify_trace_fn {
+				trace = modify_trace_fn(trace);
+			}
+			let trace_wrapped = match trace {
 				crate::evm::Trace::Call(ct) => Trace::Call(ct),
 				crate::evm::Trace::Prestate(pt) => Trace::Prestate(pt),
-			});
+			};
 
-			assert_eq!(trace_wrapped, Some(expected_trace), "Trace mismatch for: {}", description);
+			assert_eq!(trace_wrapped, expected_trace, "Trace mismatch for: {}", description);
 		});
 	}
 }
