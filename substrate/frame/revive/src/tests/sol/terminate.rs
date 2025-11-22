@@ -655,3 +655,41 @@ fn terminate_twice(fixture_type: FixtureType, method1: u8, method2: u8) {
 		);
 	});
 }
+
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	[METHOD_SYSCALL, METHOD_PRECOMPILE]
+)]
+fn call_after_terminate_works(fixture_type: FixtureType, method: u8) {
+	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
+	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let expected_value = alloy_core::primitives::U256::from(0xDEADBEEFu64);
+
+		if fixture_type == FixtureType::Resolc {
+			// Need to pre-upload code for PVM
+			let _ = <Pallet<Test>>::upload_code(
+				RuntimeOrigin::signed(ALICE.clone()),
+				code.clone(),
+				<BalanceOf<Test>>::MAX,
+			);
+		}
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+		let result = builder::bare_call(caller_addr)
+			.data(
+				TerminateCaller::callAfterTerminateCall { value: expected_value, method }
+					.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		assert!(
+			!result.did_revert(),
+			"callAfterTerminateCall reverted: {}",
+			decode_error(&result.data)
+		);
+		let decoded =
+			TerminateCaller::callAfterTerminateCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(decoded, expected_value, "unexpected return value from callAfterTerminateCall");
+	});
+}

@@ -45,4 +45,13 @@ contract TerminateCaller {
         require(success, "delegatecall terminate reverted");
         return (address(innerCaller), address(inner));
     }
+
+    function callAfterTerminate(uint value, uint8 method) external returns (uint) {
+        inner = new Terminate(true, method, payable(address(this)));
+        inner.terminate(0, payable(address(this)));
+        bytes memory data = abi.encodeWithSelector(inner.echo.selector, value);
+        (bool success, bytes memory returnData) = address(inner).call(data);
+        require(success, "call after terminate reverted");
+        return returnData.length == 32 ? abi.decode(returnData, (uint)) : 0;
+    }
 }

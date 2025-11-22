@@ -15,6 +15,10 @@ contract Terminate {
 		_terminate(method, beneficiary);
 	}
 
+	function echo(uint value) external pure returns (uint) {
+		return value;
+	}
+
 	function terminate(uint8 method, address beneficiary) external {
 		_terminate(method, beneficiary);
 	}
