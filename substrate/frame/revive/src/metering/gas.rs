@@ -163,7 +163,7 @@ impl<T: Config> SignedGas<T> {
 		use SignedGas::*;
 
 		match self {
-			Positive(amount) => Some(amount.clone()),
+			Positive(amount) => Some(*amount),
 			Negative(_amount) => None,
 		}
 	}
