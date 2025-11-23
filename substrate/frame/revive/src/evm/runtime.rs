@@ -320,11 +320,11 @@ pub trait EthExtra {
 			CreateCallMode::ExtrinsicExecution(encoded_len as u32, payload.to_vec()),
 		)?;
 		let storage_credit = <Self::Config as Config>::Currency::withdraw(
-					&signer,
-					call_info.storage_deposit,
-					Precision::Exact,
-					Preservation::Preserve,
-					Fortitude::Polite,
+			&signer,
+			call_info.storage_deposit,
+			Precision::Exact,
+			Preservation::Preserve,
+			Fortitude::Polite,
 		).map_err(|_| {
 			log::debug!(target: LOG_TARGET, "Not enough balance to hold additional storage deposit of {:?}", call_info.storage_deposit);
 			InvalidTransaction::Payment

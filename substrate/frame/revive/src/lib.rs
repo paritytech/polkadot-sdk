@@ -1609,6 +1609,7 @@ impl<T: Config> Pallet<T> {
 		let result = Self::run_guarded(try_call);
 
 		log::trace!(target: LOG_TARGET, "Bare call ends: \
+		  result={result:?}, \
 			weight_consumed={:?}, \
 			weight_required={:?}, \
 			storage_deposit={:?}, \
