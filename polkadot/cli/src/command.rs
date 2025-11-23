@@ -278,6 +278,7 @@ where
 				telemetry_worker_handle: None,
 				node_version,
 				secure_validator_mode,
+				verify_on_start: cli.run.verify_on_start,
 				workers_path: cli.run.workers_path,
 				workers_names: None,
 				overseer_gen,

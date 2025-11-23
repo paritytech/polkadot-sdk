@@ -97,6 +97,10 @@ pub struct RunCmd {
 	#[arg(long = "insecure-validator-i-know-what-i-do", requires = "validator")]
 	pub insecure_validator: bool,
 
+	/// Verify validator on start. Checks that env vars were cleared on node startup.
+	#[arg(long, requires = "validator")]
+	pub verify_on_start: bool,
+
 	/// Enable the block authoring backoff that is triggered when finality is lagging.
 	#[arg(long)]
 	pub force_authoring_backoff: bool,

@@ -55,6 +55,7 @@ fn workers_lib_path_override() -> Option<PathBuf> {
 ///
 /// 6. At this point the final set of paths should be good to use.
 pub fn determine_workers_paths(
+	verify_on_start: bool,
 	given_workers_path: Option<PathBuf>,
 	workers_names: Option<(String, String)>,
 	node_version: Option<String>,
@@ -99,7 +100,7 @@ pub fn determine_workers_paths(
 		log::warn!("Skipping node/worker version checks. This could result in incorrect behavior in PVF workers.");
 	}
 
-	{
+	if verify_on_start {
 		let worker_version = polkadot_node_core_pvf::get_worker_version(&prep_worker_path)?;
 		let mut worker_dir = prep_worker_path.clone();
 		let _ = worker_dir.pop();
