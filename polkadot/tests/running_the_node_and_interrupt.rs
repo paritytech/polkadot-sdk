@@ -17,10 +17,7 @@
 use assert_cmd::cargo::cargo_bin;
 use std::process::{self, Command};
 use tempfile::tempdir;
-use nix::{
-	sys::signal::{kill, Signal::SIGINT},
-	unistd::Pid,
-};
+use assert_cmd::assert::OutputAssertExt;
 
 pub mod common;
 
@@ -68,17 +65,21 @@ async fn running_the_node_works_and_can_be_interrupted() {
 fn running_node_verify_on_start_fails() {
 	let tmp_dir = tempdir().expect("could not create a temp dir");
 	let base_path = tmp_dir.path();
-	let mut cmd = Command::new(cargo_bin("polkadot"))
+	Command::new(cargo_bin("polkadot"))
 		.stdout(process::Stdio::piped())
 		.stderr(process::Stdio::piped())
 		.args([
 			"--chain",
 			"westend",
+			"--force-authoring",
+			"--alice",
+			"--unsafe-force-node-key-generation",
+			"--validator",
 			"--verify-on-start",
 		])
 		.arg("-d")
 		.arg(base_path)
 		.arg("--no-hardware-benchmarks")
-		.spawn()
-		.expect("Not all env vars were cleared when spawning the process.");
+		.assert()
+		.failure();
 }
