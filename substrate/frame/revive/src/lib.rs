@@ -101,8 +101,8 @@ pub use crate::{
 	},
 	exec::{CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
 	metering::{
-		weight::Token as WeightToken, EthTxInfo, FrameMeter, ResourceMeter, TransactionLimits,
-		TransactionMeter,
+		gas::SignedGas, weight::Token as WeightToken, EthTxInfo, FrameMeter, ResourceMeter,
+		TransactionLimits, TransactionMeter,
 	},
 	pallet::{genesis, *},
 	storage::{AccountInfo, ContractInfo},
@@ -1602,6 +1602,7 @@ impl<T: Config> Pallet<T> {
 		let result = Self::run_guarded(try_call);
 
 		log::trace!(target: LOG_TARGET, "Bare call ends: \
+			result={result:?}, \
 			weight_consumed={:?}, \
 			weight_required={:?}, \
 			storage_deposit={:?}, \
@@ -1959,12 +1960,12 @@ impl<T: Config> Pallet<T> {
 			)))?;
 		}
 
-		// We add `1` to account for the potential rounding error of the multiplication.
-		// Returning a larger value here just increases the the pre-dispatch weight.
-		let eth_gas: U256 = T::FeeInfo::next_fee_multiplier_reciprocal()
-			.saturating_mul_int(transaction_fee.saturating_add(dry_run.max_storage_deposit))
-			.saturating_add(1_u32.into())
-			.into();
+		let total_cost = transaction_fee.saturating_add(dry_run.max_storage_deposit);
+		let total_cost_wei = Pallet::<T>::convert_native_to_evm(total_cost);
+		let (mut eth_gas, rest) = total_cost_wei.div_mod(base_fee);
+		if !rest.is_zero() {
+			eth_gas = eth_gas.saturating_add(1_u32.into());
+		}
 
 		log::debug!(target: LOG_TARGET, "\
 			dry_run_eth_transact finished: \

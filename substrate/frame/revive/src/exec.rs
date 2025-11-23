@@ -1439,7 +1439,7 @@ where
 					let gas_consumed = if is_first_frame {
 						frame_meter.total_consumed_gas().into()
 					} else {
-						frame_meter.eth_gas_consumed().as_positive().unwrap_or_default().into()
+						frame_meter.eth_gas_consumed().into()
 					};
 
 					match &output {
@@ -1458,7 +1458,7 @@ where
 					let gas_consumed = if is_first_frame {
 						frame_meter.total_consumed_gas().into()
 					} else {
-						frame_meter.eth_gas_consumed().as_positive().unwrap_or_default().into()
+						frame_meter.eth_gas_consumed().into()
 					};
 
 					tracer.exit_child_span_with_error(error.into(), gas_consumed);

@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub mod gas;
 pub mod math;
 pub mod storage;
 pub mod weight;
@@ -30,7 +31,7 @@ use frame_support::{DebugNoBound, DefaultNoBound};
 use num_traits::Zero;
 
 use core::{fmt::Debug, marker::PhantomData, ops::ControlFlow};
-use sp_runtime::{FixedPointNumber, Saturating, Weight};
+use sp_runtime::{FixedPointNumber, Weight};
 use storage::{DepositOf, Diff, GenericMeter as GenericStorageMeter, Meter as RootStorageMeter};
 use weight::{ChargedAmount, Token, WeightMeter};
 
@@ -126,6 +127,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		log::trace!(
 			target: LOG_TARGET,
 			"Creating nested meter from parent: \
+				limit={limit:?}, \
 				weight_left={:?}, \
 				deposit_left={:?}, \
 				weight_consumed={:?}, \
@@ -333,12 +335,13 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	/// - For substrate mode: converts weight+deposit to gas equivalent
 	/// Returns None if resources are exhausted or conversion fails.
 	pub fn eth_gas_left(&self) -> Option<BalanceOf<T>> {
-		match &self.transaction_limits {
+		let gas_left = match &self.transaction_limits {
 			TransactionLimits::EthereumGas { eth_tx_info, .. } =>
-				math::ethereum_execution::eth_gas_left(self, eth_tx_info),
-			TransactionLimits::WeightAndDeposit { .. } =>
-				math::substrate_execution::eth_gas_left(self),
-		}
+				math::ethereum_execution::gas_left(self, eth_tx_info),
+			TransactionLimits::WeightAndDeposit { .. } => math::substrate_execution::gas_left(self),
+		}?;
+
+		gas_left.to_ethereum_gas()
 	}
 
 	/// Get remaining weight available.
@@ -385,7 +388,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 				math::substrate_execution::total_consumed_gas(self),
 		};
 
-		signed_gas.as_positive().unwrap_or_default()
+		signed_gas.to_ethereum_gas().unwrap_or_default()
 	}
 
 	/// Get total weight consumed
@@ -417,13 +420,15 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	}
 
 	/// Get the Ethereum gas that has been consumed during the lifetime of this meter
-	pub fn eth_gas_consumed(&self) -> SignedGas<T> {
-		match &self.transaction_limits {
+	pub fn eth_gas_consumed(&self) -> BalanceOf<T> {
+		let signed_gas = match &self.transaction_limits {
 			TransactionLimits::EthereumGas { eth_tx_info, .. } =>
 				math::ethereum_execution::eth_gas_consumed(self, eth_tx_info),
 			TransactionLimits::WeightAndDeposit { .. } =>
 				math::substrate_execution::eth_gas_consumed(self),
-		}
+		};
+
+		signed_gas.to_ethereum_gas().unwrap_or_default()
 	}
 
 	/// Determine and set the new effective weight limit of the weight meter.
@@ -621,26 +626,16 @@ impl<T: Config> EthTxInfo<T> {
 		consumed_weight: &Weight,
 		consumed_deposit: &DepositOf<T>,
 	) -> SignedGas<T> {
-		let deposit_gas = SignedGas::from_deposit_charge(consumed_deposit);
-		let fixed_fee_gas = SignedGas::Positive(T::FeeInfo::fixed_fee(self.encoded_len));
-		let scaled_gas = (deposit_gas.saturating_add(&fixed_fee_gas))
-			.scale_by_factor(&T::FeeInfo::next_fee_multiplier_reciprocal());
+		let fixed_fee = T::FeeInfo::fixed_fee(self.encoded_len);
+		let deposit_and_fixed_fee =
+			consumed_deposit.saturating_add(&DepositOf::<T>::Charge(fixed_fee));
+		let deposit_gas = SignedGas::from_adjusted_deposit_charge(&deposit_and_fixed_fee);
 
-		let weight_fee = SignedGas::Positive(T::FeeInfo::weight_to_fee(
+		let weight_gas = SignedGas::from_weight_fee(T::FeeInfo::weight_to_fee(
 			&consumed_weight.saturating_add(self.extra_weight),
 		));
 
-		log::trace!(target: LOG_TARGET, "Gas consumption calculation: \
-			consumed_weight={consumed_weight:?}, \
-			consumed_deposit={consumed_deposit:?}, \
-			deposit_gas={deposit_gas:?}, \
-			fixed_fee_gas={fixed_fee_gas:?}, \
-			scaled_gas={scaled_gas:?}, \
-			weight_fee={weight_fee:?}, \
-			extra_weight={:?}",
-			self.extra_weight,);
-
-		scaled_gas.saturating_add(&weight_fee)
+		deposit_gas.saturating_add(&weight_gas)
 	}
 
 	/// Calculate maximal possible remaining weight that can be consumed given a particular gas
@@ -653,15 +648,12 @@ impl<T: Config> EthTxInfo<T> {
 		total_weight_consumption: &Weight,
 		total_deposit_consumption: &DepositOf<T>,
 	) -> Option<Weight> {
-		let numerator = SignedGas::from_deposit_charge(total_deposit_consumption)
-			.saturating_add(&SignedGas::Positive(T::FeeInfo::fixed_fee(self.encoded_len)));
-		let consumable_fee = max_total_gas.saturating_sub(
-			&numerator.scale_by_factor(&T::FeeInfo::next_fee_multiplier_reciprocal()),
-		);
+		let fixed_fee = T::FeeInfo::fixed_fee(self.encoded_len);
+		let deposit_and_fixed_fee =
+			total_deposit_consumption.saturating_add(&DepositOf::<T>::Charge(fixed_fee));
+		let deposit_gas = SignedGas::from_adjusted_deposit_charge(&deposit_and_fixed_fee);
 
-		let SignedGas::Positive(consumable_fee) = consumable_fee else {
-			return None;
-		};
+		let consumable_fee = max_total_gas.saturating_sub(&deposit_gas).to_weight_fee()?;
 
 		T::FeeInfo::fee_to_weight(consumable_fee)
 			.checked_sub(&total_weight_consumption.saturating_add(self.extra_weight))

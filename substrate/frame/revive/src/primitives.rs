@@ -23,13 +23,13 @@ use crate::{
 };
 use alloc::{boxed::Box, fmt::Debug, string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{traits::tokens::Balance, weights::Weight, DebugNoBound};
+use frame_support::{traits::tokens::Balance, weights::Weight};
 use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{
 	traits::{One, Saturating, Zero},
-	DispatchError, FixedPointNumber, FixedU128, RuntimeDebug,
+	DispatchError, RuntimeDebug,
 };
 
 /// Result type of a `bare_call` or `bare_instantiate` call as well as `ContractsApi::call` and
@@ -352,107 +352,6 @@ where
 		match self {
 			Charge(amount) => limit.checked_sub(amount),
 			Refund(amount) => Some(limit.saturating_add(*amount)),
-		}
-	}
-}
-
-/// The type for Ethereum gas. We need to deal with negative and positive values and the structure
-/// of this type resembles `StorageDeposit` but the enum variants have a more obvious name to avoid
-/// confusion and errors
-#[derive(
-	Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, DebugNoBound, TypeInfo,
-)]
-pub enum SignedGas<T: Config> {
-	/// Positive gas amount
-	Positive(BalanceOf<T>),
-	/// Negative gas amount
-	Negative(BalanceOf<T>),
-}
-
-impl<T: Config> Default for SignedGas<T> {
-	fn default() -> Self {
-		Self::Positive(Default::default())
-	}
-}
-
-impl<T: Config> SignedGas<T> {
-	/// This is essentially a saturating signed add.
-	pub fn saturating_add(&self, rhs: &Self) -> Self {
-		use SignedGas::*;
-		match (self, rhs) {
-			(Positive(lhs), Positive(rhs)) => Positive(lhs.saturating_add(*rhs)),
-			(Negative(lhs), Negative(rhs)) => Negative(lhs.saturating_add(*rhs)),
-			(Positive(lhs), Negative(rhs)) =>
-				if lhs >= rhs {
-					Positive(lhs.saturating_sub(*rhs))
-				} else {
-					Negative(rhs.saturating_sub(*lhs))
-				},
-			(Negative(lhs), Positive(rhs)) =>
-				if lhs > rhs {
-					Negative(lhs.saturating_sub(*rhs))
-				} else {
-					Positive(rhs.saturating_sub(*lhs))
-				},
-		}
-	}
-
-	/// This is essentially a saturating signed sub.
-	pub fn saturating_sub(&self, rhs: &Self) -> Self {
-		use SignedGas::*;
-		match (self, rhs) {
-			(Positive(lhs), Negative(rhs)) => Positive(lhs.saturating_add(*rhs)),
-			(Negative(lhs), Positive(rhs)) => Negative(lhs.saturating_add(*rhs)),
-			(Positive(lhs), Positive(rhs)) =>
-				if lhs >= rhs {
-					Positive(lhs.saturating_sub(*rhs))
-				} else {
-					Negative(rhs.saturating_sub(*lhs))
-				},
-			(Negative(lhs), Negative(rhs)) =>
-				if lhs > rhs {
-					Negative(lhs.saturating_sub(*rhs))
-				} else {
-					Positive(rhs.saturating_sub(*lhs))
-				},
-		}
-	}
-
-	/// transform a storage deposit into a gas value and treat a charge as a positive number
-	pub fn from_deposit_charge(deposit: &StorageDeposit<BalanceOf<T>>) -> Self {
-		use SignedGas::*;
-		match deposit {
-			StorageDeposit::Charge(amount) => Positive(*amount),
-			StorageDeposit::Refund(amount) if *amount == Default::default() => Positive(*amount),
-			StorageDeposit::Refund(amount) => Negative(*amount),
-		}
-	}
-
-	/// transform a storage deposit into a gas value and treat a refund as a positive number
-	pub fn from_deposit_refund(deposit: &StorageDeposit<BalanceOf<T>>) -> Self {
-		use SignedGas::*;
-		match deposit {
-			StorageDeposit::Refund(amount) => Positive(*amount),
-			StorageDeposit::Charge(amount) if *amount == Default::default() => Positive(*amount),
-			StorageDeposit::Charge(amount) => Negative(*amount),
-		}
-	}
-
-	/// Scale this scaled gas value by a `FixedU128` factor
-	pub fn scale_by_factor(&self, rhs: &FixedU128) -> Self {
-		use SignedGas::*;
-		match self {
-			Positive(amount) => Positive(rhs.saturating_mul_int(*amount)),
-			Negative(amount) => Negative(rhs.saturating_mul_int(*amount)),
-		}
-	}
-
-	/// Return the balance of the `SignedGas` if it is `Positive`, otherwise return `None`
-	pub fn as_positive(&self) -> Option<BalanceOf<T>> {
-		use SignedGas::*;
-		match self {
-			Positive(amount) => Some(*amount),
-			Negative(_amount) => None,
 		}
 	}
 }
