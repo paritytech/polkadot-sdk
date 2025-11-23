@@ -688,8 +688,14 @@ fn call_after_terminate_works(fixture_type: FixtureType, method: u8) {
 			"callAfterTerminateCall reverted: {}",
 			decode_error(&result.data)
 		);
+
 		let decoded =
 			TerminateCaller::callAfterTerminateCall::abi_decode_returns(&result.data).unwrap();
-		assert_eq!(decoded, expected_value, "unexpected return value from callAfterTerminateCall");
+		let addr = H160::from_slice(decoded._0.as_slice());
+		let account = <Test as Config>::AddressMapper::to_account_id(&addr);
+		let value = decoded._1;
+		assert_eq!(value, expected_value, "unexpected return value from callAfterTerminateCall");
+		assert_eq!(get_balance(&account), 0, "unexpected contract balance after terminate");
+		assert_eq!(get_balance(&DJANGO), 0, "unexpected DJANGO balance after terminate");
 	});
 }
