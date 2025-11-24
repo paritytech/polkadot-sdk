@@ -381,64 +381,64 @@ mod validate_unsigned {
 	use crate::{mock::*, types::*, verifier::Verifier};
 
 	#[test]
-	fn retracts_weak_score_accepts_threshold_better() {
-		ExtBuilder::mock_signed()
-			.solution_improvement_threshold(sp_runtime::Perbill::from_percent(10))
-			.build_and_execute(|| {
-				roll_to_snapshot_created();
+	fn retracts_weak_score_accepts_better() {
+		ExtBuilder::mock_signed().build_and_execute(|| {
+			roll_to_snapshot_created();
 
-				let solution = mine_full_solution().unwrap();
-				load_mock_signed_and_start(solution.clone());
-				roll_to_full_verification();
+			let base_minimal_stake = 55;
+			let solution = mine_full_solution().unwrap();
+			load_mock_signed_and_start(solution.clone());
+			roll_to_full_verification();
 
-				// Some good solution is queued now.
-				assert_eq!(
-					<VerifierPallet as Verifier>::queued_score(),
-					Some(ElectionScore {
-						minimal_stake: 55,
-						sum_stake: 130,
-						sum_stake_squared: 8650
-					})
-				);
+			// Some good solution is queued now.
+			assert_eq!(
+				<VerifierPallet as Verifier>::queued_score(),
+				Some(ElectionScore {
+					minimal_stake: base_minimal_stake,
+					sum_stake: 130,
+					sum_stake_squared: 8650
+				})
+			);
 
-				roll_to_unsigned_open();
+			roll_to_unsigned_open();
 
-				// this is just worse
-				let attempt =
-					fake_solution(ElectionScore { minimal_stake: 20, ..Default::default() });
-				let call = Call::submit_unsigned { paged_solution: Box::new(attempt) };
-				assert_eq!(
-					UnsignedPallet::validate_unsigned(TransactionSource::Local, &call).unwrap_err(),
-					TransactionValidityError::Invalid(InvalidTransaction::Custom(2)),
-				);
+			// This is just worse.
+			let attempt = fake_solution(ElectionScore {
+				minimal_stake: base_minimal_stake - 1,
+				..Default::default()
+			});
+			let call = Call::submit_unsigned { paged_solution: Box::new(attempt) };
+			assert_eq!(
+				UnsignedPallet::validate_unsigned(TransactionSource::Local, &call).unwrap_err(),
+				TransactionValidityError::Invalid(InvalidTransaction::Custom(2)),
+			);
 
-				// this is better, but not enough better.
-				let insufficient_improvement = 55 * 105 / 100;
-				let attempt = fake_solution(ElectionScore {
-					minimal_stake: insufficient_improvement,
-					..Default::default()
-				});
-				let call = Call::submit_unsigned { paged_solution: Box::new(attempt) };
-				assert_eq!(
-					UnsignedPallet::validate_unsigned(TransactionSource::Local, &call).unwrap_err(),
-					TransactionValidityError::Invalid(InvalidTransaction::Custom(2)),
-				);
+			// This is better, but the number of winners is incorrect.
+			let attempt = fake_solution(ElectionScore {
+				minimal_stake: base_minimal_stake + 1,
+				..Default::default()
+			});
+			let call = Call::submit_unsigned { paged_solution: Box::new(attempt) };
+			assert_eq!(
+				UnsignedPallet::validate_unsigned(TransactionSource::Local, &call).unwrap_err(),
+				TransactionValidityError::Invalid(InvalidTransaction::Custom(4)),
+			);
 
-				// note that we now have to use a solution with 2 winners, just to pass all of the
-				// snapshot independent checks.
-				let mut paged = raw_paged_from_supports(
-					vec![vec![
-						(40, Support { total: 10, voters: vec![(3, 5)] }),
-						(30, Support { total: 10, voters: vec![(3, 5)] }),
-					]],
-					0,
-				);
-				let sufficient_improvement = 55 * 115 / 100;
-				paged.score =
-					ElectionScore { minimal_stake: sufficient_improvement, ..Default::default() };
-				let call = Call::submit_unsigned { paged_solution: Box::new(paged) };
-				assert!(UnsignedPallet::validate_unsigned(TransactionSource::Local, &call).is_ok());
-			})
+			// Note that we now have to use a solution with 2 winners, just to pass all of the
+			// snapshot independent checks.
+			let mut paged = raw_paged_from_supports(
+				vec![vec![
+					(40, Support { total: 10, voters: vec![(3, 5)] }),
+					(30, Support { total: 10, voters: vec![(3, 5)] }),
+				]],
+				0,
+			);
+
+			paged.score =
+				ElectionScore { minimal_stake: base_minimal_stake + 1, ..Default::default() };
+			let call = Call::submit_unsigned { paged_solution: Box::new(paged) };
+			assert!(UnsignedPallet::validate_unsigned(TransactionSource::Local, &call).is_ok());
+		})
 	}
 
 	#[test]

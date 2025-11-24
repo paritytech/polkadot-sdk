@@ -28,7 +28,7 @@ use frame_election_provider_support::Support;
 use frame_support::{assert_noop, assert_ok};
 use sp_core::bounded_vec;
 use sp_npos_elections::ElectionScore;
-use sp_runtime::{traits::Bounded, PerU16, Perbill};
+use sp_runtime::{traits::Bounded, PerU16};
 
 mod feasibility_check {
 	use super::*;
@@ -1393,38 +1393,75 @@ mod single_page_sync_verification {
 	}
 
 	#[test]
-	fn solution_improvement_threshold_respected() {
-		ExtBuilder::mock_signed()
-			.solution_improvement_threshold(Perbill::from_percent(10))
-			.build_and_execute(|| {
-				roll_to_snapshot_created();
+	fn solution_improvement_respected() {
+		ExtBuilder::mock_signed().build_and_execute(|| {
+			roll_to_snapshot_created();
 
-				// submit something good.
-				let single_page = mine_solution(1).unwrap();
-				let _ = <VerifierPallet as Verifier>::verify_synchronous(
-					single_page.solution_pages.first().cloned().unwrap(),
-					single_page.score,
+			// submit something good.
+			let single_page = mine_solution(1).unwrap();
+			let _ = <VerifierPallet as Verifier>::verify_synchronous(
+				single_page.solution_pages.first().cloned().unwrap(),
+				single_page.score,
+				MultiBlock::msp(),
+			)
+			.unwrap();
+
+			// The slightly better solution is incorrect in the number of winners.
+			let mut better_score = single_page.score;
+			better_score.minimal_stake += 1;
+			let slightly_better = fake_solution(better_score);
+
+			// The score is checked first; we therefore expect verification to
+			// succeed in score but subsequently fail in winner count.
+			assert_eq!(
+				<VerifierPallet as Verifier>::verify_synchronous(
+					slightly_better.solution_pages.first().cloned().unwrap(),
+					slightly_better.score,
 					MultiBlock::msp(),
 				)
-				.unwrap();
+				.unwrap_err(),
+				FeasibilityError::WrongWinnerCount
+			);
+		});
+	}
 
-				// the slightly better solution need not even be correct. We improve it by 5%, but
-				// we need 10%.
-				let mut better_score = single_page.score;
-				let improvement = Perbill::from_percent(5) * better_score.minimal_stake;
-				better_score.minimal_stake += improvement;
-				let slightly_better = fake_solution(better_score);
+	#[test]
+	fn exact_same_score_is_rejected() {
+		ExtBuilder::mock_signed().build_and_execute(|| {
+			roll_to_snapshot_created();
 
-				assert_eq!(
-					<VerifierPallet as Verifier>::verify_synchronous(
-						slightly_better.solution_pages.first().cloned().unwrap(),
-						slightly_better.score,
-						MultiBlock::msp(),
-					)
-					.unwrap_err(),
-					FeasibilityError::ScoreTooLow
-				);
-			});
+			// Queue something useful.
+			let single_page = mine_solution(1).unwrap();
+			let _ = <VerifierPallet as Verifier>::verify_synchronous(
+				single_page.solution_pages.first().cloned().unwrap(),
+				single_page.score,
+				MultiBlock::msp(),
+			)
+			.unwrap();
+			assert_eq!(<VerifierPallet as Verifier>::queued_score(), Some(single_page.score));
+
+			// Now try and submit the exact same score again.
+			let same = fake_solution(single_page.score);
+
+			assert_eq!(
+				<VerifierPallet as Verifier>::verify_synchronous(
+					same.solution_pages.first().cloned().unwrap(),
+					same.score,
+					MultiBlock::msp(),
+				)
+				.unwrap_err(),
+				FeasibilityError::ScoreTooLow
+			);
+
+			assert_eq!(
+				verifier_events(),
+				vec![
+					Event::<Runtime>::Verified(2, 2),
+					Event::<Runtime>::Queued(single_page.score, None),
+					Event::<Runtime>::VerificationFailed(2, FeasibilityError::ScoreTooLow),
+				]
+			);
+		});
 	}
 
 	#[test]

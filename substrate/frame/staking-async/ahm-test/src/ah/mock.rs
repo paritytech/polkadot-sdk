@@ -297,7 +297,6 @@ impl multi_block::verifier::Config for Runtime {
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 
 	type SolutionDataProvider = MultiBlockSigned;
-	type SolutionImprovementThreshold = ();
 	type WeightInfo = super::weights::MultiBlockElectionWeightInfo;
 }
 

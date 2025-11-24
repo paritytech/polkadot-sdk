@@ -38,7 +38,6 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use pallet::*;
 use sp_npos_elections::{evaluate_support, ElectionScore};
-use sp_runtime::Perbill;
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 pub(crate) type SupportsOfVerifier<V> = frame_election_provider_support::BoundedSupports<
@@ -115,11 +114,6 @@ pub(crate) mod pallet {
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
 	pub trait Config: crate::Config {
-		/// The minimum amount of improvement to the solution score that defines a solution as
-		/// "better".
-		#[pallet::constant]
-		type SolutionImprovementThreshold: Get<Perbill>;
-
 		/// Maximum number of backers, per winner, among all pages of an election.
 		///
 		/// This can only be checked at the very final step of verification.
@@ -193,8 +187,7 @@ pub(crate) mod pallet {
 	///
 	/// - `QueuedSolutionScore` must always be correct. In other words, it should correctly be the
 	///   score of `QueuedValidVariant`.
-	/// - `QueuedSolutionScore` must always be [`Config::SolutionImprovementThreshold`] better than
-	///   `MinimumScore`.
+	/// - `QueuedSolutionScore` must always be better than `MinimumScore`.
 	/// - The number of existing keys in `QueuedSolutionBackings` must always match that of the
 	///   INVALID variant.
 	///
@@ -473,8 +466,7 @@ pub(crate) mod pallet {
 			ensure!(
 				Pallet::<T>::minimum_score()
 					.zip(Self::queued_score())
-					.map_or(true, |(min_score, score)| score
-						.strict_threshold_better(min_score, Perbill::zero())),
+					.map_or(true, |(min_score, score)| score.strict_better(min_score)),
 				"queued solution has weak score (min-score)"
 			);
 
@@ -716,7 +708,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), (PageIndex, FeasibilityError)> {
 		let first_page = solution_pages.first().cloned().unwrap_or_default();
 		let last_page = solution_pages.last().cloned().unwrap_or_default();
-		// first, ensure this score will be good enough, even if valid..
+		// first, ensure this score will be good enough, even if valid.
 		let _ = Self::ensure_score_quality(claimed_score).map_err(|fe| (first_page, fe))?;
 		ensure!(
 			partial_solutions.len() == solution_pages.len(),
@@ -828,13 +820,12 @@ impl<T: Config> Pallet<T> {
 	/// - better than the queued solution, if one exists.
 	/// - greater than the minimum untrusted score.
 	pub(crate) fn ensure_score_quality(score: ElectionScore) -> Result<(), FeasibilityError> {
-		let is_improvement = <Self as Verifier>::queued_score().map_or(true, |best_score| {
-			score.strict_threshold_better(best_score, T::SolutionImprovementThreshold::get())
-		});
+		let is_improvement = <Self as Verifier>::queued_score()
+			.map_or(true, |best_score| score.strict_better(best_score));
 		ensure!(is_improvement, FeasibilityError::ScoreTooLow);
 
-		let is_greater_than_min_untrusted = Self::minimum_score()
-			.map_or(true, |min_score| score.strict_threshold_better(min_score, Perbill::zero()));
+		let is_greater_than_min_untrusted =
+			Self::minimum_score().map_or(true, |min_score| score.strict_better(min_score));
 		ensure!(is_greater_than_min_untrusted, FeasibilityError::ScoreTooLow);
 
 		Ok(())
