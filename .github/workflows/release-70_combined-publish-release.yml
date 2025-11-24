@@ -68,35 +68,35 @@ jobs:
   # ==============================================
   # PHASE 1: Promote RC to Final on S3
   # ==============================================
-  # promote-rc-to-final:
-  #   name: Promote RC to final on S3
-  #   needs: [check-synchronization]
-  #   if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
-  #   uses: ./.github/workflows/release-31_promote-rc-to-final.yml
-  #   with:
-  #     binary: ${{ inputs.binary }}
-  #     release_tag: ${{ inputs.release_tag }}
-  #   secrets: inherit
+  promote-rc-to-final:
+    name: Promote RC to final on S3
+    needs: [check-synchronization]
+    if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
+    uses: ./.github/workflows/release-31_promote-rc-to-final.yml
+    with:
+      binary: ${{ inputs.binary }}
+      release_tag: ${{ inputs.release_tag }}
+    secrets: inherit
 
   # ==============================================
   # PHASE 2: Publish Packages (Debian and RPM)
   # ==============================================
-  # publish-deb-package:
-  #   name: Publish Debian package
-  #   needs: [promote-rc-to-final]
-  #   uses: ./.github/workflows/release-40_publish-deb-package.yml
-  #   with:
-  #     tag: ${{ inputs.release_tag }}
-  #     distribution: ${{ inputs.distribution }}
-  #   secrets: inherit
+  publish-deb-package:
+    name: Publish Debian package
+    needs: [promote-rc-to-final]
+    uses: ./.github/workflows/release-40_publish-deb-package.yml
+    with:
+      tag: ${{ inputs.release_tag }}
+      distribution: ${{ inputs.distribution }}
+    secrets: inherit
 
-  # publish-rpm-package:
-  #   name: Publish RPM package
-  #   needs: [promote-rc-to-final]
-  #   uses: ./.github/workflows/release-41_publish-rpm-package.yml
-  #   with:
-  #     tag: ${{ inputs.release_tag }}
-  #   secrets: inherit
+  publish-rpm-package:
+    name: Publish RPM package
+    needs: [promote-rc-to-final]
+    uses: ./.github/workflows/release-41_publish-rpm-package.yml
+    with:
+      tag: ${{ inputs.release_tag }}
+    secrets: inherit
 
   # ==============================================
   # PHASE 3: Publish Docker Images
