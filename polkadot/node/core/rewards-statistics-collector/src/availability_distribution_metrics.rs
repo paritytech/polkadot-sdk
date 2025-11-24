@@ -92,16 +92,15 @@ pub fn handle_chunks_downloaded(
     }
 }
 
+// handle_chunk_uploaded receive the authority ids of the peer
+// it just uploaded the candidate hash, to collect this statistic
+// it needs to find the validator index that is bounded to any of the
+// authority id, from the oldest to newest session.
 pub fn handle_chunk_uploaded(
     view: &mut View,
     candidate_hash: CandidateHash,
     authority_ids: HashSet<AuthorityDiscoveryId>,
 ) {
-    // will look up in the stored sessions,
-    // from the most recent session to the oldest session
-    // to find the first validator index that matches
-    // with a single authority discovery id from the set
-
     let mut sessions: Vec<(&SessionIndex, &PerSessionView)> = view.per_session.iter().collect();
     sessions.sort_by(|(a, _), (b, _)| a.partial_cmp(&b).unwrap());
 

@@ -60,7 +60,6 @@ use std::{
 	collections::{BTreeMap, HashMap, HashSet, VecDeque},
 	sync::Arc,
 };
-use bitvec::{order::Lsb0 as BitOrderLsb0, slice::BitSlice};
 
 /// Network events as transmitted to other subsystems, wrapped in their message types.
 pub mod network_bridge_event;

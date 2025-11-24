@@ -36,12 +36,10 @@ use polkadot_primitives::{
     AuthorityDiscoveryId, BlockNumber, Hash, Header, SessionIndex, ValidatorId, ValidatorIndex,
     well_known_keys::relay_dispatch_queue_remaining_capacity
 };
-use polkadot_node_primitives::{
-    approval::{
-        time::Tick,
-        v1::DelayTranche
-    }
-};
+use polkadot_node_primitives::{approval::{
+    time::Tick,
+    v1::DelayTranche
+}, SessionWindowSize, DISPUTE_WINDOW};
 use crate::{
     error::{FatalError, FatalResult, JfyiError, JfyiErrorResult, Result},
 };
@@ -60,7 +58,7 @@ use crate::approval_voting_metrics::{handle_candidate_approved, handle_observed_
 use crate::availability_distribution_metrics::{handle_chunk_uploaded, handle_chunks_downloaded, AvailabilityChunks};
 use self::metrics::Metrics;
 
-const MAX_SESSIONS_TO_KEEP: u32 = 2;
+const MAX_SESSIONS_TO_KEEP: SessionWindowSize = DISPUTE_WINDOW;
 const LOG_TARGET: &str = "parachain::rewards-statistics-collector";
 
 #[derive(Default)]
@@ -118,22 +116,22 @@ impl PerSessionView {
     }
 }
 
-/// A struct that holds the credentials required to sign the PVF check statements. These credentials
-/// are implicitly to pinned to a session where our node acts as a validator.
-struct SigningCredentials {
-    /// The validator public key.
-    validator_key: ValidatorId,
-    /// The validator index in the current session.
-    validator_index: ValidatorIndex,
-}
-
+/// View holds the subsystem internal state
 struct View {
+    /// roots contains the only unfinalized relay hashes
+    /// is used when finalization happens to prune unneeded forks
     roots: HashSet<Hash>,
+    /// per_relay holds collected approvals statistics for
+    /// all the candidates under the given unfinalized relay hash
     per_relay: HashMap<Hash, PerRelayView>,
+    /// per_session holds session information (authorities lookup)
+    /// and approvals tallies which is the aggregation of collected
+    /// approvals statistics under finalized blocks
     per_session: HashMap<SessionIndex, PerSessionView>,
+    /// availability_chunks holds collected upload and download chunks
+    /// statistics per validator
     availability_chunks: HashMap<SessionIndex, AvailabilityChunks>,
     current_session: Option<SessionIndex>,
-    credentials: Option<SigningCredentials>,
 }
 
 impl View {
@@ -144,8 +142,7 @@ impl View {
             per_session: HashMap::new(),
             availability_chunks: HashMap::new(),
             current_session: None,
-            credentials: None,
-        };
+        }
     }
 }
 
@@ -379,7 +376,6 @@ fn prune_unfinalised_forks(view: &mut View, fin_block_hash: Hash) -> Vec<Hash> {
     let mut current_block_hash = fin_block_hash;
     let mut current_parent_hash = rb_view.parent_hash;
     while let Some(parent_hash) = current_parent_hash {
-
         match view.per_relay.get_mut(&parent_hash) {
             Some(parent_view) => {
                 retain_relay_hashes.push(parent_hash.clone());
@@ -447,7 +443,7 @@ async fn prune_old_session_views<Context>(
 
     match view.current_session {
         Some(current_session) if current_session < session_idx => {
-            if let Some(wipe_before) = session_idx.checked_sub(MAX_SESSIONS_TO_KEEP) {
+            if let Some(wipe_before) = session_idx.checked_sub(MAX_SESSIONS_TO_KEEP.get()) {
                 view.per_session.retain(|stored_session_index, _| *stored_session_index > wipe_before);
             }
             view.current_session = Some(session_idx)

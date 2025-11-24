@@ -858,7 +858,7 @@ fn build_overseer(
 	let overseer_metrics = OverseerMetrics::try_register(&dependencies.registry).unwrap();
 	let task_handle = spawn_task_handle.clone();
 
-	let collector_subsystem = ConsensusStatisticsCollectorSubsystem::default();
+	let collector_subsystem = RewardsStatisticsCollectorSubsystem::default();
 
 	let dummy = dummy_builder!(task_handle, overseer_metrics)
 		.replace_chain_api(|_| mock_chain_api)
