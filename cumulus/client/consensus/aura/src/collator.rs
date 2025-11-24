@@ -102,7 +102,7 @@ pub struct BuildBlockAndImportParams<'a, Block: BlockT, P: Pair> {
 	pub max_pov_size: usize,
 	/// Optional [`ProofRecorder`] to use.
 	///
-	/// If not set, one will be initialized internally and [`ProofSizeExt`] will be
+	/// If not set, a default recorder will be used internally and [`ProofSizeExt`] will be
 	/// registered.
 	pub storage_proof_recorder: Option<ProofRecorder<Block>>,
 	/// Extra extensions to forward to the block production.

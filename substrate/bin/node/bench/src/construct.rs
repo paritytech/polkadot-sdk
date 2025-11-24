@@ -150,9 +150,7 @@ impl core::Benchmark for ConstructionBenchmark {
 				inherent_data,
 				inherent_digests: Default::default(),
 				max_duration: std::time::Duration::from_secs(20),
-				block_size_limit: None,
-				storage_proof_recorder: None,
-				extra_extensions: Default::default(),
+				..Default::default()
 			},
 		))
 		.map(|r| r.block)
