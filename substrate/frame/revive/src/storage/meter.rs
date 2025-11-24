@@ -390,17 +390,13 @@ where
 
 		// refunds first so origin is able to pay for the charges using the refunds
 		for charge in self.charges.iter() {
-			if let ContractState::Alive { amount } = &charge.state {
-				if matches!(amount, Deposit::Refund(_)) {
-					E::charge(origin, &charge.contract, amount, exec_config)?;
-				}
+			if let ContractState::Alive { amount: amount @ Deposit::Refund(_) } = &charge.state {
+				E::charge(origin, &charge.contract, amount, exec_config)?;
 			}
 		}
 		for charge in self.charges.iter() {
-			if let ContractState::Alive { amount } = &charge.state {
-				if matches!(amount, Deposit::Charge(_)) {
-					E::charge(origin, &charge.contract, amount, exec_config)?;
-				}
+			if let ContractState::Alive { amount: amount @ Deposit::Charge(_) } = &charge.state {
+				E::charge(origin, &charge.contract, amount, exec_config)?;
 			}
 		}
 
