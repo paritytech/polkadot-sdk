@@ -779,7 +779,7 @@ fn invalid_session_or_ump_signals() {
 		assert_matches!(
 			result,
 			ValidationResult::Invalid(InvalidCandidate::InvalidUMPSignals(
-				CommittedCandidateReceiptError::UMPSignalWithV1Decriptor
+				CommittedCandidateReceiptError::UMPSignalWithV1Descriptor
 			))
 		);
 	}
