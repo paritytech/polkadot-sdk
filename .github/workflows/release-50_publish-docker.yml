@@ -232,8 +232,8 @@ jobs:
 
           if [[ "${{ inputs.image_type }}" == "rc" ]]; then
             echo "Building RC container for polkadot"
-            DOCKERFILE="docker/dockerfiles/polkadot/polkadot_injected.Dockerfile"
-            BINARY="polkadot,polkadot-execute-worker,polkadot-prepare-worker"
+            export DOCKERFILE="docker/dockerfiles/polkadot/polkadot_injected.Dockerfile"
+            export BINARY="polkadot,polkadot-execute-worker,polkadot-prepare-worker"
             ./docker/scripts/build-injected.sh
           else
             echo "Building release container for polkadot"
@@ -252,6 +252,7 @@ jobs:
           IMAGE_NAME: ${{ env.BINARY }}
           OWNER: ${{ env.DOCKER_OWNER }}
           TAGS: ${{ join(steps.fetch_rc_refs.outputs.*, ',') || join(steps.fetch_release_refs.outputs.*, ',') }}
+          VERSION: ${{ needs.validate-inputs.outputs.version }}
         run: |
           ls -al
           echo "Building container for $BINARY"
@@ -266,6 +267,7 @@ jobs:
           OWNER: ${{ env.DOCKER_OWNER }}
           DOCKERFILE: docker/dockerfiles/polkadot-parachain/polkadot-parachain_injected.Dockerfile
           TAGS: ${{ join(steps.fetch_rc_refs.outputs.*, ',') || join(steps.fetch_release_refs.outputs.*, ',') }}
+          VERSION: ${{ needs.validate-inputs.outputs.version }}
         run: |
           ls -al
           mkdir -p $ARTIFACTS_FOLDER/specs
