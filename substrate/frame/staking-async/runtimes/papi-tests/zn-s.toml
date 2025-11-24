@@ -21,6 +21,8 @@ args = [
 [[parachains]]
 id = 1100
 chain_spec_path = "./parachain.json"
+force_decorator = "oracle"
+keystore_key_types = ["aura_sr", "orcl_sr"]
 
 [parachains.collator]
 name = "charlie"

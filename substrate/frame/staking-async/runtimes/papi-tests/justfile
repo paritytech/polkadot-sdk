@@ -16,6 +16,7 @@ setup:
     just install || echo "🚧 Generate and installed missing descriptors..."
     just build-and-generate-chains
 
+    # NOTE: this require zombienet >= v1.3.135
     # Start zombienet and wait for ws endpoints to be ready
     zombienet --provider native -l text spawn zn-s.toml 2>&1 &
     CHAINS_PID=$!
