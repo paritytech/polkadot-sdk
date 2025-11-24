@@ -598,7 +598,6 @@ struct Frame<T: Config> {
 	/// The set of contracts that were created during this call stack.
 	contracts_created: BTreeSet<T::AccountId>,
 	/// The set of contracts that are registered for destruction at the end of this call stack.
-	/// The tuple contains: (address of contract, contract info, address of beneficiary)
 	contracts_to_be_destroyed: BTreeMap<T::AccountId, TerminateArgs<T>>,
 }
 
