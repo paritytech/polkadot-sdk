@@ -158,7 +158,7 @@ where
 		inherited_implication: &impl Implication,
 		source: TransactionSource,
 	) -> Result<(ValidTransaction, Self::Val, T::RuntimeOrigin), TransactionValidityError> {
-		let proof_size = get_proof_size();
+		let proof_size = get_proof_size(T::Version::get().state_version());
 
 		self.0
 			.validate(origin, call, info, len, self_implicit, inherited_implication, source)
@@ -202,11 +202,7 @@ where
 			return Ok(inner_refund);
 		};
 
-		cumulus_primitives_storage_weight_reclaim::compute_pov_size_for_storage_root(
-			T::Version::get().state_version()
-		);
-
-		let Some(proof_size_after_dispatch) = get_proof_size().defensive_proof(
+		let Some(proof_size_after_dispatch) = get_proof_size(T::Version::get().state_version()).defensive_proof(
 			"Proof recording enabled during prepare, now disabled. This should not happen.",
 		) else {
 			return Ok(inner_refund)

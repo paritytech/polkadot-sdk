@@ -36,12 +36,20 @@ pub const PROOF_RECORDING_DISABLED: u64 = u64::MAX;
 /// to return u64::MAX.
 #[runtime_interface]
 pub trait StorageProofSize {
-	fn compute_pov_size_for_storage_root(&mut self, state_version: PassAs<StateVersion, u8>) {
-		self.compute_pov_size_for_storage_root(state_version);
-	}
-
 	/// Returns the current storage proof size.
 	fn storage_proof_size(&mut self) -> u64 {
+		self.extension::<ProofSizeExt>()
+			.map_or(PROOF_RECORDING_DISABLED, |e| e.storage_proof_size())
+	}
+
+	/// Returns the current storage proof size after computing PoV size for storage root.
+	///
+	/// This function first triggers the computation of PoV size for storage root changes
+	/// (recording trie nodes that would be accessed during storage root calculation),
+	/// then returns the updated proof size.
+	#[version(2)]
+	fn storage_proof_size(&mut self, state_version: PassAs<StateVersion, u8>) -> u64 {
+		self.compute_pov_size_for_storage_root(state_version);
 		self.extension::<ProofSizeExt>()
 			.map_or(PROOF_RECORDING_DISABLED, |e| e.storage_proof_size())
 	}
@@ -49,7 +57,7 @@ pub trait StorageProofSize {
 
 #[cfg(test)]
 mod tests {
-	use sp_core::Blake2Hasher;
+	use sp_core::{storage::StateVersion, Blake2Hasher};
 	use sp_state_machine::TestExternalities;
 	use sp_trie::{
 		proof_size_extension::ProofSizeExt, recorder::Recorder, LayoutV1, PrefixedMemoryDB,
@@ -90,13 +98,13 @@ mod tests {
 		ext.register_extension(ProofSizeExt::new(recorder));
 
 		ext.execute_with(|| {
-			assert_eq!(storage_proof_size::storage_proof_size(), 0);
+			assert_eq!(storage_proof_size::storage_proof_size(StateVersion::V1), 0);
 			sp_io::storage::get(b"key1");
-			assert_eq!(storage_proof_size::storage_proof_size(), 175);
+			assert_eq!(storage_proof_size::storage_proof_size(StateVersion::V1), 175);
 			sp_io::storage::get(b"key2");
-			assert_eq!(storage_proof_size::storage_proof_size(), 275);
+			assert_eq!(storage_proof_size::storage_proof_size(StateVersion::V1), 275);
 			sp_io::storage::get(b"key2");
-			assert_eq!(storage_proof_size::storage_proof_size(), 275);
+			assert_eq!(storage_proof_size::storage_proof_size(StateVersion::V1), 275);
 		});
 	}
 
@@ -105,11 +113,20 @@ mod tests {
 		let (mut ext, _) = get_prepared_test_externalities();
 
 		ext.execute_with(|| {
-			assert_eq!(storage_proof_size::storage_proof_size(), PROOF_RECORDING_DISABLED);
+			assert_eq!(
+				storage_proof_size::storage_proof_size(StateVersion::V1),
+				PROOF_RECORDING_DISABLED
+			);
 			sp_io::storage::get(b"key1");
-			assert_eq!(storage_proof_size::storage_proof_size(), PROOF_RECORDING_DISABLED);
+			assert_eq!(
+				storage_proof_size::storage_proof_size(StateVersion::V1),
+				PROOF_RECORDING_DISABLED
+			);
 			sp_io::storage::get(b"key2");
-			assert_eq!(storage_proof_size::storage_proof_size(), PROOF_RECORDING_DISABLED);
+			assert_eq!(
+				storage_proof_size::storage_proof_size(StateVersion::V1),
+				PROOF_RECORDING_DISABLED
+			);
 		});
 	}
 }

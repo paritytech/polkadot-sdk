@@ -21,7 +21,7 @@ use frame_support::{
 	weights::{Weight, WeightMeter},
 };
 use frame_system::{BlockWeight, CheckWeight};
-use sp_runtime::{traits::DispatchTransaction, AccountId32, BuildStorage};
+use sp_runtime::{traits::DispatchTransaction, AccountId32, BuildStorage, StateVersion};
 use sp_trie::proof_size_extension::ProofSizeExt;
 
 type Test = cumulus_test_runtime::Runtime;
@@ -604,7 +604,7 @@ fn test_incorporates_check_weight_unspent_weight_on_negative_reverse_order() {
 fn storage_size_reported_correctly() {
 	let mut test_ext = setup_test_externalities(&[1000]);
 	test_ext.execute_with(|| {
-		assert_eq!(get_proof_size(), Some(1000));
+		assert_eq!(get_proof_size(StateVersion::V1), Some(1000));
 	});
 
 	let mut test_ext = new_test_ext();
@@ -614,7 +614,7 @@ fn storage_size_reported_correctly() {
 	test_ext.register_extension(ProofSizeExt::new(test_recorder));
 
 	test_ext.execute_with(|| {
-		assert_eq!(get_proof_size(), Some(0));
+		assert_eq!(get_proof_size(StateVersion::V1), Some(0));
 	});
 }
 
@@ -623,7 +623,7 @@ fn storage_size_disabled_reported_correctly() {
 	let mut test_ext = setup_test_externalities(&[PROOF_RECORDING_DISABLED as usize]);
 
 	test_ext.execute_with(|| {
-		assert_eq!(get_proof_size(), None);
+		assert_eq!(get_proof_size(StateVersion::V1), None);
 	});
 }
 
@@ -634,7 +634,7 @@ fn test_reclaim_helper() {
 
 	test_ext.execute_with(|| {
 		let mut remaining_weight_meter = WeightMeter::with_limit(Weight::from_parts(0, 2000));
-		let mut reclaim_helper = StorageWeightReclaimer::new(&remaining_weight_meter);
+		let mut reclaim_helper = StorageWeightReclaimer::new(&remaining_weight_meter, StateVersion::V1);
 		remaining_weight_meter.consume(Weight::from_parts(0, 500));
 		let reclaimed = reclaim_helper.reclaim_with_meter(&mut remaining_weight_meter);
 
@@ -655,7 +655,7 @@ fn test_reclaim_helper_does_not_reclaim_negative() {
 
 	test_ext.execute_with(|| {
 		let mut remaining_weight_meter = WeightMeter::with_limit(Weight::from_parts(0, 1000));
-		let mut reclaim_helper = StorageWeightReclaimer::new(&remaining_weight_meter);
+		let mut reclaim_helper = StorageWeightReclaimer::new(&remaining_weight_meter, StateVersion::V1);
 		let reclaimed = reclaim_helper.reclaim_with_meter(&mut remaining_weight_meter);
 
 		assert_eq!(reclaimed, Some(Weight::from_parts(0, 0)));
@@ -667,7 +667,7 @@ fn test_reclaim_helper_does_not_reclaim_negative() {
 
 	test_ext.execute_with(|| {
 		let mut remaining_weight_meter = WeightMeter::with_limit(Weight::from_parts(0, 1000));
-		let mut reclaim_helper = StorageWeightReclaimer::new(&remaining_weight_meter);
+		let mut reclaim_helper = StorageWeightReclaimer::new(&remaining_weight_meter, StateVersion::V1);
 		remaining_weight_meter.consume(Weight::from_parts(0, 0));
 		let reclaimed = reclaim_helper.reclaim_with_meter(&mut remaining_weight_meter);
 
@@ -692,7 +692,7 @@ fn reclaim_with_weight_meter() {
 
 	// It is important to instantiate the `StorageWeightReclaimer` before we consume the weight
 	// for a piece of work from the weight meter.
-	let mut reclaim_helper = StorageWeightReclaimer::new(&remaining_weight_meter);
+	let mut reclaim_helper = StorageWeightReclaimer::new(&remaining_weight_meter, StateVersion::V1);
 
 	if remaining_weight_meter.try_consume(benched_weight).is_ok() {
 		// Perform some work that takes has `benched_weight` storage weight.
