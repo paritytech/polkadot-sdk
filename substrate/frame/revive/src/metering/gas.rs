@@ -29,7 +29,7 @@ pub enum SignedGas<T: Config> {
 	/// Positive gas amount
 	Positive(BalanceOf<T>),
 	/// Negative gas amount
-	/// Invariant: BalanceOf<T> is never 0 for `Negative`
+	/// Invariant: `BalanceOf<T>` is never 0 for `Negative`
 	Negative(BalanceOf<T>),
 }
 
