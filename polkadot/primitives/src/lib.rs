@@ -53,7 +53,7 @@ pub use v9::{
 	ExecutorParamError, ExecutorParams, ExecutorParamsHash, ExecutorParamsPrepHash,
 	ExplicitDisputeStatement, GroupIndex, GroupRotationInfo, Hash, HashT, HeadData, Header,
 	HorizontalMessages, HrmpChannelId, Id, InboundDownwardMessage, InboundHrmpMessage, IndexedVec,
-	InherentData, InternalVersion, InvalidDisputeStatementKind, Moment, MultiDisputeStatementSet,
+	InherentData, InvalidDisputeStatementKind, Moment, MultiDisputeStatementSet,
 	NodeFeatures, Nonce, OccupiedCore, OccupiedCoreAssumption, OutboundHrmpMessage,
 	ParathreadClaim, ParathreadEntry, PersistedValidationData, PvfCheckStatement, PvfExecKind,
 	PvfPrepKind, RuntimeMetricLabel, RuntimeMetricLabelValue, RuntimeMetricLabelValues,
