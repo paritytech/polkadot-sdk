@@ -1728,6 +1728,15 @@ where
 	}
 
 	fn terminate_if_same_tx(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
+		if_tracing(|tracer| {
+			let addr = T::AddressMapper::to_address(self.account_id());
+			tracer.terminate(
+				addr,
+				*beneficiary,
+				self.top_frame().nested_gas.gas_left(),
+				crate::Pallet::<T>::evm_balance(&addr),
+			);
+		});
 		let (account_id, contract_address, contract_info) = {
 			let frame = self.top_frame_mut();
 			if frame.entry_point == ExportedFunction::Constructor {
@@ -2052,6 +2061,15 @@ where
 	}
 
 	fn origin(&self) -> &Origin<T> {
+		if let Some(mock_origin) = self
+			.exec_config
+			.mock_handler
+			.as_ref()
+			.and_then(|mock_handler| mock_handler.mock_origin())
+		{
+			return mock_origin;
+		}
+
 		&self.origin
 	}
 
