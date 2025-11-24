@@ -5305,7 +5305,6 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "polkadot-primitives",
- "sp-consensus-babe",
  "tokio",
  "zombienet-configuration",
  "zombienet-sdk",

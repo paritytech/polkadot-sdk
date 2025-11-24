@@ -6,7 +6,6 @@ use codec::{Compact, Decode};
 use cumulus_primitives_core::{relay_chain, rpsr_digest::RPSR_CONSENSUS_ID};
 use futures::stream::StreamExt;
 use polkadot_primitives::{CandidateReceiptV2, Id as ParaId};
-use sp_consensus_babe::{ConsensusLog, BABE_ENGINE_ID};
 use std::{
 	cmp::max,
 	collections::{HashMap, HashSet},
@@ -38,25 +37,6 @@ use zombienet_configuration::types::AssetLocation;
 // Maximum number of blocks to wait for a session change.
 // If it does not arrive for whatever reason, we should not wait forever.
 const WAIT_MAX_BLOCKS_FOR_SESSION: u32 = 50;
-
-/// Returns true if block announces a new session.
-pub fn does_rc_block_contain_session_change(
-	relay_block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
-) -> bool {
-	for log in relay_block.header().digest.logs.iter() {
-		match log {
-			DigestItem::Consensus(id, val) if id == &BABE_ENGINE_ID => {
-				let consensus_log = ConsensusLog::decode(&mut &val[..]);
-				match consensus_log {
-					Ok(ConsensusLog::NextEpochData(_)) => return true,
-					_ => continue,
-				}
-			},
-			_ => continue,
-		}
-	}
-	false
-}
 
 /// Create a batch call to assign cores to a parachain.
 pub fn create_assign_core_call(core_and_para: &[(u32, u32)]) -> DynamicPayload {
@@ -92,6 +72,17 @@ fn find_event_and_decode_fields<T: Decode>(
 	}
 	Ok(result)
 }
+/// Returns `true` if the `block` is a session change.
+async fn is_session_change(
+	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+) -> Result<bool, anyhow::Error> {
+	let events = block.events().await?;
+	Ok(events.iter().any(|event| {
+		event.as_ref().is_ok_and(|event| {
+			event.pallet_name() == "Session" && event.variant_name() == "NewSession"
+		})
+	}))
+}
 
 // Helper function for asserting the throughput of parachains, after the first session change.
 //
@@ -114,20 +105,15 @@ pub async fn assert_para_throughput(
 	while let Some(block) = blocks_sub.next().await {
 		let block = block?;
 		log::debug!("Finalized relay chain block {}", block.number());
-		let events = block.events().await?;
-		let is_session_change = events.iter().any(|event| {
-			event.as_ref().is_ok_and(|event| {
-				event.pallet_name() == "Session" && event.variant_name() == "NewSession"
-			})
-		});
 
 		// Do not count blocks with session changes, no backed blocks there.
-		if is_session_change {
+		if is_session_change(&block).await? {
 			continue;
 		}
 
 		current_block_count += 1;
 
+		let events = block.events().await?;
 		let receipts = find_event_and_decode_fields::<CandidateReceiptV2<H256>>(
 			&events,
 			"ParaInclusion",
@@ -192,14 +178,8 @@ pub async fn wait_for_nth_session_change(
 	while let Some(block) = blocks_sub.next().await {
 		let block = block?;
 		log::debug!("Finalized relay chain block {}", block.number());
-		let events = block.events().await?;
-		let is_session_change = events.iter().any(|event| {
-			event.as_ref().is_ok_and(|event| {
-				event.pallet_name() == "Session" && event.variant_name() == "NewSession"
-			})
-		});
 
-		if is_session_change {
+		if is_session_change(&block).await? {
 			sessions_to_wait -= 1;
 			if sessions_to_wait == 0 {
 				return Ok(());
@@ -302,7 +282,7 @@ pub async fn assert_relay_parent_offset(
 				// In this scenario, parachains with an offset of 2 should never build on relay chain
 				// blocks B or C. Both of them would include the session change block D* in their
 				// descendants, and we know that the candidate would span a session boundary.
-				if does_rc_block_contain_session_change(&relay_block) {
+				if is_session_change(&relay_block).await? {
 					log::debug!("RC block #{} contains session change, adding {offset} parents to forbidden list.", relay_block.number());
 					let mut current_hash = relay_block.header().parent_hash;
 					for _ in 0..offset {
@@ -345,7 +325,7 @@ pub async fn assert_relay_parent_offset(
 }
 
 /// Extract relay parent information from the digest logs.
-pub fn extract_relay_parent_storage_root(
+fn extract_relay_parent_storage_root(
 	digest: &DigestItem,
 ) -> Option<(relay_chain::Hash, relay_chain::BlockNumber)> {
 	match digest {
