@@ -237,10 +237,10 @@ jobs:
             ./docker/scripts/build-injected.sh
           else
             echo "Building release container for polkadot"
-            DOCKERFILE="docker/dockerfiles/polkadot/polkadot_injected_debian.Dockerfile"
-            BINARY="polkadot,polkadot-execute-worker,polkadot-prepare-worker"
-            POLKADOT_DEB=true
-            VERSION=${{ needs.validate-inputs.outputs.version }}
+            export DOCKERFILE="docker/dockerfiles/polkadot/polkadot_injected_debian.Dockerfile"
+            export BINARY="polkadot,polkadot-execute-worker,polkadot-prepare-worker"
+            export POLKADOT_DEB=true
+            export VERSION=${{ needs.validate-inputs.outputs.version }}
            ./docker/scripts/build-injected.sh
           fi
 
