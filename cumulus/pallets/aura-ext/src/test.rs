@@ -56,11 +56,9 @@ pub mod test_pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
-			let proof_size = dbg!(
+			let proof_size =
 				cumulus_primitives_proof_size_hostfunction::storage_proof_size::storage_proof_size(
-				)
-			);
-
+				);
 			// We need to commit the `proof_size` to ensure that the test is failing if we are
 			// receiving a different proof size later on.
 			TestStorage::<T>::put(proof_size);
