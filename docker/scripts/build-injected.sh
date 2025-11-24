@@ -59,7 +59,7 @@ done
 
 echo "$TAG_ARGS"
 
-if [[ "$POLKADOT_DEB" == "true" ]]; then
+if [[ "$POLKADOT_DEB" == true ]]; then
   echo "Building polkadot release  image based on the Debian package"
   $ENGINE build \
       ${PODMAN_FLAGS} \
