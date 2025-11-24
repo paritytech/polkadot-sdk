@@ -180,7 +180,7 @@ fn eth_contract_too_large() {
 
 		// Initialize genesis config with allow_unlimited_contract_size
 		let genesis_config = GenesisConfig::<Test> {
-			debug_settings: Some(DebugSettings::new(allow_unlimited_contract_size, false)),
+			debug_settings: Some(DebugSettings::new(allow_unlimited_contract_size, false, false)),
 			..Default::default()
 		};
 

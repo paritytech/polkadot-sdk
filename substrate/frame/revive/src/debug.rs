@@ -38,18 +38,27 @@ use sp_runtime::RuntimeDebug;
 pub struct DebugSettings {
 	/// Whether to allow unlimited contract size.
 	allow_unlimited_contract_size: bool,
+	/// Whether to allow bypassing EIP-3607 (allowing transactions coming from contract or
+	/// precompile accounts).
+	bypass_eip_3607: bool,
 	/// Whether to enable PolkaVM logs.
 	pvm_logs: bool,
 }
 
 impl DebugSettings {
-	pub fn new(allow_unlimited_contract_size: bool, pvm_logs: bool) -> Self {
-		Self { allow_unlimited_contract_size, pvm_logs }
+	pub fn new(allow_unlimited_contract_size: bool, bypass_eip_3607: bool, pvm_logs: bool) -> Self {
+		Self { allow_unlimited_contract_size, bypass_eip_3607, pvm_logs }
 	}
 
 	/// Returns true if unlimited contract size is allowed.
 	pub fn is_unlimited_contract_size_allowed<T: Config>() -> bool {
 		T::DebugEnabled::get() && DebugSettingsOf::<T>::get().allow_unlimited_contract_size
+	}
+
+	/// Returns true if transactions coming from contract or precompile accounts are allowed
+	/// (bypassing EIP-3607)
+	pub fn bypass_eip_3607<T: Config>() -> bool {
+		T::DebugEnabled::get() && DebugSettingsOf::<T>::get().bypass_eip_3607
 	}
 
 	/// Returns true if PolkaVM logs are enabled.
