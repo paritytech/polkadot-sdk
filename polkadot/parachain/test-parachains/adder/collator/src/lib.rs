@@ -367,8 +367,8 @@ mod tests {
 				.lock()
 				.unwrap()
 				.advance(head)
-				.1
-				.expect("Should not have state mismatch.");
+				.expect("Should not have state mismatch.")
+				.1;
 			assert_eq!(10 + i, head.number);
 		}
 
@@ -390,8 +390,8 @@ mod tests {
 				.lock()
 				.unwrap()
 				.advance(second_head.clone())
+				.expect("Should not have state mismatch.")
 				.1
-				.expect("should not have state mismatch");
 		}
 
 		assert_eq!(second_head, head);
