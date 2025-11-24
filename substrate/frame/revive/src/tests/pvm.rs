@@ -4957,7 +4957,7 @@ fn eip3607_reject_tx_from_contract_or_precompile() {
 		assert!(<AccountInfo<Test>>::is_contract(&contract_addr));
 		let blake2_addr = H160::from_low_u64_be(9);
 		let system_addr = H160::from_low_u64_be(0x900);
-		let addresses = vec![contract_addr, blake2_addr, system_addr];
+		let addresses = [contract_addr, blake2_addr, system_addr];
 
 		// used to test `dispatch_as_fallback_account`
 		let call = Box::new(RuntimeCall::Balances(pallet_balances::Call::transfer_all {
@@ -5037,7 +5037,7 @@ fn eip3607_allow_tx_from_contract_or_precompile_if_debug_setting_configured() {
 
 			let blake2_addr = H160::from_low_u64_be(9);
 			let system_addr = H160::from_low_u64_be(0x900);
-			let addresses = vec![contract_addr, blake2_addr, system_addr];
+			let addresses = [contract_addr, blake2_addr, system_addr];
 
 			for address in addresses {
 				let origin = <Test as Config>::AddressMapper::to_fallback_account_id(&address);
