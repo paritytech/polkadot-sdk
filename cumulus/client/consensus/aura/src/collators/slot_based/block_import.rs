@@ -25,7 +25,7 @@ use sc_client_api::{
 	HeaderBackend,
 };
 use sc_consensus::{BlockImport, StateAction};
-use sc_consensus_aura::{find_pre_digest, standalone::fetch_authorities};
+use sc_consensus_aura::find_pre_digest;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_api::{
 	ApiExt, CallApiAt, CallContext, Core, ProofRecorder, ProofRecorderIgnoredNodes,
@@ -38,7 +38,6 @@ use sp_runtime::traits::{Block as BlockT, HashingFor, Header as _};
 use sp_trie::{
 	proof_size_extension::{ProofSizeExt, RecordingProofSizeProvider},
 	recorder::IgnoredNodes,
-	GenericMemoryDB, KeyFunction,
 };
 use std::{marker::PhantomData, sync::Arc};
 
@@ -61,26 +60,15 @@ where
 	}
 }
 
-/// Convert stored node data back to IgnoredNodes.
-fn nodes_to_ignored_nodes<Block: BlockT>(nodes: Vec<Vec<u8>>) -> IgnoredNodes<Block::Hash> {
-	if nodes.is_empty() {
-		return IgnoredNodes::default();
-	}
-
-	// Create a StorageProof from the node data and convert to IgnoredNodes
-	let storage_proof = StorageProof::new(nodes);
-	IgnoredNodes::from_storage_proof::<HashingFor<Block>>(&storage_proof)
-}
-
 /// Prepare a transaction to write the nodes to ignore to the aux storage.
 ///
 /// Returns the key-value pairs that need to be written to the aux storage.
 fn prepare_nodes_to_ignore_transaction<Block: BlockT>(
 	block_hash: Block::Hash,
-	nodes: Vec<Vec<u8>>,
+	ignored_nodes: IgnoredNodes<Block::Hash>,
 ) -> impl Iterator<Item = (Vec<u8>, Vec<u8>)> {
 	let key = nodes_to_ignore_key(block_hash);
-	let encoded_nodes = nodes.encode();
+	let encoded_nodes = ignored_nodes.encode();
 
 	[(key, encoded_nodes)].into_iter()
 }
@@ -92,7 +80,8 @@ fn load_nodes_to_ignore<Block: BlockT, B: AuxStore>(
 ) -> ClientResult<Option<IgnoredNodes<Block::Hash>>> {
 	let nodes: Option<Vec<Vec<u8>>> =
 		load_decode(backend, nodes_to_ignore_key(block_hash).as_slice())?;
-	Ok(nodes.map(nodes_to_ignored_nodes::<Block>))
+
+	nodes.map(|n| IgnoredNodes::decode(&mut &n[..])).transpose().map_err(Into::into)
 }
 
 /// Handle for receiving the block and the storage proof from the [`SlotBasedBlockImport`].
@@ -179,13 +168,6 @@ impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Cli
 
 		let slot = find_pre_digest::<Block, ()>(&params.header)
 			.map_err(|error| sp_consensus::Error::Other(Box::new(error)))?;
-		let authorities = fetch_authorities(&*self.client, *params.header.parent_hash())?;
-
-		let pov_bundle = PoVBundle {
-			author_index: *slot as usize % authorities.len(),
-			core_info,
-			relay_block_identifier,
-		};
 
 		let parent_hash = *params.header.parent_hash();
 
@@ -250,29 +232,16 @@ impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Cli
 			return Err(sp_consensus::Error::Other(Box::new(sp_blockchain::Error::InvalidStateRoot)))
 		}
 
-		// Collect new node data from this block's execution
-		let mut new_nodes = IgnoredNodes::from_storage_proof(&storage_proof);
-		new_nodes.extend(IgnoredNodes::from_memory_db(gen_storage_changes.transaction.clone()));
+		nodes_to_ignore.extend(IgnoredNodes::from_storage_proof(&storage_proof));
+		nodes_to_ignore
+			.extend(IgnoredNodes::from_memory_db(gen_storage_changes.transaction.clone()));
 
-		// Load parent nodes if they exist (to combine with new nodes)
-		let mut all_nodes = if is_same_bundle {
-			// Load parent nodes as Vec<Vec<u8>> to combine with new nodes
-			load_decode(&*self.client, nodes_to_ignore_key(parent_hash).as_slice())
-				.ok()
-				.flatten()
-				.unwrap_or_default()
-		} else {
-			Vec::new()
-		};
-
-		// Extend with new nodes
-		all_nodes.extend(new_nodes);
-
-		// Store nodes to ignore in aux data for this block
 		let block_hash = params.header.hash();
-		prepare_nodes_to_ignore_transaction::<Block>(block_hash, all_nodes).for_each(|(k, v)| {
-			params.auxiliary.push((k, Some(v)));
-		});
+		prepare_nodes_to_ignore_transaction::<Block>(block_hash, nodes_to_ignore).for_each(
+			|(k, v)| {
+				params.auxiliary.push((k, Some(v)));
+			},
+		);
 
 		// Extract and store proof size recordings
 		let recorded_sizes = proof_size_recorder

@@ -21,7 +21,7 @@
 //! to record storage accesses to the state to generate a [`StorageProof`].
 
 use crate::{GenericMemoryDB, NodeCodec, StorageProof};
-use codec::Encode;
+use codec::{Decode, Encode};
 use hash_db::Hasher;
 use memory_db::KeyFunction;
 use parking_lot::{Mutex, MutexGuard};
@@ -42,7 +42,7 @@ const LOG_TARGET: &str = "trie-recorder";
 /// A list of ignored nodes for [`Recorder`].
 ///
 /// These nodes when passed to a recorder will be ignored and not recorded by the recorder.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Encode, Decode)]
 pub struct IgnoredNodes<H> {
 	nodes: HashSet<H>,
 }
