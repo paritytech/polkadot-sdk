@@ -1729,6 +1729,7 @@ pub mod node_features {
 		/// Enables fast erasure coding for availability recovery.
 		/// This feature improves the performance of erasure coding operations
 		/// used in the availability and recovery subsystem.
+		/// [RFC-139](https://polkadot-fellows.github.io/RFCs/approved/0139-faster-erasure-coding.html)
 		FastErasureCoding = 4,
 		/// First unassigned feature bit.
 		/// Every time a new feature flag is assigned it should take this value.

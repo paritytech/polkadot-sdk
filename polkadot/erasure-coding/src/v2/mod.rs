@@ -108,7 +108,32 @@ mod tests {
 	use super::*;
 	use polkadot_node_primitives::{BlockData, PoV};
 	use polkadot_primitives::{HeadData, PersistedValidationData};
+	use quickcheck::{Arbitrary, Gen, QuickCheck};
 	use std::sync::Arc;
+
+	#[derive(Clone, Debug)]
+	struct ArbitraryAvailableData(AvailableData);
+
+	impl Arbitrary for ArbitraryAvailableData {
+		fn arbitrary(g: &mut Gen) -> Self {
+			// Limit the POV len to 256KiB for v2 tests to avoid reconstruction issues
+			let pov_len = (u32::arbitrary(g) % (256 * 1024)).max(2);
+
+			let pov = (0..pov_len).map(|_| u8::arbitrary(g)).collect();
+
+			let pvd = PersistedValidationData {
+				parent_head: HeadData((0..(u16::arbitrary(g) % 1024)).map(|_| u8::arbitrary(g)).collect()),
+				relay_parent_number: u32::arbitrary(g),
+				relay_parent_storage_root: [u8::arbitrary(g); 32].into(),
+				max_pov_size: u32::arbitrary(g),
+			};
+
+			ArbitraryAvailableData(AvailableData {
+				pov: Arc::new(PoV { block_data: BlockData(pov) }),
+				validation_data: pvd,
+			})
+		}
+	}
 
 	#[test]
 	fn v2_round_trip_works() {
@@ -145,6 +170,32 @@ mod tests {
 		).unwrap();
 		
 		assert_eq!(reconstructed, available_data);
+	}
+
+	#[test]
+	fn v2_round_trip_reconstruct_works() {
+		fn property(available_data: ArbitraryAvailableData, n_validators: u16) {
+			// Limit n_validators to a reasonable range (4..1024) to avoid TooManyValidators error
+			let n_validators = ((n_validators % 1020) + 4) as usize;
+			let chunks = obtain_chunks_v2(n_validators, &available_data.0).unwrap();
+			
+			// Test reconstruction from a subset of chunks (any f+1 chunks should work)
+			// For n_validators, we need at least (n_validators - 1) / 3 + 1 chunks
+			let min_chunks = (n_validators - 1) / 3 + 1;
+			
+			// Take a few more chunks than minimum to ensure reconstruction
+			let chunks_to_use = (min_chunks + 2).min(n_validators);
+			
+			let reconstructed = reconstruct_v2(
+				n_validators,
+				chunks.iter().enumerate().take(chunks_to_use).map(|(i, c)| (c.as_slice(), i))
+			)
+			.unwrap();
+			
+			assert_eq!(reconstructed, available_data.0);
+		}
+
+		QuickCheck::new().quickcheck(property as fn(ArbitraryAvailableData, u16))
 	}
 
 }

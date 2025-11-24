@@ -213,11 +213,6 @@ impl CollationGenerationSubsystem {
 		let session_info =
 			self.session_info_cache.get(relay_parent, session_index, ctx.sender()).await?;
 		
-		// Get node_features from runtime API
-		let node_features = request_node_features(relay_parent, session_index, ctx.sender())
-			.await
-			.await??;
-		
 		let collation = PreparedCollation {
 			collation,
 			relay_parent,
@@ -227,7 +222,7 @@ impl CollationGenerationSubsystem {
 			n_validators: session_info.n_validators,
 			core_index,
 			session_index,
-			node_features,
+			node_features: session_info.node_features,
 		};
 
 		construct_and_distribute_receipt(
@@ -269,6 +264,7 @@ impl CollationGenerationSubsystem {
 		let session_info =
 			self.session_info_cache.get(relay_parent, session_index, ctx.sender()).await?;
 		let n_validators = session_info.n_validators;
+		let node_features = session_info.node_features;
 
 		let claim_queue =
 			ClaimQueueSnapshot::from(request_claim_queue(relay_parent, ctx.sender()).await.await??);
@@ -337,6 +333,7 @@ impl CollationGenerationSubsystem {
 		let task_config = config.clone();
 		let metrics = self.metrics.clone();
 		let mut task_sender = ctx.sender().clone();
+		let node_features_clone = node_features.clone();
 
 		ctx.spawn(
 			"chained-collation-builder",
@@ -431,20 +428,6 @@ impl CollationGenerationSubsystem {
 
 					// Distribute the collation.
 					let parent_head = collation.head_data.clone();
-					// Get node_features from runtime API
-					let node_features = match request_node_features(relay_parent, session_index, &mut task_sender)
-						.await
-						.await
-					{
-						Ok(Ok(features)) => features,
-						Ok(Err(_)) | Err(_) => {
-							gum::error!(
-								target: LOG_TARGET,
-								"Failed to get node features from runtime API, aborting collation"
-							);
-							return
-						}
-					};
 					
 					if let Err(err) = construct_and_distribute_receipt(
 						PreparedCollation {
@@ -456,7 +439,7 @@ impl CollationGenerationSubsystem {
 							n_validators,
 							core_index: descriptor_core_index,
 							session_index,
-							node_features,
+							node_features: node_features_clone.clone(),
 						},
 						&mut task_sender,
 						result_sender,
@@ -500,6 +483,7 @@ impl<Context> CollationGenerationSubsystem {
 #[derive(Clone)]
 struct PerSessionInfo {
 	n_validators: usize,
+	node_features: NodeFeatures,
 }
 
 struct SessionInfoCache(LruMap<SessionIndex, PerSessionInfo>);
@@ -522,7 +506,11 @@ impl SessionInfoCache {
 		let n_validators =
 			request_validators(relay_parent, &mut sender.clone()).await.await??.len();
 
-		let info = PerSessionInfo { n_validators };
+		let node_features = request_node_features(relay_parent, session_index, &mut sender.clone())
+			.await
+			.await??;
+
+		let info = PerSessionInfo { n_validators, node_features };
 		self.0.insert(session_index, info);
 		Ok(self.0.get(&session_index).expect("Just inserted").clone())
 	}
