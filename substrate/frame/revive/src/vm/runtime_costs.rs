@@ -138,6 +138,8 @@ pub enum RuntimeCosts {
 	CallInputCloned(u32),
 	/// Weight of calling `seal_instantiate`.
 	Instantiate { input_data_len: u32, balance_transfer: bool, dust_transfer: bool },
+	/// Weight of calling `Create` opcode.
+	Create { init_code_len: u32, balance_transfer: bool, dust_transfer: bool },
 	/// Weight of calling `Ripemd160` precompile for the given input size.
 	Ripemd160(u32),
 	/// Weight of calling `Sha256` precompile for the given input size.
@@ -308,9 +310,15 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			CallInputCloned(len) => cost_args!(seal_call, 0, 0, len),
 			Instantiate { input_data_len, balance_transfer, dust_transfer } =>
 				T::WeightInfo::seal_instantiate(
-					input_data_len,
 					balance_transfer.into(),
 					dust_transfer.into(),
+					input_data_len,
+				),
+			Create { init_code_len, balance_transfer, dust_transfer } =>
+				T::WeightInfo::evm_instantiate(
+					balance_transfer.into(),
+					dust_transfer.into(),
+					init_code_len,
 				),
 			HashSha256(len) => T::WeightInfo::sha2_256(len),
 			Ripemd160(len) => T::WeightInfo::ripemd_160(len),
