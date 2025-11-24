@@ -88,18 +88,6 @@ impl Entry {
 	}
 }
 
-/// Entry representing a contract to build.
-pub struct BuildEntry {
-	pub name: String,
-	pub path: String,
-}
-
-impl BuildEntry {
-	pub fn new(name: impl Into<String>, path: impl Into<String>) -> Self {
-		Self { name: name.into(), path: path.into() }
-	}
-}
-
 /// Collect all contract entries from the given source directory.
 pub fn collect_entries(contracts_dir: &Path) -> Vec<Entry> {
 	fs::read_dir(contracts_dir)
@@ -117,83 +105,67 @@ pub fn collect_entries(contracts_dir: &Path) -> Vec<Entry> {
 		.collect::<Vec<_>>()
 }
 
-/// Create a Cargo.toml for building contracts using the template from build/_Cargo.toml.
-/// This is a simple version that uses a hardcoded path for uapi dependency.
-pub fn create_cargo_toml_simple(entries: &[BuildEntry], output_dir: &Path) -> Result<()> {
-	let mut cargo_toml: toml::Value = toml::from_str(include_str!("../build/_Cargo.toml"))?;
-
-	// Set uapi dependency path
-	let uapi_dep = cargo_toml["dependencies"]["uapi"].as_table_mut().unwrap();
-	let manifest_dir = env!("CARGO_MANIFEST_DIR");
-	let uapi_path = PathBuf::from(manifest_dir).parent().unwrap().join("uapi");
-	uapi_dep
-		.insert("path".to_string(), toml::Value::String(uapi_path.to_str().unwrap().to_string()));
-
-	// Set binary targets
-	cargo_toml["bin"] = toml::Value::Array(
-		entries
-			.iter()
-			.map(|entry| {
-				let mut table = toml::map::Map::new();
-				table.insert("name".to_string(), toml::Value::String(entry.name.clone()));
-				table.insert("path".to_string(), toml::Value::String(entry.path.clone()));
-				toml::Value::Table(table)
-			})
-			.collect::<Vec<_>>(),
-	);
-
-	let cargo_toml_str = toml::to_string_pretty(&cargo_toml)?;
-	fs::write(output_dir.join("Cargo.toml"), cargo_toml_str)
-		.with_context(|| format!("Failed to write Cargo.toml to {:?}", output_dir))?;
-	Ok(())
-}
-
 /// Create a `Cargo.toml` to compile the given Rust contract entries.
-/// This version uses cargo metadata to resolve the uapi dependency.
+/// If fixtures_dir is provided, uses cargo metadata to resolve the uapi dependency.
+/// Otherwise, uses a hardcoded path relative to CARGO_MANIFEST_DIR.
 pub fn create_cargo_toml<'a>(
-	fixtures_dir: &Path,
+	fixtures_dir: Option<&Path>,
 	entries: impl Iterator<Item = &'a Entry>,
 	output_dir: &Path,
 ) -> Result<()> {
 	let mut cargo_toml: toml::Value = toml::from_str(include_str!("../build/_Cargo.toml"))?;
 	let uapi_dep = cargo_toml["dependencies"]["uapi"].as_table_mut().unwrap();
 
-	let manifest_path = fixtures_dir.join("Cargo.toml");
-	let metadata = MetadataCommand::new().manifest_path(&manifest_path).exec().unwrap();
-	let dependency_graph = metadata.resolve.unwrap();
+	// Set uapi dependency path
+	if let Some(fixtures_dir) = fixtures_dir {
+		// Use cargo metadata to resolve the uapi dependency
+		let manifest_path = fixtures_dir.join("Cargo.toml");
+		let metadata = MetadataCommand::new().manifest_path(&manifest_path).exec().unwrap();
+		let dependency_graph = metadata.resolve.unwrap();
 
-	// Resolve the pallet-revive-fixtures package id
-	let fixtures_pkg_id = metadata
-		.packages
-		.iter()
-		.find(|pkg| pkg.manifest_path.as_std_path() == manifest_path)
-		.map(|pkg| pkg.id.clone())
-		.unwrap();
-	let fixtures_pkg_node =
-		dependency_graph.nodes.iter().find(|node| node.id == fixtures_pkg_id).unwrap();
+		// Resolve the pallet-revive-fixtures package id
+		let fixtures_pkg_id = metadata
+			.packages
+			.iter()
+			.find(|pkg| pkg.manifest_path.as_std_path() == manifest_path)
+			.map(|pkg| pkg.id.clone())
+			.unwrap();
+		let fixtures_pkg_node =
+			dependency_graph.nodes.iter().find(|node| node.id == fixtures_pkg_id).unwrap();
 
-	// Get the pallet-revive-uapi package id
-	let uapi_pkg_id = fixtures_pkg_node
-		.deps
-		.iter()
-		.find(|dep| dep.name == "pallet_revive_uapi")
-		.map(|dep| dep.pkg.clone())
-		.expect("pallet-revive-uapi is a build dependency of pallet-revive-fixtures; qed");
+		// Get the pallet-revive-uapi package id
+		let uapi_pkg_id = fixtures_pkg_node
+			.deps
+			.iter()
+			.find(|dep| dep.name == "pallet_revive_uapi")
+			.map(|dep| dep.pkg.clone())
+			.expect("pallet-revive-uapi is a build dependency of pallet-revive-fixtures; qed");
 
-	// Get pallet-revive-uapi package
-	let uapi_pkg = metadata.packages.iter().find(|pkg| pkg.id == uapi_pkg_id).unwrap();
+		// Get pallet-revive-uapi package
+		let uapi_pkg = metadata.packages.iter().find(|pkg| pkg.id == uapi_pkg_id).unwrap();
 
-	if uapi_pkg.source.is_none() {
+		if uapi_pkg.source.is_none() {
+			uapi_dep.insert(
+				"path".to_string(),
+				toml::Value::String(
+					fixtures_dir.join("../uapi").canonicalize()?.to_str().unwrap().to_string(),
+				),
+			);
+		} else {
+			uapi_dep
+				.insert("version".to_string(), toml::Value::String(uapi_pkg.version.to_string()));
+		}
+	} else {
+		// Use simple hardcoded path
+		let manifest_dir = env!("CARGO_MANIFEST_DIR");
+		let uapi_path = PathBuf::from(manifest_dir).parent().unwrap().join("uapi");
 		uapi_dep.insert(
 			"path".to_string(),
-			toml::Value::String(
-				fixtures_dir.join("../uapi").canonicalize()?.to_str().unwrap().to_string(),
-			),
+			toml::Value::String(uapi_path.to_str().unwrap().to_string()),
 		);
-	} else {
-		uapi_dep.insert("version".to_string(), toml::Value::String(uapi_pkg.version.to_string()));
 	}
 
+	// Set binary targets
 	cargo_toml["bin"] = toml::Value::Array(
 		entries
 			.map(|entry| {
@@ -252,15 +224,16 @@ pub fn invoke_build(current_dir: &Path) -> Result<()> {
 	Ok(())
 }
 
+#[allow(dead_code)]
 /// Compile a Rust contract source to RISC-V ELF.
-pub fn compile_rust_to_elf(
+fn compile_rust_to_elf(
 	contract_path: &Path,
 	contract_name: &str,
 	output_dir: &Path,
 ) -> Result<PathBuf> {
 	// Create Cargo.toml with single entry
-	let entry = BuildEntry::new(contract_name, contract_path.to_str().unwrap());
-	create_cargo_toml_simple(&[entry], output_dir)?;
+	let entry = Entry::new(contract_path.to_path_buf(), ContractType::Rust);
+	create_cargo_toml(None, std::iter::once(&entry), output_dir)?;
 
 	// Build
 	invoke_build(output_dir)?;
@@ -277,8 +250,9 @@ pub fn compile_rust_to_elf(
 	Ok(elf_path)
 }
 
+#[allow(dead_code)]
 /// Link a RISC-V ELF to PolkaVM bytecode.
-pub fn link_elf_to_polkavm(elf_path: &Path) -> Result<Vec<u8>> {
+fn link_elf_to_polkavm(elf_path: &Path) -> Result<Vec<u8>> {
 	let elf_bytes = std::fs::read(elf_path)
 		.with_context(|| format!("Failed to read ELF from {:?}", elf_path))?;
 
@@ -295,6 +269,8 @@ pub fn link_elf_to_polkavm(elf_path: &Path) -> Result<Vec<u8>> {
 	Ok(linked)
 }
 
+// dead_code - it is used by test code only
+#[allow(dead_code)]
 /// Compile a Rust contract source all the way to PolkaVM bytecode.
 pub fn compile_rust_to_polkavm(
 	contract_path: &Path,

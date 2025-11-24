@@ -71,7 +71,7 @@ pub fn main() -> Result<()> {
 			.filter(|e| matches!(e.contract_type, ContractType::Rust))
 			.collect();
 		if !rust_entries.is_empty() {
-			create_cargo_toml(&fixtures_dir, rust_entries.into_iter(), &out_build_dir)?;
+			create_cargo_toml(Some(&fixtures_dir), rust_entries.into_iter(), &out_build_dir)?;
 			invoke_build(&out_build_dir)?;
 			write_output(&out_build_dir, &out_fixtures_dir, entries.clone())?;
 		}
