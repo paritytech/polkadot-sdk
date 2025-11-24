@@ -3,7 +3,7 @@ doc:
 - audience:
   - Runtime Dev
   - Node Dev
-  description: "This PR adds `sp_io::transaction_index::HostFunctions` as a no-op to the polkadot-prepare-worker and polkadot-execute-worker binaries."
+  description: "This PR adds `sp_io::transaction_index::HostFunctions` as a no-op to the `cumulus-pallet-parachain-system`'s `validate_block`."
 crates:
-- name: polkadot-node-core-pvf-common
+- name: cumulus-pallet-parachain-system
   bump: patch
