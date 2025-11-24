@@ -1288,6 +1288,7 @@ impl<T: Config> Pallet<T> {
 	/// * Transition into `Phase::Signed`.
 	/// * Upon last page of `Phase::Signed`, instruct the `Verifier` to start, if any solution
 	///   exists.
+	/// * And moving forward all other phases as necessary.
 	///
 	/// What it does not do:
 	///
@@ -1297,7 +1298,9 @@ impl<T: Config> Pallet<T> {
 	///   it will do something, regardless of which phase we are in. In this pallet we only move
 	///   [`Phase::SignedValidation`] forward.
 	/// * Move us forward if we are in either of `Phase::Done` or `Phase::Export`. These are
-	///   controlled by the caller of our [`T::ElectionProvider`] implementation, i.e. staking.
+	///   controlled by the caller of our [`T::ElectionProvider`] implementation, i.e. staking. Note
+	///   that this pallet always transitions us from `current_phase` to `current_phase.next()`, but
+	///   the [`crate::types::Phase::next`] function is a noop for `Done` and `Export`.
 	///
 	/// ### Type
 	///
@@ -1412,6 +1415,9 @@ impl<T: Config> Pallet<T> {
 
 	pub(crate) fn phase_transition(to: Phase<T>) {
 		let from = Self::current_phase();
+		if from == to {
+			return;
+		}
 		use sp_std::mem::discriminant;
 		if discriminant(&from) != discriminant(&to) {
 			log!(debug, "transitioning phase from {:?} to {:?}", from, to);
