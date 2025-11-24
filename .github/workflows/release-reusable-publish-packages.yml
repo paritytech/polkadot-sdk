@@ -180,10 +180,10 @@ jobs:
             createrepo_c --update "$LOCAL_REPO_PATH"
           fi
 
-      # - name: Upload updated repo to S3
-      #   env:
-      #     AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      #     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
-      #   run: |
-      #     aws s3 sync "$LOCAL_REPO_PATH" "$AWS_REPO_PATH" --acl public-read
-      #     aws cloudfront create-invalidation --distribution-id ${{ inputs.cloudfront_distribution_id }} --paths '/${{ inputs.package_type }}/*'
+      - name: Upload updated repo to S3
+        env:
+          AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+        run: |
+          aws s3 sync "$LOCAL_REPO_PATH" "$AWS_REPO_PATH" --acl public-read
+          aws cloudfront create-invalidation --distribution-id ${{ inputs.cloudfront_distribution_id }} --paths '/${{ inputs.package_type }}/*'
