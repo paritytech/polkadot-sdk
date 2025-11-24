@@ -841,7 +841,7 @@ mod candidate_receipt_tests {
 
 		assert_eq!(
 			v1_ccr.parse_ump_signals(&transpose_claim_queue(cq)),
-			Err(CommittedCandidateReceiptError::UMPSignalWithV1Decriptor)
+			Err(CommittedCandidateReceiptError::UMPSignalWithV1Descriptor)
 		);
 	}
 
