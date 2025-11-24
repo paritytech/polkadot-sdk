@@ -725,7 +725,6 @@ pub mod pallet {
 
 			// if so, consume and prepare the next phase.
 			let current_phase = Self::current_phase();
-			let next_phase = current_phase.next();
 			weight_meter.consume(T::DbWeight::get().reads(1));
 
 			let (self_weight, self_exec) = Self::per_block_exec(current_phase);
@@ -748,17 +747,16 @@ pub mod pallet {
 				trace,
 				"worst-case required weight for transition from {:?} to {:?} is {:?}, has {:?}",
 				current_phase,
-				next_phase,
+				current_phase.next(),
 				combined_weight,
 				weight_meter.remaining()
 			);
 			if weight_meter.can_consume(combined_weight) {
 				combined_exec(weight_meter);
-				Self::phase_transition(next_phase);
 			} else {
 				Self::deposit_event(Event::UnexpectedPhaseTransitionOutOfWeight {
 					from: current_phase,
-					to: next_phase,
+					to: current_phase.next(),
 					required: combined_weight,
 					had: weight_meter.remaining(),
 				});
@@ -1281,6 +1279,9 @@ impl<T: Config> Pallet<T> {
 		Zero::zero()
 	}
 
+	/// > Note: Consider this a shared documentation block for [`Pallet::on_poll`] and this
+	/// > function, as they work together.
+	///
 	/// The meta-phase transition logic that applies to all pallets. Includes the following:
 	///
 	/// * Creating snapshot once `ElectionProvider::start` has instructed us to do so.
@@ -1291,11 +1292,12 @@ impl<T: Config> Pallet<T> {
 	/// What it does not do:
 	///
 	/// * Instruct the verifier to move forward. This happens through
-	///   [`verifier::Verifier::per_block_exec`]. On each block, [`T::Verifier`] is given a chance
-	///   to do something. Under the hood, if the `Status` is set, it will do something, regardless
-	///   of which phase we are in.
+	///   [`verifier::Verifier::per_block_exec`], called in [`Pallet::on_poll`]. On each block,
+	///   [`T::Verifier`] is given a chance to do something. Under the hood, if the `Status` is set,
+	///   it will do something, regardless of which phase we are in. In this pallet we only move
+	///   [`Phase::SignedValidation`] forward.
 	/// * Move us forward if we are in either of `Phase::Done` or `Phase::Export`. These are
-	///   controlled by the caller of our `ElectionProvider` implementation, i.e. staking.
+	///   controlled by the caller of our [`T::ElectionProvider`] implementation, i.e. staking.
 	///
 	/// ### Type
 	///
@@ -1314,9 +1316,42 @@ impl<T: Config> Pallet<T> {
 	/// 1. given an existing `meter`, receive `(worst_weight, exec)`
 	/// 2. ensure `meter` can consume up to `worst_weight`.
 	/// 3. if so, call `exec(meter)`, knowing `meter` will accumulate at most `worst_weight` extra.
+	///
+	/// ### Returned Weight
+	///
+	/// The weights returned are as follows:
+	///
+	/// * `just_next_phase` returns a benchmarked weight that should be equal to only reading and
+	///   writing the `Phase`. This is used for:
+	/// 	* `Off` phase, which does not do anything `on_poll`.
+	/// 	* `Signed` phase except last page, which starts the verifier.
+	/// 	* `Unsigned` phase, which does not do anything `on_poll` and managed its own extrinsic
+	///    weights.
+	/// 	* `Emergency` phase, which does not do anything `on_poll`.
+	/// 	* `Done` phase, which does not do anything `on_poll`.
+	/// 	* `SignedValidation` phase, because in this pallet we only move the phase forward and we
+	///    don't know (or want to know) how much weight `Verifier` is consuming. This is handled by
+	///    combining the weight of [`T::Verifier::per_block_exec`] with this function in
+	///    [`Pallet::on_poll`].
+	/// 	* `Export` phase, which does not do anything `on_poll` on this pallet, yet we return the
+	///    weight that [`Config::ElectionProvider`]'s caller should register via
+	///    [`ElectionProvider::status`].
+	///
+	/// The only special cases, from the perspective of this pallet, are:
+	/// 	* Last page of signed phase registers `per_block_start_signed_validation`.
+	/// 	* The snapshots are handled by this pallet, which registers `per_block_snapshot_msp` and
+	///    `per_block_snapshot_rest`.
 	fn per_block_exec(current_phase: Phase<T>) -> (Weight, Box<dyn Fn(&mut WeightMeter)>) {
 		type ExecuteFn = Box<dyn Fn(&mut WeightMeter)>;
-		let noop: (Weight, ExecuteFn) = (T::WeightInfo::per_block_nothing(), Box::new(|_| {}));
+		let next_phase = current_phase.next();
+
+		let just_next_phase: (Weight, ExecuteFn) = (
+			T::WeightInfo::per_block_nothing(),
+			Box::new(move |_| {
+				// Note `Phase.next` for some variants is a just_next_phase, for example `Done`.
+				Self::phase_transition(next_phase);
+			}),
+		);
 
 		match current_phase {
 			Phase::Snapshot(x) if x == T::Pages::get() => {
@@ -1324,6 +1359,7 @@ impl<T: Config> Pallet<T> {
 				let weight = T::WeightInfo::per_block_snapshot_msp();
 				let exec: ExecuteFn = Box::new(move |meter: &mut WeightMeter| {
 					Self::create_targets_snapshot();
+					Self::phase_transition(next_phase);
 					meter.consume(weight)
 				});
 				(weight, exec)
@@ -1334,6 +1370,7 @@ impl<T: Config> Pallet<T> {
 				let weight = T::WeightInfo::per_block_snapshot_rest();
 				let exec: ExecuteFn = Box::new(move |meter: &mut WeightMeter| {
 					Self::create_voters_snapshot_paged(x);
+					Self::phase_transition(next_phase);
 					meter.consume(weight)
 				});
 				(weight, exec)
@@ -1347,11 +1384,12 @@ impl<T: Config> Pallet<T> {
 						// defensive: signed phase has just began, verifier should be in a clear
 						// state and ready to accept a solution.
 						let _ = T::Verifier::start().defensive();
+						Self::phase_transition(next_phase);
 						meter.consume(weight)
 					});
 					(weight, exec)
 				} else {
-					noop
+					just_next_phase
 				}
 			},
 			Phase::SignedValidation(_) |
@@ -1359,7 +1397,7 @@ impl<T: Config> Pallet<T> {
 			Phase::Off |
 			Phase::Emergency |
 			Phase::Done |
-			Phase::Export(_) => noop,
+			Phase::Export(_) => just_next_phase,
 		}
 	}
 
