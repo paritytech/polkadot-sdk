@@ -1393,13 +1393,13 @@ where
 		size_limit: usize,
 	) -> sp_blockchain::Result<Vec<CompactProof>> {
 		let load = |node: &TrieNodeChild<Block::Hash>| {
-			let encoded = match self.backend.get_trie_node(node.prefix.as_prefix(), &node.hash).map_err(|e| sp_blockchain::Error::Proposal(e.to_string()))? {
+			let encoded = match self.backend.get_trie_node(node.prefix.as_prefix(), &node.hash).map_err(|e| sp_blockchain::Error::Storage(e.to_string()))? {
 				None => {
 					return Ok(None);
 				},
 				Some(encoded) => encoded,
 			};
-			let child_nodes = node.get_children::<HashingFor<Block>>(&encoded).map_err(|e| sp_blockchain::Error::Proposal(format!("{e:?}")))?;
+			let child_nodes = node.get_children::<HashingFor<Block>>(&encoded).map_err(|e| sp_blockchain::Error::Storage(format!("{e:?}")))?;
 			Ok(Some((encoded, child_nodes)))
 		};
 
@@ -1425,7 +1425,7 @@ where
 						if let Some(child_node) = child_nodes.iter().find(|node| node.hash == child_proof.hash) {
 							stack.push((child_proof, child_node.clone()));
 						} else {
-							return Some(Err(sp_blockchain::Error::Proposal("ClientProof: unexpected child".to_string())));
+							return Some(Err(sp_blockchain::Error::Storage("ClientProof: unexpected child".to_string())));
 						}
 					}
 				}
@@ -1447,7 +1447,7 @@ where
 					stack.extend(child_nodes.into_iter().rev());
 				}
 			}
-			results.push(sp_trie::encode_compact_raw::<sp_trie::LayoutV1<HashingFor<Block>>, _>(&db, &node.hash, node.is_value()).map_err(|e| sp_blockchain::Error::Proposal(e.to_string()))?);
+			results.push(sp_trie::encode_compact_raw::<sp_trie::LayoutV1<HashingFor<Block>>, _>(&db, &node.hash, node.is_value()).map_err(|e| sp_blockchain::Error::Storage(e.to_string()))?);
 			if size >= size_limit {
 				break;
 			}
