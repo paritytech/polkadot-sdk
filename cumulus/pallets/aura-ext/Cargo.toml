@@ -28,7 +28,6 @@ sp-runtime = { workspace = true }
 cumulus-pallet-parachain-system = { workspace = true }
 
 [dev-dependencies]
-log = { workspace = true, default-features = true }
 rstest = { workspace = true }
 
 # Cumulus
