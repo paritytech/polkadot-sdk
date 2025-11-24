@@ -114,7 +114,7 @@ pub struct ProposeArgs<B: BlockT> {
 	pub block_size_limit: Option<usize>,
 	/// Optional proof recorder for recording storage proofs during block production.
 	///
-	/// When `Some`, a storage proof will be recorded and included in the proposal.
+	/// When `Some`, the recorder will be used on block production to record all storage accesses.
 	pub storage_proof_recorder: Option<ProofRecorder<B>>,
 	/// Extra extensions for the runtime environment.
 	pub extra_extensions: Extensions,

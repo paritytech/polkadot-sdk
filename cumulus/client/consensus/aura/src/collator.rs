@@ -260,12 +260,20 @@ where
 			.await
 			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)?;
 
+		let recorder_passed = params.storage_proof_recorder.is_some();
 		let storage_proof_recorder = params.storage_proof_recorder.unwrap_or_default();
+		let proof_size_ext_registered =
+			params.extra_extensions.is_registered(ProofSizeExt::type_id());
 
-		if !params.extra_extensions.is_registered(ProofSizeExt::type_id()) {
+		if !proof_size_ext_registered {
 			params
 				.extra_extensions
 				.register(ProofSizeExt::new(storage_proof_recorder.clone()));
+		} else if proof_size_ext_registered && !recorder_passed {
+			return Err(
+				Box::from("`ProofSizeExt` registered, but no `storage_proof_recorder` provided. This is a bug.")
+					as Box<dyn Error + Send + Sync>
+			)
 		}
 
 		// Create proposal arguments
