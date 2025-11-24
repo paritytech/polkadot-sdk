@@ -3685,26 +3685,18 @@ fn immutable_data_works() {
 }
 
 #[test]
-fn sbrk_cannot_be_deployed() {
-	let (code, _) = compile_module("sbrk").unwrap();
+fn sbrk_cannot_be_linked() {
+	// The sbrk instruction is not available in the revive_v1 instruction set.
+	// This test verifies that the linker rejects it during the linking phase.
+	let result = pallet_revive_fixtures::try_compile_invalid_fixture("sbrk");
 
-	ExtBuilder::default().build().execute_with(|| {
-		let _ = Balances::set_balance(&ALICE, 1_000_000);
-
-		assert_err!(
-			Contracts::upload_code(
-				RuntimeOrigin::signed(ALICE),
-				code.clone(),
-				deposit_limit::<Test>(),
-			),
-			<Error<Test>>::InvalidInstruction
-		);
-
-		assert_err!(
-			builder::bare_instantiate(Code::Upload(code)).build().result,
-			<Error<Test>>::InvalidInstruction
-		);
-	});
+	assert!(result.is_err(), "Expected linking to fail for sbrk fixture");
+	let err_msg = result.unwrap_err().to_string();
+	assert!(
+		err_msg.contains("sbrk") || err_msg.contains("not available"),
+		"Expected error message to mention 'sbrk' or 'not available', got: {}",
+		err_msg
+	);
 }
 
 #[test]
