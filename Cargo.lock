@@ -18904,6 +18904,7 @@ dependencies = [
  "polkadot-sdk",
  "scale-info",
  "serde_json",
+ "sp-debug-derive 14.0.0",
 ]
 
 [[package]]
