@@ -127,7 +127,7 @@ impl From<InvalidTransaction> for &'static str {
 }
 
 /// An unknown transaction validity.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum UnknownTransaction {
 	/// Could not lookup some information that is required to validate the transaction.
@@ -151,7 +151,7 @@ impl From<UnknownTransaction> for &'static str {
 }
 
 /// Errors that can occur while checking the validity of a transaction.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TransactionValidityError {
 	/// The transaction is invalid.

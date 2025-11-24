@@ -13837,6 +13837,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-staking-async-price-oracle"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-staking-async-price-oracle-parachain-runtime"
+version = "0.0.0"
+dependencies = [
+ "cumulus-pallet-parachain-system",
+ "docify",
+ "hex-literal",
+ "log",
+ "pallet-staking-async-price-oracle",
+ "parity-scale-codec",
+ "polkadot-sdk",
+ "scale-info",
+ "serde_json",
+ "smallvec",
+ "substrate-wasm-builder",
+]
+
+[[package]]
 name = "pallet-staking-async-rc-client"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,35 @@
+[package]
+name = "pallet-staking-async-price-oracle"
+version = "0.1.0"
+publish = false
+authors.workspace = true
+edition.workspace = true
+description = "Price Oracle"
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+
+[dependencies]
+codec = { workspace = true }
+scale-info = { workspace = true }
+
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+
+sp-runtime = { workspace = true }
+
+log = { workspace = true }
+
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"scale-info/std",
+
+	"frame-support/std",
+	"frame-system/std",
+
+	"sp-runtime/std",
+]

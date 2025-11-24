@@ -79,6 +79,7 @@ impl<T: pallet_timestamp::Config> Get<T::Moment> for MinimumPeriodTimesTwo<T> {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use codec::EncodeLike;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
@@ -89,7 +90,8 @@ pub mod pallet {
 			+ Parameter
 			+ RuntimeAppPublic
 			+ MaybeSerializeDeserialize
-			+ MaxEncodedLen;
+			+ MaxEncodedLen
+			+ EncodeLike;
 		/// The maximum number of authorities that the pallet can hold.
 		type MaxAuthorities: Get<u32>;
 
