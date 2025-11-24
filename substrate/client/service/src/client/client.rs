@@ -1387,7 +1387,7 @@ where
 		Ok(state)
 	}
 
-	fn proposal_prove(
+	fn get_trie_nodes_recursive_with_proof(
 		&self,
 		client_proof: &ClientProof<Block::Hash>,
 		size_limit: usize,

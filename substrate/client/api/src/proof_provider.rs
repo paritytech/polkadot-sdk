@@ -93,7 +93,7 @@ pub trait ProofProvider<Block: BlockT> {
 	) -> sp_blockchain::Result<(KeyValueStates, usize)>;
 
 	/// Return trie nodes for specified subtrees.
-	fn proposal_prove(
+	fn get_trie_nodes_recursive_with_proof(
 		&self,
 		client_proof: &ClientProof<Block::Hash>,
 		size_limit: usize,

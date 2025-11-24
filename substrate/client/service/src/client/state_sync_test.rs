@@ -95,7 +95,7 @@ impl<B: BlockT> ProofProvider<B> for MockClientApi {
   fn read_proof_collection(&self, hash: B::Hash, start_keys: &[Vec<u8>], size_limit: usize) -> sp_blockchain::Result<(CompactProof, u32)> { todo!() }
   fn storage_collection(&self, hash: B::Hash, start_key: &[Vec<u8>], size_limit: usize) -> sp_blockchain::Result<Vec<(KeyValueStorageLevel, bool)>> { todo!() }
   fn verify_range_proof(&self, root: B::Hash, proof: CompactProof, start_keys: &[Vec<u8>]) -> sp_blockchain::Result<(KeyValueStates, usize)> { todo!() }
-  fn proposal_prove(&self, client_proof: &ClientProof<B::Hash>, size_limit: usize) -> sp_blockchain::Result<Vec<CompactProof>> { todo!() }
+  fn get_trie_nodes_recursive_with_proof(&self, client_proof: &ClientProof<B::Hash>, size_limit: usize) -> sp_blockchain::Result<Vec<CompactProof>> { todo!() }
 }
 
 #[derive(Clone)]
