@@ -99,7 +99,7 @@ impl<T: Config> PrimitivePrecompile for Modexp<T> {
 		// Gas formula allows arbitrary large exp_len when base and modulus are empty, so we need to
 		// handle empty base first.
 		let r = if base_len == 0 && mod_len == 0 {
-			env.gas_meter_mut().charge(RuntimeCosts::Modexp(MIN_GAS_COST))?;
+			env.gas_meter_mut().charge_weight_token(RuntimeCosts::Modexp(MIN_GAS_COST))?;
 
 			BigUint::zero()
 		} else {
@@ -125,7 +125,7 @@ impl<T: Config> PrimitivePrecompile for Modexp<T> {
 				modulus.is_even(),
 			);
 
-			env.gas_meter_mut().charge(RuntimeCosts::Modexp(gas_cost))?;
+			env.gas_meter_mut().charge_weight_token(RuntimeCosts::Modexp(gas_cost))?;
 
 			if modulus.is_zero() || modulus.is_one() {
 				BigUint::zero()
@@ -366,7 +366,7 @@ mod tests {
 
 	#[test]
 	fn test_long_exp_gas_cost_matches_specs() {
-		use crate::{call_builder::CallSetup, gas::Token, tests::ExtBuilder};
+		use crate::{call_builder::CallSetup, metering::weight::Token, tests::ExtBuilder};
 
 		let input = vec![
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -389,9 +389,9 @@ mod tests {
 			let mut call_setup = CallSetup::<Test>::default();
 			let (mut ext, _) = call_setup.ext();
 
-			let before = ext.gas_meter().gas_consumed();
+			let before = ext.gas_meter().weight_consumed();
 			<Modexp<Test>>::call(&<Modexp<Test>>::MATCHER.base_address(), input, &mut ext).unwrap();
-			let after = ext.gas_meter().gas_consumed();
+			let after = ext.gas_meter().weight_consumed();
 
 			// 7104 * 20 gas used when ran in geth (x20)
 			assert_eq!(after - before, Token::<Test>::weight(&RuntimeCosts::Modexp(7104 * 20)));

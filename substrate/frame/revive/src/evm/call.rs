@@ -18,15 +18,18 @@
 //! Functionality to decode an eth transaction into an dispatchable call.
 
 use crate::{
-	evm::{fees::InfoT, runtime::SetWeightLimit},
+	evm::{
+		fees::{compute_max_integer_quotient, InfoT},
+		runtime::SetWeightLimit,
+	},
 	extract_code_and_data, BalanceOf, CallOf, Config, GenericTransaction, Pallet, Weight, Zero,
-	LOG_TARGET, RUNTIME_PALLETS_ADDR, U256,
+	LOG_TARGET, RUNTIME_PALLETS_ADDR,
 };
 use alloc::{boxed::Box, vec::Vec};
 use codec::DecodeLimit;
 use frame_support::MAX_EXTRINSIC_DEPTH;
-use sp_core::Get;
-use sp_runtime::{transaction_validity::InvalidTransaction, FixedPointNumber, SaturatedConversion};
+use sp_core::{Get, U256};
+use sp_runtime::{transaction_validity::InvalidTransaction, SaturatedConversion};
 
 /// Result of decoding an eth transaction into a dispatchable call.
 pub struct CallInfo<T: Config> {
@@ -42,20 +45,34 @@ pub struct CallInfo<T: Config> {
 	pub tx_fee: BalanceOf<T>,
 	/// The additional storage deposit to be deposited into the txhold.
 	pub storage_deposit: BalanceOf<T>,
-	/// The gas limit as supplied in the transaction.
-	pub gas: U256,
+	/// The ethereum gas limit of the transaction.
+	pub eth_gas_limit: U256,
+}
+
+/// Mode for creating a call from an ethereum transaction.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum CreateCallMode {
+	/// Mode for extrinsic execution. Carries the encoding length of the extrinsic and the
+	/// RLP-encoded Ethereum transaction
+	ExtrinsicExecution(u32, Vec<u8>),
+	/// Mode for dry running
+	DryRun,
 }
 
 /// Decode `tx` into a dispatchable call.
+///
+/// signed_transaction is Some(..) for extrinsic execution (when called from
+/// `try_into_checked_extrinsic`) and it is `None` for dry running (when called from
+/// `dry_run_eth_transact`)
 pub fn create_call<T>(
 	tx: GenericTransaction,
-	signed_transaction: Option<(u32, Vec<u8>)>,
-	apply_weight_cap: bool,
+	mode: CreateCallMode,
 ) -> Result<CallInfo<T>, InvalidTransaction>
 where
 	T: Config,
 	CallOf<T>: SetWeightLimit,
 {
+	let is_dry_run = matches!(mode, CreateCallMode::DryRun);
 	let base_fee = <Pallet<T>>::evm_base_fee();
 
 	let Some(gas) = tx.gas else {
@@ -63,6 +80,9 @@ where
 		return Err(InvalidTransaction::Call);
 	};
 
+	// Currently, effective_gas_price will always be the same as base_fee
+	// Because all callers of `create_call` will prepare `tx` that way. Some of the subsequent
+	// logic will not work correctly anymore if we change that assumption.
 	let Some(effective_gas_price) = tx.gas_price else {
 		log::debug!(target: LOG_TARGET, "No gas_price provided.");
 		return Err(InvalidTransaction::Payment);
@@ -84,10 +104,17 @@ where
 	}
 
 	let (encoded_len, transaction_encoded) =
-		if let Some((encoded_len, transaction_encoded)) = signed_transaction {
+		if let CreateCallMode::ExtrinsicExecution(encoded_len, transaction_encoded) = mode {
 			(encoded_len, transaction_encoded)
 		} else {
-			let unsigned_tx = tx.clone().try_into_unsigned().map_err(|_| {
+			// For dry runs, we need to ensure that the RLP encoding length is at least the length
+			// of the encoding of the actual transaction submitted later
+			let mut maximized_tx = tx.clone();
+			maximized_tx.gas = Some(U256::MAX);
+			maximized_tx.gas_price = Some(U256::MAX);
+			maximized_tx.max_priority_fee_per_gas = Some(U256::MAX);
+
+			let unsigned_tx = maximized_tx.try_into_unsigned().map_err(|_| {
 				log::debug!(target: LOG_TARGET, "Invalid transaction type.");
 				InvalidTransaction::Call
 			})?;
@@ -121,7 +148,8 @@ where
 			let call = crate::Call::eth_call::<T> {
 				dest,
 				value,
-				gas_limit: Zero::zero(),
+				weight_limit: Zero::zero(),
+				eth_gas_limit: gas,
 				data,
 				transaction_encoded,
 				effective_gas_price,
@@ -143,7 +171,8 @@ where
 
 		let call = crate::Call::eth_instantiate_with_code::<T> {
 			value,
-			gas_limit: Zero::zero(),
+			weight_limit: Zero::zero(),
+			eth_gas_limit: gas,
 			code,
 			data,
 			transaction_encoded,
@@ -164,28 +193,36 @@ where
 
 		let remaining_fee = {
 			let adjusted = eth_fee.checked_sub(fixed_fee.into()).ok_or_else(|| {
-							log::debug!(target: LOG_TARGET, "Not enough gas supplied to cover base and len fee. eth_fee={eth_fee:?} fixed_fee={fixed_fee:?}");
-							InvalidTransaction::Payment
-						})?;
-			let unadjusted = <T as Config>::FeeInfo::next_fee_multiplier_reciprocal()
-				.saturating_mul_int(<BalanceOf<T>>::saturated_from(adjusted));
+				log::debug!(target: LOG_TARGET, "Not enough gas supplied to cover base and len fee. eth_fee={eth_fee:?} fixed_fee={fixed_fee:?}");
+				InvalidTransaction::Payment
+			})?;
+
+			let unadjusted = compute_max_integer_quotient(
+				<T as Config>::FeeInfo::next_fee_multiplier(),
+				<BalanceOf<T>>::saturated_from(adjusted),
+			);
+
 			unadjusted
 		};
 		let remaining_fee_weight = <T as Config>::FeeInfo::fee_to_weight(remaining_fee);
 		let weight_limit = remaining_fee_weight
-						.checked_sub(&info.total_weight()).ok_or_else(|| {
-							log::debug!(target: LOG_TARGET, "Not enough gas supplied to cover the weight ({:?}) of the extrinsic. remaining_fee_weight: {remaining_fee_weight:?}", info.total_weight(),);
-							InvalidTransaction::Payment
-						})?;
+			.checked_sub(&info.total_weight()).ok_or_else(|| {
+			log::debug!(target: LOG_TARGET, "Not enough gas supplied to cover the weight ({:?}) of the extrinsic. remaining_fee_weight: {remaining_fee_weight:?}", info.total_weight(),);
+			InvalidTransaction::Payment
+		})?;
 
 		call.set_weight_limit(weight_limit);
-		let info = <T as Config>::FeeInfo::dispatch_info(&call);
-		let max_weight =
-			if apply_weight_cap { <Pallet<T>>::evm_max_extrinsic_weight() } else { Weight::MAX };
-		let overweight_by = info.total_weight().saturating_sub(max_weight);
-		let capped_weight = weight_limit.saturating_sub(overweight_by);
-		call.set_weight_limit(capped_weight);
-		capped_weight
+
+		if !is_dry_run {
+			let max_weight = <Pallet<T>>::evm_max_extrinsic_weight();
+			let info = <T as Config>::FeeInfo::dispatch_info(&call);
+			let overweight_by = info.total_weight().saturating_sub(max_weight);
+			let capped_weight = weight_limit.saturating_sub(overweight_by);
+			call.set_weight_limit(capped_weight);
+			capped_weight
+		} else {
+			weight_limit
+		}
 	};
 
 	// the overall fee of the extrinsic including the gas limit
@@ -197,5 +234,5 @@ where
 		InvalidTransaction::Payment
 	})?.saturated_into();
 
-	Ok(CallInfo { call, weight_limit, encoded_len, tx_fee, storage_deposit, gas })
+	Ok(CallInfo { call, weight_limit, encoded_len, tx_fee, storage_deposit, eth_gas_limit: gas })
 }

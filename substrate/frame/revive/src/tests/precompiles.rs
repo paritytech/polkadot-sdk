@@ -18,9 +18,9 @@
 //! Precompiles added to the test runtime.
 
 use crate::{
-	exec::{ErrorOrigin, ExecError},
+	exec::{CallResources, ErrorOrigin, ExecError},
 	precompiles::{AddressMatcher, Error, Ext, ExtWithInfo, Precompile, Token},
-	Config, DispatchError, ExecOrigin as Origin, Weight, U256,
+	Config, DispatchError, ExecOrigin as Origin, ReentrancyProtection, Weight, U256,
 };
 use alloc::vec::Vec;
 use alloy_core::{
@@ -90,7 +90,7 @@ impl<T: Config> Precompile for NoInfo<T> {
 			INoInfoCalls::errors(INoInfo::errorsCall {}) =>
 				Err(Error::Error(DispatchError::Other("precompile failed").into())),
 			INoInfoCalls::consumeMaxGas(INoInfo::consumeMaxGasCall {}) => {
-				env.gas_meter_mut().charge(MaxGasToken)?;
+				env.gas_meter_mut().charge_weight_token(MaxGasToken)?;
 				Ok(Vec::new())
 			},
 			INoInfoCalls::callRuntime(INoInfo::callRuntimeCall { call }) => {
@@ -109,12 +109,11 @@ impl<T: Config> Precompile for NoInfo<T> {
 			},
 			INoInfoCalls::passData(INoInfo::passDataCall { inputLen }) => {
 				env.call(
-					Weight::MAX,
-					U256::MAX,
+					&CallResources::from_weight_and_deposit(Weight::MAX, U256::MAX),
 					&env.address(),
 					0.into(),
 					vec![42; *inputLen as usize],
-					true,
+					ReentrancyProtection::AllowReentry,
 					false,
 				)?;
 				Ok(Vec::new())

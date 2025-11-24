@@ -15,8 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	gas::Token,
 	limits,
+	metering::weight::Token,
 	storage::WriteOutcome,
 	vec::Vec,
 	vm::{
@@ -155,7 +155,7 @@ fn store_helper<'ext, E: Ext>(
 	interpreter
 		.ext
 		.gas_meter_mut()
-		.adjust_gas(charged_amount, adjust_cost(32, write_outcome.old_len()));
+		.adjust_weight(charged_amount, adjust_cost(32, write_outcome.old_len()));
 
 	ControlFlow::Continue(())
 }

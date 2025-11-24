@@ -28,7 +28,6 @@ use core::ops::ControlFlow;
 use revm::interpreter::gas::{BASE, VERYLOW};
 use sp_core::H256;
 use sp_io::hashing::keccak_256;
-// TODO: Fix the gas handling for the memory operations
 
 /// The Keccak-256 hash of the empty string `""`.
 pub const KECCAK_EMPTY: [u8; 32] =

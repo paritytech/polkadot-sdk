@@ -35,7 +35,8 @@ impl<T: Config> PrimitivePrecompile for Identity<T> {
 		input: Vec<u8>,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		env.gas_meter_mut().charge(RuntimeCosts::Identity(input.len() as _))?;
+		env.gas_meter_mut()
+			.charge_weight_token(RuntimeCosts::Identity(input.len() as _))?;
 		Ok(input)
 	}
 }

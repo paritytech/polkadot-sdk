@@ -27,8 +27,7 @@ pub use runtime_costs::RuntimeCosts;
 use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::{ensure, error::BadOrigin, traits::tokens::Restriction},
-	gas::{GasMeter, Token},
-	storage::meter::NestedMeter,
+	metering::{weight::Token, ResourceMeter, State},
 	weights::WeightInfo,
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
 	HoldReason, Pallet, PristineCode, StorageDeposit, Weight, LOG_TARGET,
@@ -191,10 +190,10 @@ impl<T: Config> ContractBlob<T> {
 	}
 
 	/// Puts the module blob into storage, and returns the deposit collected for the storage.
-	pub fn store_code(
+	pub fn store_code<S: State>(
 		&mut self,
 		exec_config: &ExecConfig<T>,
-		storage_meter: Option<&mut NestedMeter<T>>,
+		meter: &mut ResourceMeter<T, S>,
 	) -> Result<BalanceOf<T>, DispatchError> {
 		let code_hash = *self.code_hash();
 		ensure!(code_hash != H256::zero(), <Error<T>>::CodeNotFound);
@@ -222,9 +221,7 @@ impl<T: Config> ContractBlob<T> {
 							<Error<T>>::StorageDepositNotEnoughFunds
 					})?;
 
-					if let Some(meter) = storage_meter {
-						meter.record_charge(&StorageDeposit::Charge(deposit))?;
-					}
+					meter.charge_deposit(&StorageDeposit::Charge(deposit))?;
 
 					<PristineCode<T>>::insert(code_hash, &self.code.to_vec());
 					*stored_code_info = Some(self.code_info.clone());
@@ -323,9 +320,12 @@ impl<T: Config> CodeInfo<T> {
 }
 
 impl<T: Config> Executable<T> for ContractBlob<T> {
-	fn from_storage(code_hash: H256, gas_meter: &mut GasMeter<T>) -> Result<Self, DispatchError> {
+	fn from_storage<S: State>(
+		code_hash: H256,
+		meter: &mut ResourceMeter<T, S>,
+	) -> Result<Self, DispatchError> {
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
-		gas_meter.charge(CodeLoadToken::from_code_info(&code_info))?;
+		meter.charge_weight_token(CodeLoadToken::from_code_info(&code_info))?;
 		let code = <PristineCode<T>>::get(&code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		Ok(Self { code, code_info, code_hash })
 	}

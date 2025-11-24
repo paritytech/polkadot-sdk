@@ -48,6 +48,9 @@ pub const CALL_STACK_DEPTH: u32 = 25;
 /// We set it to the same limit that ethereum has. It is unlikely to change.
 pub const NUM_EVENT_TOPICS: u32 = 4;
 
+/// Maximum size of events (including topics) and storage values.
+pub const PAYLOAD_BYTES: u32 = 416;
+
 /// Maximum size of of the transaction payload
 ///
 /// Maximum code size during instantiation taken into account plus some overhead.
@@ -92,6 +95,9 @@ pub const EVM_MEMORY_BYTES: u32 = 1024 * 1024;
 
 /// EVM interpreter stack limit.
 pub const EVM_STACK_LIMIT: u32 = 1024;
+
+/// The call stipend gas amount defined in the EVM
+pub const SOLIDITY_CALL_STIPEND: u32 = 2300;
 
 /// Limits that are only enforced on code upload.
 ///

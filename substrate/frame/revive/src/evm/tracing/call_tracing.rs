@@ -18,19 +18,14 @@ use crate::{
 	evm::{decode_revert_reason, CallLog, CallTrace, CallTracerConfig, CallType},
 	primitives::ExecReturnValue,
 	tracing::Tracing,
-	Code, DispatchError, Weight,
+	Code, DispatchError,
 };
 use alloc::{format, string::ToString, vec::Vec};
 use sp_core::{H160, H256, U256};
 
 /// A Tracer that reports logs and nested call traces transactions.
 #[derive(Default, Debug, Clone, PartialEq)]
-pub struct CallTracer<Gas, GasMapper>
-where
-	Gas: core::fmt::Debug,
-{
-	/// Map Weight to Gas equivalent.
-	gas_mapper: GasMapper,
+pub struct CallTracer<Gas> {
 	/// Store all in-progress CallTrace instances.
 	traces: Vec<CallTrace<Gas>>,
 	/// Stack of indices to the current active traces.
@@ -41,16 +36,10 @@ where
 	config: CallTracerConfig,
 }
 
-impl<Gas: core::fmt::Debug, GasMapper> CallTracer<Gas, GasMapper> {
+impl<Gas> CallTracer<Gas> {
 	/// Create a new [`CallTracer`] instance.
-	pub fn new(config: CallTracerConfig, gas_mapper: GasMapper) -> Self {
-		Self {
-			gas_mapper,
-			traces: Vec::new(),
-			code_with_salt: None,
-			current_stack: Vec::new(),
-			config,
-		}
+	pub fn new(config: CallTracerConfig) -> Self {
+		Self { traces: Vec::new(), code_with_salt: None, current_stack: Vec::new(), config }
 	}
 
 	/// Collect the traces and return them.
@@ -59,9 +48,7 @@ impl<Gas: core::fmt::Debug, GasMapper> CallTracer<Gas, GasMapper> {
 	}
 }
 
-impl<Gas: Default + core::fmt::Debug, GasMapper: Fn(Weight) -> Gas> Tracing
-	for CallTracer<Gas, GasMapper>
-{
+impl Tracing for CallTracer<U256> {
 	fn instantiate_code(&mut self, code: &Code, salt: Option<&[u8; 32]>) {
 		self.code_with_salt = Some((code.clone(), salt.is_some()));
 	}
@@ -70,14 +57,14 @@ impl<Gas: Default + core::fmt::Debug, GasMapper: Fn(Weight) -> Gas> Tracing
 		&mut self,
 		contract_address: H160,
 		beneficiary_address: H160,
-		gas_left: Weight,
+		gas_left: U256,
 		value: U256,
 	) {
 		self.traces.last_mut().unwrap().calls.push(CallTrace {
 			from: contract_address,
 			to: beneficiary_address,
 			call_type: CallType::Selfdestruct,
-			gas: (self.gas_mapper)(gas_left),
+			gas: gas_left,
 			value: Some(value),
 			..Default::default()
 		});
@@ -91,7 +78,7 @@ impl<Gas: Default + core::fmt::Debug, GasMapper: Fn(Weight) -> Gas> Tracing
 		is_read_only: bool,
 		value: U256,
 		input: &[u8],
-		gas_left: Weight,
+		gas_limit: U256,
 	) {
 		// Increment parent's child call count.
 		if let Some(&index) = self.current_stack.last() {
@@ -132,7 +119,7 @@ impl<Gas: Default + core::fmt::Debug, GasMapper: Fn(Weight) -> Gas> Tracing
 				value: if is_read_only { None } else { Some(value) },
 				call_type,
 				input: input.into(),
-				gas: (self.gas_mapper)(gas_left),
+				gas: gas_limit,
 				..Default::default()
 			});
 
@@ -164,7 +151,7 @@ impl<Gas: Default + core::fmt::Debug, GasMapper: Fn(Weight) -> Gas> Tracing
 		}
 	}
 
-	fn exit_child_span(&mut self, output: &ExecReturnValue, gas_used: Weight) {
+	fn exit_child_span(&mut self, output: &ExecReturnValue, gas_used: U256) {
 		self.code_with_salt = None;
 
 		// Set the output of the current trace
@@ -172,7 +159,7 @@ impl<Gas: Default + core::fmt::Debug, GasMapper: Fn(Weight) -> Gas> Tracing
 
 		if let Some(trace) = self.traces.get_mut(current_index) {
 			trace.output = output.data.clone().into();
-			trace.gas_used = (self.gas_mapper)(gas_used);
+			trace.gas_used = gas_used;
 
 			if output.did_revert() {
 				trace.revert_reason = decode_revert_reason(&output.data);
@@ -190,14 +177,14 @@ impl<Gas: Default + core::fmt::Debug, GasMapper: Fn(Weight) -> Gas> Tracing
 			}
 		}
 	}
-	fn exit_child_span_with_error(&mut self, error: DispatchError, gas_used: Weight) {
+	fn exit_child_span_with_error(&mut self, error: DispatchError, gas_used: U256) {
 		self.code_with_salt = None;
 
 		// Set the output of the current trace
 		let current_index = self.current_stack.pop().unwrap();
 
 		if let Some(trace) = self.traces.get_mut(current_index) {
-			trace.gas_used = (self.gas_mapper)(gas_used);
+			trace.gas_used = gas_used;
 
 			trace.error = match error {
 				DispatchError::Module(sp_runtime::ModuleError { message, .. }) =>

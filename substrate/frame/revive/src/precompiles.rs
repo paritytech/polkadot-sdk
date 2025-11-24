@@ -31,10 +31,9 @@ mod tests;
 
 pub use crate::{
 	exec::{ExecError, PrecompileExt as Ext, PrecompileWithInfoExt as ExtWithInfo},
-	gas::{GasMeter, Token},
-	storage::meter::Diff,
+	metering::{storage::Diff, weight::Token},
 	vm::RuntimeCosts,
-	AddressMapper,
+	AddressMapper, TransactionLimits,
 };
 pub use alloy_core as alloy;
 pub use sp_core::{H160, H256, U256};

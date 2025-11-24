@@ -27,7 +27,8 @@ use crate::{
 		AllowEvmBytecode, DebugFlag, ExtBuilder, RuntimeOrigin, Test,
 	},
 	tracing::trace,
-	Code, Config, Error, EthBlockBuilderFirstValues, GenesisConfig, Origin, Pallet, PristineCode,
+	BalanceOf, Code, Config, Error, EthBlockBuilderFirstValues, GenesisConfig, Origin, Pallet,
+	PristineCode,
 };
 use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::{
@@ -35,8 +36,10 @@ use frame_support::{
 };
 use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType, NestedCounter};
 use pretty_assertions::assert_eq;
-use revm::bytecode::opcode::*;
+use sp_runtime::Weight;
 use test_case::test_case;
+
+use revm::bytecode::opcode::*;
 
 mod arithmetic;
 mod bitwise;
@@ -113,7 +116,7 @@ fn basic_evm_flow_tracing_works() {
 	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
-		let mut tracer = CallTracer::new(Default::default(), |_| crate::U256::zero());
+		let mut tracer = CallTracer::new(Default::default());
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
 		let Contract { addr, .. } = trace(&mut tracer, || {
@@ -125,8 +128,9 @@ fn basic_evm_flow_tracing_works() {
 		let contract = get_contract(&addr);
 		let runtime_code = PristineCode::<Test>::get(contract.code_hash).unwrap();
 
+		let call_trace = tracer.collect_trace().unwrap();
 		assert_eq!(
-			tracer.collect_trace().unwrap(),
+			call_trace,
 			CallTrace {
 				from: ALICE_ADDR,
 				call_type: CallType::Create,
@@ -134,11 +138,13 @@ fn basic_evm_flow_tracing_works() {
 				input: code.into(),
 				output: runtime_code.into(),
 				value: Some(crate::U256::zero()),
+				gas: call_trace.gas,
+				gas_used: call_trace.gas_used,
 				..Default::default()
 			}
 		);
 
-		let mut call_tracer = CallTracer::new(Default::default(), |_| crate::U256::zero());
+		let mut call_tracer = CallTracer::new(Default::default());
 		let result = trace(&mut call_tracer, || {
 			builder::bare_call(addr)
 				.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 10u64 }).abi_encode())
@@ -148,8 +154,9 @@ fn basic_evm_flow_tracing_works() {
 		let decoded = Fibonacci::fibCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(55u64, decoded);
 
+		let call_trace = call_tracer.collect_trace().unwrap();
 		assert_eq!(
-			call_tracer.collect_trace().unwrap(),
+			call_trace,
 			CallTrace {
 				call_type: CallType::Call,
 				from: ALICE_ADDR,
@@ -159,6 +166,8 @@ fn basic_evm_flow_tracing_works() {
 					.into(),
 				output: result.data.into(),
 				value: Some(crate::U256::zero()),
+				gas: call_trace.gas,
+				gas_used: call_trace.gas_used,
 				..Default::default()
 			},
 		);
@@ -211,6 +220,7 @@ fn upload_evm_runtime_code_works() {
 		exec::Executable,
 		primitives::ExecConfig,
 		storage::{AccountInfo, ContractInfo},
+		Pallet, TransactionMeter,
 	};
 
 	let (runtime_code, _runtime_hash) =
@@ -225,7 +235,7 @@ fn upload_evm_runtime_code_works() {
 			deployer,
 			runtime_code.clone(),
 			crate::vm::BytecodeType::Evm,
-			u64::MAX,
+			&mut TransactionMeter::new_from_limits(Weight::MAX, BalanceOf::<Test>::MAX).unwrap(),
 			&ExecConfig::new_substrate_tx(),
 		)
 		.unwrap();
