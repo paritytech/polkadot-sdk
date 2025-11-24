@@ -6,16 +6,34 @@ doc:
 
     Before this PR, the Ethereum gas price is simply the next fee multiplier of pallet-transaction-payment multiplied by `NativeToEthRatio`. Thus, on Polkadot this is 100_000_000 when the multiplier has its default value of 1.
 
-    The required gas of a transaction is its total cost divided by the gas price, where the total cost is the transaction fee and the storage deposit.
+    The required gas of a transaction is its total cost divided by the gas price, where the total cost is the sum of the transaction fee and the storage deposit.
 
     This leads to a situation where the required gas for a transaction on revive is usually orders of magnitude larger than the required amount of gas on Ethereum. This can lead to issues with tools or systems that interact with revive and hard code expected gas amounts or upper limits of gas amounts.
 
-    By changing `GasScale`, the gas price used in revive is multiplied by `GasScale`. For that reason the used/estimated gas amounts get lower by the same factor.
+    Setting `GasScale` has two effects:
+    - revive's Ethereum gas price is scaled up by the factor `GasScale`
+    - resulting used/estimated gas amounts get scaled down by the factor `GasScale`.
 
     ## Technical Details
-    Internally, revive uses exactly the same gas price and gas units as before. Only at the interface these amounts and prices get scaled by `GasScale`. In order to avoid confusion and errors, this PR introduces a new type called `InternalGas`, which represents the unscaled, internal gas units.
+    Internally, revive uses exactly the same gas price and gas units as before. Only at the interface these amounts and prices get scaled by `GasScale`.
+
+    ## Recommended
+    This PR sets `GasScale` for the dev-node to 50_000.
+
+    This is motivated by the fact that storing a value in a contract storage slot costs `DepositPerChildTrieItem + DepositPerByte * 32`, which is `2_000_000_000 + 10_000_000 * 32` (= `2_320_000_000`) plancks. Before this change the gas price was 1_000_000 wei, so that this
+    equated to 2_320_000_000 gas units. In EVM this operation requires 22_100 gas only.
+
+    Thus, `GasScale` would need to be about 100_000 in order for `SSTORE` to have similar worst case gas requirements.
+
+    ## Resolved Issues
+
+    This PR addresses https://github.com/paritytech/contract-issues/issues/18 but we also need to find an appropriate `GasScale` for a mainnet installment of pallet-revive.
 crates:
 - name: revive-dev-runtime
   bump: patch
 - name: pallet-revive
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: penpal-runtime
   bump: patch
