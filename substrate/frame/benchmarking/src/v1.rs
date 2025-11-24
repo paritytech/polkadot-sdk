@@ -803,7 +803,6 @@ macro_rules! benchmark_backend {
 				$( $param_instancer ; )*
 				$( $post )*
 
-				let _ = $crate::__private::trigger_storage_root_size_estimation_xxx($crate::__private::StateVersion::V1);
 				recording.start();
 				$eval;
 				recording.stop();
@@ -926,7 +925,7 @@ macro_rules! impl_bench_name_tests {
 // Every variant must implement [`BenchmarkingSetup`].
 //
 // ```nocompile
-//
+// 
 // struct Transfer;
 // impl BenchmarkingSetup for Transfer { ... }
 //
@@ -1167,7 +1166,6 @@ macro_rules! impl_benchmark {
 						trigger_proof_size_increase: trigger_stats.proof_size_increase.expect("proof size increase should be recorded during benchmarking"),
 						trigger_keys_read_count: trigger_stats.keys_read_count.expect("keys read count should be recorded during benchmarking"),
 						trigger_keys_deleted_count: trigger_stats.keys_deleted_count.expect("keys deleted count should be recorded during benchmarking"),
-						trigger_host_execution_time: trigger_stats.trigger_execution_time.expect("trigger execution time should be recorded during benchmarking"),
 					});
 				}
 

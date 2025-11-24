@@ -713,22 +713,6 @@ impl<H: Hasher> OverlayedChanges<H> {
 		let snapshot = self.top.storage_root_snaphost_delta_keys2();
 
 		crate::debug!(target: "overlayed_changes", "trigger_storage_root_size_estimation snapshot: {:?}", snapshot);
-
-		if snapshot.is_empty() {
-			#[cfg(feature = "std")]
-			let trigger_execution_time = Some(start.elapsed().as_nanos());
-			#[cfg(not(feature = "std"))]
-			let trigger_execution_time = None;
-			return sp_externalities::TriggerStats {
-				trigger_execution_time,
-				trie_nodes_accessed: Some(0),
-				proof_size_increase: Some(0),
-				keys_read_count: Some(0),
-				keys_deleted_count: Some(0),
-				..Default::default()
-			}
-		}
-
 		let snapshot_len = snapshot.len();
 
 		let stats = {
@@ -748,20 +732,17 @@ impl<H: Hasher> OverlayedChanges<H> {
 				)
 			});
 
-			backend.trigger_storage_root_size_estimation_full(delta, child_delta, state_version)
+			backend.trigger_storage_root_size_estimation_full(
+				delta,
+				child_delta,
+				state_version,
+			)
 		};
 
 		#[cfg(feature = "std")]
-		let elapsed_nanos = {
-			let elapsed = start.elapsed();
-			crate::debug!(target: "durations", "trigger_storage_root_size_estimation: duration={:?} snapshot_len={} stats={:?}", elapsed, snapshot_len, stats);
-			Some(elapsed.as_nanos())
-		};
-		#[cfg(not(feature = "std"))]
-		let elapsed_nanos = None;
-
-		let mut stats = stats;
-		stats.trigger_execution_time = elapsed_nanos;
+		{
+			crate::debug!(target: "durations", "trigger_storage_root_size_estimation: duration={:?} snapshot_len={} stats={:?}", start.elapsed(), snapshot_len, stats);
+		}
 
 		self.trigger_execution_cache = Some(stats.clone());
 		stats

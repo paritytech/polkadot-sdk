@@ -851,7 +851,6 @@ pub fn benchmarks(
 							trigger_proof_size_increase: trigger_stats.proof_size_increase.expect("proof size increase should be recorded during benchmarking"),
 							trigger_keys_read_count: trigger_stats.keys_read_count.expect("keys read count should be recorded during benchmarking"),
 							trigger_keys_deleted_count: trigger_stats.keys_deleted_count.expect("keys deleted count should be recorded during benchmarking"),
-							trigger_host_execution_time: trigger_stats.trigger_execution_time.expect("trigger execution time should be recorded during benchmarking"),
 						});
 					}
 
@@ -1126,7 +1125,6 @@ fn expand_benchmark(
 				#(
 					#setup_stmts
 				)*
-				let _ = #krate::__private::trigger_storage_root_size_estimation_xxx(#krate::__private::StateVersion::V1);
 				#pre_call
 				recording.start();
 				#post_call

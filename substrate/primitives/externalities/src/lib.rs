@@ -52,9 +52,6 @@ pub struct TriggerStats {
 	pub keys_read_count: Option<u32>,
 	/// Number of keys to be deleted during the trigger operation.
 	pub keys_deleted_count: Option<u32>,
-	/// Host-side execution time (in nanoseconds) for the trigger operation.
-	/// Measured on the node side, excluding WASM overhead and boundary crossing.
-	pub trigger_execution_time: Option<u128>,
 }
 
 mod extensions;
