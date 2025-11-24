@@ -2368,6 +2368,9 @@ impl<T: Config> Pallet<T> {
 	///
 	/// This enforces EIP-3607.
 	fn ensure_non_contract_if_signed(origin: &OriginFor<T>) -> DispatchResult {
+		if DebugSettings::bypass_eip_3607::<T>() {
+			return Ok(())
+		}
 		let Some(address) = origin
 			.as_system_ref()
 			.and_then(|o| o.as_signed())
@@ -2376,7 +2379,7 @@ impl<T: Config> Pallet<T> {
 			return Ok(())
 		};
 		if exec::is_precompile::<T, ContractBlob<T>>(&address) ||
-			(<AccountInfo<T>>::is_contract(&address) && !DebugSettings::bypass_eip_3607::<T>())
+			<AccountInfo<T>>::is_contract(&address)
 		{
 			log::debug!(
 				target: crate::LOG_TARGET,

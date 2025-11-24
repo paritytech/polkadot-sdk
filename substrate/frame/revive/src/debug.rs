@@ -38,7 +38,8 @@ use sp_runtime::RuntimeDebug;
 pub struct DebugSettings {
 	/// Whether to allow unlimited contract size.
 	allow_unlimited_contract_size: bool,
-	/// Whether to allow bypassing EIP-3607 (allowing transactions coming from contract accounts).
+	/// Whether to allow bypassing EIP-3607 (allowing transactions coming from contract or
+	/// precompile accounts).
 	bypass_eip_3607: bool,
 }
 
@@ -52,7 +53,8 @@ impl DebugSettings {
 		T::DebugEnabled::get() && DebugSettingsOf::<T>::get().allow_unlimited_contract_size
 	}
 
-	/// Returns true if transactions coming from contract accounts are allowed (bypassing EIP-3607)
+	/// Returns true if transactions coming from contract or precompile accounts are allowed
+	/// (bypassing EIP-3607)
 	pub fn bypass_eip_3607<T: Config>() -> bool {
 		T::DebugEnabled::get() && DebugSettingsOf::<T>::get().bypass_eip_3607
 	}
