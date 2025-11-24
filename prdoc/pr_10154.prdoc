@@ -1,0 +1,12 @@
+title: 'aura/slot_based: Reduce authoring duration of the last produced block '
+doc:
+- audience: Node Dev
+  description: |-
+    This PR adjusts the block authoring to stop producing blocks 1 second before the scheduled slot change.
+    This introduces a safety buffer to prevent blocks from being authored too late wrt when next author is expected to produce a block.
+      - 2s blocks / 3 cores: The authoring duration of the last block is reduced from 2s to 1s.
+      - 500ms blocks / 12 cores: The authoring duration cannot be reduced past 500ms, therefore the last two blocks are no longer authored
+
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch
