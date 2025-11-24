@@ -230,7 +230,7 @@ jobs:
           echo "Building container for $BINARY"
           echo "IMAGE_TYPE: ${{ inputs.image_type }}"
 
-          if [[ ${{ inputs.image_type == 'rc' }} ]]; then
+          if [[ "${{ inputs.image_type }}" == "rc" ]]; then
             echo "Building RC container for polkadot"
             DOCKERFILE="docker/dockerfiles/polkadot/polkadot_injected.Dockerfile"
             BINARY="polkadot,polkadot-execute-worker,polkadot-prepare-worker"
