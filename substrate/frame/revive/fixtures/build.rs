@@ -225,7 +225,7 @@ fn post_process(input_path: &Path, output_path: &Path) -> Result<()> {
 	let orig = fs::read(input_path).with_context(|| format!("Failed to read {input_path:?}"))?;
 	let linked = polkavm_linker::program_from_elf(
 		config,
-		polkavm_linker::TargetInstructionSet::Latest,
+		polkavm_linker::TargetInstructionSet::ReviveV1,
 		orig.as_ref(),
 	)
 	.map_err(|err| anyhow::format_err!("Failed to link polkavm program: {}", err))?;

@@ -138,7 +138,9 @@ pub mod code {
 		pvm_blob: Vec<u8>,
 		available_syscalls: &[&[u8]],
 	) -> Result<Vec<u8>, DispatchError> {
-		use polkavm_common::program::{EstimateInterpreterMemoryUsageArgs, ISA_Latest64 as ISA};
+		use polkavm_common::program::{
+			EstimateInterpreterMemoryUsageArgs, ISA_ReviveV1, InstructionSetKind,
+		};
 
 		let len: u64 = pvm_blob.len() as u64;
 		if len > crate::limits::code::BLOB_BYTES.into() {
@@ -159,6 +161,11 @@ pub mod code {
 
 		if !program.is_64_bit() {
 			log::debug!(target: LOG_TARGET, "32bit programs are not supported.");
+			Err(Error::<T>::CodeRejected)?;
+		}
+
+		if program.isa() != InstructionSetKind::ReviveV1 {
+			log::debug!(target: LOG_TARGET, "Program instruction set '{}' is not '{}'", program.isa().name(), InstructionSetKind::ReviveV1.name());
 			Err(Error::<T>::CodeRejected)?;
 		}
 
@@ -189,7 +196,7 @@ pub mod code {
 		let mut block_size: u32 = 0;
 		let mut basic_block_count: u32 = 0;
 		let mut instruction_count: u32 = 0;
-		for inst in program.instructions_with_isa(ISA) {
+		for inst in program.instructions_with_isa(ISA_ReviveV1) {
 			use polkavm::program::Instruction;
 			block_size += 1;
 			instruction_count += 1;
