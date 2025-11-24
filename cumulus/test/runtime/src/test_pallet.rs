@@ -24,8 +24,9 @@ pub const TEST_RUNTIME_UPGRADE_KEY: &[u8] = b"+test_runtime_upgrade_key+";
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use crate::test_pallet::TEST_RUNTIME_UPGRADE_KEY;
-	use alloc::vec;
+	use alloc::{vec, vec::Vec};
 	use cumulus_primitives_core::CumulusDigestItem;
+	use cumulus_primitives_storage_weight_reclaim::get_proof_size;
 	use frame_support::{
 		dispatch::DispatchInfo,
 		inherent::{InherentData, InherentIdentifier, ProvideInherent},
@@ -57,9 +58,18 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type InherentWeightConsume<T: Config> = StorageValue<_, Weight, OptionQuery>;
 
+	/// A map that contains on single big value at the current block.
+	///
+	/// In every block we are moving the big value from the previous block to current block. This is
+	/// done to test that the storage proof size between multiple blocks in the same bundle is
+	/// shared.
+	#[pallet::storage]
+	pub type BigValueMove<T: Config> =
+		StorageMap<_, Twox64Concat, BlockNumberFor<T>, Vec<u8>, OptionQuery>;
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
+		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			if ScheduleWeightRegistration::<T>::get() {
 				let weight_to_register = Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND, 0);
 
@@ -71,6 +81,19 @@ pub mod pallet {
 					ScheduleWeightRegistration::<T>::kill();
 					return weight_to_register
 				}
+			}
+
+			if let Some(mut value) = BigValueMove::<T>::take(n - 1u32.into()) {
+				// Modify the value a little bit.
+				let parent_hash = frame_system::Pallet::<T>::parent_hash();
+				value[..parent_hash.as_ref().len()].copy_from_slice(parent_hash.as_ref());
+
+				BigValueMove::<T>::insert(n, value);
+
+				// Depositing the event is important, because then we write the actual proof size
+				// into the state. If some node returns a different proof size on import of this
+				// block, we will detect it this way as the storage root will be different.
+				Self::deposit_event(Event::MovedBigValue { proof_size: get_proof_size().unwrap() })
 			}
 
 			Weight::zero()
@@ -227,7 +250,15 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			sp_io::storage::set(TEST_RUNTIME_UPGRADE_KEY, &[1, 2, 3, 4]);
+
+			BigValueMove::<T>::insert(BlockNumberFor::<T>::from(0u32), vec![0u8; 4 * 1024]);
 		}
+	}
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		MovedBigValue { proof_size: u64 },
 	}
 
 	#[derive(
