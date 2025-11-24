@@ -20,8 +20,6 @@
 
 extern crate alloc;
 
-use core::time::Duration;
-
 use alloc::vec::Vec;
 use codec::{Compact, Decode, DecodeAll, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use polkadot_parachain_primitives::primitives::HeadData;

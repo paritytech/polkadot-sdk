@@ -41,6 +41,7 @@ use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
 use polkadot_primitives::{
 	Block as RelayBlock, CoreIndex, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
+	DEFAULT_CLAIM_QUEUE_OFFSET,
 };
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
@@ -220,7 +221,7 @@ where
 				continue;
 			};
 
-			let Ok(rp_data) = offset_relay_parent_find_descendants(
+			let Ok(Some(rp_data)) = offset_relay_parent_find_descendants(
 				&mut relay_chain_data_cache,
 				relay_best_hash,
 				relay_parent_offset,
@@ -331,7 +332,7 @@ where
 				&mut relay_chain_data_cache,
 				&relay_parent_header,
 				para_id,
-				&initial_parent.header,
+				relay_parent_offset,
 			)
 			.await
 			{
@@ -717,7 +718,7 @@ pub async fn offset_relay_parent_find_descendants<RelayClient>(
 	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
 	relay_best_block: RelayHash,
 	relay_parent_offset: u32,
-) -> Result<RelayParentData, ()>
+) -> Result<Option<RelayParentData>, ()>
 where
 	RelayClient: RelayChainInterface + Clone + 'static,
 {
@@ -731,7 +732,17 @@ where
 	};
 
 	if relay_parent_offset == 0 {
-		return Ok(RelayParentData::new(relay_header));
+		return Ok(Some(RelayParentData::new(relay_header)));
+	}
+
+	if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&relay_header) {
+		tracing::debug!(
+			target: LOG_TARGET,
+			?relay_best_block,
+			relay_best_block_number = relay_header.number(),
+			"Relay parent is in previous session.",
+		);
+		return Ok(None);
 	}
 
 	let mut required_ancestors: VecDeque<RelayHeader> = Default::default();
@@ -742,6 +753,16 @@ where
 			.await?
 			.relay_parent_header
 			.clone();
+		if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&next_header) {
+			tracing::debug!(
+				target: LOG_TARGET,
+				?relay_best_block, ancestor = %next_header.hash(),
+				ancestor_block_number = next_header.number(),
+				"Ancestor of best block is in previous session.",
+			);
+
+			return Ok(None);
+		}
 		required_ancestors.push_front(next_header.clone());
 		relay_header = next_header;
 	}
@@ -760,7 +781,7 @@ where
 		"Relay parent descendants."
 	);
 
-	Ok(RelayParentData::new_with_descendants(relay_parent, required_ancestors.into()))
+	Ok(Some(RelayParentData::new_with_descendants(relay_parent, required_ancestors.into())))
 }
 
 /// Return value of [`determine_cores`].
@@ -821,53 +842,28 @@ impl Cores {
 /// Determine the cores for the given `para_id`.
 ///
 /// Takes into account the `parent` core to find the next available cores.
-pub async fn determine_cores<Header: HeaderT, RI: RelayChainInterface + 'static>(
+pub async fn determine_cores<RI: RelayChainInterface + 'static>(
 	relay_chain_data_cache: &mut RelayChainDataCache<RI>,
 	relay_parent: &RelayHeader,
 	para_id: ParaId,
-	parent: &Header,
+	relay_parent_offset: u32,
 ) -> Result<Option<Cores>, ()> {
-	let core_info = CumulusDigestItem::find_core_info(parent.digest());
-
-	let last_relay_parent = if parent.number().is_zero() {
-		0
-	} else {
-		match extract_relay_parent(parent.digest()) {
-			Some(last_relay_parent) => *relay_chain_data_cache
-				.get_mut_relay_chain_data(last_relay_parent)
-				.await?
-				.relay_parent_header
-				.number(),
-			None => rpsr_digest::extract_relay_parent_storage_root(parent.digest()).ok_or(())?.1,
-		}
-	};
-
-	let relay_parent_offset = relay_parent.number().saturating_sub(last_relay_parent);
 	let claim_queue = &relay_chain_data_cache
 		.get_mut_relay_chain_data(relay_parent.hash())
 		.await?
 		.claim_queue;
 
-	// If the offset between the last relay parent and the current one is bigger than the last
-	// claim queue offset, we can start from the beginning of the claim queue. Because there was no
-	// core yet claimed from this claim queue.
-	let res = if core_info
-		.as_ref()
-		.map_or(true, |ci| relay_parent_offset > ci.claim_queue_offset.0 as u32)
-	{
-		claim_queue.find_cores(para_id, 0)
-	} else {
-		claim_queue.find_cores(
-			para_id,
-			core_info
-				.as_ref()
-				.map_or(0, |ci| ci.claim_queue_offset.0 as u32 - relay_parent_offset),
-		)
-	};
+	let core_indices = claim_queue
+		.iter_claims_at_depth_for_para(relay_parent_offset as _, para_id)
+		.collect::<Vec<_>>();
 
-	Ok(res.map(|(cores, claim_queue_offset)| Cores {
-		selector: CoreSelector(0),
-		claim_queue_offset,
-		core_indices: cores,
-	}))
+	Ok(if core_indices.is_empty() {
+		None
+	} else {
+		Some(Cores {
+			selector: CoreSelector(0),
+			claim_queue_offset: ClaimQueueOffset(relay_parent_offset as u8),
+			core_indices,
+		})
+	})
 }

@@ -30,7 +30,7 @@ use codec::Encode;
 
 use sp_api::{
 	ApiExt, ApiRef, CallApiAt, Core, ProofRecorder, ProvideRuntimeApi, StorageChanges,
-	StorageProof, TransactionOutcome,
+	TransactionOutcome,
 };
 use sp_blockchain::{ApplyExtrinsicFailed, Error, HeaderBackend};
 use sp_core::traits::CallContext;

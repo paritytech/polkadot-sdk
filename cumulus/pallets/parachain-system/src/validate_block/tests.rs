@@ -33,7 +33,7 @@ use polkadot_parachain_primitives::primitives::ValidationResult;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_consensus_babe::SlotDuration;
-use sp_core::H256;
+use sp_core::{Hasher, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, Block as BlockT, Header as HeaderT},
 	DigestItem,
@@ -383,6 +383,40 @@ fn validate_block_returns_custom_head_data() {
 	assert_eq!(expected_header, res_header);
 }
 
+#[test]
+fn validate_block_rejects_invalid_seal() {
+	sp_tracing::try_init_simple();
+
+	if env::var("RUN_TEST").is_ok() {
+		let (client, parent_head) = create_test_client();
+		let TestBlockData { mut block, validation_data, .. } = build_block_with_witness(
+			&client,
+			Vec::new(),
+			parent_head.clone(),
+			Default::default(),
+			Default::default(),
+		);
+		let (id, data) =
+			block.blocks_mut()[0].header.digest.logs.last().unwrap().as_seal().unwrap();
+		let mut data = data.to_vec();
+		let random = BlakeTwo256::hash(&data);
+		data[..random.as_ref().len()].copy_from_slice(random.as_ref());
+
+		*block.blocks_mut()[0].header.digest.logs.last_mut().unwrap() = DigestItem::Seal(id, data);
+
+		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
+			.unwrap_err();
+	} else {
+		let output = Command::new(env::current_exe().unwrap())
+			.args(["validate_block_rejects_invalid_seal", "--", "--nocapture"])
+			.env("RUN_TEST", "1")
+			.output()
+			.expect("Runs the test");
+		assert!(output.status.success());
+
+		assert!(dbg!(String::from_utf8(output.stderr).unwrap()).contains("Invalid AuRa seal"));
+	}
+}
 #[test]
 fn validate_block_invalid_parent_hash() {
 	sp_tracing::try_init_simple();

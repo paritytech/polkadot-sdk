@@ -50,7 +50,12 @@ impl SlotTime {
 
 	/// Get the time remaining in this slot
 	pub fn time_left(&self) -> Duration {
-		let now = duration_now().saturating_sub(self.time_offset);
+		self.time_left_internal(duration_now())
+	}
+
+	/// Internal implementation of [`Self::time_left`] that takes `now` as parameter.
+	fn time_left_internal(&self, now: Duration) -> Duration {
+		let now = now.saturating_sub(self.time_offset);
 		let slot_end_time_millis =
 			self.slot_start_timestamp.as_millis() + self.slot_duration.as_millis() as u64;
 		let slot_end_time = Duration::from_millis(slot_end_time_millis);
@@ -202,5 +207,43 @@ mod tests {
 		let (wait_duration, _) = time_until_next_slot(time_now, relay_slot_duration, offset);
 
 		assert_eq!(wait_duration.as_millis(), expected_wait_duration, "Wait time mismatch.");
+	}
+
+	#[rstest]
+	// Basic slot change scenarios
+	#[case(6000, 0, 0, Slot::from(0), 6000)]
+	#[case(6000, 1000, 0, Slot::from(0), 5000)]
+	#[case(6000, 6000, 0, Slot::from(1), 6000)]
+	#[case(6000, 12000, 0, Slot::from(2), 6000)]
+	// Test with offset
+	#[case(6000, 1000, 1000, Slot::from(0), 6000)]
+	#[case(6000, 2000, 1000, Slot::from(0), 5000)]
+	#[case(6000, 6000, 3000, Slot::from(0), 3000)]
+	// Different slot durations
+	#[case(3000, 1000, 0, Slot::from(0), 2000)]
+	#[case(3000, 3000, 0, Slot::from(1), 3000)]
+	#[case(12000, 6000, 0, Slot::from(0), 6000)]
+	#[case(12000, 12000, 0, Slot::from(1), 12000)]
+	// Edge cases - at slot boundary
+	#[case(6000, 5999, 0, Slot::from(0), 1)]
+	#[case(6000, 11999, 0, Slot::from(1), 1)]
+	fn test_compute_time_until_next_slot_change(
+		#[case] para_slot_millis: u64,
+		#[case] time_now: u64,
+		#[case] offset_millis: u64,
+		#[case] last_reported_slot: Slot,
+		#[case] expected_duration: u128,
+	) {
+		let slot_time = SlotTime {
+			slot_duration: Duration::from_millis(para_slot_millis),
+			time_offset: Duration::from_millis(offset_millis),
+			slot_start_timestamp: Timestamp::new(
+				Duration::from_millis(para_slot_millis).as_millis() as u64 * *last_reported_slot,
+			),
+		};
+
+		let time_left = slot_time.time_left_internal(Duration::from_millis(time_now));
+
+		assert_eq!(time_left.as_millis(), expected_duration, "Duration mismatch");
 	}
 }
