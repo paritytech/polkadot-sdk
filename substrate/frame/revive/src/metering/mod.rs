@@ -335,14 +335,13 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	/// - For substrate mode: converts weight+deposit to gas equivalent
 	/// Returns None if resources are exhausted or conversion fails.
 	pub fn eth_gas_left(&self) -> Option<BalanceOf<T>> {
-		let internal_gas = match &self.transaction_limits {
+		let gas_left = match &self.transaction_limits {
 			TransactionLimits::EthereumGas { eth_tx_info, .. } =>
-				math::ethereum_execution::eth_gas_left(self, eth_tx_info),
-			TransactionLimits::WeightAndDeposit { .. } =>
-				math::substrate_execution::eth_gas_left(self),
+				math::ethereum_execution::gas_left(self, eth_tx_info),
+			TransactionLimits::WeightAndDeposit { .. } => math::substrate_execution::gas_left(self),
 		}?;
 
-		Some(internal_gas.into_external_gas::<T>())
+		gas_left.to_ethereum_gas()
 	}
 
 	/// Get remaining weight available.
@@ -389,7 +388,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 				math::substrate_execution::total_consumed_gas(self),
 		};
 
-		signed_gas.as_positive().unwrap_or_default().into_external_gas::<T>()
+		signed_gas.to_ethereum_gas().unwrap_or_default()
 	}
 
 	/// Get total weight consumed
@@ -429,7 +428,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 				math::substrate_execution::eth_gas_consumed(self),
 		};
 
-		signed_gas.as_positive().unwrap_or_default().into_external_gas::<T>()
+		signed_gas.to_ethereum_gas().unwrap_or_default()
 	}
 
 	/// Determine and set the new effective weight limit of the weight meter.
@@ -636,14 +635,6 @@ impl<T: Config> EthTxInfo<T> {
 			&consumed_weight.saturating_add(self.extra_weight),
 		));
 
-		log::trace!(target: LOG_TARGET, "Gas consumption calculation: \
-			consumed_weight={consumed_weight:?}, \
-			consumed_deposit={consumed_deposit:?}, \
-			deposit_gas={deposit_gas:?}, \
-			weight_gas={weight_gas:?}, \
-			extra_weight={:?}",
-			self.extra_weight,);
-
 		deposit_gas.saturating_add(&weight_gas)
 	}
 
@@ -662,13 +653,9 @@ impl<T: Config> EthTxInfo<T> {
 			total_deposit_consumption.saturating_add(&DepositOf::<T>::Charge(fixed_fee));
 		let deposit_gas = SignedGas::from_adjusted_deposit_charge(&deposit_and_fixed_fee);
 
-		let consumable_fee = max_total_gas.saturating_sub(&deposit_gas);
+		let consumable_fee = max_total_gas.saturating_sub(&deposit_gas).to_weight_fee()?;
 
-		let SignedGas::Positive(consumable_fee) = consumable_fee else {
-			return None;
-		};
-
-		T::FeeInfo::fee_to_weight(consumable_fee.into_weight_fee())
+		T::FeeInfo::fee_to_weight(consumable_fee)
 			.checked_sub(&total_weight_consumption.saturating_add(self.extra_weight))
 	}
 }

@@ -101,9 +101,8 @@ pub use crate::{
 	},
 	exec::{CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
 	metering::{
-		gas::{InternalGas, SignedGas},
-		weight::Token as WeightToken,
-		EthTxInfo, FrameMeter, ResourceMeter, TransactionLimits, TransactionMeter,
+		gas::SignedGas, weight::Token as WeightToken, EthTxInfo, FrameMeter, ResourceMeter,
+		TransactionLimits, TransactionMeter,
 	},
 	pallet::{genesis, *},
 	storage::{AccountInfo, ContractInfo},
@@ -1609,7 +1608,7 @@ impl<T: Config> Pallet<T> {
 		let result = Self::run_guarded(try_call);
 
 		log::trace!(target: LOG_TARGET, "Bare call ends: \
-		  result={result:?}, \
+			result={result:?}, \
 			weight_consumed={:?}, \
 			weight_required={:?}, \
 			storage_deposit={:?}, \

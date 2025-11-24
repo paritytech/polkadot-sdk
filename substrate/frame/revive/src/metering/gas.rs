@@ -16,75 +16,24 @@
 // limitations under the License.
 
 use crate::{evm::fees::InfoT, BalanceOf, Config, StorageDeposit};
-use frame_support::{traits::tokens::Balance as BalanceT, DebugNoBound};
+use frame_support::DebugNoBound;
 use sp_core::Get;
-use sp_runtime::FixedPointNumber;
+use sp_runtime::{FixedPointNumber, Saturating};
 
-/// Internal scaled representation of Ethereum Gas
-/// Compared to the Ethereum Gas amounts that are visible externally, this is scaled by
-/// `Config::GasScale`
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Default)]
-pub struct InternalGas<Balance>(Balance);
-
-impl<Balance: BalanceT> InternalGas<Balance> {
-	pub fn into_external_gas<T>(self) -> Balance
-	where
-		T: Config<Balance = Balance>,
-	{
-		let gas_scale = <T as Config>::GasScale::get();
-
-		self.0 / gas_scale
-	}
-
-	pub fn into_weight_fee(self) -> Balance {
-		self.0
-	}
-
-	pub fn from_weight_fee(weight_fee: Balance) -> Self {
-		Self(weight_fee)
-	}
-
-	pub fn from_external_gas<T>(gas: Balance) -> Self
-	where
-		T: Config<Balance = Balance>,
-	{
-		let gas_scale = <T as Config>::GasScale::get();
-
-		Self(gas.saturating_mul(gas_scale))
-	}
-
-	pub fn saturating_add(&self, rhs: &Self) -> Self {
-		Self(self.0.saturating_add(rhs.0))
-	}
-
-	pub fn saturating_sub(&self, rhs: &Self) -> Self {
-		Self(self.0.saturating_sub(rhs.0))
-	}
-
-	pub fn min(self, other: Self) -> Self {
-		Self(self.0.min(other.0))
-	}
-
-	pub fn into_adjusted_deposit<T>(self) -> Balance
-	where
-		T: Config<Balance = Balance>,
-	{
-		let multiplier = T::FeeInfo::next_fee_multiplier();
-
-		multiplier.saturating_mul_int(self.0)
-	}
-}
-
-/// The signed version of internal gas.
+/// The type for negative and positive gas amounts
+///
 /// The structure of this type resembles `StorageDeposit` but the enum variants have a more obvious
 /// name to avoid confusion and errors
 #[derive(Clone, Eq, PartialEq, DebugNoBound)]
 pub enum SignedGas<T: Config> {
 	/// Positive gas amount
-	Positive(InternalGas<BalanceOf<T>>),
+	Positive(BalanceOf<T>),
 	/// Negative gas amount
-	Negative(InternalGas<BalanceOf<T>>),
+	/// Invariant: BalanceOf<T> is never 0 for `Negative`
+	Negative(BalanceOf<T>),
 }
+
+use SignedGas::{Negative, Positive};
 
 impl<T: Config> Default for SignedGas<T> {
 	fn default() -> Self {
@@ -93,78 +42,111 @@ impl<T: Config> Default for SignedGas<T> {
 }
 
 impl<T: Config> SignedGas<T> {
+	/// Transform a weight fee into a gas amount.
 	pub fn from_weight_fee(weight_fee: BalanceOf<T>) -> Self {
-		Self::Positive(InternalGas::from_weight_fee(weight_fee))
+		Self::Positive(weight_fee)
 	}
 
-	pub fn from_external_gas(gas: BalanceOf<T>) -> Self {
-		Self::Positive(InternalGas::from_external_gas::<T>(gas))
+	/// Transform an Ethereum gas amount coming from outside the metering system and transform into
+	/// the internally used SignedGas.
+	pub fn from_ethereum_gas(gas: BalanceOf<T>) -> Self {
+		let gas_scale = <T as Config>::GasScale::get();
+		Self::Positive(gas.saturating_mul(gas_scale))
+	}
+
+	/// Transform a storage deposit into a gas value. The value will be adjusted by dividing it
+	/// through the next fee multiplier. Charges are treated as a positive numbers and refunds as
+	/// negative numbers.
+	pub fn from_adjusted_deposit_charge(deposit: &StorageDeposit<BalanceOf<T>>) -> Self {
+		let multiplier = T::FeeInfo::next_fee_multiplier_reciprocal();
+
+		match deposit {
+			StorageDeposit::Charge(amount) => Positive(multiplier.saturating_mul_int(*amount)),
+			StorageDeposit::Refund(amount) if *amount == Default::default() => Positive(*amount),
+			StorageDeposit::Refund(amount) => Negative(multiplier.saturating_mul_int(*amount)),
+		}
+	}
+
+	/// Transform the gas amount to a weight fee amount
+	/// Returns None if the gas amount is negative.
+	pub fn to_weight_fee(&self) -> Option<BalanceOf<T>> {
+		match self {
+			Positive(amount) => Some(*amount),
+			Negative(..) => None,
+		}
+	}
+
+	/// Transform the gas amount to an Ethereum gas amount usable for external purposes
+	/// Returns None if the gas amount is negative.
+	pub fn to_ethereum_gas(&self) -> Option<BalanceOf<T>> {
+		let gas_scale = <T as Config>::GasScale::get();
+
+		match self {
+			Positive(amount) => Some((*amount) / gas_scale),
+			Negative(..) => None,
+		}
+	}
+
+	/// Transform the gas amount to a deposit charge. The amount will be adjusted by multiplying it
+	/// with the next fee multiplier.
+	/// Returns None if the gas amount is negative.
+	pub fn to_adjusted_deposit_charge(&self) -> Option<BalanceOf<T>> {
+		match self {
+			Positive(amount) => {
+				let multiplier = T::FeeInfo::next_fee_multiplier();
+				Some(multiplier.saturating_mul_int(*amount))
+			},
+			_ => None,
+		}
 	}
 
 	/// This is essentially a saturating signed add.
 	pub fn saturating_add(&self, rhs: &Self) -> Self {
-		use SignedGas::*;
 		match (self, rhs) {
-			(Positive(lhs), Positive(rhs)) => Positive(lhs.saturating_add(rhs)),
-			(Negative(lhs), Negative(rhs)) => Negative(lhs.saturating_add(rhs)),
+			(Positive(lhs), Positive(rhs)) => Positive(lhs.saturating_add(*rhs)),
+			(Negative(lhs), Negative(rhs)) => Negative(lhs.saturating_add(*rhs)),
 			(Positive(lhs), Negative(rhs)) =>
-				if lhs.0 >= rhs.0 {
-					Positive(lhs.saturating_sub(rhs))
+				if lhs >= rhs {
+					Positive(lhs.saturating_sub(*rhs))
 				} else {
-					Negative(rhs.saturating_sub(lhs))
+					Negative(rhs.saturating_sub(*lhs))
 				},
 			(Negative(lhs), Positive(rhs)) =>
-				if lhs.0 > rhs.0 {
-					Negative(lhs.saturating_sub(rhs))
+				if lhs > rhs {
+					Negative(lhs.saturating_sub(*rhs))
 				} else {
-					Positive(rhs.saturating_sub(lhs))
+					Positive(rhs.saturating_sub(*lhs))
 				},
 		}
 	}
 
 	/// This is essentially a saturating signed sub.
 	pub fn saturating_sub(&self, rhs: &Self) -> Self {
-		use SignedGas::*;
 		match (self, rhs) {
-			(Positive(lhs), Negative(rhs)) => Positive(lhs.saturating_add(rhs)),
-			(Negative(lhs), Positive(rhs)) => Negative(lhs.saturating_add(rhs)),
+			(Positive(lhs), Negative(rhs)) => Positive(lhs.saturating_add(*rhs)),
+			(Negative(lhs), Positive(rhs)) => Negative(lhs.saturating_add(*rhs)),
 			(Positive(lhs), Positive(rhs)) =>
-				if lhs.0 >= rhs.0 {
-					Positive(lhs.saturating_sub(rhs))
+				if lhs >= rhs {
+					Positive(lhs.saturating_sub(*rhs))
 				} else {
-					Negative(rhs.saturating_sub(lhs))
+					Negative(rhs.saturating_sub(*lhs))
 				},
 			(Negative(lhs), Negative(rhs)) =>
-				if lhs.0 > rhs.0 {
-					Negative(lhs.saturating_sub(rhs))
+				if lhs > rhs {
+					Negative(lhs.saturating_sub(*rhs))
 				} else {
-					Positive(rhs.saturating_sub(lhs))
+					Positive(rhs.saturating_sub(*lhs))
 				},
 		}
 	}
 
-	/// transform a storage deposit into a gas value and treat a charge as a positive number
-	pub fn from_adjusted_deposit_charge(deposit: &StorageDeposit<BalanceOf<T>>) -> Self {
-		use SignedGas::*;
-
-		let multiplier = T::FeeInfo::next_fee_multiplier_reciprocal();
-		match deposit {
-			StorageDeposit::Charge(amount) =>
-				Positive(InternalGas(multiplier.saturating_mul_int(*amount))),
-			StorageDeposit::Refund(amount) if *amount == Default::default() =>
-				Positive(InternalGas(*amount)),
-			StorageDeposit::Refund(amount) =>
-				Negative(InternalGas(multiplier.saturating_mul_int(*amount))),
-		}
-	}
-
-	/// Return the balance of the `SignedGas` if it is `Positive`, otherwise return `None`
-	pub fn as_positive(&self) -> Option<InternalGas<BalanceOf<T>>> {
-		use SignedGas::*;
-
-		match self {
-			Positive(amount) => Some(*amount),
-			Negative(_amount) => None,
+	// Determine the minimum of two signed gas values.
+	pub fn min(&self, other: &Self) -> Self {
+		match (self, other) {
+			(Positive(_), Negative(rhs)) => Negative(*rhs),
+			(Negative(lhs), Positive(_)) => Negative(*lhs),
+			(Positive(lhs), Positive(rhs)) => Positive((*lhs).min(*rhs)),
+			(Negative(lhs), Negative(rhs)) => Negative((*lhs).max(*rhs)),
 		}
 	}
 }

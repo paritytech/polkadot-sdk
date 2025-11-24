@@ -23,7 +23,7 @@ jobs:
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     if: ${{ needs.preflight.outputs.changes_rust }}
-    timeout-minutes: 90
+    timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     permissions:
@@ -71,7 +71,7 @@ jobs:
             --platform ${{ matrix.platform }} \
             --concurrency.number-of-nodes 10 \
             --concurrency.number-of-threads 10 \
-            --concurrency.number-of-concurrent-tasks 10 \
+            --concurrency.number-of-concurrent-tasks 1000 \
             --working-directory ./workdir \
             --revive-dev-node.consensus manual-seal-200 \
             --revive-dev-node.path ./target/release/revive-dev-node \
