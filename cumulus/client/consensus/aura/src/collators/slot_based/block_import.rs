@@ -15,11 +15,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use codec::Codec;
+use codec::{Codec, Decode, Encode};
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_transaction;
 use cumulus_primitives_core::{CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
 use futures::{stream::FusedStream, StreamExt};
-use parking_lot::Mutex;
+use sc_client_api::{
+	backend::AuxStore,
+	client::{AuxDataOperations, FinalityNotification, PreCommitActions},
+	HeaderBackend,
+};
 use sc_consensus::{BlockImport, StateAction};
 use sc_consensus_aura::{find_pre_digest, standalone::fetch_authorities};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
@@ -27,14 +31,69 @@ use sp_api::{
 	ApiExt, CallApiAt, CallContext, Core, ProofRecorder, ProofRecorderIgnoredNodes,
 	ProvideRuntimeApi, StorageProof,
 };
+use sp_blockchain::{Error as ClientError, Result as ClientResult};
 use sp_consensus::BlockOrigin;
 use sp_consensus_aura::AuraApi;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as _};
 use sp_trie::{
 	proof_size_extension::{ProofSizeExt, RecordingProofSizeProvider},
 	recorder::IgnoredNodes,
+	GenericMemoryDB, KeyFunction,
 };
-use std::{collections::HashMap, marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, sync::Arc};
+
+/// The aux storage key used to store the nodes to ignore for the given block hash.
+fn nodes_to_ignore_key<H: Encode>(block_hash: H) -> Vec<u8> {
+	(b"cumulus_slot_based_nodes_to_ignore", block_hash).encode()
+}
+
+fn load_decode<B, T>(backend: &B, key: &[u8]) -> ClientResult<Option<T>>
+where
+	B: AuxStore,
+	T: Decode,
+{
+	let corrupt = |e: codec::Error| {
+		ClientError::Backend(format!("Nodes to ignore DB is corrupted. Decode error: {}", e))
+	};
+	match backend.get_aux(key)? {
+		None => Ok(None),
+		Some(t) => T::decode(&mut &t[..]).map(Some).map_err(corrupt),
+	}
+}
+
+/// Convert stored node data back to IgnoredNodes.
+fn nodes_to_ignored_nodes<Block: BlockT>(nodes: Vec<Vec<u8>>) -> IgnoredNodes<Block::Hash> {
+	if nodes.is_empty() {
+		return IgnoredNodes::default();
+	}
+
+	// Create a StorageProof from the node data and convert to IgnoredNodes
+	let storage_proof = StorageProof::new(nodes);
+	IgnoredNodes::from_storage_proof::<HashingFor<Block>>(&storage_proof)
+}
+
+/// Prepare a transaction to write the nodes to ignore to the aux storage.
+///
+/// Returns the key-value pairs that need to be written to the aux storage.
+fn prepare_nodes_to_ignore_transaction<Block: BlockT>(
+	block_hash: Block::Hash,
+	nodes: Vec<Vec<u8>>,
+) -> impl Iterator<Item = (Vec<u8>, Vec<u8>)> {
+	let key = nodes_to_ignore_key(block_hash);
+	let encoded_nodes = nodes.encode();
+
+	[(key, encoded_nodes)].into_iter()
+}
+
+/// Load the nodes to ignore associated with a block and convert to IgnoredNodes.
+fn load_nodes_to_ignore<Block: BlockT, B: AuxStore>(
+	backend: &B,
+	block_hash: Block::Hash,
+) -> ClientResult<Option<IgnoredNodes<Block::Hash>>> {
+	let nodes: Option<Vec<Vec<u8>>> =
+		load_decode(backend, nodes_to_ignore_key(block_hash).as_slice())?;
+	Ok(nodes.map(nodes_to_ignored_nodes::<Block>))
+}
 
 /// Handle for receiving the block and the storage proof from the [`SlotBasedBlockImport`].
 ///
@@ -71,7 +130,6 @@ pub struct SlotBasedBlockImport<Block: BlockT, BI, Client, AuthorityId> {
 	inner: BI,
 	client: Arc<Client>,
 	sender: TracingUnboundedSender<(Block, StorageProof)>,
-	nodes_to_ignore: Arc<Mutex<HashMap<PoVBundle, ProofRecorderIgnoredNodes<Block>>>>,
 	_phantom: PhantomData<AuthorityId>,
 }
 
@@ -85,13 +143,7 @@ impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Cli
 		let (sender, receiver) = tracing_unbounded("SlotBasedBlockImportChannel", 1000);
 
 		(
-			Self {
-				sender,
-				client,
-				inner,
-				nodes_to_ignore: Default::default(),
-				_phantom: PhantomData,
-			},
+			Self { sender, client, inner, _phantom: PhantomData },
 			SlotBasedBlockImportHandle { receiver },
 		)
 	}
@@ -106,7 +158,12 @@ impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Cli
 		params: &mut sc_consensus::BlockImportParams<Block>,
 	) -> Result<(), sp_consensus::Error>
 	where
-		Client: ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync,
+		Client: ProvideRuntimeApi<Block>
+			+ CallApiAt<Block>
+			+ AuxStore
+			+ HeaderBackend<Block>
+			+ Send
+			+ Sync,
 		Client::StateBackend: Send,
 		Client::Api: Core<Block> + AuraApi<Block, AuthorityId>,
 		AuthorityId: Codec + Send + Sync + std::fmt::Debug,
@@ -130,8 +187,40 @@ impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Cli
 			relay_block_identifier,
 		};
 
-		let mut nodes_to_ignore = self.nodes_to_ignore.lock();
-		let nodes_to_ignore = nodes_to_ignore.entry(pov_bundle).or_default();
+		let parent_hash = *params.header.parent_hash();
+
+		// Try to load nodes to ignore from parent block if both blocks belong to the same bundle
+		let mut nodes_to_ignore = ProofRecorderIgnoredNodes::<Block>::default();
+		let mut is_same_bundle = false;
+
+		// Load parent block's header to check if it belongs to the same bundle
+		if let Ok(Some(parent_header)) = self.client.header(parent_hash) {
+			let parent_core_info = CumulusDigestItem::find_core_info(parent_header.digest());
+			let parent_relay_block_identifier =
+				CumulusDigestItem::find_relay_block_identifier(parent_header.digest());
+
+			if let (Some(parent_core_info), Some(parent_relay_block_identifier)) =
+				(parent_core_info, parent_relay_block_identifier)
+			{
+				if let Ok(parent_slot) = find_pre_digest::<Block, ()>(&parent_header) {
+					let parent_pov_bundle = PoVBundle {
+						author_index: *parent_slot as usize % authorities.len(),
+						core_info: parent_core_info,
+						relay_block_identifier: parent_relay_block_identifier,
+					};
+
+					// Only load nodes to ignore if both blocks are in the same bundle
+					if parent_pov_bundle == pov_bundle {
+						is_same_bundle = true;
+						if let Ok(Some(parent_nodes)) =
+							load_nodes_to_ignore::<Block, _>(&*self.client, parent_hash)
+						{
+							nodes_to_ignore = parent_nodes;
+						}
+					}
+				}
+			}
+		}
 
 		let recorder = ProofRecorder::<Block>::with_ignored_nodes(nodes_to_ignore.clone());
 		let proof_size_recorder = RecordingProofSizeProvider::new(recorder.clone());
@@ -142,8 +231,6 @@ impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Cli
 
 		runtime_api.record_proof_with_recorder(recorder.clone());
 		runtime_api.register_extension(ProofSizeExt::new(proof_size_recorder.clone()));
-
-		let parent_hash = *params.header.parent_hash();
 
 		let block = Block::new(params.header.clone(), params.body.clone().unwrap_or_default());
 
@@ -163,10 +250,29 @@ impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Cli
 			return Err(sp_consensus::Error::Other(Box::new(sp_blockchain::Error::InvalidStateRoot)))
 		}
 
-		nodes_to_ignore
-			.extend(IgnoredNodes::from_storage_proof::<HashingFor<Block>>(&storage_proof));
-		nodes_to_ignore
-			.extend(IgnoredNodes::from_memory_db(gen_storage_changes.transaction.clone()));
+		// Collect new node data from this block's execution
+		let mut new_nodes = IgnoredNodes::from_storage_proof(&storage_proof);
+		new_nodes.extend(IgnoredNodes::from_memory_db(gen_storage_changes.transaction.clone()));
+
+		// Load parent nodes if they exist (to combine with new nodes)
+		let mut all_nodes = if is_same_bundle {
+			// Load parent nodes as Vec<Vec<u8>> to combine with new nodes
+			load_decode(&*self.client, nodes_to_ignore_key(parent_hash).as_slice())
+				.ok()
+				.flatten()
+				.unwrap_or_default()
+		} else {
+			Vec::new()
+		};
+
+		// Extend with new nodes
+		all_nodes.extend(new_nodes);
+
+		// Store nodes to ignore in aux data for this block
+		let block_hash = params.header.hash();
+		prepare_nodes_to_ignore_transaction::<Block>(block_hash, all_nodes).for_each(|(k, v)| {
+			params.auxiliary.push((k, Some(v)));
+		});
 
 		// Extract and store proof size recordings
 		let recorded_sizes = proof_size_recorder
@@ -176,7 +282,6 @@ impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Cli
 			.collect::<Vec<u32>>();
 
 		if !recorded_sizes.is_empty() {
-			let block_hash = params.header.hash();
 			prepare_proof_size_recording_transaction(block_hash, recorded_sizes).for_each(
 				|(k, v)| {
 					params.auxiliary.push((k, Some(v)));
@@ -199,7 +304,6 @@ impl<Block: BlockT, BI: Clone, Client, AuthorityId> Clone
 			inner: self.inner.clone(),
 			client: self.client.clone(),
 			sender: self.sender.clone(),
-			nodes_to_ignore: self.nodes_to_ignore.clone(),
 			_phantom: PhantomData,
 		}
 	}
@@ -212,7 +316,8 @@ where
 	Block: BlockT,
 	BI: BlockImport<Block> + Send + Sync,
 	BI::Error: Into<sp_consensus::Error>,
-	Client: ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync,
+	Client:
+		ProvideRuntimeApi<Block> + CallApiAt<Block> + AuxStore + HeaderBackend<Block> + Send + Sync,
 	Client::StateBackend: Send,
 	Client::Api: Core<Block> + AuraApi<Block, AuthorityId>,
 	AuthorityId: Codec + Send + Sync + std::fmt::Debug,
@@ -236,4 +341,37 @@ where
 
 		self.inner.import_block(params).await.map_err(Into::into)
 	}
+}
+
+/// Cleanup auxiliary storage for finalized blocks.
+///
+/// This function removes nodes to ignore for blocks that are no longer needed
+/// after finalization. It processes the finalized blocks and their stale heads to
+/// determine which data can be safely removed.
+fn aux_storage_cleanup<Block>(notification: &FinalityNotification<Block>) -> AuxDataOperations
+where
+	Block: BlockT,
+{
+	// Convert the hashes to deletion operations
+	notification
+		.stale_blocks
+		.iter()
+		.map(|b| (nodes_to_ignore_key(b.hash), None))
+		.collect()
+}
+
+/// Register a finality action for cleaning up nodes to ignore.
+///
+/// This should be called during consensus initialization to automatically clean up
+/// nodes to ignore when blocks are finalized.
+pub fn register_nodes_to_ignore_cleanup<C, Block>(client: Arc<C>)
+where
+	C: PreCommitActions<Block> + 'static,
+	Block: BlockT,
+{
+	let on_finality = move |notification: &FinalityNotification<Block>| -> AuxDataOperations {
+		aux_storage_cleanup(notification)
+	};
+
+	client.register_finality_action(Box::new(on_finality));
 }

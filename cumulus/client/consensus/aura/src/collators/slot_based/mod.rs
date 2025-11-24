@@ -67,7 +67,9 @@
 //! 2. Submission to the collation-generation subsystem
 
 use self::{block_builder_task::run_block_builder, collation_task::run_collation_task};
-pub use block_import::{SlotBasedBlockImport, SlotBasedBlockImportHandle};
+pub use block_import::{
+	register_nodes_to_ignore_cleanup, SlotBasedBlockImport, SlotBasedBlockImportHandle,
+};
 use codec::Codec;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
@@ -209,6 +211,8 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 
 	// Initialize proof size recording cleanup
 	register_proof_size_recording_cleanup(para_client.clone());
+	// Initialize nodes to ignore cleanup
+	register_nodes_to_ignore_cleanup(para_client.clone());
 
 	let (tx, rx) = tracing_unbounded("mpsc_builder_to_collator", 100);
 	let collator_task_params = collation_task::Params {
