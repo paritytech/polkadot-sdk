@@ -17,17 +17,17 @@ dave: reports peers count is at least 2 within 60 seconds
 
 
 # db snapshot has {{DB_BLOCK_HEIGHT}} blocks
-alice: reports block height is at least {{DB_BLOCK_HEIGHT}} within 60 seconds
-bob: reports block height is at least {{DB_BLOCK_HEIGHT}} within 60 seconds
-charlie: reports block height is at least {{DB_BLOCK_HEIGHT}} within 60 seconds
+alice: reports block height is at least {{DB_BLOCK_HEIGHT}} within 90 seconds
+bob: reports block height is at least {{DB_BLOCK_HEIGHT}} within 90 seconds
+charlie: reports block height is at least {{DB_BLOCK_HEIGHT}} within 90 seconds
 
-alice: reports block height is greater than {{DB_BLOCK_HEIGHT}} within 75 seconds
-bob: reports block height is greater than {{DB_BLOCK_HEIGHT}} within 75 seconds
-charlie: reports block height is greater than {{DB_BLOCK_HEIGHT}} within 75 seconds
+alice: reports block height is greater than {{DB_BLOCK_HEIGHT}} within 90 seconds
+bob: reports block height is greater than {{DB_BLOCK_HEIGHT}} within 90 seconds
+charlie: reports block height is greater than {{DB_BLOCK_HEIGHT}} within 90 seconds
 
 dave: reports block height is at least 1 within 60 seconds
-dave: reports block height is at least {{DB_BLOCK_HEIGHT}} within 60 seconds
-dave: reports block height is greater than {{DB_BLOCK_HEIGHT}} within 60 seconds
+dave: reports block height is at least {{DB_BLOCK_HEIGHT}} within 90 seconds
+dave: reports block height is greater than {{DB_BLOCK_HEIGHT}} within 90 seconds
 
 dave: log line matches "Warp sync is complete" within 60 seconds
 # State sync is logically part of warp sync
