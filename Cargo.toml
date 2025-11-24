@@ -845,7 +845,7 @@ governor = { version = "0.6.0" }
 gum = { path = "polkadot/node/gum", default-features = false, package = "tracing-gum" }
 gum-proc-macro = { path = "polkadot/node/gum/proc-macro", default-features = false, package = "tracing-gum-proc-macro" }
 handlebars = { version = "5.1.0" }
-hash-db = { version = "0.16.0", default-features = false, git = "https://github.com/paritytech/trie", branch = "mku-no-commit-on-drop" }
+hash-db = { version = "0.16.0", default-features = false, git = "https://github.com/paritytech/trie", branch = "mku-no-commit-on-drop"}
 # hash-db = { version = "0.16.0", default-features = false, path = "/home/miszka/parity/23-pov-reclaim/trie-upstream/hash-db" }
 # hash-db = { version = "0.16.0", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
@@ -1513,6 +1513,10 @@ inherits = "release"
 overflow-checks = true
 
 [profile.bench]
+debug = true
+
+[profile.release-with-debug]
+inherits = "release"
 debug = true
 
 # The list of dependencies below (which can be both direct and indirect dependencies) are crates
