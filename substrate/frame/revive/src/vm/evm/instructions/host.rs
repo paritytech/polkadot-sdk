@@ -154,7 +154,7 @@ fn store_helper<'ext, E: Ext>(
 
 	interpreter.ext.gas_meter_mut().adjust_gas(
 		charged_amount,
-		adjust_cost(if value_to_store.is_some() { 32 } else { 0 }, write_outcome.old_len()),
+		adjust_cost(value_to_store.unwrap_or_default().len() as u32, write_outcome.old_len()),
 	);
 
 	ControlFlow::Continue(())
