@@ -5260,6 +5260,10 @@ fn self_destruct_by_syscall_tracing_works() {
 
 				let json = r#"{
 					"pre": {
+						"{{ALICE_ADDR}}": {
+							"balance": "{{ALICE_BALANCE_PRE}}",
+							"nonce": 1
+						},
 						"{{DJANGO_ADDR}}": {
 							"balance": "{{DJANGO_BALANCE}}"
 						},
@@ -5270,6 +5274,9 @@ fn self_destruct_by_syscall_tracing_works() {
 						}
 					},
 					"post": {
+						"{{ALICE_ADDR}}": {
+							"balance": "{{ALICE_BALANCE_POST}}"
+						},
 						"{{DJANGO_ADDR}}": {
 							"balance": "{{DJANGO_BALANCE_POST}}"
 						},
@@ -5279,11 +5286,17 @@ fn self_destruct_by_syscall_tracing_works() {
 					}
 				}"#;
 
+				let alice_balance_pre = Pallet::<Test>::evm_balance(&ALICE_ADDR);
+				let alice_balance_post = alice_balance_pre - 50_000_000u64;
 				let django_balance = Pallet::<Test>::evm_balance(&DJANGO_ADDR);
 				let contract_balance = Pallet::<Test>::evm_balance(&addr);
-				let django_balance_post = contract_balance - 50_000_000u64;
+				let django_balance_post = contract_balance;
 
 				let json = json
+					.replace("{{ALICE_ADDR}}", &format!("{:#x}", ALICE_ADDR))
+					.replace("{{ALICE_BALANCE_PRE}}", &format!("{:#x}", alice_balance_pre))
+					.replace("{{ALICE_BALANCE_POST}}", &format!("{:#x}", alice_balance_post))
+					.replace("{{CONTRACT_ADDR}}", &format!("{:#x}", addr))
 					.replace("{{DJANGO_ADDR}}", &format!("{:#x}", DJANGO_ADDR))
 					.replace("{{CONTRACT_ADDR}}", &format!("{:#x}", addr))
 					.replace("{{DJANGO_BALANCE}}", &format!("{:#x}", django_balance))
