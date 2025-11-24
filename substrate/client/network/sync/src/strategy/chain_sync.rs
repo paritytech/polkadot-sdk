@@ -328,7 +328,7 @@ pub struct ChainSync<B: BlockT, Client> {
 	/// Maximum blocks per request.
 	max_blocks_per_request: u32,
 	/// Protocol name used to send out state requests
-	state_request_protocol_name: StateSyncProtocolNames,
+	state_request_protocol_names: StateSyncProtocolNames,
 	/// Total number of downloaded blocks.
 	downloaded_blocks: usize,
 	/// State sync in progress, if any.
@@ -590,7 +590,7 @@ where
 			return;
 		}
 
-		if protocol_name == self.state_request_protocol_name.v2 || protocol_name == self.state_request_protocol_name.v3 {
+		if protocol_name == self.state_request_protocol_names.v2 || protocol_name == self.state_request_protocol_names.v3 {
 			let Ok(response) = response.downcast::<Vec<u8>>() else {
 				warn!(target: LOG_TARGET, "Failed to downcast state response");
 				debug_assert!(false);
@@ -895,7 +895,7 @@ where
 
 			let (tx, rx) = oneshot::channel();
 
-			let (protocol, request, fallback_request) = self.state_request_protocol_name.encode_request(&request);
+			let (protocol, request, fallback_request) = self.state_request_protocol_names.encode_request(&request);
 			network_service.start_request(
 				peer_id,
 				protocol,
@@ -943,7 +943,7 @@ where
 		client: Arc<Client>,
 		max_parallel_downloads: u32,
 		max_blocks_per_request: u32,
-		state_request_protocol_name: StateSyncProtocolNames,
+		state_request_protocol_names: StateSyncProtocolNames,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
 		metrics_registry: Option<&Registry>,
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
@@ -963,7 +963,7 @@ where
 			allowed_requests: Default::default(),
 			max_parallel_downloads,
 			max_blocks_per_request,
-			state_request_protocol_name,
+			state_request_protocol_names,
 			downloaded_blocks: 0,
 			state_sync: None,
 			import_existing: false,

@@ -71,7 +71,7 @@ where
 	/// Prometheus metrics registry.
 	pub metrics_registry: Option<Registry>,
 	/// Protocol name used to send out state requests
-	pub state_request_protocol_name: StateSyncProtocolNames,
+	pub state_request_protocol_names: StateSyncProtocolNames,
 	/// Block downloader
 	pub block_downloader: Arc<dyn BlockDownloader<Block>>,
 }
@@ -379,7 +379,7 @@ where
 				client.clone(),
 				config.max_parallel_downloads,
 				config.max_blocks_per_request,
-				config.state_request_protocol_name.clone(),
+				config.state_request_protocol_names.clone(),
 				config.block_downloader.clone(),
 				config.metrics_registry.as_ref(),
 				std::iter::empty(),
@@ -414,7 +414,7 @@ where
 						self.peer_best_blocks
 							.iter()
 							.map(|(peer_id, (_, best_number))| (*peer_id, *best_number)),
-						self.config.state_request_protocol_name.clone(),
+						self.config.state_request_protocol_names.clone(),
 					);
 
 					self.warp = None;
@@ -431,7 +431,7 @@ where
 						self.client.clone(),
 						self.config.max_parallel_downloads,
 						self.config.max_blocks_per_request,
-						self.config.state_request_protocol_name.clone(),
+						self.config.state_request_protocol_names.clone(),
 						self.config.block_downloader.clone(),
 						self.config.metrics_registry.as_ref(),
 						self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
@@ -461,7 +461,7 @@ where
 				self.client.clone(),
 				self.config.max_parallel_downloads,
 				self.config.max_blocks_per_request,
-				self.config.state_request_protocol_name.clone(),
+				self.config.state_request_protocol_names.clone(),
 				self.config.block_downloader.clone(),
 				self.config.metrics_registry.as_ref(),
 				self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
