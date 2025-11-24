@@ -1807,6 +1807,15 @@ where
 	}
 
 	fn terminate_if_same_tx(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
+		if_tracing(|tracer| {
+			let addr = T::AddressMapper::to_address(self.account_id());
+			tracer.terminate(
+				addr,
+				*beneficiary,
+				self.top_frame().nested_gas.gas_left(),
+				crate::Pallet::<T>::evm_balance(&addr),
+			);
+		});
 		let frame = top_frame_mut!(self);
 		let info = frame.contract_info();
 		let trie_id = info.trie_id.clone();
