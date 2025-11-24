@@ -71,7 +71,12 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 				.with_default_command("adder-collator")
 				.cumulus_based(false)
 				.with_default_image(images.cumulus.as_str())
-				.with_default_args(vec!["-lparachain=debug".into()])
+				// The collator shall not panic on state mismatch. Can occur due to the malicious
+				// validator.
+				.with_default_args(vec![
+					"--tolerate-state-mismatch".into(),
+					"-lparachain=debug".into(),
+				])
 				.with_collator(|n| n.with_name("alice"))
 		})
 		.build()

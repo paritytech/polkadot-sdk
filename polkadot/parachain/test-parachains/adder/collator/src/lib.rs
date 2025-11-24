@@ -33,7 +33,7 @@ use std::{
 	},
 	time::Duration,
 };
-use test_parachain_adder::{execute, hash_state, BlockData, HeadData};
+use test_parachain_adder::{execute, hash_state, BlockData, HeadData, StateMismatch};
 
 /// The amount we add when producing a new block.
 ///
@@ -79,7 +79,7 @@ impl State {
 	/// Advance the state and produce a new block based on the given `parent_head`.
 	///
 	/// Returns the new [`BlockData`] and the new [`HeadData`].
-	fn advance(&mut self, parent_head: HeadData) -> (BlockData, HeadData) {
+	fn advance(&mut self, parent_head: HeadData) -> Result<(BlockData, HeadData), StateMismatch> {
 		self.best_block = parent_head.number;
 
 		let block = BlockData {
@@ -91,14 +91,13 @@ impl State {
 			add: ADD,
 		};
 
-		let new_head =
-			execute(parent_head.hash(), parent_head, &block).expect("Produces valid block");
+		let new_head = execute(parent_head.hash(), parent_head.clone(), &block)?;
 
 		let new_head_arc = Arc::new(new_head.clone());
 		self.head_to_state.insert(new_head_arc.clone(), block.state.wrapping_add(ADD));
 		self.number_to_head.insert(new_head.number, new_head_arc);
 
-		(block, new_head)
+		Ok((block, new_head))
 	}
 }
 
@@ -189,6 +188,7 @@ impl Collator {
 	pub fn create_collation_function(
 		&self,
 		spawner: impl SpawnNamed + Clone + 'static,
+		tolerate_state_mismatch: bool,
 	) -> CollatorFn {
 		use futures::FutureExt as _;
 
@@ -205,7 +205,12 @@ impl Collator {
 				.unwrap()
 				.advance(validation_data.relay_parent_number, parent.number);
 
-			let (block_data, head_data) = state.lock().unwrap().advance(parent);
+			let Ok((block_data, head_data)) = state.lock().unwrap().advance(parent) else {
+				if tolerate_state_mismatch {
+					return async { None }.boxed()
+				}
+				panic!("State mismatch")
+			};
 
 			log::info!(
 				"created a new collation on relay-parent({}): {:?}",
@@ -299,7 +304,7 @@ mod tests {
 	fn collator_works() {
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let collator = Collator::new();
-		let collation_function = collator.create_collation_function(spawner);
+		let collation_function = collator.create_collation_function(spawner, false);
 
 		for i in 0..5 {
 			let parent_head =
@@ -357,7 +362,13 @@ mod tests {
 		let mut head = calculate_head_and_state_for_number(10).0;
 
 		for i in 1..10 {
-			head = collator.state.lock().unwrap().advance(head).1;
+			head = collator
+				.state
+				.lock()
+				.unwrap()
+				.advance(head)
+				.1
+				.expect("Should not have state mismatch.");
 			assert_eq!(10 + i, head.number);
 		}
 
@@ -374,7 +385,13 @@ mod tests {
 			.clone();
 
 		for _ in 1..20 {
-			second_head = collator.state.lock().unwrap().advance(second_head.clone()).1;
+			second_head = collator
+				.state
+				.lock()
+				.unwrap()
+				.advance(second_head.clone())
+				.1
+				.expect("should not have state mismatch");
 		}
 
 		assert_eq!(second_head, head);

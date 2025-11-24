@@ -59,6 +59,10 @@ pub struct RunCmd {
 	/// Id of the parachain this collator collates for.
 	#[arg(long)]
 	pub parachain_id: Option<u32>,
+
+	/// If enabled, the collator will not panic on state mismatch..
+	#[arg(long)]
+	pub tolerate_state_mismatch: bool,
 }
 
 #[allow(missing_docs)]
