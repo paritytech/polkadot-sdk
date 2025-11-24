@@ -1827,7 +1827,7 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 #[derive(
 	PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Clone, TypeInfo, RuntimeDebug, Copy,
 )]
-pub struct InternalVersion(pub u8);
+struct InternalVersion(pub u8);
 
 /// A type representing the version of the candidate descriptor.
 #[derive(PartialEq, Eq, Clone, TypeInfo, RuntimeDebug)]
@@ -1852,16 +1852,12 @@ pub enum CandidateDescriptorVersion {
 	Unknown,
 }
 
-impl CandidateDescriptorVersion {
-	/// Retrieve the highest version enabled by examining provided `NodeFeatures`
-	pub fn highest_enabled(node_features: &NodeFeatures) -> Self {
-		use node_features::FeatureIndex;
-		if FeatureIndex::CandidateReceiptV3.is_set(node_features) {
-			Self::V3
-		} else if FeatureIndex::CandidateReceiptV2.is_set(node_features) {
-			Self::V2
-		} else {
-			Self::V1
+impl From<InternalVersion> for CandidateDescriptorVersion {
+	fn from(version: InternalVersion) -> Self {
+		match version.0 {
+			0 => Self::V2,
+			1 => Self::V3,
+			_ => Self::Unknown,
 		}
 	}
 }
@@ -1934,43 +1930,40 @@ pub struct CandidateDescriptorV2<H = Hash> {
 impl<H> CandidateDescriptorV2<H> {
 	/// Returns the candidate descriptor version.
 	///
-	/// Because of the unversioned V1, how we detect v1 had to evolve to make v3
-	/// possible. To avoid network splits, version determination is thus
-	/// dependent on whether the CandidateDescriptorV3 node feature is enabled
-	/// or not.
-	///
-	/// # Arguments
-    ///
-    /// `enabled_version` - The highest enabled version via NodeFeatures. Provide like this:
-    /// ```rust
-    ///    candidate.version(CandidateDescriptorV3::highest_enabled_version(&node_features))
-	/// ```
-	/// WARNING: The candidate descriptor versioning is subtle for as long as we
+	/// NOTE: The candidate descriptor versioning is subtle for as long as we
 	/// need to support the unversioned V1. The issue is that by default we
 	/// assume a V1 descriptor - as soon as any of the reserved bytes are
 	/// non-zero. Now if we introduce any new fields, then any old node will
 	/// think that descriptors of that new version are actually V1 (non-zero
 	/// contents) instead of an unknown version.
 	///
-	/// This is fixed twofold:
+	/// To ensure proper operation we do the following:
+	/// 1. We ensure that we either detect v3 - which will be rejected if not
+	/// yet enabled via node features or we detect v1/v2 exactly as it was
+	/// before.
+	/// 2. We now require a present UMP signal for any version higher or equal
+	/// than V3. This is checked in the runtime.
 	///
-	/// 1. We keep the reserved field check as is until the new version is properly enabled.
-	/// 2. We require UMP signals to be present from version 3 onwards, for more info see [CommittedCandidateReceiptError::NoUmpSignalWithV3Descriptor].
-	pub fn version(&self, enabled_version: CandidateDescriptorVersion) -> CandidateDescriptorVersion {
-		if enabled_version == CandidateDescriptorVersion::V1 {
-			return CandidateDescriptorVersion::V1;
-		}
-		let v3_enabled = enabled_version == CandidateDescriptorVersion::V3;
+	/// Via this, if an old node was presented a v3 candidate, which it would
+	/// consider a V1, it would either detect itself that it is invalid (and not
+	/// back), because of present UMP signals - which is illegal on v1 or the
+	/// candidate would get rejected by the runtime, because for v3 UMP signals
+	/// are mandatory. In both cases the backer can't be slashed.
+	///
+	/// TL;DR: Yes old nodes will errorneously treat v3 candidates as v1, but we
+	/// ensure via the relay chain runtime that this stays harmless for backers.
+	/// Approval voters would get disabled, which means a super majority must
+	/// have updated before enabling the v3 node feature.
+	pub fn version(&self) -> CandidateDescriptorVersion {
 		let old_v1_detected = self.reserved2 != [0u8; 32] || self.reserved1 != [0u8; 24] || self.scheduling_session_offset != 0 || self.scheduling_parent != Hash::from([0u8; 32]);
 		let new_v1_detected = self.reserved2 != [0u8; 32] || self.reserved1 != [0u8;24];
-		match self.version.0 {
-			// Only ever detect v2 if we are not detecting v1 in the old way (prevent scenario 1):
-			// We are not introducing a new way to reach v2, even after v3 is enabled.
-			0 if !old_v1_detected => CandidateDescriptorVersion::V2,
-			// Only ever detect v3 if feature is enabled.
-			1 if v3_enabled && !new_v1_detected => CandidateDescriptorVersion::V3,
-			_ if old_v1_detected || (v3_enabled && new_v1_detected) => CandidateDescriptorVersion::V1,
-			_ => CandidateDescriptorVersion::Unknown,
+
+		match self.version.into() {
+			_ if new_v1_detected => CandidateDescriptorVersion::V1,
+			CandidateDescriptorVersion::V3 => CandidateDescriptorVersion::V3,
+			// Make sure we maintain existing behavior for anything that is not detected as V3:
+			_ if old_v1_detected => CandidateDescriptorVersion::V1,
+			v => v,
 		}
 	}
 }
@@ -2010,8 +2003,8 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 
 
 	/// Returns the collator id if this is a v1 `CandidateDescriptor`
-	pub fn collator(&self, enabled_version: CandidateDescriptorVersion) -> Option<CollatorId> {
-		if self.version(enabled_version) == CandidateDescriptorVersion::V1 {
+	pub fn collator(&self) -> Option<CollatorId> {
+		if self.version() == CandidateDescriptorVersion::V1 {
 			Some(self.rebuild_collator_field())
 		} else {
 			None
@@ -2030,8 +2023,8 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 	}
 
 	/// Returns the collator signature of `V1` candidate descriptors, `None` otherwise.
-	pub fn signature(&self, enabled_version: CandidateDescriptorVersion) -> Option<CollatorSignature> {
-		if self.version(enabled_version) == CandidateDescriptorVersion::V1 {
+	pub fn signature(&self) -> Option<CollatorSignature> {
+		if self.version() == CandidateDescriptorVersion::V1 {
 			return Some(self.rebuild_signature_field())
 		}
 
@@ -2039,8 +2032,8 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 	}
 
 	/// Returns the `core_index` of `V2` candidate descriptors, `None` otherwise.
-	pub fn core_index(&self, enabled_version: CandidateDescriptorVersion) -> Option<CoreIndex> {
-		if self.version(enabled_version) == CandidateDescriptorVersion::V1 {
+	pub fn core_index(&self) -> Option<CoreIndex> {
+		if self.version() == CandidateDescriptorVersion::V1 {
 			return None
 		}
 
@@ -2048,8 +2041,8 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 	}
 
 	/// Returns the `session_index` of `V2` candidate descriptors, `None` otherwise.
-	pub fn session_index(&self, enabled_version: CandidateDescriptorVersion) -> Option<SessionIndex> {
-		if self.version(enabled_version) == CandidateDescriptorVersion::V1 {
+	pub fn session_index(&self) -> Option<SessionIndex> {
+		if self.version() == CandidateDescriptorVersion::V1 {
 			return None
 		}
 
@@ -2062,7 +2055,7 @@ where
 	H: core::fmt::Debug,
 {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-		match self.version(CandidateDescriptorVersion::V3) {
+		match self.version() {
 			CandidateDescriptorVersion::V1 => f
 				.debug_struct("CandidateDescriptorV1")
 				.field("para_id", &self.para_id)
@@ -2500,7 +2493,7 @@ pub enum CommittedCandidateReceiptError {
 	NoAssignment,
 	/// Unknown version.
 	#[cfg_attr(feature = "std", error("Unknown internal version"))]
-	UnknownVersion(InternalVersion),
+	UnknownVersion(u8),
 	/// The allowed number of `UMPSignal` messages in the queue was exceeded.
 	#[cfg_attr(feature = "std", error("Too many UMP signals"))]
 	TooManyUMPSignals,
@@ -2538,11 +2531,10 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 	pub fn parse_ump_signals(
 		&self,
 		cores_per_para: &TransposedClaimQueue,
-		enabled_descriptor_version: CandidateDescriptorVersion,
 	) -> Result<CandidateUMPSignals, CommittedCandidateReceiptError> {
 		let signals = self.commitments.ump_signals()?;
 
-		match self.descriptor.version(enabled_descriptor_version) {
+		match self.descriptor.version() {
 			CandidateDescriptorVersion::V1 => {
 				// If the parachain runtime started sending ump signals, v1 descriptors are no
 				// longer allowed.
@@ -2555,7 +2547,7 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 			},
 			CandidateDescriptorVersion::V2 => {},
 			CandidateDescriptorVersion::Unknown =>
-				return Err(CommittedCandidateReceiptError::UnknownVersion(self.descriptor.version)),
+				return Err(CommittedCandidateReceiptError::UnknownVersion(self.descriptor.version.0)),
 			_ if signals.is_empty() => {
 				// V3 and above require UMP signals.
 				return Err(CommittedCandidateReceiptError::NoUMPSignalWithV3Descriptor)
