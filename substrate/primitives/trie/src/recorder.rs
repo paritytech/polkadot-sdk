@@ -227,11 +227,6 @@ impl<H: Hasher> Recorder<H> {
 		self.encoded_size_estimation.load(Ordering::Relaxed)
 	}
 
-	/// Returns the number of trie nodes that have been accessed.
-	pub fn accessed_nodes_count(&self) -> usize {
-		self.inner.lock().accessed_nodes.len()
-	}
-
 	/// Reset the state.
 	///
 	/// This discards all recorded data.
@@ -310,10 +305,6 @@ impl<H: Hasher> Recorder<H> {
 impl<H: Hasher> crate::ProofSizeProvider for Recorder<H> {
 	fn estimate_encoded_size(&self) -> usize {
 		Recorder::estimate_encoded_size(self)
-	}
-
-	fn accessed_nodes_count(&self) -> usize {
-		Recorder::accessed_nodes_count(self)
 	}
 }
 

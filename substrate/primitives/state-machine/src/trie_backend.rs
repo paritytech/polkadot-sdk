@@ -199,17 +199,6 @@ impl<H: Hasher> TrieRecorderProvider<H> for UnimplementedRecorderProvider<H> {
 	}
 }
 
-#[cfg(not(feature = "std"))]
-impl<H: Hasher> sp_trie::ProofSizeProvider for UnimplementedRecorderProvider<H> {
-	fn estimate_encoded_size(&self) -> usize {
-		0
-	}
-
-	fn accessed_nodes_count(&self) -> usize {
-		0
-	}
-}
-
 #[cfg(feature = "std")]
 type DefaultCache<H> = LocalTrieCache<H>;
 
@@ -424,7 +413,7 @@ impl<
 		S: TrieBackendStorage<H>,
 		H: Hasher,
 		C: TrieCacheProvider<H> + Send + Sync,
-		R: TrieRecorderProvider<H> + Send + Sync + sp_trie::ProofSizeProvider,
+		R: TrieRecorderProvider<H> + Send + Sync,
 	> Backend<H> for TrieBackend<S, H, C, R>
 where
 	H::Out: Ord + Codec,
@@ -545,8 +534,7 @@ where
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-	) -> sp_externalities::TriggerStats
-	where
+	) where
 		H::Out: Ord,
 	{
 		self.essence.trigger_storage_root_size_estimation(delta, state_version)
@@ -557,8 +545,7 @@ where
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-	) -> sp_externalities::TriggerStats
-	where
+	) where
 		H::Out: Ord,
 	{
 		self.essence.trigger_child_storage_root_size_estimation(child_info, delta, state_version)

@@ -523,18 +523,16 @@ where
 		root.encode()
 	}
 
-	fn trigger_storage_root_size_estimation(&mut self, state_version: StateVersion) -> sp_externalities::TriggerStats {
+	fn trigger_storage_root_size_estimation(&mut self, state_version: StateVersion) {
 		let _guard = guard();
 
-		let stats = self.overlay.trigger_storage_root_size_estimation(self.backend, state_version);
+		self.overlay.trigger_storage_root_size_estimation(self.backend, state_version);
 
 		trace!(
 			target: "state",
 			method = "TriggerStorageRootSizeEstimation",
 			ext_id = %HexDisplay::from(&self.id.to_le_bytes()),
 		);
-
-		stats
 	}
 
 	fn child_storage_root(

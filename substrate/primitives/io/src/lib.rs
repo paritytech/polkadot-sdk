@@ -133,7 +133,7 @@ use secp256k1::{
 #[cfg(not(substrate_runtime))]
 use sp_externalities::{Externalities, ExternalitiesExt};
 
-pub use sp_externalities::{MultiRemovalResults, TriggerStats};
+pub use sp_externalities::MultiRemovalResults;
 
 #[cfg(all(not(feature = "disable_allocator"), substrate_runtime, target_family = "wasm"))]
 mod global_alloc_wasm;
@@ -350,7 +350,7 @@ pub trait Storage {
 	fn trigger_storage_root_size_estimation_xxx(
 		&mut self,
 		state_version: PassAs<StateVersion, u8>,
-	) -> AllocateAndReturnByCodec<TriggerStats> {
+	) {
 		self.trigger_storage_root_size_estimation(state_version)
 	}
 

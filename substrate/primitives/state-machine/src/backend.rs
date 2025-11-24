@@ -28,7 +28,6 @@ use codec::Encode;
 use core::marker::PhantomData;
 use hash_db::Hasher;
 use sp_core::storage::{ChildInfo, StateVersion, TrackedStorageKey};
-use sp_externalities::TriggerStats;
 #[cfg(feature = "std")]
 use sp_core::traits::RuntimeCode;
 use sp_trie::{MerkleValue, PrefixedMemoryDB, RandomState};
@@ -274,8 +273,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-	) -> TriggerStats
-	where
+	) where
 		H::Out: Ord;
 
 	/// Updates the recorder's proof size by recording child trie nodes for a given delta.
@@ -284,8 +282,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-	) -> TriggerStats
-	where
+	) where
 		H::Out: Ord;
 
 	/// Returns a lifetimeless raw storage iterator.
@@ -357,50 +354,24 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 			Item = (&'a ChildInfo, impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>),
 		>,
 		state_version: StateVersion,
-	) -> TriggerStats
-	where
+	) where
 		H::Out: Ord + Encode,
 	{
 		let mut child_roots: Vec<_> = Default::default();
-		let mut stats = TriggerStats::default();
-
 		// child first
 		for (child_info, child_delta) in child_deltas {
-			let child_stats = self.trigger_child_storage_root_size_estimation(child_info, child_delta, state_version);
-
-			// For first child, initialize stats; for subsequent children, add to existing
-			if stats.trie_nodes_accessed.is_none() {
-				stats = child_stats.clone();
-			} else {
-				stats.trie_nodes_accessed = stats.trie_nodes_accessed.zip(child_stats.trie_nodes_accessed).map(|(a, b)| a + b);
-				stats.proof_size_increase = stats.proof_size_increase.zip(child_stats.proof_size_increase).map(|(a, b)| a + b);
-				stats.keys_read_count = stats.keys_read_count.zip(child_stats.keys_read_count).map(|(a, b)| a + b);
-				stats.keys_deleted_count = stats.keys_deleted_count.zip(child_stats.keys_deleted_count).map(|(a, b)| a + b);
-			}
-
+			self.trigger_child_storage_root_size_estimation(child_info, child_delta, state_version);
 			let prefixed_storage_key = child_info.prefixed_storage_key();
 			// At "estimation phase" we don't know if child trie is empty or not. Let's assume worst
 			// case - remocal of the child storage root value from the main trie:
 			child_roots.push((prefixed_storage_key.into_inner(), None::<&[u8]>));
 		}
-		let main_stats = self.trigger_storage_root_size_estimation(
+		self.trigger_storage_root_size_estimation(
 			delta
 				.map(|(k, v)| (k, v.as_ref().map(|v| &v[..])))
 				.chain(child_roots.iter().map(|(k, _)| (&k[..], None::<&[u8]>))),
 			state_version,
 		);
-
-		// Add main trie stats
-		if stats.trie_nodes_accessed.is_none() {
-			stats = main_stats;
-		} else {
-			stats.trie_nodes_accessed = stats.trie_nodes_accessed.zip(main_stats.trie_nodes_accessed).map(|(a, b)| a + b);
-			stats.proof_size_increase = stats.proof_size_increase.zip(main_stats.proof_size_increase).map(|(a, b)| a + b);
-			stats.keys_read_count = stats.keys_read_count.zip(main_stats.keys_read_count).map(|(a, b)| a + b);
-			stats.keys_deleted_count = stats.keys_deleted_count.zip(main_stats.keys_deleted_count).map(|(a, b)| a + b);
-		}
-
-		stats
 	}
 
 	/// Register stats from overlay of state machine.

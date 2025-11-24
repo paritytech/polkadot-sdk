@@ -205,7 +205,7 @@ impl<S: StateBackend<HashingFor<B>>, B: BlockT> StateBackend<HashingFor<B>>
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-	) -> sp_externalities::TriggerStats {
+	) {
 		self.state.trigger_storage_root_size_estimation(delta, state_version)
 	}
 
@@ -214,7 +214,7 @@ impl<S: StateBackend<HashingFor<B>>, B: BlockT> StateBackend<HashingFor<B>>
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-	) -> sp_externalities::TriggerStats {
+	) {
 		self.state
 			.trigger_child_storage_root_size_estimation(child_info, delta, state_version)
 	}

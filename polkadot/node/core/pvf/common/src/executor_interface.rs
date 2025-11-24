@@ -334,7 +334,7 @@ impl sp_externalities::Externalities for ValidationExternalities {
 	fn trigger_storage_root_size_estimation(
 		&mut self,
 		_state_version: sp_core::storage::StateVersion,
-	) -> sp_externalities::TriggerStats {
+	) {
 		panic!("trigger_storage_root_size_estimation: unsupported feature for parachain validation")
 	}
 }

@@ -110,9 +110,8 @@ pub struct OverlayedChanges<H: Hasher> {
 	/// This transaction can be applied to the backend to persist the state changes.
 	storage_transaction_cache: Option<StorageTransactionCache<H>>,
 
-	/// Cached trigger statistics from storage root size estimation.
-	/// Used to avoid recomputing the trigger stats on repeated calls.
-	trigger_execution_cache: Option<sp_externalities::TriggerStats>,
+	// todo: better name
+	storage_transaction_cache2_flag: Option<()>,
 }
 
 impl<H: Hasher> Default for OverlayedChanges<H> {
@@ -125,7 +124,7 @@ impl<H: Hasher> Default for OverlayedChanges<H> {
 			collect_extrinsics: Default::default(),
 			stats: Default::default(),
 			storage_transaction_cache: None,
-			trigger_execution_cache: None,
+			storage_transaction_cache2_flag: None,
 		}
 	}
 }
@@ -140,7 +139,7 @@ impl<H: Hasher> Clone for OverlayedChanges<H> {
 			collect_extrinsics: self.collect_extrinsics,
 			stats: self.stats.clone(),
 			storage_transaction_cache: self.storage_transaction_cache.clone(),
-			trigger_execution_cache: self.trigger_execution_cache.clone(),
+			storage_transaction_cache2_flag: self.storage_transaction_cache2_flag.clone(),
 		}
 	}
 }
@@ -306,10 +305,10 @@ impl<H: Hasher> OverlayedChanges<H> {
 	}
 
 	/// Should be called when there are changes that require to reset the
-	/// `storage_transaction_cache` and `trigger_execution_cache`.
+	/// `storage_transaction_cache`.
 	fn mark_dirty(&mut self) {
 		self.storage_transaction_cache = None;
-		self.trigger_execution_cache = None;
+		self.storage_transaction_cache2_flag = None;
 	}
 
 	/// Returns a double-Option: None if the key is unknown (i.e. and the query should be referred
@@ -615,8 +614,6 @@ impl<H: Hasher> OverlayedChanges<H> {
 		#[cfg(feature = "std")]
 		let transaction_index_changes = std::mem::take(&mut self.transaction_index_ops);
 
-		self.trigger_execution_cache = None;
-
 		Ok(StorageChanges {
 			main_storage_changes: main_storage_changes.collect(),
 			child_storage_changes: child_storage_changes
@@ -697,13 +694,12 @@ impl<H: Hasher> OverlayedChanges<H> {
 		&mut self,
 		backend: &B,
 		state_version: StateVersion,
-	) -> sp_externalities::TriggerStats
-	where
+	) where
 		H::Out: Ord + Encode + codec::Codec,
 	{
-		if let Some(cached_stats) = &self.trigger_execution_cache {
+		if self.storage_transaction_cache2_flag.is_some() {
 			crate::debug!(target: "overlayed_changes", "trigger_storage_root_size_estimation (cache)");
-			return cached_stats.clone();
+			return;
 		}
 		#[cfg(feature = "std")]
 		let start = std::time::Instant::now();
@@ -715,7 +711,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 		crate::debug!(target: "overlayed_changes", "trigger_storage_root_size_estimation snapshot: {:?}", snapshot);
 		let snapshot_len = snapshot.len();
 
-		let stats = {
+		{
 			let delta = self
 				.top
 				.changes_mut2(&snapshot)
@@ -732,20 +728,15 @@ impl<H: Hasher> OverlayedChanges<H> {
 				)
 			});
 
-			backend.trigger_storage_root_size_estimation_full(
-				delta,
-				child_delta,
-				state_version,
-			)
+			backend.trigger_storage_root_size_estimation_full(delta, child_delta, state_version);
+
+			self.storage_transaction_cache2_flag = Some(());
 		};
 
 		#[cfg(feature = "std")]
 		{
-			crate::debug!(target: "durations", "trigger_storage_root_size_estimation: duration={:?} snapshot_len={} stats={:?}", start.elapsed(), snapshot_len, stats);
+			crate::debug!(target: "durations", "trigger_storage_root_size_estimation: duration={:?} snapshot_len={}", start.elapsed(), snapshot_len);
 		}
-
-		self.trigger_execution_cache = Some(stats.clone());
-		stats
 	}
 
 	/// Generate the child storage root using `backend` and all child changes

@@ -670,20 +670,7 @@ where
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-	) -> sp_externalities::TriggerStats
-	where
-		R: sp_trie::ProofSizeProvider,
-	{
-		let proof_size_before = self.recorder
-			.as_ref()
-			.map(|r| r.estimate_encoded_size() as u32)
-			.unwrap_or(0);
-
-		let nodes_before = self.recorder
-			.as_ref()
-			.map(|r| r.accessed_nodes_count() as u32)
-			.unwrap_or(0);
-
+	) {
 		let mut write_overlay = PrefixedMemoryDB::with_hasher(RandomState::default());
 		let backend_storage = &self.backend_storage();
 		let mut eph = Ephemeral::new(backend_storage, &mut write_overlay);
@@ -693,9 +680,6 @@ where
 
 		let (keys_to_be_read, keys_to_be_removed): (Vec<_>, Vec<_>) =
 			delta.into_iter().partition(|(_, v)| v.is_some());
-
-		let keys_read_count = keys_to_be_read.len() as u32;
-		let keys_deleted_count = keys_to_be_removed.len() as u32;
 
 		self.with_recorder_and_cache(None, |recorder, cache| {
 			let res = {
@@ -750,23 +734,6 @@ where
 				warn!(target: "trie", "Failed to remove delta keys from trie: {}", e);
 			});
 		});
-
-		let proof_size_after = self.recorder
-			.as_ref()
-			.map(|r| r.estimate_encoded_size() as u32);
-
-		let nodes_after = self.recorder
-			.as_ref()
-			.map(|r| r.accessed_nodes_count() as u32);
-
-		sp_externalities::TriggerStats {
-			trie_nodes_accessed: nodes_after.and_then(|after|
-				Some(after.saturating_sub(nodes_before))),
-			proof_size_increase: proof_size_after.and_then(|after|
-				Some(after.saturating_sub(proof_size_before))),
-			keys_read_count: Some(keys_read_count),
-			keys_deleted_count: Some(keys_deleted_count),
-		}
 	}
 
 	/// Returns the child storage root for the child trie `child_info` after applying the given
@@ -834,20 +801,7 @@ where
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-	) -> sp_externalities::TriggerStats
-	where
-		R: sp_trie::ProofSizeProvider,
-	{
-		let proof_size_before = self.recorder
-			.as_ref()
-			.map(|r| r.estimate_encoded_size() as u32)
-			.unwrap_or(0);
-
-		let nodes_before = self.recorder
-			.as_ref()
-			.map(|r| r.accessed_nodes_count() as u32)
-			.unwrap_or(0);
-
+	) {
 		let default_root = match child_info.child_type() {
 			ChildType::ParentKeyId => empty_child_trie_root::<sp_trie::LayoutV1<H>>(),
 		};
@@ -867,9 +821,6 @@ where
 
 		let (keys_to_be_read, keys_to_be_removed): (Vec<_>, Vec<_>) =
 			delta.into_iter().partition(|(_, v)| v.is_some());
-
-		let keys_read_count = keys_to_be_read.len() as u32;
-		let keys_deleted_count = keys_to_be_removed.len() as u32;
 
 		let _ =
 			self.with_recorder_and_cache(Some(child_root), |recorder, cache| match state_version {
@@ -914,23 +865,6 @@ where
 						cache,
 					),
 			});
-
-		let proof_size_after = self.recorder
-			.as_ref()
-			.map(|r| r.estimate_encoded_size() as u32);
-
-		let nodes_after = self.recorder
-			.as_ref()
-			.map(|r| r.accessed_nodes_count() as u32);
-
-		sp_externalities::TriggerStats {
-			trie_nodes_accessed: nodes_after.and_then(|after|
-				Some(after.saturating_sub(nodes_before))),
-			proof_size_increase: proof_size_after.and_then(|after|
-				Some(after.saturating_sub(proof_size_before))),
-			keys_read_count: Some(keys_read_count),
-			keys_deleted_count: Some(keys_deleted_count),
-		}
 	}
 }
 
