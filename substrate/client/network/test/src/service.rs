@@ -171,7 +171,7 @@ impl TestNetworkBuilder {
 			block_relay_params.server.run().await;
 		}));
 
-		let (state_request_protocol_configs, state_request_protocol_names) = {
+		let (state_request_protocol_configs, state_sync_protocol_names) = {
 			let (handler, protocol_configs, protocol_names) = StateRequestHandler::new::<
 				NetworkWorker<
 					substrate_test_runtime_client::runtime::Block,
@@ -209,7 +209,7 @@ impl TestNetworkBuilder {
 			max_parallel_downloads: network_config.max_parallel_downloads,
 			max_blocks_per_request: network_config.max_blocks_per_request,
 			metrics_registry: None,
-			state_request_protocol_names,
+			state_sync_protocol_names,
 			block_downloader: block_relay_params.downloader,
 			min_peers_to_start_warp_sync: None,
 		};

@@ -1469,7 +1469,7 @@ where
 
 	let genesis_hash = client.info().genesis_hash;
 
-	let (state_request_protocol_configs, state_request_protocol_names) = {
+	let (state_request_protocol_configs, state_sync_protocol_names) = {
 		let num_peer_hint = net_config.network_config.default_peers_set_num_full as usize +
 			net_config.network_config.default_peers_set.reserved_nodes.len();
 		// Allow both outgoing and incoming requests.
@@ -1509,7 +1509,7 @@ where
 		max_blocks_per_request: net_config.network_config.max_blocks_per_request,
 		min_peers_to_start_warp_sync: net_config.network_config.min_peers_to_start_warp_sync,
 		metrics_registry: metrics_registry.cloned(),
-		state_request_protocol_names,
+		state_sync_protocol_names,
 		block_downloader,
 	};
 	Ok(Box::new(PolkadotSyncingStrategy::new(

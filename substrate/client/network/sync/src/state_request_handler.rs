@@ -281,7 +281,7 @@ where
 
 			if !request.client_proof.is_empty() {
 				let client_proof = ClientProof::decode(&mut &request.client_proof[..])?;
-				let raw_proofs = self.client.proposal_prove(&client_proof, MAX_RESPONSE_BYTES)?;
+				let raw_proofs = self.client.get_trie_nodes_recursive_with_proof(&client_proof, MAX_RESPONSE_BYTES)?;
 				response.raw_proofs = raw_proofs.iter().map(|x| x.encode()).collect();
 			} else if !request.no_proof {
 				let (proof, _count) = self.client.read_proof_collection(
