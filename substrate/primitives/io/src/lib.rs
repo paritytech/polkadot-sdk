@@ -347,13 +347,6 @@ pub trait Storage {
 		self.storage_root(version)
 	}
 
-	fn trigger_storage_root_size_estimation_xxx(
-		&mut self,
-		state_version: PassAs<StateVersion, u8>,
-	) {
-		self.trigger_storage_root_size_estimation(state_version)
-	}
-
 	/// Always returns `None`. This function exists for compatibility reasons.
 	fn changes_root(
 		&mut self,

@@ -44,7 +44,6 @@ pub mod __private {
 	pub use paste;
 	pub use sp_core::defer;
 	pub use sp_io::storage::root as storage_root;
-	pub use sp_io::storage::trigger_storage_root_size_estimation_xxx;
 	pub use sp_runtime::{traits::Zero, StateVersion};
 	pub use sp_storage::{well_known_keys, TrackedStorageKey};
 }

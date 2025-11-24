@@ -64,10 +64,7 @@ pub mod __private {
 	pub use sp_inherents;
 	#[cfg(feature = "std")]
 	pub use sp_io::TestExternalities;
-	pub use sp_io::{
-		self, hashing,
-		storage::{root as storage_root, trigger_storage_root_size_estimation_xxx},
-	};
+	pub use sp_io::{self, hashing, storage::root as storage_root};
 	pub use sp_metadata_ir as metadata_ir;
 	#[cfg(feature = "std")]
 	pub use sp_runtime::{bounded_btree_map, bounded_vec};
