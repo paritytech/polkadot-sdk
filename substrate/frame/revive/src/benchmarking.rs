@@ -2100,7 +2100,7 @@ mod benchmarks {
 		i: Linear<{ 10 * 1024 }, { 48 * 1024 }>,
 	) -> Result<(), BenchmarkError> {
 		use crate::vm::evm::instructions::BENCH_INIT_CODE;
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::dummy());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_sized(0));
 		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 		setup.set_balance(caller_funding::<T>());
 
@@ -2115,9 +2115,11 @@ mod benchmarks {
 
 		let init_code = vec![BENCH_INIT_CODE; i as usize];
 		let _ = interpreter.memory.resize(0, init_code.len());
+		let salt = U256::from(42u64);
 		interpreter.memory.set_data(0, 0, init_code.len(), &init_code);
 
-		// Setup stack for create instruction [value, offset, size]
+		// Setup stack for create instruction [value, offset, size, salt]
+		let _ = interpreter.stack.push(salt);
 		let _ = interpreter.stack.push(U256::from(init_code.len()));
 		let _ = interpreter.stack.push(U256::zero());
 		let _ = interpreter.stack.push(value);
@@ -2125,7 +2127,7 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = instructions::contract::create::<false, _>(&mut interpreter);
+			result = instructions::contract::create::<true, _>(&mut interpreter);
 		}
 
 		assert!(result.is_continue());
