@@ -95,7 +95,6 @@ mod sys {
 		pub fn seal_return(flags: u32, data_ptr: *const u8, data_len: u32);
 		pub fn caller(out_ptr: *mut u8);
 		pub fn origin(out_ptr: *mut u8);
-		pub fn to_account_id(address_ptr: *const u8, out_ptr: *mut u8);
 		pub fn code_hash(address_ptr: *const u8, out_ptr: *mut u8);
 		pub fn code_size(address_ptr: *const u8) -> u64;
 		pub fn own_code_hash(out_ptr: *mut u8);
@@ -445,11 +444,6 @@ impl HostFn for HostFnImpl {
 
 	fn ref_time_left() -> u64 {
 		unsafe { sys::ref_time_left() }
-	}
-
-	#[unstable_hostfn]
-	fn to_account_id(address: &[u8; 20], output: &mut [u8]) {
-		unsafe { sys::to_account_id(address.as_ptr(), output.as_mut_ptr()) }
 	}
 
 	#[unstable_hostfn]
