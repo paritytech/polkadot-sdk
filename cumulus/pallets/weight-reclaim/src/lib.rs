@@ -202,7 +202,7 @@ where
 			return Ok(inner_refund);
 		};
 
-		cumulus_primitives_storage_weight_reclaim::trigger_storage_root_size_estimation(
+		cumulus_primitives_storage_weight_reclaim::compute_pov_size_for_storage_root(
 			T::Version::get().state_version()
 		);
 

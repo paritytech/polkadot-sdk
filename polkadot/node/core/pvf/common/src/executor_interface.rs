@@ -331,11 +331,11 @@ impl sp_externalities::Externalities for ValidationExternalities {
 		panic!("get_read_and_written_keys: unsupported feature for parachain validation")
 	}
 
-	fn trigger_storage_root_size_estimation(
+	fn compute_pov_size_for_storage_root(
 		&mut self,
 		_state_version: sp_core::storage::StateVersion,
 	) {
-		panic!("trigger_storage_root_size_estimation: unsupported feature for parachain validation")
+		panic!("compute_pov_size_for_storage_root: unsupported feature for parachain validation")
 	}
 }
 

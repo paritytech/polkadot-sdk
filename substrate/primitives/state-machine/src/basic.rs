@@ -310,7 +310,7 @@ impl Externalities for BasicExternalities {
 		.encode()
 	}
 
-	fn trigger_storage_root_size_estimation(&mut self, _: StateVersion) {
+	fn compute_pov_size_for_storage_root(&mut self, _: StateVersion) {
 		todo!()
 	}
 

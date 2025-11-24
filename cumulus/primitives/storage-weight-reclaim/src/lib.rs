@@ -100,8 +100,8 @@ pub fn get_proof_size() -> Option<u64> {
 	(proof_size != PROOF_RECORDING_DISABLED).then_some(proof_size)
 }
 
-pub fn trigger_storage_root_size_estimation(state_version: StateVersion) {
-	cumulus_primitives_proof_size_hostfunction::storage_proof_size::trigger_storage_root_size_estimation(state_version)
+pub fn compute_pov_size_for_storage_root(state_version: StateVersion) {
+	cumulus_primitives_proof_size_hostfunction::storage_proof_size::compute_pov_size_for_storage_root(state_version)
 }
 
 // Encapsulate into a mod so that macro generated code doesn't trigger a warning about deprecated

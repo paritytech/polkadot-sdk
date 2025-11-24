@@ -19,7 +19,7 @@
 
 mod changeset;
 mod offchain;
-mod xxx;
+mod storage_key_delta_tracker;
 
 use self::changeset::OverlayedChangeSet;
 use crate::{backend::Backend, stats::StateMachineStats, BackendTransaction, DefaultError};
@@ -680,7 +680,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 		#[cfg(feature = "std")]
 		{
 			crate::debug!(target: "durations", "storage_root: duration={:?}", start.elapsed());
-			// let snapshot = self.top.storage_root_snaphost_delta_keys2();
+			// let snapshot = self.top.take_delta();
 			// crate::debug!(target: "durations", "storage_root: duration={:?} snaphost_len:{}", start.elapsed(),snapshot.len());
 			// crate::debug!(target: "durations", "storage_root: snapshot:{:?}", snapshot.iter().map(|k| hex::encode(k.1)).collect::<Vec<_>>());
 		}
@@ -690,7 +690,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 
 	/// Updates the recorder's proof size by recording trie nodes using `backend` and all changes
 	/// as seen by the current transaction.
-	pub fn trigger_storage_root_size_estimation<B: Backend<H>>(
+	pub fn compute_pov_size_for_storage_root<B: Backend<H>>(
 		&mut self,
 		backend: &B,
 		state_version: StateVersion,
@@ -698,17 +698,17 @@ impl<H: Hasher> OverlayedChanges<H> {
 		H::Out: Ord + Encode + codec::Codec,
 	{
 		if self.storage_transaction_cache2_flag.is_some() {
-			crate::debug!(target: "overlayed_changes", "trigger_storage_root_size_estimation (cache)");
+			crate::debug!(target: "overlayed_changes", "compute_pov_size_for_storage_root (cache)");
 			return;
 		}
 		#[cfg(feature = "std")]
 		let start = std::time::Instant::now();
 
-		crate::debug!(target: "overlayed_changes", "trigger_storage_root_size_estimation (non-cache)");
+		crate::debug!(target: "overlayed_changes", "compute_pov_size_for_storage_root (non-cache)");
 
-		let snapshot = self.top.storage_root_snaphost_delta_keys2();
+		let snapshot = self.top.take_delta();
 
-		crate::debug!(target: "overlayed_changes", "trigger_storage_root_size_estimation snapshot: {:?}", snapshot);
+		crate::debug!(target: "overlayed_changes", "compute_pov_size_for_storage_root snapshot: {:?}", snapshot);
 		let snapshot_len = snapshot.len();
 
 		{
@@ -719,7 +719,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 				.map(|(k, v)| (&k[..], v.map(|v| &v[..])));
 
 			let child_delta = self.children.values_mut().map(|v| {
-				let child_snapshot = v.0.storage_root_snaphost_delta_keys2();
+				let child_snapshot = v.0.take_delta();
 				(
 					&v.1,
 					v.0.changes_mut2(&child_snapshot)
@@ -728,14 +728,14 @@ impl<H: Hasher> OverlayedChanges<H> {
 				)
 			});
 
-			backend.trigger_storage_root_size_estimation_full(delta, child_delta, state_version);
+			backend.compute_pov_size_for_storage_root_full(delta, child_delta, state_version);
 
 			self.storage_transaction_cache2_flag = Some(());
 		};
 
 		#[cfg(feature = "std")]
 		{
-			crate::debug!(target: "durations", "trigger_storage_root_size_estimation: duration={:?} snapshot_len={}", start.elapsed(), snapshot_len);
+			crate::debug!(target: "durations", "compute_pov_size_for_storage_root: duration={:?} snapshot_len={}", start.elapsed(), snapshot_len);
 		}
 	}
 

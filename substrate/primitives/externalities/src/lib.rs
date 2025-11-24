@@ -197,7 +197,7 @@ pub trait Externalities: ExtensionStore {
 	/// The returned hash is defined by the `Block` and is SCALE encoded.
 	fn storage_root(&mut self, state_version: StateVersion) -> Vec<u8>;
 
-	fn trigger_storage_root_size_estimation(&mut self, state_version: StateVersion);
+	fn compute_pov_size_for_storage_root(&mut self, state_version: StateVersion);
 
 	/// Get the trie root of a child storage map.
 	///

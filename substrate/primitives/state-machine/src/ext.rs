@@ -523,14 +523,14 @@ where
 		root.encode()
 	}
 
-	fn trigger_storage_root_size_estimation(&mut self, state_version: StateVersion) {
+	fn compute_pov_size_for_storage_root(&mut self, state_version: StateVersion) {
 		let _guard = guard();
 
-		self.overlay.trigger_storage_root_size_estimation(self.backend, state_version);
+		self.overlay.compute_pov_size_for_storage_root(self.backend, state_version);
 
 		trace!(
 			target: "state",
-			method = "TriggerStorageRootSizeEstimation",
+			method = "ComputePovSizeForStorageRoot",
 			ext_id = %HexDisplay::from(&self.id.to_le_bytes()),
 		);
 	}
@@ -1146,7 +1146,7 @@ mod tests {
 		ext.place_child_storage(child_info, 1u32.encode(), None);
 		ext.place_child_storage(child_info, 6000u32.encode(), None);
 
-		ext.trigger_storage_root_size_estimation(StateVersion::V1);
+		ext.compute_pov_size_for_storage_root(StateVersion::V1);
 		let size_before = recorder.estimate_encoded_size();
 
 		ext.storage_root(StateVersion::V1);
@@ -1208,7 +1208,7 @@ mod tests {
 		ext.place_child_storage(child_info, key2.encode(), Some(vec![40]));
 		let _ = ext.storage_commit_transaction();
 
-		ext.trigger_storage_root_size_estimation(StateVersion::V1);
+		ext.compute_pov_size_for_storage_root(StateVersion::V1);
 		let size_after_reading = recorder.estimate_encoded_size();
 
 		ext.storage_start_transaction();
@@ -1219,7 +1219,7 @@ mod tests {
 		ext.place_child_storage(child_info, key2.encode(), None);
 		let _ = ext.storage_commit_transaction();
 
-		ext.trigger_storage_root_size_estimation(StateVersion::V1);
+		ext.compute_pov_size_for_storage_root(StateVersion::V1);
 
 		let size_before = recorder.estimate_encoded_size();
 
@@ -1309,7 +1309,7 @@ mod tests {
 				ext.place_child_storage(child_info, key.encode(), None);
 			}
 
-			ext.trigger_storage_root_size_estimation(StateVersion::V1);
+			ext.compute_pov_size_for_storage_root(StateVersion::V1);
 			let size_before = recorder.estimate_encoded_size();
 
 			ext.storage_root(StateVersion::V1);

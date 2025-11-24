@@ -160,11 +160,11 @@ pub struct StorageParams {
 	#[arg(long, default_value_t = 20)]
 	pub validate_block_rounds: u32,
 
-	/// Number of trigger_storage_root_size_estimation calls per batch.
+	/// Number of compute_pov_size_for_storage_root calls per batch.
 	///
-	/// If set to 0, trigger calls are disabled. If set to a value N > 0, the trigger will be
+	/// If set to 0, compute calls are disabled. If set to a value N > 0, the compute will be
 	/// called N times per batch_size, distributing the calls evenly across the batch.
-	/// For example, with batch_size=100 and estimation_batch_size=4, the trigger will be called
+	/// For example, with batch_size=100 and estimation_batch_size=4, the compute will be called
 	/// every 25 writes.
 	///
 	/// Must be 0 or <= batch_size.

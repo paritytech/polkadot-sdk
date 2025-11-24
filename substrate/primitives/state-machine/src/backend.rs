@@ -269,7 +269,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	/// Updates the recorder's proof size by recording trie nodes for a given delta.
 	///
 	/// Does not include child storage updates.
-	fn trigger_storage_root_size_estimation<'a, 'b>(
+	fn compute_pov_size_for_storage_root<'a, 'b>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
@@ -277,7 +277,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		H::Out: Ord;
 
 	/// Updates the recorder's proof size by recording child trie nodes for a given delta.
-	fn trigger_child_storage_root_size_estimation<'a, 'b>(
+	fn compute_pov_size_for_child_storage_root<'a, 'b>(
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
@@ -347,7 +347,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 
 	/// Updates the recorder's proof size by recording trie nodes for a given delta and children
 	/// trie nodes for given child_deltas.
-	fn trigger_storage_root_size_estimation_full<'a, 'b>(
+	fn compute_pov_size_for_storage_root_full<'a, 'b>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		child_deltas: impl Iterator<
@@ -360,13 +360,13 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		let mut child_roots: Vec<_> = Default::default();
 		// child first
 		for (child_info, child_delta) in child_deltas {
-			self.trigger_child_storage_root_size_estimation(child_info, child_delta, state_version);
+			self.compute_pov_size_for_child_storage_root(child_info, child_delta, state_version);
 			let prefixed_storage_key = child_info.prefixed_storage_key();
 			// At "estimation phase" we don't know if child trie is empty or not. Let's assume worst
-			// case - remocal of the child storage root value from the main trie:
+			// case - removal of the child storage root value from the main trie:
 			child_roots.push((prefixed_storage_key.into_inner(), None::<&[u8]>));
 		}
-		self.trigger_storage_root_size_estimation(
+		self.compute_pov_size_for_storage_root(
 			delta
 				.map(|(k, v)| (k, v.as_ref().map(|v| &v[..])))
 				.chain(child_roots.iter().map(|(k, _)| (&k[..], None::<&[u8]>))),

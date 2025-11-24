@@ -666,7 +666,7 @@ where
 	///
 	/// Note: This function does not modify the actual storage state - it only reads and records
 	/// the trie nodes that would be affected by the given delta for proof size estimation.
-	pub fn trigger_storage_root_size_estimation<'a, 'b>(
+	pub fn compute_pov_size_for_storage_root<'a, 'b>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
@@ -795,8 +795,8 @@ where
 
 	/// Updates the recorder's proof size by recording child trie nodes for a given delta.
 	///
-	/// Refer to [`trigger_storage_root_size_estimation`] for more details.
-	pub fn trigger_child_storage_root_size_estimation<'a>(
+	/// Refer to [`compute_pov_size_for_storage_root`] for more details.
+	pub fn compute_pov_size_for_child_storage_root<'a>(
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,

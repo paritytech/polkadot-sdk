@@ -464,24 +464,24 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 			.map_or(Default::default(), |s| s.child_storage_root(child_info, delta, state_version))
 	}
 
-	fn trigger_storage_root_size_estimation<'a, 'b>(
+	fn compute_pov_size_for_storage_root<'a, 'b>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
 	) {
 		self.state.borrow().as_ref().map_or(Default::default(), |s| {
-			s.trigger_storage_root_size_estimation(delta, state_version)
+			s.compute_pov_size_for_storage_root(delta, state_version)
 		})
 	}
 
-	fn trigger_child_storage_root_size_estimation<'a, 'b>(
+	fn compute_pov_size_for_child_storage_root<'a, 'b>(
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
 	) {
 		self.state.borrow().as_ref().map_or(Default::default(), |s| {
-			s.trigger_child_storage_root_size_estimation(child_info, delta, state_version)
+			s.compute_pov_size_for_child_storage_root(child_info, delta, state_version)
 		})
 	}
 

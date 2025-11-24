@@ -25,7 +25,7 @@ use codec::{Compact, CompactLen};
 #[cfg(feature = "std")]
 use std::collections::HashSet as Set;
 
-use crate::{ext::StorageAppend, overlayed_changes::xxx, warn};
+use crate::{ext::StorageAppend, overlayed_changes::storage_key_delta_tracker, warn};
 use alloc::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	vec::Vec,
@@ -208,7 +208,7 @@ pub struct OverlayedMap<K, V> {
 
 	/// Stores which keys are dirty since recent storage_root snapshot. Needed in order to
 	/// determine which values shall be used for merkelization when new storage_root is called.
-	storage_root_dirty_keys: xxx::Changeset<K>,
+	storage_root_dirty_keys: storage_key_delta_tracker::StorageKeyDeltaTracker<K>,
 }
 
 impl<K, V> Default for OverlayedMap<K, V> {
@@ -533,8 +533,14 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
 	/// Returns true if we are currently have at least one open transaction and if this
 	/// is the first write to the given key that transaction.
 	fn insert_dirty(&mut self, key: K, deleted: bool) -> bool {
-		self.storage_root_dirty_keys
-			.add_key(key.clone(), if deleted { xxx::KeyOp::Deleted } else { xxx::KeyOp::Updated });
+		self.storage_root_dirty_keys.add_key(
+			key.clone(),
+			if deleted {
+				storage_key_delta_tracker::KeyOp::Deleted
+			} else {
+				storage_key_delta_tracker::KeyOp::Updated
+			},
+		);
 		self.dirty_keys.last_mut().map(|dk| dk.insert(key)).unwrap_or_default()
 	}
 }
@@ -734,15 +740,15 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
 		self.transaction_depth() > self.num_client_transactions
 	}
 
-	pub fn storage_root_snaphost_delta_keys2(&mut self) -> xxx::DeltaKeys<K> {
-		self.storage_root_dirty_keys.create_snapshot_and_get_delta2()
+	pub fn take_delta(&mut self) -> storage_key_delta_tracker::DeltaKeys<K> {
+		self.storage_root_dirty_keys.take_delta()
 	}
 }
 
 impl OverlayedChangeSet {
 	pub fn changes_mut2(
 		&mut self,
-		keys: &xxx::DeltaKeys<StorageKey>,
+		keys: &storage_key_delta_tracker::DeltaKeys<StorageKey>,
 	) -> Vec<(&StorageKey, Option<&StorageValue>)> {
 		for key in keys {
 			if let Some(entry) = self.changes.get_mut(key.1) {

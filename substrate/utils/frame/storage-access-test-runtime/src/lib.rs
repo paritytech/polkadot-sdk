@@ -152,7 +152,7 @@ pub fn proceed_storage_access<B: traits::Block>(mut params: &[u8]) {
 				}
 			},
 		StorageAccessPayload::Write { changes, child_info: maybe_child_info, estimation_batch_size } => {
-			// Call trigger_storage_root_size_estimation if enabled
+			// Call compute_pov_size_for_storage_root if enabled
 			if estimation_batch_size > 0 {
 				let batch_size = changes.len();
 				let triggers_per_batch = estimation_batch_size as usize;
@@ -171,14 +171,14 @@ pub fn proceed_storage_access<B: traits::Block>(mut params: &[u8]) {
 
 					match &maybe_child_info {
 						Some(child_info) => {
-							let _ = backend.trigger_child_storage_root_size_estimation(
+							let _ = backend.compute_pov_size_for_child_storage_root(
 								child_info,
 								trigger_delta,
 								StateVersion::V1
 							);
 						},
 						None => {
-							let _ = backend.trigger_storage_root_size_estimation(
+							let _ = backend.compute_pov_size_for_storage_root(
 								trigger_delta,
 								StateVersion::V1
 							);

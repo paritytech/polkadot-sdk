@@ -283,7 +283,7 @@ impl StorageCmd {
 
 		let start = Instant::now();
 
-		// Call trigger_storage_root_size_estimation if enabled
+		// Call compute_pov_size_for_storage_root if enabled
 		if self.params.estimation_batch_size > 0 {
 			let triggers_per_batch = self.params.estimation_batch_size;
 			let trigger_interval = batch_size / triggers_per_batch;
@@ -301,10 +301,10 @@ impl StorageCmd {
 
 				match child_info {
 					Some(info) => {
-						let _ = trie.trigger_child_storage_root_size_estimation(info, trigger_delta, version);
+						let _ = trie.compute_pov_size_for_child_storage_root(info, trigger_delta, version);
 					},
 					None => {
-						let _ = trie.trigger_storage_root_size_estimation(trigger_delta, version);
+						let _ = trie.compute_pov_size_for_storage_root(trigger_delta, version);
 					},
 				}
 			}

@@ -36,8 +36,8 @@ pub const PROOF_RECORDING_DISABLED: u64 = u64::MAX;
 /// to return u64::MAX.
 #[runtime_interface]
 pub trait StorageProofSize {
-	fn trigger_storage_root_size_estimation(&mut self, state_version: PassAs<StateVersion, u8>) {
-		self.trigger_storage_root_size_estimation(state_version);
+	fn compute_pov_size_for_storage_root(&mut self, state_version: PassAs<StateVersion, u8>) {
+		self.compute_pov_size_for_storage_root(state_version);
 	}
 
 	/// Returns the current storage proof size.
