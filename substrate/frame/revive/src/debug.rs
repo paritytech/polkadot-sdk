@@ -38,16 +38,23 @@ use sp_runtime::RuntimeDebug;
 pub struct DebugSettings {
 	/// Whether to allow unlimited contract size.
 	allow_unlimited_contract_size: bool,
+	/// Whether to enable PolkaVM logs.
+	pvm_logs: bool,
 }
 
 impl DebugSettings {
-	pub fn new(allow_unlimited_contract_size: bool) -> Self {
-		Self { allow_unlimited_contract_size }
+	pub fn new(allow_unlimited_contract_size: bool, pvm_logs: bool) -> Self {
+		Self { allow_unlimited_contract_size, pvm_logs }
 	}
 
 	/// Returns true if unlimited contract size is allowed.
 	pub fn is_unlimited_contract_size_allowed<T: Config>() -> bool {
 		T::DebugEnabled::get() && DebugSettingsOf::<T>::get().allow_unlimited_contract_size
+	}
+
+	/// Returns true if PolkaVM logs are enabled.
+	pub fn is_pvm_logs_enabled<T: Config>() -> bool {
+		T::DebugEnabled::get() && DebugSettingsOf::<T>::get().pvm_logs
 	}
 
 	/// Write the debug settings to storage.
