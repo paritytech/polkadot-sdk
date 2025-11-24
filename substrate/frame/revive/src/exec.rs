@@ -1939,7 +1939,9 @@ where
 						return Err(<Error<T>>::CodeRejected.into());
 					}
 					ensure!(input_data.is_empty(), <Error<T>>::EvmConstructorNonEmptyData);
-					E::from_evm_init_code(initcode.clone(), sender.clone())?
+					let initcode = crate::tracing::if_tracing(|_| initcode.clone())
+						.unwrap_or_else(|| mem::take(initcode));
+					E::from_evm_init_code(initcode, sender.clone())?
 				},
 				Code::Existing(hash) => {
 					let executable = E::from_storage(*hash, self.gas_meter_mut())?;
