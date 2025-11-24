@@ -28,8 +28,8 @@ sp-runtime = { workspace = true }
 cumulus-pallet-parachain-system = { workspace = true }
 
 [dev-dependencies]
-rstest = { workspace = true }
 log = { workspace = true, default-features = true }
+rstest = { workspace = true }
 
 # Cumulus
 cumulus-pallet-parachain-system = { workspace = true, default-features = true }
@@ -40,8 +40,8 @@ cumulus-test-relay-sproof-builder = { workspace = true, default-features = true 
 # Substrate
 sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
-sp-state-machine = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
 
