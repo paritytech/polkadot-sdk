@@ -56,13 +56,10 @@ pub enum Error {
 	/// Some other error.
 	#[error(transparent)]
 	Other(#[from] Box<dyn std::error::Error + Sync + Send + 'static>),
-	/// Some other error with string message.
-	#[error("Other error: {0}")]
-	OtherString(String),
 }
 
 impl From<String> for Error {
 	fn from(s: String) -> Self {
-		Error::OtherString(s)
+		Self::Other(Box::from(s.as_str()))
 	}
 }
