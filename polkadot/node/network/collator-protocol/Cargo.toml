@@ -31,16 +31,13 @@ polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 tokio-util = { workspace = true }
-# "tokio" and "sc-network-types" should have really been dev-dependencies but clippy is complaining that it's not used with
-# experimental-collator-protocol disabled, while the rust compiler claims that having optional
-# dev-dependencies is not possible.
-sc-network-types = { workspace = true, default-features = true }
-tokio = { features = ["macros"], workspace = true, default-features = true, optional = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
 rstest = { workspace = true }
+sc-network-types = { workspace = true, default-features = true }
 sp-tracing = { workspace = true }
+tokio = { features = ["macros"], workspace = true, default-features = true }
 
 codec = { features = ["std"], workspace = true, default-features = true }
 sc-keystore = { workspace = true, default-features = true }
@@ -53,6 +50,8 @@ polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
 
 [features]
-# This is only for testing purposes, don't commit.
-default = ["experimental-collator-protocol"]
-experimental-collator-protocol = ["async-trait", "tokio"]
+default = []
+experimental-collator-protocol = [
+	"async-trait",
+]
+experimental = ["experimental-collator-protocol"]

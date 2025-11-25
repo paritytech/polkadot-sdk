@@ -14,10 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-// See reasoning in Cargo.toml why these temporary useless imports are needed.
-use sc_network_types as _;
-use tokio as _;
-
 mod collation_manager;
 mod common;
 mod error;

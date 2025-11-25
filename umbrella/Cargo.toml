@@ -548,7 +548,9 @@ experimental = [
 	"frame-support-procedural?/experimental",
 	"frame-support?/experimental",
 	"frame-system?/experimental",
+	"polkadot-collator-protocol?/experimental",
 	"polkadot-sdk-frame?/experimental",
+	"polkadot-service?/experimental",
 ]
 with-tracing = [
 	"frame-executive?/with-tracing",

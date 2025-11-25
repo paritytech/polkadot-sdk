@@ -230,3 +230,8 @@ runtime-metrics = [
 	"rococo-runtime?/runtime-metrics",
 	"westend-runtime?/runtime-metrics",
 ]
+
+experimental-collator-protocol = [
+	"polkadot-collator-protocol/experimental-collator-protocol",
+]
+experimental = ["experimental-collator-protocol"]
