@@ -581,7 +581,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 		state_version: StateVersion,
 	) -> Result<StorageChanges<H>, DefaultError>
 	where
-		H::Out: Ord + Encode + 'static + codec::Codec,
+		H::Out: Ord + Encode + 'static,
 	{
 		let (transaction, transaction_storage_root) = match self.storage_transaction_cache.take() {
 			Some(cache) => cache.into_inner(),
@@ -1014,7 +1014,6 @@ mod tests {
 
 	#[test]
 	fn overlayed_storage_root_works() {
-		// tracing::try_init_simple();
 		let state_version = StateVersion::default();
 		let initial: BTreeMap<_, _> = vec![
 			(b"doe".to_vec(), b"reindeer".to_vec()),
