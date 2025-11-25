@@ -1351,7 +1351,7 @@ impl<T: Config> Pallet<T> {
 		let just_next_phase: (Weight, ExecuteFn) = (
 			T::WeightInfo::per_block_nothing(),
 			Box::new(move |_| {
-				// Note `Phase.next` for some variants is a just_next_phase, for example `Done`.
+				// Note `Phase.next` for some variants is a noop, for example `Done`.
 				Self::phase_transition(next_phase);
 			}),
 		);
