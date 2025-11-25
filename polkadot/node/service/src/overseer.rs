@@ -304,6 +304,14 @@ where
 					))),
 				IsParachainNode::No =>
 					if experimental_collator_protocol {
+						#[cfg(not(feature = "experimental-collator-protocol"))]
+						return Err(Error::Overseer(SubsystemError::Context(
+							"The node has to be built with the `experimental-collator-protocol` \
+								feature enabled"
+								.to_owned(),
+						)));
+
+						#[cfg(feature = "experimental-collator-protocol")]
 						ProtocolSide::ValidatorExperimental {
 							keystore: keystore.clone(),
 							metrics: Metrics::register(registry)?,
