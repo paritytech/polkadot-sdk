@@ -25,42 +25,21 @@ use frame_support::{
 	assert_ok,
 	traits::{
 		fungible::{Inspect, Mutate},
-		Get, OriginTrait, Polling,
+		Get, Polling,
 	},
 };
 use frame_system::RawOrigin;
 use pallet_conviction_voting::{AccountVote, BalanceOf, ClassOf, Conviction, IndexOf, Vote};
-use pallet_conviction_voting_precompiles::IConvictionVoting;
+use pallet_conviction_voting_precompiles::{ConvictionVotingPrecompile, IConvictionVoting};
 use pallet_revive::{
-	precompiles::alloy::{hex, sol_types::SolInterface},
+	precompiles::run::{precompile as run_precompile, CallSetup},
 	H160,
 };
 use scale_info::prelude::collections::BTreeMap;
 use sp_runtime::{traits::StaticLookup, Saturating};
 
 use pallet_conviction_voting::{Pallet as ConvictionVoting, VotingHooks};
-use pallet_revive::{AddressMapper, ExecConfig, ExecReturnValue, Weight, U256};
-
-fn call_precompile<T: Config<I>, I: 'static>(
-	from: T::AccountId,
-	encoded_call: Vec<u8>,
-) -> Result<ExecReturnValue, sp_runtime::DispatchError> {
-	let precompile_addr = H160::from(
-		hex::const_decode_to_array(b"00000000000000000000000000000000000C0000").unwrap(),
-	);
-
-	let result = pallet_revive::Pallet::<T>::bare_call(
-		<T as frame_system::Config>::RuntimeOrigin::signed(from),
-		precompile_addr,
-		U256::zero(),
-		Weight::MAX,
-		T::Balance::try_from(U256::from(u128::MAX)).ok().unwrap(),
-		encoded_call,
-		ExecConfig::new_substrate_tx(),
-	);
-
-	return result.result
-}
+use pallet_revive::AddressMapper;
 
 /// Fill all classes as much as possible up to `MaxVotes` and return the Class with the most votes
 /// ongoing.
@@ -119,20 +98,26 @@ mod benchmarks {
 				.unwrap();
 		}
 
-		let encoded_call = IConvictionVoting::IConvictionVotingCalls::voteSplitAbstain(
+		let call = IConvictionVoting::IConvictionVotingCalls::voteSplitAbstain(
 			IConvictionVoting::voteSplitAbstainCall {
 				referendumIndex: 0u32,
 				ayeAmount: 10u128,
 				nayAmount: 10u128,
 				abstainAmount: 10u128,
 			},
-		)
-		.abi_encode();
+		);
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = call_precompile::<T, ()>(account, encoded_call);
+			result = run_precompile::<ConvictionVotingPrecompile<T>, _>(
+				&mut ext,
+				H160::from_low_u64_be(12).as_fixed_bytes(),
+				&call,
+			);
 		}
 
 		assert!(result.is_ok());
@@ -157,20 +142,26 @@ mod benchmarks {
 				.unwrap();
 		}
 
-		let encoded_call = IConvictionVoting::IConvictionVotingCalls::voteSplitAbstain(
+		let call = IConvictionVoting::IConvictionVotingCalls::voteSplitAbstain(
 			IConvictionVoting::voteSplitAbstainCall {
 				referendumIndex: 0u32,
 				ayeAmount: 10u128,
 				nayAmount: 10u128,
 				abstainAmount: 10u128,
 			},
-		)
-		.abi_encode();
+		);
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = call_precompile::<T, ()>(account, encoded_call);
+			result = run_precompile::<ConvictionVotingPrecompile<T>, _>(
+				&mut ext,
+				H160::from_low_u64_be(12).as_fixed_bytes(),
+				&call,
+			);
 		}
 
 		assert!(result.is_ok());
@@ -182,7 +173,6 @@ mod benchmarks {
 		let class = T::Polls::max_ongoing().0;
 		let polls = &all_polls[&class];
 		let voter = funded_mapped_account::<T, ()>("voter", 0);
-		let caller = funded_mapped_account::<T, ()>("caller", 0);
 
 		let vote = Vote { aye: true, conviction: Conviction::Locked1x };
 		let balance: BalanceOf<T, ()> = 10u32.into();
@@ -200,19 +190,25 @@ mod benchmarks {
 
 		let track_id: u16 = class.clone().try_into().ok().unwrap();
 
-		let encoded_call =
+		let call =
 			IConvictionVoting::IConvictionVotingCalls::delegate(IConvictionVoting::delegateCall {
 				trackId: track_id,
 				to: T::AddressMapper::to_address(&voter).0.into(),
 				conviction: IConvictionVoting::Conviction::Locked1x,
 				balance: 100u128,
-			})
-			.abi_encode();
+			});
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = call_precompile::<T, ()>(caller, encoded_call);
+			result = run_precompile::<ConvictionVotingPrecompile<T>, _>(
+				&mut ext,
+				H160::from_low_u64_be(12).as_fixed_bytes(),
+				&call,
+			);
 		}
 
 		assert!(result.is_ok());
@@ -252,15 +248,21 @@ mod benchmarks {
 
 		let track_id: u16 = class.clone().try_into().ok().unwrap();
 
-		let encoded_call = IConvictionVoting::IConvictionVotingCalls::undelegate(
+		let call = IConvictionVoting::IConvictionVotingCalls::undelegate(
 			IConvictionVoting::undelegateCall { trackId: track_id },
-		)
-		.abi_encode();
+		);
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = call_precompile::<T, ()>(caller, encoded_call);
+			result = run_precompile::<ConvictionVotingPrecompile<T>, _>(
+				&mut ext,
+				H160::from_low_u64_be(12).as_fixed_bytes(),
+				&call,
+			);
 		}
 
 		assert!(result.is_ok());
@@ -286,19 +288,25 @@ mod benchmarks {
 				.unwrap();
 		}
 
-		let encoded_call = IConvictionVoting::IConvictionVotingCalls::getVoting(
+		let call = IConvictionVoting::IConvictionVotingCalls::getVoting(
 			IConvictionVoting::getVotingCall {
 				who: T::AddressMapper::to_address(&caller).0.into(),
 				trackId: track_id,
 				referendumIndex: referendum_index,
 			},
-		)
-		.abi_encode();
+		);
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = call_precompile::<T, ()>(caller, encoded_call);
+			result = run_precompile::<ConvictionVotingPrecompile<T>, _>(
+				&mut ext,
+				H160::from_low_u64_be(12).as_fixed_bytes(),
+				&call,
+			);
 		}
 
 		assert!(result.is_ok());
