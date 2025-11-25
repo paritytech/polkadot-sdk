@@ -79,18 +79,18 @@ pub type ClassOf<T> = <<T as pallet_conviction_voting::Config>::Polls as Polling
 /// - `IConvictionVoting::VotingType` ("votingType"): The type of vote
 ///   (Standard/Split/SplitAbstain).
 /// - `bool` ("aye"): For standard votes: true if aye, false if nay. Always false for split votes.
-/// - `BalanceOf<T>` ("ayeAmount"): Tokens voting aye (pre-conviction). 0 for standard nay votes.
-/// - `BalanceOf<T>` ("nayAmount"): Tokens voting nay (pre-conviction). 0 for standard aye votes.
-/// - `BalanceOf<T>` ("abstainAmount"): Tokens voting abstain. 0 for standard and split votes.
+/// - `u128` ("ayeAmount"): Tokens voting aye (pre-conviction). 0 for standard nay votes.
+/// - `u128` ("nayAmount"): Tokens voting nay (pre-conviction). 0 for standard aye votes.
+/// - `u128` ("abstainAmount"): Tokens voting abstain. 0 for standard and split votes.
 /// - `IConvictionVoting::Conviction` ("conviction"): Conviction multiplier. Only applies to
 ///   standard votes.
-pub type VotingOf<T> = (
+pub type VotingOf = (
 	bool,
 	IConvictionVoting::VotingType,
 	bool,
-	BalanceOf<T>,
-	BalanceOf<T>,
-	BalanceOf<T>,
+	u128,
+	u128,
+	u128,
 	IConvictionVoting::Conviction,
 );
 
@@ -193,7 +193,8 @@ where
 				let weight_to_charge = <() as WeightInfo>::delegate(<T as Config>::MaxVotes::get());
 				let charged_amount = env.charge(weight_to_charge)?;
 
-				let target_account_id = T::AddressMapper::to_account_id(to.into_array().into());
+				let h160 = H160::from(to.into_array());
+				let target_account_id = T::AddressMapper::to_account_id(&h160);
 				let target_source = T::Lookup::unlookup(target_account_id);
 
 				let runtime_conviction = Self::to_conviction(conviction)?;
@@ -333,7 +334,7 @@ where
 
 	/// Represents the vote not found state. Is the solidity default value for a tuple of type
 	/// `VotingOf`.
-	fn get_voting_default() -> VotingOf<T> {
+	fn get_voting_default() -> VotingOf {
 		(
 			false,
 			IConvictionVoting::VotingType::Standard,
