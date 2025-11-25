@@ -1,0 +1,13 @@
+title: Enable force debug in revive dev node
+doc:
+- audience: Runtime Dev
+  description: "This change ensures that all types that implement `RuntimeDebug` are\
+    \ fully displayed in log output of the revive dev node, instead of just showing\
+    \ `<wasm:stripped>`.\n\nUnfortunately, the trait `RuntimeDebugNoBound`, that we\
+    \ also use frequently in pallet-revive, is not affected and will still output\
+    \ `<wasm:stripped>` (it does not check for the `force-debug` feature flag, instead\
+    \ it only fully outputs values when either one of the features `std` or `try_runtime`\
+    \ is enabled \u2013\_this is something we implement as a general change)."
+crates:
+- name: revive-dev-runtime
+  bump: patch

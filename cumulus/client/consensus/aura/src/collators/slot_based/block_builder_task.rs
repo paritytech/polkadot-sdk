@@ -188,6 +188,8 @@ where
 			keystore.clone(),
 			relay_client
 				.overseer_handle()
+				// Should never fail. If it fails, then providing collations to relay chain
+				// doesn't work either. So it is fine to panic here.
 				.expect("Relay chain interface must provide overseer handle."),
 		);
 
@@ -307,7 +309,11 @@ where
 
 			let included_header_hash = included_header.hash();
 
-			let (slot_claim, authorities) = match crate::collators::can_build_upon::<_, _, P>(
+			if let Ok(authorities) = para_client.runtime_api().authorities(parent_hash) {
+				connection_helper.update::<P>(para_slot.slot, &authorities).await;
+			}
+
+			let slot_claim = match crate::collators::can_build_upon::<_, _, P>(
 				para_slot.slot,
 				relay_slot,
 				para_slot.timestamp,
@@ -331,10 +337,6 @@ where
 						slot = ?para_slot.slot,
 						"Not building block."
 					);
-
-					if let Ok(authorities) = para_client.runtime_api().authorities(parent_hash) {
-						connection_helper.update::<P>(para_slot.slot, &authorities).await;
-					}
 					continue
 				},
 			};
@@ -410,12 +412,25 @@ where
 				validation_data.max_pov_size * 85 / 100
 			} as usize;
 
-			let adjusted_authoring_duration = match slot_timer.time_until_next_slot() {
-				Ok((duration, _slot)) => std::cmp::min(authoring_duration, duration),
-				Err(_) => authoring_duration,
-			};
-
+			let adjusted_authoring_duration =
+				slot_timer.adjust_authoring_duration(authoring_duration);
 			tracing::debug!(target: crate::LOG_TARGET, duration = ?adjusted_authoring_duration, "Adjusted proposal duration.");
+
+			let Some(adjusted_authoring_duration) = adjusted_authoring_duration else {
+				tracing::debug!(
+					target: crate::LOG_TARGET,
+					unincluded_segment_len = parent.depth,
+					relay_parent = ?relay_parent,
+					relay_parent_num = %relay_parent_header.number(),
+					included_hash = ?included_header_hash,
+					included_num = %included_header.number(),
+					parent = ?parent_hash,
+					slot = ?para_slot.slot,
+					"Not building block due to insufficient authoring duration."
+				);
+
+				continue;
+			};
 
 			let Ok(Some(candidate)) = collator
 				.build_block_and_import(
