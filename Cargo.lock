@@ -4692,6 +4692,7 @@ version = "0.7.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-primitives-core",
+ "cumulus-primitives-proof-size-hostfunction",
  "cumulus-test-relay-sproof-builder",
  "frame-support",
  "frame-system",
@@ -4704,7 +4705,10 @@ dependencies = [
  "sp-consensus-aura",
  "sp-core 28.0.0",
  "sp-io",
+ "sp-keyring",
  "sp-runtime",
+ "sp-state-machine",
+ "sp-trie",
  "sp-version",
 ]
 
@@ -18887,6 +18891,7 @@ dependencies = [
  "polkadot-sdk",
  "scale-info",
  "serde_json",
+ "sp-debug-derive 14.0.0",
 ]
 
 [[package]]
