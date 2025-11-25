@@ -282,8 +282,7 @@ mod tests {
 		BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction, StorageChanges, Verifier,
 	};
 	use sc_consensus_aura::{
-		AuraApi, AuraBlockImport, AuraVerifier, AuthoritiesTracker, CheckForEquivocation,
-		InherentDataProvider,
+		AuraApi, AuraBlockImport, AuraVerifier, CheckForEquivocation, InherentDataProvider,
 	};
 	use sp_api::ProvideRuntimeApi;
 	use sp_consensus::BlockOrigin;
@@ -414,8 +413,8 @@ mod tests {
 
 		let genesis_hash = client.chain_info().genesis_hash;
 		let slot_duration = client.runtime_api().slot_duration(genesis_hash).unwrap();
-		let authorities_tracker =
-			Arc::new(AuthoritiesTracker::<sr25519::AuthorityPair, _, _>::new_empty(client.clone()));
+		let (block_import, authorities_tracker) =
+			AuraBlockImport::new_empty(client.clone(), client.clone());
 		let verifier = AuraVerifier::<_, sr25519::AuthorityPair, _, _>::new(
 			client.clone(),
 			Box::new(|_, _| async move {
@@ -430,7 +429,6 @@ mod tests {
 			authorities_tracker.clone(),
 		)
 		.unwrap();
-		let block_import = AuraBlockImport::new(client.clone(), authorities_tracker.clone());
 
 		assert!(authorities_tracker.is_empty());
 

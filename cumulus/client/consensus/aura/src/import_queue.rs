@@ -22,7 +22,7 @@ use cumulus_client_consensus_common::ParachainBlockImportMarker;
 use prometheus_endpoint::Registry;
 use sc_client_api::{backend::AuxStore, BlockOf, UsageProvider};
 use sc_consensus::{import_queue::DefaultImportQueue, BlockImport};
-use sc_consensus_aura::{AuraVerifier, CompatibilityMode};
+use sc_consensus_aura::{AuraVerifier, AuthoritiesTracker, CompatibilityMode};
 use sc_consensus_slots::InherentDataProviderExt;
 use sc_telemetry::TelemetryHandle;
 use sp_api::{ApiExt, ProvideRuntimeApi};
@@ -101,20 +101,24 @@ where
 }
 
 /// Parameters of [`build_verifier`].
-pub struct BuildVerifierParams<C, CIDP> {
+pub struct BuildVerifierParams<C, CIDP, P: Pair, B: BlockT> {
 	/// The client to interact with the chain.
 	pub client: Arc<C>,
 	/// The inherent data providers, to create the inherent data.
 	pub create_inherent_data_providers: CIDP,
 	/// The telemetry handle.
 	pub telemetry: Option<TelemetryHandle>,
+	/// Authorities tracker.
+	pub authorities_tracker: Arc<AuthoritiesTracker<P, B, C>>,
 }
 
 /// Build the [`AuraVerifier`].
 pub fn build_verifier<P: Pair, C, CIDP, B: BlockT>(
-	BuildVerifierParams { client, create_inherent_data_providers, telemetry }: BuildVerifierParams<
+	BuildVerifierParams { client, create_inherent_data_providers, telemetry, authorities_tracker }: BuildVerifierParams<
 		C,
 		CIDP,
+		P,
+		B,
 	>,
 ) -> Result<AuraVerifier<C, P, CIDP, B>, String>
 where
@@ -127,6 +131,6 @@ where
 		create_inherent_data_providers,
 		telemetry,
 		check_for_equivocation: sc_consensus_aura::CheckForEquivocation::No,
-		compatibility_mode: CompatibilityMode::None,
+		authorities_tracker,
 	})
 }

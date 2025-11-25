@@ -50,7 +50,7 @@ where
 	C::Api: AuraApi<B, AuthorityId<P>>,
 {
 	/// Create a new `AuthoritiesTracker`.
-	pub fn new(
+	pub(crate) fn new(
 		client: Arc<C>,
 		compatibility_mode: &CompatibilityMode<NumberFor<B>>,
 	) -> Result<Self, String> {
@@ -109,7 +109,7 @@ where
 	/// Create a new empty [`AuthoritiesTracker`]. Usually you should _not_ use this method,
 	/// as it will not have any initial authorities imported. Use [`AuthoritiesTracker::new`]
 	/// instead.
-	pub fn new_empty(client: Arc<C>) -> Self {
+	pub(crate) fn new_empty(client: Arc<C>) -> Self {
 		Self { authorities: RwLock::new(ForkTree::new()), client }
 	}
 }

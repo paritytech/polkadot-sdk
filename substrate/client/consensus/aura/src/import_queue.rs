@@ -344,18 +344,17 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()> + Sync + Send + 'static,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
+	let (block_import, authorities_tracker) =
+		AuraBlockImport::new(block_import, client.clone(), &compatibility_mode)?;
+
 	let verifier = build_verifier::<P, _, _, _>(BuildVerifierParams {
 		client,
 		create_inherent_data_providers,
 		check_for_equivocation,
 		telemetry,
-		compatibility_mode,
+		authorities_tracker,
 	})
 	.map_err(|e| sp_consensus::Error::Other(e.into()))?;
-
-	let authorities_tracker = verifier.authorities_tracker.clone();
-
-	let block_import = AuraBlockImport { block_import, authorities_tracker };
 
 	Ok(BasicQueue::new(verifier, Box::new(block_import), justification_import, spawner, registry))
 }
@@ -364,6 +363,42 @@ where
 pub struct AuraBlockImport<Client, P: Pair + Clone, Block: BlockT, BI: BlockImport<Block> + Clone> {
 	block_import: BI,
 	authorities_tracker: Arc<AuthoritiesTracker<P, Block, Client>>,
+}
+
+impl<Client, P: Pair, Block: BlockT, BI: BlockImport<Block>> AuraBlockImport<Client, P, Block, BI>
+where
+	Client: HeaderBackend<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ ProvideRuntimeApi<Block>,
+	P::Public: Codec + Debug,
+	Client::Api: AuraApi<Block, AuthorityId<P>>,
+{
+	/// Create a new AURA block import.
+	pub fn new(
+		block_import: BI,
+		client: Arc<Client>,
+		compatibility_mode: &CompatibilityMode<NumberFor<Block>>,
+	) -> Result<(Self, Arc<AuthoritiesTracker<P, Block, Client>>), String> {
+		let authorities_tracker = Arc::new(AuthoritiesTracker::new(client, compatibility_mode)?);
+		Ok((
+			Self { block_import, authorities_tracker: authorities_tracker.clone() },
+			authorities_tracker,
+		))
+	}
+
+	/// Create a new AURA block import with an empty authorities tracker.
+	/// Usually you should _not_ use this method, as it will not have any initial authorities
+	/// imported. Use [`AuraBlockImport::new`] instead.
+	pub fn new_empty(
+		block_import: BI,
+		client: Arc<Client>,
+	) -> (Self, Arc<AuthoritiesTracker<P, Block, Client>>) {
+		let authorities_tracker = Arc::new(AuthoritiesTracker::new_empty(client));
+		(
+			Self { block_import, authorities_tracker: authorities_tracker.clone() },
+			authorities_tracker,
+		)
+	}
 }
 
 impl<Client, P: Pair + Clone, Block: BlockT, BI: BlockImport<Block> + Clone> Clone
@@ -445,7 +480,7 @@ where
 }
 
 /// Parameters of [`build_verifier`].
-pub struct BuildVerifierParams<C, CIDP, N> {
+pub struct BuildVerifierParams<C, CIDP, P: Pair, B: BlockT> {
 	/// The client to interact with the chain.
 	pub client: Arc<C>,
 	/// Something that can create the inherent data providers.
@@ -454,10 +489,8 @@ pub struct BuildVerifierParams<C, CIDP, N> {
 	pub check_for_equivocation: CheckForEquivocation,
 	/// Telemetry instance used to report telemetry metrics.
 	pub telemetry: Option<TelemetryHandle>,
-	/// Compatibility mode that should be used.
-	///
-	/// If in doubt, use `Default::default()`.
-	pub compatibility_mode: CompatibilityMode<N>,
+	/// Authorities tracker.
+	pub authorities_tracker: Arc<AuthoritiesTracker<P, B, C>>,
 }
 
 /// Build the [`AuraVerifier`]
@@ -467,8 +500,8 @@ pub fn build_verifier<P: Pair, C, CIDP, B: BlockT>(
 		create_inherent_data_providers,
 		check_for_equivocation,
 		telemetry,
-		compatibility_mode,
-	}: BuildVerifierParams<C, CIDP, NumberFor<B>>,
+		authorities_tracker,
+	}: BuildVerifierParams<C, CIDP, P, B>,
 ) -> Result<AuraVerifier<C, P, CIDP, B>, String>
 where
 	C: HeaderBackend<B> + HeaderMetadata<B, Error = sp_blockchain::Error> + ProvideRuntimeApi<B>,
@@ -480,6 +513,6 @@ where
 		create_inherent_data_providers,
 		check_for_equivocation,
 		telemetry,
-		Arc::new(AuthoritiesTracker::new(client, &compatibility_mode)?),
+		authorities_tracker,
 	)
 }

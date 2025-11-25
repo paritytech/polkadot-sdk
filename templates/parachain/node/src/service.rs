@@ -119,7 +119,10 @@ pub fn new_partial(config: &Configuration) -> Result<Service, sc_service::Error>
 		.build(),
 	);
 
-	let block_import = ParachainBlockImport::new(client.clone(), backend.clone());
+	let (block_import, authorities_tracker) =
+		AuraBlockImport::new(client.clone(), client.clone(), &CompatibilityMode::None)
+			.map_err(sc_service::Error::Other)?;
+	let block_import = ParachainBlockImport::new(block_import, backend.clone());
 
 	let import_queue = build_import_queue(
 		client.clone(),

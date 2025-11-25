@@ -61,7 +61,7 @@ use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImportParams, DefaultImportQueue, LongestChain,
 };
-use sc_consensus_aura::{AuraBlockImport, AuthoritiesTracker, CompatibilityMode};
+use sc_consensus_aura::{AuraBlockImport, CompatibilityMode};
 use sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider;
 use sc_network::{config::FullNetworkConfiguration, NotificationMetrics};
 use sc_service::{Configuration, Error, PartialComponents, TaskManager};
@@ -221,7 +221,7 @@ where
 			.map_err(|e| sc_service::Error::Other(e))?;
 
 		let verifier = Verifier {
-			client,
+			client: client.clone(),
 			aura_verifier: Box::new(equivocation_aura_verifier),
 			relay_chain_verifier,
 			_phantom: Default::default(),
