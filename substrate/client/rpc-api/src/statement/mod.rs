@@ -19,9 +19,26 @@
 //! Substrate Statement Store RPC API.
 
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
+use serde::{Deserialize, Serialize};
 use sp_core::Bytes;
 
 pub mod error;
+
+/// Result of submitting a statement to the store.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "status", rename_all = "camelCase")]
+pub enum StatementSubmitResult {
+	/// Statement was accepted as new.
+	New,
+	/// Statement was already known.
+	Known,
+	/// Statement was already known but has expired.
+	KnownExpired,
+	/// Statement was rejected because the store is full or priority is too low.
+	Ignored,
+	/// Statement failed validation.
+	Bad { reason: String },
+}
 
 /// Substrate statement RPC API
 #[rpc(client, server)]
@@ -87,7 +104,7 @@ pub trait StatementApi {
 
 	/// Submit a pre-encoded statement.
 	#[method(name = "statement_submit")]
-	fn submit(&self, encoded: Bytes) -> RpcResult<()>;
+	fn submit(&self, encoded: Bytes) -> RpcResult<StatementSubmitResult>;
 
 	/// Remove a statement from the store.
 	#[method(name = "statement_remove")]

@@ -24,7 +24,7 @@ use jsonrpsee::{
 	Extensions,
 };
 /// Re-export the API for backward compatibility.
-pub use sc_rpc_api::statement::{error::Error, StatementApiServer};
+pub use sc_rpc_api::statement::{error::Error, StatementApiServer, StatementSubmitResult};
 use sp_core::Bytes;
 use sp_statement_store::{StatementSource, SubmitResult};
 use std::sync::Arc;
@@ -123,17 +123,18 @@ impl StatementApiServer for StatementStore {
 			.collect())
 	}
 
-	fn submit(&self, encoded: Bytes) -> RpcResult<()> {
+	fn submit(&self, encoded: Bytes) -> RpcResult<StatementSubmitResult> {
 		let statement = Decode::decode(&mut &*encoded)
 			.map_err(|e| Error::StatementStore(format!("Error decoding statement: {:?}", e)))?;
 		match self.store.submit(statement, StatementSource::Local) {
-			SubmitResult::New(_) | SubmitResult::Known => Ok(()),
+			SubmitResult::New(_) => Ok(StatementSubmitResult::New),
+			SubmitResult::Known => Ok(StatementSubmitResult::Known),
 			// `KnownExpired` should not happen. Expired statements submitted with
 			// `StatementSource::Rpc` should be renewed.
-			SubmitResult::KnownExpired =>
-				Err(Error::StatementStore("Submitted an expired statement.".into()).into()),
-			SubmitResult::Bad(e) => Err(Error::StatementStore(e.into()).into()),
-			SubmitResult::Ignored => Err(Error::StatementStore("Store is full.".into()).into()),
+			SubmitResult::KnownExpired => Ok(StatementSubmitResult::KnownExpired),
+			SubmitResult::Ignored => Ok(StatementSubmitResult::Ignored),
+			SubmitResult::Bad(reason) =>
+				Ok(StatementSubmitResult::Bad { reason: reason.to_string() }),
 			SubmitResult::InternalError(e) => Err(Error::StatementStore(e.to_string()).into()),
 		}
 	}
