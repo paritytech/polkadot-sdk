@@ -179,7 +179,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
 				.with_chain_spec_path("tests/zombie_ci/warp-sync-relaychain-spec.json")
-				.with_default_args(vec![("-lparachain=debug").into() , ("--network-backend", "libp2p").into()])
+				.with_default_args(vec![("-lparachain=debug").into()])
 				.with_node(|node| node.with_name("alice").with_db_snapshot(DB_SNAPSHOT_RELAYCHAIN))
 				.with_node(|node| node.with_name("bob").with_db_snapshot(DB_SNAPSHOT_RELAYCHAIN))
 				.with_node(|node| {
@@ -201,7 +201,6 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 						)
 							.into(),
 						("--sync", "warp").into(),
-						("--network-backend", "libp2p").into(),
 					])
 				})
 		})
@@ -212,9 +211,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_chain_spec_path("tests/zombie_ci/warp-sync-parachain-spec.json")
 				.with_default_args(vec![
 					("-lparachain=debug").into(),
-					("--network-backend", "libp2p").into(),
 					("--").into(),
-					("--network-backend", "libp2p").into(),
 			 	])
 				.with_collator(|n| n.with_name("eve").with_db_snapshot(DB_SNAPSHOT_PARACHAIN))
 				.with_collator(|n| n.with_name("ferdie").with_db_snapshot(DB_SNAPSHOT_PARACHAIN))
@@ -223,10 +220,8 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					n.with_name("two").validator(false).with_args(vec![
 						("-lsync=trace,babe=trace,import_block=trace,grandpa=debug,sc_service::client=debug,sc_client_api::utils=debug,litep2p=debug").into(),
 						("--sync", "warp").into(),
-						("--network-backend", "libp2p").into(),
 						("--").into(),
 						("--sync", "warp").into(),
-						("--network-backend", "libp2p").into(),
 					])
 				})
 				.with_collator(|n| {
@@ -234,9 +229,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 						("-lsync=trace,babe=trace,import_block=trace,grandpa=debug,sc_service::client=debug,sc_client_api::utils=debug").into(),
 						("--sync", "warp").into(),
 						("--relay-chain-rpc-urls", "{{ZOMBIE:alice:ws_uri}}").into(),
-						("--network-backend", "libp2p").into(),
 						("--").into(),
-						("--network-backend", "libp2p").into(),
 					])
 				})
 				.with_collator(|n| {
@@ -244,9 +237,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 						("-lsync=trace,babe=trace,import_block=trace,grandpa=debug,sc_service::client=debug,sc_client_api::utils=debug").into(),
 						("--sync", "warp").into(),
 						("--relay-chain-rpc-urls", "{{ZOMBIE:dave:ws_uri}}").into(),
-						("--network-backend", "libp2p").into(),
 						("--").into(),
-						("--network-backend", "libp2p").into(),
 					])
 				})
 		})
