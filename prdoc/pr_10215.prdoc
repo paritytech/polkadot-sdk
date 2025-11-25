@@ -1,0 +1,122 @@
+title: PoV size reclaim fix
+doc:
+- audience: Node Dev
+  description: "This PR introduces an incremental Storage Root Estimation for PoV\
+    \ Reclaim\n\n### The Problem\n\nStorage weight reclaim allows parachains to return\
+    \ unused PoV space from completed extrinsics, enabling subsequent transactions\
+    \ to use this space. However, an issue was discovered: storage reclaim doesn't\
+    \ account for storage root calculation. The problem is described in #6020: when\
+    \ items are written or deleted during extrinsic execution, they're only noted\
+    \ in the overlay\u2014no trie access occurs, so these  operations are not recorded\
+    \ in the proof. However, when calculating the storage root at block finalization,\
+    \ trie nodes must be accessed to insert/delete/merge the changes. These trie node\
+    \ accesses are recorded in the proof, causing the actual PoV size to exceed estimates\
+    \ and potentially allowing blocks to overshoot the PoV budget.\n\n### The Solution\
+    \ Concept\n\nNaive approach of computing storage root estimation after every extrinsic\
+    \ killed performance (2% of original throuhtput). More details on the whole optimization\
+    \ story is summed up [here](https://hackmd.io/o_Ghc86OT4KzCE4x04MeOg?view).\n\n\
+    This work introduces a concept of  **incremental storage root estimation** that\
+    \ approximates the trie node accesses that would occur during storage root calculation,\
+    \ without actually computing the root hash. This is triggered after each extrinsic\
+    \ via the weight reclaim pallet (or reclaim `SignedExtension`).\n\n### High level\
+    \ overview:\n\n##### 1. Runtime Layer (Entry Point)\n- `StorageWeightReclaim`\
+    \ transaction extension calls `storage_proof_size()` in `post_dispatch_details`,\n\
+    - The `storage_proof_size` host function (version 2) internally calls `compute_pov_size_for_storage_root()`,\n\
+    - This occurs after each extrinsic execution but before measuring final proof\
+    \ size,\n- Allows the PoV size estimate to account for trie node accesses that\
+    \ would be made during storage root computation\n\n#### 2. State Machine Layer\
+    \ (snapshot mechanism)\n- New `StorageKeyDeltaTracker` tracking system maintains\
+    \ which keys have been modified,\n- Incremental snapshots only return keys modified\
+    \ since the last snapshot, not all keys modified since block start,\n- Supports\
+    \ nested storage transactions (commit/rollback),\n- Deduplication strategy: Each\
+    \ snapshot captures \"dirty keys\" and moves them to a \"captured\" set, preventing\
+    \ reprocessing,\n\n#### 3. Trie Backend Layer (recording nodes without root computation)\n\
+    - `compute_pov_size_for_storage_root()` performs trie node accesses for delta\
+    \ keys,\n- Called internally by the `storage_proof_size` host function (version\
+    \ 2),\n- Uses ephemeral trie overlay to access nodes WITHOUT computing the actual\
+    \ storage root hash,\n- **Crucial assumption**: The read/delete operations on\
+    \ the ephemeral trie mirror exactly what storage root calculation would do - accessing\
+    \ nodes, triggering reorganizations, merging/splitting nodes. This ensures the\
+    \ trie nodes accessed during estimation are precisely the same nodes that would\
+    \ be accessed when computing the real storage root, providing accurate PoV size\
+    \ estimation.\n- Records accessed nodes in the proof recorder, updating PoV size,\n\
+    - Returns statistics (nodes accessed, proof size increase, execution time) - used\
+    \ in overhead estimation,\n\n### Upstream Trie Changes\n\nThe trie repository\
+    \ [PR](https://github.com/paritytech/trie/pull/226) adds explicit commit-on-drop\
+    \ semantics to `TrieDBMut`. This ensures that ephemeral tries used for estimation\
+    \ are dropped without triggering storage root computation. Since storage root\
+    \ computation is a heavy operation, avoiding it on drop saves significant time.\n\
+    \n### Validation Tests\n\nTests added (inspired by [this](https://github.com/paritytech/polkadot-sdk/pull/6230/files#diff-aee4478254ac14c2c059e9e1a0eb5b2d3694872bfdce872416319959223de977R1115))\
+    \ in this [commit](https://github.com/michalkucharczyk/polkadot-sdk/commit/e3de902a42a46bfb64f8683d34be8121321bf1cf)\
+    \ validate the accuracy of the solution:\n\n1. **Deterministic test** (`calculating_storage_root_should_not_change_storage_proof`):\n\
+    \   - Large storage state (100k keys + prefixed keys, both main and child storage)\n\
+    \   - Performs insertions and deletions\n   - Validates that proof size after\
+    \ `compute_pov_size_for_storage_root()` equals proof size after actual `storage_root()`\n\
+    \n2. **Randomized test** (`calculating_storage_root_should_not_change_storage_proof_random`):\n\
+    \   - Very large storage state (1M keys + prefixed keys)\n   - 1,000 iterations\
+    \ with up to 10k random insertions/deletions per iteration\n   - Validates proof\
+    \ size accuracy across diverse random workloads\n\nThese tests prove that the\
+    \ estimation triggers the exact same trie node accesses as actual storage root\
+    \ calculation, with no missing nodes or side effects.\n\nTests could be extended\
+    \ with fuzzing.\n\n### Flow recap\n\n1. Runtime executes extrinsic \u2192 storage\
+    \ changes (writes/removals) tracked in overlay's StorageKeyDeltaTracker\n2. Extrinsic\
+    \ completes \u2192 `storage_proof_size()` (version 2) called, which internally\
+    \ triggers `compute_pov_size_for_storage_root()`\n3. Snapshot created \u2192 returns\
+    \ ONLY keys modified since previous snapshot\n4. Trie estimation \u2192 reads/deletes\
+    \ trie nodes for delta keys (mirroring storage root computation), updates proof\
+    \ recorder\n5. PoV size adjusted \u2192 now includes estimated trie node accesses\n\
+    6. Process repeats for each extrinsic\n7. Block finalization \u2192 full `storage_root()`\
+    \ computed once with all changes\n\n### Performance Impact\n\nFrom benchmarking\
+    \ results:\n- **Naive approach** (computing full root per extrinsic): ~2% of original\
+    \ throughput\n- **With all optimizations**: 2-7% performance drop in block production\
+    \ benchmarks for balance transfers. The impact to other extrinsics is not yet\
+    \ estimated.\n- The key insight: incremental snapshots + deduplication + not computing\
+    \ actual hash = acceptable(?) overhead\n\n### Implementation Details\n\nThe storage\
+    \ root estimation is integrated into the `storage_proof_size` host function using\
+    \ versioning:\n- **Version 1** (backwards compatible): Returns proof size without\
+    \ triggering exact size computation\n- **Version 2**: Accepts `StateVersion` parameter,\
+    \ calls `compute_pov_size_for_storage_root()`, then returns proof size\n- This\
+    \ approach maintains backwards compatibility while providing the new functionality\n\
+    \n### Future Work\n\nBetter understanding of performance impact is needed. This\
+    \ is work in progress.\n\nfixes: #6020"
+crates:
+- name: sp-state-machine
+  bump: major
+- name: sc-block-builder
+  bump: major
+- name: sc-client-db
+  bump: major
+- name: sp-trie
+  bump: major
+- name: polkadot-node-core-pvf-common
+  bump: major
+- name: sp-externalities
+  bump: major
+- name: sp-io
+  bump: major
+- name: cumulus-pallet-weight-reclaim
+  bump: major
+- name: polkadot-dispute-distribution
+  bump: major
+- name: sc-transaction-pool
+  bump: major
+- name: sc-transaction-pool-api
+  bump: major
+- name: sc-executor-wasmtime
+  bump: major
+- name: cumulus-primitives-proof-size-hostfunction
+  bump: major
+- name: cumulus-primitives-storage-weight-reclaim
+  bump: major
+- name: frame-benchmarking
+  bump: major
+- name: frame-support-procedural
+  bump: major
+- name: frame-support
+  bump: major
+- name: frame-benchmarking-cli
+  bump: major
+- name: frame-storage-access-test-runtime
+  bump: major
+- name: cumulus-pallet-parachain-system
+  bump: major
