@@ -38,7 +38,6 @@ use pallet_revive::{
 use scale_info::prelude::collections::BTreeMap;
 use sp_runtime::{traits::StaticLookup, Saturating};
 
-use crate::Pallet as ConvictionVotingPrecompilesBenchmarks;
 use pallet_conviction_voting::{Pallet as ConvictionVoting, VotingHooks};
 use pallet_revive::{AddressMapper, ExecConfig, ExecReturnValue, Weight, U256};
 
