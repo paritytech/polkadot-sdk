@@ -120,7 +120,7 @@ pub fn determine_workers_paths(
 			.unwrap();
 
 		if !exit_status.success() {
-			let err = "Not all env vars were cleared when spawning the process.";
+			let err = "Worker security checks failed.";
 			log::warn!("{}", err);
 			worker_shutdown(worker_info, err);
 		}
