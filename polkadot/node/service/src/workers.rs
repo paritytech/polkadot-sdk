@@ -19,7 +19,9 @@
 use super::Error;
 use is_executable::IsExecutable;
 use std::path::PathBuf;
+#[cfg(target_os = "linux")]
 use polkadot_node_core_pvf_common::worker::{WorkerInfo, WorkerKind, worker_shutdown};
+#[cfg(target_os = "linux")]
 use std::process::Command;
 
 #[cfg(test)]
@@ -99,26 +101,29 @@ pub fn determine_workers_paths(
 		log::warn!("Skipping node/worker version checks. This could result in incorrect behavior in PVF workers.");
 	}
 
-	let worker_version = polkadot_node_core_pvf::get_worker_version(&prep_worker_path)?;
-	let mut worker_dir = prep_worker_path.clone();
-	let _ = worker_dir.pop();
+	#[cfg(target_os = "linux")]
+	{
+		let worker_version = polkadot_node_core_pvf::get_worker_version(&prep_worker_path)?;
+		let mut worker_dir = prep_worker_path.clone();
+		let _ = worker_dir.pop();
 
-	let worker_info = WorkerInfo {
-		pid: std::process::id(),
-		kind: WorkerKind::Prepare,
-		version: Some(worker_version),
-		worker_dir_path: worker_dir,
-	};
+		let worker_info = WorkerInfo {
+			pid: std::process::id(),
+			kind: WorkerKind::Prepare,
+			version: Some(worker_version),
+			worker_dir_path: worker_dir,
+		};
 
-	let exit_status = Command::new(&exec_worker_path)
-		.arg("--check-all")
-		.status()
-		.unwrap();
+		let exit_status = Command::new(&exec_worker_path)
+			.arg("--check-all")
+			.status()
+			.unwrap();
 
-	if !exit_status.success() {
-		let err = "Not all env vars were cleared when spawning the process.";
-		log::warn!("{}", err);
-		worker_shutdown(worker_info, err);
+		if !exit_status.success() {
+			let err = "Not all env vars were cleared when spawning the process.";
+			log::warn!("{}", err);
+			worker_shutdown(worker_info, err);
+		}
 	}
 
 	Ok((prep_worker_path, exec_worker_path))
