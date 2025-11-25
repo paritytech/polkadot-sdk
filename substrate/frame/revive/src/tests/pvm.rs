@@ -2981,8 +2981,8 @@ fn native_dependency_deposit_works() {
 				.build_and_unwrap_result();
 
 			// Check updated storage_deposit due to code size changes
-			let deposit_diff = lockup_deposit_percent.mul_ceil(upload_deposit)
-				- lockup_deposit_percent.mul_ceil(get_code_deposit(&dummy_code_hash));
+			let deposit_diff = lockup_deposit_percent.mul_ceil(upload_deposit) -
+				lockup_deposit_percent.mul_ceil(get_code_deposit(&dummy_code_hash));
 			let new_base_deposit = contract_base_deposit(&addr);
 			assert_ne!(deposit_diff, 0);
 			assert_eq!(base_deposit - new_base_deposit, deposit_diff);

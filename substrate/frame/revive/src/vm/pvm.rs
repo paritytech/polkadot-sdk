@@ -690,14 +690,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					ReentrancyProtection::Strict
 				};
 
-				self.ext.call(
-					resources,
-					&callee,
-					value,
-					input_data,
-					reentrancy,
-					read_only,
-				)
+				self.ext.call(resources, &callee, value, input_data, reentrancy, read_only)
 			},
 			CallType::DelegateCall => {
 				if flags.intersects(CallFlags::ALLOW_REENTRY | CallFlags::READ_ONLY) {
