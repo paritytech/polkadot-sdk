@@ -19,7 +19,6 @@
 //! Used by both build.rs and test code.
 
 use anyhow::{bail, Context, Result};
-#[cfg(feature = "std")]
 use cargo_metadata::MetadataCommand;
 use pallet_revive_uapi::precompiles::INTERFACE_DIR;
 use std::{

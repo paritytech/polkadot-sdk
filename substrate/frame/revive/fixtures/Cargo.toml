@@ -20,7 +20,7 @@ alloy-core = { workspace = true, default-features = true, features = ["sol-types
 anyhow = { workspace = true, default-features = true, optional = true }
 cargo_metadata = { workspace = true, optional = true }
 hex = { workspace = true, features = ["alloc"], optional = true }
-pallet-revive-uapi = { workspace = true, optional = true }
+pallet-revive-uapi = { workspace = true }
 polkavm-linker = { version = "0.30.0", optional = true }
 serde_json = { workspace = true, optional = true }
 sp-core = { workspace = true, default-features = true, optional = true }
