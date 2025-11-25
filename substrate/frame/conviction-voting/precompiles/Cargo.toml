@@ -19,12 +19,12 @@ codec = { features = ["derive"], workspace = true }
 tracing = { workspace = true }
 
 frame-support = { workspace = true }
+frame-system = { workspace = true }
 pallet-revive = { workspace = true }
 
 pallet-conviction-voting = { workspace = true }
 
 [dev-dependencies]
-frame-system = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 scale-info = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
