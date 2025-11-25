@@ -21,6 +21,8 @@ crates:
 - name: pallet-revive-uapi
   bump: patch
 - name: substrate-wasm-builder
-  bump: major
+  bump: minor
 - name: sc-executor-common
+  bump: major
+- name: sc-executor-polkavm
   bump: minor
