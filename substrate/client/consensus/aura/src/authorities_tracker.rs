@@ -94,12 +94,14 @@ where
 						.map_err(|e| format!("Could not fetch authorities at {hash:?}: {e}"))?;
 				if Some(&authorities) != last_imported_authorities.as_ref() {
 					last_imported_authorities = Some(authorities.clone());
-					let is_descendent_of = sc_client_api::utils::is_descendent_of(&*client, None);
-					authorities_cache
-						.import(hash, number, authorities, &is_descendent_of)
-						.map_err(|e| {
-							format!("Could not import authorities for block {hash:?} at number {number}: {e}")
-						})?;
+					Self::import_authorities(
+						&mut authorities_cache,
+						&client,
+						None,
+						hash,
+						number,
+						authorities,
+					)?;
 				}
 			}
 		}
@@ -111,6 +113,21 @@ where
 	/// instead.
 	pub(crate) fn new_empty(client: Arc<C>) -> Self {
 		Self { authorities: RwLock::new(ForkTree::new()), client }
+	}
+
+	fn import_authorities(
+		cache: &mut ForkTree<B::Hash, NumberFor<B>, Vec<AuthorityId<P>>>,
+		client: &C,
+		current: Option<(B::Hash, B::Hash)>,
+		hash: B::Hash,
+		number: NumberFor<B>,
+		authorities: Vec<AuthorityId<P>>,
+	) -> Result<(), String> {
+		let is_descendent_of = sc_client_api::utils::is_descendent_of(client, current);
+		cache.import(hash, number, authorities, &is_descendent_of).map_err(|e| {
+			format!("Could not import authorities for block {hash:?} at number {number}: {e}")
+		})?;
+		Ok(())
 	}
 }
 
@@ -155,16 +172,15 @@ where
 				number,
 			);
 			self.prune_finalized()?;
-			let is_descendent_of =
-				sc_client_api::utils::is_descendent_of(&*self.client, Some((hash, parent_hash)));
 			let mut authorities_cache = self.authorities.write();
-			authorities_cache
-				.import(hash, number, authorities_change, &is_descendent_of)
-				.map_err(|e| {
-					format!(
-						"Could not import authorities for block {hash:?} at number {number}: {e}"
-					)
-				})?;
+			Self::import_authorities(
+				&mut authorities_cache,
+				&self.client,
+				Some((hash, parent_hash)),
+				hash,
+				number,
+				authorities_change,
+			)?;
 		}
 		Ok(())
 	}
