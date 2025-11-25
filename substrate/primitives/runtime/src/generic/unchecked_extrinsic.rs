@@ -250,7 +250,7 @@ pub struct UncheckedExtrinsic<
 	/// This is mainly interesting if this extrinsic was created by decoding it from bytes. In this
 	/// case this field should be set to `Some` holding the original bytes used to decode the
 	/// [`Self::function`]. This is done to protect against decode implementations of `Call` that
-	/// are not biderective (encodes to the exact same bytes it was encoded from). If this `field`
+	/// are not bijective (encodes to the exact same bytes it was encoded from). If this `field`
 	/// is set, it is being used when re-encoding this transaction.
 	pub encoded_call: Option<Vec<u8>>,
 }
