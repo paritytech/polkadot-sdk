@@ -34,10 +34,6 @@ fn tally(index: ReferendumIndex) -> TallyOf<Test> {
 	<TestPolls as Polling<TallyOf<Test>>>::as_ongoing(index).expect("No poll").0
 }
 
-fn class(index: ReferendumIndex) -> TrackId {
-	<TestPolls as Polling<TallyOf<Test>>>::as_ongoing(index).expect("No poll").1
-}
-
 fn call_precompile(
 	from: AccountId,
 	encoded_call: Vec<u8>,

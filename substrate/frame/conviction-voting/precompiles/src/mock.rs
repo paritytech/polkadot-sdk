@@ -195,31 +195,6 @@ thread_local! {
 }
 
 pub struct HooksHandler;
-impl HooksHandler {
-	fn last_on_vote_data() -> Option<(AccountId, ReferendumIndex, AccountVote<Balance>)> {
-		LAST_ON_VOTE_DATA.with(|data| data.borrow().clone())
-	}
-
-	fn last_on_remove_vote_data() -> Option<(AccountId, ReferendumIndex, Status)> {
-		LAST_ON_REMOVE_VOTE_DATA.with(|data| data.borrow().clone())
-	}
-
-	fn last_locked_if_unsuccessful_vote_data() -> Option<(AccountId, ReferendumIndex)> {
-		LAST_LOCKED_IF_UNSUCCESSFUL_VOTE_DATA.with(|data| data.borrow().clone())
-	}
-
-	fn reset() {
-		LAST_ON_VOTE_DATA.with(|data| *data.borrow_mut() = None);
-		LAST_ON_REMOVE_VOTE_DATA.with(|data| *data.borrow_mut() = None);
-		LAST_LOCKED_IF_UNSUCCESSFUL_VOTE_DATA.with(|data| *data.borrow_mut() = None);
-		REMOVE_VOTE_LOCKED_AMOUNT.with(|data| *data.borrow_mut() = None);
-	}
-
-	fn with_remove_locked_amount(v: Balance) {
-		REMOVE_VOTE_LOCKED_AMOUNT.with(|data| *data.borrow_mut() = Some(v));
-	}
-}
-
 impl VotingHooks<AccountId, ReferendumIndex, Balance> for HooksHandler {
 	fn on_before_vote(
 		who: &AccountId,
