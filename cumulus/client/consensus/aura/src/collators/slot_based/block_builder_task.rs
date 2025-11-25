@@ -324,7 +324,7 @@ where
 			)
 			.await
 			{
-				Some((slot, authorities)) => (slot, authorities),
+				Some(slot) => slot,
 				None => {
 					tracing::debug!(
 						target: crate::LOG_TARGET,
