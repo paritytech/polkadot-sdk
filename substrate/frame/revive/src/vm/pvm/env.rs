@@ -30,7 +30,7 @@ use core::mem;
 use frame_support::traits::Get;
 use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags};
-use sp_core::{H160, H256, U256};
+use sp_core::U256;
 use sp_io::hashing::keccak_256;
 use sp_runtime::{DispatchError, SaturatedConversion};
 
@@ -761,7 +761,7 @@ pub mod env {
 			return Err(Error::<E::T>::TooManyTopics.into());
 		}
 
-		if data_len > self.ext.max_value_size() {
+		if data_len > limits::EVENT_BYTES {
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 
@@ -823,7 +823,7 @@ pub mod env {
 	#[stable]
 	fn block_author(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::BlockAuthor)?;
-		let block_author = self.ext.block_author().unwrap_or(H160::zero());
+		let block_author = self.ext.block_author();
 
 		Ok(self.write_fixed_sandbox_output(
 			memory,
@@ -978,13 +978,15 @@ pub mod env {
 		}
 	}
 
-	/// Remove the calling account and transfer remaining **free** balance.
+	/// Remove the calling account and transfer remaining balance:
+	/// **total** balance if code is deleted from storage, else **free** balance only.
 	/// See [`pallet_revive_uapi::HostFn::terminate`].
 	#[mutating]
+	#[stable]
 	fn terminate(&mut self, memory: &mut M, beneficiary_ptr: u32) -> Result<(), TrapReason> {
 		let charged = self.charge_gas(RuntimeCosts::Terminate { code_removed: true })?;
 		let beneficiary = memory.read_h160(beneficiary_ptr)?;
-		if matches!(self.ext.terminate(&beneficiary)?, crate::CodeRemoved::No) {
+		if matches!(self.ext.terminate_if_same_tx(&beneficiary)?, crate::CodeRemoved::No) {
 			self.adjust_gas(charged, RuntimeCosts::Terminate { code_removed: false });
 		}
 		Err(TrapReason::Termination)

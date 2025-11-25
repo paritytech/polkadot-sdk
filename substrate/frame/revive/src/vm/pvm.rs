@@ -502,8 +502,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			StorageValue::Value(data) => data.len() as u32,
 		};
 
-		let max_size = self.ext.max_value_size();
-		let charged = self.charge_gas(costs(value_len, self.ext.max_value_size()))?;
+		let max_size = limits::STORAGE_BYTES;
+		let charged = self.charge_gas(costs(value_len, max_size))?;
 		if value_len > max_size {
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
@@ -540,7 +540,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				RuntimeCosts::ClearStorage(len)
 			}
 		};
-		let charged = self.charge_gas(costs(self.ext.max_value_size()))?;
+		let charged = self.charge_gas(costs(limits::STORAGE_BYTES))?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let outcome = if transient {
 			self.ext.set_transient_storage(&key, None, false)?
@@ -568,7 +568,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				RuntimeCosts::GetStorage(len)
 			}
 		};
-		let charged = self.charge_gas(costs(self.ext.max_value_size()))?;
+		let charged = self.charge_gas(costs(limits::STORAGE_BYTES))?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let outcome = if transient {
 			self.ext.get_transient_storage(&key)
