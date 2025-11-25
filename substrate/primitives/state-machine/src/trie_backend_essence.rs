@@ -666,7 +666,7 @@ where
 	///
 	/// Note: This function does not modify the actual storage state - it only reads and records
 	/// the trie nodes that would be affected by the given delta for proof size estimation.
-	pub fn compute_pov_size_for_storage_root<'a, 'b>(
+	pub fn compute_pov_size_for_storage_root<'a>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
