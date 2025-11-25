@@ -29,7 +29,10 @@ async fn rewards_statistics_collector_test() -> Result<(), anyhow::Error> {
                 .with_chain("rococo-local")
                 .with_default_command("polkadot")
                 .with_default_image(images.polkadot.as_str())
-                .with_default_args(vec![("-lparachain=debug").into()])
+                .with_default_args(vec![
+                    ("-lparachain=debug").into(),
+                    ("--verbose-approval-metrics=true").into(),
+                ])
                 .with_genesis_overrides(json!({
 					"configuration": {
 						"config": {
@@ -89,7 +92,7 @@ async fn rewards_statistics_collector_test() -> Result<(), anyhow::Error> {
 
     // Assert the parachain finalized block height is also on par with the number of backed
     // candidates. We can only do this for the collator based on cumulus.
-    assert_finality_lag(&para_node_2001.wait_client().await?, 6).await?;
+    assert_finality_lag(&relay_client, 6).await?;
 
     assert_approval_usages_medians(
         1,

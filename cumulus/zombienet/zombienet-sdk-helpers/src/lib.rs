@@ -53,7 +53,7 @@ pub fn create_assign_core_call(core_and_para: &[(u32, u32)]) -> DynamicPayload {
 }
 
 /// Find an event in subxt `Events` and attempt to decode the fields fo the event.
-fn find_event_and_decode_fields<T: Decode>(
+pub fn find_event_and_decode_fields<T: Decode>(
 	events: &Events<PolkadotConfig>,
 	pallet: &str,
 	variant: &str,
