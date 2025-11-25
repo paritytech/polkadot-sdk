@@ -57,6 +57,7 @@ pub(crate) async fn run<Context>(
 	keystore: KeystorePtr,
 	metrics: Metrics,
 ) -> FatalResult<()> {
+	gum::info!(LOG_TARGET, "Running experimental collator protocol");
 	if let Some(state) = initialize(&mut ctx, keystore, metrics).await? {
 		run_inner(ctx, state).await?;
 	}

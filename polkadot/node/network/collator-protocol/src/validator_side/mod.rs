@@ -1889,6 +1889,8 @@ pub(crate) async fn run<Context>(
 	ah_invulnerables: HashSet<PeerId>,
 	hold_off_duration: Option<Duration>,
 ) -> std::result::Result<(), SubsystemError> {
+	gum::info!(LOG_TARGET, "Running legacy collator protocol");
+
 	run_inner(
 		ctx,
 		keystore,
