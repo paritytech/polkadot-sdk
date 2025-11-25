@@ -10,3 +10,4 @@ doc:
 crates:
 - name: cumulus-client-consensus-aura
   bump: patch
+
