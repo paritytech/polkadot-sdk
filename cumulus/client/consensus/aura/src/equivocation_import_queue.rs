@@ -79,7 +79,7 @@ pub struct Verifier<P: Pair, Client, Block: BlockT, CIDP> {
 	create_inherent_data_providers: CIDP,
 	defender: Mutex<NaiveEquivocationDefender<NumberFor<Block>>>,
 	telemetry: Option<TelemetryHandle>,
-	authorities_tracker: AuthoritiesTracker<P, Block, Client>,
+	authorities_tracker: Arc<AuthoritiesTracker<P, Block, Client>>,
 }
 
 impl<P, Client, Block, CIDP> Verifier<P, Client, Block, CIDP>
@@ -103,13 +103,14 @@ where
 		client: Arc<Client>,
 		inherent_data_provider: CIDP,
 		telemetry: Option<TelemetryHandle>,
+		authorities_tracker: Arc<AuthoritiesTracker<P, Block, Client>>,
 	) -> Result<Self, String> {
 		Ok(Self {
 			client: client.clone(),
 			create_inherent_data_providers: inherent_data_provider,
 			defender: Mutex::new(NaiveEquivocationDefender::default()),
 			telemetry,
-			authorities_tracker: AuthoritiesTracker::new(client, &CompatibilityMode::None)?,
+			authorities_tracker,
 		})
 	}
 }
@@ -276,14 +277,15 @@ pub fn fully_verifying_import_queue<P, Client, Block: BlockT, I, CIDP>(
 	telemetry: Option<TelemetryHandle>,
 ) -> Result<BasicQueue<Block>, String>
 where
-	P: Pair + 'static,
+	P: Pair + 'static + Clone,
 	P::Signature: Codec,
 	P::Public: Codec + Debug,
 	I: BlockImport<Block, Error = ConsensusError>
 		+ ParachainBlockImportMarker
 		+ Send
 		+ Sync
-		+ 'static,
+		+ 'static
+		+ Clone,
 	Client: HeaderBackend<Block>
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ ProvideRuntimeApi<Block>
@@ -293,14 +295,17 @@ where
 	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block> + AuraApi<Block, P::Public>,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 {
+	let tracker = Arc::new(AuthoritiesTracker::new(client.clone(), &CompatibilityMode::None)?);
 	let verifier = Verifier::<P, _, _, _> {
 		client: client.clone(),
 		create_inherent_data_providers,
 		defender: Mutex::new(NaiveEquivocationDefender::default()),
 		telemetry,
-		authorities_tracker: AuthoritiesTracker::new(client.clone(), &CompatibilityMode::None)?,
+		authorities_tracker: tracker.clone(),
 	};
 
+	log::info!(target: "skunert", "Coming here");
+	let block_import = sc_consensus_aura::AuraBlockImport::new(block_import, tracker);
 	Ok(BasicQueue::new(verifier, Box::new(block_import), None, spawner, registry))
 }
 

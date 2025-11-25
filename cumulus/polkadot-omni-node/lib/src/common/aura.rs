@@ -27,7 +27,7 @@ use sp_runtime::{
 /// Convenience trait for defining the basic bounds of an `AuraId`.
 pub trait AuraIdT: AppCrypto<Pair = Self::BoundedPair> + Codec + Send {
 	/// Extra bounds for the `Pair`.
-	type BoundedPair: AppPair + AppCrypto<Signature = Self::BoundedSignature>;
+	type BoundedPair: AppPair + AppCrypto<Signature = Self::BoundedSignature> + Clone;
 
 	/// Extra bounds for the `Signature`.
 	type BoundedSignature: AppSignature
@@ -40,6 +40,7 @@ pub trait AuraIdT: AppCrypto<Pair = Self::BoundedPair> + Codec + Send {
 impl<T> AuraIdT for T
 where
 	T: AppCrypto + Codec + Send + Sync,
+	<T as AppCrypto>::Pair: Clone,
 	<<T as AppCrypto>::Pair as AppCrypto>::Signature:
 		TryFrom<Vec<u8>> + std::hash::Hash + sp_runtime::traits::Member + Codec,
 {
