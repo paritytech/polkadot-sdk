@@ -144,7 +144,6 @@ pub fn create_benchmarking_transfer_extrinsics(
 	let mut block_builder = BlockBuilderBuilder::new(client)
 		.on_parent_block(chain.best_hash)
 		.with_parent_block_number(chain.best_number)
-		.enable_proof_recording()
 		.build()
 		.expect("Creates block builder");
 	let mut max_transfer_count = 0;
@@ -159,22 +158,16 @@ pub fn create_benchmarking_transfer_extrinsics(
 	let set_validation_data_extrinsic = extrinsic_set_validation_data(parent_header);
 	extrinsics.push(set_validation_data_extrinsic);
 
-	let use_transfer_all = std::env::var("BLOCK_PRODUCTION_TRANSFER_ALL").is_ok();
-
 	for (src, dst) in src_accounts.iter().zip(dst_accounts.iter()) {
-		let call = if use_transfer_all {
-			BalancesCall::transfer_all {
-				dest: MultiAddress::Id(AccountId::from(dst.public())),
-				keep_alive: false,
-			}
-		} else {
+		let extrinsic: UncheckedExtrinsic = construct_extrinsic(
+			client,
 			BalancesCall::transfer_keep_alive {
 				dest: MultiAddress::Id(AccountId::from(dst.public())),
 				value: 10000,
-			}
-		};
-
-		let extrinsic: UncheckedExtrinsic = construct_extrinsic(client, call, src.clone(), Some(0));
+			},
+			src.clone(),
+			Some(0),
+		);
 
 		match block_builder.push(extrinsic.clone().into()) {
 			Ok(_) => {},
@@ -197,21 +190,9 @@ pub fn create_benchmarking_transfer_extrinsics(
 
 /// Prepare cumulus test runtime for execution
 pub fn get_wasm_module() -> Box<dyn sc_executor_common::wasm_runtime::WasmModule> {
-	let wasm_content = if let Ok(wasm_path) = std::env::var("WASM_PATH") {
-		std::fs::read(wasm_path).expect("Failed to read the file specified by WASM_PATH")
-	} else {
-		WASM_BINARY
-			.expect("You need to build the WASM binaries to run the benchmark!")
-			.to_vec()
-	};
-	let blob = RuntimeBlob::uncompress_if_needed({
-		// let wasm_path = std::env::var("WASM_PATH").unwrap_or_else(|_| {
-		// 	    WASM_BINARY.expect("You need to build the WASM binaries to run the benchmark!")
-		// });
-
-		// WASM_BINARY.expect("You need to build the WASM binaries to run the benchmark!"),
-		&wasm_content
-	})
+	let blob = RuntimeBlob::uncompress_if_needed(
+		WASM_BINARY.expect("You need to build the WASM binaries to run the benchmark!"),
+	)
 	.unwrap();
 
 	let config = sc_executor_wasmtime::Config {
