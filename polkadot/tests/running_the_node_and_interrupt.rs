@@ -60,26 +60,3 @@ async fn running_the_node_works_and_can_be_interrupted() {
 	run_command_and_kill(SIGINT).await;
 	run_command_and_kill(SIGTERM).await;
 }
-
-#[test]
-fn running_node_verify_on_start_fails() {
-	let tmp_dir = tempdir().expect("could not create a temp dir");
-	let base_path = tmp_dir.path();
-	Command::new(cargo_bin("polkadot"))
-		.stdout(process::Stdio::piped())
-		.stderr(process::Stdio::piped())
-		.args([
-			"--chain",
-			"westend",
-			"--force-authoring",
-			"--alice",
-			"--unsafe-force-node-key-generation",
-			"--validator",
-			"--verify-on-start",
-		])
-		.arg("-d")
-		.arg(base_path)
-		.arg("--no-hardware-benchmarks")
-		.assert()
-		.failure();
-}

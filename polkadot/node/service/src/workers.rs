@@ -55,7 +55,6 @@ fn workers_lib_path_override() -> Option<PathBuf> {
 ///
 /// 6. At this point the final set of paths should be good to use.
 pub fn determine_workers_paths(
-	verify_on_start: bool,
 	given_workers_path: Option<PathBuf>,
 	workers_names: Option<(String, String)>,
 	node_version: Option<String>,
@@ -98,26 +97,6 @@ pub fn determine_workers_paths(
 		}
 	} else {
 		log::warn!("Skipping node/worker version checks. This could result in incorrect behavior in PVF workers.");
-	}
-
-	if verify_on_start {
-		let worker_version = polkadot_node_core_pvf::get_worker_version(&prep_worker_path)?;
-		let mut worker_dir = prep_worker_path.clone();
-		let _ = worker_dir.pop();
-		
-		let worker_info = WorkerInfo {
-			pid: std::process::id(),
-			kind: WorkerKind::Prepare,
-			version: Some(worker_version),
-			worker_dir_path: worker_dir,
-		};
-
-		if !security::check_env_vars_were_cleared(&worker_info) {
-			let err = "Not all env vars were cleared when spawning the process.";
-			log::warn!("{}", err);
-
-			worker_shutdown(worker_info, err);
-		}
 	}
 
 	Ok((prep_worker_path, exec_worker_path))

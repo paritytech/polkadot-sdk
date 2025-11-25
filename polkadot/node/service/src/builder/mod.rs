@@ -76,8 +76,6 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	pub node_version: Option<String>,
 	/// Whether the node is attempting to run as a secure validator.
 	pub secure_validator_mode: bool,
-	/// Whether validator should be verified on start. For example, check that env vars were cleared.
-	pub verify_on_start: bool,
 	/// An optional path to a directory containing the workers.
 	pub workers_path: Option<std::path::PathBuf>,
 	/// Optional custom names for the prepare and execute workers.
@@ -199,7 +197,6 @@ where
 					telemetry_worker_handle: _,
 					node_version,
 					secure_validator_mode,
-					verify_on_start,
 					workers_path,
 					workers_names,
 					overseer_gen,
@@ -380,7 +377,6 @@ where
 			let parachains_db = open_database(&config.database)?;
 			let candidate_validation_config = if role.is_authority() {
 				let (prep_worker_path, exec_worker_path) = workers::determine_workers_paths(
-					verify_on_start,
 					workers_path,
 					workers_names,
 					node_version.clone(),
