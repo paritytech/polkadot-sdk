@@ -251,6 +251,7 @@ fn transfer_works() {
 			&ALICE,
 			&BOB,
 			Pallet::<Test>::convert_native_to_evm(value),
+			Preservation::Preserve,
 			&mut storage_meter,
 			&ExecConfig::new_substrate_tx(),
 		)
@@ -289,6 +290,7 @@ fn transfer_to_nonexistent_account_works() {
 			&BOB,
 			&CHARLIE,
 			evm_value,
+			Preservation::Preserve,
 			&mut storage_meter,
 			&ExecConfig::new_substrate_tx(),
 		));
@@ -305,6 +307,7 @@ fn transfer_to_nonexistent_account_works() {
 				&BOB,
 				&DJANGO,
 				evm_value,
+				Preservation::Preserve,
 				&mut storage_meter,
 				&ExecConfig::new_substrate_tx(),
 			),
@@ -320,6 +323,7 @@ fn transfer_to_nonexistent_account_works() {
 				&BOB,
 				&EVE,
 				evm_value,
+				Preservation::Preserve,
 				&mut storage_meter,
 				&ExecConfig::new_substrate_tx(),
 			),
@@ -496,6 +500,7 @@ fn balance_too_low() {
 			&from,
 			&dest,
 			Pallet::<Test>::convert_native_to_evm(100u64).as_u64().into(),
+			Preservation::Preserve,
 			&mut storage_meter,
 			&ExecConfig::new_substrate_tx(),
 		);
@@ -1314,9 +1319,9 @@ fn instantiation_traps() {
 }
 
 #[test]
-fn termination_from_instantiate_fails() {
+fn termination_from_instantiate_succeeds() {
 	let terminate_ch = MockLoader::insert(Constructor, |ctx, _| {
-		let _ = ctx.ext.terminate(&ALICE_ADDR)?;
+		let _ = ctx.ext.terminate_if_same_tx(&ALICE_ADDR)?;
 		exec_success()
 	});
 
@@ -1330,24 +1335,22 @@ fn termination_from_instantiate_fails() {
 			set_balance(&ALICE, 10_000);
 			let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
 
-			assert_eq!(
-				MockStack::run_instantiate(
-					ALICE,
-					executable,
-					&mut gas_meter,
-					&mut storage_meter,
-					Pallet::<Test>::convert_native_to_evm(100u64),
-					vec![],
-					Some(&[0; 32]),
-					&ExecConfig::new_substrate_tx(),
-				),
-				Err(ExecError {
-					error: Error::<Test>::TerminatedInConstructor.into(),
-					origin: ErrorOrigin::Callee
-				})
-			);
+			let result = MockStack::run_instantiate(
+				ALICE,
+				executable,
+				&mut gas_meter,
+				&mut storage_meter,
+				Pallet::<Test>::convert_native_to_evm(100u64),
+				vec![],
+				Some(&[0; 32]),
+				&ExecConfig::new_substrate_tx(),
+			)
+			.unwrap();
 
-			assert_eq!(&events(), &[]);
+			assert_eq!(
+				&events(),
+				&[Event::Instantiated { deployer: ALICE_ADDR, contract: result.0 }]
+			);
 		});
 }
 
@@ -2839,7 +2842,7 @@ fn block_hash_returns_proper_values() {
 	let bob_code_hash = MockLoader::insert(Call, |ctx, _| {
 		ctx.ext.block_number = 1u32.into();
 		assert_eq!(ctx.ext.block_hash(U256::from(1)), None);
-		assert_eq!(ctx.ext.block_hash(U256::from(0)), Some(H256::from([1; 32])));
+		assert!(ctx.ext.block_hash(U256::from(0)).is_some());
 
 		ctx.ext.block_number = 300u32.into();
 		assert_eq!(ctx.ext.block_hash(U256::from(300)), None);

@@ -26,7 +26,7 @@ pub use runtime_costs::RuntimeCosts;
 
 use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
-	frame_support::{ensure, error::BadOrigin, traits::tokens::Restriction},
+	frame_support::{ensure, error::BadOrigin},
 	gas::{GasMeter, Token},
 	storage::meter::NestedMeter,
 	weights::WeightInfo,
@@ -35,13 +35,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
-	dispatch::DispatchResult,
-	traits::{
-		fungible::MutateHold,
-		tokens::{Fortitude, Precision},
-	},
-};
+use frame_support::dispatch::DispatchResult;
 use pallet_revive_uapi::ReturnErrorCode;
 use sp_core::{Get, H256};
 use sp_runtime::{DispatchError, Saturating};
@@ -171,16 +165,13 @@ impl<T: Config> ContractBlob<T> {
 			if let Some(code_info) = existing {
 				ensure!(code_info.refcount == 0, <Error<T>>::CodeInUse);
 				ensure!(&code_info.owner == origin, BadOrigin);
-				T::Currency::transfer_on_hold(
-					&HoldReason::CodeUploadDepositReserve.into(),
+				<Pallet<T>>::refund_deposit(
+					HoldReason::CodeUploadDepositReserve,
 					&Pallet::<T>::account_id(),
 					&code_info.owner,
 					code_info.deposit,
-					Precision::Exact,
-					Restriction::Free,
-					Fortitude::Polite,
+					None,
 				)?;
-
 				*existing = None;
 				<PristineCode<T>>::remove(&code_hash);
 				Ok(())
@@ -193,7 +184,7 @@ impl<T: Config> ContractBlob<T> {
 	/// Puts the module blob into storage, and returns the deposit collected for the storage.
 	pub fn store_code(
 		&mut self,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 		storage_meter: Option<&mut NestedMeter<T>>,
 	) -> Result<BalanceOf<T>, DispatchError> {
 		let code_hash = *self.code_hash();
@@ -215,11 +206,10 @@ impl<T: Config> ContractBlob<T> {
 							&self.code_info.owner,
 							&Pallet::<T>::account_id(),
 							deposit,
-							&exec_config,
+							exec_config,
 						)
-					 .map_err(|err| {
+					 .inspect_err(|err| {
 							log::debug!(target: LOG_TARGET, "failed to hold store code deposit {deposit:?} for owner: {:?}: {err:?}", self.code_info.owner);
-							<Error<T>>::StorageDepositNotEnoughFunds
 					})?;
 
 					if let Some(meter) = storage_meter {
@@ -297,14 +287,12 @@ impl<T: Config> CodeInfo<T> {
 			let Some(code_info) = existing else { return Err(Error::<T>::CodeNotFound.into()) };
 
 			if code_info.refcount == 1 {
-				T::Currency::transfer_on_hold(
-					&HoldReason::CodeUploadDepositReserve.into(),
-					&crate::Pallet::<T>::account_id(),
+				<Pallet<T>>::refund_deposit(
+					HoldReason::CodeUploadDepositReserve,
+					&Pallet::<T>::account_id(),
 					&code_info.owner,
 					code_info.deposit,
-					Precision::Exact,
-					Restriction::Free,
-					Fortitude::Polite,
+					None,
 				)?;
 
 				*existing = None;

@@ -40,7 +40,9 @@ use pallet_transaction_payment::{
 };
 use sp_runtime::{
 	generic::UncheckedExtrinsic,
-	traits::{Block as BlockT, Dispatchable, TransactionExtension},
+	traits::{
+		Block as BlockT, Dispatchable, ExtensionPostDispatchWeightHandler, TransactionExtension,
+	},
 	FixedPointNumber, FixedU128, SaturatedConversion, Saturating,
 };
 
@@ -107,8 +109,7 @@ pub trait InfoT<T: Config>: seal::Sealed {
 
 	/// Makes sure that not too much storage deposit was withdrawn.
 	fn ensure_not_overdrawn(
-		_encoded_len: u32,
-		_info: &DispatchInfo,
+		_fee: BalanceOf<T>,
 		result: DispatchResultWithPostInfo,
 	) -> DispatchResultWithPostInfo {
 		result
@@ -154,6 +155,15 @@ pub trait InfoT<T: Config>: seal::Sealed {
 
 	/// Return the remaining transaction fee.
 	fn remaining_txfee() -> BalanceOf<T> {
+		Default::default()
+	}
+
+	/// Compute the actual post_dispatch fee
+	fn compute_actual_fee(
+		_encoded_len: u32,
+		_info: &DispatchInfo,
+		_result: &DispatchResultWithPostInfo,
+	) -> BalanceOf<T> {
 		Default::default()
 	}
 }
@@ -260,8 +270,7 @@ where
 	}
 
 	fn ensure_not_overdrawn(
-		encoded_len: u32,
-		info: &DispatchInfo,
+		fee: BalanceOf<E::Config>,
 		result: DispatchResultWithPostInfo,
 	) -> DispatchResultWithPostInfo {
 		// if tx is already failing we can ignore
@@ -270,9 +279,6 @@ where
 			return result;
 		};
 
-		let fee: BalanceOf<E::Config> =
-			<TxPallet<E::Config>>::compute_actual_fee(encoded_len, info, &post_info, Zero::zero())
-				.into();
 		let available = Self::remaining_txfee();
 		if fee > available {
 			log::debug!(target: LOG_TARGET, "Drew too much from the txhold. \
@@ -347,6 +353,21 @@ where
 
 	fn remaining_txfee() -> BalanceOf<E::Config> {
 		TxPallet::<E::Config>::remaining_txfee()
+	}
+
+	fn compute_actual_fee(
+		encoded_len: u32,
+		info: &DispatchInfo,
+		result: &DispatchResultWithPostInfo,
+	) -> BalanceOf<E::Config> {
+		let mut post_info = *match result {
+			Ok(post_info) => post_info,
+			Err(err) => &err.post_info,
+		};
+
+		post_info.set_extension_weight(info);
+		<TxPallet<E::Config>>::compute_actual_fee(encoded_len, info, &post_info, Zero::zero())
+			.into()
 	}
 }
 

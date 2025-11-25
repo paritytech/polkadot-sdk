@@ -341,6 +341,8 @@ fn distribute_collation_from_implicit_view(#[case] validator_sends_view_first: b
 		|mut test_harness| async move {
 			let virtual_overseer = &mut test_harness.virtual_overseer;
 
+			overseer_send(virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups).await;
+
 			// Set collating para id.
 			overseer_send(virtual_overseer, CollatorProtocolMessage::CollateOn(test_state.para_id))
 				.await;
@@ -515,6 +517,8 @@ fn distribute_collation_up_to_limit() {
 			// Grandparent of head `a`.
 			let head_b = Hash::from_low_u64_be(130);
 
+			overseer_send(virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups).await;
+
 			// Set collating para id.
 			overseer_send(virtual_overseer, CollatorProtocolMessage::CollateOn(test_state.para_id))
 				.await;
@@ -641,6 +645,9 @@ fn send_parent_head_data_for_elastic_scaling() {
 
 			let head_b = Hash::from_low_u64_be(129);
 			let head_b_num: u32 = 63;
+
+			overseer_send(&mut virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups)
+				.await;
 
 			// Set collating para id.
 			overseer_send(
@@ -769,6 +776,9 @@ fn advertise_and_send_collation_by_hash() {
 			// Parent of head `a`.
 			let head_b = Hash::from_low_u64_be(129);
 			let head_b_num: u32 = 63;
+
+			overseer_send(&mut virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups)
+				.await;
 
 			// Set collating para id.
 			overseer_send(

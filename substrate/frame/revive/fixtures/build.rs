@@ -18,6 +18,7 @@
 //! Compile text fixtures to PolkaVM binaries.
 use anyhow::{bail, Context, Result};
 use cargo_metadata::MetadataCommand;
+use pallet_revive_uapi::precompiles::INTERFACE_DIR;
 use std::{
 	env, fs,
 	io::Write,
@@ -46,6 +47,22 @@ struct Entry {
 enum ContractType {
 	Rust,
 	Solidity,
+}
+
+/// Type of EVM bytecode to extract from Solidity compiler output.
+#[derive(Clone, Copy)]
+enum EvmByteCodeType {
+	InitCode,
+	RuntimeCode,
+}
+
+impl EvmByteCodeType {
+	fn json_key(&self) -> &'static str {
+		match self {
+			Self::InitCode => "bytecode",
+			Self::RuntimeCode => "deployedBytecode",
+		}
+	}
 }
 
 impl Entry {
@@ -216,6 +233,8 @@ fn compile_with_standard_json(
 	contracts_dir: &Path,
 	solidity_entries: &[&Entry],
 ) -> Result<serde_json::Value> {
+	let remappings = [format!("@revive/={INTERFACE_DIR}")];
+
 	let mut input_json = serde_json::json!({
 		"language": "Solidity",
 		"sources": {},
@@ -224,11 +243,12 @@ fn compile_with_standard_json(
 				"enabled": false,
 				"runs": 200
 			},
+			"remappings": remappings,
 			"outputSelection":
 
 		serde_json::json!({
 			"*": {
-				"*": ["evm.bytecode"]
+				"*": ["evm.bytecode", "evm.deployedBytecode"]
 			}
 		}),
 
@@ -248,6 +268,8 @@ fn compile_with_standard_json(
 
 	let compiler_output = Command::new(compiler)
 		.current_dir(contracts_dir)
+		.arg("--allow-paths")
+		.arg(INTERFACE_DIR)
 		.arg("--standard-json")
 		.stdin(std::process::Stdio::piped())
 		.stdout(std::process::Stdio::piped())
@@ -302,6 +324,7 @@ fn extract_and_write_bytecode(
 	compiler_json: &serde_json::Value,
 	out_dir: &Path,
 	file_suffix: &str,
+	bytecode_type: EvmByteCodeType,
 ) -> Result<()> {
 	if let Some(contracts) = compiler_json["contracts"].as_object() {
 		for (_file_key, file_contracts) in contracts {
@@ -309,7 +332,7 @@ fn extract_and_write_bytecode(
 				for (contract_name, contract_data) in contract_map {
 					// Navigate through the JSON path to find the bytecode
 					let mut current = contract_data;
-					for path_segment in ["evm", "bytecode", "object"] {
+					for path_segment in ["evm", bytecode_type.json_key(), "object"] {
 						if let Some(next) = current.get(path_segment) {
 							current = next;
 						} else {
@@ -360,11 +383,12 @@ fn compile_solidity_contracts(
 
 	// Compile with solc for EVM bytecode
 	let json = compile_with_standard_json("solc", contracts_dir, &solidity_entries)?;
-	extract_and_write_bytecode(&json, out_dir, ".sol.bin")?;
+	extract_and_write_bytecode(&json, out_dir, ".sol.bin", EvmByteCodeType::InitCode)?;
+	extract_and_write_bytecode(&json, out_dir, ".sol.runtime.bin", EvmByteCodeType::RuntimeCode)?;
 
 	// Compile with resolc for PVM bytecode
 	let json = compile_with_standard_json("resolc", contracts_dir, &solidity_entries_pvm)?;
-	extract_and_write_bytecode(&json, out_dir, ".resolc.polkavm")?;
+	extract_and_write_bytecode(&json, out_dir, ".resolc.polkavm", EvmByteCodeType::InitCode)?;
 
 	Ok(())
 }

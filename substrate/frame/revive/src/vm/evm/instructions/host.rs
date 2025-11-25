@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
+	gas::Token,
 	limits,
 	storage::WriteOutcome,
 	vec::Vec,
@@ -25,7 +26,7 @@ use crate::{
 		},
 		Ext,
 	},
-	DispatchError, Error, Key, RuntimeCosts, U256,
+	DispatchError, Error, Key, RuntimeCosts, LOG_TARGET, U256,
 };
 use core::ops::ControlFlow;
 
@@ -145,16 +146,16 @@ fn store_helper<'ext, E: Ext>(
 	let charged_amount = interpreter.ext.charge_or_halt(cost_before)?;
 	let key = Key::Fix(index.to_big_endian());
 	let take_old = false;
-	let Ok(write_outcome) =
-		set_function(interpreter.ext, &key, Some(value.to_big_endian().to_vec()), take_old)
+	let value_to_store = if value.is_zero() { None } else { Some(value.to_big_endian().to_vec()) };
+	let Ok(write_outcome) = set_function(interpreter.ext, &key, value_to_store.clone(), take_old)
 	else {
 		return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 	};
 
-	interpreter
-		.ext
-		.gas_meter_mut()
-		.adjust_gas(charged_amount, adjust_cost(32, write_outcome.old_len()));
+	interpreter.ext.gas_meter_mut().adjust_gas(
+		charged_amount,
+		adjust_cost(value_to_store.unwrap_or_default().len() as u32, write_outcome.old_len()),
+	);
 
 	ControlFlow::Continue(())
 }
@@ -250,7 +251,28 @@ pub fn log<'ext, const N: usize, E: Ext>(
 /// Implements the SELFDESTRUCT instruction.
 ///
 /// Halt execution and register account for later deletion.
-pub fn selfdestruct<'ext, E: Ext>(_interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	// TODO: for now this instruction is not supported
-	ControlFlow::Break(Error::<E::T>::InvalidInstruction.into())
+pub fn selfdestruct<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
+	if interpreter.ext.is_read_only() {
+		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
+	}
+	let [beneficiary] = interpreter.stack.popn()?;
+	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::Terminate { code_removed: true })?;
+	let dispatch_result = interpreter.ext.terminate_if_same_tx(&beneficiary.into_address());
+
+	match dispatch_result {
+		Ok(code_removed) => {
+			// halt execution on successful selfdestruct
+			if matches!(code_removed, crate::CodeRemoved::No) {
+				let actual_cost = RuntimeCosts::Terminate { code_removed: false };
+				interpreter
+					.ext
+					.adjust_gas(charged, <RuntimeCosts as Token<E::T>>::weight(&actual_cost));
+			}
+			ControlFlow::Break(Halt::Return(Vec::default()))
+		},
+		Err(e) => {
+			log::debug!(target: LOG_TARGET, "Selfdestruct failed: {:?}", e);
+			ControlFlow::Break(Halt::Err(e))
+		},
+	}
 }
