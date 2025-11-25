@@ -21,6 +21,7 @@ tokio = { workspace = true, features = ["macros"] }
 tracing = { workspace = true, default-features = true }
 
 # Substrate
+log = { workspace = true, default-features = true }
 prometheus-endpoint = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
@@ -35,7 +36,6 @@ sp-application-crypto = { workspace = true, default-features = true }
 sp-block-builder = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
-log = { workspace = true, default-features = true }
 sp-consensus-aura = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
