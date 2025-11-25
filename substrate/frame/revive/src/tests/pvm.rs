@@ -963,19 +963,28 @@ fn self_destruct_by_precompile_works() {
 		// Check that the beneficiary (django) got remaining balance.
 		assert_eq!(
 			<Test as Config>::Currency::free_balance(DJANGO_FALLBACK),
-			1_000_000 + initial_contract_balance + min_balance
+			1_000_000 + initial_contract_balance
 		);
 
 		// Check that the Alice is missing Django's benefit. Within ALICE's total balance
 		// there's also the code upload deposit held.
 		assert_eq!(
 			<Test as Config>::Currency::total_balance(&ALICE),
-			1_000_000 - (initial_contract_balance + min_balance)
+			1_000_000 - initial_contract_balance,
 		);
 
-		pretty_assertions::assert_eq!(
+		assert_eq!(
 			System::events(),
 			vec![
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+						from: contract.account_id.clone(),
+						to: DJANGO_FALLBACK,
+						amount: initial_contract_balance,
+					}),
+					topics: vec![],
+				},
 				EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
@@ -990,18 +999,6 @@ fn self_destruct_by_precompile_works() {
 				},
 				EventRecord {
 					phase: Phase::Initialization,
-					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
-						reason: <Test as Config>::RuntimeHoldReason::Contracts(
-							HoldReason::CodeUploadDepositReserve,
-						),
-						source: Pallet::<Test>::account_id(),
-						dest: ALICE,
-						amount: upload_deposit,
-					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
 					event: RuntimeEvent::System(frame_system::Event::KilledAccount {
 						account: contract.account_id.clone()
 					}),
@@ -1011,8 +1008,20 @@ fn self_destruct_by_precompile_works() {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 						from: contract.account_id.clone(),
-						to: DJANGO_FALLBACK,
-						amount: initial_contract_balance + min_balance,
+						to: ALICE,
+						amount: min_balance,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::CodeUploadDepositReserve,
+						),
+						source: Pallet::<Test>::account_id(),
+						dest: ALICE,
+						amount: upload_deposit,
 					}),
 					topics: vec![],
 				},
@@ -1135,25 +1144,23 @@ fn self_destruct_by_syscall_works() {
 
 		assert!(get_contract_checked(&contract_addr).is_none(), "Contract found");
 
+		// min balance is taken from origin to fund DJANGO_FALLBACK
 		assert_eq!(
 			<Test as Config>::Currency::total_balance(&DJANGO_FALLBACK),
-			initial_contract_balance + min_balance
+			initial_contract_balance + min_balance,
 		);
 		assert_eq!(<Test as Config>::Currency::total_balance(&ALICE), 1_000_000 - min_balance);
 	});
 }
 
 #[test]
-fn cannot_self_destruct_in_constructor_by_syscall() {
+fn can_self_destruct_in_constructor_by_syscall() {
 	let (binary, _) = compile_module("self_destructing_constructor_by_syscall").unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
 		// Fail to instantiate the BOB because the constructor calls seal_terminate.
-		assert_err_ignore_postinfo!(
-			builder::instantiate_with_code(binary).value(100_000).build(),
-			Error::<Test>::TerminatedInConstructor,
-		);
+		assert_ok!(builder::instantiate_with_code(binary).value(100_000).build(),);
 	});
 }
 
@@ -3873,21 +3880,26 @@ fn mapped_address_works() {
 		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
 		// without a mapping everything will be send to the fallback account
-		let Contract { addr, .. } =
+		// since EVE_FALLBACK does not exist it will be funded from the origin
+		let Contract { addr, account_id } =
 			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+		<Test as Config>::Currency::set_balance(&account_id, 200);
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 0);
 		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();
-		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 100);
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 200);
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 0);
+		assert_eq!(<Test as Config>::Currency::total_balance(&ALICE), 1_000_000 - 100);
 
 		// after mapping it will be sent to the real eve account
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-		// need some balance to pay for the map deposit
-		<Test as Config>::Currency::set_balance(&EVE, 1_000);
-		<Pallet<Test>>::map_account(RuntimeOrigin::signed(EVE)).unwrap();
+		<Test as Config>::Currency::set_balance(&account_id, 200);
+		<Test as Config>::AddressMapper::map_no_deposit(&EVE).unwrap();
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 0);
 		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();
-		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 100);
-		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 1_100);
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 200);
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 200);
+		assert_eq!(<Test as Config>::Currency::total_balance(&ALICE), 1_000_000 - 200);
 	});
 }
 
@@ -3898,14 +3910,20 @@ fn recovery_works() {
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
+		let initial_contract_balance = 100_000;
+
 		// eve puts her AccountId20 as argument to terminate but forgot to register
 		// her AccountId32 first so now the funds are trapped in her fallback account
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
+			.native_value(initial_contract_balance)
+			.build_and_unwrap_contract();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 0);
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 0);
 		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();
-		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 100);
+		assert_eq!(
+			<Test as Config>::Currency::total_balance(&EVE_FALLBACK),
+			initial_contract_balance + 100,
+		);
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 0);
 
 		let call = RuntimeCall::Balances(pallet_balances::Call::transfer_all {
@@ -3918,7 +3936,7 @@ fn recovery_works() {
 		<Pallet<Test>>::dispatch_as_fallback_account(RuntimeOrigin::signed(EVE), Box::new(call))
 			.unwrap();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 0);
-		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 100);
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), initial_contract_balance + 100);
 	});
 }
 
@@ -5230,7 +5248,7 @@ fn consume_all_gas_works() {
 }
 
 #[test]
-fn existential_deposit_shall_not_charged_twice() {
+fn existential_deposit_shall_not_be_charged_twice() {
 	let (code, _) = compile_module("dummy").unwrap();
 
 	let salt = [0u8; 32];
@@ -5313,6 +5331,10 @@ fn self_destruct_by_syscall_tracing_works() {
 
 				let json = r#"{
 					"pre": {
+						"{{ALICE_ADDR}}": {
+							"balance": "{{ALICE_BALANCE_PRE}}",
+							"nonce": 1
+						},
 						"{{DJANGO_ADDR}}": {
 							"balance": "{{DJANGO_BALANCE}}"
 						},
@@ -5323,6 +5345,9 @@ fn self_destruct_by_syscall_tracing_works() {
 						}
 					},
 					"post": {
+						"{{ALICE_ADDR}}": {
+							"balance": "{{ALICE_BALANCE_POST}}"
+						},
 						"{{DJANGO_ADDR}}": {
 							"balance": "{{DJANGO_BALANCE_POST}}"
 						},
@@ -5332,11 +5357,17 @@ fn self_destruct_by_syscall_tracing_works() {
 					}
 				}"#;
 
+				let alice_balance_pre = Pallet::<Test>::evm_balance(&ALICE_ADDR);
+				let alice_balance_post = alice_balance_pre - 50_000_000u64;
 				let django_balance = Pallet::<Test>::evm_balance(&DJANGO_ADDR);
 				let contract_balance = Pallet::<Test>::evm_balance(&addr);
-				let django_balance_post = contract_balance - 50_000_000u64;
+				let django_balance_post = contract_balance;
 
 				let json = json
+					.replace("{{ALICE_ADDR}}", &format!("{:#x}", ALICE_ADDR))
+					.replace("{{ALICE_BALANCE_PRE}}", &format!("{:#x}", alice_balance_pre))
+					.replace("{{ALICE_BALANCE_POST}}", &format!("{:#x}", alice_balance_post))
+					.replace("{{CONTRACT_ADDR}}", &format!("{:#x}", addr))
 					.replace("{{DJANGO_ADDR}}", &format!("{:#x}", DJANGO_ADDR))
 					.replace("{{CONTRACT_ADDR}}", &format!("{:#x}", addr))
 					.replace("{{DJANGO_BALANCE}}", &format!("{:#x}", django_balance))
