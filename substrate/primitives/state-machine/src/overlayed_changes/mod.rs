@@ -110,8 +110,8 @@ pub struct OverlayedChanges<H: Hasher> {
 	/// This transaction can be applied to the backend to persist the state changes.
 	storage_transaction_cache: Option<StorageTransactionCache<H>>,
 
-	// todo: better name
-	storage_transaction_cache2_flag: Option<()>,
+	/// Flag indicating whether PoV size estimation for storage root has been computed.
+	pov_estimation_computed: Option<()>,
 }
 
 impl<H: Hasher> Default for OverlayedChanges<H> {
@@ -124,7 +124,7 @@ impl<H: Hasher> Default for OverlayedChanges<H> {
 			collect_extrinsics: Default::default(),
 			stats: Default::default(),
 			storage_transaction_cache: None,
-			storage_transaction_cache2_flag: None,
+			pov_estimation_computed: None,
 		}
 	}
 }
@@ -139,7 +139,7 @@ impl<H: Hasher> Clone for OverlayedChanges<H> {
 			collect_extrinsics: self.collect_extrinsics,
 			stats: self.stats.clone(),
 			storage_transaction_cache: self.storage_transaction_cache.clone(),
-			storage_transaction_cache2_flag: self.storage_transaction_cache2_flag.clone(),
+			pov_estimation_computed: self.pov_estimation_computed.clone(),
 		}
 	}
 }
@@ -308,7 +308,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 	/// `storage_transaction_cache`.
 	fn mark_dirty(&mut self) {
 		self.storage_transaction_cache = None;
-		self.storage_transaction_cache2_flag = None;
+		self.pov_estimation_computed = None;
 	}
 
 	/// Returns a double-Option: None if the key is unknown (i.e. and the query should be referred
@@ -341,7 +341,6 @@ impl<H: Hasher> OverlayedChanges<H> {
 		element: StorageValue,
 		init: impl Fn() -> StorageValue,
 	) {
-		//todo: not sure?
 		self.mark_dirty();
 		let extrinsic_index = self.extrinsic_index();
 		let size_write = element.len() as u64;
@@ -680,9 +679,6 @@ impl<H: Hasher> OverlayedChanges<H> {
 		#[cfg(feature = "std")]
 		{
 			crate::debug!(target: "durations", "storage_root: duration={:?}", start.elapsed());
-			// let snapshot = self.top.take_delta();
-			// crate::debug!(target: "durations", "storage_root: duration={:?} snaphost_len:{}", start.elapsed(),snapshot.len());
-			// crate::debug!(target: "durations", "storage_root: snapshot:{:?}", snapshot.iter().map(|k| hex::encode(k.1)).collect::<Vec<_>>());
 		}
 
 		(root, false)
@@ -697,7 +693,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 	) where
 		H::Out: Ord + Encode + codec::Codec,
 	{
-		if self.storage_transaction_cache2_flag.is_some() {
+		if self.pov_estimation_computed.is_some() {
 			crate::debug!(target: "overlayed_changes", "compute_pov_size_for_storage_root (cache)");
 			return;
 		}
@@ -714,7 +710,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 		{
 			let delta = self
 				.top
-				.changes_mut2(&snapshot)
+				.changes_for_delta_keys(&snapshot)
 				.into_iter()
 				.map(|(k, v)| (&k[..], v.map(|v| &v[..])));
 
@@ -722,7 +718,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 				let child_snapshot = v.0.take_delta();
 				(
 					&v.1,
-					v.0.changes_mut2(&child_snapshot)
+					v.0.changes_for_delta_keys(&child_snapshot)
 						.into_iter()
 						.map(|(k, v)| (&k[..], v.map(|v| &v[..]))),
 				)
@@ -730,7 +726,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 
 			backend.compute_pov_size_for_storage_root_full(delta, child_delta, state_version);
 
-			self.storage_transaction_cache2_flag = Some(());
+			self.pov_estimation_computed = Some(());
 		};
 
 		#[cfg(feature = "std")]
