@@ -29,7 +29,7 @@ use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImport, BlockImportParams, ForkChoiceStrategy,
 };
-use sc_consensus_aura::{standalone as aura_internal, AuthoritiesTracker, CompatibilityMode};
+use sc_consensus_aura::{standalone as aura_internal, AuthoritiesTracker};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
 use schnellru::{ByLength, LruMap};
 use sp_api::ProvideRuntimeApi;
@@ -275,6 +275,7 @@ pub fn fully_verifying_import_queue<P, Client, Block: BlockT, I, CIDP>(
 	spawner: &impl sp_core::traits::SpawnEssentialNamed,
 	registry: Option<&prometheus_endpoint::Registry>,
 	telemetry: Option<TelemetryHandle>,
+	authorities_tracker: Arc<AuthoritiesTracker<P, Block, Client>>,
 ) -> Result<BasicQueue<Block>, String>
 where
 	P: Pair + 'static + Clone,
@@ -295,18 +296,14 @@ where
 	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block> + AuraApi<Block, P::Public>,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 {
-	let tracker = Arc::new(AuthoritiesTracker::new(client.clone(), &CompatibilityMode::None)?);
 	let verifier = Verifier::<P, _, _, _> {
-		client: client.clone(),
+		client,
 		create_inherent_data_providers,
 		defender: Mutex::new(NaiveEquivocationDefender::default()),
 		telemetry,
-		authorities_tracker: tracker.clone(),
+		authorities_tracker,
 	};
-
-	log::info!(target: "skunert", "Coming here");
-	let block_import = sc_consensus_aura::AuraBlockImport::new(block_import, tracker);
-	Ok(BasicQueue::new(verifier, Box::new(block_import), None, spawner, registry))
+	Ok(BasicQueue::new(verifier, Box::new(block_import.clone()), None, spawner, registry))
 }
 
 #[cfg(test)]

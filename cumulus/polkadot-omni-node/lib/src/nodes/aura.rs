@@ -61,7 +61,7 @@ use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImportParams, DefaultImportQueue, LongestChain,
 };
-use sc_consensus_aura::{AuraBlockImport, CompatibilityMode};
+use sc_consensus_aura::{AuraBlockImport, AuthoritiesTracker, CompatibilityMode};
 use sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider;
 use sc_network::{config::FullNetworkConfiguration, NotificationMetrics};
 use sc_service::{Configuration, Error, PartialComponents, TaskManager};
@@ -754,13 +754,9 @@ where
 		let (slot_based_block_import, handle) =
 			SlotBasedBlockImport::new(client.clone(), client.clone());
 
-		let authorities_tracker = Arc::new(
-			AuthoritiesTracker::new(client.clone(), &CompatibilityMode::None)
-				.map_err(|e| sc_service::Error::Other(e))?,
-		);
-
-		let aura_block_import =
-			AuraBlockImport::new(slot_based_block_import, authorities_tracker.clone());
+		let (aura_block_import, authorities_tracker) =
+			AuraBlockImport::new(slot_based_block_import, client, &CompatibilityMode::None)
+				.map_err(|e| sc_service::Error::Other(e))?;
 
 		Ok((aura_block_import, (handle, authorities_tracker)))
 	}
@@ -814,14 +810,8 @@ where
 	fn init_block_import(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
 	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)> {
-		let authorities_tracker = Arc::new(
-			AuthoritiesTracker::new(client.clone(), &CompatibilityMode::None)
-				.map_err(|e| sc_service::Error::Other(e))?,
-		);
-
-		let aura_block_import = AuraBlockImport::new(client, authorities_tracker.clone());
-
-		Ok((aura_block_import, authorities_tracker))
+		AuraBlockImport::new(client.clone(), client, &CompatibilityMode::None)
+			.map_err(|e| sc_service::Error::Other(e))
 	}
 }
 

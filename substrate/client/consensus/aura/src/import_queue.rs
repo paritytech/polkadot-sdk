@@ -365,7 +365,8 @@ pub struct AuraBlockImport<Client, P: Pair + Clone, Block: BlockT, BI: BlockImpo
 	authorities_tracker: Arc<AuthoritiesTracker<P, Block, Client>>,
 }
 
-impl<Client, P: Pair, Block: BlockT, BI: BlockImport<Block>> AuraBlockImport<Client, P, Block, BI>
+impl<Client, P: Pair + Clone, Block: BlockT, BI: BlockImport<Block> + Clone>
+	AuraBlockImport<Client, P, Block, BI>
 where
 	Client: HeaderBackend<Block>
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
@@ -412,29 +413,6 @@ impl<Client, P: Pair + Clone, Block: BlockT, BI: BlockImport<Block> + Clone> Clo
 	}
 }
 
-impl<
-		Client: Sync + Send,
-		P: Pair + Clone,
-		Block: BlockT,
-		BI: BlockImport<Block> + Send + Sync + Clone,
-	> AuraBlockImport<Client, P, Block, BI>
-where
-	Client: HeaderBackend<Block>
-		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
-		+ ProvideRuntimeApi<Block>,
-	P::Public: Codec + Debug,
-	P::Signature: Codec,
-	Client::Api: AuraApi<Block, AuthorityId<P>>,
-{
-	/// Create a new AURA block import.
-	pub fn new(
-		block_import: BI,
-		authorities_tracker: Arc<AuthoritiesTracker<P, Block, Client>>,
-	) -> Self {
-		Self { block_import, authorities_tracker }
-	}
-}
-
 #[async_trait::async_trait]
 impl<
 		Client: Sync + Send,
@@ -468,7 +446,6 @@ where
 		let post_header = block.post_header();
 		let import_from_runtime = matches!(block.state_action, StateAction::ApplyChanges(_));
 
-		log::info!("Importing block with state {with_state}");
 		let res = self.block_import.import_block(block).await?;
 
 		if import_from_runtime {

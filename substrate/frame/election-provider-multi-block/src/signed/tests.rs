@@ -23,7 +23,6 @@ use crate::{
 	Phase,
 };
 use frame_election_provider_support::{ElectionProvider, NposSolution};
-use frame_support::storage::unhashed;
 use sp_core::bounded_vec;
 use sp_npos_elections::ElectionScore;
 
