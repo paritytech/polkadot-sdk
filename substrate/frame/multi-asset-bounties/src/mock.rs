@@ -35,7 +35,7 @@ use frame_support::{
 	PalletId,
 };
 use sp_runtime::{
-	traits::{BlakeTwo256, Convert, Hash, IdentityLookup},
+	traits::{BlakeTwo256, Convert, Hash, Identity, IdentityLookup},
 	BuildStorage, Perbill,
 };
 
@@ -182,9 +182,9 @@ impl Config for Test {
 	type ChildBountyValueMinimum = ConstU64<1>;
 	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
 	type WeightInfo = ();
-	type FundingSource = PalletIdAsFundingSource<BountyPalletId, Test, ()>;
-	type BountySource = BountySourceFromPalletId<BountyPalletId, Test, ()>;
-	type ChildBountySource = ChildBountySourceFromPalletId<BountyPalletId, Test, ()>;
+	type FundingSource = PalletIdAsFundingSource<BountyPalletId, Test, Identity, ()>;
+	type BountySource = BountySourceFromPalletId<BountyPalletId, Test, Identity, ()>;
+	type ChildBountySource = ChildBountySourceFromPalletId<BountyPalletId, Test, Identity, ()>;
 	type Paymaster = TestBountiesPay;
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type Preimages = Preimage;
@@ -216,9 +216,9 @@ impl Config<Instance1> for Test {
 	type ChildBountyValueMinimum = ConstU64<1>;
 	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
 	type WeightInfo = ();
-	type FundingSource = PalletIdAsFundingSource<BountyPalletId2, Test, Instance1>;
-	type BountySource = BountySourceFromPalletId<BountyPalletId2, Test, Instance1>;
-	type ChildBountySource = ChildBountySourceFromPalletId<BountyPalletId2, Test, Instance1>;
+	type FundingSource = PalletIdAsFundingSource<BountyPalletId2, Test, Identity, Instance1>;
+	type BountySource = BountySourceFromPalletId<BountyPalletId2, Test, Identity, Instance1>;
+	type ChildBountySource = ChildBountySourceFromPalletId<BountyPalletId2, Test, Identity, Instance1>;
 	type Paymaster = TestBountiesPay;
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type Preimages = Preimage;
