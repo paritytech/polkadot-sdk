@@ -499,6 +499,7 @@ where
 	delta_trie_root::<L, _, _, _, _, _>(&mut db, root, delta, recorder, cache)
 }
 
+/// Child trie variant of [`remove_trie_keys_from_delta`].
 pub fn child_remove_trie_keys_from_delta<L: TrieConfiguration, I, A, B, DB, RD>(
 	keyspace: &[u8],
 	db: &mut DB,
@@ -521,6 +522,7 @@ where
 	remove_trie_keys_from_delta::<L, _, _, _, _>(&mut db, root, delta, recorder, cache)
 }
 
+/// Child trie variant of [`read_trie_keys_from_delta`].
 pub fn child_read_trie_keys_from_delta<L: TrieConfiguration, I, A, B, DB, RD>(
 	keyspace: &[u8],
 	db: &DB,

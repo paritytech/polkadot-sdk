@@ -743,6 +743,10 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
 		self.transaction_depth() > self.num_client_transactions
 	}
 
+	/// Returns keys modified since the last snapshot.
+	///
+	/// These delta keys allow estimating the PoV size impact of storage root calculation
+	/// incrementally, without computing the full root after each extrinsic.
 	pub fn take_delta(&mut self) -> storage_key_delta_tracker::DeltaKeys<K> {
 		self.storage_root_dirty_keys.take_delta()
 	}

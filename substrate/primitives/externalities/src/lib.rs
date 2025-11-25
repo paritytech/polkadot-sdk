@@ -197,6 +197,11 @@ pub trait Externalities: ExtensionStore {
 	/// The returned hash is defined by the `Block` and is SCALE encoded.
 	fn storage_root(&mut self, state_version: StateVersion) -> Vec<u8>;
 
+	/// Computes the PoV size as result of storage root calculation.
+	///
+	/// This records trie node accesses that would occur during storage root computation,
+	/// updating the proof recorder's size estimate. Used by PoV reclaim to account for
+	/// the storage root calculation overhead in block weight estimation.
 	fn compute_pov_size_for_storage_root(&mut self, state_version: StateVersion);
 
 	/// Get the trie root of a child storage map.
