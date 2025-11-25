@@ -98,22 +98,38 @@ pub fn determine_workers_paths(
 		log::warn!("Skipping node/worker version checks. This could result in incorrect behavior in PVF workers.");
 	}
 
+	let mut exec_worker_dir_path = exec_worker_path.clone();
+	let _ =  exec_worker_dir_path.pop();
 	let exit_status = Command::new(&exec_worker_path)
+	    // .arg("--socket-path")
+        // .arg(socket_path.as_ref().as_os_str())
+        .arg("--worker-dir-path")
+        .arg(exec_worker_dir_path.as_os_str())
 		.arg("--check-all")
 		.status()
 		.unwrap();
 
 	if exit_status.success() == false {
-		return Err(Error::ExecuteWorkerFailedSecurityChecks { exec_worker_path });
+		return Err(Error::ExecuteWorkerFailedSecurityChecks {
+			exec_worker_path, 
+			exec_worker_dir_path }
+		);
 	}
 
+	let mut prep_worker_dir_path = prep_worker_path.clone();
+	let _ = prep_worker_dir_path.pop();
 	let exit_status = Command::new(&prep_worker_path)
+        .arg("--worker-dir-path")
+        .arg(prep_worker_dir_path.as_os_str())
 		.arg("--check-all")
 		.status()
 		.unwrap();
 
 	if exit_status.success() == false {
-		return Err(Error::PrepareWorkerFailedSecurityChecks { prep_worker_path });
+		return Err(Error::PrepareWorkerFailedSecurityChecks {
+			prep_worker_path,
+			prep_worker_dir_path
+		});
 	}
 
 	Ok((prep_worker_path, exec_worker_path))

@@ -241,15 +241,17 @@ pub enum Error {
 	},
 
 	#[cfg(feature = "full-node")]
-	#[error("Execute binary failed security checks, path: {exec_worker_path:?}")]
+	#[error("Execute binary failed security checks, execute binary: {exec_worker_path:?}, directory path: {exec_worker_dir_path:?}")]
 	ExecuteWorkerFailedSecurityChecks {
-		exec_worker_path: PathBuf,
+		exec_worker_path: PathBuf,	
+		exec_worker_dir_path: PathBuf,
 	},	
 
 	#[cfg(feature = "full-node")]
-	#[error("Prepare binary failed security checks, path: {prep_worker_path:?}")]
+	#[error("Prepare binary failed security checks, prepare binary: {prep_worker_path:?}, path: {prep_worker_dir_path:?}")]
 	PrepareWorkerFailedSecurityChecks {
 		prep_worker_path: PathBuf,
+		prep_worker_dir_path: PathBuf,
 	},
 }
 
