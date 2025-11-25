@@ -10,6 +10,13 @@ on:
         required: true
         type: string
 
+  workflow_call:
+    inputs:
+      tag:
+        description: Current final release tag in the format polkadot-stableYYMM or polkadot-stable-YYMM-X
+        required: true
+        type: string
+
 jobs:
   call-publish-workflow:
     uses: ./.github/workflows/release-reusable-publish-packages.yml
