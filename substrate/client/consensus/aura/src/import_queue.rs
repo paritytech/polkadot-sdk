@@ -488,7 +488,7 @@ where
 	C::Api: AuraApi<B, AuthorityId<P>>,
 {
 	AuraVerifier::<_, P, _, _>::new(
-		client.clone(),
+		client,
 		create_inherent_data_providers,
 		check_for_equivocation,
 		telemetry,
