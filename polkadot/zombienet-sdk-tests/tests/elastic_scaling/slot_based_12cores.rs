@@ -4,6 +4,8 @@
 // Test that a parachain that uses a single slot-based collator with elastic scaling can use 12
 // cores in order to achieve 500ms blocks.
 
+use std::time::Duration;
+
 use anyhow::anyhow;
 
 use cumulus_zombienet_sdk_helpers::{
@@ -11,6 +13,7 @@ use cumulus_zombienet_sdk_helpers::{
 };
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
+use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
 	subxt_signer::sr25519::dev,
@@ -60,9 +63,14 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 				.with_chain("elastic-scaling-500ms")
 				.with_default_args(vec![
 					"--authoring=slot-based".into(),
-					("-lparachain=debug,aura=debug").into(),
+					("-lparachain=debug,aura=debug,parachain::collator-protocol=trace").into(),
 				])
-				.with_collator(|n| n.with_name("collator-elastic"))
+				.with_collator(|n| n.with_name("collator-0"))
+				.with_collator(|n| n.with_name("collator-1"))
+				.with_collator(|n| n.with_name("collator-2"))
+				.with_collator(|n| n.with_name("collator-3"))
+				.with_collator(|n| n.with_name("collator-4"))
+				.with_collator(|n| n.with_name("collator-5"))
 		})
 		.build()
 		.map_err(|e| {
@@ -74,7 +82,7 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 	let network = spawn_fn(config).await?;
 
 	let relay_node = network.get_node("validator-0")?;
-	let para_node = network.get_node("collator-elastic")?;
+	let para_node = network.get_node("collator-5")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 	let alice = dev::alice();
@@ -104,6 +112,26 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 		[(ParaId::from(2300), 153..181)].into_iter().collect(),
 	)
 	.await?;
+
+	// Expect that `collator-5` claims at least 3 slots during this run.
+	let result = para_node
+		.wait_log_line_count_with_timeout(
+			"*Received PreConnectToBackingGroups message*",
+			true,
+			LogLineCountOptions::new(|n| n >= 3, Duration::from_secs(120), false),
+		)
+		.await?;
+	assert!(result.success());
+
+	// It should disconnect at least 3 times after it's slot passes.
+	let result = para_node
+		.wait_log_line_count_with_timeout(
+			"*Received DisconnectFromBackingGroups message*",
+			true,
+			LogLineCountOptions::new(|n| n >= 3, Duration::from_secs(120), false),
+		)
+		.await?;
+	assert!(result.success());
 
 	// Assert the parachain finalized block height is also on par with the number of backed
 	// candidates.

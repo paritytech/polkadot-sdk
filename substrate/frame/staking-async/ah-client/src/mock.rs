@@ -19,7 +19,6 @@
 
 use crate::*;
 use frame_support::{derive_impl, parameter_types, weights::Weight};
-use pallet_staking_async_rc_client as rc_client;
 use sp_runtime::{BuildStorage, Perbill};
 use sp_staking::offence::{OffenceSeverity, OnOffenceHandler};
 
@@ -37,13 +36,6 @@ frame_support::construct_runtime!(
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = ();
-}
-
-pub struct MockSendToAssetHub;
-impl SendToAssetHub for MockSendToAssetHub {
-	type AccountId = u64;
-	fn relay_session_report(_session_report: rc_client::SessionReport<Self::AccountId>) {}
-	fn relay_new_offence(_session: u32, _offences: Vec<rc_client::Offence<Self::AccountId>>) {}
 }
 
 pub struct MockSessionInterface;
@@ -103,14 +95,15 @@ impl Config for Test {
 	type CurrencyBalance = u128;
 	type AssetHubOrigin = frame_system::EnsureRoot<u64>;
 	type AdminOrigin = frame_system::EnsureRoot<u64>;
-	type SendToAssetHub = MockSendToAssetHub;
+	type SendToAssetHub = ();
 	type MinimumValidatorSetSize = MinimumValidatorSetSize;
+	type MaximumValidatorsWithPoints = ConstU32<128>;
 	type UnixTime = MockUnixTime;
 	type PointsPerBlock = PointsPerBlock;
 	type MaxOffenceBatchSize = MaxOffenceBatchSize;
 	type SessionInterface = MockSessionInterface;
 	type Fallback = MockFallback;
-	type WeightInfo = ();
+	type MaxSessionReportRetries = ConstU32<3>;
 }
 
 #[cfg(test)]

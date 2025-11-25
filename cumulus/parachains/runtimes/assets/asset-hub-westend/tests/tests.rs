@@ -31,13 +31,14 @@ use asset_hub_westend_runtime::{
 	AllPalletsWithoutSystem, Assets, Balances, Block, ExistentialDeposit, ForeignAssets,
 	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem,
 	PolkadotXcm, Revive, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
-	ToRococoXcmRouterInstance, TrustBackedAssetsInstance, Uniques, XcmpQueue,
+	ToRococoXcmRouterInstance, TrustBackedAssetsInstance, Uniques, WeightToFee, XcmpQueue,
 };
 pub use asset_hub_westend_runtime::{AssetConversion, AssetDeposit, CollatorSelection, System};
 use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
 	ExtBuilder, GovernanceOrigin, SlotDurations,
 };
+use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
 use codec::{Decode, Encode};
 use frame_support::{
 	assert_err, assert_noop, assert_ok, parameter_types,
@@ -57,7 +58,7 @@ use frame_support::{
 use hex_literal::hex;
 use pallet_revive::{
 	test_utils::builder::{BareInstantiateBuilder, Contract},
-	Code, DepositLimit,
+	Code,
 };
 use pallet_revive_fixtures::compile_module;
 use pallet_uniques::{asset_ops::Item, asset_strategies::Attribute};
@@ -66,7 +67,7 @@ use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::{traits::MaybeEquivalence, Either, MultiAddress};
 use std::convert::Into;
-use testnet_parachains_constants::westend::{consensus::*, currency::UNITS, fee::WeightToFee};
+use testnet_parachains_constants::westend::{consensus::*, currency::UNITS};
 use xcm::{
 	latest::{
 		prelude::{Assets as XcmAssets, *},
@@ -84,6 +85,16 @@ use xcm_runtime_apis::conversions::LocationToAccountHelper;
 const ALICE: [u8; 32] = [1u8; 32];
 const BOB: [u8; 32] = [2u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
+
+const ERC20_PVM: &[u8] =
+	include_bytes!("../../../../../../substrate/frame/revive/fixtures/erc20/erc20.polkavm");
+
+const FAKE_ERC20_PVM: &[u8] =
+	include_bytes!("../../../../../../substrate/frame/revive/fixtures/erc20/fake_erc20.polkavm");
+
+const EXPENSIVE_ERC20_PVM: &[u8] = include_bytes!(
+	"../../../../../../substrate/frame/revive/fixtures/erc20/expensive_erc20.polkavm"
+);
 
 parameter_types! {
 	pub Governance: GovernanceOrigin<RuntimeOrigin> = GovernanceOrigin::Origin(RuntimeOrigin::root());
@@ -1061,14 +1072,22 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_pool_s
 	let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
 	let staking_pot = StakingPot::get();
 
-	let foreign_asset_id_location = xcm::v5::Location::new(
-		2,
-		[xcm::v5::Junction::GlobalConsensus(xcm::v5::NetworkId::ByGenesis(ROCOCO_GENESIS_HASH))],
-	);
+	let foreign_asset_id_location =
+		Location::new(2, [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH))]);
+	let reserve_location =
+		Location::new(2, [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)), Parachain(1000)]);
+	let foreign_asset_reserve_data =
+		ForeignAssetReserveData { reserve: reserve_location, teleportable: false };
 	let foreign_asset_id_minimum_balance = 1_000_000_000;
 	// sovereign account as foreign asset owner (can be whoever for this scenario)
 	let foreign_asset_owner = LocationToAccountId::convert_location(&Location::parent()).unwrap();
-	let foreign_asset_create_params =
+	let foreign_asset_create_params = (
+		foreign_asset_owner.clone(),
+		foreign_asset_id_location.clone(),
+		foreign_asset_reserve_data,
+		foreign_asset_id_minimum_balance,
+	);
+	let pool_params =
 		(foreign_asset_owner, foreign_asset_id_location.clone(), foreign_asset_id_minimum_balance);
 
 	asset_test_utils::test_cases_over_bridge::receive_reserve_asset_deposited_from_different_consensus_works::<
@@ -1082,11 +1101,11 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_pool_s
 			AccountId::from([73; 32]),
 			block_author_account.clone(),
 			// receiving ROCs
-			foreign_asset_create_params.clone(),
+			foreign_asset_create_params,
 			1000000000000,
 			|| {
 				// setup pool for paying fees to touch `SwapFirstAssetTrader`
-				asset_test_utils::test_cases::setup_pool_for_paying_fees_with_foreign_assets::<Runtime, RuntimeOrigin>(ExistentialDeposit::get(), foreign_asset_create_params);
+				asset_test_utils::test_cases::setup_pool_for_paying_fees_with_foreign_assets::<Runtime, RuntimeOrigin>(ExistentialDeposit::get(), pool_params);
 				// staking pot account for collecting local native fees from `BuyExecution`
 				let _ = Balances::force_set_balance(RuntimeOrigin::root(), StakingPot::get().into(), ExistentialDeposit::get());
 				// prepare bridge configuration
@@ -1132,14 +1151,22 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_suffic
 	let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
 	let staking_pot = StakingPot::get();
 
-	let foreign_asset_id_location = xcm::v5::Location::new(
-		2,
-		[xcm::v5::Junction::GlobalConsensus(xcm::v5::NetworkId::ByGenesis(ROCOCO_GENESIS_HASH))],
-	);
+	let foreign_asset_id_location =
+		Location::new(2, [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH))]);
+	let reserve_location =
+		Location::new(2, [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)), Parachain(1000)]);
+	let foreign_asset_reserve_data =
+		ForeignAssetReserveData { reserve: reserve_location, teleportable: false };
 	let foreign_asset_id_minimum_balance = 1_000_000_000;
 	// sovereign account as foreign asset owner (can be whoever for this scenario)
 	let foreign_asset_owner = LocationToAccountId::convert_location(&Location::parent()).unwrap();
-	let foreign_asset_create_params =
+	let foreign_asset_create_params = (
+		foreign_asset_owner.clone(),
+		foreign_asset_id_location.clone(),
+		foreign_asset_reserve_data,
+		foreign_asset_id_minimum_balance,
+	);
+	let pool_params =
 		(foreign_asset_owner, foreign_asset_id_location.clone(), foreign_asset_id_minimum_balance);
 
 	asset_test_utils::test_cases_over_bridge::receive_reserve_asset_deposited_from_different_consensus_works::<
@@ -1153,10 +1180,10 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_suffic
 		AccountId::from([73; 32]),
 		block_author_account.clone(),
 		// receiving ROCs
-		foreign_asset_create_params.clone(),
+		foreign_asset_create_params,
 		1000000000000,
 		|| {
-			asset_test_utils::test_cases::setup_pool_for_paying_fees_with_foreign_assets::<Runtime, RuntimeOrigin>(ExistentialDeposit::get(), foreign_asset_create_params);
+			asset_test_utils::test_cases::setup_pool_for_paying_fees_with_foreign_assets::<Runtime, RuntimeOrigin>(ExistentialDeposit::get(), pool_params);
 			bridging_to_asset_hub_rococo()
 		},
 		(
@@ -1632,7 +1659,7 @@ fn governance_authorize_upgrade_works() {
 #[test]
 fn weight_of_message_increases_when_dealing_with_erc20s() {
 	use xcm::VersionedXcm;
-	use xcm_runtime_apis::fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1;
+	use xcm_runtime_apis::fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV2;
 	let message = Xcm::<()>::builder_unsafe().withdraw_asset((Parent, 100u128)).build();
 	let versioned = VersionedXcm::<()>::V5(message);
 	let regular_asset_weight = Runtime::query_xcm_weight(versioned).unwrap();
@@ -1654,11 +1681,15 @@ fn weight_of_message_increases_when_dealing_with_erc20s() {
 fn withdraw_and_deposit_erc20s() {
 	let sender: AccountId = ALICE.into();
 	let beneficiary: AccountId = BOB.into();
+	let revive_account = pallet_revive::Pallet::<Runtime>::account_id();
 	let checking_account =
 		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
-	let initial_wnd_amount = 10_000_000_000_000u128;
+	let initial_wnd_amount = 100_000_000_000_000_000u128;
+	sp_tracing::init_for_tests();
 
 	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		// Bring the revive account to life.
+		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
 		// We need to give enough funds for every account involved so they
 		// can call `Revive::map_account`.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
@@ -1670,23 +1701,20 @@ fn withdraw_and_deposit_erc20s() {
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
-		let code = include_bytes!(
-			"../../../../../../substrate/frame/revive/fixtures/contracts/erc20.polkavm"
-		)
-		.to_vec();
+		let code = ERC20_PVM.to_vec();
 
 		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
 		let Contract { addr: erc20_address, .. } = bare_instantiate(&sender, code)
-			.gas_limit(Weight::from_parts(2_000_000_000, 200_000))
-			.storage_deposit_limit(DepositLimit::Balance(Balance::MAX))
+			.gas_limit(Weight::from_parts(500_000_000_000, 10 * 1024 * 1024))
+			.storage_deposit_limit(Balance::MAX)
 			.data(constructor_data)
 			.build_and_unwrap_contract();
 
 		let sender_balance_before = <Balances as fungible::Inspect<_>>::balance(&sender);
 
 		let erc20_transfer_amount = 100u128;
-		let wnd_amount_for_fees = 1_000_000_000_000u128;
+		let wnd_amount_for_fees = 10_000_000_000_000u128;
 		// Actual XCM to execute locally.
 		let message = Xcm::<RuntimeCall>::builder()
 			.withdraw_asset((Parent, wnd_amount_for_fees))
@@ -1702,7 +1730,7 @@ fn withdraw_and_deposit_erc20s() {
 		assert_ok!(PolkadotXcm::execute(
 			RuntimeOrigin::signed(sender.clone()),
 			Box::new(VersionedXcm::V5(message)),
-			Weight::from_parts(2_500_000_000, 220_000),
+			Weight::from_parts(600_000_000_000, 15 * 1024 * 1024),
 		));
 
 		// Revive is not taking any fees.
@@ -1722,6 +1750,7 @@ fn withdraw_and_deposit_erc20s() {
 fn non_existent_erc20_will_error() {
 	let sender: AccountId = ALICE.into();
 	let beneficiary: AccountId = BOB.into();
+	let revive_account = pallet_revive::Pallet::<Runtime>::account_id();
 	let checking_account =
 		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
 	let initial_wnd_amount = 10_000_000_000_000u128;
@@ -1729,6 +1758,8 @@ fn non_existent_erc20_will_error() {
 	let non_existent_contract_address = [1u8; 20];
 
 	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		// Bring the revive account to life.
+		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
 		// We need to give enough funds for every account involved so they
 		// can call `Revive::map_account`.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
@@ -1765,11 +1796,15 @@ fn non_existent_erc20_will_error() {
 fn smart_contract_not_erc20_will_error() {
 	let sender: AccountId = ALICE.into();
 	let beneficiary: AccountId = BOB.into();
+	let revive_account = pallet_revive::Pallet::<Runtime>::account_id();
 	let checking_account =
 		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
 	let initial_wnd_amount = 10_000_000_000_000u128;
 
 	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		// Bring the revive account to life.
+		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
+
 		// We need to give enough funds for every account involved so they
 		// can call `Revive::map_account`.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
@@ -1784,8 +1819,8 @@ fn smart_contract_not_erc20_will_error() {
 		let (code, _) = compile_module("dummy").unwrap();
 
 		let Contract { addr: non_erc20_address, .. } = bare_instantiate(&sender, code)
-			.gas_limit(Weight::from_parts(2_000_000_000, 200_000))
-			.storage_deposit_limit(DepositLimit::Balance(Balance::MAX))
+			.gas_limit(Weight::from_parts(500_000_000_000, 10 * 1024 * 1024))
+			.storage_deposit_limit(Balance::MAX)
 			.build_and_unwrap_contract();
 
 		let wnd_amount_for_fees = 1_000_000_000_000u128;
@@ -1815,11 +1850,15 @@ fn smart_contract_not_erc20_will_error() {
 fn smart_contract_does_not_return_bool_fails() {
 	let sender: AccountId = ALICE.into();
 	let beneficiary: AccountId = BOB.into();
+	let revive_account = pallet_revive::Pallet::<Runtime>::account_id();
 	let checking_account =
 		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
 	let initial_wnd_amount = 10_000_000_000_000u128;
 
 	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		// Bring the revive account to life.
+		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
+
 		// We need to give enough funds for every account involved so they
 		// can call `Revive::map_account`.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
@@ -1832,17 +1871,14 @@ fn smart_contract_does_not_return_bool_fails() {
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		// This contract implements the ERC20 interface for `transfer` except it returns a uint256.
-		let code = include_bytes!(
-			"../../../../../../substrate/frame/revive/fixtures/contracts/fake_erc20.polkavm"
-		)
-		.to_vec();
+		let code = FAKE_ERC20_PVM.to_vec();
 
 		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
 
 		let Contract { addr: non_erc20_address, .. } = bare_instantiate(&sender, code)
-			.gas_limit(Weight::from_parts(2_000_000_000, 200_000))
-			.storage_deposit_limit(DepositLimit::Balance(Balance::MAX))
+			.gas_limit(Weight::from_parts(500_000_000_000, 10 * 1024 * 1024))
+			.storage_deposit_limit(Balance::MAX)
 			.data(constructor_data)
 			.build_and_unwrap_contract();
 
@@ -1871,11 +1907,15 @@ fn smart_contract_does_not_return_bool_fails() {
 fn expensive_erc20_runs_out_of_gas() {
 	let sender: AccountId = ALICE.into();
 	let beneficiary: AccountId = BOB.into();
+	let revive_account = pallet_revive::Pallet::<Runtime>::account_id();
 	let checking_account =
 		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
 	let initial_wnd_amount = 10_000_000_000_000u128;
 
 	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		// Bring the revive account to life.
+		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
+
 		// We need to give enough funds for every account involved so they
 		// can call `Revive::map_account`.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
@@ -1888,16 +1928,13 @@ fn expensive_erc20_runs_out_of_gas() {
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		// This contract does a lot more storage writes in `transfer`.
-		let code = include_bytes!(
-			"../../../../../../substrate/frame/revive/fixtures/contracts/expensive_erc20.polkavm"
-		)
-		.to_vec();
+		let code = EXPENSIVE_ERC20_PVM.to_vec();
 
 		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
 		let Contract { addr: non_erc20_address, .. } = bare_instantiate(&sender, code)
-			.gas_limit(Weight::from_parts(2_000_000_000, 200_000))
-			.storage_deposit_limit(DepositLimit::Balance(Balance::MAX))
+			.gas_limit(Weight::from_parts(500_000_000_000, 10 * 1024 * 1024))
+			.storage_deposit_limit(Balance::MAX)
 			.data(constructor_data)
 			.build_and_unwrap_contract();
 

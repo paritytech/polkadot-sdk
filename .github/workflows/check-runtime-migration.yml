@@ -28,9 +28,7 @@ jobs:
   # More info can be found here: https://github.com/paritytech/polkadot/pull/5865
   check-runtime-migration:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    # TODO re-enable westend state is fully broken since we dropped some messages on latest upgrade
-    if: false
-    # if: ${{ needs.preflight.outputs.changes_rust }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     # We need to set this to rather long to allow the snapshot to be created, but the average time
     # should be much lower.
     timeout-minutes: 60
@@ -79,7 +77,7 @@ jobs:
             subcommand_extra_args: " --blocktime 6000"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Download CLI
         run: |
@@ -95,7 +93,7 @@ jobs:
         shell: bash
 
       - name: Download Snapshot
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: snapshot.raw
           key: try-runtime-snapshot-${{ matrix.network }}-${{ steps.get-date.outputs.today }}
@@ -124,6 +122,7 @@ jobs:
               --runtime ./target/release/wbuild/${{ matrix.package }}/${{ matrix.wasm }} \
               on-runtime-upgrade --disable-spec-version-check --checks=all ${{ matrix.subcommand_extra_args }} snap -p snapshot.raw
           sleep 5
+
       - name: Stop all workflows if failed
         if: ${{ failure() && (steps.required1.conclusion == 'failure' || steps.required2.conclusion == 'failure') }}
         uses: ./.github/actions/workflow-stopper

@@ -29,6 +29,8 @@ use sp_core::hexdisplay::HexDisplay;
 use sp_core::storage::{
 	well_known_keys::is_child_storage_key, ChildInfo, StateVersion, TrackedStorageKey,
 };
+#[cfg(feature = "std")]
+use sp_externalities::TransactionType;
 use sp_externalities::{Extension, ExtensionStore, Externalities, MultiRemovalResults};
 
 use crate::{trace, warn};
@@ -37,8 +39,6 @@ use core::{
 	any::{Any, TypeId},
 	cmp::Ordering,
 };
-#[cfg(feature = "std")]
-use std::error;
 
 const EXT_NOT_ALLOWED_TO_FAIL: &str = "Externalities not allowed to fail within runtime";
 const BENCHMARKING_FN: &str = "\
@@ -54,38 +54,6 @@ fn guard() -> sp_panic_handler::AbortGuard {
 #[cfg(not(feature = "std"))]
 fn guard() -> () {
 	()
-}
-
-/// Errors that can occur when interacting with the externalities.
-#[cfg(feature = "std")]
-#[derive(Debug, Copy, Clone)]
-pub enum Error<B, E> {
-	/// Failure to load state data from the backend.
-	#[allow(unused)]
-	Backend(B),
-	/// Failure to execute a function.
-	#[allow(unused)]
-	Executor(E),
-}
-
-#[cfg(feature = "std")]
-impl<B: std::fmt::Display, E: std::fmt::Display> std::fmt::Display for Error<B, E> {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		match *self {
-			Error::Backend(ref e) => write!(f, "Storage backend error: {}", e),
-			Error::Executor(ref e) => write!(f, "Sub-call execution error: {}", e),
-		}
-	}
-}
-
-#[cfg(feature = "std")]
-impl<B: error::Error, E: error::Error> error::Error for Error<B, E> {
-	fn description(&self) -> &str {
-		match *self {
-			Error::Backend(..) => "backend error",
-			Error::Executor(..) => "executor error",
-		}
-	}
 }
 
 /// Wraps a read-only backend, call executor, and current overlayed changes.
@@ -591,15 +559,34 @@ where
 	}
 
 	fn storage_start_transaction(&mut self) {
-		self.overlay.start_transaction()
+		self.overlay.start_transaction();
+
+		#[cfg(feature = "std")]
+		if let Some(exts) = self.extensions.as_mut() {
+			exts.start_transaction(TransactionType::Runtime);
+		}
 	}
 
 	fn storage_rollback_transaction(&mut self) -> Result<(), ()> {
-		self.overlay.rollback_transaction().map_err(|_| ())
+		self.overlay.rollback_transaction().map_err(|_| ())?;
+
+		#[cfg(feature = "std")]
+		if let Some(exts) = self.extensions.as_mut() {
+			exts.rollback_transaction(TransactionType::Runtime);
+		}
+
+		Ok(())
 	}
 
 	fn storage_commit_transaction(&mut self) -> Result<(), ()> {
-		self.overlay.commit_transaction().map_err(|_| ())
+		self.overlay.commit_transaction().map_err(|_| ())?;
+
+		#[cfg(feature = "std")]
+		if let Some(exts) = self.extensions.as_mut() {
+			exts.commit_transaction(TransactionType::Runtime);
+		}
+
+		Ok(())
 	}
 
 	fn wipe(&mut self) {

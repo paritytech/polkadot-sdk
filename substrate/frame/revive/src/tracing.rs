@@ -36,8 +36,8 @@ pub fn trace<R, F: FnOnce() -> R>(tracer: &mut (dyn Tracing + 'static), f: F) ->
 ///
 /// This is safe to be called from on-chain code as tracing will never be activated
 /// there. Hence the closure is not executed in this case.
-pub(crate) fn if_tracing<F: FnOnce(&mut (dyn Tracing + 'static))>(f: F) {
-	tracer::with(f);
+pub(crate) fn if_tracing<R, F: FnOnce(&mut (dyn Tracing + 'static)) -> R>(f: F) -> Option<R> {
+	tracer::with(f)
 }
 
 /// Defines methods to trace contract interactions.
@@ -55,6 +55,16 @@ pub trait Tracing {
 		_value: U256,
 		_input: &[u8],
 		_gas: Weight,
+	) {
+	}
+
+	/// Called when a contract calls terminates (selfdestructs)
+	fn terminate(
+		&mut self,
+		_contract_address: H160,
+		_beneficiary_address: H160,
+		_gas_left: Weight,
+		_value: U256,
 	) {
 	}
 

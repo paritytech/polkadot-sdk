@@ -32,6 +32,10 @@ construct_runtime! {
 		System: frame_system,
 		Balances: pallet_balances,
 
+		// NOTE: the validator set is given by pallet-staking to rc-client on-init, and rc-client
+		// will not send it immediately, but rather store it and sends it over on its own next
+		// on-init call. Yet, because staking comes first here, its on-init is called before
+		// rc-client, so under normal conditions, the message is sent immediately.
 		Staking: pallet_staking_async,
 		RcClient: pallet_staking_async_rc_client,
 
@@ -256,6 +260,7 @@ impl frame_election_provider_support::onchain::Config for OnChainConfig {
 
 impl multi_block::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type ManagerOrigin = EnsureRoot<AccountId>;
 	type DataProvider = Staking;
 	type Fallback = frame_election_provider_support::onchain::OnChainExecution<OnChainConfig>;
 	type MinerConfig = Self;
@@ -278,7 +283,6 @@ impl multi_block::verifier::Config for Runtime {
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 
 	type SolutionDataProvider = MultiBlockSigned;
-	type SolutionImprovementThreshold = ();
 	type WeightInfo = ();
 }
 
@@ -316,6 +320,7 @@ parameter_types! {
 	pub static SlashDeferredDuration: u32 = 2;
 	pub static SessionsPerEra: u32 = 6;
 	pub static PlanningEraOffset: u32 = 2;
+	pub MaxPruningItems: u32 = 100;
 }
 
 impl pallet_staking_async::Config for Runtime {
@@ -341,6 +346,7 @@ impl pallet_staking_async::Config for Runtime {
 	type Slash = ();
 	type SlashDeferDuration = SlashDeferredDuration;
 	type MaxEraDuration = ();
+	type MaxPruningItems = MaxPruningItems;
 
 	type HistoryDepth = ConstU32<7>;
 	type MaxControllersInDeprecationBatch = ();
@@ -363,13 +369,33 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = DeliverToRelay;
 	type RelayChainOrigin = EnsureRoot<AccountId>;
+	type MaxValidatorSetRetries = ConstU32<3>;
+}
+
+parameter_types! {
+	pub static NextRelayDeliveryFails: bool = false;
 }
 
 pub struct DeliverToRelay;
+
+impl DeliverToRelay {
+	fn ensure_delivery_guard() -> Result<(), ()> {
+		// `::take` will set it back to the default value, `false`.
+		if NextRelayDeliveryFails::take() {
+			Err(())
+		} else {
+			Ok(())
+		}
+	}
+}
+
 impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 	type AccountId = AccountId;
 
-	fn validator_set(report: pallet_staking_async_rc_client::ValidatorSetReport<Self::AccountId>) {
+	fn validator_set(
+		report: pallet_staking_async_rc_client::ValidatorSetReport<Self::AccountId>,
+	) -> Result<(), ()> {
+		Self::ensure_delivery_guard()?;
 		if let Some(mut local_queue) = LocalQueue::get() {
 			local_queue.push((System::block_number(), OutgoingMessages::ValidatorSet(report)));
 			LocalQueue::set(Some(local_queue));
@@ -384,6 +410,7 @@ impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 				.unwrap();
 			});
 		}
+		Ok(())
 	}
 }
 

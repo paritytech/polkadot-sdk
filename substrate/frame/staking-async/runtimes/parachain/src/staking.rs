@@ -47,7 +47,7 @@ pub(crate) fn enable_ksm_preset(fast: bool) {
 	Pages::set(&16);
 	MinerPages::set(&4);
 	MaxElectingVoters::set(&12_500);
-	TargetSnapshotPerBlock::set(&4000);
+	TargetSnapshotPerBlock::set(&2500);
 	if !fast {
 		SignedValidationPhase::set(&(4 * Pages::get()));
 		SignedPhase::set(&(20 * MINUTES));
@@ -81,8 +81,10 @@ parameter_types! {
 	/// better.
 	pub storage Pages: u32 = 4;
 
-	/// * Polkadot: 8 * 32 (256 blocks, 25.6m). Enough time to verify up to 8 solutions.
-	/// * Kusama: 4 * 16 (64 blocks, 6.4m). Enough time to verify up to 4 solutions.
+	/// * Polkadot: 16 * 32 (512 blocks, 51.2m).
+	/// * Kusama: 8 * 16 (12 blocks, 12.8m).
+	///
+	/// (MaxSubmissions * Pages) for both, enough to verify all solutions.
 	///
 	/// Reasoning: Less security needed in Kusama, to compensate for the shorter session duration.
 	pub storage SignedValidationPhase: u32 = Pages::get() * 2;
@@ -178,9 +180,6 @@ parameter_types! {
 	/// lightweight per-page.
 	// TODO: this is currently 512 in all networks, but 64 might yield better PoV, need to check logs.
 	pub const MaxExposurePageSize: u32 = 512;
-
-	/// Each solution is considered "better" if it is an epsilon better than the previous one.
-	pub SolutionImprovementThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
 }
 
 // Signed phase parameters.
@@ -214,8 +213,8 @@ parameter_types! {
 	/// Fixed deposit for invulnerable accounts.
 	pub InvulnerableDeposit: Balance = UNITS;
 
-	/// * Polkadot: 20%
-	/// * Kusama: 10%
+	/// * Polkadot: 10% (more restrictive, don't bail!)
+	/// * Kusama: 25%
 	///
 	/// Reasoning: The weight/fee of the `bail` transaction is already assuming you delete all pages
 	/// of your solution while bailing, and charges you accordingly. So the chain is being
@@ -285,6 +284,7 @@ impl multi_block::Config for Runtime {
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type ManagerOrigin = EnsureRoot<AccountId>;
 	type DataProvider = Staking;
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Fallback = multi_block::Continue<Self>;
@@ -301,7 +301,6 @@ impl multi_block::verifier::Config for Runtime {
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
 	type SolutionDataProvider = MultiBlockElectionSigned;
-	type SolutionImprovementThreshold = SolutionImprovementThreshold;
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockVerifierWeightInfo<Self>;
 }
 
@@ -422,6 +421,7 @@ parameter_types! {
 	// frequently. On Kusama and Polkadot, a higher value like 7 × ideal_era_duration is more
 	// appropriate.
 	pub const MaxEraDuration: u64 = RelaySessionDuration::get() as u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS as u64 * SessionsPerEra::get() as u64;
+	pub MaxPruningItems: u32 = 100;
 }
 
 impl pallet_staking_async::Config for Runtime {
@@ -446,12 +446,13 @@ impl pallet_staking_async::Config for Runtime {
 	type MaxValidatorSet = MaxValidatorSet;
 	type NominationsQuota = pallet_staking_async::FixedNominationsQuota<{ MaxNominations::get() }>;
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
-	type HistoryDepth = frame_support::traits::ConstU32<84>;
+	type HistoryDepth = ConstU32<1>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = (NominationPools, DelegatedStaking);
-	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
+	type WeightInfo = pallet_staking_async::weights::SubstrateWeight<Runtime>;
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
 	type MaxEraDuration = MaxEraDuration;
+	type MaxPruningItems = MaxPruningItems;
 	type PlanningEraOffset =
 		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU32<10>>;
 	type RcClientInterface = StakingRcClient;
@@ -461,6 +462,7 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = StakingXcmToRelayChain;
+	type MaxValidatorSetRetries = ConstU32<5>;
 }
 
 parameter_types! {
@@ -503,13 +505,13 @@ pub struct StakingXcmToRelayChain;
 
 impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 	type AccountId = AccountId;
-	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) {
+	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) -> Result<(), ()> {
 		rc_client::XCMSender::<
 			xcm_config::XcmRouter,
 			StakingXcmDestination,
 			rc_client::ValidatorSetReport<Self::AccountId>,
 			ValidatorSetToXcm,
-		>::split_then_send(report, Some(8));
+		>::send(report)
 	}
 }
 
@@ -661,7 +663,6 @@ mod tests {
 	use pallet_election_provider_multi_block::{
 		self as mb, signed::WeightInfo as _, unsigned::WeightInfo as _,
 	};
-	use pallet_staking_async::weights::WeightInfo;
 	use remote_externalities::{
 		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
 	};
@@ -680,22 +681,6 @@ mod tests {
 			op.proof_size() / WEIGHT_PROOF_SIZE_PER_KB,
 			op.proof_size() as f64 / block.proof_size() as f64
 		);
-	}
-
-	#[test]
-	fn polkadot_prune_era() {
-		sp_tracing::try_init_simple();
-		let prune_era = <Runtime as pallet_staking_async::Config>::WeightInfo::prune_era(600);
-		let block_weight = <Runtime as frame_system::Config>::BlockWeights::get().max_block;
-		weight_diff(block_weight, prune_era);
-	}
-
-	#[test]
-	fn kusama_prune_era() {
-		sp_tracing::try_init_simple();
-		let prune_era = <Runtime as pallet_staking_async::Config>::WeightInfo::prune_era(1000);
-		let block_weight = <Runtime as frame_system::Config>::BlockWeights::get().max_block;
-		weight_diff(block_weight, prune_era);
 	}
 
 	#[test]

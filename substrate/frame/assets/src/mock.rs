@@ -20,7 +20,6 @@
 use super::*;
 use crate as pallet_assets;
 
-use crate::precompiles::{InlineIdConfig, ERC20};
 use codec::Encode;
 use frame_support::{
 	assert_ok, construct_runtime, derive_impl, parameter_types,
@@ -37,7 +36,6 @@ construct_runtime!(
 		System: frame_system,
 		Balances: pallet_balances,
 		Assets: pallet_assets,
-		Revive: pallet_revive,
 	}
 );
 
@@ -54,13 +52,6 @@ impl frame_system::Config for Test {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
-}
-
-#[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
-impl pallet_revive::Config for Test {
-	type AddressMapper = pallet_revive::TestAccountMapper<Self>;
-	type Currency = Balances;
-	type Precompiles = (ERC20<Self, InlineIdConfig<0x0120>>,);
 }
 
 pub struct AssetsCallbackHandle;
@@ -114,6 +105,23 @@ impl Config for Test {
 	type Freezer = TestFreezer;
 	type Holder = TestHolder;
 	type CallbackHandle = (AssetsCallbackHandle, AutoIncAssetId<Test>);
+	type ReserveData = u128;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = AssetsBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct AssetsBenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl<AssetIdParameter: From<u32>, ReserveIdParameter: From<u32>>
+	BenchmarkHelper<AssetIdParameter, ReserveIdParameter> for AssetsBenchmarkHelper
+{
+	fn create_asset_id_parameter(id: u32) -> AssetIdParameter {
+		id.into()
+	}
+	fn create_reserve_id_parameter(id: u32) -> ReserveIdParameter {
+		id.into()
+	}
 }
 
 use std::collections::HashMap;
@@ -224,6 +232,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 			(999, 1, 100),
 		],
 		next_asset_id: None,
+		reserves: vec![],
 	};
 
 	config.assimilate_storage(&mut storage).unwrap();

@@ -60,6 +60,7 @@ std = [
 	"pallet-asset-tx-payment?/std",
 	"pallet-assets-freezer?/std",
 	"pallet-assets-holder?/std",
+	"pallet-assets-precompiles?/std",
 	"pallet-assets?/std",
 	"pallet-atomic-swap?/std",
 	"pallet-aura?/std",
@@ -107,6 +108,7 @@ std = [
 	"pallet-migrations?/std",
 	"pallet-mixnet?/std",
 	"pallet-mmr?/std",
+	"pallet-multi-asset-bounties?/std",
 	"pallet-multisig?/std",
 	"pallet-nft-fractionalization?/std",
 	"pallet-nfts-runtime-api?/std",
@@ -118,6 +120,8 @@ std = [
 	"pallet-nomination-pools?/std",
 	"pallet-offences-benchmarking?/std",
 	"pallet-offences?/std",
+	"pallet-oracle-runtime-api?/std",
+	"pallet-oracle?/std",
 	"pallet-origin-restriction?/std",
 	"pallet-paged-list?/std",
 	"pallet-parameters?/std",
@@ -165,6 +169,7 @@ std = [
 	"pallet-xcm-benchmarks?/std",
 	"pallet-xcm-bridge-hub-router?/std",
 	"pallet-xcm-bridge-hub?/std",
+	"pallet-xcm-precompiles?/std",
 	"pallet-xcm?/std",
 	"parachains-common?/std",
 	"parachains-runtimes-test-utils?/std",
@@ -256,6 +261,7 @@ runtime-benchmarks = [
 	"pallet-asset-tx-payment?/runtime-benchmarks",
 	"pallet-assets-freezer?/runtime-benchmarks",
 	"pallet-assets-holder?/runtime-benchmarks",
+	"pallet-assets-precompiles?/runtime-benchmarks",
 	"pallet-assets?/runtime-benchmarks",
 	"pallet-babe?/runtime-benchmarks",
 	"pallet-bags-list?/runtime-benchmarks",
@@ -295,6 +301,7 @@ runtime-benchmarks = [
 	"pallet-meta-tx?/runtime-benchmarks",
 	"pallet-migrations?/runtime-benchmarks",
 	"pallet-mmr?/runtime-benchmarks",
+	"pallet-multi-asset-bounties?/runtime-benchmarks",
 	"pallet-multisig?/runtime-benchmarks",
 	"pallet-nft-fractionalization?/runtime-benchmarks",
 	"pallet-nfts?/runtime-benchmarks",
@@ -303,6 +310,7 @@ runtime-benchmarks = [
 	"pallet-nomination-pools?/runtime-benchmarks",
 	"pallet-offences-benchmarking?/runtime-benchmarks",
 	"pallet-offences?/runtime-benchmarks",
+	"pallet-oracle?/runtime-benchmarks",
 	"pallet-origin-restriction?/runtime-benchmarks",
 	"pallet-paged-list?/runtime-benchmarks",
 	"pallet-parameters?/runtime-benchmarks",
@@ -319,6 +327,7 @@ runtime-benchmarks = [
 	"pallet-salary?/runtime-benchmarks",
 	"pallet-scheduler?/runtime-benchmarks",
 	"pallet-session-benchmarking?/runtime-benchmarks",
+	"pallet-session?/runtime-benchmarks",
 	"pallet-skip-feeless-payment?/runtime-benchmarks",
 	"pallet-society?/runtime-benchmarks",
 	"pallet-staking-async-ah-client?/runtime-benchmarks",
@@ -341,6 +350,7 @@ runtime-benchmarks = [
 	"pallet-xcm-benchmarks?/runtime-benchmarks",
 	"pallet-xcm-bridge-hub-router?/runtime-benchmarks",
 	"pallet-xcm-bridge-hub?/runtime-benchmarks",
+	"pallet-xcm-precompiles?/runtime-benchmarks",
 	"pallet-xcm?/runtime-benchmarks",
 	"parachains-common?/runtime-benchmarks",
 	"polkadot-cli?/runtime-benchmarks",
@@ -363,6 +373,7 @@ runtime-benchmarks = [
 	"xcm-runtime-apis?/runtime-benchmarks",
 ]
 try-runtime = [
+	"asset-test-utils?/try-runtime",
 	"assets-common?/try-runtime",
 	"cumulus-pallet-aura-ext?/try-runtime",
 	"cumulus-pallet-dmp-queue?/try-runtime",
@@ -387,6 +398,7 @@ try-runtime = [
 	"pallet-asset-tx-payment?/try-runtime",
 	"pallet-assets-freezer?/try-runtime",
 	"pallet-assets-holder?/try-runtime",
+	"pallet-assets-precompiles?/try-runtime",
 	"pallet-assets?/try-runtime",
 	"pallet-atomic-swap?/try-runtime",
 	"pallet-aura?/try-runtime",
@@ -432,6 +444,7 @@ try-runtime = [
 	"pallet-migrations?/try-runtime",
 	"pallet-mixnet?/try-runtime",
 	"pallet-mmr?/try-runtime",
+	"pallet-multi-asset-bounties?/try-runtime",
 	"pallet-multisig?/try-runtime",
 	"pallet-nft-fractionalization?/try-runtime",
 	"pallet-nfts?/try-runtime",
@@ -439,6 +452,7 @@ try-runtime = [
 	"pallet-node-authorization?/try-runtime",
 	"pallet-nomination-pools?/try-runtime",
 	"pallet-offences?/try-runtime",
+	"pallet-oracle?/try-runtime",
 	"pallet-origin-restriction?/try-runtime",
 	"pallet-paged-list?/try-runtime",
 	"pallet-parameters?/try-runtime",
@@ -479,6 +493,7 @@ try-runtime = [
 	"pallet-whitelist?/try-runtime",
 	"pallet-xcm-bridge-hub-router?/try-runtime",
 	"pallet-xcm-bridge-hub?/try-runtime",
+	"pallet-xcm-precompiles?/try-runtime",
 	"pallet-xcm?/try-runtime",
 	"parachains-common?/try-runtime",
 	"polkadot-cli?/try-runtime",
@@ -595,6 +610,7 @@ runtime-full = [
 	"pallet-assets",
 	"pallet-assets-freezer",
 	"pallet-assets-holder",
+	"pallet-assets-precompiles",
 	"pallet-atomic-swap",
 	"pallet-aura",
 	"pallet-authority-discovery",
@@ -642,6 +658,7 @@ runtime-full = [
 	"pallet-migrations",
 	"pallet-mixnet",
 	"pallet-mmr",
+	"pallet-multi-asset-bounties",
 	"pallet-multisig",
 	"pallet-nft-fractionalization",
 	"pallet-nfts",
@@ -653,6 +670,8 @@ runtime-full = [
 	"pallet-nomination-pools-runtime-api",
 	"pallet-offences",
 	"pallet-offences-benchmarking",
+	"pallet-oracle",
+	"pallet-oracle-runtime-api",
 	"pallet-origin-restriction",
 	"pallet-paged-list",
 	"pallet-parameters",
@@ -704,6 +723,7 @@ runtime-full = [
 	"pallet-xcm-benchmarks",
 	"pallet-xcm-bridge-hub",
 	"pallet-xcm-bridge-hub-router",
+	"pallet-xcm-precompiles",
 	"parachains-common",
 	"polkadot-core-primitives",
 	"polkadot-parachain-primitives",
@@ -863,7 +883,6 @@ node = [
 	"mmr-gadget",
 	"mmr-rpc",
 	"pallet-contracts-mock-network",
-	"pallet-revive-eth-rpc",
 	"pallet-transaction-payment-rpc",
 	"parachains-runtimes-test-utils",
 	"polkadot-approval-distribution",
@@ -903,6 +922,7 @@ node = [
 	"polkadot-node-subsystem-util",
 	"polkadot-omni-node-lib",
 	"polkadot-overseer",
+	"polkadot-primitives-test-helpers",
 	"polkadot-rpc",
 	"polkadot-service",
 	"polkadot-statement-distribution",
@@ -1271,6 +1291,11 @@ default-features = false
 optional = true
 path = "../substrate/frame/assets-holder"
 
+[dependencies.pallet-assets-precompiles]
+default-features = false
+optional = true
+path = "../substrate/frame/assets/precompiles"
+
 [dependencies.pallet-atomic-swap]
 default-features = false
 optional = true
@@ -1506,6 +1531,11 @@ default-features = false
 optional = true
 path = "../substrate/frame/merkle-mountain-range"
 
+[dependencies.pallet-multi-asset-bounties]
+default-features = false
+optional = true
+path = "../substrate/frame/multi-asset-bounties"
+
 [dependencies.pallet-multisig]
 default-features = false
 optional = true
@@ -1560,6 +1590,16 @@ path = "../substrate/frame/offences"
 default-features = false
 optional = true
 path = "../substrate/frame/offences/benchmarking"
+
+[dependencies.pallet-oracle]
+default-features = false
+optional = true
+path = "../substrate/frame/honzon/oracle"
+
+[dependencies.pallet-oracle-runtime-api]
+default-features = false
+optional = true
+path = "../substrate/frame/honzon/oracle/runtime-api"
 
 [dependencies.pallet-origin-restriction]
 default-features = false
@@ -1815,6 +1855,11 @@ path = "../bridges/modules/xcm-bridge-hub"
 default-features = false
 optional = true
 path = "../bridges/modules/xcm-bridge-hub-router"
+
+[dependencies.pallet-xcm-precompiles]
+default-features = false
+optional = true
+path = "../polkadot/xcm/pallet-xcm/precompiles"
 
 [dependencies.parachains-common]
 default-features = false
@@ -2286,11 +2331,6 @@ default-features = false
 optional = true
 path = "../substrate/frame/contracts/mock-network"
 
-[dependencies.pallet-revive-eth-rpc]
-default-features = false
-optional = true
-path = "../substrate/frame/revive/rpc"
-
 [dependencies.pallet-transaction-payment-rpc]
 default-features = false
 optional = true
@@ -2485,6 +2525,11 @@ path = "../cumulus/polkadot-omni-node/lib"
 default-features = false
 optional = true
 path = "../polkadot/node/overseer"
+
+[dependencies.polkadot-primitives-test-helpers]
+default-features = false
+optional = true
+path = "../polkadot/primitives/test-helpers"
 
 [dependencies.polkadot-rpc]
 default-features = false
