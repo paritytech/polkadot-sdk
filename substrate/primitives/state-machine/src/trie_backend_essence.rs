@@ -703,9 +703,9 @@ where
 				}
 			};
 
-			let _ = res.inspect_err(|e| {
+			if let Err(e) = res {
 				warn!(target: "trie", "Failed to read delta keys from trie: {}", e);
-			});
+			};
 		});
 
 		self.with_recorder_and_cache(None, |recorder, cache| {
@@ -730,9 +730,9 @@ where
 				}
 			};
 
-			let _ = res.inspect_err(|e| {
+			if let Err(e) = res {
 				warn!(target: "trie", "Failed to remove delta keys from trie: {}", e);
-			});
+			};
 		});
 	}
 
