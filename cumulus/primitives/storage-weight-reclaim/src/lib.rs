@@ -175,7 +175,8 @@ where
 			return Ok(Weight::zero());
 		};
 
-		let Some(post_dispatch_proof_size) = get_proof_size(T::Version::get().state_version()) else {
+		let Some(post_dispatch_proof_size) = get_proof_size(T::Version::get().state_version())
+		else {
 			log::debug!(
 				target: LOG_TARGET,
 				"Proof recording enabled during pre-dispatch, now disabled. This should not happen."

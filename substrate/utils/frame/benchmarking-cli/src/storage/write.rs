@@ -70,7 +70,8 @@ impl StorageCmd {
 			return Err(format!(
 				"estimation_batch_size ({}) must be 0 or <= batch_size ({})",
 				self.params.estimation_batch_size, self.params.batch_size
-			).into())
+			)
+			.into())
 		}
 
 		// Store the time that it took to write each value.
@@ -297,11 +298,16 @@ impl StorageCmd {
 				};
 
 				let trigger_changes = &changes[start_idx..end_idx];
-				let trigger_delta = trigger_changes.iter().map(|(key, new_v)| (key.as_ref(), Some(new_v.as_ref())));
+				let trigger_delta =
+					trigger_changes.iter().map(|(key, new_v)| (key.as_ref(), Some(new_v.as_ref())));
 
 				match child_info {
 					Some(info) => {
-						let _ = trie.compute_pov_size_for_child_storage_root(info, trigger_delta, version);
+						let _ = trie.compute_pov_size_for_child_storage_root(
+							info,
+							trigger_delta,
+							version,
+						);
 					},
 					None => {
 						let _ = trie.compute_pov_size_for_storage_root(trigger_delta, version);

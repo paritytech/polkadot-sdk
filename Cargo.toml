@@ -855,7 +855,7 @@ governor = { version = "0.6.0" }
 gum = { path = "polkadot/node/gum", default-features = false, package = "tracing-gum" }
 gum-proc-macro = { path = "polkadot/node/gum/proc-macro", default-features = false, package = "tracing-gum-proc-macro" }
 handlebars = { version = "5.1.0" }
-hash-db = { version = "0.16.0", default-features = false, git = "https://github.com/paritytech/trie", branch = "mku-no-commit-on-drop"}
+hash-db = { version = "0.16.0", default-features = false, git = "https://github.com/paritytech/trie", branch = "mku-no-commit-on-drop" }
 # hash-db = { version = "0.16.0", default-features = false, path = "/home/miszka/parity/23-pov-reclaim/trie-upstream/hash-db" }
 # hash-db = { version = "0.16.0", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
@@ -915,7 +915,7 @@ log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
 memmap2 = { version = "0.9.3" }
-memory-db = { version = "0.34.0", default-features = false,  git = "https://github.com/paritytech/trie", branch = "mku-no-commit-on-drop" }
+memory-db = { version = "0.34.0", default-features = false, git = "https://github.com/paritytech/trie", branch = "mku-no-commit-on-drop" }
 # memory-db = { version = "0.34.0", default-features = false, path = "/home/miszka/parity/23-pov-reclaim/trie-upstream/memory-db" }
 # memory-db = { version = "0.34.0", default-features = false }
 merkleized-metadata = { version = "0.5.0" }
@@ -940,7 +940,7 @@ node-inspect = { path = "substrate/bin/node/inspect", default-features = false, 
 node-primitives = { path = "substrate/bin/node/primitives", default-features = false }
 node-rpc = { path = "substrate/bin/node/rpc" }
 node-testing = { path = "substrate/bin/node/testing" }
-nohash-hasher = { version = "0.2.0", default-features = false  }
+nohash-hasher = { version = "0.2.0", default-features = false }
 novelpoly = { version = "2.0.0", package = "reed-solomon-novelpoly" }
 num-bigint = { version = "0.4.6", default-features = false }
 num-format = { version = "0.4.3" }

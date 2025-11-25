@@ -23,4 +23,9 @@ sp-state-machine = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
-std = ["sp-core/std", "sp-externalities/std", "sp-runtime-interface/std", "sp-trie/std"]
+std = [
+	"sp-core/std",
+	"sp-externalities/std",
+	"sp-runtime-interface/std",
+	"sp-trie/std",
+]

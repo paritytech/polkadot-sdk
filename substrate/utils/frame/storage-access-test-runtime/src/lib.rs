@@ -151,7 +151,11 @@ pub fn proceed_storage_access<B: traits::Block>(mut params: &[u8]) {
 					},
 				}
 			},
-		StorageAccessPayload::Write { changes, child_info: maybe_child_info, estimation_batch_size } => {
+		StorageAccessPayload::Write {
+			changes,
+			child_info: maybe_child_info,
+			estimation_batch_size,
+		} => {
 			// Call compute_pov_size_for_storage_root if enabled
 			if estimation_batch_size > 0 {
 				let batch_size = changes.len();
@@ -167,21 +171,21 @@ pub fn proceed_storage_access<B: traits::Block>(mut params: &[u8]) {
 					};
 
 					let trigger_changes = &changes[start_idx..end_idx];
-					let trigger_delta = trigger_changes.iter().map(|(key, value)| (key.as_ref(), Some(value.as_ref())));
+					let trigger_delta = trigger_changes
+						.iter()
+						.map(|(key, value)| (key.as_ref(), Some(value.as_ref())));
 
 					match &maybe_child_info {
 						Some(child_info) => {
 							let _ = backend.compute_pov_size_for_child_storage_root(
 								child_info,
 								trigger_delta,
-								StateVersion::V1
+								StateVersion::V1,
 							);
 						},
 						None => {
-							let _ = backend.compute_pov_size_for_storage_root(
-								trigger_delta,
-								StateVersion::V1
-							);
+							let _ = backend
+								.compute_pov_size_for_storage_root(trigger_delta, StateVersion::V1);
 						},
 					}
 				}

@@ -19,6 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 arbitrary = { features = ["derive"], optional = true, workspace = true }
 codec = { workspace = true }
+foldhash = { workspace = true, default-features = false }
 hash-db = { workspace = true }
 indexmap = { workspace = true, default-features = false }
 log = { workspace = true }
@@ -33,7 +34,6 @@ sp-trie = { workspace = true }
 thiserror = { optional = true, workspace = true }
 tracing = { optional = true, workspace = true, default-features = true }
 trie-db = { workspace = true }
-foldhash = { workspace = true, default-features = false }
 
 [dev-dependencies]
 arbitrary = { features = ["derive"], workspace = true }
