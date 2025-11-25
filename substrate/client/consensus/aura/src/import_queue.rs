@@ -414,6 +414,7 @@ where
 	P::Public: Codec + Debug,
 	P::Signature: Codec,
 	Client::Api: AuraApi<Block, AuthorityId<P>>,
+	BI::Error: From<String>,
 {
 	type Error = BI::Error;
 
@@ -436,7 +437,7 @@ where
 		let res = self.block_import.import_block(block).await?;
 
 		if import_from_runtime {
-			self.authorities_tracker.import_from_runtime(&post_header).unwrap();
+			self.authorities_tracker.import_from_runtime(&post_header)?;
 		}
 
 		Ok(res)
