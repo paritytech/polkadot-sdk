@@ -44,7 +44,7 @@ jobs:
   ping_matrix:
     runs-on: ubuntu-latest
     needs: [check_if_release_is_latest]
-    if: ${{ needs.check_if_release_is_latest.outputs.is_latest == true }}
+    if: ${{ needs.check_if_release_is_latest.outputs.is_latest == 'true' }}
     environment: release
     strategy:
       matrix:
