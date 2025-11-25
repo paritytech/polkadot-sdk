@@ -289,10 +289,7 @@ where
 		let extrinsics = &mut self.extrinsics;
 		let version = self.version;
 
-		let start = std::time::Instant::now();
-		let proof_size = self.api.proof_recorder().map(|pr| pr.estimate_encoded_size());
-		tracing::debug!(target: "durations", "block_builder::push: before: proof_size:{:?}", proof_size);
-		let result = self.api.execute_in_transaction(|api| {
+		self.api.execute_in_transaction(|api| {
 			let res = if version < 6 {
 				#[allow(deprecated)]
 				api.apply_extrinsic_before_version_6(parent_hash, xt.clone())
@@ -311,10 +308,7 @@ where
 				)),
 				Err(e) => TransactionOutcome::Rollback(Err(Error::from(e))),
 			}
-		});
-		let proof_size = self.api.proof_recorder().map(|pr| pr.estimate_encoded_size());
-		tracing::debug!(target: "durations", "block_builder::push: duration: {:?} result: {:?} proof_size:{:?}", start.elapsed(), result, proof_size);
-		result
+		})
 	}
 
 	/// Consume the builder to build a valid `Block` containing all pushed extrinsics.
@@ -323,9 +317,7 @@ where
 	/// supplied by `self.api`, combined as [`BuiltBlock`].
 	/// The storage proof will be `Some(_)` when proof recording was enabled.
 	pub fn build(mut self) -> Result<BuiltBlock<Block>, Error> {
-		let start = std::time::Instant::now();
 		let header = self.api.finalize_block(self.parent_hash)?;
-		let finalized_duration = start.elapsed();
 
 		debug_assert_eq!(
 			header.extrinsics_root().clone(),
@@ -335,8 +327,6 @@ where
 			),
 		);
 
-		let proof_size = self.api.proof_recorder().map(|pr| pr.estimate_encoded_size());
-
 		let proof = self.api.extract_proof();
 
 		let state = self.call_api_at.state_at(self.parent_hash)?;
@@ -345,8 +335,6 @@ where
 			.api
 			.into_storage_changes(&state, self.parent_hash)
 			.map_err(sp_blockchain::Error::StorageChanges)?;
-
-		tracing::debug!(target: "durations", "block_builder::build: duration: {:?}, finalized_duration:{finalized_duration:?}, proof_size:{proof_size:?}", start.elapsed());
 
 		Ok(BuiltBlock {
 			block: <Block as BlockT>::new(header, self.extrinsics),
