@@ -42,7 +42,6 @@ assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }
 rand = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
-sp-tracing = { workspace = true }
 
 [features]
 default = ["std"]

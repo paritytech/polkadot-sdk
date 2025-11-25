@@ -154,6 +154,7 @@ impl<K: core::fmt::Debug, H> StorageKeyDeltaTracker<K, H> {
 	/// delta. After taking a delta:
 	/// - On commit: captured keys are merged into parent, dirty keys become unavailable in parent
 	/// - On rollback: captured keys are discarded, dirty keys become available again in parent
+	#[must_use]
 	pub fn take_delta(&mut self) -> DeltaKeys<K>
 	where
 		K: Clone,

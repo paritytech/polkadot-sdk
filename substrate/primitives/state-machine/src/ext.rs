@@ -864,7 +864,6 @@ mod tests {
 		storage::{Storage, StorageChild},
 		Blake2Hasher,
 	};
-	use sp_tracing::info;
 	use sp_trie::recorder::Recorder;
 
 	type TestBackend = InMemoryBackend<Blake2Hasher>;
@@ -1096,7 +1095,6 @@ mod tests {
 	#[test]
 	//note: copied from: https://github.com/paritytech/polkadot-sdk/pull/6230/files#diff-aee4478254ac14c2c059e9e1a0eb5b2d3694872bfdce872416319959223de977R1115
 	fn calculating_storage_root_should_not_change_storage_proof() {
-		sp_tracing::try_init_simple();
 		let keys =
 			(0..100000u32)
 				.map(|i| (i.encode(), vec![i; 100].encode()))
@@ -1154,7 +1152,6 @@ mod tests {
 
 	#[test]
 	fn calculating_storage_root_should_not_change_storage_proof_2() {
-		sp_tracing::try_init_simple();
 		let keys =
 			(0..100000u32)
 				.map(|i| (i.encode(), vec![i; 100].encode()))
@@ -1200,7 +1197,6 @@ mod tests {
 		let _ = ext.storage_commit_transaction();
 
 		ext.compute_pov_size_for_storage_root(StateVersion::V1);
-		let size_after_reading = recorder.estimate_encoded_size();
 
 		ext.storage_start_transaction();
 		ext.place_storage(key1.encode(), None);
@@ -1222,7 +1218,6 @@ mod tests {
 
 	#[test]
 	fn calculating_storage_root_should_not_change_storage_proof_random() {
-		sp_tracing::try_init_simple();
 		let keys_count = 1000000u32;
 		let keys =
 			(0..keys_count)

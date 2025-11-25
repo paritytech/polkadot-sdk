@@ -275,7 +275,7 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		self.state.child_storage_root(child_info, delta, state_version)
 	}
 
-	fn compute_pov_size_for_storage_root<'a, 'b>(
+	fn compute_pov_size_for_storage_root<'a>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
@@ -283,7 +283,7 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		self.state.compute_pov_size_for_storage_root(delta, state_version)
 	}
 
-	fn compute_pov_size_for_child_storage_root<'a, 'b>(
+	fn compute_pov_size_for_child_storage_root<'a>(
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,

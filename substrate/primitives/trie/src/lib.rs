@@ -310,7 +310,6 @@ where
 	A: Borrow<[u8]>,
 	DB: hash_db::HashDB<L::Hash, trie_db::DBValue>,
 {
-	let mut removed = 0;
 	{
 		let mut trie = TrieDBMutBuilder::<L>::from_existing(db, &mut root)
 			.without_commit_on_drop()
@@ -320,12 +319,7 @@ where
 
 		for (key, _) in delta {
 			trie.remove(key.borrow())?;
-			removed += 1;
 		}
-	}
-	#[cfg(feature = "std")]
-	{
-		tracing::debug!(target:"durations", "remove_trie_keys_from_delta: removed:{removed}");
 	}
 
 	Ok(())
@@ -334,8 +328,8 @@ where
 /// Executes a trie node accesses based on the provided delta, recording the nodes for proof size
 /// calculation.
 ///
-/// This function replicates the trie operations that would occur for the given delta, recording trie
-/// nodes accessed. It is intended for calculating proof size without altering the actual trie
+/// This function replicates the trie operations that would occur for the given delta, recording
+/// trie nodes accessed. It is intended for calculating proof size without altering the actual trie
 /// storage.
 pub fn read_trie_keys_from_delta<L: TrieConfiguration, I, A, B, DB>(
 	db: &DB,
@@ -349,7 +343,6 @@ where
 	A: Borrow<[u8]>,
 	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
 {
-	let mut read = 0;
 	{
 		let trie = TrieDBBuilder::<L>::new(db, &root)
 			.with_optional_cache(cache)
@@ -358,13 +351,7 @@ where
 
 		for (key, _) in delta {
 			trie.get(key.borrow())?;
-			read += 1;
 		}
-	}
-
-	#[cfg(feature = "std")]
-	{
-		tracing::debug!(target:"durations", "read_trie_keys_from_delta: read:{read}");
 	}
 
 	Ok(())

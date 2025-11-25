@@ -23251,7 +23251,6 @@ dependencies = [
  "sp-externalities 0.25.0",
  "sp-panic-handler",
  "sp-runtime",
- "sp-tracing 16.0.0",
  "sp-trie",
  "thiserror 1.0.65",
  "tracing",
