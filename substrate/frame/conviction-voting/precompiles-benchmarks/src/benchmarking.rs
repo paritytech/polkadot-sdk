@@ -281,7 +281,7 @@ mod benchmarks {
 		let dummy_vote = AccountVote::Standard { vote, balance };
 
 		// We need to create existing votes
-		for i in polls.iter() {
+		for i in polls.iter().take(r as usize) {
 			ConvictionVoting::<T>::vote(RawOrigin::Signed(caller.clone()).into(), *i, dummy_vote)
 				.unwrap();
 		}

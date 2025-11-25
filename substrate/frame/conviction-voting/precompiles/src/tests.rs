@@ -574,7 +574,6 @@ fn test_get_voting_encoding() {
 #[test]
 fn test_get_voting_standard_precompile_work() {
 	new_test_ext().execute_with(|| {
-		let who = ALICE;
 		let track_id = 0;
 		let referendum_index = 3;
 		let balance = 10u128;
