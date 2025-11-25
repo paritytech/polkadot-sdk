@@ -23,6 +23,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
+use bitvec::vec::BitVec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use sp_application_crypto::RuntimeAppPublic;
@@ -39,8 +40,52 @@ pub type Hash = [u8; 32];
 pub type BlockHash = [u8; 32];
 /// Account id
 pub type AccountId = [u8; 32];
+
 /// Statement channel.
-pub type Channel = [u8; 32];
+/// The first byte is the storage slot, the remaining 31 bytes are the channel id.
+///
+/// The storage slot allows categorizing channels into 256 different slots, which can be used
+/// for replacement preference when evicting lower priority statements.
+#[derive(
+	DecodeWithMemTracking,
+	Decode,
+	Encode,
+	TypeInfo,
+	sp_core::RuntimeDebug,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Default,
+	std::hash::Hash,
+)]
+pub struct Channel([u8; 32]);
+
+impl Channel {
+	/// Create a new channel from storage slot and channel id.
+	pub fn new(storage_slot: u8, channel_id: [u8; 31]) -> Self {
+		let mut bytes = [0u8; 32];
+		bytes[0] = storage_slot;
+		bytes[1..].copy_from_slice(&channel_id);
+		Channel(bytes)
+	}
+
+	/// Get storage slot.
+	pub fn storage_slot(&self) -> u8 {
+		self.0[0]
+	}
+}
+
+/// Preference mask for statement replacement.
+#[derive(
+	DecodeWithMemTracking, Decode, TypeInfo, sp_core::RuntimeDebug, Clone, PartialEq, Eq, Default,
+)]
+pub struct ReplaceSlotPreferenceMask {
+	/// Mask indicating which storage slots in the statement store are preferred for replacement.
+	/// When statements with a lower priority are considered for replacement, we prefer to replace
+	/// statements whose storage slot is found in this mask.
+	pub storage_slots_mask: BitVec<u8, bitvec::order::Lsb0>,
+}
 
 /// Total number of topic fields allowed.
 pub const MAX_TOPICS: usize = 4;
@@ -177,12 +222,39 @@ impl Field {
 /// Statement structure.
 #[derive(DecodeWithMemTracking, TypeInfo, sp_core::RuntimeDebug, Clone, PartialEq, Eq, Default)]
 pub struct Statement {
+	/// Proof used for authorizing the statement.
 	proof: Option<Proof>,
+	/// An identifier for the key that `Data` field may be decrypted with.
 	decryption_key: Option<DecryptionKey>,
+	/// Used for identifying a distinct communication channel, only a message per channel is
+	/// stored.
+	///
+	/// This can be used to implement message replacement, submitting a new message with a
+	/// different topic or data and the same channel replaces the previous one.
+	///
+	/// If the new statement data is bigger than the old one, submitting a statement with the same
+	/// channel does not guarantee that **ONLY** the old one will be replaced, as it might not fit
+	/// in the account quota. In that case, other statements from the same account with the lowest
+	/// priority might be removed.
+	///
+	/// To facilitate better replacement strategies, the channel's storage slot (first byte) can be
+	/// used in conjunction with the `replacement_preference_mask` to indicate which storage slots
+	/// are preferred for replacement.
 	channel: Option<Channel>,
+	/// Message priority, if any, used for determining which statements to keep when over quota.
+	/// Statements with higher priority are kept over those with lower priority.
 	priority: Option<u32>,
+	/// Preference mask for statement replacement, used to indicate which storage slots are
+	/// preferred for replacement.
+	///
+	/// It is used to chose which lower priority statements to evict when the account is over
+	/// quota.
+	replacement_preference_mask: Option<ReplaceSlotPreferenceMask>,
+	/// Number of topics present.
 	num_topics: u8,
+	/// Topics, used for querying and filtering statements.
 	topics: [Topic; MAX_TOPICS],
+	/// Statement data.
 	data: Option<Vec<u8>>,
 }
 
@@ -422,6 +494,12 @@ impl Statement {
 	/// Get channel, if any.
 	pub fn channel(&self) -> Option<Channel> {
 		self.channel
+	}
+
+	/// Get replacement preference mask, if any.
+	/// Used when replacing lower priority statements.
+	pub fn replacement_preference_mask(&self) -> Option<&ReplaceSlotPreferenceMask> {
+		self.replacement_preference_mask.as_ref()
 	}
 
 	/// Get priority, if any.
