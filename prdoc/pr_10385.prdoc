@@ -17,7 +17,7 @@ crates:
 - name: pallet-revive
   bump: major
 - name: pallet-revive-fixtures
-  bump: patch
+  bump: minor
 - name: pallet-revive-uapi
   bump: patch
 - name: substrate-wasm-builder
