@@ -126,6 +126,9 @@
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(any(feature = "try-runtime", test))]
+use sp_runtime::TryRuntimeError;
+
 mod benchmarking;
 #[cfg(test)]
 mod mock;
@@ -228,6 +231,11 @@ pub mod pallet {
 		/// - `O(1)`
 		fn on_finalize(_n: BlockNumberFor<T>) {
 			assert!(DidUpdate::<T>::take(), "Timestamp must be updated once in the block");
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+			Ok(())
 		}
 	}
 

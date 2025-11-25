@@ -112,14 +112,6 @@ pub mod pallet {
 		CallAlreadyWhitelisted,
 	}
 
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		#[cfg(feature = "try-runtime")]
-		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
-			Self::do_try_state()
-		}
-	}
-
 	#[pallet::storage]
 	pub type WhitelistedCall<T: Config> = StorageMap<_, Twox64Concat, T::Hash, (), OptionQuery>;
 
@@ -246,14 +238,5 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::<T>::WhitelistedCallDispatched { call_hash, result });
 
 		call_actual_weight
-	}
-
-	/// Ensure the correctness of the state of this pallet
-	///
-	/// The following conditions must apply.
-	#[cfg(any(feature = "try-runtime", test))]
-	fn do_try_state() -> Result<(), TryRuntimeError> {
-
-		Ok(())
 	}
 }
