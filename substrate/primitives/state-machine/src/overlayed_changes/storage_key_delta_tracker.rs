@@ -752,14 +752,7 @@ mod tests {
 	}
 
 	#[test]
-	fn xxxx() {
-		// use tracing_subscriber::EnvFilter;
-		// // Initialize tracing with RUST_LOG support
-		// tracing_subscriber::fmt()
-		// 	.with_env_filter(EnvFilter::from_default_env())
-		// 	.try_init()
-		// 	.ok(); // Ignore error if already initialized
-		//
+	fn delta_tracks_across_multiple_commit_cycles() {
 		let mut tracker = Tracker::default();
 		tracker.start_transaction();
 		tracker.add_key("a".to_string(), KeyOp::Updated);
