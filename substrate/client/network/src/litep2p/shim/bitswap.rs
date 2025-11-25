@@ -54,6 +54,43 @@ impl<Block: BlockT> BitswapServer<Block> {
 		}
 	}
 
+	/// Validate a CID and return None if it's invalid.
+	fn validate_cid(&self, cid: &cid::Cid) -> Option<()> {
+		let version_num: u64 = cid.version().into();
+		if version_num == 0 {
+			log::trace!(
+				target: LOG_TARGET,
+				"Unsupported CID version {:?} for cid: {cid}",
+				cid.version()
+			);
+			return None;
+		}
+
+		let size = cid.hash().size();
+		if size != 32 {
+			log::warn!(
+				target: LOG_TARGET,
+				"Unsupported multihash size: {size} for cid: {cid}, supports only 32!"
+			);
+			return None;
+		}
+
+		let code = cid.hash().code();
+		if !self.supported_hash_codes.contains(&code) {
+			let supported_names: Vec<&str> =
+				self.supported_hash_codes.iter().map(|&c| Self::code_to_name(c)).collect();
+			log::warn!(
+				target: LOG_TARGET,
+				"Unsupported multihash algorithm: {} ({code}) for cid: {cid}, supports only {:?}!",
+				Self::code_to_name(code),
+				supported_names
+			);
+			return None;
+		}
+
+		Some(())
+	}
+
 	/// Create new [`BitswapServer`].
 	pub fn new(
 		client: Arc<dyn BlockBackend<Block> + Send + Sync>,
@@ -86,35 +123,9 @@ impl<Block: BlockT> BitswapServer<Block> {
 					let response: Vec<ResponseType> = cids
 						.into_iter()
 						.filter_map(|(cid, want_type)| {
-							let version_num: u64 = cid.version().into();
-							if version_num == 0 {
-								log::trace!(
-									target: LOG_TARGET,
-									"Unsupported CID version {:?} for cid: {cid}",
-									cid.version()
-								);
-								return None;
-							}
 							
-							let size = cid.hash().size();
-							if size != 32 {
-								log::warn!(
-									target: LOG_TARGET,
-									"Unsupported multihash size: {size} for cid: {cid}, supports only 32!"
-								);
-								return None;
-							}
-
-							let code = cid.hash().code();
-							if !self.supported_hash_codes.contains(&code)
-							{
-								log::warn!(
-									target: LOG_TARGET,
-									"Unsupported multihash algorithm: {code} for cid: {cid}, supports only {:?}!",
-									self.supported_hash_codes
-								);
-								return None;
-							}
+							// Validate and filter out invalid CIDs before processing.
+							self.validate_cid(&cid)?;
 			
 							let mut hash = Block::Hash::default();
 							hash.as_mut().copy_from_slice(&cid.hash().digest()[0..32]);
