@@ -19132,7 +19132,6 @@ dependencies = [
  "sp-state-machine",
  "sp-trie",
  "substrate-test-runtime-client",
- "tracing",
 ]
 
 [[package]]

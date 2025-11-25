@@ -1233,9 +1233,6 @@ mod tests {
 					(key, vec![i; 100].encode())
 				}));
 
-		// info!("keys: {:#?}", keys.clone().map(|(k,v)| (hex::encode(k),
-		// hex::encode(v))).collect::<std::collections::HashMap<_,_>>());
-
 		let child_info = ChildInfo::new_default(b"Child1");
 		let child_info = &child_info;
 
@@ -1300,12 +1297,6 @@ mod tests {
 			ext.storage_root(StateVersion::V1);
 			let size_after = recorder.estimate_encoded_size();
 
-			// TODO: https://github.com/paritytech/polkadot-sdk/issues/6020
-			// When the issue is fixed properly, `size_before == size_after`.
-			info!(
-				"keys updated: {}, size_before: {}, size_after:{}",
-				keys_to_update, size_before, size_after
-			);
 			assert_eq!(size_before, size_after);
 		}
 	}
