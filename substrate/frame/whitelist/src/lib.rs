@@ -40,6 +40,9 @@ mod tests;
 pub mod weights;
 pub use weights::WeightInfo;
 
+#[cfg(any(feature = "try-runtime", test))]
+use sp_runtime::TryRuntimeError;
+
 extern crate alloc;
 
 use alloc::boxed::Box;
@@ -107,6 +110,14 @@ pub mod pallet {
 		CallIsNotWhitelisted,
 		/// The call was already whitelisted; No-Op.
 		CallAlreadyWhitelisted,
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+			Self::do_try_state()
+		}
 	}
 
 	#[pallet::storage]
@@ -235,5 +246,14 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::<T>::WhitelistedCallDispatched { call_hash, result });
 
 		call_actual_weight
+	}
+
+	/// Ensure the correctness of the state of this pallet
+	///
+	/// The following conditions must apply.
+	#[cfg(any(feature = "try-runtime", test))]
+	fn do_try_state() -> Result<(), TryRuntimeError> {
+
+		Ok(())
 	}
 }
