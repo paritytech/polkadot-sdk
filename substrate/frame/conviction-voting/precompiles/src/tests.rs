@@ -592,7 +592,7 @@ fn test_get_voting_standard_precompile_work() {
 				Err(err) => panic!("ConvictionVotingPrecompile call failed with error: {err:?}"),
 			};
 
-		let decoded_value = match VotingOf::<Test>::abi_decode(&return_value.data) {
+		let decoded_value = match VotingOf::abi_decode(&return_value.data) {
 			Ok(value) => value,
 			Err(err) => panic!("Decoding failed with error: {err:?}"),
 		};
@@ -624,7 +624,7 @@ fn test_get_voting_while_delegating_precompile_work() {
 				Err(err) => panic!("ConvictionVotingPrecompile call failed with error: {err:?}"),
 			};
 
-		let decoded_value = match VotingOf::<Test>::abi_decode(&return_value.data) {
+		let decoded_value = match VotingOf::abi_decode(&return_value.data) {
 			Ok(value) => value,
 			Err(err) => panic!("Decoding failed with error: {err:?}"),
 		};
@@ -650,7 +650,7 @@ fn test_get_voting_split_precompile_work() {
 				Err(err) => panic!("ConvictionVotingPrecompile call failed with error: {err:?}"),
 			};
 
-		let decoded_value = match VotingOf::<Test>::abi_decode(&return_value.data) {
+		let decoded_value = match VotingOf::abi_decode(&return_value.data) {
 			Ok(value) => value,
 			Err(err) => panic!("Decoding failed with error: {err:?}"),
 		};
@@ -682,7 +682,7 @@ fn test_get_voting_split_abstain_precompile_work() {
 				Err(err) => panic!("ConvictionVotingPrecompile call failed with error: {err:?}"),
 			};
 
-		let decoded_value = match VotingOf::<Test>::abi_decode(&return_value.data) {
+		let decoded_value = match VotingOf::abi_decode(&return_value.data) {
 			Ok(value) => value,
 			Err(err) => panic!("Decoding failed with error: {err:?}"),
 		};
@@ -707,7 +707,7 @@ fn test_get_voting_no_voting_work() {
 				Err(err) => panic!("ConvictionVotingPrecompile call failed with error: {err:?}"),
 			};
 
-		let decoded_value = match VotingOf::<Test>::abi_decode(&return_value.data) {
+		let decoded_value = match VotingOf::abi_decode(&return_value.data) {
 			Ok(value) => value,
 			Err(err) => panic!("Decoding failed with error: {err:?}"),
 		};
