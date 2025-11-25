@@ -235,7 +235,7 @@ pub mod pallet {
 
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
-			Ok(())
+			Self::do_try_state()
 		}
 	}
 
@@ -355,6 +355,33 @@ impl<T: Config> Pallet<T> {
 		Now::<T>::put(now);
 		DidUpdate::<T>::put(true);
 		<T::OnTimestampSet as OnTimestampSet<_>>::on_timestamp_set(now);
+	}
+
+	/// Ensure the correctness of the state of this pallet
+	///
+	/// The following conditions must apply.
+	///
+	/// ## Expectations:
+	///
+	/// * If `Now` exists, `DidUpdate` must be true.
+	/// * If `Now` does not exist, `DidUpdate` must be false.
+	#[cfg(any(feature = "try-runtime", test))]
+	fn do_try_state() -> Result<(), TryRuntimeError> {
+		if Now::<T>::exists() {
+			ensure!(
+				DidUpdate::<T>::get(),
+				"`Now` exists but `DidUpdate` is not true"
+			);
+		}
+
+		if !Now::<T>::exists() {
+			ensure!(
+				!DidUpdate::<T>::get(),
+				"`Now` does not exist but `DidUpdate` is not false"
+			);
+		}
+
+		Ok(())
 	}
 }
 
