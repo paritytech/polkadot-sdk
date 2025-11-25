@@ -160,7 +160,7 @@ where
 	}
 
 	/// If there is an authorities change digest in the header, import it into the tracker.
-	pub fn import(&self, post_header: &B::Header) -> Result<(), String> {
+	pub fn import_from_block(&self, post_header: &B::Header) -> Result<(), String> {
 		if let Some(authorities_change) = find_authorities_change_digest::<B, P>(&post_header) {
 			let hash = post_header.hash();
 			let parent_hash = *post_header.parent_hash();

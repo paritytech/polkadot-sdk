@@ -450,6 +450,8 @@ where
 
 		if import_from_runtime {
 			self.authorities_tracker.import_from_runtime(&post_header)?;
+		} else {
+			self.authorities_tracker.import_from_block(&post_header)?;
 		}
 
 		Ok(res)
