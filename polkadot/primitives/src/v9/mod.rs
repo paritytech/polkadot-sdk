@@ -1860,27 +1860,6 @@ impl From<InternalVersion> for CandidateDescriptorVersion {
 		}
 	}
 }
-
-/// Scheduling information for a candidate.
-///
-/// In v3 of the candidate descriptor we introduce additional scheduling information, which is used for:
-/// - Determining the correct core for the candidate
-/// - Determining the responsible backing group, by looking up the core as of the relay parent of the `SchedulingInfo`.
-/// - Determining responsible secondary checkers (approval & disputes), via the session_index provided in the `SchedulingInfo`.
-///
-/// The already existing relay parent and SessionIndex in the v2 descriptor are
-/// now only used for providing the necessary execution context to the
-/// candidate.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, DecodeWithMemTracking, TypeInfo)]
-struct SchedulingInfo<H = Hash> {
-	/// Relay parent for determining the responsible backers.
-	///
-	/// This additional relay parent is used on v3 candidate descriptors to
-	/// determine the responsible backers.
-	relay_parent: H,
-	session_index: SessionIndex,
-}
-
 /// A unique descriptor of the candidate receipt.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct CandidateDescriptorV2<H = Hash> {
