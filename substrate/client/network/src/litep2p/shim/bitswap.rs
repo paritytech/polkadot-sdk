@@ -23,10 +23,11 @@ use litep2p::protocol::libp2p::bitswap::{
 	BitswapEvent, BitswapHandle, BlockPresenceType, Config, ResponseType, WantType,
 };
 
+use cid::multihash::Code;
 use sc_client_api::BlockBackend;
 use sp_runtime::traits::Block as BlockT;
 
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::{collections::HashSet, future::Future, pin::Pin, sync::Arc};
 
 /// Logging target for the file.
 const LOG_TARGET: &str = "sub-libp2p::bitswap";
@@ -37,15 +38,39 @@ pub struct BitswapServer<Block: BlockT> {
 
 	/// Blockchain client.
 	client: Arc<dyn BlockBackend<Block> + Send + Sync>,
+
+	/// Supported multihash codes for CID validation.
+    supported_hash_codes: HashSet<u64>,
 }
 
 impl<Block: BlockT> BitswapServer<Block> {
+	/// Convert a multihash code to its name.
+	fn code_to_name(code: u64) -> &'static str {
+		match code {
+			c if c == u64::from(Code::Blake2b256) => "Blake2b256",
+			c if c == u64::from(Code::Sha2_256) => "Sha2_256",
+			c if c == u64::from(Code::Keccak256) => "Keccak256",
+			_ => "Unknown",
+		}
+	}
+
 	/// Create new [`BitswapServer`].
 	pub fn new(
 		client: Arc<dyn BlockBackend<Block> + Send + Sync>,
 	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, Config) {
 		let (config, handle) = Config::new();
-		let bitswap = Self { client, handle };
+		let supported_hash_codes = HashSet::from([
+			u64::from(Code::Blake2b256),
+			u64::from(Code::Sha2_256),
+			u64::from(Code::Keccak256),
+		]);
+		let code_names: Vec<&str> = supported_hash_codes.iter().map(|&c| Self::code_to_name(c)).collect();
+		log::debug!(
+			target: LOG_TARGET,
+			"BitswapServer initialized with supported multihash codes: {:?}",
+			code_names
+		);
+		let bitswap = Self { client, handle, supported_hash_codes };
 
 		(Box::pin(async move { bitswap.run().await }), config)
 	}
@@ -60,7 +85,37 @@ impl<Block: BlockT> BitswapServer<Block> {
 
 					let response: Vec<ResponseType> = cids
 						.into_iter()
-						.map(|(cid, want_type)| {
+						.filter_map(|(cid, want_type)| {
+							let version_num: u64 = cid.version().into();
+							if version_num == 0 {
+								log::trace!(
+									target: LOG_TARGET,
+									"Unsupported CID version {:?} for cid: {cid}",
+									cid.version()
+								);
+								return None;
+							}
+							
+							let size = cid.hash().size();
+							if size != 32 {
+								log::warn!(
+									target: LOG_TARGET,
+									"Unsupported multihash size: {size} for cid: {cid}, supports only 32!"
+								);
+								return None;
+							}
+
+							let code = cid.hash().code();
+							if !self.supported_hash_codes.contains(&code)
+							{
+								log::warn!(
+									target: LOG_TARGET,
+									"Unsupported multihash algorithm: {code} for cid: {cid}, supports only {:?}!",
+									self.supported_hash_codes
+								);
+								return None;
+							}
+			
 							let mut hash = Block::Hash::default();
 							hash.as_mut().copy_from_slice(&cid.hash().digest()[0..32]);
 							let transaction = match self.client.indexed_transaction(hash) {
@@ -71,7 +126,7 @@ impl<Block: BlockT> BitswapServer<Block> {
 								},
 							};
 
-							match transaction {
+							Some(match transaction {
 								Some(transaction) => {
 									log::trace!(target: LOG_TARGET, "found cid {cid:?}, hash {hash:?}");
 
@@ -92,7 +147,7 @@ impl<Block: BlockT> BitswapServer<Block> {
 										presence: BlockPresenceType::DontHave,
 									}
 								},
-							}
+							})
 						})
 						.collect();
 
