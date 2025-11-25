@@ -2981,8 +2981,8 @@ fn native_dependency_deposit_works() {
 				.build_and_unwrap_result();
 
 			// Check updated storage_deposit due to code size changes
-			let deposit_diff = lockup_deposit_percent.mul_ceil(upload_deposit) -
-				lockup_deposit_percent.mul_ceil(get_code_deposit(&dummy_code_hash));
+			let deposit_diff = lockup_deposit_percent.mul_ceil(upload_deposit)
+				- lockup_deposit_percent.mul_ceil(get_code_deposit(&dummy_code_hash));
 			let new_base_deposit = contract_base_deposit(&addr);
 			assert_ne!(deposit_diff, 0);
 			assert_eq!(base_deposit - new_base_deposit, deposit_diff);
@@ -5512,4 +5512,74 @@ fn self_destruct_by_syscall_tracing_works() {
 			assert_eq!(trace_wrapped, expected_trace, "Trace mismatch for: {}", description);
 		});
 	}
+}
+
+#[test]
+fn delegate_call_with_gas_limit() {
+	let (caller_binary, _caller_code_hash) = compile_module("delegate_call_evm").unwrap();
+	let (callee_binary, _callee_code_hash) = compile_module("delegate_call_lib").unwrap();
+
+	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_binary))
+				.native_value(300_000)
+				.build_and_unwrap_contract();
+
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_binary))
+				.native_value(100_000)
+				.build_and_unwrap_contract();
+
+		// fails, not enough gas
+		assert_err!(
+			builder::bare_call(caller_addr)
+				.native_value(1337)
+				.data((callee_addr, U256::from(100).to_little_endian()).encode())
+				.build()
+				.result,
+			Error::<Test>::ContractTrapped,
+		);
+
+		assert_ok!(builder::call(caller_addr)
+			.value(1337)
+			.data((callee_addr, U256::from(100_000_000_000).to_little_endian()).encode())
+			.build());
+	});
+}
+
+#[test]
+fn call_with_gas_limit() {
+	let (caller_binary, _caller_code_hash) = compile_module("call_with_gas").unwrap();
+	let (callee_binary, _callee_code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_binary))
+				.native_value(300_000)
+				.build_and_unwrap_contract();
+
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_binary))
+				.native_value(100_000)
+				.build_and_unwrap_contract();
+
+		// fails, not enough gas
+		assert_err!(
+			builder::bare_call(caller_addr)
+				.native_value(1337)
+				.data((callee_addr, U256::from(100).to_little_endian()).encode())
+				.build()
+				.result,
+			Error::<Test>::ContractTrapped,
+		);
+
+		assert_ok!(builder::call(caller_addr)
+			.value(1337)
+			.data((callee_addr, U256::from(100_000_000_000).to_little_endian()).encode())
+			.build());
+	});
 }
