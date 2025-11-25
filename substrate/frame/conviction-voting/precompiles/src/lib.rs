@@ -24,10 +24,9 @@ extern crate alloc;
 use alloc::vec::Vec;
 use core::{fmt, marker::PhantomData, num::NonZero};
 use frame_support::{
-	dispatch::RawOrigin,
+	dispatch::{DispatchInfo, RawOrigin},
 	sp_runtime::traits::StaticLookup,
 	traits::{Currency, Get, Polling},
-	dispatch::DispatchInfo,
 };
 use pallet_conviction_voting::{AccountVote, Config, Conviction, Tally, Vote, Voting};
 use pallet_revive::{
@@ -36,7 +35,7 @@ use pallet_revive::{
 		alloy::{self, sol_types::SolValue},
 		AddressMatcher, Error, Ext, Precompile,
 	},
-	AddressMapper, ExecOrigin as Origin, H160, Weight
+	AddressMapper, ExecOrigin as Origin, Weight, H160,
 };
 use tracing::error;
 
@@ -74,15 +73,17 @@ pub type ClassOf<T> = <<T as pallet_conviction_voting::Config>::Polls as Polling
 >>::Class;
 
 /// Voting information tuple for a specific referendum.
-/// 
+///
 /// Fields:
 /// - `bool` ("exists"): Whether a vote exists for this referendum.
-/// - `IConvictionVoting::VotingType` ("votingType"): The type of vote (Standard/Split/SplitAbstain).
+/// - `IConvictionVoting::VotingType` ("votingType"): The type of vote
+///   (Standard/Split/SplitAbstain).
 /// - `bool` ("aye"): For standard votes: true if aye, false if nay. Always false for split votes.
 /// - `BalanceOf<T>` ("ayeAmount"): Tokens voting aye (pre-conviction). 0 for standard nay votes.
 /// - `BalanceOf<T>` ("nayAmount"): Tokens voting nay (pre-conviction). 0 for standard aye votes.
 /// - `BalanceOf<T>` ("abstainAmount"): Tokens voting abstain. 0 for standard and split votes.
-/// - `IConvictionVoting::Conviction` ("conviction"): Conviction multiplier. Only applies to standard votes.
+/// - `IConvictionVoting::Conviction` ("conviction"): Conviction multiplier. Only applies to
+///   standard votes.
 pub type VotingOf<T> = (
 	bool,
 	IConvictionVoting::VotingType,
@@ -139,8 +140,8 @@ where
 				conviction,
 				balance,
 			}) => {
-				let _ = env.charge(<() as WeightInfo>::vote_new()
-						.max(<() as WeightInfo>::vote_existing()),
+				let _ = env.charge(
+					<() as WeightInfo>::vote_new().max(<() as WeightInfo>::vote_existing()),
 				)?;
 
 				let vote = Vote { aye: *aye, conviction: Self::to_conviction(conviction)? };
@@ -154,8 +155,8 @@ where
 				ayeAmount,
 				nayAmount,
 			}) => {
-				let _ = env.charge(<() as WeightInfo>::vote_new()
-						.max(<() as WeightInfo>::vote_existing()),
+				let _ = env.charge(
+					<() as WeightInfo>::vote_new().max(<() as WeightInfo>::vote_existing()),
 				)?;
 
 				let account_vote = AccountVote::Split {
@@ -171,8 +172,8 @@ where
 				nayAmount,
 				abstainAmount,
 			}) => {
-				let _ = env.charge(<() as WeightInfo>::vote_new()
-						.max(<() as WeightInfo>::vote_existing()),
+				let _ = env.charge(
+					<() as WeightInfo>::vote_new().max(<() as WeightInfo>::vote_existing()),
 				)?;
 
 				let account_vote = AccountVote::SplitAbstain {
@@ -190,8 +191,7 @@ where
 				balance,
 			}) => {
 				let weight_to_charge = <() as WeightInfo>::delegate(<T as Config>::MaxVotes::get());
-				let charged_amount = env
-					.charge(weight_to_charge)?;
+				let charged_amount = env.charge(weight_to_charge)?;
 
 				let target_account_id = T::AddressMapper::to_account_id(to.into_array().into());
 				let target_source = T::Lookup::unlookup(target_account_id);
@@ -216,15 +216,13 @@ where
 				let actual_weight = frame_support::dispatch::extract_actual_weight(&result, &pre);
 				env.adjust_gas(charged_amount, actual_weight);
 
-				result.map(|_| Vec::new()).map_err(|error| {
-					revert(
-							&error,
-							"ConvictionVoting: delegation failed"
-						)
-				})
+				result
+					.map(|_| Vec::new())
+					.map_err(|error| revert(&error, "ConvictionVoting: delegation failed"))
 			},
 			IConvictionVotingCalls::undelegate(IConvictionVoting::undelegateCall { trackId }) => {
-				let weight_to_charge = <() as WeightInfo>::undelegate(<T as Config>::MaxVotes::get());
+				let weight_to_charge =
+					<() as WeightInfo>::undelegate(<T as Config>::MaxVotes::get());
 				let charged_amount = env.charge(weight_to_charge)?;
 
 				let result = pallet_conviction_voting::Pallet::<T>::undelegate(
@@ -242,21 +240,17 @@ where
 				let actual_weight = frame_support::dispatch::extract_actual_weight(&result, &pre);
 				env.adjust_gas(charged_amount, actual_weight);
 
-				result.map(|_| Vec::new()).map_err(|error| {
-					revert(
-							&error,
-							"ConvictionVoting: undelegation failed"
-						)
-				})
+				result
+					.map(|_| Vec::new())
+					.map_err(|error| revert(&error, "ConvictionVoting: undelegation failed"))
 			},
 			IConvictionVotingCalls::getVoting(IConvictionVoting::getVotingCall {
 				who,
 				trackId,
 				referendumIndex,
 			}) => {
-				let _ = env.charge(<() as WeightInfo>::get_voting(
-					<T as Config>::MaxVotes::get(),
-				))?;
+				let _ =
+					env.charge(<() as WeightInfo>::get_voting(<T as Config>::MaxVotes::get()))?;
 
 				let who_account_id = T::AddressMapper::to_account_id(&H160::from(who.0 .0));
 				let track_id = Self::u16_to_track_id(trackId)?;
@@ -337,10 +331,9 @@ where
 		.map_err(|error| revert(&error, "ConvictionVoting: vote failed"))
 	}
 
-	/// Represents the vote not found state. Is the solidity default value for a tuple of type `VotingOf`.
-	fn get_voting_default(
-	) -> VotingOf<T>
-	{
+	/// Represents the vote not found state. Is the solidity default value for a tuple of type
+	/// `VotingOf`.
+	fn get_voting_default() -> VotingOf<T> {
 		(
 			false,
 			IConvictionVoting::VotingType::Standard,
