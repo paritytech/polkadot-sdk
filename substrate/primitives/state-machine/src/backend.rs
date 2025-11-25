@@ -347,7 +347,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 
 	/// Updates the recorder's proof size by recording trie nodes for a given delta and children
 	/// trie nodes for given child_deltas.
-	fn compute_pov_size_for_storage_root_full<'a, 'b>(
+	fn compute_pov_size_for_storage_root_full<'a>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		child_deltas: impl Iterator<
