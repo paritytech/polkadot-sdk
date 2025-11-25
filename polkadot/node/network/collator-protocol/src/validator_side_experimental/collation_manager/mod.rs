@@ -674,7 +674,7 @@ impl CollationManager {
 				?time_since_advertisement,
 				?highest_rep_of_para,
 				maybe_candidate_hash=?advertisement.candidate_hash(),
-				peer_id=advertisement.peer_id,
+				peer_id=?advertisement.peer_id,
 				"Skipping advertisement, as the peer doesn't have a high enough reputation to warrant a fetch now"
 			);
 
