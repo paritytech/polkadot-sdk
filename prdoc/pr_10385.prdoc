@@ -22,3 +22,7 @@ crates:
   bump: patch
 - name: substrate-wasm-builder
   bump: minor
+- name: sc-executor-common
+  bump: minor
+- name: sc-executor-polkavm
+  bump: minor
