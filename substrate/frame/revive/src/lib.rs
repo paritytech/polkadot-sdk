@@ -1761,6 +1761,8 @@ impl<T: Config> Pallet<T> {
 
 		// tx.into_call expects tx.gas_price to be the effective gas price
 		tx.gas_price = Some(effective_gas_price);
+		// we don't support priority fee for now as the tipping system in pallet-transaction-payment
+		// works differently and the total tip needs to be known pre dispatch
 		tx.max_priority_fee_per_gas = Some(0.into());
 		if tx.max_fee_per_gas.is_none() {
 			tx.max_fee_per_gas = Some(effective_gas_price);
@@ -1819,6 +1821,14 @@ impl<T: Config> Pallet<T> {
 			}
 		};
 
+		let transaction_limits = TransactionLimits::EthereumGas {
+			eth_gas_limit: call_info.eth_gas_limit.saturated_into(),
+			// no need to limit weight here, we will check later whether it exceeds
+			// evm_max_extrinsic_weight
+			maybe_weight_limit: None,
+			eth_tx_info: EthTxInfo::new(call_info.encoded_len, base_weight),
+		};
+
 		// Dry run the call
 		let mut dry_run = match to {
 			// A contract call.
@@ -1846,13 +1856,7 @@ impl<T: Config> Pallet<T> {
 						OriginFor::<T>::signed(origin),
 						dest,
 						value,
-						TransactionLimits::EthereumGas {
-							eth_gas_limit: call_info.eth_gas_limit.saturated_into(),
-							// no need to limit weight here, we will check later whether it exceeds
-							// evm_max_extrinsic_weight
-							maybe_weight_limit: None,
-							eth_tx_info: EthTxInfo::new(call_info.encoded_len, base_weight),
-						},
+						transaction_limits,
 						input.clone(),
 						exec_config,
 					);
@@ -1892,13 +1896,7 @@ impl<T: Config> Pallet<T> {
 				let result = crate::Pallet::<T>::bare_instantiate(
 					OriginFor::<T>::signed(origin),
 					value,
-					TransactionLimits::EthereumGas {
-						eth_gas_limit: call_info.eth_gas_limit.saturated_into(),
-						// no need to limit weight here, we will check later whether it exceeds
-						// evm_max_extrinsic_weight
-						maybe_weight_limit: None,
-						eth_tx_info: EthTxInfo::new(call_info.encoded_len, base_weight),
-					},
+					transaction_limits,
 					Code::Upload(code.clone()),
 					data.clone(),
 					None,
@@ -2070,6 +2068,12 @@ impl<T: Config> Pallet<T> {
 
 	/// Get the block gas limit.
 	pub fn evm_block_gas_limit() -> U256 {
+		// We just return `u64::MAX` because the gas cost of a transaction can get very large when
+		// the transaction executes many storage deposits (in theory a contract can behave like a
+		// factory, procedurally create code and make contract creation calls to store that as
+		// code). It is too brittle to estimate a maximally possible amount here.
+		// On the other hand, the data type `u64` seems to be the "common denominator" as the
+		// typical data type tools and Ethereum implementations use to represent gas amounts.
 		u64::MAX.into()
 	}
 

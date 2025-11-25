@@ -333,7 +333,7 @@ fn deposit_event_max_value_limit() {
 		// Call contract with allowed event size.
 		assert_ok!(builder::call(addr)
 			.weight_limit(WEIGHT_LIMIT.set_ref_time(WEIGHT_LIMIT.ref_time() * 2)) // we are copying a huge buffer,
-			.data(limits::PAYLOAD_BYTES.encode())
+			.data(limits::EVENT_BYTES.encode())
 			.build());
 
 		// Call contract with too large a evene size
@@ -502,7 +502,7 @@ fn storage_max_value_limit() {
 		// Call contract with allowed storage value.
 		assert_ok!(builder::call(addr)
 			.weight_limit(WEIGHT_LIMIT.set_ref_time(WEIGHT_LIMIT.ref_time() * 2)) // we are copying a huge buffer
-			.data(limits::PAYLOAD_BYTES.encode())
+			.data(limits::STORAGE_BYTES.encode())
 			.build());
 
 		// Call contract with too large a storage value.

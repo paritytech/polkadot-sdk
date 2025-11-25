@@ -54,7 +54,7 @@ fn max_consumed_deposit_integration(fixture_type: FixtureType) {
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(caller_addr).data(Deposit::dCall {}.abi_encode()).build();
+		let result = builder::bare_call(caller_addr).data(Deposit::callSetAndClearCall {}.abi_encode()).build();
 
 		assert_eq!(result.storage_deposit, StorageDeposit::Charge(66));
 		assert_eq!(result.max_storage_deposit, StorageDeposit::Charge(132));
@@ -73,14 +73,14 @@ fn max_consumed_deposit_integration_refunds_subframes(fixture_type: FixtureType)
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(caller_addr).data(Deposit::cCall {}.abi_encode()).build();
+		let result = builder::bare_call(caller_addr).data(Deposit::setAndClearCall {}.abi_encode()).build();
 
 		assert_eq!(result.storage_deposit, StorageDeposit::Charge(66));
 		assert_eq!(result.max_storage_deposit, StorageDeposit::Charge(132));
 
-		builder::bare_call(caller_addr).data(Deposit::clearCall {}.abi_encode()).build();
+		builder::bare_call(caller_addr).data(Deposit::clearAllCall {}.abi_encode()).build();
 
-		let result = builder::bare_call(caller_addr).data(Deposit::eCall {}.abi_encode()).build();
+		let result = builder::bare_call(caller_addr).data(Deposit::setAndCallClearCall {}.abi_encode()).build();
 
 		assert_eq!(result.storage_deposit, StorageDeposit::Charge(66));
 		assert_eq!(result.max_storage_deposit, StorageDeposit::Charge(132));

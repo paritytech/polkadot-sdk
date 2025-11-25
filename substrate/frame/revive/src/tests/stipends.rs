@@ -25,9 +25,8 @@ use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{
 	compile_module_with_type, ComplexReceiver, FixtureType, SimpleReceiver, StipendSender,
 };
+use sp_core::H160;
 use test_case::test_case;
-
-pub use sp_core::H160;
 
 enum Receiver {
 	Contract(&'static str),
@@ -104,10 +103,7 @@ fn evm_call_stipends_work_for_transfers(test_case: TestCase) {
 
 		let balance_before = Pallet::<Test>::evm_balance(&receiver_addr);
 
-		let amount = Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(
-			1_000_000_000_000,
-			0,
-		));
+		let amount = Pallet::<Test>::convert_native_to_evm(1_000_000_000_000);
 
 		let result = builder::bare_call(stipend_sender_address)
 			.data(StipendSender::sendViaTransferCall { to: receiver_addr.0.into() }.abi_encode())

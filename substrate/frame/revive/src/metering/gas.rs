@@ -19,7 +19,10 @@ use crate::{evm::fees::InfoT, BalanceOf, Config, StorageDeposit};
 use frame_support::DebugNoBound;
 use sp_runtime::{FixedPointNumber, Saturating};
 
-/// The type for negative and positive gas amounts
+/// The type for negative and positive gas amounts.
+///
+/// We need to be able to represent negative amounts as they occur when storage deposit refunds are
+/// involved.
 ///
 /// The structure of this type resembles `StorageDeposit` but the enum variants have a more obvious
 /// name to avoid confusion and errors
