@@ -655,8 +655,6 @@ impl<H: Hasher> OverlayedChanges<H> {
 		if let Some(cache) = &self.storage_transaction_cache {
 			return (cache.transaction_storage_root, true)
 		}
-		#[cfg(feature = "std")]
-		let start = std::time::Instant::now();
 
 		let delta = self.top.changes_mut().map(|(k, v)| (&k[..], v.value().map(|v| &v[..])));
 
@@ -670,11 +668,6 @@ impl<H: Hasher> OverlayedChanges<H> {
 		self.storage_transaction_cache =
 			Some(StorageTransactionCache { transaction, transaction_storage_root: root });
 
-		#[cfg(feature = "std")]
-		{
-			crate::debug!(target: "durations", "storage_root: duration={:?}", start.elapsed());
-		}
-
 		(root, false)
 	}
 
@@ -687,38 +680,24 @@ impl<H: Hasher> OverlayedChanges<H> {
 	) where
 		H::Out: Ord + Encode + codec::Codec,
 	{
-		#[cfg(feature = "std")]
-		let start = std::time::Instant::now();
-
 		let snapshot = self.top.take_delta();
+		let delta = self
+			.top
+			.changes_for_delta_keys(&snapshot)
+			.into_iter()
+			.map(|(k, v)| (&k[..], v.map(|v| &v[..])));
 
-		crate::debug!(target: "overlayed_changes", "compute_pov_size_for_storage_root snapshot: {:?}", snapshot);
-		let snapshot_len = snapshot.len();
+		let child_delta = self.children.values_mut().map(|v| {
+			let child_snapshot = v.0.take_delta();
+			(
+				&v.1,
+				v.0.changes_for_delta_keys(&child_snapshot)
+					.into_iter()
+					.map(|(k, v)| (&k[..], v.map(|v| &v[..]))),
+			)
+		});
 
-		{
-			let delta = self
-				.top
-				.changes_for_delta_keys(&snapshot)
-				.into_iter()
-				.map(|(k, v)| (&k[..], v.map(|v| &v[..])));
-
-			let child_delta = self.children.values_mut().map(|v| {
-				let child_snapshot = v.0.take_delta();
-				(
-					&v.1,
-					v.0.changes_for_delta_keys(&child_snapshot)
-						.into_iter()
-						.map(|(k, v)| (&k[..], v.map(|v| &v[..]))),
-				)
-			});
-
-			backend.compute_pov_size_for_storage_root_full(delta, child_delta, state_version);
-		};
-
-		#[cfg(feature = "std")]
-		{
-			crate::debug!(target: "durations", "compute_pov_size_for_storage_root: duration={:?} snapshot_len={}", start.elapsed(), snapshot_len);
-		}
+		backend.compute_pov_size_for_storage_root_full(delta, child_delta, state_version);
 	}
 
 	/// Generate the child storage root using `backend` and all child changes
