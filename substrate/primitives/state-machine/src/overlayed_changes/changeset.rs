@@ -533,7 +533,7 @@ impl OverlayedEntry<StorageEntry> {
 impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
 	/// Inserts a key into the dirty set.
 	///
-	/// Returns true if we are currently have at least one open transaction and if this
+	/// Returns true if we are have at least one open transaction and if this
 	/// is the first write to the given key that transaction.
 	fn insert_dirty(&mut self, key: K, deleted: bool) -> bool {
 		self.storage_root_dirty_keys.add_key(

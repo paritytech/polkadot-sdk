@@ -795,7 +795,7 @@ where
 
 	/// Updates the recorder's proof size by recording child trie nodes for a given delta.
 	///
-	/// Refer to [`compute_pov_size_for_storage_root`] for more details.
+	/// Refer to [`Self::compute_pov_size_for_storage_root`] for more details.
 	pub fn compute_pov_size_for_child_storage_root<'a>(
 		&self,
 		child_info: &ChildInfo,

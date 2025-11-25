@@ -438,11 +438,6 @@ mod tests {
 
 	#[test]
 	fn test_simple_snapshot_uniq() {
-		// Initialize tracing with RUST_LOG support
-		// tracing_subscriber::fmt()
-		// 	.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-		// 	.try_init()
-		// 	.ok(); // Ignore error if already initialized
 		let mut tracker = Tracker::default();
 		tracker.add_key("a".to_string(), KeyOp::Updated);
 		tracker.add_key("b".to_string(), KeyOp::Updated);
