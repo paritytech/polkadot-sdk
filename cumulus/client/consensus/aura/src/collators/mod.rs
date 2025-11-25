@@ -288,10 +288,7 @@ mod tests {
 	use sp_api::ProvideRuntimeApi;
 	use sp_consensus::BlockOrigin;
 	use sp_consensus_aura::sr25519;
-	use sp_core::Pair;
-	use sp_keyring::Sr25519Keyring;
 	use sp_keystore::{Keystore, KeystorePtr};
-	use sp_runtime::DigestItem;
 	use sp_timestamp::Timestamp;
 	use std::sync::Arc;
 
@@ -333,23 +330,15 @@ mod tests {
 		included: Hash,
 		origin: BlockOrigin,
 		state_action: Option<StateAction<Block>>,
-		block_fn: impl FnOnce(Block) -> Block,
 	) -> Block {
-		let (block, _) = build_block(client, included, vec![]);
-		let block = block_fn(block);
+		let (block, _) = build_block(client, included);
 		import_block(client, block.clone(), origin, state_action, true).await;
 		block
 	}
 
-	fn build_block(
-		client: &Client,
-		included: Hash,
-		extra_digests: Vec<DigestItem>,
-	) -> (Block, StorageChanges<Block>) {
+	fn build_block(client: &Client, included: Hash) -> (Block, StorageChanges<Block>) {
 		let sproof = sproof_with_parent_by_hash(client, included);
-		let block_builder = client
-			.init_block_builder_with_pre_digests(None, sproof, extra_digests)
-			.block_builder;
+		let block_builder = client.init_block_builder(None, sproof).block_builder;
 		let (block, storage_changes, _) = block_builder.build().unwrap().into_inner();
 		(block, StorageChanges::Changes(storage_changes))
 	}
@@ -399,7 +388,6 @@ mod tests {
 				genesis_hash,
 				BlockOrigin::NetworkInitialSync,
 				None,
-				|b| b,
 			)
 			.await;
 			last_hash = block.header().hash();
@@ -448,17 +436,7 @@ mod tests {
 
 		// Import a block with `ApplyChanges` state action. This should cause authorities to be
 		// imported from the runtime, and therefore fill in the authorities tracker.
-		let (block, storage_changes) = build_block(
-			&client,
-			genesis_hash,
-			vec![
-				// TODO This is probably actually unnecessary.
-				DigestItem::Consensus(
-					sp_consensus_aura::AURA_ENGINE_ID,
-					vec![Sr25519Keyring::One.pair().public()].encode(),
-				),
-			],
-		);
+		let (block, storage_changes) = build_block(&client, genesis_hash);
 		import_block(
 			&block_import,
 			block,
@@ -472,7 +450,7 @@ mod tests {
 		assert!(!authorities_tracker.is_empty());
 
 		// Ensure that the next block verifies, i.e. the authorities are configured correctly.
-		let (block, _) = build_block(&client, genesis_hash, vec![]);
+		let (block, _) = build_block(&client, genesis_hash);
 		let block = cumulus_test_client::seal_block(block, &client);
 		verify_block(&verifier, block, BlockOrigin::NetworkInitialSync).await;
 	}
