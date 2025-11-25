@@ -28,13 +28,12 @@ use frame_support::{
 		Get, Polling,
 	},
 };
-use pallet_revive::ExecOrigin;
 use frame_system::RawOrigin;
 use pallet_conviction_voting::{AccountVote, BalanceOf, ClassOf, Conviction, IndexOf, Vote};
 use pallet_conviction_voting_precompiles::{ConvictionVotingPrecompile, IConvictionVoting};
 use pallet_revive::{
 	precompiles::run::{precompile as run_precompile, CallSetup},
-	H160,
+	ExecOrigin, H160,
 };
 use scale_info::prelude::collections::BTreeMap;
 use sp_runtime::{traits::StaticLookup, Saturating};

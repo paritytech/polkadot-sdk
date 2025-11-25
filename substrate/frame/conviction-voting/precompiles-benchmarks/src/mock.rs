@@ -20,9 +20,7 @@ use frame_support::{
 	traits::{ConstU32, ConstU64, Contains, PollStatus, Polling},
 };
 use pallet_conviction_voting::{AccountVote, Status, Tally, TallyOf, VotingHooks};
-use sp_runtime::{
-	traits::IdentityLookup, AccountId32, DispatchError, DispatchResult,
-};
+use sp_runtime::{traits::IdentityLookup, AccountId32, DispatchError, DispatchResult};
 use std::{cell::RefCell, collections::BTreeMap};
 
 pub type AccountId = AccountId32;
@@ -73,9 +71,7 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }
 
-impl pallet::Config for Test {
-
-}
+impl pallet::Config for Test {}
 
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
 impl pallet_revive::Config for Test {

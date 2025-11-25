@@ -84,15 +84,8 @@ pub type ClassOf<T> = <<T as pallet_conviction_voting::Config>::Polls as Polling
 /// - `u128` ("abstainAmount"): Tokens voting abstain. 0 for standard and split votes.
 /// - `IConvictionVoting::Conviction` ("conviction"): Conviction multiplier. Only applies to
 ///   standard votes.
-pub type VotingOf = (
-	bool,
-	IConvictionVoting::VotingType,
-	bool,
-	u128,
-	u128,
-	u128,
-	IConvictionVoting::Conviction,
-);
+pub type VotingOf =
+	(bool, IConvictionVoting::VotingType, bool, u128, u128, u128, IConvictionVoting::Conviction);
 
 const LOG_TARGET: &str = "conviction-voting::precompiles";
 
