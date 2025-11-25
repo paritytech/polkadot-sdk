@@ -979,14 +979,18 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 ) -> bool {
 	let descriptor_version = candidate.descriptor().version();
 
-	if descriptor_version == CandidateDescriptorVersion::Unknown {
-		log::debug!(
-			target: LOG_TARGET,
-			"Candidate with unknown descriptor version. Dropping candidate {:?} for paraid {:?}.",
-			candidate.candidate().hash(),
-			candidate.descriptor().para_id()
-		);
-		return false
+	match descriptor_version {
+		// TODO: Properly handle v3: https://github.com/paritytech/polkadot-sdk/issues/10415
+		CandidateDescriptorVersion::Unknown | CandidateDescriptorVersion::V3 => {
+			log::debug!(
+				target: LOG_TARGET,
+				"Candidate with unknown descriptor version. Dropping candidate {:?} for paraid {:?}.",
+				candidate.candidate().hash(),
+				candidate.descriptor().para_id()
+			);
+			return false
+		}
+		_ => {}
 	}
 
 	// It is mandatory to filter these before calling `filter_unchained_candidates` to ensure
