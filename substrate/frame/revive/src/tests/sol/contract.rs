@@ -654,7 +654,8 @@ fn subcall_effectively_limited_substrate_tx(caller_type: FixtureType, callee_typ
 	collection_config.collect_deposit_from_hold = Some(Default::default());
 	let configs = [no_collection_config, collection_config];
 
-	let call_types = [0u8, 1, 2];
+	let call_types =
+		[Caller::CallType::Call, Caller::CallType::StaticCall, Caller::CallType::DelegateCall];
 
 	struct Case {
 		deposit_limit: BalanceOf<Test>,
@@ -720,7 +721,7 @@ fn subcall_effectively_limited_substrate_tx(caller_type: FixtureType, callee_typ
 		test_cases.iter().cartesian_product(&configs).cartesian_product(call_types)
 	{
 		// the storage stuff won't work on static or delegate call
-		if case.is_store_call && call_type != 0 {
+		if case.is_store_call && !matches!(call_type, Caller::CallType::Call) {
 			continue
 		}
 

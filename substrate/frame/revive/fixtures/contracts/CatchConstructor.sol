@@ -7,7 +7,7 @@ contract CatchConstructorFoo {
 
     constructor(address _owner) {
         require(_owner != address(0), "invalid address");
-        assert(_owner != 0x0000000000000000000000000000000000000001);
+        assert(_owner != address(1));
         owner = _owner;
     }
 

@@ -5,8 +5,10 @@ contract Deposit {
   uint256 a;
   uint256 b;
 
+  address immutable storagePrecompile = address(0x901);
+
   function clearStorageSlot(uint256 slot) internal {
-    address storagePrecompile = 0x0000000000000000000000000000000000000901;
+    address storagePrecompile = storagePrecompile;
     bytes memory key = abi.encodePacked(bytes32(slot));
     (bool _success, ) = storagePrecompile.delegatecall(
         abi.encodeWithSignature("clearStorage(uint32,bool,bytes)", 0, true, key)
@@ -19,7 +21,7 @@ contract Deposit {
   }
 
   function c() external {
-    address targetAddress = 0x0000000000000000000000000000000000000901;
+    address targetAddress = storagePrecompile;
 
     a = 2;
     b = 3;
@@ -35,7 +37,7 @@ contract Deposit {
   function d() external {
     this.x();
 
-    address targetAddress = 0x0000000000000000000000000000000000000901;
+    address targetAddress = storagePrecompile;
     bytes32 key = bytes32(bytes1(0x01)) >> 248;
     bytes memory keyBytes = abi.encodePacked(key);
 

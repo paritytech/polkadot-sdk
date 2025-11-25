@@ -11,6 +11,13 @@ contract ChildRevert {
 contract Caller {
 	uint256 public data;
 
+    enum CallType {
+        Call,
+        StaticCall,
+        DelegateCall
+    }
+
+
     function normal(address _callee, uint64 _value, bytes memory _data, uint64 _gas)
         external
         returns (bool success, bytes memory output)
@@ -68,17 +75,17 @@ contract Caller {
         }
     }
 
-    function callPartialGas(address _callee, bytes memory _data, uint64 _gasDivisor, uint8 _callType)
+    function callPartialGas(address _callee, bytes memory _data, uint64 _gasDivisor, CallType _callType)
         external
         returns (bool success)
     {
     	uint256 gas = gasleft() / _gasDivisor;
      	bytes memory output;
-     	if (_callType == 0) {
+     	if (_callType == CallType.Call) {
       		(success, output) = _callee.call{gas: gas }(_data);
-      	} else if (_callType == 1) {
+      	} else if (_callType == CallType.StaticCall) {
        		(success, output) = _callee.staticcall{gas: gas }(_data);
-        } else if (_callType == 2) {
+        } else if (_callType == CallType.DelegateCall) {
     		(success, output) = _callee.delegatecall{gas: gas }(_data);
         } else {
         	revert("unknown call type");

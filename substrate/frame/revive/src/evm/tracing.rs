@@ -19,7 +19,6 @@ use crate::{
 	tracing::Tracing,
 	Config,
 };
-use sp_core::U256;
 
 mod call_tracing;
 pub use call_tracing::*;
@@ -31,7 +30,7 @@ pub use prestate_tracing::*;
 #[derive(derive_more::From, Debug)]
 pub enum Tracer<T> {
 	/// A tracer that traces calls.
-	CallTracer(CallTracer<U256>),
+	CallTracer(CallTracer),
 	/// A tracer that traces the prestate.
 	PrestateTracer(PrestateTracer<T>),
 }
