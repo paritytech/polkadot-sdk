@@ -17,7 +17,6 @@
 use assert_cmd::cargo::cargo_bin;
 use std::process::{self, Command};
 use tempfile::tempdir;
-use assert_cmd::assert::OutputAssertExt;
 
 pub mod common;
 
