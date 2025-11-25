@@ -21,7 +21,7 @@ use frame_support::{
 };
 use pallet_conviction_voting::{AccountVote, Status, Tally, TallyOf, VotingHooks};
 use sp_runtime::{
-	traits::IdentityLookup, AccountId32, BuildStorage, DispatchError, DispatchResult,
+	traits::IdentityLookup, AccountId32, DispatchError, DispatchResult,
 };
 use std::{cell::RefCell, collections::BTreeMap};
 
@@ -32,7 +32,7 @@ pub type TrackId = u16;
 pub type Moment = u64;
 type Block = frame_system::mocking::MockBlock<Test>;
 
-use conviction_voting_precompiles::ConvictionVotingPrecompile;
+use pallet_conviction_voting_precompiles::ConvictionVotingPrecompile;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -71,6 +71,10 @@ impl pallet_balances::Config for Test {
 	type Balance = Balance;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
+}
+
+impl pallet::Config for Test {
+
 }
 
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
@@ -191,31 +195,6 @@ thread_local! {
 }
 
 pub struct HooksHandler;
-impl HooksHandler {
-	fn last_on_vote_data() -> Option<(AccountId, ReferendumIndex, AccountVote<Balance>)> {
-		LAST_ON_VOTE_DATA.with(|data| data.borrow().clone())
-	}
-
-	fn last_on_remove_vote_data() -> Option<(AccountId, ReferendumIndex, Status)> {
-		LAST_ON_REMOVE_VOTE_DATA.with(|data| data.borrow().clone())
-	}
-
-	fn last_locked_if_unsuccessful_vote_data() -> Option<(AccountId, ReferendumIndex)> {
-		LAST_LOCKED_IF_UNSUCCESSFUL_VOTE_DATA.with(|data| data.borrow().clone())
-	}
-
-	fn reset() {
-		LAST_ON_VOTE_DATA.with(|data| *data.borrow_mut() = None);
-		LAST_ON_REMOVE_VOTE_DATA.with(|data| *data.borrow_mut() = None);
-		LAST_LOCKED_IF_UNSUCCESSFUL_VOTE_DATA.with(|data| *data.borrow_mut() = None);
-		REMOVE_VOTE_LOCKED_AMOUNT.with(|data| *data.borrow_mut() = None);
-	}
-
-	fn with_remove_locked_amount(v: Balance) {
-		REMOVE_VOTE_LOCKED_AMOUNT.with(|data| *data.borrow_mut() = Some(v));
-	}
-}
-
 impl VotingHooks<AccountId, ReferendumIndex, Balance> for HooksHandler {
 	fn on_before_vote(
 		who: &AccountId,
