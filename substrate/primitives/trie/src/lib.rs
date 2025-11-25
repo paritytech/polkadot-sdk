@@ -40,7 +40,6 @@ mod trie_stream;
 pub mod proof_size_extension;
 
 #[cfg(feature = "std")]
-// pub use foldhash::quality::RandomState;
 pub use std::hash::RandomState;
 
 #[cfg(not(feature = "std"))]
@@ -319,7 +318,6 @@ where
 			.with_optional_recorder(recorder)
 			.build();
 
-		//todo: change not required here
 		for (key, _) in delta {
 			trie.remove(key.borrow())?;
 			removed += 1;
@@ -336,7 +334,7 @@ where
 /// Executes a trie node accesses based on the provided delta, recording the nodes for proof size
 /// calculation.
 ///
-/// This function replicats the trie operations that would occur for the given delta, recording trie
+/// This function replicates the trie operations that would occur for the given delta, recording trie
 /// nodes accessed. It is intended for calculating proof size without altering the actual trie
 /// storage.
 pub fn read_trie_keys_from_delta<L: TrieConfiguration, I, A, B, DB>(
@@ -358,7 +356,6 @@ where
 			.with_optional_recorder(recorder)
 			.build();
 
-		//todo: change not required here
 		for (key, _) in delta {
 			trie.get(key.borrow())?;
 			read += 1;
