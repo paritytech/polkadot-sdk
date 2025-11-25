@@ -863,6 +863,7 @@ where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
 	AuraId: AuraIdT + Sync,
+	AuraId::BoundedPair: Send + Sync,
 {
 	fn start_consensus(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
