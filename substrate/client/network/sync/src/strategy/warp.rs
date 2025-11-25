@@ -407,7 +407,6 @@ where
 
 		let proof_to_incoming_block =
 			|(header, justifications): (B::Header, Justifications)| -> IncomingBlock<B> {
-				log::info!("XXX warp sync importing header {}", header.number());
 				IncomingBlock {
 					hash: header.hash(),
 					header: Some(header),
