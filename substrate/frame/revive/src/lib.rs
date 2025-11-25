@@ -1662,7 +1662,7 @@ impl<T: Config> Pallet<T> {
 			let executable = match code {
 				Code::Upload(code) if code.starts_with(&polkavm_common::program::BLOB_MAGIC) => {
 					let upload_account = T::UploadOrigin::ensure_origin(origin)?;
-					let (executable, ..) = Self::try_upload_code(
+					let executable = Self::try_upload_code(
 						upload_account,
 						code,
 						BytecodeType::Pvm,
@@ -2132,14 +2132,17 @@ impl<T: Config> Pallet<T> {
 			deposit_limit: storage_deposit_limit,
 		})?;
 
-		let (module, deposit) = Self::try_upload_code(
+		let module = Self::try_upload_code(
 			origin,
 			code,
 			bytecode_type,
 			&mut meter,
 			&ExecConfig::new_substrate_tx(),
 		)?;
-		Ok(CodeUploadReturnValue { code_hash: *module.code_hash(), deposit })
+		Ok(CodeUploadReturnValue {
+			code_hash: *module.code_hash(),
+			deposit: meter.deposit_consumed().charge_or_zero(),
+		})
 	}
 
 	/// Query storage of a specified contract under a specified key.
@@ -2282,13 +2285,13 @@ impl<T: Config> Pallet<T> {
 		code_type: BytecodeType,
 		meter: &mut TransactionMeter<T>,
 		exec_config: &ExecConfig<T>,
-	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
+	) -> Result<ContractBlob<T>, DispatchError> {
 		let mut module = match code_type {
 			BytecodeType::Pvm => ContractBlob::from_pvm_code(code, origin)?,
 			BytecodeType::Evm => ContractBlob::from_evm_runtime_code(code, origin)?,
 		};
-		let deposit = module.store_code(exec_config, meter)?;
-		Ok((module, deposit))
+		module.store_code(exec_config, meter)?;
+		Ok(module)
 	}
 
 	/// Run the supplied function `f` if no other instance of this pallet is on the stack.

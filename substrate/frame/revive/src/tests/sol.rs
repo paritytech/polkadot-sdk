@@ -231,7 +231,7 @@ fn upload_evm_runtime_code_works() {
 		let deployer_addr = ALICE_ADDR;
 		let _ = Pallet::<Test>::set_evm_balance(&deployer_addr, 1_000_000_000.into());
 
-		let (uploaded_blob, _) = Pallet::<Test>::try_upload_code(
+		let uploaded_blob = Pallet::<Test>::try_upload_code(
 			deployer,
 			runtime_code.clone(),
 			crate::vm::BytecodeType::Evm,
