@@ -1845,9 +1845,9 @@ pub enum CandidateDescriptorVersion {
 	V2,
 	/// Candidate with scheduling info.
 	V3,
-	/// An unknown version.
+	/// An unknown/not yet supported version.
 	///
-	/// For all intents and purposes
+	/// Such a candidate must be dropped by the runtime and rejected by backers.
 	Unknown,
 }
 
@@ -1936,18 +1936,18 @@ impl<H> CandidateDescriptorV2<H> {
 	/// think that descriptors of that new version are actually V1 (non-zero
 	/// contents) instead of an unknown version.
 	///
-	/// To ensure proper operation we do the following:
+	/// To ensure proper operation with the introduction of v3 we do the following:
 	/// 1. We ensure that we either detect v3 - which will be rejected if not
 	/// yet enabled via node features or we detect v1/v2 exactly as it was
 	/// before.
 	/// 2. We now require a present UMP signal for any version higher or equal
-	/// than V3. This is checked in the runtime.
+	/// than V3. This is enforced by the runtime.
 	///
 	/// Via this, if an old node was presented a v3 candidate, which it would
-	/// consider a V1, it would either detect itself that it is invalid (and not
-	/// back), because of present UMP signals - which is illegal on v1 or the
-	/// candidate would get rejected by the runtime, because for v3 UMP signals
-	/// are mandatory. In both cases the backer can't be slashed.
+	/// consider a V1, it would either detect itself that it is invalid, because
+	/// of present UMP signals - which is illegal on v1 or the candidate would
+	/// get rejected by the runtime, because for v3 UMP signals are mandatory.
+	/// In both cases the backer wont't be slashed.
 	///
 	/// TL;DR: Yes old nodes will errorneously treat v3 candidates as v1, but we
 	/// ensure via the relay chain runtime that this stays harmless for backers.
@@ -2013,6 +2013,12 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 	fn rebuild_signature_field(&self) -> CollatorSignature {
 		CollatorSignature::from_slice(self.reserved2.as_slice())
 			.expect("Slice size is exactly 64 bytes; qed")
+	}
+
+	#[cfg(feature = "test")]
+	#[doc(hidden)]
+	pub fn rebuild_collator_field_for_tests(&self) -> CollatorId {
+		self.rebuild_collator_field()
 	}
 
 	#[cfg(feature = "test")]
@@ -2105,27 +2111,24 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		relay_parent: H,
 		core_index: CoreIndex,
 		session_index: SessionIndex,
-		scheduling_session: SessionIndex,
 		persisted_validation_data_hash: Hash,
 		pov_hash: Hash,
 		erasure_root: Hash,
-		scheduling_parent: Hash,
 		para_head: Hash,
 		validation_code_hash: ValidationCodeHash,
 	) -> Self {
-		debug_assert!(scheduling_session >= session_index, "Scheduling session must always be greater or equal to the context session.");
 		Self {
 			para_id,
 			relay_parent,
 			version: InternalVersion(0),
 			core_index: core_index.0 as u16,
 			session_index,
-			scheduling_session_offset: scheduling_session.saturating_sub(session_index) as u8,
+			scheduling_session_offset: 0,
 			reserved1: [0; 24],
 			persisted_validation_data_hash,
 			pov_hash,
 			erasure_root,
-			scheduling_parent,
+			scheduling_parent: Hash::from([0; 32]),
 			reserved2: [0; 32],
 			para_head,
 			validation_code_hash,
@@ -2137,13 +2140,15 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 	pub fn new_from_raw(
 		para_id: Id,
 		relay_parent: H,
-		version: InternalVersion,
+		version: u8,
 		core_index: u16,
 		session_index: SessionIndex,
+		scheduling_session_offset: u8,
 		reserved1: [u8; 24],
 		persisted_validation_data_hash: Hash,
 		pov_hash: Hash,
 		erasure_root: Hash,
+		scheduling_parent: Hash,
 		reserved2:[u8; 32],
 		para_head: Hash,
 		validation_code_hash: ValidationCodeHash,
@@ -2151,13 +2156,15 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		Self {
 			para_id,
 			relay_parent,
-			version,
+			version: InternalVersion(u8),
 			core_index,
 			session_index,
+			scheduling_session_offset,
 			reserved1,
 			persisted_validation_data_hash,
 			pov_hash,
 			erasure_root,
+			scheduling_parent,
 			reserved2,
 			para_head,
 			validation_code_hash,
@@ -2174,8 +2181,8 @@ pub trait MutateDescriptorV2<H> {
 	fn set_para_id(&mut self, para_id: Id);
 	/// Set the PoV hash of the descriptor.
 	fn set_pov_hash(&mut self, pov_hash: Hash);
-	/// Set the version field of the descriptor.
-	fn set_version(&mut self, version: InternalVersion);
+	/// Set the raw version field of the descriptor.
+	fn set_version(&mut self, version: u8);
 	/// Set the PVD of the descriptor.
 	fn set_persisted_validation_data_hash(&mut self, persisted_validation_data_hash: Hash);
 	/// Set the validation code hash of the descriptor.
@@ -2206,8 +2213,8 @@ impl<H> MutateDescriptorV2<H> for CandidateDescriptorV2<H> {
 		self.pov_hash = pov_hash;
 	}
 
-	fn set_version(&mut self, version: InternalVersion) {
-		self.version = version;
+	fn set_version(&mut self, version: u8) {
+		self.version = InternalVersion(version);
 	}
 
 	fn set_core_index(&mut self, core_index: CoreIndex) {

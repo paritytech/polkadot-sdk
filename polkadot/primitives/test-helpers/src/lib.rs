@@ -26,7 +26,7 @@ use codec::{Decode, Encode};
 use polkadot_primitives::{
 	AppVerify, CandidateCommitments, CandidateDescriptorV2, CandidateHash, CandidateReceiptV2,
 	CollatorId, CollatorSignature, CommittedCandidateReceiptV2, CoreIndex, Hash, HashT, HeadData,
-	Id, Id as ParaId, InternalVersion, MutateDescriptorV2, PersistedValidationData, SessionIndex,
+	Id, Id as ParaId, MutateDescriptorV2, PersistedValidationData, SessionIndex,
 	ValidationCode, ValidationCodeHash, ValidatorId,
 };
 pub use rand;
@@ -211,18 +211,21 @@ where
 impl<H: Copy + AsRef<[u8]>> From<CandidateDescriptor<H>> for CandidateDescriptorV2<H> {
 	fn from(value: CandidateDescriptor<H>) -> Self {
 		let collator = value.collator.as_slice();
+		let signature = value.signature.into_inner().0;
 
 		CandidateDescriptorV2::new_from_raw(
 			value.para_id,
 			value.relay_parent,
-			InternalVersion(collator[0]),
-			u16::from_ne_bytes(clone_into_array(&collator[1..=2])),
-			SessionIndex::from_ne_bytes(clone_into_array(&collator[3..=6])),
-			clone_into_array(&collator[7..]),
+			collator[0],
+			u16::from_ne_bytes(clone_into_array(&collator[1..3])),
+			SessionIndex::from_ne_bytes(clone_into_array(&collator[3..7])),
+			collator[7],
+			clone_into_array(&collator[8..]),
 			value.persisted_validation_data_hash,
 			value.pov_hash,
 			value.erasure_root,
-			value.signature.into_inner().0,
+			Hash::from_slice(&signature[0..32]),
+			clone_into_array(&signature[33..64]),
 			value.para_head,
 			value.validation_code_hash,
 		)
