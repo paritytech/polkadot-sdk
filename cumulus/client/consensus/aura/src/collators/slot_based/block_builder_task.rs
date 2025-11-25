@@ -341,13 +341,6 @@ where
 				},
 			};
 
-			// So the `connection_helper.update` call will never be happen when there is only one
-			// collator. We need to call it here in that case, so the single collator can
-			// preconnect to the backing group.
-			if authorities.len() == 1 {
-				connection_helper.update::<P>(para_slot.slot, &authorities).await;
-			}
-
 			tracing::debug!(
 				target: crate::LOG_TARGET,
 				unincluded_segment_len = parent.depth,
