@@ -58,6 +58,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-conviction-voting/runtime-benchmarks",
+	"pallet-conviction-voting-precompiles/runtime-benchmarks"
 	"pallet-revive/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
