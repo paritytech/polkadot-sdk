@@ -245,6 +245,7 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = frame_support::traits::VariantCountOf<RuntimeFreezeReason>;
 	type DoneSlashHandler = ();
+	type BurnDestination = pallet_dap::ReturnToDap<Runtime>;
 }
 
 parameter_types! {
@@ -1397,6 +1398,9 @@ construct_runtime!(
 		Whitelist: pallet_whitelist = 93,
 		Treasury: pallet_treasury = 94,
 		AssetRate: pallet_asset_rate = 95,
+
+		// Dynamic Allocation Pool / Issuance Buffer
+		Dap: pallet_dap = 100,
 
 		// TODO: the pallet instance should be removed once all pools have migrated
 		// to the new account IDs.

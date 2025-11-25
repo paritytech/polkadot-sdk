@@ -1,0 +1,43 @@
+title: 'Introduce FundingSink trait and pallet-dap for AssetHub'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR introduces the foundation for the Dynamic Allocation Pool (DAP) system:
+
+    1. **FundingSink trait** (frame-support): A new trait for returning funds to an issuance system.
+       Implementations can either burn directly (`DirectBurn`) or return to a buffer for reuse.
+
+    2. **pallet-dap**: A new pallet that implements `FundingSink` by collecting funds into a buffer
+       account instead of burning them. The buffer account is created via `inc_providers` at genesis
+       or on runtime upgrade, ensuring it can receive any amount including those below ED.
+
+    3. **AssetHub Westend integration**: The runtime now uses pallet-dap to redirect:
+       - Treasury unspent funds to the DAP buffer (via `BurnDestination`)
+       - Staking slashes to the DAP buffer (via `SlashToDap`)
+
+    4. **staking-async parachain runtime**: Updated to use DAP for slash handling.
+
+    This is the first deliverable of the DAP system. Future PRs will add:
+    - pallet-dap-satellite for system chains
+    - Integration with other Westend system chains
+    - XCM-based fund transfers from satellites to the DAP buffer
+    - FundingSource trait for pulling funds from DAP
+
+    The `BurnDestination` type in pallet-balances now uses the `FundingSink` trait.
+    Runtimes that don't integrate with DAP should use `DirectBurn<Runtime>` for the same behavior
+    as before.
+crates:
+- name: frame-support
+  bump: minor
+- name: pallet-balances
+  bump: major
+- name: pallet-dap
+  bump: patch
+- name: polkadot-sdk
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: major
+- name: pallet-staking-async
+  bump: patch
+- name: pallet-staking-async-parachain-runtime
+  bump: major

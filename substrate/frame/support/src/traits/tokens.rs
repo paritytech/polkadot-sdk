@@ -19,6 +19,7 @@
 
 pub mod asset_ops;
 pub mod currency;
+pub mod funding;
 pub mod fungible;
 pub mod fungibles;
 pub mod imbalance;
@@ -27,6 +28,7 @@ pub mod nonfungible;
 pub mod nonfungible_v2;
 pub mod nonfungibles;
 pub mod nonfungibles_v2;
+pub use funding::{DirectBurn, FundingSink};
 pub use imbalance::Imbalance;
 pub mod pay;
 pub mod transfer;
