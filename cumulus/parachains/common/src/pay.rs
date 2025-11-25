@@ -44,11 +44,28 @@ pub enum VersionedLocatableAccount {
 	V5 { location: xcm::v5::Location, account_id: xcm::v5::Location },
 }
 
-// Implement FromLocalAccount trait for use with pallet_multi_asset_bounties
-impl pallet_multi_asset_bounties::FromLocalAccount<sp_runtime::AccountId32>
-	for VersionedLocatableAccount
+// Implement Convert trait for use with pallet_multi_asset_bounties
+/// Converter from `AccountId32` to `VersionedLocatableAccount` for use with
+/// `pallet_multi_asset_bounties`.
+///
+/// # Example
+///
+///,ignore
+/// type FundingSource = PalletIdAsFundingSource<
+///     TreasuryPalletId,
+///     Runtime,
+///     AccountIdToVersionedLocatableAccount
+/// >;
+/// ///
+/// # Warning
+/// This conversion fills in default values (location = "here", network = None) which may
+/// be incorrect if the account is from another chain or network.
+pub struct AccountIdToVersionedLocatableAccount;
+
+impl sp_runtime::traits::Convert<sp_runtime::AccountId32, VersionedLocatableAccount>
+	for AccountIdToVersionedLocatableAccount
 {
-	/// Create a `VersionedLocatableAccount` for a local account.
+	/// Convert a local account ID into a `VersionedLocatableAccount`.
 	///
 	/// This assumes the account is on the local chain (`Location::here()`) and has no network
 	/// specification (`network: None`). Only use this when you're certain the account is local.
@@ -56,7 +73,7 @@ impl pallet_multi_asset_bounties::FromLocalAccount<sp_runtime::AccountId32>
 	/// # Warning
 	/// This conversion fills in default values (location = "here", network = None) which may
 	/// be incorrect if the account is from another chain or network.
-	fn from_local_account(account_id: sp_runtime::AccountId32) -> Self {
+	fn convert(account_id: sp_runtime::AccountId32) -> VersionedLocatableAccount {
 		VersionedLocatableAccount::V5 {
 			location: Location::here(),
 			account_id: Location::new(

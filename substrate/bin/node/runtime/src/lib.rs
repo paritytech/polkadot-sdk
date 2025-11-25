@@ -968,7 +968,7 @@ parameter_types! {
 	pub const MaxPointsToBalance: u8 = 10;
 }
 
-use sp_runtime::traits::{Convert, Keccak256};
+use sp_runtime::traits::{Convert, Identity, Keccak256};
 pub struct BalanceToU256;
 impl Convert<Balance, sp_core::U256> for BalanceToU256 {
 	fn convert(balance: Balance) -> sp_core::U256 {
@@ -1425,11 +1425,11 @@ impl pallet_multi_asset_bounties::Config for Runtime {
 	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
 	type WeightInfo = pallet_multi_asset_bounties::weights::SubstrateWeight<Runtime>;
 	type FundingSource =
-		pallet_multi_asset_bounties::PalletIdAsFundingSource<TreasuryPalletId, Runtime>;
+		pallet_multi_asset_bounties::PalletIdAsFundingSource<TreasuryPalletId, Runtime, Identity>;
 	type BountySource =
-		pallet_multi_asset_bounties::BountySourceFromPalletId<TreasuryPalletId, Runtime>;
+		pallet_multi_asset_bounties::BountySourceFromPalletId<TreasuryPalletId, Runtime, Identity>;
 	type ChildBountySource =
-		pallet_multi_asset_bounties::ChildBountySourceFromPalletId<TreasuryPalletId, Runtime>;
+		pallet_multi_asset_bounties::ChildBountySourceFromPalletId<TreasuryPalletId, Runtime, Identity>;
 	type Paymaster = PayWithFungibles<NativeAndAssets, AccountId>;
 	type BalanceConverter = AssetRate;
 	type Preimages = Preimage;

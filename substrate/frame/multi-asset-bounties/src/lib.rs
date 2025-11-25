@@ -1824,34 +1824,25 @@ where
 	}
 }
 
-/// Trait for converting a local `AccountId` into a `Beneficiary`.
-///
-/// This trait is used instead of `From<AccountId>` to allow explicit handling of local account
-/// conversions, particularly for types like `VersionedLocatableAccount` where the conversion
-/// makes assumptions about the account being local.
-pub trait FromLocalAccount<AccountId> {
-	/// Convert a local account ID into a beneficiary.
-	///
-	/// # Warning
-	/// This assumes the account is on the local chain. Only use when you're certain the account
-	/// is local.
-	fn from_local_account(account_id: AccountId) -> Self;
-}
-
 /// Derives the funding `AccountId` from the `PalletId` and converts it into the
 /// bounty `Beneficiary`, used as the source of bounty funds.
 ///
 /// Used when the [`PalletId`] itself owns the funds (i.e. pallet-treasury id).
-pub struct PalletIdAsFundingSource<Id, T, I = ()>(PhantomData<(Id, T, I)>);
-impl<Id, T, I> TryConvert<T::AssetKind, T::Beneficiary> for PalletIdAsFundingSource<Id, T, I>
+/// # Type Parameters
+/// - `Id`: The pallet ID getter
+/// - `T`: The pallet configuration
+/// - `C`: Converter from `T::AccountId` to `T::Beneficiary`. Use `Identity` when types are the same.
+/// - `I`: Instance parameter (default: `()`)
+pub struct PalletIdAsFundingSource<Id, T, C, I = ()>(PhantomData<(Id, T, C, I)>);
+impl<Id, T, C, I> TryConvert<T::AssetKind, T::Beneficiary> for PalletIdAsFundingSource<Id, T, C, I>
 where
 	Id: Get<PalletId>,
 	T: crate::Config<I>,
-	T::Beneficiary: FromLocalAccount<T::AccountId>,
+	C: Convert<T::AccountId, T::Beneficiary>,
 {
 	fn try_convert(_asset_kind: T::AssetKind) -> Result<T::Beneficiary, T::AssetKind> {
 		let account: T::AccountId = Id::get().into_account_truncating();
-		Ok(T::Beneficiary::from_local_account(account))
+		Ok(C::convert(account))
 	}
 }
 
@@ -1859,19 +1850,24 @@ where
 /// then converts it into the corresponding bounty `Beneficiary`.
 ///
 /// Used when the [`PalletId`] itself owns the funds (i.e. pallet-treasury id).
-pub struct BountySourceFromPalletId<Id, T, I = ()>(PhantomData<(Id, T, I)>);
-impl<Id, T, I> TryConvert<(BountyIndex, T::AssetKind), T::Beneficiary>
-	for BountySourceFromPalletId<Id, T, I>
+/// # Type Parameters
+/// - `Id`: The pallet ID getter
+/// - `T`: The pallet configuration
+/// - `C`: Converter from `T::AccountId` to `T::Beneficiary`. Use `Identity` when types are the same.
+/// - `I`: Instance parameter (default: `()`)
+pub struct BountySourceFromPalletId<Id, T, C, I = ()>(PhantomData<(Id, T, C, I)>);
+impl<Id, T, C, I> TryConvert<(BountyIndex, T::AssetKind), T::Beneficiary>
+	for BountySourceFromPalletId<Id, T, C, I>
 where
 	Id: Get<PalletId>,
 	T: crate::Config<I>,
-	T::Beneficiary: FromLocalAccount<T::AccountId>,
+	C: Convert<T::AccountId, T::Beneficiary>,
 {
 	fn try_convert(
 		(parent_bounty_id, _asset_kind): (BountyIndex, T::AssetKind),
 	) -> Result<T::Beneficiary, (BountyIndex, T::AssetKind)> {
 		let account: T::AccountId = Id::get().into_sub_account_truncating(("bt", parent_bounty_id));
-		Ok(T::Beneficiary::from_local_account(account))
+		Ok(C::convert(account))
 	}
 }
 
@@ -1879,13 +1875,18 @@ where
 /// and the child index, then converts it into the child-bounty `Beneficiary`.
 ///
 /// Used when the [`PalletId`] itself owns the funds (i.e. pallet-treasury id).
-pub struct ChildBountySourceFromPalletId<Id, T, I = ()>(PhantomData<(Id, T, I)>);
-impl<Id, T, I> TryConvert<(BountyIndex, BountyIndex, T::AssetKind), T::Beneficiary>
-	for ChildBountySourceFromPalletId<Id, T, I>
+/// # Type Parameters
+/// - `Id`: The pallet ID getter
+/// - `T`: The pallet configuration
+/// - `C`: Converter from `T::AccountId` to `T::Beneficiary`. Use `Identity` when types are the same.
+/// - `I`: Instance parameter (default: `()`)
+pub struct ChildBountySourceFromPalletId<Id, T, C, I = ()>(PhantomData<(Id, T, C, I)>);
+impl<Id, T, C, I> TryConvert<(BountyIndex, BountyIndex, T::AssetKind), T::Beneficiary>
+	for ChildBountySourceFromPalletId<Id, T, C, I>
 where
 	Id: Get<PalletId>,
 	T: crate::Config<I>,
-	T::Beneficiary: FromLocalAccount<T::AccountId>,
+	C: Convert<T::AccountId, T::Beneficiary>,
 {
 	fn try_convert(
 		(parent_bounty_id, child_bounty_id, _asset_kind): (BountyIndex, BountyIndex, T::AssetKind),
@@ -1894,6 +1895,6 @@ where
 		// parent and child is same.
 		let account: T::AccountId =
 			Id::get().into_sub_account_truncating(("cb", parent_bounty_id, child_bounty_id));
-		Ok(T::Beneficiary::from_local_account(account))
+		Ok(C::convert(account))
 	}
 }
