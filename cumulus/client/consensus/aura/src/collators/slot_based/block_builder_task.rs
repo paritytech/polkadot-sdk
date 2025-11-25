@@ -293,7 +293,7 @@ where
 			};
 
 			// Temp hack to ensure we use only 1 core per RCB.
-			slot_timer.update_scheduling(1);
+			slot_timer.update_scheduling(3);
 
 			// We mainly call this to inform users at genesis if there is a mismatch with the
 			// on-chain data.
