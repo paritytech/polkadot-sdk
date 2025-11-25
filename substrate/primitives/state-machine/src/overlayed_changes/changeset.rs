@@ -134,8 +134,11 @@ impl StorageEntry {
 		}
 	}
 
-	/// todo.... -> think abou this?
-	fn as_option_xxx(&self) -> Option<&StorageValue> {
+	/// Returns reference to value without materializing.
+	///
+	/// For `Append` entries, the caller must ensure entries have been materialized first,
+	/// otherwise the returned data may be in an inconsistent state.
+	fn as_option_ref(&self) -> Option<&StorageValue> {
 		match self {
 			StorageEntry::Append { data, .. } | StorageEntry::Set(data) => Some(data),
 			StorageEntry::Remove => None,
@@ -746,22 +749,24 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
 }
 
 impl OverlayedChangeSet {
-	pub fn changes_mut2(
+	/// Returns changes for the given delta keys, materializing any `Append` entries first.
+	pub fn changes_for_delta_keys(
 		&mut self,
 		keys: &storage_key_delta_tracker::DeltaKeys<StorageKey>,
 	) -> Vec<(&StorageKey, Option<&StorageValue>)> {
+		// First pass: materialize any Append entries
 		for key in keys {
 			if let Some(entry) = self.changes.get_mut(key.1) {
-				// materialize...
 				let _trigger = entry.value();
 			}
 		}
 
+		// Second pass: collect references (safe now that entries are materialized)
 		keys.iter()
 			.filter_map(|key| {
 				self.changes
 					.get_key_value(key.1)
-					.and_then(|(map_key, entry)| Some((map_key, entry.value_ref().as_option_xxx())))
+					.and_then(|(map_key, entry)| Some((map_key, entry.value_ref().as_option_ref())))
 			})
 			.collect()
 	}
