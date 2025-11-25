@@ -208,7 +208,7 @@ where
 
 	/// Returns true if there are no authorities stored in the tracker.
 	pub fn is_empty(&self) -> bool {
-		self.authorities.read().iter().next().is_none()
+		self.authorities.read().is_empty()
 	}
 
 	fn prune_finalized(&self) -> Result<(), String> {

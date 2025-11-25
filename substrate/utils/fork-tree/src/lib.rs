@@ -184,6 +184,11 @@ where
 		self.node_iter().map(|node| (&node.hash, &node.number, &node.data))
 	}
 
+	/// Checks if the tree is empty.
+	pub fn is_empty(&self) -> bool {
+		self.iter().next().is_none()
+	}
+
 	/// Map fork tree into values of new types.
 	///
 	/// Tree traversal technique (e.g. BFS vs DFS) is left as not specified and
@@ -865,7 +870,7 @@ mod test {
 		//     +---B-c-C---D---E
 		//     |
 		//     |   +---G
-		//     |   | 
+		//     |   |
 		// 0---A---F---H---I
 		//     |       |
 		//     |       +---L-m-M---N
