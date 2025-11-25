@@ -27,10 +27,7 @@ use cumulus_client_collator::service::CollatorService;
 use cumulus_client_consensus_aura::{
 	collators::{
 		lookahead::{self as aura, Params as AuraParams},
-		slot_based::{
-			self as slot_based, Params as SlotBasedParams, SlotBasedBlockImport,
-			SlotBasedBlockImportHandle,
-		},
+		slot_based::{self as slot_based, Params as SlotBasedParams, SlotBasedBlockImport},
 	},
 	ImportQueueParams,
 };
@@ -169,7 +166,7 @@ pub type Service = PartialComponents<
 	(),
 	sc_consensus::import_queue::BasicQueue<Block>,
 	sc_transaction_pool::TransactionPoolHandle<Block, Client>,
-	(ParachainBlockImport, SlotBasedBlockImportHandle<Block>),
+	ParachainBlockImport,
 >;
 
 /// Starts a `ServiceBuilder` for a full service.
@@ -202,8 +199,7 @@ pub fn new_partial(
 		)?;
 	let client = Arc::new(client);
 
-	let (block_import, slot_based_handle) =
-		SlotBasedBlockImport::new(client.clone(), client.clone());
+	let block_import = SlotBasedBlockImport::new(client.clone(), client.clone());
 	let block_import = ParachainBlockImport::new(block_import, backend.clone());
 
 	let transaction_pool = Arc::from(
@@ -247,7 +243,7 @@ pub fn new_partial(
 		task_manager,
 		transaction_pool,
 		select_chain: (),
-		other: (block_import, slot_based_handle),
+		other: block_import,
 	};
 
 	Ok(params)
@@ -331,8 +327,7 @@ where
 	let client = params.client.clone();
 	let backend = params.backend.clone();
 
-	let block_import = params.other.0;
-	let slot_based_handle = params.other.1;
+	let block_import = params.other;
 	let relay_chain_interface = build_relay_chain_interface(
 		relay_chain_config,
 		parachain_config.prometheus_registry(),
@@ -472,7 +467,6 @@ where
 				collator_service,
 				reinitialize: false,
 				slot_offset: Duration::from_secs(1),
-				block_import_handle: slot_based_handle,
 				spawner: task_manager.spawn_essential_handle(),
 				export_pov: None,
 				max_pov_percentage: None,

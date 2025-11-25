@@ -175,12 +175,6 @@ macro_rules! decl_extension {
 			pub fn type_id() -> core::any::TypeId {
 				core::any::TypeId::of::<Self>()
 			}
-
-			$(
-				$(
-					$impls
-				)*
-			)*
 		}
 
 		impl core::ops::Deref for $ext_name {
