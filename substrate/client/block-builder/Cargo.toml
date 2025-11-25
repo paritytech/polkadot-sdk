@@ -24,7 +24,6 @@ sp-core = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
-tracing = { workspace = true }
 
 [dev-dependencies]
 sp-state-machine = { workspace = true, default-features = true }
