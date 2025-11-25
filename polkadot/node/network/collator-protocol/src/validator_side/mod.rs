@@ -1501,13 +1501,12 @@ where
 			.await
 			.map_err(Error::CancelledSessionIndex)??;
 
-		let v2_receipts = request_node_features(*leaf, session_index, sender)
+		let v2_receipts = node_features::FeatureIndex::CandidateReceiptV2::is_set(
+			request_node_features(*leaf, session_index, sender)
 			.await
 			.await
 			.map_err(Error::CancelledNodeFeatures)??
-			.get(node_features::FeatureIndex::CandidateReceiptV2 as usize)
-			.map(|b| *b)
-			.unwrap_or(false);
+		);
 
 		let Some(per_relay_parent) = construct_per_relay_parent(
 			sender,

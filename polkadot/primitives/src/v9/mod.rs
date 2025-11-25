@@ -2135,7 +2135,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		Self {
 			para_id,
 			relay_parent,
-			version: InternalVersion(u8),
+			version: InternalVersion(version),
 			core_index,
 			session_index,
 			scheduling_session_offset,
