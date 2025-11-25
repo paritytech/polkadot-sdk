@@ -1275,7 +1275,7 @@ mod tests {
 			"Sorted and unsorted should encode differently"
 		);
 
-		// Ensure that we can verify the signature successfully. 
+		// Ensure that we can verify the signature successfully.
 		assert_eq!(
 			<Ex as Checkable<TestContext>>::check(decoded_ux, &Default::default())
 				.unwrap()
