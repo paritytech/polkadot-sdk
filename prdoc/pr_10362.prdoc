@@ -1,0 +1,28 @@
+title: 'net/peerset: Optimize substream opening duration for `SetReservedPeers`'
+doc:
+- audience: Node Dev
+  description: |-
+    While triaging the Versi-net, I've discovered that the connection between collators and validators sometimes takes less than 20ms, while at other times it takes more than 500ms.
+
+    In both cases, the validators are already connected to a different protocol. Therefore, opening and negotiating substreams must be almost instant.
+
+    The slot timer of the peerset artificially introduces the delay:
+    - The `SetReservedPeers` is received by the peerset. At this step, the peerset propagated the `closedSubstream` to signal that it wants to disconnect previously reserved peers.
+    - At the next slot allocation timer tick (after 1s), the newly added reserved peers are requested to be connected
+
+    This can introduce an artificial delay of up to 1s, which is unnecessary.
+
+    To mitigate this behavior, this PR:
+    - Transforms the ` enum PeersetNotificationCommand` into a structure. Effectively, the peerset can specify directly to close some substreams and open other substreams
+    - Upon receiving the `SetReservedPeers` command, peers are moved into the `Opening` state and the request is propagated to the litep2p to open substreams.
+    - The behavior of the slot allocation timer remains identical. This is needed to capture the following edge cases:
+      - The reserved peer of the  `SetReservedPeers` is not disconnected, but backoff / pending closing.
+      - The reserved peer is banned
+
+    cc @paritytech/networking
+
+    Detected during versi-net triaging of elastic scaling: https://github.com/paritytech/polkadot-sdk/issues/10310#issuecomment-3543395157
+crates:
+- name: sc-network
+  bump: patch
+
