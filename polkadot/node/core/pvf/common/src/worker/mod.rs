@@ -81,7 +81,40 @@ macro_rules! decl_worker_main {
 					println!("{}", get_full_version());
 					return
 				},
-
+				"--check-all" => {
+					#[cfg(target_os = "linux")]
+					let mut status = 0;
+					#[cfg(target_os = "linux")]
+					if let Err(err) = security::landlock::check_can_fully_enable() {
+						eprintln!("{}", err);
+						status = -1;
+					}
+					#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+					if let Err(err) = security::seccomp::check_can_fully_enable() {
+						eprintln!("{}", err);
+						status = -1;
+					}
+					#[cfg(target_os = "linux")]
+					{
+						let cache_path_tempdir = std::path::Path::new(&args[2]);
+						if let Err(err) =
+							security::change_root::check_can_fully_enable(&cache_path_tempdir)
+						{
+							eprintln!("{}", err);
+							status = -1;
+						}
+					}
+					#[cfg(target_os = "linux")]
+					// SAFETY: new process is spawned within a single threaded process. This
+					// invariant is enforced by tests.
+					if let Err(err) = unsafe { security::clone::check_can_fully_clone() } {
+						eprintln!("{}", err);
+						status = -1;
+					}
+					#[cfg(not(target_os = "linux"))]
+					let status = -1;
+					std::process::exit(status)
+				},
 				"--check-can-enable-landlock" => {
 					#[cfg(target_os = "linux")]
 					let status = if let Err(err) = security::landlock::check_can_fully_enable() {
