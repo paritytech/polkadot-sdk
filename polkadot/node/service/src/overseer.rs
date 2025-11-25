@@ -135,7 +135,7 @@ pub struct ExtendedOverseerGenArgs {
 	pub candidate_req_v2_receiver: IncomingRequestReceiver<request_v2::AttestedCandidateRequest>,
 	/// Configuration for the approval voting subsystem.
 	pub approval_voting_config: ApprovalVotingConfig,
-	pub consensus_statistics_collector_config: RewardsStatisticsCollectorConfig,
+	pub rewards_statistics_collector_config: RewardsStatisticsCollectorConfig,
 	/// Receiver for incoming disputes.
 	pub dispute_req_receiver: IncomingRequestReceiver<request_v1::DisputeRequest>,
 	/// Configuration for the dispute coordinator subsystem.
@@ -186,7 +186,7 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		fetch_chunks_threshold,
 		invulnerable_ah_collators,
 		collator_protocol_hold_off,
-		consensus_statistics_collector_config,
+		rewards_statistics_collector_config,
 	}: ExtendedOverseerGenArgs,
 ) -> Result<
 	InitializedOverseerBuilder<
@@ -358,9 +358,9 @@ where
 		))
 		.chain_selection(ChainSelectionSubsystem::new(chain_selection_config, parachains_db))
 		.prospective_parachains(ProspectiveParachainsSubsystem::new(Metrics::register(registry)?))
-		.consensus_statistics_collector(RewardsStatisticsCollector::new(
+		.rewards_statistics_collector(RewardsStatisticsCollector::new(
 			Metrics::register(registry)?,
-			consensus_statistics_collector_config,
+			rewards_statistics_collector_config,
 		))
 		.activation_external_listeners(Default::default())
 		.active_leaves(Default::default())
@@ -508,7 +508,7 @@ where
 		.dispute_distribution(DummySubsystem)
 		.chain_selection(DummySubsystem)
 		.prospective_parachains(DummySubsystem)
-		.consensus_statistics_collector(DummySubsystem)
+		.rewards_statistics_collector(DummySubsystem)
 		.activation_external_listeners(Default::default())
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_client)

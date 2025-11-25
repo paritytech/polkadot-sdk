@@ -668,7 +668,7 @@ pub struct Overseer<SupportsParachains> {
 		RuntimeApiMessage,
 		ChainApiMessage,
 	])]
-	consensus_statistics_collector: ConsensusStatisticsCollector,
+	rewards_statistics_collector: RewardsStatisticsCollector,
 
 	/// External listeners waiting for a hash to be in the active-leave set.
 	pub activation_external_listeners: HashMap<Hash, Vec<oneshot::Sender<SubsystemResult<()>>>>,

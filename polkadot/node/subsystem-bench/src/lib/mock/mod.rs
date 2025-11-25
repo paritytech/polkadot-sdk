@@ -71,7 +71,7 @@ macro_rules! dummy_builder {
 			.gossip_support(MockGossipSupport {})
 			.dispute_distribution(MockDisputeDistribution {})
 			.prospective_parachains(MockProspectiveParachains {})
-			.consensus_statistics_collector(MockConsensusStatisticsCollector {})
+			.rewards_statistics_collector(MockRewardsStatisticsCollector {})
 			.activation_external_listeners(Default::default())
 			.active_leaves(Default::default())
 			.metrics($metrics)

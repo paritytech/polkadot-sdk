@@ -99,4 +99,4 @@ mock!(ApprovalVoting);
 mock!(ApprovalVotingParallel);
 mock!(ApprovalDistribution);
 mock!(RuntimeApi);
-mock!(ConsensusStatisticsCollector);
+mock!(RewardsStatisticsCollector);

@@ -154,7 +154,7 @@ pub struct RewardsStatisticsCollector {
 }
 
 impl RewardsStatisticsCollector {
-    /// Create a new instance of the `ConsensusStatisticsCollector`.
+    /// Create a new instance of the `RewardsStatisticsCollector`.
     pub fn new(metrics: Metrics, config: Config) -> Self {
         Self {
             metrics,
@@ -163,7 +163,7 @@ impl RewardsStatisticsCollector {
     }
 }
 
-#[overseer::subsystem(ConsensusStatisticsCollector, error = SubsystemError, prefix = self::overseer)]
+#[overseer::subsystem(RewardsStatisticsCollector, error = SubsystemError, prefix = self::overseer)]
 impl<Context> RewardsStatisticsCollector
 where
     Context: Send + Sync,
@@ -178,7 +178,7 @@ where
     }
 }
 
-#[overseer::contextbounds(ConsensusStatisticsCollector, prefix = self::overseer)]
+#[overseer::contextbounds(RewardsStatisticsCollector, prefix = self::overseer)]
 async fn run<Context>(mut ctx: Context, metrics: (Metrics, bool)) -> FatalResult<()> {
     let mut view = View::new();
     loop {
@@ -189,7 +189,7 @@ async fn run<Context>(mut ctx: Context, metrics: (Metrics, bool)) -> FatalResult
     }
 }
 
-#[overseer::contextbounds(ConsensusStatisticsCollector, prefix = self::overseer)]
+#[overseer::contextbounds(RewardsStatisticsCollector, prefix = self::overseer)]
 pub(crate) async fn run_iteration<Context>(
     ctx: &mut Context,
     view: &mut View,
@@ -429,7 +429,7 @@ fn prune_unfinalised_forks(view: &mut View, fin_block_hash: Hash) -> Vec<Hash> {
 // prune_old_session_views avoid the per_session mapping to grow
 // indefinitely by removing sessions stored for more than MAX_SESSIONS_TO_KEEP (2)
 // finalized sessions.
-#[overseer::contextbounds(ConsensusStatisticsCollector, prefix = self::overseer)]
+#[overseer::contextbounds(RewardsStatisticsCollector, prefix = self::overseer)]
 async fn prune_old_session_views<Context>(
     ctx: &mut Context,
     view: &mut View,

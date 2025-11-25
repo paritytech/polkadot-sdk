@@ -443,7 +443,7 @@ where
 				},
 			};
 
-			let consensus_statistics_collector_config = RewardsStatisticsCollectorConfig{
+			let rewards_statistics_collector_config = RewardsStatisticsCollectorConfig{
 				verbose_approval_metrics,
 			};
 
@@ -463,7 +463,7 @@ where
 				fetch_chunks_threshold,
 				invulnerable_ah_collators,
 				collator_protocol_hold_off,
-				consensus_statistics_collector_config,
+				rewards_statistics_collector_config,
 			})
 		};
 

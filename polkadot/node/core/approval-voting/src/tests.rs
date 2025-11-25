@@ -707,7 +707,7 @@ async fn import_approval(
 	if let Some(expected_stats_collected) = expected_approvals_stats_collected {
 		assert_matches!(
 			overseer_recv(overseer).await,
-			AllMessages::ConsensusStatisticsCollector(
+			AllMessages::RewardsStatisticsCollector(
 				RewardsStatisticsCollectorMessage::CandidateApproved(
 					c_hash, b_hash, validators,
 				)
@@ -3857,7 +3857,7 @@ fn pre_covers_dont_stall_approval() {
 
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::ConsensusStatisticsCollector(RewardsStatisticsCollectorMessage::CandidateApproved(
+			AllMessages::RewardsStatisticsCollector(RewardsStatisticsCollectorMessage::CandidateApproved(
 				c_hash, b_hash, validators,
 			)) => {
 				assert_eq!(b_hash, block_hash);
@@ -3868,7 +3868,7 @@ fn pre_covers_dont_stall_approval() {
 
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::ConsensusStatisticsCollector(RewardsStatisticsCollectorMessage::NoShows(
+			AllMessages::RewardsStatisticsCollector(RewardsStatisticsCollectorMessage::NoShows(
 				c_hash, b_hash, validators
 			)) => {
 				assert_eq!(b_hash, block_hash);
@@ -4044,7 +4044,7 @@ fn waits_until_approving_assignments_are_old_enough() {
 
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::ConsensusStatisticsCollector(
+			AllMessages::RewardsStatisticsCollector(
 				RewardsStatisticsCollectorMessage::CandidateApproved(
 					c_hash, b_hash, validators
 				)
