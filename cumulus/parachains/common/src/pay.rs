@@ -141,7 +141,8 @@ impl<A, F, C> LocalPay<F, A, C> {
 		let account_id = match who {
 			VersionedLocatableAccount::V4 { location, account_id } if location.is_here() =>
 				&account_id.clone().try_into().map_err(|_| ())?,
-			VersionedLocatableAccount::V5 { location, account_id } if location.is_here() => account_id,
+			VersionedLocatableAccount::V5 { location, account_id } if location.is_here() =>
+				account_id,
 			_ => return Err(()),
 		};
 		C::convert_location(account_id).ok_or(())
@@ -177,8 +178,7 @@ where
 		asset: Self::AssetKind,
 		amount: Self::Balance,
 	) -> Result<Self::Id, Self::Error> {
-		let source =
-			Self::match_location::<A>(source).map_err(|_| DispatchError::Unavailable)?;
+		let source = Self::match_location::<A>(source).map_err(|_| DispatchError::Unavailable)?;
 		let who = Self::match_location::<A>(who).map_err(|_| DispatchError::Unavailable)?;
 		let asset = Self::match_asset(&asset).map_err(|_| DispatchError::Unavailable)?;
 		<F as fungibles::Mutate<_>>::transfer(

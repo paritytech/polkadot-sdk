@@ -1428,8 +1428,11 @@ impl pallet_multi_asset_bounties::Config for Runtime {
 		pallet_multi_asset_bounties::PalletIdAsFundingSource<TreasuryPalletId, Runtime, Identity>;
 	type BountySource =
 		pallet_multi_asset_bounties::BountySourceFromPalletId<TreasuryPalletId, Runtime, Identity>;
-	type ChildBountySource =
-		pallet_multi_asset_bounties::ChildBountySourceFromPalletId<TreasuryPalletId, Runtime, Identity>;
+	type ChildBountySource = pallet_multi_asset_bounties::ChildBountySourceFromPalletId<
+		TreasuryPalletId,
+		Runtime,
+		Identity,
+	>;
 	type Paymaster = PayWithFungibles<NativeAndAssets, AccountId>;
 	type BalanceConverter = AssetRate;
 	type Preimages = Preimage;

@@ -218,7 +218,8 @@ impl Config<Instance1> for Test {
 	type WeightInfo = ();
 	type FundingSource = PalletIdAsFundingSource<BountyPalletId2, Test, Identity, Instance1>;
 	type BountySource = BountySourceFromPalletId<BountyPalletId2, Test, Identity, Instance1>;
-	type ChildBountySource = ChildBountySourceFromPalletId<BountyPalletId2, Test, Identity, Instance1>;
+	type ChildBountySource =
+		ChildBountySourceFromPalletId<BountyPalletId2, Test, Identity, Instance1>;
 	type Paymaster = TestBountiesPay;
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type Preimages = Preimage;
