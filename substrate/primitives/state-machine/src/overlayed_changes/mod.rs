@@ -109,9 +109,6 @@ pub struct OverlayedChanges<H: Hasher> {
 	///
 	/// This transaction can be applied to the backend to persist the state changes.
 	storage_transaction_cache: Option<StorageTransactionCache<H>>,
-
-	/// Flag indicating whether PoV size estimation for storage root has been computed.
-	pov_estimation_computed: Option<()>,
 }
 
 impl<H: Hasher> Default for OverlayedChanges<H> {
@@ -124,7 +121,6 @@ impl<H: Hasher> Default for OverlayedChanges<H> {
 			collect_extrinsics: Default::default(),
 			stats: Default::default(),
 			storage_transaction_cache: None,
-			pov_estimation_computed: None,
 		}
 	}
 }
@@ -139,7 +135,6 @@ impl<H: Hasher> Clone for OverlayedChanges<H> {
 			collect_extrinsics: self.collect_extrinsics,
 			stats: self.stats.clone(),
 			storage_transaction_cache: self.storage_transaction_cache.clone(),
-			pov_estimation_computed: self.pov_estimation_computed.clone(),
 		}
 	}
 }
@@ -308,7 +303,6 @@ impl<H: Hasher> OverlayedChanges<H> {
 	/// `storage_transaction_cache`.
 	fn mark_dirty(&mut self) {
 		self.storage_transaction_cache = None;
-		self.pov_estimation_computed = None;
 	}
 
 	/// Returns a double-Option: None if the key is unknown (i.e. and the query should be referred
@@ -693,14 +687,8 @@ impl<H: Hasher> OverlayedChanges<H> {
 	) where
 		H::Out: Ord + Encode + codec::Codec,
 	{
-		if self.pov_estimation_computed.is_some() {
-			crate::debug!(target: "overlayed_changes", "compute_pov_size_for_storage_root (cache)");
-			return;
-		}
 		#[cfg(feature = "std")]
 		let start = std::time::Instant::now();
-
-		crate::debug!(target: "overlayed_changes", "compute_pov_size_for_storage_root (non-cache)");
 
 		let snapshot = self.top.take_delta();
 
@@ -725,8 +713,6 @@ impl<H: Hasher> OverlayedChanges<H> {
 			});
 
 			backend.compute_pov_size_for_storage_root_full(delta, child_delta, state_version);
-
-			self.pov_estimation_computed = Some(());
 		};
 
 		#[cfg(feature = "std")]
