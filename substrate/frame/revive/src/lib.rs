@@ -48,7 +48,7 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		block_hash::EthereumBlockBuilderIR, block_storage, create_call, fees::InfoT as FeeInfo,
+		block_hash::EthereumBlockBuilderIR, block_storage, fees::InfoT as FeeInfo,
 		runtime::SetWeightLimit, CallTracer, CreateCallMode, GenericTransaction, PrestateTracer,
 		Trace, Tracer, TracerType, TYPE_EIP1559,
 	},
@@ -1765,7 +1765,7 @@ impl<T: Config> Pallet<T> {
 			tx.chain_id = Some(T::ChainId::get().into());
 		}
 
-		// create_call expects tx.gas_price to be the effective gas price
+		// tx.into_call expects tx.gas_price to be the effective gas price
 		tx.gas_price = Some(effective_gas_price);
 		tx.max_priority_fee_per_gas = Some(0.into());
 		if tx.max_fee_per_gas.is_none() {
@@ -1788,7 +1788,8 @@ impl<T: Config> Pallet<T> {
 
 		// we need to parse the weight from the transaction so that it is run
 		// using the exact weight limit passed by the eth wallet
-		let mut call_info = create_call::<T>(tx, CreateCallMode::DryRun)
+		let mut call_info = tx
+			.into_call::<T>(CreateCallMode::DryRun)
 			.map_err(|err| EthTransactError::Message(format!("Invalid call: {err:?}")))?;
 
 		// the dry-run might leave out certain fields
@@ -2446,6 +2447,9 @@ impl<T: Config> Pallet<T> {
 	///
 	/// This enforces EIP-3607.
 	fn ensure_non_contract_if_signed(origin: &OriginFor<T>) -> DispatchResult {
+		if DebugSettings::bypass_eip_3607::<T>() {
+			return Ok(())
+		}
 		let Some(address) = origin
 			.as_system_ref()
 			.and_then(|o| o.as_signed())

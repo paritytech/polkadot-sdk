@@ -25,9 +25,9 @@ use sp_core::{H160, H256, U256};
 
 /// A Tracer that reports logs and nested call traces transactions.
 #[derive(Default, Debug, Clone, PartialEq)]
-pub struct CallTracer<Gas> {
+pub struct CallTracer {
 	/// Store all in-progress CallTrace instances.
-	traces: Vec<CallTrace<Gas>>,
+	traces: Vec<CallTrace<U256>>,
 	/// Stack of indices to the current active traces.
 	current_stack: Vec<usize>,
 	/// The code and salt used to instantiate the next contract.
@@ -36,19 +36,19 @@ pub struct CallTracer<Gas> {
 	config: CallTracerConfig,
 }
 
-impl<Gas> CallTracer<Gas> {
+impl CallTracer {
 	/// Create a new [`CallTracer`] instance.
 	pub fn new(config: CallTracerConfig) -> Self {
 		Self { traces: Vec::new(), code_with_salt: None, current_stack: Vec::new(), config }
 	}
 
 	/// Collect the traces and return them.
-	pub fn collect_trace(mut self) -> Option<CallTrace<Gas>> {
+	pub fn collect_trace(mut self) -> Option<CallTrace> {
 		self.traces.pop()
 	}
 }
 
-impl Tracing for CallTracer<U256> {
+impl Tracing for CallTracer {
 	fn instantiate_code(&mut self, code: &Code, salt: Option<&[u8; 32]>) {
 		self.code_with_salt = Some((code.clone(), salt.is_some()));
 	}

@@ -18,6 +18,17 @@ on:
         description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcX
         type: string
 
+  workflow_call:
+    inputs:
+      binary:
+        description: Binary to be build for the release
+        default: all
+        type: string
+      release_tag:
+        description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcX
+        type: string
+        required: true
+
 
 jobs:
 

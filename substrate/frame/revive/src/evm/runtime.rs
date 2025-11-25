@@ -18,7 +18,6 @@
 use crate::{
 	evm::{
 		api::{GenericTransaction, TransactionSigned},
-		create_call,
 		fees::InfoT,
 		CreateCallMode,
 	},
@@ -315,10 +314,10 @@ pub trait EthExtra {
 		})?;
 
 		log::debug!(target: LOG_TARGET, "Decoded Ethereum transaction with signer: {signer_addr:?} nonce: {nonce:?}");
-		let call_info = create_call::<Self::Config>(
-			tx,
-			CreateCallMode::ExtrinsicExecution(encoded_len as u32, payload.to_vec()),
-		)?;
+		let call_info = tx.into_call::<Self::Config>(CreateCallMode::ExtrinsicExecution(
+			encoded_len as u32,
+			payload.to_vec(),
+		))?;
 		let storage_credit = <Self::Config as Config>::Currency::withdraw(
 			&signer,
 			call_info.storage_deposit,

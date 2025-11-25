@@ -325,6 +325,7 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Charges the weight meter with the given token or halts execution if not enough weight is
 	/// left.
+	#[inline]
 	fn charge_or_halt<Tok: Token<Self::T>>(
 		&mut self,
 		token: Tok,
@@ -2234,6 +2235,7 @@ where
 		&self.top_frame().frame_meter
 	}
 
+	#[inline]
 	fn gas_meter_mut(&mut self) -> &mut FrameMeter<Self::T> {
 		&mut self.top_frame_mut().frame_meter
 	}
