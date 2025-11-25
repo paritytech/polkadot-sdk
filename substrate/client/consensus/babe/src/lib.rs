@@ -1475,20 +1475,9 @@ where
 		if info.block_gap.map_or(false, |gap| gap.start <= number && number <= gap.end) ||
 			block_status == BlockStatus::InChain
 		{
-			// TODO: it seems to work this way
-			// Calculate the weight of the block in case it is missing.
-			// let stored_weight = aux_schema::load_block_weight(&*self.client, hash)
-			// 	.map_err(|e| ConsensusError::ClientImport(e.to_string()))?;
-			// If the stored weight is missing, it means it was skipped when the block was first
-			// imported. It needs to happen again, along with epoch change tracking.
-
-			// if stored_weight.is_some() {
-			// When re-importing existing block strip away intermediates.
-			// In case of initial sync intermediates should not be present...
 			let _ = block.remove_intermediate::<BabeIntermediate<Block>>(INTERMEDIATE_KEY);
 			block.fork_choice = Some(ForkChoiceStrategy::Custom(false));
 			return self.inner.import_block(block).await.map_err(Into::into)
-			// }
 		}
 
 		if block.with_state() {
