@@ -229,7 +229,7 @@ mod benchmarks {
 	fn promote_fast(
 		r: Linear<1, { ConvertU16ToU32::<T::MaxRank>::get() }>,
 	) -> Result<(), BenchmarkError> {
-		// Get target rank for promotion.
+		// Get a target rank for promotion.
 		let max_rank = T::MaxRank::get();
 		let target_rank = (r as u16).min(max_rank);
 

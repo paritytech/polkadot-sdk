@@ -112,7 +112,9 @@ snowbridge-outbound-queue-runtime-api = { workspace = true }
 snowbridge-outbound-queue-v2-runtime-api = { workspace = true }
 snowbridge-pallet-ethereum-client = { workspace = true }
 snowbridge-pallet-inbound-queue = { workspace = true }
+snowbridge-pallet-inbound-queue-fixtures = { workspace = true }
 snowbridge-pallet-inbound-queue-v2 = { workspace = true }
+snowbridge-pallet-inbound-queue-v2-fixtures = { workspace = true }
 snowbridge-pallet-outbound-queue = { workspace = true }
 snowbridge-pallet-outbound-queue-v2 = { workspace = true }
 snowbridge-pallet-system = { workspace = true }
@@ -197,6 +199,8 @@ std = [
 	"snowbridge-outbound-queue-runtime-api/std",
 	"snowbridge-outbound-queue-v2-runtime-api/std",
 	"snowbridge-pallet-ethereum-client/std",
+	"snowbridge-pallet-inbound-queue-fixtures/std",
+	"snowbridge-pallet-inbound-queue-v2-fixtures/std",
 	"snowbridge-pallet-inbound-queue-v2/std",
 	"snowbridge-pallet-inbound-queue/std",
 	"snowbridge-pallet-outbound-queue-v2/std",
@@ -252,6 +256,7 @@ runtime-benchmarks = [
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
@@ -264,6 +269,8 @@ runtime-benchmarks = [
 	"snowbridge-core/runtime-benchmarks",
 	"snowbridge-inbound-queue-primitives/runtime-benchmarks",
 	"snowbridge-pallet-ethereum-client/runtime-benchmarks",
+	"snowbridge-pallet-inbound-queue-fixtures/runtime-benchmarks",
+	"snowbridge-pallet-inbound-queue-v2-fixtures/runtime-benchmarks",
 	"snowbridge-pallet-inbound-queue-v2/runtime-benchmarks",
 	"snowbridge-pallet-inbound-queue/runtime-benchmarks",
 	"snowbridge-pallet-outbound-queue-v2/runtime-benchmarks",
@@ -308,6 +315,7 @@ try-runtime = [
 	"parachain-info/try-runtime",
 	"parachains-common/try-runtime",
 	"polkadot-runtime-common/try-runtime",
+	"snowbridge-inbound-queue-primitives/try-runtime",
 	"snowbridge-pallet-ethereum-client/try-runtime",
 	"snowbridge-pallet-inbound-queue-v2/try-runtime",
 	"snowbridge-pallet-inbound-queue/try-runtime",
@@ -318,9 +326,12 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 
+# Enable the metadata hash generation in the wasm builder.
+metadata-hash = ["substrate-wasm-builder/metadata-hash"]
+
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller, like logging for example.
-on-chain-release-build = []
+on-chain-release-build = ["metadata-hash"]
 
 fast-runtime = []

@@ -3,6 +3,7 @@
 
 // Test checks that misbehaving validators disabled.
 use anyhow::anyhow;
+use codec::Decode;
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use polkadot_primitives::{
 	BlockNumber, CandidateHash, DisputeState, SessionIndex, ValidatorId, ValidatorIndex,
@@ -100,14 +101,13 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 	// Check next new block from the current best fork
 	while let Some(block) = best_blocks.next().await {
 		let current_hash = block?.hash();
-		let disputes = relay_client
-			.runtime_api()
-			.at(current_hash)
-			.call_raw::<Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>>(
-				"ParachainHost_disputes",
-				None,
-			)
-			.await?;
+		let disputes = Vec::<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>::decode(
+			&mut &relay_client
+				.runtime_api()
+				.at(current_hash)
+				.call_raw("ParachainHost_disputes", None)
+				.await?[..],
+		)?;
 		if let Some((session, _, _)) = disputes.first() {
 			block_hash = Some(current_hash);
 			dispute_session = *session;
@@ -129,19 +129,23 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 		.wait_metric_with_timeout(concluded_dispute_metric, |d| d >= 1.0, 200_u64)
 		.await?;
 
-	let disabled_validators = relay_client
-		.runtime_api()
-		.at(block_hash.unwrap())
-		.call_raw::<Vec<ValidatorIndex>>("ParachainHost_disabled_validators", None)
-		.await?;
+	let disabled_validators = Vec::<ValidatorIndex>::decode(
+		&mut &relay_client
+			.runtime_api()
+			.at(block_hash.unwrap())
+			.call_raw("ParachainHost_disabled_validators", None)
+			.await?[..],
+	)?;
 	// We should have at least one disable validator.
 	assert!(!disabled_validators.is_empty());
 
-	let session_validators = relay_client
-		.runtime_api()
-		.at(block_hash.unwrap())
-		.call_raw::<Vec<ValidatorId>>("ParachainHost_validators", None)
-		.await?;
+	let session_validators = Vec::<ValidatorId>::decode(
+		&mut &relay_client
+			.runtime_api()
+			.at(block_hash.unwrap())
+			.call_raw("ParachainHost_validators", None)
+			.await?[..],
+	)?;
 	// We have a single malicious node, hence the index of the malus-node is the first
 	// entry in the disabled validators list.
 	let disabled_node_public_address = &session_validators[(disabled_validators[0].0) as usize];

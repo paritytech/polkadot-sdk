@@ -131,6 +131,7 @@ runtime-benchmarks = [
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",

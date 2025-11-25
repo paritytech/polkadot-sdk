@@ -18,7 +18,6 @@ extern crate alloc;
 
 pub use array_bytes;
 pub use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
-pub use log;
 pub use paste;
 pub use std::{
 	any::type_name,
@@ -29,7 +28,11 @@ pub use std::{
 	ops::Deref,
 	sync::{Arc, LazyLock, Mutex},
 };
+pub use tracing;
 
+pub use cumulus_primitives_core::relay_chain::Slot;
+pub use sp_consensus_aura::AURA_ENGINE_ID;
+pub use sp_runtime::DigestItem;
 // Substrate
 pub use alloc::collections::vec_deque::VecDeque;
 pub use core::{cell::RefCell, fmt::Debug};
@@ -73,6 +76,7 @@ pub use cumulus_primitives_core::{
 };
 pub use cumulus_primitives_parachain_inherent::ParachainInherentData;
 pub use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
+pub use pallet_aura;
 pub use pallet_message_queue::{Config as MessageQueueConfig, Pallet as MessageQueuePallet};
 pub use parachains_common::{AccountId, Balance};
 pub use polkadot_primitives;
@@ -82,7 +86,7 @@ pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueu
 pub use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use sp_core::{crypto::AccountId32, H256};
 pub use xcm::latest::prelude::{
-	AccountId32 as AccountId32Junction, Ancestor, Assets, Here, Location,
+	AccountId32 as AccountId32Junction, Ancestor, AssetId, Assets, Here, Location,
 	Parachain as ParachainJunction, Parent, WeightLimit, XcmHash,
 };
 pub use xcm_executor::traits::ConvertLocation;
@@ -279,7 +283,10 @@ pub trait Parachain: Chain {
 	type ParachainInfo: Get<ParaId>;
 	type ParachainSystem;
 	type MessageProcessor: ProcessMessage + ServiceQueues;
-	type DigestProvider: Convert<BlockNumberFor<Self::Runtime>, Digest>;
+	type DigestProvider: Convert<
+		(BlockNumberFor<Self::Runtime>, BlockNumberFor<Self::Runtime>),
+		Digest,
+	>;
 	type AdditionalInherentCode: AdditionalInherentCode;
 
 	fn init();
@@ -295,7 +302,7 @@ pub trait Parachain: Chain {
 	}
 
 	fn parent_location() -> Location {
-		(Parent).into()
+		Parent.into()
 	}
 
 	fn sibling_location_of(para_id: ParaId) -> Location {
@@ -552,7 +559,7 @@ macro_rules! __impl_test_ext_for_relay_chain {
 
 				// Execute
 				let r = $local_ext.with(|v| {
-					$crate::log::info!(target: "xcm::emulator::execute_with", "Executing as {}", stringify!($name));
+					$crate::tracing::info!(target: "xcm::emulator::execute_with", "Executing as {}", stringify!($name));
 					v.borrow_mut().execute_with(execute)
 				});
 
@@ -578,7 +585,7 @@ macro_rules! __impl_test_ext_for_relay_chain {
 
 						// log events
 						Self::events().iter().for_each(|event| {
-							$crate::log::info!(target: concat!("events::", stringify!($name)), "{:?}", event);
+							$crate::tracing::info!(target: concat!("events::", stringify!($name)), ?event, "Event emitted");
 						});
 
 						// clean events
@@ -703,15 +710,28 @@ macro_rules! decl_test_parachains {
 						);
 
 						// Initialze `System`.
-						let digest = <Self as Parachain>::DigestProvider::convert(block_number);
+						let digest = <Self as Parachain>::DigestProvider::convert((block_number, relay_block_number));
+						let slot_duration = $crate::pallet_aura::Pallet::<$runtime::Runtime>::slot_duration();
 						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &digest);
 
 						// Process `on_initialize` for all pallets except `System`.
-						let _ = $runtime::AllPalletsWithoutSystem::on_initialize(block_number);
+					// This must run BEFORE timestamp::set because pallet_aura's OnTimestampSet implementation
+					// checks that the timestamp slot matches CurrentSlot, and CurrentSlot is updated in on_initialize.
+					let _ = $runtime::AllPalletsWithoutSystem::on_initialize(block_number);
 
-						// Process parachain inherents:
+					// Process parachain inherents:
 
-						// 1. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
+					// 1. inherent: pallet_timestamp::Call::set (we expect the parachain has `pallet_timestamp`)
+					let timestamp_set: <Self as Chain>::RuntimeCall = $crate::TimestampCall::set {
+						// We need to satisfy `pallet_timestamp::on_finalize`.
+						// The timestamp must match the relay chain slot since Aura uses the relay chain slot from the digest.
+					now: relay_block_number as u64 * slot_duration,
+					}.into();
+					$crate::assert_ok!(
+						timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none())
+					);
+
+					// 2. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
 						let data = N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data);
 						let (data, mut downward_messages, mut horizontal_messages) =
 							$crate::deconstruct_parachain_inherent_data(data);
@@ -727,14 +747,6 @@ macro_rules! decl_test_parachains {
 							set_validation_data.dispatch(<Self as Chain>::RuntimeOrigin::none())
 						);
 
-						// 2. inherent: pallet_timestamp::Call::set (we expect the parachain has `pallet_timestamp`)
-						let timestamp_set: <Self as Chain>::RuntimeCall = $crate::TimestampCall::set {
-							// We need to satisfy `pallet_timestamp::on_finalize`.
-							now: Zero::zero(),
-						}.into();
-						$crate::assert_ok!(
-							timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none())
-						);
 						$crate::assert_ok!(
 							<Self as Parachain>::AdditionalInherentCode::on_new_block()
 						);
@@ -904,7 +916,7 @@ macro_rules! __impl_test_ext_for_parachain {
 
 				// Execute
 				let r = $local_ext.with(|v| {
-					$crate::log::info!(target: "xcm::emulator::execute_with", "Executing as {}", stringify!($name));
+					$crate::tracing::info!(target: "xcm::emulator::execute_with", "Executing as {}", stringify!($name));
 					v.borrow_mut().execute_with(execute)
 				});
 
@@ -952,7 +964,7 @@ macro_rules! __impl_test_ext_for_parachain {
 
 						// log events
 						<Self as $crate::Chain>::events().iter().for_each(|event| {
-							$crate::log::info!(target: concat!("events::", stringify!($name)), "{:?}", event);
+							$crate::tracing::info!(target: concat!("events::", stringify!($name)), ?event, "Event emitted");
 						});
 
 						// clean events
@@ -1107,7 +1119,7 @@ macro_rules! decl_test_networks {
 									let messages = msgs.clone().iter().map(|(block, message)| {
 										(*block, $crate::array_bytes::bytes2hex("0x", message))
 									}).collect::<Vec<_>>();
-									$crate::log::info!(target: concat!("xcm::dmp::", stringify!($name)) , "Downward messages processed by para_id {:?}: {:?}", &to_para_id, messages);
+									$crate::tracing::info!(target: concat!("xcm::dmp::", stringify!($name)), ?to_para_id, ?messages, "Downward messages processed");
 									$crate::DMP_DONE.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().push_back((to_para_id, block, msg)));
 								}
 							}
@@ -1133,7 +1145,7 @@ macro_rules! decl_test_networks {
 								let messages = messages.clone().iter().map(|(para_id, relay_block_number, message)| {
 									(*para_id, *relay_block_number, $crate::array_bytes::bytes2hex("0x", message))
 								}).collect::<Vec<_>>();
-								$crate::log::info!(target: concat!("xcm::hrmp::", stringify!($name)), "Horizontal messages processed by para_id {:?}: {:?}", &to_para_id, &messages);
+								$crate::tracing::info!(target: concat!("xcm::hrmp::", stringify!($name)), ?to_para_id, ?messages, "Horizontal messages processed");
 							}
 						)*
 					}
@@ -1153,7 +1165,7 @@ macro_rules! decl_test_networks {
 							);
 						});
 						let message = $crate::array_bytes::bytes2hex("0x", msg.clone());
-						$crate::log::info!(target: concat!("xcm::ump::", stringify!($name)) , "Upward message processed from para_id {:?}: {:?}", &from_para_id, &message);
+						$crate::tracing::info!(target: concat!("xcm::ump::", stringify!($name)), ?from_para_id, ?message, "Upward message processed");
 					}
 				}
 
@@ -1173,7 +1185,7 @@ macro_rules! decl_test_networks {
 								<<Self::Bridge as Bridge>::Source as TestExt>::ext_wrapper(|| {
 									<<Self::Bridge as Bridge>::Handler as BridgeMessageHandler>::notify_source_message_delivery(msg.lane_id.clone());
 								});
-								$crate::log::info!(target: concat!("bridge::", stringify!($name)) , "Bridged message processed {:?}", msg);
+								$crate::tracing::info!(target: concat!("bridge::", stringify!($name)), ?msg, "Bridged message processed");
 							}
 						}
 					}
@@ -1187,6 +1199,7 @@ macro_rules! decl_test_networks {
 					let mut sproof = $crate::RelayStateSproofBuilder::default();
 					sproof.para_id = para_id.into();
 					sproof.current_slot = $crate::polkadot_primitives::Slot::from(relay_parent_number as u64);
+					sproof.host_config.max_upward_message_size = 1024 * 1024;
 
 					// egress channel
 					let e_index = sproof.hrmp_egress_channel_index.get_or_insert_with(Vec::new);
@@ -1394,7 +1407,7 @@ macro_rules! assert_expected_events {
 		if !messages.is_empty() {
 			// Log all events (since they won't be logged after the panic).
 			<$chain as $crate::Chain>::events().iter().for_each(|event| {
-				$crate::log::info!(target: concat!("events::", stringify!($chain)), "{:?}", event);
+				$crate::tracing::info!(target: concat!("events::", stringify!($chain)), ?event, "Event emitted");
 			});
 			panic!("{}", messages.concat())
 		}
@@ -1477,15 +1490,17 @@ where
 	}
 }
 
+pub type MessageOriginFor<T> =
+	<<<T as Chain>::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin;
+
 pub struct DefaultRelayMessageProcessor<T>(PhantomData<T>);
 // Process UMP messages on the relay
 impl<T> ProcessMessage for DefaultRelayMessageProcessor<T>
 where
 	T: RelayChain,
 	T::Runtime: MessageQueueConfig,
-	<<T::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin:
-		PartialEq<AggregateMessageOrigin>,
-	MessageQueuePallet<T::Runtime>: EnqueueMessage<AggregateMessageOrigin> + ServiceQueues,
+	MessageOriginFor<T>: From<AggregateMessageOrigin>,
+	MessageQueuePallet<T::Runtime>: EnqueueMessage<MessageOriginFor<T>> + ServiceQueues,
 {
 	type Origin = ParaId;
 
@@ -1497,7 +1512,7 @@ where
 	) -> Result<bool, ProcessMessageError> {
 		MessageQueuePallet::<T::Runtime>::enqueue_message(
 			msg.try_into().expect("Message too long"),
-			AggregateMessageOrigin::Ump(UmpQueueId::Para(para)),
+			AggregateMessageOrigin::Ump(UmpQueueId::Para(para)).into(),
 		);
 		MessageQueuePallet::<T::Runtime>::service_queues(Weight::MAX);
 
@@ -1509,9 +1524,8 @@ impl<T> ServiceQueues for DefaultRelayMessageProcessor<T>
 where
 	T: RelayChain,
 	T::Runtime: MessageQueueConfig,
-	<<T::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin:
-		PartialEq<AggregateMessageOrigin>,
-	MessageQueuePallet<T::Runtime>: EnqueueMessage<AggregateMessageOrigin> + ServiceQueues,
+	MessageOriginFor<T>: From<AggregateMessageOrigin>,
+	MessageQueuePallet<T::Runtime>: EnqueueMessage<MessageOriginFor<T>> + ServiceQueues,
 {
 	type OverweightMessageAddress = ();
 
@@ -1542,7 +1556,7 @@ pub struct TestArgs {
 	pub amount: Balance,
 	pub assets: Assets,
 	pub asset_id: Option<u32>,
-	pub fee_asset_item: u32,
+	pub fee_asset_id: AssetId,
 	pub weight_limit: WeightLimit,
 }
 
@@ -1555,7 +1569,7 @@ impl TestArgs {
 			amount,
 			assets: (Here, amount).into(),
 			asset_id: None,
-			fee_asset_item: 0,
+			fee_asset_id: Here.into(),
 			weight_limit: WeightLimit::Unlimited,
 		}
 	}
@@ -1567,7 +1581,7 @@ impl TestArgs {
 		amount: Balance,
 		assets: Assets,
 		asset_id: Option<u32>,
-		fee_asset_item: u32,
+		fee_asset_id: AssetId,
 	) -> Self {
 		Self {
 			dest,
@@ -1575,7 +1589,7 @@ impl TestArgs {
 			amount,
 			assets,
 			asset_id,
-			fee_asset_item,
+			fee_asset_id,
 			weight_limit: WeightLimit::Unlimited,
 		}
 	}

@@ -44,8 +44,10 @@ mod imports {
 			TestArgs, TestContext, TestExt,
 		},
 		xcm_helpers::{
-			fee_asset, get_amount_from_versioned_assets, non_fee_asset, xcm_transact_paid_execution,
+			fee_asset, find_mq_processed_id, find_xcm_sent_message_id,
+			get_amount_from_versioned_assets, non_fee_asset, xcm_transact_paid_execution,
 		},
+		xcm_simulator::helpers::TopicIdTracker,
 		PenpalATeleportableAssetLocation, ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, USDT_ID, XCM_V3,
 	};
 	pub(crate) use parachains_common::{AccountId, Balance};
@@ -59,7 +61,7 @@ mod imports {
 					XcmConfig as AssetHubWestendXcmConfig,
 				},
 				AssetConversionOrigin as AssetHubWestendAssetConversionOrigin,
-				ExistentialDeposit as AssetHubWestendExistentialDeposit,
+				ExistentialDeposit as AssetHubWestendExistentialDeposit, ForeignAssetReserveData,
 			},
 			genesis::{AssetHubWestendAssetOwner, ED as ASSET_HUB_WESTEND_ED},
 			AssetHubWestendParaPallet as AssetHubWestendPallet,

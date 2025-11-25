@@ -73,6 +73,10 @@ pub mod traits {
 		pub trait WeightInfo {
 			fn validate_unsigned() -> Weight;
 			fn submit_unsigned() -> Weight;
+			// This has an auto-impl as the associated benchmark is `#[extra]`.
+			fn mine_solution(_p: u32) -> Weight {
+				Default::default()
+			}
 		}
 
 		impl WeightInfo for () {
@@ -125,7 +129,8 @@ pub mod traits {
 			fn on_initialize_into_unsigned() -> Weight;
 			fn export_non_terminal() -> Weight;
 			fn export_terminal() -> Weight;
-			fn manage() -> Weight;
+			fn admin_set() -> Weight;
+			fn manage_fallback() -> Weight;
 		}
 
 		impl WeightInfo for () {
@@ -153,13 +158,17 @@ pub mod traits {
 			fn export_terminal() -> Weight {
 				Default::default()
 			}
-			fn manage() -> Weight {
+			fn admin_set() -> Weight {
+				Default::default()
+			}
+			fn manage_fallback() -> Weight {
 				Default::default()
 			}
 		}
 	}
 }
 
+/// Kusama-esque weights only be used in testing runtimes.
 pub mod kusama {
 	pub use super::{
 		pallet_election_provider_multi_block_ksm_size::WeightInfo as MultiBlockWeightInfo,
@@ -169,6 +178,7 @@ pub mod kusama {
 	};
 }
 
+/// Polkadot-esque weights only be used in testing runtimes.
 pub mod polkadot {
 	pub use super::{
 		pallet_election_provider_multi_block_dot_size::WeightInfo as MultiBlockWeightInfo,
@@ -176,7 +186,4 @@ pub mod polkadot {
 		pallet_election_provider_multi_block_unsigned_dot_size::WeightInfo as MultiBlockUnsignedWeightInfo,
 		pallet_election_provider_multi_block_verifier_dot_size::WeightInfo as MultiBlockVerifierWeightInfo,
 	};
-}
-pub mod westend {
-	pub use super::polkadot::*;
 }

@@ -61,8 +61,8 @@ pub trait Config: crate::Config + pallet_balances::Config {
 
 	/// Sets up a complex transfer (usually consisting of a teleport and reserve-based transfer), so
 	/// that runtime can properly benchmark `transfer_assets()` extrinsic. Should return a tuple
-	/// `(Asset, u32, Location, dyn FnOnce())` representing the assets to transfer, the
-	/// `u32` index of the asset to be used for fees, the destination chain for the transfer, and a
+	/// `(Asset, AssetId, Location, dyn FnOnce())` representing the assets to transfer, the
+	/// `AssetId` of the asset to be used for fees, the destination chain for the transfer, and a
 	/// `verify()` closure to verify the intended transfer side-effects.
 	///
 	/// Implementation should make sure the provided assets can be transacted by the runtime, there
@@ -71,7 +71,7 @@ pub trait Config: crate::Config + pallet_balances::Config {
 	/// Used only in benchmarks.
 	///
 	/// If `None`, the benchmarks that depend on this will default to `Weight::MAX`.
-	fn set_up_complex_asset_transfer() -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
+	fn set_up_complex_asset_transfer() -> Option<(Assets, AssetId, Location, Box<dyn FnOnce()>)> {
 		None
 	}
 
@@ -142,7 +142,7 @@ mod benchmarks {
 			Fungible(amount) => {
 				// Add transferred_amount to origin
 				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
-					&Asset { fun: Fungible(*amount), id: asset.id },
+					&Asset { fun: Fungible(*amount), id: asset.id.clone() },
 					&origin_location,
 					None,
 				)
@@ -170,13 +170,14 @@ mod benchmarks {
 			AccountId32 { network: None, id: recipient.into() }.into();
 		let versioned_assets: VersionedAssets = assets.into();
 
+		let fee_asset_id: AssetId = asset.id;
 		#[extrinsic_call]
 		_(
 			send_origin,
 			Box::new(versioned_dest),
 			Box::new(versioned_beneficiary),
 			Box::new(versioned_assets),
-			0,
+			Box::new(fee_asset_id.into()),
 		);
 
 		Ok(())
@@ -240,13 +241,14 @@ mod benchmarks {
 			AccountId32 { network: None, id: recipient.into() }.into();
 		let versioned_assets: VersionedAssets = assets.into();
 
+		let fee_asset_id: AssetId = asset.id.clone();
 		#[extrinsic_call]
 		_(
 			send_origin,
 			Box::new(versioned_dest),
 			Box::new(versioned_beneficiary),
 			Box::new(versioned_assets),
-			0,
+			Box::new(fee_asset_id.into()),
 		);
 
 		match &asset.fun {
@@ -271,7 +273,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn transfer_assets() -> Result<(), BenchmarkError> {
-		let (assets, _fee_index, destination, verify_fn) = T::set_up_complex_asset_transfer()
+		let (assets, fee_asset_id, destination, verify_fn) = T::set_up_complex_asset_transfer()
 			.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		let caller: T::AccountId = whitelisted_caller();
 		let send_origin = RawOrigin::Signed(caller.clone());
@@ -295,7 +297,7 @@ mod benchmarks {
 			Box::new(versioned_dest),
 			Box::new(versioned_beneficiary),
 			Box::new(versioned_assets),
-			0,
+			Box::new(fee_asset_id.into()),
 			WeightLimit::Unlimited,
 		);
 
@@ -603,11 +605,18 @@ mod benchmarks {
 		let origin = RawOrigin::Signed(who.clone());
 		let origin_location: VersionedLocation =
 			T::ExecuteXcmOrigin::try_origin(origin.clone().into())
-				.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?
+				.map_err(|_| {
+					tracing::error!(
+						target: "xcm::benchmarking::pallet_xcm::add_authorized_alias",
+						?origin,
+						"try_origin failed",
+					);
+					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})?
 				.into();
 
 		// Give some multiple of ED
-		let balance = T::ExistentialDeposit::get() * 1000u32.into();
+		let balance = T::ExistentialDeposit::get() * 1000000u32.into();
 		let _ =
 			<pallet_balances::Pallet::<T> as frame_support::traits::Currency<_>>::make_free_balance_be(&who, balance);
 
@@ -620,8 +629,17 @@ mod benchmarks {
 			let aliaser = OriginAliaser { location: alias, expiry: None };
 			existing_aliases.try_push(aliaser).unwrap()
 		}
-		let ticket = TicketOf::<T>::new(&who, aliasers_footprint(existing_aliases.len()))
-			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+		let footprint = aliasers_footprint(existing_aliases.len());
+		let ticket = TicketOf::<T>::new(&who, footprint).map_err(|e| {
+			tracing::error!(
+				target: "xcm::benchmarking::pallet_xcm::add_authorized_alias",
+				?who,
+				?footprint,
+				error=?e,
+				"could not create ticket",
+			);
+			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+		})?;
 		let entry = AuthorizedAliasesEntry { aliasers: existing_aliases, ticket };
 		AuthorizedAliases::<T>::insert(&origin_location, entry);
 
@@ -642,17 +660,31 @@ mod benchmarks {
 		let origin = RawOrigin::Signed(who.clone());
 		let error = BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX));
 		let origin_location =
-			T::ExecuteXcmOrigin::try_origin(origin.clone().into()).map_err(|_| error.clone())?;
+			T::ExecuteXcmOrigin::try_origin(origin.clone().into()).map_err(|_| {
+				tracing::error!(
+					target: "xcm::benchmarking::pallet_xcm::remove_authorized_alias",
+					?origin,
+					"try_origin failed",
+				);
+				error.clone()
+			})?;
 		// remove `network` from inner `AccountId32` for easier matching of automatic AccountId ->
 		// Location conversions.
 		let origin_location: VersionedLocation = match origin_location.unpack() {
 			(0, [AccountId32 { network: _, id }]) =>
 				Location::new(0, [AccountId32 { network: None, id: *id }]).into(),
-			_ => return Err(error.clone()),
+			_ => {
+				tracing::error!(
+					target: "xcm::benchmarking::pallet_xcm::remove_authorized_alias",
+					?origin_location,
+					"unexpected origin failed",
+				);
+				return Err(error.clone())
+			},
 		};
 
 		// Give some multiple of ED
-		let balance = T::ExistentialDeposit::get() * 1000u32.into();
+		let balance = T::ExistentialDeposit::get() * 1000000u32.into();
 		let _ =
 			<pallet_balances::Pallet::<T> as frame_support::traits::Currency<_>>::make_free_balance_be(&who, balance);
 
@@ -665,8 +697,17 @@ mod benchmarks {
 			let aliaser = OriginAliaser { location: alias, expiry: None };
 			existing_aliases.try_push(aliaser).unwrap()
 		}
-		let ticket = TicketOf::<T>::new(&who, aliasers_footprint(existing_aliases.len()))
-			.map_err(|_| error)?;
+		let footprint = aliasers_footprint(existing_aliases.len());
+		let ticket = TicketOf::<T>::new(&who, footprint).map_err(|e| {
+			tracing::error!(
+				target: "xcm::benchmarking::pallet_xcm::remove_authorized_alias",
+				?who,
+				?footprint,
+				error=?e,
+				"could not create ticket",
+			);
+			error
+		})?;
 		let entry = AuthorizedAliasesEntry { aliasers: existing_aliases, ticket };
 		AuthorizedAliases::<T>::insert(&origin_location, entry);
 
@@ -706,7 +747,7 @@ pub mod helpers {
 	pub fn native_teleport_as_asset_transfer<T>(
 		native_asset_location: Location,
 		destination: Location,
-	) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)>
+	) -> Option<(Assets, AssetId, Location, Box<dyn FnOnce()>)>
 	where
 		T: Config + pallet_balances::Config,
 		u128: From<<T as pallet_balances::Config>::Balance>,
@@ -714,8 +755,9 @@ pub mod helpers {
 		// Relay/native token can be teleported to/from AH.
 		let amount = T::ExistentialDeposit::get() * 100u32.into();
 		let assets: Assets =
-			Asset { fun: Fungible(amount.into()), id: AssetId(native_asset_location) }.into();
-		let fee_index = 0u32;
+			Asset { fun: Fungible(amount.into()), id: AssetId(native_asset_location.clone()) }
+				.into();
+		let fee_asset_id: AssetId = AssetId(native_asset_location);
 
 		// Give some multiple of transferred amount
 		let balance = amount * 10u32.into();
@@ -730,6 +772,6 @@ pub mod helpers {
 			// verify balance after transfer, decreased by transferred amount (and delivery fees)
 			assert!(pallet_balances::Pallet::<T>::free_balance(&who) <= balance - amount);
 		});
-		Some((assets, fee_index, destination, verify))
+		Some((assets, fee_asset_id, destination, verify))
 	}
 }

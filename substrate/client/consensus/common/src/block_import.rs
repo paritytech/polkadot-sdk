@@ -165,6 +165,20 @@ impl<Block: BlockT> StateAction<Block> {
 	}
 }
 
+impl<Block: BlockT> From<StorageChanges<Block>> for StateAction<Block> {
+	fn from(value: StorageChanges<Block>) -> Self {
+		Self::ApplyChanges(value)
+	}
+}
+
+impl<Block: BlockT> From<sp_state_machine::StorageChanges<HashingFor<Block>>>
+	for StateAction<Block>
+{
+	fn from(value: sp_state_machine::StorageChanges<HashingFor<Block>>) -> Self {
+		Self::ApplyChanges(StorageChanges::Changes(value))
+	}
+}
+
 /// Data required to import a Block.
 #[non_exhaustive]
 pub struct BlockImportParams<Block: BlockT> {

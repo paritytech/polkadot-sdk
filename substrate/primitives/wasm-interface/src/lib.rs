@@ -342,7 +342,7 @@ if_wasmtime_is_enabled! {
 	/// host functions' definitions generated through the runtime interface macro,
 	/// and is not meant to be used directly.
 	pub trait HostFunctionRegistry {
-		type State;
+		type State: 'static;
 		type Error;
 		type FunctionContext: FunctionContext;
 

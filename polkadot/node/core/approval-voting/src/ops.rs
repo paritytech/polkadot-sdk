@@ -21,7 +21,7 @@ use polkadot_node_subsystem::{SubsystemError, SubsystemResult};
 
 use bitvec::order::Lsb0 as BitOrderLsb0;
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, CandidateHash, GroupIndex, Hash,
+	BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt, GroupIndex, Hash,
 };
 
 use std::collections::{hash_map::Entry, BTreeMap, HashMap};

@@ -1,0 +1,9 @@
+title: Improve asset conversion
+doc:
+- audience: [Runtime Dev, Runtime User]
+  description: |-
+    Add view function for pallet-asset-conversion.
+    Add `trait MutateLiquidity` for pallet-asset-conversion.
+crates:
+- name: pallet-asset-conversion
+  bump: minor

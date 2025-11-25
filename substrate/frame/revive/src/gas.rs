@@ -14,15 +14,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-use crate::{exec::ExecError, weights::WeightInfo, Config, Error};
-use core::marker::PhantomData;
+use crate::{exec::ExecError, vm::evm::Halt, weights::WeightInfo, Config, Error};
+use core::{marker::PhantomData, ops::ControlFlow};
 use frame_support::{
 	dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, PostDispatchInfo},
 	weights::Weight,
 	DefaultNoBound,
 };
-use sp_runtime::DispatchError;
+use sp_runtime::{traits::Zero, DispatchError};
 
 #[cfg(test)]
 use std::{any::Any, fmt::Debug};
@@ -219,6 +218,15 @@ impl<T: Config> GasMeter<T> {
 		Ok(ChargedAmount(amount))
 	}
 
+	/// Charge the specified token amount of gas or halt if not enough gas is left.
+	pub fn charge_or_halt<Tok: Token<T>>(
+		&mut self,
+		token: Tok,
+	) -> ControlFlow<Halt, ChargedAmount> {
+		self.charge(token)
+			.map_or_else(|_| ControlFlow::Break(Error::<T>::OutOfGas.into()), ControlFlow::Continue)
+	}
+
 	/// Adjust a previously charged amount down to its actual amount.
 	///
 	/// This is when a maximum a priori amount was charged and then should be partially
@@ -311,6 +319,10 @@ impl<T: Config> GasMeter<T> {
 	#[cfg(test)]
 	pub fn tokens(&self) -> &[ErasedToken] {
 		&self.tokens
+	}
+
+	pub fn consume_all(&mut self) {
+		self.gas_left = Zero::zero();
 	}
 }
 

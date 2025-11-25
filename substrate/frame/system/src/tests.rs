@@ -965,6 +965,19 @@ fn reclaim_works() {
 	});
 }
 
+#[test]
+#[should_panic(expected = "Block number must be strictly increasing.")]
+fn initialize_block_number_must_be_sequential() {
+	new_test_ext().execute_with(|| {
+		// Initialize block 1
+		System::initialize(&1, &[0u8; 32].into(), &Default::default());
+		System::finalize();
+
+		// Try to initialize block 3, skipping block 2 - this should panic
+		System::initialize(&3, &[0u8; 32].into(), &Default::default());
+	});
+}
+
 // Tests for set_code behavior when system_version >= 3.
 mod version3_set_code_tests {
 	use frame_support::{assert_ok, storage};

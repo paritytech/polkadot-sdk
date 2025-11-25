@@ -91,7 +91,8 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 		send_assets_from_asset_hub_westend(
 			destination.clone(),
 			(native_token.clone(), amount).into(),
-			0
+			0,
+			TransferType::LocalReserve
 		),
 		DispatchError::Module(sp_runtime::ModuleError {
 			index: 31,
@@ -112,7 +113,8 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 	assert_ok!(send_assets_from_asset_hub_westend(
 		destination.clone(),
 		(native_token.clone(), amount).into(),
-		0
+		0,
+		TransferType::LocalReserve
 	));
 
 	// `ExportMessage` on local BridgeHub - fails - remote BridgeHub version not known
@@ -130,7 +132,8 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 	assert_ok!(send_assets_from_asset_hub_westend(
 		destination.clone(),
 		(native_token.clone(), amount).into(),
-		0
+		0,
+		TransferType::LocalReserve
 	));
 	assert_bridge_hub_westend_message_accepted(true);
 	assert_bridge_hub_rococo_message_received();

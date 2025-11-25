@@ -125,12 +125,10 @@ pub fn run() -> sc_cli::Result<()> {
 				match config.network.network_backend {
 					sc_network::config::NetworkBackendType::Libp2p =>
 						service::new_full::<sc_network::NetworkWorker<_, _>>(config, cli.consensus)
-							.await
 							.map_err(sc_cli::Error::Service),
 					sc_network::config::NetworkBackendType::Litep2p => service::new_full::<
 						sc_network::Litep2pNetworkBackend,
 					>(config, cli.consensus)
-					.await
 					.map_err(sc_cli::Error::Service),
 				}
 			})

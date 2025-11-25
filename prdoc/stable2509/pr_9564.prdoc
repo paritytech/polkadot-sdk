@@ -1,0 +1,7 @@
+title: 'Fix disabled validator filtering in the parachains runtime'
+doc:
+- audience: Runtime Dev
+  description: Correctly map group indices to vote indices when filtering backing statements.
+crates:
+- name: polkadot-runtime-parachains
+  bump: patch

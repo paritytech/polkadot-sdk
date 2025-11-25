@@ -419,7 +419,7 @@ pub struct BackendRuntimeCode<'a, B, H> {
 impl<'a, B: Backend<H>, H: Hasher> sp_core::traits::FetchRuntimeCode
 	for BackendRuntimeCode<'a, B, H>
 {
-	fn fetch_runtime_code(&self) -> Option<std::borrow::Cow<[u8]>> {
+	fn fetch_runtime_code(&self) -> Option<std::borrow::Cow<'_, [u8]>> {
 		if matches!(self.try_pending_code, TryPendingCode::Yes) {
 			let pending_code = self
 				.backend
@@ -452,7 +452,7 @@ where
 
 	/// Return the [`RuntimeCode`] build from the wrapped `backend`.
 	/// This method takes `:pending_code` into account.
-	pub fn runtime_code(&self) -> Result<RuntimeCode, &'static str> {
+	pub fn runtime_code(&self) -> Result<RuntimeCode<'_>, &'static str> {
 		let maybe_pending_code_hash = match self.try_pending_code {
 			TryPendingCode::No => None,
 			TryPendingCode::Yes => self
