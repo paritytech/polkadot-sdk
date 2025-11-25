@@ -24,7 +24,9 @@ use frame_support::{
 };
 use frame_system::EnsureRootWithSuccess;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-use parachains_common::pay::{AccountIdToVersionedLocatableAccount, LocalPay, VersionedLocatableAccount};
+use parachains_common::pay::{
+	AccountIdToVersionedLocatableAccount, LocalPay, VersionedLocatableAccount,
+};
 use polkadot_runtime_common::{
 	impls::{ContainsParts, VersionedLocatableAsset},
 	prod_or_fast,
@@ -192,12 +194,21 @@ impl pallet_multi_asset_bounties::Config for Runtime {
 	type ChildBountyValueMinimum = ChildBountyValueMinimum;
 	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
 	type WeightInfo = pallet_multi_asset_bounties::weights::SubstrateWeight<Runtime>;
-	type FundingSource =
-		pallet_multi_asset_bounties::PalletIdAsFundingSource<TreasuryPalletId, Runtime, AccountIdToVersionedLocatableAccount>;
-	type BountySource =
-		pallet_multi_asset_bounties::BountySourceFromPalletId<TreasuryPalletId, Runtime, AccountIdToVersionedLocatableAccount>;
-	type ChildBountySource =
-		pallet_multi_asset_bounties::ChildBountySourceFromPalletId<TreasuryPalletId, Runtime, AccountIdToVersionedLocatableAccount>;
+	type FundingSource = pallet_multi_asset_bounties::PalletIdAsFundingSource<
+		TreasuryPalletId,
+		Runtime,
+		AccountIdToVersionedLocatableAccount,
+	>;
+	type BountySource = pallet_multi_asset_bounties::BountySourceFromPalletId<
+		TreasuryPalletId,
+		Runtime,
+		AccountIdToVersionedLocatableAccount,
+	>;
+	type ChildBountySource = pallet_multi_asset_bounties::ChildBountySourceFromPalletId<
+		TreasuryPalletId,
+		Runtime,
+		AccountIdToVersionedLocatableAccount,
+	>;
 	type Paymaster = LocalPay<NativeAndAllAssets, AccountId, xcm_config::LocationToAccountId>;
 	type BalanceConverter = TreasuryBalanceConverter;
 	type Preimages = Preimage;

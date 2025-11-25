@@ -1831,7 +1831,8 @@ where
 /// # Type Parameters
 /// - `Id`: The pallet ID getter
 /// - `T`: The pallet configuration
-/// - `C`: Converter from `T::AccountId` to `T::Beneficiary`. Use `Identity` when types are the same.
+/// - `C`: Converter from `T::AccountId` to `T::Beneficiary`. Use `Identity` when types are the
+///   same.
 /// - `I`: Instance parameter (default: `()`)
 pub struct PalletIdAsFundingSource<Id, T, C, I = ()>(PhantomData<(Id, T, C, I)>);
 impl<Id, T, C, I> TryConvert<T::AssetKind, T::Beneficiary> for PalletIdAsFundingSource<Id, T, C, I>
@@ -1853,7 +1854,8 @@ where
 /// # Type Parameters
 /// - `Id`: The pallet ID getter
 /// - `T`: The pallet configuration
-/// - `C`: Converter from `T::AccountId` to `T::Beneficiary`. Use `Identity` when types are the same.
+/// - `C`: Converter from `T::AccountId` to `T::Beneficiary`. Use `Identity` when types are the
+///   same.
 /// - `I`: Instance parameter (default: `()`)
 pub struct BountySourceFromPalletId<Id, T, C, I = ()>(PhantomData<(Id, T, C, I)>);
 impl<Id, T, C, I> TryConvert<(BountyIndex, T::AssetKind), T::Beneficiary>
@@ -1878,7 +1880,8 @@ where
 /// # Type Parameters
 /// - `Id`: The pallet ID getter
 /// - `T`: The pallet configuration
-/// - `C`: Converter from `T::AccountId` to `T::Beneficiary`. Use `Identity` when types are the same.
+/// - `C`: Converter from `T::AccountId` to `T::Beneficiary`. Use `Identity` when types are the
+///   same.
 /// - `I`: Instance parameter (default: `()`)
 pub struct ChildBountySourceFromPalletId<Id, T, C, I = ()>(PhantomData<(Id, T, C, I)>);
 impl<Id, T, C, I> TryConvert<(BountyIndex, BountyIndex, T::AssetKind), T::Beneficiary>
