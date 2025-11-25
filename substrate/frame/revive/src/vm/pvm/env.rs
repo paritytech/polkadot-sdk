@@ -318,7 +318,7 @@ pub mod env {
 	}
 
 	/// Make a call to another contract.
-	/// See [`pallet_revive_uapi::HostFn::call`].
+	/// See [`pallet_revive_uapi::HostFn::call_evm`].
 	#[stable]
 	fn call_evm(
 		&mut self,
