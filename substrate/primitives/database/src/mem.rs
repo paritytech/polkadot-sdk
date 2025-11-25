@@ -25,24 +25,103 @@ use std::collections::{btree_map::Entry, BTreeMap, HashMap};
 
 type ColumnSpace<Key> = BTreeMap<Key, (u32, Vec<u8>)>;
 
-pub trait GenericKey: Ord + Clone + From<Vec<u8>> + Send + Sync + AsRef<[u8]> {
-	type Key<'a>: Ord + Clone + From<Vec<u8>> + Send + Sync + AsRef<[u8]> + From<&'a [u8]>;
+/// Custom comparison function for key ordering
+pub trait Comparator {
+	fn cmp(k1: &[u8], k2: &[u8]) -> std::cmp::Ordering;
 }
 
-impl GenericKey for Vec<u8> {
-	type Key<'a> = Vec<u8>;
+/// Wrapper to allow comparing external key slices with stored keys using a custom comparator
+enum CustomOrdKey<'a, F> {
+	Owned { key: Vec<u8>, _phantom: std::marker::PhantomData<F> },
+	Ref { key: &'a [u8], _phantom: std::marker::PhantomData<F> },
+}
+
+impl<'a, F> CustomOrdKey<'a, F> {
+	fn new_owned(key: Vec<u8>) -> Self {
+		Self::Owned { key, _phantom: Default::default() }
+	}
+}
+
+impl<'a, F> Clone for CustomOrdKey<'a, F> {
+	fn clone(&self) -> Self {
+		match self {
+			Self::Owned { key, _phantom } => key.clone().into(),
+			Self::Ref { key, _phantom } => (*key).into(),
+		}
+	}
+}
+
+impl<'a, F> From<Vec<u8>> for CustomOrdKey<'a, F> {
+	fn from(key: Vec<u8>) -> Self {
+		Self::Owned { key, _phantom: Default::default() }
+	}
+}
+
+impl<'a, F> From<&'a [u8]> for CustomOrdKey<'a, F> {
+	fn from(key: &'a [u8]) -> Self {
+		Self::Ref { key, _phantom: Default::default() }
+	}
+}
+
+impl<'a, F> CustomOrdKey<'a, F> {
+	fn key_slice(&'a self) -> &'a [u8] {
+		match self {
+			CustomOrdKey::Owned { key, .. } => key.as_slice(),
+			CustomOrdKey::Ref { key, .. } => key,
+		}
+	}
+}
+
+impl<'a, F> PartialEq for CustomOrdKey<'a, F>
+where
+	F: Comparator,
+{
+	fn eq(&self, other: &Self) -> bool {
+		F::cmp(self.key_slice(), other.key_slice()) == std::cmp::Ordering::Equal
+	}
+}
+
+impl<'a, F> Eq for CustomOrdKey<'a, F> where F: Comparator {}
+
+impl<'a, F> PartialOrd for CustomOrdKey<'a, F>
+where
+	F: Comparator,
+{
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(F::cmp(self.key_slice(), other.key_slice()))
+	}
+}
+
+impl<'a, F> Ord for CustomOrdKey<'a, F>
+where
+	F: Comparator,
+{
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		F::cmp(self.key_slice(), other.key_slice())
+	}
+}
+
+/// Default comparator using standard Vec cmp
+pub struct VecComparator {}
+
+impl Comparator for VecComparator {
+	fn cmp(k1: &[u8], k2: &[u8]) -> std::cmp::Ordering {
+		k1.cmp(k2)
+	}
 }
 
 /// This implements `Database` as an in-memory hash map. `commit` is not atomic.
-pub struct MemDb<K: GenericKey = Vec<u8>>(RwLock<HashMap<ColumnId, ColumnSpace<K::Key<'static>>>>);
+pub struct MemDb<Cmp: Comparator = VecComparator>(
+	RwLock<HashMap<ColumnId, ColumnSpace<CustomOrdKey<'static, Cmp>>>>,
+);
 
-impl<K: GenericKey> Default for MemDb<K> {
+impl<Cmp: Comparator> Default for MemDb<Cmp> {
 	fn default() -> Self {
 		Self(Default::default())
 	}
 }
 
-impl<H, K: GenericKey> Database<H> for MemDb<K>
+impl<H, Cmp: Comparator + Send + Sync> Database<H> for MemDb<Cmp>
 where
 	H: Clone + AsRef<[u8]>,
 {
@@ -86,11 +165,9 @@ where
 		Ok(())
 	}
 
-	fn get<'a>(&self, col: ColumnId, key: &'a [u8]) -> Option<Vec<u8>> {
-		let key: <K as GenericKey>::Key<'_> = K::Key::from(key);
-		// since Key in BTreeMap in self is Key<'static>, things breaks when we pass
-		// Key<'a>, although no memory safety violations are happening here.
-		let key: K::Key<'static> = unsafe { std::mem::transmute(key) };
+	fn get(&self, col: ColumnId, key: &[u8]) -> Option<Vec<u8>> {
+		let key = key.into();
+
 		let s = self.0.read();
 		let col = s.get(&col)?;
 		let (_, val) = col.get(&key)?;
@@ -98,19 +175,22 @@ where
 	}
 }
 
-enum IterState<Key> {
-	Valid { current_key: Key },
+enum IterState<Cmp: Comparator> {
+	Valid { current_key: CustomOrdKey<'static, Cmp> },
 	Invalid,
 }
 
-struct MemDbSeekableIter<'db, K: GenericKey> {
-	db: &'db MemDb<K>,
+struct MemDbSeekableIter<'db, Cmp: Comparator> {
+	db: &'db MemDb<Cmp>,
 	column: ColumnId,
-	state: IterState<K::Key<'static>>,
+	state: IterState<Cmp>,
 }
 
-impl<'db, K: GenericKey> MemDbSeekableIter<'db, K> {
-	fn lock_col_space<T>(&self, callback: impl FnOnce(&ColumnSpace<K::Key<'static>>) -> T) -> T {
+impl<'db, Cmp: Comparator> MemDbSeekableIter<'db, Cmp> {
+	fn lock_col_space<T>(
+		&self,
+		callback: impl FnOnce(&ColumnSpace<CustomOrdKey<'static, Cmp>>) -> T,
+	) -> T {
 		let lock = self.db.0.read();
 		let column_space = lock
 			.get(&self.column)
@@ -119,41 +199,32 @@ impl<'db, K: GenericKey> MemDbSeekableIter<'db, K> {
 	}
 }
 
-impl<'db, K: GenericKey> SeekableIterator for MemDbSeekableIter<'db, K> {
-	fn seek(&mut self, key: &[u8]) {
-		let key: <K as GenericKey>::Key<'_> = K::Key::from(key);
-		// since Key in BTreeMap in self is Key<'static>, things breaks when we pass
-		// Key<'a>, although no memory safety violations are happening here.
-		let key: K::Key<'static> = unsafe { std::mem::transmute(key) };
-
+impl<'db, Cmp: Comparator> SeekableIterator for MemDbSeekableIter<'db, Cmp> {
+	fn seek<'a>(&mut self, key: &'a [u8]) {
+		let key: CustomOrdKey<'a, Cmp> = CustomOrdKey::Ref { key, _phantom: Default::default() };
 		let next_kv = self.lock_col_space(|col_space| {
-			let mut range = col_space.range::<K::Key<'static>, _>((
-				std::ops::Bound::Included(K::Key::from(key)),
-				std::ops::Bound::Unbounded,
-			));
-			range.next().map(|(k, _)| k.to_owned())
+			let mut range =
+				col_space.range((std::ops::Bound::Included(&key), std::ops::Bound::Unbounded));
+			range.next().map(|(key, _)| CustomOrdKey::new_owned(key.key_slice().to_vec()))
 		});
 		self.state = match next_kv {
-			Some(key) => IterState::Valid { current_key: key.clone() },
+			Some(key) => IterState::Valid { current_key: key },
 			None => IterState::Invalid,
 		};
 	}
 
 	fn seek_prev(&mut self, key: &[u8]) {
-		let key: <K as GenericKey>::Key<'_> = K::Key::from(key);
-		// since Key in BTreeMap in self is Key<'static>, things breaks when we pass
-		// Key<'a>, although no memory safety violations are happening here.
-		let key: K::Key<'static> = unsafe { std::mem::transmute(key) };
+		let key: CustomOrdKey<'_, Cmp> = key.into();
 
 		let prev_kv = self.lock_col_space(|col_space| {
-			let mut range = col_space.range::<K::Key<'static>, _>((
-				std::ops::Bound::Unbounded,
-				std::ops::Bound::Included(K::Key::from(key)),
-			));
-			range.next_back().map(|(k, _)| k.to_owned())
+			let mut range =
+				col_space.range((std::ops::Bound::Unbounded, std::ops::Bound::Included(key)));
+			range
+				.next_back()
+				.map(|(key, _)| CustomOrdKey::new_owned(key.key_slice().to_vec()))
 		});
 		self.state = match prev_kv {
-			Some(key) => IterState::Valid { current_key: key.clone() },
+			Some(key) => IterState::Valid { current_key: key },
 			None => IterState::Invalid,
 		};
 	}
@@ -161,16 +232,14 @@ impl<'db, K: GenericKey> SeekableIterator for MemDbSeekableIter<'db, K> {
 	fn prev(&mut self) {
 		let prev_kv = match self.state {
 			IterState::Valid { ref current_key } => self.lock_col_space(|col_space| {
-				let mut range = col_space.range::<K::Key<'static>, _>((
-					std::ops::Bound::Unbounded,
-					std::ops::Bound::Excluded(current_key),
-				));
-				range.next_back().map(|(k, _)| k.to_owned())
+				let mut range = col_space
+					.range((std::ops::Bound::Unbounded, std::ops::Bound::Excluded(current_key)));
+				range.next_back().map(|(k, _)| k.clone())
 			}),
 			IterState::Invalid => None,
 		};
 		self.state = match prev_kv {
-			Some(key) => IterState::Valid { current_key: key.clone() },
+			Some(key) => IterState::Valid { current_key: key },
 			None => IterState::Invalid,
 		};
 	}
@@ -178,16 +247,14 @@ impl<'db, K: GenericKey> SeekableIterator for MemDbSeekableIter<'db, K> {
 	fn next(&mut self) {
 		let next_kv = match &self.state {
 			IterState::Valid { current_key } => self.lock_col_space(|col_space| {
-				let mut range = col_space.range::<K::Key<'static>, _>((
-					std::ops::Bound::Excluded(current_key),
-					std::ops::Bound::Unbounded,
-				));
-				range.next().map(|(k, _)| k.to_owned())
+				let mut range = col_space
+					.range((std::ops::Bound::Excluded(current_key), std::ops::Bound::Unbounded));
+				range.next().map(|(k, _)| k.clone())
 			}),
 			IterState::Invalid => None,
 		};
 		self.state = match next_kv {
-			Some(key) => IterState::Valid { current_key: key.clone() },
+			Some(key) => IterState::Valid { current_key: key },
 			None => IterState::Invalid,
 		};
 	}
@@ -195,7 +262,7 @@ impl<'db, K: GenericKey> SeekableIterator for MemDbSeekableIter<'db, K> {
 	fn get(&self) -> Option<(&[u8], Vec<u8>)> {
 		match self.state {
 			IterState::Valid { ref current_key } => Some((
-				current_key.as_ref(),
+				current_key.key_slice(),
 				self.lock_col_space(|col_space| {
 					col_space
 						.get(current_key)
@@ -209,7 +276,7 @@ impl<'db, K: GenericKey> SeekableIterator for MemDbSeekableIter<'db, K> {
 	}
 }
 
-impl<H, Key: GenericKey> DatabaseWithSeekableIterator<H> for MemDb<Key>
+impl<H, Cmp: Comparator + Send + Sync> DatabaseWithSeekableIterator<H> for MemDb<Cmp>
 where
 	H: Clone + AsRef<[u8]>,
 {
@@ -222,7 +289,7 @@ where
 	}
 }
 
-impl<K: GenericKey> MemDb<K> {
+impl<Cmp: Comparator> MemDb<Cmp> {
 	/// Create a new instance
 	pub fn new() -> Self {
 		MemDb::default()

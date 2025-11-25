@@ -33,10 +33,10 @@ use sp_state_machine::{
 
 use crate::{columns, BlockT, DbHash};
 
-pub(crate) fn compare_keys<B: sp_runtime::traits::BlockNumber>(
+pub(crate) fn compare_keys<B>(
 	key1: &[u8],
 	key2: &[u8],
-) -> std::cmp::Ordering {
+) -> std::cmp::Ordering where B: Encode + Decode + Ord {
 	let key1 = FullStorageKey::<B>::from(key1);
 	let key2 = FullStorageKey::<B>::from(key2);
 	key1.cmp(&key2)
@@ -525,7 +525,7 @@ impl<'a, BlockNumber> PartialEq for FullStorageKey<'a, BlockNumber> {
 
 impl<'a, BlockNumber> Eq for FullStorageKey<'a, BlockNumber> {}
 
-impl<'a, BlockNumber: std::fmt::Display + Encode + Decode + PartialOrd> PartialOrd
+impl<'a, BlockNumber: Encode + Decode + PartialOrd> PartialOrd
 	for FullStorageKey<'a, BlockNumber>
 {
 	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
@@ -533,7 +533,7 @@ impl<'a, BlockNumber: std::fmt::Display + Encode + Decode + PartialOrd> PartialO
 	}
 }
 
-impl<'a, BlockNumber: std::fmt::Display + Encode + Decode + Ord> Ord
+impl<'a, BlockNumber: Encode + Decode + Ord> Ord
 	for FullStorageKey<'a, BlockNumber>
 {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
@@ -541,10 +541,10 @@ impl<'a, BlockNumber: std::fmt::Display + Encode + Decode + Ord> Ord
 	}
 }
 
-impl<'a, BlockNumber: Clone + Ord + std::fmt::Display + Send + Sync + Encode + Decode>
-	sp_database::GenericKey for FullStorageKey<'a, BlockNumber>
-{
-	type Key<'b> = FullStorageKey<'b, BlockNumber>;
+impl<'a, BlockNumber: Encode + Decode + Ord> sp_database::MemDbComparator for FullStorageKey<'a, BlockNumber> {
+	fn cmp(k1: &[u8], k2: &[u8]) -> std::cmp::Ordering {
+		compare_keys::<BlockNumber>(k1, k2)
+	}
 }
 
 #[cfg(test)]
