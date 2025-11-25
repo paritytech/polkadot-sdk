@@ -28,6 +28,7 @@ use frame_support::{
 		Get, Polling,
 	},
 };
+use pallet_revive::ExecOrigin;
 use frame_system::RawOrigin;
 use pallet_conviction_voting::{AccountVote, BalanceOf, ClassOf, Conviction, IndexOf, Vote};
 use pallet_conviction_voting_precompiles::{ConvictionVotingPrecompile, IConvictionVoting};
@@ -115,7 +116,7 @@ mod benchmarks {
 		{
 			result = run_precompile::<ConvictionVotingPrecompile<T>, _>(
 				&mut ext,
-				H160::from_low_u64_be(12).as_fixed_bytes(),
+				H160::from_low_u64_be(0xC0000).as_fixed_bytes(),
 				&call,
 			);
 		}
@@ -159,7 +160,7 @@ mod benchmarks {
 		{
 			result = run_precompile::<ConvictionVotingPrecompile<T>, _>(
 				&mut ext,
-				H160::from_low_u64_be(12).as_fixed_bytes(),
+				H160::from_low_u64_be(0xC0000).as_fixed_bytes(),
 				&call,
 			);
 		}
@@ -206,7 +207,7 @@ mod benchmarks {
 		{
 			result = run_precompile::<ConvictionVotingPrecompile<T>, _>(
 				&mut ext,
-				H160::from_low_u64_be(12).as_fixed_bytes(),
+				H160::from_low_u64_be(0xC0000).as_fixed_bytes(),
 				&call,
 			);
 		}
@@ -253,6 +254,7 @@ mod benchmarks {
 		);
 
 		let mut call_setup = CallSetup::<T>::default();
+		call_setup.set_origin(ExecOrigin::<T>::Signed(caller));
 		let (mut ext, _) = call_setup.ext();
 
 		let result;
@@ -260,7 +262,7 @@ mod benchmarks {
 		{
 			result = run_precompile::<ConvictionVotingPrecompile<T>, _>(
 				&mut ext,
-				H160::from_low_u64_be(12).as_fixed_bytes(),
+				H160::from_low_u64_be(0xC0000).as_fixed_bytes(),
 				&call,
 			);
 		}
@@ -304,7 +306,7 @@ mod benchmarks {
 		{
 			result = run_precompile::<ConvictionVotingPrecompile<T>, _>(
 				&mut ext,
-				H160::from_low_u64_be(12).as_fixed_bytes(),
+				H160::from_low_u64_be(0xC0000).as_fixed_bytes(),
 				&call,
 			);
 		}
