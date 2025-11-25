@@ -21,6 +21,7 @@
 use anyhow::{bail, Context, Result};
 #[cfg(feature = "std")]
 use cargo_metadata::MetadataCommand;
+use pallet_revive_uapi::precompiles::INTERFACE_DIR;
 use std::{
 	env, fs,
 	io::Write,
@@ -306,6 +307,8 @@ fn compile_with_standard_json(
 	contracts_dir: &Path,
 	solidity_entries: &[&Entry],
 ) -> Result<serde_json::Value> {
+	let remappings = [format!("@revive/={INTERFACE_DIR}")];
+
 	let mut input_json = serde_json::json!({
 		"language": "Solidity",
 		"sources": {},
@@ -314,6 +317,7 @@ fn compile_with_standard_json(
 				"enabled": false,
 				"runs": 200
 			},
+			"remappings": remappings,
 			"outputSelection":
 
 		serde_json::json!({
