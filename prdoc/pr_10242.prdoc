@@ -1,6 +1,0 @@
-title: Upgrade kvdb-rocksdb
-doc:
-- audience: Node Dev
-  description: |-
-    This includes a fix for when we are writing a lot of state, e.g. after a warp sync. In this case the rocksdb will compact its own db to improve read speed.
-crates: []
