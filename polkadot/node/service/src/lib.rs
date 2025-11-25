@@ -239,6 +239,18 @@ pub enum Error {
 		node_version: String,
 		worker_path: PathBuf,
 	},
+
+	#[cfg(feature = "full-node")]
+	#[error("Execute binary failed security checks, path: {exec_worker_path:?}")]
+	ExecuteWorkerFailedSecurityChecks {
+		exec_worker_path: PathBuf,
+	},	
+
+	#[cfg(feature = "full-node")]
+	#[error("Prepare binary failed security checks, path: {prep_worker_path:?}")]
+	PrepareWorkerFailedSecurityChecks {
+		prep_worker_path: PathBuf,
+	},
 }
 
 /// Identifies the variant of the chain.

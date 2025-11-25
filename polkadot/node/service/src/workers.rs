@@ -98,10 +98,23 @@ pub fn determine_workers_paths(
 		log::warn!("Skipping node/worker version checks. This could result in incorrect behavior in PVF workers.");
 	}
 
-	let _exit_status = Command::new(&exec_worker_path)
+	let exit_status = Command::new(&exec_worker_path)
 		.arg("--check-all")
 		.status()
 		.unwrap();
+
+	if exit_status.success() == false {
+		return Err(Error::ExecuteWorkerFailedSecurityChecks { exec_worker_path });
+	}
+
+	let exit_status = Command::new(&prep_worker_path)
+		.arg("--check-all")
+		.status()
+		.unwrap();
+
+	if exit_status.success() == false {
+		return Err(Error::PrepareWorkerFailedSecurityChecks { prep_worker_path });
+	}
 
 	Ok((prep_worker_path, exec_worker_path))
 }
