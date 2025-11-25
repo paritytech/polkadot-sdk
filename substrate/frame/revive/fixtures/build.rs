@@ -23,17 +23,10 @@ mod builder;
 use anyhow::{Context, Result};
 use builder::{
 	collect_entries, compile_solidity_contracts, create_cargo_toml, generate_fixture_location,
-	invoke_build, write_output, ContractType,
+	invoke_build, write_output, ContractType, OVERRIDE_OPTIMIZE_ENV_VAR,
+	OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR, OVERRIDE_STRIP_ENV_VAR, SKIP_PALLET_REVIVE_FIXTURES,
 };
 use std::{env, fs, path::PathBuf};
-
-const OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR: &str = "PALLET_REVIVE_FIXTURES_RUSTUP_TOOLCHAIN";
-const OVERRIDE_STRIP_ENV_VAR: &str = "PALLET_REVIVE_FIXTURES_STRIP";
-const OVERRIDE_OPTIMIZE_ENV_VAR: &str = "PALLET_REVIVE_FIXTURES_OPTIMIZE";
-/// Do not build the fixtures, they will resolve to `None`.
-///
-/// Depending on the usage, they will probably panic at runtime.
-const SKIP_PALLET_REVIVE_FIXTURES: &str = "SKIP_PALLET_REVIVE_FIXTURES";
 
 pub fn main() -> Result<()> {
 	// input pathes

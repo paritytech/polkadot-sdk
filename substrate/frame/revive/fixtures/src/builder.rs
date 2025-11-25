@@ -29,6 +29,14 @@ use std::{
 	process::Command,
 };
 
+pub const OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR: &str = "PALLET_REVIVE_FIXTURES_RUSTUP_TOOLCHAIN";
+pub const OVERRIDE_STRIP_ENV_VAR: &str = "PALLET_REVIVE_FIXTURES_STRIP";
+pub const OVERRIDE_OPTIMIZE_ENV_VAR: &str = "PALLET_REVIVE_FIXTURES_OPTIMIZE";
+/// Do not build the fixtures, they will resolve to `None`.
+///
+/// Depending on the usage, they will probably panic at runtime.
+pub const SKIP_PALLET_REVIVE_FIXTURES: &str = "SKIP_PALLET_REVIVE_FIXTURES";
+
 /// A contract entry.
 #[derive(Clone)]
 pub struct Entry {
@@ -210,7 +218,7 @@ pub fn invoke_build(current_dir: &Path) -> Result<()> {
 		.arg("--target")
 		.arg(polkavm_linker::target_json_path(args).unwrap());
 
-	if let Ok(toolchain) = env::var("PALLET_REVIVE_FIXTURES_RUSTUP_TOOLCHAIN") {
+	if let Ok(toolchain) = env::var(OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR) {
 		build_command.env("RUSTUP_TOOLCHAIN", &toolchain);
 	}
 
@@ -284,8 +292,8 @@ pub fn compile_rust_to_polkavm(
 
 /// Post-process the compiled code.
 pub fn post_process(input_path: &Path, output_path: &Path) -> Result<()> {
-	let strip = env::var("PALLET_REVIVE_FIXTURES_STRIP").map_or(false, |value| value == "1");
-	let optimize = env::var("PALLET_REVIVE_FIXTURES_OPTIMIZE").map_or(true, |value| value == "1");
+	let strip = env::var(OVERRIDE_STRIP_ENV_VAR).map_or(false, |value| value == "1");
+	let optimize = env::var(OVERRIDE_OPTIMIZE_ENV_VAR).map_or(true, |value| value == "1");
 
 	let mut config = polkavm_linker::Config::default();
 	config.set_strip(strip);
@@ -318,14 +326,11 @@ fn compile_with_standard_json(
 				"runs": 200
 			},
 			"remappings": remappings,
-			"outputSelection":
-
-		serde_json::json!({
-			"*": {
-				"*": ["evm.bytecode", "evm.deployedBytecode"]
-			}
-		}),
-
+			"outputSelection": serde_json::json!({
+				"*": {
+					"*": ["evm.bytecode", "evm.deployedBytecode"]
+				}
+			}),
 		}
 	});
 
@@ -342,6 +347,8 @@ fn compile_with_standard_json(
 
 	let compiler_output = Command::new(compiler)
 		.current_dir(contracts_dir)
+		.arg("--allow-paths")
+		.arg(INTERFACE_DIR)
 		.arg("--standard-json")
 		.stdin(std::process::Stdio::piped())
 		.stdout(std::process::Stdio::piped())
