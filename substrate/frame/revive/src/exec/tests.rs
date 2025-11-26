@@ -251,6 +251,7 @@ fn transfer_works() {
 			&ALICE,
 			&BOB,
 			Pallet::<Test>::convert_native_to_evm(value),
+			Preservation::Preserve,
 			&mut meter,
 			&ExecConfig::new_substrate_tx(),
 		)
@@ -293,6 +294,7 @@ fn transfer_to_nonexistent_account_works() {
 			&BOB,
 			&CHARLIE,
 			evm_value,
+			Preservation::Preserve,
 			&mut meter,
 			&ExecConfig::new_substrate_tx(),
 		));
@@ -309,6 +311,7 @@ fn transfer_to_nonexistent_account_works() {
 				&BOB,
 				&DJANGO,
 				evm_value,
+				Preservation::Preserve,
 				&mut meter,
 				&ExecConfig::new_substrate_tx(),
 			),
@@ -324,6 +327,7 @@ fn transfer_to_nonexistent_account_works() {
 				&BOB,
 				&EVE,
 				evm_value,
+				Preservation::Preserve,
 				&mut meter,
 				&ExecConfig::new_substrate_tx(),
 			),
@@ -496,6 +500,7 @@ fn balance_too_low() {
 			&from,
 			&dest,
 			Pallet::<Test>::convert_native_to_evm(100u64).as_u64().into(),
+			Preservation::Preserve,
 			&mut meter,
 			&ExecConfig::new_substrate_tx(),
 		);
@@ -1304,7 +1309,7 @@ fn instantiation_traps() {
 }
 
 #[test]
-fn termination_from_instantiate_fails() {
+fn termination_from_instantiate_succeeds() {
 	let terminate_ch = MockLoader::insert(Constructor, |ctx, _| {
 		let _ = ctx.ext.terminate_if_same_tx(&ALICE_ADDR)?;
 		exec_success()
@@ -1321,23 +1326,21 @@ fn termination_from_instantiate_fails() {
 			let executable = MockExecutable::from_storage(terminate_ch, &mut meter).unwrap();
 			set_balance(&ALICE, 10_000);
 
-			assert_eq!(
-				MockStack::run_instantiate(
-					ALICE,
-					executable,
-					&mut meter,
-					Pallet::<Test>::convert_native_to_evm(100u64),
-					vec![],
-					Some(&[0; 32]),
-					&ExecConfig::new_substrate_tx(),
-				),
-				Err(ExecError {
-					error: Error::<Test>::TerminatedInConstructor.into(),
-					origin: ErrorOrigin::Callee
-				})
-			);
+			let result = MockStack::run_instantiate(
+				ALICE,
+				executable,
+				&mut meter,
+				Pallet::<Test>::convert_native_to_evm(100u64),
+				vec![],
+				Some(&[0; 32]),
+				&ExecConfig::new_substrate_tx(),
+			)
+			.unwrap();
 
-			assert_eq!(&events(), &[]);
+			assert_eq!(
+				&events(),
+				&[Event::Instantiated { deployer: ALICE_ADDR, contract: result.0 }]
+			);
 		});
 }
 

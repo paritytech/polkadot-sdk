@@ -18,6 +18,7 @@
 //! Compile text fixtures to PolkaVM binaries.
 use anyhow::{bail, Context, Result};
 use cargo_metadata::MetadataCommand;
+use pallet_revive_uapi::precompiles::INTERFACE_DIR;
 use std::{
 	env, fs,
 	io::Write,
@@ -232,6 +233,8 @@ fn compile_with_standard_json(
 	contracts_dir: &Path,
 	solidity_entries: &[&Entry],
 ) -> Result<serde_json::Value> {
+	let remappings = [format!("@revive/={INTERFACE_DIR}")];
+
 	let mut input_json = serde_json::json!({
 		"language": "Solidity",
 		"sources": {},
@@ -240,6 +243,7 @@ fn compile_with_standard_json(
 				"enabled": false,
 				"runs": 200
 			},
+			"remappings": remappings,
 			"outputSelection":
 
 		serde_json::json!({
@@ -264,6 +268,8 @@ fn compile_with_standard_json(
 
 	let compiler_output = Command::new(compiler)
 		.current_dir(contracts_dir)
+		.arg("--allow-paths")
+		.arg(INTERFACE_DIR)
 		.arg("--standard-json")
 		.stdin(std::process::Stdio::piped())
 		.stdout(std::process::Stdio::piped())
