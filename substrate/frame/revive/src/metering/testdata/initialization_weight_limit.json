@@ -1,0 +1,38 @@
+[
+  {
+    "name": "weight_limit_no_change",
+    "ref_time_limit": 1000000000,
+    "proof_size_limit": 2000,
+    "expected": {
+      "ref_time_left": 1000000000,
+      "proof_size_left": 2000
+    }
+  },
+  {
+    "name": "weight_limit_ref_time_reduced",
+    "ref_time_limit": 2000000000,
+    "proof_size_limit": 2000,
+    "expected": {
+      "ref_time_left": 1499999750,
+      "proof_size_left": 2000
+    }
+  },
+  {
+    "name": "weight_limit_proof_reduced",
+    "ref_time_limit": 2000000000,
+    "proof_size_limit": 20000,
+    "expected": {
+      "ref_time_left": 1499999750,
+      "proof_size_left": 11107
+    }
+  },
+  {
+    "name": "weight_limit_proof_only",
+    "ref_time_limit": 1000000000,
+    "proof_size_limit": 20000,
+    "expected": {
+      "ref_time_left": 1000000000,
+      "proof_size_left": 11107
+    }
+  }
+]

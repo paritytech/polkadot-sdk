@@ -1,0 +1,324 @@
+[
+  {
+    "name": "charge_weight_basic",
+    "eth_gas_limit": 5000000000,
+    "extra_ref_time": 1000000000,
+    "extra_proof": 2000,
+    "charges": [
+      {
+        "type": "Weight",
+        "ref_time": 1000,
+        "proof_size": 100,
+        "expected": {
+          "gas_left": 2999997500,
+          "ref_time_left": 1499998750,
+          "proof_size_left": 11007,
+          "deposit_left": 599999500,
+          "gas_consumed": 2000002500
+        }
+      }
+    ]
+  },
+  {
+    "name": "charge_weight_high_proof",
+    "eth_gas_limit": 5000000000,
+    "extra_ref_time": 1000000000,
+    "extra_proof": 2000,
+    "charges": [
+      {
+        "type": "Weight",
+        "ref_time": 1000,
+        "proof_size": 300,
+        "expected": {
+          "gas_left": 2999997500,
+          "ref_time_left": 1499998750,
+          "proof_size_left": 10807,
+          "deposit_left": 599999500,
+          "gas_consumed": 2000002500
+        }
+      }
+    ]
+  },
+  {
+    "name": "charge_large_weight_1",
+    "eth_gas_limit": 5000000000,
+    "extra_ref_time": 1000000000,
+    "extra_proof": 2000,
+    "charges": [
+      {
+        "type": "Weight",
+        "ref_time": 1300000000,
+        "proof_size": 10000,
+        "expected": {
+          "gas_left": 399999500,
+          "ref_time_left": 199999750,
+          "proof_size_left": 1107,
+          "deposit_left": 79999900,
+          "gas_consumed": 4600000500
+        }
+      }
+    ]
+  },
+  {
+    "name": "charge_large_weight_2",
+    "eth_gas_limit": 5000000000,
+    "extra_ref_time": 1000000000,
+    "extra_proof": 2000,
+    "charges": [
+      {
+        "type": "Weight",
+        "ref_time": 1400000000,
+        "proof_size": 10000,
+        "expected": {
+          "gas_left": 199999500,
+          "ref_time_left": 99999750,
+          "proof_size_left": 1107,
+          "deposit_left": 39999900,
+          "gas_consumed": 4800000500
+        }
+      }
+    ]
+  },
+  {
+    "name": "charge_weight_near_limit",
+    "eth_gas_limit": 5000000000,
+    "extra_ref_time": 1000000000,
+    "extra_proof": 2000,
+    "charges": [
+      {
+        "type": "Weight",
+        "ref_time": 1400000000,
+        "proof_size": 11000,
+        "expected": {
+          "gas_left": 40893055,
+          "ref_time_left": 99999750,
+          "proof_size_left": 107,
+          "deposit_left": 8178611,
+          "gas_consumed": 4959106945
+        }
+      }
+    ]
+  },
+  {
+    "name": "charge_weight_exceeds_proof",
+    "eth_gas_limit": 5000000000,
+    "extra_ref_time": 1000000000,
+    "extra_proof": 2000,
+    "charges": [
+      {
+        "type": "Weight",
+        "ref_time": 1400000000,
+        "proof_size": 12000,
+        "expected": null
+      }
+    ]
+  },
+  {
+    "name": "charge_weight_exceeds_ref_time",
+    "eth_gas_limit": 5000000000,
+    "extra_ref_time": 1000000000,
+    "extra_proof": 2000,
+    "charges": [
+      {
+        "type": "Weight",
+        "ref_time": 1500000000,
+        "proof_size": 11000,
+        "expected": null
+      }
+    ]
+  },
+  {
+    "name": "charge_deposit_small",
+    "eth_gas_limit": 5000000000,
+    "extra_ref_time": 1000000000,
+    "extra_proof": 2000,
+    "charges": [
+      {
+        "type": "Deposit",
+        "amount": 1000,
+        "expected": {
+          "gas_left": 2999994500,
+          "ref_time_left": 1499997250,
+          "proof_size_left": 11107,
+          "deposit_left": 599998900,
+          "gas_consumed": 2000005500
+        }
+      }
+    ]
+  },
+  {
+    "name": "charge_deposit_large",
+    "eth_gas_limit": 5000000000,
+    "extra_ref_time": 1000000000,
+    "extra_proof": 2000,
+    "charges": [
+      {
+        "type": "Deposit",
+        "amount": 500000000,
+        "expected": {
+          "gas_left": 499999500,
+          "ref_time_left": 249999750,
+          "proof_size_left": 4553,
+          "deposit_left": 99999900,
+          "gas_consumed": 4500000500
+        }
+      }
+    ]
+  },
+  {
+    "name": "charge_deposit_exceeds",
+    "eth_gas_limit": 5000000000,
+    "extra_ref_time": 1000000000,
+    "extra_proof": 2000,
+    "charges": [
+      {
+        "type": "Deposit",
+        "amount": 600000000,
+        "expected": null
+      }
+    ]
+  },
+  {
+    "name": "refund_deposits",
+    "eth_gas_limit": 5000000000,
+    "extra_ref_time": 1000000000,
+    "extra_proof": 2000,
+    "charges": [
+      {
+        "type": "Deposit",
+        "amount": -100000,
+        "expected": {
+          "gas_left": 3000499500,
+          "ref_time_left": 1500249750,
+          "proof_size_left": 11108,
+          "deposit_left": 600099900,
+          "gas_consumed": 1999500500
+        }
+      },
+      {
+        "type": "Deposit",
+        "amount": -1000000000,
+        "expected": {
+          "gas_left": 8000499500,
+          "ref_time_left": 4000249750,
+          "proof_size_left": 24215,
+          "deposit_left": 1600099900,
+          "gas_consumed": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "mixed_charges",
+    "eth_gas_limit": 5000000000,
+    "extra_ref_time": 1000000000,
+    "extra_proof": 2000,
+    "charges": [
+      {
+        "type": "Deposit",
+        "amount": -200000,
+        "expected": {
+          "gas_left": 3000999500,
+          "ref_time_left": 1500499750,
+          "proof_size_left": 11109,
+          "deposit_left": 600199900,
+          "gas_consumed": 1999000500
+        }
+      },
+      {
+        "type": "Deposit",
+        "amount": 50000,
+        "expected": {
+          "gas_left": 3000749500,
+          "ref_time_left": 1500374750,
+          "proof_size_left": 11109,
+          "deposit_left": 600149900,
+          "gas_consumed": 1999250500
+        }
+      },
+      {
+        "type": "Deposit",
+        "amount": 100000,
+        "expected": {
+          "gas_left": 3000249500,
+          "ref_time_left": 1500124750,
+          "proof_size_left": 11107,
+          "deposit_left": 600049900,
+          "gas_consumed": 1999750500
+        }
+      }
+    ]
+  },
+  {
+    "name": "complex_mixed_charges",
+    "eth_gas_limit": 5000000000,
+    "extra_ref_time": 1000000000,
+    "extra_proof": 2000,
+    "charges": [
+      {
+        "type": "Weight",
+        "ref_time": 1000,
+        "proof_size": 300,
+        "expected": {
+          "gas_left": 2999997500,
+          "ref_time_left": 1499998750,
+          "proof_size_left": 10807,
+          "deposit_left": 599999500,
+          "gas_consumed": 2000002500
+        }
+      },
+      {
+        "type": "Deposit",
+        "amount": 1000,
+        "expected": {
+          "gas_left": 2999992500,
+          "ref_time_left": 1499996250,
+          "proof_size_left": 10807,
+          "deposit_left": 599998500,
+          "gas_consumed": 2000007500
+        }
+      },
+      {
+        "type": "Weight",
+        "ref_time": 100000,
+        "proof_size": 300,
+        "expected": {
+          "gas_left": 2999792500,
+          "ref_time_left": 1499896250,
+          "proof_size_left": 10507,
+          "deposit_left": 599958500,
+          "gas_consumed": 2000207500
+        }
+      },
+      {
+        "type": "Deposit",
+        "amount": -10000,
+        "expected": {
+          "gas_left": 2999842500,
+          "ref_time_left": 1499921250,
+          "proof_size_left": 10507,
+          "deposit_left": 599968500,
+          "gas_consumed": 2000157500
+        }
+      },
+      {
+        "type": "Weight",
+        "ref_time": 500000,
+        "proof_size": 900,
+        "expected": {
+          "gas_left": 2998842500,
+          "ref_time_left": 1499421250,
+          "proof_size_left": 9607,
+          "deposit_left": 599768500,
+          "gas_consumed": 2001157500
+        }
+      },
+      {
+        "type": "Weight",
+        "ref_time": 0,
+        "proof_size": 10000,
+        "expected": null
+      }
+    ]
+  }
+]

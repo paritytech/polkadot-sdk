@@ -1,0 +1,100 @@
+[
+  {
+    "name": "init_basic_1",
+    "eth_gas_limit": 5000000000,
+    "extra_ref_time": 1000000000,
+    "extra_proof": 2000,
+    "expected": {
+      "gas_left": 2999999500,
+      "ref_time_left": 1499999750,
+      "proof_size_left": 11107,
+      "deposit_left": 599999900
+    }
+  },
+  {
+    "name": "init_basic_2",
+    "eth_gas_limit": 6000000000,
+    "extra_ref_time": 1000000000,
+    "extra_proof": 2000,
+    "expected": {
+      "gas_left": 3999999500,
+      "ref_time_left": 1999999750,
+      "proof_size_left": 13728,
+      "deposit_left": 799999900
+    }
+  },
+  {
+    "name": "init_high_proof",
+    "eth_gas_limit": 6000000000,
+    "extra_ref_time": 1000000000,
+    "extra_proof": 10000,
+    "expected": {
+      "gas_left": 2185302235,
+      "ref_time_left": 1999999750,
+      "proof_size_left": 5728,
+      "deposit_left": 437060447
+    }
+  },
+  {
+    "name": "init_fail_insufficient_gas",
+    "eth_gas_limit": 2000000000,
+    "extra_ref_time": 1000000000,
+    "extra_proof": 2000,
+    "expected": null
+  },
+  {
+    "name": "init_low_extra_ref_time",
+    "eth_gas_limit": 4000000000,
+    "extra_ref_time": 100000000,
+    "extra_proof": 2000,
+    "expected": {
+      "gas_left": 3237060047,
+      "ref_time_left": 1899999750,
+      "proof_size_left": 8485,
+      "deposit_left": 647412009
+    }
+  },
+  {
+    "name": "init_high_extra_proof",
+    "eth_gas_limit": 5000000000,
+    "extra_ref_time": 1000000000,
+    "extra_proof": 8000,
+    "expected": {
+      "gas_left": 1948241688,
+      "ref_time_left": 1499999750,
+      "proof_size_left": 5107,
+      "deposit_left": 389648337
+    }
+  },
+  {
+    "name": "init_high_gas_limit",
+    "eth_gas_limit": 10000000000,
+    "extra_ref_time": 1000000000,
+    "extra_proof": 8000,
+    "expected": {
+      "gas_left": 6948241688,
+      "ref_time_left": 3999999750,
+      "proof_size_left": 18214,
+      "deposit_left": 1389648337
+    }
+  },
+  {
+    "name": "init_edge_case_1",
+    "eth_gas_limit": 3052000000,
+    "extra_ref_time": 1000000000,
+    "extra_proof": 8000,
+    "expected": {
+      "gas_left": 241688,
+      "ref_time_left": 525999750,
+      "proof_size_left": 0,
+      "deposit_left": 48337
+    }
+  },
+  {
+    "name": "init_edge_case_fail",
+    "eth_gas_limit": 3051000000,
+    "extra_ref_time": 1000000000,
+    "extra_proof": 8000,
+    "expected": null
+  }
+]
