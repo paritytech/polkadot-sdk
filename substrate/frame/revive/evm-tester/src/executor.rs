@@ -342,8 +342,8 @@ pub fn execute_revive_statetest(
 	expected_post_state: &Test,
 ) -> Result<Result<ExecutionResult<HaltReason>, StateTestError>> {
 	use crate::transaction_helper::create_generic_transaction;
+	use pallet_revive::evm::DryRunConfig;
 	use revive_dev_runtime::Runtime;
-	use sp_runtime::Weight;
 
 	let tx = create_generic_transaction(test_case, &expected_post_state.indexes)?;
 	let mut ext = ExtBuilder::default().build(test_case);
@@ -356,8 +356,9 @@ pub fn execute_revive_statetest(
 		let mut tracer = pallet_revive::Pallet::<Runtime>::evm_tracer(tracer_type.clone());
 		let t = tracer.as_tracing();
 
+		let dry_run_config = DryRunConfig::new(None);
 		let result = pallet_revive::tracing::trace(t, || {
-			pallet_revive::Pallet::<Runtime>::dry_run_eth_transact(tx, Weight::MAX, |_, _| 0u128)
+			pallet_revive::Pallet::<Runtime>::dry_run_eth_transact(tx, dry_run_config)
 		});
 		// TODO: Extract actual logs from the execution
 		// For now, return empty logs as placeholder
@@ -406,7 +407,7 @@ pub fn execute_revive_statetest(
 				}));
 			}
 
-			for (address, expected_account) in &expected_post_state.post_state {
+			for (_address, _expected_account) in &expected_post_state.post_state {
 				// Convert EVM address to Substrate AccountId
 				// Query account state from Substrate storage
 				// Compare balance, nonce, code, storage
@@ -615,10 +616,10 @@ pub fn report(args: &Args, results: Vec<TestResult>) {
 		for result in &results {
 			if result.pass {
 				pass_count += 1;
-				println!("[\\x1b[32mPASS\\x1b[0m] {} ({})", result.name, result.fork);
+				println!("[\x1b[32mPASS\x1b[0m] {} ({})", result.name, result.fork);
 			} else {
 				println!(
-					"[\\x1b[31mFAIL\\x1b[0m] {} ({}): {}",
+					"[\x1b[31mFAIL\x1b[0m] {} ({}): {}",
 					result.name,
 					result.fork,
 					result.error.as_ref().unwrap_or(&"Unknown error".to_string())

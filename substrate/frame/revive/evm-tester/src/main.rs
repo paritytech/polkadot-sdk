@@ -3,16 +3,16 @@
 //! This binary replicates the functionality of go-ethereum's `evm statetest` command
 //! for validating EVM implementations against the official Ethereum test suite.
 
+use crate::executor::execute_revive_state_test;
 use anyhow::{Context, Result};
 use clap::Parser;
 use regex::Regex;
+use revm_statetest_types::{SpecName, TestSuite};
 use std::{
 	fs,
 	io::{self, BufRead},
 	path::PathBuf,
 };
-
-use revm_statetest_types::{SpecName, TestSuite as TestSuite};
 
 mod cli;
 mod executor;
@@ -52,24 +52,33 @@ fn main() -> Result<()> {
 	Ok(())
 }
 
-/// Collect files to process - if path is a file, return it; if directory, return all .json files
+/// Collect files to process - if path is a file, return it; if directory, recursively find all
+/// .json files
 fn collect_files(path: &PathBuf) -> Result<Vec<PathBuf>> {
 	if path.is_file() {
 		Ok(vec![path.clone()])
 	} else if path.is_dir() {
 		let mut files = Vec::new();
-		for entry in fs::read_dir(path)? {
-			let entry = entry?;
-			let path = entry.path();
-			if path.is_file() && path.extension().map_or(false, |ext| ext == "json") {
-				files.push(path);
-			}
-		}
+		collect_json_files_recursive(path, &mut files)?;
 		files.sort();
 		Ok(files)
 	} else {
 		Ok(vec![path.clone()]) // Let it fail later with proper error
 	}
+}
+
+/// Recursively collect all .json files from a directory
+fn collect_json_files_recursive(dir: &PathBuf, files: &mut Vec<PathBuf>) -> Result<()> {
+	for entry in fs::read_dir(dir)? {
+		let entry = entry?;
+		let path = entry.path();
+		if path.is_dir() {
+			collect_json_files_recursive(&path, files)?;
+		} else if path.is_file() && path.extension().map_or(false, |ext| ext == "json") {
+			files.push(path);
+		}
+	}
+	Ok(())
 }
 
 /// Run state tests from a single file
@@ -106,14 +115,7 @@ fn run_state_test(args: &Args, file_path: &PathBuf) -> Result<Vec<TestResult>> {
 					continue;
 				}
 
-				let result = execute_revm_state_test(
-					&test_name,
-					&test_case,
-					&format!("{:?}", fork),
-					i,
-					post_state,
-					args,
-				)?;
+				let result = execute_revive_state_test(&test_name, &test_case, post_state, args)?;
 				results.push(result);
 			}
 		}

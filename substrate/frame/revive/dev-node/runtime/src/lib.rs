@@ -339,14 +339,45 @@ impl pallet_transaction_payment::Config for Runtime {
 	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
 }
 
+#[cfg(feature = "std")]
+use sp_core::H160;
+
+#[cfg(feature = "std")]
+thread_local! {
+	static CHAIN_ID: core::cell::RefCell<u64> = const { core::cell::RefCell::new(420_420_420) };
+	static COINBASE: core::cell::RefCell<H160> = core::cell::RefCell::new(H160::zero());
+}
+
+#[cfg(not(feature = "std"))]
 parameter_types! {
 	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
+	pub ChainId: u64 = 420_420_420;
+	pub Coinbase: H160 = H160::zero();
+}
+
+#[cfg(feature = "std")]
+parameter_types! {
+	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
+	pub ChainId: u64 = CHAIN_ID.with(|c| *c.borrow());
+	pub Coinbase: H160 = COINBASE.with(|c| *c.borrow());
+}
+
+#[cfg(feature = "std")]
+/// Set the chain ID for EVM transactions.
+pub fn set_chain_id(new: u64) {
+	CHAIN_ID.with(|c| *c.borrow_mut() = new);
+}
+
+#[cfg(feature = "std")]
+/// Set the coinbase address
+pub fn set_coinbase(new: H160) {
+	COINBASE.with(|c| *c.borrow_mut() = new);
 }
 
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
 impl pallet_revive::Config for Runtime {
 	type AddressMapper = AccountId32Mapper<Self>;
-	type ChainId = ConstU64<420_420_420>;
+	type ChainId = ChainId;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type Balance = Balance;
 	type Currency = Balances;
@@ -356,6 +387,17 @@ impl pallet_revive::Config for Runtime {
 	type Time = Timestamp;
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
 	type DebugEnabled = ConstBool<false>;
+}
+
+impl frame_support::traits::FindAuthor<AccountId> for Runtime {
+	fn find_author<'a, I>(_digests: I) -> Option<AccountId>
+	where
+		I: 'a + IntoIterator<Item = (frame_support::ConsensusEngineId, &'a [u8])>,
+	{
+		use pallet_revive::AddressMapper;
+		let addr = Coinbase::get();
+		Some(AccountId32Mapper::<Runtime>::to_account_id(&addr))
+	}
 }
 
 pallet_revive::impl_runtime_apis_plus_revive_traits!(
