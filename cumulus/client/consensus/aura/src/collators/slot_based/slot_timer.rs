@@ -349,7 +349,7 @@ where
 	}
 
 	/// Returns a future that resolves when the next block production should be attempted.
-	pub async fn wait_until_next_slot(&mut self) -> Result<(), ()> {
+	pub async fn wait_until_next_slot(&mut self) -> Result<Slot, ()> {
 		let slot_duration = match crate::slot_duration(&*self.client) {
 			Ok(d) => d,
 			Err(error) => {
@@ -390,7 +390,7 @@ where
 
 		self.last_reported_slot = Some(next_aura_slot);
 
-		Ok(())
+		Ok(next_aura_slot)
 	}
 }
 

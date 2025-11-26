@@ -195,9 +195,12 @@ where
 
 		loop {
 			// We wait here until the next slot arrives.
-			if slot_timer.wait_until_next_slot().await.is_err() {
-				tracing::error!(target: LOG_TARGET, "Unable to wait for next slot.");
-				return;
+			let aura_slot = match slot_timer.wait_until_next_slot().await {
+				Ok(slot) => slot,
+				Err(_) => {
+					tracing::error!(target: LOG_TARGET, "Unable to wait for next slot.");
+					return;
+				},
 			};
 
 			let Ok(relay_best_hash) = relay_client.best_block_hash().await else {
@@ -311,7 +314,7 @@ where
 			let included_header_hash = included_header.hash();
 
 			if let Ok(authorities) = para_client.runtime_api().authorities(parent_hash) {
-				connection_helper.update::<P>(para_slot.slot, &authorities).await;
+				connection_helper.update::<P>(aura_slot, &authorities).await;
 			} else {
 				tracing::error!(target: crate::LOG_TARGET, "Failed to fetch authorities for parent hash.");
 			}
