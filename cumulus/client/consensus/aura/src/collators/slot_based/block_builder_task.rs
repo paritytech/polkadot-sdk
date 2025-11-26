@@ -34,14 +34,13 @@ use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockIm
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_transaction;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
-	extract_relay_parent, rpsr_digest, BundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector,
-	CumulusDigestItem, PersistedValidationData, RelayParentOffsetApi, TargetBlockRate,
+	BundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
+	PersistedValidationData, RelayParentOffsetApi, TargetBlockRate,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
 use polkadot_primitives::{
 	Block as RelayBlock, CoreIndex, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
-	DEFAULT_CLAIM_QUEUE_OFFSET,
 };
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
@@ -57,7 +56,7 @@ use sp_core::crypto::Pair;
 use sp_externalities::Extensions;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT, Member, Zero};
+use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT, Member};
 use sp_trie::{
 	proof_size_extension::{ProofSizeExt, RecordingProofSizeProvider},
 	recorder::IgnoredNodes,
@@ -364,9 +363,11 @@ where
 							target: crate::LOG_TARGET,
 							block = ?initial_parent.hash,
 							?error,
-							"Failed to fetch `slot_schedule`, assuming one block with 2s"
+							"Failed to fetch `slot_schedule`, assuming one block per core"
 						);
-						1
+
+						// Backwards compatible we use the number of cores as number of blocks.
+						cores.total_cores()
 					},
 				};
 
@@ -386,29 +387,30 @@ where
 			loop {
 				let time_for_core = slot_time.time_left() / cores.cores_left();
 
-				match build_collation_for_core(
+				match build_collation_for_core(BuildCollationParams {
 					pov_parent_header,
 					pov_parent_hash,
-					&relay_parent_header,
-					relay_parent,
+					relay_parent_header: &relay_parent_header,
+					relay_parent_hash: relay_parent,
 					max_pov_size,
 					para_id,
-					&relay_client,
-					&code_hash_provider,
-					&slot_claim,
-					&collator_sender,
-					&mut collator,
+					relay_client: &relay_client,
+					code_hash_provider: &code_hash_provider,
+					slot_claim: &slot_claim,
+					collator_sender: &collator_sender,
+					collator: &mut collator,
 					allowed_pov_size,
-					cores.core_info(),
-					cores.core_index(),
+					core_info: cores.core_info(),
+					core_index: cores.core_index(),
 					block_time,
 					blocks_per_core,
 					time_for_core,
-					cores.is_last_core() &&
+					is_last_core_in_parachain_slot: cores.is_last_core() &&
 						slot_time.is_parachain_slot_ending(para_slot_duration.as_duration()),
 					collator_peer_id,
-					rp_data.clone(),
-				)
+					relay_parent_data: rp_data.clone(),
+					total_number_of_blocks: number_of_blocks,
+				})
 				.await
 				{
 					Ok(Some(header)) => {
@@ -428,30 +430,59 @@ where
 	}
 }
 
-/// Build a collation for one core.
-///
-/// One collation can be composed of multiple blocks.
-async fn build_collation_for_core<Block: BlockT, P, RelayClient, BI, CIDP, Proposer, CS>(
+/// Parameters for [`build_collation_for_core`].
+struct BuildCollationParams<'a, Block: BlockT, P: Pair, RelayClient, BI, CIDP, Proposer, CS, CHP> {
 	pov_parent_header: Block::Header,
 	pov_parent_hash: Block::Hash,
-	relay_parent_header: &RelayHeader,
+	relay_parent_header: &'a RelayHeader,
 	relay_parent_hash: RelayHash,
 	max_pov_size: u32,
 	para_id: ParaId,
-	relay_client: &impl RelayChainInterface,
-	code_hash_provider: &impl consensus_common::ValidationCodeHashProvider<Block::Hash>,
-	slot_claim: &SlotClaim<P::Public>,
-	collator_sender: &sc_utils::mpsc::TracingUnboundedSender<CollatorMessage<Block>>,
-	collator: &mut Collator<Block, P, BI, CIDP, RelayClient, Proposer, CS>,
+	relay_client: &'a RelayClient,
+	code_hash_provider: &'a CHP,
+	slot_claim: &'a SlotClaim<P::Public>,
+	collator_sender: &'a sc_utils::mpsc::TracingUnboundedSender<CollatorMessage<Block>>,
+	collator: &'a mut Collator<Block, P, BI, CIDP, RelayClient, Proposer, CS>,
 	allowed_pov_size: usize,
 	core_info: CoreInfo,
 	core_index: CoreIndex,
 	block_time: Duration,
 	blocks_per_core: u32,
-	slot_time_for_core: Duration,
+	/// Time allocated for the core.
+	time_for_core: Duration,
 	is_last_core_in_parachain_slot: bool,
 	collator_peer_id: PeerId,
 	relay_parent_data: RelayParentData,
+	total_number_of_blocks: u32,
+}
+
+/// Build a collation for one core.
+///
+/// One collation can be composed of multiple blocks.
+async fn build_collation_for_core<Block: BlockT, P, RelayClient, BI, CIDP, Proposer, CS, CHP>(
+	BuildCollationParams {
+		pov_parent_header,
+		pov_parent_hash,
+		relay_parent_header,
+		relay_parent_hash,
+		max_pov_size,
+		para_id,
+		relay_client,
+		code_hash_provider,
+		slot_claim,
+		collator_sender,
+		collator,
+		allowed_pov_size,
+		core_info,
+		core_index,
+		block_time,
+		blocks_per_core,
+		time_for_core: slot_time_for_core,
+		is_last_core_in_parachain_slot,
+		collator_peer_id,
+		relay_parent_data,
+		total_number_of_blocks,
+	}: BuildCollationParams<'_, Block, P, RelayClient, BI, CIDP, Proposer, CS, CHP>,
 ) -> Result<Option<Block::Header>, ()>
 where
 	RelayClient: RelayChainInterface + 'static,
@@ -463,6 +494,7 @@ where
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
 	Proposer: Environment<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
+	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + Sync + 'static,
 {
 	let core_start = Instant::now();
 
@@ -498,12 +530,15 @@ where
 		// We require that the next node has imported our last block before it can start building
 		// the next block. To ensure that the next node is able to do so, we are skipping the last
 		// block in the parachain slot. In the future this can be removed again.
-		let is_last = block_index + 1 == blocks_per_core ||
-			(block_index + 2 == blocks_per_core &&
-				blocks_per_core > 1 &&
-				is_last_core_in_parachain_slot);
+		let is_last_block_in_core = block_index + 1 == blocks_per_core ||
+			// This branch here is for the case when we are going to skip the last block.
+			(block_index + 2 == blocks_per_core && blocks_per_core > 1);
+
+		// If we have more than 3 blocks in total, aka a block time which is less than 2s, we are
+		// going to skip the last block. Otherwise, when running with 3 blocks, we are just
+		// adjusting the authoring duration below.
 		if block_index + 1 == blocks_per_core &&
-			blocks_per_core > 1 &&
+			total_number_of_blocks > 3 &&
 			is_last_core_in_parachain_slot
 		{
 			tracing::debug!(
@@ -513,34 +548,12 @@ where
 			break;
 		}
 
-		let block_start = Instant::now();
-		let slot_time_for_block = slot_time_for_core.saturating_sub(core_start.elapsed()) /
-			(blocks_per_core - block_index) as u32;
-
-		if slot_time_for_block <= Duration::from_millis(20) {
-			tracing::error!(
-				target: LOG_TARGET,
-				slot_time_for_block_ms = %slot_time_for_block.as_millis(),
-				blocks_left = %(blocks_per_core - block_index),
-				?core_index,
-				"Less than 20ms slot time left to produce blocks, stopping block production for core",
-			);
-
-			break
-		}
-
 		tracing::trace!(
 			target: LOG_TARGET,
-			slot_time_for_block_ms = %slot_time_for_block.as_millis(),
 			%block_index,
 			core_index = %core_index.0,
-			"Going to build block"
+			"Preparing to build block"
 		);
-
-		// The authoring duration is either the block time returned by the runtime or the 90% of the
-		// rest of the slot time for the block. We take here 90% because we still need to create the
-		// inherents and need to import the block afterward.
-		let authoring_duration = block_time.min(slot_time_for_block);
 
 		let (parachain_inherent_data, other_inherent_data) = match collator
 			.create_inherent_data_with_rp_offset(
@@ -568,6 +581,34 @@ where
 		let mut extra_extensions = Extensions::default();
 		extra_extensions.register(ProofSizeExt::new(proof_size_recorder.clone()));
 
+		let block_production_start = Instant::now();
+		// The time we have left to spent for the block.
+		let time_left_for_block = slot_time_for_core.saturating_sub(core_start.elapsed()) /
+			(blocks_per_core - block_index) as u32;
+
+		// For the special case of 3 blocks on 3 cores or 2 blocks on 2 cores, we are going to
+		// adjust the authoring duration on the last block.
+		//
+		//TODO: Remove when transaction streaming is implemented
+		let adjusted_time_left = if is_last_block_in_core &&
+			blocks_per_core == 1 &&
+			total_number_of_blocks <= 3 &&
+			total_number_of_blocks >= 2
+		{
+			time_left_for_block / 2
+		} else {
+			time_left_for_block
+		};
+
+		// The time we will use to build the actual block.
+		let authoring_duration = block_time.min(adjusted_time_left);
+
+		tracing::trace!(
+			target: LOG_TARGET,
+			?authoring_duration,
+			"Building block"
+		);
+
 		let Ok(Some((built_block, mut import_block))) = collator
 			.build_block(BuildBlockAndImportParams {
 				parent_header: &parent_header,
@@ -576,7 +617,7 @@ where
 					CumulusDigestItem::CoreInfo(core_info.clone()).to_digest_item(),
 					CumulusDigestItem::BundleInfo(BundleInfo {
 						index: block_index as u8,
-						maybe_last: is_last,
+						maybe_last: is_last_block_in_core,
 					})
 					.to_digest_item(),
 				],
@@ -633,7 +674,7 @@ where
 			tracing::trace!(
 				target: crate::LOG_TARGET,
 				block_hash = ?parent_hash,
-				time_used_by_block_in_secs = %block_start.elapsed().as_secs_f32(),
+				time_used_by_block_in_secs = %block_production_start.elapsed().as_secs_f32(),
 				%full_core_digest,
 				%runtime_upgrade_digest,
 				"Stopping block production for core",
@@ -648,17 +689,25 @@ where
 
 		// If there is still time left for the block in the slot, we sleep the rest of the time.
 		// This ensures that we have some steady block rate.
-		if let Some(sleep) = slot_time_for_block
-			.checked_sub(block_start.elapsed())
+		if let Some(sleep) = time_left_for_block
+			.checked_sub(block_production_start.elapsed())
 			// Let's not sleep for the last block here, to send out the collation as early as
 			// possible.
-			.filter(|_| block_index + 1 < blocks_per_core)
+			.filter(|_| !is_last_block_in_core)
 		{
 			tokio::time::sleep(sleep).await;
 		}
 	}
 
 	let proof = StorageProof::merge(proofs);
+
+	tracing::trace!(
+		target: LOG_TARGET,
+		?core_index,
+		relay_parent = ?relay_parent_hash,
+		blocks = ?blocks.iter().map(|b| b.hash()).collect::<Vec<_>>(),
+		"Sending out PoV"
+	);
 
 	if let Err(err) = collator_sender.unbounded_send(CollatorMessage {
 		relay_parent: relay_parent_hash,
