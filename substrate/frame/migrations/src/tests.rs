@@ -17,9 +17,7 @@
 
 #![cfg(test)]
 
-use frame_support::{
-	assert_ok, dispatch::RawOrigin, pallet_prelude::Weight, traits::OnRuntimeUpgrade,
-};
+use frame_support::{pallet_prelude::Weight, traits::OnRuntimeUpgrade};
 
 use crate::{
 	mock::{Test as T, *},
@@ -27,7 +25,6 @@ use crate::{
 	Cursor, Event, FailedMigrationHandling, MigrationCursor,
 };
 
-#[docify::export]
 #[test]
 fn clear_storage_by_prefix_migration_works() {
 	use crate::mock::runtime_a::{Migrations as RuntimeAMigrations, System as RuntimeASystem};
@@ -38,14 +35,18 @@ fn clear_storage_by_prefix_migration_works() {
 		RuntimeASystem::set_block_number(1);
 
 		// Set storage
-		assert_ok!(System::authorize_upgrade(RawOrigin::Root.into(), Default::default()));
-		assert!(RuntimeASystem::authorized_upgrade().is_some());
+		RuntimeASystem::inc_providers(&1);
+		RuntimeASystem::inc_providers(&2);
+		assert!(RuntimeASystem::account(&1).providers == 1);
+		assert!(RuntimeASystem::account(&2).providers == 1);
 
+		// Perform migration
 		RuntimeAMigrations::on_runtime_upgrade();
-		crate::mock::runtime_a::run_to_block(10);
+		crate::mock::runtime_a::run_to_block(3);
 
-		// Check that the authorized upgrade storages was removed.
-		assert!(RuntimeASystem::authorized_upgrade().is_none());
+		// Check that the storage was removed.
+		assert!(RuntimeASystem::account(&1).providers == 0);
+		assert!(RuntimeASystem::account(&2).providers == 0);
 
 		// Check that the executed migrations are recorded in `Historical`.
 		assert_eq!(

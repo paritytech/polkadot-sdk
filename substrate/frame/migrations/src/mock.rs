@@ -49,7 +49,7 @@ pub mod runtime_a {
 		pub const MaxServiceWeight: Weight = Weight::MAX.div(10);
 		pub StoragePrefixToClear: [u8; 32] = frame_support::storage::storage_prefix(
 			b"System",
-			b"AuthorizedUpgrade",
+			b"Account",
 		);
 	}
 
@@ -58,6 +58,9 @@ pub mod runtime_a {
 
 	#[derive_impl(crate::config_preludes::TestDefaultConfig)]
 	impl crate::Config for RuntimeA {
+		#[cfg(feature = "runtime-benchmarks")]
+		type Migrations = crate::mock_helpers::MockedMigrations;
+		#[cfg(not(feature = "runtime-benchmarks"))]
 		type Migrations = MultiBlockMigrations;
 		type MigrationStatusHandler = ();
 		type FailedMigrationHandler = frame_support::migrations::FreezeChainOnFailedMigration;
