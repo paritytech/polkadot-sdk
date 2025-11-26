@@ -460,14 +460,4 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	pub fn mmr_root() -> HashOf<T, I> {
 		RootHash::<T, I>::get()
 	}
-
-	/// Returns the current size of the MMR (number of leaves).
-	pub fn mmr_leaves() -> LeafIndex {
-		NumberOfLeaves::<T, I>::get()
-	}
-
-	/// Returns the hash of a node in the MMR, if one exists.
-	pub fn mmr_peak(node_index: NodeIndex) -> Option<HashOf<T, I>> {
-		Nodes::<T, I>::get(node_index)
-	}
 }
