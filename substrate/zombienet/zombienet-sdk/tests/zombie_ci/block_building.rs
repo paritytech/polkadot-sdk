@@ -68,7 +68,6 @@ fn build_network_config() -> Result<NetworkConfig> {
 				.with_default_command("substrate")
 				.with_default_image(integration_image.as_str())
 				.with_chain_spec_path(chain_spec.as_str())
-				.with_default_args(vec!["-lparachain=debug".into()])
 				.with_node(|node| node.with_name("alice"))
 				.with_node(|node| node.with_name("bob"))
 		})
