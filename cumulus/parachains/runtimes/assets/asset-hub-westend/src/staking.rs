@@ -295,7 +295,7 @@ impl pallet_staking_async::Config for Runtime {
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
-	type PlanningEraOffset = ConstU32<5>;
+	type PlanningEraOffset = ConstU32<6>;
 	type RcClientInterface = StakingRcClient;
 	type MaxEraDuration = MaxEraDuration;
 	type MaxPruningItems = MaxPruningItems;
