@@ -87,9 +87,7 @@ pub mod v2 {
 
 			ensure!(
 				stored_value == Some(expected_value),
-				"LastEraActivationSessionReportEndingIndex was not set correctly. Expected: {:?}, Got: {:?}",
-				Some(expected_value),
-				stored_value
+				"LastEraActivationSessionReportEndingIndex was not set correctly."
 			);
 
 			log::info!(
