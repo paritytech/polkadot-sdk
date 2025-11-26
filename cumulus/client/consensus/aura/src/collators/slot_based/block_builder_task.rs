@@ -289,10 +289,12 @@ where
 			let Ok(RelayChainData { max_pov_size, last_claimed_core_selector, .. }) =
 				relay_chain_data_cache.get_mut_relay_chain_data(relay_parent).await
 			else {
+				tracing::error!(target: crate::LOG_TARGET, ?relay_parent, "Failed to fetch relay chain data.");
 				continue;
 			};
 
-			slot_timer.update_scheduling(core.total_cores().into());
+			// Temp hack to ensure we use only 1 core per RCB.
+			slot_timer.update_scheduling(3);
 
 			// We mainly call this to inform users at genesis if there is a mismatch with the
 			// on-chain data.
@@ -310,6 +312,8 @@ where
 
 			if let Ok(authorities) = para_client.runtime_api().authorities(parent_hash) {
 				connection_helper.update::<P>(para_slot.slot, &authorities).await;
+			} else {
+				tracing::error!(target: crate::LOG_TARGET, "Failed to fetch authorities for parent hash.");
 			}
 
 			let slot_claim = match crate::collators::can_build_upon::<_, _, P>(
@@ -581,10 +585,10 @@ impl Core {
 		self.core_index
 	}
 
-	/// Returns the total number of cores.
-	pub(crate) fn total_cores(&self) -> u16 {
-		self.number_of_cores
-	}
+	// Returns the total number of cores.
+	// pub(crate) fn total_cores(&self) -> u16 {
+	// 	self.number_of_cores
+	// }
 }
 
 /// Determine the core for the given `para_id`.

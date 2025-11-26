@@ -722,6 +722,39 @@ fn list_of_backing_validators_in_view(
 	backing_validators.into_iter().collect()
 }
 
+fn list_of_backing_validators_with_collation(
+	implicit_view: &Option<ImplicitView>,
+	per_relay_parent: &HashMap<Hash, PerRelayParent>,
+	para_id: ParaId,
+) -> Vec<AuthorityDiscoveryId> {
+	let mut backing_validators = HashSet::new();
+	let Some(implicit_view) = implicit_view else { return vec![] };
+
+	for leaf in implicit_view.leaves() {
+		let allowed_ancestry = implicit_view
+			.known_allowed_relay_parents_under(leaf, Some(para_id))
+			.unwrap_or_default();
+
+		for allowed_relay_parent in allowed_ancestry {
+			if let Some(relay_parent) = per_relay_parent.get(allowed_relay_parent) {
+				// Check if there is any collation for this relay parent.
+				if relay_parent.collations.iter().any(|(_, collation_data)| {
+					collation_data.collation().status != CollationStatus::Requested
+				}) {
+					continue
+				}
+
+				// TODO: Make this more granular by checking the core index of the collations.
+				for group in relay_parent.validator_group.values() {
+					backing_validators.extend(group.validators.iter().cloned());
+				}
+			}
+		}
+	}
+
+	backing_validators.into_iter().collect()
+}
+
 /// Connect or disconnect to/from all backers at all viable relay parents.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 async fn update_validator_connections<Context>(
@@ -764,15 +797,19 @@ async fn update_validator_connections<Context>(
 			return
 		}
 
+		let validator_ids =
+			list_of_backing_validators_with_collation(implicit_view, per_relay_parent, para_id);
+
 		gum::trace!(
 			target: LOG_TARGET,
-			"Disconnecting from validators: {:?}",
+			"Disconnecting from validators: {:?}, but stay connected to validators with collations: {:?}",
 			peer_ids.keys(),
+			validator_ids,
 		);
 
 		// Disconnect from all connected validators on the `Collation` protocol.
 		NetworkBridgeTxMessage::ConnectToValidators {
-			validator_ids: vec![],
+			validator_ids,
 			peer_set: PeerSet::Collation,
 			failed,
 		}

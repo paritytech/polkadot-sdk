@@ -608,7 +608,7 @@ where
 			collator_service,
 			authoring_duration: Duration::from_millis(2000),
 			reinitialize: false,
-			slot_offset: Duration::from_secs(1),
+			slot_offset: Duration::from_millis(1000),
 			block_import_handle,
 			spawner: task_manager.spawn_essential_handle(),
 			export_pov: node_extra_args.export_pov,
