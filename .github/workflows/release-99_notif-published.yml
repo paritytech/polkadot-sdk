@@ -3,11 +3,47 @@ on:
   release:
     types:
       - published
-      - prereleased
 
 jobs:
+  check_if_release_is_latest:
+    runs-on: ubuntu-latest
+    outputs:
+      is_latest: ${{ steps.check_is_latest.outputs.is_latest }}
+    steps:
+      - name: Fetch latest release tag name
+        id: fetch_latest_release_tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME=$(curl -H "Accept: application/vnd.github+json" \
+          -H "X-GitHub-Api-Version: 2022-11-28" -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+          -sL "https://api.github.com/repos/${{ github.repository }}/releases/latest" \
+          | jq -r '.tag_name')
+
+          echo "Latest release tag: $TAG_NAME"
+          echo "latest_tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+      - name: Fetch  current release tag name
+        id: fetch_curent_release_tag
+        run: |
+          CURRENT_RELEASE_TAG_NAME=${{github.event.release.tag_name}}
+          echo "Current release tag: $CURRENT_RELEASE_TAG_NAME"
+          echo "current_tag_name=$CURRENT_RELEASE_TAG_NAME" >> $GITHUB_OUTPUT
+
+      - name: Check if release is latest
+        id: check_is_latest
+        run: |
+          if [[ "${{ steps.fetch_latest_release_tag.outputs.latest_tag_name }}" == "${{ steps.fetch_curent_release_tag.outputs.current_tag_name }}" ]]; then
+            echo "Release is latest"
+            echo "is_latest=true" >> $GITHUB_OUTPUT
+          else
+            echo "Release is not latest"
+            echo "is_latest=false" >> $GITHUB_OUTPUT
+          fi
+
   ping_matrix:
     runs-on: ubuntu-latest
+    needs: [check_if_release_is_latest]
+    if: ${{ needs.check_if_release_is_latest.outputs.is_latest == 'true' }}
     environment: release
     strategy:
       matrix:
@@ -20,7 +56,7 @@ jobs:
          # External
           - name: 'Ledger <> Polkadot Coordination'
             room: '!EoIhaKfGPmFOBrNSHT:web3.foundation'
-            pre-release: true
+            pre-release: false
 
           # Public
           - name: '#polkadotvalidatorlounge:web3.foundation'
@@ -34,6 +70,7 @@ jobs:
             pre-releases: false
 
     steps:
+<<<<<<< HEAD
       - name: Matrix notification to ${{ matrix.channel.name }}
         if: github.event.release.prerelease == false || matrix.channel.pre-release
         uses: s3krit/matrix-message-action@70ad3fb812ee0e45ff8999d6af11cafad11a6ecf # v0.0.3
@@ -46,5 +83,34 @@ jobs:
 
             A new node release has been ${{github.event.action}} in **${{github.event.repository.full_name}}:**<br/>
             Release version: [${{github.event.release.tag_name}}](${{github.event.release.html_url}})
+=======
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ github.event.release.tag_name }}
 
-            -----
+      - name: Extract node version
+        id: extract_version
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          version=v$(get_polkadot_node_version_from_code)
+          echo "Extracted node version: $version"
+          echo "node_version=$version" >> $GITHUB_OUTPUT
+
+      # - name: Matrix notification to ${{ matrix.channel.name }}
+      #   if: github.event.release.prerelease == false || matrix.channel.pre-release
+      #   uses: s3krit/matrix-message-action@70ad3fb812ee0e45ff8999d6af11cafad11a6ecf # v0.0.3
+      #   with:
+      #     room_id: ${{ matrix.channel.room }}
+      #     access_token: ${{ secrets.RELEASENOTES_MATRIX_V2_ACCESS_TOKEN }}
+      #     server: m.parity.io
+      #     message: |
+      #       @room
+
+      #       A new node release has been ${{github.event.action}} in **${{github.event.repository.full_name}}:**<br/>
+      #       Release version: [${{github.event.release.tag_name}}](${{github.event.release.html_url}})<br/>
+      #       Node version: ${{ steps.extract_version.outputs.node_version }}
+>>>>>>> 49bd017 ([Release|CI/CD] Send release notifications to communication channels only in case of a stable release (#10419))
+
+      #       -----
