@@ -457,7 +457,7 @@ impl<B: Backend> State<B> {
 
 		let requests = self
 			.collation_manager
-			.try_making_new_fetch_requests(connected_rep_query_fn, max_reps);
+			.try_make_new_fetch_requests(connected_rep_query_fn, max_reps);
 
 		if !requests.is_empty() {
 			gum::debug!(

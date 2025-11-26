@@ -54,7 +54,7 @@ use schnellru::{ByLength, LruMap};
 use sp_keystore::KeystorePtr;
 use std::{
 	collections::{BTreeSet, HashMap, HashSet, VecDeque},
-	time::Instant,
+	time::{Duration, Instant},
 };
 
 mod requests;
@@ -373,7 +373,7 @@ impl CollationManager {
 		Ok(())
 	}
 
-	pub fn try_making_new_fetch_requests<RepQueryFn: Fn(&PeerId, &ParaId) -> Option<Score>>(
+	pub fn try_make_new_fetch_requests<RepQueryFn: Fn(&PeerId, &ParaId) -> Option<Score>>(
 		&mut self,
 		connected_rep_query_fn: RepQueryFn,
 		max_scores: HashMap<ParaId, Score>,
@@ -636,52 +636,65 @@ impl CollationManager {
 		highest_rep_of_para: Score,
 		connected_rep_query_fn: &RepQueryFn,
 	) -> Option<Advertisement> {
-		// Find the best eligible advertisement.
-		let Some((advertisement, peer_rep)) = self
+		let instant_fetch_rep = INSTANT_FETCH_REP_THRESHOLD.min(highest_rep_of_para);
+		let advertisements = self
 			.per_relay_parent
 			.iter()
 			// Only check advertisements for relay parents within the view of this leaf.
 			.filter_map(|(rp, per_rp)| allowed_rps.contains(rp).then_some(per_rp))
-			.flat_map(|per_rp| per_rp.eligible_advertisements(&para_id, leaf))
-			.filter_map(|adv| {
-				// Check that we're not already fetching this advertisement.
-				(!self.fetching.contains(&adv)).then(|| {
-					// And query the in-memory reputation for prioritisation purposes
-					(adv, connected_rep_query_fn(&adv.peer_id, &adv.para_id).unwrap_or_default())
-				})
+			.flat_map(|per_rp| {
+				per_rp.eligible_advertisements(para_id, leaf).map(move |adv| (per_rp, adv))
 			})
-			// Pick the one with the maximum score.
-			.max_by_key(|(_, score)| *score)
-		else {
-			return None
-		};
+			.filter_map(|(per_rp, adv)| {
+				// Check that we're not already fetching this advertisement.
+				if self.fetching.contains(&adv) {
+					return None;
+				}
+				Some((per_rp, adv, connected_rep_query_fn(&adv.peer_id, &adv.para_id)?))
+			})
+			.filter_map(|(per_rp, adv, peer_rep)| {
+				let adv_timepstamp = per_rp.advertisement_timestamps.get(adv)?;
+				let duration_since_adv = now.duration_since(*adv_timepstamp);
+				let fetch_delay = UNDER_THRESHOLD_FETCH_DELAY
+					.checked_sub(duration_since_adv)
+					.unwrap_or(Duration::ZERO);
+				Some((adv, peer_rep, fetch_delay))
+			});
 
-		let Some(per_rp) = self.per_relay_parent.get(&advertisement.relay_parent) else {
-			return None
-		};
+		let mut maybe_best_adv = None;
+		for adv_tuple in advertisements {
+			let (_, peer_rep, fetch_delay) = adv_tuple;
+			let (_, best_adv_peer_rep, best_adv_fetch_delay) =
+				maybe_best_adv.get_or_insert(adv_tuple);
 
-		let Some(advertisement_timestamp) = per_rp.advertisement_timestamps.get(advertisement)
-		else {
-			return None
-		};
-
-		let doesnt_have_better_peers = peer_rep >= highest_rep_of_para;
-		let time_since_advertisement = now.duration_since(*advertisement_timestamp);
-		if peer_rep >= INSTANT_FETCH_REP_THRESHOLD ||
-			time_since_advertisement >= UNDER_THRESHOLD_FETCH_DELAY ||
-			doesnt_have_better_peers
-		{
-			Some(*advertisement)
-		} else {
-			gum::debug!(
-				target: LOG_TARGET,
-				?time_since_advertisement,
-				?highest_rep_of_para,
-				"Skipping advertisement, as the peer doesn't have a high enough reputation to warrant a fetch now"
-			);
-
-			None
+			match (
+				fetch_delay.is_zero(),
+				best_adv_fetch_delay.is_zero(),
+				*best_adv_peer_rep >= instant_fetch_rep,
+			) {
+				(true, true, _) | (false, false, _) | (_, _, true) =>
+					if peer_rep > *best_adv_peer_rep {
+						maybe_best_adv = Some(adv_tuple);
+					},
+				(true, false, false) => maybe_best_adv = Some(adv_tuple),
+				_ => {},
+			}
 		}
+
+		let Some((advertisement, peer_rep, fetch_delay)) = maybe_best_adv else { return None };
+
+		if peer_rep >= instant_fetch_rep || fetch_delay.is_zero() {
+			return Some(*advertisement);
+		}
+
+		gum::debug!(
+			target: LOG_TARGET,
+			?fetch_delay,
+			?peer_rep,
+			?highest_rep_of_para,
+			"Skipping advertisement, as the peer doesn't have a high enough reputation to warrant a fetch now"
+		);
+		None
 	}
 
 	async fn get_our_core_schedule<Sender: CollatorProtocolSenderTrait>(
@@ -903,7 +916,7 @@ impl PerRelayParent {
 
 	fn eligible_advertisements<'a>(
 		&'a self,
-		para_id: &'a ParaId,
+		para_id: ParaId,
 		leaf: Hash,
 	) -> impl Iterator<Item = &'a Advertisement> + 'a {
 		self.peer_advertisements
@@ -923,7 +936,7 @@ impl PerRelayParent {
 
 				is_v2_or_on_active_leaf &&
 				// Check that the declared paraid matches.
-				(&adv.para_id == para_id) &&
+				(adv.para_id == para_id) &&
 				// And check that it's not already fetched, just to be safe.
 				// Should never happen because we remove the advertisement after it's fetched.
 				!already_fetched

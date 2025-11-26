@@ -142,7 +142,7 @@ pub async fn assert_para_throughput(
 	for (para_id, expected_candidate_range) in expected_candidate_ranges {
 		let actual = candidate_count
 			.get(&para_id)
-			.ok_or_else(|| anyhow!("ParaId did not have any backed candidates"))?;
+			.ok_or_else(|| anyhow!("ParaId {} did not have any backed candidates", para_id))?;
 
 		if !expected_candidate_range.contains(actual) {
 			return Err(anyhow!(

@@ -152,27 +152,16 @@ async fn build_network_config(async_backing: bool) -> Result<NetworkConfig, anyh
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)
 				.with_default_command("test-parachain")
+				.with_default_image(images.cumulus.as_str())
+				.with_default_args(vec![
+					"--authoring=slot-based".into(),
+					"-lparachain=debug,aura=debug".into(),
+				])
 				.onboard_as_parachain(false)
 				.with_chain(chain)
-				.with_default_image(images.cumulus.as_str())
-				.with_collator(|n| {
-					n.with_name("collator0").validator(true).with_args(vec![
-						"--authoring=slot-based".into(),
-						("-lparachain=debug,aura=debug").into(),
-					])
-				})
-				.with_collator(|n| {
-					n.with_name("collator1").validator(true).with_args(vec![
-						"--authoring=slot-based".into(),
-						("-lparachain=debug,aura=debug").into(),
-					])
-				})
-				.with_collator(|n| {
-					n.with_name("collator2").validator(true).with_args(vec![
-						"--authoring=slot-based".into(),
-						("-lparachain=debug,aura=debug").into(),
-					])
-				})
+				.with_collator(|n| n.with_name("collator0").validator(true))
+				.with_collator(|n| n.with_name("collator1").validator(true))
+				.with_collator(|n| n.with_name("collator2").validator(true))
 		})
 		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
 			Ok(val) => global_settings.with_base_dir(val),

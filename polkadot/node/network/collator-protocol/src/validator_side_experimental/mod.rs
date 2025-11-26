@@ -23,8 +23,13 @@ mod state;
 #[cfg(test)]
 mod tests;
 
+use crate::LOG_TARGET;
+
+use std::time::Duration;
+
 use common::MAX_STORED_SCORES_PER_PARA;
 use futures::{select, FutureExt, StreamExt};
+use futures_timer::Delay;
 use polkadot_node_network_protocol::{
 	self as net_protocol, v1 as protocol_v1, v2 as protocol_v2, CollationProtocols, PeerId,
 };
@@ -43,8 +48,6 @@ use peer_manager::{Db, PeerManager};
 use state::State;
 
 pub use metrics::Metrics;
-
-use crate::LOG_TARGET;
 
 /// The main run loop.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
@@ -128,6 +131,7 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> FatalResult<Option<A
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 async fn run_inner<Context>(mut ctx: Context, mut state: State<Db>) -> FatalResult<()> {
 	loop {
+		let mut delay = Delay::new(Duration::from_millis(500)).fuse();
 		select! {
 			res = ctx.recv().fuse() => {
 				match res {
@@ -148,7 +152,9 @@ async fn run_inner<Context>(mut ctx: Context, mut state: State<Db>) -> FatalResu
 			},
 			resp = state.collation_response_stream().select_next_some() => {
 				state.handle_fetched_collation(ctx.sender(), resp).await;
-			}
+			},
+			_ = &mut delay => {
+			},
 		}
 
 		// Now try triggering advertisement fetching, if we have room in any of the active leaves

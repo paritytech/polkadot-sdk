@@ -79,19 +79,16 @@ impl Score {
 	/// Create a new instance. Fail if over the `MAX_SCORE`.
 	pub const fn new(val: u16) -> Option<Self> {
 		if val > MAX_SCORE {
-			None
-		} else {
-			Some(Self(val))
+			return None;
 		}
+
+		Some(Self(val))
 	}
 
 	/// Add `val` to the inner value, saturating at `MAX_SCORE`.
 	pub fn saturating_add(&mut self, val: u16) {
-		if (self.0 + val) <= MAX_SCORE {
-			self.0 += val;
-		} else {
-			self.0 = MAX_SCORE;
-		}
+		let sum = self.0.saturating_add(val);
+		self.0 = std::cmp::min(sum, MAX_SCORE);
 	}
 
 	/// Subtract `val` from the inner value, saturating at 0.
