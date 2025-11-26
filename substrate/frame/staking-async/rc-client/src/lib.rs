@@ -123,6 +123,8 @@ use sp_runtime::{traits::Convert, Perbill, TransactionOutcome};
 use sp_staking::SessionIndex;
 use xcm::latest::{send_xcm, Location, SendError, SendXcm, Xcm};
 
+pub mod migrations;
+
 /// Export everything needed for the pallet to be used in the runtime.
 pub use pallet::*;
 
@@ -568,6 +570,11 @@ pub trait AHStakingInterface {
 	/// This will return the worst case estimate of the weight. The actual execution will return the
 	/// accurate amount.
 	fn weigh_on_new_offences(offence_count: u32) -> Weight;
+
+	/// Get the active era's start session index.
+	///
+	/// Returns the first session index of the currently active era.
+	fn active_era_start_session_index() -> SessionIndex;
 }
 
 /// The communication trait of `pallet-staking-async` -> `pallet-staking-async-rc-client`.
@@ -597,7 +604,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::{BlockNumberFor, *};
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	/// An incomplete incoming session report that we have not acted upon yet.
 	// Note: this can remain unbounded, as the internals of `AHStakingInterface` is benchmarked, and
