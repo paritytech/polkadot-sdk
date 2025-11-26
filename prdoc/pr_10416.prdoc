@@ -1,0 +1,64 @@
+title: 'Added CID filtering to Bitswap server'
+doc:
+- audience: Network Dev
+  description: |-
+    # Description
+
+    This PR adds CID (Content Identifier) validation and filtering to the Bitswap server implementation. The server now validates incoming CID requests before processing them, ensuring only supported CID formats and hash algorithms are handled.
+
+    ## Motivation
+
+    The Bitswap server was previously accepting all CID requests without validation, which could lead to:
+    
+    - Processing of unsupported CID versions (e.g., CIDv0)
+    - Handling of CIDs with incompatible multihash sizes
+    - Attempting to process CIDs with unsupported hash algorithms
+    - Potential errors or unexpected behavior when processing invalid CIDs
+
+    By adding validation upfront, we can:
+    - Reject invalid CIDs early with clear logging
+    - Ensure only compatible CIDs are processed
+    - Improve security by restricting to known-good hash algorithms
+    - Provide better debugging information through structured logging
+
+    ## Changes
+
+    ### CID Validation
+
+    The server now validates each CID request against the following criteria:
+
+    1. **CID Version**: Only CIDv1 and later are supported (CIDv0 is rejected)
+    2. **Multihash Size**: Only 32-byte multihash digests are supported
+    3. **Hash Algorithm**: Only the following algorithms are supported:
+       - `Blake2b256`
+       - `Sha2_256`
+       - `Keccak256`
+
+    Invalid CIDs are filtered out before processing, with appropriate log messages indicating the reason for rejection.
+
+    ### Implementation Details
+
+    - Added `supported_hash_codes: Vec<Code>` field to `BitswapServer` to track allowed hash algorithms
+    - Implemented `is_valid_cid()` method that performs validation checks
+    - Added `code_to_name()` helper function for human-readable hash algorithm names in logs
+    - Validation is performed in a `filter()` operation before the `map()` that processes valid CIDs
+    - Uses extracted primitive values (`u64`, `usize`, `String`) instead of CID structs directly to avoid dependency version conflicts between `litep2p`'s `cid@0.9.0` and this crate's `cid@0.11.1`
+
+    ### Logging
+
+    The implementation provides structured logging at different levels:
+    - `trace`: Unsupported CID version (CIDv0)
+    - `warn`: Unsupported multihash size or algorithm
+    - All log messages include the CID string representation for traceability
+
+    ## Technical Notes
+
+    The validation function accepts extracted primitive values rather than CID structs directly due to a dependency version conflict:
+    - `litep2p` uses `cid@0.9.0` which provides `CidGeneric<64>`
+    - This crate uses `cid@0.11.1` which provides `Cid<64>`
+    - Rust's type system treats these as incompatible types, so we extract the values we need (version, size, code) to work around this limitation
+
+crates:
+- name: sc-network
+  bump: patch
+
