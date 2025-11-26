@@ -111,8 +111,15 @@ jobs:
       RUST_BACKTRACE: 1
     strategy:
       matrix:
-        platform:
-          ["test:pvm", "test:evm"]
+        include:
+          - node: revive-dev-node
+            platform: test:pvm
+          - node: revive-dev-node
+            platform: test:evm
+          - node: westend
+            platform: test:pvm
+          - node: westend
+            platform: test:evm
     steps:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -121,6 +128,10 @@ jobs:
         run: |
           forklift cargo build --locked --release -p pallet-revive-eth-rpc --bin eth-rpc
           forklift cargo build --locked --release -p revive-dev-node --bin revive-dev-node
+          forklift cargo build --locked --release -p polkadot-omni-node --bin polkadot-omni-node
+          forklift cargo build --locked --release -p asset-hub-westend-runtime
+          forklift cargo build --locked --release -p staging-chain-spec-builder --bin chain-spec-builder
+
 
       - name: Checkout evm-tests
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -135,18 +146,37 @@ jobs:
 
       - name: script
         run: |
-          echo "Change to the evm-test-suite directory"
           cd evm-test-suite
-
-          deno --version
-
-          echo "Check that binaries are in place"
-          export REVIVE_DEV_NODE_PATH=$(readlink -f ../target/release/revive-dev-node)
           export ETH_RPC_PATH=$(readlink -f ../target/release/eth-rpc)
-          echo $REVIVE_DEV_NODE_PATH $ETH_RPC_PATH
 
-          echo "== Running tests =="
-          START_REVIVE_DEV_NODE=true START_ETH_RPC=true deno task ${{ matrix.platform }}
+          cleanup() {
+            if [ -n "$NODE_PID" ]; then kill $NODE_PID 2>/dev/null || true; fi
+            if [ -n "$ETH_RPC_PID" ]; then kill $ETH_RPC_PID 2>/dev/null || true; fi
+          }
+          trap cleanup EXIT
+
+          if [ "${{ matrix.node }}" = "revive-dev-node" ]; then
+            export NODE_PATH=$(readlink -f ../target/release/revive-dev-node)
+            $NODE_PATH --dev -l=error,evm=debug,sc_rpc_server=info,runtime::revive=debug > /dev/null 2>&1 &
+            NODE_PID=$!
+          else
+            ../target/release/chain-spec-builder -c /tmp/ah-westend-spec.json create --para-id 1000 --relay-chain dontcare --runtime ../target/release/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.wasm named-preset development
+            export NODE_PATH=$(readlink -f ../target/release/polkadot-omni-node)
+            $NODE_PATH --tmp --log=error,sc_rpc_server=info,runtime::revive=debug --instant-seal --no-prometheus --chain /tmp/ah-westend-spec.json > /dev/null 2>&1 &
+            NODE_PID=$!
+          fi
+
+          $ETH_RPC_PATH --dev --node-rpc-url=ws://localhost:9944 -l=rpc-metrics=debug,eth-rpc=debug > /dev/null 2>&1 &
+          ETH_RPC_PID=$!
+
+          for i in {1..30}; do
+            if curl -s -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"web3_clientVersion","id":1}' http://localhost:8545 > /dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+
+          deno task ${{ matrix.platform }}
 
   confirm-required-test-evm-jobs-passed:
     runs-on: ubuntu-latest
