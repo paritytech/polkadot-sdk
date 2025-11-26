@@ -98,7 +98,7 @@ pub struct RawMeter<T: Config, E, S: State> {
 	/// True if this is the root meter.
 	///
 	/// Sometimes we cannot know at compile time.
-	pub is_root: bool,
+	pub(crate) is_root: bool,
 	/// Type parameter only used in impls.
 	_phantom: PhantomData<(E, S)>,
 }
