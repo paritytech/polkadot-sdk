@@ -40,6 +40,9 @@ pub struct PrestateTracer<T> {
 	/// List of created contracts addresses.
 	created_addrs: BTreeSet<H160>,
 
+	/// List of destructed contracts addresses.
+	destructed_addrs: BTreeSet<H160>,
+
 	// pre / post state
 	trace: (BTreeMap<H160, PrestateTraceInfo>, BTreeMap<H160, PrestateTraceInfo>),
 
@@ -89,6 +92,11 @@ where
 				}
 			}
 
+			// collect destructed contracts info in post state
+			for addr in &self.destructed_addrs {
+				Self::update_prestate_info(post.entry(*addr).or_default(), addr, None);
+			}
+
 			// clean up the storage that are in pre but not in post these are just read
 			pre.iter_mut().for_each(|(addr, info)| {
 				if let Some(post_info) = post.get(addr) {
@@ -96,6 +104,14 @@ where
 				} else {
 					info.storage.clear();
 				}
+			});
+
+			// If the address was created and destructed we do not trace it
+			post.retain(|addr, _| {
+				if self.created_addrs.contains(addr) && self.destructed_addrs.contains(addr) {
+					return false
+				}
+				true
 			});
 
 			pre.retain(|addr, pre_info| {
@@ -144,6 +160,22 @@ where
 	}
 }
 
+/// Get the appropriate trace entry (pre or post) based on whether
+/// the address was created.
+/// Returns early if the address is created and diff_mode is false.
+macro_rules! get_entry {
+	($self:expr, $addr:expr) => {
+		if $self.created_addrs.contains(&$addr) {
+			if !$self.config.diff_mode {
+				return
+			}
+			$self.trace.1.entry($addr)
+		} else {
+			$self.trace.0.entry($addr)
+		}
+	};
+}
+
 impl<T: Config> PrestateTracer<T>
 where
 	T::Nonce: Into<u32>,
@@ -174,13 +206,9 @@ where
 	}
 
 	/// Record a read
-	fn read_account_prestate(&mut self, addr: H160) {
-		if self.created_addrs.contains(&addr) {
-			return
-		}
-
+	fn read_account(&mut self, addr: H160) {
 		let include_code = !self.config.disable_code;
-		self.trace.0.entry(addr).or_insert_with_key(|addr| {
+		get_entry!(self, addr).or_insert_with_key(|addr| {
 			Self::prestate_info(
 				addr,
 				Pallet::<T>::evm_balance(addr),
@@ -209,6 +237,19 @@ where
 		self.create_code = Some(code.clone());
 	}
 
+	fn terminate(
+		&mut self,
+		contract_address: H160,
+		beneficiary_address: H160,
+		_gas_left: Weight,
+		_value: U256,
+	) {
+		self.destructed_addrs.insert(contract_address);
+		self.trace.0.entry(beneficiary_address).or_insert_with_key(|addr| {
+			Self::prestate_info(addr, Pallet::<T>::evm_balance(addr), None)
+		});
+	}
+
 	fn enter_child_span(
 		&mut self,
 		from: H160,
@@ -228,8 +269,8 @@ where
 		if self.create_code.take().is_some() {
 			self.created_addrs.insert(to);
 		}
-		self.read_account_prestate(from);
-		self.read_account_prestate(to);
+		self.read_account(from);
+		self.read_account(to);
 	}
 
 	fn exit_child_span_with_error(&mut self, _error: crate::DispatchError, _gas_used: Weight) {
@@ -253,15 +294,9 @@ where
 
 	fn storage_write(&mut self, key: &Key, old_value: Option<Vec<u8>>, new_value: Option<&[u8]>) {
 		let current_addr = self.current_addr();
-		if self.created_addrs.contains(&current_addr) {
-			return
-		}
 		let key = Bytes::from(key.unhashed().to_vec());
 
-		let old_value = self
-			.trace
-			.0
-			.entry(current_addr)
+		let old_value = get_entry!(self, current_addr)
 			.or_default()
 			.storage
 			.entry(key.clone())
@@ -285,13 +320,8 @@ where
 
 	fn storage_read(&mut self, key: &Key, value: Option<&[u8]>) {
 		let current_addr = self.current_addr();
-		if self.created_addrs.contains(&current_addr) {
-			return
-		}
 
-		self.trace
-			.0
-			.entry(current_addr)
+		get_entry!(self, current_addr)
 			.or_default()
 			.storage
 			.entry(key.unhashed().to_vec().into())
@@ -299,12 +329,8 @@ where
 	}
 
 	fn balance_read(&mut self, addr: &H160, value: U256) {
-		if self.created_addrs.contains(&addr) {
-			return
-		}
-
 		let include_code = !self.config.disable_code;
-		self.trace.0.entry(*addr).or_insert_with_key(|addr| {
+		get_entry!(self, *addr).or_insert_with_key(|addr| {
 			Self::prestate_info(addr, value, include_code.then(|| Self::bytecode(addr)).flatten())
 		});
 	}

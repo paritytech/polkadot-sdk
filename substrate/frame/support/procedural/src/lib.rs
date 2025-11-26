@@ -1120,10 +1120,9 @@ pub fn composite_enum(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// Allows you to define some service work that can be recognized by a script or an
-/// off-chain worker.
+/// Allows you to define some service work that can be recognized by the off-chain worker.
 ///
-/// Such a script can then create and submit all such work items at any given time.
+/// The off-chain worker can then create and submit all such work items at any given time.
 ///
 /// These work items are defined as instances of the `Task` trait (found at
 /// `frame_support::traits::Task`). [`pallet:tasks_experimental`](macro@tasks_experimental) when
@@ -1140,11 +1139,11 @@ pub fn composite_enum(_: TokenStream, _: TokenStream) -> TokenStream {
 /// All of such Tasks are then aggregated into a `RuntimeTask` by
 /// [`construct_runtime`](macro@construct_runtime).
 ///
-/// Finally, the `RuntimeTask` can then used by a script or off-chain worker to create and
-/// submit such tasks via an extrinsic defined in `frame_system` called `do_task`.
+/// Finally, the `RuntimeTask` can then be used by the off-chain worker to create and
+/// submit such tasks via an extrinsic defined in `frame_system` called `do_task` which accepts
+/// unsigned transaction from local source.
 ///
-/// When submitted as unsigned transactions (for example via an off-chain workder), note
-/// that the tasks will be executed in a random order.
+/// When submitted as unsigned transactions, note that the tasks will be executed in a random order.
 ///
 /// ## Example
 #[doc = docify::embed!("examples/proc_main/tasks.rs", tasks_example)]
