@@ -159,9 +159,15 @@ jobs:
             $NODE_PATH --dev -l=error,evm=debug,sc_rpc_server=info,runtime::revive=debug > /dev/null 2>&1 &
             NODE_PID=$!
           else
-            ../target/release/chain-spec-builder -c /tmp/ah-westend-spec.json create --para-id 1000 --relay-chain dontcare --runtime ../target/release/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.wasm named-preset development
+            ../target/release/chain-spec-builder -c /tmp/ah-westend-spec-raw.json create --para-id 1000 --relay-chain dontcare --runtime ../target/release/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.wasm named-preset development
             NODE_PATH=$(readlink -f ../target/release/polkadot-omni-node)
-            $NODE_PATH --tmp --log=error,sc_rpc_server=info,runtime::revive=debug --instant-seal --no-prometheus --chain /tmp/ah-westend-spec.json > /dev/null 2>&1 &
+
+            jq '.genesis.runtimeGenesis.patch.balances.balances = [
+                ["5CfCLa2N85aH2tUKT48LmRSGNx27DnJUayMXqvvcU97VN2sk", 1000000001000000000],
+              ]
+              | .genesis.runtimeGenesis.patch.staking.devStakers = [0, 0]
+            ' "/tmp/ah-westend-spec-raw.json" >"/tmp/ah-westend-spec.json"
+            $NODE_PATH --dev --log=error,sc_rpc_server=info,runtime::revive=debug --instant-seal --no-prometheus --chain /tmp/ah-westend-spec.json > /dev/null 2>&1 &
             NODE_PID=$!
           fi
 
