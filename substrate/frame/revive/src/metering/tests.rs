@@ -66,7 +66,9 @@ fn max_consumed_deposit_integration(fixture_type: FixtureType) {
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(caller_addr).data(Deposit::callSetAndClearCall {}.abi_encode()).build();
+		let result = builder::bare_call(caller_addr)
+			.data(Deposit::callSetAndClearCall {}.abi_encode())
+			.build();
 
 		assert_eq!(result.storage_deposit, StorageDeposit::Charge(66));
 		assert_eq!(result.max_storage_deposit, StorageDeposit::Charge(132));
@@ -85,14 +87,20 @@ fn max_consumed_deposit_integration_refunds_subframes(fixture_type: FixtureType)
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(caller_addr).data(Deposit::setAndClearCall {}.abi_encode()).build();
+		let result = builder::bare_call(caller_addr)
+			.data(Deposit::setAndClearCall {}.abi_encode())
+			.build();
 
 		assert_eq!(result.storage_deposit, StorageDeposit::Charge(66));
 		assert_eq!(result.max_storage_deposit, StorageDeposit::Charge(132));
 
-		builder::bare_call(caller_addr).data(Deposit::clearAllCall {}.abi_encode()).build();
+		builder::bare_call(caller_addr)
+			.data(Deposit::clearAllCall {}.abi_encode())
+			.build();
 
-		let result = builder::bare_call(caller_addr).data(Deposit::setAndCallClearCall {}.abi_encode()).build();
+		let result = builder::bare_call(caller_addr)
+			.data(Deposit::setAndCallClearCall {}.abi_encode())
+			.build();
 
 		assert_eq!(result.storage_deposit, StorageDeposit::Charge(66));
 		assert_eq!(result.max_storage_deposit, StorageDeposit::Charge(132));
@@ -120,50 +128,39 @@ fn substrate_metering_initialization_works() {
 		serde_json::from_str(include_str!("./testdata/initialization.json"))
 			.expect("Failed to parse initialization.json");
 
-	for test in tests {
+	for InitializationTest { name, eth_gas_limit, extra_weight, expected } in tests {
 		ExtBuilder::default()
 			.with_next_fee_multiplier(FixedU128::from_rational(1, 5))
 			.build()
 			.execute_with(|| {
-				let eth_tx_info = EthTxInfo::<Test>::new(
-					100,
-					test.extra_weight,
-				);
-				let transaction_meter = TransactionMeter::<Test>::new(
-					TransactionLimits::EthereumGas {
-						eth_gas_limit: test.eth_gas_limit,
+				let eth_tx_info = EthTxInfo::<Test>::new(100, extra_weight);
+				let transaction_meter =
+					TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
+						eth_gas_limit,
 						maybe_weight_limit: None,
 						eth_tx_info,
-					},
-				);
+					});
 
-				if let Some(expected) = test.expected {
+				if let Some(expected) = expected {
 					let transaction_meter = transaction_meter
-						.unwrap_or_else(|_| panic!("Test '{}' should succeed", test.name));
+						.unwrap_or_else(|_| panic!("Test '{name}' should succeed"));
 					assert_eq!(
 						expected.gas_left,
 						transaction_meter.eth_gas_left().unwrap(),
-						"Test '{}': gas_left mismatch",
-						test.name
+						"Test '{name}': gas_left mismatch",
 					);
 					assert_eq!(
 						expected.weight_left,
 						transaction_meter.weight_left().unwrap(),
-						"Test '{}': weight_left mismatch",
-						test.name
+						"Test '{name}': weight_left mismatch",
 					);
 					assert_eq!(
 						expected.deposit_left,
 						transaction_meter.deposit_left().unwrap(),
-						"Test '{}': deposit_left mismatch",
-						test.name
+						"Test '{name}': deposit_left mismatch",
 					);
 				} else {
-					assert!(
-						transaction_meter.is_err(),
-						"Test '{}' should have failed",
-						test.name
-					);
+					assert!(transaction_meter.is_err(), "Test '{name}' should have failed",);
 				}
 			});
 	}
@@ -172,27 +169,25 @@ fn substrate_metering_initialization_works() {
 		serde_json::from_str(include_str!("./testdata/initialization_weight_limit.json"))
 			.expect("Failed to parse initialization_weight_limit.json");
 
-	for test in weight_limit_tests {
+	for InitializationWeightLimitTest { name, weight_limit, expected } in weight_limit_tests {
 		ExtBuilder::default()
 			.with_next_fee_multiplier(FixedU128::from_rational(1, 5))
 			.build()
 			.execute_with(|| {
 				let eth_tx_info =
 					EthTxInfo::<Test>::new(100, Weight::from_parts(1_000_000_000, 2_000));
-				let transaction_meter = TransactionMeter::<Test>::new(
-					TransactionLimits::EthereumGas {
+				let transaction_meter =
+					TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
 						eth_gas_limit: 5_000_000_000,
-						maybe_weight_limit: Some(test.weight_limit),
+						maybe_weight_limit: Some(weight_limit),
 						eth_tx_info,
-					},
-				)
-				.unwrap_or_else(|_| panic!("Test '{}' should succeed", test.name));
+					})
+					.unwrap_or_else(|_| panic!("Test '{name}' should succeed"));
 
 				assert_eq!(
-					test.expected,
+					expected,
 					transaction_meter.weight_left().unwrap(),
-					"Test '{}': weight_left mismatch",
-					test.name
+					"Test '{name}': weight_left mismatch",
 				);
 			});
 	}
@@ -208,33 +203,27 @@ fn substrate_metering_charges_works() {
 		charges: Vec<ChargeOp>,
 	}
 
-	let tests: Vec<ChargesTest> =
-		serde_json::from_str(include_str!("./testdata/charges.json"))
-			.expect("Failed to parse charges.json");
+	let tests: Vec<ChargesTest> = serde_json::from_str(include_str!("./testdata/charges.json"))
+		.expect("Failed to parse charges.json");
 
-	for test in tests {
+	for ChargesTest { name, eth_gas_limit, extra_weight, charges } in tests {
 		ExtBuilder::default()
 			.with_next_fee_multiplier(FixedU128::from_rational(1, 5))
 			.build()
 			.execute_with(|| {
-				let eth_tx_info = EthTxInfo::<Test>::new(
-					100,
-					test.extra_weight,
-				);
-				let mut transaction_meter = TransactionMeter::<Test>::new(
-					TransactionLimits::EthereumGas {
-						eth_gas_limit: test.eth_gas_limit,
+				let eth_tx_info = EthTxInfo::<Test>::new(100, extra_weight);
+				let mut transaction_meter =
+					TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
+						eth_gas_limit,
 						maybe_weight_limit: None,
 						eth_tx_info,
-					},
-				)
-				.unwrap_or_else(|_| panic!("Test '{}': failed to create meter", test.name));
+					})
+					.unwrap_or_else(|_| panic!("Test '{name}': failed to create meter"));
 
-				for charge in test.charges {
+				for charge in charges {
 					let is_ok = match charge {
-						ChargeOp::Weight { weight, expected: _ } => transaction_meter
-							.charge_weight_token(TestToken(weight))
-							.is_ok(),
+						ChargeOp::Weight { weight, expected: _ } =>
+							transaction_meter.charge_weight_token(TestToken(weight)).is_ok(),
 						ChargeOp::Deposit { amount, expected: _ } => transaction_meter
 							.charge_deposit(&if amount >= 0 {
 								StorageDeposit::Charge(amount as u64)
@@ -250,33 +239,29 @@ fn substrate_metering_charges_works() {
 					};
 
 					if let Some(expected) = expected {
-						assert!(is_ok, "Test '{}': charge should have succeeded", test.name);
+						assert!(is_ok, "Test '{name}': charge should have succeeded");
 						assert_eq!(
 							expected.gas_left,
 							transaction_meter.eth_gas_left().unwrap(),
-							"Test '{}': gas_left mismatch",
-							test.name
+							"Test '{name}': gas_left mismatch",
 						);
 						assert_eq!(
 							expected.weight_left,
 							transaction_meter.weight_left().unwrap(),
-							"Test '{}': weight_left mismatch",
-							test.name
+							"Test '{name}': weight_left mismatch",
 						);
 						assert_eq!(
 							expected.deposit_left,
 							transaction_meter.deposit_left().unwrap(),
-							"Test '{}': deposit_left mismatch",
-							test.name
+							"Test '{name}': deposit_left mismatch",
 						);
 						assert_eq!(
 							expected.gas_consumed,
 							transaction_meter.total_consumed_gas(),
-							"Test '{}': gas_consumed mismatch",
-							test.name
+							"Test '{name}': gas_consumed mismatch",
 						);
 					} else {
-						assert!(!is_ok, "Test '{}': charge should have failed", test.name);
+						assert!(!is_ok, "Test '{name}': charge should have failed");
 					}
 				}
 			});
@@ -300,14 +285,8 @@ fn substrate_nesting_works() {
 	#[serde(tag = "type")]
 	enum CallResourceType {
 		NoLimits,
-		WeightDeposit {
-			weight: Weight,
-			deposit_limit: u64,
-		},
-		Ethereum {
-			gas: u64,
-			add_stipend: bool,
-		},
+		WeightDeposit { weight: Weight, deposit_limit: u64 },
+		Ethereum { gas: u64, add_stipend: bool },
 	}
 
 	impl CallResourceType {
@@ -315,83 +294,77 @@ fn substrate_nesting_works() {
 			match self {
 				CallResourceType::NoLimits => CallResources::NoLimits,
 				CallResourceType::WeightDeposit { weight, deposit_limit } =>
-					CallResources::WeightDeposit {
-						weight: *weight,
-						deposit_limit: *deposit_limit,
-					},
+					CallResources::WeightDeposit { weight: *weight, deposit_limit: *deposit_limit },
 				CallResourceType::Ethereum { gas, add_stipend } =>
 					CallResources::Ethereum { gas: *gas, add_stipend: *add_stipend },
 			}
 		}
 	}
 
-	let tests: Vec<NestingTest> =
-		serde_json::from_str(include_str!("./testdata/nesting.json"))
-			.expect("Failed to parse nesting.json");
+	let tests: Vec<NestingTest> = serde_json::from_str(include_str!("./testdata/nesting.json"))
+		.expect("Failed to parse nesting.json");
 
-	for test in tests {
+	for NestingTest {
+		name,
+		eth_gas_limit,
+		extra_weight,
+		weight_charge,
+		deposit_charge,
+		call_resource,
+		expected,
+	} in tests
+	{
 		ExtBuilder::default()
 			.with_next_fee_multiplier(FixedU128::from_rational(1, 5))
 			.build()
 			.execute_with(|| {
-				let eth_tx_info = EthTxInfo::<Test>::new(
-					100,
-					test.extra_weight,
-				);
-				let mut transaction_meter = TransactionMeter::<Test>::new(
-					TransactionLimits::EthereumGas {
-						eth_gas_limit: test.eth_gas_limit,
+				let eth_tx_info = EthTxInfo::<Test>::new(100, extra_weight);
+				let mut transaction_meter =
+					TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
+						eth_gas_limit,
 						maybe_weight_limit: None,
 						eth_tx_info,
-					},
-				)
-				.unwrap_or_else(|_| panic!("Test '{}': failed to create meter", test.name));
-
-				transaction_meter
-					.charge_deposit(&if test.deposit_charge >= 0 {
-						StorageDeposit::Charge(test.deposit_charge as u64)
-					} else {
-						StorageDeposit::Refund((-test.deposit_charge) as u64)
 					})
-					.unwrap_or_else(|_| {
-						panic!("Test '{}': failed to charge deposit", test.name)
-					});
+					.unwrap_or_else(|_| panic!("Test '{name}': failed to create meter"));
 
 				transaction_meter
-					.charge_weight_token(TestToken(test.weight_charge))
-					.unwrap_or_else(|_| panic!("Test '{}': failed to charge weight", test.name));
+					.charge_deposit(&if deposit_charge >= 0 {
+						StorageDeposit::Charge(deposit_charge as u64)
+					} else {
+						StorageDeposit::Refund((-deposit_charge) as u64)
+					})
+					.unwrap_or_else(|_| panic!("Test '{name}': failed to charge deposit"));
 
-				let nested = transaction_meter.new_nested(&test.call_resource.to_call_resources());
+				transaction_meter
+					.charge_weight_token(TestToken(weight_charge))
+					.unwrap_or_else(|_| panic!("Test '{name}': failed to charge weight"));
 
-				if let Some(expected) = test.expected {
-					let nested =
-						nested.unwrap_or_else(|_| panic!("Test '{}': should succeed", test.name));
+				let nested = transaction_meter.new_nested(&call_resource.to_call_resources());
+
+				if let Some(expected) = expected {
+					let nested = nested.unwrap_or_else(|_| panic!("Test '{name}': should succeed"));
 					assert_eq!(
 						expected.gas_left,
 						nested.eth_gas_left().unwrap(),
-						"Test '{}': gas_left mismatch",
-						test.name
+						"Test '{name}': gas_left mismatch",
 					);
 					assert_eq!(
 						expected.weight_left,
 						nested.weight_left().unwrap(),
-						"Test '{}': weight_left mismatch",
-						test.name
+						"Test '{name}': weight_left mismatch",
 					);
 					assert_eq!(
 						expected.deposit_left,
 						nested.deposit_left().unwrap(),
-						"Test '{}': deposit_left mismatch",
-						test.name
+						"Test '{name}': deposit_left mismatch",
 					);
 					assert_eq!(
 						expected.gas_consumed,
 						nested.total_consumed_gas(),
-						"Test '{}': gas_consumed mismatch",
-						test.name
+						"Test '{name}': gas_consumed mismatch",
 					);
 				} else {
-					assert!(nested.is_err(), "Test '{}': should have failed", test.name);
+					assert!(nested.is_err(), "Test '{name}': should have failed");
 				}
 			});
 	}
@@ -410,77 +383,81 @@ fn substrate_nesting_charges_works() {
 		charges: Vec<ChargeOp>,
 	}
 
-	let test_data =
-		std::fs::read_to_string("src/metering/testdata/nesting_charges.json").unwrap();
+	let test_data = std::fs::read_to_string("src/metering/testdata/nesting_charges.json").unwrap();
 	let tests: Vec<NestingChargesTest> = serde_json::from_str(&test_data).unwrap();
 
-	for test in tests {
+	for NestingChargesTest {
+		name,
+		eth_gas_limit,
+		extra_weight,
+		weight_charge,
+		deposit_charge,
+		nested_gas_limit,
+		charges,
+	} in tests
+	{
 		ExtBuilder::default()
 			.with_next_fee_multiplier(FixedU128::from_rational(1, 5))
 			.build()
 			.execute_with(|| {
-				let eth_tx_info = EthTxInfo::<Test>::new(
-					100,
-					test.extra_weight,
-				);
+				let eth_tx_info = EthTxInfo::<Test>::new(100, extra_weight);
 				let mut transaction_meter =
 					TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
-						eth_gas_limit: test.eth_gas_limit,
+						eth_gas_limit,
 						maybe_weight_limit: None,
 						eth_tx_info,
 					})
 					.unwrap_or_else(|_| {
 						panic!(
-							"Test '{}': failed to create transaction meter with gas limit {}",
-							test.name, test.eth_gas_limit
+							"Test '{name}': failed to create transaction meter with gas limit {eth_gas_limit}"
 						)
 					});
 
 				transaction_meter
-					.charge_deposit(&(if test.deposit_charge >= 0 {
-						StorageDeposit::Charge(test.deposit_charge as u64)
-					} else {
-						StorageDeposit::Refund((-test.deposit_charge) as u64)
-					}))
+					.charge_deposit(
+						&(if deposit_charge >= 0 {
+							StorageDeposit::Charge(deposit_charge as u64)
+						} else {
+							StorageDeposit::Refund((-deposit_charge) as u64)
+						}),
+					)
 					.unwrap_or_else(|_| {
-						panic!(
-							"Test '{}': failed to charge initial deposit {}",
-							test.name, test.deposit_charge
-						)
+						panic!("Test '{name}': failed to charge initial deposit {deposit_charge}")
 					});
 
-				transaction_meter
-					.charge_weight_token(TestToken(test.weight_charge))
-					.unwrap_or_else(|_| {
+				transaction_meter.charge_weight_token(TestToken(weight_charge)).unwrap_or_else(
+					|_| {
 						panic!(
-							"Test '{}': failed to charge initial weight ({}, {})",
-							test.name, test.weight_charge.ref_time(), test.weight_charge.proof_size()
+							"Test '{name}': failed to charge initial weight ({}, {})",
+							weight_charge.ref_time(),
+							weight_charge.proof_size()
 						)
-					});
+					},
+				);
 
 				let mut nested = transaction_meter
 					.new_nested(&CallResources::Ethereum {
-						gas: test.nested_gas_limit,
+						gas: nested_gas_limit,
 						add_stipend: false,
 					})
 					.unwrap_or_else(|_| {
 						panic!(
-							"Test '{}': failed to create nested meter with gas limit {}",
-							test.name, test.nested_gas_limit
+							"Test '{name}': failed to create nested meter with gas limit {nested_gas_limit}"
 						)
 					});
 
-				for (idx, charge) in test.charges.iter().enumerate() {
+				for (idx, charge) in charges.iter().enumerate() {
 					let is_ok = match charge {
-						ChargeOp::Weight { weight, .. } => nested
-							.charge_weight_token(TestToken(*weight))
-							.is_ok(),
+						ChargeOp::Weight { weight, .. } =>
+							nested.charge_weight_token(TestToken(*weight)).is_ok(),
 						ChargeOp::Deposit { amount, .. } => nested
-							.charge_deposit(&(if *amount >= 0 {
-								StorageDeposit::Charge(*amount as u64)
-							} else {
-								StorageDeposit::Refund((-*amount) as u64)
-							}))
+							.charge_deposit(
+								&(if *amount >= 0 {
+									StorageDeposit::Charge(*amount as u64)
+								} else {
+									StorageDeposit::Refund((-*amount) as u64)
+								}),
+							)
 							.is_ok(),
 					};
 
@@ -490,47 +467,33 @@ fn substrate_nesting_charges_works() {
 					};
 
 					if let Some(expected) = expected {
-						assert!(
-							is_ok,
-							"Test '{}': charge #{} should succeed",
-							test.name,
-							idx + 1
-						);
+						assert!(is_ok, "Test '{name}': charge #{} should succeed", idx + 1);
 						assert_eq!(
 							expected.gas_left,
 							nested.eth_gas_left().unwrap(),
-							"Test '{}': charge #{} gas_left mismatch",
-							test.name,
+							"Test '{name}': charge #{} gas_left mismatch",
 							idx + 1
 						);
 						assert_eq!(
 							expected.weight_left,
 							nested.weight_left().unwrap(),
-							"Test '{}': charge #{} weight_left mismatch",
-							test.name,
+							"Test '{name}': charge #{} weight_left mismatch",
 							idx + 1
 						);
 						assert_eq!(
 							expected.deposit_left,
 							nested.deposit_left().unwrap(),
-							"Test '{}': charge #{} deposit_left mismatch",
-							test.name,
+							"Test '{name}': charge #{} deposit_left mismatch",
 							idx + 1
 						);
 						assert_eq!(
 							expected.gas_consumed,
 							nested.total_consumed_gas(),
-							"Test '{}': charge #{} gas_consumed mismatch",
-							test.name,
+							"Test '{name}': charge #{} gas_consumed mismatch",
 							idx + 1
 						);
 					} else {
-						assert!(
-							!is_ok,
-							"Test '{}': charge #{} should fail",
-							test.name,
-							idx + 1
-						);
+						assert!(!is_ok, "Test '{name}': charge #{} should fail", idx + 1);
 					}
 				}
 			});
