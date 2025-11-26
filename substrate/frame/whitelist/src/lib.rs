@@ -40,9 +40,6 @@ mod tests;
 pub mod weights;
 pub use weights::WeightInfo;
 
-#[cfg(any(feature = "try-runtime", test))]
-use sp_runtime::TryRuntimeError;
-
 extern crate alloc;
 
 use alloc::boxed::Box;
