@@ -675,7 +675,8 @@ pub mod pallet {
 							// Check if we've reached the target session offset
 							let last_session_end =
 								LastSessionReportEndingIndex::<T>::get().unwrap_or(0);
-							let session_offset = last_session_end.saturating_sub(era_activation_end);
+							let session_offset =
+								last_session_end.saturating_sub(era_activation_end);
 
 							session_offset >= T::ValidatorSetExportSession::get()
 						}
