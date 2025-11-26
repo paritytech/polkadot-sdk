@@ -825,11 +825,25 @@ pub async fn ensure_is_only_block_in_core(
 }
 
 /// Checks if the specified block is the last block in a core.
+///
+/// Also ensures that the last block is NOT the first block.
 pub async fn ensure_is_last_block_in_core(
 	para_client: &OnlineClient<PolkadotConfig>,
 	block_to_check: H256,
 ) -> Result<(), anyhow::Error> {
-	ensure_is_block_in_core_impl(para_client, block_to_check, false).await
+	ensure_is_block_in_core_impl(para_client, block_to_check, false).await?;
+
+	let blocks = para_client.blocks();
+	let block = blocks.at(block_to_check).await?;
+	let bundle_info = find_bundle_info(&block)?;
+
+	// Above we ensure it is the last block in the core and now we want to ensure it isn't the first
+	// block.
+	if bundle_info.index == 0 {
+		Err(anyhow!("`{block_to_check:?}` is the first block of a core and not the last"))
+	} else {
+		Ok(())
+	}
 }
 
 pub async fn runtime_upgrade(

@@ -30,7 +30,6 @@ use sp_runtime::{
 	traits::{Block as BlockT, HashingFor},
 	Digest,
 };
-use sp_state_machine::StorageProof;
 
 pub mod block_validation;
 pub mod error;

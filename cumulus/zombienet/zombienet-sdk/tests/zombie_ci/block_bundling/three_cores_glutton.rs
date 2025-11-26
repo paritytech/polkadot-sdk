@@ -21,11 +21,7 @@ use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput,
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_sdk::{
-	subxt::{
-		backend::{legacy::LegacyRpcMethods, rpc::RpcClient},
-		OnlineClient, PolkadotConfig,
-	},
-	subxt_signer::sr25519::dev,
+	subxt::{OnlineClient, PolkadotConfig},
 	NetworkConfig, NetworkConfigBuilder,
 };
 
@@ -51,7 +47,6 @@ async fn block_bundling_three_cores_glutton() -> Result<(), anyhow::Error> {
 
 	let para_client = para_node.wait_client().await?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
-	let alice = dev::alice();
 
 	// Assign cores 0 and 1 to start with 3 cores total (core 2 is assigned by Zombienet)
 	assign_cores(&relay_node, PARA_ID, vec![0, 1]).await?;

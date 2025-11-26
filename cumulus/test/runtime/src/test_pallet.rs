@@ -308,9 +308,13 @@ pub mod pallet {
 
 							CumulusDigestItem::find_bundle_info(&digest)
 								// Default being `true` to support `validate_transaction`
-								.map_or(true, |bi| bi.index == 0) ||
-								// If it doesn't need to be the first block in the core, we can just always accept the transaction.
-								!must_be_first_block_in_core
+								.map_or(true, |bi| {
+									// Either we want that the transaction goes into the first block
+									// of a core
+									bi.index == 0 && *must_be_first_block_in_core ||
+										// Or it goes to any block that isn't the first block
+										bi.index > 0 && !*must_be_first_block_in_core
+								})
 						} {
 							Ok((
 								ValidTransaction {

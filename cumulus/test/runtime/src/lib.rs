@@ -152,9 +152,15 @@ const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
 #[cfg(all(feature = "sync-backing", not(feature = "async-backing")))]
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
 
-// The `+2` shouldn't be needed, https://github.com/paritytech/polkadot-sdk/issues/5260
+/// We need `VELOCITY * 3`, because the block flow is the following:
+///
+/// - Collator produces the block(s) on relay chain block `X`
+/// - In the mean time the relay chain is building block `X + 1`
+/// - The collator sends the collation to the relay chain and it gets backed on chain in relay block
+///   `X + 2`
+/// - The collation then gets included on chain in relay block `X + 3`
 #[cfg(all(not(feature = "sync-backing"), not(feature = "async-backing")))]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * (2 + RELAY_PARENT_OFFSET) + 2;
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * 3;
 
 #[cfg(any(feature = "sync-backing", feature = "elastic-scaling-12s-slot"))]
 pub const SLOT_DURATION: u64 = 12000;
@@ -225,11 +231,9 @@ const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
-/// Target number of blocks per relay chain slot.
-const TARGET_BLOCKS: u32 = 12;
 type MaximumBlockWeight = cumulus_pallet_parachain_system::block_weight::MaxParachainBlockWeight<
 	Runtime,
-	ConstU32<TARGET_BLOCKS>,
+	ConstU32<BLOCK_PROCESSING_VELOCITY>,
 >;
 
 parameter_types! {
@@ -283,7 +287,7 @@ impl frame_system::Config for Runtime {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type PreInherents = cumulus_pallet_parachain_system::block_weight::DynamicMaxBlockWeightHooks<
 		Runtime,
-		ConstU32<TARGET_BLOCKS>,
+		ConstU32<BLOCK_PROCESSING_VELOCITY>,
 	>;
 	type SingleBlockMigrations = SingleBlockMigrations;
 }
@@ -377,8 +381,8 @@ const RELAY_PARENT_OFFSET: u32 = 0;
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
-	24,
-	36,
+	BLOCK_PROCESSING_VELOCITY,
+	UNINCLUDED_SEGMENT_CAPACITY,
 >;
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = ();
@@ -474,7 +478,7 @@ pub type TxExtension = cumulus_pallet_parachain_system::block_weight::DynamicMax
 			test_pallet::TestTransactionExtension<Runtime>,
 		),
 	>,
-	ConstU32<TARGET_BLOCKS>,
+	ConstU32<BLOCK_PROCESSING_VELOCITY>,
 >;
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -655,7 +659,7 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
 		fn target_block_rate() -> u32 {
-			TARGET_BLOCKS
+			BLOCK_PROCESSING_VELOCITY
 		}
 	}
 }

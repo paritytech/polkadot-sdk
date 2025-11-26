@@ -18,16 +18,10 @@
 use crate::utils::initialize_network;
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::submit_extrinsic_and_wait_for_finalization_success;
-use futures::stream::StreamExt;
 use serde_json::json;
-use sp_rpc::tracing::{BlockTrace, TraceBlockResponse};
+use sp_rpc::tracing::TraceBlockResponse;
 use zombienet_sdk::{
-	subxt::{
-		backend::rpc::RpcClient,
-		dynamic::Value,
-		ext::{scale_value::value, subxt_rpcs::rpc_params},
-		OnlineClient, PolkadotConfig,
-	},
+	subxt::{dynamic::Value, ext::subxt_rpcs::rpc_params, OnlineClient, PolkadotConfig},
 	subxt_signer::sr25519::dev,
 	NetworkConfig, NetworkConfigBuilder,
 };
@@ -48,20 +42,6 @@ async fn block_bundling_tracing_block() -> Result<(), anyhow::Error> {
 
 	let para_node = network.get_node("collator-0")?;
 	let para_client: OnlineClient<PolkadotConfig> = para_node.wait_client().await?;
-
-	// Wait for a few blocks to ensure the network is stable
-	log::info!("Waiting for network to stabilize");
-	let mut finalized_stream = para_client.blocks().subscribe_finalized().await?;
-	let mut block_count = 0u32;
-
-	while let Some(block) = finalized_stream.next().await {
-		let _block = block?;
-		block_count += 1;
-		if block_count >= 3 {
-			log::info!("Network stabilized after 3 blocks");
-			break;
-		}
-	}
 
 	// Create a balance transfer transaction
 	let alice = dev::alice();

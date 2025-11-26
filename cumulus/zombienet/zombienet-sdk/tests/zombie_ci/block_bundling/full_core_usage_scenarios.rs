@@ -18,18 +18,13 @@
 use anyhow::anyhow;
 use cumulus_primitives_core::relay_chain::MAX_POV_SIZE;
 use cumulus_zombienet_sdk_helpers::{
-	assert_finality_lag, assert_para_throughput, create_assign_core_call,
-	ensure_is_last_block_in_core, ensure_is_only_block_in_core, find_core_info,
+	create_assign_core_call, ensure_is_last_block_in_core, ensure_is_only_block_in_core,
 	submit_extrinsic_and_wait_for_finalization_success, BlockToCheck,
 };
 use frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND;
-use polkadot_primitives::Id as ParaId;
 use serde_json::json;
-use std::sync::Arc;
 use zombienet_sdk::{
-	subxt::{
-		ext::scale_value::value, tx::DynamicPayload, utils::H256, OnlineClient, PolkadotConfig,
-	},
+	subxt::{ext::scale_value::value, tx::DynamicPayload, OnlineClient, PolkadotConfig},
 	subxt_signer::sr25519::dev,
 	NetworkConfig, NetworkConfigBuilder,
 };
@@ -141,6 +136,8 @@ async fn block_bundling_full_core_usage_scenarios() -> Result<(), anyhow::Error>
 
 	let use_more_weight_than_announced = create_use_more_weight_than_announced_call(false);
 
+	// Here we are testing that a transaction that uses more weight than registered makes the block
+	// production stop for this core. Even as the block is not the first block in the core.
 	log::info!(
 		"Testing scenario 6: Sending a transaction which uses more weight than what \
 		it registered and transactions appears in the last block of a core"

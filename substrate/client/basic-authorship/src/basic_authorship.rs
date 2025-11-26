@@ -41,7 +41,6 @@ use sp_runtime::{
 	traits::{BlakeTwo256, Block as BlockT, Hash as HashT, Header as HeaderT},
 	ExtrinsicInclusionMode, Percent, SaturatedConversion,
 };
-use sp_state_machine::StorageProof;
 use std::{pin::Pin, sync::Arc, time};
 
 /// Default block size limit in bytes used by [`Proposer`].

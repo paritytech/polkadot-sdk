@@ -17,7 +17,7 @@
 
 use anyhow::anyhow;
 use cumulus_primitives_core::relay_chain::MAX_POV_SIZE;
-use cumulus_test_runtime::wasm_spec_version_incremented::WASM_BINARY_BLOATY as WASM_RUNTIME_UPGRADE;
+use cumulus_test_runtime::block_bundling::WASM_BINARY_BLOATY as WASM_RUNTIME_UPGRADE;
 use cumulus_zombienet_sdk_helpers::{
 	assign_cores, ensure_is_only_block_in_core, submit_extrinsic_and_wait_for_finalization_success,
 	submit_unsigned_extrinsic_and_wait_for_finalization_success, wait_for_runtime_upgrade,
@@ -67,6 +67,15 @@ async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 		));
 	}
 
+	// Let's create our own fake runtime upgrade where we just bump the `spec_version`.
+	// On chain nothing will change, as we only change the runtime version stored inside the wasm
+	// file.
+	let blob = sc_executor_common::runtime_blob::RuntimeBlob::uncompress_if_needed(&runtime_wasm)?;
+	let mut version = sc_executor::read_embedded_version(&blob)?
+		.ok_or_else(|| anyhow!("No runtime version found?"))?;
+	version.spec_version += 1;
+	let runtime_wasm = sp_version::embed::embed_runtime_version(&runtime_wasm, version)?;
+
 	log::info!("Runtime size validation passed: {} bytes", runtime_wasm.len());
 
 	let config = build_network_config().await?;
@@ -86,7 +95,7 @@ async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 	log::info!("3 cores total assigned to the parachain");
 
 	// Step 1: Authorize the runtime upgrade
-	let code_hash = blake2_256(runtime_wasm);
+	let code_hash = blake2_256(&runtime_wasm);
 	let authorize_call = create_authorize_upgrade_call(code_hash.into());
 	let sudo_authorize_call = create_sudo_call(authorize_call);
 
@@ -96,7 +105,7 @@ async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 	log::info!("Authorize upgrade transaction finalized");
 
 	// Step 2: Apply the authorized upgrade with the actual runtime code
-	let apply_call = create_apply_authorized_upgrade_call(runtime_wasm.to_vec());
+	let apply_call = create_apply_authorized_upgrade_call(runtime_wasm.clone());
 
 	log::info!(
 		"Sending apply_authorized_upgrade transaction with runtime size: {} bytes",
