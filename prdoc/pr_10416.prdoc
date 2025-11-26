@@ -1,12 +1,7 @@
 title: 'Added CID filtering to Bitswap server'
 doc:
 - audience: Network Dev
-  description: |-
-    # Description
-
-    This PR adds CID (Content Identifier) validation and filtering to the Bitswap server implementation
-
+  description: "This PR adds CID (Content Identifier) validation and filtering to the Bitswap server implementation"
 crates:
 - name: sc-network
   bump: patch
-
