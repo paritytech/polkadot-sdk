@@ -1104,7 +1104,7 @@ impl Client {
 			value: subxt::utils::Static(remainder),
 		});
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
-		let mut tx_progress = self
+		let _tx = self
 			.api
 			.tx()
 			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
