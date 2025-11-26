@@ -26,11 +26,12 @@ use crate::{
 	error::Error,
 	event::{DhtEvent, Event},
 	litep2p::{
+		bitswap::BitswapServer,
 		discovery::{Discovery, DiscoveryEvent},
+		ipfs_dht::IpfsDht,
 		peerstore::Peerstore,
 		service::{Litep2pNetworkService, NetworkServiceCommand},
 		shim::{
-			bitswap::BitswapServer,
 			notification::{
 				config::{NotificationProtocolConfig, ProtocolControlHandle},
 				peerset::PeersetCommand,
@@ -94,7 +95,9 @@ use std::{
 	time::{Duration, Instant},
 };
 
+mod bitswap;
 mod discovery;
+mod ipfs_dht;
 mod peerstore;
 mod service;
 mod shim;
@@ -510,6 +513,25 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				Arc::clone(&peer_store_handle),
 			);
 
+		// enable Bitswap & IPFS DHT
+		if let Some(config) = params.ipfs_config {
+			config_builder = config_builder.with_libp2p_bitswap(config.bitswap_config);
+
+			if !config.bootnodes.is_empty() {
+				let (ipfs_dht, kad_config) = IpfsDht::new(config.bootnodes, config.block_provider);
+				config_builder = config_builder.with_libp2p_kademlia(kad_config);
+				executor.run(Box::pin(async {
+					ipfs_dht.run().await;
+				}));
+			} else {
+				log::warn!(
+					target: LOG_TARGET,
+					"Not starting IPFS DHT publisher because no IPFS bootnodes are configured. \
+					 Only direct Bitswap requests will be handled.",
+				);
+			}
+		}
+
 		config_builder = config_builder
 			.with_known_addresses(known_addresses.clone().into_iter())
 			.with_libp2p_ping(ping_config)
@@ -526,11 +548,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 
 		if let Some(config) = maybe_mdns_config {
 			config_builder = config_builder.with_mdns(config);
-		}
-
-		if let Some(config) = params.ipfs_config {
-			config_builder = config_builder.with_libp2p_bitswap(config.bitswap_config);
-			// TODO: spawn IPFS Kademlia.
 		}
 
 		let litep2p =

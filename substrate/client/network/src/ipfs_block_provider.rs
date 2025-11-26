@@ -30,7 +30,7 @@ use std::{
 	task::{Context, Poll},
 };
 
-const LOG_TARGET: &str = "ipfs";
+const LOG_TARGET: &str = "sub-libp2p::ipfs";
 
 /// A change to the blocks available from a [`BlockProvider`].
 pub enum Change {
