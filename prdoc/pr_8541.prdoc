@@ -1,0 +1,48 @@
+title: 'collator-protocol-revamp: CollationManager and subsystem impl'
+doc:
+- audience: Node Operator
+  description: |-
+    Implements the `CollationManager` and the new collator protocol (validator side) subsystem.
+
+    Issues https://github.com/paritytech/polkadot-sdk/issues/8182 and https://github.com/paritytech/polkadot-sdk/issues/7752.
+
+    These are the big remaining parts which would enable us to test the entire implementation.
+
+    TODO:
+    - [ ] add a couple more unit tests
+    - [ ] polish the ClaimQueueState and verify if it's sufficiently covered by unit tests
+      - https://github.com/paritytech/polkadot-sdk/pull/10334
+      - https://github.com/paritytech/polkadot-sdk/pull/10368
+    - [ ] add metrics and polish logs
+    - [x] add a CLI parameter for enabling the experimental subsystem (and remove the compile-time feature) -> https://github.com/paritytech/polkadot-sdk/pull/10285
+    - [x] implement registered paras update, using https://github.com/paritytech/polkadot-sdk/pull/9055
+    - [ ] do some manual zombienet tests with v1 protocol version and with restarting validators (including syncing with warp sync)
+    - [ ] prdoc
+    - [x] Rollback
+      - https://github.com/paritytech/polkadot-sdk/pull/8541/commits/03e89150bd87e63a6a74e9ce1b9d1122b9239d14
+      - https://github.com/paritytech/polkadot-sdk/pull/8541/commits/05e1497a3f785f41aac81e08f13676bdc96b9035
+      These commits were added just to run the CI tests for this PR with the new experimental protocol
+
+    After merging:
+    - [ ] versi testing
+
+
+
+    Uses a slightly modified version of the ClaimQueueState written by @tdimitrov in https://github.com/paritytech/polkadot-sdk/pull/7114.
+crates:
+- name: cumulus-relay-chain-inprocess-interface
+  bump: patch
+- name: polkadot-cli
+  bump: patch
+- name: polkadot-collator-protocol
+  bump: patch
+- name: polkadot-service
+  bump: patch
+- name: polkadot-node-subsystem-types
+  bump: patch
+- name: polkadot-network-bridge
+  bump: patch
+- name: polkadot-node-subsystem-util
+  bump: patch
+- name: polkadot-sdk
+  bump: patch
