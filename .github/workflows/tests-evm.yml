@@ -147,7 +147,6 @@ jobs:
       - name: script
         run: |
           cd evm-test-suite
-          export ETH_RPC_PATH=$(readlink -f ../target/release/eth-rpc)
 
           cleanup() {
             if [ -n "$NODE_PID" ]; then kill $NODE_PID 2>/dev/null || true; fi
@@ -156,16 +155,17 @@ jobs:
           trap cleanup EXIT
 
           if [ "${{ matrix.node }}" = "revive-dev-node" ]; then
-            export NODE_PATH=$(readlink -f ../target/release/revive-dev-node)
+            NODE_PATH=$(readlink -f ../target/release/revive-dev-node)
             $NODE_PATH --dev -l=error,evm=debug,sc_rpc_server=info,runtime::revive=debug > /dev/null 2>&1 &
             NODE_PID=$!
           else
             ../target/release/chain-spec-builder -c /tmp/ah-westend-spec.json create --para-id 1000 --relay-chain dontcare --runtime ../target/release/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.wasm named-preset development
-            export NODE_PATH=$(readlink -f ../target/release/polkadot-omni-node)
+            NODE_PATH=$(readlink -f ../target/release/polkadot-omni-node)
             $NODE_PATH --tmp --log=error,sc_rpc_server=info,runtime::revive=debug --instant-seal --no-prometheus --chain /tmp/ah-westend-spec.json > /dev/null 2>&1 &
             NODE_PID=$!
           fi
 
+          ETH_RPC_PATH=$(readlink -f ../target/release/eth-rpc)
           $ETH_RPC_PATH --dev --node-rpc-url=ws://localhost:9944 -l=rpc-metrics=debug,eth-rpc=debug > /dev/null 2>&1 &
           ETH_RPC_PID=$!
 
