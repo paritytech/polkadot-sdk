@@ -210,6 +210,8 @@ pub mod code {
 					log::debug!(target: LOG_TARGET, "invalid instruction at offset {}", inst.offset);
 					return Err(<Error<T>>::InvalidInstruction.into())
 				},
+				// Since polkavm `0.30.0` linker will fail if it detects sbrk instruction.
+				// So this branch is never reached for programs built with polkavm >= 0.30.0.
 				Instruction::sbrk(_, _) => {
 					log::debug!(target: LOG_TARGET, "sbrk instruction is not allowed. offset {}", inst.offset);
 					return Err(<Error<T>>::InvalidInstruction.into())
