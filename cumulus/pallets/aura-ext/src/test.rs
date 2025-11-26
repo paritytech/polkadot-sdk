@@ -41,7 +41,7 @@ use std::cell::RefCell;
 // Test pallet that reads storage and calls storage_proof_size
 #[frame_support::pallet]
 pub mod test_pallet {
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, sp_runtime::StateVersion};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
@@ -58,6 +58,7 @@ pub mod test_pallet {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			let proof_size =
 				cumulus_primitives_proof_size_hostfunction::storage_proof_size::storage_proof_size(
+					StateVersion::V1,
 				);
 			// We need to commit the `proof_size` to ensure that the test is failing if we are
 			// receiving a different proof size later on.
