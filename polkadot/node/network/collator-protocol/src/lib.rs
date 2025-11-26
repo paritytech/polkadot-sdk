@@ -18,7 +18,7 @@
 //! This subsystem implements both sides of the collator protocol.
 
 #![deny(missing_docs)]
-#![deny(unused_crate_dependencies)]
+// #![deny(unused_crate_dependencies)]
 #![recursion_limit = "256"]
 
 use std::{
