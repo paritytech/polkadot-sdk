@@ -23,7 +23,7 @@ use litep2p::protocol::libp2p::bitswap::{
 	BitswapEvent, BitswapHandle, BlockPresenceType, Config, ResponseType, WantType,
 };
 
-use cid::multihash::Code as Code;
+use cid::multihash::Code;
 use sc_client_api::BlockBackend;
 use sp_runtime::traits::Block as BlockT;
 
@@ -40,8 +40,8 @@ pub struct BitswapServer<Block: BlockT> {
 	client: Arc<dyn BlockBackend<Block> + Send + Sync>,
 
 	/// Supported multihash codes for CID validation.
-	/// Uses `Vec` instead of `HashSet` or `BTreeSet` because `cid::multihash::Code` doesn't implement
-	/// `Hash` or `Ord`. O(n) lookup is acceptable in our case (3 values).
+	/// Uses `Vec` instead of `HashSet` or `BTreeSet` because `Code` doesn't
+	/// implement `Hash` or `Ord`. O(n) lookup is acceptable in our case (3 values).
 	supported_hash_codes: Vec<Code>,
 }
 
@@ -51,12 +51,9 @@ impl<Block: BlockT> BitswapServer<Block> {
 		client: Arc<dyn BlockBackend<Block> + Send + Sync>,
 	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, Config) {
 		let (config, handle) = Config::new();
-		let supported_hash_codes = vec![
-			Code::Blake2b256,
-			Code::Sha2_256,
-			Code::Keccak256,
-		];
-		let code_names: Vec<&str> = supported_hash_codes.iter().map(|c| Self::code_to_name(c)).collect();
+		let supported_hash_codes = vec![Code::Blake2b256, Code::Sha2_256, Code::Keccak256];
+		let code_names: Vec<&str> =
+			supported_hash_codes.iter().map(|c| Self::code_to_name(c)).collect();
 		log::debug!(
 			target: LOG_TARGET,
 			"BitswapServer initialized with supported multihash codes: {:?}",
