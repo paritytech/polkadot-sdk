@@ -17,12 +17,11 @@
 
 use crate::{
 	address::AddressMapper,
-	evm::runtime::GAS_PRICE,
 	vm::{
 		evm::{interpreter::Halt, Interpreter},
 		Ext, RuntimeCosts,
 	},
-	Config, Error, U256,
+	Config, Error,
 };
 use core::ops::ControlFlow;
 
@@ -31,7 +30,7 @@ use core::ops::ControlFlow;
 /// Gets the gas price of the originating transaction.
 pub fn gasprice<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	interpreter.ext.charge_or_halt(RuntimeCosts::GasPrice)?;
-	interpreter.stack.push(U256::from(GAS_PRICE))
+	interpreter.stack.push(interpreter.ext.effective_gas_price())
 }
 
 /// Implements the ORIGIN instruction.

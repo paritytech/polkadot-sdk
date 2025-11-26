@@ -50,7 +50,7 @@ fn get_invulnerable_ah_collators(
 	chain_spec: &Box<dyn polkadot_service::ChainSpec>,
 ) -> HashSet<PeerId> {
 	// A default set of invulnerable asset hub collators
-	const KUSAMA: [&str; 8] = [
+	const KUSAMA: [&str; 11] = [
 		"12D3KooWHNEENyCc4R3iDLLFaJiynUp9eDZp7TtS1G6DCp459vVK",
 		"12D3KooWAVqLdQEjSezy7CPEgMLMSTuyfSBdbxPGkmik5x2aL8u4",
 		"12D3KooWBxMiVQdYa5MaQjSWAu3YsfKdrs7vgX9cPk4cCwFVAXEu",
@@ -59,9 +59,13 @@ fn get_invulnerable_ah_collators(
 		"12D3KooWCTSAq83D99RcT64rrV5X3sGZxc9JQ8nVtd6GbZEKnDqC",
 		"12D3KooWF63ZxKtZMYs5247WQA8fcTiGJb2osXykc31cmjwNLwem",
 		"12D3KooWGowDwrXAh9cxkbPHPHuwMouFHrMcJhCVXcFS2B8vc5Ry",
+		"12D3KooWRhoxXsZypnp1Tady6XSRqXfxu7Bj6hGk8aj6FJ1iU6pt",
+		"12D3KooWJUs11H7S3Hv9BVh72w3yVmHoYTXaoBUg1KQyYk4hL2bB",
+		"12D3KooWAeLjabo2foz6gAQvLRfwF2d3WnpUGDjhg8V5AQUnv5AZ",
 	];
 
-	const POLKADOT: [&str; 6] = [
+	const POLKADOT: [&str; 7] = [
+		"12D3KooWEyGg3oUwYfaLWM5AJ2pvXCUxBuXNapX1tQXLsbDmMV6z",
 		"12D3KooWD9dTKLW65NFFLVjqgaXNzb3zKXBfwRS5iovxV6XaoVX6",
 		"12D3KooWPJfGGisRMkiD5yhySZggEhyMSwELb34P2bEuAmUh9RYy",
 		"12D3KooWQB9RBoJEByMtXtD8aC1WR1DJQb3QMXRcsQmNxrghsQLv",

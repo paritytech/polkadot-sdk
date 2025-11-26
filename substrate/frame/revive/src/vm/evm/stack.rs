@@ -17,13 +17,10 @@
 
 //! Custom EVM stack implementation using sp_core::U256
 
-use crate::{vm::evm::interpreter::Halt, Config, Error};
+use crate::{limits::EVM_STACK_LIMIT, vm::evm::interpreter::Halt, Config, Error};
 use alloc::vec::Vec;
 use core::ops::ControlFlow;
 use sp_core::{H160, H256, U256};
-
-/// EVM interpreter stack limit.
-pub const STACK_LIMIT: usize = 1024;
 
 /// EVM stack implementation using sp_core types
 #[derive(Debug, Clone)]
@@ -64,7 +61,7 @@ impl<T: Config> Stack<T> {
 
 	/// Push a value onto the stack
 	pub fn push(&mut self, value: impl ToU256) -> ControlFlow<Halt> {
-		if self.stack.len() >= STACK_LIMIT {
+		if self.stack.len() >= (EVM_STACK_LIMIT as usize) {
 			ControlFlow::Break(Error::<T>::StackOverflow.into())
 		} else {
 			self.stack.push(value.to_u256());
@@ -73,7 +70,7 @@ impl<T: Config> Stack<T> {
 	}
 
 	/// Get a reference to the top stack item without removing it
-	#[cfg(test)]
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	pub fn top(&self) -> Option<&U256> {
 		self.stack.last()
 	}
@@ -132,7 +129,7 @@ impl<T: Config> Stack<T> {
 		if n == 0 || n > self.stack.len() {
 			return ControlFlow::Break(Error::<T>::StackUnderflow.into());
 		}
-		if self.stack.len() >= STACK_LIMIT {
+		if self.stack.len() >= (EVM_STACK_LIMIT as usize) {
 			return ControlFlow::Break(Error::<T>::StackOverflow.into());
 		}
 
@@ -167,7 +164,7 @@ impl<T: Config> Stack<T> {
 			return ControlFlow::Continue(());
 		}
 
-		if self.stack.len() >= STACK_LIMIT {
+		if self.stack.len() >= (EVM_STACK_LIMIT as usize) {
 			return ControlFlow::Break(Error::<T>::StackOverflow.into());
 		}
 
@@ -301,7 +298,7 @@ mod tests {
 		let mut stack = Stack::<Test>::new();
 
 		// Fill stack to limit
-		for i in 0..STACK_LIMIT {
+		for i in 0..EVM_STACK_LIMIT {
 			assert!(matches!(stack.push(U256::from(i)), ControlFlow::Continue(())));
 		}
 
@@ -310,7 +307,7 @@ mod tests {
 			stack.push(U256::from(9999)),
 			ControlFlow::Break(Error::<Test>::StackOverflow.into())
 		);
-		assert_eq!(stack.len(), STACK_LIMIT);
+		assert_eq!(stack.len(), EVM_STACK_LIMIT as usize);
 	}
 
 	#[test]

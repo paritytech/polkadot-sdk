@@ -28,7 +28,6 @@ use core::ops::ControlFlow;
 use revm::interpreter::gas::{BASE, VERYLOW};
 use sp_core::H256;
 use sp_io::hashing::keccak_256;
-// TODO: Fix the gas handling for the memory operations
 
 /// The Keccak-256 hash of the empty string `""`.
 pub const KECCAK_EMPTY: [u8; 32] =
@@ -200,9 +199,7 @@ pub fn returndatacopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<H
 /// Pushes the amount of remaining gas onto the stack.
 pub fn gas<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	interpreter.ext.charge_or_halt(RuntimeCosts::RefTimeLeft)?;
-	// TODO: This accounts only for 'ref_time' now. It should be fixed to also account for other
-	// costs. See #9577 for more context.
-	let gas = interpreter.ext.gas_meter().gas_left().ref_time();
+	let gas = interpreter.ext.gas_left();
 	interpreter.stack.push(U256::from(gas))
 }
 

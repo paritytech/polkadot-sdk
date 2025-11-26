@@ -17,51 +17,20 @@
 
 //! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
-use crate::{storage::WriteOutcome, BalanceOf, Config, H160, U256};
-use alloc::{string::String, vec::Vec};
+use crate::{
+	evm::DryRunConfig, mock::MockHandler, storage::WriteOutcome, BalanceOf, Config, Time, H160,
+	U256,
+};
+use alloc::{boxed::Box, fmt::Debug, string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::weights::Weight;
+use frame_support::{traits::tokens::Balance, weights::Weight};
 use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
-use sp_arithmetic::traits::Bounded;
 use sp_core::Get;
 use sp_runtime::{
 	traits::{One, Saturating, Zero},
 	DispatchError, RuntimeDebug,
 };
-
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub enum DepositLimit<Balance> {
-	/// Allows bypassing all balance transfer checks.
-	UnsafeOnlyForDryRun,
-
-	/// Specifies a maximum allowable balance for a deposit.
-	Balance(Balance),
-}
-
-impl<T> DepositLimit<T> {
-	pub fn is_unchecked(&self) -> bool {
-		match self {
-			Self::UnsafeOnlyForDryRun => true,
-			_ => false,
-		}
-	}
-}
-
-impl<T> From<T> for DepositLimit<T> {
-	fn from(value: T) -> Self {
-		Self::Balance(value)
-	}
-}
-
-impl<T: Bounded + Copy> DepositLimit<T> {
-	pub fn limit(&self) -> T {
-		match self {
-			Self::UnsafeOnlyForDryRun => T::max_value(),
-			Self::Balance(limit) => *limit,
-		}
-	}
-}
 
 /// Result type of a `bare_call` or `bare_instantiate` call as well as `ContractsApi::call` and
 /// `ContractsApi::instantiate`.
@@ -76,18 +45,18 @@ impl<T: Bounded + Copy> DepositLimit<T> {
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct ContractResult<R, Balance> {
 	/// How much weight was consumed during execution.
-	pub gas_consumed: Weight,
-	/// How much weight is required as gas limit in order to execute this call.
+	pub weight_consumed: Weight,
+	/// How much weight is required as weight limit in order to execute this call.
 	///
 	/// This value should be used to determine the weight limit for on-chain execution.
 	///
 	/// # Note
 	///
-	/// This can only be different from [`Self::gas_consumed`] when weight pre charging
+	/// This can only be different from [`Self::weight_consumed`] when weight pre charging
 	/// is used. Currently, only `seal_call_runtime` makes use of pre charging.
 	/// Additionally, any `seal_call` or `seal_instantiate` makes use of pre-charging
-	/// when a non-zero `gas_limit` argument is supplied.
-	pub gas_required: Weight,
+	/// when a non-zero `weight_limit` argument is supplied.
+	pub weight_required: Weight,
 	/// How much balance was paid by the origin into the contract's deposit account in order to
 	/// pay for storage.
 	///
@@ -95,17 +64,38 @@ pub struct ContractResult<R, Balance> {
 	/// is `Err`. This is because on error all storage changes are rolled back including the
 	/// payment of the deposit.
 	pub storage_deposit: StorageDeposit<Balance>,
+	/// The maximal storage deposit amount that occured at any time during the execution.
+	/// This can be higher than the final storage_deposit due to refunds
+	/// This is always a StorageDeposit::Charge(..)
+	pub max_storage_deposit: StorageDeposit<Balance>,
+	/// The amount of Ethereum gas that has been consumed during execution.
+	pub gas_consumed: Balance,
 	/// The execution result of the vm binary code.
 	pub result: Result<R, DispatchError>,
+}
+
+impl<R: Default, B: Balance> Default for ContractResult<R, B> {
+	fn default() -> Self {
+		Self {
+			weight_consumed: Default::default(),
+			weight_required: Default::default(),
+			storage_deposit: Default::default(),
+			max_storage_deposit: Default::default(),
+			gas_consumed: Default::default(),
+			result: Ok(Default::default()),
+		}
+	}
 }
 
 /// The result of the execution of a `eth_transact` call.
 #[derive(Clone, Eq, PartialEq, Default, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct EthTransactInfo<Balance> {
-	/// The amount of gas that was necessary to execute the transaction.
-	pub gas_required: Weight,
-	/// Storage deposit charged.
+	/// The amount of weight that was necessary to execute the transaction.
+	pub weight_required: Weight,
+	/// Final storage deposit charged.
 	pub storage_deposit: Balance,
+	/// Maximal storage deposit charged at any time during execution.
+	pub max_storage_deposit: Balance,
 	/// The weight and deposit equivalent in EVM Gas.
 	pub eth_gas: U256,
 	/// The execution return value.
@@ -130,7 +120,7 @@ pub enum BalanceConversionError {
 
 /// A Balance amount along with some "dust" to represent the lowest decimals that can't be expressed
 /// in the native currency
-#[derive(Default, Clone, Copy, Eq, PartialEq, Debug)]
+#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct BalanceWithDust<Balance> {
 	/// The value expressed in the native currency
 	value: Balance,
@@ -160,10 +150,7 @@ impl<Balance> BalanceWithDust<Balance> {
 	/// Creates a new `BalanceWithDust` from the given EVM value.
 	pub fn from_value<T: Config>(
 		value: U256,
-	) -> Result<BalanceWithDust<BalanceOf<T>>, BalanceConversionError>
-	where
-		BalanceOf<T>: TryFrom<U256>,
-	{
+	) -> Result<BalanceWithDust<BalanceOf<T>>, BalanceConversionError> {
 		if value.is_zero() {
 			return Ok(Default::default())
 		}
@@ -229,7 +216,7 @@ impl ExecReturnValue {
 }
 
 /// The result of a successful contract instantiation.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo, Default)]
 pub struct InstantiateReturnValue {
 	/// The output of the called constructor.
 	pub result: ExecReturnValue,
@@ -272,6 +259,19 @@ pub enum StorageDeposit<Balance> {
 	Charge(Balance),
 }
 
+impl<T, Balance> ContractResult<T, Balance> {
+	pub fn map_result<V>(self, map_fn: impl FnOnce(T) -> V) -> ContractResult<V, Balance> {
+		ContractResult {
+			weight_consumed: self.weight_consumed,
+			weight_required: self.weight_required,
+			storage_deposit: self.storage_deposit,
+			max_storage_deposit: self.max_storage_deposit,
+			gas_consumed: self.gas_consumed,
+			result: self.result.map(map_fn),
+		}
+	}
+}
+
 impl<Balance: Zero> Default for StorageDeposit<Balance> {
 	fn default() -> Self {
 		Self::Charge(Zero::zero())
@@ -297,7 +297,7 @@ impl<Balance: Zero + Copy> StorageDeposit<Balance> {
 
 impl<Balance> StorageDeposit<Balance>
 where
-	Balance: Saturating + Ord + Copy,
+	Balance: frame_support::traits::tokens::Balance + Saturating + Ord + Copy,
 {
 	/// This is essentially a saturating signed add.
 	pub fn saturating_add(&self, rhs: &Self) -> Self {
@@ -347,31 +347,105 @@ where
 	/// # Note
 	///
 	/// In case of a refund the return value can be larger than `limit`.
-	pub fn available(&self, limit: &Balance) -> Balance {
+	pub fn available(&self, limit: &Balance) -> Option<Balance> {
 		use StorageDeposit::*;
 		match self {
-			Charge(amount) => limit.saturating_sub(*amount),
-			Refund(amount) => limit.saturating_add(*amount),
+			Charge(amount) => limit.checked_sub(amount),
+			Refund(amount) => Some(limit.saturating_add(*amount)),
 		}
 	}
 }
 
-/// Indicates whether the account nonce should be incremented after instantiating a new contract.
-///
-/// In Substrate, where transactions can be batched, the account's nonce should be incremented after
-/// each instantiation, ensuring that each instantiation uses a unique nonce.
-///
-/// For transactions sent from Ethereum wallets, which cannot be batched, the nonce should only be
-/// incremented once. In these cases, Use `BumpNonce::No` to suppress an extra nonce increment.
-///
-/// Note:
-/// The origin's nonce is already incremented pre-dispatch by the `CheckNonce` transaction
-/// extension.
-pub enum BumpNonce {
-	/// Do not increment the nonce after contract instantiation
-	No,
-	/// Increment the nonce after contract instantiation
-	Yes,
+/// `Stack` wide configuration options.
+pub struct ExecConfig<T: Config> {
+	/// Indicates whether the account nonce should be incremented after instantiating a new
+	/// contract.
+	///
+	/// In Substrate, where transactions can be batched, the account's nonce should be incremented
+	/// after each instantiation, ensuring that each instantiation uses a unique nonce.
+	///
+	/// For transactions sent from Ethereum wallets, which cannot be batched, the nonce should only
+	/// be incremented once. In these cases, set this to `false` to suppress an extra nonce
+	/// increment.
+	///
+	/// Note:
+	/// The origin's nonce is already incremented pre-dispatch by the `CheckNonce` transaction
+	/// extension.
+	///
+	/// This does not apply to contract initiated instantatiations. Those will always bump the
+	/// instantiating contract's nonce.
+	pub bump_nonce: bool,
+	/// Whether deposits will be withdrawn from the pallet_transaction_payment credit (`Some`)
+	/// free balance (`None`).
+	///
+	/// Contains the encoded_len + base weight.
+	pub collect_deposit_from_hold: Option<(u32, Weight)>,
+	/// The gas price that was chosen for this transaction.
+	///
+	/// It is determined when transforming `eth_transact` into a proper extrinsic.
+	pub effective_gas_price: Option<U256>,
+	/// Whether this configuration was created for a dry-run execution.
+	/// Use to enable logic that should only run in dry-run mode.
+	pub is_dry_run: Option<DryRunConfig<<<T as Config>::Time as Time>::Moment>>,
+	/// An optional mock handler that can be used to override certain behaviors.
+	/// This is primarily used for testing purposes and should be `None` in production
+	/// environments.
+	pub mock_handler: Option<Box<dyn MockHandler<T>>>,
+}
+
+impl<T: Config> ExecConfig<T> {
+	/// Create a default config appropriate when the call originated from a substrate tx.
+	pub fn new_substrate_tx() -> Self {
+		Self {
+			bump_nonce: true,
+			collect_deposit_from_hold: None,
+			effective_gas_price: None,
+			is_dry_run: None,
+			mock_handler: None,
+		}
+	}
+
+	pub fn new_substrate_tx_without_bump() -> Self {
+		Self {
+			bump_nonce: false,
+			collect_deposit_from_hold: None,
+			effective_gas_price: None,
+			mock_handler: None,
+			is_dry_run: None,
+		}
+	}
+
+	/// Create a default config appropriate when the call originated from a ethereum tx.
+	pub fn new_eth_tx(effective_gas_price: U256, encoded_len: u32, base_weight: Weight) -> Self {
+		Self {
+			bump_nonce: false,
+			collect_deposit_from_hold: Some((encoded_len, base_weight)),
+			effective_gas_price: Some(effective_gas_price),
+			mock_handler: None,
+			is_dry_run: None,
+		}
+	}
+
+	/// Set this config to be a dry-run.
+	pub fn with_dry_run(
+		mut self,
+		dry_run_config: DryRunConfig<<<T as Config>::Time as Time>::Moment>,
+	) -> Self {
+		self.is_dry_run = Some(dry_run_config);
+		self
+	}
+
+	/// Almost clone for testing (does not clone mock_handler)
+	#[cfg(test)]
+	pub fn clone(&self) -> Self {
+		Self {
+			bump_nonce: self.bump_nonce,
+			collect_deposit_from_hold: self.collect_deposit_from_hold,
+			effective_gas_price: self.effective_gas_price,
+			is_dry_run: self.is_dry_run.clone(),
+			mock_handler: None,
+		}
+	}
 }
 
 /// Indicates whether the code was removed after the last refcount was decremented.

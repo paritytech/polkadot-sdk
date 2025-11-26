@@ -27,11 +27,10 @@ pub use runtime_costs::RuntimeCosts;
 use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::{ensure, error::BadOrigin, traits::tokens::Restriction},
-	gas::{GasMeter, Token},
-	storage::meter::Diff,
+	metering::{weight::Token, ResourceMeter, State},
 	weights::WeightInfo,
-	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecError, HoldReason,
-	PristineCode, Weight, LOG_TARGET,
+	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
+	HoldReason, Pallet, PristineCode, StorageDeposit, Weight, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -39,12 +38,12 @@ use frame_support::{
 	dispatch::DispatchResult,
 	traits::{
 		fungible::MutateHold,
-		tokens::{Fortitude, Precision, Preservation},
+		tokens::{Fortitude, Precision},
 	},
 };
 use pallet_revive_uapi::ReturnErrorCode;
-use sp_core::{Get, H256, U256};
-use sp_runtime::DispatchError;
+use sp_core::{Get, H256};
+use sp_runtime::{DispatchError, Saturating};
 
 /// Validated Vm module ready for execution.
 /// This data structure is immutable once created and stored.
@@ -109,9 +108,9 @@ pub struct CodeInfo<T: Config> {
 /// Calculate the deposit required for storing code and its metadata.
 pub fn calculate_code_deposit<T: Config>(code_len: u32) -> BalanceOf<T> {
 	let bytes_added = code_len.saturating_add(<CodeInfo<T>>::max_encoded_len() as u32);
-	Diff { bytes_added, items_added: 2, ..Default::default() }
-		.update_contract::<T>(None)
-		.charge_or_zero()
+	T::DepositPerByte::get()
+		.saturating_mul(bytes_added.into())
+		.saturating_add(T::DepositPerItem::get().saturating_mul(2u32.into()))
 }
 
 impl ExportedFunction {
@@ -162,10 +161,7 @@ pub fn code_load_weight(code_len: u32) -> Weight {
 	Token::<crate::tests::Test>::weight(&CodeLoadToken { code_len, code_type: BytecodeType::Pvm })
 }
 
-impl<T: Config> ContractBlob<T>
-where
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-{
+impl<T: Config> ContractBlob<T> {
 	/// Remove the code from storage and refund the deposit to its owner.
 	///
 	/// Applies all necessary checks before removing the code.
@@ -176,7 +172,7 @@ where
 				ensure!(&code_info.owner == origin, BadOrigin);
 				T::Currency::transfer_on_hold(
 					&HoldReason::CodeUploadDepositReserve.into(),
-					&crate::Pallet::<T>::account_id(),
+					&Pallet::<T>::account_id(),
 					&code_info.owner,
 					code_info.deposit,
 					Precision::Exact,
@@ -194,7 +190,11 @@ where
 	}
 
 	/// Puts the module blob into storage, and returns the deposit collected for the storage.
-	pub fn store_code(&mut self, skip_transfer: bool) -> Result<BalanceOf<T>, Error<T>> {
+	pub fn store_code<S: State>(
+		&mut self,
+		exec_config: &ExecConfig<T>,
+		meter: &mut ResourceMeter<T, S>,
+	) -> Result<BalanceOf<T>, DispatchError> {
 		let code_hash = *self.code_hash();
 		ensure!(code_hash != H256::zero(), <Error<T>>::CodeNotFound);
 
@@ -209,21 +209,19 @@ where
 				None => {
 					let deposit = self.code_info.deposit;
 
-					if !skip_transfer {
-						T::Currency::transfer_and_hold(
-							&HoldReason::CodeUploadDepositReserve.into(),
+					<Pallet<T>>::charge_deposit(
+							Some(HoldReason::CodeUploadDepositReserve),
 							&self.code_info.owner,
-							&crate::Pallet::<T>::account_id(),
+							&Pallet::<T>::account_id(),
 							deposit,
-							Precision::Exact,
-							Preservation::Preserve,
-							Fortitude::Polite,
+							&exec_config,
 						)
 					 .map_err(|err| {
 							log::debug!(target: LOG_TARGET, "failed to hold store code deposit {deposit:?} for owner: {:?}: {err:?}", self.code_info.owner);
 							<Error<T>>::StorageDepositNotEnoughFunds
 					})?;
-					}
+
+					meter.charge_deposit(&StorageDeposit::Charge(deposit))?;
 
 					<PristineCode<T>>::insert(code_hash, &self.code.to_vec());
 					*stored_code_info = Some(self.code_info.clone());
@@ -321,13 +319,13 @@ impl<T: Config> CodeInfo<T> {
 	}
 }
 
-impl<T: Config> Executable<T> for ContractBlob<T>
-where
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-{
-	fn from_storage(code_hash: H256, gas_meter: &mut GasMeter<T>) -> Result<Self, DispatchError> {
+impl<T: Config> Executable<T> for ContractBlob<T> {
+	fn from_storage<S: State>(
+		code_hash: H256,
+		meter: &mut ResourceMeter<T, S>,
+	) -> Result<Self, DispatchError> {
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
-		gas_meter.charge(CodeLoadToken::from_code_info(&code_info))?;
+		meter.charge_weight_token(CodeLoadToken::from_code_info(&code_info))?;
 		let code = <PristineCode<T>>::get(&code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		Ok(Self { code, code_info, code_hash })
 	}

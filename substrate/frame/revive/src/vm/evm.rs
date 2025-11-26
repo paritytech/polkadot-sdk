@@ -15,15 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
+	debug::DebugSettings,
 	precompiles::Token,
 	vm::{evm::instructions::exec_instruction, BytecodeType, ExecResult, Ext},
 	weights::WeightInfo,
 	AccountIdOf, CodeInfo, Config, ContractBlob, DispatchError, Error, Weight, H256, LOG_TARGET,
-	U256,
 };
 use alloc::vec::Vec;
 use core::{convert::Infallible, ops::ControlFlow};
-use revm::{bytecode::Bytecode, interpreter::interpreter_types::Jumps, primitives::Bytes};
+use revm::{bytecode::Bytecode, primitives::Bytes};
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod instructions;
@@ -48,14 +48,9 @@ mod util;
 /// opcode. The value is aligned with the difficulty hardcoded for PVM contracts.
 pub(crate) const DIFFICULTY: u64 = 2500000000000000_u64;
 
-/// The base fee per gas used in the network as defined by EIP-1559.
-///
-/// For `pallet-revive`, this is hardcoded to 0
-pub(crate) const BASE_FEE: U256 = U256::zero();
-
 /// Cost  for a single unit of EVM gas.
 #[derive(Eq, PartialEq, Debug, Clone, Copy)]
-pub struct EVMGas(u64);
+pub struct EVMGas(pub u64);
 
 impl<T: Config> Token<T> for EVMGas {
 	fn weight(&self) -> Weight {
@@ -67,7 +62,9 @@ impl<T: Config> Token<T> for EVMGas {
 impl<T: Config> ContractBlob<T> {
 	/// Create a new contract from EVM init code.
 	pub fn from_evm_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
-		if code.len() > revm::primitives::eip3860::MAX_INITCODE_SIZE {
+		if code.len() > revm::primitives::eip3860::MAX_INITCODE_SIZE &&
+			!DebugSettings::is_unlimited_contract_size_allowed::<T>()
+		{
 			return Err(<Error<T>>::BlobTooLarge.into());
 		}
 
@@ -101,7 +98,9 @@ impl<T: Config> ContractBlob<T> {
 		code: Vec<u8>,
 		owner: AccountIdOf<T>,
 	) -> Result<Self, DispatchError> {
-		if code.len() > revm::primitives::eip170::MAX_CODE_SIZE {
+		if code.len() > revm::primitives::eip170::MAX_CODE_SIZE &&
+			!DebugSettings::is_unlimited_contract_size_allowed::<T>()
+		{
 			return Err(<Error<T>>::BlobTooLarge.into());
 		}
 

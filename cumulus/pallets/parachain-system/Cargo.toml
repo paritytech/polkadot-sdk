@@ -12,6 +12,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+array-bytes = { workspace = true }
 bytes = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 environmental = { workspace = true }
@@ -124,5 +125,3 @@ try-runtime = [
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-
-experimental-ump-signals = []

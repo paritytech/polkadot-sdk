@@ -18,6 +18,7 @@
 //! The pallet-revive shared VM integration test suite.
 use crate::{
 	address::AddressMapper,
+	metering::TransactionLimits,
 	test_utils::{builder::Contract, ALICE, BOB, BOB_ADDR},
 	tests::{builder, test_utils, ExtBuilder, RuntimeEvent, Test},
 	Code, Config, Error, Key, System, H256, U256,
@@ -471,6 +472,10 @@ fn logs_work(fixture_type: FixtureType) {
 		initialize_block(2);
 
 		let result = builder::bare_call(addr)
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: crate::Weight::from_parts(100_000_000_000_000, 50 * 1024 * 1024),
+				deposit_limit: Default::default(),
+			})
 			.data(Host::HostCalls::logOps(Host::logOpsCall {}).abi_encode())
 			.build_and_unwrap_result();
 		assert!(!result.did_revert(), "test reverted");

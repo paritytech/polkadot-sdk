@@ -338,23 +338,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Creates an account for `who` to hold asset `id` with a zero balance and takes a deposit.
-	///
-	/// When `check_depositor` is set to true, the depositor must be either the asset's Admin or
-	/// Freezer, otherwise the depositor can be any account.
 	pub(super) fn do_touch(
 		id: T::AssetId,
 		who: T::AccountId,
 		depositor: T::AccountId,
-		check_depositor: bool,
 	) -> DispatchResult {
 		ensure!(!Account::<T, I>::contains_key(&id, &who), Error::<T, I>::AlreadyExists);
 		let deposit = T::AssetAccountDeposit::get();
 		let mut details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 		ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
-		ensure!(
-			!check_depositor || &depositor == &details.admin || &depositor == &details.freezer,
-			Error::<T, I>::NoPermission
-		);
 		let reason = Self::new_account(&who, &mut details, Some((&depositor, deposit)))?;
 		T::Currency::reserve(&depositor, deposit)?;
 		Asset::<T, I>::insert(&id, details);
@@ -622,7 +614,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// Will fail if the amount transferred is so small that it cannot create the destination due
 	/// to minimum balance requirements.
-	pub(super) fn do_transfer(
+	pub fn do_transfer(
 		id: T::AssetId,
 		source: &T::AccountId,
 		dest: &T::AccountId,
@@ -921,7 +913,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// while reserving `T::ApprovalDeposit` from owner
 	///
 	/// If an approval already exists, the new amount is added to such existing approval
-	pub(super) fn do_approve_transfer(
+	pub fn do_approve_transfer(
 		id: T::AssetId,
 		owner: &T::AccountId,
 		delegate: &T::AccountId,
@@ -969,7 +961,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Will fail if `amount` is greater than the approval from `owner` to 'delegate'
 	/// Will unreserve the deposit from `owner` if the entire approved `amount` is spent by
 	/// 'delegate'
-	pub(super) fn do_transfer_approved(
+	pub fn do_transfer_approved(
 		id: T::AssetId,
 		owner: &T::AccountId,
 		delegate: &T::AccountId,
@@ -1100,6 +1092,24 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		d.issuer = issuer;
 		d.freezer = freezer;
 		Asset::<T, I>::insert(&id, d);
+		Ok(())
+	}
+
+	/// Helper function for setting reserves to be used in benchmarking and migrations.
+	/// Does not check validity of asset id, caller should check it.
+	pub fn unchecked_update_reserves(
+		id: T::AssetId,
+		reserves: Vec<T::ReserveData>,
+	) -> Result<(), Error<T, I>> {
+		if reserves.is_empty() {
+			Reserves::<T, I>::remove(&id);
+			Self::deposit_event(Event::ReservesRemoved { asset_id: id });
+		} else {
+			let bounded_reserves =
+				reserves.clone().try_into().map_err(|_| Error::<T, I>::TooManyReserves)?;
+			Reserves::<T, I>::set(&id, bounded_reserves);
+			Self::deposit_event(Event::ReservesUpdated { asset_id: id, reserves });
+		}
 		Ok(())
 	}
 }

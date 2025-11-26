@@ -27,7 +27,7 @@ pub struct Sha256<T>(PhantomData<T>);
 
 impl<T: Config> PrimitivePrecompile for Sha256<T> {
 	type T = T;
-	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(2).unwrap());
+	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(0x2).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(
@@ -35,7 +35,8 @@ impl<T: Config> PrimitivePrecompile for Sha256<T> {
 		input: Vec<u8>,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		env.gas_meter_mut().charge(RuntimeCosts::HashSha256(input.len() as _))?;
+		env.gas_meter_mut()
+			.charge_weight_token(RuntimeCosts::HashSha256(input.len() as _))?;
 		let data = sp_io::hashing::sha2_256(&input).to_vec();
 		Ok(data)
 	}
