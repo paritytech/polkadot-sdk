@@ -289,6 +289,7 @@ where
 			let Ok(RelayChainData { max_pov_size, last_claimed_core_selector, .. }) =
 				relay_chain_data_cache.get_mut_relay_chain_data(relay_parent).await
 			else {
+				tracing::error!(target: crate::LOG_TARGET, ?relay_parent, "Failed to fetch relay chain data.");
 				continue;
 			};
 
