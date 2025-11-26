@@ -46,7 +46,6 @@ pub struct BitswapServer<Block: BlockT> {
 }
 
 impl<Block: BlockT> BitswapServer<Block> {
-
 	/// Create new [`BitswapServer`].
 	pub fn new(
 		client: Arc<dyn BlockBackend<Block> + Send + Sync>,
@@ -138,9 +137,9 @@ impl<Block: BlockT> BitswapServer<Block> {
 	}
 
 	/// Takes extracted values instead of the CID directly to avoid version conflicts:
-	/// `litep2p` (transitive dependency) uses `cid = "0.9.0"`, which exports `CidGeneric<64>`
+	/// `litep2p` (direct dependency) uses `cid = "0.9.0"`, which exports `CidGeneric<64>`
 	/// This crate (`sc-network`) directly depends on `cid = "0.11.1"`, which exports `Cid<64>`
-	/// Those (^) are different types even though they represent the same thing
+	/// Those (^) are different types (even though they're the same thing) and cause type conflicts.
 	fn is_valid_cid(&self, version_num: u64, size: usize, code: u64, cid_str: String) -> bool {
 		if version_num == 0 {
 			log::trace!(
