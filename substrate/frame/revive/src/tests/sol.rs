@@ -47,6 +47,7 @@ mod host;
 mod memory;
 mod stack;
 mod system;
+mod terminate;
 mod tx_info;
 
 fn make_initcode_from_runtime_code(runtime_code: &Vec<u8>) -> Vec<u8> {
@@ -180,7 +181,7 @@ fn eth_contract_too_large() {
 
 		// Initialize genesis config with allow_unlimited_contract_size
 		let genesis_config = GenesisConfig::<Test> {
-			debug_settings: Some(DebugSettings::new(allow_unlimited_contract_size)),
+			debug_settings: Some(DebugSettings::new(allow_unlimited_contract_size, false, false)),
 			..Default::default()
 		};
 
@@ -380,12 +381,19 @@ fn prestate_diff_mode_tracing_works() {
 						"{{CONTRACT_ADDR}}": {
 							"balance": "0x0",
 							"nonce": 2,
-							"code": "{{CONTRACT_CODE}}"
+							"code": "{{CONTRACT_CODE}}",
+							"storage": {
+								"0x0000000000000000000000000000000000000000000000000000000000000000": "{{CHILD_ADDR_PADDED}}",
+								"0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000007"
+							}
 						},
 						"{{CHILD_ADDR}}": {
 							"balance": "0x0",
 							"nonce": 1,
-							"code": "{{CHILD_CODE}}"
+							"code": "{{CHILD_CODE}}",
+							"storage": {
+								"0x0000000000000000000000000000000000000000000000000000000000000000": "0x000000000000000000000000000000000000000000000000000000000000000a"
+							}
 						}
 					}
 				}"#,

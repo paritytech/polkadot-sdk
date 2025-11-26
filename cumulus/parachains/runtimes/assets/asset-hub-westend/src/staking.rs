@@ -67,9 +67,6 @@ parameter_types! {
 
 	/// Size of the exposures. This should be small enough to make the reward payouts feasible.
 	pub MaxExposurePageSize: u32 = 64;
-
-	/// Each solution is considered "better" if it is 0.01% better.
-	pub SolutionImprovementThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
 }
 
 frame_election_provider_support::generate_solution_type!(
@@ -143,7 +140,6 @@ impl multi_block::verifier::Config for Runtime {
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
 	type SolutionDataProvider = MultiBlockElectionSigned;
-	type SolutionImprovementThreshold = SolutionImprovementThreshold;
 	type WeightInfo = weights::pallet_election_provider_multi_block_verifier::WeightInfo<Runtime>;
 }
 

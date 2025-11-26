@@ -38,7 +38,7 @@ use crate::{
 	storage::WriteOutcome,
 	vm::{
 		evm,
-		evm::{instructions::host, Interpreter},
+		evm::{instructions, instructions::utility::IntoAddress, Interpreter},
 		pvm,
 	},
 	Pallet as Contracts, *,
@@ -51,10 +51,7 @@ use frame_support::{
 	self, assert_ok,
 	migrations::SteppedMigration,
 	storage::child,
-	traits::{
-		fungible::{InspectHold, UnbalancedHold},
-		Hooks,
-	},
+	traits::{fungible::InspectHold, Hooks},
 	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
@@ -134,7 +131,7 @@ mod benchmarks {
 	fn on_initialize_per_trie_key(k: Linear<0, 1024>) -> Result<(), BenchmarkError> {
 		let instance =
 			Contract::<T>::with_storage(VmBinaryModule::dummy(), k, limits::STORAGE_BYTES)?;
-		instance.info()?.queue_trie_for_deletion();
+		ContractInfo::<T>::queue_trie_for_deletion(instance.info()?.trie_id);
 
 		#[block]
 		{
@@ -1219,29 +1216,25 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
+		let caller = whitelisted_caller();
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
+		T::AddressMapper::map_no_deposit(&beneficiary)?;
 
 		build_runtime!(_runtime, instance, _memory: [vec![0u8; 0], ]);
 		let code_hash = instance.info()?.code_hash;
 
 		assert!(PristineCode::<T>::get(code_hash).is_some());
 
-		// Set storage deposit to zero so terminate_logic can proceed.
-		T::Currency::set_balance_on_hold(
-			&HoldReason::StorageDepositReserve.into(),
-			&instance.account_id,
-			0u32.into(),
-		)
-		.unwrap();
-
-		T::Currency::set_balance(&instance.account_id, Pallet::<T>::min_balance() * 2u32.into());
+		T::Currency::set_balance(&instance.account_id, Pallet::<T>::min_balance() * 10u32.into());
 
 		let result;
 		#[block]
 		{
-			result = crate::storage::meter::terminate_logic_for_benchmark::<T>(
+			result = crate::exec::terminate_contract_for_benchmark::<T>(
+				caller,
 				&instance.account_id,
-				&beneficiary,
+				&instance.info()?,
+				beneficiary.clone(),
 			);
 		}
 		result.unwrap();
@@ -1255,7 +1248,7 @@ mod benchmarks {
 
 		// Check that the beneficiary received the balance
 		let balance = <T as Config>::Currency::balance(&beneficiary);
-		assert_eq!(balance, Pallet::<T>::min_balance() * 2u32.into());
+		assert_eq!(balance, Pallet::<T>::min_balance() + Pallet::<T>::min_balance() * 9u32.into());
 
 		Ok(())
 	}
@@ -2090,6 +2083,54 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// t: with or without some value to transfer
+	// d: with or without dust value to transfer
+	// i: size of the init code (max 49152 bytes per EIP-3860)
+	#[benchmark(pov_mode = Measured)]
+	fn evm_instantiate(
+		t: Linear<0, 1>,
+		d: Linear<0, 1>,
+		i: Linear<{ 10 * 1024 }, { 48 * 1024 }>,
+	) -> Result<(), BenchmarkError> {
+		use crate::vm::evm::instructions::BENCH_INIT_CODE;
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_sized(0));
+		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
+		setup.set_balance(caller_funding::<T>());
+
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(Default::default(), Default::default(), &mut ext);
+
+		let value = {
+			let value: BalanceOf<T> = (1_000_000u32 * t).into();
+			let dust = 100u32 * d;
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust))
+		};
+
+		let init_code = vec![BENCH_INIT_CODE; i as usize];
+		let _ = interpreter.memory.resize(0, init_code.len());
+		let salt = U256::from(42u64);
+		interpreter.memory.set_data(0, 0, init_code.len(), &init_code);
+
+		// Setup stack for create instruction [value, offset, size, salt]
+		let _ = interpreter.stack.push(salt);
+		let _ = interpreter.stack.push(U256::from(init_code.len()));
+		let _ = interpreter.stack.push(U256::zero());
+		let _ = interpreter.stack.push(value);
+
+		let result;
+		#[block]
+		{
+			result = instructions::contract::create::<true, _>(&mut interpreter);
+		}
+
+		assert!(result.is_continue());
+		let addr = interpreter.stack.top().unwrap().into_address();
+		assert!(AccountInfo::<T>::load_contract(&addr).is_some());
+		assert_eq!(Pallet::<T>::code(&addr).len(), revm::primitives::eip170::MAX_CODE_SIZE);
+		assert_eq!(Pallet::<T>::evm_balance(&addr), value, "balance should hold {value:?}");
+		Ok(())
+	}
+
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
 	fn sha2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
@@ -2288,7 +2329,7 @@ mod benchmarks {
 		{
 			result = run_builtin_precompile(
 				&mut ext,
-				H160::from_low_u64_be(100).as_fixed_bytes(),
+				H160::from_low_u64_be(0x100).as_fixed_bytes(),
 				input,
 			);
 		}
@@ -2578,7 +2619,7 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = host::extcodecopy(&mut interpreter);
+			result = instructions::host::extcodecopy(&mut interpreter);
 		}
 
 		assert!(result.is_continue());
