@@ -484,10 +484,13 @@ pub type Executive = frame_executive::Executive<
 /// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<RuntimeCall, TxExtension>;
 
-pub struct SingleBlockMigrations;
+/// Migration to verify that runtime upgrade hooks are working correctly.
+///
+/// This checks that the test_pallet runtime upgrade key was set in genesis.
+pub struct VerifyRuntimeUpgrade;
 
-impl OnRuntimeUpgrade for SingleBlockMigrations {
-	fn on_runtime_upgrade() -> frame_support::weights::Weight {
+impl OnRuntimeUpgrade for VerifyRuntimeUpgrade {
+	fn on_runtime_upgrade() -> Weight {
 		assert_eq!(
 			sp_io::storage::get(test_pallet::TEST_RUNTIME_UPGRADE_KEY),
 			Some(vec![1, 2, 3, 4].into())
@@ -495,6 +498,19 @@ impl OnRuntimeUpgrade for SingleBlockMigrations {
 		Weight::from_parts(1, 0)
 	}
 }
+
+/// Single-block migrations for the test runtime.
+///
+/// These migrations execute immediately and entirely at the beginning of the block following
+/// a runtime upgrade. They must be lightweight enough to complete within a single block.
+pub type SingleBlockMigrations = (
+	// Migrate CurrentSlot to account for slot duration changes.
+	// This must run first, before any other migrations, to prevent panics in pallet_aura::on_initialize
+	// when slot duration increases during runtime upgrade.
+	pallet_aura::migrations::MigrateCurrentSlot<Runtime>,
+	// Verify that runtime upgrade hooks are working correctly.
+	VerifyRuntimeUpgrade,
+);
 
 decl_runtime_apis! {
 	pub trait GetLastTimestamp {

@@ -1,11 +1,11 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Тест поднимает сеть из 4 валидаторов и 1 коллатора, ждет пока парачейн
-// начнет создавать блоки (5 блоков), затем делает upgrade рантайма парачейна
-// на рантайм с увеличенной версией и slot duration 18 сек, ждет пока апгрейд
-// пройдет и проверяет, что relay chain работает и финализирует, а парачейн
-// создает блоки (ждет 10 блоков).
+// The test sets up a network with 4 validators and 1 collator, waits for the parachain
+// to start producing blocks (5 blocks), then performs a runtime upgrade of the parachain
+// to a runtime with an increased version and slot duration of 18 seconds, waits for the upgrade
+// to complete and verifies that the relay chain is working and finalizing, and the parachain
+// is producing blocks (waits for 10 blocks).
 
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
@@ -39,7 +39,7 @@ async fn parachain_runtime_upgrade_test() -> Result<(), anyhow::Error> {
 				.with_default_args(vec![("-lparachain=debug").into()])
 				.with_node(|node| node.with_name("validator-0"));
 
-			// Добавляем 4 валидатора
+			// Add 4 validators
 			(1..4)
 				.fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
 		})
@@ -65,19 +65,19 @@ async fn parachain_runtime_upgrade_test() -> Result<(), anyhow::Error> {
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 	let collator_client: OnlineClient<PolkadotConfig> = collator_node.wait_client().await?;
 
-	// Ждем пока парачейн начнет создавать блоки и создаст 5 блоков
+	// Wait for the parachain to start producing blocks and produce 5 blocks
 	log::info!("Waiting for parachain to produce 5 blocks...");
 	assert_para_throughput(&relay_client, 10, [(ParaId::from(PARA_ID), 5..20)].into_iter().collect())
 		.await?;
 
-	// Получаем текущую версию runtime
+	// Get the current runtime version
 	let current_spec_version = collator_client.backend().current_runtime_version().await?.spec_version;
 	log::info!("Current runtime spec version: {current_spec_version}");
 
-	// Используем WASM с slot duration 18s
+	// Use WASM with slot duration 18s
 	log::info!("Using runtime WASM: {}", WASM_WITH_SLOT_DURATION_18S);
 
-	// Проверяем существование файла
+	// Check if the file exists
 	if !std::path::Path::new(WASM_WITH_SLOT_DURATION_18S).exists() {
 		return Err(anyhow!(
 			"Runtime WASM file not found at: {}. Please ensure the test-parachain artifacts are built with the slot-duration-18s feature.",
@@ -85,15 +85,15 @@ async fn parachain_runtime_upgrade_test() -> Result<(), anyhow::Error> {
 		));
 	}
 
-	// Выполняем runtime upgrade через коллатор парачейна
-	// Важно: upgrade должен выполняться через коллатор, а не через relay node,
-	// чтобы новый runtime мог использовать все необходимые host functions
+	// Perform runtime upgrade through the parachain collator
+	// Important: the upgrade must be performed through the collator, not through the relay node,
+	// so that the new runtime can use all necessary host functions
 	log::info!("Performing runtime upgrade for parachain {}", PARA_ID);
 	runtime_upgrade(&network, &collator_node, PARA_ID, WASM_WITH_SLOT_DURATION_18S).await?;
 
 	let expected_spec_version = current_spec_version + 1;
 
-	// Ждем завершения upgrade (максимум 250 секунд)
+	// Wait for the upgrade to complete (maximum 250 seconds)
 	log::info!(
 		"Waiting for parachain runtime upgrade to version {}...",
 		expected_spec_version
@@ -107,43 +107,25 @@ async fn parachain_runtime_upgrade_test() -> Result<(), anyhow::Error> {
 
 	log::info!("Runtime upgrade completed successfully");
 
-	// Проверяем, что relay chain работает и финализирует
+	// Verify that the relay chain is working and finalizing
 	log::info!("Checking that relay chain is finalizing blocks...");
 	assert_blocks_are_being_finalized(&relay_client).await?;
 
-	// В текущий момент, поскольку миграция CurrentSlot еще не добавлена,
-	// должна произойти паника при попытке создать блок после upgrade,
-	// потому что slot duration увеличился с 6s до 18s, что может привести
-	// к уменьшению slot number, что вызовет панику "Slot must not decrease"
-	// в pallet_aura::on_initialize.
-	// Проверяем, что парачейн перестает создавать блоки после upgrade
-	log::info!("Checking that parachain stops producing blocks after upgrade due to panic...");
+	// Now with the CurrentSlot migration, the parachain should continue producing blocks
+	// after the upgrade, as the migration recalculates CurrentSlot taking into account the new
+	// slot duration (18s instead of 6s), preventing a panic in pallet_aura::on_initialize.
+	log::info!("Checking that parachain continues producing blocks after upgrade...");
 	
-	// Ждем некоторое время и проверяем, что парачейн не создает новые блоки
-	// Если паника происходит, то блоки не будут создаваться
-	let result = tokio::time::timeout(
-		Duration::from_secs(60),
-		assert_para_throughput(
-			&relay_client,
-			15,
-			[(ParaId::from(PARA_ID), 1..10)].into_iter().collect(),
-		),
+	// Verify that the parachain continues producing blocks after the upgrade
+	// The migration should have prevented the panic and allowed the parachain to work normally
+	assert_para_throughput(
+		&relay_client,
+		15,
+		[(ParaId::from(PARA_ID), 10..30)].into_iter().collect(),
 	)
-	.await;
-	
-	match result {
-		Ok(Ok(_)) => {
-			log::warn!("Parachain continued producing blocks after upgrade, which may indicate that panic did not occur");
-		},
-		Ok(Err(e)) => {
-			log::info!("Parachain stopped producing blocks after upgrade, which indicates panic occurred as expected. Error: {}", e);
-		},
-		Err(_) => {
-			log::info!("Timeout waiting for parachain blocks after upgrade, which indicates panic occurred as expected");
-		},
-	}
+	.await?;
 
-	log::info!("Test finished - checking for expected panic behavior");
+	log::info!("Test finished - parachain successfully continued producing blocks after upgrade");
 
 	Ok(())
 }
