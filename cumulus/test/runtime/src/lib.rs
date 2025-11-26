@@ -61,6 +61,11 @@ pub mod async_backing {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 }
 
+pub mod slot_duration_18s {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_slot_duration_18s.rs"));
+}
+
 mod genesis_config_presets;
 mod test_pallet;
 
@@ -155,9 +160,18 @@ const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
 #[cfg(all(not(feature = "sync-backing"), not(feature = "async-backing")))]
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * (2 + RELAY_PARENT_OFFSET) + 2;
 
-#[cfg(any(feature = "sync-backing", feature = "elastic-scaling-12s-slot"))]
+#[cfg(feature = "slot-duration-18s")]
+pub const SLOT_DURATION: u64 = 18000;
+#[cfg(all(
+	any(feature = "sync-backing", feature = "elastic-scaling-12s-slot"),
+	not(feature = "slot-duration-18s")
+))]
 pub const SLOT_DURATION: u64 = 12000;
-#[cfg(not(any(feature = "sync-backing", feature = "elastic-scaling-12s-slot")))]
+#[cfg(not(any(
+	feature = "sync-backing",
+	feature = "elastic-scaling-12s-slot",
+	feature = "slot-duration-18s"
+)))]
 pub const SLOT_DURATION: u64 = 6000;
 
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
