@@ -17,13 +17,57 @@
 
 #![cfg(test)]
 
-use frame_support::{pallet_prelude::Weight, traits::OnRuntimeUpgrade};
+use frame_support::{
+	assert_ok, dispatch::RawOrigin, pallet_prelude::Weight, traits::OnRuntimeUpgrade,
+};
 
 use crate::{
 	mock::{Test as T, *},
 	mock_helpers::{MockedMigrationKind::*, *},
 	Cursor, Event, FailedMigrationHandling, MigrationCursor,
 };
+
+#[docify::export]
+#[test]
+fn clear_storage_by_prefix_migration_works() {
+	use crate::mock::runtime_a::{Migrations as RuntimeAMigrations, System as RuntimeASystem};
+	use frame_support::migrations::SteppedMigration;
+	use Event::*;
+
+	test_closure(|| {
+		RuntimeASystem::set_block_number(1);
+
+		// Set storage
+		assert_ok!(System::authorize_upgrade(RawOrigin::Root.into(), Default::default()));
+		assert!(RuntimeASystem::authorized_upgrade().is_some());
+
+		RuntimeAMigrations::on_runtime_upgrade();
+		crate::mock::runtime_a::run_to_block(10);
+
+		// Check that the authorized upgrade storages was removed.
+		assert!(RuntimeASystem::authorized_upgrade().is_none());
+
+		// Check that the executed migrations are recorded in `Historical`.
+		assert_eq!(
+			historic(),
+			vec![crate::mock::runtime_a::MultiBlockMigrations::id().as_ref().to_vec()]
+		);
+
+		// Check that we got all events.
+		crate::mock::runtime_a::assert_events(vec![
+			crate::mock::runtime_a::RuntimeEvent::Migrations(UpgradeStarted { migrations: 1 }),
+			crate::mock::runtime_a::RuntimeEvent::Migrations(MigrationAdvanced {
+				index: 0,
+				took: 1,
+			}),
+			crate::mock::runtime_a::RuntimeEvent::Migrations(MigrationCompleted {
+				index: 0,
+				took: 2,
+			}),
+			crate::mock::runtime_a::RuntimeEvent::Migrations(UpgradeCompleted),
+		]);
+	});
+}
 
 #[docify::export]
 #[test]

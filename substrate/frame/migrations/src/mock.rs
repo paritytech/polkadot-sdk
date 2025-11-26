@@ -27,6 +27,74 @@ use sp_core::H256;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
+pub mod runtime_a {
+	use frame_support::{derive_impl, migrations::MultiStepMigrator, weights::Weight};
+
+	// Configure a mock runtime to test the pallet.
+	frame_support::construct_runtime!(
+		pub enum RuntimeA {
+			System: frame_system,
+			Migrations: crate,
+		}
+	);
+
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+	impl frame_system::Config for RuntimeA {
+		type Block = super::Block;
+		type PalletInfo = PalletInfo;
+		type MultiBlockMigrator = Migrations;
+	}
+
+	frame_support::parameter_types! {
+		pub const MaxServiceWeight: Weight = Weight::MAX.div(10);
+		pub StoragePrefixToClear: [u8; 32] = frame_support::storage::storage_prefix(
+			b"System",
+			b"AuthorizedUpgrade",
+		);
+	}
+
+	pub type MultiBlockMigrations =
+		crate::migrations::ClearStorageByPrefix<RuntimeA, StoragePrefixToClear>;
+
+	#[derive_impl(crate::config_preludes::TestDefaultConfig)]
+	impl crate::Config for RuntimeA {
+		type Migrations = MultiBlockMigrations;
+		type MigrationStatusHandler = ();
+		type FailedMigrationHandler = frame_support::migrations::FreezeChainOnFailedMigration;
+	}
+
+	pub fn run_to_block(n: u64) {
+		System::run_to_block_with::<AllPalletsWithSystem>(
+			n,
+			frame_system::RunToBlockHooks::default()
+				.before_initialize(|bn| {
+					log::debug!("Block {bn}");
+				})
+				.after_initialize(|_| {
+					// Executive calls this:
+					<Migrations as MultiStepMigrator>::step();
+				}),
+		);
+	}
+
+	pub fn assert_events(events: Vec<RuntimeEvent>) {
+		pretty_assertions::assert_eq!(
+			events,
+			System::events()
+				.into_iter()
+				.filter_map(|e| {
+					if let RuntimeEvent::Migrations(..) = e.event {
+						Some(e.event)
+					} else {
+						None
+					}
+				})
+				.collect::<Vec<_>>()
+		);
+		System::reset_events();
+	}
+}
+
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
 	pub enum Test {
@@ -48,9 +116,6 @@ frame_support::parameter_types! {
 
 #[derive_impl(crate::config_preludes::TestDefaultConfig)]
 impl crate::Config for Test {
-	#[cfg(feature = "runtime-benchmarks")]
-	type Migrations = crate::mock_helpers::MockedMigrations;
-	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Migrations = MockedMigrations;
 	type MigrationStatusHandler = MockedMigrationStatusHandler;
 	type FailedMigrationHandler = MockedFailedMigrationHandler;

@@ -71,7 +71,7 @@ where
 		cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
-		// we write the storage version in a seperate block
+		// we write the storage version in a separate block
 		if cursor.unwrap_or(false) {
 			let required = T::DbWeight::get().writes(1);
 			meter
@@ -93,7 +93,7 @@ where
 		if key_budget == 0 {
 			return Err(SteppedMigrationError::InsufficientWeight {
 				required: T::WeightInfo::reset_pallet_migration(1),
-			})
+			});
 		}
 
 		let (keys_removed, is_done) = match clear_prefix(&P::name_hash(), Some(key_budget)) {
@@ -128,6 +128,140 @@ where
 		if keys_now != 1 {
 			log::error!("ResetPallet<{}>: Should have a single key after reset", P::name());
 			Err("ResetPallet failed")?;
+		}
+
+		Ok(())
+	}
+}
+
+/// Clear storage items under a specific storage prefix.
+///
+/// This migration removes all storage entries that share a common prefix. It uses the multi-block
+/// migration framework, making it safe to use even when clearing large amounts of storage data.
+///
+/// # Parameters
+///
+/// - `T`: The runtime configuration. Used to access weight definitions and other runtime types.
+/// - `StoragePrefix`: A type implementing `Get<[u8; 32]>` that provides the 32-byte storage prefix
+///   of the items to be deleted. This prefix identifies which storage entries will be removed.
+///
+/// # Example
+///
+/// Clearing a specific storage item from a pallet:
+///
+/// ```rust,ignore
+/// use frame_support::parameter_types;
+///
+/// // Define the storage prefix to clear
+/// parameter_types! {
+///     pub StoragePrefixToClear: [u8; 32] = frame_support::storage::storage_prefix(
+///         b"PalletName",
+///         b"StorageName",
+///     );
+/// }
+///
+/// // Configure the migration
+/// pub type MultiBlockMigrations =
+///     pallet_migrations::ClearStorageByPrefix<Runtime, StoragePrefixToClear>;
+///
+/// impl pallet_migrations::Config for Runtime {
+///     type Migrations = MultiBlockMigrations;
+///     // ... other configuration items
+/// }
+/// ```
+///
+/// # Notes
+///
+/// - The migration processes keys in batches based on available weight, preventing block overload.
+/// - Progress is tracked using a boolean cursor: `false` means in progress, `true` means complete.
+pub struct ClearStorageByPrefix<T, StoragePrefix>(PhantomData<(T, StoragePrefix)>);
+
+impl<T, StoragePrefix> ClearStorageByPrefix<T, StoragePrefix>
+where
+	StoragePrefix: Get<[u8; 32]>,
+{
+	#[cfg(feature = "try-runtime")]
+	fn num_keys() -> u64 {
+		let storage_prefix = StoragePrefix::get().to_vec();
+		frame_support::storage::KeyPrefixIterator::new(
+			storage_prefix.clone(),
+			storage_prefix,
+			|_| Ok(()),
+		)
+		.count() as _
+	}
+}
+
+impl<T, StoragePrefix> SteppedMigration for ClearStorageByPrefix<T, StoragePrefix>
+where
+	T: Config,
+	StoragePrefix: Get<[u8; 32]>,
+{
+	type Cursor = bool;
+	type Identifier = [u8; 16];
+
+	fn id() -> Self::Identifier {
+		("ClearStorageByPrefix", StoragePrefix::get()).using_encoded(twox_128)
+	}
+
+	fn step(
+		cursor: Option<Self::Cursor>,
+		meter: &mut WeightMeter,
+	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+		// The migration is done
+		if cursor.unwrap_or(false) {
+			return Ok(None);
+		}
+
+		let base_weight = T::WeightInfo::reset_pallet_migration(0);
+		let weight_per_key = T::WeightInfo::reset_pallet_migration(1).saturating_sub(base_weight);
+		let key_budget = meter
+			.remaining()
+			.saturating_sub(base_weight)
+			.checked_div_per_component(&weight_per_key)
+			.unwrap_or_default()
+			.saturated_into();
+
+		if key_budget == 0 {
+			return Err(SteppedMigrationError::InsufficientWeight {
+				required: T::WeightInfo::reset_pallet_migration(1),
+			});
+		}
+
+		let storage_prefix = StoragePrefix::get();
+		let (keys_removed, is_done) = match clear_prefix(&storage_prefix, Some(key_budget)) {
+			KillStorageResult::AllRemoved(value) => (value, true),
+			KillStorageResult::SomeRemaining(value) => (value, false),
+		};
+
+		meter.consume(T::WeightInfo::reset_pallet_migration(keys_removed));
+
+		Ok(Some(is_done))
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+		let num_keys: u64 = Self::num_keys();
+		log::info!(
+			"ClearStorageByPrefix<{}>: Trying to remove {num_keys} keys.",
+			StoragePrefix::get()
+		);
+		Ok(num_keys.encode())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(state: sp_std::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		use parity_scale_codec::Decode;
+		let keys_before = u64::decode(&mut state.as_ref()).expect("We encoded as u64 above; qed");
+		let keys_now = Self::num_keys();
+		log::info!(
+			"ClearStorageByPrefix<{}>: Keys remaining after migration: {keys_now}",
+			StoragePrefix::get()
+		);
+
+		if keys_before <= keys_now {
+			log::error!("ClearStorageByPrefix<{}>: Did not remove any keys.", StoragePrefix::get());
+			Err("ClearStorageByPrefix failed")?;
 		}
 
 		Ok(())
