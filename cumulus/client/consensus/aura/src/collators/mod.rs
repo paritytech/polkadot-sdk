@@ -89,6 +89,9 @@ impl BackingGroupConnectionHelper {
 		let next_slot_is_ours =
 			aura_internal::claim_slot::<P>(next_slot, authorities, &self.keystore)
 				.await
+				.is_some()
+			|| aura_internal::claim_slot::<P>(next_slot + 1, authorities, &self.keystore)
+				.await
 				.is_some();
 
 		if next_slot_is_ours {
