@@ -30,20 +30,19 @@ use std::{
 
 use polkadot_node_network_protocol::request_response::{v1, v2, IsRequest, ReqProtocolNames};
 use polkadot_node_subsystem::{
-	messages::{
-		CandidateBackingMessage, ChainApiMessage, ProspectiveParachainsMessage, RuntimeApiMessage,
+	ActivatedLeaf, ActiveLeavesUpdate, SubsystemSender, messages::{
+		AvailabilityStoreMessage, CandidateBackingMessage, ChainApiMessage, RuntimeApiMessage,
 		RuntimeApiRequest,
-	},
-	overseer, ActivatedLeaf, ActiveLeavesUpdate,
+	}, overseer
 };
 use polkadot_node_subsystem_util::{
 	availability_chunks::availability_chunk_index,
-	request_backable_candidates,
+	request_backable_candidates, request_validators,
 	runtime::{get_availability_cores, get_occupied_cores, RuntimeInfo},
 };
 use polkadot_primitives::{
-	BackedCandidate, CandidateHash, CoreIndex, CoreState, GroupIndex, GroupRotationInfo, Hash,
-	Id as paraId, SessionIndex, ValidatorIndex,
+	BackedCandidate, CandidateHash, CoreIndex, GroupIndex, GroupRotationInfo, Hash, Id as paraId,
+	SessionIndex, ValidatorIndex,
 };
 
 use super::{FatalError, Metrics, Result, LOG_TARGET};
@@ -59,7 +58,7 @@ use session_cache::SessionCache;
 mod fetch_task;
 use crate::{
 	error::Error::{
-		CanceledValidatorGroups, FailedValidatorGroups, GetBackableCandidates, SubsystemUtil,
+		CanceledValidatorGroups, RuntimeApi, GetBackableCandidates, SubsystemUtil,
 	},
 	requester::fetch_task::BackedOnChain,
 };
@@ -273,11 +272,20 @@ impl Requester {
 		backable_candidate_hashes: HashMap<paraId, Vec<(CandidateHash, Hash)>>,
 	) -> Result<()> {
 		let sender = &mut ctx.sender().clone();
-		let validator_groups = &get_validator_groups(sender, activated_leaf.hash).await?;
 
 		let backable_candidates =
 			self.fetch_backable_candidates(sender, backable_candidate_hashes).await?;
 
+		if backable_candidates.is_empty() {
+			gum::debug!(
+				target: LOG_TARGET,
+				leaf = ?activated_leaf.hash,
+				"No backable candidates fetched for activated leaf",
+			);
+			return Ok(());
+		}
+
+		let validator_groups = &get_validator_groups(sender, activated_leaf.hash).await?;
 		let total_cores = validator_groups.0.len();
 
 		// Process candidates and collect cores
@@ -316,6 +324,34 @@ impl Requester {
 				})
 			})
 			.collect::<Vec<_>>();
+
+		let candidates = scheduled_cores
+			.iter()
+			.map(|(_, core_info)| core_info.candidate_hash)
+			.collect::<HashSet<_>>();
+
+		let n_validators =
+			request_validators(activated_leaf.hash, sender).await.await?.map_err(|err| {
+				gum::warn!(
+					target: LOG_TARGET,
+					error = ?err,
+					"Failed to request validators for activated leaf"
+				);
+				RuntimeApi(err)
+			})?.len();
+
+		let (tx, rx) = oneshot::channel();
+		sender
+			.send_message(AvailabilityStoreMessage::NoteBackableCandidates {
+				candidates,
+				n_validators,
+				tx,
+			})
+			.await;
+
+		if let Err(err) = rx.await {
+			return Err(err.into());
+		}
 
 		self.add_cores(
 			ctx,
@@ -631,7 +667,7 @@ where
 	let groups = rx
 		.await
 		.map_err(|err| CanceledValidatorGroups(err))?
-		.map_err(|err| FailedValidatorGroups(err))?;
+		.map_err(|err| RuntimeApi(err))?;
 
 	Ok(groups)
 }

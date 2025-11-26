@@ -789,6 +789,26 @@ fn note_block_backed(
 
 	gum::debug!(target: LOG_TARGET, ?candidate_hash, "Candidate backed");
 
+	note_block_backable(
+		db,
+		db_transaction,
+		config,
+		pruning_config,
+		now,
+		n_validators,
+		candidate_hash,
+	)
+}
+
+fn note_block_backable(
+	db: &Arc<dyn Database>,
+	db_transaction: &mut DBTransaction,
+	config: &Config,
+	pruning_config: &PruningConfig,
+	now: Duration,
+	n_validators: usize,
+	candidate_hash: CandidateHash,
+) -> Result<(), Error> {
 	if load_meta(db, config, &candidate_hash)?.is_none() {
 		let meta = CandidateMeta {
 			state: State::Unavailable(now.into()),
@@ -801,7 +821,6 @@ fn note_block_backed(
 		write_pruning_key(db_transaction, config, prune_at, &candidate_hash);
 		write_meta(db_transaction, config, &candidate_hash, &meta);
 	}
-
 	Ok(())
 }
 
@@ -1232,6 +1251,40 @@ fn process_message(
 				},
 			}
 		},
+		AvailabilityStoreMessage::NoteBackableCandidates { candidates, n_validators, tx } => {
+			let mut db_transaction = DBTransaction::new();
+
+			for candidate_hash in candidates {
+				match note_block_backable(
+					&subsystem.db,
+					&mut db_transaction,
+					&subsystem.config,
+					&subsystem.pruning_config,
+					subsystem.clock.now()?,
+					n_validators,
+					candidate_hash,
+				) {
+					Ok(_) => {
+						gum::debug!(
+							target: LOG_TARGET,
+							?candidate_hash,
+							"Noted backable candidate.",
+						);
+					},
+					Err(e) => {
+						gum::warn!(
+							target: LOG_TARGET,
+							?candidate_hash,
+							"Failed to note backable candidate.",
+						);
+						let _ = tx.send(Err(()));
+						return Err(e);
+					},
+				}
+			}
+			let _ = tx.send(Ok(()));
+			subsystem.db.write(db_transaction)?;
+		},
 	}
 
 	Ok(())
@@ -1249,24 +1302,7 @@ fn store_chunk(
 
 	let mut meta = match load_meta(db, config, &candidate_hash)? {
 		Some(m) => m,
-		None => {
-			// TODO: revise this, this is a really bad hack
-			let now = SystemTime::now().duration_since(UNIX_EPOCH)?;
-			let meta = CandidateMeta {
-				state: State::Unavailable(now.into()),
-				data_available: false,
-				chunks_stored: bitvec::bitvec![u8, BitOrderLsb0; 0; 12],
-			};
-
-			gum::debug!(
-				target: LOG_TARGET,
-				?candidate_hash,
-				validator_index = %validator_index.0,
-				"Cannot store chunk for unknown candidate.",
-			);
-			// return Ok(false) // we weren't informed of this candidate by import events.
-			meta
-		},
+		None => return Ok(false), // we weren't informed of this candidate by import events.
 	};
 
 	match meta.chunks_stored.get(validator_index.0 as usize).map(|b| *b) {

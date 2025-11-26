@@ -98,8 +98,8 @@ pub enum Error {
 	#[error("response channel to get validator groups failed")]
 	CanceledValidatorGroups(#[source] oneshot::Canceled),
 
-	#[error("failed to get validator groups: {0}")]
-	FailedValidatorGroups(#[source] RuntimeApiError),
+	#[error("Runtime api error: {0}")]
+	RuntimeApi(#[from] RuntimeApiError),
 }
 
 /// General result abbreviation type alias.
@@ -131,7 +131,7 @@ pub fn log_error(
 				JfyiError::SubsystemUtil(_) |
 				JfyiError::GetBackableCandidates(_) |
 				JfyiError::CanceledValidatorGroups(_) |
-				JfyiError::FailedValidatorGroups(_) |
+				JfyiError::RuntimeApi(_) |
 				JfyiError::Runtime(_) => {
 					gum::warn_if_frequent!(freq: warn_freq, max_rate: gum::Times::PerHour(100), target: LOG_TARGET, error = ?jfyi, ctx)
 				},

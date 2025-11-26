@@ -572,6 +572,17 @@ pub enum AvailabilityStoreMessage {
 		tx: oneshot::Sender<Result<(), ()>>,
 	},
 
+	/// Note multiple candidates as backable. Only used by Availability Distribution to signal to Availability Store
+	/// to allow early fetching of chunks for these candidates.
+	NoteBackableCandidates {
+		/// A hash of the backable candidate.
+		candidates: HashSet<CandidateHash>,
+		/// The number of validators in the session.
+		n_validators: usize,
+		/// Sending side of the channel to send result to.
+		tx: oneshot::Sender<Result<(), ()>>,
+	},
+
 	/// Computes and checks the erasure root of `AvailableData` before storing all of its chunks in
 	/// the AV store.
 	///
