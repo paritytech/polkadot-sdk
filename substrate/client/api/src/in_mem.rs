@@ -550,7 +550,9 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 	}
 
 	fn commit_complete_partial_state(&mut self) {
-		// Don't need to do anything.
+		// Don't need to do anything,
+		// because in-memory backend doesn't mark blocks with state
+		// like `sc-client-db` backend does.
 	}
 
 	fn insert_aux<I>(&mut self, ops: I) -> sp_blockchain::Result<()>
@@ -746,7 +748,7 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		}
 
 		let header = self.blockchain.header(hash)?
-			.ok_or_else(|| sp_blockchain::Error::UnknownBlock(format!("{}", hash)))?;
+			.ok_or_else(|| sp_blockchain::Error::UnknownBlock(format!("{hash}")))?;
 
 		Ok(TrieBackendBuilder::new(self.state_db.read().clone(), *header.state_root()).build())
 	}
