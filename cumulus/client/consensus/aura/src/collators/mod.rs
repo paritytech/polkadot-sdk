@@ -106,6 +106,15 @@ impl BackingGroupConnectionHelper {
 			tracing::debug!(target: crate::LOG_TARGET, "Current slot = {}, disconnecting from backing groups", current_slot);
 			self.send_subsystem_message(CollatorProtocolMessage::DisconnectFromBackingGroups)
 				.await;
+		} else if aura_internal::claim_slot::<P>(current_slot, authorities, &self.keystore)
+			.await
+			.is_some()
+		{
+			// Corner case when we don't get called with `our_slot - 1`.
+			tracing::debug!(target: crate::LOG_TARGET, "Current slot = {} is ours, connecting to backing groups", current_slot);
+			self.send_subsystem_message(CollatorProtocolMessage::ConnectToBackingGroups)
+				.await;
+			self.our_slot = Some(current_slot);
 		}
 	}
 }
