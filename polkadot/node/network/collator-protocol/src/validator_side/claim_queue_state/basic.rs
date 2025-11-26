@@ -89,7 +89,7 @@ pub(crate) struct ClaimQueueState {
 	/// Note 2: During pruning we remove all the candidates for the pruned relay parent because we
 	/// no longer need to know about them. If the claim was not undone so far - it will be
 	/// permanent.
-	candidates: HashMap<Hash, HashSet<CandidateHash>>,
+	candidates_per_rp: HashMap<Hash, HashSet<CandidateHash>>,
 }
 
 impl ClaimQueueState {
@@ -98,7 +98,7 @@ impl ClaimQueueState {
 		Self {
 			block_state: VecDeque::new(),
 			future_blocks: VecDeque::new(),
-			candidates: HashMap::new(),
+			candidates_per_rp: HashMap::new(),
 		}
 	}
 
@@ -121,7 +121,7 @@ impl ClaimQueueState {
 		let rp_in_view = block_state.iter().filter_map(|c| c.hash).collect::<HashSet<_>>();
 
 		let candidates = self
-			.candidates
+			.candidates_per_rp
 			.iter()
 			.filter(|(rp, _)| rp_in_view.contains(rp))
 			.map(|(rp, c)| (*rp, c.clone()))
@@ -150,7 +150,7 @@ impl ClaimQueueState {
 			})
 			.collect::<VecDeque<_>>();
 
-		Some(ClaimQueueState { block_state, future_blocks, candidates })
+		Some(ClaimQueueState { block_state, future_blocks, candidates_per_rp: candidates })
 	}
 
 	/// Appends a new leaf with its corresponding claim queue to the state.
@@ -224,7 +224,9 @@ impl ClaimQueueState {
 	}
 
 	fn has_claim(&self, relay_parent: &Hash, candidate_hash: &CandidateHash) -> bool {
-		self.candidates.get(relay_parent).map_or(false, |c| c.contains(candidate_hash))
+		self.candidates_per_rp
+			.get(relay_parent)
+			.map_or(false, |c| c.contains(candidate_hash))
 	}
 
 	fn trace_has_claim(
@@ -251,7 +253,7 @@ impl ClaimQueueState {
 	}
 
 	fn cache_claim(&mut self, relay_parent: Hash, candidate_hash: CandidateHash) {
-		self.candidates.entry(relay_parent).or_default().insert(candidate_hash);
+		self.candidates_per_rp.entry(relay_parent).or_default().insert(candidate_hash);
 	}
 
 	fn do_get_window<T: ClaimInfoRef, I: Iterator<Item = T>>(
@@ -523,7 +525,7 @@ impl ClaimQueueState {
 		// entries for it can't be undone anymore, but the claimed ones may need to be freed.
 		let mut removed_candidates = HashSet::with_capacity(actual_targets.len());
 		for target in actual_targets {
-			if let Some(candidates) = self.candidates.remove(&target) {
+			if let Some(candidates) = self.candidates_per_rp.remove(&target) {
 				removed_candidates.extend(candidates.into_iter());
 			}
 		}
@@ -548,7 +550,7 @@ impl ClaimQueueState {
 	pub(super) fn release_claim(&mut self, candidate_hash: &CandidateHash) -> bool {
 		// Get the relay parent from candidates.
 		let mut maybe_relay_parent = None;
-		for (relay_parent, candidates) in &mut self.candidates {
+		for (relay_parent, candidates) in &mut self.candidates_per_rp {
 			if candidates.remove(candidate_hash) {
 				maybe_relay_parent = Some(*relay_parent);
 				break
@@ -581,7 +583,7 @@ impl ClaimQueueState {
 			}
 
 			if let Some(candidate_hash) = claim.claimed.candidate_hash() {
-				if let Some(candidates) = self.candidates.get_mut(relay_parent) {
+				if let Some(candidates) = self.candidates_per_rp.get_mut(relay_parent) {
 					candidates.remove(&candidate_hash);
 				}
 			}
@@ -683,7 +685,7 @@ mod test {
 				}
 			])
 		);
-		assert!(state.candidates.is_empty());
+		assert!(state.candidates_per_rp.is_empty());
 
 		// should be no op
 		state.add_leaf(&relay_parent_a, &claim_queue);
@@ -728,7 +730,7 @@ mod test {
 				}
 			])
 		);
-		assert!(state.candidates.is_empty());
+		assert!(state.candidates_per_rp.is_empty());
 		assert!(state.has_or_can_claim_at(&relay_parent_b, &para_id, None));
 		assert!(state.get_pending_at(&relay_parent_b).is_empty());
 	}
@@ -817,7 +819,7 @@ mod test {
 			])
 		);
 		assert_eq!(
-			state.candidates,
+			state.candidates_per_rp,
 			HashMap::from_iter([
 				(relay_parent_a, HashSet::from_iter(vec![candidate_a])),
 				(relay_parent_b, HashSet::from_iter(vec![candidate_b]))
@@ -868,7 +870,7 @@ mod test {
 			])
 		);
 		assert_eq!(
-			state.candidates,
+			state.candidates_per_rp,
 			HashMap::from_iter([(
 				relay_parent_a,
 				HashSet::from_iter(vec![candidate_a1, candidate_a2])
@@ -906,7 +908,7 @@ mod test {
 			])
 		);
 		assert_eq!(
-			state.candidates,
+			state.candidates_per_rp,
 			HashMap::from_iter([(
 				relay_parent_a,
 				HashSet::from_iter(vec![candidate_a1, candidate_a2, candidate_a3])
@@ -964,7 +966,7 @@ mod test {
 			])
 		);
 		assert_eq!(
-			state.candidates,
+			state.candidates_per_rp,
 			HashMap::from_iter([(relay_parent_a, HashSet::from_iter(candidates.iter().copied()))])
 		);
 
@@ -1052,7 +1054,7 @@ mod test {
 			])
 		);
 		assert_eq!(
-			state.candidates,
+			state.candidates_per_rp,
 			HashMap::from_iter([
 				(relay_parent_a, HashSet::from_iter(candidates.iter().cloned())),
 				(relay_parent_b, HashSet::from_iter(vec![new_candidate]))
@@ -1100,7 +1102,7 @@ mod test {
 				}
 			])
 		);
-		assert!(state.candidates.is_empty());
+		assert!(state.candidates_per_rp.is_empty());
 
 		// claim a candidate
 		assert!(state.claim_pending_at(&relay_parent_a, &para_id_a, Some(candidate_a1)));
@@ -1137,7 +1139,7 @@ mod test {
 			])
 		);
 		assert_eq!(
-			state.candidates,
+			state.candidates_per_rp,
 			HashMap::from_iter([(relay_parent_a, HashSet::from_iter(vec![candidate_a1])),])
 		);
 
@@ -1176,7 +1178,7 @@ mod test {
 			])
 		);
 		assert_eq!(
-			state.candidates,
+			state.candidates_per_rp,
 			HashMap::from_iter([(
 				relay_parent_a,
 				HashSet::from_iter(vec![candidate_a1, candidate_a2])
@@ -1218,7 +1220,7 @@ mod test {
 			])
 		);
 		assert_eq!(
-			state.candidates,
+			state.candidates_per_rp,
 			HashMap::from_iter([(
 				relay_parent_a,
 				HashSet::from_iter(vec![candidate_a1, candidate_a2, candidate_b1])
@@ -1270,7 +1272,7 @@ mod test {
 			])
 		);
 		assert_eq!(
-			state.candidates,
+			state.candidates_per_rp,
 			HashMap::from_iter([(
 				relay_parent_a,
 				HashSet::from_iter(vec![candidate_a1, candidate_a2, candidate_b,])
@@ -1321,7 +1323,7 @@ mod test {
 		);
 		// IMPORTANT: we don't change `candidates`
 		assert_eq!(
-			state.candidates,
+			state.candidates_per_rp,
 			HashMap::from_iter([(
 				relay_parent_a,
 				HashSet::from_iter(vec![candidate_a1, candidate_a2, candidate_b])
@@ -1372,7 +1374,7 @@ mod test {
 			])
 		);
 		assert_eq!(
-			state.candidates,
+			state.candidates_per_rp,
 			HashMap::from_iter([(
 				relay_parent_a,
 				HashSet::from_iter(vec![candidate_a, candidate_b1, candidate_b2])
@@ -1421,7 +1423,7 @@ mod test {
 		);
 		// IMPORTANT: we don't change `candidates`
 		assert_eq!(
-			state.candidates,
+			state.candidates_per_rp,
 			HashMap::from_iter([(
 				relay_parent_a,
 				HashSet::from_iter(vec![candidate_a, candidate_b1, candidate_b2])
@@ -1454,7 +1456,7 @@ mod test {
 		assert_eq!(state.block_state[0].hash, Some(relay_parent_b));
 		assert_eq!(state.future_blocks.len(), 2);
 		assert_eq!(
-			state.candidates,
+			state.candidates_per_rp,
 			HashMap::from_iter([(relay_parent_b, HashSet::from_iter(vec![candidate_a2]))])
 		);
 	}
@@ -1483,7 +1485,7 @@ mod test {
 		assert_eq!(state.block_state.len(), 2);
 		assert_eq!(state.future_blocks.len(), 2);
 		assert_eq!(
-			state.candidates,
+			state.candidates_per_rp,
 			HashMap::from_iter([
 				(relay_parent_a, HashSet::from_iter(vec![candidate_a1])),
 				(relay_parent_b, HashSet::from_iter(vec![candidate_a2]))
@@ -1518,7 +1520,7 @@ mod test {
 		assert_eq!(state.block_state[0].hash, Some(relay_parent_c));
 		assert_eq!(state.future_blocks.len(), 2);
 		assert_eq!(
-			state.candidates,
+			state.candidates_per_rp,
 			HashMap::from_iter([(relay_parent_c, HashSet::from_iter(vec![candidate_a3]))])
 		);
 	}
@@ -1823,7 +1825,7 @@ mod test {
 			])
 		);
 		assert_eq!(
-			state.candidates,
+			state.candidates_per_rp,
 			HashMap::from_iter([(
 				relay_parent_a,
 				HashSet::from_iter(vec![candidate_a1, candidate_a2])
@@ -1859,7 +1861,7 @@ mod test {
 			])
 		);
 		assert_eq!(
-			state.candidates,
+			state.candidates_per_rp,
 			HashMap::from_iter([(relay_parent_a, HashSet::from_iter(vec![candidate_a2]))])
 		);
 	}
@@ -1988,7 +1990,7 @@ mod test {
 				])
 			);
 			assert_eq!(
-				state.candidates,
+				state.candidates_per_rp,
 				HashMap::from_iter([
 					(relay_parent_a, HashSet::from_iter(vec![candidate_a1])),
 					(relay_parent_b, HashSet::from_iter(vec![candidate_a2])),
@@ -2025,7 +2027,7 @@ mod test {
 				])
 			);
 			assert_eq!(
-				fork.candidates,
+				fork.candidates_per_rp,
 				HashMap::from_iter([(relay_parent_a, HashSet::from_iter(vec![candidate_a1]))])
 			);
 		}
@@ -2092,7 +2094,7 @@ mod test {
 				])
 			);
 			assert_eq!(
-				state.candidates,
+				state.candidates_per_rp,
 				HashMap::from_iter([
 					(relay_parent_a, HashSet::from_iter(vec![candidate_a1, candidate_a2])),
 					(relay_parent_b, HashSet::from_iter(vec![candidate_a3]),)
@@ -2128,7 +2130,7 @@ mod test {
 				])
 			);
 			assert_eq!(
-				fork.candidates,
+				fork.candidates_per_rp,
 				HashMap::from_iter([(
 					relay_parent_a,
 					HashSet::from_iter(vec![candidate_a1, candidate_a2])
@@ -2190,7 +2192,7 @@ mod test {
 				])
 			);
 			assert_eq!(
-				state.candidates,
+				state.candidates_per_rp,
 				HashMap::from_iter([(
 					relay_parent_a,
 					HashSet::from_iter(vec![candidate_a1, candidate_a2, candidate_a3])
@@ -2226,7 +2228,7 @@ mod test {
 				])
 			);
 			assert_eq!(
-				fork.candidates,
+				fork.candidates_per_rp,
 				HashMap::from_iter([(
 					relay_parent_a,
 					HashSet::from_iter(vec![candidate_a1, candidate_a2, candidate_a3])
