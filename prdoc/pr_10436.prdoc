@@ -1,0 +1,8 @@
+title: Add multi-block migration to clear storage items under a specific storage prefix.
+doc:
+- audience: Runtime Dev
+  description: Introduces a new generic migration utility `ClearStorageByPrefix` that enables 
+  safe removal of storage items by prefix using the multi-block migration frame.
+crates:
+- name: pallet-migrations
+  bump: minor
