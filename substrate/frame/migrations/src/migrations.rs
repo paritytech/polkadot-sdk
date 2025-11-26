@@ -240,27 +240,30 @@ where
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
 		let num_keys: u64 = Self::num_keys();
 		log::info!(
 			"ClearStorageByPrefix<{}>: Trying to remove {num_keys} keys.",
-			StoragePrefix::get()
+			sp_core::bytes::to_hex(&StoragePrefix::get(), false)
 		);
 		Ok(num_keys.encode())
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(state: sp_std::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		use parity_scale_codec::Decode;
+	fn post_upgrade(state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		use codec::Decode;
 		let keys_before = u64::decode(&mut state.as_ref()).expect("We encoded as u64 above; qed");
 		let keys_now = Self::num_keys();
 		log::info!(
 			"ClearStorageByPrefix<{}>: Keys remaining after migration: {keys_now}",
-			StoragePrefix::get()
+			sp_core::bytes::to_hex(&StoragePrefix::get(), false)
 		);
 
 		if keys_before <= keys_now {
-			log::error!("ClearStorageByPrefix<{}>: Did not remove any keys.", StoragePrefix::get());
+			log::error!(
+				"ClearStorageByPrefix<{}>: Did not remove any keys.",
+				sp_core::bytes::to_hex(&StoragePrefix::get(), false)
+			);
 			Err("ClearStorageByPrefix failed")?;
 		}
 
