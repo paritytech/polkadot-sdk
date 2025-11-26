@@ -758,7 +758,7 @@ pub struct IpfsConfig<Block: BlockT, H: ExHashT, N: NetworkBackend<Block, H>> {
 	/// Network-backend-specific Bitswap configuration.
 	pub bitswap_config: N::BitswapConfig,
 	/// Indexed transactions provider.
-	pub block_provider: Box<dyn super::ipfs::BlockProvider>,
+	pub block_provider: Box<dyn crate::IpfsBlockProvider>,
 	/// IPFS bootstrap nodes.
 	pub bootnodes: Vec<MultiaddrWithPeerId>,
 }

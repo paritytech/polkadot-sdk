@@ -244,6 +244,7 @@
 
 mod behaviour;
 mod bitswap;
+mod ipfs_block_provider;
 mod litep2p;
 mod protocol;
 
@@ -254,7 +255,6 @@ pub mod config;
 pub mod discovery;
 pub mod error;
 pub mod event;
-pub mod ipfs;
 pub mod network_state;
 pub mod peer_info;
 pub mod peer_store;
@@ -267,7 +267,7 @@ pub mod utils;
 
 pub use crate::litep2p::Litep2pNetworkBackend;
 pub use event::{DhtEvent, Event};
-pub use ipfs::{
+pub use ipfs_block_provider::{
 	BlockProvider as IpfsBlockProvider, IndexedTransactions as IpfsIndexedTransactions,
 };
 #[doc(inline)]

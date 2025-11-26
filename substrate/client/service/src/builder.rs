@@ -44,13 +44,12 @@ use sc_executor::{
 use sc_keystore::LocalKeystore;
 use sc_network::{
 	config::{FullNetworkConfiguration, IpfsConfig, ProtocolId, SyncMode},
-	ipfs::IndexedTransactions,
 	multiaddr::Protocol,
 	service::{
 		traits::{PeerStore, RequestResponseConfig},
 		NotificationMetrics,
 	},
-	NetworkBackend, NetworkStateInfo,
+	IpfsIndexedTransactions, NetworkBackend, NetworkStateInfo,
 };
 use sc_network_common::role::{Role, Roles};
 use sc_network_light::light_client_requests::handler::LightClientRequestHandler;
@@ -1206,7 +1205,7 @@ where
 
 		IpfsConfig {
 			bitswap_config,
-			block_provider: Box::new(IndexedTransactions::new(client.clone(), ipfs_num_blocks)),
+			block_provider: Box::new(IpfsIndexedTransactions::new(client.clone(), ipfs_num_blocks)),
 			bootnodes: net_config.network_config.ipfs_bootnodes.clone(),
 		}
 	});
