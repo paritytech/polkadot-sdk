@@ -397,7 +397,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	}
 
 	/// Get total weight required
-	/// This is the maxmimum amount of weight consumption that occurred during execution so far
+	/// This is the maximum amount of weight consumption that occurred during execution so far
 	/// This is relevant because consumed weight can decrease in case it is asjusted a posteriori
 	/// for some operations
 	pub fn weight_required(&self) -> Weight {

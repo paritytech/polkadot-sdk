@@ -5,65 +5,61 @@ contract Deposit {
   uint256 a;
   uint256 b;
 
+  address immutable storagePrecompile = address(0x901);
+
   function clearStorageSlot(uint256 slot) internal {
-    address storagePrecompile = 0x0000000000000000000000000000000000000901;
     bytes memory key = abi.encodePacked(bytes32(slot));
     (bool _success, ) = storagePrecompile.delegatecall(
         abi.encodeWithSignature("clearStorage(uint32,bool,bytes)", 0, true, key)
     );
   }
 
-  function clear() external {
+  function clearAll() external {
     clearStorageSlot(0);
     clearStorageSlot(1);
   }
 
-  function c() external {
-    address targetAddress = 0x0000000000000000000000000000000000000901;
-
+  function setAndClear() external {
     a = 2;
     b = 3;
 
     bytes32 key = bytes32(bytes1(0x01)) >> 248;
     bytes memory keyBytes = abi.encodePacked(key);
 
-    (bool success, ) = targetAddress.delegatecall(
+    (bool success, ) = storagePrecompile.delegatecall(
         abi.encodeWithSignature("clearStorage(uint32,bool,bytes)", 0, true, keyBytes)
     );
   }
 
-  function d() external {
-    this.x();
+  function callSetAndClear() external {
+    this.setVars();
 
-    address targetAddress = 0x0000000000000000000000000000000000000901;
     bytes32 key = bytes32(bytes1(0x01)) >> 248;
     bytes memory keyBytes = abi.encodePacked(key);
 
-    (bool success, ) = targetAddress.delegatecall(
+    (bool success, ) = storagePrecompile.delegatecall(
         abi.encodeWithSignature("clearStorage(uint32,bool,bytes)", 0, true, keyBytes)
     );
   }
 
-  function e() external {
+  function setAndCallClear() external {
     a = 2;
     b = 3;
 
-    this.y();
+    this.clear();
   }
 
 
-  function x() external {
+  function setVars() external {
     a = 2;
     b = 3;
   }
 
-  function y() external {
-    address targetAddress = 0x0000000000000000000000000000000000000901;
-
+  function clear() external {
     bytes32 key = bytes32(bytes1(0x01)) >> 248;
     bytes memory keyBytes = abi.encodePacked(key);
 
-    (bool success, ) = targetAddress.delegatecall(
+    (bool success, ) = storagePrecompile.delegatecall(
         abi.encodeWithSignature("clearStorage(uint32,bool,bytes)", 0, true, keyBytes)
     );
   }

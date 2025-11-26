@@ -20,11 +20,12 @@ use super::{
 	FrameMeter, InfoT, ResourceMeter, RootStorageMeter, SaturatedConversion, State, StorageDeposit,
 	TransactionLimits, TransactionMeter, Weight, WeightMeter, Zero,
 };
-use crate::{limits::SOLIDITY_CALL_STIPEND, metering::weight::Token, vm::evm::EVMGas, SignedGas};
+use crate::{metering::weight::Token, vm::evm::EVMGas, SignedGas};
 use core::marker::PhantomData;
+use revm::interpreter::gas::CALL_STIPEND;
 
 fn determine_call_stipend<T: Config>() -> Weight {
-	let gas = EVMGas(SOLIDITY_CALL_STIPEND.into());
+	let gas = EVMGas(CALL_STIPEND);
 	<EVMGas as Token<T>>::weight(&gas)
 }
 
@@ -83,14 +84,17 @@ pub mod substrate_execution {
 		let weight_left = meter
 			.weight
 			.weight_limit
-			.expect("Weight limits are always defined for WeightAndDeposit; qed")
+			.expect(
+				"Weight limits are always defined for `ResourceMeter` in Substrate \
+				execution mode (i.e., when its `transaction_limits` are `WeightAndDeposit`); qed",
+			)
 			.checked_sub(&self_consumed_weight)
 			.ok_or(<Error<T>>::OutOfGas)?;
 
-		let deposit_limit = meter
-			.deposit
-			.limit
-			.expect("Deposit limits are always defined for WeightAndDeposit; qed");
+		let deposit_limit = meter.deposit.limit.expect(
+			"Deposit limits are always defined for `ResourceMeter` in Substrate \
+				execution mode (i.e., when its `transaction_limits` are `WeightAndDeposit`); qed",
+		);
 		let deposit_left = self_consumed_deposit
 			.available(&deposit_limit)
 			.ok_or(<Error<T>>::StorageDepositLimitExhausted)?;
@@ -136,7 +140,7 @@ pub mod substrate_execution {
 					let stipend = if *add_stipend {
 						let weight_stipend = determine_call_stipend::<T>();
 						if weight_left.any_lt(weight_stipend) {
-							Err(<Error<T>>::OutOfGas)?
+							return Err(<Error<T>>::OutOfGas.into())
 						}
 
 						weight_limit.saturating_accrue(weight_stipend);
@@ -170,7 +174,7 @@ pub mod substrate_execution {
 	/// Compute the remaining ethereum-gas-equivalent for a Substrate-style transaction.
 	///
 	/// Converts the remaining weight and deposit into their gas-equivalents (via `FeeInfo`) and
-	/// returns the sum. Returns `None` if either component there is not enough as left
+	/// returns the sum. Returns `None` if either component does not have enough left.
 	pub fn gas_left<T: Config, S: State>(meter: &ResourceMeter<T, S>) -> Option<SignedGas<T>> {
 		match (weight_left(meter), deposit_left(meter)) {
 			(Some(weight_left), Some(deposit_left)) => {
@@ -191,10 +195,10 @@ pub mod substrate_execution {
 	///
 	/// Subtracts the weight already consumed in the current frame from the configured limit.
 	pub fn weight_left<T: Config, S: State>(meter: &ResourceMeter<T, S>) -> Option<Weight> {
-		let weight_limit = meter
-			.weight
-			.weight_limit
-			.expect("Weight limits are always defined for WeightAndDeposit; qed");
+		let weight_limit = meter.weight.weight_limit.expect(
+			"Weight limits are always defined for `ResourceMeter` in Substrate \
+				execution mode (i.e., when its `transaction_limits` are `WeightAndDeposit`); qed",
+		);
 		weight_limit.checked_sub(&meter.weight.weight_consumed())
 	}
 
@@ -203,10 +207,10 @@ pub mod substrate_execution {
 	/// Subtracts the storage deposit already consumed in the current frame from the configured
 	/// limit.
 	pub fn deposit_left<T: Config, S: State>(meter: &ResourceMeter<T, S>) -> Option<BalanceOf<T>> {
-		let deposit_limit = meter
-			.deposit
-			.limit
-			.expect("Deposit limits are always defined for WeightAndDeposit; qed");
+		let deposit_limit = meter.deposit.limit.expect(
+			"Deposit limits are always defined for `ResourceMeter` in Substrate \
+				execution mode (i.e., when its `transaction_limits` are `WeightAndDeposit`); qed",
+		);
 		meter.deposit.consumed().available(&deposit_limit)
 	}
 
@@ -365,7 +369,7 @@ pub mod ethereum_execution {
 					let (gas_limit, stipend) = if *add_stipend {
 						let weight_stipend = determine_call_stipend::<T>();
 						if weight_left.any_lt(weight_stipend) {
-							Err(<Error<T>>::OutOfGas)?
+							return Err(<Error<T>>::OutOfGas.into())
 						}
 
 						(

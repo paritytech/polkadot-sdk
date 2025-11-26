@@ -128,11 +128,16 @@ impl Key {
 pub enum ReentrancyProtection {
 	/// Don't activate reentrancy protection
 	AllowReentry,
-	// Activate strict reentrancy protection. The direct callee and none of its own recursive
-	// callees must be the calling contract.
+	/// Activate strict reentrancy protection. The direct callee and none of its own recursive
+	/// callees must be the calling contract.
 	Strict,
-	// Activate reentrancy protection where the direct callee can be the same contract as the
-	// caller but none of the recursive callees of the callee must be the caller
+	/// Activate reentrancy protection where the direct callee can be the same contract as the
+	/// caller but none of the recursive callees of the callee must be the caller.
+	///
+	/// This is used for calls that transfer value but restrict gas so that the callee only has a
+	/// stipend gas amount. In Ethereum that is not sufficient for the callee to make another call.
+	/// However, due to gas scale differences that guarantee does not automatically hold in revive
+	/// and we enforce it explicitly here.
 	AllowNext,
 }
 
@@ -325,6 +330,7 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Charges the weight meter with the given token or halts execution if not enough weight is
 	/// left.
+	#[inline]
 	fn charge_or_halt<Tok: Token<Self::T>>(
 		&mut self,
 		token: Tok,
@@ -436,9 +442,6 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Returns the chain id.
 	fn chain_id(&self) -> u64;
-
-	/// Returns the maximum allowed size of a storage item.
-	fn max_value_size(&self) -> u32;
 
 	/// Get an immutable reference to the nested resource meter of the frame.
 	fn gas_meter(&self) -> &FrameMeter<Self::T>;
@@ -1248,7 +1251,7 @@ where
 		}
 
 		self.transient_storage.start_transaction();
-		let is_first_frame = self.frames.len() == 0;
+		let is_first_frame = self.frames.is_empty();
 
 		let do_transaction = || -> ExecResult {
 			let caller = self.caller();
@@ -1271,7 +1274,7 @@ where
 				let origin = &self.origin.account_id()?;
 
 				if !frame_system::Pallet::<T>::account_exists(&account_id) {
-					let ed: <T as Config>::Balance = <Contracts<T>>::min_balance();
+					let ed = <Contracts<T>>::min_balance();
 					frame.frame_meter.charge_deposit(&StorageDeposit::Charge(ed))?;
 					<Contracts<T>>::charge_deposit(None, origin, account_id, ed, self.exec_config)
 						.map_err(|_| <Error<T>>::StorageDepositNotEnoughFunds)?;
@@ -1436,6 +1439,9 @@ where
 			Ok((success, output)) => {
 				if_tracing(|tracer| {
 					let frame_meter = &top_frame!(self).frame_meter;
+
+					// we treat the initial frame meter differently to address
+					// https://github.com/paritytech/polkadot-sdk/issues/8362
 					let gas_consumed = if is_first_frame {
 						frame_meter.total_consumed_gas().into()
 					} else {
@@ -1455,6 +1461,9 @@ where
 			Err(error) => {
 				if_tracing(|tracer| {
 					let frame_meter = &top_frame!(self).frame_meter;
+
+					// we treat the initial frame meter differently to address
+					// https://github.com/paritytech/polkadot-sdk/issues/8362
 					let gas_consumed = if is_first_frame {
 						frame_meter.total_consumed_gas().into()
 					} else {
@@ -2226,14 +2235,11 @@ where
 		<T as Config>::ChainId::get()
 	}
 
-	fn max_value_size(&self) -> u32 {
-		limits::PAYLOAD_BYTES
-	}
-
 	fn gas_meter(&self) -> &FrameMeter<Self::T> {
 		&self.top_frame().frame_meter
 	}
 
+	#[inline]
 	fn gas_meter_mut(&mut self) -> &mut FrameMeter<Self::T> {
 		&mut self.top_frame_mut().frame_meter
 	}

@@ -81,7 +81,7 @@ pub enum ReservingExt {}
 #[derive(DefaultNoBound, RuntimeDebugNoBound)]
 pub struct RawMeter<T: Config, E, S: State> {
 	/// The limit of how much balance this meter is allowed to consume.
-	pub limit: Option<BalanceOf<T>>,
+	pub(crate) limit: Option<BalanceOf<T>>,
 	/// The amount of balance that was used in this meter and all of its already absorbed children.
 	total_deposit: DepositOf<T>,
 	/// The amount of storage changes that were recorded in this meter alone.
@@ -98,7 +98,7 @@ pub struct RawMeter<T: Config, E, S: State> {
 	/// True if this is the root meter.
 	///
 	/// Sometimes we cannot know at compile time.
-	pub is_root: bool,
+	pub(crate) is_root: bool,
 	/// Type parameter only used in impls.
 	_phantom: PhantomData<(E, S)>,
 }
@@ -293,8 +293,13 @@ where
 		contract: &T::AccountId,
 		info: Option<&mut ContractInfo<T>>,
 	) {
-		// No need to recalculate max_charged for `absorbed` here. With `info` we can now calculate
-		// the correct `own_contribution` of `absorbed` but that can only be less
+		// We are now at the position to calculate the actual final net charge of `absorbed` as we
+		// now have the contract information `info`. Before that we only took net charges related to
+		// the contract storage into account but ignored net refunds.
+		// However, with this complete information there is no need to recalculate `max_charged` for
+		// `absorbed` here before we absorb it because the actual final net charge will not be more
+		// than the net charge we observed before (as we only ignored net refunds but not net
+		// charges).
 		self.max_charged = self
 			.max_charged
 			.max(self.consumed().saturating_add(&absorbed.max_charged()).charge_or_zero());
@@ -328,8 +333,6 @@ where
 	///
 	/// - `absorbed`: The child storage meter
 	pub fn absorb_only_max_charged(&mut self, absorbed: RawMeter<T, E, Nested>) {
-		// No need to recalculate max_charged for `absorbed` here. With `info` we can now calculate
-		// the correct `own_contribution` of `absorbed` but that can only be less
 		self.max_charged = self
 			.max_charged
 			.max(self.consumed().saturating_add(&absorbed.max_charged()).charge_or_zero());
@@ -421,9 +424,6 @@ where
 	/// The total amount of deposit that should change hands as result of the execution
 	/// that this meter was passed into. This will also perform all the charges accumulated
 	/// in the whole contract stack.
-	///
-	/// This drops the root meter in order to make sure it is only called when the whole
-	/// execution did finish.
 	pub fn execute_postponed_deposits(
 		&mut self,
 		origin: &Origin<T>,

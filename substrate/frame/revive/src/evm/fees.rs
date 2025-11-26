@@ -400,7 +400,7 @@ mod seal {
 ///
 /// We can take advantage of the function `FixedU128::checked_rounding_div`, which, given two fixed
 /// point numbers `a` and `b`, just computes `a.0 * FixedU128::DIV / b.0`. It also allows to specify
-/// the rounding mode `SignedRounding::Major`, which means the that result of the division is
+/// the rounding mode `SignedRounding::Major`, which means that the result of the division is
 /// rounded up.
 pub fn compute_max_integer_quotient<F: FixedPointOperand + One>(
 	multiplier: FixedU128,
@@ -436,18 +436,56 @@ pub fn compute_max_integer_pair_quotient<F: FixedPointOperand + One>(
 	(result1, result2)
 }
 
-#[test]
-fn compute_max_quotient_works() {
-	let product1 = 8625031518u64;
-	let product2 = 2597808837u64;
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use proptest::proptest;
 
-	let multiplier = FixedU128::from_rational(4_000_000_000_000, 10 * 1024 * 1024);
+	#[test]
+	fn compute_max_quotient_works() {
+		let product1 = 8625031518u64;
+		let product2 = 2597808837u64;
 
-	assert_eq!(compute_max_integer_quotient(multiplier, product1), 22610);
-	assert_eq!(compute_max_integer_quotient(multiplier, product2), 6810);
+		let multiplier = FixedU128::from_rational(4_000_000_000_000, 10 * 1024 * 1024);
 
-	// This shows that just dividing by the multiplier does not give the correct result, neither
-	// when rounding up, nor when rounding down
-	assert_eq!(multiplier.reciprocal().unwrap().saturating_mul_int(product1), 22610);
-	assert_eq!(multiplier.reciprocal().unwrap().saturating_mul_int(product2), 6809);
+		assert_eq!(compute_max_integer_quotient(multiplier, product1), 22610);
+		assert_eq!(compute_max_integer_quotient(multiplier, product2), 6810);
+
+		// This shows that just dividing by the multiplier does not give the correct result, neither
+		// when rounding up, nor when rounding down
+		assert_eq!(multiplier.reciprocal().unwrap().saturating_mul_int(product1), 22610);
+		assert_eq!(multiplier.reciprocal().unwrap().saturating_mul_int(product2), 6809);
+	}
+
+	#[test]
+	fn proptest_max_quotient_works() {
+		proptest!(|(numerator: u128, denominator: u128, product: u128)| {
+			let multiplier = FixedU128::from_rational(numerator.saturating_add(1), denominator.saturating_add(1));
+			let max_quotient = compute_max_integer_quotient(multiplier, product);
+
+			assert!(multiplier.saturating_mul_int(max_quotient) <= product);
+			if max_quotient < u128::MAX {
+				assert!(multiplier.saturating_mul_int(max_quotient + 1) > product);
+			}
+		});
+	}
+
+	#[test]
+	fn proptest_max_pair_quotient_works() {
+		proptest!(|(numerator1: u128, denominator1: u128, numerator2: u128, denominator2: u128, product: u128)| {
+			let multiplier1 = FixedU128::from_rational(numerator1.saturating_add(1), denominator1.saturating_add(1));
+			let multiplier2 = FixedU128::from_rational(numerator2.saturating_add(1), denominator2.saturating_add(1));
+			let (max_quotient1, max_quotient2) = compute_max_integer_pair_quotient((multiplier1, multiplier2), product);
+
+			assert!(multiplier1.saturating_mul_int(max_quotient1) <= product);
+			if max_quotient1 < u128::MAX {
+				assert!(multiplier1.saturating_mul_int(max_quotient1 + 1) > product);
+			}
+
+			assert!(multiplier2.saturating_mul_int(max_quotient2) <= product);
+			if max_quotient2 < u128::MAX {
+				assert!(multiplier2.saturating_mul_int(max_quotient2 + 1) > product);
+			}
+		});
+	}
 }
