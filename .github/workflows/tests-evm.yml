@@ -162,9 +162,17 @@ jobs:
             ../target/release/chain-spec-builder -c /tmp/ah-westend-spec-raw.json create --para-id 1000 --relay-chain dontcare --runtime ../target/release/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.wasm named-preset development
             NODE_PATH=$(readlink -f ../target/release/polkadot-omni-node)
 
+            # funds Alith, and some dev accounts required by staking
             jq '.genesis.runtimeGenesis.patch.balances.balances = [
-                ["5CfCLa2N85aH2tUKT48LmRSGNx27DnJUayMXqvvcU97VN2sk", 1000000001000000000]
-              ] | .genesis.runtimeGenesis.patch.staking.devStakers = [0, 0]
+                ["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 1000000001000000000],
+                ["5CfCLa2N85aH2tUKT48LmRSGNx27DnJUayMXqvvcU97VN2sk", 1000000001000000000],
+                ["5GNJqTPyNqANBkUVMN1LPPrxXnFouWXoe2wNSmmEoLctxiZY", 1000000001000000000],
+                ["5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc", 1000000001000000000],
+                ["5HYRCKHYJN9z5xUtfFkyMj4JUhsAwWyvuU8vKB1FcnYTf9ZQ", 100000000000000001000000000],
+                ["5Exhf8yKh5CUwVBucuPKmW66vpZr2BgoE1p8KgeHibCTY9nN", 1000000001000000000],
+                ["5EHrjJ437hjWG28LA466LjGDgK4NbmAQkJnwmXwGXNZYhq5u", 1000000001000000000]
+              ]
+              | .genesis.runtimeGenesis.patch.staking.devStakers = [0, 0]
             ' "/tmp/ah-westend-spec-raw.json" >"/tmp/ah-westend-spec.json"
             $NODE_PATH --dev --log=error,sc_rpc_server=info,runtime::revive=debug --instant-seal --no-prometheus --chain /tmp/ah-westend-spec.json > /dev/null 2>&1 &
             NODE_PID=$!
@@ -174,12 +182,19 @@ jobs:
           $ETH_RPC_PATH --dev --node-rpc-url=ws://localhost:9944 -l=rpc-metrics=debug,eth-rpc=debug > /dev/null 2>&1 &
           ETH_RPC_PID=$!
 
+          connected=false
           for i in {1..30}; do
             if curl -s -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"web3_clientVersion","id":1}' http://localhost:8545 > /dev/null 2>&1; then
+              connected=true
               break
             fi
             sleep 1
           done
+
+          if [ "$connected" = false ]; then
+            echo "Error: Timeout waiting for RPC endpoint at http://localhost:8545" >&2
+            exit 1
+          fi
 
           deno task --quiet ${{ matrix.command }}
 
