@@ -311,6 +311,8 @@ where
 
 			if let Ok(authorities) = para_client.runtime_api().authorities(parent_hash) {
 				connection_helper.update::<P>(para_slot.slot, &authorities).await;
+			} else {
+				tracing::error!(target: crate::LOG_TARGET, "Failed to fetch authorities for parent hash.");
 			}
 
 			let slot_claim = match crate::collators::can_build_upon::<_, _, P>(
