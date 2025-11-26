@@ -1,21 +1,16 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use std::time::Duration;
-
 use crate::utils::{
-	initialize_network, BEEFY_BEST_BLOCK_METRIC, BEST_BLOCK_METRIC, DEFAULT_CHAIN_SPEC,
-	DEFAULT_DB_SNAPSHOT_URL, DEFAULT_SUBSTRATE_IMAGE, FINALIZED_BLOCK_METRIC,
+	ensure_env_defaults, initialize_network, log_line_absent, log_line_at_least_once,
+	log_line_exactly_once, resolve_db_snapshot_height, BEEFY_BEST_BLOCK_METRIC, BEST_BLOCK_METRIC,
+	CHAIN_SPEC_ENV, DB_SNAPSHOT_ENV, DEFAULT_CHAIN_SPEC, DEFAULT_DB_SNAPSHOT_URL,
+	DEFAULT_SUBSTRATE_IMAGE, FINALIZED_BLOCK_METRIC, FULLNODE_ROLE_VALUE, INTEGRATION_IMAGE_ENV,
+	VALIDATOR_ROLE_VALUE,
 };
 use anyhow::{anyhow, Result};
 use env_logger::Env;
-use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
-
-const INTEGRATION_IMAGE_ENV: &str = "ZOMBIENET_INTEGRATION_TEST_IMAGE";
-const DB_SNAPSHOT_ENV: &str = "DB_SNAPSHOT";
-const CHAIN_SPEC_ENV: &str = "WARP_CHAIN_SPEC_PATH";
-const DB_BLOCK_HEIGHT_ENV: &str = "DB_BLOCK_HEIGHT";
 
 const ROLE_TIMEOUT_SECS: u64 = 60;
 const PEER_TIMEOUT_SECS: u64 = 60;
@@ -30,19 +25,21 @@ const LOG_ERROR_TIMEOUT_SECS: u64 = 10;
 const BEEFY_PROGRESS_TIMEOUT_SECS: u64 = 180;
 
 const PEERS_THRESHOLD: f64 = 4.0;
-const VALIDATOR_ROLE_VALUE: f64 = 4.0;
-const FULLNODE_ROLE_VALUE: f64 = 1.0;
 const MIN_BOOTSTRAP_BLOCK: f64 = 1.0;
 const BEEFY_TARGET: f64 = 200.0 * 180.0 / 6.0;
 
 const VALIDATORS: [&str; 3] = ["alice", "bob", "other-validator"];
-const FOLLOWERS: [&str; 3] = ["charlie", "dave", "eve"];
+const FULLNODES: [&str; 3] = ["charlie", "dave", "eve"];
 
 #[tokio::test(flavor = "multi_thread")]
 async fn validators_warp_sync() -> Result<()> {
 	let _ = env_logger::Builder::from_env(Env::default().default_filter_or("info")).try_init();
 
-	ensure_env_defaults();
+	ensure_env_defaults(&[
+		(INTEGRATION_IMAGE_ENV, DEFAULT_SUBSTRATE_IMAGE),
+		(DB_SNAPSHOT_ENV, DEFAULT_DB_SNAPSHOT_URL),
+		(CHAIN_SPEC_ENV, DEFAULT_CHAIN_SPEC),
+	]);
 
 	log::info!("Spawning network");
 	let config = build_network_config()?;
@@ -55,24 +52,24 @@ async fn validators_warp_sync() -> Result<()> {
 		let node = network.get_node(validator)?;
 		node.wait_metric_with_timeout(
 			"node_roles",
-			|role| (role - VALIDATOR_ROLE_VALUE).abs() < f64::EPSILON,
+			|role| role == VALIDATOR_ROLE_VALUE,
 			ROLE_TIMEOUT_SECS,
 		)
 		.await?;
 	}
 
-	for follower in FOLLOWERS {
+	for follower in FULLNODES {
 		let node = network.get_node(follower)?;
 		node.wait_metric_with_timeout(
 			"node_roles",
-			|role| (role - FULLNODE_ROLE_VALUE).abs() < f64::EPSILON,
+			|role| role == FULLNODE_ROLE_VALUE,
 			ROLE_TIMEOUT_SECS,
 		)
 		.await?;
 	}
 
 	// Peer expectations for all nodes.
-	for &node_name in VALIDATORS.iter().chain(FOLLOWERS.iter()) {
+	for &node_name in VALIDATORS.iter().chain(FULLNODES.iter()) {
 		network
 			.get_node(node_name)?
 			.wait_metric_with_timeout(
@@ -84,7 +81,7 @@ async fn validators_warp_sync() -> Result<()> {
 	}
 
 	// Followers should bootstrap from snapshot shortly after startup.
-	for follower in FOLLOWERS {
+	for follower in FULLNODES {
 		network
 			.get_node(follower)?
 			.wait_metric_with_timeout(
@@ -95,9 +92,9 @@ async fn validators_warp_sync() -> Result<()> {
 			.await?;
 	}
 
-	let db_snapshot_height = resolve_db_snapshot_height(&network).await?;
+	let db_snapshot_height = resolve_db_snapshot_height(&network, "charlie").await?;
 
-	for follower in FOLLOWERS {
+	for follower in FULLNODES {
 		network
 			.get_node(follower)?
 			.wait_metric_with_timeout(
@@ -169,36 +166,6 @@ async fn validators_warp_sync() -> Result<()> {
 	Ok(())
 }
 
-fn ensure_env_defaults() {
-	if std::env::var(INTEGRATION_IMAGE_ENV).is_err() {
-		std::env::set_var(INTEGRATION_IMAGE_ENV, DEFAULT_SUBSTRATE_IMAGE);
-	}
-	if std::env::var(DB_SNAPSHOT_ENV).is_err() {
-		std::env::set_var(DB_SNAPSHOT_ENV, DEFAULT_DB_SNAPSHOT_URL);
-	}
-	if std::env::var(CHAIN_SPEC_ENV).is_err() {
-		std::env::set_var(CHAIN_SPEC_ENV, DEFAULT_CHAIN_SPEC);
-	}
-}
-
-fn db_snapshot_height_override() -> Option<f64> {
-	std::env::var(DB_BLOCK_HEIGHT_ENV)
-		.ok()
-		.and_then(|value| value.parse::<f64>().ok())
-}
-
-async fn resolve_db_snapshot_height(
-	network: &zombienet_sdk::Network<zombienet_sdk::LocalFileSystem>,
-) -> Result<f64> {
-	if let Some(override_height) = db_snapshot_height_override() {
-		return Ok(override_height);
-	}
-
-	let charlie = network.get_node("charlie")?;
-	let height = charlie.reports(BEST_BLOCK_METRIC).await?;
-	Ok(height)
-}
-
 fn build_network_config() -> Result<NetworkConfig> {
 	let integration_image = std::env::var(INTEGRATION_IMAGE_ENV)
 		.unwrap_or_else(|_| DEFAULT_SUBSTRATE_IMAGE.to_string());
@@ -258,28 +225,24 @@ async fn check_warp_logs(
 	long_timeout: u64,
 	short_timeout: u64,
 ) -> Result<()> {
-	let at_least_once = |timeout_secs| {
-		LogLineCountOptions::new(|count| count >= 1, Duration::from_secs(timeout_secs), false)
-	};
-
 	for validator in VALIDATORS {
 		let node = network.get_node(validator)?;
 		node.wait_log_line_count_with_timeout(
 			"Warp sync is complete",
 			false,
-			at_least_once(long_timeout),
+			log_line_at_least_once(long_timeout),
 		)
 		.await?;
 		node.wait_log_line_count_with_timeout(
 			"State sync is complete",
 			false,
-			at_least_once(long_timeout),
+			log_line_at_least_once(long_timeout),
 		)
 		.await?;
 		node.wait_log_line_count_with_timeout(
 			"Block history download is complete",
 			false,
-			at_least_once(short_timeout),
+			log_line_at_least_once(short_timeout),
 		)
 		.await?;
 	}
@@ -295,22 +258,14 @@ async fn check_error_logs(
 		.wait_log_line_count_with_timeout(
 			"No public addresses configured and no global listen addresses found",
 			false,
-			LogLineCountOptions::new(
-				|count| count >= 1,
-				Duration::from_secs(LOG_TIMEOUT_LONG_SECS),
-				false,
-			),
+			log_line_at_least_once(LOG_TIMEOUT_LONG_SECS),
 		)
 		.await?;
 	alice
 		.wait_log_line_count_with_timeout(
 			"error",
 			false,
-			LogLineCountOptions::new(
-				|count| count == 1,
-				Duration::from_secs(LOG_ERROR_TIMEOUT_SECS),
-				false,
-			),
+			log_line_exactly_once(LOG_ERROR_TIMEOUT_SECS),
 		)
 		.await?;
 
@@ -318,9 +273,7 @@ async fn check_error_logs(
 	bob.wait_log_line_count_with_timeout(
 		"verification failed",
 		false,
-		LogLineCountOptions::no_occurences_within_timeout(Duration::from_secs(
-			LOG_ERROR_TIMEOUT_SECS,
-		)),
+		log_line_absent(LOG_ERROR_TIMEOUT_SECS),
 	)
 	.await?;
 
