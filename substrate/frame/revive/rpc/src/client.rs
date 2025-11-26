@@ -1104,11 +1104,18 @@ impl Client {
 			value: subxt::utils::Static(remainder),
 		});
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
-		let tx = self
+		let mut tx_progress = self
 			.api
 			.tx()
 			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
 			.await?;
+
+		// wait for transaction to be included in a block
+		if !self.get_automine().await {
+			let _ = self.mine(Some(U256::from(2)), None).await?;
+		} else {
+			let _ = self.mine(Some(U256::from(1)), None).await?;
+		}
 
 		Ok(Some(new_free))
 	}
