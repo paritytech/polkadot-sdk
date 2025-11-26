@@ -412,7 +412,7 @@ parameter_types! {
 	// Begin election as soon as a new era starts.
 	pub static PlanningEraOffset: u32 = 6;
 	pub MaxPruningItems: u32 = 100;
-	pub static ValidatorSetExportSession: SessionIndex = 5;
+	pub static ValidatorSetExportSession: SessionIndex = 4;
 }
 
 impl pallet_staking_async::Config for Runtime {

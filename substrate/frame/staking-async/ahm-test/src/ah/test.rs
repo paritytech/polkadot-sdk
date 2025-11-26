@@ -1098,8 +1098,8 @@ fn era_lifecycle_test() {
 		let buffered_export_mode = || {
 			// election kicks at the start of 1st session of the era.
 			PlanningEraOffset::set(5);
-			// export validator set in the 5th session.
-			ValidatorSetExportSession::set(5);
+			// export validator set at the end of 4th session.
+			ValidatorSetExportSession::set(4);
 		};
 
 		// lets start with immediate export mode

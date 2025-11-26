@@ -675,8 +675,8 @@ pub mod pallet {
 							// Check if we've reached the target session offset
 							let last_session_end =
 								LastSessionReportEndingIndex::<T>::get().unwrap_or(0);
-							let current_session = last_session_end.saturating_add(1);
-							let session_offset = current_session.saturating_sub(era_activation_end);
+							let session_offset = last_session_end.saturating_sub(era_activation_end);
+
 							session_offset >= T::ValidatorSetExportSession::get()
 						}
 					},
@@ -734,12 +734,12 @@ pub mod pallet {
 		/// it.
 		type MaxValidatorSetRetries: Get<u32>;
 
-		/// The session within an era at which to export validator sets to RC.
+		/// The end session index within an era post which we export validator set to RC.
 		///
 		/// This is a 1-indexed session number relative to the era start:
 		/// - 0 = export immediately when received from staking pallet
-		/// - 1 = export at first session of era (right after era activates)
-		/// - 5 = export at 5th session of era (for 6-session eras)
+		/// - 1 = export at end of first session of era
+		/// - 5 = export at end of 5th session of era (for 6-session eras)
 		///
 		/// The validator set is placed in `OutgoingValidatorSet` when election completes
 		/// in `pallet-staking-async`. The XCM message is sent when BOTH conditions met:
@@ -748,12 +748,12 @@ pub mod pallet {
 		///
 		/// Setting to 0 bypasses the session check and exports immediately.
 		///
-		/// Example: With `SessionsPerEra=6` and `ValidatorSetExportSession=5`:
+		/// Example: With `SessionsPerEra=6` and `ValidatorSetExportSession=4`:
 		/// - Session 0: Election completes → validator set buffered in `OutgoingValidatorSet`
 		/// - Sessions 1-4: Buffered (session offset < 5)
-		/// - Session 5: Export triggered (offset >= 5), XCM sent
+		/// - End of Session 4 and start of Session 5: Export triggered.
 		///
-		/// Must be <= SessionsPerEra.
+		/// Must be < SessionsPerEra.
 		type ValidatorSetExportSession: Get<SessionIndex>;
 	}
 
