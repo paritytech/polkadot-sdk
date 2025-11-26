@@ -50,7 +50,7 @@ pub trait HeaderBackend<Block: BlockT>: Send + Sync {
 	fn hash(&self, number: NumberFor<Block>) -> Result<Option<Block::Hash>>;
 	/// Returns hashes of all blocks that are leaves of the block tree.
 	/// in other words, that have no children, are chain heads.
-	fn leaf_hashes(&self) -> Result<Vec<Block::Hash>>;
+	fn leaves(&self) -> Result<Vec<Block::Hash>>;
 
 	/// Convert an arbitrary block ID into a block hash.
 	fn block_hash_from_id(&self, id: &BlockId<Block>) -> Result<Option<Block::Hash>> {
@@ -202,7 +202,7 @@ pub trait Backend<Block: BlockT>:
 				// `base_header` is on a dead fork.
 				return Ok(None);
 			}
-			self.leaves()?
+			HeaderBackend::leaves(self)?
 		};
 
 		// for each chain. longest chain first. shortest last
@@ -263,7 +263,7 @@ pub trait Backend<Block: BlockT>:
 			return Ok(DisplacedLeavesAfterFinalization::default());
 		}
 
-		let leaves = self.leaves()?;
+		let leaves = HeaderBackend::leaves(self)?;
 
 		let now = std::time::Instant::now();
 		debug!(

@@ -794,7 +794,7 @@ mod test {
 				hash: B::Hash,
 			) -> Result<Option<<<B as BlockT>::Header as HeaderT>::Number>, BlockchainError>;
 			fn hash(&self, number: NumberFor<B>) -> Result<Option<B::Hash>, BlockchainError>;
-			fn leaf_hashes(&self) -> Result<Vec<B::Hash>, BlockchainError>;
+			fn leaves(&self) -> Result<Vec<B::Hash>, BlockchainError>;
 		}
 	}
 

@@ -269,8 +269,8 @@ impl HeaderBackend<Block> for MockClient {
 		self.client.lock().hash(number)
 	}
 
-	fn leaf_hashes(&self) -> sp_blockchain::Result<Vec<<Block as BlockT>::Hash>> {
-		self.client.lock().leaf_hashes()
+	fn leaves(&self) -> sp_blockchain::Result<Vec<<Block as BlockT>::Hash>> {
+		self.client.lock().leaves()
 	}
 }
 

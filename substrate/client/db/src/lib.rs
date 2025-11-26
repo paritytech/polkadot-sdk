@@ -718,7 +718,7 @@ impl<Block: BlockT> sc_client_api::blockchain::HeaderBackend<Block> for Blockcha
 		.map(|header| header.hash()))
 	}
 
-	fn leaf_hashes(&self) -> ClientResult<Vec<<Block as BlockT>::Hash>> {
+	fn leaves(&self) -> ClientResult<Vec<<Block as BlockT>::Hash>> {
 		Ok(self.leaves.read().hashes())
 	}
 }
@@ -3300,7 +3300,7 @@ pub(crate) mod tests {
 			let displaced = blockchain
 				.displaced_leaves_after_finalizing(a3_hash, a3_number, H256::from([200; 32]))
 				.unwrap();
-			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, genesis_hash]);
+			assert_eq!(HeaderBackend::leaves(blockchain).unwrap(), vec![a4_hash, genesis_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![(genesis_number, genesis_hash)]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
 		}
@@ -3309,7 +3309,7 @@ pub(crate) mod tests {
 			let displaced = blockchain
 				.displaced_leaves_after_finalizing(a4_hash, a4_number, a3_hash)
 				.unwrap();
-			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, genesis_hash]);
+			assert_eq!(HeaderBackend::leaves(blockchain).unwrap(), vec![a4_hash, genesis_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![(genesis_number, genesis_hash)]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
 		}
@@ -3328,7 +3328,7 @@ pub(crate) mod tests {
 			let displaced = blockchain
 				.displaced_leaves_after_finalizing(a3_hash, a3_number, H256::from([2; 32]))
 				.unwrap();
-			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, a1_hash]);
+			assert_eq!(HeaderBackend::leaves(blockchain).unwrap(), vec![a4_hash, a1_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
 		}
@@ -3348,7 +3348,7 @@ pub(crate) mod tests {
 			let displaced = blockchain
 				.displaced_leaves_after_finalizing(a3_hash, a3_number, H256::from([2; 32]))
 				.unwrap();
-			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, a1_hash, b1_hash]);
+			assert_eq!(HeaderBackend::leaves(blockchain).unwrap(), vec![a4_hash, a1_hash, b1_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
 		}
@@ -3373,7 +3373,7 @@ pub(crate) mod tests {
 			let displaced = blockchain
 				.displaced_leaves_after_finalizing(a3_hash, a3_number, H256::from([2; 32]))
 				.unwrap();
-			assert_eq!(blockchain.leaves().unwrap(), vec![b5_hash, a4_hash, a1_hash]);
+			assert_eq!(HeaderBackend::leaves(blockchain).unwrap(), vec![b5_hash, a4_hash, a1_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
 		}
@@ -3390,7 +3390,10 @@ pub(crate) mod tests {
 			let displaced = blockchain
 				.displaced_leaves_after_finalizing(a4_hash, a4_number, a3_hash)
 				.unwrap();
-			assert_eq!(blockchain.leaves().unwrap(), vec![b5_hash, a4_hash, c4_hash, a1_hash]);
+			assert_eq!(
+				HeaderBackend::leaves(blockchain).unwrap(),
+				vec![b5_hash, a4_hash, c4_hash, a1_hash]
+			);
 			assert_eq!(displaced.displaced_leaves, vec![(c4_number, c4_hash)]);
 			assert_eq!(displaced.displaced_blocks, vec![c4_hash]);
 		}
@@ -3599,20 +3602,26 @@ pub(crate) mod tests {
 		let block1_b = insert_header(&backend, 1, block0, None, [1; 32].into());
 		let block1_c = insert_header(&backend, 1, block0, None, [2; 32].into());
 
-		assert_eq!(backend.blockchain().leaves().unwrap(), vec![block1_a, block1_b, block1_c]);
+		assert_eq!(
+			HeaderBackend::leaves(backend.blockchain()).unwrap(),
+			vec![block1_a, block1_b, block1_c]
+		);
 
 		let block2_a = insert_header(&backend, 2, block1_a, None, Default::default());
 		let block2_b = insert_header(&backend, 2, block1_b, None, Default::default());
 
 		let block3_b = insert_header(&backend, 3, block2_b, None, [3; 32].into());
 
-		assert_eq!(backend.blockchain().leaves().unwrap(), vec![block3_b, block2_a, block1_c]);
+		assert_eq!(
+			HeaderBackend::leaves(backend.blockchain()).unwrap(),
+			vec![block3_b, block2_a, block1_c]
+		);
 
 		backend.finalize_block(block1_a, None).unwrap();
 		backend.finalize_block(block2_a, None).unwrap();
 
 		// All leaves are pruned that are known to not belong to canonical branch
-		assert_eq!(backend.blockchain().leaves().unwrap(), vec![block2_a]);
+		assert_eq!(HeaderBackend::leaves(backend.blockchain()).unwrap(), vec![block2_a]);
 	}
 
 	#[test]
@@ -4215,7 +4224,10 @@ pub(crate) mod tests {
 		assert_eq!(backend.blockchain().info().best_hash, best_hash);
 		assert!(backend.remove_leaf_block(best_hash).is_err());
 
-		assert_eq!(backend.blockchain().leaves().unwrap(), vec![blocks[2], blocks[3], best_hash]);
+		assert_eq!(
+			HeaderBackend::leaves(backend.blockchain()).unwrap(),
+			vec![blocks[2], blocks[3], best_hash]
+		);
 		assert_eq!(backend.blockchain().children(blocks[1]).unwrap(), vec![blocks[2], blocks[3]]);
 
 		assert!(backend.have_state_at(blocks[3], 2));
@@ -4223,7 +4235,10 @@ pub(crate) mod tests {
 		backend.remove_leaf_block(blocks[3]).unwrap();
 		assert!(!backend.have_state_at(blocks[3], 2));
 		assert!(backend.blockchain().header(blocks[3]).unwrap().is_none());
-		assert_eq!(backend.blockchain().leaves().unwrap(), vec![blocks[2], best_hash]);
+		assert_eq!(
+			HeaderBackend::leaves(backend.blockchain()).unwrap(),
+			vec![blocks[2], best_hash]
+		);
 		assert_eq!(backend.blockchain().children(blocks[1]).unwrap(), vec![blocks[2]]);
 
 		assert!(backend.have_state_at(blocks[2], 2));
@@ -4231,7 +4246,10 @@ pub(crate) mod tests {
 		backend.remove_leaf_block(blocks[2]).unwrap();
 		assert!(!backend.have_state_at(blocks[2], 2));
 		assert!(backend.blockchain().header(blocks[2]).unwrap().is_none());
-		assert_eq!(backend.blockchain().leaves().unwrap(), vec![best_hash, blocks[1]]);
+		assert_eq!(
+			HeaderBackend::leaves(backend.blockchain()).unwrap(),
+			vec![best_hash, blocks[1]]
+		);
 		assert_eq!(backend.blockchain().children(blocks[1]).unwrap(), vec![]);
 
 		assert!(backend.have_state_at(blocks[1], 1));
@@ -4239,7 +4257,7 @@ pub(crate) mod tests {
 		backend.remove_leaf_block(blocks[1]).unwrap();
 		assert!(!backend.have_state_at(blocks[1], 1));
 		assert!(backend.blockchain().header(blocks[1]).unwrap().is_none());
-		assert_eq!(backend.blockchain().leaves().unwrap(), vec![best_hash]);
+		assert_eq!(HeaderBackend::leaves(backend.blockchain()).unwrap(), vec![best_hash]);
 		assert_eq!(backend.blockchain().children(blocks[0]).unwrap(), vec![best_hash]);
 	}
 
@@ -4319,11 +4337,11 @@ pub(crate) mod tests {
 		let block1_a = insert_header(&backend, 1, block0, None, Default::default());
 		let block2_a = insert_header(&backend, 2, block1_a, None, Default::default());
 		backend.finalize_block(block1_a, None).unwrap();
-		assert_eq!(backend.blockchain().leaves().unwrap(), vec![block2_a]);
+		assert_eq!(HeaderBackend::leaves(backend.blockchain()).unwrap(), vec![block2_a]);
 
 		// Insert a fork prior to finalization point. Leave should not be created.
 		insert_header_no_head(&backend, 1, block0, [1; 32].into());
-		assert_eq!(backend.blockchain().leaves().unwrap(), vec![block2_a]);
+		assert_eq!(HeaderBackend::leaves(backend.blockchain()).unwrap(), vec![block2_a]);
 	}
 
 	#[test]
@@ -4403,7 +4421,7 @@ pub(crate) mod tests {
 		assert!(backend.have_state_at(block4, 4));
 		assert!(backend.have_state_at(block3_fork, 3));
 
-		assert_eq!(backend.blockchain.leaves().unwrap(), vec![block4, block3_fork]);
+		assert_eq!(HeaderBackend::leaves(&backend.blockchain).unwrap(), vec![block4, block3_fork]);
 		assert_eq!(4, backend.blockchain.leaves.read().highest_leaf().unwrap().0);
 
 		assert_eq!(3, backend.revert(1, false).unwrap().0);
@@ -4438,7 +4456,7 @@ pub(crate) mod tests {
 		ensure_pruned(block4, 4);
 		ensure_pruned(block3_fork, 3);
 
-		assert_eq!(backend.blockchain.leaves().unwrap(), vec![block1]);
+		assert_eq!(HeaderBackend::leaves(&backend.blockchain).unwrap(), vec![block1]);
 		assert_eq!(1, backend.blockchain.leaves.read().highest_leaf().unwrap().0);
 	}
 
@@ -4482,12 +4500,12 @@ pub(crate) mod tests {
 		let block1 = insert_header(&backend, 1, block0, None, Default::default());
 		// Add block 2 not as the best block
 		let block2 = insert_header_no_head(&backend, 2, block1, Default::default());
-		assert_eq!(backend.blockchain().leaves().unwrap(), vec![block2]);
+		assert_eq!(HeaderBackend::leaves(backend.blockchain()).unwrap(), vec![block2]);
 		assert_eq!(backend.blockchain().info().best_hash, block1);
 
 		// Add block 2 as the best block
 		let block2 = insert_header(&backend, 2, block1, None, Default::default());
-		assert_eq!(backend.blockchain().leaves().unwrap(), vec![block2]);
+		assert_eq!(HeaderBackend::leaves(backend.blockchain()).unwrap(), vec![block2]);
 		assert_eq!(backend.blockchain().info().best_hash, block2);
 	}
 

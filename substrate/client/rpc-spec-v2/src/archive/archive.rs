@@ -43,9 +43,7 @@ use sc_client_api::{
 };
 use sc_rpc::utils::Subscription;
 use sp_api::{CallApiAt, CallContext};
-use sp_blockchain::{
-	Backend as BlockChainBackend, Error as BlockChainError, HeaderBackend, HeaderMetadata,
-};
+use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::{Bytes, U256};
 use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, NumberFor},
@@ -158,8 +156,7 @@ where
 
 		let blockchain = self.backend.blockchain();
 		// Fetch all the leaves of the blockchain that are on a higher or equal height.
-		let mut headers: Vec<_> = blockchain
-			.leaves()
+		let mut headers: Vec<_> = HeaderBackend::leaves(blockchain)
 			.map_err(|error| ArchiveError::FetchLeaves(error.to_string()))?
 			.into_iter()
 			.filter_map(|hash| {

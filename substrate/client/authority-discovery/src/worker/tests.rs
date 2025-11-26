@@ -105,7 +105,7 @@ impl<Block: BlockT> HeaderBackend<Block> for TestApi {
 		Ok(None)
 	}
 
-	fn leaf_hashes(&self) -> sp_blockchain::Result<Vec<<Block as BlockT>::Hash>> {
+	fn leaves(&self) -> sp_blockchain::Result<Vec<<Block as BlockT>::Hash>> {
 		Ok(vec![])
 	}
 }

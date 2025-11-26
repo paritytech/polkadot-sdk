@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use sc_client_api::{blockchain::Backend as _, Backend, HeaderBackend as _};
-use sp_blockchain::{HashAndNumber, HeaderMetadata, TreeRoute};
+use sc_client_api::Backend;
+use sp_blockchain::{HashAndNumber, HeaderBackend, HeaderMetadata, TreeRoute};
 use sp_runtime::traits::{Block as BlockT, NumberFor, One, Saturating, UniqueSaturatedInto, Zero};
 use std::{
 	collections::{HashMap, HashSet},
@@ -111,7 +111,7 @@ where
 		self.lowest_level = info.finalized_number;
 		self.import_counter = info.finalized_number;
 
-		for leaf in self.backend.blockchain().leaves().unwrap_or_default() {
+		for leaf in HeaderBackend::leaves(self.backend.blockchain()).unwrap_or_default() {
 			let Ok(mut meta) = self.backend.blockchain().header_metadata(leaf) else {
 				log::debug!(
 					target: LOG_TARGET,
@@ -175,7 +175,7 @@ where
 
 		// Sort leaves by freshness only once (less fresh first) and keep track of
 		// leaves that were invalidated on removal.
-		let mut leaves = self.backend.blockchain().leaves().unwrap_or_default();
+		let mut leaves = HeaderBackend::leaves(self.backend.blockchain()).unwrap_or_default();
 		leaves.sort_unstable_by(|a, b| self.freshness.get(a).cmp(&self.freshness.get(b)));
 		let mut invalidated_leaves = HashSet::new();
 

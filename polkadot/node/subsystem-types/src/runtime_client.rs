@@ -705,8 +705,8 @@ where
 		self.client.hash(number)
 	}
 
-	fn leaf_hashes(&self) -> sp_blockchain::Result<Vec<<Block as BlockT>::Hash>> {
-		self.client.leaf_hashes()
+	fn leaves(&self) -> sp_blockchain::Result<Vec<<Block as BlockT>::Hash>> {
+		self.client.leaves()
 	}
 }
 

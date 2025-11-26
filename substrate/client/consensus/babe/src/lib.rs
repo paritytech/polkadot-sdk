@@ -113,8 +113,7 @@ use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_application_crypto::AppCrypto;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::{
-	Backend as _, BlockStatus, Error as ClientError, HeaderBackend, HeaderMetadata,
-	Result as ClientResult,
+	BlockStatus, Error as ClientError, HeaderBackend, HeaderMetadata, Result as ClientResult,
 };
 use sp_consensus::{BlockOrigin, Environment, Error as ConsensusError, Proposer, SelectChain};
 use sp_consensus_babe::{inherents::BabeInherentData, SlotDuration};
@@ -1943,7 +1942,7 @@ where
 
 	let mut weight_keys = HashSet::with_capacity(revertible.saturated_into());
 
-	let leaves = backend.blockchain().leaves()?.into_iter().filter(|&leaf| {
+	let leaves = HeaderBackend::leaves(backend.blockchain())?.into_iter().filter(|&leaf| {
 		sp_blockchain::tree_route(&*client, revert_up_to_hash, leaf)
 			.map(|route| route.retracted().is_empty())
 			.unwrap_or_default()

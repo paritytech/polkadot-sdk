@@ -57,7 +57,7 @@ where
 		let finalized_hash = client.info().finalized_hash;
 		let mut authorities_cache = ForkTree::new();
 		for mut hash in
-			client.leaf_hashes().map_err(|e| format!("Could not get leaf hashes: {e}"))?
+			client.leaves().map_err(|e| format!("Could not get leaf hashes: {e}"))?
 		{
 			// Import the entire chain back to the first imported ancestor, or to the last finalized
 			// block if there is no imported ancestor. The chain must be imported in order, from
