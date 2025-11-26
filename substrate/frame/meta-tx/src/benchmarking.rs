@@ -114,7 +114,7 @@ mod benchmarks {
 		assert_last_event::<T>(
 			Event::Dispatched {
 				result: Ok(PostDispatchInfo {
-					actual_weight: Some(info.call_weight + meta_ext_weight),
+					actual_weight: Some(info.call_weight.saturating_add(meta_ext_weight)),
 					pays_fee: Pays::Yes,
 				}),
 			}

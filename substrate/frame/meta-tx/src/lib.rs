@@ -65,7 +65,6 @@ pub use weights::WeightInfo;
 mod extension;
 pub use extension::MetaTxMarker;
 
-use core::ops::Add;
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::*,
@@ -181,7 +180,7 @@ pub mod pallet {
 			let extension_weight = meta_tx.extension.weight(&meta_tx.call);
 			let bare_call_weight = T::WeightInfo::bare_dispatch();
 			(
-				dispatch_info.call_weight.add(extension_weight).add(bare_call_weight),
+				dispatch_info.call_weight.saturating_add(extension_weight).saturating_add(bare_call_weight),
 				dispatch_info.class,
 			)
 		})]

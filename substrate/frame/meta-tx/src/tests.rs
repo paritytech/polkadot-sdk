@@ -146,7 +146,7 @@ fn sign_and_execute_meta_tx() {
 		let meta_tx_weight = remark_call
 			.get_dispatch_info()
 			.call_weight
-			.add(meta_tx_ext.weight(&remark_call));
+			.saturating_add(meta_tx_ext.weight(&remark_call));
 
 		assert_eq!(
 			result,
@@ -371,7 +371,7 @@ fn meta_tx_call_fails() {
 		let meta_tx_weight = transfer_call
 			.get_dispatch_info()
 			.call_weight
-			.add(meta_tx_ext.weight(&transfer_call));
+			.saturating_add(meta_tx_ext.weight(&transfer_call));
 
 		assert_eq!(
 			result,
