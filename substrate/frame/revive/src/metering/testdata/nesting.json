@@ -2,196 +2,256 @@
   {
     "name": "nesting_no_limits",
     "eth_gas_limit": 5000000000,
-    "extra_ref_time": 1000000000,
-    "extra_proof": 2000,
-    "ref_time_charge": 1000,
-    "proof_size_charge": 1000,
     "deposit_charge": 1000,
     "call_resource": {
       "type": "NoLimits"
     },
     "expected": {
       "gas_left": 2999992500,
-      "ref_time_left": 1499996250,
-      "proof_size_left": 10107,
       "deposit_left": 599998500,
-      "gas_consumed": 2000007500
+      "gas_consumed": 2000007500,
+      "weight_left": {
+        "ref_time": 1499996250,
+        "proof_size": 10107
+      }
+    },
+    "extra_weight": {
+      "ref_time": 1000000000,
+      "proof_size": 2000
+    },
+    "weight_charge": {
+      "ref_time": 1000,
+      "proof_size": 1000
     }
   },
   {
     "name": "nesting_no_limits_large",
     "eth_gas_limit": 5000000000,
-    "extra_ref_time": 1000000000,
-    "extra_proof": 2000,
-    "ref_time_charge": 1000000000,
-    "proof_size_charge": 10000,
     "deposit_charge": 50000,
     "call_resource": {
       "type": "NoLimits"
     },
     "expected": {
       "gas_left": 422112782,
-      "ref_time_left": 499874750,
-      "proof_size_left": 1106,
       "deposit_left": 84422556,
-      "gas_consumed": 4577887218
+      "gas_consumed": 4577887218,
+      "weight_left": {
+        "ref_time": 499874750,
+        "proof_size": 1106
+      }
+    },
+    "extra_weight": {
+      "ref_time": 1000000000,
+      "proof_size": 2000
+    },
+    "weight_charge": {
+      "ref_time": 1000000000,
+      "proof_size": 10000
     }
   },
   {
     "name": "nesting_refund",
     "eth_gas_limit": 5000000000,
-    "extra_ref_time": 1000000000,
-    "extra_proof": 3000,
-    "ref_time_charge": 2000,
-    "proof_size_charge": 100000,
     "deposit_charge": -7000000000,
     "call_resource": {
       "type": "NoLimits"
     },
     "expected": {
       "gas_left": 708617665,
-      "ref_time_left": 18999997750,
-      "proof_size_left": 1857,
       "deposit_left": 141723533,
-      "gas_consumed": 4291382335
+      "gas_consumed": 4291382335,
+      "weight_left": {
+        "ref_time": 18999997750,
+        "proof_size": 1857
+      }
+    },
+    "extra_weight": {
+      "ref_time": 1000000000,
+      "proof_size": 3000
+    },
+    "weight_charge": {
+      "ref_time": 2000,
+      "proof_size": 100000
     }
   },
   {
     "name": "nesting_large_refund",
     "eth_gas_limit": 5000000000,
-    "extra_ref_time": 1000000000,
-    "extra_proof": 3000,
-    "ref_time_charge": 2000,
-    "proof_size_charge": 100000,
     "deposit_charge": -70000000000,
     "call_resource": {
       "type": "NoLimits"
     },
     "expected": {
       "gas_left": 315708617665,
-      "ref_time_left": 176499997750,
-      "proof_size_left": 827611,
       "deposit_left": 63141723533,
-      "gas_consumed": 0
+      "gas_consumed": 0,
+      "weight_left": {
+        "ref_time": 176499997750,
+        "proof_size": 827611
+      }
+    },
+    "extra_weight": {
+      "ref_time": 1000000000,
+      "proof_size": 3000
+    },
+    "weight_charge": {
+      "ref_time": 2000,
+      "proof_size": 100000
     }
   },
   {
     "name": "nesting_weight_deposit_basic",
     "eth_gas_limit": 5000000000,
-    "extra_ref_time": 1000000000,
-    "extra_proof": 2000,
-    "ref_time_charge": 1000,
-    "proof_size_charge": 1000,
     "deposit_charge": 1000,
     "call_resource": {
       "type": "WeightDeposit",
-      "ref_time": 10000000000,
-      "proof_size": 100000,
-      "deposit_limit": 1000000000
+      "deposit_limit": 1000000000,
+      "weight": {
+        "ref_time": 10000000000,
+        "proof_size": 100000
+      }
     },
     "expected": {
       "gas_left": 2999992500,
-      "ref_time_left": 1499996250,
-      "proof_size_left": 10107,
       "deposit_left": 599998500,
-      "gas_consumed": 2000007500
+      "gas_consumed": 2000007500,
+      "weight_left": {
+        "ref_time": 1499996250,
+        "proof_size": 10107
+      }
+    },
+    "extra_weight": {
+      "ref_time": 1000000000,
+      "proof_size": 2000
+    },
+    "weight_charge": {
+      "ref_time": 1000,
+      "proof_size": 1000
     }
   },
   {
     "name": "nesting_weight_deposit_ref_time_limited",
     "eth_gas_limit": 5000000000,
-    "extra_ref_time": 1000000000,
-    "extra_proof": 2000,
-    "ref_time_charge": 1000,
-    "proof_size_charge": 1000,
     "deposit_charge": 1000,
     "call_resource": {
       "type": "WeightDeposit",
-      "ref_time": 1000000000,
-      "proof_size": 100000,
-      "deposit_limit": 1000000000
+      "deposit_limit": 1000000000,
+      "weight": {
+        "ref_time": 1000000000,
+        "proof_size": 100000
+      }
     },
     "expected": {
       "gas_left": 2999992500,
-      "ref_time_left": 1000000000,
-      "proof_size_left": 10107,
       "deposit_left": 599998500,
-      "gas_consumed": 2000007500
+      "gas_consumed": 2000007500,
+      "weight_left": {
+        "ref_time": 1000000000,
+        "proof_size": 10107
+      }
+    },
+    "extra_weight": {
+      "ref_time": 1000000000,
+      "proof_size": 2000
+    },
+    "weight_charge": {
+      "ref_time": 1000,
+      "proof_size": 1000
     }
   },
   {
     "name": "nesting_weight_deposit_proof_limited",
     "eth_gas_limit": 5000000000,
-    "extra_ref_time": 1000000000,
-    "extra_proof": 2000,
-    "ref_time_charge": 1000,
-    "proof_size_charge": 1000,
     "deposit_charge": 1000,
     "call_resource": {
       "type": "WeightDeposit",
-      "ref_time": 10000000000,
-      "proof_size": 10000,
-      "deposit_limit": 1000000000
+      "deposit_limit": 1000000000,
+      "weight": {
+        "ref_time": 10000000000,
+        "proof_size": 10000
+      }
     },
     "expected": {
       "gas_left": 2999992500,
-      "ref_time_left": 1499996250,
-      "proof_size_left": 10000,
       "deposit_left": 599998500,
-      "gas_consumed": 2000007500
+      "gas_consumed": 2000007500,
+      "weight_left": {
+        "ref_time": 1499996250,
+        "proof_size": 10000
+      }
+    },
+    "extra_weight": {
+      "ref_time": 1000000000,
+      "proof_size": 2000
+    },
+    "weight_charge": {
+      "ref_time": 1000,
+      "proof_size": 1000
     }
   },
   {
     "name": "nesting_weight_deposit_deposit_limited",
     "eth_gas_limit": 5000000000,
-    "extra_ref_time": 1000000000,
-    "extra_proof": 2000,
-    "ref_time_charge": 1000,
-    "proof_size_charge": 1000,
     "deposit_charge": 1000,
     "call_resource": {
       "type": "WeightDeposit",
-      "ref_time": 10000000000,
-      "proof_size": 100000,
-      "deposit_limit": 100000000
+      "deposit_limit": 100000000,
+      "weight": {
+        "ref_time": 10000000000,
+        "proof_size": 100000
+      }
     },
     "expected": {
       "gas_left": 2999992500,
-      "ref_time_left": 1499996250,
-      "proof_size_left": 10107,
       "deposit_left": 100000000,
-      "gas_consumed": 2000007500
+      "gas_consumed": 2000007500,
+      "weight_left": {
+        "ref_time": 1499996250,
+        "proof_size": 10107
+      }
+    },
+    "extra_weight": {
+      "ref_time": 1000000000,
+      "proof_size": 2000
+    },
+    "weight_charge": {
+      "ref_time": 1000,
+      "proof_size": 1000
     }
   },
   {
     "name": "nesting_weight_deposit_small_limits",
     "eth_gas_limit": 5000000000,
-    "extra_ref_time": 1000000000,
-    "extra_proof": 2000,
-    "ref_time_charge": 1000,
-    "proof_size_charge": 1000,
     "deposit_charge": 1000,
     "call_resource": {
       "type": "WeightDeposit",
-      "ref_time": 40000,
-      "proof_size": 200,
-      "deposit_limit": 300000
+      "deposit_limit": 300000,
+      "weight": {
+        "ref_time": 40000,
+        "proof_size": 200
+      }
     },
     "expected": {
       "gas_left": 1580000,
-      "ref_time_left": 40000,
-      "proof_size_left": 200,
       "deposit_left": 300000,
-      "gas_consumed": 2000007500
+      "gas_consumed": 2000007500,
+      "weight_left": {
+        "ref_time": 40000,
+        "proof_size": 200
+      }
+    },
+    "extra_weight": {
+      "ref_time": 1000000000,
+      "proof_size": 2000
+    },
+    "weight_charge": {
+      "ref_time": 1000,
+      "proof_size": 1000
     }
   },
   {
     "name": "nesting_ethereum_gas_higher",
     "eth_gas_limit": 5000000000,
-    "extra_ref_time": 1000000000,
-    "extra_proof": 2000,
-    "ref_time_charge": 1000,
-    "proof_size_charge": 1000,
     "deposit_charge": 1000,
     "call_resource": {
       "type": "Ethereum",
@@ -200,19 +260,25 @@
     },
     "expected": {
       "gas_left": 2999992500,
-      "ref_time_left": 1499996250,
-      "proof_size_left": 10107,
       "deposit_left": 599998500,
-      "gas_consumed": 2000007500
+      "gas_consumed": 2000007500,
+      "weight_left": {
+        "ref_time": 1499996250,
+        "proof_size": 10107
+      }
+    },
+    "extra_weight": {
+      "ref_time": 1000000000,
+      "proof_size": 2000
+    },
+    "weight_charge": {
+      "ref_time": 1000,
+      "proof_size": 1000
     }
   },
   {
     "name": "nesting_ethereum_gas_lower",
     "eth_gas_limit": 5000000000,
-    "extra_ref_time": 1000000000,
-    "extra_proof": 2000,
-    "ref_time_charge": 1000,
-    "proof_size_charge": 1000,
     "deposit_charge": 1000,
     "call_resource": {
       "type": "Ethereum",
@@ -221,19 +287,25 @@
     },
     "expected": {
       "gas_left": 2999992499,
-      "ref_time_left": 1499996249,
-      "proof_size_left": 10107,
       "deposit_left": 599998499,
-      "gas_consumed": 2000007500
+      "gas_consumed": 2000007500,
+      "weight_left": {
+        "ref_time": 1499996249,
+        "proof_size": 10107
+      }
+    },
+    "extra_weight": {
+      "ref_time": 1000000000,
+      "proof_size": 2000
+    },
+    "weight_charge": {
+      "ref_time": 1000,
+      "proof_size": 1000
     }
   },
   {
     "name": "nesting_ethereum_minimal_gas",
     "eth_gas_limit": 5000000000,
-    "extra_ref_time": 1000000000,
-    "extra_proof": 2000,
-    "ref_time_charge": 1000000000,
-    "proof_size_charge": 10000,
     "deposit_charge": 50000,
     "call_resource": {
       "type": "Ethereum",
@@ -242,10 +314,20 @@
     },
     "expected": {
       "gas_left": 10000,
-      "ref_time_left": 288823359,
-      "proof_size_left": 0,
       "deposit_left": 2000,
-      "gas_consumed": 4577887218
+      "gas_consumed": 4577887218,
+      "weight_left": {
+        "ref_time": 288823359,
+        "proof_size": 0
+      }
+    },
+    "extra_weight": {
+      "ref_time": 1000000000,
+      "proof_size": 2000
+    },
+    "weight_charge": {
+      "ref_time": 1000000000,
+      "proof_size": 10000
     }
   }
 ]

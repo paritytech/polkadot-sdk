@@ -33,8 +33,7 @@ use test_case::test_case;
 #[derive(Debug, serde::Deserialize)]
 struct MeterState {
 	gas_left: u64,
-	ref_time_left: u64,
-	proof_size_left: u64,
+	weight_left: Weight,
 	deposit_left: u64,
 	#[serde(default)]
 	gas_consumed: u64,
@@ -43,16 +42,16 @@ struct MeterState {
 #[derive(Debug, serde::Deserialize)]
 #[serde(tag = "type")]
 enum ChargeOp {
-	Weight { ref_time: u64, proof_size: u64, expected: Option<MeterState> },
+	Weight { weight: Weight, expected: Option<MeterState> },
 	Deposit { amount: i64, expected: Option<MeterState> },
 }
 
-/// A trivial token that charges the specified number of weight units.
+/// A trivial token that charges the specified weight.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
-struct TestToken(u64, u64);
+struct TestToken(Weight);
 impl WeightToken<Test> for TestToken {
 	fn weight(&self) -> Weight {
-		Weight::from_parts(self.0, self.1)
+		self.0
 	}
 }
 
@@ -106,23 +105,15 @@ fn substrate_metering_initialization_works() {
 	struct InitializationTest {
 		name: String,
 		eth_gas_limit: u64,
-		extra_ref_time: u64,
-		extra_proof: u64,
+		extra_weight: Weight,
 		expected: Option<MeterState>,
 	}
 
 	#[derive(Debug, serde::Deserialize)]
 	struct InitializationWeightLimitTest {
 		name: String,
-		ref_time_limit: u64,
-		proof_size_limit: u64,
-		expected: WeightState,
-	}
-
-	#[derive(Debug, serde::Deserialize)]
-	struct WeightState {
-		ref_time_left: u64,
-		proof_size_left: u64,
+		weight_limit: Weight,
+		expected: Weight,
 	}
 
 	let tests: Vec<InitializationTest> =
@@ -136,7 +127,7 @@ fn substrate_metering_initialization_works() {
 			.execute_with(|| {
 				let eth_tx_info = EthTxInfo::<Test>::new(
 					100,
-					Weight::from_parts(test.extra_ref_time, test.extra_proof),
+					test.extra_weight,
 				);
 				let transaction_meter = TransactionMeter::<Test>::new(
 					TransactionLimits::EthereumGas {
@@ -156,7 +147,7 @@ fn substrate_metering_initialization_works() {
 						test.name
 					);
 					assert_eq!(
-						Weight::from_parts(expected.ref_time_left, expected.proof_size_left),
+						expected.weight_left,
 						transaction_meter.weight_left().unwrap(),
 						"Test '{}': weight_left mismatch",
 						test.name
@@ -191,17 +182,14 @@ fn substrate_metering_initialization_works() {
 				let transaction_meter = TransactionMeter::<Test>::new(
 					TransactionLimits::EthereumGas {
 						eth_gas_limit: 5_000_000_000,
-						maybe_weight_limit: Some(Weight::from_parts(
-							test.ref_time_limit,
-							test.proof_size_limit,
-						)),
+						maybe_weight_limit: Some(test.weight_limit),
 						eth_tx_info,
 					},
 				)
 				.unwrap_or_else(|_| panic!("Test '{}' should succeed", test.name));
 
 				assert_eq!(
-					Weight::from_parts(test.expected.ref_time_left, test.expected.proof_size_left),
+					test.expected,
 					transaction_meter.weight_left().unwrap(),
 					"Test '{}': weight_left mismatch",
 					test.name
@@ -216,8 +204,7 @@ fn substrate_metering_charges_works() {
 	struct ChargesTest {
 		name: String,
 		eth_gas_limit: u64,
-		extra_ref_time: u64,
-		extra_proof: u64,
+		extra_weight: Weight,
 		charges: Vec<ChargeOp>,
 	}
 
@@ -232,7 +219,7 @@ fn substrate_metering_charges_works() {
 			.execute_with(|| {
 				let eth_tx_info = EthTxInfo::<Test>::new(
 					100,
-					Weight::from_parts(test.extra_ref_time, test.extra_proof),
+					test.extra_weight,
 				);
 				let mut transaction_meter = TransactionMeter::<Test>::new(
 					TransactionLimits::EthereumGas {
@@ -245,8 +232,8 @@ fn substrate_metering_charges_works() {
 
 				for charge in test.charges {
 					let is_ok = match charge {
-						ChargeOp::Weight { ref_time, proof_size, expected: _ } => transaction_meter
-							.charge_weight_token(TestToken(ref_time, proof_size))
+						ChargeOp::Weight { weight, expected: _ } => transaction_meter
+							.charge_weight_token(TestToken(weight))
 							.is_ok(),
 						ChargeOp::Deposit { amount, expected: _ } => transaction_meter
 							.charge_deposit(&if amount >= 0 {
@@ -271,7 +258,7 @@ fn substrate_metering_charges_works() {
 							test.name
 						);
 						assert_eq!(
-							Weight::from_parts(expected.ref_time_left, expected.proof_size_left),
+							expected.weight_left,
 							transaction_meter.weight_left().unwrap(),
 							"Test '{}': weight_left mismatch",
 							test.name
@@ -302,10 +289,8 @@ fn substrate_nesting_works() {
 	struct NestingTest {
 		name: String,
 		eth_gas_limit: u64,
-		extra_ref_time: u64,
-		extra_proof: u64,
-		ref_time_charge: u64,
-		proof_size_charge: u64,
+		extra_weight: Weight,
+		weight_charge: Weight,
 		deposit_charge: i64,
 		call_resource: CallResourceType,
 		expected: Option<MeterState>,
@@ -316,8 +301,7 @@ fn substrate_nesting_works() {
 	enum CallResourceType {
 		NoLimits,
 		WeightDeposit {
-			ref_time: u64,
-			proof_size: u64,
+			weight: Weight,
 			deposit_limit: u64,
 		},
 		Ethereum {
@@ -330,9 +314,9 @@ fn substrate_nesting_works() {
 		fn to_call_resources(&self) -> CallResources<Test> {
 			match self {
 				CallResourceType::NoLimits => CallResources::NoLimits,
-				CallResourceType::WeightDeposit { ref_time, proof_size, deposit_limit } =>
+				CallResourceType::WeightDeposit { weight, deposit_limit } =>
 					CallResources::WeightDeposit {
-						weight: Weight::from_parts(*ref_time, *proof_size),
+						weight: *weight,
 						deposit_limit: *deposit_limit,
 					},
 				CallResourceType::Ethereum { gas, add_stipend } =>
@@ -352,7 +336,7 @@ fn substrate_nesting_works() {
 			.execute_with(|| {
 				let eth_tx_info = EthTxInfo::<Test>::new(
 					100,
-					Weight::from_parts(test.extra_ref_time, test.extra_proof),
+					test.extra_weight,
 				);
 				let mut transaction_meter = TransactionMeter::<Test>::new(
 					TransactionLimits::EthereumGas {
@@ -374,7 +358,7 @@ fn substrate_nesting_works() {
 					});
 
 				transaction_meter
-					.charge_weight_token(TestToken(test.ref_time_charge, test.proof_size_charge))
+					.charge_weight_token(TestToken(test.weight_charge))
 					.unwrap_or_else(|_| panic!("Test '{}': failed to charge weight", test.name));
 
 				let nested = transaction_meter.new_nested(&test.call_resource.to_call_resources());
@@ -389,7 +373,7 @@ fn substrate_nesting_works() {
 						test.name
 					);
 					assert_eq!(
-						Weight::from_parts(expected.ref_time_left, expected.proof_size_left),
+						expected.weight_left,
 						nested.weight_left().unwrap(),
 						"Test '{}': weight_left mismatch",
 						test.name
@@ -419,10 +403,8 @@ fn substrate_nesting_charges_works() {
 	struct NestingChargesTest {
 		name: String,
 		eth_gas_limit: u64,
-		extra_ref_time: u64,
-		extra_proof: u64,
-		ref_time_charge: u64,
-		proof_size_charge: u64,
+		extra_weight: Weight,
+		weight_charge: Weight,
 		deposit_charge: i64,
 		nested_gas_limit: u64,
 		charges: Vec<ChargeOp>,
@@ -439,7 +421,7 @@ fn substrate_nesting_charges_works() {
 			.execute_with(|| {
 				let eth_tx_info = EthTxInfo::<Test>::new(
 					100,
-					Weight::from_parts(test.extra_ref_time, test.extra_proof),
+					test.extra_weight,
 				);
 				let mut transaction_meter =
 					TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
@@ -468,11 +450,11 @@ fn substrate_nesting_charges_works() {
 					});
 
 				transaction_meter
-					.charge_weight_token(TestToken(test.ref_time_charge, test.proof_size_charge))
+					.charge_weight_token(TestToken(test.weight_charge))
 					.unwrap_or_else(|_| {
 						panic!(
 							"Test '{}': failed to charge initial weight ({}, {})",
-							test.name, test.ref_time_charge, test.proof_size_charge
+							test.name, test.weight_charge.ref_time(), test.weight_charge.proof_size()
 						)
 					});
 
@@ -490,8 +472,8 @@ fn substrate_nesting_charges_works() {
 
 				for (idx, charge) in test.charges.iter().enumerate() {
 					let is_ok = match charge {
-						ChargeOp::Weight { ref_time, proof_size, .. } => nested
-							.charge_weight_token(TestToken(*ref_time, *proof_size))
+						ChargeOp::Weight { weight, .. } => nested
+							.charge_weight_token(TestToken(*weight))
 							.is_ok(),
 						ChargeOp::Deposit { amount, .. } => nested
 							.charge_deposit(&(if *amount >= 0 {
@@ -522,7 +504,7 @@ fn substrate_nesting_charges_works() {
 							idx + 1
 						);
 						assert_eq!(
-							Weight::from_parts(expected.ref_time_left, expected.proof_size_left),
+							expected.weight_left,
 							nested.weight_left().unwrap(),
 							"Test '{}': charge #{} weight_left mismatch",
 							test.name,
