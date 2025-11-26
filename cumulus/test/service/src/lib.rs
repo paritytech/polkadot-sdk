@@ -230,7 +230,7 @@ pub fn new_partial(
 				Ok((slot, timestamp))
 			},
 			spawner: &task_manager.spawn_essential_handle(),
-			registry: None,
+			registry: config.prometheus_registry(),
 			telemetry: None,
 		},
 	)?;
@@ -426,7 +426,7 @@ where
 		relay_chain_slot_duration,
 		recovery_handle,
 		sync_service: sync_service.clone(),
-		prometheus_registry: None,
+		prometheus_registry: prometheus_registry.as_ref(),
 	})?;
 
 	if let Some(collator_key) = collator_key {
