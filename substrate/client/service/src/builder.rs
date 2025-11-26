@@ -43,7 +43,8 @@ use sc_executor::{
 };
 use sc_keystore::LocalKeystore;
 use sc_network::{
-	config::{FullNetworkConfiguration, ProtocolId, SyncMode},
+	config::{FullNetworkConfiguration, IpfsConfig, ProtocolId, SyncMode},
+	ipfs::IndexedTransactions,
 	multiaddr::Protocol,
 	service::{
 		traits::{PeerStore, RequestResponseConfig},
@@ -98,6 +99,10 @@ use std::{
 	sync::Arc,
 	time::{Duration, SystemTime},
 };
+
+/// Maximum number of blocks advertized to IPFS. Two weeks of 6-seond blocks.
+// TODO: we should synchronize this number with block time & transaction indexing configuration.
+const IPFS_MAX_BLOCKS: u32 = 201600;
 
 /// Full client type.
 pub type TFullClient<TBl, TRtApi, TExec> =
@@ -1077,7 +1082,6 @@ where
 		role: config.role,
 		protocol_id,
 		fork_id,
-		ipfs_server: config.network.ipfs_server,
 		announce_block: config.announce_block,
 		net_config,
 		client,
@@ -1089,6 +1093,7 @@ where
 		network_service_provider,
 		metrics_registry,
 		metrics,
+		blocks_pruning: config.blocks_pruning,
 	})
 }
 
@@ -1104,8 +1109,6 @@ where
 	pub protocol_id: ProtocolId,
 	/// Fork ID.
 	pub fork_id: Option<&'a str>,
-	/// Enable serving block data over IPFS bitswap.
-	pub ipfs_server: bool,
 	/// Announce block automatically after they have been imported.
 	pub announce_block: bool,
 	/// Full network configuration.
@@ -1128,6 +1131,8 @@ where
 	pub metrics_registry: Option<&'a Registry>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
+	/// Block pruning configuration.
+	pub blocks_pruning: BlocksPruning,
 }
 
 /// Build the network service, the network status sinks and an RPC sender, this is a lower-level
@@ -1162,7 +1167,6 @@ where
 		role,
 		protocol_id,
 		fork_id,
-		ipfs_server,
 		announce_block,
 		mut net_config,
 		client,
@@ -1174,6 +1178,7 @@ where
 		network_service_provider,
 		metrics_registry,
 		metrics,
+		blocks_pruning,
 	} = params;
 
 	let genesis_hash = client.info().genesis_hash;
@@ -1189,11 +1194,21 @@ where
 	// install request handlers to `FullNetworkConfiguration`
 	net_config.add_request_response_protocol(light_client_request_protocol_config);
 
-	let bitswap_config = ipfs_server.then(|| {
-		let (handler, config) = Net::bitswap_server(client.clone());
+	// Initialize IPFS server.
+	let ipfs_config = net_config.network_config.ipfs_server.then(|| {
+		let (handler, bitswap_config) = Net::bitswap_server(client.clone());
 		spawn_handle.spawn("bitswap-request-handler", Some("networking"), handler);
 
-		config
+		let ipfs_num_blocks = match blocks_pruning {
+			BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => IPFS_MAX_BLOCKS,
+			BlocksPruning::Some(num) => std::cmp::min(num, IPFS_MAX_BLOCKS),
+		};
+
+		IpfsConfig {
+			bitswap_config,
+			block_provider: Box::new(IndexedTransactions::new(client.clone(), ipfs_num_blocks)),
+			bootnodes: net_config.network_config.ipfs_bootnodes.clone(),
+		}
 	});
 
 	// Create transactions protocol and add it to the list of supported protocols of
@@ -1227,7 +1242,7 @@ where
 		fork_id: fork_id.map(ToOwned::to_owned),
 		metrics_registry: metrics_registry.cloned(),
 		block_announce_config,
-		bitswap_config,
+		ipfs_config,
 		notification_metrics: metrics,
 	};
 

@@ -528,8 +528,9 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			config_builder = config_builder.with_mdns(config);
 		}
 
-		if let Some(config) = params.bitswap_config {
-			config_builder = config_builder.with_libp2p_bitswap(config);
+		if let Some(config) = params.ipfs_config {
+			config_builder = config_builder.with_libp2p_bitswap(config.bitswap_config);
+			// TODO: spawn IPFS Kademlia.
 		}
 
 		let litep2p =

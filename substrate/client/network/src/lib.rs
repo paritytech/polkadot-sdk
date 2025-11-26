@@ -244,7 +244,6 @@
 
 mod behaviour;
 mod bitswap;
-mod ipfs;
 mod litep2p;
 mod protocol;
 
@@ -255,6 +254,7 @@ pub mod config;
 pub mod discovery;
 pub mod error;
 pub mod event;
+pub mod ipfs;
 pub mod network_state;
 pub mod peer_info;
 pub mod peer_store;

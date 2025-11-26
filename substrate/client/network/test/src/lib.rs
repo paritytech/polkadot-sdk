@@ -977,7 +977,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			fork_id,
 			metrics_registry: None,
 			block_announce_config,
-			bitswap_config: None,
+			ipfs_config: None,
 			notification_metrics: NotificationMetrics::new(None),
 		})
 		.unwrap();
