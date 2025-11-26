@@ -349,6 +349,10 @@ pub mod pallet {
 		/// Allows debug-mode configuration, such as enabling unlimited contract size.
 		#[pallet::constant]
 		type DebugEnabled: Get<bool>;
+
+		#[pallet::constant]
+		#[pallet::no_default_bounds]
+		type GasScale: Get<BalanceOf<Self>>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -377,6 +381,7 @@ pub mod pallet {
 			pub const DepositPerByte: Balance = deposit(0, 1);
 			pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
 			pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(9, 10);
+			pub const GasScale: Balance = 10 as Balance;
 		}
 
 		/// A type providing default configurations for this pallet in testing environment.
@@ -431,6 +436,7 @@ pub mod pallet {
 			type FeeInfo = ();
 			type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
 			type DebugEnabled = ConstBool<false>;
+			type GasScale = GasScale;
 		}
 	}
 
@@ -2301,8 +2307,12 @@ impl<T: Config> Pallet<T> {
 		if let Some(gas_price) = GasPrice::<T>::get() {
 			return U256::from(gas_price);
 		} else {
+			let gas_scale = <T as Config>::GasScale::get();
 			let multiplier = T::FeeInfo::next_fee_multiplier();
-			multiplier.saturating_mul_int::<u128>(T::NativeToEthRatio::get().into()).into()
+			multiplier
+				.saturating_mul_int::<u128>(T::NativeToEthRatio::get().into())
+				.saturating_mul(gas_scale.saturated_into())
+				.into()
 		}
 	}
 

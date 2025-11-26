@@ -70,8 +70,8 @@ pub mod genesis_config_presets {
 
 	use alloc::{vec, vec::Vec};
 	use serde_json::Value;
-
-	pub const ENDOWMENT: Balance = 1_000_000_000_000_001 * DOLLARS;
+	// TODO: Check if this dirty-node ENDOWMENT works with dirty-node
+	pub const ENDOWMENT: Balance = 1_000_000_000_001 * DOLLARS;
 
 	fn well_known_accounts() -> Vec<AccountId> {
 		Sr25519Keyring::well_known()
@@ -419,6 +419,7 @@ impl pallet_revive::Config for Runtime {
 	type Time = Timestamp;
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
 	type DebugEnabled = ConstBool<false>;
+	type GasScale = ConstU128<50000>;
 }
 
 pallet_revive::impl_runtime_apis_plus_revive_traits!(
