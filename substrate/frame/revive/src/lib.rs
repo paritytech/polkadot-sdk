@@ -965,7 +965,7 @@ pub mod pallet {
 				.saturating_mul(limits::EVENT_BYTES.into());
 
 			assert!(
-				max_events_size < storage_size_limit,
+				max_events_size <= storage_size_limit,
 				"Maximal events size {} exceeds the events limit {}",
 				max_events_size,
 				storage_size_limit
@@ -1047,7 +1047,7 @@ pub mod pallet {
 				.saturating_add(max_eth_block_builder_bytes.into());
 
 			assert!(
-				max_storage_size < storage_size_limit,
+				max_storage_size <= storage_size_limit,
 				"Maximal storage size {} exceeds the storage limit {}",
 				max_storage_size,
 				storage_size_limit
