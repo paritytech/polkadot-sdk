@@ -143,6 +143,8 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 	log::info!("Ensuring parachain is registered");
 	assert_para_is_registered(&alice_client, ParaId::from(PARA_ID), 10).await?;
 
+	// warp sync
+	// gap sync
 	for name in ["two", "three", "four"] {
 		log::info!("Checking full node {name} is syncing");
 		assert!(network
@@ -218,7 +220,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_collator(|n| n.with_name("one").with_db_snapshot(DB_SNAPSHOT_PARACHAIN))
 				.with_collator(|n| {
 					n.with_name("two").validator(false).with_args(vec![
-						("-lsync=trace,babe=trace,import_block=trace,grandpa=debug,sc_service::client=debug,sc_client_api::utils=debug,litep2p=debug").into(),
+						("-lsync=trace,babe=trace,grandpa=debug").into(),
 						("--sync", "warp").into(),
 						("--").into(),
 						("--sync", "warp").into(),
@@ -226,7 +228,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				})
 				.with_collator(|n| {
 					n.with_name("three").validator(false).with_args(vec![
-						("-lsync=trace,babe=trace,import_block=trace,grandpa=debug,sc_service::client=debug,sc_client_api::utils=debug").into(),
+						("-lsync=trace,babe=trace,grandpa=debug,sc_service::client=debug").into(),
 						("--sync", "warp").into(),
 						("--relay-chain-rpc-urls", "{{ZOMBIE:alice:ws_uri}}").into(),
 						("--").into(),
@@ -234,7 +236,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				})
 				.with_collator(|n| {
 					n.with_name("four").validator(false).with_args(vec![
-						("-lsync=trace,babe=trace,import_block=trace,grandpa=debug,sc_service::client=debug,sc_client_api::utils=debug").into(),
+						("-lsync=trace,babe=trace,grandpa=debug,sc_service::client=debug").into(),
 						("--sync", "warp").into(),
 						("--relay-chain-rpc-urls", "{{ZOMBIE:dave:ws_uri}}").into(),
 						("--").into(),
