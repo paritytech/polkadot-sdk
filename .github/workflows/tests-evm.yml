@@ -113,13 +113,13 @@ jobs:
       matrix:
         include:
           - node: revive-dev-node
-            platform: test:pvm
+            command: test:pvm:manual
           - node: revive-dev-node
-            platform: test:evm
+            command: test:evm:manual
           - node: westend
-            platform: test:pvm
+            command: test:pvm:manual
           - node: westend
-            platform: test:evm
+            command: test:evm:manual
     steps:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -176,7 +176,7 @@ jobs:
             sleep 1
           done
 
-          deno task ${{ matrix.platform }}
+          deno task --quiet ${{ matrix.command }}
 
   confirm-required-test-evm-jobs-passed:
     runs-on: ubuntu-latest
