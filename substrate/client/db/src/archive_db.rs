@@ -54,7 +54,7 @@ impl<B: BlockT> std::fmt::Debug for ArchiveDb<B> {
 	}
 }
 
-// Simply concatenets child storage key with key
+// Simply concatenates child storage key with key
 // This could be troublesome if a child storage key could be a prefix of another child storage key,
 // but ChildInfo's documentation mentions it should not happen
 fn make_child_storage_key(info: &ChildInfo, key: &[u8]) -> Vec<u8> {
