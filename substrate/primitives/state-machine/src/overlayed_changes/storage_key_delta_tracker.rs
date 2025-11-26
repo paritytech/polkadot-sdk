@@ -31,6 +31,7 @@ use nohash_hasher::BuildNoHashHasher;
 #[cfg(feature = "std")]
 use std::collections::HashSet;
 
+#[cfg(feature = "std")]
 const LOG_TARGET: &str = "storage_key_delta_tracker";
 
 /// Operation type for a key
