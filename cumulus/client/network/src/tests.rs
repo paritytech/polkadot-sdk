@@ -27,12 +27,12 @@ use futures::{executor::block_on, poll, task::Poll, FutureExt, Stream, StreamExt
 use parking_lot::Mutex;
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_primitives::{
-	vstaging::{CandidateEvent, CommittedCandidateReceiptV2, CoreState},
-	BlockNumber, CandidateCommitments, CandidateDescriptor, CollatorPair,
-	CommittedCandidateReceipt, Hash as PHash, HeadData, InboundDownwardMessage, InboundHrmpMessage,
-	OccupiedCoreAssumption, PersistedValidationData, SessionIndex, SigningContext,
-	ValidationCodeHash, ValidatorId,
+	BlockNumber, CandidateCommitments, CandidateDescriptorV2, CandidateEvent, CollatorPair,
+	CommittedCandidateReceiptV2, CoreState, Hash as PHash, HeadData, InboundDownwardMessage,
+	InboundHrmpMessage, OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
+	SigningContext, ValidationCodeHash, ValidatorId,
 };
+use polkadot_primitives_test_helpers::{CandidateDescriptor, CommittedCandidateReceipt};
 use polkadot_test_client::{
 	Client as PClient, ClientBlockImportExt, DefaultTestClientBuilderExt, FullBackend as PBackend,
 	InitPolkadotBlockBuilder, TestClientBuilder, TestClientBuilderExt,
@@ -62,22 +62,19 @@ fn check_error(error: crate::BoxedError, check_error: impl Fn(&BlockAnnounceErro
 	}
 }
 
-fn dummy_candidate() -> CommittedCandidateReceipt {
-	CommittedCandidateReceipt {
-		descriptor: CandidateDescriptor {
-			para_head: polkadot_parachain_primitives::primitives::HeadData(
-				default_header().encode(),
-			)
-			.hash(),
-			para_id: 0u32.into(),
-			relay_parent: PHash::random(),
-			collator: CollatorPair::generate().0.public(),
-			persisted_validation_data_hash: PHash::random(),
-			pov_hash: PHash::random(),
-			erasure_root: PHash::random(),
-			signature: sp_core::sr25519::Signature::default().into(),
-			validation_code_hash: ValidationCodeHash::from(PHash::random()),
-		},
+fn dummy_candidate() -> CommittedCandidateReceiptV2 {
+	CommittedCandidateReceiptV2 {
+		descriptor: CandidateDescriptorV2::new(
+			0u32.into(),
+			PHash::random(),
+			0.into(),
+			1,
+			PHash::random(),
+			PHash::random(),
+			PHash::random(),
+			polkadot_parachain_primitives::primitives::HeadData(default_header().encode()).hash(),
+			ValidationCodeHash::from(PHash::random()),
+		),
 		commitments: CandidateCommitments {
 			upward_messages: Default::default(),
 			horizontal_messages: Default::default(),
@@ -176,7 +173,7 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		}
 
 		if self.data.lock().has_pending_availability {
-			Ok(Some(dummy_candidate().into()))
+			Ok(Some(dummy_candidate()))
 		} else {
 			Ok(None)
 		}
@@ -194,7 +191,7 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		}
 
 		if self.data.lock().has_pending_availability {
-			Ok(vec![dummy_candidate().into()])
+			Ok(vec![dummy_candidate()])
 		} else {
 			Ok(vec![])
 		}

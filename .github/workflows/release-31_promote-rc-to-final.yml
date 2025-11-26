@@ -18,6 +18,17 @@ on:
         description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcX
         type: string
 
+  workflow_call:
+    inputs:
+      binary:
+        description: Binary to be build for the release
+        default: all
+        type: string
+      release_tag:
+        description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcX
+        type: string
+        required: true
+
 
 jobs:
 
@@ -36,7 +47,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Validate inputs
         id: validate_inputs

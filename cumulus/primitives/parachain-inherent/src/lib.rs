@@ -32,8 +32,8 @@ extern crate alloc;
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use cumulus_primitives_core::{
 	relay_chain::{
-		vstaging::ApprovedPeerId, BlakeTwo256, BlockNumber as RelayChainBlockNumber,
-		Hash as RelayHash, HashT as _, Header as RelayHeader,
+		ApprovedPeerId, BlakeTwo256, BlockNumber as RelayChainBlockNumber, Hash as RelayHash,
+		HashT as _, Header as RelayHeader,
 	},
 	InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
 };

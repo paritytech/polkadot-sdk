@@ -515,6 +515,9 @@ pub fn ethereum_extrinsic<Runtime>(
 			let balance_after_update =
 				<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account.clone().into());
 
+			// All the extrinsics in this test do no fit into 1 block
+			let _ = RuntimeHelper::<Runtime>::run_to_block(2, alice_account.clone().into());
+
 			// Invalid finalized header update
 			let invalid_update_outcome =
 				construct_and_apply_extrinsic(alice, invalid_update_call.into());

@@ -1176,7 +1176,7 @@ where
 	}
 }
 
-/// Wrapper struct for Era related information. It is not a pure encapsulation as these storage
+/// Wrapper struct for Era-related information. It is not a pure encapsulation as these storage
 /// items can be accessed directly but nevertheless, its recommended to use `EraInfo` where we
 /// can and add more functions to it as needed.
 pub struct EraInfo<T>(core::marker::PhantomData<T>);
@@ -1259,7 +1259,7 @@ impl<T: Config> EraInfo<T> {
 		let validator_stake = if page == 0 { overview.own } else { Zero::zero() };
 
 		// since overview is present, paged exposure will always be present except when a
-		// validator has only own stake and no nominator stake.
+		// validator only has its own stake and no nominator stake.
 		let exposure_page = <ErasStakersPaged<T>>::get((era, validator, page)).unwrap_or_default();
 
 		// build the exposure
@@ -1346,15 +1346,15 @@ impl<T: Config> EraInfo<T> {
 		<ErasValidatorPrefs<T>>::get(&era, validator_stash).commission
 	}
 
-	/// Creates an entry to track validator reward has been claimed for a given era and page.
-	/// Noop if already claimed.
+	/// Creates an entry to track whether validator reward has been claimed for a given era and
+	/// page. Noop if already claimed.
 	pub(crate) fn set_rewards_as_claimed(era: EraIndex, validator: &T::AccountId, page: Page) {
 		let mut claimed_pages = ClaimedRewards::<T>::get(era, validator);
 
 		// this should never be called if the reward has already been claimed
 		if claimed_pages.contains(&page) {
 			defensive!("Trying to set an already claimed reward");
-			// nevertheless don't do anything since the page already exist in claimed rewards.
+			// nevertheless don't do anything since the page already exists in claimed rewards.
 			return
 		}
 

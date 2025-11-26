@@ -42,7 +42,6 @@ pub use polkadot_core_primitives::BlockNumber as RelayChainBlockNumber;
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
 	derive_more::From,
 	TypeInfo,
 	Serialize,
@@ -50,6 +49,12 @@ pub use polkadot_core_primitives::BlockNumber as RelayChainBlockNumber;
 )]
 #[cfg_attr(feature = "std", derive(Hash, Default))]
 pub struct HeadData(#[serde(with = "bytes")] pub Vec<u8>);
+
+impl core::fmt::Debug for HeadData {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		write!(f, "HeadData({})", array_bytes::bytes2hex("0x", &self.0))
+	}
+}
 
 impl HeadData {
 	/// Returns the hash of this head data.
@@ -68,7 +73,6 @@ impl codec::EncodeLike<HeadData> for alloc::vec::Vec<u8> {}
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
 	derive_more::From,
 	TypeInfo,
 	Serialize,
@@ -76,6 +80,12 @@ impl codec::EncodeLike<HeadData> for alloc::vec::Vec<u8> {}
 )]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct ValidationCode(#[serde(with = "bytes")] pub Vec<u8>);
+
+impl core::fmt::Debug for ValidationCode {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		write!(f, "ValidationCode({})", array_bytes::bytes2hex("0x", &self.0))
+	}
+}
 
 impl ValidationCode {
 	/// Get the blake2-256 hash of the validation code bytes.
@@ -163,13 +173,18 @@ pub struct BlockData(#[cfg_attr(feature = "std", serde(with = "bytes"))] pub Vec
 	Ord,
 	PartialEq,
 	PartialOrd,
-	Debug,
 	serde::Serialize,
 	serde::Deserialize,
 	TypeInfo,
 )]
 #[cfg_attr(feature = "std", derive(derive_more::Display))]
 pub struct Id(u32);
+
+impl core::fmt::Debug for Id {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		self.0.fmt(f)
+	}
+}
 
 impl codec::EncodeLike<u32> for Id {}
 impl codec::EncodeLike<Id> for u32 {}
@@ -386,6 +401,8 @@ pub enum XcmpMessageFormat {
 	/// One or more channel control signals; these should be interpreted immediately upon receipt
 	/// from the relay-chain.
 	Signals,
+	/// Double encoded `VersionedXcm` messages, all concatenated.
+	ConcatenatedOpaqueVersionedXcm,
 }
 
 /// Something that should be called for each batch of messages received over XCMP.
@@ -460,4 +477,15 @@ pub struct ValidationResult {
 	/// The mark which specifies the block number up to which all inbound HRMP messages are
 	/// processed.
 	pub hrmp_watermark: RelayChainBlockNumber,
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn para_id_debug() {
+		let id = Id::new(42);
+		assert_eq!(format!("{:?}", id), "42");
+	}
 }

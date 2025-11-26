@@ -63,7 +63,7 @@ fn main() -> Result<(), String> {
 		("Received from peers", 106.4000, 0.001),
 		("Sent to peers", 127.9100, 0.001),
 	]));
-	messages.extend(average_usage.check_cpu_usage(&[("statement-distribution", 0.0374, 0.1)]));
+	messages.extend(average_usage.check_cpu_usage(&[("statement-distribution", 0.0341, 0.1)]));
 
 	if messages.is_empty() {
 		Ok(())

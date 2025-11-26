@@ -64,13 +64,8 @@ use alloc::{
 	vec::Vec,
 };
 use polkadot_primitives::{
-	slashing::{
-		DisputeProof as DisputeProofV1, DisputesTimeSlot, PendingSlashes as PendingSlashesV1,
-	},
-	vstaging::{
-		DisputeOffenceKind, DisputeProof as DisputeProofV2, PendingSlashes as PendingSlashesV2,
-	},
-	CandidateHash, SessionIndex, ValidatorId, ValidatorIndex,
+	slashing::{DisputeProof, DisputesTimeSlot, PendingSlashes},
+	CandidateHash, DisputeOffenceKind, SessionIndex, ValidatorId, ValidatorIndex,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -254,11 +249,11 @@ where
 			.into_iter()
 			.filter_map(|i| session_info.validators.get(i).cloned().map(|id| (i, id)))
 			.collect();
-		let unapplied = PendingSlashesV2 { keys, kind };
+		let unapplied = PendingSlashes { keys, kind };
 
-		let append = |old: &mut Option<PendingSlashesV2>| {
+		let append = |old: &mut Option<PendingSlashes>| {
 			let old = old
-				.get_or_insert(PendingSlashesV2 { keys: Default::default(), kind: unapplied.kind });
+				.get_or_insert(PendingSlashes { keys: Default::default(), kind: unapplied.kind });
 			debug_assert_eq!(old.kind, unapplied.kind);
 
 			old.keys.extend(unapplied.keys)
@@ -352,7 +347,7 @@ pub trait HandleReports<T: Config> {
 	/// Create and dispatch a slashing report extrinsic.
 	/// This should be called offchain.
 	fn submit_unsigned_slashing_report(
-		dispute_proof: DisputeProofV2,
+		dispute_proof: DisputeProof,
 		key_owner_proof: T::KeyOwnerProof,
 	) -> Result<(), sp_runtime::TryRuntimeError>;
 }
@@ -374,7 +369,7 @@ impl<T: Config> HandleReports<T> for () {
 	}
 
 	fn submit_unsigned_slashing_report(
-		_dispute_proof: DisputeProofV2,
+		_dispute_proof: DisputeProof,
 		_key_owner_proof: T::KeyOwnerProof,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
 		Ok(())
@@ -444,7 +439,7 @@ pub mod pallet {
 		SessionIndex,
 		Blake2_128Concat,
 		CandidateHash,
-		PendingSlashesV2,
+		PendingSlashes,
 	>;
 
 	/// `ValidatorSetCount` per session.
@@ -478,7 +473,7 @@ pub mod pallet {
 		pub fn report_dispute_lost_unsigned(
 			origin: OriginFor<T>,
 			// box to decrease the size of the call
-			dispute_proof: Box<DisputeProofV2>,
+			dispute_proof: Box<DisputeProof>,
 			key_owner_proof: T::KeyOwnerProof,
 		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
@@ -494,7 +489,7 @@ pub mod pallet {
 			// check that there is a pending slash for the given
 			// validator index and candidate hash
 			let candidate_hash = dispute_proof.time_slot.candidate_hash;
-			let try_remove = |v: &mut Option<PendingSlashesV2>| -> Result<(), DispatchError> {
+			let try_remove = |v: &mut Option<PendingSlashes>| -> Result<(), DispatchError> {
 				let pending = v.as_mut().ok_or(Error::<T>::InvalidCandidateHash)?;
 				if pending.kind != dispute_proof.kind {
 					return Err(Error::<T>::InvalidCandidateHash.into())
@@ -573,35 +568,14 @@ impl<T: Config> Pallet<T> {
 		let _ = <UnappliedSlashes<T>>::clear_prefix(old_session, REMOVE_LIMIT, None);
 	}
 
-	pub(crate) fn unapplied_slashes() -> Vec<(SessionIndex, CandidateHash, PendingSlashesV1)> {
-		// Converting UnappliedSlashes to use the old SlashingOffence enum
-		// instead of the new DisputeOffenceKind enum to maintain the same
-		// behavior for the runtime api.
-		<UnappliedSlashes<T>>::iter()
-			.filter_map(|(session, candidate_hash, slash_v2)| {
-				match PendingSlashesV1::try_from(slash_v2) {
-					Ok(slash_v1) => Some((session, candidate_hash, slash_v1)),
-					Err(_) => {
-						log::info!(
-							target: LOG_TARGET,
-							"Ignoring unapplied slash (undecodable) for: session({}), candidate_hash({:?})",
-							session,
-							candidate_hash,
-						);
-						// Skip if conversion fails (e.g., variant not representable in old format)
-						None
-					},
-				}
-			})
-			.collect()
+	pub(crate) fn unapplied_slashes() -> Vec<(SessionIndex, CandidateHash, PendingSlashes)> {
+		<UnappliedSlashes<T>>::iter().collect()
 	}
 
 	pub(crate) fn submit_unsigned_slashing_report(
-		dispute_proof: DisputeProofV1,
+		dispute_proof: DisputeProof,
 		key_ownership_proof: <T as Config>::KeyOwnerProof,
 	) -> Option<()> {
-		// convert from DisputeProofV1 to DisputeProofV2
-		let dispute_proof = DisputeProofV2::from(dispute_proof);
 		T::HandleReports::submit_unsigned_slashing_report(dispute_proof, key_ownership_proof).ok()
 	}
 }
@@ -662,7 +636,7 @@ impl<T: Config> Pallet<T> {
 }
 
 fn is_known_offence<T: Config>(
-	dispute_proof: &DisputeProofV2,
+	dispute_proof: &DisputeProof,
 	key_owner_proof: &T::KeyOwnerProof,
 ) -> Result<(), TransactionValidityError> {
 	// check the membership proof to extract the offender's id
@@ -730,7 +704,7 @@ where
 	}
 
 	fn submit_unsigned_slashing_report(
-		dispute_proof: DisputeProofV2,
+		dispute_proof: DisputeProof,
 		key_owner_proof: <T as Config>::KeyOwnerProof,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
 		use frame_system::offchain::{CreateBare, SubmitTransaction};

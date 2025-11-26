@@ -5,11 +5,10 @@
 // elastic scaling with RFC103 can achieve full throughput of 3 candidates per block.
 
 use anyhow::anyhow;
-use cumulus_zombienet_sdk_helpers::{assert_relay_parent_offset, create_assign_core_call};
+use cumulus_zombienet_sdk_helpers::{assert_relay_parent_offset, assign_cores};
 use serde_json::json;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
-	subxt_signer::sr25519::dev,
 	NetworkConfigBuilder,
 };
 
@@ -54,7 +53,7 @@ async fn elastic_scaling_slot_based_relay_parent_offset_test() -> Result<(), any
 				.with_chain("relay-parent-offset")
 				.with_default_args(vec![
 					"--authoring=slot-based".into(),
-					("-lparachain=debug,aura=debug").into(),
+					("-lparachain=debug,aura=debug,parachain::collator-protocol=debug").into(),
 				])
 				.with_collator(|n| n.with_name("collator-rp-offset"))
 		})
@@ -72,24 +71,15 @@ async fn elastic_scaling_slot_based_relay_parent_offset_test() -> Result<(), any
 	let network = spawn_fn(config).await?;
 
 	let relay_node = network.get_node("validator-0")?;
+	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
+
 	let para_node_rp_offset = network.get_node("collator-rp-offset")?;
 
 	let para_client = para_node_rp_offset.wait_client().await?;
-	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
-	let alice = dev::alice();
 
-	let assign_cores_call = create_assign_core_call(&[(0, 2400), (1, 2400)]);
-	// Assign two extra cores to each parachain.
-	relay_client
-		.tx()
-		.sign_and_submit_then_watch_default(&assign_cores_call, &alice)
-		.await?
-		.wait_for_finalized_success()
-		.await?;
+	assign_cores(relay_node, 2400, vec![0, 1]).await?;
 
-	log::info!("2 more cores assigned to the parachain");
-
-	assert_relay_parent_offset(&relay_client, &para_client, 2, 30).await?;
+	assert_relay_parent_offset(&relay_client, &para_client, 2, 45).await?;
 
 	log::info!("Test finished successfully");
 
