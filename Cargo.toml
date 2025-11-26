@@ -1459,7 +1459,8 @@ tracing-futures = { version = "0.2.4" }
 tracing-log = { version = "0.2.0" }
 tracing-subscriber = { version = "0.3.18" }
 tracking-allocator = { path = "polkadot/node/tracking-allocator", default-features = false, package = "staging-tracking-allocator" }
-trie-bench = { version = "0.42.0" }
+trie-bench = { version = "0.42.0", git = "https://github.com/paritytech/trie", branch = "mku-no-commit-on-drop" }
+# trie-bench = { version = "0.42.0" }
 trie-db = { version = "0.31.0", default-features = false, git = "https://github.com/paritytech/trie", branch = "mku-no-commit-on-drop" }
 # trie-db = { version = "0.31.0", default-features = false, path = "/home/miszka/parity/23-pov-reclaim/trie-upstream/trie-db" }
 # trie-db = { version = "0.30.0", default-features = false }
