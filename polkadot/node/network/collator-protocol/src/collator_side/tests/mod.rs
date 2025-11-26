@@ -32,14 +32,14 @@ use sp_core::crypto::Pair;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::traits::AppVerify;
 
-use itertools::Itertools;
+// use itertools::Itertools;
 use polkadot_node_network_protocol::{
 	peer_set::CollationVersion,
 	request_response::{
 		v2::{CollationFetchingRequest, CollationFetchingResponse},
 		IncomingRequest, ReqProtocolNames,
 	},
-	view, ObservedRole,
+	view,
 };
 use polkadot_node_primitives::BlockData;
 use polkadot_node_subsystem::{
