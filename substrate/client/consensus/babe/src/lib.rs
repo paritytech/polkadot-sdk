@@ -1363,6 +1363,7 @@ where
 		};
 
 		info!(
+			target: LOG_TARGET,
 			"Slot author {:?} is equivocating at slot {} with headers {:?} and {:?}",
 			author,
 			slot,
