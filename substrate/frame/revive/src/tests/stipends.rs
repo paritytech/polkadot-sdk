@@ -29,10 +29,8 @@ fn evm_call_stipends_work_for_transfers() {
 	let (code, _) = compile_module_with_type("StipendTest", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(
-			&crate::test_utils::ALICE,
-			10_000_000_000_000,
-		);
+		let _ =
+			<Test as Config>::Currency::set_balance(&crate::test_utils::ALICE, 10_000_000_000_000);
 
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
@@ -51,10 +49,8 @@ fn evm_call_stipends_work_for_sends() {
 	let (code, _) = compile_module_with_type("StipendTest", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(
-			&crate::test_utils::ALICE,
-			10_000_000_000_000,
-		);
+		let _ =
+			<Test as Config>::Currency::set_balance(&crate::test_utils::ALICE, 10_000_000_000_000);
 
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
@@ -73,10 +69,8 @@ fn evm_call_stipends_work_for_calls() {
 	let (code, _) = compile_module_with_type("StipendTest", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(
-			&crate::test_utils::ALICE,
-			10_000_000_000_000,
-		);
+		let _ =
+			<Test as Config>::Currency::set_balance(&crate::test_utils::ALICE, 10_000_000_000_000);
 
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
