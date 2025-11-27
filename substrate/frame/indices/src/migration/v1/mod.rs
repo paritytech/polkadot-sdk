@@ -273,7 +273,7 @@ where
 					// Success: migrate to new storage with hold
 					Accounts::<T>::insert(index, (account, reserve_to_migrate, frozen));
 				},
-				Err(e) => {
+				Err(_) => {
 					// Failed: preserve index with zero deposit
 					// Funds stay in account's free balance (from unreserve)
 					Accounts::<T>::insert(index, (account, BalanceOf::<T>::zero(), frozen));

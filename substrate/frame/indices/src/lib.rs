@@ -52,7 +52,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use frame_support::traits::tokens::{Preservation, Fortitude, Precision, Restriction};
+	use frame_support::traits::tokens::{Fortitude, Precision, Restriction};
 
 	/// A reason for holding funds.
 	/// Creates a hold reason for this pallet that is aggregated by `construct_runtime`.
@@ -196,7 +196,7 @@ pub mod pallet {
 					&HoldReason::DepositForIndex.into(),
 					&who,
 					amount,
-					Precision::Exact,
+					Precision::BestEffort,
 				)?;
 				Ok(())
 			})?;
