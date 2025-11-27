@@ -249,6 +249,18 @@ impl<T: Config> Default for CallResources<T> {
 	}
 }
 
+/// Stored inside the `Stack` for each contract that is scheduled for termination.
+struct TerminateArgs<T: Config> {
+	/// Where to send the free balance of the terminated contract.
+	beneficiary: T::AccountId,
+	/// The storage child trie of the contract that needs to be deleted.
+	trie_id: TrieId,
+	/// The code referenced by the contract. Will be deleted if refcount drops to zero.
+	code_hash: H256,
+	/// Triggered by the EVM opcode.
+	only_if_same_tx: bool,
+}
+
 /// Environment functions only available to host functions.
 pub trait Ext: PrecompileWithInfoExt {
 	/// Execute code in the current frame.
@@ -2490,44 +2502,23 @@ pub fn is_precompile<T: Config, E: Executable<T>>(address: &H160) -> bool {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-pub fn terminate_contract_for_benchmark<T: Config>(
-	origin: T::AccountId,
-	contract: &T::AccountId,
-	info: &ContractInfo<T>,
+pub fn bench_do_terminate<T: Config>(
+	transaction_meter: &mut TransactionMeter<T>,
+	exec_config: &ExecConfig<T>,
+	contract_account: &T::AccountId,
+	origin: &Origin<T>,
 	beneficiary: T::AccountId,
-) -> Result<(), DispatchError> {
-	use crate::TransactionLimits;
-	use num_traits::Bounded;
-
-	let mut transaction_meter = TransactionMeter::new(TransactionLimits::WeightAndDeposit {
-		weight_limit: Default::default(),
-		deposit_limit: BalanceOf::<T>::max_value(),
-	})
-	.unwrap();
-	Stack::<T, crate::ContractBlob<T>>::do_terminate(
-		&mut transaction_meter,
-		&ExecConfig::new_substrate_tx(),
-		contract,
-		&Origin::from_account_id(origin),
-		&TerminateArgs {
-			beneficiary,
-			trie_id: info.trie_id.clone(),
-			code_hash: info.code_hash,
-			only_if_same_tx: false,
-		},
-	)
-}
-
-/// Stored inside the `Stack` for each contract that is scheduled for termination.
-struct TerminateArgs<T: Config> {
-	/// Where to send the free balance of the terminated contract.
-	beneficiary: T::AccountId,
-	/// The storage child trie of the contract that needs to be deleted.
 	trie_id: TrieId,
-	/// The code referenced by the contract. Will be deleted if refcount drops to zero.
 	code_hash: H256,
-	/// Triggered by the EVM opcode.
 	only_if_same_tx: bool,
+) -> Result<(), DispatchError> {
+	Stack::<T, crate::ContractBlob<T>>::do_terminate(
+		transaction_meter,
+		exec_config,
+		contract_account,
+		origin,
+		&TerminateArgs { beneficiary, trie_id, code_hash, only_if_same_tx },
+	)
 }
 
 mod sealing {

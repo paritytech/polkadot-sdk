@@ -24,7 +24,7 @@ use crate::{
 		block_hash::EthereumBlockBuilder, block_storage, TransactionLegacyUnsigned,
 		TransactionSigned, TransactionUnsigned,
 	},
-	exec::{Key, PrecompileExt},
+	exec::{Key, Origin as ExecOrigin, PrecompileExt},
 	limits,
 	precompiles::{
 		self,
@@ -1229,14 +1229,31 @@ mod benchmarks {
 
 		T::Currency::set_balance(&instance.account_id, Pallet::<T>::min_balance() * 10u32.into());
 
+		let mut transaction_meter = TransactionMeter::new(TransactionLimits::WeightAndDeposit {
+			weight_limit: Default::default(),
+			deposit_limit: BalanceOf::<T>::max_value(),
+		})
+		.unwrap();
+		let exec_config = ExecConfig::new_substrate_tx();
+		let contract_account = &instance.account_id;
+		let origin = &ExecOrigin::from_account_id(caller);
+		let beneficiary_clone = beneficiary.clone();
+		let trie_id = instance.info()?.trie_id.clone();
+		let code_hash = instance.info()?.code_hash;
+		let only_if_same_tx = false;
+
 		let result;
 		#[block]
 		{
-			result = crate::exec::terminate_contract_for_benchmark::<T>(
-				caller,
-				&instance.account_id,
-				&instance.info()?,
-				beneficiary.clone(),
+			result = crate::exec::bench_do_terminate::<T>(
+				&mut transaction_meter,
+				&exec_config,
+				contract_account,
+				&origin,
+				beneficiary_clone,
+				trie_id,
+				code_hash,
+				only_if_same_tx,
 			);
 		}
 		result.unwrap();
