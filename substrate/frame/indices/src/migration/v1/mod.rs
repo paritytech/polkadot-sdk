@@ -85,12 +85,14 @@ use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
 	traits::{
-		fungible::{InspectHold, MutateHold},
+		fungible::{Inspect, InspectHold, MutateHold},
+		tokens::{Fortitude, Preservation},
 		Currency, Get, ReservableCurrency,
 	},
 	weights::WeightMeter,
 };
 use sp_runtime::{traits::Zero, TryRuntimeError};
+use std::cmp::min;
 
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
@@ -263,11 +265,21 @@ where
 		if !reserve_to_migrate.is_zero() {
 			OldCurrency::unreserve(&account, reserve_to_migrate);
 
+			let reducible_balance = T::NativeBalance::reducible_balance(
+				&account,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			);
+
 			// Try to hold in new fungibles system
+			// We take the minimum of the reserve to migrate and the reducible balance
+			// This is to avoid trying to hold more than the account can actually hold while
+			// preserving Existential Deposit This case can happen if the account had no
+			// Existential Deposit before the migration but had an Index Deposit
 			match T::NativeBalance::hold(
 				&HoldReason::DepositForIndex.into(),
 				&account,
-				reserve_to_migrate,
+				min(reserve_to_migrate, reducible_balance),
 			) {
 				Ok(_) => {
 					// Success: migrate to new storage with hold
