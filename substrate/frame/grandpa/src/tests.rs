@@ -381,7 +381,7 @@ fn report_equivocation_current_set_works() {
 		// check that the balances of all other validators are left intact.
 		for validator in &validators {
 			if *validator == equivocation_validator_id {
-				continue
+				continue;
 			}
 
 			assert_eq!(Balances::total_balance(validator), 10_000_000);
@@ -460,7 +460,7 @@ fn report_equivocation_old_set_works() {
 		// check that the balances of all other validators are left intact.
 		for validator in &validators {
 			if *validator == equivocation_validator_id {
-				continue
+				continue;
 			}
 
 			assert_eq!(Balances::total_balance(validator), 10_000_000);
@@ -755,7 +755,7 @@ fn on_new_session_doesnt_start_new_set_if_schedule_change_failed() {
 
 		// starting a new era should lead to a change in the session
 		// validators and trigger a new set
-		start_era(1);
+		start_era(2);
 		assert_eq!(CurrentSetId::<Test>::get(), 1);
 
 		// we schedule a change delayed by 2 blocks, this should make it so that
@@ -763,11 +763,11 @@ fn on_new_session_doesnt_start_new_set_if_schedule_change_failed() {
 		// fail to schedule a change (there's already one pending), so we should
 		// not increment the set id.
 		Grandpa::schedule_change(to_authorities(vec![(1, 1)]), 2, None).unwrap();
-		start_era(2);
+		start_era(3);
 		assert_eq!(CurrentSetId::<Test>::get(), 1);
 
 		// everything should go back to normal after.
-		start_era(3);
+		start_era(4);
 		assert_eq!(CurrentSetId::<Test>::get(), 2);
 
 		// session rotation might also fail to schedule a change if it's for a
@@ -792,19 +792,19 @@ fn cleans_up_old_set_id_session_mappings() {
 
 		// we should have a session id mapping for all the set ids from
 		// `max_set_id_session_entries` eras we have observed
-		for i in 1..=max_set_id_session_entries {
+		for i in 1..max_set_id_session_entries {
 			assert!(SetIdSession::<Test>::get(i as u64).is_some());
 		}
 
 		start_era(max_set_id_session_entries * 2);
 
 		// we should keep tracking the new mappings for new eras
-		for i in max_set_id_session_entries + 1..=max_set_id_session_entries * 2 {
+		for i in max_set_id_session_entries + 1..max_set_id_session_entries * 2 {
 			assert!(SetIdSession::<Test>::get(i as u64).is_some());
 		}
 
 		// but the old ones should have been pruned by now
-		for i in 1..=max_set_id_session_entries {
+		for i in 1..max_set_id_session_entries {
 			assert!(SetIdSession::<Test>::get(i as u64).is_none());
 		}
 	});
@@ -816,14 +816,14 @@ fn always_schedules_a_change_on_new_session_when_stalled() {
 		start_era(1);
 
 		assert!(PendingChange::<Test>::get().is_none());
-		assert_eq!(CurrentSetId::<Test>::get(), 1);
+		assert_eq!(CurrentSetId::<Test>::get(), 0);
 
 		// if the session handler reports no change then we should not schedule
 		// any pending change
 		Grandpa::on_new_session(false, std::iter::empty(), std::iter::empty());
 
 		assert!(PendingChange::<Test>::get().is_none());
-		assert_eq!(CurrentSetId::<Test>::get(), 1);
+		assert_eq!(CurrentSetId::<Test>::get(), 0);
 
 		// if grandpa is stalled then we should **always** schedule a forced
 		// change on a new session
@@ -832,7 +832,7 @@ fn always_schedules_a_change_on_new_session_when_stalled() {
 
 		assert!(PendingChange::<Test>::get().is_some());
 		assert!(PendingChange::<Test>::get().unwrap().forced.is_some());
-		assert_eq!(CurrentSetId::<Test>::get(), 2);
+		assert_eq!(CurrentSetId::<Test>::get(), 1);
 	});
 }
 
