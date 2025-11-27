@@ -52,7 +52,6 @@ mod benchmarking;
 mod mock;
 #[cfg(test)]
 mod tests;
-pub mod migrations;
 pub mod weights;
 
 extern crate alloc;
