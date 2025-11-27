@@ -697,10 +697,14 @@ fn has_assigned_cores(
 	false
 }
 
+// Get a list of backing validators at all allowed relay parents.
+// If `pending_collation` is true, we will only return the validators
+// that have a collation pending (advertised or created status)
 fn list_of_backing_validators_in_view(
 	implicit_view: &Option<ImplicitView>,
 	per_relay_parent: &HashMap<Hash, PerRelayParent>,
 	para_id: ParaId,
+	pending_collation: bool,
 ) -> Vec<AuthorityDiscoveryId> {
 	let mut backing_validators = HashSet::new();
 	let Some(implicit_view) = implicit_view else { return vec![] };
@@ -712,8 +716,20 @@ fn list_of_backing_validators_in_view(
 
 		for allowed_relay_parent in allowed_ancestry {
 			if let Some(relay_parent) = per_relay_parent.get(allowed_relay_parent) {
-				for group in relay_parent.validator_group.values() {
-					backing_validators.extend(group.validators.iter().cloned());
+				if pending_collation {
+					// Check if there is any collation for this relay parent.
+					for (_, collation_data) in relay_parent.collations.iter() {
+						if collation_data.collation().status != CollationStatus::Requested {
+							let core_index = collation_data.core_index();
+							if let Some(group) = relay_parent.validator_group.get(core_index) {
+								backing_validators.extend(group.validators.iter().cloned());
+							}
+						}
+					}
+				} else {
+					for group in relay_parent.validator_group.values() {
+						backing_validators.extend(group.validators.iter().cloned());
+					}
 				}
 			}
 		}
@@ -743,7 +759,7 @@ async fn update_validator_connections<Context>(
 		// to the network bridge passing an empty list of validator ids. Otherwise, it will keep
 		// connecting to the last requested validators until a new request is issued.
 		let validator_ids = if cores_assigned {
-			list_of_backing_validators_in_view(implicit_view, per_relay_parent, para_id)
+			list_of_backing_validators_in_view(implicit_view, per_relay_parent, para_id, false)
 		} else {
 			Vec::new()
 		};
@@ -764,15 +780,19 @@ async fn update_validator_connections<Context>(
 			return
 		}
 
+		let validator_ids =
+			list_of_backing_validators_in_view(implicit_view, per_relay_parent, para_id, true);
+
 		gum::trace!(
 			target: LOG_TARGET,
-			"Disconnecting from validators: {:?}",
+			"Disconnecting from validators: {:?}, keeping connections to validators with pending collations: {:?}",
 			peer_ids.keys(),
+			validator_ids,
 		);
 
 		// Disconnect from all connected validators on the `Collation` protocol.
 		NetworkBridgeTxMessage::ConnectToValidators {
-			validator_ids: vec![],
+			validator_ids,
 			peer_set: PeerSet::Collation,
 			failed,
 		}
