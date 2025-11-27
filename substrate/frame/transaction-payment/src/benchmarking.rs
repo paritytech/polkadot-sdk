@@ -20,13 +20,29 @@
 extern crate alloc;
 
 use super::*;
-use crate::Pallet;
 use frame_benchmarking::v2::*;
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
 use frame_system::{EventRecord, RawOrigin};
 use sp_runtime::traits::{AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable};
 
-fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+/// Re-export the pallet for benchmarking with custom Config trait.
+pub struct Pallet<T: Config>(crate::Pallet<T>);
+
+/// Benchmark configuration trait.
+///
+/// This extends the pallet's Config trait to allow runtimes to set up any
+/// required state before running benchmarks. For example, runtimes that
+/// distribute fees to block authors may need to set the author before
+/// the benchmark runs.
+pub trait Config: crate::Config {
+	/// Called at the start of each benchmark to set up any required state.
+	///
+	/// The default implementation is a no-op. Runtimes can override this
+	/// to perform setup like setting the block author for fee distribution.
+	fn setup_benchmark_environment() {}
+}
+
+fn assert_last_event<T: crate::Config>(generic_event: <T as crate::Config>::RuntimeEvent) {
 	let events = frame_system::Pallet::<T>::events();
 	let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
 	// compare to the last event record
@@ -44,19 +60,17 @@ mod benchmarks {
 
 	#[benchmark]
 	fn charge_transaction_payment() {
+		T::setup_benchmark_environment();
+
 		let caller: T::AccountId = account("caller", 0, 0);
 		let existential_deposit =
 			<T::OnChargeTransaction as OnChargeTransaction<T>>::minimum_balance();
 
-		let (amount_to_endow, tip) = if existential_deposit.is_zero() {
-			let min_tip: <<T as pallet::Config>::OnChargeTransaction as payment::OnChargeTransaction<T>>::Balance = 1_000_000_000u32.into();
-			(min_tip * 1000u32.into(), min_tip)
-		} else {
-			(existential_deposit * 1000u32.into(), existential_deposit)
-		};
+		// Use a reasonable minimum tip that works for most runtimes
+		let min_tip: BalanceOf<T> = 1_000_000_000u32.into();
+		let tip = if existential_deposit.is_zero() { min_tip } else { existential_deposit };
 
-		<T::OnChargeTransaction as OnChargeTransaction<T>>::endow_account(&caller, amount_to_endow);
-
+		// Build the call and dispatch info first so we can compute the actual fee
 		let ext: ChargeTransactionPayment<T> = ChargeTransactionPayment::from(tip);
 		let inner = frame_system::Call::remark { remark: alloc::vec![] };
 		let call = T::RuntimeCall::from(inner);
@@ -72,10 +86,21 @@ mod benchmarks {
 			pays_fee: Pays::Yes,
 		};
 
+		// Calculate the actual fee that will be charged, then endow enough to cover it
+		// with a 10x buffer to account for any fee multiplier variations.
+		// Ensure we endow at least the existential deposit so the account can exist.
+		let len: u32 = 10;
+		let expected_fee = crate::Pallet::<T>::compute_fee(len, &info, tip);
+		let amount_to_endow = expected_fee
+			.saturating_mul(10u32.into())
+			.max(existential_deposit);
+
+		<T::OnChargeTransaction as OnChargeTransaction<T>>::endow_account(&caller, amount_to_endow);
+
 		#[block]
 		{
 			assert!(ext
-				.test_run(RawOrigin::Signed(caller.clone()).into(), &call, &info, 10, 0, |_| Ok(
+				.test_run(RawOrigin::Signed(caller.clone()).into(), &call, &info, len as usize, 0, |_| Ok(
 					post_info
 				))
 				.unwrap()
@@ -83,7 +108,7 @@ mod benchmarks {
 		}
 
 		post_info.actual_weight.as_mut().map(|w| w.saturating_accrue(extension_weight));
-		let actual_fee = Pallet::<T>::compute_actual_fee(10, &info, &post_info, tip);
+		let actual_fee = crate::Pallet::<T>::compute_actual_fee(len, &info, &post_info, tip);
 		assert_last_event::<T>(
 			Event::<T>::TransactionFeePaid { who: caller, actual_fee, tip }.into(),
 		);

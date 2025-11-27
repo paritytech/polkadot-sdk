@@ -78,7 +78,7 @@ mod mock;
 mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
+pub mod benchmarking;
 
 mod payment;
 mod types;
