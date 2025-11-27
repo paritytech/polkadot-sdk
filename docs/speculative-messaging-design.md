@@ -46,7 +46,7 @@ Speculative Messaging introduces a new cross-chain messaging mechanism for Polka
 - **Better scalability**: Off-chain message passing with on-chain commitment verification
 - **Compatibility with Low-Latency v2**: Works seamlessly with older relay parents
 
-This design builds upon and complements the Low-Latency Parachains v2 design. While that design introduces older relay parents (for relay chain fork immunity), it would normally increase messaging latency. Speculative Messaging solves this problem entirely by decoupling message passing from the relay parent's view of the world.
+This design builds upon and complements the Low-Latency Parachains v2 design. While that design introduces older relay parents (for relay chain fork immunity), it would normally increase messaging latency. Speculative Messaging solves this problem entirely by decoupling message passing from relay parents.
 
 ---
 
@@ -83,7 +83,7 @@ By moving message coordination off-chain and using cryptographic commitments for
 
 1. Achieve messaging latencies comparable to parachain block times
 2. Remove message data from relay chain state entirely
-3. Super chains
+3. Build super chains
 
 ---
 
@@ -141,13 +141,13 @@ Instead of routing messages through relay chain state, we:
 5. **Late Block Proofs**: When blocks arrive at different times, the late block includes a proof in its POV connecting the current provides to its older requires.
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                     Current HRMP Flow (Slow)                        │
-├─────────────────────────────────────────────────────────────────────┤
-│  Chain A Block    →    Relay Chain     →    Relay Chain    →  Chain B │
-│  (sends msg)           stores msg           State lookup      receives │
+┌──────────────────────────────────────────────────────────────────────┐
+│                     Current HRMP Flow (Slow)                         │
+├──────────────────────────────────────────────────────────────────────┤
+│  Chain A Block    →    Relay Chain     →    Relay Chain  →  Chain B  │
+│  (sends msg)           stores msg           State lookup    receives │
 │                        ~12-18s total                                 │
-└─────────────────────────────────────────────────────────────────────┘
+└──────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
 │                  Speculative Messaging (Fast)                       │
@@ -156,7 +156,7 @@ Instead of routing messages through relay chain state, we:
 │  (provides: MMR)       msg passing        (requires: A's MMR pos)   │
 │                        ~block time                                  │
 │                                                                     │
-│  Relay chain only verifies: provides(A) satisfies requires(B)      │
+│  Relay chain only verifies: provides(A) satisfies requires(B)       │
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -192,7 +192,7 @@ Top-Level Root (Merkle tree over per-destination MMR roots)
 **Why hierarchical?**
 - Receiver only needs to prove their subtree, not traverse all messages
 - Proof size: O(log D + log m) where D = destinations, m = messages to receiver
-- Much better than O(k log n) for a flat structure
+- Much better than O(k log n) for a flat structure where k =number of messages to prove, n = total number of messages sent by the chain.
 - Late block proofs only grow with messages to that specific receiver
 
 ### Candidate Commitments (Verified by Relay Chain)
@@ -214,13 +214,11 @@ struct RequiresCommitment {
 }
 ```
 
-That's it. The relay chain only needs to verify: "does the provides root match (or extend) the requires expected_root?"
-
-Everything else—MMR sizes, message ranges, per-chain MMR roots—is either internal parachain state or embedded in proofs when needed.
+The relay chain verifies matches the "requires" commitment with the corresponding"provides" commitmentment. A parachain block will only be made available/enacted when all its "requires" are provided.
 
 ### Parachain Runtime State (Internal)
 
-Each parachain runtime maintains internal state for message tracking. This is NOT part of the relay chain commitments:
+Each parachain runtime maintains internal state for message tracking.
 
 ```rust
 /// Sender-side: tracking outgoing messages (in parachain runtime)
@@ -243,6 +241,7 @@ struct SourceState {
     /// The source's root we last built against
     last_seen_root: Hash,
     /// The source's per-destination MMR root for us
+    /// TODO: Why do we need this?
     last_seen_subtree_root: Hash,
 }
 ```
@@ -259,6 +258,7 @@ struct OutgoingMessage {
     /// Message payload (actual XCM or other data)
     payload: Vec<u8>,
     /// Position in sender's per-destination MMR
+    /// Is this field needed? Or can this be constructed from the proof?
     position: u64,
 }
 
@@ -271,6 +271,7 @@ struct MessageBatch {
     /// The provides root for this block
     provides_root: Hash,
     /// Our per-destination MMR root (for the receiver)
+    /// TODO: Why do we need this?
     subtree_root: Hash,
     /// Proof that subtree_root is in provides_root
     subtree_inclusion_proof: MerkleProof,
@@ -309,8 +310,7 @@ fn verify_live_matching(
         return Ok(());
     }
     
-    // Roots don't match - receiver needs a late block proof
-    Err(Error::RequiresProof)
+    Err(Error::MissingRequirement)
 }
 ```
 
@@ -326,7 +326,7 @@ fn verify_against_included(
     for requires in &receiver_candidate.commitments.requires {
         let provides_root = included_provides
             .get(&requires.source)
-            .ok_or(Error::SourceNotIncluded)?;
+            .ok_or(Error::MissingRequirement)?;
         
         if &requires.expected_root == provides_root {
             // Exact match
@@ -374,6 +374,9 @@ struct LateBlockProof {
     old_subtree_root: Hash,
     old_subtree_proof: MerkleProof,
     
+    /// The current provides root we're updating to
+    new_provides_root: Hash,
+    
     /// Prove our subtree is in the new (current) root
     new_subtree_root: Hash,
     new_subtree_proof: MerkleProof,
@@ -391,44 +394,51 @@ struct MMRExtensionProof {
 
 #### Verification
 
+The PVF verifies the late block proof and **transforms** the block's original `requires` commitment into an updated one that references the current `provides` root. This way, the relay chain only ever sees a commitment it can verify against currently-available state.
+
 ```rust
-fn verify_late_block_proof(
-    requires: &RequiresCommitment,        // From candidate commitments
-    proof: &LateBlockProof,                // From POV
-    current_provides_root: Hash,           // Current provides.root
-) -> Result<(), Error> {
-    // 1. Verify old subtree was in the expected root
+fn process_late_block_requires(
+    block_requires: &RequiresCommitment,  // From the block itself (references old root)
+    proof: &LateBlockProof,               // From POV
+) -> Result<RequiresCommitment, Error> {
+    // 1. Verify old subtree was in the root the block expected
     verify_merkle_proof(
-        requires.expected_root,
+        block_requires.expected_root,
         &proof.old_subtree_proof,
-        (requires.source, proof.old_subtree_root),
+        (block_requires.source, proof.old_subtree_root),
     )?;
     
-    // 2. Verify new subtree is in current root
+    // 2. Verify new subtree is in the current root (which we'll output)
     verify_merkle_proof(
-        current_provides_root,
+        proof.new_provides_root,
         &proof.new_subtree_proof,
-        (requires.source, proof.new_subtree_root),
+        (block_requires.source, proof.new_subtree_root),
     )?;
     
     // 3. Verify subtrees are related (same or extended)
-    if proof.old_subtree_root == proof.new_subtree_root {
-        // Subtree unchanged - OK
-        Ok(())
-    } else if let Some(ext) = &proof.subtree_extension {
-        // Subtree grew - verify extension
-        verify_mmr_extension(
-            proof.old_subtree_root,
-            proof.new_subtree_root,
-            ext,
-        )
-    } else {
-        Err(Error::SubtreeChangedWithoutProof)
+    if proof.old_subtree_root != proof.new_subtree_root {
+        if let Some(ext) = &proof.subtree_extension {
+            // Subtree grew - verify extension
+            verify_mmr_extension(
+                proof.old_subtree_root,
+                proof.new_subtree_root,
+                ext,
+            )?;
+        } else {
+            return Err(Error::SubtreeChangedWithoutProof);
+        }
     }
+    
+    // 4. Return UPDATED commitment for the candidate
+    // The relay chain will verify this against the current provides root
+    Ok(RequiresCommitment {
+        source: block_requires.source,
+        expected_root: proof.new_provides_root,
+    })
 }
 ```
 
-Note: The relay chain verifies the proof but doesn't need to know message ranges or MMR sizes—those are internal to the parachain. The proof just demonstrates that the receiver's view of their subtree is consistent with the current provides root.
+Note: The PVF verifies the proof—the relay chain only sees the transformed commitment. Message ranges, MMR sizes, and proof details are all internal to the parachain. The proof just demonstrates that the receiver's view of their subtree is consistent with the current provides root.
 
 ### Proof Size Considerations
 
@@ -456,10 +466,7 @@ This is much better than a flat structure where proof size depends on ALL messag
 
 #### Practical Limits
 
-We recommend:
-1. **Soft limit**: Warn if late block proofs exceed 5 KB
-2. **Hard limit**: Reject if proofs exceed 50 KB
-3. **Monitoring**: Track proof sizes to detect anomalies
+Proofs are expected to stay small and should therefore practically fit into any POV. To be sure, we should nevertheless set aside a few kB (e.g. 50) for not breaking the late submission opportunity due to the POV getting too large.
 
 The hierarchical structure naturally keeps proofs small because:
 - Receiver only proves their subtree
@@ -488,15 +495,16 @@ For low-latency chains using speculative messaging, the acknowledgement rules fr
 Timeline for Block B receiving message from Block A (same trust domain):
 
 t=0:    Chain A collator produces Block A (sends message, provides P_A)
-t=1:    Chain A collator acknowledges Block A  
-t=2:    Chain B collator sees A's acknowledgement + messages
-t=3:    Chain B collator produces Block B (receives message, requires P_A)
-t=4:    Chain B collator acknowledges Block B
+t=1:    Chain B collator sees Block A + messages, produces Block B (requires P_A)
+t=1:    Chain A collator acknowledges Block A (in parallel with above)
+t=2:    Chain B collator sees A's acknowledgement, acknowledges Block B
 ...
 t=N:    Both blocks included on relay chain, commitments verified
 ```
 
-For different trust domains, step t=2 waits for relay chain inclusion instead of acknowledgement.
+Note: Block *building* can proceed immediately upon seeing messages. Only *acknowledgement* of the receiving block must wait for acknowledgement of the sending block.
+
+For different trust domains, acknowledgement of Block B waits for relay chain inclusion of Block A instead of collator acknowledgement.
 
 ### Cycle Prevention
 
@@ -699,7 +707,8 @@ Speculative messaging introduces new censorship dynamics that must be understood
 If Chain A's backing group censors Chain A's block, and Chain B has a `requires` dependency on that block:
 
 - Chain B's block cannot be included until Chain A's block is included
-- With late block proofs, Chain B can eventually be included once some Chain A block is included
+- If Chain A is delayed long enough, Chain B's availability will time out and B must be resubmitted
+- When both are resubmitted (likely around the same time), they'll typically arrive together—no late block proof needed
 
 ### Mitigation Strategies
 
@@ -707,9 +716,9 @@ If Chain A's backing group censors Chain A's block, and Chain B has a `requires`
 
 Limit trust domains to a reasonable size (e.g., 5-10 chains). This bounds the "blast radius" of cascading delays.
 
-#### 2. Late Block Proofs as Escape Hatch
+#### 2. Resubmission
 
-The late block proof mechanism means Chain B is never permanently stuck—it just needs to wait for any Chain A block to be included, then can prove its requirements are satisfied.
+If Chain A is censored long enough that Chain B's availability times out, Chain B simply resubmits. Since both chains are likely resubmitting around the same time, they'll typically be included together without needing late block proofs, although they are available if necessary, adding robustness.
 
 #### 3. On-Demand Parachains
 
@@ -750,7 +759,7 @@ Super chains provide similar developer experience (tight integration, fast messa
 | Confirmation source | L1 validators | Parachain collators |
 | Complexity | Very high (L1 understands L2 txs) | Moderate (chain-agnostic commitments) |
 | Decentralization | Often centralized sequencers | Decentralized collator sets |
-| Slash risk | Limited (many failure modes) | Higher (clear rules) |
+| Enforcement | Limited (many failure modes) | Higher (clear rules) |
 
 ---
 
@@ -759,9 +768,52 @@ Super chains provide similar developer experience (tight integration, fast messa
 ### Relay Chain Runtime Changes
 
 1. **New commitment types**: Add `provides` and `requires` to candidate commitments
-2. **MMR verification logic**: Verify extension proofs
-3. **Commitment matching**: Check provides/requires at inclusion time
-4. **Track provides history**: Keep recent provides for matching against late blocks
+2. **Commitment matching**: At inclusion time, verify that each `requires.expected_root` matches a `provides.root` from a currently backed or included candidate
+
+Note: The relay chain has no MMR verification logic and does not track history. All proof verification happens in the PVF, which transforms commitments before the relay chain sees them. The relay chain only performs simple hash matching on current candidates.
+
+### PVF Changes
+
+Similar to how Low-Latency v2 introduces a separate PVF entry point for scheduling information (verifying header chains and signed core selection), speculative messaging requires PVF logic for processing late block proofs and transforming commitments.
+
+The PVF receives additional inputs via the POV (outside the block itself):
+
+```rust
+struct MessagingProofInputs {
+    /// Late block proofs for each source chain where the block's requires
+    /// references an older root than currently available
+    late_block_proofs: Vec<LateBlockProof>,
+}
+```
+
+The PVF then:
+
+1. **Executes the block**: The block produces `requires` commitments based on the messages it processed (referencing the `provides` roots it was built against)
+
+2. **Processes late block proofs**: For each `requires` commitment where a `LateBlockProof` is provided:
+   - Verifies the proof connects the old root (block's `requires.expected_root`) to the new root (`proof.new_provides_root`)
+   - Transforms the commitment to reference the new root
+
+3. **Outputs transformed commitments**: The candidate commitments contain the (possibly transformed) `requires` that the relay chain can verify against currently available `provides`
+
+```rust
+fn process_messaging_commitments(
+    block_requires: Vec<RequiresCommitment>,  // From block execution
+    proof_inputs: &MessagingProofInputs,      // From POV
+) -> Result<Vec<RequiresCommitment>, Error> {
+    block_requires.into_iter().map(|req| {
+        if let Some(proof) = find_proof_for_source(&proof_inputs, req.source) {
+            // Transform: verify proof and update to current root
+            process_late_block_requires(&req, proof)
+        } else {
+            // No transformation needed - block was built against current root
+            Ok(req)
+        }
+    }).collect()
+}
+```
+
+This follows the same pattern as the scheduling parent header chain in Low-Latency v2: the PVF verifies proofs and transforms inputs so the relay chain only sees commitments it can verify against current state.
 
 ### Parachain Runtime Changes  
 
@@ -797,13 +849,13 @@ Super chains provide similar developer experience (tight integration, fast messa
 
 **Attack**: Late block includes a fabricated extension proof.
 
-**Mitigation**: Extension proofs are cryptographically verified. Invalid proofs are rejected by the relay chain.
+**Mitigation**: Extension proofs are cryptographically verified by the PVF. Invalid proofs cause candidate validation to fail.
 
 ### Threat: Message Replay/Skip
 
 **Attack**: Receiving chain processes messages out of order or skips messages.
 
-**Mitigation**: The `message_range` in requires commits to exactly which messages are processed. The relay chain can verify consecutive processing.
+**Mitigation**: The parachain runtime tracks which messages have been processed and enforces consecutive processing. This is internal to the parachain—the relay chain only sees the resulting `requires` commitment.
 
 ### Threat: Acknowledgement Without Verification
 
@@ -819,20 +871,6 @@ Super chains provide similar developer experience (tight integration, fast messa
 
 ---
 
-## Future Work
-
-1. **Automatic Trust Domain Formation**: Discover and form trust relationships based on messaging patterns and reliability history.
-
-2. **Hierarchical MMRs**: For very high-volume chains, investigate hierarchical structures to keep proof sizes bounded.
-
-3. **Cross-Domain Speculative Messaging**: Explore mechanisms for speculative messaging across trust domains with additional collateral/insurance.
-
-4. **Formal Verification**: Prove cycle-freedom and liveness properties of the odd/even scheme.
-
-5. **Message Batching**: Optimize for high-volume messaging by batching multiple messages into single MMR leaves.
-
----
-
 ## Conclusion
 
 Speculative Messaging replaces HRMP with a more scalable, lower-latency alternative that:
@@ -841,7 +879,7 @@ Speculative Messaging replaces HRMP with a more scalable, lower-latency alternat
 - **Enables parachain-speed messaging**: Within trust domains, messaging latency drops to parachain block times
 - **Supports super chains**: Tightly coupled chains can exchange messages within the same block production cycle
 - **Gracefully handles late blocks**: MMR extension proofs allow blocks with older requirements to still be included
-- **Maintains horizontal scaling**: No node needs to process all chains or all messages
+- **Maintains horizontal scaling**: Even for super chains: Full nodes can still be per chain and don't need to keep the entire state or process all sub-chain blocks.
 
 Combined with Low-Latency Parachains v2, this positions Polkadot to offer user experiences competitive with monolithic chains while preserving its core value propositions of decentralization, security, and horizontal scalability.
 
