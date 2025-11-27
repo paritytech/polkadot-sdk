@@ -366,7 +366,7 @@ pub mod pallet {
 		/// to standard EVM gas cost and contracts will not run out of gas when tools or code
 		/// assume hard coded gas limits.
 		///
-		/// Invariant: `GasScale` must no be 0
+		/// Requirement: `GasScale` must not be 0
 		#[pallet::constant]
 		#[pallet::no_default_bounds]
 		type GasScale: Get<BalanceOf<Self>>;
@@ -917,7 +917,7 @@ pub mod pallet {
 		fn integrity_test() {
 			assert!(T::ChainId::get() > 0, "ChainId must be greater than 0");
 
-			assert!(T::GasScale::get() > 0, "GasScale must no be 0");
+			assert!(T::GasScale::get() > 0.into(), "GasScale must no be 0");
 
 			T::FeeInfo::integrity_test();
 
