@@ -24,8 +24,8 @@ use jsonrpsee::{
 };
 use pallet_revive::evm::*;
 use sp_core::{keccak_256, H160, H256, U256};
+use subxt::backend::legacy::rpc_methods::TransactionStatus;
 use thiserror::Error;
-use tokio::time::Duration;
 
 pub mod cli;
 pub mod client;
@@ -174,36 +174,32 @@ impl EthRpcServer for EthRpcServerImpl {
 		let receiver = self.client.block_notifier().map(|sender| sender.subscribe());
 
 		// Submit the transaction
-		let substrate_hash = self.client.submit(call).await.map_err(|err| {
+		let tx_status = self.client.submit(call).await.map_err(|err| {
 			log::trace!(target: LOG_TARGET, "send_raw_transaction ethereum_hash: {hash:?} failed: {err:?}");
 			err
 		})?;
 
-		log::trace!(target: LOG_TARGET, "send_raw_transaction ethereum_hash: {hash:?} substrate_hash: {substrate_hash:?}");
+		if matches!(tx_status, TransactionStatus::Future) {
+			return Ok(hash)
+		}
 
 		// Wait for the transaction to be included in a block if automine is enabled
 		if let Some(mut receiver) = receiver {
-			if let Err(err) = tokio::time::timeout(Duration::from_millis(500), async {
-				loop {
-					if let Ok(block_hash) = receiver.recv().await {
-						let Ok(Some(block)) = self.client.block_by_hash(&block_hash).await else {
-							log::debug!(target: LOG_TARGET, "Could not find the block with the received hash: {hash:?}.");
-							continue
-						};
-						let Some(evm_block) = self.client.evm_block(block, false).await else {
-							log::debug!(target: LOG_TARGET, "Failed to get the EVM block for substrate block with hash: {hash:?}");
-							continue
-						};
-						if evm_block.transactions.contains_tx(hash) {
-							log::debug!(target: LOG_TARGET, "{hash:} was included in a block");
-							break;
-						}
+			loop {
+				if let Ok(block_hash) = receiver.recv().await {
+					let Ok(Some(block)) = self.client.block_by_hash(&block_hash).await else {
+						log::debug!(target: LOG_TARGET, "Could not find the block with the received hash: {hash:?}.");
+						continue
+					};
+					let Some(evm_block) = self.client.evm_block(block, false).await else {
+						log::debug!(target: LOG_TARGET, "Failed to get the EVM block for substrate block with hash: {hash:?}");
+						continue
+					};
+					if evm_block.transactions.contains_tx(hash) {
+						log::debug!(target: LOG_TARGET, "{hash:} was included in a block");
+						break;
 					}
 				}
-			})
-			.await
-			{
-				log::debug!(target: LOG_TARGET, "timeout waiting for new block: {err:?}");
 			}
 		}
 

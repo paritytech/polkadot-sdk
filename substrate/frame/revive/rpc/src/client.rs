@@ -19,12 +19,12 @@
 
 pub(crate) mod runtime_api;
 pub(crate) mod storage_api;
-
 use crate::{
 	subxt_client::{self, revive::calls::types::EthTransact, SrcChainConfig},
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
 	TracerType, TransactionInfo,
 };
+use futures::TryStreamExt;
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
@@ -41,11 +41,15 @@ use std::{ops::Range, sync::Arc, time::Duration};
 use storage_api::StorageApi;
 use subxt::{
 	backend::{
-		legacy::{rpc_methods::SystemHealth, LegacyRpcMethods},
+		legacy::{
+			rpc_methods::{SystemHealth, TransactionStatus},
+			LegacyRpcMethods,
+		},
 		rpc::{
 			reconnecting_rpc_client::{ExponentialBackoff, RpcClient as ReconnectingRpcClient},
 			RpcClient,
 		},
+		StreamOf, StreamOfResults,
 	},
 	config::{HashFor, Header},
 	ext::subxt_rpcs::rpc_params,
@@ -78,6 +82,29 @@ pub enum SubscriptionType {
 	FinalizedBlocks,
 }
 
+/// Submit Error reason.
+#[derive(Debug)]
+pub struct SubmitError(pub &'static str);
+
+impl std::fmt::Display for SubmitError {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{}", self.0)
+	}
+}
+
+impl From<TransactionStatus<SubstrateBlockHash>> for SubmitError {
+	fn from(status: TransactionStatus<SubstrateBlockHash>) -> Self {
+		match status {
+			TransactionStatus::Usurped(_) =>
+				SubmitError("Transaction was usurped by another with the same nonce"),
+			TransactionStatus::Dropped => SubmitError("Transaction was dropped"),
+			TransactionStatus::Invalid =>
+				SubmitError("Transaction is invalid (eg because of a bad nonce, signature etc)"),
+			_ => SubmitError("Unknown transaction status"),
+		}
+	}
+}
+
 /// The error type for the client.
 #[derive(Error, Debug)]
 pub enum ClientError {
@@ -95,6 +122,9 @@ pub enum ClientError {
 	/// A [`codec::Error`] wrapper error.
 	#[error(transparent)]
 	CodecError(#[from] codec::Error),
+	/// author_submitExtrinsic failed.
+	#[error("Invalid transaction: {0}")]
+	SubmitError(SubmitError),
 	/// Transcact call failed.
 	#[error("contract reverted: {0:?}")]
 	TransactError(EthTransactError),
@@ -130,6 +160,9 @@ pub enum ClientError {
 	/// Receipt data length mismatch.
 	#[error("Receipt data length mismatch")]
 	ReceiptDataLengthMismatch,
+	/// Transaction submission timeout.
+	#[error("Transaction submission timeout")]
+	Timeout,
 }
 const LOG_TARGET: &str = "eth-rpc::client";
 
@@ -451,18 +484,70 @@ impl Client {
 		self.block_provider.latest_block().await
 	}
 
+	/// Submit an ethereum transaction and return a stream of transaction status updates.
+	async fn submit_transaction(
+		&self,
+		call: subxt::tx::DefaultPayload<EthTransact>,
+	) -> Result<StreamOfResults<TransactionStatus<SubstrateBlockHash>>, ClientError> {
+		let ext = self.api.tx().create_unsigned(&call).map_err(ClientError::from)?;
+
+		let sub = self
+			.rpc_client
+			.subscribe(
+				"author_submitAndWatchExtrinsic",
+				rpc_params![to_hex(ext.encoded())],
+				"author_unwatchExtrinsic",
+			)
+			.await?;
+
+		let sub = sub.map_err(|e| e.into());
+		Ok(StreamOf::new(Box::pin(sub)))
+	}
+
 	/// Expose the transaction API.
 	pub async fn submit(
 		&self,
 		call: subxt::tx::DefaultPayload<EthTransact>,
-	) -> Result<H256, ClientError> {
-		let ext = self.api.tx().create_unsigned(&call).map_err(ClientError::from)?;
-		let hash: H256 = self
-			.rpc_client
-			.request("author_submitExtrinsic", rpc_params![to_hex(ext.encoded())])
-			.await?;
-		log::debug!(target: LOG_TARGET, "Submitted transaction with substrate hash: {hash:?}");
-		Ok(hash)
+	) -> Result<TransactionStatus<SubstrateBlockHash>, ClientError> {
+		let mut progress = self.submit_transaction(call).await.inspect_err(|err| {
+			log::debug!(target: LOG_TARGET, "Failed to submit transaction: {err:?}");
+		})?;
+
+		tokio::time::timeout(Duration::from_secs(10), async {
+			if let Some(status) = progress.next().await {
+				match status {
+					Ok(
+						tx @ (TransactionStatus::Future |
+						TransactionStatus::Ready |
+						// Add other events that follow Ready here for completeness,
+						// but they can be ignored.
+						TransactionStatus::Broadcast(_) |
+						TransactionStatus::InBlock(_) |
+						TransactionStatus::FinalityTimeout(_) |
+						TransactionStatus::Retracted(_) |
+						TransactionStatus::Finalized(_)),
+					) => {
+						return Ok(tx);
+					},
+					Ok(
+						tx @ (TransactionStatus::Usurped(_) |
+						TransactionStatus::Dropped |
+						TransactionStatus::Invalid),
+					) => {
+						return Err(ClientError::SubmitError(tx.into()));
+					},
+					Err(err) => {
+						log::debug!(target: LOG_TARGET, "Transaction submission failed: {err:?}");
+						return Err(ClientError::from(err));
+					},
+				}
+			}
+			return Err(ClientError::SubmitError(SubmitError(
+				"Transaction stream ended without status",
+			)))
+		})
+		.await
+		.map_err(|_| ClientError::Timeout)?
 	}
 
 	/// Get an EVM transaction receipt by hash.
