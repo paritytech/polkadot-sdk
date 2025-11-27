@@ -1210,7 +1210,7 @@ where
 										import_existing: self.import_existing,
 										skip_execution: true,
 										state: None,
-										allow_missing_parent: true,
+										allow_missing_parent: false,
 									}
 								})
 								.collect();

@@ -356,7 +356,8 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 				parent_hash,
 				allow_missing_state: block.allow_missing_state,
 				import_existing: block.import_existing,
-				allow_missing_parent: block.state.is_some() || block.allow_missing_parent,
+				// allow_missing_parent: block.state.is_some() || block.allow_missing_parent,
+				allow_missing_parent: block.state.is_some()
 			})
 			.await,
 	)? {

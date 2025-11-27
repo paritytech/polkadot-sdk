@@ -229,7 +229,7 @@ impl<B: BlockT> StateStrategy<B> {
 					allow_missing_state: true,
 					import_existing: true,
 					skip_execution: true,
-					allow_missing_parent: true,
+					allow_missing_parent: false,
 					state: Some(state),
 				};
 				debug!(target: LOG_TARGET, "State download is complete. Import is queued");
