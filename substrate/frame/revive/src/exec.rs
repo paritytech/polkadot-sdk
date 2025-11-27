@@ -1559,7 +1559,6 @@ where
 				}
 			}
 		} else {
-			// TODO: iterate contracts_to_be_destroyed and destroy each contract
 			if !persist {
 				self.transaction_meter
 					.absorb_weight_meter_only(mem::take(&mut self.first_frame.frame_meter));
