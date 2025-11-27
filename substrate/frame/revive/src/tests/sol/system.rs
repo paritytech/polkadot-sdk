@@ -18,12 +18,13 @@
 //! The pallet-revive shared VM integration test suite.
 
 use crate::{
-	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
+	evm::fees::InfoT,
+	test_utils::{builder::Contract, ALICE, ALICE_ADDR, GAS_LIMIT},
 	tests::{builder, Contracts, ExtBuilder, Test},
-	Code, Config, U256,
+	Code, Combinator, Config, ExecConfig, U256,
 };
-use alloy_core::sol_types::SolCall;
-use frame_support::traits::fungible::Mutate;
+use alloy_core::sol_types::{Revert, SolCall, SolConstructor, SolError};
+use frame_support::traits::fungible::{Balanced, Mutate};
 use pallet_revive_fixtures::{
 	compile_module_with_type, Callee, FixtureType, System as SystemFixture,
 };
@@ -39,8 +40,9 @@ fn keccak_256_works(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
+			.build_and_unwrap_contract();
 
 		let pre = b"revive";
 		let expected = keccak_256(pre);
@@ -59,8 +61,9 @@ fn address_works(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
+			.build_and_unwrap_contract();
 
 		let result = builder::bare_call(addr)
 			.data(SystemFixture::addressFuncCall {}.abi_encode())
@@ -77,8 +80,9 @@ fn caller_works(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
+			.build_and_unwrap_contract();
 
 		let result = builder::bare_call(addr)
 			.data(SystemFixture::callerCall {}.abi_encode())
@@ -95,8 +99,9 @@ fn callvalue_works(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
+			.build_and_unwrap_contract();
 
 		let value = 1337u64;
 
@@ -116,8 +121,9 @@ fn calldataload_works(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
+			.build_and_unwrap_contract();
 
 		let result = builder::bare_call(addr)
 			.data(SystemFixture::calldataloadCall { offset: 4u64 }.abi_encode())
@@ -135,8 +141,9 @@ fn calldatasize_works(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
+			.build_and_unwrap_contract();
 
 		// calldata = selector + encoded argument
 		let result = builder::bare_call(addr)
@@ -155,8 +162,9 @@ fn calldatacopy_works(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
+			.build_and_unwrap_contract();
 
 		let call_data = SystemFixture::calldatacopyCall {
 			destOffset: 0u64, // unused
@@ -185,8 +193,9 @@ fn codesize_works(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
+			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
+			.build_and_unwrap_contract();
 
 		let result = builder::bare_call(addr)
 			.data(SystemFixture::codesizeCall {}.abi_encode())
@@ -199,6 +208,37 @@ fn codesize_works(fixture_type: FixtureType) {
 		let expected_size = code.len() as u64;
 
 		assert_eq!(expected_size, decoded);
+	});
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn gas_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
+			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
+			.build_and_unwrap_contract();
+
+		// enable txhold collection which we expect to be on when using the evm backend
+		let hold_initial = <Test as Config>::FeeInfo::weight_to_fee(&GAS_LIMIT, Combinator::Max);
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(hold_initial));
+		let mut exec_config = ExecConfig::new_substrate_tx();
+		exec_config.collect_deposit_from_hold = Some((0u32.into(), Default::default()));
+
+		let result = builder::bare_call(addr)
+			.data(SystemFixture::gasCall {}.abi_encode())
+			.exec_config(exec_config)
+			.build_and_unwrap_result();
+
+		let gas_left: u64 = SystemFixture::gasCall::abi_decode_returns(&result.data)
+			.unwrap()
+			.try_into()
+			.unwrap();
+
+		assert!(gas_left > 0);
+		assert!(gas_left < hold_initial);
 	});
 }
 
@@ -217,8 +257,9 @@ fn returndatasize_works(caller_type: FixtureType, callee_type: FixtureType) {
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
+			.build_and_unwrap_contract();
 
 		let magic_number = 42u64;
 		let result = builder::bare_call(addr)
@@ -251,8 +292,9 @@ fn returndatacopy_works(caller_type: FixtureType, callee_type: FixtureType) {
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
+			.build_and_unwrap_contract();
 
 		let magic_number = U256::from(42);
 		let result = builder::bare_call(addr)
@@ -272,5 +314,24 @@ fn returndatacopy_works(caller_type: FixtureType, callee_type: FixtureType) {
 		let decoded = SystemFixture::returndatacopyCall::abi_decode_returns(&result.data).unwrap();
 		let decoded_value = U256::from_big_endian(decoded.as_ref());
 		assert_eq!(magic_number, decoded_value)
+	});
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn constructor_with_argument_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let result = builder::bare_instantiate(Code::Upload(code))
+			.constructor_data(SystemFixture::constructorCall { panic: true }.abi_encode())
+			.build()
+			.result
+			.unwrap()
+			.result;
+		assert!(result.did_revert());
+
+		let expected_message = "Reverted because revert=true was set as constructor argument";
+		assert_eq!(result.data, Revert::from(expected_message).abi_encode());
 	});
 }

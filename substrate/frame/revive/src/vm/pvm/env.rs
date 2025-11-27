@@ -19,6 +19,7 @@ use super::*;
 
 use crate::{
 	address::AddressMapper,
+	debug::DebugSettings,
 	exec::Ext,
 	limits,
 	primitives::ExecReturnValue,
@@ -30,7 +31,7 @@ use core::mem;
 use frame_support::traits::Get;
 use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags};
-use sp_core::{H160, H256, U256};
+use sp_core::U256;
 use sp_io::hashing::keccak_256;
 use sp_runtime::{DispatchError, SaturatedConversion};
 
@@ -47,6 +48,12 @@ impl<T: Config> ContractBlob<T> {
 		aux_data_size: u32,
 	) -> Result<PreparedCall<E>, ExecError> {
 		let mut config = polkavm::Config::default();
+		// Log filtering by level with log::enabled! returns always true,
+		// passing all logs through impacting performance \
+		// (more details: https://github.com/paritytech/polkadot-sdk/issues/8760#issuecomment-3499548774)
+		// By default, disable polkavm logging unless pvm_logs debug setting is enabled.
+		let pvm_logs_enabled = DebugSettings::is_pvm_logs_enabled::<T>();
+		config.set_imperfect_logger_filtering_workaround(!pvm_logs_enabled);
 		config.set_backend(Some(polkavm::BackendKind::Interpreter));
 		config.set_cache_enabled(false);
 		#[cfg(feature = "std")]
@@ -62,7 +69,6 @@ impl<T: Config> ContractBlob<T> {
 		let mut module_config = polkavm::ModuleConfig::new();
 		module_config.set_page_size(limits::PAGE_SIZE);
 		module_config.set_gas_metering(Some(polkavm::GasMeteringKind::Sync));
-		module_config.set_allow_sbrk(false);
 		module_config.set_aux_data_size(aux_data_size);
 		let module =
 			polkavm::Module::new(&engine, &module_config, self.code.into()).map_err(|err| {
@@ -627,7 +633,7 @@ pub mod env {
 	#[stable]
 	fn gas_limit(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
 		self.charge_gas(RuntimeCosts::GasLimit)?;
-		Ok(<E::T as frame_system::Config>::BlockWeights::get().max_block.ref_time())
+		Ok(self.ext.gas_limit())
 	}
 
 	/// Stores the value transferred along with this call/instantiate into the supplied buffer.
@@ -660,7 +666,7 @@ pub mod env {
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&U256::zero().to_little_endian(),
+			&Pallet::<E::T>::evm_base_fee().to_little_endian(),
 			false,
 			already_charged,
 		)?)
@@ -698,7 +704,7 @@ pub mod env {
 			return Err(Error::<E::T>::TooManyTopics.into());
 		}
 
-		if data_len > self.ext.max_value_size() {
+		if data_len > limits::EVENT_BYTES {
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 
@@ -760,7 +766,7 @@ pub mod env {
 	#[stable]
 	fn block_author(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::BlockAuthor)?;
-		let block_author = self.ext.block_author().unwrap_or(H160::zero());
+		let block_author = self.ext.block_author();
 
 		Ok(self.write_fixed_sandbox_output(
 			memory,
@@ -828,37 +834,28 @@ pub mod env {
 		Ok(result?)
 	}
 
-	/// Returns the amount of ref_time left.
-	/// See [`pallet_revive_uapi::HostFn::ref_time_left`].
+	/// Returns the amount of evm gas left.
+	///
+	/// The name is only for historical reasons as renaming functions
+	/// would be a breaking change.
+	///
+	/// See [`pallet_revive_uapi::HostFn::gas_left`].
 	#[stable]
 	fn ref_time_left(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
 		self.charge_gas(RuntimeCosts::RefTimeLeft)?;
-		Ok(self.ext.gas_meter().gas_left().ref_time())
+		Ok(self.ext.gas_left())
 	}
 
-	/// Clear the value at the given key in the contract storage.
-	/// See [`pallet_revive_uapi::HostFn::clear_storage`]
-	#[mutating]
-	fn clear_storage(
-		&mut self,
-		memory: &mut M,
-		flags: u32,
-		key_ptr: u32,
-		key_len: u32,
-	) -> Result<u32, TrapReason> {
-		self.clear_storage(memory, flags, key_ptr, key_len)
-	}
-
-	/// Checks whether there is a value stored under the given key.
-	/// See [`pallet_revive_uapi::HostFn::contains_storage`]
-	fn contains_storage(
-		&mut self,
-		memory: &mut M,
-		flags: u32,
-		key_ptr: u32,
-		key_len: u32,
-	) -> Result<u32, TrapReason> {
-		self.contains_storage(memory, flags, key_ptr, key_len)
+	/// Reverts the execution without data and cedes all remaining gas.
+	///
+	/// See [`pallet_revive_uapi::HostFn::consume_all_gas`].
+	#[stable]
+	fn consume_all_gas(&mut self, memory: &mut M) -> Result<(), TrapReason> {
+		self.ext.gas_meter_mut().consume_all();
+		Err(TrapReason::Return(ReturnData {
+			flags: ReturnFlags::REVERT.bits(),
+			data: Default::default(),
+		}))
 	}
 
 	/// Calculates Ethereum address from the ECDSA compressed public key and stores
@@ -924,28 +921,15 @@ pub mod env {
 		}
 	}
 
-	/// Retrieve and remove the value under the given key from storage.
-	/// See [`pallet_revive_uapi::HostFn::take_storage`]
-	#[mutating]
-	fn take_storage(
-		&mut self,
-		memory: &mut M,
-		flags: u32,
-		key_ptr: u32,
-		key_len: u32,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		self.take_storage(memory, flags, key_ptr, key_len, out_ptr, out_len_ptr)
-	}
-
-	/// Remove the calling account and transfer remaining **free** balance.
+	/// Remove the calling account and transfer remaining balance:
+	/// **total** balance if code is deleted from storage, else **free** balance only.
 	/// See [`pallet_revive_uapi::HostFn::terminate`].
 	#[mutating]
+	#[stable]
 	fn terminate(&mut self, memory: &mut M, beneficiary_ptr: u32) -> Result<(), TrapReason> {
 		let charged = self.charge_gas(RuntimeCosts::Terminate { code_removed: true })?;
 		let beneficiary = memory.read_h160(beneficiary_ptr)?;
-		if matches!(self.ext.terminate(&beneficiary)?, crate::CodeRemoved::No) {
+		if matches!(self.ext.terminate_if_same_tx(&beneficiary)?, crate::CodeRemoved::No) {
 			self.adjust_gas(charged, RuntimeCosts::Terminate { code_removed: false });
 		}
 		Err(TrapReason::Termination)

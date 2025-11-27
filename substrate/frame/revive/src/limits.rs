@@ -48,8 +48,22 @@ pub const CALL_STACK_DEPTH: u32 = 25;
 /// We set it to the same limit that ethereum has. It is unlikely to change.
 pub const NUM_EVENT_TOPICS: u32 = 4;
 
-/// Maximum size of events (including topics) and storage values.
-pub const PAYLOAD_BYTES: u32 = 416;
+/// Maximum size of of the transaction payload
+///
+/// Maximum code size during instantiation taken into account plus some overhead.
+pub const MAX_TRANSACTION_PAYLOAD_SIZE: u32 = code::BLOB_BYTES + CALLDATA_BYTES;
+
+/// Maximum size of storage items.
+pub const STORAGE_BYTES: u32 = 416;
+
+/// Maximum payload size of events.
+pub const EVENT_BYTES: u32 = 64 * 1024;
+
+/// The extra ref time charge of deposit event per byte.
+///
+/// This ensure the block builder has enough memory and pallet storage
+/// to operate under worst case scenarios.
+pub const EXTRA_EVENT_CHARGE_PER_BYTE: u64 = 256 * 1024;
 
 /// The maximum size for calldata and return data.
 ///
@@ -124,8 +138,9 @@ pub mod code {
 		pvm_blob: Vec<u8>,
 		available_syscalls: &[&[u8]],
 	) -> Result<Vec<u8>, DispatchError> {
-		use polkavm::program::ISA64_V1 as ISA;
-		use polkavm_common::program::EstimateInterpreterMemoryUsageArgs;
+		use polkavm_common::program::{
+			EstimateInterpreterMemoryUsageArgs, ISA_ReviveV1, InstructionSetKind,
+		};
 
 		let len: u64 = pvm_blob.len() as u64;
 		if len > crate::limits::code::BLOB_BYTES.into() {
@@ -146,6 +161,11 @@ pub mod code {
 
 		if !program.is_64_bit() {
 			log::debug!(target: LOG_TARGET, "32bit programs are not supported.");
+			Err(Error::<T>::CodeRejected)?;
+		}
+
+		if program.isa() != InstructionSetKind::ReviveV1 {
+			log::debug!(target: LOG_TARGET, "Program instruction set '{}' is not '{}'", program.isa().name(), InstructionSetKind::ReviveV1.name());
 			Err(Error::<T>::CodeRejected)?;
 		}
 
@@ -176,7 +196,7 @@ pub mod code {
 		let mut block_size: u32 = 0;
 		let mut basic_block_count: u32 = 0;
 		let mut instruction_count: u32 = 0;
-		for inst in program.instructions(ISA) {
+		for inst in program.instructions_with_isa(ISA_ReviveV1) {
 			use polkavm::program::Instruction;
 			block_size += 1;
 			instruction_count += 1;
@@ -190,6 +210,8 @@ pub mod code {
 					log::debug!(target: LOG_TARGET, "invalid instruction at offset {}", inst.offset);
 					return Err(<Error<T>>::InvalidInstruction.into())
 				},
+				// Since polkavm `0.30.0` linker will fail if it detects sbrk instruction.
+				// So this branch is never reached for programs built with polkavm >= 0.30.0.
 				Instruction::sbrk(_, _) => {
 					log::debug!(target: LOG_TARGET, "sbrk instruction is not allowed. offset {}", inst.offset);
 					return Err(<Error<T>>::InvalidInstruction.into())

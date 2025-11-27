@@ -133,3 +133,23 @@ fn tasks_work() {
 		assert_eq!(my_pallet_2::SomeStorage::<Runtime, Instance1>::get(), (0, 2));
 	});
 }
+
+#[test]
+fn do_task_unsigned_validation_rejects_external_source() {
+	new_test_ext().execute_with(|| {
+		use frame_support::pallet_prelude::{
+			InvalidTransaction, TransactionSource, TransactionValidityError, ValidateUnsigned,
+		};
+
+		let task = RuntimeTask::MyPallet(my_pallet::Task::<Runtime>::Foo { i: 0u32, j: 2u64 });
+		let call = frame_system::Call::do_task { task };
+
+		assert!(matches!(
+			System::validate_unsigned(TransactionSource::External, &call),
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
+		));
+
+		assert!(System::validate_unsigned(TransactionSource::InBlock, &call).is_ok());
+		assert!(System::validate_unsigned(TransactionSource::Local, &call).is_ok());
+	});
+}

@@ -1,7 +1,7 @@
 name: Binary Build
 # This workflow can be used to build a binary like polkadot + workers, omninode or polkadot-parachain
 # from any branch with release or profuction profile to be later used for testing.
-# ⚠️ IT should not be used for release purposes!
+# ⚠️ IT should not be used for release purposes! 
 
 on:
   workflow_dispatch:
@@ -75,7 +75,7 @@ jobs:
           fi
 
       - name: Upload ${{ inputs.binary }} artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: ${{ inputs.binary }}
           path: /artifacts/**
