@@ -54,6 +54,8 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use frame_support::traits::tokens::{Fortitude, Precision, Restriction};
 
+	const LOG_TARGET: &str = "runtime::indices";
+
 	/// A reason for holding funds.
 	/// Creates a hold reason for this pallet that is aggregated by `construct_runtime`.
 	#[pallet::composite_enum]
@@ -231,12 +233,20 @@ pub mod pallet {
 			Accounts::<T>::mutate(index, |maybe_value| {
 				if let Some((account, amount, _)) = maybe_value.take() {
 					// Release hold from current owner if any
-					let _ = T::NativeBalance::release(
+					if let Err(e) = T::NativeBalance::release(
 						&HoldReason::DepositForIndex.into(),
 						&account,
 						amount,
 						Precision::BestEffort,
-					);
+					) {
+						log::error!(
+							target: LOG_TARGET,
+							"Failed to release hold for account {:?}, amount {:?}: {:?}",
+							account,
+							amount,
+							e
+						);
+					}
 				}
 				*maybe_value = Some((new.clone(), Zero::zero(), freeze));
 			});

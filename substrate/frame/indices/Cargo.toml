@@ -24,6 +24,7 @@ scale-info = { features = ["derive"], workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
+log = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
@@ -40,6 +41,7 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"log/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
