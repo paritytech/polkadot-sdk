@@ -144,7 +144,7 @@ where
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
 		// Check if we have minimal weight to proceed
 		// We need at least enough weight to migrate one account to make progress
-		let min_required = T::DbWeight::get().reads(1);//T::WeightInfo::migrate_account_step();
+		let min_required = T::DbWeight::get().reads(1); //T::WeightInfo::migrate_account_step();
 
 		if meter.remaining().any_lt(min_required) {
 			return Err(SteppedMigrationError::InsufficientWeight { required: min_required });
@@ -172,7 +172,6 @@ where
 				println!("Migration completed - no more accounts to migrate");
 				return Ok(None);
 			}
-
 		}
 
 		Ok(cursor)
