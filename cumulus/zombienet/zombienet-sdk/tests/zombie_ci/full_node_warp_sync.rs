@@ -112,6 +112,7 @@
 //!    to point to them.
 
 use anyhow::anyhow;
+use std::{time::Duration};
 
 use polkadot_primitives::Id as ParaId;
 
@@ -119,13 +120,50 @@ use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 use cumulus_zombienet_sdk_helpers::assert_para_is_registered;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
-	NetworkConfig, NetworkConfigBuilder,
+	NetworkConfig, NetworkConfigBuilder, NetworkNode
 };
+use zombienet_orchestrator::network::node::LogLineCountOptions;
 
 const PARA_ID: u32 = 2000;
 
 const DB_SNAPSHOT_RELAYCHAIN: &str = "https://storage.googleapis.com/zombienet-db-snaps/zombienet/0007-full_node_warp_sync_db/alice-db.tgz";
 const DB_SNAPSHOT_PARACHAIN: &str = "https://storage.googleapis.com/zombienet-db-snaps/zombienet/0007-full_node_warp_sync_db/eve-db.tgz";
+
+// Asserting Warp sync requires at least sync=debug level
+async fn assert_warp_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
+	let options =
+		LogLineCountOptions::new(|n| n == 1, Duration::from_secs(5), false);
+
+	log::info!("Asserting Warp sync for node {}", node.name());
+	// We are interested only in Relaychain Warp sync (relaychain and parachain nodes),
+	// thus exclude exclude lines containing "[Parachain]"
+	let result = node
+		.wait_log_line_count_with_timeout(
+			r"(?<!\[Parachain\] )Started warp sync with [0-9]+ peers",
+			false,
+			options.clone()
+		)
+		.await?;
+	assert!(result.success(), "Warp sync not started");
+	let result = node
+		.wait_log_line_count_with_timeout(
+			r"(?<!\[Parachain\] )Starting import of [0-9]+ blocks.*\(origin: ConsensusBroadcast\)",
+			false,
+			options.clone()
+		)
+		.await?;
+	assert!(result.success(), "Warp sync block import not started");
+	let result = node
+		.wait_log_line_count_with_timeout(
+			r"(?<!\[Parachain\] )Imported [0-9]+ out of [0-9]+ blocks.*\(origin: ConsensusBroadcast\)",
+			false,
+			options
+		)
+		.await?;
+	assert!(result.success(), "Warp sync not finished");
+
+	Ok(())
+}
 
 #[tokio::test(flavor = "multi_thread")]
 async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
@@ -143,8 +181,12 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 	log::info!("Ensuring parachain is registered");
 	assert_para_is_registered(&alice_client, ParaId::from(PARA_ID), 10).await?;
 
-	// warp sync
+	assert_warp_sync(network.get_node("dave")?).await?;
+
+	assert_warp_sync(network.get_node("two")?).await?;
 	// gap sync
+
+	// check progress
 	for name in ["two", "three", "four"] {
 		log::info!("Checking full node {name} is syncing");
 		assert!(network
