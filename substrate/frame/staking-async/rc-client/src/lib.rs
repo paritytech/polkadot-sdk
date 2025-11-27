@@ -641,53 +641,70 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
-			if let Some((report, retries_left)) = OutgoingValidatorSet::<T>::take() {
-				// Determine if we should export the validator set.
-				// Export immediately if: ValidatorSetExportSession is 0 (immediate export mode)
-				let should_export = if T::ValidatorSetExportSession::get() == 0 {
-					// Immediate export mode
-					true
-				} else {
-					// Check if we've reached the target session offset
-					let last_session_end = LastSessionReportEndingIndex::<T>::get().unwrap_or(0);
-					let last_era_ending_index =
-						T::AHStakingInterface::active_era_start_session_index().saturating_sub(1);
-					let session_offset = last_session_end.saturating_sub(last_era_ending_index);
+			let mut weight = T::DbWeight::get().reads(1);
 
-					session_offset >= T::ValidatorSetExportSession::get()
-				};
-
-				if should_export {
-					// Export the validator set
-					match T::SendToRelayChain::validator_set(report.clone()) {
-						Ok(()) => {
-							// report was sent, all good, it is already deleted.
-							log::debug!(
-								target: LOG_TARGET,
-								"Exported validator set to RC for Era: {}",
-								report.id,
-							);
-						},
-						Err(()) => {
-							log!(error, "Failed to send validator set report to relay chain");
-							Self::deposit_event(Event::<T>::Unexpected(
-								UnexpectedKind::ValidatorSetSendFailed,
-							));
-							if let Some(new_retries_left) = retries_left.checked_sub(One::one()) {
-								OutgoingValidatorSet::<T>::put((report, new_retries_left))
-							} else {
-								Self::deposit_event(Event::<T>::Unexpected(
-									UnexpectedKind::ValidatorSetDropped,
-								));
-							}
-						},
-					}
-				} else {
-					// Not yet time to export, put it back
-					OutgoingValidatorSet::<T>::put((report, retries_left));
-				}
+			// Early return if no validator set to export
+			if !OutgoingValidatorSet::<T>::exists() {
+				return weight;
 			}
-			T::DbWeight::get().reads_writes(3, 1)
+
+			// Determine if we should export based on session offset
+			let should_export = if T::ValidatorSetExportSession::get() == 0 {
+				// Immediate export mode
+				true
+			} else {
+				// Check if we've reached the target session offset
+				weight.saturating_accrue(T::DbWeight::get().reads(2));
+
+				let last_session_end = LastSessionReportEndingIndex::<T>::get().unwrap_or(0);
+				let last_era_ending_index =
+					T::AHStakingInterface::active_era_start_session_index().saturating_sub(1);
+				let session_offset = last_session_end.saturating_sub(last_era_ending_index);
+
+				session_offset >= T::ValidatorSetExportSession::get()
+			};
+
+			if !should_export {
+				// validator set buffered until target session offset
+				return weight;
+			}
+
+			// good time to export the latest elected validator set
+			weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+			if let Some((report, retries_left)) = OutgoingValidatorSet::<T>::take() {
+				// Export the validator set
+				weight.saturating_accrue(T::DbWeight::get().writes(1));
+				match T::SendToRelayChain::validator_set(report.clone()) {
+					Ok(()) => {
+						log::debug!(
+							target: LOG_TARGET,
+							"Exported validator set to RC for Era: {}",
+							report.id,
+						);
+					},
+					Err(()) => {
+						log!(error, "Failed to send validator set report to relay chain");
+						weight.saturating_accrue(T::DbWeight::get().writes(1));
+						Self::deposit_event(Event::<T>::Unexpected(
+							UnexpectedKind::ValidatorSetSendFailed,
+						));
+
+						if let Some(new_retries_left) = retries_left.checked_sub(One::one()) {
+							weight.saturating_accrue(T::DbWeight::get().writes(1));
+							OutgoingValidatorSet::<T>::put((report, new_retries_left));
+						} else {
+							weight.saturating_accrue(T::DbWeight::get().writes(1));
+							Self::deposit_event(Event::<T>::Unexpected(
+								UnexpectedKind::ValidatorSetDropped,
+							));
+						}
+					},
+				}
+			} else {
+				defensive!("OutgoingValidatorSet checked already, must exist.");
+			}
+
+			weight
 		}
 	}
 
