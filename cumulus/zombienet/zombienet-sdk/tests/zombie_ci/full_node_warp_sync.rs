@@ -112,17 +112,17 @@
 //!    to point to them.
 
 use anyhow::anyhow;
-use std::{time::Duration};
+use std::time::Duration;
 
 use polkadot_primitives::Id as ParaId;
 
 use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 use cumulus_zombienet_sdk_helpers::assert_para_is_registered;
+use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
-	NetworkConfig, NetworkConfigBuilder, NetworkNode
+	NetworkConfig, NetworkConfigBuilder, NetworkNode,
 };
-use zombienet_orchestrator::network::node::LogLineCountOptions;
 
 const PARA_ID: u32 = 2000;
 
@@ -131,8 +131,7 @@ const DB_SNAPSHOT_PARACHAIN: &str = "https://storage.googleapis.com/zombienet-db
 
 // Asserting Warp sync requires at least sync=debug level
 async fn assert_warp_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
-	let option_1_line =
-		LogLineCountOptions::new(|n| n == 1, Duration::from_secs(5), false);
+	let option_1_line = LogLineCountOptions::new(|n| n == 1, Duration::from_secs(5), false);
 
 	log::info!("Asserting Warp sync for node {}", node.name());
 	// We are interested only in Relaychain Warp sync (relaychain and parachain nodes),
@@ -141,7 +140,7 @@ async fn assert_warp_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 		.wait_log_line_count_with_timeout(
 			r"(?<!\[Parachain\] )Started warp sync with [0-9]+ peers",
 			false,
-			option_1_line.clone()
+			option_1_line.clone(),
 		)
 		.await?;
 	assert!(result.success(), "Warp sync is not started");
@@ -149,7 +148,7 @@ async fn assert_warp_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 		.wait_log_line_count_with_timeout(
 			r"(?<!\[Parachain\] )Starting import of [0-9]+ blocks.*\(origin: WarpSync\)",
 			false,
-			option_1_line.clone()
+			option_1_line.clone(),
 		)
 		.await?;
 	assert!(result.success(), "Warp sync block import is not started");
@@ -157,7 +156,7 @@ async fn assert_warp_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 		.wait_log_line_count_with_timeout(
 			r"(?<!\[Parachain\] )Imported [0-9]+ out of [0-9]+ blocks.*\(origin: WarpSync\)",
 			false,
-			option_1_line.clone()
+			option_1_line.clone(),
 		)
 		.await?;
 	assert!(result.success(), "Warp sync block import is not progressing");
@@ -166,7 +165,7 @@ async fn assert_warp_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 		.wait_log_line_count_with_timeout(
 			r"(?<!\[Parachain\] )Warp sync is complete",
 			false,
-			option_1_line.clone()
+			option_1_line.clone(),
 		)
 		.await?;
 	assert!(result.success(), "Warp sync is not complete");
@@ -176,8 +175,7 @@ async fn assert_warp_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 
 // Asserting Gap sync requires at least sync=debug level
 async fn assert_gap_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
-	let option_1_line =
-		LogLineCountOptions::new(|n| n == 1, Duration::from_secs(5), false);
+	let option_1_line = LogLineCountOptions::new(|n| n == 1, Duration::from_secs(5), false);
 	let option_at_least_5_lines =
 		LogLineCountOptions::new(|n| n > 1, Duration::from_secs(5), false);
 
@@ -188,7 +186,7 @@ async fn assert_gap_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 		.wait_log_line_count_with_timeout(
 			r"(?<!\[Parachain\] )Starting gap sync",
 			false,
-			option_1_line.clone()
+			option_1_line.clone(),
 		)
 		.await?;
 	assert!(result.success(), "Gap sync not started");
@@ -197,7 +195,7 @@ async fn assert_gap_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 		.wait_log_line_count_with_timeout(
 			r"(?<!\[Parachain\] )Starting import of [0-9]+ blocks.*\(origin: GapSync\)",
 			false,
-			option_at_least_5_lines.clone()
+			option_at_least_5_lines.clone(),
 		)
 		.await?;
 	assert!(result.success(), "Gap sync block imports are not started");
@@ -206,7 +204,7 @@ async fn assert_gap_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 		.wait_log_line_count_with_timeout(
 			r"(?<!\[Parachain\] )Imported [0-9]+ out of [0-9]+ blocks.*\(origin: GapSync\)",
 			false,
-			option_at_least_5_lines
+			option_at_least_5_lines,
 		)
 		.await?;
 	assert!(result.success(), "Gap sync block imports are not progressing");
@@ -215,7 +213,7 @@ async fn assert_gap_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 		.wait_log_line_count_with_timeout(
 			r"(?<!\[Parachain\] )Block history download is complete",
 			false,
-			option_1_line.clone()
+			option_1_line.clone(),
 		)
 		.await?;
 	assert!(result.success(), "Gap sync is not complete");

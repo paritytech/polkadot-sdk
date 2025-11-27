@@ -1794,9 +1794,10 @@ where
 
 		// Own status must be checked first. If the block and ancestry is pruned
 		// this function must return `AlreadyInChain` rather than `MissingState`
-		match self.block_status(hash).map_err(|e| {
-			ConsensusError::ClientImport(e.to_string())
-		})? {
+		match self
+			.block_status(hash)
+			.map_err(|e| ConsensusError::ClientImport(e.to_string()))?
+		{
 			BlockStatus::InChainWithState | BlockStatus::Queued =>
 				return Ok(ImportResult::AlreadyInChain),
 			BlockStatus::InChainPruned if !import_existing =>
