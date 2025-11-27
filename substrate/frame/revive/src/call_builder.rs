@@ -453,7 +453,11 @@ impl VmBinaryModule {
 			}
 		}
 		text.push_str("ret\n");
-		let code = polkavm_common::assembler::assemble(&text).unwrap();
+		let code = polkavm_common::assembler::assemble(
+			Some(polkavm_common::program::InstructionSetKind::ReviveV1),
+			&text,
+		)
+		.unwrap();
 		Self::new(code)
 	}
 
@@ -482,7 +486,11 @@ impl VmBinaryModule {
 		ret
 		"
 		);
-		let code = polkavm_common::assembler::assemble(&text).unwrap();
+		let code = polkavm_common::assembler::assemble(
+			Some(polkavm_common::program::InstructionSetKind::ReviveV1),
+			&text,
+		)
+		.unwrap();
 		Self::new(code)
 	}
 
