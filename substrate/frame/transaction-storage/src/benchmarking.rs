@@ -129,7 +129,7 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		let initial_balance = BalanceOf::<T>::max_value().checked_div(&2u32.into()).unwrap();
 		let data = vec![0u8; l as usize];
-		let hash = sp_io::hashing::blake2_256(&data).into();
+		let hash = sp_io::hashing::blake2_256(&data);
 		T::Currency::set_balance(&caller, initial_balance);
 
 		#[extrinsic_call]
@@ -144,7 +144,7 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		let initial_balance = BalanceOf::<T>::max_value().checked_div(&2u32.into()).unwrap();
 		let data = vec![0u8; T::MaxTransactionSize::get() as usize];
-		let hash = sp_io::hashing::blake2_256(&data).into();
+		let hash = sp_io::hashing::blake2_256(&data);
 		T::Currency::set_balance(&caller, initial_balance);
 		Pallet::<T>::store(RawOrigin::Signed(caller.clone()).into(), data)?;
 		run_to_block::<T>(1u32.into());
