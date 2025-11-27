@@ -69,6 +69,11 @@ pub enum BlockOrigin {
 	Own,
 	/// Block was imported from a file.
 	File,
+	/// Block from warp sync proof, already cryptographically verified.
+	/// These blocks have been verified through the warp sync protocol's finality proofs
+	/// and are part of the finalized chain. As such, certain consensus verification steps
+	/// can be safely skipped during import.
+	WarpSync,
 }
 
 /// Environment for a Consensus instance.

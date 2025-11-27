@@ -1253,7 +1253,7 @@ where
 		self.check_inherents(block, parent_hash, slot, create_inherent_data_providers)
 			.await?;
 
-		if block.origin == BlockOrigin::ConsensusBroadcast {
+		if block.origin == BlockOrigin::WarpSync {
 			return Ok(());
 		}
 
@@ -1489,7 +1489,8 @@ where
 		// this way we can revert it if there's any error.
 		let mut old_epoch_changes = None;
 
-		let epoch_changes = if block.origin != BlockOrigin::ConsensusBroadcast {
+		// Skip epoch change processing for warp synced blocks
+		let epoch_changes = if block.origin != BlockOrigin::WarpSync {
 			let parent_header = self
 				.client
 				.header(parent_hash)

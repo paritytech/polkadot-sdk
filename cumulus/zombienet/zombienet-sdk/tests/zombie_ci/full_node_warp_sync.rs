@@ -147,7 +147,7 @@ async fn assert_warp_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 	assert!(result.success(), "Warp sync is not started");
 	let result = node
 		.wait_log_line_count_with_timeout(
-			r"(?<!\[Parachain\] )Starting import of [0-9]+ blocks.*\(origin: ConsensusBroadcast\)",
+			r"(?<!\[Parachain\] )Starting import of [0-9]+ blocks.*\(origin: WarpSync\)",
 			false,
 			option_1_line.clone()
 		)
@@ -155,7 +155,7 @@ async fn assert_warp_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 	assert!(result.success(), "Warp sync block import is not started");
 	let result = node
 		.wait_log_line_count_with_timeout(
-			r"(?<!\[Parachain\] )Imported [0-9]+ out of [0-9]+ blocks.*\(origin: ConsensusBroadcast\)",
+			r"(?<!\[Parachain\] )Imported [0-9]+ out of [0-9]+ blocks.*\(origin: WarpSync\)",
 			false,
 			option_1_line.clone()
 		)

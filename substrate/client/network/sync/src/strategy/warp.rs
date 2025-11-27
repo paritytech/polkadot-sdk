@@ -438,7 +438,7 @@ where
 				*last_hash = new_last_hash;
 				self.total_proof_bytes += response.0.len() as u64;
 				self.actions.push(SyncingAction::ImportBlocks {
-					origin: BlockOrigin::ConsensusBroadcast,
+					origin: BlockOrigin::WarpSync,
 					blocks: proofs.into_iter().map(proof_to_incoming_block).collect(),
 				});
 			},
@@ -460,6 +460,7 @@ where
 							true
 						} else {
 							log::trace!(
+								target: LOG_TARGET,
 								"Filtered out target block: {} ({})",
 								header.hash(),
 								header.number()
@@ -469,7 +470,7 @@ where
 					})
 					.collect();
 				self.actions.push(SyncingAction::ImportBlocks {
-					origin: BlockOrigin::ConsensusBroadcast,
+					origin: BlockOrigin::WarpSync,
 					blocks: incoming_blocks,
 				});
 			},

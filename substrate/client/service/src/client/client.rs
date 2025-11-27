@@ -502,9 +502,9 @@ where
 
 		*self.importing_block.write() = Some(hash);
 
-		let create_gap = if origin == BlockOrigin::ConsensusBroadcast {
-			// Never create gaps for consensus imported blocks, because this import origin is used
-			// during warp sync, and the following gap sync needs to import all blocks.
+		let create_gap = if origin == BlockOrigin::WarpSync {
+			// Never create gaps for warp sync imported blocks, because the following
+			// gap sync needs to import all blocks between the warp sync target and genesis.
 			false
 		} else {
 			create_gap
@@ -601,7 +601,10 @@ where
 		let make_notifications = match origin {
 			BlockOrigin::NetworkBroadcast | BlockOrigin::Own | BlockOrigin::ConsensusBroadcast =>
 				true,
-			BlockOrigin::Genesis | BlockOrigin::NetworkInitialSync | BlockOrigin::File => false,
+			BlockOrigin::Genesis |
+			BlockOrigin::NetworkInitialSync |
+			BlockOrigin::File |
+			BlockOrigin::WarpSync => false,
 		};
 
 		let storage_changes = match storage_changes {
@@ -808,7 +811,9 @@ where
 		Self: ProvideRuntimeApi<Block>,
 		<Self as ProvideRuntimeApi<Block>>::Api: CoreApi<Block> + ApiExt<Block>,
 	{
-		if import_block.origin == BlockOrigin::ConsensusBroadcast {
+		// For warp sync blocks, we skip preparing storage changes since these blocks
+		// are already verified and we don't need to re-execute them.
+		if import_block.origin == BlockOrigin::WarpSync {
 			return Ok(PrepareStorageChangesResult::Import(None))
 		}
 

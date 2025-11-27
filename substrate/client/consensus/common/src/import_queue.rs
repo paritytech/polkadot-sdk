@@ -331,7 +331,9 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 	let hash = block.hash;
 	let parent_hash = *header.parent_hash();
 
-	if matches!(block_origin, BlockOrigin::ConsensusBroadcast) {
+	// Skip block verification for warp synced blocks.
+	// They have been verified within warp sync proof verification.
+	if matches!(block_origin, BlockOrigin::WarpSync) {
 		return Ok(SingleBlockVerificationOutcome::Verified(SingleBlockImportParameters {
 			import_block: BlockImportParams::new(block_origin, header),
 			hash: block.hash,
