@@ -1704,7 +1704,7 @@ pub type NodeFeatures = BitVec<u8, bitvec::order::Lsb0>;
 
 /// Module containing feature-specific bit indices into the `NodeFeatures` bitvec.
 pub mod node_features {
-    use crate::NodeFeatures;
+	use crate::NodeFeatures;
 
 	/// A feature index used to identify a bit into the node_features array stored
 	/// in the HostConfiguration.
@@ -1851,15 +1851,6 @@ pub enum CandidateDescriptorVersion {
 	Unknown,
 }
 
-impl From<InternalVersion> for CandidateDescriptorVersion {
-	fn from(version: InternalVersion) -> Self {
-		match version.0 {
-			0 => Self::V2,
-			1 => Self::V3,
-			_ => Self::Unknown,
-		}
-	}
-}
 /// A unique descriptor of the candidate receipt.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct CandidateDescriptorV2<H = Hash> {
@@ -1871,7 +1862,7 @@ pub struct CandidateDescriptorV2<H = Hash> {
 	/// to determine the `CandidateDescriptorVersion`, see `fn version()`.
 	/// For the current version this field is set to `0` and will be incremented
 	/// by next versions.
-	pub(super) version: InternalVersion,
+	pub(super) version: u8,
 	/// The core index where the candidate is backed.
 	pub(super) core_index: u16,
 	/// The session index of the candidate relay parent.
@@ -1915,12 +1906,13 @@ impl<H> CandidateDescriptorV2<H> {
 	/// think that descriptors of that new version are actually V1 (non-zero
 	/// contents) instead of an unknown version.
 	///
-	/// To ensure proper operation with the introduction of v3 we do the following:
-	/// 1. We ensure that we either detect v3 - which will be rejected if not
-	/// yet enabled via node features or we detect v1/v2 exactly as it was
-	/// before.
-	/// 2. We now require a present UMP signal for any version higher or equal
-	/// than V3. This is enforced by the runtime.
+	/// We solve this by completely gating v3 behavior behind the v3 node
+	/// feature, which must only be enabled once enough validators have upgraded
+	/// to support it. Any backers still running on the old version are
+	/// protected by the relay chain runtime, which will drop any illegally
+	/// (under v3) backed candidates.
+	/// For this to work we now also require a present UMP signal for any
+	/// version higher or equal than V3. This is enforced by the runtime.
 	///
 	/// Via this, if an old node was presented a v3 candidate, which it would
 	/// consider a V1, it would either detect itself that it is invalid, because
@@ -1928,20 +1920,43 @@ impl<H> CandidateDescriptorV2<H> {
 	/// get rejected by the runtime, because for v3 UMP signals are mandatory.
 	/// In both cases the backer wont't be slashed.
 	///
+	/// There are candidates that would be treated as v1 by old nodes, but would result in an
+	/// Unknown
+	///
 	/// TL;DR: Yes old nodes will errorneously treat v3 candidates as v1, but we
 	/// ensure via the relay chain runtime that this stays harmless for backers.
 	/// Approval voters would get disabled, which means a super majority must
 	/// have updated before enabling the v3 node feature.
-	pub fn version(&self) -> CandidateDescriptorVersion {
-		let old_v1_detected = self.reserved2 != [0u8; 32] || self.reserved1 != [0u8; 24] || self.scheduling_session_offset != 0 || self.scheduling_parent != Hash::from([0u8; 32]);
-		let new_v1_detected = self.reserved2 != [0u8; 32] || self.reserved1 != [0u8;24];
+	///
+	/// # Arguments
+	///
+	/// * `v3_enabled` - Whether the V3 candidate descriptor version is enabled via node features.
+	///   When `true`, the function will properly detect and return V3 descriptors. When `false`,
+	///   the function preserves pre-V3 behavior for backwards compatibility.
+	pub fn version(&self, v3_enabled: bool) -> CandidateDescriptorVersion {
+		let old_v1_detected = self.reserved2 != [0u8; 32] ||
+			self.reserved1 != [0u8; 24] ||
+			self.scheduling_session_offset != 0 ||
+			self.scheduling_parent != Hash::from([0u8; 32]);
+		let new_v1_detected = self.reserved2 != [0u8; 32] || self.reserved1 != [0u8; 24];
 
-		match self.version.into() {
-			_ if new_v1_detected => CandidateDescriptorVersion::V1,
-			CandidateDescriptorVersion::V3 => CandidateDescriptorVersion::V3,
-			// Make sure we maintain existing behavior for anything that is not detected as V3:
-			_ if old_v1_detected => CandidateDescriptorVersion::V1,
-			v => v,
+		if v3_enabled {
+			if new_v1_detected {
+				return CandidateDescriptorVersion::V1;
+			}
+			if self.version == 1 {
+				return CandidateDescriptorVersion::V3;
+			}
+		}
+		// Preserve pre v3 behavior exactly:
+		// TODO: Explain why this is necessary even with v3 enabled! - fix comment above too.
+		if old_v1_detected {
+			return CandidateDescriptorVersion::V1
+		}
+
+		match self.version {
+			0 => CandidateDescriptorVersion::V2,
+			_ => CandidateDescriptorVersion::Unknown,
 		}
 	}
 }
@@ -1977,8 +1992,6 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 		CollatorId::from_slice(&collator_id.as_slice())
 			.expect("Slice size is exactly 32 bytes; qed")
 	}
-
-
 
 	/// Returns the collator id if this is a v1 `CandidateDescriptor`
 	pub fn collator(&self) -> Option<CollatorId> {
@@ -2128,7 +2141,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		pov_hash: Hash,
 		erasure_root: Hash,
 		scheduling_parent: Hash,
-		reserved2:[u8; 32],
+		reserved2: [u8; 32],
 		para_head: Hash,
 		validation_code_hash: ValidationCodeHash,
 	) -> Self {
@@ -2220,7 +2233,7 @@ impl<H> MutateDescriptorV2<H> for CandidateDescriptorV2<H> {
 		self.para_head = para_head;
 	}
 
-	fn set_reserved2(&mut self, reserved2:[u8; 32]) {
+	fn set_reserved2(&mut self, reserved2: [u8; 32]) {
 		self.reserved2 = reserved2;
 	}
 }
@@ -2532,12 +2545,14 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 			},
 			CandidateDescriptorVersion::V2 => {},
 			CandidateDescriptorVersion::Unknown =>
-				return Err(CommittedCandidateReceiptError::UnknownVersion(self.descriptor.version.0)),
+				return Err(CommittedCandidateReceiptError::UnknownVersion(
+					self.descriptor.version.0,
+				)),
 			_ if signals.is_empty() => {
 				// V3 and above require UMP signals.
 				return Err(CommittedCandidateReceiptError::NoUMPSignalWithV3Descriptor)
 			},
-			_ => {}
+			_ => {},
 		}
 
 		// Check the core index
