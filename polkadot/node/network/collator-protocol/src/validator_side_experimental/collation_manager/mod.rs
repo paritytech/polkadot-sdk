@@ -440,15 +440,19 @@ impl CollationManager {
 		requests
 	}
 
-	pub fn remove_peers(&mut self, peers_to_remove: HashSet<PeerId>) {
+	pub fn remove_peer(&mut self, peer: &PeerId) {
+		for per_rp in self.per_relay_parent.values_mut() {
+			// No need to reset now the statuses of claims that were pending fetch for these
+			// candidates, or even cancel the futures as the requests will soon conclude with a
+			// network error.
+			per_rp.remove_peer_advertisements(peer);
+		}
+	}
+
+	pub fn remove_peers<'a>(&'a mut self, peers_to_remove: impl Iterator<Item = &'a PeerId>) {
 		// Remove advertisements from these peers.
 		for peer in peers_to_remove {
-			for per_rp in self.per_relay_parent.values_mut() {
-				// No need to reset now the statuses of claims that were pending fetch for these
-				// candidates, or even cancel the futures as the requests will soon conclude with a
-				// network error.
-				per_rp.remove_peer_advertisements(&peer);
-			}
+			self.remove_peer(peer)
 		}
 	}
 

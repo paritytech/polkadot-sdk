@@ -89,7 +89,7 @@ impl<B: Backend> State<B> {
 					peer_id,
 					&other_peers
 				);
-				self.collation_manager.remove_peers(other_peers);
+				self.collation_manager.remove_peers(other_peers.iter());
 			},
 			TryAcceptOutcome::Rejected => {
 				gum::debug!(
@@ -111,7 +111,7 @@ impl<B: Backend> State<B> {
 
 		self.peer_manager.disconnected(&peer_id);
 
-		self.collation_manager.remove_peers([peer_id].into_iter().collect());
+		self.collation_manager.remove_peer(&peer_id);
 	}
 
 	/// Handle a peer's declaration message.
@@ -122,7 +122,7 @@ impl<B: Backend> State<B> {
 		para_id: ParaId,
 	) {
 		if !self.peer_manager.declared(sender, peer_id, para_id).await {
-			self.collation_manager.remove_peers([peer_id].into_iter().collect());
+			self.collation_manager.remove_peer(&peer_id);
 		}
 	}
 
@@ -160,7 +160,7 @@ impl<B: Backend> State<B> {
 			);
 		}
 
-		self.collation_manager.remove_peers(maybe_disconnected_peers);
+		self.collation_manager.remove_peers(maybe_disconnected_peers.iter());
 
 		Ok(())
 	}
@@ -234,7 +234,7 @@ impl<B: Backend> State<B> {
 
 		// Advertised without being declared. Not a big waste of our time, so ignore it.
 		let PeerState::Collating(para_id) = state else {
-			gum::warn!(
+			gum::debug!(
 				target: LOG_TARGET,
 				?relay_parent,
 				?maybe_prospective_candidate,
@@ -244,7 +244,7 @@ impl<B: Backend> State<B> {
 			return
 		};
 
-		// We have a result here but it's not worth affecting reputations, because advertisements
+		// We have a result here, but it's not worth affecting reputations because advertisements
 		// are cheap and quickly triaged.
 		match self
 			.collation_manager
@@ -260,7 +260,7 @@ impl<B: Backend> State<B> {
 			.await
 		{
 			Err(err) => {
-				gum::info!(
+				gum::debug!(
 					target: LOG_TARGET,
 					?relay_parent,
 					?maybe_prospective_candidate,

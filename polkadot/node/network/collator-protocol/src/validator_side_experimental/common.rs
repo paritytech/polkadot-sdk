@@ -62,13 +62,14 @@ pub const FAILED_FETCH_SLASH: Score = Score::new(20).expect("20 is less than MAX
 pub const INVALID_COLLATION_SLASH: Score = Score::new(1000).expect("1000 is less than MAX_SCORE");
 
 /// Minimum reputation threshold that warrants an instant fetch.
-pub const INSTANT_FETCH_REP_THRESHOLD: Score = Score::new(1000).expect("20 is less than MAX_SCORE");
+pub const INSTANT_FETCH_REP_THRESHOLD: Score =
+	Score::new(1000).expect("1000 is less than MAX_SCORE");
 
 /// Delay for fetching collations when the reputation score is below the threshold
 /// defined by `INSTANT_FETCH_REP_THRESHOLD`.
 /// This gives us a chance to fetch collations from other peers with higher reputation
 /// before we try to fetch from this peer.
-pub const UNDER_THRESHOLD_FETCH_DELAY: Duration = Duration::from_millis(2000);
+pub const UNDER_THRESHOLD_FETCH_DELAY: Duration = Duration::from_millis(1000);
 
 /// Reputation score type.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
