@@ -4,4 +4,4 @@ doc:
   description: 'Extends `Stored` and `Renewed` events with a `hash: ContentHash` field.'
 crates:
 - name: pallet-transaction-storage
-  bump: patch
+  bump: major
