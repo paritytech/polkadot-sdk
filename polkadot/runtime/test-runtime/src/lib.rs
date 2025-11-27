@@ -252,7 +252,6 @@ impl pallet_indices::Config for Runtime {
 	type Deposit = IndexDeposit;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 parameter_types! {
