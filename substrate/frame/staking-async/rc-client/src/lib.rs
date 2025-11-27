@@ -602,7 +602,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::{BlockNumberFor, *};
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	/// An incomplete incoming session report that we have not acted upon yet.
 	// Note: this can remain unbounded, as the internals of `AHStakingInterface` is benchmarked, and
