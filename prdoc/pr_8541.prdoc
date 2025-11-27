@@ -23,3 +23,5 @@ crates:
   bump: minor
 - name: polkadot-sdk
   bump: patch
+- name: polkadot
+  bump: major
