@@ -424,7 +424,7 @@ benchmarks_instance_pallet! {
 		v0::VotingFor::<T, I>::insert(voter.clone(), &class, vote_data);
 		let mut meter = WeightMeter::new();
 	}: {
-		SteppedMigrationV1::<T, weights::SubstrateWeight<T>, I>::step(None, &mut meter).unwrap();
+		SteppedMigrationV1::<T, I>::step(None, &mut meter).unwrap();
 	}
 	verify {
 		assert_eq!(crate::VotingFor::<T, I>::iter().count(), 1);
