@@ -131,6 +131,11 @@ pub(crate) mod pallet {
 		#[pallet::constant]
 		type MaxWinnersPerPage: Get<u32>;
 
+		/// Maximum length of [`ScoreHistory`] storage item.
+		///
+		/// Safe to be adjusted mid-flight, as it is using a `WeakBoundedVec` under the hood.
+		type MaxScoreHistory: Get<u32>;
+
 		/// Something that can provide the solution data to the verifier.
 		///
 		/// In reality, this will be fulfilled by the signed phase.
@@ -357,7 +362,23 @@ pub(crate) mod pallet {
 				clear_round_based_map!(QueuedSolutionY::<T>, Self::round());
 				QueuedValidVariant::<T>::remove(Self::round());
 				clear_round_based_map!(QueuedSolutionBackings::<T>, Self::round());
-				QueuedSolutionScore::<T>::remove(Self::round());
+				let maybe_round_score = QueuedSolutionScore::<T>::take(Self::round());
+
+				if maybe_round_score.is_some() && !T::MaxScoreHistory::get().is_zero() {
+					let round_score = maybe_round_score.expect("checked above; qed");
+					// if we had a score, then we need to update the history.
+					let mut history = ScoreHistory::<T>::get().into_inner();
+					if history.len() >= T::MaxScoreHistory::get() as usize {
+						// safe -- `T::MaxScoreHistory::get()` is non-zero, so `remove(0)` will
+						// never panic.
+						let mut to_remove = history.len() - T::MaxScoreHistory::get() as usize;
+						to_remove += 1;
+						let _removed = history.drain(0..to_remove);
+					}
+					history.push(round_score);
+					let bounded_history = WeakBoundedVec::<_, _>::force_from(history, None);
+					ScoreHistory::<T>::put(bounded_history);
+				}
 			})
 		}
 
@@ -561,6 +582,17 @@ pub(crate) mod pallet {
 	type QueuedSolutionScore<T: Config> = StorageMap<_, Twox64Concat, u32, ElectionScore>;
 
 	// -- ^^ private storage items, managed by `QueuedSolution`.
+
+	/// A moving window of the last [`Config::MaxScoreHistory`] solution scores that were queued in
+	/// this pallet.
+	///
+	/// Scores are kept in a `[oldest, ...., latest]` fashion.
+	///
+	/// This is set upon [`<Self as Verifier>::kill`], which is meant to be called once a round is
+	/// over. It will not append anything to the list if no solution is queued in this round.
+	#[pallet::storage]
+	pub type ScoreHistory<T: Config> =
+		StorageValue<_, WeakBoundedVec<ElectionScore, T::MaxScoreHistory>, ValueQuery>;
 
 	/// The minimum score that each solution must attain in order to be considered feasible.
 	#[pallet::storage]
@@ -852,7 +884,12 @@ impl<T: Config> Pallet<T> {
 
 	#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
 	pub(crate) fn do_try_state(_now: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
-		QueuedSolution::<T>::sanity_check()
+		QueuedSolution::<T>::sanity_check()?;
+		ensure!(
+			ScoreHistory::<T>::get().len() <= T::MaxScoreHistory::get() as usize,
+			"Corrupt ScoreHistory"
+		);
+		Ok(())
 	}
 }
 

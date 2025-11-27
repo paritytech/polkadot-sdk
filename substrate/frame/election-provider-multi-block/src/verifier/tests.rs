@@ -1637,3 +1637,145 @@ mod single_page_sync_verification {
 		})
 	}
 }
+
+mod score_history {
+	use super::*;
+
+	#[test]
+	fn can_track_history_size_moving_window() {
+		ExtBuilder::full()
+			.max_score_history(2)
+			.fallback_mode(FallbackModes::Continue)
+			.pages(3)
+			.unsigned_phase(0)
+			.build_and_execute(|| {
+				// first submit a 1 page solution
+				roll_to_signed_open();
+				let paged = mine_solution(1).unwrap();
+				let score1 = paged.score;
+
+				// submit the pages
+				load_signed_for_verification(99, paged, Some(1));
+
+				// no score history yet
+				assert_eq!(ScoreHistory::<Runtime>::get().into_inner(), vec![]);
+
+				// this will signed validation, unsigned, and stop when we are done.
+				roll_to_done();
+				roll_to_all_exported();
+
+				assert_eq!(ScoreHistory::<Runtime>::get().into_inner(), vec![score1]);
+
+				// schedule election to start again at the next block.
+				ElectionStart::set(System::block_number() + 1);
+
+				// submit a 2 page solution
+				roll_to_signed_open();
+				let paged = mine_solution(2).unwrap();
+				let score2 = paged.score;
+
+				// now let's submit this one by one, into the signed phase.
+				load_signed_for_verification(999, paged, Some(2));
+
+				// no new score history yet
+				assert_eq!(ScoreHistory::<Runtime>::get().into_inner(), vec![score1]);
+
+				roll_to_done();
+				roll_to_all_exported();
+
+				assert_eq!(ScoreHistory::<Runtime>::get().into_inner(), vec![score1, score2]);
+
+				// schedule election to start again at the next block.
+				ElectionStart::set(System::block_number() + 1);
+
+				// submit a 3 page solution
+				roll_to_signed_open();
+				let paged = mine_solution(3).unwrap();
+				let score3 = paged.score;
+
+				// now let's submit this one by one, into the signed phase.
+				load_signed_for_verification(91, paged, None);
+
+				// no new score history yet
+				assert_eq!(ScoreHistory::<Runtime>::get().into_inner(), vec![score1, score2]);
+
+				roll_to_done();
+				roll_to_all_exported();
+
+				assert_eq!(ScoreHistory::<Runtime>::get().into_inner(), vec![score2, score3]);
+			});
+	}
+
+	#[test]
+	fn history_size_increase() {
+		ExtBuilder::full()
+			.max_score_history(1)
+			.fallback_mode(FallbackModes::Continue)
+			.pages(3)
+			.unsigned_phase(0)
+			.build_and_execute(|| {
+				// first submit a 1 page solution
+				roll_to_signed_open();
+				let paged = mine_solution(1).unwrap();
+				let score1 = paged.score;
+
+				// submit the pages
+				load_signed_for_verification(99, paged, Some(1));
+
+				// no score history yet
+				assert_eq!(ScoreHistory::<Runtime>::get().into_inner(), vec![]);
+
+				// this will signed validation, unsigned, and stop when we are done.
+				roll_to_done();
+				roll_to_all_exported();
+
+				assert_eq!(ScoreHistory::<Runtime>::get().into_inner(), vec![score1]);
+
+				// schedule election to start again at the next block.
+				ElectionStart::set(System::block_number() + 1);
+
+				// submit a 2 page solution
+				roll_to_signed_open();
+				let paged = mine_solution(2).unwrap();
+				let score2 = paged.score;
+
+				// now let's submit this one by one, into the signed phase.
+				load_signed_for_verification(999, paged, Some(2));
+
+				// no new score history yet
+				assert_eq!(ScoreHistory::<Runtime>::get().into_inner(), vec![score1]);
+
+				roll_to_done();
+				roll_to_all_exported();
+
+				assert_eq!(ScoreHistory::<Runtime>::get().into_inner(), vec![score2]);
+
+				// schedule election to start again at the next block.
+				ElectionStart::set(System::block_number() + 1);
+
+				// and increase the size
+				MaxScoreHistory::set(2);
+
+				// submit a 3 page solution
+				roll_to_signed_open();
+				let paged = mine_solution(3).unwrap();
+				let score3 = paged.score;
+
+				// now let's submit this one by one, into the signed phase.
+				load_signed_for_verification(91, paged, None);
+
+				// no new score history yet
+				assert_eq!(ScoreHistory::<Runtime>::get().into_inner(), vec![score2]);
+
+				roll_to_done();
+				roll_to_all_exported();
+
+				assert_eq!(ScoreHistory::<Runtime>::get().into_inner(), vec![score2, score3]);
+			});
+	}
+
+	#[test]
+	fn history_size_decrease() {
+		// TODO
+	}
+}

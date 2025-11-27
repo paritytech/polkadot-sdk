@@ -170,6 +170,7 @@ parameter_types! {
 	#[derive(Encode, Decode, PartialEq, Eq, Debug, scale_info::TypeInfo, MaxEncodedLen)]
 	pub static MaxWinnersPerPage: u32 = (staking::Targets::get().len() as u32).min(staking::DesiredTargets::get());
 	pub static AreWeDone: AreWeDoneModes = AreWeDoneModes::Proceed;
+	pub static MaxScoreHistory: u32 = 0;
 }
 
 ord_parameter_types! {
@@ -190,6 +191,7 @@ impl crate::verifier::Config for Runtime {
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type SolutionDataProvider = signed::DualSignedPhase;
+	type MaxScoreHistory = MaxScoreHistory;
 	type WeightInfo = ();
 }
 
@@ -354,6 +356,10 @@ impl ExtBuilder {
 impl ExtBuilder {
 	pub(crate) fn max_backers_per_winner(self, c: u32) -> Self {
 		MaxBackersPerWinner::set(c);
+		self
+	}
+	pub(crate) fn max_score_history(self, c: u32) -> Self {
+		MaxScoreHistory::set(c);
 		self
 	}
 	pub(crate) fn max_backers_per_winner_final(self, c: u32) -> Self {
@@ -700,6 +706,18 @@ pub fn roll_to_done() {
 	while !MultiBlock::current_phase().is_done() {
 		roll_next()
 	}
+}
+
+/// Roll forward block by block, and export pages.
+///
+/// Once done, if all goes well, it will rotate the round.
+pub fn roll_to_all_exported() {
+	assert_eq!(MultiBlock::current_phase(), Phase::Done, "Initial phase should be done before export");
+	let round = MultiBlock::round();
+	for p in (0..Pages::get()).rev() {
+		let _ = MultiBlock::elect(p);
+	}
+	assert_eq!(MultiBlock::round(), round + 1, "round is not incremented");
 }
 
 /// Proceed one block.
