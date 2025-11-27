@@ -61,6 +61,9 @@ pub use weights::WeightInfo;
 pub const DEFAULT_MAX_TRANSACTION_SIZE: u32 = 8 * 1024 * 1024;
 pub const DEFAULT_MAX_BLOCK_TRANSACTIONS: u32 = 512;
 
+/// Hash of a stored blob of data.
+type ContentHash = [u8; 32];
+
 /// State data for a stored transaction.
 #[derive(
 	Encode,
@@ -258,7 +261,7 @@ pub mod pallet {
 					.map_err(|_| Error::<T>::TooManyTransactions)?;
 				Ok(())
 			})?;
-			Self::deposit_event(Event::Stored { index });
+			Self::deposit_event(Event::Stored { index, hash: content_hash });
 			Ok(())
 		}
 
@@ -282,8 +285,8 @@ pub mod pallet {
 				frame_system::Pallet::<T>::extrinsic_index().ok_or(Error::<T>::BadContext)?;
 
 			Self::apply_fee(sender, info.size)?;
-
-			sp_io::transaction_index::renew(extrinsic_index, info.content_hash.into());
+			let content_hash = info.content_hash.into();
+			sp_io::transaction_index::renew(extrinsic_index, content_hash);
 
 			let mut index = 0;
 			BlockTransactions::<T>::mutate(|transactions| {
@@ -302,7 +305,7 @@ pub mod pallet {
 					})
 					.map_err(|_| Error::<T>::TooManyTransactions)
 			})?;
-			Self::deposit_event(Event::Renewed { index });
+			Self::deposit_event(Event::Renewed { index, hash: content_hash });
 			Ok(().into())
 		}
 
@@ -343,9 +346,9 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Stored data under specified index.
-		Stored { index: u32 },
+		Stored { index: u32, hash: ContentHash },
 		/// Renewed data under specified index.
-		Renewed { index: u32 },
+		Renewed { index: u32, hash: ContentHash },
 		/// Storage proof was successfully checked.
 		ProofChecked,
 	}
