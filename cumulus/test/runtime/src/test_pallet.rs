@@ -93,7 +93,9 @@ pub mod pallet {
 				// Depositing the event is important, because then we write the actual proof size
 				// into the state. If some node returns a different proof size on import of this
 				// block, we will detect it this way as the storage root will be different.
-				Self::deposit_event(Event::MovedBigValue { proof_size: get_proof_size().unwrap() })
+				Self::deposit_event(Event::MovedBigValue {
+					proof_size: get_proof_size().unwrap_or_default(),
+				})
 			}
 
 			Weight::zero()
@@ -244,6 +246,8 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
 		pub _config: core::marker::PhantomData<T>,
+		/// Controls if the `BigValueMove` logic is enabled.
+		pub enable_big_value_move: bool,
 	}
 
 	#[pallet::genesis_build]
@@ -251,7 +255,9 @@ pub mod pallet {
 		fn build(&self) {
 			sp_io::storage::set(TEST_RUNTIME_UPGRADE_KEY, &[1, 2, 3, 4]);
 
-			BigValueMove::<T>::insert(BlockNumberFor::<T>::from(0u32), vec![0u8; 4 * 1024]);
+			if self.enable_big_value_move {
+				BigValueMove::<T>::insert(BlockNumberFor::<T>::from(0u32), vec![0u8; 4 * 1024]);
+			}
 		}
 	}
 

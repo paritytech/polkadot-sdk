@@ -17,7 +17,7 @@
 
 use anyhow::anyhow;
 use cumulus_primitives_core::relay_chain::MAX_POV_SIZE;
-use cumulus_test_runtime::block_bundling::WASM_BINARY_BLOATY as WASM_RUNTIME_UPGRADE;
+use cumulus_test_runtime::block_bundling::WASM_BINARY_BLOATY as WASM_RUNTIME_BINARY;
 use cumulus_zombienet_sdk_helpers::{
 	assign_cores, ensure_is_only_block_in_core, submit_extrinsic_and_wait_for_finalization_success,
 	submit_unsigned_extrinsic_and_wait_for_finalization_success, wait_for_runtime_upgrade,
@@ -57,7 +57,7 @@ async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 
 	// Validate runtime size requirement
 	let runtime_wasm =
-		WASM_RUNTIME_UPGRADE.ok_or_else(|| anyhow!("WASM runtime upgrade binary not available"))?;
+		WASM_RUNTIME_BINARY.ok_or_else(|| anyhow!("WASM runtime upgrade binary not available"))?;
 
 	if runtime_wasm.len() <= MIN_RUNTIME_SIZE_BYTES {
 		return Err(anyhow!(

@@ -396,6 +396,8 @@ mod tests {
 	/// we are ensuring on the node side that we are are always able to build on the included block.
 	#[tokio::test]
 	async fn test_can_build_upon() {
+		sp_tracing::try_init_simple();
+
 		let (client, keystore) = set_up_components(6);
 
 		let genesis_hash = client.chain_info().genesis_hash;

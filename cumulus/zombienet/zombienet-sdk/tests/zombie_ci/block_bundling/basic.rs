@@ -171,6 +171,11 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					("slot-based").into(),
 					("-lparachain=trace,aura=trace").into(),
 				])
+				.with_genesis_overrides(json!({
+					"testPallet": {
+						"enableBigValueMove": true
+					}
+				}))
 				.with_collator(|n| n.with_name("collator-0"))
 				.with_collator(|n| n.with_name("collator-1"))
 				.with_collator(|n| n.with_name("collator-2"))

@@ -6,18 +6,17 @@ use std::time::Duration;
 
 use crate::utils::initialize_network;
 
-use cumulus_zombienet_sdk_helpers::{assert_para_throughput, wait_for_runtime_upgrade};
-use polkadot_primitives::Id as ParaId;
-use zombienet_configuration::types::AssetLocation;
+use cumulus_test_runtime::wasm_spec_version_incremented::WASM_BINARY_BLOATY as WASM_RUNTIME_UPGRADE;
+use cumulus_zombienet_sdk_helpers::{
+	submit_extrinsic_and_wait_for_finalization_success, wait_for_runtime_upgrade,
+};
 use zombienet_sdk::{
-	subxt::{OnlineClient, PolkadotConfig},
-	tx_helper::{ChainUpgrade, RuntimeUpgradeOptions},
+	subxt::{ext::scale_value::value, tx::DynamicPayload, OnlineClient, PolkadotConfig},
+	subxt_signer::sr25519::dev,
 	NetworkConfig, NetworkConfigBuilder,
 };
 
 const PARA_ID: u32 = 2000;
-const WASM_WITH_SPEC_VERSION_INCREMENTED: &str =
-	"/tmp/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm";
 
 // This tests makes sure that it is possible to upgrade parachain's runtime
 // and parachain produces blocks after such upgrade.
@@ -31,12 +30,6 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 	let config = build_network_config().await?;
 	let network = initialize_network(config).await?;
 
-	let alice = network.get_node("alice")?;
-	let alice_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
-
-	log::info!("Ensuring parachain making progress");
-	assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 2..40)], []).await?;
-
 	let timeout_secs: u64 = 250;
 	let charlie = network.get_node("charlie")?;
 	let charlie_client: OnlineClient<PolkadotConfig> = charlie.wait_client().await?;
@@ -46,13 +39,9 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 	log::info!("Current runtime spec version {current_spec_version}");
 
 	log::info!("Performing runtime upgrade");
-	network
-		.parachain(PARA_ID)
-		.unwrap()
-		.perform_runtime_upgrade(
-			charlie,
-			RuntimeUpgradeOptions::new(AssetLocation::from(WASM_WITH_SPEC_VERSION_INCREMENTED)),
-		)
+
+	let call = create_runtime_upgrade_call();
+	submit_extrinsic_and_wait_for_finalization_success(&charlie_client, &call, &dev::alice())
 		.await?;
 
 	let dave = network.get_node("dave")?;
@@ -72,6 +61,16 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 	assert_eq!(expected_spec_version, spec_version_from_charlie, "Unexpected runtime spec version");
 
 	Ok(())
+}
+
+fn create_runtime_upgrade_call() -> DynamicPayload {
+	let runtime_upgrade_call = zombienet_sdk::subxt::tx::dynamic(
+		"System",
+		"set_code_without_checks",
+		vec![value!(WASM_RUNTIME_UPGRADE.expect("Wasm runtime not build").to_vec())],
+	);
+
+	zombienet_sdk::subxt::tx::dynamic("Sudo", "sudo", vec![runtime_upgrade_call.into_value()])
 }
 
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {

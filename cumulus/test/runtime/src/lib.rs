@@ -159,8 +159,11 @@ const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
 /// - The collator sends the collation to the relay chain and it gets backed on chain in relay block
 ///   `X + 2`
 /// - The collation then gets included on chain in relay block `X + 3`
+/// - As we are building on `RELAY_PARENT_OFFSET` old relay parents, the included block from the
+///   parachain is also `RELAY_PARENT_OFFSET` relay blocks older (one relay block may contains
+///   multiple parachain blocks).
 #[cfg(all(not(feature = "sync-backing"), not(feature = "async-backing")))]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * 3;
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * (3 + RELAY_PARENT_OFFSET);
 
 #[cfg(any(feature = "sync-backing", feature = "elastic-scaling-12s-slot"))]
 pub const SLOT_DURATION: u64 = 12000;
