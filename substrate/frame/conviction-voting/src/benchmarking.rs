@@ -31,6 +31,7 @@ use frame_support::{
 		Currency, Get,
 	},
 	weights::WeightMeter,
+	pallet_prelude::StorageVersion,
 };
 use sp_runtime::traits::Bounded;
 
@@ -445,6 +446,8 @@ benchmarks_instance_pallet! {
 
 		// Put in storage.
 		v0::VotingFor::<T, I>::insert(voter.clone(), &class, vote_data);
+
+		StorageVersion::new(0).put::<Pallet<T, I>>();
 		let mut meter = WeightMeter::new();
 	}: {
 		SteppedMigrationV1::<T, I>::step(None, &mut meter).unwrap();
