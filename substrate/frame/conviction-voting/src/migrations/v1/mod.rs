@@ -267,8 +267,8 @@ impl<T: Config<I>, I: 'static> SteppedMigration for SteppedMigrationV1<T, I> {
 		// Storage version check.
 		assert_eq!(Pallet::<T, I>::on_chain_storage_version(), Self::id().version_to as u16);
 
-		// Migration flag check.
-		assert!(MigrationOngoing::<T, I>::get());
+		// Ensure migration flag turned off.
+		assert!(!MigrationOngoing::<T, I>::get());
 
 		// Decodes.
 		let prev_vec =
