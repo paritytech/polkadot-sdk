@@ -335,7 +335,7 @@ where
 			last_hash: self.client.info().genesis_hash,
 			warp_sync_provider: Arc::clone(warp_sync_provider),
 		};
-		trace!(target: LOG_TARGET, "Started warp sync with {} peers.", self.peers.len());
+		debug!(target: LOG_TARGET, "Started warp sync with {} peers.", self.peers.len());
 	}
 
 	pub fn on_generic_response(
