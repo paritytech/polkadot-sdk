@@ -224,10 +224,7 @@ pub struct Executive<
 	Context,
 	UnsignedValidator,
 	AllPalletsWithSystem,
-	#[deprecated(
-		note = "`OnRuntimeUpgrade` parameter in Executive is deprecated, will be removed after September 2026. \
-		Use type `SingleBlockMigrations` in frame_system::Config instead."
-	)] OnRuntimeUpgrade = (),
+	OnRuntimeUpgrade = (),
 >(
 	PhantomData<(
 		System,
@@ -269,7 +266,11 @@ where
 	OriginOf<Block::Extrinsic, Context>: From<Option<System::AccountId>>,
 	UnsignedValidator: ValidateUnsigned<Call = CallOf<Block::Extrinsic, Context>>,
 {
-	fn execute_block(block: Block::LazyBlock) {
+	fn verify_and_remove_seal(_: &mut <Block as traits::Block>::LazyBlock) {
+		// Nothing to do here.
+	}
+
+	fn execute_verified_block(block: Block::LazyBlock) {
 		Executive::<
 			System,
 			Block,
