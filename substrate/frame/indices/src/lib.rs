@@ -32,9 +32,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use codec::Codec;
-use frame_support::traits::{
-	fungible::{Inspect, InspectHold, Mutate, MutateHold},
-};
+use frame_support::traits::fungible::{Inspect, InspectHold, Mutate, MutateHold};
 use sp_runtime::{
 	traits::{AtLeast32Bit, LookupError, Saturating, StaticLookup, Zero},
 	MultiAddress,
@@ -50,9 +48,11 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{
+		pallet_prelude::*,
+		traits::tokens::{Fortitude, Precision, Restriction},
+	};
 	use frame_system::pallet_prelude::*;
-	use frame_support::traits::tokens::{Fortitude, Precision, Restriction};
 
 	const LOG_TARGET: &str = "runtime::indices";
 
