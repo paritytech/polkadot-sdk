@@ -32,6 +32,8 @@ args = [
 [[parachains]]
 id = 1101
 chain_spec_path = "./price-oracle-parachain.json"
+force_decorator = "oracle"
+
 
 [parachains.collator]
 name = "dave"
@@ -39,3 +41,4 @@ rpc_port = 9947
 args = [
 	"-lruntime=debug",
 ]
+keystore_key_types = ["aura_sr", "orcl_sr"]
