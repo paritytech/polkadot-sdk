@@ -91,18 +91,21 @@ mod benchmarks {
 		// Ensure we endow at least the existential deposit so the account can exist.
 		let len: u32 = 10;
 		let expected_fee = crate::Pallet::<T>::compute_fee(len, &info, tip);
-		let amount_to_endow = expected_fee
-			.max(existential_deposit)
-			.saturating_mul(10u32.into());
+		let amount_to_endow = expected_fee.max(existential_deposit).saturating_mul(10u32.into());
 
 		<T::OnChargeTransaction as OnChargeTransaction<T>>::endow_account(&caller, amount_to_endow);
 
 		#[block]
 		{
 			assert!(ext
-				.test_run(RawOrigin::Signed(caller.clone()).into(), &call, &info, len as usize, 0, |_| Ok(
-					post_info
-				))
+				.test_run(
+					RawOrigin::Signed(caller.clone()).into(),
+					&call,
+					&info,
+					len as usize,
+					0,
+					|_| Ok(post_info)
+				)
 				.unwrap()
 				.is_ok());
 		}
