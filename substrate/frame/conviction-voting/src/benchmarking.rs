@@ -19,7 +19,7 @@
 
 use super::*;
 
-use alloc::{collections::btree_map::BTreeMap, vec::Vec};
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use assert_matches::assert_matches;
 use frame_benchmarking::v1::{account, benchmarks_instance_pallet, whitelist_account};
 use frame_support::{
@@ -82,6 +82,9 @@ benchmarks_instance_pallet! {
 		let polls = &all_polls[&class];
 		let r = polls.len() - 1;
 
+		VotingFor::<T, I>::mutate(&delegate_acc, class.clone(), |voting| {
+			voting.allow_delegator_voting = true;
+		});
 		ConvictionVoting::<T, I>::delegate(
 			RawOrigin::Signed(caller.clone()).into(),
 			class.clone(),
@@ -125,6 +128,9 @@ benchmarks_instance_pallet! {
 		let polls = &all_polls[&class];
 		let r = polls.len();
 
+		VotingFor::<T, I>::mutate(&delegate_acc, class.clone(), |voting| {
+			voting.allow_delegator_voting = true;
+		});
 		ConvictionVoting::<T, I>::delegate(
 			RawOrigin::Signed(caller.clone()).into(),
 			class.clone(),
@@ -167,6 +173,9 @@ benchmarks_instance_pallet! {
 		let polls = &all_polls[&class];
 		let r = polls.len();
 
+		VotingFor::<T, I>::mutate(&delegate_acc, class.clone(), |voting| {
+			voting.allow_delegator_voting = true;
+		});
 		ConvictionVoting::<T, I>::delegate(
 			RawOrigin::Signed(caller.clone()).into(),
 			class.clone(),
@@ -209,6 +218,9 @@ benchmarks_instance_pallet! {
 		let polls = &all_polls[&class];
 		let r = polls.len();
 
+		VotingFor::<T, I>::mutate(&delegate_acc, class.clone(), |voting| {
+			voting.allow_delegator_voting = true;
+		});
 		ConvictionVoting::<T, I>::delegate(
 			RawOrigin::Signed(voter.clone()).into(),
 			class.clone(),
@@ -264,6 +276,10 @@ benchmarks_instance_pallet! {
 			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), *i, vote)?;
 		}
 
+		VotingFor::<T, I>::mutate(&voter, class.clone(), |voting| {
+			voting.allow_delegator_voting = true;
+		});
+
 		assert_eq!(
 			VotingFor::<T, I>::get(&voter, &class).votes.len(),
 			r as usize
@@ -293,6 +309,9 @@ benchmarks_instance_pallet! {
 		let delegated_balance: BalanceOf<T, I> = 1000u32.into();
 		let vote = account_vote::<T, I>(delegated_balance);
 
+		VotingFor::<T, I>::mutate(&voter, class.clone(), |voting| {
+			voting.allow_delegator_voting = true;
+		});
 		ConvictionVoting::<T, I>::delegate(
 			RawOrigin::Signed(caller.clone()).into(),
 			class.clone(),
@@ -345,6 +364,10 @@ benchmarks_instance_pallet! {
 				ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), *i, normal_account_vote)?;
 			}
 		}
+
+		VotingFor::<T, I>::mutate(&delegate_acc, class.clone(), |voting| {
+			voting.allow_delegator_voting = true;
+		});
 
 		// Small delegation lock.
 		ConvictionVoting::<T, I>::delegate(
