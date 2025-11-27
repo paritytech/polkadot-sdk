@@ -79,8 +79,8 @@ pub mod pallet {
 		/// The currency trait.
 		type NativeBalance: Inspect<Self::AccountId>
 			+ Mutate<Self::AccountId>
-			+ InspectHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
-			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+			+ InspectHold<Self::AccountId, Reason: From<HoldReason>>
+			+ MutateHold<Self::AccountId, Reason: From<HoldReason>>;
 
 		/// The deposit needed for reserving an index.
 		#[pallet::constant]
