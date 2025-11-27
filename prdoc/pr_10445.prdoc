@@ -1,0 +1,7 @@
+title: Add `hash` field to `Event::Stored` and `Event::Renewed`
+doc:
+- audience: Runtime Dev
+  description: 'Extends `Stored` and `Renewed` events with a `hash: ContentHash` field.'
+crates:
+- name: pallet-transaction-storage
+  bump: patch
