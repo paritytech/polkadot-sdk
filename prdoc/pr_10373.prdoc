@@ -1,0 +1,19 @@
+title: Block import improvements
+doc:
+- audience: Node Operator
+  description: Builds on top of https://github.com/paritytech/polkadot-sdk/pull/9678
+crates:
+- name: sc-consensus-babe
+  bump: patch
+- name: sc-consensus
+  bump: patch
+- name: sc-consensus-grandpa
+  bump: patch
+- name: sc-network-sync
+  bump: patch
+- name: sc-service
+  bump: patch
+- name: sc-client-db
+  bump: patch
+- name: cumulus-client-pov-recovery
+  bump: patch
