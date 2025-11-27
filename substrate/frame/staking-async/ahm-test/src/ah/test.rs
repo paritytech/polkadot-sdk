@@ -24,8 +24,7 @@ use pallet_staking_async::{
 	Event as StakingEvent,
 };
 use pallet_staking_async_rc_client::{
-	self as rc_client, LastEraActivationSessionReportEndingIndex, OutgoingValidatorSet,
-	UnexpectedKind, ValidatorSetReport,
+	self as rc_client, OutgoingValidatorSet, UnexpectedKind, ValidatorSetReport,
 };
 
 // Tests that are specific to Asset Hub.
@@ -37,8 +36,6 @@ fn on_receive_session_report() {
 		assert_eq!(CurrentEra::<T>::get(), Some(0));
 		assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 0);
 		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
-		// Ensure last era session index is set
-		LastEraActivationSessionReportEndingIndex::<T>::put(0);
 
 		// WHEN session ends on RC and session report is received by AH.
 		let session_report = rc_client::SessionReport {
@@ -222,8 +219,6 @@ fn validator_set_send_fail_retries() {
 		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
 		// flush old events.
 		let _ = staking_events_since_last_call();
-		// we do this to ensure rc client does not export validator set immediately.
-		ensure_last_era_session_index_initialised();
 
 		// first session comes in.
 		let session_report = rc_client::SessionReport {
@@ -398,8 +393,6 @@ fn roll_many_eras() {
 	// - assert outgoing messages, including id and prune_up_to.
 	ExtBuilder::default().local_queue().build().execute_with(|| {
 		let mut session_counter: u32 = 0;
-		// we do this to ensure rc client does not export validator set immediately.
-		ensure_last_era_session_index_initialised();
 
 		let mut roll_session = |activate: bool| {
 			let activation_timestamp = if activate {
@@ -570,7 +563,6 @@ fn receives_session_report_in_future() {
 		assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 0);
 		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
 		assert_eq!(rc_client::LastSessionReportEndingIndex::<T>::get(), None);
-		assert_eq!(rc_client::LastEraActivationSessionReportEndingIndex::<T>::get(), None);
 
 		// Receive report for end of 0, start of 1 and plan 2.
 		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
@@ -586,8 +578,6 @@ fn receives_session_report_in_future() {
 		// THEN:
 		// last session index is updated
 		assert_eq!(rc_client::LastSessionReportEndingIndex::<T>::get(), Some(0));
-		// no activation time yet so last era session still none
-		assert_eq!(rc_client::LastEraActivationSessionReportEndingIndex::<T>::get(), None);
 
 		assert_eq!(
 			rc_client_events_since_last_call(),

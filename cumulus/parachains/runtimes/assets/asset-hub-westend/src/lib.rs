@@ -1463,9 +1463,6 @@ pub type UncheckedExtrinsic =
 
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
-	// unreleased - Initialize LastEraActivationSessionReportEndingIndex for deterministic era
-	// rotation
-	pallet_staking_async_rc_client::migrations::v2::MigrateV1ToV2<Runtime>,
 	// v9420
 	pallet_nfts::migration::v1::MigrateToV1<Runtime>,
 	// unreleased

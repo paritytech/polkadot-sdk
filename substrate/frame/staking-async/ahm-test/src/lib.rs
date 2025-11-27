@@ -28,10 +28,7 @@ pub mod shared;
 mod tests {
 	use super::*;
 	use crate::{
-		ah::{
-			ensure_last_era_session_index_initialised, rc_client_events_since_last_call,
-			staking_events_since_last_call,
-		},
+		ah::{rc_client_events_since_last_call, staking_events_since_last_call},
 		rc::RootOffences,
 	};
 	use ah_client::OperatingMode;
@@ -53,8 +50,6 @@ mod tests {
 		// initial state of ah
 		shared::in_ah(|| {
 			assert_eq!(frame_system::Pallet::<ah::Runtime>::block_number(), 1);
-			// this ensures validator set is not exported immediately.
-			ensure_last_era_session_index_initialised();
 
 			assert_eq!(pallet_staking_async::CurrentEra::<ah::Runtime>::get(), Some(0));
 			assert_eq!(

@@ -123,8 +123,6 @@ use sp_runtime::{traits::Convert, Perbill, TransactionOutcome};
 use sp_staking::SessionIndex;
 use xcm::latest::{send_xcm, Location, SendError, SendXcm, Xcm};
 
-pub mod migrations;
-
 /// Export everything needed for the pallet to be used in the runtime.
 pub use pallet::*;
 
@@ -625,27 +623,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type LastSessionReportEndingIndex<T: Config> = StorageValue<_, SessionIndex, OptionQuery>;
 
-	/// Session index (end_index) at which the last era activation was received.
-	///
-	/// Updated when a session report contains `activation_timestamp`.
-	/// Used to calculate the current session offset within the active era.
-	///
-	/// When `None`, validator sets are exported immediately (used during genesis/before first era).
-	/// In production, this should be set during migration to the session when the current era
-	/// started.
-	///
-	/// The session offset is calculated as:
-	/// `current_session - era_activation_session`
-	///
-	/// Where `current_session = LastSessionReportEndingIndex + 1`
-	///
-	/// Example:
-	/// - Era N activates at session 5 end → `LastEraActivationSessionReportEndingIndex = Some(5)`
-	/// - Later at session 10: offset = (10 - 5) = 5
-	#[pallet::storage]
-	pub type LastEraActivationSessionReportEndingIndex<T: Config> =
-		StorageValue<_, SessionIndex, OptionQuery>;
-
 	/// A validator set that is outgoing, and should be sent.
 	///
 	/// This will be attempted to be sent, possibly on every `on_initialize` call, until it is sent,
@@ -666,28 +643,18 @@ pub mod pallet {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			if let Some((report, retries_left)) = OutgoingValidatorSet::<T>::take() {
 				// Determine if we should export the validator set.
-				// Export immediately if:
-				// 1. ValidatorSetExportSession is 0 (immediate export mode)
-				// 2. No era activation has been tracked yet (None = genesis/before first era)
-				let should_export = match LastEraActivationSessionReportEndingIndex::<T>::get() {
-					None => {
-						// No era activation tracked yet, export immediately
-						true
-					},
-					Some(era_activation_end) => {
-						if T::ValidatorSetExportSession::get() == 0 {
-							// Immediate export mode
-							true
-						} else {
-							// Check if we've reached the target session offset
-							let last_session_end =
-								LastSessionReportEndingIndex::<T>::get().unwrap_or(0);
-							let session_offset =
-								last_session_end.saturating_sub(era_activation_end);
+				// Export immediately if: ValidatorSetExportSession is 0 (immediate export mode)
+				let should_export = if T::ValidatorSetExportSession::get() == 0 {
+					// Immediate export mode
+					true
+				} else {
+					// Check if we've reached the target session offset
+					let last_session_end = LastSessionReportEndingIndex::<T>::get().unwrap_or(0);
+					let last_era_ending_index =
+						T::AHStakingInterface::active_era_start_session_index().saturating_sub(1);
+					let session_offset = last_session_end.saturating_sub(last_era_ending_index);
 
-							session_offset >= T::ValidatorSetExportSession::get()
-						}
-					},
+					session_offset >= T::ValidatorSetExportSession::get()
 				};
 
 				if should_export {
@@ -897,18 +864,6 @@ pub mod pallet {
 			} else {
 				// this is final, report it.
 				LastSessionReportEndingIndex::<T>::put(new_session_report.end_index);
-
-				// Track era activation for session offset calculation
-				if new_session_report.activation_timestamp.is_some() {
-					LastEraActivationSessionReportEndingIndex::<T>::put(
-						new_session_report.end_index,
-					);
-					log::debug!(
-						target: LOG_TARGET,
-						"Era activated at session report end_index: {}",
-						new_session_report.end_index
-					);
-				}
 
 				let weight = T::AHStakingInterface::on_relay_session_report(new_session_report);
 				Ok((Some(local_weight + weight)).into())

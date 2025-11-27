@@ -25,10 +25,7 @@ use frame_support::sp_runtime::testing::TestXt;
 use pallet_election_provider_multi_block as multi_block;
 use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
 use pallet_staking_async::{ActiveEra, CurrentEra, Forcing};
-use pallet_staking_async_rc_client::{
-	LastEraActivationSessionReportEndingIndex, OutgoingValidatorSet, SessionReport,
-	ValidatorSetReport,
-};
+use pallet_staking_async_rc_client::{OutgoingValidatorSet, SessionReport, ValidatorSetReport};
 use sp_staking::SessionIndex;
 pub const LOG_TARGET: &str = "ahm-test";
 
@@ -117,7 +114,6 @@ pub fn roll_until_matches(criteria: impl Fn() -> bool, with_rc: bool) {
 pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<AccountId> {
 	log::debug!(target: LOG_TARGET, "roll_until_next_active: end_index: {:?}", end_index);
 
-	ensure_last_era_session_index_initialised();
 	LocalQueue::flush();
 
 	let roll_session = |end_index| {
@@ -664,25 +660,6 @@ pub(crate) fn election_events_since_last_call() -> Vec<multi_block::Event<T>> {
 	let seen = ElectionEventsIndex::get();
 	ElectionEventsIndex::set(all.len());
 	all.into_iter().skip(seen).collect()
-}
-
-/// This allows RC client pallet to track at which session it needs to export validator set.
-pub(crate) fn ensure_last_era_session_index_initialised() {
-	if !LastEraActivationSessionReportEndingIndex::<T>::exists() {
-		// get active era
-		let active_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::active_era();
-		let active_start_index = pallet_staking_async::BondedEras::<T>::get()
-			.iter()
-			.find(|&(era, _)| *era == active_era)
-			.map(|(_, b)| b)
-			.cloned()
-			.unwrap_or(0);
-		let last_era_end_index = active_start_index.saturating_sub(1);
-		// NOTE: For the first era (0 -> 1), it takes 7 session to rotate era since technically
-		// last_era_end_index should be 1 less than the start index of active era, but we cannot set
-		// this value to lower than 0.
-		LastEraActivationSessionReportEndingIndex::<T>::put(last_era_end_index);
-	}
 }
 
 pub(crate) fn roll_and_assert_idle_sessions(count: usize, expect_export: bool) {
