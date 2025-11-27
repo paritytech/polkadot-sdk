@@ -56,7 +56,6 @@ impl Config for Test {
 	type NativeBalance = Balances;
 	type Deposit = IndexDeposit;
 	type RuntimeEvent = RuntimeEvent;
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type WeightInfo = ();
 }
 
