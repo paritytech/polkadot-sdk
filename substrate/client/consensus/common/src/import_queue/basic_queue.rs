@@ -277,13 +277,7 @@ impl<B: BlockT> BlockImportWorker<B> {
 		let (block_import_sender, block_import_receiver) =
 			tracing_unbounded("mpsc_import_queue_worker_blocks", 100_000);
 
-		log::debug!(
-			target: LOG_TARGET,
-			"Instantiate BlockImportWorker metrics: {} ", metrics.is_some()
-		);
-
 		let mut worker = BlockImportWorker { result_sender, justification_import, metrics };
-
 
 		let future = async move {
 			// Let's initialize `justification_import`
