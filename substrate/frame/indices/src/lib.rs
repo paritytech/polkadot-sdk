@@ -76,9 +76,6 @@ pub mod pallet {
 			+ Copy
 			+ MaxEncodedLen;
 
-		/// The hold reason for this pallet.
-		type RuntimeHoldReason: From<HoldReason>;
-
 		/// The currency trait.
 		type NativeBalance: Inspect<Self::AccountId>
 			+ Mutate<Self::AccountId>
