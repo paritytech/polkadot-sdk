@@ -139,38 +139,43 @@ where
 	}
 
 	fn step(
-		cursor: Option<Self::Cursor>,
+		mut cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
 		// Check if we have minimal weight to proceed
-		// We need at least enough weight to read one storage item to make progress
-		let min_required = T::DbWeight::get().reads(1);
+		// We need at least enough weight to migrate one account to make progress
+		let min_required = T::DbWeight::get().reads(1);//T::WeightInfo::migrate_account_step();
 
 		if meter.remaining().any_lt(min_required) {
 			return Err(SteppedMigrationError::InsufficientWeight { required: min_required });
 		}
 
-		// Process one account per step
-		if meter.try_consume(min_required).is_err() {
-			return Ok(cursor);
+		loop {
+			// Process one account per step
+			if meter.try_consume(min_required).is_err() {
+				break;
+			}
+
+			// Get the iterator for the OLD accounts to migrate
+			let mut iter = if let Some(Some(last_key)) = cursor {
+				v0::OldAccounts::<T>::iter_from(v0::OldAccounts::<T>::hashed_key_for(last_key))
+			} else {
+				v0::OldAccounts::<T>::iter()
+			};
+
+			// If there is a next item in the iterator, perform the migration.
+			if let Some((index, (account, old_deposit, frozen))) = iter.next() {
+				Self::migrate_account(account, index, frozen, old_deposit);
+				cursor = Some(Some(index));
+			} else {
+				// Migration complete
+				println!("Migration completed - no more accounts to migrate");
+				return Ok(None);
+			}
+
 		}
 
-		// Get the iterator for the OLD accounts to migrate
-		let mut iter = if let Some(Some(last_key)) = cursor {
-			v0::OldAccounts::<T>::iter_from(v0::OldAccounts::<T>::hashed_key_for(last_key))
-		} else {
-			v0::OldAccounts::<T>::iter()
-		};
-
-		// If there is a next item in the iterator, perform the migration.
-		if let Some((index, (account, old_deposit, frozen))) = iter.next() {
-			Self::migrate_account(account, index, frozen, old_deposit);
-			Ok(Some(Some(index)))
-		} else {
-			// Migration complete
-			println!("Migration completed - no more accounts to migrate");
-			Ok(None)
-		}
+		Ok(cursor)
 	}
 
 	#[cfg(feature = "try-runtime")]

@@ -196,6 +196,22 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn migrate_account_step() -> Result<(), BenchmarkError> {
+		let account = account("account", 0, SEED);
+		let index = T::AccountIndex::from(SEED);
+		let frozen = false;
+		let old_deposit = T::Deposit::get();
+		#[block]
+		{
+			MigrateCurrencyToFungibles::<T>::migrate_account(account, index, frozen, old_deposit);
+		}
+		assert_eq!(Accounts::<T>::get(index).unwrap().0, account);
+		assert_eq!(Accounts::<T>::get(index).unwrap().1, old_deposit);
+		assert_eq!(Accounts::<T>::get(index).unwrap().2, frozen);
+		Ok(())
+	}
+
 	// TODO in another PR: lookup and unlookup trait weights (not critical)
 
 	impl_benchmark_test_suite!(Pallet, mock::new_test_ext(), mock::Test);
