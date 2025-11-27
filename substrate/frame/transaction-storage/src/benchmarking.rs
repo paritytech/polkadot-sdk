@@ -146,10 +146,7 @@ mod benchmarks {
 		let data = vec![0u8; T::MaxTransactionSize::get() as usize];
 		let hash = sp_io::hashing::blake2_256(&data).into();
 		T::Currency::set_balance(&caller, initial_balance);
-		Pallet::<T>::store(
-			RawOrigin::Signed(caller.clone()).into(),
-			data,
-		)?;
+		Pallet::<T>::store(RawOrigin::Signed(caller.clone()).into(), data)?;
 		run_to_block::<T>(1u32.into());
 
 		#[extrinsic_call]
