@@ -604,7 +604,8 @@ where
 			BlockOrigin::Genesis |
 			BlockOrigin::NetworkInitialSync |
 			BlockOrigin::File |
-			BlockOrigin::WarpSync => false,
+			BlockOrigin::WarpSync |
+			BlockOrigin::GapSync => false,
 		};
 
 		let storage_changes = match storage_changes {

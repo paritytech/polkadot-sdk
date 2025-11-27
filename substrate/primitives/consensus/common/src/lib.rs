@@ -74,6 +74,10 @@ pub enum BlockOrigin {
 	/// and are part of the finalized chain. As such, certain consensus verification steps
 	/// can be safely skipped during import.
 	WarpSync,
+	/// Block imported during gap sync to fill historical gaps.
+	/// Gap sync occurs after warp sync completes, downloading blocks between genesis
+	/// and the warp sync target to fill in the historical chain.
+	GapSync,
 }
 
 /// Environment for a Consensus instance.

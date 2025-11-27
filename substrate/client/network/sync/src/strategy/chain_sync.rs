@@ -1562,9 +1562,14 @@ where
 			);
 		}
 
-		let origin = if !gap && !self.status().state.is_major_syncing() {
+		let origin = if gap {
+			// Gap sync: filling historical blocks after warp sync
+			BlockOrigin::GapSync
+		} else if !self.status().state.is_major_syncing() {
+			// Normal operation: receiving new blocks
 			BlockOrigin::NetworkBroadcast
 		} else {
+			// Initial sync: catching up with the chain
 			BlockOrigin::NetworkInitialSync
 		};
 

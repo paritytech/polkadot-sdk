@@ -179,7 +179,7 @@ async fn assert_gap_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 	let option_1_line =
 		LogLineCountOptions::new(|n| n == 1, Duration::from_secs(5), false);
 	let option_at_least_5_lines =
-		LogLineCountOptions::new(|n| n == 1, Duration::from_secs(5), false);
+		LogLineCountOptions::new(|n| n > 1, Duration::from_secs(5), false);
 
 	log::info!("Asserting Gap sync for node {}", node.name());
 	// We are interested only in Relaychain Gap sync (relaychain and parachain nodes),
@@ -195,7 +195,7 @@ async fn assert_gap_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 
 	let result = node
 		.wait_log_line_count_with_timeout(
-			r"(?<!\[Parachain\] )Starting import of [0-9]+ blocks.*\(origin: NetworkInitialSync\)",
+			r"(?<!\[Parachain\] )Starting import of [0-9]+ blocks.*\(origin: GapSync\)",
 			false,
 			option_at_least_5_lines.clone()
 		)
@@ -204,7 +204,7 @@ async fn assert_gap_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 
 	let result = node
 		.wait_log_line_count_with_timeout(
-			r"(?<!\[Parachain\] )Imported [0-9]+ out of [0-9]+ blocks.*\(origin: NetworkInitialSync\)",
+			r"(?<!\[Parachain\] )Imported [0-9]+ out of [0-9]+ blocks.*\(origin: GapSync\)",
 			false,
 			option_at_least_5_lines
 		)
