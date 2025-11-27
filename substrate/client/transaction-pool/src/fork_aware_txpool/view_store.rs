@@ -612,6 +612,7 @@ where
 		&self,
 		finalized_hash: Block::Hash,
 		tree_route: &[Block::Hash],
+		is_reverted: bool,
 	) -> Vec<ExtrinsicHash<ChainApi>> {
 		let finalized_xts = self.finalize_route(finalized_hash, tree_route).await;
 		let finalized_number = self.api.block_id_to_number(&BlockId::Hash(finalized_hash));
@@ -625,7 +626,15 @@ where
 				let retain = match finalized_number {
 					Err(_) | Ok(None) => *hash == finalized_hash,
 					Ok(Some(n)) if v.at.number == n => *hash == finalized_hash,
-					Ok(Some(n)) => v.at.number > n,
+					Ok(Some(n)) => {
+						if is_reverted {
+							// Drop newer blocks when reverting
+							v.at.number < n
+						} else {
+							// Keep newer blocks when not reverting
+							v.at.number > n
+						}
+					},
 				};
 				if !retain {
 					dropped_views.push(*hash);
@@ -636,7 +645,15 @@ where
 			inactive_views.retain(|hash, v| {
 				let retain = match finalized_number {
 					Err(_) | Ok(None) => false,
-					Ok(Some(n)) => v.at.number >= n,
+					Ok(Some(n)) => {
+						if is_reverted {
+							// Keep same or older
+							v.at.number <= n
+						} else {
+							// Keep same or newer
+							v.at.number >= n
+						}
+					},
 				};
 				if !retain {
 					dropped_views.push(*hash);

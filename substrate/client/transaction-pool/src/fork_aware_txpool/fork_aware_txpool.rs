@@ -1221,7 +1221,11 @@ where
 	///
 	/// If the view is correctly created, `ready_at` pollers for this block will be triggered.
 	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "fatp::handle_new_block")]
-	async fn handle_new_block(&self, tree_route: &TreeRoute<Block>) {
+	async fn handle_new_block(
+		&self,
+		tree_route: &TreeRoute<Block>,
+		skip_retracted_resubmission: bool,
+	) {
 		let hash_and_number = match tree_route.last() {
 			Some(hash_and_number) => hash_and_number,
 			None => {
@@ -1244,7 +1248,14 @@ where
 		}
 
 		let best_view = self.view_store.find_best_view(tree_route);
-		let new_view = self.build_and_update_view(best_view, hash_and_number, tree_route).await;
+		let new_view = self
+			.build_and_update_view(
+				best_view,
+				hash_and_number,
+				tree_route,
+				skip_retracted_resubmission,
+			)
+			.await;
 
 		if let Some(view) = new_view {
 			{
@@ -1404,6 +1415,7 @@ where
 		origin_view: Option<Arc<View<ChainApi>>>,
 		at: &HashAndNumber<Block>,
 		tree_route: &TreeRoute<Block>,
+		skip_retracted_resubmission: bool,
 	) -> Option<Arc<View<ChainApi>>> {
 		let start = Instant::now();
 		debug!(
@@ -1429,7 +1441,8 @@ where
 		// 2. Handle transactions from the tree route. Pruning transactions from the view first
 		// will make some space for mempool transactions in case we are at the view's limits.
 		let start = Instant::now();
-		self.update_view_with_fork(&view, tree_route, at.clone()).await;
+		self.update_view_with_fork(&view, tree_route, at.clone(), skip_retracted_resubmission)
+			.await;
 		debug!(
 			target: LOG_TARGET,
 			?at,
@@ -1664,6 +1677,7 @@ where
 		view: &View<ChainApi>,
 		tree_route: &TreeRoute<Block>,
 		hash_and_number: HashAndNumber<Block>,
+		skip_retracted_resubmission: bool,
 	) {
 		debug!(
 			target: LOG_TARGET,
@@ -1720,6 +1734,7 @@ where
 		self.metrics
 			.report(|metrics| metrics.unknown_from_block_import_txs.inc_by(unknown_count as _));
 
+		if !skip_retracted_resubmission
 		//resubmit
 		{
 			let mut resubmit_transactions = Vec::new();
@@ -1799,7 +1814,12 @@ where
 	/// Performs a house-keeping required for finalized event. This includes:
 	/// - executing the on finalized procedure for the view store,
 	/// - purging finalized transactions from the mempool and triggering mempool revalidation,
-	async fn handle_finalized(&self, finalized_hash: Block::Hash, tree_route: &[Block::Hash]) {
+	async fn handle_finalized(
+		&self,
+		finalized_hash: Block::Hash,
+		tree_route: &[Block::Hash],
+		is_reverted: bool,
+	) {
 		let start = Instant::now();
 		let finalized_number = self.api.block_id_to_number(&BlockId::Hash(finalized_hash));
 		debug!(
@@ -1809,31 +1829,34 @@ where
 			active_views_count = self.active_views_count(),
 			"handle_finalized"
 		);
-		let finalized_xts = self.view_store.handle_finalized(finalized_hash, tree_route).await;
+		let finalized_xts =
+			self.view_store.handle_finalized(finalized_hash, tree_route, is_reverted).await;
 
-		self.mempool.purge_finalized_transactions(&finalized_xts).await;
-		self.import_notification_sink.clean_notified_items(&finalized_xts);
+		if !is_reverted {
+			self.mempool.purge_finalized_transactions(&finalized_xts).await;
+			self.import_notification_sink.clean_notified_items(&finalized_xts);
 
-		self.metrics
-			.report(|metrics| metrics.finalized_txs.inc_by(finalized_xts.len() as _));
+			self.metrics
+				.report(|metrics| metrics.finalized_txs.inc_by(finalized_xts.len() as _));
 
-		if let Ok(Some(finalized_number)) = finalized_number {
-			self.included_transactions
-				.lock()
-				.retain(|cached_block, _| finalized_number < cached_block.number);
-			self.revalidation_queue
-				.revalidate_mempool(
-					self.mempool.clone(),
-					self.view_store.clone(),
-					HashAndNumber { hash: finalized_hash, number: finalized_number },
-				)
-				.await;
-		} else {
-			debug!(
-				target: LOG_TARGET,
-				?finalized_number,
-				"handle_finalized: revalidation/cleanup skipped: could not resolve finalized block number"
-			);
+			if let Ok(Some(finalized_number)) = finalized_number {
+				self.included_transactions
+					.lock()
+					.retain(|cached_block, _| finalized_number < cached_block.number);
+				self.revalidation_queue
+					.revalidate_mempool(
+						self.mempool.clone(),
+						self.view_store.clone(),
+						HashAndNumber { hash: finalized_hash, number: finalized_number },
+					)
+					.await;
+			} else {
+				debug!(
+					target: LOG_TARGET,
+					?finalized_number,
+					"handle_finalized: revalidation/cleanup skipped: could not resolve finalized block number"
+				);
+			}
 		}
 
 		self.ready_poll.lock().remove_cancelled();
@@ -2007,7 +2030,10 @@ where
 				);
 				self.enactment_state.lock().force_update(&event);
 			},
-			Ok(EnactmentAction::Skip) => return,
+			Ok(EnactmentAction::Skip) =>
+				if !matches!(event, ChainEvent::Reverted { .. }) {
+					return
+				},
 			Ok(EnactmentAction::HandleFinalization) => {
 				// todo [#5492]: in some cases handle_new_block is actually needed (new_num >
 				// tips_of_forks) let hash = event.hash();
@@ -2018,14 +2044,14 @@ where
 				// }
 			},
 			Ok(EnactmentAction::HandleEnactment(tree_route)) => {
-				self.handle_new_block(&tree_route).await;
+				self.handle_new_block(&tree_route, false).await;
 			},
 		};
 
 		match event {
 			ChainEvent::NewBestBlock { .. } => {},
 			ChainEvent::Finalized { hash, ref tree_route } => {
-				self.handle_finalized(hash, tree_route).await;
+				self.handle_finalized(hash, tree_route, false).await;
 
 				debug!(
 					target: LOG_TARGET,
@@ -2033,6 +2059,19 @@ where
 					?prev_finalized_block,
 					"on-finalized enacted"
 				);
+			},
+			ChainEvent::Reverted { hash, ref tree_route } => {
+				self.handle_new_block(tree_route, true).await;
+
+				let retracted: HashSet<_> =
+					tree_route.retracted().iter().map(|hn| hn.hash).collect();
+				self.included_transactions.lock().retain(|hn, _| !retracted.contains(&hn.hash));
+
+				self.enactment_state.lock().force_update(&event);
+
+				let retracted_path: Vec<_> =
+					tree_route.retracted().iter().map(|hn| hn.hash).collect();
+				self.handle_finalized(hash, &retracted_path, true).await;
 			},
 		}
 
