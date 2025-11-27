@@ -356,7 +356,7 @@ impl pallet_revive::Config for Runtime {
 	type Time = Timestamp;
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
 	type DebugEnabled = ConstBool<false>;
-	type GasScale = ConstU128<50000>;
+	type GasScale = ConstU128<500000>;
 }
 
 pallet_revive::impl_runtime_apis_plus_revive_traits!(
