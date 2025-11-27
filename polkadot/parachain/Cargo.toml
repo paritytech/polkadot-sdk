@@ -1,44 +1,63 @@
+# Cargo Manifest for polkadot-parachain-primitives.
+# This package provides fundamental types and utilities essential for building
+# and interacting with Polkadot parachains and Substrate runtimes.
+
 [package]
 name = "polkadot-parachain-primitives"
 description = "Types and utilities for creating and working with parachains"
+# Metadata fields inherited from the workspace configuration.
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "6.0.0"
 homepage.workspace = true
 repository.workspace = true
+# Specific version defined locally.
+version = "6.0.0"
 
 [lints]
 workspace = true
 
 [dependencies]
-# note: special care is taken to avoid inclusion of `sp-io` externals when compiling
-# this crate for WASM. This is critical to avoid forcing all parachain WASM into implementing
-# various unnecessary Substrate-specific endpoints.
+# Note on WASM compilation: Special care is taken to avoid the inclusion of `sp-io` 
+# externals when compiling this crate for WASM. This is critical to avoid forcing 
+# all parachain WASM runtime code into implementing various unnecessary 
+# Substrate-specific host function endpoints.
 array-bytes = { workspace = true }
+# Bounded collections used in storage and runtime APIs.
 bounded-collections = { features = ["serde"], workspace = true }
+# SCALE codec for data serialization, with derive features enabled.
 codec = { features = ["derive"], workspace = true }
-derive_more = { workspace = true, default-features = true }
+# derive_more is a utility for common trait derivations (features included by default).
+derive_more = { workspace = true } 
 polkadot-core-primitives = { workspace = true }
+# SCALE info for metadata, including support for derive and serde.
 scale-info = { features = ["derive", "serde"], workspace = true }
+# Core types from Substrate.
 sp-core = { features = ["serde"], workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 sp-weights = { workspace = true }
 
-# all optional crates.
-serde = { features = ["alloc", "derive"], workspace = true }
+# Serde is optional but enabled via features for serialization support.
+serde = { features = ["alloc", "derive"], workspace = true, optional = true }
 
 [features]
+# The 'std' feature is enabled by default for native compilation/testing.
 default = ["std"]
+
+# Marker feature for WASM API generation (usually empty here, utilized by dependents).
 wasm-api = []
+
+# Enables standard library features across dependencies for native compilation.
 std = [
 	"bounded-collections/std",
 	"codec/std",
 	"polkadot-core-primitives/std",
 	"scale-info/std",
-	"serde/std",
+	"serde", # Enables the optional serde dependency
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-weights/std",
 ]
+
+# Enables runtime benchmarking macros and utilities.
 runtime-benchmarks = ["sp-runtime/runtime-benchmarks"]
