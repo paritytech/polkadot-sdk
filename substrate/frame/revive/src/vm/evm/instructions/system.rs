@@ -41,7 +41,7 @@ pub fn keccak256<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> 
 	let len = as_usize_or_halt::<E::T>(*top)?;
 	interpreter
 		.ext
-		.gas_meter_mut()
+		.frame_meter_mut()
 		.charge_or_halt(RuntimeCosts::HashKeccak256(len as u32))?;
 
 	let hash = if len == 0 {

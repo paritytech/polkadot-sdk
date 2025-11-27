@@ -169,6 +169,14 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		&mut self.frame_meter
 	}
 
+	fn frame_meter(&self) -> &FrameMeter<Self::T> {
+		&self.frame_meter
+	}
+
+	fn frame_meter_mut(&mut self) -> &mut FrameMeter<Self::T> {
+		&mut self.frame_meter
+	}
+
 	fn ecdsa_recover(
 		&self,
 		_signature: &[u8; 65],

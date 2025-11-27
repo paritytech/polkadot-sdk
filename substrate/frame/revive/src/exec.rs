@@ -319,13 +319,13 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Charges the weight meter with the given weight.
 	fn charge(&mut self, weight: Weight) -> Result<ChargedAmount, DispatchError> {
-		self.gas_meter_mut().charge_weight_token(RuntimeCosts::Precompile(weight))
+		self.frame_meter_mut().charge_weight_token(RuntimeCosts::Precompile(weight))
 	}
 
 	/// Reconcile an earlier gas charge with the actual weight consumed.
 	/// This updates the current weight meter to reflect the real cost of the token.
 	fn adjust_gas(&mut self, charged: ChargedAmount, actual_weight: Weight) {
-		self.gas_meter_mut()
+		self.frame_meter_mut()
 			.adjust_weight(charged, RuntimeCosts::Precompile(actual_weight));
 	}
 
@@ -336,7 +336,7 @@ pub trait PrecompileExt: sealing::Sealed {
 		&mut self,
 		token: Tok,
 	) -> ControlFlow<crate::vm::evm::Halt, ChargedAmount> {
-		self.gas_meter_mut().charge_or_halt(token)
+		self.frame_meter_mut().charge_or_halt(token)
 	}
 
 	/// Call (possibly transferring some amount of funds) into the specified account.
@@ -445,10 +445,20 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn chain_id(&self) -> u64;
 
 	/// Get an immutable reference to the nested resource meter of the frame.
+	#[deprecated(note = "Renamed to `frame_meter`; this alias will be removed in future versions")]
 	fn gas_meter(&self) -> &FrameMeter<Self::T>;
 
 	/// Get a mutable reference to the nested resource meter of the frame.
+	#[deprecated(
+		note = "Renamed to `frame_meter_mut`; this alias will be removed in future versions"
+	)]
 	fn gas_meter_mut(&mut self) -> &mut FrameMeter<Self::T>;
+
+	/// Get an immutable reference to the nested resource meter of the frame.
+	fn frame_meter(&self) -> &FrameMeter<Self::T>;
+
+	/// Get a mutable reference to the nested resource meter of the frame.
+	fn frame_meter_mut(&mut self) -> &mut FrameMeter<Self::T>;
 
 	/// Recovers ECDSA compressed public key based on signature and message hash.
 	fn ecdsa_recover(&self, signature: &[u8; 65], message_hash: &[u8; 32]) -> Result<[u8; 33], ()>;
@@ -2004,7 +2014,7 @@ where
 					E::from_evm_init_code(initcode, sender.clone())?
 				},
 				Code::Existing(hash) => {
-					let executable = E::from_storage(*hash, self.gas_meter_mut())?;
+					let executable = E::from_storage(*hash, self.frame_meter_mut())?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable
 				},
@@ -2328,6 +2338,15 @@ where
 
 	#[inline]
 	fn gas_meter_mut(&mut self) -> &mut FrameMeter<Self::T> {
+		&mut self.top_frame_mut().frame_meter
+	}
+
+	fn frame_meter(&self) -> &FrameMeter<Self::T> {
+		&self.top_frame().frame_meter
+	}
+
+	#[inline]
+	fn frame_meter_mut(&mut self) -> &mut FrameMeter<Self::T> {
 		&mut self.top_frame_mut().frame_meter
 	}
 

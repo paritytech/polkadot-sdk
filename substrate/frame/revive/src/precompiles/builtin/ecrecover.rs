@@ -35,7 +35,7 @@ impl<T: Config> PrimitivePrecompile for EcRecover<T> {
 		i: Vec<u8>,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		env.gas_meter_mut().charge_weight_token(RuntimeCosts::EcdsaRecovery)?;
+		env.frame_meter_mut().charge_weight_token(RuntimeCosts::EcdsaRecovery)?;
 		let mut input = [0u8; 128];
 		let len = i.len().min(128);
 		input[..len].copy_from_slice(&i[..len]);

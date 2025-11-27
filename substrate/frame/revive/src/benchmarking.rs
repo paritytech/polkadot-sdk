@@ -783,7 +783,7 @@ mod benchmarks {
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
 
-		let weight_left_before = ext.gas_meter().weight_left().unwrap();
+		let weight_left_before = ext.frame_meter().weight_left().unwrap();
 		let result;
 		#[block]
 		{
@@ -793,7 +793,7 @@ mod benchmarks {
 				input_bytes,
 			);
 		}
-		let weight_left_after = ext.gas_meter().weight_left().unwrap();
+		let weight_left_after = ext.frame_meter().weight_left().unwrap();
 		assert_ne!(weight_left_after.ref_time(), 0);
 		assert!(weight_left_before.ref_time() > weight_left_after.ref_time());
 

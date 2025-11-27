@@ -152,7 +152,7 @@ fn store_helper<'ext, E: Ext>(
 		return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 	};
 
-	interpreter.ext.gas_meter_mut().adjust_weight(
+	interpreter.ext.frame_meter_mut().adjust_weight(
 		charged_amount,
 		adjust_cost(value_to_store.unwrap_or_default().len() as u32, write_outcome.old_len()),
 	);
