@@ -8,7 +8,6 @@
 | **Status** | Draft |
 | **Version** | 0.2 |
 | **Related Designs** | [Low-Latency Parachains v2](link-to-low-latency-doc) |
-| **Approvers** | TBD |
 
 ---
 
