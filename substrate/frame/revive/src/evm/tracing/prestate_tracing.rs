@@ -40,6 +40,9 @@ pub struct PrestateTracer<T> {
 	/// List of created contracts addresses.
 	created_addrs: BTreeSet<H160>,
 
+	/// List of destructed contracts addresses.
+	destructed_addrs: BTreeSet<H160>,
+
 	// pre / post state
 	trace: (BTreeMap<H160, PrestateTraceInfo>, BTreeMap<H160, PrestateTraceInfo>),
 
@@ -89,6 +92,11 @@ where
 				}
 			}
 
+			// collect destructed contracts info in post state
+			for addr in &self.destructed_addrs {
+				Self::update_prestate_info(post.entry(*addr).or_default(), addr, None);
+			}
+
 			// clean up the storage that are in pre but not in post these are just read
 			pre.iter_mut().for_each(|(addr, info)| {
 				if let Some(post_info) = post.get(addr) {
@@ -96,6 +104,14 @@ where
 				} else {
 					info.storage.clear();
 				}
+			});
+
+			// If the address was created and destructed we do not trace it
+			post.retain(|addr, _| {
+				if self.created_addrs.contains(addr) && self.destructed_addrs.contains(addr) {
+					return false
+				}
+				true
 			});
 
 			pre.retain(|addr, pre_info| {
@@ -219,6 +235,19 @@ where
 
 	fn instantiate_code(&mut self, code: &crate::Code, _salt: Option<&[u8; 32]>) {
 		self.create_code = Some(code.clone());
+	}
+
+	fn terminate(
+		&mut self,
+		contract_address: H160,
+		beneficiary_address: H160,
+		_gas_left: Weight,
+		_value: U256,
+	) {
+		self.destructed_addrs.insert(contract_address);
+		self.trace.0.entry(beneficiary_address).or_insert_with_key(|addr| {
+			Self::prestate_info(addr, Pallet::<T>::evm_balance(addr), None)
+		});
 	}
 
 	fn enter_child_span(
