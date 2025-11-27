@@ -6,7 +6,11 @@ use codec::{Compact, Decode};
 use cumulus_primitives_core::{relay_chain, rpsr_digest::RPSR_CONSENSUS_ID};
 use futures::stream::StreamExt;
 use polkadot_primitives::{CandidateReceiptV2, Id as ParaId};
-use std::{cmp::max, collections::HashMap, ops::Range};
+use std::{
+	cmp::max,
+	collections::{HashMap, HashSet},
+	ops::Range,
+};
 use tokio::{
 	join,
 	time::{sleep, Duration},
@@ -22,6 +26,13 @@ use zombienet_sdk::subxt::{
 	utils::H256,
 	OnlineClient, PolkadotConfig,
 };
+
+use zombienet_sdk::{
+	tx_helper::{ChainUpgrade, RuntimeUpgradeOptions},
+	LocalFileSystem, Network, NetworkNode,
+};
+
+use zombienet_configuration::types::AssetLocation;
 
 // Maximum number of blocks to wait for a session change.
 // If it does not arrive for whatever reason, we should not wait forever.
@@ -61,6 +72,17 @@ fn find_event_and_decode_fields<T: Decode>(
 	}
 	Ok(result)
 }
+/// Returns `true` if the `block` is a session change.
+async fn is_session_change(
+	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+) -> Result<bool, anyhow::Error> {
+	let events = block.events().await?;
+	Ok(events.iter().any(|event| {
+		event.as_ref().is_ok_and(|event| {
+			event.pallet_name() == "Session" && event.variant_name() == "NewSession"
+		})
+	}))
+}
 
 // Helper function for asserting the throughput of parachains, after the first session change.
 //
@@ -83,20 +105,15 @@ pub async fn assert_para_throughput(
 	while let Some(block) = blocks_sub.next().await {
 		let block = block?;
 		log::debug!("Finalized relay chain block {}", block.number());
-		let events = block.events().await?;
-		let is_session_change = events.iter().any(|event| {
-			event.as_ref().is_ok_and(|event| {
-				event.pallet_name() == "Session" && event.variant_name() == "NewSession"
-			})
-		});
 
 		// Do not count blocks with session changes, no backed blocks there.
-		if is_session_change {
+		if is_session_change(&block).await? {
 			continue;
 		}
 
 		current_block_count += 1;
 
+		let events = block.events().await?;
 		let receipts = find_event_and_decode_fields::<CandidateReceiptV2<H256>>(
 			&events,
 			"ParaInclusion",
@@ -161,14 +178,8 @@ pub async fn wait_for_nth_session_change(
 	while let Some(block) = blocks_sub.next().await {
 		let block = block?;
 		log::debug!("Finalized relay chain block {}", block.number());
-		let events = block.events().await?;
-		let is_session_change = events.iter().any(|event| {
-			event.as_ref().is_ok_and(|event| {
-				event.pallet_name() == "Session" && event.variant_name() == "NewSession"
-			})
-		});
 
-		if is_session_change {
+		if is_session_change(&block).await? {
 			sessions_to_wait -= 1;
 			if sessions_to_wait == 0 {
 				return Ok(());
@@ -233,7 +244,8 @@ pub async fn assert_blocks_are_being_finalized(
 	Ok(())
 }
 
-/// Asserts that parachain blocks have the correct relay parent offset.
+/// Asserts that parachain blocks have the correct relay parent offset. This also checks that the
+/// relay chain descendants do not contain any session changes.
 ///
 /// # Arguments
 ///
@@ -253,6 +265,8 @@ pub async fn assert_relay_parent_offset(
 	let mut para_block_stream = para_client.blocks().subscribe_all().await?.skip(1);
 	let mut highest_relay_block_seen = 0;
 	let mut num_para_blocks_seen = 0;
+	let mut forbidden_parents = HashSet::new();
+	let mut seen_parents = HashMap::new();
 	loop {
 		tokio::select! {
 			Some(Ok(relay_block)) = relay_block_stream.next() => {
@@ -260,15 +274,45 @@ pub async fn assert_relay_parent_offset(
 				if highest_relay_block_seen > 15 && num_para_blocks_seen == 0 {
 					return Err(anyhow!("No parachain blocks produced!"))
 				}
+				// When a relay chain block contains a session change, parachains shall not build on
+				// any ancestor of that block, if the session change block is part of the descendants.
+				// Example:
+				// RC Chain: A -> B -> C -> D*
+				// "*" denotes session change
+				// In this scenario, parachains with an offset of 2 should never build on relay chain
+				// blocks B or C. Both of them would include the session change block D* in their
+				// descendants, and we know that the candidate would span a session boundary.
+				if is_session_change(&relay_block).await? {
+					log::debug!("RC block #{} contains session change, adding {offset} parents to forbidden list.", relay_block.number());
+					let mut current_hash = relay_block.header().parent_hash;
+					for _ in 0..offset {
+						let block = relay_client.blocks().at(current_hash).await.map_err(|_| anyhow!("Unable to fetch RC header."))?;
+						forbidden_parents.insert(block.header().state_root);
+						current_hash = block.header().parent_hash;
+					}
+				}
 			},
 			Some(Ok(para_block)) = para_block_stream.next() => {
 				let logs = &para_block.header().digest.logs;
 
-				let Some((_, relay_parent_number)): Option<(H256, u32)> = logs.iter().find_map(extract_relay_parent_storage_root) else {
+				let Some((relay_parent_state_root, relay_parent_number)): Option<(H256, u32)> = logs.iter().find_map(extract_relay_parent_storage_root) else {
 					return Err(anyhow!("No RPSR digest found in header #{}", para_block.number()));
 				};
-				log::debug!("Parachain block #{} was built on relay parent #{relay_parent_number}, highest seen was {highest_relay_block_seen}", para_block.number());
+				let para_block_number = para_block.number();
+				seen_parents.insert(relay_parent_state_root, para_block);
+				log::debug!("Parachain block #{} was built on relay parent #{relay_parent_number}, highest seen was {highest_relay_block_seen}", para_block_number);
 				assert!(highest_relay_block_seen < offset || relay_parent_number <= highest_relay_block_seen.saturating_sub(offset), "Relay parent is not at the correct offset! relay_parent: #{relay_parent_number} highest_seen_relay_block: #{highest_relay_block_seen}");
+				// As per explanation above, we need to check that no parachain blocks are build
+				// on the forbidden parents.
+				for forbidden in &forbidden_parents {
+					if let Some(para_block) = seen_parents.get(forbidden) {
+						panic!(
+							"Parachain block {} was built on forbidden relay parent with session change descendants (state_root: {})",
+							para_block.hash(),
+							forbidden
+						);
+					}
+				}
 				num_para_blocks_seen += 1;
 				if num_para_blocks_seen >= block_limit {
 					log::info!("Successfully verified relay parent offset of {offset} for {num_para_blocks_seen} parachain blocks.");
@@ -399,4 +443,58 @@ pub async fn assert_para_is_registered(
 	}
 
 	Err(anyhow!("No more blocks to check"))
+}
+
+pub async fn runtime_upgrade(
+	network: &Network<LocalFileSystem>,
+	node: &NetworkNode,
+	para_id: u32,
+	wasm_path: &str,
+) -> Result<(), anyhow::Error> {
+	log::info!("Performing runtime upgrade for parachain {}, wasm: {}", para_id, wasm_path);
+	let para = network.parachain(para_id).unwrap();
+
+	para.perform_runtime_upgrade(node, RuntimeUpgradeOptions::new(AssetLocation::from(wasm_path)))
+		.await
+}
+
+pub async fn assign_cores(
+	node: &NetworkNode,
+	para_id: u32,
+	cores: Vec<u32>,
+) -> Result<(), anyhow::Error> {
+	log::info!("Assigning {:?} cores to parachain {}", cores, para_id);
+
+	let assign_cores_call =
+		create_assign_core_call(&cores.into_iter().map(|core| (core, para_id)).collect::<Vec<_>>());
+
+	let client: OnlineClient<PolkadotConfig> = node.wait_client().await?;
+	let res = submit_extrinsic_and_wait_for_finalization_success_with_timeout(
+		&client,
+		&assign_cores_call,
+		&zombienet_sdk::subxt_signer::sr25519::dev::alice(),
+		60u64,
+	)
+	.await;
+	assert!(res.is_ok(), "Extrinsic failed to finalize: {:?}", res.unwrap_err());
+	log::info!("Cores assigned to the parachain");
+
+	Ok(())
+}
+
+pub async fn wait_for_upgrade(
+	client: OnlineClient<PolkadotConfig>,
+	expected_version: u32,
+) -> Result<(), anyhow::Error> {
+	let updater = client.updater();
+	let mut update_stream = updater.runtime_updates().await?;
+
+	while let Some(Ok(update)) = update_stream.next().await {
+		let version = update.runtime_version().spec_version;
+		log::info!("Update runtime spec version {version}");
+		if version == expected_version {
+			break;
+		}
+	}
+	Ok(())
 }

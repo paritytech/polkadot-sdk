@@ -24,7 +24,8 @@ use std::time::Duration;
 
 use crate::zombienet::{
 	default_zn_scenario_builder, relaychain_rococo_local_network_spec as relay,
-	relaychain_rococo_local_network_spec::parachain_asset_hub_network_spec as para, NetworkSpawner,
+	relaychain_rococo_local_network_spec::parachain_asset_hub_network_spec as para,
+	BlockSubscriptionType, NetworkSpawner,
 };
 use futures::future::join_all;
 use tracing::info;
@@ -41,7 +42,7 @@ async fn send_future_and_ready_from_many_accounts_to_parachain() {
 		.unwrap();
 
 	// Wait for the parachain collator to start block production.
-	net.wait_for_block_production("charlie").await.unwrap();
+	net.wait_for_block("charlie", BlockSubscriptionType::Best).await.unwrap();
 
 	// Create future & ready txs executors.
 	let ws = net.node_rpc_uri("charlie").unwrap();
@@ -93,7 +94,7 @@ async fn send_future_and_ready_from_many_accounts_to_relaychain() {
 
 	// Wait for the paracha validator to start block production & have its genesis block
 	// finalized.
-	net.wait_for_block_production("alice").await.unwrap();
+	net.wait_for_block("alice", BlockSubscriptionType::Best).await.unwrap();
 
 	// Create future & ready txs executors.
 	let ws = net.node_rpc_uri("alice").unwrap();
@@ -135,6 +136,171 @@ async fn send_future_and_ready_from_many_accounts_to_relaychain() {
 	assert_eq!(finalized_ready, 10_000);
 }
 
+// Send immortal and mortal txs. Some of the mortal txs are configured to get dropped
+// while others to succeed. Mortal txs are future so not being able to become ready in time and
+// included in blocks result in their dropping.
+//
+// Block length for rococo for user txs is 75% of maximum 5MB (per frame-system setup),
+// so we get 3750KB. In the test scenario we aim for 5 txs per block roughly (not precesily)
+// so to fill a block each user tx must have around 750kb.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn send_future_mortal_txs() {
+	let net = NetworkSpawner::from_toml_with_env_logger(relay::HIGH_POOL_LIMIT_FATP)
+		.await
+		.unwrap();
+
+	// Wait for the parachain collator to start block production.
+	net.wait_for_block("alice", BlockSubscriptionType::Finalized).await.unwrap();
+
+	// Create txs executors.
+	let ws = net.node_rpc_uri("alice").unwrap();
+	let ready_scenario_executor = default_zn_scenario_builder(&net)
+		.with_rpc_uri(ws.clone())
+		.with_start_id(0)
+		.with_nonce_from(Some(0))
+		.with_txs_count(50)
+		// Block length for rococo for user txs is 75% of maximum 5MB (per frame-system setup),
+		// so we get 3750KB. In the test scenario we aim for 5 txs per block roughly (not precesily)
+		// so to fill a block each user tx must have around 750kb. We aim for 5 txs per block
+		// because we send 50 ready txs which we want to distribute over 10 blocks, so mortal txs
+		// with lifetime lower than 10 should be declared invalid after the ready txs finalize,
+		// while mortal txs with bigger lifetime should be finalized.
+		.with_remark_recipe(750)
+		.with_executor_id("ready-txs-executor".to_string())
+		.build()
+		.await;
+
+	let mortal_scenario_invalid = default_zn_scenario_builder(&net)
+		.with_rpc_uri(ws.clone())
+		.with_start_id(0)
+		.with_nonce_from(Some(60))
+		.with_txs_count(10)
+		.with_executor_id("mortal-tx-executor-invalid".to_string())
+		.with_mortality(5)
+		.build()
+		.await;
+
+	let mortal_scenario_success = default_zn_scenario_builder(&net)
+		.with_rpc_uri(ws)
+		.with_start_id(0)
+		.with_nonce_from(Some(50))
+		.with_txs_count(10)
+		.with_executor_id("mortal-tx-executor-success".to_string())
+		.with_mortality(25)
+		.build()
+		.await;
+
+	// Execute transactions and fetch the execution logs.
+	let (mortal_invalid_logs, ready_logs, mortal_succes_logs) = tokio::join!(
+		mortal_scenario_invalid.execute(),
+		ready_scenario_executor.execute(),
+		mortal_scenario_success.execute(),
+	);
+
+	let mortal_invalid = mortal_invalid_logs
+		.values()
+		.filter(|default_log| default_log.get_invalid_reason().len() > 0)
+		.count();
+	let mortal_succesfull = mortal_succes_logs
+		.values()
+		.filter_map(|default_log| default_log.finalized())
+		.count();
+	let finalized_ready =
+		ready_logs.values().filter_map(|default_log| default_log.finalized()).count();
+
+	assert_eq!(mortal_invalid, 10);
+	assert_eq!(mortal_succesfull, 10);
+	assert_eq!(finalized_ready, 50);
+}
+
+// Send immortal and mortal txs. Some mortal txs have lower priority so they shouldn't get into
+// blocks during their lifetime, and will be considered invalid, while other mortal txs have
+// sufficient lifetime to be included in blocks, and are finalized successfully.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn send_lower_priority_mortal_txs() {
+	let net = NetworkSpawner::from_toml_with_env_logger(relay::HIGH_POOL_LIMIT_FATP)
+		.await
+		.unwrap();
+
+	// Wait for the parachain collator to start block production.
+	net.wait_for_block("alice", BlockSubscriptionType::Finalized).await.unwrap();
+
+	// Create txs executors.
+	let ws = net.node_rpc_uri("alice").unwrap();
+	let ready_scenario_executor = default_zn_scenario_builder(&net)
+		.with_rpc_uri(ws.clone())
+		.with_start_id(0)
+		.with_nonce_from(Some(0))
+		.with_txs_count(50)
+		.with_executor_id("ready-txs-executor".to_string())
+		// Block length for rococo for user txs is 75% of maximum 5MB (per frame-system setup),
+		// so we get 3750KB. In the test scenario we aim for 5 txs per block roughly (not precesily)
+		// so to fill a block each user tx must have around 750kb. We aim for 5 txs per block
+		// because we send 50 ready txs which we want to distribute over 10 blocks, so mortal txs
+		// with lifetime lower than 10 should be declared invalid after the ready txs finalize,
+		// while mortal txs with bigger lifetime should be finalized.
+		.with_remark_recipe(750)
+		.with_tip(150)
+		.build()
+		.await;
+
+	let mortal_scenario_invalid = default_zn_scenario_builder(&net)
+		.with_rpc_uri(ws.clone())
+		.with_start_id(1)
+		.with_nonce_from(Some(0))
+		.with_txs_count(10)
+		.with_executor_id("mortal-tx-executor-invalid".to_string())
+		.with_mortality(5)
+		// Make it very hard for these mortal txs to be included in blocks, by making them big
+		// enough to not let other txs be part of the same block as them, but also make sure they
+		// have the lowest priority so that they are not included in a single tx block over other
+		// txs. At some point they'll be starved and their lifetime will pass.
+		.with_remark_recipe(3500)
+		.with_tip(50)
+		.build()
+		.await;
+
+	let mortal_scenario_success = default_zn_scenario_builder(&net)
+		.with_rpc_uri(ws)
+		.with_start_id(2)
+		.with_nonce_from(Some(0))
+		.with_txs_count(10)
+		.with_executor_id("mortal-tx-executor-success".to_string())
+		.with_mortality(20)
+		// Same reasoning as for the ready immortal txs, we want these txs to be similarly big as
+		// the immortal txs, so at all times if it comes to pick a ready txs to include it in a
+		// block, an immortal tx should be picked instead (leaving these mortal txs to be picked
+		// only after, which is fine for these mortal txs).
+		.with_remark_recipe(750)
+		.with_tip(100)
+		.build()
+		.await;
+
+	// Execute transactions and fetch the execution logs.
+	let (mortal_invalid_logs, ready_logs, mortal_success_logs) = tokio::join!(
+		mortal_scenario_invalid.execute(),
+		ready_scenario_executor.execute(),
+		mortal_scenario_success.execute(),
+	);
+
+	let mortal_invalid = mortal_invalid_logs
+		.values()
+		.filter(|default_log| default_log.get_invalid_reason().len() > 0)
+		.count();
+	let mortal_succesfull = mortal_success_logs
+		.values()
+		.filter_map(|default_log| default_log.finalized())
+		.count();
+	let finalized_ready =
+		ready_logs.values().filter_map(|default_log| default_log.finalized()).count();
+
+	assert_eq!(mortal_invalid, 10);
+	assert_eq!(mortal_succesfull, 10);
+	assert_eq!(finalized_ready, 50);
+}
+
 // Test which sends 5m transactions to parachain. Long execution time expected.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
@@ -144,7 +310,7 @@ async fn send_5m_from_many_accounts_to_parachain() {
 		.unwrap();
 
 	// Wait for the parachain collator to start block production.
-	net.wait_for_block_production("charlie").await.unwrap();
+	net.wait_for_block("charlie", BlockSubscriptionType::Best).await.unwrap();
 
 	// Create txs executor.
 	let ws = net.node_rpc_uri("charlie").unwrap();
@@ -174,7 +340,7 @@ async fn send_5m_from_many_accounts_to_relaychain() {
 		.unwrap();
 
 	// Wait for the parachain collator to start block production.
-	net.wait_for_block_production("alice").await.unwrap();
+	net.wait_for_block("alice", BlockSubscriptionType::Best).await.unwrap();
 
 	// Create txs executor.
 	let ws = net.node_rpc_uri("alice").unwrap();
@@ -206,7 +372,7 @@ async fn gossiping() {
 		.unwrap();
 
 	// Wait for the parachain collator to start block production.
-	net.wait_for_block_production("a00").await.unwrap();
+	net.wait_for_block("a00", BlockSubscriptionType::Best).await.unwrap();
 
 	// Create the txs executor.
 	let ws = net.node_rpc_uri("a00").unwrap();
@@ -293,7 +459,7 @@ async fn test_limits_increasing_prio_parachain() {
 		.await
 		.unwrap();
 
-	net.wait_for_block_production("charlie").await.unwrap();
+	net.wait_for_block("charlie", BlockSubscriptionType::Best).await.unwrap();
 
 	let mut executors = vec![];
 	let senders_count = 25;
@@ -325,7 +491,7 @@ async fn test_limits_increasing_prio_relaychain() {
 		.await
 		.unwrap();
 
-	net.wait_for_block_production("alice").await.unwrap();
+	net.wait_for_block("alice", BlockSubscriptionType::Best).await.unwrap();
 
 	let mut executors = vec![];
 	//this looks like current limit of what we can handle. A bit choky but almost no empty blocks.
@@ -358,7 +524,7 @@ async fn test_limits_same_prio_relaychain() {
 		.await
 		.unwrap();
 
-	net.wait_for_block_production("alice").await.unwrap();
+	net.wait_for_block("alice", BlockSubscriptionType::Best).await.unwrap();
 
 	let mut executors = vec![];
 	let senders_count = 50;

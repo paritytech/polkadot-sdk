@@ -54,6 +54,7 @@ pub mod __private {
 	};
 	pub use codec;
 	pub use frame_metadata as metadata;
+	pub use impl_trait_for_tuples;
 	pub use log;
 	pub use paste;
 	pub use scale_info;
@@ -405,8 +406,8 @@ pub use macro_magic;
 pub mod testing_prelude {
 	pub use super::traits::Get;
 	pub use crate::{
-		assert_err, assert_err_ignore_postinfo, assert_err_with_weight, assert_error_encoded_size,
-		assert_noop, assert_ok, assert_storage_noop, parameter_types,
+		assert_err, assert_err_ignore_postinfo, assert_err_with_weight, assert_noop, assert_ok,
+		assert_storage_noop, parameter_types,
 	};
 	pub use sp_arithmetic::assert_eq_error_rate;
 	pub use sp_runtime::{bounded_btree_map, bounded_vec};

@@ -17,7 +17,7 @@
 use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
-use frame_support::traits::{ConstU128, EitherOf};
+use frame_support::traits::EitherOf;
 use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
 use pallet_staking_async::UseValidatorsMap;
 use pallet_staking_async_rc_client as rc_client;
@@ -67,9 +67,6 @@ parameter_types! {
 
 	/// Size of the exposures. This should be small enough to make the reward payouts feasible.
 	pub MaxExposurePageSize: u32 = 64;
-
-	/// Each solution is considered "better" if it is 0.01% better.
-	pub SolutionImprovementThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
 }
 
 frame_election_provider_support::generate_solution_type!(
@@ -122,6 +119,8 @@ impl multi_block::Config for Runtime {
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
 	type AdminOrigin =
 		EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<WestendStakingMiner, AccountId>>;
+	type ManagerOrigin =
+		EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<WestendStakingMiner, AccountId>>;
 	type DataProvider = Staking;
 	type MinerConfig = Self;
 	type Verifier = MultiBlockElectionVerifier;
@@ -133,7 +132,7 @@ impl multi_block::Config for Runtime {
 	// Revert back to signed phase if nothing is submitted and queued, so we prolong the election.
 	type AreWeDone = multi_block::RevertToSignedIfNotQueuedOf<Self>;
 	type OnRoundRotation = multi_block::CleanRound<Self>;
-	type WeightInfo = multi_block::weights::westend::MultiBlockWeightInfo<Self>;
+	type WeightInfo = weights::pallet_election_provider_multi_block::WeightInfo<Runtime>;
 }
 
 impl multi_block::verifier::Config for Runtime {
@@ -141,8 +140,7 @@ impl multi_block::verifier::Config for Runtime {
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
 	type SolutionDataProvider = MultiBlockElectionSigned;
-	type SolutionImprovementThreshold = SolutionImprovementThreshold;
-	type WeightInfo = multi_block::weights::westend::MultiBlockVerifierWeightInfo<Self>;
+	type WeightInfo = weights::pallet_election_provider_multi_block_verifier::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -164,7 +162,7 @@ impl multi_block::signed::Config for Runtime {
 	type RewardBase = RewardBase;
 	type MaxSubmissions = MaxSubmissions;
 	type EstimateCallFee = TransactionPayment;
-	type WeightInfo = multi_block::weights::westend::MultiBlockSignedWeightInfo<Self>;
+	type WeightInfo = weights::pallet_election_provider_multi_block_signed::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -181,7 +179,7 @@ impl multi_block::unsigned::Config for Runtime {
 	type OffchainSolver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>>;
 	type MinerTxPriority = MinerTxPriority;
 	type OffchainRepeat = OffchainRepeat;
-	type WeightInfo = multi_block::weights::westend::MultiBlockUnsignedWeightInfo<Self>;
+	type WeightInfo = weights::pallet_election_provider_multi_block_unsigned::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -202,11 +200,16 @@ impl multi_block::unsigned::miner::MinerConfig for Runtime {
 	type MaxVotesPerVoter =
 		<<Self as multi_block::Config>::DataProvider as ElectionDataProvider>::MaxVotesPerVoter;
 	type MaxLength = MinerMaxLength;
-	type Solver = <Runtime as multi_block::unsigned::Config>::OffchainSolver;
 	type Pages = Pages;
 	type Solution = NposCompactSolution16;
 	type VoterSnapshotPerBlock = <Runtime as multi_block::Config>::VoterSnapshotPerBlock;
 	type TargetSnapshotPerBlock = <Runtime as multi_block::Config>::TargetSnapshotPerBlock;
+	// for prod, use whatever solver we are using in the miner -- phragmen algorithm
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type Solver = <Runtime as multi_block::unsigned::Config>::OffchainSolver;
+	// for benchmarks, use the faster solver
+	#[cfg(feature = "runtime-benchmarks")]
+	type Solver = frame_election_provider_support::QuickDirtySolver<AccountId, Perbill>;
 }
 
 parameter_types! {
@@ -218,10 +221,10 @@ type VoterBagsListInstance = pallet_bags_list::Instance1;
 impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ScoreProvider = Staking;
-	type WeightInfo = weights::pallet_bags_list::WeightInfo<Runtime>;
 	type BagThresholds = BagThresholds;
 	type Score = sp_npos_elections::VoteWeight;
 	type MaxAutoRebagPerBlock = AutoRebagNumber;
+	type WeightInfo = weights::pallet_bags_list::WeightInfo<Runtime>;
 }
 
 pub struct EraPayout;
@@ -291,13 +294,13 @@ impl pallet_staking_async::Config for Runtime {
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = (NominationPools, DelegatedStaking);
-	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
 	type PlanningEraOffset =
 		pallet_staking_async::PlanningEraOffsetOf<Runtime, RelaySessionDuration, ConstU32<5>>;
 	type RcClientInterface = StakingRcClient;
 	type MaxEraDuration = MaxEraDuration;
 	type MaxPruningItems = MaxPruningItems;
+	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {
@@ -361,17 +364,6 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 	}
 }
 
-impl pallet_fast_unstake::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type BatchSize = ConstU32<64>;
-	type Deposit = ConstU128<{ UNITS }>;
-	type ControlOrigin = EnsureRoot<AccountId>;
-	type Staking = Staking;
-	type MaxErasToCheckPerBlock = ConstU32<1>;
-	type WeightInfo = weights::pallet_fast_unstake::WeightInfo<Runtime>;
-}
-
 parameter_types! {
 	pub const PoolsPalletId: PalletId = PalletId(*b"py/nopls");
 	pub const MaxPointsToBalance: u8 = 10;
@@ -379,7 +371,6 @@ parameter_types! {
 
 impl pallet_nomination_pools::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_nomination_pools::WeightInfo<Self>;
 	type Currency = Balances;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RewardCounter = FixedU128;
@@ -396,6 +387,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	type Filter = Nothing;
+	type WeightInfo = weights::pallet_nomination_pools::WeightInfo<Self>;
 }
 
 parameter_types! {
@@ -479,6 +471,7 @@ where
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None),
 			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
+			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default(),
 		));
 		let raw_payload = SignedPayload::new(call, tx_ext)
 			.map_err(|e| {
