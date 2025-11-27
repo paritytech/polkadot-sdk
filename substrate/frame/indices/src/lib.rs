@@ -34,7 +34,6 @@ use alloc::vec::Vec;
 use codec::Codec;
 use frame_support::traits::{
 	fungible::{Inspect, InspectHold, Mutate, MutateHold},
-	tokens::{Fortitude, Precision},
 };
 use sp_runtime::{
 	traits::{AtLeast32Bit, LookupError, Saturating, StaticLookup, Zero},
@@ -53,6 +52,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use frame_support::traits::tokens::{Preservation, Fortitude, Precision, Restriction};
 
 	/// A reason for holding funds.
 	/// Creates a hold reason for this pallet that is aggregated by `construct_runtime`.
@@ -153,16 +153,16 @@ pub mod pallet {
 				ensure!(!perm, Error::<T>::Permanent);
 				ensure!(account == who, Error::<T>::NotOwner);
 
-				// Release hold from current owner
-				T::NativeBalance::release(
+				// We transfer the hold from the current owner to the new owner
+				T::NativeBalance::transfer_on_hold(
 					&HoldReason::DepositForIndex.into(),
 					&who,
+					&new,
 					amount,
 					Precision::Exact,
+					Restriction::OnHold,
+					Fortitude::Polite,
 				)?;
-
-				// Place hold on new owner
-				T::NativeBalance::hold(&HoldReason::DepositForIndex.into(), &new, amount)?;
 
 				*maybe_value = Some((new.clone(), amount, false));
 				Ok(())
