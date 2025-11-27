@@ -27,7 +27,7 @@ use std::{
 	borrow::ToOwned,
 	collections::HashSet,
 	env, fs,
-	hash::{DefaultHasher, Hash, Hasher},
+	hash::{Hash, Hasher},
 	ops::Deref,
 	path::{Path, PathBuf},
 	process,
@@ -138,7 +138,7 @@ pub(crate) fn create_and_compile(
 
 	let crate_metadata = crate_metadata(orig_project_cargo_toml);
 
-	let (project, enabled_features) = create_project(
+	let project = create_project(
 		target,
 		orig_project_cargo_toml,
 		&runtime_workspace,
@@ -196,16 +196,8 @@ pub(crate) fn create_and_compile(
 		)
 	};
 
-	let base_blob_name =
+	let blob_name =
 		blob_out_name_override.unwrap_or_else(|| get_blob_name(target, &wasm_project_cargo_toml));
-
-	// Generate feature hash for file naming
-	let features_hash = generate_features_hash(&enabled_features);
-	let blob_name = format!("{}-{}", features_hash, base_blob_name);
-
-	// Check if we will have multiple outputs after creating this file
-	let should_cleanup_legacy =
-		will_have_multiple_outputs_after_adding(&project, &base_blob_name, target, &features_hash);
 
 	let (final_blob_binary, bloaty_blob_binary) = match target {
 		RuntimeTarget::Wasm => {
@@ -219,8 +211,6 @@ pub(crate) fn create_and_compile(
 				&blob_name,
 				check_for_runtime_version_section,
 				&build_config,
-				should_cleanup_legacy,
-				&base_blob_name,
 			)
 		},
 		RuntimeTarget::Riscv => {
@@ -252,8 +242,6 @@ fn maybe_compact_and_compress_wasm(
 	blob_name: &str,
 	check_for_runtime_version_section: bool,
 	build_config: &BuildConfiguration,
-	should_cleanup_legacy: bool,
-	base_blob_name: &str,
 ) -> (Option<WasmBinary>, WasmBinaryBloaty) {
 	// Try to compact and compress the bloaty blob, if the *outer* profile wants it.
 	//
@@ -286,20 +274,6 @@ fn maybe_compact_and_compress_wasm(
 	final_blob_binary
 		.as_ref()
 		.map(|binary| copy_blob_to_target_directory(wasm_project_cargo_toml, binary));
-
-	let legacy_path = project.join(format!("{}.compact.compressed.wasm", base_blob_name));
-
-	if should_cleanup_legacy {
-		// Remove legacy file since we will have multiple outputs
-		let _ = fs::remove_file(&legacy_path);
-	} else {
-		// Only one output file will exist, create/maintain the legacy filename too
-		if let Some(final_binary) = &final_blob_binary {
-			if final_binary.wasm_binary_path() != legacy_path {
-				let _ = fs::copy(final_binary.wasm_binary_path(), &legacy_path);
-			}
-		}
-	}
 
 	(final_blob_binary, bloaty_blob_binary)
 }
@@ -672,71 +646,11 @@ fn has_runtime_wasm_feature_declared(
 	package.features.keys().any(|k| k == "runtime-wasm")
 }
 
-/// Generate a short hash from enabled features
-fn generate_features_hash(enabled_features: &HashSet<String>) -> String {
-	let mut hasher = DefaultHasher::new();
-	let mut sorted_features: Vec<_> = enabled_features.iter().collect();
-	sorted_features.sort();
-
-	for feature in sorted_features {
-		feature.hash(&mut hasher);
-	}
-
-	// Use only the first 8 characters of the hex hash for brevity
-	format!("{:x}", hasher.finish())[..8].to_string()
-}
-
-/// Check if adding a new file with the given hash will result in multiple different hashes
-fn will_have_multiple_outputs_after_adding(
-	project: &Path,
-	base_blob_name: &str,
-	target: RuntimeTarget,
-	new_hash: &str,
-) -> bool {
-	let extension = match target {
-		RuntimeTarget::Wasm => ".compact.compressed.wasm",
-		RuntimeTarget::Riscv => ".polkavm",
-	};
-
-	// Look for existing files that match the pattern: {hash}-{base_blob_name}{extension}
-	// Exclude the legacy file: {base_blob_name}{extension}
-	let legacy_file = format!("{}{}", base_blob_name, extension);
-	let pattern_suffix = format!("-{}{}", base_blob_name, extension);
-
-	if let Ok(entries) = fs::read_dir(project) {
-		let mut unique_hashes = HashSet::new();
-		unique_hashes.insert(new_hash.to_string()); // Add the hash we're about to create
-
-		for entry in entries.filter_map(|e| e.ok()) {
-			if let Some(file_name) = entry.file_name().to_str() {
-				// Skip the legacy file without hash
-				if file_name == legacy_file {
-					continue;
-				}
-
-				// Check if this matches our hash pattern
-				if file_name.ends_with(&pattern_suffix) {
-					let hash_len = file_name.len() - pattern_suffix.len();
-					if hash_len == 8 {
-						// We use 8-character hashes
-						let hash = &file_name[..8];
-						unique_hashes.insert(hash.to_string());
-					}
-				}
-			}
-		}
-
-		unique_hashes.len() > 1
-	} else {
-		false
-	}
-}
-
 /// Create the project used to build the wasm binary.
 ///
 /// # Returns
 ///
-/// The path to the created wasm project and the set of enabled features.
+/// The path to the created wasm project.
 fn create_project(
 	target: RuntimeTarget,
 	project_cargo_toml: &Path,
@@ -744,7 +658,7 @@ fn create_project(
 	crate_metadata: &Metadata,
 	workspace_root_path: &Path,
 	features_to_enable: Vec<String>,
-) -> (PathBuf, HashSet<String>) {
+) -> PathBuf {
 	let crate_name = get_crate_name(project_cargo_toml);
 	let crate_path = project_cargo_toml.parent().expect("Parent path exists; qed");
 	let wasm_project_folder = wasm_workspace.join(&crate_name);
@@ -768,7 +682,7 @@ fn create_project(
 		workspace_root_path,
 		&crate_name,
 		crate_path,
-		enabled_features.clone().into_iter(),
+		enabled_features.into_iter(),
 	);
 
 	match target {
@@ -791,7 +705,7 @@ fn create_project(
 		crate::copy_file_if_changed(crate_lock_file, wasm_project_folder.join("Cargo.lock"));
 	}
 
-	(wasm_project_folder, enabled_features)
+	wasm_project_folder
 }
 
 /// A rustc profile.
