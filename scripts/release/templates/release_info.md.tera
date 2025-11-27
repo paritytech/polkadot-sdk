@@ -8,7 +8,7 @@ The tag corresponding to the current patch release `{{ env.REF2 }}` and matching
 available under [polkadot-{{ env.NODE_VERSION }}](https://github.com/paritytech/polkadot-sdk/releases/tag/polkadot-{{ env.NODE_VERSION }}).
 {% endif -%}
 
-{% if env.CRATES_ONLY == "true" and env.NO_RUNTIMES == "false" -%}
+{% if env.CRATES_ONLY == "true" and env.NO_RUNTIMES == "true" -%}
 ℹ️ **Please note:**
 
 ⚠️ This is a patch release for the stable version: `{{ env.STABLE_VERSION }}` and contains only patches and fixes to the crates (list
