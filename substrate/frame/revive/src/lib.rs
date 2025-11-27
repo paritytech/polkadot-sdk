@@ -350,6 +350,23 @@ pub mod pallet {
 		#[pallet::constant]
 		type DebugEnabled: Get<bool>;
 
+		/// This determines the relative scale of our gas price and gas estimates.
+		///
+		/// By default, the gas price (in wei) is `FeeInfo::next_fee_multiplier()` multiplied by
+		/// `NativeToEthRatio`. `GasScale` allows to scale this value: the actual gas price is the
+		/// default gas price multiplied by `GasScale`.
+		///
+		/// As a consequence, gas cost (gas estimates and actual gas usage during transaction) is
+		/// scaled down by the same factor. Thus, the total transaction cost is not affected by
+		/// `GasScale` – apart from rounding differences: the transaction cost is always a multiple
+		/// of the gas price and is derived by rounded up, so that with higher `GasScales` this can
+		/// lead to higher gas cost as the rounding difference would be larger.
+		///
+		/// The main purpose of changing the `GasScale` is to tune the gas cost so that it is closer
+		/// to standard EVM gas cost and contracts will not run out of gas when tools or code
+		/// assume hard coded gas limits.
+		///
+		/// Invariant: `GasScale` must no be 0
 		#[pallet::constant]
 		#[pallet::no_default_bounds]
 		type GasScale: Get<BalanceOf<Self>>;
@@ -899,6 +916,8 @@ pub mod pallet {
 
 		fn integrity_test() {
 			assert!(T::ChainId::get() > 0, "ChainId must be greater than 0");
+
+			assert!(T::GasScale::get() > 0, "GasScale must no be 0");
 
 			T::FeeInfo::integrity_test();
 
