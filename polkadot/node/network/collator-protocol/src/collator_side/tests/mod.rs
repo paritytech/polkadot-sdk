@@ -2004,7 +2004,10 @@ fn connect_advertise_disconnect_three_backing_groups() {
 					peer_set,
 					failed: _,
 				}) => {
-					assert_eq!(validator_ids.sort(), expected_validators.into_iter().take(4).collect::<Vec<_>>().sort(), "Expected to disconnect from all validators");
+					let mut expected: Vec<_> = expected_validators.into_iter().take(4).collect();
+					validator_ids.sort();
+					expected.sort();
+					assert_eq!(validator_ids, expected, "Expected to disconnect validtor assigned to core 2");
 					assert_eq!(peer_set, PeerSet::Collation);
 				}
 			);
