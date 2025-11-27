@@ -785,8 +785,7 @@ async fn update_validator_connections<Context>(
 
 		gum::trace!(
 			target: LOG_TARGET,
-			"Disconnecting from validators: {:?}, keeping connections to validators with pending collations: {:?}",
-			peer_ids.keys(),
+			"Keeping onnections to validators with pending collations: {:?}",
 			validator_ids,
 		);
 
