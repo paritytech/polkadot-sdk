@@ -23,7 +23,6 @@ use litep2p::protocol::libp2p::bitswap::{
 	BitswapEvent, BitswapHandle, BlockPresenceType, Config, ResponseType, WantType,
 };
 
-use cid::multihash::Code;
 use sc_client_api::BlockBackend;
 use sp_runtime::traits::Block as BlockT;
 
@@ -38,11 +37,6 @@ pub struct BitswapServer<Block: BlockT> {
 
 	/// Blockchain client.
 	client: Arc<dyn BlockBackend<Block> + Send + Sync>,
-
-	/// Supported multihash codes for CID validation.
-	/// Uses `Vec` instead of `HashSet` or `BTreeSet` because `Code` doesn't
-	/// implement `Hash` or `Ord`. O(n) lookup is acceptable in our case (3 values).
-	supported_hash_codes: Vec<Code>,
 }
 
 impl<Block: BlockT> BitswapServer<Block> {
@@ -51,27 +45,9 @@ impl<Block: BlockT> BitswapServer<Block> {
 		client: Arc<dyn BlockBackend<Block> + Send + Sync>,
 	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, Config) {
 		let (config, handle) = Config::new();
-		let supported_hash_codes = vec![Code::Blake2b256, Code::Sha2_256, Code::Keccak256];
-		let code_names: Vec<&str> =
-			supported_hash_codes.iter().map(|c| Self::code_to_name(c)).collect();
-		log::debug!(
-			target: LOG_TARGET,
-			"BitswapServer initialized with supported multihash codes: {:?}",
-			code_names
-		);
-		let bitswap = Self { client, handle, supported_hash_codes };
+		let bitswap = Self { client, handle };
 
 		(Box::pin(async move { bitswap.run().await }), config)
-	}
-
-	/// Convert a multihash code to its name.
-	fn code_to_name(code: &Code) -> &'static str {
-		match code {
-			Code::Blake2b256 => "Blake2b256",
-			Code::Sha2_256 => "Sha2_256",
-			Code::Keccak256 => "Keccak256",
-			_ => "Unknown",
-		}
 	}
 
 	async fn run(mut self) {
@@ -87,9 +63,8 @@ impl<Block: BlockT> BitswapServer<Block> {
 						.filter(|(cid, _)| {
 							let version_num: u64 = cid.version().into();
 							let size = cid.hash().size() as usize;
-							let code = cid.hash().code();
 							let cid_str = cid.to_string();
-							self.is_valid_cid(version_num, size, code, cid_str)
+							self.is_cid_supported(version_num, size, cid_str)
 						})
 						.map(|(cid, want_type)| {
 							let mut hash = Block::Hash::default();
@@ -133,11 +108,8 @@ impl<Block: BlockT> BitswapServer<Block> {
 		}
 	}
 
-	/// Takes extracted values instead of the CID directly to avoid version conflicts.
-	/// `litep2p` (direct dependency) uses `cid = "0.9.0"`, which exports `CidGeneric<64>`
-	/// This crate (`sc-network`) directly depends on `cid = "0.11.1"`, which exports `Cid<64>`
-	/// Those (^) are different types (even though they're the same thing) and cause type conflicts.
-	fn is_valid_cid(&self, version_num: u64, size: usize, code: u64, cid_str: String) -> bool {
+	/// Takes extracted values instead of the CID directly to avoid version conflicts
+	fn is_cid_supported(&self, version_num: u64, size: usize, cid_str: String) -> bool {
 		if version_num == 0 {
 			log::trace!(
 				target: LOG_TARGET,
@@ -150,30 +122,6 @@ impl<Block: BlockT> BitswapServer<Block> {
 			log::warn!(
 				target: LOG_TARGET,
 				"Unsupported multihash size: {size} for cid: {cid_str}, supports only 32!"
-			);
-			return false;
-		}
-
-		// Convert u64 code to Code enum for comparison
-		let code_enum = match Code::try_from(code) {
-			Ok(c) => c,
-			Err(_) => {
-				log::warn!(
-					target: LOG_TARGET,
-					"Unknown multihash algorithm code: {code} for cid: {cid_str}"
-				);
-				return false;
-			},
-		};
-
-		if !self.supported_hash_codes.contains(&code_enum) {
-			let supported_names: Vec<&str> =
-				self.supported_hash_codes.iter().map(|c| Self::code_to_name(c)).collect();
-			log::warn!(
-				target: LOG_TARGET,
-				"Unsupported multihash algorithm: {} ({code}) for cid: {cid_str}, supports only {:?}!",
-				Self::code_to_name(&code_enum),
-				supported_names
 			);
 			return false;
 		}
