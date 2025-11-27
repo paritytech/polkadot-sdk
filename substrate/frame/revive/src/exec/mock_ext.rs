@@ -161,15 +161,19 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::chain_id")
 	}
 
-	fn max_value_size(&self) -> u32 {
-		panic!("MockExt::max_value_size")
-	}
-
 	fn gas_meter(&self) -> &FrameMeter<Self::T> {
 		&self.frame_meter
 	}
 
 	fn gas_meter_mut(&mut self) -> &mut FrameMeter<Self::T> {
+		&mut self.frame_meter
+	}
+
+	fn frame_meter(&self) -> &FrameMeter<Self::T> {
+		&self.frame_meter
+	}
+
+	fn frame_meter_mut(&mut self) -> &mut FrameMeter<Self::T> {
 		&mut self.frame_meter
 	}
 

@@ -424,7 +424,7 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 			quote! {
 				// wrap body in closure to make sure the tracing is always executed
 				let result = (|| #body)();
-				::log::trace!(target: "runtime::revive::strace", #trace_fmt_str, #( #trace_fmt_args, )* result, self.ext.gas_meter().weight_consumed());
+				::log::trace!(target: "runtime::revive::strace", #trace_fmt_str, #( #trace_fmt_args, )* result, self.ext.frame_meter().weight_consumed());
 				result
 			}
 		};
@@ -444,7 +444,7 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 	quote! {
 		// Write gas from  polkavm into pallet-revive before entering the host function.
 		self.ext
-			.gas_meter_mut()
+			.frame_meter_mut()
 			.sync_from_executor(memory.gas())
 			.map_err(TrapReason::from)?;
 
@@ -461,7 +461,7 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 		})();
 
 		// Write gas from pallet-revive into polkavm after leaving the host function.
-		let gas = self.ext.gas_meter_mut().sync_to_executor();
+		let gas = self.ext.frame_meter_mut().sync_to_executor();
 		memory.set_gas(gas.into());
 		result
 	}

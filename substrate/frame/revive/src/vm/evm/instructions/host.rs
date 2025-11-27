@@ -146,16 +146,16 @@ fn store_helper<'ext, E: Ext>(
 	let charged_amount = interpreter.ext.charge_or_halt(cost_before)?;
 	let key = Key::Fix(index.to_big_endian());
 	let take_old = false;
-	let Ok(write_outcome) =
-		set_function(interpreter.ext, &key, Some(value.to_big_endian().to_vec()), take_old)
+	let value_to_store = if value.is_zero() { None } else { Some(value.to_big_endian().to_vec()) };
+	let Ok(write_outcome) = set_function(interpreter.ext, &key, value_to_store.clone(), take_old)
 	else {
 		return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 	};
 
-	interpreter
-		.ext
-		.gas_meter_mut()
-		.adjust_weight(charged_amount, adjust_cost(32, write_outcome.old_len()));
+	interpreter.ext.frame_meter_mut().adjust_weight(
+		charged_amount,
+		adjust_cost(value_to_store.unwrap_or_default().len() as u32, write_outcome.old_len()),
+	);
 
 	ControlFlow::Continue(())
 }

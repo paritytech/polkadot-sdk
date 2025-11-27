@@ -594,6 +594,20 @@ pub mod pallet {
 		/// EVM contracts can only be instantiated via code upload as no initcode is
 		/// stored on-chain.
 		EvmConstructedFromHash = 0x37,
+		/// The contract does not have enough balance to refund the storage deposit.
+		///
+		/// This is a bug and should never happen. It means the accounting got out of sync.
+		StorageRefundNotEnoughFunds = 0x38,
+		/// This means there are locks on the contracts storage deposit that prevents refunding it.
+		///
+		/// This would be the case if the contract used its storage deposits for governance
+		/// or other pallets that allow creating locks over held balance.
+		StorageRefundLocked = 0x39,
+		/// Called a pre-compile that is not allowed to be delegate called.
+		///
+		/// Some pre-compile functions will trap the caller context if being delegate
+		/// called or if their caller was being delegate called.
+		PrecompileDelegateDenied = 0x40,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,
@@ -944,7 +958,7 @@ pub mod pallet {
 				.saturating_mul(limits::EVENT_BYTES.into());
 
 			assert!(
-				max_events_size < storage_size_limit,
+				max_events_size <= storage_size_limit,
 				"Maximal events size {} exceeds the events limit {}",
 				max_events_size,
 				storage_size_limit
@@ -1026,7 +1040,7 @@ pub mod pallet {
 				.saturating_add(max_eth_block_builder_bytes.into());
 
 			assert!(
-				max_storage_size < storage_size_limit,
+				max_storage_size <= storage_size_limit,
 				"Maximal storage size {} exceeds the storage limit {}",
 				max_storage_size,
 				storage_size_limit
@@ -1587,6 +1601,8 @@ impl<T: Config> Pallet<T> {
 			Err(error) => return ContractResult { result: Err(error), ..Default::default() },
 		};
 
+		let mut storage_deposit = Default::default();
+
 		let try_call = || {
 			let origin = ExecOrigin::from_runtime_origin(origin)?;
 			let result = ExecStack::<T, ContractBlob<T>>::run_call(
@@ -1598,11 +1614,12 @@ impl<T: Config> Pallet<T> {
 				&exec_config,
 			)?;
 
-			transaction_meter
+			storage_deposit = transaction_meter
 				.execute_postponed_deposits(&origin, &exec_config)
 				.inspect_err(|err| {
-					log::debug!(target: LOG_TARGET, "Failed to transfer deposit: {err:?}");
-				})?;
+				log::debug!(target: LOG_TARGET, "Failed to transfer deposit: {err:?}");
+			})?;
+
 			Ok(result)
 		};
 		let result = Self::run_guarded(try_call);
@@ -1616,7 +1633,7 @@ impl<T: Config> Pallet<T> {
 			max_storage_deposit={:?}",
 			transaction_meter.weight_consumed(),
 			transaction_meter.weight_required(),
-			transaction_meter.deposit_consumed(),
+			storage_deposit,
 			transaction_meter.total_consumed_gas(),
 			transaction_meter.deposit_required()
 		);
@@ -1625,7 +1642,7 @@ impl<T: Config> Pallet<T> {
 			result: result.map_err(|r| r.error),
 			weight_consumed: transaction_meter.weight_consumed(),
 			weight_required: transaction_meter.weight_required(),
-			storage_deposit: transaction_meter.deposit_consumed(),
+			storage_deposit,
 			gas_consumed: transaction_meter.total_consumed_gas(),
 			max_storage_deposit: transaction_meter.deposit_required(),
 		}
@@ -1661,6 +1678,8 @@ impl<T: Config> Pallet<T> {
 			Err(error) => return ContractResult { result: Err(error), ..Default::default() },
 		};
 
+		let mut storage_deposit = Default::default();
+
 		let try_instantiate = || {
 			let instantiate_account = T::InstantiateOrigin::ensure_origin(origin.clone())?;
 
@@ -1668,7 +1687,7 @@ impl<T: Config> Pallet<T> {
 			let executable = match code {
 				Code::Upload(code) if code.starts_with(&polkavm_common::program::BLOB_MAGIC) => {
 					let upload_account = T::UploadOrigin::ensure_origin(origin)?;
-					let (executable, ..) = Self::try_upload_code(
+					let executable = Self::try_upload_code(
 						upload_account,
 						code,
 						BytecodeType::Pvm,
@@ -1702,7 +1721,12 @@ impl<T: Config> Pallet<T> {
 				salt.as_ref(),
 				&exec_config,
 			);
-			transaction_meter.execute_postponed_deposits(&instantiate_origin, &exec_config)?;
+
+			storage_deposit = transaction_meter
+				.execute_postponed_deposits(&instantiate_origin, &exec_config)
+				.inspect_err(|err| {
+					log::debug!(target: LOG_TARGET, "Failed to transfer deposit: {err:?}");
+				})?;
 			result
 		};
 		let output = Self::run_guarded(try_instantiate);
@@ -1714,7 +1738,7 @@ impl<T: Config> Pallet<T> {
 			max_storage_deposit={:?}",
 			transaction_meter.weight_consumed(),
 			transaction_meter.weight_required(),
-			transaction_meter.deposit_consumed(),
+			storage_deposit,
 			transaction_meter.total_consumed_gas(),
 			transaction_meter.deposit_required()
 		);
@@ -1725,7 +1749,7 @@ impl<T: Config> Pallet<T> {
 				.map_err(|e| e.error),
 			weight_consumed: transaction_meter.weight_consumed(),
 			weight_required: transaction_meter.weight_required(),
-			storage_deposit: transaction_meter.deposit_consumed(),
+			storage_deposit,
 			gas_consumed: transaction_meter.total_consumed_gas(),
 			max_storage_deposit: transaction_meter.deposit_required(),
 		}
@@ -1767,6 +1791,8 @@ impl<T: Config> Pallet<T> {
 
 		// tx.into_call expects tx.gas_price to be the effective gas price
 		tx.gas_price = Some(effective_gas_price);
+		// we don't support priority fee for now as the tipping system in pallet-transaction-payment
+		// works differently and the total tip needs to be known pre dispatch
 		tx.max_priority_fee_per_gas = Some(0.into());
 		if tx.max_fee_per_gas.is_none() {
 			tx.max_fee_per_gas = Some(effective_gas_price);
@@ -1825,6 +1851,14 @@ impl<T: Config> Pallet<T> {
 			}
 		};
 
+		let transaction_limits = TransactionLimits::EthereumGas {
+			eth_gas_limit: call_info.eth_gas_limit.saturated_into(),
+			// no need to limit weight here, we will check later whether it exceeds
+			// evm_max_extrinsic_weight
+			maybe_weight_limit: None,
+			eth_tx_info: EthTxInfo::new(call_info.encoded_len, base_weight),
+		};
+
 		// Dry run the call
 		let mut dry_run = match to {
 			// A contract call.
@@ -1852,13 +1886,7 @@ impl<T: Config> Pallet<T> {
 						OriginFor::<T>::signed(origin),
 						dest,
 						value,
-						TransactionLimits::EthereumGas {
-							eth_gas_limit: call_info.eth_gas_limit.saturated_into(),
-							// no need to limit weight here, we will check later whether it exceeds
-							// evm_max_extrinsic_weight
-							maybe_weight_limit: None,
-							eth_tx_info: EthTxInfo::new(call_info.encoded_len, base_weight),
-						},
+						transaction_limits,
 						input.clone(),
 						exec_config,
 					);
@@ -1898,13 +1926,7 @@ impl<T: Config> Pallet<T> {
 				let result = crate::Pallet::<T>::bare_instantiate(
 					OriginFor::<T>::signed(origin),
 					value,
-					TransactionLimits::EthereumGas {
-						eth_gas_limit: call_info.eth_gas_limit.saturated_into(),
-						// no need to limit weight here, we will check later whether it exceeds
-						// evm_max_extrinsic_weight
-						maybe_weight_limit: None,
-						eth_tx_info: EthTxInfo::new(call_info.encoded_len, base_weight),
-					},
+					transaction_limits,
 					Code::Upload(code.clone()),
 					data.clone(),
 					None,
@@ -2076,6 +2098,12 @@ impl<T: Config> Pallet<T> {
 
 	/// Get the block gas limit.
 	pub fn evm_block_gas_limit() -> U256 {
+		// We just return `u64::MAX` because the gas cost of a transaction can get very large when
+		// the transaction executes many storage deposits (in theory a contract can behave like a
+		// factory, procedurally create code and make contract creation calls to store that as
+		// code). It is too brittle to estimate a maximally possible amount here.
+		// On the other hand, the data type `u64` seems to be the "common denominator" as the
+		// typical data type tools and Ethereum implementations use to represent gas amounts.
 		u64::MAX.into()
 	}
 
@@ -2138,14 +2166,17 @@ impl<T: Config> Pallet<T> {
 			deposit_limit: storage_deposit_limit,
 		})?;
 
-		let (module, deposit) = Self::try_upload_code(
+		let module = Self::try_upload_code(
 			origin,
 			code,
 			bytecode_type,
 			&mut meter,
 			&ExecConfig::new_substrate_tx(),
 		)?;
-		Ok(CodeUploadReturnValue { code_hash: *module.code_hash(), deposit })
+		Ok(CodeUploadReturnValue {
+			code_hash: *module.code_hash(),
+			deposit: meter.deposit_consumed().charge_or_zero(),
+		})
 	}
 
 	/// Query storage of a specified contract under a specified key.
@@ -2288,13 +2319,13 @@ impl<T: Config> Pallet<T> {
 		code_type: BytecodeType,
 		meter: &mut TransactionMeter<T>,
 		exec_config: &ExecConfig<T>,
-	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
+	) -> Result<ContractBlob<T>, DispatchError> {
 		let mut module = match code_type {
 			BytecodeType::Pvm => ContractBlob::from_pvm_code(code, origin)?,
 			BytecodeType::Evm => ContractBlob::from_evm_runtime_code(code, origin)?,
 		};
-		let deposit = module.store_code(exec_config, meter)?;
-		Ok((module, deposit))
+		module.store_code(exec_config, meter)?;
+		Ok(module)
 	}
 
 	/// Run the supplied function `f` if no other instance of this pallet is on the stack.
@@ -2328,6 +2359,11 @@ impl<T: Config> Pallet<T> {
 		exec_config: &ExecConfig<T>,
 	) -> DispatchResult {
 		use frame_support::traits::tokens::{Fortitude, Precision, Preservation};
+
+		if amount.is_zero() {
+			return Ok(());
+		}
+
 		match (exec_config.collect_deposit_from_hold.is_some(), hold_reason) {
 			(true, hold_reason) => {
 				T::FeeInfo::withdraw_txfee(amount)
@@ -2370,46 +2406,68 @@ impl<T: Config> Pallet<T> {
 		from: &T::AccountId,
 		to: &T::AccountId,
 		amount: BalanceOf<T>,
-		exec_config: &ExecConfig<T>,
-	) -> Result<BalanceOf<T>, DispatchError> {
+		exec_config: Option<&ExecConfig<T>>,
+	) -> Result<(), DispatchError> {
 		use frame_support::traits::{
+			fungible::InspectHold,
 			tokens::{Fortitude, Precision, Preservation, Restriction},
-			Imbalance,
 		};
-		if exec_config.collect_deposit_from_hold.is_some() {
-			let amount =
-				T::Currency::release(&hold_reason.into(), from, amount, Precision::BestEffort)
-					.and_then(|amount| {
-						T::Currency::withdraw(
-							from,
-							amount,
-							Precision::Exact,
-							Preservation::Preserve,
-							Fortitude::Polite,
-						)
-						.and_then(|credit| {
-							let amount = credit.peek();
-							T::FeeInfo::deposit_txfee(credit);
-							Ok(amount)
-						})
-					})
-					.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
-			amount
+
+		if amount.is_zero() {
+			return Ok(());
+		}
+
+		let hold_reason = hold_reason.into();
+		let result = if exec_config.map(|c| c.collect_deposit_from_hold.is_some()).unwrap_or(false)
+		{
+			T::Currency::release(&hold_reason, from, amount, Precision::Exact)
+				.and_then(|amount| {
+					T::Currency::withdraw(
+						from,
+						amount,
+						Precision::Exact,
+						Preservation::Preserve,
+						Fortitude::Polite,
+					)
+				})
+				.map(T::FeeInfo::deposit_txfee)
 		} else {
-			let amount = T::Currency::transfer_on_hold(
-				&hold_reason.into(),
+			T::Currency::transfer_on_hold(
+				&hold_reason,
 				from,
 				to,
 				amount,
-				Precision::BestEffort,
+				Precision::Exact,
 				Restriction::Free,
 				Fortitude::Polite,
 			)
-			.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
-			amount
+			.map(|_| ())
 		};
 
-		Ok(amount)
+		result.map_err(|_| {
+			let available = T::Currency::balance_on_hold(&hold_reason, from);
+			if available < amount {
+				// The storage deposit accounting got out of sync with the balance: This would be a
+				// straight up bug in this pallet.
+				log::error!(
+					target: LOG_TARGET,
+					"Failed to refund storage deposit {:?} from contract {:?} to origin {:?}. Not enough deposit: {:?}. This is a bug.",
+					amount, from, to, available,
+				);
+				Error::<T>::StorageRefundNotEnoughFunds.into()
+			} else {
+				// There are some locks preventing the refund. This could be the case if the
+				// contract participates in government. The consequence is that if a contract votes
+				// with its storage deposit it would no longer be possible to remove storage without first
+				// reducing the lock.
+				log::warn!(
+					target: LOG_TARGET,
+					"Failed to refund storage deposit {:?} from contract {:?} to origin {:?}. First remove locks (staking, governance) from the contracts account.",
+					amount, from, to,
+				);
+				Error::<T>::StorageRefundLocked.into()
+			}
+		})
 	}
 
 	/// Returns true if the evm value carries dust.

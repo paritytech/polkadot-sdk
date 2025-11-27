@@ -30,9 +30,9 @@ use crate::{
 	storage::{AccountIdOrAddress, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
-	AccountInfo, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf, CodeRemoved, Config,
-	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
-	LOG_TARGET,
+	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
+	CodeRemoved, Config, ContractInfo, Error, Event, HoldReason, ImmutableData, ImmutableDataOf,
+	Pallet as Contracts, RuntimeCosts, TrieId, LOG_TARGET,
 };
 use alloc::{
 	collections::{BTreeMap, BTreeSet},
@@ -46,6 +46,7 @@ use frame_support::{
 	storage::{with_transaction, TransactionOutcome},
 	traits::{
 		fungible::{Inspect, Mutate},
+		tokens::Preservation,
 		Time,
 	},
 	weights::Weight,
@@ -128,11 +129,16 @@ impl Key {
 pub enum ReentrancyProtection {
 	/// Don't activate reentrancy protection
 	AllowReentry,
-	// Activate strict reentrancy protection. The direct callee and none of its own recursive
-	// callees must be the calling contract.
+	/// Activate strict reentrancy protection. The direct callee and none of its own recursive
+	/// callees must be the calling contract.
 	Strict,
-	// Activate reentrancy protection where the direct callee can be the same contract as the
-	// caller but none of the recursive callees of the callee must be the caller
+	/// Activate reentrancy protection where the direct callee can be the same contract as the
+	/// caller but none of the recursive callees of the callee must be the caller.
+	///
+	/// This is used for calls that transfer value but restrict gas so that the callee only has a
+	/// stipend gas amount. In Ethereum that is not sufficient for the callee to make another call.
+	/// However, due to gas scale differences that guarantee does not automatically hold in revive
+	/// and we enforce it explicitly here.
 	AllowNext,
 }
 
@@ -313,13 +319,13 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Charges the weight meter with the given weight.
 	fn charge(&mut self, weight: Weight) -> Result<ChargedAmount, DispatchError> {
-		self.gas_meter_mut().charge_weight_token(RuntimeCosts::Precompile(weight))
+		self.frame_meter_mut().charge_weight_token(RuntimeCosts::Precompile(weight))
 	}
 
 	/// Reconcile an earlier gas charge with the actual weight consumed.
 	/// This updates the current weight meter to reflect the real cost of the token.
 	fn adjust_gas(&mut self, charged: ChargedAmount, actual_weight: Weight) {
-		self.gas_meter_mut()
+		self.frame_meter_mut()
 			.adjust_weight(charged, RuntimeCosts::Precompile(actual_weight));
 	}
 
@@ -330,7 +336,7 @@ pub trait PrecompileExt: sealing::Sealed {
 		&mut self,
 		token: Tok,
 	) -> ControlFlow<crate::vm::evm::Halt, ChargedAmount> {
-		self.gas_meter_mut().charge_or_halt(token)
+		self.frame_meter_mut().charge_or_halt(token)
 	}
 
 	/// Call (possibly transferring some amount of funds) into the specified account.
@@ -438,14 +444,21 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Returns the chain id.
 	fn chain_id(&self) -> u64;
 
-	/// Returns the maximum allowed size of a storage item.
-	fn max_value_size(&self) -> u32;
-
 	/// Get an immutable reference to the nested resource meter of the frame.
+	#[deprecated(note = "Renamed to `frame_meter`; this alias will be removed in future versions")]
 	fn gas_meter(&self) -> &FrameMeter<Self::T>;
 
 	/// Get a mutable reference to the nested resource meter of the frame.
+	#[deprecated(
+		note = "Renamed to `frame_meter_mut`; this alias will be removed in future versions"
+	)]
 	fn gas_meter_mut(&mut self) -> &mut FrameMeter<Self::T>;
+
+	/// Get an immutable reference to the nested resource meter of the frame.
+	fn frame_meter(&self) -> &FrameMeter<Self::T>;
+
+	/// Get a mutable reference to the nested resource meter of the frame.
+	fn frame_meter_mut(&mut self) -> &mut FrameMeter<Self::T>;
 
 	/// Recovers ECDSA compressed public key based on signature and message hash.
 	fn ecdsa_recover(&self, signature: &[u8; 65], message_hash: &[u8; 32]) -> Result<[u8; 33], ()>;
@@ -620,11 +633,6 @@ pub struct Stack<'a, T: Config, E> {
 	transient_storage: TransientStorage<T>,
 	/// Global behavior determined by the creater of this stack.
 	exec_config: &'a ExecConfig<T>,
-	/// The set of contracts that were created during this call stack.
-	contracts_created: BTreeSet<T::AccountId>,
-	/// The set of contracts that are registered for destruction at the end of this call stack.
-	/// The tuple contains: (address of contract, contract info, address of beneficiary)
-	contracts_to_be_destroyed: BTreeMap<H160, (ContractInfo<T>, H160)>,
 	/// No executable is held by the struct but influences its behaviour.
 	_phantom: PhantomData<E>,
 }
@@ -653,6 +661,10 @@ struct Frame<T: Config> {
 	delegate: Option<DelegateInfo<T>>,
 	/// The output of the last executed call frame.
 	last_frame_output: ExecReturnValue,
+	/// The set of contracts that were created during this call stack.
+	contracts_created: BTreeSet<T::AccountId>,
+	/// The set of contracts that are registered for destruction at the end of this call stack.
+	contracts_to_be_destroyed: BTreeMap<T::AccountId, TerminateArgs<T>>,
 }
 
 /// This structure is used to represent the arguments in a delegate call frame in order to
@@ -1018,8 +1030,6 @@ where
 			frames: Default::default(),
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
 			exec_config,
-			contracts_created: BTreeSet::new(),
-			contracts_to_be_destroyed: BTreeMap::new(),
 			_phantom: Default::default(),
 		};
 		Ok(Some((stack, executable)))
@@ -1151,6 +1161,8 @@ where
 			allows_reentry: true,
 			read_only,
 			last_frame_output: Default::default(),
+			contracts_created: Default::default(),
+			contracts_to_be_destroyed: Default::default(),
 		};
 
 		Ok(Some((frame, executable)))
@@ -1249,7 +1261,7 @@ where
 		}
 
 		self.transient_storage.start_transaction();
-		let is_first_frame = self.frames.len() == 0;
+		let is_first_frame = self.frames.is_empty();
 
 		let do_transaction = || -> ExecResult {
 			let caller = self.caller();
@@ -1272,11 +1284,11 @@ where
 				let origin = &self.origin.account_id()?;
 
 				if !frame_system::Pallet::<T>::account_exists(&account_id) {
-					let ed: <T as Config>::Balance = <Contracts<T>>::min_balance();
+					let ed = <Contracts<T>>::min_balance();
 					frame.frame_meter.charge_deposit(&StorageDeposit::Charge(ed))?;
-					<Contracts<T>>::charge_deposit(None, origin, account_id, ed, self.exec_config)
-						.map_err(|_| <Error<T>>::StorageDepositNotEnoughFunds)?;
+					<Contracts<T>>::charge_deposit(None, origin, account_id, ed, self.exec_config)?;
 				}
+
 				// A consumer is added at account creation and removed it on termination, otherwise
 				// the runtime could remove the account. As long as a contract exists its
 				// account must exist. With the consumer, a correct runtime cannot remove the
@@ -1437,6 +1449,9 @@ where
 			Ok((success, output)) => {
 				if_tracing(|tracer| {
 					let frame_meter = &top_frame!(self).frame_meter;
+
+					// we treat the initial frame meter differently to address
+					// https://github.com/paritytech/polkadot-sdk/issues/8362
 					let gas_consumed = if is_first_frame {
 						frame_meter.total_consumed_gas().into()
 					} else {
@@ -1456,6 +1471,9 @@ where
 			Err(error) => {
 				if_tracing(|tracer| {
 					let frame_meter = &top_frame!(self).frame_meter;
+
+					// we treat the initial frame meter differently to address
+					// https://github.com/paritytech/polkadot-sdk/issues/8362
 					let gas_consumed = if is_first_frame {
 						frame_meter.total_consumed_gas().into()
 					} else {
@@ -1513,7 +1531,10 @@ where
 			prev.frame_meter
 				.absorb_all_meters(frame.frame_meter, account_id, contract.as_mut());
 
-			// In case the contract wasn't terminated we need to persist changes made to it.
+			// only on success inherit the created and to be destroyed contracts
+			prev.contracts_created.extend(frame.contracts_created);
+			prev.contracts_to_be_destroyed.extend(frame.contracts_to_be_destroyed);
+
 			if let Some(contract) = contract {
 				// optimization: Predecessor is the same contract.
 				// We can just copy the contract into the predecessor without a storage write.
@@ -1538,7 +1559,6 @@ where
 				}
 			}
 		} else {
-			// TODO: iterate contracts_to_be_destroyed and destroy each contract
 			if !persist {
 				self.transaction_meter
 					.absorb_weight_meter_only(mem::take(&mut self.first_frame.frame_meter));
@@ -1559,9 +1579,20 @@ where
 				);
 			}
 			// End of the callstack: destroy scheduled contracts in line with EVM semantics.
-			let contracts_to_destroy = mem::take(&mut self.contracts_to_be_destroyed);
-			for (contract_address, (mut contract_info, beneficiary)) in contracts_to_destroy {
-				self.destroy_contract(&contract_address, &mut contract_info, &beneficiary);
+			let contracts_created = mem::take(&mut self.first_frame.contracts_created);
+			let contracts_to_destroy = mem::take(&mut self.first_frame.contracts_to_be_destroyed);
+			for (contract_account, args) in contracts_to_destroy {
+				if args.only_if_same_tx && !contracts_created.contains(&contract_account) {
+					continue;
+				}
+				Self::do_terminate(
+					&mut self.transaction_meter,
+					self.exec_config,
+					&contract_account,
+					&self.origin,
+					&args,
+				)
+				.ok();
 			}
 		}
 	}
@@ -1583,6 +1614,7 @@ where
 		from: &T::AccountId,
 		to: &T::AccountId,
 		value: U256,
+		preservation: Preservation,
 		meter: &mut ResourceMeter<T, S>,
 		exec_config: &ExecConfig<T>,
 	) -> DispatchResult {
@@ -1593,7 +1625,7 @@ where
 		}
 
 		if <System<T>>::account_exists(to) {
-			return transfer_with_dust::<T>(from, to, value)
+			return transfer_with_dust::<T>(from, to, value, preservation)
 		}
 
 		let origin = origin.account_id()?;
@@ -1601,12 +1633,8 @@ where
 		with_transaction(|| -> TransactionOutcome<DispatchResult> {
 			match meter
 				.charge_deposit(&StorageDeposit::Charge(ed))
-				.and_then(|_| {
-					<Contracts<T>>::charge_deposit(None, origin, to, ed, exec_config)
-						.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
-					Ok(())
-				})
-				.and_then(|_| transfer_with_dust::<T>(from, to, value))
+				.and_then(|_| <Contracts<T>>::charge_deposit(None, origin, to, ed, exec_config))
+				.and_then(|_| transfer_with_dust::<T>(from, to, value, preservation))
 			{
 				Ok(_) => TransactionOutcome::Commit(Ok(())),
 				Err(err) => TransactionOutcome::Rollback(Err(err)),
@@ -1630,9 +1658,98 @@ where
 			Origin::Root if value.is_zero() => return Ok(Default::default()),
 			Origin::Root => return Err(DispatchError::RootNotAllowed.into()),
 		};
-		Self::transfer(origin, from, to, value, meter, exec_config)
+		Self::transfer(origin, from, to, value, Preservation::Preserve, meter, exec_config)
 			.map(|_| Default::default())
 			.map_err(Into::into)
+	}
+
+	/// Performs the actual deletion of a contract at the end of a call stack.
+	fn do_terminate(
+		transaction_meter: &mut TransactionMeter<T>,
+		exec_config: &ExecConfig<T>,
+		contract_account: &T::AccountId,
+		origin: &Origin<T>,
+		args: &TerminateArgs<T>,
+	) -> Result<(), DispatchError> {
+		use frame_support::traits::fungible::InspectHold;
+
+		let contract_address = T::AddressMapper::to_address(contract_account);
+
+		let mut delete_contract = |trie_id: &TrieId, code_hash: &H256| {
+			// deposit needs to be removed as it adds a consumer
+			let refund = T::Currency::balance_on_hold(
+				&HoldReason::StorageDepositReserve.into(),
+				&contract_account,
+			);
+			<Contracts<T>>::refund_deposit(
+				HoldReason::StorageDepositReserve,
+				contract_account,
+				origin.account_id()?,
+				refund,
+				Some(exec_config),
+			)?;
+
+			// we added this consumer manually when instantiating
+			System::<T>::dec_consumers(&contract_account);
+
+			// ed needs to be send to the origin
+			Self::transfer(
+				origin,
+				contract_account,
+				origin.account_id()?,
+				Contracts::<T>::convert_native_to_evm(T::Currency::minimum_balance()),
+				Preservation::Expendable,
+				transaction_meter,
+				exec_config,
+			)?;
+
+			// this is needed to:
+			// 1) Send any balance that was send to the contract after termination.
+			// 2) To fail termination if any locks or holds prevent to completely empty the account.
+			let balance = <Contracts<T>>::convert_native_to_evm(<AccountInfo<T>>::total_balance(
+				contract_address.into(),
+			));
+			Self::transfer(
+				origin,
+				contract_account,
+				&args.beneficiary,
+				balance,
+				Preservation::Expendable,
+				transaction_meter,
+				exec_config,
+			)?;
+
+			// this deletes the code if refcount drops to zero
+			let _code_removed = <CodeInfo<T>>::decrement_refcount(*code_hash)?;
+
+			// delete the contracts data last as its infallible
+			ContractInfo::<T>::queue_trie_for_deletion(trie_id.clone());
+			AccountInfoOf::<T>::remove(contract_address);
+			ImmutableDataOf::<T>::remove(contract_address);
+
+			// the meter needs to discard all deposits interacting with the terminated contract
+			// we do this last as we cannot roll this back
+			transaction_meter.terminate(contract_account.clone(), refund);
+
+			Ok(())
+		};
+
+		// we cannot fail here as the contract that called `SELFDESTRUCT`
+		// is no longer on the call stack. hence we simply roll back the
+		// termination so that nothing happened.
+		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
+			match delete_contract(&args.trie_id, &args.code_hash) {
+				Ok(()) => {
+					// TODO: emit sucicide trace
+					log::trace!(target: LOG_TARGET, "Terminated {contract_address:?}");
+					TransactionOutcome::Commit(Ok(()))
+				},
+				Err(e) => {
+					log::debug!(target: LOG_TARGET, "Contract at {contract_address:?} failed to terminate: {e:?}");
+					TransactionOutcome::Rollback(Err(e))
+				},
+			}
+		})
 	}
 
 	/// Reference to the current (top) frame.
@@ -1704,28 +1821,6 @@ where
 		}
 	}
 
-	fn destroy_contract(
-		&mut self,
-		contract_address: &H160,
-		contract_info: &mut ContractInfo<T>,
-		beneficiary_address: &H160,
-	) {
-		let contract_account = T::AddressMapper::to_account_id(contract_address);
-		let beneficiary_account = T::AddressMapper::to_account_id(beneficiary_address);
-
-		// Only allow storage to be removed if the contract was created in the current tx.
-		let delete_code = self.contracts_created.contains(&contract_account);
-
-		self.transaction_meter.terminate_absorb(
-			contract_account,
-			contract_info,
-			beneficiary_account.clone(),
-			delete_code,
-		);
-
-		log::debug!(target: LOG_TARGET, "Contract at {contract_address:?} registered termination. Beneficiary: {beneficiary_address:?}, delete_code: {delete_code}");
-	}
-
 	/// Returns true if the current context has contract info.
 	/// This is the case if `no_precompile || precompile_with_info`.
 	fn has_contract_info(&self) -> bool {
@@ -1788,25 +1883,31 @@ where
 				crate::Pallet::<T>::evm_balance(&addr),
 			);
 		});
-		let (account_id, contract_address, contract_info) = {
-			let frame = self.top_frame_mut();
-			if frame.entry_point == ExportedFunction::Constructor {
-				return Err(Error::<T>::TerminatedInConstructor.into());
-			}
-			(
-				frame.account_id.clone(),
-				T::AddressMapper::to_address(&frame.account_id),
-				frame.contract_info().clone(),
-			)
-		};
-		self.contracts_to_be_destroyed
-			.insert(contract_address, (contract_info.clone(), *beneficiary));
+		let frame = top_frame_mut!(self);
+		let info = frame.contract_info();
+		let trie_id = info.trie_id.clone();
+		let code_hash = info.code_hash;
+		let contract_address = T::AddressMapper::to_address(&frame.account_id);
+		let beneficiary = T::AddressMapper::to_account_id(beneficiary);
 
-		if self.contracts_created.contains(&account_id) {
-			Ok(CodeRemoved::Yes)
-		} else {
-			Ok(CodeRemoved::No)
-		}
+		// balance transfer is immediate
+		Self::transfer(
+			&self.origin,
+			&frame.account_id,
+			&beneficiary,
+			<Contracts<T>>::evm_balance(&contract_address),
+			Preservation::Preserve,
+			&mut frame.frame_meter,
+			self.exec_config,
+		)?;
+
+		// schedule for delayed deletion
+		let account_id = frame.account_id.clone();
+		self.top_frame_mut().contracts_to_be_destroyed.insert(
+			account_id,
+			TerminateArgs { beneficiary, trie_id, code_hash, only_if_same_tx: true },
+		);
+		Ok(CodeRemoved::Yes)
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {
@@ -1890,7 +1991,7 @@ where
 	fn instantiate(
 		&mut self,
 		call_resources: &CallResources<T>,
-		code: Code,
+		mut code: Code,
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
@@ -1901,16 +2002,18 @@ where
 
 		let sender = self.top_frame().account_id.clone();
 		let executable = {
-			let executable = match &code {
-				Code::Upload(bytecode) => {
+			let executable = match &mut code {
+				Code::Upload(initcode) => {
 					if !T::AllowEVMBytecode::get() {
 						return Err(<Error<T>>::CodeRejected.into());
 					}
 					ensure!(input_data.is_empty(), <Error<T>>::EvmConstructorNonEmptyData);
-					E::from_evm_init_code(bytecode.clone(), sender.clone())?
+					let initcode = crate::tracing::if_tracing(|_| initcode.clone())
+						.unwrap_or_else(|| mem::take(initcode));
+					E::from_evm_init_code(initcode, sender.clone())?
 				},
 				Code::Existing(hash) => {
-					let executable = E::from_storage(*hash, self.gas_meter_mut())?;
+					let executable = E::from_storage(*hash, self.frame_meter_mut())?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable
 				},
@@ -1931,7 +2034,8 @@ where
 		let executable = executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 
 		// Mark the contract as created in this tx.
-		self.contracts_created.insert(self.top_frame().account_id.clone());
+		let account_id = self.top_frame().account_id.clone();
+		self.top_frame_mut().contracts_created.insert(account_id);
 
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
 		if_tracing(|t| t.instantiate_code(&code, salt));
@@ -2227,16 +2331,21 @@ where
 		<T as Config>::ChainId::get()
 	}
 
-	fn max_value_size(&self) -> u32 {
-		limits::PAYLOAD_BYTES
-	}
-
 	fn gas_meter(&self) -> &FrameMeter<Self::T> {
 		&self.top_frame().frame_meter
 	}
 
 	#[inline]
 	fn gas_meter_mut(&mut self) -> &mut FrameMeter<Self::T> {
+		&mut self.top_frame_mut().frame_meter
+	}
+
+	fn frame_meter(&self) -> &FrameMeter<Self::T> {
+		&self.top_frame().frame_meter
+	}
+
+	#[inline]
+	fn frame_meter_mut(&mut self) -> &mut FrameMeter<Self::T> {
 		&mut self.top_frame_mut().frame_meter
 	}
 
@@ -2300,21 +2409,34 @@ where
 	}
 
 	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError> {
-		let account_id = self.caller().account_id()?.clone();
-		let caller_address = T::AddressMapper::to_address(&account_id);
-		{
-			let frame = self.top_frame_mut();
-			if frame.entry_point == ExportedFunction::Constructor {
-				return Err(Error::<T>::TerminatedInConstructor.into());
-			}
-		}
-		let contract_info =
-			AccountInfo::<T>::load_contract(&caller_address).ok_or(Error::<T>::ContractNotFound)?;
-		self.contracts_to_be_destroyed
-			.insert(caller_address, (contract_info.clone(), *beneficiary));
+		ensure!(self.top_frame().delegate.is_none(), Error::<T>::PrecompileDelegateDenied);
+		let parent = self.frames_mut().nth(1).ok_or_else(|| Error::<T>::ContractNotFound)?;
+		ensure!(parent.entry_point == ExportedFunction::Call, Error::<T>::TerminatedInConstructor);
+		ensure!(parent.delegate.is_none(), Error::<T>::PrecompileDelegateDenied);
 
-		// Pretend the contract was created in the current tx so that its storage can be destroyed.
-		self.contracts_created.insert(account_id);
+		let info = parent.contract_info();
+		let trie_id = info.trie_id.clone();
+		let code_hash = info.code_hash;
+		let contract_address = T::AddressMapper::to_address(&parent.account_id);
+		let beneficiary = T::AddressMapper::to_account_id(beneficiary);
+
+		let parent_account_id = parent.account_id.clone();
+
+		// balance transfer is immediate
+		Self::transfer(
+			&self.origin,
+			&parent_account_id,
+			&beneficiary,
+			<Contracts<T>>::evm_balance(&contract_address),
+			Preservation::Preserve,
+			&mut top_frame_mut!(self).frame_meter,
+			&self.exec_config,
+		)?;
+
+		// schedule for delayed deletion
+		let args = TerminateArgs { beneficiary, trie_id, code_hash, only_if_same_tx: false };
+		self.top_frame_mut().contracts_to_be_destroyed.insert(parent_account_id, args);
+
 		Ok(())
 	}
 
@@ -2365,6 +2487,40 @@ where
 /// Returns true if the address has a precompile contract, else false.
 pub fn is_precompile<T: Config, E: Executable<T>>(address: &H160) -> bool {
 	<AllPrecompiles<T>>::get::<Stack<'_, T, E>>(address.as_fixed_bytes()).is_some()
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub fn terminate_contract_for_benchmark<T: Config>(
+	origin: T::AccountId,
+	contract: &T::AccountId,
+	info: &ContractInfo<T>,
+	beneficiary: T::AccountId,
+) -> Result<(), DispatchError> {
+	let mut meter = storage::meter::Meter::<T>::new(BalanceOf::<T>::max_value());
+	Stack::<T, crate::ContractBlob<T>>::do_terminate(
+		&mut meter,
+		&ExecConfig::new_substrate_tx(),
+		contract,
+		&Origin::from_account_id(origin),
+		&TerminateArgs {
+			beneficiary,
+			trie_id: info.trie_id.clone(),
+			code_hash: info.code_hash,
+			only_if_same_tx: false,
+		},
+	)
+}
+
+/// Stored inside the `Stack` for each contract that is scheduled for termination.
+struct TerminateArgs<T: Config> {
+	/// Where to send the free balance of the terminated contract.
+	beneficiary: T::AccountId,
+	/// The storage child trie of the contract that needs to be deleted.
+	trie_id: TrieId,
+	/// The code referenced by the contract. Will be deleted if refcount drops to zero.
+	code_hash: H256,
+	/// Triggered by the EVM opcode.
+	only_if_same_tx: bool,
 }
 
 mod sealing {

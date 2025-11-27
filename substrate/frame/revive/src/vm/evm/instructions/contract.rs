@@ -32,7 +32,7 @@ use core::{
 	cmp::min,
 	ops::{ControlFlow, Range},
 };
-use revm::interpreter::interpreter_action::CallScheme;
+use revm::interpreter::{gas::CALL_STIPEND, interpreter_action::CallScheme};
 
 /// Implements the CREATE/CREATE2 instruction.
 ///
@@ -190,12 +190,10 @@ fn run_call<'a, E: Ext>(
 	value: U256,
 	return_memory_range: Range<usize>,
 ) -> ControlFlow<Halt> {
-	// We use SOLIDITY_CALL_STIPEND to detect the typical gas limit solc defines as a call stipend
+	// We use ALL_STIPEND to detect the typical gas limit solc defines as a call stipend
 	// This is just a heuristic
-	let add_stipend = !value.is_zero() ||
-		gas_limit
-			.try_into()
-			.is_ok_and(|limit: u32| limit == crate::limits::SOLIDITY_CALL_STIPEND);
+	let add_stipend =
+		!value.is_zero() || gas_limit.try_into().is_ok_and(|limit: u64| limit == CALL_STIPEND);
 
 	let call_result = match scheme {
 		CallScheme::Call | CallScheme::StaticCall => interpreter.ext.call(
@@ -231,7 +229,7 @@ fn run_call<'a, E: Ext>(
 			// success or revert
 			interpreter
 				.ext
-				.gas_meter_mut()
+				.frame_meter_mut()
 				.charge_or_halt(RuntimeCosts::CopyToContract(target_len as u32))?;
 
 			let return_value = interpreter.ext.last_frame_output();

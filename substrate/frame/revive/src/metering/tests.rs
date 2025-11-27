@@ -24,7 +24,7 @@ use crate::{
 use alloy_core::sol_types::SolCall;
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{
-	compile_module_with_type, CatchConstructorTest, Deposit, FixtureType,
+	compile_module_with_type, CatchConstructorTest, DepositPrecompile, FixtureType,
 };
 use sp_runtime::{FixedU128, Weight};
 use test_case::test_case;
@@ -43,10 +43,12 @@ enum Charge {
 	D(i64),
 }
 
-#[test_case(FixtureType::Solc    ; "solc")]
-#[test_case(FixtureType::Resolc  ; "resolc")]
-fn max_consumed_deposit_integration(fixture_type: FixtureType) {
-	let (code, _) = compile_module_with_type("Deposit", fixture_type).unwrap();
+#[test_case(FixtureType::Solc   , "DepositPrecompile" ; "solc precompiles")]
+#[test_case(FixtureType::Resolc , "DepositPrecompile" ; "resolc precompiles")]
+#[test_case(FixtureType::Solc   , "DepositDirect" ; "solc direct")]
+#[test_case(FixtureType::Resolc , "DepositDirect" ; "resolc direct")]
+fn max_consumed_deposit_integration(fixture_type: FixtureType, fixture_name: &str) {
+	let (code, _) = compile_module_with_type(fixture_name, fixture_type).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -54,7 +56,9 @@ fn max_consumed_deposit_integration(fixture_type: FixtureType) {
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(caller_addr).data(Deposit::dCall {}.abi_encode()).build();
+		let result = builder::bare_call(caller_addr)
+			.data(DepositPrecompile::callSetAndClearCall {}.abi_encode())
+			.build();
 
 		assert_eq!(result.storage_deposit, StorageDeposit::Charge(66));
 		assert_eq!(result.max_storage_deposit, StorageDeposit::Charge(132));
@@ -62,10 +66,15 @@ fn max_consumed_deposit_integration(fixture_type: FixtureType) {
 }
 
 #[ignore = "TODO: Does not work yet, see https://github.com/paritytech/contract-issues/issues/213"]
-#[test_case(FixtureType::Solc    ; "solc")]
-#[test_case(FixtureType::Resolc  ; "resolc")]
-fn max_consumed_deposit_integration_refunds_subframes(fixture_type: FixtureType) {
-	let (code, _) = compile_module_with_type("Deposit", fixture_type).unwrap();
+#[test_case(FixtureType::Solc   , "DepositPrecompile" ; "solc precompiles")]
+#[test_case(FixtureType::Resolc , "DepositPrecompile" ; "resolc precompiles")]
+#[test_case(FixtureType::Solc   , "DepositDirect" ; "solc direct")]
+#[test_case(FixtureType::Resolc , "DepositDirect" ; "resolc direct")]
+fn max_consumed_deposit_integration_refunds_subframes(
+	fixture_type: FixtureType,
+	fixture_name: &str,
+) {
+	let (code, _) = compile_module_with_type(fixture_name, fixture_type).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -73,14 +82,20 @@ fn max_consumed_deposit_integration_refunds_subframes(fixture_type: FixtureType)
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(caller_addr).data(Deposit::cCall {}.abi_encode()).build();
+		let result = builder::bare_call(caller_addr)
+			.data(DepositPrecompile::setAndClearCall {}.abi_encode())
+			.build();
 
 		assert_eq!(result.storage_deposit, StorageDeposit::Charge(66));
 		assert_eq!(result.max_storage_deposit, StorageDeposit::Charge(132));
 
-		builder::bare_call(caller_addr).data(Deposit::clearCall {}.abi_encode()).build();
+		builder::bare_call(caller_addr)
+			.data(DepositPrecompile::clearAllCall {}.abi_encode())
+			.build();
 
-		let result = builder::bare_call(caller_addr).data(Deposit::eCall {}.abi_encode()).build();
+		let result = builder::bare_call(caller_addr)
+			.data(DepositPrecompile::setAndCallClearCall {}.abi_encode())
+			.build();
 
 		assert_eq!(result.storage_deposit, StorageDeposit::Charge(66));
 		assert_eq!(result.max_storage_deposit, StorageDeposit::Charge(132));

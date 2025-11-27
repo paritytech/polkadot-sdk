@@ -51,10 +51,7 @@ use frame_support::{
 	self, assert_ok,
 	migrations::SteppedMigration,
 	storage::child,
-	traits::{
-		fungible::{InspectHold, UnbalancedHold},
-		Hooks,
-	},
+	traits::{fungible::InspectHold, Hooks},
 	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
@@ -134,7 +131,7 @@ mod benchmarks {
 	fn on_initialize_per_trie_key(k: Linear<0, 1024>) -> Result<(), BenchmarkError> {
 		let instance =
 			Contract::<T>::with_storage(VmBinaryModule::dummy(), k, limits::STORAGE_BYTES)?;
-		instance.info()?.queue_trie_for_deletion();
+		ContractInfo::<T>::queue_trie_for_deletion(instance.info()?.trie_id);
 
 		#[block]
 		{
@@ -786,7 +783,7 @@ mod benchmarks {
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
 
-		let weight_left_before = ext.gas_meter().weight_left().unwrap();
+		let weight_left_before = ext.frame_meter().weight_left().unwrap();
 		let result;
 		#[block]
 		{
@@ -796,7 +793,7 @@ mod benchmarks {
 				input_bytes,
 			);
 		}
-		let weight_left_after = ext.gas_meter().weight_left().unwrap();
+		let weight_left_after = ext.frame_meter().weight_left().unwrap();
 		assert_ne!(weight_left_after.ref_time(), 0);
 		assert!(weight_left_before.ref_time() > weight_left_after.ref_time());
 
@@ -1221,29 +1218,25 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
+		let caller = whitelisted_caller();
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
+		T::AddressMapper::map_no_deposit(&beneficiary)?;
 
 		build_runtime!(_runtime, instance, _memory: [vec![0u8; 0], ]);
 		let code_hash = instance.info()?.code_hash;
 
 		assert!(PristineCode::<T>::get(code_hash).is_some());
 
-		// Set storage deposit to zero so terminate_logic can proceed.
-		T::Currency::set_balance_on_hold(
-			&HoldReason::StorageDepositReserve.into(),
-			&instance.account_id,
-			0u32.into(),
-		)
-		.unwrap();
-
-		T::Currency::set_balance(&instance.account_id, Pallet::<T>::min_balance() * 2u32.into());
+		T::Currency::set_balance(&instance.account_id, Pallet::<T>::min_balance() * 10u32.into());
 
 		let result;
 		#[block]
 		{
-			result = crate::metering::storage::terminate_logic_for_benchmark::<T>(
+			result = crate::exec::terminate_contract_for_benchmark::<T>(
+				caller,
 				&instance.account_id,
-				&beneficiary,
+				&instance.info()?,
+				beneficiary.clone(),
 			);
 		}
 		result.unwrap();
@@ -1257,7 +1250,7 @@ mod benchmarks {
 
 		// Check that the beneficiary received the balance
 		let balance = <T as Config>::Currency::balance(&beneficiary);
-		assert_eq!(balance, Pallet::<T>::min_balance() * 2u32.into());
+		assert_eq!(balance, Pallet::<T>::min_balance() + Pallet::<T>::min_balance() * 9u32.into());
 
 		Ok(())
 	}

@@ -270,7 +270,7 @@ impl fmt::Display for TrapReason {
 /// a function won't work out.
 macro_rules! charge_gas {
 	($runtime:expr, $costs:expr) => {{
-		$runtime.ext.gas_meter_mut().charge_weight_token($costs)
+		$runtime.ext.frame_meter_mut().charge_weight_token($costs)
 	}};
 }
 
@@ -356,7 +356,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	/// This is when a maximum a priori amount was charged and then should be partially
 	/// refunded to match the actual amount.
 	fn adjust_gas(&mut self, charged: ChargedAmount, actual_costs: RuntimeCosts) {
-		self.ext.gas_meter_mut().adjust_weight(charged, actual_costs);
+		self.ext.frame_meter_mut().adjust_weight(charged, actual_costs);
 	}
 
 	/// Write the given buffer and its length to the designated locations in sandbox memory and
@@ -844,7 +844,7 @@ impl<'a, E: Ext> PreparedCall<'a, E> {
 				break exec_result
 			}
 		};
-		self.runtime.ext().gas_meter_mut().sync_from_executor(self.instance.gas())?;
+		self.runtime.ext().frame_meter_mut().sync_from_executor(self.instance.gas())?;
 		exec_result
 	}
 

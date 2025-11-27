@@ -397,7 +397,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	}
 
 	/// Get total weight required
-	/// This is the maxmimum amount of weight consumption that occurred during execution so far
+	/// This is the maximum amount of weight consumption that occurred during execution so far
 	/// This is relevant because consumed weight can decrease in case it is asjusted a posteriori
 	/// for some operations
 	pub fn weight_required(&self) -> Weight {
@@ -524,19 +524,13 @@ impl<T: Config> TransactionMeter<T> {
 		self.deposit.execute_postponed_deposits(origin, exec_config)
 	}
 
-	/// Absorb resources from a terminated contract.
-	pub fn terminate_absorb(
-		&mut self,
-		contract_account: T::AccountId,
-		contract_info: &mut ContractInfo<T>,
-		beneficiary: T::AccountId,
-		delete_code: bool,
-	) {
-		self.deposit
-			.terminate_absorb(contract_account, contract_info, beneficiary, delete_code);
-
-		let result = self.adjust_effective_weight_limit();
-		debug_assert!(result.is_ok(), "Absorbing terminated meters should not exceed limits");
+	/// Mark a contract as terminated
+	///
+	/// This will signal to the meter to discard all charged and refunds incured by this
+	/// contract. Furthermore it will record that there was a refund of `refunded` and adapt the
+	/// total deposit accordingly
+	pub fn terminate(&mut self, contract_account: T::AccountId, refunded: BalanceOf<T>) {
+		self.deposit.terminate(contract_account, refunded);
 	}
 }
 

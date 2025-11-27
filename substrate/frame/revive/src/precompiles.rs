@@ -138,6 +138,19 @@ impl<T: Config> From<CrateError<T>> for Error {
 	}
 }
 
+impl Error {
+	pub fn try_to_revert<T: Config>(e: DispatchError) -> Self {
+		let delegate_denied = CrateError::<T>::PrecompileDelegateDenied.into();
+		let construct = CrateError::<T>::TerminatedInConstructor.into();
+		let message = match () {
+			_ if e == delegate_denied => "illegal to call this pre-compile via delegate call",
+			_ if e == construct => "terminate pre-compile cannot be called from the constructor",
+			_ => return e.into(),
+		};
+		Self::Revert(message.into())
+	}
+}
+
 /// Type that can be implemented in other crates to extend the list of pre-compiles.
 ///
 /// Only implement exactly one function. Either `call` or `call_with_info`.

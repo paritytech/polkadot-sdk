@@ -90,7 +90,7 @@ impl<T: Config> Precompile for NoInfo<T> {
 			INoInfoCalls::errors(INoInfo::errorsCall {}) =>
 				Err(Error::Error(DispatchError::Other("precompile failed").into())),
 			INoInfoCalls::consumeMaxGas(INoInfo::consumeMaxGasCall {}) => {
-				env.gas_meter_mut().charge_weight_token(MaxGasToken)?;
+				env.frame_meter_mut().charge_weight_token(MaxGasToken)?;
 				Ok(Vec::new())
 			},
 			INoInfoCalls::callRuntime(INoInfo::callRuntimeCall { call }) => {
