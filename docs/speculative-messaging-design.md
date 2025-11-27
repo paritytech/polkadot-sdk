@@ -34,7 +34,6 @@
 10. [Comparison with Alternatives](#comparison-with-alternatives)
 11. [Implementation Considerations](#implementation-considerations)
 12. [Security Analysis](#security-analysis)
-13. [Future Work](#future-work)
 
 ---
 
