@@ -2,39 +2,11 @@
 pragma solidity ^0.8.19;
 
 /**
- * @title Sender
- * @dev Sender contract: provides three transfer methods
- */
-contract StipendSender {
-    // Method 1: transfer (2300 gas stipend)
-    function sendViaTransfer(address payable to) external payable {
-        to.transfer(msg.value);
-    }
-
-    // Method 2: send (2300 gas stipend, returns bool)
-    function sendViaSend(address payable to) external payable returns (bool) {
-        return to.send(msg.value);
-    }
-
-    // Method 3: call (forwards all gas)
-    function sendViaCall(address payable to) external payable returns (bool) {
-        (bool success, ) = to.call{value: msg.value}("");
-        return success;
-    }
-
-    receive() external payable {}
-}
-
-/**
  * @title DoNothingReceiver
  * @dev Receiver contract 1: empty receive(), does nothing
  */
 contract DoNothingReceiver {
     receive() external payable {}
-
-    function getBalance() external view returns (uint256) {
-        return address(this).balance;
-    }
 }
 
 /**
@@ -46,10 +18,6 @@ contract SimpleReceiver {
 
     receive() external payable {
         emit Received(msg.sender, msg.value);
-    }
-
-    function getBalance() external view returns (uint256) {
-        return address(this).balance;
     }
 }
 
@@ -64,10 +32,6 @@ contract ComplexReceiver {
     receive() external payable {
         counter += 1;
         emit Received(msg.sender, msg.value, counter);
-    }
-
-    function getBalance() external view returns (uint256) {
-        return address(this).balance;
     }
 }
 
