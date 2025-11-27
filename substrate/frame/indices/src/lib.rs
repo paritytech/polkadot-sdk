@@ -159,7 +159,7 @@ pub mod pallet {
 					&who,
 					&new,
 					amount,
-					Precision::Exact,
+					Precision::BestEffort,
 					Restriction::OnHold,
 					Fortitude::Polite,
 				)?;
