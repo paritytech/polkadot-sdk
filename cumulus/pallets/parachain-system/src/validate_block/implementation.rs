@@ -122,7 +122,9 @@ where
 		sp_io::offchain_index::host_clear.replace_implementation(host_offchain_index_clear),
 		cumulus_primitives_proof_size_hostfunction::storage_proof_size::host_storage_proof_size
 			.replace_implementation(host_storage_proof_size),
+		#[cfg(feature = "transaction-index")]
 		sp_io::transaction_index::host_index.replace_implementation(host_transaction_index_index),
+		#[cfg(feature = "transaction-index")]
 		sp_io::transaction_index::host_renew.replace_implementation(host_transaction_index_renew),
 	);
 

@@ -125,3 +125,5 @@ try-runtime = [
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+
+transaction-index = []
