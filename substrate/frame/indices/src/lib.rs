@@ -328,12 +328,12 @@ pub mod pallet {
 				} else if new_amount < old_amount {
 					// Need to release some
 					let excess = old_amount.saturating_sub(new_amount);
-					let _ = T::NativeBalance::release(
+					T::NativeBalance::release(
 						&HoldReason::DepositForIndex.into(),
 						&who,
 						excess,
 						Precision::Exact,
-					);
+					)?;
 				}
 
 				*maybe_value = Some((account, new_amount, perm));
