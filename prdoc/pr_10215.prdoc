@@ -18,41 +18,27 @@ doc:
 crates:
 - name: sp-state-machine
   bump: major
-- name: sc-block-builder
-  bump: major
 - name: sc-client-db
-  bump: major
+  bump: patch
 - name: sp-trie
-  bump: major
+  bump: minor
 - name: polkadot-node-core-pvf-common
-  bump: major
+  bump: patch
 - name: sp-externalities
   bump: major
-- name: sp-io
-  bump: major
 - name: cumulus-pallet-weight-reclaim
-  bump: major
-- name: polkadot-dispute-distribution
-  bump: major
-- name: sc-transaction-pool
-  bump: major
-- name: sc-transaction-pool-api
-  bump: major
-- name: sc-executor-wasmtime
-  bump: major
+  bump: patch
 - name: cumulus-primitives-proof-size-hostfunction
-  bump: major
+  bump: minor
 - name: cumulus-primitives-storage-weight-reclaim
   bump: major
 - name: frame-benchmarking
-  bump: major
+  bump: patch
 - name: frame-support-procedural
-  bump: major
-- name: frame-support
-  bump: major
+  bump: patch
 - name: frame-benchmarking-cli
-  bump: major
+  bump: minor
 - name: frame-storage-access-test-runtime
   bump: major
 - name: cumulus-pallet-parachain-system
-  bump: major
+  bump: patch
