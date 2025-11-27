@@ -155,10 +155,12 @@ jobs:
           trap cleanup EXIT
 
           if [ "${{ matrix.node }}" = "revive-dev-node" ]; then
+            echo "Starting revive-dev-node"
             NODE_PATH=$(readlink -f ../target/release/revive-dev-node)
-            $NODE_PATH --dev -l=error,evm=debug,sc_rpc_server=info,runtime::revive=debug > /dev/null 2>&1 &
+            $NODE_PATH --dev --log=error &
             NODE_PID=$!
           else
+            echo "Building chain-spec"
             ../target/release/chain-spec-builder -c /tmp/ah-westend-spec-raw.json create --para-id 1000 --relay-chain dontcare --runtime ../target/release/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.wasm named-preset development
             NODE_PATH=$(readlink -f ../target/release/polkadot-omni-node)
 
@@ -168,16 +170,18 @@ jobs:
               ]
               | .genesis.runtimeGenesis.patch.staking.devStakers = [0, 0]
             ' "/tmp/ah-westend-spec-raw.json" >"/tmp/ah-westend-spec.json"
-            $NODE_PATH --dev --log=error,sc_rpc_server=info,runtime::revive=debug --instant-seal --no-prometheus --chain /tmp/ah-westend-spec.json > /dev/null 2>&1 &
+
+            echo "Starting polkadot-omni-node with westend runtime"
+            $NODE_PATH --dev --log=error --instant-seal --no-prometheus --chain /tmp/ah-westend-spec.json &
             NODE_PID=$!
           fi
 
           ETH_RPC_PATH=$(readlink -f ../target/release/eth-rpc)
-          $ETH_RPC_PATH --dev --node-rpc-url=ws://localhost:9944 -l=rpc-metrics=debug,eth-rpc=debug > /dev/null 2>&1 &
+          $ETH_RPC_PATH --dev --node-rpc-url=ws://localhost:9944 --no-prometheus --log=error &
           ETH_RPC_PID=$!
 
           connected=false
-          for i in {1..30}; do
+          for i in {1..45}; do
             if curl -s -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"web3_clientVersion","id":1}' http://localhost:8545 > /dev/null 2>&1; then
               connected=true
               break
