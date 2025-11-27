@@ -92,8 +92,8 @@ mod benchmarks {
 		let len: u32 = 10;
 		let expected_fee = crate::Pallet::<T>::compute_fee(len, &info, tip);
 		let amount_to_endow = expected_fee
-			.saturating_mul(10u32.into())
-			.max(existential_deposit);
+			.max(existential_deposit)
+			.saturating_mul(10u32.into());
 
 		<T::OnChargeTransaction as OnChargeTransaction<T>>::endow_account(&caller, amount_to_endow);
 
