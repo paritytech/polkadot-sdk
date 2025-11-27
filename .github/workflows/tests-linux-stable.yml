@@ -38,7 +38,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: script
         id: required
-        run: WASM_BUILD_NO_COLOR=1 forklift cargo test -p staging-node-cli --release --locked -- --ignored
+        run: WASM_BUILD_NO_COLOR=1 cargo test -p staging-node-cli --release --locked -- --ignored
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
@@ -64,7 +64,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: script
         id: required
-        run: forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet --cargo-quiet
+        run: cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet --cargo-quiet
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
@@ -103,7 +103,7 @@ jobs:
         run: |
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory '*'
-          forklift cargo nextest run \
+          cargo nextest run \
             --workspace \
             --locked \
             --release \
@@ -114,7 +114,7 @@ jobs:
       # run runtime-api tests with `enable-staging-api` feature on the 1st node
       - name: runtime-api tests
         if: ${{ matrix.partition == '1/3' }}
-        run: forklift cargo nextest run -p sp-api-test --features enable-staging-api --cargo-quiet
+        run: cargo nextest run -p sp-api-test --features enable-staging-api --cargo-quiet
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
@@ -147,7 +147,7 @@ jobs:
       - name: script
         id: required
         run: |
-          forklift cargo nextest run --workspace \
+          cargo nextest run --workspace \
                    --locked \
                    --release \
                    --no-fail-fast \
