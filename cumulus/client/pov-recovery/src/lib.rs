@@ -519,7 +519,6 @@ where
 				skip_execution: false,
 				state: None,
 				indexed_body: None,
-				allow_missing_parent: false,
 			});
 
 			if let Some(waiting) = self.waiting_for_parent.remove(&block_hash) {

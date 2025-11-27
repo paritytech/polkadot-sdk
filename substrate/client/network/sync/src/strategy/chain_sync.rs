@@ -1210,7 +1210,6 @@ where
 										import_existing: self.import_existing,
 										skip_execution: true,
 										state: None,
-										allow_missing_parent: false,
 									}
 								})
 								.collect();
@@ -1250,7 +1249,6 @@ where
 									import_existing: self.import_existing,
 									skip_execution: self.skip_execution(),
 									state: None,
-									allow_missing_parent: false,
 								}
 							})
 							.collect()
@@ -1392,7 +1390,6 @@ where
 							allow_missing_state: true,
 							import_existing: false,
 							skip_execution: true,
-							allow_missing_parent: false,
 							state: None,
 						}
 					})
@@ -1786,7 +1783,6 @@ where
 					allow_missing_state: true,
 					import_existing: self.import_existing,
 					skip_execution: self.skip_execution(),
-					allow_missing_parent: false,
 					state: None,
 				}
 			})
@@ -2035,7 +2031,6 @@ where
 					allow_missing_state: true,
 					import_existing: true,
 					skip_execution: self.skip_execution(),
-					allow_missing_parent: false,
 					state: Some(state),
 				};
 				debug!(target: LOG_TARGET, "State download is complete. Import is queued");

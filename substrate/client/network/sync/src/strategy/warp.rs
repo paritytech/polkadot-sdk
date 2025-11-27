@@ -421,7 +421,6 @@ where
 					// Shouldn't already exist in the database.
 					import_existing: false,
 					state: None,
-					allow_missing_parent: false,
 				}
 			};
 
