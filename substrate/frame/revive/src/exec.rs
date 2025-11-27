@@ -2496,9 +2496,16 @@ pub fn terminate_contract_for_benchmark<T: Config>(
 	info: &ContractInfo<T>,
 	beneficiary: T::AccountId,
 ) -> Result<(), DispatchError> {
-	let mut meter = storage::meter::Meter::<T>::new(BalanceOf::<T>::max_value());
+	use crate::TransactionLimits;
+	use num_traits::Bounded;
+
+	let mut transaction_meter = TransactionMeter::new(TransactionLimits::WeightAndDeposit {
+		weight_limit: Default::default(),
+		deposit_limit: BalanceOf::<T>::max_value(),
+	})
+	.unwrap();
 	Stack::<T, crate::ContractBlob<T>>::do_terminate(
-		&mut meter,
+		&mut transaction_meter,
 		&ExecConfig::new_substrate_tx(),
 		contract,
 		&Origin::from_account_id(origin),
