@@ -715,21 +715,21 @@ fn list_of_backing_validators_in_view(
 			.unwrap_or_default();
 
 		for allowed_relay_parent in allowed_ancestry {
-			if let Some(relay_parent) = per_relay_parent.get(allowed_relay_parent) {
-				if pending_collation {
-					// Check if there is any collation for this relay parent.
-					for (_, collation_data) in relay_parent.collations.iter() {
-						if collation_data.collation().status != CollationStatus::Requested {
-							let core_index = collation_data.core_index();
-							if let Some(group) = relay_parent.validator_group.get(core_index) {
-								backing_validators.extend(group.validators.iter().cloned());
-							}
+			let Some(relay_parent) = per_relay_parent.get(allowed_relay_parent) else { continue };
+
+			if pending_collation {
+				// Check if there is any collation for this relay parent.
+				for collation_data in relay_parent.collations.values() {
+					if collation_data.collation().status != CollationStatus::Requested {
+						let core_index = collation_data.core_index();
+						if let Some(group) = relay_parent.validator_group.get(core_index) {
+							backing_validators.extend(group.validators.iter().cloned());
 						}
 					}
-				} else {
-					for group in relay_parent.validator_group.values() {
-						backing_validators.extend(group.validators.iter().cloned());
-					}
+				}
+			} else {
+				for group in relay_parent.validator_group.values() {
+					backing_validators.extend(group.validators.iter().cloned());
 				}
 			}
 		}
