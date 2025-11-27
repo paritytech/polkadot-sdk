@@ -57,10 +57,12 @@ struct MetricsInner {
 	/// query further validators.
 	retries: Counter<U64>,
 
-	/// Number of candidates for which we initiated chunk fetching before getting backed on chain (early path).
+	/// Number of candidates for which we initiated chunk fetching before getting backed on chain.
+	/// (early path).
 	early_fetched_candidates: Counter<U64>,
-	
-	/// Number of candidates for which we initiated chunk fetching after getting backed on chain (late path).
+
+	/// Number of candidates for which we initiated chunk fetching after getting backed on chain.
+	/// (late path).
 	late_fetched_candidates: Counter<U64>,
 
 	/// Number of candidates fetched early that later appeared as backed on-chain.
@@ -122,7 +124,8 @@ impl Metrics {
 		}
 	}
 
-	/// Increment early fetched candidates that later got backed on chain counter.(skipped duplicate fetch)
+	/// Increment early fetched candidates that later got backed on chain counter.
+	/// (skipped duplicate fetch)
 	pub fn on_early_candidate_backed_on_chain(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.early_candidates_backed_on_chain.inc()

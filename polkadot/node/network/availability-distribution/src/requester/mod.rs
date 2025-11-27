@@ -30,10 +30,11 @@ use std::{
 
 use polkadot_node_network_protocol::request_response::{v1, v2, IsRequest, ReqProtocolNames};
 use polkadot_node_subsystem::{
-	ActivatedLeaf, ActiveLeavesUpdate, SubsystemSender, messages::{
+	messages::{
 		AvailabilityStoreMessage, CandidateBackingMessage, ChainApiMessage, RuntimeApiMessage,
 		RuntimeApiRequest,
-	}, overseer
+	},
+	overseer, ActivatedLeaf, ActiveLeavesUpdate, SubsystemSender,
 };
 use polkadot_node_subsystem_util::{
 	availability_chunks::availability_chunk_index,
@@ -57,9 +58,7 @@ use session_cache::SessionCache;
 /// A task fetching a particular chunk.
 mod fetch_task;
 use crate::{
-	error::Error::{
-		CanceledValidatorGroups, RuntimeApi, GetBackableCandidates, SubsystemUtil,
-	},
+	error::Error::{CanceledValidatorGroups, GetBackableCandidates, RuntimeApi, SubsystemUtil},
 	requester::fetch_task::BackedOnChain,
 };
 use fetch_task::{FetchTask, FetchTaskConfig, FromFetchTask};
@@ -330,15 +329,18 @@ impl Requester {
 			.map(|(_, core_info)| core_info.candidate_hash)
 			.collect::<HashSet<_>>();
 
-		let n_validators =
-			request_validators(activated_leaf.hash, sender).await.await?.map_err(|err| {
+		let n_validators = request_validators(activated_leaf.hash, sender)
+			.await
+			.await?
+			.map_err(|err| {
 				gum::warn!(
 					target: LOG_TARGET,
 					error = ?err,
 					"Failed to request validators for activated leaf"
 				);
 				RuntimeApi(err)
-			})?.len();
+			})?
+			.len();
 
 		let (tx, rx) = oneshot::channel();
 		sender
@@ -364,7 +366,8 @@ impl Requester {
 		.await
 	}
 
-	/// Requests backable candidates from prospective parachains subsystem to early start chunk fetching.
+	/// Requests backable candidates from prospective parachains subsystem to early start chunk
+	/// fetching.
 	async fn fetch_backable_candidate_hashes<Context>(
 		&mut self,
 		ctx: &mut Context,
@@ -464,9 +467,10 @@ impl Requester {
 				e.add_leaf(leaf);
 
 				// Fetch task initiated on early path, when candidate was not backed on chain,
-				// and now it appears to fetch the chunk on Late path when candidate is backed on chain.
-				if matches!(e.backed_on_chain, BackedOnChain::No)
-					&& matches!(origin, FetchOrigin::Late)
+				// and now it appears to fetch the chunk on Late path when candidate is backed on
+				// chain.
+				if matches!(e.backed_on_chain, BackedOnChain::No) &&
+					matches!(origin, FetchOrigin::Late)
 				{
 					e.backed_on_chain = BackedOnChain::Yes;
 					self.metrics.on_early_candidate_backed_on_chain();
