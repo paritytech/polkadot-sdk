@@ -394,15 +394,17 @@ pub enum ChainEvent<B: BlockT> {
 		/// Hash of the new head
 		hash: B::Hash,
 		/// Path from the old head to the new head
-		tree_route: Arc<sp_blockchain::TreeRoute<B>>
-	}
+		tree_route: Arc<sp_blockchain::TreeRoute<B>>,
+	},
 }
 
 impl<B: BlockT> ChainEvent<B> {
 	/// Returns the block hash associated to the event.
 	pub fn hash(&self) -> B::Hash {
 		match self {
-			Self::NewBestBlock { hash, .. } | Self::Finalized { hash, .. } | Self::Reverted { hash, .. } => *hash,
+			Self::NewBestBlock { hash, .. } |
+			Self::Finalized { hash, .. } |
+			Self::Reverted { hash, .. } => *hash,
 		}
 	}
 
