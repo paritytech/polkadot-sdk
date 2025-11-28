@@ -1594,7 +1594,7 @@ mod invulnerables {
 	}
 
 	#[test]
-	fn slashed_invulnerable_is_expelled() {
+	fn slashed_invulnerable_is_not_expelled() {
 		ExtBuilder::signed().build_and_execute(|| {
 			roll_to_signed_open();
 			assert_full_snapshot();
@@ -1630,8 +1630,8 @@ mod invulnerables {
 				                                                                         * (7) ^^^^ */
 			);
 
-			// Verify invulnerable is expelled
-			assert!(!Invulnerables::<T>::get().contains(&99));
+			// Verify invulnerable is not expelled. It remains in the list despite being slashed.
+			assert!(Invulnerables::<T>::get().contains(&99));
 		});
 	}
 }
