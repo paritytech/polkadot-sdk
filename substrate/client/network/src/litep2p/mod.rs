@@ -520,9 +520,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			if !config.bootnodes.is_empty() {
 				let (ipfs_dht, kad_config) = IpfsDht::new(config.bootnodes, config.block_provider);
 				config_builder = config_builder.with_libp2p_kademlia(kad_config);
-				executor.run(Box::pin(async {
-					ipfs_dht.run().await;
-				}));
+				executor.run(Box::pin(ipfs_dht.run()));
 			} else {
 				log::warn!(
 					target: LOG_TARGET,
