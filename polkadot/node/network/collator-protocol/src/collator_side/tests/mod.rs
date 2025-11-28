@@ -1978,7 +1978,6 @@ fn connect_advertise_disconnect_three_backing_groups() {
 				validator_peer_ids.iter().take(4).chunks(2).into_iter().enumerate()
 			{
 				let peer_ids_vec: Vec<PeerId> = peer_ids.copied().collect();
-				println!("candidate_hashes: {:?}", candidate_hashes);
 				expect_advertise_collation_msg(
 					&mut virtual_overseer,
 					&peer_ids_vec,
@@ -2012,6 +2011,17 @@ fn connect_advertise_disconnect_three_backing_groups() {
 				}
 			);
 
+			// Update view and expect connections to all validators to be dropped.
+			update_view(
+				Some(vec![]),
+				&test_state,
+				&mut virtual_overseer,
+				vec![(Hash::random(), 11)],
+				1,
+			)
+			.await;
+
+			
 			TestHarness { virtual_overseer, req_v2_cfg: req_cfg }
 		},
 	);

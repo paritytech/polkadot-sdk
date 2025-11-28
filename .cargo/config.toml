@@ -11,6 +11,11 @@ CXX_x86_64_unknown_linux_musl = { value = ".cargo/musl-g++", force = true, relat
 CARGO_WORKSPACE_ROOT_DIR = { value = "", relative = true }
 SQLX_OFFLINE = "true"
 
+# Fix for macOS C++ compiler to find standard library headers
+# This is needed on macOS 26.0+ where the headers are in the SDK
+SDKROOT = { value = "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk" }
+CXXFLAGS = { value = "-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1" }
+
 [net]
 retry = 5
 # git-fetch-with-cli = true # commented because there is a risk that a runner can be banned by github

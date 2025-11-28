@@ -697,9 +697,9 @@ fn has_assigned_cores(
 	false
 }
 
-// Get a list of backing validators at all allowed relay parents.
-// If `pending_collation` is true, we will only return the validators
-// that have a collation pending (advertised or created status)
+/// Get a list of backing validators at all allowed relay parents.
+/// If `pending_collation` is true, we will only return the validators
+/// that have a collation pending (advertised or created status)
 fn list_of_backing_validators_in_view(
 	implicit_view: &Option<ImplicitView>,
 	per_relay_parent: &HashMap<Hash, PerRelayParent>,
@@ -720,11 +720,9 @@ fn list_of_backing_validators_in_view(
 			if pending_collation {
 				// Check if there is any collation for this relay parent.
 				for collation_data in relay_parent.collations.values() {
-					if collation_data.collation().status != CollationStatus::Requested {
-						let core_index = collation_data.core_index();
-						if let Some(group) = relay_parent.validator_group.get(core_index) {
-							backing_validators.extend(group.validators.iter().cloned());
-						}
+					let core_index = collation_data.core_index();
+					if let Some(group) = relay_parent.validator_group.get(core_index) {
+						backing_validators.extend(group.validators.iter().cloned());
 					}
 				}
 			} else {
@@ -785,11 +783,11 @@ async fn update_validator_connections<Context>(
 
 		gum::trace!(
 			target: LOG_TARGET,
-			"Keeping onnections to validators with pending collations: {:?}",
+			"Keeping connections to validators with pending collations: {:?}",
 			validator_ids,
 		);
 
-		// Disconnect from all connected validators on the `Collation` protocol.
+		// Disconnect from all validators with no pending collations.
 		NetworkBridgeTxMessage::ConnectToValidators {
 			validator_ids,
 			peer_set: PeerSet::Collation,
