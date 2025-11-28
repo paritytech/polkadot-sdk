@@ -1027,7 +1027,7 @@ impl<T: Config> Pallet<T> {
 		{
 			// Slash the deposit.
 			// Note that an invulnerable is not expelled from the list despite the slashing.
-			//  Removal should occur only through governance, not automatically. An operational or
+			// Removal should occur only through governance, not automatically. An operational or
 			// network issue that leads to an incomplete submission is much more likely than a bad
 			// faith action from an invulnerable.
 			let slash = metadata.deposit;
