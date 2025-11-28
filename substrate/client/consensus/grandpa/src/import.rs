@@ -276,9 +276,9 @@ where
 		hash: Block::Hash,
 		initial_sync: bool,
 	) -> Result<PendingSetChanges<Block>, ConsensusError> {
-		// For blocks from warp sync proofs, we can
-		// Skip authority set change tracking for warp synced blocks, because authority sets will
-		// be reconstructed after sync completes from the finalized state.
+		// For warp synced block we can skip authority set change tracking for warp synced blocks,
+		// because authority sets will be reconstructed after sync completes from the finalized
+		// state.
 		if block.origin == BlockOrigin::WarpSync {
 			return Ok(PendingSetChanges {
 				just_in_case: None,
