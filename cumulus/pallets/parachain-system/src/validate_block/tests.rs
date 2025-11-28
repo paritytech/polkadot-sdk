@@ -25,8 +25,8 @@ use cumulus_test_client::{
 		self as test_runtime, Block, Hash, Header, SudoCall, SystemCall, TestPalletCall,
 		UncheckedExtrinsic, WASM_BINARY,
 	},
-	seal_block, transfer, BlockData, BlockOrigin, BuildParachainBlockData, Client,
-	DefaultTestClientBuilderExt, HeadData, InitBlockBuilder,
+	seal_block, transfer, BlockData, BlockOrigin, BuildBlockBuilder, BuildParachainBlockData,
+	Client, DefaultTestClientBuilderExt, HeadData,
 	Sr25519Keyring::{Alice, Bob, Charlie},
 	TestClientBuilder, TestClientBuilderExt, ValidationParams,
 };
@@ -151,7 +151,12 @@ fn build_block_with_witness(
 		mut block_builder,
 		persisted_validation_data,
 		..
-	} = client.init_block_builder_with_pre_digests(Some(validation_data), sproof_builder, pre_digests);
+	} = client
+		.init_block_builder_builder()
+		.with_validation_data(validation_data)
+		.with_relay_sproof_builder(sproof_builder)
+		.with_pre_digests(pre_digests)
+		.build();
 
 	extra_extrinsics.into_iter().for_each(|e| block_builder.push(e).unwrap());
 
@@ -206,14 +211,15 @@ fn build_multiple_blocks_with_witness(
 			mut block_builder,
 			persisted_validation_data: p_v_data,
 			proof_recorder,
-		} = client.init_block_builder_with_ignored_nodes_and_pre_digests(
-			parent_head.hash(),
-			Some(validation_data.clone()),
-			sproof_builder.clone(),
-			timestamp,
-			ignored_nodes.clone(),
-			(pre_digests)(i),
-		);
+		} = client
+			.init_block_builder_builder()
+			.at(parent_head.hash())
+			.with_validation_data(validation_data.clone())
+			.with_relay_sproof_builder(sproof_builder.clone())
+			.with_timestamp(timestamp)
+			.with_ignored_nodes(ignored_nodes.clone())
+			.with_pre_digests((pre_digests)(i))
+			.build();
 
 		persisted_validation_data = Some(p_v_data);
 

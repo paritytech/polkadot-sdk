@@ -31,7 +31,7 @@ use cumulus_relay_chain_interface::{
 };
 use cumulus_test_client::{
 	runtime::{Block, Hash, Header},
-	Backend, Client, InitBlockBuilder, TestClientBuilder, TestClientBuilderExt,
+	Backend, BuildBlockBuilder, Client, TestClientBuilder, TestClientBuilderExt,
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use futures::{channel::mpsc, executor::block_on, select, FutureExt, Stream, StreamExt};
@@ -314,19 +314,22 @@ fn sproof_with_parent(parent: HeadData) -> RelayStateSproofBuilder {
 	x
 }
 
-fn build_block<B: InitBlockBuilder>(
+fn build_block<B: BuildBlockBuilder>(
 	builder: &B,
 	sproof: RelayStateSproofBuilder,
 	at: Option<Hash>,
 	timestamp: Option<u64>,
 	relay_parent: Option<PHash>,
 ) -> Block {
-	let cumulus_test_client::BlockBuilderAndSupportData { block_builder, .. } = match at {
-		Some(at) => match timestamp {
-			Some(ts) => builder.init_block_builder_with_timestamp(at, None, sproof, ts),
-			None => builder.init_block_builder_at(at, None, sproof),
-		},
-		None => builder.init_block_builder(None, sproof),
+	let cumulus_test_client::BlockBuilderAndSupportData { block_builder, .. } = {
+		let mut bb = builder.init_block_builder_builder().with_relay_sproof_builder(sproof);
+		if let Some(at) = at {
+			bb = bb.at(at);
+		}
+		if let Some(ts) = timestamp {
+			bb = bb.with_timestamp(ts);
+		}
+		bb.build()
 	};
 
 	let mut block = block_builder.build().unwrap().block;
@@ -560,7 +563,12 @@ async fn follow_finalized_does_not_stop_on_unknown_block() {
 
 	let unknown_block = {
 		let sproof = sproof_with_parent_by_hash(&client, block.hash());
-		let block_builder = client.init_block_builder_at(block.hash(), None, sproof).block_builder;
+		let block_builder = client
+			.init_block_builder_builder()
+			.at(block.hash())
+			.with_relay_sproof_builder(sproof)
+			.build()
+			.block_builder;
 		block_builder.build().unwrap().block
 	};
 
@@ -615,7 +623,12 @@ async fn follow_new_best_sets_best_after_it_is_imported() {
 
 	let unknown_block = {
 		let sproof = sproof_with_parent_by_hash(&client, block.hash());
-		let block_builder = client.init_block_builder_at(block.hash(), None, sproof).block_builder;
+		let block_builder = client
+			.init_block_builder_builder()
+			.at(block.hash())
+			.with_relay_sproof_builder(sproof)
+			.build()
+			.block_builder;
 		block_builder.build().unwrap().block
 	};
 

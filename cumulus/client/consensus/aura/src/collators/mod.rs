@@ -328,7 +328,7 @@ mod tests {
 	use cumulus_relay_chain_interface::PHash;
 	use cumulus_test_client::{
 		runtime::{Block, Hash},
-		Client, DefaultTestClientBuilderExt, InitBlockBuilder, TestClientBuilder,
+		BuildBlockBuilder, Client, DefaultTestClientBuilderExt, TestClientBuilder,
 		TestClientBuilderExt,
 	};
 	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
@@ -367,7 +367,11 @@ mod tests {
 	async fn build_and_import_block(client: &Client, included: Hash) -> Block {
 		let sproof = sproof_with_parent_by_hash(client, included);
 
-		let block_builder = client.init_block_builder(None, sproof).block_builder;
+		let block_builder = client
+			.init_block_builder_builder()
+			.with_relay_sproof_builder(sproof)
+			.build()
+			.block_builder;
 
 		let block = block_builder.build().unwrap().block;
 
