@@ -23,6 +23,7 @@ use crate::{
 	weights::*,
 	Pallet, VoteRecord, VotingOf,
 };
+use alloc::vec::Vec;
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::{GetStorageVersion, PhantomData, StorageVersion},
