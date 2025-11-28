@@ -302,6 +302,9 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 			?id, ?weight, ?given, ?context,
 			"FixedRateOfFungible::quote_weight",
 		);
+		if given != id {
+			return Err(XcmError::NotHoldingFees);
+		}
 		let amount = (units_per_second * (weight.ref_time() as u128) /
 			(WEIGHT_REF_TIME_PER_SECOND as u128)) +
 			(units_per_mb * (weight.proof_size() as u128) / (WEIGHT_PROOF_SIZE_PER_MB as u128));
@@ -403,12 +406,16 @@ where
 		context: &XcmContext,
 	) -> Result<Asset, XcmError> {
 		tracing::trace!(target: "xcm::weight", ?weight, ?given, ?context, "UsingComponents::quote_weight");
+		let supported_id = AssetId(AssetIdValue::get());
+		if given != supported_id {
+			return Err(XcmError::NotHoldingFees);
+		}
 		let amount = WeightToFee::weight_to_fee(&weight);
 		let u128_amount: u128 = TryInto::<u128>::try_into(amount).map_err(|_| {
 			tracing::debug!(target: "xcm::weight", ?amount, "Weight fee could not be converted");
 			XcmError::Overflow
 		})?;
-		let required = Asset { id: AssetId(AssetIdValue::get()), fun: Fungible(u128_amount) };
+		let required = Asset { id: supported_id, fun: Fungible(u128_amount) };
 		Ok(required)
 	}
 }

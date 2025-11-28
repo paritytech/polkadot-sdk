@@ -50,11 +50,11 @@ fn para_to_relay_sender_assertions(t: ParaToRelayTest) {
 		vec![
 			// Amount to reserve transfer is transferred to Parachain's Sovereign account
 			RuntimeEvent::ForeignAssets(
-				pallet_assets::Event::Burned { asset_id, owner, balance, .. }
+				pallet_assets::Event::Withdrawn { asset_id, who, amount }
 			) => {
 				asset_id: *asset_id == RelayLocation::get(),
-				owner: *owner == t.sender.account_id,
-				balance: *balance == t.args.amount,
+				who: *who == t.sender.account_id,
+				amount: *amount == t.args.amount,
 			},
 		]
 	);
@@ -135,9 +135,9 @@ pub fn system_para_to_para_receiver_assertions(t: SystemParaToParaTest) {
 		assert_expected_events!(
 			PenpalA,
 			vec![
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who, .. }) => {
 					asset_id: *asset_id == expected_id,
-					owner: *owner == t.receiver.account_id,
+					who: *who == t.receiver.account_id,
 				},
 			]
 		);
@@ -163,9 +163,9 @@ pub fn system_para_to_penpal_receiver_assertions(t: SystemParaToParaTest) {
 		assert_expected_events!(
 			PenpalA,
 			vec![
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who, .. }) => {
 					asset_id: *asset_id == relative_id,
-					owner: *owner == t.receiver.account_id,
+					who: *who == t.receiver.account_id,
 				},
 			]
 		);
@@ -182,11 +182,11 @@ pub fn para_to_system_para_sender_assertions(t: ParaToSystemParaTest) {
 			PenpalA,
 			vec![
 				RuntimeEvent::ForeignAssets(
-					pallet_assets::Event::Burned { asset_id, owner, balance }
+					pallet_assets::Event::Withdrawn { asset_id, who, amount }
 				) => {
 					asset_id: *asset_id == expected_id,
-					owner: *owner == t.sender.account_id,
-					balance: *balance == asset_amount,
+					who: *who == t.sender.account_id,
+					amount: *amount == asset_amount,
 				},
 			]
 		);
@@ -209,12 +209,12 @@ fn para_to_relay_receiver_assertions(t: ParaToRelayTest) {
 		vec![
 			// Amount to reserve transfer is withdrawn from Parachain's Sovereign account
 			RuntimeEvent::Balances(
-				pallet_balances::Event::Burned { who, amount }
+				pallet_balances::Event::Withdraw { who, amount }
 			) => {
 				who: *who == sov_penpal_on_relay.clone().into(),
 				amount: *amount == t.args.amount,
 			},
-			RuntimeEvent::Balances(pallet_balances::Event::Minted { .. }) => {},
+			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
 			RuntimeEvent::MessageQueue(
 				pallet_message_queue::Event::Processed { success: true, .. }
 			) => {},
@@ -239,12 +239,12 @@ pub fn para_to_system_para_receiver_assertions(t: ParaToSystemParaTest) {
 				vec![
 					// Amount of native is withdrawn from Parachain's Sovereign account
 					RuntimeEvent::Balances(
-						pallet_balances::Event::Burned { who, amount }
+						pallet_balances::Event::Withdraw { who, amount }
 					) => {
 						who: *who == sov_acc_of_penpal.clone().into(),
 						amount: *amount == asset_amount,
 					},
-					RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
+					RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
 						who: *who == t.receiver.account_id,
 					},
 				]
@@ -256,17 +256,17 @@ pub fn para_to_system_para_receiver_assertions(t: ParaToSystemParaTest) {
 					// Amount of foreign asset is transferred from Parachain's Sovereign account
 					// to Receiver's account
 					RuntimeEvent::ForeignAssets(
-						pallet_assets::Event::Burned { asset_id, owner, balance },
+						pallet_assets::Event::Withdrawn { asset_id, who, amount },
 					) => {
 						asset_id: *asset_id == expected_id,
-						owner: *owner == sov_acc_of_penpal,
-						balance: *balance == asset_amount,
+						who: *who == sov_acc_of_penpal,
+						amount: *amount == asset_amount,
 					},
 					RuntimeEvent::ForeignAssets(
-						pallet_assets::Event::Issued { asset_id, owner, amount },
+						pallet_assets::Event::Deposited { asset_id, who, amount },
 					) => {
 						asset_id: *asset_id == expected_id,
-						owner: *owner == t.receiver.account_id,
+						who: *who == t.receiver.account_id,
 						amount: *amount == asset_amount,
 					},
 				]
@@ -304,7 +304,7 @@ fn system_para_to_para_assets_sender_assertions(t: SystemParaToParaTest) {
 				amount: *amount == t.args.amount,
 			},
 			// Native asset to pay for fees is transferred to Parachain's Sovereign account
-			RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
+			RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
 				who: *who == TreasuryAccount::get(),
 			},
 			// Delivery fees are paid
@@ -323,20 +323,20 @@ fn para_to_system_para_assets_sender_assertions(t: ParaToSystemParaTest) {
 	assert_expected_events!(
 		PenpalA,
 		vec![
-			// Fees amount to reserve transfer is burned from Parachains's sender account
+			// Fees amount to reserve transfer is withdrawn from Parachains's sender account
 			RuntimeEvent::ForeignAssets(
-				pallet_assets::Event::Burned { asset_id, owner, .. }
+				pallet_assets::Event::Withdrawn { asset_id, who, .. }
 			) => {
 				asset_id: *asset_id == system_para_native_asset_location,
-				owner: *owner == t.sender.account_id,
+				who: *who == t.sender.account_id,
 			},
-			// Amount to reserve transfer is burned from Parachains's sender account
+			// Amount to reserve transfer is withdrawn from Parachains's sender account
 			RuntimeEvent::ForeignAssets(
-				pallet_assets::Event::Burned { asset_id, owner, balance }
+				pallet_assets::Event::Withdrawn { asset_id, who, amount }
 			) => {
 				asset_id: *asset_id == reservable_asset_location,
-				owner: *owner == t.sender.account_id,
-				balance: *balance == t.args.amount,
+				who: *who == t.sender.account_id,
+				amount: *amount == t.args.amount,
 			},
 			// Delivery fees are paid
 			RuntimeEvent::PolkadotXcm(
@@ -353,13 +353,13 @@ fn system_para_to_para_assets_receiver_assertions(t: SystemParaToParaTest) {
 	assert_expected_events!(
 		PenpalA,
 		vec![
-			RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+			RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who, .. }) => {
 				asset_id: *asset_id == RelayLocation::get(),
-				owner: *owner == t.receiver.account_id,
+				who: *who == t.receiver.account_id,
 			},
-			RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, amount }) => {
+			RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who, amount }) => {
 				asset_id: *asset_id == system_para_asset_location,
-				owner: *owner == t.receiver.account_id,
+				who: *who == t.receiver.account_id,
 				amount: *amount == t.args.amount,
 			},
 		]
@@ -375,24 +375,24 @@ fn para_to_system_para_assets_receiver_assertions(t: ParaToSystemParaTest) {
 	assert_expected_events!(
 		AssetHubWestend,
 		vec![
-			// Amount to reserve transfer is burned from Parachain's Sovereign account
-			RuntimeEvent::Assets(pallet_assets::Event::Burned { asset_id, owner, balance }) => {
+			// Amount to reserve transfer is withdrawn from Parachain's Sovereign account
+			RuntimeEvent::Assets(pallet_assets::Event::Withdrawn { asset_id, who, amount }) => {
 				asset_id: *asset_id == RESERVABLE_ASSET_ID,
-				owner: *owner == sov_penpal_on_ahr,
-				balance: *balance == t.args.amount,
-			},
-			// Fee amount is burned from Parachain's Sovereign account
-			RuntimeEvent::Balances(pallet_balances::Event::Burned { who, .. }) => {
 				who: *who == sov_penpal_on_ahr,
-			},
-			// Amount to reserve transfer is issued for beneficiary
-			RuntimeEvent::Assets(pallet_assets::Event::Issued { asset_id, owner, amount }) => {
-				asset_id: *asset_id == RESERVABLE_ASSET_ID,
-				owner: *owner == t.receiver.account_id,
 				amount: *amount == t.args.amount,
 			},
-			// Remaining fee amount is minted for for beneficiary
-			RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
+			// Fee amount is withdrawn from Parachain's Sovereign account
+			RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who, .. }) => {
+				who: *who == sov_penpal_on_ahr,
+			},
+			// Amount to reserve transfer is deposited to beneficiary
+			RuntimeEvent::Assets(pallet_assets::Event::Deposited { asset_id, who, amount }) => {
+				asset_id: *asset_id == RESERVABLE_ASSET_ID,
+				who: *who == t.receiver.account_id,
+				amount: *amount == t.args.amount,
+			},
+			// Remaining fee amount is deposited to beneficiary
+			RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
 				who: *who == t.receiver.account_id,
 			},
 		]
@@ -405,9 +405,9 @@ fn relay_to_para_assets_receiver_assertions(t: RelayToParaTest) {
 	assert_expected_events!(
 		PenpalA,
 		vec![
-			RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+			RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who, .. }) => {
 				asset_id: *asset_id == RelayLocation::get(),
-				owner: *owner == t.receiver.account_id,
+				who: *who == t.receiver.account_id,
 			},
 			RuntimeEvent::MessageQueue(
 				pallet_message_queue::Event::Processed { success: true, .. }
@@ -425,17 +425,17 @@ pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(mut t: Test<Penpal
 
 	for asset in t.args.assets.into_inner() {
 		let expected_id = asset.id.0.clone().try_into().unwrap();
-		let amount = if let Fungible(a) = asset.fun { Some(a) } else { None }.unwrap();
+		let expected_amount = if let Fungible(a) = asset.fun { Some(a) } else { None }.unwrap();
 		assert_expected_events!(
 			PenpalA,
 			vec![
 				// Amount to reserve transfer is transferred to Parachain's Sovereign account
 				RuntimeEvent::ForeignAssets(
-					pallet_assets::Event::Burned { asset_id, owner, balance },
+					pallet_assets::Event::Withdrawn { asset_id, who, amount },
 				) => {
 					asset_id: *asset_id == expected_id,
-					owner: *owner == t.sender.account_id,
-					balance: *balance == amount,
+					who: *who == t.sender.account_id,
+					amount: *amount == expected_amount,
 				},
 			]
 		);
@@ -454,14 +454,14 @@ fn para_to_para_relay_hop_assertions(t: ParaToParaThroughRelayTest) {
 		vec![
 			// Withdrawn from sender parachain SA
 			RuntimeEvent::Balances(
-				pallet_balances::Event::Burned { who, amount }
+				pallet_balances::Event::Withdraw { who, amount }
 			) => {
 				who: *who == sov_penpal_a_on_westend,
 				amount: *amount == t.args.amount,
 			},
 			// Deposited to receiver parachain SA
 			RuntimeEvent::Balances(
-				pallet_balances::Event::Minted { who, .. }
+				pallet_balances::Event::Deposit { who, .. }
 			) => {
 				who: *who == sov_penpal_b_on_westend,
 			},
@@ -485,10 +485,10 @@ fn para_to_para_asset_hub_hop_assertions(t: ParaToParaThroughAHTest) {
 		vec![
 			// Withdrawn from sender parachain SA
 			RuntimeEvent::Assets(
-				pallet_assets::Event::Burned { owner, balance, .. }
+				pallet_assets::Event::Withdrawn { who, amount, .. }
 			) => {
-				owner: *owner == sov_penpal_a_on_ah,
-				balance: *balance == asset_amount,
+				who: *who == sov_penpal_a_on_ah,
+				amount: *amount == asset_amount,
 			},
 			RuntimeEvent::MessageQueue(
 				pallet_message_queue::Event::Processed { success: true, .. }
@@ -512,9 +512,9 @@ pub fn para_to_para_through_hop_receiver_assertions<Hop: Clone>(
 		assert_expected_events!(
 			PenpalB,
 			vec![
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who, .. }) => {
 					asset_id: *asset_id == expected_id,
-					owner: *owner == t.receiver.account_id,
+					who: *who == t.receiver.account_id,
 				},
 			]
 		);

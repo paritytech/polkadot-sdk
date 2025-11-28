@@ -165,7 +165,7 @@ macro_rules! test_parachain_is_trusted_teleporter {
 									$crate::macros::cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }
 								) => {},
 								RuntimeEvent::Balances(
-									$crate::macros::pallet_balances::Event::Burned { who: sender, amount }
+									$crate::macros::pallet_balances::Event::Withdraw { who: sender, .. }
 								) => {},
 							]
 						);
@@ -179,7 +179,7 @@ macro_rules! test_parachain_is_trusted_teleporter {
 							$receiver_para,
 							vec![
 								RuntimeEvent::Balances(
-									$crate::macros::pallet_balances::Event::Minted { who: receiver, .. }
+									$crate::macros::pallet_balances::Event::Deposit { who: receiver, .. }
 								) => {},
 								RuntimeEvent::MessageQueue(
 									$crate::macros::pallet_message_queue::Event::Processed { success: true, .. }
@@ -303,7 +303,7 @@ macro_rules! test_relay_is_trusted_teleporter {
 									$crate::macros::pallet_xcm::Event::Attempted { outcome: $crate::macros::Outcome::Complete { .. } }
 								) => {},
 								RuntimeEvent::Balances(
-									$crate::macros::pallet_balances::Event::Burned { who: sender, amount }
+									$crate::macros::pallet_balances::Event::Withdraw { who: sender, .. }
 								) => {},
 								RuntimeEvent::XcmPallet(
 									$crate::macros::pallet_xcm::Event::Sent { .. }
@@ -320,7 +320,7 @@ macro_rules! test_relay_is_trusted_teleporter {
 							$receiver_para,
 							vec![
 								RuntimeEvent::Balances(
-									$crate::macros::pallet_balances::Event::Minted { who: receiver, .. }
+									$crate::macros::pallet_balances::Event::Deposit { who: receiver, .. }
 								) => {},
 								RuntimeEvent::MessageQueue(
 									$crate::macros::pallet_message_queue::Event::Processed { success: true, .. }
@@ -468,7 +468,7 @@ macro_rules! test_parachain_is_trusted_teleporter_for_relay {
 							$crate::macros::pallet_xcm::Event::Attempted { outcome: $crate::macros::Outcome::Complete { .. } }
 						) => {},
 						RuntimeEvent::Balances(
-							$crate::macros::pallet_balances::Event::Burned { who: sender, amount }
+							$crate::macros::pallet_balances::Event::Withdraw { who: sender, .. }
 						) => {},
 						RuntimeEvent::PolkadotXcm(
 							$crate::macros::pallet_xcm::Event::Sent { .. }
@@ -485,7 +485,7 @@ macro_rules! test_parachain_is_trusted_teleporter_for_relay {
 					$receiver_relay,
 					vec![
 						RuntimeEvent::Balances(
-							$crate::macros::pallet_balances::Event::Minted { who: receiver, .. }
+							$crate::macros::pallet_balances::Event::Deposit { who: receiver, .. }
 						) => {},
 						RuntimeEvent::MessageQueue(
 							$crate::macros::pallet_message_queue::Event::Processed { success: true, .. }
@@ -520,6 +520,7 @@ macro_rules! test_chain_can_claim_assets {
 				$crate::macros::Junction::AccountId32 { network: Some($network_id), id: sender.clone().into() }.into();
 			let versioned_assets: $crate::macros::VersionedAssets = $assets.clone().into();
 
+			// FIXME: either use a dummy imbalance tracker, or even better, avoid calling drop/claim directly and instead go through XCM executor
 			<$sender_para as $crate::macros::TestExt>::execute_with(|| {
 				// Assets are trapped for whatever reason.
 				// The possible reasons for this might differ from runtime to runtime, so here we just drop them directly.

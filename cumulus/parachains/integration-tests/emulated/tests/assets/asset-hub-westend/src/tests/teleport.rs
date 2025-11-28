@@ -22,7 +22,7 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 		Westend,
 		vec![
 			// Amount to teleport is withdrawn from Sender
-			RuntimeEvent::Balances(pallet_balances::Event::Burned { who, amount }) => {
+			RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who, amount }) => {
 				who: *who == t.sender.account_id,
 				amount: *amount == t.args.amount,
 			},
@@ -41,15 +41,15 @@ fn penpal_to_ah_foreign_assets_sender_assertions(t: ParaToSystemParaTest) {
 		PenpalA,
 		vec![
 			RuntimeEvent::ForeignAssets(
-				pallet_assets::Event::Burned { asset_id, owner, .. }
+				pallet_assets::Event::Withdrawn { asset_id, who, .. }
 			) => {
 				asset_id: *asset_id == system_para_native_asset_location,
-				owner: *owner == t.sender.account_id,
+				who: *who == t.sender.account_id,
 			},
-			RuntimeEvent::Assets(pallet_assets::Event::Burned { asset_id, owner, balance }) => {
+			RuntimeEvent::Assets(pallet_assets::Event::Withdrawn { asset_id, who, amount }) => {
 				asset_id: *asset_id == expected_asset_id,
-				owner: *owner == t.sender.account_id,
-				balance: *balance == expected_asset_amount,
+				who: *who == t.sender.account_id,
+				amount: *amount == expected_asset_amount,
 			},
 		]
 	);
@@ -71,17 +71,17 @@ fn penpal_to_ah_foreign_assets_receiver_assertions(t: ParaToSystemParaTest) {
 		vec![
 			// native asset reserve transfer for paying fees, withdrawn from Penpal's sov account
 			RuntimeEvent::Balances(
-				pallet_balances::Event::Burned { who, amount }
+				pallet_balances::Event::Withdraw { who, amount }
 			) => {
 				who: *who == sov_penpal_on_ahr.clone().into(),
 				amount: *amount >= fee_asset_amount / 2,
 			},
-			RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
+			RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
 				who: *who == t.receiver.account_id,
 			},
-			RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, amount }) => {
+			RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who, amount }) => {
 				asset_id: *asset_id == PenpalATeleportableAssetLocation::get(),
-				owner: *owner == t.receiver.account_id,
+				who: *who == t.receiver.account_id,
 				amount: *amount == expected_foreign_asset_amount,
 			},
 			RuntimeEvent::Balances(pallet_balances::Event::Deposit { .. }) => {},
@@ -97,11 +97,11 @@ fn ah_to_penpal_foreign_assets_sender_assertions(t: SystemParaToParaTest) {
 	assert_expected_events!(
 		AssetHubWestend,
 		vec![
-			// foreign asset is burned locally as part of teleportation
-			RuntimeEvent::ForeignAssets(pallet_assets::Event::Burned { asset_id, owner, balance }) => {
+			// foreign asset is withdrawn and burned locally as part of teleportation
+			RuntimeEvent::ForeignAssets(pallet_assets::Event::Withdrawn { asset_id, who, amount }) => {
 				asset_id: *asset_id == expected_foreign_asset_id,
-				owner: *owner == t.sender.account_id,
-				balance: *balance == expected_foreign_asset_amount,
+				who: *who == t.sender.account_id,
+				amount: *amount == expected_foreign_asset_amount,
 			},
 		]
 	);
@@ -126,15 +126,15 @@ fn ah_to_penpal_foreign_assets_receiver_assertions(t: SystemParaToParaTest) {
 				balance: *balance == expected_asset_amount,
 			},
 			// local asset is teleported into account of receiver
-			RuntimeEvent::Assets(pallet_assets::Event::Issued { asset_id, owner, amount }) => {
+			RuntimeEvent::Assets(pallet_assets::Event::Deposited { asset_id, who, amount }) => {
 				asset_id: *asset_id == expected_asset_id,
-				owner: *owner == t.receiver.account_id,
+				who: *who == t.receiver.account_id,
 				amount: *amount == expected_asset_amount,
 			},
 			// native asset for fee is deposited to receiver
-			RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+			RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who, .. }) => {
 				asset_id: *asset_id == system_para_native_asset_location,
-				owner: *owner == t.receiver.account_id,
+				who: *who == t.receiver.account_id,
 			},
 		]
 	);
@@ -361,7 +361,7 @@ fn limited_teleport_native_assets_from_relay_to_asset_hub_checking_acc_burn_work
 					who: *who == <AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::check_account(),
 					amount:  *amount == t.args.amount,
 				},
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
+				RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
 					who: *who == t.receiver.account_id,
 				},
 				RuntimeEvent::MessageQueue(
@@ -439,12 +439,11 @@ fn limited_teleport_native_assets_from_asset_hub_to_relay_checking_acc_mint_work
 			AssetHubWestend,
 			vec![
 				RuntimeEvent::Balances(
-					pallet_balances::Event::Burned { who, amount }
+					pallet_balances::Event::Withdraw { who, amount }
 				) => {
 					who: *who == t.sender.account_id,
 					amount: *amount == t.args.amount,
 				},
-				// Amount to teleport is burned from Asset Hub's `CheckAccount`
 				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount }) => {
 					who: *who == <AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::check_account(),
 					amount:  *amount == t.args.amount,
@@ -461,7 +460,7 @@ fn limited_teleport_native_assets_from_asset_hub_to_relay_checking_acc_mint_work
 				RuntimeEvent::MessageQueue(
 					pallet_message_queue::Event::Processed { success: true, .. }
 				) => {},
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
+				RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
 					who: *who == t.receiver.account_id,
 				},
 			]

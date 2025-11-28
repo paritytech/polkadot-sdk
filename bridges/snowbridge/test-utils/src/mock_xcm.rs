@@ -97,7 +97,7 @@ impl TransactAsset for SuccessfulTransactor {
 		Ok(())
 	}
 
-	fn deposit_asset(_what: &Asset, _who: &Location, _context: Option<&XcmContext>) -> XcmResult {
+	fn deposit_asset(_what: AssetsInHolding, _who: &Location, _context: Option<&XcmContext>) -> Result<(), (AssetsInHolding, XcmError)> {
 		Ok(())
 	}
 
@@ -106,7 +106,7 @@ impl TransactAsset for SuccessfulTransactor {
 		_who: &Location,
 		_context: Option<&XcmContext>,
 	) -> Result<AssetsInHolding, XcmError> {
-		Ok(AssetsInHolding::default())
+		Ok(AssetsInHolding::new())
 	}
 
 	fn internal_transfer_asset(
@@ -114,8 +114,8 @@ impl TransactAsset for SuccessfulTransactor {
 		_from: &Location,
 		_to: &Location,
 		_context: &XcmContext,
-	) -> Result<AssetsInHolding, XcmError> {
-		Ok(AssetsInHolding::default())
+	) -> Result<Asset, XcmError> {
+		Ok(_what.clone())
 	}
 }
 
@@ -153,5 +153,5 @@ impl FeeManager for MockXcmExecutor {
 		IS_WAIVED.with(|l| l.borrow().contains(&r))
 	}
 
-	fn handle_fee(_: Assets, _: Option<&XcmContext>, _: FeeReason) {}
+	fn handle_fee(_: AssetsInHolding, _: Option<&XcmContext>, _: FeeReason) {}
 }

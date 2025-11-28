@@ -639,9 +639,9 @@ fn asset_hub_hop_assertions(sender_sa: AccountId) {
 		vec![
 			// Withdrawn from sender parachain SA
 			RuntimeEvent::Assets(
-				pallet_assets::Event::Burned { owner, .. }
+				pallet_assets::Event::Withdrawn { who, .. }
 			) => {
-				owner: *owner == sender_sa,
+				who: *who == sender_sa,
 			},
 			RuntimeEvent::MessageQueue(
 				pallet_message_queue::Event::Processed { success: true, .. }

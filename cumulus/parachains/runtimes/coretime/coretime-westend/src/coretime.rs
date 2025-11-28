@@ -56,11 +56,11 @@ fn burn_at_relay(stash: &AccountId, value: Balance) -> Result<(), XcmError> {
 	let asset = Asset { id: AssetId(Location::parent()), fun: Fungible(value) };
 	let dummy_xcm_context = XcmContext { origin: None, message_id: [0; 32], topic: None };
 
+	AssetTransactor::can_check_out(&dest, &asset, &dummy_xcm_context)?;
 	let withdrawn = AssetTransactor::withdraw_asset(&asset, &stash_location, None)?;
 
-	AssetTransactor::can_check_out(&dest, &asset, &dummy_xcm_context)?;
-
-	let parent_assets = Into::<Assets>::into(withdrawn)
+	let assets: Assets = withdrawn.into_assets_iter().collect::<Vec<Asset>>().into();
+	let parent_assets = assets
 		.reanchored(&dest, &Here.into())
 		.defensive_map_err(|_| XcmError::ReanchorFailed)?;
 

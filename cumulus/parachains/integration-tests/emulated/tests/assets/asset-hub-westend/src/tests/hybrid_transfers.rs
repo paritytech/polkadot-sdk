@@ -38,14 +38,14 @@ fn para_to_para_assethub_hop_assertions(mut t: ParaToParaThroughAHTest) {
 		vec![
 			// Withdrawn from sender parachain SA
 			RuntimeEvent::Balances(
-				pallet_balances::Event::Burned { who, amount }
+				pallet_balances::Event::Withdraw { who, amount }
 			) => {
 				who: *who == sov_penpal_a_on_ah,
 				amount: *amount == t.args.amount,
 			},
 			// Deposited to receiver parachain SA
 			RuntimeEvent::Balances(
-				pallet_balances::Event::Minted { who, .. }
+				pallet_balances::Event::Deposit { who, .. }
 			) => {
 				who: *who == sov_penpal_b_on_ah,
 			},
@@ -750,7 +750,7 @@ fn transfer_native_asset_from_relay_to_penpal_through_asset_hub() {
 			Westend,
 			vec![
 				// Amount to teleport is withdrawn from Sender
-				RuntimeEvent::Balances(pallet_balances::Event::Burned { who, amount }) => {
+				RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who, amount }) => {
 					who: *who == t.sender.account_id,
 					amount: *amount == t.args.amount,
 				},
@@ -767,7 +767,7 @@ fn transfer_native_asset_from_relay_to_penpal_through_asset_hub() {
 			vec![
 				// Deposited to receiver parachain SA
 				RuntimeEvent::Balances(
-					pallet_balances::Event::Minted { who, .. }
+					pallet_balances::Event::Deposit { who, .. }
 				) => {
 					who: *who == sov_penpal_on_ah,
 				},
@@ -782,9 +782,9 @@ fn transfer_native_asset_from_relay_to_penpal_through_asset_hub() {
 		assert_expected_events!(
 			PenpalA,
 			vec![
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who, .. }) => {
 					asset_id: *asset_id == Location::new(1, Here),
-					owner: *owner == t.receiver.account_id,
+					who: *who == t.receiver.account_id,
 				},
 			]
 		);

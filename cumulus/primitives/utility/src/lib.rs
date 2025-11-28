@@ -46,6 +46,58 @@ use xcm_executor::{
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+mod test_helpers {
+	use super::*;
+	use frame_support::traits::tokens::imbalance::{
+		ImbalanceAccounting, UnsafeConstructorDestructor, UnsafeManualAccounting,
+	};
+
+	/// Mock credit for tests
+	pub struct MockCredit(pub u128);
+
+	impl UnsafeConstructorDestructor<u128> for MockCredit {
+		fn unsafe_clone(&self) -> Box<dyn ImbalanceAccounting<u128>> {
+			Box::new(MockCredit(self.0))
+		}
+		fn forget_imbalance(&mut self) -> u128 {
+			let amt = self.0;
+			self.0 = 0;
+			amt
+		}
+	}
+
+	impl UnsafeManualAccounting<u128> for MockCredit {
+		fn subsume_other(&mut self, mut other: Box<dyn ImbalanceAccounting<u128>>) {
+			self.0 += other.forget_imbalance();
+		}
+	}
+
+	impl ImbalanceAccounting<u128> for MockCredit {
+		fn amount(&self) -> u128 {
+			self.0
+		}
+		fn saturating_take(&mut self, amount: u128) -> Box<dyn ImbalanceAccounting<u128>> {
+			let taken = self.0.min(amount);
+			self.0 -= taken;
+			Box::new(MockCredit(taken))
+		}
+	}
+
+	pub fn asset_to_holding(asset: Asset) -> AssetsInHolding {
+		let mut holding = AssetsInHolding::new();
+		match asset.fun {
+			Fungible(amount) => {
+				holding.fungible.insert(asset.id, Box::new(MockCredit(amount)));
+			},
+			NonFungible(instance) => {
+				holding.non_fungible.insert((asset.id, instance));
+			},
+		}
+		holding
+	}
+}
+
 /// Xcm router which recognises the `Parent` destination and handles it by sending the message into
 /// the given UMP `UpwardMessageSender` implementation. Thus this essentially adapts an
 /// `UpwardMessageSender` trait impl into a `SendXcm` trait impl.
@@ -754,7 +806,7 @@ mod test_xcm_router {
 }
 #[cfg(test)]
 mod test_trader {
-	use super::*;
+	use super::{test_helpers::asset_to_holding, *};
 	use frame_support::{
 		assert_ok,
 		traits::tokens::{
@@ -762,6 +814,7 @@ mod test_trader {
 		},
 	};
 	use sp_runtime::DispatchError;
+	use xcm_builder::TakeRevenue;
 	use xcm_executor::traits::Error;
 
 	#[test]
@@ -770,13 +823,15 @@ mod test_trader {
 
 		// prepare prerequisites to instantiate `TakeFirstAssetTrader`
 		type TestAccountId = u32;
-		type TestAssetId = u32;
+		type TestAssetId = Location; // Use Location directly as AssetId
 		type TestBalance = u128;
+
 		struct TestAssets;
 		impl MatchesFungibles<TestAssetId, TestBalance> for TestAssets {
 			fn matches_fungibles(a: &Asset) -> Result<(TestAssetId, TestBalance), Error> {
 				match a {
-					Asset { fun: Fungible(amount), id: AssetId(_id) } => Ok((1, *amount)),
+					Asset { fun: Fungible(amount), id: AssetId(_id) } =>
+						Ok((Location::new(0, [GeneralIndex(1)]), *amount)),
 					_ => Err(Error::AssetNotHandled),
 				}
 			}
@@ -786,7 +841,7 @@ mod test_trader {
 			type Balance = TestBalance;
 
 			fn total_issuance(_: Self::AssetId) -> Self::Balance {
-				todo!()
+				0
 			}
 
 			fn minimum_balance(_: Self::AssetId) -> Self::Balance {
@@ -794,11 +849,11 @@ mod test_trader {
 			}
 
 			fn balance(_: Self::AssetId, _: &TestAccountId) -> Self::Balance {
-				todo!()
+				0
 			}
 
 			fn total_balance(_: Self::AssetId, _: &TestAccountId) -> Self::Balance {
-				todo!()
+				0
 			}
 
 			fn reducible_balance(
@@ -807,7 +862,7 @@ mod test_trader {
 				_: Preservation,
 				_: Fortitude,
 			) -> Self::Balance {
-				todo!()
+				0
 			}
 
 			fn can_deposit(
@@ -816,7 +871,7 @@ mod test_trader {
 				_: Self::Balance,
 				_: Provenance,
 			) -> DepositConsequence {
-				todo!()
+				DepositConsequence::Success
 			}
 
 			fn can_withdraw(
@@ -824,11 +879,11 @@ mod test_trader {
 				_: &TestAccountId,
 				_: Self::Balance,
 			) -> WithdrawConsequence<Self::Balance> {
-				todo!()
+				WithdrawConsequence::Success
 			}
 
 			fn asset_exists(_: Self::AssetId) -> bool {
-				todo!()
+				true
 			}
 		}
 		impl fungibles::Mutate<TestAccountId> for TestAssets {}
@@ -837,20 +892,16 @@ mod test_trader {
 			type OnDropDebt = fungibles::IncreaseIssuance<TestAccountId, Self>;
 		}
 		impl fungibles::Unbalanced<TestAccountId> for TestAssets {
-			fn handle_dust(_: fungibles::Dust<TestAccountId, Self>) {
-				todo!()
-			}
+			fn handle_dust(_: fungibles::Dust<TestAccountId, Self>) {}
 			fn write_balance(
 				_: Self::AssetId,
 				_: &TestAccountId,
 				_: Self::Balance,
 			) -> Result<Option<Self::Balance>, DispatchError> {
-				todo!()
+				Ok(None)
 			}
 
-			fn set_total_issuance(_: Self::AssetId, _: Self::Balance) {
-				todo!()
-			}
+			fn set_total_issuance(_: Self::AssetId, _: Self::Balance) {}
 		}
 
 		struct FeeChargerAssetsHandleRefund;
@@ -863,7 +914,15 @@ mod test_trader {
 			}
 		}
 		impl TakeRevenue for FeeChargerAssetsHandleRefund {
-			fn take_revenue(_: Asset) {}
+			fn take_revenue(_: AssetsInHolding) {}
+		}
+
+		// Implement OnUnbalanced for the test
+		struct HandleFees;
+		impl OnUnbalancedT<fungibles::Credit<TestAccountId, TestAssets>> for HandleFees {
+			fn on_unbalanced(_: fungibles::Credit<TestAccountId, TestAssets>) {
+				// Just drop it for tests
+			}
 		}
 
 		// create new instance
@@ -872,21 +931,23 @@ mod test_trader {
 			FeeChargerAssetsHandleRefund,
 			TestAssets,
 			TestAssets,
-			FeeChargerAssetsHandleRefund,
+			HandleFees,
 		>;
 		let mut trader = <Trader as WeightTrader>::new();
 		let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 
 		// prepare test data
 		let asset: Asset = (Here, AMOUNT).into();
-		let payment = AssetsInHolding::from(asset);
+		let payment1 = asset_to_holding(asset.clone());
+		let payment2 = asset_to_holding(asset);
 		let weight_to_buy = Weight::from_parts(1_000, 1_000);
 
 		// lets do first call (success)
-		assert_ok!(trader.buy_weight(weight_to_buy, payment.clone(), &ctx));
+		assert_ok!(trader.buy_weight(weight_to_buy, payment1, &ctx));
 
 		// lets do second call (error)
-		assert_eq!(trader.buy_weight(weight_to_buy, payment, &ctx), Err(XcmError::NotWithdrawable));
+		let (_, error) = trader.buy_weight(weight_to_buy, payment2, &ctx).unwrap_err();
+		assert_eq!(error, XcmError::NotWithdrawable);
 	}
 }
 
