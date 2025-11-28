@@ -51,7 +51,8 @@ impl StatementApiServer for StatementStore {
 		Ok(statements.into_iter().map(|(_, s)| s.encode().into()).collect())
 	}
 
-	fn broadcasts(&self, match_all_topics: Vec<[u8; 32]>) -> RpcResult<Vec<Bytes>> {
+	fn broadcasts(&self, match_all_topics: Vec<Bytes>) -> RpcResult<Vec<Bytes>> {
+		let match_all_topics = bytes_vec_to_topics(match_all_topics)?;
 		Ok(self
 			.store
 			.broadcasts(&match_all_topics)
@@ -61,7 +62,9 @@ impl StatementApiServer for StatementStore {
 			.collect())
 	}
 
-	fn posted(&self, match_all_topics: Vec<[u8; 32]>, dest: [u8; 32]) -> RpcResult<Vec<Bytes>> {
+	fn posted(&self, match_all_topics: Vec<Bytes>, dest: Bytes) -> RpcResult<Vec<Bytes>> {
+		let match_all_topics = bytes_vec_to_topics(match_all_topics)?;
+		let dest = bytes_to_hash(dest)?;
 		Ok(self
 			.store
 			.posted(&match_all_topics, dest)
@@ -71,11 +74,9 @@ impl StatementApiServer for StatementStore {
 			.collect())
 	}
 
-	fn posted_clear(
-		&self,
-		match_all_topics: Vec<[u8; 32]>,
-		dest: [u8; 32],
-	) -> RpcResult<Vec<Bytes>> {
+	fn posted_clear(&self, match_all_topics: Vec<Bytes>, dest: Bytes) -> RpcResult<Vec<Bytes>> {
+		let match_all_topics = bytes_vec_to_topics(match_all_topics)?;
+		let dest = bytes_to_hash(dest)?;
 		Ok(self
 			.store
 			.posted_clear(&match_all_topics, dest)
@@ -85,7 +86,8 @@ impl StatementApiServer for StatementStore {
 			.collect())
 	}
 
-	fn broadcasts_stmt(&self, match_all_topics: Vec<[u8; 32]>) -> RpcResult<Vec<Bytes>> {
+	fn broadcasts_stmt(&self, match_all_topics: Vec<Bytes>) -> RpcResult<Vec<Bytes>> {
+		let match_all_topics = bytes_vec_to_topics(match_all_topics)?;
 		Ok(self
 			.store
 			.broadcasts_stmt(&match_all_topics)
@@ -95,11 +97,9 @@ impl StatementApiServer for StatementStore {
 			.collect())
 	}
 
-	fn posted_stmt(
-		&self,
-		match_all_topics: Vec<[u8; 32]>,
-		dest: [u8; 32],
-	) -> RpcResult<Vec<Bytes>> {
+	fn posted_stmt(&self, match_all_topics: Vec<Bytes>, dest: Bytes) -> RpcResult<Vec<Bytes>> {
+		let match_all_topics = bytes_vec_to_topics(match_all_topics)?;
+		let dest = bytes_to_hash(dest)?;
 		Ok(self
 			.store
 			.posted_stmt(&match_all_topics, dest)
@@ -111,9 +111,11 @@ impl StatementApiServer for StatementStore {
 
 	fn posted_clear_stmt(
 		&self,
-		match_all_topics: Vec<[u8; 32]>,
-		dest: [u8; 32],
+		match_all_topics: Vec<Bytes>,
+		dest: Bytes,
 	) -> RpcResult<Vec<Bytes>> {
+		let match_all_topics = bytes_vec_to_topics(match_all_topics)?;
+		let dest = bytes_to_hash(dest)?;
 		Ok(self
 			.store
 			.posted_clear_stmt(&match_all_topics, dest)
@@ -138,7 +140,32 @@ impl StatementApiServer for StatementStore {
 		}
 	}
 
-	fn remove(&self, hash: [u8; 32]) -> RpcResult<()> {
+	fn remove(&self, hash: Bytes) -> RpcResult<()> {
+		let hash = bytes_to_hash(hash)?;
 		Ok(self.store.remove(&hash).map_err(|e| Error::StatementStore(e.to_string()))?)
 	}
+}
+
+fn bytes_to_hash(bytes: Bytes) -> RpcResult<[u8; 32]> {
+	let len = bytes.0.len();
+	bytes.0.try_into().map_err(|_| {
+		Error::StatementStore(format!("Invalid hash: expected 32 bytes, got {}", len)).into()
+	})
+}
+
+fn bytes_vec_to_topics(topics: Vec<Bytes>) -> RpcResult<Vec<[u8; 32]>> {
+	topics
+		.into_iter()
+		.enumerate()
+		.map(|(i, bytes)| {
+			let len = bytes.0.len();
+			bytes.0.try_into().map_err(|_| {
+				Error::StatementStore(format!(
+					"Invalid topic at index {}: expected 32 bytes, got {}",
+					i, len
+				))
+				.into()
+			})
+		})
+		.collect()
 }

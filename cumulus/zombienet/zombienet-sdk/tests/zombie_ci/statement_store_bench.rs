@@ -517,6 +517,8 @@ impl Participant {
 		&mut self,
 		topics: Vec<Topic>,
 	) -> Result<Vec<Statement>, anyhow::Error> {
+		// Convert Vec<[u8; 32]> to Vec<Bytes> for RPC call
+		let topics: Vec<Bytes> = topics.into_iter().map(|t| t.to_vec().into()).collect();
 		let statements: Vec<Bytes> = self
 			.rpc_client
 			.request("statement_broadcastsStatement", rpc_params![topics])

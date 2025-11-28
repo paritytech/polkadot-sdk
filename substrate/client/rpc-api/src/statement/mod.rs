@@ -35,7 +35,7 @@ pub trait StatementApi {
 	///
 	/// To get the statement, and not just the data, use `statement_broadcastsStatement`.
 	#[method(name = "statement_broadcasts")]
-	fn broadcasts(&self, match_all_topics: Vec<[u8; 32]>) -> RpcResult<Vec<Bytes>>;
+	fn broadcasts(&self, match_all_topics: Vec<Bytes>) -> RpcResult<Vec<Bytes>>;
 
 	/// Return the data of all known statements whose decryption key is identified as `dest` (this
 	/// will generally be the public key or a hash thereof for symmetric ciphers, or a hash of the
@@ -43,7 +43,7 @@ pub trait StatementApi {
 	///
 	/// To get the statement, and not just the data, use `statement_postedStatement`.
 	#[method(name = "statement_posted")]
-	fn posted(&self, match_all_topics: Vec<[u8; 32]>, dest: [u8; 32]) -> RpcResult<Vec<Bytes>>;
+	fn posted(&self, match_all_topics: Vec<Bytes>, dest: Bytes) -> RpcResult<Vec<Bytes>>;
 
 	/// Return the decrypted data of all known statements whose decryption key is identified as
 	/// `dest`. The key must be available to the client.
@@ -52,8 +52,8 @@ pub trait StatementApi {
 	#[method(name = "statement_postedClear")]
 	fn posted_clear(
 		&self,
-		match_all_topics: Vec<[u8; 32]>,
-		dest: [u8; 32],
+		match_all_topics: Vec<Bytes>,
+		dest: Bytes,
 	) -> RpcResult<Vec<Bytes>>;
 
 	/// Return all known statements which include all topics and have no `DecryptionKey`
@@ -62,7 +62,7 @@ pub trait StatementApi {
 	/// This returns the SCALE-encoded statements not just the data as in rpc
 	/// `statement_broadcasts`.
 	#[method(name = "statement_broadcastsStatement")]
-	fn broadcasts_stmt(&self, match_all_topics: Vec<[u8; 32]>) -> RpcResult<Vec<Bytes>>;
+	fn broadcasts_stmt(&self, match_all_topics: Vec<Bytes>) -> RpcResult<Vec<Bytes>>;
 
 	/// Return all known statements whose decryption key is identified as `dest` (this
 	/// will generally be the public key or a hash thereof for symmetric ciphers, or a hash of the
@@ -70,8 +70,7 @@ pub trait StatementApi {
 	///
 	/// This returns the SCALE-encoded statements not just the data as in rpc `statement_posted`.
 	#[method(name = "statement_postedStatement")]
-	fn posted_stmt(&self, match_all_topics: Vec<[u8; 32]>, dest: [u8; 32])
-		-> RpcResult<Vec<Bytes>>;
+	fn posted_stmt(&self, match_all_topics: Vec<Bytes>, dest: Bytes) -> RpcResult<Vec<Bytes>>;
 
 	/// Return the statement and the decrypted data of all known statements whose decryption key is
 	/// identified as `dest`. The key must be available to the client.
@@ -81,8 +80,8 @@ pub trait StatementApi {
 	#[method(name = "statement_postedClearStatement")]
 	fn posted_clear_stmt(
 		&self,
-		match_all_topics: Vec<[u8; 32]>,
-		dest: [u8; 32],
+		match_all_topics: Vec<Bytes>,
+		dest: Bytes,
 	) -> RpcResult<Vec<Bytes>>;
 
 	/// Submit a pre-encoded statement.
@@ -91,5 +90,5 @@ pub trait StatementApi {
 
 	/// Remove a statement from the store.
 	#[method(name = "statement_remove")]
-	fn remove(&self, statement_hash: [u8; 32]) -> RpcResult<()>;
+	fn remove(&self, statement_hash: Bytes) -> RpcResult<()>;
 }
