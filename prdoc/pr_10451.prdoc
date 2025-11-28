@@ -4,4 +4,4 @@ doc:
   description: Add a setter for a custom block notifier
 crates:
 - name: pallet-revive-eth-rpc
-  bump: patch
+  bump: minor
