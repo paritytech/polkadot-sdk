@@ -24,10 +24,22 @@ use jsonrpsee::{
 	Extensions,
 };
 /// Re-export the API for backward compatibility.
-pub use sc_rpc_api::statement::{error::Error, StatementApiServer, StatementSubmitResult};
+pub use sc_rpc_api::statement::{
+	error::Error, InvalidReason, StatementApiServer, StatementSubmitResult,
+};
 use sp_core::Bytes;
 use sp_statement_store::{StatementSource, SubmitResult};
 use std::sync::Arc;
+
+/// Maps the internal InvalidReason to the RPC API InvalidReason type.
+fn map_invalid_reason(reason: sp_statement_store::InvalidReason) -> InvalidReason {
+	match reason {
+		sp_statement_store::InvalidReason::NoProof => InvalidReason::NoProof,
+		sp_statement_store::InvalidReason::BadProof => InvalidReason::BadProof,
+		sp_statement_store::InvalidReason::EncodingTooLarge { submitted_size, max_size } =>
+			InvalidReason::EncodingTooLarge { submitted_size, max_size },
+	}
+}
 
 /// Statement store API
 pub struct StatementStore {
@@ -133,8 +145,8 @@ impl StatementApiServer for StatementStore {
 			// `StatementSource::Rpc` should be renewed.
 			SubmitResult::KnownExpired => Ok(StatementSubmitResult::KnownExpired),
 			SubmitResult::Ignored => Ok(StatementSubmitResult::Ignored),
-			SubmitResult::Bad(reason) =>
-				Ok(StatementSubmitResult::Bad { reason: reason.to_string() }),
+			SubmitResult::Invalid(reason) =>
+			Ok(StatementSubmitResult::Invalid(map_invalid_reason(reason))),
 			SubmitResult::InternalError(e) => Err(Error::StatementStore(e.to_string()).into()),
 		}
 	}

@@ -77,8 +77,8 @@ mod rep {
 	pub const ANY_STATEMENT_REFUND: Rep = Rep::new(1 << 4, "Any statement (refund)");
 	/// Reputation change when a peer sends us an statement that we didn't know about.
 	pub const GOOD_STATEMENT: Rep = Rep::new(1 << 8, "Good statement");
-	/// Reputation change when a peer sends us a bad statement.
-	pub const BAD_STATEMENT: Rep = Rep::new(-(1 << 12), "Bad statement");
+	/// Reputation change when a peer sends us an invalid statement.
+	pub const INVALID_STATEMENT: Rep = Rep::new(-(1 << 12), "Invalid statement");
 	/// Reputation change when a peer sends us a duplicate statement.
 	pub const DUPLICATE_STATEMENT: Rep = Rep::new(-(1 << 7), "Duplicate statement");
 }
@@ -503,7 +503,7 @@ where
 			SubmitResult::Known => self.network.report_peer(who, rep::ANY_STATEMENT_REFUND),
 			SubmitResult::KnownExpired => {},
 			SubmitResult::Ignored => {},
-			SubmitResult::Bad(_) => self.network.report_peer(who, rep::BAD_STATEMENT),
+			SubmitResult::Invalid(_) => self.network.report_peer(who, rep::INVALID_STATEMENT),
 			SubmitResult::InternalError(_) => {},
 		}
 	}

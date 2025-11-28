@@ -37,7 +37,24 @@ pub enum StatementSubmitResult {
 	/// Statement was rejected because the store is full or priority is too low.
 	Ignored,
 	/// Statement failed validation.
-	Bad { reason: String },
+	Invalid(InvalidReason),
+}
+
+/// Reason why a statement failed validation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "reason", rename_all = "camelCase")]
+pub enum InvalidReason {
+	/// Statement was not accompanied by a cryptographic proof.
+	NoProof,
+	/// Cryptographic proof validation failed.
+	BadProof,
+	/// Statement encoding exceeds the maximum allowed size for network propagation.
+	EncodingTooLarge {
+		/// The size of the submitted statement encoding.
+		submitted_size: usize,
+		/// The maximum allowed size.
+		max_size: usize,
+	},
 }
 
 /// Substrate statement RPC API

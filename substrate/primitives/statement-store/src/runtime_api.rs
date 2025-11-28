@@ -159,7 +159,7 @@ pub trait StatementStore {
 				// This should not happen for `StatementSource::Chain`. An existing statement will
 				// be overwritten.
 				crate::SubmitResult::KnownExpired => SubmitResult::Bad,
-				crate::SubmitResult::Bad(_) => SubmitResult::Bad,
+				crate::SubmitResult::Invalid(_) => SubmitResult::Bad,
 				crate::SubmitResult::InternalError(_) => SubmitResult::Bad,
 			}
 		} else {

@@ -925,7 +925,7 @@ impl StatementStore for Store {
 				HexDisplay::from(&hash),
 			);
 			self.metrics.report(|metrics| metrics.validations_invalid.inc());
-			return SubmitResult::Bad("No statement proof")
+			return SubmitResult::no_proof();
 		};
 
 		// Validate.
@@ -944,7 +944,7 @@ impl StatementStore for Store {
 					HexDisplay::from(&hash),
 				);
 				self.metrics.report(|metrics| metrics.validations_invalid.inc());
-				return SubmitResult::Bad("Bad statement proof")
+				return SubmitResult::bad_proof()
 			},
 			Err(InvalidStatement::NoProof) => {
 				log::debug!(
@@ -953,7 +953,7 @@ impl StatementStore for Store {
 					HexDisplay::from(&hash),
 				);
 				self.metrics.report(|metrics| metrics.validations_invalid.inc());
-				return SubmitResult::Bad("Missing statement proof")
+				return SubmitResult::no_proof();
 			},
 			Err(InvalidStatement::InternalError) =>
 				return SubmitResult::InternalError(Error::Runtime),

@@ -32,6 +32,22 @@ pub enum Error {
 	Runtime,
 }
 
+/// Reason why a statement failed validation.
+#[derive(Debug, Eq, PartialEq)]
+pub enum InvalidReason {
+	/// Statement was not accompanied by a cryptographic proof.
+	NoProof,
+	/// Cryptographic proof validation failed.
+	BadProof,
+	/// Statement encoding exceeds the maximum allowed size for network propagation.
+	EncodingTooLarge {
+		/// The size of the submitted statement encoding.
+		submitted_size: usize,
+		/// The maximum allowed size.
+		max_size: usize,
+	},
+}
+
 /// Statement submission outcome
 #[derive(Debug, Eq, PartialEq)]
 pub enum SubmitResult {
@@ -44,9 +60,21 @@ pub enum SubmitResult {
 	/// Priority is too low or the size is too big.
 	Ignored,
 	/// Statement failed validation.
-	Bad(&'static str),
+	Invalid(InvalidReason),
 	/// Internal store error.
 	InternalError(Error),
+}
+
+impl SubmitResult {
+	/// Creates an invalid submission result indicating missing proof.
+	pub fn no_proof() -> Self {
+		SubmitResult::Invalid(InvalidReason::NoProof)
+	}
+
+	/// Creates an invalid submission result indicating proof validation failure.
+	pub fn bad_proof() -> Self {
+		SubmitResult::Invalid(InvalidReason::BadProof)
+	}
 }
 
 /// Result type for `Error`
