@@ -78,15 +78,17 @@ pub type BlockId = generic::BlockId<Block>;
 pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 	Runtime,
 	(
+		// TODO: a global extension that filters only signed txs from the oracle key of validators
+		// can come in.
 		frame_system::AuthorizeCall<Runtime>,
 		frame_system::CheckNonZeroSender<Runtime>,
 		frame_system::CheckSpecVersion<Runtime>,
 		frame_system::CheckTxVersion<Runtime>,
 		frame_system::CheckGenesis<Runtime>,
 		frame_system::CheckEra<Runtime>,
-		frame_system::CheckNonce<Runtime>,
+		// frame_system::CheckNonce<Runtime>,
 		frame_system::CheckWeight<Runtime>,
-		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+		// pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 	),
 >;
@@ -287,8 +289,6 @@ mod runtime {
 	// Collator support. The order of these 4 are important and shall not change.
 	#[runtime::pallet_index(20)]
 	pub type Authorship = pallet_authorship;
-	#[runtime::pallet_index(21)]
-	pub type CollatorSelection = pallet_collator_selection;
 	#[runtime::pallet_index(22)]
 	pub type Session = pallet_session;
 	#[runtime::pallet_index(23)]
@@ -306,9 +306,11 @@ mod runtime {
 	#[runtime::pallet_index(33)]
 	pub type MessageQueue = pallet_message_queue;
 
-	// Price oracle pallet
+	// Price oracle pallets
 	#[runtime::pallet_index(50)]
-	pub type PriceOracle = pallet_staking_async_price_oracle;
+	pub type PriceOracle = pallet_staking_async_price_oracle::oracle;
+	#[runtime::pallet_index(51)]
+	pub type OracleRcClient = pallet_staking_async_price_oracle::rc_client;
 }
 
 #[docify::export(register_validate_block)]

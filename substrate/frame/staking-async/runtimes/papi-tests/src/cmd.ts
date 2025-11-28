@@ -176,9 +176,15 @@ export function priceOracleSetup(): void {
 		`-p`,
 		`pallet-staking-async-parachain-runtime`,
 		`-p`,
-		`pallet-staking-async-price-oracle-parachain-runtime`,
-		`-p`,
 		`staging-chain-spec-builder`,
+	]);
+	cmd("cargo", [
+		"build",
+		"--release",
+		`--features`,
+		`on-chain-release-build`,
+		`-p`,
+		`pallet-staking-async-price-oracle-parachain-runtime`,
 	]);
 
 	cmd("rm", [ "-f", "./parachain.json"]);

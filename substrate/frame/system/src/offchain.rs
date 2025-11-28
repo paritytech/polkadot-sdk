@@ -320,7 +320,7 @@ impl<T: SigningTypes + CreateBare<LocalCall>, C: AppCrypto<T::Public, T::Signatu
 }
 
 /// Details of an account for which a private key is contained in the keystore.
-#[derive(RuntimeDebug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct Account<T: SigningTypes> {
 	/// Index on the provided list of accounts or list of all accounts.
 	pub index: usize,

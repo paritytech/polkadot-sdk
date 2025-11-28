@@ -25,17 +25,15 @@
 
 mod xcm_config;
 
-use crate::{TxExtension, UncheckedExtrinsic};
-
 use super::{
 	weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
-	AccountId, Aura, Balance, Balances, Block, BlockNumber, CollatorSelection, ConsensusHook, Hash,
-	MessageQueue, Nonce, PalletInfo, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, RuntimeTask, Session, SessionKeys,
-	Signature, System, WeightToFee, XcmpQueue, AVERAGE_ON_INITIALIZE_RATIO, CENTS,
-	EXISTENTIAL_DEPOSIT, HOURS, MAXIMUM_BLOCK_WEIGHT, MICRO_UNIT, NORMAL_DISPATCH_RATIO,
-	SLOT_DURATION, VERSION,
+	AccountId, Aura, Balance, Balances, Block, BlockNumber, ConsensusHook, Hash, MessageQueue,
+	Nonce, PalletInfo, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent, RuntimeFreezeReason,
+	RuntimeHoldReason, RuntimeOrigin, RuntimeTask, Session, SessionKeys, Signature, System,
+	WeightToFee, XcmpQueue, AVERAGE_ON_INITIALIZE_RATIO, CENTS, EXISTENTIAL_DEPOSIT, HOURS,
+	MAXIMUM_BLOCK_WEIGHT, MICRO_UNIT, NORMAL_DISPATCH_RATIO, SLOT_DURATION, VERSION,
 };
+use crate::{OracleRcClient, TxExtension, UncheckedExtrinsic, MINUTES};
 use codec::Encode;
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
@@ -59,8 +57,13 @@ use polkadot_runtime_common::{
 	xcm_sender::ExponentialPrice, BlockHashCount, SlowAdjustingFeeUpdate,
 };
 use polkadot_sdk::{
+	frame_support::traits::EstimateNextSessionRotation,
 	frame_system::offchain::{CreateBare, CreateTransaction, CreateTransactionBase},
-	sp_runtime::{generic::SignedPayload, traits::Verify, SaturatedConversion},
+	sp_runtime::{
+		generic::SignedPayload,
+		traits::{Convert, Verify},
+		SaturatedConversion,
+	},
 	staging_parachain_info as parachain_info, staging_xcm as xcm, *,
 };
 #[cfg(not(feature = "runtime-benchmarks"))]
@@ -155,7 +158,7 @@ impl pallet_timestamp::Config for Runtime {
 
 impl pallet_authorship::Config for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
-	type EventHandler = (CollatorSelection,);
+	type EventHandler = ();
 }
 
 parameter_types! {
@@ -285,26 +288,28 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
 }
 
-parameter_types! {
-	pub const Period: u32 = 6 * HOURS;
-	pub const Offset: u32 = 0;
+pub struct ValidatorIdOf;
+impl Convert<AccountId, Option<AccountId>> for ValidatorIdOf {
+	fn convert(account: AccountId) -> Option<AccountId> {
+		Some(account)
+	}
 }
 
 impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
-	// we don't have stash and controller, thus we don't need the convert as well.
-	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
-	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
-	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
-	type SessionManager = CollatorSelection;
+	type NextSessionRotation = ();
+	type SessionManager = OracleRcClient;
 	// Essentially just Aura, but let's be pedantic.
 	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
 	type DisablingStrategy = ();
-	type WeightInfo = ();
-	type Currency = Balances;
+	// TODO: this implies anyone can set session keys here; need some deposit or better filtering.
+	type ValidatorIdOf = ValidatorIdOf;
 	type KeyDeposit = ();
+	type ShouldEndSession = OracleRcClient;
+	type Currency = Balances;
+	type WeightInfo = ();
 }
 
 #[docify::export(aura_config)]
@@ -314,35 +319,6 @@ impl pallet_aura::Config for Runtime {
 	type MaxAuthorities = ConstU32<100_000>;
 	type AllowMultipleBlocksPerSlot = ConstBool<true>;
 	type SlotDuration = ConstU64<SLOT_DURATION>;
-}
-
-parameter_types! {
-	pub const PotId: PalletId = PalletId(*b"PotStake");
-	pub const SessionLength: BlockNumber = 6 * HOURS;
-	// StakingAdmin pluralistic body.
-	pub const StakingAdminBodyId: BodyId = BodyId::Defense;
-}
-
-/// We allow root and the StakingAdmin to execute privileged collator selection operations.
-pub type CollatorSelectionUpdateOrigin = EitherOfDiverse<
-	EnsureRoot<AccountId>,
-	EnsureXcm<IsVoiceOfBody<RelayLocation, StakingAdminBodyId>>,
->;
-
-impl pallet_collator_selection::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type UpdateOrigin = CollatorSelectionUpdateOrigin;
-	type PotId = PotId;
-	type MaxCandidates = ConstU32<100>;
-	type MinEligibleCollators = ConstU32<4>;
-	type MaxInvulnerables = ConstU32<20>;
-	// should be a multiple of session or things will get inconsistent
-	type KickThreshold = Period;
-	type ValidatorId = <Self as frame_system::Config>::AccountId;
-	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
-	type ValidatorRegistration = Session;
-	type WeightInfo = ();
 }
 
 impl<LocalCall> CreateTransactionBase<LocalCall> for Runtime
@@ -404,9 +380,11 @@ where
 				period,
 				current_block,
 			)),
-			frame_system::CheckNonce::<Runtime>::from(nonce),
+			// TODO: need to bring back, has to be that we bump providers for the session keys to
+			// be able to sign and send.
+			// frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
-			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+			// pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
 			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
 		)
 			.into();
@@ -449,6 +427,11 @@ impl frame_system::offchain::AppCrypto<<Signature as Verify>::Signer, Signature>
 	type GenericSignature = sp_core::sr25519::Signature;
 }
 
-impl pallet_staking_async_price_oracle::Config for Runtime {
+impl pallet_staking_async_price_oracle::oracle::Config for Runtime {
 	type AuthorityId = OracleId;
+	type RelayChainOrigin = EnsureRoot<AccountId>;
+}
+
+impl pallet_staking_async_price_oracle::rc_client::Config for Runtime {
+	type RelayChainOrigin = EnsureRoot<AccountId>;
 }

@@ -17,7 +17,11 @@ scale-info = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 
+# todo; remove, only needed for one trait that should go to support.
+pallet-session = { workspace = true }
+
 sp-runtime = { workspace = true }
+
 
 log = { workspace = true }
 
@@ -30,6 +34,7 @@ std = [
 
 	"frame-support/std",
 	"frame-system/std",
+	"pallet-session/std",
 
 	"sp-runtime/std",
 ]

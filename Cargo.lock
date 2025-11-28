@@ -13843,6 +13843,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-session",
  "parity-scale-codec",
  "scale-info",
  "sp-runtime",

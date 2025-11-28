@@ -1,5 +1,5 @@
 use crate::{
-	configs::OracleId, AccountId, BalancesConfig, CollatorSelectionConfig, ParachainInfoConfig,
+	configs::OracleId, AccountId, BalancesConfig, ParachainInfoConfig,
 	PolkadotXcmConfig, RuntimeGenesisConfig, SessionConfig, SessionKeys, SudoConfig,
 	EXISTENTIAL_DEPOSIT,
 };
@@ -43,10 +43,6 @@ fn testnet_genesis(
 				.collect::<Vec<_>>(),
 		},
 		parachain_info: ParachainInfoConfig { parachain_id: id },
-		collator_selection: CollatorSelectionConfig {
-			invulnerables: invulnerables.iter().cloned().map(|(acc, _, _)| acc).collect::<Vec<_>>(),
-			candidacy_bond: EXISTENTIAL_DEPOSIT * 16,
-		},
 		session: SessionConfig {
 			keys: invulnerables
 				.into_iter()

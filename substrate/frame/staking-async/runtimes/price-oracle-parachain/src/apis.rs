@@ -23,17 +23,19 @@
 //
 // For more information, please refer to <http://unlicense.org>
 
-// External crates imports
+use super::{
+	AccountId, Balance, Block, ConsensusHook, Executive, InherentDataExt, Nonce, ParachainSystem,
+	Runtime, RuntimeCall, RuntimeGenesisConfig, SessionKeys, System, TransactionPayment,
+	SLOT_DURATION, VERSION,
+};
 use alloc::vec::Vec;
-
-use polkadot_sdk::{staging_parachain_info as parachain_info, *};
-
 use cumulus_primitives_core::ParaId;
 use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	weights::Weight,
 };
 use pallet_aura::Authorities;
+use polkadot_sdk::{staging_parachain_info as parachain_info, *};
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -43,13 +45,6 @@ use sp_runtime::{
 	ApplyExtrinsicResult,
 };
 use sp_version::RuntimeVersion;
-
-// Local module imports
-use super::{
-	AccountId, Balance, Block, ConsensusHook, Executive, InherentDataExt, Nonce, ParachainSystem,
-	Runtime, RuntimeCall, RuntimeGenesisConfig, SessionKeys, System, TransactionPayment,
-	SLOT_DURATION, VERSION,
-};
 
 // we move some impls outside so we can easily use them with `docify`.
 impl Runtime {

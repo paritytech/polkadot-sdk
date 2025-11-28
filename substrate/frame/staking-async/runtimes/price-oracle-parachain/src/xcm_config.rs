@@ -17,7 +17,7 @@
 
 use super::{
 	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
-	CollatorSelection, FeeAssetId, FellowshipAdmin, ForeignAssets, ForeignAssetsInstance,
+	FeeAssetId, FellowshipAdmin, ForeignAssets, ForeignAssetsInstance,
 	GeneralAdmin, ParachainInfo, ParachainSystem, PolkadotXcm, PoolAssets, Runtime, RuntimeCall,
 	RuntimeEvent, RuntimeOrigin, StakingAdmin, ToRococoXcmRouter, TransactionByteFee, Treasurer,
 	TrustBackedAssetsInstance, Uniques, WeightToFee, XcmpQueue,
@@ -85,7 +85,6 @@ parameter_types! {
 	pub UniquesPalletLocation: Location =
 		PalletInstance(<Uniques as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
-	pub StakingPot: AccountId = CollatorSelection::account_id();
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
 }
@@ -414,7 +413,7 @@ impl xcm_executor::Config for XcmConfig {
 			WestendLocation,
 			AccountId,
 			Balances,
-			ResolveTo<StakingPot, Balances>,
+			ResolveTo<TreasuryAccount, Balances>, // TODO: this used to be stakingPot of collator selection
 		>,
 		cumulus_primitives_utility::SwapFirstAssetTrader<
 			WestendLocation,
@@ -429,7 +428,7 @@ impl xcm_executor::Config for XcmConfig {
 				>,
 				ForeignAssetsConvertedConcreteId,
 			),
-			ResolveAssetTo<StakingPot, crate::NativeAndNonPoolAssets>,
+			ResolveAssetTo<TreasuryAccount, crate::NativeAndNonPoolAssets>, // TODO: this used to be stakingPot of collator selection
 			AccountId,
 		>,
 		// This trader allows to pay with `is_sufficient=true` "Trust Backed" assets from dedicated
