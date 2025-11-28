@@ -54,16 +54,16 @@ pub enum VersionedLocatableAccount {
 /// type FundingSource = PalletIdAsFundingSource<
 ///     TreasuryPalletId,
 ///     Runtime,
-///     AccountIdToVersionedLocatableAccount
+///     AccountIdToLocalLocation
 /// >;
 /// ///
 /// # Warning
 /// This conversion fills in default values (location = "here", network = None) which may
 /// be incorrect if the account is from another chain or network.
-pub struct AccountIdToVersionedLocatableAccount;
+pub struct AccountIdToLocalLocation;
 
 impl sp_runtime::traits::Convert<sp_runtime::AccountId32, VersionedLocatableAccount>
-	for AccountIdToVersionedLocatableAccount
+	for AccountIdToLocalLocation
 {
 	/// Convert a local account ID into a `VersionedLocatableAccount`.
 	///
@@ -116,7 +116,7 @@ where
 		// We use `QueryId::MAX` as a constant identifier for these payments since they are always
 		// processed immediately and successfully on the local chain. The `QueryId` type is used to
 		// maintain compatibility with XCM payment implementations.
-		Ok(Self::Id::MAX)
+		Ok(Self::Id::MAX) // Always returns the same ID, breaks the expectation that payment IDs should be unique. See Issue #10450.
 	}
 	fn check_payment(_: Self::Id) -> PaymentStatus {
 		PaymentStatus::Success
