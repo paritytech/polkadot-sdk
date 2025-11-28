@@ -294,8 +294,7 @@ pub enum BitswapError {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use cid::Cid;
-	use multihash::{Code, Multihash};
+	use litep2p::types::multihash::Code;
 	use futures::channel::oneshot;
 	use sc_block_builder::BlockBuilderBuilder;
 	use schema::bitswap::{
@@ -442,9 +441,9 @@ mod tests {
 				payload: BitswapMessage {
 					wantlist: Some(Wantlist {
 						entries: vec![Entry {
-							block: Cid::new_v1(
+							block: cid::Cid::new_v1(
 								0x70,
-								Multihash::wrap(
+								cid::multihash::Multihash::wrap(
 									u64::from(Code::Blake2b256),
 									&[0u8; 32],
 								)
@@ -503,9 +502,9 @@ mod tests {
 				payload: BitswapMessage {
 					wantlist: Some(Wantlist {
 						entries: vec![Entry {
-							block: Cid::new_v1(
+							block: cid::Cid::new_v1(
 								0x70,
-								Multihash::wrap(
+								cid::multihash::Multihash::wrap(
 									u64::from(Code::Blake2b256),
 									&sp_crypto_hashing::blake2_256(&ext.encode()[pattern_index..]),
 								)
