@@ -203,7 +203,7 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 			};
 
 			if !is_cid_supported(&cid) {
-				debug!(target: LOG_TARGET, "Ignoring unsupported CID {}: {}", peer, cid);
+				trace!(target: LOG_TARGET, "Ignoring unsupported CID {}: {}", peer, cid);
 				continue
 			}
 
