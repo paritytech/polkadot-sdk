@@ -19,11 +19,11 @@ use frame_support::{
 	derive_impl, ord_parameter_types, parameter_types,
 	traits::{ConstBool, ConstU32, ConstU64, FindAuthor, OnGenesis, ValidatorRegistration},
 	PalletId,
-	__private::BasicExternalities,
 };
 use frame_system as system;
 use frame_system::EnsureSignedBy;
 use sp_runtime::{testing::UintAuthorityId, traits::OpaqueKeys, BuildStorage, RuntimeAppPublic};
+use sp_state_machine::BasicExternalities;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
