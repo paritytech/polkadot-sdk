@@ -294,7 +294,7 @@ fn maybe_compact_and_compress_wasm(
 		let final_blob = if compressed_path.exists() {
 			Some(WasmBinary(compressed_path))
 		} else if compact_path.exists() {
-			Some(WasmBinary(compressed_path))
+			Some(WasmBinary(compact_path))
 		} else {
 			None
 		};
