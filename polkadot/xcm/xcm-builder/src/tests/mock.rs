@@ -756,7 +756,6 @@ impl Config for TestConfig {
 	type AssetTrap = TestAssetTrap;
 	type AssetLocker = TestAssetLock;
 	type AssetExchanger = TestAssetExchange;
-	type AssetClaims = TestAssetTrap;
 	type SubscriptionService = TestSubscriptionService;
 	type PalletInstancesInfo = TestPalletsInfo;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;

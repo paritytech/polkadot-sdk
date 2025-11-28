@@ -37,9 +37,8 @@ pub fn ensure_is_remote(
 ) -> Result<(NetworkId, InteriorLocation), Location> {
 	let dest = dest.into();
 	let universal_local = universal_local.into();
-	let local_net = match universal_local.global_consensus() {
-		Ok(x) => x,
-		Err(_) => return Err(dest),
+	let Ok(local_net) = universal_local.global_consensus() else {
+		return Err(dest)
 	};
 	let universal_destination: InteriorLocation = universal_local
 		.into_location()

@@ -335,7 +335,6 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTrap = ();
 	type AssetLocker = ();
 	type AssetExchanger = MockAssetExchanger;
-	type AssetClaims = ();
 	type SubscriptionService = ();
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;

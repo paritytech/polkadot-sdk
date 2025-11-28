@@ -62,16 +62,31 @@ impl VersionChangeNotifier for TestSubscriptionService {
 	}
 }
 
-parameter_types! {
-	pub static TrappedAssets: Vec<(Location, Assets)> = vec![];
+pub struct TestHolding(AssetsInHolding);
+impl Clone for TestHolding {
+	fn clone(&self) -> Self {
+		TestHolding(AssetsInHolding {
+			fungible: self
+				.0
+				.fungible
+				.iter()
+				.map(|(id, accounting)| (id.clone(), accounting.unsafe_clone()))
+				.collect(),
+			non_fungible: self.0.non_fungible.clone(),
+		})
+	}
 }
 
-pub struct TestAssetTrap;
+parameter_types! {
+	pub static TrappedAssets: Vec<(Location, TestHolding)> = vec![];
+}
+
+pub struct TestAssetTrap();
 
 impl DropAssets for TestAssetTrap {
 	fn drop_assets(origin: &Location, assets: AssetsInHolding, _context: &XcmContext) -> Weight {
-		let mut t: Vec<(Location, Assets)> = TrappedAssets::get();
-		t.push((origin.clone(), assets.into()));
+		let mut t: Vec<(Location, TestHolding)> = TrappedAssets::get();
+		t.push((origin.clone(), TestHolding(assets)));
 		TrappedAssets::set(t);
 		Weight::from_parts(5, 5)
 	}
@@ -83,18 +98,20 @@ impl ClaimAssets for TestAssetTrap {
 		ticket: &Location,
 		what: &Assets,
 		_context: &XcmContext,
-	) -> bool {
-		let mut t: Vec<(Location, Assets)> = TrappedAssets::get();
+	) -> Option<AssetsInHolding> {
+		let mut t: Vec<(Location, TestHolding)> = TrappedAssets::get();
 		if let (0, [GeneralIndex(i)]) = ticket.unpack() {
 			if let Some((l, a)) = t.get(*i as usize) {
-				if l == origin && a == what {
-					t.swap_remove(*i as usize);
-					TrappedAssets::set(t);
-					return true
+				for asset in what.inner() {
+					if l == origin && a.0.contains_asset(asset) {
+						let (_, claimed) = t.swap_remove(*i as usize);
+						TrappedAssets::set(t);
+						return Some(claimed.0)
+					}
 				}
 			}
 		}
-		false
+		None
 	}
 }
 
@@ -104,10 +121,10 @@ impl AssetExchange for TestAssetExchanger {
 	fn exchange_asset(
 		_origin: Option<&Location>,
 		_give: AssetsInHolding,
-		want: &Assets,
+		_want: &Assets,
 		_maximal: bool,
 	) -> Result<AssetsInHolding, AssetsInHolding> {
-		Ok(want.clone().into())
+		Ok(AssetsInHolding::new())
 	}
 
 	fn quote_exchange_price(give: &Assets, _want: &Assets, _maximal: bool) -> Option<Assets> {

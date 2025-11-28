@@ -37,6 +37,7 @@ use bounded_collections::{BoundedVec, ConstU32};
 use codec::{self as codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::cmp::Ordering;
 use scale_info::TypeInfo;
+use sp_runtime::RuntimeDebug;
 
 /// A general identifier for an instance of a non-fungible asset class.
 #[derive(
@@ -49,7 +50,7 @@ use scale_info::TypeInfo;
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	Debug,
+	RuntimeDebug,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -367,7 +368,7 @@ impl TryFrom<OldWildFungibility> for WildFungibility {
 	PartialEq,
 	Ord,
 	PartialOrd,
-	Debug,
+	RuntimeDebug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
