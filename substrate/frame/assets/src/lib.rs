@@ -682,6 +682,14 @@ pub mod pallet {
 		ReservesUpdated { asset_id: T::AssetId, reserves: Vec<T::ReserveData> },
 		/// Reserve information was removed for `asset_id`.
 		ReservesRemoved { asset_id: T::AssetId },
+		/// Some assets were issued as Credit (no owner yet).
+		IssuedCredit { asset_id: T::AssetId, amount: T::Balance },
+		/// Some assets Credit was destroyed.
+		BurnedCredit { asset_id: T::AssetId, amount: T::Balance },
+		/// Some assets were burned and a Debt was created.
+		IssuedDebt { asset_id: T::AssetId, amount: T::Balance },
+		/// Some assets Debt was destroyed (and assets issued).
+		BurnedDebt { asset_id: T::AssetId, amount: T::Balance },
 	}
 
 	#[pallet::error]

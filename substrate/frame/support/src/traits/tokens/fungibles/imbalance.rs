@@ -25,12 +25,17 @@ use crate::traits::{
 	fungible,
 	misc::{SameOrOther, TryDrop},
 	tokens::{
-		imbalance::{Imbalance as ImbalanceT, TryMerge},
+		imbalance::{
+			Imbalance as ImbalanceT, ImbalanceAccounting, TryMerge, UnsafeConstructorDestructor,
+			UnsafeManualAccounting,
+		},
 		AssetId, Balance,
 	},
 };
+use alloc::boxed::Box;
 use core::marker::PhantomData;
 use frame_support_procedural::{EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
+use sp_arithmetic::traits::SaturatedConversion;
 use sp_runtime::traits::Zero;
 
 /// Handler for when an imbalance gets dropped. This could handle either a credit (negative) or
@@ -188,6 +193,56 @@ impl<
 {
 	fn try_merge(self, other: Self) -> Result<Self, (Self, Self)> {
 		self.merge(other)
+	}
+}
+
+impl<
+		A: AssetId + 'static,
+		B: Balance + 'static,
+		OnDrop: HandleImbalanceDrop<A, B> + 'static,
+		OppositeOnDrop: HandleImbalanceDrop<A, B> + 'static,
+	> UnsafeConstructorDestructor<u128> for Imbalance<A, B, OnDrop, OppositeOnDrop>
+{
+	fn unsafe_clone(&self) -> Box<dyn ImbalanceAccounting<u128>> {
+		let clone = Self {
+			asset: self.asset.clone(),
+			amount: self.amount.clone(),
+			_phantom: PhantomData::default(),
+		};
+		Box::new(clone)
+	}
+	fn forget_imbalance(&mut self) -> u128 {
+		let amount = self.amount.saturated_into();
+		self.amount = 0u128.saturated_into();
+		amount
+	}
+}
+
+impl<
+		A: AssetId + 'static,
+		B: Balance + 'static,
+		OnDrop: HandleImbalanceDrop<A, B> + 'static,
+		OppositeOnDrop: HandleImbalanceDrop<A, B> + 'static,
+	> UnsafeManualAccounting<u128> for Imbalance<A, B, OnDrop, OppositeOnDrop>
+{
+	fn subsume_other(&mut self, mut other: Box<dyn ImbalanceAccounting<u128>>) {
+		let amount = other.forget_imbalance();
+		self.amount = self.amount.saturating_add(amount.saturated_into());
+	}
+}
+
+impl<
+		A: AssetId + 'static,
+		B: Balance + 'static,
+		OnDrop: HandleImbalanceDrop<A, B> + 'static,
+		OppositeOnDrop: HandleImbalanceDrop<A, B> + 'static,
+	> ImbalanceAccounting<u128> for Imbalance<A, B, OnDrop, OppositeOnDrop>
+{
+	fn amount(&self) -> u128 {
+		self.peek().saturated_into()
+	}
+	fn saturating_take(&mut self, amount: u128) -> Box<dyn ImbalanceAccounting<u128>> {
+		Box::new(self.extract(amount.saturated_into()))
 	}
 }
 

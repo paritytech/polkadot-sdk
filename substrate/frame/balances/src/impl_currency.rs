@@ -40,8 +40,14 @@ use sp_runtime::traits::Bounded;
 // of the inner member.
 mod imbalances {
 	use super::*;
+	use alloc::boxed::Box;
 	use core::mem;
-	use frame_support::traits::{tokens::imbalance::TryMerge, SameOrOther};
+	use frame_support::traits::{
+		tokens::imbalance::{
+			ImbalanceAccounting, TryMerge, UnsafeConstructorDestructor, UnsafeManualAccounting,
+		},
+		SameOrOther,
+	};
 
 	/// Opaque, move-only struct with private fields that serves as a token denoting that
 	/// funds have been created without any equal and opposite accounting.
@@ -61,6 +67,45 @@ mod imbalances {
 	#[must_use]
 	#[derive(RuntimeDebug, PartialEq, Eq)]
 	pub struct NegativeImbalance<T: Config<I>, I: 'static = ()>(T::Balance);
+
+	impl<T, I> UnsafeConstructorDestructor<u128> for NegativeImbalance<T, I>
+	where
+		T: Config<I, Balance: From<u128> + Into<u128>>,
+		I: 'static,
+	{
+		fn unsafe_clone(&self) -> Box<dyn ImbalanceAccounting<u128>> {
+			Box::new(Self(self.0))
+		}
+		fn forget_imbalance(&mut self) -> u128 {
+			let amount = self.0.into();
+			self.0 = Zero::zero();
+			amount
+		}
+	}
+
+	impl<T, I> UnsafeManualAccounting<u128> for NegativeImbalance<T, I>
+	where
+		T: Config<I, Balance: From<u128> + Into<u128>>,
+		I: 'static,
+	{
+		fn subsume_other(&mut self, mut other: Box<dyn ImbalanceAccounting<u128>>) {
+			let amount = other.forget_imbalance();
+			self.0 = self.0.saturating_add(amount.into())
+		}
+	}
+
+	impl<T, I> ImbalanceAccounting<u128> for NegativeImbalance<T, I>
+	where
+		T: Config<I, Balance: From<u128> + Into<u128>>,
+		I: 'static,
+	{
+		fn amount(&self) -> u128 {
+			self.0.into()
+		}
+		fn saturating_take(&mut self, amount: u128) -> Box<dyn ImbalanceAccounting<u128>> {
+			Box::new(self.extract(amount.into()))
+		}
+	}
 
 	impl<T: Config<I>, I: 'static> NegativeImbalance<T, I> {
 		/// Create a new negative imbalance from a balance.
