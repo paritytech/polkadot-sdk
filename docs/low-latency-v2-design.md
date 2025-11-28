@@ -61,6 +61,26 @@ The relay chain gives us two kinds of confirmations:
 
 The relay chain has block times of 6s. Getting a parachain block included takes 2 relay chain blocks. Together with the block building ahead of time (asynchronous backing), this results in a total latency of 18s, for any transaction that aims to be secured by Polkadot's economic security. At this stage we have a strong guarantee on the validity of the block, because if it were invalid, approval checkers would now initiate a dispute and the backing validators would lose all their stake—but we still have no (strong) guarantee on canonicality.
 
+```
+Current Parachain Block Confirmation Timeline
+═══════════════════════════════════════════════
+
+t=0s      Parachain block building (async backing)
+          │
+t=6s      │  Relay chain block N
+          │  └─> Candidate backed
+          ▼
+t=12s     Relay chain block N+1
+          └─> Candidate included (availability distributed)
+          └─> ✓ Validity almost certain (significant slashes if not)
+          ✗ NOT canonical yet (relay chain can fork/reorg)
+          
+          ... time passes ...
+          
+t=36s+    ✓ Relay chain finality
+          ✓ Block is canonical and won't be reverted
+```
+
 The relay chain can experience forks and reorgs and a previously valid block can get reverted, resulting in collators having to rebuild their blocks (relay parent either went out of scope or is on a different fork), potentially arriving at a different (also valid) sequence. Things that go wrong in practice:
 
 1. Connectivity issues (Collator - Validator and Validator - Validator)
@@ -83,10 +103,10 @@ Roughly in the order of severity/likelihood:
 - **Overlapping parachain slots**
 - **Session Boundaries**: The relay chain is dropping candidates that are still pending availability at session boundaries
 - **Relay chain block going overweight** (candidates get dropped)—most likely to happen on parachain runtime upgrades
-- **Parachain runtime upgrades**: The relay chain assumes the GoAhead signal was witnessed by a parachain block, even if the block's relay parent is older than the signal. Which will lead to the next block being built with the old runtime still, causing rejection by the relay chain
-- **Configuration Changes**: Very similar issue as with runtime upgrades, but:
-  1. Very rare—much rarer even than runtime upgrades
-  2. Not always causing problems. If the new configuration is compatible with the old one
+- **Configuration Changes**: 
+  1. Very rare
+  2. Only causing problems, if the new configuration is not compatible with the old one
+- **Parachain runtime upgrades**: Upgrade restriction signal is not properly handled.
 
 #### Malicious Actors
 
@@ -97,9 +117,14 @@ Roughly in the order of severity/likelihood:
 
 ### Problem Summary
 
-1. Collators can equivocate, without the fear of consequences and parachain slots are overlapping—thus we have durations with two eligible block producers.
-2. Parachain blocks can become obsolete and need to be replaced, because they are based on a relay parent which is only valid on a particular relay chain fork and also only for a limited amount of time.
-3. Configuration changes and runtime upgrades might also invalidate parachain blocks.
+| Problem | Impact | Severity | Status |
+|---------|--------|----------|--------|
+| **Relay Chain Forks** | Blocks become obsolete | High | Inherent to current design |
+| **Collator Equivocation** | Double-spend attacks possible | High | No consequences currently |
+| **Session Boundaries** | Blocks dropped if pending at session change | High | Implementation issue (needs fix) |
+| **Relay Parent Expiry** | Blocks discarded if not included quickly | Medium | Limited validity window |
+| **Configuration Changes** | Blocks rejected due to config mismatch | Low | Rare, needs fix for edge cases |
+| **Runtime Upgrade Restriction** | Signal timing issues | Low | Edge case, needs fix |
 
 ---
 
@@ -134,17 +159,60 @@ Throughput figures can be reached by the means of elastic scaling and by buildin
 We aim for "collator based" finality, meaning that we want collators to commit to a canonical chain, long before the relay chain would canonicalize any fork. To do this, we are going to introduce acknowledgement signatures and will introduce the necessary relay chain decoupling so collators can actually commit to a canonical fork, as they stay in control of the validity of their blocks:
 
 1. Parachains need to become immune to relay chain forks. Otherwise it is impossible to commit to a canonical chain ahead of time.
-2. Relay parents and thus parachain blocks must stay valid and not become obsolete quickly due to relay chain advancements or other reasons (e.g. a runtime upgrade).
+2. Relay parents and thus parachain blocks must stay valid and not become obsolete quickly due to relay chain advancements or other reasons.
 
 In other words, if we want collators to strongly commit to a chain becoming canonical, we also need to give them the necessary ownership. Within some realistic boundaries, if an acknowledged block does not get finalized, we need to be able to blame and punish the collators: No excuses!
 
 ### Solution Ingredients
 
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                    Current System (Status Quo)                                  │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  Parachain Block                                                                │
+│  ┌──────────────────────────────────────────────────────────────────────┐       │
+│  │ Relay Parent: Block N (recent, can become invalid)                   │       │
+│  │   ├─> Execution context (messages, config, etc.)                     │       │
+│  │   └─> Scheduling context (backing group, core, secondary checkers)   │       │
+│  │                                                                      │       │
+│  │ Issues:                                                              │       │
+│  │   • Forks invalidate blocks                                          │       │
+│  │   • Session boundaries drop blocks                                   │       │
+│  │   • No collator accountability                                       │       │
+│  │   • 36s wait for finality                                            │       │
+│  └──────────────────────────────────────────────────────────────────────┘       │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                    Low-Latency v2 System                                      │
+├───────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  Parachain Block                                                              │
+│  ┌───────────────────────────────────────────────────────────────────┐        │
+│  │ Relay Parent: Block N (can be old/finalized)                      │        │
+│  │   └─> Execution context only (messages, config, etc.)             │        │
+│  │                                                                   │        │
+│  │ + Scheduling Parent: Block M (recent leaf)                        │        │
+│  │   └─> Scheduling context (backing group, core, secondary checkers)│        │
+│  │                                                                   │        │
+│  │ + Acknowledgement Signatures                                      │        │
+│  │   └─> Collators commit to canonical chain                         │        │
+│  │                                                                   │        │
+│  │ Benefits:                                                         │        │
+│  │   ✓ Immune to relay chain forks                                   │        │
+│  │   ✓ Session boundaries don't invalidate blocks                    │        │
+│  │   ✓ Collators accountable (slashable)                             │        │
+│  │   ✓ Sub-second confidence possible                                │        │
+│  └───────────────────────────────────────────────────────────────────┘        │
+└───────────────────────────────────────────────────────────────────────────────┘
+```
+
 Lowest hanging fruits first: We will fix current implementation shortcomings that affect validity of parachain blocks for no good reason. In particular we need to fix:
 
-- Candidates (and thus parachain blocks) becoming invalid at session boundaries
-- Parachain runtime upgrade enactment invalidates candidates
-- Configuration upgrades invalidate candidates
+- Crucial: Candidates (and thus parachain blocks) becoming invalid at session boundaries
+- Edge Case: Parachain runtime upgrade restriction signal fix
+- Edge Case:Configuration upgrades invalidate candidates
 
 Next we need to ensure that parachain blocks stay valid, even in the event of relay chain forks and stay valid longer so network problems, censoring backers or poorly performing validators cannot easily cause parachain blocks to become invalid. For this we will introduce an additional concept called **scheduling parent** in addition to the existing relay parent of a candidate, with this we will be able to:
 
@@ -175,13 +243,7 @@ The proposed fix is to virtually extend the session for cores that are still occ
 
 #### UpgradeGoAhead Signal
 
-A parachain runtime upgrade gets enacted by an `UpgradeGoAhead` signal, which is read by the parachain via a relay chain storage proof based on the relay parent of the candidate. The parachain runtime is expected to prepare the chain for the upgrade. When the next parachain block gets enacted on chain, the signal gets cleared and the new runtime is in use.
-
-This implementation works nicely for synchronous backing, but there is a flaw with asynchronous backing. Currently the relay chain assumes wrongly that if the parachain produces a block after the relay chain runtime sets the `UpgradeGoAhead` signal, that it has processed the signal.
-
-This assumption does not hold, because the parachain does not know the current state of the relay chain, but only the state as of its relay parent—which is allowed to be older than the most recent block.
-
-**Fix**: We need to keep track on when (which block number) we set the `UpgradeGoAhead` signal and only clear and enact the new runtime, once the parachain produces a block with a relay parent at least as high as that block number.
+This signal is already handled properly, no changes are needed.
 
 #### UpgradeRestrictionSignal
 
@@ -197,11 +259,11 @@ The issue with this signal is that it is broken already with asynchronous backin
 
 ### Configuration Changes
 
-A similar problem exists with regards to the host configuration. For checking a candidate, we plainly retrieve the currently active configuration. The problem is similar to the runtime upgrade: if the parachain block that is being checked is based on an older relay parent, it might have been built in the context of an older configuration—potentially causing the candidate to get rejected by the relay chain.
+For checking a candidate, we plainly retrieve the currently active configuration. If the parachain block that is being checked is based on an older relay parent, it might have been built in the context of an older configuration—potentially causing the candidate to get rejected by the relay chain.
 
 As of now configuration changes are session buffered, therefore the issue is masked by the before mentioned issue of dropping candidates on session boundaries. But once that is resolved, we need to provide a solution here too.
 
-**Solution**: Unlike parachain runtime upgrades where we can delay enactment, configuration is global—we cannot just delay the configuration change for everybody. Instead we need to keep old configurations around and validate candidates based on the configuration of the relay parent's session.
+**Solution**: Configuration is global — we cannot just delay the configuration change for everybody. Instead we need to keep old configurations around and validate candidates based on the configuration of the relay parent's session.
 
 Concretely, in the relay chain runtime, we will keep the last n configurations, where n is large enough to cover the oldest supported relay parent block. Then we will not check candidates against the current configuration, but against the configuration of the session of the relay parent—as this is the configuration the candidate block has been operating under.
 
@@ -246,7 +308,7 @@ With the relay chain fixes in place, configuration changes don't strongly affect
 
 #### Runtime Upgrade Signals
 
-With the fixes described in the previous section applied, there is no real restriction on age. The upgrade will simply be delayed accordingly.
+This signal is handled perfectly already.
 
 #### Conclusion
 
@@ -285,6 +347,38 @@ We introduce a second relay parent, which provides a separate context—the **sc
 - Determine responsible approval checkers and validators for disputes
 
 This information is very transient. Responsible backers rotate all the time, responsible secondary checkers rotate at session boundaries. That is why it makes sense to not tie these to the validity of a parachain block, otherwise we are enforcing a very limited lifetime.
+
+```
+Relay Chain Blocks:
+... ─ N-2 ─ N-1 ─ N (finalized) ─ N+1 ─ N+2 ─ N+3 ─ N+4 (leaf)
+       │                                           │
+       │                                           │
+       └─ Relay Parent                             └─ Scheduling Parent
+          (Execution Context)                         (Scheduling Context)
+          • Messages available                        • Backing group selection
+          • Configuration (old)                       • Core assignment
+          • Randomness                                • Session validators
+          • Can be finalized/old                      • Must be recent leaf
+          
+Candidate Descriptor v3:
+┌──────────────────────────────────────────────────────────────┐
+│  relay_parent: Hash = N                                      │
+│    └─> Used for: execution environment, validation          │
+│                                                              │
+│  scheduling_parent: Hash = N+4                               │
+│    └─> Used for: backing group, core, approval checkers     │
+│                                                              │
+│  scheduling_session: SessionIndex                            │
+│    └─> Used for: determining validator set for disputes     │
+└──────────────────────────────────────────────────────────────┘
+
+Key Insight:
+  Parachain Block (permanent) ──uses──> Relay Parent N (can be old)
+  Candidate/POV (transient)   ──uses──> Scheduling Parent N+4 (recent)
+  
+  If candidate fails to get included, the same parachain block can be
+  resubmitted in a NEW candidate with a different scheduling parent!
+```
 
 We will introduce an additional `scheduling_parent` field in the `CandidateDescriptor`, in addition to the relay parent we already have, and a `scheduling_session` field. The first is used to determine core and backers, the second is used to identify responsible secondary checkers.
 
@@ -358,7 +452,7 @@ Existing relay parent is used to provide the correct execution environment to th
 
 ### Backwards Compatibility & Upgrade Path
 
-Supporting of older relay parents will be limited to candidates that make use of the new candidate descriptor version supporting the scheduling parent. For candidates of older versions, the relay chain will continue to operate as it used to be, except for universal fixes like fixing the treatment of runtime upgrade go ahead signals of course.
+Supporting of older relay parents will be limited to candidates that make use of the new candidate descriptor version supporting the scheduling parent. For candidates of older versions, the relay chain will continue to operate as it used to be, except for universal fixes.
 
 Enforcing the new descriptor once used should not be required from the relay chain perspective. For the PVF, it will accept an optional scheduling parent—if provided (`CandidateDescriptor` v3)—it will expect separately provided signed core information, otherwise fall back to the old behavior.
 
@@ -379,23 +473,139 @@ We build low-latency confirmations on top of an in principle forky block product
 
 3. **We will not acknowledge any other block with the same parent**
 
-4. **The whole ancestry of the block was either acknowledged too or finalized by the relay chain**. A block is acknowledged if at least the block producer and the one coming after have acknowledged the block, which implies also (2) because of (1a): Therefore "acknowledged" translates to 2 acknowledgments for in-slot blocks and 3 acknowledgments for blocks at the slot boundary (minimum)
+4. **The whole ancestry of the block was either acknowledged too or finalized by
+   the relay chain**. A block is acknowledged if at least the block producer and
+   the one coming after have acknowledged the block, which implies also (2)
+   because of (1a): Therefore "acknowledged" translates to 2 acknowledgments for
+   in-slot blocks and 3 acknowledgments for blocks at the slot boundary
+   (minimum)
 
-5. **Safeguard**: Don't acknowledge if relay chain finality is lagging significantly—in particular, when building on finalized relay parents, don't acknowledge if the relay parent is not yet finalized! Thus for chains that want to put block confidence to the max, collator based finality (to deserve the name), will be dependent on relay chain finality.
+5. **Safeguard**: Don't acknowledge if relay chain finality is lagging
+   significantly—in particular, when building on finalized relay parents, don't
+   acknowledge if the relay parent is not yet finalized! Thus for chains that
+   want to put block confidence to the max, collator based finality (to deserve
+   the name), will be dependent on relay chain finality.
 
-6. **Timing**: Don't acknowledge a block with a relay parent that is older than necessary, based on the leaves in your view. These blocks are late, which means no low-latency anyways and by not acknowledging we are not forced to build on them: This prevents a straight-forward censorship attack, where the previous collator just builds all their collations late, gets them acknowledged but then leaves the duty of submission to the next collator.
+6. **Timing**: Don't acknowledge a block with a relay parent that is older than
+   necessary, based on the leaves in your view. These blocks are late, which
+   means no low-latency anyways and by not acknowledging we are not forced to
+   build on them: This prevents a straight-forward censorship attack, where the
+   previous collator just builds all their collations late, gets them
+   acknowledged but then leaves the duty of submission to the next collator.
 
-Point (2) is arguably the most important one and deserves some clarification: One reason for forks is block propagation latency. It can happen that a block producer has not seen some block and therefore might build on one of its ancestors (the latest block it actually has seen). We can rule that possibility out, by having the previous block producer acknowledge that our block is indeed built upon the latest block it produced.
+Point (2) is arguably the most important one and deserves some clarification:
+One reason for forks is block propagation latency. It can happen that a block
+producer has not seen some block and therefore might build on one of its
+ancestors (the latest block it actually has seen). We can rule that possibility
+out, by having the previous block producer acknowledge that our block is indeed
+built upon the latest block it produced.
 
-With the previous block producer having acknowledged the child block, it is safe for all other collators to acknowledge the block too, giving guarantees of (1) and (3), because the block producer is no longer able to interfere anymore:
+```
+Acknowledgement Flow - The Critical Dependencies
+═════════════════════════════════════════════════
+
+Scenario 1: SLOT BOUNDARY (different producers)
+────────────────────────────────────────────────
+
+Collator A (slot 1):
+  Produces Block N
+  → ACK_A(N) - acknowledges own block (after verifying rules)
+
+Collator B (slot 2):
+  Receives Block N
+  Must verify before acknowledging N:
+    ✓ Rule 1a: See ACK from parent producer - N/A (see bootstrapping section below)
+    ✓ Rule 1b: See ACK from N's producer for parent - N/A  
+    ✓ Rule 1c: Fully imported and valid
+  → ACK_B(N)
+  
+  ✓ Block N is now "acknowledged" (ACK_A + ACK_B)
+  
+  Produces Block N+1 (parent: N)
+  
+  CANNOT yet ACK N+1! Must wait for rule 1a...
+
+Collator A:
+  Receives Block N+1
+  
+  ⚠️  CRITICAL CHECK (Rule 2):
+      "Does N+1 build on MY LATEST block?"
+      
+      If A produced another block after N → CANNOT acknowledge N+1
+      If N is still A's latest → Can acknowledge N+1
+      
+  → ACK_A(N+1) - CERTIFIES: no fork from A, N+1 builds on A's latest
+  
+  ⚠️  This is NOT automatically true! A must verify no fork exists.
+
+Collator B:
+  Receives ACK_A(N+1)
+  NOW can verify rule 1a for N+1:
+    ✓ Rule 1a: ACK_A(N+1) received (parent producer acknowledged child)
+    ✓ Rule 1b: ACK_B(N) already sent (child producer acknowledged parent)
+    ✓ Rule 1c: N+1 is valid (B produced it)
+  → ACK_B(N+1)
+
+Collator C (slot 3):
+  Receives Block N+1 and acknowledgements
+  Before acknowledging N+1, must verify:
+    ✓ Rule 1a: ACK_A(N+1) exists ← parent producer certified no fork!
+    ✓ Rule 1b: ACK_B(N) exists ← child producer saw parent
+    ✓ Rule 1c: Block valid
+  → ACK_C(N+1)
+  
+  ✓ Block N+1 is now "acknowledged" (ACK_B + ACK_A + ACK_C = 3 minimum)
+
+
+Scenario 2: IN-SLOT (same producer, multiple blocks)
+─────────────────────────────────────────────────────
+
+Collator A (produces N and N+1 in same slot):
+  Produces Block N
+  → ACK_A(N)
+  
+  Produces Block N+1 (parent: N)
+  
+  Rule 1a for N+1: "parent producer = me" → use Rule 2 instead
+  Rule 2: "N+1 builds on my latest" → YES (self-evident)
+  → ACK_A(N+1)
+
+Collator B:
+  → ACK_B(N)
+  ✓ Block N is "acknowledged" (ACK_A + ACK_B = 2)
+  
+  → ACK_B(N+1)  
+  ✓ Block N+1 is "acknowledged" (ACK_A + ACK_B = 2)
+
+
+Key Security Property:
+──────────────────────
+At slot boundaries, parent producer A CANNOT acknowledge child block N+1
+until A verifies N+1 builds on A's latest. If A produced a fork after N,
+A cannot send ACK_A(N+1) without being provably slashable (rule 3).
+
+Once ACK_A(N+1) is sent, A is COMMITTED - any fork from A is now provable.
+This is why acknowledgements are separate from block production.
+```
+
+With the previous block producer having acknowledged the child block, it is safe
+for all other collators to acknowledge the block too, giving guarantees of (1)
+and (3), because the block producer is no longer able to interfere anymore:
 
 1. It is illegal to produce a block with the same parent in the same slot
 2. The collator is not allowed to produce a block based on some older parent either, as it already acknowledged the parent block, see (1b) above
 3. If the block producer of X fails to submit the block to the relay chain, the next block producer will be able to pick it up and submit it, with a new scheduling parent
 
-### Recovery
+### Recovery & Bootstrapping
 
-In case of a malfunctioning collator (not providing approvals as it should) the system can recover once the next block producer took over and has confirmation from the relay chain that it is building on the right block. This is safe to do once we see at least one block of ours (the first one) to get backed on chain.
+In case of a malfunctioning collator (not providing approvals as it should) the
+system can recover once the next block producer took over and has confirmation
+from the relay chain that it is building on the right block. This is safe to do
+once we see at least one block of ours (the first one) to get backed on chain.
+The same situation applies to first "powering up" the system. It might take a
+while until we see our block on the relay chain, but once we see it
+acknowledgments will start getting sent out and once caught up, low-latency
+confirmations are in place.
 
 ### Ensure Block Submission
 
@@ -434,10 +644,12 @@ With acknowledgements and decoupling in place, we can hold collators accountable
 
 ## Offenses {#offenses}
 
-1. Direct equivocation: Produce two blocks in the same slot with the same parent.  
-2. Acknowledge two blocks with the same parent.   
-3. Acknowledge a child block of the blocks you built, but build a conflicting child block yourself.  
-4. Acknowledge a block of a previous slot, but build a conflicting block with the same parent: You are supposed to submit this missing block on behalf of the original author, not replace it.
+| Offense # | Description | Violated Rule | Proof Required | Severity |
+|-----------|-------------|---------------|----------------|----------|
+| **1** | Direct equivocation: Produce two blocks in the same slot with the same parent | Illegal to produce multiple blocks with same parent in same slot | Two blocks with same slot, same parent, different hashes, both signed by collator | High - Clear malicious intent |
+| **2** | Acknowledge two blocks with the same parent | Rule 3: Will not acknowledge any other block with the same parent | Two acknowledgement signatures for different blocks with same parent | High - Breaking canonical chain commitment |
+| **3** | Acknowledge a child block you built, then build a conflicting child | Rules 1b + 3: Cannot build conflicting block after acknowledging parent | ACK for parent block + conflicting child block produced afterward | High - Fork after commitment |
+| **4** | Acknowledge a block from previous slot, then build conflicting block with same parent | Ensure Block Submission: Must resubmit acknowledged blocks, not replace them | ACK for block from previous slot + conflicting block with same parent | High - Censorship/replacement attack |
 
 ## Punishment {#punishment}
 
