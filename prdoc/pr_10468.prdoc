@@ -9,7 +9,7 @@ crates:
 - name: sc-network
   bump: major
 - name: sc-network-types
-  bump: patch
+  bump: minor
 - name: cumulus-client-pov-recovery
   bump: minor
 - name: sc-client-api
