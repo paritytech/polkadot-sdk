@@ -225,7 +225,6 @@ pub mod pallet {
 
 	/// The current operating mode of the pallet.
 	#[pallet::storage]
-	#[pallet::getter(fn operating_mode)]
 	pub type OperatingMode<T: Config> = StorageValue<_, BasicOperatingMode, ValueQuery>;
 
 	#[pallet::call]
@@ -235,7 +234,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::submit())]
 		pub fn submit(origin: OriginFor<T>, event: EventProof) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(!Self::operating_mode().is_halted(), Error::<T>::Halted);
+			ensure!(!OperatingMode::<T>::get().is_halted(), Error::<T>::Halted);
 
 			// submit message to verifier for verification
 			T::Verifier::verify(&event.event_log, &event.proof)
