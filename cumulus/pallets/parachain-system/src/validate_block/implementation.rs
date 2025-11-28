@@ -556,6 +556,7 @@ fn host_offchain_index_clear(_key: &[u8]) {}
 /// and indexing transactions does **not** contribute to the parachain state.
 /// However, the host environment still expects this function to exist,
 /// so we provide a no-op implementation.
+#[cfg(feature = "transaction-index")]
 fn host_transaction_index_index(_extrinsic: u32, _size: u32, _context_hash: [u8; 32]) {
 	// No-op host function used during parachain validation.
 }
@@ -564,6 +565,7 @@ fn host_transaction_index_index(_extrinsic: u32, _size: u32, _context_hash: [u8;
 /// and indexing transactions does **not** contribute to the parachain state.
 /// However, the host environment still expects this function to exist,
 /// so we provide a no-op implementation.
+#[cfg(feature = "transaction-index")]
 fn host_transaction_index_renew(_extrinsic: u32, _context_hash: [u8; 32]) {
 	// No-op host function used during parachain validation.
 }
