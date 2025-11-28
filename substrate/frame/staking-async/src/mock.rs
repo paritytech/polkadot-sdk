@@ -447,7 +447,6 @@ impl crate::pallet::pallet::Config for Test {
 	type BondingDuration = BondingDuration;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
-	type MaxInvulnerables = ConstU32<20>;
 	type MaxEraDuration = MaxEraDuration;
 	type MaxPruningItems = MaxPruningItems;
 	type PlanningEraOffset = PlanningEraOffset;
@@ -486,7 +485,6 @@ parameter_types! {
 pub struct ExtBuilder {
 	nominate: bool,
 	validator_count: u32,
-	invulnerables: BoundedVec<AccountId, <Test as Config>::MaxInvulnerables>,
 	has_stakers: bool,
 	pub min_nominator_bond: Balance,
 	min_validator_bond: Balance,
@@ -503,7 +501,6 @@ impl Default for ExtBuilder {
 			nominate: true,
 			validator_count: 2,
 			balance_factor: 1,
-			invulnerables: BoundedVec::new(),
 			has_stakers: true,
 			min_nominator_bond: ExistentialDeposit::get(),
 			min_validator_bond: ExistentialDeposit::get(),
@@ -555,11 +552,6 @@ impl ExtBuilder {
 	}
 	pub(crate) fn slash_defer_duration(self, eras: EraIndex) -> Self {
 		SlashDeferDuration::set(eras);
-		self
-	}
-	pub(crate) fn invulnerables(mut self, invulnerables: Vec<AccountId>) -> Self {
-		self.invulnerables = BoundedVec::try_from(invulnerables)
-			.expect("Too many invulnerable validators: upper limit is MaxInvulnerables");
 		self
 	}
 	pub(crate) fn session_per_era(self, length: SessionIndex) -> Self {
@@ -696,7 +688,6 @@ impl ExtBuilder {
 		let _ = pallet_staking_async::GenesisConfig::<Test> {
 			stakers: maybe_stakers,
 			validator_count: self.validator_count,
-			invulnerables: self.invulnerables,
 			active_era: (0, 0, INIT_TIMESTAMP),
 			slash_reward_fraction: Perbill::from_percent(10),
 			min_nominator_bond: self.min_nominator_bond,
