@@ -177,6 +177,10 @@ where
 		match event {
 			ChainEvent::NewBestBlock { hash, .. } => self.recent_best_block = *hash,
 			ChainEvent::Finalized { hash, .. } => self.recent_finalized_block = *hash,
+			ChainEvent::Reverted { hash, .. } => {
+				self.recent_best_block = *hash;
+				self.recent_finalized_block = *hash;
+			},
 		};
 		trace!(
 			target: LOG_TARGET,

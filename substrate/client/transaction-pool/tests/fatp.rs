@@ -19,8 +19,8 @@
 //! Tests for fork-aware transaction pool.
 
 use fatp_common::{
-	finalized_block_event, invalid_hash, new_best_block_event, pool, pool_with_api,
-	test_chain_with_forks, LOG_TARGET, SOURCE,
+	finalized_block_event, invalid_hash, new_best_block_event, new_revert_event, pool,
+	pool_with_api, test_chain_with_forks, LOG_TARGET, SOURCE,
 };
 use futures::{executor::block_on, task::Poll, FutureExt, StreamExt};
 use sc_transaction_pool::ChainApi;
@@ -2684,4 +2684,55 @@ fn fatp_tx_is_revalidated_by_mempool_revalidation() {
 
 	let xt0_events = block_on(xt0_watcher.collect::<Vec<_>>());
 	assert_eq!(xt0_events, vec![TransactionStatus::Ready, TransactionStatus::Invalid,]);
+}
+
+#[test]
+fn fatp_revert_multiple_blocks_does_not_resubmit() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _) = pool();
+	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
+
+	let header01 = api.push_block(1, vec![], true);
+	let event = new_best_block_event(&pool, None, header01.hash());
+	block_on(pool.maintain(event));
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Alice, 201);
+	let xt2 = uxt(Bob, 200);
+
+	block_on(pool.submit_one(invalid_hash(), SOURCE, xt0.clone())).unwrap();
+	block_on(pool.submit_one(invalid_hash(), SOURCE, xt1.clone())).unwrap();
+	block_on(pool.submit_one(invalid_hash(), SOURCE, xt2.clone())).unwrap();
+
+	// Build chain: header01 -> header02 (xt0) -> header03 (xt1)
+	let header02 = api.push_block_with_parent(header01.hash(), vec![xt0.clone()], true);
+	let event = new_best_block_event(&pool, Some(header01.hash()), header02.hash());
+	block_on(pool.maintain(event));
+
+	let header03 = api.push_block_with_parent(header02.hash(), vec![xt1.clone()], true);
+	let event = new_best_block_event(&pool, Some(header02.hash()), header03.hash());
+	block_on(pool.maintain(event));
+
+	// Only xt2 should remain (not included in any block)
+	assert_pool_status!(header03.hash(), &pool, 1, 0);
+
+	// Revert all the way back to header01
+	let event = new_revert_event(&pool, header03.hash(), header01.hash());
+	block_on(pool.maintain(event));
+
+	// After revert:
+	// - xt0, xt1 should NOT be resubmitted (were in retracted blocks)
+	// - xt2 should still be there (was pending)
+	let ready: Vec<_> = pool.ready().map(|v| (*v.data).clone()).collect();
+	assert!(!ready.contains(&xt0), "xt0 should not be resubmitted");
+	assert!(!ready.contains(&xt1), "xt1 should not be resubmitted");
+	assert!(ready.contains(&xt2), "xt2 should survive revert");
+
+	// Submitting xt0 fresh should succeed (not AlreadyImported)
+	let result = block_on(pool.submit_one(header01.hash(), SOURCE, xt0.clone()));
+	assert!(result.is_ok(), "Should be able to resubmit xt0 transaction after revert");
+	// Submitting xt1 fresh should succeed (not AlreadyImported)
+	let result = block_on(pool.submit_one(header01.hash(), SOURCE, xt1.clone()));
+	assert!(result.is_ok(), "Should be able to resubmit xt1 transaction after revert");
 }

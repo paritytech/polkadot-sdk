@@ -53,6 +53,17 @@ pub fn new_best_block_event(
 	}
 }
 
+pub fn new_revert_event(
+	pool: &ForkAwareTxPool<TestApi, Block>,
+	from: Hash,
+	to: Hash,
+) -> ChainEvent<Block> {
+	ChainEvent::Reverted {
+		hash: to,
+		tree_route: Arc::from(pool.api().tree_route(from, to).expect("Tree route exists")),
+	}
+}
+
 pub fn finalized_block_event(
 	pool: &ForkAwareTxPool<TestApi, Block>,
 	from: Hash,

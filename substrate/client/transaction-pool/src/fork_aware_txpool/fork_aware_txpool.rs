@@ -1847,6 +1847,112 @@ where
 		);
 	}
 
+	/// Handles a blockchain revert to a previous block.
+	///
+	/// This method should be called when the blockchain is reverted to an earlier state,
+	/// before deleting the blocks. It is responsible for cleaning the pool state such that
+	/// there are no references to blocks that will be remobed.
+	///
+	/// To prepare the pool for blocks deletion we should:
+	/// 1. Collect transactions included in retracted blocks.
+	/// 2. Remove all active and inactive views associated with blocks beyodn the new head.
+	/// 3. Cleans up notifications sinks for removed views.
+	/// 4. Remove included transactions from the mempool while preserving the pending transactions.
+	/// 5. Updates the enactment state to reflect the new chain head.
+	/// 6. Ensures a view exists at the new head.
+	///
+	/// Pending transactions (those not yet included in any block) remain in the mempool and will
+	/// be available for inclusion in future blocks built on the new head.
+	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "fatp::handle_reverted")]
+	async fn handle_reverted(&self, event: &ChainEvent<Block>) {
+		let start = Instant::now();
+		let ChainEvent::Reverted { hash: new_head, tree_route } = event else {
+			warn!(target: LOG_TARGET, "handle_reverted called with non-reverted event");
+			return;
+		};
+		let new_head_number = match self.api.block_id_to_number(&BlockId::Hash(*new_head)) {
+			Ok(Some(n)) => n,
+			_ => {
+				warn!(target: LOG_TARGET, "Cannot resolve reverted head number");
+				return;
+			},
+		};
+		debug!(target: LOG_TARGET, ?new_head, ?new_head_number, retracted = tree_route.retracted().len(), "handle_reverted");
+
+		// Collect transactions from retracted blocks
+		let mut reverted_transactions = Vec::new();
+		for block_hash_and_number in tree_route.retracted() {
+			// Collect cached transactions
+			let cached_transactions =
+				self.included_transactions.lock().remove(block_hash_and_number);
+			if let Some(transactions) = cached_transactions {
+				reverted_transactions.extend(transactions);
+			} else {
+				// No cached transactions for the block_hash
+				let transactions = self.fetch_block_transactions(block_hash_and_number).await;
+				reverted_transactions.extend(transactions);
+			}
+		}
+
+		// Remove all views associated with retracted blocks
+		let mut removed_views = Vec::new();
+		{
+			let mut active = self.view_store.active_views.write();
+			let mut inactive = self.view_store.inactive_views.write();
+
+			active.retain(|hash, view| {
+				if view.at.number > new_head_number {
+					removed_views.push(*hash);
+					false
+				} else {
+					true
+				}
+			});
+			inactive.retain(|hash, view| {
+				if view.at.number > new_head_number {
+					removed_views.push(*hash);
+					false
+				} else {
+					true
+				}
+			});
+		}
+
+		// Cleanup references to removed views
+		self.view_store.listener.remove_stale_controllers();
+		for view in removed_views {
+			self.view_store.listener.remove_view(view);
+			self.view_store.dropped_stream_controller.remove_view(view);
+		}
+
+		// Remove included transactions from mempool
+		self.mempool.remove_transactions(&reverted_transactions).await;
+		self.import_notification_sink.clean_notified_items(&reverted_transactions);
+
+		// Clean up included_transactions cache
+		self.included_transactions.lock().retain(|hn, _| hn.number <= new_head_number);
+
+		// Update the enactment state to the new head
+		self.enactment_state.lock().force_update(event);
+
+		// Ensure view at new head exists
+		if !self.has_view(&new_head) {
+			let at = HashAndNumber { hash: *new_head, number: new_head_number };
+			if let Ok(t) = TreeRoute::new(vec![at.clone()], 0) {
+				self.handle_new_block(&t).await;
+			}
+		}
+
+		self.ready_poll.lock().remove_cancelled();
+		debug!(
+			target: LOG_TARGET,
+			?new_head,
+			removed_transactions = reverted_transactions.len(),
+			duration = ?start.elapsed(),
+			"handle_reverted after"
+		);
+	}
+
 	/// Computes a hash of the provided transaction
 	fn tx_hash(&self, xt: &TransactionFor<Self>) -> TxHash<Self> {
 		self.api.hash_and_length(xt).0
@@ -1979,6 +2085,12 @@ where
 
 		self.view_store.finish_background_revalidations().await;
 
+		// Special handling for Reverted - bypass normal flow
+		if let ChainEvent::Reverted { .. } = &event {
+			self.handle_reverted(&event).await;
+			return;
+		}
+
 		let prev_finalized_block = self.enactment_state.lock().recent_finalized_block();
 
 		let compute_tree_route = |from, to| -> Result<TreeRoute<Block>, String> {
@@ -2034,6 +2146,9 @@ where
 					"on-finalized enacted"
 				);
 			},
+			// We should never reach this point as ChainEvent::Reverted is handled at the beginning
+			// of the method.
+			ChainEvent::Reverted { .. } => {},
 		}
 
 		let duration = start.elapsed();
