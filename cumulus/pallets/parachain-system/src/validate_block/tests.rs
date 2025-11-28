@@ -16,7 +16,9 @@
 
 use crate::{validate_block::MemoryOptimizedValidationParams, *};
 use codec::{Decode, DecodeAll, Encode};
-use cumulus_primitives_core::{relay_chain, ParachainBlockData, PersistedValidationData};
+use cumulus_primitives_core::{
+	relay_chain, BundleInfo, ParachainBlockData, PersistedValidationData,
+};
 use cumulus_test_client::{
 	generate_extrinsic, generate_extrinsic_with_pair,
 	runtime::{
@@ -166,6 +168,7 @@ fn build_multiple_blocks_with_witness(
 	mut sproof_builder: RelayStateSproofBuilder,
 	num_blocks: u32,
 	extra_extrinsics: impl Fn(u32) -> Vec<UncheckedExtrinsic>,
+	pre_digests: impl Fn(u32) -> Vec<DigestItem>,
 ) -> TestBlockData {
 	let parent_head_root = *parent_head.state_root();
 	sproof_builder.para_id = test_runtime::PARACHAIN_ID.into();
@@ -203,12 +206,13 @@ fn build_multiple_blocks_with_witness(
 			mut block_builder,
 			persisted_validation_data: p_v_data,
 			proof_recorder,
-		} = client.init_block_builder_with_ignored_nodes(
+		} = client.init_block_builder_with_ignored_nodes_and_pre_digests(
 			parent_head.hash(),
 			Some(validation_data.clone()),
 			sproof_builder.clone(),
 			timestamp,
 			ignored_nodes.clone(),
+			(pre_digests)(i),
 		);
 
 		persisted_validation_data = Some(p_v_data);
@@ -302,6 +306,7 @@ fn validate_multiple_blocks_work() {
 				Some(i),
 			)]
 		},
+		|_| Vec::new(),
 	);
 
 	assert!(block.proof().encoded_size() < 3 * 1024 * 1024);
@@ -600,6 +605,7 @@ fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 					Some(i),
 				)]
 			},
+			|_| Vec::new(),
 		);
 
 	// 3. Validate the PoV.
@@ -666,6 +672,7 @@ fn ensure_we_only_like_blockchains() {
 			Default::default(),
 			4,
 			|_| Default::default(),
+			|_| Vec::new(),
 		);
 
 		// Reference some non existing parent.
@@ -749,6 +756,7 @@ fn rejects_multiple_blocks_per_pov_when_applying_runtime_upgrade() {
 				proof_builder,
 				4,
 				|_| Vec::new(),
+				|_| Vec::new(),
 			);
 
 		// 3. Validate the PoV.
@@ -774,4 +782,47 @@ fn rejects_multiple_blocks_per_pov_when_applying_runtime_upgrade() {
 		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
 			.contains("only one block per PoV is allowed"));
 	}
+}
+
+#[test]
+fn validate_block_rejects_incomplete_bundle() {
+	use sp_tracing::capture_test_logs;
+
+	let (client, parent_head) = create_elastic_scaling_test_client();
+
+	// Build 2 blocks with BundleInfo
+	let TestBlockData { block, validation_data } = build_multiple_blocks_with_witness(
+		&client,
+		parent_head.clone(),
+		Default::default(),
+		2,
+		|_| Vec::new(),
+		|i| vec![BundleInfo { index: i as u8, maybe_last: i == 1 }.to_digest_item()],
+	);
+
+	// Validation with only first block should fail (incomplete bundle)
+	let first_block_only =
+		ParachainBlockData::new(vec![block.blocks()[0].clone()], block.proof().clone());
+	let log_capture = capture_test_logs!({
+		call_validate_block_elastic_scaling(
+			parent_head.clone(),
+			first_block_only,
+			validation_data.relay_parent_storage_root,
+		)
+		.unwrap_err();
+	});
+	assert!(
+		log_capture.contains("Last block in PoV must have maybe_last=true"),
+		"Expected log about missing maybe_last, got: {log_capture}"
+	);
+
+	// Validation with both blocks should succeed
+	let header = block.blocks().last().unwrap().header().clone();
+	let res_header = call_validate_block_elastic_scaling(
+		parent_head,
+		block,
+		validation_data.relay_parent_storage_root,
+	)
+	.expect("Calls `validate_block`");
+	assert_eq!(header, res_header);
 }

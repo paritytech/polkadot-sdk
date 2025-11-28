@@ -77,6 +77,17 @@ pub trait InitBlockBuilder {
 		ignored_nodes: ProofRecorderIgnoredNodes<Block>,
 	) -> BlockBuilderAndSupportData<'_>;
 
+	/// Init a specific block builder with ignored nodes and pre-digests.
+	fn init_block_builder_with_ignored_nodes_and_pre_digests(
+		&self,
+		at: Hash,
+		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
+		relay_sproof_builder: RelayStateSproofBuilder,
+		timestamp: u64,
+		ignored_nodes: ProofRecorderIgnoredNodes<Block>,
+		pre_digests: Vec<DigestItem>,
+	) -> BlockBuilderAndSupportData<'_>;
+
 	/// Init a specific block builder using the given pre-digests.
 	///
 	/// Same as [`InitBlockBuilder::init_block_builder`] besides that it takes vector of
@@ -255,6 +266,26 @@ impl InitBlockBuilder for Client {
 			Some(timestamp),
 			Some(ignored_nodes),
 			None,
+		)
+	}
+
+	fn init_block_builder_with_ignored_nodes_and_pre_digests(
+		&self,
+		at: Hash,
+		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
+		relay_sproof_builder: RelayStateSproofBuilder,
+		timestamp: u64,
+		ignored_nodes: ProofRecorderIgnoredNodes<Block>,
+		pre_digests: Vec<DigestItem>,
+	) -> BlockBuilderAndSupportData<'_> {
+		init_block_builder(
+			self,
+			at,
+			validation_data,
+			relay_sproof_builder,
+			Some(timestamp),
+			Some(ignored_nodes),
+			Some(pre_digests),
 		)
 	}
 

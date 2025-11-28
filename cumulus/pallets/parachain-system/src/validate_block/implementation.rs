@@ -21,7 +21,7 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::{BlockNumber as RNumber, Hash as RHash, UMPSignal, UMP_SEPARATOR},
-	ClaimQueueOffset, CoreSelector, ParachainBlockData, PersistedValidationData,
+	ClaimQueueOffset, CoreSelector, CumulusDigestItem, ParachainBlockData, PersistedValidationData,
 };
 use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},
@@ -31,8 +31,9 @@ use polkadot_parachain_primitives::primitives::{HeadData, ValidationResult};
 use sp_core::storage::{well_known_keys, ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::{hashing::blake2_128, KillStorageResult};
-use sp_runtime::traits::{
-	Block as BlockT, ExtrinsicCall, Hash as HashT, HashingFor, Header as HeaderT, LazyBlock,
+use sp_runtime::{
+	traits::{Block as BlockT, ExtrinsicCall, Hash as HashT, HashingFor, Header as HeaderT, LazyBlock},
+	DigestItem,
 };
 use sp_state_machine::OverlayedChanges;
 use sp_trie::{HashDBT, ProofSizeProvider, EMPTY_PREFIX};
@@ -83,7 +84,7 @@ where
 	B::Extrinsic: ExtrinsicCall,
 	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
 {
-	// sp_runtime::runtime_logger::RuntimeLogger::init();
+	sp_runtime::runtime_logger::RuntimeLogger::init();
 
 	let _guard = (
 		// Replace storage calls with our own implementations
@@ -140,26 +141,7 @@ where
 
 	let (blocks, proof) = block_data.into_inner();
 
-	assert_eq!(
-		*blocks
-			.first()
-			.expect("BlockData should have at least one block")
-			.header()
-			.parent_hash(),
-		parent_header.hash(),
-		"Parachain head needs to be the parent of the first block"
-	);
-
-	blocks.iter().fold(parent_header.hash(), |p, b| {
-		assert_eq!(
-			p,
-			*b.header().parent_hash(),
-			"Not a valid chain of blocks :(; {:?} not a parent of {:?}?",
-			array_bytes::bytes2hex("0x", p.as_ref()),
-			array_bytes::bytes2hex("0x", b.header().parent_hash().as_ref()),
-		);
-		b.header().hash()
-	});
+	validate_blocks::<B>(&blocks, &parent_header);
 
 	let mut processed_downward_messages = 0;
 	let mut upward_messages = BoundedVec::default();
@@ -382,6 +364,78 @@ fn validate_validation_data(
 		relay_parent_storage_root, validation_data.relay_parent_storage_root,
 		"Relay parent storage root doesn't match",
 	);
+}
+
+/// Validates that the given blocks form a valid chain and have consistent BundleInfo.
+fn validate_blocks<B: BlockT>(blocks: &[B::LazyBlock], parent_header: &B::Header) {
+	let num_blocks = blocks.len();
+
+	// Check first block's parent matches the given parent_header
+	assert_eq!(
+		*blocks
+			.first()
+			.expect("BlockData should have at least one block")
+			.header()
+			.parent_hash(),
+		parent_header.hash(),
+		"Parachain head needs to be the parent of the first block"
+	);
+
+	let mut first_block_has_bundle_info: Option<bool> = None;
+
+	blocks.iter().enumerate().fold(parent_header.hash(), |expected_parent, (block_index, block)| {
+		// Check chain validity
+		assert_eq!(
+			expected_parent,
+			*block.header().parent_hash(),
+			"Not a valid chain of blocks :(; {:?} not a parent of {:?}?",
+			array_bytes::bytes2hex("0x", expected_parent.as_ref()),
+			array_bytes::bytes2hex("0x", block.header().parent_hash().as_ref()),
+		);
+
+		// Validate BundleInfo consistency
+		let bundle_info = CumulusDigestItem::find_bundle_info(block.header().digest());
+		match (first_block_has_bundle_info, &bundle_info) {
+			(None, info) => {
+				first_block_has_bundle_info = Some(info.is_some());
+			},
+			(Some(true), None) => {
+				panic!("All blocks must have BundleInfo if the first block has it");
+			},
+			(Some(false), Some(_)) => {
+				panic!("No block should have BundleInfo if the first block doesn't have it");
+			},
+			_ => {},
+		}
+
+		if let Some(ref info) = bundle_info {
+			assert_eq!(
+				info.index as usize,
+				block_index,
+				"BundleInfo index mismatch: expected {}, got {}",
+				block_index,
+				info.index
+			);
+
+			if block_index + 1 == num_blocks {
+				let has_use_full_core =
+					CumulusDigestItem::contains_use_full_core(block.header().digest());
+				let has_runtime_upgrade = block
+					.header()
+					.digest()
+					.logs
+					.iter()
+					.any(|d| matches!(d, DigestItem::RuntimeEnvironmentUpdated));
+
+				assert!(
+					info.maybe_last || has_use_full_core || has_runtime_upgrade,
+					"Last block in PoV must have maybe_last=true, UseFullCore digest, or RuntimeEnvironmentUpdated digest"
+				);
+			}
+		}
+
+		block.header().hash()
+	});
 }
 
 /// Build a seed from the head data of the parachain block.
