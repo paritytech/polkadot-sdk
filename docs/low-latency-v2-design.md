@@ -356,6 +356,185 @@ bring messaging latency down to be even lower than parachain block times!
 
 ---
 
+## Alternatives Considered
+
+### Inclusion Lists (Transaction Ordering Without Execution)
+
+An alternative approach to achieving low-latency confirmations would be to adopt
+an inclusion list (IL) mechanism, similar to proposals in the Ethereum ecosystem
+(e.g., [FOCIL](https://meetfocil.eth.limo/)). Instead of waiting for collators
+to build and execute full blocks, this approach would have collators order
+transactions without executing them, potentially reducing latency by skipping
+the execution step.
+
+#### Comparison
+
+| Dimension | Acknowledgements (Chosen) | Inclusion Lists |
+|-----------|---------------------------|-----------------|
+| **Latency** | ~100ms (achievable block time) | Potentially <100ms |
+| **Result Certainty** | Known after execution | Unknown (transaction may panic/fail) |
+| **Ordering Guarantee** | Strongly enforced (slashable) | Weakly enforced (limited punishment) |
+| **Censorship Resistance** | Maintained (1 honest collator) | Compromised (signatures in block) or weak (collator voting) |
+| **Threat Model** | 1 honest collator assumption | Super-majority honest assumption |
+| **Punishment for Misbehavior** | Full stake slash | Block rewards only |
+| **MEV Resistance** | Better (strong enforcement) | Worse (collusion possible, limited punishment) |
+| **Complexity** | Moderate | High (blocks on top of blocks) |
+| **Synergy with Basti Blocks** | Excellent (enables multiple blocks per PoV) | Poor (renders Basti blocks redundant) |
+
+#### Why Inclusion Lists Were Not Chosen
+
+While inclusion lists could theoretically provide marginally lower latency, they
+come with significant tradeoffs that make them unsuitable for Polkadot's
+parachain model:
+
+**1. Weaker Guarantees**
+
+- A transaction being listed does not guarantee it will be successfully included
+  in the final block
+- The execution result is unknown at confirmation time (transaction may panic or
+  fail)
+- Panicking transactions create ordering complications and reduce usefulness
+- Users cannot rely on the outcome when making time-sensitive decisions
+
+**2. Security Model Degradation**
+
+The most critical issue is that inclusion lists severely weaken Polkadot's
+security model:
+
+- **Cannot enforce via relay chain fork choice**: Unlike Ethereum, where the
+  beacon chain can enforce inclusion lists through fork choice rules, Polkadot's
+  relay chain decides forks independently of parachain promises. This leaves us
+  with two bad options:
+  
+  - **Option A - Signatures in blocks**: Require IL signatures in parachain
+    blocks to enable relay chain enforcement. This completely sacrifices
+    censorship resistance, as now collators must cooperate for successful block
+    submission.
+  
+  - **Option B - No enforcement**: Don't put signatures in blocks. This means we
+    can only punish misbehavior, not prevent it. But punishment requires
+    provable misbehavior, which cannot be proven in the runtime for IL
+    violations. This forces reliance on collator voting mechanisms.
+
+- **Super-majority honest assumption required**: Without relay chain
+  enforcement, we must rely on collator voting to identify and punish
+  misbehavior. This replaces the current **1 honest collator** assumption with a
+  **super-majority honest** assumption—a significant security downgrade.
+
+- **Limited punishment capability**: Even if we detect misbehavior, punishment
+  is severely limited. A collator can always avoid fulfilling an IL promise by
+  simply not producing a block. Therefore, we can only take away block rewards,
+  not slash stake. This means MEV extraction through collusion remains
+  profitable despite "punishment." (assuming colluding collators).
+
+**3. Marginal Latency Gains**
+
+The latency improvement offered by inclusion lists is marginal in practice:
+
+- **100ms blocks are achievable**: With optimizations to execution speed, we can
+  already achieve ~100ms block times with the acknowledgement approach
+- **Network latency floor**: For any decentralized setup, we're already
+  approaching network latency limits. Further reductions require centralization.
+- **Transaction streaming**: With transaction streaming, effective latency with
+  100ms blocks is already around ~100ms.
+- **Better alternatives exist**: If even lower latency is needed, better
+  improvements come from:
+  - Execution speed optimizations (NOMT, batch signature verification, parallel
+    execution)
+  - Reducing constant per-block overhead
+  - Dynamic block times (making very low block times more feasible)
+
+**4. Architectural Complexity**
+
+Inclusion lists add "blocks on top of blocks"—transaction ordering separate from
+block execution. This increases system complexity while providing weaker
+guarantees than the simpler acknowledgement-based approach.
+
+#### Note on Ethereum's Approach and Recent Developments
+
+Recent research on Ethereum's [FOCIL (Fork-Choice enforced Inclusion
+Lists)](https://eips.ethereum.org/EIPS/eip-7805) reveals important insights:
+
+**FOCIL's Design:**
+- Uses a **committee of validators** (not a single proposer) to construct
+  inclusion lists
+- Incorporates force-inclusion into the **fork-choice rule** itself
+- Attesters only vote for blocks that include transactions from the IL committee
+- Introduced in
+  [EIP-7805](https://ethresear.ch/t/fork-choice-enforced-inclusion-lists-focil-a-simple-committee-based-inclusion-list-proposal/19870)
+  and actively being developed for Ethereum
+
+**Why FOCIL Works for Ethereum but Not Parachains:**
+
+1. **Fork choice control**: Ethereum's beacon chain can enforce inclusion lists
+   through fork choice because the beacon chain IS the source of truth for
+   forks. Polkadot's relay chain decides forks independently of parachain
+   promises—we cannot leverage fork choice the same way.
+
+2. **Committee size**: Ethereum's large and highly staked validator set (>1
+   million validators) makes committee-based approaches practical and secure.
+   Parachains have much smaller collator sets, making super-majority assumptions
+   problematic.
+
+3. **Purpose alignment**: FOCIL is primarily designed for **censorship
+resistance** against MEV extraction and builder centralization—not for
+low-latency confirmations. As noted in the [FOCIL
+documentation](https://meetfocil.eth.limo/), "unconditional ILs can offer better
+short-term censorship resistance, they might also be easier to crowd out because
+they might be used to offer products like preconfirmations."
+
+4. **Enforcement timing**: Even with FOCIL, enforcement happens through fork
+   choice (attestation), not at the time of receiving the IL. Users must still
+   wait for attestation to have strong guarantees, not just the IL itself.
+
+5. **Conditional inclusion**: FOCIL adopts conditional inclusion, accepting
+   blocks that may lack some IL transactions if they cannot append them or if
+   blocks are full. This further weakens guarantees for specific transaction
+   inclusion.
+
+**Research on Latency-Throughput Tradeoffs:**
+
+Recent [research on blockchain latency and
+throughput](https://www.paradigm.xyz/2022/07/consensus-throughput) confirms that
+latency and throughput are typically a tradeoff, with an inflection point where
+latency increases sharply as system load approaches maximum throughput. For
+systems aiming for low latency, execution speed optimizations (as proposed in
+this design) are more effective than adding ordering layers on top of execution.
+
+#### Synergy with Basti Blocks
+
+The acknowledgement-based approach has an important synergy with Basti blocks
+(multiple blocks per PoV):
+
+- Acknowledgements provide reliable low-latency confirmations for blocks
+- This makes Basti blocks practical and valuable for real-world use cases
+- With Basti blocks we can have very small blocks (100ms seems possible) -
+  leading to fast block based confirmations
+- In contrast, the inclusion list approach would render Basti blocks redundant,
+  as you'd be relying on ordering of transactions for confirmation rather than
+  blocks
+
+#### Conclusion
+
+While inclusion lists could theoretically provide marginally lower latency (perhaps <100ms vs ~100ms), they:
+
+1. Provide much weaker guarantees (no execution result, no ordering enforcement)
+2. Severely degrade the security model (super-majority honest vs 1 honest collator)
+3. Limit punishment to block rewards (vs full stake slashing)
+4. Add significant complexity (transaction ordering layer on top of block execution)
+
+The acknowledgement-based approach provides:
+
+- Strong guarantees: executed blocks with known results and enforced canonical ordering
+- Strong security: 1 honest collator assumption with full stake slashing for misbehavior
+- Practical low latency: ~100ms blocks are achievable
+- Better path forward: synergizes with execution optimizations and Basti blocks
+
+For a decentralized system with economic security guarantees, the
+acknowledgement approach seems to be the better choice.
+
+---
+
 ## Basic Relay Chain Fixes
 
 As of today there exist some basic issues, which prevent collators from being
