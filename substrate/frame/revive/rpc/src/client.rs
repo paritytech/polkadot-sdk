@@ -258,7 +258,8 @@ impl Client {
 
 	/// Creates a block notifier instance.
 	pub fn create_block_notifier(&mut self, capacity: Option<usize>) {
-		self.block_notifier = Some(tokio::sync::broadcast::channel::<H256>(capacity.unwrap_or(NOTIFIER_CAPACITY)).0);
+		self.block_notifier =
+			Some(tokio::sync::broadcast::channel::<H256>(capacity.unwrap_or(NOTIFIER_CAPACITY)).0);
 	}
 
 	/// Subscribe to past blocks executing the callback for each block in `range`.
