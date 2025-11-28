@@ -83,7 +83,7 @@ pub struct TransactionInfo {
 	/// is used to find transaction info by block chunk index using binary search.
 	///
 	/// Cumulative value of all previous transactions in the block; the last transaction holds the
-	/// total chunks value.
+	/// total chunk value.
 	block_chunks: ChunkIndex,
 }
 
@@ -215,11 +215,15 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Index and store data off chain. Minimum data size is 1 bytes, maximum is
+		/// Index and store data off chain. Minimum data size is 1 byte, maximum is
 		/// `MaxTransactionSize`. Data will be removed after `STORAGE_PERIOD` blocks, unless `renew`
 		/// is called.
+		///
+		/// Emits [`Stored`](Event::Stored) when successful.
+		///
 		/// ## Complexity
-		/// - O(n*log(n)) of data size, as all data is pushed to an in-memory trie.
+		///
+		/// O(n*log(n)) of data size, as all data is pushed to an in-memory trie.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::store(data.len() as u32))]
 		pub fn store(origin: OriginFor<T>, data: Vec<u8>) -> DispatchResult {
@@ -232,13 +236,13 @@ pub mod pallet {
 			Self::apply_fee(sender, data.len() as u32)?;
 
 			// Chunk data and compute storage root
+			let chunks: Vec<_> = data.chunks(CHUNK_SIZE).map(|c| c.to_vec()).collect();
 			let chunk_count = num_chunks(data.len() as u32);
-			let chunks = data.chunks(CHUNK_SIZE).map(|c| c.to_vec()).collect();
 			let root = sp_io::trie::blake2_256_ordered_root(chunks, sp_runtime::StateVersion::V1);
 
-			let content_hash = sp_io::hashing::blake2_256(&data);
 			let extrinsic_index =
 				frame_system::Pallet::<T>::extrinsic_index().ok_or(Error::<T>::BadContext)?;
+			let content_hash = sp_io::hashing::blake2_256(&data);
 			sp_io::transaction_index::index(extrinsic_index, data.len() as u32, content_hash);
 
 			let mut index = 0;
@@ -459,6 +463,11 @@ pub mod pallet {
 			debug_assert!(_remainder.is_zero());
 			T::FeeDestination::on_unbalanced(credit);
 			Ok(())
+		}
+
+		/// Returns `true` if a blob of the given size can be stored.
+		fn data_size_ok(size: usize) -> bool {
+			(size > 0) && (size <= T::MaxTransactionSize::get() as usize)
 		}
 
 		/// Verifies that the provided proof corresponds to a randomly selected chunk from a list of
