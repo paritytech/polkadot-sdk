@@ -1990,8 +1990,8 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		T::BondingDuration::get()
 	}
 
-	fn current_era() -> EraIndex {
-		CurrentEra::<T>::get().unwrap_or(Zero::zero())
+	fn active_era() -> EraIndex {
+		ActiveEra::<T>::get().map(|a| a.index).defensive_unwrap_or(0)
 	}
 
 	fn stake(who: &Self::AccountId) -> Result<Stake<BalanceOf<T>>, DispatchError> {
@@ -2144,8 +2144,13 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			EraInfo::<T>::set_exposure(*current_era, stash, exposure);
 		}
 
-		fn set_current_era(era: EraIndex) {
+		fn set_active_era(era: EraIndex, start: Option<u64>) {
 			CurrentEra::<T>::put(era);
+			ActiveEra::<T>::put(crate::ActiveEraInfo { index: era, start });
+		}
+
+		fn activate_next_era(_era_duration_in_session: SessionIndex, _era_duration_in_millis: u64) {
+			unimplemented!();
 		}
 
 		fn max_exposure_page_size() -> Page {

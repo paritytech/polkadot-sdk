@@ -520,18 +520,17 @@ pub mod pallet {
 			);
 
 			// the range that we're allowed to check in this round.
-			let current_era = T::Staking::current_era();
+			let active_era = T::Staking::active_era();
 			let bonding_duration = T::Staking::bonding_duration();
 
 			// prune all the old eras that we don't care about. This will help us keep the bound
 			// of `checked`.
-			checked.retain(|e| *e >= current_era.saturating_sub(bonding_duration));
+			checked.retain(|e| *e >= active_era.saturating_sub(bonding_duration));
 
 			let unchecked_eras_to_check = {
 				// get the last available `bonding_duration` eras up to current era in reverse
 				// order.
-				let total_check_range = (current_era.saturating_sub(bonding_duration)..=
-					current_era)
+				let total_check_range = (active_era.saturating_sub(bonding_duration)..=active_era)
 					.rev()
 					.collect::<Vec<_>>();
 				debug_assert!(

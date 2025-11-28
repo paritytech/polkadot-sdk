@@ -237,11 +237,6 @@ pub fn create_validators_with_nominators_for_era<T: Config>(
 	Ok(validator_chosen)
 }
 
-/// get the current era.
-pub fn current_era<T: Config>() -> EraIndex {
-	CurrentEra::<T>::get().unwrap_or(0)
-}
-
 pub fn migrate_to_old_currency<T: Config>(who: T::AccountId) {
 	use frame_support::traits::LockableCurrency;
 	let staked = asset::staked::<T>(&who);
@@ -258,12 +253,4 @@ pub fn migrate_to_old_currency<T: Config>(who: T::AccountId) {
 
 	// replicate old behaviour of explicit increment of consumer.
 	frame_system::Pallet::<T>::inc_consumers(&who).expect("increment consumer failed");
-}
-
-/// Set active era to the given era index.
-pub fn set_active_era<T: Config>(era: EraIndex) {
-	// set the current era.
-	CurrentEra::<T>::put(era);
-	// set the active era.
-	ActiveEra::<T>::put(ActiveEraInfo { index: era, start: None });
 }

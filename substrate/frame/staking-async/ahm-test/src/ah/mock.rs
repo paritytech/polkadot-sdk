@@ -87,10 +87,7 @@ pub fn roll_until_matches(criteria: impl Fn() -> bool, with_rc: bool) {
 /// Use the given `end_index` as the first session report, and increment as per needed.
 pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<AccountId> {
 	// receive enough session reports, such that we plan a new era
-	let planned_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::planned_era();
-	let active_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::active_era();
-
-	while pallet_staking_async::session_rotation::Rotator::<Runtime>::planned_era() == planned_era {
+	while pallet_staking_async::session_rotation::Rotator::<Runtime>::is_planning().is_none() {
 		let report = SessionReport {
 			end_index,
 			activation_timestamp: None,
@@ -104,6 +101,11 @@ pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<Account
 		roll_next();
 		end_index += 1;
 	}
+
+	let planned_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::is_planning()
+		.expect("new era must be planned since we exited the loop");
+	let active_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::active_era();
+	assert_eq!(planned_era, active_era + 1);
 
 	// now we have planned a new session. Roll until we have an outgoing message ready, meaning the
 	// election is done
@@ -121,7 +123,7 @@ pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<Account
 					(
 						System::block_number(),
 						OutgoingMessages::ValidatorSet(ValidatorSetReport {
-							id: planned_era + 1,
+							id: planned_era,
 							leftover: false,
 							// arbitrary, feel free to change if test setup updates
 							new_validator_set: vec![3, 5, 6, 8],
@@ -144,7 +146,7 @@ pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<Account
 	// rc will not tell us that it has instantly activated a validator set.
 	let report = SessionReport {
 		end_index,
-		activation_timestamp: Some((1000, planned_era + 1)),
+		activation_timestamp: Some((1000, planned_era)),
 		leftover: false,
 		validator_points: Default::default(),
 	};

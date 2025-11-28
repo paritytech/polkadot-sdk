@@ -192,7 +192,7 @@ fn activation_timestamp_when_no_planned_era() {
 
 		// GIVEN: no new planned era
 		assert_eq!(Rotator::<T>::active_era(), 2);
-		assert_eq!(Rotator::<T>::planned_era(), 2);
+		assert!(Rotator::<T>::is_planning().is_none());
 
 		// WHEN: send a new activation timestamp (manually).
 		<Staking as pallet_staking_async_rc_client::AHStakingInterface>::on_relay_session_report(

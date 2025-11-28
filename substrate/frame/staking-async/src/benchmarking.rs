@@ -40,7 +40,7 @@ use sp_runtime::{
 	traits::{Bounded, One, StaticLookup, Zero},
 	Perbill, Percent, Saturating,
 };
-use sp_staking::currency_to_vote::CurrencyToVote;
+use sp_staking::{currency_to_vote::CurrencyToVote, StakingInterface};
 use testing_utils::*;
 
 const SEED: u32 = 0;
@@ -99,7 +99,7 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 
 	// Start a new Era
 	let new_validators = Rotator::<T>::legacy_insta_plan_era();
-	let planned_era = CurrentEra::<T>::get().unwrap_or_default();
+	let planned_era = Rotator::<T>::is_planning().expect("Planning should be in progress");
 
 	assert_eq!(new_validators.len(), 1, "New validators is not 1");
 	assert_eq!(new_validators[0], v_stash, "Our validator was not selected");
@@ -311,7 +311,7 @@ mod benchmarks {
 		let (_, controller) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
 		let amount = asset::existential_deposit::<T>() * 5u32.into(); // Half of total
 		Staking::<T>::unbond(RawOrigin::Signed(controller.clone()).into(), amount)?;
-		set_active_era::<T>(EraIndex::max_value());
+		Staking::<T>::set_active_era(EraIndex::max_value(), Some(0));
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created before")?;
 		let original_total: BalanceOf<T> = ledger.total;
 		whitelist_account!(controller);
@@ -345,7 +345,7 @@ mod benchmarks {
 		let mut ledger = Ledger::<T>::get(&controller).unwrap();
 		ledger.active = ed - One::one();
 		Ledger::<T>::insert(&controller, ledger);
-		set_active_era::<T>(EraIndex::max_value());
+		Staking::<T>::set_active_era(EraIndex::max_value(), Some(0));
 
 		whitelist_account!(controller);
 
@@ -728,6 +728,9 @@ mod benchmarks {
 			nominator_balances_before.push(balance);
 		}
 
+		// activate the current era.
+		Staking::<T>::activate_next_era(1, 1);
+
 		#[extrinsic_call]
 		payout_stakers(RawOrigin::Signed(caller), validator.clone(), current_era);
 
@@ -1042,14 +1045,16 @@ mod benchmarks {
 		let _new_validators = Rotator::<T>::legacy_insta_plan_era();
 		// activate the previous one
 		Rotator::<T>::start_era(
-			crate::ActiveEraInfo { index: Rotator::<T>::planned_era() - 1, start: Some(1) },
+			crate::ActiveEraInfo {
+				index: Rotator::<T>::is_planning().expect("era must be planned") - 1,
+				start: Some(1),
+			},
 			42, // start session index doesn't really matter,
 			2,  // timestamp doesn't really matter
 		);
 
 		// ensure our offender has at least a full exposure page
-		let offender_exposure =
-			Eras::<T>::get_full_exposure(Rotator::<T>::planned_era(), &offender);
+		let offender_exposure = Eras::<T>::get_full_exposure(Rotator::<T>::active_era(), &offender);
 		ensure!(
 			offender_exposure.others.len() as u32 == 2 * T::MaxExposurePageSize::get(),
 			"exposure not created"
@@ -1091,7 +1096,7 @@ mod benchmarks {
 	fn rc_on_offence(
 		v: Linear<2, { T::MaxValidatorSet::get() / 2 }>,
 	) -> Result<(), BenchmarkError> {
-		let initial_era = Rotator::<T>::planned_era();
+		let initial_era = Rotator::<T>::active_era();
 		let _ = crate::testing_utils::create_validators_with_nominators_for_era::<T>(
 			2 * v,
 			// number of nominators is irrelevant here, so we hardcode these
@@ -1103,7 +1108,7 @@ mod benchmarks {
 
 		// plan new era
 		let new_validators = Rotator::<T>::legacy_insta_plan_era();
-		ensure!(Rotator::<T>::planned_era() == initial_era + 1, "era should be incremented");
+		ensure!(Rotator::<T>::is_planning().is_some(), "era should be planned");
 		// activate the previous one
 		Rotator::<T>::start_era(
 			crate::ActiveEraInfo { index: initial_era, start: Some(1) },
@@ -1153,7 +1158,6 @@ mod benchmarks {
 
 	#[benchmark]
 	fn rc_on_session_report() -> Result<(), BenchmarkError> {
-		let initial_planned_era = Rotator::<T>::planned_era();
 		let initial_active_era = Rotator::<T>::active_era();
 
 		// create a small, arbitrary number of stakers. This is just for sanity of the era planning,
@@ -1164,16 +1168,13 @@ mod benchmarks {
 
 		// plan new era
 		let _new_validators = Rotator::<T>::legacy_insta_plan_era();
-		ensure!(
-			CurrentEra::<T>::get().unwrap() == initial_planned_era + 1,
-			"era should be incremented"
-		);
+		let planning_era = Rotator::<T>::is_planning().expect("era should be planned");
 
 		//  receive a session report with timestamp that actives the previous one.
 		let validator_points = (0..T::MaxValidatorSet::get())
 			.map(|v| (account::<T::AccountId>("random", v, SEED), v))
 			.collect::<Vec<_>>();
-		let activation_timestamp = Some((1u64, initial_planned_era + 1));
+		let activation_timestamp = Some((1u64, planning_era));
 		let report = rc_client::SessionReport {
 			end_index: 42,
 			leftover: false,
@@ -1494,6 +1495,9 @@ mod tests {
 				.unwrap();
 
 			assert_eq!(nominators.len() as u32, n);
+
+			// activate the current era.
+			Staking::activate_next_era(1, 1);
 
 			let original_stakeable_balance = asset::stakeable_balance::<Test>(&validator_stash);
 			assert_ok!(Staking::payout_stakers_by_page(
