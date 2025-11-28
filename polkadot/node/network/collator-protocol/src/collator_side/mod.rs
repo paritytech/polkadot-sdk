@@ -699,7 +699,7 @@ fn has_assigned_cores(
 
 /// Get a list of backing validators at all allowed relay parents.
 /// If `pending_collation` is true, we will only return the validators
-/// that have a collation pending (advertised or created status)
+/// that have a collation pending.
 fn list_of_backing_validators_in_view(
 	implicit_view: &Option<ImplicitView>,
 	per_relay_parent: &HashMap<Hash, PerRelayParent>,
