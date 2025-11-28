@@ -18,14 +18,15 @@
 3. [Goals](#goals)
 4. [Non-Goals](#non-goals)
 5. [Solution Overview](#solution-overview)
-6. [Basic Relay Chain Fixes](#basic-relay-chain-fixes)
-7. [Scheduling Parent](#scheduling-parent)
-8. [Acknowledgements](#acknowledgements)
-9. [Speculative Messaging](#speculative-messaging)
-10. [Implementation Details](#implementation-details)
-11. [Threats](#threats)
-12. [Research](#research)
-13. [Conclusion](#conclusion)
+6. [Alternatives Considered](#alternatives-considered)
+7. [Basic Relay Chain Fixes](#basic-relay-chain-fixes)
+8. [Scheduling Parent](#scheduling-parent)
+9. [Acknowledgements](#acknowledgements)
+10. [Speculative Messaging](#speculative-messaging)
+11. [Implementation Details](#implementation-details)
+12. [Threats](#threats)
+13. [Research](#research)
+14. [Conclusion](#conclusion)
 
 ---
 
