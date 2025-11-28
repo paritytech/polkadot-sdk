@@ -2021,7 +2021,6 @@ fn connect_advertise_disconnect_three_backing_groups() {
 			)
 			.await;
 
-			
 			TestHarness { virtual_overseer, req_v2_cfg: req_cfg }
 		},
 	);
