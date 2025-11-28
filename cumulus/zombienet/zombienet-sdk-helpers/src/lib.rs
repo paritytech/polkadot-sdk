@@ -12,12 +12,11 @@ use tokio::{
 	join,
 	time::{sleep, Duration},
 };
-use zombienet_configuration::types::AssetLocation;
 use zombienet_sdk::{
 	subxt::{
 		self,
 		blocks::Block,
-		config::{polkadot::PolkadotExtrinsicParamsBuilder, Config},
+		config::{polkadot::PolkadotExtrinsicParamsBuilder, substrate::DigestItem, Config},
 		dynamic::Value,
 		events::Events,
 		ext::scale_value::value,
@@ -25,8 +24,7 @@ use zombienet_sdk::{
 		utils::H256,
 		OnlineClient, PolkadotConfig,
 	},
-	tx_helper::{ChainUpgrade, RuntimeUpgradeOptions},
-	LocalFileSystem, Network, NetworkNode,
+	NetworkNode,
 };
 
 // Maximum number of blocks to wait for a session change.
@@ -488,52 +486,6 @@ pub async fn assert_para_is_registered(
 	Err(anyhow!("No more blocks to check"))
 }
 
-/// Creates a runtime upgrade call using `sudo` and `set_code`.
-pub fn create_runtime_upgrade_call(wasm: &[u8]) -> DynamicPayload {
-	zombienet_sdk::subxt::tx::dynamic(
-		"Sudo",
-		"sudo_unchecked_weight",
-		vec![
-			value! {
-				System(set_code { code: Value::from_bytes(wasm) })
-			},
-			value! {
-				{
-					ref_time: 1u64,
-					proof_size: 1u64
-				}
-			},
-		],
-	)
-}
-
-/// Waits for a runtime upgrade to complete.
-pub async fn wait_for_runtime_upgrade(
-	client: &OnlineClient<PolkadotConfig>,
-) -> Result<(), anyhow::Error> {
-	let updater = client.updater();
-	let mut update_stream = updater.runtime_updates().await?;
-
-	if let Some(Ok(update)) = update_stream.next().await {
-		let version = update.runtime_version().spec_version;
-		log::info!("Runtime upgraded to spec version {version}");
-	}
-	Ok(())
-}
-
-pub async fn runtime_upgrade(
-	network: &Network<LocalFileSystem>,
-	node: &NetworkNode,
-	para_id: u32,
-	wasm_path: &str,
-) -> Result<(), anyhow::Error> {
-	log::info!("Performing runtime upgrade for parachain {}, wasm: {}", para_id, wasm_path);
-	let para = network.parachain(para_id).unwrap();
-
-	para.perform_runtime_upgrade(node, RuntimeUpgradeOptions::new(AssetLocation::from(wasm_path)))
-		.await
-}
-
 /// Assigns the given `cores` to the given `para_id`.
 ///
 /// Zombienet by default adds extra core for each registered parachain additionally to the one
@@ -585,19 +537,49 @@ pub async fn assign_cores(
 	Ok(())
 }
 
-pub async fn wait_for_upgrade(
-	client: OnlineClient<PolkadotConfig>,
-	expected_version: u32,
-) -> Result<(), anyhow::Error> {
-	let updater = client.updater();
-	let mut update_stream = updater.runtime_updates().await?;
+/// Creates a runtime upgrade call using `sudo` and `set_code`.
+pub fn create_runtime_upgrade_call(wasm: &[u8]) -> DynamicPayload {
+	zombienet_sdk::subxt::tx::dynamic(
+		"Sudo",
+		"sudo_unchecked_weight",
+		vec![
+			value! {
+				System(set_code { code: Value::from_bytes(wasm) })
+			},
+			value! {
+				{
+					ref_time: 1u64,
+					proof_size: 1u64
+				}
+			},
+		],
+	)
+}
 
-	while let Some(Ok(update)) = update_stream.next().await {
-		let version = update.runtime_version().spec_version;
-		log::info!("Update runtime spec version {version}");
-		if version == expected_version {
-			break;
+/// Wait until a runtime upgrade has happened.
+///
+/// This checks all finalized blocks until it finds a block that sets the
+/// `RuntimeEnvironmentUpdated` digest.
+///
+/// Returns the hash of the block at which the runtime upgrade was applied.
+pub async fn wait_for_runtime_upgrade(
+	client: &OnlineClient<PolkadotConfig>,
+) -> Result<H256, anyhow::Error> {
+	let mut finalized_blocks = client.blocks().subscribe_finalized().await?;
+
+	while let Some(Ok(block)) = finalized_blocks.next().await {
+		if block
+			.header()
+			.digest
+			.logs
+			.iter()
+			.any(|d| matches!(d, DigestItem::RuntimeEnvironmentUpdated))
+		{
+			log::info!("Runtime upgraded in block {:?}", block.hash());
+
+			return Ok(block.hash())
 		}
 	}
-	Ok(())
+
+	Err(anyhow!("Did not find a runtime upgrade"))
 }

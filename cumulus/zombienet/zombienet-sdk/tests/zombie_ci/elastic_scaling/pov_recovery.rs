@@ -166,6 +166,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				})
 				.with_collator(|n| {
 					n.with_name("collator").with_args(vec![
+						("--reserved-nodes", "{{ZOMBIE:alice:multiaddr}}").into(),
 						("-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug").into(),
 						("--disable-block-announcements").into(),
 						("--force-authoring").into(),
