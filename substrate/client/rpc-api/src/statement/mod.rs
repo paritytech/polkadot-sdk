@@ -50,11 +50,7 @@ pub trait StatementApi {
 	///
 	/// To get the statement, and not just the data, use `statement_postedClearStatement`.
 	#[method(name = "statement_postedClear")]
-	fn posted_clear(
-		&self,
-		match_all_topics: Vec<Bytes>,
-		dest: Bytes,
-	) -> RpcResult<Vec<Bytes>>;
+	fn posted_clear(&self, match_all_topics: Vec<Bytes>, dest: Bytes) -> RpcResult<Vec<Bytes>>;
 
 	/// Return all known statements which include all topics and have no `DecryptionKey`
 	/// field.
@@ -78,11 +74,8 @@ pub trait StatementApi {
 	/// This returns for each statement: the SCALE-encoded statement concatenated to the decrypted
 	/// data. Not just the data as in rpc `statement_postedClear`.
 	#[method(name = "statement_postedClearStatement")]
-	fn posted_clear_stmt(
-		&self,
-		match_all_topics: Vec<Bytes>,
-		dest: Bytes,
-	) -> RpcResult<Vec<Bytes>>;
+	fn posted_clear_stmt(&self, match_all_topics: Vec<Bytes>, dest: Bytes)
+		-> RpcResult<Vec<Bytes>>;
 
 	/// Submit a pre-encoded statement.
 	#[method(name = "statement_submit")]
