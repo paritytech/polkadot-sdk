@@ -23,7 +23,7 @@ use crate::{
 		common::{
 			Advertisement, CanSecond, CollationFetchError, CollationFetchResponse,
 			ProspectiveCandidate, Score, SecondingRejectionInfo, FAILED_FETCH_SLASH,
-			INSTANT_FETCH_REP_THRESHOLD, UNDER_THRESHOLD_FETCH_DELAY,
+			INSTANT_FETCH_REP_THRESHOLD, MAX_FETCH_DELAY_IN_MILLIS,
 		},
 		error::{Error, FatalResult, Result},
 	},
@@ -54,7 +54,7 @@ use schnellru::{ByLength, LruMap};
 use sp_keystore::KeystorePtr;
 use std::{
 	collections::{BTreeSet, HashMap, HashSet, VecDeque},
-	time::{Duration, Instant},
+	time::Instant,
 };
 
 mod requests;
@@ -636,8 +636,11 @@ impl CollationManager {
 		highest_rep_of_para: Score,
 		connected_rep_query_fn: &RepQueryFn,
 	) -> Option<Advertisement> {
-		let instant_fetch_rep = INSTANT_FETCH_REP_THRESHOLD.min(highest_rep_of_para);
-		let advertisements = self
+		let fetch_score = INSTANT_FETCH_REP_THRESHOLD.min(highest_rep_of_para);
+		let delay_bonus_per_ms =
+			u16::from(highest_rep_of_para) as f32 / MAX_FETCH_DELAY_IN_MILLIS as f32;
+
+		let maybe_best_adv = self
 			.per_relay_parent
 			.iter()
 			// Only check advertisements for relay parents within the view of this leaf.
@@ -650,47 +653,30 @@ impl CollationManager {
 				if self.fetching.contains(&adv) {
 					return None;
 				}
-				Some((per_rp, adv, connected_rep_query_fn(&adv.peer_id, &adv.para_id)?))
+
+				let timepstamp = per_rp.advertisement_timestamps.get(adv)?;
+				let delay = now
+					.duration_since(*timepstamp)
+					.as_millis()
+					.min(MAX_FETCH_DELAY_IN_MILLIS as u128);
+				let delay_bonus = delay as f32 * delay_bonus_per_ms;
+
+				let mut score = connected_rep_query_fn(&adv.peer_id, &adv.para_id)?;
+				score.saturating_add(delay_bonus.ceil() as u16);
+
+				Some((adv, score))
 			})
-			.filter_map(|(per_rp, adv, peer_rep)| {
-				let adv_timepstamp = per_rp.advertisement_timestamps.get(adv)?;
-				let duration_since_adv = now.duration_since(*adv_timepstamp);
-				let fetch_delay = UNDER_THRESHOLD_FETCH_DELAY
-					.checked_sub(duration_since_adv)
-					.unwrap_or(Duration::ZERO);
-				Some((adv, peer_rep, fetch_delay))
-			});
+			.max_by_key(|(_, score)| *score);
 
-		let mut maybe_best_adv = None;
-		for adv_tuple in advertisements {
-			let (_, peer_rep, fetch_delay) = adv_tuple;
-			let (_, best_adv_peer_rep, best_adv_fetch_delay) =
-				maybe_best_adv.get_or_insert(adv_tuple);
+		let Some((advertisement, score)) = maybe_best_adv else { return None };
 
-			match (
-				fetch_delay.is_zero(),
-				best_adv_fetch_delay.is_zero(),
-				*best_adv_peer_rep >= instant_fetch_rep,
-			) {
-				(true, true, _) | (false, false, _) | (_, _, true) =>
-					if peer_rep > *best_adv_peer_rep {
-						maybe_best_adv = Some(adv_tuple);
-					},
-				(true, false, false) => maybe_best_adv = Some(adv_tuple),
-				_ => {},
-			}
-		}
-
-		let Some((advertisement, peer_rep, fetch_delay)) = maybe_best_adv else { return None };
-
-		if peer_rep >= instant_fetch_rep || fetch_delay.is_zero() {
+		if score >= fetch_score {
 			return Some(*advertisement);
 		}
 
 		gum::debug!(
 			target: LOG_TARGET,
-			?fetch_delay,
-			?peer_rep,
+			?fetch_score,
 			?highest_rep_of_para,
 			"Skipping advertisement, as the peer doesn't have a high enough reputation to warrant a fetch now"
 		);
