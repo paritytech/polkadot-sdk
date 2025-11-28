@@ -910,6 +910,19 @@ pub async fn assign_cores(
 	Ok(())
 }
 
+/// Creates a runtime upgrade call using `Sudo::sudo(System::set_code_without_checks)`.
+///
+/// The `wasm_binary` should be the WASM runtime binary to upgrade to.
+pub fn create_runtime_upgrade_call(wasm_binary: &[u8]) -> DynamicPayload {
+	let runtime_upgrade_call = zombienet_sdk::subxt::tx::dynamic(
+		"System",
+		"set_code_without_checks",
+		vec![value!(wasm_binary.to_vec())],
+	);
+
+	zombienet_sdk::subxt::tx::dynamic("Sudo", "sudo", vec![runtime_upgrade_call.into_value()])
+}
+
 /// Wait until a runtime upgrade has happened.
 ///
 /// This checks all finalized blocks until it finds a block that sets the

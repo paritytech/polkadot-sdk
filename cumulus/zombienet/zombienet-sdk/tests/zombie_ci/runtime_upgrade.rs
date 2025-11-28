@@ -1,17 +1,16 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use anyhow::anyhow;
-use std::time::Duration;
-
 use crate::utils::initialize_network;
-
+use anyhow::anyhow;
 use cumulus_test_runtime::wasm_spec_version_incremented::WASM_BINARY_BLOATY as WASM_RUNTIME_UPGRADE;
 use cumulus_zombienet_sdk_helpers::{
-	submit_extrinsic_and_wait_for_finalization_success, wait_for_runtime_upgrade,
+	create_runtime_upgrade_call, submit_extrinsic_and_wait_for_finalization_success,
+	wait_for_runtime_upgrade,
 };
+use std::time::Duration;
 use zombienet_sdk::{
-	subxt::{ext::scale_value::value, tx::DynamicPayload, OnlineClient, PolkadotConfig},
+	subxt::{OnlineClient, PolkadotConfig},
 	subxt_signer::sr25519::dev,
 	NetworkConfig, NetworkConfigBuilder,
 };
@@ -40,7 +39,8 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 
 	log::info!("Performing runtime upgrade");
 
-	let call = create_runtime_upgrade_call();
+	let call =
+		create_runtime_upgrade_call(WASM_RUNTIME_UPGRADE.expect("Wasm runtime not build"));
 	submit_extrinsic_and_wait_for_finalization_success(&charlie_client, &call, &dev::alice())
 		.await?;
 
@@ -61,16 +61,6 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 	assert_eq!(expected_spec_version, spec_version_from_charlie, "Unexpected runtime spec version");
 
 	Ok(())
-}
-
-fn create_runtime_upgrade_call() -> DynamicPayload {
-	let runtime_upgrade_call = zombienet_sdk::subxt::tx::dynamic(
-		"System",
-		"set_code_without_checks",
-		vec![value!(WASM_RUNTIME_UPGRADE.expect("Wasm runtime not build").to_vec())],
-	);
-
-	zombienet_sdk::subxt::tx::dynamic("Sudo", "sudo", vec![runtime_upgrade_call.into_value()])
 }
 
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
