@@ -1720,7 +1720,7 @@ impl<Block: BlockT> Backend<Block> {
 			let should_check_block_gap = !existing_header || !existing_body;
 
 			if should_check_block_gap {
-				let insert_new_gap =
+				let update_gap =
 					|transaction: &mut Transaction<DbHash>,
 					 new_gap: BlockGap<NumberFor<Block>>,
 					 block_gap: &mut Option<BlockGap<NumberFor<Block>>>| {
@@ -1731,6 +1731,16 @@ impl<Block: BlockT> Backend<Block> {
 							&BLOCK_GAP_CURRENT_VERSION.encode(),
 						);
 						block_gap.replace(new_gap);
+						debug!(target: "db", "Update block gap. {block_gap:?}");
+					};
+
+				let remove_gap =
+					|transaction: &mut Transaction<DbHash>,
+					 block_gap: &mut Option<BlockGap<NumberFor<Block>>>| {
+						transaction.remove(columns::META, meta_keys::BLOCK_GAP);
+						transaction.remove(columns::META, meta_keys::BLOCK_GAP_VERSION);
+						*block_gap = None;
+						debug!(target: "db", "Removed block gap.");
 					};
 
 				if let Some(mut gap) = block_gap {
@@ -1745,13 +1755,9 @@ impl<Block: BlockT> Backend<Block> {
 									hash,
 								)?;
 								if gap.start > gap.end {
-									transaction.remove(columns::META, meta_keys::BLOCK_GAP);
-									transaction.remove(columns::META, meta_keys::BLOCK_GAP_VERSION);
-									block_gap = None;
-									debug!(target: "db", "Removed block gap.");
+									remove_gap(&mut transaction, &mut block_gap);
 								} else {
-									insert_new_gap(&mut transaction, gap, &mut block_gap);
-									debug!(target: "db", "Update block gap. {block_gap:?}");
+									update_gap(&mut transaction, gap, &mut block_gap);
 								}
 								block_gap_updated = true;
 							// Gap start possibly indicates block that was already imported
@@ -1765,13 +1771,9 @@ impl<Block: BlockT> Backend<Block> {
 									hash,
 								)?;
 								if gap.start > gap.end {
-									transaction.remove(columns::META, meta_keys::BLOCK_GAP);
-									transaction.remove(columns::META, meta_keys::BLOCK_GAP_VERSION);
-									block_gap = None;
-									debug!(target: "db", "Removed block gap.");
+									remove_gap(&mut transaction, &mut block_gap);
 								} else {
-									insert_new_gap(&mut transaction, gap, &mut block_gap);
-									debug!(target: "db", "Update block gap. {block_gap:?}");
+									update_gap(&mut transaction, gap, &mut block_gap);
 								}
 								block_gap_updated = true;
 							}
@@ -1786,20 +1788,15 @@ impl<Block: BlockT> Backend<Block> {
 									number,
 									hash,
 								)?;
-								insert_new_gap(&mut transaction, gap, &mut block_gap);
-								debug!(target: "db", "Update block gap. {block_gap:?}");
+								update_gap(&mut transaction, gap, &mut block_gap);
 								block_gap_updated = true;
 							// Gap decreased when downloading the full blocks.
 							} else if number == gap.start && existing_body {
 								gap.start += One::one();
 								if gap.start > gap.end {
-									transaction.remove(columns::META, meta_keys::BLOCK_GAP);
-									transaction.remove(columns::META, meta_keys::BLOCK_GAP_VERSION);
-									block_gap = None;
-									debug!(target: "db", "Removed block gap.");
+									remove_gap(&mut transaction, &mut block_gap);
 								} else {
-									insert_new_gap(&mut transaction, gap, &mut block_gap);
-									debug!(target: "db", "Update block gap. {block_gap:?}");
+									update_gap(&mut transaction, gap, &mut block_gap);
 								}
 								block_gap_updated = true;
 							}
@@ -1814,7 +1811,7 @@ impl<Block: BlockT> Backend<Block> {
 							end: number - One::one(),
 							gap_type: BlockGapType::MissingHeaderAndBody,
 						};
-						insert_new_gap(&mut transaction, gap, &mut block_gap);
+						update_gap(&mut transaction, gap, &mut block_gap);
 						block_gap_updated = true;
 						debug!(target: "db", "Detected block gap (warp sync) {block_gap:?}");
 					} else if number == best_num + One::one() &&
@@ -1826,7 +1823,7 @@ impl<Block: BlockT> Backend<Block> {
 							end: number,
 							gap_type: BlockGapType::MissingBody,
 						};
-						insert_new_gap(&mut transaction, gap, &mut block_gap);
+						update_gap(&mut transaction, gap, &mut block_gap);
 						block_gap_updated = true;
 						debug!(target: "db", "Detected block gap (fast sync) {block_gap:?}");
 					}
