@@ -27,8 +27,8 @@ use crate::{
 	MAX_RESPONSE_SIZE,
 };
 
-use cid::{self, Version};
 use futures::StreamExt;
+use litep2p::types::cid::{Cid, Error as CidError, Version};
 use log::{debug, error, trace};
 use prost::Message;
 use sc_client_api::BlockBackend;
@@ -59,6 +59,11 @@ const MAX_WANTED_BLOCKS: usize = 16;
 
 /// Bitswap protocol name
 const PROTOCOL_NAME: &'static str = "/ipfs/bitswap/1.2.0";
+
+/// Check if a CID is supported by the bitswap protocol.
+pub fn is_cid_supported(cid: &Cid) -> bool {
+	cid.version() == Version::V1 && cid.hash().size() == 32
+}
 
 /// Prefix represents all metadata of a CID, without the actual content.
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -189,7 +194,7 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 		}
 
 		for entry in wantlist.entries {
-			let cid = match cid::Cid::read_bytes(entry.block.as_slice()) {
+			let cid = match Cid::read_bytes(entry.block.as_slice()) {
 				Ok(cid) => cid,
 				Err(e) => {
 					trace!(target: LOG_TARGET, "Bad CID {:?}: {:?}", entry.block, e);
@@ -197,10 +202,7 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 				},
 			};
 
-			if cid.version() != cid::Version::V1 ||
-				cid.hash().code() != u64::from(cid::multihash::Code::Blake2b256) ||
-				cid.hash().size() != 32
-			{
+			if !is_cid_supported(&cid) {
 				debug!(target: LOG_TARGET, "Ignoring unsupported CID {}: {}", peer, cid);
 				continue
 			}
@@ -270,7 +272,7 @@ pub enum BitswapError {
 
 	/// Error parsing CID
 	#[error(transparent)]
-	BadCid(#[from] cid::Error),
+	BadCid(#[from] CidError),
 
 	/// Packet read error.
 	#[error(transparent)]
@@ -292,6 +294,8 @@ pub enum BitswapError {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use cid::Cid;
+	use multihash::{Code, Multihash};
 	use futures::channel::oneshot;
 	use sc_block_builder::BlockBuilderBuilder;
 	use schema::bitswap::{
@@ -438,10 +442,10 @@ mod tests {
 				payload: BitswapMessage {
 					wantlist: Some(Wantlist {
 						entries: vec![Entry {
-							block: cid::Cid::new_v1(
+							block: Cid::new_v1(
 								0x70,
-								cid::multihash::Multihash::wrap(
-									u64::from(cid::multihash::Code::Blake2b256),
+								Multihash::wrap(
+									u64::from(Code::Blake2b256),
 									&[0u8; 32],
 								)
 								.unwrap(),
@@ -499,10 +503,10 @@ mod tests {
 				payload: BitswapMessage {
 					wantlist: Some(Wantlist {
 						entries: vec![Entry {
-							block: cid::Cid::new_v1(
+							block: Cid::new_v1(
 								0x70,
-								cid::multihash::Multihash::wrap(
-									u64::from(cid::multihash::Code::Blake2b256),
+								Multihash::wrap(
+									u64::from(Code::Blake2b256),
 									&sp_crypto_hashing::blake2_256(&ext.encode()[pattern_index..]),
 								)
 								.unwrap(),
