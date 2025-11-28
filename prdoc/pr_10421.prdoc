@@ -1,0 +1,26 @@
+title: 'statement-store: New RPC result types'
+doc:
+- audience: Node Dev
+  description: |-
+    # Description
+
+    Application-level errors moved from JSON-RPC transport errors into the result type for `statement_submit` RPC method to help clients distinguish between submission outcomes instead of parsing error strings.
+
+    ## Integration
+
+    **Breaking Change** - `statement_submit` now returns `StatementSubmitResult` enum instead of `()`.
+
+    ## Review Notes
+
+    Submission outcomes now return as Ok(result) with status field. Only infrastructure failures (database errors, decode errors) remain as JSON-RPC errors.
+crates:
+- name: sc-rpc-api
+  bump: major
+- name: sc-rpc
+  bump: major
+- name: sc-network-statement
+  bump: major
+- name: sc-statement-store
+  bump: major
+- name: sp-statement-store
+  bump: major
