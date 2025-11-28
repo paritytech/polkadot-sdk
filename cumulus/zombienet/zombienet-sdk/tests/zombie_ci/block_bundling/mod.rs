@@ -17,6 +17,8 @@
 
 mod basic;
 mod full_core_usage_scenarios;
+mod pov_recovery;
+mod relay_parent_offset;
 mod runtime_upgrade;
 mod three_cores_glutton;
 mod tracing_block;

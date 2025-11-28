@@ -660,6 +660,8 @@ impl_runtime_apis! {
 		}
 	}
 
+	// "Elastic scaling" should run with the fallback method.
+	#[cfg(not(feature = "elastic-scaling"))]
 	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
 		fn target_block_rate() -> u32 {
 			BLOCK_PROCESSING_VELOCITY
