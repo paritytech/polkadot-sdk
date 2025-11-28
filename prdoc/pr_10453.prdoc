@@ -19,6 +19,6 @@ doc:
     Note: Transactions that were pending may not be visible after revert if they fail the revalidation
 crates:
 - name: sc-transaction-pool-api
-  bump: patch
+  bump: major
 - name: sc-transaction-pool
   bump: patch
