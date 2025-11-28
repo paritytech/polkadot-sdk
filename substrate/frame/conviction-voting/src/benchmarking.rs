@@ -282,11 +282,11 @@ benchmarks_instance_pallet! {
 		});
 
 		assert_eq!(
-			VotingFor::<T, I>::get(&voter, &class).votes.len(),
+			VotingFor::<T, I>::get(&voter, &class).votes.iter().filter(|record| record.maybe_vote.is_some()).count(),
 			r as usize
 		);
 		assert_eq!(
-			VotingFor::<T, I>::get(&caller, &class).votes.len(),
+			VotingFor::<T, I>::get(&caller, &class).votes.iter().filter(|record| record.maybe_vote.is_some()).count(),
 			s as usize
 		);
 
@@ -333,11 +333,11 @@ benchmarks_instance_pallet! {
 		}
 
 		assert_eq!(
-			VotingFor::<T, I>::get(&voter, &class).votes.len(),
+			VotingFor::<T, I>::get(&voter, &class).votes.iter().filter(|record| record.maybe_vote.is_some()).count(),
 			r as usize
 		);
 		assert_eq!(
-			VotingFor::<T, I>::get(&caller, &class).votes.len(),
+			VotingFor::<T, I>::get(&caller, &class).votes.iter().filter(|record| record.maybe_vote.is_some()).count(),
 			s as usize
 		);
 		assert_matches!(VotingFor::<T, I>::get(&caller, &class).maybe_delegate, Some(voter_lookup));
