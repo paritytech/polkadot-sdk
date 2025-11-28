@@ -73,8 +73,6 @@ where
 	pub state_request_protocol_name: ProtocolName,
 	/// Block downloader
 	pub block_downloader: Arc<dyn BlockDownloader<Block>>,
-	/// Is block pruning enabled?
-	pub block_pruning_enabled: bool,
 }
 
 /// Proxy to specific syncing strategies used in Polkadot.
@@ -384,7 +382,6 @@ where
 				config.block_downloader.clone(),
 				config.metrics_registry.as_ref(),
 				std::iter::empty(),
-				config.block_pruning_enabled,
 			)?;
 			Ok(Self {
 				config,
@@ -439,7 +436,6 @@ where
 						self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
 							(*peer_id, *best_hash, *best_number)
 						}),
-						self.config.block_pruning_enabled,
 					) {
 						Ok(chain_sync) => chain_sync,
 						Err(e) => {
@@ -470,7 +466,6 @@ where
 				self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
 					(*peer_id, *best_hash, *best_number)
 				}),
-				self.config.block_pruning_enabled,
 			) {
 				Ok(chain_sync) => chain_sync,
 				Err(e) => {

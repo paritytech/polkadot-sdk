@@ -337,9 +337,6 @@ pub struct ChainSync<B: BlockT, Client> {
 	import_existing: bool,
 	/// Block downloader
 	block_downloader: Arc<dyn BlockDownloader<B>>,
-	/// Is block pruning enabled? This indicates that the user is not
-	/// interested in historical blocks, so gap sync will be skipped.
-	block_pruning_enabled: bool,
 	/// Gap download process.
 	gap_sync: Option<GapSync<B>>,
 	/// Pending actions.
@@ -947,7 +944,6 @@ where
 		block_downloader: Arc<dyn BlockDownloader<B>>,
 		metrics_registry: Option<&Registry>,
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
-		block_pruning_enabled: bool,
 	) -> Result<Self, ClientError> {
 		let mut sync = Self {
 			client,
@@ -969,7 +965,6 @@ where
 			state_sync: None,
 			import_existing: false,
 			block_downloader,
-			block_pruning_enabled,
 			gap_sync: None,
 			actions: Vec::new(),
 			metrics: metrics_registry.and_then(|r| match Metrics::register(r) {
@@ -1528,8 +1523,6 @@ where
 
 	fn required_block_attributes(&self) -> BlockAttributes {
 		match self.mode {
-			// TODO Not sure if commenting/uncommenting this actually affects the behavior
-			_ if self.block_pruning_enabled /*&& self.gap_sync.is_some()*/ => BlockAttributes::HEADER,
 			ChainSyncMode::Full =>
 				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY,
 			ChainSyncMode::LightState { storage_chain_mode: false, .. } =>
