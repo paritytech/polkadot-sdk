@@ -55,3 +55,10 @@ cumulus-relay-chain-inprocess-interface = { workspace = true, default-features =
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
 cumulus-relay-chain-minimal-node = { workspace = true, default-features = true }
 cumulus-relay-chain-streams = { workspace = true, default-features = true }
+
+# Doppelganger
+tokio = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+
+[features]
+doppelganger = [ "dep:tokio", "dep:serde_json" ]

@@ -78,6 +78,8 @@ use sp_runtime::{
 };
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
+#[cfg(feature = "doppelganger")]
+use doppelganger_consensus::{DoppelGangerBlockImport, DoppelGangerContext};
 struct Verifier<Block, Client, AuraId> {
 	client: Arc<Client>,
 	aura_verifier: Box<dyn VerifierT<Block>>,
@@ -149,7 +151,14 @@ where
 			_phantom: Default::default(),
 		};
 
-		Ok(BasicQueue::new(verifier, Box::new(block_import), None, &spawner, registry))
+		// [DOPPELGANGER]
+		#[cfg(feature = "doppelganger")]
+		let boxed_block_import =
+			Box::new(DoppelGangerBlockImport::new(block_import, DoppelGangerContext::Parachain, task_manager.spawn_essential_handle()));
+		#[cfg(not(feature = "doppelganger"))]
+		let boxed_block_import = Box::new(block_import);
+
+		Ok(BasicQueue::new(verifier, boxed_block_import, None, &spawner, registry))
 	}
 }
 

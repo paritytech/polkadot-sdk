@@ -455,6 +455,19 @@ where
 			})
 		};
 
+		#[cfg(feature = "doppelganger")]
+		let warp_sync_config_to_use = if let Ok(zombie_target_header_path) = std::env::var("ZOMBIE_TARGET_HEADER_PATH") {
+			let header_content = std::fs::read_to_string(&zombie_target_header_path).expect("env var ZOMBIE_TARGET_HEADER_PATH should be valid. qed");
+			let header: <Block as BlockT>::Header = serde_json::from_str(&header_content).unwrap();
+			WarpSyncConfig::WithTarget(header)
+
+		} else {
+			WarpSyncConfig::WithProvider(warp_sync)
+		};
+
+		#[cfg(not(feature = "doppelganger"))]
+		let warp_sync_config_to_use = WarpSyncConfig::WithProvider(warp_sync);
+
 		let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 			sc_service::build_network(sc_service::BuildNetworkParams {
 				config: &config,
@@ -464,7 +477,7 @@ where
 				spawn_handle: task_manager.spawn_handle(),
 				import_queue,
 				block_announce_validator_builder: None,
-				warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
+				warp_sync_config: Some(warp_sync_config_to_use),
 				block_relay: None,
 				metrics,
 			})?;

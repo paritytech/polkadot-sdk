@@ -107,6 +107,9 @@ cumulus-relay-chain-interface = { workspace = true, default-features = true }
 futures-timer = { workspace = true }
 sc-consensus-aura = { workspace = true }
 
+# Doppelganger
+doppelganger-consensus = { path = "../../../doppelganger/consensus", optional = true }
+
 [dev-dependencies]
 assert_cmd = { workspace = true }
 cumulus-test-runtime = { workspace = true }
@@ -138,4 +141,9 @@ try-runtime = [
 	"parachains-common/try-runtime",
 	"polkadot-cli/try-runtime",
 	"sp-runtime/try-runtime",
+]
+
+doppelganger = [
+	"dep:doppelganger-consensus",
+	"cumulus-client-service/doppelganger",
 ]

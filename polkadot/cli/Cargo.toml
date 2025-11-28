@@ -82,3 +82,5 @@ runtime-metrics = [
 	"polkadot-node-metrics/runtime-metrics",
 	"polkadot-service/runtime-metrics",
 ]
+
+doppelganger = ["full-node", "polkadot-service/doppelganger"]

@@ -33,6 +33,9 @@ use sp_consensus_babe::inherents::BabeCreateInherentDataProviders;
 use sp_consensus_beefy::ecdsa_crypto;
 use std::sync::Arc;
 
+#[cfg(feature = "doppelganger")]
+use doppelganger_consensus::{DoppelGangerBlockImport, DoppelGangerContext};
+
 type FullSelectChain = relay_chain_selection::SelectRelayChain<FullBackend>;
 type FullGrandpaBlockImport<ChainSelection = FullSelectChain> =
 	sc_consensus_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, ChainSelection>;
@@ -207,6 +210,13 @@ where
 	let (import_queue, babe_worker_handle) =
 		sc_consensus_babe::import_queue(sc_consensus_babe::ImportQueueParams {
 			link: babe_link.clone(),
+			#[cfg(feature = "doppelganger")]
+			block_import: DoppelGangerBlockImport::new(
+				block_import.clone(),
+				DoppelGangerContext::Relaychain,
+				task_manager.spawn_essential_handle()
+			),
+			#[cfg(not(feature = "doppelganger"))]
 			block_import: block_import.clone(),
 			justification_import: Some(Box::new(justification_import)),
 			client: client.clone(),

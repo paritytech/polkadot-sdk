@@ -163,6 +163,8 @@ members = [
 	"docs/sdk/packages/guides/first-pallet",
 	"docs/sdk/packages/guides/first-runtime",
 	"docs/sdk/src/reference_docs/chain_spec_runtime",
+	"doppelganger",
+	"doppelganger/consensus",
 	"polkadot",
 	"polkadot/cli",
 	"polkadot/core-primitives",
