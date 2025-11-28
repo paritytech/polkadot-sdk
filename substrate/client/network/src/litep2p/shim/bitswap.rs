@@ -60,12 +60,6 @@ impl<Block: BlockT> BitswapServer<Block> {
 
 					let response: Vec<ResponseType> = cids
 						.into_iter()
-						.filter(|(cid, _)| {
-							let version_num: u64 = cid.version().into();
-							let size = cid.hash().size() as usize;
-							let cid_str = cid.to_string();
-							self.is_cid_supported(version_num, size, cid_str)
-						})
 						.map(|(cid, want_type)| {
 							let mut hash = Block::Hash::default();
 							hash.as_mut().copy_from_slice(&cid.hash().digest()[0..32]);
@@ -106,26 +100,5 @@ impl<Block: BlockT> BitswapServer<Block> {
 				},
 			}
 		}
-	}
-
-	/// Takes extracted values instead of the CID directly to avoid version conflicts
-	fn is_cid_supported(&self, version_num: u64, size: usize, cid_str: String) -> bool {
-		if version_num == 0 {
-			log::trace!(
-				target: LOG_TARGET,
-				"Unsupported CID version for cid: {cid_str}"
-			);
-			return false;
-		}
-
-		if size != 32 {
-			log::warn!(
-				target: LOG_TARGET,
-				"Unsupported multihash size: {size} for cid: {cid_str}, supports only 32!"
-			);
-			return false;
-		}
-
-		true
 	}
 }
