@@ -206,6 +206,52 @@ fn on_receive_session_report() {
 				})
 			)]
 		);
+
+		// Validator is queued for the next session
+		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+			RuntimeOrigin::root(),
+			rc_client::SessionReport {
+				end_index: 5,
+				validator_points: vec![(1, 10)],
+				activation_timestamp: None,
+				leftover: false,
+			}
+		));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::SessionRotated {
+				starting_session: 6,
+				active_era: 0,
+				planned_era: 1
+			}]
+		);
+
+		// now we activate era
+		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+			RuntimeOrigin::root(),
+			rc_client::SessionReport {
+				end_index: 6,
+				validator_points: vec![(1, 10)],
+				activation_timestamp: Some((1000, 1)),
+				leftover: false,
+			}
+		));
+
+		// active era is rotated. Election also kicked off.
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::EraPaid { era_index: 0, validator_payout: 0, remainder: 0 },
+				StakingEvent::SessionRotated { starting_session: 7, active_era: 1, planned_era: 2 }
+			]
+		);
+
+		assert_eq!(
+			election_events_since_last_call(),
+			// Snapshot phase has started which will run for 3 blocks
+			vec![ElectionEvent::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) }]
+		);
 	})
 }
 
