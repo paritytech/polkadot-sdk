@@ -1,0 +1,24 @@
+title: 'fatp: Implement blockchain revert handling'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Add support for handling blockchain revert. This is useful in testing.
+
+    Changes:
+    - Add ChainEvent::Reverted variant to represent backward blockchain progression
+    - Implement handle_reverted() method that:
+      * Collects transactions from retracted blocks via included_transactions cache or by fetching block bodies from the API
+      * Removes all views beyond the revert point to prevent zombie views
+      * Removes included transactions from mempool (they can be resubmitted later)
+      * Updates enactment state (recent_finalized_block and recent_best_block)
+      * Ensures a valid view exists at the revert target block
+    - Add early return in maintain() for Reverted events to prevent normal forward-progression logic from running
+
+    These changes fix issues where reverting would leave zombie views in the view store, causing issues at subsequent operations.
+
+    Note: Transactions that were pending may not be visible after revert if they fail the revalidation
+crates:
+- name: sc-transaction-pool-api
+  bump: patch
+- name: sc-transaction-pool
+  bump: patch
