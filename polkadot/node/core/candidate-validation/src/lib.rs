@@ -206,6 +206,41 @@ where
 				return
 			};
 
+			let v3_enabled =
+				match util::request_node_features(relay_parent, session_index, &mut sender)
+					.await
+					.await
+				{
+					Ok(Ok(features)) =>
+						polkadot_primitives::node_features::FeatureIndex::CandidateReceiptV3
+							.is_set(&features),
+					Ok(Err(e)) => {
+						gum::warn!(
+							target: LOG_TARGET,
+							?relay_parent,
+							?session_index,
+							err = ?e,
+							"Failed to fetch node features from runtime"
+						);
+						let _ = response_sender
+							.send(Err(ValidationFailed("Node features not available".to_string())));
+						return
+					},
+					Err(e) => {
+						gum::warn!(
+							target: LOG_TARGET,
+							?relay_parent,
+							?session_index,
+							err = ?e,
+							"Failed to fetch node features, oneshot canceled"
+						);
+						let _ = response_sender.send(Err(ValidationFailed(
+							"Node features request canceled".to_string(),
+						)));
+						return
+					},
+				};
+
 			// This will return a default value for the limit if runtime API is not available.
 			// however we still error out if there is a weird runtime API error.
 			let Ok(validation_code_bomb_limit) = util::runtime::fetch_validation_code_bomb_limit(
@@ -239,6 +274,7 @@ where
 				exec_kind,
 				&metrics,
 				maybe_claim_queue,
+				v3_enabled,
 				validation_code_bomb_limit,
 			)
 			.await;
@@ -857,6 +893,7 @@ async fn validate_candidate_exhaustive(
 	exec_kind: PvfExecKind,
 	metrics: &Metrics,
 	maybe_claim_queue: Option<ClaimQueueSnapshot>,
+	v3_enabled: bool,
 	validation_code_bomb_limit: u32,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
@@ -874,7 +911,7 @@ async fn validate_candidate_exhaustive(
 	);
 
 	// We only check the session index for backing.
-	match (exec_kind, candidate_receipt.descriptor.session_index()) {
+	match (exec_kind, candidate_receipt.descriptor.session_index(v3_enabled)) {
 		(PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_), Some(session_index)) =>
 			if session_index != expected_session_index {
 				return Ok(ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex))
@@ -1042,9 +1079,10 @@ async fn validate_candidate_exhaustive(
 								return Err(ValidationFailed(error.into()))
 							};
 
-							if let Err(err) = committed_candidate_receipt
-								.parse_ump_signals(&transpose_claim_queue(claim_queue.0))
-							{
+							if let Err(err) = committed_candidate_receipt.parse_ump_signals(
+								&transpose_claim_queue(claim_queue.0),
+								v3_enabled,
+							) {
 								gum::warn!(
 									target: LOG_TARGET,
 									candidate_hash = ?candidate_receipt.hash(),

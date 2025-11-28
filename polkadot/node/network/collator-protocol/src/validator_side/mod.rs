@@ -408,6 +408,7 @@ struct PerRelayParent {
 	assignment: GroupAssignments,
 	collations: Collations,
 	v2_receipts: bool,
+	v3_enabled: bool,
 	current_core: CoreIndex,
 	session_index: SessionIndex,
 	ah_held_off_advertisements: RelayParentHoldOffState,
@@ -573,6 +574,7 @@ async fn construct_per_relay_parent<Sender>(
 	keystore: &KeystorePtr,
 	relay_parent: Hash,
 	v2_receipts: bool,
+	v3_enabled: bool,
 	session_index: SessionIndex,
 ) -> Result<Option<PerRelayParent>>
 where
@@ -626,6 +628,7 @@ where
 		assignment,
 		collations,
 		v2_receipts,
+		v3_enabled,
 		session_index,
 		current_core: core_now,
 		ah_held_off_advertisements: RelayParentHoldOffState::NotStarted,
@@ -1501,12 +1504,13 @@ where
 			.await
 			.map_err(Error::CancelledSessionIndex)??;
 
-		let v2_receipts = node_features::FeatureIndex::CandidateReceiptV2::is_set(
-			request_node_features(*leaf, session_index, sender)
+		let node_features = request_node_features(*leaf, session_index, sender)
 			.await
 			.await
-			.map_err(Error::CancelledNodeFeatures)??
-		);
+			.map_err(Error::CancelledNodeFeatures)??;
+
+		let v2_receipts = node_features::FeatureIndex::CandidateReceiptV2.is_set(&node_features);
+		let v3_enabled = node_features::FeatureIndex::CandidateReceiptV3.is_set(&node_features);
 
 		let Some(per_relay_parent) = construct_per_relay_parent(
 			sender,
@@ -1514,6 +1518,7 @@ where
 			keystore,
 			*leaf,
 			v2_receipts,
+			v3_enabled,
 			session_index,
 		)
 		.await?
@@ -2553,10 +2558,10 @@ fn descriptor_version_sanity_check(
 	descriptor: &CandidateDescriptorV2,
 	per_relay_parent: &PerRelayParent,
 ) -> std::result::Result<(), SecondingError> {
-	match descriptor.version() {
+	match descriptor.version(per_relay_parent.v3_enabled) {
 		CandidateDescriptorVersion::V1 => Ok(()),
 		CandidateDescriptorVersion::V2 if per_relay_parent.v2_receipts => {
-			if let Some(core_index) = descriptor.core_index() {
+			if let Some(core_index) = descriptor.core_index(per_relay_parent.v3_enabled) {
 				if core_index != per_relay_parent.current_core {
 					return Err(SecondingError::InvalidCoreIndex(
 						core_index.0,
@@ -2565,7 +2570,7 @@ fn descriptor_version_sanity_check(
 				}
 			}
 
-			if let Some(session_index) = descriptor.session_index() {
+			if let Some(session_index) = descriptor.session_index(per_relay_parent.v3_enabled) {
 				if session_index != per_relay_parent.session_index {
 					return Err(SecondingError::InvalidSessionIndex(
 						session_index,

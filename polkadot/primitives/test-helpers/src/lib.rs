@@ -26,8 +26,8 @@ use codec::{Decode, Encode};
 use polkadot_primitives::{
 	AppVerify, CandidateCommitments, CandidateDescriptorV2, CandidateHash, CandidateReceiptV2,
 	CollatorId, CollatorSignature, CommittedCandidateReceiptV2, CoreIndex, Hash, HashT, HeadData,
-	Id, Id as ParaId, MutateDescriptorV2, PersistedValidationData, SessionIndex,
-	ValidationCode, ValidationCodeHash, ValidatorId,
+	Id, Id as ParaId, MutateDescriptorV2, PersistedValidationData, SessionIndex, ValidationCode,
+	ValidationCodeHash, ValidatorId,
 };
 pub use rand;
 use scale_info::TypeInfo;
@@ -759,7 +759,7 @@ mod candidate_receipt_tests {
 
 		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::Unknown);
 		assert_eq!(
-			new_ccr.parse_ump_signals(&std::collections::BTreeMap::new()),
+			new_ccr.parse_ump_signals(&std::collections::BTreeMap::new(), false),
 			Err(CommittedCandidateReceiptError::UnknownVersion(InternalVersion(100)))
 		);
 	}
@@ -797,7 +797,7 @@ mod candidate_receipt_tests {
 		let v2_ccr: CommittedCandidateReceiptV2 =
 			Decode::decode(&mut encoded_ccr.as_slice()).unwrap();
 
-		assert_eq!(v2_ccr.descriptor.core_index(), Some(CoreIndex(123)));
+		assert_eq!(v2_ccr.descriptor.core_index(false), Some(CoreIndex(123)));
 
 		let mut cq = BTreeMap::new();
 		cq.insert(
@@ -805,7 +805,7 @@ mod candidate_receipt_tests {
 			vec![new_ccr.descriptor.para_id(), new_ccr.descriptor.para_id()].into(),
 		);
 
-		assert!(new_ccr.parse_ump_signals(&transpose_claim_queue(cq)).is_ok());
+		assert!(new_ccr.parse_ump_signals(&transpose_claim_queue(cq), false).is_ok());
 
 		assert_eq!(new_ccr.hash(), v2_ccr.hash());
 	}
@@ -840,10 +840,10 @@ mod candidate_receipt_tests {
 		cq.insert(CoreIndex(0), vec![v1_ccr.descriptor.para_id()].into());
 		cq.insert(CoreIndex(1), vec![v1_ccr.descriptor.para_id()].into());
 
-		assert_eq!(v1_ccr.descriptor.core_index(), None);
+		assert_eq!(v1_ccr.descriptor.core_index(false), None);
 
 		assert_eq!(
-			v1_ccr.parse_ump_signals(&transpose_claim_queue(cq)),
+			v1_ccr.parse_ump_signals(&transpose_claim_queue(cq), false),
 			Err(CommittedCandidateReceiptError::UMPSignalWithV1Descriptor)
 		);
 	}
@@ -863,7 +863,7 @@ mod candidate_receipt_tests {
 
 		// Since collator sig and id are zeroed, it means that the descriptor uses format
 		// version 2. Should still pass checks without core selector.
-		assert!(new_ccr.parse_ump_signals(&transpose_claim_queue(cq)).is_ok());
+		assert!(new_ccr.parse_ump_signals(&transpose_claim_queue(cq), false).is_ok());
 
 		let mut cq = BTreeMap::new();
 		cq.insert(CoreIndex(0), vec![new_ccr.descriptor.para_id()].into());
@@ -871,7 +871,7 @@ mod candidate_receipt_tests {
 
 		// Passes even if 2 cores are assigned, because elastic scaling MVP could still inject the
 		// core index in the `BackedCandidate`.
-		assert!(new_ccr.parse_ump_signals(&transpose_claim_queue(cq)).is_ok());
+		assert!(new_ccr.parse_ump_signals(&transpose_claim_queue(cq), false).is_ok());
 
 		// Adding collator signature should make it decode as v1.
 		old_ccr.descriptor.signature = dummy_collator_signature();
@@ -887,7 +887,7 @@ mod candidate_receipt_tests {
 		assert_eq!(new_ccr.descriptor.signature(), Some(old_ccr.descriptor.signature));
 		assert_eq!(new_ccr.descriptor.collator(), Some(old_ccr.descriptor.collator));
 
-		assert_eq!(new_ccr.descriptor.core_index(), None);
+		assert_eq!(new_ccr.descriptor.core_index(false), None);
 		assert_eq!(new_ccr.descriptor.para_id(), ParaId::new(1000));
 
 		assert_eq!(old_ccr_hash, new_ccr.hash());
@@ -917,12 +917,18 @@ mod candidate_receipt_tests {
 		new_ccr.commitments.upward_messages.force_push(vec![0u8; 256]);
 		new_ccr.commitments.upward_messages.force_push(vec![0xff; 256]);
 
-		assert_eq!(new_ccr.parse_ump_signals(&cq), Ok(CandidateUMPSignals::dummy(None, None)));
+		assert_eq!(
+			new_ccr.parse_ump_signals(&cq, false),
+			Ok(CandidateUMPSignals::dummy(None, None))
+		);
 
 		// separator
 		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
 
-		assert_eq!(new_ccr.parse_ump_signals(&cq), Ok(CandidateUMPSignals::dummy(None, None)));
+		assert_eq!(
+			new_ccr.parse_ump_signals(&cq, false),
+			Ok(CandidateUMPSignals::dummy(None, None))
+		);
 
 		// CoreIndex commitment
 		{
@@ -933,7 +939,7 @@ mod candidate_receipt_tests {
 				.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
 
 			assert_eq!(
-				new_ccr.parse_ump_signals(&cq),
+				new_ccr.parse_ump_signals(&cq, false),
 				Ok(CandidateUMPSignals::dummy(Some((CoreSelector(0), ClaimQueueOffset(1))), None))
 			);
 		}
@@ -948,7 +954,7 @@ mod candidate_receipt_tests {
 				.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
 
 			assert_eq!(
-				new_ccr.parse_ump_signals(&cq),
+				new_ccr.parse_ump_signals(&cq, false),
 				Ok(CandidateUMPSignals::dummy(None, Some(vec![1, 2, 3].try_into().unwrap())))
 			);
 
@@ -960,7 +966,7 @@ mod candidate_receipt_tests {
 				.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
 
 			assert_eq!(
-				new_ccr.parse_ump_signals(&cq),
+				new_ccr.parse_ump_signals(&cq, false),
 				Ok(CandidateUMPSignals::dummy(
 					Some((CoreSelector(0), ClaimQueueOffset(1))),
 					Some(vec![1, 2, 3].try_into().unwrap())
@@ -979,7 +985,7 @@ mod candidate_receipt_tests {
 			.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
 
 		assert_eq!(
-			new_ccr.parse_ump_signals(&cq),
+			new_ccr.parse_ump_signals(&cq, false),
 			Ok(CandidateUMPSignals::dummy(
 				Some((CoreSelector(0), ClaimQueueOffset(1))),
 				Some(vec![1, 2, 3].try_into().unwrap())
@@ -1010,7 +1016,7 @@ mod candidate_receipt_tests {
 
 		// No signals can be decoded.
 		assert_eq!(
-			new_ccr.parse_ump_signals(&cq),
+			new_ccr.parse_ump_signals(&cq, false),
 			Err(CommittedCandidateReceiptError::UmpSignalDecode)
 		);
 		assert_eq!(
@@ -1041,13 +1047,13 @@ mod candidate_receipt_tests {
 			let cq = transpose_claim_queue(cq);
 
 			assert_eq!(
-				new_ccr.parse_ump_signals(&cq),
+				new_ccr.parse_ump_signals(&cq, false),
 				Ok(CandidateUMPSignals::dummy(None, Some(vec![1, 2, 3].try_into().unwrap())))
 			);
 
 			new_ccr.descriptor.set_core_index(CoreIndex(1));
 			assert_eq!(
-				new_ccr.parse_ump_signals(&cq),
+				new_ccr.parse_ump_signals(&cq, false),
 				Err(CommittedCandidateReceiptError::InvalidCoreIndex)
 			);
 			new_ccr.descriptor.set_core_index(CoreIndex(0));
@@ -1066,7 +1072,7 @@ mod candidate_receipt_tests {
 			// Mismatch between descriptor index and commitment.
 			new_ccr.descriptor.set_core_index(CoreIndex(1));
 			assert_eq!(
-				new_ccr.parse_ump_signals(&cq),
+				new_ccr.parse_ump_signals(&cq, false),
 				Err(CommittedCandidateReceiptError::CoreIndexMismatch {
 					descriptor: CoreIndex(1),
 					commitments: CoreIndex(0),
@@ -1089,7 +1095,7 @@ mod candidate_receipt_tests {
 			.force_push(UMPSignal::ApprovedPeer(vec![4, 5].try_into().unwrap()).encode());
 
 		assert_eq!(
-			new_ccr.parse_ump_signals(&cq),
+			new_ccr.parse_ump_signals(&cq, false),
 			Err(CommittedCandidateReceiptError::DuplicateUMPSignal)
 		);
 
@@ -1110,7 +1116,7 @@ mod candidate_receipt_tests {
 			.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
 
 		assert_eq!(
-			new_ccr.parse_ump_signals(&cq),
+			new_ccr.parse_ump_signals(&cq, false),
 			Err(CommittedCandidateReceiptError::TooManyUMPSignals)
 		);
 	}

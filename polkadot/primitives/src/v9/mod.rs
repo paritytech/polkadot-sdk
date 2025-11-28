@@ -1940,7 +1940,11 @@ impl<H> CandidateDescriptorV2<H> {
 	/// feature is present and enabled, together with new UMP signal
 	/// requirements, the runtime can provide the necessary protection.
 	///
-	/// # Arguments
+	/// To ease future upgrades, we reduced the v1 check once v3 is enabled, so
+	/// some actually unused bytes are available (don't affect the v1 version
+	/// check).
+	///
+	/// # ArgumentLet's continue.s
 	///
 	/// * `v3_enabled` - Whether the V3 candidate descriptor version is enabled
 	/// via node features. When `true`, the function will properly detect and
@@ -2008,7 +2012,7 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 		let core_index: [u8; 2] = self.core_index.to_ne_bytes();
 		let session_index: [u8; 4] = self.session_index.to_ne_bytes();
 
-		collator_id.push(self.version.0);
+		collator_id.push(self.version);
 		collator_id.extend_from_slice(core_index.as_slice());
 		collator_id.extend_from_slice(session_index.as_slice());
 		collator_id.extend_from_slice(self.reserved1.as_slice());
@@ -2018,8 +2022,11 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 	}
 
 	/// Returns the collator id if this is a v1 `CandidateDescriptor`
+	///
+	/// Note: This method assumes v3_enabled = false and is only for test code.
+	#[cfg(feature = "test")]
 	pub fn collator(&self) -> Option<CollatorId> {
-		if self.version() == CandidateDescriptorVersion::V1 {
+		if self.version(false) == CandidateDescriptorVersion::V1 {
 			Some(self.rebuild_collator_field())
 		} else {
 			None
@@ -2044,26 +2051,29 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 	}
 
 	/// Returns the collator signature of `V1` candidate descriptors, `None` otherwise.
+	///
+	/// Note: This method assumes v3_enabled = false and is only for test code.
+	#[cfg(feature = "test")]
 	pub fn signature(&self) -> Option<CollatorSignature> {
-		if self.version() == CandidateDescriptorVersion::V1 {
+		if self.version(false) == CandidateDescriptorVersion::V1 {
 			return Some(self.rebuild_signature_field())
 		}
 
 		None
 	}
 
-	/// Returns the `core_index` of `V2` candidate descriptors, `None` otherwise.
-	pub fn core_index(&self) -> Option<CoreIndex> {
-		if self.version() == CandidateDescriptorVersion::V1 {
+	/// Returns the `core_index` of `V2` and `V3` candidate descriptors, `None` for `V1`.
+	pub fn core_index(&self, v3_enabled: bool) -> Option<CoreIndex> {
+		if self.version(v3_enabled) == CandidateDescriptorVersion::V1 {
 			return None
 		}
 
 		Some(CoreIndex(self.core_index as u32))
 	}
 
-	/// Returns the `session_index` of `V2` candidate descriptors, `None` otherwise.
-	pub fn session_index(&self) -> Option<SessionIndex> {
-		if self.version() == CandidateDescriptorVersion::V1 {
+	/// Returns the `session_index` of `V2` and `V3` candidate descriptors, `None` for `V1`.
+	pub fn session_index(&self, v3_enabled: bool) -> Option<SessionIndex> {
+		if self.version(v3_enabled) == CandidateDescriptorVersion::V1 {
 			return None
 		}
 
@@ -2076,7 +2086,7 @@ where
 	H: core::fmt::Debug,
 {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-		match self.version() {
+		match self.version(true) {
 			CandidateDescriptorVersion::V1 => f
 				.debug_struct("CandidateDescriptorV1")
 				.field("para_id", &self.para_id)
@@ -2114,7 +2124,7 @@ where
 				.field("validation_code_hash", &self.validation_code_hash)
 				.finish(),
 			CandidateDescriptorVersion::Unknown => {
-				write!(f, "Invalid CandidateDescriptorVersion")
+				write!(f, "CandidateDescriptorV2(unknown version={})", self.version)
 			},
 		}
 	}
@@ -2136,7 +2146,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		Self {
 			para_id,
 			relay_parent,
-			version: InternalVersion(0),
+			version: 0,
 			core_index: core_index.0 as u16,
 			session_index,
 			scheduling_session_offset: 0,
@@ -2172,7 +2182,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		Self {
 			para_id,
 			relay_parent,
-			version: InternalVersion(version),
+			version,
 			core_index,
 			session_index,
 			scheduling_session_offset,
@@ -2230,7 +2240,7 @@ impl<H> MutateDescriptorV2<H> for CandidateDescriptorV2<H> {
 	}
 
 	fn set_version(&mut self, version: u8) {
-		self.version = InternalVersion(version);
+		self.version = version;
 	}
 
 	fn set_core_index(&mut self, core_index: CoreIndex) {
@@ -2550,13 +2560,15 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 	/// Params:
 	/// - `cores_per_para` is a claim queue snapshot at the candidate's relay parent, stored as
 	/// a mapping between `ParaId` and the cores assigned per depth.
+	/// - `v3_enabled` - whether V3 candidate descriptors are enabled via node features.
 	pub fn parse_ump_signals(
 		&self,
 		cores_per_para: &TransposedClaimQueue,
+		v3_enabled: bool,
 	) -> Result<CandidateUMPSignals, CommittedCandidateReceiptError> {
 		let signals = self.commitments.ump_signals()?;
 
-		match self.descriptor.version() {
+		match self.descriptor.version(v3_enabled) {
 			CandidateDescriptorVersion::V1 => {
 				// If the parachain runtime started sending ump signals, v1 descriptors are no
 				// longer allowed.
@@ -2569,11 +2581,10 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 			},
 			CandidateDescriptorVersion::V2 => {},
 			CandidateDescriptorVersion::Unknown =>
-				return Err(CommittedCandidateReceiptError::UnknownVersion(
-					self.descriptor.version.0,
-				)),
+				return Err(CommittedCandidateReceiptError::UnknownVersion(self.descriptor.version)),
 			_ if signals.is_empty() => {
 				// V3 and above require UMP signals.
+				// This is technically changed behavior, but can't be triggered without v3 enabled.
 				return Err(CommittedCandidateReceiptError::NoUMPSignalWithV3Descriptor)
 			},
 			_ => {},

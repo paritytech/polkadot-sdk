@@ -2230,7 +2230,7 @@ mod enter {
 				descriptor: CandidateDescriptorV2::new(
 					backed_candidate.descriptor().para_id(),
 					backed_candidate.descriptor().relay_parent(),
-					backed_candidate.descriptor().core_index().unwrap(),
+					backed_candidate.descriptor().core_index(false).unwrap(),
 					100,
 					backed_candidate.descriptor().persisted_validation_data_hash(),
 					backed_candidate.descriptor().pov_hash(),

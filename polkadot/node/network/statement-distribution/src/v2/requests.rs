@@ -570,6 +570,7 @@ impl UnhandledResponse {
 		disabled_mask: BitVec<u8, Lsb0>,
 		transposed_cq: &TransposedClaimQueue,
 		allow_v2_descriptors: bool,
+		v3_enabled: bool,
 	) -> ResponseValidationOutput {
 		let UnhandledResponse {
 			response: TaggedResponse { identifier, requested_peer, props, response },
@@ -656,6 +657,7 @@ impl UnhandledResponse {
 			disabled_mask,
 			transposed_cq,
 			allow_v2_descriptors,
+			v3_enabled,
 		);
 
 		if let CandidateRequestStatus::Complete { .. } = output.request_status {
@@ -678,6 +680,7 @@ fn validate_complete_response(
 	disabled_mask: BitVec<u8, Lsb0>,
 	transposed_cq: &TransposedClaimQueue,
 	allow_v2_descriptors: bool,
+	v3_enabled: bool,
 ) -> ResponseValidationOutput {
 	let RequestProperties { backing_threshold, mut unwanted_mask } = props;
 
@@ -731,7 +734,9 @@ fn validate_complete_response(
 
 		// V2 descriptors are invalid if not enabled by runtime.
 		if !allow_v2_descriptors &&
-			response.candidate_receipt.descriptor.version() == CandidateDescriptorVersion::V2
+		// TODO: Claude, once we got rid of v2 checks
+			response.candidate_receipt.descriptor.version(v3_enabled) ==
+				CandidateDescriptorVersion::V2
 		{
 			gum::debug!(
 				target: LOG_TARGET,
@@ -742,7 +747,7 @@ fn validate_complete_response(
 			return invalid_candidate_output(COST_UNSUPPORTED_DESCRIPTOR_VERSION)
 		}
 		// Validate the ump signals.
-		if let Err(err) = response.candidate_receipt.parse_ump_signals(transposed_cq) {
+		if let Err(err) = response.candidate_receipt.parse_ump_signals(transposed_cq, v3_enabled) {
 			gum::debug!(
 				target: LOG_TARGET,
 				?candidate_hash,

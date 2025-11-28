@@ -215,8 +215,8 @@ where
 						descriptor: CandidateDescriptorV2::new(
 							candidate.descriptor.para_id(),
 							relay_parent,
-							candidate.descriptor.core_index().unwrap_or(CoreIndex(0)),
-							candidate.descriptor.session_index().unwrap_or(0),
+							candidate.descriptor.core_index(false).unwrap_or(CoreIndex(0)),
+							candidate.descriptor.session_index(false).unwrap_or(0),
 							validation_data_hash,
 							pov_hash,
 							erasure_root,
