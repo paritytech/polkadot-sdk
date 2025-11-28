@@ -3,9 +3,10 @@ doc:
 - audience: Node Dev
   description: |-
     Moved submission failures from JSON-RPC errors into structured result types:
-    - Internal submition result type changed to hold more information for clients.
-    - The "statement_submit" method now returns enum with clear status variants (New, Known, Bad, Invalid, Rejected).
-    - Simplified the reputation system by removing the unused GOOD_STATEMENT reward and renaming EXCELLENT_STATEMENT to GOOD_STATEMENT.
+    - Internal submission result type changed to hold more information for clients.
+    - The "statement_submit" method now returns enum with clear status variants (New, Known, Invalid, Rejected).
+    - NetworkPriority removed as we never used it.
+    - Updated and simplified the reputation system.
     - Runtime API wasn't changed.
 
 crates:
