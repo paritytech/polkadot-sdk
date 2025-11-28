@@ -66,14 +66,19 @@ pub enum SubmitResult {
 }
 
 impl SubmitResult {
-	/// Creates an invalid submission result indicating missing proof.
+	/// Shorrtcut for invalid result indicating missing proof.
 	pub fn no_proof() -> Self {
 		SubmitResult::Invalid(InvalidReason::NoProof)
 	}
 
-	/// Creates an invalid submission result indicating proof validation failure.
+	/// Shortcut for invalid result indicating bad proof.
 	pub fn bad_proof() -> Self {
 		SubmitResult::Invalid(InvalidReason::BadProof)
+	}
+
+	/// Shortcut for invalid result indicating encoding too large.
+	pub fn encoding_too_large(submitted_size: usize, max_size: usize) -> Self {
+		SubmitResult::Invalid(InvalidReason::EncodingTooLarge { submitted_size, max_size })
 	}
 }
 

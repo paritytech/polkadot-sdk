@@ -903,7 +903,7 @@ impl StatementStore for Store {
 				statement.encoded_size(),
 				MAX_STATEMENT_SIZE
 			);
-			return SubmitResult::Ignored
+			return SubmitResult::encoding_too_large(encoded_size, MAX_STATEMENT_SIZE);
 		}
 
 		match self.index.read().query(&hash) {
