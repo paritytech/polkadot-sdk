@@ -497,12 +497,12 @@ pub async fn assert_para_is_registered(
 /// Genesis patch:
 /// ```json
 /// "configuration": {
-/// 		"config": {
-/// 			"scheduler_params": {
-/// 				"num_cores": 2,
-/// 			}
-/// 		}
-/// 	}
+///   "config": {
+///     "scheduler_params": {
+///       "num_cores": 2,
+///     }
+///   }
+/// }
 /// ```
 ///
 /// Runs the relay chain with `2` cores and we also add two parachains.
