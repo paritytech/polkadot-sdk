@@ -116,7 +116,8 @@ where
 		// We use `QueryId::MAX` as a constant identifier for these payments since they are always
 		// processed immediately and successfully on the local chain. The `QueryId` type is used to
 		// maintain compatibility with XCM payment implementations.
-		Ok(Self::Id::MAX) // Always returns the same ID, breaks the expectation that payment IDs should be unique. See Issue #10450.
+		Ok(Self::Id::MAX) // Always returns the same ID, breaks the expectation that payment IDs should be
+		            // unique. See Issue #10450.
 	}
 	fn check_payment(_: Self::Id) -> PaymentStatus {
 		PaymentStatus::Success
