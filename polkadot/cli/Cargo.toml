@@ -83,3 +83,5 @@ runtime-metrics = [
 	"polkadot-service/runtime-metrics",
 ]
 jemalloc-allocator = ["sc-service?/jemalloc-allocator"]
+
+doppelganger = ["full-node", "polkadot-service/doppelganger"]

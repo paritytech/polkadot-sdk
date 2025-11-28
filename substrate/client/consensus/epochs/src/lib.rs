@@ -708,6 +708,10 @@ where
 	pub fn tree(&self) -> &ForkTree<Hash, Number, PersistedEpochHeader<E>> {
 		&self.inner
 	}
+
+	pub fn epochs(&self) -> &BTreeMap<(Hash, Number), PersistedEpoch<E>> {
+		&self.epochs
+	}
 }
 
 /// Type alias to produce the epoch-changes tree from a block type.
