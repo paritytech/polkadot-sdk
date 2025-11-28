@@ -1851,11 +1851,11 @@ where
 	///
 	/// This method should be called when the blockchain is reverted to an earlier state,
 	/// before deleting the blocks. It is responsible for cleaning the pool state such that
-	/// there are no references to blocks that will be remobed.
+	/// there are no references to blocks that will be removed.
 	///
 	/// To prepare the pool for blocks deletion we should:
 	/// 1. Collect transactions included in retracted blocks.
-	/// 2. Remove all active and inactive views associated with blocks beyodn the new head.
+	/// 2. Remove all active and inactive views associated with blocks beyond the new head.
 	/// 3. Cleans up notifications sinks for removed views.
 	/// 4. Remove included transactions from the mempool while preserving the pending transactions.
 	/// 5. Updates the enactment state to reflect the new chain head.
