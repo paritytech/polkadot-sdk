@@ -1,0 +1,26 @@
+title: 'XCM precompile: add `executeAsAccount` and `execute(bytes)`'
+doc:
+- audience: Runtime User
+  description: |-
+    > Addresses [#9394](https://github.com/paritytech/polkadot-sdk/issues/9394) and [#9395](https://github.com/paritytech/polkadot-sdk/issues/9395)
+
+    This PR adds three new functions to the XCM precompile:
+
+    - **`execute(bytes)`**
+      - Removes the need to call `weighMessage` before calling `execute`, at the cost of slightly more `Weight` being charged
+      - This is a function overload, so adding `execute(bytes)` does not break anything. Solidity can distinguish it from `execute(bytes, Weight)` automatically (they have different function selectors)
+      - Under the hood, `execute(bytes)` just makes an extra call to `<<Runtime>::Weigher>::weight()`
+
+    - **`executeAsAccount(bytes, uint64, uint64)`** & **`executeAsAccount(bytes)`**
+      - If a user calls a function in a smart contract that performs a call to XCM precompile's `execute`/`send`, the origin becomes the contract itself (e.g. an XCM message with `WithdrawAsset` would take funds from the contract address instead of the account that originated the transaction)
+      - For use cases where it is crucial that the origin reflects the original transaction sender, this is solved by using `executeAsAccount`, which under the hood sets the origin to `env.origin()` instead of `env.caller()`
+
+    ---
+
+    ### Open Question
+    Is `executeAsAccount(bytes)` enough or do we also want to keep `executeAsAccount(bytes, uint64, uint64)` (which takes `Weight` as input), to match what we have for `execute`?
+crates:
+- name: pallet-multi-asset-bounties
+  bump: none
+- name: pallet-xcm-precompiles
+  bump: major
