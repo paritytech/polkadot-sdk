@@ -7,7 +7,7 @@
 | **Authors** | eskimor |
 | **Status** | Draft |
 | **Version** | 0.2 |
-| **Related Designs** | [Low-Latency Parachains v2](link-to-low-latency-doc) |
+| **Related Designs** | [Low-Latency Parachains v2](low-latency-v2-design.md) |
 
 ---
 
