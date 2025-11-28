@@ -25,13 +25,13 @@ use frame_benchmarking::v1::{account, benchmarks_instance_pallet, whitelist_acco
 use frame_support::{
 	dispatch::RawOrigin,
 	migrations::SteppedMigration,
+	pallet_prelude::StorageVersion,
 	traits::{
 		fungible,
 		tokens::{Fortitude::Polite, Preservation::Expendable},
 		Currency, Get,
 	},
 	weights::WeightMeter,
-	pallet_prelude::StorageVersion,
 };
 use sp_runtime::traits::Bounded;
 
