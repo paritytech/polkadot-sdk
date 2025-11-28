@@ -8,6 +8,6 @@ doc:
     description: |
       This PR removes all pallet::getter occurrences from pallet-sassafras.
 
-crates: [ ]
+crates:
   - name: pallet-sassafras
     bump: major
