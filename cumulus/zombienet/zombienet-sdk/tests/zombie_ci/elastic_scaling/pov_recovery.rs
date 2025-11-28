@@ -29,8 +29,19 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 	let config = build_network_config().await?;
 	let network = initialize_network(config).await?;
 
-	let alice = network.get_node("alice")?;
 	let collator = network.get_node("collator")?;
+	collator.pause().await?;
+
+	let recovery_target = network.get_node("recovery-target")?;
+
+	// Wait for the node to be ready. We have the collator in between paused, this ensures that it
+	// doesn't produce any blocks in between. This is important as the recovery node needs to be up
+	// to observe the candidates on the relay chain, to recover them.
+	recovery_target.wait_until_is_up(120u64).await?;
+
+	collator.resume().await?;
+
+	let alice = network.get_node("alice")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
 
@@ -61,10 +72,8 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 		wait_until_timeout_elapses: false,
 	};
 
-	let name = "recovery-target";
-	log::info!("Ensuring blocks are imported using PoV recovery by {name}");
-	let result = network
-		.get_node(name)?
+	log::info!("Ensuring blocks are imported using PoV recovery by {}", recovery_target.name());
+	let result = recovery_target
 		.wait_log_line_count_with_timeout(
 			"Importing blocks retrieved using pov_recovery",
 			false,
@@ -73,7 +82,10 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 		.await?;
 
 	if !result.success() {
-		return Err(anyhow!("Failed importing blocks using PoV recovery by {name}: {result:?}"));
+		return Err(anyhow!(
+			"Failed importing blocks using PoV recovery by {}: {result:?}",
+			recovery_target.name()
+		));
 	}
 
 	log::info!("Test finished successfully");
