@@ -483,9 +483,12 @@ documentation](https://meetfocil.eth.limo/), "unconditional ILs can offer better
 short-term censorship resistance, they might also be easier to crowd out because
 they might be used to offer products like preconfirmations."
 
-4. **Enforcement timing**: Even with FOCIL, enforcement happens through fork
-   choice (attestation), not at the time of receiving the IL. Users must still
-   wait for attestation to have strong guarantees, not just the IL itself.
+4. **Enforcement timing**: Even with FOCIL, enforcement happens through
+   conditional attestation and subsequent fork choice, not at the time of
+   receiving the IL. Attesters only vote for blocks satisfying IL conditions,
+   and fork choice then selects the canonical chain based on these attestations.
+   Users must still wait for this process to complete to have strong guarantees,
+   not just the IL itself.
 
 5. **Conditional inclusion**: FOCIL adopts conditional inclusion, accepting
    blocks that may lack some IL transactions if they cannot append them or if
