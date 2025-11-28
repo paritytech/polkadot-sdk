@@ -86,29 +86,12 @@ pub enum SubmitResult {
 	Known,
 	/// Known statement that's already expired.
 	KnownExpired,
-	/// Statement was rejected due to store constraints or priority rules.
+	/// Priority is too low or the size is too big.
 	Rejected(RejectionReason),
-	/// Statement failed validation checks.
+	/// Statement failed validation.
 	Invalid(InvalidReason),
 	/// Internal store error.
 	InternalError(Error),
-}
-
-impl SubmitResult {
-	/// Shorrtcut for invalid result indicating missing proof.
-	pub fn no_proof() -> Self {
-		SubmitResult::Invalid(InvalidReason::NoProof)
-	}
-
-	/// Shortcut for invalid result indicating bad proof.
-	pub fn bad_proof() -> Self {
-		SubmitResult::Invalid(InvalidReason::BadProof)
-	}
-
-	/// Shortcut for invalid result indicating encoding too large.
-	pub fn encoding_too_large(submitted_size: usize, max_size: usize) -> Self {
-		SubmitResult::Invalid(InvalidReason::EncodingTooLarge { submitted_size, max_size })
-	}
 }
 
 /// Result type for `Error`

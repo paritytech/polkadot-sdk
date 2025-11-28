@@ -63,8 +63,8 @@ use sp_statement_store::{
 	runtime_api::{
 		InvalidStatement, StatementSource, StatementStoreExt, ValidStatement, ValidateStatement,
 	},
-	AccountId, BlockHash, Channel, DecryptionKey, Hash, Proof, RejectionReason, Result, Statement,
-	SubmitResult, Topic,
+	AccountId, BlockHash, Channel, DecryptionKey, Hash, InvalidReason, Proof, RejectionReason,
+	Result, Statement, SubmitResult, Topic,
 };
 use std::{
 	collections::{BTreeMap, HashMap, HashSet},
@@ -221,14 +221,6 @@ enum IndexQuery {
 	Unknown,
 	Exists,
 	Expired,
-}
-
-enum MaybeInserted {
-	Inserted(HashSet<Hash>),
-	IgnoredDataTooLarge { submitted_size: usize, available_size: usize },
-	IgnoredChannelPriorityTooLow { submitted_priority: u32, min_priority: u32 },
-	IgnoredAccountFull { submitted_priority: u32, min_priority: u32 },
-	IgnoredStoreFull,
 }
 
 impl Index {
@@ -390,7 +382,7 @@ impl Index {
 		account: &AccountId,
 		validation: &ValidStatement,
 		current_time: u64,
-	) -> MaybeInserted {
+	) -> std::result::Result<HashSet<Hash>, RejectionReason> {
 		let statement_len = statement.data_len();
 		if statement_len > validation.max_size as usize {
 			log::debug!(
@@ -399,10 +391,10 @@ impl Index {
 				HexDisplay::from(&hash),
 				statement_len,
 			);
-			return MaybeInserted::IgnoredDataTooLarge {
+			return Err(RejectionReason::DataTooLarge {
 				submitted_size: statement_len,
 				available_size: validation.max_size as usize,
-			};
+			});
 		}
 
 		let mut evicted = HashSet::new();
@@ -424,10 +416,10 @@ impl Index {
 							priority,
 							channel_record.priority,
 						);
-						return MaybeInserted::IgnoredChannelPriorityTooLow {
+						return Err(RejectionReason::ChannelPriorityTooLow {
 							submitted_priority: priority.0,
 							min_priority: channel_record.priority.0,
-						};
+						});
 					} else {
 						// Would replace channel message. Still need to check for size constraints
 						// below.
@@ -470,10 +462,10 @@ impl Index {
 						priority,
 						entry.priority,
 					);
-					return MaybeInserted::IgnoredAccountFull {
+					return Err(RejectionReason::AccountFull {
 						submitted_priority: priority.0,
 						min_priority: entry.priority.0,
-					};
+					});
 				}
 				evicted.insert(entry.hash);
 				would_free_size += len;
@@ -490,14 +482,14 @@ impl Index {
 				self.total_size,
 				self.entries.len(),
 			);
-			return MaybeInserted::IgnoredStoreFull;
+			return Err(RejectionReason::StoreFull);
 		}
 
 		for h in &evicted {
 			self.make_expired(h, current_time);
 		}
 		self.insert_new(hash, *account, statement);
-		MaybeInserted::Inserted(evicted)
+		Ok(evicted)
 	}
 }
 
@@ -915,7 +907,10 @@ impl StatementStore for Store {
 				statement.encoded_size(),
 				MAX_STATEMENT_SIZE
 			);
-			return SubmitResult::encoding_too_large(encoded_size, MAX_STATEMENT_SIZE);
+			return SubmitResult::Invalid(InvalidReason::EncodingTooLarge {
+				submitted_size: encoded_size,
+				max_size: MAX_STATEMENT_SIZE,
+			});
 		}
 
 		match self.index.read().query(&hash) {
@@ -937,7 +932,7 @@ impl StatementStore for Store {
 				HexDisplay::from(&hash),
 			);
 			self.metrics.report(|metrics| metrics.validations_invalid.inc());
-			return SubmitResult::no_proof();
+			return SubmitResult::Invalid(InvalidReason::NoProof);
 		};
 
 		// Validate.
@@ -956,7 +951,7 @@ impl StatementStore for Store {
 					HexDisplay::from(&hash),
 				);
 				self.metrics.report(|metrics| metrics.validations_invalid.inc());
-				return SubmitResult::bad_proof()
+				return SubmitResult::Invalid(InvalidReason::BadProof);
 			},
 			Err(InvalidStatement::NoProof) => {
 				log::debug!(
@@ -965,7 +960,7 @@ impl StatementStore for Store {
 					HexDisplay::from(&hash),
 				);
 				self.metrics.report(|metrics| metrics.validations_invalid.inc());
-				return SubmitResult::no_proof();
+				return SubmitResult::Invalid(InvalidReason::NoProof);
 			},
 			Err(InvalidStatement::InternalError) =>
 				return SubmitResult::InternalError(Error::Runtime),
@@ -978,27 +973,8 @@ impl StatementStore for Store {
 
 			let evicted =
 				match index.insert(hash, &statement, &account_id, &validation, current_time) {
-					MaybeInserted::IgnoredDataTooLarge { submitted_size, available_size } =>
-						return SubmitResult::Rejected(RejectionReason::DataTooLarge {
-							submitted_size,
-							available_size,
-						}),
-					MaybeInserted::IgnoredChannelPriorityTooLow {
-						submitted_priority,
-						min_priority,
-					} =>
-						return SubmitResult::Rejected(RejectionReason::ChannelPriorityTooLow {
-							submitted_priority,
-							min_priority,
-						}),
-					MaybeInserted::IgnoredAccountFull { submitted_priority, min_priority } =>
-						return SubmitResult::Rejected(RejectionReason::AccountFull {
-							submitted_priority,
-							min_priority,
-						}),
-					MaybeInserted::IgnoredStoreFull =>
-						return SubmitResult::Rejected(RejectionReason::StoreFull),
-					MaybeInserted::Inserted(evicted) => evicted,
+					Ok(evicted) => evicted,
+					Err(reason) => return SubmitResult::Rejected(reason),
 				};
 
 			commit.push((col::STATEMENTS, hash.to_vec(), Some(statement.encode())));
@@ -1080,8 +1056,8 @@ mod tests {
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
 		runtime_api::{InvalidStatement, ValidStatement, ValidateStatement},
-		AccountId, Channel, DecryptionKey, NetworkPriority, Proof, SignatureVerificationResult,
-		Statement, StatementSource, StatementStore, SubmitResult, Topic,
+		AccountId, Channel, DecryptionKey, Proof, SignatureVerificationResult, Statement,
+		StatementSource, StatementStore, SubmitResult, Topic,
 	};
 
 	type Extrinsic = sp_runtime::OpaqueExtrinsic;
