@@ -1,0 +1,18 @@
+title: 'statement-store: Improve RPC Type Signatures'
+doc:
+- audience: Node Dev
+  description: |-
+    # Description
+
+    Improves statement-store RPC API efficiency by replacing `[u8; 32]` array parameters with `Bytes` type
+
+    ## Integration
+
+    **Breaking Change**
+
+    Binary parameters now serialize as hex strings (`"0x1a2b..."`) instead of numeric arrays (`[1, 2, 3, ...]`).
+crates:
+- name: sc-rpc-api
+  bump: major
+- name: sc-rpc
+  bump: major
