@@ -67,6 +67,12 @@ MetadataFilePathString = str
 CaseIdxString = str
 """The index of a case as a string. For example '0'"""
 
+PlatformString = typing.Union[
+    typing.Literal["revive-dev-node-revm-solc"],
+    typing.Literal["revive-dev-node-polkavm-resolc"],
+]
+"""A string of the platform on which the test was run"""
+
 
 def path_relative_to_resolc_compiler_test_directory(path: str) -> str:
     """
@@ -84,9 +90,19 @@ def main() -> None:
     with open(sys.argv[1], "r") as file:
         report: Report = json.load(file)
 
+    # Getting the platform string and resolving it into a simpler version of
+    # itself.
+    platform_identifier: PlatformString = typing.cast(PlatformString, sys.argv[2])
+    if platform_identifier == "revive-dev-node-polkavm-resolc":
+        platform: str = "PolkaVM"
+    elif platform_identifier == "revive-dev-node-revm-solc":
+        platform: str = "REVM"
+    else:
+        platform: str = platform_identifier
+
     # Starting the markdown document and adding information to it as we go.
     markdown_document: io.TextIOWrapper = open("report.md", "w")
-    print("# Differential Tests Results", file=markdown_document)
+    print(f"# Differential Tests Results ({platform})", file=markdown_document)
 
     # Getting all of the test specifiers from the report and making them relative to the tests dir.
     test_specifiers: list[str] = list(
@@ -97,7 +113,7 @@ def main() -> None:
     )
     print("## Specified Tests", file=markdown_document)
     for test_specifier in test_specifiers:
-        print(f"* `{test_specifier}`", file=markdown_document)
+        print(f"* ``{test_specifier}``", file=markdown_document)
 
     # Counting the total number of test cases, successes, failures, and ignored tests
     total_number_of_cases: int = 0
@@ -209,7 +225,9 @@ def main() -> None:
                 if status["status"] != "Failed":
                     continue
 
-                failure_reason: str = status["reason"].replace("\n", " ")
+                failure_reason: str = (
+                    status["reason"].replace("\n", " ").replace("|", " ")
+                )
 
                 note: str = ""
                 modes_where_this_case_succeeded: set[ModeString] = (
@@ -227,7 +245,7 @@ def main() -> None:
                     f"{metadata_file_path}::{case_idx_string}::{mode_string}"
                 )
                 print(
-                    f"| `{test_specifier}` | `{failure_reason}` | {note} |",
+                    f"| ``{test_specifier}`` | ``{failure_reason}`` | {note} |",
                     file=markdown_document,
                 )
     print("\n\n</details>", file=markdown_document)
