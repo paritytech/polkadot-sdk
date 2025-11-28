@@ -99,8 +99,8 @@ use std::{
 	time::{Duration, SystemTime},
 };
 
-/// Maximum number of blocks advertized to IPFS. Two weeks of 6-seond blocks.
-// TODO: we should synchronize this number with block time & transaction indexing configuration.
+/// Cap the maximum number of blocks advertized to IPFS to two weeks at 6-second block time.
+/// Block pruning depth will be used if it is shorter.
 const IPFS_MAX_BLOCKS: u32 = 201600;
 
 /// Full client type.

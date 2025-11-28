@@ -88,6 +88,8 @@ fn to_multihash<H: Hash + HasMultihashCode>(hash: &H::Output) -> Multihash {
 struct IndexedBlock<B: Block> {
 	number: NumberFor<B>,
 	/// BLAKE2b-256 hashes of the indexed transactions.
+	// TODO: index transactions using multihash and not bare hash value, and use `Multihash`
+	// here instead of `H256` interpreted as BLAKE2b-256.
 	transaction_hashes: Vec<H256>,
 }
 
@@ -177,6 +179,7 @@ where
 						},
 						None => {
 							entry.remove();
+							// TODO: don't assume hash is BLAKE2b, use `Multihash` instead.
 							return Poll::Ready(Some(Change::Removed(to_multihash::<BlakeTwo256>(
 								&hash,
 							))))
@@ -233,6 +236,7 @@ where
 					Entry::Occupied(mut entry) => *entry.get_mut() += 1,
 					Entry::Vacant(entry) => {
 						entry.insert(0);
+						// TODO: don't assume hash is BLAKE2b, use `Multihash` instead.
 						return Poll::Ready(Some(Change::Added(to_multihash::<BlakeTwo256>(&hash))))
 					},
 				}

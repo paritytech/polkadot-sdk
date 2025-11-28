@@ -48,8 +48,16 @@ const KAD_PROTOCOL: &str = "/ipfs/kad/1.0.0";
 /// target peers and does not terminate the query once the quorum is reached.
 const QUORUM: Quorum = Quorum::N(NonZeroUsize::new(10).expect("10 > 0; qed"));
 
+/// Maximum number of provider keys in the local Kademlia memory store. Set to approximately 5x
+/// number of blocks with indexed transactions kept + average number of incoming IPFS provider
+/// records.
+///
+/// Aa of November 2025 there are 6.5k reachable IPFS peers with maximum 250M CIDs. This means on
+/// average 250M / (6.5k / 20) ~= 800k CIDs per peer.
+const MAX_PROVIDER_KEYS: usize = 2_000_000;
+
 /// Raw codec type.
-// TODO: we should store codec on chain and use a proper one here.
+// TODO: index codec along with transaction data and use it instead of the hardcoded one.
 const RAW_CODEC: u64 = 0x55;
 
 pub(crate) struct IpfsDht {
@@ -76,10 +84,10 @@ impl IpfsDht {
 			known_peers.into_iter().map(|(k, v)| (k, v.into_iter().collect())).collect()
 		};
 
-		// TODO: we likely need to increase the number of providers in the memstore.
 		let (config, kademlia_handle) = ConfigBuilder::new()
 			.with_protocol_names(vec![KAD_PROTOCOL.into()])
 			.with_known_peers(known_peers)
+			.with_max_provider_keys(MAX_PROVIDER_KEYS)
 			.build();
 
 		(Self { kademlia_handle, block_provider }, config)
@@ -97,27 +105,25 @@ impl IpfsDht {
 							return
 						},
 						Some(Change::Added(multihash)) => {
-							let cid = Cid::new_v1(RAW_CODEC, multihash);
-							let key = RecordKey::new(&cid.hash().to_bytes());
+							let key = RecordKey::new(&multihash.to_bytes());
 
 							trace!(
 								target: LOG_TARGET,
 								"IPFS DHT start providing key: {}, CID: {}",
 								HexDisplay::from(&key.as_ref()),
-								cid,
+								Cid::new_v1(RAW_CODEC, multihash),
 							);
 
 							self.kademlia_handle.start_providing(key, QUORUM).await;
 						},
 						Some(Change::Removed(multihash)) => {
-							let cid = Cid::new_v1(RAW_CODEC, multihash);
-							let key = RecordKey::new(&cid.hash().to_bytes());
+							let key = RecordKey::new(&multihash.to_bytes());
 
 							trace!(
 								target: LOG_TARGET,
 								"IPFS DHT stop providing key: {}, CID: {}",
 								HexDisplay::from(&key.as_ref()),
-								cid,
+								Cid::new_v1(RAW_CODEC, multihash),
 							);
 
 							self.kademlia_handle.stop_providing(key).await;
@@ -135,6 +141,9 @@ impl IpfsDht {
 							"IPFS DHT provider publish success, key: {}",
 							HexDisplay::from(&provided_key.as_ref()),
 						),
+						// Do not log key on failure, because for this we would need to keep the
+						// mapping of `query_id` -> `provided_key` for all in-flight `ADD_PROVIDER`
+						// requests. Printing trace log doesn't justify this.
 						Some(KademliaEvent::QueryFailed { query_id: _ }) => trace!(
 							target: LOG_TARGET,
 							"IPFS DHT provider publish failed",
