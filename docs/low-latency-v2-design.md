@@ -6,7 +6,7 @@
 |-------|-------|
 | **Authors** | eskimor |
 | **Status** | Review |
-| **Version** | 0 |
+| **Version** | 1 |
 | **Related Designs** | [Speculative Messaging](speculative-messaging-design.md) |
 
 ---
@@ -378,8 +378,8 @@ the execution step.
 | **Threat Model** | 1 honest collator assumption | Super-majority honest assumption |
 | **Punishment for Misbehavior** | Full stake slash | Block rewards only |
 | **MEV Resistance** | Better (strong enforcement) | Worse (collusion possible, limited punishment) |
-| **Complexity** | Moderate | High (blocks on top of blocks) |
-| **Synergy with Basti Blocks** | Excellent (enables multiple blocks per PoV) | Poor (renders Basti blocks redundant) |
+| **Complexity** | Moderate | High ("blocks" on top of blocks) |
+| **Synergy with Basti Blocks** | Excellent (makes them valuable) | Poor (renders Basti blocks redundant) |
 
 #### Why Inclusion Lists Were Not Chosen
 
