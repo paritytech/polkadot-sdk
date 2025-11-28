@@ -1,7 +1,7 @@
 title: Accept custom capacity for block notifier buffer
 doc:
 - audience: Runtime Dev
-  description: When creating a block notifier allow setting a custom capacity
+  description: Add a setter for a custom block notifier
 crates:
 - name: pallet-revive-eth-rpc
   bump: patch
