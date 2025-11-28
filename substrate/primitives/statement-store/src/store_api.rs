@@ -32,6 +32,35 @@ pub enum Error {
 	Runtime,
 }
 
+/// Reason why a statement was rejected from the store.
+#[derive(Debug, Eq, PartialEq)]
+pub enum RejectionReason {
+	/// Statement data exceeds the maximum allowed size for the account.
+	DataTooLarge {
+		/// The size of the submitted statement data.
+		submitted_size: usize,
+		/// Still available data size for the account.
+		available_size: usize,
+	},
+	/// Attempting to replace a channel message with lower or equal priority.
+	ChannelPriorityTooLow {
+		/// The priority of the submitted statement.
+		submitted_priority: u32,
+		/// The minimum priority needed to replace the existing channel message.
+		min_priority: u32,
+	},
+	/// Account has reached its statement limit and submitted priority is too low to evict existing
+	/// statements.
+	AccountFull {
+		/// The priority of the submitted statement.
+		submitted_priority: u32,
+		/// The minimum priority needed to evict an existing statement.
+		min_priority: u32,
+	},
+	/// The global statement store is full and cannot accept new statements.
+	StoreFull,
+}
+
 /// Reason why a statement failed validation.
 #[derive(Debug, Eq, PartialEq)]
 pub enum InvalidReason {
@@ -57,9 +86,9 @@ pub enum SubmitResult {
 	Known,
 	/// Known statement that's already expired.
 	KnownExpired,
-	/// Priority is too low or the size is too big.
-	Ignored,
-	/// Statement failed validation.
+	/// Statement was rejected due to store constraints or priority rules.
+	Rejected(RejectionReason),
+	/// Statement failed validation checks.
 	Invalid(InvalidReason),
 	/// Internal store error.
 	InternalError(Error),

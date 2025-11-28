@@ -502,7 +502,7 @@ where
 			SubmitResult::New => self.network.report_peer(who, rep::GOOD_STATEMENT),
 			SubmitResult::Known => self.network.report_peer(who, rep::ANY_STATEMENT_REFUND),
 			SubmitResult::KnownExpired => {},
-			SubmitResult::Ignored => {},
+			SubmitResult::Rejected(_) => {},
 			SubmitResult::Invalid(_) => self.network.report_peer(who, rep::INVALID_STATEMENT),
 			SubmitResult::InternalError(_) => {},
 		}

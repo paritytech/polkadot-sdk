@@ -155,7 +155,7 @@ pub trait StatementStore {
 			match store.submit(statement, StatementSource::Chain) {
 				crate::SubmitResult::New => SubmitResult::OkNew,
 				crate::SubmitResult::Known => SubmitResult::OkKnown,
-				crate::SubmitResult::Ignored => SubmitResult::Full,
+				crate::SubmitResult::Rejected(_) => SubmitResult::Full,
 				// This should not happen for `StatementSource::Chain`. An existing statement will
 				// be overwritten.
 				crate::SubmitResult::KnownExpired => SubmitResult::Bad,

@@ -46,7 +46,9 @@ pub type Channel = [u8; 32];
 pub const MAX_TOPICS: usize = 4;
 
 #[cfg(feature = "std")]
-pub use store_api::{Error, InvalidReason, Result, StatementSource, StatementStore, SubmitResult};
+pub use store_api::{
+	Error, InvalidReason, RejectionReason, Result, StatementSource, StatementStore, SubmitResult,
+};
 
 #[cfg(feature = "std")]
 mod ecies;

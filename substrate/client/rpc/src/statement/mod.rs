@@ -25,7 +25,7 @@ use jsonrpsee::{
 };
 /// Re-export the API for backward compatibility.
 pub use sc_rpc_api::statement::{
-	error::Error, InvalidReason, StatementApiServer, StatementSubmitResult,
+	error::Error, InvalidReason, RejectionReason, StatementApiServer, StatementSubmitResult,
 };
 use sp_core::Bytes;
 use sp_statement_store::{StatementSource, SubmitResult};
@@ -38,6 +38,21 @@ fn map_invalid_reason(reason: sp_statement_store::InvalidReason) -> InvalidReaso
 		sp_statement_store::InvalidReason::BadProof => InvalidReason::BadProof,
 		sp_statement_store::InvalidReason::EncodingTooLarge { submitted_size, max_size } =>
 			InvalidReason::EncodingTooLarge { submitted_size, max_size },
+	}
+}
+
+/// Maps the internal RejectionReason to the RPC API RejectionReason type.
+fn map_rejection_reason(reason: sp_statement_store::RejectionReason) -> RejectionReason {
+	match reason {
+		sp_statement_store::RejectionReason::DataTooLarge { submitted_size, available_size } =>
+			RejectionReason::DataTooLarge { submitted_size, available_size },
+		sp_statement_store::RejectionReason::ChannelPriorityTooLow {
+			submitted_priority,
+			min_priority,
+		} => RejectionReason::ChannelPriorityTooLow { submitted_priority, min_priority },
+		sp_statement_store::RejectionReason::AccountFull { submitted_priority, min_priority } =>
+			RejectionReason::AccountFull { submitted_priority, min_priority },
+		sp_statement_store::RejectionReason::StoreFull => RejectionReason::StoreFull,
 	}
 }
 
@@ -144,9 +159,10 @@ impl StatementApiServer for StatementStore {
 			// `KnownExpired` should not happen. Expired statements submitted with
 			// `StatementSource::Rpc` should be renewed.
 			SubmitResult::KnownExpired => Ok(StatementSubmitResult::KnownExpired),
-			SubmitResult::Ignored => Ok(StatementSubmitResult::Ignored),
+			SubmitResult::Rejected(reason) =>
+				Ok(StatementSubmitResult::Rejected(map_rejection_reason(reason))),
 			SubmitResult::Invalid(reason) =>
-			Ok(StatementSubmitResult::Invalid(map_invalid_reason(reason))),
+				Ok(StatementSubmitResult::Invalid(map_invalid_reason(reason))),
 			SubmitResult::InternalError(e) => Err(Error::StatementStore(e.to_string()).into()),
 		}
 	}

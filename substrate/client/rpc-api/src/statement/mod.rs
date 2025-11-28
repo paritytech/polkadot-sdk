@@ -35,7 +35,7 @@ pub enum StatementSubmitResult {
 	/// Statement was already known but has expired.
 	KnownExpired,
 	/// Statement was rejected because the store is full or priority is too low.
-	Ignored,
+	Rejected(RejectionReason),
 	/// Statement failed validation.
 	Invalid(InvalidReason),
 }
@@ -55,6 +55,36 @@ pub enum InvalidReason {
 		/// The maximum allowed size.
 		max_size: usize,
 	},
+}
+
+/// Reason why a statement was rejected from the store.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "reason", rename_all = "camelCase")]
+pub enum RejectionReason {
+	/// Statement data exceeds the maximum allowed size for the account.
+	DataTooLarge {
+		/// The size of the submitted statement data.
+		submitted_size: usize,
+		/// Still available data size for the account.
+		available_size: usize,
+	},
+	/// Attempting to replace a channel message with lower or equal priority.
+	ChannelPriorityTooLow {
+		/// The priority of the submitted statement.
+		submitted_priority: u32,
+		/// The minimum priority needed to replace the existing channel message.
+		min_priority: u32,
+	},
+	/// Account has reached its statement limit and submitted priority is too low to evict existing
+	/// statements.
+	AccountFull {
+		/// The priority of the submitted statement.
+		submitted_priority: u32,
+		/// The minimum priority needed to evict an existing statement.
+		min_priority: u32,
+	},
+	/// The global statement store is full and cannot accept new statements.
+	StoreFull,
 }
 
 /// Substrate statement RPC API
