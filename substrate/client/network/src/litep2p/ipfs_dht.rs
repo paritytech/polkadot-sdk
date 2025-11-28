@@ -31,12 +31,14 @@ use litep2p::{
 	types::multiaddr::Multiaddr,
 	PeerId,
 };
-use log::trace;
+use log::{debug, trace};
 use sp_core::hexdisplay::HexDisplay;
 use std::{
 	collections::{HashMap, HashSet},
 	num::NonZeroUsize,
+	time::Duration,
 };
+use tokio::time::MissedTickBehavior;
 
 /// Log target for this file.
 const LOG_TARGET: &str = "sub-libp2p::ipfs::dht";
@@ -59,6 +61,9 @@ const MAX_PROVIDER_KEYS: usize = 2_000_000;
 /// Raw codec type.
 // TODO: index codec along with transaction data and use it instead of the hardcoded one.
 const RAW_CODEC: u64 = 0x55;
+
+/// Interval of Kademlia random walks. Needed to keep the routing table "warm".
+const RANDOM_WALK_INTERVAL: Duration = Duration::from_secs(10 * 60);
 
 pub(crate) struct IpfsDht {
 	kademlia_handle: KademliaHandle,
@@ -95,13 +100,16 @@ impl IpfsDht {
 
 	pub async fn run(mut self) {
 		let mut changes = self.block_provider.changes();
+		let mut random_walk_query = None;
+		let mut random_walk_interval = tokio::time::interval(RANDOM_WALK_INTERVAL);
+		random_walk_interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
 		loop {
 			tokio::select! {
 				change = changes.next() => {
 					match change {
 						None => {
-							trace!(target: LOG_TARGET, "BlockProvider terminated, terminating IpfsDht");
+							debug!(target: LOG_TARGET, "BlockProvider terminated, terminating IpfsDht");
 							return
 						},
 						Some(Change::Added(multihash)) => {
@@ -130,10 +138,18 @@ impl IpfsDht {
 						},
 					}
 				},
+				_ = random_walk_interval.tick() => {
+					if random_walk_query.is_some() {
+						// Do not start a new random walk if the previous one hasn't finished.
+						continue;
+					}
+
+					random_walk_query = Some(self.kademlia_handle.find_node(PeerId::random()).await);
+				},
 				event = self.kademlia_handle.next() => {
 					match event {
 						None => {
-							trace!(target: LOG_TARGET, "IPFS Kademlia terminated, terminating IpfsDht");
+							debug!(target: LOG_TARGET, "IPFS Kademlia terminated, terminating IpfsDht");
 							return
 						}
 						Some(KademliaEvent::AddProviderSuccess { query_id: _, provided_key }) => trace!(
@@ -141,13 +157,27 @@ impl IpfsDht {
 							"IPFS DHT provider publish success, key: {}",
 							HexDisplay::from(&provided_key.as_ref()),
 						),
-						// Do not log key on failure, because for this we would need to keep the
-						// mapping of `query_id` -> `provided_key` for all in-flight `ADD_PROVIDER`
-						// requests. Printing trace log doesn't justify this.
-						Some(KademliaEvent::QueryFailed { query_id: _ }) => trace!(
-							target: LOG_TARGET,
-							"IPFS DHT provider publish failed",
-						),
+						Some(KademliaEvent::FindNodeSuccess { query_id, peers, .. }) => {
+							debug_assert_eq!(Some(query_id), random_walk_query);
+							trace!(target: LOG_TARGET, "DHT random walk yielded {} peers", peers.len());
+
+							random_walk_query = None;
+						},
+						Some(KademliaEvent::QueryFailed { query_id }) => {
+							if Some(query_id) == random_walk_query {
+								trace!(target: LOG_TARGET, "DHT random walk failed");
+
+								random_walk_query = None;
+							} else {
+								// Do not log key on failure, because for this we would need to keep
+								// the mapping of `query_id` -> `provided_key` for all in-flight
+								// `ADD_PROVIDER` requests. Printing a trace log doesn't justify this.
+								trace!(
+									target: LOG_TARGET,
+									"IPFS DHT provider publish failed",
+								);
+							}
+						},
 						// We are not interested in other events.
 						Some(_) => {},
 					}
