@@ -46,15 +46,14 @@ pub enum RejectionReason {
 	ChannelPriorityTooLow {
 		/// The priority of the submitted statement.
 		submitted_priority: u32,
-		/// The minimum priority needed to replace the existing channel message.
+		/// The minimum priority of the existing channel message.
 		min_priority: u32,
 	},
-	/// Account has reached its statement limit and submitted priority is too low to evict existing
-	/// statements.
+	/// Account reached its statement limit and submitted priority is too low to evict existing.
 	AccountFull {
 		/// The priority of the submitted statement.
 		submitted_priority: u32,
-		/// The minimum priority needed to evict an existing statement.
+		/// The minimum priority of the existing statement.
 		min_priority: u32,
 	},
 	/// The global statement store is full and cannot accept new statements.
@@ -64,11 +63,11 @@ pub enum RejectionReason {
 /// Reason why a statement failed validation.
 #[derive(Debug, Eq, PartialEq)]
 pub enum InvalidReason {
-	/// Statement was not accompanied by a cryptographic proof.
+	/// Statement has no proof.
 	NoProof,
-	/// Cryptographic proof validation failed.
+	/// Proof validation failed.
 	BadProof,
-	/// Statement encoding exceeds the maximum allowed size for network propagation.
+	/// Statement is too big for network propagation.
 	EncodingTooLarge {
 		/// The size of the submitted statement encoding.
 		submitted_size: usize,
