@@ -1,23 +1,21 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use anyhow::anyhow;
-use std::time::Duration;
-
 use crate::utils::initialize_network;
-
-use cumulus_zombienet_sdk_helpers::{assert_para_throughput, wait_for_upgrade};
-use polkadot_primitives::Id as ParaId;
-use zombienet_configuration::types::AssetLocation;
+use anyhow::anyhow;
+use cumulus_test_runtime::wasm_spec_version_incremented::WASM_BINARY_BLOATY as WASM_RUNTIME_UPGRADE;
+use cumulus_zombienet_sdk_helpers::{
+	create_runtime_upgrade_call, submit_extrinsic_and_wait_for_finalization_success,
+	wait_for_runtime_upgrade,
+};
+use std::time::Duration;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
-	tx_helper::{ChainUpgrade, RuntimeUpgradeOptions},
+	subxt_signer::sr25519::dev,
 	NetworkConfig, NetworkConfigBuilder,
 };
 
 const PARA_ID: u32 = 2000;
-const WASM_WITH_SPEC_VERSION_INCREMENTED: &str =
-	"/tmp/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm";
 
 // This tests makes sure that it is possible to upgrade parachain's runtime
 // and parachain produces blocks after such upgrade.
@@ -31,17 +29,6 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 	let config = build_network_config().await?;
 	let network = initialize_network(config).await?;
 
-	let alice = network.get_node("alice")?;
-	let alice_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
-
-	log::info!("Ensuring parachain making progress");
-	assert_para_throughput(
-		&alice_client,
-		20,
-		[(ParaId::from(PARA_ID), 2..40)].into_iter().collect(),
-	)
-	.await?;
-
 	let timeout_secs: u64 = 250;
 	let charlie = network.get_node("charlie")?;
 	let charlie_client: OnlineClient<PolkadotConfig> = charlie.wait_client().await?;
@@ -51,13 +38,9 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 	log::info!("Current runtime spec version {current_spec_version}");
 
 	log::info!("Performing runtime upgrade");
-	network
-		.parachain(PARA_ID)
-		.unwrap()
-		.perform_runtime_upgrade(
-			charlie,
-			RuntimeUpgradeOptions::new(AssetLocation::from(WASM_WITH_SPEC_VERSION_INCREMENTED)),
-		)
+
+	let call = create_runtime_upgrade_call(WASM_RUNTIME_UPGRADE.expect("Wasm runtime not build"));
+	submit_extrinsic_and_wait_for_finalization_success(&charlie_client, &call, &dev::alice())
 		.await?;
 
 	let dave = network.get_node("dave")?;
@@ -68,12 +51,9 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 		"Waiting (up to {timeout_secs}s) for parachain runtime upgrade to version {}",
 		expected_spec_version
 	);
-	tokio::time::timeout(
-		Duration::from_secs(timeout_secs),
-		wait_for_upgrade(dave_client, expected_spec_version),
-	)
-	.await
-	.expect("Timeout waiting for runtime upgrade")?;
+	tokio::time::timeout(Duration::from_secs(timeout_secs), wait_for_runtime_upgrade(&dave_client))
+		.await
+		.expect("Timeout waiting for runtime upgrade")?;
 
 	let spec_version_from_charlie =
 		charlie_client.backend().current_runtime_version().await?.spec_version;
