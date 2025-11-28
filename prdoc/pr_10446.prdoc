@@ -1,0 +1,8 @@
+title: 'collator-protocol: don''t disconnect on slot end when we have pending collations'
+doc:
+- audience: Node Dev
+  description: |-
+    We pre-connect one slot in advance and we disconnect when our slot ends even when we have pending collations which is wrong.  This change fixes this by keeping the connections open until the collation is requested or relay parent expires.
+crates:
+- name: polkadot-collator-protocol
+  bump: patch
