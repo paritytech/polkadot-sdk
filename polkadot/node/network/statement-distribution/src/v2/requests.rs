@@ -30,11 +30,10 @@
 //! (which requires state not owned by the request manager).
 
 use super::{
-	seconded_and_sufficient, CandidateDescriptorVersion, TransposedClaimQueue,
-	BENEFIT_VALID_RESPONSE, BENEFIT_VALID_STATEMENT, COST_IMPROPERLY_DECODED_RESPONSE,
-	COST_INVALID_RESPONSE, COST_INVALID_SESSION_INDEX, COST_INVALID_SIGNATURE,
-	COST_INVALID_UMP_SIGNALS, COST_UNREQUESTED_RESPONSE_STATEMENT,
-	COST_UNSUPPORTED_DESCRIPTOR_VERSION, REQUEST_RETRY_DELAY,
+	seconded_and_sufficient, TransposedClaimQueue, BENEFIT_VALID_RESPONSE, BENEFIT_VALID_STATEMENT,
+	COST_IMPROPERLY_DECODED_RESPONSE, COST_INVALID_RESPONSE, COST_INVALID_SESSION_INDEX,
+	COST_INVALID_SIGNATURE, COST_INVALID_UMP_SIGNALS, COST_UNREQUESTED_RESPONSE_STATEMENT,
+	REQUEST_RETRY_DELAY,
 };
 use crate::LOG_TARGET;
 
@@ -569,7 +568,6 @@ impl UnhandledResponse {
 		allowed_para_lookup: impl Fn(ParaId, GroupIndex) -> bool,
 		disabled_mask: BitVec<u8, Lsb0>,
 		transposed_cq: &TransposedClaimQueue,
-		allow_v2_descriptors: bool,
 		v3_enabled: bool,
 	) -> ResponseValidationOutput {
 		let UnhandledResponse {
@@ -656,7 +654,6 @@ impl UnhandledResponse {
 			allowed_para_lookup,
 			disabled_mask,
 			transposed_cq,
-			allow_v2_descriptors,
 			v3_enabled,
 		);
 
@@ -679,7 +676,6 @@ fn validate_complete_response(
 	allowed_para_lookup: impl Fn(ParaId, GroupIndex) -> bool,
 	disabled_mask: BitVec<u8, Lsb0>,
 	transposed_cq: &TransposedClaimQueue,
-	allow_v2_descriptors: bool,
 	v3_enabled: bool,
 ) -> ResponseValidationOutput {
 	let RequestProperties { backing_threshold, mut unwanted_mask } = props;
@@ -709,18 +705,18 @@ fn validate_complete_response(
 	// sanity-check candidate response.
 	// note: roughly ascending cost of operations
 	{
-		if response.candidate_receipt.descriptor.relay_parent() != identifier.relay_parent {
+		if response.candidate_receipt.descriptor().relay_parent != identifier.relay_parent {
 			return invalid_candidate_output(COST_INVALID_RESPONSE)
 		}
 
-		if response.candidate_receipt.descriptor.persisted_validation_data_hash() !=
+		if response.candidate_receipt.descriptor().persisted_validation_data_hash !=
 			response.persisted_validation_data.hash()
 		{
 			return invalid_candidate_output(COST_INVALID_RESPONSE)
 		}
 
 		if !allowed_para_lookup(
-			response.candidate_receipt.descriptor.para_id(),
+			response.candidate_receipt.descriptor().para_id,
 			identifier.group_index,
 		) {
 			return invalid_candidate_output(COST_INVALID_RESPONSE)
@@ -732,20 +728,6 @@ fn validate_complete_response(
 
 		let candidate_hash = response.candidate_receipt.hash();
 
-		// V2 descriptors are invalid if not enabled by runtime.
-		if !allow_v2_descriptors &&
-		// TODO: Claude, once we got rid of v2 checks
-			response.candidate_receipt.descriptor.version(v3_enabled) ==
-				CandidateDescriptorVersion::V2
-		{
-			gum::debug!(
-				target: LOG_TARGET,
-				?candidate_hash,
-				peer = ?requested_peer,
-				"Version 2 candidate receipts are not enabled by the runtime"
-			);
-			return invalid_candidate_output(COST_UNSUPPORTED_DESCRIPTOR_VERSION)
-		}
 		// Validate the ump signals.
 		if let Err(err) = response.candidate_receipt.parse_ump_signals(transposed_cq, v3_enabled) {
 			gum::debug!(
@@ -760,7 +742,8 @@ fn validate_complete_response(
 
 		// Check if `session_index` of relay parent matches candidate descriptor
 		// `session_index`.
-		if let Some(candidate_session_index) = response.candidate_receipt.descriptor.session_index()
+		if let Some(candidate_session_index) =
+			response.candidate_receipt.descriptor().session_index()
 		{
 			if candidate_session_index != session {
 				gum::debug!(

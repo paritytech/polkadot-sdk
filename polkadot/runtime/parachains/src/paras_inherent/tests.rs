@@ -1549,7 +1549,6 @@ mod enter {
 		len: usize,
 		start_core_index: usize,
 		code_upgrade_index: Option<usize>,
-		v2_receipts: bool,
 	) -> Vec<BackedCandidate> {
 		if let Some(code_upgrade_index) = code_upgrade_index {
 			assert!(code_upgrade_index < len, "Code upgrade index out of bounds");
@@ -1565,10 +1564,8 @@ mod enter {
 				if Some(idx) == code_upgrade_index {
 					builder.new_validation_code = Some(vec![1, 2, 3, 4].into());
 				}
-				if v2_receipts {
-					builder.core_index = Some(core_index);
-					builder.core_selector = Some(idx as u8);
-				}
+				builder.core_index = Some(core_index);
+				builder.core_selector = Some(idx as u8);
 				let ccr = builder.build();
 
 				BackedCandidate::new(ccr.into(), Default::default(), Default::default(), core_index)

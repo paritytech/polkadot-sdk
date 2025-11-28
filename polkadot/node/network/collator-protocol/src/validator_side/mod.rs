@@ -407,7 +407,6 @@ impl RelayParentHoldOffState {
 struct PerRelayParent {
 	assignment: GroupAssignments,
 	collations: Collations,
-	v2_receipts: bool,
 	v3_enabled: bool,
 	current_core: CoreIndex,
 	session_index: SessionIndex,
@@ -573,7 +572,6 @@ async fn construct_per_relay_parent<Sender>(
 	current_assignments: &mut HashMap<ParaId, usize>,
 	keystore: &KeystorePtr,
 	relay_parent: Hash,
-	v2_receipts: bool,
 	v3_enabled: bool,
 	session_index: SessionIndex,
 ) -> Result<Option<PerRelayParent>>
@@ -627,7 +625,6 @@ where
 	Ok(Some(PerRelayParent {
 		assignment,
 		collations,
-		v2_receipts,
 		v3_enabled,
 		session_index,
 		current_core: core_now,
@@ -1509,7 +1506,6 @@ where
 			.await
 			.map_err(Error::CancelledNodeFeatures)??;
 
-		let v2_receipts = node_features::FeatureIndex::CandidateReceiptV2.is_set(&node_features);
 		let v3_enabled = node_features::FeatureIndex::CandidateReceiptV3.is_set(&node_features);
 
 		let Some(per_relay_parent) = construct_per_relay_parent(
@@ -1517,7 +1513,6 @@ where
 			&mut state.current_assignments,
 			keystore,
 			*leaf,
-			v2_receipts,
 			v3_enabled,
 			session_index,
 		)
@@ -1540,14 +1535,14 @@ where
 			state.implicit_view.known_allowed_relay_parents_under(leaf).unwrap_or_default();
 		for block_hash in allowed_ancestry {
 			if let Entry::Vacant(entry) = state.per_relay_parent.entry(*block_hash) {
-				// Safe to use the same v2 receipts config for the allowed relay parents as well
+				// Safe to use the same v3_enabled config for the allowed relay parents as well
 				// as the same session index since they must be in the same session.
 				if let Some(per_relay_parent) = construct_per_relay_parent(
 					sender,
 					&mut state.current_assignments,
 					keystore,
 					*block_hash,
-					v2_receipts,
+					v3_enabled,
 					session_index,
 				)
 				.await?
@@ -2560,7 +2555,7 @@ fn descriptor_version_sanity_check(
 ) -> std::result::Result<(), SecondingError> {
 	match descriptor.version(per_relay_parent.v3_enabled) {
 		CandidateDescriptorVersion::V1 => Ok(()),
-		CandidateDescriptorVersion::V2 if per_relay_parent.v2_receipts => {
+		CandidateDescriptorVersion::V2 | CandidateDescriptorVersion::V3 => {
 			if let Some(core_index) = descriptor.core_index(per_relay_parent.v3_enabled) {
 				if core_index != per_relay_parent.current_core {
 					return Err(SecondingError::InvalidCoreIndex(

@@ -608,8 +608,6 @@ impl<T: Config> Pallet<T> {
 			}
 
 			let node_features = configuration::ActiveConfig::<T>::get().node_features;
-
-			let allow_v2_receipts = FeatureIndex::CandidateReceiptV2.is_set(&node_features);
 			let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&node_features);
 
 			let backed_candidates_with_core = sanitize_backed_candidates::<T>(
@@ -617,7 +615,6 @@ impl<T: Config> Pallet<T> {
 				&allowed_relay_parents,
 				concluded_invalid_hashes,
 				eligible,
-				allow_v2_receipts,
 				v3_enabled,
 			);
 			let count = count_backed_candidates(&backed_candidates_with_core);
@@ -974,7 +971,6 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 	candidate: &BackedCandidate<T::Hash>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
-	allow_v2_receipts: bool,
 	v3_enabled: bool,
 ) -> bool {
 	let descriptor_version = candidate.descriptor().version(v3_enabled);
@@ -991,18 +987,6 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 			return false
 		},
 		_ => {},
-	}
-
-	// It is mandatory to filter these before calling `filter_unchained_candidates` to ensure
-	// any we drop any descendants of the dropped v2 candidates.
-	if descriptor_version == CandidateDescriptorVersion::V2 && !allow_v2_receipts {
-		log::debug!(
-			target: LOG_TARGET,
-			"V2 candidate descriptors not allowed. Dropping candidate {:?} for paraid {:?}.",
-			candidate.candidate().hash(),
-			candidate.descriptor().para_id()
-		);
-		return false
 	}
 
 	// Get the claim queue snapshot at the candidate relay parent.
@@ -1083,7 +1067,6 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	concluded_invalid_with_descendants: BTreeSet<CandidateHash>,
 	scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>>,
-	allow_v2_receipts: bool,
 	v3_enabled: bool,
 ) -> BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>> {
 	// Map the candidates to the right paraids, while making sure that the order between candidates
@@ -1091,12 +1074,7 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	let mut candidates_per_para: BTreeMap<ParaId, Vec<_>> = BTreeMap::new();
 
 	for candidate in backed_candidates {
-		if !sanitize_backed_candidate_v2::<T>(
-			&candidate,
-			allowed_relay_parents,
-			allow_v2_receipts,
-			v3_enabled,
-		) {
+		if !sanitize_backed_candidate_v2::<T>(&candidate, allowed_relay_parents, v3_enabled) {
 			continue
 		}
 

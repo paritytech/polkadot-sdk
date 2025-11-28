@@ -47,10 +47,10 @@ use polkadot_node_subsystem_util::{
 	request_min_backing_votes, request_node_features, runtime::ClaimQueueSnapshot,
 };
 use polkadot_primitives::{
-	node_features::FeatureIndex, transpose_claim_queue, AuthorityDiscoveryId,
-	CandidateDescriptorVersion, CandidateHash, CompactStatement, CoreIndex, GroupIndex,
-	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, SessionIndex, SessionInfo, SignedStatement,
-	SigningContext, TransposedClaimQueue, UncheckedSignedStatement, ValidatorId, ValidatorIndex,
+	node_features::FeatureIndex, transpose_claim_queue, AuthorityDiscoveryId, CandidateHash,
+	CompactStatement, CoreIndex, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, IndexedVec,
+	NodeFeatures, SessionIndex, SessionInfo, SignedStatement, SigningContext, TransposedClaimQueue,
+	UncheckedSignedStatement, ValidatorId, ValidatorIndex,
 };
 
 use sp_keystore::KeystorePtr;
@@ -135,8 +135,6 @@ const COST_UNREQUESTED_RESPONSE_STATEMENT: Rep =
 	Rep::CostMajor("Un-requested Statement In Response");
 const COST_INACCURATE_ADVERTISEMENT: Rep =
 	Rep::CostMajor("Peer advertised a candidate inaccurately");
-const COST_UNSUPPORTED_DESCRIPTOR_VERSION: Rep =
-	Rep::CostMajor("Candidate Descriptor version is not supported");
 const COST_INVALID_UMP_SIGNALS: Rep =
 	Rep::CostMajor("Candidate Descriptor contains invalid ump signals");
 const COST_INVALID_SESSION_INDEX: Rep =
@@ -224,8 +222,8 @@ struct PerSessionState {
 	// getting the topology from the gossip-support subsystem
 	grid_view: Option<grid::SessionTopologyView>,
 	local_validator: Option<LocalValidatorIndex>,
-	// `true` if v2 candidate receipts are allowed by the runtime
-	allow_v2_descriptors: bool,
+	// Node features for this session
+	node_features: NodeFeatures,
 }
 
 impl PerSessionState {
@@ -233,7 +231,7 @@ impl PerSessionState {
 		session_info: SessionInfo,
 		keystore: &KeystorePtr,
 		backing_threshold: u32,
-		allow_v2_descriptors: bool,
+		node_features: NodeFeatures,
 	) -> Self {
 		let groups = Groups::new(session_info.validator_groups.clone(), backing_threshold);
 		let mut authority_lookup = HashMap::new();
@@ -253,7 +251,7 @@ impl PerSessionState {
 			authority_lookup,
 			grid_view: None,
 			local_validator,
-			allow_v2_descriptors,
+			node_features,
 		}
 	}
 
@@ -291,9 +289,9 @@ impl PerSessionState {
 		self.grid_view.is_some() && self.local_validator.is_none()
 	}
 
-	/// Returns `true` if v2 candidate receipts are enabled
-	fn candidate_receipt_v2_enabled(&self) -> bool {
-		self.allow_v2_descriptors
+	/// Returns `true` if v3 candidate receipts are enabled
+	fn v3_enabled(&self) -> bool {
+		FeatureIndex::CandidateReceiptV3.is_set(&self.node_features)
 	}
 }
 
@@ -610,10 +608,7 @@ async fn handle_active_leaf_update<Context>(
 			session_info,
 			&state.keystore,
 			minimum_backing_votes,
-			node_features
-				.get(FeatureIndex::CandidateReceiptV2 as usize)
-				.map(|b| *b)
-				.unwrap_or(false),
+			node_features,
 		);
 		if let Some(topology) = state.unused_topologies.remove(&session_index) {
 			per_session_state.supply_topology(&topology.topology, topology.local_index);
@@ -1162,7 +1157,7 @@ pub(crate) async fn share_local_statement<Context>(
 	// have the candidate. Sanity: check the para-id is valid.
 	let expected = match statement.payload() {
 		FullStatementWithPVD::Seconded(ref c, _) =>
-			Some((c.descriptor.para_id(), c.descriptor.relay_parent())),
+			Some((c.descriptor().para_id, c.descriptor().relay_parent)),
 		FullStatementWithPVD::Valid(hash) =>
 			state.candidates.get_confirmed(&hash).map(|c| (c.para_id(), c.relay_parent())),
 	};
@@ -2158,13 +2153,13 @@ async fn fragment_chain_update_inner<Context>(
 		} = hypo
 		{
 			let confirmed_candidate = state.candidates.get_confirmed(&candidate_hash);
-			let prs = state.per_relay_parent.get_mut(&receipt.descriptor.relay_parent());
+			let prs = state.per_relay_parent.get_mut(&receipt.descriptor().relay_parent);
 			if let (Some(confirmed), Some(prs)) = (confirmed_candidate, prs) {
 				let per_session = state.per_session.get(&prs.session);
 				let group_index = confirmed.group_index();
 
 				// Sanity check if group_index is valid for this para at relay parent.
-				let Some(expected_groups) = prs.groups_per_para.get(&receipt.descriptor.para_id())
+				let Some(expected_groups) = prs.groups_per_para.get(&receipt.descriptor().para_id)
 				else {
 					continue
 				};
@@ -2999,7 +2994,7 @@ pub(crate) async fn handle_response<Context>(
 			},
 			disabled_mask,
 			&relay_parent_state.transposed_cq,
-			per_session.candidate_receipt_v2_enabled(),
+			per_session.v3_enabled(),
 		);
 
 		for (peer, rep) in res.reputation_changes {
