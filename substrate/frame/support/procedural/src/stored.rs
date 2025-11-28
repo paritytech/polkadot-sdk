@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Implementation of the `#[derive_stored]` attribute macro for storage types.
+//! Implementation of the `#[stored]` attribute macro for storage types.
 //!
 //! This macro simplifies storage type definitions by automatically generating derives
 //! with consistent field-based bounding strategy. It extracts field types and applies
@@ -30,7 +30,7 @@ use syn::{
 	Error, Result,
 };
 
-/// Parsed arguments for the `#[derive_stored]` attribute.
+/// Parsed arguments for the `#[stored]` attribute.
 /// Currently no arguments are needed - codec uses its default field-bounding strategy.
 struct StoredArgs;
 
@@ -43,14 +43,14 @@ impl Parse for StoredArgs {
 			// Codec derives use their default strategy which bounds fields automatically
 			Err(Error::new(
 				input.span(),
-				"#[derive_stored] does not accept arguments. Codec derives use their default \
+				"#[stored] does not accept arguments. Codec derives use their default \
 				field-bounding strategy.",
 			))
 		}
 	}
 }
 
-/// Main implementation of the `#[derive_stored]` macro.
+/// Main implementation of the `#[stored]` macro.
 pub fn stored(
 	attr: proc_macro::TokenStream,
 	item: proc_macro::TokenStream,
@@ -63,7 +63,7 @@ pub fn stored(
 
 fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 	let _args: StoredArgs = syn::parse2(attr)?;
-	let input: syn::DeriveInput = syn::parse2(item)?;
+	let mut input: syn::DeriveInput = syn::parse2(item)?;
 
 	// Get the frame_support crate path to use __private re-exports
 	let frame_support = match generate_access_from_frame_or_crate("frame-support") {
@@ -75,6 +75,7 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 			)),
 	};
 
+	// Extract field types from structs or enums
 	let field_types = match &input.data {
 		syn::Data::Struct(data_struct) => match &data_struct.fields {
 			syn::Fields::Named(fields) => fields.named.iter().map(|f| &f.ty).collect::<Vec<_>>(),
@@ -82,15 +83,26 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 				fields.unnamed.iter().map(|f| &f.ty).collect::<Vec<_>>(),
 			syn::Fields::Unit => Vec::new(),
 		},
-		syn::Data::Enum(_) =>
-			return Err(Error::new(
-				input.span(),
-				"#[derive_stored] is only supported on structs, not enums",
-			)),
+		syn::Data::Enum(data_enum) => {
+			// Collect field types from all enum variants
+			let mut field_types = Vec::new();
+			for variant in &data_enum.variants {
+				match &variant.fields {
+					syn::Fields::Named(fields) => {
+						field_types.extend(fields.named.iter().map(|f| &f.ty));
+					},
+					syn::Fields::Unnamed(fields) => {
+						field_types.extend(fields.unnamed.iter().map(|f| &f.ty));
+					},
+					syn::Fields::Unit => {},
+				}
+			}
+			field_types
+		},
 		syn::Data::Union(_) =>
 			return Err(Error::new(
 				input.span(),
-				"#[derive_stored] is only supported on structs, not unions",
+				"#[stored] is only supported on structs and enums, not unions",
 			)),
 	};
 
@@ -107,54 +119,30 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 		.collect();
 
 	// Generate scale_info attribute to skip all type parameters
-	let scale_info_attr = if !all_type_params.is_empty() {
-		quote! {
+	if !all_type_params.is_empty() {
+		let scale_info_attr: syn::Attribute = syn::parse_quote! {
 			#[scale_info(skip_type_params(#(#all_type_params),*))]
-		}
-	} else {
-		quote! {}
-	};
+		};
+		input.attrs.insert(0, scale_info_attr);
+	}
 
 	// Generate derive_where with field-based bounds
 	// This ensures consistent bounding strategy: bounds are applied to field types, not type
 	// parameters. Codec derives use their default strategy which also bounds fields automatically.
-	let derive_where_attr = if !field_types.is_empty() {
-		quote! {
+	let derive_where_attr: syn::Attribute = if !field_types.is_empty() {
+		syn::parse_quote! {
 			#[derive_where(Clone, Eq, PartialEq, Debug; #(#field_types),*)]
 		}
 	} else {
-		// For unit structs, no field types to bound
-		quote! {
+		// For unit structs/enums, no field types to bound
+		syn::parse_quote! {
 			#[derive_where(Clone, Eq, PartialEq, Debug)]
 		}
 	};
+	input.attrs.insert(0, derive_where_attr);
 
-	let name = &input.ident;
-	let vis = &input.vis;
-	let generics = &input.generics;
-	let attrs = &input.attrs;
-
-	let body = match &input.data {
-		syn::Data::Struct(data_struct) => match &data_struct.fields {
-			syn::Fields::Named(fields) => {
-				let named = &fields.named;
-				quote! { { #named } }
-			},
-			syn::Fields::Unnamed(fields) => {
-				let unnamed = &fields.unnamed;
-				quote! { ( #unnamed ); }
-			},
-			syn::Fields::Unit => quote! { ; },
-		},
-		_ => unreachable!(
-			"input.data is already matched above for Struct/Enum/Union;\
-			all variants covered;\
-			qed"
-		),
-	};
-
-	Ok(quote! {
-		#derive_where_attr
+	// Add codec derives
+	let codec_derive_attr: syn::Attribute = syn::parse_quote! {
 		#[derive(
 			#frame_support::__private::scale_info::TypeInfo,
 			#frame_support::__private::codec::Encode,
@@ -162,10 +150,10 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 			#frame_support::__private::codec::DecodeWithMemTracking,
 			#frame_support::__private::codec::MaxEncodedLen,
 		)]
-		#scale_info_attr
-		#(#attrs)*
-		#vis struct #name #generics #body
-	})
+	};
+	input.attrs.insert(0, codec_derive_attr);
+
+	Ok(quote! { #input })
 }
 
 #[cfg(test)]
@@ -214,5 +202,32 @@ mod tests {
 		let result = stored_impl(attr, item);
 		assert!(result.is_ok());
 		// The macro should extract T::Foo and Vec<T::Foo2> for derive_where
+	}
+
+	#[test]
+	fn stored_supports_enums() {
+		let attr = quote! {};
+		let item = quote! {
+			pub enum MyEnum<T: Config> {
+				Variant1 { field: T::Foo },
+				Variant2(Vec<T::Foo2>),
+				Variant3,
+			}
+		};
+		let result = stored_impl(attr, item);
+		assert!(result.is_ok());
+	}
+
+	#[test]
+	fn stored_rejects_unions() {
+		let attr = quote! {};
+		let item = quote! {
+			pub union MyUnion {
+				f1: u32,
+				f2: u64,
+			}
+		};
+		let result = stored_impl(attr, item);
+		assert!(result.is_err());
 	}
 }

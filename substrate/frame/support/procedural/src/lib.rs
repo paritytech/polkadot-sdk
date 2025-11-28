@@ -477,41 +477,22 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 		.into()
 }
 
-/// Derive macro for simplifying storage type definitions with consistent field-based bounding.
+/// Attribute macro for simplifying storage type definitions with consistent field-based bounding.
 ///
-/// This macro automatically extracts field types (using the same approach as parity-scale-codec)
-/// and applies derives with bounds on those fields. Codec derives use their default strategy
-/// which also bounds fields automatically, ensuring consistent behavior across all traits.
-///
-/// # Automatic Behavior
-///
-/// The macro automatically:
-/// - Extracts all field types from the struct (same approach as parity-scale-codec)
-/// - Applies `derive_where(Clone, Eq, PartialEq, Debug; field_type1, field_type2, ...)`
-/// - Applies codec derives (Encode, Decode, MaxEncodedLen, DecodeWithMemTracking, TypeInfo) using
-///   their default field-bounding strategy
-/// - Skips all type parameters in TypeInfo metadata (they're rarely needed)
+/// Automatically extracts field types and applies derives with bounds on those fields, ensuring
+/// consistent behavior across all traits. Supports both structs and enums.
 ///
 /// # Example
 ///
 /// ```ignore
-/// pub trait Config {
-///     type Foo;
-///     type Foo2;
-/// }
-///
-/// #[frame_support::derive_stored]
+/// #[frame_support::stored]
 /// pub struct Foo<T: Config> {
 ///     f: T::Foo,
 ///     f2: Vec<T::Foo2>,
 /// }
-///
-/// // Expands to:
-/// // #[derive_where(Clone, Eq, PartialEq, Debug; T::Foo, Vec<T::Foo2>)]
-/// // #[derive(Encode, Decode, MaxEncodedLen, DecodeWithMemTracking, TypeInfo)]
-/// // #[scale_info(skip_type_params(T))]
-/// // pub struct Foo<T: Config> { ... }
 /// ```
+///
+/// Note: Requires `derive-where` as a dependency in the calling crate.
 #[proc_macro_attribute]
 pub fn stored(attr: TokenStream, item: TokenStream) -> TokenStream {
 	stored::stored(attr, item)

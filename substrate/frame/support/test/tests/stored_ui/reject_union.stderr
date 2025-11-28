@@ -1,0 +1,13 @@
+error[E0277]: the trait bound `MyUnion: Clone` is not satisfied
+   --> $DIR/reject_union.rs:12:1
+    |
+12  | pub union MyUnion {
+    | ^^^^^^^^^^^^^^^^ the trait `Clone` is not implemented for `MyUnion`
+    |
+    = help: the following other types implement trait `Clone`:
+              ...
+    = note: required for `MyUnion` to implement `Clone`
+    = note: this error originates in the derive macro `Clone` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: aborting due to previous error
+
