@@ -1,13 +1,1 @@
 {# List of chnaged crates with updated versions genearted during the crates relaease . -#}
-
-The following crates were updated to the corresponding versions:
-
-- sp-statement-store@21.3.0
-- frame-system@41.0.3
-- frame-executive@41.0.3
-- sc-tracing@40.0.2
-- pallet-revive@0.7.2
-- sc-network-statement@0.33.3
-- sc-statement-store@22.4.0
-- polkadot-runtime-parachains@20.0.4
-- cumulus-pallet-parachain-system@0.21.2
