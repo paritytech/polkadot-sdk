@@ -32,20 +32,11 @@ pub enum Error {
 	Runtime,
 }
 
-#[derive(Debug, PartialEq, Eq)]
-/// Network propagation priority.
-pub enum NetworkPriority {
-	/// High priority. Statement should be broadcast to all peers.
-	High,
-	/// Low priority.
-	Low,
-}
-
 /// Statement submission outcome
 #[derive(Debug, Eq, PartialEq)]
 pub enum SubmitResult {
 	/// Accepted as new with given score
-	New(NetworkPriority),
+	New,
 	/// Known statement
 	Known,
 	/// Known statement that's already expired.

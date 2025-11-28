@@ -127,7 +127,7 @@ impl StatementApiServer for StatementStore {
 		let statement = Decode::decode(&mut &*encoded)
 			.map_err(|e| Error::StatementStore(format!("Error decoding statement: {:?}", e)))?;
 		match self.store.submit(statement, StatementSource::Local) {
-			SubmitResult::New(_) => Ok(StatementSubmitResult::New),
+			SubmitResult::New => Ok(StatementSubmitResult::New),
 			SubmitResult::Known => Ok(StatementSubmitResult::Known),
 			// `KnownExpired` should not happen. Expired statements submitted with
 			// `StatementSource::Rpc` should be renewed.

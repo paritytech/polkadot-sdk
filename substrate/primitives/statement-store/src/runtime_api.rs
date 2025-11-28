@@ -153,7 +153,7 @@ pub trait StatementStore {
 	) -> ReturnAs<SubmitResult, u8> {
 		if let Some(StatementStoreExt(store)) = self.extension::<StatementStoreExt>() {
 			match store.submit(statement, StatementSource::Chain) {
-				crate::SubmitResult::New(_) => SubmitResult::OkNew,
+				crate::SubmitResult::New => SubmitResult::OkNew,
 				crate::SubmitResult::Known => SubmitResult::OkKnown,
 				crate::SubmitResult::Ignored => SubmitResult::Full,
 				// This should not happen for `StatementSource::Chain`. An existing statement will

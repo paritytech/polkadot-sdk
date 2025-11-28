@@ -63,8 +63,8 @@ use sp_statement_store::{
 	runtime_api::{
 		InvalidStatement, StatementSource, StatementStoreExt, ValidStatement, ValidateStatement,
 	},
-	AccountId, BlockHash, Channel, DecryptionKey, Hash, NetworkPriority, Proof, Result, Statement,
-	SubmitResult, Topic,
+	AccountId, BlockHash, Channel, DecryptionKey, Hash, Proof, Result, Statement, SubmitResult,
+	Topic,
 };
 use std::{
 	collections::{BTreeMap, HashMap, HashSet},
@@ -986,9 +986,8 @@ impl StatementStore for Store {
 			}
 		} // Release index lock
 		self.metrics.report(|metrics| metrics.submitted_statements.inc());
-		let network_priority = NetworkPriority::High;
 		log::trace!(target: LOG_TARGET, "Statement submitted: {:?}", HexDisplay::from(&hash));
-		SubmitResult::New(network_priority)
+		SubmitResult::New
 	}
 
 	/// Remove a statement by hash.
@@ -1217,15 +1216,9 @@ mod tests {
 	fn submit_one() {
 		let (store, _temp) = test_store();
 		let statement0 = signed_statement(0);
-		assert_eq!(
-			store.submit(statement0, StatementSource::Network),
-			SubmitResult::New(NetworkPriority::High)
-		);
+		assert_eq!(store.submit(statement0, StatementSource::Network), SubmitResult::New);
 		let unsigned = statement(0, 1, None, 0);
-		assert_eq!(
-			store.submit(unsigned, StatementSource::Network),
-			SubmitResult::New(NetworkPriority::High)
-		);
+		assert_eq!(store.submit(unsigned, StatementSource::Network), SubmitResult::New);
 	}
 
 	#[test]
@@ -1234,18 +1227,9 @@ mod tests {
 		let statement0 = signed_statement(0);
 		let statement1 = signed_statement(1);
 		let statement2 = signed_statement(2);
-		assert_eq!(
-			store.submit(statement0.clone(), StatementSource::Network),
-			SubmitResult::New(NetworkPriority::High)
-		);
-		assert_eq!(
-			store.submit(statement1.clone(), StatementSource::Network),
-			SubmitResult::New(NetworkPriority::High)
-		);
-		assert_eq!(
-			store.submit(statement2.clone(), StatementSource::Network),
-			SubmitResult::New(NetworkPriority::High)
-		);
+		assert_eq!(store.submit(statement0.clone(), StatementSource::Network), SubmitResult::New);
+		assert_eq!(store.submit(statement1.clone(), StatementSource::Network), SubmitResult::New);
+		assert_eq!(store.submit(statement2.clone(), StatementSource::Network), SubmitResult::New);
 		assert_eq!(store.statements().unwrap().len(), 3);
 		assert_eq!(store.broadcasts(&[]).unwrap().len(), 3);
 		assert_eq!(store.statement(&statement1.hash()).unwrap(), Some(statement1.clone()));
@@ -1344,7 +1328,7 @@ mod tests {
 
 		store.index.write().options.max_total_size = 3000;
 		let source = StatementSource::Network;
-		let ok = SubmitResult::New(NetworkPriority::High);
+		let ok = SubmitResult::New;
 		let ignored = SubmitResult::Ignored;
 
 		// Account 1 (limit = 1 msg, 1000 bytes)
@@ -1412,7 +1396,7 @@ mod tests {
 				statement(42, 1, Some(1), crate::MAX_STATEMENT_SIZE - 500),
 				StatementSource::Local
 			),
-			SubmitResult::New(NetworkPriority::High)
+			SubmitResult::New
 		);
 
 		assert_eq!(
