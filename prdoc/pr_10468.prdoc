@@ -8,19 +8,21 @@ doc:
 crates:
 - name: sc-network
   bump: major
+- name: sc-network-types
+  bump: patch
 - name: cumulus-client-pov-recovery
-  bump: major
+  bump: minor
 - name: sc-client-api
   bump: major
 - name: sc-client-db
-  bump: major
+  bump: minor
 - name: sc-rpc-spec-v2
-  bump: major
+  bump: patch
 - name: sc-service
   bump: major
 - name: sp-blockchain
-  bump: major
+  bump: minor
 - name: cumulus-relay-chain-minimal-node
-  bump: major
+  bump: patch
 - name: sc-cli
   bump: major
