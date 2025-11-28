@@ -27,8 +27,11 @@ use crate::{
 	MAX_RESPONSE_SIZE,
 };
 
-use cid::{self, Version};
 use futures::StreamExt;
+use litep2p::{
+	protocol::libp2p::bitswap::{Cid, MultihashCode},
+	types::cid::Version,
+};
 use log::{debug, error, trace};
 use prost::Message;
 use sc_client_api::BlockBackend;
@@ -189,7 +192,7 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 		}
 
 		for entry in wantlist.entries {
-			let cid = match cid::Cid::read_bytes(entry.block.as_slice()) {
+			let cid = match Cid::read_bytes(entry.block.as_slice()) {
 				Ok(cid) => cid,
 				Err(e) => {
 					trace!(target: LOG_TARGET, "Bad CID {:?}: {:?}", entry.block, e);
@@ -197,8 +200,8 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 				},
 			};
 
-			if cid.version() != cid::Version::V1 ||
-				cid.hash().code() != u64::from(cid::multihash::Code::Blake2b256) ||
+			if cid.version() != Version::V1 ||
+				cid.hash().code() != u64::from(MultihashCode::Blake2b256) ||
 				cid.hash().size() != 32
 			{
 				debug!(target: LOG_TARGET, "Ignoring unsupported CID {}: {}", peer, cid);
@@ -270,7 +273,7 @@ pub enum BitswapError {
 
 	/// Error parsing CID
 	#[error(transparent)]
-	BadCid(#[from] cid::Error),
+	BadCid(#[from] litep2p::types::cid::Error),
 
 	/// Packet read error.
 	#[error(transparent)]
@@ -438,10 +441,10 @@ mod tests {
 				payload: BitswapMessage {
 					wantlist: Some(Wantlist {
 						entries: vec![Entry {
-							block: cid::Cid::new_v1(
+							block: Cid::new_v1(
 								0x70,
-								cid::multihash::Multihash::wrap(
-									u64::from(cid::multihash::Code::Blake2b256),
+								litep2p::types::multihash::Multihash::wrap(
+									u64::from(MultihashCode::Blake2b256),
 									&[0u8; 32],
 								)
 								.unwrap(),
@@ -499,10 +502,10 @@ mod tests {
 				payload: BitswapMessage {
 					wantlist: Some(Wantlist {
 						entries: vec![Entry {
-							block: cid::Cid::new_v1(
+							block: Cid::new_v1(
 								0x70,
-								cid::multihash::Multihash::wrap(
-									u64::from(cid::multihash::Code::Blake2b256),
+								litep2p::types::multihash::Multihash::wrap(
+									u64::from(MultihashCode::Blake2b256),
 									&sp_crypto_hashing::blake2_256(&ext.encode()[pattern_index..]),
 								)
 								.unwrap(),
