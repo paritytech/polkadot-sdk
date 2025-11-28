@@ -24,9 +24,7 @@ use frame_support::{
 };
 use frame_system::EnsureRootWithSuccess;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-use parachains_common::pay::{
-	AccountIdToVersionedLocatableAccount, LocalPay, VersionedLocatableAccount,
-};
+use parachains_common::pay::{AccountIdToLocalLocation, LocalPay, VersionedLocatableAccount};
 use polkadot_runtime_common::{
 	impls::{ContainsParts, VersionedLocatableAsset},
 	prod_or_fast,
@@ -197,17 +195,17 @@ impl pallet_multi_asset_bounties::Config for Runtime {
 	type FundingSource = pallet_multi_asset_bounties::PalletIdAsFundingSource<
 		TreasuryPalletId,
 		Runtime,
-		AccountIdToVersionedLocatableAccount,
+		AccountIdToLocalLocation,
 	>;
 	type BountySource = pallet_multi_asset_bounties::BountySourceFromPalletId<
 		TreasuryPalletId,
 		Runtime,
-		AccountIdToVersionedLocatableAccount,
+		AccountIdToLocalLocation,
 	>;
 	type ChildBountySource = pallet_multi_asset_bounties::ChildBountySourceFromPalletId<
 		TreasuryPalletId,
 		Runtime,
-		AccountIdToVersionedLocatableAccount,
+		AccountIdToLocalLocation,
 	>;
 	type Paymaster = LocalPay<NativeAndAllAssets, AccountId, xcm_config::LocationToAccountId>;
 	type BalanceConverter = TreasuryBalanceConverter;
