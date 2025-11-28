@@ -22,7 +22,7 @@ use cumulus_client_consensus_common::ParachainBlockImportMarker;
 use prometheus_endpoint::Registry;
 use sc_client_api::{backend::AuxStore, BlockOf, UsageProvider};
 use sc_consensus::{import_queue::DefaultImportQueue, BlockImport};
-use sc_consensus_aura::{AuraVerifier, AuthoritiesTracker, CompatibilityMode};
+use sc_consensus_aura::{AuraVerifier, AuthoritiesTracker};
 use sc_consensus_slots::InherentDataProviderExt;
 use sc_telemetry::TelemetryHandle;
 use sp_api::{ApiExt, ProvideRuntimeApi};
@@ -36,7 +36,7 @@ use sp_runtime::traits::Block as BlockT;
 use std::{fmt::Debug, sync::Arc};
 
 /// Parameters for [`import_queue`].
-pub struct ImportQueueParams<'a, I, C, CIDP, S> {
+pub struct ImportQueueParams<'a, P: Pair, Block: BlockT, I, C, CIDP, S> {
 	/// The block import to use.
 	pub block_import: I,
 	/// The client to interact with the chain.
@@ -49,6 +49,8 @@ pub struct ImportQueueParams<'a, I, C, CIDP, S> {
 	pub registry: Option<&'a Registry>,
 	/// The telemetry handle.
 	pub telemetry: Option<TelemetryHandle>,
+	/// Authorities tracker.
+	pub authorities_tracker: Arc<AuthoritiesTracker<P, Block, C>>,
 }
 
 /// Start an import queue for the Aura consensus algorithm.
@@ -60,7 +62,8 @@ pub fn import_queue<P, Block, I, C, S, CIDP>(
 		spawner,
 		registry,
 		telemetry,
-	}: ImportQueueParams<'_, I, C, CIDP, S>,
+		authorities_tracker,
+	}: ImportQueueParams<'_, P, Block, I, C, CIDP, S>,
 ) -> Result<DefaultImportQueue<Block>, sp_consensus::Error>
 where
 	Block: BlockT,
@@ -96,7 +99,7 @@ where
 		registry,
 		check_for_equivocation: sc_consensus_aura::CheckForEquivocation::No,
 		telemetry,
-		compatibility_mode: CompatibilityMode::None,
+		authorities_tracker,
 	})
 }
 

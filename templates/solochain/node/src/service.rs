@@ -2,7 +2,9 @@
 
 use futures::FutureExt;
 use sc_client_api::{Backend, BlockBackend};
-use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
+use sc_consensus_aura::{
+	AuraBlockImport, CompatibilityMode, ImportQueueParams, SlotProportion, StartAuraParams,
+};
 use sc_consensus_grandpa::SharedVoterState;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager, WarpSyncConfig};
 use sc_telemetry::{Telemetry, TelemetryWorker};
@@ -30,7 +32,17 @@ pub type Service = sc_service::PartialComponents<
 	sc_consensus::DefaultImportQueue<Block>,
 	sc_transaction_pool::TransactionPoolHandle<Block, FullClient>,
 	(
-		sc_consensus_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>,
+		AuraBlockImport<
+			FullClient,
+			sp_consensus_aura::sr25519::AuthorityPair,
+			Block,
+			sc_consensus_grandpa::GrandpaBlockImport<
+				FullBackend,
+				Block,
+				FullClient,
+				FullSelectChain,
+			>,
+		>,
 		sc_consensus_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
 		Option<Telemetry>,
 	),
@@ -83,6 +95,12 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 		telemetry.as_ref().map(|x| x.handle()),
 	)?;
 
+	let (block_import, authorities_tracker) = AuraBlockImport::new(
+		grandpa_block_import.clone(),
+		client.clone(),
+		&CompatibilityMode::None,
+	)?;
+
 	let cidp_client = client.clone();
 	let import_queue =
 		sc_consensus_aura::import_queue::<AuraPair, _, _, _, _, _>(ImportQueueParams {
@@ -111,7 +129,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 			registry: config.prometheus_registry(),
 			check_for_equivocation: Default::default(),
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
-			compatibility_mode: Default::default(),
+			authorities_tracker,
 		})?;
 
 	Ok(sc_service::PartialComponents {
@@ -122,7 +140,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 		keystore_container,
 		select_chain,
 		transaction_pool,
-		other: (grandpa_block_import, grandpa_link, telemetry),
+		other: (block_import, grandpa_link, telemetry),
 	})
 }
 

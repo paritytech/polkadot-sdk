@@ -29,7 +29,7 @@ use sc_client_api::{backend::AuxStore, BlockOf, UsageProvider};
 use sc_consensus::{
 	block_import::{BlockImport, BlockImportParams, ForkChoiceStrategy},
 	import_queue::{BasicQueue, BoxJustificationImport, DefaultImportQueue, Verifier},
-	BlockCheckParams, ImportResult, StateAction,
+	BlockCheckParams, ImportResult,
 };
 use sc_consensus_slots::{check_equivocation, CheckedHeader, InherentDataProviderExt};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
@@ -287,7 +287,7 @@ impl Default for CheckForEquivocation {
 }
 
 /// Parameters of [`import_queue`].
-pub struct ImportQueueParams<'a, Block: BlockT, I, C, S, CIDP> {
+pub struct ImportQueueParams<'a, P: Pair, Block: BlockT, I, C, S, CIDP> {
 	/// The block import to use.
 	pub block_import: I,
 	/// The justification import.
@@ -304,10 +304,8 @@ pub struct ImportQueueParams<'a, Block: BlockT, I, C, S, CIDP> {
 	pub check_for_equivocation: CheckForEquivocation,
 	/// Telemetry instance used to report telemetry metrics.
 	pub telemetry: Option<TelemetryHandle>,
-	/// Compatibility mode that should be used.
-	///
-	/// If in doubt, use `Default::default()`.
-	pub compatibility_mode: CompatibilityMode<NumberFor<Block>>,
+	/// Authorities tracker.
+	pub authorities_tracker: Arc<AuthoritiesTracker<P, Block, C>>,
 }
 
 /// Start an import queue for the Aura consensus algorithm.
@@ -321,8 +319,8 @@ pub fn import_queue<P, Block, I, C, S, CIDP>(
 		registry,
 		check_for_equivocation,
 		telemetry,
-		compatibility_mode,
-	}: ImportQueueParams<Block, I, C, S, CIDP>,
+		authorities_tracker,
+	}: ImportQueueParams<P, Block, I, C, S, CIDP>,
 ) -> Result<DefaultImportQueue<Block>, sp_consensus::Error>
 where
 	Block: BlockT,
@@ -344,9 +342,6 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()> + Sync + Send + 'static,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
-	let (block_import, authorities_tracker) =
-		AuraBlockImport::new(block_import, client.clone(), &compatibility_mode)?;
-
 	let verifier = build_verifier::<P, _, _, _>(BuildVerifierParams {
 		client,
 		create_inherent_data_providers,
@@ -355,8 +350,13 @@ where
 		authorities_tracker,
 	})
 	.map_err(|e| sp_consensus::Error::Other(e.into()))?;
-
-	Ok(BasicQueue::new(verifier, Box::new(block_import), justification_import, spawner, registry))
+	Ok(BasicQueue::new(
+		verifier,
+		Box::new(block_import.clone()),
+		justification_import,
+		spawner,
+		registry,
+	))
 }
 
 /// AURA block import.
@@ -444,16 +444,8 @@ where
 		block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		let post_header = block.post_header();
-		let import_from_runtime = matches!(block.state_action, StateAction::ApplyChanges(_));
-
 		let res = self.block_import.import_block(block).await?;
-
-		if import_from_runtime {
-			self.authorities_tracker.import_from_runtime(&post_header)?;
-		} else {
-			self.authorities_tracker.import_from_block(&post_header)?;
-		}
-
+		self.authorities_tracker.import(&post_header)?;
 		Ok(res)
 	}
 }

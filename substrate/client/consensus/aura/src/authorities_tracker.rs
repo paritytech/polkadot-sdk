@@ -158,7 +158,7 @@ where
 	}
 
 	/// If there is an authorities change digest in the header, import it into the tracker.
-	pub fn import_from_block(&self, post_header: &B::Header) -> Result<(), String> {
+	pub fn import(&self, post_header: &B::Header) -> Result<(), String> {
 		if let Some(authorities_change) = find_authorities_change_digest::<B, P>(&post_header) {
 			let hash = post_header.hash();
 			let parent_hash = *post_header.parent_hash();
@@ -180,27 +180,6 @@ where
 				authorities_change,
 			)?;
 		}
-		Ok(())
-	}
-
-	/// Import the authorities change for the given header from the runtime.
-	pub fn import_from_runtime(&self, post_header: &B::Header) -> Result<(), String> {
-		let hash = post_header.hash();
-		let number = *post_header.number();
-
-		let authorities =
-			fetch_authorities_from_runtime(&*self.client, hash, number, &CompatibilityMode::None)
-				.map_err(|e| format!("Could not fetch authorities: {e:?}"))?;
-
-		self.authorities
-			.write()
-			.import(hash, number, authorities, &|_, _| {
-				Ok::<_, fork_tree::Error<sp_blockchain::Error>>(true)
-			})
-			.map_err(|e| {
-				format!("Could not import authorities for block {hash:?} at number {number}: {e}")
-			})?;
-
 		Ok(())
 	}
 
