@@ -519,17 +519,22 @@ The acknowledgement-based approach has an important synergy with Basti blocks
 
 #### Conclusion
 
-While inclusion lists could theoretically provide marginally lower latency (perhaps <100ms vs ~100ms), they:
+While inclusion lists could theoretically provide marginally lower latency
+(perhaps <100ms vs ~100ms), they:
 
 1. Provide much weaker guarantees (no execution result, no ordering enforcement)
-2. Severely degrade the security model (super-majority honest vs 1 honest collator)
+2. Severely degrade the security model (super-majority honest vs 1 honest
+   collator)
 3. Limit punishment to block rewards (vs full stake slashing)
-4. Add significant complexity (transaction ordering layer on top of block execution)
+4. Add significant complexity (transaction ordering layer on top of block
+   execution)
 
 The acknowledgement-based approach provides:
 
-- Strong guarantees: executed blocks with known results and enforced canonical ordering
-- Strong security: 1 honest collator assumption with full stake slashing for misbehavior
+- Strong guarantees: executed blocks with known results and enforced canonical
+  ordering
+- Strong security: 1 honest collator assumption with full stake slashing for
+  misbehavior
 - Practical low latency: ~100ms blocks are achievable
 - Better path forward: synergizes with execution optimizations and Basti blocks
 
