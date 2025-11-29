@@ -1,0 +1,10 @@
+title: '[Revive] Change default value of eth_getStorageAt'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Closes https://github.com/paritytech/contract-issues/issues/230
+
+    With this change `eth_getStorageAt` of the eth rpc always returns a 32 byte array. If the storage slot has never been written before, it returns the 32 byte zero value as the default value. Before that it was the empty array.
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
