@@ -40,6 +40,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, Block as BlockT, Header as HeaderT},
 	DigestItem,
 };
+use sp_tracing::capture_test_logs;
 use sp_trie::{proof_size_extension::ProofSizeExt, recorder::IgnoredNodes};
 use std::{env, process::Command};
 
@@ -792,7 +793,8 @@ fn rejects_multiple_blocks_per_pov_when_applying_runtime_upgrade() {
 
 #[test]
 fn validate_block_rejects_incomplete_bundle() {
-	use sp_tracing::capture_test_logs;
+	// Required to have the global logging enabled, so we can capture it below.
+	sp_tracing::try_init_simple();
 
 	let (client, parent_head) = create_elastic_scaling_test_client();
 
@@ -819,7 +821,8 @@ fn validate_block_rejects_incomplete_bundle() {
 	});
 	assert!(
 		log_capture.contains("Last block in PoV must have maybe_last=true"),
-		"Expected log about missing maybe_last, got: {log_capture}"
+		"Expected log about missing maybe_last, got: {}",
+		log_capture.get_logs()
 	);
 
 	// Validation with both blocks should succeed

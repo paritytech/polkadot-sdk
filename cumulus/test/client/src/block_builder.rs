@@ -74,7 +74,10 @@ impl<'a> BlockBuilderBuilder<'a> {
 	}
 
 	/// Set the relay state proof builder for the block builder.
-	pub fn with_relay_sproof_builder(mut self, relay_sproof_builder: RelayStateSproofBuilder) -> Self {
+	pub fn with_relay_sproof_builder(
+		mut self,
+		relay_sproof_builder: RelayStateSproofBuilder,
+	) -> Self {
 		self.relay_sproof_builder = relay_sproof_builder;
 		self
 	}
