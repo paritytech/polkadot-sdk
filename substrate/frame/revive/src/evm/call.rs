@@ -68,11 +68,19 @@ where
 		return Err(InvalidTransaction::Payment);
 	};
 
-	let chain_id = tx.chain_id.unwrap_or_default();
-
-	if chain_id != <T as Config>::ChainId::get().into() {
-		log::debug!(target: LOG_TARGET, "Invalid chain_id {chain_id:?}");
-		return Err(InvalidTransaction::Call);
+	// We would like to allow for transactions without a chain id to be executed
+	// through pallet-revive. These are called unprotected transactions and they
+	// are transactions that predate EIP-155 which do not include a Chain ID. 
+	// These transactions are still useful today in certain patterns in Ethereum
+	// such as "Nick's Method" for contract deployment which allows a contract 
+	// to be deployed on all chains with the same address. 
+	// * Here's a relevant EIP: https://eips.ethereum.org/EIPS/eip-2470
+	// * Here's Nick's article: https://weka.medium.com/how-to-send-ether-to-11-440-people-187e332566b7
+	if let Some(chain_id) = tx.chain_id {
+		if chain_id != <T as Config>::ChainId::get().into() {
+			log::debug!(target: LOG_TARGET, "Invalid chain_id {chain_id:?}");
+			return Err(InvalidTransaction::Call);
+		}
 	}
 
 	if effective_gas_price < base_fee {
