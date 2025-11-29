@@ -70,10 +70,10 @@ where
 
 	// We would like to allow for transactions without a chain id to be executed
 	// through pallet-revive. These are called unprotected transactions and they
-	// are transactions that predate EIP-155 which do not include a Chain ID. 
+	// are transactions that predate EIP-155 which do not include a Chain ID.
 	// These transactions are still useful today in certain patterns in Ethereum
-	// such as "Nick's Method" for contract deployment which allows a contract 
-	// to be deployed on all chains with the same address. 
+	// such as "Nick's Method" for contract deployment which allows a contract
+	// to be deployed on all chains with the same address.
 	// * Here's a relevant EIP: https://eips.ethereum.org/EIPS/eip-2470
 	// * Here's Nick's article: https://weka.medium.com/how-to-send-ether-to-11-440-people-187e332566b7
 	if let Some(chain_id) = tx.chain_id {
