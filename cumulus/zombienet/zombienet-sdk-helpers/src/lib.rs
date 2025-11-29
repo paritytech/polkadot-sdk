@@ -12,17 +12,20 @@ use tokio::{
 	join,
 	time::{sleep, Duration},
 };
-use zombienet_sdk::subxt::{
-	self,
-	backend::legacy::LegacyRpcMethods,
-	blocks::Block,
-	config::{polkadot::PolkadotExtrinsicParamsBuilder, substrate::DigestItem, Header},
-	dynamic::Value,
-	events::Events,
-	ext::scale_value::value,
-	tx::{signer::Signer, DynamicPayload, SubmittableTransaction, TxStatus},
-	utils::H256,
-	OnlineClient, PolkadotConfig,
+use zombienet_sdk::{
+	subxt::{
+		self,
+		backend::legacy::LegacyRpcMethods,
+		blocks::Block,
+		config::{polkadot::PolkadotExtrinsicParamsBuilder, substrate::DigestItem, Header},
+		dynamic::Value,
+		events::Events,
+		ext::scale_value::value,
+		tx::{signer::Signer, DynamicPayload, SubmittableTransaction, TxStatus},
+		utils::H256,
+		Config, OnlineClient, PolkadotConfig,
+	},
+	NetworkNode,
 };
 
 /// Specifies which block should occupy a full core.
@@ -33,13 +36,6 @@ pub enum BlockToCheck {
 	/// Wait for the next first bundle block.
 	NextFirstBundleBlock(H256),
 }
-
-use zombienet_sdk::{
-	tx_helper::{ChainUpgrade, RuntimeUpgradeOptions},
-	LocalFileSystem, Network, NetworkNode,
-};
-
-use zombienet_configuration::types::AssetLocation;
 
 // Maximum number of blocks to wait for a session change.
 // If it does not arrive for whatever reason, we should not wait forever.
@@ -56,18 +52,18 @@ const WAIT_MAX_BLOCKS_FOR_SESSION: u32 = 50;
 /// Genesis patch:
 /// ```json
 /// "configuration": {
-/// 		"config": {
-/// 			"scheduler_params": {
-/// 				"num_cores": 2,
-/// 			}
-/// 		}
-/// 	}
+///   "config": {
+///     "scheduler_params": {
+///       "num_cores": 2,
+///     }
+///   }
+/// }
 /// ```
 ///
 /// Runs the relay chain with `2` cores and we also add two parachains.
 /// To assign these extra `2` cores, the call would look like this:
 ///
-/// ```rust
+/// ```ignore
 /// create_assign_core_call(&[(0, 2400), (1, 2400)])
 /// ```
 ///
@@ -89,7 +85,7 @@ pub fn create_assign_core_call(core_and_para: &[(u32, u32)]) -> DynamicPayload {
 	)
 }
 
-/// Find an event in subxt `Events` and attempt to decode the fields fo the event.
+/// Find an event in subxt `Events` and attempt to decode the fields of the event.
 fn find_event_and_decode_fields<T: Decode>(
 	events: &Events<PolkadotConfig>,
 	pallet: &str,
@@ -104,11 +100,22 @@ fn find_event_and_decode_fields<T: Decode>(
 	}
 	Ok(result)
 }
+/// Returns `true` if the `block` is a session change.
+async fn is_session_change(
+	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+) -> Result<bool, anyhow::Error> {
+	let events = block.events().await?;
+	Ok(events.iter().any(|event| {
+		event.as_ref().is_ok_and(|event| {
+			event.pallet_name() == "Session" && event.variant_name() == "NewSession"
+		})
+	}))
+}
 
 // Helper function for asserting the throughput of parachains, after the first session change.
 //
 // The throughput is measured as total number of backed candidates in a window of relay chain
-// blocks. Relay chain blocks with session changes are generally ignores.
+// blocks. Relay chain blocks with session changes are generally ignored.
 pub async fn assert_para_throughput(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	stop_after: u32,
@@ -225,18 +232,6 @@ pub async fn assert_para_throughput(
 	}
 
 	Ok(())
-}
-
-/// Returns `true` if the `block` is a session change.
-async fn is_session_change(
-	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
-) -> Result<bool, anyhow::Error> {
-	let events = block.events().await?;
-	Ok(events.iter().any(|event| {
-		event.as_ref().is_ok_and(|event| {
-			event.pallet_name() == "Session" && event.variant_name() == "NewSession"
-		})
-	}))
 }
 
 /// Returns [`CoreInfo`] for the given parachain block.
@@ -526,7 +521,23 @@ pub async fn assert_blocks_are_being_finalized(
 	Ok(())
 }
 
-/// Asserts that parachain blocks have the correct relay parent offset.
+/// Checks if the given `RelayBlockIdentifier` matches a relay chain header.
+fn identifier_matches_header(
+	identifier: &RelayBlockIdentifier,
+	header: &<PolkadotConfig as Config>::Header,
+) -> bool {
+	match identifier {
+		RelayBlockIdentifier::ByHash(hash) => {
+			let header_hash = BlakeTwo256::hash(&header.encode());
+			header_hash == *hash
+		},
+		RelayBlockIdentifier::ByStorageRoot { storage_root, .. } =>
+			header.state_root == *storage_root,
+	}
+}
+
+/// Asserts that parachain blocks have the correct relay parent offset. This also checks that the
+/// relay chain descendants do not contain any session changes.
 ///
 /// # Arguments
 ///
@@ -542,10 +553,12 @@ pub async fn assert_relay_parent_offset(
 ) -> Result<(), anyhow::Error> {
 	let mut relay_block_stream = relay_client.blocks().subscribe_all().await?;
 
-	// First parachain header #0 does not contains RSPR digest item.
+	// First parachain header #0 does not contain relay block identifier digest item.
 	let mut para_block_stream = para_client.blocks().subscribe_all().await?.skip(1);
 	let mut highest_relay_block_seen = 0;
 	let mut num_para_blocks_seen = 0;
+	let mut forbidden_parents = Vec::new();
+	let mut seen_relay_parents = HashMap::new();
 	loop {
 		tokio::select! {
 			Some(Ok(relay_block)) = relay_block_stream.next() => {
@@ -553,22 +566,53 @@ pub async fn assert_relay_parent_offset(
 				if highest_relay_block_seen > 15 && num_para_blocks_seen == 0 {
 					return Err(anyhow!("No parachain blocks produced!"))
 				}
+				// When a relay chain block contains a session change, parachains shall not build on
+				// any ancestor of that block, if the session change block is part of the descendants.
+				// Example:
+				// RC Chain: A -> B -> C -> D*
+				// "*" denotes session change
+				// In this scenario, parachains with an offset of 2 should never build on relay chain
+				// blocks B or C. Both of them would include the session change block D* in their
+				// descendants, and we know that the candidate would span a session boundary.
+				if is_session_change(&relay_block).await? {
+					log::debug!("RC block #{} contains session change, adding {offset} parents to forbidden list.", relay_block.number());
+					let mut current_hash = relay_block.header().parent_hash;
+					for _ in 0..offset {
+						let block = relay_client.blocks().at(current_hash).await.map_err(|_| anyhow!("Unable to fetch RC header."))?;
+						forbidden_parents.push(block.header().clone());
+						current_hash = block.header().parent_hash;
+					}
+				}
 			},
 			Some(Ok(para_block)) = para_block_stream.next() => {
 				let relay_block_identifier = find_relay_block_identifier(&para_block)?;
 
-				let relay_parent_number = match relay_block_identifier {
-					RelayBlockIdentifier::ByHash(block_hash) => relay_client.blocks().at(block_hash).await?.number(),
-					RelayBlockIdentifier::ByStorageRoot { block_number, .. } => block_number,
+				let relay_parent_number = match &relay_block_identifier {
+					RelayBlockIdentifier::ByHash(block_hash) => relay_client.blocks().at(*block_hash).await?.number(),
+					RelayBlockIdentifier::ByStorageRoot { block_number, .. } => *block_number,
 				};
 
-				log::debug!("Parachain block #{} was built on relay parent #{relay_parent_number}, highest seen was {highest_relay_block_seen}", para_block.number());
-
+				let para_block_number = para_block.number();
+				seen_relay_parents.insert(relay_block_identifier.clone(), para_block);
+				log::debug!("Parachain block #{para_block_number} was built on relay parent #{relay_parent_number}, highest seen was {highest_relay_block_seen}");
 				assert!(
 					highest_relay_block_seen < offset ||
 					relay_parent_number <= highest_relay_block_seen.saturating_sub(offset),
 					"Relay parent is not at the correct offset! relay_parent: #{relay_parent_number} highest_seen_relay_block: #{highest_relay_block_seen}",
 				);
+				// As per explanation above, we need to check that no parachain blocks are built
+				// on the forbidden parents.
+				for forbidden in &forbidden_parents {
+					for (identifier, para_block) in &seen_relay_parents {
+						if identifier_matches_header(identifier, forbidden) {
+							panic!(
+								"Parachain block {} was built on forbidden relay parent with session change descendants ({:?})",
+								para_block.hash(),
+								identifier
+							);
+						}
+					}
+				}
 				num_para_blocks_seen += 1;
 				if num_para_blocks_seen >= block_limit {
 					log::info!("Successfully verified relay parent offset of {offset} for {num_para_blocks_seen} parachain blocks.");
@@ -581,15 +625,17 @@ pub async fn assert_relay_parent_offset(
 	Ok(())
 }
 
-/// Submits the given `call` as signed transaction and waits for it successful finalization.
+/// Submits the given `call` as signed transaction and waits for its successful finalization.
 ///
-/// The transaction is send as immortal transaction.
+/// The transaction is sent as immortal transaction.
 pub async fn submit_extrinsic_and_wait_for_finalization_success<S: Signer<PolkadotConfig>>(
 	client: &OnlineClient<PolkadotConfig>,
 	call: &DynamicPayload,
 	signer: &S,
 ) -> Result<H256, anyhow::Error> {
 	let extensions = PolkadotExtrinsicParamsBuilder::new().immortal().build();
+
+	log::info!("Submitting transaction...");
 
 	let tx = client.tx().create_signed(call, signer, extensions).await?;
 
@@ -614,13 +660,10 @@ async fn submit_tx_and_wait_for_finalization(
 
 	let mut tx = tx.submit_and_watch().await?;
 
-	// Below we use the low level API to replicate the `wait_for_in_block` behavior
-	// which was removed in subxt 0.33.0. See https://github.com/paritytech/subxt/pull/1237.
 	while let Some(status) = tx.next().await.transpose()? {
 		match status {
 			TxStatus::InBestBlock(tx_in_block) => {
 				tx_in_block.wait_for_success().await?;
-
 				log::info!("[Best] In block: {:#?}", tx_in_block.block_hash());
 			},
 			TxStatus::InFinalizedBlock(ref tx_in_block) => {
@@ -846,19 +889,6 @@ pub async fn ensure_is_last_block_in_core(
 	}
 }
 
-pub async fn runtime_upgrade(
-	network: &Network<LocalFileSystem>,
-	node: &NetworkNode,
-	para_id: u32,
-	wasm_path: &str,
-) -> Result<(), anyhow::Error> {
-	log::info!("Performing runtime upgrade for parachain {}, wasm: {}", para_id, wasm_path);
-	let para = network.parachain(para_id).unwrap();
-
-	para.perform_runtime_upgrade(node, RuntimeUpgradeOptions::new(AssetLocation::from(wasm_path)))
-		.await
-}
-
 /// Assigns the given `cores` to the given `para_id`.
 ///
 /// Zombienet by default adds extra core for each registered parachain additionally to the one
@@ -870,18 +900,18 @@ pub async fn runtime_upgrade(
 /// Genesis patch:
 /// ```json
 /// "configuration": {
-/// 		"config": {
-/// 			"scheduler_params": {
-/// 				"num_cores": 2,
-/// 			}
-/// 		}
-/// 	}
+///   "config": {
+///     "scheduler_params": {
+///       "num_cores": 2,
+///     }
+///   }
+/// }
 /// ```
 ///
 /// Runs the relay chain with `2` cores and we also add two parachains.
 /// To assign these extra `2` cores, the call would look like this:
 ///
-/// ```rust
+/// ```ignore
 /// assign_core(&relay_node, PARA_ID, vec![0, 1])
 /// ```
 ///

@@ -11,6 +11,10 @@ use std::time::Duration;
 
 use crate::utils::initialize_network;
 
+use cumulus_test_runtime::{
+	elastic_scaling::WASM_BINARY_BLOATY as WASM_ELASTIC_SCALING,
+	elastic_scaling_12s_slot::WASM_BINARY_BLOATY as WASM_ELASTIC_SCALING_12S_SLOT,
+};
 use cumulus_zombienet_sdk_helpers::{
 	assert_para_throughput, assign_cores, create_runtime_upgrade_call,
 	submit_extrinsic_and_wait_for_finalization_success, wait_for_runtime_upgrade,
@@ -51,10 +55,10 @@ async fn elastic_scaling_upgrade_to_3_cores(
 
 	if async_backing {
 		log::info!("Ensuring parachain makes progress making 6s blocks");
-		assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 15..21)], []).await?;
+		assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 15..21)]).await?;
 	} else {
 		log::info!("Ensuring parachain makes progress making 12s blocks");
-		assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 7..12)], []).await?;
+		assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 7..12)]).await?;
 	}
 
 	assign_cores(alice, PARA_ID, vec![1, 2]).await?;
@@ -67,12 +71,12 @@ async fn elastic_scaling_upgrade_to_3_cores(
 	log::info!("Current runtime spec version {current_spec_version}");
 
 	let wasm = if async_backing {
-		WASM_WITH_ELASTIC_SCALING.expect("WASM not built")
+		WASM_ELASTIC_SCALING.expect("Wasm runtime not build")
 	} else {
-		WASM_WITH_ELASTIC_SCALING_12S_SLOT.expect("WASM not built")
+		WASM_ELASTIC_SCALING_12S_SLOT.expect("Wasm runtime not build")
 	};
 
-	log::info!("Performing runtime upgrade for parachain {PARA_ID}");
+	log::info!("Performing runtime upgrade");
 	let call = create_runtime_upgrade_call(wasm);
 	submit_extrinsic_and_wait_for_finalization_success(&collator0_client, &call, &dev::alice())
 		.await?;
@@ -100,7 +104,7 @@ async fn elastic_scaling_upgrade_to_3_cores(
 	);
 
 	log::info!("Ensure elastic scaling works, 3 blocks should be produced in each 6s slot");
-	assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 50..61)], []).await?;
+	assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 50..61)]).await?;
 
 	Ok(())
 }

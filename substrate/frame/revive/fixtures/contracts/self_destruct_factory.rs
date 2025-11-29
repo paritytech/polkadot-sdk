@@ -17,7 +17,7 @@ pub extern "C" fn deploy() {}
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
     input!(36, code_hash: [u8],);
-    
+
     let mut addr = [0u8; 20];
     let salt = [1u8; 32];
     api::instantiate(
@@ -30,18 +30,18 @@ pub extern "C" fn call() {
         None,
         Some(&salt),
     ).unwrap();
-    
+
     api::call(
         uapi::CallFlags::empty(),
         &addr,
         u64::MAX,
         u64::MAX,
-        &[0u8; 32],
+        &[u8::MAX; 32],
         &[0u8; 32],
         &[],
         None,
     ).unwrap();
-    
+
     // Return the address of the created (and destroyed) contract
     api::return_value(uapi::ReturnFlags::empty(), &addr);
 }

@@ -166,6 +166,6 @@ where
 	}
 
 	fn execute_verified_block(block: Block::LazyBlock) {
-		I::execute_block(block);
+		I::execute_verified_block(block);
 	}
 }
