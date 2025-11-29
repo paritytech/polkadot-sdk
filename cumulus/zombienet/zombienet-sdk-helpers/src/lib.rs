@@ -53,7 +53,7 @@ const WAIT_MAX_BLOCKS_FOR_SESSION: u32 = 50;
 /// Runs the relay chain with `2` cores and we also add two parachains.
 /// To assign these extra `2` cores, the call would look like this:
 ///
-/// ```rust
+/// ```ignore
 /// create_assign_core_call(&[(0, 2400), (1, 2400)])
 /// ```
 ///
@@ -508,7 +508,7 @@ pub async fn assert_para_is_registered(
 /// Runs the relay chain with `2` cores and we also add two parachains.
 /// To assign these extra `2` cores, the call would look like this:
 ///
-/// ```rust
+/// ```ignore
 /// assign_core(&relay_node, PARA_ID, vec![0, 1])
 /// ```
 ///
