@@ -18,7 +18,7 @@
 //! Functionality to decode an eth transaction into an dispatchable call.
 
 use crate::{
-	evm::{fees::InfoT, runtime::SetWeightLimit},
+	evm::{fees::InfoT, runtime::SetWeightLimit, TYPE_LEGACY},
 	extract_code_and_data, BalanceOf, CallOf, Config, GenericTransaction, Pallet, Weight, Zero,
 	LOG_TARGET, RUNTIME_PALLETS_ADDR, U256,
 };
@@ -73,14 +73,21 @@ where
 	// are transactions that predate EIP-155 which do not include a Chain ID.
 	// These transactions are still useful today in certain patterns in Ethereum
 	// such as "Nick's Method" for contract deployment which allows a contract
-	// to be deployed on all chains with the same address.
+	// to be deployed on all chains with the same address. This is only allowed
+	// for legacy transactions and isn't allowed for any other transaction type.
 	// * Here's a relevant EIP: https://eips.ethereum.org/EIPS/eip-2470
 	// * Here's Nick's article: https://weka.medium.com/how-to-send-ether-to-11-440-people-187e332566b7
-	if let Some(chain_id) = tx.chain_id {
-		if chain_id != <T as Config>::ChainId::get().into() {
-			log::debug!(target: LOG_TARGET, "Invalid chain_id {chain_id:?}");
+	match (tx.chain_id, tx.r#type.as_ref()) {
+		(Some(chain_id), ..) =>
+			if chain_id != <T as Config>::ChainId::get().into() {
+				log::debug!(target: LOG_TARGET, "Invalid chain_id {chain_id:?}");
+				return Err(InvalidTransaction::Call);
+			},
+		(None, Some(super::Byte(TYPE_LEGACY))) => {},
+		(None, ..) => {
+			log::debug!(target: LOG_TARGET, "Invalid chain_id None");
 			return Err(InvalidTransaction::Call);
-		}
+		},
 	}
 
 	if effective_gas_price < base_fee {
