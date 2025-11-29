@@ -27,6 +27,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use frame_support::{
+	ensure,
 	traits::{Get, OneSessionHandler},
 	WeakBoundedVec,
 };
@@ -38,6 +39,7 @@ pub use pallet::*;
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::BlockNumberFor;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -71,6 +73,14 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			Pallet::<T>::initialize_keys(&self.keys)
+		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
 		}
 	}
 }
@@ -163,6 +173,45 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 
 	fn on_disabled(_i: u32) {
 		// ignore
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> Pallet<T> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// # Invariants
+	///
+	/// * `Keys` must not exceed `MaxAuthorities`.
+	/// * `NextKeys` must not exceed `MaxAuthorities`.
+	/// * `Keys` should not contain duplicates.
+	/// * `NextKeys` should not contain duplicates.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		let keys = Keys::<T>::get();
+		ensure!(
+          keys.len() as u32 <= T::MaxAuthorities::get(),
+          "Keys exceeds MaxAuthorities"
+       );
+		let mut sorted_keys = keys.to_vec();
+		sorted_keys.sort();
+		ensure!(
+          sorted_keys.windows(2).all(|w| w[0] != w[1]),
+          "Duplicate keys found in Keys"
+       );
+
+		let next_keys = NextKeys::<T>::get();
+		ensure!(
+          next_keys.len() as u32 <= T::MaxAuthorities::get(),
+          "NextKeys exceeds MaxAuthorities"
+       );
+		let mut sorted_next_keys = next_keys.to_vec();
+		sorted_next_keys.sort();
+		ensure!(
+          sorted_next_keys.windows(2).all(|w| w[0] != w[1]),
+          "Duplicate keys found in NextKeys"
+       );
+
+		Ok(())
 	}
 }
 
@@ -323,6 +372,9 @@ mod tests {
 			authorities_returned.sort();
 			assert_eq!(first_authorities, authorities_returned);
 
+			// Verify state
+			AuthorityDiscovery::do_try_state().unwrap();
+
 			// When `changed` set to false, the authority set should not be updated.
 			AuthorityDiscovery::on_new_session(
 				false,
@@ -341,6 +393,9 @@ mod tests {
 				first_and_third_authorities, authorities_returned,
 				"Expected authority set not to change as `changed` was set to false.",
 			);
+
+			// Verify state
+			AuthorityDiscovery::do_try_state().unwrap();
 
 			// When `changed` set to true, the authority set should be updated.
 			AuthorityDiscovery::on_new_session(
@@ -362,6 +417,9 @@ mod tests {
 				 next session."
 			);
 
+			// Verify state
+			AuthorityDiscovery::do_try_state().unwrap();
+
 			// With overlapping authority sets, `authorities()` should return a deduplicated set.
 			AuthorityDiscovery::on_new_session(
 				true,
@@ -374,6 +432,9 @@ mod tests {
 				AuthorityDiscovery::authorities(),
 				"Expected authority set to be deduplicated."
 			);
+
+			// Verify state
+			AuthorityDiscovery::do_try_state().unwrap();
 		});
 	}
 }
