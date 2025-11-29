@@ -51,6 +51,7 @@ use core::{
 	ops::{Deref, DerefMut},
 };
 use frame::{
+	deps::sp_runtime,
 	prelude::*,
 	traits::{BalanceStatus, Currency, ReservableCurrency},
 };
@@ -244,6 +245,14 @@ pub mod pallet {
 		SwapCancelled { account: T::AccountId, proof: HashedProof },
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Register a new atomic swap, declaring an intention to send funds from origin to target
@@ -358,5 +367,19 @@ pub mod pallet {
 
 			Ok(())
 		}
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> Pallet<T> {
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		for (_, _, swap) in PendingSwaps::<T>::iter() {
+			let source = swap.source;
+			ensure!(
+                frame_system::Pallet::<T>::account_exists(&source),
+                "Source account of a pending swap must exist because funds are reserved"
+            );
+		}
+		Ok(())
 	}
 }
