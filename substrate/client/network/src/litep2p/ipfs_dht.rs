@@ -54,7 +54,7 @@ const QUORUM: Quorum = Quorum::N(NonZeroUsize::new(10).expect("10 > 0; qed"));
 /// number of blocks with indexed transactions kept + average number of incoming IPFS provider
 /// records.
 ///
-/// Aa of November 2025 there are 6.5k reachable IPFS peers with maximum 250M CIDs. This means on
+/// As of November 2025 there are 6.5k reachable IPFS peers with maximum 250M CIDs. This means on
 /// average 250M / (6.5k / 20) ~= 800k CIDs per peer.
 const MAX_PROVIDER_KEYS: usize = 2_000_000;
 
