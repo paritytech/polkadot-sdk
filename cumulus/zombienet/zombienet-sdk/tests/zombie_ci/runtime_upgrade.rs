@@ -39,8 +39,7 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 
 	log::info!("Performing runtime upgrade");
 
-	let call =
-		create_runtime_upgrade_call(WASM_RUNTIME_UPGRADE.expect("Wasm runtime not build"));
+	let call = create_runtime_upgrade_call(WASM_RUNTIME_UPGRADE.expect("Wasm runtime not build"));
 	submit_extrinsic_and_wait_for_finalization_success(&charlie_client, &call, &dev::alice())
 		.await?;
 

@@ -47,9 +47,9 @@ sp-version = { workspace = true }
 cumulus-pallet-aura-ext = { workspace = true }
 cumulus-pallet-parachain-system = { workspace = true }
 cumulus-pallet-weight-reclaim = { workspace = true }
-cumulus-primitives-storage-weight-reclaim = { workspace = true }
 cumulus-primitives-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true }
+cumulus-primitives-storage-weight-reclaim = { workspace = true }
 parachain-info = { workspace = true }
 
 [build-dependencies]
@@ -95,7 +95,7 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
-	"tracing/std"
+	"tracing/std",
 ]
 increment-spec-version = []
 # A runtime which expects to build behind the relay chain tip.

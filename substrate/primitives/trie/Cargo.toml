@@ -22,7 +22,7 @@ harness = false
 
 [dependencies]
 ahash = { optional = true, workspace = true }
-codec = { features = [ "derive" ], workspace = true }
+codec = { features = ["derive"], workspace = true }
 foldhash = { workspace = true }
 hash-db = { workspace = true }
 hashbrown = { workspace = true }

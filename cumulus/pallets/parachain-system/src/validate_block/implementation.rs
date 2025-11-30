@@ -32,7 +32,9 @@ use sp_core::storage::{well_known_keys, ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::{hashing::blake2_128, KillStorageResult};
 use sp_runtime::{
-	traits::{Block as BlockT, ExtrinsicCall, Hash as HashT, HashingFor, Header as HeaderT, LazyBlock},
+	traits::{
+		Block as BlockT, ExtrinsicCall, Hash as HashT, HashingFor, Header as HeaderT, LazyBlock,
+	},
 	DigestItem,
 };
 use sp_state_machine::OverlayedChanges;

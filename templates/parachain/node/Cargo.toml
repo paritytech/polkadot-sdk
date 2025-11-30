@@ -14,8 +14,8 @@ build = "build.rs"
 workspace = true
 
 [dependencies]
-codec = { workspace = true, default-features = true }
 clap = { features = ["derive"], workspace = true }
+codec = { workspace = true, default-features = true }
 color-print = { workspace = true }
 docify = { workspace = true }
 futures = { workspace = true }
