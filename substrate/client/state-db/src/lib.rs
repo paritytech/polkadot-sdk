@@ -62,6 +62,10 @@ const PRUNING_MODE: &[u8] = b"mode";
 const PRUNING_MODE_ARCHIVE: &[u8] = b"archive";
 const PRUNING_MODE_ARCHIVE_CANON: &[u8] = b"archive_canonical";
 const PRUNING_MODE_CONSTRAINED: &[u8] = b"constrained";
+const ARCHIVE_DIFF_MODE: &[u8] = b"diff_mode";
+const ARCHIVE_DIFF_ON: &[u8] = &[1];
+const ARCHIVE_DIFF_OFF: &[u8] = &[0];
+
 pub(crate) const DEFAULT_MAX_BLOCK_CONSTRAINT: u32 = 256;
 
 /// Database value type.
@@ -135,6 +139,8 @@ pub enum StateDbError {
 	InvalidParent,
 	/// Invalid pruning mode specified. Contains expected mode.
 	IncompatiblePruningModes { stored: PruningMode, requested: PruningMode },
+	/// Invalid archive diff mode specified.
+	IncompatibleArchiveDiffModes { stored: bool, requested: bool },
 	/// Too many unfinalized sibling blocks inserted.
 	TooManySiblingBlocks { number: u64 },
 	/// Trying to insert existing block.
@@ -534,12 +540,14 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDb<BlockHash, Key, D> {
 	pub fn open(
 		db: D,
 		requested_mode: Option<PruningMode>,
+		archive_diffs: bool,
 		ref_counting: bool,
 		should_init: bool,
 	) -> Result<(CommitSet<Key>, StateDb<BlockHash, Key, D>), Error<D::Error>> {
-		let stored_mode = fetch_stored_pruning_mode(&db)?;
+		let stored_pruning_mode = fetch_stored_pruning_mode(&db)?;
+		let stored_archive_diff_mode = fetch_stored_archive_diff_mode(&db)?;
 
-		let selected_mode = match (should_init, stored_mode, requested_mode) {
+		let selected_mode = match (should_init, stored_pruning_mode, requested_mode) {
 			(true, stored_mode, requested_mode) => {
 				assert!(stored_mode.is_none(), "The storage has just been initialized. No meta-data is expected to be found in it.");
 				requested_mode.unwrap_or_default()
@@ -556,12 +564,39 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDb<BlockHash, Key, D> {
 			(false, Some(stored), Some(requested)) => choose_pruning_mode(stored, requested)?,
 		};
 
+		let archive_diffs = match (should_init, stored_archive_diff_mode, archive_diffs) {
+			(true, stored, requested) => {
+				assert!(stored.is_none(), "The storage has just been initialized. No meta-data is expected to be found in it.");
+				requested
+			},
+			(false, None, _) =>
+				return Err(StateDbError::Metadata(
+					"An existing StateDb does not have ARCHIVE)DIFF_MODE stored in its meta-data"
+						.into(),
+				)
+				.into()),
+			(false, Some(stored), requested) => {
+				if stored != requested {
+					return Err(StateDbError::IncompatibleArchiveDiffModes { stored, requested }.into());
+				}
+				stored
+			},
+		};
+
 		let db_init_commit_set = if should_init {
 			let mut cs: CommitSet<Key> = Default::default();
 
 			let key = to_meta_key(PRUNING_MODE, &());
 			let value = selected_mode.id().to_owned();
 
+			cs.meta.inserted.push((key, value));
+
+			let key = to_meta_key(ARCHIVE_DIFF_MODE, &());
+			let value = match archive_diffs {
+				true => ARCHIVE_DIFF_ON,
+				false => ARCHIVE_DIFF_OFF,
+			}.to_owned();
+			
 			cs.meta.inserted.push((key, value));
 
 			cs
@@ -682,6 +717,23 @@ fn fetch_stored_pruning_mode<D: MetaDb>(db: &D) -> Result<Option<PruningMode>, E
 				stored_mode
 			))
 			.into())
+		}
+	} else {
+		Ok(None)
+	}
+}
+
+fn fetch_stored_archive_diff_mode<D: MetaDb>(db: &D) -> Result<Option<bool>, Error<D::Error>> {
+	let meta_key_mode = to_meta_key(ARCHIVE_DIFF_MODE, &());
+	if let Some(stored_mode) = db.get_meta(&meta_key_mode).map_err(Error::Db)? {
+		match stored_mode.as_slice() {
+			ARCHIVE_DIFF_ON => Ok(Some(true)),
+			ARCHIVE_DIFF_OFF => Ok(Some(false)),
+			_ => Err(StateDbError::Metadata(format!(
+				"Invalid value stored for PRUNING_MODE: {:02x?}",
+				stored_mode
+			))
+			.into()),
 		}
 	} else {
 		Ok(None)
