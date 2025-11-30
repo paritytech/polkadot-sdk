@@ -18,7 +18,7 @@ use crate::{
 	client::{runtime_api::RuntimeApi, SubstrateBlock, SubstrateBlockNumber},
 	subxt_client::{
 		revive::{
-			calls::types::EthTransact,
+			calls::types::{EthTransact, SystemLogDispatch},
 			events::{ContractEmitted, EthExtrinsicRevert},
 		},
 		SrcChainConfig,
@@ -29,7 +29,7 @@ use crate::{
 use futures::{stream, StreamExt};
 use pallet_revive::{
 	create1,
-	evm::{GenericTransaction, Log, ReceiptGasInfo, ReceiptInfo, TransactionSigned, H256, U256},
+	evm::{Byte, GenericTransaction, Log, ReceiptGasInfo, ReceiptInfo, TransactionSigned, H256, U256},
 };
 use sp_core::keccak_256;
 use std::{future::Future, pin::Pin, sync::Arc};
@@ -143,11 +143,11 @@ impl ReceiptExtractor {
 	}
 
 	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] from an extrinsic.
-	async fn extract_from_extrinsic(
+	async fn extract_from_eth_extrinsic(
 		&self,
 		substrate_block: &SubstrateBlock,
 		eth_block_hash: H256,
-		ext: subxt::blocks::ExtrinsicDetails<SrcChainConfig, subxt::OnlineClient<SrcChainConfig>>,
+		ext: &ExtrinsicDetails<SrcChainConfig, OnlineClient<SrcChainConfig>>,
 		call: EthTransact,
 		receipt_gas_info: ReceiptGasInfo,
 		transaction_index: usize,
@@ -228,6 +228,73 @@ impl ReceiptExtractor {
 		Ok((signed_tx, receipt))
 	}
 
+	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] from a System Log extrinsic.
+	async fn extract_from_system_log(
+		&self,
+		substrate_block: &SubstrateBlock,
+		eth_block_hash: H256,
+		ext: &ExtrinsicDetails<SrcChainConfig, OnlineClient<SrcChainConfig>>,
+		_call: SystemLogDispatch,
+		transaction_index: usize,
+	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
+		let block_number = U256::from(substrate_block.number());
+		let events = ext.events().await?;
+
+		let success = !events.has::<EthExtrinsicRevert>().inspect_err(|err| {
+			log::debug!(
+				target: LOG_TARGET,
+				"Failed to lookup for EthExtrinsicRevert event in block {block_number}: {err:?}"
+			);
+		})?;
+
+		let transaction_hash = ext.hash();
+
+		let signed_tx = TransactionSigned::default();
+		let from = H160::zero();
+		let gas_price = U256::zero();
+		let gas_used = U256::zero();
+
+		let logs = events
+			.iter()
+			.filter_map(|event_details| {
+				let event_details = event_details.ok()?;
+				let event = event_details.as_event::<ContractEmitted>().ok()??;
+
+				Some(Log {
+					address: event.contract,
+					topics: event.topics,
+					data: Some(event.data.into()),
+					block_number,
+					transaction_hash,
+					transaction_index: transaction_index.into(),
+					block_hash: eth_block_hash,
+					log_index: event_details.index().into(),
+					..Default::default()
+				})
+			})
+			.collect();
+
+		let contract_address = None;
+		let to_address = None;
+		let tx_type: Byte = Byte(0u8);
+
+		let receipt = ReceiptInfo::new(
+			eth_block_hash,
+			block_number,
+			contract_address,
+			from,
+			logs,
+			to_address,
+			gas_price,
+			gas_used,
+			success,
+			transaction_hash,
+			transaction_index.into(),
+			tx_type,
+		);
+		Ok((signed_tx, receipt))
+	}
+
 	/// Extract receipts from block.
 	pub async fn extract_from_block(
 		&self,
@@ -237,7 +304,9 @@ impl ReceiptExtractor {
 			return Ok(vec![]);
 		}
 
-		let ext_iter = self.get_block_extrinsics(block).await?;
+		let extrinsics = block.extrinsics().await.inspect_err(|err| {
+			log::debug!(target: LOG_TARGET, "Error fetching for #{:?} extrinsics: {err:?}", block.number());
+		})?;
 
 		let substrate_block_number = block.number() as u64;
 		let substrate_block_hash = block.hash();
@@ -246,71 +315,52 @@ impl ReceiptExtractor {
 				.await
 				.unwrap_or(substrate_block_hash);
 
-		// Process extrinsics in order while maintaining parallelism within buffer window
-		stream::iter(ext_iter)
-			.map(|(ext, call, receipt, ext_idx)| async move {
-				self.extract_from_extrinsic(block, eth_block_hash, ext, call, receipt, ext_idx)
-					.await
-					.inspect_err(|err| {
-						log::warn!(target: LOG_TARGET, "Error extracting extrinsic: {err:?}");
-					})
-			})
-			.buffered(10)
-			.collect::<Vec<Result<_, _>>>()
-			.await
-			.into_iter()
-			.collect::<Result<Vec<_>, _>>()
-	}
+		let receipt_data_map: Option<Vec<ReceiptGasInfo>> = (self.fetch_receipt_data)(substrate_block_hash).await;
+		let mut receipt_data_iter = receipt_data_map.clone().unwrap_or_default().into_iter();
 
-	/// Return the ETH extrinsics of the block grouped with reconstruction receipt info and
-	/// extrinsic index
-	pub async fn get_block_extrinsics(
-		&self,
-		block: &SubstrateBlock,
-	) -> Result<
-		impl Iterator<
-			Item = (
-				ExtrinsicDetails<SrcChainConfig, OnlineClient<SrcChainConfig>>,
-				EthTransact,
-				ReceiptGasInfo,
-				usize,
-			),
-		>,
-		ClientError,
-	> {
-		// Filter extrinsics from pallet_revive
-		let extrinsics = block.extrinsics().await.inspect_err(|err| {
-			log::debug!(target: LOG_TARGET, "Error fetching for #{:?} extrinsics: {err:?}", block.number());
-		})?;
+		let mut results = Vec::new();
+		let mut eth_tx_count = 0;
 
-		let receipt_data = (self.fetch_receipt_data)(block.hash())
-			.await
-			.ok_or(ClientError::ReceiptDataNotFound)?;
-		let extrinsics: Vec<_> = extrinsics
-			.iter()
-			.enumerate()
-			.flat_map(|(ext_idx, ext)| {
-				let call = ext.as_extrinsic::<EthTransact>().ok()??;
-				Some((ext, call, ext_idx))
-			})
-			.collect();
+		for (ext_idx, ext) in extrinsics.iter().enumerate() {
+			if let Some(call) = ext.as_extrinsic::<EthTransact>().ok().flatten() {
+				let receipt_gas_info = receipt_data_iter.next().ok_or_else(|| {
+					log::error!(
+                         target: LOG_TARGET,
+                         "Receipt data missing for EthTransact at index {} in block {}",
+                         ext_idx, substrate_block_number
+                     );
+					ClientError::ReceiptDataLengthMismatch
+				})?;
 
-		// Sanity check we received enough data from the pallet revive.
-		if receipt_data.len() != extrinsics.len() {
-			log::error!(
-				target: LOG_TARGET,
-				"Receipt data length ({}) does not match extrinsics length ({})",
-				receipt_data.len(),
-				extrinsics.len()
-			);
-			Err(ClientError::ReceiptDataLengthMismatch)
-		} else {
-			Ok(extrinsics
-				.into_iter()
-				.zip(receipt_data)
-				.map(|((extr, call, ext_idx), rec)| (extr, call, rec, ext_idx)))
+				match self.extract_from_eth_extrinsic(block, eth_block_hash, &ext, call, receipt_gas_info, ext_idx).await {
+					Ok(receipt_info) => results.push(Ok(receipt_info)),
+					Err(e) => {
+						log::warn!(target: LOG_TARGET, "Error extracting EthTransact extrinsic: {e:?}");
+					}
+				}
+				eth_tx_count += 1;
+			}
+			else if let Some(call) = ext.as_extrinsic::<SystemLogDispatch>().ok().flatten() {
+				match self.extract_from_system_log(block, eth_block_hash, &ext, call, ext_idx).await {
+					Ok(receipt_info) => results.push(Ok(receipt_info)),
+					Err(e) => {
+						log::warn!(target: LOG_TARGET, "Error extracting SystemLogDispatch extrinsic: {e:?}");
+					}
+				}
+			}
 		}
+
+		if eth_tx_count != receipt_data_map.clone().unwrap_or_default().len() {
+			log::error!(
+                 target: LOG_TARGET,
+                 "Processed {} EthTransact but found {} ReceiptGasInfo entries in block {}",
+                 eth_tx_count, receipt_data_map.unwrap_or_default().len(), substrate_block_number
+             );
+		}
+
+		results.into_iter().collect::<Result<Vec<_>, _>>()
 	}
+
 
 	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] for a specific transaction in a
 	/// [`SubstrateBlock`]
@@ -319,11 +369,10 @@ impl ReceiptExtractor {
 		block: &SubstrateBlock,
 		transaction_index: usize,
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
-		let ext_iter = self.get_block_extrinsics(block).await?;
-
-		let (ext, eth_call, receipt_gas_info, _) = ext_iter
-			.into_iter()
-			.find(|(_, _, _, ext_idx)| *ext_idx == transaction_index)
+		let extrinsics = block.extrinsics().await?;
+		let ext = extrinsics
+			.iter()
+			.nth(transaction_index)
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
 		let substrate_block_number = block.number() as u64;
@@ -333,15 +382,31 @@ impl ReceiptExtractor {
 				.await
 				.unwrap_or(substrate_block_hash);
 
-		self.extract_from_extrinsic(
-			block,
-			eth_block_hash,
-			ext,
-			eth_call,
-			receipt_gas_info,
-			transaction_index,
-		)
-		.await
+		if let Some(call) = ext.as_extrinsic::<EthTransact>().ok().flatten() {
+			let receipt_data = (self.fetch_receipt_data)(block.hash())
+				.await
+				.ok_or(ClientError::ReceiptDataNotFound)?;
+
+			let eth_tx_index = extrinsics.iter().take(transaction_index).filter(|e| {
+				e.as_extrinsic::<EthTransact>().ok().flatten().is_some()
+			}).count();
+
+			let receipt_gas_info = receipt_data.get(eth_tx_index).cloned().ok_or_else(|| {
+				log::error!(
+                     target: LOG_TARGET,
+                     "Receipt data missing for EthTransact at index {} (eth_tx_index {}) in block {}",
+                     transaction_index, eth_tx_index, substrate_block_number
+                 );
+				ClientError::ReceiptDataLengthMismatch
+			})?;
+
+			self.extract_from_eth_extrinsic(block, eth_block_hash, &ext, call, receipt_gas_info, transaction_index).await
+
+		} else if let Some(call) = ext.as_extrinsic::<SystemLogDispatch>().ok().flatten() {
+			self.extract_from_system_log(block, eth_block_hash, &ext, call, transaction_index).await
+		} else {
+			Err(ClientError::EthExtrinsicNotFound)
+		}
 	}
 
 	/// Get the Ethereum block hash for the Substrate block with specific hash.
