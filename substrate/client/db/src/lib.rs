@@ -1261,6 +1261,7 @@ impl<Block: BlockT> Backend<Block> {
 		let (state_db_init_commit_set, state_db) = StateDb::open(
 			state_meta_db,
 			requested_state_pruning,
+			config.archive_diffs,
 			!db.supports_ref_counting(),
 			should_init,
 		)

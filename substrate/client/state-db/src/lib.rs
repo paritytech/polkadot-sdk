@@ -193,6 +193,11 @@ impl fmt::Debug for StateDbError {
 				"Incompatible pruning modes [stored: {:?}; requested: {:?}]",
 				stored, requested
 			),
+			Self::IncompatibleArchiveDiffModes { stored, requested } => write!(
+				f,
+				"Incompatible archive diff modes [stored: {:?}; requested: {:?}]",
+				stored, requested
+			),
 			Self::TooManySiblingBlocks { number } => {
 				write!(f, "Too many sibling blocks at #{number} inserted")
 			},
