@@ -16547,6 +16547,7 @@ dependencies = [
  "cumulus-client-network",
  "cumulus-client-parachain-inherent",
  "cumulus-client-pov-recovery",
+ "cumulus-client-proof-size-recording",
  "cumulus-client-service",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",

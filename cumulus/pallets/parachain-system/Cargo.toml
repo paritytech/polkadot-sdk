@@ -109,6 +109,7 @@ std = [
 	"trie-db/std",
 	"xcm-builder/std",
 	"xcm/std",
+	"frame-executive/std"
 ]
 
 runtime-benchmarks = [
@@ -132,4 +133,5 @@ try-runtime = [
 	"pallet-message-queue/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
+	"frame-executive/try-runtime"
 ]
