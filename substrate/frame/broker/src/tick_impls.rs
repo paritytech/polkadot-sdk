@@ -375,7 +375,7 @@ impl<T: Config> Pallet<T> {
 						payer: Some(payer.clone()),
 					});
 					if retries >= max_renewal_retries {
-						AutoRenewalRetries::<T>::insert((record.core, payer), 0);
+						AutoRenewalRetries::<T>::take((record.core, payer));
 						None
 					} else {
 						retries = retries.saturating_add(1);
