@@ -65,6 +65,17 @@ const RAW_CODEC: u64 = 0x55;
 /// Interval of Kademlia random walks. Needed to keep the routing table "warm".
 const RANDOM_WALK_INTERVAL: Duration = Duration::from_secs(10 * 60);
 
+/// Maximum allowed number of in-flight Kademlia queries. We need this limit for the networking
+/// stack to not get overwhelmed by unlimited amount of simultaneous `ADD_PROVIDER` queries.
+///
+/// For a maximum 200-second `ADD_PROVIDER` query duration and 100 in-flight queries we have on
+/// average 2 seconds spent on publishing a single provider or 1/3 of the block time. This means
+/// in practice we will spend about one week catching up on transactions in the past two weeks,
+/// before starting publishing new transactions, if we have on average one indexed transaction
+/// per block. So, one transaction per block is a practical limit on the number of indexed
+/// transactions published to IPFS.
+const MAX_INFLIGHT_QUERIES: usize = 100;
+
 pub(crate) struct IpfsDht {
 	kademlia_handle: KademliaHandle,
 	block_provider: Box<dyn BlockProvider>,
@@ -100,13 +111,14 @@ impl IpfsDht {
 
 	pub async fn run(mut self) {
 		let mut changes = self.block_provider.changes();
+		let mut inflight_queries = HashMap::new();
 		let mut random_walk_query = None;
 		let mut random_walk_interval = tokio::time::interval(RANDOM_WALK_INTERVAL);
 		random_walk_interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
 		loop {
 			tokio::select! {
-				change = changes.next() => {
+				change = changes.next(), if inflight_queries.len() < MAX_INFLIGHT_QUERIES => {
 					match change {
 						None => {
 							debug!(target: LOG_TARGET, "BlockProvider terminated, terminating IpfsDht");
@@ -122,7 +134,8 @@ impl IpfsDht {
 								Cid::new_v1(RAW_CODEC, multihash),
 							);
 
-							self.kademlia_handle.start_providing(key, QUORUM).await;
+							let query_id = self.kademlia_handle.start_providing(key, QUORUM).await;
+							inflight_queries.insert(query_id, multihash);
 						},
 						Some(Change::Removed(multihash)) => {
 							let key = RecordKey::new(&multihash.to_bytes());
@@ -152,11 +165,22 @@ impl IpfsDht {
 							debug!(target: LOG_TARGET, "IPFS Kademlia terminated, terminating IpfsDht");
 							return
 						}
-						Some(KademliaEvent::AddProviderSuccess { query_id: _, provided_key }) => trace!(
-							target: LOG_TARGET,
-							"IPFS DHT provider publish success, key: {}",
-							HexDisplay::from(&provided_key.as_ref()),
-						),
+						Some(KademliaEvent::AddProviderSuccess { query_id, provided_key }) => {
+							if let Some(multihash) = inflight_queries.remove(&query_id) {
+								trace!(
+									target: LOG_TARGET,
+									"IPFS DHT provider publish success, key: {}, CID: {}",
+									HexDisplay::from(&provided_key.as_ref()),
+									Cid::new_v1(RAW_CODEC, multihash),
+								);
+							} else {
+								trace!(
+									target: LOG_TARGET,
+									"IPFS DHT provider refresh success, key: {}",
+									HexDisplay::from(&provided_key.as_ref()),
+								);
+							}
+						},
 						Some(KademliaEvent::FindNodeSuccess { query_id, peers, .. }) => {
 							debug_assert_eq!(Some(query_id), random_walk_query);
 							trace!(target: LOG_TARGET, "DHT random walk yielded {} peers", peers.len());
@@ -168,13 +192,17 @@ impl IpfsDht {
 								trace!(target: LOG_TARGET, "DHT random walk failed");
 
 								random_walk_query = None;
-							} else {
-								// Do not log key on failure, because for this we would need to keep
-								// the mapping of `query_id` -> `provided_key` for all in-flight
-								// `ADD_PROVIDER` requests. Printing a trace log doesn't justify this.
+							} else if let Some(multihash) = inflight_queries.remove(&query_id) {
 								trace!(
 									target: LOG_TARGET,
-									"IPFS DHT provider publish failed",
+									"IPFS DHT provider publish failed, key: {}, CID: {}",
+									HexDisplay::from(&multihash.to_bytes()),
+									Cid::new_v1(RAW_CODEC, multihash),
+								);
+							} else {
+								trace!(
+									target: LOG_TARGET,
+									"IPFS DHT provider refresh failed",
 								);
 							}
 						},
