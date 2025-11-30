@@ -2491,7 +2491,8 @@ impl<Block: BlockT> MaybeAsTrieBackend<HashingFor<Block>> for TrieOrArchiveState
 			Self::TrieBackendStorage,
 			HashingFor<Block>,
 			sp_trie::cache::LocalTrieCache<HashingFor<Block>>,
-		>> {
+		>,
+	> {
 		if let Some(trie) = &self.trie_state {
 			trie.as_trie_backend()
 		} else {
@@ -3023,7 +3024,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		matches!(
 			self.storage.state_db.pruning_mode(),
 			PruningMode::ArchiveAll | PruningMode::ArchiveCanonical
-		)
+		) || self.is_diff_archive
 	}
 
 	fn pin_block(&self, hash: <Block as BlockT>::Hash) -> sp_blockchain::Result<()> {

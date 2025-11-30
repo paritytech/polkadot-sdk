@@ -226,7 +226,7 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		key: &[u8],
 	) -> RelayChainResult<Option<StorageValue>> {
 		let state = self.backend.state_at(relay_parent, TrieCacheContext::Untrusted)?;
-		state.storage(key).map_err(|e| RelayChainError::GenericError(e.to_string()))
+		state.storage(key).map_err(RelayChainError::GenericError)
 	}
 
 	async fn prove_read(
