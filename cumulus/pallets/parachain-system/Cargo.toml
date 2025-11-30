@@ -119,6 +119,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",

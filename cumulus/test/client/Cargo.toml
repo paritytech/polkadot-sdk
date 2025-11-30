@@ -52,6 +52,7 @@ cumulus-test-service = { workspace = true }
 
 [features]
 runtime-benchmarks = [
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-weight-reclaim/runtime-benchmarks",
 	"cumulus-primitives-core/runtime-benchmarks",
 	"cumulus-test-service/runtime-benchmarks",
