@@ -26,9 +26,9 @@ pallet-preimage = { workspace = true }
 [dev-dependencies]
 frame-system = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
+scale-info = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
-scale-info = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -37,18 +37,18 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-balances/std",
-	"pallet-revive/std",
 	"pallet-preimage/std",
+	"pallet-revive/std",
+	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"tracing/std",
-	"scale-info/std",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
-	"pallet-revive/try-runtime",
 	"pallet-preimage/try-runtime",
+	"pallet-revive/try-runtime",
 	"sp-runtime/try-runtime",
 ]
