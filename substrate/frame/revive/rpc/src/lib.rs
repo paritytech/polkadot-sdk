@@ -474,7 +474,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		let hash = self.client.block_hash_for_tag(block).await?;
 		let runtime_api = self.client.runtime_api(hash);
 		let bytes = runtime_api.get_storage(address, storage_slot.to_big_endian()).await?;
-		Ok(bytes.unwrap_or_default().into())
+		Ok(bytes.unwrap_or([0u8; 32].into()).into())
 	}
 
 	async fn get_transaction_by_block_hash_and_index(
