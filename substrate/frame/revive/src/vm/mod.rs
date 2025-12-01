@@ -27,7 +27,7 @@ pub use runtime_costs::RuntimeCosts;
 use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::{ensure, error::BadOrigin},
-	metering::{weight::Token, ResourceMeter, State},
+	metering::{ResourceMeter, State, Token},
 	weights::WeightInfo,
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
 	HoldReason, Pallet, PristineCode, StorageDeposit, Weight, LOG_TARGET,

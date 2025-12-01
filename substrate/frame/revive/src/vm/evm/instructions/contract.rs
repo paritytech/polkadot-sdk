@@ -190,10 +190,15 @@ fn run_call<'a, E: Ext>(
 	value: U256,
 	return_memory_range: Range<usize>,
 ) -> ControlFlow<Halt> {
-	// We use ALL_STIPEND to detect the typical gas limit solc defines as a call stipend
-	// This is just a heuristic
-	let add_stipend =
-		!value.is_zero() || gas_limit.try_into().is_ok_and(|limit: u64| limit == CALL_STIPEND);
+	// We use ALL_STIPEND to detect the typical gas limit solc defines as a call stipend. This is
+	// just a heuristic.
+	let (add_stipend, reentracy) =
+		match (value.is_zero(), gas_limit.try_into().is_ok_and(|limit: u64| limit == CALL_STIPEND))
+		{
+			(false, _) => (true, ReentrancyProtection::AllowReentry),
+			(_, true) => (true, ReentrancyProtection::AllowNext),
+			(_, _) => (false, ReentrancyProtection::AllowReentry),
+		};
 
 	let call_result = match scheme {
 		CallScheme::Call | CallScheme::StaticCall => interpreter.ext.call(
@@ -201,12 +206,8 @@ fn run_call<'a, E: Ext>(
 			&callee,
 			value,
 			input,
-			// protect against re-entrancy when we grant the stipend
-			if add_stipend {
-				ReentrancyProtection::AllowNext
-			} else {
-				ReentrancyProtection::AllowReentry
-			},
+			// protect against rex-entrancy when we grant the stipend
+			reentracy,
 			scheme.is_static_call(),
 		),
 		CallScheme::DelegateCall => interpreter.ext.delegate_call(

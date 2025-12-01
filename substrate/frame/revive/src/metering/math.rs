@@ -17,10 +17,10 @@
 
 use super::{
 	BalanceOf, CallResources, Config, DispatchError, Error, EthTxInfo, FixedPointNumber, FixedU128,
-	FrameMeter, InfoT, ResourceMeter, RootStorageMeter, SaturatedConversion, State, StorageDeposit,
-	TransactionLimits, TransactionMeter, Weight, WeightMeter, Zero,
+	FrameMeter, InfoT, ResourceMeter, RootStorageMeter, SaturatedConversion, SignedGas, State,
+	StorageDeposit, Token, TransactionLimits, TransactionMeter, Weight, WeightMeter, Zero,
 };
-use crate::{metering::weight::Token, vm::evm::EVMGas, SignedGas};
+use crate::vm::evm::EVMGas;
 use core::marker::PhantomData;
 use revm::interpreter::gas::CALL_STIPEND;
 

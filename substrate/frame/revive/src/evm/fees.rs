@@ -378,6 +378,11 @@ mod seal {
 
 /// Determine the maximal integer `n` so that `multiplier.saturating_mul_int(n) <= product`
 ///
+/// See the tests `compute_max_quotient_works` below for an example why simple division does not
+/// give the correct result. This level of pedantry is required because otherwise we observed actual
+/// cases where limits where calculated incorrectly and the transaction ran out of gas although it
+/// used the correct gas estimate.
+///
 /// FixedU128 wraps a 128 bit unsigned integer `self.0` and it is interpreted to represent the real
 /// number self.0 / FixedU128::DIV, where FixedU128::DIV is 1_000_000_000_000_000_000.
 ///

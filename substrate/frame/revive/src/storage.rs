@@ -46,7 +46,7 @@ use sp_runtime::{
 	DispatchError, RuntimeDebug,
 };
 
-use crate::metering::storage::Diff;
+use crate::metering::Diff;
 
 pub enum AccountIdOrAddress<T: Config> {
 	/// An account that is a contract.

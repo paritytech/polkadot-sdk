@@ -101,8 +101,8 @@ pub use crate::{
 	},
 	exec::{CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
 	metering::{
-		gas::SignedGas, weight::Token as WeightToken, EthTxInfo, FrameMeter, ResourceMeter,
-		TransactionLimits, TransactionMeter,
+		EthTxInfo, FrameMeter, ResourceMeter, Token as WeightToken, TransactionLimits,
+		TransactionMeter,
 	},
 	pallet::{genesis, *},
 	storage::{AccountInfo, ContractInfo},
@@ -141,8 +141,6 @@ const LOG_TARGET: &str = "runtime::revive";
 
 #[frame_support::pallet]
 pub mod pallet {
-	use crate::metering::EthTxInfo;
-
 	use super::*;
 	use frame_support::{pallet_prelude::*, traits::FindAuthor};
 	use frame_system::pallet_prelude::*;

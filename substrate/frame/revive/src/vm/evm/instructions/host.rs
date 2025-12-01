@@ -16,7 +16,7 @@
 // limitations under the License.
 use crate::{
 	limits,
-	metering::weight::Token,
+	metering::Token,
 	storage::WriteOutcome,
 	vec::Vec,
 	vm::{

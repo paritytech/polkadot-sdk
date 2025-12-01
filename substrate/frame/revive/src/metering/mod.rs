@@ -15,25 +15,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod gas;
-pub mod math;
-pub mod storage;
-pub mod weight;
+mod gas;
+mod math;
+mod storage;
+mod weight;
 
 #[cfg(test)]
 mod tests;
 
 use crate::{
 	evm::fees::InfoT, exec::CallResources, storage::ContractInfo, vm::evm::Halt, BalanceOf, Config,
-	Error, ExecConfig, ExecOrigin as Origin, SignedGas, StorageDeposit, LOG_TARGET,
+	Error, ExecConfig, ExecOrigin as Origin, StorageDeposit, LOG_TARGET,
 };
+
+pub use gas::SignedGas;
+pub use storage::Diff;
+pub use weight::{ChargedAmount, Token};
+
 use frame_support::{DebugNoBound, DefaultNoBound};
 use num_traits::Zero;
 
 use core::{fmt::Debug, marker::PhantomData, ops::ControlFlow};
 use sp_runtime::{FixedPointNumber, Weight};
-use storage::{DepositOf, Diff, GenericMeter as GenericStorageMeter, Meter as RootStorageMeter};
-use weight::{ChargedAmount, Token, WeightMeter};
+use storage::{DepositOf, GenericMeter as GenericStorageMeter, Meter as RootStorageMeter};
+use weight::WeightMeter;
 
 use sp_runtime::{DispatchError, DispatchResult, FixedU128, SaturatedConversion};
 
@@ -63,30 +68,39 @@ mod private {
 	impl Sealed for super::Nested {}
 }
 
+/// The type of resource meter used at the root level for transactions as a whole.
 pub type TransactionMeter<T> = ResourceMeter<T, Root>;
+/// The type of resource meter used for an execution frame.
 pub type FrameMeter<T> = ResourceMeter<T, Nested>;
 
 /// Resource meter tracking weight and storage deposit consumption.
-///
-/// This type maintains the core invariant that either:
-/// - Both weight and deposit limits are None, or
-/// - Both limits are Some(value)
-///
-/// A resource meter tracks:
-/// - Current frame's weight consumption via WeightMeter
-/// - Current frame's storage deposit changes via GenericStorageMeter
-/// - Total resources consumed before this frame started
-/// - Transaction-wide resource limits and execution mode
 #[derive(DefaultNoBound)]
 pub struct ResourceMeter<T: Config, S: State> {
+	/// The weight meter. Tracks consumed weight and weight limits.
 	weight: WeightMeter<T>,
+
+	/// The deposit meter. Tracks consumed storage deposit and storage deposit limits.
 	deposit: GenericStorageMeter<T, S>,
 
-	// this is always zero for Substrate executions
+	/// This is the maximum total consumable gas.
+	///
+	/// It is the sum of a) the total consumed gas (i.e., including all previous frames) at the
+	/// time the frame started and b) the gas limit of the frame. We don't store the gas limit of
+	/// the frame separately, it can be derived from `max_total_gas` by subtracting the total gas
+	/// at the beginning of the frame.
+	///
+	/// `max_total_gas` is only required for Ethereum execution, it is always zero for Substrate
+	/// executions.
 	max_total_gas: SignedGas<T>,
+
+	/// The total consumed weight at the time the frame started.
 	total_consumed_weight_before: Weight,
+
+	/// The total consumed storage deposit at the time the frame started.
 	total_consumed_deposit_before: DepositOf<T>,
 
+	/// The limits defined for the transaction. This determines whether this transaction uses the
+	/// Ethereum or Substrate execution mode.
 	transaction_limits: TransactionLimits<T>,
 
 	_phantom: PhantomData<S>,
@@ -99,17 +113,20 @@ pub struct ResourceMeter<T: Config, S: State> {
 /// - WeightAndDeposit: Explicit limits for both computational weight and storage deposit
 #[derive(DebugNoBound, Clone)]
 pub enum TransactionLimits<T: Config> {
+	/// Ethereum execution mode: the transaction only specifies a gas limit.
 	EthereumGas {
+		/// The Ethereum gas limit
 		eth_gas_limit: BalanceOf<T>,
-		// if this is provided, we will additionally ensure that execution will not exhaust this
-		// weight limit
+		/// If this is provided, we will additionally ensure that execution will not exhaust this
+		/// weight limit. This is required for eth_transact extrinsic execution to ensure that the
+		/// max extrinsic weights is not overstepped.
 		maybe_weight_limit: Option<Weight>,
+		/// Some extra information about the transaction that is required to calculate gas usage.
 		eth_tx_info: EthTxInfo<T>,
 	},
-	WeightAndDeposit {
-		weight_limit: Weight,
-		deposit_limit: BalanceOf<T>,
-	},
+	/// Substrate execution mode: the transaction specifies a weight limit and a storage deposit
+	/// limit
+	WeightAndDeposit { weight_limit: Weight, deposit_limit: BalanceOf<T> },
 }
 
 impl<T: Config> Default for TransactionLimits<T> {
@@ -432,7 +449,10 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	}
 
 	/// Determine and set the new effective weight limit of the weight meter.
-	/// This function needs to be called whenever there is a change in the deposit meter.
+	///
+	/// This function needs to be called whenever there is a change in the deposit meter. It is a
+	/// function of `ResourceMeter` instead of `WeightMeter` because its outcome also depends on the
+	/// consumed storage deposits.
 	fn adjust_effective_weight_limit(&mut self) -> DispatchResult {
 		if matches!(self.transaction_limits, TransactionLimits::WeightAndDeposit { .. }) {
 			return Ok(())
