@@ -162,9 +162,6 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 	fn force_new_era_always() -> Weight {
 		unreachable!()
 	}
-	fn set_invulnerables(_: u32) -> Weight {
-		unreachable!()
-	}
 	fn deprecate_controller_batch(_: u32) -> Weight {
 		unreachable!()
 	}
