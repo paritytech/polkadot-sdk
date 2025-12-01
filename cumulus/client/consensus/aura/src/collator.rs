@@ -30,22 +30,25 @@ use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterfa
 use cumulus_client_consensus_common::{
 	self as consensus_common, ParachainBlockImportMarker, ParachainCandidate,
 };
-use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_client_parachain_inherent::{ParachainInherentData, ParachainInherentDataProvider};
 use cumulus_primitives_core::{
 	relay_chain::Hash as PHash, DigestItem, ParachainBlockData, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
+use sc_client_api::BackendTransaction;
+use sp_consensus::{Environment, ProposeArgs, Proposer};
 
 use polkadot_node_primitives::{Collation, MaybeCompressedPoV};
 use polkadot_primitives::{Header as PHeader, Id as ParaId};
+use sp_externalities::Extensions;
+use sp_trie::proof_size_extension::ProofSizeExt;
 
 use crate::collators::RelayParentData;
 use futures::prelude::*;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction};
 use sc_consensus_aura::standalone as aura_internal;
 use sc_network_types::PeerId;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
 use sp_consensus::BlockOrigin;
 use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
@@ -61,7 +64,7 @@ use sp_timestamp::Timestamp;
 use std::{error::Error, time::Duration};
 
 /// Parameters for instantiating a [`Collator`].
-pub struct Params<BI, CIDP, RClient, Proposer, CS> {
+pub struct Params<BI, CIDP, RClient, PF, CS> {
 	/// A builder for inherent data builders.
 	pub create_inherent_data_providers: CIDP,
 	/// The block import handle.
@@ -74,40 +77,83 @@ pub struct Params<BI, CIDP, RClient, Proposer, CS> {
 	pub collator_peer_id: PeerId,
 	/// The identifier of the parachain within the relay-chain.
 	pub para_id: ParaId,
-	/// The block proposer used for building blocks.
-	pub proposer: Proposer,
+	/// The proposer used for building blocks.
+	pub proposer: PF,
 	/// The collator service used for bundling proposals into collations and announcing
 	/// to the network.
 	pub collator_service: CS,
 }
 
+/// Parameters for [`Collator::build_block_and_import`].
+pub struct BuildBlockAndImportParams<'a, Block: BlockT, P: Pair> {
+	/// The parent header to build on top of.
+	pub parent_header: &'a Block::Header,
+	/// The slot claim for this block.
+	pub slot_claim: &'a SlotClaim<P::Public>,
+	/// Additional pre-digest items to include.
+	pub additional_pre_digest: Vec<DigestItem>,
+	/// Parachain-specific inherent data.
+	pub parachain_inherent_data: ParachainInherentData,
+	/// Other inherent data (timestamp, etc.).
+	pub extra_inherent_data: InherentData,
+	/// Maximum duration to spend on block proposal.
+	pub proposal_duration: Duration,
+	/// Maximum PoV size in bytes.
+	pub max_pov_size: usize,
+	/// Optional [`ProofRecorder`] to use.
+	///
+	/// If not set, a default recorder will be used internally and [`ProofSizeExt`] will be
+	/// registered.
+	pub storage_proof_recorder: Option<ProofRecorder<Block>>,
+	/// Extra extensions to forward to the block production.
+	pub extra_extensions: Extensions,
+}
+
+/// Result of [`Collator::build_block_and_import`].
+pub struct BuiltBlock<Block: BlockT> {
+	/// The block that was built.
+	pub block: Block,
+	/// The proof that was recorded while building the block.
+	pub proof: StorageProof,
+	/// The transaction resulting from building the block.
+	///
+	/// This contains all the state changes.
+	pub backend_transaction: BackendTransaction<HashingFor<Block>>,
+}
+
+impl<Block: BlockT> From<BuiltBlock<Block>> for ParachainCandidate<Block> {
+	fn from(built: BuiltBlock<Block>) -> Self {
+		Self { block: built.block, proof: built.proof }
+	}
+}
+
 /// A utility struct for writing collation logic that makes use of Aura entirely
 /// or in part. See module docs for more details.
-pub struct Collator<Block, P, BI, CIDP, RClient, Proposer, CS> {
+pub struct Collator<Block, P, BI, CIDP, RClient, PF, CS> {
 	create_inherent_data_providers: CIDP,
 	block_import: BI,
 	relay_client: RClient,
 	keystore: KeystorePtr,
 	para_id: ParaId,
-	proposer: Proposer,
+	proposer: PF,
 	collator_service: CS,
 	_marker: std::marker::PhantomData<(Block, Box<dyn Fn(P) + Send + Sync + 'static>)>,
 }
 
-impl<Block, P, BI, CIDP, RClient, Proposer, CS> Collator<Block, P, BI, CIDP, RClient, Proposer, CS>
+impl<Block, P, BI, CIDP, RClient, PF, CS> Collator<Block, P, BI, CIDP, RClient, PF, CS>
 where
 	Block: BlockT,
 	RClient: RelayChainInterface,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
-	Proposer: ProposerInterface<Block>,
+	PF: Environment<Block>,
 	CS: CollatorServiceInterface<Block>,
 	P: Pair,
 	P::Public: AppPublic + Member,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
 	/// Instantiate a new instance of the `Aura` manager.
-	pub fn new(params: Params<BI, CIDP, RClient, Proposer, CS>) -> Self {
+	pub fn new(params: Params<BI, CIDP, RClient, PF, CS>) -> Self {
 		Collator {
 			create_inherent_data_providers: params.create_inherent_data_providers,
 			block_import: params.block_import,
@@ -191,41 +237,67 @@ where
 		.await
 	}
 
-	/// Build and import a parachain block on the given parent header, using the given slot claim.
+	/// Build and import a parachain block using the given parameters.
 	pub async fn build_block_and_import(
 		&mut self,
-		parent_header: &Block::Header,
-		slot_claim: &SlotClaim<P::Public>,
-		additional_pre_digest: impl Into<Option<Vec<DigestItem>>>,
-		inherent_data: (ParachainInherentData, InherentData),
-		proposal_duration: Duration,
-		max_pov_size: usize,
-	) -> Result<Option<ParachainCandidate<Block>>, Box<dyn Error + Send + 'static>> {
-		let mut digest = additional_pre_digest.into().unwrap_or_default();
-		digest.push(slot_claim.pre_digest.clone());
+		mut params: BuildBlockAndImportParams<'_, Block, P>,
+	) -> Result<Option<BuiltBlock<Block>>, Box<dyn Error + Send + 'static>> {
+		let mut digest = params.additional_pre_digest;
+		digest.push(params.slot_claim.pre_digest.clone());
 
-		let maybe_proposal = self
+		// Create the proposer using the factory
+		let proposer = self
 			.proposer
-			.propose(
-				&parent_header,
-				&inherent_data.0,
-				inherent_data.1,
-				Digest { logs: digest },
-				proposal_duration,
-				Some(max_pov_size),
-			)
+			.init(&params.parent_header)
 			.await
 			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)?;
 
-		let proposal = match maybe_proposal {
-			None => return Ok(None),
-			Some(p) => p,
+		// Prepare inherent data - merge parachain inherent data with other inherent data
+		let mut inherent_data_combined = params.extra_inherent_data;
+		params
+			.parachain_inherent_data
+			.provide_inherent_data(&mut inherent_data_combined)
+			.await
+			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)?;
+
+		let recorder_passed = params.storage_proof_recorder.is_some();
+		let storage_proof_recorder = params.storage_proof_recorder.unwrap_or_default();
+		let proof_size_ext_registered =
+			params.extra_extensions.is_registered(ProofSizeExt::type_id());
+
+		if !proof_size_ext_registered {
+			params
+				.extra_extensions
+				.register(ProofSizeExt::new(storage_proof_recorder.clone()));
+		} else if proof_size_ext_registered && !recorder_passed {
+			return Err(
+				Box::from("`ProofSizeExt` registered, but no `storage_proof_recorder` provided. This is a bug.")
+					as Box<dyn Error + Send + Sync>
+			)
+		}
+
+		// Create proposal arguments
+		let propose_args = ProposeArgs {
+			inherent_data: inherent_data_combined,
+			inherent_digests: Digest { logs: digest },
+			max_duration: params.proposal_duration,
+			block_size_limit: Some(params.max_pov_size),
+			extra_extensions: params.extra_extensions,
+			storage_proof_recorder: Some(storage_proof_recorder.clone()),
 		};
+
+		// Propose the block
+		let proposal = proposer
+			.propose(propose_args)
+			.await
+			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)?;
+
+		let backend_transaction = proposal.storage_changes.transaction.clone();
 
 		let sealed_importable = seal::<_, P>(
 			proposal.block,
 			proposal.storage_changes,
-			&slot_claim.author_pub,
+			&params.slot_claim.author_pub,
 			&self.keystore,
 		)
 		.map_err(|e| e as Box<dyn Error + Send>)?;
@@ -244,7 +316,9 @@ where
 			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)
 			.await?;
 
-		Ok(Some(ParachainCandidate { block, proof: proposal.proof }))
+		let proof = storage_proof_recorder.drain_storage_proof();
+
+		Ok(Some(BuiltBlock { block, proof, backend_transaction }))
 	}
 
 	/// Propose, seal, import a block and packaging it into a collation.
@@ -265,21 +339,24 @@ where
 		max_pov_size: usize,
 	) -> Result<Option<(Collation, ParachainBlockData<Block>)>, Box<dyn Error + Send + 'static>> {
 		let maybe_candidate = self
-			.build_block_and_import(
+			.build_block_and_import(BuildBlockAndImportParams {
 				parent_header,
 				slot_claim,
-				additional_pre_digest,
-				inherent_data,
+				additional_pre_digest: additional_pre_digest.into().unwrap_or_default(),
+				parachain_inherent_data: inherent_data.0,
+				extra_inherent_data: inherent_data.1,
 				proposal_duration,
 				max_pov_size,
-			)
+				storage_proof_recorder: None,
+				extra_extensions: Default::default(),
+			})
 			.await?;
 
 		let Some(candidate) = maybe_candidate else { return Ok(None) };
 
 		let hash = candidate.block.header().hash();
 		if let Some((collation, block_data)) =
-			self.collator_service.build_collation(parent_header, hash, candidate)
+			self.collator_service.build_collation(parent_header, hash, candidate.into())
 		{
 			block_data.log_size_info();
 
