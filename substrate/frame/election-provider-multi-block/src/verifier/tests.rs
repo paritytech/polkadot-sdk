@@ -35,7 +35,7 @@ mod feasibility_check {
 
 	#[test]
 	fn missing_snapshot() {
-		ExtBuilder::verifier().build_unchecked().execute_with(|| {
+		ExtBuilder::mock_signed().build_unchecked().execute_with(|| {
 			// create snapshot just so that we can create a solution..
 			roll_to_snapshot_created();
 			let paged = mine_full_solution().unwrap();
@@ -49,7 +49,7 @@ mod feasibility_check {
 			);
 		});
 
-		ExtBuilder::verifier().pages(2).build_unchecked().execute_with(|| {
+		ExtBuilder::mock_signed().pages(2).build_unchecked().execute_with(|| {
 			roll_to_snapshot_created();
 			let paged = mine_full_solution().unwrap();
 
@@ -62,7 +62,7 @@ mod feasibility_check {
 			);
 		});
 
-		ExtBuilder::verifier().pages(2).build_unchecked().execute_with(|| {
+		ExtBuilder::mock_signed().pages(2).build_unchecked().execute_with(|| {
 			roll_to_snapshot_created();
 			let paged = mine_full_solution().unwrap();
 
@@ -75,7 +75,7 @@ mod feasibility_check {
 			));
 		});
 
-		ExtBuilder::verifier().pages(2).build_unchecked().execute_with(|| {
+		ExtBuilder::mock_signed().pages(2).build_unchecked().execute_with(|| {
 			roll_to_snapshot_created();
 			let paged = mine_full_solution().unwrap();
 
@@ -88,7 +88,7 @@ mod feasibility_check {
 			);
 		});
 
-		ExtBuilder::verifier().pages(2).build_unchecked().execute_with(|| {
+		ExtBuilder::mock_signed().pages(2).build_unchecked().execute_with(|| {
 			roll_to_snapshot_created();
 			let paged = mine_full_solution().unwrap();
 
@@ -104,7 +104,7 @@ mod feasibility_check {
 
 	#[test]
 	fn winner_indices_single_page_must_be_in_bounds() {
-		ExtBuilder::verifier().pages(1).desired_targets(2).build_and_execute(|| {
+		ExtBuilder::mock_signed().pages(1).desired_targets(2).build_and_execute(|| {
 			roll_to_snapshot_created();
 			let mut paged = mine_full_solution().unwrap();
 			assert_eq!(crate::Snapshot::<Runtime>::targets().unwrap().len(), 4);
@@ -126,7 +126,7 @@ mod feasibility_check {
 
 	#[test]
 	fn voter_indices_per_page_must_be_in_bounds() {
-		ExtBuilder::verifier()
+		ExtBuilder::mock_signed()
 			.pages(1)
 			.voter_per_page(Bounded::max_value())
 			.desired_targets(2)
@@ -160,7 +160,7 @@ mod feasibility_check {
 
 	#[test]
 	fn voter_must_have_same_targets_as_snapshot() {
-		ExtBuilder::verifier()
+		ExtBuilder::mock_signed()
 			.pages(1)
 			.voter_per_page(Bounded::max_value())
 			.desired_targets(2)
@@ -191,7 +191,7 @@ mod feasibility_check {
 
 	#[test]
 	fn prevents_duplicate_voter_index() {
-		ExtBuilder::verifier().pages(1).build_and_execute(|| {
+		ExtBuilder::mock_signed().pages(1).build_and_execute(|| {
 			roll_to_snapshot_created();
 
 			// let's build a manual, bogus solution with duplicate voters, on top of page 0 of
@@ -216,7 +216,7 @@ mod feasibility_check {
 
 	#[test]
 	fn prevents_duplicate_target_index() {
-		ExtBuilder::verifier().pages(1).build_and_execute(|| {
+		ExtBuilder::mock_signed().pages(1).build_and_execute(|| {
 			roll_to_snapshot_created();
 
 			// A bad solution with duplicate targets for a single voter in votes2.
@@ -237,7 +237,7 @@ mod feasibility_check {
 
 	#[test]
 	fn heuristic_max_backers_per_winner_per_page() {
-		ExtBuilder::verifier().max_backers_per_winner(2).build_and_execute(|| {
+		ExtBuilder::mock_signed().max_backers_per_winner(2).build_and_execute(|| {
 			roll_to_snapshot_created();
 
 			// these votes are all valid, but some dude has 3 supports in a single page.
@@ -256,7 +256,7 @@ mod feasibility_check {
 
 	#[test]
 	fn heuristic_desired_target_check_per_page() {
-		ExtBuilder::verifier().desired_targets(2).build_and_execute(|| {
+		ExtBuilder::mock_signed().desired_targets(2).build_and_execute(|| {
 			roll_to(25);
 			assert_full_snapshot();
 
@@ -288,7 +288,7 @@ mod async_verification {
 
 	#[test]
 	fn basic_single_verification_works() {
-		ExtBuilder::verifier().pages(1).build_and_execute(|| {
+		ExtBuilder::mock_signed().pages(1).build_and_execute(|| {
 			// load a solution after the snapshot has been created.
 			roll_to_snapshot_created();
 
@@ -296,10 +296,9 @@ mod async_verification {
 			load_mock_signed_and_start(solution.clone());
 
 			// now let it verify
-			roll_next();
+			roll_next_and_verifier(Status::Nothing);
 
 			// It done after just one block.
-			assert_eq!(VerifierPallet::status(), Status::Nothing);
 			assert_eq!(
 				verifier_events(),
 				vec![
@@ -313,7 +312,7 @@ mod async_verification {
 
 	#[test]
 	fn basic_multi_verification_works() {
-		ExtBuilder::verifier().pages(3).build_and_execute(|| {
+		ExtBuilder::mock_signed().pages(3).build_and_execute(|| {
 			// load a solution after the snapshot has been created.
 			roll_to_snapshot_created();
 
@@ -325,18 +324,13 @@ mod async_verification {
 			assert_eq!(QueuedSolution::<Runtime>::valid_iter().count(), 0);
 
 			// now let it verify
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(1));
-			assert_eq!(verifier_events(), vec![Event::<Runtime>::Verified(2, 2)]);
+			roll_next_and_verifier(Status::Ongoing(1));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(2, 2)]);
 			// 1 page verified, stored as invalid.
 			assert_eq!(QueuedSolution::<Runtime>::invalid_iter().count(), 1);
 
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
-			assert_eq!(
-				verifier_events(),
-				vec![Event::<Runtime>::Verified(2, 2), Event::<Runtime>::Verified(1, 2)]
-			);
+			roll_next_and_verifier(Status::Ongoing(0));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(1, 2)]);
 			// 2 pages verified, stored as invalid.
 			assert_eq!(QueuedSolution::<Runtime>::invalid_iter().count(), 2);
 
@@ -346,13 +340,10 @@ mod async_verification {
 			assert!(QueuedSolution::<Runtime>::queued_score().is_none());
 
 			// last block.
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Nothing);
+			roll_next_and_verifier(Status::Nothing);
 			assert_eq!(
-				verifier_events(),
+				verifier_events_since_last_call(),
 				vec![
-					Event::<Runtime>::Verified(2, 2),
-					Event::<Runtime>::Verified(1, 2),
 					Event::<Runtime>::Verified(0, 2),
 					Event::<Runtime>::Queued(solution.score, None),
 				]
@@ -367,7 +358,7 @@ mod async_verification {
 
 	#[test]
 	fn basic_multi_verification_partial() {
-		ExtBuilder::verifier().pages(3).build_and_execute(|| {
+		ExtBuilder::mock_signed().pages(3).build_and_execute(|| {
 			// load a solution after the snapshot has been created.
 			roll_to_snapshot_created();
 
@@ -380,18 +371,13 @@ mod async_verification {
 			assert_eq!(QueuedSolution::<Runtime>::valid_iter().count(), 0);
 
 			// now let it verify
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(1));
-			assert_eq!(verifier_events(), vec![Event::<Runtime>::Verified(2, 2)]);
+			roll_next_and_verifier(Status::Ongoing(1));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(2, 2)]);
 			// 1 page verified, stored as invalid.
 			assert_eq!(QueuedSolution::<Runtime>::invalid_iter().count(), 1);
 
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
-			assert_eq!(
-				verifier_events(),
-				vec![Event::<Runtime>::Verified(2, 2), Event::<Runtime>::Verified(1, 2),]
-			);
+			roll_next_and_verifier(Status::Ongoing(0));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(1, 2)]);
 			// 2 page verified, stored as invalid.
 			assert_eq!(QueuedSolution::<Runtime>::invalid_iter().count(), 2);
 
@@ -400,15 +386,11 @@ mod async_verification {
 			assert_eq!(QueuedSolution::<Runtime>::valid_iter().count(), 0);
 			assert!(QueuedSolution::<Runtime>::queued_score().is_none());
 
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Nothing);
+			roll_next_and_verifier(Status::Nothing);
 
 			assert_eq!(
-				verifier_events(),
+				verifier_events_since_last_call(),
 				vec![
-					Event::<Runtime>::Verified(2, 2),
-					Event::<Runtime>::Verified(1, 2),
-					// this is a partial solution, no one in this page (lsp).
 					Event::<Runtime>::Verified(0, 0),
 					Event::<Runtime>::Queued(solution.score, None),
 				]
@@ -429,12 +411,11 @@ mod async_verification {
 
 	#[test]
 	fn solution_data_provider_empty_data_solution() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			// not super important, but anyways..
 			roll_to_snapshot_created();
 
 			// The solution data provider is empty.
-			assert_eq!(SignedPhaseSwitch::get(), SignedSwitch::Mock);
 			assert_eq!(MockSignedNextSolution::get(), None);
 
 			// nothing happens..
@@ -442,33 +423,34 @@ mod async_verification {
 			assert_ok!(<VerifierPallet as AsynchronousVerifier>::start());
 			assert_eq!(VerifierPallet::status(), Status::Ongoing(2));
 
-			roll_next();
+			roll_next_and_verifier(Status::Ongoing(1));
 
 			// After first roll, only page 2 is processed (as empty page), status is still
 			// Ongoing(1).
-			assert_eq!(verifier_events(), vec![Event::<Runtime>::Verified(2, 0)]);
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(1));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(2, 0)]);
 
 			// Process the next page (page 1).
-			roll_next();
-			assert_eq!(
-				verifier_events(),
-				vec![Event::<Runtime>::Verified(2, 0), Event::<Runtime>::Verified(1, 0)]
-			);
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
+			roll_next_and_verifier(Status::Ongoing(0));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(1, 0)]);
 
 			// Process the final page (page 0).
-			roll_next();
+			roll_next_and_verifier(Status::Nothing);
 			// Missing score data returns default score which fails quality checks and gets
 			// rejected.
-			assert_eq!(VerifierPallet::status(), Status::Nothing);
 			assert_eq!(MockSignedResults::get(), vec![VerificationResult::Rejected]);
+			assert_eq!(
+				verifier_events_since_last_call(),
+				vec![
+					Event::Verified(0, 0),
+					Event::VerificationFailed(0, FeasibilityError::InvalidScore)
+				]
+			);
 		});
 	}
 
 	#[test]
 	fn solution_data_provider_empty_data_midway() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			roll_to_snapshot_created();
 
 			let solution = mine_full_solution().unwrap();
@@ -477,9 +459,8 @@ mod async_verification {
 			assert_eq!(VerifierPallet::status(), Status::Ongoing(2));
 
 			// now let it verify. first one goes fine.
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(1));
-			assert_eq!(verifier_events(), vec![Event::<Runtime>::Verified(2, 2)]);
+			roll_next_and_verifier(Status::Ongoing(1));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(2, 2)]);
 			assert_eq!(MockSignedResults::get(), vec![]);
 
 			// 1 page verified, stored as invalid.
@@ -492,20 +473,13 @@ mod async_verification {
 			MockSignedNextSolution::set(None);
 
 			// Roll through the remaining pages, which will be treated as empty.
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
-			assert_eq!(
-				verifier_events(),
-				vec![Event::<Runtime>::Verified(2, 2), Event::<Runtime>::Verified(1, 0)]
-			);
+			roll_next_and_verifier(Status::Ongoing(0));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(1, 0)]);
 
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Nothing);
+			roll_next_and_verifier(Status::Nothing);
 			assert_eq!(
-				verifier_events(),
+				verifier_events_since_last_call(),
 				vec![
-					Event::<Runtime>::Verified(2, 2),
-					Event::<Runtime>::Verified(1, 0),
 					Event::<Runtime>::Verified(0, 0),
 					Event::<Runtime>::VerificationFailed(0, FeasibilityError::InvalidScore),
 				]
@@ -523,7 +497,7 @@ mod async_verification {
 
 	#[test]
 	fn solution_data_provider_missing_score_at_end() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			roll_to_snapshot_created();
 
 			let solution = mine_full_solution().unwrap();
@@ -532,9 +506,8 @@ mod async_verification {
 			assert_eq!(VerifierPallet::status(), Status::Ongoing(2));
 
 			// First page is fine.
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(1));
-			assert_eq!(verifier_events(), vec![Event::<Runtime>::Verified(2, 2)]);
+			roll_next_and_verifier(Status::Ongoing(1));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(2, 2)]);
 			assert_eq!(MockSignedResults::get(), vec![]);
 
 			// Now clear both the solution and the score to simulate missing score at the end.
@@ -542,38 +515,38 @@ mod async_verification {
 			MockSignedNextScore::set(Default::default());
 
 			// Roll through remaining pages.
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
+			roll_next_and_verifier(Status::Ongoing(0));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(1, 0)]);
+			roll_next_and_verifier(Status::Nothing);
 			assert_eq!(
-				verifier_events(),
-				vec![Event::<Runtime>::Verified(2, 2), Event::<Runtime>::Verified(1, 0)]
+				verifier_events_since_last_call(),
+				vec![
+					Event::<Runtime>::Verified(0, 0),
+					Event::<Runtime>::VerificationFailed(0, FeasibilityError::InvalidScore),
+				]
 			);
-			roll_next();
 
 			// Missing score data returns default score which fails quality checks and gets
 			// rejected.
-			assert_eq!(VerifierPallet::status(), Status::Nothing);
 			assert_eq!(MockSignedResults::get(), vec![VerificationResult::Rejected]);
 		});
 	}
 
 	#[test]
 	fn rejects_new_verification_via_start_if_ongoing() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			roll_to_snapshot_created();
 
 			let solution = mine_full_solution().unwrap();
 			load_mock_signed_and_start(solution.clone());
-
 			assert_eq!(VerifierPallet::status(), Status::Ongoing(2));
 
 			// nada
 			assert_noop!(<VerifierPallet as AsynchronousVerifier>::start(), "verification ongoing");
 
 			// now let it verify. first one goes fine.
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(1));
-			assert_eq!(verifier_events(), vec![Event::<Runtime>::Verified(2, 2)]);
+			roll_next_and_verifier(Status::Ongoing(1));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(2, 2)]);
 			assert_eq!(MockSignedResults::get(), vec![]);
 
 			// retry, still nada.
@@ -583,30 +556,30 @@ mod async_verification {
 
 	#[test]
 	fn verification_failure_clears_everything() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			roll_to_snapshot_created();
 
 			let mut solution = mine_full_solution().unwrap();
 			// Make the solution invalid by corrupting the first page
-			solution.solution_pages[0].votes1[0] = (0, 1000); // Invalid vote weight
+			solution.solution_pages[0].corrupt();
 			load_mock_signed_and_start(solution.clone());
-
 			assert_eq!(VerifierPallet::status(), Status::Ongoing(2));
 
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(1));
-			assert_eq!(verifier_events(), vec![Event::<Runtime>::Verified(2, 2)]);
+			roll_next_and_verifier(Status::Ongoing(1));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(2, 2)]);
 
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
-			assert_eq!(
-				verifier_events(),
-				vec![Event::<Runtime>::Verified(2, 2), Event::<Runtime>::Verified(1, 2)]
-			);
+			roll_next_and_verifier(Status::Ongoing(0));
+			assert_eq!(verifier_events_since_last_call(), vec![Event::<Runtime>::Verified(1, 2)]);
 
 			// Verification fails on the last page due to invalid solution
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Nothing);
+			roll_next_and_verifier(Status::Nothing);
+			assert_eq!(
+				verifier_events_since_last_call(),
+				vec![Event::<Runtime>::VerificationFailed(
+					0,
+					FeasibilityError::NposElection(sp_npos_elections::Error::SolutionInvalidIndex)
+				),]
+			);
 
 			// everything is cleared when verification fails.
 			assert_eq!(QueuedSolution::<Runtime>::invalid_iter().count(), 0);
@@ -620,7 +593,7 @@ mod async_verification {
 
 	#[test]
 	fn weak_valid_solution_is_insta_rejected() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			roll_to_snapshot_created();
 
 			let paged = mine_full_solution().unwrap();
@@ -671,7 +644,7 @@ mod async_verification {
 
 	#[test]
 	fn better_valid_solution_replaces() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			roll_to_snapshot_created();
 
 			// a weak one, which we will still accept.
@@ -728,7 +701,7 @@ mod async_verification {
 
 	#[test]
 	fn invalid_solution_bad_score() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			roll_to_snapshot_created();
 			let mut paged = mine_full_solution().unwrap();
 
@@ -757,7 +730,7 @@ mod async_verification {
 
 	#[test]
 	fn invalid_solution_bad_minimum_score() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			roll_to_snapshot_created();
 			let paged = mine_full_solution().unwrap();
 
@@ -785,7 +758,7 @@ mod async_verification {
 
 	#[test]
 	fn invalid_solution_bad_desired_targets() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			roll_to_snapshot_created();
 			assert_eq!(crate::Snapshot::<Runtime>::desired_targets().unwrap(), 2);
 			let paged = mine_full_solution().unwrap();
@@ -816,7 +789,7 @@ mod async_verification {
 
 	#[test]
 	fn invalid_solution_bad_bounds_per_page() {
-		ExtBuilder::verifier()
+		ExtBuilder::mock_signed()
 			.desired_targets(1)
 			.max_backers_per_winner(1) // in each page we allow 1 baker to be presented.
 			.build_and_execute(|| {
@@ -865,7 +838,7 @@ mod async_verification {
 
 	#[test]
 	fn invalid_solution_bad_bounds_final() {
-		ExtBuilder::verifier()
+		ExtBuilder::mock_signed()
 			.desired_targets(1)
 			.max_backers_per_winner(2)
 			.max_backers_per_winner_final(2)
@@ -923,7 +896,7 @@ mod async_verification {
 
 	#[test]
 	fn invalid_solution_does_not_alter_queue() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			roll_to_snapshot_created();
 			let mut paged = mine_full_solution().unwrap();
 			let correct_score = paged.score;
@@ -979,7 +952,7 @@ mod multi_page_sync_verification {
 
 	#[test]
 	fn basic_sync_verification_works() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			roll_to_snapshot_created();
 			let paged = mine_solution(2).unwrap();
 
@@ -1007,7 +980,7 @@ mod multi_page_sync_verification {
 
 	#[test]
 	fn basic_sync_verification_works_full() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			roll_to_snapshot_created();
 			let paged = mine_full_solution().unwrap();
 
@@ -1036,7 +1009,7 @@ mod multi_page_sync_verification {
 
 	#[test]
 	fn incorrect_score_checked_at_end() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			// A solution that where each individual page is valid, but the final score is bad.
 			roll_to_snapshot_created();
 			let mut paged = mine_solution(2).unwrap();
@@ -1069,7 +1042,7 @@ mod multi_page_sync_verification {
 
 	#[test]
 	fn invalid_second_page() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			// A solution that where the second validated page is invalid.
 			use frame_election_provider_support::traits::NposSolution;
 			roll_to_snapshot_created();
@@ -1107,7 +1080,7 @@ mod multi_page_sync_verification {
 
 	#[test]
 	fn too_may_max_backers_per_winner_second_page() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			// A solution that where the at the second page with hit the final max backers per
 			// winner final bound.
 			roll_to_snapshot_created();
@@ -1183,7 +1156,7 @@ mod single_page_sync_verification {
 
 	#[test]
 	fn basic_sync_verification_works() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			roll_to_snapshot_created();
 			let single_page = mine_solution(1).unwrap();
 
@@ -1210,7 +1183,7 @@ mod single_page_sync_verification {
 
 	#[test]
 	fn winner_count_more() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			roll_to_snapshot_created();
 			let single_page = mine_solution(1).unwrap();
 
@@ -1242,7 +1215,7 @@ mod single_page_sync_verification {
 
 	#[test]
 	fn winner_count_less() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			roll_to_snapshot_created();
 			let single_page = mine_solution(1).unwrap();
 
@@ -1275,7 +1248,7 @@ mod single_page_sync_verification {
 
 	#[test]
 	fn incorrect_score_is_rejected() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			roll_to_snapshot_created();
 
 			let single_page = mine_solution(1).unwrap();
@@ -1304,7 +1277,7 @@ mod single_page_sync_verification {
 
 	#[test]
 	fn minimum_untrusted_score_is_rejected() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			roll_to_snapshot_created();
 
 			let single_page = mine_solution(1).unwrap();
@@ -1334,7 +1307,7 @@ mod single_page_sync_verification {
 
 	#[test]
 	fn bad_bounds_rejected_max_backers_per_winner() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			roll_to_snapshot_created();
 
 			let single_page = mine_solution(1).unwrap();
@@ -1363,7 +1336,7 @@ mod single_page_sync_verification {
 
 	#[test]
 	fn bad_bounds_rejected_max_winners_per_page() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			roll_to_snapshot_created();
 
 			let single_page = mine_solution(1).unwrap();
@@ -1392,7 +1365,7 @@ mod single_page_sync_verification {
 
 	#[test]
 	fn bad_bounds_rejected_max_backers_per_winner_final() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			roll_to_snapshot_created();
 
 			let single_page = mine_solution(1).unwrap();
@@ -1420,11 +1393,17 @@ mod single_page_sync_verification {
 	}
 
 	#[test]
+<<<<<<< HEAD
 	fn solution_improvement_threshold_respected() {
 		ExtBuilder::verifier()
 			.solution_improvement_threshold(Perbill::from_percent(10))
 			.build_and_execute(|| {
 				roll_to_snapshot_created();
+=======
+	fn solution_improvement_respected() {
+		ExtBuilder::mock_signed().build_and_execute(|| {
+			roll_to_snapshot_created();
+>>>>>>> 05a3fb10 (Staking-Async + EPMB: Migrate operations to `poll` (#9925))
 
 				// submit something good.
 				let single_page = mine_solution(1).unwrap();
@@ -1435,12 +1414,19 @@ mod single_page_sync_verification {
 				)
 				.unwrap();
 
+<<<<<<< HEAD
 				// the slightly better solution need not even be correct. We improve it by 5%, but
 				// we need 10%.
 				let mut better_score = single_page.score;
 				let improvement = Perbill::from_percent(5) * better_score.minimal_stake;
 				better_score.minimal_stake += improvement;
 				let slightly_better = fake_solution(better_score);
+=======
+	#[test]
+	fn exact_same_score_is_rejected() {
+		ExtBuilder::mock_signed().build_and_execute(|| {
+			roll_to_snapshot_created();
+>>>>>>> 05a3fb10 (Staking-Async + EPMB: Migrate operations to `poll` (#9925))
 
 				assert_eq!(
 					<VerifierPallet as Verifier>::verify_synchronous(
@@ -1456,7 +1442,7 @@ mod single_page_sync_verification {
 
 	#[test]
 	fn weak_score_is_insta_rejected() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			roll_to_snapshot_created();
 
 			// queue something useful.
@@ -1498,7 +1484,7 @@ mod single_page_sync_verification {
 
 	#[test]
 	fn good_solution_replaces() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			roll_to_snapshot_created();
 
 			let weak_solution = solution_from_supports(
@@ -1549,7 +1535,7 @@ mod single_page_sync_verification {
 
 	#[test]
 	fn weak_valid_is_discarded() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			roll_to_snapshot_created();
 
 			// first, submit something good
