@@ -1,0 +1,16 @@
+title: '[DRAFT] PoC DAP'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Initial PoC PR to play around with Dynamic Allocation Proposal here: https://hackmd.io/a0KSL4XHQ1WvcGZlKykGzg
+
+    So far, I am just currently removing treasury burn and staking slashing, redirecting them to the DAP / issuance buffer.
+crates:
+- name: frame-support
+  bump: major
+- name: pallet-dap
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: pallet-staking-async
+  bump: major
