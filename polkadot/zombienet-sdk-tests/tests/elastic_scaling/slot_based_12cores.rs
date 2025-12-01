@@ -106,12 +106,7 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 	// change will be counted.
 	// Since the calculated backed candidate count is theoretical and the CI tests are observed to
 	// occasionally fail, let's apply 15% tolerance to the expected range: 170 - 15% = 144
-	assert_para_throughput(
-		&relay_client,
-		15,
-		[(ParaId::from(2300), 153..181)].into_iter().collect(),
-	)
-	.await?;
+	assert_para_throughput(&relay_client, 15, [(ParaId::from(2300), 153..181)], []).await?;
 
 	// Expect that `collator-5` claims at least 3 slots during this run.
 	let result = para_node

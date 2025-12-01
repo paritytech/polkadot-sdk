@@ -4,7 +4,6 @@
 // Test that checks approval voting coalescing does not lag finality.
 
 use anyhow::anyhow;
-
 use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
@@ -88,9 +87,8 @@ async fn approval_voting_coalescing_test() -> Result<(), anyhow::Error> {
 			(ParaId::from(2005), 11..35),
 			(ParaId::from(2006), 11..35),
 			(ParaId::from(2007), 11..35),
-		]
-		.into_iter()
-		.collect(),
+		],
+		[],
 	)
 	.await?;
 

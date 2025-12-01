@@ -48,7 +48,7 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 	assign_cores(alice, PARA_ID, vec![0, 1]).await?;
 
 	log::info!("Ensuring parachain making progress");
-	assert_para_throughput(&relay_client, 20, [(ParaId::from(PARA_ID), 40..65)]).await?;
+	assert_para_throughput(&relay_client, 20, [(ParaId::from(PARA_ID), 40..65)], []).await?;
 
 	// We want to make sure that none of the consensus hook checks fail, even if the chain makes
 	// progress. If below log line occurred 1 or more times then test failed.
