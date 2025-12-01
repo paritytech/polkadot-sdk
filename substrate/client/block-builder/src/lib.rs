@@ -149,6 +149,12 @@ impl<'a, B: BlockT, C> BlockBuilderBuilderStage2<'a, B, C> {
 		self
 	}
 
+	/// Enable proof recording.
+	pub fn enable_proof_recording(mut self) -> Self {
+		self.proof_recorder = Some(Default::default());
+		self
+	}
+
 	/// Build the block with the given inherent digests.
 	pub fn with_inherent_digests(mut self, inherent_digests: Digest) -> Self {
 		self.inherent_digests = inherent_digests;
@@ -156,8 +162,8 @@ impl<'a, B: BlockT, C> BlockBuilderBuilderStage2<'a, B, C> {
 	}
 
 	/// Set the extra extensions to be registered with the runtime API during block building.
-	pub fn with_extra_extensions(mut self, extra_extensions: Extensions) -> Self {
-		self.extra_extensions = extra_extensions;
+	pub fn with_extra_extensions(mut self, extra_extensions: impl Into<Extensions>) -> Self {
+		self.extra_extensions = extra_extensions.into();
 		self
 	}
 
@@ -359,14 +365,10 @@ where
 	///
 	/// If `include_proof` is `true`, the estimated size of the storage proof will be added
 	/// to the estimation.
-	pub fn estimate_block_size(&self, include_proof: bool) -> usize {
+	pub fn estimate_block_size(&self) -> usize {
 		let size = self.estimated_header_size + self.extrinsics.encoded_size();
 
-		if include_proof {
-			size + self.api.proof_recorder().map(|pr| pr.estimate_encoded_size()).unwrap_or(0)
-		} else {
-			size
-		}
+		size + self.api.proof_recorder().map_or(0, |pr| pr.estimate_encoded_size())
 	}
 
 	/// Returns the [`ProofRecorder`] used by the block builder.
@@ -434,7 +436,7 @@ mod tests {
 
 		block_builder.push(ExtrinsicBuilder::new_read_and_panic(8).build()).unwrap_err();
 
-		let block = block_builder.build().unwrap();
+		block_builder.build().unwrap();
 
 		let proof_with_panic = proof_recorder.drain_storage_proof().encoded_size();
 

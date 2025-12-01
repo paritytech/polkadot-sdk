@@ -79,8 +79,6 @@ pub struct ProposerFactory<A, C> {
 	/// transactions which exhaust resources, we will conclude that the block is full.
 	soft_deadline_percent: Percent,
 	telemetry: Option<TelemetryHandle>,
-	/// When estimating the block size, should the proof be included?
-	include_proof_in_block_size_estimation: bool,
 }
 
 impl<A, C> Clone for ProposerFactory<A, C> {
@@ -93,7 +91,6 @@ impl<A, C> Clone for ProposerFactory<A, C> {
 			default_block_size_limit: self.default_block_size_limit,
 			soft_deadline_percent: self.soft_deadline_percent,
 			telemetry: self.telemetry.clone(),
-			include_proof_in_block_size_estimation: self.include_proof_in_block_size_estimation,
 		}
 	}
 }
@@ -115,13 +112,19 @@ impl<A, C> ProposerFactory<A, C> {
 			soft_deadline_percent: DEFAULT_SOFT_DEADLINE_PERCENT,
 			telemetry,
 			client,
-			include_proof_in_block_size_estimation: false,
 		}
 	}
 
-	/// Disable the proof inclusion when estimating the block size.
-	pub fn disable_proof_in_block_size_estimation(&mut self) {
-		self.include_proof_in_block_size_estimation = false;
+	/// Deprecated, use [`Self::new`] instead.
+	#[deprecated(note = "Proof recording is now handled differently. Use `new` instead.")]
+	pub fn with_proof_recording(
+		spawn_handle: impl SpawnNamed + 'static,
+		client: Arc<C>,
+		transaction_pool: Arc<A>,
+		prometheus: Option<&PrometheusRegistry>,
+		telemetry: Option<TelemetryHandle>,
+	) -> Self {
+		Self::new(spawn_handle, client, transaction_pool, prometheus, telemetry)
 	}
 
 	/// Set the default block size limit in bytes.
@@ -183,7 +186,6 @@ where
 			default_block_size_limit: self.default_block_size_limit,
 			soft_deadline_percent: self.soft_deadline_percent,
 			telemetry: self.telemetry.clone(),
-			include_proof_in_block_size_estimation: self.include_proof_in_block_size_estimation,
 		};
 
 		proposer
@@ -216,7 +218,6 @@ pub struct Proposer<Block: BlockT, C, A: TransactionPool> {
 	now: Box<dyn Fn() -> time::Instant + Send + Sync>,
 	metrics: PrometheusMetrics,
 	default_block_size_limit: usize,
-	include_proof_in_block_size_estimation: bool,
 	soft_deadline_percent: Percent,
 	telemetry: Option<TelemetryHandle>,
 }
@@ -420,8 +421,7 @@ where
 			let pending_tx_data = (**pending_tx.data()).clone();
 			let pending_tx_hash = pending_tx.hash().clone();
 
-			let block_size =
-				block_builder.estimate_block_size(self.include_proof_in_block_size_estimation);
+			let block_size = block_builder.estimate_block_size();
 			if block_size + pending_tx_data.encoded_size() > block_size_limit {
 				pending_iterator.report_invalid(&pending_tx);
 				limit_hit_reason = Some(EndProposingReason::HitBlockSizeLimit);
@@ -962,7 +962,7 @@ mod tests {
 				.with_proof_recorder(Some(Default::default()))
 				.build()
 				.unwrap();
-			builder.estimate_block_size(true) + extrinsics[0].encoded_size()
+			builder.estimate_block_size() + extrinsics[0].encoded_size()
 		};
 		let block = block_on(proposer.propose_block(ProposeArgs {
 			max_duration: deadline,

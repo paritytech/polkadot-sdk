@@ -343,6 +343,7 @@ pub async fn run_delayed_finalize<B, CB, C, S>(
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use assert_matches::assert_matches;
 	use sc_basic_authorship::ProposerFactory;
 	use sc_consensus::ImportedAux;
 	use sc_transaction_pool::{BasicPool, FullChainApi, Options, RevalidationType};
@@ -444,10 +445,10 @@ mod tests {
 		assert!(result.is_ok());
 		// assert that the background task returns ok
 		let created_block = receiver.await.unwrap().unwrap();
-		assert_eq!(
+		assert_matches!(
 			created_block,
 			CreatedBlock {
-				hash: created_block.hash,
+				hash: _,
 				aux: ImportedAux {
 					header_only: false,
 					clear_justification_requests: false,
@@ -455,7 +456,7 @@ mod tests {
 					bad_justification: false,
 					is_new_best: true,
 				},
-				proof_size: 0
+				proof_size: _
 			}
 		);
 		// assert that there's a new block in the db.
@@ -608,10 +609,10 @@ mod tests {
 		let created_block = rx.await.unwrap().unwrap();
 
 		// assert that the background task returns ok
-		assert_eq!(
+		assert_matches!(
 			created_block,
 			CreatedBlock {
-				hash: created_block.hash,
+				hash: _,
 				aux: ImportedAux {
 					header_only: false,
 					clear_justification_requests: false,
@@ -619,7 +620,7 @@ mod tests {
 					bad_justification: false,
 					is_new_best: true,
 				},
-				proof_size: 0
+				proof_size: _
 			}
 		);
 		// assert that there's a new block in the db.
@@ -693,10 +694,10 @@ mod tests {
 		let created_block = rx.await.unwrap().unwrap();
 
 		// assert that the background task returns ok
-		assert_eq!(
+		assert_matches!(
 			created_block,
 			CreatedBlock {
-				hash: created_block.hash,
+				hash: _,
 				aux: ImportedAux {
 					header_only: false,
 					clear_justification_requests: false,
@@ -704,7 +705,7 @@ mod tests {
 					bad_justification: false,
 					is_new_best: true
 				},
-				proof_size: 0
+				proof_size: _
 			}
 		);
 
@@ -728,7 +729,7 @@ mod tests {
 			})
 			.await
 			.is_ok());
-		assert_matches::assert_matches!(rx1.await.expect("should be no error receiving"), Ok(_));
+		assert_matches!(rx1.await.expect("should be no error receiving"), Ok(_));
 
 		assert!(pool.submit_one(created_block.hash, SOURCE, uxt(Bob, 0)).await.is_ok());
 		let (tx2, rx2) = futures::channel::oneshot::channel();

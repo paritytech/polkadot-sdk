@@ -29,6 +29,7 @@ use alloc::{
 };
 use core::{
 	any::{Any, TypeId},
+	iter::FromIterator,
 	ops::DerefMut,
 };
 
@@ -350,6 +351,45 @@ impl Extend<Extensions> for Extensions {
 	}
 }
 
+impl<A: Extension> From<A> for Extensions {
+	fn from(ext: A) -> Self {
+		Self {
+			extensions: FromIterator::from_iter(
+				[(Extension::type_id(&ext), Box::new(ext) as Box<dyn Extension>)].into_iter(),
+			),
+		}
+	}
+}
+
+impl<A: Extension, B: Extension> From<(A, B)> for Extensions {
+	fn from((ext, ext2): (A, B)) -> Self {
+		Self {
+			extensions: FromIterator::from_iter(
+				[
+					(Extension::type_id(&ext), Box::new(ext) as Box<dyn Extension>),
+					(Extension::type_id(&ext2), Box::new(ext2) as Box<dyn Extension>),
+				]
+				.into_iter(),
+			),
+		}
+	}
+}
+
+impl<A: Extension, B: Extension, C: Extension> From<(A, B, C)> for Extensions {
+	fn from((ext, ext2, ext3): (A, B, C)) -> Self {
+		Self {
+			extensions: FromIterator::from_iter(
+				[
+					(Extension::type_id(&ext), Box::new(ext) as Box<dyn Extension>),
+					(Extension::type_id(&ext2), Box::new(ext2) as Box<dyn Extension>),
+					(Extension::type_id(&ext3), Box::new(ext3) as Box<dyn Extension>),
+				]
+				.into_iter(),
+			),
+		}
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -392,5 +432,13 @@ mod tests {
 				ext2.downcast_mut::<DummyExt2>().expect("Downcasting works for Extension 2");
 			assert_eq!(ext_ty2.0, 2);
 		}
+	}
+
+	#[test]
+	fn from_boxed_extensions() {
+		let exts = Extensions::from((DummyExt(1), DummyExt2(2)));
+
+		assert!(exts.is_registered(DummyExt::type_id()));
+		assert!(exts.is_registered(DummyExt2::type_id()));
 	}
 }

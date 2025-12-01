@@ -284,7 +284,7 @@ where
 		// The aura digest provider will provide digests that match the provided timestamp data.
 		// Without this, the AURA parachain runtimes complain about slot mismatches.
 		let aura_digest_provider =
-			AuraConsensusDataProvider::<Block, AuraId>::new_with_slot_duration(slot_duration);
+			AuraConsensusDataProvider::<Block>::new_with_slot_duration(slot_duration);
 
 		let para_id =
 			Self::parachain_id(&client, &config).ok_or("Failed to retrieve the parachain id")?;

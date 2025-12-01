@@ -36,14 +36,14 @@ use std::{marker::PhantomData, sync::Arc};
 /// Consensus data provider for Aura. This allows to use manual-seal driven nodes to author valid
 /// AURA blocks. It will inspect incoming [`InherentData`] and look for included timestamps. Based
 /// on these timestamps, the [`AuraConsensusDataProvider`] will emit fitting digest items.
-pub struct AuraConsensusDataProvider<B, P> {
+pub struct AuraConsensusDataProvider<B> {
 	// slot duration
 	slot_duration: SlotDuration,
 	// phantom data for required generics
-	_phantom: PhantomData<(B, P)>,
+	_phantom: PhantomData<B>,
 }
 
-impl<B, P> AuraConsensusDataProvider<B, P>
+impl<B> AuraConsensusDataProvider<B>
 where
 	B: BlockT,
 {
@@ -66,10 +66,9 @@ where
 	}
 }
 
-impl<B, P> ConsensusDataProvider<B> for AuraConsensusDataProvider<B, P>
+impl<B> ConsensusDataProvider<B> for AuraConsensusDataProvider<B>
 where
 	B: BlockT,
-	P: Send + Sync,
 {
 	fn create_digest(
 		&self,

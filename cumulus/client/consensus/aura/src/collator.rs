@@ -25,6 +25,7 @@
 //! This module also exposes some standalone functions for common operations when building
 //! aura-based collators.
 
+use crate::collators::RelayParentData;
 use codec::Codec;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{
@@ -35,24 +36,19 @@ use cumulus_primitives_core::{
 	relay_chain::Hash as PHash, DigestItem, ParachainBlockData, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
-use sp_consensus::{Environment, ProposeArgs, Proposer};
-
+use futures::prelude::*;
 use polkadot_node_primitives::{Collation, MaybeCompressedPoV};
 use polkadot_primitives::{Header as PHeader, Id as ParaId};
-use sp_externalities::Extensions;
-use sp_trie::proof_size_extension::ProofSizeExt;
-
-use crate::collators::RelayParentData;
-use futures::prelude::*;
 use sc_client_api::BackendTransaction;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction};
 use sc_consensus_aura::standalone as aura_internal;
 use sc_network_types::PeerId;
 use sp_api::{ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
-use sp_consensus::BlockOrigin;
+use sp_consensus::{BlockOrigin, Environment, ProposeArgs, Proposer};
 use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
 use sp_core::crypto::Pair;
+use sp_externalities::Extensions;
 use sp_inherents::{CreateInherentDataProviders, InherentData, InherentDataProvider};
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
@@ -61,6 +57,7 @@ use sp_runtime::{
 };
 use sp_state_machine::StorageChanges;
 use sp_timestamp::Timestamp;
+use sp_trie::proof_size_extension::ProofSizeExt;
 use std::{error::Error, time::Duration};
 
 /// Parameters for instantiating a [`Collator`].
