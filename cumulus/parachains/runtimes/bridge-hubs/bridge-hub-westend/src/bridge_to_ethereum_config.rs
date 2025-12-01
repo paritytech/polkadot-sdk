@@ -329,21 +329,19 @@ impl snowbridge_pallet_system_v2::Config for Runtime {
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmark_helpers {
 	use crate::{
-		bridge_to_ethereum_config::{EthereumGatewayAddress, InboundQueueV2Location},
+		bridge_to_ethereum_config::{
+			CreateAssetCall, EthereumGatewayAddress, InboundQueueV2Location, TargetLocation,
+		},
 		vec,
 		xcm_config::{RelayNetwork, XcmConfig},
-		EthereumBeaconClient, EthereumSystem, EthereumUniversalLocation, Runtime, RuntimeOrigin,
-		System,
+		EthereumBeaconClient, EthereumSystem, Runtime, RuntimeOrigin, System,
 	};
-	use bp_asset_hub_westend::CreateForeignAssetDeposit;
 	use codec::Encode;
 	use frame_support::assert_ok;
 	use hex_literal::hex;
 	use snowbridge_beacon_primitives::BeaconHeader;
 	use snowbridge_inbound_queue_primitives::{
-		v2::{
-			CreateAssetCallInfo, MessageToXcm, XcmMessageProcessor as InboundXcmMessageProcessor,
-		},
+		v2::{MessageToXcm, XcmMessageProcessor as InboundXcmMessageProcessor},
 		EventFixture,
 	};
 	use snowbridge_pallet_inbound_queue::BenchmarkHelper;
@@ -352,8 +350,7 @@ pub mod benchmark_helpers {
 	use snowbridge_pallet_inbound_queue_v2_fixtures::register_token::make_register_token_message as make_register_token_message_v2;
 	use snowbridge_pallet_outbound_queue_v2::BenchmarkHelper as OutboundQueueBenchmarkHelperV2;
 	use sp_core::H256;
-	use sp_runtime::traits::ConstU32;
-	use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
+	use testnet_parachains_constants::westend::snowbridge::{AssetHubParaId, EthereumNetwork};
 	use xcm::latest::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
 	use xcm_executor::XcmExecutor;
 
@@ -418,19 +415,19 @@ pub mod benchmark_helpers {
 		XcmExecutor<XcmConfig>,
 		MessageToXcm<
 			CreateAssetCall,
-			CreateForeignAssetDeposit,
 			EthereumNetwork,
-			InboundQueueV2Location,
-			EthereumSystem,
+			RelayNetwork,
 			EthereumGatewayAddress,
-			EthereumUniversalLocation,
-			AssetHubFromEthereum,
+			InboundQueueV2Location,
+			AssetHubParaId,
+			EthereumSystem,
+			<Runtime as frame_system::Config>::AccountId,
 		>,
 		xcm_builder::AliasesIntoAccountId32<
 			RelayNetwork,
 			<Runtime as frame_system::Config>::AccountId,
 		>,
-		ConstU32<1000>,
+		TargetLocation,
 	>;
 
 	impl snowbridge_pallet_system::BenchmarkHelper<RuntimeOrigin> for () {
