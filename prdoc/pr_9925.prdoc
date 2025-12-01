@@ -13,3 +13,5 @@ crates:
   bump: major
 - name: asset-hub-westend-runtime
   bump: minor
+- name: pallet-fast-unstake
+  bump: patch
