@@ -23,7 +23,6 @@ use crate::{
 	weights::*,
 	Pallet, VoteRecord, VotingOf,
 };
-use alloc::vec::Vec;
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::{GetStorageVersion, PhantomData, StorageVersion},
@@ -175,6 +174,7 @@ impl<T: Config<I>, I: 'static> SteppedMigration for SteppedMigrationV1<T, I> {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, frame_support::sp_runtime::TryRuntimeError> {
 		use codec::Encode;
+		use alloc::vec::Vec;
 
 		// Send over all voting data. Vec<(account, class, voting_data)>.
 		Ok(v0::VotingFor::<T, I>::iter().collect::<Vec<_>>().encode())
@@ -264,6 +264,7 @@ impl<T: Config<I>, I: 'static> SteppedMigration for SteppedMigrationV1<T, I> {
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(prev: Vec<u8>) -> Result<(), frame_support::sp_runtime::TryRuntimeError> {
 		use codec::Decode;
+		use alloc::vec::Vec;
 
 		// Storage version check.
 		assert_eq!(Pallet::<T, I>::on_chain_storage_version(), Self::id().version_to as u16);
