@@ -258,7 +258,7 @@ where
 			maybe_conviction: None,
 			delegations: Default::default(),
 			prior: PriorLock(Zero::zero(), Default::default()),
-			allow_delegator_voting: Default::default(),
+			allow_delegator_voting: true,
 		}
 	}
 }

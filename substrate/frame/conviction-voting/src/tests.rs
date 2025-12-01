@@ -402,7 +402,6 @@ fn voting_while_delegating_permutations_work() {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll, aye(10, 1)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll, split(10, 10)));
 
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegatee), class));
 		assert_ok!(Voting::delegate(
 			RuntimeOrigin::signed(delegator),
 			class,
@@ -429,7 +428,6 @@ fn voting_while_delegating_permutations_work() {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll, split(5, 5)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll, aye(10, 1)));
 
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegatee), class));
 		assert_ok!(Voting::delegate(
 			RuntimeOrigin::signed(delegator),
 			class,
@@ -457,7 +455,6 @@ fn voting_while_delegating_permutations_work() {
 			Conviction::Locked1x,
 			10
 		));
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegatee), class));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), 0, aye(10, 1)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), 0, aye(5, 1)));
 
@@ -475,7 +472,6 @@ fn voting_while_delegating_permutations_work() {
 			Conviction::Locked1x,
 			10
 		));
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegatee), class));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll, aye(5, 1)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll, aye(10, 1)));
 
@@ -493,7 +489,6 @@ fn voting_while_delegating_permutations_work() {
 			Conviction::Locked1x,
 			10
 		));
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegatee), class));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll, aye(5, 1)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll, aye(10, 1)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll, nay(5, 1)));
@@ -512,7 +507,6 @@ fn voting_while_delegating_permutations_work() {
 			Conviction::Locked1x,
 			10
 		));
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegatee), class));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll, aye(5, 1)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll, aye(10, 1)));
 
@@ -534,7 +528,6 @@ fn voting_while_delegating_permutations_work() {
 			Conviction::Locked1x,
 			10
 		));
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegatee), class));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll, aye(5, 1)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll, aye(10, 1)));
 
@@ -562,7 +555,6 @@ fn voting_while_delegating_permutations_work() {
 			Conviction::Locked1x,
 			10
 		));
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegatee), class));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll, aye(10, 1)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator_two), poll, nay(10, 1)));
 		assert_eq!(tally(poll), Tally::from_parts(10, 10, 10));
@@ -581,7 +573,6 @@ fn all_vote_types_trigger_clawback_correctly() {
 	// Standard Vote.
 	new_test_ext().execute_with(|| {
 		Polls::set(vec![(poll, Ongoing(Tally::new(0), class))].into_iter().collect());
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegatee), class));
 		assert_ok!(Voting::delegate(
 			RuntimeOrigin::signed(delegator),
 			class,
@@ -597,7 +588,6 @@ fn all_vote_types_trigger_clawback_correctly() {
 	// Split Vote.
 	new_test_ext().execute_with(|| {
 		Polls::set(vec![(poll, Ongoing(Tally::new(0), class))].into_iter().collect());
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegatee), class));
 		assert_ok!(Voting::delegate(
 			RuntimeOrigin::signed(delegator),
 			class,
@@ -613,7 +603,6 @@ fn all_vote_types_trigger_clawback_correctly() {
 	// SplitAbstain Vote.
 	new_test_ext().execute_with(|| {
 		Polls::set(vec![(poll, Ongoing(Tally::new(0), class))].into_iter().collect());
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegatee), class));
 		assert_ok!(Voting::delegate(
 			RuntimeOrigin::signed(delegator),
 			class,
@@ -639,7 +628,6 @@ fn vote_removal_removes_delegates_applicable_vote_data() {
 
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10));
 
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(2), 0));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 0, aye(1, 0)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 1, aye(1, 0)));
 		assert_eq!(VotingFor::<Test>::get(2, 0).votes.len(), 2);
@@ -758,12 +746,22 @@ fn errors_with_vote_work() {
 			.collect(),
 		);
 
+		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(2), 0));
+		
+		// Cannot vote if delegate has turned it off.
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10));
 		assert_noop!(
 			Voting::vote(RuntimeOrigin::signed(1), 0, aye(10, 0)),
 			Error::<Test>::DelegatorVotingNotAllowed
 		);
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
+		
+		// Cannot delegate with an existing vote if delegate has turned it off.
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 0, aye(10, 0)));
+		assert_noop!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10), Error::<Test>::DelegatorVotingNotAllowed);
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), None, 0));
+		
+		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(2), 0));
 
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 0, aye(10, 0)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 1, aye(10, 0)));
@@ -774,7 +772,6 @@ fn errors_with_vote_work() {
 		);
 		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), None, 2));
 
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(2), 0));
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 0, aye(10, 0)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 1, aye(10, 0)));
@@ -1280,7 +1277,6 @@ fn lock_amalgamation_with_delegation_and_voting_unlocks_correctly() {
 		assert_eq!(Balances::usable_balance(1), 5);
 
 		// Apply delegation lock on same class.
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(3), 0));
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 3, Conviction::Locked1x, 10));
 		assert_eq!(Balances::usable_balance(1), 0);
 
@@ -1318,7 +1314,6 @@ fn delegators_votes_dont_affect_delegates_locks() {
 		let delegator = 1;
 		let delegate = 2;
 
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegate), class));
 		// Delegator delegates then votes. Delegate's balance should remain unlocked.
 		assert_ok!(Voting::delegate(
 			RuntimeOrigin::signed(delegator),
@@ -1376,11 +1371,14 @@ fn errors_with_delegating_work() {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 1, aye(20, 0)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 2, aye(20, 0)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 0)));
+
+		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(2), 0));
 		assert_noop!(
 			Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10),
 			Error::<Test>::DelegatorVotingNotAllowed
 		);
 		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(2), 0));
+
 		assert_noop!(
 			Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10),
 			Error::<Test>::DelegateMaxVotesReached
@@ -1422,7 +1420,6 @@ fn undelegation_cleans_empty_delegate_votes() {
 		));
 
 		// Both vote and delegate now has history.
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegate), class));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator1), 0, aye(1, 0)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator2), 0, aye(1, 0)));
 		assert_eq!(VotingFor::<Test>::get(delegate, class).votes.len(), 1);
@@ -1483,7 +1480,6 @@ fn undelegate_from_completed_poll_cleans_up_retracted_votes() {
 		));
 
 		// Both delegators vote, creating clawbacks.
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegatee), class));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator1), poll_index, aye(1, 0)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator2), poll_index, aye(1, 0)));
 
@@ -1536,7 +1532,6 @@ fn delegation_after_voting_works() {
 				.collect(),
 		);
 
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegatee), 0));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll_0, aye(10, 2)));
 		assert_ok!(Voting::delegate(
 			RuntimeOrigin::signed(delegator),
@@ -1562,7 +1557,6 @@ fn delegation_after_voting_works() {
 				.collect(),
 		);
 
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegatee), 0));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll_0, aye(5, 1)));
 		assert_ok!(Voting::delegate(
 			RuntimeOrigin::signed(delegator),
@@ -1588,7 +1582,6 @@ fn delegation_after_voting_works() {
 				.collect(),
 		);
 
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegatee), 0));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll_1, aye(5, 1)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll_1, aye(5, 1)));
 		assert_ok!(Voting::delegate(
@@ -1629,7 +1622,6 @@ fn voting_after_delegation_works() {
 			Conviction::Locked1x,
 			5
 		));
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegatee), class));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll_0, aye(5, 1)));
 		assert_eq!(tally(poll_0), Tally::from_parts(10, 0, 10));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll_0, aye(10, 2)));
@@ -1655,7 +1647,6 @@ fn voting_after_delegation_works() {
 			Conviction::Locked1x,
 			10
 		));
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegatee), class));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll_1, aye(5, 1)));
 		assert_eq!(tally(poll_1), Tally::from_parts(5, 0, 5));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll_1, aye(5, 1)));
@@ -1681,7 +1672,6 @@ fn voting_after_delegation_works() {
 			Conviction::Locked1x,
 			10
 		));
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegatee), class));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll_1, aye(5, 1)));
 		assert_eq!(tally(poll_1), Tally::from_parts(5, 0, 5));
 
@@ -1705,7 +1695,6 @@ fn voting_after_delegation_works() {
 			Conviction::Locked1x,
 			10
 		));
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegatee), class));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll_1, aye(5, 1)));
 		assert_eq!(tally(poll_1), Tally::from_parts(15, 0, 15));
 
@@ -1733,7 +1722,6 @@ fn completed_votes_arent_tracked_on_delegate() {
 				.collect(),
 		);
 
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(2), 0));
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10));
 
 		// No vote info was added to delegate for completed poll.
@@ -1758,7 +1746,6 @@ fn each_vote_type_adds_clawback_during_delegation() {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 1, split(1, 1)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 2, split_abstain(1, 1, 1)));
 
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(2), 0));
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10));
 
 		// Check delegate has 3 vote records.
@@ -1819,11 +1806,9 @@ fn no_chained_delegation() {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(c), poll, aye(30, 1)));
 		assert_eq!(tally(poll), Tally::from_parts(50, 0, 50));
 
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(c), class));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(b), poll, nay(20, 1)));
 		assert_eq!(tally(poll), Tally::from_parts(30, 30, 30));
 
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(b), class));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(a), poll, aye(10, 1)));
 		assert_eq!(tally(poll), Tally::from_parts(40, 20, 40));
 	});
@@ -1853,7 +1838,6 @@ fn can_remove_vote_and_undelegate_while_delegator_voting_off() {
 			Conviction::Locked1x,
 			10
 		));
-		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(delegate), class));
 
 		// Vote.
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), 0, aye(5, 1)));
@@ -1875,13 +1859,13 @@ fn can_remove_vote_and_undelegate_while_delegator_voting_off() {
 fn can_flip_delegator_voting_flag_per_class() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(1), 0));
-		assert_eq!(VotingFor::<Test>::get(1, 0).allow_delegator_voting, true);
-		assert_eq!(VotingFor::<Test>::get(1, 1).allow_delegator_voting, false);
+		assert_eq!(VotingFor::<Test>::get(1, 0).allow_delegator_voting, false);
+		assert_eq!(VotingFor::<Test>::get(1, 1).allow_delegator_voting, true);
 
 		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(1), 0));
 		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(1), 1));
-		assert_eq!(VotingFor::<Test>::get(1, 0).allow_delegator_voting, false);
-		assert_eq!(VotingFor::<Test>::get(1, 1).allow_delegator_voting, true);
+		assert_eq!(VotingFor::<Test>::get(1, 0).allow_delegator_voting, true);
+		assert_eq!(VotingFor::<Test>::get(1, 1).allow_delegator_voting, false);
 	});
 }
 
