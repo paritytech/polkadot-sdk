@@ -931,7 +931,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let delegate_votes = core::mem::take(&mut voting.votes).into_inner();
 			let (r_len, s_len) = (delegator_votes.len(), delegate_votes.len());
 
-			// First preemptively update all of delegates votes. Clawbacks will be handled next.
+			// First preemptively update all of the delegates votes. Clawbacks will be handled next.
 			for VoteRecord { poll_index, maybe_vote, .. } in delegate_votes.iter() {
 				if let Some(AccountVote::Standard { vote, .. }) = maybe_vote {
 					T::Polls::access_poll(*poll_index, |poll_status| {
