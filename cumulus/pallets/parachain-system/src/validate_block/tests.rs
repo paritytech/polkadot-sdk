@@ -174,22 +174,49 @@ fn build_multiple_blocks_with_witness(
 
 	let mut persisted_validation_data = None;
 	let mut blocks = Vec::new();
-	//TODO: Fix this, not correct.
 	let mut proof = None;
+	let mut current_parent_head = parent_head;
+	let mut current_parent_hash = current_parent_head.hash();
+
+	// Use a fixed timestamp for all blocks so they share the same slot
+	let timestamp = *sproof_builder.current_slot * 6000;
 
 	for _ in 0..num_blocks {
 		let cumulus_test_client::BlockBuilderAndSupportData {
 			block_builder,
 			persisted_validation_data: p_v_data,
-		} = client.init_block_builder(Some(validation_data.clone()), sproof_builder.clone());
+		} = client.init_block_builder_with_timestamp(
+			current_parent_hash,
+			Some(validation_data.clone()),
+			sproof_builder.clone(),
+			timestamp,
+		);
 
 		persisted_validation_data = Some(p_v_data);
 
-		let (build_blocks, build_proof) =
-			block_builder.build_parachain_block(*parent_head.state_root()).into_inner();
+		let (build_blocks, build_proof) = block_builder
+			.build_parachain_block(*current_parent_head.state_root())
+			.into_inner();
 
 		proof.get_or_insert_with(|| build_proof);
-		blocks.extend(build_blocks);
+
+		let mut block = build_blocks.into_iter().next().expect("Expected one block");
+		block = seal_block(block, client);
+
+		// Import block so next block can be built on top of it
+		let (mut header, extrinsics) = block.clone().deconstruct();
+		let seal = header.digest.pop().unwrap();
+
+		let mut import = BlockImportParams::new(BlockOrigin::Own, header.clone());
+		import.body = Some(extrinsics);
+		import.post_digests.push(seal);
+		import.fork_choice = Some(ForkChoiceStrategy::Custom(true));
+
+		futures::executor::block_on(BlockImport::import_block(client, import)).unwrap();
+
+		current_parent_head = block.header.clone();
+		current_parent_hash = current_parent_head.hash();
+		blocks.push(block);
 	}
 
 	TestBlockData {
