@@ -21,7 +21,7 @@ use super::CONVICTION_VOTING_ID;
 use crate::{
 	pallet::{Config, MigrationOngoing, VotingFor},
 	weights::*,
-	Pallet, VoteRecord, VotingOf,
+	Pallet, PollRecord, VotingOf,
 };
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
@@ -219,7 +219,7 @@ impl<T: Config<I>, I: 'static> SteppedMigration for SteppedMigrationV1<T, I> {
 				match value {
 					v0::Voting::Casting(v0::Casting { votes, delegations, prior }) => {
 						for (poll_index, vote) in votes {
-							let new_record = VoteRecord {
+							let new_record = PollRecord {
 								poll_index,
 								maybe_vote: Some(vote),
 								retracted_votes: Default::default(),
@@ -292,7 +292,7 @@ impl<T: Config<I>, I: 'static> SteppedMigration for SteppedMigrationV1<T, I> {
 				v0::Voting::Casting(v0::Casting { votes: old_votes, delegations, prior }) => {
 					assert_eq!(old_votes.len(), new_votes.len());
 					for (poll_index, vote) in old_votes {
-						let new_record = VoteRecord {
+						let new_record = PollRecord {
 							poll_index,
 							maybe_vote: Some(vote),
 							retracted_votes: Default::default(),

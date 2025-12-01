@@ -56,7 +56,7 @@ pub use self::{
 	pallet::*,
 	traits::{Status, VotingHooks},
 	types::{Delegations, Tally, UnvoteScope},
-	vote::{AccountVote, PriorLock, Vote, VoteRecord, Voting},
+	vote::{AccountVote, PriorLock, Vote, PollRecord, Voting},
 	weights::WeightInfo,
 };
 use sp_runtime::traits::BlockNumberProvider;
@@ -506,13 +506,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					},
 					Err(i) => {
 						// Add vote data, unless max vote reached.
-						let vote_record = VoteRecord {
+						let poll_record = PollRecord {
 							poll_index,
 							maybe_vote: Some(vote),
 							retracted_votes: Default::default(),
 						};
 						votes
-							.try_insert(i, vote_record)
+							.try_insert(i, poll_record)
 							.map_err(|_| Error::<T, I>::MaxVotesReached)?;
 						vote_introduced = true;
 						i
@@ -591,13 +591,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					},
 					Err(i) => {
 						// Add empty vote and clawback amount.
-						let vote_record = VoteRecord {
+						let poll_record = PollRecord {
 							poll_index,
 							maybe_vote: None,
 							retracted_votes: amount_delegated,
 						};
 						delegates_votes
-							.try_insert(i, vote_record)
+							.try_insert(i, poll_record)
 							.map_err(|_| Error::<T, I>::DelegateMaxVotesReached.into())
 					},
 				}
@@ -835,7 +835,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let (r_len, s_len) = (delegators_ongoing_votes.len(), delegate_votes.len());
 
 			// First update all of delegates votes. Clawbacks will be added and adjusted next.
-			for VoteRecord { poll_index, maybe_vote, .. } in delegate_votes.iter() {
+			for PollRecord { poll_index, maybe_vote, .. } in delegate_votes.iter() {
 				if let Some(AccountVote::Standard { vote, .. }) = maybe_vote {
 					T::Polls::access_poll(*poll_index, |poll_status| {
 						if let PollStatus::Ongoing(tally, _) = poll_status {
@@ -850,22 +850,22 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let mut s_iter = delegate_votes.iter().peekable();
 
 			// Iterate while both lists have items
-			while let (Some(&r_poll_index), Some(&s_vote_record)) = (r_iter.peek(), s_iter.peek()) {
-				if r_poll_index < &s_vote_record.poll_index {
+			while let (Some(&r_poll_index), Some(&s_poll_record)) = (r_iter.peek(), s_iter.peek()) {
+				if r_poll_index < &s_poll_record.poll_index {
 					// Delegator vote not in delegate's list. Create new record.
-					new_votes.push(VoteRecord {
+					new_votes.push(PollRecord {
 						poll_index: *r_poll_index,
 						maybe_vote: None,
 						retracted_votes: amount,
 					});
 					r_iter.next(); // Consume delegator vote.
-				} else if r_poll_index > &s_vote_record.poll_index {
+				} else if r_poll_index > &s_poll_record.poll_index {
 					// Delegate vote not in delegator's list. Copy it.
-					new_votes.push(s_vote_record.clone());
+					new_votes.push(s_poll_record.clone());
 					s_iter.next(); // Consume delegate vote.
 				} else {
 					// Both have a vote for this poll.
-					let mut matched_record = s_vote_record.clone();
+					let mut matched_record = s_poll_record.clone();
 
 					// Add the clawback amount.
 					matched_record.retracted_votes =
@@ -890,16 +890,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			// Exhaust the remaining items from which either iterator.
 			for r_poll_index in r_iter {
 				// Delegator-only votes left.
-				new_votes.push(VoteRecord {
+				new_votes.push(PollRecord {
 					poll_index: *r_poll_index,
 					maybe_vote: None,
 					retracted_votes: amount,
 				});
 			}
 
-			for s_vote_record in s_iter {
+			for s_poll_record in s_iter {
 				// Delegate-only votes left.
-				new_votes.push(s_vote_record.clone());
+				new_votes.push(s_poll_record.clone());
 			}
 
 			// Replace the old, empty vote vec with the new merged vec.
@@ -932,7 +932,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let (r_len, s_len) = (delegator_votes.len(), delegate_votes.len());
 
 			// First preemptively update all of the delegates votes. Clawbacks will be handled next.
-			for VoteRecord { poll_index, maybe_vote, .. } in delegate_votes.iter() {
+			for PollRecord { poll_index, maybe_vote, .. } in delegate_votes.iter() {
 				if let Some(AccountVote::Standard { vote, .. }) = maybe_vote {
 					T::Polls::access_poll(*poll_index, |poll_status| {
 						if let PollStatus::Ongoing(tally, _) = poll_status {
@@ -947,18 +947,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let mut r_iter = delegator_votes.iter().peekable();
 			let mut s_iter = delegate_votes.iter().peekable();
 
-			while let (Some(&&r_poll_index), Some(&s_vote_record)) = (r_iter.peek(), s_iter.peek())
+			while let (Some(&&r_poll_index), Some(&s_poll_record)) = (r_iter.peek(), s_iter.peek())
 			{
-				if r_poll_index < s_vote_record.poll_index {
+				if r_poll_index < s_poll_record.poll_index {
 					// Delegator vote not in delegate's list.
 					r_iter.next(); // Consume delegator vote.
-				} else if r_poll_index > s_vote_record.poll_index {
+				} else if r_poll_index > s_poll_record.poll_index {
 					// Delegate vote not in delegator's list. Copy it.
-					new_votes.push(s_vote_record.clone());
+					new_votes.push(s_poll_record.clone());
 					s_iter.next(); // Consume delegate vote.
 				} else {
 					// Both have a vote record for this poll.
-					let mut matched_record = s_vote_record.clone();
+					let mut matched_record = s_poll_record.clone();
 
 					// Remove the delegator's contribution from the clawback amount.
 					matched_record.retracted_votes =
@@ -994,9 +994,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				}
 			}
 
-			for s_vote_record in s_iter {
+			for s_poll_record in s_iter {
 				// Any remaining delegate votes are unaffected, copy.
-				new_votes.push(s_vote_record.clone());
+				new_votes.push(s_poll_record.clone());
 			}
 
 			voting.votes = BoundedVec::try_from(new_votes)
