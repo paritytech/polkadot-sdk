@@ -778,7 +778,7 @@ fn errors_with_vote_work() {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 2, aye(10, 0)));
 		assert_noop!(
 			Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 0)),
-			Error::<Test>::DelegateMaxVotesReached
+			Error::<Test>::NoRoomForRetraction
 		);
 
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
@@ -1381,7 +1381,7 @@ fn errors_with_delegating_work() {
 
 		assert_noop!(
 			Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10),
-			Error::<Test>::DelegateMaxVotesReached
+			Error::<Test>::NoRoomForRetraction
 		);
 		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(2), None, 2));
 

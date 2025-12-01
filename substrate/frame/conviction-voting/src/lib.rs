@@ -245,10 +245,12 @@ pub mod pallet {
 		ClassNeeded,
 		/// The class ID supplied is invalid.
 		BadClass,
-		/// The voter's delegate has reached the maximum number of votes.
-		DelegateMaxVotesReached,
+		/// The voter's delegate has reached the maximum number of votes and has no room for the retraction.
+		/// Clear delegate votes or undelegate.
+		NoRoomForRetraction,
 		/// The delegate does not allow for delegator voting.
-		DelegatorVotingNotAllowed,
+		/// Ask delegate to allow voting or undelegate.
+		DelegateHasDisabledDelegatorVoting,
 		/// A storage migration is currently ongoing.
 		MigrationOngoing,
 	}
@@ -569,7 +571,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			&class,
 			|delegate_voting| -> Result<(), DispatchError> {
 				if !delegate_voting.allow_delegator_voting {
-					return Err(Error::<T, I>::DelegatorVotingNotAllowed.into());
+					return Err(Error::<T, I>::DelegateHasDisabledDelegatorVoting.into());
 				}
 
 				let delegates_votes = &mut delegate_voting.votes;
@@ -598,7 +600,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						};
 						delegates_votes
 							.try_insert(i, poll_record)
-							.map_err(|_| Error::<T, I>::DelegateMaxVotesReached.into())
+							.map_err(|_| Error::<T, I>::NoRoomForRetraction.into())
 					},
 				}
 			},
@@ -825,7 +827,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		VotingFor::<T, I>::try_mutate(who, class, |voting| {
 			// Can't delegate if have votes & delegatee doesn't allow for so.
 			if delegators_ongoing_votes.len() > 0 && !voting.allow_delegator_voting {
-				return Err(Error::<T, I>::DelegatorVotingNotAllowed.into());
+				return Err(Error::<T, I>::DelegateHasDisabledDelegatorVoting.into());
 			}
 
 			// Increase delegate's delegation counter.
@@ -904,7 +906,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 			// Replace the old, empty vote vec with the new merged vec.
 			voting.votes = BoundedVec::try_from(new_votes)
-				.map_err(|_| Error::<T, I>::DelegateMaxVotesReached)?;
+				.map_err(|_| Error::<T, I>::NoRoomForRetraction)?;
 
 			// Return the original (R, S) lengths for the weight calculation
 			Ok((r_len as u32, s_len as u32))
