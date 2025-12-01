@@ -184,8 +184,8 @@ impl<BlockNumber: Ord + Copy + Zero, Balance: Ord + Copy + Zero> PriorLock<Block
 	}
 }
 
-// The voting power clawed back by a delegator for a specific poll. This happens when the delegator
-// votes and therefore retracts their voting power for the poll.
+// The voting power clawed back by a delegator for a specific poll. This happens when a delegator
+// votes and therefore retracts their voting power from the delgate for the poll.
 type RetractedVotes<Balance> = Delegations<Balance>;
 
 /// Information concerning a voting power's vote in regards to a specific poll.
@@ -201,12 +201,13 @@ type RetractedVotes<Balance> = Delegations<Balance>;
 	MaxEncodedLen,
 )]
 pub struct VoteRecord<PollIndex, Balance> {
-	/// The poll index this information concerns
+	/// The poll index this information concerns.
 	pub poll_index: PollIndex,
-	/// The vote this account has cast. Can be none if only retracted_votes info is needed
+	/// The vote this account has cast. 
+	/// Can be `None` if one of this account's delegates has voted and they have not.
 	pub maybe_vote: Option<AccountVote<Balance>>,
-	/// The amount of votes retracted from this user for this poll. Can't be more than is
-	/// delegated to them. Votes are retracted when a delegator votes in stead of their delegate.
+	/// The amount of votes retracted from the account for this poll.
+	/// This happens when one of this account's delegates votes on the same poll.
 	pub retracted_votes: RetractedVotes<Balance>,
 }
 
