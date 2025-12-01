@@ -115,9 +115,7 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 	assert_para_throughput(
 		&relay_client,
 		15,
-		[(ParaId::from(2100), 35..46), (ParaId::from(2200), 35..46)]
-			.into_iter()
-			.collect(),
+		[(ParaId::from(2100), 35..46), (ParaId::from(2200), 35..46)],
 	)
 	.await?;
 
