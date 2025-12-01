@@ -2,7 +2,7 @@ name: AI PR Review
 
 on:
   # pull_request: # enable this when we think this is ready
-  #   types: [opened]
+  #   types: [opened, ready_for_review]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -29,13 +29,14 @@ jobs:
           fetch-depth: 0
 
       - name: Process PR
-        uses: polka-codes/action@master
+        uses: polka-codes/action@v2
         with:
           pr_number: ${{ github.event.inputs.pr_number || github.event.number }}
           review: true
+          config: .config/review.polkacodes.yml
         env:
           POLKA_API_PROVIDER: google
-          POLKA_MODEL: gemini-3.0-pro
+          POLKA_MODEL: gemini-3-pro-preview
           GITHUB_TOKEN: ${{ github.token }}
           POLKA_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           POLKA_BUDGET: 5
