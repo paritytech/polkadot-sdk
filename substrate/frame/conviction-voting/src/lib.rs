@@ -331,8 +331,8 @@ pub mod pallet {
 		/// Emits `Undelegated`.
 		///
 		/// Weight: `O(R + S)` where R and S are the number of polls the delegate and delegator have
-		///   voted on, respectively. Weight is initially charged as if maximum votes, but is
-		/// refunded later.
+		/// voted on, respectively. Weight is initially charged as if maximum votes, but is refunded
+		/// later.
 		// NOTE: weight must cover an incorrect voting of origin with max votes, this is ensure
 		// because a valid delegation cover decoding a direct voting with max votes.
 		#[pallet::call_index(2)]
@@ -427,7 +427,7 @@ pub mod pallet {
 		/// - `class`: The class of the poll.
 		///
 		/// Weight: `O(R + log R)` where R is Max(targets's number of votes, their (possible)
-		/// delegate's number of votes).   Weight is calculated for the maximum number of votes
+		/// delegate's number of votes). Weight is calculated for the maximum number of votes.
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::remove_other_vote())]
 		pub fn remove_other_vote(
@@ -482,18 +482,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			VotingFor::<T, I>::try_mutate(who, &class, |voting| {
 				let votes = &mut voting.votes;
 				let mut vote_introduced = false;
-				// Search for the vote.
+				// 1. Handle users potential existing vote.
 				let index = match votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
-					// If found.
 					Ok(i) => {
-						// And they currently have a vote.
 						if let Some(old_vote) = votes[i].maybe_vote {
 							// Reduce tally by the vote, shouldn't be possible to fail, but we
 							// handle it gracefully.
 							tally.remove(old_vote).ok_or(ArithmeticError::Underflow)?;
-							// Remove delegations from tally only if vote was standard aye nay.
+							// Remove any delegations from tally only if vote was standard aye nay.
 							if let Some(approve) = old_vote.as_standard() {
-								// But first adjust by the current clawback amount.
+								// Taking into account any clawbacks.
 								let final_delegations =
 									voting.delegations.saturating_sub(votes[i].retracted_votes);
 								tally.reduce(approve, final_delegations);
@@ -506,7 +504,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						votes[i].maybe_vote = Some(vote);
 						i
 					},
-					// If not found.
 					Err(i) => {
 						// Add vote data, unless max vote reached.
 						let vote_record = VoteRecord {
@@ -522,70 +519,30 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					},
 				};
 
-				// Now that pre-existing votes have been handled.
-				// Update tally with new vote, shouldn't be possible to fail, but we handle it
-				// gracefully.
+				// 2. Add incoming vote to the tally.
 				tally.add(vote).ok_or(ArithmeticError::Overflow)?;
 				// If vote is standard, add delegations to tally.
 				if let Some(approve) = vote.as_standard() {
-					// But first adjust by current clawbacks.
+					// Taking into account clawbacks.
 					let final_delegations =
 						voting.delegations.saturating_sub(votes[index].retracted_votes);
 					tally.increase(approve, final_delegations);
 				}
 
-				// If delegating, update delegate's info.
-				if let (Some(delegate), Some(conviction)) =
-					(&voting.maybe_delegate, &voting.maybe_conviction)
-				{
-					// But only if delegator's vote went from None to Some, otherwise the vote
-					// clawback data will already exist.
-					if vote_introduced {
+				// 3. Add clawback to delegator.
+				// Only needed if the voter did not have a pre-existing vote (otherwise clawback
+				// already exists).
+				if vote_introduced {
+					if let (Some(delegate), Some(conviction)) =
+						(&voting.maybe_delegate, &voting.maybe_conviction)
+					{
 						let amount_delegated = conviction.votes(voting.delegated_balance);
-						VotingFor::<T, I>::try_mutate(
+						Self::add_clawback_to_delegate(
 							delegate,
 							&class,
-							|delegate_voting| -> Result<(), DispatchError> {
-								if !delegate_voting.allow_delegator_voting {
-									return Err(Error::<T, I>::DelegatorVotingNotAllowed.into());
-								}
-
-								let delegates_votes = &mut delegate_voting.votes;
-								// Search for data about poll in delegate's voting info.
-								match delegates_votes
-									.binary_search_by_key(&poll_index, |i| i.poll_index)
-								{
-									// If found.
-									Ok(i) => {
-										// Update delegate's clawback amount for this poll.
-										delegates_votes[i].retracted_votes = delegates_votes[i]
-											.retracted_votes
-											.saturating_add(amount_delegated);
-
-										// And update tally if delegate has standard vote recorded.
-										if let Some(delegates_vote) = delegates_votes[i].maybe_vote
-										{
-											if let Some(approve) = delegates_vote.as_standard() {
-												// By delegated amount.
-												tally.reduce(approve, amount_delegated);
-											}
-										}
-										Ok(())
-									},
-									// If not found.
-									Err(i) => {
-										// Add empty vote and clawback amount.
-										let vote_record = VoteRecord {
-											poll_index,
-											maybe_vote: None,
-											retracted_votes: amount_delegated,
-										};
-										delegates_votes.try_insert(i, vote_record).map_err(|_| {
-											Error::<T, I>::DelegateMaxVotesReached.into()
-										})
-									},
-								}
-							},
+							poll_index,
+							amount_delegated,
+							tally,
 						)?;
 					}
 				}
@@ -597,6 +554,55 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Ok(())
 			})
 		})
+	}
+
+	/// Update the delegate's voting record to reflect a "clawback" from a delegator.
+	fn add_clawback_to_delegate(
+		delegate: &T::AccountId,
+		class: &ClassOf<T, I>,
+		poll_index: PollIndexOf<T, I>,
+		amount_delegated: Delegations<BalanceOf<T, I>>,
+		tally: &mut TallyOf<T, I>,
+	) -> Result<(), DispatchError> {
+		VotingFor::<T, I>::try_mutate(
+			delegate,
+			&class,
+			|delegate_voting| -> Result<(), DispatchError> {
+				if !delegate_voting.allow_delegator_voting {
+					return Err(Error::<T, I>::DelegatorVotingNotAllowed.into());
+				}
+
+				let delegates_votes = &mut delegate_voting.votes;
+				// Search for the poll in delegate's votes.
+				match delegates_votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
+					Ok(i) => {
+						// Update delegate's clawback amount for this poll.
+						delegates_votes[i].retracted_votes =
+							delegates_votes[i].retracted_votes.saturating_add(amount_delegated);
+
+						// And update tally if delegate has standard vote recorded.
+						if let Some(delegates_vote) = delegates_votes[i].maybe_vote {
+							if let Some(approve) = delegates_vote.as_standard() {
+								// By delegated amount.
+								tally.reduce(approve, amount_delegated);
+							}
+						}
+						Ok(())
+					},
+					Err(i) => {
+						// Add empty vote and clawback amount.
+						let vote_record = VoteRecord {
+							poll_index,
+							maybe_vote: None,
+							retracted_votes: amount_delegated,
+						};
+						delegates_votes
+							.try_insert(i, vote_record)
+							.map_err(|_| Error::<T, I>::DelegateMaxVotesReached.into())
+					},
+				}
+			},
+		)
 	}
 
 	/// Remove the account's vote for the given poll if possible. This is possible when:
