@@ -447,7 +447,7 @@ impl<B: Backend> State<B> {
 	pub async fn try_launch_new_fetch_requests<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
-	) {
+	) -> Option<u16> {
 		let peer_manager = &self.peer_manager;
 		let connected_rep_query_fn = move |peer_id: &PeerId, para_id: &ParaId| {
 			peer_manager.connected_peer_score(peer_id, para_id)
@@ -455,7 +455,7 @@ impl<B: Backend> State<B> {
 		let all_free_slots = self.collation_manager.all_free_slots();
 		let max_reps = self.peer_manager.max_scores_for_paras(all_free_slots).await;
 
-		let requests = self
+		let (requests, maybe_delay) = self
 			.collation_manager
 			.try_make_new_fetch_requests(connected_rep_query_fn, max_reps);
 
@@ -474,6 +474,8 @@ impl<B: Backend> State<B> {
 				))
 				.await;
 		}
+
+		maybe_delay
 	}
 
 	async fn try_second_unblocked_collations<Sender: CollatorProtocolSenderTrait>(

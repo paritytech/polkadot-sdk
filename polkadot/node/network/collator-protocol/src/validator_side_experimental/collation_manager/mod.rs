@@ -52,6 +52,7 @@ use polkadot_primitives::{
 use requests::PendingRequests;
 use schnellru::{ByLength, LruMap};
 use sp_keystore::KeystorePtr;
+use sp_runtime::Either;
 use std::{
 	collections::{BTreeSet, HashMap, HashSet, VecDeque},
 	time::Instant,
@@ -377,15 +378,16 @@ impl CollationManager {
 		&mut self,
 		connected_rep_query_fn: RepQueryFn,
 		max_scores: HashMap<ParaId, Score>,
-	) -> Vec<Requests> {
+	) -> (Vec<Requests>, Option<u16>) {
 		let now = Instant::now();
 
 		// Advertisements and collations are up to date.
 		// Claim queue states for leaves are also up to date.
 		// Launch requests when it makes sense.
 		let mut requests = vec![];
-		let leaves: Vec<_> = self.claim_queue_state.leaves().copied().collect();
+		let mut maybe_min_delay = None;
 
+		let leaves: Vec<_> = self.claim_queue_state.leaves().copied().collect();
 		for leaf in leaves {
 			let free_slots = self.claim_queue_state.free_slots(&leaf);
 			let Some(allowed_parents) =
@@ -406,15 +408,23 @@ impl CollationManager {
 			for para_id in free_slots {
 				let highest_rep_of_para = max_scores.get(&para_id).copied().unwrap_or_default();
 
-				let Some(advertisement) = self.pick_best_advertisement(
+				let advertisement = match self.pick_best_advertisement(
 					now,
 					leaf,
 					allowed_parents,
 					para_id,
 					highest_rep_of_para,
 					&connected_rep_query_fn,
-				) else {
-					continue
+				) {
+					Either::Left(Some(advertisement)) => advertisement,
+					Either::Left(None) => continue,
+					Either::Right(delay) => {
+						let min_delay = maybe_min_delay.get_or_insert(delay);
+						if delay < *min_delay {
+							maybe_min_delay = Some(delay);
+						}
+						continue
+					},
 				};
 
 				// This here may also claim a slot of another leaf if eligible.
@@ -437,7 +447,7 @@ impl CollationManager {
 			}
 		}
 
-		requests
+		(requests, maybe_min_delay)
 	}
 
 	pub fn remove_peer(&mut self, peer: &PeerId) {
@@ -627,6 +637,17 @@ impl CollationManager {
 		(peer_id, unblocked_can_second)
 	}
 
+	/// Tries to find the best available advertisement for the provided parachain.
+	///
+	/// Computes a score combining the peer reputation and the delay since the advertisement was
+	/// received. Searches for the advertisement with the maximum score and returns it if it has a
+	/// score that is higher than the minimum required score.
+	///
+	/// If there are no advertisements, returns `Either::Left(None)`.
+	///
+	/// If no advertisement has a high enough score, returns `Either::Right(delay)`, where delay is
+	/// the minimum required delay (in milliseconds) in order for an advertisement to surpass
+	/// the minimum required score.
 	fn pick_best_advertisement<RepQueryFn: Fn(&PeerId, &ParaId) -> Option<Score>>(
 		&self,
 		now: Instant,
@@ -635,7 +656,7 @@ impl CollationManager {
 		para_id: ParaId,
 		highest_rep_of_para: Score,
 		connected_rep_query_fn: &RepQueryFn,
-	) -> Option<Advertisement> {
+	) -> Either<Option<Advertisement>, u16> {
 		let fetch_score = INSTANT_FETCH_REP_THRESHOLD.min(highest_rep_of_para);
 		let delay_bonus_per_ms =
 			u16::from(highest_rep_of_para) as f32 / MAX_FETCH_DELAY_IN_MILLIS as f32;
@@ -659,19 +680,19 @@ impl CollationManager {
 					.duration_since(*timepstamp)
 					.as_millis()
 					.min(MAX_FETCH_DELAY_IN_MILLIS as u128);
-				let delay_bonus = delay as f32 * delay_bonus_per_ms;
+				let delay_bonus = (delay as f32 * delay_bonus_per_ms).ceil();
 
 				let mut score = connected_rep_query_fn(&adv.peer_id, &adv.para_id)?;
-				score.saturating_add(delay_bonus.ceil() as u16);
+				score.saturating_add(delay_bonus as u16);
 
 				Some((adv, score))
 			})
 			.max_by_key(|(_, score)| *score);
 
-		let Some((advertisement, score)) = maybe_best_adv else { return None };
+		let Some((advertisement, score)) = maybe_best_adv else { return Either::Left(None) };
 
 		if score >= fetch_score {
-			return Some(*advertisement);
+			return Either::Left(Some(*advertisement));
 		}
 
 		gum::debug!(
@@ -680,7 +701,9 @@ impl CollationManager {
 			?highest_rep_of_para,
 			"Skipping advertisement, as the peer doesn't have a high enough reputation to warrant a fetch now"
 		);
-		None
+		let diff = u16::from(fetch_score) - u16::from(score);
+		let remaining_delay = (diff as f32 / delay_bonus_per_ms).ceil();
+		Either::Right(remaining_delay as u16)
 	}
 
 	async fn get_our_core_schedule<Sender: CollatorProtocolSenderTrait>(
