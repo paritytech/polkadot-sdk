@@ -17,8 +17,8 @@ exclude-from-umbrella = true
 [dependencies]
 alloy-core = { workspace = true, features = ["sol-types"] }
 codec = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
 impl-trait-for-tuples = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 tracing = { workspace = true }
 
 frame-support = { workspace = true }
