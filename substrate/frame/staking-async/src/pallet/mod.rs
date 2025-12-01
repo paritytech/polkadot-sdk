@@ -378,7 +378,7 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::*;
-		use frame_support::{derive_impl, parameter_types, traits::ConstU32};
+		use frame_support::{derive_impl, parameter_types, traits::{ConstU32, ConstBool}};
 		pub struct TestDefaultConfig;
 
 		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
@@ -405,6 +405,7 @@ pub mod pallet {
 			type BondingDuration = BondingDuration;
 			type PlanningEraOffset = ConstU32<1>;
 			type SlashDeferDuration = ();
+			type AreNominatorsSlashable = ConstBool<true>;
 			type MaxExposurePageSize = ConstU32<64>;
 			type MaxUnlockingChunks = ConstU32<32>;
 			type MaxValidatorSet = ConstU32<100>;
@@ -1417,7 +1418,11 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
 			// process our queue.
-			let mut consumed_weight = slashing::process_offence::<T>();
+			let mut consumed_weight = if T::AreNominatorsSlashable::get() {
+				slashing::process_offence::<T>()
+			} else {
+				slashing::process_offence_validator_only::<T>()
+			};
 
 			// apply any pending slashes after `SlashDeferDuration`.
 			consumed_weight.saturating_accrue(T::DbWeight::get().reads(1));

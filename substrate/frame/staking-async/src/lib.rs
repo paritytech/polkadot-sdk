@@ -406,6 +406,18 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 		}
 	}
 
+	pub fn from_overview(overview: PagedExposureMetadata<Balance>) -> Self {
+		Self {
+			exposure_metadata: PagedExposureMetadata {
+				total: overview.total,
+				own: overview.own,
+				nominator_count: overview.nominator_count,
+				page_count: 1,
+			},
+			exposure_page: ExposurePage { page_total: overview.total, others: vec![] },
+		}
+	}
+
 	/// Returns total exposure of this validator across pages
 	pub fn total(&self) -> Balance {
 		self.exposure_metadata.total
