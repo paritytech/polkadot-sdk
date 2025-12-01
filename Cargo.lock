@@ -16222,6 +16222,7 @@ dependencies = [
  "sp-storage 19.0.0",
  "sp-timestamp",
  "sp-transaction-pool",
+ "sp-transaction-storage-proof",
  "sp-version",
  "sp-weights",
  "staging-chain-spec-builder",

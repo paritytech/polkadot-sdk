@@ -223,6 +223,14 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long)]
 	pub enable_statement_store: bool,
 
+	/// Enable the storage inherent data provider.
+	#[arg(long)]
+	pub enable_tx_storage_idp: bool,
+
+	/// Start the node as an ipfs server.
+	#[arg(long)]
+	pub ipfs_server: bool,
+
 	#[arg(skip)]
 	pub(crate) _phantom: PhantomData<Config>,
 }
@@ -269,6 +277,8 @@ impl<Config: CliConfig> Cli<Config> {
 			max_pov_percentage: self.run.experimental_max_pov_percentage,
 			enable_statement_store: self.enable_statement_store,
 			storage_monitor: self.storage_monitor.clone(),
+			enable_tx_storage_idp: self.enable_tx_storage_idp,
+			ipfs_server: self.ipfs_server,
 		}
 	}
 

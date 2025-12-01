@@ -129,4 +129,10 @@ pub struct NodeExtraArgs {
 
 	/// Parameters for storage monitoring.
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,
+
+	/// Enable transaction storage inherent data provider.
+	pub enable_tx_storage_idp: bool,
+
+	/// Start the node as an ipfs server.
+	pub ipfs_server: bool,
 }

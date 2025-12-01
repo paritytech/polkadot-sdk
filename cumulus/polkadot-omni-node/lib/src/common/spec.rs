@@ -61,6 +61,13 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::traits::AccountIdConversion;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
+// Override default idle connection timeout of 10 seconds to give IPFS clients more
+// time to query data over Bitswap. This is needed when manually adding our node
+// to a swarm of an IPFS node, because the IPFS node doesn't keep any active
+// substreams with us and our node closes a connection after
+// `idle_connection_timeout`.
+const IPFS_WORKAROUND_TIMEOUT: Duration = Duration::from_secs(3600);
+
 pub(crate) trait BuildImportQueue<
 	Block: BlockT,
 	RuntimeApi,
@@ -326,7 +333,16 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 		Net: NetworkBackend<Self::Block, Hash>,
 	{
 		let fut = async move {
-			let parachain_config = prepare_node_config(parachain_config);
+			let mut parachain_config = prepare_node_config(parachain_config);
+
+			// Some additional customization in relation to starting the node as an ipfs server.
+			if parachain_config.network.idle_connection_timeout < IPFS_WORKAROUND_TIMEOUT &&
+				node_extra_args.ipfs_server
+			{
+				info!("Overriding `config.network.idle_connection_timeout` to allow long-lived connections with IPFS nodes. The old: {:?} is overriding with: {:?}.", parachain_config.network.idle_connection_timeout, IPFS_WORKAROUND_TIMEOUT);
+				parachain_config.network.idle_connection_timeout = IPFS_WORKAROUND_TIMEOUT;
+			}
+
 			let parachain_public_addresses = parachain_config.network.public_addresses.clone();
 			let parachain_fork_id = parachain_config.chain_spec.fork_id().map(ToString::to_string);
 			let advertise_non_global_ips = parachain_config.network.allow_non_globals_in_dht;
