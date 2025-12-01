@@ -261,6 +261,11 @@ impl Client {
 		self.block_notifier = Some(tokio::sync::broadcast::channel::<H256>(NOTIFIER_CAPACITY).0);
 	}
 
+	/// Sets a block notifier
+	pub fn set_block_notifier(&mut self, notifier: Option<tokio::sync::broadcast::Sender<H256>>) {
+		self.block_notifier = notifier;
+	}
+
 	/// Subscribe to past blocks executing the callback for each block in `range`.
 	async fn subscribe_past_blocks<F, Fut>(
 		&self,
@@ -365,7 +370,7 @@ impl Client {
 				.into_iter()
 				.unzip();
 
-			self.block_provider.update_latest(block, subscription_type).await;
+			self.block_provider.update_latest(Arc::new(block), subscription_type).await;
 			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
 
 			// Only broadcast for best blocks to avoid duplicate notifications.

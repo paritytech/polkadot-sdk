@@ -1,0 +1,15 @@
+title: Remove "SolutionImprovementThreshold" logic
+doc:
+- audience: Runtime Dev
+  description: |-
+    The threshold mechanism used by the `election-provider-multi-block` verifier pallet is no longer relevant. There are no queued solutions to compare during the initial verification. Solutions are subsequently processed in order of decreasing score, with the first verified solution being selected, while any remaining solutions are not verified.
+
+crates:
+- name: asset-hub-westend-runtime
+  bump: major
+- name: pallet-election-provider-multi-block
+  bump: major
+- name: pallet-election-provider-multi-phase
+  bump: major
+- name: sp-npos-elections
+  bump: major

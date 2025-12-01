@@ -27,7 +27,7 @@ pub struct Identity<T>(PhantomData<T>);
 
 impl<T: Config> PrimitivePrecompile for Identity<T> {
 	type T = T;
-	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(4).unwrap());
+	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(0x4).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(

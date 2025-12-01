@@ -44,7 +44,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), VerificationError> {
 		let receipt = verify_receipt_proof(receipts_root, receipt_proof).ok_or(InvalidProof)?;
 		if !receipt.logs().iter().any(|l| Self::check_log_match(log, l)) {
-			log::error!(
+			tracing::error!(
 				target: "ethereum-client",
 				"💫 Event log not found in receipt for transaction",
 			);

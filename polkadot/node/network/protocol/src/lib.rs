@@ -429,6 +429,7 @@ impl_versioned_validation_try_from!(
 	VersionedValidationProtocol,
 	ApprovalDistributionMessage,
 	v3::ValidationProtocol::ApprovalDistribution(x) => x
+
 );
 
 /// Version-annotated messages used by the gossip-support subsystem (this is void).

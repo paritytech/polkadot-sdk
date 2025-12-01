@@ -65,7 +65,7 @@ jobs:
       - name: Install pgpkkms
         run: |
           # Install pgpkms that is used to sign commits
-          pip install git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed
+          pip install git+https://github.com/paritytech-release/pgpkms.git@6cb1cecce1268412189b77e4b130f4fa248c4151
 
       - name: Generate content write token for the release automation
         id: generate_write_token
@@ -140,11 +140,4 @@ jobs:
     uses: ./.github/workflows/release-11_rc-automation.yml
     with:
       version: polkadot-${{ needs.validate-inputs.outputs.stable_version }}
-    secrets:
-      PGP_KMS_SIGN_COMMITS_KEY:  ${{ secrets.PGP_KMS_SIGN_COMMITS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      RELEASE_AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.RELEASE_AUTOMATION_APP_PRIVATE_KEY }}
-      RELEASENOTES_MATRIX_V2_ACCESS_TOKEN: ${{ secrets.RELEASENOTES_MATRIX_V2_ACCESS_TOKEN }}
+    secrets: inherit

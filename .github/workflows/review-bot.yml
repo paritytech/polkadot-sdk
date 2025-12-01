@@ -29,7 +29,7 @@ jobs:
         with:
           artifact-name: pr_number
       - name: "Evaluates PR reviews and assigns reviewers"
-        uses: paritytech/review-bot@3428eb003056e07d56d7730e67c9ca165687ab89 # v2.7.1
+        uses: paritytech/review-bot@9a5828019b78fcc2a7d851ca9797d810bcde95ea # v2.7.2
         with:
           repo-token: ${{ steps.app_token.outputs.token }}
           team-token: ${{ steps.app_token.outputs.token }}

@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::imports::*;
+use crate::{imports::*, tests::bridged_roc_at_ah_westend};
 use asset_hub_westend_runtime::xcm_config::LocationToAccountId;
 use emulated_integration_tests_common::{
 	snowbridge::{SEPOLIA_ID, WETH},
@@ -108,15 +108,19 @@ pub fn register_foreign_asset(token_location: Location) {
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
 			RuntimeOrigin::root(),
 			token_location.clone().try_into().unwrap(),
-			bridge_owner.into(),
+			bridge_owner.clone().into(),
 			true,
 			1000,
 		));
-
 		assert!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::asset_exists(
 			token_location.clone().try_into().unwrap(),
 		));
 	});
+	AssetHubWestend::set_foreign_asset_reserves(
+		token_location,
+		bridge_owner,
+		vec![(ethereum(), false).into()],
+	);
 }
 
 pub fn register_pal_on_ah() {
@@ -427,14 +431,6 @@ pub fn erc20_token_location(token_id: H160) -> Location {
 // ROC and wROC
 pub(crate) fn roc_at_ah_rococo() -> Location {
 	Parent.into()
-}
-pub(crate) fn bridged_roc_at_ah_westend() -> Location {
-	Location::new(2, [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH))])
-}
-
-pub(crate) fn create_foreign_on_ah_westend(id: xcm::opaque::v5::Location, sufficient: bool) {
-	let owner = AssetHubWestend::account_id_of(ALICE);
-	AssetHubWestend::force_create_foreign_asset(id, owner, sufficient, ASSET_MIN_BALANCE, vec![]);
 }
 
 // set up pool

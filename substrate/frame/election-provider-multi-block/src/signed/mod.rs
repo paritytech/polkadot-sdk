@@ -1025,7 +1025,11 @@ impl<T: Config> Pallet<T> {
 		if let Some((loser, metadata)) =
 			Submissions::<T>::take_leader_with_data(current_round).defensive()
 		{
-			// Slash the deposit
+			// Slash the deposit.
+			// Note that an invulnerable is not expelled from the list despite the slashing.
+			// Removal should occur only through governance, not automatically. An operational or
+			// network issue that leads to an incomplete submission is much more likely than a bad
+			// faith action from an invulnerable.
 			let slash = metadata.deposit;
 			let _res = T::Currency::burn_held(
 				&HoldReason::SignedSubmission.into(),
@@ -1036,7 +1040,6 @@ impl<T: Config> Pallet<T> {
 			);
 			debug_assert_eq!(_res, Ok(slash));
 			Self::deposit_event(Event::<T>::Slashed(current_round, loser.clone(), slash));
-			Invulnerables::<T>::mutate(|x| x.retain(|y| y != &loser));
 
 			// Try to start verification again if we still have submissions
 			if let crate::types::Phase::SignedValidation(remaining_blocks) =

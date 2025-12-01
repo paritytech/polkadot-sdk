@@ -27,7 +27,7 @@ pub struct Sha256<T>(PhantomData<T>);
 
 impl<T: Config> PrimitivePrecompile for Sha256<T> {
 	type T = T;
-	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(2).unwrap());
+	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(0x2).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(

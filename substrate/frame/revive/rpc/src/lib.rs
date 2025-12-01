@@ -145,9 +145,10 @@ impl EthRpcServer for EthRpcServerImpl {
 		block: Option<BlockNumberOrTag>,
 	) -> RpcResult<U256> {
 		log::trace!(target: LOG_TARGET, "estimate_gas transaction={transaction:?} block={block:?}");
-		let hash = self.client.block_hash_for_tag(block.unwrap_or_default().into()).await?;
+		let block = block.unwrap_or_default();
+		let hash = self.client.block_hash_for_tag(block.clone().into()).await?;
 		let runtime_api = self.client.runtime_api(hash);
-		let dry_run = runtime_api.dry_run(transaction).await?;
+		let dry_run = runtime_api.dry_run(transaction, block.into()).await?;
 		log::trace!(target: LOG_TARGET, "estimate_gas result={dry_run:?}");
 		Ok(dry_run.eth_gas)
 	}
@@ -157,9 +158,10 @@ impl EthRpcServer for EthRpcServerImpl {
 		transaction: GenericTransaction,
 		block: Option<BlockNumberOrTagOrHash>,
 	) -> RpcResult<Bytes> {
-		let hash = self.client.block_hash_for_tag(block.unwrap_or_default()).await?;
+		let block = block.unwrap_or_default();
+		let hash = self.client.block_hash_for_tag(block.clone()).await?;
 		let runtime_api = self.client.runtime_api(hash);
-		let dry_run = runtime_api.dry_run(transaction).await?;
+		let dry_run = runtime_api.dry_run(transaction, block).await?;
 		Ok(dry_run.data.into())
 	}
 

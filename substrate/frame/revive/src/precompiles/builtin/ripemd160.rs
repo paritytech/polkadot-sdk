@@ -28,7 +28,7 @@ pub struct Ripemd160<T>(PhantomData<T>);
 
 impl<T: Config> PrimitivePrecompile for Ripemd160<T> {
 	type T = T;
-	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(3).unwrap());
+	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(0x3).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(

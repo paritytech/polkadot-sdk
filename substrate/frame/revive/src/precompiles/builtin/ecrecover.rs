@@ -27,7 +27,7 @@ pub struct EcRecover<T>(PhantomData<T>);
 
 impl<T: Config> PrimitivePrecompile for EcRecover<T> {
 	type T = T;
-	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(1).unwrap());
+	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(0x1).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(

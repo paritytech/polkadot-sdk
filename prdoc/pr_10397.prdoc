@@ -1,0 +1,8 @@
+title: Update the commit hash of the revive-differential-tests
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    This is a PR that updates the commit hash of the revive-differential-tests framework and the compilation caches to a version that includes fixes to certain tests that used hard-coded gas values. The compilation caches required an update since this was a change to the contract's code.
+crates: []

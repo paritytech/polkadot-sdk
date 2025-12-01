@@ -36,7 +36,7 @@ use sp_core::{
 	},
 };
 use sp_externalities::{Extension, ExtensionStore, Extensions};
-use sp_trie::{PrefixedMemoryDB, StorageProof};
+use sp_trie::{recorder::Recorder, PrefixedMemoryDB, StorageProof};
 
 /// Simple HashMap-based Externalities impl.
 pub struct TestExternalities<H>
@@ -266,6 +266,21 @@ where
 		(outcome, proof)
 	}
 
+	/// Execute the given closure while `self` set as externalities and the given `proof_recorder`
+	/// enabled.
+	pub fn execute_with_recorder<R>(
+		&mut self,
+		proof_recorder: Recorder<H>,
+		execute: impl FnOnce() -> R,
+	) -> R {
+		let proving_backend =
+			TrieBackendBuilder::wrap(&self.backend).with_recorder(proof_recorder).build();
+		let mut proving_ext =
+			Ext::new(&mut self.overlay, &proving_backend, Some(&mut self.extensions));
+
+		sp_externalities::set_and_run_with_externalities(&mut proving_ext, execute)
+	}
+
 	/// Execute the given closure while `self` is set as externalities.
 	///
 	/// Returns the result of the given closure, if no panics occurred.
@@ -279,6 +294,11 @@ where
 			sp_externalities::set_and_run_with_externalities(&mut *ext, f)
 		})
 		.map_err(|e| format!("Closure panicked: {:?}", e))
+	}
+
+	/// Resets the overlay to its default state.
+	pub fn reset_overlay(&mut self) {
+		self.overlay = Default::default();
 	}
 }
 

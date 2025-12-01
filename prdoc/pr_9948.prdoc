@@ -1,0 +1,105 @@
+title: 'pallet-assets: add reserves info to support non-teleportable Foreign Assets on Asset Hub'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR adds a new storage item and new call to `pallet-assets` that can be used to configure
+    the trusted reserves (as seen by the local chain) on a per-asset basis. This is a generic
+    type that is flexible at the runtime level. It can be an XCM Location or any other type of
+    location information, or it can be set to () if the assets managed by the pallet instance
+    do not require any remote reserves information.
+    
+    The PR also adds helper machinery for runtimes to use the assets reserves information when
+    reasoning about XCM teleports and XCM reserve-based transfers.
+    
+    For example, in Westend Asset Hub's case, for each asset, only explicitly configured
+    assets' reserve locations will be trusted. Besides the actual reserve location(s), a
+    `teleportable: bool` flag is also set for each reserve, specifying whether the asset is
+    teleportable or not between the local chain and said reserve location.
+    Any other chain that should be assumed as a trusted reserve needs to be marked as such
+    in `pallet-assets` by the asset's `Owner`.
+    
+    By default, on asset creation, no explicit reserve information is configured. This
+    results in foreign assets not being transferable cross-chain by default. To enable
+    cross-chain transfers, one of the following configurations is required on the `Asset` to
+    be done by its `Owner`:
+    - For AH to accept incoming reserve transfer of asset "A" from remote chain "X", that
+      chain needs to be added as a trusted reserve for asset "A", and `teleportable` flag set
+      to `false`:
+      ```rust
+      let asset_id = "A";
+      let origin = Signed(OwnerOfA);
+      let reserves = vec![
+        ForeignAssetReserveData { reserve: "Remote Chain X location", teleport: false }
+      ];
+      pallet_assets::set_reserves(origin, asset_id, reserves);
+      ```
+    - For AH to accept teleports of asset "A" from remote chain "X", that chain needs to be
+      added as trusted reserves for asset "A", and `teleportable` flag set to `true`:
+      ```rust
+      let asset_id = "A";
+      let origin = Signed(OwnerOfA);
+      let reserves = vec![
+        ForeignAssetReserveData { reserve: "Remote Chain X location", teleport: true }
+      ];
+      pallet_assets::set_reserves(origin, asset_id, reserves);
+      ```
+
+crates:
+- name: frame-support
+  bump: minor
+- name: pallet-asset-conversion
+  bump: patch
+- name: pallet-assets
+  bump: major
+- name: pallet-xcm
+  bump: patch
+- name: pallet-asset-tx-payment
+  bump: patch
+- name: pallet-asset-conversion-tx-payment
+  bump: patch
+- name: pallet-assets-holder
+  bump: patch
+- name: pallet-assets-precompiles
+  bump: patch
+- name: pallet-asset-rewards
+  bump: patch
+- name: pallet-assets-freezer
+  bump: patch
+- name: pallet-contracts-mock-network
+  bump: minor
+- name: pallet-nft-fractionalization
+  bump: patch
+- name: staging-xcm-builder
+  bump: patch
+- name: xcm-runtime-apis
+  bump: patch
+- name: asset-test-utils
+  bump: minor
+- name: assets-common
+  bump: minor
+- name: penpal-runtime
+  bump: major
+- name: rococo-parachain-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: major
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: staging-xcm-executor
+  bump: patch
+- name: emulated-integration-tests-common
+  bump: minor
+- name: pallet-xcm-precompiles
+  bump: patch
+- name: snowbridge-pallet-inbound-queue
+  bump: minor
+- name: polkadot-sdk
+  bump: minor  
+- name: snowbridge-inbound-queue-primitives
+  bump: major
+- name: snowbridge-pallet-inbound-queue-v2
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor

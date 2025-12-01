@@ -6,8 +6,7 @@
 
 use std::ops::Range;
 use anyhow::anyhow;
-use cumulus_zombienet_sdk_helpers::{assert_para_throughput, wait_for_nth_session_change,
-                                    report_label_with_attributes};
+use cumulus_zombienet_sdk_helpers::{assert_para_throughput, wait_for_nth_session_change, report_label_with_attributes, assert_finality_lag};
 use polkadot_primitives::{Id as ParaId, SessionIndex};
 use serde_json::json;
 use subxt::{OnlineClient, PolkadotConfig};
@@ -30,7 +29,10 @@ async fn rewards_statistics_collector_test() -> Result<(), anyhow::Error> {
                 .with_chain("rococo-local")
                 .with_default_command("polkadot")
                 .with_default_image(images.polkadot.as_str())
-                .with_default_args(vec![("-lparachain=debug").into()])
+                .with_default_args(vec![
+                    ("-lparachain=debug").into(),
+                    ("--verbose-approval-metrics=true").into(),
+                ])
                 .with_genesis_overrides(json!({
 					"configuration": {
 						"config": {
@@ -88,8 +90,9 @@ async fn rewards_statistics_collector_test() -> Result<(), anyhow::Error> {
     )
         .await?;
 
-    // wait for a session to be finalized
-    wait_for_nth_session_change(&mut blocks_sub, 1).await;
+    // Assert the parachain finalized block height is also on par with the number of backed
+    // candidates. We can only do this for the collator based on cumulus.
+    assert_finality_lag(&relay_client, 6).await?;
 
     assert_approval_usages_medians(
         1,

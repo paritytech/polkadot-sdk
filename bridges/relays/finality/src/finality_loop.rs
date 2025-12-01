@@ -141,15 +141,14 @@ impl<P: FinalitySyncPipeline> SyncInfo<P> {
 		Ok(if id_at_target.1 == header_hash_at_source {
 			true
 		} else {
-			log::error!(
+			tracing::error!(
 				target: "bridge",
-				"Source node ({}) and pallet at target node ({}) have different headers at the same height {:?}: \
-				at-source {:?} vs at-target {:?}",
-				P::SOURCE_NAME,
-				P::TARGET_NAME,
-				id_at_target.0,
-				header_hash_at_source,
-				id_at_target.1,
+				source=%P::SOURCE_NAME,
+				target=%P::TARGET_NAME,
+				height=?id_at_target.0,
+				at_source=?header_hash_at_source,
+				at_target=?id_at_target.1,
+				"Source node and pallet at target node have different headers at the same height"
 			);
 
 			false
@@ -206,12 +205,12 @@ impl<Tracker: TransactionTracker, Number: Debug + PartialOrd> Transaction<Tracke
 		is_free_execution_expected: bool,
 	) -> Result<Self, TC::Error> {
 		let header_number = header.number();
-		log::debug!(
+		tracing::debug!(
 			target: "bridge",
-			"Going to submit finality proof of {} header #{:?} to {}",
-			P::SOURCE_NAME,
-			header_number,
-			P::TARGET_NAME,
+			source=%P::SOURCE_NAME,
+			target=%P::TARGET_NAME,
+			header=?header_number,
+			"Going to submit finality proof of header"
 		);
 
 		let tracker = target_client
@@ -302,11 +301,11 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 			return
 		}
 
-		log::info!(
+		tracing::info!(
 			target: "bridge",
-			"Synced {:?} of {:?} headers",
-			info.best_number_at_target,
-			info.best_number_at_source,
+			best_number_at_target=?info.best_number_at_target,
+			best_number_at_source=?info.best_number_at_source,
+			"Synced headers"
 		);
 
 		self.progress = (now, Some(info.best_number_at_target))
@@ -318,11 +317,11 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 		free_headers_interval: Option<P::Number>,
 	) -> Result<Option<JustifiedHeader<P>>, Error<P, SC::Error, TC::Error>> {
 		// to see that the loop is progressing
-		log::trace!(
+		tracing::trace!(
 			target: "bridge",
-			"Considering range of headers ({}; {}]",
-			info.best_number_at_target,
-			info.best_number_at_source
+			best_number_at_target=%info.best_number_at_target,
+			best_number_at_source=%info.best_number_at_source,
+			"Considering range of headers"
 		);
 
 		// read missing headers
@@ -434,7 +433,7 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 					self.sync_params.tick
 				},
 				Err(error) => {
-					log::error!(target: "bridge", "Finality sync loop iteration has failed with error: {:?}", error);
+					tracing::error!(target: "bridge", ?error, "Finality sync loop iteration has failed");
 					error.fail_if_connection_error()?;
 					self.retry_backoff
 						.next_backoff()
@@ -447,11 +446,11 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 			select! {
 				proof_submission_result = proof_submission_tx_tracker => {
 					if let Err(e) = proof_submission_result {
-						log::error!(
+						tracing::error!(
 							target: "bridge",
-							"Finality sync proof submission tx to {} has failed with error: {:?}.",
-							P::TARGET_NAME,
-							e,
+							error=?e,
+							target=%P::TARGET_NAME,
+							"Finality sync proof submission tx has failed."
 						);
 						self.best_submitted_number = None;
 						e.fail_if_connection_error()?;
@@ -480,41 +479,41 @@ async fn free_headers_interval<P: FinalitySyncPipeline>(
 ) -> Result<Option<P::Number>, FailedClient> {
 	match target_client.free_source_headers_interval().await {
 		Ok(Some(free_headers_interval)) if !free_headers_interval.is_zero() => {
-			log::trace!(
+			tracing::trace!(
 				target: "bridge",
-				"Free headers interval for {} headers at {} is: {:?}",
-				P::SOURCE_NAME,
-				P::TARGET_NAME,
-				free_headers_interval,
+				source=%P::SOURCE_NAME,
+				target=%P::TARGET_NAME,
+				?free_headers_interval,
+				"Free headers interval for headers"
 			);
 			Ok(Some(free_headers_interval))
 		},
 		Ok(Some(_free_headers_interval)) => {
-			log::trace!(
+			tracing::trace!(
 				target: "bridge",
-				"Free headers interval for {} headers at {} is zero. Not submitting any free headers",
-				P::SOURCE_NAME,
-				P::TARGET_NAME,
+				source=%P::SOURCE_NAME,
+				target=%P::TARGET_NAME,
+				"Free headers interval for headers is zero. Not submitting any free headers"
 			);
 			Ok(None)
 		},
 		Ok(None) => {
-			log::trace!(
+			tracing::trace!(
 				target: "bridge",
-				"Free headers interval for {} headers at {} is None. Not submitting any free headers",
-				P::SOURCE_NAME,
-				P::TARGET_NAME,
+				source=%P::SOURCE_NAME,
+				target=%P::TARGET_NAME,
+				"Free headers interval for headers is None. Not submitting any free headers"
 			);
 
 			Ok(None)
 		},
 		Err(e) => {
-			log::error!(
+			tracing::error!(
 				target: "bridge",
-				"Failed to read free headers interval for {} headers at {}: {:?}",
-				P::SOURCE_NAME,
-				P::TARGET_NAME,
-				e,
+				error=?e,
+				source=%P::SOURCE_NAME,
+				target=%P::TARGET_NAME,
+				"Failed to read free headers interval for headers"
 			);
 			Err(FailedClient::Target)
 		},

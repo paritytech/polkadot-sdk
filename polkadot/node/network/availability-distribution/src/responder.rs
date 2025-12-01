@@ -29,7 +29,7 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::{AvailableData, ErasureChunk};
 use polkadot_node_subsystem::{messages::AvailabilityStoreMessage, SubsystemSender};
-use polkadot_node_subsystem::messages::ConsensusStatisticsCollectorMessage;
+use polkadot_node_subsystem::messages::RewardsStatisticsCollectorMessage;
 use polkadot_primitives::{CandidateHash, ValidatorIndex};
 
 use crate::{
@@ -77,7 +77,7 @@ pub async fn run_chunk_receivers<Sender, AD>(
 	metrics: Metrics,
 ) where
 	Sender: SubsystemSender<AvailabilityStoreMessage>
-		+ SubsystemSender<ConsensusStatisticsCollectorMessage>,
+		+ SubsystemSender<RewardsStatisticsCollectorMessage>,
 	AD: AuthorityDiscovery + Clone + Sync
 {
 	let make_resp_v1 = |chunk: Option<ErasureChunk>| match chunk {
@@ -174,7 +174,7 @@ pub async fn answer_chunk_request_log<Sender, AD, Req, MakeResp>(
 	Req: IsRequest + Decode + Encode + Into<v1::ChunkFetchingRequest>,
 	Req::Response: Encode,
 	Sender: SubsystemSender<AvailabilityStoreMessage>
-		+ SubsystemSender<ConsensusStatisticsCollectorMessage>,
+		+ SubsystemSender<RewardsStatisticsCollectorMessage>,
 	MakeResp: Fn(Option<ErasureChunk>) -> Req::Response,
 {
 	let res = answer_chunk_request(sender, authority_discovery, req, make_response).await;
@@ -231,7 +231,7 @@ pub async fn answer_chunk_request<Sender, AD, Req, MakeResp>(
 where
 	AD: AuthorityDiscovery,
 	Sender: SubsystemSender<AvailabilityStoreMessage>
-		+ SubsystemSender<ConsensusStatisticsCollectorMessage>,
+		+ SubsystemSender<RewardsStatisticsCollectorMessage>,
 	Req: IsRequest + Decode + Encode + Into<v1::ChunkFetchingRequest>,
 	Req::Response: Encode,
 	MakeResp: Fn(Option<ErasureChunk>) -> Req::Response,
@@ -248,7 +248,7 @@ where
 		let authority_ids = authority_discovery.get_authority_ids_by_peer_id(req.peer).await;
 		if let Some(authority_ids) = authority_ids {
 			_ = sender.try_send_message(
-				ConsensusStatisticsCollectorMessage::ChunkUploaded(payload.candidate_hash, authority_ids));
+				RewardsStatisticsCollectorMessage::ChunkUploaded(payload.candidate_hash, authority_ids));
 		}
 	}
 

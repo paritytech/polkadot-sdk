@@ -95,7 +95,7 @@ use persisted_entries::{ApprovalEntry, BlockEntry, CandidateEntry};
 use polkadot_node_primitives::approval::time::{
 	slot_number_to_tick, Clock, ClockExt, DelayedApprovalTimer, SystemClock, Tick,
 };
-use polkadot_node_subsystem::messages::ConsensusStatisticsCollectorMessage;
+use polkadot_node_subsystem::messages::RewardsStatisticsCollectorMessage;
 mod approval_checking;
 pub mod approval_db;
 mod backend;
@@ -1249,7 +1249,7 @@ async fn run<
 	Sender: SubsystemSender<ChainApiMessage>
 		+ SubsystemSender<RuntimeApiMessage>
 		+ SubsystemSender<ChainSelectionMessage>
-		+ SubsystemSender<ConsensusStatisticsCollectorMessage>
+		+ SubsystemSender<RewardsStatisticsCollectorMessage>
 		+ SubsystemSender<AvailabilityRecoveryMessage>
 		+ SubsystemSender<DisputeCoordinatorMessage>
 		+ SubsystemSender<CandidateValidationMessage>
@@ -1485,7 +1485,7 @@ pub async fn start_approval_worker<
 		+ SubsystemSender<RuntimeApiMessage>
 		+ SubsystemSender<ChainSelectionMessage>
 		+ SubsystemSender<AvailabilityRecoveryMessage>
-		+ SubsystemSender<ConsensusStatisticsCollectorMessage>
+		+ SubsystemSender<RewardsStatisticsCollectorMessage>
 		+ SubsystemSender<DisputeCoordinatorMessage>
 		+ SubsystemSender<CandidateValidationMessage>
 		+ Clone,
@@ -1565,7 +1565,7 @@ async fn handle_actions<
 		+ SubsystemSender<AvailabilityRecoveryMessage>
 		+ SubsystemSender<DisputeCoordinatorMessage>
 		+ SubsystemSender<CandidateValidationMessage>
-		+ SubsystemSender<ConsensusStatisticsCollectorMessage>
+		+ SubsystemSender<RewardsStatisticsCollectorMessage>
 		+ Clone,
 	ADSender: SubsystemSender<ApprovalDistributionMessage>,
 >(
@@ -2032,7 +2032,7 @@ async fn handle_from_overseer<
 	Sender: SubsystemSender<ChainApiMessage>
 		+ SubsystemSender<RuntimeApiMessage>
 		+ SubsystemSender<ChainSelectionMessage>
-		+ SubsystemSender<ConsensusStatisticsCollectorMessage>
+		+ SubsystemSender<RewardsStatisticsCollectorMessage>
 		+ Clone,
 	ADSender: SubsystemSender<ApprovalDistributionMessage>,
 >(
@@ -2909,7 +2909,7 @@ async fn import_approval<Sender>(
 ) -> SubsystemResult<(Vec<Action>, ApprovalCheckResult)>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>
-		+ SubsystemSender<ConsensusStatisticsCollectorMessage>,
+		+ SubsystemSender<RewardsStatisticsCollectorMessage>,
 {
 	macro_rules! respond_early {
 		($e: expr) => {{
@@ -3063,7 +3063,7 @@ async fn advance_approval_state<Sender>(
 ) -> Vec<Action>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>
-		+ SubsystemSender<ConsensusStatisticsCollectorMessage>,
+		+ SubsystemSender<RewardsStatisticsCollectorMessage>,
 {
 	let validator_index = transition.validator_index();
 
@@ -3252,7 +3252,7 @@ where
 
 			if status.no_show_validators.len() > 0 {
 				_ = sender
-					.try_send_message(ConsensusStatisticsCollectorMessage::NoShows(
+					.try_send_message(RewardsStatisticsCollectorMessage::NoShows(
 						candidate_entry.candidate.hash(),
 						block_hash,
 						status.no_show_validators,
@@ -3326,7 +3326,7 @@ async fn process_wakeup<Sender>(
 ) -> SubsystemResult<Vec<Action>>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>
-		+ SubsystemSender<ConsensusStatisticsCollectorMessage>
+		+ SubsystemSender<RewardsStatisticsCollectorMessage>
 {
 	let block_entry = db.load_block_entry(&relay_block)?;
 	let candidate_entry = db.load_candidate_entry(&candidate_hash)?;
@@ -3736,7 +3736,7 @@ async fn launch_approval<
 #[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
 async fn issue_approval<
 	Sender: SubsystemSender<RuntimeApiMessage> +
-		SubsystemSender<ConsensusStatisticsCollectorMessage>,
+		SubsystemSender<RewardsStatisticsCollectorMessage>,
 	ADSender: SubsystemSender<ApprovalDistributionMessage>,
 >(
 	sender: &mut Sender,
@@ -4119,7 +4119,7 @@ fn collect_useful_approvals<Sender>(
 	candidate_entry: &CandidateEntry,
 )
 where
-	Sender: SubsystemSender<ConsensusStatisticsCollectorMessage>
+	Sender: SubsystemSender<RewardsStatisticsCollectorMessage>
 {
 	let candidate_hash = candidate_entry.candidate.hash();
 	let candidate_approvals = candidate_entry.approvals();
@@ -4167,7 +4167,7 @@ where
 			"collected useful approvals"
 		);
 
-		_ = sender.try_send_message(ConsensusStatisticsCollectorMessage::CandidateApproved(
+		_ = sender.try_send_message(RewardsStatisticsCollectorMessage::CandidateApproved(
 			candidate_hash,
 			block_hash,
 			collected_useful_approvals,

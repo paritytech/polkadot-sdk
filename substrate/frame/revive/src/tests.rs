@@ -50,7 +50,7 @@ use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
 	generic::Header,
 	traits::{BlakeTwo256, Convert, IdentityLookup, One},
-	AccountId32, BuildStorage, MultiAddress, MultiSignature, Perbill,
+	AccountId32, BuildStorage, MultiAddress, MultiSignature, Perbill, Storage,
 };
 
 pub type Address = MultiAddress<AccountId32, u32>;
@@ -439,6 +439,7 @@ pub struct ExtBuilder {
 	storage_version: Option<StorageVersion>,
 	code_hashes: Vec<sp_core::H256>,
 	genesis_config: Option<crate::GenesisConfig<Test>>,
+	genesis_state_overrides: Option<Storage>,
 }
 
 impl Default for ExtBuilder {
@@ -448,6 +449,7 @@ impl Default for ExtBuilder {
 			storage_version: None,
 			code_hashes: vec![],
 			genesis_config: Some(crate::GenesisConfig::<Test>::default()),
+			genesis_state_overrides: None,
 		}
 	}
 }
@@ -469,10 +471,19 @@ impl ExtBuilder {
 	pub fn set_associated_consts(&self) {
 		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = self.existential_deposit);
 	}
+	pub fn with_genesis_state_overrides(mut self, storage: Storage) -> Self {
+		self.genesis_state_overrides = Some(storage);
+		self
+	}
 	pub fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
 		self.set_associated_consts();
-		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+		let mut t = self.genesis_state_overrides.unwrap_or_default();
+
+		frame_system::GenesisConfig::<Test>::default()
+			.assimilate_storage(&mut t)
+			.unwrap();
+
 		let checking_account = Pallet::<Test>::checking_account();
 
 		pallet_balances::GenesisConfig::<Test> {

@@ -1,0 +1,19 @@
+title: Send PeerId via UMP
+doc:
+- audience:
+  - Node Dev
+  - Runtime Dev
+  description: |-
+    Resolves https://github.com/paritytech/polkadot-sdk/issues/7749
+
+    This PR propagates the network `PeerId` of the collator to the parachain inherent.
+    Then the parachain runtime emits a UMP signal containing the collator `PeerId`.
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: minor
+- name: cumulus-client-consensus-aura
+  bump: major
+- name: cumulus-client-parachain-inherent
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: patch

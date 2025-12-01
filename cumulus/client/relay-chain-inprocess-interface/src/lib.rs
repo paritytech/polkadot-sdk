@@ -419,7 +419,7 @@ fn build_polkadot_full_node(
 		keep_finalized_for: None,
 		invulnerable_ah_collators: HashSet::new(),
 		collator_protocol_hold_off: None,
-		publish_per_validator_approval_metrics: false,
+		verbose_approval_metrics: false,
 	};
 
 	let (relay_chain_full_node, paranode_req_receiver) = match config.network.network_backend {
@@ -442,7 +442,7 @@ pub fn build_inprocess_relay_chain(
 	task_manager: &mut TaskManager,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> RelayChainResult<(
-	Arc<(dyn RelayChainInterface + 'static)>,
+	Arc<dyn RelayChainInterface + 'static>,
 	Option<CollatorPair>,
 	Arc<dyn NetworkService>,
 	async_channel::Receiver<IncomingRequest>,

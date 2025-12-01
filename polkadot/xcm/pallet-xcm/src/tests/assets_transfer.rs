@@ -57,7 +57,7 @@ fn limited_teleport_assets_works() {
 			Box::new(RelayLocation::get().into()),
 			Box::new(expected_beneficiary.clone().into()),
 			Box::new((Here, SEND_AMOUNT).into()),
-			0,
+			Box::new(RelayLocation::get().into()),
 			weight_limit,
 		));
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE - SEND_AMOUNT);
@@ -110,7 +110,7 @@ fn limited_teleport_filtered_assets_disallowed() {
 			Box::new(FilteredTeleportLocation::get().into()),
 			Box::new(beneficiary.into()),
 			Box::new(FilteredTeleportAsset::get().into()),
-			0,
+			Box::new(FilteredTeleportAsset::get().id.into()),
 			Unlimited,
 		);
 		let expected_result = Err(crate::Error::<Test>::Filtered.into());
@@ -144,7 +144,7 @@ fn reserve_transfer_assets_with_paid_router_works() {
 			Box::new(Parachain(paid_para_id).into()),
 			Box::new(dest.clone().into()),
 			Box::new((Here, SEND_AMOUNT).into()),
-			0,
+			Box::new(Here.into()),
 			Unlimited,
 		));
 
@@ -239,15 +239,13 @@ pub(crate) fn set_up_foreign_asset(
 	(reserve_location, reserve_sovereign_account, foreign_asset_id_location)
 }
 
-// Helper function that provides correct `fee_index` after `sort()` done by
-// `vec![Asset, Asset].into()`.
+// Helper function that provides assets list with fee and transfer assets
 pub(crate) fn into_assets_checked(
 	fee_asset: Asset,
 	transfer_asset: Asset,
-) -> (Assets, usize, Asset, Asset) {
+) -> (Assets, Asset, Asset) {
 	let assets: Assets = vec![fee_asset.clone(), transfer_asset.clone()].into();
-	let fee_index = if assets.get(0).unwrap().eq(&fee_asset) { 0 } else { 1 };
-	(assets, fee_index, fee_asset, transfer_asset)
+	(assets, fee_asset, transfer_asset)
 }
 
 /// Test `tested_call` with local asset reserve and local fee reserve.
@@ -265,7 +263,7 @@ fn local_asset_reserve_and_local_fee_reserve_call<Call>(
 		Box<VersionedLocation>,
 		Box<VersionedLocation>,
 		Box<VersionedAssets>,
-		u32,
+		Box<VersionedAssetId>,
 		WeightLimit,
 	) -> DispatchResult,
 {
@@ -291,7 +289,7 @@ fn local_asset_reserve_and_local_fee_reserve_call<Call>(
 			Box::new(dest.clone().into()),
 			Box::new(beneficiary.clone().into()),
 			Box::new((Here, SEND_AMOUNT).into()),
-			0,
+			Box::new(Here.into()),
 			weight_limit,
 		);
 		assert_eq!(result, expected_result);
@@ -386,7 +384,7 @@ fn destination_asset_reserve_and_local_fee_reserve_call<Call>(
 		Box<VersionedLocation>,
 		Box<VersionedLocation>,
 		Box<VersionedAssets>,
-		u32,
+		Box<VersionedAssetId>,
 		WeightLimit,
 	) -> DispatchResult,
 {
@@ -410,7 +408,7 @@ fn destination_asset_reserve_and_local_fee_reserve_call<Call>(
 		// transfer destination is reserve location (no teleport trust)
 		let dest = reserve_location;
 
-		let (assets, fee_index, fee_asset, xfer_asset) = into_assets_checked(
+		let (assets, fee_asset, xfer_asset) = into_assets_checked(
 			// native asset for fee - local reserve
 			(Location::here(), FEE_AMOUNT).into(),
 			// foreign asset to transfer - destination reserve
@@ -419,7 +417,7 @@ fn destination_asset_reserve_and_local_fee_reserve_call<Call>(
 
 		// reanchor according to test-case
 		let context = UniversalLocation::get();
-		let expected_fee = fee_asset.reanchored(&dest, &context).unwrap();
+		let expected_fee = fee_asset.clone().reanchored(&dest, &context).unwrap();
 		let expected_asset = xfer_asset.reanchored(&dest, &context).unwrap();
 
 		// balances checks before
@@ -435,7 +433,7 @@ fn destination_asset_reserve_and_local_fee_reserve_call<Call>(
 			Box::new(dest.clone().into()),
 			Box::new(beneficiary.clone().into()),
 			Box::new(assets.into()),
-			fee_index as u32,
+			Box::new(fee_asset.id.into()),
 			Unlimited,
 		);
 		assert_eq!(result, expected_result);
@@ -549,7 +547,7 @@ fn remote_asset_reserve_and_local_fee_reserve_call_disallowed<Call>(
 		Box<VersionedLocation>,
 		Box<VersionedLocation>,
 		Box<VersionedAssets>,
-		u32,
+		Box<VersionedAssetId>,
 		WeightLimit,
 	) -> DispatchResult,
 {
@@ -570,7 +568,7 @@ fn remote_asset_reserve_and_local_fee_reserve_call_disallowed<Call>(
 		// chain)
 		let dest = RelayLocation::get().pushed_with_interior(Parachain(OTHER_PARA_ID)).unwrap();
 
-		let (assets, fee_index, _, _) = into_assets_checked(
+		let (assets, fee_asset, _) = into_assets_checked(
 			// native asset for fee - local reserve
 			(Location::here(), FEE_AMOUNT).into(),
 			// foreign asset to transfer - remote reserve
@@ -590,7 +588,7 @@ fn remote_asset_reserve_and_local_fee_reserve_call_disallowed<Call>(
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
 			Box::new(assets.into()),
-			fee_index as u32,
+			Box::new(fee_asset.id.into()),
 			Unlimited,
 		);
 		assert_eq!(result, expected_result);
@@ -662,7 +660,7 @@ fn local_asset_reserve_and_destination_fee_reserve_call<Call>(
 		Box<VersionedLocation>,
 		Box<VersionedLocation>,
 		Box<VersionedAssets>,
-		u32,
+		Box<VersionedAssetId>,
 		WeightLimit,
 	) -> DispatchResult,
 {
@@ -685,7 +683,7 @@ fn local_asset_reserve_and_destination_fee_reserve_call<Call>(
 		// native assets transfer to fee reserve location (no teleport trust)
 		let dest = usdc_reserve_location;
 
-		let (assets, fee_index, fee_asset, xfer_asset) = into_assets_checked(
+		let (assets, fee_asset, xfer_asset) = into_assets_checked(
 			// usdc for fees (is sufficient on local chain too) - destination reserve
 			(usdc_id_location.clone(), FEE_AMOUNT).into(),
 			// native asset to transfer (not used for fees) - local reserve
@@ -694,7 +692,7 @@ fn local_asset_reserve_and_destination_fee_reserve_call<Call>(
 
 		// reanchor according to test-case
 		let context = UniversalLocation::get();
-		let expected_fee = fee_asset.reanchored(&dest, &context).unwrap();
+		let expected_fee = fee_asset.clone().reanchored(&dest, &context).unwrap();
 		let expected_asset = xfer_asset.reanchored(&dest, &context).unwrap();
 
 		// balances checks before
@@ -710,7 +708,7 @@ fn local_asset_reserve_and_destination_fee_reserve_call<Call>(
 			Box::new(dest.clone().into()),
 			Box::new(beneficiary.clone().into()),
 			Box::new(assets.into()),
-			fee_index as u32,
+			Box::new(fee_asset.id.into()),
 			Unlimited,
 		);
 		assert_eq!(result, expected_result);
@@ -821,7 +819,7 @@ fn destination_asset_reserve_and_destination_fee_reserve_call<Call>(
 		Box<VersionedLocation>,
 		Box<VersionedLocation>,
 		Box<VersionedAssets>,
-		u32,
+		Box<VersionedAssetId>,
 		WeightLimit,
 	) -> DispatchResult,
 {
@@ -845,7 +843,7 @@ fn destination_asset_reserve_and_destination_fee_reserve_call<Call>(
 		// transfer destination is reserve location
 		let dest = reserve_location;
 		let assets: Assets = vec![(foreign_asset_id_location.clone(), SEND_AMOUNT).into()].into();
-		let fee_index = 0;
+		let fee_asset_id = foreign_asset_id_location.clone();
 
 		// reanchor according to test-case
 		let mut expected_assets = assets.clone();
@@ -864,7 +862,7 @@ fn destination_asset_reserve_and_destination_fee_reserve_call<Call>(
 			Box::new(dest.clone().into()),
 			Box::new(beneficiary.clone().into()),
 			Box::new(assets.into()),
-			fee_index,
+			Box::new(fee_asset_id.into()),
 			Unlimited,
 		);
 		assert_eq!(result, expected_result);
@@ -976,7 +974,7 @@ fn remote_asset_reserve_and_destination_fee_reserve_call_disallowed<Call>(
 		Box<VersionedLocation>,
 		Box<VersionedLocation>,
 		Box<VersionedAssets>,
-		u32,
+		Box<VersionedAssetId>,
 		WeightLimit,
 	) -> DispatchResult,
 {
@@ -1007,7 +1005,7 @@ fn remote_asset_reserve_and_destination_fee_reserve_call_disallowed<Call>(
 		// reserve chain)
 		let dest = usdc_chain;
 
-		let (assets, fee_index, _, _) = into_assets_checked(
+		let (assets, fee_asset, _) = into_assets_checked(
 			// USDC for fees (is sufficient on local chain too) - destination reserve
 			(usdc_id_location.clone(), FEE_AMOUNT).into(),
 			// foreign asset to transfer (not used for fees) - remote reserve
@@ -1031,7 +1029,7 @@ fn remote_asset_reserve_and_destination_fee_reserve_call_disallowed<Call>(
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
 			Box::new(assets.into()),
-			fee_index as u32,
+			Box::new(fee_asset.id.into()),
 			Unlimited,
 		);
 		assert_eq!(result, expected_result);
@@ -1103,7 +1101,7 @@ fn local_asset_reserve_and_remote_fee_reserve_call_disallowed<Call>(
 		Box<VersionedLocation>,
 		Box<VersionedLocation>,
 		Box<VersionedAssets>,
-		u32,
+		Box<VersionedAssetId>,
 		WeightLimit,
 	) -> DispatchResult,
 {
@@ -1124,7 +1122,7 @@ fn local_asset_reserve_and_remote_fee_reserve_call_disallowed<Call>(
 		let dest = RelayLocation::get().pushed_with_interior(Parachain(OTHER_PARA_ID)).unwrap();
 		let dest_sovereign_account = SovereignAccountOf::convert_location(&dest).unwrap();
 
-		let (assets, fee_index, _, _) = into_assets_checked(
+		let (assets, fee_asset, _) = into_assets_checked(
 			// USDC for fees (is sufficient on local chain too) - remote reserve
 			(usdc_id_location.clone(), FEE_AMOUNT).into(),
 			// native asset to transfer (not used for fees) - local reserve
@@ -1144,7 +1142,7 @@ fn local_asset_reserve_and_remote_fee_reserve_call_disallowed<Call>(
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
 			Box::new(assets.into()),
-			fee_index as u32,
+			Box::new(fee_asset.id.into()),
 			Unlimited,
 		);
 		assert_eq!(result, expected_result);
@@ -1210,7 +1208,7 @@ fn destination_asset_reserve_and_remote_fee_reserve_call_disallowed<Call>(
 		Box<VersionedLocation>,
 		Box<VersionedLocation>,
 		Box<VersionedAssets>,
-		u32,
+		Box<VersionedAssetId>,
 		WeightLimit,
 	) -> DispatchResult,
 {
@@ -1242,7 +1240,7 @@ fn destination_asset_reserve_and_remote_fee_reserve_call_disallowed<Call>(
 		let dest = reserve_location;
 		let dest_sovereign_account = foreign_sovereign_account;
 
-		let (assets, fee_index, _, _) = into_assets_checked(
+		let (assets, fee_asset, _) = into_assets_checked(
 			// USDC for fees (is sufficient on local chain too) - remote reserve
 			(usdc_id_location.clone(), FEE_AMOUNT).into(),
 			// foreign asset to transfer (not used for fees) - destination reserve
@@ -1262,7 +1260,7 @@ fn destination_asset_reserve_and_remote_fee_reserve_call_disallowed<Call>(
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
 			Box::new(assets.into()),
-			fee_index as u32,
+			Box::new(fee_asset.id.into()),
 			Unlimited,
 		);
 		assert_eq!(result, expected_result);
@@ -1356,7 +1354,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 		Box<VersionedLocation>,
 		Box<VersionedLocation>,
 		Box<VersionedAssets>,
-		u32,
+		Box<VersionedAssetId>,
 		WeightLimit,
 	) -> DispatchResult,
 {
@@ -1377,13 +1375,13 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 		let dest = RelayLocation::get().pushed_with_interior(Parachain(OTHER_PARA_ID)).unwrap();
 
 		let assets: Assets = vec![(usdc_id_location.clone(), SEND_AMOUNT).into()].into();
-		let fee_index = 0;
+		let fee_asset_id: AssetId = usdc_id_location.clone().into();
 
 		// reanchor according to test-case
 		let context = UniversalLocation::get();
 		let expected_dest_on_reserve = dest.clone().reanchored(&usdc_chain, &context).unwrap();
-		let fees = assets.get(fee_index as usize).unwrap().clone();
-		let (fees_half_1, fees_half_2) = XcmPallet::halve_fees(fees).unwrap();
+		let fees = assets.inner().iter().find(|a| a.id == fee_asset_id).unwrap();
+		let (fees_half_1, fees_half_2) = XcmPallet::halve_fees(fees.clone()).unwrap();
 		let mut expected_assets_on_reserve = assets.clone();
 		expected_assets_on_reserve.reanchor(&usdc_chain, &context).unwrap();
 		let expected_fee_on_reserve = fees_half_1.reanchored(&usdc_chain, &context).unwrap();
@@ -1402,7 +1400,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 			Box::new(dest.clone().into()),
 			Box::new(beneficiary.clone().into()),
 			Box::new(assets.into()),
-			fee_index,
+			Box::new(fee_asset_id.into()),
 			Unlimited,
 		);
 		assert_eq!(result, expected_result);
@@ -1506,7 +1504,7 @@ fn local_asset_reserve_and_teleported_fee_call<Call>(
 		Box<VersionedLocation>,
 		Box<VersionedLocation>,
 		Box<VersionedAssets>,
-		u32,
+		Box<VersionedAssetId>,
 		WeightLimit,
 	) -> DispatchResult,
 {
@@ -1523,7 +1521,7 @@ fn local_asset_reserve_and_teleported_fee_call<Call>(
 		// native assets transfer destination is USDT chain (teleport trust only for USDT)
 		let dest = usdt_chain;
 
-		let (assets, fee_index, fee_asset, xfer_asset) = into_assets_checked(
+		let (assets, fee_asset, xfer_asset) = into_assets_checked(
 			// USDT for fees (is sufficient on local chain too) - teleported
 			(usdt_id_location.clone(), FEE_AMOUNT).into(),
 			// native asset to transfer (not used for fees) - local reserve
@@ -1532,7 +1530,7 @@ fn local_asset_reserve_and_teleported_fee_call<Call>(
 
 		// reanchor according to test-case
 		let context = UniversalLocation::get();
-		let expected_fee = fee_asset.reanchored(&dest, &context).unwrap();
+		let expected_fee = fee_asset.clone().reanchored(&dest, &context).unwrap();
 		let expected_asset = xfer_asset.reanchored(&dest, &context).unwrap();
 
 		// balances checks before
@@ -1548,7 +1546,7 @@ fn local_asset_reserve_and_teleported_fee_call<Call>(
 			Box::new(dest.clone().into()),
 			Box::new(beneficiary.clone().into()),
 			Box::new(assets.into()),
-			fee_index as u32,
+			Box::new(fee_asset.id.into()),
 			Unlimited,
 		);
 		assert_eq!(result, expected_result);
@@ -1656,7 +1654,7 @@ fn destination_asset_reserve_and_teleported_fee_call<Call>(
 		Box<VersionedLocation>,
 		Box<VersionedLocation>,
 		Box<VersionedAssets>,
-		u32,
+		Box<VersionedAssetId>,
 		WeightLimit,
 	) -> DispatchResult,
 {
@@ -1685,7 +1683,7 @@ fn destination_asset_reserve_and_teleported_fee_call<Call>(
 		let dest = reserve_location;
 		let dest_sovereign_account = foreign_sovereign_account;
 
-		let (assets, fee_index, fee_asset, xfer_asset) = into_assets_checked(
+		let (assets, fee_asset, xfer_asset) = into_assets_checked(
 			// USDT for fees (is sufficient on local chain too) - teleported
 			(usdt_id_location.clone(), FEE_AMOUNT).into(),
 			// foreign asset to transfer (not used for fees) - destination reserve
@@ -1694,7 +1692,7 @@ fn destination_asset_reserve_and_teleported_fee_call<Call>(
 
 		// reanchor according to test-case
 		let context = UniversalLocation::get();
-		let expected_fee = fee_asset.reanchored(&dest, &context).unwrap();
+		let expected_fee = fee_asset.clone().reanchored(&dest, &context).unwrap();
 		let expected_asset = xfer_asset.reanchored(&dest, &context).unwrap();
 
 		// balances checks before
@@ -1710,7 +1708,7 @@ fn destination_asset_reserve_and_teleported_fee_call<Call>(
 			Box::new(dest.clone().into()),
 			Box::new(beneficiary.clone().into()),
 			Box::new(assets.into()),
-			fee_index as u32,
+			Box::new(fee_asset.id.into()),
 			Unlimited,
 		);
 		assert_eq!(result, expected_result);
@@ -1835,7 +1833,7 @@ fn remote_asset_reserve_and_teleported_fee_reserve_call_disallowed<Call>(
 		Box<VersionedLocation>,
 		Box<VersionedLocation>,
 		Box<VersionedAssets>,
-		u32,
+		Box<VersionedAssetId>,
 		WeightLimit,
 	) -> DispatchResult,
 {
@@ -1860,7 +1858,7 @@ fn remote_asset_reserve_and_teleported_fee_reserve_call_disallowed<Call>(
 		// transfer destination is USDT chain (foreign asset needs to go through its reserve chain)
 		let dest = usdt_chain;
 
-		let (assets, fee_index, _, _) = into_assets_checked(
+		let (assets, fee_asset, _) = into_assets_checked(
 			// USDT for fees (is sufficient on local chain too) - teleported
 			(usdt_id_location.clone(), FEE_AMOUNT).into(),
 			// foreign asset to transfer (not used for fees) - remote reserve
@@ -1880,7 +1878,7 @@ fn remote_asset_reserve_and_teleported_fee_reserve_call_disallowed<Call>(
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
 			Box::new(assets.into()),
-			fee_index as u32,
+			Box::new(fee_asset.id.into()),
 			Unlimited,
 		);
 		assert_eq!(result, expected_result);
@@ -1964,7 +1962,7 @@ fn reserve_transfer_assets_with_teleportable_asset_disallowed() {
 		// transfer destination is USDT chain (foreign asset needs to go through its reserve chain)
 		let dest = usdt_chain;
 		let assets: Assets = vec![(usdt_id_location.clone(), FEE_AMOUNT).into()].into();
-		let fee_index = 0;
+		let fee_asset_id = usdt_id_location.clone();
 
 		// balances checks before
 		assert_eq!(
@@ -1979,7 +1977,7 @@ fn reserve_transfer_assets_with_teleportable_asset_disallowed() {
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
 			Box::new(assets.into()),
-			fee_index as u32,
+			Box::new(fee_asset_id.into()),
 			Unlimited,
 		);
 		assert_err!(res, crate::Error::<Test>::Filtered);
@@ -2009,7 +2007,7 @@ fn reserve_transfer_assets_with_teleportable_asset_disallowed() {
 fn transfer_assets_with_filtered_teleported_fee_disallowed() {
 	let beneficiary: Location = AccountId32 { network: None, id: BOB.into() }.into();
 	new_test_ext_with_balances(vec![(ALICE, INITIAL_BALANCE)]).execute_with(|| {
-		let (assets, fee_index, _, _) = into_assets_checked(
+		let (assets, fee_asset, _) = into_assets_checked(
 			// FilteredTeleportAsset for fees - teleportable but filtered
 			FilteredTeleportAsset::get().into(),
 			// native asset to transfer (not used for fees) - local reserve
@@ -2020,7 +2018,7 @@ fn transfer_assets_with_filtered_teleported_fee_disallowed() {
 			Box::new(FilteredTeleportLocation::get().into()),
 			Box::new(beneficiary.into()),
 			Box::new(assets.into()),
-			fee_index as u32,
+			Box::new(fee_asset.id.into()),
 			Unlimited,
 		);
 		assert_err!(result, crate::Error::<Test>::Filtered);
@@ -2056,7 +2054,7 @@ fn intermediary_error_reverts_side_effects() {
 		let dest = RelayLocation::get().pushed_with_interior(Parachain(OTHER_PARA_ID)).unwrap();
 
 		let assets: Assets = vec![(usdc_id_location.clone(), SEND_AMOUNT).into()].into();
-		let fee_index = 0;
+		let fee_asset_id = usdc_id_location.clone();
 
 		// balances checks before
 		assert_eq!(
@@ -2076,7 +2074,7 @@ fn intermediary_error_reverts_side_effects() {
 				Box::new(dest.into()),
 				Box::new(beneficiary.into()),
 				Box::new(assets.into()),
-				fee_index as u32,
+				Box::new(fee_asset_id.into()),
 				Unlimited,
 			);
 			assert!(result.is_err());
@@ -2134,7 +2132,7 @@ fn teleport_asset_using_local_fee_reserve_call<Call>(
 		Box<VersionedLocation>,
 		Box<VersionedLocation>,
 		Box<VersionedAssets>,
-		u32,
+		Box<VersionedAssetId>,
 		WeightLimit,
 	) -> DispatchResult,
 {
@@ -2151,7 +2149,7 @@ fn teleport_asset_using_local_fee_reserve_call<Call>(
 		// transfer destination is reserve location (no teleport trust)
 		let dest = usdt_chain;
 
-		let (assets, fee_index, fee_asset, xfer_asset) = into_assets_checked(
+		let (assets, fee_asset, xfer_asset) = into_assets_checked(
 			// native asset for fee - local reserve
 			(Location::here(), FEE_AMOUNT).into(),
 			// USDT to transfer - destination reserve
@@ -2160,7 +2158,7 @@ fn teleport_asset_using_local_fee_reserve_call<Call>(
 
 		// reanchor according to test-case
 		let context = UniversalLocation::get();
-		let expected_fee = fee_asset.reanchored(&dest, &context).unwrap();
+		let expected_fee = fee_asset.clone().reanchored(&dest, &context).unwrap();
 		let expected_asset = xfer_asset.reanchored(&dest, &context).unwrap();
 
 		// balances checks before
@@ -2176,7 +2174,7 @@ fn teleport_asset_using_local_fee_reserve_call<Call>(
 			Box::new(dest.clone().into()),
 			Box::new(beneficiary.clone().into()),
 			Box::new(assets.into()),
-			fee_index as u32,
+			Box::new(fee_asset.id.into()),
 			Unlimited,
 		);
 		assert_eq!(result, expected_result);
@@ -2284,7 +2282,7 @@ fn teleported_asset_using_destination_reserve_fee_call<Call>(
 		Box<VersionedLocation>,
 		Box<VersionedLocation>,
 		Box<VersionedAssets>,
-		u32,
+		Box<VersionedAssetId>,
 		WeightLimit,
 	) -> DispatchResult,
 {
@@ -2312,7 +2310,7 @@ fn teleported_asset_using_destination_reserve_fee_call<Call>(
 		let dest = reserve_location;
 		let dest_sovereign_account = foreign_sovereign_account;
 
-		let (assets, fee_index, fee_asset, xfer_asset) = into_assets_checked(
+		let (assets, fee_asset, xfer_asset) = into_assets_checked(
 			// foreign asset BLA used for fees - destination reserve
 			(foreign_asset_id_location.clone(), FEE_AMOUNT).into(),
 			// USDT to transfer - teleported
@@ -2321,7 +2319,7 @@ fn teleported_asset_using_destination_reserve_fee_call<Call>(
 
 		// reanchor according to test-case
 		let context = UniversalLocation::get();
-		let expected_fee = fee_asset.reanchored(&dest, &context).unwrap();
+		let expected_fee = fee_asset.clone().reanchored(&dest, &context).unwrap();
 		let expected_asset = xfer_asset.reanchored(&dest, &context).unwrap();
 
 		// balances checks before
@@ -2337,7 +2335,7 @@ fn teleported_asset_using_destination_reserve_fee_call<Call>(
 			Box::new(dest.clone().into()),
 			Box::new(beneficiary.clone().into()),
 			Box::new(assets.into()),
-			fee_index as u32,
+			Box::new(fee_asset.id.into()),
 			Unlimited,
 		);
 		assert_eq!(result, expected_result);
@@ -2473,7 +2471,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 		Box<VersionedLocation>,
 		Box<VersionedLocation>,
 		Box<VersionedAssets>,
-		u32,
+		Box<VersionedAssetId>,
 		WeightLimit,
 	) -> DispatchResult,
 {
@@ -2517,7 +2515,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 			Box::new(dest.clone().into()),
 			Box::new(beneficiary.clone().into()),
 			Box::new(transferred_asset.into()),
-			0 as u32,
+			Box::new(foreign_asset_id_location.clone().into()),
 			Unlimited,
 		);
 		assert_eq!(result, expected_result);

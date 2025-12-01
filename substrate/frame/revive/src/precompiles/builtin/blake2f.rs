@@ -28,7 +28,7 @@ pub struct Blake2F<T>(PhantomData<T>);
 
 impl<T: Config> PrimitivePrecompile for Blake2F<T> {
 	type T = T;
-	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(9).unwrap());
+	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(0x9).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(

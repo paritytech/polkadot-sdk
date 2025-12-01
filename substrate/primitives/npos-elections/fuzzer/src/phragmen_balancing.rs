@@ -26,7 +26,6 @@ use sp_npos_elections::{
 	assignment_ratio_to_staked_normalized, seq_phragmen, to_supports, BalancingConfig,
 	ElectionResult, EvaluateSupport, VoteWeight,
 };
-use sp_runtime::Perbill;
 
 fn main() {
 	loop {
@@ -77,8 +76,7 @@ fn main() {
 					to_supports(staked.as_ref()).evaluate()
 				};
 
-				let enhance =
-					balanced_score.strict_threshold_better(unbalanced_score, Perbill::zero());
+				let enhance = balanced_score.strict_better(unbalanced_score);
 
 				println!(
 					"iter = {} // {:?} -> {:?} [{}]",

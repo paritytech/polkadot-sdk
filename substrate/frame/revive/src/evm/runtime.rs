@@ -429,7 +429,8 @@ mod test {
 			let account = Account::default();
 			Self::fund_account(&account);
 
-			let dry_run = crate::Pallet::<Test>::dry_run_eth_transact(self.tx.clone());
+			let dry_run =
+				crate::Pallet::<Test>::dry_run_eth_transact(self.tx.clone(), Default::default());
 			self.tx.gas_price = Some(<Pallet<Test>>::evm_base_fee());
 
 			match dry_run {
@@ -695,6 +696,13 @@ mod test {
 			UncheckedExtrinsicBuilder::call_with(RUNTIME_PALLETS_ADDR).data(remark.encode());
 		let (_, call, _, _, _, _) = builder.check().unwrap();
 
-		assert_eq!(call, remark);
+		match call {
+			RuntimeCall::Contracts(crate::Call::eth_substrate_call {
+				call: inner_call, ..
+			}) => {
+				assert_eq!(*inner_call, remark);
+			},
+			_ => panic!("Expected the RuntimeCall::Contracts variant, got: {:?}", call),
+		}
 	}
 }

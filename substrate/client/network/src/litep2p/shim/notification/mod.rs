@@ -173,17 +173,19 @@ impl NotificationProtocol {
 
 	/// Handle `Peerset` command.
 	async fn on_peerset_command(&mut self, command: PeersetNotificationCommand) {
-		match command {
-			PeersetNotificationCommand::OpenSubstream { peers } => {
-				log::debug!(target: LOG_TARGET, "{}: open substreams to {peers:?}", self.protocol);
+		if !command.open_peers.is_empty() {
+			log::trace!(target: LOG_TARGET, "{}: open substreams to {:?}", self.protocol, command.open_peers);
+			let _ = self
+				.handle
+				.open_substream_batch(command.open_peers.into_iter().map(From::from))
+				.await;
+		}
 
-				let _ = self.handle.open_substream_batch(peers.into_iter().map(From::from)).await;
-			},
-			PeersetNotificationCommand::CloseSubstream { peers } => {
-				log::debug!(target: LOG_TARGET, "{}: close substreams to {peers:?}", self.protocol);
-
-				self.handle.close_substream_batch(peers.into_iter().map(From::from)).await;
-			},
+		if !command.close_peers.is_empty() {
+			log::trace!(target: LOG_TARGET, "{}: close substreams to {:?}", self.protocol, command.close_peers);
+			self.handle
+				.close_substream_batch(command.close_peers.into_iter().map(From::from))
+				.await;
 		}
 	}
 }

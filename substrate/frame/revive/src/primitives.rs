@@ -17,7 +17,10 @@
 
 //! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
-use crate::{mock::MockHandler, storage::WriteOutcome, BalanceOf, Config, H160, U256};
+use crate::{
+	evm::DryRunConfig, mock::MockHandler, storage::WriteOutcome, BalanceOf, Config, Time, H160,
+	U256,
+};
 use alloc::{boxed::Box, fmt::Debug, string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::weights::Weight;
@@ -360,7 +363,7 @@ pub struct ExecConfig<T: Config> {
 	pub effective_gas_price: Option<U256>,
 	/// Whether this configuration was created for a dry-run execution.
 	/// Use to enable logic that should only run in dry-run mode.
-	pub is_dry_run: bool,
+	pub is_dry_run: Option<DryRunConfig<<<T as Config>::Time as Time>::Moment>>,
 	/// An optional mock handler that can be used to override certain behaviors.
 	/// This is primarily used for testing purposes and should be `None` in production
 	/// environments.
@@ -374,7 +377,7 @@ impl<T: Config> ExecConfig<T> {
 			bump_nonce: true,
 			collect_deposit_from_hold: None,
 			effective_gas_price: None,
-			is_dry_run: false,
+			is_dry_run: None,
 			mock_handler: None,
 		}
 	}
@@ -385,7 +388,7 @@ impl<T: Config> ExecConfig<T> {
 			collect_deposit_from_hold: None,
 			effective_gas_price: None,
 			mock_handler: None,
-			is_dry_run: false,
+			is_dry_run: None,
 		}
 	}
 
@@ -396,13 +399,16 @@ impl<T: Config> ExecConfig<T> {
 			collect_deposit_from_hold: Some((encoded_len, base_weight)),
 			effective_gas_price: Some(effective_gas_price),
 			mock_handler: None,
-			is_dry_run: false,
+			is_dry_run: None,
 		}
 	}
 
 	/// Set this config to be a dry-run.
-	pub fn with_dry_run(mut self) -> Self {
-		self.is_dry_run = true;
+	pub fn with_dry_run(
+		mut self,
+		dry_run_config: DryRunConfig<<<T as Config>::Time as Time>::Moment>,
+	) -> Self {
+		self.is_dry_run = Some(dry_run_config);
 		self
 	}
 }

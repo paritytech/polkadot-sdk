@@ -802,7 +802,7 @@ macro_rules! impl_assets_helpers_for_parachain {
 
 #[macro_export]
 macro_rules! impl_foreign_assets_helpers_for_parachain {
-	($chain:ident, $asset_id_type:ty) => {
+	($chain:ident, $asset_id_type:ty, $reserve_data_type:ty) => {
 		$crate::impls::paste::paste! {
 			impl<N: $crate::impls::Network> $chain<N> {
 				/// Create foreign assets using sudo `ForeignAssets::force_create()`
@@ -844,6 +844,26 @@ macro_rules! impl_foreign_assets_helpers_for_parachain {
 							<$chain<N> as $crate::impls::Chain>::RuntimeOrigin::signed(owner.clone());
 						Self::mint_foreign_asset(signed_origin, id.clone(), beneficiary, amount);
 					}
+				}
+
+				/// Set reserves for foreign asset using the asset's `owner` account.
+				pub fn set_foreign_asset_reserves(
+					id: $asset_id_type,
+					owner: $crate::impls::AccountId,
+					reserves: Vec<$reserve_data_type>,
+				) {
+					use $crate::impls::Inspect;
+					let owner_origin =
+						<$chain<N> as $crate::impls::Chain>::RuntimeOrigin::signed(owner.clone());
+					<Self as $crate::impls::TestExt>::execute_with(|| {
+						$crate::impls::assert_ok!(
+							<Self as [<$chain ParaPallet>]>::ForeignAssets::set_reserves(
+								owner_origin,
+								id.clone(),
+								reserves,
+							)
+						);
+					});
 				}
 
 				/// Mint assets making use of the ForeignAssets pallet-assets instance

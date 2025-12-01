@@ -153,6 +153,8 @@ enum KadQuery {
 	PutValue(RecordKey, Instant),
 	/// `GET_PROVIDERS` query for key and when it was initiated.
 	GetProviders(RecordKey, Instant),
+	/// `ADD_PROVIDER` query for key and when it was initiated.
+	AddProvider(RecordKey, Instant),
 }
 
 /// Networking backend for `litep2p`.
@@ -684,7 +686,8 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							self.discovery.store_record(key, value, publisher.map(Into::into), expires).await;
 						}
 						NetworkServiceCommand::StartProviding { key } => {
-							self.discovery.start_providing(key).await;
+							let query_id = self.discovery.start_providing(key.clone()).await;
+							self.pending_queries.insert(query_id, KadQuery::AddProvider(key, Instant::now()));
 						}
 						NetworkServiceCommand::StopProviding { key } => {
 							self.discovery.stop_providing(key).await;
@@ -967,6 +970,42 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							}
 						}
 					}
+					Some(DiscoveryEvent::AddProviderSuccess { query_id, provided_key }) => {
+						match self.pending_queries.remove(&query_id) {
+							Some(KadQuery::AddProvider(key, started)) => {
+								debug_assert_eq!(key, provided_key.into());
+
+								log::trace!(
+									target: LOG_TARGET,
+									"`ADD_PROVIDER` for {key:?} ({query_id:?}) succeeded",
+								);
+
+								self.event_streams.send(Event::Dht(
+									DhtEvent::StartedProviding(key.into())
+								));
+
+								if let Some(ref metrics) = self.metrics {
+									metrics
+										.kademlia_query_duration
+										.with_label_values(&["provider-add"])
+										.observe(started.elapsed().as_secs_f64());
+								}
+							}
+							Some(_) => {
+								log::error!(
+									target: LOG_TARGET,
+									"Invalid pending query for `ADD_PROVIDER`: {query_id:?}"
+								);
+								debug_assert!(false);
+							}
+							None => {
+								log::trace!(
+									target: LOG_TARGET,
+									"`ADD_PROVIDER` for key {provided_key:?} ({query_id:?}) succeeded (republishing)",
+								);
+							}
+						}
+					}
 					Some(DiscoveryEvent::QueryFailed { query_id }) => {
 						match self.pending_queries.remove(&query_id) {
 							Some(KadQuery::FindNode(peer_id, started)) => {
@@ -1037,10 +1076,27 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 										.observe(started.elapsed().as_secs_f64());
 								}
 							},
-							None => {
-								log::warn!(
+							Some(KadQuery::AddProvider(key, started)) => {
+								log::debug!(
 									target: LOG_TARGET,
-									"non-existent query failed ({query_id:?})",
+									"`ADD_PROVIDER` ({query_id:?}) failed with key {key:?}",
+								);
+
+								self.event_streams.send(Event::Dht(
+									DhtEvent::StartProvidingFailed(key)
+								));
+
+								if let Some(ref metrics) = self.metrics {
+									metrics
+										.kademlia_query_duration
+										.with_label_values(&["provider-add-failed"])
+										.observe(started.elapsed().as_secs_f64());
+								}
+							},
+							None => {
+								log::debug!(
+									target: LOG_TARGET,
+									"non-existent query (likely republishing a provider) failed ({query_id:?})",
 								);
 							}
 						}

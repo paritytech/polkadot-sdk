@@ -33,11 +33,15 @@ rstest = { workspace = true }
 # Cumulus
 cumulus-pallet-parachain-system = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
+cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
 cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
 
 # Substrate
 sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
+sp-trie = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
 
 [features]

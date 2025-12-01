@@ -81,7 +81,7 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	/// Whether the node is attempting to run as a secure validator.
 	pub secure_validator_mode: bool,
 	/// Whether the node will publish collected approval metrics per validator
-	pub publish_per_validator_approval_metrics: bool,
+	pub verbose_approval_metrics: bool,
 	/// An optional path to a directory containing the workers.
 	pub workers_path: Option<std::path::PathBuf>,
 	/// Optional custom names for the prepare and execute workers.
@@ -203,7 +203,7 @@ where
 					telemetry_worker_handle: _,
 					node_version,
 					secure_validator_mode,
-					publish_per_validator_approval_metrics,
+                    verbose_approval_metrics,
 					workers_path,
 					workers_names,
 					overseer_gen,
@@ -443,8 +443,8 @@ where
 				},
 			};
 
-			let consensus_statistics_collector_config = RewardsStatisticsCollectorConfig{
-				publish_per_validator_approval_metrics,
+			let rewards_statistics_collector_config = RewardsStatisticsCollectorConfig{
+				verbose_approval_metrics,
 			};
 
 			Some(ExtendedOverseerGenArgs {
@@ -463,7 +463,7 @@ where
 				fetch_chunks_threshold,
 				invulnerable_ah_collators,
 				collator_protocol_hold_off,
-				consensus_statistics_collector_config,
+				rewards_statistics_collector_config,
 			})
 		};
 

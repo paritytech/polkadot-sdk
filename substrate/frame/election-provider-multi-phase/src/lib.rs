@@ -1751,7 +1751,7 @@ impl<T: Config> Pallet<T> {
 			if i == 0 {
 				last_score = indice.0
 			} else {
-				if last_score.strict_threshold_better(indice.0, Perbill::zero()) {
+				if last_score.strict_better(indice.0) {
 					return Err(
 						"Signed submission indices vector must be ordered by election score".into()
 					)

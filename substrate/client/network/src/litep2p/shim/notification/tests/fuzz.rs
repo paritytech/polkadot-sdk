@@ -22,9 +22,7 @@
 use crate::{
 	litep2p::{
 		peerstore::Peerstore,
-		shim::notification::peerset::{
-			OpenResult, Peerset, PeersetCommand, PeersetNotificationCommand,
-		},
+		shim::notification::peerset::{OpenResult, Peerset, PeersetCommand},
 	},
 	service::traits::{Direction, PeerStore, ValidationResult},
 	ProtocolName,
@@ -126,22 +124,23 @@ async fn test_once() {
 
 			match WeightedIndex::new(&action_weights).unwrap().sample(&mut rng) {
 				0 => match peerset.next().now_or_never() {
-					// open substreams to `peers`
-					Some(Some(PeersetNotificationCommand::OpenSubstream { peers })) =>
-						for peer in peers {
+					Some(Some(command)) => {
+						// open substreams to `peers`
+						for peer in command.open_peers {
 							opening.insert(peer, Direction::Outbound);
 							closed.remove(&peer);
 
 							assert!(!closing.contains(&peer));
 							assert!(!open.contains_key(&peer));
-						},
-					// close substreams to `peers`
-					Some(Some(PeersetNotificationCommand::CloseSubstream { peers })) =>
-						for peer in peers {
+						}
+
+						// close substreams to `peers`
+						for peer in command.close_peers {
 							assert!(closing.insert(peer));
 							assert!(open.remove(&peer).is_some());
 							assert!(!opening.contains_key(&peer));
-						},
+						}
+					},
 					Some(None) => panic!("peerset exited"),
 					None => {},
 				},

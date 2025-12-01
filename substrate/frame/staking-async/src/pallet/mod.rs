@@ -323,10 +323,6 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
 
-		/// Maximum number of invulnerable validators.
-		#[pallet::constant]
-		type MaxInvulnerables: Get<u32>;
-
 		/// Maximum allowed era duration in milliseconds.
 		///
 		/// This provides a defensive upper bound to cap the effective era duration, preventing
@@ -406,7 +402,6 @@ pub mod pallet {
 			type MaxUnlockingChunks = ConstU32<32>;
 			type MaxValidatorSet = ConstU32<100>;
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
-			type MaxInvulnerables = ConstU32<20>;
 			type MaxEraDuration = ();
 			type MaxPruningItems = MaxPruningItems;
 			type EventListeners = ();
@@ -418,13 +413,6 @@ pub mod pallet {
 	/// The ideal number of active validators.
 	#[pallet::storage]
 	pub type ValidatorCount<T> = StorageValue<_, u32, ValueQuery>;
-
-	/// Any validators that may never be slashed or forcibly kicked. It's a Vec since they're
-	/// easy to initialize and the performance hit is minimal (we expect no more than four
-	/// invulnerables) and restricted to testnets.
-	#[pallet::storage]
-	pub type Invulnerables<T: Config> =
-		StorageValue<_, BoundedVec<T::AccountId, T::MaxInvulnerables>, ValueQuery>;
 
 	/// Map from all locked "stash" accounts to the controller account.
 	///
@@ -855,7 +843,6 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound, frame_support::DebugNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		pub validator_count: u32,
-		pub invulnerables: BoundedVec<T::AccountId, T::MaxInvulnerables>,
 		pub force_era: Forcing,
 		pub slash_reward_fraction: Perbill,
 		pub canceled_payout: BalanceOf<T>,
@@ -907,12 +894,6 @@ pub mod pallet {
 				"validator count is too high, `ElectionProvider` can never fulfill this"
 			);
 			ValidatorCount::<T>::put(self.validator_count);
-
-			assert!(
-				self.invulnerables.len() as u32 <= T::MaxInvulnerables::get(),
-				"Too many invulnerable validators at genesis."
-			);
-			<Invulnerables<T>>::put(&self.invulnerables);
 
 			ForceEra::<T>::put(self.force_era);
 			CanceledSlashPayout::<T>::put(self.canceled_payout);
@@ -1964,22 +1945,6 @@ pub mod pallet {
 		pub fn force_new_era(origin: OriginFor<T>) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::set_force_era(Forcing::ForceNew);
-			Ok(())
-		}
-
-		/// Set the validators who cannot be slashed (if any).
-		///
-		/// The dispatch origin must be Root.
-		#[pallet::call_index(14)]
-		#[pallet::weight(T::WeightInfo::set_invulnerables(invulnerables.len() as u32))]
-		pub fn set_invulnerables(
-			origin: OriginFor<T>,
-			invulnerables: Vec<T::AccountId>,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-			let invulnerables =
-				BoundedVec::try_from(invulnerables).map_err(|_| Error::<T>::BoundNotMet)?;
-			<Invulnerables<T>>::put(invulnerables);
 			Ok(())
 		}
 

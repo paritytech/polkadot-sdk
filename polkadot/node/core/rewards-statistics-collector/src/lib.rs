@@ -30,16 +30,17 @@ use gum::CandidateHash;
 use sp_keystore::KeystorePtr;
 use polkadot_node_subsystem::{
     errors::RuntimeApiError as RuntimeApiSubsystemError,
-    messages::{ChainApiMessage, ConsensusStatisticsCollectorMessage, RuntimeApiMessage, RuntimeApiRequest},
+    messages::{ChainApiMessage, RewardsStatisticsCollectorMessage, RuntimeApiMessage, RuntimeApiRequest},
     overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemSender
 };
-use polkadot_primitives::{AuthorityDiscoveryId, BlockNumber, Hash, Header, SessionIndex, ValidatorId, ValidatorIndex, well_known_keys::relay_dispatch_queue_remaining_capacity, SessionInfo};
-use polkadot_node_primitives::{
-    approval::{
-        time::Tick,
-        v1::DelayTranche
-    }
+use polkadot_primitives::{
+    AuthorityDiscoveryId, BlockNumber, Hash, Header, SessionIndex, ValidatorId, ValidatorIndex,
+    well_known_keys::relay_dispatch_queue_remaining_capacity
 };
+use polkadot_node_primitives::{approval::{
+    time::Tick,
+    v1::DelayTranche
+}, SessionWindowSize, DISPUTE_WINDOW};
 use crate::{
     error::{FatalError, FatalResult, JfyiError, JfyiErrorResult, Result},
 };
@@ -54,17 +55,16 @@ pub mod metrics;
 use approval_voting_metrics::ApprovalsStats;
 use polkadot_node_subsystem::RuntimeApiError::{Execution, NotSupported};
 use polkadot_node_subsystem_util::{request_candidate_events, request_session_index_for_child, request_session_info};
-use polkadot_primitives::vstaging::{ApprovalStatisticsTallyLine, ApprovalStatistics};
 use crate::approval_voting_metrics::{handle_candidate_approved, handle_observed_no_shows};
 use crate::availability_distribution_metrics::{handle_chunk_uploaded, handle_chunks_downloaded, AvailabilityChunks};
 use self::metrics::Metrics;
 
-const MAX_SESSIONS_TO_KEEP: u32 = 2;
+const MAX_SESSIONS_TO_KEEP: SessionWindowSize = DISPUTE_WINDOW;
 const LOG_TARGET: &str = "parachain::rewards-statistics-collector";
 
 #[derive(Default)]
 pub struct Config {
-    pub publish_per_validator_approval_metrics: bool
+    pub verbose_approval_metrics: bool
 }
 
 struct PerRelayView {
@@ -135,12 +135,22 @@ struct SigningCredentials {
     validator_index: ValidatorIndex,
 }
 
+/// View holds the subsystem internal state
 struct View {
+    /// roots contains the only unfinalized relay hashes
+    /// is used when finalization happens to prune unneeded forks
     roots: HashSet<Hash>,
+    /// per_relay holds collected approvals statistics for
+    /// all the candidates under the given unfinalized relay hash
     per_relay: HashMap<Hash, PerRelayView>,
+    /// per_session holds session information (authorities lookup)
+    /// and approvals tallies which is the aggregation of collected
+    /// approvals statistics under finalized blocks
     per_session: HashMap<SessionIndex, PerSessionView>,
+    /// availability_chunks holds collected upload and download chunks
+    /// statistics per validator
     availability_chunks: HashMap<SessionIndex, AvailabilityChunks>,
-    latest_finalized_session: Option<SessionIndex>,
+    current_session: Option<SessionIndex>,
     recent_block: Option<(BlockNumber, Hash)>,
 }
 
@@ -151,7 +161,7 @@ impl View {
             per_relay: HashMap::new(),
             per_session: HashMap::new(),
             availability_chunks: HashMap::new(),
-            latest_finalized_session: None,
+            current_session: None,
             recent_block: None,
         };
     }
@@ -207,7 +217,7 @@ impl RewardsStatisticsCollector {
     }
 }
 
-#[overseer::subsystem(ConsensusStatisticsCollector, error = SubsystemError, prefix = self::overseer)]
+#[overseer::subsystem(RewardsStatisticsCollector, error = SubsystemError, prefix = self::overseer)]
 impl<Context> RewardsStatisticsCollector
 where
     Context: Send + Sync,
@@ -233,7 +243,7 @@ async fn run<Context>(mut ctx: Context, keystore: KeystorePtr, metrics: (Metrics
     }
 }
 
-#[overseer::contextbounds(ConsensusStatisticsCollector, prefix = self::overseer)]
+#[overseer::contextbounds(RewardsStatisticsCollector, prefix = self::overseer)]
 pub(crate) async fn run_iteration<Context>(
     ctx: &mut Context,
     view: &mut View,
@@ -334,7 +344,7 @@ pub(crate) async fn run_iteration<Context>(
             }
             FromOrchestra::Communication { msg } => {
                 match msg {
-                    ConsensusStatisticsCollectorMessage::ChunksDownloaded(
+                    RewardsStatisticsCollectorMessage::ChunksDownloaded(
                         session_index,
                         candidate_hash,
                         downloads,
@@ -346,7 +356,7 @@ pub(crate) async fn run_iteration<Context>(
                             downloads,
                         )
                     },
-                    ConsensusStatisticsCollectorMessage::ChunkUploaded(
+                    RewardsStatisticsCollectorMessage::ChunkUploaded(
                         candidate_hash,
                         authority_ids,
                     ) => {
@@ -356,7 +366,7 @@ pub(crate) async fn run_iteration<Context>(
                             authority_ids,
                         )
                     },
-                    ConsensusStatisticsCollectorMessage::CandidateApproved(
+                    RewardsStatisticsCollectorMessage::CandidateApproved(
                         candidate_hash,
                         block_hash,
                         approvals,
@@ -368,7 +378,7 @@ pub(crate) async fn run_iteration<Context>(
                             approvals,
                         );
                     }
-                    ConsensusStatisticsCollectorMessage::NoShows(
+                    RewardsStatisticsCollectorMessage::NoShows(
                         candidate_hash,
                         block_hash,
                         no_show_validators,
@@ -481,7 +491,6 @@ fn prune_unfinalised_forks(view: &mut View, fin_block_hash: Hash) -> Vec<Hash> {
     let mut current_block_hash = fin_block_hash;
     let mut current_parent_hash = rb_view.parent_hash;
     while let Some(parent_hash) = current_parent_hash {
-
         match view.per_relay.get_mut(&parent_hash) {
             Some(parent_view) => {
                 retain_relay_hashes.push(parent_hash.clone());
@@ -532,12 +541,10 @@ fn prune_unfinalised_forks(view: &mut View, fin_block_hash: Hash) -> Vec<Hash> {
     retain_relay_hashes
 }
 
-// submit_finalized_session_stats works after a whole session is finalized
-// getting all the collected data and submitting to the runtime, after the
-// submition the data is cleaned from mapping
-async fn submit_finalized_session_stats<
-    Sender: SubsystemSender<RuntimeApiMessage>,
->(
+// prune_old_session_views avoid the per_session mapping to grow
+// indefinitely by removing sessions stored for more than MAX_SESSIONS_TO_KEEP (2)
+// finalized sessions.
+async fn prune_old_session_views<Sender: SubsystemSender<RuntimeApiMessage>>(
     mut sender: Sender,
     keystore: &KeystorePtr,
     view: &mut View,
@@ -556,19 +563,19 @@ async fn submit_finalized_session_stats<
         },
     };
 
-    let current_fin_session = request_session_index_for_child(finalized_hash, &mut sender)
+    let finalized_session = request_session_index_for_child(finalized_hash, &mut sender)
         .await
         .await
         .map_err(JfyiError::OverseerCommunication)?
         .map_err(JfyiError::RuntimeApiCallError)?;
 
-    match view.latest_finalized_session {
-        Some(latest_fin_session) if latest_fin_session < current_fin_session => {
+    match view.current_session {
+        Some(current_session) if current_session < finalized_session => {
             // the previous session was finalized
             for (session_idx, session_view) in view
                 .per_session
                 .iter()
-                .filter(|stored_session_idx| stored_session_idx.0 < &current_fin_session) {
+                .filter(|stored_session_idx| stored_session_idx.0 < &finalized_session) {
 
                 if let Some(ref credentials) = session_view.credentials {
                     sign_and_submit_approvals_tallies(
@@ -581,12 +588,16 @@ async fn submit_finalized_session_stats<
                         session_view.validators_tallies.clone(),
                     ).await;
                 }
-            }
 
-            view.per_session.retain(|session_index, _| *session_index >= current_fin_session);
-            view.latest_finalized_session = Some(current_fin_session);
+                if let Some(wipe_before) = session_idx.checked_sub(MAX_SESSIONS_TO_KEEP.get()) {
+                    view.per_session.retain(|stored_session_index, _| *stored_session_index > wipe_before);
+                }
+
+                view.current_session = Some(finalized_session);
+            }
+            
         }
-        None => view.latest_finalized_session = Some(current_fin_session),
+        None => view.current_session = Some(current_fin_session),
         _ => {}
     };
 

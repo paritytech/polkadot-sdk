@@ -175,21 +175,6 @@ impl Transport {
 		if let Self::Uri(uri) = self {
 			debug!(target: LOG_TARGET, "initializing remote client to {uri:?}");
 
-			// If we have a ws uri, try to convert it to an http uri.
-			// We use an HTTP client rather than WS because WS starts to choke with "accumulated
-			// message length exceeds maximum" errors after processing ~10k keys when fetching
-			// from a node running a default configuration.
-			let uri = if uri.starts_with("ws://") {
-				let uri = uri.replace("ws://", "http://");
-				info!(target: LOG_TARGET, "replacing ws:// in uri with http://: {uri:?} (ws is currently unstable for fetching remote storage, for more see https://github.com/paritytech/jsonrpsee/issues/1086)");
-				uri
-			} else if uri.starts_with("wss://") {
-				let uri = uri.replace("wss://", "https://");
-				info!(target: LOG_TARGET, "replacing wss:// in uri with https://: {uri:?} (ws is currently unstable for fetching remote storage, for more see https://github.com/paritytech/jsonrpsee/issues/1086)");
-				uri
-			} else {
-				uri.clone()
-			};
 			let http_client = HttpClient::builder()
 				.max_request_size(u32::MAX)
 				.max_response_size(u32::MAX)

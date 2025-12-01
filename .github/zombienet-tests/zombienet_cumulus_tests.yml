@@ -1,18 +1,18 @@
 - job-name: "zombienet-cumulus-0001-sync_blocks_from_tip_without_connected_collator"
   test-filter: "zombie_ci::sync_blocks::sync_blocks_from_tip_without_connected_collator"
-  runner-type: "large"
+  runner-type: "default"
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
 
 - job-name: "zombienet-cumulus-0002-pov_recovery"
   test-filter: "zombie_ci::pov_recovery::pov_recovery"
-  runner-type: "large"
+  runner-type: "default"
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
 
 - job-name: "zombienet-cumulus-0003-full_node_catching_up"
   test-filter: "zombie_ci::full_node_catching_up::full_node_catching_up"
-  runner-type: "large"
+  runner-type: "default"
   cumulus-image: "test-parachain"
 
 - job-name: "zombienet-cumulus-0004-runtime_upgrade"
@@ -30,19 +30,19 @@
 
 - job-name: "zombienet-cumulus-0006-rpc_collator_builds_blocks"
   test-filter: "zombie_ci::rpc_collator_build_blocks::rpc_collator_builds_blocks"
-  runner-type: "large"
+  runner-type: "default"
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
 
 - job-name: "zombienet-cumulus-0007-full_node_warp_sync"
   test-filter: "zombie_ci::full_node_warp_sync::full_node_warp_sync"
-  runner-type: "large"
+  runner-type: "default"
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
 
 - job-name: "zombienet-cumulus-0008-elastic_authoring"
   test-filter: "zombie_ci::elastic_scaling::slot_based_authoring::elastic_scaling_slot_based_authoring"
-  runner-type: "large"
+  runner-type: "default"
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
 
@@ -50,7 +50,7 @@
 # See https://github.com/paritytech/polkadot-sdk/issues/8986
 - job-name: "zombienet-cumulus-0009-elastic_scaling_pov_recovery"
   test-filter: "zombie_ci::elastic_scaling::pov_recovery::elastic_scaling_pov_recovery"
-  runner-type: "large"
+  runner-type: "default"
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
 
@@ -58,13 +58,13 @@
 # See https://github.com/paritytech/polkadot-sdk/issues/8999
 - job-name: "zombienet-cumulus-0010-elastic_scaling_multiple_block_per_slot"
   test-filter: "zombie_ci::elastic_scaling::multiple_blocks_per_slot::elastic_scaling_multiple_blocks_per_slot"
-  runner-type: "large"
+  runner-type: "default"
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
 
 - job-name: "zombienet-cumulus-0011-dht-bootnodes"
   test-filter: "zombie_ci::bootnodes::dht_bootnodes_test"
-  runner-type: "large"
+  runner-type: "default"
   cumulus-image: "polkadot-parachain-debug"
   use-zombienet-sdk: true
 
@@ -76,13 +76,13 @@
 
 - job-name: "zombienet-cumulus-0013-elastic_scaling_slot_based_rp_offset"
   test-filter: "zombie_ci::elastic_scaling::slot_based_rp_offset::elastic_scaling_slot_based_relay_parent_offset_test"
-  runner-type: "large"
+  runner-type: "default"
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
 
 - job-name: "zombienet-cumulus-0014-elastic_scaling_upgrade_to_3_cores"
   test-filter: "zombie_ci::elastic_scaling::upgrade_to_3_cores::elastic_scaling_upgrade_to_3_cores"
-  runner-type: "large"
+  runner-type: "default"
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
   needs-wasm-binary: true

@@ -707,8 +707,8 @@ async fn import_approval(
 	if let Some(expected_stats_collected) = expected_approvals_stats_collected {
 		assert_matches!(
 			overseer_recv(overseer).await,
-			AllMessages::ConsensusStatisticsCollector(
-				ConsensusStatisticsCollectorMessage::CandidateApproved(
+			AllMessages::RewardsStatisticsCollector(
+				RewardsStatisticsCollectorMessage::CandidateApproved(
 					c_hash, b_hash, validators,
 				)
 			) => {
@@ -3857,7 +3857,7 @@ fn pre_covers_dont_stall_approval() {
 
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::ConsensusStatisticsCollector(ConsensusStatisticsCollectorMessage::CandidateApproved(
+			AllMessages::RewardsStatisticsCollector(RewardsStatisticsCollectorMessage::CandidateApproved(
 				c_hash, b_hash, validators,
 			)) => {
 				assert_eq!(b_hash, block_hash);
@@ -3868,10 +3868,11 @@ fn pre_covers_dont_stall_approval() {
 
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::ConsensusStatisticsCollector(ConsensusStatisticsCollectorMessage::NoShows(
-				session_idx, validators,
+			AllMessages::RewardsStatisticsCollector(RewardsStatisticsCollectorMessage::NoShows(
+				c_hash, b_hash, validators
 			)) => {
-				assert_eq!(session_idx, 1);
+				assert_eq!(b_hash, block_hash);
+				assert_eq!(c_hash, candidate_hash);
 				assert_eq!(validators, vec![validator_index_a]);
 			}
 		);
@@ -4043,8 +4044,8 @@ fn waits_until_approving_assignments_are_old_enough() {
 
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::ConsensusStatisticsCollector(
-				ConsensusStatisticsCollectorMessage::CandidateApproved(
+			AllMessages::RewardsStatisticsCollector(
+				RewardsStatisticsCollectorMessage::CandidateApproved(
 					c_hash, b_hash, validators
 				)
 			) => {

@@ -94,7 +94,7 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				// no need to adjust gas because this always deletes code
 				env.gas_meter_mut().charge(RuntimeCosts::Terminate { code_removed: true })?;
 				let h160 = H160::from_slice(beneficiary.as_slice());
-				env.terminate_caller(&h160)?;
+				env.terminate_caller(&h160).map_err(Error::try_to_revert::<T>)?;
 				Ok(Vec::new())
 			},
 		}

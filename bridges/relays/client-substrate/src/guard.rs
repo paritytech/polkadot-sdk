@@ -57,11 +57,11 @@ pub fn abort_on_spec_version_change<C: Chain>(
 	expected_spec_version: u32,
 ) {
 	async_std::task::spawn(async move {
-		log::info!(
+		tracing::info!(
 			target: "bridge-guard",
-			"Starting spec_version guard for {}. Expected spec_version: {}",
-			C::NAME,
-			expected_spec_version,
+			node=%C::NAME,
+			%expected_spec_version,
+			"Starting spec_version guard."
 		);
 
 		loop {
@@ -69,21 +69,21 @@ pub fn abort_on_spec_version_change<C: Chain>(
 			match actual_spec_version {
 				Ok(version) if version.spec_version == expected_spec_version => (),
 				Ok(version) => {
-					log::error!(
+					tracing::error!(
 						target: "bridge-guard",
-						"{} runtime spec version has changed from {} to {}. Aborting relay",
-						C::NAME,
-						expected_spec_version,
-						version.spec_version,
+						node=%C::NAME,
+						from=%expected_spec_version,
+						to=%version.spec_version,
+						"Runtime spec version has changed. Aborting relay"
 					);
 
 					env.abort().await;
 				},
-				Err(error) => log::warn!(
+				Err(error) => tracing::warn!(
 					target: "bridge-guard",
-					"Failed to read {} runtime version: {}. Relay may need to be stopped manually",
-					C::NAME,
-					error,
+					%error,
+					node=%C::NAME,
+					"Failed to read runtime version. Relay may need to be stopped manually"
 				),
 			}
 

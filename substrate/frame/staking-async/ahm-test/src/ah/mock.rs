@@ -260,6 +260,7 @@ impl frame_election_provider_support::onchain::Config for OnChainConfig {
 
 impl multi_block::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type ManagerOrigin = EnsureRoot<AccountId>;
 	type DataProvider = Staking;
 	type Fallback = frame_election_provider_support::onchain::OnChainExecution<OnChainConfig>;
 	type MinerConfig = Self;
@@ -282,7 +283,6 @@ impl multi_block::verifier::Config for Runtime {
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 
 	type SolutionDataProvider = MultiBlockSigned;
-	type SolutionImprovementThreshold = ();
 	type WeightInfo = ();
 }
 
@@ -353,7 +353,6 @@ impl pallet_staking_async::Config for Runtime {
 
 	type MaxValidatorSet = MaxValidators;
 	type MaxExposurePageSize = MaxExposurePageSize;
-	type MaxInvulnerables = MaxValidators;
 	type MaxUnlockingChunks = ConstU32<16>;
 	type NominationsQuota = pallet_staking_async::FixedNominationsQuota<16>;
 

@@ -49,7 +49,7 @@ pub struct Modexp<T>(PhantomData<T>);
 
 impl<T: Config> PrimitivePrecompile for Modexp<T> {
 	type T = T;
-	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(5).unwrap());
+	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(0x5).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(

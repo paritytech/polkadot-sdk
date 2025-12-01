@@ -275,11 +275,11 @@ where
 			.map(|nonces| nonce >= *nonces.start())
 			.unwrap_or(false);
 		if need_to_select_new_nonces {
-			log::trace!(
+			tracing::trace!(
 				target: "bridge",
-				"Latest nonce at target is {}. Clearing nonces to submit: {:?}",
-				nonce,
-				race_state.nonces_to_submit(),
+				%nonce,
+				nonces_to_submit=?race_state.nonces_to_submit(),
+				"Latest nonce at target. Clearing nonces to submit"
 			);
 
 			race_state.reset_nonces_to_submit();
@@ -292,11 +292,11 @@ where
 			.map(|nonces| nonce >= *nonces.start())
 			.unwrap_or(false);
 		if need_new_nonces_to_submit {
-			log::trace!(
+			tracing::trace!(
 				target: "bridge",
-				"Latest nonce at target is {}. Clearing submitted nonces: {:?}",
-				nonce,
-				race_state.nonces_submitted(),
+				%nonce,
+				nonces_submitted=?race_state.nonces_submitted(),
+				"Latest nonce at target. Clearing submitted nonces"
 			);
 
 			race_state.reset_nonces_submitted();

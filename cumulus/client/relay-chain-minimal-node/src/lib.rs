@@ -100,7 +100,7 @@ async fn build_interface(
 	task_manager: &mut TaskManager,
 	client: RelayChainRpcClient,
 ) -> RelayChainResult<(
-	Arc<(dyn RelayChainInterface + 'static)>,
+	Arc<dyn RelayChainInterface + 'static>,
 	Option<CollatorPair>,
 	Arc<dyn NetworkService>,
 	async_channel::Receiver<GenericIncomingRequest>,
@@ -138,7 +138,7 @@ pub async fn build_minimal_relay_chain_node_with_rpc(
 	task_manager: &mut TaskManager,
 	relay_chain_url: Vec<Url>,
 ) -> RelayChainResult<(
-	Arc<(dyn RelayChainInterface + 'static)>,
+	Arc<dyn RelayChainInterface + 'static>,
 	Option<CollatorPair>,
 	Arc<dyn NetworkService>,
 	async_channel::Receiver<GenericIncomingRequest>,

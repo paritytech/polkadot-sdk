@@ -34,7 +34,7 @@ use frame_support::{
 	storage::child::{self, ChildInfo},
 	traits::{
 		fungible::Inspect,
-		tokens::{Fortitude::Polite, Preservation::Preserve},
+		tokens::{Fortitude, Preservation},
 	},
 	weights::{Weight, WeightMeter},
 	CloneNoBound, DebugNoBound, DefaultNoBound,
@@ -163,13 +163,24 @@ impl<T: Config> AccountInfo<T> {
 	/// Returns the balance of the account at the given address.
 	pub fn balance_of(account: AccountIdOrAddress<T>) -> BalanceWithDust<BalanceOf<T>> {
 		let info = <AccountInfoOf<T>>::get(account.address()).unwrap_or_default();
-		info.balance(&account.account_id())
+		info.balance(&account.account_id(), Preservation::Preserve)
 	}
 
 	/// Returns the balance of this account info.
-	pub fn balance(&self, account: &AccountIdOf<T>) -> BalanceWithDust<BalanceOf<T>> {
-		let value = T::Currency::reducible_balance(account, Preserve, Polite);
+	pub fn balance(
+		&self,
+		account: &AccountIdOf<T>,
+		preservation: Preservation,
+	) -> BalanceWithDust<BalanceOf<T>> {
+		let value = T::Currency::reducible_balance(account, preservation, Fortitude::Polite);
 		BalanceWithDust::new_unchecked::<T>(value, self.dust)
+	}
+
+	/// All the remaining in an account including ed and locked balances.
+	pub fn total_balance(account: AccountIdOrAddress<T>) -> BalanceWithDust<BalanceOf<T>> {
+		let value = T::Currency::total_balance(&account.account_id());
+		let dust = <AccountInfoOf<T>>::get(account.address()).map(|a| a.dust).unwrap_or_default();
+		BalanceWithDust::new_unchecked::<T>(value, dust)
 	}
 
 	/// Loads the contract information for a given address.
@@ -383,8 +394,8 @@ impl<T: Config> ContractInfo<T> {
 	/// Push a contract's trie to the deletion queue for lazy removal.
 	///
 	/// You must make sure that the contract is also removed when queuing the trie for deletion.
-	pub fn queue_trie_for_deletion(&self) {
-		DeletionQueueManager::<T>::load().insert(self.trie_id.clone());
+	pub fn queue_trie_for_deletion(trie_id: TrieId) {
+		DeletionQueueManager::<T>::load().insert(trie_id);
 	}
 
 	/// Calculates the weight that is necessary to remove one key from the trie and how many

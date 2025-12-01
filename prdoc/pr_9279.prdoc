@@ -1,0 +1,28 @@
+title: Replace `log` with `tracing` on Snowbridge-related modules
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR replaces `log` with `tracing` instrumentation on Snowbridge-related modules by providing structured logging.
+crates:
+- name: snowbridge-core
+  bump: minor
+- name: snowbridge-inbound-queue-primitives
+  bump: minor
+- name: snowbridge-outbound-queue-primitives
+  bump: minor
+- name: snowbridge-pallet-ethereum-client
+  bump: minor
+- name: snowbridge-pallet-inbound-queue
+  bump: minor
+- name: snowbridge-pallet-inbound-queue-v2
+  bump: patch
+- name: snowbridge-pallet-system
+  bump: minor
+- name: snowbridge-pallet-system-frontend
+  bump: patch
+- name: snowbridge-pallet-system-v2
+  bump: patch
+- name: snowbridge-runtime-common
+  bump: minor
+- name: snowbridge-test-utils
+  bump: minor

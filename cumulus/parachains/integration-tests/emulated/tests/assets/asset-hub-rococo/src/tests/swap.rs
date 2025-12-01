@@ -110,8 +110,9 @@ fn swap_locally_on_chain_using_local_assets() {
 #[test]
 fn swap_locally_on_chain_using_foreign_assets() {
 	let asset_native = Box::new(Location::try_from(RelayLocation::get()).unwrap());
-	let asset_location_on_penpal =
-		Location::try_from(PenpalLocalTeleportableToAssetHub::get()).unwrap();
+	let asset_location_on_penpal = PenpalA::execute_with(|| {
+		Location::try_from(PenpalLocalTeleportableToAssetHub::get()).unwrap()
+	});
 	let foreign_asset_at_asset_hub_rococo =
 		Location::new(1, [Junction::Parachain(PenpalA::para_id().into())])
 			.appended_with(asset_location_on_penpal)
@@ -343,14 +344,15 @@ fn pay_xcm_fee_with_some_asset_swapped_for_native() {
 	});
 
 	PenpalA::execute_with(|| {
-		// send xcm transact from `penpal` account which as only `ASSET_ID` tokens on
+		// send xcm transact from `penpal` account while paying with `ASSET_ID` tokens on
 		// `AssetHubRococo`
-		let call = AssetHubRococo::force_create_asset_call(
-			ASSET_ID + 1000,
-			penpal.clone(),
-			true,
-			ASSET_MIN_BALANCE,
-		);
+		let call = <AssetHubRococo as Chain>::RuntimeCall::System(frame_system::Call::<
+			<AssetHubRococo as Chain>::Runtime,
+		>::remark {
+			remark: vec![],
+		})
+		.encode()
+		.into();
 
 		let penpal_root = <PenpalA as Chain>::RuntimeOrigin::root();
 		let fee_amount = 4_000_000_000_000u128;

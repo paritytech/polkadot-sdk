@@ -56,9 +56,13 @@ impl SubstrateCli for Cli {
 	}
 }
 
-/// Parse and run command line arguments
 pub fn run() -> sc_cli::Result<()> {
-	let args = std::env::args_os().collect::<Vec<_>>();
+	let args = std::env::args_os().map(|s| s.to_string_lossy().to_string()).collect::<Vec<_>>();
+	return run_with_args(args);
+}
+
+/// Parse and run command line arguments
+pub fn run_with_args(args: Vec<String>) -> sc_cli::Result<()> {
 	let mut cli = Cli::from_iter(args);
 
 	match &cli.subcommand {

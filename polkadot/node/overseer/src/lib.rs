@@ -85,7 +85,7 @@ use polkadot_node_subsystem_types::messages::{
 	DisputeCoordinatorMessage, DisputeDistributionMessage, GossipSupportMessage,
 	NetworkBridgeRxMessage, NetworkBridgeTxMessage, ProspectiveParachainsMessage,
 	ProvisionerMessage, RuntimeApiMessage, StatementDistributionMessage,
-	ConsensusStatisticsCollectorMessage,
+	RewardsStatisticsCollectorMessage,
 };
 
 pub use polkadot_node_subsystem_types::{
@@ -519,7 +519,7 @@ pub struct Overseer<SupportsParachains> {
 	#[subsystem(AvailabilityDistributionMessage, sends: [
 		AvailabilityStoreMessage,
 		ChainApiMessage,
-		ConsensusStatisticsCollectorMessage,
+		RewardsStatisticsCollectorMessage,
 		RuntimeApiMessage,
 		NetworkBridgeTxMessage,
 	])]
@@ -529,7 +529,7 @@ pub struct Overseer<SupportsParachains> {
 		NetworkBridgeTxMessage,
 		RuntimeApiMessage,
 		AvailabilityStoreMessage,
-		ConsensusStatisticsCollectorMessage,
+		RewardsStatisticsCollectorMessage,
 	])]
 	availability_recovery: AvailabilityRecovery,
 
@@ -610,7 +610,7 @@ pub struct Overseer<SupportsParachains> {
 		CandidateValidationMessage,
 		ChainApiMessage,
 		ChainSelectionMessage,
-		ConsensusStatisticsCollectorMessage,
+		RewardsStatisticsCollectorMessage,
 		DisputeCoordinatorMessage,
 		RuntimeApiMessage,
 	])]
@@ -620,7 +620,7 @@ pub struct Overseer<SupportsParachains> {
 		CandidateValidationMessage,
 		ChainApiMessage,
 		ChainSelectionMessage,
-		ConsensusStatisticsCollectorMessage,
+		RewardsStatisticsCollectorMessage,
 		DisputeCoordinatorMessage,
 		RuntimeApiMessage,
 		NetworkBridgeTxMessage,
@@ -664,11 +664,11 @@ pub struct Overseer<SupportsParachains> {
 	])]
 	prospective_parachains: ProspectiveParachains,
 
-	#[subsystem(ConsensusStatisticsCollectorMessage, sends: [
+	#[subsystem(RewardsStatisticsCollectorMessage, sends: [
 		RuntimeApiMessage,
 		ChainApiMessage,
 	])]
-	consensus_statistics_collector: ConsensusStatisticsCollector,
+	rewards_statistics_collector: RewardsStatisticsCollector,
 
 	/// External listeners waiting for a hash to be in the active-leave set.
 	pub activation_external_listeners: HashMap<Hash, Vec<oneshot::Sender<SubsystemResult<()>>>>,

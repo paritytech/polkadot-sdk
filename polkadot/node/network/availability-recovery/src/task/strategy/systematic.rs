@@ -31,7 +31,7 @@ use polkadot_node_subsystem::{overseer, RecoveryError};
 use polkadot_primitives::{ChunkIndex, ValidatorIndex};
 
 use std::collections::VecDeque;
-use polkadot_node_subsystem::messages::ConsensusStatisticsCollectorMessage;
+use polkadot_node_subsystem::messages::RewardsStatisticsCollectorMessage;
 
 /// Parameters needed for fetching systematic chunks.
 pub struct FetchSystematicChunksParams {

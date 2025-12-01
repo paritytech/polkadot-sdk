@@ -104,19 +104,38 @@ pub(crate) fn weth_at_asset_hubs() -> Location {
 	)
 }
 
-pub(crate) fn create_foreign_on_ah_rococo(id: v5::Location, sufficient: bool) {
+pub(crate) fn create_foreign_on_ah_rococo(
+	id: v5::Location,
+	sufficient: bool,
+	reserves: Vec<ForeignAssetReserveData>,
+) {
 	let owner = AssetHubRococo::account_id_of(ALICE);
-	AssetHubRococo::force_create_foreign_asset(id, owner, sufficient, ASSET_MIN_BALANCE, vec![]);
+	AssetHubRococo::force_create_foreign_asset(
+		id.clone(),
+		owner.clone(),
+		sufficient,
+		ASSET_MIN_BALANCE,
+		vec![],
+	);
+	AssetHubRococo::set_foreign_asset_reserves(id, owner, reserves);
 }
 
 pub(crate) fn create_foreign_on_ah_westend(
 	id: v5::Location,
 	sufficient: bool,
+	reserves: Vec<ForeignAssetReserveData>,
 	prefund_accounts: Vec<(AccountId, u128)>,
 ) {
 	let owner = AssetHubWestend::account_id_of(ALICE);
 	let min = ASSET_MIN_BALANCE;
-	AssetHubWestend::force_create_foreign_asset(id, owner, sufficient, min, prefund_accounts);
+	AssetHubWestend::force_create_foreign_asset(
+		id.clone(),
+		owner.clone(),
+		sufficient,
+		min,
+		prefund_accounts,
+	);
+	AssetHubWestend::set_foreign_asset_reserves(id, owner, reserves);
 }
 
 pub(crate) fn foreign_balance_on_ah_rococo(id: v5::Location, who: &AccountId) -> u128 {

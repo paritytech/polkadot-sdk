@@ -22,7 +22,7 @@
 use frame_system::pallet_prelude::OriginFor;
 use sp_core::{H160, U256};
 
-use crate::{pallet, DelegateInfo, ExecReturnValue};
+use crate::{exec::Origin, pallet, DelegateInfo, ExecReturnValue};
 
 /// A trait that provides hooks for mocking EVM contract calls and callers.
 /// This is useful for testing and simulating contract interactions within foundry forge tests.
@@ -47,6 +47,13 @@ pub trait MockHandler<T: pallet::Config> {
 	///
 	/// Returns `Some(OriginFor<T>)` if the caller is mocked, otherwise `None`.
 	fn mock_caller(&self, _frames_len: usize) -> Option<OriginFor<T>> {
+		None
+	}
+
+	/// Mock the origin of a contract.
+	///
+	/// Returns `Some(&Origin<T>)` if the caller is mocked, otherwise `None`.
+	fn mock_origin(&self) -> Option<&Origin<T>> {
 		None
 	}
 

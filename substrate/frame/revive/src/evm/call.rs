@@ -22,7 +22,7 @@ use crate::{
 	extract_code_and_data, BalanceOf, CallOf, Config, GenericTransaction, Pallet, Weight, Zero,
 	LOG_TARGET, RUNTIME_PALLETS_ADDR, U256,
 };
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 use codec::DecodeLimit;
 use frame_support::MAX_EXTRINSIC_DEPTH;
 use sp_core::Get;
@@ -115,7 +115,8 @@ where
 				return Err(InvalidTransaction::Call)
 			}
 
-			call
+			crate::Call::eth_substrate_call::<T> { call: Box::new(call), transaction_encoded }
+				.into()
 		} else {
 			let call = crate::Call::eth_call::<T> {
 				dest,

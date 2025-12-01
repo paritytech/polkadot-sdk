@@ -28,7 +28,7 @@ use frame_support::{
 	BoundedVec,
 };
 use polkadot_parachain_primitives::primitives::{HeadData, ValidationResult};
-use sp_core::storage::{ChildInfo, StateVersion};
+use sp_core::storage::{well_known_keys, ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::{hashing::blake2_128, KillStorageResult};
 use sp_runtime::traits::{
@@ -179,7 +179,7 @@ where
 	let cache_provider = trie_cache::CacheProvider::new();
 	let seen_nodes = SeenNodes::<HashingFor<B>>::default();
 
-	for (block_index, block) in blocks.into_iter().enumerate() {
+	for (block_index, mut block) in blocks.into_iter().enumerate() {
 		// We use the storage root of the `parent_head` to ensure that it is the correct root.
 		// This is already being done above while creating the in-memory db, but let's be paranoid!!
 		let backend = sp_state_machine::TrieBackendBuilder::new_with_cache(
@@ -206,6 +206,15 @@ where
 		parent_header = block.header().clone();
 
 		run_with_externalities_and_recorder::<B, _, _>(
+			&backend,
+			&mut Default::default(),
+			&mut Default::default(),
+			|| {
+				E::verify_and_remove_seal(&mut block);
+			},
+		);
+
+		run_with_externalities_and_recorder::<B, _, _>(
 			&execute_backend,
 			// Here is the only place where we want to use the recorder.
 			// We want to ensure that we not accidentally read something from the proof, that
@@ -214,9 +223,13 @@ where
 			&mut execute_recorder,
 			&mut overlay,
 			|| {
-				E::execute_block(block);
+				E::execute_verified_block(block);
 			},
 		);
+
+		if overlay.storage(well_known_keys::CODE).is_some() && num_blocks > 1 {
+			panic!("When applying a runtime upgrade, only one block per PoV is allowed. Received {num_blocks}.")
+		}
 
 		run_with_externalities_and_recorder::<B, _, _>(
 			&backend,

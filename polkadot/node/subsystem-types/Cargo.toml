@@ -12,7 +12,6 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-bitvec = { features = ["alloc"], workspace = true }
 async-trait = { workspace = true }
 derive_more = { workspace = true, default-features = true }
 fatality = { workspace = true }

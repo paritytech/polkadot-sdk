@@ -60,14 +60,10 @@ use std::{
 	collections::{BTreeMap, HashMap, HashSet, VecDeque},
 	sync::Arc,
 };
-use bitvec::{order::Lsb0 as BitOrderLsb0, slice::BitSlice};
 
 /// Network events as transmitted to other subsystems, wrapped in their message types.
 pub mod network_bridge_event;
 pub use network_bridge_event::NetworkBridgeEvent;
-use polkadot_node_primitives::approval::time::Tick;
-use polkadot_node_primitives::approval::v2::Bitfield;
-use polkadot_primitives::vstaging::ApprovalStatistics;
 
 /// A request to the candidate backing subsystem to check whether
 /// we can second this candidate.
@@ -483,7 +479,7 @@ pub enum NetworkBridgeTxMessage {
 }
 
 /// Availability Distribution Message.
-#[derive(Debug, derive_more::From)]
+#[derive(Debug)]
 pub enum AvailabilityDistributionMessage {
 	/// Instruct availability distribution to fetch a remote PoV.
 	///
@@ -734,8 +730,6 @@ pub enum RuntimeApiRequest {
 	FetchOnChainVotes(RuntimeApiSender<Option<polkadot_primitives::ScrapedOnChainVotes>>),
 	/// Submits a PVF pre-checking statement into the transaction pool.
 	SubmitPvfCheckStatement(PvfCheckStatement, ValidatorSignature, RuntimeApiSender<()>),
-	/// Submits the collected approvals statistics for a given session into the transaction pool.
-	SubmitApprovalStatistics(ApprovalStatistics,  ValidatorSignature, RuntimeApiSender<()>),
 	/// Returns code hashes of PVFs that require pre-checking by validators in the active set.
 	PvfsRequirePrecheck(RuntimeApiSender<Vec<ValidationCodeHash>>),
 	/// Get the validation code used by the specified para, taking the given
@@ -1480,7 +1474,7 @@ pub enum ProspectiveParachainsMessage {
 
 /// Messages sent to the Statistics Collector subsystem.
 #[derive(Debug)]
-pub enum ConsensusStatisticsCollectorMessage {
+pub enum RewardsStatisticsCollectorMessage {
 	ChunksDownloaded(SessionIndex, CandidateHash, HashMap<ValidatorIndex, u64>),
 	ChunkUploaded(CandidateHash, HashSet<AuthorityDiscoveryId>),
 

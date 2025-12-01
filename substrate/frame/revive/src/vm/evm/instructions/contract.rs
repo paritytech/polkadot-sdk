@@ -23,7 +23,7 @@ use crate::{
 		evm::{interpreter::Halt, util::as_usize_or_halt, Interpreter},
 		Ext, RuntimeCosts,
 	},
-	Code, Error, Pallet, Weight, H160, LOG_TARGET, U256,
+	Code, DebugSettings, Error, Pallet, Weight, H160, LOG_TARGET, U256,
 };
 use alloc::{vec, vec::Vec};
 pub use call_helpers::{calc_call_gas, get_memory_in_and_out_ranges};
@@ -46,11 +46,8 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 	let [value, code_offset, len] = interpreter.stack.popn()?;
 	let len = as_usize_or_halt::<E::T>(len)?;
 
-	// TODO: We do not charge for the new code in storage. When implementing the new gas:
-	// Introduce EthInstantiateWithCode, which shall charge gas based on the code length.
-	// See #9577 for more context.
-	interpreter.ext.charge_or_halt(RuntimeCosts::Instantiate {
-		input_data_len: len as u32, // We charge for initcode execution
+	interpreter.ext.charge_or_halt(RuntimeCosts::Create {
+		init_code_len: len as u32,
 		balance_transfer: Pallet::<E::T>::has_balance(value),
 		dust_transfer: Pallet::<E::T>::has_dust(value),
 	})?;
@@ -58,7 +55,9 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 	let mut code = Vec::new();
 	if len != 0 {
 		// EIP-3860: Limit initcode
-		if len > revm::primitives::eip3860::MAX_INITCODE_SIZE {
+		if len > revm::primitives::eip3860::MAX_INITCODE_SIZE &&
+			!DebugSettings::is_unlimited_contract_size_allowed::<E::T>()
+		{
 			return ControlFlow::Break(Error::<E::T>::BlobTooLarge.into());
 		}
 
