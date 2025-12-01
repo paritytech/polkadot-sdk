@@ -1,26 +1,26 @@
 title: 'Snowbridge V2: Generic inbound message processing'
 doc:
 - audience: Runtime Dev
-  description: "## Description\n\nThis PR adds a new `MessageProcessor` type to the\
-    \ `inbound-queue-v2` pallet\u2019s config.\n\nThis type allows to make the processing\
-    \ of inbound messages more generic, via the (also new) `MessageProcessor` trait,\
-    \ which contains the following functions:\n\n- `can_process_message`: a custom\
-    \ (light) preliminary check to ensure that the message can be processed without\
-    \ the need of entering the full `process_message` implementation yet.\n- `process_message`:\
-    \ actually performs the custom inbound message processing logic.\n\n## Motivation\n\
-    \nAt the moment of inbound message processing, it might be the case that, for\
-    \ instance, there is no need to perform any XCM related logic, as it could happen\
-    \ in solo-chain contexts.\n\nBy making use of the functionality included in this\
-    \ PR, projects using Snowbridge can leverage this customization, implementing\
-    \ any kind of processing they need for inbound queue messages in a more flexible\
-    \ way.\n\n### Note: XcmPayload\u2019s name change\n\nIn this PR I also included\
-    \ a small name change for the `XcmPayload` enum. The proposed name it\u2019s just\
-    \ a plain `Payload`, and it still contains the same fields as before.\n\nThe reason\
-    \ for this change is to generalize the concept of \u201Craw\u201D bytes we receive\
-    \ in the first variant. At the moment of processing an inbound message, this bytes\
-    \ could be used not only as XCM but also as other kind of data.\n\nThis change\
-    \ doesn\u2019t imply further changes on the current Snowbridge smart contract\
-    \ implementations."
+  description: |-
+    # Description
+
+    This PR adds a new `MessageProcessor` type to the `inbound-queue-v2` pallet's config. 
+    
+    This type allows to make the processing of inbound messages more generic, via the (also new) `MessageProcessor` trait, which contains the following functions:
+
+    - `can_process_message`: a custom (light) preliminary check to ensure that the message can be processed without the need of entering the full `process_message` implementation yet.
+    - `process_message`: actually performs the custom inbound message processing logic.
+
+    ## Motivation
+
+    At the moment of inbound message processing, it might be the case that, for instance, there is no need to perform any XCM related logic, as it could happen in solo-chain contexts.
+    By making use of the functionality included in this PR, projects using Snowbridge can leverage this customization, implementing any kind of processing they need for inbound queue messages in a more flexible way.
+
+    ## Note: XcmPayload's name change
+
+    In this PR I also included a small name change for the `XcmPayload` enum. The proposed name it's just a plain `Payload`, and it still contains the same fields as before.
+    The reason for this change is to generalize the concept of "raw" bytes we receive in the first variant. At the moment of processing an inbound message, this bytes could be used not only as XCM but also as other kind of data.
+    This change doesn't imply further changes on the current Snowbridge smart contract implementations.
 crates:
 - name: snowbridge-pallet-inbound-queue-v2
   bump: major
