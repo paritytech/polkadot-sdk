@@ -505,8 +505,8 @@ impl OnRuntimeUpgrade for VerifyRuntimeUpgrade {
 /// a runtime upgrade. They must be lightweight enough to complete within a single block.
 pub type SingleBlockMigrations = (
 	// Migrate CurrentSlot to account for slot duration changes.
-	// This must run first, before any other migrations, to prevent panics in pallet_aura::on_initialize
-	// when slot duration increases during runtime upgrade.
+	// This must run first, before any other migrations, to prevent panics in
+	// pallet_aura::on_initialize when slot duration increases during runtime upgrade.
 	pallet_aura::migrations::MigrateCurrentSlot<Runtime>,
 	// Verify that runtime upgrade hooks are working correctly.
 	VerifyRuntimeUpgrade,

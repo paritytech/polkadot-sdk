@@ -40,8 +40,7 @@ async fn parachain_runtime_upgrade_test() -> Result<(), anyhow::Error> {
 				.with_node(|node| node.with_name("validator-0"));
 
 			// Add 4 validators
-			(1..4)
-				.fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+			(1..4).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)
@@ -67,11 +66,16 @@ async fn parachain_runtime_upgrade_test() -> Result<(), anyhow::Error> {
 
 	// Wait for the parachain to start producing blocks and produce 5 blocks
 	log::info!("Waiting for parachain to produce 5 blocks...");
-	assert_para_throughput(&relay_client, 10, [(ParaId::from(PARA_ID), 5..20)].into_iter().collect())
-		.await?;
+	assert_para_throughput(
+		&relay_client,
+		10,
+		[(ParaId::from(PARA_ID), 5..20)].into_iter().collect(),
+	)
+	.await?;
 
 	// Get the current runtime version
-	let current_spec_version = collator_client.backend().current_runtime_version().await?.spec_version;
+	let current_spec_version =
+		collator_client.backend().current_runtime_version().await?.spec_version;
 	log::info!("Current runtime spec version: {current_spec_version}");
 
 	// Use WASM with slot duration 18s
@@ -94,10 +98,7 @@ async fn parachain_runtime_upgrade_test() -> Result<(), anyhow::Error> {
 	let expected_spec_version = current_spec_version + 1;
 
 	// Wait for the upgrade to complete (maximum 250 seconds)
-	log::info!(
-		"Waiting for parachain runtime upgrade to version {}...",
-		expected_spec_version
-	);
+	log::info!("Waiting for parachain runtime upgrade to version {}...", expected_spec_version);
 	tokio::time::timeout(
 		Duration::from_secs(250),
 		wait_for_upgrade(collator_client.clone(), expected_spec_version),
@@ -115,7 +116,7 @@ async fn parachain_runtime_upgrade_test() -> Result<(), anyhow::Error> {
 	// after the upgrade, as the migration recalculates CurrentSlot taking into account the new
 	// slot duration (18s instead of 6s), preventing a panic in pallet_aura::on_initialize.
 	log::info!("Checking that parachain continues producing blocks after upgrade...");
-	
+
 	// Verify that the parachain continues producing blocks after the upgrade
 	// The migration should have prevented the panic and allowed the parachain to work normally
 	assert_para_throughput(
@@ -129,4 +130,3 @@ async fn parachain_runtime_upgrade_test() -> Result<(), anyhow::Error> {
 
 	Ok(())
 }
-
