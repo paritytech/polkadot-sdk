@@ -231,6 +231,13 @@ pub mod pallet {
 		#[pallet::constant]
 		type SlashDeferDuration: Get<EraIndex>;
 
+		/// Whether nominators are slashable or not.
+		///
+		/// - When set to  `true`, nominators are slashed along with validators and follow same
+		/// bonding duration.
+		/// When set `false`, nominators are not slashed, and can unbond at the end of active era.
+		type AreNominatorsSlashable: Get<bool>;
+
 		/// The origin which can manage less critical staking parameters that does not require root.
 		///
 		/// Supported actions: (1) cancel deferred slash, (2) set minimum commission.
@@ -1589,7 +1596,9 @@ pub mod pallet {
 					ledger.active = Zero::zero();
 				}
 
-				let min_active_bond = if Nominators::<T>::contains_key(&stash) {
+				let is_nominator = Nominators::<T>::contains_key(&stash);
+
+				let min_active_bond = if is_nominator {
 					Self::min_nominator_bond()
 				} else if Validators::<T>::contains_key(&stash) {
 					Self::min_validator_bond()
@@ -1605,8 +1614,16 @@ pub mod pallet {
 				// Note: we used current era before, but that is meant to be used for only election.
 				// The right value to use here is the active era.
 
+				let bonding_duration = if is_nominator && !T::AreNominatorsSlashable::get() {
+					// if the staker is not slashable, we allow them to withdraw unbonded funds
+					// in the next era.
+					1
+				} else {
+					T::BondingDuration::get()
+				};
+
 				let era = session_rotation::Rotator::<T>::active_era()
-					.saturating_add(T::BondingDuration::get());
+					.saturating_add(bonding_duration);
 				if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
 					// To keep the chunk count down, we only keep one chunk per era. Since
 					// `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will

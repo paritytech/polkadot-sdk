@@ -306,6 +306,7 @@ pub(crate) fn compute_slash<T: Config>(params: SlashParams<T>) -> Option<Unappli
 	(nom_slashed + val_slashed > Zero::zero()).then_some(UnappliedSlash {
 		validator: params.stash.clone(),
 		own: val_slashed,
+		// TODO(ank4n): don't compute nominators if nominator slashing is disabled.
 		others: WeakBoundedVec::force_from(
 			nominators_slashed,
 			Some("slashed nominators not expected to be larger than the bounds"),
