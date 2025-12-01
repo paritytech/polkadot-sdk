@@ -654,42 +654,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						if let (Some(delegate), Some(conviction)) =
 							(&voting.maybe_delegate, &voting.maybe_conviction)
 						{
-							VotingFor::<T, I>::mutate(delegate, &class, |delegate_voting| {
-								let delegates_votes = &mut delegate_voting.votes;
-								// Check vote data exists, shouldn't be possible for it not to if
-								// delegator has voted & poll is ongoing.
-								if let Ok(i) = delegates_votes
-									.binary_search_by_key(&poll_index, |i| i.poll_index)
-								{
-									// Remove clawback from delegates vote record.
-									let amount_delegated =
-										conviction.votes(voting.delegated_balance);
-									delegates_votes[i].retracted_votes = delegates_votes[i]
-										.retracted_votes
-										.saturating_sub(amount_delegated);
-
-									// If delegate had voted and was standard vote.
-									if let Some(approval) = delegates_votes[i]
-										.maybe_vote
-										.as_ref()
-										.and_then(|v| v.as_standard())
-									{
-										// Increase tally by delegated amount.
-										tally.increase(
-											approval,
-											conviction.votes(voting.delegated_balance),
-										);
-									}
-
-									// And remove the voting data if there's no longer a reason
-									// to hold.
-									if delegates_votes[i].maybe_vote.is_none() &&
-										delegates_votes[i].retracted_votes == Default::default()
-									{
-										delegates_votes.remove(i);
-									}
-								}
-							});
+							let amount_delegated = conviction.votes(voting.delegated_balance);
+							Self::remove_delegate_clawback(
+								delegate,
+								&class,
+								poll_index,
+								amount_delegated,
+								tally,
+							);
 						}
 
 						Self::deposit_event(Event::VoteRemoved {
@@ -763,6 +735,40 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					Ok(())
 				},
 			})
+		})
+	}
+
+	/// Remove a "clawback" from the delegate when a delegator unvotes.
+	fn remove_delegate_clawback(
+		delegate: &T::AccountId,
+		class: &ClassOf<T, I>,
+		poll_index: PollIndexOf<T, I>,
+		amount_delegated: Delegations<BalanceOf<T, I>>,
+		tally: &mut TallyOf<T, I>,
+	) {
+		VotingFor::<T, I>::mutate(delegate, &class, |delegate_voting| {
+			let delegates_votes = &mut delegate_voting.votes;
+			// Vote must exist, but we check anyway.
+			if let Ok(i) = delegates_votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
+				// Remove clawback from delegates vote record.
+				delegates_votes[i].retracted_votes =
+					delegates_votes[i].retracted_votes.saturating_sub(amount_delegated);
+
+				// If delegate had voted and was standard vote.
+				if let Some(approval) =
+					delegates_votes[i].maybe_vote.as_ref().and_then(|v| v.as_standard())
+				{
+					tally.increase(approval, amount_delegated);
+				}
+
+				// And remove the voting data if there's no longer a reason
+				// to hold.
+				if delegates_votes[i].maybe_vote.is_none() &&
+					delegates_votes[i].retracted_votes == Default::default()
+				{
+					delegates_votes.remove(i);
+				}
+			}
 		})
 	}
 
