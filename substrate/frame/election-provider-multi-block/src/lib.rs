@@ -43,8 +43,7 @@
 //!
 //! This pallet will only function in a sensible way if it is peered with its companion pallets.
 //!
-//! - The [`verifier`] pallet provides a standard implementation of the [`verifier::Verifier`]. This
-//!   pallet is mandatory.
+//! - The [`verifier`] pallet provides a standard implementation of the [`verifier::Verifier`].
 //! - The [`unsigned`] module provides the implementation of unsigned submission by validators. If
 //!   this pallet is included, then [`Config::UnsignedPhase`] will determine its duration.
 //! - The [`signed`] module provides the implementation of the signed submission by any account. If
@@ -55,24 +54,13 @@
 //! the shared information that all child pallets use. All child pallets depend on the top level
 //! pallet ONLY, but not the other way around. For those cases, traits are used.
 //!
-//! As in, notice that [`crate::verifier::Config`] relies on [`crate::Config`], but for the
-//! reverse, we rely on [`crate::verifier::Verifier`] trait, which is indeed part of
-//! [`crate::Config`]. This is merely an implementation opinion.
+//! For reverse linking, or child-linking, only explicit traits with clear interfaces are used. For
+//! example, the following traits facilitate other communication:
 //!
-//! ### Pallet Ordering:
-//!
-//! TODO: @kiaenigma: this needs clarification and a enforcement. Signed pallet should come first.
-//! Fixing this should yield removing `verifier_done` from the phase transition.
-//!
-//! The ordering of these pallets in a runtime should be:
-//! * parent
-//! * verifier
-//! * signed
-//! * unsigned
-//!
-//! This is critical for the phase transition to work.
-//!
-//! > This should be manually checked, there is not automated way to test it.
+//! * [`crate::types::SignedInterface`]: Parent talking to signed.
+//! * [`crate::verifier::Verifier`]: Parent talking to verifier.
+//! * [`crate::verifier::SolutionDataProvider`]: Verifier talking to signed.
+
 //!
 //! ## Pagination
 //!
@@ -94,7 +82,7 @@
 //!
 //! ## Phases
 //!
-//! The operations in this pallet are divided intor rounds, a `u32` number stored in [`Round`].
+//! The operations in this pallet are divided into rounds, a `u32` number stored in [`Round`].
 //! This value helps this pallet organize itself, and leaves the door open for lazy deletion of any
 //! stale data. A round, under the happy path, starts by receiving the call to
 //! [`ElectionProvider::start`], and is terminated by receiving a call to
@@ -126,6 +114,20 @@
 //!
 //! > Given this, it is rather important for the user of this pallet to ensure it always terminates
 //! > election via `elect` before requesting a new one.
+//!
+//! ### Phase Transition
+//!
+//! Within all 4 pallets only the parent pallet is allowed to move the phases forward. As of now,
+//! the transition happens `on-poll`, ensuring that we don't consume too much weight. The parent
+//! pallet is in charge of aggregating the work to be done by all pallets, checking if it can fit
+//! within the current block's weight limits, and executing it if so.
+//!
+//! Occasional phase transition stalling is not a critical issue. Every instance of phase transition
+//! failing is accompanied by a [`Event::UnexpectedPhaseTransitionOutOfWeight`] for visibility.
+//!
+//! Note this pallet transitions phases all the way into [`crate::types::Phase::Done`]. At this
+//! point, we will move to `Export` phase an onwards by calls into `elect`. A call to `elect(0)`
+//! rotates the round, as stated above.
 //!
 //! ## Feasible Solution (correct solution)
 //!
@@ -197,7 +199,7 @@
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
 use crate::signed::{CalculateBaseDeposit, CalculatePageDeposit};
-use crate::verifier::Verifier;
+use crate::verifier::{AsynchronousVerifier, Verifier};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{
 	onchain, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
@@ -207,6 +209,7 @@ use frame_support::{
 	dispatch::PostDispatchInfo,
 	pallet_prelude::*,
 	traits::{Defensive, EnsureOrigin},
+	weights::WeightMeter,
 	DebugNoBound, Twox64Concat,
 };
 use frame_system::pallet_prelude::*;
@@ -271,8 +274,8 @@ impl<T: Config> ElectionProvider for InitiateEmergencyPhase<T> {
 		Err("Emergency phase started.")
 	}
 
-	fn status() -> Result<bool, ()> {
-		Ok(true)
+	fn status() -> Result<Option<Weight>, ()> {
+		Ok(Some(Default::default()))
 	}
 
 	fn start() -> Result<(), Self::Error> {
@@ -324,8 +327,8 @@ impl<T: Config> ElectionProvider for Continue<T> {
 		Zero::zero()
 	}
 
-	fn status() -> Result<bool, ()> {
-		Ok(true)
+	fn status() -> Result<Option<Weight>, ()> {
+		Ok(Some(Default::default()))
 	}
 }
 
@@ -545,8 +548,7 @@ pub mod pallet {
 		/// Duration of the singed validation phase.
 		///
 		/// The duration of this should not be less than `T::Pages`, and there is no point in it
-		/// being more than `SignedPhase::MaxSubmission::get() * T::Pages`. TODO: integrity test for
-		/// it.
+		/// being more than `SignedPhase::MaxSubmission::get() * T::Pages`.
 		#[pallet::constant]
 		type SignedValidationPhase: Get<BlockNumberFor<Self>>;
 
@@ -601,6 +603,9 @@ pub mod pallet {
 				Solution = SolutionOf<Self::MinerConfig>,
 				AccountId = Self::AccountId,
 			> + verifier::AsynchronousVerifier;
+
+		/// Interface signed pallet's interface.
+		type Signed: SignedInterface;
 
 		/// The origin that can perform administration operations on this pallet.
 		///
@@ -708,51 +713,69 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
-			let current_phase = CurrentPhase::<T>::get();
-			let weight1 = match current_phase {
-				Phase::Snapshot(x) if x == T::Pages::get() => {
-					// create the target snapshot
-					Self::create_targets_snapshot();
-					T::WeightInfo::on_initialize_into_snapshot_msp()
-				},
-				Phase::Snapshot(x) => {
-					// create voter snapshot
-					Self::create_voters_snapshot_paged(x);
-					T::WeightInfo::on_initialize_into_snapshot_rest()
-				},
-				_ => T::WeightInfo::on_initialize_nothing(),
-			};
+		fn on_poll(_now: BlockNumberFor<T>, weight_meter: &mut WeightMeter) {
+			// first check we can at least read one storage.
+			if !weight_meter.can_consume(T::DbWeight::get().reads(1)) {
+				Self::deposit_event(Event::UnexpectedPhaseTransitionHalt {
+					required: T::DbWeight::get().reads(1),
+					had: weight_meter.remaining(),
+				});
+				return;
+			}
 
-			// Only transition if not in Export phase
-			if !matches!(current_phase, Phase::Export(_)) {
-				let next_phase = current_phase.next();
+			// if so, consume and prepare the next phase.
+			let current_phase = Self::current_phase();
+			weight_meter.consume(T::DbWeight::get().reads(1));
 
-				let weight2 = match next_phase {
-					Phase::Signed(_) => T::WeightInfo::on_initialize_into_signed(),
-					Phase::SignedValidation(_) =>
-						T::WeightInfo::on_initialize_into_signed_validation(),
-					Phase::Unsigned(_) => T::WeightInfo::on_initialize_into_unsigned(),
-					_ => T::WeightInfo::on_initialize_nothing(),
-				};
+			let (self_weight, self_exec) = Self::per_block_exec(current_phase);
+			let (verifier_weight, verifier_exc) = T::Verifier::per_block_exec();
 
-				Self::phase_transition(next_phase);
+			// The following will combine `Self::per_block_exec` and `T::Verifier::per_block_exec`
+			// into a single tuple of `(Weight, Box<_>)`. Can be moved into a reusable combinator
+			// function if we have this pattern in more places.
+			let (combined_weight, combined_exec) = (
+				// pre-exec weight is simply addition.
+				self_weight.saturating_add(verifier_weight),
+				// our new exec is..
+				Box::new(move |meter: &mut WeightMeter| {
+					self_exec(meter);
+					verifier_exc(meter);
+				}),
+			);
 
-				// bit messy, but for now this works best.
-				#[cfg(test)]
-				{
-					let test_election_start: BlockNumberFor<T> =
-						(crate::mock::ElectionStart::get() as u32).into();
-					if _now == test_election_start {
-						crate::log!(info, "TESTING: Starting election at block {}", _now);
-						crate::mock::MultiBlock::start().unwrap();
-					}
-				}
-
-				weight1 + weight2
+			log!(
+				trace,
+				"worst-case required weight for transition from {:?} to {:?} is {:?}, has {:?}",
+				current_phase,
+				current_phase.next(),
+				combined_weight,
+				weight_meter.remaining()
+			);
+			if weight_meter.can_consume(combined_weight) {
+				combined_exec(weight_meter);
 			} else {
-				// If in Export phase, do nothing.
-				weight1
+				Self::deposit_event(Event::UnexpectedPhaseTransitionOutOfWeight {
+					from: current_phase,
+					to: current_phase.next(),
+					required: combined_weight,
+					had: weight_meter.remaining(),
+				});
+			}
+
+			// NOTE: why in here? because it is more accessible, for example `roll_to_with_ocw`.
+			#[cfg(test)]
+			{
+				if _now > 200u32.into() {
+					panic!("Looping to death: in case of errors in election start time in tests, we might loop \
+					infinitely. This panic is preventing you from that. Double check `mock::ElectionStart` or increase \
+					the 200 limit");
+				}
+				let test_election_start: BlockNumberFor<T> =
+					(crate::mock::ElectionStart::get() as u32).into();
+				if _now == test_election_start {
+					crate::log!(info, "TESTING: Starting election at block {}", _now);
+					crate::mock::MultiBlock::start().unwrap();
+				}
 			}
 		}
 
@@ -832,10 +855,19 @@ pub mod pallet {
 			/// The target phase
 			to: Phase<T>,
 		},
-		/// Target snapshot creation failed
+		/// Target snapshot creation failed.
 		UnexpectedTargetSnapshotFailed,
-		/// Voter snapshot creation failed
+		/// Voter snapshot creation failed.
 		UnexpectedVoterSnapshotFailed,
+		/// Phase transition could not proceed due to being out of weight.
+		UnexpectedPhaseTransitionOutOfWeight {
+			from: Phase<T>,
+			to: Phase<T>,
+			required: Weight,
+			had: Weight,
+		},
+		/// Phase transition could not even begin becaseu of being out of weight.
+		UnexpectedPhaseTransitionHalt { required: Weight, had: Weight },
 	}
 
 	/// Error of the pallet that can be returned in response to dispatches.
@@ -1247,6 +1279,131 @@ impl<T: Config> Pallet<T> {
 		Zero::zero()
 	}
 
+	/// > Note: Consider this a shared documentation block for [`Pallet::on_poll`] and this
+	/// > function, as they work together.
+	///
+	/// The meta-phase transition logic that applies to all pallets. Includes the following:
+	///
+	/// * Creating snapshot once `ElectionProvider::start` has instructed us to do so.
+	/// * Transition into `Phase::Signed`.
+	/// * Upon last page of `Phase::Signed`, instruct the `Verifier` to start, if any solution
+	///   exists.
+	/// * And moving forward all other phases as necessary.
+	///
+	/// What it does not do:
+	///
+	/// * Instruct the verifier to move forward. This happens through
+	///   [`verifier::Verifier::per_block_exec`], called in [`Pallet::on_poll`]. On each block,
+	///   [`T::Verifier`] is given a chance to do something. Under the hood, if the `Status` is set,
+	///   it will do something, regardless of which phase we are in. In this pallet we only move
+	///   [`Phase::SignedValidation`] forward.
+	/// * Move us forward if we are in either of `Phase::Done` or `Phase::Export`. These are
+	///   controlled by the caller of our [`T::ElectionProvider`] implementation, i.e. staking. Note
+	///   that this pallet always transitions us from `current_phase` to `current_phase.next()`, but
+	///   the [`crate::types::Phase::next`] function is a noop for `Done` and `Export`.
+	///
+	/// ### Type
+	///
+	/// The commonly used `(Weight, Box<dyn Fn(&mut WeightMeter)>)` should be interpreted as such:
+	///
+	/// * The `Weight` is the pre-computed worst case weight of the operation that we are going to
+	///   do.
+	/// * The `Box<dyn Fn(&mut WeightMeter)>` is the function that represents that the work that
+	///   will at most consume the said amount of weight. While executing, it will alter the given
+	///   weight meter to consume the actual weight used. Indeed, the weight that is registered in
+	///   the `WeightMeter` must never be more than the `Weight` returned as the first item of the
+	///   tuple.
+	///
+	/// In essence, the caller must:
+	///
+	/// 1. given an existing `meter`, receive `(worst_weight, exec)`
+	/// 2. ensure `meter` can consume up to `worst_weight`.
+	/// 3. if so, call `exec(meter)`, knowing `meter` will accumulate at most `worst_weight` extra.
+	///
+	/// ### Returned Weight
+	///
+	/// The weights returned are as follows:
+	///
+	/// * `just_next_phase` returns a benchmarked weight that should be equal to only reading and
+	///   writing the `Phase`. This is used for:
+	/// 	* `Off` phase, which does not do anything `on_poll`.
+	/// 	* `Signed` phase except last page, which starts the verifier.
+	/// 	* `Unsigned` phase, which does not do anything `on_poll` and managed its own extrinsic
+	///    weights.
+	/// 	* `Emergency` phase, which does not do anything `on_poll`.
+	/// 	* `Done` phase, which does not do anything `on_poll`.
+	/// 	* `SignedValidation` phase, because in this pallet we only move the phase forward and we
+	///    don't know (or want to know) how much weight `Verifier` is consuming. This is handled by
+	///    combining the weight of [`T::Verifier::per_block_exec`] with this function in
+	///    [`Pallet::on_poll`].
+	/// 	* `Export` phase, which does not do anything `on_poll` on this pallet, yet we return the
+	///    weight that [`Config::ElectionProvider`]'s caller should register via
+	///    [`ElectionProvider::status`].
+	///
+	/// The only special cases, from the perspective of this pallet, are:
+	/// 	* Last page of signed phase registers `per_block_start_signed_validation`.
+	/// 	* The snapshots are handled by this pallet, which registers `per_block_snapshot_msp` and
+	///    `per_block_snapshot_rest`.
+	fn per_block_exec(current_phase: Phase<T>) -> (Weight, Box<dyn Fn(&mut WeightMeter)>) {
+		type ExecuteFn = Box<dyn Fn(&mut WeightMeter)>;
+		let next_phase = current_phase.next();
+
+		let just_next_phase: (Weight, ExecuteFn) = (
+			T::WeightInfo::per_block_nothing(),
+			Box::new(move |_| {
+				// Note `Phase.next` for some variants is a noop, for example `Done`.
+				Self::phase_transition(next_phase);
+			}),
+		);
+
+		match current_phase {
+			Phase::Snapshot(x) if x == T::Pages::get() => {
+				// first snapshot
+				let weight = T::WeightInfo::per_block_snapshot_msp();
+				let exec: ExecuteFn = Box::new(move |meter: &mut WeightMeter| {
+					Self::create_targets_snapshot();
+					Self::phase_transition(next_phase);
+					meter.consume(weight)
+				});
+				(weight, exec)
+			},
+
+			Phase::Snapshot(x) => {
+				// rest of the snapshot, incl last one.
+				let weight = T::WeightInfo::per_block_snapshot_rest();
+				let exec: ExecuteFn = Box::new(move |meter: &mut WeightMeter| {
+					Self::create_voters_snapshot_paged(x);
+					Self::phase_transition(next_phase);
+					meter.consume(weight)
+				});
+				(weight, exec)
+			},
+			Phase::Signed(x) => {
+				// Signed pallet should prep the best winner, and send the start signal, if some
+				// exists.
+				if x.is_zero() && T::Signed::has_leader(Self::round()) {
+					let weight = T::WeightInfo::per_block_start_signed_validation();
+					let exec: ExecuteFn = Box::new(move |meter: &mut WeightMeter| {
+						// defensive: signed phase has just began, verifier should be in a clear
+						// state and ready to accept a solution.
+						let _ = T::Verifier::start().defensive();
+						Self::phase_transition(next_phase);
+						meter.consume(weight)
+					});
+					(weight, exec)
+				} else {
+					just_next_phase
+				}
+			},
+			Phase::SignedValidation(_) |
+			Phase::Unsigned(_) |
+			Phase::Off |
+			Phase::Emergency |
+			Phase::Done |
+			Phase::Export(_) => just_next_phase,
+		}
+	}
+
 	/// Return the `length` most significant pages.
 	///
 	/// For example, if `Pages = 4`, and `length = 2`, our full snapshot range would be [0,
@@ -1258,6 +1415,9 @@ impl<T: Config> Pallet<T> {
 
 	pub(crate) fn phase_transition(to: Phase<T>) {
 		let from = Self::current_phase();
+		if from == to {
+			return;
+		}
 		use sp_std::mem::discriminant;
 		if discriminant(&from) != discriminant(&to) {
 			log!(debug, "transitioning phase from {:?} to {:?}", from, to);
@@ -1437,6 +1597,172 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
+#[cfg(feature = "std")]
+impl<T: Config> Pallet<T> {
+	fn analyze_weight(
+		op_name: &str,
+		op_weight: Weight,
+		limit_weight: Weight,
+		maybe_max_ratio: Option<sp_runtime::Percent>,
+		maybe_max_warn_ratio: Option<sp_runtime::Percent>,
+	) {
+		use frame_support::weights::constants::{
+			WEIGHT_PROOF_SIZE_PER_KB, WEIGHT_REF_TIME_PER_MILLIS,
+		};
+
+		let ref_time_ms = op_weight.ref_time() / WEIGHT_REF_TIME_PER_MILLIS;
+		let ref_time_ratio =
+			sp_runtime::Percent::from_rational(op_weight.ref_time(), limit_weight.ref_time());
+		let proof_size_kb = op_weight.proof_size() / WEIGHT_PROOF_SIZE_PER_KB;
+		let proof_size_ratio =
+			sp_runtime::Percent::from_rational(op_weight.proof_size(), limit_weight.proof_size());
+		let limit_ms = limit_weight.ref_time() / WEIGHT_REF_TIME_PER_MILLIS;
+		let limit_kb = limit_weight.proof_size() / WEIGHT_PROOF_SIZE_PER_KB;
+		log::info!(
+			target: crate::LOG_PREFIX,
+			"weight of {op_name:?} is: ref-time: {ref_time_ms}ms, {ref_time_ratio:?} of total, proof-size: {proof_size_kb}KiB, {proof_size_ratio:?} of total (total: {limit_ms}ms, {limit_kb}KiB)",
+		);
+
+		if let Some(max_ratio) = maybe_max_ratio {
+			assert!(ref_time_ratio <= max_ratio && proof_size_ratio <= max_ratio,)
+		}
+		if let Some(warn_ratio) = maybe_max_warn_ratio {
+			if ref_time_ratio > warn_ratio || proof_size_ratio > warn_ratio {
+				log::warn!(
+					target: crate::LOG_PREFIX,
+					"weight of {op_name:?} is above {warn_ratio:?} of the block limit",
+				);
+			}
+		}
+	}
+
+	/// Helper function to check the weights of all significant operations of this this pallet
+	/// against a runtime.
+	///
+	/// Will check the weights for:
+	///
+	/// * snapshot
+	/// * signed submission and cleanip
+	/// * unsigned solution submission
+	/// * signed validation
+	/// * export.
+	///
+	/// Arguments:
+	///
+	/// * `limit_weight` should be the maximum block weight (often obtained from `frame_system`).
+	/// * `maybe_max_ratio` is the maximum ratio of `limit_weight` that we may consume, else we
+	///   panic.
+	/// * `maybe_max_warn_rati` has the same effect, but it emits a warning instead of panic.
+	///
+	/// A reasonable value for `maybe_max_weight` would be 75%, and 50% for `maybe_max_warn_ratio`.
+	pub fn check_all_weights(
+		limit_weight: Weight,
+		maybe_max_ratio: Option<sp_runtime::Percent>,
+		maybe_max_warn_ratio: Option<sp_runtime::Percent>,
+	) where
+		T: crate::verifier::Config + crate::signed::Config + crate::unsigned::Config,
+	{
+		use crate::weights::traits::{
+			pallet_election_provider_multi_block_signed::WeightInfo as _,
+			pallet_election_provider_multi_block_unsigned::WeightInfo as _,
+			pallet_election_provider_multi_block_verifier::WeightInfo as _,
+		};
+
+		// -------------- snapshot
+		Self::analyze_weight(
+			"snapshot_msp",
+			<T as Config>::WeightInfo::per_block_snapshot_msp(),
+			limit_weight,
+			maybe_max_ratio,
+			maybe_max_warn_ratio,
+		);
+
+		Self::analyze_weight(
+			"snapshot_rest",
+			<T as Config>::WeightInfo::per_block_snapshot_rest(),
+			limit_weight,
+			maybe_max_ratio,
+			maybe_max_warn_ratio,
+		);
+
+		// -------------- signed
+		Self::analyze_weight(
+			"signed_clear_all_pages",
+			<T as crate::signed::Config>::WeightInfo::clear_old_round_data(T::Pages::get()),
+			limit_weight,
+			maybe_max_ratio,
+			maybe_max_warn_ratio,
+		);
+		Self::analyze_weight(
+			"signed_submit_single_pages",
+			<T as crate::signed::Config>::WeightInfo::submit_page(),
+			limit_weight,
+			maybe_max_ratio,
+			maybe_max_warn_ratio,
+		);
+
+		// -------------- unsigned
+		Self::analyze_weight(
+			"verify unsigned solution",
+			<T as crate::unsigned::Config>::WeightInfo::submit_unsigned(),
+			limit_weight,
+			maybe_max_ratio,
+			maybe_max_warn_ratio,
+		);
+
+		// -------------- verification
+		Self::analyze_weight(
+			"verifier valid terminal",
+			<T as crate::verifier::Config>::WeightInfo::verification_valid_terminal(),
+			limit_weight,
+			maybe_max_ratio,
+			maybe_max_warn_ratio,
+		);
+		Self::analyze_weight(
+			"verifier invalid terminal",
+			<T as crate::verifier::Config>::WeightInfo::verification_invalid_terminal(),
+			limit_weight,
+			maybe_max_ratio,
+			maybe_max_warn_ratio,
+		);
+
+		Self::analyze_weight(
+			"verifier valid non terminal",
+			<T as crate::verifier::Config>::WeightInfo::verification_valid_non_terminal(),
+			limit_weight,
+			maybe_max_ratio,
+			maybe_max_warn_ratio,
+		);
+
+		Self::analyze_weight(
+			"verifier invalid non terminal",
+			<T as crate::verifier::Config>::WeightInfo::verification_invalid_non_terminal(
+				T::Pages::get(),
+			),
+			limit_weight,
+			maybe_max_ratio,
+			maybe_max_warn_ratio,
+		);
+
+		// -------------- export
+		Self::analyze_weight(
+			"export non-terminal",
+			<T as Config>::WeightInfo::export_non_terminal(),
+			limit_weight,
+			maybe_max_ratio,
+			maybe_max_warn_ratio,
+		);
+
+		Self::analyze_weight(
+			"export terminal",
+			<T as Config>::WeightInfo::export_terminal(),
+			limit_weight,
+			maybe_max_ratio,
+			maybe_max_warn_ratio,
+		);
+	}
+}
+
 #[allow(unused)]
 #[cfg(any(feature = "runtime-benchmarks", test))]
 // helper code for testing and benchmarking
@@ -1448,7 +1774,7 @@ where
 	/// Progress blocks until the criteria is met.
 	pub(crate) fn roll_until_matches(criteria: impl FnOnce() -> bool + Copy) {
 		loop {
-			Self::roll_next(true, false);
+			Self::roll_next(false);
 			if criteria() {
 				break;
 			}
@@ -1461,7 +1787,7 @@ where
 		loop {
 			let should_break = frame_support::storage::with_transaction(
 				|| -> TransactionOutcome<Result<_, DispatchError>> {
-					Pallet::<T>::roll_next(true, false);
+					Pallet::<T>::roll_next(false);
 					if criteria() {
 						TransactionOutcome::Rollback(Ok(true))
 					} else {
@@ -1556,21 +1882,24 @@ where
 	}
 
 	/// Roll all pallets forward, for the given number of blocks.
-	pub(crate) fn roll_to(n: BlockNumberFor<T>, with_signed: bool, try_state: bool) {
+	pub(crate) fn roll_to(n: BlockNumberFor<T>, try_state: bool) {
 		let now = frame_system::Pallet::<T>::block_number();
 		assert!(n > now, "cannot roll to current or past block");
 		let one: BlockNumberFor<T> = 1u32.into();
 		let mut i = now + one;
 		while i <= n {
+			// remove previous weight usage in system.
+			frame_system::BlockWeight::<T>::kill();
+
 			frame_system::Pallet::<T>::set_block_number(i);
+			let mut meter = frame_system::Pallet::<T>::remaining_block_weight();
+			Pallet::<T>::on_poll(i, &mut meter);
 
-			Pallet::<T>::on_initialize(i);
-			verifier::Pallet::<T>::on_initialize(i);
-			unsigned::Pallet::<T>::on_initialize(i);
-
-			if with_signed {
-				signed::Pallet::<T>::on_initialize(i);
-			}
+			// register the new weight in system
+			frame_system::Pallet::<T>::register_extra_weight_unchecked(
+				meter.consumed(),
+				DispatchClass::Mandatory,
+			);
 
 			// invariants must hold at the end of each block.
 			if try_state {
@@ -1585,12 +1914,8 @@ where
 	}
 
 	/// Roll to next block.
-	pub(crate) fn roll_next(with_signed: bool, try_state: bool) {
-		Self::roll_to(
-			frame_system::Pallet::<T>::block_number() + 1u32.into(),
-			with_signed,
-			try_state,
-		);
+	pub(crate) fn roll_next(try_state: bool) {
+		Self::roll_to(frame_system::Pallet::<T>::block_number() + 1u32.into(), try_state);
 	}
 }
 
@@ -1668,20 +1993,26 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 		Self::average_election_duration().into()
 	}
 
-	fn status() -> Result<bool, ()> {
+	fn status() -> Result<Option<Weight>, ()> {
 		match <CurrentPhase<T>>::get() {
 			// we're not doing anything.
 			Phase::Off => Err(()),
 
-			// we're doing sth but not read.
+			// we're doing something but not ready.
 			Phase::Signed(_) |
 			Phase::SignedValidation(_) |
 			Phase::Unsigned(_) |
 			Phase::Snapshot(_) |
-			Phase::Emergency => Ok(false),
+			Phase::Emergency => Ok(None),
 
 			// we're ready
-			Phase::Done | Phase::Export(_) => Ok(true),
+			Phase::Done => Ok(Some(T::WeightInfo::export_non_terminal())),
+			Phase::Export(p) =>
+				if p.is_zero() {
+					Ok(Some(T::WeightInfo::export_terminal()))
+				} else {
+					Ok(Some(T::WeightInfo::export_non_terminal()))
+				},
 		}
 	}
 
@@ -1698,7 +2029,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 #[cfg(test)]
 mod phase_rotation {
 	use super::{Event, *};
-	use crate::{mock::*, Phase};
+	use crate::{mock::*, verifier::Status, Phase};
 	use frame_election_provider_support::ElectionProvider;
 	use frame_support::assert_ok;
 
@@ -2023,6 +2354,82 @@ mod phase_rotation {
 	}
 
 	#[test]
+	fn weights_registered() {
+		// ensure we never forget to call `meter.consume` or similar in poll and alike.
+		// Our mock setup is:
+		//
+		// * each db read or write is 1 ref time.
+		// * each epmb op weight are:
+		//   * snapshots: 5
+		//   * validation: 3 to start, rest 7
+		ExtBuilder::full().build_and_execute(|| {
+			roll_to(10);
+			assert!(MultiBlock::current_phase().is_off());
+			// note: 2 becuase 1 read registered by the parent pallet, 1 by verifier.
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(2, 0));
+
+			// roll to this phase, no weight meter is consumed yet other than 1 read + 1 write.
+			roll_next_and_phase(Phase::Snapshot(3));
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(2, 0));
+
+			roll_next_and_phase(Phase::Snapshot(2));
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(2, 5));
+
+			roll_next_and_phase(Phase::Snapshot(1));
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(2, 5));
+
+			roll_next_and_phase(Phase::Snapshot(0));
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(2, 5));
+
+			roll_next_and_phase(Phase::Signed(SignedPhase::get() - 1));
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(2, 5));
+
+			// Now snapshot is done, and during signed phase we do a noop.
+			roll_next_and_phase(Phase::Signed(SignedPhase::get() - 2));
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(2, 0));
+
+			// but let's submit a signed solution to be verified while we're here
+			{
+				let paged = mine_full_solution().unwrap();
+				load_signed_for_verification(999, paged.clone());
+			}
+
+			// let's go forward to start of signed validation
+			roll_to_signed_validation_open();
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(2, 3));
+
+			roll_next_and_phase_verifier(
+				Phase::SignedValidation(SignedValidationPhase::get() - 1),
+				Status::Ongoing(1),
+			);
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(1, 7));
+
+			roll_next_and_phase_verifier(
+				Phase::SignedValidation(SignedValidationPhase::get() - 2),
+				Status::Ongoing(0),
+			);
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(1, 7));
+
+			roll_next_and_phase_verifier(
+				Phase::SignedValidation(SignedValidationPhase::get() - 3),
+				Status::Nothing,
+			);
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(1, 7));
+
+			// we also don't do anything during unsigned phase.
+			roll_to_unsigned_open();
+			assert!(MultiBlock::current_phase().is_unsigned());
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(2, 0));
+
+			roll_next_and_phase(Phase::Unsigned(UnsignedPhase::get() - 2));
+			assert_eq!(System::remaining_block_weight().consumed(), Weight::from_parts(2, 0));
+
+			// Export weight is computed by us, but registered by whoever calls `elect`, not our
+			// business to check.
+		});
+	}
+
+	#[test]
 	fn no_unsigned_phase() {
 		ExtBuilder::full()
 			.pages(3)
@@ -2226,18 +2633,14 @@ mod phase_rotation {
 					]
 				);
 
-				roll_next();
 				// we are back to signed phase
-				assert_eq!(MultiBlock::current_phase(), Phase::Signed(SignedPhase::get() - 1));
+				roll_next_and_phase(Phase::Signed(SignedPhase::get() - 1));
 				// round is still the same
 				assert_eq!(MultiBlock::round(), 0);
 
 				// we proceed to normally again:
-				roll_next();
-				assert_eq!(MultiBlock::current_phase(), Phase::Signed(SignedPhase::get() - 2));
-
-				roll_next();
-				assert_eq!(MultiBlock::current_phase(), Phase::Signed(SignedPhase::get() - 3));
+				roll_next_and_phase(Phase::Signed(SignedPhase::get() - 2));
+				roll_next_and_phase(Phase::Signed(SignedPhase::get() - 3));
 			});
 	}
 
@@ -2253,36 +2656,21 @@ mod phase_rotation {
 				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 
 				// Test that on_initialize does NOT advance the phase when in Done
-				roll_next();
-				assert_eq!(
-					MultiBlock::current_phase(),
-					Phase::Done,
-					"Done phase should not auto-transition"
-				);
+				roll_next_and_phase(Phase::Done);
 
 				// Start export by calling elect(max_page)
 				assert_ok!(MultiBlock::elect(2)); // max_page = 2 for 3 pages
 				assert_eq!(MultiBlock::current_phase(), Phase::Export(1));
 
 				// Test that on_initialize does NOT advance the phase when in Export
-				roll_next();
-				assert_eq!(
-					MultiBlock::current_phase(),
-					Phase::Export(1),
-					"Export phase should not auto-transition"
-				);
+				roll_next_and_phase(Phase::Export(1));
 
 				// Only elect() should advance the Export phase
 				assert_ok!(MultiBlock::elect(1));
 				assert_eq!(MultiBlock::current_phase(), Phase::Export(0));
 
 				// Test Export(0) also blocks on_initialize transitions
-				roll_next();
-				assert_eq!(
-					MultiBlock::current_phase(),
-					Phase::Export(0),
-					"Export(0) should not auto-transition"
-				);
+				roll_next_and_phase(Phase::Export(0));
 
 				// Complete the export manually
 				assert_ok!(MultiBlock::elect(0));
@@ -2359,7 +2747,7 @@ mod election_provider {
 	use crate::{
 		mock::*,
 		unsigned::miner::OffchainWorkerMiner,
-		verifier::{AsynchronousVerifier, Verifier},
+		verifier::{AsynchronousVerifier, Status, Verifier},
 		Phase,
 	};
 	use frame_election_provider_support::{BoundedSupport, BoundedSupports, ElectionProvider};
@@ -2389,7 +2777,10 @@ mod election_provider {
 			assert_eq!(
 				multi_block_events(),
 				vec![
-					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
+					Event::PhaseTransitioned {
+						from: Phase::Off,
+						to: Phase::Snapshot(Pages::get())
+					},
 					Event::PhaseTransitioned {
 						from: Phase::Snapshot(0),
 						to: Phase::Signed(SignedPhase::get() - 1)
@@ -2400,39 +2791,26 @@ mod election_provider {
 					}
 				]
 			);
-			assert_eq!(verifier_events(), vec![]);
+			assert_eq!(verifier_events_since_last_call(), vec![]);
 
 			// there is no queued solution prior to the last page of the solution getting verified
 			assert_eq!(<Runtime as crate::Config>::Verifier::queued_score(), None);
-			assert_eq!(<Runtime as crate::Config>::Verifier::status(), verifier::Status::Nothing);
-
-			// next block, signed will start the verifier, although nothing is verified yet.
-			roll_next();
 			assert_eq!(
 				<Runtime as crate::Config>::Verifier::status(),
 				verifier::Status::Ongoing(2)
 			);
-			assert_eq!(verifier_events(), vec![]);
 
-			// proceed until it is fully verified.
-			roll_next();
-			assert_eq!(verifier_events(), vec![verifier::Event::Verified(2, 2)]);
+			// next block, signed will start the verifier, although nothing is verified yet.
+			roll_next_and_phase_verifier(Phase::SignedValidation(5), Status::Ongoing(1));
+			assert_eq!(verifier_events_since_last_call(), vec![verifier::Event::Verified(2, 2)]);
 
-			roll_next();
+			roll_next_and_phase_verifier(Phase::SignedValidation(4), Status::Ongoing(0));
+			assert_eq!(verifier_events_since_last_call(), vec![verifier::Event::Verified(1, 2)]);
+
+			roll_next_and_phase_verifier(Phase::SignedValidation(3), Status::Nothing);
 			assert_eq!(
-				verifier_events(),
-				vec![verifier::Event::Verified(2, 2), verifier::Event::Verified(1, 2)]
-			);
-
-			roll_next();
-			assert_eq!(
-				verifier_events(),
-				vec![
-					verifier::Event::Verified(2, 2),
-					verifier::Event::Verified(1, 2),
-					verifier::Event::Verified(0, 2),
-					verifier::Event::Queued(score, None),
-				]
+				verifier_events_since_last_call(),
+				vec![verifier::Event::Verified(0, 2), verifier::Event::Queued(score, None)]
 			);
 
 			// there is now a queued solution.
@@ -2455,7 +2833,7 @@ mod election_provider {
 					if page == 0 {
 						assert!(MultiBlock::current_phase().is_off())
 					} else {
-						assert!(MultiBlock::current_phase().is_export())
+						assert_eq!(MultiBlock::current_phase(), Phase::Export(page - 1))
 					}
 				})
 				.collect::<Vec<_>>();
@@ -2469,8 +2847,8 @@ mod election_provider {
 			// and the snapshot is cleared,
 			assert_storage_noop!(Snapshot::<Runtime>::kill());
 			// signed pallet is clean.
-			// NOTE: in the future, if and when we add lazy cleanup to the signed pallet, this
-			// assertion might break.
+			// NOTE: signed pallet lazily deletes all other solutions, except the winner, which is
+			// actually deleted.
 			assert_ok!(signed::Submissions::<Runtime>::ensure_killed(0));
 		});
 	}
@@ -2490,14 +2868,13 @@ mod election_provider {
 			// there is no queued solution prior to the last page of the solution getting verified
 			assert_eq!(<Runtime as crate::Config>::Verifier::queued_score(), None);
 
-			// roll to the block it is finalized. 1 block to start the verifier, and 3 to verify
-			roll_next();
-			roll_next();
-			roll_next();
-			roll_next();
+			// roll to the block it is finalized.
+			roll_next_and_phase_verifier(Phase::SignedValidation(5), Status::Ongoing(1));
+			roll_next_and_phase_verifier(Phase::SignedValidation(4), Status::Ongoing(0));
+			roll_next_and_phase_verifier(Phase::SignedValidation(3), Status::Nothing);
 
 			assert_eq!(
-				verifier_events(),
+				verifier_events_since_last_call(),
 				vec![
 					verifier::Event::Verified(2, 2),
 					verifier::Event::Verified(1, 2),
@@ -2518,7 +2895,7 @@ mod election_provider {
 			assert_full_snapshot();
 
 			// there are 3 pages (indexes 2..=0), but we short circuit by just calling 0.
-			let _solution = crate::Pallet::<Runtime>::elect(0).unwrap();
+			let _supports = crate::Pallet::<Runtime>::elect(0).unwrap();
 
 			// round is incremented.
 			assert_eq!(MultiBlock::round(), round + 1);
@@ -2550,13 +2927,12 @@ mod election_provider {
 			assert_eq!(<Runtime as crate::Config>::Verifier::queued_score(), None);
 
 			// roll to the block it is finalized. 1 block to start the verifier, and 3 to verify.
-			roll_next();
-			roll_next();
-			roll_next();
-			roll_next();
+			roll_next_and_phase_verifier(Phase::SignedValidation(5), Status::Ongoing(1));
+			roll_next_and_phase_verifier(Phase::SignedValidation(4), Status::Ongoing(0));
+			roll_next_and_phase_verifier(Phase::SignedValidation(3), Status::Nothing);
 
 			assert_eq!(
-				verifier_events(),
+				verifier_events_since_last_call(),
 				vec![
 					verifier::Event::Verified(2, 2),
 					verifier::Event::Verified(1, 2),
@@ -2594,7 +2970,7 @@ mod election_provider {
 	}
 
 	#[test]
-	fn elect_advances_phase_even_on_error() {
+	fn continue_fallback_works() {
 		// Use Continue fallback to avoid emergency phase when both primary and fallback fail.
 		ExtBuilder::full().fallback_mode(FallbackModes::Continue).build_and_execute(|| {
 			// Move to unsigned phase
@@ -2674,7 +3050,7 @@ mod election_provider {
 			// the phase is off,
 			assert_eq!(MultiBlock::current_phase(), Phase::Off);
 			// the snapshot is cleared,
-			assert_storage_noop!(Snapshot::<Runtime>::kill());
+			assert_none_snapshot();
 			// and signed pallet is clean.
 			assert_ok!(signed::Submissions::<Runtime>::ensure_killed(round));
 		});
@@ -2810,22 +3186,10 @@ mod election_provider {
 	}
 
 	#[test]
-	#[should_panic]
-	fn continue_fallback_works() {
-		todo!()
-	}
-
-	#[test]
-	#[should_panic]
-	fn emergency_fallback_works() {
-		todo!();
-	}
-
-	#[test]
 	fn elect_call_when_not_ongoing() {
 		ExtBuilder::full().fallback_mode(FallbackModes::Onchain).build_and_execute(|| {
 			roll_to_snapshot_created();
-			assert_eq!(MultiBlock::status(), Ok(false));
+			assert_eq!(MultiBlock::status(), Ok(None));
 			assert!(MultiBlock::elect(0).is_ok());
 		});
 		ExtBuilder::full().fallback_mode(FallbackModes::Onchain).build_and_execute(|| {
