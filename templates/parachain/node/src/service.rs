@@ -188,7 +188,7 @@ fn start_consensus(
 	overseer_handle: OverseerHandle,
 	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 ) -> Result<(), sc_service::Error> {
-	let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
+	let proposer = sc_basic_authorship::ProposerFactory::new(
 		task_manager.spawn_handle(),
 		client.clone(),
 		transaction_pool,
