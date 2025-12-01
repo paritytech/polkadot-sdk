@@ -329,21 +329,33 @@ impl snowbridge_pallet_system_v2::Config for Runtime {
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmark_helpers {
 	use crate::{
-		bridge_to_ethereum_config::EthereumGatewayAddress, vec, EthereumBeaconClient, Runtime,
-		RuntimeOrigin, System,
+		bridge_to_ethereum_config::{EthereumGatewayAddress, InboundQueueV2Location},
+		vec,
+		xcm_config::{RelayNetwork, XcmConfig},
+		EthereumBeaconClient, EthereumSystem, EthereumUniversalLocation, Runtime, RuntimeOrigin,
+		System,
 	};
+	use bp_asset_hub_westend::CreateForeignAssetDeposit;
 	use codec::Encode;
 	use frame_support::assert_ok;
 	use hex_literal::hex;
 	use snowbridge_beacon_primitives::BeaconHeader;
-	use snowbridge_inbound_queue_primitives::EventFixture;
+	use snowbridge_inbound_queue_primitives::{
+		v2::{
+			CreateAssetCallInfo, MessageToXcm, XcmMessageProcessor as InboundXcmMessageProcessor,
+		},
+		EventFixture,
+	};
 	use snowbridge_pallet_inbound_queue::BenchmarkHelper;
 	use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
 	use snowbridge_pallet_inbound_queue_v2::BenchmarkHelper as InboundQueueBenchmarkHelperV2;
 	use snowbridge_pallet_inbound_queue_v2_fixtures::register_token::make_register_token_message as make_register_token_message_v2;
 	use snowbridge_pallet_outbound_queue_v2::BenchmarkHelper as OutboundQueueBenchmarkHelperV2;
 	use sp_core::H256;
+	use sp_runtime::traits::ConstU32;
+	use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 	use xcm::latest::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
+	use xcm_executor::XcmExecutor;
 
 	impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Runtime {
 		fn initialize_storage() -> EventFixture {
@@ -415,7 +427,7 @@ pub mod benchmark_helpers {
 			AssetHubFromEthereum,
 		>,
 		xcm_builder::AliasesIntoAccountId32<
-			xcm_config::RelayNetwork,
+			RelayNetwork,
 			<Runtime as frame_system::Config>::AccountId,
 		>,
 		ConstU32<1000>,
