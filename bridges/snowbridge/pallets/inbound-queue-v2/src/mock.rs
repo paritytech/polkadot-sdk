@@ -10,7 +10,7 @@ use snowbridge_beacon_primitives::{
 };
 use snowbridge_core::{ParaId, TokenId};
 use snowbridge_inbound_queue_primitives::{
-	v2::{MessageProcessorError, CreateAssetCallInfo, MessageToXcm, XcmMessageProcessor},
+	v2::{CreateAssetCallInfo, MessageProcessorError, MessageToXcm, XcmMessageProcessor},
 	Log, Proof, VerificationError,
 };
 use sp_core::H160;
