@@ -9354,9 +9354,9 @@ dependencies = [
 
 [[package]]
 name = "kvdb-rocksdb"
-version = "0.20.1"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b089b6062662d720a836f055931434439fcd3a90f0059db0b831a99da6db460"
+checksum = "739ac938a308a9a8b6772fd1d840fd9c0078f9c74fe294feaf32faae727102cc"
 dependencies = [
  "kvdb",
  "num_cpus",
@@ -23365,6 +23365,7 @@ name = "sp-database"
 version = "10.0.0"
 dependencies = [
  "kvdb",
+ "kvdb-rocksdb",
  "parking_lot 0.12.3",
 ]
 

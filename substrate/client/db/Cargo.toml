@@ -27,7 +27,7 @@ codec = { features = ["derive"], workspace = true, default-features = true }
 hash-db = { workspace = true, default-features = true }
 kvdb = { workspace = true }
 kvdb-memorydb = { workspace = true }
-kvdb-rocksdb = { optional = true, workspace = true }
+kvdb-rocksdb = { optional = true, workspace = true, features = [ "jemalloc" ] }
 linked-hash-map = { workspace = true }
 log = { workspace = true, default-features = true }
 parity-db = { workspace = true }
@@ -62,4 +62,4 @@ runtime-benchmarks = [
 	"kitchensink-runtime/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
-rocksdb = ["kvdb-rocksdb"]
+rocksdb = ["kvdb-rocksdb", "sp-database/rocksdb"]
