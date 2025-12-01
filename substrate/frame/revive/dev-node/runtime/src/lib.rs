@@ -71,7 +71,7 @@ pub mod genesis_config_presets {
 	use alloc::{vec, vec::Vec};
 	use serde_json::Value;
 
-	pub const ENDOWMENT: Balance = 1_000_000_000_001 * DOLLARS;
+	pub const ENDOWMENT: Balance = 10_000_000_000_001 * DOLLARS;
 
 	fn well_known_accounts() -> Vec<AccountId> {
 		Sr25519Keyring::well_known()
