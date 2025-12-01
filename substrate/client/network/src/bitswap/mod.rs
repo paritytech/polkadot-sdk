@@ -62,7 +62,7 @@ const PROTOCOL_NAME: &'static str = "/ipfs/bitswap/1.2.0";
 
 /// Check if a CID is supported by the bitswap protocol.
 pub fn is_cid_supported(cid: &Cid) -> bool {
-	cid.version() == Version::V1 && cid.hash().size() == 32
+	cid.version() != Version::V0 && cid.hash().size() == 32
 }
 
 /// Prefix represents all metadata of a CID, without the actual content.
