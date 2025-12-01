@@ -336,14 +336,11 @@ mod tests {
 	use polkadot_overseer::{Event, Handle};
 	use polkadot_primitives::HeadData;
 	use sc_consensus::{
-		BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction, StorageChanges, Verifier,
+		BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction, StorageChanges,
 	};
-	use sc_consensus_aura::{
-		AuraApi, AuraBlockImport, AuraVerifier, CheckForEquivocation, InherentDataProvider,
-	};
+	use sc_consensus_aura::AuraApi;
 	use sp_api::ProvideRuntimeApi;
 	use sp_consensus::BlockOrigin;
-	use sp_consensus_aura::sr25519;
 	use sp_keystore::{Keystore, KeystorePtr};
 	use sp_timestamp::Timestamp;
 	use std::sync::{Arc, Mutex};
@@ -364,11 +361,6 @@ mod tests {
 			block_import_params.state_action = state_action;
 		}
 		importer.import_block(block_import_params).await.unwrap();
-	}
-
-	async fn verify_block<V: Verifier<Block>>(verifier: &V, block: Block, origin: BlockOrigin) {
-		let block_import_params = BlockImportParams::new(origin, block.header().clone());
-		verifier.verify(block_import_params).await.expect("Verifies block");
 	}
 
 	fn sproof_with_parent_by_hash(client: &Client, hash: PHash) -> RelayStateSproofBuilder {
@@ -462,52 +454,6 @@ mod tests {
 		)
 		.await;
 		assert!(result.is_some());
-	}
-
-	#[tokio::test]
-	async fn authorities_imported_from_runtime_when_importing_own_block() {
-		let (client, _) = set_up_components(1);
-
-		let genesis_hash = client.chain_info().genesis_hash;
-		let slot_duration = client.runtime_api().slot_duration(genesis_hash).unwrap();
-		let (block_import, authorities_tracker) =
-			AuraBlockImport::new_empty(client.clone(), client.clone());
-		let verifier = AuraVerifier::<_, sr25519::AuthorityPair, _, _>::new(
-			client.clone(),
-			Box::new(|_, _| async move {
-				let slot = InherentDataProvider::from_timestamp_and_slot_duration(
-					Timestamp::current(),
-					slot_duration,
-				);
-				Ok::<_, Box<dyn std::error::Error + Send + Sync>>((slot,))
-			}),
-			CheckForEquivocation::No,
-			None,
-			authorities_tracker.clone(),
-		)
-		.unwrap();
-
-		assert!(authorities_tracker.is_empty());
-
-		// Import a block with `ApplyChanges` state action. This should cause authorities to be
-		// imported from the runtime, and therefore fill in the authorities tracker.
-		let (block, storage_changes) = build_block(&client, genesis_hash);
-		import_block(
-			&block_import,
-			block,
-			BlockOrigin::Own,
-			Some(StateAction::ApplyChanges(storage_changes)),
-			true,
-		)
-		.await;
-
-		// The authorities should now be present in the tracker.
-		assert!(!authorities_tracker.is_empty());
-
-		// Ensure that the next block verifies, i.e. the authorities are configured correctly.
-		let (block, _) = build_block(&client, genesis_hash);
-		let block = cumulus_test_client::seal_block(block, &client);
-		verify_block(&verifier, block, BlockOrigin::NetworkInitialSync).await;
 	}
 
 	/// Helper to create a mock overseer handle and message recorder
