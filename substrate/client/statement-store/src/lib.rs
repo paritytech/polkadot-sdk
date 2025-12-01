@@ -1425,7 +1425,7 @@ mod tests {
 				statement(42, 2, Some(1), 2 * crate::MAX_STATEMENT_SIZE),
 				StatementSource::Local
 			),
-			SubmitResult::Rejected(_)
+			SubmitResult::Invalid(_)
 		));
 	}
 
