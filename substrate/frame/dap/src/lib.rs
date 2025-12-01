@@ -32,8 +32,9 @@ extern crate alloc;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		fungible::{Inspect, Mutate},
+		fungible::{Balanced, Credit, Inspect, Mutate},
 		tokens::{FundingSink, FundingSource, Preservation},
+		Imbalance, OnUnbalanced,
 	},
 	PalletId,
 };
@@ -60,7 +61,9 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The currency type.
-		type Currency: Inspect<Self::AccountId> + Mutate<Self::AccountId>;
+		type Currency: Inspect<Self::AccountId>
+			+ Mutate<Self::AccountId>
+			+ Balanced<Self::AccountId>;
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -115,6 +118,28 @@ impl<T: Config> FundingSink<T::AccountId, BalanceOf<T>> for ReturnToDap<T> {
 		);
 
 		Ok(())
+	}
+}
+
+/// Type alias for credit (negative imbalance - funds that were slashed/removed).
+pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
+
+/// Implementation of OnUnbalanced that deposits slashed funds into the DAP buffer.
+/// Use this as `type Slash = SlashToDap<Runtime>` in staking config.
+pub struct SlashToDap<T>(core::marker::PhantomData<T>);
+
+impl<T: Config> OnUnbalanced<CreditOf<T>> for SlashToDap<T> {
+	fn on_nonzero_unbalanced(amount: CreditOf<T>) {
+		let buffer = Pallet::<T>::buffer_account();
+		let numeric_amount = amount.peek();
+
+		// Resolve the imbalance by depositing into the buffer account
+		let _ = T::Currency::resolve(&buffer, amount);
+
+		log::debug!(
+			target: LOG_TARGET,
+			"Deposited slash of {numeric_amount:?} to DAP buffer"
+		);
 	}
 }
 

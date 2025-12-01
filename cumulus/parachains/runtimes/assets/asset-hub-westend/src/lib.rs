@@ -1397,6 +1397,9 @@ construct_runtime!(
 		Treasury: pallet_treasury = 94,
 		AssetRate: pallet_asset_rate = 95,
 
+		// Dynamic Allocation Pool / Issuance Buffer
+		Dap: pallet_dap = 100,
+
 		// TODO: the pallet instance should be removed once all pools have migrated
 		// to the new account IDs.
 		AssetConversionMigration: pallet_asset_conversion_ops = 200,

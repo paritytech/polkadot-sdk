@@ -42,6 +42,7 @@ frame-benchmarking = { workspace = true, default-features = true }
 frame-support = { features = ["experimental"], workspace = true, default-features = true }
 pallet-bags-list = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
+pallet-dap = { workspace = true, default-features = true }
 rand_chacha = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-utils = { workspace = true }
