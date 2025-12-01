@@ -19,11 +19,7 @@ use crate::{
 	address::{self, AddressMapper},
 	evm::{block_storage, transfer_with_dust},
 	limits,
-	metering::{
-		storage,
-		weight::{ChargedAmount, Token},
-		FrameMeter, ResourceMeter, State, TransactionMeter,
-	},
+	metering::{ChargedAmount, Diff, FrameMeter, ResourceMeter, State, Token, TransactionMeter},
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
 	primitives::{ExecConfig, ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
@@ -122,6 +118,7 @@ impl Key {
 }
 
 /// Level of reentrancy protection.
+///
 /// This needs to be specifed when a contract makes a message call. This way the calling contract
 /// can specify the level of re-entrancy protection while the callee (and it's recursive callees) is
 /// executing.
@@ -550,7 +547,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	) -> Result<WriteOutcome, DispatchError>;
 
 	/// Charges `diff` from the meter.
-	fn charge_storage(&mut self, diff: &storage::Diff) -> DispatchResult;
+	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -2490,7 +2487,7 @@ where
 		)
 	}
 
-	fn charge_storage(&mut self, diff: &storage::Diff) -> DispatchResult {
+	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult {
 		assert!(self.has_contract_info());
 		self.top_frame_mut().frame_meter.record_contract_storage_changes(diff)
 	}

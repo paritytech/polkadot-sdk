@@ -15,8 +15,15 @@ contract DepositPrecompile {
   }
 
   function clearAll() external {
-    clearStorageSlot(0);
-    clearStorageSlot(1);
+    uint slot;
+    assembly {
+        slot := a.slot
+    }
+    clearStorageSlot(slot);
+    assembly {
+        slot := b.slot
+    }
+    clearStorageSlot(slot);
   }
 
   function setAndClear() external {

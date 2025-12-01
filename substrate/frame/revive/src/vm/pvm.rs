@@ -25,7 +25,7 @@ pub use env::SyscallDoc;
 use crate::{
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
-	metering::weight::ChargedAmount,
+	metering::ChargedAmount,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
 	Code, Config, Error, Pallet, ReentrancyProtection, RuntimeCosts, LOG_TARGET, SENTINEL,

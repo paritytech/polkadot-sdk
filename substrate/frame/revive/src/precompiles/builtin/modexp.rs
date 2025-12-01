@@ -366,7 +366,7 @@ mod tests {
 
 	#[test]
 	fn test_long_exp_gas_cost_matches_specs() {
-		use crate::{call_builder::CallSetup, metering::weight::Token, tests::ExtBuilder};
+		use crate::{call_builder::CallSetup, metering::Token, tests::ExtBuilder};
 
 		let input = vec![
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,

@@ -179,7 +179,7 @@ impl EthRpcServer for EthRpcServerImpl {
 			err
 		})?;
 
-		log::debug!(target: LOG_TARGET, "send_raw_transaction with hash: {hash:?}");
+		log::trace!(target: LOG_TARGET, "send_raw_transaction with hash: {hash:?}");
 
 		// Wait for the transaction to be included in a block if automine is enabled
 		if let Some(mut receiver) = receiver {
