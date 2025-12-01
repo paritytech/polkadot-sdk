@@ -77,7 +77,7 @@ pub enum InvalidReason {
 	NoProof,
 	/// Proof validation failed.
 	BadProof,
-	/// Statement is too big for network propagation.
+	/// Statement exceeds max allowed statement size
 	EncodingTooLarge {
 		/// The size of the submitted statement encoding.
 		submitted_size: usize,
