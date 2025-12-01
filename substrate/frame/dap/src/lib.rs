@@ -34,7 +34,7 @@ use frame_support::{
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Mutate},
 		tokens::{FundingSink, FundingSource, Preservation},
-		Imbalance, OnUnbalanced,
+		Currency, Imbalance, OnUnbalanced,
 	},
 	PalletId,
 };
@@ -122,10 +122,11 @@ impl<T: Config> FundingSink<T::AccountId, BalanceOf<T>> for ReturnToDap<T> {
 }
 
 /// Type alias for credit (negative imbalance - funds that were slashed/removed).
+/// This is for the `fungible::Balanced` trait as used by staking-async.
 pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 
-/// Implementation of OnUnbalanced that deposits slashed funds into the DAP buffer.
-/// Use this as `type Slash = SlashToDap<Runtime>` in staking config.
+/// Implementation of OnUnbalanced for the fungible::Balanced trait.
+/// Use this as `type Slash = SlashToDap<Runtime>` in staking-async config.
 pub struct SlashToDap<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> OnUnbalanced<CreditOf<T>> for SlashToDap<T> {
@@ -139,6 +140,29 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for SlashToDap<T> {
 		log::debug!(
 			target: LOG_TARGET,
 			"Deposited slash of {numeric_amount:?} to DAP buffer"
+		);
+	}
+}
+
+/// Implementation of OnUnbalanced for the old Currency trait (still used by treasury).
+/// Use this as `type BurnDestination = BurnToDap<Runtime, Balances>` e.g. in treasury config.
+pub struct BurnToDap<T, C>(core::marker::PhantomData<(T, C)>);
+
+impl<T, C> OnUnbalanced<C::NegativeImbalance> for BurnToDap<T, C>
+where
+	T: Config,
+	C: Currency<T::AccountId>,
+{
+	fn on_nonzero_unbalanced(amount: C::NegativeImbalance) {
+		let buffer = Pallet::<T>::buffer_account();
+		let numeric_amount = amount.peek();
+
+		// Resolve the imbalance by depositing into the buffer account
+		C::resolve_creating(&buffer, amount);
+
+		log::debug!(
+			target: LOG_TARGET,
+			"Deposited burn of {numeric_amount:?} to DAP buffer"
 		);
 	}
 }

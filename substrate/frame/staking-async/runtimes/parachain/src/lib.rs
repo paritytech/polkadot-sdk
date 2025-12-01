@@ -1196,6 +1196,9 @@ construct_runtime!(
 		Treasury: pallet_treasury = 96,
 		AssetRate: pallet_asset_rate = 97,
 
+		// Dynamic Allocation Pool / Issuance buffer
+		Dap: pallet_dap = 98,
+
 		// Balances.
 		Vesting: pallet_vesting = 100,
 
