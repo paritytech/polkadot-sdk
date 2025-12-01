@@ -615,7 +615,7 @@ pub use pallet_people;
 #[cfg(feature = "pallet-preimage")]
 pub use pallet_preimage;
 
-/// Provides precompiles for `pallet-preimage`.
+/// Provides precompiles for the preimage pallet.
 #[cfg(feature = "pallet-preimage-precompiles")]
 pub use pallet_preimage_precompiles;
 
