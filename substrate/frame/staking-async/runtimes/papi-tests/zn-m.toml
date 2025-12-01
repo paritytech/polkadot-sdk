@@ -5,18 +5,26 @@ chain_spec_path = "./rc.json"
 [[relaychain.nodes]]
 name = "alice"
 validator = true
-rpc_port = 9944
-args = [
-	"-lruntime::system=debug,runtime::session=trace,runtime::staking-async::ah-client=trace,runtime::ah-client=debug,xcm=trace",
-]
+rpc_port = 9942
+
 
 [[relaychain.nodes]]
 name = "bob"
 validator = true
-rpc_port = 9945
+rpc_port = 9943
 args = [
 	"-lruntime::system=debug,runtime::session=trace,runtime::staking-async::ah-client=trace,runtime::ah-client=debug",
 ]
+
+[[relaychain.nodes]]
+name = "eve"
+validator = true
+rpc_port = 9944
+
+[[relaychain.nodes]]
+name = "dave"
+validator = true
+rpc_port = 9945
 
 [[parachains]]
 id = 1100
@@ -27,5 +35,5 @@ command = "polkadot-parachain"
 name = "charlie"
 rpc_port = 9946
 args = [
-	"-lruntime::system=debug,runtime::multiblock-election=trace,runtime::staking=debug,runtime::staking::rc-client=trace,runtime::rc-client=debug,xcm=debug,parachain-system=debug,runtime=info",
+	"-lruntime::system=debug,runtime::multiblock-election=trace,runtime::staking=debug,runtime::staking::rc-client=trace,runtime::rc-client=debug",
 ]

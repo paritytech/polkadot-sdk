@@ -22,7 +22,11 @@
 // ! we don't want to generate the `trait WeightInfo`.
 //!
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
+<<<<<<< HEAD
 //! DATE: 2025-05-30, STEPS: `10`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
+=======
+//! DATE: 2025-10-08, STEPS: `10`, REPEAT: `10`, LOW RANGE: `[]`, HIGH RANGE: `[]`
+>>>>>>> 05a3fb10 (Staking-Async + EPMB: Migrate operations to `poll` (#9925))
 //! WORST CASE MAP SIZE: `1000000`
 //! HOSTNAME: `ggwpez-ref-hw`, CPU: `AMD EPYC 7232P 8-Core Processor`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: `1024`
@@ -41,7 +45,11 @@
 // --steps
 // 10
 // --repeat
+<<<<<<< HEAD
 // 20
+=======
+// 10
+>>>>>>> 05a3fb10 (Staking-Async + EPMB: Migrate operations to `poll` (#9925))
 // --genesis-builder-preset
 // dot_size
 // --template
@@ -79,11 +87,19 @@ impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_m
 	/// Proof: UNKNOWN KEY `0xc209f5d8eb920681b56c64b8694ea78c` (r:1 w:0)
 	fn validate_unsigned() -> Weight {
 		// Proof Size summary in bytes:
+<<<<<<< HEAD
 		//  Measured:  `365`
 		//  Estimated: `3830`
 		// Minimum execution time: 2_976_183_000 picoseconds.
 		Weight::from_parts(4_693_571_000, 3830)
 			.saturating_add(T::DbWeight::get().reads(7_u64))
+=======
+		//  Measured:  `378`
+		//  Estimated: `3843`
+		// Minimum execution time: 872_562_000 picoseconds.
+		Weight::from_parts(884_363_000, 3843)
+			.saturating_add(T::DbWeight::get().reads(8_u64))
+>>>>>>> 05a3fb10 (Staking-Async + EPMB: Migrate operations to `poll` (#9925))
 	}
 	/// Storage: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
@@ -107,11 +123,19 @@ impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_m
 	/// Proof: `MultiBlockVerifier::QueuedSolutionY` (`max_values`: None, `max_size`: Some(33794026), added: 33796501, mode: `Measured`)
 	fn submit_unsigned() -> Weight {
 		// Proof Size summary in bytes:
+<<<<<<< HEAD
 		//  Measured:  `1462493`
 		//  Estimated: `1473383`
 		// Minimum execution time: 32_392_063_000 picoseconds.
 		Weight::from_parts(35_743_638_000, 1473383)
 			.saturating_add(T::DbWeight::get().reads(12_u64))
+=======
+		//  Measured:  `1451085`
+		//  Estimated: `1461975`
+		// Minimum execution time: 21_018_046_000 picoseconds.
+		Weight::from_parts(21_116_907_000, 1461975)
+			.saturating_add(T::DbWeight::get().reads(14_u64))
+>>>>>>> 05a3fb10 (Staking-Async + EPMB: Migrate operations to `poll` (#9925))
 			.saturating_add(T::DbWeight::get().writes(5_u64))
 	}
 }

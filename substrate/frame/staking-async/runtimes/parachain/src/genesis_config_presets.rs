@@ -108,10 +108,39 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			dev_and_testnet_params.dev_stakers = Some((4_000, 20_000));
 			staking_async_parachain_genesis(dev_and_testnet_params)
 		},
+<<<<<<< HEAD
 		"dot_size" => {
 			dev_and_testnet_params.validator_count = 500;
 			dev_and_testnet_params.dev_stakers = Some((2_000, 25_000));
 			staking_async_parachain_genesis(dev_and_testnet_params)
+=======
+		"real-m" => {
+			params.validator_count = 4;
+			// generate no new "fake" validators.
+			params.dev_stakers = Some((0, 2000));
+			// set expected relay validators in genesis so they are elected
+			params.validators = vec![
+				Sr25519Keyring::AliceStash.to_account_id(),
+				Sr25519Keyring::BobStash.to_account_id(),
+				Sr25519Keyring::EveStash.to_account_id(),
+				Sr25519Keyring::DaveStash.to_account_id(),
+			];
+			staking_async_parachain_genesis(params, id.to_string())
+		},
+		"fake-dev" => {
+			// nada
+			staking_async_parachain_genesis(params, id.to_string())
+		},
+		"fake-dot" => {
+			params.validator_count = 600;
+			params.dev_stakers = Some((2_500, 25_000));
+			staking_async_parachain_genesis(params, id.to_string())
+		},
+		"fake-ksm" => {
+			params.validator_count = 1_000;
+			params.dev_stakers = Some((4_500, 15_000));
+			staking_async_parachain_genesis(params, id.to_string())
+>>>>>>> 05a3fb10 (Staking-Async + EPMB: Migrate operations to `poll` (#9925))
 		},
 		_ => panic!("unrecognized genesis preset!"),
 	};

@@ -184,6 +184,7 @@ impl multi_block::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type Fallback = frame_election_provider_support::onchain::OnChainExecution<OnChainConfig>;
 	type MinerConfig = Self;
+	type Signed = MultiBlockElectionSigned;
 	type Verifier = MultiBlockElectionVerifier;
 	type OnRoundRotation = multi_block::CleanRound<Self>;
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockWeightInfo<Self>;
@@ -246,6 +247,9 @@ impl multi_block::unsigned::miner::MinerConfig for Runtime {
 	type MaxVotesPerVoter =
 		<<Self as multi_block::Config>::DataProvider as ElectionDataProvider>::MaxVotesPerVoter;
 	type MaxLength = MinerMaxLength;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Solver = frame_election_provider_support::QuickDirtySolver<AccountId, Perbill>;
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Solver = <Runtime as multi_block::unsigned::Config>::OffchainSolver;
 	type Pages = Pages;
 	type Solution = NposCompactSolution16;
@@ -544,3 +548,191 @@ where
 		UncheckedExtrinsic::new_bare(call)
 	}
 }
+<<<<<<< HEAD
+=======
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use frame_election_provider_support::ElectionProvider;
+	use frame_support::weights::constants::{WEIGHT_PROOF_SIZE_PER_KB, WEIGHT_REF_TIME_PER_MILLIS};
+	use pallet_election_provider_multi_block::{
+		self as mb, signed::WeightInfo as _, unsigned::WeightInfo as _,
+	};
+	use remote_externalities::{
+		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
+	};
+	use std::env::var;
+
+	fn weight_diff(block: Weight, op: Weight) {
+		log::info!(
+			target: "runtime",
+			"ref_time: {:?}ms {:.4} of total",
+			op.ref_time() / WEIGHT_REF_TIME_PER_MILLIS,
+			op.ref_time() as f64 / block.ref_time() as f64
+		);
+		log::info!(
+			target: "runtime",
+			"proof_size: {:?}kb {:.4} of total",
+			op.proof_size() / WEIGHT_PROOF_SIZE_PER_KB,
+			op.proof_size() as f64 / block.proof_size() as f64
+		);
+	}
+
+	#[test]
+	fn ensure_epmb_weights_sane_polkadot() {
+		use sp_io::TestExternalities;
+		use sp_runtime::Percent;
+		sp_tracing::try_init_simple();
+		TestExternalities::default().execute_with(|| {
+			super::enable_dot_preset(false);
+			pallet_election_provider_multi_block::Pallet::<Runtime>::check_all_weights(
+				<Runtime as frame_system::Config>::BlockWeights::get().max_block,
+				Some(Percent::from_percent(75)),
+				Some(Percent::from_percent(50)),
+			)
+		});
+	}
+
+	#[test]
+	fn ensure_epmb_weights_sane_kusama() {
+		use sp_io::TestExternalities;
+		use sp_runtime::Percent;
+		sp_tracing::try_init_simple();
+		TestExternalities::default().execute_with(|| {
+			super::enable_ksm_preset(false);
+			pallet_election_provider_multi_block::Pallet::<Runtime>::check_all_weights(
+				<Runtime as frame_system::Config>::BlockWeights::get().max_block,
+				Some(Percent::from_percent(75)),
+				Some(Percent::from_percent(50)),
+			)
+		});
+	}
+
+	#[test]
+	fn signed_weight_ratios() {
+		sp_tracing::try_init_simple();
+		let block_weight = <Runtime as frame_system::Config>::BlockWeights::get().max_block;
+		let polkadot_signed_submission =
+			mb::weights::polkadot::MultiBlockSignedWeightInfo::<Runtime>::submit_page();
+		let kusama_signed_submission =
+			mb::weights::kusama::MultiBlockSignedWeightInfo::<Runtime>::submit_page();
+
+		log::info!(target: "runtime", "Polkadot:");
+		weight_diff(block_weight, polkadot_signed_submission);
+		log::info!(target: "runtime", "Kusama:");
+		weight_diff(block_weight, kusama_signed_submission);
+	}
+
+	#[test]
+	fn election_duration() {
+		sp_tracing::try_init_simple();
+		sp_io::TestExternalities::default().execute_with(|| {
+			super::enable_dot_preset(false);
+			let duration = mb::Pallet::<Runtime>::average_election_duration();
+			let polkadot_session = 6 * HOURS;
+			log::info!(
+				target: "runtime",
+				"Polkadot election duration: {:?}, session: {:?} ({} sessions)",
+				duration,
+				polkadot_session,
+				duration / polkadot_session
+			);
+		});
+
+		sp_io::TestExternalities::default().execute_with(|| {
+			super::enable_ksm_preset(false);
+			let duration = mb::Pallet::<Runtime>::average_election_duration();
+			let kusama_session = 1 * HOURS;
+			log::info!(
+				target: "runtime",
+				"Kusama election duration: {:?}, session: {:?} ({} sessions)",
+				duration,
+				kusama_session,
+				duration / kusama_session
+			);
+		});
+	}
+
+	#[test]
+	fn max_ocw_miner_pages_as_per_weights() {
+		sp_tracing::try_init_simple();
+		for p in 1..=32 {
+			log::info!(
+				target: "runtime",
+				"exec_time of polkadot miner in WASM with {} pages is {:?}ms",
+				p,
+				mb::weights::polkadot::MultiBlockUnsignedWeightInfo::<Runtime>::mine_solution(p).ref_time() / WEIGHT_REF_TIME_PER_MILLIS
+			);
+		}
+		for p in 1..=16 {
+			log::info!(
+				target: "runtime",
+				"exec_time of kusama miner in WASM with {} pages is {:?}ms",
+				p,
+				mb::weights::kusama::MultiBlockUnsignedWeightInfo::<Runtime>::mine_solution(p).ref_time() / WEIGHT_REF_TIME_PER_MILLIS
+			);
+		}
+	}
+
+	/// Run it like:
+	///
+	/// ```text
+	/// RUST_BACKTRACE=full \
+	/// 	RUST_LOG=remote-ext=info,runtime::staking-async=debug \
+	/// 	REMOTE_TESTS=1 \
+	/// 	WS=ws://127.0.0.1:9999 \
+	/// 	cargo test --release -p pallet-staking-async-parachain-runtime \
+	/// 	--features try-runtime run_try
+	/// ```
+	///
+	/// Just replace the node with your local node.
+	///
+	/// Pass `SNAP=polkadot` or similar to store and reuse a snapshot.
+	#[tokio::test]
+	async fn run_election_with_pages() {
+		if var("REMOTE_TESTS").is_err() {
+			return;
+		}
+		sp_tracing::try_init_simple();
+
+		let transport: Transport =
+			var("WS").unwrap_or("wss://westend-rpc.polkadot.io:443".to_string()).into();
+		let maybe_state_snapshot: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
+
+		let mut ext = Builder::<Block>::default()
+			.mode(if let Some(state_snapshot) = maybe_state_snapshot {
+				Mode::OfflineOrElseOnline(
+					OfflineConfig { state_snapshot: state_snapshot.clone() },
+					OnlineConfig {
+						transport,
+						hashed_prefixes: vec![vec![]],
+						state_snapshot: Some(state_snapshot),
+						..Default::default()
+					},
+				)
+			} else {
+				Mode::Online(OnlineConfig {
+					hashed_prefixes: vec![vec![]],
+					transport,
+					..Default::default()
+				})
+			})
+			.build()
+			.await
+			.unwrap();
+		ext.execute_with(|| {
+			sp_core::crypto::set_default_ss58_version(1u8.into());
+			super::enable_dot_preset(true);
+
+			// prepare all snapshot in EPMB pallet.
+			mb::Pallet::<Runtime>::asap();
+			for page in 1..=32 {
+				mb::unsigned::miner::OffchainWorkerMiner::<Runtime>::mine_solution(page, true)
+					.inspect(|p| log::info!(target: "runtime", "{:?}", p.score.pretty("DOT", 10)))
+					.unwrap();
+			}
+		});
+	}
+}
+>>>>>>> 05a3fb10 (Staking-Async + EPMB: Migrate operations to `poll` (#9925))

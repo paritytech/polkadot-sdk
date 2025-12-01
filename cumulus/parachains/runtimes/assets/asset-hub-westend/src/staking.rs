@@ -133,7 +133,12 @@ impl multi_block::Config for Runtime {
 	// Revert back to signed phase if nothing is submitted and queued, so we prolong the election.
 	type AreWeDone = multi_block::RevertToSignedIfNotQueuedOf<Self>;
 	type OnRoundRotation = multi_block::CleanRound<Self>;
+<<<<<<< HEAD
 	type WeightInfo = multi_block::weights::westend::MultiBlockWeightInfo<Self>;
+=======
+	type Signed = MultiBlockElectionSigned;
+	type WeightInfo = weights::pallet_election_provider_multi_block::WeightInfo<Runtime>;
+>>>>>>> 05a3fb10 (Staking-Async + EPMB: Migrate operations to `poll` (#9925))
 }
 
 impl multi_block::verifier::Config for Runtime {
@@ -499,5 +504,22 @@ where
 {
 	fn create_bare(call: RuntimeCall) -> UncheckedExtrinsic {
 		UncheckedExtrinsic::new_bare(call)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn all_epmb_weights_sane() {
+		sp_tracing::try_init_simple();
+		sp_io::TestExternalities::default().execute_with(|| {
+			pallet_election_provider_multi_block::Pallet::<Runtime>::check_all_weights(
+				<Runtime as frame_system::Config>::BlockWeights::get().max_block,
+				Some(sp_runtime::Percent::from_percent(75)),
+				Some(sp_runtime::Percent::from_percent(50)),
+			);
+		})
 	}
 }
