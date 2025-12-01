@@ -294,7 +294,7 @@ pub async fn assert_para_blocks_throughput(
 		.subscribe_finalized()
 		.await?
 		.try_filter(|b| {
-			futures::future::ready(find_core_info(b).map_or(false, |info| {
+			futures::future::ready(find_core_info(b).is_ok_and(|info| {
 				expected_candidates_per_relay_block.contains(&(info.number_of_cores.0 as usize))
 			}))
 		})
@@ -377,8 +377,8 @@ pub async fn assert_para_blocks_throughput(
 			.filter_map(|i| {
 				finalized_parachain_blocks.iter().rev().find_map(|p| {
 					(BlakeTwo256::hash_of(p.header()) == i.descriptor.para_head()).then(|| {
-						find_core_info(&p)
-							.and_then(|c| find_relay_block_identifier(&p).map(|rbi| (c, rbi)))
+						find_core_info(p)
+							.and_then(|c| find_relay_block_identifier(p).map(|rbi| (c, rbi)))
 					})
 				})
 			})

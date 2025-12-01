@@ -84,7 +84,6 @@ sp_api::impl_runtime_apis! {
 		fn check_inherents(_: <Block as BlockT>::LazyBlock, _: sp_inherents::InherentData) -> sp_inherents::CheckInherentsResult {
 			unimplemented!()
 		}
-
 	}
 
 	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
