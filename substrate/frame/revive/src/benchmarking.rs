@@ -51,10 +51,7 @@ use frame_support::{
 	self, assert_ok,
 	migrations::SteppedMigration,
 	storage::child,
-	traits::{
-		fungible::{InspectHold, UnbalancedHold},
-		Hooks,
-	},
+	traits::{fungible::InspectHold, Hooks},
 	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
@@ -134,7 +131,7 @@ mod benchmarks {
 	fn on_initialize_per_trie_key(k: Linear<0, 1024>) -> Result<(), BenchmarkError> {
 		let instance =
 			Contract::<T>::with_storage(VmBinaryModule::dummy(), k, limits::STORAGE_BYTES)?;
-		instance.info()?.queue_trie_for_deletion();
+		ContractInfo::<T>::queue_trie_for_deletion(instance.info()?.trie_id);
 
 		#[block]
 		{
@@ -1219,29 +1216,25 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
+		let caller = whitelisted_caller();
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
+		T::AddressMapper::map_no_deposit(&beneficiary)?;
 
 		build_runtime!(_runtime, instance, _memory: [vec![0u8; 0], ]);
 		let code_hash = instance.info()?.code_hash;
 
 		assert!(PristineCode::<T>::get(code_hash).is_some());
 
-		// Set storage deposit to zero so terminate_logic can proceed.
-		T::Currency::set_balance_on_hold(
-			&HoldReason::StorageDepositReserve.into(),
-			&instance.account_id,
-			0u32.into(),
-		)
-		.unwrap();
-
-		T::Currency::set_balance(&instance.account_id, Pallet::<T>::min_balance() * 2u32.into());
+		T::Currency::set_balance(&instance.account_id, Pallet::<T>::min_balance() * 10u32.into());
 
 		let result;
 		#[block]
 		{
-			result = crate::storage::meter::terminate_logic_for_benchmark::<T>(
+			result = crate::exec::terminate_contract_for_benchmark::<T>(
+				caller,
 				&instance.account_id,
-				&beneficiary,
+				&instance.info()?,
+				beneficiary.clone(),
 			);
 		}
 		result.unwrap();
@@ -1255,7 +1248,7 @@ mod benchmarks {
 
 		// Check that the beneficiary received the balance
 		let balance = <T as Config>::Currency::balance(&beneficiary);
-		assert_eq!(balance, Pallet::<T>::min_balance() * 2u32.into());
+		assert_eq!(balance, Pallet::<T>::min_balance() + Pallet::<T>::min_balance() * 9u32.into());
 
 		Ok(())
 	}
@@ -2100,7 +2093,7 @@ mod benchmarks {
 		i: Linear<{ 10 * 1024 }, { 48 * 1024 }>,
 	) -> Result<(), BenchmarkError> {
 		use crate::vm::evm::instructions::BENCH_INIT_CODE;
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::dummy());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_sized(0));
 		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 		setup.set_balance(caller_funding::<T>());
 
@@ -2115,9 +2108,11 @@ mod benchmarks {
 
 		let init_code = vec![BENCH_INIT_CODE; i as usize];
 		let _ = interpreter.memory.resize(0, init_code.len());
+		let salt = U256::from(42u64);
 		interpreter.memory.set_data(0, 0, init_code.len(), &init_code);
 
-		// Setup stack for create instruction [value, offset, size]
+		// Setup stack for create instruction [value, offset, size, salt]
+		let _ = interpreter.stack.push(salt);
 		let _ = interpreter.stack.push(U256::from(init_code.len()));
 		let _ = interpreter.stack.push(U256::zero());
 		let _ = interpreter.stack.push(value);
@@ -2125,7 +2120,7 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = instructions::contract::create::<false, _>(&mut interpreter);
+			result = instructions::contract::create::<true, _>(&mut interpreter);
 		}
 
 		assert!(result.is_continue());

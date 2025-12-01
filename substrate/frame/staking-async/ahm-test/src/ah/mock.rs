@@ -283,7 +283,6 @@ impl multi_block::verifier::Config for Runtime {
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 
 	type SolutionDataProvider = MultiBlockSigned;
-	type SolutionImprovementThreshold = ();
 	type WeightInfo = ();
 }
 
@@ -354,7 +353,6 @@ impl pallet_staking_async::Config for Runtime {
 
 	type MaxValidatorSet = MaxValidators;
 	type MaxExposurePageSize = MaxExposurePageSize;
-	type MaxInvulnerables = MaxValidators;
 	type MaxUnlockingChunks = ConstU32<16>;
 	type NominationsQuota = pallet_staking_async::FixedNominationsQuota<16>;
 

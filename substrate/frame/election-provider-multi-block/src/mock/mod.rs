@@ -149,7 +149,6 @@ parameter_types! {
 
 	pub static FallbackMode: FallbackModes = FallbackModes::Emergency;
 	pub static MinerTxPriority: u64 = 100;
-	pub static SolutionImprovementThreshold: Perbill = Perbill::zero();
 	pub static OffchainRepeat: BlockNumber = 5;
 	pub static OffchainStorage: bool = true;
 	pub static MinerMaxLength: u32 = 256;
@@ -187,7 +186,6 @@ impl Get<Phase<Runtime>> for AreWeDone {
 }
 
 impl crate::verifier::Config for Runtime {
-	type SolutionImprovementThreshold = SolutionImprovementThreshold;
 	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
@@ -368,10 +366,6 @@ impl ExtBuilder {
 	}
 	pub(crate) fn miner_tx_priority(self, p: u64) -> Self {
 		MinerTxPriority::set(p);
-		self
-	}
-	pub(crate) fn solution_improvement_threshold(self, p: Perbill) -> Self {
-		SolutionImprovementThreshold::set(p);
 		self
 	}
 	pub(crate) fn election_start(self, at: BlockNumber) -> Self {
