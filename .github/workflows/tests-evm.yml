@@ -156,13 +156,14 @@ jobs:
 
           if [ "${{ matrix.node }}" = "revive-dev-node" ]; then
             echo "Starting revive-dev-node"
-            NODE_PATH=$(readlink -f ../target/release/revive-dev-node)
+            NODE_PATH=$(realpath ../target/release/revive-dev-node)
             $NODE_PATH --dev --log=error &
             NODE_PID=$!
           else
             echo "Building chain-spec"
-            ../target/release/chain-spec-builder -c /tmp/ah-westend-spec-raw.json create --para-id 1000 --relay-chain dontcare --runtime ../target/release/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.wasm named-preset development
-            NODE_PATH=$(readlink -f ../target/release/polkadot-omni-node)
+            RUNTIME=$(realpath ../target/release/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.wasm)
+            ../target/release/chain-spec-builder -c /tmp/ah-westend-spec-raw.json create --para-id 1000 --relay-chain dontcare --runtime $RUNTIME named-preset development
+            NODE_PATH=$(realpath ../target/release/polkadot-omni-node)
 
             # funds 0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac
             jq '.genesis.runtimeGenesis.patch.balances.balances += [
@@ -176,7 +177,7 @@ jobs:
             NODE_PID=$!
           fi
 
-          ETH_RPC_PATH=$(readlink -f ../target/release/eth-rpc)
+          ETH_RPC_PATH=$(realpath ../target/release/eth-rpc)
           $ETH_RPC_PATH --dev --node-rpc-url=ws://localhost:9944 --no-prometheus --log=error &
           ETH_RPC_PID=$!
 
