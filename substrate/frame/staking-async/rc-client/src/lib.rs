@@ -598,7 +598,6 @@ pub struct Offence<AccountId> {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use alloc::vec;
 	use frame_system::pallet_prelude::{BlockNumberFor, *};
 
 	/// The in-code storage version.
