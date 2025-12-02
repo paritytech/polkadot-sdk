@@ -19,12 +19,122 @@
 //! Substrate Statement Store RPC API.
 
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
+use serde::{Deserialize, Serialize};
 use sp_core::Bytes;
 
 pub mod error;
 
+/// Filter for querying statements with different topics.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TopicFilter {
+	/// Matches all topics.
+	Any,
+	/// Matches only statements including all of the given topics.
+	/// Bytes are expected to be a 32-byte topic.
+	MatchAll(Vec<Bytes>),
+}
+
+/// Filter for querying statements with different decryption key identifiers.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DecryptionKeyIdFilter {
+	/// Matches any statement regardless of their decryption key identifier.
+	Any,
+	/// Match only statements without a decryption key identifier.
+	NoDecryptionKey,
+	/// Match only statements with the provided decryption key identifier.
+	/// Bytes are expected to be a 32-byte key identifier.
+	Matches(Bytes),
+}
+
+/// Filter for querying statements with different submitters.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+
+pub enum SubmitterFilter {
+	/// Matches any statement regardless of their owner identifier.
+	Any,
+	/// Match only statements with the provided owner identifier.
+	/// Bytes are expected to be a 32-byte owner identifier.
+	Matches(Bytes),
+}
+
+/// Cursor for paginated statement queries.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum PageCursor {
+	// No more pages
+	End,
+	// Cursor to fetch the next page, opaque to the client.
+	NextPage(Bytes),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetStatementsResponse {
+	pub encoded_statements: Vec<Bytes>,
+	pub next_page: PageCursor,
+}
+
 /// Substrate statement RPC API
 #[rpc(client, server)]
+pub trait StatementApi2 {
+	/// Return statements that match the provided filters, with pagination.
+	///
+	/// # Parameters
+	///
+	/// - `topic_filter` — Which topics to match. Use `TopicFilter::Any` to match all topics, or
+	///   `TopicFilter::MatchAll(vec)` to match statements that include all provided topics.
+	/// - `key_filter` — Filter by decryption key identifier. Use `DecryptionKeyIdFilter::Any` to
+	///   ignore the decryption key, `NoDecryptionKey` to select statements without a decryption
+	///   key, or `Matches(id)` to select statements with the given key id.
+	/// - `submitter_filter` — Filter by statement submitter. Use `SubmitterFilter::Any` to match
+	///   any owner identifier or `SubmitterFilter::Matches(owner)` to restrict to a specific owner
+	///   identifier.
+	/// - `next_page` — Optional pagination cursor. Pass `None` to request the first page. When a
+	///   previous response contained a `PageCursor::NextPage(bytes)`, pass that wrapped in
+	///   `Some(...)` to fetch the next page. The server will return `PageCursor::End` when there
+	///   are no further pages.
+	/// - `limit` — Optional maximum number of statements to return in this page. The server may
+	///   enforce a maximum cap; if more results exist the response will include a `next_page`
+	///   cursor.
+	///
+	/// # Returns
+	///
+	/// Returns `RpcResult<GetStatementsResponse>` on success.
+	/// - `GetStatementsResponse.encoded_statements` contains a Vec of SCALE-encoded statements as
+	/// `Bytes`.
+	/// - `GetStatementsResponse.next_page` indicates whether more pages are available (an
+	/// opaque cursor) or `End` if the result set is exhausted.
+	#[method(name = "statement_getStatements")]
+	fn get_statements(
+		&self,
+		topic_filter: TopicFilter,
+		key_filter: DecryptionKeyIdFilter,
+		submitter_filter: SubmitterFilter,
+		next_page: Option<PageCursor>,
+		limit: Option<u32>,
+	) -> RpcResult<GetStatementsResponse>;
+
+	/// Submit a SCALE-encoded statement.
+	///
+	/// See `Statement` definition for more details.
+	#[method(name = "statement_submit")]
+	fn submit(&self, encoded: Bytes) -> RpcResult<()>;
+
+	/// New storage subscription
+	#[subscription(
+		name = "statement_subscribeStatement" => "statement_statement",
+		unsubscribe = "statement_unsubscribeStatement",
+		item = Bytes,
+		with_extensions,
+	)]
+	fn subscribe_statement(&self, match_all_topics: Vec<[u8; 32]>);
+}
+
+/// Substrate statement RPC API
+#[rpc(client, server)]
+#[deprecated(since = "0.0.0", note = "Please use StatementApi2 instead")]
 pub trait StatementApi {
 	/// Return all statements, SCALE-encoded.
 	#[method(name = "statement_dump", with_extensions)]
