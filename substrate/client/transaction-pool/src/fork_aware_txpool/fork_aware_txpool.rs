@@ -1849,19 +1849,11 @@ where
 
 	/// Handles a blockchain revert to a previous block.
 	///
-	/// This method should be called when the blockchain is reverted to an earlier state,
-	/// before deleting the blocks. It is responsible for cleaning the pool state such that
+	/// This is responsible for cleaning the pool state such that
 	/// there are no references to blocks that will be removed.
-	///
-	/// To prepare the pool for blocks deletion we should:
-	/// 1. Collect transactions included in retracted blocks.
-	/// 2. Remove all active and inactive views associated with blocks beyond the new head.
-	/// 3. Cleans up notifications sinks for removed views.
-	/// 4. Remove included transactions from the mempool while preserving the pending transactions.
-	/// 5. Ensures a view exists at the new head.
-	///
-	/// Pending transactions (those not yet included in any block) remain in the mempool and will
-	/// be available for inclusion in future blocks built on the new head.
+	/// 
+	/// This method will delete all references to blocks that have a
+	/// block number > than the revert point.
 	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "fatp::handle_reverted")]
 	async fn handle_reverted(&self, new_head_hash: Block::Hash) {
 		let start = Instant::now();

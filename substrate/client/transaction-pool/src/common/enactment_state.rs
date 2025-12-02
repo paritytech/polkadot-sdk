@@ -73,8 +73,8 @@ pub enum EnactmentAction<Block: BlockT> {
 	/// Enactment phase of maintenance shall be skipped
 	HandleFinalization,
 	/// Chain reversion shall be handled.
-	/// Will purge all views and transactions related
-	/// to the reverted blocks.
+	/// Will purge all transactions related to block that
+	/// will be removed.
 	HandleReversion { new_head: Block::Hash },
 }
 

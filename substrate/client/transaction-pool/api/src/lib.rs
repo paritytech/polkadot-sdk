@@ -392,6 +392,9 @@ pub enum ChainEvent<B: BlockT> {
 	/// The chain has been reverted to an earlier state.
 	///
 	/// The hash passed in this event updates the pool’s internal record of the finalized block.
+	/// Handling of this event will result in removal of all included transactions.
+	/// 
+	/// This event is expected to be used in development and testing environments.
 	Reverted {
 		/// Hash of the new head
 		new_head: B::Hash,
