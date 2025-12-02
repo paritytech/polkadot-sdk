@@ -402,8 +402,7 @@ impl<B: BlockT> ChainEvent<B> {
 	/// Returns the block hash associated to the event.
 	pub fn hash(&self) -> B::Hash {
 		match self {
-			Self::NewBestBlock { hash, .. } |
-			Self::Finalized { hash, .. } => *hash,
+			Self::NewBestBlock { hash, .. } | Self::Finalized { hash, .. } => *hash,
 			Self::Reverted { new_head } => *new_head,
 		}
 	}
