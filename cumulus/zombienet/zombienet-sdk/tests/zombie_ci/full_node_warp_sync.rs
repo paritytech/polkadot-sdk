@@ -302,8 +302,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				})
 				.with_node(|node| {
 					node.with_name("dave").with_args(vec![
-						// ("-lparachain=debug,sync=trace,babe=trace,import_block=trace,grandpa=debug,sc_service::client=debug,sc_client_api::utils=debug").into(),
-						("-lparachain=debug,sync=debug,babe=debug,import_block=debug,grandpa=debug,sc_service::client=debug,sc_client_api::utils=debug").into(),
+						("-lparachain=debug,sync=debug").into(),
 						("--no-beefy").into(),
 						("--reserved-only").into(),
 						(
@@ -324,16 +323,13 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_chain_spec_path("tests/zombie_ci/warp-sync-parachain-spec.json")
-				.with_default_args(vec![
-					("-lparachain=debug").into(),
-					("--").into(),
-			 	])
+				.with_default_args(vec![("-lparachain=debug").into(), ("--").into()])
 				.with_collator(|n| n.with_name("eve").with_db_snapshot(DB_SNAPSHOT_PARACHAIN))
 				.with_collator(|n| n.with_name("ferdie").with_db_snapshot(DB_SNAPSHOT_PARACHAIN))
 				.with_collator(|n| n.with_name("one").with_db_snapshot(DB_SNAPSHOT_PARACHAIN))
 				.with_collator(|n| {
 					n.with_name("two").validator(false).with_args(vec![
-						("-lsync=trace,babe=trace,grandpa=debug").into(),
+						("-lsync=debug").into(),
 						("--sync", "warp").into(),
 						("--").into(),
 						("--sync", "warp").into(),
@@ -341,7 +337,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				})
 				.with_collator(|n| {
 					n.with_name("three").validator(false).with_args(vec![
-						("-lsync=trace,babe=trace,grandpa=debug,sc_service::client=debug").into(),
+						("-lsync=debug").into(),
 						("--sync", "warp").into(),
 						("--relay-chain-rpc-urls", "{{ZOMBIE:alice:ws_uri}}").into(),
 						("--").into(),
@@ -349,7 +345,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				})
 				.with_collator(|n| {
 					n.with_name("four").validator(false).with_args(vec![
-						("-lsync=trace,babe=trace,grandpa=debug,sc_service::client=debug").into(),
+						("-lsync=debug").into(),
 						("--sync", "warp").into(),
 						("--relay-chain-rpc-urls", "{{ZOMBIE:dave:ws_uri}}").into(),
 						("--").into(),
