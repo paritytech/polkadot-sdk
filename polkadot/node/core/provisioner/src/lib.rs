@@ -19,7 +19,6 @@
 
 #![deny(missing_docs, unused_crate_dependencies)]
 
-use bitvec::vec::BitVec;
 use futures::{
 	channel::oneshot::{self, Canceled},
 	future::BoxFuture,
@@ -30,21 +29,21 @@ use futures::{
 use futures_timer::Delay;
 use polkadot_node_subsystem::{
 	messages::{
-		Ancestors, CandidateBackingMessage, ChainApiMessage, ProspectiveParachainsMessage,
+		CandidateBackingMessage, ChainApiMessage,
 		ProvisionableData, ProvisionerInherentData, ProvisionerMessage,
 	},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
 	SubsystemError,
 };
-use polkadot_node_subsystem_util::{request_availability_cores, TimeoutExt};
+use polkadot_node_subsystem_util::{request_availability_cores, TimeoutExt, request_backable_candidates, select_availability_bitfields};
 use polkadot_primitives::{
-	BackedCandidate, CandidateEvent, CandidateHash, CoreIndex, CoreState, Hash, Id as ParaId,
-	SignedAvailabilityBitfield, ValidatorIndex,
+	BackedCandidate, CandidateEvent, CoreState, Hash,
+	SignedAvailabilityBitfield,
 };
 use sc_consensus_slots::time_until_next_slot;
 use schnellru::{ByLength, LruMap};
 use std::{
-	collections::{BTreeMap, HashMap},
+	collections::HashMap,
 	time::Duration,
 };
 mod disputes;
@@ -421,8 +420,6 @@ fn note_provisionable_data(
 	}
 }
 
-type CoreAvailability = BitVec<u8, bitvec::order::Lsb0>;
-
 /// The provisioner is the subsystem best suited to choosing which specific
 /// backed candidates and availability bitfields should be assembled into the
 /// block. To engage this functionality, a
@@ -515,167 +512,6 @@ async fn send_inherent_data(
 	Ok(())
 }
 
-/// In general, we want to pick all the bitfields. However, we have the following constraints:
-///
-/// - not more than one per validator
-/// - each 1 bit must correspond to an occupied core
-///
-/// If we have too many, an arbitrary selection policy is fine. For purposes of maximizing
-/// availability, we pick the one with the greatest number of 1 bits.
-///
-/// Note: This does not enforce any sorting precondition on the output; the ordering there will be
-/// unrelated to the sorting of the input.
-fn select_availability_bitfields(
-	cores: &[CoreState],
-	bitfields: &[SignedAvailabilityBitfield],
-	leaf_hash: &Hash,
-) -> Vec<SignedAvailabilityBitfield> {
-	let mut selected: BTreeMap<ValidatorIndex, SignedAvailabilityBitfield> = BTreeMap::new();
-
-	gum::debug!(
-		target: LOG_TARGET,
-		bitfields_count = bitfields.len(),
-		?leaf_hash,
-		"bitfields count before selection"
-	);
-
-	'a: for bitfield in bitfields.iter().cloned() {
-		if bitfield.payload().0.len() != cores.len() {
-			gum::debug!(target: LOG_TARGET, ?leaf_hash, "dropping bitfield due to length mismatch");
-			continue
-		}
-
-		let is_better = selected
-			.get(&bitfield.validator_index())
-			.map_or(true, |b| b.payload().0.count_ones() < bitfield.payload().0.count_ones());
-
-		if !is_better {
-			gum::trace!(
-				target: LOG_TARGET,
-				val_idx = bitfield.validator_index().0,
-				?leaf_hash,
-				"dropping bitfield due to duplication - the better one is kept"
-			);
-			continue
-		}
-
-		for (idx, _) in cores.iter().enumerate().filter(|v| !v.1.is_occupied()) {
-			// Bit is set for an unoccupied core - invalid
-			if *bitfield.payload().0.get(idx).as_deref().unwrap_or(&false) {
-				gum::debug!(
-					target: LOG_TARGET,
-					val_idx = bitfield.validator_index().0,
-					?leaf_hash,
-					"dropping invalid bitfield - bit is set for an unoccupied core"
-				);
-				continue 'a
-			}
-		}
-
-		let _ = selected.insert(bitfield.validator_index(), bitfield);
-	}
-
-	gum::debug!(
-		target: LOG_TARGET,
-		?leaf_hash,
-		"selected {} of all {} bitfields (each bitfield is from a unique validator)",
-		selected.len(),
-		bitfields.len()
-	);
-
-	selected.into_values().collect()
-}
-
-/// Requests backable candidates from Prospective Parachains subsystem
-/// based on core states.
-async fn request_backable_candidates(
-	availability_cores: &[CoreState],
-	bitfields: &[SignedAvailabilityBitfield],
-	relay_parent: &ActivatedLeaf,
-	sender: &mut impl overseer::ProvisionerSenderTrait,
-) -> Result<HashMap<ParaId, Vec<(CandidateHash, Hash)>>, Error> {
-	let block_number_under_construction = relay_parent.number + 1;
-
-	// Record how many cores are scheduled for each paraid. Use a BTreeMap because
-	// we'll need to iterate through them.
-	let mut scheduled_cores_per_para: BTreeMap<ParaId, usize> = BTreeMap::new();
-	// The on-chain ancestors of a para present in availability-cores.
-	let mut ancestors: HashMap<ParaId, Ancestors> =
-		HashMap::with_capacity(availability_cores.len());
-
-	for (core_idx, core) in availability_cores.iter().enumerate() {
-		let core_idx = CoreIndex(core_idx as u32);
-		match core {
-			CoreState::Scheduled(scheduled_core) => {
-				*scheduled_cores_per_para.entry(scheduled_core.para_id).or_insert(0) += 1;
-			},
-			CoreState::Occupied(occupied_core) => {
-				let is_available = bitfields_indicate_availability(
-					core_idx.0 as usize,
-					bitfields,
-					&occupied_core.availability,
-				);
-
-				if is_available {
-					ancestors
-						.entry(occupied_core.para_id())
-						.or_default()
-						.insert(occupied_core.candidate_hash);
-
-					if let Some(ref scheduled_core) = occupied_core.next_up_on_available {
-						// Request a new backable candidate for the newly scheduled para id.
-						*scheduled_cores_per_para.entry(scheduled_core.para_id).or_insert(0) += 1;
-					}
-				} else if occupied_core.time_out_at <= block_number_under_construction {
-					// Timed out before being available.
-
-					if let Some(ref scheduled_core) = occupied_core.next_up_on_time_out {
-						// Candidate's availability timed out, practically same as scheduled.
-						*scheduled_cores_per_para.entry(scheduled_core.para_id).or_insert(0) += 1;
-					}
-				} else {
-					// Not timed out and not available.
-					ancestors
-						.entry(occupied_core.para_id())
-						.or_default()
-						.insert(occupied_core.candidate_hash);
-				}
-			},
-			CoreState::Free => continue,
-		};
-	}
-
-	let mut selected_candidates: HashMap<ParaId, Vec<(CandidateHash, Hash)>> =
-		HashMap::with_capacity(scheduled_cores_per_para.len());
-
-	for (para_id, core_count) in scheduled_cores_per_para {
-		let para_ancestors = ancestors.remove(&para_id).unwrap_or_default();
-
-		let response = get_backable_candidates(
-			relay_parent.hash,
-			para_id,
-			para_ancestors,
-			core_count as u32,
-			sender,
-		)
-		.await?;
-
-		if response.is_empty() {
-			gum::debug!(
-				target: LOG_TARGET,
-				leaf_hash = ?relay_parent.hash,
-				?para_id,
-				"No backable candidate returned by prospective parachains",
-			);
-			continue
-		}
-
-		selected_candidates.insert(para_id, response);
-	}
-
-	Ok(selected_candidates)
-}
-
 /// Determine which cores are free, and then to the degree possible, pick a candidate appropriate to
 /// each free core.
 async fn select_candidates(
@@ -692,7 +528,7 @@ async fn select_candidates(
 	);
 
 	let selected_candidates =
-		request_backable_candidates(availability_cores, bitfields, leaf, sender).await?;
+		request_backable_candidates(availability_cores, Some(bitfields), leaf, sender).await?;
 	gum::debug!(target: LOG_TARGET, ?selected_candidates, "Got backable candidates");
 
 	// now get the backed candidates corresponding to these candidate receipts
@@ -736,67 +572,4 @@ async fn select_candidates(
 	);
 
 	Ok(merged_candidates)
-}
-
-/// Requests backable candidates from Prospective Parachains based on
-/// the given ancestors in the fragment chain. The ancestors may not be ordered.
-async fn get_backable_candidates(
-	relay_parent: Hash,
-	para_id: ParaId,
-	ancestors: Ancestors,
-	count: u32,
-	sender: &mut impl overseer::ProvisionerSenderTrait,
-) -> Result<Vec<(CandidateHash, Hash)>, Error> {
-	let (tx, rx) = oneshot::channel();
-	sender
-		.send_message(ProspectiveParachainsMessage::GetBackableCandidates(
-			relay_parent,
-			para_id,
-			count,
-			ancestors,
-			tx,
-		))
-		.await;
-
-	rx.await.map_err(Error::CanceledBackableCandidates)
-}
-
-/// The availability bitfield for a given core is the transpose
-/// of a set of signed availability bitfields. It goes like this:
-///
-/// - construct a transverse slice along `core_idx`
-/// - bitwise-or it with the availability slice
-/// - count the 1 bits, compare to the total length; true on 2/3+
-fn bitfields_indicate_availability(
-	core_idx: usize,
-	bitfields: &[SignedAvailabilityBitfield],
-	availability: &CoreAvailability,
-) -> bool {
-	let mut availability = availability.clone();
-	let availability_len = availability.len();
-
-	for bitfield in bitfields {
-		let validator_idx = bitfield.validator_index().0 as usize;
-		match availability.get_mut(validator_idx) {
-			None => {
-				// in principle, this function might return a `Result<bool, Error>` so that we can
-				// more clearly express this error condition however, in practice, that would just
-				// push off an error-handling routine which would look a whole lot like this one.
-				// simpler to just handle the error internally here.
-				gum::warn!(
-					target: LOG_TARGET,
-					validator_idx = %validator_idx,
-					availability_len = %availability_len,
-					"attempted to set a transverse bit at idx {} which is greater than bitfield size {}",
-					validator_idx,
-					availability_len,
-				);
-
-				return false
-			},
-			Some(mut bit_mut) => *bit_mut |= bitfield.payload().0[core_idx],
-		}
-	}
-
-	3 * availability.count_ones() >= 2 * availability.len()
 }

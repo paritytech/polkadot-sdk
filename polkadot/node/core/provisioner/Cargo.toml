@@ -12,7 +12,6 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-bitvec = { features = ["alloc"], workspace = true }
 fatality = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
