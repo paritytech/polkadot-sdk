@@ -394,14 +394,14 @@ pub enum ChainEvent<B: BlockT> {
 	/// This event triggers comprehensive cleanup of all blockchain state beyond the revert point:
 	///
 	/// ## Cleanup Actions:
-	/// - All forks removed: Every view (active and inactive) with block number greater than
-	///   the new head is removed, regardless of which fork it belongs to.
-	/// - Included transactions purged: All transactions that were included in blocks beyond
-	///   the revert point (across all forks) are completely removed from the mempool. These
+	/// - All forks removed: Every view (active and inactive) with block number greater than the
+	///   new head is removed, regardless of which fork it belongs to.
+	/// - Included transactions purged: All transactions that were included in blocks beyond the
+	///   revert point (across all forks) are completely removed from the mempool. These
 	///   transactions can be freshly resubmitted after the revert.
-	/// - Pending transactions preserved: Transactions that were never included in any block
-	///   (both in ready and future queues) remain in the mempool and will be revalidated against
-	///   the reverted state.
+	/// - Pending transactions preserved: Transactions that were never included in any block (both
+	///   in ready and future queues) remain in the mempool and will be revalidated against the
+	///   reverted state.
 	/// - New view created: A fresh view is created at the revert target block if one doesn't
 	///   already exist.
 	///

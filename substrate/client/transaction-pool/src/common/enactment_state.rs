@@ -78,8 +78,8 @@ pub enum EnactmentAction<Block: BlockT> {
 	/// This action performs complete cleanup of all state beyond the revert point:
 	/// - Removes all views (across all forks) with block number greater than the revert target
 	/// - Collects and removes all transactions that were included in reverted blocks
-	/// - Preserves pending transactions (never included) in the mempool.
-	///   They will most likely be invalidated at resubmit point.
+	/// - Preserves pending transactions (never included) in the mempool. They will most likely be
+	///   invalidated at resubmit point.
 	/// - Creates a new view at the revert target block
 	///
 	/// The hash parameter identifies the block to revert to (the new head).
