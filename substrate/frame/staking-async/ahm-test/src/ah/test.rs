@@ -292,33 +292,8 @@ fn validator_set_send_fail_retries() {
 		assert!(OutgoingValidatorSet::<T>::exists());
 
 		// roll until session 3
-		for i in 1..=3 {
-			// roll some random number of blocks.
-			roll_many(10);
-
-			// send the session report.
-			assert_ok!(rc_client::Pallet::<T>::relay_session_report(
-				RuntimeOrigin::root(),
-				rc_client::SessionReport {
-					end_index: i,
-					validator_points: vec![(1, 10)],
-					activation_timestamp: None,
-					leftover: false,
-				}
-			));
-
-			let era_points = staking_async::ErasRewardPoints::<T>::get(&0);
-			assert_eq!(era_points.total, 360 + i * 10);
-			assert_eq!(era_points.individual.get(&1), Some(&(10 + i * 10)));
-
-			assert_eq!(
-				staking_events_since_last_call(),
-				vec![StakingEvent::SessionRotated {
-					starting_session: i + 1,
-					active_era: 0,
-					planned_era: 1
-				}]
-			);
+		for _ in 0..3 {
+			roll_and_assert_idle_session(false);
 		}
 
 		// no xcm message sent yet.
@@ -382,68 +357,35 @@ fn roll_many_eras() {
 	// - Ensure rewards can be claimed at correct era.
 	// - assert outgoing messages, including id and prune_up_to.
 	ExtBuilder::default().local_queue().build().execute_with(|| {
-		let mut session_counter: u32 = 0;
-
-		let mut roll_session = |activate: bool| {
-			let activation_timestamp = if activate {
-				let current_era = CurrentEra::<T>::get().unwrap();
-				Some((current_era as u64 * 1000, current_era as u32))
-			} else {
-				None
-			};
-
-			assert_ok!(rc_client::Pallet::<T>::relay_session_report(
-				RuntimeOrigin::root(),
-				rc_client::SessionReport {
-					end_index: session_counter,
-					validator_points: vec![(1, 10)],
-					activation_timestamp,
-					leftover: false,
-				}
-			));
-
-			// increment session for the next iteration.
-			session_counter += 1;
-
-			// run session blocks.
-			roll_many(60);
-		};
-
 		// ERA 0 -> 1
 		let mut active_era = ActiveEra::<T>::get().unwrap().index;
 		let mut current_era = CurrentEra::<T>::get().unwrap();
 		assert_eq!(active_era, 0);
 		assert_eq!(current_era, 0);
 
-		// Note: Due to a technicality on how we buffer validator set in rc client, the first era is
-		// 7 sessions long.
 		// -- first session will start the election
-		roll_session(false);
+		roll_and_assert_election_session(false);
 		// active era not incremented
 		assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
 		// current era incremented indicating election started.
 		current_era += 1;
 		assert_eq!(CurrentEra::<T>::get().unwrap(), current_era);
 
-		// -- next 3 sessions are idle
-		for _ in 0..3 {
-			roll_session(false);
+		// -- next 2 sessions are idle
+		for _ in 0..2 {
+			roll_and_assert_idle_session(false);
 			assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
 			assert_eq!(CurrentEra::<T>::get().unwrap(), current_era);
 		}
 
-		// ensure validator set not sent yet to RC.
-		assert_eq!(LocalQueue::get().unwrap().len() as u32, 0);
+		// next session exports the set
+		roll_and_assert_idle_session(true);
 
-		// start of 5th (end of 4th) will trigger validator export
-		roll_session(false);
-		assert_eq!(LocalQueue::get().unwrap().len() as u32, 1);
-
-		// next session is idle
-		roll_session(false);
+		// another idle session
+		roll_and_assert_idle_session(false);
 
 		// end of 6th we get activation stamp
-		roll_session(true);
+		roll_and_assert_era_end_session();
 		active_era += 1;
 		assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
 		// election for next already starts
@@ -458,7 +400,7 @@ fn roll_many_eras() {
 
 			// --- Before end of session 4: validator set is ready
 			for _ in 0..3 {
-				roll_session(false);
+				roll_and_assert_idle_session(false);
 				assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
 				assert_eq!(CurrentEra::<T>::get().unwrap(), active_era + 1);
 			}
@@ -469,18 +411,18 @@ fn roll_many_eras() {
 			assert_eq!(LocalQueue::get().unwrap().len() as u32, active_era);
 
 			// --- validator set is exported in the 5th session.
-			roll_session(false);
+			roll_and_assert_idle_session(true);
 			assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
 			assert_eq!(CurrentEra::<T>::get().unwrap(), active_era + 1);
 			assert_eq!(LocalQueue::get().unwrap().len() as u32, active_era + 1);
 
 			// --- end session 5 (activation will be next session)
-			roll_session(false);
+			roll_and_assert_idle_session(false);
 			assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
 			assert_eq!(CurrentEra::<T>::get().unwrap(), active_era + 1);
 
 			// --- 6th the era rotation session
-			roll_session(true);
+			roll_and_assert_era_end_session();
 			assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era + 1);
 			// next election starts
 			assert_eq!(CurrentEra::<T>::get().unwrap(), active_era + 2);

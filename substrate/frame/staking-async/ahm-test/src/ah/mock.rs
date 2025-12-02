@@ -701,6 +701,7 @@ pub(crate) fn roll_and_assert_idle_session(expect_export: bool) {
 			leftover: false,
 		}
 	));
+
 	assert_eq!(
 		staking_events_since_last_call(),
 		vec![pallet_staking_async::Event::SessionRotated {
@@ -773,18 +774,29 @@ pub(crate) fn roll_and_assert_election_session(expect_export: bool) {
 		[ElectionEvent::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(Pages::get()) }]
 	);
 
-	roll_many(60);
-	// ensure phase is off again.
+	while multi_block::CurrentPhase::<T>::get() != Phase::Off {
+		roll_next();
+	}
+
+	// Phase is off now.
 	assert_eq!(multi_block::CurrentPhase::<T>::get(), Phase::Off);
 
 	if expect_export {
 		// if its immediate export mode, the validator set is exported soon after its received by
 		// rc client pallet
+		assert_eq!(LocalQueue::get().unwrap().len(), pre_validator_set_export_count);
+		roll_next();
 		assert_eq!(LocalQueue::get().unwrap().len(), pre_validator_set_export_count + 1);
 	} else {
 		// the validator set is buffered
 		assert_eq!(LocalQueue::get().unwrap().len(), pre_validator_set_export_count);
 		assert!(OutgoingValidatorSet::<T>::exists());
+		hypothetically!({
+			// rolling few blocks would not export the set
+			roll_many(10);
+			assert_eq!(LocalQueue::get().unwrap().len(), pre_validator_set_export_count);
+			assert!(OutgoingValidatorSet::<T>::exists());
+		});
 	}
 }
 
