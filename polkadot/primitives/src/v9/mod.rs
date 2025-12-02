@@ -2083,6 +2083,36 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 
 		Some(self.session_index)
 	}
+
+	/// Return the scheduling parent of the descriptor.
+	///
+	///
+	/// On v1 and v2 this function will return the relay parent as under these versions the relay
+	/// parent is also the scheduling parent.
+	pub fn scheduling_parent(&self, v3_enabled: bool) -> H {
+		match self.version(v3_enabled) {
+			CandidateDescriptorVersion::V1 => self.relay_parent,
+			CandidateDescriptorVersion::V2 => self.relay_parent,
+			CandidateDescriptorVersion::V3 => self.scheduling_parent,
+			CandidateDescriptorVersion::Unknown => self.relay_parent,
+		}
+	}
+
+	/// Return the scheduling session index of the descriptor.
+	///
+	///
+	/// On v1: Return None.
+	/// On v2: Return the session index as it equals the scheduling session on v2.
+	/// On v3: Return the provided scheduling session index.
+	pub fn scheduling_session(&self, v3_enabled: bool) -> Option<SessionIndex> {
+		match self.version(v3_enabled) {
+			CandidateDescriptorVersion::V1 => None,
+			CandidateDescriptorVersion::V2 => Some(self.session_index),
+			CandidateDescriptorVersion::V3 =>
+				Some(self.session_index.saturating_add(self.scheduling_session_offset as _)),
+			CandidateDescriptorVersion::Unknown => None,
+		}
+	}
 }
 
 impl<H> core::fmt::Debug for CandidateDescriptorV2<H>
