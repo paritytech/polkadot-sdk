@@ -16,7 +16,7 @@ I have a helper script that runs everything. All you need to do is to make sure 
 Make sure you have the latest version zombienet, as it contains some fixes that are needed to work here.
 
 > Note: The fix to not use `//stash` as the default is not published. Talk to Javier, he is aware. Without this, even
-> though on the relay chain
+> though on the relay chain we register, `Alice`, `Alice//stash` becomes the validator.
 
 
 #### Organization
