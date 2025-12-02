@@ -1553,6 +1553,7 @@ fn receive_hrmp_many() {
 }
 
 #[test]
+#[cfg(not(feature = "runtime-benchmarks"))]
 fn upgrade_version_checks_should_work() {
 	use codec::Encode;
 	use sp_version::RuntimeVersion;

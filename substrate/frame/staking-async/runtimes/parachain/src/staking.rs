@@ -180,9 +180,6 @@ parameter_types! {
 	/// lightweight per-page.
 	// TODO: this is currently 512 in all networks, but 64 might yield better PoV, need to check logs.
 	pub const MaxExposurePageSize: u32 = 512;
-
-	/// Each solution is considered "better" if it is an epsilon better than the previous one.
-	pub SolutionImprovementThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
 }
 
 // Signed phase parameters.
@@ -294,6 +291,7 @@ impl multi_block::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type Fallback = frame_election_provider_support::onchain::OnChainExecution<OnChainConfig>;
 	type MinerConfig = Self;
+	type Signed = MultiBlockElectionSigned;
 	type Verifier = MultiBlockElectionVerifier;
 	type OnRoundRotation = multi_block::CleanRound<Self>;
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockWeightInfo<Self>;
@@ -304,7 +302,6 @@ impl multi_block::verifier::Config for Runtime {
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
 	type SolutionDataProvider = MultiBlockElectionSigned;
-	type SolutionImprovementThreshold = SolutionImprovementThreshold;
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockVerifierWeightInfo<Self>;
 }
 
@@ -360,6 +357,9 @@ impl multi_block::unsigned::miner::MinerConfig for Runtime {
 	type MaxVotesPerVoter =
 		<<Self as multi_block::Config>::DataProvider as ElectionDataProvider>::MaxVotesPerVoter;
 	type MaxLength = MinerMaxLength;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Solver = frame_election_provider_support::QuickDirtySolver<AccountId, Perbill>;
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Solver = <Runtime as multi_block::unsigned::Config>::OffchainSolver;
 	type Pages = Pages;
 	type Solution = NposCompactSolution16;
@@ -454,7 +454,6 @@ impl pallet_staking_async::Config for Runtime {
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = pallet_staking_async::weights::SubstrateWeight<Runtime>;
-	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
 	type MaxEraDuration = MaxEraDuration;
 	type MaxPruningItems = MaxPruningItems;
 	type PlanningEraOffset =
@@ -685,6 +684,36 @@ mod tests {
 			op.proof_size() / WEIGHT_PROOF_SIZE_PER_KB,
 			op.proof_size() as f64 / block.proof_size() as f64
 		);
+	}
+
+	#[test]
+	fn ensure_epmb_weights_sane_polkadot() {
+		use sp_io::TestExternalities;
+		use sp_runtime::Percent;
+		sp_tracing::try_init_simple();
+		TestExternalities::default().execute_with(|| {
+			super::enable_dot_preset(false);
+			pallet_election_provider_multi_block::Pallet::<Runtime>::check_all_weights(
+				<Runtime as frame_system::Config>::BlockWeights::get().max_block,
+				Some(Percent::from_percent(75)),
+				Some(Percent::from_percent(50)),
+			)
+		});
+	}
+
+	#[test]
+	fn ensure_epmb_weights_sane_kusama() {
+		use sp_io::TestExternalities;
+		use sp_runtime::Percent;
+		sp_tracing::try_init_simple();
+		TestExternalities::default().execute_with(|| {
+			super::enable_ksm_preset(false);
+			pallet_election_provider_multi_block::Pallet::<Runtime>::check_all_weights(
+				<Runtime as frame_system::Config>::BlockWeights::get().max_block,
+				Some(Percent::from_percent(75)),
+				Some(Percent::from_percent(50)),
+			)
+		});
 	}
 
 	#[test]

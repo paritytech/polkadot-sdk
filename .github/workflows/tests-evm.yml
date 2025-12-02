@@ -7,6 +7,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
+  workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -50,7 +51,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: paritytech/revive-differential-tests
-          ref: 347dcb4488ac188ef7bddf6e4b4c44b389f881c4
+          ref: 66feb36b4ef2c79415ca8ea765d8235d48dfa8f8
           path: revive-differential-tests
           submodules: recursive
       - name: Installing Retester
@@ -59,7 +60,7 @@ jobs:
         run: mkdir workdir
       - name: Downloading & Initializing the compilation caches
         run: |
-          curl -fL --retry 3 --retry-all-errors --connect-timeout 10 -o cache.tar.gz "https://github.com/paritytech/revive-differential-tests/releases/download/compilation-caches-v1.0/cache.tar.gz"
+          curl -fL --retry 3 --retry-all-errors --connect-timeout 10 -o cache.tar.gz "https://github.com/paritytech/revive-differential-tests/releases/download/compilation-caches-v1.1/cache.tar.gz"
           tar -zxf cache.tar.gz -C ./workdir > /dev/null 2>&1
       - name: Running the Differential Tests
         run: |
@@ -84,7 +85,8 @@ jobs:
       # certain cases where the report is too long to post as a Github comment.
       # This happens if the all of the tests are failing and therefore the
       # report exceeds the maximum allowed length of github comments
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+      - name: Upload the Report to the CI
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: report-${{ matrix.platform }}.md
           path: report.md
@@ -107,6 +109,9 @@ jobs:
       # but still want to have debug assertions.
       RUSTFLAGS: "-C debug-assertions"
       RUST_BACKTRACE: 1
+    strategy:
+      matrix:
+        platform: ["test:pvm", "test:evm"]
     steps:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -120,7 +125,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: paritytech/evm-test-suite
-          ref: 4dc2658b3c944d65e4624fad87e7532c9253448e
+          ref: 9359438a13e8ab68f73320724f8783e170ecc193
           path: evm-test-suite
 
       - uses: denoland/setup-deno@v2
@@ -139,11 +144,8 @@ jobs:
           export ETH_RPC_PATH=$(readlink -f ../target/release/eth-rpc)
           echo $REVIVE_DEV_NODE_PATH $ETH_RPC_PATH
 
-          echo "== Running pvm tests ==j"
-          START_REVIVE_DEV_NODE=true START_ETH_RPC=true deno task test:pvm
-
-          echo "== Running evm tests =="
-          START_REVIVE_DEV_NODE=true START_ETH_RPC=true deno task test:evm
+          echo "== Running tests =="
+          START_REVIVE_DEV_NODE=true START_ETH_RPC=true deno task ${{ matrix.platform }}
 
   confirm-required-test-evm-jobs-passed:
     runs-on: ubuntu-latest

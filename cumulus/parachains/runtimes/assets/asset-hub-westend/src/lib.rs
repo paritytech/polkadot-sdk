@@ -1755,9 +1755,9 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		}
 	}
 
-	impl cumulus_primitives_core::SlotSchedule<Block> for Runtime {
-		fn next_slot_schedule(_num_cores: u32) -> cumulus_primitives_core::NextSlotSchedule {
-			cumulus_primitives_core::NextSlotSchedule::one_block_using_one_core()
+	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
+		fn target_block_rate() -> u32 {
+			1
 		}
 	}
 
@@ -2697,4 +2697,21 @@ fn ensure_key_ss58() {
 	let acc =
 		AccountId::from_ss58check("5F4EbSkZz18X36xhbsjvDNs6NuZ82HyYtq5UiJ1h9SBHJXZD").unwrap();
 	assert_eq!(acc, RootMigController::sorted_members()[0]);
+}
+
+#[test]
+fn ensure_epmb_weights_sane() {
+	use sp_io::TestExternalities;
+	use sp_runtime::Percent;
+	sp_tracing::try_init_simple();
+	TestExternalities::default().execute_with(|| {
+		pallet_election_provider_multi_block::Pallet::<Runtime>::check_all_weights(
+			// of the max block weights..
+			<Runtime as frame_system::Config>::BlockWeights::get().max_block,
+			// more than 75% is a hard stop..
+			Some(Percent::from_percent(75)),
+			// and more than 50% a warning.
+			Some(Percent::from_percent(50)),
+		)
+	});
 }
