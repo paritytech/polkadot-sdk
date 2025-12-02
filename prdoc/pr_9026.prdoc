@@ -1,0 +1,35 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: RFC 150- Allow Voting While Delegating
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Pallet conviction voting now allows for a voter to both delegate and vote simultaneously.
+      It also allows delegates to turn off the ability for their delegators to do this through
+      the new `toggle_allow_delegator_voting` extrinsic. This update requires a multi-block storage
+      migration. The code for which can be found in `migrations/v1`. If you do not have `pallet-migrations`
+      in your runtime already, you will need to add it. You will also need to rerun the benchmarks for
+      this pallet.
+  - audience: Runtime User
+    description: |
+      As a voter you can now vote even if you are delegating to someone else. So if you disagree
+      with a vote your delegate has cast, but still want to keep them as a delegate, you can cast a
+      different vote yourself. On the backend it will retract your portion of your delegate's vote and 
+      place yours. As a delegate you have the option to per class disable this for your delegators through 
+      the `toggle_allow_delegator_voting` extrinsic, though this may upset your delegators. In some
+      rare circumstances you may receive an error when voting as a delegator. This could be because
+      either a.) your delegate has voting disabled, at which point you are always free to undelegate
+      or b.) your delegate's voting data is full (and cannot add your retraction info). In this case
+      please ask them to clear their voting data or alternatively undelegate if you so choose. Happy voting!
+
+crates:
+- name: asset-hub-westend-runtime
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: pallet-conviction-Voting
+  bump: major
