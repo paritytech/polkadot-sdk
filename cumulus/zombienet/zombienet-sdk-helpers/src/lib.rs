@@ -410,7 +410,7 @@ pub async fn submit_extrinsic_and_wait_for_finalization_success<S: Signer<Polkad
 			TxStatus::Error { message } |
 			TxStatus::Invalid { message } |
 			TxStatus::Dropped { message } => {
-				return Err(anyhow::anyhow!("Error submitting tx: {message}"));
+				return Err(anyhow!("Error submitting tx: {message}"));
 			},
 			_ => continue,
 		}
