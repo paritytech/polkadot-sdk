@@ -19,72 +19,12 @@
 //! Substrate Statement Store RPC API.
 
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
-use serde::{Deserialize, Serialize};
 use sp_core::Bytes;
 
 pub mod error;
 
-/// Result of submitting a statement to the store.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "status", rename_all = "camelCase")]
-pub enum StatementSubmitResult {
-	/// Statement was accepted as new.
-	New,
-	/// Statement was already known.
-	Known,
-	/// Statement was already known but has expired.
-	KnownExpired,
-	/// Statement was rejected because the store is full or priority is too low.
-	Rejected(RejectionReason),
-	/// Statement failed validation.
-	Invalid(InvalidReason),
-}
-
-/// Reason why a statement was rejected from the store.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "reason", rename_all = "camelCase")]
-pub enum RejectionReason {
-	/// Statement data exceeds the maximum allowed size for the account.
-	DataTooLarge {
-		/// The size of the submitted statement data.
-		submitted_size: usize,
-		/// Still available data size for the account.
-		available_size: usize,
-	},
-	/// Attempting to replace a channel message with lower or equal priority.
-	ChannelPriorityTooLow {
-		/// The priority of the submitted statement.
-		submitted_priority: u32,
-		/// The minimum priority of the existing channel message.
-		min_priority: u32,
-	},
-	/// Account reached its statement limit and submitted priority is too low to evict existing.
-	AccountFull {
-		/// The priority of the submitted statement.
-		submitted_priority: u32,
-		/// The minimum priority of the existing statement.
-		min_priority: u32,
-	},
-	/// The global statement store is full and cannot accept new statements.
-	StoreFull,
-}
-
-/// Reason why a statement failed validation.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "reason", rename_all = "camelCase")]
-pub enum InvalidReason {
-	/// Statement has no proof.
-	NoProof,
-	/// Proof validation failed.
-	BadProof,
-	/// Statement exceeds max allowed statement size
-	EncodingTooLarge {
-		/// The size of the submitted statement encoding.
-		submitted_size: usize,
-		/// The maximum allowed size.
-		max_size: usize,
-	},
-}
+// Re-export types from primitives with serde support
+pub use sp_statement_store::SubmitResult;
 
 /// Substrate statement RPC API
 #[rpc(client, server)]
@@ -150,7 +90,7 @@ pub trait StatementApi {
 
 	/// Submit a pre-encoded statement.
 	#[method(name = "statement_submit")]
-	fn submit(&self, encoded: Bytes) -> RpcResult<StatementSubmitResult>;
+	fn submit(&self, encoded: Bytes) -> RpcResult<SubmitResult>;
 
 	/// Remove a statement from the store.
 	#[method(name = "statement_remove")]

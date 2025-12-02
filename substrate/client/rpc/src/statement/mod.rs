@@ -24,37 +24,10 @@ use jsonrpsee::{
 	Extensions,
 };
 /// Re-export the API for backward compatibility.
-pub use sc_rpc_api::statement::{
-	error::Error, InvalidReason, RejectionReason, StatementApiServer, StatementSubmitResult,
-};
+pub use sc_rpc_api::statement::{error::Error, StatementApiServer};
 use sp_core::Bytes;
 use sp_statement_store::{StatementSource, SubmitResult};
 use std::sync::Arc;
-
-/// Maps the internal InvalidReason to the RPC API InvalidReason type.
-fn map_invalid_reason(reason: sp_statement_store::InvalidReason) -> InvalidReason {
-	match reason {
-		sp_statement_store::InvalidReason::NoProof => InvalidReason::NoProof,
-		sp_statement_store::InvalidReason::BadProof => InvalidReason::BadProof,
-		sp_statement_store::InvalidReason::EncodingTooLarge { submitted_size, max_size } =>
-			InvalidReason::EncodingTooLarge { submitted_size, max_size },
-	}
-}
-
-/// Maps the internal RejectionReason to the RPC API RejectionReason type.
-fn map_rejection_reason(reason: sp_statement_store::RejectionReason) -> RejectionReason {
-	match reason {
-		sp_statement_store::RejectionReason::DataTooLarge { submitted_size, available_size } =>
-			RejectionReason::DataTooLarge { submitted_size, available_size },
-		sp_statement_store::RejectionReason::ChannelPriorityTooLow {
-			submitted_priority,
-			min_priority,
-		} => RejectionReason::ChannelPriorityTooLow { submitted_priority, min_priority },
-		sp_statement_store::RejectionReason::AccountFull { submitted_priority, min_priority } =>
-			RejectionReason::AccountFull { submitted_priority, min_priority },
-		sp_statement_store::RejectionReason::StoreFull => RejectionReason::StoreFull,
-	}
-}
 
 /// Statement store API
 pub struct StatementStore {
@@ -150,20 +123,14 @@ impl StatementApiServer for StatementStore {
 			.collect())
 	}
 
-	fn submit(&self, encoded: Bytes) -> RpcResult<StatementSubmitResult> {
+	fn submit(&self, encoded: Bytes) -> RpcResult<SubmitResult> {
 		let statement = Decode::decode(&mut &*encoded)
 			.map_err(|e| Error::StatementStore(format!("Error decoding statement: {:?}", e)))?;
 		match self.store.submit(statement, StatementSource::Local) {
-			SubmitResult::New => Ok(StatementSubmitResult::New),
-			SubmitResult::Known => Ok(StatementSubmitResult::Known),
-			// `KnownExpired` should not happen. Expired statements submitted with
-			// `StatementSource::Rpc` should be renewed.
-			SubmitResult::KnownExpired => Ok(StatementSubmitResult::KnownExpired),
-			SubmitResult::Rejected(reason) =>
-				Ok(StatementSubmitResult::Rejected(map_rejection_reason(reason))),
-			SubmitResult::Invalid(reason) =>
-				Ok(StatementSubmitResult::Invalid(map_invalid_reason(reason))),
 			SubmitResult::InternalError(e) => Err(Error::StatementStore(e.to_string()).into()),
+			// We return the result as is but `KnownExpired` should not happen. Expired statements
+			// submitted with `StatementSource::Rpc` should be renewed.
+			result => Ok(result),
 		}
 	}
 

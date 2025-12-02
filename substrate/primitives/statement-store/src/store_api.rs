@@ -19,7 +19,8 @@ pub use crate::runtime_api::StatementSource;
 use crate::{Hash, Statement, Topic};
 
 /// Statement store error.
-#[derive(Debug, Eq, PartialEq, thiserror::Error)]
+#[derive(Debug, Clone, Eq, PartialEq, thiserror::Error)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Error {
 	/// Database error.
 	#[error("Database error: {0:?}")]
@@ -33,7 +34,9 @@ pub enum Error {
 }
 
 /// Reason why a statement was rejected from the store.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "reason", rename_all = "camelCase"))]
 pub enum RejectionReason {
 	/// Statement data exceeds the maximum allowed size for the account.
 	DataTooLarge {
@@ -61,13 +64,15 @@ pub enum RejectionReason {
 }
 
 /// Reason why a statement failed validation.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "reason", rename_all = "camelCase"))]
 pub enum InvalidReason {
 	/// Statement has no proof.
 	NoProof,
 	/// Proof validation failed.
 	BadProof,
-	/// Statement is too big for network propagation.
+	/// Statement exceeds max allowed statement size.
 	EncodingTooLarge {
 		/// The size of the submitted statement encoding.
 		submitted_size: usize,
@@ -77,15 +82,17 @@ pub enum InvalidReason {
 }
 
 /// Statement submission outcome
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "status", rename_all = "camelCase"))]
 pub enum SubmitResult {
-	/// Accepted as new with given score
+	/// Statement was accepted as new.
 	New,
-	/// Known statement
+	/// Statement was already known.
 	Known,
-	/// Known statement that's already expired.
+	/// Statement was already known but has expired.
 	KnownExpired,
-	/// Priority is too low or the size is too big.
+	/// Statement was rejected because the store is full or priority is too low.
 	Rejected(RejectionReason),
 	/// Statement failed validation.
 	Invalid(InvalidReason),

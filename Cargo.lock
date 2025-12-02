@@ -20905,6 +20905,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-rpc",
  "sp-runtime",
+ "sp-statement-store",
  "sp-version",
  "thiserror 1.0.65",
 ]
@@ -23848,6 +23849,7 @@ dependencies = [
  "parity-scale-codec",
  "rand 0.8.5",
  "scale-info",
+ "serde",
  "sha2 0.10.9",
  "sp-api",
  "sp-application-crypto",
