@@ -2099,10 +2099,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 	///
 	/// On v1 and v2 this function will return the relay parent as under these versions the relay
 	/// parent is also the scheduling parent.
-	pub fn scheduling_parent(&self, v3_enabled: bool) -> H
-	where
-		H: From<Hash>,
-	{
+	pub fn scheduling_parent(&self, v3_enabled: bool) -> H {
 		match self.version(v3_enabled) {
 			CandidateDescriptorVersion::V1 => self.relay_parent,
 			CandidateDescriptorVersion::V2 => self.relay_parent,
@@ -2191,10 +2188,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		erasure_root: Hash,
 		para_head: Hash,
 		validation_code_hash: ValidationCodeHash,
-	) -> Self
-	where
-		H: Into<Hash>,
-	{
+	) -> Self {
 		Self {
 			para_id,
 			relay_parent,

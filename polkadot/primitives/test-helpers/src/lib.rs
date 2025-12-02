@@ -102,13 +102,13 @@ impl<H> CandidateReceipt<H> {
 	}
 }
 
-impl<H: Copy> From<CandidateReceiptV2<H>> for CandidateReceipt<H> {
+impl<H: Copy + AsRef<[u8]>> From<CandidateReceiptV2<H>> for CandidateReceipt<H> {
 	fn from(value: CandidateReceiptV2<H>) -> Self {
 		Self { descriptor: value.descriptor.into(), commitments_hash: value.commitments_hash }
 	}
 }
 
-impl<H: Copy + AsRef<[u8]>> From<CandidateReceipt<H>> for CandidateReceiptV2<H> {
+impl<H: Copy + AsRef<[u8]> + From<Hash>> From<CandidateReceipt<H>> for CandidateReceiptV2<H> {
 	fn from(value: CandidateReceipt<H>) -> Self {
 		Self { descriptor: value.descriptor.into(), commitments_hash: value.commitments_hash }
 	}
@@ -176,13 +176,13 @@ impl Ord for CommittedCandidateReceipt {
 	}
 }
 
-impl<H: Copy> From<CommittedCandidateReceiptV2<H>> for CommittedCandidateReceipt<H> {
+impl<H: Copy + AsRef<[u8]>> From<CommittedCandidateReceiptV2<H>> for CommittedCandidateReceipt<H> {
 	fn from(value: CommittedCandidateReceiptV2<H>) -> Self {
 		Self { descriptor: value.descriptor.into(), commitments: value.commitments }
 	}
 }
 
-impl<H: Copy> From<CandidateDescriptorV2<H>> for CandidateDescriptor<H> {
+impl<H: Copy + AsRef<[u8]>> From<CandidateDescriptorV2<H>> for CandidateDescriptor<H> {
 	fn from(value: CandidateDescriptorV2<H>) -> Self {
 		Self {
 			para_id: value.para_id(),
@@ -208,7 +208,7 @@ where
 	a
 }
 
-impl<H: Copy + AsRef<[u8]>> From<CandidateDescriptor<H>> for CandidateDescriptorV2<H> {
+impl<H: Copy + AsRef<[u8]> + From<Hash>> From<CandidateDescriptor<H>> for CandidateDescriptorV2<H> {
 	fn from(value: CandidateDescriptor<H>) -> Self {
 		let collator = value.collator.as_slice();
 		let signature = value.signature.into_inner().0;
@@ -224,7 +224,7 @@ impl<H: Copy + AsRef<[u8]>> From<CandidateDescriptor<H>> for CandidateDescriptor
 			value.persisted_validation_data_hash,
 			value.pov_hash,
 			value.erasure_root,
-			Hash::from_slice(&signature[0..32]),
+			H::from(Hash::from_slice(&signature[0..32])),
 			clone_into_array(&signature[33..64]),
 			value.para_head,
 			value.validation_code_hash,
@@ -232,7 +232,9 @@ impl<H: Copy + AsRef<[u8]>> From<CandidateDescriptor<H>> for CandidateDescriptor
 	}
 }
 
-impl<H: Copy + AsRef<[u8]>> From<CommittedCandidateReceipt<H>> for CommittedCandidateReceiptV2<H> {
+impl<H: Copy + AsRef<[u8]> + From<Hash>> From<CommittedCandidateReceipt<H>>
+	for CommittedCandidateReceiptV2<H>
+{
 	fn from(value: CommittedCandidateReceipt<H>) -> Self {
 		Self { descriptor: value.descriptor.into(), commitments: value.commitments }
 	}
