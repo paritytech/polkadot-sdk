@@ -244,9 +244,25 @@ where
 			let relay_parent = rp_data.relay_parent().hash();
 			let relay_parent_header = rp_data.relay_parent().clone();
 
-			let Some((included_header, initial_parent)) =
-				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
-					.await
+			let Some((included_header, initial_parent)) = crate::collators::find_parent(
+				relay_parent,
+				para_id,
+				&*para_backend,
+				&relay_client,
+				|parent| {
+					// We never want to build on any "middle block" that isn't the last block in a
+					// core.
+					match CumulusDigestItem::is_last_block_in_core(parent.digest()) {
+						Some(res) => res,
+						None => {
+							// When the digest item doesn't exist, we are running in compatibility
+							// mode and all parents are valid.
+							true
+						},
+					}
+				},
+			)
+			.await
 			else {
 				continue
 			};

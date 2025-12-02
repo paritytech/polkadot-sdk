@@ -428,6 +428,28 @@ impl CumulusDigestItem {
 			})
 			.unwrap_or_default()
 	}
+
+	/// Returns `true` if the given `digest` is from a block that is the last block in a core.
+	///
+	/// Checks the following conditions:
+	///
+	/// - Is [`BundleInfo::maybe_last`] set to true?
+	/// - Or is [`Self::UseFullCore`] digest present?
+	/// - Or is [`DigestItem::RuntimeEnvironmentUpdated`] digest present?
+	///
+	/// If any of these conditions is `true`, this function will return `true`.
+	///
+	/// Returns `None` if the `BundleInfo` digest is not present, which is interpreted as the
+	/// associated block is not using block bundling.
+	pub fn is_last_block_in_core(digest: &Digest) -> Option<bool> {
+		let bundle_info = Self::find_bundle_info(digest)?;
+
+		Some(
+			bundle_info.maybe_last ||
+				Self::contains_use_full_core(digest) ||
+				digest.logs.iter().any(|l| matches!(l, DigestItem::RuntimeEnvironmentUpdated)),
+		)
+	}
 }
 
 ///

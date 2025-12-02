@@ -419,19 +419,9 @@ fn validate_blocks<B: BlockT>(blocks: &[B::LazyBlock], parent_header: &B::Header
 				info.index
 			);
 
-			if block_index + 1 == num_blocks {
-				let has_use_full_core =
-					CumulusDigestItem::contains_use_full_core(block.header().digest());
-				let has_runtime_upgrade = block
-					.header()
-					.digest()
-					.logs
-					.iter()
-					.any(|d| matches!(d, DigestItem::RuntimeEnvironmentUpdated));
-
-				assert!(
-					info.maybe_last || has_use_full_core || has_runtime_upgrade,
-					"Last block in PoV must have maybe_last=true, UseFullCore digest, or RuntimeEnvironmentUpdated digest"
+			if block_index + 1 == num_blocks && !CumulusDigestItem::is_last_block_in_core(block.header().digest()).unwrap_or(true) {
+				panic!(
+					"Last block in PoV must have maybe_last=true, `UseFullCore` digest, or `RuntimeEnvironmentUpdated` digest"
 				);
 			}
 		}
