@@ -1267,24 +1267,7 @@ fn store_chunk(
 
 	let mut meta = match load_meta(db, config, &candidate_hash)? {
 		Some(m) => m,
-		None => {
-			// TODO: revise this, this is a really bad hack
-			let now = SystemTime::now().duration_since(UNIX_EPOCH)?;
-			let meta = CandidateMeta {
-				state: State::Unavailable(now.into()),
-				data_available: false,
-				chunks_stored: bitvec::bitvec![u8, BitOrderLsb0; 0; 12],
-			};
-			
-			gum::debug!(
-				target: LOG_TARGET,
-				?candidate_hash,
-				validator_index = %validator_index.0,
-				"Cannot store chunk for unknown candidate.",
-			);
-			// return Ok(false) // we weren't informed of this candidate by import events.
-			meta
-		},
+		None => return Ok(false), // we weren't informed of this candidate by import events.
 	};
 
 	match meta.chunks_stored.get(validator_index.0 as usize).map(|b| *b) {
