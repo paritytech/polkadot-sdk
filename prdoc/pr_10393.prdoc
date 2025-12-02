@@ -32,7 +32,7 @@ crates:
 - name: revive-dev-runtime
   bump: patch
 - name: pallet-revive
-  bump: patch
+  bump: major
 - name: asset-hub-westend-runtime
   bump: patch
 - name: penpal-runtime

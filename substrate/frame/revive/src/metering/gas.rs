@@ -85,7 +85,8 @@ impl<T: Config> SignedGas<T> {
 		let gas_scale = <T as Config>::GasScale::get();
 
 		match self {
-			Positive(amount) => Some((*amount) / gas_scale),
+			Positive(amount) =>
+				Some((amount.saturating_add(gas_scale.saturating_sub(1u32.into()))) / gas_scale),
 			Negative(..) => None,
 		}
 	}

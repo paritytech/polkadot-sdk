@@ -915,7 +915,7 @@ pub mod pallet {
 		fn integrity_test() {
 			assert!(T::ChainId::get() > 0, "ChainId must be greater than 0");
 
-			assert!(T::GasScale::get() > 0u32.into(), "GasScale must no be 0");
+			assert!(T::GasScale::get() > 0u32.into(), "GasScale must not be 0");
 
 			T::FeeInfo::integrity_test();
 
