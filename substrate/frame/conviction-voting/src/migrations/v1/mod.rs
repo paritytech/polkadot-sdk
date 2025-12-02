@@ -29,6 +29,9 @@ use frame_support::{
 	weights::WeightMeter,
 };
 
+#[cfg(feature = "try-runtime")]
+use alloc::vec::Vec;
+
 /// V0 types.
 pub mod v0 {
 	use super::Config;
@@ -173,7 +176,6 @@ impl<T: Config<I>, I: 'static> SteppedMigration for SteppedMigrationV1<T, I> {
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, frame_support::sp_runtime::TryRuntimeError> {
-		use alloc::vec::Vec;
 		use codec::Encode;
 
 		// Send over all voting data. Vec<(account, class, voting_data)>.
@@ -263,7 +265,6 @@ impl<T: Config<I>, I: 'static> SteppedMigration for SteppedMigrationV1<T, I> {
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(prev: Vec<u8>) -> Result<(), frame_support::sp_runtime::TryRuntimeError> {
-		use alloc::vec::Vec;
 		use codec::Decode;
 
 		// Storage version check.
