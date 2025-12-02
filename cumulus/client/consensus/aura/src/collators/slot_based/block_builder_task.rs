@@ -252,14 +252,9 @@ where
 				|parent| {
 					// We never want to build on any "middle block" that isn't the last block in a
 					// core.
-					match CumulusDigestItem::is_last_block_in_core(parent.digest()) {
-						Some(res) => res,
-						None => {
-							// When the digest item doesn't exist, we are running in compatibility
-							// mode and all parents are valid.
-							true
-						},
-					}
+					// When the digest item doesn't exist, we are running in compatibility
+					// mode and all parents are valid.
+					CumulusDigestItem::is_last_block_in_core(parent.digest()).unwrap_or(true)
 				},
 			)
 			.await

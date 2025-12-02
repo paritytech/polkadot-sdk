@@ -70,11 +70,11 @@ async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 	// Let's create our own fake runtime upgrade where we just bump the `spec_version`.
 	// On chain nothing will change, as we only change the runtime version stored inside the wasm
 	// file.
-	let blob = sc_executor_common::runtime_blob::RuntimeBlob::uncompress_if_needed(&runtime_wasm)?;
+	let blob = sc_executor_common::runtime_blob::RuntimeBlob::uncompress_if_needed(runtime_wasm)?;
 	let mut version = sc_executor::read_embedded_version(&blob)?
 		.ok_or_else(|| anyhow!("No runtime version found?"))?;
 	version.spec_version += 1;
-	let runtime_wasm = sp_version::embed::embed_runtime_version(&runtime_wasm, version)?;
+	let runtime_wasm = sp_version::embed::embed_runtime_version(runtime_wasm, version)?;
 
 	log::info!("Runtime size validation passed: {} bytes", runtime_wasm.len());
 
@@ -90,7 +90,7 @@ async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 	let alice = dev::alice();
 
 	// Assign cores 0 and 1 to start with 3 cores total (core 2 is assigned by Zombienet)
-	assign_cores(&relay_node, PARA_ID, vec![0, 1]).await?;
+	assign_cores(relay_node, PARA_ID, vec![0, 1]).await?;
 
 	log::info!("3 cores total assigned to the parachain");
 
