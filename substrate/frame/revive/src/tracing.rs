@@ -50,7 +50,7 @@ pub trait Tracing {
 		&mut self,
 		_from: H160,
 		_to: H160,
-		_is_delegate_call: bool,
+		_delegate_call: Option<H160>,
 		_is_read_only: bool,
 		_value: U256,
 		_input: &[u8],

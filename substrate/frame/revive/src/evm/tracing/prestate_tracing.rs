@@ -25,6 +25,27 @@ use alloc::{
 };
 use sp_core::{H160, U256};
 
+#[derive(Debug, Clone, PartialEq)]
+enum Call {
+	Call(H160),
+	DelegateCall(H160, H160),
+}
+
+impl Call {
+	fn addr(&self) -> H160 {
+		match self {
+			Call::Call(addr) => *addr,
+			Call::DelegateCall(addr, _) => *addr,
+		}
+	}
+}
+
+impl Default for Call {
+	fn default() -> Self {
+		Call::Call(H160::default())
+	}
+}
+
 /// A tracer that traces the prestate.
 #[derive(frame_support::DefaultNoBound, Debug, Clone, PartialEq)]
 pub struct PrestateTracer<T> {
@@ -32,7 +53,7 @@ pub struct PrestateTracer<T> {
 	config: PrestateTracerConfig,
 
 	/// Stack of calls.
-	calls: Vec<H160>,
+	calls: Vec<Call>,
 
 	/// The code used by create transaction
 	create_code: Option<Code>,
@@ -59,7 +80,7 @@ where
 	}
 
 	fn current_addr(&self) -> H160 {
-		self.calls.last().copied().unwrap_or_default()
+		self.calls.last().map(|call| call.addr()).unwrap_or_default()
 	}
 
 	/// Returns an empty trace.
@@ -254,23 +275,26 @@ where
 		&mut self,
 		from: H160,
 		to: H160,
-		is_delegate_call: bool,
+		delegate_call: Option<H160>,
 		_is_read_only: bool,
 		_value: U256,
 		_input: &[u8],
 		_gas: Weight,
 	) {
-		if is_delegate_call {
-			self.calls.push(self.current_addr());
+		if let Some(delegate_call) = delegate_call {
+			self.calls.push(Call::DelegateCall(self.current_addr(), delegate_call));
+			self.read_account(delegate_call);
 		} else {
-			self.calls.push(to);
+			self.calls.push(Call::Call(to));
+			self.read_account(from);
 		}
 
 		if self.create_code.take().is_some() {
 			self.created_addrs.insert(to);
+		} else {
+
+			self.read_account(to);
 		}
-		self.read_account(from);
-		self.read_account(to);
 	}
 
 	fn exit_child_span_with_error(&mut self, _error: crate::DispatchError, _gas_used: Weight) {
@@ -278,7 +302,8 @@ where
 	}
 
 	fn exit_child_span(&mut self, output: &ExecReturnValue, _gas_used: Weight) {
-		let current_addr = self.calls.pop().unwrap_or_default();
+		// let current_addr = self.calls.pop().unwrap_or_default().0;
+		let current_addr = self.calls.pop().map(|call| call.addr()).unwrap_or_default();
 		if output.did_revert() {
 			return
 		}

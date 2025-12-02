@@ -87,7 +87,7 @@ impl<Gas: Default + core::fmt::Debug, GasMapper: Fn(Weight) -> Gas> Tracing
 		&mut self,
 		from: H160,
 		to: H160,
-		is_delegate_call: bool,
+		delegate_call: Option<H160>,
 		is_read_only: bool,
 		value: U256,
 		input: &[u8],
@@ -117,7 +117,7 @@ impl<Gas: Default + core::fmt::Debug, GasMapper: Fn(Weight) -> Gas> Tracing
 				None => {
 					let call_type = if is_read_only {
 						CallType::StaticCall
-					} else if is_delegate_call {
+					} else if delegate_call.is_some() {
 						CallType::DelegateCall
 					} else {
 						CallType::Call

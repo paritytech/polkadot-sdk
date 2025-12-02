@@ -611,6 +611,15 @@ pub struct DelegateInfo<T: Config> {
 	pub callee: H160,
 }
 
+impl<T: Config> Debug for DelegateInfo<T> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		f.debug_struct("DelegateInfo")
+			.field("caller", &"<AccountId>")
+			.field("callee", &self.callee)
+			.finish()
+	}
+}
+
 /// When calling an address it can either lead to execution of contract code or a pre-compile.
 enum ExecutableOrPrecompile<T: Config, E: Executable<T>, Env> {
 	/// Contract code.
@@ -816,7 +825,7 @@ where
 				t.enter_child_span(
 					origin.account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
 					T::AddressMapper::to_address(&dest),
-					false,
+					None,
 					false,
 					value,
 					&input_data,
@@ -1181,7 +1190,7 @@ where
 			tracer.enter_child_span(
 				self.caller().account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
 				T::AddressMapper::to_address(&frame.account_id),
-				frame.delegate.is_some(),
+				frame.delegate.as_ref().map(|delegate| delegate.callee),
 				frame.read_only,
 				frame.value_transferred,
 				&input_data,
@@ -2041,7 +2050,7 @@ where
 					t.enter_child_span(
 						T::AddressMapper::to_address(self.account_id()),
 						T::AddressMapper::to_address(&dest),
-						false,
+						None,
 						is_read_only,
 						value,
 						&input_data,
