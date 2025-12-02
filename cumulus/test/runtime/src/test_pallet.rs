@@ -17,8 +17,9 @@
 /// A special pallet that exposes dispatchables that are only useful for testing.
 pub use pallet::*;
 
-/// Some key that we set in genesis and only read in [`TestOnRuntimeUpgrade`] to ensure that
-/// [`OnRuntimeUpgrade`] works as expected.
+/// Some key that we set in genesis and only read in
+/// [`SingleBlockMigrations`](crate::SingleBlockMigrations) to ensure that
+/// [`OnRuntimeUpgrade`](frame_support::traits::OnRuntimeUpgrade) works as expected.
 pub const TEST_RUNTIME_UPGRADE_KEY: &[u8] = b"+test_runtime_upgrade_key+";
 
 #[frame_support::pallet(dev_mode)]
