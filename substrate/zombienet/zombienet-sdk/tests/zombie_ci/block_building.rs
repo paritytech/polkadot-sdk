@@ -4,7 +4,7 @@
 use std::time::Duration;
 
 use crate::utils::{
-	ensure_env_defaults, initialize_network, log_line_absent, BEST_BLOCK_METRIC, CHAIN_SPEC_ENV,
+	env_or_default, initialize_network, log_line_absent, BEST_BLOCK_METRIC, CHAIN_SPEC_ENV,
 	DEFAULT_CHAIN_SPEC, DEFAULT_SUBSTRATE_IMAGE, INTEGRATION_IMAGE_ENV, NODE_ROLE_METRIC,
 	PEER_COUNT_METRIC,
 };
@@ -31,11 +31,6 @@ async fn block_building_test() -> Result<()> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	ensure_env_defaults(&[
-		(INTEGRATION_IMAGE_ENV, DEFAULT_SUBSTRATE_IMAGE),
-		(CHAIN_SPEC_ENV, DEFAULT_CHAIN_SPEC),
-	]);
-
 	log::info!("Spawning network");
 	let config = build_network_config()?;
 	let network = initialize_network(config).await?;
@@ -56,10 +51,8 @@ async fn block_building_test() -> Result<()> {
 }
 
 fn build_network_config() -> Result<NetworkConfig> {
-	let integration_image = std::env::var(INTEGRATION_IMAGE_ENV)
-		.unwrap_or_else(|_| DEFAULT_SUBSTRATE_IMAGE.to_string());
-	let chain_spec =
-		std::env::var(CHAIN_SPEC_ENV).unwrap_or_else(|_| DEFAULT_CHAIN_SPEC.to_string());
+	let integration_image = env_or_default(INTEGRATION_IMAGE_ENV, DEFAULT_SUBSTRATE_IMAGE);
+	let chain_spec = env_or_default(CHAIN_SPEC_ENV, DEFAULT_CHAIN_SPEC);
 
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|relaychain| {

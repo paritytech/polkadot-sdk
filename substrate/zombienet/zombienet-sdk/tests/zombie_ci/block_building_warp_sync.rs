@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::utils::{
-	ensure_env_defaults, initialize_network, log_line_absent, log_line_at_least_once,
+	env_or_default, initialize_network, log_line_absent, log_line_at_least_once,
 	resolve_db_snapshot_height, BEEFY_BEST_BLOCK_METRIC, BEST_BLOCK_METRIC, CHAIN_SPEC_ENV,
 	DB_SNAPSHOT_ENV, DEFAULT_CHAIN_SPEC, DEFAULT_DB_SNAPSHOT_URL, DEFAULT_SUBSTRATE_IMAGE,
 	FULLNODE_ROLE_VALUE, INTEGRATION_IMAGE_ENV, VALIDATOR_ROLE_VALUE,
@@ -32,12 +32,6 @@ const FULLNODES: [&str; 2] = ["charlie", "dave"];
 async fn block_building_warp_sync() -> Result<()> {
 	let _ = env_logger::Builder::from_env(Env::default().default_filter_or("info")).try_init();
 
-	ensure_env_defaults(&[
-		(INTEGRATION_IMAGE_ENV, DEFAULT_SUBSTRATE_IMAGE),
-		(DB_SNAPSHOT_ENV, DEFAULT_DB_SNAPSHOT_URL),
-		(CHAIN_SPEC_ENV, DEFAULT_CHAIN_SPEC),
-	]);
-
 	log::info!("Spawning network");
 	let config = build_network_config()?;
 	let network = initialize_network(config).await?;
@@ -64,12 +58,9 @@ async fn block_building_warp_sync() -> Result<()> {
 }
 
 fn build_network_config() -> Result<NetworkConfig> {
-	let integration_image = std::env::var(INTEGRATION_IMAGE_ENV)
-		.unwrap_or_else(|_| DEFAULT_SUBSTRATE_IMAGE.to_string());
-	let db_snapshot =
-		std::env::var(DB_SNAPSHOT_ENV).map_err(|_| anyhow!("db snapshot env var not set"))?;
-	let chain_spec =
-		std::env::var(CHAIN_SPEC_ENV).map_err(|_| anyhow!("chain spec env var not set"))?;
+	let integration_image = env_or_default(INTEGRATION_IMAGE_ENV, DEFAULT_SUBSTRATE_IMAGE);
+	let db_snapshot = env_or_default(DB_SNAPSHOT_ENV, DEFAULT_DB_SNAPSHOT_URL);
+	let chain_spec = env_or_default(CHAIN_SPEC_ENV, DEFAULT_CHAIN_SPEC);
 
 	NetworkConfigBuilder::new()
 		.with_relaychain(|relaychain| {

@@ -42,16 +42,8 @@ pub async fn initialize_network(
 	Ok(network)
 }
 
-pub fn ensure_env_default(var: &str, default: &str) {
-	if std::env::var(var).is_err() {
-		std::env::set_var(var, default);
-	}
-}
-
-pub fn ensure_env_defaults(defaults: &[(&str, &str)]) {
-	for &(var, default_value) in defaults {
-		ensure_env_default(var, default_value);
-	}
+pub fn env_or_default(var: &str, default: &str) -> String {
+	std::env::var(var).unwrap_or_else(|_| default.to_string())
 }
 
 pub fn db_snapshot_height_override_from_env() -> Option<f64> {
