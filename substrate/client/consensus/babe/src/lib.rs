@@ -1472,6 +1472,8 @@ where
 		if info.block_gap.map_or(false, |gap| gap.start <= number && number <= gap.end) ||
 			block_status == BlockStatus::InChain
 		{
+			// When re-importing existing block strip away intermediates.
+			// In case of initial sync intermediates should not be present...
 			let _ = block.remove_intermediate::<BabeIntermediate<Block>>(INTERMEDIATE_KEY);
 			block.fork_choice = Some(ForkChoiceStrategy::Custom(false));
 			return self.inner.import_block(block).await.map_err(Into::into)
