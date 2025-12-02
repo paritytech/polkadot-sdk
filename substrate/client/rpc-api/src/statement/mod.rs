@@ -20,11 +20,9 @@
 
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use sp_core::Bytes;
+use sp_statement_store::SubmitResult;
 
 pub mod error;
-
-// Re-export types from primitives with serde support
-pub use sp_statement_store::SubmitResult;
 
 /// Substrate statement RPC API
 #[rpc(client, server)]
