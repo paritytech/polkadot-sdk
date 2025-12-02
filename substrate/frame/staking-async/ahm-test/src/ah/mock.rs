@@ -676,11 +676,34 @@ pub(crate) fn election_events_since_last_call() -> Vec<multi_block::Event<T>> {
 	all.into_iter().skip(seen).collect()
 }
 
+pub(crate) enum AssertSessionType {
+	/// A new election is planned in the starting session and result is exported immediately
+	ElectionWithImmediateExport,
+	/// A new session is planned in the starting session. The result is buffered to be exported
+	/// later.
+	ElectionWithBufferedExport,
+	/// No election happens in the starting session. A previously elected set is exported.
+	IdleOnlyExport,
+	/// No election and no export in the starting session.
+	IdleNoExport,
+}
+
+pub(crate) fn end_session_with(activate: bool, assert_starting_session: AssertSessionType) {
+	match assert_starting_session {
+		AssertSessionType::ElectionWithImmediateExport =>
+			end_session_and_assert_election(activate, true),
+		AssertSessionType::ElectionWithBufferedExport =>
+			end_session_and_assert_election(activate, false),
+		AssertSessionType::IdleOnlyExport => end_session_and_assert_idle(activate, true),
+		AssertSessionType::IdleNoExport => end_session_and_assert_idle(activate, false),
+	}
+}
+
 /// End ongoing session.
 ///
 /// - Send activation timestamp if `activate` set.
 /// - Expect validator set to be exported in the starting session if `expect_export` set.
-pub(crate) fn end_session_and_assert_idle(activate: bool, expect_export: bool) {
+fn end_session_and_assert_idle(activate: bool, expect_export: bool) {
 	// cache values for state assertion checks later
 	let active_era = ActiveEra::<T>::get().unwrap().index;
 	let planning_era = CurrentEra::<T>::get().unwrap();
@@ -707,7 +730,6 @@ pub(crate) fn end_session_and_assert_idle(activate: bool, expect_export: bool) {
 		}
 	));
 
-
 	let expected_active = if activate { active_era + 1 } else { active_era };
 	assert_eq!(
 		staking_events_since_last_call().last().unwrap().clone(),
@@ -720,7 +742,7 @@ pub(crate) fn end_session_and_assert_idle(activate: bool, expect_export: bool) {
 	);
 
 	// this ensures any multi-block function is triggered.
-	roll_many(1);
+	roll_next();
 
 	assert_eq!(ActiveEra::<T>::get().unwrap().index, expected_active);
 	// should be no change in planning era
@@ -748,7 +770,12 @@ pub(crate) fn end_session_and_assert_idle(activate: bool, expect_export: bool) {
 	}
 }
 
-pub(crate) fn end_session_and_assert_election(activate: bool, expect_export: bool) {
+/// End ongoing session.
+///
+/// Assert this is an election session and roll blocks until election completes. Also:
+/// - Send activation timestamp if `activate` set.
+/// - Expect validator set to be exported in the starting session if `expect_export` set.
+fn end_session_and_assert_election(activate: bool, expect_export: bool) {
 	// clear events
 	election_events_since_last_call();
 
@@ -793,7 +820,7 @@ pub(crate) fn end_session_and_assert_election(activate: bool, expect_export: boo
 	);
 
 	// this ensures any multi-block function is triggered.
-	roll_many(1);
+	roll_next();
 
 	// ensure era points are updated correctly
 	let updated_era_points = pallet_staking_async::ErasRewardPoints::<T>::get(&active_era);
@@ -827,9 +854,11 @@ pub(crate) fn end_session_and_assert_election(activate: bool, expect_export: boo
 	} else {
 		// the validator set is buffered
 		assert_eq!(LocalQueue::get().unwrap().len(), old_validator_set_export_count);
+		// assert outgoing was not set, and now set.
+		assert!(!was_outgoing_set);
 		assert!(OutgoingValidatorSet::<T>::exists());
+		// ensure rolling few blocks still won't export the set
 		hypothetically!({
-			// rolling few blocks would not export the set
 			roll_many(10);
 			assert_eq!(LocalQueue::get().unwrap().len(), old_validator_set_export_count);
 			assert!(OutgoingValidatorSet::<T>::exists());

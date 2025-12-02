@@ -142,7 +142,7 @@ fn on_receive_session_report() {
 
 		// roll three more sessions...
 		for _ in 0..3 {
-			end_session_and_assert_idle(false, false);
+			end_session_with(false, AssertSessionType::IdleNoExport);
 		}
 
 		// no election events emitted anymore
@@ -151,7 +151,7 @@ fn on_receive_session_report() {
 		// At the end of next session we should be ready to export the outgoing set.
 		// Note: we don't roll any blocks to show outgoing set gets exported 1 block after the
 		// session-ending block
-		end_session_and_assert_idle(false, true);
+		end_session_with(false, AssertSessionType::IdleOnlyExport);
 
 		// New validator set xcm message is sent to RC.
 		assert_eq!(
@@ -169,33 +169,10 @@ fn on_receive_session_report() {
 		);
 
 		// Validator is queued in session pallet for 1 session. We wait to activate.
-		end_session_and_assert_idle(false, false);
+		end_session_with(false, AssertSessionType::IdleNoExport);
 
 		// now we activate era
-		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
-			RuntimeOrigin::root(),
-			rc_client::SessionReport {
-				end_index: 6,
-				validator_points: vec![(1, 10)],
-				activation_timestamp: Some((1000, 1)),
-				leftover: false,
-			}
-		));
-
-		// active era is rotated. Election also kicked off.
-		assert_eq!(
-			staking_events_since_last_call(),
-			vec![
-				StakingEvent::EraPaid { era_index: 0, validator_payout: 0, remainder: 0 },
-				StakingEvent::SessionRotated { starting_session: 7, active_era: 1, planned_era: 2 }
-			]
-		);
-
-		assert_eq!(
-			election_events_since_last_call(),
-			// Snapshot phase has started which will run for 3 blocks
-			vec![ElectionEvent::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) }]
-		);
+		end_session_with(true, AssertSessionType::ElectionWithBufferedExport);
 	})
 }
 
@@ -293,7 +270,7 @@ fn validator_set_send_fail_retries() {
 
 		// roll until session 3
 		for _ in 0..3 {
-			end_session_and_assert_idle(false, false);
+			end_session_with(false, AssertSessionType::IdleNoExport);
 		}
 
 		// no xcm message sent yet.
@@ -364,7 +341,7 @@ fn roll_many_eras() {
 		assert_eq!(current_era, 0);
 
 		// -- first session will start the election
-		end_session_and_assert_election(false,false);
+		end_session_with(false, AssertSessionType::ElectionWithBufferedExport);
 		// active era not incremented
 		assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
 		// current era incremented indicating election started.
@@ -373,20 +350,20 @@ fn roll_many_eras() {
 
 		// -- next 2 sessions are idle
 		for _ in 0..2 {
-			end_session_and_assert_idle(false, false);
+			end_session_with(false, AssertSessionType::IdleNoExport);
 			assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
 			assert_eq!(CurrentEra::<T>::get().unwrap(), current_era);
 		}
 
 		// next session exports the set
-		end_session_and_assert_idle(false, true);
+		end_session_with(false, AssertSessionType::IdleOnlyExport);
 
 		// another idle session
-		end_session_and_assert_idle(false, false);
+		end_session_with(false, AssertSessionType::IdleNoExport);
 
 		// end of 6th we get activation stamp
 		// (this also combines as election trigger session for the next era)
-		end_session_and_assert_election(true,false);
+		end_session_with(true, AssertSessionType::ElectionWithBufferedExport);
 		active_era += 1;
 		assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
 		// election for next already starts
@@ -401,7 +378,7 @@ fn roll_many_eras() {
 
 			// --- Before end of session 4: validator set is ready
 			for _ in 0..3 {
-				end_session_and_assert_idle(false, false);
+				end_session_with(false, AssertSessionType::IdleNoExport);
 				assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
 				assert_eq!(CurrentEra::<T>::get().unwrap(), active_era + 1);
 			}
@@ -412,18 +389,18 @@ fn roll_many_eras() {
 			assert_eq!(LocalQueue::get().unwrap().len() as u32, active_era);
 
 			// --- validator set is exported in the 5th session.
-			end_session_and_assert_idle(false, true);
+			end_session_with(false, AssertSessionType::IdleOnlyExport);
 			assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
 			assert_eq!(CurrentEra::<T>::get().unwrap(), active_era + 1);
 			assert_eq!(LocalQueue::get().unwrap().len() as u32, active_era + 1);
 
 			// --- end session 5 (activation will be next session)
-			end_session_and_assert_idle(false, false);
+			end_session_with(false, AssertSessionType::IdleNoExport);
 			assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
 			assert_eq!(CurrentEra::<T>::get().unwrap(), active_era + 1);
 
 			// --- 6th the era rotation session
-			end_session_and_assert_election(true,false);
+			end_session_with(true, AssertSessionType::ElectionWithBufferedExport);
 			assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era + 1);
 			// next election starts
 			assert_eq!(CurrentEra::<T>::get().unwrap(), active_era + 2);
@@ -1032,12 +1009,12 @@ fn era_lifecycle_test() {
 
 		// -- Era transition 0 -> 1
 		// there are 3 idle sessions but session 0 is already ended, so we end two more.
-		end_session_and_assert_idle(false, false);
-		end_session_and_assert_idle(false, false);
+		end_session_with(false, AssertSessionType::IdleNoExport);
+		end_session_with(false, AssertSessionType::IdleNoExport);
 		// this will end session 3, and assert session 4 is election session.
-		end_session_and_assert_election(false,true);
-		end_session_and_assert_idle(false, false);
-		end_session_and_assert_idle(true, false);
+		end_session_with(false, AssertSessionType::ElectionWithImmediateExport);
+		end_session_with(false, AssertSessionType::IdleNoExport);
+		end_session_with(true, AssertSessionType::IdleNoExport);
 
 		assert_eq!(ActiveEra::<T>::get().unwrap().index, 1);
 
@@ -1045,12 +1022,12 @@ fn era_lifecycle_test() {
 		for era in 1..5 {
 			// 3 idle sessions
 			for _ in 0..3 {
-				end_session_and_assert_idle(false, false);
+				end_session_with(false, AssertSessionType::IdleNoExport);
 			}
 			// this will end session 3, and assert session 4 is election session.
-			end_session_and_assert_election(false,true);
-			end_session_and_assert_idle(false, false);
-			end_session_and_assert_idle(true, false);
+			end_session_with(false, AssertSessionType::ElectionWithImmediateExport);
+			end_session_with(false, AssertSessionType::IdleNoExport);
+			end_session_with(true, AssertSessionType::IdleNoExport);
 
 			assert_eq!(ActiveEra::<T>::get().unwrap().index, era + 1);
 		}
@@ -1059,33 +1036,34 @@ fn era_lifecycle_test() {
 		assert_eq!(ActiveEra::<T>::get().unwrap().index, 5);
 		// lets switch to buffered export mode and earlier election
 		buffered_export_mode();
-		// next session should kick off the election without exporting
-		end_session_and_assert_election(false,false);
+		// Note: Election didn't kick off since we were in immediate export.
+		// Next session should kick off the election without exporting
+		end_session_with(false, AssertSessionType::ElectionWithBufferedExport);
 		// roll 2 idle sessions. Validator set should still be not exported yet.
-		end_session_and_assert_idle(false, false);
-		end_session_and_assert_idle(false, false);
+		end_session_with(false, AssertSessionType::IdleNoExport);
+		end_session_with(false, AssertSessionType::IdleNoExport);
 		// end of this session (start of next) will export the validator set.
-		end_session_and_assert_idle(false, true);
+		end_session_with(false, AssertSessionType::IdleOnlyExport);
 		// fifth session should be idle with no export
-		end_session_and_assert_idle(false, false);
+		end_session_with(false, AssertSessionType::IdleNoExport);
 		// and finally era activation
-		end_session_and_assert_election(true,false);
+		end_session_with(true, AssertSessionType::ElectionWithBufferedExport);
 
 		// roll few more eras
 
 		for era in 6..10 {
 			assert_eq!(ActiveEra::<T>::get().unwrap().index, era);
 			// next session should kick off the election without exporting
-			end_session_and_assert_idle(false,false);
+			end_session_with(false, AssertSessionType::IdleNoExport);
 			// roll 2 idle sessions. Validator set should still be not exported yet.
-			end_session_and_assert_idle(false, false);
-			end_session_and_assert_idle(false, false);
+			end_session_with(false, AssertSessionType::IdleNoExport);
+			end_session_with(false, AssertSessionType::IdleNoExport);
 			// end of this session (start of next) will export the validator set.
-			end_session_and_assert_idle(false, true);
+			end_session_with(false, AssertSessionType::IdleOnlyExport);
 			// fifth session should be idle with no export
-			end_session_and_assert_idle(false, false);
+			end_session_with(false, AssertSessionType::IdleNoExport);
 			// and finally era activation
-			end_session_and_assert_election(true,false);
+			end_session_with(true, AssertSessionType::ElectionWithBufferedExport);
 			assert_eq!(ActiveEra::<T>::get().unwrap().index, era + 1);
 		}
 	});
