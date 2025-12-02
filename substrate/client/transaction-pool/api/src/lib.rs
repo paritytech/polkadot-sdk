@@ -393,7 +393,7 @@ pub enum ChainEvent<B: BlockT> {
 	///
 	/// The hash passed in this event updates the pool’s internal record of the finalized block.
 	/// Handling of this event will result in removal of all included transactions.
-	/// 
+	///
 	/// This event is expected to be used in development and testing environments.
 	Reverted {
 		/// Hash of the new head

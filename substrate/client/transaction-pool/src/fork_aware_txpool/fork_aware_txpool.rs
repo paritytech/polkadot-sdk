@@ -1851,7 +1851,7 @@ where
 	///
 	/// This is responsible for cleaning the pool state such that
 	/// there are no references to blocks that will be removed.
-	/// 
+	///
 	/// This method will delete all references to blocks that have a
 	/// block number > than the revert point.
 	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "fatp::handle_reverted")]
