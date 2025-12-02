@@ -118,12 +118,7 @@
 //! --toolchain nightly-2024-12-26`.
 
 use prerequisites::DummyCrate;
-use std::{
-	env, fs,
-	io::BufRead,
-	path::{Path, PathBuf},
-	process::Command,
-};
+use std::{env, fs, io::BufRead, path::Path, process::Command};
 use version::Version;
 
 mod builder;
@@ -188,14 +183,18 @@ fn write_file_if_changed(file: impl AsRef<Path>, content: impl AsRef<str>) {
 }
 
 /// Copy `src` to `dst` if the `dst` does not exist or is different.
-fn copy_file_if_changed(src: PathBuf, dst: PathBuf) {
-	let src_file = fs::read_to_string(&src).ok();
-	let dst_file = fs::read_to_string(&dst).ok();
+fn copy_file_if_changed(src: &Path, dst: &Path) -> bool {
+	let src_file = fs::read(src).ok();
+	let dst_file = fs::read(dst).ok();
 
 	if src_file != dst_file {
 		fs::copy(&src, &dst).unwrap_or_else(|_| {
 			panic!("Copying `{}` to `{}` can not fail; qed", src.display(), dst.display())
 		});
+
+		true
+	} else {
+		false
 	}
 }
 
