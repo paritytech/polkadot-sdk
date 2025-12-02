@@ -70,7 +70,7 @@ use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
 use sp_core::traits::SpawnEssentialNamed;
-use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
+use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
 	app_crypto::AppCrypto,
@@ -593,16 +593,19 @@ where
 		let enable_tx_storage_idp = node_extra_args.enable_tx_storage_idp;
 		let client_clone = client.clone();
 		let params = SlotBasedParams {
-			create_inherent_data_providers: move |parent, ()| async move {
-				if enable_tx_storage_idp {
-					let storage_proof =
-						sp_transaction_storage_proof::registration::new_data_provider(
-							&*client_clone,
-							&parent,
-						)?;
-					Ok(vec![storage_proof])
-				} else {
-					Ok(vec![])
+			create_inherent_data_providers: move |parent, ()| {
+				let client_clone = client_clone.clone();
+				async move {
+					if enable_tx_storage_idp {
+						let storage_proof =
+							sp_transaction_storage_proof::registration::new_data_provider(
+								&*client_clone,
+								&parent,
+							)?;
+						Ok(vec![storage_proof])
+					} else {
+						Ok(vec![])
+					}
 				}
 			},
 			block_import,
@@ -732,16 +735,19 @@ where
 		let params = aura::ParamsWithExport {
 			export_pov: node_extra_args.export_pov,
 			params: AuraParams {
-				create_inherent_data_providers: move |parent, ()| async move {
-					if enable_tx_storage_idp {
-						let storage_proof =
-							sp_transaction_storage_proof::registration::new_data_provider(
-								&*client_clone,
-								&parent,
-							)?;
-						Ok(vec![storage_proof])
-					} else {
-						Ok(vec![])
+				create_inherent_data_providers: move |parent, ()| {
+					let client_clone = client_clone.clone();
+					async move {
+						if enable_tx_storage_idp {
+							let storage_proof =
+								sp_transaction_storage_proof::registration::new_data_provider(
+									&*client_clone,
+									&parent,
+								)?;
+							Ok(vec![storage_proof])
+						} else {
+							Ok(vec![])
+						}
 					}
 				},
 				block_import,
