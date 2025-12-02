@@ -58,7 +58,7 @@ use session_cache::SessionCache;
 /// A task fetching a particular chunk.
 mod fetch_task;
 use crate::{
-	error::Error::{CanceledValidatorGroups, GetBackableCandidates, RuntimeApi, SubsystemUtil},
+	error::{Error::{CanceledValidatorGroups, GetBackableCandidates, RuntimeApi, SubsystemUtil}, log_error},
 	requester::fetch_task::BackedOnChain,
 };
 use fetch_task::{FetchTask, FetchTaskConfig, FromFetchTask};
@@ -145,7 +145,13 @@ impl Requester {
 	) -> Result<()> {
 		gum::trace!(target: LOG_TARGET, ?update, "Update fetching heads");
 
-		// hash of backable candidates requested from prospective parachains subsystem
+		// When we have early fetched chunk for candidates, we need to make sure we keep
+		// fetch tasks(started on early path) alive for candidates that are not yet backed
+		// on chain but are backable. This variable keeps track of all the backable candidates
+		// so that we don't drop their fetch tasks when stopping.
+		//
+		// Note: The values will be populated in `start_requesting_chunks` method and used in
+		// `stop_requesting_chunks` method.
 		let mut backable_candidate_hashes: HashSet<CandidateHash> = HashSet::new();
 
 		let ActiveLeavesUpdate { activated, deactivated } = update;
@@ -153,14 +159,13 @@ impl Requester {
 			// Order important! We need to handle activated, prior to deactivated, otherwise we
 			// might cancel still needed jobs.
 
-			let candidates_per_para = self.fetch_backable_candidate_hashes(ctx, &leaf).await?;
-
-			backable_candidate_hashes = candidates_per_para
-				.values()
-				.flat_map(|candidates| candidates.iter().map(|(hash, _)| *hash))
-				.collect();
-
-			self.start_requesting_chunks(ctx, runtime, leaf, candidates_per_para).await?;
+			let mut warn_freq = gum::Freq::new();
+			log_error(
+				self.start_requesting_chunks(ctx, runtime, leaf, &mut backable_candidate_hashes)
+					.await,
+				"Error in Requester::update_fetching_heads::start_requesting_chunks",
+				&mut warn_freq,
+			)?;
 		}
 
 		self.stop_requesting_chunks(deactivated.into_iter(), backable_candidate_hashes);
@@ -176,7 +181,7 @@ impl Requester {
 		ctx: &mut Context,
 		runtime: &mut RuntimeInfo,
 		new_head: ActivatedLeaf,
-		backable_candidate_hashes: HashMap<paraId, Vec<(CandidateHash, Hash)>>,
+		backable_candidate_hashes: &mut HashSet<CandidateHash>,
 	) -> Result<()> {
 		let sender = &mut ctx.sender().clone();
 		let ActivatedLeaf { hash: leaf, .. } = new_head;
@@ -243,14 +248,16 @@ impl Requester {
 				.await?;
 		}
 
+		let candidates_per_para = self.fetch_backable_candidate_hashes(ctx, &new_head).await?;
+
+		// Populate the backable_candidate_hashes set
+		*backable_candidate_hashes = candidates_per_para
+			.values()
+			.flat_map(|candidates| candidates.iter().map(|(hash, _)| *hash))
+			.collect();
+
 		if let Err(err) = self
-			.early_request_chunks(
-				ctx,
-				runtime,
-				new_head,
-				leaf_session_index,
-				backable_candidate_hashes,
-			)
+			.early_request_chunks(ctx, runtime, new_head, leaf_session_index, candidates_per_para)
 			.await
 		{
 			gum::warn!(
@@ -258,6 +265,7 @@ impl Requester {
 				error = ?err,
 				"Failed to early request chunks for activated leaf"
 			);
+			return Err(err);
 		}
 		Ok(())
 	}
@@ -469,8 +477,8 @@ impl Requester {
 				// Fetch task initiated on early path, when candidate was not backed on chain,
 				// and now it appears to fetch the chunk on Late path when candidate is backed on
 				// chain.
-				if matches!(e.backed_on_chain, BackedOnChain::No) &&
-					matches!(origin, FetchOrigin::Late)
+				if matches!(e.backed_on_chain, BackedOnChain::No)
+					&& matches!(origin, FetchOrigin::Late)
 				{
 					e.backed_on_chain = BackedOnChain::Yes;
 					self.metrics.on_early_candidate_backed_on_chain();
