@@ -111,9 +111,9 @@ impl frame_election_provider_support::ElectionProvider for MockElection {
 		0
 	}
 
-	fn status() -> Result<Option<Weight>, ()> {
+	fn status() -> Result<bool, ()> {
 		if Ongoing::get() {
-			Ok(None)
+			Ok(false)
 		} else {
 			Err(())
 		}

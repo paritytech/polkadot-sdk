@@ -1,0 +1,31 @@
+[package]
+name = "cumulus-client-consensus-proposer"
+description = "A Substrate `Proposer` for building parachain blocks"
+version = "0.7.0"
+authors.workspace = true
+edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+homepage.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow = { workspace = true, default-features = true }
+async-trait = { workspace = true }
+thiserror = { workspace = true }
+
+# Substrate
+sc-basic-authorship = { workspace = true }
+sc-block-builder = { workspace = true }
+sc-transaction-pool-api = { workspace = true }
+sp-api = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-inherents = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
+
+# Cumulus
+cumulus-primitives-parachain-inherent = { workspace = true, default-features = true }

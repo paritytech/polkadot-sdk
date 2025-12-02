@@ -10,13 +10,12 @@ const PRESET: Presets = Presets.FakeKsm;
 test(
 	`signed solution on ${PRESET}`,
 	async () => {
-		const { killZn, paraLog } = await runPresetUntilLaunched(PRESET);
+		const { killZn, paraLog }  = await runPresetUntilLaunched(PRESET);
 		const apis = await getApis();
 		const killMiner = await spawnMiner();
-		const expectedValidatorSetCount = await apis.paraApi.query.Staking.ValidatorCount.getValue();
 
 		const testCase = new TestCase(
-			commonSignedSteps(16, expectedValidatorSetCount, apis),
+			commonSignedSteps(16, 1000, apis),
 			true,
 			() => {
 				killMiner();

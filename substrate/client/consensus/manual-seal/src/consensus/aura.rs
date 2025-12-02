@@ -22,7 +22,7 @@
 use crate::{ConsensusDataProvider, Error};
 use sc_client_api::{AuxStore, UsageProvider};
 use sc_consensus::BlockImportParams;
-use sp_api::{ProvideRuntimeApi, StorageProof};
+use sp_api::ProvideRuntimeApi;
 use sp_consensus_aura::{
 	digests::CompatibleDigestItem,
 	sr25519::{AuthorityId, AuthoritySignature},
@@ -36,14 +36,14 @@ use std::{marker::PhantomData, sync::Arc};
 /// Consensus data provider for Aura. This allows to use manual-seal driven nodes to author valid
 /// AURA blocks. It will inspect incoming [`InherentData`] and look for included timestamps. Based
 /// on these timestamps, the [`AuraConsensusDataProvider`] will emit fitting digest items.
-pub struct AuraConsensusDataProvider<B> {
+pub struct AuraConsensusDataProvider<B, P> {
 	// slot duration
 	slot_duration: SlotDuration,
 	// phantom data for required generics
-	_phantom: PhantomData<B>,
+	_phantom: PhantomData<(B, P)>,
 }
 
-impl<B> AuraConsensusDataProvider<B>
+impl<B, P> AuraConsensusDataProvider<B, P>
 where
 	B: BlockT,
 {
@@ -66,10 +66,13 @@ where
 	}
 }
 
-impl<B> ConsensusDataProvider<B> for AuraConsensusDataProvider<B>
+impl<B, P> ConsensusDataProvider<B> for AuraConsensusDataProvider<B, P>
 where
 	B: BlockT,
+	P: Send + Sync,
 {
+	type Proof = P;
+
 	fn create_digest(
 		&self,
 		_parent: &B::Header,
@@ -92,7 +95,7 @@ where
 		_parent: &B::Header,
 		_params: &mut BlockImportParams<B>,
 		_inherents: &InherentData,
-		_proof: StorageProof,
+		_proof: Self::Proof,
 	) -> Result<(), Error> {
 		Ok(())
 	}

@@ -1193,9 +1193,16 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 			active_era.index.saturating_sub(T::SlashDeferDuration::get().saturating_sub(1))
 		};
 
+		let invulnerables = Invulnerables::<T>::get();
+
 		for o in offences {
 			let slash_fraction = o.slash_fraction;
 			let validator: <T as frame_system::Config>::AccountId = o.offender.into();
+			// Skip if the validator is invulnerable.
+			if invulnerables.contains(&validator) {
+				log!(debug, "🦹 on_offence: {:?} is invulnerable; ignoring offence", validator);
+				continue
+			}
 
 			// ignore offence if too old to report.
 			if offence_era < oldest_reportable_offence_era {

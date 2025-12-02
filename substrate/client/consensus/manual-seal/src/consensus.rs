@@ -20,7 +20,6 @@
 use super::Error;
 
 use sc_consensus::BlockImportParams;
-use sp_api::StorageProof;
 use sp_inherents::InherentData;
 use sp_runtime::{traits::Block as BlockT, Digest};
 
@@ -31,6 +30,9 @@ pub mod timestamp;
 /// Consensus data provider, manual seal uses this trait object for authoring blocks valid
 /// for any runtime.
 pub trait ConsensusDataProvider<B: BlockT>: Send + Sync {
+	/// The proof type.
+	type Proof;
+
 	/// Attempt to create a consensus digest.
 	fn create_digest(&self, parent: &B::Header, inherents: &InherentData) -> Result<Digest, Error>;
 
@@ -40,6 +42,6 @@ pub trait ConsensusDataProvider<B: BlockT>: Send + Sync {
 		parent: &B::Header,
 		params: &mut BlockImportParams<B>,
 		inherents: &InherentData,
-		proof: StorageProof,
+		proof: Self::Proof,
 	) -> Result<(), Error>;
 }

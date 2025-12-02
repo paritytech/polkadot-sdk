@@ -13,7 +13,7 @@ test(
 		const { killZn, paraLog } = await runPresetUntilLaunched(PRESET);
 
 		const apis = await getApis();
-		const steps = commonUnsignedSteps(10, 4, 4, true, apis);
+		const steps = commonUnsignedSteps(10, 4, 4, false, apis);
 
 		const testCase = new TestCase(steps, true, () => {
 			killZn();

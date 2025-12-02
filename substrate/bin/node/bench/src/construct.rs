@@ -33,7 +33,7 @@ use sc_transaction_pool_api::{
 	ImportNotificationStream, PoolStatus, ReadyTransactions, TransactionFor, TransactionSource,
 	TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
 };
-use sp_consensus::{Environment, ProposeArgs, Proposer};
+use sp_consensus::{Environment, Proposer};
 use sp_inherents::InherentDataProvider;
 use sp_runtime::OpaqueExtrinsic;
 
@@ -146,12 +146,10 @@ impl core::Benchmark for ConstructionBenchmark {
 			.expect("Create inherent data failed");
 		let _block = futures::executor::block_on(Proposer::propose(
 			proposer,
-			ProposeArgs {
-				inherent_data,
-				inherent_digests: Default::default(),
-				max_duration: std::time::Duration::from_secs(20),
-				..Default::default()
-			},
+			inherent_data,
+			Default::default(),
+			std::time::Duration::from_secs(20),
+			None,
 		))
 		.map(|r| r.block)
 		.expect("Proposing failed");

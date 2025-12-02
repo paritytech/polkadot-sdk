@@ -1,8 +1,0 @@
-title: 'wasm-builder: Only overwrite wasm files if they changed'
-doc:
-- audience: Runtime Dev
-  description: |-
-    When running two different `cargo` commands, they may both compile the same wasm files. When the second `cargo` command produces the same wasm files, we are now not gonna overwrite it. This has the advantage that we can run the first command again without it trying to recompile the project. Right now it would lead to the wasm files always getting recreated, which is wasting a lot of time :)
-crates:
-- name: substrate-wasm-builder
-  bump: patch

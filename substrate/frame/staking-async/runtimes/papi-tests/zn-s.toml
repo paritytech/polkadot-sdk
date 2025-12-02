@@ -23,9 +23,8 @@ id = 1100
 chain_spec_path = "./parachain.json"
 
 [parachains.collator]
-command = "polkadot-parachain"
 name = "charlie"
 rpc_port = 9946
 args = [
-	"-lruntime::system=debug,runtime::multiblock-election=trace,runtime::staking=debug,runtime::staking::rc-client=trace,runtime::rc-client=debug,xcm=debug,parachain-system=debug,runtime=info",
+	"-lruntime::system=debug,runtime::multiblock-election=trace,runtime::staking=debug,runtime::staking::rc-client=trace,runtime::rc-client=debug,xcm=trace,parachain-system=debug,runtime=info",
 ]

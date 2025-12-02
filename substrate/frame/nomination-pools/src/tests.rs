@@ -17,7 +17,7 @@
 
 use super::*;
 use crate::{mock::*, Event};
-use frame_support::{assert_err, assert_noop, assert_ok, hypothetically};
+use frame_support::{assert_err, assert_noop, assert_ok};
 use pallet_balances::Event as BEvent;
 use sp_runtime::{
 	bounded_btree_map,
@@ -420,7 +420,7 @@ mod reward_pool {
 			// clear events
 			pool_events_since_last_call();
 
-			// Then: Anyone can permissionlessly adjust ED deposit upwards.
+			// Then: Anyone can permissionlessly can adjust ED deposit.
 
 			// make sure caller has enough funds..
 			assert_ok!(Currency::mint_into(&99, 100));
@@ -445,120 +445,17 @@ mod reward_pool {
 			// When: ED is decreased and reward account has excess ED frozen
 			ExistentialDeposit::set(5);
 
-			let bonded_pool = BondedPool::<Runtime>::get(1).unwrap();
-			let owner = bonded_pool.roles.depositor;
-
-			assert_eq!(owner, 10);
-
 			// And:: adjust ED deposit is called
-			let pre_balance = Currency::free_balance(&owner);
-			assert_ok!(Pools::adjust_pool_deposit(RuntimeOrigin::signed(owner), 1));
+			let pre_balance = Currency::free_balance(&100);
+			assert_ok!(Pools::adjust_pool_deposit(RuntimeOrigin::signed(100), 1));
 
-			// Then: excess ED is claimed by the pool depositor
-			assert_eq!(Currency::free_balance(&owner), pre_balance + 45);
+			// Then: excess ED is claimed by the caller
+			assert_eq!(Currency::free_balance(&100), pre_balance + 45);
 
 			assert_eq!(
 				pool_events_since_last_call(),
 				vec![Event::MinBalanceExcessAdjusted { pool_id: 1, amount: 45 },]
 			);
-		});
-	}
-
-	#[test]
-	fn pool_owner_can_adjust_deposit_downards() {
-		ExtBuilder::default().max_members_per_pool(Some(5)).build_and_execute(|| {
-			// Given: a nomination pool with no reward deficit
-
-			// Set an initial ED and adjust to there as a baseline.
-			let ed_baseline = 50;
-			let ed_delta = 20;
-
-			ExistentialDeposit::set(ed_baseline);
-
-			// Pool some rewards and check the imbalance.
-			deposit_rewards(50);
-			assert_eq!(reward_imbalance(1), Surplus(0));
-
-			let bonded_pool = BondedPool::<Runtime>::get(1).unwrap();
-			let owner = bonded_pool.roles.depositor;
-			let root = bonded_pool.roles.root.unwrap();
-
-			assert_eq!(owner, 10);
-			assert_eq!(root, 900);
-
-			Currency::set_balance(&owner, 100);
-			assert_ok!(Pools::adjust_pool_deposit(RuntimeOrigin::signed(owner), 1));
-
-			hypothetically!({
-				// When the ED is adjusted downards (decreased)
-				Currency::set_balance(&owner, 100);
-				ExistentialDeposit::set(ed_baseline - ed_delta);
-
-				// Then a standard account cannot adjust the pool deposit downards
-				Currency::set_balance(&70, 100);
-				assert_err!(
-					Pools::adjust_pool_deposit(RuntimeOrigin::signed(70), 1),
-					Error::<T>::DoesNotHavePermission
-				);
-
-				// And the pool owner can adjust deposit downards
-				let pre_balance = Currency::free_balance(&owner);
-				assert_ok!(Pools::adjust_pool_deposit(RuntimeOrigin::signed(owner), 1));
-				assert_eq!(reward_imbalance(1), Surplus(0));
-
-				// And the pool owner's balance increases by the ED difference.
-				assert_eq!(Currency::free_balance(&owner), pre_balance + ed_delta);
-			});
-
-			// When the ED is adjusted downards (decreased)
-			Currency::set_balance(&root, 100);
-			ExistentialDeposit::set(ed_baseline - ed_delta * 2);
-
-			// Then a standard account cannot adjust the pool deposit downards
-			Currency::set_balance(&7, 100);
-			assert_err!(
-				Pools::adjust_pool_deposit(RuntimeOrigin::signed(7), 1),
-				Error::<T>::DoesNotHavePermission
-			);
-
-			// And the root can also adjust the deposit downwards
-			let pre_balance = Currency::free_balance(&root);
-			assert_ok!(Pools::adjust_pool_deposit(RuntimeOrigin::signed(root), 1));
-			assert_eq!(reward_imbalance(1), Surplus(0));
-
-			// And the root's balance increases by the ED difference.
-			assert_eq!(Currency::free_balance(&root), pre_balance + ed_delta * 2);
-		});
-	}
-
-	#[test]
-	fn anyone_can_adjust_deposit_upwards() {
-		ExtBuilder::default().max_members_per_pool(Some(5)).build_and_execute(|| {
-			// Given: a nomination pool with no reward deficit
-
-			// Set an initial ED and adjust to there as a baseline.
-			let ed_baseline = 20;
-			let ed_delta = 40;
-			ExistentialDeposit::set(ed_baseline);
-
-			// Pool some rewards and check the imbalance.
-			deposit_rewards(50);
-			assert_eq!(reward_imbalance(1), Surplus(0));
-
-			Currency::set_balance(&10, 100);
-			assert_ok!(Pools::adjust_pool_deposit(RuntimeOrigin::signed(10), 1));
-
-			// When the ED increases
-			ExistentialDeposit::set(ed_baseline + ed_delta);
-
-			// Then anyone can adjust the pool deposit upwards if they have enough funds.
-			Currency::set_balance(&70, 100);
-			let pre_balance = Currency::free_balance(&70);
-			assert_ok!(Pools::adjust_pool_deposit(RuntimeOrigin::signed(70), 1));
-
-			// And the caller's balance decreases by the ED difference.
-			assert_eq!(Currency::free_balance(&70), pre_balance - ed_delta);
-			assert_eq!(reward_imbalance(1), Surplus(0));
 		});
 	}
 

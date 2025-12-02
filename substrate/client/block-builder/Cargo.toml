@@ -21,9 +21,9 @@ sp-api = { workspace = true, default-features = true }
 sp-block-builder = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
-sp-externalities = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+sp-trie = { workspace = true, default-features = true }
 
 [dev-dependencies]
 sp-state-machine = { workspace = true, default-features = true }

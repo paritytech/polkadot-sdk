@@ -13,10 +13,9 @@ test(
 		const { killZn, paraLog }  = await runPresetUntilLaunched(PRESET);
 		const apis = await getApis();
 		const killMiner = await spawnMiner();
-		const expectedValidatorSetCount = await apis.paraApi.query.Staking.ValidatorCount.getValue();
 
 		const testCase = new TestCase(
-			commonSignedSteps(32, expectedValidatorSetCount, apis),
+			commonSignedSteps(32, 500, apis),
 			true,
 			() => {
 				killMiner();

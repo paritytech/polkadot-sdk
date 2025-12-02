@@ -595,6 +595,20 @@ mod benchmarks {
 	}
 
 	#[benchmark]
+	// Worst case scenario, the list of invulnerables is very long.
+	fn set_invulnerables(v: Linear<0, { T::MaxInvulnerables::get() }>) {
+		let mut invulnerables = Vec::new();
+		for i in 0..v {
+			invulnerables.push(account("invulnerable", i, SEED));
+		}
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, invulnerables);
+
+		assert_eq!(Invulnerables::<T>::get().len(), v as usize);
+	}
+
+	#[benchmark]
 	fn deprecate_controller_batch(
 		// We pass a dynamic number of controllers to the benchmark, up to
 		// `MaxControllersInDeprecationBatch`.

@@ -1,8 +1,0 @@
-title: Limit the authority to adjust nomination pool deposits
-doc:
-- audience: Runtime Dev
-  description: |-
-    Up until this point, when EDs of chains using nomination pools were reduced, the subsequent reward account funds in exces could be claimed by anyone, despite the fact that they had been typically provided at the beginning by the pool owner. We therefore limit access to these funds only to the pool owner and the (optional) root account when EDs get reduced. The restriction does not apply to the increase in EDs, as these imply that funds are transferred into the pool rather than out of it.
-crates:
-- name: pallet-nomination-pools
-  bump: major

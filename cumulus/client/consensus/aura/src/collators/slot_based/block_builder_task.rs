@@ -19,7 +19,7 @@ use codec::{Codec, Encode};
 
 use super::CollatorMessage;
 use crate::{
-	collator::{self as collator_util, BuildBlockAndImportParams},
+	collator as collator_util,
 	collators::{
 		check_validation_code_or_log,
 		slot_based::{
@@ -32,6 +32,7 @@ use crate::{
 };
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
+use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	extract_relay_parent, rpsr_digest, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
@@ -49,7 +50,6 @@ use sc_network_types::PeerId;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
-use sp_consensus::Environment;
 use sp_consensus_aura::AuraApi;
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
@@ -89,7 +89,7 @@ pub struct BuilderTaskParams<
 	pub collator_peer_id: PeerId,
 	/// The para's ID.
 	pub para_id: ParaId,
-	/// The proposer for building blocks.
+	/// The underlying block proposer this should call into.
 	pub proposer: Proposer,
 	/// The generic collator service used to plug into this consensus engine.
 	pub collator_service: CS,
@@ -134,7 +134,7 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
-	Proposer: Environment<Block> + Send + Sync + 'static,
+	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
 	P: Pair + Send + Sync + 'static,
@@ -425,19 +425,14 @@ where
 			};
 
 			let Ok(Some(candidate)) = collator
-				.build_block_and_import(BuildBlockAndImportParams {
-					parent_header: &parent_header,
-					slot_claim: &slot_claim,
-					additional_pre_digest: vec![
-						CumulusDigestItem::CoreInfo(core.core_info()).to_digest_item()
-					],
-					parachain_inherent_data,
-					extra_inherent_data: other_inherent_data,
-					proposal_duration: adjusted_authoring_duration,
-					max_pov_size: allowed_pov_size,
-					storage_proof_recorder: None,
-					extra_extensions: Default::default(),
-				})
+				.build_block_and_import(
+					&parent_header,
+					&slot_claim,
+					Some(vec![CumulusDigestItem::CoreInfo(core.core_info()).to_digest_item()]),
+					(parachain_inherent_data, other_inherent_data),
+					adjusted_authoring_duration,
+					allowed_pov_size,
+				)
 				.await
 			else {
 				tracing::error!(target: crate::LOG_TARGET, "Unable to build block at slot.");
@@ -454,7 +449,7 @@ where
 			if let Err(err) = collator_sender.unbounded_send(CollatorMessage {
 				relay_parent,
 				parent_header: parent_header.clone(),
-				parachain_candidate: candidate.into(),
+				parachain_candidate: candidate,
 				validation_code_hash,
 				core_index: core.core_index(),
 				max_pov_size: validation_data.max_pov_size,

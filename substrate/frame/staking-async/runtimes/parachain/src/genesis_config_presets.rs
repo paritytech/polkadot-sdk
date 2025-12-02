@@ -144,7 +144,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			staking_async_parachain_genesis(params, id.to_string())
 		},
 		"fake-dot" => {
-			params.validator_count = 600;
+			params.validator_count = 500;
 			params.dev_stakers = Some((2_500, 25_000));
 			staking_async_parachain_genesis(params, id.to_string())
 		},

@@ -554,11 +554,15 @@ mod tests {
 	use sc_keystore::LocalKeystore;
 	use sc_network_test::{Block as TestBlock, *};
 	use sp_application_crypto::{key_types::AURA, AppCrypto};
-	use sp_consensus::{NoNetwork as DummyOracle, Proposal, ProposeArgs};
+	use sp_consensus::{DisableProofRecording, NoNetwork as DummyOracle, Proposal};
 	use sp_consensus_aura::sr25519::AuthorityPair;
+	use sp_inherents::InherentData;
 	use sp_keyring::sr25519::Keyring;
 	use sp_keystore::Keystore;
-	use sp_runtime::traits::{Block as BlockT, Header as _};
+	use sp_runtime::{
+		traits::{Block as BlockT, Header as _},
+		Digest,
+	};
 	use sp_timestamp::Timestamp;
 	use std::{
 		task::Poll,
@@ -588,21 +592,31 @@ mod tests {
 
 	impl Proposer<TestBlock> for DummyProposer {
 		type Error = Error;
-		type Proposal = future::Ready<Result<Proposal<TestBlock>, Error>>;
+		type Proposal = future::Ready<Result<Proposal<TestBlock, ()>, Error>>;
+		type ProofRecording = DisableProofRecording;
+		type Proof = ();
 
-		fn propose(self, args: ProposeArgs<TestBlock>) -> Self::Proposal {
+		fn propose(
+			self,
+			_: InherentData,
+			digests: Digest,
+			_: Duration,
+			_: Option<usize>,
+		) -> Self::Proposal {
 			let r = BlockBuilderBuilder::new(&*self.0)
 				.on_parent_block(self.0.chain_info().best_hash)
 				.fetch_parent_block_number(&*self.0)
 				.unwrap()
-				.with_inherent_digests(args.inherent_digests)
+				.with_inherent_digests(digests)
 				.build()
 				.unwrap()
 				.build();
 
-			future::ready(
-				r.map(|b| Proposal { block: b.block, storage_changes: b.storage_changes }),
-			)
+			future::ready(r.map(|b| Proposal {
+				block: b.block,
+				proof: (),
+				storage_changes: b.storage_changes,
+			}))
 		}
 	}
 
@@ -850,7 +864,7 @@ mod tests {
 
 		let head = client.expect_header(client.info().genesis_hash).unwrap();
 
-		let block = worker
+		let res = worker
 			.on_slot(SlotInfo {
 				slot: 0.into(),
 				ends_at: Instant::now() + Duration::from_secs(100),
@@ -858,12 +872,11 @@ mod tests {
 				duration: Duration::from_millis(1000),
 				chain_head: head,
 				block_size_limit: None,
-				storage_proof_recorder: None,
 			})
 			.await
 			.unwrap();
 
 		// The returned block should be imported and we should be able to get its header by now.
-		assert!(client.header(block.hash()).unwrap().is_some());
+		assert!(client.header(res.block.hash()).unwrap().is_some());
 	}
 }

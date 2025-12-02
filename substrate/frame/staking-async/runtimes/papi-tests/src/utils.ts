@@ -14,7 +14,7 @@ import { sr25519CreateDerive } from "@polkadot-labs/hdkd";
 import { DEV_PHRASE, entropyToMiniSecret, mnemonicToEntropy, type KeyPair } from "@polkadot-labs/hdkd-helpers";
 import { getPolkadotSigner } from "polkadot-api/signer";
 
-export const GlobalTimeout = 45 * 60 * 1000;
+export const GlobalTimeout = 30 * 60 * 1000;
 export const aliceStash = "5GNJqTPyNqANBkUVMN1LPPrxXnFouWXoe2wNSmmEoLctxiZY";
 
 

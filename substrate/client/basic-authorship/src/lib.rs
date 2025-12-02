@@ -22,7 +22,7 @@
 //!
 //! ```
 //! # use sc_basic_authorship::ProposerFactory;
-//! # use sp_consensus::{Environment, Proposer, ProposeArgs};
+//! # use sp_consensus::{Environment, Proposer};
 //! # use sp_runtime::generic::BlockId;
 //! # use std::{sync::Arc, time::Duration};
 //! # use substrate_test_runtime_client::{
@@ -60,10 +60,10 @@
 //! // The proposer will grab transactions from the transaction pool, and put them into the block.
 //! let future = Proposer::propose(
 //! 	proposer,
-//!     ProposeArgs {
-//! 	    max_duration: Duration::from_secs(2),
-//! 	    ..Default::default()
-//!     }
+//! 	Default::default(),
+//! 	Default::default(),
+//! 	Duration::from_secs(2),
+//! 	None,
 //! );
 //!
 //! // We wait until the proposition is performed.
@@ -73,5 +73,6 @@
 
 mod basic_authorship;
 
-pub use crate::basic_authorship::{Proposer, ProposerFactory, DEFAULT_BLOCK_SIZE_LIMIT};
-pub use sp_consensus::ProposeArgs;
+pub use crate::basic_authorship::{
+	ProposeArgs, Proposer, ProposerFactory, DEFAULT_BLOCK_SIZE_LIMIT,
+};

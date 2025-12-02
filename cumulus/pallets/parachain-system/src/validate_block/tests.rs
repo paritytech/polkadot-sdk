@@ -148,7 +148,6 @@ fn build_block_with_witness(
 	let cumulus_test_client::BlockBuilderAndSupportData {
 		mut block_builder,
 		persisted_validation_data,
-		..
 	} = client.init_block_builder_with_pre_digests(Some(validation_data), sproof_builder, pre_digests);
 
 	extra_extrinsics.into_iter().for_each(|e| block_builder.push(e).unwrap());
@@ -202,7 +201,6 @@ fn build_multiple_blocks_with_witness(
 		let cumulus_test_client::BlockBuilderAndSupportData {
 			mut block_builder,
 			persisted_validation_data: p_v_data,
-			proof_recorder,
 		} = client.init_block_builder_with_ignored_nodes(
 			parent_head.hash(),
 			Some(validation_data.clone()),
@@ -244,11 +242,11 @@ fn build_multiple_blocks_with_witness(
 		})
 		.unwrap();
 
-		let new_proof = proof_recorder.drain_storage_proof();
-
-		ignored_nodes.extend(IgnoredNodes::from_storage_proof::<BlakeTwo256>(&new_proof));
+		ignored_nodes.extend(IgnoredNodes::from_storage_proof::<BlakeTwo256>(
+			&built_block.proof.clone().unwrap(),
+		));
 		ignored_nodes.extend(IgnoredNodes::from_memory_db(built_block.storage_changes.transaction));
-		proof = StorageProof::merge([proof, new_proof]);
+		proof = StorageProof::merge([proof, built_block.proof.unwrap()]);
 
 		parent_head = built_block.block.header.clone();
 

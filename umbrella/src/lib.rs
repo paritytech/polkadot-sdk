@@ -92,6 +92,10 @@ pub use cumulus_client_consensus_aura;
 #[cfg(feature = "cumulus-client-consensus-common")]
 pub use cumulus_client_consensus_common;
 
+/// A Substrate `Proposer` for building parachain blocks.
+#[cfg(feature = "cumulus-client-consensus-proposer")]
+pub use cumulus_client_consensus_proposer;
+
 /// The relay-chain provided consensus algorithm.
 #[cfg(feature = "cumulus-client-consensus-relay-chain")]
 pub use cumulus_client_consensus_relay_chain;

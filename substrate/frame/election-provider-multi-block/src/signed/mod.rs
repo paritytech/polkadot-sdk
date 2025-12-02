@@ -111,12 +111,6 @@ pub struct SubmissionMetadata<T: Config> {
 	pages: BoundedVec<bool, T::Pages>,
 }
 
-impl<T: Config> crate::types::SignedInterface for Pallet<T> {
-	fn has_leader(round: u32) -> bool {
-		Submissions::<T>::has_leader(round)
-	}
-}
-
 impl<T: Config> SolutionDataProvider for Pallet<T> {
 	type Solution = SolutionOf<T::MinerConfig>;
 
@@ -956,6 +950,31 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
+			// this code is only called when at the boundary of phase transition, which is already
+			// captured by the parent pallet. No need for weight.
+			let weight_taken_into_account: Weight = Default::default();
+
+			if crate::Pallet::<T>::current_phase().is_signed_validation_opened_now() {
+				let maybe_leader = Submissions::<T>::leader(Self::current_round());
+				sublog!(
+					debug,
+					"signed",
+					"signed validation started, sending validation start signal? {:?}",
+					maybe_leader.is_some()
+				);
+
+				// start an attempt to verify our best thing.
+				if maybe_leader.is_some() {
+					// defensive: signed phase has just began, verifier should be in a clear state
+					// and ready to accept a solution.
+					let _ = <T::Verifier as AsynchronousVerifier>::start().defensive();
+				}
+			}
+
+			weight_taken_into_account
+		}
+
 		#[cfg(feature = "try-runtime")]
 		fn try_state(n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state(n)
@@ -1006,11 +1025,7 @@ impl<T: Config> Pallet<T> {
 		if let Some((loser, metadata)) =
 			Submissions::<T>::take_leader_with_data(current_round).defensive()
 		{
-			// Slash the deposit.
-			// Note that an invulnerable is not expelled from the list despite the slashing.
-			// Removal should occur only through governance, not automatically. An operational or
-			// network issue that leads to an incomplete submission is much more likely than a bad
-			// faith action from an invulnerable.
+			// Slash the deposit
 			let slash = metadata.deposit;
 			let _res = T::Currency::burn_held(
 				&HoldReason::SignedSubmission.into(),
@@ -1021,6 +1036,7 @@ impl<T: Config> Pallet<T> {
 			);
 			debug_assert_eq!(_res, Ok(slash));
 			Self::deposit_event(Event::<T>::Slashed(current_round, loser.clone(), slash));
+			Invulnerables::<T>::mutate(|x| x.retain(|y| y != &loser));
 
 			// Try to start verification again if we still have submissions
 			if let crate::types::Phase::SignedValidation(remaining_blocks) =
@@ -1028,7 +1044,8 @@ impl<T: Config> Pallet<T> {
 			{
 				// Only start verification if there are sufficient blocks remaining
 				// Note: SignedValidation(N) means N+1 blocks remaining in the phase
-				if remaining_blocks >= T::Pages::get().into() {
+				let actual_blocks_remaining = remaining_blocks.saturating_add(One::one());
+				if actual_blocks_remaining >= T::Pages::get().into() {
 					if Submissions::<T>::has_leader(current_round) {
 						// defensive: verifier just reported back a result, it must be in clear
 						// state.
@@ -1039,7 +1056,7 @@ impl<T: Config> Pallet<T> {
 						warn,
 						"signed",
 						"SignedValidation phase has {:?} blocks remaining, which are insufficient for {} pages",
-						remaining_blocks,
+						actual_blocks_remaining,
 						T::Pages::get()
 					);
 				}

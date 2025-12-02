@@ -513,6 +513,42 @@ fn retroactive_deferred_slashes_one_before() {
 }
 
 #[test]
+fn invulnerables_are_not_slashed() {
+	// For invulnerable validators no slashing is performed.
+	ExtBuilder::default()
+		.invulnerables(vec![11])
+		.nominate(false)
+		.build_and_execute(|| {
+			assert_eq!(asset::stakeable_balance::<T>(&11), 1000);
+			assert_eq!(asset::stakeable_balance::<T>(&21), 1000);
+
+			let initial_balance = Staking::slashable_balance_of(&21);
+
+			// slash both
+			add_slash(11);
+			add_slash(21);
+			Session::roll_next();
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					Event::OffenceReported {
+						offence_era: 1,
+						validator: 21,
+						fraction: Perbill::from_percent(10)
+					},
+					Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 21, page: 0 },
+					Event::Slashed { staker: 21, amount: 100 }
+				]
+			);
+
+			// The validator 11 hasn't been slashed, but 21 has been.
+			assert_eq!(asset::stakeable_balance::<T>(&11), 1000);
+			// 1000 - (0.1 * initial_balance)
+			assert_eq!(asset::stakeable_balance::<T>(&21), 1000 - (initial_balance / 10));
+		});
+}
+
+#[test]
 fn dont_slash_if_fraction_is_zero() {
 	// Don't slash if the fraction is zero.
 	ExtBuilder::default().nominate(false).build_and_execute(|| {

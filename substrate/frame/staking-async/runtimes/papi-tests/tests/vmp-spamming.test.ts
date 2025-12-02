@@ -204,7 +204,7 @@ async function sendDown(api: TypedApi<typeof rc>, count: number) {
 	}
 }
 
-test.skip(
+test(
 	`${PRESET} preset with vmp queues being spammed af`,
 	async () => {
 		const { killZn, paraLog } = await runPresetUntilLaunched(PRESET);

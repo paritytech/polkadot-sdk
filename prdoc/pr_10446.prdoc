@@ -1,9 +1,0 @@
-title: 'collator-protocol: pre-connect fix'
-doc:
-- audience: Node Dev
-  description: |-
-    Keep the connections to backers open until the relay parent of the advertised
-    collation expires.
-crates:
-- name: polkadot-collator-protocol
-  bump: patch

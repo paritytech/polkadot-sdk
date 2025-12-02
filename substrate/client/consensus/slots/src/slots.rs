@@ -23,8 +23,7 @@
 use super::{InherentDataProviderExt, Slot, LOG_TARGET};
 use sp_consensus::{SelectChain, SyncOracle};
 use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
-use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
-use sp_trie::recorder::Recorder;
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 use futures_timer::Delay;
 use std::time::{Duration, Instant};
@@ -63,8 +62,6 @@ pub struct SlotInfo<B: BlockT> {
 	///
 	/// For more information see [`Proposer::propose`](sp_consensus::Proposer::propose).
 	pub block_size_limit: Option<usize>,
-	/// Optional [`Recorder`] to use when build the block.
-	pub storage_proof_recorder: Option<Recorder<HashingFor<B>>>,
 }
 
 impl<B: BlockT> SlotInfo<B> {
@@ -85,29 +82,6 @@ impl<B: BlockT> SlotInfo<B> {
 			chain_head,
 			block_size_limit,
 			ends_at: Instant::now() + time_until_next_slot(duration),
-			storage_proof_recorder: None,
-		}
-	}
-
-	/// Create a new [`SlotInfo`] with a storage proof recorder.
-	///
-	/// `ends_at` is calculated using `timestamp` and `duration`.
-	pub fn with_storage_proof_recorder(
-		slot: Slot,
-		create_inherent_data: Box<dyn InherentDataProvider>,
-		duration: Duration,
-		chain_head: B::Header,
-		block_size_limit: Option<usize>,
-		storage_proof_recorder: Recorder<HashingFor<B>>,
-	) -> Self {
-		Self {
-			slot,
-			create_inherent_data,
-			duration,
-			chain_head,
-			block_size_limit,
-			ends_at: Instant::now() + time_until_next_slot(duration),
-			storage_proof_recorder: Some(storage_proof_recorder),
 		}
 	}
 }

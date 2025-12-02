@@ -382,7 +382,7 @@ mod validate_unsigned {
 
 	#[test]
 	fn retracts_weak_score_accepts_better() {
-		ExtBuilder::mock_signed().build_and_execute(|| {
+		ExtBuilder::unsigned().build_and_execute(|| {
 			roll_to_snapshot_created();
 
 			let base_minimal_stake = 55;
@@ -443,7 +443,7 @@ mod validate_unsigned {
 
 	#[test]
 	fn retracts_wrong_round() {
-		ExtBuilder::mock_signed().build_and_execute(|| {
+		ExtBuilder::unsigned().build_and_execute(|| {
 			roll_to_unsigned_open();
 
 			let mut attempt =
@@ -461,7 +461,7 @@ mod validate_unsigned {
 
 	#[test]
 	fn retracts_too_many_pages_unsigned() {
-		ExtBuilder::mock_signed().build_and_execute(|| {
+		ExtBuilder::unsigned().build_and_execute(|| {
 			// NOTE: unsigned solutions should have just 1 page, regardless of the configured
 			// page count.
 			roll_to_unsigned_open();
@@ -491,7 +491,7 @@ mod validate_unsigned {
 
 	#[test]
 	fn retracts_wrong_winner_count() {
-		ExtBuilder::mock_signed().desired_targets(2).build_and_execute(|| {
+		ExtBuilder::unsigned().desired_targets(2).build_and_execute(|| {
 			roll_to_unsigned_open();
 
 			let paged = raw_paged_from_supports(
@@ -511,7 +511,7 @@ mod validate_unsigned {
 
 	#[test]
 	fn retracts_wrong_phase() {
-		ExtBuilder::mock_signed().signed_phase(5, 6).build_and_execute(|| {
+		ExtBuilder::unsigned().signed_phase(5, 6).build_and_execute(|| {
 			let solution = raw_paged_solution_low_score();
 			let call = Call::submit_unsigned { paged_solution: Box::new(solution.clone()) };
 
@@ -561,7 +561,7 @@ mod validate_unsigned {
 
 	#[test]
 	fn priority_is_set() {
-		ExtBuilder::mock_signed()
+		ExtBuilder::unsigned()
 			.miner_tx_priority(20)
 			.desired_targets(0)
 			.build_and_execute(|| {
@@ -591,7 +591,7 @@ mod call {
 
 	#[test]
 	fn unsigned_submission_e2e() {
-		let (mut ext, pool) = ExtBuilder::mock_signed().build_offchainify();
+		let (mut ext, pool) = ExtBuilder::unsigned().build_offchainify();
 		ext.execute_with_sanity_checks(|| {
 			roll_to_unsigned_open();
 
@@ -619,7 +619,7 @@ mod call {
 		expected = "Invalid unsigned submission must produce invalid block and deprive validator from their authoring reward."
 	)]
 	fn unfeasible_solution_panics() {
-		let (mut ext, pool) = ExtBuilder::mock_signed().build_offchainify();
+		let (mut ext, pool) = ExtBuilder::unsigned().build_offchainify();
 		ext.execute_with_sanity_checks(|| {
 			roll_to_unsigned_open();
 
