@@ -1157,7 +1157,7 @@ pub(crate) async fn share_local_statement<Context>(
 	// have the candidate. Sanity: check the para-id is valid.
 	let expected = match statement.payload() {
 		FullStatementWithPVD::Seconded(ref c, _) =>
-			Some((c.descriptor().para_id, c.descriptor().relay_parent)),
+			Some((c.descriptor.para_id(), c.descriptor.relay_parent())),
 		FullStatementWithPVD::Valid(hash) =>
 			state.candidates.get_confirmed(&hash).map(|c| (c.para_id(), c.relay_parent())),
 	};
@@ -2153,13 +2153,13 @@ async fn fragment_chain_update_inner<Context>(
 		} = hypo
 		{
 			let confirmed_candidate = state.candidates.get_confirmed(&candidate_hash);
-			let prs = state.per_relay_parent.get_mut(&receipt.descriptor().relay_parent);
+			let prs = state.per_relay_parent.get_mut(&receipt.descriptor.relay_parent());
 			if let (Some(confirmed), Some(prs)) = (confirmed_candidate, prs) {
 				let per_session = state.per_session.get(&prs.session);
 				let group_index = confirmed.group_index();
 
 				// Sanity check if group_index is valid for this para at relay parent.
-				let Some(expected_groups) = prs.groups_per_para.get(&receipt.descriptor().para_id)
+				let Some(expected_groups) = prs.groups_per_para.get(&receipt.descriptor.para_id())
 				else {
 					continue
 				};

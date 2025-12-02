@@ -32,7 +32,9 @@ use core::{
 	slice::{Iter, IterMut},
 };
 
-use sp_application_crypto::{ByteArray, KeyTypeId};
+#[cfg(feature = "test")]
+use sp_application_crypto::ByteArray;
+use sp_application_crypto::KeyTypeId;
 use sp_arithmetic::{
 	traits::{BaseArithmetic, Saturating},
 	Perbill,
@@ -2007,6 +2009,7 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 	impl_getter!(pov_hash, Hash);
 	impl_getter!(validation_code_hash, ValidationCodeHash);
 
+	#[cfg(feature = "test")]
 	fn rebuild_collator_field(&self) -> CollatorId {
 		let mut collator_id = Vec::with_capacity(32);
 		let core_index: [u8; 2] = self.core_index.to_ne_bytes();
@@ -2033,6 +2036,7 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 		}
 	}
 
+	#[cfg(feature = "test")]
 	fn rebuild_signature_field(&self) -> CollatorSignature {
 		CollatorSignature::from_slice(self.reserved2.as_slice())
 			.expect("Slice size is exactly 64 bytes; qed")

@@ -705,18 +705,18 @@ fn validate_complete_response(
 	// sanity-check candidate response.
 	// note: roughly ascending cost of operations
 	{
-		if response.candidate_receipt.descriptor().relay_parent != identifier.relay_parent {
+		if response.candidate_receipt.descriptor.relay_parent() != identifier.relay_parent {
 			return invalid_candidate_output(COST_INVALID_RESPONSE)
 		}
 
-		if response.candidate_receipt.descriptor().persisted_validation_data_hash !=
+		if response.candidate_receipt.descriptor.persisted_validation_data_hash() !=
 			response.persisted_validation_data.hash()
 		{
 			return invalid_candidate_output(COST_INVALID_RESPONSE)
 		}
 
 		if !allowed_para_lookup(
-			response.candidate_receipt.descriptor().para_id,
+			response.candidate_receipt.descriptor.para_id(),
 			identifier.group_index,
 		) {
 			return invalid_candidate_output(COST_INVALID_RESPONSE)
@@ -743,7 +743,7 @@ fn validate_complete_response(
 		// Check if `session_index` of relay parent matches candidate descriptor
 		// `session_index`.
 		if let Some(candidate_session_index) =
-			response.candidate_receipt.descriptor().session_index()
+			response.candidate_receipt.descriptor.session_index(v3_enabled)
 		{
 			if candidate_session_index != session {
 				gum::debug!(

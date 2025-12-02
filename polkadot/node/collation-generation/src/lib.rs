@@ -44,8 +44,9 @@ use polkadot_node_subsystem::{
 	SubsystemContext, SubsystemError, SubsystemResult, SubsystemSender,
 };
 use polkadot_node_subsystem_util::{
-	request_claim_queue, request_persisted_validation_data, request_session_index_for_child,
-	request_validation_code_hash, request_validators, runtime::ClaimQueueSnapshot,
+	request_claim_queue, request_node_features, request_persisted_validation_data,
+	request_session_index_for_child, request_validation_code_hash, request_validators,
+	runtime::ClaimQueueSnapshot,
 };
 use polkadot_primitives::{
 	transpose_claim_queue, CandidateCommitments, CandidateDescriptorV2,
