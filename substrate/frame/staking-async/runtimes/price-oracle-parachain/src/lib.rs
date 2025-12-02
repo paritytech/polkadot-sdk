@@ -86,7 +86,7 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckTxVersion<Runtime>,
 		frame_system::CheckGenesis<Runtime>,
 		frame_system::CheckEra<Runtime>,
-		// frame_system::CheckNonce<Runtime>,
+		frame_system::CheckNonce<Runtime>,
 		frame_system::CheckWeight<Runtime>,
 		// pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
@@ -164,8 +164,8 @@ impl_opaque_keys! {
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: alloc::borrow::Cow::Borrowed("parachain-template-runtime"),
-	impl_name: alloc::borrow::Cow::Borrowed("parachain-template-runtime"),
+	spec_name: alloc::borrow::Cow::Borrowed("price-oracle-parachain"),
+	impl_name: alloc::borrow::Cow::Borrowed("price-oracle-parachain"),
 	authoring_version: 1,
 	spec_version: 1,
 	impl_version: 0,

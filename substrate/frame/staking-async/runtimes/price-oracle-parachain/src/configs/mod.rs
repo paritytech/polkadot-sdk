@@ -380,9 +380,7 @@ where
 				period,
 				current_block,
 			)),
-			// TODO: need to bring back, has to be that we bump providers for the session keys to
-			// be able to sign and send.
-			// frame_system::CheckNonce::<Runtime>::from(nonce),
+			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
 			// pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
 			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
@@ -429,7 +427,7 @@ impl frame_system::offchain::AppCrypto<<Signature as Verify>::Signer, Signature>
 
 impl pallet_staking_async_price_oracle::oracle::Config for Runtime {
 	type AuthorityId = OracleId;
-	type RelayChainOrigin = EnsureRoot<AccountId>;
+	type PriceUpdateInterval = ConstU32<2>;
 }
 
 impl pallet_staking_async_price_oracle::rc_client::Config for Runtime {

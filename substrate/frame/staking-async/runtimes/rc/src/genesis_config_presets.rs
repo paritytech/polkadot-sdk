@@ -66,7 +66,7 @@ fn get_authority_keys_from_seed_no_beefy(
 	seed: &str,
 ) -> (AccountId, AccountId, BabeId, GrandpaId, ValidatorId, AssignmentId, AuthorityDiscoveryId) {
 	(
-		get_public_from_string_or_panic::<sr25519::Public>(&format!("{}//stash", seed)).into(),
+		get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
 		get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
 		get_public_from_string_or_panic::<BabeId>(seed),
 		get_public_from_string_or_panic::<GrandpaId>(seed),

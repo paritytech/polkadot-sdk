@@ -2,43 +2,50 @@
 default_command = "polkadot"
 chain_spec_path = "./rc.json"
 
-[[relaychain.nodes]]
-name = "alice"
-validator = true
-rpc_port = 9944
-args = [
-	"-lruntime::system=debug,runtime::session=trace,runtime::staking-async::ah-client=trace,runtime::ah-client=debug,xcm=trace",
-]
+	[[relaychain.nodes]]
+	name = "alice"
+	validator = true
+	rpc_port = 9944
+	args = [
+		"-lruntime::system=debug,runtime::session=trace,runtime::staking-async::ah-client=trace,runtime::ah-client=debug,xcm=trace",
+	]
 
-[[relaychain.nodes]]
-name = "bob"
-validator = true
-rpc_port = 9945
-args = [
-	"-lruntime::system=debug,runtime::session=trace,runtime::staking-async::ah-client=trace,runtime::ah-client=debug",
-]
+	[[relaychain.nodes]]
+	name = "bob"
+	validator = true
+	rpc_port = 9945
+	args = [
+		"-lruntime::system=debug,runtime::session=trace,runtime::staking-async::ah-client=trace,runtime::ah-client=debug",
+	]
 
 [[parachains]]
 id = 1100
 chain_spec_path = "./parachain.json"
 
-[parachains.collator]
-name = "charlie"
-rpc_port = 9946
-args = [
-	"-lruntime=debug",
-]
+	[[parachains.collators]]
+	name = "charlie"
+	rpc_port = 9946
+	args = [
+		"-lruntime=debug",
+	]
 
 [[parachains]]
 id = 1101
 chain_spec_path = "./price-oracle-parachain.json"
 force_decorator = "oracle"
 
+	[[parachains.collators]]
+	name = "alice"
+	rpc_port = 9947
+	args = [
+		"-lruntime=info,runtime::price-oracle=debug",
+	]
+	keystore_key_types = ["aura_sr", "orcl_sr"]
 
-[parachains.collator]
-name = "dave"
-rpc_port = 9947
-args = [
-	"-lruntime=debug",
-]
-keystore_key_types = ["aura_sr", "orcl_sr"]
+	[[parachains.collators]]
+	name = "bob"
+	rpc_port = 9948
+	args = [
+		"-lruntime=info,runtime::price-oracle=debug",
+	]
+	keystore_key_types = ["aura_sr", "orcl_sr"]

@@ -17,17 +17,48 @@
 
 //! Price-Oracle System
 //!
-//! Components:
+//! Pallets:
 //!
-//! - Oracle: the pallet through which validators submit their price bumps.
-//! - Rc-client: pallet that receives XCM messages, indicating new validator sets, from the RC. It
-//!   also acts as two components for the local session pallet:
+//! - Oracle: the pallet through which validators submit their price bumps. This pallet implements a
+//!   `OneSessionHandler`, allowing it to receive updated about the local session pallet. This local
+//!   session pallet is controlled by the next component (`Rc-client`), and pretty much mimics the
+//!   relay chain validators.
+//! 	- Of course, relay validators need to use their stash key once in the price-oracle parachain
+//!    to:
+//! 		- Set a proxy for future use
+//! 		- Associate a session key with their stash key.
+//! - Rc-client: pallet that receives XCMs indicating new validator sets from the RC. It also acts
+//!   as two components for the local session pallet:
 //!   - `ShouldEndSession`: It immediately signals the session pallet that it should end the
-//!     previous session. TODO: we might want to still retain a periodic session as well, allowing
-//!     validators to swap keys in case of emergency.
+//!     previous session once it receives the validator set via XCM.
 //!   - `SessionManager`: Once session realizes it has to rotate the session, it will call into its
 //!     `SessionManager`, which is also implemented by rc-client, to which it gives the new
 //!     validator keys.
+//!
+//! In short, the flow is as follows:
+//!
+//! 1. block N: `relay_new_validator_set` is received, validators are kept as `ToPlan(v)`.
+//! 2. Block N+1: `should_end_session` returns `true`.
+//! 3. Block N+1: Session calls its `SessionManager`, `v` is returned in `plan_new_session`
+//! 4. Block N+1: `ToPlan(v)` updated to `Planned`.
+//! 5. Block N+2: `should_end_session` still returns `true`, forcing tht local session to trigger a
+//!    new session again.
+//! 6. Block N+2: Session again calls `SessionManager`, nothing is returned in `plan_new_session`,
+//!    and session pallet will enact the `v` previously received.
+//!
+//! This design hinges on the fact that the session pallet always does 3 calls at the same time when
+//! interacting with the `SessionManager`:
+//!
+//! * `end_session(n)`
+//! * `start_session(n+1)`
+//! * `new_session(n+2)`
+//!
+//! Every time `new_session` receives some validator set as return value, it is only enacted on the
+//! next session rotation.
+//!
+//! Notes/TODOs:
+//! we might want to still retain a periodic session as well, allowing validators to swap keys in
+//! case of emergency.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -39,10 +70,7 @@ pub mod oracle {
 		extern crate alloc;
 		use alloc::vec::Vec;
 		use frame_support::{
-			dispatch::DispatchResult,
-			pallet_prelude::*,
-			traits::{EnsureOrigin, OneSessionHandler},
-			Parameter,
+			dispatch::DispatchResult, pallet_prelude::*, traits::OneSessionHandler, Parameter,
 		};
 		use frame_system::{
 			offchain::{
@@ -56,14 +84,25 @@ pub mod oracle {
 		pub trait Config:
 			frame_system::Config + CreateSignedTransaction<Call<Self>> + CreateBare<Call<Self>>
 		{
+			/// The key type for the session key we use to sign [`Call::bump_price`].
 			type AuthorityId: AppCrypto<Self::Public, Self::Signature>
 				+ RuntimeAppPublic
 				+ Parameter
 				+ Member;
 
-			type RelayChainOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+			/// Every `PriceUpdateInterval` blocks, the offchain worker will submit a price update
+			/// transaction.
+			type PriceUpdateInterval: Get<BlockNumberFor<Self>>;
 		}
 
+		#[pallet::event]
+		#[pallet::generate_deposit(pub(super) fn deposit_event)]
+		pub enum Event<T: Config> {
+			/// A new set of validators was announced.
+			NewValidatorsAnnounced { count: u32 },
+		}
+
+		/// Current best known authorities.
 		#[pallet::storage]
 		#[pallet::unbounded] // TODO
 		pub type Authorities<T: Config> = StorageValue<_, Vec<T::AuthorityId>, ValueQuery>;
@@ -89,7 +128,10 @@ pub mod oracle {
 			{
 				// instant changes
 				if changed {
-					Authorities::<T>::put(validators.map(|(_, k)| k).collect::<Vec<_>>());
+					let authorities = validators.map(|(_, k)| k).collect::<Vec<_>>();
+					let count = authorities.len() as u32;
+					Authorities::<T>::put(authorities);
+					Self::deposit_event(Event::<T>::NewValidatorsAnnounced { count });
 				}
 			}
 
@@ -103,7 +145,11 @@ pub mod oracle {
 
 		#[pallet::hooks]
 		impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-			fn offchain_worker(_block_number: BlockNumberFor<T>) {
+			fn offchain_worker(block_number: BlockNumberFor<T>) {
+				if block_number % T::PriceUpdateInterval::get() != Zero::zero() {
+					return;
+				}
+
 				use scale_info::prelude::vec::Vec;
 				log::info!(target: "runtime", "Offchain worker starting...");
 				let keystore_accounts =
@@ -137,24 +183,15 @@ pub mod oracle {
 			#[pallet::weight(0)]
 			pub fn bump_price(origin: OriginFor<T>, _bump: Bump) -> DispatchResult {
 				ensure_signed(origin).and_then(|who| {
+					log::info!(target: "runtime", "bump_price: who is {:?}", who);
 					// TODO: not efficient to read all to check if person is part of. Need a
 					// btreeSet
-					log::info!(target: "runtime", "bump_price: who is {:?}", who);
-					// TODO
-					// Authorities::<T>::get().into_iter().find(|a| a == &who).ok_or(BadOrigin)
-					Ok(())
+					Authorities::<T>::get()
+						.into_iter()
+						.find(|a| a.encode() == who.encode()) // TODO: bit too hacky, can improve
+						.ok_or(sp_runtime::traits::BadOrigin)
 				})?;
 
-				Ok(())
-			}
-
-			#[pallet::call_index(1)]
-			#[pallet::weight(0)]
-			pub fn relay_session_change(
-				origin: OriginFor<T>,
-				validators: Vec<T::AccountId>,
-			) -> DispatchResult {
-				T::RelayChainOrigin::ensure_origin_or_root(origin)?;
 				Ok(())
 			}
 		}
@@ -203,8 +240,16 @@ pub mod rc_client {
 
 			fn new_session(self) -> (Self, Option<Vec<AccountId>>) {
 				match self {
-					Self::None => (Self::None, None),
+					Self::None => {
+						debug_assert!(false, "we should never instruct session to trigger a new session if we have no validator set to plan");
+						(Self::None, None)
+					},
+					// We have something to be planned, return it, and set our next stage to
+					// `planned`.
 					Self::ToPlan(to_plan) => (Self::Planned, Some(to_plan)),
+					// We just planned something, don't plan return anything new to be planned,
+					// just let session enact what was previously planned. Set our next stage to
+					// `None`.
 					Self::Planned => (Self::None, None),
 				}
 			}
@@ -223,6 +268,7 @@ pub mod rc_client {
 				origin: OriginFor<T>,
 				validators: Vec<T::AccountId>,
 			) -> DispatchResult {
+				log::info!(target: "runtime::price-oracle", "relay_new_validator_set: validators: {:?}", validators);
 				T::RelayChainOrigin::ensure_origin_or_root(origin)?;
 				ValidatorSetStorage::<T>::put(ValidatorSet::ToPlan(validators));
 				Ok(())
@@ -230,21 +276,23 @@ pub mod rc_client {
 		}
 
 		impl<T: Config> pallet_session::ShouldEndSession<BlockNumberFor<T>> for Pallet<T> {
-			fn should_end_session(now: BlockNumberFor<T>) -> bool {
+			fn should_end_session(_now: BlockNumberFor<T>) -> bool {
+				log::info!(target: "runtime::price-oracle", "should_end_session: {:?}", ValidatorSetStorage::<T>::get().should_end_session());
 				ValidatorSetStorage::<T>::get().should_end_session()
 			}
 		}
 
 		impl<T: Config> pallet_session::SessionManager<T::AccountId> for Pallet<T> {
 			fn new_session(new_index: u32) -> Option<Vec<T::AccountId>> {
+				log::info!(target: "runtime::price-oracle", "new_session: {:?}", new_index);
 				let (next, ret) = ValidatorSetStorage::<T>::get().new_session();
 				ValidatorSetStorage::<T>::put(next);
 				ret
 			}
-			fn end_session(end_index: u32) {
+			fn end_session(_end_index: u32) {
 				// nada
 			}
-			fn start_session(start_index: u32) {
+			fn start_session(_start_index: u32) {
 				// nada
 			}
 		}
