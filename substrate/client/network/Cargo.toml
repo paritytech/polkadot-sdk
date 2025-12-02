@@ -69,7 +69,7 @@ zeroize = { workspace = true, default-features = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-cid = { version = "0.11.0" }
+cid = { workspace = true }
 multistream-select = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
