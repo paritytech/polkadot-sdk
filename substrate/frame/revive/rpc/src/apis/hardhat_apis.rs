@@ -46,6 +46,13 @@ pub struct HardhatMetadata {
 	pub forked_network: Option<HardhatForkedNetwork>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum HardhatTimestamp {
+	Hex(String),
+	Number(u64),
+}
+
 #[rpc(server, client)]
 pub trait HardhatRpc {
 	#[method(name = "hardhat_mine")]
@@ -94,7 +101,7 @@ pub trait HardhatRpc {
 	async fn set_prev_randao(&self, prev_randao: H256) -> RpcResult<Option<H256>>;
 
 	#[method(name = "evm_setNextBlockTimestamp")]
-	async fn set_next_block_timestamp(&self, next_timestamp: u64) -> RpcResult<()>;
+	async fn set_next_block_timestamp(&self, next_timestamp: HardhatTimestamp) -> RpcResult<()>;
 
 	#[method(name = "evm_increaseTime")]
 	async fn increase_time(&self, increase_by_seconds: u64) -> RpcResult<U256>;

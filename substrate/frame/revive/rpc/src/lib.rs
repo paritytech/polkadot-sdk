@@ -179,8 +179,15 @@ impl HardhatRpcServer for HardhatRpcServerImpl {
 		Ok(self.client.set_coinbase(coinbase).await?)
 	}
 
-	async fn set_next_block_timestamp(&self, next_timestamp: u64) -> RpcResult<()> {
-		Ok(self.client.set_next_block_timestamp(U256::from(next_timestamp)).await?)
+	async fn set_next_block_timestamp(&self, next_timestamp: HardhatTimestamp) -> RpcResult<()> {
+		let timestamp = match next_timestamp {
+			HardhatTimestamp::Hex(ref hex) => {
+				u64::from_str_radix(hex.trim_start_matches("0x"), 16)
+					.map_err(|_| EthRpcError::ConversionError)?
+			}
+			HardhatTimestamp::Number(n) => n,
+		};
+		Ok(self.client.set_next_block_timestamp(U256::from(timestamp)).await?)
 	}
 
 	async fn increase_time(&self, increase_by_seconds: u64) -> RpcResult<U256> {
