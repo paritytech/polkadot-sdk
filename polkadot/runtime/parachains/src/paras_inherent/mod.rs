@@ -974,10 +974,15 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 	v3_enabled: bool,
 ) -> bool {
 	let descriptor_version = candidate.descriptor().version(v3_enabled);
+	println!(
+		"DEBUG: Candidate {:?} has version {:?}, v3_enabled={}",
+		candidate.candidate().hash(),
+		descriptor_version,
+		v3_enabled
+	);
 
 	match descriptor_version {
-		// TODO: Properly handle v3: https://github.com/paritytech/polkadot-sdk/issues/10415
-		CandidateDescriptorVersion::Unknown | CandidateDescriptorVersion::V3 => {
+		CandidateDescriptorVersion::Unknown => {
 			log::debug!(
 				target: LOG_TARGET,
 				"Candidate with unknown descriptor version. Dropping candidate {:?} for paraid {:?}.",
@@ -989,20 +994,42 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 		_ => {},
 	}
 
-	// Get the claim queue snapshot at the candidate relay parent.
-	let Some((rp_info, _)) =
-		allowed_relay_parents.acquire_info(candidate.descriptor().relay_parent(), None)
-	else {
+	// Check relay_parent exists in allowed relay parents (execution context).
+	// Needed for all versions to access relay chain state.
+	let relay_parent = candidate.descriptor().relay_parent();
+	let Some(_) = allowed_relay_parents.acquire_info(relay_parent, None) else {
 		log::debug!(
 			target: LOG_TARGET,
 			"Relay parent {:?} for candidate {:?} is not in the allowed relay parents.",
-			candidate.descriptor().relay_parent(),
+			relay_parent,
 			candidate.candidate().hash(),
 		);
 		return false
 	};
 
-	if let Err(err) = candidate.candidate().parse_ump_signals(&rp_info.claim_queue, v3_enabled) {
+	// Check scheduling_parent exists in allowed relay parents (scheduling context).
+	// For V1/V2: scheduling_parent() returns relay_parent (duplicate check, but cheap).
+	// For V3: scheduling_parent() returns the actual scheduling_parent field.
+	let scheduling_parent = candidate.descriptor().scheduling_parent(v3_enabled);
+	let Some((sp_info, _)) = allowed_relay_parents.acquire_info(scheduling_parent, None) else {
+		log::debug!(
+			target: LOG_TARGET,
+			"Scheduling parent {:?} for candidate {:?} is not in the allowed relay parents.",
+			scheduling_parent,
+			candidate.candidate().hash(),
+		);
+		return false
+	};
+
+	// UMP signals check uses scheduling parent's claim queue.
+	// For V1/V2: scheduling_parent == relay_parent, so uses same claim queue as before.
+	// For V3: uses the claim queue from the scheduling_parent.
+	if let Err(err) = candidate.candidate().parse_ump_signals(&sp_info.claim_queue, v3_enabled) {
+		println!(
+			"DEBUG: UMP signal check failed: {:?} for {:?}",
+			err,
+			candidate.candidate().hash()
+		);
 		log::debug!(
 			target: LOG_TARGET,
 			"UMP signal check failed: {:?}. Dropping candidate {:?} for paraid {:?}.",
@@ -1018,24 +1045,33 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 		return true
 	}
 
-	let Some(session_index) = candidate.descriptor().session_index(v3_enabled) else {
+	// For V2/V3: Check scheduling session matches current session.
+	// For V2: scheduling_session() returns session_index (relay parent session).
+	// For V3: scheduling_session() returns scheduling_session_index.
+	let Some(scheduling_session) = candidate.descriptor().scheduling_session(v3_enabled) else {
 		log::debug!(
 			target: LOG_TARGET,
-			"Invalid V2 candidate receipt {:?} for paraid {:?}, missing session index.",
+			"Invalid V2/V3 candidate receipt {:?} for paraid {:?}, missing scheduling session.",
 			candidate.candidate().hash(),
 			candidate.descriptor().para_id(),
 		);
 		return false
 	};
 
-	// Check if session index is equal to current session index.
-	if session_index != shared::CurrentSessionIndex::<T>::get() {
+	// Check if scheduling session is equal to current session index.
+	if scheduling_session != shared::CurrentSessionIndex::<T>::get() {
+		println!(
+			"DEBUG: Session mismatch for {:?}: scheduling_session={}, current={}",
+			candidate.candidate().hash(),
+			scheduling_session,
+			shared::CurrentSessionIndex::<T>::get()
+		);
 		log::debug!(
 			target: LOG_TARGET,
-			"Dropping V2 candidate receipt {:?} for paraid {:?}, invalid session index {}, current session {}",
+			"Dropping candidate receipt {:?} for paraid {:?}, invalid scheduling session {}, current session {}",
 			candidate.candidate().hash(),
 			candidate.descriptor().para_id(),
-			session_index,
+			scheduling_session,
 			shared::CurrentSessionIndex::<T>::get()
 		);
 		return false
