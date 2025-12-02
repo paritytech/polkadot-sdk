@@ -92,7 +92,7 @@ pub const MAX_TOPICS: usize = 4;
 
 #[cfg(feature = "std")]
 pub use store_api::{
-	Error, NetworkPriority, Result, StatementSource, StatementStore, SubmitResult,
+	Error, InvalidReason, RejectionReason, Result, StatementSource, StatementStore, SubmitResult,
 };
 
 #[cfg(feature = "std")]
@@ -254,13 +254,11 @@ pub struct Statement {
 	num_topics: u8,
 	/// Topics, used for querying and filtering statements.
 	topics: [Topic; MAX_TOPICS],
-	/// Statement data.
-	data: Option<Vec<u8>>,
 	/// A Unix timestamp (in milliseconds) after which the statement is considered expired and it
 	/// will be cleaned up from the store.
-	///
-	/// Allowed range is from [current_time, current_time + USER_MAX_EXPIRATION, default 7 days].
 	expires_at_ms: u64,
+	/// Statement data.
+	data: Option<Vec<u8>>,
 }
 
 impl Decode for Statement {
@@ -501,20 +499,9 @@ impl Statement {
 		self.channel
 	}
 
-	/// Get replacement preference mask, if any.
-	/// Used when replacing lower priority statements.
-	pub fn replacement_preference_mask(&self) -> Option<&ReplaceSlotPreferenceMask> {
-		self.replacement_preference_mask.as_ref()
-	}
-
 	/// Get priority, if any.
 	pub fn priority(&self) -> Option<u32> {
 		self.priority
-	}
-
-	/// Get expiration timestamp in milliseconds.
-	pub fn expires_at_ms(&self) -> u64 {
-		self.expires_at_ms
 	}
 
 	/// Return encoded fields that can be signed to construct or verify a proof

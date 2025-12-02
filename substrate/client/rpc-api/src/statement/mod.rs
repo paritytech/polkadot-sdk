@@ -24,6 +24,9 @@ use sp_core::Bytes;
 
 pub mod error;
 
+// Re-export types from primitives with serde support
+pub use sp_statement_store::SubmitResult;
+
 /// Filter for querying statements with different topics.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -51,7 +54,6 @@ pub enum DecryptionKeyIdFilter {
 /// Filter for querying statements with different submitters.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-
 pub enum SubmitterFilter {
 	/// Matches any statement regardless of their owner identifier.
 	Any,
@@ -72,7 +74,9 @@ pub enum PageCursor {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetStatementsResponse {
+	/// SCALE-encoded statements matching the query.
 	pub encoded_statements: Vec<Bytes>,
+	/// Cursor for the next page, or `End` if there are no further pages.
 	pub next_page: PageCursor,
 }
 
@@ -116,20 +120,35 @@ pub trait StatementApi2 {
 		limit: Option<u32>,
 	) -> RpcResult<GetStatementsResponse>;
 
-	/// Submit a SCALE-encoded statement.
+	/// Subscribe to new statements that match the provided filters.
 	///
-	/// See `Statement` definition for more details.
-	#[method(name = "statement_submit")]
-	fn submit(&self, encoded: Bytes) -> RpcResult<()>;
-
-	/// New storage subscription
+	/// # Parameters
+	///
+	/// See `get_statements` for parameter descriptions.
+	///
+	/// # Returns
+	///
+	/// Returns a stream of SCALE-encoded statements as `Bytes`.
 	#[subscription(
 		name = "statement_subscribeStatement" => "statement_statement",
 		unsubscribe = "statement_unsubscribeStatement",
 		item = Bytes,
 		with_extensions,
 	)]
-	fn subscribe_statement(&self, match_all_topics: Vec<[u8; 32]>);
+	fn subscribe_statement(
+		&self,
+		topic_filter: TopicFilter,
+		key_filter: DecryptionKeyIdFilter,
+		submitter_filter: SubmitterFilter,
+	);
+
+	/// Submit a SCALE-encoded statement.
+	///
+	/// See `Statement` definition for more details.
+	///
+	/// Returns `SubmitResult` indicating success or failure reason.
+	#[method(name = "statement_submit")]
+	fn submit(&self, encoded: Bytes) -> RpcResult<SubmitResult>;
 }
 
 /// Substrate statement RPC API
@@ -197,7 +216,7 @@ pub trait StatementApi {
 
 	/// Submit a pre-encoded statement.
 	#[method(name = "statement_submit")]
-	fn submit(&self, encoded: Bytes) -> RpcResult<()>;
+	fn submit(&self, encoded: Bytes) -> RpcResult<SubmitResult>;
 
 	/// Remove a statement from the store.
 	#[method(name = "statement_remove")]
