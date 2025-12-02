@@ -31,7 +31,7 @@ crates:
   bump: major
 - name: westend-runtime
   bump: major
-- name: pallet-conviction-voting
-  bump: major
 - name: pallet-staking-async-rc-runtime
+  bump: major
+- name: pallet-conviction-voting
   bump: major
