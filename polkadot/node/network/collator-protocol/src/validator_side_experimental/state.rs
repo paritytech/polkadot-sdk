@@ -40,6 +40,7 @@ use polkadot_node_subsystem_util::{request_session_index_for_child, runtime::rec
 use polkadot_primitives::{
 	BlockNumber, CandidateReceiptV2 as CandidateReceipt, Hash, Id as ParaId,
 };
+use std::time::Duration;
 
 /// All state relevant for the validator side of the protocol lives here.
 pub struct State<B> {
@@ -447,7 +448,7 @@ impl<B: Backend> State<B> {
 	pub async fn try_launch_new_fetch_requests<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
-	) -> Option<u16> {
+	) -> Option<Duration> {
 		let peer_manager = &self.peer_manager;
 		let connected_rep_query_fn = move |peer_id: &PeerId, para_id: &ParaId| {
 			peer_manager.connected_peer_score(peer_id, para_id)

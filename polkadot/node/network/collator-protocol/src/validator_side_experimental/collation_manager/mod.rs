@@ -55,7 +55,7 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::Either;
 use std::{
 	collections::{BTreeSet, HashMap, HashSet, VecDeque},
-	time::Instant,
+	time::{Duration, Instant},
 };
 
 mod requests;
@@ -378,7 +378,7 @@ impl CollationManager {
 		&mut self,
 		connected_rep_query_fn: RepQueryFn,
 		max_scores: HashMap<ParaId, Score>,
-	) -> (Vec<Requests>, Option<u16>) {
+	) -> (Vec<Requests>, Option<Duration>) {
 		let now = Instant::now();
 
 		// Advertisements and collations are up to date.
@@ -420,9 +420,7 @@ impl CollationManager {
 					Either::Left(None) => continue,
 					Either::Right(delay) => {
 						let min_delay = maybe_min_delay.get_or_insert(delay);
-						if delay < *min_delay {
-							maybe_min_delay = Some(delay);
-						}
+						maybe_min_delay = Some(std::cmp::min(*min_delay, delay));
 						continue
 					},
 				};
@@ -656,7 +654,7 @@ impl CollationManager {
 		para_id: ParaId,
 		highest_rep_of_para: Score,
 		connected_rep_query_fn: &RepQueryFn,
-	) -> Either<Option<Advertisement>, u16> {
+	) -> Either<Option<Advertisement>, Duration> {
 		let fetch_score = INSTANT_FETCH_REP_THRESHOLD.min(highest_rep_of_para);
 		let delay_bonus_per_ms =
 			u16::from(highest_rep_of_para) as f32 / MAX_FETCH_DELAY_IN_MILLIS as f32;
@@ -703,7 +701,7 @@ impl CollationManager {
 		);
 		let diff = u16::from(fetch_score) - u16::from(score);
 		let remaining_delay = (diff as f32 / delay_bonus_per_ms).ceil();
-		Either::Right(remaining_delay as u16)
+		Either::Right(Duration::from_millis(remaining_delay as u64))
 	}
 
 	async fn get_our_core_schedule<Sender: CollatorProtocolSenderTrait>(

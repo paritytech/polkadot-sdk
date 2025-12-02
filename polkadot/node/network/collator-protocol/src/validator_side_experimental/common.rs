@@ -85,14 +85,6 @@ impl Score {
 		Some(Self(val))
 	}
 
-	pub const fn saturating_new(val: u16) -> Self {
-		if val > MAX_SCORE {
-			return Score(MAX_SCORE);
-		}
-
-		Self(val)
-	}
-
 	/// Add `val` to the inner value, saturating at `MAX_SCORE`.
 	pub fn saturating_add(&mut self, val: u16) {
 		let sum = self.0.saturating_add(val);

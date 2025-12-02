@@ -124,9 +124,9 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> FatalResult<Option<A
 	}
 }
 
-fn create_timer(maybe_delay: Option<u16>) -> Fuse<Pin<Box<dyn Future<Output = ()> + Send>>> {
+fn create_timer(maybe_delay: Option<Duration>) -> Fuse<Pin<Box<dyn Future<Output = ()> + Send>>> {
 	let timer: Pin<Box<dyn Future<Output = ()> + Send>> = match maybe_delay {
-		Some(delay) => Box::pin(Delay::new(Duration::from_millis(delay as u64))),
+		Some(delay) => Box::pin(Delay::new(delay)),
 		None => Box::pin(future::pending::<()>()),
 	};
 
@@ -170,7 +170,8 @@ async fn run_inner<Context>(mut ctx: Context, mut state: State<Db>) -> FatalResu
 		// Also, it takes constant time to run because we only try launching new requests for
 		// unfulfilled claims. It's probably not worth optimising.
 		let maybe_delay = state.try_launch_new_fetch_requests(ctx.sender()).await;
-		timer = create_timer(maybe_delay.map(|delay| std::cmp::max(delay, 500)));
+		timer =
+			create_timer(maybe_delay.map(|delay| std::cmp::max(delay, Duration::from_millis(500))));
 	}
 
 	Ok(())
