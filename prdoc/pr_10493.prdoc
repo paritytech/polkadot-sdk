@@ -1,17 +1,12 @@
 title: add external transient_storage to pallet_revive::ExecConfig
 doc:
-- audience: Todo
+- audience: Node Dev
   description: |-
     # Description
 
-    This PR adds the ability to supply external copy of `TransientStorage` to `pallet_revive::ExecConfig` to be used during execution.  This is required by testing in foundry as we only enter `pallet_revive` during a `CALL` or `CREATE` instruction and we need to carryover the transient storage to other following calls as they happen within an external tx
-
-    ## Integration
-
-    Already being used on a branch of foundry-polkadot
-    ## Review Notes
-
-    I'm not so fond of `Rc<RefCell<TransientStorage>>` approach and using a function to decide to which transient storage to dispatch to during execution, so any suggestions would be welcome.
+    This PR adds the ability to supply external copy of `TransientStorage` to `pallet_revive::ExecConfig` to be used during execution.
+    This is required by testing in foundry as we only enter `pallet_revive` during a `CALL` or `CREATE` instruction and we need to carryover 
+    the transient storage to other following calls as they happen within an external tx
 crates:
 - name: pallet-revive
   bump: major
