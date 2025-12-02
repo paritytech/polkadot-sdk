@@ -49,9 +49,10 @@ use polkadot_node_subsystem_util::{
 	runtime::ClaimQueueSnapshot,
 };
 use polkadot_primitives::{
-	transpose_claim_queue, CandidateCommitments, CandidateDescriptorV2,
-	CommittedCandidateReceiptV2, CoreIndex, Hash, Id as ParaId, OccupiedCoreAssumption,
-	PersistedValidationData, SessionIndex, TransposedClaimQueue, ValidationCodeHash,
+	node_features::FeatureIndex, transpose_claim_queue, CandidateCommitments,
+	CandidateDescriptorV2, CommittedCandidateReceiptV2, CoreIndex, Hash, Id as ParaId,
+	OccupiedCoreAssumption, PersistedValidationData, SessionIndex, TransposedClaimQueue,
+	ValidationCodeHash,
 };
 use schnellru::{ByLength, LruMap};
 use std::{collections::HashSet, sync::Arc};
@@ -213,8 +214,7 @@ impl CollationGenerationSubsystem {
 
 		let node_features =
 			request_node_features(relay_parent, session_index, ctx.sender()).await.await??;
-		let v3_enabled = polkadot_primitives::node_features::FeatureIndex::CandidateReceiptV3
-			.is_set(&node_features);
+		let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&node_features);
 
 		let session_info =
 			self.session_info_cache.get(relay_parent, session_index, ctx.sender()).await?;
@@ -268,8 +268,7 @@ impl CollationGenerationSubsystem {
 
 		let node_features =
 			request_node_features(relay_parent, session_index, ctx.sender()).await.await??;
-		let v3_enabled = polkadot_primitives::node_features::FeatureIndex::CandidateReceiptV3
-			.is_set(&node_features);
+		let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&node_features);
 
 		let session_info =
 			self.session_info_cache.get(relay_parent, session_index, ctx.sender()).await?;

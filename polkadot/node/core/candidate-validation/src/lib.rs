@@ -211,9 +211,7 @@ where
 					.await
 					.await
 				{
-					Ok(Ok(features)) =>
-						polkadot_primitives::node_features::FeatureIndex::CandidateReceiptV3
-							.is_set(&features),
+					Ok(Ok(features)) => FeatureIndex::CandidateReceiptV3.is_set(&features),
 					Ok(Err(e)) => {
 						gum::warn!(
 							target: LOG_TARGET,
