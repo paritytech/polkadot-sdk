@@ -143,7 +143,9 @@ async fn assert_warp_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 			option_1_line.clone(),
 		)
 		.await?;
-	assert!(result.success(), "Warp sync is not started");
+	if !result.success() {
+		return Err(anyhow!("Warp sync is not started"));
+	}
 	let result = node
 		.wait_log_line_count_with_timeout(
 			r"(?<!\[Parachain\] )Starting import of [0-9]+ blocks.*\(origin: WarpSync\)",
@@ -151,7 +153,9 @@ async fn assert_warp_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 			option_1_line.clone(),
 		)
 		.await?;
-	assert!(result.success(), "Warp sync block import is not started");
+	if !result.success() {
+		return Err(anyhow!("Warp sync block import is not started"));
+	}
 	let result = node
 		.wait_log_line_count_with_timeout(
 			r"(?<!\[Parachain\] )Imported [0-9]+ out of [0-9]+ blocks.*\(origin: WarpSync\)",
@@ -159,7 +163,9 @@ async fn assert_warp_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 			option_1_line.clone(),
 		)
 		.await?;
-	assert!(result.success(), "Warp sync block import is not progressing");
+	if !result.success() {
+		return Err(anyhow!("Warp sync block import is not progressing"));
+	}
 
 	let result = node
 		.wait_log_line_count_with_timeout(
@@ -168,7 +174,9 @@ async fn assert_warp_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 			option_1_line.clone(),
 		)
 		.await?;
-	assert!(result.success(), "Warp sync is not complete");
+	if !result.success() {
+		return Err(anyhow!("Warp sync is not complete"));
+	}
 
 	Ok(())
 }
@@ -189,7 +197,9 @@ async fn assert_gap_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 			option_1_line.clone(),
 		)
 		.await?;
-	assert!(result.success(), "Gap sync not started");
+	if !result.success() {
+		return Err(anyhow!("Gap sync not started"));
+	}
 
 	let result = node
 		.wait_log_line_count_with_timeout(
@@ -198,7 +208,9 @@ async fn assert_gap_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 			option_at_least_5_lines.clone(),
 		)
 		.await?;
-	assert!(result.success(), "Gap sync block imports are not started");
+	if !result.success() {
+		return Err(anyhow!("Gap sync block imports are not started"));
+	}
 
 	let result = node
 		.wait_log_line_count_with_timeout(
@@ -207,7 +219,9 @@ async fn assert_gap_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 			option_at_least_5_lines,
 		)
 		.await?;
-	assert!(result.success(), "Gap sync block imports are not progressing");
+	if !result.success() {
+		return Err(anyhow!("Gap sync block imports are not progressing"));
+	}
 
 	let result = node
 		.wait_log_line_count_with_timeout(
@@ -216,7 +230,9 @@ async fn assert_gap_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 			option_1_line.clone(),
 		)
 		.await?;
-	assert!(result.success(), "Gap sync is not complete");
+	if !result.success() {
+		return Err(anyhow!("Gap sync is not complete"));
+	}
 
 	Ok(())
 }
@@ -245,11 +261,10 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 	// check progress
 	for name in ["two", "three", "four"] {
 		log::info!("Checking full node {name} is syncing");
-		assert!(network
+		network
 			.get_node(name)?
 			.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= 930.0, 225u64)
-			.await
-			.is_ok());
+			.await?;
 	}
 
 	Ok(())
