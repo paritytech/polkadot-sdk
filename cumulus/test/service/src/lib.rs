@@ -231,7 +231,7 @@ pub fn new_partial(
 				Ok((slot, timestamp))
 			},
 			spawner: &task_manager.spawn_essential_handle(),
-			registry: config.prometheus_registry(),
+			registry: None,
 			telemetry: None,
 		},
 	)?;
@@ -428,7 +428,7 @@ where
 		relay_chain_slot_duration,
 		recovery_handle,
 		sync_service: sync_service.clone(),
-		prometheus_registry: prometheus_registry.as_ref(),
+		prometheus_registry: None,
 	})?;
 
 	let collator_peer_id = network.local_peer_id();
