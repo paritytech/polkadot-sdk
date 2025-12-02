@@ -1,0 +1,7 @@
+title: Align Errors between Bulletin and SDK
+doc:
+- audience: Runtime Dev
+  description: Aligns Errors between Bulletin and SDK
+crates:
+- name: pallet-transaction-storage
+  bump: patch
