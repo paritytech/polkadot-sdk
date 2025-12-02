@@ -72,6 +72,18 @@ pub enum EnactmentAction<Block: BlockT> {
 	HandleEnactment(TreeRoute<Block>),
 	/// Enactment phase of maintenance shall be skipped
 	HandleFinalization,
+	/// Chain reversion shall be handled.
+	///
+	/// Triggered when the blockchain is reverted to an earlier state.
+	/// This action performs complete cleanup of all state beyond the revert point:
+	/// - Removes all views (across all forks) with block number greater than the revert target
+	/// - Collects and removes all transactions that were included in reverted blocks
+	/// - Preserves pending transactions (never included) in the mempool.
+	///   They will most likely be invalidated at resubmit point.
+	/// - Creates a new view at the revert target block
+	///
+	/// The hash parameter identifies the block to revert to (the new head).
+	HandleReversion(Block::Hash),
 }
 
 impl<Block> EnactmentState<Block>
@@ -104,6 +116,11 @@ where
 		let new_hash = event.hash();
 		let finalized = event.is_finalized();
 
+		if let ChainEvent::Reverted { hash } = event {
+			trace!(target: LOG_TARGET, "handle_enactment: chain is reverted.");
+			self.force_update(event);
+			return Ok(EnactmentAction::HandleReversion(*hash))
+		}
 		// do not proceed with txpool maintain if block distance is too high
 		let skip_maintenance =
 			match (hash_to_number(new_hash), hash_to_number(self.recent_best_block)) {

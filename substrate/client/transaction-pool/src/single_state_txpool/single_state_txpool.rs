@@ -801,6 +801,7 @@ where
 			Ok(EnactmentAction::HandleEnactment(tree_route)) => {
 				self.handle_enactment(tree_route).await;
 			},
+			Ok(EnactmentAction::HandleReversion(_)) => return,
 		};
 
 		if let ChainEvent::Finalized { hash, tree_route } = event {
