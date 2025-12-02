@@ -1,8 +1,8 @@
 {% if env.NO_RUNTIMES == "true" -%}
 ℹ️ **Please note:**
 
-This is a patch release for the latest stable version: `{{ env.STABLE_VERSION }}`. If your nodes are already running on this version,
-you can consider upgrading to it to have the latest fixes.
+This is a patch release for the latest stable version: `{{ env.STABLE_VERSION }}`. If your nodes are already running on this stable release,
+you should upgrade to this patch version to get the latest fixes.
 
 The tag corresponding to the current patch release `{{ env.REF2 }}` and matching the old pattern will be
 available under [polkadot-{{ env.NODE_VERSION }}](https://github.com/paritytech/polkadot-sdk/releases/tag/polkadot-{{ env.NODE_VERSION }}).
