@@ -294,8 +294,8 @@ pub enum BitswapError {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use litep2p::types::multihash::Code;
 	use futures::channel::oneshot;
+	use litep2p::types::multihash::Code;
 	use sc_block_builder::BlockBuilderBuilder;
 	use schema::bitswap::{
 		message::{wantlist::Entry, Wantlist},
