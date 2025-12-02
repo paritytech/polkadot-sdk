@@ -54,7 +54,7 @@ pub fn new_best_block_event(
 }
 
 pub fn new_revert_event(to: Hash) -> ChainEvent<Block> {
-	ChainEvent::Reverted { hash: to }
+	ChainEvent::Reverted { new_head: to }
 }
 
 pub fn finalized_block_event(

@@ -392,24 +392,9 @@ pub enum ChainEvent<B: BlockT> {
 	/// The chain has been reverted to an earlier state.
 	///
 	/// The hash passed in this event updates the pool’s internal record of the finalized block.
-	/// This event triggers comprehensive cleanup of all blockchain state beyond the revert point:
-	///
-	/// Cleanup Actions:
-	/// - All forks removed: Every view (active and inactive) with block number greater than the
-	///   new head is removed, regardless of which fork it belongs to.
-	/// - Included transactions purged: All transactions that were included in blocks beyond the
-	///   revert point (across all forks) are completely removed from the mempool. These
-	///   transactions can be freshly resubmitted after the revert.
-	/// - Pending transactions preserved: Transactions that were never included in any block (both
-	///   in ready and future queues) remain in the mempool and will be revalidated against the
-	///   reverted state.
-	/// - New view created: A fresh view is created at the revert target block if one doesn't
-	///   already exist.
-	///
-	/// Primarily used in development and testing environments.
 	Reverted {
 		/// Hash of the new head
-		hash: B::Hash,
+		new_head: B::Hash,
 	},
 }
 
@@ -418,8 +403,8 @@ impl<B: BlockT> ChainEvent<B> {
 	pub fn hash(&self) -> B::Hash {
 		match self {
 			Self::NewBestBlock { hash, .. } |
-			Self::Finalized { hash, .. } |
-			Self::Reverted { hash, .. } => *hash,
+			Self::Finalized { hash, .. } => *hash,
+			Self::Reverted { new_head } => *new_head,
 		}
 	}
 

@@ -2148,8 +2148,8 @@ where
 			Ok(EnactmentAction::HandleEnactment(tree_route)) => {
 				self.handle_new_block(&tree_route).await;
 			},
-			Ok(EnactmentAction::HandleReversion(hash)) => {
-				self.handle_reverted(hash).await;
+			Ok(EnactmentAction::HandleReversion { new_head }) => {
+				self.handle_reverted(new_head).await;
 			},
 		};
 
