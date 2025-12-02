@@ -723,6 +723,7 @@ cfg-if = { version = "1.0" }
 chain-spec-builder = { path = "substrate/bin/utils/chain-spec-builder", default-features = false, package = "staging-chain-spec-builder" }
 chain-spec-guide-runtime = { path = "docs/sdk/src/reference_docs/chain_spec_runtime" }
 chrono = { version = "0.4.31" }
+cid = { version = "0.11.1" }
 clap = { version = "4.5.13" }
 clap_complete = { version = "4.5.13" }
 cmd_lib = { version = "1.9.5" }
