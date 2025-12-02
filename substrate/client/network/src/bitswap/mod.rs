@@ -28,7 +28,7 @@ use crate::{
 };
 
 use futures::StreamExt;
-use litep2p::types::cid::{Cid, Error as CidError, Version};
+use litep2p::types::cid::{Cid, Error as CidError, Version as CidVersion};
 use log::{debug, error, trace};
 use prost::Message;
 use sc_client_api::BlockBackend;
@@ -62,7 +62,7 @@ const PROTOCOL_NAME: &'static str = "/ipfs/bitswap/1.2.0";
 
 /// Check if a CID is supported by the bitswap protocol.
 pub fn is_cid_supported(cid: &Cid) -> bool {
-	cid.version() != Version::V0 && cid.hash().size() == 32
+	cid.version() != CidVersion::V0 && cid.hash().size() == 32
 }
 
 /// Prefix represents all metadata of a CID, without the actual content.
