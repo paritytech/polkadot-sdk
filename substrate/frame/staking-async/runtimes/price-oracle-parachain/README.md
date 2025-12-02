@@ -30,11 +30,13 @@ Final zombienet config is: `zn-oracle.toml`. It runs:
 The new pallets are in the `price-oracle-parachain-runtime`. They are:
 
 1. `price_oracle`: Where we run the offchain worker
+2. `rc_client`: The one receiving validators from the RC, and acting as the local session manager of the price-oracle
+   parachain.
 
 #### How it works
 
-We use pretty much only existing traits and mechanisms to forward new validator sets to the price-oracle. It is
-explained in `price-oracle/src/lib.rs` docs.
+We use pretty much only existing traits and mechanisms to forward new validator sets to the price-oracle and integrate
+them in an existing session pallet, with a bit of gymnastics. It is explained in `price-oracle/src/lib.rs` docs.
 
 #### Limitation and Next Steps
 
@@ -45,7 +47,8 @@ some scripts that at startup. Without this, our setup is not realistic
 lots of TODOs are left in the code. Notably:
 
 1. We need a tx extension that either does `CheckNonce` or mimics it. Currently it doesn't work.
-2. Make our `bump` tx `Operational`, making sure even if some manic moves DOTs to this chain and remark-spams it, it is pointless.
+2. Make our `bump` tx `Operational`, making sure even if some manic moves DOTs to this chain and remark-spams it, it is
+   pointless.
 3. Work out what the longevity of the `bumps` should be. `CheckNonce` will help as the new ones will invalidate old
    ones. Currently we stack too many txs even with two nodes.
 4. No mechanism yet exists to send price update to AH. It will be simple though.
