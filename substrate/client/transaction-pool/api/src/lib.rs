@@ -391,9 +391,10 @@ pub enum ChainEvent<B: BlockT> {
 	},
 	/// The chain has been reverted to an earlier state.
 	///
+	/// The hash passed in this event will become the new finalized block.
 	/// This event triggers comprehensive cleanup of all blockchain state beyond the revert point:
 	///
-	/// ## Cleanup Actions:
+	/// Cleanup Actions:
 	/// - All forks removed: Every view (active and inactive) with block number greater than the
 	///   new head is removed, regardless of which fork it belongs to.
 	/// - Included transactions purged: All transactions that were included in blocks beyond the
