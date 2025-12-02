@@ -409,13 +409,14 @@ benchmarks_instance_pallet! {
 		}
 
 		let flag = VotingFor::<T, I>::get(&caller, &class).allow_delegator_voting;
-		assert_eq!(flag, false, "Voting should not be allowed.");
+		assert_eq!(flag, true, "Voting should be allowed.");
 
 	}: _(RawOrigin::Signed(caller.clone()), class.clone())
 	verify {
 		assert_eq!(
 			VotingFor::<T, I>::get(&caller, &class).allow_delegator_voting,
-			true
+			false,
+			"Voting should not be allowed."
 		);
 	}
 
