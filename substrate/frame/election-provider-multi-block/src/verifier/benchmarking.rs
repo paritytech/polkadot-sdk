@@ -39,7 +39,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn on_initialize_valid_non_terminal() -> Result<(), BenchmarkError> {
+	fn verification_valid_non_terminal() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
 		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
 		crate::Pallet::<T>::start().unwrap();
@@ -51,15 +51,13 @@ mod benchmarks {
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::SignedValidation(_))
 		});
-		// send start signal
-		crate::Pallet::<T>::roll_next(true, false);
 
 		// start signal must have been sent by now
 		assert_eq!(StatusStorage::<T>::get(), Status::Ongoing(crate::Pallet::<T>::msp()));
 
 		#[block]
 		{
-			crate::Pallet::<T>::roll_next(true, false);
+			crate::Pallet::<T>::roll_next(false);
 		}
 		assert_eq!(StatusStorage::<T>::get(), Status::Ongoing(crate::Pallet::<T>::msp() - 1));
 
@@ -67,7 +65,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn on_initialize_valid_terminal() -> Result<(), BenchmarkError> {
+	fn verification_valid_terminal() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
 		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
 		crate::Pallet::<T>::start().unwrap();
@@ -83,13 +81,11 @@ mod benchmarks {
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::SignedValidation(_))
 		});
-		// send start signal
-		crate::Pallet::<T>::roll_next(true, false);
 
 		// start signal must have been sent by now
 		assert_eq!(StatusStorage::<T>::get(), Status::Ongoing(crate::Pallet::<T>::msp()));
 		for _ in 0..(T::Pages::get() - 1) {
-			crate::Pallet::<T>::roll_next(true, false);
+			crate::Pallet::<T>::roll_next(false);
 		}
 
 		// we must have verified all pages by now, minus the last one.
@@ -101,7 +97,7 @@ mod benchmarks {
 		// verify the last page.
 		#[block]
 		{
-			crate::Pallet::<T>::roll_next(true, false);
+			crate::Pallet::<T>::roll_next(false);
 		}
 
 		// we are done
@@ -116,7 +112,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn on_initialize_invalid_terminal() -> Result<(), BenchmarkError> {
+	fn verification_invalid_terminal() -> Result<(), BenchmarkError> {
 		// this is the verification of the current page + removing all of the previously valid
 		// pages. The worst case is therefore when the last page is invalid, for example the final
 		// score.
@@ -137,13 +133,11 @@ mod benchmarks {
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::SignedValidation(_))
 		});
-		// send start signal
-		crate::Pallet::<T>::roll_next(true, false);
 
 		assert_eq!(StatusStorage::<T>::get(), Status::Ongoing(crate::Pallet::<T>::msp()));
 		// verify all pages, except for the last one.
 		for i in 0..T::Pages::get() - 1 {
-			crate::Pallet::<T>::roll_next(true, false);
+			crate::Pallet::<T>::roll_next(false);
 			assert_eq!(
 				StatusStorage::<T>::get(),
 				Status::Ongoing(crate::Pallet::<T>::msp() - 1 - i)
@@ -159,7 +153,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::roll_next(true, false);
+			crate::Pallet::<T>::roll_next(false);
 		}
 
 		// we are now reset.
@@ -177,7 +171,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn on_initialize_invalid_non_terminal(
+	fn verification_invalid_non_terminal(
 		// number of valid pages that have been verified, before we verify the non-terminal invalid
 		// page.
 		v: Linear<0, { T::Pages::get() - 1 }>,
@@ -206,15 +200,13 @@ mod benchmarks {
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::SignedValidation(_))
 		});
-		// send start signal
-		crate::Pallet::<T>::roll_next(true, false);
 
 		// we should be ready to go
 		assert_eq!(StatusStorage::<T>::get(), Status::Ongoing(crate::Pallet::<T>::msp()));
 
 		// validate the the parameterized number of valid pages.
 		for _ in 0..v {
-			crate::Pallet::<T>::roll_next(true, false);
+			crate::Pallet::<T>::roll_next(false);
 		}
 
 		// we are still ready to continue
@@ -223,7 +215,7 @@ mod benchmarks {
 		// verify one page, which will be invalid.
 		#[block]
 		{
-			crate::Pallet::<T>::roll_next(true, false);
+			crate::Pallet::<T>::roll_next(false);
 		}
 
 		// we are now reset, because this page was invalid.
