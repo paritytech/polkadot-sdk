@@ -292,7 +292,6 @@ where
 		if self.create_code.take().is_some() {
 			self.created_addrs.insert(to);
 		} else {
-
 			self.read_account(to);
 		}
 	}
