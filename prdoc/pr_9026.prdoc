@@ -33,5 +33,7 @@ crates:
   bump: major
 - name: pallet-staking-async-rc-runtime
   bump: major
+- name: pallet-staking-async-parachain-runtime
+  bump: major
 - name: pallet-conviction-voting
   bump: major
