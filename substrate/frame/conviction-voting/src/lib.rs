@@ -56,7 +56,7 @@ pub use self::{
 	pallet::*,
 	traits::{Status, VotingHooks},
 	types::{Delegations, Tally, UnvoteScope},
-	vote::{AccountVote, PriorLock, Vote, PollRecord, Voting},
+	vote::{AccountVote, PollRecord, PriorLock, Vote, Voting},
 	weights::WeightInfo,
 };
 use sp_runtime::traits::BlockNumberProvider;
@@ -245,8 +245,8 @@ pub mod pallet {
 		ClassNeeded,
 		/// The class ID supplied is invalid.
 		BadClass,
-		/// The voter's delegate has reached the maximum number of votes and has no room for the retraction.
-		/// Clear delegate votes or undelegate.
+		/// The voter's delegate has reached the maximum number of votes and has no room for the
+		/// retraction. Clear delegate votes or undelegate.
 		NoRoomForRetraction,
 		/// The delegate does not allow for delegator voting.
 		/// Ask delegate to allow voting or undelegate.
@@ -905,8 +905,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			}
 
 			// Replace the old, empty vote vec with the new merged vec.
-			voting.votes = BoundedVec::try_from(new_votes)
-				.map_err(|_| Error::<T, I>::NoRoomForRetraction)?;
+			voting.votes =
+				BoundedVec::try_from(new_votes).map_err(|_| Error::<T, I>::NoRoomForRetraction)?;
 
 			// Return the original (R, S) lengths for the weight calculation
 			Ok((r_len as u32, s_len as u32))

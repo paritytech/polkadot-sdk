@@ -747,7 +747,7 @@ fn errors_with_vote_work() {
 		);
 
 		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(2), 0));
-		
+
 		// Cannot vote if delegate has turned it off.
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10));
 		assert_noop!(
@@ -755,12 +755,15 @@ fn errors_with_vote_work() {
 			Error::<Test>::DelegateHasDisabledDelegatorVoting
 		);
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
-		
+
 		// Cannot delegate with an existing vote if delegate has turned it off.
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 0, aye(10, 0)));
-		assert_noop!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10), Error::<Test>::DelegateHasDisabledDelegatorVoting);
+		assert_noop!(
+			Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10),
+			Error::<Test>::DelegateHasDisabledDelegatorVoting
+		);
 		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), None, 0));
-		
+
 		assert_ok!(Voting::toggle_allow_delegator_voting(RuntimeOrigin::signed(2), 0));
 
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 0, aye(10, 0)));

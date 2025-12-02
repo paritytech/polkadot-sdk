@@ -68,7 +68,11 @@ fn account_vote<T: Config<I>, I: 'static>(b: BalanceOf<T, I>) -> AccountVote<Bal
 	AccountVote::Standard { vote: v, balance: b }
 }
 
-fn set_delegator_voting<T: Config<I>, I: 'static>(who: &T::AccountId, class: &ClassOf<T, I>, b: bool) {
+fn set_delegator_voting<T: Config<I>, I: 'static>(
+	who: &T::AccountId,
+	class: &ClassOf<T, I>,
+	b: bool,
+) {
 	VotingFor::<T, I>::mutate(who, class, |voting| {
 		voting.allow_delegator_voting = b;
 	});

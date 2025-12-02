@@ -203,7 +203,7 @@ type RetractedVotes<Balance> = Delegations<Balance>;
 pub struct PollRecord<PollIndex, Balance> {
 	/// The poll index this information concerns.
 	pub poll_index: PollIndex,
-	/// The vote this account has cast. 
+	/// The vote this account has cast.
 	/// Can be `None` if one of this account's delegates has voted and they have not.
 	pub maybe_vote: Option<AccountVote<Balance>>,
 	/// The amount of votes retracted from the account for this poll.
