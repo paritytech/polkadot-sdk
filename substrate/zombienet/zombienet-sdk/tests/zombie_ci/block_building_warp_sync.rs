@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::utils::{
-	env_or_default, initialize_network, log_line_absent, log_line_at_least_once,
-	resolve_db_snapshot_height, BEEFY_BEST_BLOCK_METRIC, BEST_BLOCK_METRIC, CHAIN_SPEC_ENV,
+	env_or_default, initialize_network, log_line_absent, resolve_db_snapshot_height,
+	wait_for_warp_sync_logs, BEEFY_BEST_BLOCK_METRIC, BEST_BLOCK_METRIC, CHAIN_SPEC_ENV,
 	DB_SNAPSHOT_ENV, DEFAULT_CHAIN_SPEC, DEFAULT_DB_SNAPSHOT_URL, DEFAULT_SUBSTRATE_IMAGE,
 	FULLNODE_ROLE_VALUE, INTEGRATION_IMAGE_ENV, VALIDATOR_ROLE_VALUE,
 };
@@ -16,8 +16,6 @@ const PEER_TIMEOUT_SECS: u64 = 60;
 const BOOTSTRAP_TIMEOUT_SECS: u64 = 180;
 const METRIC_TIMEOUT_SECS: u64 = 60;
 const NEW_BLOCK_TIMEOUT_SECS: u64 = 120;
-const LOG_TIMEOUT_LONG_SECS: u64 = 60;
-const LOG_TIMEOUT_SHORT_SECS: u64 = 10;
 const LOG_ERROR_TIMEOUT_SECS: u64 = 10;
 const BEEFY_SYNC_TIMEOUT_SECS: u64 = 180;
 const BEEFY_PROGRESS_TIMEOUT_SECS: u64 = 60;
@@ -48,9 +46,9 @@ async fn block_building_warp_sync() -> Result<()> {
 
 	let dave = network.get_node("dave")?;
 	verify_node_progress(dave, db_snapshot_height).await?;
-	verify_node_logs(dave).await?;
+	wait_for_warp_sync_logs(dave).await?;
 	verify_node_beefy(dave, db_snapshot_height).await?;
-	verify_node_log_errors_absent(dave).await?;
+	check_error_logs(dave).await?;
 
 	network.destroy().await?;
 
@@ -232,34 +230,6 @@ async fn verify_node_progress(node: &NetworkNode, db_snapshot_height: f64) -> Re
 	Ok(())
 }
 
-async fn verify_node_logs(node: &NetworkNode) -> Result<()> {
-	let node_name = node.name();
-
-	node.wait_log_line_count_with_timeout(
-		"Warp sync is complete",
-		false,
-		log_line_at_least_once(LOG_TIMEOUT_LONG_SECS),
-	)
-	.await
-	.with_context(|| format!("{node_name} never emitted 'Warp sync is complete'"))?;
-	node.wait_log_line_count_with_timeout(
-		"State sync is complete",
-		false,
-		log_line_at_least_once(LOG_TIMEOUT_LONG_SECS),
-	)
-	.await
-	.with_context(|| format!("{node_name} never emitted 'State sync is complete'"))?;
-	node.wait_log_line_count_with_timeout(
-		"Block history download is complete",
-		false,
-		log_line_at_least_once(LOG_TIMEOUT_SHORT_SECS),
-	)
-	.await
-	.with_context(|| format!("{node_name} never emitted 'Block history download is complete'"))?;
-
-	Ok(())
-}
-
 async fn verify_node_beefy(node: &NetworkNode, db_snapshot_height: f64) -> Result<()> {
 	let node_name = node.name();
 
@@ -289,7 +259,7 @@ async fn verify_node_beefy(node: &NetworkNode, db_snapshot_height: f64) -> Resul
 	Ok(())
 }
 
-async fn verify_node_log_errors_absent(node: &NetworkNode) -> Result<()> {
+async fn check_error_logs(node: &NetworkNode) -> Result<()> {
 	let node_name = node.name();
 
 	node.wait_log_line_count_with_timeout(

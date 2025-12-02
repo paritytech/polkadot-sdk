@@ -20,9 +20,12 @@ targets = ["x86_64-unknown-linux-gnu"]
 async-trait = { workspace = true }
 futures = { features = ["thread-pool"], workspace = true }
 log = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sp-externalities = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
+sp-trie = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]

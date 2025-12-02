@@ -3,9 +3,9 @@
 
 use crate::utils::{
 	env_or_default, initialize_network, log_line_absent, log_line_at_least_once,
-	resolve_db_snapshot_height, BEST_BLOCK_METRIC, CHAIN_SPEC_ENV, DB_SNAPSHOT_ENV,
-	DEFAULT_CHAIN_SPEC, DEFAULT_DB_SNAPSHOT_URL, DEFAULT_SUBSTRATE_IMAGE, FULLNODE_ROLE_VALUE,
-	INTEGRATION_IMAGE_ENV, NODE_ROLE_METRIC, PEER_COUNT_METRIC,
+	resolve_db_snapshot_height, wait_for_warp_sync_logs, BEST_BLOCK_METRIC, CHAIN_SPEC_ENV,
+	DB_SNAPSHOT_ENV, DEFAULT_CHAIN_SPEC, DEFAULT_DB_SNAPSHOT_URL, DEFAULT_SUBSTRATE_IMAGE,
+	FULLNODE_ROLE_VALUE, INTEGRATION_IMAGE_ENV, NODE_ROLE_METRIC, PEER_COUNT_METRIC,
 };
 use anyhow::{anyhow, Context, Result};
 use env_logger::Env;
@@ -18,7 +18,6 @@ const NETWORK_READY_TIMEOUT_SECS: u64 = 180;
 const ROLE_TIMEOUT_SECS: u64 = 60;
 const PEERS_TIMEOUT_SECS: u64 = 60;
 const METRIC_TIMEOUT_SECS: u64 = 60;
-const LOG_TIMEOUT_LONG_SECS: u64 = 60;
 const LOG_TIMEOUT_SHORT_SECS: u64 = 10;
 const LOG_ERROR_TIMEOUT_SECS: u64 = 10;
 const SNAPSHOT_NODES: [&str; 3] = ["alice", "bob", "charlie"];
@@ -150,26 +149,9 @@ async fn assert_peers_count(node: &NetworkNode) -> Result<()> {
 }
 
 async fn wait_for_warp_logs(node: &NetworkNode) -> Result<()> {
-	node.wait_log_line_count_with_timeout(
-		"Warp sync is complete",
-		false,
-		log_line_at_least_once(LOG_TIMEOUT_LONG_SECS),
-	)
-	.await?;
+	wait_for_warp_sync_logs(node).await?;
 	node.wait_log_line_count_with_timeout(
 		r"Checking for displaced leaves after finalization\. leaves=\[0xc5e7b4cfd23932bb930e859865430a35f6741b4732d677822d492ca64cc8d059\]",
-		false,
-		log_line_at_least_once(LOG_TIMEOUT_SHORT_SECS),
-	)
-	.await?;
-	node.wait_log_line_count_with_timeout(
-		"State sync is complete",
-		false,
-		log_line_at_least_once(LOG_TIMEOUT_LONG_SECS),
-	)
-	.await?;
-	node.wait_log_line_count_with_timeout(
-		"Block history download is complete",
 		false,
 		log_line_at_least_once(LOG_TIMEOUT_SHORT_SECS),
 	)

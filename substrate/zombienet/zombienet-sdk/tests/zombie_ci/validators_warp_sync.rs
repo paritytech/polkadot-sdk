@@ -3,10 +3,10 @@
 
 use crate::utils::{
 	env_or_default, initialize_network, log_line_absent, log_line_at_least_once,
-	log_line_exactly_once, resolve_db_snapshot_height, BEEFY_BEST_BLOCK_METRIC, BEST_BLOCK_METRIC,
-	CHAIN_SPEC_ENV, DB_SNAPSHOT_ENV, DEFAULT_CHAIN_SPEC, DEFAULT_DB_SNAPSHOT_URL,
-	DEFAULT_SUBSTRATE_IMAGE, FINALIZED_BLOCK_METRIC, FULLNODE_ROLE_VALUE, INTEGRATION_IMAGE_ENV,
-	VALIDATOR_ROLE_VALUE,
+	log_line_exactly_once, resolve_db_snapshot_height, wait_for_warp_sync_logs,
+	BEEFY_BEST_BLOCK_METRIC, BEST_BLOCK_METRIC, CHAIN_SPEC_ENV, DB_SNAPSHOT_ENV,
+	DEFAULT_CHAIN_SPEC, DEFAULT_DB_SNAPSHOT_URL, DEFAULT_SUBSTRATE_IMAGE, FINALIZED_BLOCK_METRIC,
+	FULLNODE_ROLE_VALUE, INTEGRATION_IMAGE_ENV, VALIDATOR_ROLE_VALUE,
 };
 use anyhow::{anyhow, Result};
 use env_logger::Env;
@@ -20,7 +20,6 @@ const FINALITY_TIMEOUT_SECS: u64 = 120;
 const VALIDATOR_BLOCK_TIMEOUT_SECS: u64 = 10;
 const NEW_BLOCK_TIMEOUT_SECS: u64 = 90;
 const LOG_TIMEOUT_LONG_SECS: u64 = 60;
-const LOG_TIMEOUT_BHB_SECS: u64 = 120;
 const LOG_ERROR_TIMEOUT_SECS: u64 = 10;
 const BEEFY_PROGRESS_TIMEOUT_SECS: u64 = 180;
 
@@ -111,7 +110,10 @@ async fn validators_warp_sync() -> Result<()> {
 			.await?;
 	}
 
-	check_warp_logs(&network, LOG_TIMEOUT_LONG_SECS, LOG_TIMEOUT_BHB_SECS).await?;
+	for validator in VALIDATORS {
+		let node = network.get_node(validator)?;
+		wait_for_warp_sync_logs(node).await?;
+	}
 	check_error_logs(&network).await?;
 
 	// Finality must catch up to the snapshot height on validators.
@@ -209,36 +211,6 @@ fn build_network_config() -> Result<NetworkConfig> {
 				errs.into_iter().map(|err| err.to_string()).collect::<Vec<_>>().join(", ");
 			anyhow!("config errs: {message}")
 		})
-}
-
-async fn check_warp_logs(
-	network: &zombienet_sdk::Network<zombienet_sdk::LocalFileSystem>,
-	long_timeout: u64,
-	short_timeout: u64,
-) -> Result<()> {
-	for validator in VALIDATORS {
-		let node = network.get_node(validator)?;
-		node.wait_log_line_count_with_timeout(
-			"Warp sync is complete",
-			false,
-			log_line_at_least_once(long_timeout),
-		)
-		.await?;
-		node.wait_log_line_count_with_timeout(
-			"State sync is complete",
-			false,
-			log_line_at_least_once(long_timeout),
-		)
-		.await?;
-		node.wait_log_line_count_with_timeout(
-			"Block history download is complete",
-			false,
-			log_line_at_least_once(short_timeout),
-		)
-		.await?;
-	}
-
-	Ok(())
 }
 
 async fn check_error_logs(

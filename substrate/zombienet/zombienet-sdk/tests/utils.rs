@@ -3,8 +3,9 @@
 
 use std::time::Duration;
 
+use anyhow::Context;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
-use zombienet_sdk::{LocalFileSystem, Network, NetworkConfig};
+use zombienet_sdk::{LocalFileSystem, Network, NetworkConfig, NetworkNode};
 
 pub const BEST_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
 pub const FINALIZED_BLOCK_METRIC: &str = "substrate_block_height{status=\"finalized\"}";
@@ -20,6 +21,9 @@ pub const DEFAULT_CHAIN_SPEC: &str =
 
 pub const FULLNODE_ROLE_VALUE: f64 = 1.0;
 pub const VALIDATOR_ROLE_VALUE: f64 = 4.0;
+
+pub const WARP_SYNC_LOG_TIMEOUT_SECS: u64 = 60;
+pub const WARP_SYNC_BLOCK_HISTORY_TIMEOUT_SECS: u64 = 120;
 
 pub const INTEGRATION_IMAGE_ENV: &str = "ZOMBIENET_INTEGRATION_TEST_IMAGE";
 pub const DB_SNAPSHOT_ENV: &str = "DB_SNAPSHOT";
@@ -75,4 +79,33 @@ pub fn log_line_exactly_once(timeout_secs: u64) -> LogLineCountOptions {
 
 pub fn log_line_absent(timeout_secs: u64) -> LogLineCountOptions {
 	LogLineCountOptions::no_occurences_within_timeout(Duration::from_secs(timeout_secs))
+}
+
+pub async fn wait_for_warp_sync_logs(node: &NetworkNode) -> anyhow::Result<()> {
+	let node_name = node.name();
+
+	node.wait_log_line_count_with_timeout(
+		"Warp sync is complete",
+		false,
+		log_line_at_least_once(WARP_SYNC_LOG_TIMEOUT_SECS),
+	)
+	.await
+	.with_context(|| format!("{node_name} never emitted 'Warp sync is complete'"))?;
+
+	node.wait_log_line_count_with_timeout(
+		"State sync is complete",
+		false,
+		log_line_at_least_once(WARP_SYNC_LOG_TIMEOUT_SECS),
+	)
+	.await
+	.with_context(|| format!("{node_name} never emitted 'State sync is complete'"))?;
+	node.wait_log_line_count_with_timeout(
+		"Block history download is complete",
+		false,
+		log_line_at_least_once(WARP_SYNC_BLOCK_HISTORY_TIMEOUT_SECS),
+	)
+	.await
+	.with_context(|| format!("{node_name} never emitted 'Block history download is complete'"))?;
+
+	Ok(())
 }
