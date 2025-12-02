@@ -25,6 +25,7 @@ use alloc::{boxed::Box, fmt::Debug, rc::Rc, string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::cell::RefCell;
 use frame_support::{traits::tokens::Balance, weights::Weight};
+use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{

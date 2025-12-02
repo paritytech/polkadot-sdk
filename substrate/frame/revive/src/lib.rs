@@ -105,6 +105,7 @@ pub use crate::{
 		EthTxInfo, FrameMeter, ResourceMeter, Token as WeightToken, TransactionLimits,
 		TransactionMeter,
 	},
+	pallet::{genesis, *},
 	storage::{AccountInfo, ContractInfo},
 	transient_storage::{MeterEntry, StorageMeter as TransientStorageMeter, TransientStorage},
 	vm::{BytecodeType, ContractBlob},
