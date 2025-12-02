@@ -351,6 +351,19 @@ pub mod pallet {
 		Renewed { index: u32, hash: ContentHash },
 		/// Storage proof was successfully checked.
 		ProofChecked,
+		/// An account `who` was authorized to store `bytes` bytes in `transactions` transactions.
+		AccountAuthorized { who: T::AccountId, transactions: u32, bytes: u64 },
+		/// An authorization for account `who` was refreshed.
+		AccountAuthorizationRefreshed { who: T::AccountId },
+		/// Authorization was given for a preimage of `hash` (not exceeding `max_size`) to be
+		/// stored by anyone.
+		PreimageAuthorized { hash: ContentHash, max_size: u64 },
+		/// An authorization for a preimage of `hash` was refreshed.
+		PreimageAuthorizationRefreshed { hash: ContentHash },
+		/// An expired account authorization was removed.
+		ExpiredAccountAuthorizationRemoved { who: T::AccountId },
+		/// An expired preimage authorization was removed.
+		ExpiredPreimageAuthorizationRemoved { hash: ContentHash },
 	}
 
 	/// Collection of transaction metadata by block number.
