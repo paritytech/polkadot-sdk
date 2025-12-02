@@ -34,7 +34,8 @@ cargo run --release -- --chain=sc.json -d /tmp/bob --storage-chain --keep-blocks
 ```
 
 `--storage-chain` enables transaction indexing. `--keep-blocks=100800` enables block pruning. The value here should be
-greater or equal than the storage period. `--ipfs-server` enables serving stored content over IPFS.
+greater or equal than the storage period. `--ipfs-server` enables serving stored content over IPFS Bitswap (`/ipfs/bitswap/1.2.0`).
+This is supported on both network backends (litep2p and libp2p).
 
 Once the network is started, any other joining nodes need to sync with `--sync=fast`. Regular sync will fail because
 block pruning removes old blocks. The chain does not keep full block history.
