@@ -4,4 +4,4 @@ doc:
   description: Aligns Errors between Bulletin and SDK
 crates:
 - name: pallet-transaction-storage
-  bump: patch
+  bump: major
