@@ -18,8 +18,8 @@
 use crate::{
 	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
 	tests::{builder, ExtBuilder, Test},
-	CallResources, Code, Config, EthTxInfo, StorageDeposit, TransactionLimits, TransactionMeter,
-	WeightToken,
+	BalanceOf, CallResources, Code, Config, EthTxInfo, StorageDeposit, TransactionLimits,
+	TransactionMeter, WeightToken,
 };
 use alloy_core::sol_types::SolCall;
 use frame_support::traits::fungible::Mutate;
@@ -107,7 +107,12 @@ fn substrate_metering_initialization_works() {
 	let gas_scale = <Test as Config>::GasScale::get();
 
 	let tests = vec![
-		(5_000_000_000, 1_000_000_000, 2_000, Some((2999999500, 1499999750, 11107, 599999900))),
+		(
+			5_000_000_000u64,
+			1_000_000_000,
+			2_000,
+			Some((2999999500u64, 1499999750, 11107, 599999900)),
+		),
 		(6_000_000_000, 1_000_000_000, 2_000, Some((3999999500, 1999999750, 13728, 799999900))),
 		(6_000_000_000, 1_000_000_000, 10_000, Some((2185302235, 1999999750, 5728, 437060447))),
 		(2_000_000_000, 1_000_000_000, 2_000, None),
@@ -127,7 +132,7 @@ fn substrate_metering_initialization_works() {
 					EthTxInfo::<Test>::new(100, Weight::from_parts(extra_ref_time, extra_proof));
 				let transaction_meter =
 					TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
-						eth_gas_limit: (eth_gas_limit + gas_scale - 1) / gas_scale,
+						eth_gas_limit: eth_gas_limit.div_ceil(gas_scale),
 						maybe_weight_limit: None,
 						eth_tx_info,
 					});
@@ -135,7 +140,7 @@ fn substrate_metering_initialization_works() {
 				if let Some((gas_left, ref_time_left, proof_size_left, deposit_left)) = remaining {
 					let transaction_meter = transaction_meter.unwrap();
 					assert_eq!(
-						(gas_left + gas_scale - 1) / gas_scale,
+						gas_left.div_ceil(gas_scale),
 						transaction_meter.eth_gas_left().unwrap()
 					);
 					assert_eq!(
@@ -189,8 +194,11 @@ fn substrate_metering_charges_works() {
 	let gas_scale = <Test as Config>::GasScale::get();
 	let tests = vec![
 		(
-			(5_000_000_000, 1_000_000_000, 2_000),
-			vec![(W(1000, 100), Some((2999997500, 1499998750, 11007, 599999500, 2000002500u64)))],
+			(5_000_000_000u64, 1_000_000_000, 2_000),
+			vec![(
+				W(1000, 100),
+				Some((2999997500u64, 1499998750, 11007, 599999500, 2000002500u64)),
+			)],
 		),
 		(
 			(5_000_000_000, 1_000_000_000, 2_000),
@@ -257,7 +265,7 @@ fn substrate_metering_charges_works() {
 					EthTxInfo::<Test>::new(100, Weight::from_parts(extra_ref_time, extra_proof));
 				let mut transaction_meter =
 					TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
-						eth_gas_limit: (eth_gas_limit + gas_scale - 1) / gas_scale,
+						eth_gas_limit: eth_gas_limit.div_ceil(gas_scale),
 						maybe_weight_limit: None,
 						eth_tx_info,
 					})
@@ -289,7 +297,7 @@ fn substrate_metering_charges_works() {
 					{
 						assert!(is_ok);
 						assert_eq!(
-							(gas_left + gas_scale - 1) / gas_scale,
+							gas_left.div_ceil(gas_scale),
 							transaction_meter.eth_gas_left().unwrap()
 						);
 						assert_eq!(
@@ -298,7 +306,7 @@ fn substrate_metering_charges_works() {
 						);
 						assert_eq!(deposit_left, transaction_meter.deposit_left().unwrap());
 						assert_eq!(
-							(gas_consumed + gas_scale - 1) / gas_scale,
+							gas_consumed.div_ceil(gas_scale),
 							transaction_meter.total_consumed_gas()
 						);
 					} else {
@@ -316,8 +324,8 @@ fn substrate_nesting_works() {
 	let gas_scale = <Test as Config>::GasScale::get();
 	let tests = vec![
 		(
-			((5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000i64), NoLimits),
-			Some((2999992500, 1499996250, 10107, 599998500, 2000007500)),
+			((5_000_000_000u64, 1_000_000_000, 2_000, 1000, 1000, 1000i64), NoLimits),
+			Some((2999992500u64, 1499996250, 10107, 599998500, 2000007500u64)),
 		),
 		(
 			((5_000_000_000, 1_000_000_000, 2_000, 1000000000, 10000, 50000), NoLimits),
@@ -484,7 +492,7 @@ fn substrate_nesting_works() {
 				let eth_tx_info = EthTxInfo::<Test>::new(100, Weight::from_parts(extra_ref_time, extra_proof));
 				let mut transaction_meter =
 					TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
-						eth_gas_limit: (eth_gas_limit + gas_scale - 1) / gas_scale,
+						eth_gas_limit: eth_gas_limit.div_ceil(gas_scale),
 						maybe_weight_limit: None,
 						eth_tx_info: eth_tx_info.clone(),
 					})
@@ -506,7 +514,7 @@ fn substrate_nesting_works() {
 
 				let scaled_call_resource = match call_resource {
 					Ethereum { gas, add_stipend } =>
-						Ethereum { gas: (gas + gas_scale - 1) / gas_scale, add_stipend },
+						Ethereum { gas: (gas as BalanceOf<Test>).div_ceil(gas_scale), add_stipend },
 					_ => call_resource,
 				};
 				let nested = transaction_meter.new_nested(&scaled_call_resource);
@@ -520,19 +528,13 @@ fn substrate_nesting_works() {
 				)) = remaining
 				{
 					let nested = nested.unwrap();
-					assert_eq!(
-						(gas_left + gas_scale - 1) / gas_scale,
-						nested.eth_gas_left().unwrap()
-					);
+					assert_eq!(gas_left.div_ceil(gas_scale), nested.eth_gas_left().unwrap());
 					assert_eq!(
 						Weight::from_parts(ref_time_left, proof_size_left),
 						nested.weight_left().unwrap()
 					);
 					assert_eq!(deposit_left, nested.deposit_left().unwrap());
-					assert_eq!(
-						(gas_consumed + gas_scale - 1) / gas_scale,
-						nested.total_consumed_gas()
-					);
+					assert_eq!(gas_consumed.div_ceil(gas_scale), nested.total_consumed_gas());
 				} else {
 					assert!(nested.is_err());
 				}
@@ -547,9 +549,9 @@ fn substrate_nesting_charges_works() {
 	let gas_scale = <Test as Config>::GasScale::get();
 	let tests = vec![
 		(
-			(5_000_000_000, 1_000_000_000, 2_000, 1000, 100, 1000i64, 1000),
+			(5_000_000_000u64, 1_000_000_000, 2_000, 1000, 100, 1000i64, 1000u64),
 			vec![
-				(W(100, 100), Some((800, 400, 3042, 160, 2000007700))),
+				(W(100, 100), Some((800u64, 400, 3042, 160, 2000007700u64))),
 				(D(100), Some((300, 150, 3042, 60, 2000008200))),
 			],
 		),
@@ -593,7 +595,7 @@ fn substrate_nesting_charges_works() {
 					EthTxInfo::<Test>::new(100, Weight::from_parts(extra_ref_time, extra_proof));
 				let mut transaction_meter =
 					TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
-						eth_gas_limit: (eth_gas_limit + gas_scale - 1) / gas_scale,
+						eth_gas_limit: eth_gas_limit.div_ceil(gas_scale),
 						maybe_weight_limit: None,
 						eth_tx_info,
 					})
@@ -615,7 +617,7 @@ fn substrate_nesting_charges_works() {
 
 				let mut nested = transaction_meter
 					.new_nested(&CallResources::Ethereum {
-						gas: (gas_limit + gas_scale - 1) / gas_scale,
+						gas: gas_limit.div_ceil(gas_scale),
 						add_stipend: false,
 					})
 					.unwrap();
@@ -645,19 +647,13 @@ fn substrate_nesting_charges_works() {
 					)) = remaining
 					{
 						assert!(is_ok);
-						assert_eq!(
-							(gas_left + gas_scale - 1) / gas_scale,
-							nested.eth_gas_left().unwrap()
-						);
+						assert_eq!(gas_left.div_ceil(gas_scale), nested.eth_gas_left().unwrap());
 						assert_eq!(
 							Weight::from_parts(ref_time_left, proof_size_left),
 							nested.weight_left().unwrap()
 						);
 						assert_eq!(deposit_left, nested.deposit_left().unwrap());
-						assert_eq!(
-							(gas_consumed + gas_scale - 1) / gas_scale,
-							nested.total_consumed_gas()
-						);
+						assert_eq!(gas_consumed.div_ceil(gas_scale), nested.total_consumed_gas());
 					} else {
 						assert!(!is_ok);
 					}
