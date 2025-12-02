@@ -69,7 +69,7 @@ pub fn is_cid_supported(cid: &Cid) -> bool {
 #[derive(PartialEq, Eq, Clone, Debug)]
 struct Prefix {
 	/// The version of CID.
-	pub version: Version,
+	pub version: CidVersion,
 	/// The codec of CID.
 	pub codec: u64,
 	/// The multihash type of CID.
