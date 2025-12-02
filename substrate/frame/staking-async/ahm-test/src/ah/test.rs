@@ -141,66 +141,17 @@ fn on_receive_session_report() {
 		assert!(OutgoingValidatorSet::<T>::get().is_some());
 
 		// roll three more sessions...
-		for i in 1..=3 {
-			// roll some random number of blocks.
-			roll_many(10);
-
-			// send the session report.
-			assert_ok!(rc_client::Pallet::<T>::relay_session_report(
-				RuntimeOrigin::root(),
-				rc_client::SessionReport {
-					end_index: i,
-					validator_points: vec![(1, 10)],
-					activation_timestamp: None,
-					leftover: false,
-				}
-			));
-
-			let era_points = staking_async::ErasRewardPoints::<T>::get(&0);
-			assert_eq!(era_points.total, 360 + i * 10);
-			assert_eq!(era_points.individual.get(&1), Some(&(10 + i * 10)));
-
-			assert_eq!(
-				staking_events_since_last_call(),
-				vec![StakingEvent::SessionRotated {
-					starting_session: i + 1,
-					active_era: 0,
-					planned_era: 1
-				}]
-			);
+		for _ in 0..3 {
+			roll_and_assert_idle_session(false);
 		}
 
 		// no election events emitted anymore
 		assert_eq!(election_events_since_last_call(), vec![]);
 
-		// Next session should export the validator set
-		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
-			RuntimeOrigin::root(),
-			rc_client::SessionReport {
-				end_index: 4,
-				validator_points: vec![(1, 10)],
-				activation_timestamp: None,
-				leftover: false,
-			}
-		));
-
-		assert_eq!(
-			staking_events_since_last_call(),
-			vec![StakingEvent::SessionRotated {
-				starting_session: 5,
-				active_era: 0,
-				planned_era: 1
-			}]
-		);
-
-		// no xcm message sent yet.
-		assert_eq!(LocalQueue::get().unwrap(), vec![]);
-		// outgoing set still queued
-		assert!(OutgoingValidatorSet::<T>::get().is_some());
-
-		// next block triggers to export
-		roll_next();
-		assert!(OutgoingValidatorSet::<T>::get().is_none());
+		// At the end of next session we should be ready to export the outgoing set.
+		// Note: we don't roll any blocks to show outgoing set gets exported 1 block after the
+		// session-ending block
+		roll_and_assert_idle_session(true);
 
 		// New validator set xcm message is sent to RC.
 		assert_eq!(
@@ -217,25 +168,8 @@ fn on_receive_session_report() {
 			)]
 		);
 
-		// Validator is queued for the next session
-		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
-			RuntimeOrigin::root(),
-			rc_client::SessionReport {
-				end_index: 5,
-				validator_points: vec![(1, 10)],
-				activation_timestamp: None,
-				leftover: false,
-			}
-		));
-
-		assert_eq!(
-			staking_events_since_last_call(),
-			vec![StakingEvent::SessionRotated {
-				starting_session: 6,
-				active_era: 0,
-				planned_era: 1
-			}]
-		);
+		// Validator is queued in session pallet for 1 session. We wait to activate.
+		roll_and_assert_idle_session(false);
 
 		// now we activate era
 		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
@@ -1155,10 +1089,11 @@ fn era_lifecycle_test() {
 
 		// -- Era transition 0 -> 1
 		// there are 3 idle sessions but session 0 is already ended, so we end two more.
-		roll_and_assert_idle_sessions(2, false);
+		roll_and_assert_idle_session(false);
+		roll_and_assert_idle_session(false);
 		// this will end session 3, and assert session 4 is election session.
 		roll_and_assert_election_session(true);
-		roll_and_assert_idle_sessions(1, false);
+		roll_and_assert_idle_session(false);
 		roll_and_assert_era_end_session();
 
 		assert_eq!(ActiveEra::<T>::get().unwrap().index, 1);
@@ -1166,10 +1101,12 @@ fn era_lifecycle_test() {
 		// -- Era transition 1 -> 5
 		for era in 1..5 {
 			// 3 idle sessions
-			roll_and_assert_idle_sessions(3, false);
+			for _ in 0..3 {
+				roll_and_assert_idle_session(false);
+			}
 			// this will end session 3, and assert session 4 is election session.
 			roll_and_assert_election_session(true);
-			roll_and_assert_idle_sessions(1, false);
+			roll_and_assert_idle_session(false);
 			roll_and_assert_era_end_session();
 
 			assert_eq!(ActiveEra::<T>::get().unwrap().index, era + 1);
@@ -1182,11 +1119,12 @@ fn era_lifecycle_test() {
 		// next session should kick off the election without exporting
 		roll_and_assert_election_session(false);
 		// roll 2 idle sessions. Validator set should still be not exported yet.
-		roll_and_assert_idle_sessions(2, false);
+		roll_and_assert_idle_session(false);
+		roll_and_assert_idle_session(false);
 		// end of this session (start of next) will export the validator set.
-		roll_and_assert_idle_sessions(1, true);
+		roll_and_assert_idle_session(true);
 		// fifth session should be idle with no export
-		roll_and_assert_idle_sessions(1, false);
+		roll_and_assert_idle_session(false);
 		// and finally era activation
 		roll_and_assert_era_end_session();
 
@@ -1197,11 +1135,12 @@ fn era_lifecycle_test() {
 			// next session should kick off the election without exporting
 			roll_and_assert_election_session(false);
 			// roll 2 idle sessions. Validator set should still be not exported yet.
-			roll_and_assert_idle_sessions(2, false);
+			roll_and_assert_idle_session(false);
+			roll_and_assert_idle_session(false);
 			// end of this session (start of next) will export the validator set.
-			roll_and_assert_idle_sessions(1, true);
+			roll_and_assert_idle_session(true);
 			// fifth session should be idle with no export
-			roll_and_assert_idle_sessions(1, false);
+			roll_and_assert_idle_session(false);
 			// and finally era activation
 			roll_and_assert_era_end_session();
 			assert_eq!(ActiveEra::<T>::get().unwrap().index, era + 1);
