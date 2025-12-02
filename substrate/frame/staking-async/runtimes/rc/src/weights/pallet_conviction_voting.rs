@@ -144,7 +144,7 @@ impl<T: frame_system::Config> pallet_conviction_voting::WeightInfo for WeightInf
 	/// Storage: `Scheduler::Retries` (r:0 w:50)
 	/// Proof: `Scheduler::Retries` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
 	/// The range of component `r` is `[0, 512]`.
-	fn delegate(r: u32, ) -> Weight {
+	fn delegate(r: u32, _s: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `29603 + r * (365 ±0)`
 		//  Estimated: `83866 + r * (3411 ±0)`
@@ -168,7 +168,7 @@ impl<T: frame_system::Config> pallet_conviction_voting::WeightInfo for WeightInf
 	/// Storage: `Scheduler::Retries` (r:0 w:50)
 	/// Proof: `Scheduler::Retries` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
 	/// The range of component `r` is `[0, 512]`.
-	fn undelegate(r: u32, ) -> Weight {
+	fn undelegate(r: u32, _s: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `29555 + r * (365 ±0)`
 		//  Estimated: `83866 + r * (3411 ±0)`
@@ -200,5 +200,22 @@ impl<T: frame_system::Config> pallet_conviction_voting::WeightInfo for WeightInf
 			.saturating_add(Weight::from_parts(0, 30706))
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(3))
+	}
+
+	// Stub.
+	fn toggle_allow_delegator_voting() -> Weight {
+		T::DbWeight::get().reads(1_u64)
+		.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+
+	// Stub.
+	fn step_to_v1() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `28`
+		//  Estimated: `5996`
+		// Minimum execution time: 6_000_000 picoseconds.
+		Weight::from_parts(8_000_000, 5996)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
