@@ -451,6 +451,7 @@ impl<T: Config> ExecConfig<T> {
 			effective_gas_price: self.effective_gas_price,
 			is_dry_run: self.is_dry_run.clone(),
 			mock_handler: None,
+			transient_storage: None,
 		}
 	}
 }
