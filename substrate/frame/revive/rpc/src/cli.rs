@@ -222,7 +222,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		&rpc_config,
 		prometheus_registry,
 		tokio_handle,
-		|| rpc_module(is_dev, client.clone()),
+		|| rpc_module(is_dev, client.clone(), rpc_params.allow_unprotected_txs),
 		None,
 	)?;
 
@@ -250,7 +250,11 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 }
 
 /// Create the JSON-RPC module.
-fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service::Error> {
+fn rpc_module(
+	is_dev: bool,
+	client: Client,
+	allow_unprotected_txs: bool,
+) -> Result<RpcModule<()>, sc_service::Error> {
 	let eth_api = EthRpcServerImpl::new(client.clone())
 		.with_accounts(if is_dev {
 			vec![
@@ -263,6 +267,7 @@ fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service:
 		} else {
 			vec![]
 		})
+		.with_allow_unprotected_txs(allow_unprotected_txs)
 		.into_rpc();
 
 	let health_api = SystemHealthRpcServerImpl::new(client.clone()).into_rpc();

@@ -59,17 +59,26 @@ pub struct EthRpcServerImpl {
 
 	/// The accounts managed by the server.
 	accounts: Vec<Account>,
+
+	/// Controls if unprotected txs are allowed or not.
+	allow_unprotected_txs: bool,
 }
 
 impl EthRpcServerImpl {
 	/// Creates a new [`EthRpcServerImpl`].
 	pub fn new(client: client::Client) -> Self {
-		Self { client, accounts: vec![] }
+		Self { client, accounts: vec![], allow_unprotected_txs: false }
 	}
 
 	/// Sets the accounts managed by the server.
 	pub fn with_accounts(mut self, accounts: Vec<Account>) -> Self {
 		self.accounts = accounts;
+		self
+	}
+
+	/// Sets whether unprotected transactions are allowed or not.
+	pub fn with_allow_unprotected_txs(mut self, allow_unprotected_txs: bool) -> Self {
+		self.allow_unprotected_txs = allow_unprotected_txs;
 		self
 	}
 }
@@ -168,6 +177,32 @@ impl EthRpcServer for EthRpcServerImpl {
 	async fn send_raw_transaction(&self, transaction: Bytes) -> RpcResult<H256> {
 		let hash = H256(keccak_256(&transaction.0));
 		log::trace!(target: LOG_TARGET, "send_raw_transaction transaction: {transaction:?} ethereum_hash: {hash:?}");
+
+		if !self.allow_unprotected_txs {
+			let signed_transaction = TransactionSigned::decode(transaction.0.as_slice())
+				.inspect_err(|err| {
+					log::trace!(target: LOG_TARGET, "Transaction decoding failed. ethereum_hash: {hash:?}, error: {err:?}");
+				})?;
+
+			let is_chain_id_provided = match signed_transaction {
+				TransactionSigned::Transaction7702Signed(tx) =>
+					tx.transaction_7702_unsigned.chain_id != U256::zero(),
+				TransactionSigned::Transaction4844Signed(tx) =>
+					tx.transaction_4844_unsigned.chain_id != U256::zero(),
+				TransactionSigned::Transaction1559Signed(tx) =>
+					tx.transaction_1559_unsigned.chain_id != U256::zero(),
+				TransactionSigned::Transaction2930Signed(tx) =>
+					tx.transaction_2930_unsigned.chain_id != U256::zero(),
+				TransactionSigned::TransactionLegacySigned(tx) =>
+					tx.transaction_legacy_unsigned.chain_id.is_some(),
+			};
+
+			if !is_chain_id_provided {
+				log::trace!(target: LOG_TARGET, "Invalid Transaction: transaction doesn't include a chain-id. ethereum_hash: {hash:?}");
+				return Err(EthRpcError::InvalidTransaction)
+			}
+		}
+
 		let call = subxt_client::tx().revive().eth_transact(transaction.0);
 
 		// Subscribe to new block only when automine is enabled.
