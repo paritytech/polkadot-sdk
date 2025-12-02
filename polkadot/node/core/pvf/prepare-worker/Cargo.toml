@@ -46,3 +46,5 @@ jemalloc-allocator = [
 	"dep:tikv-jemallocator",
 	"polkadot-node-core-pvf-common/jemalloc-allocator",
 ]
+linux-jemalloc-auto = ["polkadot-node-core-pvf-common/linux-jemalloc-auto"]
+x-shadow = ["polkadot-node-core-pvf-common/x-shadow"]

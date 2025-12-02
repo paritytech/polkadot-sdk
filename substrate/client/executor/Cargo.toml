@@ -76,3 +76,4 @@ std = [
 	"substrate-test-runtime/std",
 ]
 wasm-extern-trace = []
+x-shadow = ["sc-executor-wasmtime/x-shadow"]

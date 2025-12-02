@@ -41,3 +41,7 @@ pub use command::*;
 
 #[cfg(feature = "cli")]
 pub use sc_cli::{Error, Result};
+
+// Feature 'x-shadow' is available on Linux only.
+#[cfg(all(feature = "x-shadow", not(target_os = "linux")))]
+compile_error!("Feature 'x-shadow' is available on Linux only.");

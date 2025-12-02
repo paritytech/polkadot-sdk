@@ -16,6 +16,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+cfg-if = { workspace = true }
 log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 
@@ -55,3 +56,6 @@ sc-runtime-test = { workspace = true }
 sp-io = { workspace = true, default-features = true }
 tempfile = { workspace = true }
 wat = { workspace = true }
+
+[features]
+x-shadow = []

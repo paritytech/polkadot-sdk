@@ -94,6 +94,7 @@ tokio = { workspace = true, default-features = true }
 substrate-build-script-utils = { workspace = true, default-features = true }
 
 [features]
+default = ["linux-jemalloc-auto"]
 runtime-benchmarks = ["polkadot-cli/runtime-benchmarks"]
 try-runtime = ["polkadot-cli/try-runtime"]
 fast-runtime = ["polkadot-cli/fast-runtime"]
@@ -104,6 +105,18 @@ jemalloc-allocator = [
 	"polkadot-node-core-pvf-prepare-worker/jemalloc-allocator",
 	"polkadot-node-core-pvf/jemalloc-allocator",
 	"polkadot-overseer/jemalloc-allocator",
+]
+linux-jemalloc-auto = [
+	"polkadot-node-core-pvf-prepare-worker/linux-jemalloc-auto",
+	"polkadot-node-core-pvf/linux-jemalloc-auto",
+	"polkadot-overseer/linux-jemalloc-auto",
+]
+x-shadow = [
+	"polkadot-overseer/x-shadow",
+	"polkadot-node-core-pvf-prepare-worker/x-shadow",
+	"polkadot-node-core-pvf-execute-worker/x-shadow",
+	"polkadot-node-core-pvf/x-shadow",
+	"polkadot-cli/x-shadow"
 ]
 
 # Generate the metadata hash needed for CheckMetadataHash

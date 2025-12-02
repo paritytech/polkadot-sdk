@@ -35,7 +35,13 @@ use polkadot_node_core_pvf_common::{
 use polkadot_node_primitives::PoV;
 use polkadot_primitives::{ExecutorParams, PersistedValidationData};
 use std::{path::Path, sync::Arc, time::Duration};
-use tokio::{io, net::UnixStream};
+use tokio::io;
+
+// Host side must use ASYNC transport (tokio). UDS on normal run, TCP under x-shadow.
+#[cfg(feature = "x-shadow")]
+use tokio::net::TcpStream as Stream;
+#[cfg(not(feature = "x-shadow"))]
+use tokio::net::UnixStream as Stream;
 
 /// Spawns a new worker with the given program path that acts as the worker and the spawn timeout.
 ///
@@ -284,12 +290,12 @@ where
 }
 
 /// Sends a handshake with information specific to the execute worker.
-async fn send_execute_handshake(stream: &mut UnixStream, handshake: Handshake) -> io::Result<()> {
+async fn send_execute_handshake(stream: &mut Stream, handshake: Handshake) -> io::Result<()> {
 	framed_send(stream, &handshake.encode()).await
 }
 
 async fn send_request(
-	stream: &mut UnixStream,
+	stream: &mut Stream,
 	pvd: Arc<PersistedValidationData>,
 	pov: Arc<PoV>,
 	execution_timeout: Duration,
@@ -304,7 +310,7 @@ async fn send_request(
 	framed_send(stream, &request.encode()).await
 }
 
-async fn recv_result(stream: &mut UnixStream) -> io::Result<Result<WorkerResponse, WorkerError>> {
+async fn recv_result(stream: &mut Stream) -> io::Result<Result<WorkerResponse, WorkerError>> {
 	let result_bytes = framed_recv(stream).await?;
 	Result::<WorkerResponse, WorkerError>::decode(&mut result_bytes.as_slice()).map_err(|e| {
 		io::Error::new(

@@ -893,7 +893,7 @@ k256 = { version = "0.13.4", default-features = false }
 kitchensink-runtime = { path = "substrate/bin/node/runtime" }
 kvdb = { version = "0.13.0" }
 kvdb-memorydb = { version = "0.13.0" }
-kvdb-rocksdb = { version = "0.20.1" }
+kvdb-rocksdb = { version = "0.20.2" }
 kvdb-shared-tests = { version = "0.11.0" }
 landlock = { version = "0.3.0" }
 libc = { version = "0.2.155" }
@@ -1575,3 +1575,7 @@ wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
+
+[patch.crates-io]
+kvdb-rocksdb = { git = "https://github.com/paritytech/parity-common" }
+kvdb = { git = "https://github.com/paritytech/parity-common" }

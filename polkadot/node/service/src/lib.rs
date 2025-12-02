@@ -41,6 +41,10 @@ pub use self::overseer::{
 	ValidatorOverseerGen,
 };
 
+// Features 'x-shadow' and 'jemalloc-allocator' are mutually exclusive.
+#[cfg(all(feature = "x-shadow", feature = "jemalloc-allocator"))]
+compile_error!("Features 'x-shadow' and 'jemalloc-allocator' are mutually exclusive");
+
 #[cfg(test)]
 mod tests;
 

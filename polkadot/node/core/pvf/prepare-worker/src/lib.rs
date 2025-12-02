@@ -22,9 +22,12 @@ mod memory_stats;
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-prepare-worker=trace`.
 const LOG_TARGET: &str = "parachain::pvf-prepare-worker";
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(feature = "x-shadow")))]
 use crate::memory_stats::max_rss_stat::{extract_max_rss_stat, get_max_rss_thread};
-#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+#[cfg(any(
+	feature = "jemalloc-allocator",
+	all(target_os = "linux", feature = "linux-jemalloc-auto", not(feature = "x-shadow")),
+))]
 use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_tracker_loop};
 use codec::{Decode, Encode};
 use nix::{
@@ -50,27 +53,33 @@ use polkadot_node_core_pvf_common::{
 	},
 	worker_dir, ProcessTime,
 };
+// Use common aliases to stay in sync with decl_worker_main!
+use polkadot_node_core_pvf_common::worker::{
+	Endpoint as WorkerEndpoint, // PathBuf (UDS) or SocketAddr (TCP under x-shadow)
+	WorkerStream as Stream,     // blocking stream on worker side
+};
 use polkadot_primitives::ExecutorParams;
 use std::{
 	fs,
 	io::{self, Read},
-	os::{
-		fd::{AsRawFd, FromRawFd, RawFd},
-		unix::net::UnixStream,
-	},
+	os::fd::{AsRawFd, FromRawFd, RawFd},
 	path::{Path, PathBuf},
 	process,
 	sync::{mpsc::channel, Arc},
 	time::Duration,
 };
 use tracking_allocator::TrackingAllocator;
-
-#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+#[cfg(any(
+	feature = "jemalloc-allocator",
+	all(target_os = "linux", feature = "linux-jemalloc-auto", not(feature = "x-shadow")),
+))]
 #[global_allocator]
 static ALLOC: TrackingAllocator<tikv_jemallocator::Jemalloc> =
 	TrackingAllocator(tikv_jemallocator::Jemalloc);
-
-#[cfg(not(any(target_os = "linux", feature = "jemalloc-allocator")))]
+#[cfg(not(any(
+	feature = "jemalloc-allocator",
+	all(target_os = "linux", feature = "linux-jemalloc-auto", not(feature = "x-shadow")),
+)))]
 #[global_allocator]
 static ALLOC: TrackingAllocator<std::alloc::System> = TrackingAllocator(std::alloc::System);
 
@@ -108,7 +117,7 @@ pub struct PrepareOutcome {
 }
 
 /// Get a worker request.
-fn recv_request(stream: &mut UnixStream) -> io::Result<PvfPrepData> {
+fn recv_request(stream: &mut Stream) -> io::Result<PvfPrepData> {
 	let pvf = framed_recv_blocking(stream)?;
 	let pvf = PvfPrepData::decode(&mut &pvf[..]).map_err(|e| {
 		io::Error::new(
@@ -165,7 +174,7 @@ fn end_memory_tracking() -> isize {
 ///
 /// # Parameters
 ///
-/// - `socket_path`: specifies the path to the socket used to communicate with the host.
+/// - `endpoint`: specifies the endpoint to the socket used to communicate with the host.
 ///
 /// - `worker_dir_path`: specifies the path to the worker-specific temporary directory.
 ///
@@ -196,14 +205,14 @@ fn end_memory_tracking() -> isize {
 /// 8. Send the result of preparation back to the host, including the checksum of the artifact. If
 ///    any error occurred in the above steps, we send that in the `PrepareWorkerResult`.
 pub fn worker_entrypoint(
-	socket_path: PathBuf,
+	endpoint: WorkerEndpoint,
 	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
 ) {
 	run_worker(
 		WorkerKind::Prepare,
-		socket_path,
+		endpoint,
 		worker_dir_path,
 		node_version,
 		worker_version,
@@ -225,15 +234,22 @@ pub fn worker_entrypoint(
 
 				let (pipe_read_fd, pipe_write_fd) = pipe2_cloexec()?;
 
+				#[cfg(not(feature = "x-shadow"))]
 				let usage_before = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
 					Ok(usage) => usage,
 					Err(errno) => {
 						let result: PrepareWorkerResult =
 							Err(error_from_errno("getrusage before", errno));
 						send_result(&mut stream, result, worker_info)?;
-						continue
-					},
+						continue;
+					}
 				};
+
+				#[cfg(feature = "x-shadow")]
+				// The getrusage system call is not supported under Shadow simulation.
+				// As a workaround, we return a zeroed structure. This is safe, but
+				// it makes CPU usage calculations meaningless.
+				let usage_before = unsafe { std::mem::zeroed() };
 
 				let stream_fd = stream.as_raw_fd();
 
@@ -302,7 +318,7 @@ fn prepare_artifact(pvf: PvfPrepData) -> Result<PrepareOutcome, PrepareError> {
 		&maybe_compressed_code,
 		pvf.validation_code_bomb_limit() as usize,
 	)
-	.map_err(|e| PrepareError::CouldNotDecompressCodeBlob(e.to_string()))?;
+		.map_err(|e| PrepareError::CouldNotDecompressCodeBlob(e.to_string()))?;
 	let observed_wasm_code_len = raw_validation_code.len() as u32;
 
 	let blob = match prevalidate(&raw_validation_code) {
@@ -476,9 +492,15 @@ fn handle_child_process(
 	let condvar = thread::get_condvar();
 
 	// Run the memory tracker in a regular, non-worker thread.
-	#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+	#[cfg(any(
+		feature = "jemalloc-allocator",
+		all(target_os = "linux", feature = "linux-jemalloc-auto", not(feature = "x-shadow")),
+	))]
 	let condvar_memory = Arc::clone(&condvar);
-	#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+	#[cfg(any(
+		feature = "jemalloc-allocator",
+		all(target_os = "linux", feature = "linux-jemalloc-auto", not(feature = "x-shadow")),
+	))]
 	let memory_tracker_thread = std::thread::spawn(|| memory_tracker_loop(condvar_memory));
 
 	start_memory_tracking(
@@ -506,9 +528,9 @@ fn handle_child_process(
 		Arc::clone(&condvar),
 		WaitOutcome::TimedOut,
 	)
-	.unwrap_or_else(|err| {
-		send_child_response(&mut pipe_write, Err(PrepareError::IoErr(err.to_string())))
-	});
+		.unwrap_or_else(|err| {
+			send_child_response(&mut pipe_write, Err(PrepareError::IoErr(err.to_string())))
+		});
 
 	let prepare_thread = spawn_worker_thread(
 		"prepare worker",
@@ -517,7 +539,7 @@ fn handle_child_process(
 			let mut result = prepare_artifact(pvf).map(|o| (o,));
 
 			// Get the `ru_maxrss` stat. If supported, call getrusage for the thread.
-			#[cfg(target_os = "linux")]
+			#[cfg(all(target_os = "linux", not(feature = "x-shadow")))]
 			let mut result = result.map(|outcome| (outcome.0, get_max_rss_thread()));
 
 			// If we are pre-checking, check for runtime construction errors.
@@ -569,7 +591,7 @@ fn handle_child_process(
 				Err(err) => Err(err),
 				Ok(ok) => {
 					cfg_if::cfg_if! {
-						if #[cfg(target_os = "linux")] {
+						if #[cfg(all(target_os = "linux", not(feature = "x-shadow")))] {
 							let (PrepareOutcome { compiled_artifact, observed_wasm_code_len }, max_rss) = ok;
 						} else {
 							let (PrepareOutcome { compiled_artifact, observed_wasm_code_len },) = ok;
@@ -577,13 +599,23 @@ fn handle_child_process(
 					}
 
 					// Stop the memory stats worker and get its observed memory stats.
-					#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+					#[cfg(any(
+						feature = "jemalloc-allocator",
+						all(target_os = "linux", feature = "linux-jemalloc-auto", not(
+							feature = "x-shadow"
+						)),
+					))]
 					let memory_tracker_stats = get_memory_tracker_loop_stats(memory_tracker_thread, process::id());
 
 					let memory_stats = MemoryStats {
-						#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+						#[cfg(any(
+							feature = "jemalloc-allocator",
+							all(target_os = "linux", feature = "linux-jemalloc-auto", not(
+								feature = "x-shadow"
+							)),
+						))]
 						memory_tracker_stats,
-						#[cfg(target_os = "linux")]
+						#[cfg(all(target_os = "linux", not(feature = "x-shadow")))]
 						max_rss: extract_max_rss_stat(max_rss, process::id()),
 						// Negative peak allocation values are legit; they are narrow
 						// corner cases and shouldn't affect overall statistics
@@ -657,8 +689,14 @@ fn handle_parent_process(
 		status,
 	);
 
+	#[cfg(not(feature = "x-shadow"))]
 	let usage_after = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)
 		.map_err(|errno| error_from_errno("getrusage after", errno))?;
+	#[cfg(feature = "x-shadow")]
+	// The getrusage system call is not supported under Shadow simulation.
+	// As a workaround, we return a zeroed structure. This is safe, but
+	// it makes CPU usage calculations meaningless.
+	let usage_after = unsafe { std::mem::zeroed() };
 
 	// Using `getrusage` is needed to check whether child has timedout since we cannot rely on
 	// child to report its own time.

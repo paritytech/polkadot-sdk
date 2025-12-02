@@ -21,20 +21,35 @@ use codec::Encode;
 use futures::FutureExt as _;
 use futures_timer::Delay;
 use pin_project::pin_project;
-use polkadot_node_core_pvf_common::{SecurityStatus, WorkerHandshake};
+use polkadot_node_core_pvf_common::{worker::HostListener, SecurityStatus, WorkerHandshake};
 use rand::Rng;
 use std::{
 	fmt, mem,
 	path::{Path, PathBuf},
 	pin::Pin,
+	str::FromStr,
 	task::{Context, Poll},
 	time::Duration,
 };
 use tokio::{
 	io::{self, AsyncRead, AsyncReadExt as _, AsyncWrite, AsyncWriteExt as _, ReadBuf},
-	net::{UnixListener, UnixStream},
 	process,
 };
+
+#[cfg(feature = "x-shadow")]
+use tokio::net::TcpStream as Stream;
+#[cfg(not(feature = "x-shadow"))]
+use tokio::net::UnixStream as Stream;
+
+// Endpoint type: path for UDS, socket address for TCP.
+#[cfg(not(feature = "x-shadow"))]
+type Endpoint = std::path::PathBuf;
+#[cfg(feature = "x-shadow")]
+type Endpoint = std::net::SocketAddr;
+
+// Socket address for TCP listener in x-shadow; use std::net here.
+#[cfg(feature = "x-shadow")]
+use std::net::SocketAddr;
 
 /// A multiple of the job timeout (in CPU time) for which we are willing to wait on the host (in
 /// wall clock time). This is lenient because CPU time may go slower than wall clock time.
@@ -74,13 +89,16 @@ pub async fn spawn_with_program_path(
 	let worker_dir_clone = worker_dir.path().to_owned();
 	let extra_args_clone = extra_args.clone();
 
-	with_transient_socket_path(debug_id, |socket_path| {
+	// --- Default path: Unix domain sockets ---------------------------------
+	#[cfg(not(feature = "x-shadow"))]
+	let res = with_transient_socket_path(debug_id, |socket_path| {
 		let socket_path = socket_path.to_owned();
 
 		async move {
-			let listener = match UnixListener::bind(&socket_path) {
+			let listener = match HostListener::bind(&socket_path) {
 				Ok(ok) => ok,
-				Err(err) => return Err(SpawnErr::Bind { socket_path, err: err.to_string() }),
+				Err(err) =>
+					return Err(SpawnErr::Bind { endpoint: socket_path, err: err.to_string() }),
 			};
 
 			let handle =
@@ -90,7 +108,7 @@ pub async fn spawn_with_program_path(
 			futures::select! {
 				accept_result = listener.accept().fuse() => {
 					let (mut stream, _) = accept_result
-						.map_err(|err| SpawnErr::Accept { socket_path, err: err.to_string() })?;
+						.map_err(|err| SpawnErr::Accept { endpoint: socket_path, err: err.to_string() })?;
 					send_worker_handshake(&mut stream, WorkerHandshake { security_status })
 						.await
 						.map_err(|err| SpawnErr::Handshake { err: err.to_string() })?;
@@ -100,8 +118,37 @@ pub async fn spawn_with_program_path(
 			}
 		}
 	})
-	.await
-	.map_err(|err| {
+	.await;
+	// --- Shadow path: TCP sockets ------------------------------------------
+	#[cfg(feature = "x-shadow")]
+	let res = async move {
+		let listning_addr = Endpoint::from_str("127.0.0.1:0").unwrap();
+		let listener = HostListener::bind(listning_addr)
+			.await
+			.map_err(|e| SpawnErr::Bind { endpoint: listning_addr, err: e.to_string() })?;
+		let local_addr: SocketAddr = listener
+			.local_addr()
+			.map_err(|e| SpawnErr::Bind { endpoint: listning_addr, err: e.to_string() })?;
+		let handle =
+			WorkerHandle::spawn(&program_path, &extra_args, local_addr, &worker_dir.path())
+				.map_err(|err| SpawnErr::ProcessSpawn {
+					program_path: program_path.clone(),
+					err: err.to_string(),
+				})?;
+		futures::select! {
+			accept_result = listener.accept().fuse() => {
+				let (mut stream, _) = accept_result
+				.map_err(|err| SpawnErr::Accept { endpoint: local_addr, err: err.to_string() })?;
+				send_worker_handshake(&mut stream, WorkerHandshake { security_status })
+				.await
+				.map_err(|err| SpawnErr::Handshake { err: err.to_string() })?;
+				Ok((IdleWorker { stream, pid: handle.id(), worker_dir }, handle))
+			}
+			_ = Delay::new(spawn_timeout).fuse() => Err(SpawnErr::AcceptTimeout{spawn_timeout}),
+		}
+	}
+	.await;
+	res.map_err(|err| {
 		gum::warn!(
 			target: LOG_TARGET,
 			%debug_id,
@@ -117,6 +164,8 @@ pub async fn spawn_with_program_path(
 
 /// A temporary, random, free path that is necessary only to establish socket communications. If a
 /// directory exists at the path at the end of this function, it is removed then.
+// Only for Unix domain sockets (no x-shadow feature)
+#[cfg(not(feature = "x-shadow"))]
 async fn with_transient_socket_path<T, F, Fut>(debug_id: &'static str, f: F) -> Result<T, SpawnErr>
 where
 	F: FnOnce(&Path) -> Fut,
@@ -176,7 +225,7 @@ where
 #[derive(Debug)]
 pub struct IdleWorker {
 	/// The stream to which the child process is connected.
-	pub stream: UnixStream,
+	pub stream: Stream,
 
 	/// The identifier of this process. Used to reset the niceness.
 	pub pid: u32,
@@ -194,12 +243,10 @@ pub struct IdleWorker {
 pub enum SpawnErr {
 	#[error("cannot obtain a temporary path location")]
 	TmpPath,
-	#[error("cannot bind the socket to the given path {socket_path:?}: {err}")]
-	Bind { socket_path: PathBuf, err: String },
-	#[error(
-		"an error happened during accepting a connection to the socket {socket_path:?}: {err}"
-	)]
-	Accept { socket_path: PathBuf, err: String },
+	#[error("cannot bind the socket to the given endpoint {endpoint:?}: {err}")]
+	Bind { endpoint: Endpoint, err: String },
+	#[error("an error happened during accepting a connection to the socket {endpoint:?}: {err}")]
+	Accept { endpoint: Endpoint, err: String },
 	#[error("an error happened during spawning the process at path {program_path:?}: {err}")]
 	ProcessSpawn { program_path: PathBuf, err: String },
 	#[error("the deadline {}ms allotted for the worker spawning and connecting to the socket has elapsed", .spawn_timeout.as_millis())]
@@ -228,6 +275,8 @@ pub struct WorkerHandle {
 }
 
 impl WorkerHandle {
+	// UDS variant (default build)
+	#[cfg(not(feature = "x-shadow"))]
 	fn spawn(
 		program: impl AsRef<Path>,
 		extra_args: &[String],
@@ -272,6 +321,47 @@ impl WorkerHandle {
 			//
 			// OTOH, we also don't want to be super smart here and we could just afford to allocate
 			// a buffer for that here.
+			drop_box: vec![0; 8192].into_boxed_slice(),
+		})
+	}
+
+	// TCP variant (build with feature "x-shadow")
+	#[cfg(feature = "x-shadow")]
+	fn spawn(
+		program: impl AsRef<Path>,
+		extra_args: &[String],
+		socket_addr: SocketAddr,
+		worker_dir_path: impl AsRef<Path>,
+	) -> io::Result<Self> {
+		// Clear all env vars from the spawned process.
+		let mut command = process::Command::new(program.as_ref());
+		command.env_clear();
+
+		command.env("RUST_LOG", sc_tracing::logging::get_directives().join(","));
+
+		let mut child = command
+			.args(extra_args)
+			.arg("--socket-addr")
+			.arg(socket_addr.to_string())
+			.arg("--worker-dir-path")
+			.arg(worker_dir_path.as_ref().as_os_str())
+			.stdout(std::process::Stdio::piped())
+			.kill_on_drop(true)
+			.spawn()?;
+
+		let child_id = child
+			.id()
+			.ok_or(io::Error::new(io::ErrorKind::Other, "could not get id of spawned process"))?;
+		let stdout = child
+			.stdout
+			.take()
+			.expect("the process spawned with piped stdout should have the stdout handle");
+
+		Ok(WorkerHandle {
+			child,
+			child_id,
+			stdout,
+			program: program.as_ref().to_path_buf(),
 			drop_box: vec![0; 8192].into_boxed_slice(),
 		})
 	}
@@ -331,7 +421,21 @@ impl fmt::Debug for WorkerHandle {
 pub async fn framed_send(w: &mut (impl AsyncWrite + Unpin), buf: &[u8]) -> io::Result<()> {
 	let len_buf = buf.len().to_le_bytes();
 	w.write_all(&len_buf).await?;
+
+	#[cfg(not(feature = "x-shadow"))]
 	w.write_all(buf).await?;
+
+	#[cfg(feature = "x-shadow")]
+	{
+		// Under Shadow simulation, writes are performed in chunks because
+		// sending large blocks at once can, in some cases, cause a deadlock
+		// between the sender and the receiver.
+		const CHUNK_SIZE: usize = 1 << 15;
+		for chunk in buf.chunks(CHUNK_SIZE) {
+			w.write_all(chunk).await?;
+		}
+	}
+
 	Ok(())
 }
 
@@ -347,7 +451,7 @@ pub async fn framed_recv(r: &mut (impl AsyncRead + Unpin)) -> io::Result<Vec<u8>
 
 /// Sends a handshake with information for the worker.
 async fn send_worker_handshake(
-	stream: &mut UnixStream,
+	stream: &mut Stream,
 	handshake: WorkerHandshake,
 ) -> io::Result<()> {
 	framed_send(stream, &handshake.encode()).await

@@ -138,3 +138,7 @@ try-runtime = [
 	"polkadot-cli/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+x-shadow = [
+	"polkadot-cli/x-shadow",
+	"sc-service/x-shadow",
+]

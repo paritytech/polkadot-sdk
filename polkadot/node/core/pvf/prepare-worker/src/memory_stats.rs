@@ -31,7 +31,10 @@
 /// usage at an interval.
 ///
 /// NOTE: Requires jemalloc enabled.
-#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+#[cfg(any(
+	feature = "jemalloc-allocator",
+	all(target_os = "linux", feature = "linux-jemalloc-auto", not(feature = "x-shadow")),
+))]
 pub mod memory_tracker {
 	use crate::LOG_TARGET;
 	use polkadot_node_core_pvf_common::{
@@ -153,7 +156,7 @@ pub mod memory_tracker {
 /// NOTE: `getrusage` with the `RUSAGE_THREAD` parameter is only supported on Linux. `RUSAGE_SELF`
 /// works on MacOS, but we need to get the max rss only for the preparation thread. Getting it for
 /// the current process would conflate the stats of previous jobs run by the process.
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(feature = "x-shadow")))]
 pub mod max_rss_stat {
 	use crate::LOG_TARGET;
 	use core::mem::MaybeUninit;

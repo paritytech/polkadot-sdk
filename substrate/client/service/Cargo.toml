@@ -87,3 +87,7 @@ runtime-benchmarks = [
 	"sc-client-db/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
+x-shadow = [
+	"sc-executor/x-shadow",
+	"sc-network/x-shadow",
+]

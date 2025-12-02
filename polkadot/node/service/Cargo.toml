@@ -230,3 +230,10 @@ runtime-metrics = [
 	"rococo-runtime?/runtime-metrics",
 	"westend-runtime?/runtime-metrics",
 ]
+jemalloc-allocator = [
+	"kvdb-rocksdb/jemalloc",
+]
+x-shadow = [
+	"polkadot-node-core-pvf/x-shadow",
+	"polkadot-overseer/x-shadow",
+]

@@ -74,7 +74,21 @@ pub struct WorkerHandshake {
 pub fn framed_send_blocking(w: &mut (impl Write + Unpin), buf: &[u8]) -> io::Result<()> {
 	let len_buf = buf.len().to_le_bytes();
 	w.write_all(&len_buf)?;
+
+	#[cfg(not(feature = "x-shadow"))]
 	w.write_all(buf)?;
+
+	#[cfg(feature = "x-shadow")]
+	{
+		// Under Shadow simulation, writes are performed in chunks because
+		// sending large blocks at once can, in some cases, cause a deadlock
+		// between the sender and the receiver.
+		const CHUNK_SIZE: usize = 1 << 15;
+		for chunk in buf.chunks(CHUNK_SIZE) {
+			w.write_all(chunk)?;
+		}
+	}
+
 	Ok(())
 }
 

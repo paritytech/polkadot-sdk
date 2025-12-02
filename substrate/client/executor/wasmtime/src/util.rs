@@ -61,7 +61,7 @@ pub(crate) fn write_memory_from(
 ///
 /// In certain environments (e.g. when running under the QEMU user-mode emulator)
 /// this syscall is broken.
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(feature = "x-shadow")))]
 fn is_madvise_working() -> std::result::Result<bool, String> {
 	let page_size = rustix::param::page_size();
 
@@ -124,20 +124,26 @@ pub(crate) fn replace_strategy_if_broken(strategy: &mut InstantiationStrategy) {
 	static IS_OK: OnceLock<bool> = OnceLock::new();
 
 	let is_ok = IS_OK.get_or_init(|| {
-		let is_ok = match is_madvise_working() {
-			Ok(is_ok) => is_ok,
-			Err(error) => {
-				// This should never happen.
-				log::warn!("Failed to check whether `madvise(MADV_DONTNEED)` works: {}", error);
+		cfg_if::cfg_if! {
+			if #[cfg(not(feature = "x-shadow"))] {
+				let is_ok = match is_madvise_working() {
+					Ok(is_ok) => is_ok,
+					 Err(error) => {
+							// This should never happen.
+							log::warn!("Failed to check whether `madvise(MADV_DONTNEED)` works: {}", error);
+							false
+						}
+				};
+
+				if !is_ok {
+					log::warn!("You're running on a system with a broken `madvise(MADV_DONTNEED)` implementation. This will result in lower performance.");
+				}
+
+				is_ok
+			} else {
 				false
 			}
-		};
-
-		if !is_ok {
-			log::warn!("You're running on a system with a broken `madvise(MADV_DONTNEED)` implementation. This will result in lower performance.");
-		}
-
-		is_ok
+        }
 	});
 
 	if !is_ok {

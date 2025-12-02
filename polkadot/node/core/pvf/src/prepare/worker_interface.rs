@@ -38,7 +38,13 @@ use std::{
 	path::{Path, PathBuf},
 	time::Duration,
 };
-use tokio::{io, net::UnixStream};
+use tokio::io;
+
+// Host side must use ASYNC transport (tokio). UDS on normal run, TCP under x-shadow.
+#[cfg(feature = "x-shadow")]
+use tokio::net::TcpStream as Stream;
+#[cfg(not(feature = "x-shadow"))]
+use tokio::net::UnixStream as Stream;
 
 /// Spawns a new worker with the given program path that acts as the worker and the spawn timeout.
 ///
@@ -308,13 +314,13 @@ async fn handle_response(
 /// security issue, and we should shut down the worker. This should be very rare.
 async fn with_worker_dir_setup<F, Fut>(
 	worker_dir: WorkerDir,
-	stream: UnixStream,
+	stream: Stream,
 	pid: u32,
 	f: F,
 ) -> Outcome
 where
 	Fut: futures::Future<Output = Outcome>,
-	F: FnOnce(PathBuf, UnixStream, WorkerDir) -> Fut,
+	F: FnOnce(PathBuf, Stream, WorkerDir) -> Fut,
 {
 	// Create the tmp file here so that the child doesn't need any file creation rights. This will
 	// be cleared at the end of this function.
@@ -351,12 +357,12 @@ where
 	outcome
 }
 
-async fn send_request(stream: &mut UnixStream, pvf: &PvfPrepData) -> io::Result<()> {
+async fn send_request(stream: &mut Stream, pvf: &PvfPrepData) -> io::Result<()> {
 	framed_send(stream, &pvf.encode()).await?;
 	Ok(())
 }
 
-async fn recv_response(stream: &mut UnixStream, pid: u32) -> io::Result<PrepareWorkerResult> {
+async fn recv_response(stream: &mut Stream, pid: u32) -> io::Result<PrepareWorkerResult> {
 	let result = framed_recv(stream).await?;
 	let result = PrepareWorkerResult::decode(&mut &result[..]).map_err(|e| {
 		// We received invalid bytes from the worker.

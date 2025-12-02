@@ -9317,8 +9317,7 @@ dependencies = [
 [[package]]
 name = "kvdb"
 version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7d770dcb02bf6835887c3a979b5107a04ff4bbde97a5f0928d27404a155add9"
+source = "git+https://github.com/paritytech/parity-common#b9343bc15b0c2ef74971f342be0be1329c050c00"
 dependencies = [
  "smallvec",
 ]
@@ -9335,9 +9334,8 @@ dependencies = [
 
 [[package]]
 name = "kvdb-rocksdb"
-version = "0.20.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b089b6062662d720a836f055931434439fcd3a90f0059db0b831a99da6db460"
+version = "0.20.2"
+source = "git+https://github.com/paritytech/parity-common#b9343bc15b0c2ef74971f342be0be1329c050c00"
 dependencies = [
  "kvdb",
  "num_cpus",
@@ -15890,6 +15888,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "tempfile",
  "thiserror 1.0.65",
+ "tokio",
  "tracing-gum",
  "wat",
 ]
@@ -20394,6 +20393,7 @@ version = "0.29.0"
 dependencies = [
  "anyhow",
  "cargo_metadata",
+ "cfg-if",
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.3",

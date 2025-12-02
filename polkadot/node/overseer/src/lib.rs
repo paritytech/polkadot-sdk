@@ -114,7 +114,10 @@ pub use orchestra::{
 	TrySendError,
 };
 
-#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+#[cfg(any(
+	feature = "jemalloc-allocator",
+	all(target_os = "linux", feature = "linux-jemalloc-auto", not(feature = "x-shadow")),
+))]
 mod memory_stats;
 #[cfg(test)]
 mod tests;
@@ -695,7 +698,10 @@ where
 	}
 	let subsystem_meters = overseer.map_subsystems(ExtractNameAndMeters);
 
-	#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+	#[cfg(any(
+		feature = "jemalloc-allocator",
+		all(target_os = "linux", feature = "linux-jemalloc-auto", not(feature = "x-shadow")),
+	))]
 	let collect_memory_stats: Box<dyn Fn(&OverseerMetrics) + Send> =
 		match memory_stats::MemoryAllocationTracker::new() {
 			Ok(memory_stats) =>
@@ -721,7 +727,10 @@ where
 			},
 		};
 
-	#[cfg(not(any(target_os = "linux", feature = "jemalloc-allocator")))]
+	#[cfg(not(any(
+		feature = "jemalloc-allocator",
+		all(target_os = "linux", feature = "linux-jemalloc-auto", not(feature = "x-shadow")),
+	)))]
 	let collect_memory_stats: Box<dyn Fn(&OverseerMetrics) + Send> = Box::new(|_| {});
 
 	let metronome = Metronome::new(std::time::Duration::from_millis(950)).for_each(move |_| {
