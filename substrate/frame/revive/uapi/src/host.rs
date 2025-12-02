@@ -493,24 +493,6 @@ pub trait HostFn: private::Sealed {
 	/// - [Sr25519VerifyFailed][`crate::ReturnErrorCode::Sr25519VerifyFailed]
 	#[unstable_hostfn]
 	fn sr25519_verify(signature: &[u8; 64], message: &[u8], pub_key: &[u8; 32]) -> Result;
-
-	/// Remove the calling account and transfer remaining **free** balance.
-	///
-	/// This function never returns. Either the termination was successful and the
-	/// execution of the destroyed contract is halted. Or it failed during the termination
-	/// which is considered fatal and results in a trap + rollback.
-	///
-	/// # Parameters
-	///
-	/// - `beneficiary`: The address of the beneficiary account
-	///
-	/// # Traps
-	///
-	/// - The contract is live i.e is already on the call stack.
-	/// - Failed to send the balance to the beneficiary.
-	/// - The deletion queue is full.
-	#[unstable_hostfn]
-	fn terminate(beneficiary: &[u8; 20]) -> !;
 }
 
 mod private {

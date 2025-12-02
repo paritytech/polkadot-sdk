@@ -1097,63 +1097,6 @@ fn self_destruct_by_syscall_does_not_delete_code() {
 }
 
 #[test]
-fn self_destruct_by_syscall_works() {
-	let (factory_binary, factory_code_hash) = compile_module("self_destruct_factory").unwrap();
-	let (selfdestruct_binary, selfdestruct_code_hash) =
-		compile_module("self_destruct_by_syscall").unwrap();
-
-	ExtBuilder::default().build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let _ = <Test as Config>::Currency::set_balance(&BOB, 1_000_000);
-		let min_balance = Contracts::min_balance();
-		let initial_contract_balance = 100_000;
-
-		// Upload both contracts
-		assert_ok!(Contracts::upload_code(
-			RuntimeOrigin::signed(BOB),
-			selfdestruct_binary,
-			deposit_limit::<Test>(),
-		));
-
-		assert_ok!(Contracts::upload_code(
-			RuntimeOrigin::signed(BOB),
-			factory_binary,
-			deposit_limit::<Test>(),
-		));
-
-		// Deploy factory
-		let factory = builder::bare_instantiate(Code::Existing(factory_code_hash))
-			.origin(RuntimeOrigin::signed(BOB))
-			.native_value(initial_contract_balance)
-			.build_and_unwrap_contract();
-
-		let mut input_data = Vec::new();
-		input_data.extend_from_slice(selfdestruct_code_hash.as_bytes());
-
-		// Call factory
-		let result = builder::bare_call(factory.addr).data(input_data.clone()).build();
-		assert!(result.result.is_ok());
-
-		let returned_data = result.result.unwrap().data;
-		assert!(returned_data.len() >= 20, "Returned data too short to contain address");
-		let mut contract_addr_bytes = [0u8; 20];
-		contract_addr_bytes.copy_from_slice(&returned_data[0..20]);
-		let contract_addr = H160::from(contract_addr_bytes);
-
-		initialize_block(System::block_number() + 1);
-
-		assert!(get_contract_checked(&contract_addr).is_none(), "Contract found");
-
-		// min balance is taken from origin to fund DJANGO_FALLBACK
-		assert_eq!(
-			<Test as Config>::Currency::total_balance(&DJANGO_FALLBACK),
-			initial_contract_balance + min_balance,
-		);
-		assert_eq!(<Test as Config>::Currency::total_balance(&ALICE), 1_000_000 - min_balance);
-	});
-}
-
-#[test]
 fn can_self_destruct_in_constructor_by_syscall() {
 	let (binary, _) = compile_module("self_destructing_constructor_by_syscall").unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
