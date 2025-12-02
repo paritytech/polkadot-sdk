@@ -2028,6 +2028,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		collator_id.push(self.version);
 		collator_id.extend_from_slice(core_index.as_slice());
 		collator_id.extend_from_slice(session_index.as_slice());
+		collator_id.push(self.scheduling_session_offset);
 		collator_id.extend_from_slice(self.reserved1.as_slice());
 
 		CollatorId::from_slice(&collator_id.as_slice())
@@ -2048,7 +2049,11 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 
 	#[cfg(feature = "test")]
 	fn rebuild_signature_field(&self) -> CollatorSignature {
-		CollatorSignature::from_slice(self.reserved2.as_slice())
+		let mut signature_bytes = Vec::with_capacity(64);
+		signature_bytes.extend_from_slice(self.scheduling_parent.as_ref());
+		signature_bytes.extend_from_slice(self.reserved2.as_slice());
+
+		CollatorSignature::from_slice(&signature_bytes)
 			.expect("Slice size is exactly 64 bytes; qed")
 	}
 

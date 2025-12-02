@@ -225,7 +225,7 @@ impl<H: Copy + AsRef<[u8]> + From<Hash>> From<CandidateDescriptor<H>> for Candid
 			value.pov_hash,
 			value.erasure_root,
 			H::from(Hash::from_slice(&signature[0..32])),
-			clone_into_array(&signature[33..64]),
+			clone_into_array(&signature[32..64]),
 			value.para_head,
 			value.validation_code_hash,
 		)

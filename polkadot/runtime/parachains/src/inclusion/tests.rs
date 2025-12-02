@@ -332,7 +332,7 @@ impl TestCandidateBuilder {
 			},
 		};
 
-		if ccr.descriptor.version() == CandidateDescriptorVersion::V2 {
+		if ccr.descriptor.version(false) == CandidateDescriptorVersion::V2 {
 			ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
 
 			ccr.commitments.upward_messages.force_push(
