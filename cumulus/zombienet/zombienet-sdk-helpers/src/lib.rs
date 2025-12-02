@@ -416,7 +416,7 @@ pub async fn submit_extrinsic_and_wait_for_finalization_success<S: Signer<Polkad
 		}
 	}
 
-	Err(anyhow::anyhow!("Transaction event stream ended without reaching the finalized state"))
+	Err(anyhow!("Transaction event stream ended without reaching the finalized state"))
 }
 
 /// Submits the given `call` as transaction and waits `timeout_secs` for it successful finalization.
