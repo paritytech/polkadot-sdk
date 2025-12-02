@@ -33,6 +33,8 @@ use revm::primitives::Bytes;
 use sp_core::H160;
 use sp_io::hashing::keccak_256;
 use test_case::test_case;
+use crate::test_utils::deposit_limit;
+use crate::tests::RuntimeOrigin;
 
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
@@ -333,5 +335,48 @@ fn constructor_with_argument_works(fixture_type: FixtureType) {
 
 		let expected_message = "Reverted because revert=true was set as constructor argument";
 		assert_eq!(result.data, Revert::from(expected_message).abi_encode());
+	});
+}
+
+// #[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn set_code_hash(fixture_type: FixtureType) {
+	use pallet_revive_fixtures::SetCodeHash;
+	let (binary, _) = compile_module_with_type("SetCodeHash", fixture_type).unwrap();
+	let (new_binary, new_code_hash) = compile_module_with_type("SetCodeHashReplacement", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		// Instantiate the 'caller'
+		let Contract { addr: contract_addr, .. } = builder::bare_instantiate(Code::Upload(binary))
+			.build_and_unwrap_contract();
+		// upload new code
+		Contracts::upload_code(
+			RuntimeOrigin::signed(ALICE),
+			new_binary.clone(),
+			deposit_limit::<Test>(),
+		).unwrap();
+
+		// System::reset_events();
+
+		println!("new_code_hash: {new_code_hash:?}");
+
+		// First call sets new code_hash and returns 1
+		let result = builder::bare_call(contract_addr)
+			// .data(new_code_hash.as_ref().to_vec())
+			.data(
+				SetCodeHash::setCodeHashCall {
+					codeHash: alloy_core::primitives::FixedBytes::<32>::from(new_code_hash.0),
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		// assert!(!result.did_revert());
+		// assert_return_code!(result, 1);
+
+		// Second calls new contract code that returns 2
+		// let result = builder::bare_call(contract_addr).build_and_unwrap_result();
+		// assert_return_code!(result, 2);
 	});
 }

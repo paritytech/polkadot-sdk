@@ -98,6 +98,7 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				Ok(Vec::new())
 			},
 			ISystemCalls::setCodeHash(ISystem::setCodeHashCall { codeHash }) => {
+				log::error!("RVE precompile setCodeHash called with codeHash: {:?}", codeHash);
 				let charged = env.gas_meter_mut().charge(RuntimeCosts::SetCodeHash { old_code_removed: true })?;
 				let code_hash = crate::H256::from_slice(codeHash.as_slice());
 				if matches!(env.set_code_hash(code_hash)?, crate::CodeRemoved::No) {

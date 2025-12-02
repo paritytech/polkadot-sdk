@@ -694,6 +694,7 @@ enum CachedContract<T: Config> {
 impl<T: Config> Frame<T> {
 	/// Return the `contract_info` of the current contract.
 	fn contract_info(&mut self) -> &mut ContractInfo<T> {
+		// log::error!("RVE exec.rs contract_info()");
 		self.contract_info.get(&self.account_id)
 	}
 }
@@ -769,6 +770,7 @@ impl<T: Config> CachedContract<T> {
 
 	/// Return the cached contract_info.
 	fn get(&mut self, account_id: &T::AccountId) -> &mut ContractInfo<T> {
+		// log::error!("RVE exec.rs get() account_id: {:?}", account_id);
 		self.load(account_id);
 		get_cached_or_panic_after_load!(self)
 	}
@@ -2414,13 +2416,16 @@ where
 	///
 	/// The `set_code_hash` contract API stays disabled until this change is implemented.
 	fn set_code_hash(&mut self, hash: H256) -> Result<CodeRemoved, DispatchError> {
+		log::error!("RVE exec.rs set_code_hash()");
 		let frame = top_frame_mut!(self);
 
-		let info = frame.contract_info();
+		log::error!("RVE exec.rs set_code_hash() let info = frame.contract_info();");
+		let info = frame.contract_info(); // TODO(RVE): this goe wrong because we try to get the contract_info of ALICE which makes no sense. We need the info of the contract being executed.
 
 		let prev_hash = info.code_hash;
 		info.code_hash = hash;
 
+		log::error!("RVE exec.rs set_code_hash() let code_info = CodeInfoOf::<T>::get(hash).ok_or(Error::<T>::CodeNotFound)?;");
 		let code_info = CodeInfoOf::<T>::get(hash).ok_or(Error::<T>::CodeNotFound)?;
 
 		let old_base_deposit = info.storage_base_deposit();
@@ -2430,8 +2435,10 @@ where
 
 		frame.nested_storage.charge_deposit(frame.account_id.clone(), deposit);
 
+		log::error!("RVE exec.rs set_code_hash() <CodeInfo<T>>::increment_refcount(hash)?;");
 		<CodeInfo<T>>::increment_refcount(hash)?;
 		let removed = <CodeInfo<T>>::decrement_refcount(prev_hash)?;
+		log::error!("RVE exec.rs set_code_hash() Ok(removed)");
 		Ok(removed)
 	}
 }

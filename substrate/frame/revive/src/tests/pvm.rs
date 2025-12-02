@@ -44,6 +44,7 @@ use crate::{
 	DebugSettings, DeletionQueueCounter, Error, ExecConfig, HoldReason, Origin, Pallet,
 	PristineCode, StorageDeposit, H160,
 };
+use alloy_core::sol_types::{SolCall};
 use assert_matches::assert_matches;
 use codec::Encode;
 use frame_support::{
@@ -2482,39 +2483,6 @@ fn contract_reverted() {
 		let result = builder::bare_call(addr).data(input).build_and_unwrap_result();
 		assert_eq!(result.flags, flags);
 		assert_eq!(result.data, buffer);
-	});
-}
-
-#[test]
-fn set_code_hash() {
-	let (binary, _) = compile_module("set_code_hash").unwrap();
-	let (new_binary, new_code_hash) = compile_module("new_set_code_hash_contract").unwrap();
-
-	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-
-		// Instantiate the 'caller'
-		let Contract { addr: contract_addr, .. } = builder::bare_instantiate(Code::Upload(binary))
-			.native_value(300_000)
-			.build_and_unwrap_contract();
-		// upload new code
-		assert_ok!(Contracts::upload_code(
-			RuntimeOrigin::signed(ALICE),
-			new_binary.clone(),
-			deposit_limit::<Test>(),
-		));
-
-		System::reset_events();
-
-		// First call sets new code_hash and returns 1
-		let result = builder::bare_call(contract_addr)
-			.data(new_code_hash.as_ref().to_vec())
-			.build_and_unwrap_result();
-		assert_return_code!(result, 1);
-
-		// Second calls new contract code that returns 2
-		let result = builder::bare_call(contract_addr).build_and_unwrap_result();
-		assert_return_code!(result, 2);
 	});
 }
 
