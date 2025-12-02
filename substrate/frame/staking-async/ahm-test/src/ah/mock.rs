@@ -676,15 +676,20 @@ pub(crate) fn election_events_since_last_call() -> Vec<multi_block::Event<T>> {
 	all.into_iter().skip(seen).collect()
 }
 
-pub(crate) fn roll_and_assert_idle_session(expect_export: bool) {
-	// ensure events are flushed
-	staking_events_since_last_call();
+/// End ongoing session.
+///
+/// - Send activation timestamp if `activate` set.
+/// - Expect validator set to be exported in the starting session if `expect_export` set.
+pub(crate) fn end_session_and_assert_idle(activate: bool, expect_export: bool) {
 	// cache values for state assertion checks later
 	let active_era = ActiveEra::<T>::get().unwrap().index;
 	let planning_era = CurrentEra::<T>::get().unwrap();
-	let pre_validator_set_export_count = LocalQueue::get().unwrap().len();
+	let old_validator_set_export_count = LocalQueue::get().unwrap().len();
 	let was_outgoing_set = OutgoingValidatorSet::<T>::get().is_some();
 	let old_era_points = pallet_staking_async::ErasRewardPoints::<T>::get(&active_era);
+
+	let activation_timestamp =
+		if activate { Some((planning_era as u64 * 1000, planning_era as u32)) } else { None };
 
 	let last_session_end_index =
 		pallet_staking_async_rc_client::LastSessionReportEndingIndex::<T>::get()
@@ -697,26 +702,28 @@ pub(crate) fn roll_and_assert_idle_session(expect_export: bool) {
 		SessionReport {
 			end_index,
 			validator_points: vec![(1, 10)],
-			activation_timestamp: None,
+			activation_timestamp,
 			leftover: false,
 		}
 	));
 
+
+	let expected_active = if activate { active_era + 1 } else { active_era };
 	assert_eq!(
-		staking_events_since_last_call(),
-		vec![pallet_staking_async::Event::SessionRotated {
+		staking_events_since_last_call().last().unwrap().clone(),
+		pallet_staking_async::Event::SessionRotated {
 			starting_session: end_index + 1,
-			active_era,
-			// we always start planning as soon as active era rotates.
+			active_era: expected_active,
+			// not election session, so this should not change.
 			planned_era: planning_era,
-		}]
+		}
 	);
 
 	// this ensures any multi-block function is triggered.
 	roll_many(1);
 
-	// should be no change in active or planning era
-	assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
+	assert_eq!(ActiveEra::<T>::get().unwrap().index, expected_active);
+	// should be no change in planning era
 	assert_eq!(CurrentEra::<T>::get().unwrap(), planning_era);
 
 	// ensure era points are updated correctly
@@ -734,39 +741,69 @@ pub(crate) fn roll_and_assert_idle_session(expect_export: bool) {
 		// not set anymore
 		assert!(OutgoingValidatorSet::<T>::get().is_none());
 		// new validator set exported
-		assert_eq!(LocalQueue::get().unwrap().len(), pre_validator_set_export_count + 1);
+		assert_eq!(LocalQueue::get().unwrap().len(), old_validator_set_export_count + 1);
 	} else {
 		// no new messages in the queue
-		assert_eq!(LocalQueue::get().unwrap().len(), pre_validator_set_export_count);
+		assert_eq!(LocalQueue::get().unwrap().len(), old_validator_set_export_count);
 	}
 }
 
-pub(crate) fn roll_and_assert_election_session(expect_export: bool) {
-	// clear election events
+pub(crate) fn end_session_and_assert_election(activate: bool, expect_export: bool) {
+	// clear events
 	election_events_since_last_call();
+
+	// cache values for state assertion checks later
+	let active_era = ActiveEra::<T>::get().unwrap().index;
+	let planning_era = CurrentEra::<T>::get().unwrap();
+	let old_validator_set_export_count = LocalQueue::get().unwrap().len();
+	let was_outgoing_set = OutgoingValidatorSet::<T>::get().is_some();
+	let old_era_points = pallet_staking_async::ErasRewardPoints::<T>::get(&active_era);
+	assert_eq!(multi_block::CurrentPhase::<T>::get(), Phase::Off);
+
+	let activation_timestamp =
+		if activate { Some((planning_era as u64 * 1000, planning_era as u32)) } else { None };
 
 	let last_session_end_index =
 		pallet_staking_async_rc_client::LastSessionReportEndingIndex::<T>::get()
 			.unwrap_or_default();
-	let active_era = ActiveEra::<T>::get().unwrap().index;
-	let planning_era = CurrentEra::<T>::get().unwrap();
-	let pre_validator_set_export_count = LocalQueue::get().unwrap().len();
-	// election should not have already started.
-	assert_eq!(active_era, planning_era);
-	assert_eq!(multi_block::CurrentPhase::<T>::get(), Phase::Off);
+	let end_index = last_session_end_index + 1;
 
+	// end the session
 	assert_ok!(pallet_staking_async_rc_client::Pallet::<T>::relay_session_report(
 		RuntimeOrigin::root(),
 		SessionReport {
 			end_index: last_session_end_index + 1,
 			validator_points: vec![(1, 10)],
-			activation_timestamp: None,
+			activation_timestamp,
 			leftover: false,
 		}
 	));
 
-	// assert no change in active era
-	assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
+	let expected_active = if activate { active_era + 1 } else { active_era };
+	assert_eq!(ActiveEra::<T>::get().unwrap().index, expected_active);
+
+	assert_eq!(
+		staking_events_since_last_call().last().unwrap().clone(),
+		pallet_staking_async::Event::SessionRotated {
+			starting_session: end_index + 1,
+			active_era: expected_active,
+			// since this is an election session, planning era increments.
+			planned_era: planning_era + 1,
+		}
+	);
+
+	// this ensures any multi-block function is triggered.
+	roll_many(1);
+
+	// ensure era points are updated correctly
+	let updated_era_points = pallet_staking_async::ErasRewardPoints::<T>::get(&active_era);
+	// era points are updated
+	assert_eq!(updated_era_points.total, old_era_points.total + 10);
+	assert_eq!(
+		updated_era_points.individual.get(&1).unwrap().clone(),
+		old_era_points.individual.get(&1).unwrap_or(&0) + 10
+	);
+
 	// planning era is incremented indicating start of election
 	assert_eq!(CurrentEra::<T>::get().unwrap(), planning_era + 1);
 	assert_eq!(
@@ -784,53 +821,22 @@ pub(crate) fn roll_and_assert_election_session(expect_export: bool) {
 	if expect_export {
 		// if its immediate export mode, the validator set is exported soon after its received by
 		// rc client pallet
-		assert_eq!(LocalQueue::get().unwrap().len(), pre_validator_set_export_count);
+		assert_eq!(LocalQueue::get().unwrap().len(), old_validator_set_export_count);
 		roll_next();
-		assert_eq!(LocalQueue::get().unwrap().len(), pre_validator_set_export_count + 1);
+		assert_eq!(LocalQueue::get().unwrap().len(), old_validator_set_export_count + 1);
 	} else {
 		// the validator set is buffered
-		assert_eq!(LocalQueue::get().unwrap().len(), pre_validator_set_export_count);
+		assert_eq!(LocalQueue::get().unwrap().len(), old_validator_set_export_count);
 		assert!(OutgoingValidatorSet::<T>::exists());
 		hypothetically!({
 			// rolling few blocks would not export the set
 			roll_many(10);
-			assert_eq!(LocalQueue::get().unwrap().len(), pre_validator_set_export_count);
+			assert_eq!(LocalQueue::get().unwrap().len(), old_validator_set_export_count);
 			assert!(OutgoingValidatorSet::<T>::exists());
 		});
 	}
 }
 
-pub(crate) fn roll_and_assert_era_end_session() {
-	let last_session_end_index =
-		pallet_staking_async_rc_client::LastSessionReportEndingIndex::<T>::get()
-			.unwrap_or_default();
-	let active_era = ActiveEra::<T>::get().unwrap().index;
-	let planning_era = CurrentEra::<T>::get().unwrap();
-	let pre_validator_set_export_count = LocalQueue::get().unwrap().len();
-	// ensure planning era is ahead of active era.
-	assert_eq!(active_era + 1, planning_era);
-	// and election is already over.
-	assert_eq!(multi_block::CurrentPhase::<T>::get(), Phase::Off);
-
-	// let's end the session with activation timestamp
-	assert_ok!(pallet_staking_async_rc_client::Pallet::<T>::relay_session_report(
-		RuntimeOrigin::root(),
-		SessionReport {
-			end_index: last_session_end_index + 1,
-			validator_points: vec![(1, 10)],
-			activation_timestamp: Some((planning_era as u64 * 1000, planning_era as u32)),
-			leftover: false,
-		}
-	));
-
-	// ensure active era is incremented
-	assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era + 1);
-	// no validator set exports
-	assert_eq!(LocalQueue::get().unwrap().len(), pre_validator_set_export_count);
-
-	// run session blocks.
-	roll_many(60);
-}
 pub(crate) fn verifier_events_since_last_call() -> Vec<multi_block::verifier::Event<T>> {
 	let all: Vec<_> = System::events()
 		.into_iter()
