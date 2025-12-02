@@ -18,6 +18,7 @@
 
 //! Shim for litep2p's Bitswap implementation to make it work with `sc-network`.
 
+use crate::bitswap::is_cid_supported;
 use futures::StreamExt;
 use litep2p::protocol::libp2p::bitswap::{
 	BitswapEvent, BitswapHandle, BlockPresenceType, Config, ResponseType, WantType,
@@ -60,6 +61,7 @@ impl<Block: BlockT> BitswapServer<Block> {
 
 					let response: Vec<ResponseType> = cids
 						.into_iter()
+						.filter(|(cid, _)| is_cid_supported(&cid))
 						.map(|(cid, want_type)| {
 							let mut hash = Block::Hash::default();
 							hash.as_mut().copy_from_slice(&cid.hash().digest()[0..32]);
