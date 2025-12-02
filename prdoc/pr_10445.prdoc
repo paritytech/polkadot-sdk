@@ -1,7 +1,9 @@
-title: Add `hash` field to `Event::Stored` and `Event::Renewed`
+title: Align Events Between Bulletin and SDK
 doc:
-- audience: Runtime Dev
-  description: 'Extends `Stored` and `Renewed` events with a `hash: ContentHash` field.'
+  - audience: Runtime Dev
+    description: |
+      Extends `Stored` and `Renewed` events with a `hash: ContentHash` field.
+      Replaces `log` with `tracing` to match Bulletin’s logging approach.
 crates:
 - name: pallet-transaction-storage
   bump: major
