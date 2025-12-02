@@ -261,7 +261,7 @@ pub mod pallet {
 					.map_err(|_| Error::<T>::TooManyTransactions)?;
 				Ok(())
 			})?;
-			Self::deposit_event(Event::Stored { index, hash: content_hash });
+			Self::deposit_event(Event::Stored { index, content_hash });
 			Ok(())
 		}
 
@@ -305,7 +305,7 @@ pub mod pallet {
 					})
 					.map_err(|_| Error::<T>::TooManyTransactions)
 			})?;
-			Self::deposit_event(Event::Renewed { index, hash: content_hash });
+			Self::deposit_event(Event::Renewed { index, content_hash });
 			Ok(().into())
 		}
 
@@ -346,9 +346,9 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Stored data under specified index.
-		Stored { index: u32, hash: ContentHash },
+		Stored { index: u32, content_hash: ContentHash },
 		/// Renewed data under specified index.
-		Renewed { index: u32, hash: ContentHash },
+		Renewed { index: u32, content_hash: ContentHash },
 		/// Storage proof was successfully checked.
 		ProofChecked,
 		/// An account `who` was authorized to store `bytes` bytes in `transactions` transactions.
