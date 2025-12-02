@@ -137,6 +137,9 @@ fn on_receive_session_report() {
 			]
 		);
 
+		// outgoing set is queued.
+		assert!(OutgoingValidatorSet::<T>::get().is_some());
+
 		// roll three more sessions...
 		for i in 1..=3 {
 			// roll some random number of blocks.
@@ -192,9 +195,12 @@ fn on_receive_session_report() {
 
 		// no xcm message sent yet.
 		assert_eq!(LocalQueue::get().unwrap(), vec![]);
+		// outgoing set still queued
+		assert!(OutgoingValidatorSet::<T>::get().is_some());
 
 		// next block triggers to export
 		roll_next();
+		assert!(OutgoingValidatorSet::<T>::get().is_none());
 
 		// New validator set xcm message is sent to RC.
 		assert_eq!(
@@ -1214,7 +1220,7 @@ mod poll_operations {
 			assert_eq!(CurrentEra::<T>::get(), Some(0));
 			assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 0);
 			assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
-			assert!(pallet_staking_async_rc_client::OutgoingValidatorSet::<T>::get().is_none());
+			assert!(OutgoingValidatorSet::<T>::get().is_none());
 
 			// receive session 1 which causes election to start
 			assert_ok!(rc_client::Pallet::<T>::relay_session_report(
@@ -1431,7 +1437,7 @@ mod poll_operations {
 			assert_eq!(pallet_staking_async::NextElectionPage::<T>::get(), None);
 
 			// outgoing message is queued
-			assert!(pallet_staking_async_rc_client::OutgoingValidatorSet::<T>::get().is_some());
+			assert!(OutgoingValidatorSet::<T>::get().is_some());
 		})
 	}
 
@@ -1458,7 +1464,7 @@ mod poll_operations {
 			assert_eq!(CurrentEra::<T>::get(), Some(2));
 			assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 7);
 			assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 1, start: Some(1000) }));
-			assert!(pallet_staking_async_rc_client::OutgoingValidatorSet::<T>::get().is_none());
+			assert!(OutgoingValidatorSet::<T>::get().is_none());
 
 			// roll until signed and submit a solution.
 			roll_until_matches(|| MultiBlock::current_phase().is_signed(), false);
