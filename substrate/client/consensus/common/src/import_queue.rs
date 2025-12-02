@@ -332,7 +332,6 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 	// Skip block verification for warp synced blocks.
 	// They have been verified within warp sync proof verification.
 	if matches!(block_origin, BlockOrigin::WarpSync) {
-		trace!(target: LOG_TARGET, "Block {number} ({hash}) assume verified, skip block verification if warp sync");
 		return Ok(SingleBlockVerificationOutcome::Verified(SingleBlockImportParameters {
 			import_block: BlockImportParams::new(block_origin, header),
 			hash: block.hash,
@@ -341,7 +340,6 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 		}));
 	}
 
-	trace!(target: LOG_TARGET, "before import_handler block {number} ({hash}) state is_some: {}", block.state.is_some());
 	match import_handler::<B>(
 		number,
 		hash,
@@ -358,12 +356,8 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 			})
 			.await,
 	)? {
-		BlockImportStatus::ImportedUnknown { .. } => {
-			trace!(target: LOG_TARGET, "after import_handler BlockImportStatus: ImportedUnknown");
-			()
-		},
+		BlockImportStatus::ImportedUnknown { .. } => (),
 		r => {
-			trace!(target: LOG_TARGET, "after import_handler BlockImportStatus: {:?}", r);
 			// Any other successful result means that the block is already imported.
 			return Ok(SingleBlockVerificationOutcome::Imported(r))
 		},
@@ -411,7 +405,6 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 		metrics.report_verification(true, verification_time);
 	}
 
-	trace!(target: LOG_TARGET, "Block {number} ({hash}) verified");
 	Ok(SingleBlockVerificationOutcome::Verified(SingleBlockImportParameters {
 		import_block,
 		hash,
