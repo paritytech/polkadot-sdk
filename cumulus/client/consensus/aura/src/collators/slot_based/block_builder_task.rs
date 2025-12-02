@@ -386,12 +386,25 @@ where
 				validation_data.max_pov_size * 85 / 100
 			} as usize;
 
-			let adjusted_authoring_duration = match slot_timer.time_until_next_slot() {
-				Ok((duration, _slot)) => std::cmp::min(authoring_duration, duration),
-				Err(_) => authoring_duration,
-			};
-
+			let adjusted_authoring_duration =
+				slot_timer.adjust_authoring_duration(authoring_duration);
 			tracing::debug!(target: crate::LOG_TARGET, duration = ?adjusted_authoring_duration, "Adjusted proposal duration.");
+
+			let Some(adjusted_authoring_duration) = adjusted_authoring_duration else {
+				tracing::debug!(
+					target: crate::LOG_TARGET,
+					unincluded_segment_len = parent.depth,
+					relay_parent = ?relay_parent,
+					relay_parent_num = %relay_parent_header.number(),
+					included_hash = ?included_header_hash,
+					included_num = %included_header.number(),
+					parent = ?parent_hash,
+					slot = ?para_slot.slot,
+					"Not building block due to insufficient authoring duration."
+				);
+
+				continue;
+			};
 
 			let Ok(Some(candidate)) = collator
 				.build_block_and_import(
