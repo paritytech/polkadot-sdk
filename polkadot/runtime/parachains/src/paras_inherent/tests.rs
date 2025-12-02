@@ -59,8 +59,8 @@ mod enter {
 	use frame_system::limits;
 	use polkadot_primitives::{
 		ApprovedPeerId, AvailabilityBitfield, CandidateDescriptorV2, ClaimQueueOffset, CollatorId,
-		CollatorSignature, CommittedCandidateReceiptV2, CoreSelector, InternalVersion,
-		MutateDescriptorV2, UMPSignal, UncheckedSigned,
+		CollatorSignature, CommittedCandidateReceiptV2, CoreSelector, MutateDescriptorV2,
+		UMPSignal, UncheckedSigned,
 	};
 	use polkadot_primitives_test_helpers::CandidateDescriptor;
 	use pretty_assertions::assert_eq;
@@ -1626,7 +1626,7 @@ mod enter {
 				backed_candidate_weight::<Test>(&para_inherent_data.backed_candidates[0]);
 
 			let mut input_candidates =
-				build_backed_candidate_chain(ParaId::from(1000), 3, 0, Some(1), v2_descriptor);
+				build_backed_candidate_chain(ParaId::from(1000), 3, 0, Some(1));
 			let chained_candidates_weight = backed_candidates_weight::<Test>(&input_candidates);
 
 			input_candidates.append(&mut para_inherent_data.backed_candidates);
@@ -1769,7 +1769,7 @@ mod enter {
 			// Make the last candidate look like v1, by using an unknown version.
 			unfiltered_para_inherent_data.backed_candidates[9]
 				.descriptor_mut()
-				.set_version(InternalVersion(123));
+				.set_version(123);
 
 			let mut inherent_data = InherentData::new();
 			inherent_data
