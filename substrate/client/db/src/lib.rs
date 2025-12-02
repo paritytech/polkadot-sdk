@@ -449,6 +449,8 @@ pub(crate) mod columns {
 	pub const BODY_INDEX: u32 = 12;
 	// Diffs for archive blocks
 	pub const ARCHIVE: u32 = 13;
+	// Diffs for new, non-finalized blocks
+	pub const ARCHIVE_PENDING: u32 = 14;
 }
 
 struct PendingBlock<Block: BlockT> {
@@ -1664,6 +1666,7 @@ impl<Block: BlockT> Backend<Block> {
 							&mut transaction,
 							new_storage,
 							*pending_block.header.number(),
+							hash,
 						);
 					}
 				}
@@ -1688,11 +1691,13 @@ impl<Block: BlockT> Backend<Block> {
 						&mut transaction,
 						operation.storage_updates,
 						*pending_block.header.number(),
+						hash,
 					);
 					ArchiveDb::<Block>::update_child_storage(
 						&mut transaction,
 						operation.child_storage_updates,
 						*pending_block.header.number(),
+						hash,
 					);
 				}
 				self.state_usage.tally_writes(ops, bytes);
@@ -1979,6 +1984,12 @@ impl<Block: BlockT> Backend<Block> {
 			apply_state_commit(transaction, commit);
 		}
 
+		if self.is_diff_archive {
+			let BackendDatabase::DatabaseWithSeekableIterator(db) = &self.db else {
+				panic!("Diff archive mode requested, but chosen database backend doesn't support seek operation");
+			};
+			ArchiveDb::<Block>::finalize_block(db.clone(), transaction, *f_header.number(), f_hash);
+		}
 		if remove_displaced {
 			let new_displaced = self.blockchain.displaced_leaves_after_finalizing(f_hash, f_num)?;
 
@@ -2036,6 +2047,12 @@ impl<Block: BlockT> Backend<Block> {
 		for &hash in displaced.displaced_blocks.iter() {
 			self.blockchain.insert_persisted_body_if_pinned(hash)?;
 			self.prune_block(transaction, BlockId::<Block>::hash(hash))?;
+			if self.is_diff_archive {
+				let BackendDatabase::DatabaseWithSeekableIterator(db) = &self.db else {
+					panic!("Diff archive mode requested, but chosen database backend doesn't support seek operation");
+				};
+				ArchiveDb::<Block>::discard_block(db.clone(), transaction, hash);
+			}
 		}
 		Ok(())
 	}
@@ -2093,8 +2110,11 @@ impl<Block: BlockT> Backend<Block> {
 			.build();
 		let trie_state = RefTrackingState::new(db_state, self.storage.clone(), None);
 		let archive_state = match &self.db {
-			BackendDatabase::DatabaseWithSeekableIterator(db) =>
-				Some(ArchiveDb::new(db.clone(), None, <Block::Header as HeaderT>::Number::zero())),
+			BackendDatabase::DatabaseWithSeekableIterator(db) => Some(ArchiveDb::new(
+				db.clone(),
+				<Block::Header as HeaderT>::Number::zero(),
+				<Block::Header as HeaderT>::Hash::default(),
+			)),
 			_ => None,
 		};
 
@@ -2920,8 +2940,8 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 						BackendDatabase::DatabaseWithSeekableIterator(db) =>
 							Some(ArchiveDb::new(
 						db.clone(),
-						Some(hash),
 						<Block::Header as HeaderT>::Number::zero(),
+						hash,
 					)),
 						_ => panic!("Diff archive mode requested, but chosen database backend doesn't support seek operation"),
 					}
@@ -2969,7 +2989,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 				let archive_state = if self.is_diff_archive {
 					match &self.db {
 						BackendDatabase::DatabaseWithSeekableIterator(db) =>
-							Some(ArchiveDb::new(db.clone(), Some(hash), hdr.number)),
+							Some(ArchiveDb::new(db.clone(), hdr.number, hash)),
 						_ => panic!("Diff archive mode requested, but chosen database backend doesn't support seek operation"),
 					}
 				} else {

@@ -39,7 +39,7 @@ use sp_trie::DBValue;
 
 /// Number of columns in the db. Must be the same for both full && light dbs.
 /// Otherwise RocksDb will fail to open database && check its type.
-pub const NUM_COLUMNS: u32 = 14;
+pub const NUM_COLUMNS: u32 = 15;
 /// Meta column. The set of keys in the column is shared by full && light storages.
 pub const COLUMN_META: u32 = 0;
 

@@ -33,10 +33,10 @@ use sp_state_machine::{
 
 use crate::{columns, BlockT, DbHash};
 
-pub(crate) fn compare_keys<B>(
-	key1: &[u8],
-	key2: &[u8],
-) -> std::cmp::Ordering where B: Encode + Decode + Ord {
+pub(crate) fn compare_keys<B>(key1: &[u8], key2: &[u8]) -> std::cmp::Ordering
+where
+	B: Encode + Decode + Ord,
+{
 	let key1 = FullStorageKey::<B>::from(key1);
 	let key2 = FullStorageKey::<B>::from(key2);
 	key1.cmp(&key2)
@@ -44,13 +44,13 @@ pub(crate) fn compare_keys<B>(
 
 pub struct ArchiveDb<Block: BlockT> {
 	db: Arc<dyn DatabaseWithSeekableIterator<DbHash>>,
-	parent_hash: Option<Block::Hash>,
-	block_number: <<Block as BlockT>::Header as Header>::Number,
+	block_number: <Block::Header as Header>::Number,
+	block_hash: <Block::Header as Header>::Hash,
 }
 
 impl<B: BlockT> std::fmt::Debug for ArchiveDb<B> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.debug_struct("ArchiveDb").field("parent_hash", &self.parent_hash).finish()
+		f.debug_struct("ArchiveDb").field("block_hash", &self.block_hash).finish()
 	}
 }
 
@@ -64,8 +64,16 @@ fn make_child_storage_key(info: &ChildInfo, key: &[u8]) -> Vec<u8> {
 	prefixed_key
 }
 
+#[derive(Encode, Decode)]
+struct PendingDiffKey<Block: BlockT> {
+	hash: <Block::Header as Header>::Hash,
+	number: <Block::Header as Header>::Number,
+	ty: StorageType,
+	key: Vec<u8>,
+}
+
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Encode, Decode)]
 enum StorageType {
 	Main = 0,
 	Child = 1,
@@ -74,10 +82,10 @@ enum StorageType {
 impl<Block: BlockT> ArchiveDb<Block> {
 	pub(crate) fn new(
 		db: Arc<dyn DatabaseWithSeekableIterator<DbHash>>,
-		parent_hash: Option<Block::Hash>,
-		block_number: <<Block as BlockT>::Header as Header>::Number,
+		block_number: <Block::Header as Header>::Number,
+		block_hash: <Block::Header as Header>::Hash,
 	) -> Self {
-		Self { db, parent_hash, block_number }
+		Self { db, block_hash, block_number }
 	}
 
 	/// Note that for StorageType::Child, child prefix should be appended to key
@@ -146,34 +154,49 @@ impl<Block: BlockT> ArchiveDb<Block> {
 		transaction: &mut Transaction<DbHash>,
 		storage: Storage,
 		block_number: <Block::Header as Header>::Number,
+		block_hash: <Block::Header as Header>::Hash,
 	) {
 		for (key, value) in storage.top {
-			let full_key = FullStorageKey::new(&key, StorageType::Main, block_number);
 			log::trace!(
-				"Archive storage new pair: {} is {:?}",
-				key.hex("0x"),
+				"Archive pending storage new pair: {} is {:?}",
+				key.as_slice().hex("0x"),
 				value.as_slice().hex("0x")
 			);
+			let full_key = PendingDiffKey::<Block> {
+				hash: block_hash,
+				number: block_number,
+				ty: StorageType::Main,
+				key,
+			};
 
-			transaction.set_from_vec(columns::ARCHIVE, full_key.as_ref(), Some(value).encode());
+			transaction.set_from_vec(
+				columns::ARCHIVE_PENDING,
+				&full_key.encode(),
+				Some(value).encode(),
+			);
 		}
 
 		for (child_key, child_storage) in storage.children_default {
 			let info = ChildInfo::new_default_from_vec(child_key);
 			for (key, value) in child_storage.data {
-				let full_key = FullStorageKey::new(
-					&make_child_storage_key(&info, &key),
-					StorageType::Child,
-					block_number,
-				);
+				let full_key = PendingDiffKey::<Block> {
+					hash: block_hash,
+					number: block_number,
+					ty: StorageType::Child,
+					key: make_child_storage_key(&info, &key),
+				};
 				log::trace!(
 					"Archive child storage {} new pair: {} is {:?}",
 					info.storage_key().hex("0x"),
-					key.hex("0x"),
+					key.as_slice().hex("0x"),
 					value.as_slice().hex("0x")
 				);
 
-				transaction.set_from_vec(columns::ARCHIVE, full_key.as_ref(), Some(value).encode());
+				transaction.set_from_vec(
+					columns::ARCHIVE_PENDING,
+					&full_key.encode(),
+					Some(value).encode(),
+				);
 			}
 		}
 	}
@@ -182,15 +205,21 @@ impl<Block: BlockT> ArchiveDb<Block> {
 		transaction: &mut Transaction<DbHash>,
 		storage: StorageCollection,
 		block_number: <Block::Header as Header>::Number,
+		block_hash: <Block::Header as Header>::Hash,
 	) {
 		for (key, value) in storage {
-			let full_key = FullStorageKey::new(&key, StorageType::Main, block_number);
 			log::trace!(
 				"Archive storage updated pair: {} is {:?}",
-				key.hex("0x"),
+				key.as_slice().hex("0x"),
 				value.as_ref().map(|v| v.hex("0x"))
 			);
-			transaction.set_from_vec(columns::ARCHIVE, full_key.as_ref(), value.encode());
+			let full_key = PendingDiffKey::<Block> {
+				hash: block_hash,
+				number: block_number,
+				ty: StorageType::Main,
+				key,
+			};
+			transaction.set_from_vec(columns::ARCHIVE_PENDING, &full_key.encode(), value.encode());
 		}
 	}
 
@@ -198,15 +227,17 @@ impl<Block: BlockT> ArchiveDb<Block> {
 		transaction: &mut Transaction<DbHash>,
 		storage: ChildStorageCollection,
 		block_number: <Block::Header as Header>::Number,
+		block_hash: <Block::Header as Header>::Hash,
 	) {
 		for (child_key, storage) in storage {
 			let info = ChildInfo::new_default_from_vec(child_key);
 			for (key, value) in storage {
-				let full_key = FullStorageKey::new(
-					&make_child_storage_key(&info, &key),
-					StorageType::Child,
-					block_number,
-				);
+				let full_key = PendingDiffKey::<Block> {
+					hash: block_hash,
+					number: block_number,
+					ty: StorageType::Child,
+					key: make_child_storage_key(&info, &key),
+				};
 				log::trace!(
 					"Archive child storage {} updated pair: {} is {:?}",
 					info.storage_key().hex("0x"),
@@ -214,8 +245,60 @@ impl<Block: BlockT> ArchiveDb<Block> {
 					value.as_ref().map(|v| v.hex("0x"))
 				);
 
-				transaction.set_from_vec(columns::ARCHIVE, full_key.as_ref(), value.encode());
+				transaction.set_from_vec(
+					columns::ARCHIVE_PENDING,
+					&full_key.encode(),
+					value.encode(),
+				);
 			}
+		}
+	}
+
+	pub(crate) fn finalize_block(
+		db: Arc<dyn DatabaseWithSeekableIterator<DbHash>>,
+		transaction: &mut Transaction<DbHash>,
+		block_number: <Block::Header as Header>::Number,
+		block_hash: <Block::Header as Header>::Hash,
+	) {
+		let mut iter = db
+			.seekable_iter(columns::ARCHIVE_PENDING)
+			.expect("Database column family must exist");
+
+		iter.seek(block_hash.as_ref());
+		while let Some((pending_key, value)) = iter.get() {
+			let PendingDiffKey { hash, number, ty, key } =
+				PendingDiffKey::<Block>::decode(&mut &pending_key[..]).expect("Database entries must be encoded correctly");
+			if hash == block_hash {
+				assert_eq!(number, block_number);
+				let full_key = FullStorageKey::new(&key, ty, number);
+				transaction.set_from_vec(columns::ARCHIVE, full_key.as_ref(), value);
+				transaction.remove(columns::ARCHIVE_PENDING, pending_key);
+			} else {
+				break;
+			}
+			iter.next();
+		}
+	}
+
+	pub(crate) fn discard_block(
+		db: Arc<dyn DatabaseWithSeekableIterator<DbHash>>,
+		transaction: &mut Transaction<DbHash>,
+		block_hash: <Block::Header as Header>::Hash,
+	) {
+		let mut iter = db
+			.seekable_iter(columns::ARCHIVE_PENDING)
+			.expect("Database column family must exist");
+
+		iter.seek(block_hash.as_ref());
+		while let Some((key, _)) = iter.get() {
+			let PendingDiffKey { hash, .. } =
+				PendingDiffKey::<Block>::decode(&mut &key[..]).expect("Database entries must be encoded correctly");
+			if hash == block_hash {
+				transaction.remove(columns::ARCHIVE_PENDING, key);
+			} else {
+				break;
+			}
+			iter.next();
 		}
 	}
 
@@ -475,7 +558,7 @@ impl<'a, BlockNumber> Into<Vec<u8>> for FullStorageKey<'a, BlockNumber> {
 }
 
 impl<'a, BlockNumber: Encode + Decode> FullStorageKey<'a, BlockNumber> {
-	pub fn new(
+	fn new(
 		key: &[u8],
 		storage_type: StorageType,
 		number: BlockNumber,
@@ -487,18 +570,16 @@ impl<'a, BlockNumber: Encode + Decode> FullStorageKey<'a, BlockNumber> {
 		FullStorageKey::Owned(full_key, PhantomData::default())
 	}
 
-	pub fn key(&self) -> &[u8] {
-		let key_end = self.as_ref().len() - self.number_size();
-		&self.as_ref()[1..key_end]
+	fn key(&self) -> &[u8] {
+		&self.as_ref()[1..self.number_offset()]
 	}
 
-	pub fn number(&self) -> BlockNumber {
-		let type_and_key_len = self.as_ref().len() - self.number_size();
-		BlockNumber::decode(&mut &self.as_ref()[type_and_key_len..])
+	fn number(&self) -> BlockNumber {
+		BlockNumber::decode(&mut &self.as_ref()[self.number_offset()..])
 			.expect("BlockNumber must be encoded correctly")
 	}
 
-	pub fn storage_type(&self) -> StorageType {
+	fn storage_type(&self) -> StorageType {
 		let slice = self.as_ref();
 		match slice[0] {
 			0 => StorageType::Main,
@@ -507,13 +588,17 @@ impl<'a, BlockNumber: Encode + Decode> FullStorageKey<'a, BlockNumber> {
 		}
 	}
 
-	pub fn as_tuple(&self) -> (StorageType, &[u8], BlockNumber) {
+	fn as_tuple(&self) -> (StorageType, &[u8], BlockNumber) {
 		(self.storage_type(), self.key(), self.number())
 	}
 
 	fn number_size(&self) -> usize {
 		BlockNumber::encoded_fixed_size()
 			.expect("Variable length block numbers can't be used for archive storage")
+	}
+
+	fn number_offset(&self) -> usize {
+		self.as_ref().len() - self.number_size()
 	}
 }
 
@@ -525,23 +610,21 @@ impl<'a, BlockNumber> PartialEq for FullStorageKey<'a, BlockNumber> {
 
 impl<'a, BlockNumber> Eq for FullStorageKey<'a, BlockNumber> {}
 
-impl<'a, BlockNumber: Encode + Decode + PartialOrd> PartialOrd
-	for FullStorageKey<'a, BlockNumber>
-{
+impl<'a, BlockNumber: Encode + Decode + PartialOrd> PartialOrd for FullStorageKey<'a, BlockNumber> {
 	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
 		self.as_tuple().partial_cmp(&other.as_tuple())
 	}
 }
 
-impl<'a, BlockNumber: Encode + Decode + Ord> Ord
-	for FullStorageKey<'a, BlockNumber>
-{
+impl<'a, BlockNumber: Encode + Decode + Ord> Ord for FullStorageKey<'a, BlockNumber> {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
 		self.as_tuple().cmp(&other.as_tuple())
 	}
 }
 
-impl<'a, BlockNumber: Encode + Decode + Ord> sp_database::MemDbComparator for FullStorageKey<'a, BlockNumber> {
+impl<'a, BlockNumber: Encode + Decode + Ord> sp_database::MemDbComparator
+	for FullStorageKey<'a, BlockNumber>
+{
 	fn cmp(k1: &[u8], k2: &[u8]) -> std::cmp::Ordering {
 		compare_keys::<BlockNumber>(k1, k2)
 	}
@@ -553,15 +636,23 @@ mod tests {
 
 	use crate::columns::ARCHIVE;
 
+	use sp_core::H256;
 	use sp_database::{Change, Database, MemDb, Transaction};
-	use sp_runtime::testing::{Block, MockCallU64, TestXt};
+	use sp_runtime::{
+		testing::{Block, MockCallU64, TestXt},
+		traits::BlakeTwo256,
+	};
 
 	type TestBlock = Block<TestXt<MockCallU64, ()>>;
+	static DUMMY_BLOCK_HASH: std::sync::LazyLock<H256> = std::sync::LazyLock::new(|| BlakeTwo256::hash("dummy hash".as_bytes()));
 
 	#[test]
 	fn full_key_encoded_correctly() {
 		let key = FullStorageKey::new(&[2, 3, 4], StorageType::Child, 5);
-		assert_eq!(key.as_tuple(), (StorageType::Child, [2u8, 3u8, 4u8].as_slice(), 5));
+		assert_eq!(
+			key.as_tuple(),
+			(StorageType::Child, [2u8, 3u8, 4u8].as_slice(), 5)
+		);
 		assert_eq!(key.as_ref(), &[1, 2, 3, 4, 5, 0, 0, 0]);
 	}
 
@@ -572,10 +663,11 @@ mod tests {
 		db.commit(Transaction(
 			changes
 				.into_iter()
-				.map(|(storage_type, key, block, value)| {
+				.map(|(storage_type, key, block_number, value)| {
 					Change::<H>::Set(
 						ARCHIVE,
-						FullStorageKey::new(key, storage_type, block).into(),
+						FullStorageKey::new(key, storage_type, block_number)
+							.into(),
 						value.encode(),
 					)
 				})
@@ -592,11 +684,10 @@ mod tests {
 			(StorageType::Main, &[1, 2, 3], 6u64, Some(&[5, 2])),
 		]);
 
-		let archive_db =
-			ArchiveDb::<TestBlock>::new(mem_db.clone(), Some(sp_core::H256::default()), 5);
+		let archive_db = ArchiveDb::<TestBlock>::new(mem_db.clone(), 5, DUMMY_BLOCK_HASH);
 		assert_eq!(archive_db.main_storage(&[1, 2, 3]), Ok(Some(vec![4u8, 2u8])));
 
-		let archive_db = ArchiveDb::<TestBlock>::new(mem_db, Some(sp_core::H256::default()), 7);
+		let archive_db = ArchiveDb::<TestBlock>::new(mem_db, 7, DUMMY_BLOCK_HASH);
 		assert_eq!(archive_db.main_storage(&[1, 2, 3]), Ok(Some(vec![5u8, 2u8])));
 	}
 
@@ -615,8 +706,7 @@ mod tests {
 			(StorageType::Main, &[1, 2, 6], 5u64, Some(&[8])),
 			(StorageType::Main, &[1, 2, 6], 6u64, None),
 		]);
-		let archive_db =
-			ArchiveDb::<TestBlock>::new(mem_db.clone(), Some(sp_core::H256::default()), 5);
+		let archive_db = ArchiveDb::<TestBlock>::new(mem_db.clone(), 5, DUMMY_BLOCK_HASH);
 		assert_eq!(archive_db.next_main_storage_key(&[1, 2, 3]), Ok(Some(vec![1, 2, 6])));
 	}
 
@@ -635,8 +725,7 @@ mod tests {
 			(StorageType::Main, &[1, 2, 6], 5u64, Some(&[8])),
 			(StorageType::Main, &[1, 2, 6], 6u64, None),
 		]);
-		let archive_db =
-			ArchiveDb::<TestBlock>::new(mem_db.clone(), Some(sp_core::H256::default()), 5);
+		let archive_db = ArchiveDb::<TestBlock>::new(mem_db.clone(), 5, DUMMY_BLOCK_HASH);
 
 		let mut args = IterArgs::default();
 		args.start_at = Some(&[1, 2, 3]);
@@ -663,8 +752,7 @@ mod tests {
 			(StorageType::Child, &[1, 3, 2], 3u64, Some(&[6])),
 			(StorageType::Child, &[1, 3, 4], 3u64, Some(&[6])),
 		]);
-		let archive_db =
-			ArchiveDb::<TestBlock>::new(mem_db.clone(), Some(sp_core::H256::default()), 3);
+		let archive_db = ArchiveDb::<TestBlock>::new(mem_db.clone(), 3, DUMMY_BLOCK_HASH);
 
 		let mut args = IterArgs::default();
 		args.prefix = Some(&[1, 3]);
@@ -687,8 +775,7 @@ mod tests {
 			(StorageType::Child, &[1, 3, 1], 2u64, None),
 			(StorageType::Child, &[1, 3, 3], 2u64, Some(&[7])),
 		]);
-		let archive_db =
-			ArchiveDb::<TestBlock>::new(mem_db.clone(), Some(sp_core::H256::default()), 3);
+		let archive_db = ArchiveDb::<TestBlock>::new(mem_db.clone(), 3, DUMMY_BLOCK_HASH);
 
 		let mut args = IterArgs::default();
 		args.child_info = Some(ChildInfo::new_default_from_vec(vec![1, 3]));
@@ -697,5 +784,9 @@ mod tests {
 		assert_eq!(iter.next_key(&archive_db), Some(Ok(vec![1, 3, 2])));
 		assert_eq!(iter.next_key(&archive_db), Some(Ok(vec![1, 3, 3])));
 		assert_eq!(iter.next_key(&archive_db), None);
+	}
+
+	#[test]
+	fn finalization() {
 	}
 }
