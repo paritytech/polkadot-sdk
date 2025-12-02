@@ -239,6 +239,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 	}
 
 	fn charge_storage(&mut self, _diff: &Diff) {}
+
+	fn set_code_hash(&mut self, _hash: H256) -> Result<CodeRemoved, DispatchError> {
+		panic!("MockExt::set_code_hash")
+	}
 }
 
 impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
@@ -272,10 +276,6 @@ impl<T: Config> Ext for MockExt<T> {
 
 	fn own_code_hash(&mut self) -> &H256 {
 		panic!("MockExt::own_code_hash")
-	}
-
-	fn set_code_hash(&mut self, _hash: H256) -> Result<CodeRemoved, DispatchError> {
-		panic!("MockExt::set_code_hash")
 	}
 
 	fn immutable_data_len(&mut self) -> u32 {
