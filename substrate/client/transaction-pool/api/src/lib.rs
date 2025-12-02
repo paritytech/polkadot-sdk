@@ -391,7 +391,7 @@ pub enum ChainEvent<B: BlockT> {
 	},
 	/// The chain has been reverted to an earlier state.
 	///
-	/// The hash passed in this event will become the new finalized block.
+	/// The hash passed in this event updates the pool’s internal record of the finalized block.
 	/// This event triggers comprehensive cleanup of all blockchain state beyond the revert point:
 	///
 	/// Cleanup Actions:
