@@ -51,7 +51,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: paritytech/revive-differential-tests
-          ref: a6e4932a08b1ca231e4a02ca6e54e08a53f0e786
+          ref: 66feb36b4ef2c79415ca8ea765d8235d48dfa8f8
           path: revive-differential-tests
           submodules: recursive
       - name: Installing Retester
@@ -60,7 +60,7 @@ jobs:
         run: mkdir workdir
       - name: Downloading & Initializing the compilation caches
         run: |
-          curl -fL --retry 3 --retry-all-errors --connect-timeout 10 -o cache.tar.gz "https://github.com/paritytech/revive-differential-tests/releases/download/compilation-caches-v1.0/cache.tar.gz"
+          curl -fL --retry 3 --retry-all-errors --connect-timeout 10 -o cache.tar.gz "https://github.com/paritytech/revive-differential-tests/releases/download/compilation-caches-v1.1/cache.tar.gz"
           tar -zxf cache.tar.gz -C ./workdir > /dev/null 2>&1
       - name: Running the Differential Tests
         run: |
@@ -71,7 +71,7 @@ jobs:
             --platform ${{ matrix.platform }} \
             --concurrency.number-of-nodes 10 \
             --concurrency.number-of-threads 10 \
-            --concurrency.number-of-concurrent-tasks 1000 \
+            --concurrency.number-of-concurrent-tasks 100 \
             --working-directory ./workdir \
             --revive-dev-node.consensus manual-seal-200 \
             --revive-dev-node.path ./target/release/revive-dev-node \
@@ -111,8 +111,7 @@ jobs:
       RUST_BACKTRACE: 1
     strategy:
       matrix:
-        platform:
-          ["test:pvm", "test:evm"]
+        platform: ["test:pvm", "test:evm"]
     steps:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0

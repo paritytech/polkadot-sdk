@@ -87,7 +87,7 @@ where
 }
 
 /// Params required to start the manual sealing authorship task.
-pub struct ManualSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP, SC, CS, CIDP, P> {
+pub struct ManualSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP, SC, CS, CIDP> {
 	/// Block import instance.
 	pub block_import: BI,
 
@@ -108,14 +108,14 @@ pub struct ManualSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP, SC, C
 	pub select_chain: SC,
 
 	/// Digest provider for inclusion in blocks.
-	pub consensus_data_provider: Option<Box<dyn ConsensusDataProvider<B, Proof = P>>>,
+	pub consensus_data_provider: Option<Box<dyn ConsensusDataProvider<B>>>,
 
 	/// Something that can create the inherent data providers.
 	pub create_inherent_data_providers: CIDP,
 }
 
 /// Params required to start the instant sealing authorship task.
-pub struct InstantSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP, SC, CIDP, P, MTS> {
+pub struct InstantSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP, SC, CIDP, MTS> {
 	/// Block import instance for well. importing blocks.
 	pub block_import: BI,
 
@@ -132,7 +132,7 @@ pub struct InstantSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP, SC, 
 	pub select_chain: SC,
 
 	/// Digest provider for inclusion in blocks.
-	pub consensus_data_provider: Option<Box<dyn ConsensusDataProvider<B, Proof = P>>>,
+	pub consensus_data_provider: Option<Box<dyn ConsensusDataProvider<B>>>,
 
 	/// Something that can create the inherent data providers.
 	pub create_inherent_data_providers: CIDP,
@@ -152,7 +152,7 @@ pub struct DelayedFinalizeParams<C, S> {
 }
 
 /// Creates the background authorship task for the manually seal engine.
-pub async fn run_manual_seal<B, BI, CB, E, C, TP, SC, CS, CIDP, P>(
+pub async fn run_manual_seal<B, BI, CB, E, C, TP, SC, CS, CIDP>(
 	ManualSealParams {
 		mut block_import,
 		mut env,
@@ -162,19 +162,18 @@ pub async fn run_manual_seal<B, BI, CB, E, C, TP, SC, CS, CIDP, P>(
 		select_chain,
 		consensus_data_provider,
 		create_inherent_data_providers,
-	}: ManualSealParams<B, BI, E, C, TP, SC, CS, CIDP, P>,
+	}: ManualSealParams<B, BI, E, C, TP, SC, CS, CIDP>,
 ) where
 	B: BlockT + 'static,
 	BI: BlockImport<B, Error = sp_consensus::Error> + Send + Sync + 'static,
 	C: HeaderBackend<B> + Finalizer<B, CB> + ProvideRuntimeApi<B> + 'static,
 	CB: ClientBackend<B> + 'static,
 	E: Environment<B> + 'static,
-	E::Proposer: Proposer<B, Proof = P>,
+	E::Proposer: Proposer<B>,
 	CS: Stream<Item = EngineCommand<<B as BlockT>::Hash>> + Unpin + 'static,
 	SC: SelectChain<B> + 'static,
 	TP: TransactionPool<Block = B>,
 	CIDP: CreateInherentDataProviders<B, ()>,
-	P: codec::Encode + Send + Sync + 'static,
 {
 	while let Some(command) = commands_stream.next().await {
 		match command {
@@ -212,7 +211,7 @@ pub async fn run_manual_seal<B, BI, CB, E, C, TP, SC, CS, CIDP, P>(
 /// runs the background authorship task for the instant seal engine.
 /// instant-seal creates a new block for every transaction imported into
 /// the transaction pool.
-pub async fn run_instant_seal<B, BI, CB, E, C, TP, SC, CIDP, P, MTS>(
+pub async fn run_instant_seal<B, BI, CB, E, C, TP, SC, CIDP, MTS>(
 	InstantSealParams {
 		block_import,
 		env,
@@ -222,18 +221,17 @@ pub async fn run_instant_seal<B, BI, CB, E, C, TP, SC, CIDP, P, MTS>(
 		consensus_data_provider,
 		create_inherent_data_providers,
 		manual_trigger_stream,
-	}: InstantSealParams<B, BI, E, C, TP, SC, CIDP, P, MTS>,
+	}: InstantSealParams<B, BI, E, C, TP, SC, CIDP, MTS>,
 ) where
 	B: BlockT + 'static,
 	BI: BlockImport<B, Error = sp_consensus::Error> + Send + Sync + 'static,
 	C: HeaderBackend<B> + Finalizer<B, CB> + ProvideRuntimeApi<B> + 'static,
 	CB: ClientBackend<B> + 'static,
 	E: Environment<B> + 'static,
-	E::Proposer: Proposer<B, Proof = P>,
+	E::Proposer: Proposer<B>,
 	SC: SelectChain<B> + 'static,
 	TP: TransactionPool<Block = B>,
 	CIDP: CreateInherentDataProviders<B, ()>,
-	P: codec::Encode + Send + Sync + 'static,
 	MTS: Stream<Item = EngineCommand<<B as BlockT>::Hash>> + Unpin + 'static,
 {
 	// instant-seal creates blocks as soon as transactions are imported
@@ -267,7 +265,7 @@ pub async fn run_instant_seal<B, BI, CB, E, C, TP, SC, CIDP, P, MTS>(
 ///
 /// This function will finalize the block immediately as well. If you don't
 /// want this behavior use `run_instant_seal` instead.
-pub async fn run_instant_seal_and_finalize<B, BI, CB, E, C, TP, SC, CIDP, P, MTS>(
+pub async fn run_instant_seal_and_finalize<B, BI, CB, E, C, TP, SC, CIDP, MTS>(
 	InstantSealParams {
 		block_import,
 		env,
@@ -277,18 +275,17 @@ pub async fn run_instant_seal_and_finalize<B, BI, CB, E, C, TP, SC, CIDP, P, MTS
 		consensus_data_provider,
 		create_inherent_data_providers,
 		manual_trigger_stream,
-	}: InstantSealParams<B, BI, E, C, TP, SC, CIDP, P, MTS>,
+	}: InstantSealParams<B, BI, E, C, TP, SC, CIDP, MTS>,
 ) where
 	B: BlockT + 'static,
 	BI: BlockImport<B, Error = sp_consensus::Error> + Send + Sync + 'static,
 	C: HeaderBackend<B> + Finalizer<B, CB> + ProvideRuntimeApi<B> + 'static,
 	CB: ClientBackend<B> + 'static,
 	E: Environment<B> + 'static,
-	E::Proposer: Proposer<B, Proof = P>,
+	E::Proposer: Proposer<B>,
 	SC: SelectChain<B> + 'static,
 	TP: TransactionPool<Block = B>,
 	CIDP: CreateInherentDataProviders<B, ()>,
-	P: codec::Encode + Send + Sync + 'static,
 	MTS: Stream<Item = EngineCommand<<B as BlockT>::Hash>> + Unpin + 'static,
 {
 	// Creates and finalizes blocks as soon as transactions are imported
@@ -357,10 +354,12 @@ pub async fn run_delayed_finalize<B, CB, C, S>(
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use assert_matches::assert_matches;
 	use sc_basic_authorship::ProposerFactory;
 	use sc_consensus::ImportedAux;
 	use sc_transaction_pool::{BasicPool, FullChainApi, Options, RevalidationType};
 	use sc_transaction_pool_api::{MaintainedTransactionPool, TransactionPool, TransactionSource};
+	use sp_api::StorageProof;
 	use sp_inherents::InherentData;
 	use sp_runtime::generic::{Digest, DigestItem};
 	use substrate_test_runtime_client::{
@@ -382,8 +381,6 @@ mod tests {
 		B: BlockT,
 		C: ProvideRuntimeApi<B> + Send + Sync,
 	{
-		type Proof = ();
-
 		fn create_digest(
 			&self,
 			_parent: &B::Header,
@@ -397,7 +394,7 @@ mod tests {
 			_parent: &B::Header,
 			params: &mut BlockImportParams<B>,
 			_inherents: &InherentData,
-			_proof: Self::Proof,
+			_proof: StorageProof,
 		) -> Result<(), Error> {
 			params.post_digests.push(DigestItem::Other(vec![1]));
 			Ok(())
@@ -459,10 +456,10 @@ mod tests {
 		assert!(result.is_ok());
 		// assert that the background task returns ok
 		let created_block = receiver.await.unwrap().unwrap();
-		assert_eq!(
+		assert_matches!(
 			created_block,
 			CreatedBlock {
-				hash: created_block.hash,
+				hash: _,
 				aux: ImportedAux {
 					header_only: false,
 					clear_justification_requests: false,
@@ -470,7 +467,7 @@ mod tests {
 					bad_justification: false,
 					is_new_best: true,
 				},
-				proof_size: 0
+				proof_size: _
 			}
 		);
 		// assert that there's a new block in the db.
@@ -623,10 +620,10 @@ mod tests {
 		let created_block = rx.await.unwrap().unwrap();
 
 		// assert that the background task returns ok
-		assert_eq!(
+		assert_matches!(
 			created_block,
 			CreatedBlock {
-				hash: created_block.hash,
+				hash: _,
 				aux: ImportedAux {
 					header_only: false,
 					clear_justification_requests: false,
@@ -634,7 +631,7 @@ mod tests {
 					bad_justification: false,
 					is_new_best: true,
 				},
-				proof_size: 0
+				proof_size: _
 			}
 		);
 		// assert that there's a new block in the db.
@@ -708,10 +705,10 @@ mod tests {
 		let created_block = rx.await.unwrap().unwrap();
 
 		// assert that the background task returns ok
-		assert_eq!(
+		assert_matches!(
 			created_block,
 			CreatedBlock {
-				hash: created_block.hash,
+				hash: _,
 				aux: ImportedAux {
 					header_only: false,
 					clear_justification_requests: false,
@@ -719,7 +716,7 @@ mod tests {
 					bad_justification: false,
 					is_new_best: true
 				},
-				proof_size: 0
+				proof_size: _
 			}
 		);
 
@@ -743,7 +740,7 @@ mod tests {
 			})
 			.await
 			.is_ok());
-		assert_matches::assert_matches!(rx1.await.expect("should be no error receiving"), Ok(_));
+		assert_matches!(rx1.await.expect("should be no error receiving"), Ok(_));
 
 		assert!(pool.submit_one(created_block.hash, SOURCE, uxt(Bob, 0)).await.is_ok());
 		let (tx2, rx2) = futures::channel::oneshot::channel();

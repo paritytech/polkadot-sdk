@@ -296,12 +296,12 @@ impl EthRpcServer for EthRpcServerImpl {
 		let receiver = self.client.block_notifier().map(|sender| sender.subscribe());
 
 		// Submit the transaction
-		let substrate_hash = self.client.submit(call).await.map_err(|err| {
+		self.client.submit(call).await.map_err(|err| {
 			log::trace!(target: LOG_TARGET, "send_raw_transaction ethereum_hash: {hash:?} failed: {err:?}");
 			err
 		})?;
 
-		log::trace!(target: LOG_TARGET, "send_raw_transaction ethereum_hash: {hash:?} substrate_hash: {substrate_hash:?}");
+		log::trace!(target: LOG_TARGET, "send_raw_transaction with hash: {hash:?}");
 
 		// Wait for the transaction to be included in a block if automine is enabled
 		if let Some(mut receiver) = receiver {
@@ -474,7 +474,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		let hash = self.client.block_hash_for_tag(block).await?;
 		let runtime_api = self.client.runtime_api(hash);
 		let bytes = runtime_api.get_storage(address, storage_slot.to_big_endian()).await?;
-		Ok(bytes.unwrap_or_default().into())
+		Ok(bytes.unwrap_or([0u8; 32].into()).into())
 	}
 
 	async fn get_transaction_by_block_hash_and_index(
