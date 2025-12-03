@@ -201,7 +201,11 @@ impl TransactAsset for SuccessfulTransactor {
 		Ok(())
 	}
 
-	fn deposit_asset(_what: AssetsInHolding, _who: &Location, _context: Option<&XcmContext>) -> Result<(), (AssetsInHolding, XcmError)> {
+	fn deposit_asset(
+		_what: AssetsInHolding,
+		_who: &Location,
+		_context: Option<&XcmContext>,
+	) -> Result<(), (AssetsInHolding, XcmError)> {
 		Ok(())
 	}
 

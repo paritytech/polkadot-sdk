@@ -229,9 +229,7 @@ where
 			.non_fungible_assets_iter()
 			.next()
 			.and_then(|asset| Matcher::matches_nonfungible(&asset));
-		let Some(instance) = maybe else {
-			return Err((what, MatchError::AssetNotHandled.into()))
-		};
+		let Some(instance) = maybe else { return Err((what, MatchError::AssetNotHandled.into())) };
 		let Some(who) = AccountIdConverter::convert_location(who) else {
 			return Err((what, MatchError::AccountIdConversionFailed.into()))
 		};
