@@ -384,7 +384,8 @@ pub mod pallet {
 			let next_authorities = NextAuthorities::<T>::get();
 
 			// Compute tickets threshold
-			let next_config = NextEpochConfig::<T>::get().unwrap_or_else(|| EpochConfig::<T>::get());
+			let next_config =
+				NextEpochConfig::<T>::get().unwrap_or_else(|| EpochConfig::<T>::get());
 			let ticket_threshold = sp_consensus_sassafras::ticket_id_threshold(
 				next_config.redundancy_factor,
 				epoch_length as u32,
