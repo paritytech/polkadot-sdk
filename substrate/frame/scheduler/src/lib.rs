@@ -458,6 +458,11 @@ pub mod pallet {
 			let large_lookup = lookup_weight::<T>(1024 * 1024);
 			assert!(large_lookup.all_lte(limit), "Must be possible to submit a large lookup");
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: SystemBlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
 	}
 
 	#[pallet::call]
@@ -1689,5 +1694,65 @@ fn map_err_to_v3_err<T: Config>(err: DispatchError) -> DispatchError {
 		DispatchError::Unavailable
 	} else {
 		err
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> Pallet<T> {
+	/// Ensure the correctness of the state of this pallet.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_lookup_agenda_consistency()?;
+		Ok(())
+	}
+
+	/// Verify bidirectional consistency between `Lookup` and `Agenda` storage.
+	///
+	/// # Invariants
+	///
+	/// * Every entry in `Lookup` must point to a valid task in `Agenda`.
+	/// * The task at that location must have a `maybe_id` matching the `Lookup` key.
+	/// * Every named task in `Agenda` (with `maybe_id.is_some()`) must have a corresponding
+	///   `Lookup` entry.
+	fn try_state_lookup_agenda_consistency() -> Result<(), sp_runtime::TryRuntimeError> {
+		use sp_runtime::TryRuntimeError;
+
+		// Check: Every Lookup entry points to a valid named task in Agenda.
+		for (name, (when, index)) in Lookup::<T>::iter() {
+			let agenda = Agenda::<T>::get(when);
+			let task = agenda.get(index as usize).and_then(|t| t.as_ref()).ok_or_else(|| {
+				TryRuntimeError::Other("Lookup points to empty or out-of-bounds Agenda slot")
+			})?;
+
+			let task_id = task.maybe_id.as_ref().ok_or_else(|| {
+				TryRuntimeError::Other("Lookup points to anonymous task (missing maybe_id)")
+			})?;
+
+			if *task_id != name {
+				return Err(TryRuntimeError::Other(
+					"Lookup name does not match task's maybe_id",
+				));
+			}
+		}
+
+		// Check: Every named task in Agenda has a corresponding Lookup entry.
+		for (when, agenda) in Agenda::<T>::iter() {
+			for (index, maybe_task) in agenda.iter().enumerate() {
+				if let Some(task) = maybe_task {
+					if let Some(ref id) = task.maybe_id {
+						let lookup_addr = Lookup::<T>::get(id).ok_or_else(|| {
+							TryRuntimeError::Other("Named task has no corresponding Lookup entry")
+						})?;
+
+						if lookup_addr != (when, index as u32) {
+							return Err(TryRuntimeError::Other(
+								"Lookup entry points to different address than task location",
+							));
+						}
+					}
+				}
+			}
+		}
+
+		Ok(())
 	}
 }
