@@ -2721,6 +2721,8 @@ fn scheduler_v3_named_cancel_named_works() {
 		.unwrap();
 		// Cancel the call by name.
 		assert_ok!(<Scheduler as Named<_, _, _>>::cancel_named(name));
+		// Lookup storage should be empty.
+		assert!(Lookup::<Test>::get(name).is_none());
 		// It did not get executed.
 		System::run_to_block::<AllPalletsWithSystem>(100);
 		assert!(logger::log().is_empty());
@@ -2751,6 +2753,8 @@ fn scheduler_v3_named_cancel_without_name_works() {
 		.unwrap();
 		// Cancel the call by address.
 		assert_ok!(<Scheduler as Anon<_, _, _>>::cancel(address));
+		// Address-cancellation of named task should still clear the lookup storage.
+		assert!(Lookup::<Test>::get(name).is_none());
 		// It did not get executed.
 		System::run_to_block::<AllPalletsWithSystem>(100);
 		assert!(logger::log().is_empty());
