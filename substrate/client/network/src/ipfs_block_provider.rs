@@ -16,7 +16,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use cid::multihash::Multihash;
 use core::marker::PhantomData;
 use futures::{stream::FusedStream, Stream, StreamExt};
 use log::{debug, warn};
@@ -30,7 +29,11 @@ use std::{
 	task::{Context, Poll},
 };
 
+/// Log target for this file.
 const LOG_TARGET: &str = "sub-libp2p::ipfs";
+
+/// Multihash wiith allocated size of 32 bytes for hash value.
+type Multihash = cid::multihash::Multihash<32>;
 
 /// A change to the blocks available from a [`BlockProvider`].
 pub enum Change {

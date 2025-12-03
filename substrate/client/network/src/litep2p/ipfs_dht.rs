@@ -22,7 +22,6 @@ use crate::{
 	config::MultiaddrWithPeerId,
 	ipfs_block_provider::{BlockProvider, Change},
 };
-use cid::Cid;
 use futures::StreamExt;
 use litep2p::{
 	protocol::libp2p::kademlia::{
@@ -75,6 +74,9 @@ const RANDOM_WALK_INTERVAL: Duration = Duration::from_secs(10 * 60);
 /// per block. So, one transaction per block is a practical limit on the number of indexed
 /// transactions published to IPFS.
 const MAX_INFLIGHT_QUERIES: usize = 100;
+
+/// CID with allocated size of 32 bytes for hash value.
+type Cid = cid::CidGeneric<32>;
 
 pub(crate) struct IpfsDht {
 	kademlia_handle: KademliaHandle,
