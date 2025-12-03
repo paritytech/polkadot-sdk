@@ -147,8 +147,12 @@ jobs:
           fi
           echo "REL_TAG=$REF2" >> $GITHUB_ENV
           export VERSION=$(echo "$REF2" | sed -E 's/.*(stable[0-9]{4}(-[0-9]+)?).*$/\1/')
-
           echo "Version: $VERSION"
+
+          if [[ ${NO_RUNTIMES} == "true"  || ${CRATES_ONLY} == "true" ]]; then
+            export STABLE_VERSION=$(sed -E 's/.*(stable[0-9]{4}).*$/\1/' <<< "$VERSION")
+            export NODE_VERSION=v$(get_polkadot_node_version_from_code)
+          fi
 
           ./scripts/release/build-changelogs.sh
 
