@@ -358,7 +358,7 @@ fn set_code_hash(fixture_type: FixtureType) {
 		let Contract { addr: contract_addr, .. } =
 			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
 		// upload new code
-		// This needs to be instantiated else we upload the initcode.
+		// This needs to be instantiated else we upload the initcode in case of Solc fixture.
 		let Contract { addr: contract_addr2, .. } =
 			builder::bare_instantiate(Code::Upload(new_binary)).build_and_unwrap_contract();
 		let new_code_hash = get_contract(&contract_addr2).code_hash;
