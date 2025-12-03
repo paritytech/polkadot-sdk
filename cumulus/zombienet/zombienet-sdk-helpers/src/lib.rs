@@ -31,50 +31,6 @@ use zombienet_sdk::{
 // If it does not arrive for whatever reason, we should not wait forever.
 const WAIT_MAX_BLOCKS_FOR_SESSION: u32 = 50;
 
-/// Create a batch call to assign cores to a parachain.
-///
-/// Zombienet by default adds extra core for each registered parachain additionally to the one
-/// requested by `num_cores`. It then assigns the parachains to the extra cores allocated at the
-/// end. So, the passed core indices should be counted from zero.
-///
-/// # Example
-///
-/// Genesis patch:
-/// ```json
-/// "configuration": {
-///   "config": {
-///     "scheduler_params": {
-///       "num_cores": 2,
-///     }
-///   }
-/// }
-/// ```
-///
-/// Runs the relay chain with `2` cores and we also add two parachains.
-/// To assign these extra `2` cores, the call would look like this:
-///
-/// ```ignore
-/// create_assign_core_call(&[(0, 2400), (1, 2400)])
-/// ```
-///
-/// The cores `2` and `3` are assigned to the parachains by zombienet.
-pub fn create_assign_core_call(core_and_para: &[(u32, u32)]) -> DynamicPayload {
-	let mut assign_cores = vec![];
-	for (core, para_id) in core_and_para.iter() {
-		assign_cores.push(value! {
-			Coretime(assign_core { core : *core, begin: 0, assignment: ((Task(*para_id), 57600)), end_hint: None() })
-		});
-	}
-
-	zombienet_sdk::subxt::tx::dynamic(
-		"Sudo",
-		"sudo",
-		vec![value! {
-			Utility(batch { calls: assign_cores })
-		}],
-	)
-}
-
 /// Find an event in subxt `Events` and attempt to decode the fields of the event.
 fn find_event_and_decode_fields<T: Decode>(
 	events: &Events<PolkadotConfig>,
@@ -535,6 +491,23 @@ pub async fn assign_cores(
 	log::info!("Cores assigned to the parachain");
 
 	Ok(())
+}
+
+fn create_assign_core_call(core_and_para: &[(u32, u32)]) -> DynamicPayload {
+	let mut assign_cores = vec![];
+	for (core, para_id) in core_and_para.iter() {
+		assign_cores.push(value! {
+			Coretime(assign_core { core : *core, begin: 0, assignment: ((Task(*para_id), 57600)), end_hint: None() })
+		});
+	}
+
+	zombienet_sdk::subxt::tx::dynamic(
+		"Sudo",
+		"sudo",
+		vec![value! {
+			Utility(batch { calls: assign_cores })
+		}],
+	)
 }
 
 /// Creates a runtime upgrade call using `sudo` and `set_code`.

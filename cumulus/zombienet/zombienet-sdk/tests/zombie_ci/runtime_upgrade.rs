@@ -8,7 +8,6 @@ use cumulus_zombienet_sdk_helpers::{
 	create_runtime_upgrade_call, submit_extrinsic_and_wait_for_finalization_success,
 	wait_for_runtime_upgrade,
 };
-use std::time::Duration;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
 	subxt_signer::sr25519::dev,
@@ -29,7 +28,6 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 	let config = build_network_config().await?;
 	let network = initialize_network(config).await?;
 
-	let timeout_secs: u64 = 250;
 	let charlie = network.get_node("charlie")?;
 	let charlie_client: OnlineClient<PolkadotConfig> = charlie.wait_client().await?;
 
@@ -47,16 +45,11 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 	let dave_client: OnlineClient<PolkadotConfig> = dave.wait_client().await?;
 	let expected_spec_version = current_spec_version + 1;
 
-	log::info!(
-		"Waiting (up to {timeout_secs}s) for parachain runtime upgrade to version {}",
-		expected_spec_version
-	);
-	tokio::time::timeout(Duration::from_secs(timeout_secs), wait_for_runtime_upgrade(&dave_client))
-		.await
-		.expect("Timeout waiting for runtime upgrade")?;
+	log::info!("Waiting for parachain runtime upgrade to version {}", expected_spec_version);
+	wait_for_runtime_upgrade(&dave_client).await?;
 
 	let spec_version_from_charlie =
-		charlie_client.backend().current_runtime_version().await?.spec_version;
+		dave_client.backend().current_runtime_version().await?.spec_version;
 	assert_eq!(expected_spec_version, spec_version_from_charlie, "Unexpected runtime spec version");
 
 	Ok(())

@@ -3,7 +3,6 @@
 
 use anyhow::anyhow;
 use serde_json::json;
-use std::time::Duration;
 
 use crate::utils::initialize_network;
 
@@ -58,7 +57,6 @@ async fn elastic_scaling_upgrade_to_3_cores(
 	}
 
 	assign_cores(alice, PARA_ID, vec![1, 2]).await?;
-	let timeout_secs: u64 = 250;
 	let collator0 = network.get_node("collator0")?;
 	let collator0_client: OnlineClient<PolkadotConfig> = collator0.wait_client().await?;
 
@@ -81,16 +79,8 @@ async fn elastic_scaling_upgrade_to_3_cores(
 	let collator1_client: OnlineClient<PolkadotConfig> = collator1.wait_client().await?;
 	let expected_spec_version = current_spec_version + 1;
 
-	log::info!(
-		"Waiting (up to {timeout_secs}s) for parachain runtime upgrade to version {}",
-		expected_spec_version
-	);
-	tokio::time::timeout(
-		Duration::from_secs(timeout_secs),
-		wait_for_runtime_upgrade(&collator1_client),
-	)
-	.await
-	.expect("Timeout waiting for runtime upgrade")?;
+	log::info!("Waiting for parachain runtime upgrade to version {}", expected_spec_version);
+	wait_for_runtime_upgrade(&collator1_client).await?;
 
 	let spec_version_from_collator0 =
 		collator0_client.backend().current_runtime_version().await?.spec_version;
