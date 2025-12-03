@@ -61,6 +61,9 @@ pub use weights::WeightInfo;
 pub const DEFAULT_MAX_TRANSACTION_SIZE: u32 = 8 * 1024 * 1024;
 pub const DEFAULT_MAX_BLOCK_TRANSACTIONS: u32 = 512;
 
+/// Hash of a stored blob of data.
+type ContentHash = [u8; 32];
+
 /// State data for a stored transaction.
 #[derive(
 	Encode,
@@ -258,7 +261,7 @@ pub mod pallet {
 					.map_err(|_| Error::<T>::TooManyTransactions)?;
 				Ok(())
 			})?;
-			Self::deposit_event(Event::Stored { index });
+			Self::deposit_event(Event::Stored { index, content_hash });
 			Ok(())
 		}
 
@@ -282,8 +285,8 @@ pub mod pallet {
 				frame_system::Pallet::<T>::extrinsic_index().ok_or(Error::<T>::BadContext)?;
 
 			Self::apply_fee(sender, info.size)?;
-
-			sp_io::transaction_index::renew(extrinsic_index, info.content_hash.into());
+			let content_hash = info.content_hash.into();
+			sp_io::transaction_index::renew(extrinsic_index, content_hash);
 
 			let mut index = 0;
 			BlockTransactions::<T>::mutate(|transactions| {
@@ -302,7 +305,7 @@ pub mod pallet {
 					})
 					.map_err(|_| Error::<T>::TooManyTransactions)
 			})?;
-			Self::deposit_event(Event::Renewed { index });
+			Self::deposit_event(Event::Renewed { index, content_hash });
 			Ok(().into())
 		}
 
@@ -343,11 +346,24 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Stored data under specified index.
-		Stored { index: u32 },
+		Stored { index: u32, content_hash: ContentHash },
 		/// Renewed data under specified index.
-		Renewed { index: u32 },
+		Renewed { index: u32, content_hash: ContentHash },
 		/// Storage proof was successfully checked.
 		ProofChecked,
+		/// An account `who` was authorized to store `bytes` bytes in `transactions` transactions.
+		AccountAuthorized { who: T::AccountId, transactions: u32, bytes: u64 },
+		/// An authorization for account `who` was refreshed.
+		AccountAuthorizationRefreshed { who: T::AccountId },
+		/// Authorization was given for a preimage of `content_hash` (not exceeding `max_size`) to
+		/// be stored by anyone.
+		PreimageAuthorized { content_hash: ContentHash, max_size: u64 },
+		/// An authorization for a preimage of `content_hash` was refreshed.
+		PreimageAuthorizationRefreshed { content_hash: ContentHash },
+		/// An expired account authorization was removed.
+		ExpiredAccountAuthorizationRemoved { who: T::AccountId },
+		/// An expired preimage authorization was removed.
+		ExpiredPreimageAuthorizationRemoved { content_hash: ContentHash },
 	}
 
 	/// Collection of transaction metadata by block number.
