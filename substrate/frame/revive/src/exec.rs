@@ -219,6 +219,10 @@ pub trait Ext: PrecompileWithInfoExt {
 	#[allow(dead_code)]
 	fn own_code_hash(&mut self) -> &H256;
 
+	/// Sets new code hash and immutable data for an existing contract.
+	/// Returns whether the old code was removed as a result of this operation.
+	fn set_code_hash(&mut self, hash: H256) -> Result<CodeRemoved, DispatchError>;
+
 	/// Get the length of the immutable data.
 	///
 	/// This query is free as it does not need to load the immutable data from storage.
@@ -471,7 +475,9 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Sets new code hash and immutable data for an existing contract.
 	/// Returns whether the old code was removed as a result of this operation.
-	fn set_code_hash(&mut self, hash: H256) -> Result<CodeRemoved, DispatchError>;
+	///
+	/// Should only be called from System::set_code_hash precompile.
+	fn set_code_hash_of_caller(&mut self, hash: H256) -> Result<CodeRemoved, DispatchError>;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -694,7 +700,6 @@ enum CachedContract<T: Config> {
 impl<T: Config> Frame<T> {
 	/// Return the `contract_info` of the current contract.
 	fn contract_info(&mut self) -> &mut ContractInfo<T> {
-		// log::error!("RVE exec.rs contract_info()");
 		self.contract_info.get(&self.account_id)
 	}
 }
@@ -770,7 +775,6 @@ impl<T: Config> CachedContract<T> {
 
 	/// Return the cached contract_info.
 	fn get(&mut self, account_id: &T::AccountId) -> &mut ContractInfo<T> {
-		// log::error!("RVE exec.rs get() account_id: {:?}", account_id);
 		self.load(account_id);
 		get_cached_or_panic_after_load!(self)
 	}
@@ -1848,6 +1852,43 @@ where
 		&self.top_frame_mut().contract_info().code_hash
 	}
 
+	/// TODO: This should be changed to run the constructor of the supplied `hash`.
+	///
+	/// Because the immutable data is attached to a contract and not a code,
+	/// we need to update the immutable data too.
+	///
+	/// Otherwise we open a massive footgun:
+	/// If the immutables changed in the new code, the contract will brick.
+	///
+	/// A possible implementation strategy is to add a flag to `FrameArgs::Instantiate`,
+	/// so that `fn run()` will roll back any changes if this flag is set.
+	///
+	/// After running the constructor, the new immutable data is already stored in
+	/// `self.immutable_data` at the address of the (reverted) contract instantiation.
+	///
+	/// The `set_code_hash` contract API stays disabled until this change is implemented.
+	fn set_code_hash(&mut self, hash: H256) -> Result<CodeRemoved, DispatchError> {
+		let frame = top_frame_mut!(self);
+
+		let info = frame.contract_info();
+
+		let prev_hash = info.code_hash;
+		info.code_hash = hash;
+
+		let code_info = CodeInfoOf::<T>::get(hash).ok_or(Error::<T>::CodeNotFound)?;
+
+		let old_base_deposit = info.storage_base_deposit();
+		let new_base_deposit = info.update_base_deposit(code_info.deposit());
+		let deposit = StorageDeposit::Charge(new_base_deposit)
+			.saturating_sub(&StorageDeposit::Charge(old_base_deposit));
+
+		frame.nested_storage.charge_deposit(frame.account_id.clone(), deposit);
+
+		<CodeInfo<T>>::increment_refcount(hash)?;
+		let removed = <CodeInfo<T>>::decrement_refcount(prev_hash)?;
+		Ok(removed)
+	}
+
 	fn immutable_data_len(&mut self) -> u32 {
 		self.top_frame_mut().contract_info().immutable_data_len()
 	}
@@ -2415,17 +2456,21 @@ where
 	/// `self.immutable_data` at the address of the (reverted) contract instantiation.
 	///
 	/// The `set_code_hash` contract API stays disabled until this change is implemented.
-	fn set_code_hash(&mut self, hash: H256) -> Result<CodeRemoved, DispatchError> {
-		log::error!("RVE exec.rs set_code_hash()");
-		let frame = top_frame_mut!(self);
+	fn set_code_hash_of_caller(&mut self, hash: H256) -> Result<CodeRemoved, DispatchError> {
+		ensure!(self.top_frame().delegate.is_none(), Error::<T>::PrecompileDelegateDenied); // TODO(RVE): can this be delegatecall?
+		let parent = core::iter::once(&mut self.first_frame)
+			.chain(&mut self.frames)
+			.rev()
+			.nth(1)
+			.ok_or_else(|| Error::<T>::ContractNotFound)?;
+		ensure!(parent.entry_point == ExportedFunction::Call, Error::<T>::TerminatedInConstructor); // TODO(RVE): can this be called from ctor?
+		ensure!(parent.delegate.is_none(), Error::<T>::PrecompileDelegateDenied); // TODO(RVE): can this be delegatecall?
 
-		log::error!("RVE exec.rs set_code_hash() let info = frame.contract_info();");
-		let info = frame.contract_info(); // TODO(RVE): this goe wrong because we try to get the contract_info of ALICE which makes no sense. We need the info of the contract being executed.
+		let info = parent.contract_info();
 
 		let prev_hash = info.code_hash;
 		info.code_hash = hash;
 
-		log::error!("RVE exec.rs set_code_hash() let code_info = CodeInfoOf::<T>::get(hash).ok_or(Error::<T>::CodeNotFound)?;");
 		let code_info = CodeInfoOf::<T>::get(hash).ok_or(Error::<T>::CodeNotFound)?;
 
 		let old_base_deposit = info.storage_base_deposit();
@@ -2433,12 +2478,10 @@ where
 		let deposit = StorageDeposit::Charge(new_base_deposit)
 			.saturating_sub(&StorageDeposit::Charge(old_base_deposit));
 
-		frame.nested_storage.charge_deposit(frame.account_id.clone(), deposit);
+		parent.nested_storage.charge_deposit(parent.account_id.clone(), deposit);
 
-		log::error!("RVE exec.rs set_code_hash() <CodeInfo<T>>::increment_refcount(hash)?;");
 		<CodeInfo<T>>::increment_refcount(hash)?;
 		let removed = <CodeInfo<T>>::decrement_refcount(prev_hash)?;
-		log::error!("RVE exec.rs set_code_hash() Ok(removed)");
 		Ok(removed)
 	}
 }

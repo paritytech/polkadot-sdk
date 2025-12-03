@@ -19,8 +19,8 @@
 
 use crate::{
 	evm::fees::InfoT,
-	test_utils::{builder::Contract, ALICE, ALICE_ADDR, GAS_LIMIT},
-	tests::{builder, Contracts, ExtBuilder, Test},
+	test_utils::{builder::Contract, deposit_limit, ALICE, ALICE_ADDR, GAS_LIMIT},
+	tests::{builder, Contracts, ExtBuilder, RuntimeOrigin, Test},
 	Code, Combinator, Config, ExecConfig, U256,
 };
 use alloy_core::sol_types::{Revert, SolCall, SolConstructor, SolError};
@@ -33,8 +33,6 @@ use revm::primitives::Bytes;
 use sp_core::H160;
 use sp_io::hashing::keccak_256;
 use test_case::test_case;
-use crate::test_utils::deposit_limit;
-use crate::tests::RuntimeOrigin;
 
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
@@ -343,28 +341,30 @@ fn constructor_with_argument_works(fixture_type: FixtureType) {
 fn set_code_hash(fixture_type: FixtureType) {
 	use pallet_revive_fixtures::SetCodeHash;
 	let (binary, _) = compile_module_with_type("SetCodeHash", fixture_type).unwrap();
-	let (new_binary, new_code_hash) = compile_module_with_type("SetCodeHashReplacement", fixture_type).unwrap();
+	let (new_binary, new_code_hash) =
+		compile_module_with_type("SetCodeHashReplacement", fixture_type).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
 		// Instantiate the 'caller'
-		let Contract { addr: contract_addr, .. } = builder::bare_instantiate(Code::Upload(binary))
-			.build_and_unwrap_contract();
+		let Contract { addr: contract_addr, .. } =
+			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
 		// upload new code
 		Contracts::upload_code(
 			RuntimeOrigin::signed(ALICE),
 			new_binary.clone(),
 			deposit_limit::<Test>(),
-		).unwrap();
+		)
+		.unwrap();
 
-		// System::reset_events();
+		crate::tests::System::reset_events();
 
+		println!("contract_addr: {contract_addr:?}");
 		println!("new_code_hash: {new_code_hash:?}");
 
 		// First call sets new code_hash and returns 1
 		let result = builder::bare_call(contract_addr)
-			// .data(new_code_hash.as_ref().to_vec())
 			.data(
 				SetCodeHash::setCodeHashCall {
 					codeHash: alloy_core::primitives::FixedBytes::<32>::from(new_code_hash.0),
@@ -372,11 +372,21 @@ fn set_code_hash(fixture_type: FixtureType) {
 				.abi_encode(),
 			)
 			.build_and_unwrap_result();
-		// assert!(!result.did_revert());
-		// assert_return_code!(result, 1);
+		assert!(!result.did_revert());
+		let decoded = SetCodeHash::setCodeHashCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(decoded, alloy_core::primitives::U256::from(1u8));
 
 		// Second calls new contract code that returns 2
-		// let result = builder::bare_call(contract_addr).build_and_unwrap_result();
-		// assert_return_code!(result, 2);
+		let result = builder::bare_call(contract_addr)
+			.data(
+				SetCodeHash::setCodeHashCall {
+					codeHash: alloy_core::primitives::FixedBytes::<32>::from(new_code_hash.0),
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		assert!(!result.did_revert());
+		let decoded = SetCodeHash::setCodeHashCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(decoded, alloy_core::primitives::U256::from(2u8));
 	});
 }

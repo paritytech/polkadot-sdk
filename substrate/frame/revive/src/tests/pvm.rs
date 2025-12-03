@@ -44,7 +44,6 @@ use crate::{
 	DebugSettings, DeletionQueueCounter, Error, ExecConfig, HoldReason, Origin, Pallet,
 	PristineCode, StorageDeposit, H160,
 };
-use alloy_core::sol_types::{SolCall};
 use assert_matches::assert_matches;
 use codec::Encode;
 use frame_support::{
