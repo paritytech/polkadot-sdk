@@ -1401,6 +1401,93 @@ fn try_schedule_retry_respects_weight_limits() {
 	});
 }
 
+fn schedule_retry_fails_when_retry_target_block_is_full(named: bool) {
+	let max: u32 = <Test as Config>::MaxScheduledPerBlock::get();
+	let retry_period = 3;
+	let task_name = [42u8; 32];
+
+	new_test_ext().execute_with(|| {
+		// Task will fail until block 100 (effectively always fails in this test).
+		Threshold::<Test>::put((100, 200));
+
+		// Fill block 7 (4 + retry_period) to capacity with dummy tasks.
+		let filler_call =
+			RuntimeCall::Logger(LoggerCall::log { i: 99, weight: Weight::from_parts(10, 0) });
+		let filler_bound = Preimage::bound(filler_call).unwrap();
+		for _ in 0..max {
+			assert_ok!(Scheduler::do_schedule(
+				DispatchTime::At(4 + retry_period),
+				None,
+				127,
+				root(),
+				filler_bound.clone(),
+			));
+		}
+		assert_eq!(Agenda::<Test>::get(4 + retry_period).len() as u32, max);
+
+		// Schedule a task at block 4 that will fail.
+		let failing_call = RuntimeCall::Logger(LoggerCall::timed_log {
+			i: 42,
+			weight: Weight::from_parts(10, 0),
+		});
+		if named {
+			assert_ok!(Scheduler::do_schedule_named(
+				task_name,
+				DispatchTime::At(4),
+				None,
+				127,
+				root(),
+				Preimage::bound(failing_call).unwrap(),
+			));
+			// Set retry config for named task.
+			assert_ok!(Scheduler::set_retry_named(root().into(), task_name, 10, retry_period));
+		} else {
+			assert_ok!(Scheduler::do_schedule(
+				DispatchTime::At(4),
+				None,
+				127,
+				root(),
+				Preimage::bound(failing_call).unwrap(),
+			));
+			// Set retry config for anonymous task.
+			assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, retry_period));
+		}
+		assert_eq!(Retries::<Test>::iter().count(), 1);
+
+		// Run to block 4: task fails and tries to schedule retry at block 7, but it's full.
+		System::run_to_block::<AllPalletsWithSystem>(4);
+
+		// The retry config should be removed since scheduling failed.
+		assert_eq!(Retries::<Test>::iter().count(), 0);
+		// Task at block 4 should be gone.
+		assert!(Agenda::<Test>::get(4).is_empty());
+		// Block 7 should still have exactly `max` tasks (the fillers, no retry added).
+		assert_eq!(Agenda::<Test>::get(4 + retry_period).len() as u32, max);
+		// Task 42 never executed.
+		assert!(!logger::log().iter().any(|(_, i)| *i == 42));
+
+		// Verify `RetryFailed` event was emitted.
+		// Note: `id` is always `None` because `as_retry()` clears the task name.
+		let events = frame_system::Pallet::<Test>::events();
+		let retry_failed_event: <Test as frame_system::Config>::RuntimeEvent =
+			Event::RetryFailed { task: (4, 0), id: None }.into();
+		assert!(
+			events.iter().any(|record| record.event == retry_failed_event),
+			"Expected RetryFailed event not found"
+		);
+	});
+}
+
+#[test]
+fn schedule_retry_fails_when_retry_target_block_is_full_anon() {
+	schedule_retry_fails_when_retry_target_block_is_full(false);
+}
+
+#[test]
+fn schedule_retry_fails_when_retry_target_block_is_full_named() {
+	schedule_retry_fails_when_retry_target_block_is_full(true);
+}
+
 /// Permanently overweight calls are not deleted but also not executed.
 #[test]
 fn scheduler_does_not_delete_permanently_overweight_call() {
