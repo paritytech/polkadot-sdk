@@ -24,7 +24,6 @@ use zombienet_sdk::{
 		utils::H256,
 		OnlineClient, PolkadotConfig,
 	},
-	NetworkNode,
 };
 
 // Maximum number of blocks to wait for a session change.
@@ -465,12 +464,12 @@ pub async fn assert_para_is_registered(
 /// To assign these extra `2` cores, the call would look like this:
 ///
 /// ```ignore
-/// assign_core(&relay_node, PARA_ID, vec![0, 1])
+/// assign_core(&relay_client, PARA_ID, vec![0, 1])
 /// ```
 ///
 /// The cores `2` and `3` are assigned to the parachains by Zombienet.
 pub async fn assign_cores(
-	relay_node: &NetworkNode,
+	client: &OnlineClient<PolkadotConfig>,
 	para_id: u32,
 	cores: Vec<u32>,
 ) -> Result<(), anyhow::Error> {
@@ -479,9 +478,8 @@ pub async fn assign_cores(
 	let assign_cores_call =
 		create_assign_core_call(&cores.into_iter().map(|core| (core, para_id)).collect::<Vec<_>>());
 
-	let client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 	let res = submit_extrinsic_and_wait_for_finalization_success_with_timeout(
-		&client,
+		client,
 		&assign_cores_call,
 		&zombienet_sdk::subxt_signer::sr25519::dev::alice(),
 		60u64,

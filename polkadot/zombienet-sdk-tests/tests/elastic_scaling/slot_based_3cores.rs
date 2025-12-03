@@ -93,8 +93,8 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 
 	// Assign two extra cores to each parachain.
 	let (r1, r2) = tokio::join!(
-		assign_cores(relay_node, 2100, vec![0, 1]),
-		assign_cores(relay_node, 2200, vec![2, 3])
+		assign_cores(&relay_client, 2100, vec![0, 1]),
+		assign_cores(&relay_client, 2200, vec![2, 3])
 	);
 	r1?;
 	r2?;

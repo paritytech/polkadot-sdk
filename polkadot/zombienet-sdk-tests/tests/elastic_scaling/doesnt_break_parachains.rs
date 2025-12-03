@@ -69,7 +69,7 @@ async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-	assign_cores(relay_node, 2000, vec![0]).await?;
+	assign_cores(&relay_client, 2000, vec![0]).await?;
 
 	let para_id = ParaId::from(2000);
 	// Expect the parachain to be making normal progress, 1 candidate backed per relay chain block.

@@ -27,7 +27,6 @@ use serde_json::json;
 use txtesttool::{execution_log::ExecutionLog, scenario::ScenarioBuilder};
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
-	subxt_signer::sr25519::dev,
 	NetworkConfigBuilder,
 };
 
@@ -97,10 +96,9 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 	let relay_node = spawner.network().get_node("alice")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
-	let alice = dev::alice();
 
 	// Assign two extra cores to each parachain.
-	assign_cores(&alice, 2200, vec![0, 1]).await?;
+	assign_cores(&relay_client, 2200, vec![0, 1]).await?;
 
 	// Wait for the parachain collator to start block production.
 	spawner.wait_for_block("dave", BlockSubscriptionType::Best).await.unwrap();

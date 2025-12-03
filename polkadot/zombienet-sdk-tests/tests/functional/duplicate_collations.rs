@@ -85,7 +85,7 @@ async fn duplicate_collations_test() -> Result<(), anyhow::Error> {
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
 	// Assign two extra cores to parachain-2000.
-	assign_cores(relay_node, 2000, vec![0, 1]).await?;
+	assign_cores(&relay_client, 2000, vec![0, 1]).await?;
 
 	log::info!("2 more cores assigned to parachain-2000");
 

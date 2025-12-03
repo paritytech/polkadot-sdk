@@ -84,7 +84,7 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
 	// Assign 11 extra cores to the parachain.
-	assign_cores(relay_node, 2300, (0..11).collect()).await?;
+	assign_cores(&relay_client, 2300, (0..11).collect()).await?;
 
 	// Expect a backed candidate count of at least 170 in 15 relay chain blocks
 	// (11.33 candidates per para per relay chain block).

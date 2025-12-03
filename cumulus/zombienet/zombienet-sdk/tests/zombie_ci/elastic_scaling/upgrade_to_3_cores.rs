@@ -46,7 +46,7 @@ async fn elastic_scaling_upgrade_to_3_cores(
 	let alice = network.get_node("validator0")?;
 	let alice_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
 
-	assign_cores(alice, PARA_ID, vec![0]).await?;
+	assign_cores(&alice_client, PARA_ID, vec![0]).await?;
 
 	if async_backing {
 		log::info!("Ensuring parachain makes progress making 6s blocks");
@@ -56,7 +56,7 @@ async fn elastic_scaling_upgrade_to_3_cores(
 		assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 7..12)]).await?;
 	}
 
-	assign_cores(alice, PARA_ID, vec![1, 2]).await?;
+	assign_cores(&alice_client, PARA_ID, vec![1, 2]).await?;
 	let collator0 = network.get_node("collator0")?;
 	let collator0_client: OnlineClient<PolkadotConfig> = collator0.wait_client().await?;
 

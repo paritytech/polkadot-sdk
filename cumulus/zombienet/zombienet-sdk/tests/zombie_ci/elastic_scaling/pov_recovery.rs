@@ -45,7 +45,7 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 
 	let relay_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
 
-	assign_cores(alice, PARA_ID, vec![0, 1]).await?;
+	assign_cores(&relay_client, PARA_ID, vec![0]).await?;
 
 	log::info!("Ensuring parachain making progress");
 	assert_para_throughput(&relay_client, 20, [(ParaId::from(PARA_ID), 40..65)]).await?;
@@ -128,7 +128,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					"configuration": {
 						"config": {
 							"scheduler_params": {
-								"num_cores": 2,
+								"num_cores": 1,
 								"max_validators_per_core": 1
 							},
 							"approval_voting_params": {
