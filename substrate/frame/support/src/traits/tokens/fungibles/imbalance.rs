@@ -206,7 +206,7 @@ impl<
 	fn unsafe_clone(&self) -> Box<dyn ImbalanceAccounting<u128>> {
 		let clone = Self {
 			asset: self.asset.clone(),
-			amount: self.amount.clone(),
+			amount: self.amount,
 			_phantom: PhantomData::default(),
 		};
 		Box::new(clone)

@@ -192,7 +192,7 @@ impl<
 	> UnsafeConstructorDestructor<u128> for Imbalance<B, OnDrop, OppositeOnDrop>
 {
 	fn unsafe_clone(&self) -> Box<dyn ImbalanceAccounting<u128>> {
-		let clone = Self { amount: self.amount.clone(), _phantom: PhantomData::default() };
+		let clone = Self { amount: self.amount, _phantom: PhantomData::default() };
 		Box::new(clone)
 	}
 	fn forget_imbalance(&mut self) -> u128 {
