@@ -367,7 +367,7 @@ pub mod pallet {
 		/// Requirement: `GasScale` must not be 0
 		#[pallet::constant]
 		#[pallet::no_default_bounds]
-		type GasScale: Get<BalanceOf<Self>>;
+		type GasScale: Get<u32>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -396,7 +396,7 @@ pub mod pallet {
 			pub const DepositPerByte: Balance = deposit(0, 1);
 			pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
 			pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(9, 10);
-			pub const GasScale: Balance = 10 as Balance;
+			pub const GasScale: u32 = 10u32;
 		}
 
 		/// A type providing default configurations for this pallet in testing environment.

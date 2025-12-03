@@ -54,7 +54,7 @@ impl<T: Config> SignedGas<T> {
 	/// the internally used SignedGas.
 	pub fn from_ethereum_gas(gas: BalanceOf<T>) -> Self {
 		let gas_scale = <T as Config>::GasScale::get();
-		Self::Positive(gas.saturating_mul(gas_scale))
+		Self::Positive(gas.saturating_mul(gas_scale.into()))
 	}
 
 	/// Transform a storage deposit into a gas value. The value will be adjusted by dividing it
@@ -82,7 +82,7 @@ impl<T: Config> SignedGas<T> {
 	/// Transform the gas amount to an Ethereum gas amount usable for external purposes
 	/// Returns None if the gas amount is negative.
 	pub fn to_ethereum_gas(&self) -> Option<BalanceOf<T>> {
-		let gas_scale = <T as Config>::GasScale::get();
+		let gas_scale: BalanceOf<T> = <T as Config>::GasScale::get().into();
 
 		match self {
 			Positive(amount) =>

@@ -104,7 +104,7 @@ fn max_consumed_deposit_integration_refunds_subframes(
 
 #[test]
 fn substrate_metering_initialization_works() {
-	let gas_scale = <Test as Config>::GasScale::get();
+	let gas_scale = <Test as Config>::GasScale::get().into();
 
 	let tests = vec![
 		(
@@ -191,7 +191,7 @@ fn substrate_metering_initialization_works() {
 fn substrate_metering_charges_works() {
 	use Charge::{D, W};
 
-	let gas_scale = <Test as Config>::GasScale::get();
+	let gas_scale = <Test as Config>::GasScale::get().into();
 	let tests = vec![
 		(
 			(5_000_000_000u64, 1_000_000_000, 2_000),
@@ -321,7 +321,7 @@ fn substrate_metering_charges_works() {
 fn substrate_nesting_works() {
 	use CallResources::{Ethereum, NoLimits, WeightDeposit};
 
-	let gas_scale = <Test as Config>::GasScale::get();
+	let gas_scale = <Test as Config>::GasScale::get().into();
 	let tests = vec![
 		(
 			((5_000_000_000u64, 1_000_000_000, 2_000, 1000, 1000, 1000i64), NoLimits),
@@ -546,7 +546,7 @@ fn substrate_nesting_works() {
 fn substrate_nesting_charges_works() {
 	use Charge::{D, W};
 
-	let gas_scale = <Test as Config>::GasScale::get();
+	let gas_scale = <Test as Config>::GasScale::get().into();
 	let tests = vec![
 		(
 			(5_000_000_000u64, 1_000_000_000, 2_000, 1000, 100, 1000i64, 1000u64),
