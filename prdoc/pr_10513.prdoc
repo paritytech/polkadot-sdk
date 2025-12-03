@@ -1,11 +1,14 @@
-title: add parachains-common-types
+title: Extract parachain types into a dedicated crate
 doc:
-- audience: Todo
-  description: Closes https://github.com/paritytech/polkadot-sdk/issues/10512
+- audience: Node Dev
+  description: |-
+    Closes https://github.com/paritytech/polkadot-sdk/issues/10512.
+
+    Moves the common parachain primitives (accounts, balances, hashes, opaque block types) into a new `parachains-common-types` crate. The existing `parachains-common` crate re-exports these definitions, and `polkadot-omni-node-lib` now depends on the lightweight types crate to avoid pulling runtime pallets into omni-node builds.
 crates:
 - name: parachains-common
-  bump: major
+  bump: none
 - name: parachains-common-types
   bump: major
 - name: polkadot-omni-node-lib
-  bump: major
+  bump: none
