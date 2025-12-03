@@ -19,7 +19,7 @@ sp-runtime = { workspace = true }
 [features]
 default = ["std"]
 std = [
-    "sp-consensus-aura/std",
-    "sp-core/std",
-    "sp-runtime/std",
+	"sp-consensus-aura/std",
+	"sp-core/std",
+	"sp-runtime/std",
 ]

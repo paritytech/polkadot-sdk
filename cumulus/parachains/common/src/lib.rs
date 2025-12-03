@@ -22,16 +22,15 @@ pub mod message_queue;
 pub mod pay;
 pub mod xcm_config;
 pub use constants::*;
-pub use parachains_common_types::*;
-pub use parachains_common_types::opaque::*;
+pub use parachains_common_types::{opaque::*, *};
 
 /// Common constants of parachains.
 mod constants {
-	use parachains_common_types::BlockNumber;
 	use frame_support::{
 		weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 		PalletId,
 	};
+	use parachains_common_types::BlockNumber;
 	use sp_runtime::Perbill;
 
 	/// This determines the average expected block time that we are targeting. Blocks will be
