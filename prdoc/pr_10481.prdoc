@@ -1,16 +1,33 @@
-title: '[DRAFT] PoC DAP'
+title: 'Introduced pallet-dap'
 doc:
 - audience: Runtime Dev
   description: |-
     Initial PoC PR to play around with Dynamic Allocation Proposal here: https://hackmd.io/a0KSL4XHQ1WvcGZlKykGzg
 
-    So far, I am just currently removing treasury burn and staking slashing, redirecting them to the DAP / issuance buffer.
+    Initial version supports the following:
+      - Introduced FundingSink and FundingSource traits in frame-support
+      - Introduced pallet-dap with minimal implementation of FundingSink trait only. This pallet is meant to be
+      deployed on AssetHub as the central DAP pallet.
+      - Redirected treasury unspent to pallet-dap instead of burning
+      - Redirected staking slashes to pallet-dap instead of burning
+      - Introduced pallet-dap-satellite, to collect funds that otherwise would be burned (e.g. tx fees,
+      coretime revenues, ...) into a local satellite account. These funds are accumulated locally and
+      will be sent to pallet-dap periodically in future iterations. This pallet is meant to be deployed
+      on system chains like Coretime, People and BridheHub and on the RelayChain. It should not be deployed
+      on AssetHub, which hosts the central DAP pallet.
+
+    asset-hub-westend-runtime and staking-async test runtime have been modified to include pallet-dap and to send part of slashing and treasury's unspent funds to pallet-dap.
+    coretime-westend-runtime has been updated to include pallet-dap-satellite. Coretime revenues are now accumulated in the pallet-dap-satellite account instead of being burned.
 crates:
 - name: frame-support
   bump: major
 - name: pallet-dap
   bump: major
+- name: pallet-dap-satellite
+  bump: major
 - name: asset-hub-westend-runtime
   bump: major
 - name: pallet-staking-async
+  bump: major
+- name: coretime-westend-runtime
   bump: major

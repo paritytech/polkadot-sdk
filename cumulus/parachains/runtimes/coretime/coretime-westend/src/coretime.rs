@@ -18,69 +18,22 @@ use crate::{xcm_config::LocationToAccountId, *};
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelaychainDataProvider;
 use cumulus_primitives_core::relay_chain;
-use frame_support::{
-	parameter_types,
-	traits::{
-		fungible::{Balanced, Credit, Inspect},
-		tokens::{Fortitude, Preservation},
-		DefensiveResult, OnUnbalanced,
-	},
-};
-use frame_system::Pallet as System;
+use frame_support::parameter_types;
 use pallet_broker::{
 	CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf, TaskId, Timeslice,
 };
 use parachains_common::{AccountId, Balance};
-use sp_runtime::traits::{AccountIdConversion, MaybeConvert};
+use sp_runtime::traits::MaybeConvert;
 use westend_runtime_constants::system_parachain::coretime;
 use xcm::latest::prelude::*;
-use xcm_executor::traits::{ConvertLocation, TransactAsset};
+use xcm_executor::traits::ConvertLocation;
 
-pub struct BurnCoretimeRevenue;
-impl OnUnbalanced<Credit<AccountId, Balances>> for BurnCoretimeRevenue {
-	fn on_nonzero_unbalanced(amount: Credit<AccountId, Balances>) {
-		let acc = RevenueAccumulationAccount::get();
-		if !System::<Runtime>::account_exists(&acc) {
-			System::<Runtime>::inc_providers(&acc);
-		}
-		Balances::resolve(&acc, amount).defensive_ok();
-	}
-}
-
-type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
-
-fn burn_at_relay(stash: &AccountId, value: Balance) -> Result<(), XcmError> {
-	let dest = Location::parent();
-	let stash_location =
-		Junction::AccountId32 { network: None, id: stash.clone().into() }.into_location();
-	let asset = Asset { id: AssetId(Location::parent()), fun: Fungible(value) };
-	let dummy_xcm_context = XcmContext { origin: None, message_id: [0; 32], topic: None };
-
-	let withdrawn = AssetTransactor::withdraw_asset(&asset, &stash_location, None)?;
-
-	AssetTransactor::can_check_out(&dest, &asset, &dummy_xcm_context)?;
-
-	let parent_assets = Into::<Assets>::into(withdrawn)
-		.reanchored(&dest, &Here.into())
-		.defensive_map_err(|_| XcmError::ReanchorFailed)?;
-
-	PolkadotXcm::send_xcm(
-		Here,
-		Location::parent(),
-		Xcm(vec![
-			Instruction::UnpaidExecution {
-				weight_limit: WeightLimit::Unlimited,
-				check_origin: None,
-			},
-			ReceiveTeleportedAsset(parent_assets.clone()),
-			BurnAsset(parent_assets),
-		]),
-	)?;
-
-	AssetTransactor::check_out(&dest, &asset, &dummy_xcm_context);
-
-	Ok(())
-}
+/// Coretime revenue handler that sends funds to the DAP satellite account.
+///
+/// Previously, revenue was accumulated in a stash account and then burned at the relay chain.
+/// With DAP, revenue is accumulated in the satellite account and then periodically sent
+/// to the DAP buffer on AssetHub via XCM.
+pub type CoretimeRevenueToSatellite = pallet_dap_satellite::SlashToSatellite<Runtime>;
 
 /// A type containing the encoding of the coretime pallet in the Relay chain runtime. Used to
 /// construct any remote calls. The codec index must correspond to the index of `Coretime` in the
@@ -112,7 +65,6 @@ enum CoretimeProviderCalls {
 parameter_types! {
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
 	pub const MinimumCreditPurchase: Balance = UNITS / 10;
-	pub RevenueAccumulationAccount: AccountId = BrokerPalletId::get().into_sub_account_truncating(b"burnstash");
 	pub const MinimumEndPrice: Balance = UNITS;
 }
 
@@ -287,21 +239,9 @@ impl CoretimeInterface for CoretimeAllocator {
 	}
 
 	fn on_new_timeslice(_timeslice: Timeslice) {
-		let stash = RevenueAccumulationAccount::get();
-		let value =
-			Balances::reducible_balance(&stash, Preservation::Expendable, Fortitude::Polite);
-
-		if value > 0 {
-			tracing::debug!(target: "runtime::coretime", %value, "Going to burn stashed tokens at RC");
-			match burn_at_relay(&stash, value) {
-				Ok(()) => {
-					tracing::debug!(target: "runtime::coretime", %value, "Successfully burnt tokens");
-				},
-				Err(err) => {
-					tracing::error!(target: "runtime::coretime", error=?err, "burn_at_relay failed");
-				},
-			}
-		}
+		// With DAP satellite, revenue is already accumulated in the satellite account via
+		// CoretimeRevenueToSatellite (OnRevenue handler). The satellite pallet then sends
+		// accumulated funds to AssetHub DAP via XCM
 	}
 }
 
@@ -317,7 +257,7 @@ impl MaybeConvert<TaskId, AccountId> for SovereignAccountOf {
 impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type OnRevenue = BurnCoretimeRevenue;
+	type OnRevenue = CoretimeRevenueToSatellite;
 	type TimeslicePeriod = ConstU32<{ coretime::TIMESLICE_PERIOD }>;
 	// We don't actually need any leases at launch but set to 10 in case we want to sudo some in.
 	type MaxLeasedCores = ConstU32<10>;

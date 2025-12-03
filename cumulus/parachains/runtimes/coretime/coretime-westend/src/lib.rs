@@ -612,6 +612,10 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
+impl pallet_dap_satellite::Config for Runtime {
+	type Currency = Balances;
+}
+
 pub struct BrokerMigrationV4BlockConversion;
 
 impl pallet_broker::migration::v4::BlockToRelayHeightConversion<Runtime>
@@ -666,6 +670,9 @@ construct_runtime!(
 
 		// The main stage.
 		Broker: pallet_broker = 50,
+
+		// DAP Satellite - collects funds for eventual transfer to DAP on AssetHub
+		DapSatellite: pallet_dap_satellite = 60,
 
 		// Sudo
 		Sudo: pallet_sudo = 100,
