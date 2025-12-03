@@ -35,11 +35,12 @@ For individual crates, however, there are a few caveats when targeting `no_std`.
 
 #### WASM
 Set `RUSTFLAGS="--cfg substrate_runtime"` when building for WASM.  
-See the CI example: [WASM-build](https://github.com/paritytech/polkadot-sdk/blob/6de451a105ca0a5feb675a215d4e8de5207febf6/.github/workflows/tests-misc.yml#L67).
+See the [WASM build](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/substrate/index.html#wasm-build) in the Polkadot SDK Documentation.
 
 #### PolkaVM
 PolkaVM builds require some `riscv32` or `riscv64` target architecture.  
 See the CI example: [RiscV-build](https://github.com/paritytech/polkadot-sdk/blob/6de451a105ca0a5feb675a215d4e8de5207febf6/.github/workflows/build-misc.yml#L55).
+
 ## 📚 Documentation
 
 * [Polkadot Documentation Portal](https://docs.polkadot.com)
