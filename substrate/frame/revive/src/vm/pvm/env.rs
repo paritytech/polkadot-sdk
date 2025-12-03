@@ -82,7 +82,7 @@ impl<T: Config> ContractBlob<T> {
 			.ok_or_else(|| <Error<T>>::CodeRejected)?
 			.program_counter();
 
-		let gas_limit_polkavm: polkavm::Gas = runtime.ext().gas_meter_mut().engine_fuel_left()?;
+		let gas_limit_polkavm: polkavm::Gas = runtime.ext().frame_meter_mut().sync_to_executor();
 
 		let mut instance = module.instantiate().map_err(|err| {
 			log::debug!(target: LOG_TARGET, "failed to instantiate polkavm module: {err:?}");
@@ -851,7 +851,7 @@ pub mod env {
 	/// See [`pallet_revive_uapi::HostFn::consume_all_gas`].
 	#[stable]
 	fn consume_all_gas(&mut self, memory: &mut M) -> Result<(), TrapReason> {
-		self.ext.gas_meter_mut().consume_all();
+		self.ext.frame_meter_mut().consume_all_weight();
 		Err(TrapReason::Return(ReturnData {
 			flags: ReturnFlags::REVERT.bits(),
 			data: Default::default(),
