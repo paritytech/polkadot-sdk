@@ -127,83 +127,6 @@ fn handle_publish_respects_value_length_limit() {
 }
 
 #[test]
-fn subscribe_toggle_works() {
-	new_test_ext(Default::default()).execute_with(|| {
-		let subscriber = ParaId::from(1000);
-		let publisher = ParaId::from(2000);
-
-		// Initially not subscribed
-		assert!(!Broadcaster::is_subscribed(subscriber, publisher));
-		assert_eq!(Broadcaster::get_subscriptions(subscriber), vec![]);
-
-		// First toggle: subscribe
-		assert_ok!(Broadcaster::handle_subscribe_toggle(subscriber, publisher));
-		assert!(Broadcaster::is_subscribed(subscriber, publisher));
-		assert_eq!(Broadcaster::get_subscriptions(subscriber), vec![publisher]);
-
-		// Second toggle: unsubscribe
-		assert_ok!(Broadcaster::handle_subscribe_toggle(subscriber, publisher));
-		assert!(!Broadcaster::is_subscribed(subscriber, publisher));
-		assert_eq!(Broadcaster::get_subscriptions(subscriber), vec![]);
-	});
-}
-
-#[test]
-fn multiple_subscriptions_work() {
-	new_test_ext(Default::default()).execute_with(|| {
-		let subscriber = ParaId::from(1000);
-		let publisher1 = ParaId::from(2000);
-		let publisher2 = ParaId::from(3000);
-		let publisher3 = ParaId::from(4000);
-
-		// Subscribe to multiple publishers
-		assert_ok!(Broadcaster::handle_subscribe_toggle(subscriber, publisher1));
-		assert_ok!(Broadcaster::handle_subscribe_toggle(subscriber, publisher2));
-		assert_ok!(Broadcaster::handle_subscribe_toggle(subscriber, publisher3));
-
-		let subscriptions = Broadcaster::get_subscriptions(subscriber);
-		assert_eq!(subscriptions.len(), 3);
-		assert!(subscriptions.contains(&publisher1));
-		assert!(subscriptions.contains(&publisher2));
-		assert!(subscriptions.contains(&publisher3));
-
-		// Unsubscribe from middle one
-		assert_ok!(Broadcaster::handle_subscribe_toggle(subscriber, publisher2));
-
-		let subscriptions = Broadcaster::get_subscriptions(subscriber);
-		assert_eq!(subscriptions.len(), 2);
-		assert!(subscriptions.contains(&publisher1));
-		assert!(!subscriptions.contains(&publisher2));
-		assert!(subscriptions.contains(&publisher3));
-	});
-}
-
-#[test]
-fn max_subscriptions_limit_enforced() {
-	new_test_ext(Default::default()).execute_with(|| {
-		let subscriber = ParaId::from(1000);
-
-		// Subscribe up to MaxSubscriptions (10 in mock)
-		for i in 0..10 {
-			let publisher = ParaId::from(2000 + i);
-			assert_ok!(Broadcaster::handle_subscribe_toggle(subscriber, publisher));
-		}
-
-		// Try to add one more subscription - should fail
-		let publisher = ParaId::from(3000);
-		assert_err!(
-			Broadcaster::handle_subscribe_toggle(subscriber, publisher),
-			Error::<Test>::TooManySubscriptions
-		);
-
-		// But can still unsubscribe and resubscribe
-		let existing_publisher = ParaId::from(2000);
-		assert_ok!(Broadcaster::handle_subscribe_toggle(subscriber, existing_publisher)); // Unsubscribe
-		assert_ok!(Broadcaster::handle_subscribe_toggle(subscriber, publisher)); // Subscribe to new one
-	});
-}
-
-#[test]
 fn max_stored_keys_limit_enforced() {
 	new_test_ext(Default::default()).execute_with(|| {
 		let para_id = ParaId::from(1000);
@@ -283,27 +206,6 @@ fn published_keys_storage_matches_child_trie() {
 }
 
 #[test]
-fn subscribe_to_non_publishing_para_returns_empty() {
-	new_test_ext(Default::default()).execute_with(|| {
-		let subscriber = ParaId::from(1000);
-		let non_publisher = ParaId::from(9999);
-
-		// Subscribe to a para that has never published anything
-		assert_ok!(Broadcaster::handle_subscribe_toggle(subscriber, non_publisher));
-
-		// Verify subscription was created
-		assert!(Broadcaster::is_subscribed(subscriber, non_publisher));
-
-		// Get subscribed data - should return empty for non-publishing para
-		let subscribed_data = Broadcaster::get_subscribed_data(subscriber);
-
-		// Non-publishing para should not appear in results (filtered out by is_empty check)
-		assert!(!subscribed_data.contains_key(&non_publisher));
-		assert_eq!(subscribed_data.len(), 0);
-	});
-}
-
-#[test]
 fn multiple_publishers_in_same_block() {
 	new_test_ext(Default::default()).execute_with(|| {
 		let para1 = ParaId::from(1000);
@@ -325,13 +227,12 @@ fn multiple_publishers_in_same_block() {
 		assert!(PublisherExists::<Test>::get(para3));
 
 		// Verify PublishedDataRoots contains all three
-		let roots = PublishedDataRoots::<Test>::get();
-		assert_eq!(roots.len(), 3);
+		assert_eq!(PublishedDataRoots::<Test>::count(), 3);
 
-		// Verify each para has its root in the aggregated roots
-		assert!(roots.iter().any(|(id, _)| *id == para1));
-		assert!(roots.iter().any(|(id, _)| *id == para2));
-		assert!(roots.iter().any(|(id, _)| *id == para3));
+		// Verify each para has its root in the map
+		assert!(PublishedDataRoots::<Test>::contains_key(para1));
+		assert!(PublishedDataRoots::<Test>::contains_key(para2));
+		assert!(PublishedDataRoots::<Test>::contains_key(para3));
 
 		// Verify each para's data is independently accessible
 		assert_eq!(Broadcaster::get_published_value(para1, b"key1"), Some(b"value1".to_vec()));
@@ -342,5 +243,30 @@ fn multiple_publishers_in_same_block() {
 		assert_eq!(Broadcaster::get_published_value(para1, b"key2"), None);
 		assert_eq!(Broadcaster::get_published_value(para2, b"key3"), None);
 		assert_eq!(Broadcaster::get_published_value(para3, b"key1"), None);
+	});
+}
+
+#[test]
+fn max_publishers_limit_enforced() {
+	new_test_ext(Default::default()).execute_with(|| {
+		for i in 0..1000 {
+			let para_id = ParaId::from(1000 + i);
+			let data = vec![(b"key".to_vec(), b"value".to_vec())];
+			assert_ok!(Broadcaster::handle_publish(para_id, data));
+		}
+
+		assert_eq!(PublishedDataRoots::<Test>::count(), 1000);
+
+		let para_id = ParaId::from(2000);
+		let data = vec![(b"key".to_vec(), b"value".to_vec())];
+		assert_err!(Broadcaster::handle_publish(para_id, data), Error::<Test>::TooManyPublishers);
+
+		let existing_para = ParaId::from(1000);
+		let update_data = vec![(b"key".to_vec(), b"updated".to_vec())];
+		assert_ok!(Broadcaster::handle_publish(existing_para, update_data));
+		assert_eq!(
+			Broadcaster::get_published_value(existing_para, b"key"),
+			Some(b"updated".to_vec())
+		);
 	});
 }

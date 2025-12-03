@@ -28,7 +28,7 @@
 use alloc::{collections::BTreeMap, vec::Vec};
 use frame_support::{
 	pallet_prelude::*,
-	storage::child::ChildInfo,
+	storage::{child::ChildInfo, types::CountedStorageMap},
 	traits::{defensive_prelude::*, Get, ConstU32},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -78,7 +78,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxStoredKeys: Get<u32>;
 
-		/// Maximum number of publishers that can have published data.
+		/// Maximum number of parachains that can publish data.
 		#[pallet::constant]
 		type MaxPublishers: Get<u32>;
 	}
@@ -113,15 +113,18 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	/// Aggregated child trie roots for all publishers.
+	/// Child trie root for each publisher parachain.
 	///
-	/// Contains (ParaId, child_trie_root) pairs for all parachains that have published data.
-	/// This is used in relay chain storage proofs to efficiently provide all publisher roots.
+	/// Maps ParaId -> child_trie_root hash (32 bytes).
+	/// This allows selective inclusion in storage proofs - only roots for publishers
+	/// we're interested in need to be included.
 	#[pallet::storage]
-	pub type PublishedDataRoots<T: Config> = StorageValue<
+	pub type PublishedDataRoots<T: Config> = CountedStorageMap<
 		_,
-		BoundedVec<(ParaId, BoundedVec<u8, ConstU32<32>>), T::MaxPublishers>,
-		ValueQuery,
+		Twox64Concat,
+		ParaId,
+		[u8; 32],
+		OptionQuery,
 	>;
 
 	#[pallet::error]
@@ -134,13 +137,15 @@ pub mod pallet {
 		ValueTooLong,
 		/// Too many unique keys stored for this publisher.
 		TooManyStoredKeys,
+		/// Maximum number of publishers reached.
+		TooManyPublishers,
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
 			assert_eq!(
-				&PublishedDataRoots::<T>::hashed_key(),
+				&PublishedDataRoots::<T>::map_storage_final_prefix(),
 				polkadot_primitives::well_known_keys::BROADCASTER_PUBLISHED_DATA_ROOTS,
 				"`well_known_keys::BROADCASTER_PUBLISHED_DATA_ROOTS` doesn't match key of `PublishedDataRoots`! \
 				Make sure that the name of the broadcaster pallet is `Broadcaster` in the runtime!",
@@ -190,7 +195,7 @@ pub mod pallet {
 			}
 
 			// All validation passed, now get or create child trie info for this publisher
-			let child_info = Self::get_or_create_publisher_child_info(origin_para_id);
+			let child_info = Self::get_or_create_publisher_child_info(origin_para_id)?;
 
 			// Get current published keys set for tracking
 			let mut published_keys = PublishedKeys::<T>::get(origin_para_id);
@@ -231,21 +236,10 @@ pub mod pallet {
 			let child_root = frame_support::storage::child::root(&child_info,
 				sp_runtime::StateVersion::V1);
 
-			// Update the aggregated roots storage
-			let mut roots = PublishedDataRoots::<T>::get();
-
-			// Convert child_root once
-			if let Ok(bounded_root) = BoundedVec::try_from(child_root) {
-				// Find and update existing entry or add new one
-				if let Some((_, root_hash)) = roots.iter_mut().find(|(para_id, _)| *para_id == origin_para_id) {
-					*root_hash = bounded_root;
-				} else {
-					// Not found, add new entry
-					roots.try_push((origin_para_id, bounded_root)).defensive_ok();
-				}
-			}
-
-			PublishedDataRoots::<T>::put(roots);
+			// Store the root in the map (fixed 32-byte array)
+			let root_array: [u8; 32] = child_root.try_into()
+				.defensive_unwrap_or([0u8; 32]);
+			PublishedDataRoots::<T>::insert(origin_para_id, root_array);
 
 			Self::deposit_event(Event::DataPublished { publisher: origin_para_id, items_count });
 
@@ -264,11 +258,15 @@ pub mod pallet {
 		}
 
 		/// Get or create child trie info for a publisher.
-		fn get_or_create_publisher_child_info(para_id: ParaId) -> ChildInfo {
+		fn get_or_create_publisher_child_info(para_id: ParaId) -> Result<ChildInfo, DispatchError> {
 			if !PublisherExists::<T>::contains_key(para_id) {
+				ensure!(
+					PublishedDataRoots::<T>::count() < T::MaxPublishers::get(),
+					Error::<T>::TooManyPublishers
+				);
 				PublisherExists::<T>::insert(para_id, true);
 			}
-			Self::derive_child_info(para_id)
+			Ok(Self::derive_child_info(para_id))
 		}
 
 		/// Derive a deterministic child trie identifier from parachain ID.
