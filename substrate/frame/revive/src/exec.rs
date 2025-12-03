@@ -603,21 +603,12 @@ struct Frame<T: Config> {
 
 /// This structure is used to represent the arguments in a delegate call frame in order to
 /// distinguish who delegated the call and where it was delegated to.
-#[derive(Clone)]
+#[derive(Clone, RuntimeDebugNoBound)]
 pub struct DelegateInfo<T: Config> {
 	/// The caller of the contract.
 	pub caller: Origin<T>,
 	/// The address of the contract the call was delegated to.
 	pub callee: H160,
-}
-
-impl<T: Config> Debug for DelegateInfo<T> {
-	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-		f.debug_struct("DelegateInfo")
-			.field("caller", &"<AccountId>")
-			.field("callee", &self.callee)
-			.finish()
-	}
 }
 
 /// When calling an address it can either lead to execution of contract code or a pre-compile.

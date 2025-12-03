@@ -25,27 +25,6 @@ use alloc::{
 };
 use sp_core::{H160, U256};
 
-#[derive(Debug, Clone, PartialEq)]
-enum Call {
-	Call(H160),
-	DelegateCall(H160, H160),
-}
-
-impl Call {
-	fn addr(&self) -> H160 {
-		match self {
-			Call::Call(addr) => *addr,
-			Call::DelegateCall(addr, _) => *addr,
-		}
-	}
-}
-
-impl Default for Call {
-	fn default() -> Self {
-		Call::Call(H160::default())
-	}
-}
-
 /// A tracer that traces the prestate.
 #[derive(frame_support::DefaultNoBound, Debug, Clone, PartialEq)]
 pub struct PrestateTracer<T> {
@@ -53,7 +32,7 @@ pub struct PrestateTracer<T> {
 	config: PrestateTracerConfig,
 
 	/// Stack of calls.
-	calls: Vec<Call>,
+	calls: Vec<H160>,
 
 	/// The code used by create transaction
 	create_code: Option<Code>,
@@ -80,7 +59,7 @@ where
 	}
 
 	fn current_addr(&self) -> H160 {
-		self.calls.last().map(|call| call.addr()).unwrap_or_default()
+		self.calls.last().copied().unwrap_or_default()
 	}
 
 	/// Returns an empty trace.
@@ -282,10 +261,10 @@ where
 		_gas: Weight,
 	) {
 		if let Some(delegate_call) = delegate_call {
-			self.calls.push(Call::DelegateCall(self.current_addr(), delegate_call));
+			self.calls.push(self.current_addr());
 			self.read_account(delegate_call);
 		} else {
-			self.calls.push(Call::Call(to));
+			self.calls.push(to);
 			self.read_account(from);
 		}
 
@@ -301,8 +280,7 @@ where
 	}
 
 	fn exit_child_span(&mut self, output: &ExecReturnValue, _gas_used: Weight) {
-		// let current_addr = self.calls.pop().unwrap_or_default().0;
-		let current_addr = self.calls.pop().map(|call| call.addr()).unwrap_or_default();
+		let current_addr = self.calls.pop().unwrap_or_default();
 		if output.did_revert() {
 			return
 		}
