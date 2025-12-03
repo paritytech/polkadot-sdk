@@ -419,12 +419,12 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 				.map(|s| format!("{s}: {{:?}}"))
 				.collect::<Vec<_>>()
 				.join(", ");
-			let trace_fmt_str = format!("{}({}) = {{:?}} gas_consumed: {{:?}}", name, params_fmt_str);
+			let trace_fmt_str = format!("{}({}) = {{:?}} weight_consumed: {{:?}}", name, params_fmt_str);
 
 			quote! {
 				// wrap body in closure to make sure the tracing is always executed
 				let result = (|| #body)();
-				::log::trace!(target: "runtime::revive::strace", #trace_fmt_str, #( #trace_fmt_args, )* result, self.ext.gas_meter().gas_consumed());
+				::log::trace!(target: "runtime::revive::strace", #trace_fmt_str, #( #trace_fmt_args, )* result, self.ext.frame_meter().weight_consumed());
 				result
 			}
 		};
@@ -443,9 +443,8 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 
 	quote! {
 		// Write gas from  polkavm into pallet-revive before entering the host function.
-		let __gas_left_before__ = self
-			.ext
-			.gas_meter_mut()
+		self.ext
+			.frame_meter_mut()
 			.sync_from_executor(memory.gas())
 			.map_err(TrapReason::from)?;
 
@@ -462,7 +461,7 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 		})();
 
 		// Write gas from pallet-revive into polkavm after leaving the host function.
-		let gas = self.ext.gas_meter_mut().sync_to_executor(__gas_left_before__).map_err(TrapReason::from)?;
+		let gas = self.ext.frame_meter_mut().sync_to_executor();
 		memory.set_gas(gas.into());
 		result
 	}
