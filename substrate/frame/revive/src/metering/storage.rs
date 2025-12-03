@@ -17,26 +17,30 @@
 
 //! This module contains functions to meter the storage deposit.
 
+#[cfg(test)]
+mod tests;
+
+use super::{Nested, Root, State};
 use crate::{
-	storage::ContractInfo, BalanceOf, Config, Error, ExecConfig, ExecOrigin as Origin, HoldReason,
-	Pallet, StorageDeposit as Deposit, LOG_TARGET,
+	storage::ContractInfo, BalanceOf, Config, ExecConfig, ExecOrigin as Origin, HoldReason, Pallet,
+	StorageDeposit as Deposit,
 };
 use alloc::vec::Vec;
-use core::{fmt::Debug, marker::PhantomData};
+use core::{marker::PhantomData, mem};
 use frame_support::{traits::Get, DefaultNoBound, RuntimeDebugNoBound};
 use sp_runtime::{
 	traits::{Saturating, Zero},
-	DispatchError, DispatchResult, FixedPointNumber, FixedU128,
+	DispatchError, FixedPointNumber, FixedU128,
 };
+
+#[cfg(test)]
+use num_traits::Bounded;
 
 /// Deposit that uses the native fungible's balance type.
 pub type DepositOf<T> = Deposit<BalanceOf<T>>;
 
 /// A production root storage meter that actually charges from its origin.
 pub type Meter<T> = RawMeter<T, ReservingExt, Root>;
-
-/// A production nested storage meter that actually charges from its origin.
-pub type NestedMeter<T> = RawMeter<T, ReservingExt, Nested>;
 
 /// A production storage meter that actually charges from its origin.
 ///
@@ -66,41 +70,28 @@ pub trait Ext<T: Config> {
 /// It uses [`frame_support::traits::fungible::Mutate`] in order to do accomplish the reserves.
 pub enum ReservingExt {}
 
-/// Used to implement a type state pattern for the meter.
-///
-/// It is sealed and cannot be implemented outside of this module.
-pub trait State: private::Sealed {}
-
-/// State parameter that constitutes a meter that is in its root state.
-#[derive(Default, Debug)]
-pub struct Root;
-
-/// State parameter that constitutes a meter that is in its nested state.
-/// Its value indicates whether the nested meter has its own limit.
-#[derive(Default, Debug)]
-pub struct Nested;
-
-impl State for Root {}
-impl State for Nested {}
-
 /// A type that allows the metering of consumed or freed storage of a single contract call stack.
 #[derive(DefaultNoBound, RuntimeDebugNoBound)]
-pub struct RawMeter<T: Config, E, S: State + Default + Debug> {
+pub struct RawMeter<T: Config, E, S: State> {
 	/// The limit of how much balance this meter is allowed to consume.
-	limit: BalanceOf<T>,
+	pub(crate) limit: Option<BalanceOf<T>>,
 	/// The amount of balance that was used in this meter and all of its already absorbed children.
 	total_deposit: DepositOf<T>,
 	/// The amount of storage changes that were recorded in this meter alone.
+	/// This has no meaning for Root meters and will always be Contribution::Checked(0)
 	own_contribution: Contribution<T>,
 	/// List of charges that should be applied at the end of a contract stack execution.
 	///
 	/// We only have one charge per contract hence the size of this vector is
 	/// limited by the maximum call depth.
 	charges: Vec<Charge<T>>,
+	/// The maximal consumed deposit that occurred at any point during the execution of this
+	/// storage deposit meter
+	max_charged: BalanceOf<T>,
 	/// True if this is the root meter.
 	///
 	/// Sometimes we cannot know at compile time.
-	is_root: bool,
+	pub(crate) is_root: bool,
 	/// Type parameter only used in impls.
 	_phantom: PhantomData<(E, S)>,
 }
@@ -242,15 +233,27 @@ impl<T, E, S> RawMeter<T, E, S>
 where
 	T: Config,
 	E: Ext<T>,
-	S: State + Default + Debug,
+	S: State,
 {
 	/// Create a new child that has its `limit`.
 	///
 	/// This is called whenever a new subcall is initiated in order to track the storage
 	/// usage for this sub call separately. This is necessary because we want to exchange balance
 	/// with the current contract we are interacting with.
-	pub fn nested(&self, limit: BalanceOf<T>) -> RawMeter<T, E, Nested> {
-		RawMeter { limit: self.available().min(limit), ..Default::default() }
+	pub fn nested(&self, mut limit: Option<BalanceOf<T>>) -> RawMeter<T, E, Nested> {
+		if let (Some(new_limit), Some(old_limit)) = (limit, self.limit) {
+			limit = Some(new_limit.min(old_limit));
+		}
+
+		RawMeter { limit, ..Default::default() }
+	}
+
+	/// Reset this meter to its original setting.
+	pub fn reset(&mut self) {
+		self.own_contribution = Default::default();
+		self.total_deposit = Default::default();
+		self.charges = Default::default();
+		self.max_charged = Default::default();
 	}
 
 	/// Absorb a child that was spawned to handle a sub call.
@@ -274,12 +277,25 @@ where
 		contract: &T::AccountId,
 		info: Option<&mut ContractInfo<T>>,
 	) {
+		// We are now at the position to calculate the actual final net charge of `absorbed` as we
+		// now have the contract information `info`. Before that we only took net charges related to
+		// the contract storage into account but ignored net refunds.
+		// However, with this complete information there is no need to recalculate `max_charged` for
+		// `absorbed` here before we absorb it because the actual final net charge will not be more
+		// than the net charge we observed before (as we only ignored net refunds but not net
+		// charges).
+		self.max_charged = self
+			.max_charged
+			.max(self.consumed().saturating_add(&absorbed.max_charged()).charge_or_zero());
+
 		let own_deposit = absorbed.own_contribution.update_contract(info);
 		self.total_deposit = self
 			.total_deposit
 			.saturating_add(&absorbed.total_deposit)
 			.saturating_add(&own_deposit);
 		self.charges.extend_from_slice(&absorbed.charges);
+
+		self.recalulculate_max_charged();
 
 		if !own_deposit.is_zero() {
 			self.charges.push(Charge {
@@ -289,22 +305,26 @@ where
 		}
 	}
 
+	/// Absorb only the maximum charge of the child meter.
+	///
+	/// This should be called whenever a sub call ends and reverts.
+	///
+	/// # Parameters
+	///
+	/// - `absorbed`: The child storage meter
+	pub fn absorb_only_max_charged(&mut self, absorbed: RawMeter<T, E, Nested>) {
+		self.max_charged = self
+			.max_charged
+			.max(self.consumed().saturating_add(&absorbed.max_charged()).charge_or_zero());
+	}
+
 	/// Record a charge that has taken place externally.
 	///
 	/// This will not perform a charge. It just records it to reflect it in the
 	/// total amount of storage required for a transaction.
-	pub fn record_charge(&mut self, amount: &DepositOf<T>) -> DispatchResult {
-		let total_deposit = self.total_deposit.saturating_add(&amount);
-
-		// Limits are enforced at the end of each frame. But plain balance transfers
-		// do not sapwn a frame. This is specifically to enforce the limit for those.
-		if self.is_root && total_deposit.charge_or_zero() > self.limit {
-			log::debug!( target: LOG_TARGET, "Storage deposit limit exhausted: {:?} > {:?}", amount, self.limit);
-			return Err(<Error<T>>::StorageDepositLimitExhausted.into())
-		}
-
-		self.total_deposit = total_deposit;
-		Ok(())
+	pub fn record_charge(&mut self, amount: &DepositOf<T>) {
+		self.total_deposit = self.total_deposit.saturating_add(amount);
+		self.recalulculate_max_charged();
 	}
 
 	/// The amount of balance that this meter has consumed.
@@ -315,11 +335,24 @@ where
 		self.total_deposit.saturating_add(&self.own_contribution.update_contract(None))
 	}
 
+	/// Return the maximum consumed deposit at any point in the previous execution
+	pub fn max_charged(&self) -> DepositOf<T> {
+		Deposit::Charge(self.max_charged)
+	}
+
+	/// Recaluclate the max deposit value
+	fn recalulculate_max_charged(&mut self) {
+		self.max_charged = self.max_charged.max(self.consumed().charge_or_zero());
+	}
+
 	/// The amount of balance still available from the current meter.
 	///
 	/// This includes charges from the current frame but no refunds.
+	#[cfg(test)]
 	pub fn available(&self) -> BalanceOf<T> {
-		self.consumed().available(&self.limit)
+		self.consumed()
+			.available(&self.limit.unwrap_or(BalanceOf::<T>::max_value()))
+			.unwrap_or_default()
 	}
 }
 
@@ -332,19 +365,21 @@ where
 	/// Create new storage limiting storage deposits to the passed `limit`.
 	///
 	/// If the limit is larger than what the origin can afford we will just fail
-	/// when collecting the deposits in `try_into_deposit`.
-	pub fn new(limit: BalanceOf<T>) -> Self {
-		Self { limit, is_root: true, ..Default::default() }
+	/// when collecting the deposits in `execute_postponed_deposits`.
+	pub fn new(limit: Option<BalanceOf<T>>) -> Self {
+		Self {
+			limit,
+			is_root: true,
+			own_contribution: Contribution::Checked(Default::default()),
+			..Default::default()
+		}
 	}
 
 	/// The total amount of deposit that should change hands as result of the execution
 	/// that this meter was passed into. This will also perform all the charges accumulated
 	/// in the whole contract stack.
-	///
-	/// This drops the root meter in order to make sure it is only called when the whole
-	/// execution did finish.
-	pub fn try_into_deposit(
-		mut self,
+	pub fn execute_postponed_deposits(
+		&mut self,
 		origin: &Origin<T>,
 		exec_config: &ExecConfig<T>,
 	) -> Result<DepositOf<T>, DispatchError> {
@@ -358,7 +393,7 @@ where
 		self.charges.sort_by(|a, b| a.contract.cmp(&b.contract));
 		self.charges = {
 			let mut coalesced: Vec<Charge<T>> = Vec::with_capacity(self.charges.len());
-			for mut ch in self.charges {
+			for mut ch in mem::take(&mut self.charges) {
 				if let Some(last) = coalesced.last_mut() {
 					if last.contract == ch.contract {
 						match (&mut last.state, &mut ch.state) {
@@ -366,12 +401,12 @@ where
 								ContractState::Alive { amount: last_amount },
 								ContractState::Alive { amount: ch_amount },
 							) => {
-								*last_amount = last_amount.saturating_add(ch_amount);
+								*last_amount = last_amount.saturating_add(&ch_amount);
 							},
 							(ContractState::Alive { amount }, ContractState::Terminated) |
 							(ContractState::Terminated, ContractState::Alive { amount }) => {
 								// undo all deposits made by a terminated contract
-								self.total_deposit = self.total_deposit.saturating_sub(amount);
+								self.total_deposit = self.total_deposit.saturating_sub(&amount);
 								last.state = ContractState::Terminated;
 							},
 							(ContractState::Terminated, ContractState::Terminated) =>
@@ -400,7 +435,7 @@ where
 			}
 		}
 
-		Ok(self.total_deposit)
+		Ok(self.total_deposit.clone())
 	}
 
 	/// Flag a `contract` as terminated.
@@ -410,6 +445,9 @@ where
 	pub fn terminate(&mut self, contract: T::AccountId, refunded: BalanceOf<T>) {
 		self.total_deposit = self.total_deposit.saturating_add(&Deposit::Refund(refunded));
 		self.charges.push(Charge { contract, state: ContractState::Terminated });
+
+		// no need to recalculate max_charged here as the total consumed amount will just decrease
+		// with this extra refund
 	}
 }
 
@@ -418,7 +456,10 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 	/// Charges `diff` from the meter.
 	pub fn charge(&mut self, diff: &Diff) {
 		match &mut self.own_contribution {
-			Contribution::Alive(own) => *own = own.saturating_add(diff),
+			Contribution::Alive(own) => {
+				*own = own.saturating_add(diff);
+				self.recalulculate_max_charged();
+			},
 			_ => panic!("Charge is never called after termination; qed"),
 		};
 	}
@@ -434,26 +475,17 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 	/// alese in order to be able to refund it.
 	pub fn charge_deposit(&mut self, contract: T::AccountId, amount: DepositOf<T>) {
 		// will not fail in a nested meter
-		self.record_charge(&amount).ok();
+		self.record_charge(&amount);
 		self.charges.push(Charge { contract, state: ContractState::Alive { amount } });
 	}
 
-	/// [`Self::charge`] does not enforce the storage limit since we want to do this check as late
-	/// as possible to allow later refunds to offset earlier charges.
-	pub fn enforce_limit(
-		&mut self,
-		info: Option<&mut ContractInfo<T>>,
-	) -> Result<(), DispatchError> {
+	/// Determine the actual final charge from the own contributions
+	pub fn finalize_own_contributions(&mut self, info: Option<&mut ContractInfo<T>>) {
 		let deposit = self.own_contribution.update_contract(info);
-		let total_deposit = self.total_deposit.saturating_add(&deposit);
 		self.own_contribution = Contribution::Checked(deposit);
-		if let Deposit::Charge(amount) = total_deposit {
-			if amount > self.limit {
-				log::debug!( target: LOG_TARGET, "Storage deposit limit exhausted: {:?} > {:?}", amount, self.limit);
-				return Err(<Error<T>>::StorageDepositLimitExhausted.into())
-			}
-		}
-		Ok(())
+
+		// no need to recalculate max_charged here as the consumed amount cannot increase
+		// when taking removed bytes/items into account
 	}
 }
 
@@ -486,306 +518,5 @@ impl<T: Config> Ext<T> for ReservingExt {
 			},
 		}
 		Ok(())
-	}
-}
-
-mod private {
-	pub trait Sealed {}
-	impl Sealed for super::Root {}
-	impl Sealed for super::Nested {}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use crate::{exec::AccountIdOf, test_utils::*, tests::Test};
-	use frame_support::parameter_types;
-	use pretty_assertions::assert_eq;
-
-	type TestMeter = RawMeter<Test, TestExt, Root>;
-
-	parameter_types! {
-		static TestExtTestValue: TestExt = Default::default();
-	}
-
-	#[derive(Debug, PartialEq, Eq, Clone)]
-	struct Charge {
-		origin: AccountIdOf<Test>,
-		contract: AccountIdOf<Test>,
-		amount: DepositOf<Test>,
-	}
-
-	#[derive(Default, Debug, PartialEq, Eq, Clone)]
-	pub struct TestExt {
-		charges: Vec<Charge>,
-	}
-
-	impl TestExt {
-		fn clear(&mut self) {
-			self.charges.clear();
-		}
-	}
-
-	impl Ext<Test> for TestExt {
-		fn charge(
-			origin: &AccountIdOf<Test>,
-			contract: &AccountIdOf<Test>,
-			amount: &DepositOf<Test>,
-			_exec_config: &ExecConfig<Test>,
-		) -> Result<(), DispatchError> {
-			TestExtTestValue::mutate(|ext| {
-				ext.charges.push(Charge {
-					origin: origin.clone(),
-					contract: contract.clone(),
-					amount: amount.clone(),
-				})
-			});
-			Ok(())
-		}
-	}
-
-	fn clear_ext() {
-		TestExtTestValue::mutate(|ext| ext.clear())
-	}
-
-	struct ChargingTestCase {
-		origin: Origin<Test>,
-		deposit: DepositOf<Test>,
-		expected: TestExt,
-	}
-
-	#[derive(Default)]
-	struct StorageInfo {
-		bytes: u32,
-		items: u32,
-		bytes_deposit: BalanceOf<Test>,
-		items_deposit: BalanceOf<Test>,
-		immutable_data_len: u32,
-	}
-
-	fn new_info(info: StorageInfo) -> ContractInfo<Test> {
-		ContractInfo::<Test> {
-			trie_id: Default::default(),
-			code_hash: Default::default(),
-			storage_bytes: info.bytes,
-			storage_items: info.items,
-			storage_byte_deposit: info.bytes_deposit,
-			storage_item_deposit: info.items_deposit,
-			storage_base_deposit: Default::default(),
-			immutable_data_len: info.immutable_data_len,
-		}
-	}
-
-	#[test]
-	fn new_reserves_balance_works() {
-		clear_ext();
-
-		TestMeter::new(1_000);
-
-		assert_eq!(TestExtTestValue::get(), TestExt { ..Default::default() })
-	}
-
-	/// Previously, passing a limit of 0 meant unlimited storage for a nested call.
-	///
-	/// Now, a limit of 0 means the subcall will not be able to use any storage.
-	#[test]
-	fn nested_zero_limit_requested() {
-		clear_ext();
-
-		let meter = TestMeter::new(1_000);
-		assert_eq!(meter.available(), 1_000);
-		let nested0 = meter.nested(BalanceOf::<Test>::zero());
-		assert_eq!(nested0.available(), 0);
-	}
-
-	#[test]
-	fn nested_some_limit_requested() {
-		clear_ext();
-
-		let meter = TestMeter::new(1_000);
-		assert_eq!(meter.available(), 1_000);
-		let nested0 = meter.nested(500);
-		assert_eq!(nested0.available(), 500);
-	}
-
-	#[test]
-	fn nested_all_limit_requested() {
-		clear_ext();
-
-		let meter = TestMeter::new(1_000);
-		assert_eq!(meter.available(), 1_000);
-		let nested0 = meter.nested(1_000);
-		assert_eq!(nested0.available(), 1_000);
-	}
-
-	#[test]
-	fn nested_over_limit_requested() {
-		clear_ext();
-
-		let meter = TestMeter::new(1_000);
-		assert_eq!(meter.available(), 1_000);
-		let nested0 = meter.nested(2_000);
-		assert_eq!(nested0.available(), 1_000);
-	}
-
-	#[test]
-	fn empty_charge_works() {
-		clear_ext();
-
-		let mut meter = TestMeter::new(1_000);
-		assert_eq!(meter.available(), 1_000);
-
-		// an empty charge does not create a `Charge` entry
-		let mut nested0 = meter.nested(BalanceOf::<Test>::zero());
-		nested0.charge(&Default::default());
-		meter.absorb(nested0, &BOB, None);
-
-		assert_eq!(TestExtTestValue::get(), TestExt { ..Default::default() })
-	}
-
-	#[test]
-	fn charging_works() {
-		let test_cases = vec![
-			ChargingTestCase {
-				origin: Origin::<Test>::from_account_id(ALICE),
-				deposit: Deposit::Refund(28),
-				expected: TestExt {
-					charges: vec![
-						Charge { origin: ALICE, contract: CHARLIE, amount: Deposit::Refund(30) },
-						Charge { origin: ALICE, contract: BOB, amount: Deposit::Charge(2) },
-					],
-				},
-			},
-			ChargingTestCase {
-				origin: Origin::<Test>::Root,
-				deposit: Deposit::Charge(0),
-				expected: TestExt { charges: vec![] },
-			},
-		];
-
-		for test_case in test_cases {
-			clear_ext();
-
-			let mut meter = TestMeter::new(100);
-			assert_eq!(meter.available(), 100);
-
-			let mut nested0_info = new_info(StorageInfo {
-				bytes: 100,
-				items: 5,
-				bytes_deposit: 100,
-				items_deposit: 10,
-				immutable_data_len: 0,
-			});
-			let mut nested0 = meter.nested(BalanceOf::<Test>::zero());
-			nested0.charge(&Diff {
-				bytes_added: 108,
-				bytes_removed: 5,
-				items_added: 1,
-				items_removed: 2,
-			});
-			nested0.charge(&Diff { bytes_removed: 99, ..Default::default() });
-
-			let mut nested1_info = new_info(StorageInfo {
-				bytes: 100,
-				items: 10,
-				bytes_deposit: 100,
-				items_deposit: 20,
-				immutable_data_len: 0,
-			});
-			let mut nested1 = nested0.nested(BalanceOf::<Test>::zero());
-			nested1.charge(&Diff { items_removed: 5, ..Default::default() });
-			nested0.absorb(nested1, &CHARLIE, Some(&mut nested1_info));
-
-			let mut nested2_info = new_info(StorageInfo {
-				bytes: 100,
-				items: 7,
-				bytes_deposit: 100,
-				items_deposit: 20,
-				immutable_data_len: 0,
-			});
-			let mut nested2 = nested0.nested(BalanceOf::<Test>::zero());
-			nested2.charge(&Diff { items_removed: 7, ..Default::default() });
-			nested0.absorb(nested2, &CHARLIE, Some(&mut nested2_info));
-
-			nested0.enforce_limit(Some(&mut nested0_info)).unwrap();
-			meter.absorb(nested0, &BOB, Some(&mut nested0_info));
-
-			assert_eq!(
-				meter
-					.try_into_deposit(&test_case.origin, &ExecConfig::new_substrate_tx())
-					.unwrap(),
-				test_case.deposit
-			);
-
-			assert_eq!(nested0_info.extra_deposit(), 112);
-			assert_eq!(nested1_info.extra_deposit(), 110);
-			assert_eq!(nested2_info.extra_deposit(), 100);
-
-			assert_eq!(TestExtTestValue::get(), test_case.expected)
-		}
-	}
-
-	#[test]
-	fn termination_works() {
-		let test_cases = vec![
-			ChargingTestCase {
-				origin: Origin::<Test>::from_account_id(ALICE),
-				deposit: Deposit::Refund(108),
-				expected: TestExt {
-					charges: vec![Charge {
-						origin: ALICE,
-						contract: BOB,
-						amount: Deposit::Charge(12),
-					}],
-				},
-			},
-			ChargingTestCase {
-				origin: Origin::<Test>::Root,
-				deposit: Deposit::Charge(0),
-				expected: TestExt { charges: vec![] },
-			},
-		];
-
-		for test_case in test_cases {
-			clear_ext();
-
-			let mut meter = TestMeter::new(1_000);
-			assert_eq!(meter.available(), 1_000);
-
-			let mut nested0 = meter.nested(BalanceOf::<Test>::max_value());
-			nested0.charge(&Diff {
-				bytes_added: 5,
-				bytes_removed: 1,
-				items_added: 3,
-				items_removed: 1,
-			});
-			nested0.charge(&Diff { items_added: 2, ..Default::default() });
-
-			let mut nested1_info = new_info(StorageInfo {
-				bytes: 100,
-				items: 10,
-				bytes_deposit: 100,
-				items_deposit: 20,
-				immutable_data_len: 0,
-			});
-			let mut nested1 = nested0.nested(BalanceOf::<Test>::max_value());
-			let total_deposit = nested1_info.total_deposit();
-			nested1.charge(&Diff { items_removed: 5, ..Default::default() });
-			nested1.charge(&Diff { bytes_added: 20, ..Default::default() });
-			nested0.enforce_limit(Some(&mut nested1_info)).unwrap();
-			nested0.absorb(nested1, &CHARLIE, None);
-
-			meter.absorb(nested0, &BOB, None);
-
-			meter.terminate(CHARLIE, total_deposit);
-
-			assert_eq!(
-				meter
-					.try_into_deposit(&test_case.origin, &ExecConfig::new_substrate_tx())
-					.unwrap(),
-				test_case.deposit
-			);
-			assert_eq!(TestExtTestValue::get(), test_case.expected)
-		}
 	}
 }
