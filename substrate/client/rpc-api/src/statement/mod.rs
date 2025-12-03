@@ -25,9 +25,6 @@ use sp_statement_store::SubmitResult;
 
 pub mod error;
 
-// Re-export types from primitives with serde support
-pub use sp_statement_store::SubmitResult;
-
 /// Filter for querying statements with different topics.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
