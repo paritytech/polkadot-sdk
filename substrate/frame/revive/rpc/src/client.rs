@@ -513,6 +513,11 @@ impl Client {
 			.request("author_submitExtrinsic", rpc_params![to_hex(ext.encoded())])
 			.await?;
 		log::debug!(target: LOG_TARGET, "Submitted transaction with substrate hash: {hash:?}");
+		if !self.get_automine().await {
+			let _ = self.mine(Some(U256::from(2)), None).await?;
+		} else {
+			let _ = self.mine(None, None).await?;
+		}
 		Ok(())
 	}
 

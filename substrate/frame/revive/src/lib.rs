@@ -2517,11 +2517,6 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
-	/// Convert a weight to a gas value.
-	pub fn evm_gas_from_weight(weight: Weight) -> U256 {
-		T::FeeInfo::weight_to_fee(&weight, Combinator::Max).into()
-	}
-
 	/// The address of the validator that produced the current block.
 	pub fn block_author() -> H160 {
 		use frame_support::traits::FindAuthor;
