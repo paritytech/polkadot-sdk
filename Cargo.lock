@@ -5260,6 +5260,8 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "polkadot-primitives",
+ "sp-crypto-hashing 0.1.0",
+ "sp-runtime",
  "tokio",
  "zombienet-configuration",
  "zombienet-sdk",
@@ -5270,6 +5272,7 @@ name = "cumulus-zombienet-sdk-tests"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cumulus-test-runtime",
  "cumulus-zombienet-sdk-helpers",
  "env_logger 0.11.3",
  "futures",
