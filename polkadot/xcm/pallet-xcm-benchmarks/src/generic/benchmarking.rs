@@ -997,23 +997,6 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
-	fn subscribe() -> Result<(), BenchmarkError> {
-		let origin = T::publish_origin()?;
-		let publisher = T::valid_publisher()?;
-
-		let mut executor = new_executor::<T>(origin);
-		let instruction = Instruction::Subscribe { publisher };
-		let xcm = Xcm(vec![instruction]);
-
-		#[block]
-		{
-			executor.bench_process(xcm)?;
-		}
-
-		Ok(())
-	}
-
 	impl_benchmark_test_suite!(
 		Pallet,
 		crate::generic::mock::new_test_ext(),

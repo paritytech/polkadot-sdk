@@ -309,9 +309,6 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for RococoXcmWeight<RuntimeCall> {
 	fn publish(data: &PublishData) -> Weight {
 		XcmGeneric::<Runtime>::publish(data.len() as u32)
 	}
-	fn subscribe(_: &u32) -> Weight {
-		XcmGeneric::<Runtime>::subscribe()
-	}
 }
 
 #[test]

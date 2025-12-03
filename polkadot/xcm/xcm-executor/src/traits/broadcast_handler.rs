@@ -18,25 +18,16 @@
 
 use xcm::latest::{Location, PublishData, Result as XcmResult};
 
-/// Trait for handling publish/subscribe operations on the relay chain.
+/// Trait for handling publish operations on the relay chain.
 pub trait BroadcastHandler {
 	/// Handle publish operation from the given origin.
 	/// Should validate origin authorization and extract necessary data.
 	fn handle_publish(origin: &Location, data: PublishData) -> XcmResult;
-
-	/// Handle subscribe/unsubscribe operation from the given origin.
-	/// Toggles subscription state for the given publisher.
-	fn handle_subscribe(origin: &Location, publisher: u32) -> XcmResult;
 }
 
 /// Implementation of `BroadcastHandler` for the unit type `()`.
 impl BroadcastHandler for () {
 	fn handle_publish(_origin: &Location, _data: PublishData) -> XcmResult {
-		// No-op implementation for unit type
-		Ok(())
-	}
-
-	fn handle_subscribe(_origin: &Location, _publisher: u32) -> XcmResult {
 		// No-op implementation for unit type
 		Ok(())
 	}

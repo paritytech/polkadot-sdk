@@ -20,14 +20,10 @@ use alloc::vec::Vec;
 use polkadot_primitives::Id as ParaId;
 use sp_runtime::DispatchResult;
 
-/// Trait for handling publish and subscribe operations for parachains.
+/// Trait for handling publish operations for parachains.
 ///
-/// This trait provides the interface for parachains to publish key-value data
-/// and manage subscriptions to other parachains' published data.
-pub trait PublishSubscribe {
+/// This trait provides the interface for parachains to publish key-value data.
+pub trait Publish {
 	/// Publish key-value data for a specific parachain.
 	fn publish_data(publisher: ParaId, data: Vec<(Vec<u8>, Vec<u8>)>) -> DispatchResult;
-
-	/// Toggle subscription to a publisher's data.
-	fn toggle_subscription(subscriber: ParaId, publisher: ParaId) -> DispatchResult;
 }

@@ -1435,10 +1435,6 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 				log::debug!(target: "xcm::versions::v5tov4", "`{new_instruction:?}` not supported by v4");
 				return Err(());
 			},
-			Subscribe { .. } => {
-				log::debug!(target: "xcm::versions::v5tov4", "`{new_instruction:?}` not supported by v4");
-				return Err(());
-			},
 		})
 	}
 }

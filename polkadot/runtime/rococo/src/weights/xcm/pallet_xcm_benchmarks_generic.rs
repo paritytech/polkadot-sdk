@@ -437,16 +437,4 @@ impl<T: frame_system::Config> WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 14).saturating_mul(n.into()))
 	}
-	/// Storage: `Broadcaster::Subscriptions` (r:1 w:1)
-	/// Proof: `Broadcaster::Subscriptions` (`max_values`: None, `max_size`: Some(422), added: 2897, mode: `MaxEncodedLen`)
-	pub fn subscribe() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `217`
-		//  Estimated: `3887`
-		// Minimum execution time: 7_000_000 picoseconds.
-		Weight::from_parts(7_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 3887))
-			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
 }

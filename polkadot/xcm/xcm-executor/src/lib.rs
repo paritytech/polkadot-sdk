@@ -1825,11 +1825,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				Config::BroadcastHandler::handle_publish(origin, data)?;
 				Ok(())
 			},
-			Subscribe { publisher } => {
-				let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
-				Config::BroadcastHandler::handle_subscribe(origin, publisher)?;
-				Ok(())
-			},
 		}
 	}
 
