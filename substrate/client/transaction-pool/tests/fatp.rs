@@ -2821,7 +2821,7 @@ fn fatp_revert_removes_transactions_from_all_forks() {
 	let header_f3 = api.push_block_with_parent(header_e3.hash(), vec![xt8.clone()], true);
 	block_on(pool.maintain(new_best_block_event(&pool, Some(header_e3.hash()), header_f3.hash())));
 
-	// Add a pending transaction (never included in any block)
+	// Add a ready transaction (never included in any block)
 	let xt_pending = uxt(Dave, 200);
 	block_on(pool.submit_one(invalid_hash(), SOURCE, xt_pending.clone())).unwrap();
 	// We should have views for each fork tip (F1, F2, F3) at minimum
