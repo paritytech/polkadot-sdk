@@ -92,6 +92,21 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				let res = (ref_time, proof_size);
 				Ok(res.abi_encode())
 			},
+			/// Remove the calling account and transfer remaining **free** balance.
+			///
+			/// This function never returns. Either the termination was successful and the
+			/// execution of the destroyed contract is halted. Or it failed during the termination
+			/// which is considered fatal and results in a trap + rollback.
+			///
+			/// # Parameters
+			///
+			/// - `beneficiary`: The address of the beneficiary account
+			///
+			/// # Traps
+			///
+			/// - The contract is live i.e is already on the call stack.
+			/// - Failed to send the balance to the beneficiary.
+			/// - The deletion queue is full.
 			ISystemCalls::terminate(ISystem::terminateCall { beneficiary }) => {
 				// no need to adjust gas because this always deletes code
 				env.frame_meter_mut()
@@ -100,6 +115,36 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				env.terminate_caller(&h160).map_err(Error::try_to_revert::<T>)?;
 				Ok(Vec::new())
 			},
+			/// Replace the contract code at the caller's address with new code.
+			///
+			/// # Note
+			///
+			/// There are a couple of important considerations which must be taken into account when
+			/// using this API:
+			///
+			/// 1. The storage at the code address will remain untouched. This means that contract
+			/// developers must ensure that the storage layout of the new code is compatible with
+			/// that of the old code.
+			///
+			/// 2. Contracts using this API can't be assumed as having deterministic addresses. Said
+			///    another
+			/// way, when using this API you lose the guarantee that an address always identifies a
+			/// specific code hash.
+			///
+			/// 3. If a contract calls into itself after changing its code the new call would use
+			/// the new code. However, if the original caller panics after returning from the sub
+			/// call it would revert the changes made by
+			/// [`set_code_hash()`][`Self::set_code_hash`] and the next caller would use the old
+			/// code.
+			///
+			/// # Parameters
+			///
+			/// - `code_hash`: The hash of the new code. Should be decodable as an `T::Hash`. Traps
+			///   otherwise.
+			///
+			/// # Panics
+			///
+			/// Panics if there is no code on-chain with the specified hash.
 			ISystemCalls::setCodeHash(ISystem::setCodeHashCall { codeHash }) => {
 				let charged = env
 					.frame_meter_mut()
