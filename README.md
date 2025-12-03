@@ -29,14 +29,17 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/paritytec
 In order to build this project you need to install some dependencies, follow the instructions in [this guide](https://docs.polkadot.com/develop/parachains/install-polkadot-sdk).
 
 ### 🎯 Build targets
-When building runtimes the wasm builder does take care of everything. However, when building individual crates there are minor caveats when we build to `no_std` targets.
+
+When building full runtimes, the WASM builder takes care of all required configuration.  
+For individual crates, however, there are a few caveats when targeting `no_std`.
 
 #### WASM
-Requires the `RUSTFLAGS="--cfg substrate_runtime"` to be set, see our CIs [WASM-build](https://github.com/paritytech/polkadot-sdk/blob/6de451a105ca0a5feb675a215d4e8de5207febf6/.github/workflows/tests-misc.yml#L67).
+Set `RUSTFLAGS="--cfg substrate_runtime"` when building for WASM.  
+See the CI example: [WASM-build](https://github.com/paritytech/polkadot-sdk/blob/6de451a105ca0a5feb675a215d4e8de5207febf6/.github/workflows/tests-misc.yml#L67).
 
 #### PolkaVM
-Requires a `riscv32` or `riscv64` target architecture, see our CIs test [RiscV-build](https://github.com/paritytech/polkadot-sdk/blob/6de451a105ca0a5feb675a215d4e8de5207febf6/.github/workflows/build-misc.yml#L55).
-
+PolkaVM builds require some `riscv32` or `riscv64` target architecture.  
+See the CI example: [RiscV-build](https://github.com/paritytech/polkadot-sdk/blob/6de451a105ca0a5feb675a215d4e8de5207febf6/.github/workflows/build-misc.yml#L55).
 ## 📚 Documentation
 
 * [Polkadot Documentation Portal](https://docs.polkadot.com)
