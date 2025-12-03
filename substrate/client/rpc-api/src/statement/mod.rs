@@ -21,6 +21,7 @@
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use serde::{Deserialize, Serialize};
 use sp_core::Bytes;
+use sp_statement_store::SubmitResult;
 
 pub mod error;
 
