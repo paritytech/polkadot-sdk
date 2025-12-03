@@ -10,4 +10,4 @@ doc:
 
 crates:
   - name: pallet-sassafras
-    bump: major
+    bump: minor

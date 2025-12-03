@@ -1004,6 +1004,61 @@ impl<T: Config> Pallet<T> {
 	pub fn epoch_length() -> u32 {
 		T::EpochLength::get()
 	}
+
+	/// Get current epoch index.
+	pub fn epoch_index() -> u64 {
+		EpochIndex::<T>::get()
+	}
+
+	/// Get current authorities.
+	pub fn authorities() -> Vec<AuthorityId> {
+		Authorities::<T>::get().into_inner()
+	}
+
+	/// Get next epoch authorities.
+	pub fn next_authorities() -> Vec<AuthorityId> {
+		NextAuthorities::<T>::get().into_inner()
+	}
+
+	/// Get genesis slot.
+	pub fn genesis_slot() -> Slot {
+		GenesisSlot::<T>::get()
+	}
+
+	/// Get current slot.
+	pub fn current_slot() -> Slot {
+		CurrentSlot::<T>::get()
+	}
+
+	/// Get current epoch randomness.
+	pub fn randomness() -> Randomness {
+		CurrentRandomness::<T>::get()
+	}
+
+	/// Get next epoch randomness.
+	pub fn next_randomness() -> Randomness {
+		NextRandomness::<T>::get()
+	}
+
+	/// Get randomness accumulator.
+	pub fn randomness_accumulator() -> Randomness {
+		RandomnessAccumulator::<T>::get()
+	}
+
+	/// Get current epoch configuration.
+	pub fn config() -> EpochConfiguration {
+		EpochConfig::<T>::get()
+	}
+
+	/// Get next epoch configuration.
+	pub fn next_config() -> EpochConfiguration {
+		NextEpochConfig::<T>::get().unwrap_or_else(|| EpochConfig::<T>::get())
+	}
+
+	/// Get ring context.
+	pub fn ring_context() -> Option<vrf::RingContext> {
+		RingContext::<T>::get()
+	}
 }
 
 /// Trigger an epoch change, if any should take place.
