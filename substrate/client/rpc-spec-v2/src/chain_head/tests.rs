@@ -3410,18 +3410,16 @@ async fn storage_closest_merkle_value() {
 
 		loop {
 			match get_next_event::<FollowEvent<String>>(&mut sub).await {
-				FollowEvent::OperationStorageItems(res) if res.operation_id == operation_id => {
+				FollowEvent::OperationStorageItems(res) if res.operation_id == operation_id =>
 					for res in res.items {
 						let value = match res.result {
 							StorageResultType::ClosestDescendantMerkleValue(value) => value,
 							_ => panic!("Unexpected StorageResultType"),
 						};
 						merkle_values.insert(res.key, value);
-					}
-				},
-				FollowEvent::OperationStorageDone(done) if done.operation_id == operation_id => {
-					break
-				},
+					},
+				FollowEvent::OperationStorageDone(done) if done.operation_id == operation_id =>
+					break,
 				_ => panic!("Unexpected event"),
 			}
 		}

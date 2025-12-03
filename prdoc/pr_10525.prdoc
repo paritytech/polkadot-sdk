@@ -1,6 +1,6 @@
 title: 'fix(rpc-spec-v2): best block not announced immediately after initialised'
 doc:
-- audience: Todo
+- audience: Node Dev
   description: |-
     # Description
 
@@ -25,17 +25,6 @@ doc:
     ## Review Notes
 
     This PR removes that condition so that the `bestBlockChanged` notification is always emited. All tests are updated to this new behaviour
-
-    # Checklist
-
-    * [x] My PR includes a detailed description as outlined in the "Description" and its two subsections above.
-    * [ ] My PR follows the [labeling requirements](
-    https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process
-    ) of this project (at minimum one label for `T` required)
-        * External contributors: Use `/cmd label <label-name>` to add labels
-        * Maintainers can also add labels manually
-    * [x] I have made corresponding changes to the documentation (if applicable)
-    * [x] I have added tests that prove my fix is effective or that my feature works (if applicable)
 crates:
 - name: sc-rpc-spec-v2
   bump: major
