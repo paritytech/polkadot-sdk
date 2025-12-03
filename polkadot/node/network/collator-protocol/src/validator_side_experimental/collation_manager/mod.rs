@@ -697,6 +697,8 @@ impl CollationManager {
 			target: LOG_TARGET,
 			?fetch_score,
 			?highest_rep_of_para,
+			maybe_candidate_hash=?advertisement.candidate_hash(),
+			peer_id=?advertisement.peer_id,
 			"Skipping advertisement, as the peer doesn't have a high enough reputation to warrant a fetch now"
 		);
 		let diff = u16::from(fetch_score) - u16::from(score);
@@ -958,6 +960,7 @@ impl PerRelayParent {
 		let peer_advertisements =
 			self.peer_advertisements.entry(advertisement.peer_id).or_default();
 
+		// we count all advertisements, check [`PeerAdvertisements::total`]
 		peer_advertisements.total += 1;
 
 		if peer_advertisements.total > max_assignments {
