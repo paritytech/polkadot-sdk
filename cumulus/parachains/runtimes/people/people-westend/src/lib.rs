@@ -35,8 +35,8 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Everything, InstanceFilter,
-		TransformOrigin,
+		fungible::Credit, ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Everything,
+		Imbalance, InstanceFilter, OnUnbalanced, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
@@ -249,12 +249,43 @@ impl pallet_balances::Config for Runtime {
 parameter_types! {
 	/// Relay Chain `TransactionByteFee` / 10.
 	pub const TransactionByteFee: Balance = MILLICENTS;
+	/// Percentage of fees that go to DAP satellite (0-100).
+	/// The remainder goes to the staking pot. Tips always go 100% to staking pot.
+	/// Set to 0 to preserve original behavior (100% to staking pot).
+	pub const DapSatelliteFeePercent: u32 = 0;
+}
+
+/// Fee handler that splits fees between DAP satellite and staking pot.
+/// - `DapSatelliteFeePercent`% of fees go to DAP satellite
+/// - (100 - `DapSatelliteFeePercent`)% of fees go to staking pot
+/// - 100% of tips go to staking pot
+pub struct DealWithFeesSatellite;
+impl OnUnbalanced<Credit<AccountId, Balances>> for DealWithFeesSatellite {
+	fn on_unbalanceds(mut fees_then_tips: impl Iterator<Item = Credit<AccountId, Balances>>) {
+		if let Some(fees) = fees_then_tips.next() {
+			let dap_percent = DapSatelliteFeePercent::get();
+			let staking_percent = 100u32.saturating_sub(dap_percent);
+			let mut split = fees.ration(dap_percent, staking_percent);
+			if let Some(tips) = fees_then_tips.next() {
+				// Tips: 100% to staking pot
+				tips.merge_into(&mut split.1);
+			}
+			// Send configured % to DAP satellite (if any)
+			if dap_percent > 0 {
+				<pallet_dap_satellite::SlashToSatellite<Runtime> as OnUnbalanced<_>>::on_unbalanced(
+					split.0,
+				);
+			}
+			// Send remainder + tips to staking pot
+			<DealWithFees<Runtime> as OnUnbalanced<_>>::on_unbalanced(split.1);
+		}
+	}
 }
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction =
-		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFees<Runtime>>;
+		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFeesSatellite>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -578,6 +609,10 @@ impl pallet_migrations::Config for Runtime {
 	type WeightInfo = weights::pallet_migrations::WeightInfo<Runtime>;
 }
 
+impl pallet_dap_satellite::Config for Runtime {
+	type Currency = Balances;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -613,6 +648,9 @@ construct_runtime!(
 
 		// The main stage.
 		Identity: pallet_identity = 50,
+
+		// DAP Satellite - collects funds for eventual transfer to DAP on AssetHub.
+		DapSatellite: pallet_dap_satellite = 60,
 
 		// Migrations pallet
 		MultiBlockMigrations: pallet_migrations = 98,
