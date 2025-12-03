@@ -21,6 +21,7 @@ pallet-balances = { workspace = true }
 pallet-session = { workspace = true }
 pallet-timestamp = { workspace = true }
 sp-consensus-aura = { workspace = true }
+sp-consensus-babe = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
@@ -63,6 +64,7 @@ std = [
 	"parachains-common/std",
 	"polkadot-parachain-primitives/std",
 	"sp-consensus-aura/std",
+	"sp-consensus-babe/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
