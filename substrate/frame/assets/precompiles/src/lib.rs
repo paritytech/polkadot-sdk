@@ -167,7 +167,7 @@ where
 	fn deposit_event(env: &mut impl Ext<T = Runtime>, event: IERC20Events) -> Result<(), Error> {
 		let (topics, data) = event.into_log_data().split();
 		let topics = topics.into_iter().map(|v| H256(v.0)).collect::<Vec<_>>();
-		env.gas_meter_mut().charge(RuntimeCosts::DepositEvent {
+		env.frame_meter_mut().charge_weight_token(RuntimeCosts::DepositEvent {
 			num_topic: topics.len() as u32,
 			len: topics.len() as u32,
 		})?;

@@ -49,9 +49,7 @@ use sc_network_common::role::ObservedRole;
 use sc_network_sync::{SyncEvent, SyncEventStream};
 use sc_network_types::PeerId;
 use sp_runtime::traits::Block as BlockT;
-use sp_statement_store::{
-	Hash, NetworkPriority, Statement, StatementSource, StatementStore, SubmitResult,
-};
+use sp_statement_store::{Hash, Statement, StatementSource, StatementStore, SubmitResult};
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet},
 	iter,
@@ -78,13 +76,11 @@ mod rep {
 	/// Reputation change when a peer sends us any statement that is not invalid.
 	pub const ANY_STATEMENT_REFUND: Rep = Rep::new(1 << 4, "Any statement (refund)");
 	/// Reputation change when a peer sends us an statement that we didn't know about.
-	pub const GOOD_STATEMENT: Rep = Rep::new(1 << 7, "Good statement");
-	/// Reputation change when a peer sends us a bad statement.
-	pub const BAD_STATEMENT: Rep = Rep::new(-(1 << 12), "Bad statement");
+	pub const GOOD_STATEMENT: Rep = Rep::new(1 << 8, "Good statement");
+	/// Reputation change when a peer sends us an invalid statement.
+	pub const INVALID_STATEMENT: Rep = Rep::new(-(1 << 12), "Invalid statement");
 	/// Reputation change when a peer sends us a duplicate statement.
 	pub const DUPLICATE_STATEMENT: Rep = Rep::new(-(1 << 7), "Duplicate statement");
-	/// Reputation change when a peer sends us particularly useful statement
-	pub const EXCELLENT_STATEMENT: Rep = Rep::new(1 << 8, "High priority statement");
 }
 
 const LOG_TARGET: &str = "statement-gossip";
@@ -503,14 +499,11 @@ where
 
 	fn on_handle_statement_import(&mut self, who: PeerId, import: &SubmitResult) {
 		match import {
-			SubmitResult::New(NetworkPriority::High) =>
-				self.network.report_peer(who, rep::EXCELLENT_STATEMENT),
-			SubmitResult::New(NetworkPriority::Low) =>
-				self.network.report_peer(who, rep::GOOD_STATEMENT),
+			SubmitResult::New => self.network.report_peer(who, rep::GOOD_STATEMENT),
 			SubmitResult::Known => self.network.report_peer(who, rep::ANY_STATEMENT_REFUND),
 			SubmitResult::KnownExpired => {},
-			SubmitResult::Ignored => {},
-			SubmitResult::Bad(_) => self.network.report_peer(who, rep::BAD_STATEMENT),
+			SubmitResult::Rejected(_) => {},
+			SubmitResult::Invalid(_) => self.network.report_peer(who, rep::INVALID_STATEMENT),
 			SubmitResult::InternalError(_) => {},
 		}
 	}
