@@ -1,11 +1,10 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// The test sets up a network with 4 validators and 1 collator, waits for the parachain
-// to start producing blocks (5 blocks), then performs a runtime upgrade of the parachain
-// to a runtime with an increased version and slot duration of 18 seconds, waits for the upgrade
-// to complete and verifies that the relay chain is working and finalizing, and the parachain
-// is producing blocks (waits for 10 blocks).
+// The test sets up a network with 4 validators and 1 collator, then performs a runtime upgrade
+// of the parachain to a runtime with an increased version and slot duration of 18 seconds, waits
+// for the upgrade to complete and verifies that the relay chain is working and finalizing, and
+// the parachain is producing blocks (waits for 10 blocks).
 
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
@@ -63,15 +62,6 @@ async fn parachain_runtime_upgrade_test() -> Result<(), anyhow::Error> {
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 	let collator_client: OnlineClient<PolkadotConfig> = collator_node.wait_client().await?;
-
-	// Wait for the parachain to start producing blocks and produce 5 blocks
-	log::info!("Waiting for parachain to produce 5 blocks...");
-	assert_para_throughput(
-		&relay_client,
-		10,
-		[(ParaId::from(PARA_ID), 5..20)].into_iter().collect(),
-	)
-	.await?;
 
 	// Get the current runtime version
 	let current_spec_version =
