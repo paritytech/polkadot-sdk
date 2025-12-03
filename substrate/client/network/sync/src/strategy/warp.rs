@@ -1341,7 +1341,7 @@ mod test {
 		else {
 			panic!("Expected `ImportBlocks` action.");
 		};
-		assert_eq!(origin, BlockOrigin::NetworkInitialSync);
+		assert_eq!(origin, BlockOrigin::WarpSync);
 		assert_eq!(blocks.len(), 1);
 		let import_block = blocks.pop().unwrap();
 		assert_eq!(
@@ -1364,32 +1364,55 @@ mod test {
 
 	#[test]
 	fn complete_warp_proof_advances_phase() {
+		// Initialize logging
+		sp_tracing::try_init_simple();
+
 		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
 		let mut provider = MockWarpSyncProvider::<Block>::new();
 		provider
 			.expect_current_authorities()
 			.once()
 			.return_const(AuthorityList::default());
-		let target_block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(client.chain_info().best_hash)
-			.with_parent_block_number(client.chain_info().best_number)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let target_header = target_block.header().clone();
-		let justifications = Justifications::new(vec![(GRANDPA_ENGINE_ID, vec![1, 2, 3, 4, 5])]);
-		// Warp proof is complete.
+
+		// Building both blocks manually. Can't use BlockBuilderBuilder to build one block on top of
+		// another, if no genesis is set (required for warp sync to make sure finalized_state is not
+		// set)
+		let warp_synced_header = <<Block as BlockT>::Header as HeaderT>::new(
+			1,
+			Default::default(),
+			Default::default(),
+			client.chain_info().best_hash,
+			Default::default(),
+		);
+
+		// Build target_block on top of warp_synced_block
+		let target_header = <<Block as BlockT>::Header as HeaderT>::new(
+			2,
+			Default::default(),
+			Default::default(),
+			warp_synced_header.hash(),
+			Default::default(),
+		);
+		let warp_justifications =
+			Justifications::new(vec![(GRANDPA_ENGINE_ID, vec![1, 2, 3, 4, 5])]);
+		let target_justifications =
+			Justifications::new(vec![(GRANDPA_ENGINE_ID, vec![6, 7, 8, 9, 10])]);
+
+		// Warp proof is complete and contains both blocks.
 		{
+			let warp_synced_header = warp_synced_header.clone();
+			let warp_justifications = warp_justifications.clone();
 			let target_header = target_header.clone();
-			let justifications = justifications.clone();
+			let target_justifications = target_justifications.clone();
 			provider.expect_verify().return_once(move |_proof, set_id, authorities| {
 				Ok(VerificationResult::Complete(
 					set_id,
 					authorities,
 					target_header.clone(),
-					vec![(target_header, justifications)],
+					vec![
+						(warp_synced_header, warp_justifications),
+						(target_header, target_justifications),
+					],
 				))
 			});
 		}
@@ -1425,17 +1448,18 @@ mod test {
 		else {
 			panic!("Expected `ImportBlocks` action.");
 		};
-		assert_eq!(origin, BlockOrigin::NetworkInitialSync);
+		assert_eq!(origin, BlockOrigin::WarpSync);
+		// Only warp_synced_block should be in the import list; target_block is filtered out
 		assert_eq!(blocks.len(), 1);
 		let import_block = blocks.pop().unwrap();
 		assert_eq!(
 			import_block,
 			IncomingBlock {
-				hash: target_header.hash(),
-				header: Some(target_header),
+				hash: warp_synced_header.hash(),
+				header: Some(warp_synced_header),
 				body: None,
 				indexed_body: None,
-				justifications: Some(justifications),
+				justifications: Some(warp_justifications),
 				origin: Some(request_peer_id),
 				allow_missing_state: true,
 				skip_execution: true,
@@ -1443,9 +1467,7 @@ mod test {
 				state: None,
 			}
 		);
-		assert!(
-			matches!(warp_sync.phase, Phase::TargetBlock(header) if header == *target_block.header())
-		);
+		assert!(matches!(warp_sync.phase, Phase::TargetBlock(header) if header == target_header));
 	}
 
 	#[test]
