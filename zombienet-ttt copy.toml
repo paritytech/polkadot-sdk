@@ -1,0 +1,111 @@
+[relaychain]
+default_command = "/Users/willparity/polkadot-sdk/target/release/polkadot"
+default_args = ["-lparachain=debug"]
+chain = "rococo-local"
+
+[relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
+# Target 11 cores with 1 validator per core or reduce if issues persist
+num_cores = 11
+max_validators_per_core = 1
+
+[relaychain.genesis.runtimeGenesis.patch.configuration.config.async_backing_params]
+# Tuning that helps higher throughput under elastic scaling
+max_candidate_depth = 24
+allowed_ancestry_len = 2
+
+[[relaychain.nodes]]
+name = "alice"
+validator = true
+rpc_port = 9964
+
+[[relaychain.nodes]]
+name = "bob"
+validator = true
+rpc_port = 9965
+
+# Add more relay validators to cover 11 cores
+[[relaychain.node_groups]]
+name = "validator"
+count = 11
+args = ["-lruntime=debug,parachain=debug"]
+
+# Minimal Yet-Another-Parachain (YAP) network including the Tic-Tac-Toe pallet.
+# Note: After spawn, assign at least 1 core to start authoring:
+#   node scripts/assign_cores.js --ws ws://127.0.0.1:9964 --para 2100 --cores 1 --start-core 0
+
+[[parachains]]
+id = 2100
+chain = "yap-rococo-local-2100"
+default_command = "/Users/willparity/polkadot-sdk/target/release/polkadot-parachain"
+
+# 🎯 EASY CONFIG: Change the "count" below to spawn more/fewer collators!
+# Each collator gets assigned sequential ports starting from 9988
+#
+# Examples:
+#   count = 4  → 4 collators (ports 9988-9991) = 120 concurrent games max
+#   count = 8  → 8 collators (ports 9988-9995) = 240 concurrent games max
+#   count = 16 → 16 collators (ports 9988-10003) = 480 concurrent games max
+#
+# Note: Update connection-pool.cjs endpoints array when changing count!
+[[parachains.collator_groups]]
+name = "ttt-collator"
+count = 16
+args = [
+    "--authoring=slot-based",
+    "-lparachain=debug,aura=debug,runtime=debug,runtime::tic-tac-toe=debug"
+]
+
+
+
+
+
+WORKIN
+
+[relaychain]
+default_command = "./target/release/polkadot"
+default_args = ["-lparachain=debug"]
+chain = "rococo-local"
+
+[relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
+# Target 11 cores with 1 validator per core or adjust if problems persist
+num_cores = 6
+max_validators_per_core = 1
+
+[relaychain.genesis.runtimeGenesis.patch.configuration.config.async_backing_params]
+# Tuning that helps higher throughput under elastic scaling
+max_candidate_depth = 24
+allowed_ancestry_len = 2
+
+[[relaychain.nodes]]
+name = "alice"
+validator = true
+rpc_port = 9964
+
+[[relaychain.nodes]]
+name = "bob"
+validator = true
+rpc_port = 9965
+
+# Add more relay validators to cover 11 cores
+[[relaychain.node_groups]]
+name = "validator"
+count = 6
+args = ["-lruntime=debug,parachain=debug"]
+
+# Minimal Yet-Another-Parachain (YAP) network including the Tic-Tac-Toe pallet.
+# Note: After spawn, assign at least 1 core to start authoring:
+#   node scripts/assign_cores.js --ws ws://127.0.0.1:9964 --para 2100 --cores 1 --start-core 0
+
+[[parachains]]
+id = 2100
+chain = "yap-rococo-local-2100"
+default_command = "./target/release/polkadot-parachain"
+
+[[parachains.collators]]
+name = "ttt-collator"
+command = "./target/release/polkadot-parachain"
+args = [
+    "--authoring=slot-based",
+    "-lparachain=debug,aura=debug,runtime=debug,runtime::tic-tac-toe=debug"
+]
+rpc_port = 9988

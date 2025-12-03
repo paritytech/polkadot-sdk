@@ -1,0 +1,50 @@
+cargo build --profile release -p polkadot
+
+cargo build --profile release -p polkadot-parachain-bin
+
+cargo build --locked --release --features fast-runtime \
+  --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker
+
+cargo build --release -p cumulus-test-service --bin test-parachain
+
+
+
+export PATH="$PWD/target/release:$PATH"
+
+RUST_LOG=info \
+ZOMBIE_PROVIDER=native cargo test --release --features zombie-ci \
+  -p polkadot-zombienet-sdk-tests slot_based_12cores_test
+
+
+
+PATH="$PWD/target/release:$PATH" \
+RUST_LOG=info \
+ZOMBIE_PROVIDER=native zombienet spawn zombienet-chess.toml
+
+
+tail -f /tmp/zombie-xxxx/alice/alice.log
+tail -f /tmp/zombie-xxxx/chess-collator-1/chess-collator-1.log
+
+
+
+ROCOCO_EPOCH_DURATION=50 cargo build -p polkadot --release
+
+ROCOCO_EPOCH_DURATION=50 cargo build --profile release -p polkadot
+cargo build --profile release -p polkadot
+cargo build --profile release -p polkadot-parachain-bin
+
+cargo build -p cumulus-test-service --release 
+# produces target/release/test-parachain
+
+PATH="$PWD/target/release:$PATH" RUST_LOG=info zombienet -p native spawn zombienet-ttt.toml
+
+node scripts/assign_cores.js --ws ws://127.0.0.1:9964 --para 2100 --cores 6 --start-core 0
+
+
+
+
+
+
+cargo build --profile release -p polkadot
+cargo build --profile release -p polkadot-parachain-bin
+

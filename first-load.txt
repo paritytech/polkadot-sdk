@@ -1,0 +1,21 @@
+ROCOCO_EPOCH_DURATION=50 cargo build -p polkadot --release
+
+ROCOCO_EPOCH_DURATION=50 cargo build --profile release -p polkadot
+cargo build --profile release -p polkadot
+cargo build --profile release -p polkadot-parachain-bin
+
+cargo build -p cumulus-test-service --release 
+# produces target/release/test-parachain
+
+PATH="$PWD/target/release:$PATH" RUST_LOG=info zombienet -p native spawn zombienet-ttt.toml
+
+node scripts/assign_cores.js --ws ws://127.0.0.1:9964 --para 2100 --cores 6 --start-core 0
+
+
+
+
+
+
+cargo build --profile release -p polkadot
+cargo build --profile release -p polkadot-parachain-bin
+

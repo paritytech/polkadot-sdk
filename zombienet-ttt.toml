@@ -1,5 +1,5 @@
 [relaychain]
-default_command = "polkadot"
+default_command = "./target/release/polkadot"
 default_args = ["-lparachain=debug"]
 chain = "rococo-local"
 
@@ -36,13 +36,40 @@ args = ["-lruntime=debug,parachain=debug"]
 [[parachains]]
 id = 2100
 chain = "yap-rococo-local-2100"
-default_command = "polkadot-parachain"
+default_command = "./target/release/polkadot-parachain"
 
 [[parachains.collators]]
-name = "ttt-collator"
-command = "polkadot-parachain"
+name = "ttt-collator-0"
+command = "./target/release/polkadot-parachain"
 args = [
     "--authoring=slot-based",
     "-lparachain=debug,aura=debug,runtime=debug,runtime::tic-tac-toe=debug"
 ]
-rpc_port = 9988
+rpc_port = 60990
+
+[[parachains.collators]]
+name = "ttt-collator-1"
+command = "./target/release/polkadot-parachain"
+args = [
+    "--authoring=slot-based",
+    "-lparachain=debug,aura=debug,runtime=debug,runtime::tic-tac-toe=debug"
+]
+rpc_port = 60991
+
+[[parachains.collators]]
+name = "ttt-collator-2"
+command = "./target/release/polkadot-parachain"
+args = [
+    "--authoring=slot-based",
+    "-lparachain=debug,aura=debug,runtime=debug,runtime::tic-tac-toe=debug"
+]
+rpc_port = 60992
+
+[[parachains.collators]]
+name = "ttt-collator-3"
+command = "./target/release/polkadot-parachain"
+args = [
+    "--authoring=slot-based",
+    "-lparachain=debug,aura=debug,runtime=debug,runtime::tic-tac-toe=debug"
+]
+rpc_port = 60993
