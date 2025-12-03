@@ -198,6 +198,58 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for SlashToSatellite<T> {
 	}
 }
 
+/// A configurable fee handler that splits fees between DAP satellite and another destination.
+///
+/// - `DapPercent`: Percentage of fees (0-100) to send to DAP satellite
+/// - `OtherHandler`: Where to send the remaining fees (e.g., `ToAuthor`, `DealWithFees`)
+///
+/// Tips always go 100% to `OtherHandler`.
+///
+/// # Example
+///
+/// ```ignore
+/// parameter_types! {
+///     pub const DapSatelliteFeePercent: u32 = 0; // 0% to DAP, 100% to staking
+/// }
+///
+/// type DealWithFeesSatellite = pallet_dap_satellite::DealWithFeesSplit<
+///     Runtime,
+///     DapSatelliteFeePercent,
+///     DealWithFees<Runtime>, // Or ToAuthor<Runtime> for relay chain
+/// >;
+///
+/// impl pallet_transaction_payment::Config for Runtime {
+///     type OnChargeTransaction = FungibleAdapter<Balances, DealWithFeesSatellite>;
+/// }
+/// ```
+pub struct DealWithFeesSplit<T, DapPercent, OtherHandler>(
+	core::marker::PhantomData<(T, DapPercent, OtherHandler)>,
+);
+
+impl<T, DapPercent, OtherHandler> OnUnbalanced<CreditOf<T>>
+	for DealWithFeesSplit<T, DapPercent, OtherHandler>
+where
+	T: Config,
+	DapPercent: Get<u32>,
+	OtherHandler: OnUnbalanced<CreditOf<T>>,
+{
+	fn on_unbalanceds(mut fees_then_tips: impl Iterator<Item = CreditOf<T>>) {
+		if let Some(fees) = fees_then_tips.next() {
+			let dap_percent = DapPercent::get();
+			let other_percent = 100u32.saturating_sub(dap_percent);
+			let mut split = fees.ration(dap_percent, other_percent);
+			if let Some(tips) = fees_then_tips.next() {
+				// Tips go 100% to other handler.
+				tips.merge_into(&mut split.1);
+			}
+			if dap_percent > 0 {
+				<SlashToSatellite<T> as OnUnbalanced<_>>::on_unbalanced(split.0);
+			}
+			OtherHandler::on_unbalanced(split.1);
+		}
+	}
+}
+
 /// Implementation of `OnUnbalanced` for the old `Currency` trait.
 ///
 /// Use this on system chains (not AssetHub) or Relay Chain for pallets that still use

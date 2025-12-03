@@ -10,9 +10,10 @@ doc:
       deployed on AssetHub as the central DAP pallet.
       - Introduced pallet-dap-satellite, to collect funds that otherwise would be burned (e.g. tx fees,
       coretime revenues, ...) into a local satellite account. These funds are accumulated locally and
-      will be sent to pallet-dap periodically in future iterations. This pallet is meant to be deployed
-      on system chains like Coretime, People and BridgeHub and on the RelayChain. It should not be deployed
-      on AssetHub, which hosts the central DAP pallet.
+      will be sent to pallet-dap periodically in future iterations. The pallet implements a configurable fee handler
+      that splits fees between DAP satellite and another destination.
+      This pallet is meant to be deployed on system chains like Coretime, People and BridgeHub and on the RelayChain.
+      It should not be deployed on AssetHub, which hosts the central DAP pallet.
 
     Runtime changes:
       - AH: redirected treasury unspent to pallet-dap instead of burning
@@ -21,9 +22,6 @@ doc:
       - coretime-westend-runtime has been updated to include pallet-dap-satellite. Coretime revenues are now accumulated in the pallet-dap-satellite account instead of being burned.
       - people-westend-runtime, bridge-hub-westend-runtime and collective-westend-runtime have been updated to include
       pallet-dap-satellite. We have preserved the original behavior for which 100% of tx fees are redirected to the staking pot.
-
-    Each of these chains with DapSatellite now includes a DealWithFeesSatellite struct that splits fees:
-      - X% goes to the DAP satellite, while (100-X)% is allocated to the staking pot via DealWithFees.
 crates:
 - name: frame-support
   bump: minor

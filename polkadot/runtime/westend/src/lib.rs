@@ -35,11 +35,10 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		fungible::{Credit, HoldConsideration},
-		tokens::UnityOrOuterConversion,
-		AsEnsureOriginWithArg, ConstU32, Contains, EitherOf, EitherOfDiverse, EnsureOriginWithArg,
-		FromContains, Imbalance, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, Nothing,
-		OnUnbalanced, ProcessMessage, ProcessMessageError, VariantCountOf, WithdrawReasons,
+		fungible::HoldConsideration, tokens::UnityOrOuterConversion, AsEnsureOriginWithArg,
+		ConstU32, Contains, EitherOf, EitherOfDiverse, EnsureOriginWithArg, FromContains,
+		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage,
+		ProcessMessageError, VariantCountOf, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
@@ -488,31 +487,8 @@ parameter_types! {
 }
 
 /// Fee handler that splits fees between DAP satellite and block author.
-/// - `DapSatelliteFeePercent`% of fees go to DAP satellite
-/// - (100 - `DapSatelliteFeePercent`)% of fees go to block author
-/// - 100% of tips go to block author
-pub struct DealWithFeesSatellite;
-impl OnUnbalanced<Credit<AccountId, Balances>> for DealWithFeesSatellite {
-	fn on_unbalanceds(mut fees_then_tips: impl Iterator<Item = Credit<AccountId, Balances>>) {
-		if let Some(fees) = fees_then_tips.next() {
-			let dap_percent = DapSatelliteFeePercent::get();
-			let author_percent = 100u32.saturating_sub(dap_percent);
-			let mut split = fees.ration(dap_percent, author_percent);
-			if let Some(tips) = fees_then_tips.next() {
-				// For tips: 100% to author
-				tips.merge_into(&mut split.1);
-			}
-			// Send configured % to DAP satellite (if any)
-			if dap_percent > 0 {
-				<pallet_dap_satellite::SlashToSatellite<Runtime> as OnUnbalanced<_>>::on_unbalanced(
-					split.0,
-				);
-			}
-			// Send remainder + tips to author
-			<ToAuthor<Runtime> as OnUnbalanced<_>>::on_unbalanced(split.1);
-		}
-	}
-}
+type DealWithFeesSatellite =
+	pallet_dap_satellite::DealWithFeesSplit<Runtime, DapSatelliteFeePercent, ToAuthor<Runtime>>;
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

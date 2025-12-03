@@ -35,8 +35,8 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		fungible::Credit, ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Everything,
-		Imbalance, InstanceFilter, OnUnbalanced, TransformOrigin,
+		ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Everything, InstanceFilter,
+		TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
@@ -256,31 +256,8 @@ parameter_types! {
 }
 
 /// Fee handler that splits fees between DAP satellite and staking pot.
-/// - `DapSatelliteFeePercent`% of fees go to DAP satellite
-/// - (100 - `DapSatelliteFeePercent`)% of fees go to staking pot
-/// - 100% of tips go to staking pot
-pub struct DealWithFeesSatellite;
-impl OnUnbalanced<Credit<AccountId, Balances>> for DealWithFeesSatellite {
-	fn on_unbalanceds(mut fees_then_tips: impl Iterator<Item = Credit<AccountId, Balances>>) {
-		if let Some(fees) = fees_then_tips.next() {
-			let dap_percent = DapSatelliteFeePercent::get();
-			let staking_percent = 100u32.saturating_sub(dap_percent);
-			let mut split = fees.ration(dap_percent, staking_percent);
-			if let Some(tips) = fees_then_tips.next() {
-				// Tips: 100% to staking pot
-				tips.merge_into(&mut split.1);
-			}
-			// Send configured % to DAP satellite (if any)
-			if dap_percent > 0 {
-				<pallet_dap_satellite::SlashToSatellite<Runtime> as OnUnbalanced<_>>::on_unbalanced(
-					split.0,
-				);
-			}
-			// Send remainder + tips to staking pot
-			<DealWithFees<Runtime> as OnUnbalanced<_>>::on_unbalanced(split.1);
-		}
-	}
-}
+type DealWithFeesSatellite =
+	pallet_dap_satellite::DealWithFeesSplit<Runtime, DapSatelliteFeePercent, DealWithFees<Runtime>>;
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
