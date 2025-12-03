@@ -343,10 +343,11 @@ fn constructor_with_argument_works(fixture_type: FixtureType) {
 	});
 }
 
-// #[test_case(FixtureType::Solc)]
+// TODO(RVE): second call to the contract returns garbage when compiled using solc.
+#[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn set_code_hash(fixture_type: FixtureType) {
-	use pallet_revive_fixtures::SetCodeHash;
+	use pallet_revive_fixtures::{SetCodeHash, SetCodeHashReplacement};
 	let (binary, _) = compile_module_with_type("SetCodeHash", fixture_type).unwrap();
 	let (new_binary, new_code_hash) =
 		compile_module_with_type("SetCodeHashReplacement", fixture_type).unwrap();
@@ -367,9 +368,6 @@ fn set_code_hash(fixture_type: FixtureType) {
 
 		crate::tests::System::reset_events();
 
-		println!("contract_addr: {contract_addr:?}");
-		println!("new_code_hash: {new_code_hash:?}");
-
 		// First call sets new code_hash and returns 1
 		let result = builder::bare_call(contract_addr)
 			.data(
@@ -380,20 +378,23 @@ fn set_code_hash(fixture_type: FixtureType) {
 			)
 			.build_and_unwrap_result();
 		assert!(!result.did_revert());
+		println!("result: {:?}", result);
 		let decoded = SetCodeHash::setCodeHashCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(decoded, alloy_core::primitives::U256::from(1u8));
 
 		// Second calls new contract code that returns 2
 		let result = builder::bare_call(contract_addr)
 			.data(
-				SetCodeHash::setCodeHashCall {
+				SetCodeHashReplacement::setCodeHashCall {
 					codeHash: alloy_core::primitives::FixedBytes::<32>::from(new_code_hash.0),
 				}
 				.abi_encode(),
 			)
 			.build_and_unwrap_result();
 		assert!(!result.did_revert());
-		let decoded = SetCodeHash::setCodeHashCall::abi_decode_returns(&result.data).unwrap();
+		println!("result: {:?}", result);
+		let decoded =
+			SetCodeHashReplacement::setCodeHashCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(decoded, alloy_core::primitives::U256::from(2u8));
 	});
 }

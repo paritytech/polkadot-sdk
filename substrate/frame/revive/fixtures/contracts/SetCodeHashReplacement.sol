@@ -8,4 +8,3 @@ contract SetCodeHashReplacement {
         return 2;
     }
 }
-

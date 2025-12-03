@@ -15,4 +15,3 @@ contract SetCodeHash {
         return 1;
     }
 }
-
