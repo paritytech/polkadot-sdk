@@ -57,7 +57,7 @@ use frame_support::{
 	weights::{Weight, WeightMeter},
 };
 use frame_system::{EventRecord, Phase};
-use pallet_revive_fixtures::compile_module;
+use pallet_revive_fixtures::{compile_module, compile_module_with_type, FixtureType};
 use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::U256;
@@ -2781,7 +2781,9 @@ fn deposit_limit_honors_existential_deposit() {
 
 #[test]
 fn native_dependency_deposit_works() {
-	let (binary, code_hash) = compile_module("set_code_hash").unwrap();
+	use pallet_revive_fixtures::SetCodeHash;
+	use alloy_core::sol_types::SolCall;
+	let (binary, code_hash) = compile_module_with_type("SetCodeHash", FixtureType::Resolc).unwrap();
 	let (dummy_binary, dummy_code_hash) = compile_module("dummy").unwrap();
 
 	// Test with both existing and uploaded code
@@ -2821,14 +2823,29 @@ fn native_dependency_deposit_works() {
 			let upload_deposit = get_code_deposit(&code_hash);
 			let extra_deposit = add_upload_deposit.then(|| upload_deposit).unwrap_or_default();
 
+
+			println!("base_deposit: {:?}", base_deposit);
+			println!("upload_deposit: {:?}", upload_deposit);
+			println!("extra_deposit: {:?}", extra_deposit);
+			println!("deposit: {:?}", get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id));
 			assert_eq!(
 				res.storage_deposit.charge_or_zero(),
 				extra_deposit + base_deposit + Contracts::min_balance()
 			);
 
+			println!("deposit: {:?}", get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id));
+
 			// call set_code_hash
-			builder::bare_call(addr)
-				.data(dummy_code_hash.encode())
+			// builder::bare_call(addr)
+			// 	.data(dummy_code_hash.encode())
+			// 	.build_and_unwrap_result();
+			let _ = builder::bare_call(addr)
+				.data(
+					SetCodeHash::setCodeHashCall {
+						codeHash: alloy_core::primitives::FixedBytes::<32>::from(dummy_code_hash.0),
+					}
+					.abi_encode(),
+				)
 				.build_and_unwrap_result();
 
 			// Check updated storage_deposit due to code size changes
@@ -2838,6 +2855,7 @@ fn native_dependency_deposit_works() {
 			assert_ne!(deposit_diff, 0);
 			assert_eq!(base_deposit - new_base_deposit, deposit_diff);
 
+			println!("new_base_deposit: {:?}", new_base_deposit);
 			assert_eq!(
 				get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id),
 				new_base_deposit
