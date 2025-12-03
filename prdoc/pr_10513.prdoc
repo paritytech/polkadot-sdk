@@ -1,0 +1,11 @@
+title: add parachains-common-types
+doc:
+- audience: Todo
+  description: Closes https://github.com/paritytech/polkadot-sdk/issues/10512
+crates:
+- name: parachains-common
+  bump: major
+- name: parachains-common-types
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major
