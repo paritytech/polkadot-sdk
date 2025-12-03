@@ -471,7 +471,7 @@ where
 				reinitialize: false,
 				slot_offset: Duration::from_secs(1),
 				block_import_handle: slot_based_handle,
-				spawner: task_manager.spawn_handle(),
+				spawner: task_manager.spawn_essential_handle(),
 				export_pov: None,
 				max_pov_percentage: None,
 				collator_peer_id,

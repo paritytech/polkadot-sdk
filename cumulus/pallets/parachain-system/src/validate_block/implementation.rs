@@ -28,9 +28,9 @@ use frame_support::{
 	BoundedVec,
 };
 use polkadot_parachain_primitives::primitives::{HeadData, ValidationResult};
-use sp_core::storage::{ChildInfo, StateVersion};
+use sp_core::storage::{well_known_keys, ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
-use sp_io::{hashing::blake2_128, KillStorageResult};
+use sp_io::{hashing::blake2_128, StorageIterations};
 use sp_runtime::traits::{
 	Block as BlockT, ExtrinsicCall, Hash as HashT, HashingFor, Header as HeaderT, LazyBlock,
 };
@@ -214,6 +214,10 @@ where
 				E::execute_block(block);
 			},
 		);
+
+		if overlay.storage(well_known_keys::CODE).is_some() && num_blocks > 1 {
+			panic!("When applying a runtime upgrade, only one block per PoV is allowed. Received {num_blocks}.")
+		}
 
 		run_with_externalities_and_recorder::<B, _, _>(
 			&backend,
@@ -441,9 +445,7 @@ fn host_storage_clear_prefix(
 	maybe_limit: Option<u32>,
 	maybe_cursor_in: Option<&[u8]>,
 	maybe_cursor_out: &mut [u8],
-	backend: &mut u32,
-	unique: &mut u32,
-	loops: &mut u32,
+	counters: &mut StorageIterations,
 ) -> u32 {
 	with_externalities(|ext| {
 		let removal_results =
@@ -453,9 +455,9 @@ fn host_storage_clear_prefix(
 			let write_len = cursor_out_len.min(maybe_cursor_out.len());
 			maybe_cursor_out[..write_len].copy_from_slice(&cursor_out[..write_len]);
 		}
-		*backend = removal_results.backend;
-		*unique = removal_results.unique;
-		*loops = removal_results.loops;
+		counters.backend = removal_results.backend;
+		counters.unique = removal_results.unique;
+		counters.loops = removal_results.loops;
 		cursor_out_len as u32
 	})
 }
@@ -526,9 +528,7 @@ fn host_default_child_storage_storage_kill(
 	maybe_limit: Option<u32>,
 	maybe_cursor_in: Option<&[u8]>,
 	maybe_cursor_out: &mut [u8],
-	backend: &mut u32,
-	unique: &mut u32,
-	loops: &mut u32,
+	counters: &mut StorageIterations,
 ) -> u32 {
 	let child_info = ChildInfo::new_default(storage_key);
 	with_externalities(|ext| {
@@ -538,9 +538,9 @@ fn host_default_child_storage_storage_kill(
 			let write_len = cursor_out_len.min(maybe_cursor_out.len());
 			maybe_cursor_out[..write_len].copy_from_slice(&cursor_out[..write_len]);
 		}
-		*backend = removal_results.backend;
-		*unique = removal_results.unique;
-		*loops = removal_results.loops;
+		counters.backend = removal_results.backend;
+		counters.unique = removal_results.unique;
+		counters.loops = removal_results.loops;
 		cursor_out_len as u32
 	})
 }
@@ -556,9 +556,7 @@ fn host_default_child_storage_clear_prefix(
 	maybe_limit: Option<u32>,
 	maybe_cursor_in: Option<&[u8]>,
 	maybe_cursor_out: &mut [u8],
-	backend: &mut u32,
-	unique: &mut u32,
-	loops: &mut u32,
+	counters: &mut StorageIterations,
 ) -> u32 {
 	let child_info = ChildInfo::new_default(storage_key);
 	with_externalities(|ext| {
@@ -569,9 +567,9 @@ fn host_default_child_storage_clear_prefix(
 			let write_len = cursor_out_len.min(maybe_cursor_out.len());
 			maybe_cursor_out[..write_len].copy_from_slice(&cursor_out[..write_len]);
 		}
-		*backend = removal_results.backend;
-		*unique = removal_results.unique;
-		*loops = removal_results.loops;
+		counters.backend = removal_results.backend;
+		counters.unique = removal_results.unique;
+		counters.loops = removal_results.loops;
 		cursor_out_len as u32
 	})
 }
