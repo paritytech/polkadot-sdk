@@ -36,7 +36,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_primitives::{
 	AuthorityDiscoveryId, BlakeTwo256, CandidateHash, ChunkIndex, GroupIndex, Hash, HashT,
-	OccupiedCore, SessionIndex,
+	SessionIndex,
 };
 use sc_network::ProtocolName;
 
