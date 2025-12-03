@@ -719,6 +719,20 @@ fn self_destruct_by_syscall_tracing_works(fixture_type: FixtureType) {
 		modify_trace_fn: Option<Box<dyn FnOnce(Trace) -> Trace>>,
 	}
 
+	let expected_input: Vec<u8> = {
+		let mut x = vec![];
+		// add 4 bytes for function selector
+		x.extend_from_slice(&pallet_revive_fixtures::Terminate::terminateCall::SELECTOR);
+		// add 32 bytes for METHOD_SYSCALL
+		x.extend_from_slice(
+			&alloy_core::primitives::U256::from(METHOD_SYSCALL).to_be_bytes::<32>(),
+		);
+		// add 32 bytes for DJANGO address
+		x.extend_from_slice([0u8; 12].as_ref());
+		x.extend_from_slice(DJANGO_ADDR.0.as_ref());
+		x
+	};
+
 	let test_cases = vec![
 		TestCase {
 			description: "CallTracer",
@@ -727,6 +741,7 @@ fn self_destruct_by_syscall_tracing_works(fixture_type: FixtureType) {
 				Trace::Call(CallTrace {
 					from: ALICE_ADDR,
 					to: addr,
+					input: expected_input.into(),
 					call_type: CallType::Call,
 					value: Some(U256::zero()),
 					gas: 0.into(),
