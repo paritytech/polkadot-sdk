@@ -20,6 +20,7 @@
 
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use sp_core::Bytes;
+use sp_statement_store::SubmitResult;
 
 pub mod error;
 
@@ -79,7 +80,7 @@ pub trait StatementApi {
 
 	/// Submit a pre-encoded statement.
 	#[method(name = "statement_submit")]
-	fn submit(&self, encoded: Bytes) -> RpcResult<()>;
+	fn submit(&self, encoded: Bytes) -> RpcResult<SubmitResult>;
 
 	/// Remove a statement from the store.
 	#[method(name = "statement_remove")]

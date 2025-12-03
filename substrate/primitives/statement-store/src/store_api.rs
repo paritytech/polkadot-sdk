@@ -19,7 +19,8 @@ pub use crate::runtime_api::StatementSource;
 use crate::{Hash, Statement, Topic};
 
 /// Statement store error.
-#[derive(Debug, Eq, PartialEq, thiserror::Error)]
+#[derive(Debug, Clone, Eq, PartialEq, thiserror::Error)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Error {
 	/// Database error.
 	#[error("Database error: {0:?}")]
@@ -32,28 +33,69 @@ pub enum Error {
 	Runtime,
 }
 
-#[derive(Debug, PartialEq, Eq)]
-/// Network propagation priority.
-pub enum NetworkPriority {
-	/// High priority. Statement should be broadcast to all peers.
-	High,
-	/// Low priority.
-	Low,
+/// Reason why a statement was rejected from the store.
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "reason", rename_all = "camelCase"))]
+pub enum RejectionReason {
+	/// Statement data exceeds the maximum allowed size for the account.
+	DataTooLarge {
+		/// The size of the submitted statement data.
+		submitted_size: usize,
+		/// Still available data size for the account.
+		available_size: usize,
+	},
+	/// Attempting to replace a channel message with lower or equal priority.
+	ChannelPriorityTooLow {
+		/// The priority of the submitted statement.
+		submitted_priority: u32,
+		/// The minimum priority of the existing channel message.
+		min_priority: u32,
+	},
+	/// Account reached its statement limit and submitted priority is too low to evict existing.
+	AccountFull {
+		/// The priority of the submitted statement.
+		submitted_priority: u32,
+		/// The minimum priority of the existing statement.
+		min_priority: u32,
+	},
+	/// The global statement store is full and cannot accept new statements.
+	StoreFull,
+}
+
+/// Reason why a statement failed validation.
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "reason", rename_all = "camelCase"))]
+pub enum InvalidReason {
+	/// Statement has no proof.
+	NoProof,
+	/// Proof validation failed.
+	BadProof,
+	/// Statement exceeds max allowed statement size.
+	EncodingTooLarge {
+		/// The size of the submitted statement encoding.
+		submitted_size: usize,
+		/// The maximum allowed size.
+		max_size: usize,
+	},
 }
 
 /// Statement submission outcome
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "status", rename_all = "camelCase"))]
 pub enum SubmitResult {
-	/// Accepted as new with given score
-	New(NetworkPriority),
-	/// Known statement
+	/// Statement was accepted as new.
+	New,
+	/// Statement was already known.
 	Known,
-	/// Known statement that's already expired.
+	/// Statement was already known but has expired.
 	KnownExpired,
-	/// Priority is too low or the size is too big.
-	Ignored,
+	/// Statement was rejected because the store is full or priority is too low.
+	Rejected(RejectionReason),
 	/// Statement failed validation.
-	Bad(&'static str),
+	Invalid(InvalidReason),
 	/// Internal store error.
 	InternalError(Error),
 }
