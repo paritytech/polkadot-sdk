@@ -254,23 +254,25 @@ where
 		&mut self,
 		from: H160,
 		to: H160,
-		is_delegate_call: bool,
+		delegate_call: Option<H160>,
 		_is_read_only: bool,
 		_value: U256,
 		_input: &[u8],
 		_gas_limit: U256,
 	) {
-		if is_delegate_call {
+		if let Some(delegate_call) = delegate_call {
 			self.calls.push(self.current_addr());
+			self.read_account(delegate_call);
 		} else {
 			self.calls.push(to);
+			self.read_account(from);
 		}
 
 		if self.create_code.take().is_some() {
 			self.created_addrs.insert(to);
+		} else {
+			self.read_account(to);
 		}
-		self.read_account(from);
-		self.read_account(to);
 	}
 
 	fn exit_child_span_with_error(&mut self, _error: crate::DispatchError, _gas_used: U256) {
