@@ -862,7 +862,6 @@ node = [
 	"cumulus-client-collator",
 	"cumulus-client-consensus-aura",
 	"cumulus-client-consensus-common",
-	"cumulus-client-consensus-proposer",
 	"cumulus-client-consensus-relay-chain",
 	"cumulus-client-network",
 	"cumulus-client-parachain-inherent",
@@ -2225,11 +2224,6 @@ path = "../cumulus/client/consensus/aura"
 default-features = false
 optional = true
 path = "../cumulus/client/consensus/common"
-
-[dependencies.cumulus-client-consensus-proposer]
-default-features = false
-optional = true
-path = "../cumulus/client/consensus/proposer"
 
 [dependencies.cumulus-client-consensus-relay-chain]
 default-features = false
