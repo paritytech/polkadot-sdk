@@ -34,8 +34,8 @@ When building full runtimes, the WASM builder takes care of all required configu
 For individual crates, however, there are a few caveats when targeting `no_std`.
 
 #### WASM
-Set `RUSTFLAGS="--cfg substrate_runtime"` when building for WASM. See the 
-[WASM build](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/substrate/index.html#wasm-build) 
+Set `RUSTFLAGS="--cfg substrate_runtime"` when building for WASM. See the
+[WASM build](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/substrate/index.html#wasm-build)
 in the Polkadot SDK Documentation.
 
 #### PolkaVM
