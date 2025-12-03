@@ -22,62 +22,12 @@ pub mod message_queue;
 pub mod pay;
 pub mod xcm_config;
 pub use constants::*;
-pub use opaque::*;
-pub use types::*;
-
-/// Common types of parachains.
-mod types {
-	use sp_runtime::traits::{IdentifyAccount, Verify};
-
-	/// An index to a block.
-	pub type BlockNumber = u32;
-
-	/// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
-	pub type Signature = sp_runtime::MultiSignature;
-
-	/// Some way of identifying an account on the chain. We intentionally make it equivalent
-	/// to the public key of our transaction signing scheme.
-	pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
-
-	/// The type for looking up accounts. We don't expect more than 4 billion of them, but you
-	/// never know...
-	pub type AccountIndex = u32;
-
-	/// Balance of an account.
-	pub type Balance = u128;
-
-	/// Index of a transaction in the chain.
-	pub type Nonce = u32;
-
-	/// A hash of some data used by the chain.
-	pub type Hash = sp_core::H256;
-
-	/// Digest item type.
-	pub type DigestItem = sp_runtime::generic::DigestItem;
-
-	// Aura consensus authority.
-	pub type AuraId = sp_consensus_aura::sr25519::AuthorityId;
-
-	// Aura consensus authority used by Asset Hub Polkadot.
-	//
-	// Because of registering the authorities with an ed25519 key before switching from Shell
-	// to Asset Hub Polkadot, we were required to deploy a hotfix that changed Asset Hub Polkadot's
-	// Aura keys to ed22519. In the future that may change again.
-	pub type AssetHubPolkadotAuraId = sp_consensus_aura::ed25519::AuthorityId;
-
-	// Id used for identifying assets.
-	pub type AssetIdForTrustBackedAssets = u32;
-
-	// Id used for identifying non-fungible collections.
-	pub type CollectionId = u32;
-
-	// Id used for identifying non-fungible items.
-	pub type ItemId = u32;
-}
+pub use parachains_common_types::*;
+pub use parachains_common_types::opaque::*;
 
 /// Common constants of parachains.
 mod constants {
-	use super::types::BlockNumber;
+	use parachains_common_types::BlockNumber;
 	use frame_support::{
 		weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 		PalletId,
@@ -119,21 +69,4 @@ mod constants {
 
 	/// Treasury pallet id of the local chain, used to convert into AccountId
 	pub const TREASURY_PALLET_ID: PalletId = PalletId(*b"py/trsry");
-}
-
-/// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
-/// the specifics of the runtime. They can then be made to be agnostic over specific formats
-/// of data like extrinsics, allowing for them to continue syncing the network through upgrades
-/// to even the core data structures.
-pub mod opaque {
-	use super::*;
-	use sp_runtime::{generic, traits::BlakeTwo256};
-
-	pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
-	/// Opaque block header type.
-	pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
-	/// Opaque block type.
-	pub type Block = generic::Block<Header, UncheckedExtrinsic>;
-	/// Opaque block identifier type.
-	pub type BlockId = generic::BlockId<Block>;
 }

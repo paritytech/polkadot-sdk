@@ -14417,6 +14417,7 @@ dependencies = [
  "pallet-message-queue",
  "pallet-treasury",
  "pallet-xcm",
+ "parachains-common-types",
  "parity-scale-codec",
  "polkadot-primitives",
  "polkadot-runtime-common",
@@ -14429,6 +14430,15 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-executor",
  "tracing",
+]
+
+[[package]]
+name = "parachains-common-types"
+version = "0.1.0"
+dependencies = [
+ "sp-consensus-aura",
+ "sp-core 28.0.0",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -16123,7 +16133,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
- "parachains-common",
+ "parachains-common-types",
  "parity-scale-codec",
  "polkadot-cli",
  "polkadot-primitives",
