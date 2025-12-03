@@ -1,0 +1,13 @@
+title: 'polkadot-omni-node-lib: enable tx storage inherent data provider setup'
+
+doc:
+  - audience: [ Node Dev, Node Operator ]
+    description: |
+        * Node developers/operators could enable the transaction storage inherent data provider setup by using --enable-tx-storage-idp flag. This is especially useful in the context of bulletin chain.
+        * Node developers will set up the network `idle_connection_timeout` to 1h when using `--ipfs-server` flag, again, useful in the context of bulletin chain.
+
+crates:
+    - name: polkadot-omni-node-lib
+      bump: major
+    - name: sp-iherents
+      bump: minor
