@@ -125,6 +125,90 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_runtime_upgrade() -> Weight {
+			use pallet_timestamp::Pallet as Timestamp;
+
+			let current_timestamp = Timestamp::<T>::get();
+			let new_slot_duration = T::SlotDuration::get();
+
+			if new_slot_duration.is_zero() {
+				log::error!(
+					target: LOG_TARGET,
+					"Slot duration is zero, cannot migrate CurrentSlot"
+				);
+				return T::DbWeight::get().reads(2)
+			}
+
+			let new_slot = current_timestamp / new_slot_duration;
+			let new_slot = Slot::from(new_slot.saturated_into::<u64>());
+
+			let old_slot = CurrentSlot::<T>::get();
+			CurrentSlot::<T>::put(new_slot);
+
+			log::info!(
+				target: LOG_TARGET,
+				"Migrated CurrentSlot from {} to {} (timestamp: {:?}, slot_duration: {:?})",
+				u64::from(old_slot),
+				u64::from(new_slot),
+				current_timestamp,
+				new_slot_duration
+			);
+
+			T::DbWeight::get().reads_writes(2, 1)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			use pallet_timestamp::Pallet as Timestamp;
+
+			let current_timestamp = Timestamp::<T>::get();
+			let new_slot_duration = T::SlotDuration::get();
+			let old_slot = CurrentSlot::<T>::get();
+
+			if new_slot_duration.is_zero() {
+				return Err("Slot duration is zero".into())
+			}
+
+			let new_slot = current_timestamp / new_slot_duration;
+			let new_slot = Slot::from(new_slot.saturated_into::<u64>());
+
+			log::info!(
+				target: LOG_TARGET,
+				"Pre-upgrade: CurrentSlot will be migrated from {} to {}",
+				u64::from(old_slot),
+				u64::from(new_slot)
+			);
+
+			Ok(vec![])
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			use pallet_timestamp::Pallet as Timestamp;
+
+			let current_timestamp = Timestamp::<T>::get();
+			let new_slot_duration = T::SlotDuration::get();
+			let current_slot = CurrentSlot::<T>::get();
+
+			let expected_slot = current_timestamp / new_slot_duration;
+			let expected_slot = Slot::from(expected_slot.saturated_into::<u64>());
+
+			frame_support::ensure!(
+				current_slot == expected_slot,
+				"CurrentSlot migration failed: expected {}, got {}",
+				u64::from(expected_slot),
+				u64::from(current_slot)
+			);
+
+			log::info!(
+				target: LOG_TARGET,
+				"Post-upgrade: CurrentSlot is correctly set to {}",
+				u64::from(current_slot)
+			);
+
+			Ok(())
+		}
+
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			if let Some(new_slot) = Self::current_slot_from_digests() {
 				let current_slot = CurrentSlot::<T>::get();
