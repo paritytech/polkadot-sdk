@@ -16,7 +16,7 @@
 
 use crate::{validate_block::MemoryOptimizedValidationParams, *};
 use codec::{Decode, DecodeAll, Encode};
-use cumulus_primitives_core::{relay_chain, ParachainBlockData, PersistedValidationData};
+use cumulus_primitives_core::{relay_chain, ParachainBlockData, PersistedValidationData, relay_chain::{UMPSignal, UMP_SEPARATOR}, ClaimQueueOffset, CoreInfo, CoreSelector, };
 use cumulus_test_client::{
 	generate_extrinsic, generate_extrinsic_with_pair,
 	runtime::{
@@ -615,10 +615,6 @@ fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 
 #[test]
 fn validate_block_handles_ump_signal() {
-	use cumulus_primitives_core::{
-		relay_chain::{UMPSignal, UMP_SEPARATOR},
-		ClaimQueueOffset, CoreInfo, CoreSelector,
-	};
 	sp_tracing::try_init_simple();
 
 	let (client, parent_head) = create_elastic_scaling_test_client();
