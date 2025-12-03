@@ -777,6 +777,52 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Subscribe to published data from a specific parachain.
+		///
+		/// If `keys` is empty, subscribes to ALL data from that publisher.
+		/// If `keys` is non-empty, subscribes only to those specific keys.
+		///
+		/// The dispatch origin for this call must be `Root`.
+		#[pallet::call_index(4)]
+		#[pallet::weight((10_000, DispatchClass::Operational))]
+		pub fn subscribe(
+			origin: OriginFor<T>,
+			publisher: ParaId,
+			keys: Vec<Vec<u8>>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			let bounded_keys: BoundedVec<BoundedVec<u8, ConstU32<256>>, ConstU32<100>> = keys
+				.into_iter()
+				.map(|k| BoundedVec::try_from(k).map_err(|_| Error::<T>::KeyTooLong))
+				.collect::<Result<Vec<_>, _>>()?
+				.try_into()
+				.map_err(|_| Error::<T>::TooManyKeys)?;
+
+			Subscriptions::<T>::insert(publisher, bounded_keys);
+			Ok(())
+		}
+
+		/// Unsubscribe from a publisher and clean up associated published data.
+		///
+		/// The dispatch origin for this call must be `Root`.
+		#[pallet::call_index(5)]
+		#[pallet::weight((10_000, DispatchClass::Operational))]
+		pub fn unsubscribe(
+			origin: OriginFor<T>,
+			publisher: ParaId,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			// Remove the subscription
+			Subscriptions::<T>::remove(publisher);
+
+			// Clean up all published data from this publisher
+			let _ = PublishedData::<T>::clear_prefix(publisher, u32::MAX, None);
+
+			Ok(())
+		}
+
 		// WARNING: call indices 2 and 3 were used in a former version of this pallet. Using them
 		// again will require to bump the transaction version of runtimes using this pallet.
 	}
@@ -813,6 +859,10 @@ pub mod pallet {
 		HostConfigurationNotAvailable,
 		/// No validation function upgrade is currently scheduled.
 		NotScheduled,
+		/// A subscription key exceeds the maximum allowed length.
+		KeyTooLong,
+		/// Too many keys provided for a single subscription.
+		TooManyKeys,
 	}
 
 	/// Latest included block descendants the runtime accepted. In other words, these are
@@ -1005,6 +1055,19 @@ pub mod pallet {
 		_,
 		BTreeMap<ParaId, Vec<u8>>,
 		ValueQuery,
+	>;
+
+	/// Local subscriptions to published data from other parachains.
+	///
+	/// Maps Publisher ParaId -> Vec of keys we're interested in from that publisher.
+	/// An empty vec means we want ALL keys from that publisher.
+	#[pallet::storage]
+	pub type Subscriptions<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		ParaId,
+		BoundedVec<BoundedVec<u8, ConstU32<256>>, ConstU32<100>>,
+		OptionQuery,
 	>;
 
 

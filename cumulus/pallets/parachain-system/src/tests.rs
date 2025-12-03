@@ -1647,3 +1647,73 @@ fn ump_fee_factor_increases_and_decreases() {
 			},
 		);
 }
+
+#[test]
+fn subscribe_to_all_keys_works() {
+	new_test_ext().execute_with(|| {
+		let publisher = ParaId::from(1000);
+
+		assert_ok!(ParachainSystem::subscribe(RuntimeOrigin::root(), publisher, vec![]));
+
+		assert!(Subscriptions::<Test>::contains_key(publisher));
+		let keys = Subscriptions::<Test>::get(publisher).unwrap();
+		assert!(keys.is_empty());
+	});
+}
+
+#[test]
+fn subscribe_to_specific_keys_works() {
+	new_test_ext().execute_with(|| {
+		let publisher = ParaId::from(2000);
+		let keys = vec![b"key1".to_vec(), b"key2".to_vec()];
+
+		assert_ok!(ParachainSystem::subscribe(RuntimeOrigin::root(), publisher, keys.clone()));
+
+		assert!(Subscriptions::<Test>::contains_key(publisher));
+		let stored_keys = Subscriptions::<Test>::get(publisher).unwrap();
+		assert_eq!(stored_keys.len(), 2);
+		assert_eq!(stored_keys[0].as_slice(), b"key1");
+		assert_eq!(stored_keys[1].as_slice(), b"key2");
+	});
+}
+
+#[test]
+fn unsubscribe_removes_subscription_and_data() {
+	new_test_ext().execute_with(|| {
+		let publisher = ParaId::from(3000);
+
+		assert_ok!(ParachainSystem::subscribe(RuntimeOrigin::root(), publisher, vec![]));
+
+		PublishedData::<Test>::insert(publisher, b"key1".to_vec(), b"value1".to_vec());
+		PublishedData::<Test>::insert(publisher, b"key2".to_vec(), b"value2".to_vec());
+
+		assert!(PublishedData::<Test>::contains_key(publisher, b"key1".to_vec()));
+		assert!(PublishedData::<Test>::contains_key(publisher, b"key2".to_vec()));
+
+		assert_ok!(ParachainSystem::unsubscribe(RuntimeOrigin::root(), publisher));
+
+		assert!(!Subscriptions::<Test>::contains_key(publisher));
+		assert!(!PublishedData::<Test>::contains_key(publisher, b"key1".to_vec()));
+		assert!(!PublishedData::<Test>::contains_key(publisher, b"key2".to_vec()));
+	});
+}
+
+#[test]
+fn subscribe_overwrites_existing_subscription() {
+	new_test_ext().execute_with(|| {
+		let publisher = ParaId::from(4000);
+
+		assert_ok!(ParachainSystem::subscribe(RuntimeOrigin::root(), publisher, vec![]));
+		assert!(Subscriptions::<Test>::get(publisher).unwrap().is_empty());
+
+		assert_ok!(ParachainSystem::subscribe(
+			RuntimeOrigin::root(),
+			publisher,
+			vec![b"specific".to_vec()]
+		));
+
+		let keys = Subscriptions::<Test>::get(publisher).unwrap();
+		assert_eq!(keys.len(), 1);
+		assert_eq!(keys[0].as_slice(), b"specific");
+	});
+}
