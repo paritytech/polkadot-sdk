@@ -9,5 +9,5 @@ doc:
 crates:
     - name: polkadot-omni-node-lib
       bump: major
-    - name: sp-iherents
+    - name: sp-inherents
       bump: minor
