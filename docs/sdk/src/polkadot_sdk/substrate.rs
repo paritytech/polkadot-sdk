@@ -91,6 +91,7 @@
 //! In order to ensure that the WASM build is **deterministic**, the [Substrate Runtime Toolbox (srtool)](https://github.com/paritytech/srtool) can be used.
 //!
 //! #### Building individual crates
+//!
 //! When building full runtimes, the WASM builder takes care of all required configuration.
 //! For individual crates, however, the `substrate_runtime` Rust flag is needed, e.g.:
 //!
