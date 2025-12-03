@@ -86,3 +86,10 @@
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
   needs-wasm-binary: true
+
+- job-name: "zombienet-cumulus-0015-parachain-runtime-upgrade"
+  test-filter: "functional::parachain_runtime_upgrade::parachain_runtime_upgrade_test"
+  runner-type: "default"
+  cumulus-image: "test-parachain"
+  use-zombienet-sdk: true
+  needs-wasm-binary: true

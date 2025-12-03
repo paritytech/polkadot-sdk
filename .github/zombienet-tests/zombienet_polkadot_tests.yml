@@ -253,9 +253,3 @@
   runner-type: "default"
   use-zombienet-sdk: true
 
-- job-name: "zombienet-polkadot-parachain-runtime-upgrade"
-  test-filter: "functional::parachain_runtime_upgrade::parachain_runtime_upgrade_test"
-  runner-type: "default"
-  use-zombienet-sdk: true
-  cumulus-image: "test-parachain"
-  needs-wasm-binary: true
