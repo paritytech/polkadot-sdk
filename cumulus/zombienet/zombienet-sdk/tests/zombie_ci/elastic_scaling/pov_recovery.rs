@@ -25,7 +25,6 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	log::info!("Spawning network with relay chain only");
 	let config = build_network_config().await?;
 	let network = initialize_network(config).await?;
 
