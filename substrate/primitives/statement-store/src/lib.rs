@@ -23,7 +23,6 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use bitvec::vec::BitVec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use sp_application_crypto::RuntimeAppPublic;
