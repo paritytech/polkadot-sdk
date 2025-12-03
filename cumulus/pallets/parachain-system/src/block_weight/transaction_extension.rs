@@ -46,8 +46,13 @@ use sp_runtime::{
 /// 1. Only the first block of a core is allowed to change its block weight.
 ///
 /// 2. Any `inherent` or any transaction up to `MAX_TRANSACTION_TO_CONSIDER` requires more block
-///    weight than the target block weight. Target block weight is the max weight for the respective
-///    extrinsic class.
+///    weight than the target extrinsic weight. Target extrinsic weight is the max weight for the
+///    respective extrinsic class. The priority to determine the target e weight is the following, we
+///    start checking if
+///    [`WeightsPerClass::max_extrinsic`](frame_system::limits::WeightsPerClass::max_extrinsic) is
+///    set, after this
+///    [`WeightsPerClass::max_total`](frame_system::limits::WeightsPerClass::max_total) and if both
+///    of these are `None` we fall back to the actual target block weight.
 ///
 /// Because the node is tracking the wall clock time while building a block to abort block
 /// production if it takes too long, we do not allow any block to change the block weight. The node
@@ -161,13 +166,18 @@ where
 					//
 					// All of this is only important for extrinsics that will enable the `PotentialFullCore` mode.
 					let block_weights = inside_pre_validate::using(&mut true, || Config::BlockWeights::get());
-					let target_weight = block_weights
-						.get(info.class)
-						.max_total
-						.unwrap_or_else(||
-							MaxParachainBlockWeight::<Config, TargetBlockRate>::target_block_weight_with_digest(&digest)
-								.saturating_sub(block_weights.base_block)
-						);
+					let class_weights = block_weights.get(info.class);
+					let target_block_weight =
+						MaxParachainBlockWeight::<Config, TargetBlockRate>::target_block_weight_with_digest(&digest)
+							.saturating_sub(block_weights.base_block);
+
+					// `max_extrinsic` determines the maximum weight allowed for one transaction.
+					// If that isn't set, we fall back to `max_total` which represents the total allowed weight for
+					// this dispatch class. If all previous weights are `None`, we fall back to the target block weight.
+					let target_weight = class_weights
+						.max_extrinsic
+						.or(class_weights.max_total)
+						.unwrap_or(target_block_weight);
 
 					// Protection against a misconfiguration as this should be detected by the pre-inherent hook.
 					if block_weight_over_limit {
@@ -214,7 +224,7 @@ where
 								"Enabling `PotentialFullCore` mode for extrinsic",
 							);
 
-							*mode = Some(BlockWeightMode::<Config>::potential_full_core (
+							*mode = Some(BlockWeightMode::<Config>::potential_full_core(
 								// While applying inherents `extrinsic_index` and `first_transaction_index` will be `None`.
 								// When the first transaction is applied, we want to store the index.
 								first_transaction_index.or(transaction_index),
