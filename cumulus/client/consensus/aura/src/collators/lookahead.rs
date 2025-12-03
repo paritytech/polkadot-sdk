@@ -35,10 +35,10 @@
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
-use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{CollectCollationInfo, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
+use sp_consensus::Environment;
 
 use polkadot_node_primitives::SubmitCollationParams;
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
@@ -62,10 +62,11 @@ use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
+use sp_timestamp::Timestamp;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
 /// Parameters for [`run`].
-pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
+pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, ProposerFactory, CS> {
 	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
 	/// the timestamp, slot, and paras inherents should be omitted, as they are set by this
 	/// collator.
@@ -92,8 +93,8 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	pub overseer_handle: OverseerHandle,
 	/// The length of slots in the relay chain.
 	pub relay_chain_slot_duration: Duration,
-	/// The underlying block proposer this should call into.
-	pub proposer: Proposer,
+	/// The proposer for building blocks.
+	pub proposer: ProposerFactory,
 	/// The generic collator service used to plug into this consensus engine.
 	pub collator_service: CS,
 	/// The amount of time to spend authoring each block.
@@ -103,6 +104,50 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	/// The maximum percentage of the maximum PoV size that the collator can use.
 	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
 	pub max_pov_percentage: Option<u32>,
+}
+
+/// Get the current parachain slot from a given block hash.
+///
+/// Returns the parachain slot, relay chain slot, and timestamp.
+fn get_parachain_slot<Block, Client, P>(
+	para_client: &Client,
+	block_hash: Block::Hash,
+	relay_parent_header: &polkadot_primitives::Header,
+	relay_chain_slot_duration: Duration,
+) -> Option<(Slot, Slot, Timestamp)>
+where
+	Block: BlockT,
+	Client: ProvideRuntimeApi<Block>,
+	Client::Api: AuraApi<Block, P>,
+	P: Codec,
+{
+	let slot_duration =
+		match sc_consensus_aura::standalone::slot_duration_at(para_client, block_hash) {
+			Ok(sd) => sd,
+			Err(err) => {
+				tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to acquire parachain slot duration");
+				return None
+			},
+		};
+
+	tracing::debug!(target: crate::LOG_TARGET, ?slot_duration, ?block_hash, "Parachain slot duration acquired");
+
+	let (relay_slot, timestamp) =
+		consensus_common::relay_slot_and_timestamp(relay_parent_header, relay_chain_slot_duration)?;
+
+	let slot_now = Slot::from_timestamp(timestamp, slot_duration);
+
+	tracing::debug!(
+		target: crate::LOG_TARGET,
+		?relay_slot,
+		para_slot = ?slot_now,
+		?timestamp,
+		?slot_duration,
+		?relay_chain_slot_duration,
+		"Adjusted relay-chain slot to parachain slot"
+	);
+
+	Some((slot_now, relay_slot, timestamp))
 }
 
 /// Run async-backing-friendly Aura.
@@ -126,7 +171,7 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
-	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+	Proposer: Environment<Block> + Clone + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
 	P: Pair + Send + Sync + 'static,
@@ -178,7 +223,7 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
-	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+	Proposer: Environment<Block> + Clone + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
 	P: Pair + Send + Sync + 'static,
@@ -223,12 +268,10 @@ where
 			collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
 		};
 
-		let mut connection_helper: BackingGroupConnectionHelper<Client> =
-			BackingGroupConnectionHelper::new(
-				params.para_client.clone(),
-				params.keystore.clone(),
-				params.overseer_handle.clone(),
-			);
+		let mut connection_helper = BackingGroupConnectionHelper::new(
+			params.keystore.clone(),
+			params.overseer_handle.clone(),
+		);
 
 		while let Some(relay_parent_header) = import_notifications.next().await {
 			let relay_parent = relay_parent_header.hash();
@@ -280,42 +323,21 @@ where
 			let para_client = &*params.para_client;
 			let keystore = &params.keystore;
 			let can_build_upon = |block_hash| {
-				let slot_duration = match sc_consensus_aura::standalone::slot_duration_at(
-					&*params.para_client,
+				let (slot_now, relay_slot, timestamp) = get_parachain_slot::<_, _, P::Public>(
+					para_client,
 					block_hash,
-				) {
-					Ok(sd) => sd,
-					Err(err) => {
-						tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to acquire parachain slot duration");
-						return None
-					},
-				};
-				tracing::debug!(target: crate::LOG_TARGET, ?slot_duration, ?block_hash, "Parachain slot duration acquired");
-				let (relay_slot, timestamp) = consensus_common::relay_slot_and_timestamp(
 					&relay_parent_header,
 					params.relay_chain_slot_duration,
 				)?;
-				let slot_now = Slot::from_timestamp(timestamp, slot_duration);
-				tracing::debug!(
-					target: crate::LOG_TARGET,
-					?relay_slot,
-					para_slot = ?slot_now,
-					?timestamp,
-					?slot_duration,
-					relay_chain_slot_duration = ?params.relay_chain_slot_duration,
-					"Adjusted relay-chain slot to parachain slot"
-				);
-				Some((
+
+				Some(super::can_build_upon::<_, _, P>(
 					slot_now,
-					super::can_build_upon::<_, _, P>(
-						slot_now,
-						relay_slot,
-						timestamp,
-						block_hash,
-						included_block.hash(),
-						para_client,
-						&keystore,
-					),
+					relay_slot,
+					timestamp,
+					block_hash,
+					included_block.hash(),
+					para_client,
+					&keystore,
 				))
 			};
 
@@ -330,15 +352,25 @@ where
 				continue
 			}
 
+			// Trigger pre-conect to backing groups if necessary.
+			if let (Some((slot_now, _relay_slot, _timestamp)), Ok(authorities)) = (
+				get_parachain_slot::<_, _, P::Public>(
+					para_client,
+					parent_hash,
+					&relay_parent_header,
+					params.relay_chain_slot_duration,
+				),
+				para_client.runtime_api().authorities(parent_hash),
+			) {
+				connection_helper.update::<P>(slot_now, &authorities).await;
+			}
+
 			// This needs to change to support elastic scaling, but for continuously
 			// scheduled chains this ensures that the backlog will grow steadily.
 			for n_built in 0..2 {
 				let slot_claim = match can_build_upon(parent_hash) {
-					Some((current_slot, fut)) => match fut.await {
-						None => {
-							connection_helper.update::<Block, P>(current_slot, parent_hash).await;
-							break
-						},
+					Some(fut) => match fut.await {
+						None => break,
 						Some(c) => c,
 					},
 					None => break,

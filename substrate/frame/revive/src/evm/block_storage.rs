@@ -22,11 +22,11 @@ use crate::{
 		fees::InfoT,
 	},
 	limits,
-	sp_runtime::traits::One,
+	sp_runtime::traits::{One, Zero},
 	weights::WeightInfo,
-	AccountIdOf, BalanceOf, BalanceWithDust, BlockHash, Config, ContractResult, Error,
-	EthBlockBuilderIR, EthereumBlock, Event, ExecReturnValue, Pallet, ReceiptGasInfo,
-	ReceiptInfoData, StorageDeposit, UniqueSaturatedInto, Weight, H160, H256, LOG_TARGET,
+	AccountIdOf, BalanceOf, BalanceWithDust, BlockHash, BlockNumberFor, Config, ContractResult,
+	Error, EthBlockBuilderIR, EthereumBlock, Event, ExecReturnValue, Pallet, ReceiptGasInfo,
+	ReceiptInfoData, StorageDeposit, Weight, H160, H256, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use environmental::environmental;
@@ -86,11 +86,11 @@ impl EthereumCallResult {
 		// Refund pre-charged revert event weight if the call succeeds.
 		if output.result.is_ok() {
 			output
-				.gas_consumed
+				.weight_consumed
 				.saturating_reduce(T::WeightInfo::deposit_eth_extrinsic_revert_event())
 		}
 
-		let result = dispatch_result(output.result, output.gas_consumed, base_call_weight);
+		let result = dispatch_result(output.result, output.weight_consumed, base_call_weight);
 		let native_fee = T::FeeInfo::compute_actual_fee(encoded_len, &info, &result);
 		let result = T::FeeInfo::ensure_not_overdrawn(native_fee, result);
 
@@ -202,43 +202,21 @@ pub fn on_initialize<T: Config>() {
 }
 
 /// Build the ethereum block and store it into the pallet storage.
-pub fn on_finalize_build_eth_block<T: Config>(
-	block_author: H160,
-	eth_block_num: U256,
-	eth_block_base_fee: U256,
-	gas_limit: U256,
-	timestamp: U256,
-) {
-	let parent_hash = if eth_block_num > U256::zero() {
-		BlockHash::<T>::get(eth_block_num - 1)
-	} else {
-		H256::default()
-	};
-
+pub fn on_finalize_build_eth_block<T: Config>(block_number: BlockNumberFor<T>) {
 	let block_builder_ir = EthBlockBuilderIR::<T>::get();
 	EthBlockBuilderIR::<T>::kill();
 
-	// Load the first values if not already loaded.
-	let (block, receipt_data) = EthereumBlockBuilder::<T>::from_ir(block_builder_ir).build(
-		eth_block_num,
-		eth_block_base_fee,
-		parent_hash,
-		timestamp,
-		block_author,
-		gas_limit,
-	);
+	let (block, receipt_data) =
+		EthereumBlockBuilder::<T>::from_ir(block_builder_ir).build_block(block_number);
 
 	// Put the block hash into storage.
-	BlockHash::<T>::insert(eth_block_num, block.hash);
+	BlockHash::<T>::insert(block_number, block.hash);
 
 	// Prune older block hashes.
 	let block_hash_count = BLOCK_HASH_COUNT;
-	let to_remove =
-		eth_block_num.saturating_sub(block_hash_count.into()).saturating_sub(One::one());
-	if !to_remove.is_zero() {
-		<BlockHash<T>>::remove(U256::from(UniqueSaturatedInto::<u32>::unique_saturated_into(
-			to_remove,
-		)));
+	let to_remove = block_number.saturating_sub(block_hash_count.into()).saturating_sub(One::one());
+	if !Zero::is_zero(&to_remove) {
+		<BlockHash<T>>::remove(to_remove);
 	}
 	// Store the ETH block into the last block.
 	EthereumBlock::<T>::put(block);

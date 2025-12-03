@@ -20,8 +20,17 @@ on:
         required: true
         type: string
       runtimes:
-        description: Runtimes to be published
+        description: Runtimes to be published (⚠️ this needs to be provided in case of the complete release, for the crates only release or a patch release without runtimes it is not needed)
+      no_runtimes:
+        description: If true, release draft will be published without runtimes
         required: true
+        type: boolean
+        default: false
+      crates_only:
+        description: If true, release draft will contain only release notes and no artifacts will be published (needed for stable releases that are crates only)
+        required: true
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       release_tag:
@@ -34,8 +43,17 @@ on:
         type: string
       runtimes:
         description: Runtimes to be published
-        required: true
         type: string
+      no_runtimes:
+        description: If true, release draft will be published without runtimes
+        required: true
+        type: boolean
+        default: false
+      crates_only:
+        description: If true, release draft will contain only release notes and no artifacts will be published (needed for stable releases that are crates only)
+        required: true
+        type: boolean
+        default: false
 
 jobs:
   check-synchronization:
@@ -85,6 +103,7 @@ jobs:
             repositories: polkadot-sdk
 
       - name: Download runtimes artifacts
+        if: ${{ inputs.no_runtimes == false && inputs.crates_only == false }}
         env:
           GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
         run: |
@@ -110,6 +129,8 @@ jobs:
           PEOPLE_WESTEND_DIGEST: ${{ github.workspace}}/runtimes/people-westend-runtime/people-westend-srtool-digest.json
           WESTEND_DIGEST: ${{ github.workspace}}/runtimes/westend-runtime/westend-srtool-digest.json
           RELEASE_TAG: ${{ needs.validate-inputs.outputs.release_tag }}
+          NO_RUNTIMES: ${{ inputs.no_runtimes }}
+          CRATES_ONLY: ${{ inputs.crates_only }}
         shell: bash
         run: |
           . ./.github/scripts/common/lib.sh
@@ -126,8 +147,12 @@ jobs:
           fi
           echo "REL_TAG=$REF2" >> $GITHUB_ENV
           export VERSION=$(echo "$REF2" | sed -E 's/.*(stable[0-9]{4}(-[0-9]+)?).*$/\1/')
-
           echo "Version: $VERSION"
+
+          if [[ ${NO_RUNTIMES} == "true"  || ${CRATES_ONLY} == "true" ]]; then
+            export STABLE_VERSION=$(sed -E 's/.*(stable[0-9]{4}).*$/\1/' <<< "$VERSION")
+            export NODE_VERSION=v$(get_polkadot_node_version_from_code)
+          fi
 
           ./scripts/release/build-changelogs.sh
 
@@ -151,6 +176,7 @@ jobs:
             --notes-file ${{ github.workspace}}/scripts/release/RELEASE_DRAFT.md
 
   publish-runtimes:
+    if: ${{ inputs.crates_only == false && inputs.no_runtimes == false }}
     needs: [ validate-inputs, publish-release-draft ]
     environment: release
     continue-on-error: true
@@ -179,7 +205,7 @@ jobs:
           GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
         run: |
           mkdir -p ${{ github.workspace}}/runtimes/
-          gh run download ${{ github.event.inputs.build_run_id }} --dir ${{ github.workspace}}/runtimes
+          gh run download ${{ inputs.build_run_id }} --dir ${{ github.workspace}}/runtimes
           ls -la ${{ github.workspace}}/runtimes
 
       - name: Get runtime info
@@ -202,6 +228,7 @@ jobs:
             --repo paritytech/polkadot-sdk "$VERSIONED_ASSET"
 
   publish-release-artifacts:
+    if: ${{ inputs.crates_only == false }}
     needs: [ validate-inputs, publish-release-draft ]
     environment: release
     continue-on-error: true
@@ -264,7 +291,7 @@ jobs:
 
   post_to_matrix:
     runs-on: ubuntu-latest
-    needs: [ validate-inputs, publish-release-draft, publish-runtimes, publish-release-artifacts ]
+    needs: [ validate-inputs, publish-release-draft ]
     environment: release
     strategy:
       matrix:

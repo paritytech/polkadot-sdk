@@ -19,7 +19,7 @@ use codec::{Codec, Encode};
 
 use super::CollatorMessage;
 use crate::{
-	collator as collator_util,
+	collator::{self as collator_util, BuildBlockAndImportParams},
 	collators::{
 		check_validation_code_or_log,
 		slot_based::{
@@ -32,7 +32,6 @@ use crate::{
 };
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
-use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	extract_relay_parent, rpsr_digest, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
@@ -50,6 +49,7 @@ use sc_network_types::PeerId;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
+use sp_consensus::Environment;
 use sp_consensus_aura::AuraApi;
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
@@ -89,7 +89,7 @@ pub struct BuilderTaskParams<
 	pub collator_peer_id: PeerId,
 	/// The para's ID.
 	pub para_id: ParaId,
-	/// The underlying block proposer this should call into.
+	/// The proposer for building blocks.
 	pub proposer: Proposer,
 	/// The generic collator service used to plug into this consensus engine.
 	pub collator_service: CS,
@@ -134,7 +134,7 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
-	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+	Proposer: Environment<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
 	P: Pair + Send + Sync + 'static,
@@ -184,16 +184,14 @@ where
 		};
 
 		let mut relay_chain_data_cache = RelayChainDataCache::new(relay_client.clone(), para_id);
-
-		let mut maybe_connection_helper = relay_client
-			.overseer_handle()
-			.ok()
-			.map(|h| BackingGroupConnectionHelper::new(para_client.clone(), keystore.clone(), h.clone()))
-			.or_else(|| {
-				tracing::warn!(target: LOG_TARGET,
-					"Relay chain interface does not provide overseer handle. Backing group pre-connect is disabled.");
-				None
-			});
+		let mut connection_helper = BackingGroupConnectionHelper::new(
+			keystore.clone(),
+			relay_client
+				.overseer_handle()
+				// Should never fail. If it fails, then providing collations to relay chain
+				// doesn't work either. So it is fine to panic here.
+				.expect("Relay chain interface must provide overseer handle."),
+		);
 
 		loop {
 			// We wait here until the next slot arrives.
@@ -216,7 +214,7 @@ where
 				continue;
 			};
 
-			let Ok(rp_data) = offset_relay_parent_find_descendants(
+			let Ok(Some(rp_data)) = offset_relay_parent_find_descendants(
 				&mut relay_chain_data_cache,
 				relay_best_hash,
 				relay_parent_offset,
@@ -310,6 +308,10 @@ where
 
 			let included_header_hash = included_header.hash();
 
+			if let Ok(authorities) = para_client.runtime_api().authorities(parent_hash) {
+				connection_helper.update::<P>(para_slot.slot, &authorities).await;
+			}
+
 			let slot_claim = match crate::collators::can_build_upon::<_, _, P>(
 				para_slot.slot,
 				relay_slot,
@@ -334,9 +336,6 @@ where
 						slot = ?para_slot.slot,
 						"Not building block."
 					);
-					if let Some(ref mut connection_helper) = maybe_connection_helper {
-						connection_helper.update::<Block, P>(para_slot.slot, parent_hash).await;
-					}
 					continue
 				},
 			};
@@ -405,22 +404,40 @@ where
 				validation_data.max_pov_size * 85 / 100
 			} as usize;
 
-			let adjusted_authoring_duration = match slot_timer.time_until_next_slot() {
-				Ok((duration, _slot)) => std::cmp::min(authoring_duration, duration),
-				Err(_) => authoring_duration,
-			};
-
+			let adjusted_authoring_duration =
+				slot_timer.adjust_authoring_duration(authoring_duration);
 			tracing::debug!(target: crate::LOG_TARGET, duration = ?adjusted_authoring_duration, "Adjusted proposal duration.");
 
+			let Some(adjusted_authoring_duration) = adjusted_authoring_duration else {
+				tracing::debug!(
+					target: crate::LOG_TARGET,
+					unincluded_segment_len = parent.depth,
+					relay_parent = ?relay_parent,
+					relay_parent_num = %relay_parent_header.number(),
+					included_hash = ?included_header_hash,
+					included_num = %included_header.number(),
+					parent = ?parent_hash,
+					slot = ?para_slot.slot,
+					"Not building block due to insufficient authoring duration."
+				);
+
+				continue;
+			};
+
 			let Ok(Some(candidate)) = collator
-				.build_block_and_import(
-					&parent_header,
-					&slot_claim,
-					Some(vec![CumulusDigestItem::CoreInfo(core.core_info()).to_digest_item()]),
-					(parachain_inherent_data, other_inherent_data),
-					adjusted_authoring_duration,
-					allowed_pov_size,
-				)
+				.build_block_and_import(BuildBlockAndImportParams {
+					parent_header: &parent_header,
+					slot_claim: &slot_claim,
+					additional_pre_digest: vec![
+						CumulusDigestItem::CoreInfo(core.core_info()).to_digest_item()
+					],
+					parachain_inherent_data,
+					extra_inherent_data: other_inherent_data,
+					proposal_duration: adjusted_authoring_duration,
+					max_pov_size: allowed_pov_size,
+					storage_proof_recorder: None,
+					extra_extensions: Default::default(),
+				})
 				.await
 			else {
 				tracing::error!(target: crate::LOG_TARGET, "Unable to build block at slot.");
@@ -437,7 +454,7 @@ where
 			if let Err(err) = collator_sender.unbounded_send(CollatorMessage {
 				relay_parent,
 				parent_header: parent_header.clone(),
-				parachain_candidate: candidate,
+				parachain_candidate: candidate.into(),
 				validation_code_hash,
 				core_index: core.core_index(),
 				max_pov_size: validation_data.max_pov_size,
@@ -486,7 +503,7 @@ pub(crate) async fn offset_relay_parent_find_descendants<RelayClient>(
 	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
 	relay_best_block: RelayHash,
 	relay_parent_offset: u32,
-) -> Result<RelayParentData, ()>
+) -> Result<Option<RelayParentData>, ()>
 where
 	RelayClient: RelayChainInterface + Clone + 'static,
 {
@@ -500,7 +517,12 @@ where
 	};
 
 	if relay_parent_offset == 0 {
-		return Ok(RelayParentData::new(relay_header));
+		return Ok(Some(RelayParentData::new(relay_header)));
+	}
+
+	if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&relay_header) {
+		tracing::debug!(target: LOG_TARGET, ?relay_best_block, relay_best_block_number = relay_header.number(), "Relay parent is in previous session.");
+		return Ok(None);
 	}
 
 	let mut required_ancestors: VecDeque<RelayHeader> = Default::default();
@@ -511,6 +533,10 @@ where
 			.await?
 			.relay_parent_header
 			.clone();
+		if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&next_header) {
+			tracing::debug!(target: LOG_TARGET, ?relay_best_block, ancestor = %next_header.hash(), ancestor_block_number = next_header.number(), "Ancestor of best block is in previous session.");
+			return Ok(None);
+		}
 		required_ancestors.push_front(next_header.clone());
 		relay_header = next_header;
 	}
@@ -529,7 +555,7 @@ where
 		"Relay parent descendants."
 	);
 
-	Ok(RelayParentData::new_with_descendants(relay_parent, required_ancestors.into()))
+	Ok(Some(RelayParentData::new_with_descendants(relay_parent, required_ancestors.into())))
 }
 
 /// Return value of [`determine_core`].

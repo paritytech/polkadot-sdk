@@ -21,7 +21,7 @@ use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	SequentialPhragmen,
 };
-use frame_support::sp_runtime::testing::TestXt;
+use frame_support::{sp_runtime::testing::TestXt, weights::WeightMeter};
 use pallet_election_provider_multi_block as multi_block;
 use pallet_staking_async::Forcing;
 use pallet_staking_async_rc_client::{SessionReport, ValidatorSetReport};
@@ -49,18 +49,30 @@ construct_runtime! {
 // alias Runtime with T.
 pub type T = Runtime;
 
+parameter_types! {
+	pub static NextPollWeight: Option<Weight> = None;
+}
+
 pub fn roll_next() {
 	let now = System::block_number();
 	let next = now + 1;
 
 	System::set_block_number(next);
+	// Re-init frame-system, as execute would do. This resets the block weight usage counter, as we
+	// are using a realistic weight meter here.
+	frame_system::BlockWeight::<T>::kill();
 
-	Staking::on_initialize(next);
-	RcClient::on_initialize(next);
-	MultiBlock::on_initialize(next);
-	MultiBlockVerifier::on_initialize(next);
-	MultiBlockSigned::on_initialize(next);
-	MultiBlockUnsigned::on_initialize(next);
+	System::register_extra_weight_unchecked(Staking::on_initialize(next), DispatchClass::Mandatory);
+	System::register_extra_weight_unchecked(
+		RcClient::on_initialize(next),
+		DispatchClass::Mandatory,
+	);
+
+	let mut meter = NextPollWeight::take()
+		.map(WeightMeter::with_limit)
+		.unwrap_or_else(System::remaining_block_weight);
+	Staking::on_poll(next, &mut meter);
+	MultiBlock::on_poll(next, &mut meter);
 }
 
 pub fn roll_many(blocks: BlockNumber) {
@@ -167,6 +179,7 @@ pub type AccountId = <Runtime as frame_system::Config>::AccountId;
 pub type Balance = <Runtime as pallet_balances::Config>::Balance;
 pub type Hash = <Runtime as frame_system::Config>::Hash;
 pub type BlockNumber = BlockNumberFor<Runtime>;
+pub type BlockWeights = <Runtime as frame_system::Config>::BlockWeights;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
@@ -260,6 +273,7 @@ impl frame_election_provider_support::onchain::Config for OnChainConfig {
 
 impl multi_block::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type ManagerOrigin = EnsureRoot<AccountId>;
 	type DataProvider = Staking;
 	type Fallback = frame_election_provider_support::onchain::OnChainExecution<OnChainConfig>;
 	type MinerConfig = Self;
@@ -271,9 +285,10 @@ impl multi_block::Config for Runtime {
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 	type Verifier = MultiBlockVerifier;
+	type Signed = MultiBlockSigned;
 	type AreWeDone = multi_block::ProceedRegardlessOf<Self>;
 	type OnRoundRotation = multi_block::CleanRound<Self>;
-	type WeightInfo = ();
+	type WeightInfo = super::weights::MultiBlockElectionWeightInfo;
 }
 
 impl multi_block::verifier::Config for Runtime {
@@ -282,17 +297,16 @@ impl multi_block::verifier::Config for Runtime {
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 
 	type SolutionDataProvider = MultiBlockSigned;
-	type SolutionImprovementThreshold = ();
-	type WeightInfo = ();
+	type WeightInfo = super::weights::MultiBlockElectionWeightInfo;
 }
 
 impl multi_block::unsigned::Config for Runtime {
 	type MinerPages = ConstU32<1>;
-	type WeightInfo = ();
 	type OffchainStorage = ConstBool<true>;
 	type MinerTxPriority = ConstU64<{ u64::MAX }>;
 	type OffchainRepeat = ();
 	type OffchainSolver = SequentialPhragmen<AccountId, Perbill>;
+	type WeightInfo = super::weights::MultiBlockElectionWeightInfo;
 }
 
 parameter_types! {
@@ -312,7 +326,7 @@ impl multi_block::signed::Config for Runtime {
 	type EstimateCallFee = ConstU32<1>;
 	type MaxSubmissions = MaxSubmissions;
 	type RewardBase = RewardBase;
-	type WeightInfo = ();
+	type WeightInfo = super::weights::MultiBlockElectionWeightInfo;
 }
 
 parameter_types! {
@@ -353,7 +367,6 @@ impl pallet_staking_async::Config for Runtime {
 
 	type MaxValidatorSet = MaxValidators;
 	type MaxExposurePageSize = MaxExposurePageSize;
-	type MaxInvulnerables = MaxValidators;
 	type MaxUnlockingChunks = ConstU32<16>;
 	type NominationsQuota = pallet_staking_async::FixedNominationsQuota<16>;
 
@@ -362,7 +375,7 @@ impl pallet_staking_async::Config for Runtime {
 
 	type RcClientInterface = RcClient;
 
-	type WeightInfo = ();
+	type WeightInfo = super::weights::StakingAsyncWeightInfo;
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {
@@ -536,6 +549,7 @@ impl ExtBuilder {
 parameter_types! {
 	static StakingEventsIndex: usize = 0;
 	static ElectionEventsIndex: usize = 0;
+	static VerifierEventsIndex: usize = 0;
 	static RcClientEventsIndex: usize = 0;
 }
 
@@ -570,5 +584,21 @@ pub(crate) fn election_events_since_last_call() -> Vec<multi_block::Event<T>> {
 		.collect();
 	let seen = ElectionEventsIndex::get();
 	ElectionEventsIndex::set(all.len());
+	all.into_iter().skip(seen).collect()
+}
+
+pub(crate) fn verifier_events_since_last_call() -> Vec<multi_block::verifier::Event<T>> {
+	let all: Vec<_> = System::events()
+		.into_iter()
+		.filter_map(|r| {
+			if let RuntimeEvent::MultiBlockVerifier(inner) = r.event {
+				Some(inner)
+			} else {
+				None
+			}
+		})
+		.collect();
+	let seen = VerifierEventsIndex::get();
+	VerifierEventsIndex::set(all.len());
 	all.into_iter().skip(seen).collect()
 }

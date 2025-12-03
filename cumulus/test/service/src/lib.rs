@@ -433,7 +433,7 @@ where
 
 	let collator_peer_id = network.local_peer_id();
 	if let Some(collator_key) = collator_key {
-		let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
+		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool.clone(),
@@ -471,7 +471,7 @@ where
 				reinitialize: false,
 				slot_offset: Duration::from_secs(1),
 				block_import_handle: slot_based_handle,
-				spawner: task_manager.spawn_handle(),
+				spawner: task_manager.spawn_essential_handle(),
 				export_pov: None,
 				max_pov_percentage: None,
 				collator_peer_id,
