@@ -20,7 +20,7 @@
 use crate::{
 	evm::fees::InfoT,
 	test_utils::{builder::Contract, deposit_limit, ALICE, ALICE_ADDR, WEIGHT_LIMIT},
-	tests::{builder, Contracts, ExtBuilder, RuntimeOrigin, Test},
+	tests::{builder, Contracts, ExtBuilder, Test},
 	Code, Config, ExecConfig, TransactionLimits, TransactionMeter, U256,
 };
 use alloy_core::sol_types::{Revert, SolCall, SolConstructor, SolError};
@@ -343,31 +343,25 @@ fn constructor_with_argument_works(fixture_type: FixtureType) {
 	});
 }
 
-// TODO(RVE): second call to the contract returns garbage when compiled using solc.
 #[test_case(FixtureType::Solc)]
-// #[test_case(FixtureType::Resolc)]
+#[test_case(FixtureType::Resolc)]
 fn set_code_hash(fixture_type: FixtureType) {
 	use crate::tests::test_utils::get_contract;
 	use pallet_revive_fixtures::{SetCodeHash, SetCodeHashReplacement};
 	let (binary, _) = compile_module_with_type("SetCodeHash", fixture_type).unwrap();
-	let (new_binary, new_code_hash) =
-		compile_module_with_type("SetCodeHashReplacement", fixture_type).unwrap();
-
-	println!("new_binary: {:?}", new_binary);
+	let (new_binary, _) = compile_module_with_type("SetCodeHashReplacement", fixture_type).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
-		// Instantiate the 'caller'
+		// Instantiate the first contract
 		let Contract { addr: contract_addr, .. } =
 			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
 		// upload new code
-		Contracts::upload_code(
-			RuntimeOrigin::signed(ALICE),
-			new_binary.clone(),
-			deposit_limit::<Test>(),
-		)
-		.unwrap();
+		// This needs to be instantiated else we upload the initcode.
+		let Contract { addr: contract_addr2, .. } =
+			builder::bare_instantiate(Code::Upload(new_binary)).build_and_unwrap_contract();
+		let new_code_hash = get_contract(&contract_addr2).code_hash;
 
 		// First call sets new code_hash and returns 1
 		let result = builder::bare_call(contract_addr)
@@ -379,12 +373,10 @@ fn set_code_hash(fixture_type: FixtureType) {
 			)
 			.build_and_unwrap_result();
 		assert!(!result.did_revert());
-		println!("result: {:?}", result);
-		let info = get_contract(&contract_addr);
-		assert_eq!(new_code_hash, info.code_hash);
-
+		assert_eq!(new_code_hash, get_contract(&contract_addr).code_hash);
 		let decoded = SetCodeHash::setCodeHashCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(decoded, alloy_core::primitives::U256::from(1u8));
+
 		// Second calls new contract code that returns 2
 		let result = builder::bare_call(contract_addr)
 			.data(
@@ -395,10 +387,8 @@ fn set_code_hash(fixture_type: FixtureType) {
 			)
 			.build_and_unwrap_result();
 		assert!(!result.did_revert());
-		println!("result: {:?}", result);
 		let decoded =
 			SetCodeHashReplacement::setCodeHashCall::abi_decode_returns(&result.data).unwrap();
-		assert_eq!(new_binary, decoded);
-		// assert_eq!(decoded, alloy_core::primitives::U256::from(2u8));
+		assert_eq!(decoded, alloy_core::primitives::U256::from(2u8));
 	});
 }
