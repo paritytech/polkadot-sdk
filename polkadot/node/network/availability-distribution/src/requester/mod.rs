@@ -72,7 +72,17 @@ struct CoreInfo {
 	erasure_root: Hash,
 	/// The group index of the group responsible for the candidate.
 	group_responsible: GroupIndex,
+	/// The origin of the CoreInfo, whether from occupied or scheduled cores.
+	origin: CoreInfoOrigin,
 }
+
+/// Origin of CoreInfo.  Whether it was created by calling prospective parachains for scheduled
+/// candidates, or by querying occupied cores for already backed candidates.
+#[derive(Debug, Clone)]
+enum CoreInfoOrigin {
+	Occupied,
+	Scheduled,
+}	
 
 /// Requester takes care of requesting erasure chunks from backing groups and stores them in the
 /// av store.
@@ -201,6 +211,7 @@ impl Requester {
 						relay_parent: receipt.descriptor.relay_parent(),
 						erasure_root: receipt.descriptor.erasure_root(),
 						group_responsible: get_group_index_for_backed_candidate(sender, core_index, leaf).await?,
+						origin: CoreInfoOrigin::Scheduled,
 					},
 				);
 				gum::info!(
@@ -265,6 +276,7 @@ impl Requester {
 							relay_parent: occ.candidate_descriptor.relay_parent(),
 							erasure_root: occ.candidate_descriptor.erasure_root(),
 							group_responsible: occ.group_responsible,
+							origin: CoreInfoOrigin::Occupied,
 						},
 					);
 					gum::info!(

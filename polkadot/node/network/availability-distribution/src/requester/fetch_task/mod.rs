@@ -45,7 +45,7 @@ use crate::{
 	metrics::{Metrics, FAILED, SUCCEEDED},
 	requester::{
 		session_cache::{BadValidators, SessionInfo},
-		CoreInfo,
+		CoreInfo, CoreInfoOrigin,
 	},
 	LOG_TARGET,
 };
@@ -60,6 +60,7 @@ mod tests;
 pub struct FetchTaskConfig {
 	prepared_running: Option<RunningTask>,
 	live_in: HashSet<Hash>,
+	origin: CoreInfoOrigin,
 }
 
 /// Information about a task fetching an erasure chunk.
@@ -74,6 +75,9 @@ pub struct FetchTask {
 	/// We keep the task around in until `live_in` becomes empty, to make
 	/// sure we won't re-fetch an already fetched candidate.
 	state: FetchedState,
+
+	/// The origin of the `CoreInfo` that was used to create this fetch task.
+	origin: CoreInfoOrigin,
 }
 
 /// State of a particular candidate chunk fetching process.
@@ -140,6 +144,9 @@ struct RunningTask {
 
 	/// Full protocol name for ChunkFetchingV2.
 	req_v2_protocol_name: ProtocolName,
+
+	/// The origin of the `CoreInfo` that was used to create this running task.
+	origin: CoreInfoOrigin,
 }
 
 impl FetchTaskConfig {
@@ -160,7 +167,7 @@ impl FetchTaskConfig {
 
 		// Don't run tasks for our backing group:
 		if session_info.our_group == Some(core.group_responsible) {
-			return FetchTaskConfig { live_in, prepared_running: None }
+			return FetchTaskConfig { live_in, prepared_running: None, origin: core.origin.clone() }
 		}
 
 		let prepared_running = RunningTask {
@@ -179,9 +186,10 @@ impl FetchTaskConfig {
 			sender,
 			chunk_index,
 			req_v1_protocol_name,
-			req_v2_protocol_name
+			req_v2_protocol_name,
+			origin: core.origin.clone(),
 		};
-		FetchTaskConfig { live_in, prepared_running: Some(prepared_running) }
+		FetchTaskConfig { live_in, prepared_running: Some(prepared_running), origin: core.origin.clone() }
 	}
 }
 
@@ -191,7 +199,7 @@ impl FetchTask {
 	///
 	/// A task handling the fetching of the configured chunk will be spawned.
 	pub async fn start<Context>(config: FetchTaskConfig, ctx: &mut Context) -> Result<Self> {
-		let FetchTaskConfig { prepared_running, live_in } = config;
+		let FetchTaskConfig { prepared_running, live_in, origin } = config;
 
 		if let Some(running) = prepared_running {
 			let (handle, kill) = oneshot::channel();
@@ -199,9 +207,9 @@ impl FetchTask {
 			ctx.spawn("chunk-fetcher", running.run(kill).boxed())
 				.map_err(|e| FatalError::SpawnTask(e))?;
 
-			Ok(FetchTask { live_in, state: FetchedState::Started(handle) })
+			Ok(FetchTask { live_in, state: FetchedState::Started(handle), origin: origin.clone() })
 		} else {
-			Ok(FetchTask { live_in, state: FetchedState::Canceled })
+			Ok(FetchTask { live_in, state: FetchedState::Canceled, origin: origin.clone() })
 		}
 	}
 
@@ -306,6 +314,7 @@ impl RunningTask {
 						session_index = ?self.session_index,
 						chunk_index = ?self.request.index,
 						candidate_hash = ?self.request.candidate_hash,
+						origin = ?self.origin,
 						"Validator did not have our chunk"
 					);
 					bad_validators.push(validator);
@@ -338,6 +347,7 @@ impl RunningTask {
 				session_index = ?self.session_index,
 				chunk_index = ?self.request.index,
 				candidate_hash = ?self.request.candidate_hash,
+				origin = ?self.origin,
 				"Erasure chunk validated successfully",
 			);
 
@@ -353,6 +363,7 @@ impl RunningTask {
 				session_index = ?self.session_index,
 				chunk_index = ?self.request.index,
 				candidate_hash = ?self.request.candidate_hash,
+				origin = ?self.origin,
 				"Erasure chunk stored successfully",
 			);
 			break
