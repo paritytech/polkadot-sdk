@@ -2535,7 +2535,7 @@ where
 		let deposit = StorageDeposit::Charge(new_base_deposit)
 			.saturating_sub(&StorageDeposit::Charge(old_base_deposit));
 
-		parent.frame_meter.charge_deposit(&deposit);
+		parent.frame_meter.charge_deposit(&deposit)?;
 
 		<CodeInfo<T>>::increment_refcount(hash)?;
 		let removed = <CodeInfo<T>>::decrement_refcount(prev_hash)?;
