@@ -292,9 +292,13 @@ impl pallet_staking_async::Config for Runtime {
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = (NominationPools, DelegatedStaking);
+<<<<<<< HEAD
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
 	type PlanningEraOffset = PlanningEraOffset;
+=======
+	type PlanningEraOffset = ConstU32<6>;
+>>>>>>> 90b7cafd ([Staking] Async Election and Export (#10311))
 	type RcClientInterface = StakingRcClient;
 	type MaxEraDuration = MaxEraDuration;
 	type MaxPruningItems = MaxPruningItems;
@@ -305,6 +309,8 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = StakingXcmToRelayChain;
 	type MaxValidatorSetRetries = ConstU32<64>;
+	// export validator session at end of session 4 within an era.
+	type ValidatorSetExportSession = ConstU32<4>;
 }
 
 #[derive(Encode, Decode)]
