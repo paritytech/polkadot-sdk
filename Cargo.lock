@@ -16610,6 +16610,8 @@ dependencies = [
  "pallet-contracts-uapi",
  "pallet-conviction-voting",
  "pallet-core-fellowship",
+ "pallet-dap",
+ "pallet-dap-satellite",
  "pallet-delegated-staking",
  "pallet-democracy",
  "pallet-derivatives",

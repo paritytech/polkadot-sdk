@@ -443,6 +443,14 @@ pub use pallet_conviction_voting;
 #[cfg(feature = "pallet-core-fellowship")]
 pub use pallet_core_fellowship;
 
+/// FRAME pallet for Dynamic Allocation Pool (DAP).
+#[cfg(feature = "pallet-dap")]
+pub use pallet_dap;
+
+/// FRAME pallet for DAP Satellite - collects funds for periodic transfer to DAP on AssetHub.
+#[cfg(feature = "pallet-dap-satellite")]
+pub use pallet_dap_satellite;
+
 /// FRAME delegated staking pallet.
 #[cfg(feature = "pallet-delegated-staking")]
 pub use pallet_delegated_staking;
