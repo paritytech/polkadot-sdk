@@ -16,8 +16,10 @@ doc:
       on system chains like Coretime, People and BridheHub and on the RelayChain. It should not be deployed
       on AssetHub, which hosts the central DAP pallet.
 
-    asset-hub-westend-runtime and staking-async test runtime have been modified to include pallet-dap and to send part of slashing and treasury's unspent funds to pallet-dap.
-    coretime-westend-runtime has been updated to include pallet-dap-satellite. Coretime revenues are now accumulated in the pallet-dap-satellite account instead of being burned.
+    Runtime changes:
+      - westend-runtime has been updated to include pallet-dap-satellite. It preserves the original behavior for which 100% of tx fees are redirected to the block author.  
+      - asset-hub-westend-runtime and staking-async test runtime have been modified to include pallet-dap and to send part of slashing and treasury's unspent funds to pallet-dap.
+      - coretime-westend-runtime has been updated to include pallet-dap-satellite. Coretime revenues are now accumulated in the pallet-dap-satellite account instead of being burned.
 crates:
 - name: frame-support
   bump: major
