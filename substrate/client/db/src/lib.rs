@@ -337,14 +337,6 @@ impl BlocksPruning {
 			BlocksPruning::Some(_) => false,
 		}
 	}
-
-	/// True if pruning is enabled ([`BlocksPruning::Some`]).
-	pub fn is_pruned(&self) -> bool {
-		match *self {
-			BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => false,
-			BlocksPruning::Some(_) => true,
-		}
-	}
 }
 
 /// Where to find the database..

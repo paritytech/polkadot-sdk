@@ -456,7 +456,7 @@ where
 					.map(proof_to_incoming_block)
 					.filter(|i| {
 						// We need target block with state and warp sync does not provide this.
-						// That's why we filter out target block here, otherwis oncoming state sync
+						// That's why we filter out target block here, otherwise oncoming state sync
 						// (which comes after warp sync) will abort because target block is already
 						// imported.
 						if header.number() != i.header.as_ref().unwrap().number() {
