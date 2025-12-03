@@ -270,7 +270,7 @@ impl AssetsInHolding {
 			})
 			.chain(self.non_fungible.iter().filter_map(|(class, inst)| {
 				match class.clone().reanchored(target, context) {
-					Ok(new_class) => Some(Asset::from((new_class, inst.clone()))),
+					Ok(new_class) => Some(Asset::from((new_class, *inst))),
 					Err(()) => None,
 				}
 			}))
@@ -466,13 +466,13 @@ impl AssetsInHolding {
 					return self.assets_iter().collect::<Vec<Asset>>().into()
 				} else {
 					for (c, accounting) in self.fungible.iter() {
-						masked.push(((c.clone(), accounting.amount())).into());
+						masked.push((c.clone(), accounting.amount()).into());
 						if maybe_limit.map_or(false, |l| masked.len() >= l) {
 							return masked
 						}
 					}
 					for (c, instance) in self.non_fungible.iter() {
-						masked.push(((c.clone(), *instance)).into());
+						masked.push((c.clone(), *instance).into());
 						if maybe_limit.map_or(false, |l| masked.len() >= l) {
 							return masked
 						}
@@ -482,13 +482,13 @@ impl AssetsInHolding {
 			AssetFilter::Wild(AllOfCounted { fun: WildFungible, id, .. }) |
 			AssetFilter::Wild(AllOf { fun: WildFungible, id }) =>
 				if let Some(accounting) = self.fungible.get(&id) {
-					masked.push(((id.clone(), accounting.amount())).into());
+					masked.push((id.clone(), accounting.amount()).into());
 				},
 			AssetFilter::Wild(AllOfCounted { fun: WildNonFungible, id, .. }) |
 			AssetFilter::Wild(AllOf { fun: WildNonFungible, id }) =>
 				for (c, instance) in self.non_fungible.iter() {
 					if c == id {
-						masked.push(((c.clone(), *instance)).into());
+						masked.push((c.clone(), *instance).into());
 						if maybe_limit.map_or(false, |l| masked.len() >= l) {
 							return masked
 						}

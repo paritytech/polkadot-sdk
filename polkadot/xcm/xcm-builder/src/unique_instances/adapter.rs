@@ -191,7 +191,7 @@ where
 			Some(inner) => inner,
 			None => return Err((what, MatchError::AssetNotHandled.into())),
 		};
-		let asset = (id.clone(), instance.clone());
+		let asset = (id.clone(), *instance);
 		let who = match AccountIdConverter::convert_location(who) {
 			Some(inner) => inner,
 			None => return Err((what, MatchError::AccountIdConversionFailed.into())),
