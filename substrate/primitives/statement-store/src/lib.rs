@@ -39,7 +39,6 @@ pub type Hash = [u8; 32];
 pub type BlockHash = [u8; 32];
 /// Account id
 pub type AccountId = [u8; 32];
-
 /// Statement channel.
 pub type Channel = [u8; 32];
 
