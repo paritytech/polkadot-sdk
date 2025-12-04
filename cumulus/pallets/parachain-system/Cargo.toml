@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-pallet-parachain-system"
-version = "0.21.1"
+version = "0.21.2"
 authors.workspace = true
 edition.workspace = true
 description = "Base pallet for cumulus-based parachains"
@@ -54,16 +54,16 @@ trie-standardmap = { workspace = true }
 
 
 # Substrate
-sc-consensus = { workspace = true, default-features = false }
-sp-consensus-slots = { default-features = true, workspace = true }
-sp-crypto-hashing = { default-features = true, workspace = true }
-sp-keyring = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
-sp-version = { default-features = true, workspace = true }
+sc-consensus = { default-features = false, path = "../../../substrate/client/consensus/common" }
+sp-consensus-slots = { default-features = true, path = "../../../substrate/primitives/consensus/slots" }
+sp-crypto-hashing = { default-features = true, path = "../../../substrate/primitives/crypto/hashing" }
+sp-keyring = { default-features = true, path = "../../../substrate/primitives/keyring" }
+sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
+sp-version = { default-features = true, path = "../../../substrate/primitives/version" }
 
 # Cumulus
-cumulus-test-client = { workspace = true }
-cumulus-test-relay-sproof-builder = { default-features = true, workspace = true }
+cumulus-test-client = { path = "../../test/client" }
+cumulus-test-relay-sproof-builder = { default-features = true, path = "../../test/relay-sproof-builder" }
 
 [features]
 default = ["std"]
@@ -99,7 +99,6 @@ std = [
 
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
-	"cumulus-test-client/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
