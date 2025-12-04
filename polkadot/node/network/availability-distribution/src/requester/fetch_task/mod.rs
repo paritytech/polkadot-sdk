@@ -42,7 +42,7 @@ use sc_network::ProtocolName;
 
 use crate::{
 	error::{FatalError, Result},
-	metrics::{Metrics, FAILED, SUCCEEDED},
+	metrics::{Metrics, FAILED, SUCCEEDED, SCHEDULED, OCCUPIED},
 	requester::{
 		session_cache::{BadValidators, SessionInfo},
 		CoreInfo, CoreInfoOrigin,
@@ -294,7 +294,10 @@ impl RunningTask {
 						target: LOG_TARGET,
 						"Node seems to be shutting down, canceling fetch task"
 					);
-					self.metrics.on_fetch(FAILED);
+					self.metrics.on_fetch(FAILED, match self.origin {
+						CoreInfoOrigin::Scheduled => SCHEDULED,
+						CoreInfoOrigin::Occupied => OCCUPIED,
+					});
 					return
 				},
 				Err(TaskError::PeerError) => {
@@ -369,10 +372,16 @@ impl RunningTask {
 			break
 		}
 		if succeeded {
-			self.metrics.on_fetch(SUCCEEDED);
+			self.metrics.on_fetch(SUCCEEDED, match self.origin {
+				CoreInfoOrigin::Scheduled => SCHEDULED,
+				CoreInfoOrigin::Occupied => OCCUPIED,
+			});
 			self.conclude(bad_validators).await;
 		} else {
-			self.metrics.on_fetch(FAILED);
+			self.metrics.on_fetch(FAILED, match self.origin {
+				CoreInfoOrigin::Scheduled => SCHEDULED,
+				CoreInfoOrigin::Occupied => OCCUPIED,
+			});
 			self.conclude_fail().await
 		}
 	}
