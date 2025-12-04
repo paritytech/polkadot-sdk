@@ -1215,6 +1215,7 @@ impl pallet_revive::Config for Runtime {
 	type FeeInfo = pallet_revive::evm::fees::Info<Address, Signature, EthExtraImpl>;
 	type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
 	type DebugEnabled = ConstBool<false>;
+	type GasScale = ConstU32<1000>;
 }
 
 parameter_types! {

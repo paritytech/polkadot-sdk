@@ -8,15 +8,12 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 
-use cumulus_zombienet_sdk_helpers::{
-	assert_finality_lag, assert_para_throughput, create_assign_core_call,
-};
+use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput, assign_cores};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
-	subxt_signer::sr25519::dev,
 	NetworkConfigBuilder,
 };
 
@@ -85,20 +82,9 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 	let para_node = network.get_node("collator-5")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
-	let alice = dev::alice();
 
 	// Assign 11 extra cores to the parachain.
-	let cores = (0..11).map(|idx| (idx, 2300)).collect::<Vec<(u32, u32)>>();
-
-	let assign_cores_call = create_assign_core_call(&cores);
-	relay_client
-		.tx()
-		.sign_and_submit_then_watch_default(&assign_cores_call, &alice)
-		.await?
-		.wait_for_finalized_success()
-		.await?;
-
-	log::info!("11 more cores assigned to the parachain");
+	assign_cores(&relay_client, 2300, (0..11).collect()).await?;
 
 	// Expect a backed candidate count of at least 170 in 15 relay chain blocks
 	// (11.33 candidates per para per relay chain block).
@@ -106,12 +92,7 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 	// change will be counted.
 	// Since the calculated backed candidate count is theoretical and the CI tests are observed to
 	// occasionally fail, let's apply 15% tolerance to the expected range: 170 - 15% = 144
-	assert_para_throughput(
-		&relay_client,
-		15,
-		[(ParaId::from(2300), 153..181)].into_iter().collect(),
-	)
-	.await?;
+	assert_para_throughput(&relay_client, 15, [(ParaId::from(2300), 153..181)]).await?;
 
 	// Expect that `collator-5` claims at least 3 slots during this run.
 	let result = para_node
