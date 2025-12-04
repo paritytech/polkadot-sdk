@@ -22,6 +22,8 @@ mod kvdb;
 mod mem;
 
 pub use crate::kvdb::as_database;
+#[cfg(feature = "rocksdb")]
+pub use crate::kvdb::as_rocksdb_database;
 pub use mem::MemDb;
 
 /// An identifier for a column.
@@ -117,6 +119,11 @@ pub trait Database<H: Clone + AsRef<[u8]>>: Send + Sync {
 	///
 	/// Not all database implementations use a prefix for keys, so this function may be a noop.
 	fn sanitize_key(&self, _key: &mut Vec<u8>) {}
+
+	/// Optimize a database column.
+	fn optimize_db_col(&self, _col: ColumnId) -> error::Result<()> {
+		Ok(())
+	}
 }
 
 impl<H> std::fmt::Debug for dyn Database<H> {
