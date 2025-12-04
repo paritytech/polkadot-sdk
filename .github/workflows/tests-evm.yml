@@ -96,6 +96,9 @@ jobs:
         with:
           header: diff-tests-report-${{ matrix.platform }}
           path: report.md
+      - name: Check for Failures
+        if: ${{ matrix.platform == 'revive-dev-node-revm-solc' }}
+        run: ./.github/scripts/differential-tests-error-out-on-failures.py report.json
 
   evm-test-suite:
     needs: [preflight]
