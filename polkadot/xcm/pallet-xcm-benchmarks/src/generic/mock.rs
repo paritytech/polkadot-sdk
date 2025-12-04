@@ -280,7 +280,7 @@ impl generic::Config for Test {
 		Ok((origin, target))
 	}
 
-	fn worst_case_for_not_passing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
+	fn worst_case_xcm_failing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
 		use xcm::latest::prelude::{ClearOrigin, SetAppendix, SetTopic};
 
 		let nested_limit = xcm_executor::RECURSION_LIMIT as usize - 2;

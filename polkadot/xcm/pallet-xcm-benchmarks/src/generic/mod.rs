@@ -98,13 +98,13 @@ pub mod pallet {
 		/// If set to `Err`, benchmarks which rely on a universal alias will be skipped.
 		fn alias_origin() -> Result<(Location, Location), BenchmarkError>;
 
-		/// An XCM used to exercise the barrier logic in benchmarks.
+		/// An XCM which causes the worst-case weight when evaluated by the Barrier.
 		///
-		/// This represents a call used to benchmark the cost of barrier evaluation in rejection
-		/// cases.
+		/// This should be an XCM that is guaranteed to be rejected by the Barrier and represents a
+		/// high-weight rejection path for benchmarking.
 		///
-		/// If set to `Err`, benchmarks which rely on a barrier check will be skipped.
-		fn worst_case_for_not_passing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError>;
+		/// If set to `Err`, benchmarks relying on a barrier check will be skipped.
+		fn worst_case_xcm_failing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError>;
 
 		/// Returns a valid pallet info for `ExpectPallet` or `QueryPallet` benchmark.
 		///

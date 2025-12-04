@@ -966,7 +966,7 @@ mod benchmarks {
 		use sp_io::hashing::twox_128;
 		use xcm::latest::{prelude::Outcome, Error::Barrier};
 
-		let xcm = T::worst_case_for_not_passing_barrier().map_err(|_| BenchmarkError::Skip)?;
+		let xcm = T::worst_case_xcm_failing_barrier().map_err(|_| BenchmarkError::Skip)?;
 		let mut executor = ExecuteXcmOf::<T>::new(Location::default(), XcmHash::default());
 
 		// Whitelist the hot read so it doesn't count towards PoV.
