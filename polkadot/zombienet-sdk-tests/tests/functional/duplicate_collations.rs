@@ -7,13 +7,12 @@
 use anyhow::anyhow;
 use tokio::time::Duration;
 
-use cumulus_zombienet_sdk_helpers::{assert_para_throughput, create_assign_core_call};
+use cumulus_zombienet_sdk_helpers::{assert_para_throughput, assign_cores};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
-	subxt_signer::sr25519::dev,
 	NetworkConfigBuilder,
 };
 
@@ -84,18 +83,9 @@ async fn duplicate_collations_test() -> Result<(), anyhow::Error> {
 	let relay_node = network.get_node("validator-0")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
-	let alice = dev::alice();
 
 	// Assign two extra cores to parachain-2000.
-	relay_client
-		.tx()
-		.sign_and_submit_then_watch_default(
-			&create_assign_core_call(&[(0, 2000), (1, 2000)]),
-			&alice,
-		)
-		.await?
-		.wait_for_finalized_success()
-		.await?;
+	assign_cores(&relay_client, 2000, vec![0, 1]).await?;
 
 	log::info!("2 more cores assigned to parachain-2000");
 

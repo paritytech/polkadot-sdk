@@ -18,7 +18,7 @@
 use anyhow::anyhow;
 use cumulus_primitives_core::relay_chain::MAX_POV_SIZE;
 use cumulus_zombienet_sdk_helpers::{
-	create_assign_core_call, ensure_is_last_block_in_core, ensure_is_only_block_in_core,
+	assign_cores, ensure_is_last_block_in_core, ensure_is_only_block_in_core,
 	submit_extrinsic_and_wait_for_finalization_success, BlockToCheck,
 };
 use frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND;
@@ -56,16 +56,7 @@ async fn block_bundling_full_core_usage_scenarios() -> Result<(), anyhow::Error>
 	let alice = dev::alice();
 
 	// Assign cores 0 and 1 to start with 3 cores total (core 2 is assigned by Zombienet)
-	let assign_cores_call = create_assign_core_call(&[(0, PARA_ID), (1, PARA_ID)]);
-
-	relay_client
-		.tx()
-		.sign_and_submit_then_watch_default(&assign_cores_call, &alice)
-		.await
-		.inspect(|_| log::info!("Tx send, waiting for finalization"))?
-		.wait_for_finalized_success()
-		.await?;
-	log::info!("3 cores total assigned to the parachain");
+	assign_cores(&relay_client, PARA_ID, vec![0, 1]).await?;
 
 	// Create and send first transaction: 1s ref_time using utility.with_weight
 	//

@@ -78,7 +78,7 @@ async fn block_bundling_relay_parent_offset() -> Result<(), anyhow::Error> {
 
 	let para_client = para_node_rp_offset.wait_client().await?;
 
-	assign_cores(relay_node, 2400, vec![0]).await?;
+	assign_cores(&relay_client, 2400, vec![0]).await?;
 
 	log::info!("Checking that the parachain runs with the expected relay parent offset");
 

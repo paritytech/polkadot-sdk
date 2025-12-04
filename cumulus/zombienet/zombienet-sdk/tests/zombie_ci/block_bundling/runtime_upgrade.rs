@@ -86,11 +86,12 @@ async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 	let relay_node = network.get_node("validator-0")?;
 	let para_node = network.get_node("collator-1")?;
 
+	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 	let para_client: OnlineClient<PolkadotConfig> = para_node.wait_client().await?;
 	let alice = dev::alice();
 
 	// Assign cores 0 and 1 to start with 3 cores total (core 2 is assigned by Zombienet)
-	assign_cores(relay_node, PARA_ID, vec![0, 1]).await?;
+	assign_cores(&relay_client, PARA_ID, vec![0, 1]).await?;
 
 	log::info!("3 cores total assigned to the parachain");
 

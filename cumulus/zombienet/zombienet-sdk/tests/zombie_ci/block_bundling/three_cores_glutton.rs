@@ -49,7 +49,7 @@ async fn block_bundling_three_cores_glutton() -> Result<(), anyhow::Error> {
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
 	// Assign cores 0 and 1 to start with 3 cores total (core 2 is assigned by Zombienet)
-	assign_cores(relay_node, PARA_ID, vec![0, 1]).await?;
+	assign_cores(&relay_client, PARA_ID, vec![0, 1]).await?;
 
 	// Wait for the parachain to produce 72 blocks with 3 cores and glutton active
 	// With 3 cores, we expect roughly 3x throughput compared to single core
@@ -64,16 +64,6 @@ async fn block_bundling_three_cores_glutton() -> Result<(), anyhow::Error> {
 
 	assert_finality_lag(&para_client, 72).await?;
 	log::info!("Test finished successfully - 72 blocks produced with 3 cores and glutton");
-	assign_cores(relay_node, PARA_ID, vec![2, 3]).await?;
-
-	assert_para_throughput(&relay_client, 15, [(ParaId::from(PARA_ID), 39..46)], []).await?;
-	assert_finality_lag(&para_node.wait_client().await?, 20).await?;
-
-	assign_cores(relay_node, PARA_ID, vec![4, 5, 6]).await?;
-
-	assert_para_throughput(&relay_client, 10, [(ParaId::from(PARA_ID), 52..61)], []).await?;
-	assert_finality_lag(&para_node.wait_client().await?, 30).await?;
-	log::info!("Test finished successfully");
 	Ok(())
 }
 

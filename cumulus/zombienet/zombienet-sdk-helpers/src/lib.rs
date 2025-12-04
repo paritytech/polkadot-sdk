@@ -11,19 +11,16 @@ use tokio::{
 	join,
 	time::{sleep, Duration},
 };
-use zombienet_sdk::{
-	subxt::{
-		self,
-		blocks::Block,
-		config::{polkadot::PolkadotExtrinsicParamsBuilder, substrate::DigestItem},
-		dynamic::Value,
-		events::Events,
-		ext::scale_value::value,
-		tx::{signer::Signer, DynamicPayload, SubmittableTransaction, TxStatus},
-		utils::H256,
-		Config, OnlineClient, PolkadotConfig,
-	},
-	NetworkNode,
+use zombienet_sdk::subxt::{
+	self,
+	blocks::Block,
+	config::{polkadot::PolkadotExtrinsicParamsBuilder, substrate::DigestItem},
+	dynamic::Value,
+	events::Events,
+	ext::scale_value::value,
+	tx::{signer::Signer, DynamicPayload, SubmittableTransaction, TxStatus},
+	utils::H256,
+	Config, OnlineClient, PolkadotConfig,
 };
 
 /// Specifies which block should occupy a full core.
@@ -38,50 +35,6 @@ pub enum BlockToCheck {
 // Maximum number of blocks to wait for a session change.
 // If it does not arrive for whatever reason, we should not wait forever.
 const WAIT_MAX_BLOCKS_FOR_SESSION: u32 = 50;
-
-/// Create a batch call to assign cores to a parachain.
-///
-/// Zombienet by default adds extra core for each registered parachain additionally to the one
-/// requested by `num_cores`. It then assigns the parachains to the extra cores allocated at the
-/// end. So, the passed core indices should be counted from zero.
-///
-/// # Example
-///
-/// Genesis patch:
-/// ```json
-/// "configuration": {
-///   "config": {
-///     "scheduler_params": {
-///       "num_cores": 2,
-///     }
-///   }
-/// }
-/// ```
-///
-/// Runs the relay chain with `2` cores and we also add two parachains.
-/// To assign these extra `2` cores, the call would look like this:
-///
-/// ```ignore
-/// create_assign_core_call(&[(0, 2400), (1, 2400)])
-/// ```
-///
-/// The cores `2` and `3` are assigned to the parachains by zombienet.
-pub fn create_assign_core_call(core_and_para: &[(u32, u32)]) -> DynamicPayload {
-	let mut assign_cores = vec![];
-	for (core, para_id) in core_and_para.iter() {
-		assign_cores.push(value! {
-			Coretime(assign_core { core : *core, begin: 0, assignment: ((Task(*para_id), 57600)), end_hint: None() })
-		});
-	}
-
-	zombienet_sdk::subxt::tx::dynamic(
-		"Sudo",
-		"sudo",
-		vec![value! {
-			Utility(batch { calls: assign_cores })
-		}],
-	)
-}
 
 /// Find an event in subxt `Events` and attempt to decode the fields of the event.
 fn find_event_and_decode_fields<T: Decode>(
@@ -500,13 +453,13 @@ async fn submit_tx_and_wait_for_finalization(
 			TxStatus::Error { message } |
 			TxStatus::Invalid { message } |
 			TxStatus::Dropped { message } => {
-				return Err(anyhow::anyhow!("Error submitting tx: {message}"));
+				return Err(anyhow!("Error submitting tx: {message}"));
 			},
 			_ => continue,
 		}
 	}
 
-	Err(anyhow::anyhow!("Transaction event stream ended without reaching the finalized state"))
+	Err(anyhow!("Transaction event stream ended without reaching the finalized state"))
 }
 
 /// Submits the given `call` as transaction and waits `timeout_secs` for it successful finalization.
@@ -738,12 +691,12 @@ pub async fn ensure_is_last_block_in_core(
 /// To assign these extra `2` cores, the call would look like this:
 ///
 /// ```ignore
-/// assign_core(&relay_node, PARA_ID, vec![0, 1])
+/// assign_cores(&relay_node, PARA_ID, vec![0, 1])
 /// ```
 ///
 /// The cores `2` and `3` are assigned to the parachains by Zombienet.
 pub async fn assign_cores(
-	relay_node: &NetworkNode,
+	client: &OnlineClient<PolkadotConfig>,
 	para_id: u32,
 	cores: Vec<u32>,
 ) -> Result<(), anyhow::Error> {
@@ -752,9 +705,8 @@ pub async fn assign_cores(
 	let assign_cores_call =
 		create_assign_core_call(&cores.into_iter().map(|core| (core, para_id)).collect::<Vec<_>>());
 
-	let client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 	let res = submit_extrinsic_and_wait_for_finalization_success_with_timeout(
-		&client,
+		client,
 		&assign_cores_call,
 		&zombienet_sdk::subxt_signer::sr25519::dev::alice(),
 		60u64,
@@ -766,17 +718,42 @@ pub async fn assign_cores(
 	Ok(())
 }
 
+fn create_assign_core_call(core_and_para: &[(u32, u32)]) -> DynamicPayload {
+	let mut assign_cores = vec![];
+	for (core, para_id) in core_and_para.iter() {
+		assign_cores.push(value! {
+			Coretime(assign_core { core : *core, begin: 0, assignment: ((Task(*para_id), 57600)), end_hint: None() })
+		});
+	}
+
+	zombienet_sdk::subxt::tx::dynamic(
+		"Sudo",
+		"sudo",
+		vec![value! {
+			Utility(batch { calls: assign_cores })
+		}],
+	)
+}
+
 /// Creates a runtime upgrade call using `Sudo::sudo(System::set_code_without_checks)`.
 ///
 /// The `wasm_binary` should be the WASM runtime binary to upgrade to.
-pub fn create_runtime_upgrade_call(wasm_binary: &[u8]) -> DynamicPayload {
-	let runtime_upgrade_call = zombienet_sdk::subxt::tx::dynamic(
-		"System",
-		"set_code_without_checks",
-		vec![value!(wasm_binary.to_vec())],
-	);
-
-	zombienet_sdk::subxt::tx::dynamic("Sudo", "sudo", vec![runtime_upgrade_call.into_value()])
+pub fn create_runtime_upgrade_call(wasm: &[u8]) -> DynamicPayload {
+	zombienet_sdk::subxt::tx::dynamic(
+		"Sudo",
+		"sudo_unchecked_weight",
+		vec![
+			value! {
+				System(set_code { code: Value::from_bytes(wasm) })
+			},
+			value! {
+				{
+					ref_time: 1u64,
+					proof_size: 1u64
+				}
+			},
+		],
+	)
 }
 
 /// Wait until a runtime upgrade has happened.

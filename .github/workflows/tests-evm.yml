@@ -71,7 +71,7 @@ jobs:
             --platform ${{ matrix.platform }} \
             --concurrency.number-of-nodes 10 \
             --concurrency.number-of-threads 10 \
-            --concurrency.number-of-concurrent-tasks 1000 \
+            --concurrency.number-of-concurrent-tasks 100 \
             --working-directory ./workdir \
             --revive-dev-node.consensus manual-seal-200 \
             --revive-dev-node.path ./target/release/revive-dev-node \
@@ -125,7 +125,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: paritytech/evm-test-suite
-          ref: 9359438a13e8ab68f73320724f8783e170ecc193
+          ref: f3a2e98620adfc233166728230247d479a159e76
           path: evm-test-suite
 
       - uses: denoland/setup-deno@v2

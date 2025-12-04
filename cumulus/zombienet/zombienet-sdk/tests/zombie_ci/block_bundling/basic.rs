@@ -60,7 +60,7 @@ async fn block_bundling_basic() -> Result<(), anyhow::Error> {
 	// 6 relay chain blocks
 	assert_finality_lag(&para_client, 72).await?;
 
-	assign_cores(relay_node, PARA_ID, vec![0, 1]).await?;
+	assign_cores(&relay_client, PARA_ID, vec![0, 1]).await?;
 
 	assert_para_throughput(
 		&relay_client,
@@ -71,7 +71,7 @@ async fn block_bundling_basic() -> Result<(), anyhow::Error> {
 	.await?;
 	assert_finality_lag(&para_client, 72).await?;
 
-	assign_cores(relay_node, PARA_ID, vec![2, 3, 4]).await?;
+	assign_cores(&relay_client, PARA_ID, vec![2, 3, 4]).await?;
 
 	assert_para_throughput(
 		&relay_client,

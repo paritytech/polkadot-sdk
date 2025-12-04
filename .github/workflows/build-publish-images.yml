@@ -411,6 +411,36 @@ jobs:
   #
   #
   #
+  prepare-substrate-zombienet-artifacts:
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: build
+        run: |
+          forklift cargo nextest --manifest-path substrate/zombienet/zombienet-sdk/Cargo.toml archive --locked --features zombie-ci --archive-file substrate-zombienet-tests.tar.zst
+      - name: pack artifacts
+        run: |
+          mkdir -p artifacts
+          cp substrate-zombienet-tests.tar.zst ./artifacts
+
+      - name: tar
+        run: tar -cvf artifacts.tar artifacts
+
+      - name: upload artifacts
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          path: artifacts.tar
+          retention-days: 1
+
+  #
+  #
+  #
   prepare-cumulus-zombienet-artifacts:
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}

@@ -1,14 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use anyhow::anyhow;
-use std::{sync::Arc, time::Duration};
-
 use crate::utils::initialize_network;
-
+use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{assert_para_throughput, assign_cores};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
+use std::{sync::Arc, time::Duration};
 use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
@@ -45,7 +43,7 @@ async fn block_bundling_pov_recovery() -> Result<(), anyhow::Error> {
 
 	let relay_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
 
-	assign_cores(alice, PARA_ID, vec![0, 1]).await?;
+	assign_cores(&relay_client, PARA_ID, vec![0, 1]).await?;
 
 	log::info!("Ensuring parachain making progress");
 	assert_para_throughput(&relay_client, 20, [(ParaId::from(PARA_ID), 40..65)], []).await?;

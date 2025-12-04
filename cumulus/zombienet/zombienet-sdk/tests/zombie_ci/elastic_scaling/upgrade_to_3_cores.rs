@@ -1,7 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::utils::initialize_network;
 use anyhow::anyhow;
 use cumulus_test_runtime::{
 	elastic_scaling::WASM_BINARY_BLOATY as WASM_ELASTIC_SCALING,
@@ -14,7 +13,6 @@ use cumulus_zombienet_sdk_helpers::{
 use polkadot_primitives::Id as ParaId;
 use rstest::rstest;
 use serde_json::json;
-use std::time::Duration;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
 	subxt_signer::sr25519::dev,
@@ -34,6 +32,8 @@ const PARA_ID: u32 = 2000;
 async fn elastic_scaling_upgrade_to_3_cores(
 	#[case] async_backing: bool,
 ) -> Result<(), anyhow::Error> {
+	use crate::utils::initialize_network;
+
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
@@ -45,7 +45,7 @@ async fn elastic_scaling_upgrade_to_3_cores(
 	let alice = network.get_node("validator0")?;
 	let alice_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
 
-	assign_cores(alice, PARA_ID, vec![0]).await?;
+	assign_cores(&alice_client, PARA_ID, vec![0]).await?;
 
 	if async_backing {
 		log::info!("Ensuring parachain makes progress making 6s blocks");
@@ -55,8 +55,7 @@ async fn elastic_scaling_upgrade_to_3_cores(
 		assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 7..12)], []).await?;
 	}
 
-	assign_cores(alice, PARA_ID, vec![1, 2]).await?;
-	let timeout_secs: u64 = 250;
+	assign_cores(&alice_client, PARA_ID, vec![1, 2]).await?;
 	let collator0 = network.get_node("collator0")?;
 	let collator0_client: OnlineClient<PolkadotConfig> = collator0.wait_client().await?;
 
@@ -79,16 +78,8 @@ async fn elastic_scaling_upgrade_to_3_cores(
 	let collator1_client: OnlineClient<PolkadotConfig> = collator1.wait_client().await?;
 	let expected_spec_version = current_spec_version + 1;
 
-	log::info!(
-		"Waiting (up to {timeout_secs}s) for parachain runtime upgrade to version {}",
-		expected_spec_version
-	);
-	tokio::time::timeout(
-		Duration::from_secs(timeout_secs),
-		wait_for_runtime_upgrade(&collator1_client),
-	)
-	.await
-	.map_err(|_| anyhow!("Timeout waiting for runtime upgrade"))??;
+	log::info!("Waiting for parachain runtime upgrade to version {}", expected_spec_version);
+	wait_for_runtime_upgrade(&collator1_client).await?;
 
 	let spec_version_from_collator0 =
 		collator0_client.backend().current_runtime_version().await?.spec_version;

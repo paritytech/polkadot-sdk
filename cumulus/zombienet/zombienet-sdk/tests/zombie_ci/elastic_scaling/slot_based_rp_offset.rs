@@ -77,7 +77,7 @@ async fn elastic_scaling_slot_based_relay_parent_offset_test() -> Result<(), any
 
 	let para_client = para_node_rp_offset.wait_client().await?;
 
-	assign_cores(relay_node, 2400, vec![0, 1]).await?;
+	assign_cores(&relay_client, 2400, vec![0, 1]).await?;
 
 	assert_relay_parent_offset(&relay_client, &para_client, 2, 45).await?;
 
