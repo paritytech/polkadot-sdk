@@ -730,8 +730,8 @@ fn subcall_effectively_limited_substrate_tx(caller_type: FixtureType, callee_typ
 
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let fees = <Test as Config>::FeeInfo::tx_fee_from_weight(0, &WEIGHT_LIMIT)
-				+ case.deposit_limit;
+			let fees = <Test as Config>::FeeInfo::tx_fee_from_weight(0, &WEIGHT_LIMIT) +
+				case.deposit_limit;
 			<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(fees));
 
 			// Instantiate the callee contract, which can echo a value.
