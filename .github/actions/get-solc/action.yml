@@ -1,0 +1,36 @@
+name: "Install Solidity Compiler"
+description: "Installs the Ethereum solc Solidity compiler frontend executable"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Figure out Solc Download URL
+      shell: bash
+      run: |
+        if [[ "${{ runner.os }}" == "Linux" ]]; then
+          echo "SOLC_NAME=solc-static-linux" >> $GITHUB_ENV
+        elif [[ "${{ runner.os }}" == "Windows" ]]; then
+          echo "SOLC_NAME=solc-windows.exe" >> $GITHUB_ENV
+        else
+          echo "SOLC_NAME=solc-macos" >> $GITHUB_ENV
+        fi
+
+    - name: Download Solc
+      shell: bash
+      run: |
+        mkdir -p solc
+        curl -sSL --output solc/solc https://github.com/ethereum/solidity/releases/download/v0.8.30/${SOLC_NAME}
+
+    - name: Make Solc Executable
+      if: ${{ runner.os == 'Windows' }}
+      shell: bash
+      run: |
+        echo "$(pwd -W)\\solc" >> $GITHUB_PATH
+        mv solc/solc solc/solc.exe
+
+    - name: Make Solc Executable
+      if: ${{ runner.os != 'Windows' }}
+      shell: bash
+      run: |
+        echo "$(pwd)/solc" >> $GITHUB_PATH
+        chmod +x solc/solc
