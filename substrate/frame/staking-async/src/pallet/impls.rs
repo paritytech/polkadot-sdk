@@ -1193,16 +1193,9 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 			active_era.index.saturating_sub(T::SlashDeferDuration::get().saturating_sub(1))
 		};
 
-		let invulnerables = Invulnerables::<T>::get();
-
 		for o in offences {
 			let slash_fraction = o.slash_fraction;
 			let validator: <T as frame_system::Config>::AccountId = o.offender.into();
-			// Skip if the validator is invulnerable.
-			if invulnerables.contains(&validator) {
-				log!(debug, "🦹 on_offence: {:?} is invulnerable; ignoring offence", validator);
-				continue
-			}
 
 			// ignore offence if too old to report.
 			if offence_era < oldest_reportable_offence_era {
@@ -1336,6 +1329,10 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	fn weigh_on_new_offences(offence_count: u32) -> Weight {
 		T::WeightInfo::rc_on_offence(offence_count)
 	}
+
+	fn active_era_start_session_index() -> SessionIndex {
+		Rotator::<T>::active_era_start_session_index()
+	}
 }
 
 impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
@@ -1343,12 +1340,20 @@ impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 
 	fn score(who: &T::AccountId) -> Option<Self::Score> {
 		Self::ledger(Stash(who.clone()))
-			.map(|l| l.active)
+			.ok()
+			.and_then(|l| {
+				if Nominators::<T>::contains_key(&l.stash) ||
+					Validators::<T>::contains_key(&l.stash)
+				{
+					Some(l.active)
+				} else {
+					None
+				}
+			})
 			.map(|a| {
 				let issuance = asset::total_issuance::<T>();
 				T::CurrencyToVote::to_vote(a, issuance)
 			})
-			.ok()
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1364,6 +1369,9 @@ impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 
 		<Ledger<T>>::insert(who, ledger);
 		<Bonded<T>>::insert(who, who);
+		// we also need to appoint this staker to be validator or nominator, such that their score
+		// is actually there. Note that `fn score` above checks the role.
+		<Validators<T>>::insert(who, ValidatorPrefs::default());
 
 		// also, we play a trick to make sure that a issuance based-`CurrencyToVote` behaves well:
 		// This will make sure that total issuance is zero, thus the currency to vote will be a 1-1
@@ -1938,78 +1946,62 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Invariants:
-	/// * ActiveEra is Some.
-	/// * For each paged era exposed validator, check if the exposure total is sane (exposure.total
-	/// = exposure.own + exposure.own).
-	/// * Paged exposures metadata (`ErasStakersOverview`) matches the paged exposures state.
+	/// Nothing to do if ActiveEra is not set.
+	/// For each page in `ErasStakersPaged`, `page_total` must be set.
+	/// For each metadata:
+	/// 	* page_count is correct
+	/// 	* nominator_count is correct
+	/// 	* total is own + sum of pages
+	/// `ErasTotalStake`` must be correct
 	fn check_paged_exposures() -> Result<(), TryRuntimeError> {
-		use alloc::collections::btree_map::BTreeMap;
-		use sp_staking::PagedExposureMetadata;
-
-		// Sanity check for the paged exposure of the active era.
-		let mut exposures: BTreeMap<T::AccountId, PagedExposureMetadata<BalanceOf<T>>> =
-			BTreeMap::new();
-		// If the pallet is not initialized, we return immediately from pallet's do_try_state() and
-		// we don't call this method. Otherwise, Eras::do_try_state enforces that both ActiveEra
-		// and CurrentEra are Some. Thus, we should never hit this error.
-		let era = ActiveEra::<T>::get()
-			.ok_or(TryRuntimeError::Other("ActiveEra must be set when checking paged exposures"))?
-			.index;
-
-		let accumulator_default = PagedExposureMetadata {
-			total: Zero::zero(),
-			own: Zero::zero(),
-			nominator_count: 0,
-			page_count: 0,
-		};
-
-		ErasStakersPaged::<T>::iter_prefix((era,))
-			.map(|((validator, _page), expo)| {
-				ensure!(
-					expo.page_total ==
-						expo.others.iter().map(|e| e.value).fold(Zero::zero(), |acc, x| acc + x),
-					"wrong total exposure for the page.",
-				);
-
-				let metadata = exposures.get(&validator).unwrap_or(&accumulator_default);
-				exposures.insert(
-					validator,
-					PagedExposureMetadata {
-						total: metadata.total + expo.page_total,
-						own: metadata.own,
-						nominator_count: metadata.nominator_count + expo.others.len() as u32,
-						page_count: metadata.page_count + 1,
-					},
-				);
-
-				Ok(())
-			})
-			.collect::<Result<(), TryRuntimeError>>()?;
-
-		exposures
-			.iter()
+		let Some(era) = ActiveEra::<T>::get().map(|a| a.index) else { return Ok(()) };
+		let overview_and_pages = ErasStakersOverview::<T>::iter_prefix(era)
 			.map(|(validator, metadata)| {
-				let actual_overview = ErasStakersOverview::<T>::get(era, validator);
-
-				ensure!(actual_overview.is_some(), "No overview found for a paged exposure");
-				let actual_overview = actual_overview.unwrap();
-
-				ensure!(
-					actual_overview.total == metadata.total + actual_overview.own,
-					"Exposure metadata does not have correct total exposed stake."
-				);
-				ensure!(
-					actual_overview.nominator_count == metadata.nominator_count,
-					"Exposure metadata does not have correct count of nominators."
-				);
-				ensure!(
-					actual_overview.page_count == metadata.page_count,
-					"Exposure metadata does not have correct count of pages."
-				);
-
-				Ok(())
+				let pages = ErasStakersPaged::<T>::iter_prefix((era, validator))
+					.map(|(_idx, page)| page)
+					.collect::<Vec<_>>();
+				(metadata, pages)
 			})
-			.collect::<Result<(), TryRuntimeError>>()
+			.collect::<Vec<_>>();
+
+		ensure!(
+			overview_and_pages.iter().flat_map(|(_m, pages)| pages).all(|page| {
+				let expected = page
+					.others
+					.iter()
+					.map(|e| e.value)
+					.fold(BalanceOf::<T>::zero(), |acc, x| acc + x);
+				page.page_total == expected
+			}),
+			"found wrong page_total"
+		);
+
+		ensure!(
+			overview_and_pages.iter().all(|(metadata, pages)| {
+				let page_count_good = metadata.page_count == pages.len() as u32;
+				let nominator_count_good = metadata.nominator_count ==
+					pages.iter().map(|p| p.others.len() as u32).fold(0u32, |acc, x| acc + x);
+				let total_good = metadata.total ==
+					metadata.own +
+						pages
+							.iter()
+							.fold(BalanceOf::<T>::zero(), |acc, page| acc + page.page_total);
+
+				page_count_good && nominator_count_good && total_good
+			}),
+			"found bad metadata"
+		);
+
+		ensure!(
+			overview_and_pages
+				.iter()
+				.map(|(metadata, _pages)| metadata.total)
+				.fold(BalanceOf::<T>::zero(), |acc, x| acc + x) ==
+				ErasTotalStake::<T>::get(era),
+			"found bad eras total stake"
+		);
+
+		Ok(())
 	}
 
 	/// Ensures offence pipeline and slashing is in a healthy state.

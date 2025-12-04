@@ -22,8 +22,6 @@ use ::kvdb::{DBTransaction, KeyValueDB};
 use crate::DatabaseWithSeekableIterator;
 use crate::{error, Change, ColumnId, Database, SeekableIterator, Transaction};
 
-struct DbAdapter<D: KeyValueDB + 'static>(D);
-
 fn handle_err<T>(result: std::io::Result<T>) -> T {
 	match result {
 		Ok(r) => r,
@@ -33,101 +31,72 @@ fn handle_err<T>(result: std::io::Result<T>) -> T {
 	}
 }
 
-pub fn as_database<D, H>(db: D) -> std::sync::Arc<dyn Database<H>>
-where
-	D: KeyValueDB + 'static,
-	H: Clone + AsRef<[u8]>,
-{
-	std::sync::Arc::new(DbAdapter(db))
-}
-
-/// Wrap RocksDb database into a trait object that implements
-/// `sp_database::DatabaseWithSeekableIterator`
-#[cfg(any(feature = "rocksdb", test))]
-pub fn as_database_with_seekable_iter<H>(
-	db: kvdb_rocksdb::Database,
-) -> std::sync::Arc<dyn DatabaseWithSeekableIterator<H>>
-where
-	H: Clone + AsRef<[u8]>,
-{
-	std::sync::Arc::new(DbAdapter(db))
-}
-
-impl<D: KeyValueDB> DbAdapter<D> {
-	// Returns counter key and counter value if it exists.
-	fn read_counter(&self, col: ColumnId, key: &[u8]) -> error::Result<(Vec<u8>, Option<u32>)> {
-		// Add a key suffix for the counter
-		let mut counter_key = key.to_vec();
-		counter_key.push(0);
-		Ok(match self.0.get(col, &counter_key).map_err(|e| error::DatabaseError(Box::new(e)))? {
-			Some(data) => {
-				let mut counter_data = [0; 4];
-				if data.len() != 4 {
-					return Err(error::DatabaseError(Box::new(std::io::Error::new(
-						std::io::ErrorKind::Other,
-						format!("Unexpected counter len {}", data.len()),
-					))))
-				}
-				counter_data.copy_from_slice(&data);
-				let counter = u32::from_le_bytes(counter_data);
-				(counter_key, Some(counter))
-			},
-			None => (counter_key, None),
-		})
-	}
-}
-
-impl<D: KeyValueDB, H: Clone + AsRef<[u8]>> Database<H> for DbAdapter<D> {
-	fn commit(&self, transaction: Transaction<H>) -> error::Result<()> {
-		let mut tx = DBTransaction::new();
-		for change in transaction.0.into_iter() {
-			match change {
-				Change::Set(col, key, value) => tx.put_vec(col, &key, value),
-				Change::Remove(col, key) => tx.delete(col, &key),
-				Change::Store(col, key, value) => match self.read_counter(col, key.as_ref())? {
-					(counter_key, Some(mut counter)) => {
-						counter += 1;
-						tx.put(col, &counter_key, &counter.to_le_bytes());
-					},
-					(counter_key, None) => {
-						let d = 1u32.to_le_bytes();
-						tx.put(col, &counter_key, &d);
-						tx.put_vec(col, key.as_ref(), value);
-					},
-				},
-				Change::Reference(col, key) => {
-					if let (counter_key, Some(mut counter)) =
-						self.read_counter(col, key.as_ref())?
-					{
-						counter += 1;
-						tx.put(col, &counter_key, &counter.to_le_bytes());
-					}
-				},
-				Change::Release(col, key) => {
-					if let (counter_key, Some(mut counter)) =
-						self.read_counter(col, key.as_ref())?
-					{
-						counter -= 1;
-						if counter == 0 {
-							tx.delete(col, &counter_key);
-							tx.delete(col, key.as_ref());
-						} else {
-							tx.put(col, &counter_key, &counter.to_le_bytes());
-						}
-					}
-				},
+/// Read the reference counter for a key.
+fn read_counter(
+	db: &dyn KeyValueDB,
+	col: ColumnId,
+	key: &[u8],
+) -> error::Result<(Vec<u8>, Option<u32>)> {
+	let mut counter_key = key.to_vec();
+	counter_key.push(0);
+	Ok(match db.get(col, &counter_key).map_err(|e| error::DatabaseError(Box::new(e)))? {
+		Some(data) => {
+			let mut counter_data = [0; 4];
+			if data.len() != 4 {
+				return Err(error::DatabaseError(Box::new(std::io::Error::new(
+					std::io::ErrorKind::Other,
+					format!("Unexpected counter len {}", data.len()),
+				))))
 			}
+			counter_data.copy_from_slice(&data);
+			let counter = u32::from_le_bytes(counter_data);
+			(counter_key, Some(counter))
+		},
+		None => (counter_key, None),
+	})
+}
+
+/// Commit a transaction to a KeyValueDB.
+fn commit_impl<H: Clone + AsRef<[u8]>>(
+	db: &dyn KeyValueDB,
+	transaction: Transaction<H>,
+) -> error::Result<()> {
+	let mut tx = DBTransaction::new();
+	for change in transaction.0.into_iter() {
+		match change {
+			Change::Set(col, key, value) => tx.put_vec(col, &key, value),
+			Change::Remove(col, key) => tx.delete(col, &key),
+			Change::Store(col, key, value) => match read_counter(db, col, key.as_ref())? {
+				(counter_key, Some(mut counter)) => {
+					counter += 1;
+					tx.put(col, &counter_key, &counter.to_le_bytes());
+				},
+				(counter_key, None) => {
+					let d = 1u32.to_le_bytes();
+					tx.put(col, &counter_key, &d);
+					tx.put_vec(col, key.as_ref(), value);
+				},
+			},
+			Change::Reference(col, key) => {
+				if let (counter_key, Some(mut counter)) = read_counter(db, col, key.as_ref())? {
+					counter += 1;
+					tx.put(col, &counter_key, &counter.to_le_bytes());
+				}
+			},
+			Change::Release(col, key) => {
+				if let (counter_key, Some(mut counter)) = read_counter(db, col, key.as_ref())? {
+					counter -= 1;
+					if counter == 0 {
+						tx.delete(col, &counter_key);
+						tx.delete(col, key.as_ref());
+					} else {
+						tx.put(col, &counter_key, &counter.to_le_bytes());
+					}
+				}
+			},
 		}
-		self.0.write(tx).map_err(|e| error::DatabaseError(Box::new(e)))
 	}
-
-	fn get(&self, col: ColumnId, key: &[u8]) -> Option<Vec<u8>> {
-		handle_err(self.0.get(col, key))
-	}
-
-	fn contains(&self, col: ColumnId, key: &[u8]) -> bool {
-		handle_err(self.0.has_key(col, key))
-	}
+	db.write(tx).map_err(|e| error::DatabaseError(Box::new(e)))
 }
 
 #[cfg(feature = "rocksdb")]
@@ -154,8 +123,31 @@ impl<'a> SeekableIterator for kvdb_rocksdb::DBRawIterator<'a> {
 	}
 }
 
+/// RocksDB-specific adapter that implements `optimize_db` via `force_compact`.
 #[cfg(feature = "rocksdb")]
-impl<H: Clone + AsRef<[u8]>> DatabaseWithSeekableIterator<H> for DbAdapter<kvdb_rocksdb::Database> {
+pub struct RocksDbAdapter(kvdb_rocksdb::Database);
+
+#[cfg(feature = "rocksdb")]
+impl<H: Clone + AsRef<[u8]>> Database<H> for RocksDbAdapter {
+	fn commit(&self, transaction: Transaction<H>) -> error::Result<()> {
+		commit_impl(&self.0, transaction)
+	}
+
+	fn get(&self, col: ColumnId, key: &[u8]) -> Option<Vec<u8>> {
+		handle_err(self.0.get(col, key))
+	}
+
+	fn contains(&self, col: ColumnId, key: &[u8]) -> bool {
+		handle_err(self.0.has_key(col, key))
+	}
+
+	fn optimize_db_col(&self, col: ColumnId) -> error::Result<()> {
+		self.0.force_compact(col).map_err(|e| error::DatabaseError(Box::new(e)))
+	}
+}
+
+#[cfg(feature = "rocksdb")]
+impl<H: Clone + AsRef<[u8]>> DatabaseWithSeekableIterator<H> for RocksDbAdapter {
 	fn seekable_iter<'a>(&'a self, col: u32) -> Option<Box<dyn crate::SeekableIterator + 'a>> {
 		match self.0.raw_iter(col) {
 			Ok(iter) => Some(Box::new(iter)),
@@ -163,4 +155,13 @@ impl<H: Clone + AsRef<[u8]>> DatabaseWithSeekableIterator<H> for DbAdapter<kvdb_
 			Err(e) => panic!("Internal database error: {}", e),
 		}
 	}
+}
+
+/// Wrap RocksDB database into a trait object with `optimize_db` support.
+#[cfg(feature = "rocksdb")]
+pub fn as_rocksdb_database<H>(db: kvdb_rocksdb::Database) -> std::sync::Arc<dyn DatabaseWithSeekableIterator<H>>
+where
+	H: Clone + AsRef<[u8]>,
+{
+	std::sync::Arc::new(RocksDbAdapter(db))
 }

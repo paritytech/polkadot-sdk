@@ -1,0 +1,8 @@
+title: bump jsonrpsee to 0.24.10
+doc:
+- audience: Runtime Dev
+  description: |-
+    Bump jsonrpsee to 0.24.10 so that we can use the request logger with proper trace scopping (see https://github.com/paritytech/jsonrpsee/pull/1609) for more details
+
+    this will let us  run the eth-rpc with `jsonrpsee-server=trace` to capture request and responses from the request logger middleware
+crates: []

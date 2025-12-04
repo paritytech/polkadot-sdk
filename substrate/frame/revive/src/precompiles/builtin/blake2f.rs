@@ -28,7 +28,7 @@ pub struct Blake2F<T>(PhantomData<T>);
 
 impl<T: Config> PrimitivePrecompile for Blake2F<T> {
 	type T = T;
-	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(9).unwrap());
+	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(0x9).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(
@@ -46,7 +46,7 @@ impl<T: Config> PrimitivePrecompile for Blake2F<T> {
 		rounds_buf.copy_from_slice(&input[0..4]);
 		let rounds: u32 = u32::from_be_bytes(rounds_buf);
 
-		env.gas_meter_mut().charge(RuntimeCosts::Blake2F(rounds))?;
+		env.frame_meter_mut().charge_weight_token(RuntimeCosts::Blake2F(rounds))?;
 
 		// we use from_le_bytes below to effectively swap byte order to LE if architecture is BE
 

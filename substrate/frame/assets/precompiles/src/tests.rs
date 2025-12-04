@@ -22,7 +22,7 @@ use crate::{
 };
 use alloy::primitives::U256;
 use frame_support::{assert_ok, traits::Currency};
-use pallet_revive::DepositLimit;
+use pallet_revive::{precompiles::TransactionLimits, ExecConfig};
 use sp_core::H160;
 use sp_runtime::Weight;
 
@@ -76,9 +76,12 @@ fn precompile_transfer_works() {
 			RuntimeOrigin::signed(from),
 			H160::from(asset_addr),
 			0u32.into(),
-			Weight::MAX,
-			DepositLimit::UnsafeOnlyForDryRun,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
 			data,
+			ExecConfig::new_substrate_tx(),
 		);
 
 		assert_contract_event(
@@ -114,9 +117,12 @@ fn total_supply_works() {
 			RuntimeOrigin::signed(owner),
 			H160::from(asset_addr),
 			0u32.into(),
-			Weight::MAX,
-			DepositLimit::UnsafeOnlyForDryRun,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
 			data,
+			ExecConfig::new_substrate_tx(),
 		)
 		.result
 		.unwrap()
@@ -146,9 +152,12 @@ fn balance_of_works() {
 			RuntimeOrigin::signed(owner),
 			H160::from(asset_addr),
 			0u32.into(),
-			Weight::MAX,
-			DepositLimit::UnsafeOnlyForDryRun,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
 			data,
+			ExecConfig::new_substrate_tx(),
 		)
 		.result
 		.unwrap()
@@ -191,9 +200,12 @@ fn approval_works() {
 			RuntimeOrigin::signed(owner),
 			H160::from(asset_addr),
 			0u32.into(),
-			Weight::MAX,
-			DepositLimit::UnsafeOnlyForDryRun,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
 			data,
+			ExecConfig::new_substrate_tx(),
 		);
 
 		assert_contract_event(
@@ -213,9 +225,12 @@ fn approval_works() {
 			RuntimeOrigin::signed(owner),
 			H160::from(asset_addr),
 			0u32.into(),
-			Weight::MAX,
-			DepositLimit::UnsafeOnlyForDryRun,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
 			data,
+			ExecConfig::new_substrate_tx(),
 		)
 		.result
 		.unwrap()
@@ -235,9 +250,12 @@ fn approval_works() {
 			RuntimeOrigin::signed(spender),
 			H160::from(asset_addr),
 			0u32.into(),
-			Weight::MAX,
-			DepositLimit::UnsafeOnlyForDryRun,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
 			data,
+			ExecConfig::new_substrate_tx(),
 		);
 		assert_eq!(Assets::balance(asset_id, owner), 90);
 		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 15);

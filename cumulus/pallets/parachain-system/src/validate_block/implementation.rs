@@ -28,11 +28,11 @@ use frame_support::{
 	BoundedVec,
 };
 use polkadot_parachain_primitives::primitives::{HeadData, ValidationResult};
-use sp_core::storage::{ChildInfo, StateVersion};
+use sp_core::storage::{well_known_keys, ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::{hashing::blake2_128, KillStorageResult};
 use sp_runtime::traits::{
-	Block as BlockT, ExtrinsicCall, Hash as HashT, HashingFor, Header as HeaderT,
+	Block as BlockT, ExtrinsicCall, Hash as HashT, HashingFor, Header as HeaderT, LazyBlock,
 };
 use sp_state_machine::OverlayedChanges;
 use sp_trie::{HashDBT, ProofSizeProvider, EMPTY_PREFIX};
@@ -124,11 +124,11 @@ where
 			.replace_implementation(host_storage_proof_size),
 	);
 
-	let block_data = codec::decode_from_bytes::<ParachainBlockData<B>>(block_data)
+	let block_data = codec::decode_from_bytes::<ParachainBlockData<B::LazyBlock>>(block_data)
 		.expect("Invalid parachain block data");
 
 	// Initialize hashmaps randomness.
-	sp_trie::add_extra_randomness(build_seed_from_head_data(
+	sp_trie::add_extra_randomness(build_seed_from_head_data::<B>(
 		&block_data,
 		relay_parent_storage_root,
 	));
@@ -147,6 +147,17 @@ where
 		parent_header.hash(),
 		"Parachain head needs to be the parent of the first block"
 	);
+
+	blocks.iter().fold(parent_header.hash(), |p, b| {
+		assert_eq!(
+			p,
+			*b.header().parent_hash(),
+			"Not a valid chain of blocks :(; {:?} not a parent of {:?}?",
+			array_bytes::bytes2hex("0x", p.as_ref()),
+			array_bytes::bytes2hex("0x", b.header().parent_hash().as_ref()),
+		);
+		b.header().hash()
+	});
 
 	let mut processed_downward_messages = 0;
 	let mut upward_messages = BoundedVec::default();
@@ -168,7 +179,7 @@ where
 	let cache_provider = trie_cache::CacheProvider::new();
 	let seen_nodes = SeenNodes::<HashingFor<B>>::default();
 
-	for (block_index, block) in blocks.into_iter().enumerate() {
+	for (block_index, mut block) in blocks.into_iter().enumerate() {
 		// We use the storage root of the `parent_head` to ensure that it is the correct root.
 		// This is already being done above while creating the in-memory db, but let's be paranoid!!
 		let backend = sp_state_machine::TrieBackendBuilder::new_with_cache(
@@ -195,6 +206,15 @@ where
 		parent_header = block.header().clone();
 
 		run_with_externalities_and_recorder::<B, _, _>(
+			&backend,
+			&mut Default::default(),
+			&mut Default::default(),
+			|| {
+				E::verify_and_remove_seal(&mut block);
+			},
+		);
+
+		run_with_externalities_and_recorder::<B, _, _>(
 			&execute_backend,
 			// Here is the only place where we want to use the recorder.
 			// We want to ensure that we not accidentally read something from the proof, that
@@ -203,9 +223,13 @@ where
 			&mut execute_recorder,
 			&mut overlay,
 			|| {
-				E::execute_block(block);
+				E::execute_verified_block(block);
 			},
 		);
+
+		if overlay.storage(well_known_keys::CODE).is_some() && num_blocks > 1 {
+			panic!("When applying a runtime upgrade, only one block per PoV is allowed. Received {num_blocks}.")
+		}
 
 		run_with_externalities_and_recorder::<B, _, _>(
 			&backend,
@@ -231,20 +255,16 @@ where
 					.into_iter()
 					.filter_map(|m| {
 						// Filter out the `UMP_SEPARATOR` and the `UMPSignals`.
-						if cfg!(feature = "experimental-ump-signals") {
-							if m == UMP_SEPARATOR {
-								found_separator = true;
-								None
-							} else if found_separator {
-								if upward_message_signals.iter().all(|s| *s != m) {
-									upward_message_signals.push(m);
-								}
-								None
-							} else {
-								// No signal or separator
-								Some(m)
+						if m == UMP_SEPARATOR {
+							found_separator = true;
+							None
+						} else if found_separator {
+							if upward_message_signals.iter().all(|s| *s != m) {
+								upward_message_signals.push(m);
 							}
+							None
 						} else {
+							// No signal or separator
 							Some(m)
 						}
 					})
@@ -367,7 +387,7 @@ fn validate_validation_data(
 /// in the block data, to make sure the seed changes every block and that
 /// the user cannot find about it ahead of time.
 fn build_seed_from_head_data<B: BlockT>(
-	block_data: &ParachainBlockData<B>,
+	block_data: &ParachainBlockData<B::LazyBlock>,
 	relay_parent_storage_root: crate::relay_chain::Hash,
 ) -> [u8; 16] {
 	let mut bytes_to_hash = Vec::with_capacity(

@@ -46,7 +46,8 @@ fn register_penpal_a_asset_from_penpal_b_will_fail() {
 			},
 		],
 	);
-	let asset_location_on_penpal = PenpalLocalTeleportableToAssetHub::get();
+	let asset_location_on_penpal =
+		PenpalB::execute_with(|| PenpalLocalTeleportableToAssetHub::get());
 	let penpal_a_asset_at_asset_hub =
 		Location::new(1, [Junction::Parachain(PenpalA::para_id().into())])
 			.appended_with(asset_location_on_penpal)
@@ -355,7 +356,7 @@ fn transfer_from_penpal_to_ethereum_trapped_on_ah_and_then_claim_can_work() {
 				remote_xcm: Xcm(vec![
 					ClaimAsset {
 						assets: vec![
-							Asset { id: AssetId(ethereum()), fun: Fungible(600422871584) },
+							Asset { id: AssetId(ethereum()), fun: Fungible(600914043236) },
 							Asset { id: AssetId(weth_location()), fun: Fungible(TOKEN_AMOUNT) },
 						]
 						.into(),

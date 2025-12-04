@@ -356,7 +356,7 @@ fn open_kvdb_rocksdb<Block: BlockT>(
 	let db = kvdb_rocksdb::Database::open(&db_config, path)?;
 	// write database version only after the database is successfully opened
 	crate::upgrade::update_version(path)?;
-	Ok(sp_database::as_database_with_seekable_iter(db))
+	Ok(sp_database::as_rocksdb_database(db))
 }
 
 #[cfg(not(any(feature = "rocksdb", test)))]

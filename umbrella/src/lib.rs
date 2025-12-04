@@ -92,10 +92,6 @@ pub use cumulus_client_consensus_aura;
 #[cfg(feature = "cumulus-client-consensus-common")]
 pub use cumulus_client_consensus_common;
 
-/// A Substrate `Proposer` for building parachain blocks.
-#[cfg(feature = "cumulus-client-consensus-proposer")]
-pub use cumulus_client_consensus_proposer;
-
 /// The relay-chain provided consensus algorithm.
 #[cfg(feature = "cumulus-client-consensus-relay-chain")]
 pub use cumulus_client_consensus_relay_chain;
@@ -539,6 +535,10 @@ pub use pallet_mixnet;
 #[cfg(feature = "pallet-mmr")]
 pub use pallet_mmr;
 
+/// FRAME pallet to manage multi-asset and cross-chain bounties.
+#[cfg(feature = "pallet-multi-asset-bounties")]
+pub use pallet_multi_asset_bounties;
+
 /// FRAME multi-signature dispatch pallet.
 #[cfg(feature = "pallet-multisig")]
 pub use pallet_multisig;
@@ -635,10 +635,6 @@ pub use pallet_remark;
 /// FRAME pallet for PolkaVM contracts.
 #[cfg(feature = "pallet-revive")]
 pub use pallet_revive;
-
-/// An Ethereum JSON-RPC server for pallet-revive.
-#[cfg(feature = "pallet-revive-eth-rpc")]
-pub use pallet_revive_eth_rpc;
 
 /// Procedural macros used in pallet_revive.
 #[cfg(feature = "pallet-revive-proc-macro")]
@@ -806,6 +802,10 @@ pub use pallet_xcm_bridge_hub;
 /// Bridge hub interface for sibling/parent chains with dynamic fees support.
 #[cfg(feature = "pallet-xcm-bridge-hub-router")]
 pub use pallet_xcm_bridge_hub_router;
+
+/// Provides precompiles for `pallet-xcm`.
+#[cfg(feature = "pallet-xcm-precompiles")]
+pub use pallet_xcm_precompiles;
 
 /// Logic which is common to all parachain runtimes.
 #[cfg(feature = "parachains-common")]

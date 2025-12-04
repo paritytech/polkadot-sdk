@@ -68,6 +68,7 @@ impl pallet_assets::Config for Test {
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
 impl pallet_revive::Config for Test {
 	type AddressMapper = pallet_revive::TestAccountMapper<Self>;
+	type Balance = u64;
 	type Currency = Balances;
 	type Precompiles = (ERC20<Self, InlineIdConfig<0x0120>>,);
 }
@@ -79,6 +80,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			metadata: vec![],
 			accounts: vec![(1, 1, 100)],
 			next_asset_id: None,
+			reserves: vec![],
 		},
 		system: Default::default(),
 		balances: Default::default(),

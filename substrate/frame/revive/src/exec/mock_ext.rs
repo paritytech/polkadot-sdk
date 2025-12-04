@@ -16,30 +16,40 @@
 // limitations under the License.
 
 #![cfg(test)]
-
 use crate::{
-	exec::{AccountIdOf, ExecError, Ext, Key, Origin, PrecompileExt, PrecompileWithInfoExt},
-	gas::GasMeter,
+	exec::{
+		AccountIdOf, CallResources, ExecError, Ext, Key, Origin, PrecompileExt,
+		PrecompileWithInfoExt,
+	},
+	metering::{FrameMeter, TransactionLimits, TransactionMeter},
 	precompiles::Diff,
 	storage::{ContractInfo, WriteOutcome},
 	transient_storage::TransientStorage,
-	Code, CodeRemoved, Config, ExecReturnValue, ImmutableData,
+	BalanceOf, Code, CodeRemoved, Config, DispatchResult, ExecReturnValue, ImmutableData,
+	ReentrancyProtection,
 };
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use frame_support::weights::Weight;
+use num_traits::Bounded;
 use sp_core::{H160, H256, U256};
 use sp_runtime::DispatchError;
 
 /// Mock implementation of the Ext trait that panics for all methods
 pub struct MockExt<T: Config> {
-	gas_meter: GasMeter<T>,
+	frame_meter: FrameMeter<T>,
 	_phantom: PhantomData<T>,
 }
 
 impl<T: Config> MockExt<T> {
 	pub fn new() -> Self {
-		Self { gas_meter: GasMeter::new(Weight::MAX), _phantom: PhantomData }
+		let transaction_meter = TransactionMeter::new(TransactionLimits::WeightAndDeposit {
+			weight_limit: Weight::MAX,
+			deposit_limit: BalanceOf::<T>::max_value(),
+		})
+		.unwrap();
+		let frame_meter = transaction_meter.new_nested(&CallResources::NoLimits).unwrap();
+		Self { frame_meter, _phantom: PhantomData }
 	}
 }
 
@@ -48,12 +58,11 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 
 	fn call(
 		&mut self,
-		_gas_limit: Weight,
-		_deposit_limit: U256,
+		_call_resources: &CallResources<T>,
 		_to: &H160,
 		_value: U256,
 		_input_data: Vec<u8>,
-		_allows_reentry: bool,
+		_reentrancy: ReentrancyProtection,
 		_read_only: bool,
 	) -> Result<(), ExecError> {
 		panic!("MockExt::call")
@@ -140,7 +149,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::block_hash")
 	}
 
-	fn block_author(&self) -> Option<H160> {
+	fn block_author(&self) -> H160 {
 		panic!("MockExt::block_author")
 	}
 
@@ -152,20 +161,20 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::chain_id")
 	}
 
-	fn max_value_size(&self) -> u32 {
-		panic!("MockExt::max_value_size")
+	fn gas_meter(&self) -> &FrameMeter<Self::T> {
+		&self.frame_meter
 	}
 
-	fn get_weight_price(&self, _weight: Weight) -> U256 {
-		panic!("MockExt::get_weight_price")
+	fn gas_meter_mut(&mut self) -> &mut FrameMeter<Self::T> {
+		&mut self.frame_meter
 	}
 
-	fn gas_meter(&self) -> &GasMeter<Self::T> {
-		&self.gas_meter
+	fn frame_meter(&self) -> &FrameMeter<Self::T> {
+		&self.frame_meter
 	}
 
-	fn gas_meter_mut(&mut self) -> &mut GasMeter<Self::T> {
-		&mut self.gas_meter
+	fn frame_meter_mut(&mut self) -> &mut FrameMeter<Self::T> {
+		&mut self.frame_meter
 	}
 
 	fn ecdsa_recover(
@@ -198,6 +207,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::is_read_only")
 	}
 
+	fn is_delegate_call(&self) -> bool {
+		panic!("MockExt::is_delegate_call")
+	}
+
 	fn last_frame_output(&self) -> &ExecReturnValue {
 		panic!("MockExt::last_frame_output")
 	}
@@ -210,12 +223,22 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::copy_code_slice")
 	}
 
+	fn terminate_caller(&mut self, _beneficiary: &H160) -> Result<(), DispatchError> {
+		panic!("MockExt::terminate_caller")
+	}
+
 	fn to_account_id(&self, _address: &H160) -> AccountIdOf<Self::T> {
 		panic!("MockExt::to_account_id")
 	}
-}
 
-impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
+	fn effective_gas_price(&self) -> U256 {
+		panic!("MockExt::effective_gas_price")
+	}
+
+	fn gas_left(&self) -> u64 {
+		panic!("MockExt::gas_left")
+	}
+
 	fn get_storage(&mut self, _key: &Key) -> Option<Vec<u8>> {
 		panic!("MockExt::get_storage")
 	}
@@ -233,12 +256,15 @@ impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
 		panic!("MockExt::set_storage")
 	}
 
-	fn charge_storage(&mut self, _diff: &Diff) {}
+	fn charge_storage(&mut self, _diff: &Diff) -> DispatchResult {
+		Ok(())
+	}
+}
 
+impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
 	fn instantiate(
 		&mut self,
-		_gas_limit: Weight,
-		_deposit_limit: U256,
+		_call_resources: &CallResources<T>,
 		_code: Code,
 		_value: U256,
 		_input_data: Vec<u8>,
@@ -251,16 +277,15 @@ impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
 impl<T: Config> Ext for MockExt<T> {
 	fn delegate_call(
 		&mut self,
-		_gas_limit: Weight,
-		_deposit_limit: U256,
+		_call_resources: &CallResources<T>,
 		_address: H160,
 		_input_data: Vec<u8>,
 	) -> Result<(), ExecError> {
 		panic!("MockExt::delegate_call")
 	}
 
-	fn terminate(&mut self, _beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
-		panic!("MockExt::terminate")
+	fn terminate_if_same_tx(&mut self, _beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
+		panic!("MockExt::terminate_if_same_tx")
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {

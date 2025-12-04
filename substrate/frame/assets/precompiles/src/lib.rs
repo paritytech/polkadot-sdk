@@ -108,6 +108,10 @@ where
 		let asset_id = PrecompileConfig::AssetIdExtractor::asset_id_from_address(address)?.into();
 
 		match input {
+			IERC20Calls::transfer(_) | IERC20Calls::approve(_) | IERC20Calls::transferFrom(_)
+				if env.is_read_only() =>
+				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into())),
+
 			IERC20Calls::transfer(call) => Self::transfer(asset_id, call, env),
 			IERC20Calls::totalSupply(_) => Self::total_supply(asset_id, env),
 			IERC20Calls::balanceOf(call) => Self::balance_of(asset_id, call, env),
@@ -163,7 +167,7 @@ where
 	fn deposit_event(env: &mut impl Ext<T = Runtime>, event: IERC20Events) -> Result<(), Error> {
 		let (topics, data) = event.into_log_data().split();
 		let topics = topics.into_iter().map(|v| H256(v.0)).collect::<Vec<_>>();
-		env.gas_meter_mut().charge(RuntimeCosts::DepositEvent {
+		env.frame_meter_mut().charge_weight_token(RuntimeCosts::DepositEvent {
 			num_topic: topics.len() as u32,
 			len: topics.len() as u32,
 		})?;

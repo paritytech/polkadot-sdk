@@ -140,6 +140,7 @@ pub fn create_extrinsic(
 				>::from(tip, None),
 			),
 			frame_metadata_hash_extension::CheckMetadataHash::new(false),
+			pallet_revive::evm::tx_extension::SetOrigin::<kitchensink_runtime::Runtime>::default(),
 			frame_system::WeightReclaim::<kitchensink_runtime::Runtime>::new(),
 		);
 
@@ -157,6 +158,7 @@ pub fn create_extrinsic(
 			(),
 			(),
 			None,
+			(),
 			(),
 		),
 	);
@@ -566,6 +568,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		tx_handler_controller,
 		sync_service: sync_service.clone(),
 		telemetry: telemetry.as_mut(),
+		tracing_execute_block: None,
 	})?;
 
 	if let Some(hwbench) = hwbench {
@@ -1015,10 +1018,14 @@ mod tests {
 					let proposer = proposer_factory.init(&parent_header).await.unwrap();
 					Proposer::propose(
 						proposer,
-						inherent_data,
-						digest,
-						std::time::Duration::from_secs(1),
-						None,
+						sp_consensus::ProposeArgs {
+							inherent_data,
+							inherent_digests: digest,
+							max_duration: std::time::Duration::from_secs(1),
+							block_size_limit: None,
+							storage_proof_recorder: None,
+							extra_extensions: Default::default(),
+						},
 					)
 					.await
 				})
@@ -1077,6 +1084,7 @@ mod tests {
 				let tx_payment = pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
 				);
+				let set_eth_origin = pallet_revive::evm::tx_extension::SetOrigin::default();
 				let weight_reclaim = frame_system::WeightReclaim::new();
 				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
 				let tx_ext: TxExtension = (
@@ -1090,6 +1098,7 @@ mod tests {
 					check_weight,
 					tx_payment,
 					metadata_hash,
+					set_eth_origin,
 					weight_reclaim,
 				);
 				let raw_payload = SignedPayload::from_raw(
@@ -1106,6 +1115,7 @@ mod tests {
 						(),
 						(),
 						None,
+						(),
 						(),
 					),
 				);

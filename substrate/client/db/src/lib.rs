@@ -849,6 +849,7 @@ pub struct BlockImportOperation<Block: BlockT> {
 	set_head: Option<Block::Hash>,
 	commit_state: bool,
 	create_gap: bool,
+	reset_storage: bool,
 	index_ops: Vec<IndexOperation>,
 }
 
@@ -945,6 +946,7 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 	) -> ClientResult<Block::Hash> {
 		let root = self.apply_new_state(storage, state_version)?;
 		self.commit_state = true;
+		self.reset_storage = true;
 		Ok(root)
 	}
 
@@ -1928,6 +1930,14 @@ impl<Block: BlockT> Backend<Block> {
 
 		self.storage.db.commit(transaction)?;
 
+		// `reset_storage == true` means the entire state got replaced.
+		// In this case we optimize the `STATE` column to improve read performance.
+		if operation.reset_storage {
+			if let Err(e) = self.storage.db.optimize_db_col(columns::STATE) {
+				warn!(target: "db", "Failed to optimize database after state import: {e:?}");
+			}
+		}
+
 		// Apply all in-memory state changes.
 		// Code beyond this point can't fail.
 
@@ -1991,7 +2001,11 @@ impl<Block: BlockT> Backend<Block> {
 			ArchiveDb::<Block>::finalize_block(db.clone(), transaction, *f_header.number(), f_hash);
 		}
 		if remove_displaced {
-			let new_displaced = self.blockchain.displaced_leaves_after_finalizing(f_hash, f_num)?;
+			let new_displaced = self.blockchain.displaced_leaves_after_finalizing(
+				f_hash,
+				f_num,
+				*f_header.parent_hash(),
+			)?;
 
 			self.blockchain.leaves.write().remove_displaced_leaves(FinalizationOutcome::new(
 				new_displaced.displaced_leaves.iter().copied(),
@@ -2542,6 +2556,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			set_head: None,
 			commit_state: false,
 			create_gap: true,
+			reset_storage: false,
 			index_ops: Default::default(),
 		})
 	}
@@ -3719,16 +3734,18 @@ pub(crate) mod tests {
 		let a4_hash =
 			insert_disconnected_header(&backend, a4_number, a3_hash, H256::from([2; 32]), true);
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(a3_hash, a3_number, H256::from([200; 32]))
+				.unwrap();
 			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, genesis_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![(genesis_number, genesis_hash)]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
 		}
 
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(a4_hash, a4_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(a4_hash, a4_number, a3_hash)
+				.unwrap();
 			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, genesis_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![(genesis_number, genesis_hash)]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
@@ -3745,8 +3762,9 @@ pub(crate) mod tests {
 			false,
 		);
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(a3_hash, a3_number, H256::from([2; 32]))
+				.unwrap();
 			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, a1_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
@@ -3764,8 +3782,9 @@ pub(crate) mod tests {
 			false,
 		);
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(a3_hash, a3_number, H256::from([2; 32]))
+				.unwrap();
 			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, a1_hash, b1_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
@@ -3788,8 +3807,9 @@ pub(crate) mod tests {
 		let b5_hash =
 			insert_disconnected_header(&backend, b5_number, b4_hash, H256::from([43; 32]), false);
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(a3_hash, a3_number, H256::from([2; 32]))
+				.unwrap();
 			assert_eq!(blockchain.leaves().unwrap(), vec![b5_hash, a4_hash, a1_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
@@ -3804,8 +3824,9 @@ pub(crate) mod tests {
 		let c4_hash =
 			insert_disconnected_header(&backend, c4_number, a3_hash, H256::from([44; 32]), false);
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(a4_hash, a4_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(a4_hash, a4_number, a3_hash)
+				.unwrap();
 			assert_eq!(blockchain.leaves().unwrap(), vec![b5_hash, a4_hash, c4_hash, a1_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![(c4_number, c4_hash)]);
 			assert_eq!(displaced.displaced_blocks, vec![c4_hash]);
@@ -3834,24 +3855,27 @@ pub(crate) mod tests {
 
 		{
 			let displaced = blockchain
-				.displaced_leaves_after_finalizing(genesis_hash, genesis_number)
+				.displaced_leaves_after_finalizing(genesis_hash, genesis_number, Default::default())
 				.unwrap();
 			assert_eq!(displaced.displaced_leaves, vec![]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
 		}
 		{
-			let displaced_a1 =
-				blockchain.displaced_leaves_after_finalizing(a1_hash, a1_number).unwrap();
+			let displaced_a1 = blockchain
+				.displaced_leaves_after_finalizing(a1_hash, a1_number, genesis_hash)
+				.unwrap();
 			assert_eq!(displaced_a1.displaced_leaves, vec![]);
 			assert_eq!(displaced_a1.displaced_blocks, vec![]);
 
-			let displaced_a2 =
-				blockchain.displaced_leaves_after_finalizing(a2_hash, a3_number).unwrap();
+			let displaced_a2 = blockchain
+				.displaced_leaves_after_finalizing(a2_hash, a2_number, a1_hash)
+				.unwrap();
 			assert_eq!(displaced_a2.displaced_leaves, vec![]);
 			assert_eq!(displaced_a2.displaced_blocks, vec![]);
 
-			let displaced_a3 =
-				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			let displaced_a3 = blockchain
+				.displaced_leaves_after_finalizing(a3_hash, a3_number, a2_hash)
+				.unwrap();
 			assert_eq!(displaced_a3.displaced_leaves, vec![]);
 			assert_eq!(displaced_a3.displaced_blocks, vec![]);
 		}
@@ -3859,8 +3883,9 @@ pub(crate) mod tests {
 			// Finalized block is above leaves and not imported yet.
 			// We will not be able to make a connection,
 			// nothing can be marked as displaced.
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(H256::from([57; 32]), 10).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(H256::from([57; 32]), 10, H256::from([56; 32]))
+				.unwrap();
 			assert_eq!(displaced.displaced_leaves, vec![]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
 		}
@@ -3884,8 +3909,9 @@ pub(crate) mod tests {
 		let d2_hash = insert_header(&backend, d2_number, d1_hash, None, Default::default());
 
 		{
-			let displaced_a1 =
-				blockchain.displaced_leaves_after_finalizing(a1_hash, a1_number).unwrap();
+			let displaced_a1 = blockchain
+				.displaced_leaves_after_finalizing(a1_hash, a1_number, genesis_hash)
+				.unwrap();
 			assert_eq!(
 				displaced_a1.displaced_leaves,
 				vec![(c2_number, c2_hash), (d2_number, d2_hash)]
@@ -3894,27 +3920,31 @@ pub(crate) mod tests {
 			displaced_blocks.sort();
 			assert_eq!(displaced_a1.displaced_blocks, displaced_blocks);
 
-			let displaced_a2 =
-				blockchain.displaced_leaves_after_finalizing(a2_hash, a2_number).unwrap();
+			let displaced_a2 = blockchain
+				.displaced_leaves_after_finalizing(a2_hash, a2_number, a1_hash)
+				.unwrap();
 			assert_eq!(displaced_a1.displaced_leaves, displaced_a2.displaced_leaves);
 			assert_eq!(displaced_a1.displaced_blocks, displaced_a2.displaced_blocks);
 
-			let displaced_a3 =
-				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			let displaced_a3 = blockchain
+				.displaced_leaves_after_finalizing(a3_hash, a3_number, a2_hash)
+				.unwrap();
 			assert_eq!(displaced_a1.displaced_leaves, displaced_a3.displaced_leaves);
 			assert_eq!(displaced_a1.displaced_blocks, displaced_a3.displaced_blocks);
 		}
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(b1_hash, b1_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(b1_hash, b1_number, genesis_hash)
+				.unwrap();
 			assert_eq!(displaced.displaced_leaves, vec![(a3_number, a3_hash)]);
 			let mut displaced_blocks = vec![a1_hash, a2_hash, a3_hash];
 			displaced_blocks.sort();
 			assert_eq!(displaced.displaced_blocks, displaced_blocks);
 		}
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(b2_hash, b2_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(b2_hash, b2_number, b1_hash)
+				.unwrap();
 			assert_eq!(
 				displaced.displaced_leaves,
 				vec![(a3_number, a3_hash), (d2_number, d2_hash)]
@@ -3924,8 +3954,9 @@ pub(crate) mod tests {
 			assert_eq!(displaced.displaced_blocks, displaced_blocks);
 		}
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(c2_hash, c2_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(c2_hash, c2_number, c1_hash)
+				.unwrap();
 			assert_eq!(
 				displaced.displaced_leaves,
 				vec![(a3_number, a3_hash), (d2_number, d2_hash)]

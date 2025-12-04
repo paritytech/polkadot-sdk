@@ -32,12 +32,7 @@ async fn full_node_catching_up() -> Result<(), anyhow::Error> {
 	let relay_client: OnlineClient<PolkadotConfig> = relay_alice.wait_client().await?;
 
 	log::info!("Ensuring parachain making progress");
-	assert_para_throughput(
-		&relay_client,
-		20,
-		[(ParaId::from(PARA_ID), 2..40)].into_iter().collect(),
-	)
-	.await?;
+	assert_para_throughput(&relay_client, 20, [(ParaId::from(PARA_ID), 2..40)]).await?;
 
 	for (name, timeout_secs) in [("dave", 250u64), ("eve", 250u64)] {
 		log::info!("Ensuring {name} reports expected block height");
@@ -61,32 +56,6 @@ async fn full_node_catching_up() -> Result<(), anyhow::Error> {
 		.await?;
 
 	assert!(result.success(), "Consensus hook failed at charlie: {result:?}");
-
-	// Check that AURA authorities tracking is working as expected.
-
-	// Authorities must be fetched from runtime exactly once.
-	let result = network
-		.get_node("eve")?
-		.wait_log_line_count_with_timeout(
-			"Authorities for block .* at number 1 not found in cache, fetching from runtime",
-			false,
-			// Do not wait for more logs, everything has happened already.
-			LogLineCountOptions::new(|n| n == 1, Duration::from_secs(0), false),
-		)
-		.await?;
-	assert!(result.success(), "Authorities tracking failed for eve: {result:?}");
-
-	// From there on, the authorities should be cached.
-	let result = network
-		.get_node("eve")?
-		.wait_log_line_count_with_timeout(
-			"Authorities for block .* at number .* found in cache",
-			false,
-			// Do not wait for more logs, everything has happened already.
-			LogLineCountOptions::new(|n| n > 1, Duration::from_secs(0), false),
-		)
-		.await?;
-	assert!(result.success(), "Authorities tracking failed for eve: {result:?}");
 
 	Ok(())
 }
@@ -130,7 +99,6 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				})
 				.with_collator(|n| {
 					n.with_name("eve").validator(false).with_args(vec![
-						("-laura::authorities_tracker=debug").into(),
 						("--relay-chain-rpc-url", "{{ZOMBIE:alice:ws_uri}}").into(),
 						("--reserved-only").into(),
 						("--reserved-nodes", "{{ZOMBIE:charlie:multiaddr}}").into(),
