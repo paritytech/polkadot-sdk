@@ -377,8 +377,12 @@ jobs:
           rustup component add clippy rust-docs rust-src rustfmt rustc rust-std
       - name: Install protobuf
         run: brew install protobuf
-      - name: install solc
-        run: brew install solidity
+      - name: install solc 0.8.30
+        run: |
+          brew tap $USER/solidity-versions || true
+          brew extract solidity $USER/solidity-versions --version=0.8.30
+          brew install $USER/solidity-versions/solidity@0.8.30
+          solc --version
       - name: Install resolc
         run: |
           source $HOME/.cargo/env
