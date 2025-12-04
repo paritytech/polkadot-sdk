@@ -1,6 +1,7 @@
 [relaychain]
 default_command = "polkadot"
 chain_spec_path = "./rc.json"
+use_stash_for_validators = false
 
 	[[relaychain.nodes]]
 	name = "alice"
