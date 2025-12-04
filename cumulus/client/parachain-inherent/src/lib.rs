@@ -39,8 +39,15 @@ async fn collect_relay_storage_proof(
 	relay_parent: PHash,
 	include_authorities: bool,
 	include_next_authorities: bool,
+	subscription_keys: Vec<(ParaId, Vec<Vec<u8>>)>,
 ) -> Option<sp_state_machine::StorageProof> {
 	use relay_chain::well_known_keys as relay_well_known_keys;
+
+	tracing::debug!(
+		target: LOG_TARGET,
+		?subscription_keys,
+		"Received subscription keys in collect_relay_storage_proof"
+	);
 
 	let ingress_channels = relay_chain_interface
 		.get_storage_by_key(
@@ -161,6 +168,7 @@ impl ParachainInherentDataProvider {
 		validation_data: &PersistedValidationData,
 		para_id: ParaId,
 		relay_parent_descendants: Vec<RelayHeader>,
+		subscription_keys: Vec<(ParaId, Vec<Vec<u8>>)>,
 	) -> Option<ParachainInherentData> {
 		// Only include next epoch authorities when the descendants include an epoch digest.
 		// Skip the first entry because this is the relay parent itself.
@@ -176,6 +184,7 @@ impl ParachainInherentDataProvider {
 			relay_parent,
 			!relay_parent_descendants.is_empty(),
 			include_next_authorities,
+			subscription_keys,
 		)
 		.await?;
 

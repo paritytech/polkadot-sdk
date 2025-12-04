@@ -234,6 +234,7 @@ where
 						&validation_data,
 						parent_hash,
 						claim.timestamp(),
+						Vec::new(),
 					)
 					.await
 			);

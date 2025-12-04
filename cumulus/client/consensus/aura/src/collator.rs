@@ -128,6 +128,7 @@ where
 		parent_hash: Block::Hash,
 		timestamp: impl Into<Option<Timestamp>>,
 		relay_parent_descendants: Option<RelayParentData>,
+		subscription_keys: Vec<(ParaId, Vec<Vec<u8>>)>,
 	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
 		let paras_inherent_data = ParachainInherentDataProvider::create_at(
 			relay_parent,
@@ -137,6 +138,7 @@ where
 			relay_parent_descendants
 				.map(RelayParentData::into_inherent_descendant_list)
 				.unwrap_or_default(),
+			subscription_keys,
 		)
 		.await;
 
@@ -172,6 +174,7 @@ where
 		validation_data: &PersistedValidationData,
 		parent_hash: Block::Hash,
 		timestamp: impl Into<Option<Timestamp>>,
+		subscription_keys: Vec<(ParaId, Vec<Vec<u8>>)>,
 	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
 		self.create_inherent_data_with_rp_offset(
 			relay_parent,
@@ -179,6 +182,7 @@ where
 			parent_hash,
 			timestamp,
 			None,
+			subscription_keys,
 		)
 		.await
 	}

@@ -368,6 +368,7 @@ where
 					parent_hash,
 					slot_claim.timestamp(),
 					Some(rp_data),
+					Vec::new(),
 				)
 				.await
 			{
