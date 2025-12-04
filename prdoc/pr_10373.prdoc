@@ -1,7 +1,22 @@
 title: Block import improvements
 doc:
 - audience: Node Operator
-  description: Builds on top of https://github.com/paritytech/polkadot-sdk/pull/9678
+  description: |-
+    This PR fixes block import during Warp sync, which was failing due to "Unknown parent" errors - a typical case during Warp sync.
+
+    Changes
+     - Relaxed verification for Warp synced blocks:
+    The fix relaxes verification requirements for Warp synced blocks by not performing full verification, with the assumption that these blocks are part of the finalized chain and have already been verified using the provided warp sync proof.
+    - New `BlockOrigin` variants:
+    For improved clarity, two additional `BlockOrigin` items have been introduced:
+      - `WarpSync`
+      - `GapSync`
+    - Gap sync improvements:
+    Warp synced blocks are now skipped during the gap sync block import phase, which required improvements to gap handling when committing the block import operation in the database.
+    - Enhanced testing:
+    The Warp sync zombienet test has been modified to more thoroughly assert both warp and gap sync phases.
+
+    This PR builds on changes by @sistemd in #9678
 crates:
 - name: sc-consensus-babe
   bump: patch
@@ -16,4 +31,6 @@ crates:
 - name: sc-client-db
   bump: patch
 - name: cumulus-client-pov-recovery
+  bump: patch
+- name: sp-consensus
   bump: patch
