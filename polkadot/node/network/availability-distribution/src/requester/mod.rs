@@ -305,21 +305,49 @@ impl Requester {
 				"Adding scheduled cores"
 			);
 
-			for (_, core_info) in &scheduled_cores {
+			let candidate_hashes = scheduled_cores.iter().map(|(_, core_info)| core_info.candidate_hash).collect::<HashSet<_>>();
+			
+			let session_info = self
+				.session_cache
+				.get_session_info(
+					ctx,
+					runtime,
+					// We use leaf here, the relay_parent must be in the same session as
+					// the leaf. This is guaranteed by runtime which ensures that cores are
+					// cleared at session boundaries. At the same time, only leaves are
+					// guaranteed to be fetchable by the state trie.
+					leaf,
+					leaf_session_index,
+				)
+				.await
+				.map_err(|err| {
+					gum::warn!(
+						target: LOG_TARGET,
+						error = ?err,
+						"Failed to spawn a fetch task"
+					);
+					err
+				})?;
+
+			if let Some(session_info) = session_info {
+				let num_validators =
+					session_info.validator_groups.iter().fold(0usize, |mut acc, group| {
+						acc = acc.saturating_add(group.len());
+						acc
+					});
+			
 				let (tx, rx) = oneshot::channel();
 				sender
 					.send_message(
-						AvailabilityStoreMessage::NoteBackableCandidate{ candidate_hash: core_info.candidate_hash, tx },
+						AvailabilityStoreMessage::NoteBackableCandidates{ candidate_hashes: candidate_hashes, num_validators, tx },
 					)
 					.await;
 				if let Err(err) = rx.await {
 					gum::error!(target: LOG_TARGET, "Sending NoteBackableCandidate message failed: {:?}", err);
 				}
-				
+				self.add_cores(ctx, runtime, leaf, leaf_session_index, scheduled_cores).await?;
 			}
-			self.add_cores(ctx, runtime, leaf, leaf_session_index, scheduled_cores).await?;
 		}
-
 		Ok(())
 	}
 
