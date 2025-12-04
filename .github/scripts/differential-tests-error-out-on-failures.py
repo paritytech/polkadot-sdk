@@ -1,8 +1,6 @@
 """
-This script is used to turn the JSON report produced by the revive differential tests tool into an
-easy to consume markdown document for the purpose of reporting this information in the Polkadot SDK
-CI. The full models used in the JSON report can be found in the revive differential tests repo and
-the models used in this script are just a partial reproduction of the full report models.
+This script is used to turn the JSON report produced by the revive differential tests, detecting
+failures and exiting with the appropriate code if a failure is encountered.
 """
 
 import json, typing, sys
