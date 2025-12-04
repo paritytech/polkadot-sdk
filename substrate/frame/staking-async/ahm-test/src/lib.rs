@@ -50,6 +50,7 @@ mod tests {
 		// initial state of ah
 		shared::in_ah(|| {
 			assert_eq!(frame_system::Pallet::<ah::Runtime>::block_number(), 1);
+
 			assert_eq!(pallet_staking_async::CurrentEra::<ah::Runtime>::get(), Some(0));
 			assert_eq!(
 				ActiveEra::<ah::Runtime>::get(),
@@ -74,6 +75,17 @@ mod tests {
 			assert_eq!(frame_system::Pallet::<rc::Runtime>::block_number(), rc::Period::get());
 		});
 
+		shared::in_ah(|| {
+			// ah's rc-client has also progressed some blocks, equal to 1 session
+			assert_eq!(frame_system::Pallet::<ah::Runtime>::block_number(), 30);
+			// election is ongoing, and has just started
+			assert_eq!(pallet_staking_async::CurrentEra::<ah::Runtime>::get(), Some(1));
+			assert!(matches!(
+				multi_block::CurrentPhase::<ah::Runtime>::get(),
+				multi_block::Phase::Snapshot(_)
+			));
+		});
+
 		shared::in_rc(|| {
 			// roll a few more sessions
 			rc::roll_until_matches(
@@ -85,11 +97,12 @@ mod tests {
 		shared::in_ah(|| {
 			// ah's rc-client has also progressed some blocks, equal to 4 sessions
 			assert_eq!(frame_system::Pallet::<ah::Runtime>::block_number(), 120);
-			// election is ongoing, and has just started
-			assert!(matches!(
-				multi_block::CurrentPhase::<ah::Runtime>::get(),
-				multi_block::Phase::Snapshot(_)
-			));
+
+			// Election is done
+			assert_eq!(multi_block::CurrentPhase::<ah::Runtime>::get(), multi_block::Phase::Off);
+
+			// Validator set is queued
+			assert!(rc_client::OutgoingValidatorSet::<ah::Runtime>::exists());
 		});
 
 		// go to session 5 in rc, and forward AH too.
