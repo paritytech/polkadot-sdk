@@ -1,28 +1,28 @@
-title: 'Introduced pallet-dap'
+title: 'First iteration of Dynamic Allocation Pool (DAP): burns -> DAP buffer/satellite'
 doc:
 - audience: Runtime Dev
   description: |-
-    Initial PoC PR to play around with Dynamic Allocation Proposal here: https://hackmd.io/a0KSL4XHQ1WvcGZlKykGzg
+    This initial version makes it possible to collect funds that would otherwise be burned into
+      - the DAP buffer on AssetHub
+      - the DAP satellite on system chains and the RelayChain
+    This is fully configurable, meaning that chains can choose to redirect all, some, or none of the funds that would be burned into DAP.
 
-    Initial version supports the following:
-      - Introduced FundingSink and FundingSource traits in frame-support
-      - Introduced pallet-dap with minimal implementation of FundingSink trait only. This pallet is meant to be
-      deployed on AssetHub as the central DAP pallet.
-      - Introduced pallet-dap-satellite, to collect funds that otherwise would be burned (e.g. tx fees,
-      coretime revenues, ...) into a local satellite account. These funds are accumulated locally and
-      will be sent to pallet-dap periodically in future iterations. The pallet implements a configurable fee handler
-      that splits fees between DAP satellite and another destination.
-      This pallet is meant to be deployed on system chains like Coretime, People and BridgeHub and on the RelayChain.
-      It should not be deployed on AssetHub, which hosts the central DAP pallet.
+    The mechanism to periodically transfer funds from the DAP satellite to the DAP buffer via XCM is not yet in place.
 
-    Runtime changes:
-      - asset-hub-westend: redirected treasury unspent to pallet-dap instead of burning
-      - asset-hub-westend: redirected staking slashes to pallet-dap instead of burning
-      - asset-hub-westend: all user-initiated burns go to DAP buffer instead of reducing total issuance.
-      - RC: westend-runtime has been updated to include pallet-dap-satellite. It preserves the original behavior for which 100% of tx fees are redirected to the block author.
-      - coretime-westend has been updated to include pallet-dap-satellite. Coretime revenues are now accumulated in the pallet-dap-satellite account instead of being burned.
-      - people-westend, bridge-hub-westend and collective-westend have been updated to include pallet-dap-satellite.
-      The original behavior for which 100% of tx fees are redirected to the staking pot has been preserved.
+    Westend RelayChain and system chains are now integrated with DAP / DAP satellite.
+    - On AssetHub:
+      - treasury unspent and staking slashes are now redirected to the DAP buffer instead of being burned.
+      - All user-initiated burns also go to the DAP buffer instead of reducing total issuance.
+    - On RelayChain, DAP satellite is included, but the original behavior of redirecting 100% of tx fees to the block author is preserved.
+    - On Coretime, revenues that would be transferred daily to XCM and burned, are now redirected to the DAP satellite instead.
+    - On other system chains (People, BridgeHub, Collective), DAP satellite is included, but the original behavior of redirecting 100% of tx fees to the staking pot is preserved.
+
+    In the next iterations, we will introduce the following:
+      - Make it possible to replace direct minting with requesting funds from DAP buffer.
+      - Make DAP responsible to mint according to the issuance curve defined per chain.
+      - Make it possible to configure the percentage of funds redirected from DAP to different destinations (validators, nominators, treasury, collators, ...).
+      - Support for multiple assets in DAP: native token and stablecoin.
+      - The periodic transfer of funds from DAP satellite to DAP buffer via XCM.
 crates:
 - name: frame-support
   bump: minor
