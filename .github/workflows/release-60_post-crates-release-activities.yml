@@ -76,7 +76,7 @@ jobs:
           current_version=$(grep 'pub const NODE_VERSION' "$FILE" | grep -oE '"[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"')
           echo "Current version: $current_version"
 
-          # Bump patch version 
+          # Bump patch version
           new_version=$(echo "$current_version" | awk -F. '{print $1"."$2"."$3+1}')
           echo "New version: $new_version"
 
@@ -143,7 +143,7 @@ jobs:
         run: |
           echo "Running replace-all-path-deps.sh..."
           bash scripts/release/replace-all-path-deps.sh
-          
+
           # Show git diff to see what changed
           git diff --stat
 
@@ -151,7 +151,7 @@ jobs:
         run: |
           echo "Running delete-versions-if-path-is-present.sh..."
           bash scripts/release/delete-versions-if-path-is-present.sh
-          
+
           # Show git diff to see what changed
           git diff --stat
 
@@ -159,7 +159,7 @@ jobs:
         run: |
           echo "Running delete-version-from-umbrella.sh..."
           bash scripts/release/delete-version-from-umbrella.sh
-          
+
           # Show git diff to see what changed
           git diff --stat
 
