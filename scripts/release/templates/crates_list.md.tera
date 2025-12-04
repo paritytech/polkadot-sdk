@@ -1,1 +1,3 @@
-{# List of chnaged crates with updated versions genearted during the crates relaease . -#}
+The following crates were updated to the corresponding versions:
+
+- cumulus-pallet-parachain-system@0.21.2
