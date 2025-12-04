@@ -13,8 +13,8 @@ doc:
     `pallet_staking_async_rc_client::Config::ValidatorSetExportSession` to learn more.
 crates:
 - name: pallet-staking-async
-  bump: major
+  bump: minor
 - name: pallet-staking-async-rc-client
-  bump: major
+  bump: minor
 - name: asset-hub-westend-runtime
-  bump: major
+  bump: minor
