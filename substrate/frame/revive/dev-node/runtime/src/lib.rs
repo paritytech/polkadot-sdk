@@ -71,7 +71,7 @@ pub mod genesis_config_presets {
 	use alloc::{vec, vec::Vec};
 	use serde_json::Value;
 
-	pub const ENDOWMENT: Balance = 1_000_000_001 * DOLLARS;
+	pub const ENDOWMENT: Balance = 10_000_000_000_001 * DOLLARS;
 
 	fn well_known_accounts() -> Vec<AccountId> {
 		Sr25519Keyring::well_known()
@@ -299,8 +299,8 @@ parameter_types! {
 /// Implements the types required for the system pallet.
 #[derive_impl(frame_system::config_preludes::SolochainDefaultConfig)]
 impl frame_system::Config for Runtime {
-	type BlockWeights = RuntimeBlockWeights;
 	type Block = Block;
+	type BlockWeights = RuntimeBlockWeights;
 	type Version = Version;
 	type AccountId = AccountId;
 	type Hash = Hash;
@@ -359,6 +359,7 @@ impl pallet_revive::Config for Runtime {
 	type Time = Timestamp;
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
 	type DebugEnabled = ConstBool<false>;
+	type GasScale = ConstU32<50000>;
 }
 
 pallet_revive::impl_runtime_apis_plus_revive_traits!(

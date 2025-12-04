@@ -587,13 +587,10 @@ impl MaxEncodedLen for MultiAssets {
 
 impl Decode for MultiAssets {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
-		let mut bounded_instructions =
+		let bounded_instructions =
 			BoundedVec::<MultiAsset, ConstU32<{ MAX_ITEMS_IN_MULTIASSETS as u32 }>>::decode(input)?;
-
-		bounded_instructions.sort();
-
 		Self::from_sorted_and_deduplicated(bounded_instructions.into_inner())
-			.map_err(|()| "Duplicate items".into())
+			.map_err(|()| "Out of order".into())
 	}
 }
 
@@ -685,7 +682,6 @@ impl MultiAssets {
 	pub fn from_sorted_and_deduplicated_skip_checks(r: Vec<MultiAsset>) -> Self {
 		Self::from_sorted_and_deduplicated(r).expect("Invalid input r is not sorted/deduped")
 	}
-
 	/// Create a new instance of `MultiAssets` from a `Vec<MultiAsset>` whose contents are sorted
 	/// and which contain no duplicates.
 	///
