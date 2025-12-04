@@ -678,7 +678,7 @@ struct Frame<T: Config> {
 
 /// This structure is used to represent the arguments in a delegate call frame in order to
 /// distinguish who delegated the call and where it was delegated to.
-#[derive(Clone)]
+#[derive(Clone, RuntimeDebugNoBound)]
 pub struct DelegateInfo<T: Config> {
 	/// The caller of the contract.
 	pub caller: Origin<T>,
@@ -889,7 +889,7 @@ where
 				t.enter_child_span(
 					origin.account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
 					T::AddressMapper::to_address(&dest),
-					false,
+					None,
 					false,
 					value,
 					&input_data,
@@ -1239,7 +1239,7 @@ where
 			tracer.enter_child_span(
 				self.caller().account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
 				T::AddressMapper::to_address(&frame.account_id),
-				frame.delegate.is_some(),
+				frame.delegate.as_ref().map(|delegate| delegate.callee),
 				frame.read_only,
 				frame.value_transferred,
 				&input_data,
@@ -2123,7 +2123,7 @@ where
 					t.enter_child_span(
 						T::AddressMapper::to_address(self.account_id()),
 						T::AddressMapper::to_address(&dest),
-						false,
+						None,
 						is_read_only,
 						value,
 						&input_data,
