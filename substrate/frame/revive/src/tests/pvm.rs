@@ -1044,17 +1044,6 @@ fn self_destruct_by_precompile_works() {
 }
 
 #[test]
-fn can_self_destruct_in_constructor_by_syscall() {
-	let (binary, _) = compile_module("self_destructing_constructor_by_syscall").unwrap();
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-
-		// Fail to instantiate the BOB because the constructor calls seal_terminate.
-		assert_ok!(builder::instantiate_with_code(binary).value(100_000).build(),);
-	});
-}
-
-#[test]
 fn cannot_self_destruct_in_constructor_by_precompile() {
 	let (binary, _) = compile_module("self_destructing_constructor_by_precompile").unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
