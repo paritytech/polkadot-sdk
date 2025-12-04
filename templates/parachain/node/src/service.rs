@@ -286,22 +286,20 @@ pub async fn start_parachain_node(
 	// NOTE: because we use Aura here explicitly, we can use `CollatorSybilResistance::Resistant`
 	// when starting the network.
 	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
-		build_network::<Block, _, _, _, sc_network::NetworkWorker<Block, Hash>, ()>(
-			BuildNetworkParams {
-				parachain_config: &parachain_config,
-				net_config,
-				client: client.clone(),
-				transaction_pool: transaction_pool.clone(),
-				para_id,
-				spawn_handle: task_manager.spawn_handle(),
-				relay_chain_interface: relay_chain_interface.clone(),
-				import_queue: params.import_queue,
-				sybil_resistance_level: CollatorSybilResistance::Resistant, // because of Aura
-				metrics: sc_network::NetworkWorker::<Block, Hash>::register_notification_metrics(
-					parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
-				),
-			},
-		)
+		build_network(BuildNetworkParams {
+			parachain_config: &parachain_config,
+			net_config,
+			client: client.clone(),
+			transaction_pool: transaction_pool.clone(),
+			para_id,
+			spawn_handle: task_manager.spawn_handle(),
+			relay_chain_interface: relay_chain_interface.clone(),
+			import_queue: params.import_queue,
+			sybil_resistance_level: CollatorSybilResistance::Resistant, // because of Aura
+			metrics: sc_network::NetworkWorker::<Block, Hash>::register_notification_metrics(
+				parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
+			),
+		})
 		.await?;
 	let collator_peer_id = network.local_peer_id();
 

@@ -61,7 +61,6 @@ use sc_network_sync::{
 	state_request_handler::StateRequestHandler,
 	strategy::{
 		polkadot::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
-		warp::WarpSyncContext,
 		SyncingStrategy,
 	},
 	warp_request_handler::RequestHandler as WarpSyncRequestHandler,
@@ -941,11 +940,10 @@ where
 }
 
 /// Parameters to pass into [`build_network`].
-pub struct BuildNetworkParams<'a, Block, Net, TxPool, IQ, Client, Context>
+pub struct BuildNetworkParams<'a, Block, Net, TxPool, IQ, Client>
 where
 	Block: BlockT,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
-	Context: WarpSyncContext,
 {
 	/// The service configuration.
 	pub config: &'a Configuration,
@@ -964,7 +962,7 @@ where
 		Box<dyn FnOnce(Arc<Client>) -> Box<dyn BlockAnnounceValidator<Block> + Send> + Send>,
 	>,
 	/// Optional warp sync config.
-	pub warp_sync_config: Option<WarpSyncConfig<Block, Context>>,
+	pub warp_sync_config: Option<WarpSyncConfig<Block>>,
 	/// User specified block relay params. If not specified, the default
 	/// block request handler will be used.
 	pub block_relay: Option<BlockRelayParams<Block, Net>>,
@@ -973,8 +971,8 @@ where
 }
 
 /// Build the network service, the network status sinks and an RPC sender.
-pub fn build_network<Block, Net, TxPool, IQ, Client, Context>(
-	params: BuildNetworkParams<Block, Net, TxPool, IQ, Client, Context>,
+pub fn build_network<Block, Net, TxPool, IQ, Client>(
+	params: BuildNetworkParams<Block, Net, TxPool, IQ, Client>,
 ) -> Result<
 	(
 		Arc<dyn sc_network::service::traits::NetworkService>,
@@ -998,7 +996,6 @@ where
 	TxPool: TransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + 'static,
 	IQ: ImportQueue<Block> + 'static,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
-	Context: WarpSyncContext,
 {
 	let BuildNetworkParams {
 		config,
@@ -1295,11 +1292,10 @@ where
 }
 
 /// Configuration for [`build_default_syncing_engine`].
-pub struct DefaultSyncingEngineConfig<'a, Block, Client, Net, Context>
+pub struct DefaultSyncingEngineConfig<'a, Block, Client, Net>
 where
 	Block: BlockT,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
-	Context: WarpSyncContext,
 {
 	/// Role of the local node.
 	pub role: Role,
@@ -1314,7 +1310,7 @@ where
 	/// Handle to communicate with `NetworkService`.
 	pub network_service_handle: NetworkServiceHandle,
 	/// Warp sync configuration (when used).
-	pub warp_sync_config: Option<WarpSyncConfig<Block, Context>>,
+	pub warp_sync_config: Option<WarpSyncConfig<Block>>,
 	/// A shared client returned by `new_full_parts`.
 	pub client: Arc<Client>,
 	/// Blocks import queue API.
@@ -1331,8 +1327,8 @@ where
 
 /// Build default syncing engine using [`build_default_block_downloader`] and
 /// [`build_polkadot_syncing_strategy`] internally.
-pub fn build_default_syncing_engine<Block, Client, Net, Context>(
-	config: DefaultSyncingEngineConfig<Block, Client, Net, Context>,
+pub fn build_default_syncing_engine<Block, Client, Net>(
+	config: DefaultSyncingEngineConfig<Block, Client, Net>,
 ) -> Result<(SyncingService<Block>, Net::NotificationProtocolConfig), Error>
 where
 	Block: BlockT,
@@ -1344,7 +1340,6 @@ where
 		+ Sync
 		+ 'static,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
-	Context: WarpSyncContext,
 {
 	let DefaultSyncingEngineConfig {
 		role,
@@ -1438,11 +1433,11 @@ where
 }
 
 /// Build standard polkadot syncing strategy
-pub fn build_polkadot_syncing_strategy<Block, Client, Net, Context>(
+pub fn build_polkadot_syncing_strategy<Block, Client, Net>(
 	protocol_id: ProtocolId,
 	fork_id: Option<&str>,
 	net_config: &mut FullNetworkConfiguration<Block, <Block as BlockT>::Hash, Net>,
-	warp_sync_config: Option<WarpSyncConfig<Block, Context>>,
+	warp_sync_config: Option<WarpSyncConfig<Block>>,
 	block_downloader: Arc<dyn BlockDownloader<Block>>,
 	client: Arc<Client>,
 	spawn_handle: &SpawnTaskHandle,
@@ -1458,7 +1453,6 @@ where
 		+ Sync
 		+ 'static,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
-	Context: WarpSyncContext,
 {
 	if warp_sync_config.is_none() && net_config.network_config.sync_mode.is_warp() {
 		return Err("Warp sync enabled, but no warp sync provider configured.".into())
@@ -1517,7 +1511,7 @@ where
 		state_request_protocol_name,
 		block_downloader,
 	};
-	Ok(Box::new(PolkadotSyncingStrategy::<Block, Client, Context>::new(
+	Ok(Box::new(PolkadotSyncingStrategy::new(
 		syncing_config,
 		client,
 		warp_sync_config,

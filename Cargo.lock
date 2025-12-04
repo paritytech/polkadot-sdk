@@ -20597,6 +20597,7 @@ dependencies = [
  "sp-arithmetic",
  "sp-blockchain",
  "sp-consensus",
+ "sp-consensus-grandpa",
  "sp-core 28.0.0",
  "sp-runtime",
  "sp-test-primitives",

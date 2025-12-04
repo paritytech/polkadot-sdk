@@ -135,7 +135,7 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
 			block_announce_validator_builder: None,
-			warp_sync_config: None::<sc_service::WarpSyncConfig<Block, ()>>,
+			warp_sync_config: None,
 			block_relay: None,
 			metrics,
 		})?;

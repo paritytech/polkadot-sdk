@@ -215,13 +215,7 @@ impl TestNetworkBuilder {
 		};
 		// Initialize syncing strategy.
 		let syncing_strategy = Box::new(
-			PolkadotSyncingStrategy::<TestBlock, _, ()>::new(
-				syncing_config,
-				client.clone(),
-				None,
-				None,
-			)
-			.unwrap(),
+			PolkadotSyncingStrategy::new(syncing_config, client.clone(), None, None).unwrap(),
 		);
 
 		let (engine, chain_sync_service, block_announce_config) = SyncingEngine::new(

@@ -371,7 +371,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			});
 
 			let (network, system_rpc_tx, tx_handler_controller, sync_service) =
-				build_network::<Self::Block, _, _, _, _, ()>(BuildNetworkParams {
+				build_network(BuildNetworkParams {
 					parachain_config: &parachain_config,
 					net_config,
 					client: client.clone(),

@@ -26,7 +26,7 @@ use crate::{
 	strategy::{
 		chain_sync::{ChainSync, ChainSyncMode},
 		state::StateStrategy,
-		warp::{WarpSync, WarpSyncConfig, WarpSyncContext},
+		warp::{WarpSync, WarpSyncConfig},
 		StrategyKey, SyncingAction, SyncingStrategy,
 	},
 	types::SyncStatus,
@@ -76,13 +76,13 @@ where
 }
 
 /// Proxy to specific syncing strategies used in Polkadot.
-pub struct PolkadotSyncingStrategy<B: BlockT, Client, Context: WarpSyncContext> {
+pub struct PolkadotSyncingStrategy<B: BlockT, Client> {
 	/// Initial syncing configuration.
 	config: PolkadotSyncingStrategyConfig<B>,
 	/// Client used by syncing strategies.
 	client: Arc<Client>,
 	/// Warp strategy.
-	warp: Option<WarpSync<B, Client, Context>>,
+	warp: Option<WarpSync<B, Client>>,
 	/// State strategy.
 	state: Option<StateStrategy<B>>,
 	/// `ChainSync` strategy.`
@@ -92,8 +92,7 @@ pub struct PolkadotSyncingStrategy<B: BlockT, Client, Context: WarpSyncContext> 
 	peer_best_blocks: HashMap<PeerId, (B::Hash, NumberFor<B>)>,
 }
 
-impl<B: BlockT, Client, Context: WarpSyncContext> SyncingStrategy<B>
-	for PolkadotSyncingStrategy<B, Client, Context>
+impl<B: BlockT, Client> SyncingStrategy<B> for PolkadotSyncingStrategy<B, Client>
 where
 	B: BlockT,
 	Client: HeaderBackend<B>
@@ -208,7 +207,7 @@ where
 					);
 					debug_assert!(false);
 				},
-			WarpSync::<B, Client, Context>::STRATEGY_KEY =>
+			WarpSync::<B, Client>::STRATEGY_KEY =>
 				if let Some(warp) = &mut self.warp {
 					warp.on_generic_response(peer_id, protocol_name, response);
 				} else {
@@ -329,7 +328,7 @@ where
 	}
 }
 
-impl<B: BlockT, Client, Context: WarpSyncContext> PolkadotSyncingStrategy<B, Client, Context>
+impl<B: BlockT, Client> PolkadotSyncingStrategy<B, Client>
 where
 	B: BlockT,
 	Client: HeaderBackend<B>
@@ -344,7 +343,7 @@ where
 	pub fn new(
 		mut config: PolkadotSyncingStrategyConfig<B>,
 		client: Arc<Client>,
-		warp_sync_config: Option<WarpSyncConfig<B, Context>>,
+		warp_sync_config: Option<WarpSyncConfig<B>>,
 		warp_sync_protocol_name: Option<ProtocolName>,
 	) -> Result<Self, ClientError> {
 		if config.max_blocks_per_request > MAX_BLOCKS_IN_RESPONSE as u32 {
