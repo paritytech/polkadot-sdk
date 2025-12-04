@@ -1,0 +1,24 @@
+title: 'test-utils/fix: Parachains test-utils relay parent descendants mock data'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR ensures that the parachains test-utils crate has 2 relay parent descendants for testing purposes.
+
+    Effectively fixes a panic because we missed this mock data for chains that started with `RP_offset > 0`:
+
+    ```
+     Unable to verify provided relay parent descendants. expected_rp_descendants_num: 1 error: InvalidNumberOfDescendants { expected: 2, received: 0 }
+    note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+    ```
+
+    Detected in:
+    - https://github.com/polkadot-fellows/runtimes/actions/runs/19857064730/job/56897622908?pr=1018
+
+    Unblocks:
+    - https://github.com/polkadot-fellows/runtimes/pull/1018
+
+    Inspired by a similar fix I've introduced in:
+    - https://github.com/paritytech/polkadot-sdk/pull/9880
+crates:
+- name: parachains-runtimes-test-utils
+  bump: patch
