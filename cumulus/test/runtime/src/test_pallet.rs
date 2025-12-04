@@ -38,6 +38,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type TestMap<T: Config> = StorageMap<_, Twox64Concat, u32, (), ValueQuery>;
 
+	/// Development data storage for testing (e.g., PoV reclaim testing).
+	/// Maps index to value, where value equals index.
+	#[pallet::storage]
+	pub type DevData<T: Config> = StorageMap<_, Twox64Concat, u32, u32, OptionQuery>;
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
@@ -105,11 +110,29 @@ pub mod pallet {
 			TestMap::<T>::remove(key);
 			Ok(())
 		}
+
+		/// Remove development data entries from storage.
+		///
+		/// Removes `count` entries starting from index `start`.
+		#[pallet::weight(0)]
+		pub fn kill_dev_entry(
+			_: OriginFor<T>,
+			start: u32,
+			count: u32,
+		) -> DispatchResult {
+			for i in start..start.saturating_add(count) {
+				DevData::<T>::remove(i);
+			}
+			Ok(())
+		}
 	}
 
 	#[derive(frame_support::DefaultNoBound)]
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
+		/// Number of development data entries to create in DevData storage.
+		/// Entry i will have value i.
+		pub dev_data_entries: u32,
 		#[serde(skip)]
 		pub _config: core::marker::PhantomData<T>,
 	}
@@ -118,6 +141,11 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			sp_io::storage::set(TEST_RUNTIME_UPGRADE_KEY, &[1, 2, 3, 4]);
+
+			// Populate DevData storage entries.
+			for i in 0..self.dev_data_entries {
+				DevData::<T>::insert(i, i);
+			}
 		}
 	}
 }
