@@ -47,8 +47,8 @@ use sp_runtime::{
 ///
 /// 2. Any `inherent` or any transaction up to `MAX_TRANSACTION_TO_CONSIDER` requires more block
 ///    weight than the target extrinsic weight. Target extrinsic weight is the max weight for the
-///    respective extrinsic class. The priority to determine the target e weight is the following, we
-///    start checking if
+///    respective extrinsic class. The priority to determine the target e weight is the following,
+///    we start checking if
 ///    [`WeightsPerClass::max_extrinsic`](frame_system::limits::WeightsPerClass::max_extrinsic) is
 ///    set, after this
 ///    [`WeightsPerClass::max_total`](frame_system::limits::WeightsPerClass::max_total) and if both

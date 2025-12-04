@@ -16,7 +16,11 @@
 
 use crate::{validate_block::MemoryOptimizedValidationParams, *};
 use codec::{Decode, DecodeAll, Encode};
-use cumulus_primitives_core::{relay_chain, ParachainBlockData, PersistedValidationData, relay_chain::{UMPSignal, UMP_SEPARATOR}, ClaimQueueOffset, CoreInfo, CoreSelector, };
+use cumulus_primitives_core::{
+	relay_chain,
+	relay_chain::{UMPSignal, UMP_SEPARATOR},
+	ClaimQueueOffset, CoreInfo, CoreSelector, ParachainBlockData, PersistedValidationData,
+};
 use cumulus_test_client::{
 	generate_extrinsic, generate_extrinsic_with_pair,
 	runtime::{
