@@ -1,0 +1,8 @@
+title: Check for failures in DT CI
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    This is a small PR that makes the CI of the differential testing framework fail if any failure is encountered. We only do this with the `revive-dev-node-revm-solc` target since this is the only target at the moment that has no failures.
+crates: []
