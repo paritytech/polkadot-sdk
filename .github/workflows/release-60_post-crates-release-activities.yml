@@ -76,7 +76,7 @@ jobs:
           current_version=$(grep 'pub const NODE_VERSION' "$FILE" | grep -oE '"[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"')
           echo "Current version: $current_version"
 
-          # Bump patch version
+          # Bump patch version 
           new_version=$(echo "$current_version" | awk -F. '{print $1"."$2"."$3+1}')
           echo "New version: $new_version"
 
