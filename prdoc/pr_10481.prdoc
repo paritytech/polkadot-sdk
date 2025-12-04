@@ -26,8 +26,10 @@ crates:
 - name: frame-support
   bump: minor
 - name: pallet-dap
-  bump: major
+  bump: patch
 - name: pallet-dap-satellite
+  bump: patch
+- name: polkadot-sdk
   bump: major
 - name: asset-hub-westend-runtime
   bump: major
