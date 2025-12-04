@@ -170,11 +170,7 @@ enum Phase<B: BlockT> {
 	/// Waiting for enough peers to connect.
 	WaitingForPeers { warp_sync_provider: Arc<dyn WarpSyncProvider<B>> },
 	/// Downloading warp proofs.
-	WarpProof {
-		verifier: Arc<dyn Verifier<B>>,
-		last_hash: B::Hash,
-		warp_sync_provider: Arc<dyn WarpSyncProvider<B>>,
-	},
+	WarpProof { verifier: Arc<dyn Verifier<B>>, last_hash: B::Hash },
 	/// Downloading target block.
 	TargetBlock(B::Header),
 	/// Warp sync is complete.
@@ -207,7 +203,7 @@ pub struct WarpSyncResult<B: BlockT> {
 /// Warp sync state machine. Accumulates warp proofs and state.
 pub struct WarpSync<B: BlockT, Client> {
 	phase: Phase<B>,
-	client: Arc<Client>,
+	_client: Arc<Client>,
 	total_proof_bytes: u64,
 	total_state_bytes: u64,
 	peers: HashMap<PeerId, Peer<B>>,
@@ -246,7 +242,7 @@ where
 				"Can't use warp sync mode with a partially synced database. Reverting to full sync mode."
 			);
 			return Self {
-				client,
+				_client: client,
 				phase: Phase::Complete,
 				total_proof_bytes: 0,
 				total_state_bytes: 0,
@@ -267,7 +263,7 @@ where
 		};
 
 		Self {
-			client,
+			_client: client,
 			phase,
 			total_proof_bytes: 0,
 			total_state_bytes: 0,
@@ -331,11 +327,8 @@ where
 		}
 
 		let verifier = warp_sync_provider.create_verifier();
-		self.phase = Phase::WarpProof {
-			verifier: Arc::clone(&verifier),
-			last_hash: verifier.context(),
-			warp_sync_provider: Arc::clone(warp_sync_provider),
-		};
+		self.phase =
+			Phase::WarpProof { verifier: Arc::clone(&verifier), last_hash: verifier.context() };
 		trace!(target: LOG_TARGET, "Started warp sync with {} peers.", self.peers.len());
 	}
 
@@ -397,7 +390,7 @@ where
 			peer.state = PeerState::Available;
 		}
 
-		let Phase::WarpProof { verifier, last_hash, warp_sync_provider } = &mut self.phase else {
+		let Phase::WarpProof { verifier, last_hash } = &mut self.phase else {
 			debug!(target: LOG_TARGET, "Unexpected warp proof response");
 			self.actions
 				.push(SyncingAction::DropPeer(BadPeer(*peer_id, rep::UNEXPECTED_RESPONSE)));
