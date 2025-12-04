@@ -2529,7 +2529,7 @@ where
 		let new_base_deposit = info.update_base_deposit(code_info.deposit());
 		let deposit = StorageDeposit::Charge(new_base_deposit)
 			.saturating_sub(&StorageDeposit::Charge(old_base_deposit));
-		
+
 		parent
 			.frame_meter
 			.charge_contract_deposit_and_transfer(parent.account_id.clone(), deposit)?;

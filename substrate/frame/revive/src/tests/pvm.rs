@@ -2781,8 +2781,8 @@ fn deposit_limit_honors_existential_deposit() {
 
 #[test]
 fn native_dependency_deposit_works() {
-	use pallet_revive_fixtures::SetCodeHash;
 	use alloy_core::sol_types::SolCall;
+	use pallet_revive_fixtures::SetCodeHash;
 	let (binary, code_hash) = compile_module_with_type("SetCodeHash", FixtureType::Resolc).unwrap();
 	let (dummy_binary, dummy_code_hash) = compile_module("dummy").unwrap();
 
@@ -2830,10 +2830,8 @@ fn native_dependency_deposit_works() {
 
 			let _ = builder::bare_call(addr)
 				.data(
-					SetCodeHash::setCodeHashCall {
-						codeHash: dummy_code_hash.0.into(),
-					}
-					.abi_encode(),
+					SetCodeHash::setCodeHashCall { codeHash: dummy_code_hash.0.into() }
+						.abi_encode(),
 				)
 				.build_and_unwrap_result();
 

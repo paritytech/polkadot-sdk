@@ -365,12 +365,7 @@ fn set_code_hash(fixture_type: FixtureType) {
 
 		// First call sets new code_hash and returns 1
 		let result = builder::bare_call(contract_addr)
-			.data(
-				SetCodeHash::setCodeHashCall {
-					codeHash: new_code_hash.0.into(),
-				}
-				.abi_encode(),
-			)
+			.data(SetCodeHash::setCodeHashCall { codeHash: new_code_hash.0.into() }.abi_encode())
 			.build_and_unwrap_result();
 		assert!(!result.did_revert());
 		assert_eq!(new_code_hash, get_contract(&contract_addr).code_hash);
@@ -380,10 +375,8 @@ fn set_code_hash(fixture_type: FixtureType) {
 		// Second calls new contract code that returns 2
 		let result = builder::bare_call(contract_addr)
 			.data(
-				SetCodeHashReplacement::setCodeHashCall {
-					codeHash: new_code_hash.0.into(),
-				}
-				.abi_encode(),
+				SetCodeHashReplacement::setCodeHashCall { codeHash: new_code_hash.0.into() }
+					.abi_encode(),
 			)
 			.build_and_unwrap_result();
 		assert!(!result.did_revert());
