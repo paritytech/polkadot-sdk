@@ -1,19 +1,33 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-//! Test that sends one ready transaction from each of 20k accounts to a parachain collator.
-//! Network configuration is hardcoded via zombienet SDK API based on
-//! asset-hub-high-pool-limit-fatp.toml.
+//! Test that validates the POV (Proof of Validity) reclaim mechanism correctly accounts for trie
+//! node access.
+//!
+//! Storage reclaim returns unused storage proof space to enable more follow-up transactions.
+//! However, the accurate accounting of storage proof size must consider the trie nodes accessed
+//! during storage root computation, not just the storage items read by extrinsic.
+//!
+//! This test submits transactions that delete many storage entries (`kill_dev_entry`), causing
+//! significant trie modifications. These modifications result in many new trie nodes being added to
+//! the proof during storage root calculation. If the POV reclaim mechanism doesn't properly account
+//! for these trie node accesses, the chain would overshoot the total PoV budget.
+//!
+//! **Expected behavior**: With the POV reclaim fix (gh-6020), this test should pass by ensuring all
+//! transactions finalize. Without the fix, the test will fail due to POV size being exceeded.
+//!
+//! Network configuration is hardcoded via zombienet SDK API.
 
 use anyhow::anyhow;
 use serde_json::json;
+use tracing::{error, info};
 
 use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
-use tracing::info;
 use txtesttool::{
 	execution_log::ExecutionLog,
 	scenario::{ChainType, ScenarioBuilder},
 };
+use zombienet_orchestrator::network::node::NetworkNode;
 use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
 const PARA_ID: u32 = 2000;
@@ -21,7 +35,6 @@ const ACCOUNT_COUNT: usize = 100;
 const FROM_SINGLE_ACCOUNT: usize = 200;
 const TOTAL_COUNT: usize = ACCOUNT_COUNT * FROM_SINGLE_ACCOUNT;
 const TEST_TIMEOUT_SECS: u64 = 3600; // 1 hour
-									 //
 
 #[tokio::test(flavor = "multi_thread")]
 async fn overshooting_shall_not_happen_test() -> Result<(), anyhow::Error> {
@@ -35,28 +48,30 @@ async fn overshooting_shall_not_happen_test() -> Result<(), anyhow::Error> {
 	// Ensure relaychain nodes are producing blocks
 	for node in [alice, bob] {
 		info!("Ensuring {} reports block production", node.name());
-		assert!(node
-			.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b > 2.0, 120u64)
+		node.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b > 2.0, 120u64)
 			.await
-			.is_ok());
+			.expect("relaychain node should produce blocks");
 	}
 
 	// Ensure parachain collator is producing blocks
 	info!("Ensuring charlie reports block production");
-	assert!(charlie
+	charlie
 		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b > 2.0, 180u64)
 		.await
-		.is_ok());
+		.expect("parachain collator should produce blocks");
 
 	// Get WebSocket URI for charlie (parachain collator)
 	let ws = charlie.ws_uri().to_string();
 	let base_dir = network.base_dir().map(|s| s.to_string());
 
 	// Build scenario executor using ScenarioBuilder
-	// - 20k accounts (start_id=0 to last_id=19999)
-	// - 1 transaction per account
+	// - Multiple accounts (ACCOUNT_COUNT total)
+	// - Multiple transactions per account (FROM_SINGLE_ACCOUNT per account)
 	// - nonce_from=0 means ready transactions (not future)
-	info!("Building scenario executor for {} accounts", ACCOUNT_COUNT);
+	info!(
+		"Building scenario executor for {} accounts, {} txs each",
+		ACCOUNT_COUNT, FROM_SINGLE_ACCOUNT
+	);
 	let mut builder = ScenarioBuilder::new()
 		.with_rpc_uri(ws)
 		.with_start_id(0)
@@ -71,9 +86,12 @@ async fn overshooting_shall_not_happen_test() -> Result<(), anyhow::Error> {
 		.with_executor_id("overshooting-test".to_string())
 		.with_custom_sub_payload_builder(|ctx| {
 			let id = ctx.account.parse::<u128>().unwrap();
-			let entries_per_account = 5;
+			let entries_per_account = 20;
+			// Map each (nonce, id) pair to a unique 20-entry range in dev_data_entries.
+			// Nonce selects a batch of (ACCOUNT_COUNT * 20) entries,
+			// and id selects a specific 20-entry range within that batch.
 			let start = txtesttool::subxt_transaction::dynamic::Value::u128(
-				(entries_per_account * (ctx.nonce * (ACCOUNT_COUNT as u128)+ id)) as u128,
+				(entries_per_account * (ctx.nonce * (ACCOUNT_COUNT as u128) + id)) as u128,
 			);
 			let count = txtesttool::subxt_transaction::dynamic::Value::u128(entries_per_account);
 			txtesttool::subxt_transaction::dynamic::tx(
@@ -91,17 +109,76 @@ async fn overshooting_shall_not_happen_test() -> Result<(), anyhow::Error> {
 
 	// Execute transactions and fetch the execution logs
 	info!("Submitting {} transactions", TOTAL_COUNT);
-	let execution_logs = executor.execute().await;
 
-	// Count finalized transactions
+	// Create executor future for concurrent polling with POV check
+	let mut executor_future = std::pin::pin!(executor.execute());
+
+	// Spawn a task to check for POV errors when alice reaches block 30
+	let mut pov_check_task =
+		tokio::spawn(check_pov_errors_at_block_30(alice.clone(), charlie.clone()));
+
+	// Run executor and POV check in parallel, racing them
+	let execution_logs = tokio::select! {
+		execution_logs = &mut executor_future => {
+			info!("Executor finished before block 30 checkpoint");
+			pov_check_task.abort();
+			execution_logs
+		}
+		pov_check_result = &mut pov_check_task => {
+			pov_check_result??;
+			info!("POV check passed at block 30, waiting for executor to complete");
+			(&mut executor_future).await
+		}
+	};
+
+	// Verify all transactions finalized
 	let finalized_count = execution_logs.values().filter_map(|tx_log| tx_log.finalized()).count();
-
 	assert_eq!(
 		finalized_count, TOTAL_COUNT,
 		"Expected all {} transactions to finalize, but got {} finalized",
 		TOTAL_COUNT, finalized_count
 	);
 
+	Ok(())
+}
+
+/// Checks for POV size exceeded errors in charlie's logs when alice reaches block 30.
+///
+/// Returns an error if any "Failed to submit collation" or "POVSizeExceeded" messages are found,
+/// indicating that the POV exceeded the maximum allowed size.
+async fn check_pov_errors_at_block_30(
+	alice: NetworkNode,
+	charlie: NetworkNode,
+) -> Result<(), anyhow::Error> {
+	info!("Waiting for alice (relaychain) to reach block 30");
+	alice
+		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= 30.0, 300u64)
+		.await
+		.map_err(|e| anyhow!("Failed to wait for block 30: {}", e))?;
+
+	info!("At block 30 - checking charlie's logs for POV errors");
+	let logs = charlie.logs().await?;
+	let pov_error_lines = logs
+		.lines()
+		.filter(|line| {
+			line.contains("Failed to submit collation") || line.contains("POVSizeExceeded")
+		})
+		.collect::<Vec<_>>();
+
+	if !pov_error_lines.is_empty() {
+		error!(
+			"Found {} POV/collation submission errors in charlie's logs:",
+			pov_error_lines.len()
+		);
+		for line in &pov_error_lines {
+			error!("  {}", line);
+		}
+		return Err(anyhow!(
+			"Found {} POV size exceeded or collation submission failures at block 30 checkpoint",
+			pov_error_lines.len()
+		));
+	}
+	info!("No POV errors found at block 30 checkpoint");
 	Ok(())
 }
 
