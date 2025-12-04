@@ -37,7 +37,9 @@ use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterfa
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{ClaimQueueOffset, CollectCollationInfo, PersistedValidationData};
+use cumulus_primitives_core::{
+	ClaimQueueOffset, CollectCollationInfo, KeyToIncludeInRelayProofApi, PersistedValidationData,
+};
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_node_primitives::SubmitCollationParams;
@@ -114,8 +116,10 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api:
-		AuraApi<Block, P::Public> + CollectCollationInfo<Block> + AuraUnincludedSegmentApi<Block>,
+	Client::Api: AuraApi<Block, P::Public>
+		+ CollectCollationInfo<Block>
+		+ AuraUnincludedSegmentApi<Block>
+		+ KeyToIncludeInRelayProofApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -166,8 +170,10 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api:
-		AuraApi<Block, P::Public> + CollectCollationInfo<Block> + AuraUnincludedSegmentApi<Block>,
+	Client::Api: AuraApi<Block, P::Public>
+		+ CollectCollationInfo<Block>
+		+ AuraUnincludedSegmentApi<Block>
+		+ KeyToIncludeInRelayProofApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -284,6 +290,28 @@ where
 					},
 				};
 				tracing::debug!(target: crate::LOG_TARGET, ?slot_duration, ?block_hash, "Parachain slot duration acquired");
+
+				// Query subscription keys from the parachain runtime
+				let subscription_keys = params
+					.para_client
+					.runtime_api()
+					.keys_to_include_in_relay_proof(block_hash)
+					.unwrap_or_else(|e| {
+						tracing::warn!(
+							target: crate::LOG_TARGET,
+							error = ?e,
+							"Failed to fetch subscription keys from runtime, using empty vec"
+						);
+						Vec::new()
+					});
+
+				tracing::debug!(
+					target: crate::LOG_TARGET,
+					?block_hash,
+					?subscription_keys,
+					"Retrieved subscription keys from parachain runtime"
+				);
+
 				let (relay_slot, timestamp) = consensus_common::relay_slot_and_timestamp(
 					&relay_parent_header,
 					params.relay_chain_slot_duration,

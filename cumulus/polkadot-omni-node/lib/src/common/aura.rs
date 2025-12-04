@@ -53,6 +53,7 @@ pub trait AuraRuntimeApi<Block: BlockT, AuraId: AuraIdT>:
 	sp_api::ApiExt<Block>
 	+ AuraApi<Block, <AuraId::BoundedPair as Pair>::Public>
 	+ AuraUnincludedSegmentApi<Block>
+	+ cumulus_primitives_core::KeyToIncludeInRelayProofApi<Block>
 	+ Sized
 {
 	/// Check if the runtime has the Aura API.
@@ -66,5 +67,6 @@ impl<T, Block: BlockT, AuraId: AuraIdT> AuraRuntimeApi<Block, AuraId> for T wher
 	T: sp_api::ApiExt<Block>
 		+ AuraApi<Block, <AuraId::BoundedPair as Pair>::Public>
 		+ AuraUnincludedSegmentApi<Block>
+		+ cumulus_primitives_core::KeyToIncludeInRelayProofApi<Block>
 {
 }

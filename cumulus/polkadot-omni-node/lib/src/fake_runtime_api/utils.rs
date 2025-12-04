@@ -175,6 +175,12 @@ macro_rules! impl_node_runtime_apis {
 				}
 			}
 
+			impl cumulus_primitives_core::KeyToIncludeInRelayProofApi<$block> for $runtime {
+				fn keys_to_include_in_relay_proof() -> Vec<(cumulus_primitives_core::ParaId, Vec<Vec<u8>>)> {
+					unimplemented!()
+				}
+			}
+
 			#[cfg(feature = "try-runtime")]
 			impl frame_try_runtime::TryRuntime<$block> for $runtime {
 				fn on_runtime_upgrade(

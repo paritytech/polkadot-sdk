@@ -887,6 +887,12 @@ impl_runtime_apis! {
 			ParachainSystem::core_selector()
 		}
 	}
+
+	impl cumulus_primitives_core::KeyToIncludeInRelayProofApi<Block> for Runtime {
+		fn keys_to_include_in_relay_proof() -> Vec<(ParaId, Vec<Vec<u8>>)> {
+			ParachainSystem::get_subscription_keys()
+		}
+	}
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {

@@ -401,4 +401,13 @@ sp_api::decl_runtime_apis! {
 		/// Fetch the slot offset that is expected from the relay chain.
 		fn relay_parent_offset() -> u32;
 	}
+
+	/// API to tell the collator which relay chain storage keys to include in proofs.
+	///
+	/// Returns subscription information for accessing published data from other parachains
+	/// via the relay chain storage proof.
+	pub trait KeyToIncludeInRelayProofApi {
+		/// Get relay chain storage keys required for accessing subscribed published data.
+		fn keys_to_include_in_relay_proof() -> Vec<(ParaId, Vec<Vec<u8>>)>;
+	}
 }

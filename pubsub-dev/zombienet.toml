@@ -34,11 +34,11 @@ cumulus_based = true
     rpc_port = 9920
     chain = "penpal-local"
     command = "./target/release/polkadot-parachain"
-    args = ["-lxcm=trace", "--trie-cache-size=0", "--network-backend=libp2p", "--", "--network-backend=libp2p"]
+    args = ["-lxcm=trace", "-laura::cumulus=debug", "--trie-cache-size=0", "--network-backend=libp2p", "--", "--network-backend=libp2p"]
 
     [[parachains.collators]]
     name = "para-collator02"
     chain = "penpal-local"
     command = "./target/release/polkadot-parachain"
-    args = ["-lxcm=trace", "--trie-cache-size=0", "--network-backend=libp2p", "--", "--network-backend=libp2p"]
+    args = ["-lxcm=trace", "-laura::cumulus=debug", "--trie-cache-size=0", "--network-backend=libp2p", "--", "--network-backend=libp2p"]
 

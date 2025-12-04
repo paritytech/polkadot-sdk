@@ -1138,6 +1138,27 @@ impl<T: Config> Pallet<T> {
 		let segment = UnincludedSegment::<T>::get();
 		crate::unincluded_segment::size_after_included(included_hash, &segment)
 	}
+
+	/// Get the subscription keys for accessing published data from other parachains.
+	///
+	/// Returns a vector of (ParaId, Vec<Key>) tuples where:
+	/// - ParaId is the publisher parachain we're subscribed to
+	/// - Vec<Key> is the list of specific keys we want from that publisher
+	///   (empty vec means we want ALL keys from that publisher)
+	///
+	/// This is intended to be used by the runtime API to inform the collator which
+	/// relay chain storage keys should be included in the storage proof.
+	pub fn get_subscription_keys() -> Vec<(ParaId, Vec<Vec<u8>>)> {
+		Subscriptions::<T>::iter()
+			.map(|(para_id, keys)| {
+				let unbounded_keys: Vec<Vec<u8>> = keys
+					.into_iter()
+					.map(|bounded_key| bounded_key.into_inner())
+					.collect();
+				(para_id, unbounded_keys)
+			})
+			.collect()
+	}
 }
 
 impl<T: Config> FeeTracker for Pallet<T> {
