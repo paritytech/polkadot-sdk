@@ -969,10 +969,6 @@ mod benchmarks {
 		let xcm = T::worst_case_xcm_failing_barrier().map_err(|_| BenchmarkError::Skip)?;
 		let mut executor = ExecuteXcmOf::<T>::new(Location::default(), XcmHash::default());
 
-		// Whitelist the hot read so it doesn't count towards PoV.
-		let record_xcm_key = [twox_128(b"PolkadotXcm"), twox_128(b"ShouldRecordXcm")].concat();
-		frame_benchmarking::benchmarking::add_to_whitelist(record_xcm_key.into());
-
 		#[block]
 		{
 			executor.execute(xcm.into())?;
