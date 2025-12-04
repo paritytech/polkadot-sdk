@@ -29,7 +29,6 @@ sp-state-machine = { workspace = true, default-features = true }
 spinners = { workspace = true }
 substrate-rpc-client = { workspace = true, default-features = true }
 tokio = { features = ["macros", "rt-multi-thread"], workspace = true, default-features = true }
-tokio-retry = { workspace = true }
 
 [dev-dependencies]
 sp-tracing = { workspace = true, default-features = true }

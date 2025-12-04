@@ -51,11 +51,10 @@ use std::{
 		atomic::{AtomicUsize, Ordering},
 		Arc, Mutex,
 	},
-	time::{Duration, Instant},
+	time::Duration,
 };
 use substrate_rpc_client::{rpc_params, BatchRequestBuilder, ChainApi, ClientT, StateApi};
 use tokio::{sync::Semaphore, time::sleep};
-use tokio_retry::{strategy::FixedInterval, Retry};
 
 type Result<T, E = &'static str> = std::result::Result<T, E>;
 
@@ -64,26 +63,19 @@ type TopKeyValues = Vec<KeyValue>;
 type ChildKeyValues = Vec<(ChildInfo, Vec<KeyValue>)>;
 type SnapshotVersion = Compact<u16>;
 
-/// A versioned WebSocket client to track recreation events.
+/// A versioned WebSocket client returned by `ConnectionManager::get()`.
 ///
-/// This allows multiple workers to detect if a client has already been recreated
-/// by another worker, preventing redundant reconnection attempts.
-///
-/// The client is optional to handle cases where initial connection failed (e.g., 429 rate limit).
-/// Workers will attempt lazy initialization when they encounter a None client.
-#[derive(Clone, Debug)]
+/// Always contains a usable client. The version is used to detect if the client
+/// has been recreated by another worker.
 struct VersionedClient {
-	client: Option<Arc<WsClient>>,
+	ws_client: Arc<WsClient>,
 	version: u64,
 }
 
-impl VersionedClient {
-	fn new(client: Arc<WsClient>, version: u64) -> Self {
-		Self { client: Some(client), version }
-	}
-
-	fn new_uninitialized(version: u64) -> Self {
-		Self { client: None, version }
+impl Deref for VersionedClient {
+	type Target = WsClient;
+	fn deref(&self) -> &Self::Target {
+		&self.ws_client
 	}
 }
 
@@ -110,41 +102,35 @@ type WorkQueue = Arc<Mutex<VecDeque<KeyRange>>>;
 /// Manages WebSocket client connections for parallel workers.
 #[derive(Clone)]
 struct ConnectionManager {
-	transports: Vec<Arc<tokio::sync::Mutex<Transport>>>,
+	clients: Vec<Arc<tokio::sync::Mutex<Client>>>,
 }
 
 impl ConnectionManager {
-	fn new(transports: Vec<Arc<tokio::sync::Mutex<Transport>>>) -> Result<Self> {
-		if transports.is_empty() {
-			return Err("At least one transport must be provided");
+	fn new(clients: Vec<Arc<tokio::sync::Mutex<Client>>>) -> Result<Self> {
+		if clients.is_empty() {
+			return Err("At least one client must be provided");
 		}
 
-		Ok(Self { transports })
+		Ok(Self { clients })
 	}
 
-	/// Get a client for a specific worker. Distributes workers across available transports.
-	async fn get_client(&self, worker_index: usize) -> VersionedClient {
-		let transport_index = worker_index % self.transports.len();
-		let transport = self.transports[transport_index].lock().await;
-		transport.get_client()
+	fn num_clients(&self) -> usize {
+		self.clients.len()
 	}
 
-	/// Recreates the client.
-	///
-	/// Internally may just returns the latest version of the client (when it was already re-created
-	/// by another worker).
-	async fn recreate_client(
-		&self,
-		worker_index: usize,
-		expected_version: u64,
-	) -> Result<VersionedClient> {
-		let transport_index = worker_index % self.transports.len();
+	/// Get a usable client for a specific worker.
+	/// Distributes workers across available clients.
+	async fn get(&self, worker_index: usize) -> VersionedClient {
+		let client_index = worker_index % self.clients.len();
+		let client = self.clients[client_index].lock().await;
+		VersionedClient { ws_client: client.inner.clone(), version: client.version }
+	}
 
-		let mut transport = self.transports[transport_index].lock().await;
-
-		transport.recreate(expected_version).await?;
-
-		Ok(transport.get_client())
+	/// Called when a request fails. Triggers client recreation if version matches.
+	async fn recreate_client(&self, worker_index: usize, failed: &VersionedClient) {
+		let client_index = worker_index % self.clients.len();
+		let mut client = self.clients[client_index].lock().await;
+		let _ = client.recreate(failed.version).await;
 	}
 }
 
@@ -244,18 +230,17 @@ pub struct OfflineConfig {
 	pub state_snapshot: SnapshotConfig,
 }
 
-/// Description of the transport protocol (for online execution).
+/// A WebSocket client with version tracking for reconnection.
 #[derive(Debug, Clone)]
-pub struct Transport {
-	client: VersionedClient,
+pub struct Client {
+	inner: Arc<WsClient>,
+	version: u64,
 	uri: String,
 }
 
-impl Transport {
+impl Client {
 	/// Create a WebSocket client for the given URI.
-	///
-	/// This is shared between initial creation and reconnection logic.
-	pub(crate) async fn create_client(uri: &str) -> Result<WsClient> {
+	async fn create_ws_client(uri: &str) -> std::result::Result<WsClient, String> {
 		debug!(target: LOG_TARGET, "initializing remote client to {:?}", uri);
 
 		WsClientBuilder::default()
@@ -264,66 +249,35 @@ impl Transport {
 			.request_timeout(std::time::Duration::from_secs(60 * 5))
 			.build(uri)
 			.await
-			.map_err(|e| {
-				error!(target: LOG_TARGET, "error: {e:?}");
-				"failed to build ws client"
-			})
+			.map_err(|e| format!("{e:?}"))
 	}
 
-	/// Create a new Transport from a URI, establishing the WebSocket connection.
+	/// Create a new Client from a URI.
 	///
-	/// If the connection fails with a 429 (rate limit) error, the transport will be created
-	/// with an uninitialized client that will be lazily initialized on first use.
-	pub async fn new(uri: impl Into<String>) -> Result<Self> {
+	/// Returns `None` if the initial connection fails.
+	pub async fn new(uri: impl Into<String>) -> Option<Self> {
 		let uri = uri.into();
-		match Self::create_client(&uri).await {
-			Ok(ws_client) => Ok(Self { client: VersionedClient::new(Arc::new(ws_client), 0), uri }),
+		match Self::create_ws_client(&uri).await {
+			Ok(ws_client) => Some(Self { inner: Arc::new(ws_client), version: 0, uri }),
 			Err(e) => {
-				// Check if this is a 429 error by looking at the error message
-				if e.contains("429") || e.contains("Too Many Requests") || e.contains("Rejected") {
-					warn!(
-						target: LOG_TARGET,
-						"Initial connection to {} failed with rate limit error, will retry on first use",
-						uri
-					);
-					Ok(Self { client: VersionedClient::new_uninitialized(0), uri })
-				} else {
-					Err(e)
-				}
+				warn!(target: LOG_TARGET, "Connection to {uri} failed: {e}. Ignoring this URI.");
+				None
 			},
 		}
 	}
 
 	/// Recreate the WebSocket client using the stored URI if the version matches.
-	///
-	/// If the client is None (uninitialized due to initial 429 error), this will attempt
-	/// to initialize it for the first time.
-	async fn recreate(&mut self, expected_version: u64) -> Result<()> {
-		// If client is None, we need to initialize it
-		if self.client.client.is_none() {
-			warn!(
-				target: LOG_TARGET,
-				"Initializing previously failed connection to `{}`",
-				self.uri
-			);
-			let ws_client = Self::create_client(&self.uri).await?;
-			self.client = VersionedClient::new(Arc::new(ws_client), expected_version + 1);
+	async fn recreate(&mut self, expected_version: u64) -> std::result::Result<(), String> {
+		// Only recreate if version matches (prevents redundant reconnections)
+		if self.version > expected_version {
 			return Ok(());
 		}
 
-		// Otherwise, only recreate if version matches
-		if self.client.version > expected_version {
-			return Ok(());
-		}
-
-		warn!(target: LOG_TARGET, "Recreating worker for `{}`", self.uri);
-		let ws_client = Self::create_client(&self.uri).await?;
-		self.client = VersionedClient::new(Arc::new(ws_client), expected_version + 1);
+		debug!(target: LOG_TARGET, "Recreating client for `{}`", self.uri);
+		let ws_client = Self::create_ws_client(&self.uri).await?;
+		self.inner = Arc::new(ws_client);
+		self.version = expected_version + 1;
 		Ok(())
-	}
-
-	fn get_client(&self) -> VersionedClient {
-		self.client.clone()
 	}
 }
 
@@ -416,8 +370,8 @@ pub struct Builder<B: BlockT> {
 	///
 	/// Overwrite only with care.
 	overwrite_state_version: Option<StateVersion>,
-	/// Initialized transports (created during initialization from URIs in OnlineConfig).
-	transports: Vec<Arc<tokio::sync::Mutex<Transport>>>,
+	/// Connection manager for RPC clients (initialized during `init_remote_client`).
+	conn_manager: Option<ConnectionManager>,
 }
 
 impl<B: BlockT> Default for Builder<B> {
@@ -427,7 +381,7 @@ impl<B: BlockT> Default for Builder<B> {
 			hashed_key_values: Default::default(),
 			hashed_blacklist: Default::default(),
 			overwrite_state_version: None,
-			transports: Default::default(),
+			conn_manager: None,
 		}
 	}
 }
@@ -450,69 +404,14 @@ impl<B: BlockT> Builder<B> {
 		}
 	}
 
-	/// Return rpc (ws) client. Uses the first transport for non-parallel operations.
-	/// If the client is not initialized (e.g., due to 429 errors), attempts to initialize it
-	/// with retry logic.
+	fn conn_manager(&self) -> Result<&ConnectionManager> {
+		self.conn_manager.as_ref().ok_or("connection manager must be initialized; qed")
+	}
+
+	/// Return rpc (ws) client.
 	async fn rpc_client(&self) -> Result<Arc<WsClient>> {
-		let transport_arc =
-			self.transports.get(0).expect("at least one transport must be configured; qed.");
-
-		let versioned_client = {
-			let transport = transport_arc.lock().await;
-			transport.get_client()
-		};
-
-		// If client is None, try to initialize it with retry logic
-		if versioned_client.client.is_none() {
-			warn!(
-				target: LOG_TARGET,
-				"RPC client not initialized, attempting to initialize with retry logic"
-			);
-
-			// Retry up to MAX_RETRIES times with exponential backoff
-			for attempt in 1..=Self::MAX_RETRIES {
-				let mut locked_transport = transport_arc.lock().await;
-				match locked_transport.recreate(versioned_client.version).await {
-					Ok(()) => {
-						let new_client = locked_transport.get_client();
-						if new_client.client.is_some() {
-							info!(
-								target: LOG_TARGET,
-								"Successfully initialized RPC client on attempt {attempt}"
-							);
-							return new_client
-								.client
-								.ok_or("RPC client initialization returned None unexpectedly");
-						}
-					},
-					Err(e) => {
-						if attempt < Self::MAX_RETRIES {
-							let backoff = Duration::from_secs(2u64.pow(attempt as u32).min(60));
-							warn!(
-								target: LOG_TARGET,
-								"Failed to initialize RPC client (attempt {attempt}/{}, will retry in {backoff:?}): {e}",
-								Self::MAX_RETRIES
-							);
-							drop(locked_transport); // Release lock before sleeping
-							sleep(backoff).await;
-						} else {
-							error!(
-								target: LOG_TARGET,
-								"Failed to initialize RPC client after {} attempts: {e}",
-								Self::MAX_RETRIES
-							);
-							return Err("Failed to initialize RPC client after all retry attempts");
-						}
-					},
-				}
-			}
-
-			return Err("RPC client could not be initialized after all retry attempts");
-		}
-
-		versioned_client
-			.client
-			.ok_or("RPC client could not be initialized; check logs for errors")
+		let conn_manager = self.conn_manager()?;
+		Ok(conn_manager.get(0).await.ws_client)
 	}
 }
 
@@ -523,14 +422,8 @@ where
 	B::Header: DeserializeOwned,
 {
 	const PARALLEL_REQUESTS: usize = 24;
-	const BATCH_SIZE_INCREASE_FACTOR: f32 = 1.10;
-	const BATCH_SIZE_DECREASE_FACTOR: f32 = 0.50;
-	const REQUEST_DURATION_TARGET: Duration = Duration::from_secs(15);
-	const INITIAL_BATCH_SIZE: usize = 10;
 	// nodes by default will not return more than 1000 keys per request
 	const DEFAULT_KEY_DOWNLOAD_PAGE: u32 = 1000;
-	const MAX_RETRIES: usize = 12;
-	const KEYS_PAGE_RETRY_INTERVAL: Duration = Duration::from_secs(5);
 
 	async fn rpc_get_storage(
 		&self,
@@ -640,9 +533,9 @@ where
 		let initial_ranges = work_queue.lock().unwrap().len();
 		eprintln!("🔧 Initialized work queue with {} ranges for parallel fetching", initial_ranges);
 
-		// Create connection manager for handling client recreation across multiple RPC providers
-		let conn_manager = Arc::new(ConnectionManager::new(self.transports.clone())?);
-		eprintln!("🌐 Using {} RPC provider(s) for parallel fetching", self.transports.len());
+		// Get connection manager for handling client recreation across multiple RPC providers
+		let conn_manager = Arc::new(self.conn_manager()?.clone());
+		eprintln!("🌐 Using {} RPC provider(s) for parallel fetching", conn_manager.num_clients());
 
 		// Shared storage for all collected keys
 		let all_keys: Arc<Mutex<Vec<StorageKey>>> = Arc::new(Mutex::new(Vec::new()));
@@ -679,61 +572,6 @@ where
 				let mut is_active = false; // Track whether this worker is counted as active
 
 				loop {
-					// Get the client for this worker (distributed across RPC providers)
-					let mut versioned_client = conn_manager.get_client(worker_index).await;
-
-					// If client is None (failed to initialize due to 429), try to create it now
-					// with limited retries
-					if versioned_client.client.is_none() {
-						debug!(
-							target: LOG_TARGET,
-							"Worker {worker_index}: Client not initialized, attempting lazy initialization"
-						);
-
-						// Try to recreate client, but only retry a few times before giving up
-						// This allows other workers (using different RPC providers) to pick up the
-						// work
-						const MAX_CLIENT_INIT_RETRIES: usize = 3;
-						let mut success = false;
-
-						for attempt in 1..=MAX_CLIENT_INIT_RETRIES {
-							match conn_manager
-								.recreate_client(worker_index, versioned_client.version)
-								.await
-							{
-								Ok(new_client) =>
-									if new_client.client.is_some() {
-										versioned_client = new_client;
-										success = true;
-										debug!(
-											target: LOG_TARGET,
-											"Worker {worker_index}: Successfully initialized client on attempt {attempt}"
-										);
-										break;
-									},
-								Err(e) => {
-									warn!(
-										target: LOG_TARGET,
-										"Worker {worker_index}: Failed to initialize client (attempt {attempt}/{MAX_CLIENT_INIT_RETRIES}): {e:?}"
-									);
-									if attempt < MAX_CLIENT_INIT_RETRIES {
-										sleep(Duration::from_secs(1)).await;
-									}
-								},
-							}
-						}
-
-						if !success {
-							error!(
-								target: LOG_TARGET,
-								"Worker {worker_index}: Failed to initialize client after {MAX_CLIENT_INIT_RETRIES} attempts. Requeueing range for another worker."
-							);
-
-							sleep(Duration::from_secs(2)).await; // Longer sleep before trying another range
-							continue;
-						}
-					}
-
 					// Try to get work from the queue
 					let maybe_range = {
 						let mut queue = work_queue.lock().unwrap();
@@ -774,13 +612,16 @@ where
 						},
 					};
 
+					// Get the client for this worker
+					let client = conn_manager.get(worker_index).await;
+
 					// Process this range - fetch ONE batch using the provided closure
 					match fetch_batch(
 						builder.clone(),
 						range.clone(),
 						block,
 						worker_index,
-						versioned_client.client.clone().expect("Client should be initialized"),
+						client.ws_client.clone(),
 					)
 					.await
 					{
@@ -853,19 +694,11 @@ where
 						Err(e) => {
 							warn!(
 								target: LOG_TARGET,
-								"Worker {worker_index} failed to fetch keys: {e:?}. Attempting to recreate client..."
+								"Worker {worker_index} failed to fetch keys: {e:?}. Requeueing for retry..."
 							);
 
-							// Try to recreate the WebSocket client for this worker's provider
-							if let Err(recreate_err) = conn_manager
-								.recreate_client(worker_index, versioned_client.version)
-								.await
-							{
-								error!(
-									target: LOG_TARGET,
-									"Worker {worker_index} failed to recreate client: {recreate_err:?}"
-								);
-							}
+							// Tell connection manager to recreate this client
+							conn_manager.recreate_client(worker_index, &client).await;
 
 							// Put the range back in the queue for retry
 							{
@@ -1119,7 +952,7 @@ where
 		worker_index: usize,
 		payloads: Vec<(String, ArrayParams)>,
 		bar: &ProgressBar,
-	) -> Result<Vec<Option<StorageData>>, String> {
+	) -> Vec<Option<StorageData>> {
 		let mut all_data: Vec<Option<StorageData>> = vec![];
 		let mut start_index = 0;
 		let batch_size = 1000;
@@ -1138,77 +971,30 @@ where
 			// Build the batch request
 			let mut batch = BatchRequestBuilder::new();
 			for (method, params) in page.iter() {
-				batch
-					.insert(method, params.clone())
-					.map_err(|_| "Invalid batch method and/or params")?;
-			}
-
-			// Get client for this worker
-			let mut versioned_client = conn_manager.get_client(worker_index).await;
-
-			// If client is None (failed to initialize due to 429), try to create it now with
-			// limited retries
-			if versioned_client.client.is_none() {
-				debug!(
-					target: LOG_TARGET,
-					"Value worker {worker_index}: Client not initialized, attempting lazy initialization"
-				);
-
-				// Try to recreate client, but only retry a few times before giving up
-				// This allows other workers (using different RPC providers) to pick up the work
-				const MAX_CLIENT_INIT_RETRIES: usize = 3;
-				let mut success = false;
-
-				for attempt in 1..=MAX_CLIENT_INIT_RETRIES {
-					match conn_manager.recreate_client(worker_index, versioned_client.version).await
-					{
-						Ok(new_client) =>
-							if new_client.client.is_some() {
-								versioned_client = new_client;
-								success = true;
-								debug!(
-									target: LOG_TARGET,
-									"Value worker {worker_index}: Successfully initialized client on attempt {attempt}"
-								);
-								break;
-							},
-						Err(e) => {
-							warn!(
-								target: LOG_TARGET,
-								"Value worker {worker_index}: Failed to initialize client (attempt {attempt}/{MAX_CLIENT_INIT_RETRIES}): {e:?}"
-							);
-							if attempt < MAX_CLIENT_INIT_RETRIES {
-								sleep(Duration::from_secs(1)).await;
-							}
-						},
-					}
-				}
-
-				if !success {
-					error!(
-						target: LOG_TARGET,
-						"Value worker {worker_index}: Failed to initialize client after {MAX_CLIENT_INIT_RETRIES} attempts. Returning batch to queue for another worker."
-					);
-					return Err("Failed to initialize client - will be retried by another worker"
-						.to_string());
+				if batch.insert(method, params.clone()).is_err() {
+					panic!("Invalid batch method and/or params; qed");
 				}
 			}
 
-			let request_started = Instant::now();
-			let batch_response = versioned_client
-				.client
-				.as_ref()
-				.expect("Client should be initialized")
-				.batch_request::<Option<StorageData>>(batch)
-				.await
-				.map_err(|e| format!("{e:?}"))?;
+			let batch_response = loop {
+				let client = conn_manager.get(worker_index).await;
 
-			let request_duration = request_started.elapsed();
+				match client.batch_request::<Option<StorageData>>(batch.clone()).await {
+					Ok(response) => break response,
+					Err(e) => {
+						warn!(
+							target: LOG_TARGET,
+							"Value worker {worker_index}: batch request failed: {e:?}. Retrying..."
+						);
+						conn_manager.recreate_client(worker_index, &client).await;
+						sleep(Duration::from_secs(1)).await;
+					},
+				}
+			};
 
 			debug!(
 				target: LOG_TARGET,
-				"Value worker {worker_index}: Request duration: {request_duration:?} Target duration: {:?} Last batch size: {} Next batch size: {batch_size}",
-				Self::REQUEST_DURATION_TARGET,
+				"Value worker {worker_index}: Batch size: {}",
 				end_index - start_index,
 			);
 
@@ -1216,16 +1002,18 @@ where
 			for item in batch_response.into_iter() {
 				match item {
 					Ok(x) => all_data.push(x),
-					Err(e) => return Err(e.message().to_string()),
+					Err(e) => {
+						warn!(target: LOG_TARGET, "Value worker {worker_index}: batch item error: {}", e.message());
+						all_data.push(None);
+					},
 				}
 			}
 			bar.inc(batch_response_len as u64);
 
-			// Update the start index for the next iteration
 			start_index = end_index;
 		}
 
-		Ok(all_data)
+		all_data
 	}
 
 	/// Synonym of `getPairs` that uses paged queries to first get the keys, and then
@@ -1259,8 +1047,7 @@ where
 			return Ok(Default::default())
 		}
 
-		// Create ConnectionManager for value fetching across multiple providers
-		let conn_manager = ConnectionManager::new(self.transports.clone())?;
+		let conn_manager = self.conn_manager()?;
 
 		let payloads = keys
 			.iter()
@@ -1279,12 +1066,11 @@ where
 		);
 
 		// Create batches of payloads for dynamic work distribution
-		// Each batch is: (start_index, payloads, retry_count)
+		// Each batch is: (start_index, payloads)
 		const BATCH_SIZE: usize = 1000;
-		const MAX_BATCH_RETRIES: usize = 20;
-		let mut batches: VecDeque<(usize, Vec<(String, ArrayParams)>, usize)> = VecDeque::new();
+		let mut batches: VecDeque<(usize, Vec<(String, ArrayParams)>)> = VecDeque::new();
 		for (batch_index, chunk) in payloads.chunks(BATCH_SIZE).enumerate() {
-			batches.push_back((batch_index * BATCH_SIZE, chunk.to_vec(), 0));
+			batches.push_back((batch_index * BATCH_SIZE, chunk.to_vec()));
 		}
 
 		eprintln!("🔧 Initialized {} batches for dynamic value fetching", batches.len());
@@ -1327,63 +1113,30 @@ where
 					};
 
 					match work {
-						Some((start_index, batch, retry_count)) => {
-							// Check if this batch has exceeded max retries
-							if retry_count >= MAX_BATCH_RETRIES {
-								error!(
-									target: LOG_TARGET,
-									"Value worker {worker_index}: Batch at index {start_index} exceeded max retries ({MAX_BATCH_RETRIES}). Giving up."
-								);
-								// Mark this batch as permanently failed - leave results as None
-								continue;
-							}
-
-							// Process this batch with dynamic batch sizing
+						Some((start_index, batch)) => {
 							debug!(
 								target: LOG_TARGET,
-								"Value worker {worker_index}: Processing batch starting at index {start_index} with {} payloads (retry {retry_count})",
+								"Value worker {worker_index}: Processing batch starting at index {start_index} with {} payloads",
 								batch.len()
 							);
 
-							match Self::get_storage_data_dynamic_batch_size(
+							let batch_results = Self::get_storage_data_dynamic_batch_size(
 								&conn_manager,
 								worker_index,
-								batch.clone(),
+								batch,
 								&bar,
 							)
-							.await
-							{
-								Ok(batch_results) => {
-									// Store results in the correct positions
-									let mut results_lock = results.lock().unwrap();
-									for (offset, result) in batch_results.into_iter().enumerate() {
-										results_lock[start_index + offset] = result;
-									}
-									debug!(
-										target: LOG_TARGET,
-										"Value worker {worker_index}: Successfully processed batch at index {start_index}"
-									);
-								},
-								Err(e) => {
-									warn!(
-										target: LOG_TARGET,
-										"Value worker {worker_index}: Failed to process batch at index {start_index} (retry {retry_count}): {e}. Requeueing for another worker..."
-									);
+							.await;
 
-									// Put the batch back in the queue with incremented retry count
-									{
-										let mut queue = work_queue.lock().unwrap();
-										queue.push_back((start_index, batch, retry_count + 1));
-									}
-
-									// Wait to avoid hammering a potentially failing connection
-									// Use exponential backoff based on retry count
-									let backoff = Duration::from_millis(
-										100 * (2_u64.pow(retry_count.min(5) as u32)),
-									);
-									sleep(backoff).await;
-								},
+							// Store results in the correct positions
+							let mut results_lock = results.lock().unwrap();
+							for (offset, result) in batch_results.into_iter().enumerate() {
+								results_lock[start_index + offset] = result;
 							}
+							debug!(
+								target: LOG_TARGET,
+								"Value worker {worker_index}: Successfully processed batch at index {start_index}"
+							);
 						},
 						None => {
 							// No more work in queue
@@ -1493,20 +1246,9 @@ where
 			.collect::<Vec<_>>();
 
 		let bar = ProgressBar::new(payloads.len() as u64);
-		let storage_data = match Self::get_storage_data_dynamic_batch_size(
-			conn_manager,
-			worker_index,
-			payloads,
-			&bar,
-		)
-		.await
-		{
-			Ok(storage_data) => storage_data,
-			Err(e) => {
-				error!(target: LOG_TARGET, "batch processing failed: {e:?}");
-				return Err("batch processing failed")
-			},
-		};
+		let storage_data =
+			Self::get_storage_data_dynamic_batch_size(conn_manager, worker_index, payloads, &bar)
+				.await;
 
 		assert_eq!(child_keys_len, storage_data.len());
 
@@ -1534,20 +1276,16 @@ where
 	) -> Result<(Vec<StorageKey>, bool)> {
 		let top_key = PrefixedStorageKey::new(prefixed_top_key.0.clone());
 
-		let retry_strategy =
-			FixedInterval::new(Self::KEYS_PAGE_RETRY_INTERVAL).take(Self::MAX_RETRIES);
-		let get_child_keys_closure = || {
-			substrate_rpc_client::ChildStateApi::storage_keys_paged(
-				client,
-				top_key.clone(),
-				Some(range.prefix.clone()),
-				Self::DEFAULT_KEY_DOWNLOAD_PAGE,
-				Some(range.start_key.clone()),
-				Some(block),
-			)
-		};
-
-		let mut page = Retry::spawn(retry_strategy, get_child_keys_closure).await.map_err(|e| {
+		let mut page = substrate_rpc_client::ChildStateApi::storage_keys_paged(
+			client,
+			top_key,
+			Some(range.prefix.clone()),
+			Self::DEFAULT_KEY_DOWNLOAD_PAGE,
+			Some(range.start_key.clone()),
+			Some(block),
+		)
+		.await
+		.map_err(|e| {
 			error!(target: LOG_TARGET, "Error = {e:?}");
 			"rpc child_get_keys failed"
 		})?;
@@ -1610,7 +1348,7 @@ where
 
 		let at = self.as_online().at_expected();
 
-		let conn_manager = ConnectionManager::new(self.transports.clone())?;
+		let conn_manager = self.conn_manager()?;
 		let mut child_kv = vec![];
 		for (worker_index, prefixed_top_key) in child_roots.iter().enumerate() {
 			let child_keys = self
@@ -1709,15 +1447,17 @@ where
 
 	/// The entry point of execution, if `mode` is online.
 	///
-	/// initializes the remote client in `transport`, and sets the `at` field, if not specified.
+	/// Initializes the remote clients and sets the `at` field if not specified.
 	async fn init_remote_client(&mut self) -> Result<()> {
-		// First, create all transport clients from URIs.
+		// First, create all clients from URIs, filtering out ones that fail to connect.
 		let online_config = self.as_online();
-		let mut transports = Vec::new();
+		let mut clients = Vec::new();
 		for uri in &online_config.transport_uris {
-			transports.push(Arc::new(tokio::sync::Mutex::new(Transport::new(uri.clone()).await?)));
+			if let Some(client) = Client::new(uri.clone()).await {
+				clients.push(Arc::new(tokio::sync::Mutex::new(client)));
+			}
 		}
-		self.transports = transports;
+		self.conn_manager = Some(ConnectionManager::new(clients)?);
 
 		// Then, if `at` is not set, set it.
 		if self.as_online().at.is_none() {
@@ -1762,13 +1502,12 @@ where
 	async fn load_header(&self) -> Result<B::Header> {
 		let client = self.rpc_client().await?;
 		let at = self.as_online().at_expected();
-		let retry_strategy =
-			FixedInterval::new(Self::KEYS_PAGE_RETRY_INTERVAL).take(Self::MAX_RETRIES);
-		let get_header_closure =
-			|| ChainApi::<(), _, B::Header, ()>::header(client.as_ref(), Some(at));
-		Retry::spawn(retry_strategy, get_header_closure)
+		ChainApi::<(), _, B::Header, ()>::header(client.as_ref(), Some(at))
 			.await
-			.map_err(|_| "Failed to fetch header for block from network")?
+			.map_err(|e| {
+				error!(target: LOG_TARGET, "Error = {e:?}");
+				"rpc header failed"
+			})?
 			.ok_or("Network returned None block header")
 	}
 
