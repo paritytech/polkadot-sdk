@@ -301,6 +301,7 @@ parameter_types! {
 impl frame_system::Config for Runtime {
 	type BlockWeights = RuntimeBlockWeights;
 	type Block = Block;
+	type BlockWeights = RuntimeBlockWeights;
 	type Version = Version;
 	type AccountId = AccountId;
 	type Hash = Hash;
