@@ -293,14 +293,9 @@ impl pallet_staking_async::Config for Runtime {
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = (NominationPools, DelegatedStaking);
-<<<<<<< HEAD
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
-	type PlanningEraOffset =
-		pallet_staking_async::PlanningEraOffsetOf<Runtime, RelaySessionDuration, ConstU32<5>>;
-=======
 	type PlanningEraOffset = ConstU32<6>;
->>>>>>> 90b7cafd ([Staking] Async Election and Export (#10311))
 	type RcClientInterface = StakingRcClient;
 	type MaxEraDuration = MaxEraDuration;
 	type MaxPruningItems = MaxPruningItems;
