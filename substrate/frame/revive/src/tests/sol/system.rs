@@ -367,7 +367,7 @@ fn set_code_hash(fixture_type: FixtureType) {
 		let result = builder::bare_call(contract_addr)
 			.data(
 				SetCodeHash::setCodeHashCall {
-					codeHash: alloy_core::primitives::FixedBytes::<32>::from(new_code_hash.0),
+					codeHash: new_code_hash.0.into(),
 				}
 				.abi_encode(),
 			)
@@ -381,7 +381,7 @@ fn set_code_hash(fixture_type: FixtureType) {
 		let result = builder::bare_call(contract_addr)
 			.data(
 				SetCodeHashReplacement::setCodeHashCall {
-					codeHash: alloy_core::primitives::FixedBytes::<32>::from(new_code_hash.0),
+					codeHash: new_code_hash.0.into(),
 				}
 				.abi_encode(),
 			)
