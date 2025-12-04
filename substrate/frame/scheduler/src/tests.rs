@@ -1426,10 +1426,8 @@ fn schedule_retry_fails_when_retry_target_block_is_full(named: bool) {
 		assert_eq!(Agenda::<Test>::get(4 + retry_period).len() as u32, max);
 
 		// Schedule a task at block 4 that will fail.
-		let failing_call = RuntimeCall::Logger(LoggerCall::timed_log {
-			i: 42,
-			weight: Weight::from_parts(10, 0),
-		});
+		let failing_call =
+			RuntimeCall::Logger(LoggerCall::timed_log { i: 42, weight: Weight::from_parts(10, 0) });
 		if named {
 			assert_ok!(Scheduler::do_schedule_named(
 				task_name,

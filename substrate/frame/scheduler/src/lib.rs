@@ -1028,13 +1028,14 @@ impl<T: Config> Pallet<T> {
 	fn cleanup_agenda(when: BlockNumberFor<T>) {
 		let mut agenda = Agenda::<T>::get(when);
 		match agenda.iter().rposition(|i| i.is_some()) {
-			// Note that `agenda.len() > i + 1` implies that the agenda ends on a sequence of at least one `None` item(s).
+			// Note that `agenda.len() > i + 1` implies that the agenda ends on a sequence of at
+			// least one `None` item(s).
 			Some(i) if agenda.len() > i + 1 => {
 				agenda.truncate(i + 1);
 				Agenda::<T>::insert(when, agenda);
 			},
-			// This branch is taken if `agenda.len() <= i + 1 ==> agenda.len() == i + 1 <==> agenda.len() - 1 == i`
-			// i.e. the agenda's last item is `Some`.
+			// This branch is taken if `agenda.len() <= i + 1 ==> agenda.len() == i + 1 <==>
+			// agenda.len() - 1 == i` i.e. the agenda's last item is `Some`.
 			Some(_) => {},
 			// All items in the agenda are `None`.
 			None => {
