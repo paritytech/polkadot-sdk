@@ -24,7 +24,7 @@ mod mem;
 pub use kvdb::as_database;
 #[cfg(any(feature = "rocksdb", test))]
 pub use kvdb::as_database_with_seekable_iter;
-pub use mem::{MemDb, Comparator as MemDbComparator};
+pub use mem::MemDb;
 
 /// An identifier for a column.
 pub type ColumnId = u32;

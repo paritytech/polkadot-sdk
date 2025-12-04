@@ -64,7 +64,7 @@ fn make_child_storage_key(info: &ChildInfo, key: &[u8]) -> Vec<u8> {
 	prefixed_key
 }
 
-#[derive(Encode, Decode)]
+#[derive(Encode, Decode, PartialEq, Eq, PartialOrd, Ord)]
 struct PendingDiffKey<Block: BlockT> {
 	hash: <Block::Header as Header>::Hash,
 	number: <Block::Header as Header>::Number,
@@ -267,7 +267,8 @@ impl<Block: BlockT> ArchiveDb<Block> {
 		iter.seek(block_hash.as_ref());
 		while let Some((pending_key, value)) = iter.get() {
 			let PendingDiffKey { hash, number, ty, key } =
-				PendingDiffKey::<Block>::decode(&mut &pending_key[..]).expect("Database entries must be encoded correctly");
+				PendingDiffKey::<Block>::decode(&mut &pending_key[..])
+					.expect("Database entries must be encoded correctly");
 			if hash == block_hash {
 				assert_eq!(number, block_number);
 				let full_key = FullStorageKey::new(&key, ty, number);
@@ -291,8 +292,8 @@ impl<Block: BlockT> ArchiveDb<Block> {
 
 		iter.seek(block_hash.as_ref());
 		while let Some((key, _)) = iter.get() {
-			let PendingDiffKey { hash, .. } =
-				PendingDiffKey::<Block>::decode(&mut &key[..]).expect("Database entries must be encoded correctly");
+			let PendingDiffKey { hash, .. } = PendingDiffKey::<Block>::decode(&mut &key[..])
+				.expect("Database entries must be encoded correctly");
 			if hash == block_hash {
 				transaction.remove(columns::ARCHIVE_PENDING, key);
 			} else {
@@ -622,52 +623,224 @@ impl<'a, BlockNumber: Encode + Decode + Ord> Ord for FullStorageKey<'a, BlockNum
 	}
 }
 
-impl<'a, BlockNumber: Encode + Decode + Ord> sp_database::MemDbComparator
-	for FullStorageKey<'a, BlockNumber>
-{
-	fn cmp(k1: &[u8], k2: &[u8]) -> std::cmp::Ordering {
-		compare_keys::<BlockNumber>(k1, k2)
-	}
-}
-
 #[cfg(test)]
 mod tests {
+
 	use super::*;
 
-	use crate::columns::ARCHIVE;
+	use std::{cell::RefCell, collections::BTreeMap};
 
 	use sp_core::H256;
-	use sp_database::{Change, Database, MemDb, Transaction};
+	use sp_database::{Change, ColumnId, Database, Transaction};
 	use sp_runtime::{
 		testing::{Block, MockCallU64, TestXt},
 		traits::BlakeTwo256,
 	};
 
 	type TestBlock = Block<TestXt<MockCallU64, ()>>;
-	static DUMMY_BLOCK_HASH: std::sync::LazyLock<H256> = std::sync::LazyLock::new(|| BlakeTwo256::hash("dummy hash".as_bytes()));
+	static DUMMY_BLOCK_HASH: std::sync::LazyLock<H256> =
+		std::sync::LazyLock::new(|| BlakeTwo256::hash("dummy hash".as_bytes()));
+
+	struct TestDb {
+		// Database trait requires interior mutability for commit()
+		archive: RefCell<BTreeMap<FullStorageKey<'static, u64>, Vec<u8>>>,
+		archive_pending: RefCell<BTreeMap<Vec<u8>, Vec<u8>>>,
+	}
+
+	// threads are not used in these tests, but trait Database is required to be thread safe
+	unsafe impl Send for TestDb {}
+	unsafe impl Sync for TestDb {}
+
+	fn process_change<H: Clone + AsRef<[u8]>, K: Ord + From<Vec<u8>>>(
+		db: &mut BTreeMap<K, Vec<u8>>,
+		change: Change<H>,
+	) {
+		match change {
+			Change::Set(_, key, value) => {
+				db.insert(key.into(), value);
+			},
+			Change::Remove(_, key) => {
+				db.remove(&key.into());
+			},
+			Change::Store(..) => {
+				unimplemented!();
+			},
+			Change::Reference(..) => {
+				unimplemented!();
+			},
+			Change::Release(..) => {
+				unimplemented!();
+			},
+		}
+	}
+
+	fn change_column_id<H: Clone + AsRef<[u8]>>(change: &Change<H>) -> ColumnId {
+		*match change {
+			Change::Set(id, ..) => id,
+			Change::Remove(id, ..) => id,
+			Change::Store(id, ..) => id,
+			Change::Reference(id, ..) => id,
+			Change::Release(id, ..) => id,
+		}
+	}
+
+	impl TestDb {
+		fn new() -> TestDb {
+			TestDb { archive: Default::default(), archive_pending: Default::default() }
+		}
+	}
+
+	impl<H: Clone + AsRef<[u8]>> Database<H> for TestDb {
+		fn commit(&self, transaction: Transaction<H>) -> sp_database::error::Result<()> {
+			for change in transaction.0.into_iter() {
+				match change_column_id(&change) {
+					columns::ARCHIVE => {
+						process_change(&mut *self.archive.borrow_mut(), change);
+					},
+					columns::ARCHIVE_PENDING => {
+						process_change(&mut *self.archive_pending.borrow_mut(), change);
+					},
+					_ => unreachable!(),
+				}
+			}
+
+			Ok(())
+		}
+
+		fn get(&self, col: ColumnId, key: &[u8]) -> Option<Vec<u8>> {
+			match col {
+				columns::ARCHIVE => self.archive.borrow().get(&FullStorageKey::from(key)).cloned(),
+				columns::ARCHIVE_PENDING => self.archive_pending.borrow().get(key).cloned(),
+				_ => unreachable!(),
+			}
+		}
+	}
+
+	impl<H: Clone + AsRef<[u8]>> DatabaseWithSeekableIterator<H> for TestDb {
+		fn seekable_iter<'a>(
+			&'a self,
+			col: u32,
+		) -> Option<Box<dyn sp_database::SeekableIterator + 'a>> {
+			Some(match col {
+				columns::ARCHIVE => Box::new(TestDbSeekableIter {
+					db: self.archive.borrow(),
+					state: IterState::Invalid,
+				}),
+				columns::ARCHIVE_PENDING => Box::new(TestDbSeekableIter {
+					db: self.archive_pending.borrow(),
+					state: IterState::Invalid,
+				}),
+				_ => unreachable!(),
+			})
+		}
+	}
+
+	enum IterState<K> {
+		Valid { current_key: K },
+		Invalid,
+	}
+
+	struct TestDbSeekableIter<'db, K> {
+		db: std::cell::Ref<'db, BTreeMap<K, Vec<u8>>>,
+		state: IterState<K>,
+	}
+
+	impl<'db, K> sp_database::SeekableIterator for TestDbSeekableIter<'db, K>
+	where
+		K: From<Vec<u8>> + Ord + AsRef<[u8]> + Clone,
+	{
+		fn seek<'a>(&mut self, key: &'a [u8]) {
+			let mut range = self.db.range((
+				std::ops::Bound::Included(&K::from(key.to_owned())),
+				std::ops::Bound::Unbounded,
+			));
+			let next_kv = range.next().map(|(key, _)| key.clone());
+
+			self.state = match next_kv {
+				Some(key) => IterState::Valid { current_key: key },
+				None => IterState::Invalid,
+			};
+		}
+
+		fn seek_prev(&mut self, key: &[u8]) {
+			let mut range = self.db.range((
+				std::ops::Bound::Unbounded,
+				std::ops::Bound::Included(K::from(key.to_owned())),
+			));
+			let prev_kv = range.next_back().map(|(key, _)| key.clone());
+
+			self.state = match prev_kv {
+				Some(key) => IterState::Valid { current_key: key },
+				None => IterState::Invalid,
+			};
+		}
+
+		fn prev(&mut self) {
+			let prev_kv = match self.state {
+				IterState::Valid { ref current_key } => {
+					let mut range = self.db.range((
+						std::ops::Bound::Unbounded,
+						std::ops::Bound::Excluded(current_key),
+					));
+					range.next_back().map(|(k, _)| k.clone())
+				},
+				IterState::Invalid => None,
+			};
+			self.state = match prev_kv {
+				Some(key) => IterState::Valid { current_key: key },
+				None => IterState::Invalid,
+			};
+		}
+
+		fn next(&mut self) {
+			let next_kv = match &self.state {
+				IterState::Valid { current_key } => {
+					let mut range = self.db.range((
+						std::ops::Bound::Excluded(current_key),
+						std::ops::Bound::Unbounded,
+					));
+					range.next().map(|(k, _)| k.clone())
+				},
+				IterState::Invalid => None,
+			};
+			self.state = match next_kv {
+				Some(key) => IterState::Valid { current_key: key },
+				None => IterState::Invalid,
+			};
+		}
+
+		fn get(&self) -> Option<(&[u8], Vec<u8>)> {
+			match self.state {
+				IterState::Valid { ref current_key } => Some((
+					current_key.as_ref(),
+					self.db
+						.get(current_key)
+						.expect("Iterator in valid state must always point to an existing key")
+						.clone(),
+				)),
+				IterState::Invalid => None,
+			}
+		}
+	}
 
 	#[test]
 	fn full_key_encoded_correctly() {
 		let key = FullStorageKey::new(&[2, 3, 4], StorageType::Child, 5);
-		assert_eq!(
-			key.as_tuple(),
-			(StorageType::Child, [2u8, 3u8, 4u8].as_slice(), 5)
-		);
+		assert_eq!(key.as_tuple(), (StorageType::Child, [2u8, 3u8, 4u8].as_slice(), 5));
 		assert_eq!(key.as_ref(), &[1, 2, 3, 4, 5, 0, 0, 0]);
 	}
 
 	fn create_db<H: Clone + AsRef<[u8]>>(
 		changes: Vec<(StorageType, &[u8], u64, Option<&[u8]>)>,
-	) -> Arc<MemDb<FullStorageKey<'static, u64>>> {
-		let db = Arc::new(MemDb::<FullStorageKey<u64>>::new());
+	) -> Arc<TestDb> {
+		let db = Arc::new(TestDb::new());
 		db.commit(Transaction(
 			changes
 				.into_iter()
 				.map(|(storage_type, key, block_number, value)| {
 					Change::<H>::Set(
-						ARCHIVE,
-						FullStorageKey::new(key, storage_type, block_number)
-							.into(),
+						columns::ARCHIVE,
+						FullStorageKey::new(key, storage_type, block_number).into(),
 						value.encode(),
 					)
 				})
@@ -684,10 +857,10 @@ mod tests {
 			(StorageType::Main, &[1, 2, 3], 6u64, Some(&[5, 2])),
 		]);
 
-		let archive_db = ArchiveDb::<TestBlock>::new(mem_db.clone(), 5, DUMMY_BLOCK_HASH);
+		let archive_db = ArchiveDb::<TestBlock>::new(mem_db.clone(), 5, *DUMMY_BLOCK_HASH);
 		assert_eq!(archive_db.main_storage(&[1, 2, 3]), Ok(Some(vec![4u8, 2u8])));
 
-		let archive_db = ArchiveDb::<TestBlock>::new(mem_db, 7, DUMMY_BLOCK_HASH);
+		let archive_db = ArchiveDb::<TestBlock>::new(mem_db, 7, *DUMMY_BLOCK_HASH);
 		assert_eq!(archive_db.main_storage(&[1, 2, 3]), Ok(Some(vec![5u8, 2u8])));
 	}
 
@@ -706,7 +879,7 @@ mod tests {
 			(StorageType::Main, &[1, 2, 6], 5u64, Some(&[8])),
 			(StorageType::Main, &[1, 2, 6], 6u64, None),
 		]);
-		let archive_db = ArchiveDb::<TestBlock>::new(mem_db.clone(), 5, DUMMY_BLOCK_HASH);
+		let archive_db = ArchiveDb::<TestBlock>::new(mem_db.clone(), 5, *DUMMY_BLOCK_HASH);
 		assert_eq!(archive_db.next_main_storage_key(&[1, 2, 3]), Ok(Some(vec![1, 2, 6])));
 	}
 
@@ -725,7 +898,7 @@ mod tests {
 			(StorageType::Main, &[1, 2, 6], 5u64, Some(&[8])),
 			(StorageType::Main, &[1, 2, 6], 6u64, None),
 		]);
-		let archive_db = ArchiveDb::<TestBlock>::new(mem_db.clone(), 5, DUMMY_BLOCK_HASH);
+		let archive_db = ArchiveDb::<TestBlock>::new(mem_db.clone(), 5, *DUMMY_BLOCK_HASH);
 
 		let mut args = IterArgs::default();
 		args.start_at = Some(&[1, 2, 3]);
@@ -752,7 +925,7 @@ mod tests {
 			(StorageType::Child, &[1, 3, 2], 3u64, Some(&[6])),
 			(StorageType::Child, &[1, 3, 4], 3u64, Some(&[6])),
 		]);
-		let archive_db = ArchiveDb::<TestBlock>::new(mem_db.clone(), 3, DUMMY_BLOCK_HASH);
+		let archive_db = ArchiveDb::<TestBlock>::new(mem_db.clone(), 3, *DUMMY_BLOCK_HASH);
 
 		let mut args = IterArgs::default();
 		args.prefix = Some(&[1, 3]);
@@ -775,7 +948,7 @@ mod tests {
 			(StorageType::Child, &[1, 3, 1], 2u64, None),
 			(StorageType::Child, &[1, 3, 3], 2u64, Some(&[7])),
 		]);
-		let archive_db = ArchiveDb::<TestBlock>::new(mem_db.clone(), 3, DUMMY_BLOCK_HASH);
+		let archive_db = ArchiveDb::<TestBlock>::new(mem_db.clone(), 3, *DUMMY_BLOCK_HASH);
 
 		let mut args = IterArgs::default();
 		args.child_info = Some(ChildInfo::new_default_from_vec(vec![1, 3]));
@@ -788,5 +961,67 @@ mod tests {
 
 	#[test]
 	fn finalization() {
+		let mem_db = create_db::<sp_core::H256>(vec![]);
+
+		let mut tx = Transaction::new();
+		ArchiveDb::<TestBlock>::update_storage(
+			&mut tx,
+			vec![(vec![1, 2, 3], Some(vec![0, 0, 1])), (vec![0, 0, 1], Some(vec![0, 0, 1]))],
+			0,
+			BlakeTwo256::hash("block0".as_bytes()),
+		);
+		ArchiveDb::<TestBlock>::update_storage(
+			&mut tx,
+			vec![(vec![1, 2, 3], Some(vec![0, 0, 2])), (vec![0, 0, 2], Some(vec![0, 0, 1]))],
+			1,
+			BlakeTwo256::hash("block1".as_bytes()),
+		);
+		ArchiveDb::<TestBlock>::update_storage(
+			&mut tx,
+			vec![(vec![1, 2, 3], Some(vec![0, 0, 3])), (vec![0, 0, 3], Some(vec![0, 0, 1]))],
+			2,
+			BlakeTwo256::hash("block2_1".as_bytes()),
+		);
+		ArchiveDb::<TestBlock>::update_storage(
+			&mut tx,
+			vec![(vec![1, 2, 3], Some(vec![0, 0, 4])), (vec![0, 0, 3], Some(vec![0, 0, 2]))],
+			2,
+			BlakeTwo256::hash("block2_2".as_bytes()),
+		);
+		mem_db.commit(tx).unwrap();
+
+		let mut tx = Transaction::new();
+		ArchiveDb::<TestBlock>::finalize_block(
+			mem_db.clone(),
+			&mut tx,
+			0,
+			BlakeTwo256::hash("block0".as_bytes()),
+		);
+		ArchiveDb::<TestBlock>::finalize_block(
+			mem_db.clone(),
+			&mut tx,
+			1,
+			BlakeTwo256::hash("block1".as_bytes()),
+		);
+		ArchiveDb::<TestBlock>::finalize_block(
+			mem_db.clone(),
+			&mut tx,
+			2,
+			BlakeTwo256::hash("block2_2".as_bytes()),
+		);
+		ArchiveDb::<TestBlock>::discard_block(
+			mem_db.clone(),
+			&mut tx,
+			BlakeTwo256::hash("block2_1".as_bytes()),
+		);
+		mem_db.commit(tx).unwrap();
+
+		let archive_db = ArchiveDb::<TestBlock>::new(
+			mem_db.clone(),
+			2,
+			BlakeTwo256::hash("block2_2".as_bytes()),
+		);
+		assert_eq!(archive_db.main_storage(&[1, 2, 3]), Ok(Some(vec![0, 0, 4])));
+		assert_eq!(archive_db.main_storage(&[0, 0, 3]), Ok(Some(vec![0, 0, 2])));
 	}
 }
