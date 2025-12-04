@@ -14466,6 +14466,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "sp-consensus-aura",
+ "sp-consensus-babe",
  "sp-core 28.0.0",
  "sp-io",
  "sp-runtime",
