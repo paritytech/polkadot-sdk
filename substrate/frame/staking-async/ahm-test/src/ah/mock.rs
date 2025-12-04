@@ -661,9 +661,6 @@ pub(crate) fn election_events_since_last_call() -> Vec<multi_block::Event<T>> {
 	ElectionEventsIndex::set(all.len());
 	all.into_iter().skip(seen).collect()
 }
-<<<<<<< HEAD
-=======
-
 pub(crate) enum AssertSessionType {
 	/// A new election is planned in the starting session and result is exported immediately
 	ElectionWithImmediateExport,
@@ -836,8 +833,6 @@ fn end_session_and_assert_election(activate: bool, expect_export: bool) {
 	if expect_export {
 		// if its immediate export mode, the validator set is exported soon after its received by
 		// rc client pallet
-		assert_eq!(LocalQueue::get().unwrap().len(), old_validator_set_export_count);
-		roll_next();
 		assert_eq!(LocalQueue::get().unwrap().len(), old_validator_set_export_count + 1);
 	} else {
 		// the validator set is buffered
@@ -853,20 +848,3 @@ fn end_session_and_assert_election(activate: bool, expect_export: bool) {
 		});
 	}
 }
-
-pub(crate) fn verifier_events_since_last_call() -> Vec<multi_block::verifier::Event<T>> {
-	let all: Vec<_> = System::events()
-		.into_iter()
-		.filter_map(|r| {
-			if let RuntimeEvent::MultiBlockVerifier(inner) = r.event {
-				Some(inner)
-			} else {
-				None
-			}
-		})
-		.collect();
-	let seen = VerifierEventsIndex::get();
-	VerifierEventsIndex::set(all.len());
-	all.into_iter().skip(seen).collect()
-}
->>>>>>> 90b7cafd ([Staking] Async Election and Export (#10311))
