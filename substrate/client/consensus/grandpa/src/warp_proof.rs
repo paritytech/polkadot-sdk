@@ -24,7 +24,9 @@ use crate::{
 	BlockNumberOps, GrandpaJustification, SharedAuthoritySet,
 };
 use sc_client_api::Backend as ClientBackend;
-use sc_network_sync::strategy::warp::{EncodedProof, VerificationResult, WarpSyncProvider};
+use sc_network_sync::strategy::warp::{
+	EncodedProof, VerificationResult, Verifier, WarpSyncProvider,
+};
 use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
 use sp_consensus_grandpa::{AuthorityList, SetId, GRANDPA_ENGINE_ID};
 use sp_runtime::{
@@ -278,6 +280,54 @@ where
 	}
 }
 
+/// Verifier implementation for GRANDPA warp sync.
+struct GrandpaVerifier<Block: BlockT> {
+	set_id: SetId,
+	authorities: AuthorityList,
+	hard_forks: HashMap<(Block::Hash, NumberFor<Block>), (SetId, AuthorityList)>,
+	genesis_hash: Block::Hash,
+}
+
+impl<Block: BlockT> Verifier<Block> for GrandpaVerifier<Block>
+where
+	NumberFor<Block>: BlockNumberOps,
+{
+	fn verify(
+		&self,
+		proof: &EncodedProof,
+	) -> Result<VerificationResult<Block>, Box<dyn std::error::Error + Send + Sync>> {
+		let EncodedProof(proof) = proof;
+		let proof = WarpSyncProof::<Block>::decode_all(&mut proof.as_slice())
+			.map_err(|e| format!("Proof decoding error: {:?}", e))?;
+		let last_header = proof
+			.proofs
+			.last()
+			.map(|p| p.header.clone())
+			.ok_or_else(|| "Empty proof".to_string())?;
+		let (_next_set_id, _next_authorities) = proof
+			.verify(self.set_id, self.authorities.clone(), &self.hard_forks)
+			.map_err(Box::new)?;
+		let justifications = proof
+			.proofs
+			.into_iter()
+			.map(|p| {
+				let justifications =
+					Justifications::new(vec![(GRANDPA_ENGINE_ID, p.justification.encode())]);
+				(p.header, justifications)
+			})
+			.collect::<Vec<_>>();
+		if proof.is_finished {
+			Ok(VerificationResult::Complete(last_header, justifications))
+		} else {
+			Ok(VerificationResult::Partial(last_header.hash(), justifications))
+		}
+	}
+
+	fn context(&self) -> Block::Hash {
+		self.genesis_hash
+	}
+}
+
 impl<Block: BlockT, Backend: ClientBackend<Block>> WarpSyncProvider<Block>
 	for NetworkProvider<Block, Backend>
 where
@@ -296,50 +346,15 @@ where
 		Ok(EncodedProof(proof.encode()))
 	}
 
-	fn verify(
-		&self,
-		proof: &EncodedProof,
-		set_id: SetId,
-		authorities: AuthorityList,
-	) -> Result<VerificationResult<Block>, Box<dyn std::error::Error + Send + Sync>> {
-		let EncodedProof(proof) = proof;
-		let proof = WarpSyncProof::<Block>::decode_all(&mut proof.as_slice())
-			.map_err(|e| format!("Proof decoding error: {:?}", e))?;
-		let last_header = proof
-			.proofs
-			.last()
-			.map(|p| p.header.clone())
-			.ok_or_else(|| "Empty proof".to_string())?;
-		let (next_set_id, next_authorities) =
-			proof.verify(set_id, authorities, &self.hard_forks).map_err(Box::new)?;
-		let justifications = proof
-			.proofs
-			.into_iter()
-			.map(|p| {
-				let justifications =
-					Justifications::new(vec![(GRANDPA_ENGINE_ID, p.justification.encode())]);
-				(p.header, justifications)
-			})
-			.collect::<Vec<_>>();
-		if proof.is_finished {
-			Ok(VerificationResult::<Block>::Complete(
-				next_set_id,
-				next_authorities,
-				last_header,
-				justifications,
-			))
-		} else {
-			Ok(VerificationResult::<Block>::Partial(
-				next_set_id,
-				next_authorities,
-				last_header.hash(),
-				justifications,
-			))
-		}
-	}
-
-	fn current_authorities(&self) -> AuthorityList {
-		self.authority_set.inner().current_authorities.clone()
+	fn create_verifier(&self) -> Arc<dyn Verifier<Block>> {
+		let authority_set = self.authority_set.inner();
+		let genesis_hash = self.backend.blockchain().info().genesis_hash;
+		Arc::new(GrandpaVerifier {
+			set_id: authority_set.set_id,
+			authorities: authority_set.current_authorities.clone(),
+			hard_forks: self.hard_forks.clone(),
+			genesis_hash,
+		})
 	}
 }
 
