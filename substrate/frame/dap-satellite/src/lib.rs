@@ -149,10 +149,14 @@ pub mod pallet {
 pub struct AccumulateInSatellite<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> FundingSink<T::AccountId, BalanceOf<T>> for AccumulateInSatellite<T> {
-	fn return_funds(source: &T::AccountId, amount: BalanceOf<T>) -> Result<(), DispatchError> {
+	fn return_funds(
+		source: &T::AccountId,
+		amount: BalanceOf<T>,
+		preservation: Preservation,
+	) -> Result<(), DispatchError> {
 		let satellite = Pallet::<T>::satellite_account();
 
-		T::Currency::transfer(source, &satellite, amount, Preservation::Preserve)?;
+		T::Currency::transfer(source, &satellite, amount, preservation)?;
 
 		Pallet::<T>::deposit_event(Event::FundsAccumulated { from: source.clone(), amount });
 
@@ -366,7 +370,7 @@ mod tests {
 			assert_eq!(Balances::free_balance(satellite), 0);
 
 			// When: accumulate 30 from account 1
-			assert_ok!(AccumulateInSatellite::<Test>::return_funds(&1, 30));
+			assert_ok!(AccumulateInSatellite::<Test>::return_funds(&1, 30, Preservation::Preserve));
 
 			// Then: account 1 has 70, satellite has 30
 			assert_eq!(Balances::free_balance(1), 70);
@@ -388,9 +392,13 @@ mod tests {
 			assert_eq!(Balances::free_balance(satellite), 0);
 
 			// When: accumulate from multiple accounts
-			assert_ok!(AccumulateInSatellite::<Test>::return_funds(&1, 20));
-			assert_ok!(AccumulateInSatellite::<Test>::return_funds(&2, 50));
-			assert_ok!(AccumulateInSatellite::<Test>::return_funds(&3, 100));
+			assert_ok!(AccumulateInSatellite::<Test>::return_funds(&1, 20, Preservation::Preserve));
+			assert_ok!(AccumulateInSatellite::<Test>::return_funds(&2, 50, Preservation::Preserve));
+			assert_ok!(AccumulateInSatellite::<Test>::return_funds(
+				&3,
+				100,
+				Preservation::Preserve
+			));
 
 			// Then: satellite has accumulated all funds
 			assert_eq!(Balances::free_balance(satellite), 170);
@@ -409,7 +417,7 @@ mod tests {
 			// When: try to accumulate 150 (more than balance)
 			// Then: fails
 			assert_noop!(
-				AccumulateInSatellite::<Test>::return_funds(&1, 150),
+				AccumulateInSatellite::<Test>::return_funds(&1, 150, Preservation::Preserve),
 				sp_runtime::TokenError::FundsUnavailable
 			);
 		});

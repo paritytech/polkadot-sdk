@@ -46,7 +46,17 @@ pub trait FundingSink<AccountId, Balance> {
 	/// Return funds from the given account back to the issuance system.
 	///
 	/// This could mean burning the funds or transferring them to a buffer account.
-	fn return_funds(from: &AccountId, amount: Balance) -> DispatchResult;
+	///
+	/// # Parameters
+	/// - `from`: The account to take funds from
+	/// - `amount`: The amount to return
+	/// - `preservation`: Whether to preserve the source account (Preserve = keep alive, Expendable
+	///   = allow death)
+	fn return_funds(
+		from: &AccountId,
+		amount: Balance,
+		preservation: Preservation,
+	) -> DispatchResult;
 }
 
 /// Direct minting implementation of `FundingSource`.
@@ -92,14 +102,24 @@ where
 	Currency: fungible::Mutate<AccountId>,
 	AccountId: Eq,
 {
-	fn return_funds(from: &AccountId, amount: Currency::Balance) -> DispatchResult {
-		Currency::burn_from(
-			from,
-			amount,
-			Preservation::Expendable,
-			Precision::Exact,
-			Fortitude::Polite,
-		)?;
+	fn return_funds(
+		from: &AccountId,
+		amount: Currency::Balance,
+		preservation: Preservation,
+	) -> DispatchResult {
+		Currency::burn_from(from, amount, preservation, Precision::Exact, Fortitude::Polite)?;
+		Ok(())
+	}
+}
+
+/// No-op implementation of `FundingSink` for unit type.
+/// Used for testing or when no sink is configured.
+impl<AccountId, Balance> FundingSink<AccountId, Balance> for () {
+	fn return_funds(
+		_from: &AccountId,
+		_amount: Balance,
+		_preservation: Preservation,
+	) -> DispatchResult {
 		Ok(())
 	}
 }

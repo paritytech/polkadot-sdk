@@ -206,7 +206,11 @@ pub mod pallet {
 	use codec::HasCompact;
 	use frame_support::{
 		pallet_prelude::*,
-		traits::{fungible::Credit, tokens::Precision, VariantCount, VariantCountOf},
+		traits::{
+			fungible::Credit,
+			tokens::{FundingSink, Precision, Preservation},
+			VariantCount, VariantCountOf,
+		},
 	};
 	use frame_system::pallet_prelude::*;
 
@@ -245,6 +249,7 @@ pub mod pallet {
 
 			type WeightInfo = ();
 			type DoneSlashHandler = ();
+			type BurnDestination = ();
 		}
 	}
 
@@ -333,6 +338,14 @@ pub mod pallet {
 			Self::AccountId,
 			Self::Balance,
 		>;
+
+		/// Handler for user-initiated burns via the `burn` extrinsic.
+		///
+		/// By default, burns is no-op. Runtimes can configure this
+		/// to redirect burned funds to a buffer account instead (e.g., DAP buffer on Asset Hub) or
+		/// to reduce total issuance (`DirectBurn`).
+		#[pallet::no_default_bounds]
+		type BurnDestination: FundingSink<Self::AccountId, Self::Balance>;
 	}
 
 	/// The in-code storage version.
@@ -852,8 +865,10 @@ pub mod pallet {
 		/// If the origin's account ends up below the existential deposit as a result
 		/// of the burn and `keep_alive` is false, the account will be reaped.
 		///
-		/// Unlike sending funds to a _burn_ address, which merely makes the funds inaccessible,
-		/// this `burn` operation will reduce total issuance by the amount _burned_.
+		/// The burned funds are handled by the runtime's configured `BurnDestination`:
+		/// - By default (`()`), is no-op - used for testing.
+		/// - Runtimes configure alternative destinations (e.g., DAP buffer) or `DirectBurn` (total
+		///   issuance is reduced).
 		#[pallet::call_index(10)]
 		#[pallet::weight(if *keep_alive {T::WeightInfo::burn_allow_death() } else {T::WeightInfo::burn_keep_alive()})]
 		pub fn burn(
@@ -862,14 +877,9 @@ pub mod pallet {
 			keep_alive: bool,
 		) -> DispatchResult {
 			let source = ensure_signed(origin)?;
-			let preservation = if keep_alive { Preserve } else { Expendable };
-			<Self as fungible::Mutate<_>>::burn_from(
-				&source,
-				value,
-				preservation,
-				Precision::Exact,
-				Polite,
-			)?;
+			let preservation =
+				if keep_alive { Preservation::Preserve } else { Preservation::Expendable };
+			T::BurnDestination::return_funds(&source, value, preservation)?;
 			Ok(())
 		}
 	}

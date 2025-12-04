@@ -105,10 +105,14 @@ impl<T: Config> FundingSource<T::AccountId, BalanceOf<T>> for PullFromDap<T> {
 pub struct ReturnToDap<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> FundingSink<T::AccountId, BalanceOf<T>> for ReturnToDap<T> {
-	fn return_funds(source: &T::AccountId, amount: BalanceOf<T>) -> Result<(), DispatchError> {
+	fn return_funds(
+		source: &T::AccountId,
+		amount: BalanceOf<T>,
+		preservation: Preservation,
+	) -> Result<(), DispatchError> {
 		let buffer = Pallet::<T>::buffer_account();
 
-		T::Currency::transfer(source, &buffer, amount, Preservation::Preserve)?;
+		T::Currency::transfer(source, &buffer, amount, preservation)?;
 
 		Pallet::<T>::deposit_event(Event::FundsReturned { from: source.clone(), amount });
 
@@ -232,7 +236,7 @@ mod tests {
 			assert_eq!(Balances::free_balance(buffer), 0);
 
 			// When: return 30 from account 1
-			assert_ok!(ReturnToDap::<Test>::return_funds(&1, 30));
+			assert_ok!(ReturnToDap::<Test>::return_funds(&1, 30, Preservation::Preserve));
 
 			// Then: account 1 has 70, buffer has 30
 			assert_eq!(Balances::free_balance(1), 70);
@@ -251,7 +255,7 @@ mod tests {
 			// When: try to return 150 (more than balance)
 			// Then: fails
 			assert_noop!(
-				ReturnToDap::<Test>::return_funds(&1, 150),
+				ReturnToDap::<Test>::return_funds(&1, 150, Preservation::Preserve),
 				sp_runtime::TokenError::FundsUnavailable
 			);
 		});

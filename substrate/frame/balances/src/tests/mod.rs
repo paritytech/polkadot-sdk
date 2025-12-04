@@ -29,8 +29,8 @@ use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
 	parameter_types,
 	traits::{
-		fungible, ConstU32, ConstU8, Imbalance as ImbalanceT, OnUnbalanced, StorageMapShim,
-		StoredMap, VariantCount, VariantCountOf, WhitelistedStorageKeys,
+		fungible, tokens::DirectBurn, ConstU32, ConstU8, Imbalance as ImbalanceT, OnUnbalanced,
+		StorageMapShim, StoredMap, VariantCount, VariantCountOf, WhitelistedStorageKeys,
 	},
 	weights::{IdentityFee, Weight},
 };
@@ -130,6 +130,7 @@ impl Config for Test {
 	type RuntimeFreezeReason = TestId;
 	type FreezeIdentifier = TestId;
 	type MaxFreezes = VariantCountOf<TestId>;
+	type BurnDestination = DirectBurn<Balances, u64>;
 }
 
 #[derive(Clone)]
