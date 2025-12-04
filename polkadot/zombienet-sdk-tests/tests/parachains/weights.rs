@@ -323,7 +323,7 @@ async fn call_params(
 		StorageDeposit::Refund(_) => 0,
 	};
 
-	Ok((dry_run.gas_required.ref_time, dry_run.gas_required.proof_size, deposit))
+	Ok((dry_run.weight_required.ref_time, dry_run.weight_required.proof_size, deposit))
 }
 
 async fn call_contract(
