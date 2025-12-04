@@ -23,7 +23,7 @@ use frame_support::{
 };
 use xcm_executor::{traits::prelude::*, Config, XcmExecutor};
 
-mod mock;
+pub mod mock;
 use mock::*;
 
 mod aliases;

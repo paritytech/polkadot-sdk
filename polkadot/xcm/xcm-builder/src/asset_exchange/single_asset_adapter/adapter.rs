@@ -65,6 +65,7 @@ where
 		maximal: bool,
 	) -> Result<AssetsInHolding, AssetsInHolding> {
 		// We only support 1 asset in `want`.
+		ensure!(want.len() == 1, give);
 		let Some(want_asset) = want.get(0) else { return Err(give) };
 		// We don't allow non-fungible assets.
 		ensure!(give.non_fungible_assets_iter().next().is_none(), give);

@@ -33,7 +33,10 @@ pub use core::{
 	fmt::Debug,
 	ops::ControlFlow,
 };
-use frame_support::traits::{ContainsPair, Everything};
+use frame_support::traits::{
+	tokens::imbalance::{ImbalanceAccounting, UnsafeConstructorDestructor, UnsafeManualAccounting},
+	ContainsPair, Everything,
+};
 pub use frame_support::{
 	dispatch::{DispatchInfo, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
 	ensure, parameter_types,
@@ -50,6 +53,72 @@ pub use xcm_executor::{
 	AssetsInHolding, Config,
 };
 pub use xcm_simulator::helpers::derive_topic_id;
+
+/// Mock credit implementation for testing purposes.
+pub struct MockCredit(pub u128);
+
+impl UnsafeConstructorDestructor<u128> for MockCredit {
+	fn unsafe_clone(&self) -> Box<dyn ImbalanceAccounting<u128>> {
+		Box::new(MockCredit(self.0))
+	}
+	fn forget_imbalance(&mut self) -> u128 {
+		let amt = self.0;
+		self.0 = 0;
+		amt
+	}
+}
+
+impl UnsafeManualAccounting<u128> for MockCredit {
+	fn subsume_other(&mut self, mut other: Box<dyn ImbalanceAccounting<u128>>) {
+		self.0 += other.forget_imbalance();
+	}
+}
+
+impl ImbalanceAccounting<u128> for MockCredit {
+	fn amount(&self) -> u128 {
+		self.0
+	}
+	fn saturating_take(&mut self, amount: u128) -> Box<dyn ImbalanceAccounting<u128>> {
+		let taken = self.0.min(amount);
+		self.0 -= taken;
+		Box::new(MockCredit(taken))
+	}
+}
+
+/// Helper to convert a single Asset into AssetsInHolding for tests
+pub fn asset_to_holding(asset: Asset) -> AssetsInHolding {
+	let mut holding = AssetsInHolding::new();
+	match asset.fun {
+		Fungibility::Fungible(amount) => {
+			holding.fungible.insert(asset.id, Box::new(MockCredit(amount)));
+		},
+		Fungibility::NonFungible(instance) => {
+			holding.non_fungible.insert((asset.id, instance));
+		},
+	}
+	holding
+}
+
+/// Helper to convert multiple Assets into AssetsInHolding for tests
+pub fn assets_to_holding(assets: impl IntoIterator<Item = Asset>) -> AssetsInHolding {
+	let mut holding = AssetsInHolding::new();
+	for asset in assets {
+		match asset.fun {
+			Fungibility::Fungible(amount) => match holding.fungible.entry(asset.id.clone()) {
+				alloc::collections::btree_map::Entry::Occupied(mut e) => {
+					e.get_mut().subsume_other(Box::new(MockCredit(amount)));
+				},
+				alloc::collections::btree_map::Entry::Vacant(e) => {
+					e.insert(Box::new(MockCredit(amount)));
+				},
+			},
+			Fungibility::NonFungible(instance) => {
+				holding.non_fungible.insert((asset.id, instance));
+			},
+		}
+	}
+	holding
+}
 
 #[derive(Debug)]
 pub enum TestOrigin {
@@ -236,22 +305,64 @@ impl ExportXcm for TestMessageExporter {
 }
 
 thread_local! {
-	pub static ASSETS: RefCell<BTreeMap<Location, AssetsInHolding>> = RefCell::new(BTreeMap::new());
+	pub static ASSETS: RefCell<BTreeMap<Location, Vec<Asset>>> = RefCell::new(BTreeMap::new());
 }
-pub fn assets(who: impl Into<Location>) -> AssetsInHolding {
+
+pub fn assets(who: impl Into<Location>) -> Vec<Asset> {
 	ASSETS.with(|a| a.borrow().get(&who.into()).cloned()).unwrap_or_default()
 }
+
 pub fn asset_list(who: impl Into<Location>) -> Vec<Asset> {
-	Assets::from(assets(who)).into_inner()
+	let mut assets = assets(who);
+	// Sort assets by their location for consistent ordering
+	assets.sort_by(|a, b| {
+		// Compare number of parents first, then interior
+		match a.id.0.parents.cmp(&b.id.0.parents) {
+			core::cmp::Ordering::Equal => {
+				// Compare interior by encoding
+				use codec::Encode;
+				a.id.0.interior.encode().cmp(&b.id.0.interior.encode())
+			},
+			other => other,
+		}
+	});
+	assets
 }
+
 pub fn add_asset(who: impl Into<Location>, what: impl Into<Asset>) {
+	let asset = what.into();
+	let who = who.into();
 	ASSETS.with(|a| {
-		a.borrow_mut()
-			.entry(who.into())
-			.or_insert(AssetsInHolding::new())
-			.subsume(what.into())
+		let mut map = a.borrow_mut();
+		let assets = map.entry(who).or_default();
+
+		// For fungible assets, try to find existing and accumulate
+		match &asset.fun {
+			Fungibility::Fungible(amount) => {
+				let mut found = false;
+				for existing in assets.iter_mut() {
+					if existing.id == asset.id {
+						if let Fungibility::Fungible(existing_amount) = &mut existing.fun {
+							*existing_amount = existing_amount.saturating_add(*amount);
+							found = true;
+							break;
+						}
+					}
+				}
+				if !found {
+					assets.push(asset);
+				}
+			},
+			Fungibility::NonFungible(_) => {
+				// For non-fungible, just add if not already present
+				if !assets.iter().any(|a| a == &asset) {
+					assets.push(asset);
+				}
+			},
+		}
 	});
 }
+
 pub fn clear_assets(who: impl Into<Location>) {
 	ASSETS.with(|a| a.borrow_mut().remove(&who.into()));
 }
@@ -259,11 +370,13 @@ pub fn clear_assets(who: impl Into<Location>) {
 pub struct TestAssetTransactor;
 impl TransactAsset for TestAssetTransactor {
 	fn deposit_asset(
-		what: &Asset,
+		what: AssetsInHolding,
 		who: &Location,
 		_context: Option<&XcmContext>,
-	) -> Result<(), XcmError> {
-		add_asset(who.clone(), what.clone());
+	) -> Result<(), (AssetsInHolding, XcmError)> {
+		for asset in what.assets_iter() {
+			add_asset(who.clone(), asset);
+		}
 		Ok(())
 	}
 
@@ -273,12 +386,72 @@ impl TransactAsset for TestAssetTransactor {
 		_maybe_context: Option<&XcmContext>,
 	) -> Result<AssetsInHolding, XcmError> {
 		ASSETS.with(|a| {
-			a.borrow_mut()
-				.get_mut(who)
-				.ok_or(XcmError::NotWithdrawable)?
-				.try_take(what.clone().into())
-				.map_err(|_| XcmError::NotWithdrawable)
+			let mut assets_map = a.borrow_mut();
+			let assets = assets_map.get_mut(who).ok_or(XcmError::NotWithdrawable)?;
+
+			match &what.fun {
+				Fungibility::Fungible(amount_to_withdraw) => {
+					// Find the asset with matching id and sufficient balance
+					let mut found_idx = None;
+					for (idx, asset) in assets.iter().enumerate() {
+						if asset.id == what.id {
+							if let Fungibility::Fungible(have) = asset.fun {
+								if have >= *amount_to_withdraw {
+									found_idx = Some(idx);
+									break;
+								}
+							}
+						}
+					}
+
+					if let Some(idx) = found_idx {
+						let asset = &assets[idx];
+						if let Fungibility::Fungible(have) = asset.fun {
+							if have == *amount_to_withdraw {
+								// Remove the asset completely
+								assets.remove(idx);
+							} else {
+								// Reduce the amount
+								assets[idx] = Asset {
+									id: asset.id.clone(),
+									fun: Fungibility::Fungible(have - amount_to_withdraw),
+								};
+							}
+							Ok(asset_to_holding(what.clone()))
+						} else {
+							Err(XcmError::NotWithdrawable)
+						}
+					} else {
+						Err(XcmError::NotWithdrawable)
+					}
+				},
+				Fungibility::NonFungible(instance) => {
+					// Find and remove the exact non-fungible asset
+					let mut found_idx = None;
+					for (idx, asset) in assets.iter().enumerate() {
+						if asset.id == what.id {
+							if let Fungibility::NonFungible(have_instance) = &asset.fun {
+								if have_instance == instance {
+									found_idx = Some(idx);
+									break;
+								}
+							}
+						}
+					}
+
+					if let Some(idx) = found_idx {
+						assets.remove(idx);
+						Ok(asset_to_holding(what.clone()))
+					} else {
+						Err(XcmError::NotWithdrawable)
+					}
+				},
+			}
 		})
+	}
+
+	fn mint_asset(what: &Asset, _context: &XcmContext) -> Result<AssetsInHolding, XcmError> {
+		Ok(asset_to_holding(what.clone()))
 	}
 }
 
@@ -530,7 +703,7 @@ impl FeeManager for TestFeeManager {
 		IS_WAIVED.with(|l| l.borrow().contains(&r))
 	}
 
-	fn handle_fee(_: Assets, _: Option<&XcmContext>, _: FeeReason) {}
+	fn handle_fee(_: AssetsInHolding, _: Option<&XcmContext>, _: FeeReason) {}
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -543,8 +716,8 @@ pub enum LockTraceItem {
 thread_local! {
 	pub static NEXT_INDEX: RefCell<u32> = RefCell::new(0);
 	pub static LOCK_TRACE: RefCell<Vec<LockTraceItem>> = RefCell::new(Vec::new());
-	pub static ALLOWED_UNLOCKS: RefCell<BTreeMap<(Location, Location), AssetsInHolding>> = RefCell::new(BTreeMap::new());
-	pub static ALLOWED_REQUEST_UNLOCKS: RefCell<BTreeMap<(Location, Location), AssetsInHolding>> = RefCell::new(BTreeMap::new());
+	pub static ALLOWED_UNLOCKS: RefCell<BTreeMap<(Location, Location), Vec<Asset>>> = RefCell::new(BTreeMap::new());
+	pub static ALLOWED_REQUEST_UNLOCKS: RefCell<BTreeMap<(Location, Location), Vec<Asset>>> = RefCell::new(BTreeMap::new());
 }
 
 pub fn take_lock_trace() -> Vec<LockTraceItem> {
@@ -559,7 +732,7 @@ pub fn allow_unlock(
 		l.borrow_mut()
 			.entry((owner.into(), unlocker.into()))
 			.or_default()
-			.subsume(asset.into())
+			.push(asset.into())
 	});
 }
 pub fn disallow_unlock(
@@ -567,18 +740,19 @@ pub fn disallow_unlock(
 	asset: impl Into<Asset>,
 	owner: impl Into<Location>,
 ) {
+	let asset = asset.into();
 	ALLOWED_UNLOCKS.with(|l| {
 		l.borrow_mut()
 			.entry((owner.into(), unlocker.into()))
 			.or_default()
-			.saturating_take(asset.into().into())
+			.retain(|a| a != &asset)
 	});
 }
 pub fn unlock_allowed(unlocker: &Location, asset: &Asset, owner: &Location) -> bool {
 	ALLOWED_UNLOCKS.with(|l| {
-		l.borrow_mut()
+		l.borrow()
 			.get(&(owner.clone(), unlocker.clone()))
-			.map_or(false, |x| x.contains_asset(asset))
+			.map_or(false, |assets| assets.iter().any(|a| a == asset))
 	})
 }
 pub fn allow_request_unlock(
@@ -590,7 +764,7 @@ pub fn allow_request_unlock(
 		l.borrow_mut()
 			.entry((owner.into(), locker.into()))
 			.or_default()
-			.subsume(asset.into())
+			.push(asset.into())
 	});
 }
 pub fn disallow_request_unlock(
@@ -598,18 +772,19 @@ pub fn disallow_request_unlock(
 	asset: impl Into<Asset>,
 	owner: impl Into<Location>,
 ) {
+	let asset = asset.into();
 	ALLOWED_REQUEST_UNLOCKS.with(|l| {
 		l.borrow_mut()
 			.entry((owner.into(), locker.into()))
 			.or_default()
-			.saturating_take(asset.into().into())
+			.retain(|a| a != &asset)
 	});
 }
 pub fn request_unlock_allowed(locker: &Location, asset: &Asset, owner: &Location) -> bool {
 	ALLOWED_REQUEST_UNLOCKS.with(|l| {
-		l.borrow_mut()
+		l.borrow()
 			.get(&(owner.clone(), locker.clone()))
-			.map_or(false, |x| x.contains_asset(asset))
+			.map_or(false, |assets| assets.iter().any(|a| a == asset))
 	})
 }
 
@@ -641,7 +816,26 @@ impl AssetLock for TestAssetLock {
 		asset: Asset,
 		owner: Location,
 	) -> Result<Self::LockTicket, LockError> {
-		ensure!(assets(owner.clone()).contains_asset(&asset), LockError::AssetNotOwned);
+		// Check if owner has sufficient balance of the asset
+		let owner_assets = assets(owner.clone());
+		let has_asset = match &asset.fun {
+			Fungibility::Fungible(amount) => owner_assets.iter().any(|a| {
+				a.id == asset.id &&
+					match a.fun {
+						Fungibility::Fungible(have) => have >= *amount,
+						_ => false,
+					}
+			}),
+			Fungibility::NonFungible(instance) => owner_assets.iter().any(|a| {
+				a.id == asset.id &&
+					match &a.fun {
+						Fungibility::NonFungible(have_instance) => have_instance == instance,
+						_ => false,
+					}
+			}),
+		};
+
+		ensure!(has_asset, LockError::AssetNotOwned);
 		Ok(TestTicket(LockTraceItem::Lock { unlocker, asset, owner }))
 	}
 
@@ -672,13 +866,22 @@ impl AssetLock for TestAssetLock {
 }
 
 thread_local! {
-	pub static EXCHANGE_ASSETS: RefCell<AssetsInHolding> = RefCell::new(AssetsInHolding::new());
+	pub static EXCHANGE_ASSETS: RefCell<Vec<Asset>> = RefCell::new(Vec::new());
 }
 pub fn set_exchange_assets(assets: impl Into<Assets>) {
-	EXCHANGE_ASSETS.with(|a| a.replace(assets.into().into()));
+	EXCHANGE_ASSETS.with(|a| a.replace(assets.into().into_inner()));
 }
 pub fn exchange_assets() -> Assets {
-	EXCHANGE_ASSETS.with(|a| a.borrow().clone().into())
+	let mut assets = EXCHANGE_ASSETS.with(|a| a.borrow().clone());
+	// Sort assets by their location for consistent ordering
+	assets.sort_by(|a, b| match a.id.0.parents.cmp(&b.id.0.parents) {
+		core::cmp::Ordering::Equal => {
+			use codec::Encode;
+			a.id.0.interior.encode().cmp(&b.id.0.interior.encode())
+		},
+		other => other,
+	});
+	Assets::from(assets)
 }
 pub struct TestAssetExchange;
 impl AssetExchange for TestAssetExchange {
@@ -688,30 +891,133 @@ impl AssetExchange for TestAssetExchange {
 		want: &Assets,
 		maximal: bool,
 	) -> Result<AssetsInHolding, AssetsInHolding> {
-		let mut have = EXCHANGE_ASSETS.with(|l| l.borrow().clone());
-		ensure!(have.contains_assets(want), give);
-		let get = if maximal {
-			std::mem::replace(&mut have, AssetsInHolding::new())
+		let mut have_vec = EXCHANGE_ASSETS.with(|l| l.borrow().clone());
+
+		// Check if we have what they want
+		let want_vec: Vec<Asset> = want.clone().into_inner();
+		for want_asset in &want_vec {
+			let found = have_vec.iter().any(|a| {
+				a.id == want_asset.id &&
+					match (&a.fun, &want_asset.fun) {
+						(Fungibility::Fungible(have_amt), Fungibility::Fungible(want_amt)) =>
+							have_amt >= want_amt,
+						(
+							Fungibility::NonFungible(have_inst),
+							Fungibility::NonFungible(want_inst),
+						) => have_inst == want_inst,
+						_ => false,
+					}
+			});
+			if !found {
+				return Err(give);
+			}
+		}
+
+		// Remove what we're giving them and prepare the result
+		let get_vec: Vec<Asset> = if maximal {
+			// Give them everything
+			let result = have_vec.clone();
+			have_vec.clear();
+			result
 		} else {
-			have.saturating_take(want.clone().into())
+			// Give them exactly what they want
+			want_vec.clone()
 		};
-		have.subsume_assets(give);
-		EXCHANGE_ASSETS.with(|l| l.replace(have));
-		Ok(get)
+
+		// Subtract the get assets from have_vec
+		if !maximal {
+			for get_asset in &get_vec {
+				match &get_asset.fun {
+					Fungibility::Fungible(amount_to_take) => {
+						// Find and subtract from the fungible asset
+						for have_asset in have_vec.iter_mut() {
+							if have_asset.id == get_asset.id {
+								if let Fungibility::Fungible(have_amount) = &mut have_asset.fun {
+									*have_amount = have_amount.saturating_sub(*amount_to_take);
+								}
+								break;
+							}
+						}
+						// Remove assets with zero amount
+						have_vec.retain(|a| {
+							if let Fungibility::Fungible(amt) = a.fun {
+								amt > 0
+							} else {
+								true
+							}
+						});
+					},
+					Fungibility::NonFungible(instance) => {
+						// Remove the exact non-fungible
+						have_vec.retain(|a| {
+							!(a.id == get_asset.id &&
+								matches!(&a.fun, Fungibility::NonFungible(inst) if inst == instance))
+						});
+					},
+				}
+			}
+		}
+
+		// Add what they're giving
+		for asset in give.assets_iter() {
+			match asset.fun {
+				Fungibility::Fungible(amount) => {
+					let mut found = false;
+					for existing in have_vec.iter_mut() {
+						if existing.id == asset.id {
+							if let Fungibility::Fungible(existing_amount) = &mut existing.fun {
+								*existing_amount = existing_amount.saturating_add(amount);
+								found = true;
+								break;
+							}
+						}
+					}
+					if !found {
+						have_vec.push(asset);
+					}
+				},
+				Fungibility::NonFungible(_) =>
+					if !have_vec.iter().any(|a| a == &asset) {
+						have_vec.push(asset);
+					},
+			}
+		}
+
+		EXCHANGE_ASSETS.with(|l| l.replace(have_vec));
+		Ok(assets_to_holding(get_vec))
 	}
 
 	fn quote_exchange_price(give: &Assets, want: &Assets, maximal: bool) -> Option<Assets> {
-		let mut have = EXCHANGE_ASSETS.with(|l| l.borrow().clone());
-		if !have.contains_assets(want) {
-			return None;
+		let have_vec = EXCHANGE_ASSETS.with(|l| l.borrow().clone());
+		let want_vec: Vec<Asset> = want.clone().into_inner();
+
+		// Check if we have what they want
+		for want_asset in &want_vec {
+			let found = have_vec.iter().any(|a| {
+				a.id == want_asset.id &&
+					match (&a.fun, &want_asset.fun) {
+						(Fungibility::Fungible(have_amt), Fungibility::Fungible(want_amt)) =>
+							have_amt >= want_amt,
+						(
+							Fungibility::NonFungible(have_inst),
+							Fungibility::NonFungible(want_inst),
+						) => have_inst == want_inst,
+						_ => false,
+					}
+			});
+			if !found {
+				return None;
+			}
 		}
-		let get = if maximal {
-			have.saturating_take(give.clone().into())
+
+		let result = if maximal {
+			let give_vec: Vec<Asset> = give.clone().into_inner();
+			give_vec
 		} else {
-			have.saturating_take(want.clone().into())
+			want_vec
 		};
-		let result: Vec<Asset> = get.fungible_assets_iter().collect();
-		Some(result.into())
+
+		Some(Assets::from(result))
 	}
 }
 

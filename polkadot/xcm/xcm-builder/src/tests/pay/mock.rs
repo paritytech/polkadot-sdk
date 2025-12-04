@@ -213,8 +213,9 @@ impl WeightTrader for DummyWeightTrader {
 		_weight: Weight,
 		_payment: xcm_executor::AssetsInHolding,
 		_context: &XcmContext,
-	) -> Result<xcm_executor::AssetsInHolding, XcmError> {
-		Ok(xcm_executor::AssetsInHolding::default())
+	) -> Result<xcm_executor::AssetsInHolding, (xcm_executor::AssetsInHolding, XcmError)> {
+		// Consume all payment, no refund
+		Ok(xcm_executor::AssetsInHolding::new())
 	}
 }
 

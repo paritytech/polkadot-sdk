@@ -17,6 +17,7 @@
 // Shared test utilities and implementations for the XCM Builder.
 
 use alloc::vec::Vec;
+use core::fmt::Debug;
 use frame_support::{
 	parameter_types,
 	traits::{Contains, CrateVersion, PalletInfoData, PalletsInfoAccess},
@@ -74,6 +75,26 @@ impl Clone for TestHolding {
 				.collect(),
 			non_fungible: self.0.non_fungible.clone(),
 		})
+	}
+}
+
+impl Debug for TestHolding {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		f.debug_struct("TestHolding")
+			.field("fungible_assets", &self.0.fungible_assets_iter().collect::<Vec<_>>())
+			.field("non_fungible_assets", &self.0.non_fungible_assets_iter().collect::<Vec<_>>())
+			.finish()
+	}
+}
+
+impl PartialEq for TestHolding {
+	fn eq(&self, other: &Self) -> bool {
+		let self_fungible: Vec<_> = self.0.fungible_assets_iter().collect();
+		let other_fungible: Vec<_> = other.0.fungible_assets_iter().collect();
+		let self_non_fungible: Vec<_> = self.0.non_fungible_assets_iter().collect();
+		let other_non_fungible: Vec<_> = other.0.non_fungible_assets_iter().collect();
+
+		self_fungible == other_fungible && self_non_fungible == other_non_fungible
 	}
 }
 

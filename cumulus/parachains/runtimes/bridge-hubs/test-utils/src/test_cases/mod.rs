@@ -356,8 +356,9 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 		let xcm = if let Some(fee) = maybe_paid_export_message {
 			// Pre-fund the sibling parachain's sovereign account with the fee
 			// We need to convert the location to an account and mint funds
-			let sibling_account = LocationToAccountId::convert_location(&sibling_parachain_location)
-				.expect("valid location conversion");
+			let sibling_account =
+				LocationToAccountId::convert_location(&sibling_parachain_location)
+					.expect("valid location conversion");
 
 			// Extract the amount from the fee asset
 			let fee_amount = if let Fungibility::Fungible(amount) = fee.fun {
@@ -367,7 +368,8 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 			};
 
 			// Mint the fee amount to the sibling account using the runtime's Balances pallet
-			let balance_amount: BalanceOf<Runtime> = fee_amount.try_into()
+			let balance_amount: BalanceOf<Runtime> = fee_amount
+				.try_into()
 				.unwrap_or_else(|_| panic!("Failed to convert fee amount to balance"));
 			<pallet_balances::Pallet<Runtime>>::mint_into(&sibling_account, balance_amount)
 				.expect("minting should succeed");
