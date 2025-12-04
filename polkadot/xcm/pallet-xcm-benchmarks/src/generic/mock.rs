@@ -147,16 +147,10 @@ impl xcm_executor::Config for XcmConfig {
 			(DenyNothing, DenyRecursively<DenyReserveTransferToRelayChain>),
 			(
 				TakeWeightCredit,
-				// Expected responses are OK.
 				AllowKnownQueryResponses<DevNull>,
-				// Allow XCMs with some computed origins to pass through.
 				WithComputedOrigin<
 					(
-						// If the message is one that immediately attempts to pay for execution,
-						// then allow it.
 						AllowTopLevelPaidExecutionFrom<Everything>,
-						// Parent, its pluralities (i.e. governance bodies), relay treasury pallet
-						// and sibling parachains get free execution.
 						AllowExplicitUnpaidExecutionFrom<(
 							ParentOrParentsPlurality,
 							Equals<RelayTreasuryLocation>,
@@ -164,9 +158,7 @@ impl xcm_executor::Config for XcmConfig {
 							AmbassadorEntities,
 							SecretaryEntities,
 						)>,
-						// Subscriptions for version tracking are OK.
 						AllowSubscriptionsFrom<Everything>,
-						// HRMP notifications from the relay chain are OK.
 						AllowHrmpNotificationsFromRelayChain,
 					),
 					UniversalLocation,
