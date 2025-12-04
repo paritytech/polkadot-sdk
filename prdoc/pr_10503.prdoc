@@ -5,3 +5,4 @@ doc:
 crates:
 - name: pallet-transaction-storage
   bump: major
+  validate: false
