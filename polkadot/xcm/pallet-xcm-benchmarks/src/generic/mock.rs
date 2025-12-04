@@ -22,7 +22,7 @@ use frame_support::{
 	derive_impl,
 	pallet_prelude::ConstU32,
 	parameter_types,
-	traits::{Contains, Equals, Everything, OriginTrait, ProcessMessageError},
+	traits::{Contains, Everything, OriginTrait, ProcessMessageError},
 };
 use sp_runtime::traits::TrailingZeroInput;
 use xcm_builder::{
@@ -30,11 +30,10 @@ use xcm_builder::{
 		AssetsInHolding, TestAssetExchanger, TestAssetLocker, TestAssetTrap,
 		TestSubscriptionService, TestUniversalAliases,
 	},
-	AliasForeignAccountId32, AllowExplicitUnpaidExecutionFrom,
-	AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom,
-	AllowTopLevelPaidExecutionFrom, DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry,
-	EnsureDecodableXcm, FrameTransactionalProcessor, TakeWeightCredit, TrailingSetTopicAsId,
-	WithComputedOrigin,
+	AliasForeignAccountId32, AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses,
+	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, DenyRecursively,
+	DenyReserveTransferToRelayChain, DenyThenTry, EnsureDecodableXcm, FrameTransactionalProcessor,
+	TakeWeightCredit, TrailingSetTopicAsId, WithComputedOrigin,
 };
 use xcm_executor::traits::{ConvertOrigin, DenyExecution, Properties};
 
@@ -76,46 +75,10 @@ parameter_types! {
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
 
-pub const COLLECTIVES_ID: u32 = 1001;
-pub const TREASURY_PALLET_ID: u8 = 37;
-
-pub struct AmbassadorEntities;
-impl Contains<Location> for AmbassadorEntities {
-	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (1, [Parachain(COLLECTIVES_ID), PalletInstance(74)]))
-	}
-}
-
-pub struct FellowshipEntities;
-impl Contains<Location> for FellowshipEntities {
-	fn contains(location: &Location) -> bool {
-		matches!(
-			location.unpack(),
-			(1, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }]) |
-				(1, [Parachain(COLLECTIVES_ID), PalletInstance(64)]) |
-				(1, [Parachain(COLLECTIVES_ID), PalletInstance(65)])
-		)
-	}
-}
-
-pub struct ParentOrParentsPlurality;
-impl Contains<Location> for ParentOrParentsPlurality {
-	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (1, []) | (1, [Plurality { .. }]))
-	}
-}
-
 pub struct OnlyParachains;
 impl Contains<Location> for OnlyParachains {
 	fn contains(location: &Location) -> bool {
 		matches!(location.unpack(), (0, [Parachain(_)]))
-	}
-}
-
-pub struct SecretaryEntities;
-impl Contains<Location> for SecretaryEntities {
-	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (1, [Parachain(COLLECTIVES_ID), PalletInstance(91)]))
 	}
 }
 
@@ -151,13 +114,6 @@ impl xcm_executor::Config for XcmConfig {
 				WithComputedOrigin<
 					(
 						AllowTopLevelPaidExecutionFrom<Everything>,
-						AllowExplicitUnpaidExecutionFrom<(
-							ParentOrParentsPlurality,
-							Equals<RelayTreasuryLocation>,
-							FellowshipEntities,
-							AmbassadorEntities,
-							SecretaryEntities,
-						)>,
 						AllowSubscriptionsFrom<Everything>,
 						AllowHrmpNotificationsFromRelayChain,
 					),
@@ -193,7 +149,6 @@ impl xcm_executor::Config for XcmConfig {
 
 parameter_types! {
 	pub const ExistentialDeposit: u64 = 7;
-	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(TREASURY_PALLET_ID)).into();
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
