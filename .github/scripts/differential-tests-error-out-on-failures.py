@@ -72,7 +72,6 @@ def main() -> None:
     with open(sys.argv[1], "r") as file:
         report: Report = json.load(file)
 
-    # Counting the total number of test cases, successes, failures, and ignored tests
     for _, mode_to_case_mapping in report["execution_information"].items():
         for _, case_idx_to_report_mapping in mode_to_case_mapping[
             "case_reports"
