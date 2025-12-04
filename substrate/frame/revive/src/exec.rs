@@ -2515,16 +2515,10 @@ where
 	/// The `set_code_hash` contract API stays disabled until this change is implemented.
 	fn set_code_hash_of_caller(&mut self, hash: H256) -> Result<CodeRemoved, DispatchError> {
 		ensure!(self.top_frame().delegate.is_none(), Error::<T>::PrecompileDelegateDenied);
-		log::error!("RVE top_Frame.account_id: {:?}", self.top_frame().account_id);
 		let parent = self.frames_mut().nth(1).ok_or_else(|| Error::<T>::ContractNotFound)?;
 		ensure!(parent.delegate.is_none(), Error::<T>::PrecompileDelegateDenied);
 
-		log::error!("RVE parent.account_id: {:?}", parent.account_id);
 		let info = parent.contract_info();
-
-		{
-		log::error!("RVE info: {:?}", info);
-		}
 
 		let prev_hash = info.code_hash;
 		info.code_hash = hash;
@@ -2536,12 +2530,9 @@ where
 		let deposit = StorageDeposit::Charge(new_base_deposit)
 			.saturating_sub(&StorageDeposit::Charge(old_base_deposit));
 		
-		log::error!("RVE old_base_deposit: {:?}, new_base_deposit: {:?}, deposit: {:?}", old_base_deposit, new_base_deposit, deposit);
-
-		parent.frame_meter.charge_deposit(&deposit)?;
-		// top_frame_mut!(self).frame_meter.charge_deposit(&deposit)?;
-
-		log::error!("RVE info: {:?}", parent.contract_info());
+		parent
+			.frame_meter
+			.charge_contract_deposit_and_transfer(parent.account_id.clone(), deposit)?;
 
 		<CodeInfo<T>>::increment_refcount(hash)?;
 		let removed = <CodeInfo<T>>::decrement_refcount(prev_hash)?;

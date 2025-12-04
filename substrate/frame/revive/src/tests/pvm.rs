@@ -2787,7 +2787,7 @@ fn native_dependency_deposit_works() {
 	let (dummy_binary, dummy_code_hash) = compile_module("dummy").unwrap();
 
 	// Test with both existing and uploaded code
-	for code in [/*Code::Upload(binary.clone()),*/ Code::Existing(code_hash)] {
+	for code in [Code::Upload(binary.clone()), Code::Existing(code_hash)] {
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = Balances::set_balance(&ALICE, 1_000_000);
 			let lockup_deposit_percent = CodeHashLockupDepositPercent::get();
@@ -2823,22 +2823,11 @@ fn native_dependency_deposit_works() {
 			let upload_deposit = get_code_deposit(&code_hash);
 			let extra_deposit = add_upload_deposit.then(|| upload_deposit).unwrap_or_default();
 
-			println!("addr: {:?}", addr);
-			println!("base_deposit: {:?}", base_deposit);
-			println!("upload_deposit: {:?}", upload_deposit);
-			println!("extra_deposit: {:?}", extra_deposit);
-			println!("deposit: {:?}", get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id));
 			assert_eq!(
 				res.storage_deposit.charge_or_zero(),
 				extra_deposit + base_deposit + Contracts::min_balance()
 			);
 
-			println!("deposit: {:?}", get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id));
-
-			// call set_code_hash
-			// builder::bare_call(addr)
-			// 	.data(dummy_code_hash.encode())
-			// 	.build_and_unwrap_result();
 			let _ = builder::bare_call(addr)
 				.data(
 					SetCodeHash::setCodeHashCall {
@@ -2854,11 +2843,6 @@ fn native_dependency_deposit_works() {
 			let new_base_deposit = contract_base_deposit(&addr);
 			assert_ne!(deposit_diff, 0);
 			assert_eq!(base_deposit - new_base_deposit, deposit_diff);
-
-
-			println!("deposit: {:?}", get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id));
-			println!("deposit_diff: {:?}", deposit_diff);
-			println!("new_base_deposit: {:?}", new_base_deposit);
 			assert_eq!(
 				get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id),
 				new_base_deposit
