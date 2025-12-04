@@ -2620,24 +2620,25 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 				}
 
 				fn worst_case_xcm_failing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
-					use xcm::latest::prelude::{ClearOrigin, SetAppendix, SetTopic};
+					use xcm::latest::prelude::{Here, Parent, SetAppendix, SetTopic, TransferReserveAsset};
 
 					let nested_limit = xcm_executor::RECURSION_LIMIT as usize - 2;
 
-					// Within the recursion limit, this is fine.
-					let mut set_topic = Xcm(vec![SetTopic([42; 32])]);
+					// Nested reserve-transfer to Relay Chain; rejected by `DenyReserveTransferToRelayChain`.
+					let leaf = Xcm(vec![TransferReserveAsset {
+						assets: (Here, 1_000_000_000u128).into(),
+						dest: Parent.into(),
+						xcm: Xcm::new(),
+					}]);
+
+					// Within the recursion limit, this just makes the barrier scan heavy.
+					let mut nested = leaf;
 					for _ in 0..nested_limit {
-						set_topic = Xcm(vec![SetAppendix(set_topic)]);
-					}
-					let set_topics = Xcm(vec![SetAppendix(set_topic); nested_limit]);
-
-					// Exceed the recursion limit, this will be rejected.
-					let mut clear_origin = Xcm(vec![SetAppendix(Xcm(vec![ClearOrigin]))]);
-					for _ in 0..=nested_limit {
-						clear_origin = Xcm(vec![SetAppendix(clear_origin)]);
+						nested = Xcm(vec![SetAppendix(nested)]);
 					}
 
-					let xcm = Xcm(vec![SetAppendix(set_topics), SetAppendix(clear_origin)]);
+					// Add a topic so `TrailingSetTopicAsId` also runs.
+					let xcm = Xcm(vec![SetTopic([42; 32]), SetAppendix(nested)]);
 
 					Ok(xcm)
 				}
