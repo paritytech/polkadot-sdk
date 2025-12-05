@@ -196,7 +196,7 @@ benchmarks_instance_pallet! {
 			for (asset_id, instance) in holding.non_fungible.iter().take(remaining) {
 				assets.push(Asset {
 					id: asset_id.clone(),
-					fun: NonFungible(instance.clone()),
+					fun: NonFungible(*instance),
 				});
 			}
 			assets.into()

@@ -465,6 +465,10 @@ mod tests {
 		) -> Result<Asset, XcmError> {
 			Err(XcmError::AssetNotFound)
 		}
+
+		fn mint_asset(_: &Asset, _: &XcmContext) -> Result<AssetsInHolding, XcmError> {
+			Err(XcmError::AssetNotFound)
+		}
 	}
 
 	pub struct OverflowTransactor;
@@ -501,6 +505,10 @@ mod tests {
 		) -> Result<Asset, XcmError> {
 			Err(XcmError::Overflow)
 		}
+
+		fn mint_asset(_: &Asset, _: &XcmContext) -> Result<AssetsInHolding, XcmError> {
+			Err(XcmError::Overflow)
+		}
 	}
 
 	pub struct SuccessfulTransactor;
@@ -522,11 +530,15 @@ mod tests {
 		}
 
 		fn withdraw_asset(
-			_what: &Asset,
+			what: &Asset,
 			_who: &Location,
 			_context: Option<&XcmContext>,
 		) -> Result<AssetsInHolding, XcmError> {
-			Ok(AssetsInHolding::new())
+			Ok(asset_to_holding(what.clone()))
+		}
+
+		fn mint_asset(what: &Asset, _context: &XcmContext) -> Result<AssetsInHolding, XcmError> {
+			Ok(asset_to_holding(what.clone()))
 		}
 
 		fn internal_transfer_asset(

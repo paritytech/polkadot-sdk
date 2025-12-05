@@ -106,11 +106,15 @@ impl TransactAsset for SuccessfulTransactor {
 	}
 
 	fn withdraw_asset(
-		_what: &Asset,
+		what: &Asset,
 		_who: &Location,
 		_context: Option<&XcmContext>,
 	) -> Result<AssetsInHolding, XcmError> {
-		Ok(AssetsInHolding::new())
+		Ok(xcm_executor::test_helpers::mock_asset_to_holding(what.clone()))
+	}
+
+	fn mint_asset(what: &Asset, _context: &XcmContext) -> Result<AssetsInHolding, XcmError> {
+		Ok(xcm_executor::test_helpers::mock_asset_to_holding(what.clone()))
 	}
 
 	fn internal_transfer_asset(

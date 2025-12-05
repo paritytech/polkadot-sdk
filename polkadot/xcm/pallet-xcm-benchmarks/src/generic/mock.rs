@@ -70,14 +70,7 @@ impl xcm_executor::traits::TransactAsset for MockTransactor {
 	}
 
 	fn mint_asset(what: &Asset, _: &XcmContext) -> Result<AssetsInHolding, XcmError> {
-		let id = what.id.clone();
-		Ok(match what.fun {
-			Fungible(amount) => AssetsInHolding::new_from_fungible_credit(
-				id,
-				alloc::boxed::Box::new(MockCredit(amount as u128)),
-			),
-			NonFungible(instance) => AssetsInHolding::new_from_non_fungible(id, instance),
-		})
+		Ok(xcm_executor::test_helpers::mock_asset_to_holding(what.clone()))
 	}
 }
 

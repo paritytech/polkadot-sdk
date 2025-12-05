@@ -82,7 +82,7 @@ mod benchmarks {
 			// Add non-fungible assets if we haven't hit the limit
 			let remaining = MAX_ITEMS_IN_ASSETS.saturating_sub(assets.len());
 			for (asset_id, instance) in holding.non_fungible.iter().take(remaining) {
-				assets.push(Asset { id: asset_id.clone(), fun: NonFungible(instance.clone()) });
+				assets.push(Asset { id: asset_id.clone(), fun: NonFungible(*instance) });
 			}
 			assets.into()
 		};
@@ -493,7 +493,7 @@ mod benchmarks {
 				assets.push(Asset { id: asset_id.clone(), fun: Fungible(imbalance.amount()) });
 			}
 			for (asset_id, instance) in holding.non_fungible.iter() {
-				assets.push(Asset { id: asset_id.clone(), fun: NonFungible(instance.clone()) });
+				assets.push(Asset { id: asset_id.clone(), fun: NonFungible(*instance) });
 			}
 			assets.into()
 		};
@@ -522,7 +522,7 @@ mod benchmarks {
 				assets.push(Asset { id: asset_id.clone(), fun: Fungible(imbalance.amount()) });
 			}
 			for (asset_id, instance) in holding.non_fungible.iter() {
-				assets.push(Asset { id: asset_id.clone(), fun: NonFungible(instance.clone()) });
+				assets.push(Asset { id: asset_id.clone(), fun: NonFungible(*instance) });
 			}
 			assets.into()
 		};

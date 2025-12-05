@@ -185,6 +185,10 @@ impl TransactAsset for TestAssetTransactor {
 				.map_err(|_| XcmError::NotWithdrawable)
 		})
 	}
+
+	fn mint_asset(what: &Asset, _: &XcmContext) -> Result<AssetsInHolding, XcmError> {
+		Ok(crate::test_helpers::mock_asset_to_holding(what.clone()))
+	}
 }
 
 /// Test barrier that just lets everything through.

@@ -99,11 +99,15 @@ impl TransactAsset for DummyAssetTransactor {
 	}
 
 	fn withdraw_asset(
-		_what: &Asset,
-		_who: &Location,
-		_maybe_context: Option<&XcmContext>,
+		what: &Asset,
+		_: &Location,
+		_: Option<&XcmContext>,
 	) -> Result<AssetsInHolding, XcmError> {
-		Ok(AssetsInHolding::new())
+		Ok(xcm_executor::test_helpers::mock_asset_to_holding(what.clone()))
+	}
+
+	fn mint_asset(what: &Asset, _: &XcmContext) -> Result<AssetsInHolding, XcmError> {
+		Ok(xcm_executor::test_helpers::mock_asset_to_holding(what.clone()))
 	}
 }
 
