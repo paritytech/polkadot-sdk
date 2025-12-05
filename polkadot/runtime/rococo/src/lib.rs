@@ -80,6 +80,7 @@ use polkadot_runtime_parachains::{
 	},
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
+	approvals_rewards as parachains_approvals_rewards,
 };
 use rococo_runtime_constants::system_parachain::{coretime::TIMESLICE_PERIOD, BROKER_ID};
 use scale_info::TypeInfo;
@@ -1225,6 +1226,10 @@ impl parachains_slashing::Config for Runtime {
 	type BenchmarkingConfig = parachains_slashing::BenchConfig<200>;
 }
 
+impl parachains_approvals_rewards::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+}
+
 parameter_types! {
 	pub const ParaDeposit: Balance = 40 * UNITS;
 }
@@ -1592,6 +1597,7 @@ construct_runtime! {
 		MessageQueue: pallet_message_queue = 64,
 		OnDemandAssignmentProvider: parachains_on_demand = 66,
 		CoretimeAssignmentProvider: parachains_assigner_coretime = 68,
+		ApprovalsRewards: parachains_approvals_rewards = 69,
 
 		// Parachain Onboarding Pallets. Start indices at 70 to leave room.
 		Registrar: paras_registrar = 70,
@@ -2109,7 +2115,7 @@ sp_api::impl_runtime_apis! {
 			payload: polkadot_primitives::vstaging::ApprovalStatistics,
 			signature: polkadot_primitives::ValidatorSignature
 		) {
-			parachains_runtime_api_impl::submit_approval_statistics::<Runtime>(payload, signature)
+			parachains_staging_runtime_api_impl::submit_approval_statistics::<Runtime>(payload, signature)
 		}
 
 		fn pvfs_require_precheck() -> Vec<ValidationCodeHash> {

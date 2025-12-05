@@ -91,6 +91,7 @@ use polkadot_runtime_parachains::{
 	},
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
+	approvals_rewards as parachains_approvals_rewards,
 };
 use scale_info::TypeInfo;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -1443,6 +1444,10 @@ impl parachains_paras::Config for Runtime {
 	>;
 }
 
+impl parachains_approvals_rewards::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+}
+
 parameter_types! {
 	/// Amount of weight that can be spent per block to service messages.
 	///
@@ -1977,6 +1982,8 @@ mod runtime {
 	pub type OnDemandAssignmentProvider = parachains_on_demand;
 	#[runtime::pallet_index(57)]
 	pub type CoretimeAssignmentProvider = parachains_assigner_coretime;
+	#[runtime::pallet_index(58)]
+	pub type ApprovalsRewards = parachains_approvals_rewards;
 
 	// Parachain Onboarding Pallets. Start indices at 60 to leave room.
 	#[runtime::pallet_index(60)]
@@ -2355,7 +2362,7 @@ sp_api::impl_runtime_apis! {
 			payload: ApprovalStatistics,
 			signature: ValidatorSignature,
 		) {
-			parachains_runtime_api_impl::submit_approval_statistics::<Runtime>(payload, signature)
+			parachains_staging_runtime_api_impl::submit_approval_statistics::<Runtime>(payload, signature)
 		}
 
 		fn pvfs_require_precheck() -> Vec<ValidationCodeHash> {

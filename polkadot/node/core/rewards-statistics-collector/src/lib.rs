@@ -21,12 +21,26 @@
 //! Its primary responsibility is to collect and track data reflecting node’s perspective
 //! on the approval work carried out by all session validators.
 
+mod approval_voting_metrics;
+mod availability_distribution_metrics;
+mod error;
+pub mod metrics;
+#[cfg(test)]
+mod tests;
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::collections::hash_map::Entry;
 use std::task::Context;
 use futures::{channel::oneshot, prelude::*};
-use polkadot_node_primitives::{new_session_window_size, SessionWindowSize, DISPUTE_WINDOW};
+use polkadot_node_primitives::{
+    approval::{
+        time::Tick,
+        v1::DelayTranche
+    },
+    new_session_window_size, 
+    SessionWindowSize, 
+    DISPUTE_WINDOW
+};
 use polkadot_node_subsystem::{
     errors::RuntimeApiError as RuntimeApiSubsystemError,
     messages::{
@@ -36,25 +50,11 @@ use polkadot_node_subsystem::{
     overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemSender
 };
 use polkadot_primitives::{AuthorityDiscoveryId, BlockNumber, Hash, Header, SessionIndex, ValidatorId, ValidatorIndex, well_known_keys::relay_dispatch_queue_remaining_capacity, SessionInfo};
-use polkadot_node_primitives::{
-    approval::{
-        time::Tick,
-        v1::DelayTranche
-    }
-};
+use crate::approval_voting_metrics::{ApprovalsStats, handle_candidate_approved, handle_observed_no_shows};
 use crate::{
     error::{FatalError, FatalResult, JfyiError, JfyiErrorResult, Result},
 };
-use polkadot_primitives::{AuthorityDiscoveryId, BlockNumber, Hash, SessionIndex, ValidatorIndex};
 use std::collections::{BTreeMap, HashMap};
-
-mod approval_voting_metrics;
-mod availability_distribution_metrics;
-mod error;
-pub mod metrics;
-#[cfg(test)]
-mod tests;
-
 use self::metrics::Metrics;
 use crate::{
 	approval_voting_metrics::{handle_candidate_approved, handle_observed_no_shows},
@@ -146,6 +146,7 @@ struct View {
 	/// statistics per validator
 	availability_chunks: BTreeMap<SessionIndex, AvailabilityChunks>,
     
+    latest_finalized_session: Option<SessionIndex>,
     latest_finalized_block: (BlockNumber, Hash),
     
     /// latest activated leaf
@@ -159,6 +160,7 @@ impl View {
 			per_session: BTreeMap::new(),
 			availability_chunks: BTreeMap::new(),
 			latest_finalized_block: (0, Hash::default()),
+            latest_finalized_session: None,
             recent_block: None,
 		}
     }
@@ -172,7 +174,7 @@ pub struct RewardsStatisticsCollector {
 }
 
 impl RewardsStatisticsCollector {
-    /// Create a new instance of the `ConsensusStatisticsCollector`.
+    /// Create a new instance of the `RewardsStatisticsCollector`.
     pub fn new(keystore: KeystorePtr, metrics: Metrics, config: Config) -> Self {
         Self {
             metrics,
@@ -197,7 +199,7 @@ where
     }
 }
 
-#[overseer::contextbounds(ConsensusStatisticsCollector, prefix = self::overseer)]
+#[overseer::contextbounds(RewardsStatisticsCollector, prefix = self::overseer)]
 async fn run<Context>(mut ctx: Context, keystore: KeystorePtr, metrics: (Metrics, bool)) -> FatalResult<()> {
     let mut view = View::new();
     loop {
@@ -215,6 +217,8 @@ pub(crate) async fn run_iteration<Context>(
     keystore: &KeystorePtr,
     metrics: (&Metrics, bool),
 ) -> Result<()> {
+    let mut sender = ctx.sender().clone();
+    
     loop {
         match ctx.recv().await.map_err(FatalError::SubsystemReceive)? {
             FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
@@ -229,7 +233,7 @@ pub(crate) async fn run_iteration<Context>(
                         new_session_info,
                         recent_block,
                     } = extract_activated_leaf_info(
-                        ctx.sender(),
+                        &mut sender,
                         view,
                         keystore,
                         relay_hash,
@@ -335,11 +339,8 @@ struct ActivationInfo {
     new_session_info: Option<(SessionInfo, Option<SigningCredentials>)>,
 }
 
-async fn extract_activated_leaf_info<
-    Sender: SubsystemSender<ChainApiMessage>
-        + SubsystemSender<RuntimeApiMessage>
->(
-    mut sender: Sender,
+async fn extract_activated_leaf_info(
+    sender: &mut impl overseer::RewardsStatisticsCollectorSenderTrait,
     view: &mut View,
     keystore: &KeystorePtr,
     relay_hash: Hash,
@@ -360,14 +361,14 @@ async fn extract_activated_leaf_info<
         .await?
         .map_err(JfyiError::ChainApiCallError)?;
 
-    let session_idx = request_session_index_for_child(relay_hash, &mut sender)
+    let session_idx = request_session_index_for_child(relay_hash, sender)
         .await
         .await
         .map_err(JfyiError::OverseerCommunication)?
         .map_err(JfyiError::RuntimeApiCallError)?;
 
     let new_session_info = if !view.per_session.contains_key(&session_idx) {
-        let session_info = request_session_info(relay_hash, session_idx, &mut sender)
+        let session_info = request_session_info(relay_hash, session_idx, sender)
             .await
             .await
             .map_err(JfyiError::OverseerCommunication)?
@@ -375,13 +376,11 @@ async fn extract_activated_leaf_info<
 
         let (tx, rx) = oneshot::channel();
         let validators = runtime_api_request(
-            &mut sender,
+            sender,
             relay_hash,
             RuntimeApiRequest::Validators(tx),
             rx,
-        )
-            .await
-            .map_err(JfyiError::RuntimeApiCallError)?;
+        ).await?;
 
         let signing_credentials = polkadot_node_subsystem_util::signing_key_and_index(&validators, keystore)
             .map(|(validator_key, validator_index)|
@@ -496,7 +495,7 @@ async fn submit_finalized_session_stats<
 
                 if let Some(ref credentials) = session_view.credentials {
                     sign_and_submit_approvals_tallies(
-                        &mut sender,
+                        sender,
                         recent_block_hash,
                         session_idx,
                         keystore,
@@ -535,10 +534,8 @@ fn log_session_view_general_stats(view: &View) {
 	}
 }
 
-async fn sign_and_submit_approvals_tallies<
-    Sender: SubsystemSender<RuntimeApiMessage>,
->(
-    mut sender: Sender,
+async fn sign_and_submit_approvals_tallies(
+    sender: &mut impl SubsystemSender<RuntimeApiMessage>,
     relay_parent: Hash,
     session_index: &SessionIndex,
     keystore: &KeystorePtr,
@@ -567,7 +564,7 @@ async fn sign_and_submit_approvals_tallies<
         });
     }
 
-    let payload = ApprovalStatistics(session_index.clone(), approvals_tallies);
+    let payload = ApprovalStatistics(session_index.clone(), credentials.validator_index, approvals_tallies);
 
     let signature = match polkadot_node_subsystem_util::sign(
         keystore,
@@ -598,7 +595,7 @@ async fn sign_and_submit_approvals_tallies<
 
     let (tx, rx) = oneshot::channel();
     let runtime_req = runtime_api_request(
-        &mut sender,
+        sender,
         relay_parent,
         RuntimeApiRequest::SubmitApprovalStatistics(payload, signature, tx),
         rx,
@@ -625,40 +622,18 @@ pub(crate) enum RuntimeRequestError {
     CommunicationError,
 }
 
-async fn runtime_api_request<
-    T,
-    Sender: SubsystemSender<RuntimeApiMessage>,
->(
-    mut sender: Sender,
+async fn runtime_api_request<T>(
+    sender: &mut impl SubsystemSender<RuntimeApiMessage>,
     relay_parent: Hash,
     request: RuntimeApiRequest,
     receiver: oneshot::Receiver<std::result::Result<T, RuntimeApiSubsystemError>>,
-) -> std::result::Result<T, RuntimeRequestError> {
+) -> std::result::Result<T, JfyiError> {
     sender
         .send_message(RuntimeApiMessage::Request(relay_parent, request).into())
         .await;
 
     receiver
-        .await
-        .map_err(|_| {
-            gum::debug!(target: LOG_TARGET, ?relay_parent, "Runtime API request dropped");
-            RuntimeRequestError::CommunicationError
-        })
-        .and_then(|res| {
-            res.map_err(|e| {
-                use RuntimeApiSubsystemError::*;
-                match e {
-                    Execution { .. } => {
-                        gum::debug!(
-							target: LOG_TARGET,
-							?relay_parent,
-							err = ?e,
-							"Runtime API request internal error"
-						);
-                        RuntimeRequestError::ApiError
-                    },
-                    NotSupported { .. } => RuntimeRequestError::NotSupported,
-                }
-            })
-        })
+        .map_err(JfyiError::OverseerCommunication)
+        .await?
+        .map_err(JfyiError::RuntimeApiCallError)
 }
