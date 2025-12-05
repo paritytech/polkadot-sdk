@@ -1011,7 +1011,7 @@ impl<T: Config> Pallet<T> {
 		EpochIndex::<T>::get()
 	}
 
-	/// Get current authorities.
+	/// Get current epoch authorities.
 	pub fn authorities() -> Vec<AuthorityId> {
 		Authorities::<T>::get().into_inner()
 	}
