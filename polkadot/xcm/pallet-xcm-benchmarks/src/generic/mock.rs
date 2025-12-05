@@ -22,7 +22,7 @@ use frame_support::{
 	derive_impl,
 	pallet_prelude::ConstU32,
 	parameter_types,
-	traits::{Contains, Everything, OriginTrait, ProcessMessageError},
+	traits::{Contains, Everything, OriginTrait},
 };
 use sp_runtime::traits::TrailingZeroInput;
 use xcm_builder::{
@@ -35,7 +35,7 @@ use xcm_builder::{
 	DenyReserveTransferToRelayChain, DenyThenTry, EnsureDecodableXcm, FrameTransactionalProcessor,
 	TakeWeightCredit, TrailingSetTopicAsId, WithComputedOrigin,
 };
-use xcm_executor::traits::{ConvertOrigin, DenyExecution, Properties};
+use xcm_executor::traits::{ConvertOrigin, Properties};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -82,18 +82,6 @@ impl Contains<Location> for OnlyParachains {
 	}
 }
 
-pub struct DenyNothing;
-impl DenyExecution for DenyNothing {
-	fn deny_execution<RuntimeCall>(
-		_origin: &Location,
-		_instructions: &mut [Instruction<RuntimeCall>],
-		_max_weight: Weight,
-		_properties: &mut Properties,
-	) -> Result<(), ProcessMessageError> {
-		Ok(())
-	}
-}
-
 type Aliasers = AliasForeignAccountId32<OnlyParachains>;
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
@@ -107,7 +95,7 @@ impl xcm_executor::Config for XcmConfig {
 	type UniversalLocation = UniversalLocation;
 	type Barrier = TrailingSetTopicAsId<
 		DenyThenTry<
-			(DenyNothing, DenyRecursively<DenyReserveTransferToRelayChain>),
+			DenyRecursively<DenyReserveTransferToRelayChain>,
 			(
 				TakeWeightCredit,
 				AllowKnownQueryResponses<DevNull>,
