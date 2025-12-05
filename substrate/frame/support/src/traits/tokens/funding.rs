@@ -113,7 +113,7 @@ where
 }
 
 /// No-op implementation of `FundingSink` for unit type.
-/// Used for testing or when no sink is configured.
+/// Used for testing or when no sink behavior is needed.
 impl<AccountId, Balance> FundingSink<AccountId, Balance> for () {
 	fn return_funds(
 		_from: &AccountId,

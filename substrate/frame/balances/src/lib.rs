@@ -216,6 +216,12 @@ pub mod pallet {
 
 	pub type CreditOf<T, I> = Credit<<T as frame_system::Config>::AccountId, Pallet<T, I>>;
 
+	/// Default implementation of `FundingSink` that burns tokens directly.
+	///
+	/// This reduces total issuance when users call the `burn` extrinsic.
+	/// Used as the default for `BurnDestination` in production runtimes.
+	pub struct DirectBurn<T, I = ()>(PhantomData<(T, I)>);
+
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::*;
@@ -341,9 +347,9 @@ pub mod pallet {
 
 		/// Handler for user-initiated burns via the `burn` extrinsic.
 		///
-		/// By default, burns is no-op. Runtimes can configure this
-		/// to redirect burned funds to a buffer account instead (e.g., DAP buffer on Asset Hub) or
-		/// to reduce total issuance (`DirectBurn`).
+		/// Runtimes can configure this to redirect burned funds to a buffer account
+		/// (e.g., DAP buffer on Asset Hub). If not specified (or set to `()`), burns
+		/// reduce total issuance directly.
 		#[pallet::no_default_bounds]
 		type BurnDestination: FundingSink<Self::AccountId, Self::Balance>;
 	}
@@ -866,9 +872,9 @@ pub mod pallet {
 		/// of the burn and `keep_alive` is false, the account will be reaped.
 		///
 		/// The burned funds are handled by the runtime's configured `BurnDestination`:
-		/// - By default (`()`), is no-op - used for testing.
-		/// - Runtimes configure alternative destinations (e.g., DAP buffer) or `DirectBurn` (total
-		///   issuance is reduced).
+		/// - `DirectBurn`: burns directly, reducing total issuance.
+		/// - `AccumulateInSatellite`: transfers to DAP satellite account.
+		/// - `ReturnToDap`: transfers to DAP buffer.
 		#[pallet::call_index(10)]
 		#[pallet::weight(if *keep_alive {T::WeightInfo::burn_allow_death() } else {T::WeightInfo::burn_keep_alive()})]
 		pub fn burn(
@@ -1441,5 +1447,25 @@ pub mod pallet {
 				}
 			})
 		}
+	}
+}
+
+impl<T: Config<I>, I: 'static> frame_support::traits::tokens::FundingSink<T::AccountId, T::Balance>
+	for pallet::DirectBurn<T, I>
+{
+	fn return_funds(
+		from: &T::AccountId,
+		amount: T::Balance,
+		preservation: frame_support::traits::tokens::Preservation,
+	) -> DispatchResult {
+		use frame_support::traits::tokens::{Fortitude, Precision};
+		<Pallet<T, I> as fungible::Mutate<T::AccountId>>::burn_from(
+			from,
+			amount,
+			preservation,
+			Precision::Exact,
+			Fortitude::Polite,
+		)?;
+		Ok(())
 	}
 }

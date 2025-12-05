@@ -17,6 +17,10 @@ doc:
     - On Coretime, revenues that would be transferred daily to XCM and burned, are now redirected to the DAP satellite instead.
     - On other system chains (People, BridgeHub, Collective), DAP satellite is included, but the original behavior of redirecting 100% of tx fees to the staking pot is preserved.
 
+    [Breaking change]: all runtimes must now explicitly configure `BurnDestination`:
+      - Non-DAP runtimes should use `pallet_balances::DirectBurn<Runtime>` for direct burning.
+      - DAP-integrated runtimes use `pallet_dap::ReturnToDap<Runtime>` (on AssetHub) or `pallet_dap_satellite::AccumulateInSatellite<Runtime>` (on other system chains).
+
     In the next iterations, we will introduce the following:
       - Make it possible to replace direct minting with requesting funds from DAP buffer.
       - Make DAP responsible to mint according to the issuance curve defined per chain.
@@ -47,4 +51,36 @@ crates:
 - name: collectives-westend-runtime
   bump: major
 - name: people-westend-runtime
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: bridge-hub-rococo-runtime
+  bump: major
+- name: people-rococo-runtime
+  bump: major
+- name: coretime-rococo-runtime
+  bump: major
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: kitchensink-runtime
+  bump: major
+- name: polkadot-test-runtime
+  bump: major
+- name: cumulus-test-runtime
+  bump: major
+- name: rococo-parachain-runtime
+  bump: major
+- name: penpal-runtime
+  bump: major
+- name: ya-parachain-runtime
+  bump: major
+- name: parachain-template-runtime
+  bump: major
+- name: solochain-template-runtime
+  bump: major
+- name: substrate-test-runtime
+  bump: major
+- name: staking-async-rc-runtime
+  bump: major
+- name: staking-async-parachain-runtime
   bump: major

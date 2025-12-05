@@ -427,6 +427,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type DoneSlashHandler = ();
+	type BurnDestination = pallet_balances::DirectBurn<Runtime>;
 }
 
 impl pallet_utility::Config for Runtime {
