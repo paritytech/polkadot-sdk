@@ -36,14 +36,7 @@ use polkadot_parachain_primitives::primitives::{
 	HeadData, HrmpChannelId, RelayChainBlockNumber, XcmpMessageFormat,
 };
 use sp_consensus_aura::{SlotDuration, AURA_ENGINE_ID};
-use sp_consensus_babe::{
-	digests::{CompatibleDigestItem, PreDigest, PrimaryPreDigest},
-	AuthorityId, AuthorityPair, BabeAuthorityWeight,
-};
-use sp_core::{
-	sr25519::vrf::{VrfPreOutput, VrfProof, VrfSignature},
-	Encode, Pair, H256, U256,
-};
+use sp_core::{Encode, U256};
 use sp_runtime::{
 	traits::{Dispatchable, Header},
 	BuildStorage, Digest, DigestItem, DispatchError, Either, SaturatedConversion,
@@ -338,35 +331,21 @@ where
 			AllPalletsWithoutSystem::on_initialize(next_block_number);
 
 			let parent_head = HeadData(header.encode());
-			// This ensures the validation in cumulus_pallet_parachain_system passes
-			const NUM_DESCENDANTS: u64 = 2;
-			let authorities = generate_authority_pairs(NUM_DESCENDANTS);
-			let auth_pair = convert_to_authority_weight_pair(&authorities);
 
-			let mut sproof_builder = RelayStateSproofBuilder {
+			// Get RelayParentOffset from the parachain system pallet config.
+			let num_descendants = 1 +
+				<Runtime as cumulus_pallet_parachain_system::Config>::RelayParentOffset::get()
+					.saturated_into::<u64>();
+
+			let sproof_builder = RelayStateSproofBuilder {
 				para_id: <Runtime>::SelfParaId::get(),
 				included_para_head: parent_head.clone().into(),
+				num_authorities: num_descendants,
 				..Default::default()
 			};
 
-			// Add authorities to the sproof builder
-			use cumulus_primitives_core::relay_chain::well_known_keys;
-			sproof_builder
-				.additional_key_values
-				.push((well_known_keys::AUTHORITIES.to_vec(), auth_pair.clone().encode()));
-			sproof_builder
-				.additional_key_values
-				.push((well_known_keys::NEXT_AUTHORITIES.to_vec(), auth_pair.encode()));
-
-			let (relay_parent_storage_root, relay_chain_state) =
-				sproof_builder.into_state_root_and_proof();
-
-			// Build relay parent descendants to pass the validation check
-			let relay_parent_descendants = build_relay_parent_descendants(
-				NUM_DESCENDANTS,
-				relay_parent_storage_root,
-				authorities,
-			);
+			let (relay_parent_storage_root, relay_chain_state, relay_parent_descendants) =
+				sproof_builder.into_state_root_proof_and_descendants(num_descendants);
 
 			let inherent_data = ParachainInherentData {
 				validation_data: PersistedValidationData {
@@ -718,12 +697,16 @@ pub fn mock_open_hrmp_channel<
 	let timestamp = slot.saturating_mul(slot_durations.para.as_millis());
 	let relay_slot = Slot::from_timestamp(timestamp.into(), slot_durations.relay);
 
+	// Get RelayParentOffset from the parachain system pallet config.
+	let num_descendants = 1 + C::RelayParentOffset::get().saturated_into::<u64>();
+
 	let n = 1_u32;
 	let mut sproof_builder = RelayStateSproofBuilder {
 		para_id: sender,
 		included_para_head: Some(HeadData(included_head.encode())),
 		hrmp_egress_channel_index: Some(vec![recipient]),
 		current_slot: relay_slot,
+		num_authorities: num_descendants,
 		..Default::default()
 	};
 	sproof_builder.hrmp_channels.insert(
@@ -738,25 +721,8 @@ pub fn mock_open_hrmp_channel<
 		},
 	);
 
-	// Generate authorities and relay parent descendants for validation
-	const NUM_DESCENDANTS: u64 = 2;
-	let authorities = generate_authority_pairs(NUM_DESCENDANTS);
-	let auth_pair = convert_to_authority_weight_pair(&authorities);
-
-	// Add authorities to the sproof builder
-	use cumulus_primitives_core::relay_chain::well_known_keys;
-	sproof_builder
-		.additional_key_values
-		.push((well_known_keys::AUTHORITIES.to_vec(), auth_pair.clone().encode()));
-	sproof_builder
-		.additional_key_values
-		.push((well_known_keys::NEXT_AUTHORITIES.to_vec(), auth_pair.encode()));
-
-	let (relay_parent_storage_root, relay_chain_state) = sproof_builder.into_state_root_and_proof();
-
-	// Build relay parent descendants to pass validation
-	let relay_parent_descendants =
-		build_relay_parent_descendants(NUM_DESCENDANTS, relay_parent_storage_root, authorities);
+	let (relay_parent_storage_root, relay_chain_state, relay_parent_descendants) =
+		sproof_builder.into_state_root_proof_and_descendants(num_descendants);
 
 	let vfp = PersistedValidationData {
 		relay_parent_number: n as RelayChainBlockNumber,
@@ -810,80 +776,4 @@ impl<HrmpChannelSource: cumulus_primitives_core::XcmpMessageSource, AllPalletsWi
 			_ => return None,
 		}
 	}
-}
-
-/// Helper functions for authority and relay header generation
-/// Block Header type for testing
-pub type TestHeader = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>;
-
-/// Generate a vector of AuthorityPairs
-pub fn generate_authority_pairs(num_authorities: u64) -> Vec<AuthorityPair> {
-	(0..num_authorities).map(|i| AuthorityPair::from_seed(&[i as u8; 32])).collect()
-}
-
-/// Convert AuthorityPair to (AuthorityId, BabeAuthorityWeight)
-pub fn convert_to_authority_weight_pair(
-	authorities: &[AuthorityPair],
-) -> Vec<(AuthorityId, BabeAuthorityWeight)> {
-	authorities
-		.iter()
-		.map(|auth| (auth.public().into(), Default::default()))
-		.collect()
-}
-
-/// Add a BABE pre-digest to the header
-fn add_pre_digest(header: &mut TestHeader, authority_index: u32, block_number: u64) {
-	/// This method generates some vrf data, but only to make the compiler happy
-	fn generate_testing_vrf() -> VrfSignature {
-		let vrf_proof_bytes = [0u8; 64];
-		let proof: VrfProof = VrfProof::decode(&mut vrf_proof_bytes.as_slice()).unwrap();
-		let vrf_pre_out_bytes = [0u8; 32];
-		let pre_output: VrfPreOutput =
-			VrfPreOutput::decode(&mut vrf_pre_out_bytes.as_slice()).unwrap();
-		VrfSignature { pre_output, proof }
-	}
-
-	let pre_digest = PrimaryPreDigest {
-		authority_index,
-		slot: block_number.into(),
-		vrf_signature: generate_testing_vrf(),
-	};
-
-	header
-		.digest_mut()
-		.push(DigestItem::babe_pre_digest(PreDigest::Primary(pre_digest)));
-}
-
-/// Create a mock chain of relay headers as descendants of the relay parent
-pub fn build_relay_parent_descendants(
-	num_headers: u64,
-	state_root: H256,
-	authorities: Vec<AuthorityPair>,
-) -> Vec<TestHeader> {
-	let mut headers = Vec::with_capacity(num_headers as usize);
-
-	let mut previous_hash = None;
-
-	for block_number in 0..=num_headers as u32 - 1 {
-		let mut header = TestHeader {
-			number: block_number,
-			parent_hash: previous_hash.unwrap_or_default(),
-			state_root,
-			extrinsics_root: H256::default(),
-			digest: Digest::default(),
-		};
-		let authority_index = block_number % (authorities.len() as u32);
-
-		// Add pre-digest
-		add_pre_digest(&mut header, authority_index, block_number as u64);
-
-		// Sign and seal the header
-		let signature = authorities[authority_index as usize].sign(header.hash().as_bytes());
-		header.digest_mut().push(DigestItem::babe_seal(signature.into()));
-
-		previous_hash = Some(header.hash());
-		headers.push(header);
-	}
-
-	headers
 }
