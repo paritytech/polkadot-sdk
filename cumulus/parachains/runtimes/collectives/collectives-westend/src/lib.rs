@@ -1311,10 +1311,6 @@ impl_runtime_apis! {
 					let target = Location::new(1, [Parachain(1000), AccountId32 { id: [128u8; 32], network: None }]);
 					Ok((origin, target))
 				}
-
-				// fn worst_case_xcm_failing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
-				// 	Err(BenchmarkError::Skip)
-				// }
 			}
 
 			type XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::<Runtime>;

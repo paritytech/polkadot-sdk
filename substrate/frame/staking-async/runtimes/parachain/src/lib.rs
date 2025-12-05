@@ -109,8 +109,8 @@ use frame_support::traits::PalletInfoAccess;
 
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
-	Asset, Assets as XcmAssets, Fungible, Here, Instruction, InteriorLocation, Junction,
-	Junction::*, Location, NetworkId, NonFungible, Parent, ParentThen, Response, Xcm, XCM_VERSION,
+	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
+	NetworkId, NonFungible, Parent, ParentThen, Response, XCM_VERSION,
 };
 
 use xcm_runtime_apis::{
@@ -2137,10 +2137,6 @@ impl_runtime_apis! {
 						Location::new(1, [Parachain(1001), AccountId32 { id: [111u8; 32], network: None }]),
 					))
 				}
-
-				// fn worst_case_xcm_failing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
-				// 	Err(BenchmarkError::Skip)
-				// }
 			}
 
 			type XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::<Runtime>;

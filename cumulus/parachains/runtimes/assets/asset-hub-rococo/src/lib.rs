@@ -101,9 +101,8 @@ use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
-	Asset, Assets as XcmAssets, Fungible, Here, Instruction, InteriorLocation, Junction,
-	Junction::*, Location, NetworkId, NonFungible, ParentThen, Response, WeightLimit, Xcm,
-	XCM_VERSION,
+	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
+	NetworkId, NonFungible, ParentThen, Response, WeightLimit, XCM_VERSION,
 };
 use xcm::{
 	latest::prelude::{AssetId, BodyId},
@@ -2019,10 +2018,6 @@ impl_runtime_apis! {
 						Location::new(1, [Parachain(1001), AccountId32 { id: [111u8; 32], network: None }]),
 					))
 				}
-
-				// fn worst_case_xcm_failing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
-				// 	Err(BenchmarkError::Skip)
-				// }
 			}
 
 			type XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::<Runtime>;
