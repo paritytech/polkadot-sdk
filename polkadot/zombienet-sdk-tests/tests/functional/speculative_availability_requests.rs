@@ -27,7 +27,7 @@ async fn speculative_availability_requests_test() -> Result<(), anyhow::Error> {
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![("-lparachain=debug").into()])
+				.with_default_args(vec![("-lparachain=debug", "--speculative-availability").into()])
 				.with_genesis_overrides(json!({
 					"configuration": {
 						"config": {

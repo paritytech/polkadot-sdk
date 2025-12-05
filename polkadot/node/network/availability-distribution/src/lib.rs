@@ -62,6 +62,8 @@ pub struct AvailabilityDistributionSubsystem {
 	req_protocol_names: ReqProtocolNames,
 	/// Prometheus metrics.
 	metrics: Metrics,
+	/// Whether speculative availability requests are enabled.
+	speculative_availability: bool,
 }
 
 /// Receivers to be passed into availability distribution.
@@ -94,21 +96,22 @@ impl AvailabilityDistributionSubsystem {
 		recvs: IncomingRequestReceivers,
 		req_protocol_names: ReqProtocolNames,
 		metrics: Metrics,
+		speculative_availability: bool,
 	) -> Self {
 		let runtime = RuntimeInfo::new(Some(keystore));
-		Self { runtime, recvs, req_protocol_names, metrics }
+		Self { runtime, recvs, req_protocol_names, metrics, speculative_availability }
 	}
 
 	/// Start processing work as passed on from the Overseer.
 	async fn run<Context>(self, mut ctx: Context) -> std::result::Result<(), FatalError> {
-		let Self { mut runtime, recvs, metrics, req_protocol_names } = self;
+		let Self { mut runtime, recvs, metrics, req_protocol_names, speculative_availability } = self;
 
 		let IncomingRequestReceivers {
 			pov_req_receiver,
 			chunk_req_v1_receiver,
 			chunk_req_v2_receiver,
 		} = recvs;
-		let mut requester = Requester::new(req_protocol_names, metrics.clone()).fuse();
+		let mut requester = Requester::new(req_protocol_names, metrics.clone(), speculative_availability).fuse();
 		let mut warn_freq = gum::Freq::new();
 
 		{

@@ -147,6 +147,8 @@ pub struct ExtendedOverseerGenArgs {
 	pub invulnerable_ah_collators: HashSet<polkadot_node_network_protocol::PeerId>,
 	/// Override for `HOLD_OFF_DURATION` constant .
 	pub collator_protocol_hold_off: Option<Duration>,
+	/// Whether speculative availability requests are enabled.
+	pub speculative_availability: bool,
 }
 
 /// Obtain a prepared validator `Overseer`, that is initialized with all default values.
@@ -183,6 +185,7 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		fetch_chunks_threshold,
 		invulnerable_ah_collators,
 		collator_protocol_hold_off,
+		speculative_availability,
 	}: ExtendedOverseerGenArgs,
 ) -> Result<
 	InitializedOverseerBuilder<
@@ -262,6 +265,7 @@ where
 			},
 			req_protocol_names.clone(),
 			Metrics::register(registry)?,
+			speculative_availability,
 		))
 		.availability_recovery(AvailabilityRecoverySubsystem::for_validator(
 			fetch_chunks_threshold,

@@ -60,7 +60,6 @@ mod tests;
 pub struct FetchTaskConfig {
 	prepared_running: Option<RunningTask>,
 	live_in: HashSet<Hash>,
-	origin: CoreInfoOrigin,
 }
 
 /// Information about a task fetching an erasure chunk.
@@ -75,9 +74,6 @@ pub struct FetchTask {
 	/// We keep the task around in until `live_in` becomes empty, to make
 	/// sure we won't re-fetch an already fetched candidate.
 	state: FetchedState,
-
-	/// The origin of the `CoreInfo` that was used to create this fetch task.
-	origin: CoreInfoOrigin,
 }
 
 /// State of a particular candidate chunk fetching process.
@@ -167,7 +163,7 @@ impl FetchTaskConfig {
 
 		// Don't run tasks for our backing group:
 		if session_info.our_group == Some(core.group_responsible) {
-			return FetchTaskConfig { live_in, prepared_running: None, origin: core.origin.clone() }
+			return FetchTaskConfig { live_in, prepared_running: None }
 		}
 
 		let prepared_running = RunningTask {
@@ -189,7 +185,7 @@ impl FetchTaskConfig {
 			req_v2_protocol_name,
 			origin: core.origin.clone(),
 		};
-		FetchTaskConfig { live_in, prepared_running: Some(prepared_running), origin: core.origin.clone() }
+		FetchTaskConfig { live_in, prepared_running: Some(prepared_running) }
 	}
 }
 
@@ -199,7 +195,7 @@ impl FetchTask {
 	///
 	/// A task handling the fetching of the configured chunk will be spawned.
 	pub async fn start<Context>(config: FetchTaskConfig, ctx: &mut Context) -> Result<Self> {
-		let FetchTaskConfig { prepared_running, live_in, origin } = config;
+		let FetchTaskConfig { prepared_running, live_in, .. } = config;
 
 		if let Some(running) = prepared_running {
 			let (handle, kill) = oneshot::channel();
@@ -207,9 +203,9 @@ impl FetchTask {
 			ctx.spawn("chunk-fetcher", running.run(kill).boxed())
 				.map_err(|e| FatalError::SpawnTask(e))?;
 
-			Ok(FetchTask { live_in, state: FetchedState::Started(handle), origin: origin.clone() })
+			Ok(FetchTask { live_in, state: FetchedState::Started(handle) })
 		} else {
-			Ok(FetchTask { live_in, state: FetchedState::Canceled, origin: origin.clone() })
+			Ok(FetchTask { live_in, state: FetchedState::Canceled })
 		}
 	}
 
