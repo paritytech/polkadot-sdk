@@ -91,7 +91,7 @@ async fn overshooting_shall_not_happen_test() -> Result<(), anyhow::Error> {
 			// Nonce selects a batch of (ACCOUNT_COUNT * 20) entries,
 			// and id selects a specific 20-entry range within that batch.
 			let start = txtesttool::subxt_transaction::dynamic::Value::u128(
-				(entries_per_account * (ctx.nonce * (ACCOUNT_COUNT as u128) + id)) as u128,
+				entries_per_account * (ctx.nonce * (ACCOUNT_COUNT as u128) + id),
 			);
 			let count = txtesttool::subxt_transaction::dynamic::Value::u128(entries_per_account);
 			txtesttool::subxt_transaction::dynamic::tx(
@@ -135,8 +135,7 @@ async fn overshooting_shall_not_happen_test() -> Result<(), anyhow::Error> {
 	let finalized_count = execution_logs.values().filter_map(|tx_log| tx_log.finalized()).count();
 	assert_eq!(
 		finalized_count, TOTAL_COUNT,
-		"Expected all {} transactions to finalize, but got {} finalized",
-		TOTAL_COUNT, finalized_count
+		"Expected all {TOTAL_COUNT} transactions to finalize, but got {finalized_count} finalized",
 	);
 
 	Ok(())
