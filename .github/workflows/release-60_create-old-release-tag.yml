@@ -7,7 +7,7 @@ on:
 
 jobs:
   create-old-release-tag:
-    runs-on: parity-default
+    runs-on: ubuntu-latest
     environment: release
     env:
       PGP_KMS_KEY: ${{ secrets.PGP_KMS_SIGN_COMMITS_KEY }}
