@@ -30,6 +30,8 @@ doc:
 crates:
 - name: frame-support
   bump: minor
+- name: pallet-asset-rewards
+  bump: major
 - name: pallet-balances
   bump: major
 - name: pallet-dap
