@@ -87,8 +87,8 @@ pallet-vesting.workspace = true
 pallet-whitelist.workspace = true
 pallet-xcm.workspace = true
 pallet-xcm-benchmarks = { optional = true, workspace = true }
-pallet-xcm-precompiles = { workspace = true }
 pallet-xcm-bridge-hub-router.workspace = true
+pallet-xcm-precompiles = { workspace = true }
 parachain-info.workspace = true
 parachains-common.workspace = true
 polkadot-parachain-primitives.workspace = true

@@ -19,7 +19,6 @@ frame-support.workspace = true
 frame-system.workspace = true
 hex-literal = { workspace = true, default-features = false }
 pallet-balances = { optional = true, workspace = true }
-pallet-timestamp.workspace = true
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
 sp-core.workspace = true
