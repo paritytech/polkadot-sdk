@@ -65,13 +65,14 @@ pub use crate::{ASSETS_PALLET_ID, USDT_ID};
 
 #[macro_export]
 macro_rules! test_parachain_is_trusted_teleporter {
-	( $sender_para:ty, vec![$( $receiver_para:ty ),+], ($assets:expr, $amount:expr), $fee_asset_id:expr, $xcm_call:ident ) => {
+	( $sender_para:ty, vec![$( $receiver_para:ty ),+], ($assets:expr, $amount:expr), $xcm_call:ident ) => {
 		$crate::macros::paste::paste! {
 			// init Origin variables
 			let sender = [<$sender_para Sender>]::get();
 			let mut para_sender_balance_before =
 				<$sender_para as $crate::macros::Chain>::account_data_of(sender.clone()).free;
 			let origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed(sender.clone());
+			let fee_asset_item = 0;
 			let weight_limit = $crate::macros::WeightLimit::Unlimited;
 
 			$(
@@ -92,7 +93,7 @@ macro_rules! test_parachain_is_trusted_teleporter {
 						dest: Box::new(para_destination.clone().into()),
 						beneficiary: Box::new(beneficiary.clone().into()),
 						assets: Box::new($assets.clone().into()),
-						fee_asset_id: Box::new($fee_asset_id.clone().into()),
+						fee_asset_item: fee_asset_item,
 						weight_limit: weight_limit.clone(),
 					});
 
@@ -207,14 +208,13 @@ macro_rules! test_parachain_is_trusted_teleporter {
 
 #[macro_export]
 macro_rules! test_relay_is_trusted_teleporter {
-	( $sender_relay:ty, vec![$( $receiver_para:ty ),+], $amount:expr, $xcm_call:ident ) => {
+	( $sender_relay:ty, vec![$( $receiver_para:ty ),+], ($assets:expr, $amount:expr), $xcm_call:ident ) => {
 		$crate::macros::paste::paste! {
 			// init Origin variables
 			let sender = [<$sender_relay Sender>]::get();
 			let mut relay_sender_balance_before =
 				<$sender_relay as $crate::macros::Chain>::account_data_of(sender.clone()).free;
-			let assets: $crate::macros::Assets = ($crate::macros::Here, $amount).into();
-			let fee_asset_id: $crate::macros::AssetId = ($crate::macros::Here).into();
+			let fee_asset_item = 0;
 			let weight_limit = $crate::macros::WeightLimit::Unlimited;
 
 			$(
@@ -234,8 +234,8 @@ macro_rules! test_relay_is_trusted_teleporter {
 						$crate::macros::pallet_xcm::Call::$xcm_call {
 						dest: Box::new(para_destination.clone().into()),
 						beneficiary: Box::new(beneficiary.clone().into()),
-						assets: Box::new(assets.clone().into()),
-						fee_asset_id: Box::new(fee_asset_id.clone().into()),
+						assets: Box::new($assets.clone().into()),
+						fee_asset_item: fee_asset_item,
 						weight_limit: weight_limit.clone(),
 					});
 
@@ -362,7 +362,7 @@ macro_rules! test_parachain_is_trusted_teleporter_for_relay {
 				<$sender_para as $crate::macros::Chain>::account_data_of(sender.clone()).free;
 			let origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed(sender.clone());
 			let assets: $crate::macros::Assets = ($crate::macros::Parent, $amount).into();
-			let fee_asset_id: $crate::macros::AssetId = ($crate::macros::Parent).into();
+			let fee_asset_item = 0;
 			let weight_limit = $crate::macros::WeightLimit::Unlimited;
 
 			// We need to mint funds into the checking account of `$receiver_relay`
@@ -388,7 +388,7 @@ macro_rules! test_parachain_is_trusted_teleporter_for_relay {
 				dest: Box::new(relay_destination.clone().into()),
 				beneficiary: Box::new(beneficiary.clone().into()),
 				assets: Box::new(assets.clone().into()),
-				fee_asset_id: Box::new(fee_asset_id.clone().into()),
+				fee_asset_item: fee_asset_item,
 				weight_limit: weight_limit.clone(),
 			});
 
@@ -686,7 +686,7 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 					$amount,
 					($asset_id, $amount).into(),
 					None,
-					($asset_id).into(),
+					0,
 				),
 			};
 			let mut test = ParaToParaThroughAHTest::new(test_args);

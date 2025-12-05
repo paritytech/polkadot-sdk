@@ -636,7 +636,7 @@ impl super::benchmarking::Config for Test {
 		))
 	}
 
-	fn set_up_complex_asset_transfer() -> Option<(Assets, AssetId, Location, Box<dyn FnOnce()>)> {
+	fn set_up_complex_asset_transfer() -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
 		use crate::tests::assets_transfer::{into_assets_checked, set_up_foreign_asset};
 		// Transfer native asset (local reserve) to `USDT_PARA_ID`. Using teleport-trusted USDT for
 		// fees.
@@ -664,7 +664,7 @@ impl super::benchmarking::Config for Test {
 
 		// native assets transfer destination is USDT chain (teleport trust only for USDT)
 		let dest = usdt_chain;
-		let (assets, fee_asset, _) = into_assets_checked(
+		let (assets, fee_index, _, _) = into_assets_checked(
 			// USDT for fees (is sufficient on local chain too) - teleported
 			(usdt_id_location.clone(), fee_amount).into(),
 			// native asset to transfer (not used for fees) - local reserve
@@ -686,7 +686,7 @@ impl super::benchmarking::Config for Test {
 				usdt_initial_local_amount - fee_amount
 			);
 		});
-		Some((assets, fee_asset.id, dest, verify))
+		Some((assets, fee_index as u32, dest, verify))
 	}
 
 	fn get_asset() -> Asset {
