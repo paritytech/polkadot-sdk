@@ -342,7 +342,8 @@ pub mod env {
 		} else {
 			self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
 			let value = memory.read_u256(value_ptr)?;
-			let add_stipend = !value.is_zero();
+			// We also need to detect the 2300: We need to add something scaled.
+			let add_stipend = !value.is_zero() || gas == revm::interpreter::gas::CALL_STIPEND;
 			CallResources::from_ethereum_gas(gas.into(), add_stipend)
 		};
 
