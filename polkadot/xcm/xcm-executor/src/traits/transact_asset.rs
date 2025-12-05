@@ -276,7 +276,6 @@ impl TransactAsset for Tuple {
 	) -> Result<(), (AssetsInHolding, XcmError)> {
 		for_tuples!( #(
 			match Tuple::deposit_asset(what, who, context) {
-				// Err((unspent, error)) if error == XcmError::AssetNotFound || error == XcmError::Unimplemented => (),
 				Err((unspent, XcmError::AssetNotFound)) | Err((unspent, XcmError::Unimplemented)) => {
 					what = unspent;
 					// continue
