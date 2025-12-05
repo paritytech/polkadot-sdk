@@ -1924,6 +1924,21 @@ where
 			"handle_reverted: collected all transactions from reverted blocks"
 		);
 
+		// Remove transactions from mempool
+		self.mempool.remove_transactions(&reverted_transactions).await;
+		self.import_notification_sink.clean_notified_items(&reverted_transactions);
+
+		// Ensure view at new head exists
+		let maybe_view = self.view_store.active_views.read().get(&new_head_hash).cloned();
+		if let Some(new_head_view) = maybe_view {
+			self.view_store.most_recent_view.write().replace(new_head_view);
+		} else {
+			let at = HashAndNumber { hash: new_head_hash, number: new_head_number };
+			if let Ok(t) = TreeRoute::new(vec![at.clone()], 0) {
+				self.handle_new_block(&t).await;
+			}
+		}
+
 		// Remove views
 		{
 			let mut active = self.view_store.active_views.write();
@@ -1938,20 +1953,6 @@ where
 		for (view_hash, _) in &views_to_remove {
 			self.view_store.listener.remove_view(*view_hash);
 			self.view_store.dropped_stream_controller.remove_view(*view_hash);
-		}
-		// Remove transactions from mempool
-		self.mempool.remove_transactions(&reverted_transactions).await;
-		self.import_notification_sink.clean_notified_items(&reverted_transactions);
-
-		// Clean up included_transactions cache
-		self.included_transactions.lock().retain(|hn, _| hn.number <= new_head_number);
-
-		// Ensure view at new head exists
-		if !self.has_view(&new_head_hash) {
-			let at = HashAndNumber { hash: new_head_hash, number: new_head_number };
-			if let Ok(t) = TreeRoute::new(vec![at.clone()], 0) {
-				self.handle_new_block(&t).await;
-			}
 		}
 
 		self.ready_poll.lock().remove_cancelled();
