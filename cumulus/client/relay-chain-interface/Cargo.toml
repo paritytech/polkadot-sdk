@@ -26,6 +26,8 @@ sp-blockchain.default-features = true
 sp-blockchain.workspace = true
 sp-state-machine.default-features = true
 sp-state-machine.workspace = true
+sp-storage.default-features = true
+sp-storage.workspace = true
 sp-version.workspace = true
 
 async-trait = { workspace = true }

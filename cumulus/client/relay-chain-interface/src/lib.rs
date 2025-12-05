@@ -24,6 +24,7 @@ use std::{
 use futures::Stream;
 use polkadot_overseer::prometheus::PrometheusError;
 use sc_client_api::StorageProof;
+use sp_storage::ChildInfo;
 use sp_version::RuntimeVersion;
 
 use async_trait::async_trait;
@@ -151,14 +152,6 @@ pub trait RelayChainInterface: Send + Sync {
 		relay_parent: PHash,
 	) -> RelayChainResult<BTreeMap<ParaId, Vec<InboundHrmpMessage>>>;
 
-	/// Returns published data from all subscribed publishers for the parachain we are collating
-	/// for.
-	async fn retrieve_subscribed_published_data(
-		&self,
-		para_id: ParaId,
-		relay_parent: PHash,
-	) -> RelayChainResult<BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>>;
-
 	/// Yields the persisted validation data for the given `ParaId` along with an assumption that
 	/// should be used if the para currently occupies a core.
 	///
@@ -221,6 +214,14 @@ pub trait RelayChainInterface: Send + Sync {
 		relevant_keys: &Vec<Vec<u8>>,
 	) -> RelayChainResult<StorageProof>;
 
+	/// Generate a child trie storage read proof.
+	async fn prove_child_read(
+		&self,
+		relay_parent: PHash,
+		child_info: &ChildInfo,
+		child_keys: &[Vec<u8>],
+	) -> RelayChainResult<StorageProof>;
+
 	/// Returns the validation code hash for the given `para_id` using the given
 	/// `occupied_core_assumption`.
 	async fn validation_code_hash(
@@ -279,14 +280,6 @@ where
 		relay_parent: PHash,
 	) -> RelayChainResult<BTreeMap<ParaId, Vec<InboundHrmpMessage>>> {
 		(**self).retrieve_all_inbound_hrmp_channel_contents(para_id, relay_parent).await
-	}
-
-	async fn retrieve_subscribed_published_data(
-		&self,
-		para_id: ParaId,
-		relay_parent: PHash,
-	) -> RelayChainResult<BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>> {
-		(**self).retrieve_subscribed_published_data(para_id, relay_parent).await
 	}
 
 	async fn persisted_validation_data(
@@ -368,6 +361,15 @@ where
 		relevant_keys: &Vec<Vec<u8>>,
 	) -> RelayChainResult<StorageProof> {
 		(**self).prove_read(relay_parent, relevant_keys).await
+	}
+
+	async fn prove_child_read(
+		&self,
+		relay_parent: PHash,
+		child_info: &ChildInfo,
+		child_keys: &[Vec<u8>],
+	) -> RelayChainResult<StorageProof> {
+		(**self).prove_child_read(relay_parent, child_info, child_keys).await
 	}
 
 	async fn wait_for_block(&self, hash: PHash) -> RelayChainResult<()> {

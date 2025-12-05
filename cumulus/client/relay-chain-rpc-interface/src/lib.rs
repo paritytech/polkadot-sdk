@@ -87,14 +87,6 @@ impl RelayChainInterface for RelayChainRpcInterface {
 			.await
 	}
 
-	async fn retrieve_subscribed_published_data(
-		&self,
-		para_id: ParaId,
-		relay_parent: RelayHash,
-	) -> RelayChainResult<BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>> {
-		self.rpc_client.broadcaster_get_subscribed_data(para_id, relay_parent).await
-	}
-
 	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
 		let hash = match block_id {
 			BlockId::Hash(hash) => hash,
@@ -221,6 +213,22 @@ impl RelayChainInterface for RelayChainRpcInterface {
 			.map(|read_proof| {
 				StorageProof::new(read_proof.proof.into_iter().map(|bytes| bytes.to_vec()))
 			})
+	}
+
+	async fn prove_child_read(
+		&self,
+		_relay_parent: RelayHash,
+		_child_info: &sp_storage::ChildInfo,
+		_child_keys: &[Vec<u8>],
+	) -> RelayChainResult<StorageProof> {
+		// TODO: Implement child trie proof generation via RPC
+		// This requires the relay chain RPC to expose a method for generating child trie proofs
+		// For now, return an empty proof which will cause the collator to skip this data
+		tracing::warn!(
+			target: "relay-chain-rpc-interface",
+			"prove_child_read not yet implemented for RPC interface, returning empty proof"
+		);
+		Ok(StorageProof::empty())
 	}
 
 	/// Wait for a given relay chain block

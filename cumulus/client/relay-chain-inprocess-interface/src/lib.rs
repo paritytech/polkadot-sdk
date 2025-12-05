@@ -36,6 +36,7 @@ use cumulus_primitives_core::{
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
 use futures::{FutureExt, Stream, StreamExt};
 use polkadot_primitives::vstaging::CandidateEvent;
+use sp_storage::ChildInfo;
 use polkadot_service::{
 	builder::PolkadotServiceBuilder, CollatorOverseerGen, CollatorPair, Configuration, FullBackend,
 	FullClient, Handle, NewFull, NewFullParams, TaskManager,
@@ -104,14 +105,6 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 			.full_client
 			.runtime_api()
 			.inbound_hrmp_channels_contents(relay_parent, para_id)?)
-	}
-
-	async fn retrieve_subscribed_published_data(
-		&self,
-		para_id: ParaId,
-		relay_parent: PHash,
-	) -> RelayChainResult<BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>> {
-		Ok(self.full_client.runtime_api().get_subscribed_data(relay_parent, para_id)?)
 	}
 
 	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
@@ -245,6 +238,18 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		let state_backend = self.backend.state_at(relay_parent, TrieCacheContext::Untrusted)?;
 
 		sp_state_machine::prove_read(state_backend, relevant_keys)
+			.map_err(RelayChainError::StateMachineError)
+	}
+
+	async fn prove_child_read(
+		&self,
+		relay_parent: PHash,
+		child_info: &ChildInfo,
+		child_keys: &[Vec<u8>],
+	) -> RelayChainResult<StorageProof> {
+		let state_backend = self.backend.state_at(relay_parent, TrieCacheContext::Untrusted)?;
+
+		sp_state_machine::prove_child_read(state_backend, child_info, child_keys)
 			.map_err(RelayChainError::StateMachineError)
 	}
 

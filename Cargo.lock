@@ -4436,6 +4436,7 @@ dependencies = [
  "sp-runtime 42.0.0",
  "sp-state-machine 0.46.0",
  "sp-storage 22.0.0",
+ "sp-trie 40.0.0",
  "tracing",
 ]
 
@@ -4591,6 +4592,7 @@ dependencies = [
  "sp-runtime 42.0.0",
  "sp-state-machine 0.46.0",
  "sp-std 14.0.0",
+ "sp-storage 22.0.0",
  "sp-tracing 17.1.0",
  "sp-trie 40.0.0",
  "sp-version 40.0.0",
@@ -4850,6 +4852,7 @@ dependencies = [
  "sp-keyring",
  "sp-runtime 42.0.0",
  "sp-state-machine 0.46.0",
+ "sp-storage 22.0.0",
 ]
 
 [[package]]
@@ -4867,6 +4870,7 @@ dependencies = [
  "sp-api 37.0.0",
  "sp-blockchain",
  "sp-state-machine 0.46.0",
+ "sp-storage 22.0.0",
  "sp-version 40.0.0",
  "thiserror 1.0.65",
 ]

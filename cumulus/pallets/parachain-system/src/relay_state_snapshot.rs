@@ -397,4 +397,20 @@ impl RelayChainStateProof {
 		)
 		.map_err(Error::ReadOptionalEntry)
 	}
+
+	/// Read a value from a child trie in the relay chain state proof.
+	///
+	/// Returns `Ok(Some(value))` if the key exists in the child trie,
+	/// `Ok(None)` if the key doesn't exist,
+	/// or `Err` if there was a proof error.
+	pub fn read_child_storage(
+		&self,
+		child_info: &sp_storage::ChildInfo,
+		key: &[u8],
+	) -> Result<Option<Vec<u8>>, Error> {
+		use sp_state_machine::Backend;
+		self.trie_backend
+			.child_storage(child_info, key)
+			.map_err(|_| Error::ReadEntry(ReadEntryErr::Proof))
+	}
 }

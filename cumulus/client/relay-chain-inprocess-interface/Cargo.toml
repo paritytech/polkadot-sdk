@@ -49,6 +49,8 @@ sp-runtime.default-features = true
 sp-runtime.workspace = true
 sp-state-machine.default-features = true
 sp-state-machine.workspace = true
+sp-storage.default-features = true
+sp-storage.workspace = true
 
 [dev-dependencies]
 # Substrate

@@ -630,7 +630,7 @@ pub mod pallet {
 				horizontal_messages,
 				relay_parent_descendants,
 				collator_peer_id: _,
-				published_data,
+				published_data: _,
 			} = data;
 
 			// Check that the associated relay chain block number is as expected.
@@ -736,15 +736,43 @@ pub mod pallet {
 			<RelevantMessagingState<T>>::put(relevant_messaging_state.clone());
 			<HostConfiguration<T>>::put(host_config);
 
-			// Extract published data roots from relay chain state
-			let current_roots = relay_state_proof
-				.read_published_data_roots()
-				.ok()
-				.flatten()
-				.unwrap_or_default();
+			// Build current_roots by reading individual storage map entries for subscribed publishers
+			let mut current_roots = Vec::new();
+			for (publisher_para_id, _) in Subscriptions::<T>::iter() {
+				// Construct the storage key for PublishedDataRoots[publisher_para_id]
+				let storage_key = relay_chain::well_known_keys::published_data_root(publisher_para_id);
+
+				// Try to read the root hash from the proof
+				match relay_state_proof.read_optional_entry::<[u8; 32]>(&storage_key) {
+					Ok(Some(root_hash)) => {
+						log::debug!(
+							target: "parachain-system::pubsub",
+							"✅ Read root for publisher {:?}: {:?}",
+							publisher_para_id,
+							root_hash
+						);
+						current_roots.push((publisher_para_id, root_hash.to_vec()));
+					},
+					Ok(None) => {
+						log::debug!(
+							target: "parachain-system::pubsub",
+							"⚠️ No root found for publisher {:?} (not published yet)",
+							publisher_para_id
+						);
+					},
+					Err(e) => {
+						log::error!(
+							target: "parachain-system::pubsub",
+							"❌ Error reading root for publisher {:?}: {:?}",
+							publisher_para_id,
+							e
+						);
+					},
+				}
+			}
 
 			// Process published data from the broadcaster pallet
-			total_weight.saturating_accrue(Self::process_published_data(&published_data, &current_roots));
+			total_weight.saturating_accrue(Self::process_published_data(&relay_state_proof, &current_roots));
 
 			<T::OnSystemEvent as OnSystemEvent>::on_validation_data(&vfp);
 
@@ -1423,15 +1451,26 @@ impl<T: Config> Pallet<T> {
 
 	/// Process published data from the broadcaster pallet and store it in parachain storage.
 	///
-	/// Uses child trie roots to detect changes between blocks, only updating storage for
-	/// publishers whose data has changed. Clears data for publishers that have been removed.
+	/// Reads data from child tries in the relay chain storage proof for subscribed publishers
+	/// whose roots have changed. Uses child trie roots to detect changes between blocks.
 	fn process_published_data(
-		published_data: &BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>,
+		relay_state_proof: &RelayChainStateProof,
 		current_roots: &Vec<(ParaId, Vec<u8>)>,
 	) -> Weight {
 		let previous_roots = <PreviousPublishedDataRoots<T>>::get();
 
-		if current_roots.is_empty() && published_data.is_empty() && previous_roots.is_empty() {
+		log::debug!(
+			target: "parachain-system::pubsub",
+			"🔄 process_published_data called, current_roots len: {}, previous_roots len: {}",
+			current_roots.len(),
+			previous_roots.len()
+		);
+
+		if current_roots.is_empty() && previous_roots.is_empty() {
+			log::debug!(
+				target: "parachain-system::pubsub",
+				"⏭️ Skipping: both current and previous roots are empty"
+			);
 			return T::DbWeight::get().reads(1);
 		}
 
@@ -1440,38 +1479,142 @@ impl<T: Config> Pallet<T> {
 		let mut k = 0u32;
 		let mut v = 0u32;
 
-		for entries in published_data.values() {
-			p += 1;
-			let entry_count = entries.len() as u32;
-			k = k.max(entry_count);
-
-			for (_, value) in entries {
-				v = v.max(value.len() as u32);
-			}
-		}
-
 		// Convert current roots to map for efficient lookups.
 		let current_roots_map: BTreeMap<ParaId, Vec<u8>> = current_roots.iter()
 			.map(|(para_id, root)| (*para_id, root.clone()))
 			.collect();
 
-		// Update storage for publishers with changed roots.
-		for (publisher, data_entries) in published_data {
-			let should_update = match previous_roots.get(publisher) {
-				Some(prev_root) => match current_roots_map.get(publisher) {
-					Some(curr_root) if prev_root == curr_root => false,
+		// Get subscriptions to know which publishers' data to read
+		let subscriptions = Subscriptions::<T>::iter().collect::<Vec<_>>();
+
+		log::debug!(
+			target: "parachain-system::pubsub",
+			"📋 Found {} subscriptions",
+			subscriptions.len()
+		);
+
+		// Update storage for publishers with changed roots that we're subscribed to.
+		for (publisher, subscription_keys) in subscriptions {
+			log::debug!(
+				target: "parachain-system::pubsub",
+				"🔍 Processing subscription for publisher {:?}, {} keys",
+				publisher,
+				subscription_keys.len()
+			);
+
+			let should_update = match previous_roots.get(&publisher) {
+				Some(prev_root) => match current_roots_map.get(&publisher) {
+					Some(curr_root) if prev_root == curr_root => {
+						log::debug!(
+							target: "parachain-system::pubsub",
+							"⏭️ Root unchanged for publisher {:?}, skipping",
+							publisher
+						);
+						false
+					},
 					_ => true,
 				},
 				None => true,
 			};
 
-			if should_update {
-				let result = PublishedData::<T>::clear_prefix(publisher, u32::MAX, None);
+			if should_update && current_roots_map.contains_key(&publisher) {
+				log::debug!(
+					target: "parachain-system::pubsub",
+					"✅ Root changed for publisher {:?}, reading from proof",
+					publisher
+				);
+
+				// Clear existing data for this publisher
+				let result = PublishedData::<T>::clear_prefix(&publisher, u32::MAX, None);
 				debug_assert!(result.maybe_cursor.is_none());
 
-				for (key, value) in data_entries {
-					PublishedData::<T>::insert(publisher, key, value);
+				// Construct ChildInfo for this publisher's child trie
+				// Must match the broadcaster pallet's derive_child_info function
+				use codec::Encode;
+				const PREFIX: &[u8] = b"pubsub";
+				let para_id_encoded = publisher.encode();
+				let mut child_storage_key = alloc::vec::Vec::with_capacity(PREFIX.len() + para_id_encoded.len());
+				child_storage_key.extend_from_slice(PREFIX);
+				child_storage_key.extend_from_slice(&para_id_encoded);
+				let child_info = sp_storage::ChildInfo::new_default(&child_storage_key);
+
+				// Read data from child trie in the proof for each subscribed key
+				let mut data_entries = alloc::vec::Vec::new();
+				for bounded_key in subscription_keys.iter() {
+					let key = bounded_key.as_ref();
+					log::debug!(
+						target: "parachain-system::pubsub",
+						"🔑 Attempting to read key {:?} from child trie",
+						key
+					);
+
+					match relay_state_proof.read_child_storage(&child_info, key) {
+						Ok(Some(encoded_value)) => {
+							// SCALE-decode the Vec<u8> since broadcaster uses child::put which encodes
+							match Vec::<u8>::decode(&mut &encoded_value[..]) {
+								Ok(value) => {
+									log::debug!(
+										target: "parachain-system::pubsub",
+										"✅ Read key {:?} from publisher {:?}, value len: {} (encoded len: {})",
+										key,
+										publisher,
+										value.len(),
+										encoded_value.len()
+									);
+									data_entries.push((key.to_vec(), value.clone()));
+									v = v.max(value.len() as u32);
+								},
+								Err(e) => {
+									log::error!(
+										target: "parachain-system::pubsub",
+										"❌ Failed to SCALE-decode value for key {:?} from publisher {:?}: {:?}",
+										key,
+										publisher,
+										e
+									);
+								},
+							}
+						},
+						Ok(None) => {
+							log::warn!(
+								target: "parachain-system::pubsub",
+								"⚠️ Key {:?} not found in child trie for publisher {:?}",
+								key,
+								publisher
+							);
+						},
+						Err(e) => {
+							log::error!(
+								target: "parachain-system::pubsub",
+								"❌ Error reading key {:?} from publisher {:?}: {:?}",
+								key,
+								publisher,
+								e
+							);
+						},
+					}
 				}
+
+				// Store the data in local parachain storage
+				log::debug!(
+					target: "parachain-system::pubsub",
+					"📦 Storing {} entries for publisher {:?}",
+					data_entries.len(),
+					publisher
+				);
+
+				for (key, value) in data_entries.iter() {
+					PublishedData::<T>::insert(&publisher, key, value);
+				}
+
+				p += 1;
+				k = k.max(data_entries.len() as u32);
+			} else if !current_roots_map.contains_key(&publisher) {
+				log::warn!(
+					target: "parachain-system::pubsub",
+					"⚠️ Publisher {:?} not found in current roots",
+					publisher
+				);
 			}
 		}
 

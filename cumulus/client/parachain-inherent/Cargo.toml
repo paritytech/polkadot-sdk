@@ -35,4 +35,6 @@ sp-state-machine.default-features = true
 sp-state-machine.workspace = true
 sp-storage.default-features = true
 sp-storage.workspace = true
+sp-trie.default-features = true
+sp-trie.workspace = true
 tracing = { workspace = true, default-features = true }

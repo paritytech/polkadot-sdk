@@ -37,6 +37,7 @@ sp-io.workspace = true
 sp-runtime.workspace = true
 sp-state-machine.workspace = true
 sp-std.workspace = true
+sp-storage.workspace = true
 sp-trie.workspace = true
 sp-version.workspace = true
 trie-db = { workspace = true }
