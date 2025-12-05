@@ -90,7 +90,6 @@ impl<B: BlockT> InformantDisplay<B> {
 		} else {
 			(diff_bytes_inbound, diff_bytes_outbound)
 		};
-		// let warp_sync = sync_status.warp_sync.clone();
 
 		let (level, status, target) =
 			match (sync_status.state, sync_status.state_sync, sync_status.warp_sync.clone()) {
