@@ -153,7 +153,7 @@ impl<Balance> BalanceWithDust<Balance> {
 		value: U256,
 	) -> Result<BalanceWithDust<BalanceOf<T>>, BalanceConversionError> {
 		if value.is_zero() {
-			return Ok(Default::default());
+			return Ok(Default::default())
 		}
 
 		let (quotient, remainder) = value.div_mod(T::NativeToEthRatio::get().into());

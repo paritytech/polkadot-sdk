@@ -1633,7 +1633,7 @@ where
 		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)
 			.map_err(|_| Error::<T>::BalanceConversionFailed)?;
 		if value.is_zero() {
-			return Ok(());
+			return Ok(())
 		}
 
 		if <System<T>>::account_exists(to) {
@@ -2270,7 +2270,7 @@ where
 
 	fn code_hash(&self, address: &H160) -> H256 {
 		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
-			return sp_io::hashing::keccak_256(code).into();
+			return sp_io::hashing::keccak_256(code).into()
 		}
 
 		<AccountInfo<T>>::load_contract(&address)
@@ -2285,7 +2285,7 @@ where
 
 	fn code_size(&self, address: &H160) -> u64 {
 		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
-			return code.len() as u64;
+			return code.len() as u64
 		}
 
 		<AccountInfo<T>>::load_contract(&address)

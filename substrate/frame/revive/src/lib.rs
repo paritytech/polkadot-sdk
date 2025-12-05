@@ -1722,7 +1722,7 @@ impl<T: Config> Pallet<T> {
 						let executable = ContractBlob::from_evm_init_code(code, origin)?;
 						executable
 					} else {
-						return Err(<Error<T>>::CodeRejected.into());
+						return Err(<Error<T>>::CodeRejected.into())
 					},
 				Code::Existing(code_hash) => {
 					let executable = ContractBlob::from_storage(code_hash, &mut transaction_meter)?;
@@ -2175,7 +2175,7 @@ impl<T: Config> Pallet<T> {
 			BytecodeType::Pvm
 		} else {
 			if !T::AllowEVMBytecode::get() {
-				return Err(<Error<T>>::CodeRejected.into());
+				return Err(<Error<T>>::CodeRejected.into())
 			}
 			BytecodeType::Evm
 		};
@@ -2323,7 +2323,7 @@ impl<T: Config> Pallet<T> {
 	pub fn code(address: &H160) -> Vec<u8> {
 		use precompiles::{All, Precompiles};
 		if let Some(code) = <All<T>>::code(address.as_fixed_bytes()) {
-			return code.into();
+			return code.into()
 		}
 		AccountInfo::<T>::load_contract(&address)
 			.and_then(|contract| <PristineCode<T>>::get(contract.code_hash))
@@ -2525,14 +2525,14 @@ impl<T: Config> Pallet<T> {
 	/// This enforces EIP-3607.
 	fn ensure_non_contract_if_signed(origin: &OriginFor<T>) -> DispatchResult {
 		if DebugSettings::bypass_eip_3607::<T>() {
-			return Ok(());
+			return Ok(())
 		}
 		let Some(address) = origin
 			.as_system_ref()
 			.and_then(|o| o.as_signed())
 			.map(<T::AddressMapper as AddressMapper<T>>::to_address)
 		else {
-			return Ok(());
+			return Ok(())
 		};
 		if exec::is_precompile::<T, ContractBlob<T>>(&address) ||
 			<AccountInfo<T>>::is_contract(&address)
