@@ -5181,15 +5181,15 @@ fn get_set_storage_key_works() {
 		let contract_key_to_test = [1; 32];
 		// Checking non-existing keys gets created.
 		let storage_value = Pallet::<Test>::get_storage(addr, contract_key_to_test).unwrap();
-		assert_eq!(storage_value, None);
+		assert_eq!(storage_value.data, None);
 
 		let value_to_write = Some(vec![1, 2, 3]);
 		let write_result =
 			Pallet::<Test>::set_storage(addr, contract_key_to_test, value_to_write.clone())
 				.unwrap();
-		assert_eq!(write_result, WriteOutcome::New);
+		assert_eq!(write_result.data, WriteOutcome::New);
 		let storage_value = Pallet::<Test>::get_storage(addr, contract_key_to_test).unwrap();
-		assert_eq!(storage_value, value_to_write);
+		assert_eq!(storage_value.data, value_to_write);
 
 		// Check existing keys overwrite
 
@@ -5198,11 +5198,11 @@ fn get_set_storage_key_works() {
 			Pallet::<Test>::set_storage(addr, contract_key_to_test, new_value_to_write.clone())
 				.unwrap();
 		assert_eq!(
-			write_result,
-			WriteOutcome::Overwritten(value_to_write.map(|v| v.len()).unwrap_or_default() as u32)
+			write_result.data,
+			WriteOutcome::Overwritten { len: value_to_write.map(|v| v.len()).unwrap_or_default() as u32 }
 		);
 		let storage_value = Pallet::<Test>::get_storage(addr, contract_key_to_test).unwrap();
-		assert_eq!(storage_value, new_value_to_write);
+		assert_eq!(storage_value.data, new_value_to_write);
 	});
 }
 
@@ -5220,7 +5220,7 @@ fn get_set_storage_var_key_works() {
 		// Checking non-existing keys gets created.
 		let storage_value =
 			Pallet::<Test>::get_storage_var_key(addr, contract_key_to_test.clone()).unwrap();
-		assert_eq!(storage_value, None);
+		assert_eq!(storage_value.data, None);
 
 		let value_to_write = Some(vec![1, 2, 3]);
 		let write_result = Pallet::<Test>::set_storage_var_key(
@@ -5229,10 +5229,10 @@ fn get_set_storage_var_key_works() {
 			value_to_write.clone(),
 		)
 		.unwrap();
-		assert_eq!(write_result, WriteOutcome::New);
+		assert_eq!(write_result.data, WriteOutcome::New);
 		let storage_value =
 			Pallet::<Test>::get_storage_var_key(addr, contract_key_to_test.clone()).unwrap();
-		assert_eq!(storage_value, value_to_write);
+		assert_eq!(storage_value.data, value_to_write);
 
 		// Check existing keys overwrite
 
@@ -5244,12 +5244,12 @@ fn get_set_storage_var_key_works() {
 		)
 		.unwrap();
 		assert_eq!(
-			write_result,
-			WriteOutcome::Overwritten(value_to_write.map(|v| v.len()).unwrap_or_default() as u32)
+			write_result.data,
+			WriteOutcome::Overwritten { len: value_to_write.map(|v| v.len()).unwrap_or_default() as u32 }
 		);
 		let storage_value =
 			Pallet::<Test>::get_storage_var_key(addr, contract_key_to_test.clone()).unwrap();
-		assert_eq!(storage_value, new_value_to_write);
+		assert_eq!(storage_value.data, new_value_to_write);
 	});
 }
 

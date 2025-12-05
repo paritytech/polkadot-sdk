@@ -363,9 +363,9 @@ impl<T: Config> ContractInfo<T> {
 		}
 
 		let outcome = match (old_len, old_value) {
-			(None, _) => WriteOutcome::New { is_cold },
-			(Some(old_len), None) => WriteOutcome::Overwritten { len: old_len, is_cold },
-			(Some(_), Some(old_value)) => WriteOutcome::Taken { value: old_value, is_cold },
+			(None, _) => WriteOutcome::New,
+			(Some(old_len), None) => WriteOutcome::Overwritten { len: old_len },
+			(Some(_), Some(old_value)) => WriteOutcome::Taken { value: old_value },
 		};
 		Ok(sp_io::StateLoad { data: outcome, is_cold })
 	}
@@ -480,15 +480,15 @@ impl<T: Config> ContractInfo<T> {
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum WriteOutcome {
 	/// No value existed at the specified key.
-	New { is_cold: bool },
+	New,
 	/// A value of the returned length was overwritten.
-	Overwritten { len: u32, is_cold: bool },
+	Overwritten { len: u32 },
 	/// The returned value was taken out of storage before being overwritten.
 	///
 	/// This is only returned when specifically requested because it causes additional work
 	/// depending on the size of the pre-existing value. When not requested [`Self::Overwritten`]
 	/// is returned instead.
-	Taken { value: Vec<u8>, is_cold: bool },
+	Taken { value: Vec<u8> },
 }
 
 impl WriteOutcome {
@@ -496,9 +496,9 @@ impl WriteOutcome {
 	/// was no value in storage.
 	pub fn old_len(&self) -> u32 {
 		match self {
-			Self::New { .. } => 0,
-			Self::Overwritten { len, .. } => *len,
-			Self::Taken { value, .. } => value.len() as u32,
+			Self::New => 0,
+			Self::Overwritten { len } => *len,
+			Self::Taken { value } => value.len() as u32,
 		}
 	}
 
@@ -511,18 +511,9 @@ impl WriteOutcome {
 	/// storage entry which is different from a non existing one.
 	pub fn old_len_with_sentinel(&self) -> u32 {
 		match self {
-			Self::New { .. } => SENTINEL,
-			Self::Overwritten { len, .. } => *len,
-			Self::Taken { value, .. } => value.len() as u32,
-		}
-	}
-
-	/// Returns whether this was a cold storage access.
-	pub fn is_cold(&self) -> bool {
-		match self {
-			Self::New { is_cold } => *is_cold,
-			Self::Overwritten { is_cold, .. } => *is_cold,
-			Self::Taken { is_cold, .. } => *is_cold,
+			Self::New => SENTINEL,
+			Self::Overwritten { len } => *len,
+			Self::Taken { value } => value.len() as u32,
 		}
 	}
 }
