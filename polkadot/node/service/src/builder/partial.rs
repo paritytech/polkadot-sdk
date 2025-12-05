@@ -214,7 +214,7 @@ where
 			block_import: DoppelGangerBlockImport::new(
 				block_import.clone(),
 				DoppelGangerContext::Relaychain,
-				task_manager.spawn_essential_handle()
+				task_manager.spawn_essential_handle(),
 			),
 			#[cfg(not(feature = "doppelganger"))]
 			block_import: block_import.clone(),

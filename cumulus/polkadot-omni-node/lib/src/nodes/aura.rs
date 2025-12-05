@@ -153,8 +153,11 @@ where
 
 		// [DOPPELGANGER]
 		#[cfg(feature = "doppelganger")]
-		let boxed_block_import =
-			Box::new(DoppelGangerBlockImport::new(block_import, DoppelGangerContext::Parachain, task_manager.spawn_essential_handle()));
+		let boxed_block_import = Box::new(DoppelGangerBlockImport::new(
+			block_import,
+			DoppelGangerContext::Parachain,
+			task_manager.spawn_essential_handle(),
+		));
 		#[cfg(not(feature = "doppelganger"))]
 		let boxed_block_import = Box::new(block_import);
 
