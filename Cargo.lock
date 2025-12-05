@@ -262,8 +262,8 @@ dependencies = [
  "cfg-if",
  "const-hex",
  "derive_more 2.0.1",
- "foldhash",
- "hashbrown 0.15.3",
+ "foldhash 0.2.0",
+ "hashbrown 0.16.1",
  "indexmap 2.9.0",
  "itoa",
  "k256",
@@ -8009,7 +8009,6 @@ dependencies = [
  "allocator-api2",
  "equivalent",
  "foldhash 0.1.5",
- "serde",
 ]
 
 [[package]]
@@ -10843,7 +10842,7 @@ dependencies = [
  "core2",
  "digest 0.10.7",
  "multihash-derive",
- "sha2 0.10.8",
+ "sha2 0.10.9",
  "sha3 0.10.8",
  "unsigned-varint 0.7.2",
 ]
@@ -11831,6 +11830,7 @@ dependencies = [
 name = "pallet-assets"
 version = "45.0.0"
 dependencies = [
+ "ethereum-standards",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -11885,9 +11885,9 @@ dependencies = [
  "pallet-revive",
  "parity-scale-codec",
  "scale-info",
- "sp-core 28.0.0",
- "sp-io",
- "sp-runtime",
+ "sp-core 38.0.0",
+ "sp-io 42.0.0",
+ "sp-runtime 43.0.0",
 ]
 
 [[package]]
@@ -13498,7 +13498,7 @@ dependencies = [
  "pallet-utility",
  "parity-scale-codec",
  "paste",
- "polkavm",
+ "polkavm 0.30.0",
  "polkavm-common 0.30.0",
  "pretty_assertions",
  "proptest",
@@ -13520,7 +13520,9 @@ dependencies = [
  "sp-io 42.0.0",
  "sp-keystore 0.44.0",
  "sp-runtime 43.0.0",
+ "sp-state-machine 0.47.0",
  "sp-tracing 18.0.0",
+ "sp-version 41.0.0",
  "substrate-bn",
  "subxt-signer 0.41.0",
  "test-case",
@@ -13542,23 +13544,23 @@ dependencies = [
  "pallet-revive-fixtures",
  "parity-scale-codec",
  "pretty_assertions",
- "revive-dev-node",
  "revive-dev-runtime",
  "rlp 0.6.1",
  "sc-cli",
  "sc-rpc",
  "sc-rpc-api",
  "sc-service",
- "serde",
  "serde_json",
  "sp-arithmetic 28.0.0",
  "sp-core 38.0.0",
  "sp-crypto-hashing 0.1.0",
- "sp-io",
+ "sp-io 42.0.0",
  "sp-rpc",
  "sp-runtime 43.0.0",
  "sp-weights 33.0.0",
  "sqlx",
+ "static_init",
+ "substrate-cli-test-utils",
  "substrate-prometheus-endpoint",
  "subxt 0.41.0",
  "subxt-signer 0.41.0",
@@ -13575,7 +13577,8 @@ dependencies = [
  "cargo_metadata",
  "hex",
  "pallet-revive-uapi",
- "polkavm-linker 0.27.0",
+ "polkavm-linker",
+ "serde_json",
  "sp-core 38.0.0",
  "sp-io 42.0.0",
  "toml 0.8.19",
@@ -14443,6 +14446,7 @@ dependencies = [
  "hex-literal",
  "pallet-assets",
  "pallet-balances",
+ "pallet-timestamp",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
@@ -14539,8 +14543,8 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "scale-info",
- "sp-io",
- "sp-runtime",
+ "sp-io 42.0.0",
+ "sp-runtime 43.0.0",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
@@ -17606,16 +17610,16 @@ dependencies = [
 
 [[package]]
 name = "polkavm"
-version = "0.26.0"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4323d016144b2852da47cee55ca5fc33dfe7517be1f52395759f247ecc5695f6"
 dependencies = [
  "libc",
  "log",
  "picosimd",
- "polkavm-assembler",
+ "polkavm-assembler 0.30.0",
  "polkavm-common 0.30.0",
- "polkavm-linux-raw",
+ "polkavm-linux-raw 0.30.0",
 ]
 
 [[package]]
@@ -17629,7 +17633,7 @@ dependencies = [
 
 [[package]]
 name = "polkavm-assembler"
-version = "0.26.0"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3a873fa7ace058d6507debf5fccb1d06bd3279f5b35dbaf70dc7fe94a6c415c"
 dependencies = [
@@ -17654,7 +17658,7 @@ dependencies = [
  "blake3",
  "log",
  "picosimd",
- "polkavm-assembler",
+ "polkavm-assembler 0.30.0",
 ]
 
 [[package]]
@@ -17730,23 +17734,7 @@ dependencies = [
  "hashbrown 0.14.5",
  "log",
  "object 0.36.1",
- "polkavm-common 0.26.0",
- "regalloc2 0.9.3",
- "rustc-demangle",
-]
-
-[[package]]
-name = "polkavm-linker"
-version = "0.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99fe3704d21e96c5d1e6a1b1a43ac57f9dce110d3331fbf8299e9f57d5884066"
-dependencies = [
- "dirs",
- "gimli 0.31.1",
- "hashbrown 0.14.5",
- "log",
- "object 0.36.1",
- "polkavm-common 0.27.0",
+ "polkavm-common 0.30.0",
  "regalloc2 0.9.3",
  "rustc-demangle",
 ]
@@ -17759,7 +17747,7 @@ checksum = "26e85d3456948e650dff0cfc85603915847faf893ed1e66b020bb82ef4557120"
 
 [[package]]
 name = "polkavm-linux-raw"
-version = "0.26.0"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "604b23cdb201979304449f53d21bfd5fb1724c03e3ea889067c9a3bf7ae33862"
 
@@ -20575,7 +20563,7 @@ dependencies = [
 name = "sc-executor-common"
 version = "0.40.0"
 dependencies = [
- "polkavm 0.26.0",
+ "polkavm 0.30.0",
  "sc-allocator 33.0.0",
  "sp-maybe-compressed-blob 11.0.1",
  "sp-wasm-interface 23.0.0",
@@ -20600,7 +20588,7 @@ name = "sc-executor-polkavm"
 version = "0.37.0"
 dependencies = [
  "log",
- "polkavm 0.26.0",
+ "polkavm 0.30.0",
  "sc-executor-common 0.40.0",
  "sp-wasm-interface 23.0.0",
 ]
@@ -22466,7 +22454,7 @@ dependencies = [
  "schnorrkel 0.10.2",
  "serde",
  "serde_json",
- "sha2 0.10.8",
+ "sha2 0.10.9",
  "sha3 0.10.8",
  "siphasher 0.3.11",
  "slab",
@@ -22520,7 +22508,7 @@ dependencies = [
  "schnorrkel 0.11.4",
  "serde",
  "serde_json",
- "sha2 0.10.8",
+ "sha2 0.10.9",
  "sha3 0.10.8",
  "siphasher 1.0.1",
  "slab",
@@ -23880,7 +23868,7 @@ dependencies = [
  "byteorder",
  "criterion",
  "digest 0.10.7",
- "sha2 0.10.8",
+ "sha2 0.10.9",
  "sha3 0.10.8",
  "sp-crypto-hashing-proc-macro 0.1.0",
  "twox-hash",
@@ -23895,7 +23883,7 @@ dependencies = [
  "blake2b_simd 1.0.2",
  "byteorder",
  "digest 0.10.7",
- "sha2 0.10.8",
+ "sha2 0.10.9",
  "sha3 0.10.8",
  "twox-hash",
 ]
@@ -24384,7 +24372,7 @@ dependencies = [
  "bytes",
  "impl-trait-for-tuples",
  "parity-scale-codec",
- "polkavm-derive 0.26.0",
+ "polkavm-derive 0.30.0",
  "primitive-types 0.13.1",
  "rustversion",
  "sp-externalities 0.30.0",
@@ -24565,7 +24553,7 @@ dependencies = [
  "parity-scale-codec",
  "rand 0.8.5",
  "scale-info",
- "sha2 0.10.8",
+ "sha2 0.10.9",
  "sp-api 38.0.0",
  "sp-application-crypto 42.0.0",
  "sp-core 38.0.0",
@@ -24667,7 +24655,7 @@ dependencies = [
  "regex",
  "tracing",
  "tracing-core",
- "tracing-subscriber",
+ "tracing-subscriber 0.3.18",
 ]
 
 [[package]]
@@ -24746,7 +24734,7 @@ dependencies = [
  "ahash 0.8.11",
  "array-bytes 6.2.2",
  "criterion",
- "foldhash",
+ "foldhash 0.1.5",
  "hash-db",
  "hashbrown 0.15.3",
  "memory-db 0.34.0",
@@ -25831,7 +25819,7 @@ dependencies = [
  "merkleized-metadata",
  "parity-scale-codec",
  "parity-wasm",
- "polkavm-linker 0.26.0",
+ "polkavm-linker",
  "sc-executor 0.44.0",
  "shlex",
  "sp-core 38.0.0",
@@ -27808,7 +27796,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
- "sha2 0.10.8",
+ "sha2 0.10.9",
  "sha3 0.10.8",
  "zeroize",
 ]
@@ -28242,7 +28230,7 @@ dependencies = [
  "log",
  "rustix 0.36.15",
  "serde",
- "sha2 0.10.8",
+ "sha2 0.10.9",
  "toml 0.5.11",
  "windows-sys 0.45.0",
  "zstd 0.11.2+zstd.1.5.2",
