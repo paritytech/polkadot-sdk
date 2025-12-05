@@ -35,7 +35,7 @@ use xcm_builder::{
 	DenyReserveTransferToRelayChain, DenyThenTry, EnsureDecodableXcm, FrameTransactionalProcessor,
 	TakeWeightCredit, TrailingSetTopicAsId, WithComputedOrigin,
 };
-use xcm_executor::traits::{ConvertOrigin, Properties};
+use xcm_executor::traits::ConvertOrigin;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
