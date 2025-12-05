@@ -11148,6 +11148,7 @@ dependencies = [
  "sp-keystore 0.44.0",
  "sp-runtime 43.0.0",
  "sp-statement-store",
+ "sp-timestamp",
  "substrate-frame-rpc-system",
  "substrate-state-trie-migration-rpc",
 ]
