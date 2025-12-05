@@ -150,8 +150,6 @@ crates:
   bump: major
 - name: pallet-revive-uapi
   bump: major
-- name: frame-metadata
-  bump: major
 - name: frame-support
   bump: major
 - name: pallet-transaction-payment
@@ -162,13 +160,3 @@ crates:
   bump: major
 - name: polkadot-sdk
   bump: none
-- name: sp-core
-  bump: major
-- name: sp-keyring
-  bump: major
-- name: sp-runtime
-  bump: major
-- name: sp-weights
-  bump: major
-- name: xcm
-  bump: major
