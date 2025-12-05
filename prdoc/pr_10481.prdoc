@@ -72,15 +72,13 @@ crates:
   bump: major
 - name: penpal-runtime
   bump: major
-- name: ya-parachain-runtime
-  bump: major
 - name: parachain-template-runtime
   bump: major
 - name: solochain-template-runtime
   bump: major
 - name: substrate-test-runtime
   bump: major
-- name: staking-async-rc-runtime
+- name: pallet-staking-async-rc-runtime
   bump: major
-- name: staking-async-parachain-runtime
+- name: pallet-staking-async-parachain-runtime
   bump: major
