@@ -27,7 +27,16 @@ use alloc::vec::Vec;
 /// A reward tally line represent the collected statistics about
 /// approvals voting for a given validator, how much successful approvals
 /// was collected and how many times the given validator no-showed
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Copy, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(
+    RuntimeDebug,
+    Copy,
+    Clone,
+    PartialEq,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    TypeInfo,
+)]
 pub struct ApprovalStatisticsTallyLine {
     ///  represents the validator to which the statistics belongs to
     pub validator_index: ValidatorIndex,
@@ -43,8 +52,16 @@ pub struct ApprovalStatisticsTallyLine {
 
 /// ApprovalRewards is the set of tallies where each tally represents
 /// a given validator and its approval voting statistics
-#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-pub struct ApprovalStatistics(pub SessionIndex, pub Vec<ApprovalStatisticsTallyLine>);
+#[derive(
+    RuntimeDebug,
+    Clone,
+    PartialEq,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    TypeInfo,
+)]
+pub struct ApprovalStatistics(pub SessionIndex, pub ValidatorIndex, pub Vec<ApprovalStatisticsTallyLine>);
 
 impl ApprovalStatistics {
     pub fn signing_payload(&self) -> Vec<u8> {

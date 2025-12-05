@@ -28,6 +28,7 @@ use polkadot_primitives::{
 	InboundHrmpMessage, Nonce, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
 	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
 	ValidatorId, ValidatorIndex, ValidatorSignature,
+	vstaging::ApprovalStatistics,
 };
 use sp_consensus_beefy::ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature};
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
@@ -198,6 +199,13 @@ sp_api::impl_runtime_apis! {
 
 		fn submit_pvf_check_statement(
 			_: PvfCheckStatement,
+			_: ValidatorSignature,
+		) {
+			unimplemented!()
+		}
+
+		fn submit_approval_statistics(
+			_: ApprovalStatistics,
 			_: ValidatorSignature,
 		) {
 			unimplemented!()
