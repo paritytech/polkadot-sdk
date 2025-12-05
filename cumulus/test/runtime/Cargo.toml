@@ -64,6 +64,7 @@ std = [
 	"cumulus-pallet-weight-reclaim/std",
 	"cumulus-primitives-aura/std",
 	"cumulus-primitives-core/std",
+	"cumulus-primitives-storage-weight-reclaim/std",
 	"frame-executive/std",
 	"frame-support/std",
 	"frame-system-rpc-runtime-api/std",
@@ -96,7 +97,6 @@ std = [
 	"sp-version/std",
 	"substrate-wasm-builder",
 	"tracing/std",
-	"cumulus-primitives-storage-weight-reclaim/std"
 ]
 increment-spec-version = []
 # A runtime which expects to build behind the relay chain tip.
