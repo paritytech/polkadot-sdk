@@ -25,13 +25,13 @@ use frame_support::{
 use sp_runtime::traits::TrailingZeroInput;
 use xcm_builder::{
 	test_utils::{
-		AssetsInHolding, TestAssetExchanger, TestAssetLocker, TestAssetTrap,
-		TestSubscriptionService, TestUniversalAliases,
+		TestAssetExchanger, TestAssetLocker, TestAssetTrap, TestSubscriptionService,
+		TestUniversalAliases,
 	},
 	AliasForeignAccountId32, AllowUnpaidExecutionFrom, EnsureDecodableXcm,
 	FrameTransactionalProcessor,
 };
-use xcm_executor::traits::ConvertOrigin;
+use xcm_executor::{traits::ConvertOrigin, AssetsInHolding};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -50,9 +50,9 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u64>;
 }
 
-/// The benchmarks in this pallet should never need an asset transactor to begin with.
-pub struct NoAssetTransactor;
-impl xcm_executor::traits::TransactAsset for NoAssetTransactor {
+/// The benchmarks in this pallet should not withdraw or deposit assets.
+pub struct MockTransactor;
+impl xcm_executor::traits::TransactAsset for MockTransactor {
 	fn deposit_asset(
 		_: AssetsInHolding,
 		_: &Location,
@@ -67,6 +67,17 @@ impl xcm_executor::traits::TransactAsset for NoAssetTransactor {
 		_: Option<&XcmContext>,
 	) -> Result<AssetsInHolding, XcmError> {
 		unreachable!();
+	}
+
+	fn mint_asset(what: &Asset, _: &XcmContext) -> Result<AssetsInHolding, XcmError> {
+		let id = what.id.clone();
+		Ok(match what.fun {
+			Fungible(amount) => AssetsInHolding::new_from_fungible_credit(
+				id,
+				alloc::boxed::Box::new(MockCredit(amount as u128)),
+			),
+			NonFungible(instance) => AssetsInHolding::new_from_non_fungible(id, instance),
+		})
 	}
 }
 
@@ -88,7 +99,7 @@ impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = EnsureDecodableXcm<DevNull>;
 	type XcmEventEmitter = ();
-	type AssetTransactor = NoAssetTransactor;
+	type AssetTransactor = MockTransactor;
 	type OriginConverter = AlwaysSignedByDefault<RuntimeOrigin>;
 	type IsReserve = AllAssetLocationsPass;
 	type IsTeleporter = ();
@@ -137,7 +148,7 @@ impl crate::Config for Test {
 
 		Ok(valid_destination)
 	}
-	fn worst_case_holding(depositable_count: u32) -> Assets {
+	fn worst_case_holding(depositable_count: u32) -> AssetsInHolding {
 		generate_holding_assets(
 			<XcmConfig as xcm_executor::Config>::MaxAssetsIntoHolding::get() - depositable_count,
 		)

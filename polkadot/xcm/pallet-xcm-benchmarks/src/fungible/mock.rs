@@ -26,6 +26,7 @@ use xcm::latest::prelude::*;
 use xcm_builder::{
 	AllowUnpaidExecutionFrom, EnsureDecodableXcm, FrameTransactionalProcessor, MintLocation,
 };
+use xcm_executor::AssetsInHolding;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -132,7 +133,7 @@ impl crate::Config for Test {
 
 		Ok(valid_destination)
 	}
-	fn worst_case_holding(depositable_count: u32) -> Assets {
+	fn worst_case_holding(depositable_count: u32) -> AssetsInHolding {
 		generate_holding_assets(
 			<XcmConfig as xcm_executor::Config>::MaxAssetsIntoHolding::get() - depositable_count,
 		)
