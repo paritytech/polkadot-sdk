@@ -172,7 +172,7 @@ pub mod pallet_foo {
 		PartialEq,
 		Eq,
 		Clone,
-		RuntimeDebug,
+		Debug,
 		Encode,
 		Decode,
 		DecodeWithMemTracking,

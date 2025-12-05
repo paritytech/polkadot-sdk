@@ -111,7 +111,7 @@ use sp_runtime::{
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedPointNumber, FixedU128, MultiSignature, MultiSigner, Perbill,
-	Percent, Permill, Perquintill, RuntimeDebug,
+	Percent, Permill, Perquintill, Debug,
 };
 use sp_std::{borrow::Cow, prelude::*};
 #[cfg(any(feature = "std", test))]
@@ -422,7 +422,7 @@ parameter_types! {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
 )]

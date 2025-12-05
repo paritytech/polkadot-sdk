@@ -69,7 +69,7 @@ use frame_support::{
 pub use pallet::*;
 use sp_runtime::{
 	traits::{AccountIdConversion, Dispatchable, Saturating, Zero},
-	ArithmeticError, DispatchError, RuntimeDebug,
+	ArithmeticError, DispatchError, Debug,
 };
 pub use weights::WeightInfo;
 
@@ -81,7 +81,7 @@ type BalanceOf<T> =
 type CallIndex = (u8, u8);
 
 #[derive(
-	Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
+	Encode, Decode, Default, Eq, PartialEq, Debug, scale_info::TypeInfo, MaxEncodedLen,
 )]
 pub struct LotteryConfig<BlockNumber, Balance> {
 	/// Price per entry.

@@ -20,7 +20,7 @@
 use crate::Config;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	traits::Currency, BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	traits::Currency, BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, DebugNoBound,
 };
 use scale_info::TypeInfo;
 use sp_staking::{EraIndex, StakingInterface};
@@ -52,7 +52,7 @@ pub type BalanceOf<T> =
 	PartialEqNoBound,
 	CloneNoBound,
 	TypeInfo,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(T))]

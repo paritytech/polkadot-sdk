@@ -20,7 +20,7 @@
 use super::*;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_core::RuntimeDebug;
+use Debug;
 use sp_runtime::traits::Convert;
 
 /// The `CheckState` is a strategy that accepts an `Inspect` value and the `Inner` strategy.
@@ -173,7 +173,7 @@ impl<Request> UpdateStrategy for Bytes<Request> {
 
 /// The `Owner` strategy is both [inspect](InspectStrategy) and [update](UpdateStrategy) strategy
 /// allows getting and setting the owner of an asset.
-#[derive(RuntimeDebug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct Owner<AccountId>(PhantomData<AccountId>);
 impl<AccountId> Default for Owner<AccountId> {
 	fn default() -> Self {
@@ -190,7 +190,7 @@ impl<AccountId: 'static> UpdateStrategy for Owner<AccountId> {
 
 /// The `Admin` strategy is both [inspect](InspectStrategy) and [update](UpdateStrategy) strategy
 /// allows getting and setting the admin of an asset.
-#[derive(RuntimeDebug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct Admin<AccountId>(PhantomData<AccountId>);
 impl<AccountId> Default for Admin<AccountId> {
 	fn default() -> Self {
@@ -215,7 +215,7 @@ impl<AccountId: 'static> UpdateStrategy for Admin<AccountId> {
 /// data. The said extrinsic, in turn, could use the destroy operation with the `WithWitness`
 /// strategy, which will compare the provided witness with the actual chain state before attempting
 /// the collection destruction.
-#[derive(RuntimeDebug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct Witness<WitnessData>(PhantomData<WitnessData>);
 impl<WitnessData> Default for Witness<WitnessData> {
 	fn default() -> Self {
@@ -354,7 +354,7 @@ pub type PredefinedId<Id> = DeriveAndReportId<Id, Id>;
 ///
 /// An example of ID derivation is the creation of an NFT inside a collection using the
 /// collection ID as `Params`. The `ReportedId` in this case is the full ID of the NFT.
-#[derive(RuntimeDebug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct DeriveAndReportId<Params, ReportedId> {
 	pub params: Params,
 	_phantom: PhantomData<ReportedId>,
@@ -437,7 +437,7 @@ impl<T: InspectStrategy> WithConfigValue for T {
 ///     PredefinedId::from(ASSET_ID),
 /// ))
 /// ```
-#[derive(RuntimeDebug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct WithConfig<ConfigValue: ConfigValueMarker, Extra = ()> {
 	pub config: ConfigValue,
 	pub extra: Extra,

@@ -118,7 +118,7 @@ pub mod pallet {
 	use pallet_session::SessionManager;
 	use sp_runtime::{
 		traits::{AccountIdConversion, CheckedSub, Convert, Saturating, Zero},
-		RuntimeDebug,
+		Debug,
 	};
 	use sp_staking::SessionIndex;
 
@@ -199,7 +199,7 @@ pub mod pallet {
 
 	/// Basic information about a collation candidate.
 	#[derive(
-		PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
+		PartialEq, Eq, Clone, Encode, Decode, Debug, scale_info::TypeInfo, MaxEncodedLen,
 	)]
 	pub struct CandidateInfo<AccountId, Balance> {
 		/// Account identifier.

@@ -204,7 +204,7 @@ use frame_support::{
 		tokens::fungible::{Credit, Debt},
 		ConstU32, Contains, Get, LockIdentifier,
 	},
-	BoundedVec, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	BoundedVec, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
 	WeakBoundedVec,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -212,7 +212,7 @@ use ledger::LedgerIntegrityState;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, One, StaticLookup, UniqueSaturatedInto},
-	BoundedBTreeMap, Perbill, RuntimeDebug, Saturating,
+	BoundedBTreeMap, Perbill, Debug, Saturating,
 };
 use sp_staking::{EraIndex, ExposurePage, PagedExposureMetadata, SessionIndex};
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
@@ -270,7 +270,7 @@ pub type NegativeImbalanceOf<T> =
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 /// Information regarding the active era (era in used in session).
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, TypeInfo, MaxEncodedLen, PartialEq, Eq, Clone)]
 pub struct ActiveEraInfo {
 	/// Index of era.
 	pub index: EraIndex,
@@ -305,7 +305,7 @@ pub struct EraRewardPoints<T: Config> {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -332,7 +332,7 @@ pub enum RewardDestination<AccountId> {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	Default,
 	MaxEncodedLen,
@@ -362,7 +362,7 @@ pub enum SnapshotStatus<AccountId> {
 
 /// A record of the nominations made by a specific account.
 #[derive(
-	PartialEqNoBound, EqNoBound, Clone, Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen,
+	PartialEqNoBound, EqNoBound, Clone, Encode, Decode, DebugNoBound, TypeInfo, MaxEncodedLen,
 )]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T))]
@@ -384,7 +384,7 @@ pub struct Nominations<T: Config> {
 ///
 /// This is useful where we need to take into account the validator's own stake and total exposure
 /// in consideration, in addition to the individual nominators backing them.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Eq)]
+#[derive(Encode, Decode, Debug, TypeInfo, PartialEq, Eq)]
 pub struct PagedExposure<AccountId, Balance: HasCompact + codec::MaxEncodedLen> {
 	exposure_metadata: PagedExposureMetadata<Balance>,
 	exposure_page: ExposurePage<AccountId, Balance>,
@@ -506,7 +506,7 @@ impl<Balance: Default> EraPayout<Balance> for () {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,

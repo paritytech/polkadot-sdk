@@ -74,7 +74,7 @@ use frame_support::{
 		ConstU32, ConstU64, EnsureOrigin, Get, IsSubType, IsType, OriginTrait,
 	},
 	weights::WeightMeter,
-	BoundedVec, RuntimeDebugNoBound,
+	BoundedVec,
 };
 use frame_system::{
 	ensure_signed,
@@ -625,7 +625,7 @@ pub mod pallet {
 		Decode,
 		DecodeWithMemTracking,
 		TypeInfo,
-		RuntimeDebug,
+		Debug,
 	)]
 	#[pallet::origin]
 	pub enum Origin<T: Config> {

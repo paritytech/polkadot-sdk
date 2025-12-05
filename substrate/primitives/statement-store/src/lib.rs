@@ -93,7 +93,7 @@ pub fn hash_encoded(data: &[u8]) -> [u8; 32] {
 
 /// Statement proof.
 #[derive(
-	Encode, Decode, DecodeWithMemTracking, TypeInfo, sp_core::RuntimeDebug, Clone, PartialEq, Eq,
+	Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug, Clone, PartialEq, Eq,
 )]
 pub enum Proof {
 	/// Sr25519 Signature.
@@ -143,7 +143,7 @@ impl Proof {
 
 /// Statement attributes. Each statement is a list of 0 or more fields. Fields may only appear once
 /// and in the order declared here.
-#[derive(Encode, Decode, TypeInfo, sp_core::RuntimeDebug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Debug, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Field {
 	/// Statement proof.
@@ -175,7 +175,7 @@ impl Field {
 }
 
 /// Statement structure.
-#[derive(DecodeWithMemTracking, TypeInfo, sp_core::RuntimeDebug, Clone, PartialEq, Eq, Default)]
+#[derive(DecodeWithMemTracking, TypeInfo, Debug, Clone, PartialEq, Eq, Default)]
 pub struct Statement {
 	proof: Option<Proof>,
 	decryption_key: Option<DecryptionKey>,

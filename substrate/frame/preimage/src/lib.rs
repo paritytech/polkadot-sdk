@@ -73,7 +73,7 @@ pub use pallet::*;
 	Decode,
 	TypeInfo,
 	MaxEncodedLen,
-	RuntimeDebug,
+	Debug,
 	DecodeWithMemTracking,
 )]
 pub enum OldRequestStatus<AccountId, Balance> {
@@ -95,7 +95,7 @@ pub enum OldRequestStatus<AccountId, Balance> {
 	Decode,
 	TypeInfo,
 	MaxEncodedLen,
-	RuntimeDebug,
+	Debug,
 	DecodeWithMemTracking,
 )]
 pub enum RequestStatus<AccountId, Ticket> {

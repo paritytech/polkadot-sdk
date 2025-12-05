@@ -163,7 +163,7 @@ mod union_of;
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
-use frame_support_procedural::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
+use frame_support_procedural::{CloneNoBound, EqNoBound, PartialEqNoBound, DebugNoBound};
 use scale_info::TypeInfo;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::Saturating;
@@ -206,7 +206,7 @@ use crate::{
 	Decode,
 	TypeInfo,
 	MaxEncodedLen,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 )]
 #[scale_info(skip_type_params(A, F, R, D, Fp))]
 #[codec(mel_bound())]
@@ -269,7 +269,7 @@ impl<
 	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 )]
 #[scale_info(skip_type_params(A, F, R, D, Fp))]
 #[codec(mel_bound())]
@@ -343,7 +343,7 @@ impl<
 	Decode,
 	TypeInfo,
 	MaxEncodedLen,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 )]
 #[scale_info(skip_type_params(A, Fx, Rx, D, Fp))]
 #[codec(mel_bound())]
@@ -388,7 +388,7 @@ impl<
 	Decode,
 	TypeInfo,
 	MaxEncodedLen,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 )]
 #[scale_info(skip_type_params(A, Fx, Rx, D, Fp))]
 #[codec(mel_bound())]

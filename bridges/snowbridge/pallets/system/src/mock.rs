@@ -56,7 +56,7 @@ mod pallet_xcm_origin {
 		Encode,
 		Decode,
 		DecodeWithMemTracking,
-		RuntimeDebug,
+		Debug,
 		TypeInfo,
 		MaxEncodedLen,
 	)]

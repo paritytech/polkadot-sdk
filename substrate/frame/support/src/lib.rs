@@ -71,7 +71,7 @@ pub mod __private {
 	pub use sp_runtime::{bounded_btree_map, bounded_vec};
 	pub use sp_runtime::{
 		traits::{AsSystemOriginSigner, AsTransactionAuthorizedOrigin, Dispatchable},
-		DispatchError, RuntimeDebug, StateVersion, TransactionOutcome,
+		DispatchError, StateVersion, TransactionOutcome,
 	};
 	#[cfg(feature = "std")]
 	pub use sp_state_machine::BasicExternalities;
@@ -204,7 +204,7 @@ pub mod dynamic_params {
 
 #[doc(inline)]
 pub use frame_support_procedural::{
-	construct_runtime, match_and_insert, transactional, PalletError, RuntimeDebugNoBound,
+	construct_runtime, match_and_insert, transactional, PalletError,
 };
 
 pub use frame_support_procedural::runtime;
@@ -438,7 +438,7 @@ pub mod pallet_prelude {
 			StorageVersion, Task, TypedGet,
 		},
 		Blake2_128, Blake2_128Concat, Blake2_256, CloneNoBound, DebugNoBound, EqNoBound, Identity,
-		PartialEqNoBound, RuntimeDebugNoBound, Twox128, Twox256, Twox64Concat,
+		PartialEqNoBound, Twox128, Twox256, Twox64Concat,
 	};
 	pub use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 	pub use core::marker::PhantomData;
@@ -457,7 +457,7 @@ pub mod pallet_prelude {
 			TransactionTag, TransactionValidity, TransactionValidityError,
 			TransactionValidityWithRefund, UnknownTransaction, ValidTransaction,
 		},
-		DispatchError, RuntimeDebug, MAX_MODULE_ERROR_ENCODED_SIZE,
+		DispatchError, Debug, MAX_MODULE_ERROR_ENCODED_SIZE,
 	};
 	pub use sp_weights::Weight;
 }
@@ -564,7 +564,7 @@ pub mod pallet_prelude {
 /// 	frame_support::CloneNoBound,
 /// 	frame_support::EqNoBound,
 /// 	frame_support::PartialEqNoBound,
-/// 	frame_support::RuntimeDebugNoBound,
+/// 	frame_support::DebugNoBound,
 /// )]
 /// ```
 /// and replaces the type `_` with `PhantomData<T>`.
@@ -1183,7 +1183,7 @@ pub mod pallet_macros {
 	///
 	/// ```ignore
 	/// Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, TypeInfo,
-	/// RuntimeDebug
+	/// Debug
 	/// ```
 	///
 	/// For ease of usage, when no `#[derive]` attributes are found for the enum under
@@ -1433,7 +1433,7 @@ pub mod pallet_macros {
 	/// * `#[derive(`[`frame_support::CloneNoBound`]`)]`
 	/// * `#[derive(`[`frame_support::EqNoBound`]`)]`
 	/// * `#[derive(`[`frame_support::PartialEqNoBound`]`)]`
-	/// * `#[derive(`[`frame_support::RuntimeDebugNoBound`]`)]`
+	/// * `#[derive(`[`frame_support::DebugNoBound`]`)]`
 	/// * `#[derive(`[`codec::Encode`]`)]`
 	/// * `#[derive(`[`codec::Decode`]`)]`
 	///
@@ -2231,7 +2231,7 @@ pub mod pallet_macros {
 	///     # pub struct Pallet<T>(_);
 	/// 	/// On the spot declaration.
 	///     #[pallet::origin]
-	/// 	#[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+	/// 	#[derive(PartialEq, Eq, Clone, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 	/// 	pub enum Origin {
 	/// 		Foo,
 	/// 		Bar,
@@ -2249,7 +2249,7 @@ pub mod pallet_macros {
 	///     # pub trait Config: frame_system::Config {}
 	///     # #[pallet::pallet]
 	///     # pub struct Pallet<T>(_);
-	/// 	#[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+	/// 	#[derive(PartialEq, Eq, Clone, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 	/// 	pub enum RawOrigin {
 	/// 		Foo,
 	/// 		Bar,

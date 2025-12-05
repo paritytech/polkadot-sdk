@@ -38,14 +38,14 @@ use sp_core::Get;
 use sp_io::KillStorageResult;
 use sp_runtime::{
 	traits::{Hash, Saturating, Zero},
-	BoundedBTreeMap, DispatchError, DispatchResult, RuntimeDebug,
+	BoundedBTreeMap, DispatchError, DispatchResult, Debug,
 };
 
 use self::meter::Diff;
 
 /// Information for managing an account and its sub trie abstraction.
 /// This is the required info to cache for an account.
-#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct ContractInfo<T: Config> {
 	/// Unique ID for the subtree encoded as a bytes vector.

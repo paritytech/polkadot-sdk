@@ -43,7 +43,7 @@ use sp_core::{Get, H160};
 use sp_io::KillStorageResult;
 use sp_runtime::{
 	traits::{Hash, Saturating, Zero},
-	DispatchError, RuntimeDebug,
+	DispatchError, Debug,
 };
 
 use crate::metering::Diff;
@@ -63,7 +63,7 @@ pub enum AccountIdOrAddress<T: Config> {
 	CloneNoBound,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -85,7 +85,7 @@ pub struct AccountInfo<T: Config> {
 	CloneNoBound,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -473,7 +473,7 @@ impl<T: Config> ContractInfo<T> {
 }
 
 /// Information about what happened to the pre-existing value when calling [`ContractInfo::write`].
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 pub enum WriteOutcome {
 	/// No value existed at the specified key.
 	New,

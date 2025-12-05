@@ -101,7 +101,7 @@ pub mod pallet_coownership {
 		Clone,
 		PartialEq,
 		Eq,
-		RuntimeDebug,
+		Debug,
 		Encode,
 		Decode,
 		DecodeWithMemTracking,
@@ -120,7 +120,7 @@ pub mod pallet_assets {
 	pub type AssetId = u32;
 
 	/// Type that describes possible owners of a particular asset.
-	#[derive(Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+	#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, MaxEncodedLen, TypeInfo)]
 	pub enum Owner<AccountId> {
 		Single(AccountId),
 		Double(AccountId, AccountId),

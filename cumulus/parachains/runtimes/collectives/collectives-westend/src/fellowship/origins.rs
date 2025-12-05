@@ -40,7 +40,7 @@ pub mod pallet_origins {
 		Decode,
 		DecodeWithMemTracking,
 		TypeInfo,
-		RuntimeDebug,
+		Debug,
 	)]
 	#[pallet::origin]
 	pub enum Origin {

@@ -226,7 +226,7 @@ impl QueueFootprinter for () {
 	MaxEncodedLen,
 	Eq,
 	PartialEq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 )]
 pub enum AggregateMessageOrigin {
@@ -247,7 +247,7 @@ pub enum AggregateMessageOrigin {
 	MaxEncodedLen,
 	Eq,
 	PartialEq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 )]
 pub enum UmpQueueId {

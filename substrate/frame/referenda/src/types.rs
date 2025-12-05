@@ -27,7 +27,7 @@ use frame_support::{
 };
 use scale_info::{Type, TypeInfo};
 use sp_arithmetic::{Rounding::*, SignedRounding::*};
-use sp_runtime::{FixedI64, PerThing, RuntimeDebug};
+use sp_runtime::{FixedI64, PerThing};
 
 pub type BalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -107,7 +107,7 @@ impl<T: Ord, S: Get<u32>> InsertSorted<T> for BoundedVec<T, S> {
 	Clone,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -127,7 +127,7 @@ pub struct DecidingStatus<BlockNumber> {
 	Clone,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -288,7 +288,7 @@ where
 	Clone,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -335,7 +335,7 @@ pub struct ReferendumStatus<
 	Clone,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -417,7 +417,7 @@ impl<
 /// Type for describing a curve over the 2-dimensional space of axes between 0-1, as represented
 /// by `(Perbill, Perbill)`.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(not(feature = "std"), derive(RuntimeDebug))]
+#[cfg_attr(not(feature = "std"), derive(Debug))]
 pub enum Curve {
 	/// Linear curve starting at `(0, ceil)`, proceeding linearly to `(length, floor)`, then
 	/// remaining at `floor` until the end of the period.

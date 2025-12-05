@@ -171,7 +171,7 @@ pub mod pallet_with_custom_origin {
 		PartialEq,
 		Eq,
 		Clone,
-		RuntimeDebug,
+		Debug,
 		Encode,
 		Decode,
 		DecodeWithMemTracking,

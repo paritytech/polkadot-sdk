@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use codec::{Decode, DecodeWithMemTracking, Encode};
-use frame_support::{CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
+use frame_support::{CloneNoBound, PartialEqNoBound, DebugNoBound};
 use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_std::prelude::*;
@@ -14,7 +14,7 @@ use crate::types::{BeaconHeader, SyncAggregate, SyncCommittee};
 	DecodeWithMemTracking,
 	CloneNoBound,
 	PartialEqNoBound,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	TypeInfo,
 )]
 #[cfg_attr(
@@ -38,7 +38,7 @@ pub struct CheckpointUpdate<const COMMITTEE_SIZE: usize> {
 	DecodeWithMemTracking,
 	CloneNoBound,
 	PartialEqNoBound,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	TypeInfo,
 )]
 #[cfg_attr(
@@ -75,7 +75,7 @@ pub struct Update<const COMMITTEE_SIZE: usize, const COMMITTEE_BITS_SIZE: usize>
 	DecodeWithMemTracking,
 	CloneNoBound,
 	PartialEqNoBound,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	TypeInfo,
 )]
 #[cfg_attr(

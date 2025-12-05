@@ -47,7 +47,7 @@ const LOG_TARGET: &str = "runtime::assigned_slots";
 
 /// Lease period an assigned slot should start from (current, or next one).
 #[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, Copy, Eq, PartialEq, RuntimeDebug, TypeInfo,
+	Encode, Decode, DecodeWithMemTracking, Clone, Copy, Eq, PartialEq, Debug, TypeInfo,
 )]
 pub enum SlotLeasePeriodStart {
 	Current,
@@ -55,7 +55,7 @@ pub enum SlotLeasePeriodStart {
 }
 
 /// Information about a temporary parachain slot.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, MaxEncodedLen, Debug, TypeInfo)]
 pub struct ParachainTemporarySlot<AccountId, LeasePeriod> {
 	/// Manager account of the para.
 	pub manager: AccountId,

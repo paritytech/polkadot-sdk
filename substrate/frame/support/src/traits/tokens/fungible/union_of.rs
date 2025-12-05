@@ -35,13 +35,13 @@ use sp_runtime::{
 	traits::Convert,
 	DispatchError, DispatchResult, Either,
 	Either::{Left, Right},
-	RuntimeDebug,
+	Debug,
 };
 
 /// The `NativeOrWithId` enum classifies an asset as either `Native` to the current chain or as an
 /// asset with a specific ID.
 #[derive(
-	Decode, DecodeWithMemTracking, Encode, Default, MaxEncodedLen, TypeInfo, Clone, RuntimeDebug, Eq,
+	Decode, DecodeWithMemTracking, Encode, Default, MaxEncodedLen, TypeInfo, Clone, Debug, Eq,
 )]
 pub enum NativeOrWithId<AssetId>
 where

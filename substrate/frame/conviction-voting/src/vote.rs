@@ -23,12 +23,12 @@ use frame_support::{pallet_prelude::Get, BoundedVec};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Saturating, Zero},
-	RuntimeDebug,
+	Debug,
 };
 
 /// A number of lock periods, plus a vote, one way or the other.
 #[derive(
-	DecodeWithMemTracking, Copy, Clone, Eq, PartialEq, Default, RuntimeDebug, MaxEncodedLen,
+	DecodeWithMemTracking, Copy, Clone, Eq, PartialEq, Default, Debug, MaxEncodedLen,
 )]
 pub struct Vote {
 	pub aye: bool,
@@ -76,7 +76,7 @@ impl TypeInfo for Vote {
 	Clone,
 	Eq,
 	PartialEq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -93,7 +93,7 @@ pub enum AccountVote<Balance> {
 }
 
 /// Present the conditions under which an account's Funds are locked after a voting action.
-#[derive(Copy, Clone, Eq, PartialEq, RuntimeDebug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum LockedIf {
 	/// Lock the funds if the outcome of the referendum matches the voting behavior of the user.
 	///
@@ -159,7 +159,7 @@ impl<Balance: Saturating> AccountVote<Balance> {
 	PartialEq,
 	Ord,
 	PartialOrd,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -192,7 +192,7 @@ impl<BlockNumber: Ord + Copy + Zero, Balance: Ord + Copy + Zero> PriorLock<Block
 	Clone,
 	Eq,
 	PartialEq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -218,7 +218,7 @@ pub struct Delegating<Balance, AccountId, BlockNumber> {
 	Clone,
 	Eq,
 	PartialEq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -244,7 +244,7 @@ where
 	Clone,
 	Eq,
 	PartialEq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]

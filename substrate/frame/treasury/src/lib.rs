@@ -93,7 +93,7 @@ use sp_runtime::{
 		AccountIdConversion, BlockNumberProvider, CheckedAdd, One, Saturating, StaticLookup,
 		UniqueSaturatedInto, Zero,
 	},
-	PerThing, Permill, RuntimeDebug,
+	PerThing, Permill, Debug,
 };
 
 use frame_support::{
@@ -159,7 +159,7 @@ pub type ProposalIndex = u32;
 	PartialEq,
 	Eq,
 	MaxEncodedLen,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 )]
 pub struct Proposal<AccountId, Balance> {
@@ -183,7 +183,7 @@ pub struct Proposal<AccountId, Balance> {
 	PartialEq,
 	Eq,
 	MaxEncodedLen,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 )]
 pub enum PaymentState<Id> {
@@ -205,7 +205,7 @@ pub enum PaymentState<Id> {
 	PartialEq,
 	Eq,
 	MaxEncodedLen,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 )]
 pub struct SpendStatus<AssetKind, AssetBalance, Beneficiary, BlockNumber, PaymentId> {

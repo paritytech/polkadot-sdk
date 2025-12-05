@@ -100,7 +100,7 @@ use frame_support::traits::{
 
 use sp_runtime::{
 	traits::{AccountIdConversion, BadOrigin, BlockNumberProvider, Saturating, StaticLookup, Zero},
-	DispatchResult, Permill, RuntimeDebug,
+	DispatchResult, Permill, Debug,
 };
 
 use frame_support::{dispatch::DispatchResultWithPostInfo, traits::EnsureOrigin};
@@ -134,7 +134,7 @@ type BlockNumberFor<T, I = ()> =
 	Clone,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -170,7 +170,7 @@ impl<AccountId: PartialEq + Clone + Ord, Balance, BlockNumber: Clone>
 	Clone,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]

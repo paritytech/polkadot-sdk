@@ -316,46 +316,6 @@ pub fn derive_debug_no_bound(input: TokenStream) -> TokenStream {
 	no_bound::debug::derive_debug_no_bound(input)
 }
 
-/// Derive [`Debug`], if `std` is enabled it uses `frame_support::DebugNoBound`, if `std` is not
-/// enabled it just returns `"<wasm:stripped>"`.
-/// This behaviour is useful to prevent bloating the runtime WASM blob from unneeded code.
-#[proc_macro_derive(RuntimeDebugNoBound)]
-pub fn derive_runtime_debug_no_bound(input: TokenStream) -> TokenStream {
-	let try_runtime_or_std_impl: proc_macro2::TokenStream =
-		no_bound::debug::derive_debug_no_bound(input.clone()).into();
-
-	let stripped_impl = {
-		let input = syn::parse_macro_input!(input as syn::DeriveInput);
-
-		let name = &input.ident;
-		let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
-
-		quote::quote!(
-			const _: () = {
-				impl #impl_generics ::core::fmt::Debug for #name #ty_generics #where_clause {
-					fn fmt(&self, fmt: &mut ::core::fmt::Formatter) -> core::fmt::Result {
-						fmt.write_str("<wasm:stripped>")
-					}
-				}
-			};
-		)
-	};
-
-	let frame_support = match generate_access_from_frame_or_crate("frame-support") {
-		Ok(frame_support) => frame_support,
-		Err(e) => return e.to_compile_error().into(),
-	};
-
-	quote::quote!(
-		#frame_support::try_runtime_or_std_enabled! {
-			#try_runtime_or_std_impl
-		}
-		#frame_support::try_runtime_and_std_not_enabled! {
-			#stripped_impl
-		}
-	)
-	.into()
-}
 
 /// Derive [`PartialEq`] but do not bound any generic.
 ///

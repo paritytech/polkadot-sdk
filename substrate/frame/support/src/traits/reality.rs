@@ -23,7 +23,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode, FullCodec, MaxEncodedLen};
 use frame_support::{CloneNoBound, EqNoBound, Parameter, PartialEqNoBound};
 use scale_info::TypeInfo;
 use sp_core::ConstU32;
-use sp_runtime::{traits::Member, BoundedVec, DispatchError, DispatchResult, RuntimeDebug};
+use sp_runtime::{traits::Member, BoundedVec, DispatchError, DispatchResult};
 
 /// Identity of personhood.
 ///
@@ -68,7 +68,7 @@ pub type JudgementContext = BoundedVec<u8, ConstU32<CONTEXT_SIZE>>;
 	Clone,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	MaxEncodedLen,
@@ -188,7 +188,7 @@ pub trait CountedMembers {
 	Copy,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	MaxEncodedLen,
@@ -210,7 +210,7 @@ pub enum Truth {
 	Copy,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	MaxEncodedLen,
@@ -245,7 +245,7 @@ pub mod identity {
 		Clone,
 		PartialEq,
 		Eq,
-		RuntimeDebug,
+		Debug,
 		Encode,
 		Decode,
 		MaxEncodedLen,
@@ -269,7 +269,7 @@ pub mod identity {
 }
 
 /// A statement upon which a [`StatementOracle`] can provide judgement.
-#[derive(Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub enum Statement {
 	/// Ask for whether evidence exists to confirm that a particular social credential on a
 	/// supported platform belongs to a person.
@@ -291,7 +291,7 @@ pub enum Statement {
 /// Describes the location within the runtime of a callback, along with other type information such
 /// as parameters passed into the callback.
 #[derive(
-	CloneNoBound, PartialEqNoBound, EqNoBound, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo,
+	CloneNoBound, PartialEqNoBound, EqNoBound, Debug, Encode, Decode, MaxEncodedLen, TypeInfo,
 )]
 #[scale_info(skip_type_params(Params, RuntimeCall))]
 #[codec(mel_bound())]

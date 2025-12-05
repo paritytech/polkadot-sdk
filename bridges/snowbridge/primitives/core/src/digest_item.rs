@@ -15,11 +15,11 @@
 //! Custom digest items
 
 use codec::{Decode, Encode};
-use sp_core::{RuntimeDebug, H256};
+use sp_core::{H256};
 use sp_runtime::generic::DigestItem;
 
 /// Custom header digest items, inserted as DigestItem::Other
-#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, RuntimeDebug)]
+#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Debug)]
 pub enum SnowbridgeDigestItem {
 	#[codec(index = 0)]
 	/// Merkle root of outbound Snowbridge messages.

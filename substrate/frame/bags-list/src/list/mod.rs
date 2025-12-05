@@ -35,7 +35,7 @@ use frame_election_provider_support::ScoreProvider;
 use frame_support::{
 	defensive, ensure,
 	traits::{Defensive, DefensiveOption, Get},
-	CloneNoBound, DefaultNoBound, EqNoBound, PalletError, PartialEqNoBound, RuntimeDebugNoBound,
+	CloneNoBound, DefaultNoBound, EqNoBound, PalletError, PartialEqNoBound, DebugNoBound,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Bounded, Zero};
@@ -643,7 +643,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 	Decode,
 	MaxEncodedLen,
 	TypeInfo,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	CloneNoBound,
 	PartialEqNoBound,
 	EqNoBound,
@@ -854,7 +854,7 @@ impl<T: Config<I>, I: 'static> Bag<T, I> {
 	CloneNoBound,
 	PartialEqNoBound,
 	EqNoBound,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 )]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T, I))]

@@ -28,7 +28,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode};
 	PartialEq,
 	Eq,
 	Clone,
-	crate::RuntimeDebug,
+	Debug,
 	scale_info::TypeInfo,
 )]
 #[cfg_attr(feature = "std", derive(Hash))]

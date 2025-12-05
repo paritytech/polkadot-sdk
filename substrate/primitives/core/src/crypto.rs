@@ -1057,7 +1057,7 @@ pub trait CryptoType {
 	Hash,
 	Encode,
 	Decode,
-	crate::RuntimeDebug,
+	Debug,
 	TypeInfo,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

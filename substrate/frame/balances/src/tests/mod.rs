@@ -41,7 +41,7 @@ use sp_core::{hexdisplay::HexDisplay, sr25519::Pair as SrPair, Pair};
 use sp_io;
 use sp_runtime::{
 	traits::{BadOrigin, Zero},
-	ArithmeticError, BuildStorage, DispatchError, DispatchResult, FixedPointNumber, RuntimeDebug,
+	ArithmeticError, BuildStorage, DispatchError, DispatchResult, FixedPointNumber, Debug,
 	TokenError,
 };
 use std::collections::BTreeSet;
@@ -69,7 +69,7 @@ type Block = frame_system::mocking::MockBlock<Test>;
 	PartialOrd,
 	MaxEncodedLen,
 	TypeInfo,
-	RuntimeDebug,
+	Debug,
 )]
 pub enum TestId {
 	Foo,

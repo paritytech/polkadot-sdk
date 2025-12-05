@@ -55,7 +55,7 @@ use sp_runtime::{
 		AccountIdConversion, BadOrigin, BlakeTwo256, BlockNumberProvider, Dispatchable, Hash,
 		Saturating, Zero,
 	},
-	Either, RuntimeDebug, SaturatedConversion,
+	Either, Debug, SaturatedConversion,
 };
 use storage::{with_transaction, TransactionOutcome};
 use xcm::{latest::QueryResponseInfo, prelude::*};
@@ -642,7 +642,7 @@ pub mod pallet {
 		Encode,
 		Decode,
 		DecodeWithMemTracking,
-		RuntimeDebug,
+		Debug,
 		TypeInfo,
 		MaxEncodedLen,
 	)]
@@ -757,7 +757,7 @@ pub mod pallet {
 	}
 
 	/// The status of a query.
-	#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 	pub enum QueryStatus<BlockNumber> {
 		/// The query was sent but no response has yet been received.
 		Pending {
@@ -1048,7 +1048,7 @@ pub mod pallet {
 		use super::*;
 		use frame_support::traits::{PalletInfoAccess, StorageVersion};
 
-		#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+		#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 		enum QueryStatusV0<BlockNumber> {
 			Pending {
 				responder: VersionedLocation,

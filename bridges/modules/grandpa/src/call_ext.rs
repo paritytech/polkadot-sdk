@@ -29,15 +29,15 @@ use frame_support::{
 	weights::Weight,
 };
 use sp_consensus_grandpa::SetId;
+use core::fmt::Debug;
 use sp_runtime::{
 	traits::{CheckedSub, Header, Zero},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
-	RuntimeDebug, SaturatedConversion,
+	SaturatedConversion,
 };
-use sp_std::fmt::Debug;
 
 /// Verified `SubmitFinalityProofInfo<N>`.
-#[derive(Copy, Clone, PartialEq, RuntimeDebug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct VerifiedSubmitFinalityProofInfo<N: Debug> {
 	/// Base call information.
 	pub base: SubmitFinalityProofInfo<N>,

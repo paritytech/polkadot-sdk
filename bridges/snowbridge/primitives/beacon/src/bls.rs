@@ -9,7 +9,7 @@ pub use milagro_bls::{
 };
 use scale_info::TypeInfo;
 use sp_core::H256;
-use sp_runtime::RuntimeDebug;
+use Debug;
 use sp_std::prelude::*;
 
 #[derive(
@@ -21,7 +21,7 @@ use sp_std::prelude::*;
 	Eq,
 	PartialEq,
 	TypeInfo,
-	RuntimeDebug,
+	Debug,
 	PalletError,
 )]
 pub enum BlsError {

@@ -69,7 +69,7 @@ type ContentHash = [u8; 32];
 	Encode,
 	Decode,
 	Clone,
-	sp_runtime::RuntimeDebug,
+	Debug,
 	PartialEq,
 	Eq,
 	scale_info::TypeInfo,

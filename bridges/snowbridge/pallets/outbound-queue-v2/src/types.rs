@@ -6,13 +6,13 @@ use frame_support::traits::ProcessMessage;
 use scale_info::TypeInfo;
 pub use snowbridge_merkle_tree::MerkleProof;
 use sp_core::H256;
-use sp_runtime::RuntimeDebug;
+use Debug;
 use sp_std::prelude::*;
 
 pub type ProcessMessageOriginOf<T> = <Pallet<T> as ProcessMessage>::Origin;
 
 /// Pending order
-#[derive(Encode, Decode, TypeInfo, Clone, Eq, PartialEq, RuntimeDebug, MaxEncodedLen)]
+#[derive(Encode, Decode, TypeInfo, Clone, Eq, PartialEq, Debug, MaxEncodedLen)]
 pub struct PendingOrder<BlockNumber> {
 	/// The nonce used to identify the message
 	pub nonce: u64,

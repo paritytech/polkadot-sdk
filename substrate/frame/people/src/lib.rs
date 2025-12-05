@@ -155,7 +155,7 @@ use frame_support::{
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{BadOrigin, Dispatchable},
-	ArithmeticError, RuntimeDebug, SaturatedConversion, Saturating,
+	ArithmeticError, Debug, SaturatedConversion, Saturating,
 };
 use verifiable::{Alias, GenerateVerifiable};
 
@@ -456,7 +456,7 @@ pub mod pallet {
 		Clone,
 		PartialEq,
 		Eq,
-		RuntimeDebug,
+		Debug,
 		Encode,
 		Decode,
 		MaxEncodedLen,

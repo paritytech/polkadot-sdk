@@ -22,7 +22,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::ops::BitOr;
 use frame_support::traits::{Imbalance, LockIdentifier, OnUnbalanced, WithdrawReasons};
 use scale_info::TypeInfo;
-use sp_runtime::{RuntimeDebug, Saturating};
+use sp_runtime::{Saturating};
 
 /// Simplified reasons for withdrawing balance.
 #[derive(
@@ -33,7 +33,7 @@ use sp_runtime::{RuntimeDebug, Saturating};
 	Copy,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	TypeInfo,
 )]
@@ -77,7 +77,7 @@ impl BitOr for Reasons {
 	Clone,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	TypeInfo,
 )]
@@ -98,7 +98,7 @@ pub struct BalanceLock<Balance> {
 	Clone,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	TypeInfo,
 )]
@@ -118,7 +118,7 @@ pub struct ReserveData<ReserveIdentifier, Balance> {
 	PartialEq,
 	Eq,
 	Default,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	TypeInfo,
 )]
@@ -150,7 +150,7 @@ const IS_NEW_LOGIC: u128 = 0x80000000_00000000_00000000_00000000u128;
 	Clone,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	TypeInfo,
 )]
@@ -204,7 +204,7 @@ impl<T: Config<I>, I: 'static> Drop for DustCleaner<T, I> {
 	Clone,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	TypeInfo,
 )]

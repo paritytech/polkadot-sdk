@@ -89,7 +89,7 @@ use frame_system::pallet_prelude::*;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AccountIdConversion, Member},
-	DispatchResult, RuntimeDebug,
+	DispatchResult, Debug,
 };
 use sp_std::{prelude::*, vec};
 
@@ -139,7 +139,7 @@ pub mod pallet {
 	#[derive(
 		Encode,
 		Decode,
-		RuntimeDebug,
+		Debug,
 		Eq,
 		PartialEq,
 		Clone,

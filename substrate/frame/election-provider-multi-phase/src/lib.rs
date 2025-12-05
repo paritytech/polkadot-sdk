@@ -269,7 +269,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		TransactionValidityError, ValidTransaction,
 	},
-	DispatchError, ModuleError, PerThing, Perbill, RuntimeDebug, SaturatedConversion,
+	DispatchError, ModuleError, PerThing, Perbill, Debug, SaturatedConversion,
 };
 
 #[cfg(feature = "try-runtime")]
@@ -433,7 +433,7 @@ impl Default for ElectionCompute {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	PartialOrd,
 	Ord,
 	TypeInfo,
@@ -461,7 +461,7 @@ impl<C: Default> Default for RawSolution<C> {
 	Clone,
 	Encode,
 	Decode,
-	RuntimeDebug,
+	Debug,
 	DefaultNoBound,
 	scale_info::TypeInfo,
 )]
@@ -489,7 +489,7 @@ where
 /// [`ElectionDataProvider`] and are kept around until the round is finished.
 ///
 /// These are stored together because they are often accessed together.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, Default, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, Default, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct RoundSnapshot<AccountId, VoterType> {
 	/// All of the voters.

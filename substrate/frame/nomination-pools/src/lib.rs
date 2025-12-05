@@ -428,7 +428,7 @@ pub const POINTS_TO_BALANCE_INIT_RATIO: u32 = 1;
 	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	PartialEq,
 	Clone,
 )]
@@ -516,7 +516,7 @@ impl ClaimPermission {
 	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	CloneNoBound,
 	PartialEqNoBound,
 	EqNoBound,
@@ -699,7 +699,7 @@ impl<T: Config> PoolMember<T> {
 	MaxEncodedLen,
 	TypeInfo,
 	PartialEq,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	Clone,
 	Copy,
 )]
@@ -745,7 +745,7 @@ pub struct PoolRoles<AccountId> {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -1004,7 +1004,7 @@ pub struct BondedPoolInner<T: Config> {
 ///
 /// The main purpose of this is to wrap a [`BondedPoolInner`], with the account
 /// + id of the pool, for easier access.
-#[derive(RuntimeDebugNoBound)]
+#[derive(DebugNoBound)]
 #[cfg_attr(feature = "std", derive(Clone, PartialEq))]
 pub struct BondedPool<T: Config> {
 	/// The identifier of the pool.
@@ -1362,7 +1362,7 @@ impl<T: Config> BondedPool<T> {
 	CloneNoBound,
 	PartialEqNoBound,
 	EqNoBound,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 )]
 #[cfg_attr(feature = "std", derive(DefaultNoBound))]
 #[codec(mel_bound(T: Config))]
@@ -1530,7 +1530,7 @@ impl<T: Config> RewardPool<T> {
 	DecodeWithMemTracking,
 	TypeInfo,
 	DefaultNoBound,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	CloneNoBound,
 	PartialEqNoBound,
 	EqNoBound,
@@ -1583,7 +1583,7 @@ impl<T: Config> UnbondPool<T> {
 	DecodeWithMemTracking,
 	TypeInfo,
 	DefaultNoBound,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	CloneNoBound,
 	PartialEqNoBound,
 	EqNoBound,
@@ -2076,7 +2076,7 @@ pub mod pallet {
 	}
 
 	#[derive(
-		Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, PalletError, RuntimeDebug,
+		Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, PalletError, Debug,
 	)]
 	pub enum DefensiveError {
 		/// There isn't enough space in the unbond pool.

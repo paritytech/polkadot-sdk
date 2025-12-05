@@ -29,7 +29,7 @@ use sp_core::U256;
 
 /// Abstraction over a block header for a substrate chain.
 #[derive(
-	Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Clone, sp_core::RuntimeDebug, TypeInfo,
+	Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Clone, Debug, TypeInfo,
 )]
 #[scale_info(skip_type_params(Hash))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

@@ -102,7 +102,7 @@ use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use sp_runtime::{
 	traits::{Dispatchable, Saturating, StaticLookup, Zero},
-	DispatchError, RuntimeDebug,
+	DispatchError, Debug,
 };
 
 use frame_support::{
@@ -196,7 +196,7 @@ pub trait ProposalProvider<AccountId, Hash, Proposal> {
 }
 
 /// The various roles that a member can hold.
-#[derive(Copy, Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub enum MemberRole {
 	Fellow,
 	Ally,
@@ -208,7 +208,7 @@ pub enum MemberRole {
 	Clone,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,

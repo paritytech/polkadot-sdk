@@ -22,7 +22,7 @@ use bp_polkadot_core::parachains::ParaHeadsProof;
 use bp_runtime::HeaderId;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_runtime::RuntimeDebug;
+use Debug;
 use sp_std::vec::Vec;
 
 /// A minimized version of `pallet-bridge-parachains::Call` that can be used without a runtime.
@@ -44,7 +44,7 @@ pub enum BridgeParachainCall {
 /// Info about a `SubmitParachainHeads` call which tries to update a single parachain.
 ///
 /// The pallet supports updating multiple parachain heads at once,
-#[derive(PartialEq, RuntimeDebug)]
+#[derive(PartialEq, Debug)]
 pub struct SubmitParachainHeadsInfo {
 	/// Number and hash of the finalized relay block that has been used to prove parachain
 	/// finality.

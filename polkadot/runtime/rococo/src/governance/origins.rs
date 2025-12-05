@@ -38,7 +38,7 @@ pub mod pallet_custom_origins {
 		Decode,
 		DecodeWithMemTracking,
 		TypeInfo,
-		RuntimeDebug,
+		Debug,
 	)]
 	#[pallet::origin]
 	pub enum Origin {
