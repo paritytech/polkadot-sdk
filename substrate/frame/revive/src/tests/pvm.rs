@@ -205,8 +205,6 @@ fn instantiate_and_call_and_deposit_event() {
 			.build_and_unwrap_contract();
 		assert!(AccountInfoOf::<Test>::contains_key(&addr));
 
-		let hold_balance = contract_base_deposit(&addr);
-
 		assert_eq!(
 			System::events(),
 			vec![
@@ -929,9 +927,6 @@ fn self_destruct_by_precompile_works() {
 		let contract = builder::bare_instantiate(Code::Upload(binary))
 			.native_value(initial_contract_balance)
 			.build_and_unwrap_contract();
-
-		let hold_balance = contract_base_deposit(&contract.addr);
-		let upload_deposit = get_code_deposit(&code_hash);
 
 		// Check that the BOB contract has been instantiated.
 		let _ = get_contract(&contract.addr);
