@@ -115,11 +115,7 @@ pub mod pallet {
 		///
 		/// Removes `count` entries starting from index `start`.
 		#[pallet::weight(0)]
-		pub fn kill_dev_entry(
-			_: OriginFor<T>,
-			start: u32,
-			count: u32,
-		) -> DispatchResult {
+		pub fn kill_dev_entry(_: OriginFor<T>, start: u32, count: u32) -> DispatchResult {
 			for i in start..start.saturating_add(count) {
 				DevData::<T>::remove(i);
 			}
