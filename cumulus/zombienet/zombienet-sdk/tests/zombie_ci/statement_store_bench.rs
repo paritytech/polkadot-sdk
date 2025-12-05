@@ -10,7 +10,7 @@ use sc_statement_store::{DEFAULT_MAX_TOTAL_SIZE, DEFAULT_MAX_TOTAL_STATEMENTS};
 use sp_core::{blake2_256, sr25519, Bytes, Pair};
 use sp_statement_store::{Channel, Statement, Topic};
 use std::{cell::Cell, collections::HashMap, env, sync::Arc, time::Duration};
-use tokio::time::timeout;
+use tokio::{sync::Barrier, time::timeout};
 use zombienet_sdk::{
 	subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params},
 	LocalFileSystem, Network, NetworkConfigBuilder,
@@ -845,9 +845,9 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 		num_rounds: 1,
 		messages_pattern: &[(5, 1024 / 2)],
 		max_retries: 500,
-		retry_delay_ms: 100,
+		retry_delay_ms: 1000,
 		req_timeout_ms: 3000,
-		propagation_delay_ms: 2000,
+		propagation_delay_ms: 1000,
 	});
 
 	let collator_names: Vec<String> =
@@ -867,6 +867,7 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 	for &(count, size) in config.messages_pattern {
 		info!(" - {} messages {} bytes", count, size);
 	}
+	info!("");
 
 	let mut rpc_clients = Vec::new();
 	for &name in &collator_names {
@@ -875,9 +876,13 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 		rpc_clients.push(rpc_client);
 	}
 
+	let barrier = Arc::new(Barrier::new(config.num_clients as usize));
+	let sync_start = std::time::Instant::now();
 	let handles: Vec<_> = (0..config.num_clients)
 		.map(|client_id| {
 			let config = Arc::clone(&config);
+			let barrier = Arc::clone(&barrier);
+			let sync_start = sync_start.clone();
 			let (keyring, _) = sr25519::Pair::generate();
 			let node_idx = (client_id as usize) % config.num_nodes;
 			let rpc_client = rpc_clients[node_idx].clone();
@@ -891,6 +896,20 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 			}
 
 			tokio::spawn(async move {
+				barrier.wait().await;
+
+				if client_id == 0 {
+					let sync_time = sync_start.elapsed();
+					debug!(
+						"All {} tasks synchronized and starting work in {:.3}s",
+						config.num_clients,
+						sync_time.as_secs_f64()
+					);
+				}
+
+				let submission_jitter = (client_id % 1000) as u64;
+				tokio::time::sleep(Duration::from_millis(submission_jitter)).await;
+
 				let mut rounds_stats = Vec::new();
 				for round in 0..config.num_rounds {
 					let round_start = std::time::Instant::now();
@@ -924,7 +943,11 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 					let sent_count = msg_idx;
 					let send_duration = send_start.elapsed();
 
-					tokio::time::sleep(Duration::from_millis(config.propagation_delay_ms)).await;
+					let propagation_jitter = (client_id % 1000) as u64;
+					tokio::time::sleep(Duration::from_millis(
+						config.propagation_delay_ms + propagation_jitter,
+					))
+					.await;
 
 					let receive_start = std::time::Instant::now();
 					let mut received_count = 0;
