@@ -221,12 +221,10 @@ impl RelayChainInterface for RelayChainRpcInterface {
 		_child_info: &sp_storage::ChildInfo,
 		_child_keys: &[Vec<u8>],
 	) -> RelayChainResult<StorageProof> {
-		// TODO: Implement child trie proof generation via RPC
-		// This requires the relay chain RPC to expose a method for generating child trie proofs
-		// For now, return an empty proof which will cause the collator to skip this data
+		// Not implemented: requires relay chain RPC to expose child trie proof method.
 		tracing::warn!(
 			target: "relay-chain-rpc-interface",
-			"prove_child_read not yet implemented for RPC interface, returning empty proof"
+			"prove_child_read not implemented for RPC interface, returning empty proof"
 		);
 		Ok(StorageProof::empty())
 	}

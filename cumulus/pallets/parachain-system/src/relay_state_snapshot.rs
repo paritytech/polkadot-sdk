@@ -384,20 +384,6 @@ impl RelayChainStateProof {
 		read_optional_entry(&self.trie_backend, key).map_err(Error::ReadOptionalEntry)
 	}
 
-	/// Read the published data roots from the broadcaster pallet on the relay chain.
-	///
-	/// Returns `Ok(Some(data))` if the data exists and can be decoded,
-	/// `Ok(None)` if the data doesn't exist (broadcaster pallet not present),
-	/// or `Err` if there was a proof/decode error.
-	pub fn read_published_data_roots(&self) -> Result<Option<Vec<(ParaId, Vec<u8>)>>, Error> {
-		// Use the well-known key for BROADCASTER_PUBLISHED_DATA_ROOTS
-		read_optional_entry::<Vec<(ParaId, Vec<u8>)>, _>(
-			&self.trie_backend,
-			relay_chain::well_known_keys::BROADCASTER_PUBLISHED_DATA_ROOTS,
-		)
-		.map_err(Error::ReadOptionalEntry)
-	}
-
 	/// Read a value from a child trie in the relay chain state proof.
 	///
 	/// Returns `Ok(Some(value))` if the key exists in the child trie,

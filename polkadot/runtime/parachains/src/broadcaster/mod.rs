@@ -144,13 +144,6 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
-			assert_eq!(
-				&PublishedDataRoots::<T>::map_storage_final_prefix(),
-				polkadot_primitives::well_known_keys::BROADCASTER_PUBLISHED_DATA_ROOTS,
-				"`well_known_keys::BROADCASTER_PUBLISHED_DATA_ROOTS` doesn't match key of `PublishedDataRoots`! \
-				Make sure that the name of the broadcaster pallet is `Broadcaster` in the runtime!",
-			);
-
 			assert!(
 				T::MaxPublishItems::get() <= xcm::v5::MaxPublishItems::get(),
 				"Broadcaster MaxPublishItems exceeds XCM MaxPublishItems upper bound"

@@ -33,6 +33,18 @@ pub use mock::{MockValidationDataInherentDataProvider, MockXcmConfig};
 
 const LOG_TARGET: &str = "parachain-inherent";
 
+/// Constructs the ChildInfo for a publisher's child trie.
+///
+/// The broadcaster pallet uses "pubsub" prefix + encoded ParaId as the child storage key.
+fn derive_child_info(publisher_para_id: ParaId) -> ChildInfo {
+	const PREFIX: &[u8] = b"pubsub";
+	let para_id_encoded = publisher_para_id.encode();
+	let mut child_storage_key = Vec::with_capacity(PREFIX.len() + para_id_encoded.len());
+	child_storage_key.extend_from_slice(PREFIX);
+	child_storage_key.extend_from_slice(&para_id_encoded);
+	ChildInfo::new_default(&child_storage_key)
+}
+
 /// Collect the relevant relay chain state in form of a proof for putting it into the validation
 /// data inherent.
 async fn collect_relay_storage_proof(
@@ -41,15 +53,8 @@ async fn collect_relay_storage_proof(
 	relay_parent: PHash,
 	include_authorities: bool,
 	include_next_authorities: bool,
-	subscription_keys: Vec<(ParaId, Vec<Vec<u8>>)>,
 ) -> Option<sp_state_machine::StorageProof> {
 	use relay_chain::well_known_keys as relay_well_known_keys;
-
-	tracing::debug!(
-		target: LOG_TARGET,
-		?subscription_keys,
-		"Received subscription keys in collect_relay_storage_proof"
-	);
 
 	let ingress_channels = relay_chain_interface
 		.get_storage_by_key(
@@ -142,14 +147,7 @@ async fn collect_relay_storage_proof(
 		relevant_keys.push(relay_well_known_keys::NEXT_AUTHORITIES.to_vec());
 	}
 
-	// Add storage map keys for published data roots of subscribed publishers
-	// This allows the runtime to read the child trie roots from the proof
-	for (publisher_para_id, _) in subscription_keys.iter() {
-		relevant_keys.push(relay_well_known_keys::published_data_root(*publisher_para_id));
-	}
-
-	// Generate the main trie proof with all the standard keys
-	let mut combined_proof = relay_chain_interface
+	relay_chain_interface
 		.prove_read(relay_parent, &relevant_keys)
 		.await
 		.map_err(|e| {
@@ -160,44 +158,57 @@ async fn collect_relay_storage_proof(
 				"Cannot obtain read proof from relay chain.",
 			);
 		})
+		.ok()
+}
+
+/// Collect child trie proofs for subscribed publishers' data.
+///
+/// Generates proofs for publisher child trie roots and their data entries. Returns a merged proof
+/// combining all child trie data, or `None` if there are no subscriptions.
+async fn collect_child_trie_proofs(
+	relay_chain_interface: &impl RelayChainInterface,
+	relay_parent: PHash,
+	subscription_keys: Vec<(ParaId, Vec<Vec<u8>>)>,
+) -> Option<sp_state_machine::StorageProof> {
+	use relay_chain::well_known_keys as relay_well_known_keys;
+
+	if subscription_keys.is_empty() {
+		return None;
+	}
+
+	// Collect storage keys for all publisher roots
+	let root_keys: Vec<_> = subscription_keys
+		.iter()
+		.map(|(publisher_para_id, _)| relay_well_known_keys::published_data_root(*publisher_para_id))
+		.collect();
+
+	// Generate proof for publisher roots
+	let mut combined_proof = relay_chain_interface
+		.prove_read(relay_parent, &root_keys)
+		.await
+		.map_err(|e| {
+			tracing::error!(
+				target: LOG_TARGET,
+				relay_parent = ?relay_parent,
+				error = ?e,
+				"Cannot obtain publisher roots proof from relay chain.",
+			);
+		})
 		.ok()?;
 
-	// For each ParaId we're subscribed to, generate child trie proofs and merge them
+	// Generate and merge child trie proofs for each publisher
 	for (publisher_para_id, child_keys) in subscription_keys {
 		if child_keys.is_empty() {
 			continue;
 		}
 
-		// Construct the ChildInfo for this publisher's child trie
-		// The broadcaster pallet uses "pubsub" prefix + encoded ParaId
-		const PREFIX: &[u8] = b"pubsub";
-		let para_id_encoded = publisher_para_id.encode();
-		let mut child_storage_key = Vec::with_capacity(PREFIX.len() + para_id_encoded.len());
-		child_storage_key.extend_from_slice(PREFIX);
-		child_storage_key.extend_from_slice(&para_id_encoded);
-
-		let child_info = ChildInfo::new_default(&child_storage_key);
-
-		// Generate proof for child trie keys
-		tracing::debug!(
-			target: LOG_TARGET,
-			publisher_para_id = ?publisher_para_id,
-			num_keys = child_keys.len(),
-			"Attempting to generate child trie proof"
-		);
+		let child_info = derive_child_info(publisher_para_id);
 
 		match relay_chain_interface
 			.prove_child_read(relay_parent, &child_info, &child_keys)
 			.await
 		{
 			Ok(child_proof) => {
-				tracing::debug!(
-					target: LOG_TARGET,
-					publisher_para_id = ?publisher_para_id,
-					child_proof_nodes = child_proof.len(),
-					"✅ Generated child trie proof successfully"
-				);
-				// Merge the child trie proof into the combined proof
 				combined_proof = StorageProof::merge([combined_proof, child_proof]);
 			},
 			Err(e) => {
@@ -206,7 +217,7 @@ async fn collect_relay_storage_proof(
 					relay_parent = ?relay_parent,
 					publisher_para_id = ?publisher_para_id,
 					error = ?e,
-					"❌ Cannot obtain child trie proof from relay chain.",
+					"Cannot obtain child trie proof from relay chain.",
 				);
 			},
 		}
@@ -237,15 +248,26 @@ impl ParachainInherentDataProvider {
 				.flatten()
 				.is_some()
 		});
-		let relay_chain_state = collect_relay_storage_proof(
+		let mut relay_chain_state = collect_relay_storage_proof(
 			relay_chain_interface,
 			para_id,
 			relay_parent,
 			!relay_parent_descendants.is_empty(),
 			include_next_authorities,
-			subscription_keys,
 		)
 		.await?;
+
+		if !subscription_keys.is_empty() {
+			if let Some(child_proofs) = collect_child_trie_proofs(
+				relay_chain_interface,
+				relay_parent,
+				subscription_keys,
+			)
+			.await
+			{
+				relay_chain_state = StorageProof::merge([relay_chain_state, child_proofs]);
+			}
+		}
 
 		let downward_messages = relay_chain_interface
 			.retrieve_dmq_contents(para_id, relay_parent)
@@ -271,8 +293,6 @@ impl ParachainInherentDataProvider {
 				);
 			})
 			.ok()?;
-		// Published data is now included in the relay_chain_state proof via child trie proofs.
-		// The parachain runtime will read it from the proof instead of this field.
 		let published_data = Default::default();
 
 		Some(ParachainInherentData {
