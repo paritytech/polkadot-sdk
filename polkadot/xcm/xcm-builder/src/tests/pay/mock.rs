@@ -85,7 +85,7 @@ impl pallet_balances::Config for Test {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ConstU32<0>;
 	type DoneSlashHandler = ();
-	type BurnDestination = pallet_balances::DirectBurn<Runtime>;
+	type BurnDestination = ();
 }
 
 parameter_types! {
