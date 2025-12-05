@@ -38,6 +38,17 @@ pub use scope_limited::{set_and_run_with_externalities, with_externalities};
 mod extensions;
 mod scope_limited;
 
+/// Result of a storage load operation that tracks whether the value was loaded from
+/// the storage overlay (hot/cached) or from the database backend (cold).
+#[derive(Debug, Clone, PartialEq, Eq, codec::Encode, codec::Decode)]
+pub struct StateLoad<T> {
+	/// The returned data
+	pub data: T,
+	/// `true` if the value was loaded from the database backend (cold load),
+	/// `false` if it was loaded from the storage overlay (hot/cached load)
+	pub is_cold: bool,
+}
+
 /// Externalities error.
 #[derive(Debug)]
 pub enum Error {
@@ -85,6 +96,15 @@ pub trait Externalities: ExtensionStore {
 	/// Read runtime storage.
 	fn storage(&mut self, key: &[u8]) -> Option<Vec<u8>>;
 
+	/// Read runtime storage, tracking whether it was a cold load.
+	///
+	/// Returns a `StateLoad` containing the value and whether it was loaded
+	/// from the database backend (cold) or storage overlay (hot).
+	fn storage_with_status(&mut self, key: &[u8]) -> StateLoad<Option<Vec<u8>>> {
+		// Default implementation: just call storage() and assume it's cold
+		StateLoad { data: self.storage(key), is_cold: true }
+	}
+
 	/// Get storage value hash.
 	///
 	/// This may be optimized for large values.
@@ -101,6 +121,19 @@ pub trait Externalities: ExtensionStore {
 	///
 	/// Returns an `Option` that holds the SCALE encoded hash.
 	fn child_storage(&mut self, child_info: &ChildInfo, key: &[u8]) -> Option<Vec<u8>>;
+
+	/// Read child runtime storage, tracking whether it was a cold load.
+	///
+	/// Returns a `StateLoad` containing the value and whether it was loaded
+	/// from the database backend (cold) or storage overlay (hot).
+	fn child_storage_with_status(
+		&mut self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> StateLoad<Option<Vec<u8>>> {
+		// Default implementation: just call child_storage() and assume it's cold
+		StateLoad { data: self.child_storage(child_info, key), is_cold: true }
+	}
 
 	/// Set storage entry `key` of current contract being called (effective immediately).
 	fn set_storage(&mut self, key: Vec<u8>, value: Vec<u8>) {

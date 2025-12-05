@@ -148,6 +148,9 @@ mod global_alloc_riscv;
 #[cfg(not(substrate_runtime))]
 const LOG_TARGET: &str = "runtime::io";
 
+/// Re-export StateLoad from sp_externalities
+pub use sp_externalities::StateLoad;
+
 /// Error verifying ECDSA signature
 #[derive(Encode, Decode)]
 pub enum EcdsaVerifyError {
@@ -192,6 +195,18 @@ pub trait Storage {
 		key: PassFatPointerAndRead<&[u8]>,
 	) -> AllocateAndReturnByCodec<Option<bytes::Bytes>> {
 		self.storage(key).map(|s| bytes::Bytes::from(s.to_vec()))
+	}
+
+	/// Returns the data for `key` in the storage, tracking whether it was a cold load.
+	///
+	/// Similar to `get`, but returns a `StateLoad` that indicates whether the value was loaded
+	/// from the database backend (cold load) or from the storage overlay (hot load).
+	fn get_with_status(
+		&mut self,
+		key: PassFatPointerAndRead<&[u8]>,
+	) -> AllocateAndReturnByCodec<StateLoad<Option<bytes::Bytes>>> {
+		let StateLoad { data, is_cold } = self.storage_with_status(key);
+		StateLoad { data: data.map(|s| bytes::Bytes::from(s.to_vec())), is_cold }
 	}
 
 	/// Get `key` from storage, placing the value into `value_out` and return the number of
@@ -419,6 +434,24 @@ pub trait DefaultChildStorage {
 	) -> AllocateAndReturnByCodec<Option<Vec<u8>>> {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.child_storage(&child_info, key).map(|s| s.to_vec())
+	}
+
+	/// Get a default child storage value for a given key, tracking whether it was a cold load.
+	///
+	/// Similar to `get`, but returns a `StateLoad` that indicates whether the value was loaded
+	/// from the database backend (cold load) or from the storage overlay (hot load).
+	///
+	/// Parameter `storage_key` is the unprefixed location of the root of the child trie in the
+	/// parent trie. Result contains `None` if the value for `key` in the child storage can not be
+	/// found.
+	fn get_with_status(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		key: PassFatPointerAndRead<&[u8]>,
+	) -> AllocateAndReturnByCodec<StateLoad<Option<Vec<u8>>>> {
+		let child_info = ChildInfo::new_default(storage_key);
+		let StateLoad { data, is_cold } = self.child_storage_with_status(&child_info, key);
+		StateLoad { data: data.map(|s| s.to_vec()), is_cold }
 	}
 
 	/// Allocation efficient variant of `get`.
@@ -2054,6 +2087,86 @@ mod tests {
 		t.execute_with(|| {
 			assert_eq!(storage::get(b"hello"), None);
 			assert_eq!(storage::get(b"foo00"), Some(value.clone().into()));
+		});
+	}
+
+	#[test]
+	fn storage_with_status_tracking_works() {
+		let mut t = BasicExternalities::new(Storage {
+			top: map![b"existing".to_vec() => b"value".to_vec()],
+			children_default: map![],
+		});
+
+		t.execute_with(|| {
+			// Note: BasicExternalities doesn't have a real backend, so all reads
+			// are considered "cold" as there's no hot/cold distinction.
+			// This test mainly verifies the API works correctly.
+
+			// Read existing value
+			let result = storage::get_with_status(b"existing");
+			assert_eq!(result.data, Some(b"value".to_vec().into()));
+			assert_eq!(result.is_cold, true);
+
+			// Write to overlay
+			storage::set(b"new_key", b"new_value");
+
+			// Read the newly written value
+			let result = storage::get_with_status(b"new_key");
+			assert_eq!(result.data, Some(b"new_value".to_vec().into()));
+			// BasicExternalities treats all reads as cold
+			assert_eq!(result.is_cold, true);
+
+			// Read non-existent key
+			let result = storage::get_with_status(b"non_existent");
+			assert_eq!(result.data, None);
+			assert_eq!(result.is_cold, true);
+
+			// Overwrite existing key
+			storage::set(b"existing", b"updated");
+			let result = storage::get_with_status(b"existing");
+			assert_eq!(result.data, Some(b"updated".to_vec().into()));
+			assert_eq!(result.is_cold, true);
+		});
+	}
+
+	#[test]
+	fn child_storage_with_status_tracking_works() {
+		use sp_core::storage::ChildInfo;
+
+		let child_info = ChildInfo::new_default(b"child_storage_key");
+		let mut t = BasicExternalities::new(Storage {
+			top: map![],
+			children_default: map![
+				child_info.storage_key().to_vec() => sp_core::storage::StorageChild {
+					data: map![b"existing_child".to_vec() => b"child_value".to_vec()],
+					child_info: child_info.clone(),
+				}
+			],
+		});
+
+		t.execute_with(|| {
+			// Note: BasicExternalities doesn't have a real backend, so all reads
+			// are considered "cold" as there's no hot/cold distinction.
+			// This test mainly verifies the API works correctly.
+
+			// Read existing child value
+			let result = default_child_storage::get_with_status(b"child_storage_key", b"existing_child");
+			assert_eq!(result.data, Some(b"child_value".to_vec()));
+			assert_eq!(result.is_cold, true);
+
+			// Write to child storage
+			default_child_storage::set(b"child_storage_key", b"new_child_key", b"new_child_value");
+
+			// Read the newly written value
+			let result = default_child_storage::get_with_status(b"child_storage_key", b"new_child_key");
+			assert_eq!(result.data, Some(b"new_child_value".to_vec()));
+			// BasicExternalities treats all reads as cold
+			assert_eq!(result.is_cold, true);
+
+			// Read non-existent child key
+			let result = default_child_storage::get_with_status(b"child_storage_key", b"non_existent_child");
+			assert_eq!(result.data, None);
+			assert_eq!(result.is_cold, true);
 		});
 	}
 

@@ -183,10 +183,10 @@ impl<Balance: Zero + One + Saturating> BalanceWithDust<Balance> {
 pub type CodeUploadResult<Balance> = Result<CodeUploadReturnValue<Balance>, DispatchError>;
 
 /// Result type of a `get_storage` call.
-pub type GetStorageResult = Result<Option<Vec<u8>>, ContractAccessError>;
+pub type GetStorageResult<T = sp_io::StateLoad<Option<Vec<u8>>>> = Result<T, ContractAccessError>;
 
 /// Result type of a `set_storage` call.
-pub type SetStorageResult = Result<WriteOutcome, ContractAccessError>;
+pub type SetStorageResult<T = sp_io::StateLoad<WriteOutcome>> = Result<T, ContractAccessError>;
 
 /// The possible errors that can happen querying the storage of a contract.
 #[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo)]

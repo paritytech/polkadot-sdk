@@ -1049,6 +1049,7 @@ pub mod pallet {
 					&<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::SetStorage {
 						new_bytes: limits::STORAGE_BYTES,
 						old_bytes: 0,
+						is_cold: true,
 					})
 					.saturating_mul(u64::from(limits::STORAGE_BYTES).saturating_add(max_key_size)),
 				)
@@ -2650,7 +2651,7 @@ sp_api::decl_runtime_apis! {
 		fn get_storage(
 			address: H160,
 			key: [u8; 32],
-		) -> GetStorageResult;
+		) -> GetStorageResult<Option<Vec<u8>>>;
 
 		/// Query a given variable-sized storage key in a given contract.
 		///
@@ -2660,7 +2661,7 @@ sp_api::decl_runtime_apis! {
 		fn get_storage_var_key(
 			address: H160,
 			key: Vec<u8>,
-		) -> GetStorageResult;
+		) -> GetStorageResult<Option<Vec<u8>>>;
 
 		/// Traces the execution of an entire block and returns call traces.
 		///
@@ -2885,12 +2886,12 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				fn get_storage_var_key(
 					address: $crate::H160,
 					key: Vec<u8>,
-				) -> $crate::GetStorageResult {
-					$crate::Pallet::<Self>::get_storage_var_key(address, key)
+				) -> $crate::GetStorageResult<Option<Vec<u8>>> {
+					$crate::Pallet::<Self>::get_storage_var_key(address, key).map(|s| s.data)
 				}
 
-				fn get_storage(address: $crate::H160, key: [u8; 32]) -> $crate::GetStorageResult {
-					$crate::Pallet::<Self>::get_storage(address, key)
+				fn get_storage(address: $crate::H160, key: [u8; 32]) -> $crate::GetStorageResult<Option<Vec<u8>>> {
+					$crate::Pallet::<Self>::get_storage(address, key).map(|s| s.data)
 				}
 
 				fn trace_block(

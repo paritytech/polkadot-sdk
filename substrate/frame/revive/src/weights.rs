@@ -127,11 +127,11 @@ pub trait WeightInfo {
 	fn get_storage_full() -> Weight;
 	fn set_storage_empty() -> Weight;
 	fn set_storage_full() -> Weight;
-	fn seal_set_storage(n: u32, o: u32, ) -> Weight;
-	fn clear_storage(n: u32, ) -> Weight;
-	fn seal_get_storage(n: u32, ) -> Weight;
-	fn contains_storage(n: u32, ) -> Weight;
-	fn take_storage(n: u32, ) -> Weight;
+	fn seal_set_storage(n: u32, o: u32, c: u32, ) -> Weight;
+	fn clear_storage(n: u32, c: u32, ) -> Weight;
+	fn seal_get_storage(n: u32, c: u32, ) -> Weight;
+	fn contains_storage(n: u32, c: u32, ) -> Weight;
+	fn take_storage(n: u32, c: u32, ) -> Weight;
 	fn set_transient_storage_empty() -> Weight;
 	fn set_transient_storage_full() -> Weight;
 	fn get_transient_storage_empty() -> Weight;
@@ -896,7 +896,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[0, 416]`.
 	/// The range of component `o` is `[0, 416]`.
-	fn seal_set_storage(n: u32, o: u32, ) -> Weight {
+	/// The range of component `c` is `[0, 1]`.
+	fn seal_set_storage(n: u32, o: u32, _c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `248 + o * (1 ±0)`
 		//  Estimated: `247 + o * (1 ±0)`
@@ -913,7 +914,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[0, 416]`.
-	fn clear_storage(_n: u32, ) -> Weight {
+	/// The range of component `c` is `[0, 1]`.
+	fn clear_storage(_n: u32, _c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `376`
 		//  Estimated: `376`
@@ -925,7 +927,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[0, 416]`.
-	fn seal_get_storage(n: u32, ) -> Weight {
+	/// The range of component `c` is `[0, 1]`.
+	fn seal_get_storage(n: u32, _c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `248 + n * (1 ±0)`
 		//  Estimated: `247 + n * (1 ±0)`
@@ -939,7 +942,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[0, 416]`.
-	fn contains_storage(_n: u32, ) -> Weight {
+	/// The range of component `c` is `[0, 1]`.
+	fn contains_storage(_n: u32, _c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -949,7 +953,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[0, 416]`.
-	fn take_storage(n: u32, ) -> Weight {
+	/// The range of component `c` is `[0, 1]`.
+	fn take_storage(n: u32, _c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `376`
 		//  Estimated: `376`
@@ -2208,7 +2213,8 @@ impl WeightInfo for () {
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[0, 416]`.
 	/// The range of component `o` is `[0, 416]`.
-	fn seal_set_storage(n: u32, o: u32, ) -> Weight {
+	/// The range of component `c` is `[0, 1]`.
+	fn seal_set_storage(n: u32, o: u32, _c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `248 + o * (1 ±0)`
 		//  Estimated: `247 + o * (1 ±0)`
@@ -2225,7 +2231,8 @@ impl WeightInfo for () {
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[0, 416]`.
-	fn clear_storage(_n: u32, ) -> Weight {
+	/// The range of component `c` is `[0, 1]`.
+	fn clear_storage(_n: u32, _c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `376`
 		//  Estimated: `376`
@@ -2237,7 +2244,8 @@ impl WeightInfo for () {
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[0, 416]`.
-	fn seal_get_storage(n: u32, ) -> Weight {
+	/// The range of component `c` is `[0, 1]`.
+	fn seal_get_storage(n: u32, _c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `248 + n * (1 ±0)`
 		//  Estimated: `247 + n * (1 ±0)`
@@ -2251,7 +2259,8 @@ impl WeightInfo for () {
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[0, 416]`.
-	fn contains_storage(_n: u32, ) -> Weight {
+	/// The range of component `c` is `[0, 1]`.
+	fn contains_storage(_n: u32, _c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -2261,7 +2270,8 @@ impl WeightInfo for () {
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[0, 416]`.
-	fn take_storage(n: u32, ) -> Weight {
+	/// The range of component `c` is `[0, 1]`.
+	fn take_storage(n: u32, _c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `376`
 		//  Estimated: `376`

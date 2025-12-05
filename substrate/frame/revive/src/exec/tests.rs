@@ -1952,9 +1952,9 @@ fn get_storage_works() {
 			ctx.ext.set_storage(&Key::Fix([2; 32]), Some(vec![]), false),
 			Ok(WriteOutcome::New)
 		);
-		assert_eq!(ctx.ext.get_storage(&Key::Fix([1; 32])), Some(vec![1, 2, 3]));
-		assert_eq!(ctx.ext.get_storage(&Key::Fix([2; 32])), Some(vec![]));
-		assert_eq!(ctx.ext.get_storage(&Key::Fix([3; 32])), None);
+		assert_eq!(ctx.ext.get_storage(&Key::Fix([1; 32])).data, Some(vec![1, 2, 3]));
+		assert_eq!(ctx.ext.get_storage(&Key::Fix([2; 32])).data, Some(vec![]));
+		assert_eq!(ctx.ext.get_storage(&Key::Fix([3; 32])).data, None);
 
 		exec_success()
 	});
@@ -2034,14 +2034,14 @@ fn get_storage_varsized_key_works() {
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
-			ctx.ext.get_storage(&Key::try_from_var([1; 19].to_vec()).unwrap()),
+			ctx.ext.get_storage(&Key::try_from_var([1; 19].to_vec()).unwrap()).data,
 			Some(vec![1, 2, 3])
 		);
 		assert_eq!(
-			ctx.ext.get_storage(&Key::try_from_var([2; 16].to_vec()).unwrap()),
+			ctx.ext.get_storage(&Key::try_from_var([2; 16].to_vec()).unwrap()).data,
 			Some(vec![])
 		);
-		assert_eq!(ctx.ext.get_storage(&Key::try_from_var([3; 8].to_vec()).unwrap()), None);
+		assert_eq!(ctx.ext.get_storage(&Key::try_from_var([3; 8].to_vec()).unwrap()).data, None);
 
 		exec_success()
 	});

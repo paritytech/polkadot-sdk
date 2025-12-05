@@ -263,13 +263,15 @@ impl<T: Config> ContractInfo<T> {
 	///
 	/// The read is performed from the `trie_id` only. The `address` is not necessary. If the
 	/// contract doesn't store under the given `key` `None` is returned.
-	pub fn read(&self, key: &Key) -> Option<Vec<u8>> {
-		let value = child::get_raw(&self.child_trie_info(), key.hash().as_slice());
-		log::trace!(target: crate::LOG_TARGET, "contract storage: read value {:?} for key {:x?}", value, key);
+	///
+	/// Returns a `StateLoad` containing the value and whether it was a cold or hot load.
+	pub fn read(&self, key: &Key) -> sp_io::StateLoad<Option<Vec<u8>>> {
+		let result = child::get_raw_with_status(&self.child_trie_info(), key.hash().as_slice());
+		log::trace!(target: crate::LOG_TARGET, "contract storage: read value {:?} for key {:x?}", result.data, key);
 		if_tracing(|t| {
-			t.storage_read(key, value.as_deref());
+			t.storage_read(key, result.data.as_deref());
 		});
-		return value
+		result
 	}
 
 	/// Returns `Some(len)` (in bytes) if a storage item exists at `key`.
@@ -293,7 +295,7 @@ impl<T: Config> ContractInfo<T> {
 		new_value: Option<Vec<u8>>,
 		frame_meter: Option<&mut FrameMeter<T>>,
 		take: bool,
-	) -> Result<WriteOutcome, DispatchError> {
+	) -> Result<sp_io::StateLoad<WriteOutcome>, DispatchError> {
 		log::trace!(target: crate::LOG_TARGET, "contract storage: writing value {:?} for key {:x?}", new_value, key);
 		let hashed_key = key.hash();
 		if_tracing(|t| {
@@ -313,7 +315,7 @@ impl<T: Config> ContractInfo<T> {
 		new_value: Option<Vec<u8>>,
 		take: bool,
 	) -> Result<WriteOutcome, DispatchError> {
-		self.write_raw(key, new_value.as_deref(), None, take)
+		self.write_raw(key, new_value.as_deref(), None, take).map(|state_load| state_load.data)
 	}
 
 	fn write_raw(
@@ -322,13 +324,14 @@ impl<T: Config> ContractInfo<T> {
 		new_value: Option<&[u8]>,
 		frame_meter: Option<&mut FrameMeter<T>>,
 		take: bool,
-	) -> Result<WriteOutcome, DispatchError> {
+	) -> Result<sp_io::StateLoad<WriteOutcome>, DispatchError> {
 		let child_trie_info = &self.child_trie_info();
-		let (old_len, old_value) = if take {
-			let val = child::get_raw(child_trie_info, key);
-			(val.as_ref().map(|v| v.len() as u32), val)
+		let (old_len, old_value, is_cold) = if take {
+			let state_load = child::get_raw_with_status(child_trie_info, key);
+			(state_load.data.as_ref().map(|v| v.len() as u32), state_load.data, state_load.is_cold)
 		} else {
-			(child::len(child_trie_info, key), None)
+			let state_load = child::get_raw_with_status(child_trie_info, key);
+			(state_load.data.as_ref().map(|v| v.len() as u32), None, state_load.is_cold)
 		};
 
 		if let Some(frame_meter) = frame_meter {
@@ -359,11 +362,12 @@ impl<T: Config> ContractInfo<T> {
 			None => child::kill(child_trie_info, key),
 		}
 
-		Ok(match (old_len, old_value) {
-			(None, _) => WriteOutcome::New,
-			(Some(old_len), None) => WriteOutcome::Overwritten(old_len),
-			(Some(_), Some(old_value)) => WriteOutcome::Taken(old_value),
-		})
+		let outcome = match (old_len, old_value) {
+			(None, _) => WriteOutcome::New { is_cold },
+			(Some(old_len), None) => WriteOutcome::Overwritten { len: old_len, is_cold },
+			(Some(_), Some(old_value)) => WriteOutcome::Taken { value: old_value, is_cold },
+		};
+		Ok(sp_io::StateLoad { data: outcome, is_cold })
 	}
 
 	/// Sets and returns the contract base deposit.
@@ -476,15 +480,15 @@ impl<T: Config> ContractInfo<T> {
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum WriteOutcome {
 	/// No value existed at the specified key.
-	New,
+	New { is_cold: bool },
 	/// A value of the returned length was overwritten.
-	Overwritten(u32),
+	Overwritten { len: u32, is_cold: bool },
 	/// The returned value was taken out of storage before being overwritten.
 	///
 	/// This is only returned when specifically requested because it causes additional work
 	/// depending on the size of the pre-existing value. When not requested [`Self::Overwritten`]
 	/// is returned instead.
-	Taken(Vec<u8>),
+	Taken { value: Vec<u8>, is_cold: bool },
 }
 
 impl WriteOutcome {
@@ -492,9 +496,9 @@ impl WriteOutcome {
 	/// was no value in storage.
 	pub fn old_len(&self) -> u32 {
 		match self {
-			Self::New => 0,
-			Self::Overwritten(len) => *len,
-			Self::Taken(value) => value.len() as u32,
+			Self::New { .. } => 0,
+			Self::Overwritten { len, .. } => *len,
+			Self::Taken { value, .. } => value.len() as u32,
 		}
 	}
 
@@ -507,9 +511,18 @@ impl WriteOutcome {
 	/// storage entry which is different from a non existing one.
 	pub fn old_len_with_sentinel(&self) -> u32 {
 		match self {
-			Self::New => SENTINEL,
-			Self::Overwritten(len) => *len,
-			Self::Taken(value) => value.len() as u32,
+			Self::New { .. } => SENTINEL,
+			Self::Overwritten { len, .. } => *len,
+			Self::Taken { value, .. } => value.len() as u32,
+		}
+	}
+
+	/// Returns whether this was a cold storage access.
+	pub fn is_cold(&self) -> bool {
+		match self {
+			Self::New { is_cold } => *is_cold,
+			Self::Overwritten { is_cold, .. } => *is_cold,
+			Self::Taken { is_cold, .. } => *is_cold,
 		}
 	}
 }

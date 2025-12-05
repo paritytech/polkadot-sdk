@@ -100,18 +100,18 @@ pub enum RuntimeCosts {
 	/// Weight of calling `seal_deposit_event` with the given number of topics and event size.
 	DepositEvent { num_topic: u32, len: u32 },
 	/// Weight of calling `seal_set_storage` for the given storage item sizes.
-	SetStorage { old_bytes: u32, new_bytes: u32 },
+	SetStorage { old_bytes: u32, new_bytes: u32, is_cold: bool },
 	/// Weight of calling the `clearStorage` function of the `Storage` pre-compile
 	/// per cleared byte.
-	ClearStorage(u32),
+	ClearStorage { len: u32, is_cold: bool },
 	/// Weight of calling the `containsStorage` function of the `Storage` pre-compile
 	/// per byte of the checked item.
-	ContainsStorage(u32),
+	ContainsStorage { len: u32, is_cold: bool },
 	/// Weight of calling `seal_get_storage` with the specified size in storage.
-	GetStorage(u32),
+	GetStorage { len: u32, is_cold: bool },
 	/// Weight of calling the `takeStorage` function of the `Storage` pre-compile
 	/// for the given size.
-	TakeStorage(u32),
+	TakeStorage { len: u32, is_cold: bool },
 	/// Weight of calling `seal_set_transient_storage` for the given storage item sizes.
 	SetTransientStorage { old_bytes: u32, new_bytes: u32 },
 	/// Weight of calling `seal_clear_transient_storage` per cleared byte.
@@ -279,13 +279,36 @@ impl<T: Config> Token<T> for RuntimeCosts {
 					limits::EXTRA_EVENT_CHARGE_PER_BYTE.saturating_mul(len.into()).into(),
 					0,
 				)),
-			SetStorage { new_bytes, old_bytes } => {
-				cost_storage!(write, seal_set_storage, new_bytes, old_bytes)
-			},
-			ClearStorage(len) => cost_storage!(write, clear_storage, len),
-			ContainsStorage(len) => cost_storage!(read, contains_storage, len),
-			GetStorage(len) => cost_storage!(read, seal_get_storage, len),
-			TakeStorage(len) => cost_storage!(write, take_storage, len),
+			SetStorage { new_bytes, old_bytes, is_cold } =>
+				if is_cold {
+					cost_storage!(write, seal_set_storage, new_bytes, old_bytes, is_cold as u32)
+				} else {
+					T::WeightInfo::seal_set_storage(new_bytes, old_bytes, 0)
+				},
+			ClearStorage { len, is_cold } =>
+				if is_cold {
+					cost_storage!(write, clear_storage, len, is_cold as u32)
+				} else {
+					T::WeightInfo::clear_storage(len, 0)
+				},
+			ContainsStorage { len, is_cold } =>
+				if is_cold {
+					cost_storage!(read, contains_storage, len, is_cold as u32)
+				} else {
+					T::WeightInfo::contains_storage(len, 0)
+				},
+			GetStorage { len, is_cold } =>
+				if is_cold {
+					cost_storage!(read, seal_get_storage, len, is_cold as u32)
+				} else {
+					T::WeightInfo::seal_get_storage(len, 0)
+				},
+			TakeStorage { len, is_cold } =>
+				if is_cold {
+					cost_storage!(write, take_storage, len, is_cold as u32)
+				} else {
+					T::WeightInfo::take_storage(len, 0)
+				},
 			SetTransientStorage { new_bytes, old_bytes } => {
 				cost_storage!(write_transient, seal_set_transient_storage, new_bytes, old_bytes)
 			},

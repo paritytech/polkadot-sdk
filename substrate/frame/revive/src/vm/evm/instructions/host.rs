@@ -111,12 +111,11 @@ pub fn blockhash<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> 
 /// Loads a word from storage.
 pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([], index) = interpreter.stack.popn_top()?;
-	// NB: SLOAD loads 32 bytes from storage (i.e. U256).
-	interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage(32))?;
 	let key = Key::Fix(index.to_big_endian());
-	let value = interpreter.ext.get_storage(&key);
+	let sp_io::StateLoad { data, is_cold } = interpreter.ext.get_storage(&key);
+	interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage { len: 32, is_cold })?;
 
-	*index = if let Some(storage_value) = value {
+	*index = if let Some(storage_value) = data {
 		// sload always reads a word
 		let Ok::<[u8; 32], _>(bytes) = storage_value.try_into() else {
 			log::debug!(target: crate::LOG_TARGET, "sload read invalid storage value length. Expected 32.");
@@ -132,31 +131,27 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 
 fn store_helper<'ext, E: Ext>(
 	interpreter: &mut Interpreter<'ext, E>,
-	cost_before: RuntimeCosts,
-	set_function: fn(&mut E, &Key, Option<Vec<u8>>, bool) -> Result<WriteOutcome, DispatchError>,
-	adjust_cost: fn(new_bytes: u32, old_bytes: u32) -> RuntimeCosts,
+	set_function: fn(
+		&mut E,
+		&Key,
+		Option<Vec<u8>>,
+	) -> Result<sp_io::StateLoad<WriteOutcome>, DispatchError>,
+	cost: fn(new_bytes: u32, sp_io::StateLoad<WriteOutcome>) -> RuntimeCosts,
 ) -> ControlFlow<Halt> {
 	if interpreter.ext.is_read_only() {
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
 
 	let [index, value] = interpreter.stack.popn()?;
-
-	// Charge gas before set_storage and later adjust it down to the true gas cost
-	let charged_amount = interpreter.ext.charge_or_halt(cost_before)?;
 	let key = Key::Fix(index.to_big_endian());
-	let take_old = false;
-	let value_to_store = if value.is_zero() { None } else { Some(value.to_big_endian().to_vec()) };
-	let Ok(write_outcome) = set_function(interpreter.ext, &key, value_to_store.clone(), take_old)
-	else {
+	let (value_to_store, len) =
+		if value.is_zero() { (None, 0) } else { (Some(value.to_big_endian().to_vec()), 32) };
+
+	let Ok(write_outcome) = set_function(interpreter.ext, &key, value_to_store) else {
 		return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 	};
 
-	interpreter.ext.frame_meter_mut().adjust_weight(
-		charged_amount,
-		adjust_cost(value_to_store.unwrap_or_default().len() as u32, write_outcome.old_len()),
-	);
-
+	interpreter.ext.charge_or_halt(cost(len, write_outcome))?;
 	ControlFlow::Continue(())
 }
 
@@ -164,24 +159,30 @@ fn store_helper<'ext, E: Ext>(
 ///
 /// Stores a word to storage.
 pub fn sstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	let old_bytes = limits::STORAGE_BYTES;
 	store_helper(
 		interpreter,
-		RuntimeCosts::SetStorage { new_bytes: 32, old_bytes },
-		|ext, key, value, take_old| ext.set_storage(key, value, take_old),
-		|new_bytes, old_bytes| RuntimeCosts::SetStorage { new_bytes, old_bytes },
+		|ext, key, value| ext.set_storage(key, value, false),
+		|new_bytes, outcome| RuntimeCosts::SetStorage {
+			new_bytes,
+			old_bytes: outcome.data.old_len(),
+			is_cold: outcome.is_cold,
+		},
 	)
 }
 
 /// EIP-1153: Transient storage opcodes
 /// Store value to transient storage
 pub fn tstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	let old_bytes = limits::STORAGE_BYTES;
 	store_helper(
 		interpreter,
-		RuntimeCosts::SetTransientStorage { new_bytes: 32, old_bytes },
-		|ext, key, value, take_old| ext.set_transient_storage(key, value, take_old),
-		|new_bytes, old_bytes| RuntimeCosts::SetTransientStorage { new_bytes, old_bytes },
+		|ext, key, value| {
+			ext.set_transient_storage(key, value, false)
+				.map(|data| sp_io::StateLoad { data, is_cold: false })
+		},
+		|new_bytes, outcome| RuntimeCosts::SetTransientStorage {
+			new_bytes,
+			old_bytes: outcome.data.old_len(),
+		},
 	)
 }
 
