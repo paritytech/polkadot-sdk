@@ -160,6 +160,27 @@ where
 		result
 	}
 
+	fn storage_with_status(&mut self, key: &[u8]) -> sp_externalities::StateLoad<Option<StorageValue>> {
+		let _guard = guard();
+		let overlay_result = self.overlay.storage(key);
+		let (data, is_cold) = if let Some(value) = overlay_result {
+			(value.map(|x| x.to_vec()), false)
+		} else {
+			(self.backend.storage(key).expect(EXT_NOT_ALLOWED_TO_FAIL), true)
+		};
+
+		trace!(
+			target: "state",
+			method = "GetWithStatus",
+			ext_id = %HexDisplay::from(&self.id.to_le_bytes()),
+			key = %HexDisplay::from(&key),
+			result = ?data.as_ref().map(HexDisplay::from),
+			is_cold = %is_cold,
+		);
+
+		sp_externalities::StateLoad { data, is_cold }
+	}
+
 	fn storage_hash(&mut self, key: &[u8]) -> Option<Vec<u8>> {
 		let _guard = guard();
 		let result = self
@@ -198,6 +219,32 @@ where
 		);
 
 		result
+	}
+
+	fn child_storage_with_status(
+		&mut self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> sp_externalities::StateLoad<Option<StorageValue>> {
+		let _guard = guard();
+		let overlay_result = self.overlay.child_storage(child_info, key);
+		let (data, is_cold) = if let Some(value) = overlay_result {
+			(value.map(|x| x.to_vec()), false)
+		} else {
+			(self.backend.child_storage(child_info, key).expect(EXT_NOT_ALLOWED_TO_FAIL), true)
+		};
+
+		trace!(
+			target: "state",
+			method = "ChildGetWithStatus",
+			ext_id = %HexDisplay::from(&self.id.to_le_bytes()),
+			child_info = %HexDisplay::from(&child_info.storage_key()),
+			key = %HexDisplay::from(&key),
+			result = ?data.as_ref().map(HexDisplay::from),
+			is_cold = %is_cold,
+		);
+
+		sp_externalities::StateLoad { data, is_cold }
 	}
 
 	fn child_storage_hash(&mut self, child_info: &ChildInfo, key: &[u8]) -> Option<Vec<u8>> {
