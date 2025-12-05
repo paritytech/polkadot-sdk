@@ -61,53 +61,10 @@ pub trait Config: frame_system::Config {
 
 const SEED: u32 = 0;
 
-/// Mock credit implementation for benchmarking.
+/// Re-export MockCredit for benchmarking.
 /// Used to create dummy `AssetsInHolding` without needing real asset transactors.
 #[cfg(feature = "runtime-benchmarks")]
-pub struct MockCredit(pub u128);
-
-#[cfg(feature = "runtime-benchmarks")]
-impl frame_support::traits::tokens::imbalance::UnsafeConstructorDestructor<u128> for MockCredit {
-	fn unsafe_clone(
-		&self,
-	) -> alloc::boxed::Box<dyn frame_support::traits::tokens::imbalance::ImbalanceAccounting<u128>>
-	{
-		alloc::boxed::Box::new(MockCredit(self.0))
-	}
-	fn forget_imbalance(&mut self) -> u128 {
-		let amt = self.0;
-		self.0 = 0;
-		amt
-	}
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-impl frame_support::traits::tokens::imbalance::UnsafeManualAccounting<u128> for MockCredit {
-	fn subsume_other(
-		&mut self,
-		other: alloc::boxed::Box<
-			dyn frame_support::traits::tokens::imbalance::ImbalanceAccounting<u128>,
-		>,
-	) {
-		self.0 = self.0.saturating_add(other.amount());
-	}
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-impl frame_support::traits::tokens::imbalance::ImbalanceAccounting<u128> for MockCredit {
-	fn amount(&self) -> u128 {
-		self.0
-	}
-	fn saturating_take(
-		&mut self,
-		amount: u128,
-	) -> alloc::boxed::Box<dyn frame_support::traits::tokens::imbalance::ImbalanceAccounting<u128>>
-	{
-		let taken = self.0.min(amount);
-		self.0 -= taken;
-		alloc::boxed::Box::new(MockCredit(taken))
-	}
-}
+pub use xcm_executor::test_helpers::MockCredit;
 
 /// The XCM executor to use for doing stuff.
 pub type ExecutorOf<T> = xcm_executor::XcmExecutor<<T as Config>::XcmConfig>;

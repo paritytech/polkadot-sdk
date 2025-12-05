@@ -54,50 +54,7 @@ pub use xcm_executor::{
 };
 pub use xcm_simulator::helpers::derive_topic_id;
 
-/// Mock credit implementation for testing purposes.
-pub struct MockCredit(pub u128);
-
-impl UnsafeConstructorDestructor<u128> for MockCredit {
-	fn unsafe_clone(&self) -> Box<dyn ImbalanceAccounting<u128>> {
-		Box::new(MockCredit(self.0))
-	}
-	fn forget_imbalance(&mut self) -> u128 {
-		let amt = self.0;
-		self.0 = 0;
-		amt
-	}
-}
-
-impl UnsafeManualAccounting<u128> for MockCredit {
-	fn subsume_other(&mut self, mut other: Box<dyn ImbalanceAccounting<u128>>) {
-		self.0 += other.forget_imbalance();
-	}
-}
-
-impl ImbalanceAccounting<u128> for MockCredit {
-	fn amount(&self) -> u128 {
-		self.0
-	}
-	fn saturating_take(&mut self, amount: u128) -> Box<dyn ImbalanceAccounting<u128>> {
-		let taken = self.0.min(amount);
-		self.0 -= taken;
-		Box::new(MockCredit(taken))
-	}
-}
-
-/// Helper to convert a single Asset into AssetsInHolding for tests
-pub fn asset_to_holding(asset: Asset) -> AssetsInHolding {
-	let mut holding = AssetsInHolding::new();
-	match asset.fun {
-		Fungibility::Fungible(amount) => {
-			holding.fungible.insert(asset.id, Box::new(MockCredit(amount)));
-		},
-		Fungibility::NonFungible(instance) => {
-			holding.non_fungible.insert((asset.id, instance));
-		},
-	}
-	holding
-}
+pub use xcm_executor::test_helpers::{mock_asset_to_holding as asset_to_holding, MockCredit};
 
 /// Helper to convert multiple Assets into AssetsInHolding for tests
 pub fn assets_to_holding(assets: impl IntoIterator<Item = Asset>) -> AssetsInHolding {

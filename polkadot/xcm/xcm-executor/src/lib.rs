@@ -50,6 +50,7 @@ mod config;
 use crate::assets::BackupAssetsInHolding;
 pub use config::Config;
 
+pub mod test_helpers;
 #[cfg(test)]
 mod tests;
 

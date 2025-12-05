@@ -22,12 +22,7 @@ use core::cell::RefCell;
 use frame_support::{
 	dispatch::{DispatchInfo, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
 	parameter_types,
-	traits::{
-		tokens::imbalance::{
-			ImbalanceAccounting, UnsafeConstructorDestructor, UnsafeManualAccounting,
-		},
-		Everything, Nothing, ProcessMessageError,
-	},
+	traits::{Everything, Nothing, ProcessMessageError},
 	weights::Weight,
 };
 use sp_runtime::traits::Dispatchable;
@@ -42,39 +37,7 @@ use crate::{
 };
 
 /// Mock credit implementation for testing purposes.
-///
-/// This is a simple wrapper around a `u128` amount that implements the imbalance
-/// accounting traits. It's used in tests to create AssetsInHolding without
-/// needing real pallet integrations.
-pub struct MockCredit(pub u128);
-
-impl UnsafeConstructorDestructor<u128> for MockCredit {
-	fn unsafe_clone(&self) -> Box<dyn ImbalanceAccounting<u128>> {
-		Box::new(MockCredit(self.0))
-	}
-	fn forget_imbalance(&mut self) -> u128 {
-		let amt = self.0;
-		self.0 = 0;
-		amt
-	}
-}
-
-impl UnsafeManualAccounting<u128> for MockCredit {
-	fn subsume_other(&mut self, mut other: Box<dyn ImbalanceAccounting<u128>>) {
-		self.0 += other.forget_imbalance();
-	}
-}
-
-impl ImbalanceAccounting<u128> for MockCredit {
-	fn amount(&self) -> u128 {
-		self.0
-	}
-	fn saturating_take(&mut self, amount: u128) -> Box<dyn ImbalanceAccounting<u128>> {
-		let taken = self.0.min(amount);
-		self.0 -= taken;
-		Box::new(MockCredit(taken))
-	}
-}
+pub use crate::test_helpers::MockCredit;
 
 /// We create an XCVM instance instead of calling `XcmExecutor::<_>::prepare_and_execute` so we
 /// can inspect its fields.

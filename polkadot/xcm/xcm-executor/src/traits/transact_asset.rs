@@ -541,50 +541,7 @@ mod tests {
 
 	/// Helper to convert a single Asset into AssetsInHolding for tests
 	fn asset_to_holding(asset: Asset) -> AssetsInHolding {
-		use frame_support::traits::tokens::imbalance::{
-			ImbalanceAccounting, UnsafeConstructorDestructor, UnsafeManualAccounting,
-		};
-		use xcm::latest::Fungibility;
-
-		let mut holding = AssetsInHolding::new();
-		match asset.fun {
-			Fungibility::Fungible(amount) => {
-				struct MockCredit(u128);
-				impl UnsafeConstructorDestructor<u128> for MockCredit {
-					fn unsafe_clone(&self) -> Box<dyn ImbalanceAccounting<u128>> {
-						Box::new(MockCredit(self.0))
-					}
-					fn forget_imbalance(&mut self) -> u128 {
-						let amt = self.0;
-						self.0 = 0;
-						amt
-					}
-				}
-				impl UnsafeManualAccounting<u128> for MockCredit {
-					fn subsume_other(&mut self, mut other: Box<dyn ImbalanceAccounting<u128>>) {
-						self.0 += other.forget_imbalance();
-					}
-				}
-				impl ImbalanceAccounting<u128> for MockCredit {
-					fn amount(&self) -> u128 {
-						self.0
-					}
-					fn saturating_take(
-						&mut self,
-						amount: u128,
-					) -> Box<dyn ImbalanceAccounting<u128>> {
-						let taken = self.0.min(amount);
-						self.0 -= taken;
-						Box::new(MockCredit(taken))
-					}
-				}
-				holding.fungible.insert(asset.id, Box::new(MockCredit(amount)));
-			},
-			Fungibility::NonFungible(instance) => {
-				holding.non_fungible.insert((asset.id, instance));
-			},
-		}
-		holding
+		crate::test_helpers::mock_asset_to_holding(asset)
 	}
 
 	#[test]
