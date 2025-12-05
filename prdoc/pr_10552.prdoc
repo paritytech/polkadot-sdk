@@ -123,11 +123,11 @@ doc:
     - https://github.com/paritytech/polkadot-sdk/pull/10540
 crates:
 - name: asset-hub-westend-runtime
-  bump: major
+  bump: none
 - name: assets-common
   bump: major
 - name: penpal-runtime
-  bump: major
+  bump: none
 - name: pallet-xcm
   bump: major
 - name: pallet-xcm-precompiles
@@ -137,11 +137,11 @@ crates:
 - name: pallet-assets-precompiles
   bump: major
 - name: pallet-origin-restriction
-  bump: major
+  bump: none
 - name: pallet-revive
   bump: major
 - name: revive-dev-runtime
-  bump: major
+  bump: none
 - name: pallet-revive-fixtures
   bump: major
 - name: pallet-revive-proc-macro
@@ -149,6 +149,8 @@ crates:
 - name: pallet-revive-eth-rpc
   bump: major
 - name: pallet-revive-uapi
+  bump: major
+- name: frame-metadata
   bump: major
 - name: frame-support
   bump: major
@@ -159,4 +161,14 @@ crates:
 - name: substrate-wasm-builder
   bump: major
 - name: polkadot-sdk
+  bump: none
+- name: sp-core
+  bump: major
+- name: sp-keyring
+  bump: major
+- name: sp-runtime
+  bump: major
+- name: sp-weights
+  bump: major
+- name: xcm
   bump: major
