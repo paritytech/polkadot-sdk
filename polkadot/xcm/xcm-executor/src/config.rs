@@ -73,8 +73,9 @@ pub trait Config {
 	/// What to do when a response of a query is found.
 	type ResponseHandler: OnResponse;
 
-	/// The general asset trap - handler for when assets are left in the Holding Register at the
-	/// end of execution.
+	/// The general asset trap - handlers for:
+	/// 1. when assets are left in the Holding Register at the end of execution,
+	/// 2. when assets are claimed from the trap back into the Holding Register.
 	type AssetTrap: TrapAndClaimAssets;
 
 	/// Handler for asset locking.
