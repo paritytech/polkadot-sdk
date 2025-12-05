@@ -1,0 +1,14 @@
+title: PoV reclaim overshooting test
+doc:
+- audience: Node Dev
+  description: |-
+    This PR adds a zombienet integration test that validates if the POV reclaim mechanism (for extrinsic) correctly accounts for trie nodes accessed during storage root computation, as described in #6020 and in #10215.
+
+    The test submits transactions that delete storage entries (triggering trie modifications) and verifies all transactions finalize without exceeding the PoV budget.
+
+    Additionally extends `TestPallet` with:
+      - `kill_dev_entry` call to trigger trie modifications
+      - `devDataEntries` genesis config for test data allowing to bloat the state
+
+    Note: test is expected to fail on master branch.
+crates: []
