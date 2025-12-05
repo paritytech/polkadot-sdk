@@ -141,7 +141,11 @@ const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 /// into the relay chain.
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = (2 + RELAY_PARENT_OFFSET) * BLOCK_PROCESSING_VELOCITY + 1;
 
-/// Build with an offset of 1 behind the relay chain.
+/// Build with an offset behind the relay chain.
+/// In dev mode, this is set to 0 for easier local testing.
+#[cfg(feature = "dev")]
+const RELAY_PARENT_OFFSET: u32 = 0;
+#[cfg(not(feature = "dev"))]
 const RELAY_PARENT_OFFSET: u32 = 1;
 
 /// How many parachain blocks are processed by the relay chain per parent. Limits the

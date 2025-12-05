@@ -79,3 +79,6 @@ runtime-benchmarks = [
 on-chain-release-build = []
 
 fast-runtime = []
+
+# Development mode for running the chain locally without a Relay Chain.
+dev = []
