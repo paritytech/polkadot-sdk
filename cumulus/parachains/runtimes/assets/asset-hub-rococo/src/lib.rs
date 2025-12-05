@@ -2020,9 +2020,9 @@ impl_runtime_apis! {
 					))
 				}
 
-				fn worst_case_xcm_failing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
-					Err(BenchmarkError::Skip)
-				}
+				// fn worst_case_xcm_failing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
+				// 	Err(BenchmarkError::Skip)
+				// }
 			}
 
 			type XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::<Runtime>;

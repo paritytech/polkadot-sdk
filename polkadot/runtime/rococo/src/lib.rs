@@ -2684,9 +2684,9 @@ sp_api::impl_runtime_apis! {
 					Err(BenchmarkError::Skip)
 				}
 
-				fn worst_case_xcm_failing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
-					Err(BenchmarkError::Skip)
-				}
+				// fn worst_case_xcm_failing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
+				// 	Err(BenchmarkError::Skip)
+				// }
 			}
 
 			let mut whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();

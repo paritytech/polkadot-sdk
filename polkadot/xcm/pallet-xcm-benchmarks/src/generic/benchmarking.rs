@@ -963,7 +963,6 @@ mod benchmarks {
 
 	#[benchmark]
 	fn barrier_check() -> Result<(), BenchmarkError> {
-		use sp_io::hashing::twox_128;
 		use xcm::latest::{prelude::Outcome, Error::Barrier};
 
 		let xcm = T::worst_case_xcm_failing_barrier().map_err(|_| BenchmarkError::Skip)?;

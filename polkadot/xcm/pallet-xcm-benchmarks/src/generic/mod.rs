@@ -104,7 +104,31 @@ pub mod pallet {
 		/// high-weight rejection path for benchmarking.
 		///
 		/// If set to `Err`, benchmarks relying on a barrier check will be skipped.
-		fn worst_case_xcm_failing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError>;
+		fn worst_case_xcm_failing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
+			use alloc::vec;
+			use xcm::latest::prelude::{Here, Parent, SetAppendix, SetTopic, TransferReserveAsset};
+
+			let nested_limit = xcm_executor::RECURSION_LIMIT as usize - 2;
+
+			// Nested reserve-transfer to Relay Chain; rejected by
+			// `DenyReserveTransferToRelayChain`.
+			let leaf = Xcm(vec![TransferReserveAsset {
+				assets: (Here, 1_000_000_000u128).into(),
+				dest: Parent.into(),
+				xcm: Xcm::new(),
+			}]);
+
+			// Within the recursion limit, this just makes the barrier scan heavy.
+			let mut nested = leaf;
+			for _ in 0..nested_limit {
+				nested = Xcm(vec![SetAppendix(nested)]);
+			}
+
+			// Add a topic so `TrailingSetTopicAsId` also runs.
+			let xcm = Xcm(vec![SetTopic([42; 32]), SetAppendix(nested)]);
+
+			Ok(xcm)
+		}
 
 		/// Returns a valid pallet info for `ExpectPallet` or `QueryPallet` benchmark.
 		///
