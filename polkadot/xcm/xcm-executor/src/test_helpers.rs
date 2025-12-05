@@ -17,6 +17,7 @@
 //! Helper datatypes for XCM.
 
 use super::*;
+use alloc::boxed::Box;
 use frame_support::traits::tokens::imbalance::{
 	ImbalanceAccounting, UnsafeConstructorDestructor, UnsafeManualAccounting,
 };
