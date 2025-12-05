@@ -16671,6 +16671,7 @@ dependencies = [
  "pallet-xcm-bridge-hub-router",
  "pallet-xcm-precompiles",
  "parachains-common",
+ "parachains-common-types",
  "parachains-runtimes-test-utils",
  "polkadot-approval-distribution",
  "polkadot-availability-bitfield-distribution",

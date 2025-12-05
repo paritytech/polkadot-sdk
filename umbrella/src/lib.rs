@@ -811,6 +811,10 @@ pub use pallet_xcm_precompiles;
 #[cfg(feature = "parachains-common")]
 pub use parachains_common;
 
+/// Common types for parachains.
+#[cfg(feature = "parachains-common-types")]
+pub use parachains_common_types;
+
 /// Utils for Runtimes testing.
 #[cfg(feature = "parachains-runtimes-test-utils")]
 pub use parachains_runtimes_test_utils;
