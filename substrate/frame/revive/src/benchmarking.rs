@@ -1461,7 +1461,7 @@ mod benchmarks {
 		}
 
 		assert_ok!(result);
-		assert_eq!(info.read(&key).unwrap(), value);
+		assert_eq!(info.read(&key).data.unwrap(), value);
 		Ok(())
 	}
 
@@ -1549,7 +1549,7 @@ mod benchmarks {
 		}
 
 		assert_ok!(result);
-		assert_eq!(&info.read(&key).unwrap(), &memory[out_ptr as usize..]);
+		assert_eq!(&info.read(&key).data.unwrap(), &memory[out_ptr as usize..]);
 		Ok(())
 	}
 
