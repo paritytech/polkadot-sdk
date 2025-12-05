@@ -84,7 +84,7 @@ async fn overshooting_shall_not_happen_test() -> Result<(), anyhow::Error> {
 		.with_chain_type(ChainType::Sub)
 		.with_timeout_in_secs(TEST_TIMEOUT_SECS)
 		.with_executor_id("overshooting-test".to_string())
-		.with_custom_sub_payload_builder(|ctx| {
+		.with_tx_payload_builder_sub(|ctx| {
 			let id = ctx.account.parse::<u128>().unwrap();
 			let entries_per_account = 20;
 			// Map each (nonce, id) pair to a unique 20-entry range in dev_data_entries.

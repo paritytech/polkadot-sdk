@@ -27,7 +27,7 @@ sp-core = { workspace = true, default-features = true }
 codec = { workspace = true }
 rstest = { workspace = true }
 tracing = { workspace = true }
-txtesttool = { path = "/home/miszka/parity/23-pov-reclaim/tx-test-tool", package = "substrate-txtesttool" }
+txtesttool = { version = "0.8.0", package="substrate-txtesttool", git = "https://github.com/michalkucharczyk/tx-test-tool", branch = "mku-payload-builder" }
 
 [features]
 zombie-ci = []
