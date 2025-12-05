@@ -100,10 +100,7 @@ pub trait Externalities: ExtensionStore {
 	///
 	/// Returns a `StateLoad` containing the value and whether it was loaded
 	/// from the database backend (cold) or storage overlay (hot).
-	fn storage_with_status(&mut self, key: &[u8]) -> StateLoad<Option<Vec<u8>>> {
-		// Default implementation: just call storage() and assume it's cold
-		StateLoad { data: self.storage(key), is_cold: true }
-	}
+	fn storage_with_status(&mut self, key: &[u8]) -> StateLoad<Option<Vec<u8>>>;
 
 	/// Get storage value hash.
 	///
@@ -130,10 +127,7 @@ pub trait Externalities: ExtensionStore {
 		&mut self,
 		child_info: &ChildInfo,
 		key: &[u8],
-	) -> StateLoad<Option<Vec<u8>>> {
-		// Default implementation: just call child_storage() and assume it's cold
-		StateLoad { data: self.child_storage(child_info, key), is_cold: true }
-	}
+	) -> StateLoad<Option<Vec<u8>>>;
 
 	/// Set storage entry `key` of current contract being called (effective immediately).
 	fn set_storage(&mut self, key: Vec<u8>, value: Vec<u8>) {

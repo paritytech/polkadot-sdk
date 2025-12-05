@@ -219,6 +219,10 @@ impl sp_externalities::Externalities for ValidationExternalities {
 		panic!("storage: unsupported feature for parachain validation")
 	}
 
+	fn storage_with_status(&mut self, _: &[u8]) -> sp_externalities::StateLoad<Option<Vec<u8>>> {
+		panic!("storage_with_status: unsupported feature for parachain validation")
+	}
+
 	fn storage_hash(&mut self, _: &[u8]) -> Option<Vec<u8>> {
 		panic!("storage_hash: unsupported feature for parachain validation")
 	}
@@ -229,6 +233,14 @@ impl sp_externalities::Externalities for ValidationExternalities {
 
 	fn child_storage(&mut self, _: &ChildInfo, _: &[u8]) -> Option<Vec<u8>> {
 		panic!("child_storage: unsupported feature for parachain validation")
+	}
+
+	fn child_storage_with_status(
+		&mut self,
+		_: &ChildInfo,
+		_: &[u8],
+	) -> sp_externalities::StateLoad<Option<Vec<u8>>> {
+		panic!("child_storage_with_status: unsupported feature for parachain validation")
 	}
 
 	fn kill_child_storage(
