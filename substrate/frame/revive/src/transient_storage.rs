@@ -274,9 +274,9 @@ impl<T: Config> TransientStorage<T> {
 		}
 
 		Ok(match (take, prev_value) {
-			(_, None) => WriteOutcome::New { is_cold: false },
-			(false, Some(prev_value)) => WriteOutcome::Overwritten { len: prev_value.len() as _, is_cold: false },
-			(true, Some(prev_value)) => WriteOutcome::Taken { value: prev_value, is_cold: false },
+			(_, None) => WriteOutcome::New,
+			(false, Some(prev_value)) => WriteOutcome::Overwritten { len: prev_value.len() as _ },
+			(true, Some(prev_value)) => WriteOutcome::Taken { value: prev_value },
 		})
 	}
 
@@ -360,15 +360,15 @@ mod tests {
 		let mut storage: TransientStorage<Test> = TransientStorage::<Test>::new(2048);
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![2]), true),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
 			storage.write(&BOB, &Key::Fix([3; 32]), Some(vec![3]), false),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		assert_eq!(storage.read(&ALICE, &Key::Fix([1; 32])), Some(vec![1]));
 		assert_eq!(storage.read(&ALICE, &Key::Fix([2; 32])), Some(vec![2]));
@@ -376,11 +376,11 @@ mod tests {
 		// Overwrite values.
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![4, 5]), false),
-			Ok(WriteOutcome::Overwritten { len: 1, is_cold: false })
+			Ok(WriteOutcome::Overwritten { len: 1 })
 		);
 		assert_eq!(
 			storage.write(&BOB, &Key::Fix([3; 32]), Some(vec![6, 7]), true),
-			Ok(WriteOutcome::Taken { value: vec![3], is_cold: false })
+			Ok(WriteOutcome::Taken { value: vec![3] })
 		);
 		assert_eq!(storage.read(&ALICE, &Key::Fix([1; 32])), Some(vec![1]));
 		assert_eq!(storage.read(&ALICE, &Key::Fix([2; 32])), Some(vec![4, 5]));
@@ -389,13 +389,13 @@ mod tests {
 		// Check for an empty value.
 		assert_eq!(
 			storage.write(&BOB, &Key::Fix([3; 32]), Some(vec![]), true),
-			Ok(WriteOutcome::Taken { value: vec![6, 7], is_cold: false })
+			Ok(WriteOutcome::Taken { value: vec![6, 7] })
 		);
 		assert_eq!(storage.read(&BOB, &Key::Fix([3; 32])), Some(vec![]));
 
 		assert_eq!(
 			storage.write(&BOB, &Key::Fix([3; 32]), None, true),
-			Ok(WriteOutcome::Taken { value: vec![], is_cold: false })
+			Ok(WriteOutcome::Taken { value: vec![] })
 		);
 		assert_eq!(storage.read(&BOB, &Key::Fix([3; 32])), None);
 	}
@@ -410,7 +410,7 @@ mod tests {
 				Some(vec![1]),
 				false
 			),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
 			storage.write(
@@ -419,7 +419,7 @@ mod tests {
 				Some(vec![2, 3]),
 				false
 			),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
 			storage.read(&ALICE, &Key::try_from_var([1; 64].to_vec()).unwrap()),
@@ -437,7 +437,7 @@ mod tests {
 				Some(vec![4, 5]),
 				false
 			),
-			Ok(WriteOutcome::Overwritten { len: 1, is_cold: false })
+			Ok(WriteOutcome::Overwritten { len: 1 })
 		);
 		assert_eq!(
 			storage.read(&ALICE, &Key::try_from_var([1; 64].to_vec()).unwrap()),
@@ -452,7 +452,7 @@ mod tests {
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		storage.rollback_transaction();
 		assert_eq!(storage.read(&ALICE, &Key::Fix([1; 32])), None)
@@ -465,7 +465,7 @@ mod tests {
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		storage.commit_transaction();
 		assert_eq!(storage.read(&ALICE, &Key::Fix([1; 32])), Some(vec![1]))
@@ -477,11 +477,11 @@ mod tests {
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1, 2]), false),
-			Ok(WriteOutcome::Overwritten { len: 1, is_cold: false })
+			Ok(WriteOutcome::Overwritten { len: 1 })
 		);
 		storage.commit_transaction();
 		assert_eq!(storage.read(&ALICE, &Key::Fix([1; 32])), Some(vec![1, 2]))
@@ -493,12 +493,12 @@ mod tests {
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&BOB, &Key::Fix([1; 32]), Some(vec![1]), false),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		storage.rollback_transaction();
 		storage.commit_transaction();
@@ -512,17 +512,17 @@ mod tests {
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&BOB, &Key::Fix([1; 32]), Some(vec![2]), false),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&CHARLIE, &Key::Fix([1; 32]), Some(vec![3]), false),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		storage.commit_transaction();
 		storage.commit_transaction();
@@ -538,17 +538,17 @@ mod tests {
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&BOB, &Key::Fix([1; 32]), Some(vec![2]), false),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&CHARLIE, &Key::Fix([1; 32]), Some(vec![3]), false),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		storage.commit_transaction();
 		storage.commit_transaction();
@@ -565,7 +565,7 @@ mod tests {
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]), false),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		let limit = storage.meter().current().limit;
 		storage.commit_transaction();
@@ -575,7 +575,7 @@ mod tests {
 		assert_eq!(storage.meter().current().limit - storage.meter().current().amount, size);
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![1u8; 4096]), false),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		assert_eq!(storage.meter().current().amount, size);
 		storage.commit_transaction();
@@ -591,14 +591,14 @@ mod tests {
 		let limit = storage.meter().current().limit;
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]), false),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		storage.start_transaction();
 		assert_eq!(storage.meter().total_amount(), size);
 		assert!(storage.meter().current().limit < limit - size);
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![1u8; 4096]), false),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		storage.commit_transaction();
 		assert_eq!(storage.meter().current().limit, limit);
@@ -628,7 +628,7 @@ mod tests {
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]), false),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		storage.start_transaction();
 		assert_eq!(
@@ -650,7 +650,7 @@ mod tests {
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![1u8; 4096]), false),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		storage.rollback_transaction();
 
@@ -658,7 +658,7 @@ mod tests {
 		assert_eq!(storage.meter.current().limit, limit);
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]), false),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		let amount = storage.meter().current().amount;
 		assert_eq!(storage.meter().total_amount(), amount);
@@ -673,18 +673,18 @@ mod tests {
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]), false),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		let amount = storage.meter.total_amount();
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![1u8; 4096]), false),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&BOB, &Key::Fix([1; 32]), Some(vec![1u8; 4096]), false),
-			Ok(WriteOutcome::New { is_cold: false })
+			Ok(WriteOutcome::New)
 		);
 		storage.commit_transaction();
 		storage.rollback_transaction();

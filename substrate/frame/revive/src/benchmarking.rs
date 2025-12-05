@@ -1657,7 +1657,7 @@ mod benchmarks {
 			result = runtime.ext().set_transient_storage(&key, value, false);
 		}
 
-		assert_eq!(result, Ok(WriteOutcome::New { is_cold: false }));
+		assert_eq!(result, Ok(WriteOutcome::New));
 		assert_eq!(runtime.ext().get_transient_storage(&key), Some(vec![42u8; max_value_len as _]));
 		Ok(())
 	}
@@ -1680,7 +1680,7 @@ mod benchmarks {
 			result = runtime.ext().set_transient_storage(&key, value, false);
 		}
 
-		assert_eq!(result, Ok(WriteOutcome::New { is_cold: false }));
+		assert_eq!(result, Ok(WriteOutcome::New));
 		assert_eq!(runtime.ext().get_transient_storage(&key), Some(vec![42u8; max_value_len as _]));
 		Ok(())
 	}
