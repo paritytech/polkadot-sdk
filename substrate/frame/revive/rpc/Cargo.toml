@@ -48,10 +48,10 @@ sp-core.workspace = true
 sp-crypto-hashing.workspace = true
 sp-rpc.default-features = true
 sp-rpc.workspace = true
-sp-timestamp.default-features = true
-sp-timestamp.workspace = true
 sp-runtime.default-features = true
 sp-runtime.workspace = true
+sp-timestamp.default-features = true
+sp-timestamp.workspace = true
 sp-weights.default-features = true
 sp-weights.workspace = true
 sqlx = { workspace = true, features = ["macros", "runtime-tokio", "sqlite"] }
