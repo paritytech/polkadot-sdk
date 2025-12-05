@@ -347,6 +347,27 @@ pub mod pallet {
 		/// Allows debug-mode configuration, such as enabling unlimited contract size.
 		#[pallet::constant]
 		type DebugEnabled: Get<bool>;
+
+		/// This determines the relative scale of our gas price and gas estimates.
+		///
+		/// By default, the gas price (in wei) is `FeeInfo::next_fee_multiplier()` multiplied by
+		/// `NativeToEthRatio`. `GasScale` allows to scale this value: the actual gas price is the
+		/// default gas price multiplied by `GasScale`.
+		///
+		/// As a consequence, gas cost (gas estimates and actual gas usage during transaction) is
+		/// scaled down by the same factor. Thus, the total transaction cost is not affected by
+		/// `GasScale` – apart from rounding differences: the transaction cost is always a multiple
+		/// of the gas price and is derived by rounded up, so that with higher `GasScales` this can
+		/// lead to higher gas cost as the rounding difference would be larger.
+		///
+		/// The main purpose of changing the `GasScale` is to tune the gas cost so that it is closer
+		/// to standard EVM gas cost and contracts will not run out of gas when tools or code
+		/// assume hard coded gas limits.
+		///
+		/// Requirement: `GasScale` must not be 0
+		#[pallet::constant]
+		#[pallet::no_default_bounds]
+		type GasScale: Get<u32>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -375,6 +396,7 @@ pub mod pallet {
 			pub const DepositPerByte: Balance = deposit(0, 1);
 			pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
 			pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(9, 10);
+			pub const GasScale: u32 = 10u32;
 		}
 
 		/// A type providing default configurations for this pallet in testing environment.
@@ -429,6 +451,7 @@ pub mod pallet {
 			type FeeInfo = ();
 			type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
 			type DebugEnabled = ConstBool<false>;
+			type GasScale = GasScale;
 		}
 	}
 
@@ -891,6 +914,8 @@ pub mod pallet {
 
 		fn integrity_test() {
 			assert!(T::ChainId::get() > 0, "ChainId must be greater than 0");
+
+			assert!(T::GasScale::get() > 0u32.into(), "GasScale must not be 0");
 
 			T::FeeInfo::integrity_test();
 
@@ -2114,8 +2139,12 @@ impl<T: Config> Pallet<T> {
 
 	/// Get the base gas price.
 	pub fn evm_base_fee() -> U256 {
+		let gas_scale = <T as Config>::GasScale::get();
 		let multiplier = T::FeeInfo::next_fee_multiplier();
-		multiplier.saturating_mul_int::<u128>(T::NativeToEthRatio::get().into()).into()
+		multiplier
+			.saturating_mul_int::<u128>(T::NativeToEthRatio::get().into())
+			.saturating_mul(gas_scale.saturated_into())
+			.into()
 	}
 
 	/// Build an EVM tracer from the given tracer type.
