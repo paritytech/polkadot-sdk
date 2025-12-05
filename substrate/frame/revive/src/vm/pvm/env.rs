@@ -337,16 +337,21 @@ pub mod env {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
-
-		self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
-		let value = memory.read_u256(value_ptr)?;
+		let resources = if gas == u64::MAX {
+			CallResources::NoLimits
+		} else {
+			self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
+			let value = memory.read_u256(value_ptr)?;
+			let add_stipend = !value.is_zero();
+			CallResources::from_ethereum_gas(gas.into(), add_stipend)
+		};
 
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
 			CallType::Call { value_ptr },
 			callee,
-			&CallResources::from_ethereum_gas(gas.into(), !value.is_zero()),
+			&resources,
 			input_data_ptr,
 			input_data_len,
 			output_ptr,
@@ -402,13 +407,18 @@ pub mod env {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+		let resources = if gas == u64::MAX {
+			CallResources::NoLimits
+		} else {
+			CallResources::from_ethereum_gas(gas.into(), false)
+		};
 
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
 			CallType::DelegateCall,
 			callee,
-			&CallResources::from_ethereum_gas(gas.into(), false),
+			&resources,
 			input_data_ptr,
 			input_data_len,
 			output_ptr,

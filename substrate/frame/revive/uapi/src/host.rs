@@ -120,6 +120,10 @@ pub trait HostFn: private::Sealed {
 	) -> Result;
 
 	/// Same as [HostFn::call] but receives the one-dimensional EVM gas argument.
+	///
+	/// Adds the EVM gas stipend for non-zero value calls.
+	///
+	/// If gas is `u64::MAX`, the call will run with uncapped limits.
 	fn call_evm(
 		flags: CallFlags,
 		callee: &[u8; 20],
@@ -218,6 +222,8 @@ pub trait HostFn: private::Sealed {
 	) -> Result;
 
 	/// Same as [HostFn::delegate_call] but receives the one-dimensional EVM gas argument.
+	///
+	/// If gas is `u64::MAX`, the call will run with uncapped limits.
 	fn delegate_call_evm(
 		flags: CallFlags,
 		address: &[u8; 20],
