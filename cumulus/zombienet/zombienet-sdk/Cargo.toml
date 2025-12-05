@@ -20,9 +20,12 @@ zombienet-sdk = { workspace = true }
 zombienet-orchestrator = { workspace = true }
 zombienet-configuration = { workspace = true }
 cumulus-zombienet-sdk-helpers = { workspace = true }
+cumulus-test-runtime = { workspace = true }
 sp-statement-store = { workspace = true, default-features = true }
+sc-statement-store = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
+codec = { workspace = true }
 rstest = { workspace = true }
 
 [features]

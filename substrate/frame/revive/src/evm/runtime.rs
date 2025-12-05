@@ -18,8 +18,8 @@
 use crate::{
 	evm::{
 		api::{GenericTransaction, TransactionSigned},
-		create_call,
 		fees::InfoT,
+		CreateCallMode,
 	},
 	AccountIdOf, AddressMapper, BalanceOf, CallOf, Config, Pallet, Zero, LOG_TARGET,
 };
@@ -262,7 +262,7 @@ pub trait EthExtra {
 
 	/// Convert the unsigned [`crate::Call::eth_transact`] into a [`CheckedExtrinsic`].
 	/// and ensure that the fees from the Ethereum transaction correspond to the fees computed from
-	/// the encoded_len, the injected gas_limit and storage_deposit_limit.
+	/// the encoded_len and the injected weight_limit.
 	///
 	/// # Parameters
 	/// - `payload`: The RLP-encoded Ethereum transaction.
@@ -313,15 +313,17 @@ pub trait EthExtra {
 			InvalidTransaction::Call
 		})?;
 
-		log::trace!(target: LOG_TARGET, "Decoded Ethereum transaction with signer: {signer_addr:?} nonce: {nonce:?}");
-		let call_info =
-			create_call::<Self::Config>(tx, Some((encoded_len as u32, payload.to_vec())), true)?;
+		log::debug!(target: LOG_TARGET, "Decoded Ethereum transaction with signer: {signer_addr:?} nonce: {nonce:?}");
+		let call_info = tx.into_call::<Self::Config>(CreateCallMode::ExtrinsicExecution(
+			encoded_len as u32,
+			payload.to_vec(),
+		))?;
 		let storage_credit = <Self::Config as Config>::Currency::withdraw(
-					&signer,
-					call_info.storage_deposit,
-					Precision::Exact,
-					Preservation::Preserve,
-					Fortitude::Polite,
+			&signer,
+			call_info.storage_deposit,
+			Precision::Exact,
+			Preservation::Preserve,
+			Fortitude::Polite,
 		).map_err(|_| {
 			log::debug!(target: LOG_TARGET, "Not enough balance to hold additional storage deposit of {:?}", call_info.storage_deposit);
 			InvalidTransaction::Payment
@@ -343,7 +345,7 @@ pub trait EthExtra {
 			weight_limit={} \
 			nonce={nonce:?}\
 			",
-			call_info.gas,
+			call_info.eth_gas_limit,
 			call_info.tx_fee,
 			call_info.storage_deposit,
 			call_info.weight_limit,
@@ -374,7 +376,7 @@ mod test {
 	};
 	use frame_support::{error::LookupError, traits::fungible::Mutate};
 	use pallet_revive_fixtures::compile_module;
-	use sp_runtime::traits::{self, Checkable, DispatchTransaction, Get};
+	use sp_runtime::traits::{self, Checkable, DispatchTransaction};
 
 	type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
@@ -429,7 +431,8 @@ mod test {
 			let account = Account::default();
 			Self::fund_account(&account);
 
-			let dry_run = crate::Pallet::<Test>::dry_run_eth_transact(self.tx.clone());
+			let dry_run =
+				crate::Pallet::<Test>::dry_run_eth_transact(self.tx.clone(), Default::default());
 			self.tx.gas_price = Some(<Pallet<Test>>::evm_base_fee());
 
 			match dry_run {
@@ -517,7 +520,7 @@ mod test {
 					result.function,
 					extra,
 					tx,
-					self.dry_run.unwrap().gas_required,
+					self.dry_run.unwrap().weight_required,
 					signed_transaction,
 				))
 			})
@@ -527,29 +530,31 @@ mod test {
 	#[test]
 	fn check_eth_transact_call_works() {
 		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
-		let (expected_encoded_len, call, _, tx, gas_required, signed_transaction) =
+		let (expected_encoded_len, call, _, tx, weight_required, signed_transaction) =
 			builder.check().unwrap();
-		let expected_effective_gas_price: u32 = <Test as Config>::NativeToEthRatio::get();
+		let expected_effective_gas_price =
+			ExtBuilder::default().build().execute_with(|| Pallet::<Test>::evm_base_fee());
 
 		match call {
 			RuntimeCall::Contracts(crate::Call::eth_call::<Test> {
 				dest,
 				value,
+				weight_limit,
 				data,
-				gas_limit,
 				transaction_encoded,
 				effective_gas_price,
 				encoded_len,
+				..
 			}) if dest == tx.to.unwrap() &&
 				value == tx.value.unwrap_or_default().as_u64().into() &&
 				data == tx.input.to_vec() &&
 				transaction_encoded == signed_transaction.signed_payload() &&
-				effective_gas_price == expected_effective_gas_price.into() =>
+				effective_gas_price == expected_effective_gas_price =>
 			{
 				assert_eq!(encoded_len, expected_encoded_len);
 				assert!(
-					gas_limit.all_gte(gas_required),
-					"Assert failed: gas_limit={gas_limit:?} >= gas_required={gas_required:?}"
+					weight_limit.all_gte(weight_required),
+					"Assert failed: weight_limit={weight_limit:?} >= weight_required={weight_required:?}"
 				);
 			},
 			_ => panic!("Call does not match."),
@@ -564,30 +569,32 @@ mod test {
 			expected_code.clone(),
 			expected_data.clone(),
 		);
-		let (expected_encoded_len, call, _, tx, gas_required, signed_transaction) =
+		let (expected_encoded_len, call, _, tx, weight_required, signed_transaction) =
 			builder.check().unwrap();
-		let expected_effective_gas_price: u32 = <Test as Config>::NativeToEthRatio::get();
+		let expected_effective_gas_price =
+			ExtBuilder::default().build().execute_with(|| Pallet::<Test>::evm_base_fee());
 		let expected_value = tx.value.unwrap_or_default().as_u64().into();
 
 		match call {
 			RuntimeCall::Contracts(crate::Call::eth_instantiate_with_code::<Test> {
 				value,
+				weight_limit,
 				code,
 				data,
-				gas_limit,
 				transaction_encoded,
 				effective_gas_price,
 				encoded_len,
+				..
 			}) if value == expected_value &&
 				code == expected_code &&
 				data == expected_data &&
 				transaction_encoded == signed_transaction.signed_payload() &&
-				effective_gas_price == expected_effective_gas_price.into() =>
+				effective_gas_price == expected_effective_gas_price =>
 			{
 				assert_eq!(encoded_len, expected_encoded_len);
 				assert!(
-					gas_limit.all_gte(gas_required),
-					"Assert failed: gas_limit={gas_limit:?} >= gas_required={gas_required:?}"
+					weight_limit.all_gte(weight_required),
+					"Assert failed: weight_limit={weight_limit:?} >= weight_required={weight_required:?}"
 				);
 			},
 			_ => panic!("Call does not match."),
@@ -693,6 +700,13 @@ mod test {
 			UncheckedExtrinsicBuilder::call_with(RUNTIME_PALLETS_ADDR).data(remark.encode());
 		let (_, call, _, _, _, _) = builder.check().unwrap();
 
-		assert_eq!(call, remark);
+		match call {
+			RuntimeCall::Contracts(crate::Call::eth_substrate_call {
+				call: inner_call, ..
+			}) => {
+				assert_eq!(*inner_call, remark);
+			},
+			_ => panic!("Expected the RuntimeCall::Contracts variant, got: {:?}", call),
+		}
 	}
 }

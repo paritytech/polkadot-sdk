@@ -134,6 +134,8 @@ pub enum ClientError {
 const LOG_TARGET: &str = "eth-rpc::client";
 
 const REVERT_CODE: i32 = 3;
+
+const NOTIFIER_CAPACITY: usize = 16;
 impl From<ClientError> for ErrorObjectOwned {
 	fn from(err: ClientError) -> Self {
 		match err {
@@ -172,9 +174,8 @@ pub struct Client {
 	max_block_weight: Weight,
 	/// Whether the node has automine enabled.
 	automine: bool,
-	/// A notifier, that informs subscribers of new transaction hashes that are included in a
-	/// block, when automine is enabled.
-	tx_notifier: Option<tokio::sync::broadcast::Sender<H256>>,
+	/// A notifier, that informs subscribers of new best blocks.
+	block_notifier: Option<tokio::sync::broadcast::Sender<H256>>,
 	/// A lock to ensure only one subscription can perform write operations at a time.
 	subscription_lock: Arc<Mutex<()>>,
 }
@@ -247,11 +248,22 @@ impl Client {
 			chain_id,
 			max_block_weight,
 			automine,
-			tx_notifier: automine.then(|| tokio::sync::broadcast::channel::<H256>(10).0),
+			block_notifier: automine
+				.then(|| tokio::sync::broadcast::channel::<H256>(NOTIFIER_CAPACITY).0),
 			subscription_lock: Arc::new(Mutex::new(())),
 		};
 
 		Ok(client)
+	}
+
+	/// Creates a block notifier instance.
+	pub fn create_block_notifier(&mut self) {
+		self.block_notifier = Some(tokio::sync::broadcast::channel::<H256>(NOTIFIER_CAPACITY).0);
+	}
+
+	/// Sets a block notifier
+	pub fn set_block_notifier(&mut self, notifier: Option<tokio::sync::broadcast::Sender<H256>>) {
+		self.block_notifier = notifier;
 	}
 
 	/// Subscribe to past blocks executing the callback for each block in `range`.
@@ -349,7 +361,8 @@ impl Client {
 	) -> Result<(), ClientError> {
 		log::info!(target: LOG_TARGET, "🔌 Subscribing to new blocks ({subscription_type:?})");
 		self.subscribe_new_blocks(subscription_type, |block| async {
-			let evm_block = self.runtime_api(block.hash()).eth_block().await?;
+			let hash = block.hash();
+			let evm_block = self.runtime_api(hash).eth_block().await?;
 			let (_, receipts): (Vec<_>, Vec<_>) = self
 				.receipt_provider
 				.insert_block_receipts(&block, &evm_block.hash)
@@ -357,15 +370,14 @@ impl Client {
 				.into_iter()
 				.unzip();
 
-			self.block_provider.update_latest(block, subscription_type).await;
+			self.block_provider.update_latest(Arc::new(block), subscription_type).await;
 			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
 
 			// Only broadcast for best blocks to avoid duplicate notifications.
-			match (subscription_type, &self.tx_notifier) {
-				(SubscriptionType::BestBlocks, Some(sender)) if sender.receiver_count() > 0 =>
-					for receipt in &receipts {
-						let _ = sender.send(receipt.transaction_hash);
-					},
+			match (subscription_type, &self.block_notifier) {
+				(SubscriptionType::BestBlocks, Some(sender)) if sender.receiver_count() > 0 => {
+					let _ = sender.send(hash);
+				},
 				_ => {},
 			}
 			Ok(())
@@ -448,14 +460,14 @@ impl Client {
 	pub async fn submit(
 		&self,
 		call: subxt::tx::DefaultPayload<EthTransact>,
-	) -> Result<H256, ClientError> {
+	) -> Result<(), ClientError> {
 		let ext = self.api.tx().create_unsigned(&call).map_err(ClientError::from)?;
 		let hash: H256 = self
 			.rpc_client
 			.request("author_submitExtrinsic", rpc_params![to_hex(ext.encoded())])
 			.await?;
 		log::debug!(target: LOG_TARGET, "Submitted transaction with substrate hash: {hash:?}");
-		Ok(hash)
+		Ok(())
 	}
 
 	/// Get an EVM transaction receipt by hash.
@@ -742,9 +754,9 @@ impl Client {
 		self.max_block_weight
 	}
 
-	/// Get the block notifier, if automine is enabled.
-	pub fn tx_notifier(&self) -> Option<tokio::sync::broadcast::Sender<H256>> {
-		self.tx_notifier.clone()
+	/// Get the block notifier, if automine is enabled or Self::create_block_notifier was called.
+	pub fn block_notifier(&self) -> Option<tokio::sync::broadcast::Sender<H256>> {
+		self.block_notifier.clone()
 	}
 
 	/// Get the logs matching the given filter.
