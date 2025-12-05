@@ -37,7 +37,7 @@ Available presets: `development`, `local_testnet`
   --runtime ./target/release/wbuild/yet-another-parachain-runtime/yet_another_parachain_runtime.wasm \
   named-preset development
 
-# Patch chain spec to add relay_chain for parachain mode
+# Node does not start without a RC. Patch chain spec with dummy RC.
 jq '. + {"relay_chain": "rococo-local"}' yap-dev-spec.json > tmp.json && mv tmp.json yap-dev-spec.json
 ```
 
