@@ -48,6 +48,7 @@ use subxt::{
 		},
 	},
 	config::{HashFor, Header},
+	ext::subxt_rpcs::rpc_params,
 	Config, OnlineClient,
 };
 use thiserror::Error;
