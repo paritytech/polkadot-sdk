@@ -45,7 +45,7 @@ pub mod time {
 
 	frame_support::parameter_types! {
 		pub EpochDurationInBlocks: BlockNumber =
-			prod_or_fast!(1 * HOURS, 15 * MINUTES, "ROCOCO_EPOCH_DURATION");
+			prod_or_fast!(1 * HOURS, 1 * MINUTES, "ROCOCO_EPOCH_DURATION");
 	}
 
 	// These time units are defined in number of blocks.
