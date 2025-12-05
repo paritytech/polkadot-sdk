@@ -67,6 +67,7 @@ sp-runtime.default-features = true
 sp-runtime.workspace = true
 sp-statement-store.default-features = true
 sp-statement-store.workspace = true
+sp-timestamp.workspace = true
 substrate-frame-rpc-system.default-features = true
 substrate-frame-rpc-system.workspace = true
 substrate-state-trie-migration-rpc.default-features = true
