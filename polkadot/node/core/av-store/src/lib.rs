@@ -1280,15 +1280,7 @@ fn store_chunk(
 			write_chunk(&mut tx, config, &candidate_hash, validator_index, &chunk);
 			write_meta(&mut tx, config, &candidate_hash, &meta);
 		},
-		None => {
-			gum::debug!(
-				target: LOG_TARGET,
-				?candidate_hash,
-				validator_index = %validator_index.0,
-				"Cannot store chunk for unknown validator index.",
-			);
-			return Ok(false) // out of bounds.
-		},
+		None => return Ok(false) // out of bounds.
 	}
 
 	gum::debug!(

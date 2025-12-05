@@ -321,50 +321,15 @@ impl RunningTask {
 				},
 			};
 
-			gum::info!(
-				target: LOG_TARGET,
-				validator = ?validator,
-				relay_parent = ?self.relay_parent,
-				group_index = ?self.group_index,
-				session_index = ?self.session_index,
-				chunk_index = ?self.request.index,
-				candidate_hash = ?self.request.candidate_hash,
-				"Received erasure chunk from validator",
-			);
-
 			// Data genuine?
 			if !self.validate_chunk(&validator, &chunk, self.chunk_index) {
 				bad_validators.push(validator);
 				continue
 			}
 
-			gum::info!(
-				target: LOG_TARGET,
-				validator = ?validator,
-				relay_parent = ?self.relay_parent,
-				group_index = ?self.group_index,
-				session_index = ?self.session_index,
-				chunk_index = ?self.request.index,
-				candidate_hash = ?self.request.candidate_hash,
-				origin = ?self.origin,
-				"Erasure chunk validated successfully",
-			);
-
 			// Ok, let's store it and be happy:
 			self.store_chunk(chunk).await;
 			succeeded = true;
-
-			gum::info!(
-				target: LOG_TARGET,
-				validator = ?validator,
-				relay_parent = ?self.relay_parent,
-				group_index = ?self.group_index,
-				session_index = ?self.session_index,
-				chunk_index = ?self.request.index,
-				candidate_hash = ?self.request.candidate_hash,
-				origin = ?self.origin,
-				"Erasure chunk stored successfully",
-			);
 			break
 		}
 		if succeeded {

@@ -1,7 +1,8 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Test we are producing 12-second parachain blocks if using an old collator, pre async-backing.
+// Test we are producing 12-second parachain blocks if using 2x async-backing parachains,
+// ensure that chunk fetch requests are being made speculatively.
 
 use anyhow::anyhow;
 

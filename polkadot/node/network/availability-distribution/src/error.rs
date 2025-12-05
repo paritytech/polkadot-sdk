@@ -94,6 +94,9 @@ pub enum Error {
 
 	#[error("Error from subsystem-util: {0}")]
 	SubsystemUtil(#[from] polkadot_node_subsystem_util::Error),
+
+	#[error("Retrieving response from Availability Store unexpectedly failed")]
+	AvailabilityStore,
 }
 
 /// General result abbreviation type alias.
@@ -120,7 +123,8 @@ pub fn log_error(
 				JfyiError::FailedNodeFeatures(_) |
 				JfyiError::ErasureCoding(_) |
 				JfyiError::NoSuchBlockHeader |
-				JfyiError::SubsystemUtil(_) => gum::warn!(target: LOG_TARGET, error = %jfyi, ctx),
+				JfyiError::SubsystemUtil(_) |
+				JfyiError::AvailabilityStore => gum::warn!(target: LOG_TARGET, error = %jfyi, ctx),
 				JfyiError::FetchPoV(_) |
 				JfyiError::SendResponse |
 				JfyiError::NoSuchPoV |

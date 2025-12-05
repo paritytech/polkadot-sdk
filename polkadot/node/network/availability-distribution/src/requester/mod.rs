@@ -170,11 +170,10 @@ impl Requester {
 
 		let cores = recv_runtime(request_availability_cores(leaf, sender).await).await?;
 		let backable = request_backable_candidates(&cores, None, &new_head, sender).await?;
-
-		gum::info!(
+		gum::trace!(
 			target: LOG_TARGET,
-			backable = ?backable,
-			"Backable candidates"
+			leaf_hash=?leaf,
+			"Got {} backable candidates", backable.len()
 		);
 
 		// now get the backed candidates corresponding to these candidate receipts
@@ -183,31 +182,15 @@ impl Requester {
 			backable.clone(),
 			tx,
 		)).await;
-
 		let candidates = rx.await?;
-		gum::info!(
-			target: LOG_TARGET,
-			leaf_hash=?leaf,
-			candidates=?candidates,
-			"Got {} backed candidates", candidates.len()
-		);
 
 		// Process candidates and collect cores
-		for (para_id, candidates) in candidates.iter() {
+		for (_, candidates) in candidates.iter() {
 			for candidate in candidates {
 				let (_, core_index) = candidate.validator_indices_and_core_index();
 				let Some(core_index) = core_index else { continue };
 
 				let receipt = candidate.candidate();
-
-				gum::info!(
-					target: LOG_TARGET,
-					para_id = ?para_id,
-					candidate_hash = ?receipt.hash(),
-					core_index = ?core_index,
-					"Scheduling candidate for core"
-				);
-
 				let core = (
 					core_index,
 					CoreInfo {
@@ -217,11 +200,6 @@ impl Requester {
 						group_responsible: get_group_index_for_backed_candidate(sender, core_index, leaf).await?,
 						origin: CoreInfoOrigin::Scheduled,
 					},
-				);
-				gum::info!(
-					target: LOG_TARGET,
-					?core,
-					"Scheduled core info"
 				);
 				scheduled_cores.push(core);
 			}
@@ -262,16 +240,7 @@ impl Requester {
 			let cores = cores
 				.into_iter()
 				.map(|(index, occ)| {
-					gum::info!(
-						target: LOG_TARGET,
-						index = ?index,
-						candidate_hash = ?occ.candidate_hash,
-						next_up_on_available = ?occ.next_up_on_available,
-						leaf = ?leaf,
-						"Scheduled parachain candidate"
-					);
-
-					let core = (
+					(
 						index,
 						CoreInfo {
 							candidate_hash: occ.candidate_hash,
@@ -280,13 +249,7 @@ impl Requester {
 							group_responsible: occ.group_responsible,
 							origin: CoreInfoOrigin::Occupied,
 						},
-					);
-					gum::info!(
-						target: LOG_TARGET,
-						?core,
-						"Occupied core info"
-					);
-					core
+					)
 				})
 				.collect::<Vec<_>>();
 
@@ -303,10 +266,10 @@ impl Requester {
 		if self.speculative_availability {
 			let scheduled_cores = self.request_backable_candidates_core_info(ctx, new_head).await?;
 			if scheduled_cores.len() > 0 {
-				gum::info!(
+				gum::trace!(
 					target: LOG_TARGET,
 					?scheduled_cores,
-					"Adding scheduled cores"
+					"Query scheduled cores"
 				);
 
 				let candidate_hashes = scheduled_cores.iter().map(|(_, core_info)| core_info.candidate_hash).collect::<HashSet<_>>();
@@ -346,11 +309,8 @@ impl Requester {
 							AvailabilityStoreMessage::NoteBackableCandidates{ candidate_hashes: candidate_hashes, num_validators, tx },
 						)
 						.await;
-					if let Err(err) = rx.await {
-						gum::error!(target: LOG_TARGET, "Sending NoteBackableCandidate message failed: {:?}", err);
-					} else {
-						self.add_cores(ctx, runtime, leaf, leaf_session_index, scheduled_cores).await?;
-					}
+					rx.await?.map_err(|_| Error::AvailabilityStore)?;
+					self.add_cores(ctx, runtime, leaf, leaf_session_index, scheduled_cores).await?;
 				}
 			}
 		}
@@ -360,17 +320,9 @@ impl Requester {
 	/// Stop requesting chunks for obsolete heads.
 	fn stop_requesting_chunks(&mut self, obsolete_leaves: impl Iterator<Item = Hash>) {
 		let obsolete_leaves: HashSet<_> = obsolete_leaves.collect();
-		self.fetches.retain(|candidate_hash, task| {
+		self.fetches.retain(|_, task| {
 			task.remove_leaves(&obsolete_leaves);
-			let is_live = task.is_live();
-			if !is_live {
-				gum::info!(
-					target: LOG_TARGET,
-					?candidate_hash,
-					"Removing fetch task as no longer live"
-				);
-			}
-			is_live
+			task.is_live()
 		})
 	}
 
@@ -466,11 +418,6 @@ impl Stream for Requester {
 				Poll::Ready(Some(FromFetchTask::Concluded(None))) => continue,
 				Poll::Ready(Some(FromFetchTask::Failed(candidate_hash))) => {
 					// Make sure we retry on next block still pending availability.
-					gum::info!(
-						target: LOG_TARGET,
-						?candidate_hash,
-						"Fetch task failed, removing from active fetches to allow retrying"
-					);
 					self.fetches.remove(&candidate_hash);
 				},
 				Poll::Ready(None) => return Poll::Ready(None),
@@ -553,12 +500,11 @@ where
 	Ok(ancestors)
 }
 
-// Assuming you have the backed_candidate and relay_parent
+/// Request group index assuming you have the core index and relay parent
 async fn get_group_index_for_backed_candidate<Sender>(
 	sender: &mut Sender,
 	core_index: CoreIndex,
     relay_parent: Hash,
-   
 ) -> Result<GroupIndex>
 where
     Sender: overseer::SubsystemSender<RuntimeApiMessage> + overseer::SubsystemSender<ChainApiMessage>,
