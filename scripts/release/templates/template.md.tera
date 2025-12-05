@@ -15,10 +15,6 @@ This release contains the changes from `{{ env.REF1 | replace(from="refs/tags/",
 
 {% include "compiler.md.tera" -%}
 
-{% if env.NO_RUNTIMES == "false" and env.CRATES_ONLY == "false" -%}
 {% include "runtimes.md.tera" -%}
-{% endif -%}
 
-{% if env.CRATES_ONLY == "false" -%}
 {% include "docker_image.md.tera" -%}
-{% endif -%}
