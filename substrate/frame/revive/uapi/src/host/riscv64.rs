@@ -67,7 +67,7 @@ mod sys {
 		pub fn call_evm(
 			flags: u32,
 			callee: u32,
-			value: u32,
+			value_ptr: u32,
 			gas: u64,
 			input_data: u64,
 			output_data: u64,
@@ -246,7 +246,7 @@ impl HostFn for HostFnImpl {
 		flags: CallFlags,
 		callee: &[u8; 20],
 		gas: u64,
-		value: &[u8; 32],
+		value_ptr: &[u8; 32],
 		input: &[u8],
 		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
@@ -258,7 +258,7 @@ impl HostFn for HostFnImpl {
 			sys::call_evm(
 				flags.bits(),
 				callee.as_ptr() as _,
-				value.as_ptr() as _,
+				value_ptr.as_ptr() as _,
 				gas,
 				input_data,
 				output_data,
