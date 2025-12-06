@@ -73,6 +73,14 @@ mod sys {
 			input_data: u64,
 			output_data: u64,
 		) -> ReturnCode;
+		pub fn call_evm(
+			flags: u32,
+			callee: u32,
+			value_ptr: u32,
+			gas: u64,
+			input_data: u64,
+			output_data: u64,
+		) -> ReturnCode;
 		pub fn delegate_call(
 			flags_and_callee: u64,
 			ref_time_limit: u64,
@@ -88,6 +96,13 @@ mod sys {
 			input_data: u64,
 			output_data: u64,
 			address_and_salt: u64,
+		) -> ReturnCode;
+		pub fn delegate_call_evm(
+			flags: u32,
+			callee: u32,
+			gas: u64,
+			input_data: u64,
+			output_data: u64,
 		) -> ReturnCode;
 		pub fn terminate(beneficiary_ptr: *const u8);
 		pub fn call_data_copy(out_ptr: *mut u8, out_len: u32, offset: u32);
@@ -250,6 +265,36 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	fn call_evm(
+		flags: CallFlags,
+		callee: &[u8; 20],
+		gas: u64,
+		value_ptr: &[u8; 32],
+		input: &[u8],
+		mut output: Option<&mut &mut [u8]>,
+	) -> Result {
+		let input_data = pack_hi_lo(input.len() as _, input.as_ptr() as _);
+		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
+		let output_data = pack_hi_lo(&mut output_len as *mut _ as _, output_ptr as _);
+
+		let ret_code = unsafe {
+			sys::call_evm(
+				flags.bits(),
+				callee.as_ptr() as _,
+				value_ptr.as_ptr() as _,
+				gas,
+				input_data,
+				output_data,
+			)
+		};
+
+		if let Some(ref mut output) = output {
+			extract_from_slice(output, output_len as usize);
+		}
+
+		ret_code.into()
+	}
+
 	fn delegate_call(
 		flags: CallFlags,
 		address: &[u8; 20],
@@ -272,6 +317,34 @@ impl HostFn for HostFnImpl {
 				ref_time_limit,
 				proof_size_limit,
 				deposit_limit_ptr as _,
+				input_data,
+				output_data,
+			)
+		};
+
+		if let Some(ref mut output) = output {
+			extract_from_slice(output, output_len as usize);
+		}
+
+		ret_code.into()
+	}
+
+	fn delegate_call_evm(
+		flags: CallFlags,
+		address: &[u8; 20],
+		gas: u64,
+		input: &[u8],
+		mut output: Option<&mut &mut [u8]>,
+	) -> Result {
+		let input_data = pack_hi_lo(input.len() as u32, input.as_ptr() as u32);
+		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
+		let output_data = pack_hi_lo(&mut output_len as *mut _ as u32, output_ptr as u32);
+
+		let ret_code = unsafe {
+			sys::delegate_call_evm(
+				flags.bits(),
+				address.as_ptr() as _,
+				gas,
 				input_data,
 				output_data,
 			)
