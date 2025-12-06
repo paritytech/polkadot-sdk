@@ -32,6 +32,7 @@ pallet-asset-conversion.default-features = true
 pallet-asset-conversion.workspace = true
 pallet-asset-conversion-tx-payment.default-features = true
 pallet-asset-conversion-tx-payment.workspace = true
+pallet-revive = { workspace = true, default-features = true }
 pallet-skip-feeless-payment.default-features = true
 pallet-skip-feeless-payment.workspace = true
 sc-block-builder.default-features = true
