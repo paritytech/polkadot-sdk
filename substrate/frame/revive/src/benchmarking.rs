@@ -1425,16 +1425,11 @@ mod benchmarks {
 		info.write(&key, Some(vec![42u8; o as usize]), None, false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
-		// Warm up storage if c=0 (hot)
+		// Whitelist key if c=0 (hot)
 		if c == 0 {
-			let _ = runtime.bench_set_storage(
-				memory.as_mut_slice(),
-				StorageFlags::empty().bits(),
-				0,           // key_ptr
-				max_key_len, // key_len
-				max_key_len, // value_ptr
-				n,           // value_len
-			);
+			let mut full_key = info.child_trie_info().prefixed_storage_key().into_inner();
+			full_key.extend_from_slice(&key.hash());
+			frame_benchmarking::benchmarking::add_to_whitelist(full_key.into());
 		}
 
 		let result;
@@ -1472,14 +1467,19 @@ mod benchmarks {
 		.abi_encode();
 
 		let mut call_setup = CallSetup::<T>::default();
+
+		// Whitelist child storage key if c=0 (hot) to exclude from PoV
+		if c == 0 {
+			let info = call_setup.contract().info()?;
+			// Construct full key: prefixed child trie key + hashed storage key
+			let mut full_key = info.child_trie_info().prefixed_storage_key().into_inner();
+			full_key.extend_from_slice(&key.hash());
+			frame_benchmarking::benchmarking::add_to_whitelist(full_key.into());
+		}
+
 		let (mut ext, _) = call_setup.ext();
 		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
-
-		// Warm up storage if c=0 (hot)
-		if c == 0 {
-			let _ = ext.get_storage(&key);
-		}
 
 		let result;
 		#[block]
@@ -1513,16 +1513,11 @@ mod benchmarks {
 
 		let out_ptr = max_key_len + 4;
 
-		// Warm up storage if c=0 (hot)
+		// Whitelist key if c=0 (hot)
 		if c == 0 {
-			let _ = runtime.bench_get_storage(
-				memory.as_mut_slice(),
-				StorageFlags::empty().bits(),
-				0,           // key_ptr
-				max_key_len, // key_len
-				out_ptr,     // out_ptr
-				max_key_len, // out_len_ptr
-			);
+			let mut full_key = info.child_trie_info().prefixed_storage_key().into_inner();
+			full_key.extend_from_slice(&key.hash());
+			frame_benchmarking::benchmarking::add_to_whitelist(full_key.into());
 		}
 
 		let result;
@@ -1560,14 +1555,18 @@ mod benchmarks {
 		.abi_encode();
 
 		let mut call_setup = CallSetup::<T>::default();
+
+		// Whitelist key if c=0 (hot)
+		if c == 0 {
+			let info = call_setup.contract().info()?;
+			let mut full_key = info.child_trie_info().prefixed_storage_key().into_inner();
+			full_key.extend_from_slice(&key.hash());
+			frame_benchmarking::benchmarking::add_to_whitelist(full_key.into());
+		}
+
 		let (mut ext, _) = call_setup.ext();
 		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
-
-		// Warm up storage if c=0 (hot)
-		if c == 0 {
-			let _ = ext.get_storage(&key);
-		}
 
 		let result;
 		#[block]
@@ -1602,14 +1601,19 @@ mod benchmarks {
 		.abi_encode();
 
 		let mut call_setup = CallSetup::<T>::default();
+
+		// Whitelist child storage key if c=0 (hot) to exclude from PoV
+		if c == 0 {
+			let info = call_setup.contract().info()?;
+			// Construct full key: prefixed child trie key + hashed storage key
+			let mut full_key = info.child_trie_info().prefixed_storage_key().into_inner();
+			full_key.extend_from_slice(&key.hash());
+			frame_benchmarking::benchmarking::add_to_whitelist(full_key.into());
+		}
+
 		let (mut ext, _) = call_setup.ext();
 		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
-
-		// Warm up storage if c=0 (hot)
-		if c == 0 {
-			let _ = ext.get_storage(&key);
-		}
 
 		let result;
 		#[block]
