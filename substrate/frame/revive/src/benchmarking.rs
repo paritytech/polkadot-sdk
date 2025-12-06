@@ -1478,7 +1478,7 @@ mod benchmarks {
 
 		let mut call_setup = CallSetup::<T>::default();
 
-		// Whitelist child storage key if c=0 (hot) to exclude from PoV
+		// Whitelist key if c=0 (hot)
 		if c == 0 {
 			let info = call_setup.contract().info()?;
 			// Construct full key: prefixed child trie key + hashed storage key
@@ -1612,7 +1612,7 @@ mod benchmarks {
 
 		let mut call_setup = CallSetup::<T>::default();
 
-		// Whitelist child storage key if c=0 (hot) to exclude from PoV
+		// Whitelist key if c=0 (hot)
 		if c == 0 {
 			let info = call_setup.contract().info()?;
 			// Construct full key: prefixed child trie key + hashed storage key
