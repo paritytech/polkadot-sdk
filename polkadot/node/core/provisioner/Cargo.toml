@@ -25,6 +25,7 @@ schnellru = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
+bitvec = { features = ["alloc"], workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives = { workspace = true, features = ["test"] }
 polkadot-primitives-test-helpers = { workspace = true }

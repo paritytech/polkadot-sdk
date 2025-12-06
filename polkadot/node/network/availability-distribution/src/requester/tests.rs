@@ -201,8 +201,11 @@ fn test_harness<T: Future<Output = ()>>(
 #[test]
 fn check_ancestry_lookup_in_same_session() {
 	let test_state = TestState::new();
-	let mut requester =
-		Requester::new(ReqProtocolNames::new(&Hash::repeat_byte(0xff), None), Default::default());
+	let mut requester = Requester::new(
+		ReqProtocolNames::new(&Hash::repeat_byte(0xff), None),
+		Default::default(),
+		false,
+	);
 	let keystore = make_ferdie_keystore();
 	let mut runtime = RuntimeInfo::new(Some(keystore));
 
@@ -268,8 +271,11 @@ fn check_ancestry_lookup_in_same_session() {
 #[test]
 fn check_ancestry_lookup_in_different_sessions() {
 	let mut test_state = TestState::new();
-	let mut requester =
-		Requester::new(ReqProtocolNames::new(&Hash::repeat_byte(0xff), None), Default::default());
+	let mut requester = Requester::new(
+		ReqProtocolNames::new(&Hash::repeat_byte(0xff), None),
+		Default::default(),
+		false,
+	);
 	let keystore = make_ferdie_keystore();
 	let mut runtime = RuntimeInfo::new(Some(keystore));
 
