@@ -104,14 +104,16 @@ impl AvailabilityDistributionSubsystem {
 
 	/// Start processing work as passed on from the Overseer.
 	async fn run<Context>(self, mut ctx: Context) -> std::result::Result<(), FatalError> {
-		let Self { mut runtime, recvs, metrics, req_protocol_names, speculative_availability } = self;
+		let Self { mut runtime, recvs, metrics, req_protocol_names, speculative_availability } =
+			self;
 
 		let IncomingRequestReceivers {
 			pov_req_receiver,
 			chunk_req_v1_receiver,
 			chunk_req_v2_receiver,
 		} = recvs;
-		let mut requester = Requester::new(req_protocol_names, metrics.clone(), speculative_availability).fuse();
+		let mut requester =
+			Requester::new(req_protocol_names, metrics.clone(), speculative_availability).fuse();
 		let mut warn_freq = gum::Freq::new();
 
 		{

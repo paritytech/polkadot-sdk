@@ -268,7 +268,7 @@ pub fn prepare_test(
 				},
 				state.req_protocol_names.clone(),
 				Metrics::try_register(&dependencies.registry).unwrap(),
-				false,  // Disable speculative availability for this benchmark
+				false, // Disable speculative availability for this benchmark
 			);
 
 			let chain_api_state = ChainApiState { block_headers: state.block_headers.clone() };

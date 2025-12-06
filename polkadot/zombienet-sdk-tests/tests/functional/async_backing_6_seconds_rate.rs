@@ -82,13 +82,19 @@ async fn async_backing_6_seconds_rate_test() -> Result<(), anyhow::Error> {
 	)
 	.await?;
 
-	let scheduled_metric_name = "polkadot_parachain_fetched_chunks_total{origin=\"scheduled\",success=\"succeeded\"}";
+	let scheduled_metric_name =
+		"polkadot_parachain_fetched_chunks_total{origin=\"scheduled\",success=\"succeeded\"}";
 	// scheduled chunk fetches should be 0 since speculative availability is disabled
-	assert!(relay_node.assert_with(scheduled_metric_name, |v| {v == 0.0}).await?);
+	assert!(relay_node.assert_with(scheduled_metric_name, |v| { v == 0.0 }).await?);
 
-	let occupied_metric_name = "polkadot_parachain_fetched_chunks_total{origin=\"occupied\",success=\"succeeded\"}";
+	let occupied_metric_name =
+		"polkadot_parachain_fetched_chunks_total{origin=\"occupied\",success=\"succeeded\"}";
 	// all requests should be occupied since speculative availability is disabled
-	assert!(relay_node.assert_with(occupied_metric_name, |v| {v >= 22.0 && v <= 40.0}).await?);
+	assert!(
+		relay_node
+			.assert_with(occupied_metric_name, |v| { v >= 22.0 && v <= 40.0 })
+			.await?
+	);
 
 	// Assert the parachain finalized block height is also on par with the number of backed
 	// candidates. We can only do this for the collator based on cumulus.

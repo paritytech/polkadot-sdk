@@ -31,21 +31,19 @@ use futures::{
 
 use polkadot_node_network_protocol::request_response::{v1, v2, IsRequest, ReqProtocolNames};
 use polkadot_node_subsystem::{
-	messages::{ChainApiMessage, RuntimeApiMessage, CandidateBackingMessage, AvailabilityStoreMessage},
-	overseer, ActivatedLeaf, ActiveLeavesUpdate,
-	SubsystemSender,
+	messages::{
+		AvailabilityStoreMessage, CandidateBackingMessage, ChainApiMessage, RuntimeApiMessage,
+	},
+	overseer, ActivatedLeaf, ActiveLeavesUpdate, SubsystemSender,
 };
 use polkadot_node_subsystem_util::{
 	availability_chunks::availability_chunk_index,
-	runtime::{get_occupied_cores, RuntimeInfo},
-	request_availability_cores,
-	request_backable_candidates,
-	request_validator_groups,
-	runtime::recv_runtime,
+	request_availability_cores, request_backable_candidates, request_validator_groups,
+	runtime::{get_occupied_cores, recv_runtime, RuntimeInfo},
 };
 use polkadot_primitives::{CandidateHash, CoreIndex, GroupIndex, Hash, SessionIndex};
 
-use super::{FatalError, Metrics, Result, LOG_TARGET, error::Error};
+use super::{error::Error, FatalError, Metrics, Result, LOG_TARGET};
 
 #[cfg(test)]
 mod tests;
@@ -82,7 +80,7 @@ struct CoreInfo {
 enum CoreInfoOrigin {
 	Occupied,
 	Scheduled,
-}	
+}
 
 /// Requester takes care of requesting erasure chunks from backing groups and stores them in the
 /// av store.
@@ -125,7 +123,11 @@ impl Requester {
 	///
 	/// You must feed it with `ActiveLeavesUpdate` via `update_fetching_heads` and make it progress
 	/// by advancing the stream.
-	pub fn new(req_protocol_names: ReqProtocolNames, metrics: Metrics, speculative_availability: bool) -> Self {
+	pub fn new(
+		req_protocol_names: ReqProtocolNames,
+		metrics: Metrics,
+		speculative_availability: bool,
+	) -> Self {
 		let (tx, rx) = mpsc::channel(1);
 		Requester {
 			fetches: HashMap::new(),
@@ -165,7 +167,7 @@ impl Requester {
 		new_head: ActivatedLeaf,
 	) -> Result<Vec<(CoreIndex, CoreInfo)>> {
 		let ActivatedLeaf { hash: leaf, .. } = new_head;
-		let mut scheduled_cores = Vec::new(); 
+		let mut scheduled_cores = Vec::new();
 		let sender = &mut ctx.sender().clone();
 
 		let cores = recv_runtime(request_availability_cores(leaf, sender).await).await?;
@@ -178,10 +180,9 @@ impl Requester {
 
 		// now get the backed candidates corresponding to these candidate receipts
 		let (tx, rx) = oneshot::channel();
-		sender.send_message(CandidateBackingMessage::GetBackableCandidates(
-			backable.clone(),
-			tx,
-		)).await;
+		sender
+			.send_message(CandidateBackingMessage::GetBackableCandidates(backable.clone(), tx))
+			.await;
 		let candidates = rx.await?;
 
 		// Process candidates and collect cores
@@ -197,7 +198,10 @@ impl Requester {
 						candidate_hash: receipt.hash(),
 						relay_parent: receipt.descriptor.relay_parent(),
 						erasure_root: receipt.descriptor.erasure_root(),
-						group_responsible: get_group_index_for_backed_candidate(sender, core_index, leaf).await?,
+						group_responsible: get_group_index_for_backed_candidate(
+							sender, core_index, leaf,
+						)
+						.await?,
 						origin: CoreInfoOrigin::Scheduled,
 					},
 				);
@@ -272,8 +276,11 @@ impl Requester {
 					"Query scheduled cores"
 				);
 
-				let candidate_hashes = scheduled_cores.iter().map(|(_, core_info)| core_info.candidate_hash).collect::<HashSet<_>>();
-				
+				let candidate_hashes = scheduled_cores
+					.iter()
+					.map(|(_, core_info)| core_info.candidate_hash)
+					.collect::<HashSet<_>>();
+
 				let session_info = self
 					.session_cache
 					.get_session_info(
@@ -302,12 +309,14 @@ impl Requester {
 							acc = acc.saturating_add(group.len());
 							acc
 						});
-				
+
 					let (tx, rx) = oneshot::channel();
 					sender
-						.send_message(
-							AvailabilityStoreMessage::NoteBackableCandidates{ candidate_hashes: candidate_hashes, num_validators, tx },
-						)
+						.send_message(AvailabilityStoreMessage::NoteBackableCandidates {
+							candidate_hashes,
+							num_validators,
+							tx,
+						})
 						.await;
 					rx.await?.map_err(|_| Error::AvailabilityStore)?;
 					self.add_cores(ctx, runtime, leaf, leaf_session_index, scheduled_cores).await?;
@@ -504,12 +513,14 @@ where
 async fn get_group_index_for_backed_candidate<Sender>(
 	sender: &mut Sender,
 	core_index: CoreIndex,
-    relay_parent: Hash,
+	relay_parent: Hash,
 ) -> Result<GroupIndex>
 where
-    Sender: overseer::SubsystemSender<RuntimeApiMessage> + overseer::SubsystemSender<ChainApiMessage>,
+	Sender:
+		overseer::SubsystemSender<RuntimeApiMessage> + overseer::SubsystemSender<ChainApiMessage>,
 {
- 	let (validator_groups, mut rotation_info) = recv_runtime(request_validator_groups(relay_parent, sender).await).await?;
+	let (validator_groups, mut rotation_info) =
+		recv_runtime(request_validator_groups(relay_parent, sender).await).await?;
 
 	// Get the block number for the relay_parent to update rotation_info.now
 	let (tx, rx) = oneshot::channel();

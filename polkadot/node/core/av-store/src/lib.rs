@@ -1232,7 +1232,11 @@ fn process_message(
 				},
 			}
 		},
-		AvailabilityStoreMessage::NoteBackableCandidates{ candidate_hashes, num_validators, tx } => {
+		AvailabilityStoreMessage::NoteBackableCandidates {
+			candidate_hashes,
+			num_validators,
+			tx,
+		} => {
 			for candidate_hash in candidate_hashes {
 				let res = note_backable_candidate(
 					&subsystem.db,
@@ -1280,7 +1284,7 @@ fn store_chunk(
 			write_chunk(&mut tx, config, &candidate_hash, validator_index, &chunk);
 			write_meta(&mut tx, config, &candidate_hash, &meta);
 		},
-		None => return Ok(false) // out of bounds.
+		None => return Ok(false), // out of bounds.
 	}
 
 	gum::debug!(

@@ -40,8 +40,7 @@ pub use polkadot_node_metrics::{metrics, Metronome};
 use codec::Encode;
 use futures::channel::{mpsc, oneshot};
 
-use bitvec::vec::BitVec;
-use bitvec;
+use bitvec::{self, vec::BitVec};
 
 use polkadot_primitives::{
 	async_backing::{BackingState, Constraints},
