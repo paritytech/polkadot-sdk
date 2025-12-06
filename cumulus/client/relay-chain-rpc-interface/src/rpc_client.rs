@@ -627,19 +627,6 @@ impl RelayChainRpcClient {
 			.await
 	}
 
-	/// Get published data from all subscribed publishers for a parachain.
-	pub async fn broadcaster_get_subscribed_data(
-		&self,
-		para_id: ParaId,
-		at: RelayHash,
-	) -> Result<BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>, RelayChainError> {
-		self.call_remote_runtime_function(
-			"ParachainHost_get_subscribed_data",
-			at,
-			Some(para_id),
-		)
-		.await
-	}
 
 	/// Get the minimum number of backing votes for a candidate.
 	pub async fn parachain_host_minimum_backing_votes(

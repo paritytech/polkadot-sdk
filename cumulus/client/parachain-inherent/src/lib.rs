@@ -293,7 +293,6 @@ impl ParachainInherentDataProvider {
 				);
 			})
 			.ok()?;
-		let published_data = Default::default();
 
 		Some(ParachainInherentData {
 			downward_messages,
@@ -302,7 +301,6 @@ impl ParachainInherentDataProvider {
 			relay_chain_state,
 			relay_parent_descendants,
 			collator_peer_id: None,
-			published_data,
 		})
 	}
 }

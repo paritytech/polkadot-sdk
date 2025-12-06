@@ -143,13 +143,6 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		Ok(BTreeMap::new())
 	}
 
-	async fn retrieve_subscribed_published_data(
-		&self,
-		_: ParaId,
-		_: PHash,
-	) -> RelayChainResult<BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>> {
-		Ok(BTreeMap::new())
-	}
 
 	async fn persisted_validation_data(
 		&self,

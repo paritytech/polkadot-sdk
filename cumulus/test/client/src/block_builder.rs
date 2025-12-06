@@ -124,7 +124,6 @@ fn init_block_builder(
 				horizontal_messages: Default::default(),
 				relay_parent_descendants: Default::default(),
 				collator_peer_id: None,
-				published_data: Default::default(),
 			},
 		)
 		.expect("Put validation function params failed");

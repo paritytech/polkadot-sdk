@@ -314,11 +314,5 @@ sp_api::decl_runtime_apis! {
 		#[api_version(13)]
 		fn scheduling_lookahead() -> u32;
 
-		/// Get published data from all parachains that the subscriber is subscribed to.
-		/// Returns a map of Publisher ParaId -> published data.
-		/// Only includes publishers that have actual data and are subscribed to.
-		#[api_version(14)]
-		fn get_subscribed_data(subscriber_para_id: ppp::Id) -> BTreeMap<ppp::Id, Vec<(Vec<u8>, Vec<u8>)>>;
-
 	}
 }

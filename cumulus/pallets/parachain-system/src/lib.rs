@@ -630,7 +630,6 @@ pub mod pallet {
 				horizontal_messages,
 				relay_parent_descendants,
 				collator_peer_id: _,
-				published_data: _,
 			} = data;
 
 			// Check that the associated relay chain block number is as expected.

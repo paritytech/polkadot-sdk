@@ -2032,7 +2032,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(14)]
+	#[api_version(13)]
 	impl polkadot_primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			parachains_runtime_api_impl::validators::<Runtime>()
@@ -2211,10 +2211,6 @@ sp_api::impl_runtime_apis! {
 			parachains_staging_runtime_api_impl::validation_code_bomb_limit::<Runtime>()
 		}
 
-		fn get_subscribed_data(_subscriber_para_id: ParaId) -> BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>> {
-			// TODO: This will be removed and replaced with keys_to_include_in_relay_proof approach
-			BTreeMap::new()
-		}
 	}
 
 	#[api_version(5)]
