@@ -1138,7 +1138,7 @@ polkadot-node-core-pvf-prepare-worker = { path = "polkadot/node/core/pvf/prepare
 polkadot-node-core-runtime-api = { path = "polkadot/node/core/runtime-api", default-features = false, version = "27.0.0" }
 polkadot-node-metrics = { path = "polkadot/node/metrics", default-features = false, version = "27.0.0" }
 polkadot-node-network-protocol = { path = "polkadot/node/network/protocol", default-features = false, version = "27.0.0" }
-polkadot-node-primitives = { path = "polkadot/node/primitives", default-features = false, version = "21.0.0" }
+polkadot-node-primitives = { path = "polkadot/node/primitives", default-features = false, version = "21.0.1" }
 polkadot-node-subsystem = { path = "polkadot/node/subsystem", default-features = false, version = "27.0.0" }
 polkadot-node-subsystem-test-helpers = { path = "polkadot/node/subsystem-test-helpers", version = "1.0.0" }
 polkadot-node-subsystem-types = { path = "polkadot/node/subsystem-types", default-features = false, version = "27.0.0" }

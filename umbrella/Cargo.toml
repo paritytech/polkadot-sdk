@@ -2754,7 +2754,7 @@ version = "27.0.0"
 default-features = false
 optional = true
 path = "../polkadot/node/primitives"
-version = "21.0.0"
+version = "21.0.1"
 
 [dependencies.polkadot-node-subsystem]
 default-features = false
