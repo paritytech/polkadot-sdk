@@ -12,3 +12,5 @@ crates:
   bump: major
 - name: polkadot-omni-node-lib
   bump: patch
+- name: polkadot-sdk
+  bump: minor
