@@ -60,7 +60,8 @@ use frame_support::{
 	ensure,
 	traits::{
 		Backing, ChangeMembers, Consideration, EnsureOrigin, EnsureOriginWithArg, Get, GetBacking,
-		InitializeMembers, MaybeConsideration, OriginTrait, StorageVersion,
+		InitializeMembers, MaybeConsideration, OriginTrait, QueryPreimage, StorageVersion,
+		StorePreimage
 	},
 	weights::Weight,
 };
@@ -398,6 +399,8 @@ pub mod pallet {
 		/// consider using a constant cost (e.g., [`crate::deposit::Constant`]) equal to the minimum
 		/// balance under the `runtime-benchmarks` feature.
 		type Consideration: MaybeConsideration<Self::AccountId, u32>;
+
+		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 	}
 
 	#[pallet::genesis_config]
@@ -439,7 +442,7 @@ pub mod pallet {
 	/// Actual proposal for a given hash, if it's current.
 	#[pallet::storage]
 	pub type ProposalOf<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Identity, T::Hash, <T as Config<I>>::Proposal, OptionQuery>;
+		StorageMap<_, Identity, T::Hash, (), OptionQuery>;
 
 	/// Consideration cost created for publishing and storing a proposal.
 	///
@@ -976,7 +979,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let index = ProposalCount::<T, I>::get();
 
 		<ProposalCount<T, I>>::mutate(|i| *i += 1);
-		<ProposalOf<T, I>>::insert(proposal_hash, proposal);
+		T::Preimages::note(proposal.encode().into())?;
+		<ProposalOf<T, I>>::insert(proposal_hash, ());
 		let votes = {
 			let end = frame_system::Pallet::<T>::block_number() + T::MotionDuration::get();
 			Votes { index, threshold, ayes: vec![], nays: vec![], end }
@@ -1135,12 +1139,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		length_bound: u32,
 		weight_bound: Weight,
 	) -> Result<(<T as Config<I>>::Proposal, usize), DispatchError> {
-		let key = ProposalOf::<T, I>::hashed_key_for(hash);
-		// read the length of the proposal storage entry directly
-		let proposal_len =
-			storage::read(&key, &mut [0; 0], 0).ok_or(Error::<T, I>::ProposalMissing)?;
+		let proposal_len = T::Preimages::len(hash).ok_or(Error::<T, I>::ProposalMissing)?;
 		ensure!(proposal_len <= length_bound, Error::<T, I>::WrongProposalLength);
-		let proposal = ProposalOf::<T, I>::get(hash).ok_or(Error::<T, I>::ProposalMissing)?;
+
+		let bytes = T::Preimages::fetch(hash, Some(proposal_len)).map_err(|_| Error::<T, I>::ProposalMissing)?;
+		let proposal = <T as Config<I>>::Proposal::decode(&mut &bytes[..]).map_err(|_| Error::<T, I>::ProposalMissing)?;
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		ensure!(proposal_weight.all_lte(weight_bound), Error::<T, I>::WrongProposalWeight);
 		Ok((proposal, proposal_len as usize))

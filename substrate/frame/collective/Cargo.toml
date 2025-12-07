@@ -29,6 +29,7 @@ sp-runtime = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = false }
+pallet-preimage = { workspace = true, default-features = false}
 
 [features]
 default = ["std"]
