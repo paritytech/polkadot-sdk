@@ -370,6 +370,18 @@ pub struct CollationInfo {
 	pub head_data: HeadData,
 }
 
+/// Request for proving child trie data from the relay chain.
+///
+/// Specifies a child trie identifier and the keys to prove from that trie.
+#[derive(Clone, Debug, Encode, Decode, TypeInfo, PartialEq, Eq)]
+pub struct ChildTrieProofRequest {
+	/// Child trie identifier (converted to `ChildInfo` by the collator).
+	pub child_trie_identifier: Vec<u8>,
+
+	/// Keys to prove from within the child trie.
+	pub data_keys: Vec<Vec<u8>>,
+}
+
 sp_api::decl_runtime_apis! {
 	/// Runtime api to collect information about a collation.
 	///
@@ -402,12 +414,12 @@ sp_api::decl_runtime_apis! {
 		fn relay_parent_offset() -> u32;
 	}
 
-	/// API to tell the collator which relay chain storage keys to include in proofs.
-	///
-	/// Returns subscription information for accessing published data from other parachains
-	/// via the relay chain storage proof.
+	/// API for specifying which relay chain child trie data to include in storage proofs.
 	pub trait KeyToIncludeInRelayProofApi {
-		/// Get relay chain storage keys required for accessing subscribed published data.
-		fn keys_to_include_in_relay_proof() -> Vec<(ParaId, Vec<Vec<u8>>)>;
+		/// Returns child trie proof requests.
+		///
+		/// Each request specifies a child trie identifier and the keys to read from that trie.
+		/// The collator generates proofs for these and includes them in the relay chain state proof.
+		fn child_trie_keys_to_prove() -> Vec<ChildTrieProofRequest>;
 	}
 }

@@ -345,16 +345,16 @@ where
 					"Slot claimed. Building"
 				);
 
-				// Query subscription keys from the parachain runtime
-				let subscription_keys = params
+				// Query child trie proof requests from the parachain runtime
+				let child_trie_requests = params
 					.para_client
 					.runtime_api()
-					.keys_to_include_in_relay_proof(parent_hash)
+					.child_trie_keys_to_prove(parent_hash)
 					.unwrap_or_else(|e| {
 						tracing::warn!(
 							target: crate::LOG_TARGET,
 							error = ?e,
-							"Failed to fetch subscription keys from runtime, using empty vec"
+							"Failed to fetch child trie proof requests from runtime, using empty vec"
 						);
 						Vec::new()
 					});
@@ -374,7 +374,7 @@ where
 						&validation_data,
 						parent_hash,
 						slot_claim.timestamp(),
-						subscription_keys.clone(),
+						child_trie_requests.clone(),
 					)
 					.await
 				{

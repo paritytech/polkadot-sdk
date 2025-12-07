@@ -1039,9 +1039,9 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	/// Previous data roots of published data, used to detect changes.
-	/// Contains (ParaId, root_hash) pairs from the previous block for comparison.
-	/// Stored as BTreeMap for efficient lookups without conversion overhead.
+	/// Child trie root hashes from the previous block, used for change detection.
+	///
+	/// Stored as BTreeMap for efficient lookups during comparison.
 	#[pallet::storage]
 	pub type PreviousPublishedDataRoots<T: Config> = StorageValue<
 		_,
@@ -1131,25 +1131,41 @@ impl<T: Config> Pallet<T> {
 		crate::unincluded_segment::size_after_included(included_hash, &segment)
 	}
 
-	/// Get the subscription keys for accessing published data from other parachains.
+	/// Get child trie proof requests for subscribed publishers.
 	///
-	/// Returns a vector of (ParaId, Vec<Key>) tuples where:
-	/// - ParaId is the publisher parachain we're subscribed to
-	/// - Vec<Key> is the list of specific keys we want from that publisher
-	///   (empty vec means we want ALL keys from that publisher)
+	/// This is pubsub-specific logic that constructs child trie identifiers
+	/// from ParaIds. Other pallets could construct identifiers differently.
 	///
-	/// This is intended to be used by the runtime API to inform the collator which
-	/// relay chain storage keys should be included in the storage proof.
-	pub fn get_subscription_keys() -> Vec<(ParaId, Vec<Vec<u8>>)> {
+	/// Returns child trie proof requests where each request specifies:
+	/// - The child trie identifier (derived from ParaId using pubsub convention)
+	/// - The specific keys to read from that child trie
+	pub fn get_child_trie_proof_requests() -> Vec<cumulus_primitives_core::ChildTrieProofRequest> {
 		Subscriptions::<T>::iter()
 			.map(|(para_id, keys)| {
-				let unbounded_keys: Vec<Vec<u8>> = keys
-					.into_iter()
-					.map(|bounded_key| bounded_key.into_inner())
-					.collect();
-				(para_id, unbounded_keys)
+				cumulus_primitives_core::ChildTrieProofRequest {
+					// Pubsub-specific: derive child trie identifier from ParaId
+					child_trie_identifier: Self::derive_child_storage_key(para_id),
+
+					// Convert bounded keys to unbounded
+					data_keys: keys
+						.into_iter()
+						.map(|bounded_key| bounded_key.into_inner())
+						.collect(),
+				}
 			})
 			.collect()
+	}
+
+	/// Derive child trie identifier from ParaId.
+	///
+	/// This is pubsub-specific. The identifier format matches what the
+	/// broadcaster pallet uses: b"pubsub" + encoded ParaId.
+	fn derive_child_storage_key(para_id: ParaId) -> Vec<u8> {
+		use codec::Encode;
+		const PREFIX: &[u8] = b"pubsub";
+		let mut key = PREFIX.to_vec();
+		key.extend_from_slice(&para_id.encode());
+		key
 	}
 }
 
@@ -1413,7 +1429,7 @@ impl<T: Config> Pallet<T> {
 		weight_used
 	}
 
-	/// Constructs the ChildInfo for a publisher's child trie.
+	/// Derives the child trie info for a publisher parachain.
 	///
 	/// Must match the broadcaster pallet's child trie structure.
 	fn derive_child_info(publisher_para_id: ParaId) -> sp_storage::ChildInfo {
@@ -1427,16 +1443,19 @@ impl<T: Config> Pallet<T> {
 		sp_storage::ChildInfo::new_default(&child_storage_key)
 	}
 
-	/// Collect publisher roots from relay chain state proof for subscribed publishers.
+	/// Collects child trie root hashes for subscribed publishers from the relay chain state proof.
+	///
+	/// Returns pairs of (ParaId, root_hash) for change detection optimization.
 	fn collect_publisher_roots(
 		relay_state_proof: &RelayChainStateProof,
 	) -> Vec<(ParaId, Vec<u8>)> {
 		Subscriptions::<T>::iter()
 			.filter_map(|(publisher_para_id, _)| {
-				let storage_key =
-					relay_chain::well_known_keys::published_data_root(publisher_para_id);
+				let child_info = Self::derive_child_info(publisher_para_id);
+				let prefixed_key = child_info.prefixed_storage_key();
+
 				relay_state_proof
-					.read_optional_entry::<[u8; 32]>(&storage_key)
+					.read_optional_entry::<[u8; 32]>(&*prefixed_key)
 					.ok()
 					.flatten()
 					.map(|root_hash| (publisher_para_id, root_hash.to_vec()))

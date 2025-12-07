@@ -33,18 +33,6 @@ pub use mock::{MockValidationDataInherentDataProvider, MockXcmConfig};
 
 const LOG_TARGET: &str = "parachain-inherent";
 
-/// Constructs the ChildInfo for a publisher's child trie.
-///
-/// The broadcaster pallet uses "pubsub" prefix + encoded ParaId as the child storage key.
-fn derive_child_info(publisher_para_id: ParaId) -> ChildInfo {
-	const PREFIX: &[u8] = b"pubsub";
-	let para_id_encoded = publisher_para_id.encode();
-	let mut child_storage_key = Vec::with_capacity(PREFIX.len() + para_id_encoded.len());
-	child_storage_key.extend_from_slice(PREFIX);
-	child_storage_key.extend_from_slice(&para_id_encoded);
-	ChildInfo::new_default(&child_storage_key)
-}
-
 /// Collect the relevant relay chain state in form of a proof for putting it into the validation
 /// data inherent.
 async fn collect_relay_storage_proof(
@@ -161,61 +149,46 @@ async fn collect_relay_storage_proof(
 		.ok()
 }
 
-/// Collect child trie proofs for subscribed publishers' data.
+/// Collect child trie proofs for relay chain storage.
 ///
-/// Generates proofs for publisher child trie roots and their data entries. Returns a merged proof
-/// combining all child trie data, or `None` if there are no subscriptions.
+/// Generates proofs for child trie data. The child trie roots are automatically
+/// included from their standard storage locations (`:child_storage:default:` + identifier).
+///
+/// Returns a merged proof combining all requested child trie data, or `None` if
+/// there are no requests.
 async fn collect_child_trie_proofs(
 	relay_chain_interface: &impl RelayChainInterface,
 	relay_parent: PHash,
-	subscription_keys: Vec<(ParaId, Vec<Vec<u8>>)>,
+	requests: Vec<cumulus_primitives_core::ChildTrieProofRequest>,
 ) -> Option<sp_state_machine::StorageProof> {
-	use relay_chain::well_known_keys as relay_well_known_keys;
-
-	if subscription_keys.is_empty() {
+	if requests.is_empty() {
 		return None;
 	}
 
-	// Collect storage keys for all publisher roots
-	let root_keys: Vec<_> = subscription_keys
-		.iter()
-		.map(|(publisher_para_id, _)| relay_well_known_keys::published_data_root(*publisher_para_id))
-		.collect();
+	let mut combined_proof: Option<StorageProof> = None;
 
-	// Generate proof for publisher roots
-	let mut combined_proof = relay_chain_interface
-		.prove_read(relay_parent, &root_keys)
-		.await
-		.map_err(|e| {
-			tracing::error!(
-				target: LOG_TARGET,
-				relay_parent = ?relay_parent,
-				error = ?e,
-				"Cannot obtain publisher roots proof from relay chain.",
-			);
-		})
-		.ok()?;
-
-	// Generate and merge child trie proofs for each publisher
-	for (publisher_para_id, child_keys) in subscription_keys {
-		if child_keys.is_empty() {
+	for request in requests {
+		if request.data_keys.is_empty() {
 			continue;
 		}
 
-		let child_info = derive_child_info(publisher_para_id);
+		let child_info = ChildInfo::new_default(&request.child_trie_identifier);
 
 		match relay_chain_interface
-			.prove_child_read(relay_parent, &child_info, &child_keys)
+			.prove_child_read(relay_parent, &child_info, &request.data_keys)
 			.await
 		{
 			Ok(child_proof) => {
-				combined_proof = StorageProof::merge([combined_proof, child_proof]);
+				combined_proof = match combined_proof {
+					None => Some(child_proof),
+					Some(existing) => Some(StorageProof::merge([existing, child_proof])),
+				};
 			},
 			Err(e) => {
 				tracing::error!(
 					target: LOG_TARGET,
 					relay_parent = ?relay_parent,
-					publisher_para_id = ?publisher_para_id,
+					child_trie_id = ?request.child_trie_identifier,
 					error = ?e,
 					"Cannot obtain child trie proof from relay chain.",
 				);
@@ -223,7 +196,7 @@ async fn collect_child_trie_proofs(
 		}
 	}
 
-	Some(combined_proof)
+	combined_proof
 }
 
 pub struct ParachainInherentDataProvider;
@@ -238,7 +211,7 @@ impl ParachainInherentDataProvider {
 		validation_data: &PersistedValidationData,
 		para_id: ParaId,
 		relay_parent_descendants: Vec<RelayHeader>,
-		subscription_keys: Vec<(ParaId, Vec<Vec<u8>>)>,
+		child_trie_requests: Vec<cumulus_primitives_core::ChildTrieProofRequest>,
 	) -> Option<ParachainInherentData> {
 		// Only include next epoch authorities when the descendants include an epoch digest.
 		// Skip the first entry because this is the relay parent itself.
@@ -257,11 +230,11 @@ impl ParachainInherentDataProvider {
 		)
 		.await?;
 
-		if !subscription_keys.is_empty() {
+		if !child_trie_requests.is_empty() {
 			if let Some(child_proofs) = collect_child_trie_proofs(
 				relay_chain_interface,
 				relay_parent,
-				subscription_keys,
+				child_trie_requests,
 			)
 			.await
 			{

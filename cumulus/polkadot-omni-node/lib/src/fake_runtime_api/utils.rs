@@ -176,7 +176,7 @@ macro_rules! impl_node_runtime_apis {
 			}
 
 			impl cumulus_primitives_core::KeyToIncludeInRelayProofApi<$block> for $runtime {
-				fn keys_to_include_in_relay_proof() -> Vec<(cumulus_primitives_core::ParaId, Vec<Vec<u8>>)> {
+				fn child_trie_keys_to_prove() -> Vec<cumulus_primitives_core::ChildTrieProofRequest> {
 					unimplemented!()
 				}
 			}
