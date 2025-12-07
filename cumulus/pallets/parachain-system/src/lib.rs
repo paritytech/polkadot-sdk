@@ -1161,11 +1161,7 @@ impl<T: Config> Pallet<T> {
 	/// This is pubsub-specific. The identifier format matches what the
 	/// broadcaster pallet uses: b"pubsub" + encoded ParaId.
 	fn derive_child_storage_key(para_id: ParaId) -> Vec<u8> {
-		use codec::Encode;
-		const PREFIX: &[u8] = b"pubsub";
-		let mut key = PREFIX.to_vec();
-		key.extend_from_slice(&para_id.encode());
-		key
+		Self::derive_child_info(para_id).storage_key().to_vec()
 	}
 }
 
@@ -1434,13 +1430,7 @@ impl<T: Config> Pallet<T> {
 	/// Must match the broadcaster pallet's child trie structure.
 	fn derive_child_info(publisher_para_id: ParaId) -> sp_storage::ChildInfo {
 		use codec::Encode;
-		const PREFIX: &[u8] = b"pubsub";
-		let para_id_encoded = publisher_para_id.encode();
-		let mut child_storage_key =
-			alloc::vec::Vec::with_capacity(PREFIX.len() + para_id_encoded.len());
-		child_storage_key.extend_from_slice(PREFIX);
-		child_storage_key.extend_from_slice(&para_id_encoded);
-		sp_storage::ChildInfo::new_default(&child_storage_key)
+		sp_storage::ChildInfo::new_default(&(b"pubsub", publisher_para_id).encode())
 	}
 
 	/// Collects child trie root hashes for subscribed publishers from the relay chain state proof.
@@ -1517,7 +1507,12 @@ impl<T: Config> Pallet<T> {
 								},
 							}
 						},
-						Ok(None) | Err(_) => {},
+						Ok(None) => {
+							// Key not published yet - expected
+						},
+						Err(_) => {
+							defensive!("Failed to read child storage from relay chain proof");
+						},
 					}
 				}
 

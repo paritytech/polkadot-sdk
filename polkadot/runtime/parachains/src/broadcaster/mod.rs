@@ -263,13 +263,7 @@ pub mod pallet {
 
 		/// Derive a deterministic child trie identifier from parachain ID.
 		pub fn derive_child_info(para_id: ParaId) -> ChildInfo {
-			const PREFIX: &[u8] = b"pubsub";
-			let encoded = para_id.encode();
-			let mut key = Vec::with_capacity(PREFIX.len() + encoded.len());
-			key.extend_from_slice(PREFIX);
-			key.extend_from_slice(&encoded);
-
-			ChildInfo::new_default(&key)
+			ChildInfo::new_default(&(b"pubsub", para_id).encode())
 		}
 
 		/// Retrieve a value from a publisher's child trie.
