@@ -1,6 +1,6 @@
 [package]
 name = "pallet-assets-freezer"
-version = "0.10.0"
+version = "0.12.0"
 authors.workspace = true
 edition.workspace = true
 license = "MIT-0"
@@ -22,7 +22,7 @@ pallet-assets.workspace = true
 scale-info = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
-pallet-balances = { default-features = false, workspace = true }
+pallet-balances = { default-features = false, path = "../balances" }
 
 [features]
 default = ["std"]
@@ -31,16 +31,13 @@ std = [
 	"frame/std",
 	"log/std",
 	"pallet-assets/std",
-	"pallet-balances/std",
 	"scale-info/std",
 ]
 runtime-benchmarks = [
 	"frame/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame/try-runtime",
 	"pallet-assets/try-runtime",
-	"pallet-balances/try-runtime",
 ]

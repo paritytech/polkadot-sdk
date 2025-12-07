@@ -1,7 +1,7 @@
 [package]
 name = "pallet-xcm-bridge-hub-router"
 description = "Bridge hub interface for sibling/parent chains with dynamic fees support."
-version = "0.20.0"
+version = "0.22.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -26,7 +26,7 @@ xcm.workspace = true
 xcm-builder.workspace = true
 
 [dev-dependencies]
-sp-io = { default-features = true, workspace = true }
+sp-io = { default-features = true, path = "../../../substrate/primitives/io" }
 
 [features]
 default = ["std"]

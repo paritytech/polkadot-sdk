@@ -1,6 +1,6 @@
 [package]
 name = "pallet-delegated-staking"
-version = "9.0.0"
+version = "11.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -22,20 +22,19 @@ sp-runtime.workspace = true
 sp-staking.workspace = true
 
 [dev-dependencies]
-frame-election-provider-support = { default-features = false, workspace = true }
-pallet-balances = { default-features = true, workspace = true }
-pallet-nomination-pools = { default-features = true, workspace = true }
-pallet-staking = { default-features = true, workspace = true }
-pallet-staking-reward-curve = { default-features = true, workspace = true }
-pallet-timestamp = { default-features = true, workspace = true }
-sp-core = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
+frame-election-provider-support = { default-features = false, path = "../election-provider-support" }
+pallet-balances = { default-features = true, path = "../balances" }
+pallet-nomination-pools = { default-features = true, path = "../nomination-pools" }
+pallet-staking = { default-features = true, path = "../staking" }
+pallet-staking-reward-curve = { default-features = true, path = "../staking/reward-curve" }
+pallet-timestamp = { default-features = true, path = "../timestamp" }
+sp-core = { default-features = true, path = "../../primitives/core" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
-	"frame-election-provider-support/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
@@ -45,23 +44,13 @@ std = [
 	"sp-staking/std",
 ]
 runtime-benchmarks = [
-	"frame-election-provider-support/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-nomination-pools/runtime-benchmarks",
-	"pallet-staking/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]
 try-runtime = [
-	"frame-election-provider-support/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-nomination-pools/try-runtime",
-	"pallet-staking/try-runtime",
-	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]

@@ -1,6 +1,6 @@
 [package]
 name = "pallet-authorship"
-version = "42.0.0"
+version = "44.0.0"
 description = "Block and Uncle Author tracking for the FRAME"
 authors.workspace = true
 edition.workspace = true
@@ -24,8 +24,8 @@ scale-info = { features = ["derive"], workspace = true }
 sp-runtime.workspace = true
 
 [dev-dependencies]
-sp-core = { default-features = true, workspace = true }
-sp-io = { default-features = true, workspace = true }
+sp-core = { default-features = true, path = "../../primitives/core" }
+sp-io = { default-features = true, path = "../../primitives/io" }
 
 [features]
 default = ["std"]

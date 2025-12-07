@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-availability-recovery"
 description = "The Availability Recovery subsystem. Handles requests for recovering the availability data of included candidates."
-version = "25.0.0"
+version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -21,42 +21,42 @@ required-features = ["subsystem-benchmarks"]
 async-trait = { workspace = true }
 fatality = { workspace = true }
 futures = { workspace = true }
-gum.default-features = true
 gum.workspace = true
+gum.default-features = true
 rand = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, default-features = true }
 
 codec = { features = ["derive"], workspace = true }
-polkadot-erasure-coding.default-features = true
 polkadot-erasure-coding.workspace = true
-polkadot-node-network-protocol.default-features = true
+polkadot-erasure-coding.default-features = true
 polkadot-node-network-protocol.workspace = true
-polkadot-node-primitives.default-features = true
+polkadot-node-network-protocol.default-features = true
 polkadot-node-primitives.workspace = true
-polkadot-node-subsystem.default-features = true
+polkadot-node-primitives.default-features = true
 polkadot-node-subsystem.workspace = true
-polkadot-node-subsystem-util.default-features = true
+polkadot-node-subsystem.default-features = true
 polkadot-node-subsystem-util.workspace = true
-polkadot-primitives.default-features = true
+polkadot-node-subsystem-util.default-features = true
 polkadot-primitives.workspace = true
-sc-network.default-features = true
+polkadot-primitives.default-features = true
 sc-network.workspace = true
+sc-network.default-features = true
 
 [dev-dependencies]
 assert_matches = { workspace = true }
 futures-timer = { workspace = true }
 rstest = { workspace = true }
 
-sc-network = { default-features = true, workspace = true }
-sp-core = { default-features = true, workspace = true }
-sp-keyring = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
+sc-network = { default-features = true, path = "../../../../substrate/client/network" }
+sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
+sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
+sp-tracing = { default-features = true, path = "../../../../substrate/primitives/tracing" }
 
-polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-primitives-test-helpers = { workspace = true }
-polkadot-subsystem-bench = { workspace = true }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
+polkadot-subsystem-bench = { path = "../../subsystem-bench" }
 
 [features]
 subsystem-benchmarks = []

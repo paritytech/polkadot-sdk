@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-pallet-dmp-queue"
-version = "0.22.0"
+version = "0.24.0"
 authors.workspace = true
 edition.workspace = true
 repository.workspace = true
@@ -26,8 +26,8 @@ sp-runtime.workspace = true
 xcm.workspace = true
 
 [dev-dependencies]
-sp-core = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
+sp-core = { default-features = true, path = "../../../substrate/primitives/core" }
+sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
 
 [features]
 default = ["std"]

@@ -1,6 +1,6 @@
 [package]
 name = "pallet-contracts"
-version = "42.0.0"
+version = "44.0.0"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
@@ -38,10 +38,10 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
 pallet-balances = { optional = true, workspace = true }
-pallet-contracts-proc-macro.default-features = true
 pallet-contracts-proc-macro.workspace = true
-pallet-contracts-uapi.default-features = true
+pallet-contracts-proc-macro.default-features = true
 pallet-contracts-uapi.workspace = true
+pallet-contracts-uapi.default-features = true
 sp-api.workspace = true
 sp-core.workspace = true
 sp-io.workspace = true
@@ -52,21 +52,21 @@ xcm-builder.workspace = true
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
-pallet-contracts-fixtures = { default-features = false, workspace = true }
+pallet-contracts-fixtures = { default-features = false, path = "fixtures" }
 pretty_assertions = { workspace = true }
 wat = { workspace = true }
 
 # Polkadot Dependencies
-xcm-builder = { default-features = true, workspace = true }
+xcm-builder = { default-features = true, path = "../../../polkadot/xcm/xcm-builder", package = "staging-xcm-builder" }
 
 # Substrate Dependencies
-pallet-balances = { default-features = true, workspace = true }
-pallet-insecure-randomness-collective-flip = { default-features = true, workspace = true }
-pallet-proxy = { default-features = true, workspace = true }
-pallet-timestamp = { default-features = true, workspace = true }
-pallet-utility = { default-features = true, workspace = true }
-sp-keystore = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
+pallet-balances = { default-features = true, path = "../balances" }
+pallet-insecure-randomness-collective-flip = { default-features = true, path = "../insecure-randomness-collective-flip" }
+pallet-proxy = { default-features = true, path = "../proxy" }
+pallet-timestamp = { default-features = true, path = "../timestamp" }
+pallet-utility = { default-features = true, path = "../utility" }
+sp-keystore = { default-features = true, path = "../../primitives/keystore" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
 
 [features]
 default = ["std"]
@@ -95,9 +95,6 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-proxy/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
-	"pallet-utility/runtime-benchmarks",
 	"rand",
 	"rand_pcg",
 	"sp-runtime/runtime-benchmarks",
@@ -109,9 +106,5 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
-	"pallet-insecure-randomness-collective-flip/try-runtime",
-	"pallet-proxy/try-runtime",
-	"pallet-timestamp/try-runtime",
-	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",
 ]

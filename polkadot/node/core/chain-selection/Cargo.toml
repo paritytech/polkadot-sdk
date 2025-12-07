@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-node-core-chain-selection"
 description = "Chain Selection Subsystem"
-version = "25.0.0"
+version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -15,21 +15,21 @@ workspace = true
 codec = { workspace = true, default-features = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum.default-features = true
 gum.workspace = true
-polkadot-node-primitives.default-features = true
+gum.default-features = true
 polkadot-node-primitives.workspace = true
-polkadot-node-subsystem.default-features = true
+polkadot-node-primitives.default-features = true
 polkadot-node-subsystem.workspace = true
-polkadot-node-subsystem-util.default-features = true
+polkadot-node-subsystem.default-features = true
 polkadot-node-subsystem-util.workspace = true
-polkadot-primitives.default-features = true
+polkadot-node-subsystem-util.default-features = true
 polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
 thiserror = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
 kvdb-memorydb = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
-polkadot-node-subsystem-test-helpers = { workspace = true }
-sp-core = { default-features = true, workspace = true }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }

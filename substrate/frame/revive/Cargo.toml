@@ -1,6 +1,6 @@
 [package]
 name = "pallet-revive"
-version = "0.9.0"
+version = "0.11.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -59,10 +59,10 @@ sp-arithmetic.workspace = true
 sp-consensus-aura = { workspace = true, optional = true }
 sp-consensus-babe = { workspace = true, optional = true }
 sp-consensus-slots = { workspace = true, optional = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-sp-version = { workspace = true }
+sp-core.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+sp-version.workspace = true
 subxt-signer = { workspace = true, optional = true, features = ["unstable-eth"] }
 
 [dev-dependencies]
@@ -76,15 +76,15 @@ serde_json = { workspace = true }
 test-case = { workspace = true }
 
 # Polkadot SDK Dependencies
-pallet-balances = { default-features = true, workspace = true }
-pallet-proxy = { default-features = true, workspace = true }
-pallet-revive-fixtures = { default-features = true, workspace = true }
-pallet-timestamp = { default-features = true, workspace = true }
-pallet-utility = { default-features = true, workspace = true }
+pallet-balances = { default-features = true, path = "../balances" }
+pallet-proxy = { default-features = true, path = "../proxy" }
+pallet-revive-fixtures = { default-features = true, path = "fixtures" }
+pallet-timestamp = { default-features = true, path = "../timestamp" }
+pallet-utility = { default-features = true, path = "../utility" }
 proptest = { workspace = true }
-sp-keystore = { default-features = true, workspace = true }
-sp-state-machine = { workspace = true }
-sp-tracing = { default-features = true, workspace = true }
+sp-keystore = { default-features = true, path = "../../primitives/keystore" }
+sp-state-machine = { path = "../../primitives/state-machine", default-features = false }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
 
 [features]
 default = ["std"]
@@ -114,7 +114,6 @@ std = [
 	"ripemd/std",
 	"rlp/std",
 	"scale-info/std",
-	"secp256k1/std",
 	"serde/std",
 	"serde_json/std",
 	"sp-api/std",
@@ -125,7 +124,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-state-machine/std",
 	"sp-version/std",
 	"subxt-signer",
 ]
@@ -134,12 +132,8 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"k256",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-proxy/runtime-benchmarks",
 	"pallet-revive-fixtures",
-	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
-	"pallet-utility/runtime-benchmarks",
 	"rand",
 	"rand_pcg",
 	"sp-consensus-aura",
@@ -150,10 +144,6 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-proxy/try-runtime",
-	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
-	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",
 ]

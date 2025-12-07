@@ -1,7 +1,7 @@
 [package]
 name = "snowbridge-inbound-queue-primitives"
 description = "Snowbridge Inbound Queue Primitives"
-version = "0.4.0"
+version = "0.6.0"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 repository.workspace = true
@@ -35,7 +35,7 @@ xcm-executor.workspace = true
 hex-literal = { workspace = true, default-features = true }
 
 [dev-dependencies]
-snowbridge-test-utils = { workspace = true }
+snowbridge-test-utils = { path = "../../test-utils" }
 
 [features]
 default = ["std"]
@@ -61,7 +61,6 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
-	"snowbridge-test-utils/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",

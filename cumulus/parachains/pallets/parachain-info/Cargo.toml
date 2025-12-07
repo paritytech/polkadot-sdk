@@ -2,7 +2,7 @@
 authors.workspace = true
 edition.workspace = true
 name = "staging-parachain-info"
-version = "0.22.0"
+version = "0.24.0"
 license = "Apache-2.0"
 description = "Pallet to store the parachain ID"
 homepage.workspace = true

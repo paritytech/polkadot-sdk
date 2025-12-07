@@ -1,6 +1,6 @@
 [package]
 name = "coretime-westend-runtime"
-version = "0.18.0"
+version = "0.20.0"
 authors.workspace = true
 edition.workspace = true
 description = "Westend's Coretime parachain runtime"
@@ -75,7 +75,7 @@ xcm-executor.workspace = true
 xcm-runtime-apis.workspace = true
 
 [dev-dependencies]
-parachains-runtimes-test-utils = { default-features = true, workspace = true }
+parachains-runtimes-test-utils = { default-features = true, path = "../../test-utils" }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }

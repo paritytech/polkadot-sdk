@@ -1,6 +1,6 @@
 [package]
 name = "asset-test-utils"
-version = "26.0.1"
+version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 description = "Test utils for Asset Hub runtimes."

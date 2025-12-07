@@ -13,32 +13,32 @@ workspace = true
 [dependencies]
 codec = { workspace = true, default-features = true }
 frame-support.workspace = true
-frame-system.default-features = true
 frame-system.workspace = true
+frame-system.default-features = true
 futures = { workspace = true }
-pallet-sudo.default-features = true
 pallet-sudo.workspace = true
-pallet-transaction-payment.default-features = true
+pallet-sudo.default-features = true
 pallet-transaction-payment.workspace = true
-pallet-xcm.default-features = true
+pallet-transaction-payment.default-features = true
 pallet-xcm.workspace = true
-polkadot-runtime-parachains.default-features = true
+pallet-xcm.default-features = true
 polkadot-runtime-parachains.workspace = true
+polkadot-runtime-parachains.default-features = true
 polkadot-test-client.workspace = true
 polkadot-test-runtime.workspace = true
 polkadot-test-service.workspace = true
-sp-consensus.default-features = true
 sp-consensus.workspace = true
-sp-keyring.default-features = true
+sp-consensus.default-features = true
 sp-keyring.workspace = true
+sp-keyring.default-features = true
 sp-runtime.workspace = true
-sp-state-machine.default-features = true
 sp-state-machine.workspace = true
-sp-tracing.default-features = true
+sp-state-machine.default-features = true
 sp-tracing.workspace = true
+sp-tracing.default-features = true
 xcm.workspace = true
-xcm-executor.default-features = true
 xcm-executor.workspace = true
+xcm-executor.default-features = true
 
 [features]
 default = ["std"]

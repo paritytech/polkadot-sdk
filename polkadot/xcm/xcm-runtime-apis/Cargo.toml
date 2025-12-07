@@ -1,6 +1,6 @@
 [package]
 name = "xcm-runtime-apis"
-version = "0.9.0"
+version = "0.11.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -20,43 +20,31 @@ xcm.workspace = true
 xcm-executor.workspace = true
 
 [dev-dependencies]
-frame-system = { default-features = false, workspace = true }
+frame-system = { default-features = false, path = "../../../substrate/frame/system" }
 hex-literal = { workspace = true }
 log = { workspace = true }
-pallet-assets = { default-features = false, workspace = true }
-pallet-balances = { default-features = false, workspace = true }
-pallet-xcm = { default-features = false, workspace = true }
-sp-io = { default-features = false, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
-xcm-builder = { default-features = false, workspace = true }
-xcm-executor = { default-features = false, workspace = true }
-xcm-simulator = { default-features = true, workspace = true }
+pallet-assets = { default-features = false, path = "../../../substrate/frame/assets" }
+pallet-balances = { default-features = false, path = "../../../substrate/frame/balances" }
+pallet-xcm = { default-features = false, path = "../pallet-xcm" }
+sp-io = { default-features = false, path = "../../../substrate/primitives/io" }
+sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
+xcm-builder = { default-features = false, path = "../xcm-builder", package = "staging-xcm-builder" }
+xcm-executor = { default-features = false, path = "../xcm-executor", package = "staging-xcm-executor" }
+xcm-simulator = { default-features = true, path = "../xcm-simulator" }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
 	"frame-support/std",
-	"frame-system/std",
-	"log/std",
-	"pallet-assets/std",
-	"pallet-balances/std",
-	"pallet-xcm/std",
 	"scale-info/std",
 	"sp-api/std",
-	"sp-io/std",
 	"sp-weights/std",
-	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-xcm/runtime-benchmarks",
-	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
 ]

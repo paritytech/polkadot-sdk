@@ -1,6 +1,6 @@
 [package]
 name = "pallet-elections-phragmen"
-version = "43.0.0"
+version = "45.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -29,10 +29,10 @@ sp-runtime.workspace = true
 sp-staking.workspace = true
 
 [dev-dependencies]
-pallet-balances = { default-features = true, workspace = true }
-sp-core = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
-substrate-test-utils = { workspace = true }
+pallet-balances = { default-features = true, path = "../balances" }
+sp-core = { default-features = true, path = "../../primitives/core" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+substrate-test-utils = { path = "../../test-utils" }
 
 [features]
 default = ["std"]
@@ -53,13 +53,11 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
 	"sp-runtime/try-runtime",
 ]

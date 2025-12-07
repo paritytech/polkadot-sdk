@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-omni-node"
-version = "0.11.0"
+version = "0.12.0"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
@@ -20,8 +20,8 @@ polkadot-omni-node-lib = { workspace = true, features = ["rococo-native", "weste
 assert_cmd = { workspace = true }
 
 [build-dependencies]
-substrate-build-script-utils.default-features = true
 substrate-build-script-utils.workspace = true
+substrate-build-script-utils.default-features = true
 
 [features]
 default = []

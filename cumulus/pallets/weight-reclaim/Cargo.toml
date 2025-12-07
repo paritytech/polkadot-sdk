@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-pallet-weight-reclaim"
-version = "0.4.0"
+version = "0.6.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -31,13 +31,12 @@ log = { workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
-cumulus-primitives-proof-size-hostfunction = { default-features = false, workspace = true }
+cumulus-primitives-proof-size-hostfunction = { default-features = false, path = "../../primitives/proof-size-hostfunction" }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
-	"cumulus-primitives-proof-size-hostfunction/std",
 	"cumulus-primitives-storage-weight-reclaim/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",

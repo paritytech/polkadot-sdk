@@ -1,6 +1,6 @@
 [package]
 name = "pallet-xcm-precompiles"
-version = "0.1.0"
+version = "0.2.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -17,67 +17,44 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 tracing = { workspace = true }
-
-frame-support = { workspace = true }
-pallet-revive = { workspace = true }
-pallet-xcm = { workspace = true }
-
-xcm = { workspace = true }
-xcm-executor = { workspace = true }
+frame-support.workspace = true
+pallet-revive.workspace = true
+pallet-xcm.workspace = true
+xcm.workspace = true
+xcm-executor.workspace = true
 
 [dev-dependencies]
-frame-system = { workspace = true, default-features = true }
-pallet-assets = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = true }
-pallet-timestamp = { workspace = true, default-features = true }
-polkadot-parachain-primitives = { workspace = true, default-features = true }
+frame-system = { default-features = true, path = "../../../../substrate/frame/system" }
+pallet-assets = { default-features = true, path = "../../../../substrate/frame/assets" }
+pallet-balances = { default-features = true, path = "../../../../substrate/frame/balances" }
+pallet-timestamp = { default-features = true, path = "../../../../substrate/frame/timestamp" }
+polkadot-parachain-primitives = { default-features = true, path = "../../../parachain" }
 scale-info = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-xcm-builder = { workspace = true, default-features = true }
-xcm-simulator = { workspace = true, default-features = true }
+sp-io = { default-features = true, path = "../../../../substrate/primitives/io" }
+sp-runtime = { default-features = true, path = "../../../../substrate/primitives/runtime" }
+xcm-builder = { default-features = true, path = "../../xcm-builder", package = "staging-xcm-builder" }
+xcm-simulator = { default-features = true, path = "../../xcm-simulator" }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
 	"frame-support/std",
-	"frame-system/std",
-	"pallet-assets/std",
-	"pallet-balances/std",
 	"pallet-revive/std",
-	"pallet-timestamp/std",
 	"pallet-xcm/std",
-	"polkadot-parachain-primitives/std",
-	"scale-info/std",
-	"sp-io/std",
-	"sp-runtime/std",
 	"tracing/std",
-	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"pallet-revive/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
-	"polkadot-parachain-primitives/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"pallet-assets/try-runtime",
-	"pallet-balances/try-runtime",
 	"pallet-revive/try-runtime",
-	"pallet-timestamp/try-runtime",
 	"pallet-xcm/try-runtime",
-	"sp-runtime/try-runtime",
 ]

@@ -13,8 +13,8 @@ codec = { workspace = true, features = ["derive"] }
 cumulus-zombienet-sdk-helpers.workspace = true
 env_logger = { workspace = true }
 log = { workspace = true }
-polkadot-primitives.default-features = true
 polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
 serde = { workspace = true }
 serde_json = { workspace = true }
 subxt = { workspace = true, default-features = false }
@@ -28,6 +28,6 @@ zombie-metadata = []
 zombie-ci = []
 
 [build-dependencies]
-substrate-build-script-utils.default-features = true
 substrate-build-script-utils.workspace = true
+substrate-build-script-utils.default-features = true
 subwasmlib = { git = "https://github.com/chevdor/subwasm", rev = "v0.21.3" }

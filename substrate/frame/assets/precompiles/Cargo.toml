@@ -1,6 +1,6 @@
 [package]
 name = "pallet-assets-precompiles"
-version = "0.1.0"
+version = "0.3.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -15,47 +15,34 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-ethereum-standards = { workspace = true }
-frame-support = { workspace = true }
-pallet-assets = { workspace = true }
-pallet-revive = { workspace = true }
+ethereum-standards.workspace = true
+frame-support.workspace = true
+pallet-assets.workspace = true
+pallet-revive.workspace = true
 
 [dev-dependencies]
 codec = { workspace = true }
-frame-system = { workspace = true }
-pallet-balances = { workspace = true }
+frame-system = { path = "../../system", default-features = false }
+pallet-balances = { path = "../../balances", default-features = false }
 scale-info = { workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
+sp-core = { path = "../../../primitives/core", default-features = false }
+sp-io = { path = "../../../primitives/io", default-features = false }
+sp-runtime = { path = "../../../primitives/runtime", default-features = false }
 
 [features]
 default = ["std"]
 std = [
-	"codec/std",
 	"frame-support/std",
-	"frame-system/std",
 	"pallet-assets/std",
-	"pallet-balances/std",
 	"pallet-revive/std",
-	"scale-info/std",
-	"sp-core/std",
-	"sp-io/std",
-	"sp-runtime/std",
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"pallet-revive/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
-	"frame-system/try-runtime",
 	"pallet-assets/try-runtime",
-	"pallet-balances/try-runtime",
 	"pallet-revive/try-runtime",
-	"sp-runtime/try-runtime",
 ]

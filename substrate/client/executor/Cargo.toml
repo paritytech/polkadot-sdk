@@ -1,6 +1,6 @@
 [package]
 name = "sc-executor"
-version = "0.44.0"
+version = "0.46.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -26,30 +26,30 @@ schnellru = { workspace = true }
 tracing = { workspace = true, default-features = true }
 
 codec = { workspace = true, default-features = true }
-sc-executor-common.default-features = true
 sc-executor-common.workspace = true
-sc-executor-polkavm.default-features = true
+sc-executor-common.default-features = true
 sc-executor-polkavm.workspace = true
-sc-executor-wasmtime.default-features = true
+sc-executor-polkavm.default-features = true
 sc-executor-wasmtime.workspace = true
-sp-api.default-features = true
+sc-executor-wasmtime.default-features = true
 sp-api.workspace = true
-sp-core.default-features = true
+sp-api.default-features = true
 sp-core.workspace = true
-sp-externalities.default-features = true
+sp-core.default-features = true
 sp-externalities.workspace = true
-sp-io.default-features = true
+sp-externalities.default-features = true
 sp-io.workspace = true
-sp-panic-handler.default-features = true
+sp-io.default-features = true
 sp-panic-handler.workspace = true
-sp-runtime-interface.default-features = true
+sp-panic-handler.default-features = true
 sp-runtime-interface.workspace = true
-sp-trie.default-features = true
+sp-runtime-interface.default-features = true
 sp-trie.workspace = true
-sp-version.default-features = true
+sp-trie.default-features = true
 sp-version.workspace = true
-sp-wasm-interface.default-features = true
+sp-version.default-features = true
 sp-wasm-interface.workspace = true
+sp-wasm-interface.default-features = true
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
@@ -57,14 +57,14 @@ assert_matches = { workspace = true }
 criterion = { workspace = true, default-features = true }
 num_cpus = { workspace = true }
 paste = { workspace = true, default-features = true }
-sc-runtime-test = { workspace = true }
-sc-tracing = { default-features = true, workspace = true }
-sp-crypto-hashing = { default-features = true, workspace = true }
-sp-maybe-compressed-blob = { default-features = true, workspace = true }
-sp-runtime = { default-features = true, workspace = true }
-sp-state-machine = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
-substrate-test-runtime = { workspace = true }
+sc-runtime-test = { path = "runtime-test" }
+sc-tracing = { default-features = true, path = "../tracing" }
+sp-crypto-hashing = { default-features = true, path = "../../primitives/crypto/hashing" }
+sp-maybe-compressed-blob = { default-features = true, path = "../../primitives/maybe-compressed-blob" }
+sp-runtime = { default-features = true, path = "../../primitives/runtime" }
+sp-state-machine = { default-features = true, path = "../../primitives/state-machine" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+substrate-test-runtime = { path = "../../test-utils/runtime" }
 tempfile = { workspace = true }
 tracing-subscriber = { workspace = true }
 wat = { workspace = true }

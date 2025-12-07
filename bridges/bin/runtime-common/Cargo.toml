@@ -1,6 +1,6 @@
 [package]
 name = "bridge-runtime-common"
-version = "0.23.0"
+version = "0.25.0"
 description = "Common types and functions that may be used by substrate-based runtimes of all bridged chains"
 authors.workspace = true
 edition.workspace = true
@@ -38,10 +38,10 @@ tuplex = { workspace = true }
 xcm.workspace = true
 
 [dev-dependencies]
-bp-test-utils = { default-features = false, workspace = true }
-pallet-balances = { default-features = true, workspace = true }
-pallet-bridge-messages = { features = ["std", "test-helpers"], default-features = false, workspace = true }
-sp-core = { default-features = true, workspace = true }
+bp-test-utils = { default-features = false, path = "../../primitives/test-utils" }
+pallet-balances = { default-features = true, path = "../../../substrate/frame/balances" }
+pallet-bridge-messages = { features = ["std", "test-helpers"], default-features = false, path = "../../modules/messages" }
+sp-core = { default-features = true, path = "../../../substrate/primitives/core" }
 
 [features]
 default = ["std"]
@@ -52,7 +52,6 @@ std = [
 	"bp-polkadot-core/std",
 	"bp-relayers/std",
 	"bp-runtime/std",
-	"bp-test-utils/std",
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
@@ -76,7 +75,6 @@ runtime-benchmarks = [
 	"bp-runtime/test-helpers",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"pallet-bridge-grandpa/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
 	"pallet-bridge-messages/test-helpers",

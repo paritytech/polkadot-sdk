@@ -1,6 +1,6 @@
 [package]
 name = "asset-hub-westend-runtime"
-version = "0.37.0"
+version = "0.38.0"
 authors.workspace = true
 edition.workspace = true
 description = "Westend variant of Asset Hub parachain runtime"
@@ -46,7 +46,7 @@ pallet-asset-rate.workspace = true
 pallet-asset-rewards.workspace = true
 pallet-assets.workspace = true
 pallet-assets-freezer.workspace = true
-pallet-assets-precompiles = { workspace = true }
+pallet-assets-precompiles.workspace = true
 pallet-aura.workspace = true
 pallet-authorship.workspace = true
 pallet-bags-list.workspace = true
@@ -88,7 +88,7 @@ pallet-whitelist.workspace = true
 pallet-xcm.workspace = true
 pallet-xcm-benchmarks = { optional = true, workspace = true }
 pallet-xcm-bridge-hub-router.workspace = true
-pallet-xcm-precompiles = { workspace = true }
+pallet-xcm-precompiles.workspace = true
 parachain-info.workspace = true
 parachains-common.workspace = true
 polkadot-parachain-primitives.workspace = true
@@ -127,10 +127,10 @@ xcm-runtime-apis.workspace = true
 
 [dev-dependencies]
 alloy-core = { workspace = true, features = ["sol-types"] }
-asset-test-utils = { default-features = true, workspace = true }
-pallet-revive-fixtures = { default-features = true, workspace = true }
-parachains-runtimes-test-utils = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
+asset-test-utils = { default-features = true, path = "../test-utils" }
+pallet-revive-fixtures = { default-features = true, path = "../../../../../substrate/frame/revive/fixtures" }
+parachains-runtimes-test-utils = { default-features = true, path = "../../test-utils" }
+sp-tracing = { default-features = true, path = "../../../../../substrate/primitives/tracing" }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
@@ -273,7 +273,6 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 std = [
-	"alloy-core/std",
 	"assets-common/std",
 	"bp-asset-hub-rococo/std",
 	"bp-asset-hub-westend/std",

@@ -1,6 +1,6 @@
 [package]
 name = "rococo-runtime-constants"
-version = "22.0.0"
+version = "24.0.0"
 description = "Constants used throughout the Rococo network."
 authors.workspace = true
 edition.workspace = true

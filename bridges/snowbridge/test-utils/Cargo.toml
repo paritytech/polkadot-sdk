@@ -1,7 +1,7 @@
 [package]
 name = "snowbridge-test-utils"
 description = "Snowbridge test utilities"
-version = "0.5.0"
+version = "0.7.0"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 repository.workspace = true
@@ -15,32 +15,32 @@ workspace = true
 exclude-from-umbrella = true
 
 [dependencies]
-bp-relayers.default-features = true
 bp-relayers.workspace = true
+bp-relayers.default-features = true
 codec = { workspace = true, default-features = true }
 frame-benchmarking = { optional = true, workspace = true, default-features = true }
-frame-support.default-features = true
 frame-support.workspace = true
-frame-system.default-features = true
+frame-support.default-features = true
 frame-system.workspace = true
+frame-system.default-features = true
 log = { workspace = true, default-features = true }
-pallet-asset-conversion.default-features = true
 pallet-asset-conversion.workspace = true
-pallet-xcm.default-features = true
+pallet-asset-conversion.default-features = true
 pallet-xcm.workspace = true
+pallet-xcm.default-features = true
 scale-info = { features = ["derive"], workspace = true, default-features = true }
-snowbridge-core.default-features = true
 snowbridge-core.workspace = true
-snowbridge-outbound-queue-primitives.default-features = true
+snowbridge-core.default-features = true
 snowbridge-outbound-queue-primitives.workspace = true
-sp-core.default-features = true
+snowbridge-outbound-queue-primitives.default-features = true
 sp-core.workspace = true
-xcm.default-features = true
+sp-core.default-features = true
 xcm.workspace = true
-xcm-builder.default-features = true
+xcm.default-features = true
 xcm-builder.workspace = true
-xcm-executor.default-features = true
+xcm-builder.default-features = true
 xcm-executor.workspace = true
+xcm-executor.default-features = true
 
 [features]
 runtime-benchmarks = [

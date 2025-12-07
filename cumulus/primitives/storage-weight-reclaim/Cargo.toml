@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-primitives-storage-weight-reclaim"
-version = "13.0.0"
+version = "15.0.0"
 authors.workspace = true
 edition.workspace = true
 description = "Utilities to reclaim storage weight."
@@ -24,9 +24,9 @@ scale-info = { features = ["derive"], workspace = true }
 sp-runtime.workspace = true
 
 [dev-dependencies]
-cumulus-test-runtime = { workspace = true }
-sp-io = { default-features = false, workspace = true }
-sp-trie = { default-features = false, workspace = true }
+cumulus-test-runtime = { path = "../../test/runtime" }
+sp-io = { default-features = false, path = "../../../substrate/primitives/io" }
+sp-trie = { default-features = false, path = "../../../substrate/primitives/trie" }
 
 [features]
 default = ["std"]
@@ -39,7 +39,5 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"scale-info/std",
-	"sp-io/std",
 	"sp-runtime/std",
-	"sp-trie/std",
 ]

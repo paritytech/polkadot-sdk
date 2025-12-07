@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-node-core-approval-voting-parallel"
-version = "0.8.0"
+version = "0.10.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -16,28 +16,28 @@ async-trait = { workspace = true }
 futures = { workspace = true }
 gum.workspace = true
 itertools = { workspace = true }
-polkadot-approval-distribution.default-features = true
 polkadot-approval-distribution.workspace = true
-polkadot-node-core-approval-voting.default-features = true
+polkadot-approval-distribution.default-features = true
 polkadot-node-core-approval-voting.workspace = true
-polkadot-node-metrics.default-features = true
+polkadot-node-core-approval-voting.default-features = true
 polkadot-node-metrics.workspace = true
-polkadot-node-network-protocol.default-features = true
+polkadot-node-metrics.default-features = true
 polkadot-node-network-protocol.workspace = true
-polkadot-node-primitives.default-features = true
+polkadot-node-network-protocol.default-features = true
 polkadot-node-primitives.workspace = true
-polkadot-node-subsystem.default-features = true
+polkadot-node-primitives.default-features = true
 polkadot-node-subsystem.workspace = true
-polkadot-node-subsystem-util.default-features = true
+polkadot-node-subsystem.default-features = true
 polkadot-node-subsystem-util.workspace = true
-polkadot-overseer.default-features = true
+polkadot-node-subsystem-util.default-features = true
 polkadot-overseer.workspace = true
-polkadot-primitives.default-features = true
+polkadot-overseer.default-features = true
 polkadot-primitives.workspace = true
-sc-keystore.default-features = false
+polkadot-primitives.default-features = true
 sc-keystore.workspace = true
-sp-consensus.default-features = false
+sc-keystore.default-features = false
 sp-consensus.workspace = true
+sp-consensus.default-features = false
 
 rand = { workspace = true }
 rand_core = { workspace = true }
@@ -46,9 +46,9 @@ rand_core = { workspace = true }
 assert_matches = { workspace = true }
 async-trait = { workspace = true }
 kvdb-memorydb = { workspace = true }
-polkadot-node-subsystem-test-helpers = { default-features = true, workspace = true }
+polkadot-node-subsystem-test-helpers = { default-features = true, path = "../../subsystem-test-helpers" }
 schnorrkel = { workspace = true, default-features = true }
-sp-consensus-babe = { default-features = true, workspace = true }
-sp-core = { default-features = true, workspace = true }
-sp-keyring = { default-features = true, workspace = true }
-sp-tracing = { default-features = false, workspace = true }
+sp-consensus-babe = { default-features = true, path = "../../../../substrate/primitives/consensus/babe" }
+sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
+sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
+sp-tracing = { default-features = false, path = "../../../../substrate/primitives/tracing" }

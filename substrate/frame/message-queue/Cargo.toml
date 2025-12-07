@@ -2,7 +2,7 @@
 authors.workspace = true
 edition.workspace = true
 name = "pallet-message-queue"
-version = "45.0.0"
+version = "47.0.0"
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
@@ -27,11 +27,11 @@ sp-runtime.workspace = true
 sp-weights.workspace = true
 
 [dev-dependencies]
-frame-support = { features = ["experimental"], default-features = false, workspace = true }
+frame-support = { features = ["experimental"], default-features = false, path = "../support" }
 rand = { workspace = true, default-features = true }
 rand_distr = { workspace = true }
-sp-crypto-hashing = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
+sp-crypto-hashing = { default-features = true, path = "../../primitives/crypto/hashing" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
 
 [features]
 default = ["std"]

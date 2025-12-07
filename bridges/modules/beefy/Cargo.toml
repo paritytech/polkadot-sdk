@@ -25,13 +25,13 @@ sp-runtime.workspace = true
 sp-std.workspace = true
 
 [dev-dependencies]
-bp-test-utils = { default-features = true, workspace = true }
+bp-test-utils = { default-features = true, path = "../../primitives/test-utils" }
 mmr-lib = { workspace = true, default-features = true }
-pallet-beefy-mmr = { default-features = true, workspace = true }
-pallet-mmr = { default-features = true, workspace = true }
+pallet-beefy-mmr = { default-features = true, path = "../../../substrate/frame/beefy-mmr" }
+pallet-mmr = { default-features = true, path = "../../../substrate/frame/merkle-mountain-range" }
 rand = { workspace = true, default-features = true }
-sp-consensus-beefy = { default-features = true, workspace = true }
-sp-io = { default-features = true, workspace = true }
+sp-consensus-beefy = { default-features = true, path = "../../../substrate/primitives/consensus/beefy" }
+sp-io = { default-features = true, path = "../../../substrate/primitives/io" }
 
 [features]
 default = ["std"]
@@ -51,7 +51,5 @@ std = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-beefy-mmr/try-runtime",
-	"pallet-mmr/try-runtime",
 	"sp-runtime/try-runtime",
 ]

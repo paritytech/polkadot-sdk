@@ -1,6 +1,6 @@
 [package]
 name = "pallet-broker"
-version = "0.21.0"
+version = "0.23.0"
 description = "Brokerage tool for managing Polkadot Core scheduling"
 authors.workspace = true
 homepage.workspace = true
@@ -29,8 +29,8 @@ sp-runtime.workspace = true
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }
-sp-io = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
+sp-io = { default-features = true, path = "../../primitives/io" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
 
 [features]
 default = ["std"]

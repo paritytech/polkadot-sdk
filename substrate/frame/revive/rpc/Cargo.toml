@@ -1,6 +1,6 @@
 [package]
 name = "pallet-revive-eth-rpc"
-version = "0.9.0"
+version = "0.11.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -27,33 +27,33 @@ futures = { workspace = true, features = ["thread-pool"] }
 hex = { workspace = true }
 jsonrpsee = { workspace = true, features = ["full"] }
 log = { workspace = true }
-pallet-revive.default-features = true
 pallet-revive.workspace = true
-prometheus-endpoint.default-features = true
+pallet-revive.default-features = true
 prometheus-endpoint.workspace = true
+prometheus-endpoint.default-features = true
 rlp = { workspace = true }
-sc-cli.default-features = true
 sc-cli.workspace = true
-sc-rpc.default-features = true
+sc-cli.default-features = true
 sc-rpc.workspace = true
-sc-rpc-api.default-features = true
+sc-rpc.default-features = true
 sc-rpc-api.workspace = true
-sc-service.default-features = true
+sc-rpc-api.default-features = true
 sc-service.workspace = true
+sc-service.default-features = true
 serde_json = { workspace = true }
-sp-arithmetic.default-features = true
 sp-arithmetic.workspace = true
-sp-core.default-features = true
+sp-arithmetic.default-features = true
 sp-core.workspace = true
+sp-core.default-features = true
 sp-crypto-hashing.workspace = true
-sp-rpc.default-features = true
 sp-rpc.workspace = true
-sp-runtime.default-features = true
+sp-rpc.default-features = true
 sp-runtime.workspace = true
-sp-timestamp.default-features = true
+sp-runtime.default-features = true
 sp-timestamp.workspace = true
-sp-weights.default-features = true
+sp-timestamp.default-features = true
 sp-weights.workspace = true
+sp-weights.default-features = true
 sqlx = { workspace = true, features = ["macros", "runtime-tokio", "sqlite"] }
 subxt = { workspace = true, default-features = true, features = ["reconnecting-rpc-client"] }
 subxt-signer = { workspace = true, features = ["unstable-eth"] }
@@ -62,13 +62,16 @@ tokio = { workspace = true, features = ["full"] }
 
 [dev-dependencies]
 env_logger = { workspace = true }
-pallet-revive-fixtures = { default-features = true, workspace = true }
+pallet-revive-fixtures = { default-features = true, path = "../fixtures" }
 pretty_assertions = { workspace = true }
-revive-dev-node = { workspace = true }
-sp-io = { workspace = true, default-features = true }
+revive-dev-node = { path = "../dev-node/node" }
+sp-io = { default-features = true, path = "../../../primitives/io" }
 
 [build-dependencies]
 git2 = { workspace = true }
-revive-dev-runtime = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
+revive-dev-runtime.workspace = true
+revive-dev-runtime.default-features = true
+sp-io.workspace = true
+sp-io.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true

@@ -1,6 +1,6 @@
 [package]
 name = "frame-benchmarking"
-version = "42.0.0"
+version = "44.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -37,10 +37,10 @@ static_assertions = { workspace = true, default-features = true }
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
 rusty-fork = { workspace = true }
-sc-client-db = { default-features = false, workspace = true }
-sp-externalities = { default-features = false, workspace = true }
-sp-keystore = { default-features = true, workspace = true }
-sp-state-machine = { default-features = false, workspace = true }
+sc-client-db = { default-features = false, path = "../../client/db" }
+sp-externalities = { default-features = false, path = "../../primitives/externalities" }
+sp-keystore = { default-features = true, path = "../../primitives/keystore" }
+sp-state-machine = { default-features = false, path = "../../primitives/state-machine" }
 
 [features]
 default = ["std"]
@@ -56,16 +56,13 @@ std = [
 	"sp-api/std",
 	"sp-application-crypto/std",
 	"sp-core/std",
-	"sp-externalities/std",
 	"sp-io/std",
 	"sp-runtime-interface/std",
 	"sp-runtime/std",
-	"sp-state-machine/std",
 	"sp-storage/std",
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"sc-client-db/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]

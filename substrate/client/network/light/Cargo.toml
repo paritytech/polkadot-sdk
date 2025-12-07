@@ -1,7 +1,7 @@
 [package]
 description = "Substrate light network protocol"
 name = "sc-network-light"
-version = "0.51.0"
+version = "0.53.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors.workspace = true
 edition.workspace = true
@@ -22,18 +22,18 @@ codec = { features = ["derive"], workspace = true, default-features = true }
 futures = { workspace = true }
 log = { workspace = true, default-features = true }
 prost = { workspace = true }
-sc-client-api.default-features = true
 sc-client-api.workspace = true
-sc-network.default-features = true
+sc-client-api.default-features = true
 sc-network.workspace = true
-sc-network-types.default-features = true
+sc-network.default-features = true
 sc-network-types.workspace = true
-sp-blockchain.default-features = true
+sc-network-types.default-features = true
 sp-blockchain.workspace = true
-sp-core.default-features = true
+sp-blockchain.default-features = true
 sp-core.workspace = true
-sp-runtime.default-features = true
+sp-core.default-features = true
 sp-runtime.workspace = true
+sp-runtime.default-features = true
 thiserror = { workspace = true }
 
 [build-dependencies]

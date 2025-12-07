@@ -1,6 +1,6 @@
 [package]
 name = "pallet-offences"
-version = "41.0.0"
+version = "43.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -26,8 +26,8 @@ sp-runtime.workspace = true
 sp-staking.workspace = true
 
 [dev-dependencies]
-sp-core = { default-features = true, workspace = true }
-sp-io = { default-features = true, workspace = true }
+sp-core = { default-features = true, path = "../../primitives/core" }
+sp-io = { default-features = true, path = "../../primitives/io" }
 
 [features]
 default = ["std"]

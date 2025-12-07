@@ -17,52 +17,53 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { workspace = true, default-features = true }
-frame-metadata-hash-extension.default-features = true
 frame-metadata-hash-extension.workspace = true
-frame-system.default-features = true
+frame-metadata-hash-extension.default-features = true
 frame-system.workspace = true
+frame-system.default-features = true
 fs_extra = { workspace = true }
 futures = { workspace = true }
 kitchensink-runtime.workspace = true
 log = { workspace = true, default-features = true }
 node-cli.workspace = true
-node-primitives.default-features = true
 node-primitives.workspace = true
-pallet-asset-conversion.default-features = true
+node-primitives.default-features = true
 pallet-asset-conversion.workspace = true
-pallet-asset-conversion-tx-payment.default-features = true
+pallet-asset-conversion.default-features = true
 pallet-asset-conversion-tx-payment.workspace = true
-pallet-revive = { workspace = true, default-features = true }
-pallet-skip-feeless-payment.default-features = true
+pallet-asset-conversion-tx-payment.default-features = true
+pallet-revive.workspace = true
+pallet-revive.default-features = true
 pallet-skip-feeless-payment.workspace = true
-sc-block-builder.default-features = true
+pallet-skip-feeless-payment.default-features = true
 sc-block-builder.workspace = true
-sc-client-api.default-features = true
+sc-block-builder.default-features = true
 sc-client-api.workspace = true
+sc-client-api.default-features = true
 sc-client-db = { features = ["rocksdb"], workspace = true, default-features = true }
-sc-consensus.default-features = true
 sc-consensus.workspace = true
-sc-executor.default-features = true
+sc-consensus.default-features = true
 sc-executor.workspace = true
+sc-executor.default-features = true
 sc-service = { features = ["rocksdb"], workspace = true, default-features = true }
-sp-api.default-features = true
 sp-api.workspace = true
-sp-block-builder.default-features = true
+sp-api.default-features = true
 sp-block-builder.workspace = true
-sp-blockchain.default-features = true
+sp-block-builder.default-features = true
 sp-blockchain.workspace = true
-sp-consensus.default-features = true
+sp-blockchain.default-features = true
 sp-consensus.workspace = true
-sp-core.default-features = true
+sp-consensus.default-features = true
 sp-core.workspace = true
-sp-crypto-hashing.default-features = true
+sp-core.default-features = true
 sp-crypto-hashing.workspace = true
-sp-inherents.default-features = true
+sp-crypto-hashing.default-features = true
 sp-inherents.workspace = true
-sp-keyring.default-features = true
+sp-inherents.default-features = true
 sp-keyring.workspace = true
-sp-runtime.default-features = true
+sp-keyring.default-features = true
 sp-runtime.workspace = true
+sp-runtime.default-features = true
 sp-timestamp.workspace = true
 substrate-test-client.workspace = true
 tempfile = { workspace = true }

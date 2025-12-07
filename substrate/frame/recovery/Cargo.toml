@@ -1,6 +1,6 @@
 [package]
 name = "pallet-recovery"
-version = "42.0.0"
+version = "44.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -21,13 +21,12 @@ frame = { workspace = true, features = ["runtime"] }
 scale-info = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
-pallet-balances = { default-features = true, workspace = true }
+pallet-balances = { default-features = true, path = "../balances" }
 
 [features]
 default = ["std"]
 runtime-benchmarks = [
 	"frame/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 ]
 std = [
 	"codec/std",
@@ -36,5 +35,4 @@ std = [
 ]
 try-runtime = [
 	"frame/try-runtime",
-	"pallet-balances/try-runtime",
 ]

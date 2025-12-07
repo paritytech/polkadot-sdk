@@ -1,7 +1,7 @@
 [package]
 name = "rococo-runtime"
 build = "build.rs"
-version = "26.0.1"
+version = "28.0.0"
 description = "Rococo testnet Relay Chain runtime."
 authors.workspace = true
 edition.workspace = true
@@ -105,10 +105,10 @@ xcm-executor.workspace = true
 xcm-runtime-apis.workspace = true
 
 [dev-dependencies]
-remote-externalities = { default-features = true, workspace = true }
+remote-externalities = { default-features = true, path = "../../../substrate/utils/frame/remote-externalities", package = "frame-remote-externalities" }
 serde_json = { workspace = true, default-features = true }
-sp-keyring = { default-features = true, workspace = true }
-sp-tracing = { default-features = false, workspace = true }
+sp-keyring = { default-features = true, path = "../../../substrate/primitives/keyring" }
+sp-tracing = { default-features = false, path = "../../../substrate/primitives/tracing" }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 
 [build-dependencies]
@@ -200,7 +200,6 @@ std = [
 	"sp-session/std",
 	"sp-staking/std",
 	"sp-storage/std",
-	"sp-tracing/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",

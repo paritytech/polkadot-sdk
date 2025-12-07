@@ -1,6 +1,6 @@
 [package]
 name = "pallet-nomination-pools"
-version = "40.0.1"
+version = "42.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -29,8 +29,8 @@ sp-staking.workspace = true
 sp-tracing = { optional = true, workspace = true }
 
 [dev-dependencies]
-pallet-balances = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
+pallet-balances = { default-features = true, path = "../balances" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
 
 [features]
 default = ["std"]

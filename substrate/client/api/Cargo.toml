@@ -1,6 +1,6 @@
 [package]
 name = "sc-client-api"
-version = "41.0.0"
+version = "43.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -22,32 +22,32 @@ fnv = { workspace = true }
 futures = { workspace = true }
 log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
-prometheus-endpoint.default-features = true
 prometheus-endpoint.workspace = true
-sc-executor.default-features = true
+prometheus-endpoint.default-features = true
 sc-executor.workspace = true
-sc-transaction-pool-api.default-features = true
+sc-executor.default-features = true
 sc-transaction-pool-api.workspace = true
-sc-utils.default-features = true
+sc-transaction-pool-api.default-features = true
 sc-utils.workspace = true
-sp-api.default-features = true
+sc-utils.default-features = true
 sp-api.workspace = true
-sp-blockchain.default-features = true
+sp-api.default-features = true
 sp-blockchain.workspace = true
-sp-consensus.default-features = true
+sp-blockchain.default-features = true
 sp-consensus.workspace = true
+sp-consensus.default-features = true
 sp-core.workspace = true
-sp-database.default-features = true
 sp-database.workspace = true
-sp-externalities.default-features = true
+sp-database.default-features = true
 sp-externalities.workspace = true
+sp-externalities.default-features = true
 sp-runtime.workspace = true
-sp-state-machine.default-features = true
 sp-state-machine.workspace = true
-sp-storage.default-features = true
+sp-state-machine.default-features = true
 sp-storage.workspace = true
-sp-trie.default-features = true
+sp-storage.default-features = true
 sp-trie.workspace = true
+sp-trie.default-features = true
 
 [dev-dependencies]
-substrate-test-runtime = { workspace = true }
+substrate-test-runtime = { path = "../../test-utils/runtime" }

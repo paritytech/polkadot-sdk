@@ -1,6 +1,6 @@
 [package]
 name = "sc-informant"
-version = "0.51.0"
+version = "0.53.0"
 authors.workspace = true
 description = "Substrate informant."
 edition.workspace = true
@@ -20,13 +20,13 @@ console = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 log = { workspace = true, default-features = true }
-sc-client-api.default-features = true
 sc-client-api.workspace = true
-sc-network.default-features = true
+sc-client-api.default-features = true
 sc-network.workspace = true
-sc-network-sync.default-features = true
+sc-network.default-features = true
 sc-network-sync.workspace = true
-sp-blockchain.default-features = true
+sc-network-sync.default-features = true
 sp-blockchain.workspace = true
-sp-runtime.default-features = true
+sp-blockchain.default-features = true
 sp-runtime.workspace = true
+sp-runtime.default-features = true

@@ -1,7 +1,7 @@
 [package]
 name = "staging-xcm"
 description = "The basic XCM datastructures."
-version = "18.0.0"
+version = "20.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -26,11 +26,11 @@ schemars = { default-features = true, optional = true, workspace = true }
 serde = { features = ["alloc", "derive", "rc"], workspace = true }
 sp-runtime.workspace = true
 sp-weights = { features = ["serde"], workspace = true }
-xcm-procedural.default-features = true
 xcm-procedural.workspace = true
+xcm-procedural.default-features = true
 
 [dev-dependencies]
-sp-io = { default-features = true, workspace = true }
+sp-io = { default-features = true, path = "../../substrate/primitives/io" }
 
 [features]
 default = ["std"]

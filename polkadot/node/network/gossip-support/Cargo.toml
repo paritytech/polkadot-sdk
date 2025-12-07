@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-gossip-support"
-version = "25.0.0"
+version = "27.0.0"
 description = "Polkadot Gossip Support subsystem. Responsible for keeping track of session changes and issuing a connection request to the relevant validators on every new session."
 authors.workspace = true
 edition.workspace = true
@@ -12,39 +12,39 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-polkadot-node-network-protocol.default-features = true
 polkadot-node-network-protocol.workspace = true
-polkadot-node-subsystem.default-features = true
+polkadot-node-network-protocol.default-features = true
 polkadot-node-subsystem.workspace = true
-polkadot-node-subsystem-util.default-features = true
+polkadot-node-subsystem.default-features = true
 polkadot-node-subsystem-util.workspace = true
-polkadot-primitives.default-features = true
+polkadot-node-subsystem-util.default-features = true
 polkadot-primitives.workspace = true
-sc-network.default-features = true
+polkadot-primitives.default-features = true
 sc-network.workspace = true
-sp-application-crypto.default-features = true
+sc-network.default-features = true
 sp-application-crypto.workspace = true
-sp-core.default-features = true
+sp-application-crypto.default-features = true
 sp-core.workspace = true
-sp-crypto-hashing.default-features = true
+sp-core.default-features = true
 sp-crypto-hashing.workspace = true
-sp-keystore.default-features = true
+sp-crypto-hashing.default-features = true
 sp-keystore.workspace = true
+sp-keystore.default-features = true
 
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum.default-features = true
 gum.workspace = true
+gum.default-features = true
 rand = { workspace = true }
 rand_chacha = { workspace = true }
 
 [dev-dependencies]
-sp-authority-discovery = { default-features = true, workspace = true }
-sp-consensus-babe = { default-features = true, workspace = true }
-sp-keyring = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
+sp-authority-discovery = { default-features = true, path = "../../../../substrate/primitives/authority-discovery" }
+sp-consensus-babe = { default-features = true, path = "../../../../substrate/primitives/consensus/babe" }
+sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
+sp-tracing = { default-features = true, path = "../../../../substrate/primitives/tracing" }
 
-polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 
 assert_matches = { workspace = true }
 async-trait = { workspace = true }

@@ -1,6 +1,6 @@
 [package]
 name = "pallet-beefy"
-version = "43.0.0"
+version = "45.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -26,17 +26,17 @@ sp-session.workspace = true
 sp-staking = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
-frame-election-provider-support = { default-features = true, workspace = true }
-pallet-balances = { default-features = true, workspace = true }
-pallet-offences = { default-features = true, workspace = true }
-pallet-staking = { default-features = true, workspace = true }
-pallet-staking-reward-curve = { default-features = true, workspace = true }
-pallet-timestamp = { default-features = true, workspace = true }
-sp-core = { default-features = true, workspace = true }
-sp-io = { default-features = true, workspace = true }
-sp-staking = { default-features = true, workspace = true }
-sp-state-machine = { default-features = false, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
+frame-election-provider-support = { default-features = true, path = "../election-provider-support" }
+pallet-balances = { default-features = true, path = "../balances" }
+pallet-offences = { default-features = true, path = "../offences" }
+pallet-staking = { default-features = true, path = "../staking" }
+pallet-staking-reward-curve = { default-features = true, path = "../staking/reward-curve" }
+pallet-timestamp = { default-features = true, path = "../timestamp" }
+sp-core = { default-features = true, path = "../../primitives/core" }
+sp-io = { default-features = true, path = "../../primitives/io" }
+sp-staking = { default-features = true, path = "../../primitives/staking" }
+sp-state-machine = { default-features = false, path = "../../primitives/state-machine" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
 
 [features]
 default = ["std"]
@@ -53,17 +53,11 @@ std = [
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-staking/std",
-	"sp-state-machine/std",
 ]
 try-runtime = [
-	"frame-election-provider-support/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-authorship/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-offences/try-runtime",
 	"pallet-session/try-runtime",
-	"pallet-staking/try-runtime",
-	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]

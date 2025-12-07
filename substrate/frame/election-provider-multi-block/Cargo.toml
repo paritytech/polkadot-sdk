@@ -1,6 +1,6 @@
 [package]
 name = "pallet-election-provider-multi-block"
-version = "0.3.3"
+version = "0.5.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -35,12 +35,12 @@ sp-runtime.workspace = true
 sp-std.workspace = true
 
 [dev-dependencies]
-frame-benchmarking = { default-features = true, workspace = true }
-pallet-balances = { default-features = true, workspace = true }
+frame-benchmarking = { default-features = true, path = "../benchmarking" }
+pallet-balances = { default-features = true, path = "../balances" }
 parking_lot = { workspace = true, default-features = true }
-sp-core = { default-features = false, workspace = true }
-sp-io = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
+sp-core = { default-features = false, path = "../../primitives/core" }
+sp-io = { default-features = true, path = "../../primitives/io" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
 
 [features]
 default = ["std"]
@@ -65,7 +65,6 @@ runtime-benchmarks = [
 	"frame-election-provider-support/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"rand",
 	"sp-runtime/runtime-benchmarks",
 ]
@@ -73,6 +72,5 @@ try-runtime = [
 	"frame-election-provider-support/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
 	"sp-runtime/try-runtime",
 ]

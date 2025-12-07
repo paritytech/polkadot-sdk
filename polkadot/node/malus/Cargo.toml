@@ -34,41 +34,41 @@ async-trait = { workspace = true }
 clap = { features = ["derive"], workspace = true }
 color-eyre = { workspace = true }
 futures = { workspace = true }
-gum.default-features = true
 gum.workspace = true
+gum.default-features = true
 polkadot-cli = { features = ["malus", "rococo-native", "westend-native"], workspace = true, default-features = true }
-polkadot-erasure-coding.default-features = true
 polkadot-erasure-coding.workspace = true
-polkadot-node-core-pvf-common.default-features = true
+polkadot-erasure-coding.default-features = true
 polkadot-node-core-pvf-common.workspace = true
-polkadot-node-core-pvf-execute-worker.default-features = true
+polkadot-node-core-pvf-common.default-features = true
 polkadot-node-core-pvf-execute-worker.workspace = true
-polkadot-node-core-pvf-prepare-worker.default-features = true
+polkadot-node-core-pvf-execute-worker.default-features = true
 polkadot-node-core-pvf-prepare-worker.workspace = true
-polkadot-node-network-protocol.default-features = true
+polkadot-node-core-pvf-prepare-worker.default-features = true
 polkadot-node-network-protocol.workspace = true
-polkadot-node-primitives.default-features = true
+polkadot-node-network-protocol.default-features = true
 polkadot-node-primitives.workspace = true
-polkadot-node-subsystem.default-features = true
+polkadot-node-primitives.default-features = true
 polkadot-node-subsystem.workspace = true
-polkadot-node-subsystem-types.default-features = true
+polkadot-node-subsystem.default-features = true
 polkadot-node-subsystem-types.workspace = true
-polkadot-node-subsystem-util.default-features = true
+polkadot-node-subsystem-types.default-features = true
 polkadot-node-subsystem-util.workspace = true
-polkadot-primitives.default-features = true
+polkadot-node-subsystem-util.default-features = true
 polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
 rand = { workspace = true, default-features = true }
-sp-core.default-features = true
 sp-core.workspace = true
+sp-core.default-features = true
 
 [dev-dependencies]
 futures = { features = ["thread-pool"], workspace = true }
-polkadot-node-subsystem-test-helpers = { workspace = true }
-sp-core = { default-features = true, workspace = true }
+polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
+sp-core = { default-features = true, path = "../../../substrate/primitives/core" }
 
 [build-dependencies]
-substrate-build-script-utils.default-features = true
 substrate-build-script-utils.workspace = true
+substrate-build-script-utils.default-features = true
 
 [features]
 default = []

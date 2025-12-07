@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-collator-protocol"
-version = "25.0.0"
+version = "27.0.0"
 description = "Polkadot Collator Protocol subsystem. Allows collators and validators to talk to each other."
 authors.workspace = true
 edition.workspace = true
@@ -16,27 +16,27 @@ async-trait = { workspace = true, optional = true }
 bitvec = { features = ["alloc"], workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum.default-features = true
 gum.workspace = true
+gum.default-features = true
 schnellru = { workspace = true }
-sp-core.default-features = true
 sp-core.workspace = true
-sp-keystore.default-features = true
+sp-core.default-features = true
 sp-keystore.workspace = true
-sp-runtime.default-features = true
+sp-keystore.default-features = true
 sp-runtime.workspace = true
+sp-runtime.default-features = true
 
 fatality = { workspace = true }
-polkadot-node-network-protocol.default-features = true
 polkadot-node-network-protocol.workspace = true
-polkadot-node-primitives.default-features = true
+polkadot-node-network-protocol.default-features = true
 polkadot-node-primitives.workspace = true
-polkadot-node-subsystem.default-features = true
+polkadot-node-primitives.default-features = true
 polkadot-node-subsystem.workspace = true
-polkadot-node-subsystem-util.default-features = true
+polkadot-node-subsystem.default-features = true
 polkadot-node-subsystem-util.workspace = true
-polkadot-primitives.default-features = true
+polkadot-node-subsystem-util.default-features = true
 polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
 thiserror = { workspace = true }
 tokio-util = { workspace = true }
 # This should have really been a dev-dependency but clippy is complaining that it's not used with
@@ -47,16 +47,16 @@ tokio = { features = ["macros"], workspace = true, default-features = true, opti
 [dev-dependencies]
 assert_matches = { workspace = true }
 rstest = { workspace = true }
-sp-tracing = { default-features = false, workspace = true }
+sp-tracing = { default-features = false, path = "../../../../substrate/primitives/tracing" }
 
 codec = { features = ["std"], workspace = true, default-features = true }
-sc-keystore = { default-features = true, workspace = true }
-sc-network = { default-features = true, workspace = true }
-sp-core = { features = ["std"], default-features = true, workspace = true }
-sp-keyring = { default-features = true, workspace = true }
+sc-keystore = { default-features = true, path = "../../../../substrate/client/keystore" }
+sc-network = { default-features = true, path = "../../../../substrate/client/network" }
+sp-core = { features = ["std"], default-features = true, path = "../../../../substrate/primitives/core" }
+sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
 
-polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-primitives-test-helpers = { workspace = true }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
 
 [features]
 default = []

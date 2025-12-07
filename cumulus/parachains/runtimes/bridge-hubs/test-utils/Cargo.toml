@@ -1,6 +1,6 @@
 [package]
 name = "bridge-hub-test-utils"
-version = "0.25.0"
+version = "0.27.0"
 authors.workspace = true
 edition.workspace = true
 description = "Utils for BridgeHub testing"
@@ -12,8 +12,8 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-asset-test-utils.default-features = true
 asset-test-utils.workspace = true
+asset-test-utils.default-features = true
 bp-header-chain.workspace = true
 bp-messages.workspace = true
 bp-parachains.workspace = true
@@ -41,12 +41,12 @@ parachains-common.workspace = true
 parachains-runtimes-test-utils.workspace = true
 sp-core.workspace = true
 sp-io.workspace = true
-sp-keyring.default-features = true
 sp-keyring.workspace = true
+sp-keyring.default-features = true
 sp-runtime.workspace = true
 sp-std.workspace = true
-sp-tracing.default-features = true
 sp-tracing.workspace = true
+sp-tracing.default-features = true
 xcm.workspace = true
 xcm-builder.workspace = true
 xcm-executor.workspace = true

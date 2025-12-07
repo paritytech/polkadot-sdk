@@ -1,6 +1,6 @@
 [package]
 name = "pallet-example-view-functions"
-version = "0.4.0"
+version = "0.6.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -17,20 +17,20 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { default-features = false, workspace = true }
 frame-metadata = { features = ["current"], workspace = true }
-frame-support.default-features = false
 frame-support.workspace = true
-frame-system.default-features = false
+frame-support.default-features = false
 frame-system.workspace = true
+frame-system.default-features = false
 log = { workspace = true }
 scale-info = { default-features = false, features = ["derive"], workspace = true }
-sp-core.default-features = false
 sp-core.workspace = true
-sp-io.default-features = false
+sp-core.default-features = false
 sp-io.workspace = true
-sp-metadata-ir.default-features = false
+sp-io.default-features = false
 sp-metadata-ir.workspace = true
-sp-runtime.default-features = false
+sp-metadata-ir.default-features = false
 sp-runtime.workspace = true
+sp-runtime.default-features = false
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }

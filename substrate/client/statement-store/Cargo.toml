@@ -1,6 +1,6 @@
 [package]
 name = "sc-statement-store"
-version = "23.0.0"
+version = "25.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -19,24 +19,24 @@ targets = ["x86_64-unknown-linux-gnu"]
 log = { workspace = true, default-features = true }
 parity-db = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
-prometheus-endpoint.default-features = true
 prometheus-endpoint.workspace = true
-sc-client-api.default-features = true
+prometheus-endpoint.default-features = true
 sc-client-api.workspace = true
-sc-keystore.default-features = true
+sc-client-api.default-features = true
 sc-keystore.workspace = true
-sp-api.default-features = true
+sc-keystore.default-features = true
 sp-api.workspace = true
-sp-blockchain.default-features = true
+sp-api.default-features = true
 sp-blockchain.workspace = true
-sp-core.default-features = true
+sp-blockchain.default-features = true
 sp-core.workspace = true
-sp-runtime.default-features = true
+sp-core.default-features = true
 sp-runtime.workspace = true
-sp-statement-store.default-features = true
+sp-runtime.default-features = true
 sp-statement-store.workspace = true
+sp-statement-store.default-features = true
 tokio = { features = ["time"], workspace = true, default-features = true }
 
 [dev-dependencies]
-sp-tracing = { default-features = false, workspace = true }
+sp-tracing = { default-features = false, path = "../../primitives/tracing" }
 tempfile = { workspace = true }

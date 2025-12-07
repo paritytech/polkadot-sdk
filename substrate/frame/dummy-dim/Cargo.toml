@@ -1,6 +1,6 @@
 [package]
 name = "pallet-dummy-dim"
-version = "0.3.0"
+version = "0.5.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -26,7 +26,7 @@ sp-io.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-pallet-people = { default-features = false, workspace = true }
+pallet-people = { default-features = false, path = "../people" }
 verifiable = { workspace = true, features = ["small-ring"] }
 
 [features]
@@ -37,25 +37,21 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"pallet-people/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"verifiable/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-people/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-people/try-runtime",
 	"sp-runtime/try-runtime",
 ]

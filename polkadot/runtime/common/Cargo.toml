@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-runtime-common"
-version = "21.0.0"
+version = "23.0.0"
 description = "Pallets and constants used in Relay Chain networks."
 authors.workspace = true
 edition.workspace = true
@@ -58,15 +58,15 @@ xcm-builder.workspace = true
 xcm-executor = { optional = true, workspace = true }
 
 [dev-dependencies]
-frame-support-test = { workspace = true }
+frame-support-test = { path = "../../../substrate/frame/support/test" }
 hex-literal = { workspace = true, default-features = true }
 libsecp256k1 = { workspace = true, default-features = true }
-pallet-babe = { default-features = true, workspace = true }
-pallet-treasury = { default-features = true, workspace = true }
-polkadot-primitives-test-helpers = { workspace = true }
+pallet-babe = { default-features = true, path = "../../../substrate/frame/babe" }
+pallet-treasury = { default-features = true, path = "../../../substrate/frame/treasury" }
+polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
 serde_json = { workspace = true, default-features = true }
-sp-keyring = { default-features = true, workspace = true }
-sp-keystore = { default-features = true, workspace = true }
+sp-keyring = { default-features = true, path = "../../../substrate/primitives/keyring" }
+sp-keystore = { default-features = true, path = "../../../substrate/primitives/keystore" }
 
 [features]
 default = ["std"]
@@ -115,7 +115,6 @@ std = [
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-election-provider-support/runtime-benchmarks",
-	"frame-support-test/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"libsecp256k1/hmac",
@@ -142,7 +141,6 @@ runtime-benchmarks = [
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
-	"frame-support-test/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-asset-rate/try-runtime",

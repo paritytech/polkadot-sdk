@@ -44,10 +44,10 @@ tuplex = { workspace = true, default-features = false }
 [dev-dependencies]
 rand = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-sp-api = { default-features = true, workspace = true }
-sp-state-machine = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
-substrate-test-runtime-client = { workspace = true }
+sp-api = { default-features = true, path = "../api" }
+sp-state-machine = { default-features = true, path = "../state-machine" }
+sp-tracing = { default-features = true, path = "../tracing" }
+substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 zstd = { workspace = true }
 
 [features]
