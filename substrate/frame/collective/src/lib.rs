@@ -61,7 +61,7 @@ use frame_support::{
 	traits::{
 		Backing, ChangeMembers, Consideration, EnsureOrigin, EnsureOriginWithArg, Get, GetBacking,
 		InitializeMembers, MaybeConsideration, OriginTrait, QueryPreimage, StorageVersion,
-		StorePreimage
+		StorePreimage,
 	},
 	weights::Weight,
 };
@@ -1142,8 +1142,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let proposal_len = T::Preimages::len(hash).ok_or(Error::<T, I>::ProposalMissing)?;
 		ensure!(proposal_len <= length_bound, Error::<T, I>::WrongProposalLength);
 
-		let bytes = T::Preimages::fetch(hash, Some(proposal_len)).map_err(|_| Error::<T, I>::ProposalMissing)?;
-		let proposal = <T as Config<I>>::Proposal::decode(&mut &bytes[..]).map_err(|_| Error::<T, I>::ProposalMissing)?;
+		let bytes = T::Preimages::fetch(hash, Some(proposal_len))
+			.map_err(|_| Error::<T, I>::ProposalMissing)?;
+		let proposal = <T as Config<I>>::Proposal::decode(&mut &bytes[..])
+			.map_err(|_| Error::<T, I>::ProposalMissing)?;
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		ensure!(proposal_weight.all_lte(weight_bound), Error::<T, I>::WrongProposalWeight);
 		Ok((proposal, proposal_len as usize))

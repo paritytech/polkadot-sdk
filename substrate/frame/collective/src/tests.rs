@@ -33,9 +33,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, Convert, Zero},
 	BuildStorage, FixedU128,
 };
-use std::collections::HashMap;
-use std::cell::RefCell;
-use std::borrow::Cow;
+use std::{borrow::Cow, cell::RefCell, collections::HashMap};
 
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, RuntimeCall, u64, ()>;
@@ -372,9 +370,7 @@ fn close_works() {
 					who: 1,
 					amount: 0,
 				})),
-				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted {
-					hash,
-				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted { hash })),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -522,9 +518,7 @@ fn close_with_prime_works() {
 					who: 1,
 					amount: 0,
 				})),
-				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted {
-					hash,
-				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted { hash })),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -600,9 +594,7 @@ fn close_with_voting_prime_works() {
 					who: 1,
 					amount: 0,
 				})),
-				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted {
-					hash,
-				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted { hash })),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -696,9 +688,7 @@ fn close_with_no_prime_but_majority_works() {
 					who: 5,
 					amount: 2,
 				})),
-				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted {
-					hash,
-				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted { hash })),
 				record(RuntimeEvent::CollectiveMajority(CollectiveEvent::Proposed {
 					account: 5,
 					proposal_index: 0,
@@ -890,9 +880,7 @@ fn propose_works() {
 					who: 1,
 					amount: 0,
 				})),
-				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted {
-					hash,
-				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted { hash })),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -1088,9 +1076,7 @@ fn motions_vote_after_works() {
 					who: 1,
 					amount: 0,
 				})),
-				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted {
-					hash,
-				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted { hash })),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -1243,9 +1229,7 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 					who: 1,
 					amount: 0,
 				})),
-				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted {
-					hash,
-				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted { hash })),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0, // 0 is the proposal that failed to execute?
@@ -1308,9 +1292,7 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 					who: 1,
 					amount: 0,
 				})),
-				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted {
-					hash,
-				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted { hash })),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 1,
@@ -1389,9 +1371,7 @@ fn motions_disapproval_works() {
 					who: 1,
 					amount: 0,
 				})),
-				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted {
-					hash,
-				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted { hash })),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -1458,9 +1438,7 @@ fn motions_approval_works() {
 					who: 1,
 					amount: 0,
 				})),
-				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted {
-					hash,
-				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted { hash })),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -1542,9 +1520,7 @@ fn motion_with_no_votes_closes_with_disapproval() {
 		// Events show that the close ended in a disapproval.
 		assert_eq!(
 			System::events()[1],
-			record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted {
-					hash,
-				})),
+			record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted { hash })),
 		);
 		assert_eq!(
 			System::events()[2],
@@ -1632,9 +1608,7 @@ fn disapprove_proposal_works() {
 					who: 1,
 					amount: 0,
 				})),
-				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted {
-					hash,
-				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted { hash })),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
