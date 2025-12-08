@@ -230,7 +230,7 @@ where
 		} else {
 			log::trace!(
 				target: LOG_TARGET,
-				"Reclaiming storage weight. benchmarked: {benchmarked_actual_proof_size},
+				"Reclaiming storage weight. benchmarked: {benchmarked_actual_proof_size}, \
 				consumed: {measured_proof_size}"
 			);
 		}
