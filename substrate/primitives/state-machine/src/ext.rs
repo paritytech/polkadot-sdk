@@ -233,22 +233,18 @@ where
 		key: &[u8],
 	) -> StateLoad<Option<StorageValue>> {
 		let _guard = guard();
-		let overlay_result = self.overlay.child_storage(child_info, key);
-		log::debug!(target: "runtime::revive", "ext.child_storage_with_status: overlay returned {:?}", overlay_result.is_some());
 
-		let result = overlay_result
+		let result = self
+			.overlay
+			.child_storage(child_info, key)
 			.map(|x| x.map(|x| x.to_vec()))
 			.map_or_else(
 				|| {
-					log::debug!(target: "runtime::revive", "ext.child_storage_with_status: calling backend");
 					self.backend
 						.child_storage_with_status(child_info, key)
 						.expect(EXT_NOT_ALLOWED_TO_FAIL)
 				},
-				|data| {
-					log::debug!(target: "runtime::revive", "ext.child_storage_with_status: using overlay data, returning is_cold=false");
-					StateLoad { is_cold: false, data }
-				},
+				|data| StateLoad { is_cold: false, data },
 			);
 
 		trace!(
@@ -261,7 +257,6 @@ where
 			result = ?result.data.as_ref().map(HexDisplay::from),
 		);
 
-		log::debug!(target: "runtime::revive", "child_storage_with_status key={:?} is_cold={}", sp_core::hexdisplay::HexDisplay::from(&child_info.storage_key()), result.is_cold);
 		result
 	}
 

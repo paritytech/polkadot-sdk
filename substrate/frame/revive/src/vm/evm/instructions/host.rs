@@ -115,7 +115,7 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let sp_io::StateLoad { data, is_cold } = interpreter.ext.get_storage(&key);
 	interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage { len: 32, is_cold })?;
 
-	log::trace!(
+	log::debug!(
 		target: LOG_TARGET,
 		"sload key={} is_cold={is_cold}",
 		sp_core::hexdisplay::HexDisplay::from(&key.hash()),
