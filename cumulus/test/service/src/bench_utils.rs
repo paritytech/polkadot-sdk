@@ -86,10 +86,12 @@ pub fn extrinsic_set_validation_data(
 	let sproof_builder = RelayStateSproofBuilder {
 		para_id: cumulus_test_runtime::PARACHAIN_ID.into(),
 		included_para_head: parent_head.clone().into(),
+		num_authorities: 2,
 		..Default::default()
 	};
 
-	let (relay_parent_storage_root, relay_chain_state) = sproof_builder.into_state_root_and_proof();
+	let (relay_parent_storage_root, relay_chain_state, relay_parent_descendants) =
+		sproof_builder.into_state_root_proof_and_descendants(2);
 	let data = BasicParachainInherentData {
 		validation_data: PersistedValidationData {
 			parent_head,
@@ -98,7 +100,7 @@ pub fn extrinsic_set_validation_data(
 			max_pov_size: 10000,
 		},
 		relay_chain_state,
-		relay_parent_descendants: Default::default(),
+		relay_parent_descendants,
 		collator_peer_id: None,
 	};
 

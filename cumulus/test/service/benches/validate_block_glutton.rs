@@ -96,7 +96,9 @@ fn benchmark_block_validation(c: &mut Criterion) {
 		runtime.block_on(import_block(&client, parachain_block.blocks()[0].clone(), false));
 		let runtime = utils::get_wasm_module();
 
-		let sproof_builder: RelayStateSproofBuilder = Default::default();
+		let mut sproof_builder: RelayStateSproofBuilder = Default::default();
+		sproof_builder.num_authorities = 2;
+
 		let (relay_parent_storage_root, _) = sproof_builder.clone().into_state_root_and_proof();
 		let encoded_params = ValidationParams {
 			block_data: cumulus_test_client::BlockData(parachain_block.clone().encode()),
