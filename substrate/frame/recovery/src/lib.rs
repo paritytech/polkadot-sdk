@@ -284,17 +284,16 @@ impl<AccountId: Clone + Eq, Footprint, C: Consideration<AccountId, Footprint>>
 	}
 
 	fn update(self, new_depositor: &AccountId, fp: Footprint) -> Result<Self, DispatchError> {
-		//let old_depositor = self.depositor.clone();
-
 		if *new_depositor != self.depositor {
 			self.ticket.drop(&self.depositor)?;
 		}
 
-		Consideration::<AccountId, Footprint>::new(new_depositor, fp)
+		let ticket = Consideration::<AccountId, Footprint>::new(&new_depositor, fp)?;
+		Ok(Self { depositor: new_depositor.clone(), ticket, _phantom: Default::default() })
 	}
 
 	fn drop(self) -> Result<(), DispatchError> {
-		self.ticket.drop(&self.depositor);
+		self.ticket.drop(&self.depositor)
 	}
 }
 
@@ -473,6 +472,10 @@ pub mod pallet {
 		pub fn provided_block_number() -> ProvidedBlockNumberOf<T> {
 			T::BlockNumberProvider::current_block_number()
 		}
+
+		pub fn inheritor(lost: T::AccountId) -> Option<T::AccountId> {
+			Inheritor::<T>::get(lost).map(|(_, inheritor, _)| inheritor)
+		}
 	}
 
 	#[pallet::call]
@@ -637,7 +640,7 @@ pub mod pallet {
 			let now = T::BlockNumberProvider::current_block_number();
 
 			let (attempt, attempts_ticket) =
-				Attempts::<T>::get(&lost, &attempt_index).ok_or(Error::<T>::NotAttempt)?;
+				Attempt::<T>::get(&lost, &attempt_index).ok_or(Error::<T>::NotAttempt)?;
 
 			// AUDIT: attempt_index == friend_group_index
 			let friend_group = Self::friend_group_of(&lost, attempt_index).defensive()?;
@@ -652,13 +655,13 @@ pub mod pallet {
 
 			let inheritable_at = attempt
 				.init_block
-				.checked_add(friend_group.inheritance_delay)
+				.checked_add(&friend_group.inheritance_delay)
 				.ok_or(ArithmeticError::Overflow)?;
 			ensure!(now >= inheritable_at, Error::<T>::NotYetInheritable);
 			// NOTE: We dont need to check the abort delay, since enough friends voted and we dont
 			// assume fully malicious behavior.
 
-			let inheritor = attempt.inheritor;
+			let inheritor = friend_group.inheritor;
 			let inheritance_order = friend_group.inheritance_order;
 
 			// todo event
@@ -671,7 +674,7 @@ pub mod pallet {
 				// inheritor
 				Some((old_order, _, ticket)) if inheritance_order < old_order => {
 					// We have to update the ticket since we don't know who created it:
-					let ticket = ticket.update(&caller, Self::inheritor_footprint());
+					let ticket = ticket.update(&caller, Self::inheritor_footprint())?;
 					Inheritor::<T>::insert(&lost, (inheritance_order, &inheritor, ticket));
 				},
 				Some(_) => {
@@ -784,7 +787,7 @@ impl<T: Config> Pallet<T> {
 		lost: &T::AccountId,
 		friend_group_index: u32,
 	) -> Result<(AttemptOf<T>, T::AttemptConsideration), Error<T>> {
-		Attempt::<T>::get(lost, friend_group_index).ok_or(Error::<T>::NotAttempt)
+		pallet::Attempt::<T>::get(lost, friend_group_index).ok_or(Error::<T>::NotAttempt)
 	}
 
 	fn update_ticket<C: Consideration<T::AccountId, Footprint>>(

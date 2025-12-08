@@ -38,7 +38,7 @@ fn basic_flow_works() {
 			deposit: 10,
 			friends: friends([BOB, CHARLIE, DAVE]),
 			friends_needed: 2,
-			inheritor: EVE,
+			inheritor: FERDIE,
 			inheritance_delay: 10,
 			inheritance_order: 0,
 			abort_delay: 10,
@@ -52,6 +52,19 @@ fn basic_flow_works() {
 		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
 		assert_ok!(Recovery::approve_attempt(signed(CHARLIE), ALICE, 0));
 
+		// Eve finishes the attempt too early (10 inheritance delay)
+		assert_noop!(
+			Recovery::finish_attempt(signed(EVE), ALICE, 0),
+			Error::<T>::NotYetInheritable
+		);
+
+		// Advance the block number to 11
+		System::set_block_number(11);
+
 		// Eve finishes the attempt
+		assert_ok!(Recovery::finish_attempt(signed(EVE), ALICE, 0));
+
+		// Eve finishes the attempt and Ferdie should be the inheritor
+		assert_eq!(Recovery::inheritor(ALICE), Some(FERDIE));
 	});
 }
