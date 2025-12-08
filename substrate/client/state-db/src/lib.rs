@@ -574,15 +574,21 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDb<BlockHash, Key, D> {
 				assert!(stored.is_none(), "The storage has just been initialized. No meta-data is expected to be found in it.");
 				requested
 			},
-			(false, None, _) =>
+			(false, None, true) =>
 				return Err(StateDbError::Metadata(
-					"An existing StateDb does not have ARCHIVE)DIFF_MODE stored in its meta-data"
+					"An existing StateDb does not have ARCHIVE_DIFF_MODE stored in its meta-data, but the mode is requested to be enabled.
+					 This mode can only be enabled at the database creation."
 						.into(),
 				)
 				.into()),
+			(false, None, false) => {
+				false
+			},
 			(false, Some(stored), requested) => {
 				if stored != requested {
-					return Err(StateDbError::IncompatibleArchiveDiffModes { stored, requested }.into());
+					return Err(
+						StateDbError::IncompatibleArchiveDiffModes { stored, requested }.into()
+					);
 				}
 				stored
 			},
@@ -600,8 +606,9 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDb<BlockHash, Key, D> {
 			let value = match archive_diffs {
 				true => ARCHIVE_DIFF_ON,
 				false => ARCHIVE_DIFF_OFF,
-			}.to_owned();
-			
+			}
+			.to_owned();
+
 			cs.meta.inserted.push((key, value));
 
 			cs

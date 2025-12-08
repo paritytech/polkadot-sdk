@@ -42,7 +42,6 @@ mod stats;
 mod upgrade;
 mod utils;
 
-use array_bytes::Hex;
 use linked_hash_map::LinkedHashMap;
 use log::{debug, trace, warn};
 use parking_lot::{Mutex, RwLock};
@@ -1301,7 +1300,7 @@ impl<Block: BlockT> Backend<Block> {
 		if config.archive_diffs &&
 			!matches!(backend_db, BackendDatabase::DatabaseWithSeekableIterator(_))
 		{
-			return Err(ClientError::Backend("Archive diff mode requested, but chosen database doesn't support seek operations, required for diff archive".into()));
+			return Err(ClientError::Backend("Archive diff mode requested, but chosen database doesn't support required seek operations".into()));
 		}
 
 		let backend = Backend {
