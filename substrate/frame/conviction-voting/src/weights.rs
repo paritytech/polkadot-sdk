@@ -76,9 +76,11 @@ pub trait WeightInfo {
 	fn vote_existing() -> Weight;
 	fn remove_vote() -> Weight;
 	fn remove_other_vote() -> Weight;
-	fn delegate(r: u32, ) -> Weight;
-	fn undelegate(r: u32, ) -> Weight;
+	fn delegate(r: u32, _s: u32) -> Weight;
+	fn undelegate(r: u32, _s: u32) -> Weight;
 	fn unlock() -> Weight;
+	fn toggle_allow_delegator_voting() -> Weight;
+	fn step_to_v1() -> Weight;
 }
 
 /// Weights for `pallet_conviction_voting` using the Substrate node and recommended hardware.
@@ -164,6 +166,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	// Stub.
+	fn toggle_allow_delegator_voting() -> Weight {
+		T::DbWeight::get().reads(1_u64)
+		.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 	/// Storage: `Parameters::Parameters` (r:1 w:0)
 	/// Proof: `Parameters::Parameters` (`max_values`: None, `max_size`: Some(11322), added: 13797, mode: `MaxEncodedLen`)
 	/// Storage: `ConvictionVoting::VotingFor` (r:2 w:2)
@@ -181,7 +188,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Scheduler::Retries` (r:0 w:1)
 	/// Proof: `Scheduler::Retries` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
 	/// The range of component `r` is `[0, 1]`.
-	fn delegate(r: u32, ) -> Weight {
+	fn delegate(r: u32, _s: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `146 + r * (1516 ±0)`
 		//  Estimated: `109992 + r * (109992 ±0)`
@@ -204,7 +211,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Scheduler::Retries` (r:0 w:1)
 	/// Proof: `Scheduler::Retries` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
 	/// The range of component `r` is `[0, 1]`.
-	fn undelegate(r: u32, ) -> Weight {
+	fn undelegate(r: u32, _s: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `350 + r * (1264 ±0)`
 		//  Estimated: `109992 + r * (109992 ±0)`
@@ -236,6 +243,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(92_198_000, 30706)
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
+	}
+
+	// Stub.
+	fn step_to_v1() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `28`
+		//  Estimated: `5996`
+		// Minimum execution time: 6_000_000 picoseconds.
+		Weight::from_parts(8_000_000, 5996)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
 
@@ -321,6 +339,11 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
+	// Placeholder.
+	fn toggle_allow_delegator_voting() -> Weight {
+		RocksDbWeight::get().reads(1_u64)
+		.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
 	/// Storage: `Parameters::Parameters` (r:1 w:0)
 	/// Proof: `Parameters::Parameters` (`max_values`: None, `max_size`: Some(11322), added: 13797, mode: `MaxEncodedLen`)
 	/// Storage: `ConvictionVoting::VotingFor` (r:2 w:2)
@@ -338,7 +361,7 @@ impl WeightInfo for () {
 	/// Storage: `Scheduler::Retries` (r:0 w:1)
 	/// Proof: `Scheduler::Retries` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
 	/// The range of component `r` is `[0, 1]`.
-	fn delegate(r: u32, ) -> Weight {
+	fn delegate(r: u32, _s: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `146 + r * (1516 ±0)`
 		//  Estimated: `109992 + r * (109992 ±0)`
@@ -361,7 +384,7 @@ impl WeightInfo for () {
 	/// Storage: `Scheduler::Retries` (r:0 w:1)
 	/// Proof: `Scheduler::Retries` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
 	/// The range of component `r` is `[0, 1]`.
-	fn undelegate(r: u32, ) -> Weight {
+	fn undelegate(r: u32, _s: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `350 + r * (1264 ±0)`
 		//  Estimated: `109992 + r * (109992 ±0)`
@@ -393,5 +416,16 @@ impl WeightInfo for () {
 		Weight::from_parts(92_198_000, 30706)
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
+	}
+
+	// Stub.
+	fn step_to_v1() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `28`
+		//  Estimated: `5996`
+		// Minimum execution time: 6_000_000 picoseconds.
+		Weight::from_parts(8_000_000, 5996)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
