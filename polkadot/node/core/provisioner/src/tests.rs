@@ -16,10 +16,7 @@
 
 use super::*;
 use bitvec::bitvec;
-use polkadot_primitives::{
-	vstaging::{MutateDescriptorV2, OccupiedCore},
-	ScheduledCore,
-};
+use polkadot_primitives::{MutateDescriptorV2, OccupiedCore, ScheduledCore};
 use polkadot_primitives_test_helpers::{dummy_candidate_descriptor_v2, dummy_hash};
 
 const MOCK_GROUP_SIZE: usize = 5;
@@ -256,11 +253,9 @@ mod select_candidates {
 	};
 	use polkadot_node_subsystem_test_helpers::{mock::new_leaf, TestSubsystemSender};
 	use polkadot_primitives::{
-		vstaging::{
-			CandidateReceiptV2 as CandidateReceipt,
-			CommittedCandidateReceiptV2 as CommittedCandidateReceipt, MutateDescriptorV2,
-		},
-		BlockNumber, CandidateCommitments, PersistedValidationData,
+		BlockNumber, CandidateCommitments, CandidateReceiptV2 as CandidateReceipt,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, MutateDescriptorV2,
+		PersistedValidationData,
 	};
 	use polkadot_primitives_test_helpers::{dummy_candidate_descriptor_v2, dummy_hash};
 	use std::ops::Not;

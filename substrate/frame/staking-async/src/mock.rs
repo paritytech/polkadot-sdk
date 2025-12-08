@@ -37,7 +37,7 @@ use pallet_staking_async_rc_client as rc_client;
 use sp_core::{ConstBool, ConstU64};
 use sp_io;
 use sp_npos_elections::BalancingConfig;
-use sp_runtime::{traits::Zero, BuildStorage};
+use sp_runtime::{traits::Zero, BuildStorage, Weight};
 use sp_staking::{
 	currency_to_vote::SaturatingCurrencyToVote, OnStakingUpdate, SessionIndex, StakingAccount,
 };
@@ -194,11 +194,11 @@ impl ElectionProvider for TestElectionProvider {
 	fn duration() -> Self::BlockNumber {
 		InnerElection::duration() + ElectionDelay::get()
 	}
-	fn status() -> Result<bool, ()> {
+	fn status() -> Result<Option<Weight>, ()> {
 		let now = System::block_number();
 		match StartReceived::get() {
-			Some(at) if now - at >= ElectionDelay::get() => Ok(true),
-			Some(_) => Ok(false),
+			Some(at) if now - at >= ElectionDelay::get() => Ok(Some(Default::default())),
+			Some(_) => Ok(None),
 			None => Err(()),
 		}
 	}
@@ -243,6 +243,10 @@ impl Contains<AccountId> for MockedRestrictList {
 /// A representation of the session pallet that lives on the relay chain.
 pub mod session_mock {
 	use super::*;
+	use frame_support::{
+		traits::{OnInitialize, OnPoll},
+		weights::WeightMeter,
+	};
 	use pallet_staking_async_rc_client::ValidatorSetReport;
 
 	pub struct Session;
@@ -269,7 +273,12 @@ pub mod session_mock {
 		pub fn roll_next() {
 			let now = System::block_number();
 			Timestamp::mutate(|ts| *ts += BLOCK_TIME);
-			System::run_to_block::<AllPalletsWithSystem>(now + 1);
+			System::set_block_number(now + 1);
+			<AllPalletsWithSystem as OnInitialize<BlockNumber>>::on_initialize(now + 1);
+			<AllPalletsWithSystem as OnPoll<BlockNumber>>::on_poll(
+				now + 1,
+				&mut WeightMeter::new(),
+			);
 			Self::maybe_rotate_session_now();
 		}
 
@@ -401,6 +410,7 @@ ord_parameter_types! {
 parameter_types! {
 	pub static RemainderRatio: Perbill = Perbill::from_percent(50);
 	pub static MaxEraDuration: u64 = time_per_era() * 7;
+	pub const MaxPruningItems: u32 = 100;
 }
 pub struct OneTokenPerMillisecond;
 impl EraPayout<Balance> for OneTokenPerMillisecond {
@@ -437,8 +447,8 @@ impl crate::pallet::pallet::Config for Test {
 	type BondingDuration = BondingDuration;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
-	type MaxInvulnerables = ConstU32<20>;
 	type MaxEraDuration = MaxEraDuration;
+	type MaxPruningItems = MaxPruningItems;
 	type PlanningEraOffset = PlanningEraOffset;
 	type Filter = MockedRestrictList;
 	type RcClientInterface = session_mock::Session;
@@ -475,7 +485,6 @@ parameter_types! {
 pub struct ExtBuilder {
 	nominate: bool,
 	validator_count: u32,
-	invulnerables: BoundedVec<AccountId, <Test as Config>::MaxInvulnerables>,
 	has_stakers: bool,
 	pub min_nominator_bond: Balance,
 	min_validator_bond: Balance,
@@ -492,7 +501,6 @@ impl Default for ExtBuilder {
 			nominate: true,
 			validator_count: 2,
 			balance_factor: 1,
-			invulnerables: BoundedVec::new(),
 			has_stakers: true,
 			min_nominator_bond: ExistentialDeposit::get(),
 			min_validator_bond: ExistentialDeposit::get(),
@@ -544,11 +552,6 @@ impl ExtBuilder {
 	}
 	pub(crate) fn slash_defer_duration(self, eras: EraIndex) -> Self {
 		SlashDeferDuration::set(eras);
-		self
-	}
-	pub(crate) fn invulnerables(mut self, invulnerables: Vec<AccountId>) -> Self {
-		self.invulnerables = BoundedVec::try_from(invulnerables)
-			.expect("Too many invulnerable validators: upper limit is MaxInvulnerables");
 		self
 	}
 	pub(crate) fn session_per_era(self, length: SessionIndex) -> Self {
@@ -685,7 +688,6 @@ impl ExtBuilder {
 		let _ = pallet_staking_async::GenesisConfig::<Test> {
 			stakers: maybe_stakers,
 			validator_count: self.validator_count,
-			invulnerables: self.invulnerables,
 			active_era: (0, 0, INIT_TIMESTAMP),
 			slash_reward_fraction: Perbill::from_percent(10),
 			min_nominator_bond: self.min_nominator_bond,
@@ -1004,4 +1006,23 @@ pub(crate) fn restrict(who: &AccountId) {
 
 pub(crate) fn remove_from_restrict_list(who: &AccountId) {
 	RestrictedAccounts::mutate(|l| l.retain(|x| x != who));
+}
+
+pub(crate) fn era_unprocessed_offence_count(era: EraIndex) -> u32 {
+	OffenceQueue::<T>::iter_prefix_values(era).count() as u32
+}
+
+pub(crate) fn era_unapplied_slash_count(era: EraIndex) -> u32 {
+	UnappliedSlashes::<T>::iter_prefix_values(era).count() as u32
+}
+
+/// A pending slash from the previous era blocks withdrawal. Use this to apply them.
+pub(crate) fn apply_pending_slashes_from_previous_era() {
+	apply_pending_slashes_from_era(active_era() - 1);
+}
+
+pub(crate) fn apply_pending_slashes_from_era(era: EraIndex) {
+	for (key, _) in UnappliedSlashes::<T>::iter_prefix(era) {
+		assert_ok!(Staking::apply_slash(RuntimeOrigin::signed(1), era, key));
+	}
 }

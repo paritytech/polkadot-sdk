@@ -1,17 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
+use snowbridge_ethereum::{mpt, Decodable, ReceiptEnvelope};
 use sp_core::H256;
 use sp_io::hashing::keccak_256;
 use sp_std::prelude::*;
 
-use snowbridge_ethereum::{mpt, Receipt};
-
-pub fn verify_receipt_proof(
-	receipts_root: H256,
-	proof: &[Vec<u8>],
-) -> Option<Result<Receipt, rlp::DecoderError>> {
-	match apply_merkle_proof(proof) {
-		Some((root, data)) if root == receipts_root => Some(rlp::decode(&data)),
+pub fn verify_receipt_proof(receipts_root: H256, values: &[Vec<u8>]) -> Option<ReceiptEnvelope> {
+	match apply_merkle_proof(values) {
+		Some((root, data)) if root == receipts_root =>
+			ReceiptEnvelope::decode(&mut data.as_slice()).ok(),
 		Some((_, _)) => None,
 		None => None,
 	}
@@ -64,15 +61,9 @@ mod tests {
 		assert!(verify_receipt_proof(root, &proof_empty).is_none());
 		assert!(verify_receipt_proof(root, &proof_missing_full_node).is_none());
 
-		assert_eq!(
-			verify_receipt_proof(root, &proof_missing_short_node1),
-			Some(Err(rlp::DecoderError::Custom("Unsupported receipt type")))
-		);
+		assert_eq!(verify_receipt_proof(root, &proof_missing_short_node1), None);
 
-		assert_eq!(
-			verify_receipt_proof(root, &proof_missing_short_node2),
-			Some(Err(rlp::DecoderError::Custom("Unsupported receipt type")))
-		);
+		assert_eq!(verify_receipt_proof(root, &proof_missing_short_node2), None);
 
 		assert!(verify_receipt_proof(root, &proof_invalid_encoding).is_none());
 		assert!(verify_receipt_proof(root, &proof_no_full_node).is_none());

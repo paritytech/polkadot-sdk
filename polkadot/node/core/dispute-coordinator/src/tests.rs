@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::{
-	collections::HashMap,
+	collections::{BTreeMap, HashMap},
 	sync::{
 		atomic::{AtomicU64, Ordering as AtomicOrdering},
 		Arc,
@@ -60,14 +60,11 @@ use polkadot_node_subsystem_test_helpers::{
 	make_buffered_subsystem_context, mock::new_leaf, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
-	vstaging::{
-		CandidateEvent, CandidateReceiptV2 as CandidateReceipt, MutateDescriptorV2,
-		ScrapedOnChainVotes,
-	},
-	ApprovalVote, BlockNumber, CandidateCommitments, CandidateHash, CoreIndex, DisputeStatement,
-	ExecutorParams, GroupIndex, Hash, HeadData, Header, IndexedVec, MultiDisputeStatementSet,
-	NodeFeatures, SessionIndex, SessionInfo, SigningContext, ValidDisputeStatementKind,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	ApprovalVote, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+	CandidateReceiptV2 as CandidateReceipt, CoreIndex, DisputeStatement, ExecutorParams,
+	GroupIndex, Hash, HeadData, Header, IndexedVec, MultiDisputeStatementSet, MutateDescriptorV2,
+	NodeFeatures, ScrapedOnChainVotes, SessionIndex, SessionInfo, SigningContext,
+	ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_receipt_v2_bad_sig, dummy_digest, dummy_hash,
@@ -409,7 +406,7 @@ impl TestState {
 				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_new_leaf,
-					RuntimeApiRequest::UnappliedSlashes(tx),
+					RuntimeApiRequest::UnappliedSlashesV2(tx),
 				)) => {
 					tx.send(Ok(Vec::new())).unwrap();
 				},
@@ -773,10 +770,9 @@ fn too_many_unconfirmed_statements_are_considered_spam() {
 						msg: DisputeCoordinatorMessage::ActiveDisputes(tx),
 					})
 					.await;
-
 				assert_eq!(
 					rx.await.unwrap(),
-					vec![(session, candidate_hash1, DisputeStatus::Active)]
+					BTreeMap::from([((session, candidate_hash1), DisputeStatus::Active)])
 				);
 
 				let (tx, rx) = oneshot::channel();
@@ -910,7 +906,7 @@ fn approval_vote_import_works() {
 
 				assert_eq!(
 					rx.await.unwrap(),
-					vec![(session, candidate_hash1, DisputeStatus::Active)]
+					BTreeMap::from([((session, candidate_hash1), DisputeStatus::Active)])
 				);
 
 				let (tx, rx) = oneshot::channel();
@@ -1023,7 +1019,7 @@ fn dispute_gets_confirmed_via_participation() {
 
 				assert_eq!(
 					rx.await.unwrap(),
-					vec![(session, candidate_hash1, DisputeStatus::Active)]
+					BTreeMap::from([((session, candidate_hash1), DisputeStatus::Active)])
 				);
 
 				let (tx, rx) = oneshot::channel();
@@ -1168,7 +1164,7 @@ fn dispute_gets_confirmed_at_byzantine_threshold() {
 
 				assert_eq!(
 					rx.await.unwrap(),
-					vec![(session, candidate_hash1, DisputeStatus::Confirmed)]
+					BTreeMap::from([((session, candidate_hash1), DisputeStatus::Confirmed)])
 				);
 
 				let (tx, rx) = oneshot::channel();
@@ -1430,7 +1426,7 @@ fn conflicting_votes_lead_to_dispute_participation() {
 
 				assert_eq!(
 					rx.await.unwrap(),
-					vec![(session, candidate_hash, DisputeStatus::Active)]
+					BTreeMap::from([((session, candidate_hash), DisputeStatus::Active)])
 				);
 
 				let (tx, rx) = oneshot::channel();

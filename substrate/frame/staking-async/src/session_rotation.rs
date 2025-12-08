@@ -77,12 +77,14 @@
 //! * end 5, start 6, plan 7 // Session report contains activation timestamp with Current Era.
 
 use crate::*;
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 use frame_election_provider_support::{BoundedSupportsOf, ElectionProvider, PageIndex};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Defensive, DefensiveMax, DefensiveSaturating, OnUnbalanced, TryCollect},
+	weights::WeightMeter,
 };
+use pallet_staking_async_rc_client::RcClientInterface;
 use sp_runtime::{Perbill, Percent, Saturating};
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
@@ -102,29 +104,6 @@ use sp_staking::{
 pub struct Eras<T: Config>(core::marker::PhantomData<T>);
 
 impl<T: Config> Eras<T> {
-	/// Prune all associated information with the given era.
-	///
-	/// Implementation note: ATM this is deleting all the information in one go, yet it can very
-	/// well be done lazily.
-	pub(crate) fn prune_era(era: EraIndex) {
-		crate::log!(debug, "Pruning era {:?}", era);
-		let mut cursor = <ErasValidatorPrefs<T>>::clear_prefix(era, u32::MAX, None);
-		debug_assert!(cursor.maybe_cursor.is_none());
-		cursor = <ClaimedRewards<T>>::clear_prefix(era, u32::MAX, None);
-		debug_assert!(cursor.maybe_cursor.is_none());
-		cursor = <ErasStakersPaged<T>>::clear_prefix((era,), u32::MAX, None);
-		debug_assert!(cursor.maybe_cursor.is_none());
-		cursor = <ErasStakersOverview<T>>::clear_prefix(era, u32::MAX, None);
-		debug_assert!(cursor.maybe_cursor.is_none());
-
-		<ErasValidatorReward<T>>::remove(era);
-		<ErasRewardPoints<T>>::remove(era);
-		<ErasTotalStake<T>>::remove(era);
-
-		// register the weight of the pruning.
-		Pallet::<T>::register_weight(T::WeightInfo::prune_era(ValidatorCount::<T>::get()));
-	}
-
 	pub(crate) fn set_validator_prefs(era: EraIndex, stash: &T::AccountId, prefs: ValidatorPrefs) {
 		debug_assert_eq!(era, Rotator::<T>::planned_era(), "we only set prefs for planning era");
 		<ErasValidatorPrefs<T>>::insert(era, stash, prefs);
@@ -150,8 +129,11 @@ impl<T: Config> Eras<T> {
 
 	/// Get exposure for a validator at a given era and page.
 	///
+	/// This is mainly used for rewards and slashing. Validator's self-stake is only returned in
+	/// page 0.
+	///
 	/// This builds a paged exposure from `PagedExposureMetadata` and `ExposurePage` of the
-	/// validator. For older non-paged exposure, it returns the clipped exposure directly.
+	/// validator.
 	pub(crate) fn get_paged_exposure(
 		era: EraIndex,
 		validator: &T::AccountId,
@@ -159,7 +141,7 @@ impl<T: Config> Eras<T> {
 	) -> Option<PagedExposure<T::AccountId, BalanceOf<T>>> {
 		let overview = <ErasStakersOverview<T>>::get(&era, validator)?;
 
-		// validator stake is added only in page zero
+		// validator stake is added only in page zero.
 		let validator_stake = if page == 0 { overview.own } else { Zero::zero() };
 
 		// since overview is present, paged exposure will always be present except when a
@@ -253,57 +235,97 @@ impl<T: Config> Eras<T> {
 		mut exposure: Exposure<T::AccountId, BalanceOf<T>>,
 	) {
 		let page_size = T::MaxExposurePageSize::get().defensive_max(1);
+		if cfg!(debug_assertions) && cfg!(not(feature = "runtime-benchmarks")) {
+			// sanitize the exposure in case some test data from this pallet is wrong.
+			// ignore benchmarks as other pallets might do weird things.
+			let expected_total = exposure
+				.others
+				.iter()
+				.map(|ie| ie.value)
+				.fold::<BalanceOf<T>, _>(Default::default(), |acc, x| acc + x)
+				.saturating_add(exposure.own);
+			debug_assert_eq!(expected_total, exposure.total, "exposure total must equal own + sum(others) for (era: {:?}, validator: {:?}, exposure: {:?})", era, validator, exposure);
+		}
 
-		if let Some(stored_overview) = ErasStakersOverview::<T>::get(era, &validator) {
-			let last_page_idx = stored_overview.page_count.saturating_sub(1);
-
+		if let Some(overview) = ErasStakersOverview::<T>::get(era, &validator) {
+			// collect some info from the un-touched overview for later use.
+			let last_page_idx = overview.page_count.saturating_sub(1);
 			let mut last_page =
 				ErasStakersPaged::<T>::get((era, validator, last_page_idx)).unwrap_or_default();
 			let last_page_empty_slots =
 				T::MaxExposurePageSize::get().saturating_sub(last_page.others.len() as u32);
 
-			// splits the exposure so that `exposures_append` will fit within the last exposure
-			// page, up to the max exposure page size. The remaining individual exposures in
-			// `exposure` will be added to new pages.
-			let exposures_append = exposure.split_others(last_page_empty_slots);
+			// update nominator-count, page-count, and total stake in overview (done in
+			// `update_with`).
+			let new_stake_added = exposure.total;
+			let new_nominators_added = exposure.others.len() as u32;
+			let mut updated_overview = overview
+				.update_with::<T::MaxExposurePageSize>(new_stake_added, new_nominators_added);
 
-			ErasStakersOverview::<T>::mutate(era, &validator, |stored| {
-				// new metadata is updated based on 3 different set of exposures: the
-				// current one, the exposure split to be "fitted" into the current last page and
-				// the exposure set that will be appended from the new page onwards.
-				let new_metadata =
-					stored.defensive_unwrap_or_default().update_with::<T::MaxExposurePageSize>(
-						[&exposures_append, &exposure]
-							.iter()
-							.fold(Default::default(), |total, expo| {
-								total.saturating_add(expo.total.saturating_sub(expo.own))
-							}),
-						[&exposures_append, &exposure]
-							.iter()
-							.fold(Default::default(), |count, expo| {
-								count.saturating_add(expo.others.len() as u32)
-							}),
+			// update own stake, if applicable.
+			match (updated_overview.own.is_zero(), exposure.own.is_zero()) {
+				(true, false) => {
+					// first time we see own exposure -- good.
+					// note: `total` is already updated above.
+					updated_overview.own = exposure.own;
+				},
+				(true, true) | (false, true) => {
+					// no new own exposure is added, nothing to do
+				},
+				(false, false) => {
+					debug_assert!(
+						false,
+						"validator own stake already set in overview for (era: {:?}, validator: {:?}, current overview: {:?}, new exposure: {:?})",
+						era,
+						validator,
+						updated_overview,
+						exposure,
 					);
-				*stored = new_metadata.into();
-			});
+					defensive!("duplicate validator self stake in election");
+				},
+			};
+
+			ErasStakersOverview::<T>::insert(era, &validator, updated_overview);
+			// we are done updating the overview now, `updated_overview` should not be used anymore.
+			// We've updated:
+			// * nominator count
+			// * total stake
+			// * own stake (if applicable)
+			// * page count
+			//
+			// next step:
+			// * new-keys or updates in `ErasStakersPaged`
+			//
+			// we don't need the information about own stake anymore -- drop it.
+			exposure.total = exposure.total.saturating_sub(exposure.own);
+			exposure.own = Zero::zero();
+
+			// splits the exposure so that `append_to_last_page` will fit within the last exposure
+			// page, up to the max exposure page size. The remaining individual exposures in
+			// `put_in_new_pages` will be added to new pages.
+			let append_to_last_page = exposure.split_others(last_page_empty_slots);
+			let put_in_new_pages = exposure;
+
+			// handle last page first.
 
 			// fill up last page with exposures.
-			last_page.page_total = last_page
-				.page_total
-				.saturating_add(exposures_append.total)
-				.saturating_sub(exposures_append.own);
-			last_page.others.extend(exposures_append.others);
+			last_page.page_total = last_page.page_total.saturating_add(append_to_last_page.total);
+			last_page.others.extend(append_to_last_page.others);
 			ErasStakersPaged::<T>::insert((era, &validator, last_page_idx), last_page);
 
 			// now handle the remaining exposures and append the exposure pages. The metadata update
 			// has been already handled above.
-			let (_, exposure_pages) = exposure.into_pages(page_size);
+			let (_unused_metadata, put_in_new_pages_chunks) =
+				put_in_new_pages.into_pages(page_size);
 
-			exposure_pages.into_iter().enumerate().for_each(|(idx, paged_exposure)| {
-				let append_at =
-					(last_page_idx.saturating_add(1).saturating_add(idx as u32)) as Page;
-				<ErasStakersPaged<T>>::insert((era, &validator, append_at), paged_exposure);
-			});
+			put_in_new_pages_chunks
+				.into_iter()
+				.enumerate()
+				.for_each(|(idx, paged_exposure)| {
+					let append_at =
+						(last_page_idx.saturating_add(1).saturating_add(idx as u32)) as Page;
+					<ErasStakersPaged<T>>::insert((era, &validator, append_at), paged_exposure);
+				});
 		} else {
 			// expected page count is the number of nominators divided by the page size, rounded up.
 			let expected_page_count = exposure
@@ -359,7 +381,7 @@ impl<T: Config> Eras<T> {
 						Some(individual) => individual.saturating_accrue(points),
 						None => {
 							// not much we can do -- validators should always be less than
-							// `MaxValidatorCount`.
+							// `MaxValidatorSet`.
 							let _ =
 								era_rewards.individual.try_insert(validator, points).defensive();
 						},
@@ -378,8 +400,8 @@ impl<T: Config> Eras<T> {
 #[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks"))]
 #[allow(unused)]
 impl<T: Config> Eras<T> {
-	/// Ensure the given era is present, i.e. has not been pruned yet.
-	pub(crate) fn era_present(era: EraIndex) -> Result<(), sp_runtime::TryRuntimeError> {
+	/// Ensure the given era's data is fully present (all storage intact and not being pruned).
+	pub(crate) fn era_fully_present(era: EraIndex) -> Result<(), sp_runtime::TryRuntimeError> {
 		// these two are only set if we have some validators in an era.
 		let e0 = ErasValidatorPrefs::<T>::iter_prefix_values(era).count() != 0;
 		// note: we don't check `ErasStakersPaged` as a validator can have no backers.
@@ -411,7 +433,22 @@ impl<T: Config> Eras<T> {
 		}
 	}
 
-	/// Ensure the given era has indeed been already pruned.
+	/// Check if the given era is currently being pruned.
+	pub(crate) fn era_pruning_in_progress(era: EraIndex) -> bool {
+		EraPruningState::<T>::contains_key(era)
+	}
+
+	/// Ensure the given era is either absent or currently being pruned.
+	pub(crate) fn era_absent_or_pruning(era: EraIndex) -> Result<(), sp_runtime::TryRuntimeError> {
+		if Self::era_pruning_in_progress(era) {
+			Ok(())
+		} else {
+			Self::era_absent(era)
+		}
+	}
+
+	/// Ensure the given era has indeed been already pruned. This is called by the main pallet in
+	/// do_prune_era_step.
 	pub(crate) fn era_absent(era: EraIndex) -> Result<(), sp_runtime::TryRuntimeError> {
 		// check double+ maps
 		let e0 = ErasValidatorPrefs::<T>::iter_prefix_values(era).count() != 0;
@@ -427,18 +464,10 @@ impl<T: Config> Eras<T> {
 		let e6 = ClaimedRewards::<T>::iter_prefix_values(era).count() != 0;
 		let e7 = ErasRewardPoints::<T>::contains_key(era);
 
-		assert!(
-			vec![e0, e1, e2, e3, e4, e6, e7].windows(2).all(|w| w[0] == w[1]),
-			"era info absence not consistent for era {}: {}, {}, {}, {}, {}, {}, {}",
-			era,
-			e0,
-			e1,
-			e2,
-			e3,
-			e4,
-			e6,
-			e7
-		);
+		// Check if era info is consistent - if not, era is in partial pruning state
+		if !vec![e0, e1, e2, e3, e4, e6, e7].windows(2).all(|w| w[0] == w[1]) {
+			return Err("era info absence not consistent - partial pruning state".into());
+		}
 
 		if !e0 {
 			Ok(())
@@ -453,15 +482,18 @@ impl<T: Config> Eras<T> {
 		// we max with 1 as in active era 0 we don't do an election and therefore we don't have some
 		// of the maps populated.
 		let oldest_present_era = active_era.saturating_sub(T::HistoryDepth::get()).max(1);
-		let maybe_first_pruned_era =
-			active_era.saturating_sub(T::HistoryDepth::get()).checked_sub(One::one());
 
 		for e in oldest_present_era..=active_era {
-			Self::era_present(e)?
+			Self::era_fully_present(e)?
 		}
-		if let Some(first_pruned_era) = maybe_first_pruned_era {
-			Self::era_absent(first_pruned_era)?;
-		}
+
+		// Ensure all eras older than oldest_present_era are either fully pruned or marked for
+		// pruning
+		ensure!(
+			(1..oldest_present_era).all(|e| Self::era_absent_or_pruning(e).is_ok()),
+			"All old eras must be either fully pruned or marked for pruning"
+		);
+
 		Ok(())
 	}
 }
@@ -496,21 +528,37 @@ impl<T: Config> Rotator<T> {
 
 	#[cfg(any(feature = "try-runtime", test))]
 	pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-		// planned era can always be at most one more than active era
-		let planned = Self::planned_era();
-		let active = Self::active_era();
-		ensure!(
-			planned == active || planned == active + 1,
-			"planned era is always equal or one more than active"
-		);
+		// Check planned era vs active era relationship
+		let active_era = ActiveEra::<T>::get();
+		let planned_era = CurrentEra::<T>::get();
 
-		// bonded eras must always be the range [active - bonding_duration .. active_era]
 		let bonded = BondedEras::<T>::get();
-		ensure!(
-			bonded.into_iter().map(|(era, _sess)| era).collect::<Vec<_>>() ==
-				(active.saturating_sub(T::BondingDuration::get())..=active).collect::<Vec<_>>(),
-			"BondedEras range incorrect"
-		);
+
+		match (&active_era, &planned_era) {
+			(None, None) => {
+				// Uninitialized state - both should be None
+				ensure!(bonded.is_empty(), "BondedEras must be empty when ActiveEra is None");
+			},
+			(Some(active), Some(planned)) => {
+				// Normal state - planned can be at most one more than active
+				ensure!(
+					*planned == active.index || *planned == active.index + 1,
+					"planned era is always equal or one more than active"
+				);
+
+				// If we have an active era, bonded eras must always be the range
+				// [active - bonding_duration .. active_era]
+				ensure!(
+					bonded.into_iter().map(|(era, _sess)| era).collect::<Vec<_>>() ==
+						(active.index.saturating_sub(T::BondingDuration::get())..=active.index)
+							.collect::<Vec<_>>(),
+					"BondedEras range incorrect"
+				);
+			},
+			_ => {
+				ensure!(false, "ActiveEra and CurrentEra must both be None or both be Some");
+			},
+		}
 
 		Ok(())
 	}
@@ -552,10 +600,16 @@ impl<T: Config> Rotator<T> {
 	}
 
 	/// End the session and start the next one.
-	pub(crate) fn end_session(end_index: SessionIndex, activation_timestamp: Option<(u64, u32)>) {
+	pub(crate) fn end_session(
+		end_index: SessionIndex,
+		activation_timestamp: Option<(u64, u32)>,
+	) -> Weight {
+		// baseline weight for processing the relay chain session report
+		let weight = T::WeightInfo::rc_on_session_report();
+
 		let Some(active_era) = ActiveEra::<T>::get() else {
 			defensive!("Active era must always be available.");
-			return;
+			return weight;
 		};
 		let current_planned_era = Self::is_planning();
 		let starting = end_index + 1;
@@ -634,6 +688,8 @@ impl<T: Config> Rotator<T> {
 			active_era: Self::active_era(),
 			planned_era: Self::planned_era(),
 		});
+
+		weight
 	}
 
 	pub(crate) fn start_era(
@@ -653,8 +709,14 @@ impl<T: Config> Rotator<T> {
 		Self::start_era_inc_active_era(new_era_start_timestamp);
 		Self::start_era_update_bonded_eras(starting_era, starting_session);
 
-		// discard old era information that is no longer needed.
-		Self::cleanup_old_era(starting_era);
+		// cleanup election state
+		EraElectionPlanner::<T>::cleanup();
+
+		// Mark ancient era for lazy pruning instead of immediately pruning it.
+		if let Some(old_era) = starting_era.checked_sub(T::HistoryDepth::get() + 1) {
+			log!(debug, "Marking era {:?} for lazy pruning", old_era);
+			EraPruningState::<T>::insert(old_era, PruningStep::ErasStakersPaged);
+		}
 	}
 
 	fn start_era_inc_active_era(start_timestamp: u64) {
@@ -794,16 +856,6 @@ impl<T: Config> Rotator<T> {
 		);
 		session_progress >= target_plan_era_session
 	}
-
-	fn cleanup_old_era(starting_era: EraIndex) {
-		EraElectionPlanner::<T>::cleanup();
-
-		// discard the ancient era info.
-		if let Some(old_era) = starting_era.checked_sub(T::HistoryDepth::get() + 1) {
-			log!(debug, "Removing era information for {:?}", old_era);
-			Eras::<T>::prune_era(old_era);
-		}
-	}
 }
 
 /// Manager type which collects the election results from [`Config::ElectionProvider`] and
@@ -852,9 +904,13 @@ impl<T: Config> EraElectionPlanner<T> {
 			.inspect_err(|e| log!(warn, "Election provider failed to start: {:?}", e))
 	}
 
-	/// Hook to be used in the pallet's on-initialize.
-	pub(crate) fn maybe_fetch_election_results() {
-		if let Ok(true) = T::ElectionProvider::status() {
+	pub(crate) fn maybe_fetch_election_results() -> (Weight, Box<dyn Fn(&mut WeightMeter)>) {
+		let Ok(Some(mut required_weight)) = T::ElectionProvider::status() else {
+			// no election ongoing
+			let weight = T::DbWeight::get().reads(1);
+			return (weight, Box::new(move |meter: &mut WeightMeter| meter.consume(weight)))
+		};
+		let exec = Box::new(move |meter: &mut WeightMeter| {
 			crate::log!(
 				debug,
 				"Election provider is ready, our status is {:?}",
@@ -875,10 +931,7 @@ impl<T: Config> EraElectionPlanner<T> {
 			Self::do_elect_paged(current_page);
 			NextElectionPage::<T>::set(maybe_next_page);
 
-			// if current page was `Some`, and next is `None`, we have finished an election and
-			// we can report it now.
 			if maybe_next_page.is_none() {
-				use pallet_staking_async_rc_client::RcClientInterface;
 				let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
 				let prune_up_to = Self::get_prune_up_to();
 				let rc_validators = ElectableStashes::<T>::take().into_iter().collect::<Vec<_>>();
@@ -890,10 +943,24 @@ impl<T: Config> EraElectionPlanner<T> {
 					id,
 					prune_up_to
 				);
-
 				T::RcClientInterface::validator_set(rc_validators, id, prune_up_to);
 			}
-		}
+
+			// consume the reported worst case weight.
+			meter.consume(required_weight)
+		});
+
+		// Add a few things to the required weights that are not captured in `do_elect_paged`, which
+		// is benchmarked via `fetch_page`.
+		// * 1 extra read and write for `NextElectionPage`
+		// * 1 extra write for `RcClientInterface::validator_set` (implementation leak -- we assume
+		//   that we know this writes one storage item under the hood)
+		// * 1 extra read for `CurrentEra`
+		// * 1 extra read for `BondedEras` in `get_prune_up_to`
+		// ElectableStashes already read in `do_elect_paged`
+		required_weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 2));
+
+		(required_weight, exec)
 	}
 
 	/// Get the right value of the first session that needs to be pruned on the RC's historical
@@ -996,16 +1063,17 @@ impl<T: Config> EraElectionPlanner<T> {
 		exposures.into_iter().for_each(|(stash, exposure)| {
 			log!(
 				trace,
-				"stored exposure for stash {:?} and {:?} backers",
+				"storing exposure for stash {:?} with {:?} own-stake and {:?} backers",
 				stash,
+				exposure.own,
 				exposure.others.len()
 			);
 			// build elected stash.
 			elected_stashes_page.push(stash.clone());
-			// accumulate total stake.
+			// accumulate total stake and backer count for bookkeeping.
 			total_stake_page = total_stake_page.saturating_add(exposure.total);
-			// set or update staker exposure for this era.
 			total_backers += exposure.others.len() as u32;
+			// set or update staker exposure for this era.
 			Eras::<T>::upsert_exposure(new_planned_era, &stash, exposure);
 		});
 
@@ -1018,6 +1086,8 @@ impl<T: Config> EraElectionPlanner<T> {
 		Eras::<T>::add_total_stake(new_planned_era, total_stake_page);
 
 		// collect or update the pref of all winners.
+		// TODO: rather inefficient, we can do this once at the last page across all entries in
+		// `ElectableStashes`.
 		for stash in &elected_stashes {
 			let pref = Validators::<T>::get(stash);
 			Eras::<T>::set_validator_prefs(new_planned_era, stash, pref);

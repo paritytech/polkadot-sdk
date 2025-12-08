@@ -19,7 +19,10 @@
 //! libp2p-related discovery code for litep2p backend.
 
 use crate::{
-	config::{NetworkConfiguration, ProtocolId},
+	config::{
+		NetworkConfiguration, ProtocolId, KADEMLIA_MAX_PROVIDER_KEYS, KADEMLIA_PROVIDER_RECORD_TTL,
+		KADEMLIA_PROVIDER_REPUBLISH_INTERVAL,
+	},
 	peer_store::PeerStoreProvider,
 };
 
@@ -76,6 +79,16 @@ const MAX_EXTERNAL_ADDRESSES: u32 = 32;
 /// Number of times observed address is received from different peers before it is confirmed as
 /// external.
 const MIN_ADDRESS_CONFIRMATIONS: usize = 3;
+
+/// Quorum threshold to interpret `PUT_VALUE` & `ADD_PROVIDER` as successful.
+///
+/// As opposed to libp2p, litep2p does not finish the query as soon as the required number of
+/// peers have reached. Instead, it tries to put the record to all target peers (typically 20) and
+/// uses the quorum setting only to determine the success of the query.
+///
+/// We set the threshold to 50% of the target peers to account for unreachable peers. The actual
+/// number of stored records may be higher.
+const QUORUM_THRESHOLD: NonZeroUsize = NonZeroUsize::new(10).expect("10 > 0; qed");
 
 /// Discovery events.
 #[derive(Debug)]
@@ -169,6 +182,14 @@ pub enum DiscoveryEvent {
 		query_id: QueryId,
 		/// Found providers sorted by distance to provided key.
 		providers: Vec<ContentProvider>,
+	},
+
+	/// Provider was successfully published.
+	AddProviderSuccess {
+		/// Query ID.
+		query_id: QueryId,
+		/// Provided key.
+		provided_key: RecordKey,
 	},
 
 	/// Query failed.
@@ -299,6 +320,9 @@ impl Discovery {
 				.with_known_peers(known_peers)
 				.with_protocol_names(protocol_names)
 				.with_incoming_records_validation_mode(IncomingRecordValidationMode::Manual)
+				.with_provider_record_ttl(KADEMLIA_PROVIDER_RECORD_TTL)
+				.with_provider_refresh_interval(KADEMLIA_PROVIDER_REPUBLISH_INTERVAL)
+				.with_max_provider_keys(KADEMLIA_MAX_PROVIDER_KEYS)
 				.build()
 		};
 
@@ -395,7 +419,10 @@ impl Discovery {
 	/// Publish value on the DHT using Kademlia `PUT_VALUE`.
 	pub async fn put_value(&mut self, key: KademliaKey, value: Vec<u8>) -> QueryId {
 		self.kademlia_handle
-			.put_record(Record::new(RecordKey::new(&key.to_vec()), value))
+			.put_record(
+				Record::new(RecordKey::new(&key.to_vec()), value),
+				Quorum::N(QUORUM_THRESHOLD),
+			)
 			.await
 	}
 
@@ -411,6 +438,9 @@ impl Discovery {
 				record,
 				peers.into_iter().map(|peer| peer.into()).collect(),
 				update_local_storage,
+				// These are the peers that just returned the record to us in authority-discovery,
+				// so we assume they are all reachable.
+				Quorum::All,
 			)
 			.await
 	}
@@ -440,8 +470,10 @@ impl Discovery {
 	}
 
 	/// Start providing `key`.
-	pub async fn start_providing(&mut self, key: KademliaKey) {
-		self.kademlia_handle.start_providing(key.into()).await;
+	pub async fn start_providing(&mut self, key: KademliaKey) -> QueryId {
+		self.kademlia_handle
+			.start_providing(key.into(), Quorum::N(QUORUM_THRESHOLD))
+			.await
 	}
 
 	/// Stop providing `key`.
@@ -492,6 +524,15 @@ impl Discovery {
 		peer: PeerId,
 	) -> (bool, Option<Multiaddr>) {
 		log::trace!(target: LOG_TARGET, "verify new external address: {address}");
+
+		if !self.allow_non_global_addresses && !Discovery::can_add_to_dht(&address) {
+			log::trace!(
+				target: LOG_TARGET,
+				"ignoring externally reported non-global address {address} from {peer}."
+			);
+
+			return (false, None);
+		}
 
 		// is the address one of our known addresses
 		if self
@@ -663,6 +704,17 @@ impl Stream for Discovery {
 				return Poll::Ready(Some(DiscoveryEvent::GetProvidersSuccess {
 					query_id,
 					providers,
+				}))
+			},
+			Poll::Ready(Some(KademliaEvent::AddProviderSuccess { query_id, provided_key })) => {
+				log::trace!(
+					target: LOG_TARGET,
+					"`ADD_PROVIDER` for {query_id:?} with {provided_key:?} succeeded",
+				);
+
+				return Poll::Ready(Some(DiscoveryEvent::AddProviderSuccess {
+					query_id,
+					provided_key,
 				}))
 			},
 			// We do not validate incoming providers.

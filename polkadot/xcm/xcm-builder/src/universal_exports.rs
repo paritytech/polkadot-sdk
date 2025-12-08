@@ -331,6 +331,18 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 	}
 }
 
+impl<Bridges, Router, UniversalLocation> InspectMessageQueues
+	for UnpaidRemoteExporter<Bridges, Router, UniversalLocation>
+{
+	fn clear_messages() {}
+
+	/// This router needs to implement `InspectMessageQueues` but doesn't have to
+	/// return any messages, since it just reuses the `XcmpQueue` router.
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		Vec::new()
+	}
+}
+
 /// Implementation of `SendXcm` which wraps the message inside an `ExportMessage` instruction
 /// and sends it to a destination known to be able to handle it.
 ///

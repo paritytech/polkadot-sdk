@@ -271,8 +271,8 @@ pub enum Phase<T: crate::Config> {
 	/// The inner value should be read as "`remaining` number of pages are left to be fetched".
 	/// Thus, if inner value is `0` if the snapshot is complete and we are ready to move on.
 	///
-	/// This value should be interpreted after `on_initialize` of this pallet has already been
-	/// called.
+	/// This value should be interpreted after `on_initialize`/`on_poll` of this pallet has already
+	/// been called.
 	Snapshot(PageIndex),
 	/// Snapshot is done, and we are waiting for `Export` to kick in.
 	Done,
@@ -303,7 +303,6 @@ impl<T: crate::Config> Phase<T> {
 
 	fn are_we_done() -> Self {
 		let query = T::AreWeDone::get();
-		log!(debug, "Are we done? {:?}", query);
 		query
 	}
 
@@ -359,13 +358,12 @@ impl<T: crate::Config> Phase<T> {
 			Self::Unsigned(non_zero_left) =>
 				Self::Unsigned(non_zero_left.defensive_saturating_sub(One::one())),
 
-			// Done
+			// Done. Wait for export to start.
 			Self::Done => Self::Done,
 
-			// Export
-			Self::Export(0) => Self::Off,
-			Self::Export(non_zero_left) =>
-				Self::Export(non_zero_left.defensive_saturating_sub(One::one())),
+			// Export never moves forward via this function, and is always manually set in the
+			// `elect` code path.
+			Self::Export(x) => Self::Export(x),
 		}
 	}
 
@@ -418,6 +416,15 @@ impl<T: crate::Config> Phase<T> {
 	pub fn is_unsigned_opened_now(&self) -> bool {
 		self == &Phase::Unsigned(T::UnsignedPhase::get().saturating_sub(One::one()))
 	}
+}
+
+/// Slim interface for the parent pallet to be able to inspect the state of the signed pallet.
+///
+/// Intentionally left different from [`crate::verifier::SolutionDataProvider`], as that is
+/// specialized for communication between `verifier <> signed`.
+pub trait SignedInterface {
+	/// Returns `true` if there is a candidate solution to be verified.
+	fn has_leader(round: u32) -> bool;
 }
 
 #[cfg(test)]

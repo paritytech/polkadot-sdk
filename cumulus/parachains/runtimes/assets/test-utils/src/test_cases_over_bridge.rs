@@ -17,6 +17,7 @@
 //! over a bridge.
 
 use crate::{assert_matches_reserve_asset_deposited_instructions, get_fungible_delivery_fees};
+use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
 use codec::Encode;
 use cumulus_primitives_core::XcmpMessageSource;
 use frame_support::{
@@ -30,9 +31,12 @@ use parachains_runtimes_test_utils::{
 	SlotDurations, ValidatorIdOf, XcmReceivedFrom,
 };
 use sp_runtime::{traits::StaticLookup, Saturating};
-use xcm::{latest::prelude::*, VersionedAssets};
+use xcm::{latest::prelude::*, VersionedAssetId, VersionedAssets, VersionedXcm};
 use xcm_builder::{CreateMatcher, MatchXcm};
-use xcm_executor::{traits::ConvertLocation, XcmExecutor};
+use xcm_executor::{
+	traits::{ConvertLocation, TransferType},
+	XcmExecutor,
+};
 
 pub struct TestBridgingConfig {
 	pub bridged_network: NetworkId,
@@ -186,13 +190,19 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 
 			let expected_beneficiary = target_destination_account.clone();
 
-			// do pallet_xcm call reserve transfer
-			assert_ok!(<pallet_xcm::Pallet<Runtime>>::limited_reserve_transfer_assets(
+			// do cross-chain transfer
+			assert_ok!(<pallet_xcm::Pallet<Runtime>>::transfer_assets_using_type_and_then(
 				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(alice_account.clone()),
 				Box::new(target_location_from_different_consensus.clone().into_versioned()),
-				Box::new(target_destination_account.into_versioned()),
 				Box::new(VersionedAssets::from(assets_to_transfer)),
-				0,
+				Box::new(TransferType::LocalReserve),
+				Box::new(VersionedAssetId::from(AssetId(Location::parent()))),
+				Box::new(TransferType::LocalReserve),
+				Box::new(VersionedXcm::from(
+					Xcm::<()>::builder_unsafe()
+						.deposit_asset(AllCounted(1), target_destination_account)
+						.build()
+				)),
 				weight_limit,
 			));
 
@@ -329,11 +339,12 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 	existential_deposit: BalanceOf<Runtime>,
 	target_account: AccountIdOf<Runtime>,
 	block_author_account: AccountIdOf<Runtime>,
-	(foreign_asset_owner, foreign_asset_id_location, foreign_asset_id_minimum_balance): (
-		AccountIdOf<Runtime>,
-		xcm::v5::Location,
-		u128,
-	),
+	(
+		foreign_asset_owner,
+		foreign_asset_id_location,
+		foreign_asset_reserve_data,
+		foreign_asset_id_minimum_balance,
+	): (AccountIdOf<Runtime>, xcm::v5::Location, ForeignAssetReserveData, u128),
 	foreign_asset_id_amount_to_transfer: u128,
 	prepare_configuration: impl FnOnce() -> TestBridgingConfig,
 	(bridge_instance, universal_origin, descend_origin): (Junctions, Junction, Junctions), /* bridge adds origin manipulation on the way */
@@ -348,7 +359,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
 		+ cumulus_pallet_xcmp_queue::Config
-		+ pallet_assets::Config<ForeignAssetsPalletInstance>
+		+ pallet_assets::Config<ForeignAssetsPalletInstance, ReserveData = ForeignAssetReserveData>
 		+ pallet_timestamp::Config,
 	AllPalletsWithoutSystem:
 		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
@@ -391,9 +402,19 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::force_create(
 					RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::root_origin(),
 					foreign_asset_id_location.clone().into(),
-					foreign_asset_owner.into(),
+					foreign_asset_owner.clone().into(),
 					true, // is_sufficient=true
 					foreign_asset_id_minimum_balance.into()
+				)
+			);
+			// set the right reserve for the foreign asset
+			assert_ok!(
+				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::set_reserves(
+					RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(
+						foreign_asset_owner
+					),
+					foreign_asset_id_location.clone().into(),
+					vec![foreign_asset_reserve_data],
 				)
 			);
 

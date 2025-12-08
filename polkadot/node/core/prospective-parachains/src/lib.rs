@@ -50,8 +50,9 @@ use polkadot_node_subsystem_util::{
 	runtime::{fetch_claim_queue, fetch_scheduling_lookahead},
 };
 use polkadot_primitives::{
-	vstaging::{transpose_claim_queue, CommittedCandidateReceiptV2 as CommittedCandidateReceipt},
-	BlockNumber, CandidateHash, Hash, Header, Id as ParaId, PersistedValidationData,
+	transpose_claim_queue, BlockNumber, CandidateHash,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash, Header, Id as ParaId,
+	PersistedValidationData,
 };
 
 use crate::{
@@ -511,7 +512,7 @@ async fn handle_introduce_seconded_candidate(
 		Err(err) => {
 			gum::warn!(
 				target: LOG_TARGET,
-				para = ?para,
+				para_id = ?para,
 				"Cannot add seconded candidate: {}",
 				err
 			);
@@ -572,7 +573,7 @@ async fn handle_introduce_seconded_candidate(
 	if added.is_empty() {
 		gum::debug!(
 			target: LOG_TARGET,
-			para = ?para,
+			para_id = ?para,
 			candidate = ?candidate_hash,
 			"Newly-seconded candidate cannot be kept under any relay parent",
 		);
@@ -778,7 +779,7 @@ fn answer_hypothetical_membership_request(
 				Err(err) => {
 					gum::trace!(
 						target: LOG_TARGET,
-						para = ?para_id,
+						para_id = ?para_id,
 						leaf = ?active_leaf,
 						candidate = ?candidate.candidate_hash(),
 						"Candidate is not a hypothetical member on: {}",
@@ -793,7 +794,7 @@ fn answer_hypothetical_membership_request(
 		if membership.is_empty() {
 			gum::debug!(
 				target: LOG_TARGET,
-				para = ?candidate.candidate_para(),
+				para_id = ?candidate.candidate_para(),
 				active_leaves = ?view.active_leaves,
 				?required_active_leaf,
 				candidate = ?candidate.candidate_hash(),
