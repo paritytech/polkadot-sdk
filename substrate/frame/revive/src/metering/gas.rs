@@ -45,6 +45,17 @@ impl<T: Config> Default for SignedGas<T> {
 }
 
 impl<T: Config> SignedGas<T> {
+	/// Safely construct a negative `SignedGas` amount
+	///
+	/// Ensures the invariant that `Negative` must not be used for zero
+	pub fn safe_new_negative(amount: BalanceOf<T>) -> Self {
+		if amount == Default::default() {
+			Positive(amount)
+		} else {
+			Negative(amount)
+		}
+	}
+
 	/// Transform a weight fee into a gas amount.
 	pub fn from_weight_fee(weight_fee: BalanceOf<T>) -> Self {
 		Self::Positive(weight_fee)
@@ -65,14 +76,8 @@ impl<T: Config> SignedGas<T> {
 
 		match deposit {
 			StorageDeposit::Charge(amount) => Positive(multiplier.saturating_mul_int(*amount)),
-			StorageDeposit::Refund(amount) => {
-				let scaled_amount = multiplier.saturating_mul_int(*amount);
-				if scaled_amount == Default::default() {
-					Positive(scaled_amount)
-				} else {
-					Negative(scaled_amount)
-				}
-			},
+			StorageDeposit::Refund(amount) =>
+				Self::safe_new_negative(multiplier.saturating_mul_int(*amount)),
 		}
 	}
 
@@ -114,16 +119,16 @@ impl<T: Config> SignedGas<T> {
 	pub fn saturating_add(&self, rhs: &Self) -> Self {
 		match (self, rhs) {
 			(Positive(lhs), Positive(rhs)) => Positive(lhs.saturating_add(*rhs)),
-			(Negative(lhs), Negative(rhs)) => Negative(lhs.saturating_add(*rhs)),
+			(Negative(lhs), Negative(rhs)) => Self::safe_new_negative(lhs.saturating_add(*rhs)),
 			(Positive(lhs), Negative(rhs)) =>
 				if lhs >= rhs {
 					Positive(lhs.saturating_sub(*rhs))
 				} else {
-					Negative(rhs.saturating_sub(*lhs))
+					Self::safe_new_negative(rhs.saturating_sub(*lhs))
 				},
 			(Negative(lhs), Positive(rhs)) =>
 				if lhs > rhs {
-					Negative(lhs.saturating_sub(*rhs))
+					Self::safe_new_negative(lhs.saturating_sub(*rhs))
 				} else {
 					Positive(rhs.saturating_sub(*lhs))
 				},
@@ -134,16 +139,16 @@ impl<T: Config> SignedGas<T> {
 	pub fn saturating_sub(&self, rhs: &Self) -> Self {
 		match (self, rhs) {
 			(Positive(lhs), Negative(rhs)) => Positive(lhs.saturating_add(*rhs)),
-			(Negative(lhs), Positive(rhs)) => Negative(lhs.saturating_add(*rhs)),
+			(Negative(lhs), Positive(rhs)) => Self::safe_new_negative(lhs.saturating_add(*rhs)),
 			(Positive(lhs), Positive(rhs)) =>
 				if lhs >= rhs {
 					Positive(lhs.saturating_sub(*rhs))
 				} else {
-					Negative(rhs.saturating_sub(*lhs))
+					Self::safe_new_negative(rhs.saturating_sub(*lhs))
 				},
 			(Negative(lhs), Negative(rhs)) =>
 				if lhs > rhs {
-					Negative(lhs.saturating_sub(*rhs))
+					Self::safe_new_negative(lhs.saturating_sub(*rhs))
 				} else {
 					Positive(rhs.saturating_sub(*lhs))
 				},
@@ -153,10 +158,10 @@ impl<T: Config> SignedGas<T> {
 	// Determine the minimum of two signed gas values.
 	pub fn min(&self, other: &Self) -> Self {
 		match (self, other) {
-			(Positive(_), Negative(rhs)) => Negative(*rhs),
-			(Negative(lhs), Positive(_)) => Negative(*lhs),
+			(Positive(_), Negative(rhs)) => Self::safe_new_negative(*rhs),
+			(Negative(lhs), Positive(_)) => Self::safe_new_negative(*lhs),
 			(Positive(lhs), Positive(rhs)) => Positive((*lhs).min(*rhs)),
-			(Negative(lhs), Negative(rhs)) => Negative((*lhs).max(*rhs)),
+			(Negative(lhs), Negative(rhs)) => Self::safe_new_negative((*lhs).max(*rhs)),
 		}
 	}
 }
