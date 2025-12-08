@@ -189,8 +189,12 @@ where
 mod tests {
 	use super::*;
 	use frame_support::{
-		assert_noop, assert_ok, derive_impl, sp_runtime::traits::AccountIdConversion,
-		traits::tokens::FundingSink,
+		assert_noop, assert_ok, derive_impl,
+		sp_runtime::traits::AccountIdConversion,
+		traits::{
+			fungible::Balanced, tokens::FundingSink, Currency as CurrencyT, ExistenceRequirement,
+			OnUnbalanced, WithdrawReasons,
+		},
 	};
 	use sp_runtime::BuildStorage;
 
@@ -239,24 +243,35 @@ mod tests {
 		});
 	}
 
+	// ===== return_funds tests =====
+
 	#[test]
-	fn return_funds_transfers_to_buffer() {
+	fn return_funds_accumulates_from_multiple_sources() {
 		new_test_ext().execute_with(|| {
 			System::set_block_number(1);
 			let buffer = Dap::buffer_account();
 
-			// Given: account 1 has 100, buffer has 0
+			// Given: accounts have balances, buffer has 0
 			assert_eq!(Balances::free_balance(1), 100);
+			assert_eq!(Balances::free_balance(2), 200);
+			assert_eq!(Balances::free_balance(3), 300);
 			assert_eq!(Balances::free_balance(buffer), 0);
 
-			// When: return 30 from account 1
-			assert_ok!(ReturnToDap::<Test>::return_funds(&1, 30, Preservation::Preserve));
+			// When: return funds from multiple accounts
+			assert_ok!(ReturnToDap::<Test>::return_funds(&1, 20, Preservation::Preserve));
+			assert_ok!(ReturnToDap::<Test>::return_funds(&2, 50, Preservation::Preserve));
+			assert_ok!(ReturnToDap::<Test>::return_funds(&3, 100, Preservation::Preserve));
 
-			// Then: account 1 has 70, buffer has 30
-			assert_eq!(Balances::free_balance(1), 70);
-			assert_eq!(Balances::free_balance(buffer), 30);
-			// ...and an event is emitted
-			System::assert_last_event(Event::<Test>::FundsReturned { from: 1, amount: 30 }.into());
+			// Then: buffer has accumulated all returns (20 + 50 + 100 = 170)
+			assert_eq!(Balances::free_balance(buffer), 170);
+			assert_eq!(Balances::free_balance(1), 80);
+			assert_eq!(Balances::free_balance(2), 150);
+			assert_eq!(Balances::free_balance(3), 200);
+
+			// ...and all three events are emitted
+			System::assert_has_event(Event::<Test>::FundsReturned { from: 1, amount: 20 }.into());
+			System::assert_has_event(Event::<Test>::FundsReturned { from: 2, amount: 50 }.into());
+			System::assert_has_event(Event::<Test>::FundsReturned { from: 3, amount: 100 }.into());
 		});
 	}
 
@@ -274,6 +289,141 @@ mod tests {
 			);
 		});
 	}
+
+	#[test]
+	fn return_funds_with_zero_amount_succeeds() {
+		new_test_ext().execute_with(|| {
+			let buffer = Dap::buffer_account();
+
+			// Given: account 1 has 100, buffer has 0
+			assert_eq!(Balances::free_balance(1), 100);
+			assert_eq!(Balances::free_balance(buffer), 0);
+
+			// When: return 0 from account 1
+			assert_ok!(ReturnToDap::<Test>::return_funds(&1, 0, Preservation::Preserve));
+
+			// Then: balances unchanged (no-op)
+			assert_eq!(Balances::free_balance(1), 100);
+			assert_eq!(Balances::free_balance(buffer), 0);
+		});
+	}
+
+	#[test]
+	fn return_funds_with_expendable_allows_full_drain() {
+		new_test_ext().execute_with(|| {
+			System::set_block_number(1);
+			let buffer = Dap::buffer_account();
+
+			// Given: account 1 has 100
+			assert_eq!(Balances::free_balance(1), 100);
+
+			// When: return full balance with Expendable (allows going to 0)
+			assert_ok!(ReturnToDap::<Test>::return_funds(&1, 100, Preservation::Expendable));
+
+			// Then: account 1 is empty, buffer has 100
+			assert_eq!(Balances::free_balance(1), 0);
+			assert_eq!(Balances::free_balance(buffer), 100);
+		});
+	}
+
+	#[test]
+	fn return_funds_with_preserve_respects_existential_deposit() {
+		new_test_ext().execute_with(|| {
+			// Given: account 1 has 100, ED is 1 (from TestDefaultConfig)
+			assert_eq!(Balances::free_balance(1), 100);
+
+			// When: try to return 100 with Preserve (would go below ED)
+			// Then: fails because it would kill the account
+			assert_noop!(
+				ReturnToDap::<Test>::return_funds(&1, 100, Preservation::Preserve),
+				sp_runtime::TokenError::FundsUnavailable
+			);
+
+			// But returning 99 works (leaves 1 for ED)
+			assert_ok!(ReturnToDap::<Test>::return_funds(&1, 99, Preservation::Preserve));
+			assert_eq!(Balances::free_balance(1), 1);
+		});
+	}
+
+	// ===== SlashToDap tests =====
+
+	#[test]
+	fn slash_to_dap_accumulates_multiple_slashes_to_buffer() {
+		new_test_ext().execute_with(|| {
+			let buffer = Dap::buffer_account();
+
+			// Given: buffer has 0
+			assert_eq!(Balances::free_balance(buffer), 0);
+
+			// When: multiple slashes occur via OnUnbalanced (simulating a staking slash)
+			let credit1 = <Balances as Balanced<u64>>::issue(30);
+			SlashToDap::<Test>::on_unbalanced(credit1);
+
+			let credit2 = <Balances as Balanced<u64>>::issue(20);
+			SlashToDap::<Test>::on_unbalanced(credit2);
+
+			let credit3 = <Balances as Balanced<u64>>::issue(50);
+			SlashToDap::<Test>::on_unbalanced(credit3);
+
+			// Then: buffer has accumulated all slashes (30 + 20 + 50 = 100)
+			assert_eq!(Balances::free_balance(buffer), 100);
+		});
+	}
+
+	#[test]
+	fn slash_to_dap_handles_zero_amount() {
+		new_test_ext().execute_with(|| {
+			let buffer = Dap::buffer_account();
+
+			// Given: buffer has 0
+			assert_eq!(Balances::free_balance(buffer), 0);
+
+			// When: slash with zero amount
+			let credit = <Balances as Balanced<u64>>::issue(0);
+			SlashToDap::<Test>::on_unbalanced(credit);
+
+			// Then: buffer still has 0 (no-op)
+			assert_eq!(Balances::free_balance(buffer), 0);
+		});
+	}
+
+	// ===== BurnToDap tests =====
+
+	#[test]
+	fn burn_to_dap_accumulates_multiple_burns_to_buffer() {
+		new_test_ext().execute_with(|| {
+			let buffer = Dap::buffer_account();
+
+			// Given: accounts have balances, buffer has 0
+			assert_eq!(Balances::free_balance(buffer), 0);
+
+			// When: create multiple negative imbalances (simulating treasury burns) and send to DAP
+			let imbalance1 = <Balances as CurrencyT<u64>>::withdraw(
+				&1,
+				30,
+				WithdrawReasons::FEE,
+				ExistenceRequirement::KeepAlive,
+			)
+			.unwrap();
+			BurnToDap::<Test, Balances>::on_unbalanced(imbalance1);
+
+			let imbalance2 = <Balances as CurrencyT<u64>>::withdraw(
+				&2,
+				50,
+				WithdrawReasons::FEE,
+				ExistenceRequirement::KeepAlive,
+			)
+			.unwrap();
+			BurnToDap::<Test, Balances>::on_unbalanced(imbalance2);
+
+			// Then: buffer has accumulated all burns (30 + 50 = 80)
+			assert_eq!(Balances::free_balance(buffer), 80);
+			assert_eq!(Balances::free_balance(1), 70);
+			assert_eq!(Balances::free_balance(2), 150);
+		});
+	}
+
+	// ===== request_funds tests =====
 
 	#[test]
 	#[should_panic(expected = "not yet implemented")]

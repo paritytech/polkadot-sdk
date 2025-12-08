@@ -319,10 +319,15 @@ where
 mod tests {
 	use super::*;
 	use frame_support::{
-		assert_noop, assert_ok, derive_impl, sp_runtime::traits::AccountIdConversion,
-		traits::tokens::FundingSink,
+		assert_noop, assert_ok, derive_impl, parameter_types,
+		sp_runtime::traits::AccountIdConversion,
+		traits::{
+			fungible::Balanced, tokens::FundingSink, Currency as CurrencyT, ExistenceRequirement,
+			OnUnbalanced, WithdrawReasons,
+		},
 	};
 	use sp_runtime::BuildStorage;
+	use std::cell::Cell;
 
 	type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -369,31 +374,10 @@ mod tests {
 		});
 	}
 
+	// ===== accumulate to satellite / returns_funds tests =====
+
 	#[test]
 	fn accumulate_in_satellite_transfers_to_satellite_account() {
-		new_test_ext().execute_with(|| {
-			System::set_block_number(1);
-			let satellite = DapSatellite::satellite_account();
-
-			// Given: account 1 has 100, satellite has 0
-			assert_eq!(Balances::free_balance(1), 100);
-			assert_eq!(Balances::free_balance(satellite), 0);
-
-			// When: accumulate 30 from account 1
-			assert_ok!(AccumulateInSatellite::<Test>::return_funds(&1, 30, Preservation::Preserve));
-
-			// Then: account 1 has 70, satellite has 30
-			assert_eq!(Balances::free_balance(1), 70);
-			assert_eq!(Balances::free_balance(satellite), 30);
-			// ...and an event is emitted
-			System::assert_last_event(
-				Event::<Test>::FundsAccumulated { from: 1, amount: 30 }.into(),
-			);
-		});
-	}
-
-	#[test]
-	fn accumulate_multiple_times_adds_up() {
 		new_test_ext().execute_with(|| {
 			System::set_block_number(1);
 			let satellite = DapSatellite::satellite_account();
@@ -412,9 +396,20 @@ mod tests {
 
 			// Then: satellite has accumulated all funds
 			assert_eq!(Balances::free_balance(satellite), 170);
+			// ... accounts have their balance correctly update
 			assert_eq!(Balances::free_balance(1), 80);
 			assert_eq!(Balances::free_balance(2), 150);
 			assert_eq!(Balances::free_balance(3), 200);
+			// ... and events are emitted
+			System::assert_has_event(
+				Event::<Test>::FundsAccumulated { from: 1, amount: 20 }.into(),
+			);
+			System::assert_has_event(
+				Event::<Test>::FundsAccumulated { from: 2, amount: 50 }.into(),
+			);
+			System::assert_has_event(
+				Event::<Test>::FundsAccumulated { from: 3, amount: 100 }.into(),
+			);
 		});
 	}
 
@@ -430,6 +425,187 @@ mod tests {
 				AccumulateInSatellite::<Test>::return_funds(&1, 150, Preservation::Preserve),
 				sp_runtime::TokenError::FundsUnavailable
 			);
+		});
+	}
+
+	// ===== SlashToSatellite tests =====
+
+	#[test]
+	fn slash_to_satellite_deposits_to_satellite() {
+		new_test_ext().execute_with(|| {
+			let satellite = DapSatellite::satellite_account();
+
+			// Given: satellite has 0
+			assert_eq!(Balances::free_balance(satellite), 0);
+
+			// When: multiple slashes occur
+			let credit1 = <Balances as Balanced<u64>>::issue(30);
+			SlashToSatellite::<Test>::on_unbalanced(credit1);
+
+			let credit2 = <Balances as Balanced<u64>>::issue(20);
+			SlashToSatellite::<Test>::on_unbalanced(credit2);
+
+			let credit3 = <Balances as Balanced<u64>>::issue(50);
+			SlashToSatellite::<Test>::on_unbalanced(credit3);
+
+			// Then: satellite has accumulated all slashes (30 + 20 + 50 = 100)
+			assert_eq!(Balances::free_balance(satellite), 100);
+		});
+	}
+
+	// ===== SinkToSatellite tests =====
+
+	#[test]
+	fn sink_to_satellite_deposits_to_satellite() {
+		new_test_ext().execute_with(|| {
+			let satellite = DapSatellite::satellite_account();
+
+			// Given: accounts have balances, satellite has 0
+			assert_eq!(Balances::free_balance(satellite), 0);
+
+			// When: multiple sinks occur from different accounts
+			let imbalance1 = <Balances as CurrencyT<u64>>::withdraw(
+				&1,
+				30,
+				WithdrawReasons::FEE,
+				ExistenceRequirement::KeepAlive,
+			)
+			.unwrap();
+			SinkToSatellite::<Test, Balances>::on_unbalanced(imbalance1);
+
+			let imbalance2 = <Balances as CurrencyT<u64>>::withdraw(
+				&2,
+				50,
+				WithdrawReasons::FEE,
+				ExistenceRequirement::KeepAlive,
+			)
+			.unwrap();
+			SinkToSatellite::<Test, Balances>::on_unbalanced(imbalance2);
+
+			// Then: satellite has accumulated all sinks (30 + 50 = 80)
+			assert_eq!(Balances::free_balance(satellite), 80);
+			assert_eq!(Balances::free_balance(1), 70);
+			assert_eq!(Balances::free_balance(2), 150);
+		});
+	}
+
+	// ===== DealWithFeesSplit tests =====
+
+	// Thread-local storage for tracking what OtherHandler receives
+	thread_local! {
+		static OTHER_HANDLER_RECEIVED: Cell<u64> = const { Cell::new(0) };
+	}
+
+	/// Mock handler that tracks how much it receives
+	struct MockOtherHandler;
+	impl OnUnbalanced<CreditOf<Test>> for MockOtherHandler {
+		fn on_unbalanced(amount: CreditOf<Test>) {
+			OTHER_HANDLER_RECEIVED.with(|r| r.set(r.get() + amount.peek()));
+			// Drop the credit (it would normally be handled by the real handler)
+			drop(amount);
+		}
+	}
+
+	fn reset_other_handler() {
+		OTHER_HANDLER_RECEIVED.with(|r| r.set(0));
+	}
+
+	fn get_other_handler_received() -> u64 {
+		OTHER_HANDLER_RECEIVED.with(|r| r.get())
+	}
+
+	parameter_types! {
+		pub const ZeroPercent: u32 = 0;
+		pub const FiftyPercent: u32 = 50;
+		pub const HundredPercent: u32 = 100;
+	}
+
+	#[test]
+	fn deal_with_fees_split_zero_percent_to_dap() {
+		new_test_ext().execute_with(|| {
+			reset_other_handler();
+			let satellite = DapSatellite::satellite_account();
+
+			// Given: satellite has 0
+			assert_eq!(Balances::free_balance(satellite), 0);
+
+			// When: fees of 100 with 0% to DAP (all to other handler) + tips of 50
+			// Tips should ALWAYS go to other handler, regardless of DAP percent
+			let fees = <Balances as Balanced<u64>>::issue(100);
+			let tips = <Balances as Balanced<u64>>::issue(50);
+			<DealWithFeesSplit<Test, ZeroPercent, MockOtherHandler> as OnUnbalanced<_>>::on_unbalanceds(
+				[fees, tips].into_iter(),
+			);
+
+			// Then: satellite gets 0, other handler gets 150 (100% fees + tips)
+			assert_eq!(Balances::free_balance(satellite), 0);
+			assert_eq!(get_other_handler_received(), 150);
+		});
+	}
+
+	#[test]
+	fn deal_with_fees_split_hundred_percent_to_dap() {
+		new_test_ext().execute_with(|| {
+			reset_other_handler();
+			let satellite = DapSatellite::satellite_account();
+
+			// Given: satellite has 0
+			assert_eq!(Balances::free_balance(satellite), 0);
+
+			// When: fees of 100 with 100% to DAP + tips of 50
+			// Tips should ALWAYS go to other handler, regardless of DAP percent
+			let fees = <Balances as Balanced<u64>>::issue(100);
+			let tips = <Balances as Balanced<u64>>::issue(50);
+			<DealWithFeesSplit<Test, HundredPercent, MockOtherHandler> as OnUnbalanced<_>>::on_unbalanceds(
+				[fees, tips].into_iter(),
+			);
+
+			// Then: satellite gets 100 (fees), other handler gets 50 (tips)
+			assert_eq!(Balances::free_balance(satellite), 100);
+			assert_eq!(get_other_handler_received(), 50);
+		});
+	}
+
+	#[test]
+	fn deal_with_fees_split_fifty_percent() {
+		new_test_ext().execute_with(|| {
+			reset_other_handler();
+			let satellite = DapSatellite::satellite_account();
+
+			// Given: satellite has 0
+			assert_eq!(Balances::free_balance(satellite), 0);
+
+			// When: fees of 100 with 50% to DAP + tips of 40
+			// Fees split 50/50, tips 100% to other handler
+			let fees = <Balances as Balanced<u64>>::issue(100);
+			let tips = <Balances as Balanced<u64>>::issue(40);
+			<DealWithFeesSplit<Test, FiftyPercent, MockOtherHandler> as OnUnbalanced<_>>::on_unbalanceds(
+				[fees, tips].into_iter(),
+			);
+
+			// Then: satellite gets 50 (half of fees), other handler gets 90 (half of fees + tips)
+			assert_eq!(Balances::free_balance(satellite), 50);
+			assert_eq!(get_other_handler_received(), 90);
+		});
+	}
+
+	#[test]
+	fn deal_with_fees_split_handles_empty_iterator() {
+		new_test_ext().execute_with(|| {
+			reset_other_handler();
+			let satellite = DapSatellite::satellite_account();
+
+			// Given: satellite has 0
+			assert_eq!(Balances::free_balance(satellite), 0);
+
+			// When: no fees, no tips (empty iterator)
+			<DealWithFeesSplit<Test, FiftyPercent, MockOtherHandler> as OnUnbalanced<_>>::on_unbalanceds(
+				core::iter::empty(),
+			);
+
+			// Then: nothing happens
+			assert_eq!(Balances::free_balance(satellite), 0);
+			assert_eq!(get_other_handler_received(), 0);
 		});
 	}
 }
