@@ -53,14 +53,12 @@ use polkadot_node_subsystem_types::messages::{AvailabilityStoreMessage, NetworkB
 use polkadot_overseer::{metrics::Metrics as OverseerMetrics, Handle as OverseerHandle};
 use polkadot_primitives::{AuthorityDiscoveryId, Block, CoreIndex, GroupIndex, Hash};
 use sc_network::request_responses::{IncomingRequest as RawIncomingRequest, ProtocolConfig};
-use std::{ops::Sub, sync::Arc, time::Instant};
-use std::collections::HashSet;
+use std::{collections::HashSet, ops::Sub, sync::Arc, time::Instant};
 use strum::Display;
 
+use sc_network_types::{multiaddr::Multiaddr, PeerId};
 use sc_service::SpawnTaskHandle;
 use serde::{Deserialize, Serialize};
-use sc_network_types::multiaddr::Multiaddr;
-use sc_network_types::PeerId;
 pub use test_state::TestState;
 mod av_store_helpers;
 mod test_state;
@@ -517,11 +515,17 @@ pub struct TestAuthorityDiscovery;
 
 #[async_trait]
 impl AuthorityDiscovery for TestAuthorityDiscovery {
-	async fn get_addresses_by_authority_id(&mut self, authority: AuthorityDiscoveryId) -> Option<HashSet<Multiaddr>> {
+	async fn get_addresses_by_authority_id(
+		&mut self,
+		authority: AuthorityDiscoveryId,
+	) -> Option<HashSet<Multiaddr>> {
 		None
 	}
 
-	async fn get_authority_ids_by_peer_id(&mut self, peer_id: PeerId) -> Option<HashSet<AuthorityDiscoveryId>> {
+	async fn get_authority_ids_by_peer_id(
+		&mut self,
+		peer_id: PeerId,
+	) -> Option<HashSet<AuthorityDiscoveryId>> {
 		None
 	}
 }

@@ -534,7 +534,7 @@ async fn handle_recover<Context>(
 				response_sender,
 				recovery_strategies,
 				RecoveryParams {
-					session_index: session_index,
+					session_index,
 					validator_authority_keys: session_info.discovery_keys.clone(),
 					n_validators,
 					threshold: recovery_threshold(n_validators)?,

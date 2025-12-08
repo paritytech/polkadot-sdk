@@ -16,19 +16,18 @@
 
 //! Helper functions and tools to generate mock data useful for testing this subsystem.
 
-use std::collections::HashSet;
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use async_trait::async_trait;
 use sp_keyring::Sr25519Keyring;
 
 use polkadot_erasure_coding::{branches, obtain_chunks_v1 as obtain_chunks};
-use polkadot_node_primitives::{AvailableData, BlockData, ErasureChunk, PoV, Proof};
 use polkadot_node_network_protocol::authority_discovery::AuthorityDiscovery;
+use polkadot_node_primitives::{AvailableData, BlockData, ErasureChunk, PoV, Proof};
 use polkadot_primitives::{
-	CandidateCommitments, CandidateHash, ChunkIndex, CommittedCandidateReceiptV2, GroupIndex, Hash,
-	HeadData, Id as ParaId, IndexedVec, OccupiedCore, PersistedValidationData, SessionInfo,
-	ValidatorIndex, AuthorityDiscoveryId
+	AuthorityDiscoveryId, CandidateCommitments, CandidateHash, ChunkIndex,
+	CommittedCandidateReceiptV2, GroupIndex, Hash, HeadData, Id as ParaId, IndexedVec,
+	OccupiedCore, PersistedValidationData, SessionInfo, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_collator, dummy_collator_signature, dummy_hash, dummy_validation_code,
@@ -181,11 +180,17 @@ impl MockEmptyAuthorityDiscovery {
 
 #[async_trait]
 impl AuthorityDiscovery for MockEmptyAuthorityDiscovery {
-	async fn get_addresses_by_authority_id(&mut self, authority: AuthorityDiscoveryId) -> Option<HashSet<Multiaddr>> {
+	async fn get_addresses_by_authority_id(
+		&mut self,
+		authority: AuthorityDiscoveryId,
+	) -> Option<HashSet<Multiaddr>> {
 		None
 	}
 
-	async fn get_authority_ids_by_peer_id(&mut self, peer_id: PeerId) -> Option<HashSet<AuthorityDiscoveryId>> {
+	async fn get_authority_ids_by_peer_id(
+		&mut self,
+		peer_id: PeerId,
+	) -> Option<HashSet<AuthorityDiscoveryId>> {
 		None
 	}
 }

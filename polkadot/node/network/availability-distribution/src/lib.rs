@@ -78,7 +78,8 @@ pub struct IncomingRequestReceivers {
 
 #[overseer::subsystem(AvailabilityDistribution, error=SubsystemError, prefix=self::overseer)]
 impl<AD, Context> AvailabilityDistributionSubsystem<AD>
-	where AD: AuthorityDiscovery + Clone + Sync,
+where
+	AD: AuthorityDiscovery + Clone + Sync,
 {
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
 		let future = self
@@ -93,7 +94,7 @@ impl<AD, Context> AvailabilityDistributionSubsystem<AD>
 #[overseer::contextbounds(AvailabilityDistribution, prefix = self::overseer)]
 impl<AD> AvailabilityDistributionSubsystem<AD>
 where
-	AD: AuthorityDiscovery + Clone + Sync
+	AD: AuthorityDiscovery + Clone + Sync,
 {
 	/// Create a new instance of the availability distribution.
 	pub fn new(
@@ -109,7 +110,13 @@ where
 
 	/// Start processing work as passed on from the Overseer.
 	async fn run<Context>(self, mut ctx: Context) -> std::result::Result<(), FatalError> {
-		let Self { mut runtime, mut authority_discovery_service, recvs, metrics, req_protocol_names } = self;
+		let Self {
+			mut runtime,
+			mut authority_discovery_service,
+			recvs,
+			metrics,
+			req_protocol_names,
+		} = self;
 
 		let IncomingRequestReceivers {
 			pov_req_receiver,
@@ -176,14 +183,14 @@ where
 				FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
 				FromOrchestra::Communication {
 					msg:
-					AvailabilityDistributionMessage::FetchPoV {
-						relay_parent,
-						from_validator,
-						para_id,
-						candidate_hash,
-						pov_hash,
-						tx,
-					},
+						AvailabilityDistributionMessage::FetchPoV {
+							relay_parent,
+							from_validator,
+							para_id,
+							candidate_hash,
+							pov_hash,
+							tx,
+						},
 				} => {
 					log_error(
 						pov_requester::fetch_pov(
@@ -197,7 +204,7 @@ where
 							tx,
 							metrics.clone(),
 						)
-							.await,
+						.await,
 						"pov_requester::fetch_pov",
 						&mut warn_freq,
 					)?;

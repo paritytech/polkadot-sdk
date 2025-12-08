@@ -14,51 +14,48 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::{HashMap, HashSet};
+use crate::{metrics::Metrics, View};
 use polkadot_primitives::{CandidateHash, Hash, SessionIndex, ValidatorIndex};
-use crate::metrics::Metrics;
-use crate::View;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct ApprovalsStats {
-    pub votes: HashSet<ValidatorIndex>,
-    pub no_shows: HashSet<ValidatorIndex>,
+	pub votes: HashSet<ValidatorIndex>,
+	pub no_shows: HashSet<ValidatorIndex>,
 }
 
 impl ApprovalsStats {
-    pub fn new(votes: HashSet<ValidatorIndex>, no_shows: HashSet<ValidatorIndex>) -> Self {
-        Self { votes, no_shows }
-    }
+	pub fn new(votes: HashSet<ValidatorIndex>, no_shows: HashSet<ValidatorIndex>) -> Self {
+		Self { votes, no_shows }
+	}
 }
 
 pub fn handle_candidate_approved(
-    view: &mut View,
-    block_hash: Hash,
-    candidate_hash: CandidateHash,
-    approvals: Vec<ValidatorIndex>,
+	view: &mut View,
+	block_hash: Hash,
+	candidate_hash: CandidateHash,
+	approvals: Vec<ValidatorIndex>,
 ) {
-    if let Some(relay_view) = view.per_relay.get_mut(&block_hash) {
-        relay_view.approvals_stats
-            .entry(candidate_hash)
-            .and_modify(|a: &mut ApprovalsStats| {
-                a.votes.extend(approvals.iter())
-            })
-            .or_insert_with(|| {
-                ApprovalsStats::new(HashSet::from_iter(approvals), HashSet::new())
-            });
-    }
+	if let Some(relay_view) = view.per_relay.get_mut(&block_hash) {
+		relay_view
+			.approvals_stats
+			.entry(candidate_hash)
+			.and_modify(|a: &mut ApprovalsStats| a.votes.extend(approvals.iter()))
+			.or_insert_with(|| ApprovalsStats::new(HashSet::from_iter(approvals), HashSet::new()));
+	}
 }
 
-pub fn  handle_observed_no_shows(
-    view: &mut View,
-    block_hash: Hash,
-    candidate_hash: CandidateHash,
-    no_show_validators: Vec<ValidatorIndex>,
+pub fn handle_observed_no_shows(
+	view: &mut View,
+	block_hash: Hash,
+	candidate_hash: CandidateHash,
+	no_show_validators: Vec<ValidatorIndex>,
 ) {
-    if let Some(relay_view) = view.per_relay.get_mut(&block_hash) {
-        relay_view.approvals_stats
-            .entry(candidate_hash)
-            .and_modify(|a: &mut ApprovalsStats| a.no_shows.extend(no_show_validators.iter()))
-            .or_insert(ApprovalsStats::new(HashSet::new(), HashSet::from_iter(no_show_validators)));
-    }
+	if let Some(relay_view) = view.per_relay.get_mut(&block_hash) {
+		relay_view
+			.approvals_stats
+			.entry(candidate_hash)
+			.and_modify(|a: &mut ApprovalsStats| a.no_shows.extend(no_show_validators.iter()))
+			.or_insert(ApprovalsStats::new(HashSet::new(), HashSet::from_iter(no_show_validators)));
+	}
 }

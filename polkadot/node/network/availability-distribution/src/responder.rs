@@ -23,13 +23,15 @@ use futures::{channel::oneshot, select, FutureExt};
 use codec::{Decode, Encode};
 use fatality::Nested;
 use polkadot_node_network_protocol::{
+	authority_discovery::AuthorityDiscovery,
 	request_response::{v1, v2, IncomingRequest, IncomingRequestReceiver, IsRequest},
 	UnifiedReputationChange as Rep,
-	authority_discovery::AuthorityDiscovery,
 };
 use polkadot_node_primitives::{AvailableData, ErasureChunk};
-use polkadot_node_subsystem::{messages::AvailabilityStoreMessage, SubsystemSender};
-use polkadot_node_subsystem::messages::RewardsStatisticsCollectorMessage;
+use polkadot_node_subsystem::{
+	messages::{AvailabilityStoreMessage, RewardsStatisticsCollectorMessage},
+	SubsystemSender,
+};
 use polkadot_primitives::{CandidateHash, ValidatorIndex};
 
 use crate::{
@@ -78,7 +80,7 @@ pub async fn run_chunk_receivers<Sender, AD>(
 ) where
 	Sender: SubsystemSender<AvailabilityStoreMessage>
 		+ SubsystemSender<RewardsStatisticsCollectorMessage>,
-	AD: AuthorityDiscovery + Clone + Sync
+	AD: AuthorityDiscovery + Clone + Sync,
 {
 	let make_resp_v1 = |chunk: Option<ErasureChunk>| match chunk {
 		None => v1::ChunkFetchingResponse::NoSuchChunk,
@@ -170,7 +172,7 @@ pub async fn answer_chunk_request_log<Sender, AD, Req, MakeResp>(
 	make_response: MakeResp,
 	metrics: &Metrics,
 ) where
-	AD: AuthorityDiscovery ,
+	AD: AuthorityDiscovery,
 	Req: IsRequest + Decode + Encode + Into<v1::ChunkFetchingRequest>,
 	Req::Response: Encode,
 	Sender: SubsystemSender<AvailabilityStoreMessage>
@@ -179,9 +181,7 @@ pub async fn answer_chunk_request_log<Sender, AD, Req, MakeResp>(
 {
 	let res = answer_chunk_request(sender, authority_discovery, req, make_response).await;
 	match res {
-		Ok(result) => {
-			metrics.on_served_chunk(if result { SUCCEEDED } else { NOT_FOUND })
-		},
+		Ok(result) => metrics.on_served_chunk(if result { SUCCEEDED } else { NOT_FOUND }),
 		Err(err) => {
 			gum::warn!(
 				target: LOG_TARGET,
@@ -247,8 +247,10 @@ where
 	if result {
 		let authority_ids = authority_discovery.get_authority_ids_by_peer_id(req.peer).await;
 		if let Some(authority_ids) = authority_ids {
-			_ = sender.try_send_message(
-				RewardsStatisticsCollectorMessage::ChunkUploaded(payload.candidate_hash, authority_ids));
+			_ = sender.try_send_message(RewardsStatisticsCollectorMessage::ChunkUploaded(
+				payload.candidate_hash,
+				authority_ids,
+			));
 		}
 	}
 

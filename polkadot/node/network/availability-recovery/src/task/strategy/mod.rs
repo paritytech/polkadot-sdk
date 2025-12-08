@@ -45,10 +45,10 @@ use polkadot_node_subsystem::{
 use polkadot_primitives::{AuthorityDiscoveryId, BlakeTwo256, ChunkIndex, HashT, ValidatorIndex};
 use sc_network::{IfDisconnected, OutboundFailure, ProtocolName, RequestFailure};
 use std::{
-	collections::{BTreeMap, HashMap, VecDeque, hash_map::Entry},
+	collections::{hash_map::Entry, BTreeMap, HashMap, VecDeque},
+	ops::Add,
 	time::Duration,
 };
-use std::ops::Add;
 
 // How many parallel chunk fetching requests should be running at once.
 const N_PARALLEL: usize = 50;

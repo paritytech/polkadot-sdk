@@ -31,9 +31,9 @@ use polkadot_node_subsystem::{overseer, RecoveryError};
 use polkadot_primitives::ValidatorIndex;
 
 use futures::{channel::oneshot, SinkExt};
+use polkadot_node_subsystem::messages::RewardsStatisticsCollectorMessage;
 use rand::seq::SliceRandom;
 use std::collections::VecDeque;
-use polkadot_node_subsystem::messages::RewardsStatisticsCollectorMessage;
 
 /// Parameters specific to the `FetchChunks` strategy.
 pub struct FetchChunksParams {

@@ -21,11 +21,11 @@ use sp_core::traits::SpawnNamed;
 
 use polkadot_availability_distribution::IncomingRequestReceivers;
 use polkadot_node_core_approval_voting::Config as ApprovalVotingConfig;
-use polkadot_node_core_rewards_statistics_collector::Config as RewardsStatisticsCollectorConfig;
 use polkadot_node_core_av_store::Config as AvailabilityConfig;
 use polkadot_node_core_candidate_validation::Config as CandidateValidationConfig;
 use polkadot_node_core_chain_selection::Config as ChainSelectionConfig;
 use polkadot_node_core_dispute_coordinator::Config as DisputeCoordinatorConfig;
+use polkadot_node_core_rewards_statistics_collector::Config as RewardsStatisticsCollectorConfig;
 use polkadot_node_network_protocol::{
 	peer_set::{PeerSet, PeerSetProtocolNames},
 	request_response::{
@@ -76,9 +76,9 @@ pub use polkadot_node_core_dispute_coordinator::DisputeCoordinatorSubsystem;
 pub use polkadot_node_core_prospective_parachains::ProspectiveParachainsSubsystem;
 pub use polkadot_node_core_provisioner::ProvisionerSubsystem;
 pub use polkadot_node_core_pvf_checker::PvfCheckerSubsystem;
+pub use polkadot_node_core_rewards_statistics_collector::RewardsStatisticsCollector;
 pub use polkadot_node_core_runtime_api::RuntimeApiSubsystem;
 pub use polkadot_statement_distribution::StatementDistributionSubsystem;
-pub use polkadot_node_core_rewards_statistics_collector::RewardsStatisticsCollector;
 
 /// Arguments passed for overseer construction.
 pub struct OverseerGenArgs<'a, Spawner, RuntimeClient>
@@ -196,9 +196,7 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		PvfCheckerSubsystem,
 		CandidateBackingSubsystem,
 		StatementDistributionSubsystem,
-		AvailabilityDistributionSubsystem<
-			AuthorityDiscoveryService
-		>,
+		AvailabilityDistributionSubsystem<AuthorityDiscoveryService>,
 		AvailabilityRecoverySubsystem,
 		BitfieldSigningSubsystem,
 		BitfieldDistributionSubsystem,
@@ -224,7 +222,7 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		DisputeDistributionSubsystem<AuthorityDiscoveryService>,
 		ChainSelectionSubsystem,
 		ProspectiveParachainsSubsystem,
-        RewardsStatisticsCollector,
+		RewardsStatisticsCollector,
 	>,
 	Error,
 >

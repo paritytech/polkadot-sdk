@@ -42,8 +42,7 @@ use polkadot_node_core_chain_selection::{
 };
 use polkadot_node_core_dispute_coordinator::Config as DisputeCoordinatorConfig;
 use polkadot_node_core_rewards_statistics_collector::{
-	Config as RewardsStatisticsCollectorConfig,
-	RewardsStatisticsCollector
+	Config as RewardsStatisticsCollectorConfig, RewardsStatisticsCollector,
 };
 use polkadot_node_network_protocol::{
 	peer_set::{PeerSet, PeerSetProtocolNames},
@@ -203,7 +202,7 @@ where
 					telemetry_worker_handle: _,
 					node_version,
 					secure_validator_mode,
-                    verbose_approval_metrics,
+					verbose_approval_metrics,
 					workers_path,
 					workers_names,
 					overseer_gen,
@@ -443,9 +442,8 @@ where
 				},
 			};
 
-			let rewards_statistics_collector_config = RewardsStatisticsCollectorConfig{
-				verbose_approval_metrics,
-			};
+			let rewards_statistics_collector_config =
+				RewardsStatisticsCollectorConfig { verbose_approval_metrics };
 
 			Some(ExtendedOverseerGenArgs {
 				keystore: keystore_container.local_keystore(),

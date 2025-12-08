@@ -54,9 +54,12 @@ use polkadot_node_primitives::approval::time::{
 	slot_number_to_tick, tick_to_slot_number, Clock, ClockExt, SystemClock,
 };
 
-use polkadot_node_core_rewards_statistics_collector::{RewardsStatisticsCollector as RewardsStatisticsCollectorSubsystem, metrics::Metrics as RewardsStatisticsMetrics, RewardsStatisticsCollector};
 use polkadot_node_core_approval_voting::{
 	ApprovalVotingSubsystem, Config as ApprovalVotingConfig, RealAssignmentCriteria,
+};
+use polkadot_node_core_rewards_statistics_collector::{
+	metrics::Metrics as RewardsStatisticsMetrics,
+	RewardsStatisticsCollector as RewardsStatisticsCollectorSubsystem, RewardsStatisticsCollector,
 };
 use polkadot_node_network_protocol::v3 as protocol_v3;
 use polkadot_node_primitives::approval::{self, v1::RelayVRFStory};
@@ -1181,7 +1184,7 @@ pub async fn bench_approvals_run(
 			"approval-distribution",
 			"approval-voting",
 			"approval-voting-parallel",
-			"rewards-statistics-collector"
+			"rewards-statistics-collector",
 		],
 		true,
 	)

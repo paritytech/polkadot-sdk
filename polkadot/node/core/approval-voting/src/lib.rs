@@ -2908,8 +2908,7 @@ async fn import_approval<Sender>(
 	wakeups: &Wakeups,
 ) -> SubsystemResult<(Vec<Action>, ApprovalCheckResult)>
 where
-	Sender: SubsystemSender<RuntimeApiMessage>
-		+ SubsystemSender<RewardsStatisticsCollectorMessage>,
+	Sender: SubsystemSender<RuntimeApiMessage> + SubsystemSender<RewardsStatisticsCollectorMessage>,
 {
 	macro_rules! respond_early {
 		($e: expr) => {{
@@ -3062,8 +3061,7 @@ async fn advance_approval_state<Sender>(
 	wakeups: &Wakeups,
 ) -> Vec<Action>
 where
-	Sender: SubsystemSender<RuntimeApiMessage>
-		+ SubsystemSender<RewardsStatisticsCollectorMessage>,
+	Sender: SubsystemSender<RuntimeApiMessage> + SubsystemSender<RewardsStatisticsCollectorMessage>,
 {
 	let validator_index = transition.validator_index();
 
@@ -3248,15 +3246,14 @@ where
 				"Candidate newly approved, collecting useful approvals..."
 			);
 
-			collect_useful_approvals(sender,  &status, block_hash, &candidate_entry);
+			collect_useful_approvals(sender, &status, block_hash, &candidate_entry);
 
 			if status.no_show_validators.len() > 0 {
-				_ = sender
-					.try_send_message(RewardsStatisticsCollectorMessage::NoShows(
-						candidate_entry.candidate.hash(),
-						block_hash,
-						status.no_show_validators,
-					));
+				_ = sender.try_send_message(RewardsStatisticsCollectorMessage::NoShows(
+					candidate_entry.candidate.hash(),
+					block_hash,
+					status.no_show_validators,
+				));
 			}
 		}
 
@@ -3325,8 +3322,7 @@ async fn process_wakeup<Sender>(
 	wakeups: &Wakeups,
 ) -> SubsystemResult<Vec<Action>>
 where
-	Sender: SubsystemSender<RuntimeApiMessage>
-		+ SubsystemSender<RewardsStatisticsCollectorMessage>
+	Sender: SubsystemSender<RuntimeApiMessage> + SubsystemSender<RewardsStatisticsCollectorMessage>,
 {
 	let block_entry = db.load_block_entry(&relay_block)?;
 	let candidate_entry = db.load_candidate_entry(&candidate_hash)?;
@@ -3735,8 +3731,7 @@ async fn launch_approval<
 // have been done.
 #[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
 async fn issue_approval<
-	Sender: SubsystemSender<RuntimeApiMessage> +
-		SubsystemSender<RewardsStatisticsCollectorMessage>,
+	Sender: SubsystemSender<RuntimeApiMessage> + SubsystemSender<RewardsStatisticsCollectorMessage>,
 	ADSender: SubsystemSender<ApprovalDistributionMessage>,
 >(
 	sender: &mut Sender,
@@ -4117,9 +4112,8 @@ fn collect_useful_approvals<Sender>(
 	status: &ApprovalStatus,
 	block_hash: Hash,
 	candidate_entry: &CandidateEntry,
-)
-where
-	Sender: SubsystemSender<RewardsStatisticsCollectorMessage>
+) where
+	Sender: SubsystemSender<RewardsStatisticsCollectorMessage>,
 {
 	let candidate_hash = candidate_entry.candidate.hash();
 	let candidate_approvals = candidate_entry.approvals();
@@ -4138,15 +4132,14 @@ where
 	};
 
 	let collected_useful_approvals: Vec<ValidatorIndex> = match status.required_tranches {
-		RequiredTranches::All => {
-			candidate_approvals.iter_ones().map(|idx| ValidatorIndex(idx as _)).collect()
-		},
-		RequiredTranches::Exact {needed, ..} => {
+		RequiredTranches::All =>
+			candidate_approvals.iter_ones().map(|idx| ValidatorIndex(idx as _)).collect(),
+		RequiredTranches::Exact { needed, .. } => {
 			let mut assigned_mask = approval_entry.assignments_up_to(needed);
 			assigned_mask &= candidate_approvals;
 			assigned_mask.iter_ones().map(|idx| ValidatorIndex(idx as _)).collect()
 		},
-		RequiredTranches::Pending {..} => {
+		RequiredTranches::Pending { .. } => {
 			gum::warn!(
 				target: LOG_TARGET,
 				?block_hash,
@@ -4167,17 +4160,19 @@ where
 			"collected useful approvals"
 		);
 
-		_ = sender.try_send_message(RewardsStatisticsCollectorMessage::CandidateApproved(
-			candidate_hash,
-			block_hash,
-			collected_useful_approvals,
-		)).map_err(|_| {
-			gum::warn!(
+		_ = sender
+			.try_send_message(RewardsStatisticsCollectorMessage::CandidateApproved(
+				candidate_hash,
+				block_hash,
+				collected_useful_approvals,
+			))
+			.map_err(|_| {
+				gum::warn!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					?block_hash,
 					"Failed to send approvals to statistics subsystem",
 				);
-		});
+			});
 	}
 }

@@ -65,9 +65,9 @@ use crate::{
 	persisted_entries::CandidateEntry,
 };
 
+use super::{State, LOG_TARGET};
 use polkadot_node_primitives::approval::time::{slot_number_to_tick, Tick};
 use polkadot_node_subsystem::messages::RewardsStatisticsCollectorMessage;
-use super::{State, LOG_TARGET};
 
 #[derive(Debug)]
 struct ImportedBlockInfo {

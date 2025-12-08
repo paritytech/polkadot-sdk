@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::HashMap;
+use crate::approval_voting_metrics::ApprovalsStats;
 use gum::CandidateHash;
 use polkadot_node_subsystem::prometheus::Opts;
 use polkadot_node_subsystem_util::metrics::{
@@ -22,7 +22,7 @@ use polkadot_node_subsystem_util::metrics::{
 	prometheus::{self, Gauge, GaugeVec, U64},
 };
 use polkadot_primitives::SessionIndex;
-use crate::approval_voting_metrics::ApprovalsStats;
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub(crate) struct MetricsInner {
@@ -35,10 +35,9 @@ pub(crate) struct MetricsInner {
 	submittion_started: prometheus::Counter<U64>,
 }
 
-
 /// Candidate backing metrics.
 #[derive(Default, Clone)]
-pub struct Metrics (pub(crate) Option<MetricsInner>);
+pub struct Metrics(pub(crate) Option<MetricsInner>);
 
 impl Metrics {
 	pub fn record_approvals_stats(
@@ -49,21 +48,35 @@ impl Metrics {
 	) {
 		self.0.as_ref().map(|metrics| {
 			for stats in approval_stats.values() {
-				metrics.approvals_usage_per_session.with_label_values(
-					&[session.to_string().as_str()]).inc_by(stats.votes.len() as u64);
+				metrics
+					.approvals_usage_per_session
+					.with_label_values(&[session.to_string().as_str()])
+					.inc_by(stats.votes.len() as u64);
 
-				metrics.no_shows_per_session.with_label_values(
-					&[session.to_string().as_str()]).inc_by(stats.no_shows.len() as u64);
+				metrics
+					.no_shows_per_session
+					.with_label_values(&[session.to_string().as_str()])
+					.inc_by(stats.no_shows.len() as u64);
 
 				if per_validator_metrics {
 					for validator in &stats.votes {
-						metrics.approvals_per_session_per_validator.with_label_values(
-							&[session.to_string().as_str(), validator.0.to_string().as_str()]).inc()
+						metrics
+							.approvals_per_session_per_validator
+							.with_label_values(&[
+								session.to_string().as_str(),
+								validator.0.to_string().as_str(),
+							])
+							.inc()
 					}
 
 					for validator in &stats.no_shows {
-						metrics.no_shows_per_session_per_validator.with_label_values(
-							&[session.to_string().as_str(), validator.0.to_string().as_str()]).inc()
+						metrics
+							.no_shows_per_session_per_validator
+							.with_label_values(&[
+								session.to_string().as_str(),
+								validator.0.to_string().as_str(),
+							])
+							.inc()
 					}
 				}
 			}

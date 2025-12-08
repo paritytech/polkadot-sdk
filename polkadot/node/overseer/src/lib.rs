@@ -84,8 +84,8 @@ use polkadot_node_subsystem_types::messages::{
 	ChainApiMessage, ChainSelectionMessage, CollationGenerationMessage, CollatorProtocolMessage,
 	DisputeCoordinatorMessage, DisputeDistributionMessage, GossipSupportMessage,
 	NetworkBridgeRxMessage, NetworkBridgeTxMessage, ProspectiveParachainsMessage,
-	ProvisionerMessage, RuntimeApiMessage, StatementDistributionMessage,
-	RewardsStatisticsCollectorMessage,
+	ProvisionerMessage, RewardsStatisticsCollectorMessage, RuntimeApiMessage,
+	StatementDistributionMessage,
 };
 
 pub use polkadot_node_subsystem_types::{

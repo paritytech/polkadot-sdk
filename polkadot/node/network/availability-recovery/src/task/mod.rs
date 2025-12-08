@@ -32,13 +32,15 @@ use crate::{metrics::Metrics, ErasureTask, PostRecoveryCheck, LOG_TARGET};
 
 use codec::Encode;
 use polkadot_node_primitives::AvailableData;
-use polkadot_node_subsystem::{messages::AvailabilityStoreMessage, overseer, RecoveryError, Subsystem, SubsystemSender};
+use polkadot_node_subsystem::{
+	messages::AvailabilityStoreMessage, overseer, RecoveryError, Subsystem, SubsystemSender,
+};
 use polkadot_primitives::{AuthorityDiscoveryId, CandidateHash, Hash, SessionIndex};
 use sc_network::ProtocolName;
 
 use futures::channel::{mpsc, oneshot};
-use std::collections::VecDeque;
 use polkadot_node_subsystem::messages::RewardsStatisticsCollectorMessage;
+use std::collections::VecDeque;
 
 /// Recovery parameters common to all strategies in a `RecoveryTask`.
 #[derive(Clone)]
@@ -188,7 +190,9 @@ where
 						RewardsStatisticsCollectorMessage::ChunksDownloaded(
 							self.params.session_index,
 							self.params.candidate_hash,
-							self.state.get_download_chunks_metrics()));
+							self.state.get_download_chunks_metrics(),
+						),
+					);
 					return Ok(data)
 				},
 			}

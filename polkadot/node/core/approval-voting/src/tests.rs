@@ -659,10 +659,12 @@ struct ExpectApprovalsStatsCollected {
 }
 
 impl ExpectApprovalsStatsCollected {
-	fn new(candidate_hash: CandidateHash, block_hash: Hash, validators: Vec<ValidatorIndex>) -> Self {
-		Self {
-			candidate_hash, block_hash, validators, no_shows: None,
-		}
+	fn new(
+		candidate_hash: CandidateHash,
+		block_hash: Hash,
+		validators: Vec<ValidatorIndex>,
+	) -> Self {
+		Self { candidate_hash, block_hash, validators, no_shows: None }
 	}
 
 	fn with_no_shows(&mut self, no_shows: (SessionIndex, Vec<ValidatorIndex>)) -> &mut Self {
@@ -2429,7 +2431,11 @@ fn import_checked_approval_updates_entries_and_schedules() {
 			candidate_hash,
 			session_index,
 			true,
-			Some(ExpectApprovalsStatsCollected::new(candidate_hash, block_hash, vec![validator_index_a, validator_index_b])),
+			Some(ExpectApprovalsStatsCollected::new(
+				candidate_hash,
+				block_hash,
+				vec![validator_index_a, validator_index_b],
+			)),
 			Some(sig_b),
 		)
 		.await;
@@ -2560,9 +2566,17 @@ fn subsystem_import_checked_approval_sets_one_block_bit_at_a_time() {
 			};
 
 			let expected_stats_collected = if i == 1 {
-				Some(ExpectApprovalsStatsCollected::new(candidate_hash1, block_hash, vec![validator1, validator2]))
+				Some(ExpectApprovalsStatsCollected::new(
+					candidate_hash1,
+					block_hash,
+					vec![validator1, validator2],
+				))
 			} else if i == 3 {
-				Some(ExpectApprovalsStatsCollected::new(candidate_hash2, block_hash, vec![validator1, validator2]))
+				Some(ExpectApprovalsStatsCollected::new(
+					candidate_hash2,
+					block_hash,
+					vec![validator1, validator2],
+				))
 			} else {
 				None
 			};
@@ -2848,7 +2862,11 @@ fn approved_ancestor_test(
 				candidate_hash,
 				i as u32 + 1,
 				true,
-				Some(ExpectApprovalsStatsCollected::new(candidate_hash, *block_hash, vec![validator])),
+				Some(ExpectApprovalsStatsCollected::new(
+					candidate_hash,
+					*block_hash,
+					vec![validator],
+				)),
 				None,
 			)
 			.await;
@@ -3420,7 +3438,7 @@ where
 		}
 
 		let n_validators = validators.len();
-		let to_collect = min((n_validators/3) + 1, approvals_to_import.len());
+		let to_collect = min((n_validators / 3) + 1, approvals_to_import.len());
 		let validators_collected = approvals_to_import[0..to_collect]
 			.iter()
 			.map(|vidx| ValidatorIndex(vidx.clone()))
@@ -3429,7 +3447,11 @@ where
 		for (i, &validator_index) in approvals_to_import.iter().enumerate() {
 			let expect_chain_approved = 3 * (i + 1) > n_validators;
 			let expect_approvals_stats_collected = if expect_chain_approved {
-				Some(ExpectApprovalsStatsCollected::new(candidate_hash, block_hash, validators_collected.clone()))
+				Some(ExpectApprovalsStatsCollected::new(
+					candidate_hash,
+					block_hash,
+					validators_collected.clone(),
+				))
 			} else {
 				None
 			};
@@ -4040,9 +4062,7 @@ fn waits_until_approving_assignments_are_old_enough() {
 		// Sleep to ensure we get a consistent read on the database.
 		futures_timer::Delay::new(Duration::from_millis(100)).await;
 
-		let _ =
-
-		assert_matches!(
+		let _ = assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
 			AllMessages::RewardsStatisticsCollector(
 				RewardsStatisticsCollectorMessage::CandidateApproved(
