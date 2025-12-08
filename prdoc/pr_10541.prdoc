@@ -24,8 +24,6 @@ crates:
   bump: patch
 - name: cumulus-test-relay-sproof-builder
   bump: patch
-- name: asset-hub-westend-runtime
-  bump: patch
 - name: xcm-emulator
   bump: patch
 - name: cumulus-client-parachain-inherent
