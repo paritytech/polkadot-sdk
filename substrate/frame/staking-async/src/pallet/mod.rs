@@ -379,7 +379,10 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::*;
-		use frame_support::{derive_impl, parameter_types, traits::{ConstU32, ConstBool}};
+		use frame_support::{
+			derive_impl, parameter_types,
+			traits::{ConstBool, ConstU32},
+		};
 		pub struct TestDefaultConfig;
 
 		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
@@ -1651,8 +1654,8 @@ pub mod pallet {
 					T::BondingDuration::get()
 				};
 
-				let era = session_rotation::Rotator::<T>::active_era()
-					.saturating_add(bonding_duration);
+				let era =
+					session_rotation::Rotator::<T>::active_era().saturating_add(bonding_duration);
 				if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
 					// To keep the chunk count down, we only keep one chunk per era. Since
 					// `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will

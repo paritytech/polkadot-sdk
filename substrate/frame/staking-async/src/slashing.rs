@@ -40,7 +40,12 @@
 //!
 //! Based on research at <https://research.web3.foundation/Polkadot/security/slashing/npos>
 
-use crate::{asset, log, session_rotation::Eras, BalanceOf, Config, ErasStakersOverview, NegativeImbalanceOf, OffenceQueue, OffenceQueueEras, PagedExposure, Pallet, Perbill, ProcessingOffence, SlashRewardFraction, UnappliedSlash, UnappliedSlashes, ValidatorSlashInEra, WeightInfo};
+use crate::{
+	asset, log, session_rotation::Eras, BalanceOf, Config, ErasStakersOverview,
+	NegativeImbalanceOf, OffenceQueue, OffenceQueueEras, PagedExposure, Pallet, Perbill,
+	ProcessingOffence, SlashRewardFraction, UnappliedSlash, UnappliedSlashes, ValidatorSlashInEra,
+	WeightInfo,
+};
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::{Defensive, DefensiveSaturating, Get, Imbalance, OnUnbalanced};
@@ -289,7 +294,8 @@ pub(crate) fn process_offence<T: Config>() -> Weight {
 /// - `ProcessingOffence`
 /// - `OffenceQueue`
 /// - `OffenceQueueEras`
-fn next_offence_validator_only<T: Config>() -> Option<(EraIndex, T::AccountId, OffenceRecord<T::AccountId>)> {
+fn next_offence_validator_only<T: Config>(
+) -> Option<(EraIndex, T::AccountId, OffenceRecord<T::AccountId>)> {
 	// Try enqueue the next offence
 	let Some(mut eras) = OffenceQueueEras::<T>::get() else { return None };
 	let Some(&oldest_era) = eras.first() else { return None };
@@ -342,9 +348,7 @@ pub(crate) fn process_offence_validator_only<T: Config>() -> Weight {
 	let reward_proportion = SlashRewardFraction::<T>::get();
 
 	add_db_reads_writes(2, 0);
-	let Some(validator_exposure) =
-		<ErasStakersOverview<T>>::get(&offence_era, &offender)
-	else {
+	let Some(validator_exposure) = <ErasStakersOverview<T>>::get(&offence_era, &offender) else {
 		// this can only happen if the offence was valid at the time of reporting but became too old
 		// at the time of computing and should be discarded.
 		return incomplete_consumed_weight
@@ -425,7 +429,6 @@ pub(crate) fn process_offence_validator_only<T: Config>() -> Weight {
 		);
 		T::WeightInfo::process_offence_queue()
 	}
-
 }
 
 /// Computes a slash of a validator and nominators. It returns an unapplied

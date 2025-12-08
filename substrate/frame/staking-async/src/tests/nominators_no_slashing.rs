@@ -272,7 +272,8 @@ fn nominator_not_slashed_with_deferred_slash() {
 						validator: 11,
 						fraction: Perbill::from_percent(10)
 					},
-					// Slash is computed but deferred (slash_era = offence_era + defer_duration = 1 + 2 = 3)
+					// Slash is computed but deferred (slash_era = offence_era + defer_duration = 1
+					// + 2 = 3)
 					Event::SlashComputed { offence_era: 1, slash_era: 3, offender: 11, page: 0 },
 				]
 			);
