@@ -206,8 +206,8 @@ impl<T: Config> ElectionProvider for OnChainExecution<T> {
 		sp_runtime::traits::Zero::zero()
 	}
 
-	fn status() -> Result<bool, ()> {
-		Ok(true)
+	fn status() -> Result<Option<sp_runtime::Weight>, ()> {
+		Ok(Some(Default::default()))
 	}
 }
 

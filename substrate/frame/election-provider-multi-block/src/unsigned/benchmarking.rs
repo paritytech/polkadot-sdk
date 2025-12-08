@@ -77,6 +77,29 @@ mod benchmarks {
 		Ok(())
 	}
 
+<<<<<<< HEAD
+=======
+	/// NOTE: make sure this benchmark is being run with the correct `type Solver` in `MinerConfig`.
+	#[benchmark(extra, pov_mode = Measured)]
+	fn mine_solution(p: Linear<1, { T::Pages::get() }>) -> Result<(), BenchmarkError> {
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
+
+		// roll to unsigned phase open
+		crate::Pallet::<T>::roll_until_matches(|| {
+			matches!(CurrentPhase::<T>::get(), Phase::Unsigned(_))
+		});
+
+		#[block]
+		{
+			OffchainWorkerMiner::<T>::mine_solution(p, true).unwrap();
+		}
+
+		Ok(())
+	}
+
+>>>>>>> 05a3fb10 (Staking-Async + EPMB: Migrate operations to `poll` (#9925))
 	impl_benchmark_test_suite!(
 		Pallet,
 		crate::mock::ExtBuilder::full().build_unchecked(),
