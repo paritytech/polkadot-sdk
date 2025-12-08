@@ -491,13 +491,20 @@ parameter_types! {
 	pub const MaxPublishers: u32 = 1000;
 }
 
+parameter_types! {
+	pub const PublisherDeposit: Balance = 100;
+}
+
 impl crate::broadcaster::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type MaxPublishItems = MaxPublishItems;
 	type MaxKeyLength = MaxKeyLength;
 	type MaxValueLength = MaxValueLength;
 	type MaxStoredKeys = MaxStoredKeys;
 	type MaxPublishers = MaxPublishers;
+	type PublisherDeposit = PublisherDeposit;
 }
 
 pub struct MockValidatorSet;

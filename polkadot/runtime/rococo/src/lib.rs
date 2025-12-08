@@ -1229,15 +1229,19 @@ parameter_types! {
 	pub const MaxValueLength: u32 = 1024;
 	pub const MaxStoredKeys: u32 = 100;
 	pub const MaxPublishers: u32 = 1000;
+	pub const PublisherDeposit: Balance = 100 * UNITS;
 }
 
 impl polkadot_runtime_parachains::broadcaster::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type MaxPublishItems = MaxPublishItems;
 	type MaxKeyLength = MaxKeyLength;
 	type MaxValueLength = MaxValueLength;
 	type MaxStoredKeys = MaxStoredKeys;
 	type MaxPublishers = MaxPublishers;
+	type PublisherDeposit = PublisherDeposit;
 }
 
 parameter_types! {
