@@ -33,14 +33,17 @@ use frame_support::{
 	},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-pub use imbalances::{NegativeImbalance, PositiveImbalance};
+pub use imbalances::{
+	CreditToNegativeImbalanceAdapter, DebtToPositiveImbalanceAdapter, NegativeImbalance,
+	PositiveImbalance,
+};
 use sp_runtime::traits::Bounded;
 
 // wrapping these imbalances in a private module is necessary to ensure absolute privacy
 // of the inner member.
 mod imbalances {
 	use super::*;
-	use core::mem;
+	use core::{marker::PhantomData, mem};
 	use frame_support::traits::{tokens::imbalance::TryMerge, SameOrOther};
 
 	/// Opaque, move-only struct with private fields that serves as a token denoting that
@@ -244,6 +247,36 @@ mod imbalances {
 		fn handle(amount: T::Balance) {
 			<super::TotalIssuance<T, I>>::mutate(|v| *v = v.saturating_add(amount));
 			Pallet::<T, I>::deposit_event(Event::<T, I>::MintedCredit { amount });
+		}
+	}
+
+	#[derive(Default)]
+	pub struct CreditToNegativeImbalanceAdapter<OU, T, I = ()>(PhantomData<(OU, T, I)>);
+
+	impl<T: Config<I>, I: 'static, OU> OnUnbalanced<fungible::Credit<T::AccountId, Pallet<T, I>>>
+		for CreditToNegativeImbalanceAdapter<OU, T, I>
+	where
+		OU: OnUnbalanced<NegativeImbalance<T, I>>,
+	{
+		fn on_unbalanced(amount: fungible::Credit<T::AccountId, Pallet<T, I>>) {
+			let amount = amount.peek();
+			let imbalance = NegativeImbalance::<T, I>::new(amount);
+			OU::on_unbalanced(imbalance)
+		}
+	}
+
+	#[derive(Default)]
+	pub struct DebtToPositiveImbalanceAdapter<OU, T, I = ()>(PhantomData<(OU, T, I)>);
+
+	impl<T: Config<I>, I: 'static, OU> OnUnbalanced<fungible::Debt<T::AccountId, Pallet<T, I>>>
+		for DebtToPositiveImbalanceAdapter<OU, T, I>
+	where
+		OU: OnUnbalanced<PositiveImbalance<T, I>>,
+	{
+		fn on_unbalanced(amount: fungible::Debt<T::AccountId, Pallet<T, I>>) {
+			let amount = amount.peek();
+			let imbalance = PositiveImbalance::<T, I>::new(amount);
+			OU::on_unbalanced(imbalance)
 		}
 	}
 }

@@ -1,0 +1,31 @@
+title: Migrate Pallet Identity from Currency to fungible
+doc:
+- audience: Runtime Dev
+  description: |-
+    This refactor changes the usage of the deprecated `ReservableCurrency` trait in favour of
+    `fungible::MutateHold` to handle deposits for `pallet-identity`.
+
+    This change includes a migration (`LazyMigrationV2ToV3`) to store holds for the existing
+    reserves.
+
+    Runtimes using this pallet must change the `Currency` type for `Balances`, add the `OldCurrency`
+    benchmarking type, and run the migration.
+crates:
+- name: pallet-balances
+  bump: major
+- name: pallet-identity
+  bump: major
+- name: polkadot-runtime-common
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: pallet-alliance
+  bump: minor
+- name: pallet-staking-async
+  bump: minor

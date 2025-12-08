@@ -287,7 +287,7 @@ impl crowdloan::Config for Test {
 
 impl pallet_identity::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
+	type Balances = Balances;
 	type Slashed = ();
 	type BasicDeposit = ConstU32<100>;
 	type ByteDeposit = ConstU32<10>;
@@ -307,6 +307,8 @@ impl pallet_identity::Config for Test {
 	type MaxUsernameLength = ConstU32<32>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type OldCurrency = Balances;
 	type WeightInfo = ();
 }
 

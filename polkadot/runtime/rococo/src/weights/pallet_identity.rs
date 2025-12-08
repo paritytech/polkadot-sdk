@@ -567,4 +567,34 @@ impl<T: frame_system::Config> pallet_identity::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	fn migration_v3_username_step() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `7062`
+		//  Estimated: `21016`
+		// Minimum execution time: 66_496_000 picoseconds.
+		Weight::from_parts(67_500_000, 0)
+			.saturating_add(Weight::from_parts(0, 21016))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
+	fn migration_v3_pending_username_step() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `7062`
+		//  Estimated: `21016`
+		// Minimum execution time: 66_496_000 picoseconds.
+		Weight::from_parts(67_500_000, 0)
+			.saturating_add(Weight::from_parts(0, 21016))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
+	fn migration_v3_identity_step() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `7062`
+		//  Estimated: `21016`
+		// Minimum execution time: 66_496_000 picoseconds.
+		Weight::from_parts(67_500_000, 0)
+			.saturating_add(Weight::from_parts(0, 21016))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
 }
