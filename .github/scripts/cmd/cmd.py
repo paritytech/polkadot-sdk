@@ -196,6 +196,9 @@ bench_example = '''**Examples**:
  
  Does not output anything and cleans up the previous bot's & author command triggering comments in PR 
  %(prog)s --runtime westend rococo --pallet pallet_balances pallet_multisig --quiet --clean
+
+ Runs benchamrks for pallet_election_provider_multi_block for westend runtime with env VALIDATOR_COUNT=300 and heap_pages set to 65000
+ %(prog)s bench --pallet pallet-election-provider-multi-block --runtime westend --env-vars VALIDATOR_COUNT=300 -- --heap-pages 65000
 '''
 
 parser_bench = subparsers.add_parser('bench', aliases=['bench-omni'], help='Runs benchmarks (frame omni bencher)', epilog=bench_example, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -206,6 +209,8 @@ for arg, config in common_args.items():
 parser_bench.add_argument('--runtime', help='Runtime(s) space separated', choices=runtimeNames, nargs='*', default=runtimeNames)
 parser_bench.add_argument('--pallet', help='Pallet(s) space separated', nargs='*', default=[])
 parser_bench.add_argument('--fail-fast', help='Fail fast on first failed benchmark', action='store_true')
+parser_bench.add_argument('--env-vars', help='Environmental variables in KEY=VALUE format, only used to run the frame-omni-bencher command', nargs='*', default=[])
+parser_bench.add_argument('extra_flags', help='Extra flags for the frame-omni-bencher command', nargs=argparse.REMAINDER, default=['--'])
 
 
 """
@@ -446,9 +451,14 @@ def main():
                     if pallet.startswith("pallet_xcm_benchmarks"):
                         template = config['template']
                         output_path = xcm_path
+                
+                env_vars = " ".join(args.env_vars + [config['bench_env_vars']])
+                # Notice that extra_flags can override some default args, like --steps or --repeat,
+                # since Python only considers the last occurence as valid in such cases.
+                extra_flags = " ".join(args.extra_flags[1:] + [config['bench_flags']])
 
                 print(f'-- benchmarking {pallet} in {runtime} into {output_path}')
-                cmd = f"frame-omni-bencher v1 benchmark pallet " \
+                cmd = f"{env_vars} frame-omni-bencher v1 benchmark pallet " \
                     f"--extrinsic=* " \
                     f"--runtime=target/{profile}/wbuild/{config['package']}/{config['package'].replace('-', '_')}.wasm " \
                     f"--pallet={pallet} " \
@@ -460,7 +470,7 @@ def main():
                     f"--heap-pages=4096 " \
                     f"{f'--template={template} ' if template else ''}" \
                     f"--no-storage-info --no-min-squares --no-median-slopes " \
-                    f"{config['bench_flags']}"
+                    f"{extra_flags}"
                 print(f'-- Running: {cmd} \n')
                 status = os.system(cmd)
 
