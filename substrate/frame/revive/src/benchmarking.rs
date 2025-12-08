@@ -1481,7 +1481,6 @@ mod benchmarks {
 		// Whitelist key if c=0 (hot)
 		if c == 0 {
 			let info = call_setup.contract().info()?;
-			// Construct full key: prefixed child trie key + hashed storage key
 			let mut full_key = info.child_trie_info().prefixed_storage_key().into_inner();
 			full_key.extend_from_slice(&key.hash());
 			frame_benchmarking::benchmarking::add_to_whitelist(full_key.into());
@@ -1616,7 +1615,6 @@ mod benchmarks {
 		// Whitelist key if c=0 (hot)
 		if c == 0 {
 			let info = call_setup.contract().info()?;
-			// Construct full key: prefixed child trie key + hashed storage key
 			let mut full_key = info.child_trie_info().prefixed_storage_key().into_inner();
 			full_key.extend_from_slice(&key.hash());
 			frame_benchmarking::benchmarking::add_to_whitelist(full_key.into());
