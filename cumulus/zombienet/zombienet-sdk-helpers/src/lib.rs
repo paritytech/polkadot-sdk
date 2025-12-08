@@ -2,15 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use anyhow::anyhow;
-use codec::{Compact, Decode};
-use cumulus_primitives_core::{relay_chain, rpsr_digest::RPSR_CONSENSUS_ID};
+use codec::{Decode, Encode};
+use cumulus_primitives_core::{CumulusDigestItem, RelayBlockIdentifier};
 use futures::stream::StreamExt;
-use polkadot_primitives::{CandidateReceiptV2, Id as ParaId};
-use std::{
-	cmp::max,
-	collections::{HashMap, HashSet},
-	ops::Range,
-};
+use polkadot_primitives::{BlakeTwo256, CandidateReceiptV2, Id as ParaId};
+use sp_runtime::traits::Hash;
+use std::{cmp::max, collections::HashMap, ops::Range};
 use tokio::{
 	join,
 	time::{sleep, Duration},
@@ -18,7 +15,7 @@ use tokio::{
 use zombienet_sdk::subxt::{
 	self,
 	blocks::Block,
-	config::{polkadot::PolkadotExtrinsicParamsBuilder, substrate::DigestItem},
+	config::{polkadot::PolkadotExtrinsicParamsBuilder, substrate::DigestItem, Config},
 	dynamic::Value,
 	events::Events,
 	ext::scale_value::value,
@@ -27,37 +24,12 @@ use zombienet_sdk::subxt::{
 	OnlineClient, PolkadotConfig,
 };
 
-use zombienet_sdk::{
-	tx_helper::{ChainUpgrade, RuntimeUpgradeOptions},
-	LocalFileSystem, Network, NetworkNode,
-};
-
-use zombienet_configuration::types::AssetLocation;
-
 // Maximum number of blocks to wait for a session change.
 // If it does not arrive for whatever reason, we should not wait forever.
 const WAIT_MAX_BLOCKS_FOR_SESSION: u32 = 50;
 
-/// Create a batch call to assign cores to a parachain.
-pub fn create_assign_core_call(core_and_para: &[(u32, u32)]) -> DynamicPayload {
-	let mut assign_cores = vec![];
-	for (core, para_id) in core_and_para.iter() {
-		assign_cores.push(value! {
-			Coretime(assign_core { core : *core, begin: 0, assignment: ((Task(*para_id), 57600)), end_hint: None() })
-		});
-	}
-
-	zombienet_sdk::subxt::tx::dynamic(
-		"Sudo",
-		"sudo",
-		vec![value! {
-			Utility(batch { calls: assign_cores })
-		}],
-	)
-}
-
-/// Find an event in subxt `Events` and attempt to decode the fields fo the event.
-pub fn find_event_and_decode_fields<T: Decode>(
+/// Find an event in subxt `Events` and attempt to decode the fields of the event.
+fn find_event_and_decode_fields<T: Decode>(
 	events: &Events<PolkadotConfig>,
 	pallet: &str,
 	variant: &str,
@@ -66,8 +38,7 @@ pub fn find_event_and_decode_fields<T: Decode>(
 	for event in events.iter() {
 		let event = event?;
 		if event.pallet_name() == pallet && event.variant_name() == variant {
-			let field_bytes = event.field_bytes().to_vec();
-			result.push(T::decode(&mut &field_bytes[..])?);
+			result.push(T::decode(&mut &event.field_bytes()[..])?);
 		}
 	}
 	Ok(result)
@@ -87,16 +58,17 @@ async fn is_session_change(
 // Helper function for asserting the throughput of parachains, after the first session change.
 //
 // The throughput is measured as total number of backed candidates in a window of relay chain
-// blocks. Relay chain blocks with session changes are generally ignores.
+// blocks. Relay chain blocks with session changes are generally ignored.
 pub async fn assert_para_throughput(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	stop_after: u32,
-	expected_candidate_ranges: HashMap<ParaId, Range<u32>>,
+	expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
 ) -> Result<(), anyhow::Error> {
 	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
 	let mut candidate_count: HashMap<ParaId, u32> = HashMap::new();
 	let mut current_block_count = 0;
 
+	let expected_candidate_ranges = expected_candidate_ranges.into();
 	let valid_para_ids: Vec<ParaId> = expected_candidate_ranges.keys().cloned().collect();
 
 	// Wait for the first session, block production on the parachain will start after that.
@@ -105,15 +77,15 @@ pub async fn assert_para_throughput(
 	while let Some(block) = blocks_sub.next().await {
 		let block = block?;
 		log::debug!("Finalized relay chain block {}", block.number());
+		let events = block.events().await?;
 
 		// Do not count blocks with session changes, no backed blocks there.
 		if is_session_change(&block).await? {
-			continue;
+			continue
 		}
 
 		current_block_count += 1;
 
-		let events = block.events().await?;
 		let receipts = find_event_and_decode_fields::<CandidateReceiptV2<H256>>(
 			&events,
 			"ParaInclusion",
@@ -123,9 +95,11 @@ pub async fn assert_para_throughput(
 		for receipt in receipts {
 			let para_id = receipt.descriptor.para_id();
 			log::debug!("Block backed for para_id {para_id}");
+
 			if !valid_para_ids.contains(&para_id) {
 				return Err(anyhow!("Invalid ParaId detected: {}", para_id));
 			};
+
 			*(candidate_count.entry(para_id).or_default()) += 1;
 		}
 
@@ -244,6 +218,33 @@ pub async fn assert_blocks_are_being_finalized(
 	Ok(())
 }
 
+/// Returns [`RelayBlockIdentifier`] for the given parachain block.
+fn find_relay_block_identifier(
+	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+) -> Result<RelayBlockIdentifier, anyhow::Error> {
+	let substrate_digest =
+		sp_runtime::generic::Digest::decode(&mut &block.header().digest.encode()[..])
+			.expect("`subxt::Digest` and `substrate::Digest` should encode and decode; qed");
+
+	CumulusDigestItem::find_relay_block_identifier(&substrate_digest)
+		.ok_or_else(|| anyhow!("Failed to find `RelayBlockIdentifier` digest"))
+}
+
+/// Checks if the given `RelayBlockIdentifier` matches a relay chain header.
+fn identifier_matches_header(
+	identifier: &RelayBlockIdentifier,
+	header: &<PolkadotConfig as Config>::Header,
+) -> bool {
+	match identifier {
+		RelayBlockIdentifier::ByHash(hash) => {
+			let header_hash = BlakeTwo256::hash(&header.encode());
+			header_hash == *hash
+		},
+		RelayBlockIdentifier::ByStorageRoot { storage_root, .. } =>
+			header.state_root == *storage_root,
+	}
+}
+
 /// Asserts that parachain blocks have the correct relay parent offset. This also checks that the
 /// relay chain descendants do not contain any session changes.
 ///
@@ -261,12 +262,12 @@ pub async fn assert_relay_parent_offset(
 ) -> Result<(), anyhow::Error> {
 	let mut relay_block_stream = relay_client.blocks().subscribe_all().await?;
 
-	// First parachain header #0 does not contains RSPR digest item.
+	// First parachain header #0 does not contain relay block identifier digest item.
 	let mut para_block_stream = para_client.blocks().subscribe_all().await?.skip(1);
 	let mut highest_relay_block_seen = 0;
 	let mut num_para_blocks_seen = 0;
-	let mut forbidden_parents = HashSet::new();
-	let mut seen_parents = HashMap::new();
+	let mut forbidden_parents = Vec::new();
+	let mut seen_relay_parents = HashMap::new();
 	loop {
 		tokio::select! {
 			Some(Ok(relay_block)) = relay_block_stream.next() => {
@@ -287,30 +288,33 @@ pub async fn assert_relay_parent_offset(
 					let mut current_hash = relay_block.header().parent_hash;
 					for _ in 0..offset {
 						let block = relay_client.blocks().at(current_hash).await.map_err(|_| anyhow!("Unable to fetch RC header."))?;
-						forbidden_parents.insert(block.header().state_root);
+						forbidden_parents.push(block.header().clone());
 						current_hash = block.header().parent_hash;
 					}
 				}
 			},
 			Some(Ok(para_block)) = para_block_stream.next() => {
-				let logs = &para_block.header().digest.logs;
+				let relay_block_identifier = find_relay_block_identifier(&para_block)?;
 
-				let Some((relay_parent_state_root, relay_parent_number)): Option<(H256, u32)> = logs.iter().find_map(extract_relay_parent_storage_root) else {
-					return Err(anyhow!("No RPSR digest found in header #{}", para_block.number()));
+				let relay_parent_number = match &relay_block_identifier {
+					RelayBlockIdentifier::ByHash(block_hash) => relay_client.blocks().at(*block_hash).await?.number(),
+					RelayBlockIdentifier::ByStorageRoot { block_number, .. } => *block_number,
 				};
 				let para_block_number = para_block.number();
-				seen_parents.insert(relay_parent_state_root, para_block);
-				log::debug!("Parachain block #{} was built on relay parent #{relay_parent_number}, highest seen was {highest_relay_block_seen}", para_block_number);
+				seen_relay_parents.insert(relay_block_identifier.clone(), para_block);
+				log::debug!("Parachain block #{para_block_number} was built on relay parent #{relay_parent_number}, highest seen was {highest_relay_block_seen}");
 				assert!(highest_relay_block_seen < offset || relay_parent_number <= highest_relay_block_seen.saturating_sub(offset), "Relay parent is not at the correct offset! relay_parent: #{relay_parent_number} highest_seen_relay_block: #{highest_relay_block_seen}");
-				// As per explanation above, we need to check that no parachain blocks are build
+				// As per explanation above, we need to check that no parachain blocks are built
 				// on the forbidden parents.
 				for forbidden in &forbidden_parents {
-					if let Some(para_block) = seen_parents.get(forbidden) {
-						panic!(
-							"Parachain block {} was built on forbidden relay parent with session change descendants (state_root: {})",
-							para_block.hash(),
-							forbidden
-						);
+					for (identifier, para_block) in &seen_relay_parents {
+						if identifier_matches_header(identifier, forbidden) {
+							panic!(
+								"Parachain block {} was built on forbidden relay parent with session change descendants ({:?})",
+								para_block.hash(),
+								identifier
+							);
+						}
 					}
 				}
 				num_para_blocks_seen += 1;
@@ -324,30 +328,17 @@ pub async fn assert_relay_parent_offset(
 	Ok(())
 }
 
-/// Extract relay parent information from the digest logs.
-fn extract_relay_parent_storage_root(
-	digest: &DigestItem,
-) -> Option<(relay_chain::Hash, relay_chain::BlockNumber)> {
-	match digest {
-		DigestItem::Consensus(id, val) if id == &RPSR_CONSENSUS_ID => {
-			let (h, n): (relay_chain::Hash, Compact<relay_chain::BlockNumber>) =
-				Decode::decode(&mut &val[..]).ok()?;
-
-			Some((h, n.0))
-		},
-		_ => None,
-	}
-}
-
-/// Submits the given `call` as transaction and waits for it successful finalization.
+/// Submits the given `call` as signed transaction and waits for its successful finalization.
 ///
-/// The transaction is send as immortal transaction.
+/// The transaction is sent as immortal transaction.
 pub async fn submit_extrinsic_and_wait_for_finalization_success<S: Signer<PolkadotConfig>>(
 	client: &OnlineClient<PolkadotConfig>,
 	call: &DynamicPayload,
 	signer: &S,
-) -> Result<(), anyhow::Error> {
+) -> Result<H256, anyhow::Error> {
 	let extensions = PolkadotExtrinsicParamsBuilder::new().immortal().build();
+
+	log::info!("Submitting transaction...");
 
 	let mut tx = client
 		.tx()
@@ -356,26 +347,29 @@ pub async fn submit_extrinsic_and_wait_for_finalization_success<S: Signer<Polkad
 		.submit_and_watch()
 		.await?;
 
-	// Below we use the low level API to replicate the `wait_for_in_block` behaviour
+	// Below we use the low level API to replicate the `wait_for_in_block` behavior
 	// which was removed in subxt 0.33.0. See https://github.com/paritytech/subxt/pull/1237.
-	while let Some(status) = tx.next().await {
-		let status = status?;
-		match &status {
-			TxStatus::InBestBlock(tx_in_block) | TxStatus::InFinalizedBlock(tx_in_block) => {
-				let _result = tx_in_block.wait_for_success().await?;
-				let block_status =
-					if status.as_finalized().is_some() { "Finalized" } else { "Best" };
-				log::info!("[{}] In block: {:#?}", block_status, tx_in_block.block_hash());
+	while let Some(status) = tx.next().await.transpose()? {
+		match status {
+			TxStatus::InBestBlock(tx_in_block) => {
+				tx_in_block.wait_for_success().await?;
+				log::info!("[Best] In block: {:#?}", tx_in_block.block_hash());
+			},
+			TxStatus::InFinalizedBlock(ref tx_in_block) => {
+				tx_in_block.wait_for_success().await?;
+				log::info!("[Finalized] In block: {:#?}", tx_in_block.block_hash());
+				return Ok(tx_in_block.block_hash())
 			},
 			TxStatus::Error { message } |
 			TxStatus::Invalid { message } |
 			TxStatus::Dropped { message } => {
-				return Err(anyhow::format_err!("Error submitting tx: {message}"));
+				return Err(anyhow!("Error submitting tx: {message}"));
 			},
 			_ => continue,
 		}
 	}
-	Ok(())
+
+	Err(anyhow!("Transaction event stream ended without reaching the finalized state"))
 }
 
 /// Submits the given `call` as transaction and waits `timeout_secs` for it successful finalization.
@@ -445,21 +439,35 @@ pub async fn assert_para_is_registered(
 	Err(anyhow!("No more blocks to check"))
 }
 
-pub async fn runtime_upgrade(
-	network: &Network<LocalFileSystem>,
-	node: &NetworkNode,
-	para_id: u32,
-	wasm_path: &str,
-) -> Result<(), anyhow::Error> {
-	log::info!("Performing runtime upgrade for parachain {}, wasm: {}", para_id, wasm_path);
-	let para = network.parachain(para_id).unwrap();
-
-	para.perform_runtime_upgrade(node, RuntimeUpgradeOptions::new(AssetLocation::from(wasm_path)))
-		.await
-}
-
+/// Assigns the given `cores` to the given `para_id`.
+///
+/// Zombienet by default adds extra core for each registered parachain additionally to the one
+/// requested by `num_cores`. It then assigns the parachains to the extra cores allocated at the
+/// end. So, the passed core indices should be counted from zero.
+///
+/// # Example
+///
+/// Genesis patch:
+/// ```json
+/// "configuration": {
+///   "config": {
+///     "scheduler_params": {
+///       "num_cores": 2,
+///     }
+///   }
+/// }
+/// ```
+///
+/// Runs the relay chain with `2` cores and we also add two parachains.
+/// To assign these extra `2` cores, the call would look like this:
+///
+/// ```ignore
+/// assign_cores(&relay_client, PARA_ID, vec![0, 1])
+/// ```
+///
+/// The cores `2` and `3` are assigned to the parachains by Zombienet.
 pub async fn assign_cores(
-	node: &NetworkNode,
+	client: &OnlineClient<PolkadotConfig>,
 	para_id: u32,
 	cores: Vec<u32>,
 ) -> Result<(), anyhow::Error> {
@@ -468,9 +476,8 @@ pub async fn assign_cores(
 	let assign_cores_call =
 		create_assign_core_call(&cores.into_iter().map(|core| (core, para_id)).collect::<Vec<_>>());
 
-	let client: OnlineClient<PolkadotConfig> = node.wait_client().await?;
 	let res = submit_extrinsic_and_wait_for_finalization_success_with_timeout(
-		&client,
+		client,
 		&assign_cores_call,
 		&zombienet_sdk::subxt_signer::sr25519::dev::alice(),
 		60u64,
@@ -482,21 +489,68 @@ pub async fn assign_cores(
 	Ok(())
 }
 
-pub async fn wait_for_upgrade(
-	client: OnlineClient<PolkadotConfig>,
-	expected_version: u32,
-) -> Result<(), anyhow::Error> {
-	let updater = client.updater();
-	let mut update_stream = updater.runtime_updates().await?;
+fn create_assign_core_call(core_and_para: &[(u32, u32)]) -> DynamicPayload {
+	let mut assign_cores = vec![];
+	for (core, para_id) in core_and_para.iter() {
+		assign_cores.push(value! {
+			Coretime(assign_core { core : *core, begin: 0, assignment: ((Task(*para_id), 57600)), end_hint: None() })
+		});
+	}
 
-	while let Some(Ok(update)) = update_stream.next().await {
-		let version = update.runtime_version().spec_version;
-		log::info!("Update runtime spec version {version}");
-		if version == expected_version {
-			break;
+	zombienet_sdk::subxt::tx::dynamic(
+		"Sudo",
+		"sudo",
+		vec![value! {
+			Utility(batch { calls: assign_cores })
+		}],
+	)
+}
+
+/// Creates a runtime upgrade call using `sudo` and `set_code`.
+pub fn create_runtime_upgrade_call(wasm: &[u8]) -> DynamicPayload {
+	zombienet_sdk::subxt::tx::dynamic(
+		"Sudo",
+		"sudo_unchecked_weight",
+		vec![
+			value! {
+				System(set_code { code: Value::from_bytes(wasm) })
+			},
+			value! {
+				{
+					ref_time: 1u64,
+					proof_size: 1u64
+				}
+			},
+		],
+	)
+}
+
+/// Wait until a runtime upgrade has happened.
+///
+/// This checks all finalized blocks until it finds a block that sets the
+/// `RuntimeEnvironmentUpdated` digest.
+///
+/// Returns the hash of the block at which the runtime upgrade was applied.
+pub async fn wait_for_runtime_upgrade(
+	client: &OnlineClient<PolkadotConfig>,
+) -> Result<H256, anyhow::Error> {
+	let mut finalized_blocks = client.blocks().subscribe_finalized().await?;
+
+	while let Some(Ok(block)) = finalized_blocks.next().await {
+		if block
+			.header()
+			.digest
+			.logs
+			.iter()
+			.any(|d| matches!(d, DigestItem::RuntimeEnvironmentUpdated))
+		{
+			log::info!("Runtime upgraded in block {:?}", block.hash());
+
+			return Ok(block.hash())
 		}
 	}
-	Ok(())
+
+	Err(anyhow!("Did not find a runtime upgrade"))
 }
 
 pub fn report_label_with_attributes(label: &str, attributes: Vec<(&str, &str)>) -> String {
